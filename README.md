@@ -53,33 +53,39 @@ See `CONTROL_EXPERIMENT_STATUS.md` for full details.
 ## Quick Start
 
 ```bash
-# 1. Clone external repos
-bash scripts/clone-repos.sh
+# Full regeneration — clones repos, downloads data, sets up envs, runs everything
+# (~12 hours, ~30 GB disk space, GPU recommended)
+bash scripts/regenerate-all.sh
 
-# 2. Download Zenodo data (~6 GB, one-time)
-bash scripts/download-data.sh
+# Or step by step:
+bash scripts/regenerate-all.sh --deps-only   # Clone + download + env setup (~10 min)
+bash scripts/regenerate-all.sh --sarkas      # Sarkas MD: 12 DSF cases (~3 hours)
+bash scripts/regenerate-all.sh --surrogate   # Surrogate learning (~5.5 hours)
+bash scripts/regenerate-all.sh --nuclear     # Nuclear EOS L1+L2 (~3.5 hours)
+bash scripts/regenerate-all.sh --ttm         # TTM models (~1 hour)
+bash scripts/regenerate-all.sh --dry-run     # See what would be done
 
-# 3. Set up Python environments (supports conda and micromamba)
-bash scripts/setup-envs.sh
-
-# 4. Run Sarkas DSF study (all 12 cases, ~3 hours)
-micromamba run -n sarkas bash control/sarkas/simulations/dsf-study/scripts/batch_run_lite.sh
-micromamba run -n sarkas bash control/sarkas/simulations/dsf-study/scripts/batch_run_pppm_lite.sh
-
-# 5. Run surrogate learning reproduction (~30 min quick, ~5 hr full)
-micromamba run -n surrogate python control/surrogate/scripts/full_iterative_workflow.py --quick
-
-# 6. Run nuclear EOS (L1: ~3 min, L2: ~3 hrs)
-micromamba run -n surrogate python control/surrogate/nuclear-eos/scripts/run_surrogate.py --level=1
-micromamba run -n surrogate python control/surrogate/nuclear-eos/scripts/run_surrogate.py --level=2
-
-# 7. Verify all results
-micromamba run -n surrogate python control/surrogate/scripts/verify_results.py
-
-# 8. Run TTM models (all 3 species)
-micromamba run -n ttm python control/ttm/scripts/run_local_model.py
-micromamba run -n ttm python control/ttm/scripts/run_hydro_model.py
+# Or manually:
+bash scripts/clone-repos.sh       # Clone + patch upstream repos
+bash scripts/download-data.sh     # Download Zenodo archive (~6 GB)
+bash scripts/setup-envs.sh        # Create Python environments
 ```
+
+### What gets regenerated
+
+All large data (21+ GB) is gitignored but fully reproducible:
+
+| Data | Size | Script | Time |
+|------|------|--------|------|
+| Upstream repos (Sarkas, TTM, Plasma DB) | ~500 MB | `clone-repos.sh` | 2 min |
+| Zenodo archive (surrogate learning) | ~6 GB | `download-data.sh` | 5 min |
+| Sarkas simulations (12 DSF cases) | ~15 GB | `regenerate-all.sh --sarkas` | 3 hr |
+| TTM reproduction (3 species) | ~50 MB | `regenerate-all.sh --ttm` | 1 hr |
+| **Total regeneratable** | **~22 GB** | `regenerate-all.sh` | **~12 hr** |
+
+Upstream repos are pinned to specific versions and automatically patched:
+- **Sarkas**: v1.0.0 + 3 patches (NumPy 2.x, pandas 2.x, Numba 0.60 compat)
+- **TTM**: latest + 1 patch (NumPy 2.x `np.math.factorial` removal)
 
 ---
 
@@ -104,7 +110,9 @@ hotSpring/
 │   ├── sarkas/                         # Study 1: Molecular Dynamics
 │   │   ├── README.md
 │   │   ├── requirements.txt
-│   │   ├── sarkas-upstream/            # Patched Sarkas (5 bug fixes) — clone via scripts/
+│   │   ├── patches/                    # Patches for Sarkas v1.0.0 compat
+│   │   │   └── sarkas-v1.0.0-compat.patch
+│   │   ├── sarkas-upstream/            # Cloned + patched via scripts/clone-repos.sh
 │   │   └── simulations/
 │   │       └── dsf-study/
 │   │           ├── input_files/        # YAML configs (12 cases)
@@ -126,7 +134,9 @@ hotSpring/
 │   │
 │   └── ttm/                            # Study 3: Two-Temperature Model
 │       ├── README.md
-│       ├── Two-Temperature-Model/      # Upstream repo — clone via scripts/
+│       ├── patches/                    # Patches for TTM NumPy 2.x compat
+│       │   └── ttm-numpy2-compat.patch
+│       ├── Two-Temperature-Model/      # Cloned + patched via scripts/clone-repos.sh
 │       └── scripts/                    # Local + hydro model runners
 │
 ├── benchmarks/
@@ -142,9 +152,10 @@ hotSpring/
 │   └── ttm-reference/                  # TTM reference data
 │
 ├── scripts/
-│   ├── setup-envs.sh                   # Create Python envs (conda/micromamba)
-│   ├── clone-repos.sh                  # Clone upstream repos
-│   └── download-data.sh               # Download Zenodo data
+│   ├── regenerate-all.sh               # Master: full data regeneration on fresh clone
+│   ├── clone-repos.sh                  # Clone + pin + patch upstream repos
+│   ├── download-data.sh               # Download Zenodo data (~6 GB)
+│   └── setup-envs.sh                   # Create Python envs (conda/micromamba)
 │
 └── envs/
     ├── sarkas.yaml                     # Sarkas env spec (Python 3.9)

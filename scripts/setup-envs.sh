@@ -92,8 +92,14 @@ create_env "$ENV_DIR/ttm.yaml"       "ttm"       ""
 echo "--- Installing Sarkas from patched upstream ---"
 SARKAS_SRC="$PROJECT_DIR/control/sarkas/sarkas-upstream"
 if [ -d "$SARKAS_SRC" ]; then
+    # Verify patches are applied (check for our fix markers)
+    if grep -q "forceobj=True" "$SARKAS_SRC/sarkas/potentials/force_pm.py" 2>/dev/null; then
+        echo "    Patches verified: force_pm.py has forceobj=True fix"
+    else
+        echo "    WARNING: Patches may not be applied. Run scripts/clone-repos.sh to re-apply."
+    fi
     $PM_RUN sarkas pip install -e "$SARKAS_SRC" --quiet
-    echo "    Sarkas installed (editable mode)."
+    echo "    Sarkas installed (editable mode from patched v1.0.0)."
 else
     echo "    WARNING: sarkas-upstream not found. Run scripts/clone-repos.sh first."
 fi
