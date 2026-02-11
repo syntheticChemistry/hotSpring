@@ -1,0 +1,25 @@
+# Surrogate Learning Reproduction — Pinned Dependencies
+# Python 3.10+ required
+# Install: pip install -r requirements.txt
+#
+# Reproduces: Diaw et al. (2024) "Efficient learning of accurate surrogates
+# for simulations of complex systems" Nature Machine Intelligence
+#
+# These versions are known-good on Linux x86_64 as of 2026-02-08.
+
+# Core scientific stack
+numpy>=2.0,<3.0
+scipy>=1.14,<2.0
+
+# Optimizer-directed sampling (THE method from the paper)
+mystic>=0.4.4
+dill>=0.4.0
+klepto>=0.2.8
+pox>=0.3.5
+
+# Visualization (optional but recommended)
+matplotlib>=3.9
+
+# NOTE: The paper's Zenodo data (6 GB) must also be downloaded.
+# See REPRODUCE.md for instructions.
+

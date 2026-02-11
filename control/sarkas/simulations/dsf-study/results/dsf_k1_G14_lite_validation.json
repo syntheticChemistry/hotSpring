@@ -1,0 +1,47 @@
+{
+  "case": "dsf_k1_G14_lite",
+  "kappa": 1,
+  "gamma": 14,
+  "N_particles": 2000,
+  "N_prod_steps": 30000,
+  "sarkas_version": "1.0.0",
+  "omega_p_radps": 1675694000000000.0,
+  "mean_peak_freq_error_pct": 7.5,
+  "ka_comparison": [
+    {
+      "ka_computed": 0.3094,
+      "q_reference": 0.3618,
+      "comp_peak_w_red": 0.2931,
+      "ref_peak_w_red": 0.3299,
+      "peak_freq_error_pct": 11.1
+    },
+    {
+      "ka_computed": 0.6187,
+      "q_reference": 0.5428,
+      "comp_peak_w_red": 0.5234,
+      "ref_peak_w_red": 0.4555,
+      "peak_freq_error_pct": 14.9
+    },
+    {
+      "ka_computed": 0.9281,
+      "q_reference": 0.9046,
+      "comp_peak_w_red": 0.649,
+      "ref_peak_w_red": 0.6362,
+      "peak_freq_error_pct": 2.0
+    },
+    {
+      "ka_computed": 1.2375,
+      "q_reference": 1.2664,
+      "comp_peak_w_red": 0.7328,
+      "ref_peak_w_red": 0.7422,
+      "peak_freq_error_pct": 1.3
+    },
+    {
+      "ka_computed": 1.5468,
+      "q_reference": 1.6283,
+      "comp_peak_w_red": 0.8165,
+      "ref_peak_w_red": 0.754,
+      "peak_freq_error_pct": 8.3
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+IO:
+  job_dir: dsf_k0_G50_lite
+  verbose: true
+Integrator:
+  dt: 5.967678e-18
+  eq_dump_step: 10
+  equilibration_steps: 5000
+  prod_dump_step: 10
+  production_steps: 30000
+  type: Verlet
+Observables:
+- RadialDistributionFunction:
+    no_bins: 500
+- Thermodynamics:
+    phase: production
+- DynamicStructureFactor:
+    max_k_harmonics: 30
+- StaticStructureFactor:
+    max_k_harmonics: 30
+- VelocityAutoCorrelationFunction:
+    phase: production
+Parameters:
+  boundary_conditions: periodic
+  load_method: random_no_reject
+  rdf_nbins: 500
+  units: mks
+Particles:
+- Species:
+    Z: 1.0
+    mass: 1.672622e-27
+    name: H
+    num: 2000
+    number_density: 1.62e+30
+    temperature: 6327.179
+Potential:
+  method: pppm
+  pppm_aliases:
+  - 3
+  - 3
+  - 3
+  pppm_alpha_ewald: 10602040000.0
+  pppm_cao: 6
+  pppm_mesh:
+  - 32
+  - 32
+  - 32
+  rc: 3.301253e-10
+  type: Coulomb
+Thermostat:
+  berendsen_tau: 5.0
+  relaxation_timestep: 0
+  type: Berendsen

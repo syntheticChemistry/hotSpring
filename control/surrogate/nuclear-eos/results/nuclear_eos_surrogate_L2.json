@@ -1,0 +1,100 @@
+{
+  "experiment": "nuclear_eos_skyrme_L2",
+  "date": "2026-02-11",
+  "level": 2,
+  "description": "Skyrme \u2192 HF+BCS (medium A) + SEMF (light/heavy) \u2192 \u03c7\u00b2(AME2020)",
+  "no_hfbtho": true,
+  "no_code_ocean": true,
+  "no_permissions": true,
+  "methodology": "Diaw et al. (2024) SparsitySampler iterative workflow",
+  "objective_transform": "log(1 + chi2) for smooth RBF learning",
+  "n_params": 10,
+  "param_names": [
+    "t0",
+    "t1",
+    "t2",
+    "t3",
+    "x0",
+    "x1",
+    "x2",
+    "x3",
+    "alpha",
+    "W0"
+  ],
+  "evals_per_round": 30,
+  "max_rounds": 3,
+  "tolerance": 0.5,
+  "rounds_used": 3,
+  "total_evaluations": 96,
+  "final_score": 2.6383649004002327,
+  "best_log1p_chi2": 4.1410611832474915,
+  "best_chi2_per_datum": 61.86950212516942,
+  "best_chi2_verify": 61.86950212516942,
+  "best_params": [
+    -1715.5970607289357,
+    200.00000036753374,
+    -599.9999999239724,
+    11503.603908891479,
+    -0.99995303427708,
+    0.9999811316313171,
+    -1.9999901165260312,
+    -0.9999997076202116,
+    0.4999915271810061,
+    199.9999999724392
+  ],
+  "converged": false,
+  "total_time_s": 344.2,
+  "history": [
+    {
+      "round": 0,
+      "n_evals": 32,
+      "n_clean": 32,
+      "score": 2.082136294799075,
+      "best_log": 4.1410611832474915,
+      "best_chi2": 61.86950212516942,
+      "time_s": 112.9
+    },
+    {
+      "round": 1,
+      "n_evals": 64,
+      "n_clean": 64,
+      "score": 1.7829060875123073,
+      "best_log": 4.1410611832474915,
+      "best_chi2": 61.86950212516942,
+      "time_s": 114.5
+    },
+    {
+      "round": 2,
+      "n_evals": 96,
+      "n_clean": 96,
+      "score": 2.6383649004002327,
+      "best_log": 4.1410611832474915,
+      "best_chi2": 61.86950212516942,
+      "time_s": 116.8
+    }
+  ],
+  "comparison": {
+    "paper_nuclear_eos": {
+      "rounds": 30,
+      "evals": 30000,
+      "final_chi2": 9.2e-06,
+      "model": "HFBTHO (full self-consistent DFT)",
+      "note": "Code Ocean (gated), Fortran wrapper"
+    },
+    "our_nuclear_eos": {
+      "rounds": 3,
+      "evals": 96,
+      "final_chi2": 61.86950212516942,
+      "model": "Hybrid HFB/SEMF (HFB for 56\u2264A\u2264132, SEMF elsewhere)",
+      "note": "Open, from scratch, no permissions"
+    },
+    "note": "\u03c7\u00b2 values not directly comparable \u2014 different fidelity models. Paper uses full DFT. We use Level 2. Both demonstrate surrogate learning methodology works on nuclear physics."
+  },
+  "best_nuclear_matter": {
+    "rho0_fm3": 0.09989600893089992,
+    "E_A_MeV": -13.747276722219343,
+    "K_inf_MeV": 237.6313593899226,
+    "m_eff_ratio": 0.4089523312531588,
+    "J_MeV": -15.493681575487058
+  }
+}

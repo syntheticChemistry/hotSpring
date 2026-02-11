@@ -1,0 +1,34 @@
+# Sarkas MD Control Experiment — Pinned Dependencies
+# Python 3.9 required (Numba compatibility)
+# Install: pip install -r requirements.txt
+#
+# Used for: Molecular dynamics simulations (DSF, RDF, SSF, VACF)
+# that provide training data for the physics EOS surrogate objective.
+#
+# IMPORTANT: After installing these, also install Sarkas itself:
+#   cd sarkas-upstream && pip install -e .
+#
+# These versions are known-good on Linux x86_64 as of 2026-02-08.
+# NOTE: We patched sarkas-upstream for NumPy 2.x / pandas 2.x / Numba 0.60
+# compatibility. See hotSpring/CONTROL_EXPERIMENT_STATUS.md for details.
+
+# Core scientific stack (must pin NumPy < 2.0 for Sarkas compatibility)
+numpy>=1.24,<2.0
+scipy>=1.10,<2.0
+pandas>=2.0,<3.0
+
+# Numba for JIT-compiled force kernels
+numba>=0.58,<0.61
+
+# HDF5 for simulation output
+h5py>=3.8
+
+# YAML for input files
+pyyaml>=6.0
+
+# Visualization
+matplotlib>=3.7
+
+# FFTW bindings (for PPPM method)
+pyfftw>=0.13
+

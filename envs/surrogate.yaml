@@ -1,0 +1,33 @@
+# Surrogate learning conda environment
+# For reproducing: "Efficient learning of accurate surrogates for complex systems"
+# Diaw et al., Nature Machine Intelligence, May 2024
+#
+# CODE OCEAN NOTE: The paper's Code Ocean capsule (10.24433/CO.1152070.v1)
+# is gated — sign-up denied on some operating systems. We have fully
+# reconstructed the methodology without it. See control/surrogate/REPRODUCE.md.
+#
+# The nuclear EOS objective is replaced with a physics EOS derived from
+# our validated Sarkas MD simulations (12 cases, 81/81 checks pass).
+name: surrogate
+
+channels:
+  - conda-forge
+
+dependencies:
+  - python=3.10
+  - pip
+
+  # Core scientific stack
+  - numpy>=1.24
+  - scipy>=1.10
+  - matplotlib
+  - scikit-learn
+
+  # Analysis
+  - jupyter
+  - jupyterlab
+
+  - pip:
+      - mystic>=0.4.2         # SparsitySampler for optimizer-directed sampling
+      - klepto                 # Caching (used by mystic internals)
+      - pathos                 # Parallel processing (mystic dependency)

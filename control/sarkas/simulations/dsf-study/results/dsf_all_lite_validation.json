@@ -1,0 +1,360 @@
+{
+  "description": "DSF peak frequency validation against Dense Plasma Properties Database",
+  "sarkas_version": "1.0.0",
+  "N_particles": 2000,
+  "N_prod_steps": 30000,
+  "overall_mean_error_pct": 8.5,
+  "cases": [
+    {
+      "case": "dsf_k1_G14_lite",
+      "kappa": 1,
+      "gamma": 14,
+      "mean_error_pct": 7.5,
+      "status": "PASS",
+      "ka_details": [
+        {
+          "ka": 0.3094,
+          "comp_peak_w": 0.2931,
+          "ref_peak_w": 0.3299,
+          "error_pct": 11.1
+        },
+        {
+          "ka": 0.6187,
+          "comp_peak_w": 0.5234,
+          "ref_peak_w": 0.4555,
+          "error_pct": 14.9
+        },
+        {
+          "ka": 0.9281,
+          "comp_peak_w": 0.649,
+          "ref_peak_w": 0.6362,
+          "error_pct": 2.0
+        },
+        {
+          "ka": 1.2375,
+          "comp_peak_w": 0.7328,
+          "ref_peak_w": 0.7422,
+          "error_pct": 1.3
+        },
+        {
+          "ka": 1.5468,
+          "comp_peak_w": 0.8165,
+          "ref_peak_w": 0.754,
+          "error_pct": 8.3
+        }
+      ]
+    },
+    {
+      "case": "dsf_k1_G72_lite",
+      "kappa": 1,
+      "gamma": 72,
+      "mean_error_pct": 4.7,
+      "status": "PASS",
+      "ka_details": [
+        {
+          "ka": 0.3094,
+          "comp_peak_w": 0.2722,
+          "ref_peak_w": 0.322,
+          "error_pct": 15.5
+        },
+        {
+          "ka": 0.6187,
+          "comp_peak_w": 0.4816,
+          "ref_peak_w": 0.4516,
+          "error_pct": 6.6
+        },
+        {
+          "ka": 0.9281,
+          "comp_peak_w": 0.6281,
+          "ref_peak_w": 0.6283,
+          "error_pct": 0.0
+        },
+        {
+          "ka": 1.2375,
+          "comp_peak_w": 0.7119,
+          "ref_peak_w": 0.7108,
+          "error_pct": 0.2
+        },
+        {
+          "ka": 1.5468,
+          "comp_peak_w": 0.7537,
+          "ref_peak_w": 0.7618,
+          "error_pct": 1.1
+        }
+      ]
+    },
+    {
+      "case": "dsf_k1_G217_lite",
+      "kappa": 1,
+      "gamma": 217,
+      "mean_error_pct": 6.2,
+      "status": "PASS",
+      "ka_details": [
+        {
+          "ka": 0.3094,
+          "comp_peak_w": 0.2722,
+          "ref_peak_w": 0.322,
+          "error_pct": 15.5
+        },
+        {
+          "ka": 0.6187,
+          "comp_peak_w": 0.5025,
+          "ref_peak_w": 0.4516,
+          "error_pct": 11.3
+        },
+        {
+          "ka": 0.9281,
+          "comp_peak_w": 0.6281,
+          "ref_peak_w": 0.6205,
+          "error_pct": 1.2
+        },
+        {
+          "ka": 1.2375,
+          "comp_peak_w": 0.7119,
+          "ref_peak_w": 0.7069,
+          "error_pct": 0.7
+        },
+        {
+          "ka": 1.5468,
+          "comp_peak_w": 0.7119,
+          "ref_peak_w": 0.7304,
+          "error_pct": 2.5
+        }
+      ]
+    },
+    {
+      "case": "dsf_k2_G31_lite",
+      "kappa": 2,
+      "gamma": 31,
+      "mean_error_pct": 9.4,
+      "status": "PASS",
+      "ka_details": [
+        {
+          "ka": 0.3094,
+          "comp_peak_w": 0.1256,
+          "ref_peak_w": 0.1492,
+          "error_pct": 15.8
+        },
+        {
+          "ka": 0.6187,
+          "comp_peak_w": 0.2303,
+          "ref_peak_w": 0.2238,
+          "error_pct": 2.9
+        },
+        {
+          "ka": 0.9281,
+          "comp_peak_w": 0.3769,
+          "ref_peak_w": 0.3534,
+          "error_pct": 6.6
+        },
+        {
+          "ka": 1.2375,
+          "comp_peak_w": 0.3978,
+          "ref_peak_w": 0.4241,
+          "error_pct": 6.2
+        },
+        {
+          "ka": 1.5468,
+          "comp_peak_w": 0.4187,
+          "ref_peak_w": 0.4948,
+          "error_pct": 15.4
+        }
+      ]
+    },
+    {
+      "case": "dsf_k2_G158_lite",
+      "kappa": 2,
+      "gamma": 158,
+      "mean_error_pct": 5.8,
+      "status": "PASS",
+      "ka_details": [
+        {
+          "ka": 0.3094,
+          "comp_peak_w": 0.1256,
+          "ref_peak_w": 0.1414,
+          "error_pct": 11.1
+        },
+        {
+          "ka": 0.6187,
+          "comp_peak_w": 0.2303,
+          "ref_peak_w": 0.2121,
+          "error_pct": 8.6
+        },
+        {
+          "ka": 0.9281,
+          "comp_peak_w": 0.335,
+          "ref_peak_w": 0.3299,
+          "error_pct": 1.6
+        },
+        {
+          "ka": 1.2375,
+          "comp_peak_w": 0.3978,
+          "ref_peak_w": 0.4045,
+          "error_pct": 1.7
+        },
+        {
+          "ka": 1.5468,
+          "comp_peak_w": 0.4397,
+          "ref_peak_w": 0.4673,
+          "error_pct": 5.9
+        }
+      ]
+    },
+    {
+      "case": "dsf_k2_G476_lite",
+      "kappa": 2,
+      "gamma": 476,
+      "mean_error_pct": 7.3,
+      "status": "PASS",
+      "ka_details": [
+        {
+          "ka": 0.3094,
+          "comp_peak_w": 0.1256,
+          "ref_peak_w": 0.1414,
+          "error_pct": 11.1
+        },
+        {
+          "ka": 0.6187,
+          "comp_peak_w": 0.2512,
+          "ref_peak_w": 0.2081,
+          "error_pct": 20.7
+        },
+        {
+          "ka": 0.9281,
+          "comp_peak_w": 0.335,
+          "ref_peak_w": 0.3299,
+          "error_pct": 1.6
+        },
+        {
+          "ka": 1.2375,
+          "comp_peak_w": 0.3978,
+          "ref_peak_w": 0.4084,
+          "error_pct": 2.6
+        },
+        {
+          "ka": 1.5468,
+          "comp_peak_w": 0.4606,
+          "ref_peak_w": 0.4595,
+          "error_pct": 0.3
+        }
+      ]
+    },
+    {
+      "case": "dsf_k3_G100_lite",
+      "kappa": 3,
+      "gamma": 100,
+      "mean_error_pct": 18.6,
+      "status": "PASS",
+      "ka_details": [
+        {
+          "ka": 0.3094,
+          "comp_peak_w": 0.0628,
+          "ref_peak_w": 0.0785,
+          "error_pct": 20.0
+        },
+        {
+          "ka": 0.6187,
+          "comp_peak_w": 0.1256,
+          "ref_peak_w": 0.1139,
+          "error_pct": 10.3
+        },
+        {
+          "ka": 0.9281,
+          "comp_peak_w": 0.1047,
+          "ref_peak_w": 0.1806,
+          "error_pct": 42.0
+        },
+        {
+          "ka": 1.2375,
+          "comp_peak_w": 0.2303,
+          "ref_peak_w": 0.2356,
+          "error_pct": 2.3
+        },
+        {
+          "ka": 1.5468,
+          "comp_peak_w": 0.2303,
+          "ref_peak_w": 0.2827,
+          "error_pct": 18.5
+        }
+      ]
+    },
+    {
+      "case": "dsf_k3_G503_lite",
+      "kappa": 3,
+      "gamma": 503,
+      "mean_error_pct": 7.8,
+      "status": "PASS",
+      "ka_details": [
+        {
+          "ka": 0.3094,
+          "comp_peak_w": 0.0628,
+          "ref_peak_w": 0.0707,
+          "error_pct": 11.1
+        },
+        {
+          "ka": 0.6187,
+          "comp_peak_w": 0.1256,
+          "ref_peak_w": 0.106,
+          "error_pct": 18.5
+        },
+        {
+          "ka": 0.9281,
+          "comp_peak_w": 0.1675,
+          "ref_peak_w": 0.1728,
+          "error_pct": 3.1
+        },
+        {
+          "ka": 1.2375,
+          "comp_peak_w": 0.2303,
+          "ref_peak_w": 0.2317,
+          "error_pct": 0.6
+        },
+        {
+          "ka": 1.5468,
+          "comp_peak_w": 0.2512,
+          "ref_peak_w": 0.267,
+          "error_pct": 5.9
+        }
+      ]
+    },
+    {
+      "case": "dsf_k3_G1510_lite",
+      "kappa": 3,
+      "gamma": 1510,
+      "mean_error_pct": 9.0,
+      "status": "PASS",
+      "ka_details": [
+        {
+          "ka": 0.3094,
+          "comp_peak_w": 0.0628,
+          "ref_peak_w": 0.0707,
+          "error_pct": 11.1
+        },
+        {
+          "ka": 0.6187,
+          "comp_peak_w": 0.1256,
+          "ref_peak_w": 0.106,
+          "error_pct": 18.5
+        },
+        {
+          "ka": 0.9281,
+          "comp_peak_w": 0.1675,
+          "ref_peak_w": 0.1689,
+          "error_pct": 0.8
+        },
+        {
+          "ka": 1.2375,
+          "comp_peak_w": 0.2094,
+          "ref_peak_w": 0.2199,
+          "error_pct": 4.8
+        },
+        {
+          "ka": 1.5468,
+          "comp_peak_w": 0.2303,
+          "ref_peak_w": 0.2553,
+          "error_pct": 9.8
+        }
+      ]
+    }
+  ]
+}

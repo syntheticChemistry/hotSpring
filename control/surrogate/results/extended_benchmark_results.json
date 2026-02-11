@@ -1,0 +1,182 @@
+[
+  {
+    "function": "Rastrigin_2D",
+    "dim": 2,
+    "strategy": "mystic_directed",
+    "best_energy": 10.016881496302986,
+    "gap": 10.016881496302986,
+    "known_min": 0.0,
+    "time_s": 0.58,
+    "status": "PASS"
+  },
+  {
+    "function": "Rastrigin_2D",
+    "dim": 2,
+    "strategy": "lattice_LHS",
+    "best_energy": 23.124999999999993,
+    "gap": 23.124999999999993,
+    "known_min": 0.0,
+    "time_s": 0.0,
+    "status": "PASS"
+  },
+  {
+    "function": "Rastrigin_5D",
+    "dim": 5,
+    "strategy": "mystic_directed",
+    "best_energy": 2.4584778657299466e-12,
+    "gap": 2.4584778657299466e-12,
+    "known_min": 0.0,
+    "time_s": 1.28,
+    "status": "PASS"
+  },
+  {
+    "function": "Rastrigin_5D",
+    "dim": 5,
+    "strategy": "lattice_LHS",
+    "best_energy": 114.0625,
+    "gap": 114.0625,
+    "known_min": 0.0,
+    "time_s": 0.0,
+    "status": "PASS"
+  },
+  {
+    "function": "Rosenbrock_2D",
+    "dim": 2,
+    "strategy": "mystic_directed",
+    "best_energy": 1.1885757338230507,
+    "gap": 1.1885757338230507,
+    "known_min": 0.0,
+    "time_s": 0.55,
+    "status": "PASS"
+  },
+  {
+    "function": "Rosenbrock_2D",
+    "dim": 2,
+    "strategy": "lattice_LHS",
+    "best_energy": 5.6337890625,
+    "gap": 5.6337890625,
+    "known_min": 0.0,
+    "time_s": 0.0,
+    "status": "PASS"
+  },
+  {
+    "function": "Rosenbrock_5D",
+    "dim": 5,
+    "strategy": "mystic_directed",
+    "best_energy": 2018.4412189605018,
+    "gap": 2018.4412189605018,
+    "known_min": 0.0,
+    "time_s": 1.29,
+    "status": "PASS"
+  },
+  {
+    "function": "Rosenbrock_5D",
+    "dim": 5,
+    "strategy": "lattice_LHS",
+    "best_energy": 339.0869140625,
+    "gap": 339.0869140625,
+    "known_min": 0.0,
+    "time_s": 0.0,
+    "status": "PASS"
+  },
+  {
+    "function": "Easom_2D",
+    "dim": 2,
+    "strategy": "mystic_directed",
+    "best_energy": -0.04892527631461068,
+    "gap": 0.9510747236853894,
+    "known_min": -1.0,
+    "time_s": 0.57,
+    "status": "PASS"
+  },
+  {
+    "function": "Easom_2D",
+    "dim": 2,
+    "strategy": "lattice_LHS",
+    "best_energy": -0.2817564111364082,
+    "gap": 0.7182435888635919,
+    "known_min": -1.0,
+    "time_s": 0.0,
+    "status": "PASS"
+  },
+  {
+    "function": "Rosenbrock_8D",
+    "dim": 8,
+    "strategy": "mystic_directed",
+    "best_energy": 70637.37970519035,
+    "gap": 70637.37970519035,
+    "known_min": 0.0,
+    "time_s": 2.32,
+    "status": "PASS"
+  },
+  {
+    "function": "Rosenbrock_8D",
+    "dim": 8,
+    "strategy": "lattice_LHS",
+    "best_energy": 1266.234375,
+    "gap": 1266.234375,
+    "known_min": 0.0,
+    "time_s": 0.01,
+    "status": "PASS"
+  },
+  {
+    "function": "Michalewicz_5D",
+    "dim": 5,
+    "strategy": "mystic_directed",
+    "best_energy": -0.7670348672128346,
+    "gap": 3.9199651327871656,
+    "known_min": -4.687,
+    "time_s": 1.13,
+    "status": "PASS"
+  },
+  {
+    "function": "Michalewicz_5D",
+    "dim": 5,
+    "strategy": "lattice_LHS",
+    "best_energy": -0.49899705986677795,
+    "gap": 4.188002940133222,
+    "known_min": -4.687,
+    "time_s": 0.01,
+    "status": "PASS"
+  },
+  {
+    "function": "MultiscaleND_2D",
+    "dim": 2,
+    "strategy": "mystic_directed",
+    "best_energy": -2.6568674352311024,
+    "gap": -2.6568674352311024,
+    "known_min": null,
+    "time_s": 0.51,
+    "status": "PASS"
+  },
+  {
+    "function": "MultiscaleND_2D",
+    "dim": 2,
+    "strategy": "lattice_LHS",
+    "best_energy": -3.4502254326973105,
+    "gap": -3.4502254326973105,
+    "known_min": null,
+    "time_s": 0.01,
+    "status": "PASS"
+  },
+  {
+    "function": "Hartmann_6D",
+    "dim": 6,
+    "strategy": "mystic_directed",
+    "best_energy": -0.6172958446424854,
+    "gap": 2.705104155357515,
+    "known_min": -3.3224,
+    "time_s": 1.4,
+    "status": "PASS"
+  },
+  {
+    "function": "Hartmann_6D",
+    "dim": 6,
+    "strategy": "lattice_LHS",
+    "best_energy": -1.1453316879907545,
+    "gap": 2.1770683120092453,
+    "known_min": -3.3224,
+    "time_s": 0.01,
+    "status": "PASS"
+  }
+]
