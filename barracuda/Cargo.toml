@@ -56,3 +56,11 @@ path = "src/bin/validate_md.rs"
 name = "nuclear_eos_l2_hetero"
 path = "src/bin/nuclear_eos_l2_hetero.rs"
 
+[[bin]]
+name = "nuclear_eos_l1_ref"
+path = "src/bin/nuclear_eos_l1_ref.rs"
+
+[[bin]]
+name = "nuclear_eos_l2_ref"
+path = "src/bin/nuclear_eos_l2_ref.rs"
+

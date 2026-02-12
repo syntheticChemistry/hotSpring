@@ -1,0 +1,38 @@
+{
+  "approach1_sparsity_autosmooth": {
+    "chi2_per_datum": 40.8277232279716,
+    "log_chi2": 3.7335593548064367,
+    "loo_cv_rmse": 0.5129604365620737,
+    "optimal_smoothing": 1e-14,
+    "time_seconds": 0.527662288,
+    "total_evals": 150
+  },
+  "approach2_round_based_nm": {
+    "chi2_per_datum": 1.1933218190353454,
+    "convergence": {
+      "converged": true,
+      "n_improving": 3,
+      "n_stagnant": 4
+    },
+    "log_chi2": 0.7854172069754027,
+    "time_seconds": 0.251431244,
+    "total_evals": 164
+  },
+  "engine": "barracuda::reference_l1",
+  "level": 1,
+  "python_reference": {
+    "chi2_per_datum": 6.62,
+    "total_evals": 1008
+  },
+  "statistical_analysis": {
+    "bootstrap_ci_95": [
+      0.6149711482169106,
+      1.897896185718542
+    ],
+    "bootstrap_se": 0.327327031705431,
+    "chi2_per_datum": 1.1933218190353452,
+    "chi2_total": 62.052734589837954,
+    "p_value": 0.13808088842694188,
+    "reduced_chi2": 1.216720286075254
+  }
+}

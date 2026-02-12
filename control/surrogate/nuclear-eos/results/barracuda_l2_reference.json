@@ -1,0 +1,41 @@
+{
+  "best_params": [
+    -1826.186079081166,
+    325.09823203693276,
+    -470.54499882384687,
+    11064.787434119824,
+    1.4132306985670648,
+    -0.3912091976530947,
+    -1.9295191672384617,
+    1.6891048471195784,
+    0.4708934155260427,
+    146.95527004966956
+  ],
+  "chi2_per_datum": 59755.4339504528,
+  "config": {
+    "auto_smoothing": true,
+    "evals_per_round": 100,
+    "filter": "Threshold(9.0)",
+    "max_rounds": 10,
+    "n_solvers": 8
+  },
+  "convergence": {
+    "converged": true,
+    "n_improving": 0,
+    "n_stagnant": 3
+  },
+  "engine": "barracuda::reference_l2_direct",
+  "level": 2,
+  "log_chi2": 10.998032145175682,
+  "prev_barracuda": {
+    "chi2_per_datum": 25.43,
+    "evals": 1009
+  },
+  "python_reference": {
+    "chi2_per_datum": 61.87,
+    "evals": 96
+  },
+  "rounds_used": 4,
+  "time_seconds": 98.472719251,
+  "total_evals": 132
+}
