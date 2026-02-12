@@ -14,25 +14,25 @@
     "linalg::solve_f64"
   ],
   "best_params": [
-    -2363.1116676473243,
-    575.8803952392882,
-    -600.0,
-    10123.661482394506,
+    -2348.814836276426,
+    535.5507108790214,
+    -491.80738341572555,
+    10137.649903134577,
     1.5,
-    0.8465356620860189,
-    -1.9999554109947266,
-    -1.0,
-    0.5,
-    52.474471081025996
+    -1.9204505886983947,
+    -1.9815951157841902,
+    -0.8602331508614132,
+    0.4905384022212662,
+    177.75183935437087
   ],
-  "chi2_per_datum": 27266.430700585533,
+  "chi2_per_datum": 33073.57306000328,
   "engine": "barracuda::sparsity_sampler + nalgebra::SymmetricEigen",
   "external_deps": [
     "nalgebra::SymmetricEigen (gap: barracuda::linalg needs symmetric_eigen)"
   ],
   "level": 2,
-  "log_chi2": 10.213448254334024,
-  "throughput_evals_per_sec": 5.516746058129636,
-  "time_seconds": 126.886391475,
-  "total_evals": 700
+  "log_chi2": 10.406520080661092,
+  "throughput_evals_per_sec": 4.9182601459671975,
+  "time_seconds": 172.825343673,
+  "total_evals": 850
 }

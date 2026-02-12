@@ -15,13 +15,13 @@
   "config": {
     "max_eval_per_solver": 100,
     "n_initial": 100,
-    "n_iterations": 50,
+    "n_iterations": 30,
     "n_solvers": 16
   },
   "engine": "barracuda::sparsity_sampler",
   "level": 1,
   "log_chi2": 1.7988590957694135,
-  "throughput_evals_per_sec": 209.71675093196933,
-  "time_seconds": 5.24516995,
-  "total_evals": 1100
+  "throughput_evals_per_sec": 468.5554590156532,
+  "time_seconds": 1.493953355,
+  "total_evals": 700
 }

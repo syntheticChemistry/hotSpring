@@ -21,6 +21,10 @@ serde_json = "1.0"
 # Parallelism for L2 HFB
 rayon = "1.8"
 
+# Async runtime for GPU validation
+tokio = { version = "1.35", features = ["rt-multi-thread", "macros"] }
+pollster = "0.3"
+
 # Timing
 std-time = { package = "chrono", version = "0.4" }
 
@@ -31,4 +35,24 @@ path = "src/bin/nuclear_eos_l1.rs"
 [[bin]]
 name = "nuclear_eos_l2"
 path = "src/bin/nuclear_eos_l2.rs"
+
+[[bin]]
+name = "validate_special_functions"
+path = "src/bin/validate_special_functions.rs"
+
+[[bin]]
+name = "validate_linalg"
+path = "src/bin/validate_linalg.rs"
+
+[[bin]]
+name = "validate_optimizers"
+path = "src/bin/validate_optimizers.rs"
+
+[[bin]]
+name = "validate_md"
+path = "src/bin/validate_md.rs"
+
+[[bin]]
+name = "nuclear_eos_l2_hetero"
+path = "src/bin/nuclear_eos_l2_hetero.rs"
 

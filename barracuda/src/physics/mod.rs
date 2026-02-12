@@ -10,7 +10,7 @@ pub mod semf;
 pub mod hfb;
 
 pub use constants::*;
-pub use nuclear_matter::nuclear_matter_properties;
+pub use nuclear_matter::{nuclear_matter_properties, NuclearMatterProps};
 pub use semf::semf_binding_energy;
 pub use hfb::SphericalHFB;
 

@@ -1,0 +1,44 @@
+{
+  "comparison_summary": "Nuclear EOS L2 \u2014 All Approaches",
+  "approaches": {
+    "python_control_orchestrated": {
+      "chi2_per_datum": 25.43,
+      "engine": "Python scipy + mystic (orchestrated by toadstool)",
+      "notes": "Best L2 result \u2014 Python optimization orchestrated through toadstool"
+    },
+    "python_control_original": {
+      "chi2_per_datum": 61.87,
+      "engine": "Python scipy SparsitySampler",
+      "notes": "Original Python L2 run, standalone"
+    },
+    "barracuda_sparsity_l2": {
+      "chi2_per_datum": 33073.57,
+      "time_seconds": 172.8,
+      "engine": "barracuda::sparsity_sampler (Rust native)",
+      "notes": "First Rust-native attempt \u2014 blind SparsitySampler on rough L2 landscape"
+    },
+    "barracuda_hetero_l2": {
+      "chi2_per_datum": 51712.52,
+      "time_seconds": 60.6,
+      "hfb_evals": 488,
+      "cascade_pass_rate": 0.081,
+      "engine": "barracuda::heterogeneous_pipeline",
+      "notes": "NMP-aware surrogate + cascade pre-screening + warm-start from L1"
+    },
+    "barracuda_plain_sparsity_l2": {
+      "chi2_per_datum": 55532.83,
+      "time_seconds": 433.8,
+      "hfb_evals": 250,
+      "engine": "barracuda::sparsity_sampler (plain comparison)",
+      "notes": "Same-run baseline SparsitySampler for fair comparison"
+    }
+  },
+  "key_findings": {
+    "hetero_vs_plain_speedup": "7.2x faster (60.6s vs 433.8s)",
+    "hetero_vs_plain_accuracy": "6.9% better chi2 (51712 vs 55533)",
+    "cascade_efficiency": "91.7% rejected at Tier 1 (NMP), 8.1% pass rate",
+    "nmp_aware_surrogate": "Increased pass rate from 0.8% to 8.1% (10x improvement)",
+    "gap_to_python": "~2000x gap to Python control (25 vs 51712)",
+    "gap_explanation": "Python uses scipy/mystic with more sophisticated optimization and more evals"
+  }
+}
