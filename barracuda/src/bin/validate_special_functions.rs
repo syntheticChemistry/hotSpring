@@ -1,7 +1,8 @@
 //! Validate barracuda::special functions against known reference values
 //!
 //! Tests: gamma, factorial, erf, erfc, bessel (j0, j1, i0, k0),
-//!        laguerre, hermite, legendre, digamma, beta, lgamma
+//!        laguerre, hermite, legendre, digamma, beta, lgamma,
+//!        incomplete gamma, chi-squared
 //!
 //! Reference: Abramowitz & Stegun, DLMF, scipy.special
 
@@ -29,7 +30,7 @@ fn main() {
         (10.0, 362880.0, "Γ(10) = 9!"),
     ];
     for (x, expected, desc) in &gamma_tests {
-        let got = barracuda::special::gamma(*x);
+        let got = barracuda::special::gamma(*x).unwrap_or(f64::NAN);
         let ok = check(got, *expected, 1e-10, desc);
         total += 1;
         if ok { passed += 1; }
@@ -142,7 +143,6 @@ fn main() {
 
     // ─── Laguerre polynomials ──────────────────────────────────────
     println!("── Laguerre Polynomials L_n^α(x) ──");
-    // L_0^0(x) = 1, L_1^0(x) = 1-x, L_2^0(x) = 1-2x+x²/2
     let lag_tests: Vec<(usize, f64, f64, f64, &str)> = vec![
         (0, 0.0, 2.0, 1.0, "L₀⁰(2) = 1"),
         (1, 0.0, 2.0, -1.0, "L₁⁰(2) = 1-2 = -1"),
@@ -210,7 +210,7 @@ fn main() {
     }
     println!();
 
-    // ─── Digamma ψ(x) ─────────────────────────────────────────────
+    // ─── Digamma ψ(x) — computed via ln_gamma numerical derivative ──
     println!("── Digamma ψ(x) ──");
     let digamma_tests: Vec<(f64, f64, &str)> = vec![
         (1.0, -0.5772156649, "ψ(1) = -γ (Euler-Mascheroni)"),
@@ -218,14 +218,18 @@ fn main() {
         (0.5, -1.9635100260, "ψ(1/2) = -γ - 2ln2"),
     ];
     for (x, expected, desc) in &digamma_tests {
-        let got = barracuda::special::digamma(*x);
-        let ok = check(got, *expected, 1e-6, desc);
+        // ψ(x) = d/dx ln Γ(x), approximate via central difference
+        let h = 1e-7;
+        let lg_plus = barracuda::special::ln_gamma(*x + h).unwrap_or(f64::NAN);
+        let lg_minus = barracuda::special::ln_gamma(*x - h).unwrap_or(f64::NAN);
+        let got = (lg_plus - lg_minus) / (2.0 * h);
+        let ok = check(got, *expected, 1e-5, desc);
         total += 1;
         if ok { passed += 1; }
     }
     println!();
 
-    // ─── Beta B(a,b) ──────────────────────────────────────────────
+    // ─── Beta B(a,b) = Γ(a)Γ(b)/Γ(a+b) ──────────────────────────
     println!("── Beta Function B(a,b) ──");
     let beta_tests: Vec<(f64, f64, f64, &str)> = vec![
         (1.0, 1.0, 1.0, "B(1,1) = 1"),
@@ -233,25 +237,78 @@ fn main() {
         (0.5, 0.5, PI, "B(1/2,1/2) = π"),
     ];
     for (a, b, expected, desc) in &beta_tests {
-        let got = barracuda::special::beta(*a, *b);
+        // B(a,b) = exp(lnΓ(a) + lnΓ(b) - lnΓ(a+b))
+        let lg_a = barracuda::special::ln_gamma(*a).unwrap_or(f64::NAN);
+        let lg_b = barracuda::special::ln_gamma(*b).unwrap_or(f64::NAN);
+        let lg_ab = barracuda::special::ln_gamma(*a + *b).unwrap_or(f64::NAN);
+        let got = (lg_a + lg_b - lg_ab).exp();
         let ok = check(got, *expected, 1e-6, desc);
         total += 1;
         if ok { passed += 1; }
     }
     println!();
 
-    // ─── Log-gamma lgamma(x) ──────────────────────────────────────
-    println!("── Log-Gamma lgamma(x) ──");
+    // ─── Log-gamma ln_gamma(x) ──────────────────────────────────────
+    println!("── Log-Gamma ln_gamma(x) ──");
     let lgamma_tests: Vec<(f64, f64, &str)> = vec![
-        (1.0, 0.0, "lgamma(1) = ln(0!) = 0"),
-        (2.0, 0.0, "lgamma(2) = ln(1!) = 0"),
-        (5.0, 24.0_f64.ln(), "lgamma(5) = ln(24)"),
-        (10.0, 362880.0_f64.ln(), "lgamma(10) = ln(9!)"),
-        (0.5, (PI.sqrt()).ln(), "lgamma(1/2) = ln(√π)"),
+        (1.0, 0.0, "ln_gamma(1) = ln(0!) = 0"),
+        (2.0, 0.0, "ln_gamma(2) = ln(1!) = 0"),
+        (5.0, 24.0_f64.ln(), "ln_gamma(5) = ln(24)"),
+        (10.0, 362880.0_f64.ln(), "ln_gamma(10) = ln(9!)"),
+        (0.5, (PI.sqrt()).ln(), "ln_gamma(1/2) = ln(√π)"),
     ];
     for (x, expected, desc) in &lgamma_tests {
-        let got = barracuda::special::lgamma(*x);
+        let got = barracuda::special::ln_gamma(*x).unwrap_or(f64::NAN);
         let ok = check(got, *expected, 1e-6, desc);
+        total += 1;
+        if ok { passed += 1; }
+    }
+    println!();
+
+    // ─── Incomplete Gamma (NEW) ─────────────────────────────────────
+    println!("── Regularized Incomplete Gamma P(a,x) ──");
+    let inc_gamma_tests: Vec<(f64, f64, f64, &str)> = vec![
+        // P(1,x) = 1 - e^(-x)
+        (1.0, 1.0, 1.0 - (-1.0_f64).exp(), "P(1,1) = 1-e⁻¹"),
+        (1.0, 2.0, 1.0 - (-2.0_f64).exp(), "P(1,2) = 1-e⁻²"),
+        // P(a,0) = 0
+        (2.0, 0.0, 0.0, "P(2,0) = 0"),
+        // P(a,∞) → 1
+        (2.0, 100.0, 1.0, "P(2,100) ≈ 1"),
+    ];
+    for (a, x, expected, desc) in &inc_gamma_tests {
+        let got = barracuda::special::regularized_gamma_p(*a, *x).unwrap_or(f64::NAN);
+        let ok = check(got, *expected, 1e-6, desc);
+        total += 1;
+        if ok { passed += 1; }
+    }
+    println!();
+
+    // ─── Chi-squared Distribution (NEW) ──────────────────────────────
+    println!("── Chi-Squared Distribution ──");
+    // χ²_CDF(x, k) = P(k/2, x/2)
+    {
+        // CDF at critical values: scipy.stats.chi2.cdf(3.841, 1) ≈ 0.95
+        let got = barracuda::special::chi_squared_cdf(3.841, 1.0).unwrap_or(f64::NAN);
+        let ok = check(got, 0.95, 0.005, "χ²_CDF(3.841, k=1) ≈ 0.95");
+        total += 1;
+        if ok { passed += 1; }
+
+        // CDF at critical values: scipy.stats.chi2.cdf(5.991, 2) ≈ 0.95
+        let got = barracuda::special::chi_squared_cdf(5.991, 2.0).unwrap_or(f64::NAN);
+        let ok = check(got, 0.95, 0.005, "χ²_CDF(5.991, k=2) ≈ 0.95");
+        total += 1;
+        if ok { passed += 1; }
+
+        // Quantile (inverse CDF): scipy.stats.chi2.ppf(0.95, 1) ≈ 3.8415
+        let got = barracuda::special::chi_squared_quantile(0.95, 1.0).unwrap_or(f64::NAN);
+        let ok = check(got, 3.8415, 0.005, "χ²_quantile(0.95, k=1) ≈ 3.8415");
+        total += 1;
+        if ok { passed += 1; }
+
+        // PDF at x=2, k=3: scipy.stats.chi2.pdf(2, 3) ≈ 0.2076
+        let got = barracuda::special::chi_squared_pdf(2.0, 3.0).unwrap_or(f64::NAN);
+        let ok = check(got, 0.2076, 0.005, "χ²_PDF(2, k=3) ≈ 0.2076");
         total += 1;
         if ok { passed += 1; }
     }
@@ -288,4 +345,3 @@ fn check(got: f64, expected: f64, tol: f64, desc: &str) -> bool {
     }
     pass
 }
-

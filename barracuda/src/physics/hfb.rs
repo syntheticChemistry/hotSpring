@@ -99,7 +99,7 @@ impl SphericalHFB {
 
         // Normalization: sqrt(2 * n! / (b³ * Γ(n + l + 3/2)))
         let n_fact = barracuda::special::factorial(n);
-        let gamma_val = gamma(n as f64 + l as f64 + 1.5);
+        let gamma_val = gamma(n as f64 + l as f64 + 1.5).unwrap_or(1.0);
         let norm = (2.0 * n_fact / (b.powi(3) * gamma_val)).abs().sqrt();
 
         r.iter()

@@ -7,36 +7,29 @@
     "tier4": "spherical HFB (CPU parallel, rayon)"
   },
   "best_params": [
-    -1843.9817443009254,
-    584.9933558702469,
-    -455.33066908296047,
-    10266.62205582683,
-    0.580907171779857,
-    -0.34765170145960667,
-    -2.0,
-    2.2322118565905837,
-    0.48895515495911235,
-    65.98342032639695
+    -1834.718535140508,
+    504.0893753575432,
+    -560.30339179959,
+    10037.996259704232,
+    0.6538970713285589,
+    -0.5969885226729712,
+    -1.9862698446976308,
+    2.2782776363240487,
+    0.5,
+    52.76589980351193
   ],
   "cascade_stats": {
-    "pass_rate": 0.08133333333333333,
-    "tier1_rejected": 4737,
-    "tier2_rejected": 775,
+    "pass_rate": 0.09244444444444444,
+    "tier1_rejected": 3504,
+    "tier2_rejected": 580,
     "tier3_rejected": 0,
-    "tier4_evaluated": 488,
-    "total_candidates": 6000
+    "tier4_evaluated": 416,
+    "total_candidates": 4500
   },
-  "chi2_per_datum": 51712.52182745485,
-  "comparison": {
-    "hetero_chi2_improvement": 0.06879362861256097,
-    "hetero_speedup": 7.1611717206122405,
-    "plain_chi2_per_datum": 55532.826467248546,
-    "plain_evals": 250,
-    "plain_time_s": 433.809089829
-  },
+  "chi2_per_datum": 49200.55177739983,
   "engine": "hotspring::heterogeneous_pipeline",
   "level": 2,
-  "log_chi2": 10.853474570351189,
-  "time_seconds": 60.57794824,
-  "total_hfb_evals": 488
+  "log_chi2": 10.803680442174072,
+  "time_seconds": 58.106459875,
+  "total_hfb_evals": 416
 }
