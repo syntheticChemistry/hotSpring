@@ -119,19 +119,25 @@ fn main() {
         .find(|a| a.starts_with("--evals="))
         .and_then(|a| a.strip_prefix("--evals=")?.parse().ok())
         .unwrap_or(50);
+    let smoothing: f64 = args.iter()
+        .find(|a| a.starts_with("--smoothing="))
+        .and_then(|a| a.strip_prefix("--smoothing=")?.parse().ok())
+        .unwrap_or(1e-12);
 
-    let config = SparsitySamplerConfig::new(bounds.len(), 42)
+    let mut config = SparsitySamplerConfig::new(bounds.len(), 42)
         .with_initial_samples(100)
         .with_solvers(n_solvers)
         .with_eval_budget(eval_budget)
         .with_iterations(n_iters)
         .with_kernel(RBFKernel::ThinPlateSpline);
+    config.smoothing = smoothing;
 
     println!("  SparsitySampler config:");
     println!("    Initial LHS:     {}", config.n_initial);
     println!("    Solvers/iter:    {}", config.n_solvers);
     println!("    Evals/solver:    {}", config.max_eval_per_solver);
     println!("    Iterations:      {}", config.n_iterations);
+    println!("    Smoothing:       {:.2e}", config.smoothing);
     println!("    Total budget:    ~{}", config.total_budget());
     println!("    Rayon threads:   {}", rayon::current_num_threads());
     println!();

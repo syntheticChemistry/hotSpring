@@ -104,19 +104,25 @@ fn main() {
         .find(|a| a.starts_with("--evals="))
         .and_then(|a| a.strip_prefix("--evals=")?.parse().ok())
         .unwrap_or(100);
+    let smoothing: f64 = args.iter()
+        .find(|a| a.starts_with("--smoothing="))
+        .and_then(|a| a.strip_prefix("--smoothing=")?.parse().ok())
+        .unwrap_or(1e-12);
 
-    let config = SparsitySamplerConfig::new(bounds.len(), 42)
+    let mut config = SparsitySamplerConfig::new(bounds.len(), 42)
         .with_initial_samples(100)      // LHS initial exploration
         .with_solvers(n_solvers)        // parallel NM starts per iteration
         .with_eval_budget(eval_budget)  // max evals per solver per iteration
         .with_iterations(n_iters)       // surrogate refinement rounds
         .with_kernel(RBFKernel::ThinPlateSpline);
+    config.smoothing = smoothing;
 
     println!("  SparsitySampler config:");
     println!("    Initial LHS:     {}", config.n_initial);
     println!("    Solvers/iter:    {}", config.n_solvers);
     println!("    Evals/solver:    {}", config.max_eval_per_solver);
     println!("    Iterations:      {}", config.n_iterations);
+    println!("    Smoothing:       {:.2e}", config.smoothing);
     println!("    Total budget:    ~{}", config.total_budget());
     println!();
 
@@ -197,6 +203,7 @@ fn main() {
             "n_solvers": config.n_solvers,
             "max_eval_per_solver": config.max_eval_per_solver,
             "n_iterations": config.n_iterations,
+            "smoothing": config.smoothing,
         },
     });
     let path = results_dir.join("barracuda_sparsity_l1.json");

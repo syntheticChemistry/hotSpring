@@ -557,6 +557,201 @@ fn run_plain_l2(
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// Direct multi-start NM on true L2 objective (no surrogate)
+// ═══════════════════════════════════════════════════════════════════
+
+fn run_screen_l2(
+    bounds: &[(f64, f64)],
+    exp_data: &HashMap<(usize, usize), (f64, f64)>,
+    n_l1_samples: usize,
+    n_l2_evals: usize,
+) -> (Vec<f64>, f64, f64, usize) {
+    println!("  L1-screen → L2-evaluate approach (no optimization)...");
+    println!("    L1 samples: {}, L2 evaluations: {}", n_l1_samples, n_l2_evals);
+    println!();
+
+    // Phase 1: Generate and score with L1
+    let (l1_xs, l1_ys) = generate_l1_training_data(bounds, exp_data, n_l1_samples);
+
+    // Sort by L1 score, take top-k for L2 evaluation
+    let mut indices: Vec<usize> = (0..l1_ys.len()).collect();
+    indices.sort_by(|&a, &b| l1_ys[a].partial_cmp(&l1_ys[b]).unwrap());
+    let n_eval = n_l2_evals.min(indices.len());
+    let candidates: Vec<Vec<f64>> = indices[..n_eval].iter().map(|&i| l1_xs[i].clone()).collect();
+
+    println!("    Best L1 score: log(1+χ²) = {:.4} (top candidate)", l1_ys[indices[0]]);
+    println!("    Worst selected L1 score: {:.4} (cutoff at rank {})", l1_ys[indices[n_eval-1]], n_eval);
+    println!();
+
+    // Phase 2: Evaluate ALL candidates with L2 HFB (parallel via rayon)
+    println!("  Evaluating {} candidates with L2 HFB (rayon parallel)...", n_eval);
+    let nuclei: Vec<(usize, usize, f64)> = exp_data
+        .iter()
+        .map(|(&(z, n), &(b_exp, _))| (z, n, b_exp))
+        .collect();
+
+    let t0 = Instant::now();
+    let results: Vec<(Vec<f64>, f64)> = candidates
+        .par_iter()
+        .map(|params| {
+            let f = l2_objective(params, &nuclei);
+            (params.clone(), f)
+        })
+        .collect();
+    let elapsed = t0.elapsed();
+
+    // Find best
+    let (best_x, best_f) = results.iter()
+        .min_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
+        .map(|(x, f)| (x.clone(), *f))
+        .unwrap();
+
+    let chi2 = best_f.exp() - 1.0;
+
+    println!();
+    println!("╔══════════════════════════════════════════════════════════════╗");
+    println!("║  L1-Screen → L2-Eval Results                              ║");
+    println!("╠══════════════════════════════════════════════════════════════╣");
+    println!("║  χ²/datum:       {:12.4}                              ║", chi2);
+    println!("║  log(1+χ²):      {:12.4}                              ║", best_f);
+    println!("║  L2 evals:       {:6}                                    ║", n_eval);
+    println!("║  Time (L2):      {:6.1}s                                   ║", elapsed.as_secs_f64());
+    println!("║  HFB throughput: {:6.1} evals/s                            ║",
+        n_eval as f64 / elapsed.as_secs_f64());
+    println!("╚══════════════════════════════════════════════════════════════╝");
+
+    // Distribution of L2 scores
+    let mut scores: Vec<f64> = results.iter().map(|(_, f)| *f).collect();
+    scores.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    println!();
+    println!("  L2 score distribution (log(1+χ²)):");
+    println!("    Best:   {:.4}", scores[0]);
+    println!("    p10:    {:.4}", scores[n_eval / 10]);
+    println!("    Median: {:.4}", scores[n_eval / 2]);
+    println!("    p90:    {:.4}", scores[n_eval * 9 / 10]);
+    println!("    Worst:  {:.4}", scores[n_eval - 1]);
+
+    let n_penalty = scores.iter().filter(|&&s| s > 9.0).count();
+    let n_good = scores.iter().filter(|&&s| s < 5.0).count();
+    println!("    Penalty (>9.0): {}/{} ({:.1}%)", n_penalty, n_eval, 100.0 * n_penalty as f64 / n_eval as f64);
+    println!("    Good (<5.0):    {}/{} ({:.1}%)", n_good, n_eval, 100.0 * n_good as f64 / n_eval as f64);
+
+    if let Some(nmp) = nuclear_matter_properties(&best_x) {
+        println!();
+        println!("  Nuclear matter at best:");
+        println!("    ρ₀   = {:.4} fm⁻³  (exp: 0.16)", nmp.rho0_fm3);
+        println!("    E/A  = {:.2} MeV    (exp: -15.97)", nmp.e_a_mev);
+        println!("    K∞   = {:.1} MeV    (exp: 230)", nmp.k_inf_mev);
+        println!("    m*/m = {:.3}        (exp: 0.69)", nmp.m_eff_ratio);
+        println!("    J    = {:.1} MeV    (exp: 32)", nmp.j_mev);
+    }
+
+    (best_x, best_f, elapsed.as_secs_f64(), n_eval)
+}
+
+fn run_direct_l2(
+    bounds: &[(f64, f64)],
+    exp_data: &HashMap<(usize, usize), (f64, f64)>,
+    n_starts: usize,
+    max_evals: usize,
+) -> (Vec<f64>, f64, f64, usize) {
+    use barracuda::optimize::nelder_mead;
+
+    println!("  Direct L1-seeded NM on L2 HFB objective (no surrogate)...");
+    println!("    n_starts: {} (from best L1 solutions)", n_starts);
+    println!("    max_evals/start: {}", max_evals);
+    println!();
+
+    // Phase 1: Generate L1 data to find good seed regions
+    let (l1_xs, l1_ys) = generate_l1_training_data(bounds, exp_data, 5000);
+
+    // Sort by L1 score, take top-k as NM starting points
+    let mut indices: Vec<usize> = (0..l1_ys.len()).collect();
+    indices.sort_by(|&a, &b| l1_ys[a].partial_cmp(&l1_ys[b]).unwrap());
+    let n_seeds = n_starts.min(indices.len());
+    let seeds: Vec<Vec<f64>> = indices[..n_seeds].iter().map(|&i| l1_xs[i].clone()).collect();
+
+    println!("    Best L1 log(1+χ²) = {:.4} (seed quality)", l1_ys[indices[0]]);
+    println!();
+
+    let nuclei: Vec<(usize, usize, f64)> = exp_data
+        .iter()
+        .map(|(&(z, n), &(b_exp, _))| (z, n, b_exp))
+        .collect();
+
+    let eval_count = std::sync::atomic::AtomicUsize::new(0);
+    let hfb_count = std::sync::atomic::AtomicUsize::new(0);
+
+    // L2 objective with NMP fast-reject (penalty = 1e4 to match Python control)
+    let objective = |x: &[f64]| -> f64 {
+        eval_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        if x[8] <= 0.01 || x[8] > 1.0 { return (1e4_f64).ln_1p(); }
+        hfb_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        l2_objective(x, &nuclei)
+    };
+
+    // Phase 2: Run NM from each L1 seed on the TRUE L2 objective
+    println!("  Running {} seeded NM starts on true L2 objective...", n_seeds);
+    let t0 = Instant::now();
+
+    let mut best_x = seeds[0].clone();
+    let mut best_f = f64::INFINITY;
+    let mut total_hfb = 0;
+
+    for (i, seed) in seeds.iter().enumerate() {
+        let (x_star, f_star, _) = nelder_mead(
+            &objective,
+            seed,
+            bounds,
+            max_evals,
+            1e-8,
+        ).unwrap_or_else(|_| (seed.clone(), f64::INFINITY, 0));
+
+        if f_star < best_f {
+            best_f = f_star;
+            best_x = x_star;
+        }
+
+        let hfb_so_far = hfb_count.load(std::sync::atomic::Ordering::Relaxed);
+        if (i + 1) % 5 == 0 || i == n_seeds - 1 {
+            println!("    [{}/{}] best log(1+χ²) = {:.4}, HFB evals = {}",
+                i + 1, n_seeds, best_f, hfb_so_far);
+        }
+        total_hfb = hfb_so_far;
+    }
+
+    let elapsed = t0.elapsed();
+    let total_evals = eval_count.load(std::sync::atomic::Ordering::Relaxed);
+    let chi2 = best_f.exp() - 1.0;
+
+    println!();
+    println!("╔══════════════════════════════════════════════════════════════╗");
+    println!("║  Direct L2 Results (L1-seeded NM)                         ║");
+    println!("╠══════════════════════════════════════════════════════════════╣");
+    println!("║  χ²/datum:       {:12.4}                              ║", chi2);
+    println!("║  log(1+χ²):      {:12.4}                              ║", best_f);
+    println!("║  Total evals:    {:6}  (obj calls)                      ║", total_evals);
+    println!("║  HFB evals:      {:6}  (expensive)                      ║", total_hfb);
+    println!("║  Time:           {:6.1}s  (NM only)                       ║", elapsed.as_secs_f64());
+    println!("║  HFB throughput: {:6.1} evals/s                            ║",
+        total_hfb as f64 / elapsed.as_secs_f64());
+    println!("╚══════════════════════════════════════════════════════════════╝");
+
+    // Nuclear matter at best
+    if let Some(nmp) = nuclear_matter_properties(&best_x) {
+        println!();
+        println!("  Nuclear matter at best:");
+        println!("    ρ₀   = {:.4} fm⁻³  (exp: 0.16)", nmp.rho0_fm3);
+        println!("    E/A  = {:.2} MeV    (exp: -15.97)", nmp.e_a_mev);
+        println!("    K∞   = {:.1} MeV    (exp: 230)", nmp.k_inf_mev);
+        println!("    m*/m = {:.3}        (exp: 0.69)", nmp.m_eff_ratio);
+        println!("    J    = {:.1} MeV    (exp: 32)", nmp.j_mev);
+    }
+
+    (best_x, best_f, elapsed.as_secs_f64(), total_hfb)
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // Main
 // ═══════════════════════════════════════════════════════════════════
 
@@ -650,6 +845,73 @@ fn main() {
             // Save comparison results
             save_results(&base, &best_params, best_f, &cache, &stats, hetero_time,
                 Some(plain_chi2), Some(plain_time), Some(plain_evals));
+        }
+
+        "screen" => {
+            // Pure L1 screening: evaluate best L1 solutions with L2 HFB, no NM
+            let n_l1 = args.iter()
+                .find(|a| a.starts_with("--l1-samples="))
+                .and_then(|a| a.strip_prefix("--l1-samples=")?.parse().ok())
+                .unwrap_or(10000);
+            let n_eval = args.iter()
+                .find(|a| a.starts_with("--l2-evals="))
+                .and_then(|a| a.strip_prefix("--l2-evals=")?.parse().ok())
+                .unwrap_or(200);
+
+            let (best_params, best_f, total_time, total_evals) =
+                run_screen_l2(&bounds, &exp_data, n_l1, n_eval);
+
+            let chi2 = best_f.exp() - 1.0;
+            let results_dir = base.join("results");
+            std::fs::create_dir_all(&results_dir).ok();
+            let result_json = serde_json::json!({
+                "level": 2,
+                "engine": "barracuda::l1_screen_l2_eval",
+                "chi2_per_datum": chi2,
+                "log_chi2": best_f,
+                "total_l2_evals": total_evals,
+                "l1_samples": n_l1,
+                "time_seconds": total_time,
+                "best_params": best_params,
+            });
+            let path = results_dir.join("barracuda_screen_l2.json");
+            std::fs::write(&path, serde_json::to_string_pretty(&result_json).unwrap()).ok();
+            println!("\n  Results saved to: {}", path.display());
+        }
+
+        "direct" => {
+            // Direct multi-start NM on true L2 objective (no surrogate)
+            let n_starts = args.iter()
+                .find(|a| a.starts_with("--starts="))
+                .and_then(|a| a.strip_prefix("--starts=")?.parse().ok())
+                .unwrap_or(10);
+            let max_evals_per = args.iter()
+                .find(|a| a.starts_with("--evals="))
+                .and_then(|a| a.strip_prefix("--evals=")?.parse().ok())
+                .unwrap_or(200);
+
+            let (best_params, best_f, total_time, total_evals) =
+                run_direct_l2(&bounds, &exp_data, n_starts, max_evals_per);
+
+            let chi2 = best_f.exp() - 1.0;
+
+            // Save results
+            let results_dir = base.join("results");
+            std::fs::create_dir_all(&results_dir).ok();
+            let result_json = serde_json::json!({
+                "level": 2,
+                "engine": "barracuda::direct_multi_start_nm",
+                "chi2_per_datum": chi2,
+                "log_chi2": best_f,
+                "total_evals": total_evals,
+                "n_starts": n_starts,
+                "max_evals_per_start": max_evals_per,
+                "time_seconds": total_time,
+                "best_params": best_params,
+            });
+            let path = results_dir.join("barracuda_direct_l2.json");
+            std::fs::write(&path, serde_json::to_string_pretty(&result_json).unwrap()).ok();
+            println!("\n  Results saved to: {}", path.display());
         }
 
         _ => {
