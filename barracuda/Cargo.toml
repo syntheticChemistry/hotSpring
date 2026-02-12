@@ -1,0 +1,34 @@
+[package]
+name = "hotspring-barracuda"
+version = "0.1.0"
+edition = "2021"
+description = "Nuclear EOS surrogate learning via BarraCUDA — validates library against Python control"
+license = "AGPL-3.0"
+
+[workspace]
+
+[dependencies]
+# BarraCUDA: All scientific computing comes from the library
+barracuda = { path = "../../phase1/toadstool/crates/barracuda" }
+
+# Eigenvalue decomposition (gap in barracuda::linalg — documented for evolution)
+nalgebra = "0.33"
+
+# Data loading
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Parallelism for L2 HFB
+rayon = "1.8"
+
+# Timing
+std-time = { package = "chrono", version = "0.4" }
+
+[[bin]]
+name = "nuclear_eos_l1"
+path = "src/bin/nuclear_eos_l1.rs"
+
+[[bin]]
+name = "nuclear_eos_l2"
+path = "src/bin/nuclear_eos_l2.rs"
+

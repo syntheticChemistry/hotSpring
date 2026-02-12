@@ -61,6 +61,10 @@ envs/*.lock
 *.log
 nohup.out
 
+# ----- Rust build artifacts -----
+barracuda/target/
+barracuda/Cargo.lock
+
 # ----- Benchmark results (generated) -----
 benchmarks/*/results/
 
