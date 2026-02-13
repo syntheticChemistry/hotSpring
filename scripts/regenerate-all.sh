@@ -159,6 +159,13 @@ if [[ "$MODE" == "all" || "$MODE" == "--nuclear" ]]; then
 
     NEOS_DIR="$PROJECT_DIR/control/surrogate/nuclear-eos"
 
+    step "Ensuring AME2020 experimental data exists..."
+    if [ ! -f "$NEOS_DIR/exp_data/ame2020_selected.json" ]; then
+        run_or_dry bash "$NEOS_DIR/exp_data/download_ame2020.sh"
+    else
+        echo "    ame2020_selected.json already exists — skipping download"
+    fi
+
     step "Running L1 surrogate (SEMF, 52 nuclei, ~3 min)..."
     run_or_dry $PM_RUN surrogate python "$NEOS_DIR/scripts/run_surrogate.py" --level=1
 

@@ -23,7 +23,7 @@ hotSpring replicates published computational plasma physics from the Murillo Gro
 
 The study answers two questions:
 1. **Can published computational science be independently reproduced?** (Answer: yes, but it required fixing 5 silent bugs and rebuilding physics that was behind a gated platform)
-2. **Can Rust + WebGPU replace the Python scientific stack for real physics?** (Answer: yes — BarraCUDA achieves 478× faster throughput and 44.8× less energy at L1, with GPU FP64 validated to sub-ULP precision)
+2. **Can Rust + WebGPU replace the Python scientific stack for real physics?** (Answer: yes — BarraCUDA achieves 478× faster throughput and 44.8× less energy at L1, with GPU FP64 validated to 4.55e-13 MeV precision)
 
 ---
 

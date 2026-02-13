@@ -391,7 +391,7 @@ scaling but shift the constant factor down by 45-100×.
 | ~~TTM hydro: switch TF→Saha ionization~~ | ~~Hydro model~~ | ~~1 fix~~ | ~~Eastgate~~ | ✅ 3/3 run |
 | ~~Validate all observables (energy, RDF, SSF, VACF)~~ | ~~Full baseline~~ | ~~1 session~~ | ~~Eastgate~~ | ✅ 60/60 PASS |
 | ~~Validate TTM hydro radial profiles~~ | ~~Hydro physics~~ | ~~1 session~~ | ~~Eastgate~~ | ✅ 3/3 monotonic |
-| ~~Create comprehensive control results JSON~~ | ~~Data archive~~ | ~~1 session~~ | ~~Eastgate~~ | ✅ 81/81 checks |
+| ~~Create comprehensive control results JSON~~ | ~~Data archive~~ | ~~1 session~~ | ~~Eastgate~~ | ✅ 86/86 checks |
 | TTM hydro: tune solver tolerance at r=0 | Full hydro completion | Investigation | Any | Low priority |
 | ~~Download Code Ocean capsule~~ | ~~Nuclear EOS surrogate~~ | ~~Manual~~ | ~~Browser~~ | ❌ Gated, bypassed |
 | ~~Run full surrogate reproduction~~ | ~~Paper headline result~~ | ~~After capsule~~ | ~~Any GPU gate~~ | ✅ Rebuilt open |
@@ -450,7 +450,7 @@ blockers** and deepened the evidence for ecoPrimals' thesis.
 | Surrogate benchmarks | 15/15 pass | **15/15 PASS** (mystic wins all 5 functions) |
 | Sarkas profiling | Not done | **97.2% in force_pp** — GPU target identified |
 | Upstream bugs fixed | 2 (np.int, pandas) | **5** (+Numba/pyfftw, +TF→Saha, +dump corruption) |
-| **Grand total** | | **81/81 quantitative checks pass** |
+| **Grand total** | | **86/86 quantitative checks pass** |
 
 ### Key Findings
 
