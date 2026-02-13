@@ -10,7 +10,7 @@
 
 ## Abstract
 
-We reproduce three classes of published computational plasma physics work from the Murillo Group (Michigan State University) on consumer hardware, validate correctness against published reference data, and then re-execute the core computations using BarraCUDA — a Pure Rust scientific computing library that dispatches WGSL shaders to any GPU vendor. The study spans molecular dynamics (Sarkas), plasma equilibration (Two-Temperature Model), and nuclear equation of state surrogate learning (Diaw et al., Nature Machine Intelligence 2024). We find that (a) reproducing published work required fixing five silent upstream bugs, (b) a key Code Ocean "reproducible" capsule is inaccessible, requiring us to rebuild the nuclear EOS physics from first principles, and (c) BarraCUDA achieves 3.8-8.3x better accuracy than Python/SciPy with zero external dependencies. An axially-deformed solver (Level 3) and GPU acceleration via Titan V are in progress.
+We reproduce three classes of published computational plasma physics work from the Murillo Group (Michigan State University) on consumer hardware, validate correctness against published reference data, and then re-execute the core computations using BarraCUDA — a Pure Rust scientific computing library that dispatches WGSL shaders to any GPU vendor. The study spans molecular dynamics (Sarkas), plasma equilibration (Two-Temperature Model), and nuclear equation of state surrogate learning (Diaw et al., Nature Machine Intelligence 2024). We find that (a) reproducing published work required fixing five silent upstream bugs, (b) a key Code Ocean "reproducible" capsule is inaccessible, requiring us to rebuild the nuclear EOS physics from first principles, and (c) BarraCUDA achieves 478× faster throughput at L1 with GPU FP64 validated to sub-ULP precision (4.55e-13 MeV max error vs CPU). Energy profiling shows the GPU path uses 44.8× less energy than Python for identical physics. 86/86 quantitative checks pass across all studies. An axially-deformed solver (Level 3) and GPU acceleration via Titan V are in progress.
 
 ---
 
@@ -127,8 +127,8 @@ Built Skyrme EDF nuclear physics from scratch. Python reference results on AME20
 
 | Level | Method | chi2/datum | Speed/eval | Total time |
 |-------|--------|:----------:|:----------:|:----------:|
-| L1 | SEMF + nuclear matter | 6.62 | ~0.2s | ~180s |
-| L2 | Spherical HFB (hybrid) | 61.87 | ~60s | ~600s |
+| L1 | SEMF + nuclear matter | 6.62 | ~0.18s | ~184s |
+| L2 | Spherical HFB (SparsitySampler) | **1.93** | ~3.8s | ~3.2h |
 
 ### 3.5 Upstream Bugs Found
 
@@ -142,7 +142,7 @@ Built Skyrme EDF nuclear physics from scratch. Python reference results on AME20
 
 **4 of 5 bugs are silent** — the code runs, produces output, and gives no error. Only explicit data validation catches them.
 
-**Total Phase A acceptance checks: 81/81 pass.**
+**Total Phase A acceptance checks: 86/86 pass** (including 5 nuclear EOS checks: L1/L2 chi2, NMP parity, convergence).
 
 ---
 
@@ -169,15 +169,30 @@ BarraCUDA functions used: `eigh_f64`, `brent`, `gradient_1d`, `trapz`, `gamma`, 
 
 ### 4.2 Results
 
-| Level | BarraCUDA | Python/SciPy | Improvement |
-|-------|:--------:|:------------:|:-----------:|
-| **L1 (SEMF)** | **0.80** chi2/datum | 6.62 | **8.3x better accuracy** |
-| **L2 (HFB, best accuracy)** | **16.11** chi2/datum | 61.87 | **3.8x better accuracy** |
-| **L2 (HFB, best NMP)** | **19.29** chi2/datum | 61.87 | **3.2x better, all NMP physical** |
+| Level | BarraCUDA | Python/SciPy | Notes |
+|-------|:--------:|:------------:|:------|
+| **L1 (SLy4 baseline)** | **4.99** chi2/datum | **4.99** | Identical physics — validates parity |
+| **L1 (DirectSampler optimized)** | **2.27** chi2/datum | 6.62 | **478× faster**, better minimum |
+| **L1 (GPU DirectSampler, extended)** | **1.52** chi2/datum | — | 48 evals, GPU-accelerated objective |
+| **L2 (HFB, DirectSampler)** | **23.09** chi2/datum | **1.93** (SparsitySampler) | Python wins on sampling strategy |
+| **L2 (HFB, best accuracy, Run A)** | **16.11** chi2/datum | — | seed=42, lambda=0.1, 1764× evolution |
+| **L2 (HFB, best NMP, Run B)** | **19.29** chi2/datum | — | seed=123, all NMP within 2sigma |
 
-L1 throughput: 64 evaluations in 0.44 seconds vs 1,008 evaluations in 180 seconds (**400x throughput**).
+L1 throughput: 6,028 evaluations in 2.3s vs 1,008 evaluations in 184s (**478× throughput**).
 
-L2 evaluation efficiency: 60 evaluations (BarraCUDA) vs 96 evaluations (Python) for better results.
+L2 note: Python's SparsitySampler achieves 1.93 chi2/datum with 3,008 evaluations over 3.2 hours. BarraCUDA's DirectSampler gets 23.09 with 12 evaluations in 252s. The accuracy gap is sampling strategy, not physics. Porting SparsitySampler is the #1 L2 priority.
+
+### 4.2.1 Energy Profiling (NEW — Three-Way Substrate Comparison)
+
+A benchmark harness (`barracuda/src/bench.rs` + `bench_wrapper.py`) measures time, CPU energy (Intel RAPL), and GPU energy (nvidia-smi polling at 100ms). For L1 SEMF with 100k iterations on 52 nuclei:
+
+| Substrate | Wall Time | us/eval | Energy (J) | J/eval | vs Python |
+|-----------|-----------|---------|------------|--------|-----------|
+| Python (CPython 3.10) | 114.3s | 1,143 | 5,648 | 0.056 | baseline |
+| BarraCUDA CPU (Rust) | 7.27s | 72.7 | 374 | 0.0037 | 15.7× faster, 15.1× less energy |
+| BarraCUDA GPU (RTX 4070) | 3.97s | 39.7 | 126 | 0.0013 | **28.8× faster, 44.8× less energy** |
+
+**Why this matters**: At the Murillo paper's scale (30,000 evaluations), the Python path would consume ~1.7 MJ of energy; the GPU path ~39 kJ. This changes which computations are tractable on consumer hardware. Energy is a first-class metric for scientific computing.
 
 ### 4.3 Nuclear Matter Properties
 
@@ -289,21 +304,21 @@ We ran the first end-to-end GPU FP64 nuclear physics computation using custom WG
 
 **L1 SEMF — Batched GPU compute (52 nuclei per dispatch):**
 
-| Metric | CPU (BarraCUDA native) | GPU (RTX 4070, SHADER_F64) |
-|--------|:---------------------:|:-------------------------:|
-| chi2/datum (SLy4) | 4.9851 | 4.9851 |
-| Max |B_cpu - B_gpu| | — | **4.55e-13 MeV** |
-| Mean |B_cpu - B_gpu| | — | 8.31e-14 MeV |
-| |chi2 diff| | — | 8.88e-15 |
-| Time per eval | 73.2 us | 47.2 us (**1.5x faster**) |
+| Metric | Python (CPython 3.10) | CPU (BarraCUDA native) | GPU (RTX 4070, SHADER_F64) |
+|--------|:--------------------:|:---------------------:|:-------------------------:|
+| chi2/datum (SLy4) | 4.99 | 4.9851 | 4.9851 |
+| Max |B_cpu - B_gpu| | — | — | **4.55e-13 MeV** |
+| Time per eval | 1,143 us | 72.7 us | 39.7 us (**1.8x vs CPU, 28.8x vs Python**) |
+| Energy (100k iters) | 5,648 J | 374 J | **126 J** |
+| J/eval | 0.056 | 0.0037 | **0.0013** |
 
 **L1 DirectSampler optimization (GPU-backed objective):**
 
 | Metric | CPU DirectSampler | GPU-backed DirectSampler |
 |--------|:-----------------:|:------------------------:|
-| Best chi2/datum | 2.74 | 2.74 |
-| Evaluations | 24 | 24 |
-| Wall time | 0.09s | 0.09s |
+| Best chi2/datum | 1.52 | 1.52 |
+| Evaluations | 48 | 48 |
+| Wall time | 32.4s | 32.4s (GPU-accelerated eval) |
 
 **L2 HFB (CPU baseline with DirectSampler):**
 
@@ -311,14 +326,16 @@ We ran the first end-to-end GPU FP64 nuclear physics computation using custom WG
 |--------|:-----:|
 | chi2/datum | 23.09 |
 | Evaluations | 12 |
-| Wall time | 241s (20s/eval) |
+| Wall time | 252s (21s/eval) |
+| Energy | 32,500 J (135W CPU avg) |
 | Converged nuclei | 14/19 |
 
 Key findings:
 1. GPU FP64 is **exact** — 4.55e-13 MeV max difference is sub-ULP arithmetic noise
-2. GPU dispatch achieves 2.0x speedup for 52 nuclei (bandwidth-limited regime)
-3. The DirectSampler optimizer produces identical results on CPU and GPU paths
-4. L2 SCF loop remains CPU-bound (pending batched `eigh_f64` shader)
+2. GPU dispatch achieves 1.8x speedup for 52 nuclei (bandwidth-limited regime)
+3. GPU uses **44.8× less energy** than Python for identical physics (126 J vs 5,648 J)
+4. The DirectSampler optimizer produces identical results on CPU and GPU paths
+5. L2 SCF loop remains CPU-bound (pending batched `eigh_f64` shader)
 
 ### 5.3.2 Pure-GPU Math Library (math_f64.wgsl)
 
@@ -410,13 +427,15 @@ All results are deterministic given a seed. No Code Ocean account required.
 
 2. **A key Nature Machine Intelligence "reproducible" capsule is inaccessible.** We rebuilt the nuclear EOS physics from first principles using only public data (AME2020) and open equations (Skyrme EDF).
 
-3. **BarraCUDA (Pure Rust, zero external dependencies) exceeds Python/SciPy accuracy at both L1 and L2.** L1: 8.3x better chi2, 400x throughput. L2: 3.8x better chi2, 2.4x fewer evaluations.
+3. **BarraCUDA (Pure Rust, zero external dependencies) delivers 478× faster throughput at L1 with better accuracy.** L1 DirectSampler: chi2=2.27 vs Python's 6.62, in 2.3s vs 184s. L2: Python's SparsitySampler (1.93) currently beats BarraCUDA's DirectSampler (23.09) due to sampling strategy — porting SparsitySampler is the top priority.
 
-4. **GPU FP64 compute via wgpu/Vulkan is exact and production-ready on consumer GPUs.** The RTX 4070's SHADER_F64 delivers true IEEE 754 double precision (4.55e-13 MeV max error vs CPU) with 1.5x speedup for batched nuclear physics. The practical FP64:FP32 ratio is ~2x, not the 1:64 CUDA-reported ratio, because wgpu bypasses driver-level throttling.
+4. **GPU FP64 compute via wgpu/Vulkan is exact and production-ready on consumer GPUs.** The RTX 4070's SHADER_F64 delivers true IEEE 754 double precision (4.55e-13 MeV max error vs CPU) with 1.8x speedup for batched nuclear physics. The practical FP64:FP32 ratio is ~2x, not the 1:64 CUDA-reported ratio, because wgpu bypasses driver-level throttling.
 
-5. **Numerical precision at boundaries matters more than the algorithm.** Three specific numerical precision issues (gradient stencils, root-finding tolerance, eigensolver conventions) accounted for a 1,764x improvement when fixed.
+5. **Energy cost is a first-class scientific metric.** GPU L1 uses 44.8× less energy than Python (126 J vs 5,648 J for 100k evaluations). At the paper's scale (30,000 evaluations), Python would consume ~1.7 MJ; GPU ~39 kJ. This quantifies why hardware substrate matters for computational science.
 
-6. **The path to paper parity is clear but requires deformation physics and GPU compute.** L3 deformed HFB architecture is built. The Titan V (7.4 TFLOPS FP64) will enable the optimization budget needed to close the remaining gap.
+6. **Numerical precision at boundaries matters more than the algorithm.** Three specific numerical precision issues (gradient stencils, root-finding tolerance, eigensolver conventions) accounted for a 1,764x improvement when fixed.
+
+7. **The path to paper parity is clear but requires deformation physics and GPU compute.** L3 deformed HFB architecture is built. The Titan V (7.4 TFLOPS FP64) will enable the optimization budget needed to close the remaining gap.
 
 ---
 

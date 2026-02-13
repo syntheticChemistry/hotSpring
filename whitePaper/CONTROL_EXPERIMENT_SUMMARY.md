@@ -101,8 +101,10 @@ Built Skyrme EDF nuclear physics from scratch using only public data (AME2020) a
 
 | Level | Method | chi2/datum | Speed/eval | Total time |
 |-------|--------|:----------:|:----------:|:----------:|
-| L1 | SEMF + nuclear matter | 6.62 | ~0.2s | ~180s |
-| L2 | Spherical HFB (hybrid) | 61.87 | ~60s | ~3.2h |
+| L1 | SEMF + nuclear matter | 6.62 | ~0.18s | ~184s |
+| L2 | Spherical HFB (SparsitySampler) | **1.93** | ~3.8s | ~3.2h |
+
+Python L2 uses mystic's SparsitySampler with 3,008 evaluations, achieving 1.93 chi2/datum — this is the current best accuracy on L2 across all substrates.
 
 This serves as the Phase A baseline for Phase B (BarraCUDA) comparison.
 
@@ -122,7 +124,7 @@ This serves as the Phase A baseline for Phase B (BarraCUDA) comparison.
 
 ---
 
-## 6. Total Phase A Acceptance: 81/81
+## 6. Total Phase A Acceptance: 86/86
 
 | Category | Checks | Pass |
 |----------|:------:|:----:|
@@ -130,6 +132,6 @@ This serves as the Phase A baseline for Phase B (BarraCUDA) comparison.
 | Sarkas PPPM (3 cases x 5 observables) | 15 | 15/15 |
 | TTM Local (3 species) | 3 | 3/3 |
 | TTM Hydro (3 species) | 3 | 3/3 |
-| Surrogate (9 + 1 physics) | 10 | 10/10 |
+| Surrogate (15 benchmarks) | 15 | 15/15 |
 | Nuclear EOS L1 + L2 convergence | 5 | 5/5 |
-| **Total** | **81** | **81/81** |
+| **Total** | **86** | **86/86** |

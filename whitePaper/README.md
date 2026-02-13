@@ -23,26 +23,31 @@ hotSpring replicates published computational plasma physics from the Murillo Gro
 
 The study answers two questions:
 1. **Can published computational science be independently reproduced?** (Answer: yes, but it required fixing 5 silent bugs and rebuilding physics that was behind a gated platform)
-2. **Can Rust + WebGPU replace the Python scientific stack for real physics?** (Answer: yes — BarraCUDA achieves 3.8-8.3x better accuracy than Python/SciPy)
+2. **Can Rust + WebGPU replace the Python scientific stack for real physics?** (Answer: yes — BarraCUDA achieves 478× faster throughput and 44.8× less energy at L1, with GPU FP64 validated to sub-ULP precision)
 
 ---
 
 ## Key Results
 
-### Phase A (Python Control): 81/81 checks pass
+### Phase A (Python Control): 86/86 checks pass
 
 - Sarkas MD: 12 cases, 60 observable checks, 8.3% mean DSF peak error
 - TTM: 6/6 equilibration checks pass
-- Surrogate learning: 9/9 benchmark functions converge
+- Surrogate learning: 15/15 benchmark functions converge
+- Nuclear EOS: Python L1 (chi2=6.62), L2 (chi2=1.93 via SparsitySampler)
 - 5 silent upstream bugs found and fixed
 
-### Phase B (BarraCUDA): Python parity exceeded
+### Phase B (BarraCUDA): GPU-validated, energy-profiled
 
-| Level | BarraCUDA | Python/SciPy | Improvement |
-|-------|-----------|-------------|-------------|
-| L1 (SEMF) | 0.80 chi2/datum | 6.62 | 8.3x better, 400x faster |
-| L2 (HFB) | 16.11 chi2/datum | 61.87 | 3.8x better, zero deps |
-| L2 (NMP-physical) | 19.29 chi2/datum | 61.87 | 3.2x better, all NMP within 2sigma |
+| Level | BarraCUDA | Python/SciPy | Speedup | Energy Ratio |
+|-------|-----------|-------------|---------|:------------:|
+| L1 (SEMF baseline) | 4.99 chi2/datum | 4.99 | 28.8× (GPU) | **44.8× less** |
+| L1 (DirectSampler) | **2.27** chi2/datum | 6.62 | **478×** | — |
+| L2 (HFB) | 23.09 chi2/datum | **1.93** | 1.7× | — |
+
+**L1**: BarraCUDA finds better minimum (2.27 vs 6.62) and runs 478× faster. GPU path uses 44.8× less energy than Python for identical physics (126 J vs 5,648 J for 100k L1 evaluations).
+
+**L2**: Python wins on accuracy (1.93 vs 23.09) due to SparsitySampler — the sampling strategy gap, not physics implementation.
 
 ---
 

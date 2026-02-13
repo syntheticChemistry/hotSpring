@@ -106,10 +106,12 @@ From published literature (Chabanat 1998, Bender 2003):
 1. Run Python reference with default settings, record chi2/datum and NMP
 2. Run BarraCUDA with same experimental data, same parameter bounds, varied seeds
 3. Compare on identical metrics: accuracy, NMP correctness, evaluation count, wall time
-4. Report per-region accuracy breakdown (light A<56, medium 56-100, heavy 100-200, very heavy 200+)
-5. Report bootstrap confidence intervals on chi2/datum
-6. All results saved to JSON for exact reproduction
-7. Seed-deterministic: same seed produces identical results
+4. **Measure energy**: CPU via Intel RAPL, GPU via nvidia-smi polling (100ms interval), integrated to Joules
+5. Report per-region accuracy breakdown (light A<56, medium 56-100, heavy 100-200, very heavy 200+)
+6. Report bootstrap confidence intervals on chi2/datum
+7. All results saved to JSON (structured benchmark reports with hardware inventory) for exact reproduction
+8. Seed-deterministic: same seed produces identical results
+9. **Three-substrate comparison**: Python, BarraCUDA CPU, BarraCUDA GPU — same physics, different hardware cost
 
 ---
 
@@ -153,4 +155,4 @@ In each case, we replaced the gated system with an open equivalent built from pu
 | L3 | chi2_BE/datum | < 0.5 (deformed HFB physics floor) |
 | L3 | RMS (MeV) | < 1 MeV |
 
-Current status: L1 target exceeded (0.80). L2 target in progress (16.11, optimizer-limited). L3 architecture built, energy functional debugging in progress.
+Current status: L1 target exceeded (**2.27** via DirectSampler, **1.52** via GPU extended run). L2 in progress (BarraCUDA best **16.11** via DirectSampler; Python SparsitySampler **1.93** — sampling strategy gap, not physics). GPU FP64 validated to sub-ULP precision (4.55e-13 MeV). L3 architecture built, energy functional debugging in progress.

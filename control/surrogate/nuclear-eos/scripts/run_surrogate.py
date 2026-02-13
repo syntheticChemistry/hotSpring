@@ -44,6 +44,9 @@ from objective import (
     L2_FOCUSED_NUCLEI,
     init_parallel, shutdown_parallel,
 )
+from bench_wrapper import (
+    BenchPhase, HardwareInventory, save_report, print_summary,
+)
 
 
 # ============================================================================
@@ -178,6 +181,8 @@ def run_nuclear_eos_surrogate(evals_per_round=100, max_rounds=30, tol=0.01,
 
     history = []
     t_start_total = time.time()
+    bench_phase = BenchPhase(f"L{level}_surrogate", substrate="Python")
+    bench_phase.__enter__()
 
     for round_i in range(max_rounds):
         t0 = time.time()
@@ -330,12 +335,37 @@ def run_nuclear_eos_surrogate(evals_per_round=100, max_rounds=30, tol=0.01,
         nmp = nuclear_matter_properties(best_params)
         results["best_nuclear_matter"] = nmp
 
+    # Stop benchmark monitoring
+    bench_phase.__exit__(None, None, None)
+    bench_phase.set_physics(
+        chi2=best_chi2_actual,
+        n_evals=n_evals,
+        notes=f"L{level} surrogate, {len(history)} rounds",
+    )
+
     # Save
     results_dir = os.path.join(SCRIPT_DIR, "..", "results")
     os.makedirs(results_dir, exist_ok=True)
     outfile = os.path.join(results_dir, f"nuclear_eos_surrogate_L{level}.json")
     with open(outfile, "w") as f:
         json.dump(results, f, indent=2, default=str)
+
+    # Save benchmark report (compatible with Rust bench format)
+    try:
+        hw = HardwareInventory.detect("Eastgate")
+        bench_result = bench_phase.result()
+        bench_results_dir = os.path.join(SCRIPT_DIR, "..", "..", "..", "..",
+                                          "benchmarks", "nuclear-eos", "results")
+        bench_path = save_report(hw, [bench_result], bench_results_dir)
+        print(f"  Benchmark report: {bench_path}")
+    except Exception as e:
+        print(f"  Warning: benchmark report failed: {e}")
+
+    # Print benchmark summary
+    try:
+        print_summary(hw, [bench_result])
+    except Exception:
+        pass
 
     print(f"\n{'='*70}")
     print(f"RESULT: {'CONVERGED' if converged else 'MAX ROUNDS'}")

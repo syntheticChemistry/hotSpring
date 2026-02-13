@@ -1,6 +1,6 @@
 {
   "accuracy_metrics": {
-    "chi2_per_datum": 0.7971152444962277,
+    "chi2_per_datum": 0.797115244496228,
     "mae_MeV": 6.023354560992521,
     "max_error_MeV": 30.21326471242105,
     "max_relative_accuracy": 0.15041683763085667,
@@ -12,16 +12,16 @@
   },
   "approach1_sparsity_native_autosmooth": {
     "auto_smoothing": true,
-    "chi2_per_datum": 40.8277232279716,
-    "log_chi2": 3.7335593548064367,
+    "chi2_per_datum": 6.7292678639621615,
+    "log_chi2": 2.0450141445253793,
     "penalty_filter": "AdaptiveMAD(5.0)",
-    "time_seconds": 2.502007055,
-    "total_evals": 150
+    "time_seconds": 3.451432088,
+    "total_evals": 140
   },
   "approach2_native_direct_sampler": {
-    "chi2_per_datum": 0.7971152444962277,
+    "chi2_per_datum": 0.797115244496228,
     "early_stopped": false,
-    "log_chi2": 0.5861827373512152,
+    "log_chi2": 0.5861827373512153,
     "n_rounds": 8,
     "total_evals": 64
   },

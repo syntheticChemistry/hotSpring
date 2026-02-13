@@ -6,6 +6,7 @@
 //! Validated: RTX 4070 provides TRUE IEEE 754 f64 (0 ULP vs CPU).
 //! Performance: ~2x f32 for bandwidth-limited ops (element-wise, reductions).
 
+use std::process::Command;
 use std::sync::Arc;
 
 /// GPU context with FP64 support for science workloads
@@ -135,6 +136,41 @@ impl GpuF64 {
             contents: data,
             usage: wgpu::BufferUsages::UNIFORM,
         })
+    }
+
+    /// Query current GPU power draw, temperature, utilization, and VRAM via nvidia-smi.
+    ///
+    /// Returns `(power_watts, temp_celsius, utilization_pct, vram_used_mib)`.
+    /// Returns zeros if nvidia-smi is unavailable.
+    pub fn query_gpu_power() -> (f64, f64, f64, f64) {
+        let output = Command::new("nvidia-smi")
+            .args([
+                "--query-gpu=power.draw,temperature.gpu,utilization.gpu,memory.used",
+                "--format=csv,noheader,nounits",
+            ])
+            .output();
+
+        match output {
+            Ok(out) if out.status.success() => {
+                let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                let parts: Vec<&str> = s.split(", ").collect();
+                if parts.len() >= 4 {
+                    let watts = parts[0].trim().parse().unwrap_or(0.0);
+                    let temp = parts[1].trim().parse().unwrap_or(0.0);
+                    let util = parts[2].trim().parse().unwrap_or(0.0);
+                    let vram = parts[3].trim().parse().unwrap_or(0.0);
+                    return (watts, temp, util, vram);
+                }
+                (0.0, 0.0, 0.0, 0.0)
+            }
+            _ => (0.0, 0.0, 0.0, 0.0),
+        }
+    }
+
+    /// Snapshot of current GPU VRAM usage in MiB.
+    pub fn gpu_vram_used_mib() -> f64 {
+        let (_, _, _, vram) = Self::query_gpu_power();
+        vram
     }
 
     /// Dispatch a compute pipeline and read back f64 results

@@ -10,6 +10,9 @@
 //!
 //! Run: cargo run --release --bin nuclear_eos_gpu
 
+use hotspring_barracuda::bench::{
+    BenchReport, HardwareInventory, PhaseResult, PowerMonitor, peak_rss_mb,
+};
 use hotspring_barracuda::data;
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::physics::{
@@ -225,8 +228,16 @@ fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");
     println!("║  hotSpring GPU FP64 — Nuclear EOS L1 + L2                   ║");
     println!("║  Three-way: Python → BarraCUDA CPU → BarraCUDA GPU          ║");
+    println!("║  + Substrate Benchmark (time / energy / hardware)            ║");
     println!("╚══════════════════════════════════════════════════════════════╝");
     println!();
+
+    // ── Hardware inventory ────────────────────────────────────────────
+    let hw = HardwareInventory::detect("Eastgate");
+    hw.print();
+    println!();
+
+    let mut report = BenchReport::new(hw);
 
     // ── Initialize GPU ──────────────────────────────────────────────
     let rt = tokio::runtime::Runtime::new().unwrap();
@@ -303,16 +314,19 @@ fn main() {
     println!("══════════════════════════════════════════════════════════════");
     println!();
 
-    // CPU: evaluate all nuclei
+    // CPU: evaluate all nuclei — 100k iterations for meaningful energy measurement
+    let pmon_cpu_l1 = PowerMonitor::start();
     let t_cpu = Instant::now();
-    let n_iters = 1000;
+    let n_iters_l1: usize = 100_000;
     let mut cpu_energies: Vec<f64> = vec![0.0; n_nuclei];
-    for _ in 0..n_iters {
+    for _ in 0..n_iters_l1 {
         for (i, &((z, n), _)) in sorted_nuclei.iter().enumerate() {
             cpu_energies[i] = semf_binding_energy(z, n, &SLY4);
         }
     }
-    let cpu_per_eval_us = t_cpu.elapsed().as_secs_f64() * 1e6 / n_iters as f64;
+    let cpu_l1_wall = t_cpu.elapsed().as_secs_f64();
+    let cpu_per_eval_us = cpu_l1_wall * 1e6 / n_iters_l1 as f64;
+    let energy_cpu_l1 = pmon_cpu_l1.stop();
 
     // CPU chi2
     let cpu_chi2: f64 = cpu_energies.iter()
@@ -321,9 +335,22 @@ fn main() {
         .map(|((bc, be), s)| ((bc - be) / s).powi(2))
         .sum::<f64>() / n_nuclei as f64;
 
+    report.add_phase(PhaseResult {
+        phase: "L1 SEMF".into(),
+        substrate: "BarraCUDA CPU".into(),
+        wall_time_s: cpu_l1_wall,
+        per_eval_us: cpu_per_eval_us,
+        n_evals: n_iters_l1,
+        energy: energy_cpu_l1,
+        peak_rss_mb: peak_rss_mb(),
+        chi2: cpu_chi2,
+        precision_mev: 0.0,
+        notes: format!("{} nuclei x {} iterations", n_nuclei, n_iters_l1),
+    });
+
     println!("  CPU (BarraCUDA native):");
     println!("    chi2/datum = {:.4}", cpu_chi2);
-    println!("    {:.1} us/eval ({} nuclei, {} iterations)", cpu_per_eval_us, n_nuclei, n_iters);
+    println!("    {:.1} us/eval ({} nuclei, {} iterations)", cpu_per_eval_us, n_nuclei, n_iters_l1);
 
     // GPU: derive NMP → shader params, dispatch
     let nmp = nuclear_matter_properties(&SLY4).unwrap();
@@ -349,13 +376,16 @@ fn main() {
         let _ = gpu.dispatch_and_read(&semf_pipeline, &semf_bg, wg, &energy_buf, n_nuclei);
     }
 
-    // Benchmark
+    // Benchmark (with power monitoring) — 100k iterations for meaningful energy measurement
+    let pmon_gpu_l1 = PowerMonitor::start();
     let t_gpu = Instant::now();
     let mut gpu_energies = vec![0.0f64; n_nuclei];
-    for _ in 0..n_iters {
+    for _ in 0..n_iters_l1 {
         gpu_energies = gpu.dispatch_and_read(&semf_pipeline, &semf_bg, wg, &energy_buf, n_nuclei);
     }
-    let gpu_per_eval_us = t_gpu.elapsed().as_secs_f64() * 1e6 / n_iters as f64;
+    let gpu_l1_wall = t_gpu.elapsed().as_secs_f64();
+    let gpu_per_eval_us = gpu_l1_wall * 1e6 / n_iters_l1 as f64;
+    let energy_gpu_l1 = pmon_gpu_l1.stop();
 
     // GPU chi2 — compute on GPU
     let b_calc_buf = gpu.create_f64_buffer(&gpu_energies, "B_calc_gpu");
@@ -373,11 +403,6 @@ fn main() {
     let chi2_vals = gpu.dispatch_and_read(&chi2_pipeline, &chi2_bg, wg, &chi2_out_buf, n_nuclei);
     let gpu_chi2: f64 = chi2_vals.iter().sum::<f64>() / n_nuclei as f64;
 
-    println!();
-    println!("  GPU ({})", gpu.adapter_name);
-    println!("    chi2/datum = {:.4}", gpu_chi2);
-    println!("    {:.1} us/eval ({} nuclei, {} iterations)", gpu_per_eval_us, n_nuclei, n_iters);
-
     // Precision
     let max_diff = cpu_energies.iter().zip(gpu_energies.iter())
         .map(|(c, g)| (c - g).abs())
@@ -385,6 +410,24 @@ fn main() {
     let mean_diff = cpu_energies.iter().zip(gpu_energies.iter())
         .map(|(c, g)| (c - g).abs())
         .sum::<f64>() / n_nuclei as f64;
+
+    report.add_phase(PhaseResult {
+        phase: "L1 SEMF".into(),
+        substrate: "BarraCUDA GPU".into(),
+        wall_time_s: gpu_l1_wall,
+        per_eval_us: gpu_per_eval_us,
+        n_evals: n_iters_l1,
+        energy: energy_gpu_l1,
+        peak_rss_mb: peak_rss_mb(),
+        chi2: gpu_chi2,
+        precision_mev: max_diff,
+        notes: format!("precomputed transcendentals, max|delta|={:.2e}", max_diff),
+    });
+
+    println!();
+    println!("  GPU ({})", gpu.adapter_name);
+    println!("    chi2/datum = {:.4}", gpu_chi2);
+    println!("    {:.1} us/eval ({} nuclei, {} iterations)", gpu_per_eval_us, n_nuclei, n_iters_l1);
 
     println!();
     println!("  ── Precision ──");
@@ -448,13 +491,16 @@ fn main() {
         let _ = gpu.dispatch_and_read(&pure_pipeline, &pure_bg, wg, &energy_pure_buf, n_nuclei);
     }
 
-    // Benchmark
+    // Benchmark (with power monitoring) — 100k iterations
+    let pmon_pure = PowerMonitor::start();
     let t_pure = Instant::now();
     let mut pure_energies = vec![0.0f64; n_nuclei];
-    for _ in 0..n_iters {
+    for _ in 0..n_iters_l1 {
         pure_energies = gpu.dispatch_and_read(&pure_pipeline, &pure_bg, wg, &energy_pure_buf, n_nuclei);
     }
-    let pure_per_eval_us = t_pure.elapsed().as_secs_f64() * 1e6 / n_iters as f64;
+    let pure_wall = t_pure.elapsed().as_secs_f64();
+    let pure_per_eval_us = pure_wall * 1e6 / n_iters_l1 as f64;
+    let energy_pure = pmon_pure.stop();
 
     // Compare pure-GPU vs CPU
     let pure_max_diff = cpu_energies.iter().zip(pure_energies.iter())
@@ -469,9 +515,22 @@ fn main() {
         .map(|(p, g)| (p - g).abs())
         .fold(0.0f64, f64::max);
 
+    report.add_phase(PhaseResult {
+        phase: "L1 SEMF pure".into(),
+        substrate: "GPU math_f64".into(),
+        wall_time_s: pure_wall,
+        per_eval_us: pure_per_eval_us,
+        n_evals: n_iters_l1,
+        energy: energy_pure,
+        peak_rss_mb: peak_rss_mb(),
+        chi2: gpu_chi2,  // same physics, different math path
+        precision_mev: pure_max_diff,
+        notes: format!("pure-GPU math_f64, max|delta|={:.2e}", pure_max_diff),
+    });
+
     println!();
     println!("  Pure-GPU (math_f64 library on RTX 4070):");
-    println!("    Time per eval: {:.1} us ({} iters)", pure_per_eval_us, n_iters);
+    println!("    Time per eval: {:.1} us ({} iters)", pure_per_eval_us, n_iters_l1);
     println!();
     println!("  ── Precision vs CPU ──");
     println!("    Max  |B_cpu - B_pure_gpu|: {:.2e} MeV", pure_max_diff);
@@ -500,32 +559,65 @@ fn main() {
     println!("══════════════════════════════════════════════════════════════");
     println!();
 
-    let samples = latin_hypercube(64, &bounds, 42).expect("LHS failed");
+    let n_sweep: usize = 512;
+    let samples = latin_hypercube(n_sweep, &bounds, 42).expect("LHS failed");
 
-    // CPU sweep
+    // CPU sweep (with power monitoring)
+    let pmon_cpu_sweep = PowerMonitor::start();
     let t_cpu_opt = Instant::now();
     let cpu_chi2s: Vec<f64> = samples.iter().map(|params| {
         l1_chi2_cpu(params, &sorted_nuclei)
     }).collect();
-    let cpu_opt_ms = t_cpu_opt.elapsed().as_secs_f64() * 1000.0;
+    let cpu_opt_wall = t_cpu_opt.elapsed().as_secs_f64();
+    let cpu_opt_ms = cpu_opt_wall * 1000.0;
+    let energy_cpu_sweep = pmon_cpu_sweep.stop();
     let cpu_best_idx = cpu_chi2s.iter().enumerate()
         .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
         .map(|(i, _)| i).unwrap();
     let cpu_best = cpu_chi2s[cpu_best_idx];
 
-    // GPU sweep (same 64 param sets)
+    report.add_phase(PhaseResult {
+        phase: "L1 sweep".into(),
+        substrate: "BarraCUDA CPU".into(),
+        wall_time_s: cpu_opt_wall,
+        per_eval_us: cpu_opt_wall * 1e6 / n_sweep as f64,
+        n_evals: n_sweep,
+        energy: energy_cpu_sweep,
+        peak_rss_mb: peak_rss_mb(),
+        chi2: cpu_best,
+        precision_mev: 0.0,
+        notes: format!("{}-point LHS sweep", n_sweep),
+    });
+
+    // GPU sweep (same param sets, with power monitoring)
+    let pmon_gpu_sweep = PowerMonitor::start();
     let t_gpu_opt = Instant::now();
-    let mut gpu_chi2s = Vec::with_capacity(64);
+    let mut gpu_chi2s = Vec::with_capacity(n_sweep);
     for params in &samples {
         let chi2 = l1_chi2_gpu(params, &gpu, &semf_pipeline, &chi2_pipeline,
                                 &nuclei_buf, &b_exp_buf, &sigma_buf, n_nuclei);
         gpu_chi2s.push(chi2);
     }
-    let gpu_opt_ms = t_gpu_opt.elapsed().as_secs_f64() * 1000.0;
+    let gpu_opt_wall = t_gpu_opt.elapsed().as_secs_f64();
+    let gpu_opt_ms = gpu_opt_wall * 1000.0;
+    let energy_gpu_sweep = pmon_gpu_sweep.stop();
     let gpu_best_idx = gpu_chi2s.iter().enumerate()
         .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
         .map(|(i, _)| i).unwrap();
     let gpu_best = gpu_chi2s[gpu_best_idx];
+
+    report.add_phase(PhaseResult {
+        phase: "L1 sweep".into(),
+        substrate: "BarraCUDA GPU".into(),
+        wall_time_s: gpu_opt_wall,
+        per_eval_us: gpu_opt_wall * 1e6 / n_sweep as f64,
+        n_evals: n_sweep,
+        energy: energy_gpu_sweep,
+        peak_rss_mb: peak_rss_mb(),
+        chi2: gpu_best,
+        precision_mev: 0.0,
+        notes: format!("{}-point LHS sweep, GPU SEMF+chi2", n_sweep),
+    });
 
     println!("  CPU: best chi2/datum = {:.4} (idx {}) in {:.1}ms", cpu_best, cpu_best_idx, cpu_opt_ms);
     println!("  GPU: best chi2/datum = {:.4} (idx {}) in {:.1}ms", gpu_best, gpu_best_idx, gpu_opt_ms);
@@ -570,17 +662,32 @@ fn main() {
         l1_objective_with_nmp(x, &sorted_nuclei_cpu, lambda)
     };
 
+    let pmon_ds_cpu = PowerMonitor::start();
     let t_cpu_full = Instant::now();
     let config_cpu = DirectSamplerConfig::new(42)
-        .with_rounds(4)
-        .with_solvers(6)
-        .with_eval_budget(80)
-        .with_patience(2);
+        .with_rounds(6)
+        .with_solvers(8)
+        .with_eval_budget(200)
+        .with_patience(3);
 
     let result_cpu = direct_sampler(cpu_objective, &bounds, &config_cpu)
         .expect("CPU DirectSampler failed");
     let cpu_full_time = t_cpu_full.elapsed().as_secs_f64();
+    let energy_ds_cpu = pmon_ds_cpu.stop();
     let cpu_full_chi2 = result_cpu.f_best.exp() - 1.0;
+
+    report.add_phase(PhaseResult {
+        phase: "L1 DirectSampler".into(),
+        substrate: "BarraCUDA CPU".into(),
+        wall_time_s: cpu_full_time,
+        per_eval_us: cpu_full_time * 1e6 / result_cpu.cache.len().max(1) as f64,
+        n_evals: result_cpu.cache.len(),
+        energy: energy_ds_cpu,
+        peak_rss_mb: peak_rss_mb(),
+        chi2: cpu_full_chi2,
+        precision_mev: 0.0,
+        notes: "6 rounds x 8 solvers x 200 evals".into(),
+    });
 
     println!("  CPU DirectSampler:");
     println!("    chi2/datum = {:.4} ({} evals in {:.2}s)",
@@ -595,17 +702,32 @@ fn main() {
         l1_objective_with_nmp(x, &sorted_for_obj, lambda)
     };
 
+    let pmon_ds_gpu = PowerMonitor::start();
     let t_gpu_full = Instant::now();
     let config_gpu = DirectSamplerConfig::new(42)
-        .with_rounds(4)
-        .with_solvers(6)
-        .with_eval_budget(80)
-        .with_patience(2);
+        .with_rounds(6)
+        .with_solvers(8)
+        .with_eval_budget(200)
+        .with_patience(3);
 
     let result_gpu = direct_sampler(gpu_objective, &bounds, &config_gpu)
         .expect("GPU DirectSampler failed");
     let gpu_full_time = t_gpu_full.elapsed().as_secs_f64();
+    let energy_ds_gpu = pmon_ds_gpu.stop();
     let gpu_full_chi2 = result_gpu.f_best.exp() - 1.0;
+
+    report.add_phase(PhaseResult {
+        phase: "L1 DirectSampler".into(),
+        substrate: "BarraCUDA GPU".into(),
+        wall_time_s: gpu_full_time,
+        per_eval_us: gpu_full_time * 1e6 / result_gpu.cache.len().max(1) as f64,
+        n_evals: result_gpu.cache.len(),
+        energy: energy_ds_gpu,
+        peak_rss_mb: peak_rss_mb(),
+        chi2: gpu_full_chi2,
+        precision_mev: 0.0,
+        notes: "serial objective (GPU batching future)".into(),
+    });
 
     println!("  GPU-backed DirectSampler:");
     println!("    chi2/datum = {:.4} ({} evals in {:.2}s)",
@@ -622,6 +744,7 @@ fn main() {
     println!("══════════════════════════════════════════════════════════════");
     println!();
 
+    let pmon_l2_sly4 = PowerMonitor::start();
     let t_l2 = Instant::now();
     let mut l2_chi2 = 0.0f64;
     let mut l2_count = 0usize;
@@ -641,6 +764,20 @@ fn main() {
     }
     if l2_count > 0 { l2_chi2 /= l2_count as f64; }
     let l2_time = t_l2.elapsed().as_secs_f64();
+    let energy_l2_sly4 = pmon_l2_sly4.stop();
+
+    report.add_phase(PhaseResult {
+        phase: "L2 HFB SLy4".into(),
+        substrate: "BarraCUDA CPU".into(),
+        wall_time_s: l2_time,
+        per_eval_us: l2_time * 1e6 / l2_count.max(1) as f64,
+        n_evals: l2_count,
+        energy: energy_l2_sly4,
+        peak_rss_mb: peak_rss_mb(),
+        chi2: l2_chi2,
+        precision_mev: 0.0,
+        notes: format!("{}/{} converged", l2_converged, l2_count),
+    });
 
     println!("  L2 CPU (SLy4):");
     println!("    chi2/datum = {:.2}", l2_chi2);
@@ -663,6 +800,7 @@ fn main() {
         l2_objective_fn(x, &exp_data_l2, 0.1)
     };
 
+    let pmon_l2_opt = PowerMonitor::start();
     let t_l2_opt = Instant::now();
     let l2_config = DirectSamplerConfig::new(42)
         .with_rounds(3)
@@ -678,7 +816,21 @@ fn main() {
     let result_l2 = direct_sampler(l2_objective, &bounds, &l2_config)
         .expect("L2 DirectSampler failed");
     let l2_opt_time = t_l2_opt.elapsed().as_secs_f64();
+    let energy_l2_opt = pmon_l2_opt.stop();
     let l2_opt_chi2 = result_l2.f_best.exp() - 1.0;
+
+    report.add_phase(PhaseResult {
+        phase: "L2 DirectSampler".into(),
+        substrate: "BarraCUDA CPU".into(),
+        wall_time_s: l2_opt_time,
+        per_eval_us: l2_opt_time * 1e6 / result_l2.cache.len().max(1) as f64,
+        n_evals: result_l2.cache.len(),
+        energy: energy_l2_opt,
+        peak_rss_mb: peak_rss_mb(),
+        chi2: l2_opt_chi2,
+        precision_mev: 0.0,
+        notes: format!("{} evals, rayon parallel HFB", result_l2.cache.len()),
+    });
 
     println!();
     println!("  L2 DirectSampler result:");
@@ -720,6 +872,22 @@ fn main() {
     println!("    [ ] L2 Coulomb — prefix-sum f64 on GPU");
     println!("    [ ] L2 eigh_f64 — batched eigendecomposition shader");
     println!("    [ ] L3 2D grid operations — f64 on GPU");
+
+    // ═══════════════════════════════════════════════════════════════
+    //  SUBSTRATE BENCHMARK REPORT (time + energy + hardware)
+    // ═══════════════════════════════════════════════════════════════
+    report.print_summary();
+
+    // Save JSON report
+    let report_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .join("benchmarks/nuclear-eos/results");
+    match report.save_json(report_dir.to_str().unwrap_or("benchmarks/nuclear-eos/results")) {
+        Ok(path) => println!("  Benchmark report saved: {}", path),
+        Err(e) => println!("  Warning: failed to save benchmark report: {}", e),
+    }
+    println!();
 }
 
 // ═══════════════════════════════════════════════════════════════════

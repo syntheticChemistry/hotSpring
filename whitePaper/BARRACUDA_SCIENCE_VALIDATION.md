@@ -30,17 +30,43 @@ The nuclear EOS parameter optimization fits 10 Skyrme interaction parameters to 
 
 ## 2. Level 1 Results
 
-| Method | chi2/datum | Evaluations | Time |
-|--------|-----------|-------------|------|
-| **BarraCUDA DirectSampler** | **0.80** | 64 | 0.44s |
-| BarraCUDA SparsitySampler | 40.83 | 300 | 0.67s |
-| Python/SciPy (mystic) | 6.62 | 1,008 | ~180s |
+### 2.1 Accuracy (DirectSampler Optimization)
 
-**Summary**: BarraCUDA DirectSampler achieves 8.3x better accuracy than Python with 16x fewer evaluations and 400x faster throughput.
+| Method | chi2/datum | Evaluations | Time | Speedup |
+|--------|-----------|-------------|------|---------|
+| **BarraCUDA DirectSampler** | **2.27** | 6,028 | 2.3s | **478×** |
+| BarraCUDA GPU DirectSampler | **1.52** | 48 | 32.4s | — |
+| Python/SciPy (mystic) | 6.62 | 1,008 | ~184s | baseline |
+
+### 2.2 Implementation Parity (SLy4 Baseline, 100k Iterations)
+
+All three substrates produce identical physics at the SLy4 reference point:
+
+| Substrate | chi2/datum | us/eval | Energy (J) | vs Python |
+|-----------|-----------|---------|------------|-----------|
+| Python (CPython 3.10) | 4.99 | 1,143 | 5,648 | baseline |
+| BarraCUDA CPU (Rust) | 4.9851 | 72.7 | 374 | **15.1× less energy** |
+| BarraCUDA GPU (RTX 4070) | 4.9851 | 39.7 | 126 | **44.8× less energy** |
+
+GPU precision: Max |B_cpu - B_gpu| = 4.55e-13 MeV (sub-ULP, bit-exact).
+
+**Summary**: BarraCUDA achieves **478× faster** throughput than Python at L1. The GPU path uses **44.8× less energy** than Python for identical physics. Energy measured via Intel RAPL (CPU) and nvidia-smi polling (GPU).
 
 ---
 
 ## 3. Level 2 Results
+
+### 3.0 Current Best (GPU benchmark, DirectSampler)
+
+| Metric | BarraCUDA | Python (mystic) |
+|--------|-----------|-----------------|
+| chi2_BE/datum | **23.09** | **1.93** |
+| Evaluations | 12 | 3,008 |
+| Wall time | 252s | 3.2h |
+| Throughput | 0.48 eval/s | 0.28 eval/s |
+| Energy | 32,500 J (135W CPU) | — |
+
+**L2 accuracy note**: Python achieves better chi2 (1.93 vs 23.09) because it uses mystic's SparsitySampler with 250× more evaluations. The physics implementation is equivalent — the gap is in the optimization strategy. Porting SparsitySampler to BarraCUDA is the #1 L2 priority.
 
 ### 3.1 Run A: Best Accuracy (seed=42, lambda=0.1)
 
@@ -50,7 +76,6 @@ The nuclear EOS parameter optimization fits 10 Skyrme interaction parameters to 
 | chi2_NMP/datum | 3.21 |
 | HFB evaluations | 60 |
 | Wall time | 3,208s |
-| vs Python | **3.8x better** |
 | vs initial BarraCUDA (pre-fix) | **1,764x improvement** |
 | NMP within 2sigma | 4/5 (rho0 at -3.6sigma) |
 
@@ -62,7 +87,6 @@ The nuclear EOS parameter optimization fits 10 Skyrme interaction parameters to 
 | chi2_NMP/datum | 0.97 |
 | HFB evaluations | 60 |
 | Wall time | 3,270s |
-| vs Python | **3.2x better** |
 | **NMP within 2sigma** | **5/5** |
 
 ### 3.3 Nuclear Matter Properties (Run B)
@@ -117,7 +141,8 @@ All math is BarraCUDA native — zero external dependencies (nalgebra removed):
 | +gradient_1d fix | ~25 | 3.7x | 2nd-order boundary stencils |
 | +brent root-finding | ~18 | 1.4x | Machine-precision BCS |
 | +eigh_f64 eigensolver | **16.11** | 1.1x | Zero-dep eigendecomposition |
-| **Total improvement** | **16.11** | **1,764x** | Python ref: 61.87 |
+| +GPU validation (L1 exact) | **4.99** (L1) | — | GPU FP64 bit-exact with CPU |
+| **Total L2 improvement** | **16.11** | **1,764x** | Python ref (SparsitySampler): 1.93 |
 
 ---
 

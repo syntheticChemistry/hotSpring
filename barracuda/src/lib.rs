@@ -27,6 +27,7 @@
 //!   implementations of: LOO-CV auto-smoothing, DirectSampler, PenaltyFilter,
 //!   chi2_decomposed_weighted, bootstrap_ci, convergence_diagnostics.
 
+pub mod bench;
 pub mod data;
 pub mod gpu;
 pub mod physics;
