@@ -1,23 +1,24 @@
-//! Nuclear EOS Level 2 — BarraCUDA Native Revalidation
+//! Nuclear EOS Level 2 — NMP-Constrained HFB Pipeline (Evolved)
 //!
-//! Now uses BarraCUDA's native implementations evolved from our hotSpring specs:
+//! Physics: p/n HFB + BCS + Coulomb(Poisson+Slater) + T_eff + CM correction
+//! Math: 100% BarraCUDA native (gradient_1d, eigh_f64, brent, trapz)
+//!
+//! Uses:
 //!   1. barracuda::sample::direct::direct_sampler — round-based NM with warm-start
-//!   2. barracuda::surrogate::loo_cv_optimal_smoothing — LOO-CV for monitoring
-//!   3. barracuda::stats::chi2_decomposed_weighted — per-nucleus chi² analysis
-//!   4. barracuda::stats::bootstrap_ci — confidence intervals
-//!   5. barracuda::optimize::convergence_diagnostics — stagnation detection
+//!   2. barracuda::sample::sparsity — surrogate-guided with auto_smoothing
+//!   3. barracuda::sample::latin_hypercube — L1 screening
+//!   4. barracuda::stats::{chi2_decomposed_weighted, bootstrap_ci}
+//!   5. barracuda::optimize::convergence_diagnostics
 //!
-//! KEY INSIGHT: L2 (HFB) landscape is extremely rugged in 10D.
-//! SOLUTION: L1-seeded DirectSampler with warm_start API.
-//!
-//! Run: cargo run --release --bin nuclear_eos_l2_ref [--l1-samples=N] [--nm-starts=K] [--evals=M]
+//! Run: cargo run --release --bin nuclear_eos_l2_ref [--lambda=0.1] [--seed=42]
+//!      [--rounds=5] [--nm-starts=10] [--evals=100] [--patience=3] [--multi=3]
 
 use hotspring_barracuda::data;
-use hotspring_barracuda::physics::{nuclear_matter_properties, semf_binding_energy};
+use hotspring_barracuda::physics::{nuclear_matter_properties, semf_binding_energy, NuclearMatterProps};
 use hotspring_barracuda::physics::hfb::binding_energy_l2;
 
-// ALL from barracuda native — no hotspring_barracuda::surrogate or ::stats
 use barracuda::sample::direct::{direct_sampler, DirectSamplerConfig};
+use barracuda::sample::sparsity::{sparsity_sampler, SparsitySamplerConfig, PenaltyFilter};
 use barracuda::sample::latin_hypercube;
 use barracuda::stats::{bootstrap_ci, chi2_decomposed_weighted};
 use barracuda::optimize::convergence_diagnostics;
@@ -28,31 +29,122 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 
+// ═══════════════════════════════════════════════════════════════════
+// NMP targets from published literature
+// ═══════════════════════════════════════════════════════════════════
+
+struct NmpTarget {
+    name: &'static str,
+    target: f64,
+    sigma: f64,
+    unit: &'static str,
+}
+
+const NMP_TARGETS: [NmpTarget; 5] = [
+    NmpTarget { name: "rho0",  target: 0.16,   sigma: 0.005, unit: "fm^-3" },
+    NmpTarget { name: "E/A",   target: -15.97,  sigma: 0.5,   unit: "MeV" },
+    NmpTarget { name: "K_inf", target: 230.0,   sigma: 20.0,  unit: "MeV" },
+    NmpTarget { name: "m*/m",  target: 0.69,    sigma: 0.1,   unit: "" },
+    NmpTarget { name: "J",     target: 32.0,    sigma: 2.0,   unit: "MeV" },
+];
+
+#[allow(dead_code)]
+const SLY4_PARAMS: [f64; 10] = [
+    -2488.91, 486.82, -546.39, 13777.0,
+    0.834, -0.344, -1.0, 1.354, 0.1667, 123.0,
+];
+
+fn nmp_chi2(nmp: &NuclearMatterProps) -> f64 {
+    let vals = [nmp.rho0_fm3, nmp.e_a_mev, nmp.k_inf_mev, nmp.m_eff_ratio, nmp.j_mev];
+    let mut chi2 = 0.0;
+    for (i, &val) in vals.iter().enumerate() {
+        chi2 += ((val - NMP_TARGETS[i].target) / NMP_TARGETS[i].sigma).powi(2);
+    }
+    chi2 / 5.0
+}
+
+fn print_nmp_analysis(nmp: &NuclearMatterProps) {
+    let vals = [nmp.rho0_fm3, nmp.e_a_mev, nmp.k_inf_mev, nmp.m_eff_ratio, nmp.j_mev];
+    let chi2 = nmp_chi2(nmp);
+    println!("  NMP vs published targets (chi2_NMP/datum = {:.4}):", chi2);
+    let mut all_ok = true;
+    for (i, &val) in vals.iter().enumerate() {
+        let t = &NMP_TARGETS[i];
+        let dev = (val - t.target) / t.sigma;
+        let ok = if dev.abs() <= 2.0 { "OK" } else if dev.abs() <= 3.0 { "~ " } else { "!!" };
+        if dev.abs() > 2.0 { all_ok = false; }
+        println!("    {} {:6} = {:>10.4} {:>5}  ({:>+6.2} sigma) [target: {} +/- {}]",
+            ok, t.name, val, t.unit, dev, t.target, t.sigma);
+    }
+    println!("    All within 2sigma: {}", if all_ok { "YES" } else { "NO" });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CLI args
+// ═══════════════════════════════════════════════════════════════════
+
+struct CliArgs {
+    seed: u64,
+    lambda: f64,
+    lambda_l1: f64,
+    n_l1: usize,
+    nm_starts: usize,
+    evals_per_start: usize,
+    n_rounds: usize,
+    patience: usize,
+    multi: usize,
+    sparsity: bool,
+}
+
+fn parse_args() -> CliArgs {
+    let args: Vec<String> = std::env::args().collect();
+    let get = |prefix: &str| -> Option<String> {
+        args.iter().find(|a| a.starts_with(prefix)).map(|a| a[prefix.len()..].to_string())
+    };
+    let has = |flag: &str| -> bool {
+        args.iter().any(|a| a == flag)
+    };
+
+    let lambda = get("--lambda=").and_then(|s| s.parse().ok()).unwrap_or(0.1);
+    CliArgs {
+        seed: get("--seed=").and_then(|s| s.parse().ok()).unwrap_or(42),
+        lambda,
+        lambda_l1: get("--lambda-l1=").and_then(|s| s.parse().ok()).unwrap_or(10.0),
+        n_l1: get("--l1-samples=").and_then(|s| s.parse().ok()).unwrap_or(5000),
+        nm_starts: get("--nm-starts=").and_then(|s| s.parse().ok()).unwrap_or(10),
+        evals_per_start: get("--evals=").and_then(|s| s.parse().ok()).unwrap_or(100),
+        n_rounds: get("--rounds=").and_then(|s| s.parse().ok()).unwrap_or(5),
+        patience: get("--patience=").and_then(|s| s.parse().ok()).unwrap_or(3),
+        multi: get("--multi=").and_then(|s| s.parse().ok()).unwrap_or(1),
+        sparsity: has("--sparsity"),
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Main
+// ═══════════════════════════════════════════════════════════════════
+
 fn main() {
+    let cli = parse_args();
+
     println!("╔══════════════════════════════════════════════════════════════╗");
-    println!("║  Nuclear EOS L2 — BarraCUDA Native Revalidation            ║");
-    println!("║  L1-Seeded DirectSampler with warm_start API               ║");
-    println!("║  ALL math from barracuda:: (evolved from hotSpring specs)   ║");
+    println!("║  Nuclear EOS L2 — NMP-Constrained HFB Pipeline (Evolved)   ║");
+    println!("║  Physics: p/n HFB + BCS + Coulomb + T_eff + CM             ║");
+    println!("║  Math: 100% BarraCUDA (gradient_1d, eigh_f64, brent)       ║");
     println!("╚══════════════════════════════════════════════════════════════╝");
     println!();
-
-    let args: Vec<String> = std::env::args().collect();
-    let n_l1 = args.iter()
-        .find(|a| a.starts_with("--l1-samples="))
-        .and_then(|a| a.strip_prefix("--l1-samples=")?.parse().ok())
-        .unwrap_or(5000);
-    let nm_starts = args.iter()
-        .find(|a| a.starts_with("--nm-starts="))
-        .and_then(|a| a.strip_prefix("--nm-starts=")?.parse().ok())
-        .unwrap_or(20);
-    let evals_per_start = args.iter()
-        .find(|a| a.starts_with("--evals="))
-        .and_then(|a| a.strip_prefix("--evals=")?.parse().ok())
-        .unwrap_or(200);
-    let n_rounds = args.iter()
-        .find(|a| a.starts_with("--rounds="))
-        .and_then(|a| a.strip_prefix("--rounds=")?.parse().ok())
-        .unwrap_or(3);
+    println!("  lambda(L2):      {}", cli.lambda);
+    println!("  lambda(L1 seed): {}", cli.lambda_l1);
+    println!("  seed:            {}", cli.seed);
+    println!("  L1 screening:    {} samples", cli.n_l1);
+    println!("  NM starts:       {} (from top-K L1)", cli.nm_starts);
+    println!("  Evals per start: {}", cli.evals_per_start);
+    println!("  Rounds:          {}", cli.n_rounds);
+    println!("  Patience:        {}", cli.patience);
+    println!("  Multi-seed:      {}", cli.multi);
+    println!("  SparsitySampler: {}", if cli.sparsity { "YES" } else { "no" });
+    println!("  Rayon threads:   {}", rayon::current_num_threads());
+    println!();
 
     // ── Load data ──────────────────────────────────────────────────
     let base = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -74,221 +166,359 @@ fn main() {
 
     println!("  Experimental nuclei: {}", nuclei.len());
     println!("  Parameters:          {} dimensions", bounds.len());
-    println!("  L1 screening:        {} samples", n_l1);
-    println!("  NM starts:           {} (from top-K L1 solutions)", nm_starts);
-    println!("  Evals per start:     {}", evals_per_start);
-    println!("  DirectSampler rounds: {}", n_rounds);
-    println!("  Rayon threads:       {}", rayon::current_num_threads());
     println!();
 
-    let t_total = Instant::now();
+    let _t_total = Instant::now();
 
-    // ═══════════════════════════════════════════════════════════════
-    // PHASE 1: L1 (SEMF) screening — find promising starting regions
-    // ═══════════════════════════════════════════════════════════════
-    println!("═══════════════════════════════════════════════════════════════");
-    println!("  PHASE 1: L1 Screening ({} SEMF evaluations)", n_l1);
-    println!("═══════════════════════════════════════════════════════════════");
+    // Track results across all seeds
+    let mut all_results: Vec<SeedResult> = Vec::new();
 
-    let t1 = Instant::now();
-    let l1_samples = latin_hypercube(n_l1, &bounds, 42).expect("LHS failed");
+    for seed_idx in 0..cli.multi {
+        let current_seed = cli.seed + seed_idx as u64 * 1000;
 
-    let l1_scores: Vec<f64> = l1_samples.iter()
-        .map(|x| l1_objective(x, &exp_data))
-        .collect();
+        if cli.multi > 1 {
+            println!("╔══════════════════════════════════════════════════════════════╗");
+            println!("║  SEED RUN {}/{} (seed={})                                  ║",
+                seed_idx + 1, cli.multi, current_seed);
+            println!("╚══════════════════════════════════════════════════════════════╝");
+            println!();
+        }
 
-    // Sort by L1 score
-    let mut indices: Vec<usize> = (0..l1_scores.len()).collect();
-    indices.sort_by(|&a, &b| l1_scores[a].partial_cmp(&l1_scores[b]).unwrap());
+        // ═══════════════════════════════════════════════════════════════
+        // PHASE 1: L1 screening with NMP bias
+        // ═══════════════════════════════════════════════════════════════
+        println!("═══════════════════════════════════════════════════════════════");
+        println!("  PHASE 1: L1 NMP-Constrained Screening ({} SEMF, lambda_l1={})",
+            cli.n_l1, cli.lambda_l1);
+        println!("═══════════════════════════════════════════════════════════════");
 
-    let n_nmp_valid = l1_scores.iter().filter(|&&s| s < 9.0).count();
-    let n_good = l1_scores.iter().filter(|&&s| s < 5.0).count();
+        let t1 = Instant::now();
+        let l1_samples = latin_hypercube(cli.n_l1, &bounds, current_seed).expect("LHS failed");
 
-    println!("  L1 screening: {:.2}s", t1.elapsed().as_secs_f64());
-    println!("  NMP-valid:    {}/{} ({:.1}%)", n_nmp_valid, n_l1, 100.0 * n_nmp_valid as f64 / n_l1 as f64);
-    println!("  Good (<5):    {}/{} ({:.1}%)", n_good, n_l1, 100.0 * n_good as f64 / n_l1 as f64);
-    println!("  Best L1:      log(1+χ²) = {:.4}", l1_scores[indices[0]]);
-    println!("  Rank-{} L1:  log(1+χ²) = {:.4}", nm_starts, l1_scores[indices[nm_starts.min(l1_scores.len()) - 1]]);
-    println!();
+        let exp_data_l1 = exp_data.clone();
+        let lambda_l1 = cli.lambda_l1;
+        let l1_scores: Vec<f64> = l1_samples.iter()
+            .map(|x| l1_objective_nmp(x, &exp_data_l1, lambda_l1))
+            .collect();
 
-    // Top-K seeds for L2 — use barracuda::sample::direct with warm_start
-    let seeds: Vec<Vec<f64>> = indices[..nm_starts.min(indices.len())]
-        .iter()
-        .map(|&i| l1_samples[i].clone())
-        .collect();
+        let mut indices: Vec<usize> = (0..l1_scores.len()).collect();
+        indices.sort_by(|&a, &b| l1_scores[a].partial_cmp(&l1_scores[b]).unwrap());
 
-    // ═══════════════════════════════════════════════════════════════
-    // PHASE 2: Native DirectSampler with L1 warm-start
-    // ═══════════════════════════════════════════════════════════════
-    println!("═══════════════════════════════════════════════════════════════");
-    println!("  PHASE 2: Native DirectSampler (L1 warm-start → L2 NM)");
-    println!("═══════════════════════════════════════════════════════════════");
+        let seeds: Vec<Vec<f64>> = indices.iter()
+            .take(cli.nm_starts)
+            .map(|&i| l1_samples[i].clone())
+            .collect();
 
-    let t2 = Instant::now();
+        println!("  L1 screening:    {:.2}s", t1.elapsed().as_secs_f64());
+        println!("  Best L1:         log(1+chi2) = {:.4}", l1_scores[indices[0]]);
+        println!("  L1 seeds:        {}", seeds.len());
 
-    let direct_config = DirectSamplerConfig::new(42)
-        .with_rounds(n_rounds)
-        .with_solvers(nm_starts)
-        .with_eval_budget(evals_per_start)
-        .with_patience(2)
-        .with_warm_start(seeds.clone());
-
-    println!("  Config: {} rounds, {} solvers, {} evals/solver, {} warm-start seeds",
-        direct_config.n_rounds, direct_config.n_solvers,
-        direct_config.max_eval_per_solver, direct_config.warm_start_seeds.len());
-    println!("  Auto-smoothing: {} (monitoring)", direct_config.auto_smoothing);
-    println!();
-
-    // NOTE: DirectSampler runs NM on the objective. Since L2 is expensive,
-    // each call to f(x) triggers parallel HFB across nuclei.
-    let nuclei_clone = nuclei.clone();
-    let l2_obj = move |x: &[f64]| -> f64 {
-        l2_objective(x, &nuclei_clone)
-    };
-
-    let result = direct_sampler(l2_obj, &bounds, &direct_config)
-        .expect("DirectSampler failed");
-
-    let l2_time = t2.elapsed().as_secs_f64();
-    let chi2 = result.f_best.exp() - 1.0;
-
-    println!();
-    println!("╔══════════════════════════════════════════════════════════════╗");
-    println!("║  L2 Native DirectSampler Results                           ║");
-    println!("╠══════════════════════════════════════════════════════════════╣");
-    println!("║  χ²/datum:       {:12.4}                              ║", chi2);
-    println!("║  log(1+χ²):      {:12.6}                            ║", result.f_best);
-    println!("║  L2 evals:       {:6}                                    ║", result.cache.len());
-    println!("║  L2 time:        {:6.1}s                                   ║", l2_time);
-    println!("║  HFB throughput: {:6.1} evals/s                            ║",
-        result.cache.len() as f64 / l2_time);
-    println!("║  Early stopped:  {}                                         ║", result.early_stopped);
-    println!("║  Total time:     {:6.1}s (L1 screen + L2 NM)              ║", t_total.elapsed().as_secs_f64());
-    println!("╚══════════════════════════════════════════════════════════════╝");
-
-    // Round-by-round diagnostics
-    if !result.rounds.is_empty() {
+        if let Some(nmp) = nuclear_matter_properties(&l1_samples[indices[0]]) {
+            println!("  Best L1 NMP:     J={:.1}, rho0={:.4}, E/A={:.2}",
+                nmp.j_mev, nmp.rho0_fm3, nmp.e_a_mev);
+        }
         println!();
-        println!("  Round-by-round:");
-        for r in &result.rounds {
-            let rmse_str = r.surrogate_rmse
-                .map(|v| format!("{:.4}", v))
-                .unwrap_or_else(|| "n/a".to_string());
-            println!("    Round {}: best_f={:.6}, evals={}, surrogate_rmse={}, Δ={:.2e}",
-                r.round, r.best_f, r.n_evals, rmse_str, r.improvement);
-        }
-    }
 
-    // Convergence diagnostics (native)
-    let history: Vec<f64> = result.rounds.iter().map(|r| r.best_f).collect();
-    if history.len() >= 2 {
-        match convergence_diagnostics(&history, 5, 0.01, 2) {
-            Ok(diag) => {
-                println!();
-                println!("  {}", diag.summary());
+        // ═══════════════════════════════════════════════════════════════
+        // PHASE 2: L2 DirectSampler
+        // ═══════════════════════════════════════════════════════════════
+        println!("═══════════════════════════════════════════════════════════════");
+        println!("  PHASE 2: L2 NMP-Constrained DirectSampler");
+        println!("═══════════════════════════════════════════════════════════════");
+
+        let t2 = Instant::now();
+
+        let direct_config = DirectSamplerConfig::new(current_seed)
+            .with_rounds(cli.n_rounds)
+            .with_solvers(seeds.len().max(1))
+            .with_eval_budget(cli.evals_per_start)
+            .with_patience(cli.patience)
+            .with_warm_start(seeds.clone());
+
+        println!("  Config: {} rounds, {} solvers, {} evals/solver, patience={}",
+            direct_config.n_rounds, direct_config.n_solvers,
+            direct_config.max_eval_per_solver, cli.patience);
+        println!();
+
+        let nuclei_ds = nuclei.clone();
+        let lambda_l2 = cli.lambda;
+        let l2_obj_ds = move |x: &[f64]| -> f64 {
+            l2_objective_nmp(x, &nuclei_ds, lambda_l2)
+        };
+
+        let result_direct = direct_sampler(l2_obj_ds, &bounds, &direct_config)
+            .expect("DirectSampler failed");
+
+        let direct_time = t2.elapsed().as_secs_f64();
+
+        let (ds_chi2_be, ds_chi2_nmp, ds_chi2_total) =
+            decompose_chi2(&result_direct.x_best, &nuclei, cli.lambda);
+
+        println!();
+        println!("  DirectSampler: {} evals in {:.1}s", result_direct.cache.len(), direct_time);
+        println!("    chi2_BE/datum:  {:.4}", ds_chi2_be);
+        println!("    chi2_NMP/datum: {:.4}", ds_chi2_nmp);
+        println!("    chi2_total:     {:.4} (BE + {} * NMP)", ds_chi2_total, cli.lambda);
+
+        if !result_direct.rounds.is_empty() {
+            println!("\n  Round-by-round:");
+            for r in &result_direct.rounds {
+                let rmse_str = r.surrogate_rmse
+                    .map(|v| format!("{:.4}", v))
+                    .unwrap_or_else(|| "n/a".to_string());
+                println!("    Round {}: best_f={:.6}, evals={}, rmse={}, delta={:.2e}",
+                    r.round, r.best_f, r.n_evals, rmse_str, r.improvement);
             }
-            Err(e) => println!("  Convergence analysis failed: {}", e),
         }
-    }
 
-    // ═══════════════════════════════════════════════════════════════
-    // PHASE 3: Statistical analysis at best point (native barracuda::stats)
-    // ═══════════════════════════════════════════════════════════════
-    println!();
-    println!("═══════════════════════════════════════════════════════════════");
-    println!("  STATISTICAL ANALYSIS (barracuda::stats native)");
-    println!("═══════════════════════════════════════════════════════════════");
+        let history: Vec<f64> = result_direct.rounds.iter().map(|r| r.best_f).collect();
+        if history.len() >= 2 {
+            if let Ok(diag) = convergence_diagnostics(&history, 5, 0.01, 2) {
+                println!("\n  {}", diag.summary());
+            }
+        }
 
-    let (observed, expected, sigma) = compute_l2_binding_energies(&result.x_best, &nuclei);
+        // ═══════════════════════════════════════════════════════════════
+        // PHASE 2b (optional): SparsitySampler comparison
+        // ═══════════════════════════════════════════════════════════════
+        let mut sparsity_result: Option<(f64, f64, f64, usize, f64)> = None;
 
-    if !observed.is_empty() {
-        match chi2_decomposed_weighted(&observed, &expected, &sigma, bounds.len()) {
-            Ok(chi2_result) => {
-                println!();
-                println!("{}", chi2_result.summary());
+        if cli.sparsity {
+            println!();
+            println!("═══════════════════════════════════════════════════════════════");
+            println!("  PHASE 2b: L2 SparsitySampler (auto_smoothing + exploration)");
+            println!("═══════════════════════════════════════════════════════════════");
 
-                // Top 5 worst nuclei
+            let t_sp = Instant::now();
+
+            let mut sp_config = SparsitySamplerConfig::new(bounds.len(), current_seed + 7777);
+            sp_config.n_initial = 30;
+            sp_config.n_solvers = 6;
+            sp_config.max_eval_per_solver = 40;
+            sp_config.n_iterations = 4;
+            sp_config.auto_smoothing = true;
+            sp_config.penalty_filter = PenaltyFilter::AdaptiveMAD(5.0);
+            sp_config.warm_start_seeds = seeds.clone();
+
+            let nuclei_sp = nuclei.clone();
+            let lambda_sp = cli.lambda;
+            let l2_obj_sp = move |x: &[f64]| -> f64 {
+                l2_objective_nmp(x, &nuclei_sp, lambda_sp)
+            };
+
+            match sparsity_sampler(l2_obj_sp, &bounds, &sp_config) {
+                Ok(result_sp) => {
+                    let sp_time = t_sp.elapsed().as_secs_f64();
+                    let (sp_be, sp_nmp, sp_total) =
+                        decompose_chi2(&result_sp.x_best, &nuclei, cli.lambda);
+                    println!("  SparsitySampler: {} evals in {:.1}s", result_sp.cache.len(), sp_time);
+                    println!("    chi2_BE/datum:  {:.4}", sp_be);
+                    println!("    chi2_NMP/datum: {:.4}", sp_nmp);
+                    println!("    chi2_total:     {:.4}", sp_total);
+                    sparsity_result = Some((sp_be, sp_nmp, sp_total, result_sp.cache.len(), sp_time));
+                }
+                Err(e) => {
+                    println!("  SparsitySampler failed: {}", e);
+                }
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // PHASE 3: Statistical analysis on best result
+        // ═══════════════════════════════════════════════════════════════
+        println!();
+        println!("═══════════════════════════════════════════════════════════════");
+        println!("  STATISTICAL ANALYSIS");
+        println!("═══════════════════════════════════════════════════════════════");
+
+        let best_params = &result_direct.x_best;
+
+        let (observed, expected, sigma) = compute_l2_binding_energies(best_params, &nuclei);
+
+        if !observed.is_empty() {
+            if let Ok(chi2_result) = chi2_decomposed_weighted(&observed, &expected, &sigma, bounds.len()) {
+                println!("\n{}", chi2_result.summary());
+
                 let worst = chi2_result.worst_n(5);
-                println!();
-                println!("  Top 5 worst-fitting nuclei (by pull):");
+                println!("\n  Top 5 worst-fitting nuclei (by pull):");
                 for &idx in &worst {
-                    println!("    [{}] pull={:.2}σ, χ²_i={:.2}, residual={:.2} MeV",
+                    println!("    [{}] pull={:.2}sigma, chi2_i={:.2}, residual={:.2} MeV",
                         idx, chi2_result.pulls[idx], chi2_result.contributions[idx],
                         chi2_result.residuals[idx]);
                 }
 
-                // Bootstrap CI
                 let per_datum: Vec<f64> = chi2_result.contributions.clone();
                 if per_datum.len() >= 5 {
-                    match bootstrap_ci(
+                    if let Ok(ci) = bootstrap_ci(
                         &per_datum,
                         |d| d.iter().sum::<f64>() / d.len() as f64,
-                        5000, 0.95, 42,
+                        5000, 0.95, current_seed,
                     ) {
-                        Ok(ci) => {
-                            println!();
-                            println!("  Bootstrap 95% CI on χ²/datum: {}", ci.summary());
-                        }
-                        Err(e) => println!("  Bootstrap failed: {}", e),
+                        println!("\n  Bootstrap 95% CI on chi2/datum: {}", ci.summary());
                     }
                 }
+
+                // Per-region analysis
+                println!("\n  Accuracy by mass region:");
+                println!("  {:>15} {:>6} {:>10} {:>10} {:>12} {:>10}",
+                    "Region", "Count", "RMS(MeV)", "MAE(MeV)", "Mean|dB/B|", "chi2/dat");
+                for (label, lo, hi) in &[
+                    ("Light A<56", 0, 56),
+                    ("Medium 56-100", 56, 100),
+                    ("Heavy 100-200", 100, 200),
+                    ("V.Heavy 200+", 200, 999),
+                ] {
+                    let region: Vec<usize> = nuclei.iter().enumerate()
+                        .filter(|(_, (z, n, _))| { let a = z + n; a >= *lo && a < *hi })
+                        .map(|(i, _)| i)
+                        .filter(|&i| i < observed.len())
+                        .collect();
+                    if region.is_empty() { continue; }
+                    let mut sum_sq = 0.0;
+                    let mut sum_abs = 0.0;
+                    let mut sum_rel = 0.0;
+                    let mut sum_chi2 = 0.0;
+                    for &i in &region {
+                        let resid = observed[i] - expected[i];
+                        sum_sq += resid * resid;
+                        sum_abs += resid.abs();
+                        sum_rel += (resid / expected[i]).abs();
+                        sum_chi2 += chi2_result.contributions[i];
+                    }
+                    let cnt = region.len() as f64;
+                    println!("  {:>15} {:>6} {:>10.3} {:>10.3} {:>12.6e} {:>10.4}",
+                        label, region.len(), (sum_sq / cnt).sqrt(), sum_abs / cnt,
+                        sum_rel / cnt, sum_chi2 / cnt);
+                }
             }
-            Err(e) => println!("  chi2_decomposed_weighted failed: {}", e),
         }
+
+        if let Some(nmp) = nuclear_matter_properties(best_params) {
+            println!();
+            print_nmp_analysis(&nmp);
+        }
+
+        println!("\n  Best parameters:");
+        let names = ["t0", "t1", "t2", "t3", "x0", "x1", "x2", "x3", "alpha", "W0"];
+        for (i, &v) in best_params.iter().enumerate() {
+            println!("    {:6} = {:>12.4}", names.get(i).unwrap_or(&"?"), v);
+        }
+
+        // Track for multi-seed summary
+        all_results.push(SeedResult {
+            seed: current_seed,
+            chi2_be: ds_chi2_be,
+            chi2_nmp: ds_chi2_nmp,
+            chi2_total: ds_chi2_total,
+            n_evals: result_direct.cache.len(),
+            time: direct_time,
+            params: best_params.clone(),
+            sparsity: sparsity_result,
+        });
     }
 
-    // Nuclear matter properties
-    if let Some(nmp) = nuclear_matter_properties(&result.x_best) {
+    // ═══════════════════════════════════════════════════════════════
+    // MULTI-SEED SUMMARY
+    // ═══════════════════════════════════════════════════════════════
+    if cli.multi > 1 {
         println!();
-        println!("  Nuclear matter properties:");
-        println!("    ρ₀   = {:.4} fm⁻³  (exp: 0.16 ± 0.01)", nmp.rho0_fm3);
-        println!("    E/A  = {:.2} MeV    (exp: -15.97 ± 0.2)", nmp.e_a_mev);
-        println!("    K∞   = {:.1} MeV    (exp: 230 ± 30)", nmp.k_inf_mev);
-        println!("    m*/m = {:.3}        (exp: 0.69 ± 0.1)", nmp.m_eff_ratio);
-        println!("    J    = {:.1} MeV    (exp: 32 ± 2)", nmp.j_mev);
-    }
+        println!("╔══════════════════════════════════════════════════════════════╗");
+        println!("║  MULTI-SEED SUMMARY ({} seeds)                              ║", cli.multi);
+        println!("╚══════════════════════════════════════════════════════════════╝");
+        println!();
+        println!("  {:>8} {:>12} {:>12} {:>12} {:>8} {:>8}",
+            "Seed", "chi2_BE", "chi2_NMP", "chi2_total", "Evals", "Time(s)");
+        for r in &all_results {
+            println!("  {:>8} {:>12.4} {:>12.4} {:>12.4} {:>8} {:>8.1}",
+                r.seed, r.chi2_be, r.chi2_nmp, r.chi2_total, r.n_evals, r.time);
+        }
 
-    // Evaluation distribution
-    let (_, y_all) = result.cache.training_data();
-    let mut sorted_y = y_all.clone();
-    sorted_y.sort_by(|a, b| a.partial_cmp(b).unwrap());
-    let n_total = sorted_y.len();
-    let n_penalty = sorted_y.iter().filter(|&&v| v > 9.0).count();
-    let n_good_l2 = sorted_y.iter().filter(|&&v| v < 5.0).count();
+        let best = all_results.iter().min_by(|a, b| a.chi2_be.partial_cmp(&b.chi2_be).unwrap()).unwrap();
+        let mean_be: f64 = all_results.iter().map(|r| r.chi2_be).sum::<f64>() / cli.multi as f64;
+        let std_be = if cli.multi > 1 {
+            let var: f64 = all_results.iter().map(|r| (r.chi2_be - mean_be).powi(2)).sum::<f64>() / (cli.multi - 1) as f64;
+            var.sqrt()
+        } else { 0.0 };
 
-    println!();
-    println!("  Evaluation distribution (log(1+χ²)):");
-    println!("    Total:        {}", n_total);
-    if n_total > 0 {
-        println!("    Best:         {:.4}", sorted_y[0]);
-        println!("    p10:          {:.4}", sorted_y[n_total / 10]);
-        println!("    Median:       {:.4}", sorted_y[n_total / 2]);
-        println!("    Penalty (>9): {} ({:.1}%)", n_penalty, 100.0 * n_penalty as f64 / n_total as f64);
-        println!("    Good (<5):    {} ({:.1}%)", n_good_l2, 100.0 * n_good_l2 as f64 / n_total as f64);
+        println!();
+        println!("  Best chi2_BE/datum:  {:.4} (seed={})", best.chi2_be, best.seed);
+        println!("  Mean chi2_BE/datum:  {:.4} +/- {:.4}", mean_be, std_be);
     }
 
     // ═══════════════════════════════════════════════════════════════
     // COMPARISON
     // ═══════════════════════════════════════════════════════════════
+    let best = all_results.iter().min_by(|a, b| a.chi2_be.partial_cmp(&b.chi2_be).unwrap()).unwrap();
+
     println!();
     println!("═══════════════════════════════════════════════════════════════");
     println!("  COMPARISON SUMMARY");
     println!("═══════════════════════════════════════════════════════════════");
     println!();
-    println!("  {:40} {:>10} {:>8} {:>8}", "Method", "χ²/datum", "Evals", "Time");
-    println!("  {:40} {:>10} {:>8} {:>8}", "─".repeat(40), "─".repeat(10), "─".repeat(8), "─".repeat(8));
-    println!("  {:40} {:>10.2} {:>8} {:>6.0}s",
-        "Native DirectSampler (L1 warm-start)", chi2, result.cache.len(), l2_time);
-    println!("  {:40} {:>10.2} {:>8} {:>8}",
-        "Prev BarraCUDA L2 ref (manual NM)", 28450.0, 4022, "743s");
-    println!("  {:40} {:>10.2} {:>8} {:>8}",
-        "Python/scipy control", 61.87, 96, "~600s");
-    println!("  {:40} {:>10.2} {:>8} {:>8}",
-        "Prev BarraCUDA (toadstool-orchestrated)", 25.43, 1009, "2091s");
+    println!("  {:42} {:>10} {:>8} {:>8}", "Method", "chi2/dat", "Evals", "Time");
+    println!("  {:42} {:>10} {:>8} {:>8}", "-".repeat(42), "-".repeat(10), "-".repeat(8), "-".repeat(8));
+    println!("  {:42} {:>10.2} {:>8} {:>6.0}s",
+        "DirectSampler (this run)", best.chi2_be, best.n_evals, best.time);
 
-    if chi2 < 61.87 {
+    if let Some((sp_be, _, _, sp_evals, sp_time)) = best.sparsity {
+        println!("  {:42} {:>10.2} {:>8} {:>6.0}s",
+            "SparsitySampler (this run)", sp_be, sp_evals, sp_time);
+    }
+
+    println!("  {:42} {:>10.2} {:>8} {:>8}",
+        "Prev BarraCUDA L2 (pre-fix)", 28450.0, 4022, "743s");
+    println!("  {:42} {:>10.2} {:>8} {:>8}",
+        "Prev BarraCUDA L2 (post-fix, small budget)", 16.11, 40, "1559s");
+    println!("  {:42} {:>10.2} {:>8} {:>8}",
+        "Python/scipy control", 61.87, 96, "~600s");
+
+    // Python parity check
+    if best.chi2_be < 61.87 {
+        let improvement = 61.87 / best.chi2_be;
+        println!("\n  PYTHON PARITY: EXCEEDED by {:.1}x (BarraCUDA {:.2} vs Python 61.87)", improvement, best.chi2_be);
+    } else {
+        let gap = best.chi2_be / 61.87;
+        println!("\n  PYTHON PARITY: {:.1}x gap remaining", gap);
+    }
+
+    // Paper parity analysis
+    println!();
+    println!("═══════════════════════════════════════════════════════════════");
+    println!("  PAPER PARITY ANALYSIS (target ~10^-6 relative accuracy)");
+    println!("═══════════════════════════════════════════════════════════════");
+
+    let (observed, expected, _sigma) = compute_l2_binding_energies(&best.params, &nuclei);
+    if !observed.is_empty() {
+        let mut sum_rel_sq = 0.0;
+        let mut sum_abs_sq = 0.0;
+        for i in 0..observed.len() {
+            let rel = ((observed[i] - expected[i]) / expected[i]).abs();
+            sum_rel_sq += rel * rel;
+            sum_abs_sq += (observed[i] - expected[i]).powi(2);
+        }
+        let rms_rel = (sum_rel_sq / observed.len() as f64).sqrt();
+        let rms_abs = (sum_abs_sq / observed.len() as f64).sqrt();
+
         println!();
-        println!("  ✅ BarraCUDA BEATS Python L2 by {:.1}%", 100.0 * (61.87 - chi2) / 61.87);
+        println!("  RMS |dB/B|:      {:.6e}", rms_rel);
+        println!("  RMS |dB| (MeV):  {:.3}", rms_abs);
+        println!("  Paper target:    ~1.0e-06 (relative)");
+        println!("  Gap to paper:    {:.1} orders of magnitude",
+            (rms_rel / 1e-6).log10());
+        println!();
+        println!("  Physics model capabilities:");
+        println!("    L1 SEMF floor:     ~5e-3 relative (~2-3 MeV RMS)");
+        println!("    L2 HFB floor:      ~3e-4 relative (~0.5 MeV RMS)");
+        println!("    L3 (deformed HFB): ~1e-5 relative (~0.1 MeV RMS)");
+        println!("    Paper (beyond-MF): ~1e-6 relative (~keV RMS)");
+        println!();
+        if rms_rel < 1e-3 {
+            println!("  L2 HFB is performing well. Next step: L3 deformation.");
+        } else if rms_rel < 1e-2 {
+            println!("  L2 HFB needs more optimization budget or constraint tuning.");
+        } else {
+            println!("  Significant gap remains. Need more L2 budget and lambda tuning.");
+        }
     }
 
     // Save results
@@ -296,35 +526,67 @@ fn main() {
     std::fs::create_dir_all(&results_dir).ok();
     let result_json = serde_json::json!({
         "level": 2,
-        "engine": "barracuda::native_direct_sampler_l2",
-        "barracuda_version": "phase5_evolved",
-        "chi2_per_datum": chi2,
-        "log_chi2": result.f_best,
-        "l1_screening_samples": n_l1,
-        "nm_starts": nm_starts,
-        "direct_sampler_rounds": n_rounds,
-        "evals_per_start": evals_per_start,
-        "total_l2_evals": result.cache.len(),
-        "l2_time_seconds": l2_time,
-        "total_time_seconds": t_total.elapsed().as_secs_f64(),
-        "early_stopped": result.early_stopped,
-        "best_params": result.x_best,
+        "engine": "barracuda::l2_evolved_hfb",
+        "physics": "p/n_HFB + BCS + Coulomb_Poisson_Slater + T_eff + CM",
+        "math": "100pct_barracuda (gradient_1d_2ndorder, eigh_f64, brent)",
+        "lambda": cli.lambda,
+        "lambda_l1": cli.lambda_l1,
+        "seed": cli.seed,
+        "multi": cli.multi,
+        "chi2_be_per_datum": best.chi2_be,
+        "chi2_nmp_per_datum": best.chi2_nmp,
+        "chi2_total_per_datum": best.chi2_total,
+        "n_evals": best.n_evals,
+        "time_seconds": best.time,
+        "best_params": best.params,
+        "nmp": nuclear_matter_properties(&best.params).map(|n| serde_json::json!({
+            "rho0": n.rho0_fm3,
+            "E_A": n.e_a_mev,
+            "K_inf": n.k_inf_mev,
+            "m_eff": n.m_eff_ratio,
+            "J": n.j_mev,
+        })),
+        "all_seeds": all_results.iter().map(|r| serde_json::json!({
+            "seed": r.seed,
+            "chi2_be": r.chi2_be,
+            "chi2_nmp": r.chi2_nmp,
+            "n_evals": r.n_evals,
+        })).collect::<Vec<_>>(),
         "references": {
-            "prev_barracuda_l2_ref": { "chi2_per_datum": 28450.0, "evals": 4022 },
-            "python_scipy": { "chi2_per_datum": 61.87, "evals": 96 },
-            "toadstool_orchestrated": { "chi2_per_datum": 25.43, "evals": 1009 },
+            "prev_barracuda_l2_prefix": { "chi2_per_datum": 28450.0 },
+            "prev_barracuda_l2_postfix": { "chi2_per_datum": 16.11 },
+            "python_scipy": { "chi2_per_datum": 61.87 },
         },
     });
-    let path = results_dir.join("barracuda_l2_native_revalidation.json");
+    let path = results_dir.join("barracuda_l2_evolved.json");
     std::fs::write(&path, serde_json::to_string_pretty(&result_json).unwrap()).ok();
     println!("\n  Results saved to: {}", path.display());
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// L1 objective (SEMF) — cheap proxy for screening
+// Data structures
 // ═══════════════════════════════════════════════════════════════════
 
-fn l1_objective(x: &[f64], exp_data: &HashMap<(usize, usize), (f64, f64)>) -> f64 {
+struct SeedResult {
+    seed: u64,
+    chi2_be: f64,
+    chi2_nmp: f64,
+    chi2_total: f64,
+    n_evals: usize,
+    time: f64,
+    params: Vec<f64>,
+    sparsity: Option<(f64, f64, f64, usize, f64)>, // (be, nmp, total, evals, time)
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Objective functions
+// ═══════════════════════════════════════════════════════════════════
+
+fn l1_objective_nmp(
+    x: &[f64],
+    exp_data: &HashMap<(usize, usize), (f64, f64)>,
+    lambda: f64,
+) -> f64 {
     if x[8] <= 0.01 || x[8] > 1.0 { return (1e4_f64).ln_1p(); }
 
     let nmp = match nuclear_matter_properties(x) {
@@ -332,44 +594,36 @@ fn l1_objective(x: &[f64], exp_data: &HashMap<(usize, usize), (f64, f64)>) -> f6
         None => return (1e4_f64).ln_1p(),
     };
 
-    let mut penalty = 0.0;
-    if nmp.rho0_fm3 < 0.08 { penalty += 50.0 * (0.08 - nmp.rho0_fm3) / 0.08; }
-    if nmp.rho0_fm3 > 0.25 { penalty += 50.0 * (nmp.rho0_fm3 - 0.25) / 0.25; }
-    if nmp.e_a_mev > -5.0 { penalty += 20.0 * (nmp.e_a_mev + 5.0).max(0.0); }
+    if nmp.rho0_fm3 < 0.05 || nmp.rho0_fm3 > 0.30 { return (1e4_f64).ln_1p(); }
+    if nmp.e_a_mev > 0.0 { return (1e4_f64).ln_1p(); }
 
-    let mut chi2 = 0.0;
+    let mut chi2_be = 0.0;
     let mut n = 0;
     for (&(z, nn), &(b_exp, _)) in exp_data.iter() {
         let b_calc = semf_binding_energy(z, nn, x);
         if b_calc > 0.0 {
             let sigma_theo = (0.01 * b_exp).max(2.0);
-            chi2 += ((b_calc - b_exp) / sigma_theo).powi(2);
+            chi2_be += ((b_calc - b_exp) / sigma_theo).powi(2);
             n += 1;
         }
     }
     if n == 0 { return (1e4_f64).ln_1p(); }
-    (chi2 / n as f64 + penalty).ln_1p()
+
+    let chi2_be_datum = chi2_be / n as f64;
+    let chi2_nmp_datum = nmp_chi2(&nmp);
+    (chi2_be_datum + lambda * chi2_nmp_datum).ln_1p()
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// L2 objective (HFB) — expensive, uses rayon for parallel nuclei
-// Penalty is set VERY HIGH (1e10) so NM avoids unphysical regions
-// ═══════════════════════════════════════════════════════════════════
-
-fn l2_objective(params: &[f64], nuclei: &[(usize, usize, f64)]) -> f64 {
-    if params[8] <= 0.01 || params[8] > 1.0 {
-        return (1e10_f64).ln_1p();
-    }
+fn l2_objective_nmp(params: &[f64], nuclei: &[(usize, usize, f64)], lambda: f64) -> f64 {
+    if params[8] <= 0.01 || params[8] > 1.0 { return (1e10_f64).ln_1p(); }
 
     let nmp = match nuclear_matter_properties(params) {
         Some(n) => n,
         None => return (1e10_f64).ln_1p(),
     };
 
-    let mut penalty = 0.0;
-    if nmp.rho0_fm3 < 0.08 { penalty += 50.0 * (0.08 - nmp.rho0_fm3) / 0.08; }
-    if nmp.rho0_fm3 > 0.25 { penalty += 50.0 * (nmp.rho0_fm3 - 0.25) / 0.25; }
-    if nmp.e_a_mev > -5.0 { penalty += 20.0 * (nmp.e_a_mev + 5.0).max(0.0); }
+    if nmp.rho0_fm3 < 0.05 || nmp.rho0_fm3 > 0.30 { return (1e10_f64).ln_1p(); }
+    if nmp.e_a_mev > 0.0 { return (1e10_f64).ln_1p(); }
 
     let results: Vec<(f64, f64)> = nuclei.par_iter()
         .map(|&(z, n, b_exp)| {
@@ -378,28 +632,56 @@ fn l2_objective(params: &[f64], nuclei: &[(usize, usize, f64)]) -> f64 {
         })
         .collect();
 
-    let mut chi2 = 0.0;
+    let mut chi2_be = 0.0;
     let mut n_valid = 0;
-    for (b_calc, b_exp) in &results {
-        if *b_calc > 0.0 {
+    for &(b_calc, b_exp) in &results {
+        if b_calc > 0.0 {
             let sigma_theo = (0.01 * b_exp).max(2.0);
-            chi2 += ((b_calc - b_exp) / sigma_theo).powi(2);
+            chi2_be += ((b_calc - b_exp) / sigma_theo).powi(2);
+            n_valid += 1;
+        }
+    }
+    if n_valid == 0 { return (1e10_f64).ln_1p(); }
+
+    let chi2_be_datum = chi2_be / n_valid as f64;
+    let chi2_nmp_datum = nmp_chi2(&nmp);
+    (chi2_be_datum + lambda * chi2_nmp_datum).ln_1p()
+}
+
+fn decompose_chi2(params: &[f64], nuclei: &[(usize, usize, f64)], lambda: f64) -> (f64, f64, f64) {
+    let results: Vec<(f64, f64)> = nuclei.par_iter()
+        .map(|&(z, n, b_exp)| {
+            let (b_calc, _) = binding_energy_l2(z, n, params);
+            (b_calc, b_exp)
+        })
+        .collect();
+
+    let mut chi2_be = 0.0;
+    let mut n_valid = 0;
+    for &(b_calc, b_exp) in &results {
+        if b_calc > 0.0 {
+            let sigma_theo = (0.01 * b_exp).max(2.0);
+            chi2_be += ((b_calc - b_exp) / sigma_theo).powi(2);
             n_valid += 1;
         }
     }
 
-    if n_valid == 0 { return (1e10_f64).ln_1p(); }
-    (chi2 / n_valid as f64 + penalty).ln_1p()
+    let chi2_be_datum = if n_valid > 0 { chi2_be / n_valid as f64 } else { 1e10 };
+    let chi2_nmp_datum = nuclear_matter_properties(params)
+        .map(|n| nmp_chi2(&n))
+        .unwrap_or(1e4);
+    let chi2_total = chi2_be_datum + lambda * chi2_nmp_datum;
+
+    (chi2_be_datum, chi2_nmp_datum, chi2_total)
 }
 
-/// Compute per-nucleus L2 binding energies at best parameters.
 fn compute_l2_binding_energies(
     params: &[f64],
     nuclei: &[(usize, usize, f64)],
 ) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
     let results: Vec<(f64, f64)> = nuclei.par_iter()
         .map(|&(z, n, b_exp)| {
-            let (b_calc, _conv) = binding_energy_l2(z, n, params);
+            let (b_calc, _) = binding_energy_l2(z, n, params);
             (b_calc, b_exp)
         })
         .collect();

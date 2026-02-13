@@ -38,19 +38,19 @@ pub struct NMPConstraints {
 
 impl Default for NMPConstraints {
     fn default() -> Self {
-        // Generous bounds around experimental values
+        // Tightened bounds from L1 Pareto analysis
         // Experiment: ρ₀≈0.16, E/A≈-16, K∞≈230, m*≈0.7, J≈32
         Self {
-            rho0_min: 0.08,
-            rho0_max: 0.25,
+            rho0_min: 0.10,
+            rho0_max: 0.22,
             e_a_min: -22.0,
             e_a_max: -8.0,
             k_inf_min: 100.0,
             k_inf_max: 500.0,
             m_eff_min: 0.2,
             m_eff_max: 2.0,
-            j_min: 15.0,
-            j_max: 50.0,
+            j_min: 20.0,
+            j_max: 45.0,
         }
     }
 }

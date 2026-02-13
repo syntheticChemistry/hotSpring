@@ -11,9 +11,6 @@ license = "AGPL-3.0"
 # BarraCUDA: All scientific computing from the library
 barracuda = { path = "../../phase1/toadstool/crates/barracuda" }
 
-# Eigenvalue decomposition (gap in barracuda::linalg — documented for evolution)
-nalgebra = "0.33"
-
 # Data loading
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -23,6 +20,9 @@ rayon = "1.8"
 
 # Async runtime for GPU validation (validate_md)
 tokio = { version = "1.35", features = ["rt-multi-thread", "macros"] }
+
+# GPU compute (wgpu for SHADER_F64 FP64 science compute)
+wgpu = { version = "0.19", features = ["wgsl"] }
 
 # ── L1 validation (NMP-constrained, Pareto sweep, multi-seed) ──────
 [[bin]]
@@ -55,4 +55,14 @@ path = "src/bin/validate_optimizers.rs"
 [[bin]]
 name = "validate_md"
 path = "src/bin/validate_md.rs"
+
+# ── GPU FP64 validation (L1 + L2 on RTX 4070 via SHADER_F64) ────
+[[bin]]
+name = "nuclear_eos_gpu"
+path = "src/bin/nuclear_eos_gpu.rs"
+
+# ── HFB physics verification (Rust vs Python) ────────────────────
+[[bin]]
+name = "verify_hfb"
+path = "src/bin/verify_hfb.rs"
 
