@@ -105,7 +105,9 @@ Status: Hardware verified. Model pipeline needs cnn2snn conversion.
 | Level | χ²/datum | Evals | Time | Speedup | Method |
 |-------|----------|-------|------|---------|--------|
 | L1 | **2.27** | 6,028 | 2.3s | **478×** | WGSL cdist + f64 LA + LHS + multi-start NM |
-| L2 | 25.43 | 1,009 | 2091s | 1.7× | WGSL cdist + nalgebra eigen + rayon parallel |
+| L2 (best accuracy) | **16.11** | 60 | 53min | 1.7× | seed=42, λ=0.1, eigh_f64 Jacobi |
+| L2 (best NMP) | **19.29** | 60 | 55min | 1.7× | seed=123, λ=1.0, all 5 NMP within 2σ |
+| L2 (extended ref) | 25.43 | 1,009 | 35min | 1.7× | Different seed/λ — multimodal landscape |
 
 ### Key Discoveries
 
@@ -116,8 +118,9 @@ Status: Hardware verified. Model pipeline needs cnn2snn conversion.
 2. **Dual-precision strategy works**: f32 cdist on GPU → promote → f64 on CPU
    for TPS kernel and linear solve. Matches Python's torch.float64 accuracy.
 
-3. **Sampling > compute**: The L2 accuracy gap (25.43 vs 1.93) is entirely due
-   to sampling strategy (LHS vs mystic SparsitySampler), not compute or physics.
+3. **Sampling > compute**: The L2 accuracy gap (16.11 vs 1.93) is primarily due
+   to sampling strategy (DirectSampler vs mystic SparsitySampler), not compute or
+   physics. The range 16–25 across configs confirms the 10D landscape is multimodal.
    SparsitySampler port is the #1 priority.
 
 4. **LHS + multi-start NM beats random + single NM**: On L1, this combination

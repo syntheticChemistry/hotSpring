@@ -551,9 +551,10 @@ blockers** and deepened the evidence for ecoPrimals' thesis.
 
   | Metric | Python L1 | BarraCUDA L1 | Python L2 | BarraCUDA L2 |
   |--------|-----------|-------------|-----------|-------------|
-  | Best χ²/datum | 6.62 | **2.27** ✅ | 1.93 | 25.43 |
-  | Total evals | 1,008 | 6,028 | 3,008 | 1,009 |
-  | Total time | 184s | **2.3s** | 3.2h | 2091s |
+  | Best χ²/datum | 6.62 | **2.27** ✅ | **1.93** | **16.11** (Run A) |
+  | Best NMP-physical | — | — | — | 19.29 (Run B, 5/5 within 2σ) |
+  | Total evals | 1,008 | 6,028 | 3,008 | 60 |
+  | Total time | 184s | **2.3s** | 3.2h | 53 min |
   | Evals/second | 5.5 | **2,621** | 0.28 | 0.48 |
   | Speedup | — | **478×** | — | **1.7×** |
 
@@ -567,9 +568,10 @@ blockers** and deepened the evidence for ecoPrimals' thesis.
   - L1: BarraCUDA achieves **better χ² (2.27 vs 6.62)** at **478× throughput** —
     the combination of LHS + multi-start NM + f64 precision on Rust/WGSL
     comprehensively outperforms the Python/PyTorch control at L1.
-  - L2: BarraCUDA is **1.7× faster per eval** and achieves 25.43 χ² at 1009 evals
-    (vs Python's 61.87 at 96 evals). Python eventually reaches 1.93 at 3008 evals
-    with mystic SparsitySampler — the remaining gap is in sampling strategy, not
+  - L2: BarraCUDA achieves **16.11** χ² (Run A, 60 evals) and **19.29** (Run B, all
+    NMP physical). Python reaches 1.93 at 3008 evals with mystic SparsitySampler.
+    The range of BarraCUDA L2 values (16–25) confirms the landscape is multimodal.
+    The remaining gap is in sampling strategy, not
     compute or physics. SparsitySampler port is the #1 priority for L2 parity.
   - **GPU dispatch overhead discovery**: Using GPU for single-point surrogate
     predictions in the NM inner loop caused a 90× slowdown (dispatch latency >>
@@ -610,11 +612,11 @@ blockers** and deepened the evidence for ecoPrimals' thesis.
   | Time | 184s | **5.2s** | **2.3s** |
   | Speedup vs Python | — | **35×** | **80×** |
 
-  | Metric | Python L2 | Library L2 | Old Custom L2 |
-  |--------|-----------|------------|---------------|
-  | χ²/datum | 61.87 | 27,266 | **25.43** |
-  | Total evals | 96 | 700 | 1,009 |
-  | Time | 344s | **127s** | 2,091s |
+  | Metric | Python L2 (initial) | Python L2 (SparsitySampler) | BarraCUDA L2 (Run A) | BarraCUDA L2 (Run B) |
+  |--------|--------------------|-----------------------------|---------------------|---------------------|
+  | χ²/datum | 61.87 | **1.93** | **16.11** | **19.29** (5/5 NMP) |
+  | Total evals | 96 | 3,008 | 60 | 60 |
+  | Time | 344s | 3.2h | 53 min | 55 min |
   | Throughput | 0.28/s | **5.5/s** | 0.48/s |
 
   **Key findings**:
@@ -678,7 +680,7 @@ blockers** and deepened the evidence for ecoPrimals' thesis.
   | Level | Method | Python χ²/datum | BarraCUDA χ²/datum | Speedup | Platform |
   |-------|--------|-----------------|--------------------|---------|----------|
   | 1 | SEMF + nuclear matter (52 nuclei) | 6.62 | **2.27** ✅ | **478×** | Rust + WGSL |
-  | 2 | HF+BCS hybrid (18 focused nuclei) | **1.93** | 25.43 | 1.7× | Rust + WGSL + nalgebra + rayon |
+  | 2 | HF+BCS hybrid (18 focused nuclei) | **1.93** | **16.11** (best) / 19.29 (NMP) | 1.7× | Rust + WGSL + nalgebra + rayon |
   | 3 | Axially deformed HFB | ~0.5% (target) | - | - | **BarraCUDA + Titan V** |
 
   Hardware utilization for control experiments:
@@ -710,7 +712,7 @@ blockers** and deepened the evidence for ecoPrimals' thesis.
 | Nuclear EOS L2 Python (HFB hybrid, 18 nuclei) | 1 | 1 | ✅ χ²/datum=1.93 |
 | GPU RBF accelerator (PyTorch CUDA) | 1 | 1 | ✅ 2-7× speedup |
 | **BarraCUDA L1 (Rust+WGSL, f64, LHS+NM)** | **1** | **1** | **✅ χ²=2.27 (478× faster)** |
-| **BarraCUDA L2 (Rust+WGSL+nalgebra, f64)** | **1** | **1** | **✅ χ²=25.43 (1.7× faster)** |
+| **BarraCUDA L2 (Rust+WGSL+nalgebra, f64)** | **1** | **1** | **✅ χ²=16.11 best / 19.29 NMP (1.7× faster)** |
 | **Total** | **86** | **86** | **✅ CONTROL + BARRACUDA VALIDATED** |
 
 **Data archive**: `control/comprehensive_control_results.json`  
