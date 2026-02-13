@@ -751,3 +751,12 @@ evaluation strategy is identified and fixable — needs hybrid true+surrogate mo
 All 12 barracuda modules pass functional validation. See detailed handoff:
 `wateringHole/handoffs/BARRACUDA_LIBRARY_VALIDATION_FEB12_2026.md`.
 
+---
+
+## Document Links
+
+- [`PHYSICS.md`](PHYSICS.md) — Complete physics documentation with equations and references
+- [`whitePaper/STUDY.md`](whitePaper/STUDY.md) — Main study narrative (publishable draft)
+- [`whitePaper/BARRACUDA_SCIENCE_VALIDATION.md`](whitePaper/BARRACUDA_SCIENCE_VALIDATION.md) — Phase B technical results
+- [`whitePaper/CONTROL_EXPERIMENT_SUMMARY.md`](whitePaper/CONTROL_EXPERIMENT_SUMMARY.md) — Phase A quick reference
+- [`benchmarks/PROTOCOL.md`](benchmarks/PROTOCOL.md) — Benchmark protocol (time + energy measurement)

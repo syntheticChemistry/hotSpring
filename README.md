@@ -120,9 +120,30 @@ Upstream repos are pinned to specific versions and automatically patched:
 ```
 hotSpring/
 ├── README.md                           # This file
+├── PHYSICS.md                          # Complete physics documentation (equations + references)
 ├── CONTROL_EXPERIMENT_STATUS.md        # Comprehensive status + results (86/86)
 ├── NUCLEAR_EOS_STRATEGY.md             # Nuclear EOS Phase A→B strategy
+├── LICENSE                             # AGPL-3.0
 ├── .gitignore
+│
+├── whitePaper/                         # Public-facing study documents
+│   ├── README.md                      # Document index
+│   ├── STUDY.md                       # Main study — full writeup
+│   ├── BARRACUDA_SCIENCE_VALIDATION.md # Phase B technical results
+│   ├── CONTROL_EXPERIMENT_SUMMARY.md  # Phase A quick reference
+│   └── METHODOLOGY.md                # Two-phase validation protocol
+│
+├── barracuda/                          # BarraCUDA Rust crate (validation binaries)
+│   ├── Cargo.toml                     # Dependencies (requires ecoPrimals/phase1/toadstool)
+│   └── src/
+│       ├── bench.rs                   # Benchmark harness (time + energy + hardware)
+│       ├── gpu.rs                     # GPU device wrapper (wgpu SHADER_F64)
+│       ├── physics/                   # L1/L2/L3 physics implementations
+│       └── bin/                       # Validation binaries
+│           ├── nuclear_eos_l1_ref.rs  # L1 validation pipeline
+│           ├── nuclear_eos_l2_ref.rs  # L2 validation pipeline (evolved)
+│           ├── nuclear_eos_l3_ref.rs  # L3 deformed HFB (architecture)
+│           └── nuclear_eos_gpu.rs     # GPU FP64 validation + energy profiling
 │
 ├── control/
 │   ├── comprehensive_control_results.json  # Grand total: 86/86 checks
@@ -166,11 +187,9 @@ hotSpring/
 │       └── scripts/                    # Local + hydro model runners
 │
 ├── benchmarks/
-│   ├── PROTOCOL.md                     # Cross-gate benchmark protocol
-│   ├── sarkas-cpu/                     # Sarkas CPU comparison notes
-│   ├── sarkas-gpu/                     # Future: BarraCUDA vs Python
-│   ├── surrogate-gpu/                  # Surrogate training GPU benchmarks
-│   └── cross-substrate/               # Same workload, all hardware
+│   ├── PROTOCOL.md                     # Cross-gate benchmark protocol (time + energy)
+│   ├── nuclear-eos/results/            # Benchmark JSON reports (auto-generated)
+│   └── sarkas-cpu/                     # Sarkas CPU comparison notes
 │
 ├── data/
 │   ├── plasma-properties-db/           # Dense Plasma Properties Database — clone via scripts/
@@ -260,13 +279,30 @@ These are **silent failures** — wrong results, no error messages. This fragili
 
 ---
 
-## Related
+## Document Index
 
-- `CONTROL_EXPERIMENT_STATUS.md` — Full status with numbers, 86/86 checks
-- `NUCLEAR_EOS_STRATEGY.md` — Strategic plan: Python control → BarraCUDA proof
-- `PHYSICS.md` — Complete physics model documentation with equations and references
-- BarraCUDA L1/L2 source: `barracuda/src/bin/nuclear_eos_l{1,2}_ref.rs`
-- Handoff: `wateringHole/handoffs/BARRACUDA_SCIENTIFIC_COMPUTING_MIDDLEWARE_FEB11_2026.md`
+| Document | Purpose |
+|----------|---------|
+| [`PHYSICS.md`](PHYSICS.md) | Complete physics documentation — every equation, constant, approximation with numbered references |
+| [`CONTROL_EXPERIMENT_STATUS.md`](CONTROL_EXPERIMENT_STATUS.md) | Full status with numbers, 86/86 checks, evolution history |
+| [`NUCLEAR_EOS_STRATEGY.md`](NUCLEAR_EOS_STRATEGY.md) | Strategic plan: Python control → BarraCUDA proof |
+| [`whitePaper/README.md`](whitePaper/README.md) | **White paper index** — the publishable study narrative |
+| [`whitePaper/STUDY.md`](whitePaper/STUDY.md) | Main study: replicating computational plasma physics on consumer hardware |
+| [`whitePaper/BARRACUDA_SCIENCE_VALIDATION.md`](whitePaper/BARRACUDA_SCIENCE_VALIDATION.md) | Phase B technical results: BarraCUDA vs Python/SciPy |
+| [`benchmarks/PROTOCOL.md`](benchmarks/PROTOCOL.md) | Benchmark protocol: time + energy + hardware measurement |
+| [`control/surrogate/REPRODUCE.md`](control/surrogate/REPRODUCE.md) | Step-by-step reproduction guide for surrogate learning |
+
+### External References
+
+| Reference | DOI / URL | Used For |
+|-----------|-----------|----------|
+| Diaw et al. (2024) *Nature Machine Intelligence* | [10.1038/s42256-024-00839-1](https://doi.org/10.1038/s42256-024-00839-1) | Surrogate learning methodology |
+| Sarkas MD package | [github.com/murillo-group/sarkas](https://github.com/murillo-group/sarkas) (MIT) | DSF plasma simulations |
+| Dense Plasma Properties Database | [github.com/MurilloGroupMSU](https://github.com/MurilloGroupMSU/Dense-Plasma-Properties-Database) | DSF reference spectra |
+| Two-Temperature Model | [github.com/MurilloGroupMSU](https://github.com/MurilloGroupMSU/Two-Temperature-Model) | Plasma equilibration |
+| Zenodo surrogate archive | [10.5281/zenodo.10908462](https://doi.org/10.5281/zenodo.10908462) (CC-BY) | Convergence histories |
+| AME2020 (Wang et al. 2021) | [IAEA Nuclear Data](https://www-nds.iaea.org/amdc/ame2020/) | Experimental binding energies |
+| Code Ocean capsule | [10.24433/CO.1152070.v1](https://doi.org/10.24433/CO.1152070.v1) | **Gated** — registration denied |
 
 ---
 

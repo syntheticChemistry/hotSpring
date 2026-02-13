@@ -1,0 +1,95 @@
+cff-version: 1.2.0
+title: "hotSpring: Replicating Computational Plasma Physics on Consumer Hardware"
+message: "If you use this software, please cite it using the metadata from this file."
+type: software
+license: AGPL-3.0
+repository-code: "https://github.com/syntheticChemistry/hotSpring"
+keywords:
+  - nuclear physics
+  - equation of state
+  - Skyrme energy density functional
+  - GPU computing
+  - WebGPU
+  - WGSL
+  - reproducible science
+  - computational plasma physics
+  - molecular dynamics
+  - surrogate learning
+abstract: >-
+  hotSpring reproduces published computational plasma physics from the
+  Murillo Group (Michigan State University) on consumer hardware, validates
+  correctness against reference data (86/86 quantitative checks pass), and
+  re-executes computations using BarraCUDA — a Pure Rust scientific computing
+  library with WGSL GPU shaders. The study covers molecular dynamics (Sarkas),
+  plasma equilibration (Two-Temperature Model), and nuclear equation of state
+  surrogate learning (Diaw et al., Nature Machine Intelligence 2024). GPU FP64
+  validated to 4.55e-13 MeV precision. Energy profiling shows 44.8x less
+  energy on GPU vs Python for identical physics.
+references:
+  - type: article
+    title: "Efficient learning of accurate surrogates for simulations of complex systems"
+    authors:
+      - family-names: Diaw
+        given-names: Abdourahmane
+      - family-names: McKerns
+        given-names: Michael
+      - family-names: Sagert
+        given-names: Irina
+      - family-names: Stanton
+        given-names: Liam G.
+      - family-names: Murillo
+        given-names: Michael S.
+    journal: "Nature Machine Intelligence"
+    volume: 6
+    start: 568
+    end: 577
+    year: 2024
+    doi: "10.1038/s42256-024-00839-1"
+  - type: article
+    title: "The AME 2020 atomic mass evaluation (II). Tables, graphs and references"
+    authors:
+      - family-names: Wang
+        given-names: Meng
+      - family-names: Huang
+        given-names: W. J.
+      - family-names: Kondev
+        given-names: F. G.
+      - family-names: Audi
+        given-names: G.
+      - family-names: Naimi
+        given-names: S.
+    journal: "Chinese Physics C"
+    volume: 45
+    start: "030003"
+    year: 2021
+  - type: article
+    title: "A Skyrme parametrization from subnuclear to neutron star densities"
+    authors:
+      - family-names: Chabanat
+        given-names: E.
+      - family-names: Bonche
+        given-names: P.
+      - family-names: Haensel
+        given-names: P.
+      - family-names: Meyer
+        given-names: J.
+      - family-names: Schaeffer
+        given-names: R.
+    journal: "Nuclear Physics A"
+    volume: 627
+    start: 710
+    year: 1997
+  - type: article
+    title: "Self-consistent mean-field models for nuclear structure"
+    authors:
+      - family-names: Bender
+        given-names: M.
+      - family-names: Heenen
+        given-names: P.-H.
+      - family-names: Reinhard
+        given-names: P.-G.
+    journal: "Reviews of Modern Physics"
+    volume: 75
+    start: 121
+    year: 2003
+    doi: "10.1103/RevModPhys.75.121"

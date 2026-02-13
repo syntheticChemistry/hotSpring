@@ -563,7 +563,8 @@ GPU uses 44.8× less energy than Python for the same computation.
     constants: 2018," Rev. Mod. Phys. 93, 025010 (2021).
 
 [2] Chabanat, E. et al., "A Skyrme parametrization from subnuclear to neutron star
-    densities. Part II. Nuclei far from stabilities," Nucl. Phys. A 635, 231 (1998).
+    densities," Nucl. Phys. A 627, 710 (1997) [Part I: SLy4 definition];
+    Nucl. Phys. A 635, 231 (1998) [Part II: nuclei far from stabilities].
 
 [3] Bender, M., Heenen, P.-H., and Reinhard, P.-G., "Self-consistent mean-field models
     for nuclear structure," Rev. Mod. Phys. 75, 121 (2003).
