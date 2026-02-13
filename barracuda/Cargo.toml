@@ -1,14 +1,14 @@
 [package]
 name = "hotspring-barracuda"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
-description = "Nuclear EOS surrogate learning via BarraCUDA — validates library against Python control"
+description = "Nuclear EOS validation for BarraCUDA — L1/L2 physics with NMP-constrained optimization"
 license = "AGPL-3.0"
 
 [workspace]
 
 [dependencies]
-# BarraCUDA: All scientific computing comes from the library
+# BarraCUDA: All scientific computing from the library
 barracuda = { path = "../../phase1/toadstool/crates/barracuda" }
 
 # Eigenvalue decomposition (gap in barracuda::linalg — documented for evolution)
@@ -21,21 +21,25 @@ serde_json = "1.0"
 # Parallelism for L2 HFB
 rayon = "1.8"
 
-# Async runtime for GPU validation
+# Async runtime for GPU validation (validate_md)
 tokio = { version = "1.35", features = ["rt-multi-thread", "macros"] }
-pollster = "0.3"
 
-# Timing
-std-time = { package = "chrono", version = "0.4" }
-
+# ── L1 validation (NMP-constrained, Pareto sweep, multi-seed) ──────
 [[bin]]
-name = "nuclear_eos_l1"
-path = "src/bin/nuclear_eos_l1.rs"
+name = "nuclear_eos_l1_ref"
+path = "src/bin/nuclear_eos_l1_ref.rs"
 
+# ── L2 validation (L1-seeded DirectSampler, HFB) ───────────────────
 [[bin]]
-name = "nuclear_eos_l2"
-path = "src/bin/nuclear_eos_l2.rs"
+name = "nuclear_eos_l2_ref"
+path = "src/bin/nuclear_eos_l2_ref.rs"
 
+# ── L2 heterogeneous pipeline (cascade: NMP → L1 → classifier → HFB)
+[[bin]]
+name = "nuclear_eos_l2_hetero"
+path = "src/bin/nuclear_eos_l2_hetero.rs"
+
+# ── BarraCUDA library validation suites ─────────────────────────────
 [[bin]]
 name = "validate_special_functions"
 path = "src/bin/validate_special_functions.rs"
@@ -51,16 +55,4 @@ path = "src/bin/validate_optimizers.rs"
 [[bin]]
 name = "validate_md"
 path = "src/bin/validate_md.rs"
-
-[[bin]]
-name = "nuclear_eos_l2_hetero"
-path = "src/bin/nuclear_eos_l2_hetero.rs"
-
-[[bin]]
-name = "nuclear_eos_l1_ref"
-path = "src/bin/nuclear_eos_l1_ref.rs"
-
-[[bin]]
-name = "nuclear_eos_l2_ref"
-path = "src/bin/nuclear_eos_l2_ref.rs"
 

@@ -1,0 +1,30 @@
+{
+  "approach1_sparsity_native_autosmooth": {
+    "auto_smoothing": true,
+    "chi2_per_datum": 40.8277232279716,
+    "log_chi2": 3.7335593548064367,
+    "penalty_filter": "AdaptiveMAD(5.0)",
+    "time_seconds": 3.083773888,
+    "total_evals": 150
+  },
+  "approach2_native_direct_sampler": {
+    "chi2_per_datum": 0.7971152444962277,
+    "early_stopped": false,
+    "log_chi2": 0.5861827373512152,
+    "n_rounds": 8,
+    "total_evals": 64
+  },
+  "barracuda_version": "phase5_evolved",
+  "engine": "barracuda::native_revalidation",
+  "level": 1,
+  "references": {
+    "previous_barracuda_best": {
+      "chi2_per_datum": 1.19,
+      "evals": 164
+    },
+    "python_scipy": {
+      "chi2_per_datum": 6.62,
+      "evals": 1008
+    }
+  }
+}
