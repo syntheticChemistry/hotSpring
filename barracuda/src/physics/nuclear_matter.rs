@@ -1,23 +1,36 @@
-//! Nuclear matter properties from Skyrme parameters (analytic)
+//! Nuclear matter properties from Skyrme parameters (analytic).
 //!
+//! Computes infinite symmetric nuclear matter (SNM) properties: saturation
+//! density ρ₀, energy per nucleon E/A, incompressibility K∞, effective mass
+//! m*/m, and symmetry energy J. These are used as SEMF coefficients (Level 1)
+//! and physical constraint filters.
+//!
+//! Reference: Bender, Heenen, Reinhard, Rev. Mod. Phys. 75, 121 (2003), §III.A.
 //! Port of: `control/surrogate/nuclear-eos/wrapper/skyrme_hf.py`
-//! Uses: `barracuda::optimize::bisect` for saturation density
+//! Uses: `barracuda::optimize::bisect` for saturation density.
+//! See PHYSICS.md §3 for complete equation documentation.
 
 use super::constants::*;
 use barracuda::optimize::bisect;
 use std::f64::consts::PI;
 
-/// Nuclear matter property results
+/// Nuclear matter property results.
+///
+/// All quantities evaluated at the saturation density ρ₀ where dE/dρ = 0.
 #[derive(Debug, Clone)]
 pub struct NuclearMatterProps {
-    pub rho0_fm3: f64,      // saturation density
-    pub e_a_mev: f64,       // energy per nucleon at saturation
-    pub k_inf_mev: f64,     // incompressibility
-    pub m_eff_ratio: f64,   // effective mass ratio m*/m
-    pub j_mev: f64,         // symmetry energy
+    pub rho0_fm3: f64,      // Saturation density (fm⁻³). Empirical: ~0.16
+    pub e_a_mev: f64,       // Energy per nucleon at saturation (MeV). Empirical: ~-16
+    pub k_inf_mev: f64,     // Incompressibility (MeV). Empirical: ~230
+    pub m_eff_ratio: f64,   // Effective mass ratio m*/m. Empirical: ~0.7
+    pub j_mev: f64,         // Symmetry energy (MeV). Empirical: ~32
 }
 
-/// Energy per nucleon in symmetric nuclear matter
+/// Energy per nucleon in symmetric nuclear matter.
+///
+/// E/A(ρ) = E_kin + E_t0 + E_t3 + E_t1t2
+///
+/// See PHYSICS.md §3.1 for term-by-term derivation.
 fn energy_per_nucleon_snm(rho: f64, p: &[f64; 10]) -> f64 {
     if rho <= 0.0 {
         return 0.0;
@@ -27,13 +40,19 @@ fn energy_per_nucleon_snm(rho: f64, p: &[f64; 10]) -> f64 {
     let (_x0, _x1, x2, _x3) = (p[4], p[5], p[6], p[7]);
     let alpha = p[8];
 
+    // Fermi momentum: k_F = (3π²ρ/2)^(1/3)
     let kf = (3.0 * PI * PI * rho / 2.0).powf(1.0 / 3.0);
+    // Kinetic density: τ = (3/5) k_F² ρ  [fm⁻⁵]
     let tau = (3.0 / 5.0) * kf * kf * rho;
 
+    // Free Fermi gas kinetic energy: (ℏ²/2m)(3/5)k_F²
     let e_kin = HBAR2_2M * (3.0 / 5.0) * kf * kf;
+    // t₀ contact (s-wave): (3/8)t₀ρ
     let e_t0 = (3.0 / 8.0) * t0 * rho;
+    // t₃ density-dependent: (1/16)t₃ρ^(α+1)
     let e_t3 = (1.0 / 16.0) * t3 * rho.powf(alpha + 1.0);
 
+    // t₁t₂ momentum-dependent: (1/16)Θ·τ where Θ = 3t₁ + t₂(5+4x₂)
     let theta = 3.0 * t1 + t2 * (5.0 + 4.0 * x2);
     let e_t1t2 = (1.0 / 16.0) * theta * tau;
 
@@ -53,8 +72,9 @@ pub fn nuclear_matter_properties(params: &[f64]) -> Option<NuclearMatterProps> {
     let (x0, x1, x2, x3) = (p[4], p[5], p[6], p[7]);
     let alpha = p[8];
 
-    // Find saturation density: d(E/A)/dρ = 0
-    // Using barracuda::optimize::bisect (equivalent to scipy.optimize.brentq)
+    // Saturation density: solve d(E/A)/dρ = 0 via bisection (PHYSICS.md §3.2)
+    // Search range [0.05, 0.30] fm⁻³ brackets all known Skyrme parametrizations.
+    // Fallback 0.16 fm⁻³ is the empirical value.
     let de_drho = |rho: f64| {
         let dr = (rho * 1e-6_f64).max(1e-10);
         (energy_per_nucleon_snm(rho + dr, &p) - energy_per_nucleon_snm(rho - dr, &p)) / (2.0 * dr)
@@ -64,7 +84,8 @@ pub fn nuclear_matter_properties(params: &[f64]) -> Option<NuclearMatterProps> {
 
     let e_a = energy_per_nucleon_snm(rho0, &p);
 
-    // Incompressibility
+    // Incompressibility: K∞ = 9ρ₀² d²(E/A)/dρ² (PHYSICS.md §3.3)
+    // Empirical: ~230 ± 20 MeV — Blaizot, Phys. Rep. 64, 171 (1980)
     let dr = rho0 * 1e-4;
     let d2e = (energy_per_nucleon_snm(rho0 + dr, &p)
         - 2.0 * energy_per_nucleon_snm(rho0, &p)
@@ -72,11 +93,12 @@ pub fn nuclear_matter_properties(params: &[f64]) -> Option<NuclearMatterProps> {
         / (dr * dr);
     let k_inf = 9.0 * rho0 * rho0 * d2e;
 
-    // Effective mass
+    // Effective mass: m*/m = 1/(1 + (m_N/4ℏ²c²)Θρ₀) (PHYSICS.md §3.4)
     let theta = 3.0 * t1 + t2 * (5.0 + 4.0 * x2);
     let m_eff = 1.0 / (1.0 + (M_NUCLEON / (4.0 * HBAR_C * HBAR_C)) * theta * rho0);
 
-    // Symmetry energy
+    // Symmetry energy: J = J_kin + J_t0 + J_t3 + J_t1t2 (PHYSICS.md §3.5)
+    // Empirical: ~32 ± 2 MeV — Lattimer & Prakash, Phys. Rep. 621, 127 (2016)
     let kf0 = (3.0 * PI * PI * rho0 / 2.0).powf(1.0 / 3.0);
     let j_kin = HBAR2_2M * kf0 * kf0 / (3.0 * m_eff);
     let j_t0 = -(t0 / 4.0) * (2.0 * x0 + 1.0) * rho0;

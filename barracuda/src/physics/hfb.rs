@@ -1,15 +1,26 @@
-//! Spherical Hartree-Fock + BCS solver (Level 2)
+//! Spherical Hartree-Fock + BCS solver (Level 2).
+//!
+//! Self-consistent mean-field solver for medium-mass nuclei (56 ≤ A ≤ 132)
+//! using the Skyrme energy density functional in a spherical harmonic
+//! oscillator basis with BCS pairing.
 //!
 //! Port of: `control/surrogate/nuclear-eos/wrapper/skyrme_hfb.py`
+//! See PHYSICS.md §5 for complete equation documentation.
+//!
+//! References:
+//!   - Ring & Schuck, *The Nuclear Many-Body Problem*, Springer (2004)
+//!   - Bender, Heenen, Reinhard, Rev. Mod. Phys. 75, 121 (2003)
+//!   - Vautherin & Brink, Phys. Rev. C 5, 626 (1972)
+//!   - Bohr & Mottelson, *Nuclear Structure* Vol. I (1969)
 //!
 //! Physics features (matching Python reference):
 //!   - Separate proton/neutron Hamiltonians and densities
-//!   - BCS pairing (constant gap approximation, Delta = 12/sqrt(A))
-//!   - Coulomb: Poisson direct + Slater exchange
-//!   - Proper isospin structure in Skyrme potential (t0/x0, t3/x3)
-//!   - Effective kinetic matrix T_eff (t1/t2 effective mass)
-//!   - Spin-orbit splitting (W0)
-//!   - Center-of-mass correction
+//!   - BCS pairing: constant gap Δ = 12/√A MeV (Ring & Schuck §6.2)
+//!   - Coulomb: Poisson direct + Slater exchange (Slater, Phys. Rev. 81, 385)
+//!   - Isospin structure in Skyrme potential (t₀/x₀, t₃/x₃)
+//!   - Effective kinetic matrix T_eff (t₁/t₂ effective mass terms)
+//!   - Spin-orbit splitting (W₀ parameter)
+//!   - Center-of-mass correction: E_CM = -3/4 ℏω (Bohr & Mottelson §4-2)
 //!
 //! Uses (all BarraCUDA native — zero external dependencies):
 //!   - `barracuda::special::{gamma, laguerre}` for HO basis wavefunctions
@@ -110,12 +121,15 @@ impl SphericalHFB {
 
     fn build(z: usize, n: usize, n_shells: usize, r_max: f64, n_grid: usize) -> Self {
         let a = z + n;
+        // HO frequency: ℏω = 41 A^(-1/3) MeV — Bohr & Mottelson, §2-4a
         let hw = 41.0 * (a as f64).powf(-1.0 / 3.0);
+        // Oscillator length: b = ℏc / √(m_N ℏω)
         let b = HBAR_C / (M_NUCLEON * hw).sqrt();
         let dr = r_max / n_grid as f64;
         let r: Vec<f64> = (1..=n_grid).map(|i| i as f64 * dr).collect();
 
-        // Pairing gaps (phenomenological constant-gap BCS)
+        // Pairing gap: Δ = 12/√A MeV — Ring & Schuck (2004), §6.2
+        // Phenomenological constant-gap BCS approximation for odd-even staggering
         let delta = 12.0 / (a.max(4) as f64).sqrt();
 
         let mut hfb = SphericalHFB {

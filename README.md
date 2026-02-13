@@ -16,6 +16,12 @@ hotSpring is where we reproduce published computational physics work from the Mu
 
 hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust+WGSL replace the Python scientific stack?"*
 
+> **For the physics**: See [`PHYSICS.md`](PHYSICS.md) for complete equation documentation
+> with numbered references — every formula, every constant, every approximation.
+>
+> **For the methodology**: See [`whitePaper/METHODOLOGY.md`](whitePaper/METHODOLOGY.md)
+> for the two-phase validation protocol and acceptance criteria.
+
 ---
 
 ## Current Status (2026-02-11)
@@ -238,5 +244,17 @@ These are **silent failures** — wrong results, no error messages. This fragili
 
 - `CONTROL_EXPERIMENT_STATUS.md` — Full status with numbers, 86/86 checks
 - `NUCLEAR_EOS_STRATEGY.md` — Strategic plan: Python control → BarraCUDA proof
-- BarraCUDA L1/L2 source: `phase1/toadstool/crates/barracuda/src/bin/nuclear_eos_l{1,2}.rs`
+- `PHYSICS.md` — Complete physics model documentation with equations and references
+- BarraCUDA L1/L2 source: `barracuda/src/bin/nuclear_eos_l{1,2}_ref.rs`
 - Handoff: `wateringHole/handoffs/BARRACUDA_SCIENTIFIC_COMPUTING_MIDDLEWARE_FEB11_2026.md`
+
+---
+
+## License
+
+This project is licensed under the **GNU Affero General Public License v3.0** (AGPL-3.0).
+See [LICENSE](LICENSE) for the full text.
+
+Sovereign science: all source code, data processing scripts, and validation results are
+freely available for inspection, reproduction, and extension. If you use this work in
+a network service, you must make your source available under the same terms.

@@ -236,10 +236,7 @@ fn main() {
     let approach2_f = result2.f_best;
     let approach2_x = result2.x_best.clone();
     let approach2_evals = result2.cache.len();
-    let approach2_time = result2.rounds.last()
-        .map(|_| Instant::now()) // placeholder — use wall clock
-        .map(|_| t0.elapsed().as_secs_f64() - approach1_time)
-        .unwrap_or(0.0);
+    let approach2_time = t0.elapsed().as_secs_f64() - approach1_time;
 
     let chi2_2 = approach2_f.exp() - 1.0;
     println!("  DirectSampler: {} evals", approach2_evals);
