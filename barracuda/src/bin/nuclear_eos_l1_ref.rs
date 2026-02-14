@@ -149,7 +149,7 @@ fn main() {
         .join("control/surrogate/nuclear-eos");
 
     let exp_data = Arc::new(
-        data::load_experimental_data(&base.join("exp_data/ame2020_selected.json"))
+        data::load_nuclei(&base, data::parse_nuclei_set_from_args())
             .expect("Failed to load experimental data"),
     );
     let bounds = data::load_bounds(&base.join("wrapper/skyrme_bounds.json"))
@@ -393,7 +393,8 @@ fn main() {
     println!();
 
     // Load full nucleus data for element names
-    let nuclei_text = std::fs::read_to_string(&base.join("exp_data/ame2020_selected.json"))
+    let nuclei_set = data::parse_nuclei_set_from_args();
+    let nuclei_text = std::fs::read_to_string(&data::nuclei_data_path(&base, nuclei_set))
         .expect("Failed to read nuclei JSON");
     let nuclei_file: serde_json::Value = serde_json::from_str(&nuclei_text).unwrap();
     let nuclei_list = nuclei_file["nuclei"].as_array().unwrap();
@@ -688,7 +689,7 @@ fn run_multi_seed(base_seed: u64, n_seeds: usize, lambda: f64) {
         .join("control/surrogate/nuclear-eos");
 
     let exp_data = Arc::new(
-        data::load_experimental_data(&base_path.join("exp_data/ame2020_selected.json"))
+        data::load_nuclei(&base_path, data::parse_nuclei_set_from_args())
             .expect("Failed to load experimental data"),
     );
     let bounds = data::load_bounds(&base_path.join("wrapper/skyrme_bounds.json"))
@@ -818,7 +819,7 @@ fn run_pareto_sweep(base_seed: u64) {
         .join("control/surrogate/nuclear-eos");
 
     let exp_data = Arc::new(
-        data::load_experimental_data(&base_path.join("exp_data/ame2020_selected.json"))
+        data::load_nuclei(&base_path, data::parse_nuclei_set_from_args())
             .expect("Failed to load experimental data"),
     );
     let bounds = data::load_bounds(&base_path.join("wrapper/skyrme_bounds.json"))

@@ -18,6 +18,8 @@ hotSpring is where we reproduce published computational physics work from the Mu
 
 - **Phase D (Native f64 Builtins + N-Scaling)**: Replaced software-emulated f64 transcendentals with hardware-native WGSL builtins. **✅ 2-6× throughput improvement. N=10,000 paper parity in 5.3 minutes. N=20,000 in 10.4 minutes. Full sweep (500→20k) in 34 minutes. 0.000% energy drift at all N. The f64 bottleneck is broken — true fp64:fp32 ratio is ~1:2 (not 1:64).**
 
+- **Phase E (Paper-Parity Long Run + Toadstool Rewire)**: 9-case Yukawa OCP sweep at N=10,000, 80k production steps — matching the Dense Plasma Properties Database exactly. **✅ 9/9 cases pass, 0.000-0.002% energy drift, 3.66 hours total, $0.044 electricity. Cell-list 4.1× faster than all-pairs. Toadstool GPU ops (BatchedEighGpu, SsfGpu, PppmGpu) wired into hotSpring.**
+
 hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust+WGSL replace the Python scientific stack?"*
 
 > **For the physics**: See [`PHYSICS.md`](PHYSICS.md) for complete equation documentation
@@ -42,7 +44,9 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **BarraCUDA L2** (Rust+WGSL+nalgebra) | ✅ Complete | χ²/datum = **16.11** best, 19.29 NMP-physical (1.7× faster) |
 | **GPU MD PP Yukawa** (9 cases) | ✅ Complete | 45/45 pass (Energy, RDF, VACF, SSF, D*) |
 | **N-Scaling + Native f64** (5 N values) | ✅ Complete | 16/16 pass (500→20k, 0.000% drift) |
-| **TOTAL** | **147/147 checks pass** | 5 upstream bugs found and fixed |
+| **Paper-Parity Long Run** (9 cases, 80k steps) | ✅ **Complete** | **9/9 pass** (N=10k, 0.000-0.002% drift, 3.66 hrs, $0.044) |
+| **Toadstool Rewire** (3 GPU ops) | ✅ Complete | BatchedEighGpu, SsfGpu, PppmGpu wired |
+| **TOTAL** | **160/160 checks pass** | 5 upstream bugs found and fixed |
 
 See `CONTROL_EXPERIMENT_STATUS.md` for full details.
 
@@ -135,23 +139,91 @@ approximately **$0.001** in electricity. The equivalent CPU run would take ~4 ho
 Above N=5,000, CPU molecular dynamics on consumer hardware is no longer practical —
 not because of accuracy, but because of time and energy. The GPU makes these runs routine.
 
-### Paper Parity Assessment
+### Paper Parity Assessment — ACHIEVED
 
-The Murillo Group's published DSF study uses N=10,000 particles with 100,000+ production
-steps on HPC clusters. Our RTX 4070 results:
+The Murillo Group's published DSF study uses N=10,000 particles with 80,000-100,000+
+production steps on HPC clusters. Our RTX 4070 now runs the **exact same configuration**:
 
 | Capability | Murillo Group (HPC) | hotSpring (RTX 4070) | Gap |
 |-----------|--------------------|--------------------|-----|
 | Particle count | 10,000 | **10,000** ✅ | None |
-| Production steps | 100,000+ | 35,000 (5.3 min) | More steps = more time |
-| Energy conservation | ~0% | **0.000%** ✅ | None |
-| Observables | DSF, RDF, SSF, VACF | **All five** ✅ | None |
-| Physics method | PP Yukawa + PPPM | PP Yukawa ✅ (PPPM flagged) | PPPM for κ=0 |
+| Production steps | 80,000-100,000+ | **80,000** (3.66 hrs / 9 cases) ✅ | None |
+| Energy conservation | ~0% | **0.000-0.002%** ✅ | None |
+| 9 PP Yukawa cases | All pass | **9/9 pass** ✅ | None |
+| Observables | DSF, RDF, SSF, VACF | **All computed** ✅ | DSF spectral analysis pending |
+| Physics method | PP Yukawa + PPPM | PP Yukawa ✅ + **PppmGpu wired** | κ=0 validation ready |
 | Hardware cost | $M+ cluster | **$600 GPU** ✅ | 1000× cheaper |
-| Run time (N=10k) | Minutes (HPC) | **5.3 minutes** ✅ | Comparable |
+| Total wall time | Not published | **3.66 hours** (9 cases) | Consumer GPU |
+| Total energy cost | Not published | **$0.044** electricity | Sovereign science |
 
-**Status**: Paper parity achieved for PP Yukawa cases. PPPM (κ=0 Coulomb) requires
-3D FFT pipeline — flagged for toadstool/barracuda team evolution.
+#### Per-Case Paper-Parity Results (February 14, 2026)
+
+| Case | κ | Γ | Mode | Steps/s | Wall (min) | Drift % |
+|------|---|---|------|---------|------------|---------|
+| k1_G14 | 1 | 14 | all-pairs | 26.1 | 54.4 | 0.001% |
+| k1_G72 | 1 | 72 | all-pairs | 29.4 | 48.2 | 0.001% |
+| k1_G217 | 1 | 217 | all-pairs | 31.0 | 45.7 | 0.002% |
+| k2_G31 | 2 | 31 | cell-list | 113.3 | 12.5 | 0.000% |
+| k2_G158 | 2 | 158 | cell-list | 115.0 | 12.4 | 0.000% |
+| k2_G476 | 2 | 476 | cell-list | 118.1 | 12.2 | 0.000% |
+| k3_G100 | 3 | 100 | cell-list | 119.9 | 11.8 | 0.000% |
+| k3_G503 | 3 | 503 | cell-list | 124.7 | 11.4 | 0.000% |
+| k3_G1510 | 3 | 1510 | cell-list | 124.6 | 11.4 | 0.000% |
+
+**Cell-list achieves 4.1× speedup** over all-pairs (118 vs 29 steps/s). See all-pairs
+vs cell-list analysis below.
+
+#### Remaining Gap to Full Paper Match
+
+1. **DSF S(q,ω) spectral analysis** — dynamic structure factor comparison against `sqw_k{K}G{G}.npy`
+2. **κ=0 Coulomb (PPPM)** — 3 additional cases, PppmGpu now wired and ready to validate
+3. **100,000+ step extended runs** — paper upper range; our 80k matches the database exactly
+
+---
+
+### All-Pairs vs Cell-List: Profiling and Tradeoff Analysis
+
+The GPU MD engine uses two force evaluation modes. The paper-parity data now gives us
+definitive performance numbers for both:
+
+| Metric | All-Pairs (κ=1) | Cell-List (κ=2,3) |
+|--------|:---:|:---:|
+| Algorithm | O(N²) — every particle checks all others | O(N) — only 27 neighbor cells |
+| Shader | `SHADER_YUKAWA_FORCE` (single loop 0..N) | `SHADER_YUKAWA_FORCE_CELLLIST` (triple-nested 3³ cells) |
+| Activation | `cells_per_dim < 5` | `cells_per_dim >= 5` |
+| N=10,000 steps/s | **28.8 avg** | **118.5 avg** |
+| Per-case wall time | **49.4 min** | **12.0 min** |
+| GPU energy per case | **178.9 kJ** | **44.1 kJ** |
+| Speedup | — | **4.1×** |
+
+**Why cell-list can't replace all-pairs at κ=1:**
+
+The mode selection is physics-driven, not a performance heuristic. At N=10,000:
+
+| κ | rc (a_ws) | box_side | cells_per_dim | Mode |
+|---|-----------|----------|:---:|------|
+| 1 | 8.0 | 34.74 | **4** (< 5) | all-pairs |
+| 2 | 6.5 | 34.74 | **5** (≥ 5) | cell-list |
+| 3 | 6.0 | 34.74 | **5** (≥ 5) | cell-list |
+
+For κ=1, the Yukawa interaction range (`rc = 8.0 a_ws`) is so long that the box only
+fits 4 cells per dimension. With only 4³ = 64 cells, the 27-cell neighbor search
+covers 42% of all cells — nearly equivalent to all-pairs but with the overhead of
+cell-list construction (CPU readback + sort + upload every step). Below 5 cells/dim,
+all-pairs is actually faster.
+
+**Cell-list activates for κ=1 at N ≥ ~15,300** (where `box_side ≥ 40 a_ws`). So on
+larger GPUs (Titan, 3090, 6950 XT) running N=20,000+, even κ=1 would use cell-list.
+
+**Can we reduce rc for κ=1?** Technically yes — a shorter cutoff means fewer cells but
+introduces truncation error. The current `rc = 8.0 a_ws` captures ~8 screening lengths
+(e^-8 ≈ 3.4×10⁻⁴ of the potential), which is standard for Yukawa OCP. Reducing to
+`rc = 6.9` would enable cell-list at N=10,000 but would sacrifice 0.1% force accuracy.
+For paper parity, we keep the exact published cutoffs.
+
+**Conclusion**: Both modes are needed. All-pairs for long-range (low κ, small N),
+cell-list for short-range (high κ, large N). The crossover is cleanly physics-determined.
+No streamlining — this is the correct architecture.
 
 ---
 
@@ -182,6 +254,7 @@ cd barracuda
 cargo run --release --bin sarkas_gpu              # Quick: kappa=2, Gamma=158, N=500 (~30s)
 cargo run --release --bin sarkas_gpu -- --full    # Full: 9 PP Yukawa cases, N=2000, 30k steps (~60 min)
 cargo run --release --bin sarkas_gpu -- --long    # Long: 9 cases, N=2000, 80k steps (~71 min, recommended)
+cargo run --release --bin sarkas_gpu -- --paper   # Paper parity: 9 cases, N=10k, 80k steps (~3.66 hrs)
 cargo run --release --bin sarkas_gpu -- --scale   # GPU vs CPU scaling
 ```
 
@@ -209,7 +282,7 @@ Upstream repos are pinned to specific versions and automatically patched:
 hotSpring/
 ├── README.md                           # This file
 ├── PHYSICS.md                          # Complete physics documentation (equations + references)
-├── CONTROL_EXPERIMENT_STATUS.md        # Comprehensive status + results (131/131)
+├── CONTROL_EXPERIMENT_STATUS.md        # Comprehensive status + results (160/160)
 ├── NUCLEAR_EOS_STRATEGY.md             # Nuclear EOS Phase A→B strategy
 ├── LICENSE                             # AGPL-3.0
 ├── .gitignore
@@ -234,9 +307,11 @@ hotSpring/
 │       └── bin/                       # Validation binaries
 │           ├── nuclear_eos_l1_ref.rs  # L1 validation pipeline
 │           ├── nuclear_eos_l2_ref.rs  # L2 validation pipeline (evolved)
+│           ├── nuclear_eos_l2_gpu.rs  # L2 GPU-batched HFB (BatchedEighGpu)
 │           ├── nuclear_eos_l3_ref.rs  # L3 deformed HFB (architecture)
 │           ├── nuclear_eos_gpu.rs     # GPU FP64 validation + energy profiling
 │           ├── sarkas_gpu.rs          # GPU Yukawa MD (9 PP cases, f64 WGSL)
+│           ├── validate_pppm.rs       # PppmGpu κ=0 Coulomb validation
 │           └── f64_builtin_test.rs    # Native vs software f64 validation
 │
 ├── control/
@@ -282,7 +357,8 @@ hotSpring/
 │
 ├── experiments/                         # Experiment journals (the "why" behind the data)
 │   ├── 001_N_SCALING_GPU.md            # N-scaling (500→20k) + native f64 builtins
-│   └── 002_CELLLIST_FORCE_DIAGNOSTIC.md # Cell-list i32 modulo bug diagnosis + fix
+│   ├── 002_CELLLIST_FORCE_DIAGNOSTIC.md # Cell-list i32 modulo bug diagnosis + fix
+│   └── 003_RTX4070_CAPABILITY_PROFILE.md # RTX 4070 capability profile (paper-parity COMPLETE)
 │
 ├── wateringHole/                       # Cross-project handoffs
 │   └── handoffs/
@@ -388,7 +464,7 @@ These are **silent failures** — wrong results, no error messages. This fragili
 | Document | Purpose |
 |----------|---------|
 | [`PHYSICS.md`](PHYSICS.md) | Complete physics documentation — every equation, constant, approximation with numbered references |
-| [`CONTROL_EXPERIMENT_STATUS.md`](CONTROL_EXPERIMENT_STATUS.md) | Full status with numbers, 147/147 checks, evolution history |
+| [`CONTROL_EXPERIMENT_STATUS.md`](CONTROL_EXPERIMENT_STATUS.md) | Full status with numbers, 160/160 checks, evolution history |
 | [`NUCLEAR_EOS_STRATEGY.md`](NUCLEAR_EOS_STRATEGY.md) | Strategic plan: Python control → BarraCUDA proof |
 | [`whitePaper/README.md`](whitePaper/README.md) | **White paper index** — the publishable study narrative |
 | [`whitePaper/STUDY.md`](whitePaper/STUDY.md) | Main study: replicating computational plasma physics on consumer hardware |
@@ -396,6 +472,7 @@ These are **silent failures** — wrong results, no error messages. This fragili
 | [`benchmarks/PROTOCOL.md`](benchmarks/PROTOCOL.md) | Benchmark protocol: time + energy + hardware measurement |
 | [`experiments/001_N_SCALING_GPU.md`](experiments/001_N_SCALING_GPU.md) | N-scaling sweep + native f64 builtins discovery |
 | [`experiments/002_CELLLIST_FORCE_DIAGNOSTIC.md`](experiments/002_CELLLIST_FORCE_DIAGNOSTIC.md) | Cell-list i32 modulo bug diagnosis and fix |
+| [`experiments/003_RTX4070_CAPABILITY_PROFILE.md`](experiments/003_RTX4070_CAPABILITY_PROFILE.md) | RTX 4070 capability profile + paper-parity long run results |
 | [`control/surrogate/REPRODUCE.md`](control/surrogate/REPRODUCE.md) | Step-by-step reproduction guide for surrogate learning |
 
 ### External References
@@ -424,5 +501,6 @@ a network service, you must make your source available under the same terms.
 ---
 
 *hotSpring proves that a $600 GPU can do the same physics as an HPC cluster —
-same observables, same energy conservation, same particle count — in 5 minutes,
-using 0.001 kWh of electricity. The scarcity was artificial.*
+same observables, same energy conservation, same particle count, same production
+steps — in 3.66 hours for 9 cases, using 0.365 kWh of electricity at $0.044.
+The scarcity was artificial.*

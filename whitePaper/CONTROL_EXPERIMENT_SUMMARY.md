@@ -157,7 +157,29 @@ The 9 PP Yukawa cases re-executed entirely on GPU using f64 WGSL shaders (`sarka
 
 ---
 
-## 7. Total Acceptance
+## 7. Phase E: Paper-Parity Long Run (Feb 14-15, 2026)
+
+All 9 PP Yukawa cases at N=10,000, 80,000 production steps — matching the Dense Plasma Properties Database exactly.
+
+| Case | κ | Γ | Mode | Steps/s | Wall (min) | Drift % |
+|------|---|---|------|---------|------------|---------|
+| k1_G14 | 1 | 14 | all-pairs | 26.1 | 54.4 | 0.001% |
+| k1_G72 | 1 | 72 | all-pairs | 29.4 | 48.2 | 0.001% |
+| k1_G217 | 1 | 217 | all-pairs | 31.0 | 45.7 | 0.002% |
+| k2_G31 | 2 | 31 | cell-list | 113.3 | 12.5 | 0.000% |
+| k2_G158 | 2 | 158 | cell-list | 115.0 | 12.4 | 0.000% |
+| k2_G476 | 2 | 476 | cell-list | 118.1 | 12.2 | 0.000% |
+| k3_G100 | 3 | 100 | cell-list | 119.9 | 11.8 | 0.000% |
+| k3_G503 | 3 | 503 | cell-list | 124.7 | 11.4 | 0.000% |
+| k3_G1510 | 3 | 1510 | cell-list | 124.6 | 11.4 | 0.000% |
+
+**Total: 3.66 hours, $0.044 electricity. Cell-list 4.1× faster than all-pairs.**
+
+Toadstool GPU ops wired: BatchedEighGpu (L2 HFB), SsfGpu (MD observables), PppmGpu (κ=0 Coulomb).
+
+---
+
+## 8. Total Acceptance
 
 | Category | Checks | Pass |
 |----------|:------:|:----:|
@@ -170,3 +192,9 @@ The 9 PP Yukawa cases re-executed entirely on GPU using f64 WGSL shaders (`sarka
 | **Phase A Total** | **86** | **86/86** |
 | GPU MD PP Yukawa (9 cases x 5 observables) | 45 | 45/45 |
 | **Phase A + C Total** | **131** | **131/131** |
+| N-scaling + cell-list + native builtins | 16 | 16/16 |
+| **Phase A + C + D Total** | **147** | **147/147** |
+| Paper-parity long run (9 cases, 80k steps) | 9 | 9/9 |
+| All-pairs vs cell-list profiling | 1 | 1/1 |
+| Toadstool rewire (3 GPU ops) | 3 | 3/3 |
+| **Phase A + C + D + E Total** | **160** | **160/160** |

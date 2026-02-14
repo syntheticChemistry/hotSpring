@@ -788,7 +788,7 @@ fn main() {
         .unwrap()
         .join("control/surrogate/nuclear-eos");
 
-    let exp_data = data::load_experimental_data(&base.join("exp_data/ame2020_selected.json"))
+    let exp_data = data::load_nuclei(&base, data::parse_nuclei_set_from_args())
         .expect("Failed to load experimental data");
     let bounds = data::load_bounds(&base.join("wrapper/skyrme_bounds.json"))
         .expect("Failed to load parameter bounds");

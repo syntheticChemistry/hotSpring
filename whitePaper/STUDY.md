@@ -11,7 +11,7 @@
 
 ## Abstract
 
-We reproduce three classes of published computational plasma physics work from the Murillo Group (Michigan State University) on consumer hardware, validate correctness against published reference data, and then re-execute the core computations using BarraCUDA — a Pure Rust scientific computing library that dispatches WGSL shaders to any GPU vendor. The study spans molecular dynamics (Sarkas), plasma equilibration (Two-Temperature Model), and nuclear equation of state surrogate learning (Diaw et al., Nature Machine Intelligence 2024). We find that (a) reproducing published work required fixing five silent upstream bugs, (b) a key Code Ocean "reproducible" capsule is inaccessible, requiring us to rebuild the nuclear EOS physics from first principles, (c) BarraCUDA achieves 478× faster throughput at L1 with GPU FP64 validated to sub-ULP precision (4.55e-13 MeV max error vs CPU), and (d) the full Sarkas PP Yukawa molecular dynamics can run entirely on a consumer GPU using f64 WGSL shaders — 9/9 cases pass with 0.000% energy drift at 80,000 production steps, up to 259 steps/s, and 3.4× less energy per step than CPU at N=2000. Phase D extends this to N-scaling (N=500 to 20,000, paper parity at N=10,000) and documents the deep debugging of a WGSL `i32 %` portability bug in the cell-list kernel — a 6-phase diagnostic process that replaces what would have been a quick workaround with a root-cause fix enabling O(N) scaling to N=100,000+ on consumer GPUs. Energy profiling shows the GPU path uses 44.8× less energy than Python for identical physics. Discovery of native WGSL f64 builtins (`sqrt`, `exp`, `round`, `floor` operating on f64 types via Naga/Vulkan) broke the f64 bottleneck — throughput improved 2-6× across all N, with the true fp64:fp32 ratio confirmed at ~1:2 (not the 1:64 CUDA-reported ratio). 147/147 quantitative checks pass across all phases (A: Python control, B: BarraCUDA recreation, C: GPU molecular dynamics, D: N-scaling and cell-list evolution). An axially-deformed solver (Level 3) and GPU acceleration via Titan V are in progress.
+We reproduce three classes of published computational plasma physics work from the Murillo Group (Michigan State University) on consumer hardware, validate correctness against published reference data, and then re-execute the core computations using BarraCUDA — a Pure Rust scientific computing library that dispatches WGSL shaders to any GPU vendor. The study spans molecular dynamics (Sarkas), plasma equilibration (Two-Temperature Model), and nuclear equation of state surrogate learning (Diaw et al., Nature Machine Intelligence 2024). We find that (a) reproducing published work required fixing five silent upstream bugs, (b) a key Code Ocean "reproducible" capsule is inaccessible, requiring us to rebuild the nuclear EOS physics from first principles, (c) BarraCUDA achieves 478× faster throughput at L1 with GPU FP64 validated to sub-ULP precision (4.55e-13 MeV max error vs CPU), and (d) the full Sarkas PP Yukawa molecular dynamics can run entirely on a consumer GPU using f64 WGSL shaders — 9/9 cases pass with 0.000% energy drift at 80,000 production steps, up to 259 steps/s, and 3.4× less energy per step than CPU at N=2000. Phase D extends this to N-scaling (N=500 to 20,000, paper parity at N=10,000) and documents the deep debugging of a WGSL `i32 %` portability bug in the cell-list kernel — a 6-phase diagnostic process that replaces what would have been a quick workaround with a root-cause fix enabling O(N) scaling to N=100,000+ on consumer GPUs. Energy profiling shows the GPU path uses 44.8× less energy than Python for identical physics. Discovery of native WGSL f64 builtins (`sqrt`, `exp`, `round`, `floor` operating on f64 types via Naga/Vulkan) broke the f64 bottleneck — throughput improved 2-6× across all N, with the true fp64:fp32 ratio confirmed at ~1:2 (not the 1:64 CUDA-reported ratio). Phase E extends to the full paper-parity configuration: 9 PP Yukawa cases at N=10,000 with 80,000 production steps each — matching the Dense Plasma Properties Database exactly — all pass with 0.000-0.002% energy drift in 3.66 hours total at $0.044 electricity cost. Cell-list achieves 4.1× speedup over all-pairs for κ=2,3, with mode selection driven by physics (interaction range vs box size). Toadstool GPU operations (BatchedEighGpu, SsfGpu, PppmGpu) are wired into the pipeline for GPU-accelerated eigensolves, structure factor computation, and κ=0 Coulomb. 160/160 quantitative checks pass across all phases (A: Python control, B: BarraCUDA recreation, C: GPU molecular dynamics, D: N-scaling and cell-list evolution, E: paper-parity long run and toadstool rewire). An axially-deformed solver (Level 3) and GPU acceleration via Titan V are in progress.
 
 ---
 
@@ -544,6 +544,81 @@ cargo run --release --bin celllist_diag             # All 6 diagnostic phases
 See `experiments/001_N_SCALING_GPU.md` and `experiments/002_CELLLIST_FORCE_DIAGNOSTIC.md`
 for full experiment journals with methodology, data, and analysis.
 
+### 5.8 Phase E: Paper-Parity Long Run (Feb 14-15, 2026)
+
+Phase D achieved N=10,000 paper parity in 5.3 minutes for a single case. Phase E
+runs the **complete paper configuration**: all 9 PP Yukawa cases at N=10,000 with
+80,000 production steps each — matching the Dense Plasma Properties Database exactly.
+
+#### 5.8.1 Full 9-Case Results
+
+| Case | κ | Γ | Mode | Steps/s | Wall (min) | Drift % | GPU kJ |
+|------|---|---|------|---------|------------|---------|--------|
+| k1_G14 | 1 | 14 | all-pairs | 26.1 | 54.4 | 0.001% | 196.8 |
+| k1_G72 | 1 | 72 | all-pairs | 29.4 | 48.2 | 0.001% | 174.4 |
+| k1_G217 | 1 | 217 | all-pairs | 31.0 | 45.7 | 0.002% | 165.6 |
+| k2_G31 | 2 | 31 | cell-list | 113.3 | 12.5 | 0.000% | 44.8 |
+| k2_G158 | 2 | 158 | cell-list | 115.0 | 12.4 | 0.000% | 45.5 |
+| k2_G476 | 2 | 476 | cell-list | 118.1 | 12.2 | 0.000% | 45.1 |
+| k3_G100 | 3 | 100 | cell-list | 119.9 | 11.8 | 0.000% | 44.2 |
+| k3_G503 | 3 | 503 | cell-list | 124.7 | 11.4 | 0.000% | 42.3 |
+| k3_G1510 | 3 | 1510 | cell-list | 124.6 | 11.4 | 0.000% | 42.9 |
+
+**Total: 3.66 hours, 0.223 kWh GPU + 0.142 kWh CPU = 0.365 kWh ($0.044 at $0.12/kWh).**
+
+#### 5.8.2 All-Pairs vs Cell-List Performance
+
+| Metric | All-Pairs (κ=1) | Cell-List (κ=2,3) | Ratio |
+|--------|:---:|:---:|:---:|
+| Avg steps/s | 28.8 | 118.5 | **4.1×** |
+| Avg wall/case | 49.4 min | 12.0 min | 4.1× |
+| Avg GPU energy/case | 178.9 kJ | 44.1 kJ | 4.1× |
+
+The mode selection is physics-driven. At N=10,000 (`box_side = 34.74 a_ws`):
+
+| κ | rc (a_ws) | cells_per_dim | Mode | Reason |
+|---|-----------|:---:|------|--------|
+| 1 | 8.0 | 4 (< 5) | all-pairs | Long interaction range |
+| 2 | 6.5 | 5 (≥ 5) | cell-list | Shorter range fits cell grid |
+| 3 | 6.0 | 5 (≥ 5) | cell-list | Shortest range |
+
+All-pairs is O(N²); cell-list is O(N × avg_neighbors) ≈ O(N). The 4.1× speedup reflects
+this algorithmic difference. Cell-list cannot be used for κ=1 at N=10,000 because the
+interaction range (8 a_ws) only fits 4 cells per dimension (below the threshold of 5).
+At N ≥ ~15,300, even κ=1 switches to cell-list. Both modes are necessary for correct
+physics across the full parameter space.
+
+#### 5.8.3 Toadstool GPU Operations Wired
+
+Pulled toadstool `cb89d054` (9 commits, +14,770 lines) and integrated into hotSpring:
+
+| GPU Op | Use Case | Integration Point |
+|--------|----------|-------------------|
+| **BatchedEighGpu** | L2 GPU-batched HFB eigensolves | `nuclear_eos_l2_gpu` binary |
+| **SsfGpu** | GPU-accelerated static structure factor | `md/observables.rs` (with CPU fallback) |
+| **PppmGpu** | κ=0 Coulomb validation | `validate_pppm` binary |
+
+The `GpuF64 → WgpuDevice` bridge (`gpu.rs::to_wgpu_device()`) enables seamless sharing
+of wgpu device/queue between hotSpring's native GPU context and toadstool's operations.
+
+#### 5.8.4 Remaining Gap to Complete Paper Match
+
+| Item | Status | Priority |
+|------|--------|----------|
+| DSF S(q,ω) spectral analysis | Post-processing needed on existing data | HIGH |
+| κ=0 PPPM Coulomb (3 cases) | PppmGpu wired, validation ready | MEDIUM |
+| 100k+ production steps | Trivial on Titan/3090 | LOW |
+| AMD hardware validation (RX 6950 XT) | Same shaders, different vendor | MEDIUM |
+
+```bash
+# Reproduce Phase E
+cargo run --release --bin sarkas_gpu -- --paper       # 9 cases, N=10k, 80k steps (~3.66 hrs)
+cargo run --release --bin nuclear_eos_l2_gpu          # GPU-batched L2 HFB
+cargo run --release --bin validate_pppm               # PppmGpu κ=0 Coulomb validation
+```
+
+See `experiments/003_RTX4070_CAPABILITY_PROFILE.md` for full results and gap analysis.
+
 ---
 
 ## 6. Level 3: The Path to Paper Parity
@@ -676,9 +751,11 @@ The 0.4 keV gap comes from polynomial approximations in `exp_f64`/`log_f64` chai
 - [ ] L2 density accumulation — batched across nuclei on GPU
 - [ ] L2 Skyrme potential — element-wise f64 on GPU
 - [ ] L2 Coulomb — prefix-sum f64 on GPU
-- [ ] L2 eigh_f64 — batched eigendecomposition shader (Titan V target)
+- [x] L2 eigh_f64 — BatchedEighGpu wired from toadstool (nuclear_eos_l2_gpu binary)
 - [ ] L3 2D grid operations — f64 on GPU
-- [ ] PPPM/Ewald — 3D FFT pipeline for κ=0 Coulomb (toadstool team)
+- [x] PPPM/Ewald — PppmGpu wired from toadstool (validate_pppm binary)
+- [x] SsfGpu — GPU-accelerated static structure factor (md/observables.rs)
+- [x] Paper-parity long run — 9/9 at N=10k, 80k steps, 3.66 hrs, $0.044
 
 ### 6.4 L3 Blockers (In Priority Order)
 
@@ -834,6 +911,77 @@ The Titan V will not change the fp64:fp32 *ratio* (both ~1:2 via Vulkan), but it
 10. **Native f64 builtins unlock hidden GPU performance.** WGSL's native `sqrt()`, `exp()`, `round()`, and `floor()` compile and work correctly on f64 types via Naga/Vulkan. Replacing software-emulated transcendentals with native builtins gave 2-6× MD throughput improvement — far exceeding the 1.5-2× predicted from isolated benchmarks. Removing the ~500-line dead math_f64 preamble reduced shader compilation overhead and register pressure, contributing to the larger-than-expected gain. GPU power draw moved from flat (56-62W) to varying (47-69W), confirming higher ALU utilization.
 
 11. **The path to paper parity is clear but requires deformation physics and GPU compute.** L3 deformed HFB architecture is built. The Titan V (7.4 TFLOPS FP64) will enable the optimization budget needed to close the remaining gap.
+
+12. **Full paper-parity long run achieved on consumer GPU.** All 9 PP Yukawa cases at N=10,000 with 80,000 production steps — the exact configuration from the Dense Plasma Properties Database — pass on a single RTX 4070 in 3.66 hours for $0.044 in electricity. Cell-list achieves 4.1× speedup over all-pairs for κ=2,3, with mode selection physics-driven (interaction range vs box size). Energy conservation ranges from 0.000% to 0.002% across all cases. Toadstool GPU operations (BatchedEighGpu, SsfGpu, PppmGpu) are wired into the pipeline, enabling GPU-accelerated eigensolves, structure factor computation, and κ=0 Coulomb preparation.
+
+---
+
+## The Rebuild-Extend Pattern
+
+### Motivation
+
+A recurring pattern has emerged from this work: take a published scientific computation, rebuild it in Rust/WGSL on consumer hardware, validate against the original results, then extend to larger datasets that the original authors couldn't (or didn't) explore — because GPU computation makes it cheap enough to try.
+
+### The Pattern
+
+```
+For any scientific domain with public reference data:
+
+1. PICK    a published paper with reproducible results
+2. CONTROL reproduce in Python (validate against paper)
+3. REBUILD reimplement in Rust + BarraCUDA/WGSL (correctness + performance)
+4. VALIDATE match paper results within tolerance (paper parity)
+5. EXTEND  run on full public datasets (GPU makes this cheap)
+6. EXPLORE novel parameter space, new physics (beyond the paper)
+```
+
+### Applied Instances
+
+**Nuclear Equation of State (this work)**:
+- Paper: Diaw et al., Nature Machine Intelligence 2024 (30k evals, 52 nuclei, HFBTHO Fortran)
+- Control: Python mystic + sklearn surrogate (validated against paper Table 3)
+- Rebuild: BarraCUDA Rust/WGSL — L1 SEMF (GPU shader), L2 spherical HFB (CPU+GPU), L3 deformed HFB (CPU, GPU target)
+- Validate: L1 chi2/datum = 2.27 (52 nuclei, SLy4 baseline), 160/160 checks pass
+- Extend: Full AME2020 dataset — 2,042 experimentally measured nuclei (vs. 52 in paper). L1 on full set: chi2/datum = 7.33, 14.8s total runtime. L2 HFB subset: 791 nuclei across 41 elements (vs. 18 in paper).
+- Explore: Deformed HFB (L3) physics enabled — converges for O-16 (B=89.9 MeV, dE=4.5e-13), opens path to deformed rare-earth and actinide nuclei.
+
+**Molecular Dynamics (this work)**:
+- Paper: Choi, Dharuman, Murillo — Dense Plasma Properties Database
+- Control: Sarkas Python MD package
+- Rebuild: BarraCUDA WGSL f64 shaders (all-pairs + cell-list Yukawa)
+- Validate: 9/9 cases pass, 0.000% energy drift, 80k production steps
+- Extend: N-scaling to N=20,000 on consumer GPU (Sarkas OOM at N=10,000)
+- Explore: Extended production runs (80k steps vs paper's 30k), energy profiling ($0.001/run)
+
+**Future application (protein structure)**:
+- Paper: AlphaFold / OpenFold (PDB validation set, ~200k structures)
+- Rebuild target: Attention mechanisms, MSA processing, structure module in WGSL
+- Extend target: All NCBI protein sequences (250M+), not just PDB-deposited structures
+- GPU advantage: Same RTX 4070 / Titan V / consumer hardware for inference at scale
+
+### Why It Works
+
+1. **Published papers provide free validation data.** The paper's results become your test suite.
+2. **Python controls catch your own bugs.** Before going to GPU, prove you understand the physics.
+3. **Rust/WGSL provides correctness + speed.** Type safety catches unit errors; GPU provides 100-1000× throughput.
+4. **GPU makes exploration cheap.** At $0.001/run, you can afford to try every nucleus, every parameter set, every production length.
+5. **Consumer hardware removes access barriers.** No HPC allocation, no queue time, no CUDA lock-in.
+
+### Key Metrics from This Work
+
+| Stage | Dataset | Physics | chi2/datum | Runtime | Hardware |
+|-------|---------|---------|-----------|---------|----------|
+| Paper (reference) | 52 nuclei | HFBTHO Fortran | ~10^-5 | Hours (HPC) | ORNL cluster |
+| Python control | 52 nuclei | L1 SEMF | 2.27 | 180s | i9-12900K |
+| BarraCUDA L1 | 52 nuclei | L1 SEMF (GPU) | 2.27 | 1.9 ms/eval | RTX 4070 |
+| **BarraCUDA L1 (extended)** | **2,042 nuclei** | **L1 SEMF** | **7.33** | **14.8s total** | **RTX 4070** |
+| BarraCUDA L2 | 18 nuclei | Spherical HFB | 16.11 | ~60s | CPU (rayon) |
+| BarraCUDA L3 | per-nucleus | Deformed HFB | TBD | ~6s (O-16) | CPU |
+| **Target** | **2,042 nuclei** | **L3 + GPU eigh_f64** | **~10^-3** | **TBD** | **RTX 4070 + Titan V** |
+
+### Data Infrastructure
+
+The AME2020 Atomic Mass Evaluation (Wang et al., Chinese Physics C 45, 030003, 2021) provides binding energies for 2,042 experimentally measured nuclei. We downloaded the full mass table from the AMDC (IMP, China) mirror and parsed it into JSON format, excluding 1,008 estimated (#-marked) values. All binaries now support `--nuclei=full|selected` to switch between the 52-nucleus validation subset and the full 2,042-nucleus dataset.
 
 ---
 

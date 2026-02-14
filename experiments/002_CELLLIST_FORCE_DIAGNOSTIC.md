@@ -289,6 +289,14 @@ at all N values tested.*
 
 ---
 
+## Related Experiments
+
+- **[001_N_SCALING_GPU.md](001_N_SCALING_GPU.md)**: The N-scaling sweep that first triggered this bug (N=10,000 cell-list catastrophic failure). Post-fix results show 0.000% drift at all N.
+- **[003_RTX4070_CAPABILITY_PROFILE.md](003_RTX4070_CAPABILITY_PROFILE.md)**: Full 9-case paper-parity run using the cell-list fix from this experiment. κ=2,3 cases use cell-list mode at N=10,000 (4.1× faster than all-pairs).
+- **`whitePaper/STUDY.md` §5.7.2**: Narrative write-up of this diagnostic for journal publication.
+
+---
+
 ## References
 
 1. Choi, B., Dharuman, G., Murillo, M. S. "High-Frequency Response of Classical Strongly Coupled Plasmas." *Physical Review E* 100, 013206 (2019). — Published DSF study (N=10,000).

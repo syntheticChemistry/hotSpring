@@ -364,3 +364,58 @@ cargo run --release --bin f64_builtin_test         # Native vs software f64 vali
 ```
 
 See `experiments/001_N_SCALING_GPU.md` for the full experiment journal.
+
+---
+
+## 10. Phase E: Paper-Parity Long Run + Toadstool Rewire (Feb 14-15, 2026)
+
+### 10.1 Full 9-Case Paper-Parity Results
+
+All 9 PP Yukawa cases at N=10,000, 80,000 production steps — matching the Dense Plasma Properties Database exactly:
+
+| Case | κ | Γ | Mode | Steps/s | Wall (min) | Drift % | GPU kJ |
+|------|---|---|------|---------|------------|---------|--------|
+| k1_G14 | 1 | 14 | all-pairs | 26.1 | 54.4 | 0.001% | 196.8 |
+| k1_G72 | 1 | 72 | all-pairs | 29.4 | 48.2 | 0.001% | 174.4 |
+| k1_G217 | 1 | 217 | all-pairs | 31.0 | 45.7 | 0.002% | 165.6 |
+| k2_G31 | 2 | 31 | cell-list | 113.3 | 12.5 | 0.000% | 44.8 |
+| k2_G158 | 2 | 158 | cell-list | 115.0 | 12.4 | 0.000% | 45.5 |
+| k2_G476 | 2 | 476 | cell-list | 118.1 | 12.2 | 0.000% | 45.1 |
+| k3_G100 | 3 | 100 | cell-list | 119.9 | 11.8 | 0.000% | 44.2 |
+| k3_G503 | 3 | 503 | cell-list | 124.7 | 11.4 | 0.000% | 42.3 |
+| k3_G1510 | 3 | 1510 | cell-list | 124.6 | 11.4 | 0.000% | 42.9 |
+
+**Total: 3.66 hours, 0.223 kWh GPU, $0.044 electricity.**
+
+### 10.2 All-Pairs vs Cell-List Profiling
+
+| Metric | All-Pairs (κ=1) | Cell-List (κ=2,3) | Ratio |
+|--------|:---:|:---:|:---:|
+| Avg steps/s | 28.8 | 118.5 | **4.1×** |
+| Avg wall/case | 49.4 min | 12.0 min | 4.1× |
+| Avg GPU energy/case | 178.9 kJ | 44.1 kJ | 4.1× |
+
+Mode selection is physics-driven: `cells_per_dim = floor(box_side / rc)` must be ≥ 5.
+κ=1 (rc=8.0) produces only 4 cells/dim at N=10,000 → all-pairs. Both modes are needed.
+
+### 10.3 Toadstool GPU Operations Wired
+
+Pulled toadstool `cb89d054` and integrated:
+
+| GPU Op | Binary | Purpose |
+|--------|--------|---------|
+| **BatchedEighGpu** | `nuclear_eos_l2_gpu` | GPU-batched L2 HFB eigensolves |
+| **SsfGpu** | `sarkas_gpu` (observables) | GPU-accelerated static structure factor |
+| **PppmGpu** | `validate_pppm` | κ=0 Coulomb validation |
+
+Bridge: `GpuF64::to_wgpu_device()` creates `Arc<WgpuDevice>` from hotSpring's GPU context.
+
+### 10.4 Reproduction
+
+```bash
+cargo run --release --bin sarkas_gpu -- --paper       # 9 cases, N=10k, 80k steps (~3.66 hrs)
+cargo run --release --bin nuclear_eos_l2_gpu          # GPU-batched L2 HFB
+cargo run --release --bin validate_pppm               # PppmGpu κ=0 validation
+```
+
+See `experiments/003_RTX4070_CAPABILITY_PROFILE.md` for full results and gap analysis.

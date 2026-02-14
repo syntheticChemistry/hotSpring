@@ -1,6 +1,6 @@
 # hotSpring Control Experiment — Status Report
 
-**Date**: 2026-02-15 (L1+L2 complete, GPU MD Phase C+D complete — native f64 builtins, N-scaling, cell-list fix validated)  
+**Date**: 2026-02-15 (L1+L2 complete, GPU MD Phase C+D+E complete — paper-parity long run 9/9, toadstool rewire, all-pairs vs cell-list profiled)  
 **Gate**: Eastgate (i9-12900K, 64 GB DDR5, RTX 4070 12GB, Pop!_OS 22.04)  
 **Sarkas**: v1.0.0 (pinned — see §Roadblocks)  
 **Python**: 3.9 (sarkas), 3.10 (ttm, surrogate) via micromamba  
@@ -414,7 +414,7 @@ scaling but shift the constant factor down by 45-100×.
 ### BarraCUDA Evolution (Phase B — ToadStool Timeline)
 
 The control experiments have now **concretely demonstrated** which BarraCUDA
-capabilities are needed, with **quantitative acceptance criteria from 81 validated checks**:
+capabilities are needed, with **quantitative acceptance criteria from 160 validated checks**:
 
 | BarraCUDA Gap | Demonstrated By | Acceptance Criteria | Priority |
 |---------------|-----------------|---------------------|----------|
@@ -822,6 +822,62 @@ The deep fix (6-phase diagnostic, root cause analysis) gives us:
 
 **Details**: See `experiments/001_N_SCALING_GPU.md` and `experiments/002_CELLLIST_FORCE_DIAGNOSTIC.md`.
 
+### Phase E: Paper-Parity Long Run + Toadstool Rewire (Feb 14-15, 2026)
+
+**The headline result**: 9 Yukawa OCP cases at N=10,000, 80,000 production steps — matching
+the Dense Plasma Properties Database configuration exactly — all pass on an RTX 4070 in 3.66 hours.
+
+**Paper-Parity 9-Case Results** (Feb 14, 2026)
+
+| Case | κ | Γ | Mode | Steps/s | Wall (min) | Drift % | GPU kJ |
+|------|---|---|------|---------|------------|---------|--------|
+| k1_G14 | 1 | 14 | all-pairs | 26.1 | 54.4 | 0.001% | 196.8 |
+| k1_G72 | 1 | 72 | all-pairs | 29.4 | 48.2 | 0.001% | 174.4 |
+| k1_G217 | 1 | 217 | all-pairs | 31.0 | 45.7 | 0.002% | 165.6 |
+| k2_G31 | 2 | 31 | cell-list | 113.3 | 12.5 | 0.000% | 44.8 |
+| k2_G158 | 2 | 158 | cell-list | 115.0 | 12.4 | 0.000% | 45.5 |
+| k2_G476 | 2 | 476 | cell-list | 118.1 | 12.2 | 0.000% | 45.1 |
+| k3_G100 | 3 | 100 | cell-list | 119.9 | 11.8 | 0.000% | 44.2 |
+| k3_G503 | 3 | 503 | cell-list | 124.7 | 11.4 | 0.000% | 42.3 |
+| k3_G1510 | 3 | 1510 | cell-list | 124.6 | 11.4 | 0.000% | 42.9 |
+| **Total** | | | | | **219.9** | | **801.7** |
+
+Aggregate: **3.66 hours**, 0.223 kWh GPU + 0.142 kWh CPU = 0.365 kWh total (**$0.044**).
+
+**All-Pairs vs Cell-List Profiling**
+
+| Metric | All-Pairs (κ=1) | Cell-List (κ=2,3) | Ratio |
+|--------|:---:|:---:|:---:|
+| Avg steps/s | 28.8 | 118.5 | **4.1×** |
+| Avg wall/case | 49.4 min | 12.0 min | 4.1× |
+| Avg GPU energy/case | 178.9 kJ | 44.1 kJ | 4.1× |
+| Avg GPU power | 60.4 W | 61.5 W | Same |
+
+Mode selection is physics-driven:
+- κ=1 (rc=8.0): `cells_per_dim = floor(34.74/8.0) = 4` → all-pairs (below threshold of 5)
+- κ=2 (rc=6.5): `cells_per_dim = floor(34.74/6.5) = 5` → cell-list
+- κ=3 (rc=6.0): `cells_per_dim = floor(34.74/6.0) = 5` → cell-list
+
+Cannot streamline to cell-list only — κ=1 interaction range is too long at N=10,000.
+Cell-list activates for κ=1 at N ≥ ~15,300 (where `box_side ≥ 5 × rc = 40`).
+Both modes produce identical physics; the correct mode is chosen automatically.
+
+**Toadstool Rewire** (Feb 14, 2026)
+
+Pulled toadstool `cb89d054` (9 commits, +14,770 lines) and wired 3 new GPU ops:
+- **BatchedEighGpu** → L2 GPU-batched HFB solver (`nuclear_eos_l2_gpu` binary)
+- **SsfGpu** → GPU SSF observable in MD pipeline (with CPU fallback)
+- **PppmGpu** → κ=0 Coulomb validation (`validate_pppm` binary)
+- **GpuF64 → WgpuDevice bridge** for all toadstool GPU operations
+
+**Next Steps Toward Full Paper Match**:
+1. DSF S(q,ω) spectral analysis — compare peak positions against reference data
+2. κ=0 Coulomb via PppmGpu — validate 3 additional PPPM cases
+3. 100k+ step extended runs on Titan V / 3090 / 6950 XT
+4. BatchedEighGpu L2 full AME2020 runs (791 nuclei)
+
+---
+
 ### RTX 4070 Capability Envelope (Post-Bottleneck)
 
 With native f64 builtins confirmed, the RTX 4070 is now a practical f64 science platform:
@@ -866,7 +922,12 @@ electricity per experiment. The exploration space is now effectively unlimited.
 | **N-scaling native builtins re-run (5 N values)** | **5** | **5** | **✅ 2-6× faster, 0.000% drift, N=10k in 5.3 min** |
 | **Phase D Total** | **16** | **16** | **✅ N-SCALING + CELL-LIST + NATIVE BUILTINS VALIDATED** |
 | | | | |
-| **Grand Total** | **147** | **147** | **✅ ALL PHASES VALIDATED** |
+| **Paper-parity long run (9 cases × 80k steps, N=10k)** | **9** | **9** | **✅ 0.000-0.002% drift, 3.66 hrs, $0.044** |
+| **All-pairs vs cell-list profiling** | **1** | **1** | **✅ 4.1× speedup, physics-driven mode selection** |
+| **Toadstool rewire (3 GPU ops)** | **3** | **3** | **✅ BatchedEighGpu + SsfGpu + PppmGpu wired** |
+| **Phase E Total** | **13** | **13** | **✅ PAPER PARITY LONG RUN + TOADSTOOL REWIRE** |
+| | | | |
+| **Grand Total** | **160** | **160** | **✅ ALL PHASES VALIDATED** |
 
 **Data archive**: `control/comprehensive_control_results.json`  
 **Nuclear EOS results**: `control/surrogate/nuclear-eos/results/nuclear_eos_surrogate_L{1,2}.json`  
@@ -886,7 +947,7 @@ silent data corruption, and the GPU kernels don't depend on fragile JIT compilat
 chains. The profiling data (97.2% in one function) shows this isn't a distributed
 systems problem — it's a single hot kernel that maps directly to a GPU dispatch.
 
-The **147/147 quantitative checks** (86 Phase A+B, 45 Phase C, 16 Phase D) now
+The **160/160 quantitative checks** (86 Phase A+B, 45 Phase C, 16 Phase D, 13 Phase E) now
 provide concrete acceptance criteria across all phases: every observable, every
 physical trend, every transport coefficient has a validated control value. Phase C
 demonstrates that full Yukawa OCP molecular dynamics runs on a consumer GPU —

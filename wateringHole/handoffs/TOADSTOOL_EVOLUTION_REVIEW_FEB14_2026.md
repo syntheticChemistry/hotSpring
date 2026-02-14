@@ -20,11 +20,11 @@ We pulled your latest evolution (e7069201..aba43f27) and reviewed all 47 changed
 - `precision.rs` — elegant shader precision management
 - Device/Tensor f64 improvements
 
-hotSpring is currently running a **paper-parity validation trial** — 9 PP Yukawa cases
-at N=10,000 with 80,000 production steps each, matching published Choi, Dharuman, Murillo
-(Phys. Rev. E 100, 013206, 2019) parameters. Energy conservation is excellent (0.004% drift
-through 6 completed cases so far). When this run completes (~3 hours remaining), we will
-rewire to incorporate your evolved shaders and revalidate.
+The **paper-parity validation trial** has **completed** — all 9 PP Yukawa cases
+at N=10,000 with 80,000 production steps, matching published Choi, Dharuman, Murillo
+(Phys. Rev. E 100, 013206, 2019) parameters. **9/9 pass**, 0.000-0.002% energy drift,
+3.66 hours total, $0.044 electricity. We have rewired BatchedEighGpu, SsfGpu, and PppmGpu
+into hotSpring with the GpuF64→WgpuDevice bridge pattern.
 
 ---
 

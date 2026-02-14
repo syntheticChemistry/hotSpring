@@ -476,8 +476,14 @@ async fn run_single_case(config: &MdConfig, report: &mut BenchReport) -> bool {
             // Validate energy
             let energy_val = observables::validate_energy(&sim.energy_history, config);
 
-            // Print observable summary
-            observables::print_observable_summary(&sim, config);
+            // Create GPU device for SsfGpu (toadstool)
+            let ssf_device = match hotspring_barracuda::gpu::GpuF64::new().await {
+                Ok(gpu) if gpu.has_f64 => Some(gpu.to_wgpu_device()),
+                _ => None,
+            };
+
+            // Print observable summary (with GPU SSF if available)
+            observables::print_observable_summary_with_gpu(&sim, config, ssf_device);
 
             // Add to benchmark report
             let total_steps = config.equil_steps + config.prod_steps;

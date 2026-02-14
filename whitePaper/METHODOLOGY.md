@@ -173,3 +173,44 @@ Current status: L1 target exceeded (**2.27** via DirectSampler, **1.52** via GPU
 | SSF S(k->0) | Physical compressibility range | **Verified all 9** |
 
 Result: **9/9 PP Yukawa cases pass** at N=2000, 80k production steps on RTX 4070. 149-259 steps/s sustained. 3.7x GPU speedup vs CPU. 3.4x less energy per step. The 80k long run confirms energy conservation stability well beyond the 30k steps used in the original Sarkas study.
+
+### GPU MD (Phase D) — N-Scaling + Native f64
+
+- Native WGSL builtins (sqrt, exp on f64): 2-6× throughput improvement
+- N-scaling: 500 → 20,000, 0.000% drift at all N
+- Cell-list O(N) + branch-based wrapping (i32 % bug fixed)
+- Paper parity: N=10,000 in **5.3 minutes**
+
+### GPU MD (Phase E) — Paper-Parity Long Run
+
+| Observable | Criterion | Status (N=10k, 80k steps) |
+|-----------|-----------|--------|
+| Energy drift | < 5% | **All 9 cases: 0.000-0.002%** |
+| All-pairs vs cell-list | Physics-driven mode selection | **4.1× speedup for cell-list** |
+| Total wall time | All 9 cases | **3.66 hours, $0.044** |
+
+Result: **9/9 PP Yukawa cases pass** at N=10,000, 80k production steps — exact paper configuration. Cell-list (κ=2,3) runs at 118.5 steps/s avg; all-pairs (κ=1) at 28.8 steps/s avg. Toadstool GPU ops (BatchedEighGpu, SsfGpu, PppmGpu) wired into pipeline.
+
+### Software Versions
+
+| Component | Version | Notes |
+|-----------|---------|-------|
+| Rust | stable (1.77+) | `rustc --version` |
+| wgpu | 0.19+ | Vulkan backend, SHADER_F64 |
+| Python | 3.9 (Sarkas), 3.10 (surrogate, TTM) | via micromamba |
+| Sarkas | v1.0.0 (pinned, fd908c41) | 3 patches applied |
+| NumPy | 1.26+ | 2.x compat patches |
+| PyTorch | 2.1+ (CUDA) | GPU RBF only |
+| nalgebra | 0.32+ | CPU eigensolvers |
+| rayon | 1.8+ | CPU parallel HFB |
+| OS | Pop!_OS 22.04 (Linux 6.17) | |
+
+### Grand Total: 160/160 Quantitative Checks Pass
+
+| Phase | Checks | Description |
+|-------|:------:|-------------|
+| A (Python control) | 86 | 60 MD + 6 TTM + 15 surrogate + 5 EOS |
+| C (GPU MD, N=2000) | 45 | 9 cases × 5 observables |
+| D (N-scaling + builtins) | 16 | 5 N values + 6 cell-list diag + 5 native builtins |
+| E (Paper-parity + rewire) | 13 | 9 long-run cases + 1 profiling + 3 GPU ops |
+| **Total** | **160** | **All pass** |

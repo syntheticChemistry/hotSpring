@@ -23,7 +23,7 @@ hotSpring replicates published computational plasma physics from the Murillo Gro
 
 The study answers two questions:
 1. **Can published computational science be independently reproduced?** (Answer: yes, but it required fixing 5 silent bugs and rebuilding physics that was behind a gated platform)
-2. **Can Rust + WebGPU replace the Python scientific stack for real physics?** (Answer: yes — BarraCUDA achieves 478× faster throughput and 44.8× less energy at L1, with GPU FP64 validated to 4.55e-13 MeV precision. Full Sarkas Yukawa MD runs on a $350 consumer GPU with 9/9 cases passing.)
+2. **Can Rust + WebGPU replace the Python scientific stack for real physics?** (Answer: yes — BarraCUDA achieves 478× faster throughput and 44.8× less energy at L1, with GPU FP64 validated to 4.55e-13 MeV precision. Full Sarkas Yukawa MD runs on a $600 consumer GPU: 9/9 PP cases pass at N=10,000 with 80,000 production steps in 3.66 hours for $0.044.)
 
 ---
 
@@ -45,19 +45,27 @@ The study answers two questions:
 | L1 (DirectSampler) | **2.27** chi2/datum | 6.62 | **478×** | — |
 | L2 (HFB) | 23.09 chi2/datum | **1.93** | 1.7× | — |
 
-**L1**: BarraCUDA finds better minimum (2.27 vs 6.62) and runs 478× faster. GPU path uses 44.8× less energy than Python for identical physics (126 J vs 5,648 J for 100k L1 evaluations).
-
-**L2**: Python wins on accuracy (1.93 vs 23.09) due to SparsitySampler — the sampling strategy gap, not physics implementation.
-
-### Phase C (GPU MD): Sarkas on consumer GPU
+### Phase C (GPU MD): Sarkas on consumer GPU (N=2,000)
 
 - **9/9 PP Yukawa cases pass** on RTX 4070 using f64 WGSL shaders
-- Energy drift: **0.000%** across 80,000 production steps (symplectic Velocity-Verlet)
-- Sustained throughput: **149-259 steps/s** (80k-step long run, 2.1× higher than 30k run)
-- GPU speedup: **3.7×** at N=2000 (scales as O(N²))
-- GPU energy: **3.4× less per step** than CPU at N=2000; **1.9× more efficient per step** in long run
+- Energy drift: **0.000%** across 80,000 production steps
+- Sustained throughput: **149-259 steps/s** at N=2,000
 - Full 9-case long sweep: **71 minutes**, ~225 kJ total GPU energy
-- No CUDA, no HPC cluster — consumer hardware only
+
+### Phase D (Native f64 + N-scaling)
+
+- Native WGSL builtins: 2-6× throughput improvement
+- N=10,000 paper parity in **5.3 minutes**; N=20,000 in 10.4 minutes
+- Cell-list O(N) scaling + WGSL `i32 %` bug deep-debugged
+
+### Phase E (Paper-Parity Long Run + Toadstool Rewire) — NEW
+
+- **9/9 PP Yukawa cases at N=10,000, 80k production steps** — exact paper config
+- **3.66 hours total, $0.044 electricity**
+- Cell-list **4.1× faster** than all-pairs for κ=2,3
+- Energy drift: **0.000-0.002%** across all 9 cases
+- Toadstool GPU ops wired: **BatchedEighGpu**, **SsfGpu**, **PppmGpu**
+- **160/160 quantitative checks pass** across all phases
 
 ---
 
@@ -83,10 +91,14 @@ cargo run --release --bin nuclear_eos_l2_ref -- --seed=42 --lambda=0.1   # L2: ~
 ```
 
 ```bash
-# Phase C (GPU MD, requires SHADER_F64 GPU)
+# Phase C-E (GPU MD, requires SHADER_F64 GPU)
 cd barracuda
 cargo run --release --bin sarkas_gpu -- --full    # 9 PP Yukawa cases, N=2000, 30k steps (~60 min)
-cargo run --release --bin sarkas_gpu -- --long    # 9 cases, 80k steps (~71 min, recommended)
+cargo run --release --bin sarkas_gpu -- --long    # 9 cases, N=2000, 80k steps (~71 min)
+cargo run --release --bin sarkas_gpu -- --paper   # 9 cases, N=10k, 80k steps (~3.66 hrs, paper parity)
+cargo run --release --bin sarkas_gpu -- --nscale  # N-scaling: N=500-20000
+cargo run --release --bin nuclear_eos_l2_gpu      # GPU-batched L2 HFB (BatchedEighGpu)
+cargo run --release --bin validate_pppm           # PppmGpu kappa=0 Coulomb validation
 ```
 
 No institutional access required. No Code Ocean account. No Fortran compiler. AGPL-3.0 licensed.
@@ -100,3 +112,4 @@ Native FP64 GPU compute confirmed on RTX 4070 via `wgpu::Features::SHADER_F64` (
 - **Performance**: ~2x FP64:FP32 ratio for bandwidth-limited operations (not the CUDA-reported 1:64)
 - **Implication**: The RTX 4070 is usable for FP64 science compute today via BarraCUDA's wgpu shaders
 - **Phase C validation**: Full Yukawa MD (9 cases, N=2000, 80k steps) runs at 149-259 steps/s sustained with 0.000% energy drift
+- **Phase E validation**: Full paper-parity (9 cases, N=10,000, 80k steps) completes in 3.66 hours with 0.000-0.002% drift. Cell-list 4.1× faster than all-pairs.

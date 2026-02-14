@@ -1,10 +1,14 @@
 //! Observable computation for MD validation
 //!
 //! Computes RDF, VACF, SSF, and energy metrics from simulation snapshots.
-//! These are computed on CPU from GPU-generated snapshots.
-//! (GPU-native observable kernels planned for Phase 3.)
+//! CPU path computes from GPU-generated snapshots.
+//! GPU path uses toadstool's SsfGpu for O(N) GPU-accelerated S(k).
 
 use std::f64::consts::PI;
+use std::sync::Arc;
+
+use barracuda::device::WgpuDevice;
+use barracuda::ops::md::observables::SsfGpu;
 
 use crate::md::config::MdConfig;
 use crate::md::simulation::{EnergyRecord, MdSimulation};
@@ -192,6 +196,54 @@ pub fn compute_ssf(
     sk_values
 }
 
+/// Compute S(k) using toadstool's SsfGpu, averaged over snapshots.
+///
+/// This mirrors `compute_ssf` but runs each snapshot on the GPU via
+/// `SsfGpu::compute_axes`. Falls back to CPU if GPU dispatch fails.
+pub fn compute_ssf_gpu(
+    device: Arc<WgpuDevice>,
+    snapshots: &[Vec<f64>],
+    _n: usize,
+    box_side: f64,
+    max_k_harmonics: usize,
+) -> Vec<(f64, f64)> {
+    if snapshots.is_empty() {
+        return Vec::new();
+    }
+
+    // Accumulator: (k, sum_of_sk, count)
+    let mut accumulator: Vec<(f64, f64, usize)> = Vec::new();
+
+    for snap in snapshots {
+        match SsfGpu::compute_axes(device.clone(), snap, box_side, max_k_harmonics) {
+            Ok(sk_pairs) => {
+                // Grow accumulator on first snapshot
+                if accumulator.is_empty() {
+                    accumulator = sk_pairs.iter().map(|&(k, sk)| (k, sk, 1)).collect();
+                } else {
+                    for (i, &(_k, sk)) in sk_pairs.iter().enumerate() {
+                        if i < accumulator.len() {
+                            accumulator[i].1 += sk;
+                            accumulator[i].2 += 1;
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                eprintln!("  SsfGpu::compute_axes failed: {} — skipping snapshot", e);
+            }
+        }
+    }
+
+    // Average over snapshots
+    accumulator
+        .into_iter()
+        .map(|(k, sum_sk, count)| {
+            (k, if count > 0 { sum_sk / count as f64 } else { 0.0 })
+        })
+        .collect()
+}
+
 /// Validate energy conservation
 pub fn validate_energy(history: &[EnergyRecord], config: &MdConfig) -> EnergyValidation {
     if history.is_empty() {
@@ -246,8 +298,20 @@ pub fn validate_energy(history: &[EnergyRecord], config: &MdConfig) -> EnergyVal
     }
 }
 
-/// Print summary of all observables
+/// Print summary of all observables.
+///
+/// If `gpu_device` is provided, SSF is computed on GPU via `SsfGpu::compute_axes`.
+/// Otherwise falls back to CPU `compute_ssf`.
 pub fn print_observable_summary(sim: &MdSimulation, config: &MdConfig) {
+    print_observable_summary_with_gpu(sim, config, None);
+}
+
+/// Print observable summary with optional GPU device for SSF.
+pub fn print_observable_summary_with_gpu(
+    sim: &MdSimulation,
+    config: &MdConfig,
+    gpu_device: Option<Arc<WgpuDevice>>,
+) {
     println!();
     println!("  ── Observable Summary: {} ──", config.label);
 
@@ -311,21 +375,45 @@ pub fn print_observable_summary(sim: &MdSimulation, config: &MdConfig) {
         );
     }
 
-    // SSF
+    // SSF — GPU or CPU path
     if !sim.positions_snapshots.is_empty() {
-        let ssf = compute_ssf(
-            &sim.positions_snapshots,
-            config.n_particles,
-            config.box_side(),
-            20,
-        );
+        let (ssf, ssf_label) = if let Some(ref dev) = gpu_device {
+            let gpu_ssf = compute_ssf_gpu(
+                dev.clone(),
+                &sim.positions_snapshots,
+                config.n_particles,
+                config.box_side(),
+                20,
+            );
+            if gpu_ssf.is_empty() {
+                // GPU failed, fall back to CPU
+                let cpu_ssf = compute_ssf(
+                    &sim.positions_snapshots,
+                    config.n_particles,
+                    config.box_side(),
+                    20,
+                );
+                (cpu_ssf, "CPU fallback")
+            } else {
+                (gpu_ssf, "GPU SsfGpu")
+            }
+        } else {
+            let cpu_ssf = compute_ssf(
+                &sim.positions_snapshots,
+                config.n_particles,
+                config.box_side(),
+                20,
+            );
+            (cpu_ssf, "CPU")
+        };
+
         if let Some((k0, s0)) = ssf.first() {
             let (k_max, s_max) = ssf
                 .iter()
                 .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
                 .unwrap();
-            println!("    SSF: S(k→0)={:.4} at k={:.3}", s0, k0);
-            println!("    SSF: peak S(k)={:.4} at k={:.3} a_ws⁻¹", s_max, k_max);
+            println!("    SSF [{}]: S(k->0)={:.4} at k={:.3}", ssf_label, s0, k0);
+            println!("    SSF [{}]: peak S(k)={:.4} at k={:.3} a_ws^-1", ssf_label, s_max, k_max);
         }
     }
 

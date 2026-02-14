@@ -118,6 +118,185 @@ impl SphericalHFB {
 
     pub fn n_states(&self) -> usize { self.n_states }
     pub fn nr(&self) -> usize { self.nr }
+    pub fn z(&self) -> usize { self.z }
+    pub fn n_neutrons(&self) -> usize { self.n_neutrons }
+
+    /// Pairing gap (same for proton and neutron in this model)
+    pub fn pairing_gap(&self) -> f64 { self.delta_p }
+
+    /// Build the full Hamiltonian matrix for one species (proton or neutron).
+    ///
+    /// Returns a flat row-major `n_states × n_states` matrix suitable for
+    /// packing into `BatchedEighGpu`.
+    pub fn build_hamiltonian(
+        &self,
+        rho_p: &[f64],
+        rho_n: &[f64],
+        is_proton: bool,
+        params: &[f64],
+        w0: f64,
+    ) -> Vec<f64> {
+        let ns = self.n_states;
+        let nr = self.nr;
+
+        let u_sky = self.skyrme_potential(rho_p, rho_n, is_proton, params);
+
+        let u_total: Vec<f64> = if is_proton {
+            let v_c = self.coulomb_direct(rho_p);
+            let v_cx = self.coulomb_exchange(rho_p);
+            (0..nr).map(|k| u_sky[k] + v_c[k] + v_cx[k]).collect()
+        } else {
+            u_sky
+        };
+
+        let t_eff = self.build_t_eff(rho_p, rho_n, is_proton, params);
+
+        // H = T_eff + V
+        let mut h = Mat::zeros(ns);
+        for i in 0..ns {
+            for j in 0..ns {
+                h.set(i, j, t_eff.get(i, j));
+            }
+        }
+
+        // Diagonal potential matrix elements
+        for i in 0..ns {
+            let integ: Vec<f64> = (0..nr)
+                .map(|k| self.wf[i][k].powi(2) * u_total[k] * self.r[k].powi(2))
+                .collect();
+            h.add(i, i, barracuda::numerical::trapz(&integ, &self.r).unwrap_or(0.0));
+
+            // Spin-orbit
+            if w0 != 0.0 && self.states[i].l > 0 {
+                let j = self.states[i].j;
+                let l_f = self.states[i].l as f64;
+                let ls = (j * (j + 1.0) - l_f * (l_f + 1.0) - 0.75) / 2.0;
+                let rho_total: Vec<f64> = (0..nr).map(|k| rho_p[k] + rho_n[k]).collect();
+                let drho = barracuda::numerical::gradient_1d(&rho_total, self.dr);
+                let so_integ: Vec<f64> = (0..nr)
+                    .map(|k| {
+                        self.wf[i][k].powi(2) * drho[k] / self.r[k].max(0.1)
+                            * self.r[k].powi(2)
+                    })
+                    .collect();
+                h.add(
+                    i,
+                    i,
+                    w0 * ls * barracuda::numerical::trapz(&so_integ, &self.r).unwrap_or(0.0),
+                );
+            }
+        }
+
+        // Off-diagonal: same (l, j) block
+        for ((_l, _j_key), indices) in &self.lj_blocks {
+            for ii in 0..indices.len() {
+                for jj in (ii + 1)..indices.len() {
+                    let idx_i = indices[ii];
+                    let idx_j = indices[jj];
+                    let integ: Vec<f64> = (0..nr)
+                        .map(|k| {
+                            self.wf[idx_i][k] * self.wf[idx_j][k] * u_total[k]
+                                * self.r[k].powi(2)
+                        })
+                        .collect();
+                    let val =
+                        barracuda::numerical::trapz(&integ, &self.r).unwrap_or(0.0);
+                    h.add(idx_i, idx_j, val);
+                    h.add(idx_j, idx_i, val);
+                }
+            }
+        }
+
+        h.data
+    }
+
+    /// Compute BCS occupations from externally-provided eigenvalues.
+    ///
+    /// Returns (v2_occupations, chemical_potential).
+    pub fn bcs_occupations_from_eigs(
+        &self,
+        eigenvalues: &[f64],
+        num_particles: usize,
+        delta: f64,
+    ) -> (Vec<f64>, f64) {
+        self.bcs_occupations(eigenvalues, num_particles, delta)
+    }
+
+    /// Compute density from BCS-weighted eigenstates (GPU-unpacked format).
+    ///
+    /// `eigvecs` is row-major [n_states × n_states] from GPU.
+    /// `v2` is the BCS occupation for each state.
+    /// Returns radial density profile [nr].
+    pub fn density_from_eigenstates(
+        &self,
+        eigvecs: &[f64],
+        v2: &[f64],
+        ns: usize,
+    ) -> Vec<f64> {
+        let nr = self.nr;
+        let degs: Vec<f64> = self.states.iter().map(|s| s.deg as f64).collect();
+        let mut rho = vec![1e-15; nr];
+
+        for i in 0..ns {
+            if degs[i] * v2[i] < 1e-12 {
+                continue;
+            }
+            let mut phi = vec![0.0; nr];
+            for j in 0..ns {
+                let c = eigvecs[j * ns + i];
+                for k in 0..nr {
+                    phi[k] += c * self.wf[j][k];
+                }
+            }
+            for k in 0..nr {
+                rho[k] += degs[i] * v2[i] * phi[k].powi(2) / (4.0 * PI);
+            }
+        }
+
+        for k in 0..nr {
+            rho[k] = rho[k].max(1e-15);
+        }
+        rho
+    }
+
+    /// Compute total energy from proton/neutron densities and eigendecompositions.
+    ///
+    /// Used by the GPU-batched solver where eigensolves happen externally.
+    pub fn compute_energy_from_densities(
+        &self,
+        rho_p: &[f64],
+        rho_n: &[f64],
+        eigs_p: &[f64],
+        vecs_p: &[f64],
+        eigs_n: &[f64],
+        vecs_n: &[f64],
+        params: &[f64],
+    ) -> f64 {
+        let ns = self.n_states;
+        let delta_p = self.delta_p;
+        let delta_n = self.delta_n;
+
+        // Reconstruct v2 for energy calculation
+        let (v2_p, _) = self.bcs_occupations(eigs_p, self.z, delta_p);
+        let (v2_n, _) = self.bcs_occupations(eigs_n, self.n_neutrons, delta_n);
+
+        let results_p = SpeciesResult {
+            eigenvalues: eigs_p.to_vec(),
+            eigvecs: vecs_p.to_vec(),
+            n: ns,
+            v2: v2_p,
+            _lambda: 0.0,
+        };
+        let results_n = SpeciesResult {
+            eigenvalues: eigs_n.to_vec(),
+            eigvecs: vecs_n.to_vec(),
+            n: ns,
+            v2: v2_n,
+            _lambda: 0.0,
+        };
+
+        self.compute_energy(rho_p, rho_n, &results_p, &results_n, params)
+    }
 
     fn build(z: usize, n: usize, n_shells: usize, r_max: f64, n_grid: usize) -> Self {
         let a = z + n;

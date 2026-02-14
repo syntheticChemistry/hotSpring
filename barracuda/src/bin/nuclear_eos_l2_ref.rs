@@ -153,7 +153,7 @@ fn main() {
         .join("control/surrogate/nuclear-eos");
 
     let exp_data = Arc::new(
-        data::load_experimental_data(&base.join("exp_data/ame2020_selected.json"))
+        data::load_nuclei(&base, data::parse_nuclei_set_from_args())
             .expect("Failed to load experimental data"),
     );
     let bounds = data::load_bounds(&base.join("wrapper/skyrme_bounds.json"))

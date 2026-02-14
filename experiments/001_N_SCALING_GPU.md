@@ -408,6 +408,14 @@ Cell-list active for N >= 10,000. N=10,000 paper parity in 5.3 minutes.*
 
 ---
 
+## Related Experiments
+
+- **[002_CELLLIST_FORCE_DIAGNOSTIC.md](002_CELLLIST_FORCE_DIAGNOSTIC.md)**: Deep-dive into the cell-list `i32 %` bug found during this experiment's N=10,000 run. 6-phase diagnostic → root cause → branch-based fix.
+- **[003_RTX4070_CAPABILITY_PROFILE.md](003_RTX4070_CAPABILITY_PROFILE.md)**: Full 9-case paper-parity long run (N=10,000, 80k steps) using the cell-list kernel validated here. All-pairs vs cell-list profiling (4.1× speedup). Phase E results.
+- **`whitePaper/STUDY.md` §5.7-5.8**: N-scaling and Phase E narrative for journal publication.
+
+---
+
 ## References
 
 1. Choi, B., Dharuman, G., Murillo, M. S. "High-Frequency Response of Classical Strongly Coupled Plasmas." *Physical Review E* 100, 013206 (2019). — DSF reference data source.

@@ -324,41 +324,81 @@ impl DeformedHFB {
     }
 
     /// 2D oscillator radial part: Laguerre basis
-    /// R_{n_perp, |Lambda|}(rho) = sqrt(2 n! / (b² Gamma(n+|L|+1))) * (rho/b)^|L|
+    /// R_{n_perp, |Lambda|}(rho) = sqrt(n! / (pi * b² * Gamma(n+|L|+1))) * (rho/b)^|L|
     ///                              * exp(-rho²/2b²) * L_n^|L|(rho²/b²)
+    ///
+    /// Normalization: integral |R|² * 2*pi*rho * d_rho = 1
+    /// The 1/sqrt(pi) accounts for the azimuthal 2*pi from the volume element
+    /// canceling with exp(i*Lambda*phi)/sqrt(2*pi).
     fn laguerre_oscillator(n_perp: usize, abs_lambda: usize, rho: f64, b: f64) -> f64 {
         let eta = (rho / b).powi(2);
         let alpha = abs_lambda as f64;
 
         let n_fact = factorial_f64(n_perp);
         let gamma_val = gamma(n_perp as f64 + alpha + 1.0).unwrap_or(1.0);
-        let norm = (2.0 * n_fact / (b * b * gamma_val)).sqrt();
+        // Include 1/sqrt(2*pi) so that integral |R|^2 * 2*pi*rho*d_rho = 1
+        let norm = (n_fact / (PI * b * b * gamma_val)).sqrt();
 
         let lag = laguerre(n_perp, alpha, eta);
         norm * (rho / b).powi(abs_lambda as i32) * (-eta / 2.0).exp() * lag
     }
 
-    /// Self-consistent HFB solve
+    /// Self-consistent HFB solve with Broyden/modified mixing
+    ///
+    /// SCF iteration: density → mean field → diagonalize → new density → mix → repeat
+    /// Uses modified Broyden mixing (Johnson 1988) after initial linear mixing warmup.
     pub fn solve(&mut self, params: &[f64]) -> DeformedHFBResult {
         let max_iter = 200;
         let tol = 1e-6; // MeV
+        let broyden_warmup = 50; // linear mixing for first N iterations (converge density first)
+        let broyden_history = 8; // max Broyden history vectors
 
         let mut e_prev = 0.0;
         let mut converged = false;
         let mut binding_energy = 0.0;
 
-        // Precompute all wavefunctions on the grid
-        let wavefunctions: Vec<Vec<f64>> = self.states.iter()
+        // Initialize with zero mean-field → just oscillator
+        let n_grid = self.grid.total();
+
+        // Precompute all wavefunctions on the grid, then renormalize
+        // to ensure integral |psi|² dV = 1 on the discrete grid
+        let mut wavefunctions: Vec<Vec<f64>> = self.states.iter()
             .map(|s| self.evaluate_wavefunction(s))
             .collect();
 
-        // Initialize with zero mean-field → just oscillator
-        let n_grid = self.grid.total();
+        // Renormalize each wavefunction on the grid
+        for psi in &mut wavefunctions {
+            let norm2: f64 = (0..n_grid).map(|k| {
+                let i_rho = k / self.grid.n_z;
+                let i_z = k % self.grid.n_z;
+                psi[k] * psi[k] * self.grid.volume_element(i_rho, i_z)
+            }).sum();
+            if norm2 > 1e-30 {
+                let scale = 1.0 / norm2.sqrt();
+                for v in psi.iter_mut() { *v *= scale; }
+            }
+        }
         let mut rho_p = vec![0.0; n_grid];
         let mut rho_n = vec![0.0; n_grid];
 
+        // Broyden mixing state: store residual history
+        // vec_dim = 2*n_grid (rho_p and rho_n concatenated)
+        let vec_dim = 2 * n_grid;
+        let mut broyden_dfs: Vec<Vec<f64>> = Vec::new(); // delta(F) history
+        let mut broyden_dus: Vec<Vec<f64>> = Vec::new(); // delta(u) history
+        let mut prev_residual: Option<Vec<f64>> = None;
+        let mut prev_input: Option<Vec<f64>> = None;
+
         let mut iter = 0;
         let mut delta_e = 0.0;
+
+        // Previous-iteration occupations for tau/J computation
+        // (avoids double-diagonalization per iteration)
+        let mut prev_occ_p = vec![0.0; self.states.len()];
+        let mut prev_occ_n = vec![0.0; self.states.len()];
+
+        // Precompute Coulomb potential as a separate step (avoids O(n²) in mean_field)
+        let mut v_coulomb = vec![0.0; n_grid];
 
         for iteration in 0..max_iter {
             iter = iteration + 1;
@@ -366,9 +406,24 @@ impl DeformedHFB {
                 .map(|(&p, &n)| p + n)
                 .collect();
 
-            // Compute mean-field potentials
-            let v_p = self.mean_field_potential(params, &rho_p, &rho_n, &total_rho, true);
-            let v_n = self.mean_field_potential(params, &rho_p, &rho_n, &total_rho, false);
+            // Compute tau and J from previous-iteration occupations (zero on first iter)
+            let tau_p_vals = self.compute_tau(&wavefunctions, &prev_occ_p);
+            let tau_n_vals = self.compute_tau(&wavefunctions, &prev_occ_n);
+            let j_p_vals = self.compute_spin_current(&wavefunctions, &prev_occ_p);
+            let j_n_vals = self.compute_spin_current(&wavefunctions, &prev_occ_n);
+
+            // Precompute Coulomb potential (O(n²), but only once per iteration)
+            self.compute_coulomb_potential(&rho_p, &mut v_coulomb);
+
+            // Compute full mean-field potentials (with tau, J, precomputed Coulomb)
+            let v_p = self.mean_field_potential_fast(
+                params, &rho_p, &rho_n, &total_rho, true,
+                &tau_p_vals, &tau_n_vals, &j_p_vals, &j_n_vals, &v_coulomb
+            );
+            let v_n = self.mean_field_potential_fast(
+                params, &rho_p, &rho_n, &total_rho, false,
+                &tau_p_vals, &tau_n_vals, &j_p_vals, &j_n_vals, &v_coulomb
+            );
 
             // Diagonalize block-by-block for each Omega
             let (eigs_p, occ_p) = self.diagonalize_blocks(
@@ -378,29 +433,123 @@ impl DeformedHFB {
                 &v_n, &wavefunctions, self.n_neutrons, self.delta_n
             );
 
-            // Update densities
+            // Store occupations for next iteration's tau/J
+            prev_occ_p = occ_p.clone();
+            prev_occ_n = occ_n.clone();
+
+            // Compute output densities
             let (new_rho_p, new_rho_n) = self.compute_densities(
                 &wavefunctions, &occ_p, &occ_n
             );
 
-            // Mix densities for convergence (simple linear mixing)
-            let alpha_mix = if iteration < 5 { 0.3 } else { 0.5 };
-            for i in 0..n_grid {
-                rho_p[i] = (1.0 - alpha_mix) * rho_p[i] + alpha_mix * new_rho_p[i];
-                rho_n[i] = (1.0 - alpha_mix) * rho_n[i] + alpha_mix * new_rho_n[i];
+            // ── Density mixing (Broyden after warmup, linear during warmup) ──
+            if iteration < broyden_warmup {
+                // First iteration: full replacement (no previous density to mix with)
+                // Subsequent warmup: conservative linear mixing
+                let alpha_mix = if iteration == 0 { 1.0 } else { 0.5 };
+                for i in 0..n_grid {
+                    rho_p[i] = (1.0 - alpha_mix) * rho_p[i] + alpha_mix * new_rho_p[i];
+                    rho_n[i] = (1.0 - alpha_mix) * rho_n[i] + alpha_mix * new_rho_n[i];
+                }
+            } else {
+                // Modified Broyden mixing (Johnson, PRB 38, 12807, 1988)
+                let alpha_mix = 0.4;
+
+                // Pack current input and output into vectors
+                let input_vec: Vec<f64> = rho_p.iter().chain(rho_n.iter()).copied().collect();
+                let output_vec: Vec<f64> = new_rho_p.iter().chain(new_rho_n.iter()).copied().collect();
+                let residual: Vec<f64> = output_vec.iter().zip(&input_vec)
+                    .map(|(&out, &inp)| out - inp)
+                    .collect();
+
+                // Broyden update
+                if let (Some(prev_r), Some(prev_u)) = (&prev_residual, &prev_input) {
+                    let df: Vec<f64> = residual.iter().zip(prev_r)
+                        .map(|(&r, &pr)| r - pr)
+                        .collect();
+                    let du: Vec<f64> = input_vec.iter().zip(prev_u)
+                        .map(|(&u, &pu)| u - pu)
+                        .collect();
+
+                    // Store in history (drop oldest if full)
+                    if broyden_dfs.len() >= broyden_history {
+                        broyden_dfs.remove(0);
+                        broyden_dus.remove(0);
+                    }
+                    broyden_dfs.push(df);
+                    broyden_dus.push(du);
+                }
+
+                // Apply Broyden correction if we have history
+                let mut mixed = vec![0.0; vec_dim];
+                if !broyden_dfs.is_empty() {
+                    // Simplified Broyden: x_new = x + alpha*F - sum_m gamma_m * (du_m + alpha*df_m)
+                    // where gamma_m = <df_m | F> / <df_m | df_m>
+                    for i in 0..vec_dim {
+                        mixed[i] = input_vec[i] + alpha_mix * residual[i];
+                    }
+                    for m in 0..broyden_dfs.len() {
+                        let df_dot_r: f64 = broyden_dfs[m].iter().zip(&residual)
+                            .map(|(&a, &b)| a * b).sum();
+                        let df_dot_df: f64 = broyden_dfs[m].iter()
+                            .map(|&a| a * a).sum();
+                        if df_dot_df > 1e-30 {
+                            let gamma = df_dot_r / df_dot_df;
+                            for i in 0..vec_dim {
+                                mixed[i] -= gamma * (broyden_dus[m][i] + alpha_mix * broyden_dfs[m][i]);
+                            }
+                        }
+                    }
+                } else {
+                    // First Broyden step: just linear mixing
+                    for i in 0..vec_dim {
+                        mixed[i] = input_vec[i] + alpha_mix * residual[i];
+                    }
+                }
+
+                prev_residual = Some(residual);
+                prev_input = Some(input_vec);
+
+                // Unpack
+                rho_p = mixed[..n_grid].to_vec();
+                rho_n = mixed[n_grid..].to_vec();
+
+                // Ensure non-negative densities
+                for v in rho_p.iter_mut() { *v = v.max(0.0); }
+                for v in rho_n.iter_mut() { *v = v.max(0.0); }
             }
+
+            // Verify density normalization (sanity check)
+            let n_p_check: f64 = rho_p.iter().enumerate()
+                .map(|(i, &rp)| rp * self.grid.volume_element(i / self.grid.n_z, i % self.grid.n_z))
+                .sum();
+            let n_n_check: f64 = rho_n.iter().enumerate()
+                .map(|(i, &rn)| rn * self.grid.volume_element(i / self.grid.n_z, i % self.grid.n_z))
+                .sum();
 
             // Compute total energy
             binding_energy = self.total_energy(
                 params, &rho_p, &rho_n, &eigs_p, &eigs_n, &occ_p, &occ_n
             );
 
+            // Divergence protection: if energy is unphysical, bail out
+            if !binding_energy.is_finite() || binding_energy.abs() > 1e10 {
+                break;
+            }
+
             delta_e = (binding_energy - e_prev).abs();
-            if iteration > 0 && delta_e < tol {
+            if iteration > broyden_warmup && delta_e < tol {
                 converged = true;
                 break;
             }
             e_prev = binding_energy;
+
+            // Debug output for first few iterations (only in test/debug builds)
+            #[cfg(test)]
+            if iteration < 5 || iteration % 50 == 0 {
+                eprintln!("  iter {:3}: E={:12.3} MeV  N_p={:.2}  N_n={:.2}  dE={:.3e}",
+                    iteration, binding_energy, n_p_check, n_n_check, delta_e);
+            }
         }
 
         // Compute deformation observables
@@ -422,72 +571,278 @@ impl DeformedHFB {
         }
     }
 
-    /// Compute mean-field potential on cylindrical grid
-    fn mean_field_potential(
+    /// Compute kinetic energy density tau(r) from wavefunctions and occupations
+    /// tau = sum_i n_i |grad psi_i|^2
+    fn compute_tau(
+        &self,
+        wavefunctions: &[Vec<f64>],
+        occ: &[f64],
+    ) -> Vec<f64> {
+        let n = self.grid.total();
+        let mut tau = vec![0.0; n];
+
+        for (i, _s) in self.states.iter().enumerate() {
+            let occ_i = occ[i] * 2.0; // time-reversal degeneracy
+            if occ_i < 1e-15 { continue; }
+
+            let psi = &wavefunctions[i];
+            // Numerical gradient |grad psi|^2 via finite differences
+            for i_rho in 0..self.grid.n_rho {
+                for i_z in 0..self.grid.n_z {
+                    let idx = self.grid.idx(i_rho, i_z);
+
+                    // d psi / d rho (finite difference)
+                    let dpsi_drho = if i_rho == 0 {
+                        (psi[self.grid.idx(1, i_z)] - psi[idx]) / self.grid.d_rho
+                    } else if i_rho == self.grid.n_rho - 1 {
+                        (psi[idx] - psi[self.grid.idx(i_rho - 1, i_z)]) / self.grid.d_rho
+                    } else {
+                        (psi[self.grid.idx(i_rho + 1, i_z)] - psi[self.grid.idx(i_rho - 1, i_z)])
+                            / (2.0 * self.grid.d_rho)
+                    };
+
+                    // d psi / d z (finite difference)
+                    let dpsi_dz = if i_z == 0 {
+                        (psi[self.grid.idx(i_rho, 1)] - psi[idx]) / self.grid.d_z
+                    } else if i_z == self.grid.n_z - 1 {
+                        (psi[idx] - psi[self.grid.idx(i_rho, i_z - 1)]) / self.grid.d_z
+                    } else {
+                        (psi[self.grid.idx(i_rho, i_z + 1)] - psi[self.grid.idx(i_rho, i_z - 1)])
+                            / (2.0 * self.grid.d_z)
+                    };
+
+                    tau[idx] += occ_i * (dpsi_drho * dpsi_drho + dpsi_dz * dpsi_dz);
+                }
+            }
+        }
+
+        tau
+    }
+
+    /// Compute spin-orbit density J(r) = sum_i n_i * psi_i * (l x s) * psi_i
+    /// For axially-symmetric case, the relevant component is J_z ~ Lambda * sigma
+    fn compute_spin_current(
+        &self,
+        wavefunctions: &[Vec<f64>],
+        occ: &[f64],
+    ) -> Vec<f64> {
+        let n = self.grid.total();
+        let mut j_density = vec![0.0; n];
+
+        for (i, s) in self.states.iter().enumerate() {
+            let occ_i = occ[i] * 2.0;
+            if occ_i < 1e-15 { continue; }
+
+            // Spin-current: <l·s> contribution is Lambda * sigma / 2
+            let ls = s.lambda as f64 * s.sigma as f64 * 0.5;
+
+            for k in 0..n {
+                let psi2 = wavefunctions[i][k] * wavefunctions[i][k];
+                j_density[k] += occ_i * ls * psi2;
+            }
+        }
+
+        j_density
+    }
+
+    /// Compute |grad rho|² (squared gradient magnitude) for spin-orbit potential
+    /// In cylindrical coordinates: |grad f|² = (df/d_rho)² + (df/dz)²
+    /// Returns the radial derivative (df/dr) for use in the simplified spin-orbit:
+    ///   V_ls ~ -W0/2 * (1/r) * d_rho/dr
+    fn density_radial_derivative(&self, density: &[f64]) -> Vec<f64> {
+        let n = self.grid.total();
+        let mut deriv = vec![0.0; n];
+
+        for i_rho in 0..self.grid.n_rho {
+            for i_z in 0..self.grid.n_z {
+                let idx = self.grid.idx(i_rho, i_z);
+
+                let d_drho = if i_rho == 0 {
+                    (density[self.grid.idx(1, i_z)] - density[idx]) / self.grid.d_rho
+                } else if i_rho == self.grid.n_rho - 1 {
+                    (density[idx] - density[self.grid.idx(i_rho - 1, i_z)]) / self.grid.d_rho
+                } else {
+                    (density[self.grid.idx(i_rho + 1, i_z)] - density[self.grid.idx(i_rho - 1, i_z)])
+                        / (2.0 * self.grid.d_rho)
+                };
+
+                let d_dz = if i_z == 0 {
+                    (density[self.grid.idx(i_rho, 1)] - density[idx]) / self.grid.d_z
+                } else if i_z == self.grid.n_z - 1 {
+                    (density[idx] - density[self.grid.idx(i_rho, i_z - 1)]) / self.grid.d_z
+                } else {
+                    (density[self.grid.idx(i_rho, i_z + 1)] - density[self.grid.idx(i_rho, i_z - 1)])
+                        / (2.0 * self.grid.d_z)
+                };
+
+                // Radial derivative: project (d/drho, d/dz) onto radial direction
+                let rho_coord = self.grid.rho[i_rho];
+                let z_coord = self.grid.z[i_z];
+                let r = (rho_coord * rho_coord + z_coord * z_coord).sqrt().max(0.01);
+                deriv[idx] = (d_drho * rho_coord + d_dz * z_coord) / r;
+            }
+        }
+
+        deriv
+    }
+
+    /// Precompute Coulomb potential on the cylindrical grid (O(n²) but done once per SCF iter)
+    ///
+    /// Uses spherical monopole approximation:
+    ///   V_C(r) = e² * [Q_enclosed(r) / r + V_exterior(r)]
+    /// where charges are sorted by radial distance.
+    fn compute_coulomb_potential(
+        &self,
+        rho_p: &[f64],
+        v_coulomb: &mut [f64],
+    ) {
+        let n = self.grid.total();
+
+        // Precompute radial distances and charges for all grid points
+        let mut charge_shells: Vec<(f64, f64)> = Vec::with_capacity(n); // (radius, charge)
+        for i in 0..n {
+            let i_rho = i / self.grid.n_z;
+            let i_z = i % self.grid.n_z;
+            let rho = self.grid.rho[i_rho];
+            let z = self.grid.z[i_z];
+            let r = (rho * rho + z * z).sqrt();
+            let dv = self.grid.volume_element(i_rho, i_z);
+            let charge = rho_p[i].max(0.0) * dv;
+            charge_shells.push((r, charge));
+        }
+
+        // Sort by radius for efficient enclosed-charge computation
+        let mut sorted_idx: Vec<usize> = (0..n).collect();
+        sorted_idx.sort_by(|&a, &b| charge_shells[a].0.partial_cmp(&charge_shells[b].0).unwrap());
+
+        // Prefix sums: total charge and charge/r for exterior
+        let total_charge: f64 = charge_shells.iter().map(|(_, c)| c).sum();
+        let total_charge_over_r: f64 = charge_shells.iter()
+            .map(|(r, c)| if *r > 0.01 { c / r } else { 0.0 }).sum();
+
+        // For each grid point, compute V_C using sorted radial shells
+        // V_C(r) = e² * (Q_<(r)/r + sum_{r'>r} q_j/r_j)
+        // Build cumulative sums efficiently
+        let mut cum_charge = vec![0.0; n]; // cumulative charge up to index
+        let mut cum_charge_over_r = vec![0.0; n]; // cumulative charge/r up to index
+        {
+            let mut acc_q = 0.0;
+            let mut acc_qr = 0.0;
+            for (k, &si) in sorted_idx.iter().enumerate() {
+                acc_q += charge_shells[si].1;
+                let r = charge_shells[si].0.max(0.01);
+                acc_qr += charge_shells[si].1 / r;
+                cum_charge[k] = acc_q;
+                cum_charge_over_r[k] = acc_qr;
+            }
+        }
+
+        // Build reverse mapping: for each grid point, its position in sorted order
+        let mut rank = vec![0usize; n];
+        for (k, &si) in sorted_idx.iter().enumerate() {
+            rank[si] = k;
+        }
+
+        // Compute Coulomb potential
+        for i in 0..n {
+            let r_i = charge_shells[i].0.max(0.01);
+            let k = rank[i];
+
+            // Q_enclosed / r_i
+            let q_inner = if k > 0 { cum_charge[k - 1] } else { 0.0 };
+            // Sum of q_j/r_j for exterior (r_j > r_i)
+            let ext_qr = total_charge_over_r - cum_charge_over_r[k];
+
+            // Direct + Slater exchange
+            v_coulomb[i] = E2 * (q_inner / r_i + ext_qr)
+                - E2 * (3.0 / PI).powf(1.0 / 3.0) * rho_p[i].max(0.0).powf(1.0 / 3.0);
+        }
+
+        // Handle edge case: if no proton charge, zero out
+        if total_charge < 1e-30 {
+            for v in v_coulomb.iter_mut() { *v = 0.0; }
+        }
+    }
+
+    /// Fast mean-field potential using precomputed Coulomb
+    ///
+    /// Includes:
+    /// - Central Skyrme (t0, t3, x0, x3, alpha)
+    /// - Effective mass / kinetic density (t1, t2, x1, x2)
+    /// - Simplified spin-orbit: V_ls = -W0/2 * (1/r) * d_rho/dr
+    /// - Coulomb (precomputed monopole + Slater exchange)
+    fn mean_field_potential_fast(
         &self,
         params: &[f64],
         rho_p: &[f64],
         rho_n: &[f64],
         rho_total: &[f64],
         is_proton: bool,
+        tau_p: &[f64],
+        tau_n: &[f64],
+        _j_p: &[f64],
+        _j_n: &[f64],
+        v_coulomb: &[f64],
     ) -> Vec<f64> {
         let n = self.grid.total();
         let mut v = vec![0.0; n];
 
         let t0 = params[0];
+        let t1 = params[1];
+        let t2 = params[2];
         let t3 = params[3];
         let x0 = params[4];
+        let x1 = params[5];
+        let x2 = params[6];
         let x3 = params[7];
         let alpha = params[8];
+        let w0 = params[9];
 
         let rho_q: &[f64] = if is_proton { rho_p } else { rho_n };
-        let rho_q_prime: &[f64] = if is_proton { rho_n } else { rho_p };
+        let tau_total: Vec<f64> = tau_p.iter().zip(tau_n).map(|(&a, &b)| a + b).collect();
+        let tau_q: &[f64] = if is_proton { tau_p } else { tau_n };
+
+        // Spin-orbit: simplified form using density gradient
+        // V_ls ~ -W0/2 * (1/r) * d_rho_total/dr for the <l·s> diagonal part
+        let d_rho_dr = self.density_radial_derivative(rho_total);
+        let d_rho_q_dr = self.density_radial_derivative(rho_q);
 
         for i in 0..n {
             let rho = rho_total[i].max(0.0);
             let rq = rho_q[i].max(0.0);
-            let rqp = rho_q_prime[i].max(0.0);
 
-            // Central Skyrme
+            // ── Central Skyrme (t0, t3 terms) ──
             let v_central = t0 * ((1.0 + x0 / 2.0) * rho - (0.5 + x0) * rq)
                 + t3 / 12.0 * rho.powf(alpha) *
                     ((2.0 + alpha) * (1.0 + x3 / 2.0) * rho
                      - (2.0 * (0.5 + x3) * rq + alpha * (1.0 + x3 / 2.0) * rho));
 
-            v[i] = v_central;
+            // ── Effective mass terms (t1, t2) ──
+            let v_eff_mass = t1 / 4.0 * ((2.0 + x1) * tau_total[i] - (1.0 + 2.0 * x1) * tau_q[i])
+                + t2 / 4.0 * ((2.0 + x2) * tau_total[i] + (1.0 + 2.0 * x2) * tau_q[i]);
 
-            // Coulomb for protons
-            if is_proton && rho_p.iter().any(|&x| x > 0.0) {
-                // Approximate spherical Coulomb (simplified for deformed case)
-                let r_eff = self.effective_radius_at(i);
-                if r_eff > 0.01 {
-                    v[i] += E2 * rho_p.iter().zip(0..n)
-                        .map(|(&rp, j)| {
-                            let r_j = self.effective_radius_at(j);
-                            rp * self.grid.volume_element(j / self.grid.n_z, j % self.grid.n_z)
-                                / r_eff.max(r_j).max(0.01)
-                        })
-                        .sum::<f64>() * 0.1; // approximate scaling
-                }
-                // Slater exchange
-                v[i] -= E2 * (3.0 / PI).powf(1.0 / 3.0) * rho_p[i].max(0.0).powf(1.0 / 3.0);
+            // ── Spin-orbit (simplified) ──
+            // V_ls = -W0/2 * (d_rho/dr + d_rho_q/dr) / r
+            // This enters the Hamiltonian as <i|V_ls * l·s|i> for each state
+            let i_rho = i / self.grid.n_z;
+            let i_z = i % self.grid.n_z;
+            let rho_coord = self.grid.rho[i_rho];
+            let z_coord = self.grid.z[i_z];
+            let r = (rho_coord * rho_coord + z_coord * z_coord).sqrt().max(0.1);
+            let v_so = -w0 / 2.0 * (d_rho_dr[i] + d_rho_q_dr[i]) / r;
+
+            let v_total = v_central + v_eff_mass + v_so;
+
+            // Overflow protection: clamp potential to physical range
+            v[i] = v_total.clamp(-5000.0, 5000.0);
+
+            // Coulomb (from precomputed potential, protons only)
+            if is_proton {
+                v[i] += v_coulomb[i].clamp(-500.0, 500.0);
             }
         }
 
         v
-    }
-
-    /// Effective radius at grid point (for Coulomb approximation)
-    fn effective_radius_at(&self, idx: usize) -> f64 {
-        let i_rho = idx / self.grid.n_z;
-        let i_z = idx % self.grid.n_z;
-        if i_rho < self.grid.n_rho {
-            let rho = self.grid.rho[i_rho];
-            let z = self.grid.z[i_z];
-            (rho * rho + z * z).sqrt()
-        } else {
-            0.0
-        }
     }
 
     /// Diagonalize Hamiltonian block-by-block in Omega
@@ -554,8 +909,8 @@ impl DeformedHFB {
         let degs: Vec<f64> = (0..n_states).map(|_| 2.0).collect(); // time-reversal degeneracy
 
         if delta_pair > 1e-10 {
-            // BCS with pairing
-            let fermi = Self::approx_fermi(&block_eigs, n_particles, &degs);
+            // BCS with pairing — use proper number-conserving Fermi energy
+            let fermi = Self::find_fermi_bcs(&block_eigs, n_particles, delta_pair);
             for (state_idx, eval) in &block_eigs {
                 let eps = eval - fermi;
                 let e_qp = (eps * eps + delta_pair * delta_pair).sqrt();
@@ -580,20 +935,50 @@ impl DeformedHFB {
         (all_eigenvalues, all_occupations)
     }
 
-    /// Approximate Fermi energy from eigenvalues
-    fn approx_fermi(
+    /// Find chemical potential that conserves particle number via bisection
+    ///
+    /// For BCS: N = sum_i deg_i * v²_i where v²_i = 0.5*(1 - eps_i/E_qp_i)
+    /// eps_i = e_i - mu, E_qp_i = sqrt(eps_i² + Delta²)
+    fn find_fermi_bcs(
         sorted_eigs: &[(usize, f64)],
         n_particles: usize,
-        _degs: &[f64],
+        delta_pair: f64,
     ) -> f64 {
-        let mut count = 0.0;
-        for (_, eval) in sorted_eigs {
-            count += 2.0; // degeneracy
-            if count >= n_particles as f64 {
-                return *eval;
+        if sorted_eigs.is_empty() { return 0.0; }
+
+        let n_target = n_particles as f64;
+
+        // Compute N(mu) = sum_i 2 * v²(e_i, mu, Delta)
+        let particle_number = |mu: f64| -> f64 {
+            let mut n = 0.0;
+            for &(_, eval) in sorted_eigs {
+                let eps = eval - mu;
+                let e_qp = (eps * eps + delta_pair * delta_pair).sqrt();
+                let v2 = 0.5 * (1.0 - eps / e_qp);
+                n += 2.0 * v2; // degeneracy 2 (time-reversal)
             }
+            n
+        };
+
+        // Bisection bounds: mu must be between lowest and highest eigenvalue
+        let e_min = sorted_eigs.first().unwrap().1 - 50.0;
+        let e_max = sorted_eigs.last().unwrap().1 + 50.0;
+        let mut mu_lo = e_min;
+        let mut mu_hi = e_max;
+
+        // N(mu) is monotonically increasing in mu, so bisection works
+        for _ in 0..100 {
+            let mu_mid = 0.5 * (mu_lo + mu_hi);
+            let n_mid = particle_number(mu_mid);
+            if n_mid < n_target {
+                mu_lo = mu_mid;
+            } else {
+                mu_hi = mu_mid;
+            }
+            if (mu_hi - mu_lo) < 1e-10 { break; }
         }
-        sorted_eigs.last().map(|(_, e)| *e).unwrap_or(0.0)
+
+        0.5 * (mu_lo + mu_hi)
     }
 
     /// Potential matrix element: <i|V|j> via numerical integration
@@ -641,31 +1026,40 @@ impl DeformedHFB {
         (rho_p, rho_n)
     }
 
-    /// Compute total energy (Skyrme EDF)
+    /// Compute total energy via direct EDF decomposition (no double-counting)
+    ///
+    /// E_total = E_kinetic + E_central_Skyrme + E_Coulomb + E_pairing - E_CM
+    ///
+    /// This avoids the E_sp - E_pot approach which is error-prone.
+    /// Instead, each term is computed independently from the density.
     fn total_energy(
         &self,
         params: &[f64],
         rho_p: &[f64],
         rho_n: &[f64],
-        eigs_p: &[f64],
-        eigs_n: &[f64],
+        _eigs_p: &[f64],
+        _eigs_n: &[f64],
         occ_p: &[f64],
         occ_n: &[f64],
     ) -> f64 {
-        // Sum of single-particle energies weighted by occupation
-        let mut e_sp = 0.0;
+        // ── Kinetic energy: sum_i n_i * T_i (HO kinetic, known analytically) ──
+        let mut e_kin = 0.0;
         for (i, s) in self.states.iter().enumerate() {
-            let deg = 2.0; // time-reversal
-            e_sp += deg * occ_p[i] * eigs_p[i] + deg * occ_n[i] * eigs_n[i];
+            let deg = 2.0; // time-reversal degeneracy
+            let t_i = self.hw_z * (s.n_z as f64 + 0.5)
+                + self.hw_perp * (2.0 * s.n_perp as f64 + s.lambda.unsigned_abs() as f64 + 1.0);
+            e_kin += deg * (occ_p[i] + occ_n[i]) * t_i;
         }
 
-        // Potential energy contribution (avoid double counting)
-        let mut e_pot = 0.0;
+        // ── Skyrme central EDF energy (from density, not mean-field) ──
         let t0 = params[0];
         let t3 = params[3];
         let x0 = params[4];
         let x3 = params[7];
         let alpha = params[8];
+
+        let mut e_central = 0.0;
+        let mut e_coul = 0.0;
 
         for i_rho in 0..self.grid.n_rho {
             for i_z in 0..self.grid.n_z {
@@ -675,23 +1069,47 @@ impl DeformedHFB {
                 let rp = rho_p[idx].max(0.0);
                 let rn = rho_n[idx].max(0.0);
 
-                // Skyrme volume energy
-                let e_vol = t0 / 4.0 * ((2.0 + x0) * rho * rho - (1.0 + 2.0 * x0) * (rp * rp + rn * rn))
-                    + t3 / 24.0 * rho.powf(alpha) *
-                        ((2.0 + x3) * rho * rho - (1.0 + 2.0 * x3) * (rp * rp + rn * rn));
+                // Skyrme central EDF: Eq. (6) of Chabanat et al. (1998)
+                // H_0 = t0/4 * [(2+x0)*rho^2 - (2*x0+1)*(rho_p^2 + rho_n^2)]
+                // H_3 = t3/24 * rho^alpha * [(2+x3)*rho^2 - (2*x3+1)*(rho_p^2+rho_n^2)]
+                let h_0 = t0 / 4.0 * ((2.0 + x0) * rho * rho
+                    - (1.0 + 2.0 * x0) * (rp * rp + rn * rn));
+                let h_3 = t3 / 24.0 * rho.powf(alpha)
+                    * ((2.0 + x3) * rho * rho
+                       - (1.0 + 2.0 * x3) * (rp * rp + rn * rn));
 
-                e_pot += e_vol * dv;
+                e_central += (h_0 + h_3) * dv;
+
+                // Coulomb: Slater exchange approximation (no direct integral)
+                // E_Coulomb_exchange = -3/4 * e² * (3/pi)^(1/3) * integral rho_p^(4/3) dV
+                let coul_exch = -0.75 * E2 * (3.0 / PI).powf(1.0 / 3.0)
+                    * rp.max(0.0).powf(4.0 / 3.0);
+                e_coul += coul_exch * dv;
             }
         }
 
-        // E_total ≈ E_sp - E_pot_double_counting + pairing
-        let e_pair_p = -0.25 * self.delta_p * self.delta_p * self.z as f64 / 10.0;
-        let e_pair_n = -0.25 * self.delta_n * self.delta_n * self.n_neutrons as f64 / 10.0;
+        // Coulomb direct (approximate: uniform sphere for protons)
+        // E_Coulomb_direct ~ 3/5 * Z² * e² / R_charge
+        let r_ch = 1.2 * (self.a as f64).powf(1.0 / 3.0);
+        let e_coul_direct = 0.6 * (self.z as f64) * ((self.z as f64) - 1.0) * E2 / r_ch;
+        e_coul += e_coul_direct;
 
-        // CM correction (approximate: 0.75 * 41/A^(1/3))
-        let e_cm = 0.75 * 41.0 / (self.a as f64).powf(1.0 / 3.0);
+        // ── BCS pairing energy ──
+        // E_pair = -Delta² * G * N / 4, where G ~ 1/(A level density)
+        let level_density = self.a as f64 / 28.0; // Rough: N_levels ~ A/28 near Fermi
+        let e_pair_p = if self.delta_p > 1e-10 {
+            -self.delta_p * self.delta_p * level_density / 4.0
+        } else { 0.0 };
+        let e_pair_n = if self.delta_n > 1e-10 {
+            -self.delta_n * self.delta_n * level_density / 4.0
+        } else { 0.0 };
 
-        e_sp - e_pot + e_pair_p + e_pair_n - e_cm
+        // ── Center of mass correction (1-body approximation) ──
+        // E_CM = -<P²>/(2*m*A) ≈ -0.75 * hbar*omega_0
+        let hw0 = 41.0 * (self.a as f64).powf(-1.0 / 3.0);
+        let e_cm = 0.75 * hw0;
+
+        e_kin + e_central + e_coul + e_pair_p + e_pair_n - e_cm
     }
 
     /// Quadrupole moment Q20 = integral rho(rho,z) * (2z² - rho²) dV

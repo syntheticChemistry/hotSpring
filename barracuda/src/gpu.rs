@@ -6,6 +6,7 @@
 //! Validated: RTX 4070 provides TRUE IEEE 754 f64 (0 ULP vs CPU).
 //! Performance: ~2x f32 for bandwidth-limited ops (element-wise, reductions).
 
+use barracuda::device::WgpuDevice;
 use std::process::Command;
 use std::sync::Arc;
 
@@ -16,6 +17,19 @@ pub struct GpuF64 {
     pub adapter_name: String,
     pub has_f64: bool,
     pub has_timestamps: bool,
+}
+
+impl GpuF64 {
+    /// Bridge to toadstool's WgpuDevice for BatchedEighGpu, SsfGpu, etc.
+    ///
+    /// This enables all toadstool GPU operations (linalg, FFT, observables)
+    /// from hotSpring binaries using the same underlying wgpu device.
+    pub fn to_wgpu_device(&self) -> Arc<WgpuDevice> {
+        Arc::new(WgpuDevice::from_existing_simple(
+            self.device.clone(),
+            self.queue.clone(),
+        ))
+    }
 }
 
 impl GpuF64 {

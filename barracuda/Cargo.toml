@@ -34,6 +34,11 @@ path = "src/bin/nuclear_eos_l1_ref.rs"
 name = "nuclear_eos_l2_ref"
 path = "src/bin/nuclear_eos_l2_ref.rs"
 
+# ── L2 GPU-batched HFB (BatchedEighGpu from toadstool) ─────────
+[[bin]]
+name = "nuclear_eos_l2_gpu"
+path = "src/bin/nuclear_eos_l2_gpu.rs"
+
 # ── L2 heterogeneous pipeline (cascade: NMP → L1 → classifier → HFB)
 [[bin]]
 name = "nuclear_eos_l2_hetero"
@@ -75,6 +80,11 @@ path = "src/bin/sarkas_gpu.rs"
 [[bin]]
 name = "f64_builtin_test"
 path = "src/bin/f64_builtin_test.rs"
+
+# ── PPPM Coulomb validation (toadstool PppmGpu, kappa=0) ────
+[[bin]]
+name = "validate_pppm"
+path = "src/bin/validate_pppm.rs"
 
 # ── Cell-list force diagnostic: compare all-pairs vs cell-list kernels ────
 [[bin]]

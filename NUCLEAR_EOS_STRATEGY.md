@@ -1,7 +1,7 @@
 # Nuclear EOS Strategy: From Python Control to BarraCUDA Proof
 
-**Date**: 2026-02-08 (initial), 2026-02-11 (L1+L2), 2026-02-15 (Phase D: native f64 builtins, N-scaling)  
-**Status**: Phase A ✅ Complete, Phase B ✅ L1+L2 Validated, Phase C ✅ GPU MD (9/9 PP Yukawa), Phase D ✅ Native f64 + N-scaling (5/5, paper parity)  
+**Date**: 2026-02-08 (initial), 2026-02-11 (L1+L2), 2026-02-15 (Phase E: paper-parity long run + toadstool rewire)  
+**Status**: Phase A ✅ Complete, Phase B ✅ L1+L2 Validated, Phase C ✅ GPU MD (9/9 PP Yukawa), Phase D ✅ Native f64 + N-scaling, Phase E ✅ Paper-parity long run (9/9, N=10k, 80k steps, $0.044) + Toadstool rewire (BatchedEighGpu, SsfGpu, PppmGpu)  
 **f64 Status**: Native WGSL builtins confirmed — fp64:fp32 ~1:2 via wgpu/Vulkan (bottleneck broken)  
 **Context**: The Code Ocean capsule is gated. We built the nuclear EOS from
 first principles instead — and used it as the Phase A → Phase B transition.
@@ -154,8 +154,8 @@ Status: Hardware verified. Model pipeline needs cnn2snn conversion.
 | ~~f64 WGSL shaders (with Titan V)~~ | ~~Native GPU f64~~ | ~~1-2 weeks~~ | ✅ **DONE** (native builtins) |
 | `barracuda::surrogate` library extraction | Reusable API | 1 week | 🟡 Important |
 | `barracuda::optimize` library extraction | NM + LHS API | 1 week | 🟡 Important |
-| GPU eigh_f64 shader | L2 HFB on GPU | 2 weeks | 🟡 Important (Titan V target) |
-| PPPM/Ewald 3D FFT pipeline | κ=0 Coulomb cases | 2-3 weeks | 🟡 Important |
+| ~~GPU eigh_f64 shader~~ | ~~L2 HFB on GPU~~ | ~~2 weeks~~ | ✅ **DONE** (BatchedEighGpu, `nuclear_eos_l2_gpu`) |
+| ~~PPPM/Ewald 3D FFT pipeline~~ | ~~κ=0 Coulomb~~ | ~~2-3 weeks~~ | ✅ **DONE** (PppmGpu, `validate_pppm`) |
 | NPU surrogate inference | Layer 3 | 2 weeks | 🟢 Enhancement |
 | Deformed HFB solver (L3) | Murillo parity | 4-6 weeks | 🟢 Future |
 | Extended nuclei set (52→2457) | Tighter constraints | 1 week | 🟢 Enhancement (GPU makes this cheap) |
@@ -230,14 +230,21 @@ replacing the Python Sarkas codebase with BarraCUDA for plasma MD.
 
 ### What's Flagged for Future Work
 
-#### PPPM / FFT-Based Ewald (Phase 6)
+#### PPPM / FFT-Based Ewald — WIRED (Feb 14, 2026)
 The 3 Coulomb cases (κ=0: Γ=10, 50, 150) from the DSF study use PPPM for
-long-range Coulomb interactions. This requires a 3D FFT pipeline on GPU.
-toadstool/barracuda has FFT 1D/2D/3D primitives but no Ewald wrapper.
+long-range Coulomb interactions. **PppmGpu** from toadstool is now wired into
+hotSpring via the `validate_pppm` binary. Validation against analytical
+(2-charge) and direct-sum (64-particle NaCl) test cases is ready to run.
 
-**Flagged for toadstool team**: Build `barracuda::ops::md::ewald` using
-existing FFT ops. Estimated effort: 2-3 weeks. Not blocked — the 9 PP Yukawa
-cases provide full validation coverage for the force kernel and integrator.
+#### Paper-Parity Long Run — COMPLETE (Feb 14, 2026)
+All 9 PP Yukawa cases at N=10,000, 80k production steps: **9/9 pass**,
+0.000-0.002% energy drift, 3.66 hours total, $0.044 electricity.
+Cell-list 4.1× faster than all-pairs for κ=2,3.
+
+#### BatchedEighGpu L2 — WIRED (Feb 14, 2026)
+Toadstool's `BatchedEighGpu` wired into L2 HFB solver via `nuclear_eos_l2_gpu`
+binary. Groups nuclei by basis dimension, runs lockstep SCF with GPU-batched
+eigensolves. Ready for full AME2020 791-nucleus runs on Titan V.
 
 #### MSU HPCC (iCER) Comparison
 Pin a CPU-only large-system baseline (N=10,000+, 80k production steps) for
