@@ -15,6 +15,8 @@
 //!   cargo run --release --bin sarkas_gpu              # quick validation (N=500)
 //!   cargo run --release --bin sarkas_gpu -- --full    # full 9-case sweep (N=2000)
 //!   cargo run --release --bin sarkas_gpu -- --long    # long run: 9 cases, 80k steps (~71 min)
+//!   cargo run --release --bin sarkas_gpu -- --paper   # PAPER PARITY: 9 cases, N=10000, 80k steps
+//!   cargo run --release --bin sarkas_gpu -- --paper-ext # Extended paper: N=10000, 100k steps
 //!   cargo run --release --bin sarkas_gpu -- --nscale  # N-scaling: 500→20000, GPU-only (~2-3h)
 //!   cargo run --release --bin sarkas_gpu -- --scale   # quick scaling test (N=500,2000, GPU+CPU)
 
@@ -38,6 +40,8 @@ async fn main() {
     let args: Vec<String> = std::env::args().collect();
     let full_sweep = args.iter().any(|a| a == "--full");
     let long_run = args.iter().any(|a| a == "--long");
+    let paper_parity = args.iter().any(|a| a == "--paper");
+    let paper_ext = args.iter().any(|a| a == "--paper-ext");
     let scale_test = args.iter().any(|a| a == "--scale");
     let nscale = args.iter().any(|a| a == "--nscale");
 
@@ -50,6 +54,10 @@ async fn main() {
 
     if nscale {
         run_n_scaling(&mut report).await;
+    } else if paper_parity {
+        run_paper_parity(&mut report, false).await;
+    } else if paper_ext {
+        run_paper_parity(&mut report, true).await;
     } else if scale_test {
         run_scaling_test(&mut report).await;
     } else if long_run {
@@ -139,6 +147,52 @@ async fn run_long_sweep(report: &mut BenchReport) {
     println!("═══════════════════════════════════════════════════════════");
     println!("  LONG SWEEP RESULTS: {}/{} cases passed", passed, total);
     println!("═══════════════════════════════════════════════════════════");
+}
+
+/// Paper-parity validation: exact published parameters
+/// Choi, Dharuman, Murillo (Phys. Rev. E 100, 013206, 2019)
+/// N=10,000, 5k equil + 80k/100k production, 9 PP Yukawa cases
+/// This is the headline comparison: consumer GPU vs HPC cluster
+async fn run_paper_parity(report: &mut BenchReport, extended: bool) {
+    let (desc, cases) = if extended {
+        ("PAPER PARITY (extended): 9 PP Yukawa, N=10000, 100k production steps",
+         config::paper_parity_extended_cases())
+    } else {
+        ("PAPER PARITY: 9 PP Yukawa, N=10000, 80k production steps (matches database)",
+         config::paper_parity_cases())
+    };
+
+    println!("╔══════════════════════════════════════════════════════════════╗");
+    println!("║  Experiment 003: {}  ║", if extended { "Paper Parity Extended" } else { "Paper Parity        " });
+    println!("║  Choi, Dharuman, Murillo — Phys. Rev. E 100, 013206 (2019) ║");
+    println!("║  N=10,000, same physics, consumer GPU vs HPC cluster       ║");
+    println!("╚══════════════════════════════════════════════════════════════╝");
+    println!();
+    println!("  {}", desc);
+    println!();
+
+    let mut passed = 0;
+    let total = cases.len();
+
+    for (i, case) in cases.iter().enumerate() {
+        println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        println!("  Case {}/{}: {} (N={}, {}k production)",
+            i + 1, total, case.label, case.n_particles, case.prod_steps / 1000);
+        println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        println!();
+
+        if run_single_case(case, report).await {
+            passed += 1;
+        }
+        println!();
+    }
+
+    println!("╔══════════════════════════════════════════════════════════════╗");
+    println!("║  PAPER PARITY RESULTS: {}/{} cases passed                    ║", passed, total);
+    if passed == total {
+        println!("║  ✅ ALL CASES PASS — consumer GPU matches HPC physics      ║");
+    }
+    println!("╚══════════════════════════════════════════════════════════════╝");
 }
 
 /// N-scaling experiment: GPU-only at N=500, 2000, 5000, 10000, 20000

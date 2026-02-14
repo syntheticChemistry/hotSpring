@@ -123,3 +123,50 @@ pub fn quick_test_case(n_particles: usize) -> MdConfig {
         rdf_bins: 500,
     }
 }
+
+/// Paper-parity configuration: exact published parameters
+///
+/// Matches Choi, Dharuman, Murillo (Phys. Rev. E 100, 013206, 2019) and the
+/// Dense Plasma Properties Database:
+///   N=10,000, 5k equil + 80k production, dt=0.01 ω_p⁻¹
+///
+/// This is the headline validation: same physics, same parameters,
+/// consumer GPU vs HPC cluster.
+pub fn paper_parity_cases() -> Vec<MdConfig> {
+    dsf_pp_cases(10_000, false)  // N=10,000, 5k equil + 80k production
+}
+
+/// Extended paper-parity: 100k production steps (upper range of published data)
+pub fn paper_parity_extended_cases() -> Vec<MdConfig> {
+    let cases = vec![
+        // κ=1: rc = 8.0 a_ws
+        ("k1_G14",   1.0,   14.0,  8.0),
+        ("k1_G72",   1.0,   72.0,  8.0),
+        ("k1_G217",  1.0,  217.0,  8.0),
+        // κ=2: rc = 6.5 a_ws
+        ("k2_G31",   2.0,   31.0,  6.5),
+        ("k2_G158",  2.0,  158.0,  6.5),
+        ("k2_G476",  2.0,  476.0,  6.5),
+        // κ=3: rc = 6.0 a_ws
+        ("k3_G100",  3.0,  100.0,  6.0),
+        ("k3_G503",  3.0,  503.0,  6.0),
+        ("k3_G1510", 3.0, 1510.0,  6.0),
+    ];
+
+    cases
+        .into_iter()
+        .map(|(label, kappa, gamma, rc)| MdConfig {
+            label: format!("{}_paper", label),
+            n_particles: 10_000,
+            kappa,
+            gamma,
+            dt: 0.01,
+            rc,
+            equil_steps: 5_000,
+            prod_steps: 100_000,
+            dump_step: 10,
+            berendsen_tau: 5.0,
+            rdf_bins: 500,
+        })
+        .collect()
+}
