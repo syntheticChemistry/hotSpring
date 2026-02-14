@@ -738,10 +738,13 @@ Sarkas Python OOM's at N=10,000 on 32 GB RAM. Total sweep: 112 min, 5 N values,
 At N=10,000 (paper parity): GPU is **71× more energy-efficient** than CPU.
 At N=20,000: **220×**. The energy gap grows as N² — GPU cost scales sub-quadratically.
 
-**GPU power draw is flat at ~58W average** regardless of N (500 to 20,000). This is
-because f64 on consumer GPUs (1/64th FP64 rate) keeps ALU utilization low — the GPU
-never approaches its 200W TDP. Power scales with time, not problem complexity.
-A Titan V (native 1/2 FP64 rate) would show higher utilization and faster throughput.
+**GPU power draw is flat at ~58W average** regardless of N (500 to 20,000). Previously
+attributed to 1/64 FP64 rate, but investigation reveals the bottleneck is software
+transcendentals: `exp_f64` and `sqrt_f64` from math_f64.wgsl are 130+ f64 ops per
+pair. **Native WGSL builtins (`sqrt()`, `exp()`) compile and work on f64** — they're
+1.5× and 2.2× faster respectively. Switching to native builtins should give
+**1.5-2× MD throughput improvement** with a shader change alone. Combined with
+cell-list O(N) + Titan V hardware, N=10,000 could drop from 24 min to ~1-2 min.
 
 **The quick fix would have been wrong.** When the cell-list kernel first failed at
 N=10,000 (catastrophic energy explosion — temperature 15× above target), the

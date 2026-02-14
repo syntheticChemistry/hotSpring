@@ -294,7 +294,28 @@ The all-pairs sweep completed in 112 minutes total:
 The GPU handles the O(N²) workload well even at 200M pairs/step. Power draw
 stays at ~58-62W regardless of N — the GPU doesn't throttle.
 
-### 4.4 Next: Cell-List Scaling Sweep
+### 4.4 Native f64 Builtins — Additional 1.5-2× Available
+
+Post-sweep investigation revealed that WGSL's native `sqrt()`, `exp()`, and 6
+other builtins compile and work correctly on f64 types via Naga/Vulkan:
+
+| Function | Native | Software (math_f64) | Speedup | Accuracy vs CPU |
+|:---:|:---:|:---:|:---:|:---:|
+| sqrt (1M f64) | 1.58 ms | 2.36 ms | **1.5×** | 0 ULP |
+| exp (1M f64) | 1.29 ms | 2.82 ms | **2.2×** | 8e-8 max diff |
+
+The Yukawa force kernel calls `sqrt_f64` + `exp_f64` per interacting pair.
+Switching to native builtins should give **1.5-2× MD throughput** with zero
+physics changes — just a shader optimization.
+
+This also corrects a narrative error: we initially attributed the flat 58W power
+draw to the 1/64 FP64:FP32 CUDA rate. But our own earlier benchmarks showed
+wgpu/Vulkan achieves ~2× (not 1/64) for simple f64 ops. The actual bottleneck
+is the **software-emulated transcendentals** — `exp_f64` is a degree-13 polynomial
+(~50 f64 ops), `sqrt_f64` is 5 Newton-Raphson iterations (~25 f64 ops). Native
+hardware transcendentals bypass this entirely.
+
+### 4.5 Next: Cell-List Scaling Sweep
 
 After the current all-pairs sweep completes, we will re-run with the fixed
 cell-list kernel enabled. Expected improvements:

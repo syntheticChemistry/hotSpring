@@ -71,6 +71,11 @@ path = "src/bin/verify_hfb.rs"
 name = "sarkas_gpu"
 path = "src/bin/sarkas_gpu.rs"
 
+# ── f64 builtin test: check if native sqrt/exp work on f64 ────
+[[bin]]
+name = "f64_builtin_test"
+path = "src/bin/f64_builtin_test.rs"
+
 # ── Cell-list force diagnostic: compare all-pairs vs cell-list kernels ────
 [[bin]]
 name = "celllist_diag"

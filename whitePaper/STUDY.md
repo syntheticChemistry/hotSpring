@@ -366,17 +366,39 @@ The GPU advantage comes from three dimensions:
 
 3. **Hardware access**: The GPU path runs on ANY consumer gaming GPU with SHADER_F64 (RTX 3060+, AMD RX 6000+). The CPU path at N=10,000+ effectively requires HPC-grade compute — either a large-core workstation running for days, or a cluster. Sarkas Python itself OOM's at N=10,000 on 32 GB RAM.
 
-#### GPU Power Draw: Why It's Flat
+#### GPU Power Draw: Why It's Flat (and What's Left to Unlock)
 
 A notable finding: GPU power draw is **nearly constant** (56-62W average) across
-all N values from 500 to 20,000. This is not a measurement artifact — it's
-physics:
+all N values from 500 to 20,000. This suggests low GPU utilization — but the
+cause is more nuanced than simple FP64 throttling.
 
-- **f64 on consumer GPUs is ALU-limited, not power-limited.** The RTX 4070's FP64 rate is 1/64th of FP32 (CUDA driver throttling). Even at N=20,000 with 200M pair computations per step, most shader cores sit idle during f64 math. The GPU never approaches its 200W TDP.
-- **GPU power management maintains a floor.** An active GPU with shaders compiled and dispatching work draws ~40-60W even when ALU utilization is low.
-- **The bottleneck shifts but the power doesn't change.** At N=500, the bottleneck is dispatch overhead. At N=20,000, it's compute. But in both cases, the f64 throttle keeps ALU utilization far below the GPU's capacity.
+**Previous understanding (partially wrong)**: We initially attributed the flat power
+to the RTX 4070's 1/64 FP64:FP32 CUDA-reported ratio. But our own earlier
+benchmarks (§6.3) showed wgpu/Vulkan achieves ~2× ratio for bandwidth-limited ops.
 
-This means **GPU energy cost scales linearly with wall time, not with problem complexity.** The J/step metric is the meaningful number:
+**Updated understanding**: The flat power has two components:
+
+1. **The force kernel uses software-emulated transcendentals.** Our `math_f64.wgsl`
+   library implements `sqrt_f64` (5-iteration Newton-Raphson) and `exp_f64`
+   (degree-13 polynomial + range reduction) in software. Each Yukawa pair
+   evaluation calls both — that's ~130 f64 arithmetic ops per pair for
+   transcendentals alone.
+
+2. **Native f64 builtins exist and are faster.** Testing reveals that WGSL's
+   native `sqrt()`, `exp()`, `inverseSqrt()`, `log()`, `abs()`, `floor()`,
+   `ceil()`, and `round()` all compile and work correctly on f64 types via
+   Naga/Vulkan on the RTX 4070:
+
+   | Function | Native | Software (math_f64) | Speedup | Accuracy |
+   |:---:|:---:|:---:|:---:|:---:|
+   | sqrt (1M f64) | 1.58 ms | 2.36 ms | **1.5×** | 0 ULP vs CPU |
+   | exp (1M f64) | 1.29 ms | 2.82 ms | **2.2×** | 8e-8 max diff |
+
+   Since the Yukawa kernel calls sqrt + exp per pair, switching to native builtins
+   should give roughly **1.5-2× MD throughput improvement** — unlockable with a
+   shader change alone.
+
+**Energy cost** still scales linearly with wall time since power draw is flat:
 
 | N | J/step | Wall time | What this means |
 |:---:|:---:|:---:|:---|
@@ -386,9 +408,11 @@ This means **GPU energy cost scales linearly with wall time, not with problem co
 | 10,000 | 2.36 | 24 min | O(N²) pairs now visible in cost |
 | 20,000 | 7.29 | 68 min | Approaching GPU saturation |
 
-On a Titan V (7.4 TFLOPS FP64, native 1/2 rate), the ALU utilization would be
-much higher, and we would expect to see power draw scale with N. This would also
-give much higher throughput — estimated 10-50× faster than RTX 4070 at large N.
+**Remaining performance to unlock**:
+- Native builtins in force kernel: est. 1.5-2× speedup (shader change)
+- Cell-list O(N) at large N: est. 10-50× speedup for N > 10,000 (kernel switch)
+- Titan V (7.4 TFLOPS native FP64, 1/2 rate): est. 5-20× for compute-bound work
+- Combined: N=10,000 could drop from 24 min to ~1-2 min on Titan V with cell-list
 
 ### 5.6 Significance
 
