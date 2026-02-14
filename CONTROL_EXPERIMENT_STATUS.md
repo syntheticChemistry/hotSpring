@@ -709,42 +709,49 @@ finding and fixing it demonstrates why deep debugging is superior to workarounds
 **The scaling question**: Can a $500 consumer GPU match the N=10,000 particle count
 used in the Murillo Group's published DSF study?
 
-**Experiment 001 — N-Scaling (all-pairs, GPU-only)**
+**Experiment 001 — N-Scaling (native builtins + cell-list)**
 
-Running the all-pairs O(N²) kernel across N=500 to N=20,000:
+After rewiring all shaders to native f64 builtins (`sqrt`, `exp`, `round`, `floor`)
+and enabling the fixed cell-list kernel for N >= 10,000:
 
-| N | GPU steps/s | Wall time | Energy drift | Method |
+| N | GPU steps/s | Wall time | Energy drift | W (avg) | Method |
+|:---:|:---:|:---:|:---:|:---:|:---:|
+| 500 | 998.1 | 35s | 0.000% | 47W | all-pairs |
+| 2,000 | 361.5 | 97s | 0.000% | 53W | all-pairs |
+| 5,000 | 134.9 | 259s | 0.000% | 65W | all-pairs |
+| 10,000 | 110.5 | 317s | 0.000% | 61W | cell-list |
+| 20,000 | 56.1 | 624s | 0.000% | 63W | cell-list |
+
+**N=10,000 paper parity in 5.3 minutes** (was 24 min). N=20,000 in 10.4 min (was 68 min).
+Total sweep: 34 minutes (was 112 min). 0.000% drift at every system size.
+
+Improvement over software-emulated baseline:
+
+| N | Old steps/s | New steps/s | Speedup | Factor |
 |:---:|:---:|:---:|:---:|:---:|
-| 500 | 169.0 | 207s | 0.000% | all-pairs |
-| 2,000 | 76.0 | 461s | 0.000% | all-pairs |
-| 5,000 | 66.9 | 523s | 0.000% | all-pairs |
-| 10,000 | 24.6 | 1,423s | 0.000% | all-pairs |
-| 20,000 | 8.6 | 4,091s | 0.000% | all-pairs |
+| 500 | 169.0 | 998.1 | **5.9×** | native builtins |
+| 2,000 | 76.0 | 361.5 | **4.8×** | native builtins |
+| 5,000 | 66.9 | 134.9 | **2.0×** | native builtins |
+| 10,000 | 24.6 | 110.5 | **4.5×** | native + cell-list |
+| 20,000 | 8.6 | 56.1 | **6.5×** | native + cell-list |
 
-**N=10,000 achieved paper parity in 24 minutes.** N=20,000 (2× paper) in 68 min.
-Sarkas Python OOM's at N=10,000 on 32 GB RAM. Total sweep: 112 min, 5 N values,
-0.000% drift at every system size.
+**GPU now wins at N=500** (1.8× vs CPU). Previously CPU was faster below N=2000.
 
-**Where CPU becomes implausible** (time, energy, and hardware):
+**Where CPU becomes implausible** (updated with native builtins):
 
 | N | GPU Wall | Est. CPU Wall | GPU Energy | Est. CPU Energy | CPU Feasible? |
 |:---:|:---:|:---:|:---:|:---:|:---:|
-| 500 | 3.5 min | 1.1 min | 12.2 kJ | 3.4 kJ | Yes (CPU faster) |
-| 2,000 | 7.7 min | 9.6 min | 27.9 kJ | 33.0 kJ | Yes (GPU wins) |
-| 5,000 | 8.7 min | ~4 hours | 29.5 kJ | ~780 kJ | Marginal |
-| 10,000 | 24 min | ~30 hours | 82.7 kJ | ~5,900 kJ | **No** |
-| 20,000 | 68 min | ~12 days | 255.1 kJ | ~56 MJ | **Impossible** |
+| 500 | 35s | 63s | 1.7 kJ | 3.4 kJ | **GPU faster (1.8×)** |
+| 2,000 | 97s | 571s | 5.1 kJ | 33.0 kJ | **GPU: 5.9× time** |
+| 5,000 | 259s | ~60 min | 16.7 kJ | ~200 kJ | **No** |
+| 10,000 | 317s | ~4 hrs | 19.4 kJ | ~1,600 kJ | **Impossible** |
+| 20,000 | 624s | ~16 hrs | 39.3 kJ | ~14 MJ | **Impossible** |
 
-At N=10,000 (paper parity): GPU is **71× more energy-efficient** than CPU.
-At N=20,000: **220×**. The energy gap grows as N² — GPU cost scales sub-quadratically.
-
-**GPU power draw is flat at ~58W average** regardless of N (500 to 20,000). Previously
-attributed to 1/64 FP64 rate, but investigation reveals the bottleneck is software
-transcendentals: `exp_f64` and `sqrt_f64` from math_f64.wgsl are 130+ f64 ops per
-pair. **Native WGSL builtins (`sqrt()`, `exp()`) compile and work on f64** — they're
-1.5× and 2.2× faster respectively. Switching to native builtins should give
-**1.5-2× MD throughput improvement** with a shader change alone. Combined with
-cell-list O(N) + Titan V hardware, N=10,000 could drop from 24 min to ~1-2 min.
+**GPU power draw now varies** (47-69W) instead of the old flat 56-62W — confirming
+higher ALU utilization with native transcendentals. The old flat power was caused
+by software-emulated `exp_f64` and `sqrt_f64` (~130 f64 ops per pair). Native
+builtins bypass this entirely. Combined with cell-list O(N) + Titan V hardware,
+N=10,000 could drop to ~1-2 min.
 
 **The quick fix would have been wrong.** When the cell-list kernel first failed at
 N=10,000 (catastrophic energy explosion — temperature 15× above target), the
@@ -835,10 +842,11 @@ The deep fix (6-phase diagnostic, root cause analysis) gives us:
 | **Phase C Total** | **45** | **45** | **✅ GPU MD VALIDATED (RTX 4070, f64 WGSL, 80k prod. steps)** |
 | | | | |
 | **Cell-list diagnostic (6 isolation phases)** | **6** | **6** | **✅ Root cause: WGSL i32 % bug, branch-fix verified** |
-| **N-scaling GPU sweep (5 N values, all-pairs)** | **5** | **5** | **✅ N=500-20k, 0.000% drift, paper parity at N=10k** |
-| **Phase D Total** | **11** | **11** | **✅ N-SCALING + CELL-LIST VALIDATED** |
+| **N-scaling GPU sweep (5 N values, all-pairs baseline)** | **5** | **5** | **✅ N=500-20k, 0.000% drift, paper parity at N=10k** |
+| **N-scaling native builtins re-run (5 N values)** | **5** | **5** | **✅ 2-6× faster, 0.000% drift, N=10k in 5.3 min** |
+| **Phase D Total** | **16** | **16** | **✅ N-SCALING + CELL-LIST + NATIVE BUILTINS VALIDATED** |
 | | | | |
-| **Grand Total** | **142** | **142** | **✅ ALL PHASES VALIDATED** |
+| **Grand Total** | **147** | **147** | **✅ ALL PHASES VALIDATED** |
 
 **Data archive**: `control/comprehensive_control_results.json`  
 **Nuclear EOS results**: `control/surrogate/nuclear-eos/results/nuclear_eos_surrogate_L{1,2}.json`  
@@ -858,18 +866,19 @@ silent data corruption, and the GPU kernels don't depend on fragile JIT compilat
 chains. The profiling data (97.2% in one function) shows this isn't a distributed
 systems problem — it's a single hot kernel that maps directly to a GPU dispatch.
 
-The **142/142 quantitative checks** (86 Phase A+B, 45 Phase C, 11 Phase D) now
+The **147/147 quantitative checks** (86 Phase A+B, 45 Phase C, 16 Phase D) now
 provide concrete acceptance criteria across all phases: every observable, every
 physical trend, every transport coefficient has a validated control value. Phase C
 demonstrates that full Yukawa OCP molecular dynamics runs on a consumer GPU —
 9/9 PP cases pass with 0.000% energy drift across 80,000 production steps, up
 to 259 steps/s sustained throughput, and 3.4× less energy per step than CPU at
-N=2000. **Phase D extends this to N-scaling**: the all-pairs kernel handles N=500
-to N=20,000 (paper parity at N=10,000 in 24 min, 2× paper at N=20,000 in 68 min),
-with 0.000% energy drift at every system size. The cell-list kernel — after
-deep-debugging a WGSL `i32 %` portability bug across 6 isolation phases — now
-matches all-pairs to machine precision, unlocking O(N) scaling to N=100,000+ on
-consumer hardware. The nuclear EOS surrogate learning demonstrates the full
+N=2000. **Phase D extends this to N-scaling**: with native f64 builtins and
+cell-list O(N) scaling, the GPU achieves N=10,000 paper parity in **5.3 minutes**
+(998 steps/s at N=500, 110 steps/s at N=10,000), 2-6× faster than the software-
+emulated baseline. The GPU now wins at every N, including N=500 (1.8× vs CPU).
+The cell-list kernel — after deep-debugging a WGSL `i32 %` portability bug across
+6 isolation phases — now matches all-pairs to machine precision, unlocking O(N)
+scaling to N=100,000+ on consumer hardware. The nuclear EOS surrogate learning demonstrates the full
 pipeline — physics objective, surrogate training (GPU-accelerated), iterative
 optimization — working on consumer hardware without institutional access.
 **BarraCUDA has already surpassed the Python control on L1** (χ²=2.27 vs 6.62,

@@ -345,74 +345,63 @@ GPU advantage scales as O(N²) because force computation dominates and GPU paral
 
 #### Phase D: Where CPU Becomes Implausible
 
-The N-scaling experiment (§5.7) reveals a sharp boundary where CPU-based MD
-ceases to be practical on consumer hardware:
+The N-scaling experiment (§5.7), after rewiring to native f64 builtins and enabling
+the cell-list kernel, reveals a sharp boundary where CPU-based MD ceases to be
+practical on consumer hardware:
 
 | N | GPU steps/s | GPU Wall | Est. CPU Wall | CPU Feasible? | GPU Energy | Est. CPU Energy |
 |:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| 500 | 169.0 | 3.5 min | 1.1 min | Yes (CPU faster) | 12.2 kJ | 3.4 kJ |
-| 2,000 | 76.0 | 7.7 min | 9.6 min | Yes (GPU faster) | 27.9 kJ | 33.0 kJ |
-| 5,000 | 66.9 | 8.7 min | ~4 hours | Marginal | 29.5 kJ | ~780 kJ |
-| 10,000 | 24.6 | 24 min | ~30 hours | **No** | 82.7 kJ | ~5,900 kJ |
-| 20,000 | 8.6 | 68 min | ~12 days | **Impossible** | 255.1 kJ | ~56,000 kJ |
+| 500 | 998.1 | 35s | 63s | GPU 1.8× faster | 1.7 kJ | 3.4 kJ |
+| 2,000 | 361.5 | 97s | 571s | **GPU 5.9× faster** | 5.1 kJ | 33.0 kJ |
+| 5,000 | 134.9 | 259s | ~60 min | **No** | 16.7 kJ | ~200 kJ |
+| 10,000 | 110.5 | 317s | ~4 hrs | **Impossible** | 19.4 kJ | ~1,600 kJ |
+| 20,000 | 56.1 | 624s | ~16 hrs | **Impossible** | 39.3 kJ | ~14,000 kJ |
 
-*(CPU estimates extrapolated from measured 555.5 steps/s at N=500 and 60.6 steps/s at N=2000, assuming O(N²) scaling. Single-thread CPU at N=5000 would be ~3.8 steps/s; at N=10,000 ~0.95 steps/s; at N=20,000 ~0.24 steps/s.)*
+*(CPU measured: 558.5 steps/s at N=500, 61.3 steps/s at N=2000. Higher-N estimates assume O(N²) scaling.)*
 
 The GPU advantage comes from three dimensions:
 
-1. **Time**: At N=10,000 (paper parity), GPU completes in 24 minutes vs ~30 hours for CPU. At N=20,000, GPU takes 68 minutes vs ~12 days. The CPU doesn't just slow down — it becomes **multi-day impractical** on consumer hardware.
+1. **Time**: GPU now wins at **every N**, including N=500 (1.8× vs CPU). At N=10,000 (paper parity), GPU completes in 5.3 minutes vs ~4 hours for CPU. At N=20,000, GPU takes 10.4 minutes vs ~16 hours. With native builtins, the crossover moved below the smallest test case.
 
-2. **Energy**: GPU draws 56-62W regardless of N. CPU draws 54-57W but for vastly longer. At N=10,000: GPU uses 82.7 kJ vs CPU's estimated 5,900 kJ — a **71× energy ratio**. At N=20,000: 255 kJ vs ~56 MJ — **220× more energy-efficient**. The energy gap grows as N² because GPU time grows sub-quadratically while CPU time grows quadratically.
+2. **Energy**: GPU draws 47-69W (varies with N, confirming higher utilization with native builtins). At N=10,000: GPU uses 19.4 kJ vs CPU's estimated 1,600 kJ — an **82× energy ratio**. At N=20,000: 39.3 kJ vs ~14 MJ — **356× more energy-efficient**. The energy gap grows faster than the time gap because GPU finishes before idle power accumulates.
 
-3. **Hardware access**: The GPU path runs on ANY consumer gaming GPU with SHADER_F64 (RTX 3060+, AMD RX 6000+). The CPU path at N=10,000+ effectively requires HPC-grade compute — either a large-core workstation running for days, or a cluster. Sarkas Python itself OOM's at N=10,000 on 32 GB RAM.
+3. **Hardware access**: The GPU path runs on ANY consumer gaming GPU with SHADER_F64 (RTX 3060+, AMD RX 6000+). The CPU path at N=5,000+ effectively requires HPC-grade compute. Sarkas Python itself OOM's at N=10,000 on 32 GB RAM.
 
-#### GPU Power Draw: Why It's Flat (and What's Left to Unlock)
+#### GPU Power Draw: From Flat to Active (Native Builtins Confirmed)
 
-A notable finding: GPU power draw is **nearly constant** (56-62W average) across
-all N values from 500 to 20,000. This suggests low GPU utilization — but the
-cause is more nuanced than simple FP64 throttling.
+**Previous finding**: GPU power draw was nearly constant (56-62W) across all N —
+caused by software-emulated transcendentals (`sqrt_f64`, `exp_f64` from
+`math_f64.wgsl`, ~130 f64 ops per pair).
 
-**Previous understanding (partially wrong)**: We initially attributed the flat power
-to the RTX 4070's 1/64 FP64:FP32 CUDA-reported ratio. But our own earlier
-benchmarks (§6.3) showed wgpu/Vulkan achieves ~2× ratio for bandwidth-limited ops.
+**Current finding** (after native builtins rewire): GPU power now varies with N:
 
-**Updated understanding**: The flat power has two components:
+| N | W (avg) | W (peak) | Temp °C | VRAM MB | J/step |
+|:---:|:---:|:---:|:---:|:---:|:---:|
+| 500 | 47W | 48W | 45 | 584 | 0.047 |
+| 2,000 | 53W | 54W | 50 | 574 | 0.146 |
+| 5,000 | 65W | 66W | 59 | 560 | 0.478 |
+| 10,000 | 61W | 67W | 60 | 565 | 0.553 |
+| 20,000 | 63W | 69W | 60 | 587 | 1.123 |
 
-1. **The force kernel uses software-emulated transcendentals.** Our `math_f64.wgsl`
-   library implements `sqrt_f64` (5-iteration Newton-Raphson) and `exp_f64`
-   (degree-13 polynomial + range reduction) in software. Each Yukawa pair
-   evaluation calls both — that's ~130 f64 arithmetic ops per pair for
-   transcendentals alone.
+The variation (47-69W) confirms higher GPU ALU utilization with native builtins.
+J/step is dramatically lower than the software baseline (e.g. 0.047 vs 0.35 at
+N=500), confirming the GPU does less wasted work per step.
 
-2. **Native f64 builtins exist and are faster.** Testing reveals that WGSL's
-   native `sqrt()`, `exp()`, `inverseSqrt()`, `log()`, `abs()`, `floor()`,
-   `ceil()`, and `round()` all compile and work correctly on f64 types via
-   Naga/Vulkan on the RTX 4070:
+WGSL native `sqrt()`, `exp()`, `inverseSqrt()`, `log()`, `abs()`, `floor()`,
+`ceil()`, and `round()` all compile and work correctly on f64 types:
 
-   | Function | Native | Software (math_f64) | Speedup | Accuracy |
-   |:---:|:---:|:---:|:---:|:---:|
-   | sqrt (1M f64) | 1.58 ms | 2.36 ms | **1.5×** | 0 ULP vs CPU |
-   | exp (1M f64) | 1.29 ms | 2.82 ms | **2.2×** | 8e-8 max diff |
+| Function | Native | Software (math_f64) | Speedup | Accuracy |
+|:---:|:---:|:---:|:---:|:---:|
+| sqrt (1M f64) | 1.58 ms | 2.36 ms | **1.5×** | 0 ULP vs CPU |
+| exp (1M f64) | 1.29 ms | 2.82 ms | **2.2×** | 8e-8 max diff |
 
-   Since the Yukawa kernel calls sqrt + exp per pair, switching to native builtins
-   should give roughly **1.5-2× MD throughput improvement** — unlockable with a
-   shader change alone.
-
-**Energy cost** still scales linearly with wall time since power draw is flat:
-
-| N | J/step | Wall time | What this means |
-|:---:|:---:|:---:|:---|
-| 500 | 0.35 | 3.5 min | Dispatch overhead dominates |
-| 2,000 | 0.80 | 7.7 min | Compute becoming significant |
-| 5,000 | 0.84 | 8.7 min | Similar cost to N=2000 (GPU absorbs the growth) |
-| 10,000 | 2.36 | 24 min | O(N²) pairs now visible in cost |
-| 20,000 | 7.29 | 68 min | Approaching GPU saturation |
+In context, the full MD throughput improvement is **2-6×** (beyond the isolated
+1.5-2×) because removing the ~500-line dead math_f64 preamble also reduces shader
+compilation overhead and register pressure.
 
 **Remaining performance to unlock**:
-- Native builtins in force kernel: est. 1.5-2× speedup (shader change)
-- Cell-list O(N) at large N: est. 10-50× speedup for N > 10,000 (kernel switch)
 - Titan V (7.4 TFLOPS native FP64, 1/2 rate): est. 5-20× for compute-bound work
-- Combined: N=10,000 could drop from 24 min to ~1-2 min on Titan V with cell-list
+- Combined with cell-list: N=10,000 could drop from 5 min to ~30s on Titan V
 
 ### 5.6 Significance
 
@@ -442,24 +431,41 @@ fixed, opens the path far beyond paper parity.
 
 #### 5.7.1 The N-Scaling Experiment
 
-We ran the all-pairs O(N²) kernel across N=500 to N=20,000 with GPU-only
-computation (κ=2, Γ=158, the textbook OCP case):
+We ran the N-scaling sweep with native f64 builtins (`sqrt`, `exp`, `round`,
+`floor` operating directly on f64 types via Naga/Vulkan) and the fixed cell-list
+kernel (branch-based wrapping) for N >= 10,000. Parameters: κ=2, Γ=158, the
+textbook OCP case.
+
+**Current results (native builtins + cell-list, Feb 14 2026)**:
 
 | N | GPU steps/s | Wall time | Pairs/step | Energy drift | Method |
 |:---:|:---:|:---:|:---:|:---:|:---:|
-| 500 | 169.0 | 207s | 125k | 0.000% | all-pairs |
-| 2,000 | 76.0 | 461s | 2.0M | 0.000% | all-pairs |
-| 5,000 | 66.9 | 523s | 12.5M | 0.000% | all-pairs |
-| 10,000 | 24.6 | 1,423s | 50M | 0.000% | all-pairs |
-| 20,000 | 8.6 | 4,091s | 200M | 0.000% | all-pairs |
+| 500 | 998.1 | 35s | 125k | 0.000% | all-pairs |
+| 2,000 | 361.5 | 97s | 2.0M | 0.000% | all-pairs |
+| 5,000 | 134.9 | 259s | 12.5M | 0.000% | all-pairs |
+| 10,000 | 110.5 | 317s | 50M | 0.000% | cell-list |
+| 20,000 | 56.1 | 624s | 200M | 0.000% | cell-list |
 
-**Total sweep: 112 minutes, 5 N values, 0.000% drift at every system size.**
+**Total sweep: 34 minutes, 5 N values, 0.000% drift at every system size.**
 
-The RTX 4070 achieves **paper parity at N=10,000 in 24 minutes** and exceeds it
-at N=20,000 (2× the paper's particle count) in 68 minutes. Sarkas Python OOM's
-at N=10,000 on 32 GB RAM. GPU power draw is 56-62W sustained — a morning of
-science on a gaming GPU costs less electricity than running a hair dryer for
-10 minutes.
+The RTX 4070 achieves **paper parity at N=10,000 in 5.3 minutes** and exceeds it
+at N=20,000 (2× the paper's particle count) in 10.4 minutes. Sarkas Python OOM's
+at N=10,000 on 32 GB RAM.
+
+**Improvement over software-emulated baseline**:
+
+| N | Old steps/s | New steps/s | Speedup | Factor |
+|:---:|:---:|:---:|:---:|:---:|
+| 500 | 169.0 | 998.1 | **5.9×** | native builtins |
+| 2,000 | 76.0 | 361.5 | **4.8×** | native builtins |
+| 5,000 | 66.9 | 134.9 | **2.0×** | native builtins |
+| 10,000 | 24.6 | 110.5 | **4.5×** | native builtins + cell-list |
+| 20,000 | 8.6 | 56.1 | **6.5×** | native builtins + cell-list |
+
+The 2-6× improvement comes from: (1) native `sqrt`/`exp` hardware acceleration
+(1.5-2.2× faster in isolation), (2) removing the ~500-line dead `math_f64.wgsl`
+preamble from shader compilation, and (3) cell-list O(N) replacing all-pairs O(N²)
+at N >= 10,000.
 
 #### 5.7.2 The Cell-List Bug: Why Deep Debugging Beats Quick Fixes
 
@@ -759,11 +765,13 @@ Requires a GPU with `wgpu::Features::SHADER_F64` support (confirmed: RTX 4070, R
 
 7. **Full Sarkas Yukawa MD runs on a consumer GPU.** All 9 PP Yukawa cases from the DSF study pass validation on an RTX 4070 using f64 WGSL shaders — 0.000% energy drift across 80,000 production steps, physically correct RDF/VACF/SSF/D* trends, up to 259 steps/s sustained throughput, 3.7x faster and 3.4x more energy-efficient than CPU at N=2000. The 80k-step long run confirms symplectic integrator stability well beyond the 30k steps used in the original Sarkas study. No CUDA required. No HPC cluster. Same physics, consumer hardware.
 
-8. **N-scaling reaches paper parity on consumer GPU.** The all-pairs kernel handles N=500 to N=20,000 in a single GPU sweep (112 minutes total), matching the N=10,000 system size from the published Murillo Group DSF study in 24 minutes and exceeding it at N=20,000 in 68 minutes. Energy conservation is 0.000% at all 5 system sizes. Sarkas Python OOM's at N=10,000 on 32 GB RAM.
+8. **N-scaling reaches paper parity on consumer GPU — 5.3 minutes.** With native f64 builtins and cell-list O(N) scaling, the GPU handles N=500 to N=20,000 in 34 minutes total (was 112 min with software emulation). N=10,000 paper parity in **5.3 minutes** (was 24 min), N=20,000 in **10.4 minutes** (was 68 min). Throughput improvement: 2-6× across all N values. GPU now wins at every N including N=500 (1.8× vs CPU). Energy conservation is 0.000% at all 5 system sizes. Sarkas Python OOM's at N=10,000 on 32 GB RAM.
 
 9. **Deep debugging beats quick fixes for platform viability.** The cell-list kernel's catastrophic energy explosion at N=10,000 could have been "fixed" by forcing all-pairs mode everywhere. Instead, a 6-phase systematic diagnostic identified the root cause: the WGSL `i32 %` operator produces incorrect results for negative operands on NVIDIA/Naga/Vulkan. The branch-based fix restores cell-list O(N) scaling, unlocking N=100,000+ on consumer GPUs and N=1,000,000+ on HPC GPUs. The quick fix would have been publishable. The deep fix makes the platform viable. This lesson — document the root cause, not just the workaround — applies to all GPU shader development.
 
-10. **The path to paper parity is clear but requires deformation physics and GPU compute.** L3 deformed HFB architecture is built. The Titan V (7.4 TFLOPS FP64) will enable the optimization budget needed to close the remaining gap.
+10. **Native f64 builtins unlock hidden GPU performance.** WGSL's native `sqrt()`, `exp()`, `round()`, and `floor()` compile and work correctly on f64 types via Naga/Vulkan. Replacing software-emulated transcendentals with native builtins gave 2-6× MD throughput improvement — far exceeding the 1.5-2× predicted from isolated benchmarks. Removing the ~500-line dead math_f64 preamble reduced shader compilation overhead and register pressure, contributing to the larger-than-expected gain. GPU power draw moved from flat (56-62W) to varying (47-69W), confirming higher ALU utilization.
+
+11. **The path to paper parity is clear but requires deformation physics and GPU compute.** L3 deformed HFB architecture is built. The Titan V (7.4 TFLOPS FP64) will enable the optimization budget needed to close the remaining gap.
 
 ---
 

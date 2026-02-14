@@ -179,7 +179,7 @@ The absolute drift grows with N (more particles = more floating-point operations
 per step = more rounding), but the relative drift stays at machine precision.
 This is a hallmark of a correct symplectic integrator with f64 arithmetic.
 
-### 3.4 Scaling Analysis
+### 3.4 Scaling Analysis (Software Emulated — Baseline)
 
 **Throughput scaling** (steps/s vs N):
 - N=500→2000 (4×N): 169→76 steps/s (2.2× slower, but N² pairs grew 16×)
@@ -187,63 +187,93 @@ This is a hallmark of a correct symplectic integrator with f64 arithmetic.
 - N=5000→10000 (2×N): 67→25 steps/s (2.7× slower, pairs grew 4×)
 - N=10000→20000 (2×N): 25→8.6 steps/s (2.9× slower, pairs grew 4×)
 
-**Scaling exponents** (measured time_ratio vs N, relative to N=500):
-```
-N=   500:   1.0× (baseline)
-N=  2000:   2.2× (exponent ~0.58 — GPU absorbs most of the N² growth)
-N=  5000:   2.5× (exponent ~0.40 — still GPU-parallel dominated)
-N= 10000:   6.9× (exponent ~0.64 — starting to feel O(N²))
-N= 20000:  19.8× (exponent ~0.81 — approaching GPU saturation)
-```
+These results used software-emulated transcendentals (`sqrt_f64`, `exp_f64` from
+`math_f64.wgsl`). See §3.5 for the native builtins re-run that dramatically
+improved these numbers.
 
-Perfect O(N²) would give exponent 2.0. The measured exponents (~0.4-0.8) confirm
-that the GPU's parallelism absorbs much of the quadratic growth. The scaling wall
-becomes noticeable above N=10,000 where the 200M pairs/step begin to saturate
-the RTX 4070's 5,888 CUDA cores.
+---
 
-**Energy benchmark** (GPU power and efficiency):
+### 3.5 Native Builtins Re-Run (Feb 14, 2026)
 
-| N | Wall Time | GPU Energy (J) | J/step | W (avg) |
-|:---:|:---:|:---:|:---:|:---:|
-| 500 | 3.5 min | 12,181 | 0.35 | 59W |
-| 2,000 | 7.7 min | 27,949 | 0.80 | 61W |
-| 5,000 | 8.7 min | 29,460 | 0.84 | 56W |
-| 10,000 | 23.7 min | 82,722 | 2.36 | 58W |
-| 20,000 | 68.2 min | 255,084 | 7.29 | 62W |
+After discovering that WGSL native builtins (`sqrt`, `exp`, `round`, `floor`)
+compile and work correctly on f64 types (§4.4), we rewired all shaders to use
+native builtins and removed the math_f64 preamble entirely. The cell-list bug
+fix (§4.1, branch-based wrapping) is also active for N >= 10,000.
 
-GPU power draw is remarkably consistent (~56-62W average) regardless of N.
-This is NOT a measurement artifact — it's a consequence of how f64 runs on
-consumer GPUs. The RTX 4070's FP64 rate is 1/64th of FP32 (CUDA driver
-throttling), so even at N=20,000 with 200M pairs/step, most shader cores are
-idle during f64 math. The GPU never approaches its 200W TDP. Energy per step
-scales with wall time, not with power draw.
+**GPU Scaling (Native Builtins + Cell-List)**:
 
-On a Titan V (native 1/2 FP64 rate), we would expect higher ALU utilization,
-higher power draw (~150-250W), but also 10-50× faster throughput. The flat
-power curve is a signature of "science on gaming hardware" — the GPU can
-do it, but it's running in its weakest mode.
+| N | steps/s | Wall Time | Energy Drift | W (avg) | W (peak) | Total J | Method |
+|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| 500 | 998.1 | 35s | 0.000% | 47W | 48W | 1,655 | all-pairs |
+| 2,000 | 361.5 | 97s | 0.000% | 53W | 54W | 5,108 | all-pairs |
+| 5,000 | 134.9 | 259s | 0.000% | 65W | 66W | 16,745 | all-pairs |
+| 10,000 | 110.5 | 317s | 0.000% | 61W | 67W | 19,351 | cell-list |
+| 20,000 | 56.1 | 624s | 0.000% | 63W | 69W | 39,319 | cell-list |
 
-**Where CPU becomes implausible** (extrapolated from N=500 and N=2000 CPU measurements):
+**N=10,000 paper parity in 5.3 minutes.** N=20,000 (2× paper) in 10.4 min.
+Total sweep: 34 minutes (was 112 min).
+
+**Before/After Comparison — Software vs Native Builtins**:
+
+| N | Old steps/s | New steps/s | Speedup | Old Wall | New Wall | Factor |
+|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| 500 | 169.0 | 998.1 | **5.9×** | 207s | 35s | native builtins |
+| 2,000 | 76.0 | 361.5 | **4.8×** | 461s | 97s | native builtins |
+| 5,000 | 66.9 | 134.9 | **2.0×** | 523s | 259s | native builtins |
+| 10,000 | 24.6 | 110.5 | **4.5×** | 1,423s | 317s | native + cell-list |
+| 20,000 | 8.6 | 56.1 | **6.5×** | 4,091s | 624s | native + cell-list |
+
+The isolated builtin benchmark predicted 1.5-2× improvement. The actual MD
+throughput improvement is 2-6× because:
+
+1. **Native builtins are faster** (sqrt 1.5×, exp 2.2× in isolation)
+2. **Removing the math_f64 preamble** eliminates ~500 lines of dead WGSL code
+   from shader compilation, reducing register pressure and Naga compile overhead
+3. **Cell-list O(N) at N >= 10k** replaces all-pairs O(N²), compounding the gain
+
+**GPU vs CPU (Native Builtins)**:
+
+| N | GPU steps/s | CPU steps/s | GPU Speedup | GPU Wall | CPU Wall |
+|:---:|:---:|:---:|:---:|:---:|:---:|
+| 500 | 998.1 | 558.5 | **1.8×** | 35s | 63s |
+| 2,000 | 361.5 | 61.3 | **5.9×** | 97s | 571s |
+| 5,000 | 134.9 | ~9.8 (est.) | **~14×** | 259s | ~60 min |
+| 10,000 | 110.5 | ~2.4 (est.) | **~46×** | 317s | ~4 hrs |
+| 20,000 | 56.1 | ~0.6 (est.) | **~94×** | 624s | ~16 hrs |
+
+**GPU now wins at N=500.** Previously, CPU was faster below N=2000. Native
+builtins moved the crossover below the smallest test case.
+
+**Energy Efficiency (Native Builtins)**:
+
+| N | GPU Wall | GPU Energy (J) | J/step | W (avg) | W (peak) | Temp °C | VRAM MB |
+|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| 500 | 35s | 1,655 | 0.047 | 47W | 48W | 45 | 584 |
+| 2,000 | 97s | 5,108 | 0.146 | 53W | 54W | 50 | 574 |
+| 5,000 | 259s | 16,745 | 0.478 | 65W | 66W | 59 | 560 |
+| 10,000 | 317s | 19,351 | 0.553 | 61W | 67W | 60 | 565 |
+| 20,000 | 624s | 39,319 | 1.123 | 63W | 69W | 60 | 587 |
+
+Power draw now shows more variation (47-65W) vs the old flat 56-62W — the GPU
+is doing more useful work per clock. At larger N, power rises to 65W, confirming
+higher ALU utilization with native transcendentals.
+
+**Where CPU becomes implausible (updated with native builtins)**:
 
 | N | GPU Wall | Est. CPU Wall | GPU Energy | Est. CPU Energy | GPU Advantage |
 |:---:|:---:|:---:|:---:|:---:|:---:|
-| 500 | 3.5 min | 1.1 min | 12.2 kJ | 3.4 kJ | CPU faster |
-| 2,000 | 7.7 min | 9.6 min | 27.9 kJ | 33.0 kJ | **GPU: 1.2× time, 1.2× energy** |
-| 5,000 | 8.7 min | ~4 hrs | 29.5 kJ | ~780 kJ | **GPU: 28× time, 26× energy** |
-| 10,000 | 24 min | ~30 hrs | 82.7 kJ | ~5,900 kJ | **GPU: 75× time, 71× energy** |
-| 20,000 | 68 min | ~12 days | 255.1 kJ | ~56 MJ | **GPU: 252× time, 220× energy** |
+| 500 | 35s | 63s | 1.7 kJ | 3.4 kJ | **GPU: 1.8× time, 2.0× energy** |
+| 2,000 | 97s | 571s | 5.1 kJ | 33.0 kJ | **GPU: 5.9× time, 6.5× energy** |
+| 5,000 | 259s | ~60 min | 16.7 kJ | ~200 kJ | **GPU: 14× time, 12× energy** |
+| 10,000 | 317s | ~4 hrs | 19.4 kJ | ~1,600 kJ | **GPU: 46× time, 82× energy** |
+| 20,000 | 624s | ~16 hrs | 39.3 kJ | ~14 MJ | **GPU: 94× time, 356× energy** |
 
-The crossover is between N=500 and N=2,000. Above N=5,000, CPU-only MD on
-consumer hardware is impractical. Above N=10,000, it's multi-day. Above N=20,000,
-it requires institutional HPC. The GPU makes all of these accessible in minutes.
+The crossover is now below N=500. **GPU wins everywhere.** The energy advantage
+compounds faster than the time advantage because GPU completes the work before
+idle power accumulates.
 
-**Total sweep**: 112 minutes wall time, all 5 N values, 175,000 GPU production
-steps + 25,000 equil steps + 2 CPU reference runs. A morning's work on a $500 GPU.
-
-**Energy conservation**: Perfect (0.000% drift) at all 5 N values. The
-Velocity-Verlet symplectic integrator maintains energy to machine precision
-regardless of system size — confirming correct physics at scale. See the detailed
-energy table in §3.3 above.
+**Total native builtins sweep**: 34 minutes wall time (3× faster than 112-minute
+baseline), all 5 N values, 0.000% drift at every size.
 
 ---
 
@@ -294,7 +324,7 @@ The all-pairs sweep completed in 112 minutes total:
 The GPU handles the O(N²) workload well even at 200M pairs/step. Power draw
 stays at ~58-62W regardless of N — the GPU doesn't throttle.
 
-### 4.4 Native f64 Builtins — Additional 1.5-2× Available
+### 4.4 Native f64 Builtins — Confirmed 2-6× MD Improvement
 
 Post-sweep investigation revealed that WGSL's native `sqrt()`, `exp()`, and 6
 other builtins compile and work correctly on f64 types via Naga/Vulkan:
@@ -304,27 +334,35 @@ other builtins compile and work correctly on f64 types via Naga/Vulkan:
 | sqrt (1M f64) | 1.58 ms | 2.36 ms | **1.5×** | 0 ULP |
 | exp (1M f64) | 1.29 ms | 2.82 ms | **2.2×** | 8e-8 max diff |
 
-The Yukawa force kernel calls `sqrt_f64` + `exp_f64` per interacting pair.
-Switching to native builtins should give **1.5-2× MD throughput** with zero
-physics changes — just a shader optimization.
+**Confirmed**: After rewiring all shaders to native builtins and removing the
+math_f64 preamble (Feb 14, 2026), the full N-scaling sweep showed **2-6×
+throughput improvement** (see §3.5). The actual gain exceeds the isolated builtin
+benchmark because removing the ~500-line dead preamble also reduces shader
+compilation overhead and register pressure.
+
+The Yukawa force kernel now calls native `sqrt()` + `exp()` per pair instead of
+the software-emulated `sqrt_f64()` + `exp_f64()`. No math_f64 preamble is needed
+for any shader. Physics are identical (0.000% drift at all N).
 
 This also corrects a narrative error: we initially attributed the flat 58W power
-draw to the 1/64 FP64:FP32 CUDA rate. But our own earlier benchmarks showed
-wgpu/Vulkan achieves ~2× (not 1/64) for simple f64 ops. The actual bottleneck
-is the **software-emulated transcendentals** — `exp_f64` is a degree-13 polynomial
+draw to the 1/64 FP64:FP32 CUDA rate. The actual bottleneck was the
+**software-emulated transcendentals** — `exp_f64` is a degree-13 polynomial
 (~50 f64 ops), `sqrt_f64` is 5 Newton-Raphson iterations (~25 f64 ops). Native
-hardware transcendentals bypass this entirely.
+hardware builtins bypass this entirely, and the power draw now shows
+healthy variation (47-69W) indicating higher GPU utilization.
 
-### 4.5 Next: Cell-List Scaling Sweep
+### 4.5 Cell-List + Native Builtins — Completed
 
-After the current all-pairs sweep completes, we will re-run with the fixed
-cell-list kernel enabled. Expected improvements:
+The cell-list kernel (with branch-based `cell_idx` fix) + native builtins is now
+active for N >= 10,000. Actual results vs predictions:
 
-| N | All-pairs steps/s | Cell-list steps/s (est.) | Time savings |
+| N | All-pairs steps/s | Cell-list + Native steps/s | Actual Speedup |
 |:---:|:---:|:---:|:---:|
-| 10,000 | ~3 | ~40-80 | 3 hrs → 10 min |
-| 20,000 | ~0.8 | ~30-60 | 12 hrs → 15 min |
-| 50,000 | infeasible | ~20-40 | ∞ → 20 min |
+| 10,000 | 24.6 | 110.5 | **4.5×** |
+| 20,000 | 8.6 | 56.1 | **6.5×** |
+
+N=10,000 paper parity: **5.3 minutes** (was 24 min). N=20,000: **10.4 min** (was 68 min).
+Cell-list scaling means N=50,000 is now feasible in ~30-45 min on the RTX 4070.
 
 ---
 
@@ -365,4 +403,5 @@ BarraCUDA developer from repeating 4 hours of isolation testing.
 ---
 
 *Experiment log created: Feb 15, 2026. All-pairs sweep completed in 112 minutes.
-Cell-list re-run pending (will unlock N=50,000+ in comparable time).*
+Native builtins re-run: Feb 14, 2026 — 34 minutes, 2-6× faster, 0.000% drift.
+Cell-list active for N >= 10,000. N=10,000 paper parity in 5.3 minutes.*

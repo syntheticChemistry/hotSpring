@@ -1,7 +1,13 @@
 //! f64 WGSL shaders for GPU molecular dynamics
 //!
-//! All shaders use SHADER_F64 and the math_f64 library (exp_f64, sqrt_f64, etc.).
-//! Prepend math_f64 preamble via `ShaderTemplate::with_math_f64()` before compilation.
+//! All shaders use SHADER_F64 with **native WGSL builtins** (sqrt, exp, round, floor)
+//! operating directly on f64 types. No math_f64 preamble is needed — shaders compile
+//! standalone via Naga/Vulkan on GPUs with SHADER_F64 support.
+//!
+//! Native builtins were validated against math_f64 software implementations:
+//!   sqrt: 0 ULP difference, 1.5× faster (1M elements, RTX 4070)
+//!   exp:  8e-8 max diff, 2.2× faster
+//! See experiments/001_N_SCALING_GPU.md §4.4 for details.
 
 // ═══════════════════════════════════════════════════════════════════
 // Yukawa All-Pairs Force Kernel (f64)
@@ -42,7 +48,7 @@ pub const SHADER_YUKAWA_FORCE: &str = r#"
 //   [7] = epsilon (softening, typically 0 or 1e-30)
 
 fn pbc_delta(delta: f64, box_size: f64) -> f64 {
-    return delta - box_size * round_f64(delta / box_size);
+    return delta - box_size * round(delta / box_size);
 }
 
 @compute @workgroup_size(64)
@@ -85,10 +91,10 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
         if (r_sq > cutoff_sq) { continue; }
 
-        let r = sqrt_f64(r_sq + eps);
+        let r = sqrt(r_sq + eps);
 
         // Yukawa force: F = prefactor * exp(-kappa*r) * (1 + kappa*r) / r^2
-        let screening = exp_f64(-kappa * r);
+        let screening = exp(-kappa * r);
         let force_mag = prefactor * screening * (1.0 + kappa * r) / r_sq;
 
         // Force on particle i due to j: repulsive → push AWAY from j
@@ -173,9 +179,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     var pz = positions[i * 3u + 2u] + dt * vz;
 
     // PBC wrap: keep x in [0, box)
-    px = px - box_x * floor_f64(px / box_x);
-    py = py - box_y * floor_f64(py / box_y);
-    pz = pz - box_z * floor_f64(pz / box_z);
+    px = px - box_x * floor(px / box_x);
+    py = py - box_y * floor(py / box_y);
+    pz = pz - box_z * floor(pz / box_z);
 
     // Store
     positions[i * 3u]      = px;
@@ -335,7 +341,7 @@ pub const SHADER_YUKAWA_FORCE_CELLLIST: &str = r#"
 //   [14] = n_cells_total
 
 fn pbc_delta_cl(delta: f64, box_size: f64) -> f64 {
-    return delta - box_size * round_f64(delta / box_size);
+    return delta - box_size * round(delta / box_size);
 }
 
 // Map 3D cell coordinates to linear index
@@ -412,8 +418,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
                     let r_sq = ddx * ddx + ddy * ddy + ddz * ddz;
                     if (r_sq > cutoff_sq) { continue; }
 
-                    let r = sqrt_f64(r_sq + eps);
-                    let screening = exp_f64(-kappa * r);
+                    let r = sqrt(r_sq + eps);
+                    let screening = exp(-kappa * r);
                     let force_mag = prefactor * screening * (1.0 + kappa * r) / r_sq;
                     let inv_r = 1.0 / r;
 
@@ -534,8 +540,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             let r_sq = rx * rx + ry * ry + rz * rz;
             if (r_sq > cutoff_sq) { continue; }
 
-            let r = sqrt_f64(r_sq + softening);
-            let scr = exp_f64(-kappa * r);
+            let r = sqrt(r_sq + softening);
+            let scr = exp(-kappa * r);
             let fmag = prefactor * scr * (1.0 + kappa * r) / r_sq;
             let ir = 1.0 / r;
 
@@ -573,7 +579,7 @@ pub const SHADER_RDF_HISTOGRAM: &str = r#"
 @group(0) @binding(2) var<storage, read> params: array<f64>;
 
 fn pbc_delta_rdf(delta: f64, box_size: f64) -> f64 {
-    return delta - box_size * round_f64(delta / box_size);
+    return delta - box_size * round(delta / box_size);
 }
 
 @compute @workgroup_size(64)
@@ -598,7 +604,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         let dy = pbc_delta_rdf(positions[j * 3u + 1u] - yi, box_y);
         let dz = pbc_delta_rdf(positions[j * 3u + 2u] - zi, box_z);
 
-        let r = sqrt_f64(dx * dx + dy * dy + dz * dz);
+        let r = sqrt(dx * dx + dy * dy + dz * dz);
         let bin = u32(r / dr);
 
         if (bin < n_bins) {
