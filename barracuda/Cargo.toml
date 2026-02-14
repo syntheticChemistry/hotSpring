@@ -66,3 +66,8 @@ path = "src/bin/nuclear_eos_gpu.rs"
 name = "verify_hfb"
 path = "src/bin/verify_hfb.rs"
 
+# ── Sarkas GPU: Yukawa OCP molecular dynamics on consumer GPU ────
+[[bin]]
+name = "sarkas_gpu"
+path = "src/bin/sarkas_gpu.rs"
+

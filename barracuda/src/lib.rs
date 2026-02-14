@@ -15,6 +15,7 @@
 //!   - `nuclear_eos_l2_hetero` — L2 heterogeneous pipeline with cascade
 //!   - `nuclear_eos_gpu` — GPU FP64 three-way comparison (Python/CPU/GPU)
 //!   - `nuclear_eos_l3_ref` — L3 (deformed HFB) architecture test
+//!   - `sarkas_gpu` — GPU Yukawa OCP molecular dynamics (9 PP cases, f64 WGSL)
 //!   - `verify_hfb` — HFB physics cross-check (Rust vs Python)
 //!   - `validate_special_functions` — 77 special function tests
 //!   - `validate_linalg` — LU, QR, SVD, tridiagonal solver tests
@@ -30,6 +31,7 @@
 pub mod bench;
 pub mod data;
 pub mod gpu;
+pub mod md;
 pub mod physics;
 pub mod prescreen;
 

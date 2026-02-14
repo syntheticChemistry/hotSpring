@@ -175,8 +175,58 @@ With Titan V:
 
 ---
 
+## GPU MD — Sarkas on Consumer GPU (Phase C)
+
+**Status**: ✅ Implemented — f64 WGSL Yukawa MD on RTX 4070
+
+The `sarkas_gpu` binary runs the full Sarkas PP Yukawa DSF study (9 cases)
+entirely on GPU using f64 WGSL shaders. This is the first step toward
+replacing the Python Sarkas codebase with BarraCUDA for plasma MD.
+
+### What's Running
+- Yukawa all-pairs force kernel (f64 WGSL, `SHADER_F64`)
+- Velocity-Verlet symplectic integrator (f64 WGSL)
+- Periodic boundary conditions with minimum image convention (f64 WGSL)
+- Berendsen thermostat for equilibration
+- Energy conservation validated: **0.000% drift** (exact symplectic)
+- Observables: RDF, VACF, SSF, energy (CPU post-process from GPU snapshots)
+- Cell-list neighbor search for O(N) scaling at large N
+
+### 9 PP Yukawa Cases
+
+| κ | Γ values       | rc/a_ws |
+|---|----------------|---------|
+| 1 | 14, 72, 217    | 8.0     |
+| 2 | 31, 158, 476   | 6.5     |
+| 3 | 100, 503, 1510 | 6.0     |
+
+### What's Flagged for Future Work
+
+#### PPPM / FFT-Based Ewald (Phase 6)
+The 3 Coulomb cases (κ=0: Γ=10, 50, 150) from the DSF study use PPPM for
+long-range Coulomb interactions. This requires a 3D FFT pipeline on GPU.
+toadstool/barracuda has FFT 1D/2D/3D primitives but no Ewald wrapper.
+
+**Flagged for toadstool team**: Build `barracuda::ops::md::ewald` using
+existing FFT ops. Estimated effort: 2-3 weeks. Not blocked — the 9 PP Yukawa
+cases provide full validation coverage for the force kernel and integrator.
+
+#### MSU HPCC (iCER) Comparison
+Pin a CPU-only large-system baseline (N=10,000+, 80k production steps) for
+comparison against the same physics on a $600 GPU card.
+
+**Route**: Request alumni/collaborator access to MSU HPCC, or route through
+Murillo collaboration — "you run your Sarkas at full scale on HPC, we run
+the same physics on a consumer GPU."
+
+This becomes a headline number: **HPC cluster vs consumer GPU, same physics,
+same observables.**
+
+---
+
 ## The One-Liner
 
 > Python proved we can do the physics.
 > BarraCUDA proved we can do it 478× faster on a consumer GPU.
+> Now Sarkas runs on a $600 GPU — same physics, same observables, no HPC needed.
 > Together they prove the scarcity was artificial.

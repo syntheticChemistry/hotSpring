@@ -242,3 +242,73 @@ L2 HFB DirectSampler (12 evals):
 | **Strandgate** | EPYC 7742 (64c) | — | 256GB |
 | **Northgate** | i9-14900K | RTX 5090 (32GB) | 128GB |
 | **Southgate** | 5800X3D | — | 32GB |
+
+---
+
+## GPU Molecular Dynamics — Sarkas on Consumer GPU
+
+### Overview
+
+The `sarkas_gpu` binary runs full Yukawa OCP molecular dynamics entirely on
+GPU using f64 WGSL shaders (`SHADER_F64`). This reproduces the Sarkas PP
+Yukawa DSF study (9 cases) on consumer hardware.
+
+Run: `cargo run --release --bin sarkas_gpu`
+
+| Mode | Flag | Description |
+|------|------|-------------|
+| Quick | (default) | κ=2, Γ=158, N=500, 1k equil + 5k prod |
+| Full sweep | `--full` | All 9 PP Yukawa cases, N=2000 |
+| Scaling | `--scale` | κ=2 Γ=158 at N=500, 2000, 5000, 10000 |
+
+### Full Sweep Results (Eastgate, February 13, 2026)
+
+**9/9 PP Yukawa cases PASSED** at N=2000 on RTX 4070 (f64 WGSL):
+
+| κ | Γ    | Drift | RDF Tail Err | D*      | steps/s | Time   | GPU Energy |
+|---|------|-------|-------------|---------|---------|--------|------------|
+| 1 |   14 | 0.000% | 0.0001     | 1.35e-1 | 74.0    | 7.9min | 25.6 kJ    |
+| 1 |   72 | 0.000% | 0.0004     | 2.40e-2 | 76.7    | 7.6min | 24.6 kJ    |
+| 1 |  217 | 0.004% | 0.0009     | 8.18e-3 | 84.0    | 6.9min | 22.5 kJ    |
+| 2 |   31 | 0.000% | 0.0001     | 6.10e-2 | 78.7    | 7.4min | 23.7 kJ    |
+| 2 |  158 | 0.000% | 0.0003     | 5.49e-3 | 90.2    | 6.5min | 20.7 kJ    |
+| 2 |  476 | 0.000% | 0.0014     | 2.76e-5 | 96.9    | 6.0min | 19.3 kJ    |
+| 3 |  100 | 0.000% | 0.0001     | 2.28e-2 | 85.5    | 6.8min | 21.7 kJ    |
+| 3 |  503 | 0.000% | 0.0001     | 1.73e-3 | 100.0   | 5.8min | 18.7 kJ    |
+| 3 | 1510 | 0.000% | 0.0014     | 1.00e-4 | 120.3   | 4.9min | 15.5 kJ    |
+
+**Total sweep: 60 minutes, 53W average GPU, ~192 kJ total.**
+
+### GPU vs CPU Scaling
+
+| N    | GPU steps/s | CPU steps/s | Speedup | GPU J/step | CPU J/step |
+|------|-------------|-------------|---------|------------|------------|
+|  500 |       521.5 |       608.1 |    0.9× | 0.081      | 0.071      |
+| 2000 |       240.5 |        64.8 |  **3.7×** | 0.207    | 0.712      |
+
+GPU advantage grows with N² (force computation is O(N²) all-pairs).
+At N=2000, GPU uses **3.4× less energy per step** and runs **3.7× faster**.
+
+### Acceptance Criteria
+
+| Observable | Criterion | Status |
+|------------|-----------|--------|
+| Energy drift | < 5% | ✅ All ≤ 0.004% |
+| RDF tail | \|g(∞)−1\| < 0.15 | ✅ All ≤ 0.0014 |
+| RDF peak | Increases with Γ | ✅ Verified across all 9 |
+| VACF D* | Decreases with Γ | ✅ Verified |
+| SSF S(k→0) | Compressibility trends | ✅ Verified |
+
+### DSF Study Matrix (PP Yukawa)
+
+| κ | Γ values | rc/a_ws | Method | Status |
+|---|----------|---------|--------|--------|
+| 1 | 14, 72, 217 | 8.0 | All-pairs GPU (N=2000) | ✅ 3/3 |
+| 2 | 31, 158, 476 | 6.5 | All-pairs GPU (N=2000) | ✅ 3/3 |
+| 3 | 100, 503, 1510 | 6.0 | All-pairs GPU (N=2000) | ✅ 3/3 |
+
+### Flagged for Future
+
+- **PPPM/Ewald** (κ=0 Coulomb cases): needs 3D FFT pipeline on GPU
+- **MSU HPC comparison**: CPU baseline at N=10,000+ for headline number
+- **Cell-list scaling**: implemented and ready for N>5000 benchmarks

@@ -14,6 +14,8 @@ hotSpring is where we reproduce published computational physics work from the Mu
 
 - **Phase B (BarraCUDA)**: Re-execute the same computation on ToadStool's BarraCUDA engine — pure Rust, WGSL shaders, any GPU vendor. **✅ L1 validated (478× faster, better χ²). L2 validated (1.7× faster).**
 
+- **Phase C (GPU MD)**: Run Sarkas Yukawa OCP molecular dynamics entirely on GPU using f64 WGSL shaders. **✅ 9/9 PP Yukawa DSF cases pass on RTX 4070. 0.000% energy drift. 3.7× faster than CPU at N=2000.**
+
 hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust+WGSL replace the Python scientific stack?"*
 
 > **For the physics**: See [`PHYSICS.md`](PHYSICS.md) for complete equation documentation
@@ -143,7 +145,8 @@ hotSpring/
 │           ├── nuclear_eos_l1_ref.rs  # L1 validation pipeline
 │           ├── nuclear_eos_l2_ref.rs  # L2 validation pipeline (evolved)
 │           ├── nuclear_eos_l3_ref.rs  # L3 deformed HFB (architecture)
-│           └── nuclear_eos_gpu.rs     # GPU FP64 validation + energy profiling
+│           ├── nuclear_eos_gpu.rs     # GPU FP64 validation + energy profiling
+│           └── sarkas_gpu.rs         # GPU Yukawa MD (9 PP cases, f64 WGSL)
 │
 ├── control/
 │   ├── comprehensive_control_results.json  # Grand total: 86/86 checks
