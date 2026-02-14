@@ -286,3 +286,13 @@ GPU drivers as well.
 
 *Experiment completed: Feb 14, 2026. Bug found and fixed. Cell-list validated
 at all N values tested.*
+
+---
+
+## References
+
+1. Choi, B., Dharuman, G., Murillo, M. S. "High-Frequency Response of Classical Strongly Coupled Plasmas." *Physical Review E* 100, 013206 (2019). — Published DSF study (N=10,000).
+2. Silvestri, L. G. et al. "Sarkas: A fast pure-python molecular dynamics suite for plasma physics." *Computer Physics Communications* 272 (2022) 108245. doi:[10.1016/j.cpc.2021.108245](https://doi.org/10.1016/j.cpc.2021.108245) — MD simulation engine.
+3. Dense Plasma Properties Database. GitHub: [MurilloGroupMSU/Dense-Plasma-Properties-Database](https://github.com/MurilloGroupMSU/Dense-Plasma-Properties-Database). — Reference DSF S(q,ω) spectra.
+4. WGSL Specification: [W3C WebGPU Shading Language](https://www.w3.org/TR/WGSL/). — §16.4 "Integer Division": `e1 % e2` uses truncated-division semantics.
+5. wgpu Features: [`SHADER_F64`](https://docs.rs/wgpu/latest/wgpu/struct.Features.html#associatedconstant.SHADER_F64). — Enables f64 types in WGSL via Vulkan backend.

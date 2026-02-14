@@ -405,3 +405,13 @@ BarraCUDA developer from repeating 4 hours of isolation testing.
 *Experiment log created: Feb 15, 2026. All-pairs sweep completed in 112 minutes.
 Native builtins re-run: Feb 14, 2026 — 34 minutes, 2-6× faster, 0.000% drift.
 Cell-list active for N >= 10,000. N=10,000 paper parity in 5.3 minutes.*
+
+---
+
+## References
+
+1. Choi, B., Dharuman, G., Murillo, M. S. "High-Frequency Response of Classical Strongly Coupled Plasmas." *Physical Review E* 100, 013206 (2019). — DSF reference data source.
+2. Silvestri, L. G. et al. "Sarkas: A fast pure-python molecular dynamics suite for plasma physics." *Computer Physics Communications* 272 (2022) 108245. doi:[10.1016/j.cpc.2021.108245](https://doi.org/10.1016/j.cpc.2021.108245) — MD simulation engine.
+3. Dense Plasma Properties Database. GitHub: [MurilloGroupMSU/Dense-Plasma-Properties-Database](https://github.com/MurilloGroupMSU/Dense-Plasma-Properties-Database). — Reference DSF S(q,ω) spectra.
+4. Murillo, M. S. & Dharma-wardana, M. W. C. "Temperature relaxation in warm dense hydrogen." *Physical Review E* 98, 023202 (2018). — Yukawa OCP formulation.
+5. Hamaguchi, S., Farouki, R. T., Dubin, D. H. E. "Phase diagram of Yukawa systems near the one-component-plasma limit." *Journal of Chemical Physics* 105, 7641 (1997). — Yukawa phase diagram.
