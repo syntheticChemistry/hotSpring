@@ -723,7 +723,25 @@ Running the all-pairs O(N²) kernel across N=500 to N=20,000:
 
 **N=10,000 achieved paper parity in 24 minutes.** N=20,000 (2× paper) in 68 min.
 Sarkas Python OOM's at N=10,000 on 32 GB RAM. Total sweep: 112 min, 5 N values,
-0.000% drift at every system size. GPU power: 56-62W sustained.
+0.000% drift at every system size.
+
+**Where CPU becomes implausible** (time, energy, and hardware):
+
+| N | GPU Wall | Est. CPU Wall | GPU Energy | Est. CPU Energy | CPU Feasible? |
+|:---:|:---:|:---:|:---:|:---:|:---:|
+| 500 | 3.5 min | 1.1 min | 12.2 kJ | 3.4 kJ | Yes (CPU faster) |
+| 2,000 | 7.7 min | 9.6 min | 27.9 kJ | 33.0 kJ | Yes (GPU wins) |
+| 5,000 | 8.7 min | ~4 hours | 29.5 kJ | ~780 kJ | Marginal |
+| 10,000 | 24 min | ~30 hours | 82.7 kJ | ~5,900 kJ | **No** |
+| 20,000 | 68 min | ~12 days | 255.1 kJ | ~56 MJ | **Impossible** |
+
+At N=10,000 (paper parity): GPU is **71× more energy-efficient** than CPU.
+At N=20,000: **220×**. The energy gap grows as N² — GPU cost scales sub-quadratically.
+
+**GPU power draw is flat at ~58W average** regardless of N (500 to 20,000). This is
+because f64 on consumer GPUs (1/64th FP64 rate) keeps ALU utilization low — the GPU
+never approaches its 200W TDP. Power scales with time, not problem complexity.
+A Titan V (native 1/2 FP64 rate) would show higher utilization and faster throughput.
 
 **The quick fix would have been wrong.** When the cell-list kernel first failed at
 N=10,000 (catastrophic energy explosion — temperature 15× above target), the

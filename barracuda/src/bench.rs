@@ -296,9 +296,9 @@ impl BenchReport {
         println!();
 
         // Table header
-        println!("  {:<18} {:<14} {:>10} {:>10} {:>9} {:>9} {:>10} {:>8}",
-                 "Phase", "Substrate", "Wall Time", "per-eval", "Energy J", "J/eval", "W (avg)", "chi2");
-        println!("  {}", "─".repeat(90));
+        println!("  {:<18} {:<14} {:>10} {:>10} {:>9} {:>9} {:>10} {:>10} {:>8}",
+                 "Phase", "Substrate", "Wall Time", "per-eval", "Energy J", "J/eval", "W (avg)", "W (peak)", "chi2");
+        println!("  {}", "─".repeat(100));
 
         for p in &self.phases {
             let wall_str = format_duration(p.wall_time_s);
@@ -350,6 +350,18 @@ impl BenchReport {
                 "—".to_string()
             };
 
+            let peak_watts = if is_gpu_phase {
+                p.energy.gpu_watts_peak
+            } else {
+                // CPU peak ≈ avg (RAPL doesn't give instantaneous)
+                primary_watts
+            };
+            let peak_watts_str = if peak_watts > 0.1 {
+                format!("{:.0} W", peak_watts)
+            } else {
+                "—".to_string()
+            };
+
             let chi2_str = if p.chi2 < 1e8 {
                 format!("{:.2}", p.chi2)
             } else {
@@ -362,11 +374,35 @@ impl BenchReport {
                 format!("{} [C]", p.substrate)
             };
 
-            println!("  {:<18} {:<14} {:>10} {:>10} {:>9} {:>9} {:>10} {:>8}",
-                     p.phase, sub_label, wall_str, eval_str, energy_str, j_per_eval, watts_str, chi2_str);
+            println!("  {:<18} {:<14} {:>10} {:>10} {:>9} {:>9} {:>10} {:>10} {:>8}",
+                     p.phase, sub_label, wall_str, eval_str, energy_str, j_per_eval, watts_str, peak_watts_str, chi2_str);
         }
-        println!("  {}", "─".repeat(90));
-        println!("  [C] = CPU energy (RAPL)  [G] = GPU energy (nvidia-smi)");
+        println!("  {}", "─".repeat(100));
+        println!("  [C] = CPU energy (RAPL)  [G] = GPU energy (nvidia-smi, {}ms polling)",
+                 100);
+
+        // Detailed power/thermal breakdown for GPU phases
+        let gpu_phases: Vec<&PhaseResult> = self.phases.iter()
+            .filter(|p| p.substrate.contains("GPU") || p.substrate.contains("gpu"))
+            .collect();
+        if !gpu_phases.is_empty() {
+            println!();
+            println!("  GPU Power Detail:");
+            println!("  {:<22} {:>8} {:>8} {:>8} {:>8} {:>8} {:>8}",
+                     "Phase", "W (avg)", "W (peak)", "Temp °C", "VRAM MB", "Samples", "Total J");
+            println!("  {}", "─".repeat(72));
+            for p in &gpu_phases {
+                println!("  {:<22} {:>7.1} {:>7.1} {:>7.0} {:>7.0} {:>8} {:>8.0}",
+                         p.phase,
+                         p.energy.gpu_watts_avg,
+                         p.energy.gpu_watts_peak,
+                         p.energy.gpu_temp_peak_c,
+                         p.energy.gpu_vram_peak_mib,
+                         p.energy.gpu_samples,
+                         p.energy.gpu_joules);
+            }
+            println!("  {}", "─".repeat(72));
+        }
 
         // Pairwise comparisons for matching phases across substrates
         println!();

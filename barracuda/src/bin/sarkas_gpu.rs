@@ -156,7 +156,8 @@ async fn run_n_scaling(report: &mut BenchReport) {
     let gpu_sizes = [500, 2_000, 5_000, 10_000, 20_000];
     let cpu_sizes = [500, 2_000]; // CPU reference only where feasible
 
-    let mut gpu_results: Vec<(usize, f64, f64, f64)> = Vec::new(); // (N, steps/s, wall_s, drift%)
+    // (N, steps/s, wall_s, drift%, watts_avg, watts_peak, gpu_joules, vram_mib, temp_c, samples)
+    let mut gpu_results: Vec<(usize, f64, f64, f64, f64, f64, f64, f64, f64, usize)> = Vec::new();
     let mut cpu_results: Vec<(usize, f64)> = Vec::new(); // (N, steps/s)
 
     for &n in &gpu_sizes {
@@ -185,7 +186,15 @@ async fn run_n_scaling(report: &mut BenchReport) {
         if let Some(last) = report.phases.last() {
             let total_steps = config.equil_steps + config.prod_steps;
             let steps_per_sec = total_steps as f64 / last.wall_time_s;
-            gpu_results.push((n, steps_per_sec, last.wall_time_s, last.chi2));
+            gpu_results.push((
+                n, steps_per_sec, last.wall_time_s, last.chi2,
+                last.energy.gpu_watts_avg,
+                last.energy.gpu_watts_peak,
+                last.energy.gpu_joules,
+                last.energy.gpu_vram_peak_mib,
+                last.energy.gpu_temp_peak_c,
+                last.energy.gpu_samples,
+            ));
         }
         println!();
 
@@ -235,11 +244,27 @@ async fn run_n_scaling(report: &mut BenchReport) {
     println!("╚══════════════════════════════════════════════════════════════╝");
     println!();
     println!("  GPU Performance (RTX 4070, κ=2, Γ=158, 30k production steps):");
-    println!("  {:>8} {:>12} {:>10} {:>10} {:>12}", "N", "steps/s", "Wall (s)", "Drift %", "Pairs");
-    println!("  {:>8} {:>12} {:>10} {:>10} {:>12}", "──", "──────", "───────", "─────", "─────");
-    for &(n, sps, wall, drift) in &gpu_results {
-        println!("  {:>8} {:>12.1} {:>10.1} {:>10.3} {:>12}",
-            n, sps, wall, drift, (n * (n - 1)) / 2);
+    println!("  {:>8} {:>10} {:>10} {:>8} {:>12} {:>8} {:>8} {:>10}",
+             "N", "steps/s", "Wall (s)", "Drift%", "Pairs", "W(avg)", "W(peak)", "Total J");
+    println!("  {:>8} {:>10} {:>10} {:>8} {:>12} {:>8} {:>8} {:>10}",
+             "──", "──────", "───────", "─────", "─────", "──────", "──────", "──────");
+    for &(n, sps, wall, drift, w_avg, w_peak, joules, _vram, _temp, _samp) in &gpu_results {
+        println!("  {:>8} {:>10.1} {:>10.1} {:>8.3} {:>12} {:>7.1}W {:>7.1}W {:>10.0}",
+            n, sps, wall, drift, (n * (n - 1)) / 2, w_avg, w_peak, joules);
+    }
+
+    // Detailed power/thermal breakdown
+    println!();
+    println!("  GPU Power & Thermal Detail:");
+    println!("  {:>8} {:>8} {:>8} {:>8} {:>8} {:>10} {:>8}",
+             "N", "W(avg)", "W(peak)", "Temp°C", "VRAM MB", "Samples", "J/step");
+    println!("  {:>8} {:>8} {:>8} {:>8} {:>8} {:>10} {:>8}",
+             "──", "──────", "──────", "──────", "──────", "───────", "──────");
+    for &(n, _sps, wall, _drift, w_avg, w_peak, joules, vram, temp, samp) in &gpu_results {
+        let total_steps = 5_000 + 30_000; // equil + prod
+        let j_per_step = if joules > 0.0 { joules / total_steps as f64 } else { 0.0 };
+        println!("  {:>8} {:>7.1} {:>7.1} {:>7.0} {:>7.0} {:>10} {:>8.3}",
+            n, w_avg, w_peak, temp, vram, samp, j_per_step);
     }
 
     // GPU vs CPU comparison
@@ -249,7 +274,7 @@ async fn run_n_scaling(report: &mut BenchReport) {
         println!("  {:>8} {:>12} {:>12} {:>10}", "N", "GPU steps/s", "CPU steps/s", "Speedup");
         println!("  {:>8} {:>12} {:>12} {:>10}", "──", "──────────", "──────────", "───────");
         for &(n, cpu_s) in &cpu_results {
-            if let Some(&(_, gpu_s, _, _)) = gpu_results.iter().find(|&&(gn, _, _, _)| gn == n) {
+            if let Some(&(_, gpu_s, _, _, _, _, _, _, _, _)) = gpu_results.iter().find(|&&(gn, _, _, _, _, _, _, _, _, _)| gn == n) {
                 println!("  {:>8} {:>12.1} {:>12.1} {:>9.1}×", n, gpu_s, cpu_s, gpu_s / cpu_s);
             }
         }
@@ -261,7 +286,7 @@ async fn run_n_scaling(report: &mut BenchReport) {
         println!("  Scaling analysis (time per step vs N):");
         let base_n = gpu_results[0].0 as f64;
         let base_sps = gpu_results[0].1;
-        for &(n, sps, _, _) in &gpu_results {
+        for &(n, sps, _, _, _, _, _, _, _, _) in &gpu_results {
             let ratio_n = n as f64 / base_n;
             let ratio_time = base_sps / sps;
             let exponent = if ratio_n > 1.0 { ratio_time.ln() / ratio_n.ln() } else { 0.0 };
