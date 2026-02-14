@@ -719,10 +719,11 @@ Running the all-pairs O(N²) kernel across N=500 to N=20,000:
 | 2,000 | 76.0 | 461s | 0.000% | all-pairs |
 | 5,000 | 66.9 | 523s | 0.000% | all-pairs |
 | 10,000 | 24.6 | 1,423s | 0.000% | all-pairs |
-| 20,000 | running | running | tracking | all-pairs |
+| 20,000 | 8.6 | 4,091s | 0.000% | all-pairs |
 
-**N=10,000 achieved paper parity in 24 minutes** — Sarkas Python OOM's at the same N.
-*(N=20,000 currently running — will be updated)*
+**N=10,000 achieved paper parity in 24 minutes.** N=20,000 (2× paper) in 68 min.
+Sarkas Python OOM's at N=10,000 on 32 GB RAM. Total sweep: 112 min, 5 N values,
+0.000% drift at every system size. GPU power: 56-62W sustained.
 
 **The quick fix would have been wrong.** When the cell-list kernel first failed at
 N=10,000 (catastrophic energy explosion — temperature 15× above target), the
@@ -813,10 +814,10 @@ The deep fix (6-phase diagnostic, root cause analysis) gives us:
 | **Phase C Total** | **45** | **45** | **✅ GPU MD VALIDATED (RTX 4070, f64 WGSL, 80k prod. steps)** |
 | | | | |
 | **Cell-list diagnostic (6 isolation phases)** | **6** | **6** | **✅ Root cause: WGSL i32 % bug, branch-fix verified** |
-| **N-scaling GPU sweep (5 N values, all-pairs)** | **5** | **tracking** | **🔄 N=500,2k,5k done; N=10k,20k running** |
-| **Phase D Total** | **11** | **6+** | **🔄 Cell-list fix verified, scaling sweep in progress** |
+| **N-scaling GPU sweep (5 N values, all-pairs)** | **5** | **5** | **✅ N=500-20k, 0.000% drift, paper parity at N=10k** |
+| **Phase D Total** | **11** | **11** | **✅ N-SCALING + CELL-LIST VALIDATED** |
 | | | | |
-| **Grand Total** | **142+** | **137+** | **✅ ALL PRIOR PHASES VALIDATED + Phase D in progress** |
+| **Grand Total** | **142** | **142** | **✅ ALL PHASES VALIDATED** |
 
 **Data archive**: `control/comprehensive_control_results.json`  
 **Nuclear EOS results**: `control/surrogate/nuclear-eos/results/nuclear_eos_surrogate_L{1,2}.json`  
@@ -836,14 +837,15 @@ silent data corruption, and the GPU kernels don't depend on fragile JIT compilat
 chains. The profiling data (97.2% in one function) shows this isn't a distributed
 systems problem — it's a single hot kernel that maps directly to a GPU dispatch.
 
-The **137+/142+ quantitative checks** (86 Phase A+B, 45 Phase C, 6+ Phase D) now
+The **142/142 quantitative checks** (86 Phase A+B, 45 Phase C, 11 Phase D) now
 provide concrete acceptance criteria across all phases: every observable, every
 physical trend, every transport coefficient has a validated control value. Phase C
 demonstrates that full Yukawa OCP molecular dynamics runs on a consumer GPU —
 9/9 PP cases pass with 0.000% energy drift across 80,000 production steps, up
 to 259 steps/s sustained throughput, and 3.4× less energy per step than CPU at
 N=2000. **Phase D extends this to N-scaling**: the all-pairs kernel handles N=500
-to N=20,000 (paper parity at N=10,000), and the cell-list kernel — after
+to N=20,000 (paper parity at N=10,000 in 24 min, 2× paper at N=20,000 in 68 min),
+with 0.000% energy drift at every system size. The cell-list kernel — after
 deep-debugging a WGSL `i32 %` portability bug across 6 isolation phases — now
 matches all-pairs to machine precision, unlocking O(N) scaling to N=100,000+ on
 consumer hardware. The nuclear EOS surrogate learning demonstrates the full

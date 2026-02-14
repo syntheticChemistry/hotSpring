@@ -10,7 +10,7 @@
 
 ## Abstract
 
-We reproduce three classes of published computational plasma physics work from the Murillo Group (Michigan State University) on consumer hardware, validate correctness against published reference data, and then re-execute the core computations using BarraCUDA — a Pure Rust scientific computing library that dispatches WGSL shaders to any GPU vendor. The study spans molecular dynamics (Sarkas), plasma equilibration (Two-Temperature Model), and nuclear equation of state surrogate learning (Diaw et al., Nature Machine Intelligence 2024). We find that (a) reproducing published work required fixing five silent upstream bugs, (b) a key Code Ocean "reproducible" capsule is inaccessible, requiring us to rebuild the nuclear EOS physics from first principles, (c) BarraCUDA achieves 478× faster throughput at L1 with GPU FP64 validated to sub-ULP precision (4.55e-13 MeV max error vs CPU), and (d) the full Sarkas PP Yukawa molecular dynamics can run entirely on a consumer GPU using f64 WGSL shaders — 9/9 cases pass with 0.000% energy drift at 80,000 production steps, up to 259 steps/s, and 3.4× less energy per step than CPU at N=2000. Phase D extends this to N-scaling (N=500 to 20,000, paper parity at N=10,000) and documents the deep debugging of a WGSL `i32 %` portability bug in the cell-list kernel — a 6-phase diagnostic process that replaces what would have been a quick workaround with a root-cause fix enabling O(N) scaling to N=100,000+ on consumer GPUs. Energy profiling shows the GPU path uses 44.8× less energy than Python for identical physics. 137+/142+ quantitative checks pass across all phases (A: Python control, B: BarraCUDA recreation, C: GPU molecular dynamics, D: N-scaling and cell-list evolution). An axially-deformed solver (Level 3) and GPU acceleration via Titan V are in progress.
+We reproduce three classes of published computational plasma physics work from the Murillo Group (Michigan State University) on consumer hardware, validate correctness against published reference data, and then re-execute the core computations using BarraCUDA — a Pure Rust scientific computing library that dispatches WGSL shaders to any GPU vendor. The study spans molecular dynamics (Sarkas), plasma equilibration (Two-Temperature Model), and nuclear equation of state surrogate learning (Diaw et al., Nature Machine Intelligence 2024). We find that (a) reproducing published work required fixing five silent upstream bugs, (b) a key Code Ocean "reproducible" capsule is inaccessible, requiring us to rebuild the nuclear EOS physics from first principles, (c) BarraCUDA achieves 478× faster throughput at L1 with GPU FP64 validated to sub-ULP precision (4.55e-13 MeV max error vs CPU), and (d) the full Sarkas PP Yukawa molecular dynamics can run entirely on a consumer GPU using f64 WGSL shaders — 9/9 cases pass with 0.000% energy drift at 80,000 production steps, up to 259 steps/s, and 3.4× less energy per step than CPU at N=2000. Phase D extends this to N-scaling (N=500 to 20,000, paper parity at N=10,000) and documents the deep debugging of a WGSL `i32 %` portability bug in the cell-list kernel — a 6-phase diagnostic process that replaces what would have been a quick workaround with a root-cause fix enabling O(N) scaling to N=100,000+ on consumer GPUs. Energy profiling shows the GPU path uses 44.8× less energy than Python for identical physics. 142/142 quantitative checks pass across all phases (A: Python control, B: BarraCUDA recreation, C: GPU molecular dynamics, D: N-scaling and cell-list evolution). An axially-deformed solver (Level 3) and GPU acceleration via Titan V are in progress.
 
 ---
 
@@ -378,14 +378,15 @@ computation (κ=2, Γ=158, the textbook OCP case):
 | 2,000 | 76.0 | 461s | 2.0M | 0.000% | all-pairs |
 | 5,000 | 66.9 | 523s | 12.5M | 0.000% | all-pairs |
 | 10,000 | 24.6 | 1,423s | 50M | 0.000% | all-pairs |
-| 20,000 | running | running | 200M | tracking | all-pairs |
+| 20,000 | 8.6 | 4,091s | 200M | 0.000% | all-pairs |
 
-*(N=20,000 currently running — will be updated)*
+**Total sweep: 112 minutes, 5 N values, 0.000% drift at every system size.**
 
-The RTX 4070 achieves **paper parity at N=10,000 in 24 minutes** (1,423s including
-equilibration) — versus the Python/Numba stack which OOM's at the same N on
-32 GB RAM (Sarkas v1.0.0 bug). Energy conservation is perfect (0.000% drift) at
-all completed system sizes.
+The RTX 4070 achieves **paper parity at N=10,000 in 24 minutes** and exceeds it
+at N=20,000 (2× the paper's particle count) in 68 minutes. Sarkas Python OOM's
+at N=10,000 on 32 GB RAM. GPU power draw is 56-62W sustained — a morning of
+science on a gaming GPU costs less electricity than running a hair dryer for
+10 minutes.
 
 #### 5.7.2 The Cell-List Bug: Why Deep Debugging Beats Quick Fixes
 
@@ -685,7 +686,7 @@ Requires a GPU with `wgpu::Features::SHADER_F64` support (confirmed: RTX 4070, R
 
 7. **Full Sarkas Yukawa MD runs on a consumer GPU.** All 9 PP Yukawa cases from the DSF study pass validation on an RTX 4070 using f64 WGSL shaders — 0.000% energy drift across 80,000 production steps, physically correct RDF/VACF/SSF/D* trends, up to 259 steps/s sustained throughput, 3.7x faster and 3.4x more energy-efficient than CPU at N=2000. The 80k-step long run confirms symplectic integrator stability well beyond the 30k steps used in the original Sarkas study. No CUDA required. No HPC cluster. Same physics, consumer hardware.
 
-8. **N-scaling reaches paper parity on consumer GPU.** The all-pairs kernel handles N=500 to N=20,000 in a single GPU sweep, matching the N=10,000 system size from the published Murillo Group DSF study — in ~3 hours on an RTX 4070. Sarkas Python OOM's at the same N on 32 GB RAM.
+8. **N-scaling reaches paper parity on consumer GPU.** The all-pairs kernel handles N=500 to N=20,000 in a single GPU sweep (112 minutes total), matching the N=10,000 system size from the published Murillo Group DSF study in 24 minutes and exceeding it at N=20,000 in 68 minutes. Energy conservation is 0.000% at all 5 system sizes. Sarkas Python OOM's at N=10,000 on 32 GB RAM.
 
 9. **Deep debugging beats quick fixes for platform viability.** The cell-list kernel's catastrophic energy explosion at N=10,000 could have been "fixed" by forcing all-pairs mode everywhere. Instead, a 6-phase systematic diagnostic identified the root cause: the WGSL `i32 %` operator produces incorrect results for negative operands on NVIDIA/Naga/Vulkan. The branch-based fix restores cell-list O(N) scaling, unlocking N=100,000+ on consumer GPUs and N=1,000,000+ on HPC GPUs. The quick fix would have been publishable. The deep fix makes the platform viable. This lesson — document the root cause, not just the workaround — applies to all GPU shader development.
 
