@@ -71,3 +71,8 @@ path = "src/bin/verify_hfb.rs"
 name = "sarkas_gpu"
 path = "src/bin/sarkas_gpu.rs"
 
+# ── Cell-list force diagnostic: compare all-pairs vs cell-list kernels ────
+[[bin]]
+name = "celllist_diag"
+path = "src/bin/celllist_diag.rs"
+

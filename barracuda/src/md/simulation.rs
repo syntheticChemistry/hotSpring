@@ -18,6 +18,37 @@ use crate::md::shaders;
 use barracuda::shaders::precision::ShaderTemplate;
 
 use std::f64::consts::PI;
+
+/// Patch the math_f64 preamble for WGSL/Naga compatibility:
+/// 1. Strip recursive gamma_f64 (WGSL doesn't support recursion)
+/// 2. Replace 1e308 literals (overflows f32 during AbstractFloat → concrete)
+/// 3. Replace -1e308 similarly
+fn patch_math_f64_preamble(preamble: &str) -> String {
+    let mut result = String::with_capacity(preamble.len());
+    let mut skip = false;
+    for line in preamble.lines() {
+        // Strip gamma_f64 function entirely (recursive, not needed for MD)
+        if line.contains("GAMMA FUNCTION") || line.starts_with("fn gamma_f64") {
+            skip = true;
+        }
+        if skip {
+            if line == "}" {
+                skip = false;
+                continue;
+            }
+            continue;
+        }
+        // Fix 1e308 / -1e308 literals: Naga parses AbstractFloat → f32 first,
+        // and 1e308 overflows f32 (max ~3.4e38). For MD physics, 1e38 is more
+        // than sufficient as an "infinity" sentinel.
+        let patched = line
+            .replace("f64_const(x, 1e308)", "f64_const(x, 1e38)")
+            .replace("f64_const(x, -1e308)", "f64_const(x, -1e38)");
+        result.push_str(&patched);
+        result.push('\n');
+    }
+    result
+}
 use std::time::Instant;
 
 /// Per-step energy record
@@ -165,15 +196,19 @@ pub async fn run_simulation(config: &MdConfig) -> Result<MdSimulation, String> {
     }
     gpu.print_info();
 
-    // Compile shaders (prepend math_f64 library)
+    // Compile shaders (prepend math_f64 library, excluding recursive gamma_f64
+    // which WGSL/Naga does not support)
     println!("  ── Compiling f64 WGSL shaders ──");
     let t_compile = Instant::now();
 
-    let force_shader = ShaderTemplate::with_math_f64(shaders::SHADER_YUKAWA_FORCE);
-    let kick_drift_shader = ShaderTemplate::with_math_f64(shaders::SHADER_VV_KICK_DRIFT);
-    let half_kick_shader = ShaderTemplate::with_math_f64(shaders::SHADER_VV_HALF_KICK);
-    let berendsen_shader = ShaderTemplate::with_math_f64(shaders::SHADER_BERENDSEN);
-    let ke_shader = ShaderTemplate::with_math_f64(shaders::SHADER_KINETIC_ENERGY);
+    let md_math = patch_math_f64_preamble(&ShaderTemplate::math_f64_preamble());
+    let prepend = |body: &str| -> String { format!("{}\n\n{}", md_math, body) };
+
+    let force_shader = prepend(shaders::SHADER_YUKAWA_FORCE);
+    let kick_drift_shader = prepend(shaders::SHADER_VV_KICK_DRIFT);
+    let half_kick_shader = prepend(shaders::SHADER_VV_HALF_KICK);
+    let berendsen_shader = prepend(shaders::SHADER_BERENDSEN);
+    let ke_shader = prepend(shaders::SHADER_KINETIC_ENERGY);
 
     let force_pipeline = gpu.create_pipeline(&force_shader, "yukawa_force_f64");
     let kick_drift_pipeline = gpu.create_pipeline(&kick_drift_shader, "vv_kick_drift_f64");
@@ -586,11 +621,14 @@ pub async fn run_simulation_celllist(config: &MdConfig) -> Result<MdSimulation, 
     println!("  ── Compiling f64 WGSL shaders (cell-list) ──");
     let t_compile = Instant::now();
 
-    let force_shader_cl = ShaderTemplate::with_math_f64(shaders::SHADER_YUKAWA_FORCE_CELLLIST);
-    let kick_drift_shader = ShaderTemplate::with_math_f64(shaders::SHADER_VV_KICK_DRIFT);
-    let half_kick_shader = ShaderTemplate::with_math_f64(shaders::SHADER_VV_HALF_KICK);
-    let berendsen_shader = ShaderTemplate::with_math_f64(shaders::SHADER_BERENDSEN);
-    let ke_shader = ShaderTemplate::with_math_f64(shaders::SHADER_KINETIC_ENERGY);
+    let md_math = patch_math_f64_preamble(&ShaderTemplate::math_f64_preamble());
+    let prepend = |body: &str| -> String { format!("{}\n\n{}", md_math, body) };
+
+    let force_shader_cl = prepend(shaders::SHADER_YUKAWA_FORCE_CELLLIST);
+    let kick_drift_shader = prepend(shaders::SHADER_VV_KICK_DRIFT);
+    let half_kick_shader = prepend(shaders::SHADER_VV_HALF_KICK);
+    let berendsen_shader = prepend(shaders::SHADER_BERENDSEN);
+    let ke_shader = prepend(shaders::SHADER_KINETIC_ENERGY);
 
     let force_pipeline_cl = gpu.create_pipeline(&force_shader_cl, "yukawa_force_cl_f64");
     let kick_drift_pipeline = gpu.create_pipeline(&kick_drift_shader, "vv_kick_drift_f64");

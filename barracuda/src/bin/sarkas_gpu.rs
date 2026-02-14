@@ -14,7 +14,9 @@
 //! Run:
 //!   cargo run --release --bin sarkas_gpu              # quick validation (N=500)
 //!   cargo run --release --bin sarkas_gpu -- --full    # full 9-case sweep (N=2000)
-//!   cargo run --release --bin sarkas_gpu -- --scale   # scaling test (N=500→10000)
+//!   cargo run --release --bin sarkas_gpu -- --long    # long run: 9 cases, 80k steps (~71 min)
+//!   cargo run --release --bin sarkas_gpu -- --nscale  # N-scaling: 500→20000, GPU-only (~2-3h)
+//!   cargo run --release --bin sarkas_gpu -- --scale   # quick scaling test (N=500,2000, GPU+CPU)
 
 use hotspring_barracuda::bench::{
     BenchReport, HardwareInventory, PhaseResult, PowerMonitor, peak_rss_mb,
@@ -35,7 +37,9 @@ async fn main() {
 
     let args: Vec<String> = std::env::args().collect();
     let full_sweep = args.iter().any(|a| a == "--full");
+    let long_run = args.iter().any(|a| a == "--long");
     let scale_test = args.iter().any(|a| a == "--scale");
+    let nscale = args.iter().any(|a| a == "--nscale");
 
     // ── Hardware inventory ──
     let hw = HardwareInventory::detect("Eastgate");
@@ -44,8 +48,12 @@ async fn main() {
 
     let mut report = BenchReport::new(hw);
 
-    if scale_test {
+    if nscale {
+        run_n_scaling(&mut report).await;
+    } else if scale_test {
         run_scaling_test(&mut report).await;
+    } else if long_run {
+        run_long_sweep(&mut report).await;
     } else if full_sweep {
         run_full_sweep(&mut report).await;
     } else {
@@ -53,7 +61,7 @@ async fn main() {
     }
 
     // Save benchmark report
-    let report_dir = "../../benchmarks/nuclear-eos/results";
+    let report_dir = "../benchmarks/nuclear-eos/results";
     match report.save_json(report_dir) {
         Ok(path) => println!("  Benchmark report saved: {}", path),
         Err(e) => println!("  Warning: could not save report: {}", e),
@@ -100,6 +108,171 @@ async fn run_full_sweep(report: &mut BenchReport) {
     println!("═══════════════════════════════════════════════════════════");
     println!("  SWEEP RESULTS: {}/{} cases passed", passed, total);
     println!("═══════════════════════════════════════════════════════════");
+}
+
+/// Long sweep: all 9 PP Yukawa cases at N=2000, 80k production steps
+/// (~2.5 hours on RTX 4070, higher-fidelity observables)
+async fn run_long_sweep(report: &mut BenchReport) {
+    println!("═══════════════════════════════════════════════════════════");
+    println!("  LONG Run: 9 PP Yukawa cases, N=2000, 80k production steps");
+    println!("  Estimated: ~2.5 hours on RTX 4070");
+    println!("═══════════════════════════════════════════════════════════");
+    println!();
+
+    let cases = config::dsf_pp_cases(2000, false); // full: 80k production steps
+
+    let mut passed = 0;
+    let total = cases.len();
+
+    for (i, case) in cases.iter().enumerate() {
+        println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        println!("  Case {}/{}: {} (80k production steps)", i + 1, total, case.label);
+        println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        println!();
+
+        if run_single_case(case, report).await {
+            passed += 1;
+        }
+        println!();
+    }
+
+    println!("═══════════════════════════════════════════════════════════");
+    println!("  LONG SWEEP RESULTS: {}/{} cases passed", passed, total);
+    println!("═══════════════════════════════════════════════════════════");
+}
+
+/// N-scaling experiment: GPU-only at N=500, 2000, 5000, 10000, 20000
+/// Experiment 001: Demonstrates consumer GPU scaling to paper-parity (N=10k)
+/// and beyond. CPU comparison at N=500 and N=2000 only (CPU is impractical
+/// at larger N — hours per case on even a 24-thread workstation).
+async fn run_n_scaling(report: &mut BenchReport) {
+    println!("╔══════════════════════════════════════════════════════════════╗");
+    println!("║  Experiment 001: N-Scaling on Consumer GPU                  ║");
+    println!("║  κ=2, Γ=158 — Paper parity (N=10k) and beyond              ║");
+    println!("║  GPU-only: any gaming GPU is a science platform             ║");
+    println!("╚══════════════════════════════════════════════════════════════╝");
+    println!();
+
+    let gpu_sizes = [500, 2_000, 5_000, 10_000, 20_000];
+    let cpu_sizes = [500, 2_000]; // CPU reference only where feasible
+
+    let mut gpu_results: Vec<(usize, f64, f64, f64)> = Vec::new(); // (N, steps/s, wall_s, drift%)
+    let mut cpu_results: Vec<(usize, f64)> = Vec::new(); // (N, steps/s)
+
+    for &n in &gpu_sizes {
+        let config = MdConfig {
+            label: format!("nscale_N{}", n),
+            n_particles: n,
+            kappa: 2.0,
+            gamma: 158.0,
+            dt: 0.01,
+            rc: 6.5,
+            equil_steps: 5_000,
+            prod_steps: 30_000,
+            dump_step: 10,
+            berendsen_tau: 5.0,
+            rdf_bins: 500,
+        };
+
+        println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        println!("  GPU: N = {} (box = {:.1} a_ws, {} pairs)",
+            n, config.box_side(), (n * (n - 1)) / 2);
+        println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        println!();
+
+        let passed = run_single_case(&config, report).await;
+
+        if let Some(last) = report.phases.last() {
+            let total_steps = config.equil_steps + config.prod_steps;
+            let steps_per_sec = total_steps as f64 / last.wall_time_s;
+            gpu_results.push((n, steps_per_sec, last.wall_time_s, last.chi2));
+        }
+        println!();
+
+        // CPU reference for small N only
+        if cpu_sizes.contains(&n) {
+            println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+            println!("  CPU reference: N = {}", n);
+            println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+            use hotspring_barracuda::md::cpu_reference;
+            let t0 = Instant::now();
+            let monitor = PowerMonitor::start();
+            let cpu_sim = cpu_reference::run_simulation_cpu(&config);
+            let energy = monitor.stop();
+            let wall_time = t0.elapsed().as_secs_f64();
+
+            let total_steps = config.equil_steps + config.prod_steps;
+            cpu_results.push((n, cpu_sim.steps_per_sec));
+
+            let energy_val = observables::validate_energy(&cpu_sim.energy_history, &config);
+            println!("    CPU: {:.1} steps/s, drift={:.3}%, wall={:.1}s",
+                cpu_sim.steps_per_sec, energy_val.drift_pct, wall_time);
+
+            report.add_phase(PhaseResult {
+                phase: format!("Sarkas CPU N={}", n),
+                substrate: "CPU Rust f64".into(),
+                wall_time_s: wall_time,
+                per_eval_us: wall_time * 1e6 / total_steps as f64,
+                n_evals: total_steps,
+                energy,
+                peak_rss_mb: peak_rss_mb(),
+                chi2: energy_val.drift_pct,
+                precision_mev: 0.0,
+                notes: format!(
+                    "N={}, {:.1} steps/s, drift={:.3}%",
+                    n, cpu_sim.steps_per_sec, energy_val.drift_pct,
+                ),
+            });
+            println!();
+        }
+    }
+
+    // ── Summary ──
+    println!();
+    println!("╔══════════════════════════════════════════════════════════════╗");
+    println!("║  N-SCALING RESULTS                                          ║");
+    println!("╚══════════════════════════════════════════════════════════════╝");
+    println!();
+    println!("  GPU Performance (RTX 4070, κ=2, Γ=158, 30k production steps):");
+    println!("  {:>8} {:>12} {:>10} {:>10} {:>12}", "N", "steps/s", "Wall (s)", "Drift %", "Pairs");
+    println!("  {:>8} {:>12} {:>10} {:>10} {:>12}", "──", "──────", "───────", "─────", "─────");
+    for &(n, sps, wall, drift) in &gpu_results {
+        println!("  {:>8} {:>12.1} {:>10.1} {:>10.3} {:>12}",
+            n, sps, wall, drift, (n * (n - 1)) / 2);
+    }
+
+    // GPU vs CPU comparison
+    if !cpu_results.is_empty() {
+        println!();
+        println!("  GPU vs CPU:");
+        println!("  {:>8} {:>12} {:>12} {:>10}", "N", "GPU steps/s", "CPU steps/s", "Speedup");
+        println!("  {:>8} {:>12} {:>12} {:>10}", "──", "──────────", "──────────", "───────");
+        for &(n, cpu_s) in &cpu_results {
+            if let Some(&(_, gpu_s, _, _)) = gpu_results.iter().find(|&&(gn, _, _, _)| gn == n) {
+                println!("  {:>8} {:>12.1} {:>12.1} {:>9.1}×", n, gpu_s, cpu_s, gpu_s / cpu_s);
+            }
+        }
+    }
+
+    // Scaling analysis
+    if gpu_results.len() >= 2 {
+        println!();
+        println!("  Scaling analysis (time per step vs N):");
+        let base_n = gpu_results[0].0 as f64;
+        let base_sps = gpu_results[0].1;
+        for &(n, sps, _, _) in &gpu_results {
+            let ratio_n = n as f64 / base_n;
+            let ratio_time = base_sps / sps;
+            let exponent = if ratio_n > 1.0 { ratio_time.ln() / ratio_n.ln() } else { 0.0 };
+            println!("    N={:>6}: {:.1} steps/s, time_ratio={:.1}×, scaling exponent ~{:.2}",
+                n, sps, ratio_time, exponent);
+        }
+        println!("    (Perfect O(N²) = exponent 2.0)");
+    }
+
+    println!();
+    println!("  Experiment 001 complete. See hotSpring/experiments/001_N_SCALING_GPU.md");
 }
 
 /// Scaling test: GPU vs CPU at increasing N
@@ -201,15 +374,18 @@ async fn run_single_case(config: &MdConfig, report: &mut BenchReport) -> bool {
     let monitor = PowerMonitor::start();
     let t0 = Instant::now();
 
-    // Use cell list only when it provides real benefit:
-    // At least 5 cells per dim needed (box/rc >= 5), which requires N > ~5000
+    // Cell-list mode activates when cells_per_dim >= 5 (enough cells for
+    // meaningful neighbor-list optimization). Below that, all-pairs is used.
+    // Bug fix (Feb 2026): cell_idx() modular wrapping used i32 % which produced
+    // wrong results for negative operands on NVIDIA/Naga; replaced with branches.
     let box_side = config.box_side();
     let cells_per_dim = (box_side / config.rc).floor() as usize;
     let result = if cells_per_dim >= 5 {
-        println!("  Using cell-list mode ({} cells/dim)", cells_per_dim);
+        println!("  Using cell-list mode ({} cells/dim, N={})", cells_per_dim, config.n_particles);
         simulation::run_simulation_celllist(config).await
     } else {
-        println!("  Using all-pairs mode (box/rc={:.1}, cells/dim={})", box_side / config.rc, cells_per_dim);
+        println!("  Using all-pairs mode (box/rc={:.1}, cells/dim={}, N={})",
+            box_side / config.rc, cells_per_dim, config.n_particles);
         simulation::run_simulation(config).await
     };
 

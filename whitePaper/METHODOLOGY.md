@@ -162,14 +162,14 @@ In each case, we replaced the gated system with an open equivalent built from pu
 
 Current status: L1 target exceeded (**2.27** via DirectSampler, **1.52** via GPU extended run). L2 in progress (BarraCUDA best **16.11** via DirectSampler; Python SparsitySampler **1.93** — sampling strategy gap, not physics). GPU FP64 validated to sub-ULP precision (4.55e-13 MeV). L3 architecture built, energy functional debugging in progress.
 
-### GPU MD (Phase C)
+### GPU MD (Phase C) — 80k production steps
 
-| Observable | Criterion | Status |
+| Observable | Criterion | Status (80k steps) |
 |-----------|-----------|--------|
-| Energy drift | < 5% | **All 9 cases <= 0.004%** |
-| RDF tail | abs(g(r)-1) < 0.15 | **All 9 cases <= 0.0014** |
-| RDF peak trend | Increases with Gamma | **Verified** |
-| Diffusion D* | Decreases with Gamma | **Verified** |
-| SSF S(k->0) | Physical compressibility range | **Verified** |
+| Energy drift | < 5% | **All 9 cases <= 0.006%** |
+| RDF tail | abs(g(r)-1) < 0.15 | **All 9 cases <= 0.0017** |
+| RDF peak trend | Increases with Gamma | **Verified all 9** |
+| Diffusion D* | Decreases with Gamma | **Verified all 9** |
+| SSF S(k->0) | Physical compressibility range | **Verified all 9** |
 
-Result: **9/9 PP Yukawa cases pass** at N=2000 on RTX 4070. 3.7x GPU speedup vs CPU. 3.4x less energy per step.
+Result: **9/9 PP Yukawa cases pass** at N=2000, 80k production steps on RTX 4070. 149-259 steps/s sustained. 3.7x GPU speedup vs CPU. 3.4x less energy per step. The 80k long run confirms energy conservation stability well beyond the 30k steps used in the original Sarkas study.

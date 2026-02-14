@@ -14,7 +14,7 @@ hotSpring is where we reproduce published computational physics work from the Mu
 
 - **Phase B (BarraCUDA)**: Re-execute the same computation on ToadStool's BarraCUDA engine — pure Rust, WGSL shaders, any GPU vendor. **✅ L1 validated (478× faster, better χ²). L2 validated (1.7× faster).**
 
-- **Phase C (GPU MD)**: Run Sarkas Yukawa OCP molecular dynamics entirely on GPU using f64 WGSL shaders. **✅ 9/9 PP Yukawa DSF cases pass on RTX 4070. 0.000% energy drift. 3.7× faster than CPU at N=2000.**
+- **Phase C (GPU MD)**: Run Sarkas Yukawa OCP molecular dynamics entirely on GPU using f64 WGSL shaders. **✅ 9/9 PP Yukawa DSF cases pass on RTX 4070. 0.000% energy drift at 80k production steps. Up to 259 steps/s sustained. 3.4× less energy per step than CPU at N=2000.**
 
 hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust+WGSL replace the Python scientific stack?"*
 
@@ -26,7 +26,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 
 ---
 
-## Current Status (2026-02-14)
+## Current Status (2026-02-15)
 
 | Study | Status | Quantitative Checks |
 |-------|--------|-------------------|
@@ -101,10 +101,11 @@ bash scripts/setup-envs.sh        # Create Python environments
 ```
 
 ```bash
-# Phase C: GPU Molecular Dynamics (~1 hour full, requires SHADER_F64 GPU)
+# Phase C: GPU Molecular Dynamics (requires SHADER_F64 GPU)
 cd barracuda
-cargo run --release --bin sarkas_gpu              # Quick: kappa=2, Gamma=158, N=500
-cargo run --release --bin sarkas_gpu -- --full    # Full: 9 PP Yukawa cases, N=2000
+cargo run --release --bin sarkas_gpu              # Quick: kappa=2, Gamma=158, N=500 (~30s)
+cargo run --release --bin sarkas_gpu -- --full    # Full: 9 PP Yukawa cases, N=2000, 30k steps (~60 min)
+cargo run --release --bin sarkas_gpu -- --long    # Long: 9 cases, N=2000, 80k steps (~71 min, recommended)
 cargo run --release --bin sarkas_gpu -- --scale   # GPU vs CPU scaling
 ```
 

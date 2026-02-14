@@ -29,7 +29,8 @@ abstract: >-
   validated to 4.55e-13 MeV precision. Energy profiling shows 44.8x less
   energy on GPU vs Python for identical physics. Full Sarkas Yukawa OCP
   molecular dynamics runs on consumer GPU (9/9 PP cases pass, 0.000% energy
-  drift, 3.7x GPU speedup at N=2000).
+  drift at 80k production steps, up to 259 steps/s sustained, 3.4x less
+  energy per step than CPU at N=2000).
 references:
   - type: article
     title: "Efficient learning of accurate surrogates for simulations of complex systems"

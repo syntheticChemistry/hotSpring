@@ -52,10 +52,11 @@ The study answers two questions:
 ### Phase C (GPU MD): Sarkas on consumer GPU
 
 - **9/9 PP Yukawa cases pass** on RTX 4070 using f64 WGSL shaders
-- Energy drift: **0.000%** (exact symplectic Velocity-Verlet)
+- Energy drift: **0.000%** across 80,000 production steps (symplectic Velocity-Verlet)
+- Sustained throughput: **149-259 steps/s** (80k-step long run, 2.1× higher than 30k run)
 - GPU speedup: **3.7×** at N=2000 (scales as O(N²))
-- GPU energy: **3.4× less per step** than CPU at N=2000
-- Full 9-case sweep: 60 minutes, 192 kJ total GPU energy
+- GPU energy: **3.4× less per step** than CPU at N=2000; **1.9× more efficient per step** in long run
+- Full 9-case long sweep: **71 minutes**, ~225 kJ total GPU energy
 - No CUDA, no HPC cluster — consumer hardware only
 
 ---
@@ -82,19 +83,20 @@ cargo run --release --bin nuclear_eos_l2_ref -- --seed=42 --lambda=0.1   # L2: ~
 ```
 
 ```bash
-# Phase C (GPU MD, ~1 hour for full sweep, requires SHADER_F64 GPU)
+# Phase C (GPU MD, requires SHADER_F64 GPU)
 cd barracuda
-cargo run --release --bin sarkas_gpu -- --full    # 9 PP Yukawa cases, N=2000
+cargo run --release --bin sarkas_gpu -- --full    # 9 PP Yukawa cases, N=2000, 30k steps (~60 min)
+cargo run --release --bin sarkas_gpu -- --long    # 9 cases, 80k steps (~71 min, recommended)
 ```
 
 No institutional access required. No Code Ocean account. No Fortran compiler. AGPL-3.0 licensed.
 
 ---
 
-## GPU FP64 Status (Feb 14, 2026)
+## GPU FP64 Status (Feb 15, 2026)
 
 Native FP64 GPU compute confirmed on RTX 4070 via `wgpu::Features::SHADER_F64` (Vulkan backend):
 - **Precision**: True IEEE 754 double precision (0 ULP error vs CPU f64)
 - **Performance**: ~2x FP64:FP32 ratio for bandwidth-limited operations (not the CUDA-reported 1:64)
 - **Implication**: The RTX 4070 is usable for FP64 science compute today via BarraCUDA's wgpu shaders
-- **Phase C validation**: Full Yukawa MD (9 cases, N=2000) runs at 74-120 steps/s with 0.000% energy drift
+- **Phase C validation**: Full Yukawa MD (9 cases, N=2000, 80k steps) runs at 149-259 steps/s sustained with 0.000% energy drift

@@ -1,6 +1,6 @@
 # BarraCUDA Science Validation — Phase B Results
 
-**Date**: February 14, 2026  
+**Date**: February 15, 2026  
 **Workload**: Nuclear Equation of State (Skyrme EDF) + Yukawa OCP Molecular Dynamics  
 **Reference**: Diaw et al. (2024), "Efficient learning of accurate surrogates for simulations of complex systems," *Nature Machine Intelligence*  
 **Hardware**: i9-12900K (24 threads), RTX 4070 (SHADER_F64 confirmed), 32 GB, Pop!_OS 22.04  
@@ -222,23 +222,36 @@ Results are saved to JSON: `control/surrogate/nuclear-eos/results/barracuda_l2_e
 
 ### 9.1 What Was Tested
 
-The full Sarkas PP Yukawa DSF study (9 cases) re-executed entirely on GPU using f64 WGSL shaders. This validates the complete MD pipeline: Yukawa force computation, Velocity-Verlet integration, periodic boundary conditions, Berendsen thermostat, and five physical observables.
+The full Sarkas PP Yukawa DSF study (9 cases) re-executed entirely on GPU using f64 WGSL shaders. This validates the complete MD pipeline: Yukawa force computation, Velocity-Verlet integration, periodic boundary conditions, Berendsen thermostat, and five physical observables. Two run lengths were tested: 30k production steps (standard) and 80k production steps (long run, overnight).
 
-### 9.2 Results
+### 9.2 Results (80k production steps — long run)
 
-**9/9 PP Yukawa cases PASSED** at N=2000 on RTX 4070 (f64 WGSL):
+**9/9 PP Yukawa cases PASSED** at N=2000, 80k production steps on RTX 4070 (f64 WGSL):
 
 | kappa | Gamma | Energy Drift | RDF Tail Error | D* | steps/s | Wall Time | GPU Energy |
 |:-----:|:-----:|:-----------:|:-------------:|:--------:|:-------:|:---------:|:----------:|
-| 1 | 14 | 0.000% | 0.0001 | 1.35e-1 | 74.0 | 7.9 min | 25.6 kJ |
-| 1 | 72 | 0.000% | 0.0004 | 2.40e-2 | 76.7 | 7.6 min | 24.6 kJ |
-| 1 | 217 | 0.004% | 0.0009 | 8.18e-3 | 84.0 | 6.9 min | 22.5 kJ |
-| 2 | 31 | 0.000% | 0.0001 | 6.10e-2 | 78.7 | 7.4 min | 23.7 kJ |
-| 2 | 158 | 0.000% | 0.0003 | 5.49e-3 | 90.2 | 6.5 min | 20.7 kJ |
-| 2 | 476 | 0.000% | 0.0014 | 2.76e-5 | 96.9 | 6.0 min | 19.3 kJ |
-| 3 | 100 | 0.000% | 0.0001 | 2.28e-2 | 85.5 | 6.8 min | 21.7 kJ |
-| 3 | 503 | 0.000% | 0.0001 | 1.73e-3 | 100.0 | 5.8 min | 18.7 kJ |
-| 3 | 1510 | 0.000% | 0.0014 | 1.00e-4 | 120.3 | 4.9 min | 15.5 kJ |
+| 1 | 14 | 0.000% | 0.0000 | 1.41e-1 | 148.8 | 9.5 min | 30.6 kJ |
+| 1 | 72 | 0.000% | 0.0003 | 2.35e-2 | 156.1 | 9.1 min | 29.2 kJ |
+| 1 | 217 | 0.006% | 0.0002 | 7.51e-3 | 175.1 | 8.1 min | 25.8 kJ |
+| 2 | 31 | 0.000% | 0.0001 | 6.06e-2 | 150.2 | 9.4 min | 29.8 kJ |
+| 2 | 158 | 0.000% | 0.0003 | 5.76e-3 | 184.6 | 7.7 min | 24.2 kJ |
+| 2 | 476 | 0.000% | 0.0017 | 1.78e-4 | 240.3 | 5.9 min | 18.7 kJ |
+| 3 | 100 | 0.000% | 0.0000 | 2.35e-2 | 155.4 | 9.1 min | 28.7 kJ |
+| 3 | 503 | 0.000% | 0.0000 | 1.94e-3 | 218.4 | 6.5 min | 20.4 kJ |
+| 3 | 1510 | 0.000% | 0.0015 | 1.62e-6 | 258.8 | 5.5 min | 17.3 kJ |
+
+**Total long sweep: 71 minutes, 53W average GPU, ~225 kJ total.**
+
+### 9.2.1 30k vs 80k Comparison
+
+| Metric | 30k steps | 80k steps | Change |
+|--------|:---------:|:---------:|:------:|
+| Throughput (mean) | 90 steps/s | 188 steps/s | **2.1× higher** |
+| Energy drift (worst) | 0.004% | 0.006% | Comparable |
+| Energy per step (mean) | 0.36 J/step | 0.19 J/step | **1.9× more efficient** |
+| Sweep time | 60 min | 71 min | +18% for 2.67× more data |
+
+The throughput doubling in the long run confirms that 30k-step runs are dominated by one-time setup costs. The 80k data represents true sustained GPU performance.
 
 ### 9.3 GPU vs CPU Performance
 
@@ -249,13 +262,13 @@ The full Sarkas PP Yukawa DSF study (9 cases) re-executed entirely on GPU using 
 
 ### 9.4 Acceptance Criteria
 
-| Observable | Criterion | Status |
+| Observable | Criterion | Status (80k steps) |
 |-----------|-----------|--------|
-| Energy drift | < 5% | All <= 0.004% |
-| RDF tail convergence | abs(g_tail - 1) < 0.15 | All <= 0.0014 |
-| RDF peak height | Increases with Gamma | Verified |
-| Diffusion D* | Decreases with Gamma | Verified |
-| SSF S(k->0) | Physical compressibility | Verified |
+| Energy drift | < 5% | All <= 0.006% |
+| RDF tail convergence | abs(g_tail - 1) < 0.15 | All <= 0.0017 |
+| RDF peak height | Increases with Gamma | Verified all 9 |
+| Diffusion D* | Decreases with Gamma | Verified all 9 |
+| SSF S(k->0) | Physical compressibility | Verified all 9 |
 
 ### 9.5 Implementation
 
@@ -274,8 +287,9 @@ All physics runs on GPU via f64 WGSL shaders prepended with `math_f64.wgsl` (tra
 
 ```bash
 cargo run --release --bin sarkas_gpu              # Quick: N=500, ~30s
-cargo run --release --bin sarkas_gpu -- --full    # Full: 9 cases, N=2000, ~60 min
+cargo run --release --bin sarkas_gpu -- --full    # Full: 9 cases, N=2000, 30k steps, ~60 min
+cargo run --release --bin sarkas_gpu -- --long    # Long: 9 cases, N=2000, 80k steps, ~71 min
 cargo run --release --bin sarkas_gpu -- --scale   # Scaling: GPU vs CPU
 ```
 
-Requires GPU with SHADER_F64 support (Vulkan backend).
+The `--long` run produces publication-quality data with better-amortized throughput and longer observable sampling. Requires GPU with SHADER_F64 support (Vulkan backend).

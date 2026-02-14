@@ -128,24 +128,32 @@ This serves as the Phase A baseline for Phase B (BarraCUDA) comparison.
 
 ## 6. Phase C: GPU Molecular Dynamics (Sarkas on Consumer GPU)
 
-The 9 PP Yukawa cases re-executed entirely on GPU using f64 WGSL shaders (`sarkas_gpu` binary).
+The 9 PP Yukawa cases re-executed entirely on GPU using f64 WGSL shaders (`sarkas_gpu` binary). Validated at both 30k and 80k production steps; the long run (80k) provides publication-quality data.
 
-### 9/9 PP Yukawa Cases PASSED (RTX 4070, N=2000)
+### 9/9 PP Yukawa Cases PASSED (RTX 4070, N=2000, 80k production steps)
 
 | kappa | Gamma | Energy Drift | RDF Tail | D* | Status |
 |:-----:|:-----:|:-----------:|:--------:|:--------:|:------:|
-| 1 | 14, 72, 217 | <= 0.004% | <= 0.0009 | Decreasing | 3/3 Pass |
-| 2 | 31, 158, 476 | 0.000% | <= 0.0014 | Decreasing | 3/3 Pass |
-| 3 | 100, 503, 1510 | 0.000% | <= 0.0014 | Decreasing | 3/3 Pass |
+| 1 | 14, 72, 217 | <= 0.006% | <= 0.0003 | Decreasing | 3/3 Pass |
+| 2 | 31, 158, 476 | 0.000% | <= 0.0017 | Decreasing | 3/3 Pass |
+| 3 | 100, 503, 1510 | 0.000% | <= 0.0015 | Decreasing | 3/3 Pass |
 
-### Performance
+### Performance (80k production steps)
+
+| Metric | 30k-step run | 80k-step run |
+|--------|:------------:|:------------:|
+| Mean throughput | 90 steps/s | **188 steps/s** |
+| Peak throughput | 120 steps/s | **259 steps/s** |
+| Energy per step | 0.36 J/step | **0.19 J/step** |
+| Total sweep time | 60 min | 71 min |
+| Total GPU energy | ~192 kJ | ~225 kJ |
+
+### GPU vs CPU Scaling
 
 | N | GPU steps/s | CPU steps/s | Speedup |
 |:---:|:-----------:|:-----------:|:-------:|
 | 500 | 521.5 | 608.1 | 0.9x |
 | 2000 | 240.5 | 64.8 | **3.7x** |
-
-Full 9-case sweep: 60 minutes, 53W average GPU, ~192 kJ total.
 
 ---
 
