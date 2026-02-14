@@ -1,7 +1,7 @@
 # Nuclear EOS Strategy: From Python Control to BarraCUDA Proof
 
-**Date**: 2026-02-08 (initial), 2026-02-11 (updated with results)  
-**Status**: Phase A ✅ Complete, Phase B ✅ L1+L2 Validated  
+**Date**: 2026-02-08 (initial), 2026-02-11 (L1+L2), 2026-02-14 (Phase C GPU MD)  
+**Status**: Phase A ✅ Complete, Phase B ✅ L1+L2 Validated, Phase C ✅ GPU MD (9/9 PP Yukawa)  
 **Context**: The Code Ocean capsule is gated. We built the nuclear EOS from
 first principles instead — and used it as the Phase A → Phase B transition.
 

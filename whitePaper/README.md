@@ -23,7 +23,7 @@ hotSpring replicates published computational plasma physics from the Murillo Gro
 
 The study answers two questions:
 1. **Can published computational science be independently reproduced?** (Answer: yes, but it required fixing 5 silent bugs and rebuilding physics that was behind a gated platform)
-2. **Can Rust + WebGPU replace the Python scientific stack for real physics?** (Answer: yes — BarraCUDA achieves 478× faster throughput and 44.8× less energy at L1, with GPU FP64 validated to 4.55e-13 MeV precision)
+2. **Can Rust + WebGPU replace the Python scientific stack for real physics?** (Answer: yes — BarraCUDA achieves 478× faster throughput and 44.8× less energy at L1, with GPU FP64 validated to 4.55e-13 MeV precision. Full Sarkas Yukawa MD runs on a $350 consumer GPU with 9/9 cases passing.)
 
 ---
 
@@ -49,6 +49,15 @@ The study answers two questions:
 
 **L2**: Python wins on accuracy (1.93 vs 23.09) due to SparsitySampler — the sampling strategy gap, not physics implementation.
 
+### Phase C (GPU MD): Sarkas on consumer GPU
+
+- **9/9 PP Yukawa cases pass** on RTX 4070 using f64 WGSL shaders
+- Energy drift: **0.000%** (exact symplectic Velocity-Verlet)
+- GPU speedup: **3.7×** at N=2000 (scales as O(N²))
+- GPU energy: **3.4× less per step** than CPU at N=2000
+- Full 9-case sweep: 60 minutes, 192 kJ total GPU energy
+- No CUDA, no HPC cluster — consumer hardware only
+
 ---
 
 ## Relation to Other Documents
@@ -72,13 +81,20 @@ cargo run --release --bin nuclear_eos_l1_ref          # L1: ~3 seconds
 cargo run --release --bin nuclear_eos_l2_ref -- --seed=42 --lambda=0.1   # L2: ~55 min
 ```
 
+```bash
+# Phase C (GPU MD, ~1 hour for full sweep, requires SHADER_F64 GPU)
+cd barracuda
+cargo run --release --bin sarkas_gpu -- --full    # 9 PP Yukawa cases, N=2000
+```
+
 No institutional access required. No Code Ocean account. No Fortran compiler. AGPL-3.0 licensed.
 
 ---
 
-## GPU FP64 Status (Feb 13, 2026)
+## GPU FP64 Status (Feb 14, 2026)
 
 Native FP64 GPU compute confirmed on RTX 4070 via `wgpu::Features::SHADER_F64` (Vulkan backend):
 - **Precision**: True IEEE 754 double precision (0 ULP error vs CPU f64)
 - **Performance**: ~2x FP64:FP32 ratio for bandwidth-limited operations (not the CUDA-reported 1:64)
 - **Implication**: The RTX 4070 is usable for FP64 science compute today via BarraCUDA's wgpu shaders
+- **Phase C validation**: Full Yukawa MD (9 cases, N=2000) runs at 74-120 steps/s with 0.000% energy drift

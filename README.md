@@ -26,7 +26,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 
 ---
 
-## Current Status (2026-02-11)
+## Current Status (2026-02-14)
 
 | Study | Status | Quantitative Checks |
 |-------|--------|-------------------|
@@ -38,7 +38,8 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **Nuclear EOS L2** (Python, HFB hybrid) | ✅ Complete | χ²/datum = 1.93 |
 | **BarraCUDA L1** (Rust+WGSL, f64) | ✅ Complete | χ²/datum = **2.27** (478× faster) |
 | **BarraCUDA L2** (Rust+WGSL+nalgebra) | ✅ Complete | χ²/datum = **16.11** best, 19.29 NMP-physical (1.7× faster) |
-| **TOTAL** | **86/86 checks pass** | 5 upstream bugs found and fixed |
+| **GPU MD PP Yukawa** (9 cases) | ✅ Complete | 45/45 pass (Energy, RDF, VACF, SSF, D*) |
+| **TOTAL** | **131/131 checks pass** | 5 upstream bugs found and fixed |
 
 See `CONTROL_EXPERIMENT_STATUS.md` for full details.
 
@@ -99,6 +100,14 @@ bash scripts/download-data.sh     # Download Zenodo archive (~6 GB)
 bash scripts/setup-envs.sh        # Create Python environments
 ```
 
+```bash
+# Phase C: GPU Molecular Dynamics (~1 hour full, requires SHADER_F64 GPU)
+cd barracuda
+cargo run --release --bin sarkas_gpu              # Quick: kappa=2, Gamma=158, N=500
+cargo run --release --bin sarkas_gpu -- --full    # Full: 9 PP Yukawa cases, N=2000
+cargo run --release --bin sarkas_gpu -- --scale   # GPU vs CPU scaling
+```
+
 ### What gets regenerated
 
 All large data (21+ GB) is gitignored but fully reproducible:
@@ -123,7 +132,7 @@ Upstream repos are pinned to specific versions and automatically patched:
 hotSpring/
 ├── README.md                           # This file
 ├── PHYSICS.md                          # Complete physics documentation (equations + references)
-├── CONTROL_EXPERIMENT_STATUS.md        # Comprehensive status + results (86/86)
+├── CONTROL_EXPERIMENT_STATUS.md        # Comprehensive status + results (131/131)
 ├── NUCLEAR_EOS_STRATEGY.md             # Nuclear EOS Phase A→B strategy
 ├── LICENSE                             # AGPL-3.0
 ├── .gitignore
@@ -287,7 +296,7 @@ These are **silent failures** — wrong results, no error messages. This fragili
 | Document | Purpose |
 |----------|---------|
 | [`PHYSICS.md`](PHYSICS.md) | Complete physics documentation — every equation, constant, approximation with numbered references |
-| [`CONTROL_EXPERIMENT_STATUS.md`](CONTROL_EXPERIMENT_STATUS.md) | Full status with numbers, 86/86 checks, evolution history |
+| [`CONTROL_EXPERIMENT_STATUS.md`](CONTROL_EXPERIMENT_STATUS.md) | Full status with numbers, 131/131 checks, evolution history |
 | [`NUCLEAR_EOS_STRATEGY.md`](NUCLEAR_EOS_STRATEGY.md) | Strategic plan: Python control → BarraCUDA proof |
 | [`whitePaper/README.md`](whitePaper/README.md) | **White paper index** — the publishable study narrative |
 | [`whitePaper/STUDY.md`](whitePaper/STUDY.md) | Main study: replicating computational plasma physics on consumer hardware |

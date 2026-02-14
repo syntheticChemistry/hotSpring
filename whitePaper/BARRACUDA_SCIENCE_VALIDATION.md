@@ -1,7 +1,7 @@
 # BarraCUDA Science Validation — Phase B Results
 
-**Date**: February 13, 2026  
-**Workload**: Nuclear Equation of State (Skyrme EDF parameter optimization)  
+**Date**: February 14, 2026  
+**Workload**: Nuclear Equation of State (Skyrme EDF) + Yukawa OCP Molecular Dynamics  
 **Reference**: Diaw et al. (2024), "Efficient learning of accurate surrogates for simulations of complex systems," *Nature Machine Intelligence*  
 **Hardware**: i9-12900K (24 threads), RTX 4070 (SHADER_F64 confirmed), 32 GB, Pop!_OS 22.04  
 **BarraCUDA Version**: Phase 5+ (100% Rust, zero external dependencies, FP64 GPU validated)  
@@ -215,3 +215,67 @@ cargo run --release --bin nuclear_eos_l2_ref -- \
 ```
 
 Results are saved to JSON: `control/surrogate/nuclear-eos/results/barracuda_l2_evolved.json`
+
+---
+
+## 9. Phase C: GPU Molecular Dynamics (Sarkas on Consumer GPU)
+
+### 9.1 What Was Tested
+
+The full Sarkas PP Yukawa DSF study (9 cases) re-executed entirely on GPU using f64 WGSL shaders. This validates the complete MD pipeline: Yukawa force computation, Velocity-Verlet integration, periodic boundary conditions, Berendsen thermostat, and five physical observables.
+
+### 9.2 Results
+
+**9/9 PP Yukawa cases PASSED** at N=2000 on RTX 4070 (f64 WGSL):
+
+| kappa | Gamma | Energy Drift | RDF Tail Error | D* | steps/s | Wall Time | GPU Energy |
+|:-----:|:-----:|:-----------:|:-------------:|:--------:|:-------:|:---------:|:----------:|
+| 1 | 14 | 0.000% | 0.0001 | 1.35e-1 | 74.0 | 7.9 min | 25.6 kJ |
+| 1 | 72 | 0.000% | 0.0004 | 2.40e-2 | 76.7 | 7.6 min | 24.6 kJ |
+| 1 | 217 | 0.004% | 0.0009 | 8.18e-3 | 84.0 | 6.9 min | 22.5 kJ |
+| 2 | 31 | 0.000% | 0.0001 | 6.10e-2 | 78.7 | 7.4 min | 23.7 kJ |
+| 2 | 158 | 0.000% | 0.0003 | 5.49e-3 | 90.2 | 6.5 min | 20.7 kJ |
+| 2 | 476 | 0.000% | 0.0014 | 2.76e-5 | 96.9 | 6.0 min | 19.3 kJ |
+| 3 | 100 | 0.000% | 0.0001 | 2.28e-2 | 85.5 | 6.8 min | 21.7 kJ |
+| 3 | 503 | 0.000% | 0.0001 | 1.73e-3 | 100.0 | 5.8 min | 18.7 kJ |
+| 3 | 1510 | 0.000% | 0.0014 | 1.00e-4 | 120.3 | 4.9 min | 15.5 kJ |
+
+### 9.3 GPU vs CPU Performance
+
+| N | GPU steps/s | CPU steps/s | Speedup | GPU J/step | CPU J/step |
+|:---:|:-----------:|:-----------:|:-------:|:----------:|:----------:|
+| 500 | 521.5 | 608.1 | 0.9x | 0.081 | 0.071 |
+| 2000 | 240.5 | 64.8 | **3.7x** | 0.207 | 0.712 |
+
+### 9.4 Acceptance Criteria
+
+| Observable | Criterion | Status |
+|-----------|-----------|--------|
+| Energy drift | < 5% | All <= 0.004% |
+| RDF tail convergence | abs(g_tail - 1) < 0.15 | All <= 0.0014 |
+| RDF peak height | Increases with Gamma | Verified |
+| Diffusion D* | Decreases with Gamma | Verified |
+| SSF S(k->0) | Physical compressibility | Verified |
+
+### 9.5 Implementation
+
+All physics runs on GPU via f64 WGSL shaders prepended with `math_f64.wgsl` (transcendental functions). The simulation binary (`sarkas_gpu`) uses:
+
+| Shader | Function |
+|--------|----------|
+| Yukawa all-pairs force | PBC minimum image, per-particle PE |
+| VV half-kick + drift + wrap | Fused integrator step |
+| VV second half-kick | Post-force velocity update |
+| Berendsen thermostat | Velocity rescaling (equilibration only) |
+| Kinetic energy reduction | Per-particle KE for temperature |
+| RDF histogram | atomicAdd pair-distance binning |
+
+### 9.6 Reproduction
+
+```bash
+cargo run --release --bin sarkas_gpu              # Quick: N=500, ~30s
+cargo run --release --bin sarkas_gpu -- --full    # Full: 9 cases, N=2000, ~60 min
+cargo run --release --bin sarkas_gpu -- --scale   # Scaling: GPU vs CPU
+```
+
+Requires GPU with SHADER_F64 support (Vulkan backend).

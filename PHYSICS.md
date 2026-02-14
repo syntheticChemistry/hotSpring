@@ -1,14 +1,18 @@
 # Physics Model Documentation
 
-**hotSpring Nuclear EOS — Complete Equation Reference**
+**hotSpring — Complete Equation Reference**
 
 This document describes every physics model, equation, and approximation used in the
-hotSpring validation suite. It is intended for nuclear physics researchers and students
+hotSpring validation suite. It is intended for physics researchers and students
 who wish to independently verify our results.
 
-All implementations exist in both Python (`control/surrogate/nuclear-eos/wrapper/`) and
-Rust (`barracuda/src/physics/`). Both produce identical results by construction — see
-`whitePaper/BARRACUDA_SCIENCE_VALIDATION.md` for precision comparisons.
+Sections 1-9 cover nuclear EOS physics (Skyrme EDF, HFB, SEMF). Section 10 covers
+Yukawa OCP molecular dynamics (Phase C GPU MD).
+
+Nuclear EOS implementations exist in both Python (`control/surrogate/nuclear-eos/wrapper/`) and
+Rust (`barracuda/src/physics/`). GPU MD implementations are in Rust (`barracuda/src/md/`)
+with f64 WGSL shaders. See `whitePaper/BARRACUDA_SCIENCE_VALIDATION.md` for precision
+comparisons.
 
 ---
 
@@ -23,6 +27,7 @@ Rust (`barracuda/src/physics/`). Both produce identical results by construction 
 7. [Experimental Data](#7-experimental-data)
 8. [Approximations and Limitations](#8-approximations-and-limitations)
 9. [References](#9-references)
+10. [Yukawa OCP Molecular Dynamics](#10-yukawa-ocp-molecular-dynamics-phase-c)
 
 ---
 
@@ -599,5 +604,125 @@ GPU uses 44.8× less energy than Python for the same computation.
 
 ---
 
+## 10. Yukawa OCP Molecular Dynamics (Phase C)
+
+### 10.1 Yukawa Potential
+
+The screened Coulomb (Yukawa) interaction between two like charges in a one-component plasma:
+
+```
+V(r) = (Gamma / r) * exp(-kappa * r)
+```
+
+where all quantities are in OCP reduced units:
+- Length scaled by Wigner-Seitz radius: a_ws = (3 / 4*pi*n)^(1/3)
+- Time scaled by inverse plasma frequency: omega_p = sqrt(4*pi*n*q^2 / m)
+- Gamma = q^2 / (a_ws * k_B * T) is the Coulomb coupling parameter
+- kappa = a_ws / lambda_D is the dimensionless screening parameter
+
+### 10.2 Force Computation
+
+The pairwise force on particle i from particle j:
+
+```
+F_ij(r) = -(Gamma / r^2) * (1 + kappa * r) * exp(-kappa * r) * r_hat
+```
+
+Negative sign indicates repulsion for like charges. Total force on particle i is the sum over all j != i (all-pairs, O(N^2)) or over neighbors within cutoff r_c (cell-list, O(N)).
+
+### 10.3 Periodic Boundary Conditions (Minimum Image Convention)
+
+For a cubic box of side L:
+
+```
+dx = x_j - x_i
+dx = dx - L * round(dx / L)
+```
+
+Applied to each Cartesian component. Only the nearest image of each particle contributes to the force.
+
+### 10.4 Velocity-Verlet Integrator (Split Form)
+
+The symplectic Velocity-Verlet algorithm, split into three GPU dispatches:
+
+**Half-kick + drift**:
+```
+v(t + dt/2) = v(t) + (F(t) / m) * dt/2
+x(t + dt)   = x(t + dt/2) + v(t + dt/2) * dt
+x(t + dt)   = x(t + dt) mod L              [PBC wrap]
+```
+
+**Force computation**: Compute F(t + dt) from updated positions.
+
+**Second half-kick**:
+```
+v(t + dt) = v(t + dt/2) + (F(t + dt) / m) * dt/2
+```
+
+Reduced mass m* = 3.0 in OCP units. Timestep dt = 0.001 (in units of omega_p^-1).
+
+### 10.5 Berendsen Thermostat
+
+During equilibration, velocities are rescaled to approach target temperature:
+
+```
+lambda = sqrt(1 + (dt / tau) * (T_target / T_current - 1))
+v_i = lambda * v_i
+```
+
+where tau is the coupling constant (tau = 10*dt). Applied only during equilibration; removed for production (NVE) runs.
+
+### 10.6 Temperature
+
+Kinetic temperature from the equipartition theorem:
+
+```
+T = (2 / 3N) * sum_i (m * v_i^2 / 2)
+```
+
+In OCP reduced units with m* = 3.0, the target temperature T* = 1/Gamma.
+
+### 10.7 Observables
+
+**Radial Distribution Function g(r)**:
+```
+g(r) = (V / N^2) * <sum_{i<j} delta(r - r_ij)> / (4*pi*r^2*dr)
+```
+Computed from GPU-generated pair-distance histograms. Physical expectations: g(r) -> 1 at large r; peak height increases with Gamma (stronger coupling = more local order).
+
+**Velocity Auto-Correlation Function (VACF)**:
+```
+Z(t) = <v(0) . v(t)> / <v(0) . v(0)>
+```
+Computed from stored velocity snapshots. Self-diffusion coefficient: D* = (1/3) * integral_0^inf Z(t) dt.
+
+**Static Structure Factor S(k)**:
+```
+S(k) = (1/N) * |sum_j exp(i*k.r_j)|^2
+```
+Computed for discrete k-vectors compatible with periodic boundaries: k = 2*pi*n/L.
+
+**Energy Conservation**:
+```
+E_total = KE + PE = sum_i (m*v_i^2/2) + (1/2)*sum_{i!=j} V(r_ij)
+```
+In NVE production, E_total is conserved. Energy drift = |E_final - E_initial| / |E_initial|.
+
+### 10.8 References (Yukawa MD)
+
+[14] Murillo, M. S. and Dharma-wardana, M. W. C., "Dense plasmas, screened interactions,
+     and quantum effects," Phys. Rev. E 98, 023202 (2018).
+
+[15] Stanton, L. G. and Murillo, M. S., "Unified description of linear screening in
+     dense plasmas," Phys. Rev. E 91, 033104 (2015).
+
+[16] Hamaguchi, S., Farouki, R. T., and Dubin, D. H. E., "Triple point of Yukawa
+     systems," Phys. Rev. E 56, 4671 (1997).
+
+[17] Allen, M. P. and Tildesley, D. J., *Computer Simulation of Liquids*, 2nd ed.,
+     Oxford University Press (2017).
+
+---
+
 *This document is part of the hotSpring validation suite. License: AGPL-3.0.*
-*Last updated: 2026-02-13.*
+*Last updated: 2026-02-14.*

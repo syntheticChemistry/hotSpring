@@ -32,17 +32,21 @@ Re-implement the same computations using only BarraCUDA native functions (Pure R
 
 ## 2. Workloads
 
-### 2.1 Sarkas Molecular Dynamics (Phase A only, to date)
+### 2.1 Sarkas Molecular Dynamics (Phase A + C)
 
 **Source**: Murillo Group, Michigan State University  
 **Code**: [github.com/murillo-group/sarkas](https://github.com/murillo-group/sarkas)  
 **Reference data**: Dense Plasma Properties Database
 
-Reproduce Dynamic Structure Factor S(q,omega) for Yukawa and Coulomb one-component plasmas. 12 cases spanning kappa = 0-3, Gamma = 10-1510. Five observables validated per case: DSF, SSF, VACF, g(r), total energy.
+**Phase A**: Reproduce Dynamic Structure Factor S(q,omega) for Yukawa and Coulomb one-component plasmas. 12 cases spanning kappa = 0-3, Gamma = 10-1510. Five observables validated per case: DSF, SSF, VACF, g(r), total energy.
 
-**Acceptance criterion**: Plasmon peak frequencies within 15% of reference spectra.
+**Phase C (GPU MD)**: Re-execute the 9 PP Yukawa cases entirely on GPU using f64 WGSL shaders (`SHADER_F64`). Validate energy conservation, RDF, VACF, SSF, and diffusion coefficient against physical expectations. N=2000, Velocity-Verlet integrator, Berendsen thermostat, periodic boundary conditions.
 
-### 2.2 Two-Temperature Model (Phase A only, to date)
+**Acceptance criteria**:
+- Phase A: Plasmon peak frequencies within 15% of reference spectra
+- Phase C: Energy drift < 5%, RDF tail |g(r)-1| < 0.15, monotonic observable trends with coupling
+
+### 2.2 Two-Temperature Model (Phase A only)
 
 **Source**: Murillo Group / UCLA  
 **Code**: [github.com/MurilloGroupMSU/Two-Temperature-Model](https://github.com/MurilloGroupMSU/Two-Temperature-Model)
@@ -112,6 +116,7 @@ From published literature (Chabanat 1998, Bender 2003):
 7. All results saved to JSON (structured benchmark reports with hardware inventory) for exact reproduction
 8. Seed-deterministic: same seed produces identical results
 9. **Three-substrate comparison**: Python, BarraCUDA CPU, BarraCUDA GPU — same physics, different hardware cost
+10. **GPU MD validation** (Phase C): energy conservation, RDF physical trends, VACF diffusion, SSF compressibility — validated against known plasma physics expectations
 
 ---
 
@@ -156,3 +161,15 @@ In each case, we replaced the gated system with an open equivalent built from pu
 | L3 | RMS (MeV) | < 1 MeV |
 
 Current status: L1 target exceeded (**2.27** via DirectSampler, **1.52** via GPU extended run). L2 in progress (BarraCUDA best **16.11** via DirectSampler; Python SparsitySampler **1.93** — sampling strategy gap, not physics). GPU FP64 validated to sub-ULP precision (4.55e-13 MeV). L3 architecture built, energy functional debugging in progress.
+
+### GPU MD (Phase C)
+
+| Observable | Criterion | Status |
+|-----------|-----------|--------|
+| Energy drift | < 5% | **All 9 cases <= 0.004%** |
+| RDF tail | abs(g(r)-1) < 0.15 | **All 9 cases <= 0.0014** |
+| RDF peak trend | Increases with Gamma | **Verified** |
+| Diffusion D* | Decreases with Gamma | **Verified** |
+| SSF S(k->0) | Physical compressibility range | **Verified** |
+
+Result: **9/9 PP Yukawa cases pass** at N=2000 on RTX 4070. 3.7x GPU speedup vs CPU. 3.4x less energy per step.

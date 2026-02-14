@@ -1,4 +1,4 @@
-# Control Experiment Summary — Phase A (Python Reproduction)
+# Control Experiment Summary — Phase A (Python) + Phase C (GPU MD)
 
 **Date**: February 2026  
 **Purpose**: Reproduce published Murillo Group results in original Python implementations to establish ground truth  
@@ -124,7 +124,32 @@ This serves as the Phase A baseline for Phase B (BarraCUDA) comparison.
 
 ---
 
-## 6. Total Phase A Acceptance: 86/86
+---
+
+## 6. Phase C: GPU Molecular Dynamics (Sarkas on Consumer GPU)
+
+The 9 PP Yukawa cases re-executed entirely on GPU using f64 WGSL shaders (`sarkas_gpu` binary).
+
+### 9/9 PP Yukawa Cases PASSED (RTX 4070, N=2000)
+
+| kappa | Gamma | Energy Drift | RDF Tail | D* | Status |
+|:-----:|:-----:|:-----------:|:--------:|:--------:|:------:|
+| 1 | 14, 72, 217 | <= 0.004% | <= 0.0009 | Decreasing | 3/3 Pass |
+| 2 | 31, 158, 476 | 0.000% | <= 0.0014 | Decreasing | 3/3 Pass |
+| 3 | 100, 503, 1510 | 0.000% | <= 0.0014 | Decreasing | 3/3 Pass |
+
+### Performance
+
+| N | GPU steps/s | CPU steps/s | Speedup |
+|:---:|:-----------:|:-----------:|:-------:|
+| 500 | 521.5 | 608.1 | 0.9x |
+| 2000 | 240.5 | 64.8 | **3.7x** |
+
+Full 9-case sweep: 60 minutes, 53W average GPU, ~192 kJ total.
+
+---
+
+## 7. Total Acceptance
 
 | Category | Checks | Pass |
 |----------|:------:|:----:|
@@ -134,4 +159,6 @@ This serves as the Phase A baseline for Phase B (BarraCUDA) comparison.
 | TTM Hydro (3 species) | 3 | 3/3 |
 | Surrogate (15 benchmarks) | 15 | 15/15 |
 | Nuclear EOS L1 + L2 convergence | 5 | 5/5 |
-| **Total** | **86** | **86/86** |
+| **Phase A Total** | **86** | **86/86** |
+| GPU MD PP Yukawa (9 cases x 5 observables) | 45 | 45/45 |
+| **Phase A + C Total** | **131** | **131/131** |
