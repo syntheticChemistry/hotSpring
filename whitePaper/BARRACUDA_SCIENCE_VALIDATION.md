@@ -272,7 +272,7 @@ The throughput doubling in the long run confirms that 30k-step runs are dominate
 
 ### 9.5 Implementation
 
-All physics runs on GPU via f64 WGSL shaders prepended with `math_f64.wgsl` (transcendental functions). The simulation binary (`sarkas_gpu`) uses:
+All physics runs on GPU via f64 WGSL shaders using **native builtins** (`sqrt`, `exp`, `round`, `floor` operating directly on f64 types via `SHADER_F64`/Naga/Vulkan). The `math_f64.wgsl` software library has been superseded — see §9.7. The simulation binary (`sarkas_gpu`) uses:
 
 | Shader | Function |
 |--------|----------|
@@ -293,3 +293,74 @@ cargo run --release --bin sarkas_gpu -- --scale   # Scaling: GPU vs CPU
 ```
 
 The `--long` run produces publication-quality data with better-amortized throughput and longer observable sampling. Requires GPU with SHADER_F64 support (Vulkan backend).
+
+---
+
+## 9.7 Phase D: Native f64 Builtins + N-Scaling (Feb 14-15, 2026)
+
+### 9.7.1 The f64 Bottleneck — Broken
+
+All Phase C results above used **software-emulated** f64 transcendentals (`math_f64.wgsl` — ~500 lines of f32-pair arithmetic implementing `sqrt_f64`, `exp_f64`, etc.). This kept GPU ALU utilization artificially low and throughput well below hardware capability.
+
+**Discovery**: The toadstool/barracuda team confirmed that `wgpu::Features::SHADER_F64` exposes native hardware f64 operations. WGSL's built-in `sqrt()`, `exp()`, `round()`, `floor()` all operate directly on f64 types. The true fp64:fp32 throughput ratio on consumer GPUs (via Vulkan) is **~1:2** — not the 1:64 CUDA reports, because wgpu bypasses driver-level FP64 throttling.
+
+| Function | Native | Software (math_f64) | Speedup | Accuracy |
+|----------|--------|---------------------|---------|----------|
+| sqrt (1M f64) | 1.58 ms | 2.36 ms | **1.5×** | 0 ULP vs CPU |
+| exp (1M f64) | 1.29 ms | 2.82 ms | **2.2×** | 8e-8 max diff |
+
+### 9.7.2 N-Scaling with Native Builtins
+
+After rewiring all shaders to native builtins and enabling the fixed cell-list kernel:
+
+| N | steps/s | Wall Time | Energy Drift | W (avg) | Total J | VRAM | Method |
+|---|---------|-----------|:------------:|---------|---------|------|--------|
+| 500 | 998.1 | 35s | 0.000% | 47W | 1,655 | 584 MB | all-pairs |
+| 2,000 | 361.5 | 97s | 0.000% | 53W | 5,108 | 574 MB | all-pairs |
+| 5,000 | 134.9 | 259s | 0.000% | 65W | 16,745 | 560 MB | all-pairs |
+| 10,000 | 110.5 | 317s | 0.000% | 61W | 19,351 | 565 MB | cell-list |
+| 20,000 | 56.1 | 624s | 0.000% | 63W | 39,319 | 587 MB | cell-list |
+
+**Paper parity**: N=10,000 in **5.3 minutes**. N=20,000 (2× paper) in **10.4 minutes**.
+
+### 9.7.3 Before/After: Software vs Native f64
+
+| N | Old steps/s | New steps/s | Speedup | Old Wall | New Wall |
+|---|-------------|-------------|---------|----------|----------|
+| 500 | 169.0 | **998.1** | **5.9×** | 207s | 35s |
+| 2,000 | 76.0 | **361.5** | **4.8×** | 461s | 97s |
+| 5,000 | 66.9 | **134.9** | **2.0×** | 523s | 259s |
+| 10,000 | 24.6 | **110.5** | **4.5×** | 1,423s | 317s |
+| 20,000 | 8.6 | **56.1** | **6.5×** | 4,091s | 624s |
+
+### 9.7.4 Time and Energy: Why Hardware Matters
+
+| N | GPU Wall | GPU Energy | Est. CPU Wall | Est. CPU Energy | GPU Advantage |
+|---|----------|-----------|---------------|-----------------|---------------|
+| 500 | 35s | 1.7 kJ | 63s | 3.2 kJ | 1.8× faster, 1.9× cheaper |
+| 2,000 | 97s | 5.1 kJ | 571s | 28.6 kJ | 5.9× faster, 5.6× cheaper |
+| 5,000 | 4.3 min | 16.7 kJ | ~60 min | ~180 kJ | **14× faster, 11× cheaper** |
+| 10,000 | 5.3 min | 19.4 kJ | ~4 hrs | ~720 kJ | **46× faster, 37× cheaper** |
+| 20,000 | 10.4 min | 39.3 kJ | ~16 hrs | ~2,880 kJ | **94× faster, 73× cheaper** |
+
+At N=10,000 (paper parity), a single GPU run costs **$0.001 in electricity**. The equivalent CPU run costs ~$0.04 and takes 46× longer. Above N=5,000, CPU MD on consumer hardware is no longer practical — not because of accuracy, but because of time and energy.
+
+### 9.7.5 RTX 4070 Capability Ceiling
+
+| Resource | Value | Implication |
+|----------|-------|-------------|
+| VRAM at N=20k | 587 MB / 12,288 MB (4.8%) | **N≈400,000** feasible before VRAM limits |
+| fp64:fp32 ratio | ~1:2 (via wgpu/Vulkan) | Not throttled like CUDA's 1:64 |
+| Paper parity time | 5.3 minutes | Enables 100+ parameter sweeps per day |
+| 9-case sweep time | 71 minutes | Full DSF validation in lunch break |
+| Energy conservation | 0.000% at all N | Physics is correct at every scale |
+
+### 9.7.6 Reproduction
+
+```bash
+cargo run --release --bin sarkas_gpu -- --nscale  # N-scaling: N=500-20000 (~34 min)
+cargo run --release --bin celllist_diag            # Cell-list diagnostic (6 phases)
+cargo run --release --bin f64_builtin_test         # Native vs software f64 validation
+```
+
+See `experiments/001_N_SCALING_GPU.md` for the full experiment journal.

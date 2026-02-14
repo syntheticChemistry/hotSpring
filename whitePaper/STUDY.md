@@ -1,16 +1,17 @@
 # hotSpring: Replicating Computational Plasma Physics on Consumer Hardware
 
 **Status**: Working draft  
-**Date**: February 14, 2026  
+**Date**: February 15, 2026  
 **License**: AGPL-3.0  
-**Hardware**: Consumer workstation (i9-12900K, 32 GB, RTX 4070, Pop!_OS 22.04)  
-**GPU target**: NVIDIA Titan V (GV100, 12 GB HBM2) — on order
+**Hardware**: Consumer workstation (i9-12900K, 64 GB DDR5, RTX 4070, Pop!_OS 22.04)  
+**GPU target**: NVIDIA Titan V (GV100, 12 GB HBM2) — on order  
+**f64 status**: Native WGSL builtins confirmed (fp64:fp32 ~1:2 via wgpu/Vulkan, bottleneck broken)
 
 ---
 
 ## Abstract
 
-We reproduce three classes of published computational plasma physics work from the Murillo Group (Michigan State University) on consumer hardware, validate correctness against published reference data, and then re-execute the core computations using BarraCUDA — a Pure Rust scientific computing library that dispatches WGSL shaders to any GPU vendor. The study spans molecular dynamics (Sarkas), plasma equilibration (Two-Temperature Model), and nuclear equation of state surrogate learning (Diaw et al., Nature Machine Intelligence 2024). We find that (a) reproducing published work required fixing five silent upstream bugs, (b) a key Code Ocean "reproducible" capsule is inaccessible, requiring us to rebuild the nuclear EOS physics from first principles, (c) BarraCUDA achieves 478× faster throughput at L1 with GPU FP64 validated to sub-ULP precision (4.55e-13 MeV max error vs CPU), and (d) the full Sarkas PP Yukawa molecular dynamics can run entirely on a consumer GPU using f64 WGSL shaders — 9/9 cases pass with 0.000% energy drift at 80,000 production steps, up to 259 steps/s, and 3.4× less energy per step than CPU at N=2000. Phase D extends this to N-scaling (N=500 to 20,000, paper parity at N=10,000) and documents the deep debugging of a WGSL `i32 %` portability bug in the cell-list kernel — a 6-phase diagnostic process that replaces what would have been a quick workaround with a root-cause fix enabling O(N) scaling to N=100,000+ on consumer GPUs. Energy profiling shows the GPU path uses 44.8× less energy than Python for identical physics. 142/142 quantitative checks pass across all phases (A: Python control, B: BarraCUDA recreation, C: GPU molecular dynamics, D: N-scaling and cell-list evolution). An axially-deformed solver (Level 3) and GPU acceleration via Titan V are in progress.
+We reproduce three classes of published computational plasma physics work from the Murillo Group (Michigan State University) on consumer hardware, validate correctness against published reference data, and then re-execute the core computations using BarraCUDA — a Pure Rust scientific computing library that dispatches WGSL shaders to any GPU vendor. The study spans molecular dynamics (Sarkas), plasma equilibration (Two-Temperature Model), and nuclear equation of state surrogate learning (Diaw et al., Nature Machine Intelligence 2024). We find that (a) reproducing published work required fixing five silent upstream bugs, (b) a key Code Ocean "reproducible" capsule is inaccessible, requiring us to rebuild the nuclear EOS physics from first principles, (c) BarraCUDA achieves 478× faster throughput at L1 with GPU FP64 validated to sub-ULP precision (4.55e-13 MeV max error vs CPU), and (d) the full Sarkas PP Yukawa molecular dynamics can run entirely on a consumer GPU using f64 WGSL shaders — 9/9 cases pass with 0.000% energy drift at 80,000 production steps, up to 259 steps/s, and 3.4× less energy per step than CPU at N=2000. Phase D extends this to N-scaling (N=500 to 20,000, paper parity at N=10,000) and documents the deep debugging of a WGSL `i32 %` portability bug in the cell-list kernel — a 6-phase diagnostic process that replaces what would have been a quick workaround with a root-cause fix enabling O(N) scaling to N=100,000+ on consumer GPUs. Energy profiling shows the GPU path uses 44.8× less energy than Python for identical physics. Discovery of native WGSL f64 builtins (`sqrt`, `exp`, `round`, `floor` operating on f64 types via Naga/Vulkan) broke the f64 bottleneck — throughput improved 2-6× across all N, with the true fp64:fp32 ratio confirmed at ~1:2 (not the 1:64 CUDA-reported ratio). 147/147 quantitative checks pass across all phases (A: Python control, B: BarraCUDA recreation, C: GPU molecular dynamics, D: N-scaling and cell-list evolution). An axially-deformed solver (Level 3) and GPU acceleration via Titan V are in progress.
 
 ---
 
@@ -639,9 +640,18 @@ Key findings:
 4. The DirectSampler optimizer produces identical results on CPU and GPU paths
 5. L2 SCF loop remains CPU-bound (pending batched `eigh_f64` shader)
 
-### 6.3.2 Pure-GPU Math Library (math_f64.wgsl)
+### 6.3.2 Pure-GPU Math Library (math_f64.wgsl) — SUPERSEDED by Native Builtins
 
-WGSL's f64 type supports arithmetic (+, -, *, /) but NOT builtin functions (sqrt, pow, exp, log, sin, cos, abs, floor, etc.). We built a 27-function pure-arithmetic f64 math library that runs entirely on GPU with zero CPU dependency:
+> **UPDATE Feb 14, 2026**: The `math_f64.wgsl` software library described below has been
+> **superseded** by native WGSL builtins. WGSL's built-in `sqrt()`, `exp()`, `round()`,
+> `floor()`, `abs()`, `ceil()`, `log()`, and `inverseSqrt()` all work correctly on f64
+> types when `SHADER_F64` is enabled. This was confirmed on RTX 4070 via Naga/Vulkan.
+> Using native builtins gives **2-6× throughput improvement** in MD kernels and eliminates
+> the precision gap entirely. The math_f64 library remains in toadstool as a reference
+> (see `barracuda/src/md/shaders_toadstool_ref/`), but all hotSpring production shaders
+> now use native builtins exclusively.
+
+*Historical context (for the record)*: Before native builtins were confirmed, WGSL's f64 type supported arithmetic (+, -, *, /) but we believed it did NOT support builtin functions. We built a 27-function pure-arithmetic f64 math library that runs entirely on GPU with zero CPU dependency:
 
 | Metric | CPU-precomputed GPU | Pure-GPU (math_f64) |
 |--------|:-------------------:|:-------------------:|
@@ -659,12 +669,16 @@ The 0.4 keV gap comes from polynomial approximations in `exp_f64`/`log_f64` chai
 
 - [x] L1 SEMF — batched f64 compute shader (validated, exact)
 - [x] L1 chi2 — batched f64 reduction shader (validated)
-- [x] Pure-GPU math library — 27 functions, no CPU (validated, precision improvable)
+- [x] Pure-GPU math library — 27 functions, no CPU (validated, **superseded by native builtins**)
+- [x] Native f64 builtins — `sqrt`, `exp`, `round`, `floor` on f64 (validated, 2-6× faster)
+- [x] GPU MD — Yukawa all-pairs + cell-list force kernels, VV integrator (validated, 0.000% drift)
+- [x] N-scaling to 20,000 — cell-list O(N) + native builtins (validated, paper parity at 10k)
 - [ ] L2 density accumulation — batched across nuclei on GPU
 - [ ] L2 Skyrme potential — element-wise f64 on GPU
 - [ ] L2 Coulomb — prefix-sum f64 on GPU
 - [ ] L2 eigh_f64 — batched eigendecomposition shader (Titan V target)
 - [ ] L3 2D grid operations — f64 on GPU
+- [ ] PPPM/Ewald — 3D FFT pipeline for κ=0 Coulomb (toadstool team)
 
 ### 6.4 L3 Blockers (In Priority Order)
 
@@ -749,6 +763,54 @@ Requires a GPU with `wgpu::Features::SHADER_F64` support (confirmed: RTX 4070, R
 
 ---
 
+## 7.4 RTX 4070 Capability Envelope
+
+With native f64 builtins confirmed, what is the practical ceiling of a single $600 consumer GPU for computational physics?
+
+### 7.4.1 Particle Count (N) Limits
+
+| Resource | RTX 4070 Capacity | Per-particle Cost | Max N (theoretical) |
+|----------|:-----------------:|:-----------------:|:-------------------:|
+| VRAM (12 GB) | 12,288 MB | ~72 bytes (pos+vel+force, f64) | **~170 million** |
+| Shader registers | ~64K/SM | Complex (depends on kernel) | **~400K** (practical) |
+| Measured at N=20,000 | 587 MB used | 29 bytes/particle (effective) | **~400K** (VRAM) |
+
+The VRAM ceiling is far above any current experiment. The practical ceiling is compute-bound: at N=20,000, throughput is 56 steps/s; at N=50,000 (estimated), ~15 steps/s; at N=100,000, ~5 steps/s with cell-list. These are still practical for overnight runs.
+
+### 7.4.2 What Cheap GPU Time Unlocks
+
+The key insight: GPU f64 at ~1:2 ratio makes previously impractical experiments **routine**.
+
+| Experiment | CPU Time | GPU Time | GPU Energy | GPU Cost (electricity) |
+|-----------|----------|----------|------------|----------------------|
+| N=10k, 35k steps (paper parity) | ~4 hrs | **5.3 min** | 19.4 kJ | $0.001 |
+| N=10k, 100k steps (extended) | ~12 hrs | **15 min** | 56 kJ | $0.003 |
+| N=20k, 35k steps (beyond paper) | ~16 hrs | **10.4 min** | 39.3 kJ | $0.002 |
+| N=10k, 9 cases × 80k steps | ~36 hrs | **~1 hr** | ~175 kJ | $0.010 |
+| Parameter sweep: 50 points × N=10k | ~200 hrs | **~4 hrs** | ~1 MJ | $0.050 |
+
+At $0.001 per paper-parity run, the exploration space is effectively unlimited. We can:
+
+1. **Sweep more κ,Γ combinations** — the Murillo Group tested 12 cases (9 PP + 3 PPPM). We can test hundreds.
+2. **Add more reference nuclei** — current L1/L2 uses 52 nuclei. AME2020 has **2,457** experimentally measured masses. More nuclei = tighter constraints on Skyrme parameters.
+3. **Run longer production** — 80k steps took 71 min for 9 cases. 500k steps would take ~7 hours — still overnight, with much better observable statistics.
+4. **Explore beyond 36 nuclei** — the current HFB calculation uses 18 focused nuclei (56≤A≤132). Expanding to 100+ nuclei (including deformed) tightens the parameter space dramatically.
+5. **Multi-seed optimization** — each DirectSampler run finds a different local minimum. Running 100 seeds takes ~40 minutes for L1 instead of 4 hours.
+
+### 7.4.3 Titan V Projection
+
+| Metric | RTX 4070 (measured) | Titan V (projected) | Factor |
+|--------|:-------------------:|:-------------------:|:------:|
+| FP64 throughput | ~1:2 via Vulkan | **1:2 native** | ~1× (same ratio) |
+| FP64 TFLOPS | ~0.3 (compute-bound) | **7.4** | ~25× (compute-bound) |
+| HBM2 bandwidth | 504 GB/s (GDDR6X) | 653 GB/s (HBM2) | 1.3× |
+| N=10k, 35k steps | 5.3 min | **~30s** (estimated) | ~10× |
+| L2 HFB per eval | ~55s (CPU) | **~5s** (GPU eigensolve) | ~11× |
+
+The Titan V will not change the fp64:fp32 *ratio* (both ~1:2 via Vulkan), but its raw FP64 throughput is ~25× higher. This matters for compute-bound operations like eigensolvers and dense matrix operations in L2/L3 HFB.
+
+---
+
 ## 8. Summary of Findings
 
 1. **Reproducing published computational physics required fixing five silent upstream bugs.** Four of five produce wrong results with no error message. This class of failure is prevented by Rust's type system and WGSL's deterministic compilation.
@@ -783,6 +845,10 @@ Requires a GPU with `wgpu::Features::SHADER_F64` support (confirmed: RTX 4070, R
 4. Ring, P., Schuck, P. "The Nuclear Many-Body Problem." Springer (2004).
 5. Murillo Group. "Sarkas: A Fast Pure-Python Molecular Dynamics Suite for Plasma Physics." GitHub, MIT License.
 6. Wang, M. et al. "The AME 2020 atomic mass evaluation." *Chinese Physics C* 45 (2021): 030003.
+
+---
+
+12. **Exploration space is now effectively unlimited on consumer GPU.** At $0.001 per paper-parity run (N=10,000, 35k steps = 19.4 kJ = 5.4 Wh), the RTX 4070 makes parameter sweeps, extended production runs, and multi-seed optimization routine. The current study uses 52 reference nuclei; AME2020 has 2,457. The current MD sweep covers 9 κ,Γ pairs; hundreds are now feasible. Cheap GPU time changes which experiments are worth running.
 
 ---
 

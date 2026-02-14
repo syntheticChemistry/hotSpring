@@ -307,8 +307,25 @@ At N=2000, GPU uses **3.4× less energy per step** and runs **3.7× faster**.
 | 2 | 31, 158, 476 | 6.5 | All-pairs GPU (N=2000) | ✅ 3/3 |
 | 3 | 100, 503, 1510 | 6.0 | All-pairs GPU (N=2000) | ✅ 3/3 |
 
+### Phase D: Native f64 Builtins + N-Scaling (Feb 14-15, 2026)
+
+After replacing software-emulated f64 transcendentals with native WGSL builtins:
+
+| N | steps/s | Wall (35k) | Energy (J) | Method |
+|---|---------|-----------|-----------|--------|
+| 500 | 998.1 | 35s | 1,655 | all-pairs |
+| 2,000 | 361.5 | 97s | 5,108 | all-pairs |
+| 5,000 | 134.9 | 259s | 16,745 | all-pairs |
+| 10,000 | 110.5 | 317s | 19,351 | cell-list |
+| 20,000 | 56.1 | 624s | 39,319 | cell-list |
+
+**2-6× improvement** over software-emulated baseline. Paper parity (N=10k) in **5.3 min**.
+GPU now wins at every N including N=500 (1.8× vs CPU).
+
 ### Flagged for Future
 
 - **PPPM/Ewald** (κ=0 Coulomb cases): needs 3D FFT pipeline on GPU
 - **MSU HPC comparison**: CPU baseline at N=10,000+ for headline number
-- **Cell-list scaling**: implemented and ready for N>5000 benchmarks
+- **Extended N-scaling** (N=50k-400k): see `experiments/003_RTX4070_CAPABILITY_PROFILE.md`
+- **Parameter space sweep** (36 κ,Γ cases): ~3 hrs for 4× the Murillo study
+- **Nuclei scaling** (52→2457): full AME2020 dataset, ~3 min on GPU

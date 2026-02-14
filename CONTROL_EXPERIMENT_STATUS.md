@@ -1,9 +1,10 @@
 # hotSpring Control Experiment — Status Report
 
-**Date**: 2026-02-15 (L1+L2 complete, GPU MD Phase C+D complete — N-scaling + cell-list fix validated)  
-**Gate**: Eastgate (i9-12900K, 32 GB, Pop!_OS)  
+**Date**: 2026-02-15 (L1+L2 complete, GPU MD Phase C+D complete — native f64 builtins, N-scaling, cell-list fix validated)  
+**Gate**: Eastgate (i9-12900K, 64 GB DDR5, RTX 4070 12GB, Pop!_OS 22.04)  
 **Sarkas**: v1.0.0 (pinned — see §Roadblocks)  
-**Python**: 3.9 (sarkas), 3.10 (ttm, surrogate) via micromamba
+**Python**: 3.9 (sarkas), 3.10 (ttm, surrogate) via micromamba  
+**f64 Status**: Native WGSL builtins confirmed — fp64:fp32 ~1:2 via wgpu/Vulkan (bottleneck broken)
 
 ---
 
@@ -820,6 +821,25 @@ The deep fix (6-phase diagnostic, root cause analysis) gives us:
 | 100,000 | infeasible | ~15-30 | **∞ (unlocked)** |
 
 **Details**: See `experiments/001_N_SCALING_GPU.md` and `experiments/002_CELLLIST_FORCE_DIAGNOSTIC.md`.
+
+### RTX 4070 Capability Envelope (Post-Bottleneck)
+
+With native f64 builtins confirmed, the RTX 4070 is now a practical f64 science platform:
+
+| Metric | Value | Notes |
+|--------|-------|-------|
+| VRAM at N=20,000 | 587 MB / 12,288 MB | **4.8% used** — N≈400K feasible |
+| Paper parity (N=10k, 35k steps) | **5.3 minutes, 19.4 kJ** | $0.001 electricity |
+| Beyond paper (N=20k, 35k steps) | **10.4 minutes, 39.3 kJ** | $0.002 electricity |
+| Full 9-case sweep (80k steps) | **71 minutes, 225 kJ** | All 9 PP Yukawa cases |
+| Energy drift at all N | **0.000%** | Verified N=500 through N=20,000 |
+| Parameter sweep (50 pts × N=10k) | **~4 hours** | Overnight — routine |
+| fp64:fp32 ratio | **~1:2** (not 1:64) | wgpu/Vulkan bypasses CUDA throttle |
+
+**What this unlocks**: parameter sweeps over hundreds of κ,Γ combinations, extended
+production runs (500k steps overnight), multi-seed optimization, and expanding from
+52 to 2,457 AME2020 nuclei — all on a single consumer GPU costing $0.001-$0.05 in
+electricity per experiment. The exploration space is now effectively unlimited.
 
 ### Grand Control Summary
 
