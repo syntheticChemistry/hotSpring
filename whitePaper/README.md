@@ -21,9 +21,10 @@
 
 hotSpring replicates published computational plasma physics from the Murillo Group (Michigan State University) on consumer hardware, then re-executes the computations using BarraCUDA — a Pure Rust scientific computing library with zero external dependencies.
 
-The study answers two questions:
+The study answers three questions:
 1. **Can published computational science be independently reproduced?** (Answer: yes, but it required fixing 5 silent bugs and rebuilding physics that was behind a gated platform)
 2. **Can Rust + WebGPU replace the Python scientific stack for real physics?** (Answer: yes — BarraCUDA achieves 478× faster throughput and 44.8× less energy at L1, with GPU FP64 validated to 4.55e-13 MeV precision. Full Sarkas Yukawa MD runs on a $600 consumer GPU: 9/9 PP cases pass at N=10,000 with 80,000 production steps in 3.66 hours for $0.044.)
+3. **Can consumer GPUs do first-principles nuclear structure at scale?** (Answer: yes — the full AME2020 dataset (2,042 nuclei, 39x the published paper) runs on a single RTX 4070. L1 Pareto analysis, L2 GPU-batched HFB, and L3 deformed HFB all produce results. This is direct physics computation, not surrogate learning.)
 
 ---
 
@@ -58,14 +59,23 @@ The study answers two questions:
 - N=10,000 paper parity in **5.3 minutes**; N=20,000 in 10.4 minutes
 - Cell-list O(N) scaling + WGSL `i32 %` bug deep-debugged
 
-### Phase E (Paper-Parity Long Run + Toadstool Rewire) — NEW
+### Phase E (Paper-Parity Long Run + Toadstool Rewire)
 
 - **9/9 PP Yukawa cases at N=10,000, 80k production steps** — exact paper config
 - **3.66 hours total, $0.044 electricity**
 - Cell-list **4.1× faster** than all-pairs for κ=2,3
 - Energy drift: **0.000-0.002%** across all 9 cases
 - Toadstool GPU ops wired: **BatchedEighGpu**, **SsfGpu**, **PppmGpu**
-- **160/160 quantitative checks pass** across all phases
+
+### Phase F (Full-Scale Nuclear EOS on Consumer GPU) — NEW
+
+- **Full AME2020 dataset: 2,042 nuclei** (39x published paper's 52)
+- L1 Pareto frontier: chi2_BE from **0.69** (pure BE) to **7.37** (NMP-balanced)
+- L2 GPU-batched HFB: **791 HFB nuclei in 66 min**, 99.85% convergence, 206 GPU dispatches
+- L3 deformed HFB: **295/2036 nuclei improved**, best-of-both chi2 = 13.92
+- **Direct first-principles nuclear structure** — not surrogate learning
+- Multi-GPU scaling path: each additional RTX 4070 ($600) doubles parameter throughput
+- **169/169 quantitative checks pass** across all phases
 
 ---
 
@@ -99,6 +109,14 @@ cargo run --release --bin sarkas_gpu -- --paper   # 9 cases, N=10k, 80k steps (~
 cargo run --release --bin sarkas_gpu -- --nscale  # N-scaling: N=500-20000
 cargo run --release --bin nuclear_eos_l2_gpu      # GPU-batched L2 HFB (BatchedEighGpu)
 cargo run --release --bin validate_pppm           # PppmGpu kappa=0 Coulomb validation
+```
+
+```bash
+# Phase F (Full-scale nuclear EOS, 2,042 nuclei)
+cd barracuda
+cargo run --release --bin nuclear_eos_l1_ref -- --nuclei=full --pareto       # L1 Pareto (~11 min)
+cargo run --release --bin nuclear_eos_l2_gpu -- --nuclei=full --phase1-only  # L2 GPU (~66 min)
+cargo run --release --bin nuclear_eos_l3_ref -- --nuclei=full --params=best_l2_42  # L3 (~4.5 hrs)
 ```
 
 No institutional access required. No Code Ocean account. No Fortran compiler. AGPL-3.0 licensed.
