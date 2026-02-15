@@ -70,7 +70,13 @@ impl GpuF64 {
                 &wgpu::DeviceDescriptor {
                     label: Some("hotSpring FP64 Science Device"),
                     required_features,
-                    required_limits: wgpu::Limits::default(),
+                    required_limits: wgpu::Limits {
+                        // Nuclear physics buffers can exceed default 128 MiB
+                        // (wavefunctions: n_states × n_grid × 8 bytes, up to ~200 MiB)
+                        max_storage_buffer_binding_size: 512 * 1024 * 1024, // 512 MiB
+                        max_buffer_size: 1024 * 1024 * 1024,               // 1 GiB
+                        ..wgpu::Limits::default()
+                    },
                 },
                 None,
             )

@@ -18,6 +18,9 @@ serde_json = "1.0"
 # Parallelism for L2 HFB
 rayon = "1.8"
 
+# Byte casting for GPU uniform buffers
+bytemuck = { version = "1.14", features = ["derive"] }
+
 # Async runtime for GPU validation (validate_md)
 tokio = { version = "1.35", features = ["rt-multi-thread", "macros"] }
 
