@@ -17,6 +17,7 @@ pub mod hfb;
 pub mod hfb_gpu;
 pub mod hfb_gpu_resident;
 pub mod hfb_deformed;
+pub mod hfb_deformed_gpu;
 
 pub use constants::*;
 pub use nuclear_matter::{nuclear_matter_properties, NuclearMatterProps};
@@ -25,4 +26,5 @@ pub use hfb::{SphericalHFB, binding_energy_l2};
 pub use hfb_gpu::binding_energies_l2_gpu;
 pub use hfb_gpu_resident::binding_energies_l2_gpu_resident;
 pub use hfb_deformed::DeformedHFB;
+pub use hfb_deformed_gpu::binding_energies_l3_gpu_auto;
 

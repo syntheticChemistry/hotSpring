@@ -91,3 +91,12 @@ path = "src/bin/validate_pppm.rs"
 name = "celllist_diag"
 path = "src/bin/celllist_diag.rs"
 
+# ── L3 deformed HFB (CPU Rayon) ───────────────────────────────────
+[[bin]]
+name = "nuclear_eos_l3_ref"
+path = "src/bin/nuclear_eos_l3_ref.rs"
+
+# ── L3 deformed HFB (GPU-resident — all physics on GPU) ──────────
+[[bin]]
+name = "nuclear_eos_l3_gpu"
+path = "src/bin/nuclear_eos_l3_gpu.rs"
