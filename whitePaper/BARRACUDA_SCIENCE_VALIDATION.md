@@ -471,16 +471,30 @@ Reference baselines: SLy4 chi2_BE=6.71, chi2_NMP=0.63. Runtime: ~10.8 min total.
 
 ### 11.2 L2 GPU-Batched HFB (2,042 nuclei, SLy4)
 
-| Metric | Value |
-|--------|:-----:|
-| chi2/datum | 224.52 |
-| HFB converged | 2039/2042 (99.85%) |
-| SEMF fallback | 1,251 nuclei |
-| GPU dispatches | 206 |
-| Wall time | 66.3 min |
-| NMP chi2/datum | 0.63 |
+Two GPU architectures tested (grouped dispatch v1, mega-batch v2):
 
-Engine: `BatchedEighGpu` via toadstool. The high chi2 reflects the spherical HFB model being applied honestly to light, deformed, and exotic nuclei where it should not be expected to work.
+| Metric | GPU v1 (grouped) | GPU v2 (mega-batch) | CPU-only |
+|--------|:-----------------:|:-------------------:|:--------:|
+| chi2/datum | 224.52 | **224.52** | 224.52 |
+| HFB converged | 2039/2042 | 2039/791 | 2039 |
+| SEMF fallback | 1,251 | 1,251 | 1,251 |
+| GPU dispatches | 206 | **101** | 0 |
+| Wall time | 66.3 min | **40.9 min** | **35.1s** |
+| GPU utilization | ~80% | **94.9%** | — |
+| GPU energy | ~82 Wh | **48 Wh** | — |
+| NMP chi2/datum | 0.63 | **0.63** | 0.63 |
+
+Engine: `BatchedEighGpu` via toadstool. The mega-batch (Experiment 005) pads
+all nuclei to max basis dimension and fires ONE dispatch per SCF iteration.
+Physics output is identical across all three substrates (chi2=224.52).
+
+**CPU is 70x faster** — the eigensolve is ~1% of total SCF iteration time.
+The other 99% (H-build, BCS, density) remains on CPU. This is the Amdahl's
+Law complexity boundary for small matrices (4×4 to 12×12). Moving all physics
+to GPU (GPU-resident SCF loop) would bring GPU to ~40s, competitive with CPU
+and surpassing it at larger basis sizes. See Experiment 005.
+
+The high chi2 reflects the spherical HFB model being applied honestly to light, deformed, and exotic nuclei where it should not be expected to work.
 
 ### 11.3 L3 Deformed HFB (2,042 nuclei, best_l2_42 params)
 
@@ -501,7 +515,20 @@ L3 better for 295/2036 nuclei (14.5%). The overflow in L3 chi2 indicates numeric
 | Heavy (100-200) | 1,064 | 34.98 | 29.60 | 160/1064 |
 | Very Heavy (200+) | 239 | 36.01 | 31.28 | 35/239 |
 
-**Timing**: L2=35.1s, L3=16,279s (4.52 hrs). L3/L2 cost ratio: 463.5x.
+**Timing**: L2=35.1s (CPU), L2=40.9min (GPU mega-batch), L3=16,279s (4.52 hrs CPU).
+
+**GPU L3 profiling** (Experiment 004): GPU-hybrid L3 was profiled over 94 min
+(52 nuclei, sly4). Result: 79.3% GPU utilization but 16× slower than CPU-only
+due to ~145,000 synchronous dispatches. Energy: 80.6 Wh ($0.01). Architectural
+fix: mega-batch eigensolves. See `experiments/004_GPU_DISPATCH_OVERHEAD_L3.md`.
+
+**L2 mega-batch profiling** (Experiment 005): Applied the mega-batch remedy to
+L2. Dispatches 206→101, wall time 66.3→40.9 min, GPU utilization 80→95%. But
+CPU still 70× faster (35.1s). Diagnosed as Amdahl's Law: eigensolve is 1% of
+SCF iteration. The complexity boundary is at n_states≈30–50. Below: CPU wins.
+Above: GPU wins. Path to pure-GPU-faster-than-CPU: move H-build, BCS, density
+to WGSL shaders → GPU-resident SCF loop → ~40s (competitive with CPU) → larger
+basis → GPU surpasses CPU. See `experiments/005_L2_MEGABATCH_COMPLEXITY_BOUNDARY.md`.
 
 ### 11.4 Reproduction
 

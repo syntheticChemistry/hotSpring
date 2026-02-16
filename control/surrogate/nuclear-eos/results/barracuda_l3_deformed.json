@@ -1,13 +1,13 @@
 {
-  "chi2_best_per_datum": 13.924149853839864,
-  "chi2_l2_per_datum": 20.583645449963562,
-  "chi2_l3_per_datum": 2.262912834422837e+19,
+  "chi2_best_per_datum": 24.04881247713087,
+  "chi2_l2_per_datum": 24.04881247713087,
+  "chi2_l3_per_datum": 7.900926926820333e+18,
   "engine": "barracuda::l3_deformed_hfb",
-  "l2_time_s": 35.123582897,
-  "l3_time_s": 16278.966498411,
+  "l2_time_s": 0.674691407,
+  "l3_time_s": 351.1809298,
   "level": 3,
-  "n_l2_better": 1741,
-  "n_l3_better": 295,
-  "n_nuclei": 2042,
-  "params_set": "best_l2_42"
+  "n_l2_better": 42,
+  "n_l3_better": 0,
+  "n_nuclei": 52,
+  "params_set": "sly4"
 }

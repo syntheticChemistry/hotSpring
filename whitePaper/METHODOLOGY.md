@@ -202,7 +202,7 @@ Phase F extends the validated nuclear EOS engine to the full AME2020 dataset (2,
 | L1 Pareto | NMP trade-off characterized | At least one lambda with 4/5 NMP within 2sigma | **lambda=25: 4/5, lambda=100: 4/5** |
 | L2 GPU | Full dataset processed | All 2,042 nuclei attempted | **2,042/2,042 attempted, 2,039 converged** |
 | L2 GPU | Convergence rate | > 95% of HFB nuclei converge | **99.85% (2039/2042)** |
-| L2 GPU | GPU dispatches | BatchedEighGpu operational | **206 dispatches, 66 min total** |
+| L2 GPU | GPU dispatches | BatchedEighGpu operational | **101 dispatches (mega-batch), 40.9 min** |
 | L3 Deformed | Full dataset attempted | All 2,042 nuclei | **2,042 attempted** |
 | L3 Deformed | Improvement over L2 | > 0 nuclei where L3 < L2 error | **295/2036 nuclei (14.5%)** |
 | L3 Deformed | Mass-region analysis | Breakdown by A regions | **4 regions documented** |
@@ -210,6 +210,33 @@ Phase F extends the validated nuclear EOS engine to the full AME2020 dataset (2,
 **Phase F quantitative checks: 9** (3 L1 Pareto + 3 L2 GPU + 3 L3 Deformed)
 
 Result: **9/9 Phase F characterization checks pass.** The checks confirm the infrastructure works at scale — the physics accuracy gaps (L2 chi2=224, L3 numerical overflow) are documented as current model limitations, not validation failures.
+
+### GPU Dispatch Overhead (Experiment 004 — Feb 15, 2026)
+
+Full-system profiling of L3 GPU-hybrid run (nvidia-smi + vmstat, 2,823 + 3,093
+samples). **Finding: 79.3% GPU utilization, 16× slower than CPU-only.** Root
+cause: ~145,000 synchronous dispatches with per-dispatch buffer alloc + blocking
+readback. GPU is "busy doing overhead, not physics." The architectural fix is to
+batch all eigensolves across all nuclei, persist GPU buffers, and use async
+readback for convergence flags only. See `experiments/004_GPU_DISPATCH_OVERHEAD_L3.md`.
+
+### L2 Mega-Batch and Complexity Boundary (Experiment 005 — Feb 16, 2026)
+
+Applied the mega-batch remedy to L2 spherical HFB. Dispatches reduced 206→101,
+wall time 66.3→40.9 min, GPU utilization rose to 94.9%. But CPU-only L2
+finishes in 35.1s — **70× faster**. Root cause: eigensolve is ~1% of total
+SCF iteration time. The remaining 99% (H-build, BCS, density) runs on CPU.
+This is Amdahl's Law applied to small matrices (4×4 to 12×12).
+
+**Complexity boundary**: GPU breaks even at matrix dimension ~30–50. Below
+this, CPU L1 cache coherence beats GPU dispatch overhead. Above (L3, beyond
+mean-field), GPU dominates. The path to pure-GPU-faster-than-CPU: move ALL
+physics to WGSL shaders (GPU-resident SCF loop, zero CPU↔GPU round-trips).
+See `experiments/005_L2_MEGABATCH_COMPLEXITY_BOUNDARY.md`.
+
+This is a **methodological lesson**: GPU profiling must track dispatch count and
+round-trip overhead, not just utilization percentage. High utilization with small
+synchronous dispatches is a false positive for GPU efficiency.
 
 ### Software Versions
 

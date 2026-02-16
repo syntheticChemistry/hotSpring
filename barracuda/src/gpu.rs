@@ -5,18 +5,28 @@
 //!
 //! Validated: RTX 4070 provides TRUE IEEE 754 f64 (0 ULP vs CPU).
 //! Performance: ~2x f32 for bandwidth-limited ops (element-wise, reductions).
+//!
+//! Architecture (Experiment 004 lesson):
+//!   The trains to and from take more time than the work.
+//!   Pre-plan, fill GPU function space, fire at once.
+//!   TensorContext enables begin_batch()/end_batch() for batched dispatch.
 
-use barracuda::device::WgpuDevice;
+use barracuda::device::{WgpuDevice, TensorContext};
 use std::process::Command;
 use std::sync::Arc;
 
-/// GPU context with FP64 support for science workloads
+/// GPU context with FP64 support for science workloads.
+///
+/// Wraps wgpu device with SHADER_F64 + ToadStool's TensorContext for
+/// batched dispatch (begin_batch/end_batch) and BufferPool reuse.
 pub struct GpuF64 {
     pub device: Arc<wgpu::Device>,
     pub queue: Arc<wgpu::Queue>,
     pub adapter_name: String,
     pub has_f64: bool,
     pub has_timestamps: bool,
+    wgpu_device: Arc<WgpuDevice>,
+    tensor_ctx: Arc<TensorContext>,
 }
 
 impl GpuF64 {
@@ -25,10 +35,20 @@ impl GpuF64 {
     /// This enables all toadstool GPU operations (linalg, FFT, observables)
     /// from hotSpring binaries using the same underlying wgpu device.
     pub fn to_wgpu_device(&self) -> Arc<WgpuDevice> {
-        Arc::new(WgpuDevice::from_existing_simple(
-            self.device.clone(),
-            self.queue.clone(),
-        ))
+        self.wgpu_device.clone()
+    }
+
+    /// Access the TensorContext for batched dispatch.
+    ///
+    /// Usage:
+    /// ```rust,ignore
+    /// let ctx = gpu.tensor_context();
+    /// ctx.begin_batch();
+    /// // ... queue multiple GPU operations ...
+    /// ctx.end_batch()?;  // Single GPU submission
+    /// ```
+    pub fn tensor_context(&self) -> &Arc<TensorContext> {
+        &self.tensor_ctx
     }
 }
 
@@ -83,12 +103,26 @@ impl GpuF64 {
             .await
             .map_err(|e| format!("Failed to create device: {e}"))?;
 
+        let device = Arc::new(device);
+        let queue = Arc::new(queue);
+
+        // Create ToadStool WgpuDevice bridge (shared device/queue, no new allocation)
+        let wgpu_device = Arc::new(WgpuDevice::from_existing_simple(
+            device.clone(),
+            queue.clone(),
+        ));
+
+        // Create TensorContext for batched dispatch and BufferPool
+        let tensor_ctx = Arc::new(TensorContext::new(wgpu_device.clone()));
+
         Ok(Self {
-            device: Arc::new(device),
-            queue: Arc::new(queue),
+            device,
+            queue,
             adapter_name: info.name.clone(),
             has_f64,
             has_timestamps,
+            wgpu_device,
+            tensor_ctx,
         })
     }
 

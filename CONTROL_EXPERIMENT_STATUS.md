@@ -987,6 +987,43 @@ evaluation strategy is identified and fixable — needs hybrid true+surrogate mo
 All 12 barracuda modules pass functional validation. See detailed handoff:
 `wateringHole/handoffs/BARRACUDA_LIBRARY_VALIDATION_FEB12_2026.md`.
 
+**GPU dispatch overhead profiling** (Feb 15, 2026): L3 deformed HFB GPU run
+profiled with full nvidia-smi + vmstat monitoring (2,823 GPU samples, 3,093 CPU
+samples over 94 min). Key finding: **GPU at 79.3% utilization but 16× slower than
+CPU-only**. Root cause: ~145,000 small synchronous GPU dispatches, each with
+buffer alloc + submit + blocking readback. CPU dropped to 10.7% usage (freed 21
+of 24 cores), but GPU was busy doing overhead, not physics. Energy: 80.6 Wh GPU
+($0.01). The fix: batch ALL eigensolves across ALL nuclei into mega-dispatches,
+keep grid physics in persistent GPU buffers, use async readback for convergence
+flags only. ToadStool's `begin_batch()`/`end_batch()` and `AsyncSubmitter`
+directly address this. See `experiments/004_GPU_DISPATCH_OVERHEAD_L3.md`.
+
+**Architecture lesson**: The trains to and from take more time than the work.
+Pre-plan, fill the GPU function space, fire at once. Every unnecessary CPU→GPU
+round-trip is wasted time. This applies to all GPU-accelerated physics in
+hotSpring, not just L3. The pattern: load the factory, let the assembly line
+run, only check the output dock when you need a routing decision.
+
+**L2 mega-batch profiling** (Feb 16, 2026): Implemented mega-batch remedy from
+Experiment 004 on L2 spherical HFB. Results: dispatches reduced 206→101 (2x),
+wall time 66.3→40.9 min (1.6x faster). But CPU-only L2 = 35.1s — **CPU is
+still 70x faster**. GPU at 94.9% utilization (up from 79.3% in Exp 004),
+confirming mega-batch saturates the GPU. Root cause: the eigensolve is ~1% of
+total SCF iteration time. Hamiltonian construction, BCS pairing, and density
+updates consume 99% and remain on CPU. This is Amdahl's Law — accelerating 1%
+of the work yields max 1.01x speedup. The fix: move ALL physics to GPU
+(H-build, BCS, density, convergence check) via WGSL shaders, creating a
+GPU-resident SCF loop with zero CPU↔GPU round-trips during iteration.
+**Complexity boundary**: for matrices < ~30×30, CPU cache coherence beats GPU
+parallelism. For matrices > ~50×50 (L3 deformed, beyond-mean-field), GPU
+dominates. See `experiments/005_L2_MEGABATCH_COMPLEXITY_BOUNDARY.md`.
+
+**Stated goal**: Pure GPU faster than CPU for all HFB levels. Path:
+GPU H-build (~10x) → GPU BCS (~2x) → GPU density (~1.5x) → GPU-resident
+loop (~2x) → larger basis (GPU wins outright). Estimated: ~40s total for
+791 nuclei on GPU-resident pipeline, competitive with CPU's 35s and
+surpassing it at larger basis sizes.
+
 ---
 
 ## Document Links
@@ -998,3 +1035,5 @@ All 12 barracuda modules pass functional validation. See detailed handoff:
 - [`benchmarks/PROTOCOL.md`](benchmarks/PROTOCOL.md) — Benchmark protocol (time + energy measurement)
 - [`experiments/001_N_SCALING_GPU.md`](experiments/001_N_SCALING_GPU.md) — N-scaling experiment journal (Phase D)
 - [`experiments/002_CELLLIST_FORCE_DIAGNOSTIC.md`](experiments/002_CELLLIST_FORCE_DIAGNOSTIC.md) — Cell-list bug diagnostic (Phase D)
+- [`experiments/004_GPU_DISPATCH_OVERHEAD_L3.md`](experiments/004_GPU_DISPATCH_OVERHEAD_L3.md) — Dispatch overhead profiling (Phase F)
+- [`experiments/005_L2_MEGABATCH_COMPLEXITY_BOUNDARY.md`](experiments/005_L2_MEGABATCH_COMPLEXITY_BOUNDARY.md) — Mega-batch profiling + complexity boundary (Phase F)

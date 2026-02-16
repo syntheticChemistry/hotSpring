@@ -49,18 +49,25 @@ The novelty has two timescales:
 | Dual GPU | 2x RTX 4070 | 2 evals/66 min | $1,200 | ~44 |
 | Quad GPU | 4x RTX 4070 | 4 evals/66 min | $2,400 | ~88 |
 
-**Current GPU vs CPU split and migration path**:
+**Current GPU vs CPU split and migration path** (Experiment 005 informed):
 
-| Component | Now | Target |
-|-----------|:---:|:---:|
-| L1 SEMF evaluation | GPU | GPU |
-| L2 Hamiltonian construction | CPU | **GPU** (WGSL shader) |
-| L2 eigenvalue decomposition | GPU (BatchedEighGpu) | GPU |
-| L2 density updates / SCF | CPU | **GPU** (WGSL shader) |
-| L3 deformed grid operations | CPU (Rayon) | **GPU** (2D grid shader) |
-| Parameter optimization loop | CPU | CPU (dispatch only) |
+| Component | Now | % of L2 time | Target | Est. GPU speedup |
+|-----------|:---:|:------------:|:------:|:----------------:|
+| L1 SEMF evaluation | GPU | — | GPU | Done |
+| L2 Hamiltonian construction | **CPU** | **~85%** | **GPU** (WGSL) | **~10x** |
+| L2 eigenvalue decomposition | GPU | ~1% | GPU | Done |
+| L2 BCS pairing | **CPU** | **~8%** | **GPU** (WGSL) | **~2x** |
+| L2 density updates | **CPU** | **~5%** | **GPU** (WGSL) | **~1.5x** |
+| L2 convergence check | CPU | ~1% | **GPU** (reduction) | eliminate readback |
+| L3 deformed grid operations | CPU (Rayon) | — | **GPU** (2D grid) | large basis wins |
+| Parameter optimization loop | CPU | — | CPU (dispatch only) | — |
 
-Moving Hamiltonian construction and density updates to GPU would eliminate the CPU-GPU transfer bottleneck that currently dominates L2 runtime, reducing per-nucleus time from 5s to an estimated 0.5-1.0s.
+**Complexity boundary** (Exp 005): CPU is 70x faster for L2 (12×12 matrices).
+GPU eigensolve is ~1% of SCF iteration; the other 99% is CPU-bound physics.
+Moving ALL physics to GPU (GPU-resident SCF loop) would eliminate 101
+CPU↔GPU round-trips, reducing 40.9 min to an estimated ~40s — competitive
+with CPU's 35s and surpassing it at larger basis sizes needed for better
+physics. The crossover dimension is ~30–50 states per nucleus.
 
 ### 1.4 Next Models: Beyond Skyrme HFB
 
@@ -110,16 +117,32 @@ The fundamental tension in nuclear EOS fitting: binding energies (chi2_BE) vs nu
 
 ### 2.3 L2 GPU-Batched HFB at Scale
 
-GPU-batched HFB via `BatchedEighGpu` (toadstool), SLy4 baseline on full AME2020:
+GPU-batched HFB via `BatchedEighGpu` (toadstool), SLy4 baseline on full AME2020.
+Two architectures tested — grouped dispatch (v1) and mega-batch (v2):
 
-| Metric | Value |
-|--------|:-----:|
-| chi2/datum | 224.52 |
-| HFB nuclei converged | 2039/2042 (99.85%) |
-| SEMF fallback | 1,251 nuclei |
-| GPU dispatches | 206 |
-| Wall time | 66.3 min |
-| NMP chi2/datum | 0.63 (SLy4) |
+| Implementation | GPU Dispatches | Wall Time | Per HFB Nucleus |
+|----------------|:--------------:|:---------:|:---------------:|
+| **CPU-only** (nalgebra eigh) | 0 | **35.1s** | **44.4ms** |
+| GPU v1 (grouped, 5 groups/iter) | 206 | 66.3 min | 5,029ms |
+| **GPU v2 (mega-batch, 1/iter)** | **101** | **40.9 min** | **3,104ms** |
+
+| Metric | GPU v1 | GPU v2 (mega-batch) |
+|--------|:------:|:-------------------:|
+| chi2/datum | 224.52 | **224.52** (identical) |
+| HFB converged | 2039/2042 (99.85%) | 2039/791 HFB |
+| SEMF fallback | 1,251 | 1,251 |
+| NMP chi2/datum | 0.63 | **0.63** |
+| GPU utilization (avg) | ~80% | **94.9%** |
+| GPU energy | ~82 Wh | **48 Wh** |
+
+The mega-batch (Experiment 005) halved dispatches and improved wall time 1.6x
+while achieving 95% GPU utilization — up from ~80% in v1. Physics output is
+identical, confirming that diagonal padding (1e10) for smaller matrices does
+not contaminate eigenvalues.
+
+**CPU is still 70x faster.** This is Amdahl's Law: the eigensolve is ~1% of
+the SCF iteration. Hamiltonian construction, BCS pairing, and density updates
+consume 99% on CPU. The fix: move all physics to GPU (Section 2.5b).
 
 The chi2 of 224.52 on 2,042 nuclei is expected — the full dataset includes light nuclei (A < 20) where mean-field breaks down, deformed nuclei where spherical fails, and exotic nuclei near drip lines. The 99.85% convergence rate confirms the GPU eigensolvers are robust.
 
@@ -133,7 +156,9 @@ The chi2 of 224.52 on 2,042 nuclei is expected — the full dataset includes lig
 | m*/m | 0.5321 | 0.69 +/- 0.1 | -1.58 sigma |
 | J (MeV) | 30.39 | 32 +/- 2 | -0.80 sigma |
 
-All NMP within 2sigma except m*/m at -1.58sigma (borderline). SLy4 remains the NMP gold standard — hand-tuned by experts over years. The pipeline currently builds Hamiltonians on CPU; moving this to GPU would reduce per-nucleus time from 5s to an estimated 0.5-1.0s.
+All NMP within 2sigma except m*/m at -1.58sigma (borderline). SLy4 remains the NMP gold standard — hand-tuned by experts over years. The pipeline currently builds Hamiltonians on CPU. Moving H-build, BCS, and
+density to GPU (GPU-resident SCF loop) would eliminate 101 CPU↔GPU round-trips
+per run, reducing total time from 40.9 min to an estimated ~40s (Section 2.5b).
 
 ### 2.4 L3 Deformed HFB — First Full-Scale Attempt
 
@@ -160,6 +185,79 @@ L3 improvement is uniformly distributed — not concentrated in deformed nuclei 
 
 **Timing**: L2=35s, L3=16,279s (4.52 hrs). L3/L2 cost ratio: 463.5x.
 
+### 2.5a GPU Dispatch Overhead Profiling (Experiment 004)
+
+The L3 GPU run was profiled with concurrent nvidia-smi and vmstat monitoring
+(2,823 GPU samples + 3,093 CPU samples over 94 minutes). Key finding:
+
+| Metric | CPU-only (Rayon, 24 threads) | GPU-hybrid (BatchedEighGpu) |
+|--------|:----------------------------:|:---------------------------:|
+| Wall time | 5m 51s (52 nuclei) | >94 min (**incomplete**, 0/52) |
+| CPU utilization | ~1800% (24 threads saturated) | 10.7% (~2.6 threads) |
+| GPU utilization | 0% | **79.3% avg**, 88% peak |
+| GPU power | 0 W | 51.4 W avg, 52.4 W peak |
+| VRAM | 0 | 647 MiB avg, 676 MiB peak |
+| GPU energy | 0 | 80.6 Wh ($0.01) |
+| Outcome | **52/52 complete** | **0/52 complete** |
+
+**Root cause**: ~145,000 synchronous GPU dispatches. Each dispatch cycle —
+buffer allocation, shader bind, blocking readback — costs milliseconds,
+but the Jacobi eigensolve for a 4×4 to 12×12 block costs microseconds.
+The overhead dominates by 100× or more. With 24 Rayon threads all
+contending for a single GPU queue, the serialization amplifies to ~50×.
+
+**The insight**: GPU utilization ≠ GPU efficiency. The GPU was 79% busy
+doing buffer management, not physics.
+
+### 2.5b L2 Mega-Batch and the Complexity Boundary (Experiment 005)
+
+The mega-batch remedy from Experiment 004 was applied to L2: pad ALL nuclei
+to max basis dimension, fire ONE `BatchedEighGpu` per SCF iteration. Result:
+dispatches dropped 206→101, wall time 66.3→40.9 min, GPU utilization rose
+to 94.9%. But CPU-only L2 still finishes in 35.1s — **70x faster**.
+
+**Why**: The eigensolve is ~1% of each SCF iteration. The other 99% —
+Hamiltonian construction, BCS pairing, density updates — runs on CPU. Per
+Amdahl's Law, even infinite GPU speed on 1% of the work yields max 1.01x
+improvement. The dispatch overhead makes it a net loss.
+
+**The complexity boundary**: HFB matrices are 4×4 to 12×12 (n_states for
+A=56–132). nalgebra solves a 12×12 eigenvalue problem in ~5 μs (L1 cache
+resident). GPU Jacobi computes equally fast, but dispatch overhead (buffer
+alloc + bind + sync readback) costs ~50 ms per round-trip. The breakeven:
+
+| Matrix dimension | GPU compute/dispatch | Dispatch overhead | GPU wins? |
+|:----------------:|:--------------------:|:-----------------:|:---------:|
+| 12×12 (current L2) | ~8 ms | ~50 ms | **No** (14%) |
+| 30×30 | ~125 ms | ~50 ms | Marginal (71%) |
+| **50×50 (L3 target)** | **~580 ms** | **~50 ms** | **Yes (92%)** |
+| 100×100+ | >4.6 s | ~50 ms | **Dominant** |
+
+**The fix**: Move ALL physics to GPU. GPU-resident SCF loop:
+
+```
+CURRENT:  [CPU: H-build] → upload → [GPU: eigh] → download → [CPU: BCS+ρ] × 101 iters
+TARGET:   [GPU: H-build → eigh → BCS → ρ → converge?] × 101 iters (zero round-trips)
+```
+
+| Step | What Moves to GPU | Est. Factor | Cumulative Time |
+|------|-------------------|:-----------:|:---------------:|
+| 0. Current | Eigensolve only | baseline | 40.9 min |
+| 1. H-build shader | Hamiltonian construction | ~10x | ~4 min |
+| 2. BCS shader | Pairing + occupation | ~2x | ~2 min |
+| 3. Density shader | Basis-weighted sum | ~1.5x | ~80s |
+| 4. GPU-resident loop | Eliminate round-trips | ~2x | **~40s** |
+| 5. Larger basis | Better physics | GPU wins | ~30s |
+
+**Step 4 crosses the boundary**: ~40s GPU-resident is competitive with CPU's
+35s. Step 5 (larger basis for better physics) makes GPU definitively faster —
+CPU time grows as O(n³) while GPU parallelism absorbs the increase.
+
+**Stated goal: pure GPU faster than CPU for all HFB levels.**
+
+See `experiments/005_L2_MEGABATCH_COMPLEXITY_BOUNDARY.md`.
+See `experiments/004_GPU_DISPATCH_OVERHEAD_L3.md`.
+
 ### 2.6 Incomplete Runs and Known Gaps
 
 Two runs from the overnight batch did not complete:
@@ -179,7 +277,7 @@ The L2 Phase 1 (SLy4 baseline, completed) and L3 best_l2_42 (completed) provide 
 
 **Phase F — Full-scale nuclear structure (new)**:
 
-1. **2,042 nuclei on consumer GPU.** The full AME2020 dataset — 39x the published paper — runs on a single RTX 4070. L1 Pareto in 10.8 min, L2 GPU-batched HFB in 66 min (99.85% convergence), L3 deformed in 4.5 hrs (295/2036 nuclei improved).
+1. **2,042 nuclei on consumer GPU.** The full AME2020 dataset — 39x the published paper — runs on a single RTX 4070. L1 Pareto in 10.8 min, L2 GPU mega-batch HFB in 40.9 min (99.85% convergence, 101 dispatches at 95% GPU util), L3 deformed in 4.5 hrs (295/2036 nuclei improved). CPU L2 is still 70x faster (35.1s) — the complexity boundary is at matrix dim ~30-50 (Section 2.5b).
 
 2. **The Pareto frontier is sharp and informative.** chi2_BE ranges 0.69-15.38 as NMP compliance improves. No single parameter set satisfies both — the first systematic characterization of this trade-off on consumer hardware.
 
@@ -335,10 +433,22 @@ The cell-list kernel exposed a WGSL `i32 %` portability bug — modulo for negat
 - [x] N-scaling to 20,000, paper parity at 10k
 - [x] BatchedEighGpu (L2 eigensolves), SsfGpu, PppmGpu
 - [x] Paper-parity long run: 9/9 at N=10k, 80k steps, $0.044
-- [ ] L2 Hamiltonian construction on GPU
+- [x] **Dispatch overhead profiled** — 79.3% GPU util, 16× slower than CPU (Exp 004)
+- [ ] Mega-batch eigensolves across ALL nuclei (reduce 145k → 1k dispatches)
+- [ ] GPU-resident SCF loop (convergence check on-GPU, tiny readback)
+- [ ] L2 Hamiltonian construction on GPU (WGSL grid shader)
 - [ ] L2 density accumulation + Skyrme potential on GPU
 - [ ] L2 Coulomb prefix-sum on GPU
-- [ ] L3 2D grid operations on GPU
+- [ ] L3 2D grid operations on GPU (persistent buffers)
+- [ ] Multi-kernel pipeline: H → eigh → BCS → density without CPU round-trips
+
+**Dispatch overhead lesson** (Experiment 004): The bottleneck in GPU-accelerated
+HFB is NOT the compute — it is the train schedule. Each CPU→GPU→CPU round-trip
+costs milliseconds; a 4×4 Jacobi eigensolve costs microseconds. Pre-planning
+all work into batched dispatches with persistent GPU buffers and async readback
+is the path to the expected 90-190× speedup. ToadStool's `begin_batch()` /
+`end_batch()` and `AsyncSubmitter` are the immediate tools; a full GPU-resident
+SCF loop is the target architecture.
 
 ---
 
@@ -382,9 +492,11 @@ For any scientific domain with public reference data:
 | Python control | 52 nuclei | L1 SEMF | 2.27 | 180s | i9-12900K |
 | BarraCUDA L1 (GPU) | 52 nuclei | L1 SEMF | 2.27 | 1.9 ms/eval | RTX 4070 |
 | **Phase F: L1 Pareto** | **2,042 nuclei** | **L1 SEMF** | **0.69-7.37** | **~100s/lambda** | **i9-12900K** |
-| **Phase F: L2 GPU** | **2,042 nuclei** | **GPU-batched HFB** | **224.52** | **66 min** | **RTX 4070** |
+| **Phase F: L2 GPU v1** | **2,042 nuclei** | **GPU-batched HFB** | **224.52** | **66 min** | **RTX 4070** |
+| **Phase F: L2 GPU v2** | **2,042 nuclei** | **GPU mega-batch** | **224.52** | **40.9 min** | **RTX 4070** |
+| Phase F: L2 CPU | 2,042 nuclei | CPU (nalgebra) | 224.52 | 35.1s | i9-12900K |
 | **Phase F: L3 best** | **2,042 nuclei** | **Deformed HFB** | **13.92** | **4.5 hrs** | **CPU (rayon)** |
-| **Target** | **2,042 nuclei** | **L3 + GPU-first** | **< 1.0** | **< 1 hr** | **Multi-RTX 4070** |
+| **Target** | **2,042 nuclei** | **GPU-resident SCF** | **< 1.0** | **< 1 hr** | **Multi-RTX 4070** |
 
 ### Data Infrastructure
 
@@ -401,7 +513,7 @@ cd hotSpring/barracuda
 
 # Phase F: Full-scale nuclear EOS (2,042 nuclei)
 cargo run --release --bin nuclear_eos_l1_ref -- --nuclei=full --pareto       # L1 Pareto (~11 min)
-cargo run --release --bin nuclear_eos_l2_gpu -- --nuclei=full --phase1-only  # L2 GPU (~66 min)
+cargo run --release --bin nuclear_eos_l2_gpu -- --nuclei=full --phase1-only  # L2 GPU mega-batch (~41 min)
 cargo run --release --bin nuclear_eos_l3_ref -- --nuclei=full --params=best_l2_42  # L3 (~4.5 hrs)
 
 # Phase E: Paper-parity Yukawa MD

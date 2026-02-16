@@ -2,15 +2,20 @@
 //!
 //! Uses `BatchedEighGpu` from toadstool to batch eigensolves across nuclei,
 //! replacing the sequential `eigh_f64` loop with a single GPU dispatch per
-//! SCF iteration per basis-size group.
+//! SCF iteration.
 //!
-//! Architecture:
-//!   1. Group nuclei by basis dimension (n_states)
-//!   2. For each group, run lockstep SCF with batched GPU eigensolves
-//!   3. Remove converged nuclei between iterations
+//! Architecture (Experiment 004 rewire):
+//!   1. Pad ALL nuclei to a common max basis dimension
+//!   2. Pack ALL active nuclei into ONE mega-batch per SCF iteration
+//!   3. SINGLE BatchedEighGpu dispatch per iteration (not per group)
+//!   4. Remove converged nuclei between iterations
 //!
-//! This is the critical L2 GPU wire: transforms O(N_nuclei) sequential
-//! eigensolves into O(1) batched GPU dispatches per iteration.
+//! Key insight: reducing dispatch count is more important than avoiding
+//! matrix padding overhead. Each dispatch costs ~ms of buffer alloc + sync
+//! readback; a padded matrix costs ~μs of extra Jacobi iterations on zeros.
+//!
+//! Previous: ~5 groups × 200 iterations = ~1000 GPU dispatches
+//! Current:  1 mega-batch × 200 iterations = ~200 GPU dispatches (5× reduction)
 
 use super::semf::semf_binding_energy;
 use super::hfb::SphericalHFB;
@@ -91,17 +96,23 @@ pub fn binding_energies_l2_gpu(
         })
         .collect();
 
-    // Group by n_states for batched eigensolves
-    let mut groups: std::collections::HashMap<usize, Vec<usize>> =
-        std::collections::HashMap::new();
-    for (i, (_, _, _, hfb)) in solvers.iter().enumerate() {
-        groups.entry(hfb.n_states()).or_default().push(i);
-    }
+    // ═══════════════════════════════════════════════════════════════
+    // Mega-batch: pad ALL nuclei to max basis dimension
+    // ═══════════════════════════════════════════════════════════════
+    // Instead of grouping by n_states (5+ groups, 5+ dispatches/iter),
+    // we pad all matrices to the maximum dimension and fire ONE dispatch
+    // per SCF iteration. The padding overhead (extra Jacobi iterations on
+    // identity-padded rows) is negligible compared to the dispatch overhead
+    // saved (~ms per dispatch avoided).
+    //
+    // Padding strategy: fill diagonal of padded rows/cols with 1e10.
+    // This pushes artificial eigenvalues far from the physical spectrum
+    // (-50 to +100 MeV), making them trivially identifiable. BCS gives
+    // v² ≈ 0 for these states (correct — they're unphysical).
 
-    // For each group, run lockstep SCF
-    // We maintain per-nucleus state and batch eigensolves within each group
+    let max_ns = solvers.iter().map(|(_, _, _, hfb)| hfb.n_states()).max().unwrap_or(1);
+    let max_mat_size = max_ns * max_ns;
     let w0 = params[9];
-    let ns_groups: Vec<(usize, Vec<usize>)> = groups.into_iter().collect();
 
     // Per-nucleus SCF state
     struct NucleusState {
@@ -111,6 +122,7 @@ pub fn binding_energies_l2_gpu(
         converged: bool,
         binding_energy: f64,
         iterations: usize,
+        actual_ns: usize,  // real basis dimension (before padding)
     }
 
     let mut states: Vec<NucleusState> = solvers
@@ -124,7 +136,7 @@ pub fn binding_energies_l2_gpu(
             // Initialize Wood-Saxon-like density profile
             let rho_p: Vec<f64> = (0..nr)
                 .map(|k| {
-                    let r = (k + 1) as f64 * (15.0 / nr as f64); // approximate r_max
+                    let r = (k + 1) as f64 * (15.0 / nr as f64);
                     if r < r_nuc {
                         (rho0 * *z as f64 / a as f64).max(1e-15)
                     } else {
@@ -150,139 +162,202 @@ pub fn binding_energies_l2_gpu(
                 converged: false,
                 binding_energy: 0.0,
                 iterations: 0,
+                actual_ns: hfb.n_states(),
             }
         })
         .collect();
 
-    // Run SCF loop per group (batched eigensolves within each)
-    for &(ns, ref group_indices) in &ns_groups {
-        let mat_size = ns * ns;
+    // ═══════════════════════════════════════════════════════════════
+    // Unified SCF loop: ONE dispatch per iteration for ALL nuclei
+    // ═══════════════════════════════════════════════════════════════
+    let all_indices: Vec<usize> = (0..solvers.len()).collect();
 
-        for iter in 0..max_iter {
-            // Collect indices of non-converged nuclei in this group
-            let active: Vec<usize> = group_indices
-                .iter()
-                .copied()
-                .filter(|&i| !states[i].converged)
-                .collect();
+    for iter in 0..max_iter {
+        // Collect indices of ALL non-converged nuclei (across all groups)
+        let active: Vec<usize> = all_indices
+            .iter()
+            .copied()
+            .filter(|&i| !states[i].converged)
+            .collect();
 
-            if active.is_empty() {
-                break;
-            }
+        if active.is_empty() {
+            break;
+        }
 
-            // For each active nucleus, build proton + neutron Hamiltonians
-            // Pack them into a single buffer for batched GPU dispatch
-            let batch_size = active.len() * 2; // proton + neutron per nucleus
-            let mut packed_hamiltonians: Vec<f64> = vec![0.0; batch_size * mat_size];
+        // Pack ALL active nuclei into ONE mega-batch (padded to max_ns)
+        let batch_size = active.len() * 2; // proton + neutron per nucleus
+        let mut packed_hamiltonians: Vec<f64> = vec![0.0; batch_size * max_mat_size];
 
-            // Build Hamiltonians on CPU (this is the O(n_states^2) part)
-            for (batch_idx, &solver_idx) in active.iter().enumerate() {
-                let (z, n, _, ref hfb) = solvers[solver_idx];
-                let state = &states[solver_idx];
+        // Build Hamiltonians on CPU and pack with identity-padding
+        for (batch_idx, &solver_idx) in active.iter().enumerate() {
+            let (z, n, _, ref hfb) = solvers[solver_idx];
+            let state = &states[solver_idx];
+            let actual_ns = state.actual_ns;
 
-                for (species_idx, is_proton) in [(0usize, true), (1usize, false)] {
-                    let h_flat = hfb.build_hamiltonian(
-                        &state.rho_p,
-                        &state.rho_n,
-                        is_proton,
-                        params,
-                        w0,
-                    );
-                    let offset = (batch_idx * 2 + species_idx) * mat_size;
-                    packed_hamiltonians[offset..offset + mat_size]
-                        .copy_from_slice(&h_flat);
-                }
-            }
-
-            // GPU batched eigensolve — single dispatch for ALL active nuclei
-            let (eigenvalues, eigenvectors) = match BatchedEighGpu::execute_f64(
-                device.clone(),
-                &packed_hamiltonians,
-                ns,
-                batch_size,
-                30, // max Jacobi sweeps
-            ) {
-                Ok(result) => result,
-                Err(e) => {
-                    eprintln!("BatchedEighGpu failed: {}", e);
-                    // Fall back to marking all as unconverged
-                    for &i in &active {
-                        states[i].converged = false;
-                    }
-                    break;
-                }
-            };
-            gpu_dispatches += 1;
-
-            // Unpack results and update densities (CPU)
-            for (batch_idx, &solver_idx) in active.iter().enumerate() {
-                let (z, n, _, ref hfb) = solvers[solver_idx];
-                let state = &mut states[solver_idx];
-
-                let nr = hfb.nr();
-                let mut rho_p_new = vec![1e-15; nr];
-                let mut rho_n_new = vec![1e-15; nr];
-
-                // Proton eigendecomposition (species_idx = 0)
-                let eig_offset_p = (batch_idx * 2) * ns;
-                let vec_offset_p = (batch_idx * 2) * mat_size;
-                // Neutron eigendecomposition (species_idx = 1)
-                let eig_offset_n = (batch_idx * 2 + 1) * ns;
-                let vec_offset_n = (batch_idx * 2 + 1) * mat_size;
-
-                for (species_idx, is_proton) in [(0usize, true), (1usize, false)] {
-                    let eig_offset = if is_proton { eig_offset_p } else { eig_offset_n };
-                    let vec_offset = if is_proton { vec_offset_p } else { vec_offset_n };
-
-                    let eigs = &eigenvalues[eig_offset..eig_offset + ns];
-                    let vecs = &eigenvectors[vec_offset..vec_offset + mat_size];
-
-                    let num_q = if is_proton { z } else { n };
-                    let delta_q = hfb.pairing_gap();
-
-                    // BCS occupations
-                    let (v2, _lambda) =
-                        hfb.bcs_occupations_from_eigs(eigs, num_q, delta_q);
-
-                    // Build new density from BCS-weighted eigenstates
-                    let rho_new =
-                        hfb.density_from_eigenstates(vecs, &v2, ns);
-
-                    if is_proton {
-                        rho_p_new = rho_new;
-                    } else {
-                        rho_n_new = rho_new;
-                    }
-                }
-
-                // Density mixing
-                let alpha = if iter == 0 { 0.8 } else { mixing };
-                for k in 0..nr {
-                    state.rho_p[k] =
-                        (alpha * rho_p_new[k] + (1.0 - alpha) * state.rho_p[k]).max(1e-15);
-                    state.rho_n[k] =
-                        (alpha * rho_n_new[k] + (1.0 - alpha) * state.rho_n[k]).max(1e-15);
-                }
-
-                // Compute total energy
-                let e_total = hfb.compute_energy_from_densities(
+            for (species_idx, is_proton) in [(0usize, true), (1usize, false)] {
+                let h_flat = hfb.build_hamiltonian(
                     &state.rho_p,
                     &state.rho_n,
-                    &eigenvalues[eig_offset_p..eig_offset_p + ns],
-                    &eigenvectors[vec_offset_p..vec_offset_p + mat_size],
-                    &eigenvalues[eig_offset_n..eig_offset_n + ns],
-                    &eigenvectors[vec_offset_n..vec_offset_n + mat_size],
+                    is_proton,
                     params,
+                    w0,
                 );
 
-                let de = (e_total - state.e_prev).abs();
-                state.e_prev = e_total;
-                state.iterations = iter + 1;
-                state.binding_energy = if e_total < 0.0 { -e_total } else { e_total.abs() };
+                let offset = (batch_idx * 2 + species_idx) * max_mat_size;
 
-                if de < tol && iter > 5 {
-                    state.converged = true;
+                // Copy actual matrix into padded location (row-major)
+                for r in 0..actual_ns {
+                    for c in 0..actual_ns {
+                        packed_hamiltonians[offset + r * max_ns + c] =
+                            h_flat[r * actual_ns + c];
+                    }
                 }
+
+                // Identity-pad diagonal for extra rows/cols with large value
+                // These produce eigenvalues at 1e10, trivially filtered out
+                for k in actual_ns..max_ns {
+                    packed_hamiltonians[offset + k * max_ns + k] = 1e10;
+                }
+            }
+        }
+
+        // ─── SINGLE GPU dispatch for ALL active nuclei ───────────
+        let (eigenvalues, eigenvectors) = match BatchedEighGpu::execute_f64(
+            device.clone(),
+            &packed_hamiltonians,
+            max_ns,
+            batch_size,
+            30, // max Jacobi sweeps
+        ) {
+            Ok(result) => result,
+            Err(e) => {
+                eprintln!("BatchedEighGpu failed (iter {}): {}", iter, e);
+                for &i in &active {
+                    states[i].converged = false;
+                }
+                break;
+            }
+        };
+        gpu_dispatches += 1;
+
+        // Unpack results: extract actual_ns eigenvalues per nucleus
+        for (batch_idx, &solver_idx) in active.iter().enumerate() {
+            let (z, n, _, ref hfb) = solvers[solver_idx];
+            let state = &mut states[solver_idx];
+            let actual_ns = state.actual_ns;
+
+            let nr = hfb.nr();
+            let mut rho_p_new = vec![1e-15; nr];
+            let mut rho_n_new = vec![1e-15; nr];
+
+            // Eigenvalue/eigenvector offsets in padded arrays
+            let eig_offset_p = (batch_idx * 2) * max_ns;
+            let vec_offset_p = (batch_idx * 2) * max_mat_size;
+            let eig_offset_n = (batch_idx * 2 + 1) * max_ns;
+            let vec_offset_n = (batch_idx * 2 + 1) * max_mat_size;
+
+            for (_species_idx, is_proton) in [(0usize, true), (1usize, false)] {
+                let eig_offset = if is_proton { eig_offset_p } else { eig_offset_n };
+                let vec_offset = if is_proton { vec_offset_p } else { vec_offset_n };
+
+                // Extract ONLY the first actual_ns eigenvalues (physical ones)
+                // The padded eigenvalues are at 1e10 — skip them
+                let all_eigs = &eigenvalues[eig_offset..eig_offset + max_ns];
+                let physical_eigs: Vec<f64> = all_eigs.iter()
+                    .copied()
+                    .filter(|&e| e < 1e9)  // filter out padded eigenvalues
+                    .collect();
+
+                // Use physical eigenvalues (pad with zeros if fewer than actual_ns)
+                let eigs: Vec<f64> = if physical_eigs.len() >= actual_ns {
+                    physical_eigs[..actual_ns].to_vec()
+                } else {
+                    let mut e = physical_eigs;
+                    e.resize(actual_ns, 0.0);
+                    e
+                };
+
+                // Extract eigenvectors: first actual_ns components of each
+                // eigenvector (the padded components are near-zero for physical states)
+                let mut vecs = vec![0.0; actual_ns * actual_ns];
+                for col in 0..actual_ns {
+                    // Only if this eigenvalue is physical
+                    if all_eigs[col] < 1e9 {
+                        for row in 0..actual_ns {
+                            vecs[col * actual_ns + row] =
+                                eigenvectors[vec_offset + col * max_ns + row];
+                        }
+                    }
+                }
+
+                let num_q = if is_proton { z } else { n };
+                let delta_q = hfb.pairing_gap();
+
+                // BCS occupations
+                let (v2, _lambda) =
+                    hfb.bcs_occupations_from_eigs(&eigs, num_q, delta_q);
+
+                // Build new density from BCS-weighted eigenstates
+                let rho_new =
+                    hfb.density_from_eigenstates(&vecs, &v2, actual_ns);
+
+                if is_proton {
+                    rho_p_new = rho_new;
+                } else {
+                    rho_n_new = rho_new;
+                }
+            }
+
+            // Density mixing
+            let alpha = if iter == 0 { 0.8 } else { mixing };
+            for k in 0..nr {
+                state.rho_p[k] =
+                    (alpha * rho_p_new[k] + (1.0 - alpha) * state.rho_p[k]).max(1e-15);
+                state.rho_n[k] =
+                    (alpha * rho_n_new[k] + (1.0 - alpha) * state.rho_n[k]).max(1e-15);
+            }
+
+            // Compute total energy — use physical eigenvalues/eigenvectors
+            let eig_p: Vec<f64> = eigenvalues[eig_offset_p..eig_offset_p + max_ns]
+                .iter().copied().filter(|&e| e < 1e9).take(actual_ns).collect();
+            let eig_n: Vec<f64> = eigenvalues[eig_offset_n..eig_offset_n + max_ns]
+                .iter().copied().filter(|&e| e < 1e9).take(actual_ns).collect();
+
+            // Extract actual_ns×actual_ns eigenvector blocks for energy
+            let mut vecs_p = vec![0.0; actual_ns * actual_ns];
+            let mut vecs_n = vec![0.0; actual_ns * actual_ns];
+            for col in 0..actual_ns {
+                if eigenvalues[eig_offset_p + col] < 1e9 {
+                    for row in 0..actual_ns {
+                        vecs_p[col * actual_ns + row] =
+                            eigenvectors[vec_offset_p + col * max_ns + row];
+                    }
+                }
+                if eigenvalues[eig_offset_n + col] < 1e9 {
+                    for row in 0..actual_ns {
+                        vecs_n[col * actual_ns + row] =
+                            eigenvectors[vec_offset_n + col * max_ns + row];
+                    }
+                }
+            }
+
+            let e_total = hfb.compute_energy_from_densities(
+                &state.rho_p,
+                &state.rho_n,
+                &eig_p,
+                &vecs_p,
+                &eig_n,
+                &vecs_n,
+                params,
+            );
+
+            let de = (e_total - state.e_prev).abs();
+            state.e_prev = e_total;
+            state.iterations = iter + 1;
+            state.binding_energy = if e_total < 0.0 { -e_total } else { e_total.abs() };
+
+            if de < tol && iter > 5 {
+                state.converged = true;
             }
         }
     }

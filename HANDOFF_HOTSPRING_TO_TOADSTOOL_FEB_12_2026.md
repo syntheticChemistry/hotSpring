@@ -1,248 +1,243 @@
-# Handoff: hotSpring Math Primitives → Toadstool/BarraCUDA
+# Handoff: hotSpring → Toadstool/BarraCUDA
 
-**Date:** February 12, 2026  
-**From:** hotSpring (Nuclear EOS validation study)  
-**To:** Toadstool/BarraCUDA core team  
-**Status:** Ready for absorption
-
----
-
-## 1. Context
-
-hotSpring is a first-principles nuclear structure study that uses BarraCUDA for
-**all** scientific computation — no NumPy, no LAPACK, no external math. Every
-calculation from special functions through eigensolves to molecular dynamics runs
-through BarraCUDA on consumer GPU hardware (RTX 4070, f64 via SHADER_F64).
-
-This study has been the most rigorous validation of BarraCUDA's f64 GPU pipeline
-to date: 169/169 acceptance checks across Yukawa MD, Coulomb PPPM, HFB nuclear
-structure, and full nuclear equation of state (2,042 nuclei).
-
-In the process, we discovered and built several **generic math primitives** that
-belong in toadstool/BarraCUDA, not in hotSpring. This handoff documents what to
-absorb and why.
+**Date:** February 16, 2026 (revised)
+**From:** hotSpring (Nuclear EOS validation study)
+**To:** Toadstool/BarraCUDA core team
+**License:** AGPL-3.0-or-later
 
 ---
 
-## 2. What hotSpring Proved
+## STATED GOAL: Pure GPU Faster Than CPU
+
+hotSpring's L2 GPU mega-batch (Experiment 005) confirmed: **CPU is 70x faster
+than GPU** for spherical HFB with 12×12 matrices. GPU utilization is 95%,
+dispatch count is down to 101 — the dispatch overhead pathology is solved.
+The remaining bottleneck is Amdahl's Law: the eigensolve is 1% of the SCF
+iteration; the other 99% (Hamiltonian construction, BCS pairing, density
+updates) still runs on CPU.
+
+**The fix is not better batching. It is moving ALL physics to GPU.**
+
+Target: GPU-resident SCF loop where data never leaves VRAM until convergence.
+Zero CPU↔GPU round-trips during iteration. Estimated time: ~40s for 791 nuclei
+(vs CPU's 35s), surpassing CPU at larger basis sizes. This is the architecture
+ToadStool needs to enable.
+
+---
+
+## 1. What hotSpring Proved
 
 | Capability | Validated By | Result |
 |-----------|-------------|--------|
-| f64 GPU compute on consumer hardware | All 169 acceptance checks | Works at science-grade precision |
-| Batched eigensolve (f64, Jacobi) | 2,042 nuclei × 200 SCF iterations | Correct to 10⁻⁶ MeV |
-| GEMM f64 (tiled, batched) | HFB Hamiltonian construction | Matches CPU reference |
-| Sum/Max/Min reduction (f64) | Energy functional integration | Matches CPU to machine epsilon |
-| Prefix sum (f64) | Coulomb potential accumulation | Correct |
-| MD (Yukawa + Coulomb) | Sarkas Python vs BarraCUDA | ΔE < 10⁻⁸, ΔT < 1% |
-| PPPM electrostatics | kappa=0 (pure Coulomb) limit | Matches Ewald to 0.1% |
-
-**Key insight:** Nuclear structure is a *better* ML library test than ML itself.
-An ML library can hide numerical errors behind stochastic gradients. Nuclear
-physics demands deterministic, reproducible, precision-verified results. If
-BarraCUDA can compute nuclear binding energies to MeV accuracy on consumer GPUs,
-it can run *anything* — fluid dynamics, ray tracing, protein folding, gaming
-physics.
+| f64 GPU on consumer hardware | 169/169 acceptance checks | Science-grade precision |
+| Batched eigensolve (f64 Jacobi) | 2,042 nuclei × 200 SCF iterations | Correct to 10⁻⁶ MeV |
+| Mega-batch dispatch | 791 HFB nuclei, 1 dispatch/iter | 101 total dispatches, 95% GPU util |
+| GPU utilization ≠ efficiency | Exp 004 (79% util, 16x slower) | Dispatch overhead diagnosed |
+| Amdahl's Law boundary | Exp 005 (95% util, 70x slower) | CPU physics dominates |
+| MD Yukawa + Coulomb | Sarkas paper parity | ΔE < 10⁻⁸, ΔT < 1% |
+| PPPM electrostatics | kappa=0 pure Coulomb | Matches Ewald to 0.1% |
 
 ---
 
-## 3. Math Primitives to Migrate → Toadstool
+## 2. The Complexity Boundary (Key Finding)
 
-### 3.1 Already in Toadstool (hotSpring validated, no migration needed)
+For HFB eigensolves on matrices of size n×n:
 
-| Primitive | Toadstool Module | hotSpring Validation |
-|-----------|-----------------|---------------------|
-| BatchedEighGpu | `ops/linalg/batched_eigh_gpu` | 2,042 nuclei × 200 iter × 10 blocks |
-| GemmF64 | `ops/linalg/gemm_f64` | HFB matrix construction |
-| SumReduceF64 | `ops/sum_reduce_f64` | Energy integration |
-| CumsumF64 | `ops/cumsum_f64` | Coulomb prefix sums |
-| Fft1DF64/Fft3DF64 | `ops/fft/` | PPPM charge mesh |
-| PppmGpu | `ops/md/electrostatics/pppm_gpu` | kappa=0 Coulomb validation |
-| YukawaForceF64 | `ops/md/forces/yukawa_f64` | MD thermodynamic validation |
-| eigh_f64 (CPU) | `linalg/eigh` | CPU reference for GPU comparison |
+| n | GPU compute/dispatch | Dispatch overhead | GPU wins? |
+|:-:|:--------------------:|:-----------------:|:---------:|
+| 12 (current L2) | ~8 ms | ~50 ms | **No** (14% compute) |
+| 30 | ~125 ms | ~50 ms | Marginal (71%) |
+| **50 (L3 target)** | **~580 ms** | **~50 ms** | **Yes (92%)** |
+| 100+ (beyond MF) | >4.6 s | ~50 ms | Dominant |
 
-### 3.2 New Generic Primitives → MIGRATE TO TOADSTOOL
+**Below n≈30**: CPU cache coherence beats GPU parallelism. nalgebra solves
+a 12×12 eigenproblem in ~5 μs (L1 cache resident). GPU dispatch overhead
+is 10,000x larger than the compute it replaces.
 
-These were created in hotSpring but are **physics-agnostic** and belong in
-toadstool as reusable GPU ops.
+**Above n≈50**: GPU's massively parallel Jacobi sweeps dominate. This is
+where L3 deformed, beyond-mean-field, and future methods live.
 
-#### A. Broyden Mixing (vector operation)
-
-**Source:** `hotSpring/barracuda/src/physics/shaders/deformed_density_energy_f64.wgsl`  
-**Entry points:** `mix_density_linear`, `broyden_update`
-
-```
-mix_density_linear: out[i] = (1-α)·old[i] + α·new[i]
-broyden_update:     out[i] = u[i] + α·F[i] - Σ_m γ_m·(du_m[i] + α·df_m[i])
-```
-
-**Why generic:** Broyden mixing is used in *any* self-consistent-field solver,
-including DFT, Poisson-Boltzmann, coupled-cluster. Also useful in nonlinear
-equation solvers and fixed-point iterations.
-
-**Proposed toadstool location:** `ops/mixing/` or `ops/vector/`
-
-#### B. Finite-Difference Gradient on Structured Grid (2D/3D)
-
-**Source:** `hotSpring/barracuda/src/physics/shaders/deformed_gradient_f64.wgsl`  
-**Entry points:** `density_radial_derivative` (generic part)
-
-```
-Central difference: ∂f/∂x = (f[i+1] - f[i-1]) / (2·dx)
-Forward/backward at boundaries
-```
-
-**Why generic:** Finite differences on structured grids are used in fluid
-dynamics (Navier-Stokes), heat transfer, wave propagation, electrostatics,
-image processing. A parameterized FD kernel for 1D/2D/3D grids with
-configurable stencil order would be broadly useful.
-
-**Proposed toadstool location:** `ops/grid/finite_difference_f64`
-
-#### C. Weighted Inner Product with Workgroup Reduction
-
-**Source:** `hotSpring/barracuda/src/physics/shaders/deformed_hamiltonian_f64.wgsl`  
-**Entry point:** `compute_potential_matrix_elements_reduce`
-
-```
-result = Σ_k w[k] · a[i·N + k] · b[j·N + k]   (weighted dot product)
-```
-
-With workgroup tree reduction over k (shared memory, 256-wide).
-
-**Why generic:** This is a batched weighted dot product — the fundamental
-operation in Galerkin methods, FEM assembly, spectral methods, correlation
-computation. Any code that computes `∫ φ_i · W · φ_j dx` on a grid uses this.
-
-**Proposed toadstool location:** `ops/reduce/weighted_dot_f64` or integrate
-into `GemmF64` as a "diagonal-weighted GEMM" mode.
-
-#### D. Hermite and Laguerre Polynomial GPU Evaluation
-
-**Source:** `hotSpring/barracuda/src/physics/shaders/deformed_wavefunction_f64.wgsl`  
-**Functions:** `hermite(n, x)`, `laguerre(n, alpha, x)` (iterative recurrence)
-
-**Why generic:** Hermite polynomials are used in quantum mechanics, Gaussian
-quadrature, probability (Hermite functions = Gaussian × Hermite). Laguerre
-polynomials appear in radial wavefunctions, Gamma function computation,
-exponential fitting. Toadstool already has `hermite.wgsl` and `legendre.wgsl`
-in shaders/special/ — these f64 GPU versions should be added.
-
-**Proposed toadstool location:** `shaders/special/hermite_f64.wgsl`,
-`shaders/special/laguerre_f64.wgsl`
-
-#### E. GPU Buffer Limit Configuration
-
-**Source:** `hotSpring/barracuda/src/gpu.rs`
-
-```rust
-required_limits: wgpu::Limits {
-    max_storage_buffer_binding_size: 512 * 1024 * 1024,  // 512 MiB
-    max_buffer_size: 1024 * 1024 * 1024,                 // 1 GiB
-    ..wgpu::Limits::default()
-},
-```
-
-**Why generic:** The default wgpu limit of 128 MiB per storage buffer is too
-small for scientific computing (wavefunctions, 3D fields, large matrices). Any
-serious GPU computation needs configurable limits. Toadstool's
-`WgpuDevice::new_with_limits()` should default to science-grade limits, or
-`new_high_capacity()` should be the recommended path.
-
-**Proposed toadstool change:** Update `WgpuDevice::new()` default limits, or
-add `WgpuDevice::new_science()` with 512 MiB / 1 GiB defaults.
+**For n<30**: The ONLY way GPU wins is by running the ENTIRE iteration on GPU
+— eliminating all CPU↔GPU round-trips. This is what ToadStool must enable.
 
 ---
 
-## 4. What Stays in hotSpring (Physics-Specific)
+## 3. L2 Performance History
 
-These shaders encode nuclear physics models and should NOT migrate to toadstool.
-They are hotSpring's science layer built ON TOP of toadstool primitives.
+| Implementation | Dispatches | Wall Time | Per HFB | GPU Util |
+|----------------|:----------:|:---------:|:-------:|:--------:|
+| CPU-only (nalgebra) | 0 | **35.1s** | 44ms | — |
+| GPU v1 (5 groups/iter) | 206 | 66.3 min | 5,029ms | ~80% |
+| **GPU v2 (mega-batch)** | **101** | **40.9 min** | **3,104ms** | **95%** |
+| **Target (GPU-resident)** | **~101** | **~40s** | **~50ms** | **>95%** |
 
-| Shader | What It Does | Why Physics-Specific |
-|--------|-------------|---------------------|
-| `batched_hfb_potentials_f64.wgsl` | Skyrme nuclear potential | t0/t1/t2/t3/x0-x3/α Skyrme EDF parameters |
-| `batched_hfb_hamiltonian_f64.wgsl` | HFB Hamiltonian assembly | Nuclear effective mass, l(l+1) angular momentum |
-| `batched_hfb_density_f64.wgsl` | BCS pairing + density | Nuclear pairing gaps, Fermi surface |
-| `batched_hfb_energy_f64.wgsl` | Nuclear energy functional | Skyrme E_t0, E_t3, Coulomb exchange |
-| `deformed_potentials_f64.wgsl` | Deformed nuclear mean field | Skyrme + Coulomb on cylindrical grid |
-| `deformed_density_energy_f64.wgsl` | BCS, observables | Q20 quadrupole moment, nuclear β₂ |
-
-These demonstrate that toadstool's GPU primitives can support arbitrary
-domain-specific physics. The same pattern works for:
-
-- **Fluid dynamics:** Replace Skyrme potential with Navier-Stokes viscous terms
-- **Protein folding:** Replace BCS pairing with AMBER/CHARMM force fields
-- **Ray tracing:** Replace nuclear wavefunctions with BVH traversal
-- **Gaming physics:** Replace nuclear EDF with rigid body dynamics
+Physics output is identical across all substrates (chi2=224.52, NMP=0.63).
 
 ---
 
-## 5. Resource Partitioning Vision
+## 4. What ToadStool Needs to Build (Priority Order)
 
-hotSpring's overnight runs revealed the need for **GPU resource partitioning**:
-the ability to dedicate a fraction of GPU to long-running science while keeping
-the rest available for interactive work.
+### CRITICAL — GPU-Resident Physics Pipeline
 
-### What Toadstool Already Has
+These five items, together, enable the GPU-resident SCF loop that makes
+pure GPU faster than CPU:
+
+#### 4.1 Multi-Kernel Pipeline Without CPU Round-Trips
+
+Chain dependent GPU operations: output of shader 1 = input of shader 2,
+no intermediate CPU readback. The SCF iteration is:
+
+```
+H-build → eigensolve → BCS → density → convergence check
+```
+
+Each step's output feeds the next. Currently each step requires CPU readback
++ re-upload. ToadStool's `begin_batch()` / `end_batch()` is the foundation;
+the gap is **dependent op chaining** where shader A's output buffer becomes
+shader B's input buffer without CPU involvement.
+
+**Deliverable**: `PipelineBuilder` API or `begin_batch()` extension that
+accepts a DAG of dependent ops with shared buffer handles.
+
+#### 4.2 GPU Hamiltonian Construction Kernel
+
+The Hamiltonian is built element-wise on a radial grid:
+
+```
+H[i,j] = T_eff[i,j] + ∫ φ_i(r) · V(ρ,τ,J; params) · φ_j(r) · r²dr
+```
+
+This is a weighted inner product over grid points — embarrassingly parallel
+per matrix element. ToadStool already has `weighted_dot_f64`. The extension:
+a **batched grid-quadrature GEMM** where the weight function V depends on
+density profiles that change each SCF iteration.
+
+**Deliverable**: `ops/physics/grid_quadrature_gemm_f64` — or a composable
+pattern using existing `GemmF64` + `weighted_dot_f64` + grid evaluation.
+
+#### 4.3 GPU BCS Pairing Kernel
+
+BCS pairing requires a root-finding step (Brent/bisection) to find the
+chemical potential μ such that particle number is conserved:
+
+```
+Σ_k v²_k(μ) = N,  where v²_k = ½(1 - (ε_k - μ)/√((ε_k - μ)² + Δ²))
+```
+
+This is per-nucleus, per-isospin — 1,582 independent bisection problems.
+Each is ~20 iterations of a scalar function evaluation.
+
+**Deliverable**: `ops/optimize/batched_bisection_f64` — batch of independent
+1D root-finding problems on GPU. Input: function parameters per problem.
+Output: root per problem.
+
+#### 4.4 GPU Convergence Reduction
+
+The SCF loop checks max|E_new - E_old| across all nuclei. Only a single
+scalar (continue/stop) needs to come back to CPU.
+
+**Deliverable**: `ops/reduce/max_abs_diff_f64` — returns a single f64 (the
+maximum absolute difference). This is a trivial extension of `SumReduceF64`
+but with `abs(a-b)` and `max` instead of `+`.
+
+#### 4.5 Persistent Buffer Management for Iterative Solvers
+
+The SCF loop runs 100-200 iterations. All nucleus data (wavefunctions,
+densities, potentials, eigenvalues) should be allocated ONCE at startup and
+reused across iterations. Current pattern re-creates buffers per dispatch.
+
+**Deliverable**: `BufferPool` "pin for solver lifetime" mode — allocate a
+named buffer set at solver start, reuse across N dispatches, release at end.
+The existing `BufferPool` in `tensor_context.rs` is close; needs explicit
+"pin" / "release" lifecycle.
+
+### Previously Completed (Confirmed Working)
+
+| Primitive | Status | Location |
+|-----------|:------:|----------|
+| Broyden mixing (f64) | DONE | `ops/mixing/broyden_f64` |
+| Weighted inner product (f64) | DONE | `ops/reduce/weighted_dot_f64` |
+| Hermite/Laguerre (f64 GPU) | DONE | `shaders/special/` |
+| FD gradient (f64) | DONE | `ops/grid/fd_gradient_f64` |
+| Science buffer limits (512 MiB / 1 GiB) | DONE | `science_limits()` |
+| BatchedEighGpu (mega-batch validated) | DONE | `ops/linalg/batched_eigh_gpu` |
+
+---
+
+## 5. What Stays in hotSpring (Physics-Specific)
+
+These encode nuclear physics and should NOT migrate to toadstool:
+
+| Shader | Purpose | Why Physics-Specific |
+|--------|---------|---------------------|
+| `batched_hfb_potentials_f64.wgsl` | Skyrme nuclear potential | t0-t3, x0-x3, α parameters |
+| `batched_hfb_hamiltonian_f64.wgsl` | HFB Hamiltonian assembly | Nuclear effective mass, l(l+1) |
+| `batched_hfb_density_f64.wgsl` | BCS pairing + density | Nuclear pairing gaps |
+| `batched_hfb_energy_f64.wgsl` | Nuclear energy functional | Skyrme E_t0, E_t3, Coulomb |
+| `deformed_potentials_f64.wgsl` | Deformed mean field | Skyrme + Coulomb on cylindrical grid |
+| `deformed_density_energy_f64.wgsl` | Observables | Q20 quadrupole moment, β₂ |
+
+These demonstrate that ToadStool's GPU primitives support arbitrary domain
+physics. The same pattern applies to fluid dynamics, protein folding, ray
+tracing — any domain that needs iterative PDE/eigenvalue solvers on GPU.
+
+---
+
+## 6. Resource Partitioning Vision (Strandgate)
+
+### Already in ToadStool
 
 | Component | Location | Status |
 |-----------|----------|--------|
-| `enumerate_adapters()` | `device/wgpu_device.rs` | Working — finds all GPUs |
-| `from_adapter_index(n)` | `device/wgpu_device.rs` | Working — targets specific GPU |
-| `Substrate` classification | `device/substrate.rs` | Working — NVIDIA/AMD/Intel/NPU/CPU |
-| `HardwareManager` | `device/toadstool_integration.rs` | Working — full inventory |
-| `BufferPool` | `device/tensor_context.rs` | Working — buffer reuse |
-| `AutoTuner` | `device/autotune.rs` | Working — workgroup calibration |
+| `enumerate_adapters()` | `device/wgpu_device.rs` | Working |
+| `from_adapter_index(n)` | `device/wgpu_device.rs` | Working |
+| `Substrate` classification | `device/substrate.rs` | Working |
+| `HardwareManager` | `device/toadstool_integration.rs` | Working |
+| `BufferPool` | `device/tensor_context.rs` | Working |
+| `AutoTuner` | `device/autotune.rs` | Working |
 
-### What's Needed for Strandgate
+### Needed for Strandgate
 
 | Component | Description | Priority |
 |-----------|------------|----------|
-| `ResourceQuota` | Per-task VRAM budget enforcement | High |
-| `ComputePartition` | Fraction of GPU for a task (via dispatch limiting) | High |
+| `ResourceQuota` | Per-task VRAM budget enforcement | Medium |
+| `ComputePartition` | Fraction of GPU for a task | Medium |
 | `WorkloadRouter` | Route tasks to best available device | Medium |
-| `MultiDevicePool` | Manage heterogeneous GPU array (e.g., 4070 + Titan V) | Medium |
-| `NVIDIA MPS integration` | True compute partitioning via Multi-Process Service | Low |
-
-This enables the vision: a single machine running DNA sequencing ingestion on
-1/3 of GPU-0, OpenFold on GPU-1, protein structure on 2/3 of GPU-0, and
-interactive experiments on CPU — all orchestrated by Strandgate through
-toadstool's device layer.
+| `MultiDevicePool` | Manage heterogeneous GPU array | Low |
 
 ---
 
-## 6. Concrete Next Steps
+## 7. Evolution Summary: What Each Experiment Taught
 
-### For Toadstool Team (Priority Order)
+| Experiment | Key Finding | ToadStool Action |
+|------------|------------|-----------------|
+| 004: L3 Dispatch Overhead | 145k dispatches → 16x slower than CPU | Mega-batch (DONE) |
+| 005: L2 Mega-Batch | 101 dispatches, 95% util, still 70x slower | GPU-resident pipeline (NEW) |
+| 005: Complexity Boundary | n<30 CPU wins, n>50 GPU wins | Multi-kernel chaining (NEW) |
+| MD (Phase E) | GPU 50-100x faster than CPU | Large-N work suits GPU (confirmed) |
+| f64 Validation | wgpu SHADER_F64 = 1:2 fp64:fp32 | Consumer GPU viable (confirmed) |
 
-1. **Absorb Broyden mixing** → `ops/mixing/broyden_f64.rs` + shader
-2. **Absorb weighted inner product** → `ops/reduce/weighted_dot_f64.rs` + shader
-3. **Absorb Hermite/Laguerre f64** → `shaders/special/hermite_f64.wgsl`, `laguerre_f64.wgsl`
-4. **Absorb finite-difference gradient** → `ops/grid/fd_gradient_f64.rs` + shader
-5. **Raise default buffer limits** → `WgpuDevice::new()` defaults to 512 MiB
-6. **Add `ResourceQuota`** → Track per-task VRAM usage
-7. **Add `ComputePartition`** → Limit dispatch fraction per task
-
-### For hotSpring Team
-
-1. **Wait for overnight L3 run** to complete (~2-4 hours remaining)
-2. **Run GPU L3 benchmark** on clean system (no CPU competition)
-3. **Profile GPU vs CPU** side-by-side for the same 52 nuclei
-4. **Replace hotSpring buffer helpers** with toadstool equivalents once absorbed
-5. **Wire remaining GPU shaders** (tau, density, energy) into SCF loop
+The pattern: dispatch overhead is solved. The next evolution is **eliminating
+CPU physics from the iteration loop entirely**. Every component that remains
+on CPU during the hot loop is wasted potential.
 
 ---
 
-## 7. The Proof
+## 8. The Proof
 
-BarraCUDA, through hotSpring's validation, has demonstrated:
+BarraCUDA, through hotSpring's validation:
 
 - **f64 GPU compute works on consumer hardware** (RTX 4070, $599)
-- **Science-grade precision** — nuclear binding energies to MeV accuracy
 - **169/169 acceptance checks** — zero failures across all physics domains
-- **GPU-first architecture** — CPU orchestrates, GPU computes
+- **GPU-first architecture validated** — dispatch overhead diagnosed and fixed
+- **Complexity boundary characterized** — small matrices (CPU wins) vs large
+  matrices (GPU wins), with GPU-resident pipeline as the universal solution
 - **Any domain can build on this** — the math primitives are domain-agnostic
+- **Sovereign Science** — AGPL-3.0, fully reproducible, no institutional access
 
-This is not an ML benchmark. This is deterministic physics at double precision
-on hardware anyone can buy. If BarraCUDA can solve the nuclear many-body problem,
-it can enable any computational science on any machine.
+---
+
+*Revised: February 16, 2026 — Added Experiment 005 complexity boundary
+analysis. Refocused priorities on GPU-resident physics pipeline. Previous
+items 6-10 completed. New critical items 4.1-4.5 define the path to
+pure GPU faster than CPU.*

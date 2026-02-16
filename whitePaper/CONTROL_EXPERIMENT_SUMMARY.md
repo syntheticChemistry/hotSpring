@@ -196,12 +196,15 @@ Best compromise: lambda=25 (4/5 NMP, chi2_BE=7.37). SLy4 baseline: chi2_BE=6.71,
 
 ### L2 GPU-Batched HFB (SLy4 on 2,042 nuclei)
 
-| Metric | Value |
-|--------|:-----:|
-| chi2/datum | 224.52 |
-| Converged | 2039/2042 (99.85%) |
-| GPU dispatches | 206 |
-| Wall time | 66.3 min |
+| Metric | GPU v1 (grouped) | GPU v2 (mega-batch) | CPU-only |
+|--------|:-----------------:|:-------------------:|:--------:|
+| chi2/datum | 224.52 | **224.52** | 224.52 |
+| Converged | 2039/2042 | 2039/791 HFB | 2039 |
+| GPU dispatches | 206 | **101** | 0 |
+| Wall time | 66.3 min | **40.9 min** | **35.1s** |
+| GPU utilization | ~80% | **94.9%** | — |
+
+CPU 70x faster — Amdahl's Law on 12×12 matrices. See Experiment 005.
 
 ### L3 Deformed HFB (best_l2_42 on 2,042 nuclei)
 

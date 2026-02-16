@@ -1,7 +1,7 @@
 {
   "chi2_per_datum": 224.5160151339009,
   "engine": "barracuda::l2_gpu_batched_hfb",
-  "gpu_dispatches": 206,
+  "gpu_dispatches": 101,
   "level": 2,
   "n_converged": 2039,
   "n_hfb": 791,
@@ -18400,5 +18400,5 @@
     "mixing": 0.3,
     "tol": 0.05
   },
-  "wall_time_s": 3983.207062035
+  "wall_time_s": 2455.362528975
 }
