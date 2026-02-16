@@ -166,6 +166,14 @@ impl SphericalHFB {
         self.states.iter().map(|s| (s.l * (s.l + 1)) as f64).collect()
     }
 
+    /// (l, j) quantum numbers per state — needed for spin-orbit coupling
+    pub fn lj_quantum_numbers(&self) -> Vec<(usize, f64)> {
+        self.states.iter().map(|s| (s.l, s.j)).collect()
+    }
+
+    /// Per-state wavefunction access (for spin-orbit integrals)
+    pub fn wf_state(&self, i: usize) -> &[f64] { &self.wf[i] }
+
     /// Degeneracies (2j+1) per state
     pub fn deg_values(&self) -> Vec<f64> {
         self.states.iter().map(|s| s.deg as f64).collect()
@@ -342,6 +350,38 @@ impl SphericalHFB {
             _lambda: 0.0,
         };
 
+        self.compute_energy(rho_p, rho_n, &results_p, &results_n, params)
+    }
+
+    /// Fast energy calculation that accepts pre-computed v2 occupations,
+    /// avoiding a redundant BCS root-solve inside compute_energy_from_densities.
+    pub fn compute_energy_with_v2(
+        &self,
+        rho_p: &[f64],
+        rho_n: &[f64],
+        eigs_p: &[f64],
+        vecs_p: &[f64],
+        eigs_n: &[f64],
+        vecs_n: &[f64],
+        v2_p: &[f64],
+        v2_n: &[f64],
+        params: &[f64],
+    ) -> f64 {
+        let ns = self.n_states;
+        let results_p = SpeciesResult {
+            eigenvalues: eigs_p.to_vec(),
+            eigvecs: vecs_p.to_vec(),
+            n: ns,
+            v2: v2_p.to_vec(),
+            _lambda: 0.0,
+        };
+        let results_n = SpeciesResult {
+            eigenvalues: eigs_n.to_vec(),
+            eigvecs: vecs_n.to_vec(),
+            n: ns,
+            v2: v2_n.to_vec(),
+            _lambda: 0.0,
+        };
         self.compute_energy(rho_p, rho_n, &results_p, &results_n, params)
     }
 

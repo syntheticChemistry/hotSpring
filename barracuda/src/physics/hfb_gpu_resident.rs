@@ -1,25 +1,20 @@
-//! GPU-Resident Spherical HFB Solver (Level 2)
+//! GPU-Resident Spherical HFB Solver (Level 2) — Optimized Hybrid
 //!
-//! Dispatches physics shaders directly on GPU: potentials + H-build.
-//! Pipelines and buffers are allocated ONCE per basis-group, then reused
-//! across SCF iterations. Only density data is re-uploaded per iteration.
+//! Per SCF iteration — ONE encoder, ONE submit, ONE poll:
+//!   1. CPU→GPU: write densities for all groups
+//!   2. GPU compute: potentials + H-build (7 dispatches per group)
+//!   3. GPU copy: H → staging buffers (in same encoder)
+//!   4. Single queue.submit + single device.poll(Wait)
+//!   5. CPU: read staging → eigh_f64 → BCS → density → energy
 //!
-//! Architecture:
-//!   1. Pre-compile shader pipelines (once at init)
-//!   2. Pre-allocate GPU buffers sized for max batch (once per group)
-//!   3. Per SCF iteration:
-//!      a. Write densities to GPU (queue.write_buffer — no alloc)
-//!      b. GPU: Potentials (Skyrme + Coulomb + f_q)   — 5 dispatches
-//!      c. GPU: Hamiltonian H_p and H_n               — 2 dispatches
-//!      d. Read back H matrices
-//!      e. GPU: BatchedEighGpu eigensolve              — 1 dispatch
-//!      f. CPU: BCS + Density + Energy + convergence
-//!   4. CPU: Collect results
+//! Pre-allocated staging buffers eliminate per-iteration allocation.
+//! Single poll per iteration eliminates serial GPU sync overhead.
 
 use super::semf::semf_binding_energy;
 use super::hfb::SphericalHFB;
 use barracuda::device::WgpuDevice;
-use barracuda::ops::linalg::BatchedEighGpu;
+use barracuda::linalg::eigh_f64;
+use rayon::prelude::*;
 use std::sync::Arc;
 
 const POTENTIALS_SHADER: &str = include_str!("shaders/batched_hfb_potentials_f64.wgsl");
@@ -35,7 +30,6 @@ pub struct GpuResidentL2Result {
     pub n_semf: usize,
 }
 
-/// Dimensions uniform for potentials shader
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 struct PotentialDimsUniform {
@@ -43,7 +37,6 @@ struct PotentialDimsUniform {
     batch_size: u32,
 }
 
-/// Dimensions uniform for hamiltonian shader
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 struct HamiltonianDimsUniform {
@@ -70,45 +63,67 @@ fn make_bind_group(
             count: None,
         })
         .collect();
-
     let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        label: Some(&format!("{} layout", label)),
-        entries: &layout_entries,
+        label: Some(&format!("{}_layout", label)), entries: &layout_entries,
     });
-
     let bg_entries: Vec<wgpu::BindGroupEntry> = entries
         .iter()
         .enumerate()
         .map(|(i, (_, buf))| wgpu::BindGroupEntry {
-            binding: i as u32,
-            resource: buf.as_entire_binding(),
+            binding: i as u32, resource: buf.as_entire_binding(),
         })
         .collect();
-
-    let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+    let bg = device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: Some(label), layout: &layout, entries: &bg_entries,
     });
-
-    (layout, bind_group)
+    (layout, bg)
 }
 
 fn make_pipeline(
-    device: &wgpu::Device,
-    module: &wgpu::ShaderModule,
-    entry_point: &str,
-    layouts: &[&wgpu::BindGroupLayout],
+    device: &wgpu::Device, module: &wgpu::ShaderModule,
+    entry_point: &str, layouts: &[&wgpu::BindGroupLayout],
 ) -> wgpu::ComputePipeline {
-    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-        label: Some(entry_point),
-        bind_group_layouts: layouts,
-        push_constant_ranges: &[],
+    let pl = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        label: Some(entry_point), bind_group_layouts: layouts, push_constant_ranges: &[],
     });
     device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-        label: Some(entry_point),
-        layout: Some(&pipeline_layout),
-        module,
-        entry_point,
+        label: Some(entry_point), layout: Some(&pl), module, entry_point,
     })
+}
+
+struct GroupResources {
+    ns: usize,
+    nr: usize,
+    group_indices: Vec<usize>,
+    n_max: usize,
+    mat_size: usize,
+
+    rho_p_buf: wgpu::Buffer,
+    rho_n_buf: wgpu::Buffer,
+    rho_alpha_buf: wgpu::Buffer,
+    rho_alpha_m1_buf: wgpu::Buffer,
+    pot_dims_buf: wgpu::Buffer,
+    ham_dims_buf: wgpu::Buffer,
+    h_p_buf: wgpu::Buffer,
+    h_n_buf: wgpu::Buffer,
+
+    staging_p: wgpu::Buffer,
+    staging_n: wgpu::Buffer,
+
+    pot_bg: wgpu::BindGroup,
+    hbg_p: wgpu::BindGroup,
+    hbg_n: wgpu::BindGroup,
+
+    sky_pipe: wgpu::ComputePipeline,
+    cfwd: wgpu::ComputePipeline,
+    cbwd: wgpu::ComputePipeline,
+    fin_pipe: wgpu::ComputePipeline,
+    fq_pipe: wgpu::ComputePipeline,
+    hp_pipe: wgpu::ComputePipeline,
+    hn_pipe: wgpu::ComputePipeline,
+
+    nr_wg: u32,
+    ns_wg: u32,
 }
 
 pub fn binding_energies_l2_gpu_resident(
@@ -119,48 +134,44 @@ pub fn binding_energies_l2_gpu_resident(
     tol: f64,
     mixing: f64,
 ) -> GpuResidentL2Result {
-    let t0_wall = std::time::Instant::now();
+    let t0 = std::time::Instant::now();
     let mut results: Vec<(usize, usize, f64, bool)> = Vec::with_capacity(nuclei.len());
     let mut gpu_dispatches = 0usize;
     let mut total_gpu_dispatches = 0usize;
-    let mut n_hfb = 0usize;
     let mut n_semf = 0usize;
 
-    // Partition
     let mut hfb_nuclei: Vec<(usize, usize, usize)> = Vec::new();
     for (idx, &(z, n)) in nuclei.iter().enumerate() {
         let a = z + n;
         if a >= 56 && a <= 132 {
             hfb_nuclei.push((z, n, idx));
         } else {
-            let b = semf_binding_energy(z, n, params);
-            results.push((z, n, b, true));
+            results.push((z, n, semf_binding_energy(z, n, params), true));
             n_semf += 1;
         }
     }
 
     if hfb_nuclei.is_empty() {
         return GpuResidentL2Result {
-            results, hfb_time_s: t0_wall.elapsed().as_secs_f64(),
+            results, hfb_time_s: t0.elapsed().as_secs_f64(),
             gpu_dispatches, total_gpu_dispatches, n_hfb: 0, n_semf,
         };
     }
 
     let solvers: Vec<(usize, usize, usize, SphericalHFB)> = hfb_nuclei
-        .iter()
-        .map(|&(z, n, idx)| (z, n, idx, SphericalHFB::new_adaptive(z, n)))
+        .iter().map(|&(z, n, idx)| (z, n, idx, SphericalHFB::new_adaptive(z, n)))
         .collect();
 
-    // Group by (n_states, nr) for uniform GPU dispatch
-    let mut groups: std::collections::HashMap<(usize, usize), Vec<usize>> =
+    let mut groups_map: std::collections::HashMap<(usize, usize), Vec<usize>> =
         std::collections::HashMap::new();
     for (i, (_, _, _, hfb)) in solvers.iter().enumerate() {
-        groups.entry((hfb.n_states(), hfb.nr())).or_default().push(i);
+        groups_map.entry((hfb.n_states(), hfb.nr())).or_default().push(i);
     }
 
-    let (t0_p, t1, t2, t3) = (params[0], params[1], params[2], params[3]);
-    let (x0, x1, x2, x3) = (params[4], params[5], params[6], params[7]);
+    let (t0_p, t3, x0, x3) = (params[0], params[3], params[4], params[7]);
+    let (t1, t2, x1, x2) = (params[1], params[2], params[5], params[6]);
     let alpha_skyrme = params[8];
+    let w0 = params[9];
     let c0t = 0.25 * (t1 * (1.0 + x1 / 2.0) + t2 * (1.0 + x2 / 2.0));
     let c1n = 0.25 * (t1 * (0.5 + x1) - t2 * (0.5 + x2));
     let hbar2_2m = super::constants::HBAR2_2M;
@@ -168,17 +179,13 @@ pub fn binding_energies_l2_gpu_resident(
     let raw_device = device.device();
     let raw_queue = device.queue();
 
-    // Compile shaders ONCE
     let pot_module = raw_device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: Some("potentials"),
-        source: wgpu::ShaderSource::Wgsl(POTENTIALS_SHADER.into()),
+        label: Some("potentials"), source: wgpu::ShaderSource::Wgsl(POTENTIALS_SHADER.into()),
     });
     let ham_module = raw_device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: Some("hamiltonian"),
-        source: wgpu::ShaderSource::Wgsl(HAMILTONIAN_SHADER.into()),
+        label: Some("hamiltonian"), source: wgpu::ShaderSource::Wgsl(HAMILTONIAN_SHADER.into()),
     });
 
-    // Per-nucleus SCF state
     struct NucleusState {
         rho_p: Vec<f64>,
         rho_n: Vec<f64>,
@@ -187,44 +194,42 @@ pub fn binding_energies_l2_gpu_resident(
         binding_energy: f64,
     }
 
-    let mut states: Vec<NucleusState> = solvers
-        .iter()
-        .map(|(z, n, _, hfb)| {
-            let a = z + n;
-            let r_nuc = 1.2 * (a as f64).powf(1.0 / 3.0);
-            let rho0 = 3.0 * a as f64 / (4.0 * std::f64::consts::PI * r_nuc.powi(3));
-            let nr = hfb.nr();
-            let rho_p: Vec<f64> = (0..nr).map(|k| {
-                let r = (k + 1) as f64 * (15.0 / nr as f64);
-                if r < r_nuc { (rho0 * *z as f64 / a as f64).max(1e-15) } else { 1e-15 }
-            }).collect();
-            let rho_n: Vec<f64> = (0..nr).map(|k| {
-                let r = (k + 1) as f64 * (15.0 / nr as f64);
-                if r < r_nuc { (rho0 * *n as f64 / a as f64).max(1e-15) } else { 1e-15 }
-            }).collect();
-            NucleusState { rho_p, rho_n, e_prev: 1e10, converged: false, binding_energy: 0.0 }
-        })
-        .collect();
+    let mut states: Vec<NucleusState> = solvers.iter().map(|(z, n, _, hfb)| {
+        let a = z + n;
+        let r_nuc = 1.2 * (a as f64).powf(1.0 / 3.0);
+        let rho0 = 3.0 * a as f64 / (4.0 * std::f64::consts::PI * r_nuc.powi(3));
+        let nr = hfb.nr();
+        let rho_p: Vec<f64> = (0..nr).map(|k| {
+            let r = (k + 1) as f64 * hfb.dr();
+            if r < r_nuc { (rho0 * *z as f64 / a as f64).max(1e-15) } else { 1e-15 }
+        }).collect();
+        let rho_n: Vec<f64> = (0..nr).map(|k| {
+            let r = (k + 1) as f64 * hfb.dr();
+            if r < r_nuc { (rho0 * *n as f64 / a as f64).max(1e-15) } else { 1e-15 }
+        }).collect();
+        NucleusState { rho_p, rho_n, e_prev: 1e10, converged: false, binding_energy: 0.0 }
+    }).collect();
 
-    let ns_nr_groups: Vec<((usize, usize), Vec<usize>)> = groups.into_iter().collect();
+    let u = wgpu::BufferBindingType::Uniform;
+    let sr = wgpu::BufferBindingType::Storage { read_only: true };
+    let srw = wgpu::BufferBindingType::Storage { read_only: false };
+
+    // ═══ PRE-ALLOCATE ALL GROUP RESOURCES (ONE TIME) ═══
+    let ns_nr_groups: Vec<((usize, usize), Vec<usize>)> = groups_map.into_iter().collect();
+    let mut all_groups: Vec<GroupResources> = Vec::new();
 
     for &((ns, nr), ref group_indices) in &ns_nr_groups {
         if group_indices.is_empty() { continue; }
-
         let dr = solvers[group_indices[0]].3.dr();
         let mat_size = ns * ns;
-        let n_max = group_indices.len();  // max batch size for this group
+        let n_max = group_indices.len();
 
-        // ═══════════════════════════════════════════════════════════
-        // PRE-ALLOCATE: buffers sized for max batch, created ONCE
-        // ═══════════════════════════════════════════════════════════
         use wgpu::util::DeviceExt;
 
-        // Per-nucleus static data (packed for all nuclei in group)
         let mut all_wf = Vec::with_capacity(n_max * ns * nr);
         let mut all_dwf = Vec::with_capacity(n_max * ns * nr);
         let mut all_r_grid = Vec::with_capacity(n_max * nr);
-        let mut all_lj_same = Vec::with_capacity(n_max * ns * ns);
+        let mut all_lj = Vec::with_capacity(n_max * ns * ns);
         let mut all_ll1 = Vec::with_capacity(n_max * ns);
 
         for &si in group_indices {
@@ -232,15 +237,10 @@ pub fn binding_energies_l2_gpu_resident(
             all_wf.extend_from_slice(&hfb.wf_flat());
             all_dwf.extend_from_slice(&hfb.dwf_flat());
             all_r_grid.extend_from_slice(hfb.r_grid());
-            all_lj_same.extend_from_slice(&hfb.lj_same_flat());
+            all_lj.extend_from_slice(&hfb.lj_same_flat());
             all_ll1.extend_from_slice(&hfb.ll1_values());
         }
 
-        // Index map: solver_idx → position in group
-        let group_idx_map: std::collections::HashMap<usize, usize> = group_indices
-            .iter().enumerate().map(|(gi, &si)| (si, gi)).collect();
-
-        // Static GPU buffers (never change)
         let wf_buf = raw_device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("wf"), contents: bytemuck::cast_slice(&all_wf),
             usage: wgpu::BufferUsages::STORAGE,
@@ -249,12 +249,12 @@ pub fn binding_energies_l2_gpu_resident(
             label: Some("dwf"), contents: bytemuck::cast_slice(&all_dwf),
             usage: wgpu::BufferUsages::STORAGE,
         });
-        let r_grid_buf = raw_device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("r_grid"), contents: bytemuck::cast_slice(&all_r_grid),
+        let rgrid_buf = raw_device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("rgrid"), contents: bytemuck::cast_slice(&all_r_grid),
             usage: wgpu::BufferUsages::STORAGE,
         });
         let lj_buf = raw_device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("lj_same"), contents: bytemuck::cast_slice(&all_lj_same),
+            label: Some("lj"), contents: bytemuck::cast_slice(&all_lj),
             usage: wgpu::BufferUsages::STORAGE,
         });
         let ll1_buf = raw_device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -262,72 +262,88 @@ pub fn binding_energies_l2_gpu_resident(
             usage: wgpu::BufferUsages::STORAGE,
         });
 
-        // Skyrme params (constant)
         let sky_data: [f64; 9] = [t0_p, t3, x0, x3, alpha_skyrme, dr, c0t, c1n, hbar2_2m];
         let sky_buf = raw_device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("sky"), contents: bytemuck::cast_slice(&sky_data),
             usage: wgpu::BufferUsages::STORAGE,
         });
-
-        // dr as f64 storage for hamiltonian
         let dr_data: [f64; 1] = [dr];
         let dr_buf = raw_device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("dr"), contents: bytemuck::cast_slice(&dr_data),
             usage: wgpu::BufferUsages::STORAGE,
         });
 
-        // Dynamic buffers — allocated for n_max, re-written each iteration
-        let buf_size_nr = (n_max * nr * 8) as u64;
+        let buf_nr = (n_max * nr * 8) as u64;
         let rho_p_buf = raw_device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("rho_p"), size: buf_size_nr,
+            label: Some("rho_p"), size: buf_nr,
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
         let rho_n_buf = raw_device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("rho_n"), size: buf_size_nr,
+            label: Some("rho_n"), size: buf_nr,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let rho_alpha_buf = raw_device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("rho_alpha"), size: buf_nr,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let rho_alpha_m1_buf = raw_device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("rho_alpha_m1"), size: buf_nr,
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
 
-        // Intermediate GPU-only buffers (no CPU readback needed)
         let u_p_buf = raw_device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("u_p"), size: buf_size_nr,
+            label: Some("u_p"), size: buf_nr,
             usage: wgpu::BufferUsages::STORAGE, mapped_at_creation: false,
         });
         let u_n_buf = raw_device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("u_n"), size: buf_size_nr,
+            label: Some("u_n"), size: buf_nr,
             usage: wgpu::BufferUsages::STORAGE, mapped_at_creation: false,
         });
         let fq_p_buf = raw_device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("fq_p"), size: buf_size_nr,
+            label: Some("fq_p"), size: buf_nr,
             usage: wgpu::BufferUsages::STORAGE, mapped_at_creation: false,
         });
         let fq_n_buf = raw_device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("fq_n"), size: buf_size_nr,
+            label: Some("fq_n"), size: buf_nr,
             usage: wgpu::BufferUsages::STORAGE, mapped_at_creation: false,
         });
         let cenc_buf = raw_device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("cenc"), size: buf_size_nr,
+            label: Some("cenc"), size: buf_nr,
             usage: wgpu::BufferUsages::STORAGE, mapped_at_creation: false,
         });
         let phi_buf = raw_device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("phi"), size: buf_size_nr,
+            label: Some("phi"), size: buf_nr,
             usage: wgpu::BufferUsages::STORAGE, mapped_at_creation: false,
         });
 
-        // H outputs — need COPY_SRC for readback
+        let h_mat_bytes = (n_max * mat_size * 8) as u64;
         let h_p_buf = raw_device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("H_p"), size: (n_max * mat_size * 8) as u64,
+            label: Some("H_p"), size: h_mat_bytes,
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
             mapped_at_creation: false,
         });
         let h_n_buf = raw_device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("H_n"), size: (n_max * mat_size * 8) as u64,
+            label: Some("H_n"), size: h_mat_bytes,
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
             mapped_at_creation: false,
         });
 
-        // Uniform buffers — updated when batch size changes
+        // Pre-allocated staging buffers for readback (reused every iteration)
+        let staging_p = raw_device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("staging_p"), size: h_mat_bytes,
+            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let staging_n = raw_device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("staging_n"), size: h_mat_bytes,
+            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
         let pot_dims = PotentialDimsUniform { nr: nr as u32, batch_size: n_max as u32 };
         let pot_dims_buf = raw_device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("pot_dims"), contents: bytemuck::bytes_of(&pot_dims),
@@ -341,195 +357,305 @@ pub fn binding_energies_l2_gpu_resident(
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
-        let u = wgpu::BufferBindingType::Uniform;
-        let sr = wgpu::BufferBindingType::Storage { read_only: true };
-        let srw = wgpu::BufferBindingType::Storage { read_only: false };
-
-        // Create bind groups and pipelines ONCE
         let (pot_layout, pot_bg) = make_bind_group(raw_device, "pot", &[
             (u, &pot_dims_buf), (sr, &rho_p_buf), (sr, &rho_n_buf),
-            (srw, &u_p_buf), (srw, &u_n_buf), (sr, &r_grid_buf),
+            (srw, &u_p_buf), (srw, &u_n_buf), (sr, &rgrid_buf),
             (srw, &fq_p_buf), (srw, &fq_n_buf),
             (srw, &cenc_buf), (srw, &phi_buf), (sr, &sky_buf),
+            (sr, &rho_alpha_buf), (sr, &rho_alpha_m1_buf),
         ]);
-        let (ham_layout_p, ham_bg_p) = make_bind_group(raw_device, "ham_p", &[
+        let (hl_p, hbg_p) = make_bind_group(raw_device, "ham_p", &[
             (u, &ham_dims_buf), (sr, &wf_buf), (sr, &dwf_buf),
-            (sr, &u_p_buf), (sr, &fq_p_buf), (sr, &r_grid_buf),
+            (sr, &u_p_buf), (sr, &fq_p_buf), (sr, &rgrid_buf),
             (sr, &lj_buf), (sr, &ll1_buf), (srw, &h_p_buf), (sr, &dr_buf),
         ]);
-        let (ham_layout_n, ham_bg_n) = make_bind_group(raw_device, "ham_n", &[
+        let (hl_n, hbg_n) = make_bind_group(raw_device, "ham_n", &[
             (u, &ham_dims_buf), (sr, &wf_buf), (sr, &dwf_buf),
-            (sr, &u_n_buf), (sr, &fq_n_buf), (sr, &r_grid_buf),
+            (sr, &u_n_buf), (sr, &fq_n_buf), (sr, &rgrid_buf),
             (sr, &lj_buf), (sr, &ll1_buf), (srw, &h_n_buf), (sr, &dr_buf),
         ]);
 
         let sky_pipe = make_pipeline(raw_device, &pot_module, "compute_skyrme", &[&pot_layout]);
-        let cfwd_pipe = make_pipeline(raw_device, &pot_module, "compute_coulomb_forward", &[&pot_layout]);
-        let cbwd_pipe = make_pipeline(raw_device, &pot_module, "compute_coulomb_backward", &[&pot_layout]);
+        let cfwd = make_pipeline(raw_device, &pot_module, "compute_coulomb_forward", &[&pot_layout]);
+        let cbwd = make_pipeline(raw_device, &pot_module, "compute_coulomb_backward", &[&pot_layout]);
         let fin_pipe = make_pipeline(raw_device, &pot_module, "finalize_proton_potential", &[&pot_layout]);
         let fq_pipe = make_pipeline(raw_device, &pot_module, "compute_f_q", &[&pot_layout]);
-        let hp_pipe = make_pipeline(raw_device, &ham_module, "build_hamiltonian", &[&ham_layout_p]);
-        let hn_pipe = make_pipeline(raw_device, &ham_module, "build_hamiltonian", &[&ham_layout_n]);
+        let hp_pipe = make_pipeline(raw_device, &ham_module, "build_hamiltonian", &[&hl_p]);
+        let hn_pipe = make_pipeline(raw_device, &ham_module, "build_hamiltonian", &[&hl_n]);
 
-        let nr_wg = (nr as u32 + 255) / 256;
-        let ns_wg = (ns as u32 + 15) / 16;
+        all_groups.push(GroupResources {
+            ns, nr, group_indices: group_indices.clone(), n_max, mat_size,
+            rho_p_buf, rho_n_buf, rho_alpha_buf, rho_alpha_m1_buf,
+            pot_dims_buf, ham_dims_buf,
+            h_p_buf, h_n_buf, staging_p, staging_n,
+            pot_bg, hbg_p, hbg_n,
+            sky_pipe, cfwd, cbwd, fin_pipe, fq_pipe, hp_pipe, hn_pipe,
+            nr_wg: (nr as u32 + 255) / 256,
+            ns_wg: (ns as u32 + 15) / 16,
+        });
+    }
 
-        // ═══════════════════════════════════════════════════════════
-        // SCF LOOP — only write_buffer + dispatch + readback per iter
-        // ═══════════════════════════════════════════════════════════
-        for iter in 0..max_iter {
-            let active: Vec<usize> = group_indices
-                .iter().copied().filter(|&i| !states[i].converged).collect();
-            if active.is_empty() { break; }
+    // ═══ UNIFIED SCF LOOP — ALL GROUPS IN ONE ENCODER ═══
+    let mut t_gpu_total = 0.0f64;
+    let mut t_poll_total = 0.0f64;
+    let mut t_read_total = 0.0f64;
+    let mut t_cpu_total = 0.0f64;
+    let mut t_upload_total = 0.0f64;
 
+    for iter in 0..max_iter {
+        let any_active = all_groups.iter().any(|g| {
+            g.group_indices.iter().any(|&si| !states[si].converged)
+        });
+        if !any_active { break; }
+
+        // Step 1: Upload densities for all groups
+        let t_upload = std::time::Instant::now();
+        for g in &all_groups {
+            let active: Vec<usize> = g.group_indices.iter().copied()
+                .filter(|&si| !states[si].converged).collect();
+            if active.is_empty() { continue; }
             let n_nuclei = active.len();
             let bn = n_nuclei as u32;
 
-            // Update batch_size in uniforms if changed (nuclei converge → batch shrinks)
-            if n_nuclei != n_max || iter == 0 {
-                let dims_update = PotentialDimsUniform { nr: nr as u32, batch_size: bn };
-                raw_queue.write_buffer(&pot_dims_buf, 0, bytemuck::bytes_of(&dims_update));
-                let hdims_update = HamiltonianDimsUniform {
-                    n_states: ns as u32, nr: nr as u32, batch_size: bn, _pad: 0,
-                };
-                raw_queue.write_buffer(&ham_dims_buf, 0, bytemuck::bytes_of(&hdims_update));
+            if n_nuclei != g.n_max || iter == 0 {
+                raw_queue.write_buffer(&g.pot_dims_buf, 0,
+                    bytemuck::bytes_of(&PotentialDimsUniform { nr: g.nr as u32, batch_size: bn }));
+                raw_queue.write_buffer(&g.ham_dims_buf, 0,
+                    bytemuck::bytes_of(&HamiltonianDimsUniform {
+                        n_states: g.ns as u32, nr: g.nr as u32, batch_size: bn, _pad: 0,
+                    }));
             }
 
-            // Write densities (only active nuclei, packed contiguously)
-            let mut rho_p_flat = vec![0.0f64; n_nuclei * nr];
-            let mut rho_n_flat = vec![0.0f64; n_nuclei * nr];
+            let mut rho_p_flat = vec![0.0f64; n_nuclei * g.nr];
+            let mut rho_n_flat = vec![0.0f64; n_nuclei * g.nr];
             for (bi, &si) in active.iter().enumerate() {
-                rho_p_flat[bi * nr..(bi + 1) * nr].copy_from_slice(&states[si].rho_p);
-                rho_n_flat[bi * nr..(bi + 1) * nr].copy_from_slice(&states[si].rho_n);
+                rho_p_flat[bi * g.nr..(bi + 1) * g.nr].copy_from_slice(&states[si].rho_p);
+                rho_n_flat[bi * g.nr..(bi + 1) * g.nr].copy_from_slice(&states[si].rho_n);
             }
-            raw_queue.write_buffer(&rho_p_buf, 0, bytemuck::cast_slice(&rho_p_flat));
-            raw_queue.write_buffer(&rho_n_buf, 0, bytemuck::cast_slice(&rho_n_flat));
+            raw_queue.write_buffer(&g.rho_p_buf, 0, bytemuck::cast_slice(&rho_p_flat));
+            raw_queue.write_buffer(&g.rho_n_buf, 0, bytemuck::cast_slice(&rho_n_flat));
 
-            // ─── GPU: 7 dispatches in single command encoder ─────
-            let mut encoder = raw_device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("scf"),
+            // CPU-computed rho_alpha and rho_alpha_m1 for full f64 precision
+            let mut rho_alpha_flat = vec![0.0f64; n_nuclei * g.nr];
+            let mut rho_alpha_m1_flat = vec![0.0f64; n_nuclei * g.nr];
+            for k in 0..(n_nuclei * g.nr) {
+                let rho = (rho_p_flat[k] + rho_n_flat[k]).max(1e-20);
+                rho_alpha_flat[k] = rho.powf(alpha_skyrme);
+                rho_alpha_m1_flat[k] = if rho_p_flat[k] + rho_n_flat[k] > 1e-15 {
+                    rho.powf(alpha_skyrme - 1.0)
+                } else {
+                    0.0
+                };
+            }
+            raw_queue.write_buffer(&g.rho_alpha_buf, 0, bytemuck::cast_slice(&rho_alpha_flat));
+            raw_queue.write_buffer(&g.rho_alpha_m1_buf, 0, bytemuck::cast_slice(&rho_alpha_m1_flat));
+        }
+
+        t_upload_total += t_upload.elapsed().as_secs_f64();
+
+        // Step 2: ONE encoder for ALL groups — compute + copy
+        let t_gpu = std::time::Instant::now();
+        let mut encoder = raw_device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("scf_all"),
+        });
+
+        let mut active_groups: Vec<(usize, Vec<usize>)> = Vec::new();
+
+        {
+            let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: Some("all_groups"), timestamp_writes: None,
             });
-            {
-                let mut p = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                    label: Some("scf_pass"), timestamp_writes: None,
-                });
-                p.set_pipeline(&sky_pipe);
-                p.set_bind_group(0, &pot_bg, &[]);
-                p.dispatch_workgroups(nr_wg, bn, 1);
 
-                p.set_pipeline(&cfwd_pipe);
-                p.set_bind_group(0, &pot_bg, &[]);
-                p.dispatch_workgroups(bn, 1, 1);
+            for (gi, g) in all_groups.iter().enumerate() {
+                let active: Vec<usize> = g.group_indices.iter().copied()
+                    .filter(|&si| !states[si].converged).collect();
+                if active.is_empty() { continue; }
+                let bn = active.len() as u32;
 
-                p.set_pipeline(&cbwd_pipe);
-                p.set_bind_group(0, &pot_bg, &[]);
-                p.dispatch_workgroups(bn, 1, 1);
+                pass.set_pipeline(&g.sky_pipe); pass.set_bind_group(0, &g.pot_bg, &[]); pass.dispatch_workgroups(g.nr_wg, bn, 1);
+                pass.set_pipeline(&g.cfwd); pass.set_bind_group(0, &g.pot_bg, &[]); pass.dispatch_workgroups(bn, 1, 1);
+                pass.set_pipeline(&g.cbwd); pass.set_bind_group(0, &g.pot_bg, &[]); pass.dispatch_workgroups(bn, 1, 1);
+                pass.set_pipeline(&g.fin_pipe); pass.set_bind_group(0, &g.pot_bg, &[]); pass.dispatch_workgroups(g.nr_wg, bn, 1);
+                pass.set_pipeline(&g.fq_pipe); pass.set_bind_group(0, &g.pot_bg, &[]); pass.dispatch_workgroups(g.nr_wg, bn, 1);
+                pass.set_pipeline(&g.hp_pipe); pass.set_bind_group(0, &g.hbg_p, &[]); pass.dispatch_workgroups(g.ns_wg, g.ns_wg, bn);
+                pass.set_pipeline(&g.hn_pipe); pass.set_bind_group(0, &g.hbg_n, &[]); pass.dispatch_workgroups(g.ns_wg, g.ns_wg, bn);
 
-                p.set_pipeline(&fin_pipe);
-                p.set_bind_group(0, &pot_bg, &[]);
-                p.dispatch_workgroups(nr_wg, bn, 1);
-
-                p.set_pipeline(&fq_pipe);
-                p.set_bind_group(0, &pot_bg, &[]);
-                p.dispatch_workgroups(nr_wg, bn, 1);
-
-                p.set_pipeline(&hp_pipe);
-                p.set_bind_group(0, &ham_bg_p, &[]);
-                p.dispatch_workgroups(ns_wg, ns_wg, bn);
-
-                p.set_pipeline(&hn_pipe);
-                p.set_bind_group(0, &ham_bg_n, &[]);
-                p.dispatch_workgroups(ns_wg, ns_wg, bn);
-            }
-            raw_queue.submit(Some(encoder.finish()));
-            total_gpu_dispatches += 7;
-
-            // Read back H matrices
-            let h_p_data = device.read_buffer_f64(&h_p_buf, n_nuclei * mat_size)
-                .expect("read H_p");
-            let h_n_data = device.read_buffer_f64(&h_n_buf, n_nuclei * mat_size)
-                .expect("read H_n");
-
-            // Interleave for BatchedEighGpu: [p0, n0, p1, n1, ...]
-            let batch_species = n_nuclei * 2;
-            let mut packed_h = vec![0.0f64; batch_species * mat_size];
-            for bi in 0..n_nuclei {
-                let src = bi * mat_size;
-                packed_h[(bi * 2) * mat_size..(bi * 2) * mat_size + mat_size]
-                    .copy_from_slice(&h_p_data[src..src + mat_size]);
-                packed_h[(bi * 2 + 1) * mat_size..(bi * 2 + 1) * mat_size + mat_size]
-                    .copy_from_slice(&h_n_data[src..src + mat_size]);
-            }
-
-            // GPU eigensolve
-            let (eigenvalues, eigenvectors) = match BatchedEighGpu::execute_f64(
-                device.clone(), &packed_h, ns, batch_species, 30,
-            ) {
-                Ok(r) => r,
-                Err(e) => { eprintln!("BatchedEighGpu failed: {}", e); break; }
-            };
-            gpu_dispatches += 1;
-            total_gpu_dispatches += 1;
-
-            // CPU: BCS + Density + Energy
-            for (batch_idx, &solver_idx) in active.iter().enumerate() {
-                let (z, n, _, ref hfb) = solvers[solver_idx];
-                let state = &mut states[solver_idx];
-                let cur_nr = hfb.nr();
-
-                let eig_p = (batch_idx * 2) * ns;
-                let vec_p = (batch_idx * 2) * mat_size;
-                let eig_n = (batch_idx * 2 + 1) * ns;
-                let vec_n = (batch_idx * 2 + 1) * mat_size;
-
-                let mut rho_p_new = vec![1e-15; cur_nr];
-                let mut rho_n_new = vec![1e-15; cur_nr];
-
-                for (_, is_proton) in [(0usize, true), (1usize, false)] {
-                    let eo = if is_proton { eig_p } else { eig_n };
-                    let vo = if is_proton { vec_p } else { vec_n };
-                    let eigs = &eigenvalues[eo..eo + ns];
-                    let vecs = &eigenvectors[vo..vo + mat_size];
-                    let num_q = if is_proton { z } else { n };
-                    let (v2, _) = hfb.bcs_occupations_from_eigs(eigs, num_q, hfb.pairing_gap());
-                    let rho_new = hfb.density_from_eigenstates(vecs, &v2, ns);
-                    if is_proton { rho_p_new = rho_new; } else { rho_n_new = rho_new; }
-                }
-
-                let alpha = if iter == 0 { 0.8 } else { mixing };
-                for k in 0..cur_nr {
-                    state.rho_p[k] = (alpha * rho_p_new[k] + (1.0 - alpha) * state.rho_p[k]).max(1e-15);
-                    state.rho_n[k] = (alpha * rho_n_new[k] + (1.0 - alpha) * state.rho_n[k]).max(1e-15);
-                }
-
-                let e_total = hfb.compute_energy_from_densities(
-                    &state.rho_p, &state.rho_n,
-                    &eigenvalues[eig_p..eig_p + ns],
-                    &eigenvectors[vec_p..vec_p + mat_size],
-                    &eigenvalues[eig_n..eig_n + ns],
-                    &eigenvectors[vec_n..vec_n + mat_size],
-                    params,
-                );
-
-                let de = (e_total - state.e_prev).abs();
-                state.e_prev = e_total;
-                state.binding_energy = if e_total < 0.0 { -e_total } else { e_total.abs() };
-                if de < tol && iter > 5 { state.converged = true; }
+                total_gpu_dispatches += 7;
+                active_groups.push((gi, active));
             }
         }
+
+        // Copy H → staging (same encoder, no extra submit)
+        for &(gi, ref active) in &active_groups {
+            let g = &all_groups[gi];
+            let byte_count = (active.len() * g.mat_size * 8) as u64;
+            encoder.copy_buffer_to_buffer(&g.h_p_buf, 0, &g.staging_p, 0, byte_count);
+            encoder.copy_buffer_to_buffer(&g.h_n_buf, 0, &g.staging_n, 0, byte_count);
+        }
+
+        // Step 3: SINGLE submit
+        raw_queue.submit(Some(encoder.finish()));
+        gpu_dispatches += 1;
+        t_gpu_total += t_gpu.elapsed().as_secs_f64();
+
+        // Step 4: Map ALL staging buffers, SINGLE poll
+        let t_poll = std::time::Instant::now();
+        let mut map_receivers = Vec::new();
+        for &(gi, ref active) in &active_groups {
+            let g = &all_groups[gi];
+            let byte_count = (active.len() * g.mat_size * 8) as u64;
+            let slice_p = g.staging_p.slice(..byte_count);
+            let slice_n = g.staging_n.slice(..byte_count);
+            let (tx_p, rx_p) = std::sync::mpsc::channel();
+            let (tx_n, rx_n) = std::sync::mpsc::channel();
+            slice_p.map_async(wgpu::MapMode::Read, move |r| { tx_p.send(r).ok(); });
+            slice_n.map_async(wgpu::MapMode::Read, move |r| { tx_n.send(r).ok(); });
+            map_receivers.push((gi, rx_p, rx_n));
+        }
+
+        raw_device.poll(wgpu::Maintain::Wait);
+        t_poll_total += t_poll.elapsed().as_secs_f64();
+
+        // Step 5: Read ALL staging buffers (sequential), then single Rayon pass
+        let t_read = std::time::Instant::now();
+        let alpha_mix = if iter == 0 { 0.8 } else { mixing };
+
+        // 5a. Read all H matrices from staging buffers
+        struct WorkItem {
+            si: usize,
+            h_p: Vec<f64>,
+            h_n: Vec<f64>,
+            rho_p_old: Vec<f64>,
+            rho_n_old: Vec<f64>,
+            e_prev: f64,
+        }
+        let mut all_work: Vec<WorkItem> = Vec::new();
+
+        for (gi, rx_p, rx_n) in map_receivers {
+            rx_p.recv().unwrap().expect("map H_p");
+            rx_n.recv().unwrap().expect("map H_n");
+
+            let g = &all_groups[gi];
+            let active: Vec<usize> = g.group_indices.iter().copied()
+                .filter(|&si| !states[si].converged).collect();
+            let n_nuclei = active.len();
+            let byte_count = (n_nuclei * g.mat_size * 8) as u64;
+
+            let h_p_data: Vec<f64>;
+            let h_n_data: Vec<f64>;
+            {
+                let mapped_p = g.staging_p.slice(..byte_count).get_mapped_range();
+                h_p_data = bytemuck::cast_slice::<u8, f64>(&mapped_p)[..n_nuclei * g.mat_size].to_vec();
+            }
+            g.staging_p.unmap();
+            {
+                let mapped_n = g.staging_n.slice(..byte_count).get_mapped_range();
+                h_n_data = bytemuck::cast_slice::<u8, f64>(&mapped_n)[..n_nuclei * g.mat_size].to_vec();
+            }
+            g.staging_n.unmap();
+
+            for (bi, &si) in active.iter().enumerate() {
+                all_work.push(WorkItem {
+                    si,
+                    h_p: h_p_data[bi * g.mat_size..(bi + 1) * g.mat_size].to_vec(),
+                    h_n: h_n_data[bi * g.mat_size..(bi + 1) * g.mat_size].to_vec(),
+                    rho_p_old: states[si].rho_p.clone(),
+                    rho_n_old: states[si].rho_n.clone(),
+                    e_prev: states[si].e_prev,
+                });
+            }
+        }
+
+        // 5b. Single Rayon par_iter over ALL nuclei across all groups
+        let cpu_results: Vec<(usize, Vec<f64>, Vec<f64>, f64, f64, bool)> = all_work
+            .par_iter()
+            .map(|item| {
+                let (z, n, _, ref hfb) = solvers[item.si];
+                let ns = hfb.n_states();
+                let cur_nr = hfb.nr();
+                let cur_dr = hfb.dr();
+
+                let mut h_p = item.h_p.clone();
+                let mut h_n = item.h_n.clone();
+
+                // Spin-orbit correction (CPU, full f64)
+                if w0 != 0.0 {
+                    let rho_total: Vec<f64> = (0..cur_nr)
+                        .map(|k| item.rho_p_old[k] + item.rho_n_old[k])
+                        .collect();
+                    let drho = barracuda::numerical::gradient_1d(&rho_total, cur_dr);
+                    let r = hfb.r_grid();
+                    let lj_qn = hfb.lj_quantum_numbers();
+
+                    for i in 0..ns {
+                        let (l, j) = lj_qn[i];
+                        if l == 0 { continue; }
+                        let l_f = l as f64;
+                        let ls = (j * (j + 1.0) - l_f * (l_f + 1.0) - 0.75) / 2.0;
+                        let wf_i = hfb.wf_state(i);
+                        let so_integ: Vec<f64> = (0..cur_nr)
+                            .map(|k| {
+                                wf_i[k].powi(2) * drho[k] / r[k].max(0.1) * r[k].powi(2)
+                            })
+                            .collect();
+                        let so_val = w0 * ls
+                            * barracuda::numerical::trapz(&so_integ, r).unwrap_or(0.0);
+                        h_p[i * ns + i] += so_val;
+                        h_n[i * ns + i] += so_val;
+                    }
+                }
+
+                let eig_p = eigh_f64(&h_p, ns).expect("eigh_f64");
+                let eig_n = eigh_f64(&h_n, ns).expect("eigh_f64");
+
+                let (v2_p, _) = hfb.bcs_occupations_from_eigs(&eig_p.eigenvalues, z, hfb.pairing_gap());
+                let (v2_n, _) = hfb.bcs_occupations_from_eigs(&eig_n.eigenvalues, n, hfb.pairing_gap());
+
+                let rho_p_new = hfb.density_from_eigenstates(&eig_p.eigenvectors, &v2_p, ns);
+                let rho_n_new = hfb.density_from_eigenstates(&eig_n.eigenvectors, &v2_n, ns);
+
+                let mut rho_p_mixed = vec![0.0; cur_nr];
+                let mut rho_n_mixed = vec![0.0; cur_nr];
+                for k in 0..cur_nr {
+                    rho_p_mixed[k] = (alpha_mix * rho_p_new[k] + (1.0 - alpha_mix) * item.rho_p_old[k]).max(1e-15);
+                    rho_n_mixed[k] = (alpha_mix * rho_n_new[k] + (1.0 - alpha_mix) * item.rho_n_old[k]).max(1e-15);
+                }
+
+                let e_total = hfb.compute_energy_with_v2(
+                    &rho_p_mixed, &rho_n_mixed,
+                    &eig_p.eigenvalues, &eig_p.eigenvectors,
+                    &eig_n.eigenvalues, &eig_n.eigenvectors,
+                    &v2_p, &v2_n,
+                    params,
+                );
+                let de = (e_total - item.e_prev).abs();
+                let binding_energy = if e_total < 0.0 { -e_total } else { e_total.abs() };
+                let converged = de < tol && iter > 5;
+
+                (item.si, rho_p_mixed, rho_n_mixed, e_total, binding_energy, converged)
+            })
+            .collect();
+
+        for (si, rho_p_mixed, rho_n_mixed, e_total, binding_energy, converged) in cpu_results {
+            states[si].rho_p = rho_p_mixed;
+            states[si].rho_n = rho_n_mixed;
+            states[si].e_prev = e_total;
+            states[si].binding_energy = binding_energy;
+            states[si].converged = converged;
+        }
+        t_cpu_total += t_read.elapsed().as_secs_f64();
     }
 
-    n_hfb = solvers.len();
+    eprintln!("  [PROFILE] upload={:.3}s gpu={:.3}s poll={:.3}s cpu={:.3}s total={:.3}s",
+        t_upload_total, t_gpu_total, t_poll_total, t_cpu_total, t0.elapsed().as_secs_f64());
+
+    let n_hfb = solvers.len();
     for (i, (z, n, _, _)) in solvers.iter().enumerate() {
         results.push((*z, *n, states[i].binding_energy, states[i].converged));
     }
 
     GpuResidentL2Result {
-        results,
-        hfb_time_s: t0_wall.elapsed().as_secs_f64(),
-        gpu_dispatches,
-        total_gpu_dispatches,
-        n_hfb,
-        n_semf,
+        results, hfb_time_s: t0.elapsed().as_secs_f64(),
+        gpu_dispatches, total_gpu_dispatches, n_hfb, n_semf,
     }
 }

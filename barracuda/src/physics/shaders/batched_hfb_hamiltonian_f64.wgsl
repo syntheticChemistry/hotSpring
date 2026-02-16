@@ -78,6 +78,7 @@ fn build_hamiltonian(
     var h_val: f64 = f64(0.0);
 
     // T_eff contribution (only within same (l,j) block)
+    // Uses trapezoidal rule: half-weight first and last grid points
     if (same_lj == 1u) {
         let ll1 = ll1_batch[ll1_base_idx + i_idx];
         var t_eff_sum: f64 = f64(0.0);
@@ -89,12 +90,16 @@ fn build_hamiltonian(
             let dwf_i = dwf_batch[wf_base + i_idx * nr + k];
             let dwf_j = dwf_batch[wf_base + j_idx * nr + k];
 
-            t_eff_sum = t_eff_sum + fq * (dwf_i * dwf_j * rk * rk + ll1 * wf_i * wf_j);
+            var val = fq * (dwf_i * dwf_j * rk * rk + ll1 * wf_i * wf_j);
+            if (k == 0u || k == nr - 1u) {
+                val = val * f64(0.5);
+            }
+            t_eff_sum = t_eff_sum + val;
         }
         h_val = h_val + t_eff_sum * dr;
     }
 
-    // Potential contribution
+    // Potential contribution (trapezoidal rule)
     if (i_idx == j_idx || same_lj == 1u) {
         var v_sum: f64 = f64(0.0);
         for (var k = 0u; k < nr; k++) {
@@ -102,7 +107,11 @@ fn build_hamiltonian(
             let u_k = u_total_batch[pot_base + k];
             let wf_i = wf_batch[wf_base + i_idx * nr + k];
             let wf_j = wf_batch[wf_base + j_idx * nr + k];
-            v_sum = v_sum + wf_i * wf_j * u_k * rk * rk;
+            var val = wf_i * wf_j * u_k * rk * rk;
+            if (k == 0u || k == nr - 1u) {
+                val = val * f64(0.5);
+            }
+            v_sum = v_sum + val;
         }
         h_val = h_val + v_sum * dr;
     }

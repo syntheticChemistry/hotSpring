@@ -16,6 +16,7 @@ use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::physics::{
     nuclear_matter_properties, NuclearMatterProps,
     binding_energies_l2_gpu, binding_energies_l2_gpu_resident,
+    binding_energy_l2,
 };
 
 use barracuda::sample::latin_hypercube;
@@ -69,6 +70,7 @@ struct CliArgs {
     n_lhs: usize,
     phase1_only: bool,
     gpu_resident: bool,
+    cpu_only: bool,
 }
 
 fn parse_args() -> CliArgs {
@@ -88,6 +90,7 @@ fn parse_args() -> CliArgs {
         n_lhs: get("--n-lhs=").and_then(|s| s.parse().ok()).unwrap_or(64),
         phase1_only: has("--phase1-only"),
         gpu_resident: has("--gpu-resident"),
+        cpu_only: has("--cpu-only"),
     }
 }
 
@@ -98,7 +101,11 @@ fn parse_args() -> CliArgs {
 fn main() {
     let cli = parse_args();
 
-    if cli.gpu_resident {
+    if cli.cpu_only {
+        println!("╔══════════════════════════════════════════════════════════════╗");
+        println!("║  Nuclear EOS L2 — CPU-ONLY BASELINE                        ║");
+        println!("╚══════════════════════════════════════════════════════════════╝");
+    } else if cli.gpu_resident {
         println!("╔══════════════════════════════════════════════════════════════╗");
         println!("║  Nuclear EOS L2 — GPU-RESIDENT HFB (Experiment 005b)       ║");
         println!("║  Potentials + H-build on GPU, zero CPU↔GPU H round-trips   ║");
@@ -110,6 +117,45 @@ fn main() {
         println!("╚══════════════════════════════════════════════════════════════╝");
     }
     println!();
+
+    // ── CPU-only fast path (no GPU needed) ─────────────────────────
+    if cli.cpu_only {
+        let nuclei_set = data::parse_nuclei_set_from_args();
+        let base = PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join("control/surrogate/nuclear-eos");
+        let exp_data: HashMap<(usize, usize), (f64, f64)> = data::load_nuclei(&base, nuclei_set).expect("load");
+        let mut sorted_nuclei: Vec<((usize, usize), (f64, f64))> = exp_data.iter().map(|(&k, &v)| (k, v)).collect();
+        sorted_nuclei.sort_by_key(|&((z, n), _)| (z, n));
+        let nuclei_zn: Vec<(usize, usize)> = sorted_nuclei.iter().map(|&((z, n), _)| (z, n)).collect();
+        let b_exp_map: HashMap<(usize, usize), f64> = sorted_nuclei.iter().map(|&((z, n), (b, _))| ((z, n), b)).collect();
+
+        println!("  Nuclei: {} total", nuclei_zn.len());
+        println!();
+        let t_cpu = Instant::now();
+        let mut chi2_sum = 0.0;
+        let mut n_valid = 0usize;
+        let mut n_conv = 0usize;
+        let mut n_hfb = 0usize;
+        for &(z, n) in &nuclei_zn {
+            let (b_calc, conv) = binding_energy_l2(z, n, &SLY4_PARAMS);
+            let a = z + n;
+            if a >= 56 && a <= 132 { n_hfb += 1; }
+            if b_calc > 0.0 {
+                if let Some(&b_exp) = b_exp_map.get(&(z, n)) {
+                    let sigma = (0.01 * b_exp).max(2.0);
+                    chi2_sum += ((b_calc - b_exp) / sigma).powi(2);
+                    n_valid += 1;
+                    if conv { n_conv += 1; }
+                }
+            }
+        }
+        let cpu_time = t_cpu.elapsed().as_secs_f64();
+        let chi2_d = if n_valid > 0 { chi2_sum / n_valid as f64 } else { 1e10 };
+        println!("  CPU-Only SLy4:");
+        println!("    chi2/datum:  {:.4}", chi2_d);
+        println!("    Converged:   {}/{} HFB nuclei", n_conv, n_hfb);
+        println!("    Wall time:   {:.2}s ({:.1}ms per HFB nucleus)", cpu_time, if n_hfb > 0 { cpu_time * 1000.0 / n_hfb as f64 } else { 0.0 });
+        return;
+    }
 
     // ── Initialize GPU ──────────────────────────────────────────────
     let rt = tokio::runtime::Runtime::new().unwrap();

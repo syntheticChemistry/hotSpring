@@ -93,7 +93,7 @@ impl GpuF64 {
                     required_limits: wgpu::Limits {
                         max_storage_buffer_binding_size: 512 * 1024 * 1024, // 512 MiB
                         max_buffer_size: 1024 * 1024 * 1024,               // 1 GiB
-                        max_storage_buffers_per_shader_stage: 12,           // GPU-resident SCF needs 10+
+                        max_storage_buffers_per_shader_stage: 16,           // GPU-resident SCF needs 12+ (incl. precomputed powers)
                         ..wgpu::Limits::default()
                     },
                 },

@@ -1,30 +1,9 @@
 // Batched HFB Potentials (f64) — GPU Shader
 //
-// Computes Skyrme potential, Coulomb direct, and Coulomb exchange for all
-// nuclei in a batch simultaneously. Each thread handles one grid point
-// for one nucleus.
-//
-// This replaces the CPU-side skyrme_potential(), coulomb_direct(), and
-// coulomb_exchange() calls in hfb.rs.
-//
-// Memory layout:
-//   rho_p_batch: [batch_size × nr] f64 — proton densities
-//   rho_n_batch: [batch_size × nr] f64 — neutron densities
-//   u_total_batch: [batch_size × nr] f64 — output total potential
-//   r_grid: [nr] f64 — radial grid (shared across batch)
-//   f_q_batch: [batch_size × nr] f64 — effective mass function f_q(r)
-//
-// Physics:
-//   U_sky(r) = t0 * [(1+x0/2)*rho - (1/2+x0)*rho_q]
-//            + (t3/12) * [derivative terms]
-//   V_C(r)   = e² * [Z_enc(r)/r + integral_r^inf rho_p(r')*r' dr']
-//   V_Cx(r)  = -e² * (3/π)^{1/3} * rho_p^{1/3}
-//
-// Constants (matching hfb.rs):
-//   E2 = 1.4399764 (e² in MeV·fm)
-//   PI = 3.141592653589793
+// Computes Skyrme + Coulomb + effective-mass potentials for a batch of nuclei.
+// Pre-computed rho^alpha and rho^(alpha-1) passed from CPU for full f64 precision.
+// Coulomb exchange uses Newton-refined cube root for f64 accuracy.
 
-// Parameters passed via storage buffer (f64 native, no bitcast needed)
 struct PotentialDims {
     nr: u32,
     batch_size: u32,
@@ -40,23 +19,24 @@ struct PotentialDims {
 @group(0) @binding(7) var<storage, read_write> f_q_n_batch: array<f64>;
 @group(0) @binding(8) var<storage, read_write> charge_enclosed: array<f64>;
 @group(0) @binding(9) var<storage, read_write> phi_outer: array<f64>;
-// Skyrme parameters as f64 storage: [t0, t3, x0, x3, alpha, dr, c0t, c1n, hbar2_2m]
 @group(0) @binding(10) var<storage, read> sky_params: array<f64>;
+// Pre-computed on CPU with full f64 precision:
+@group(0) @binding(11) var<storage, read> rho_alpha_batch: array<f64>;
+@group(0) @binding(12) var<storage, read> rho_alpha_m1_batch: array<f64>;
 
-const E2: f64 = 1.4399764;  // e² in MeV·fm
+const E2: f64 = 1.4399764;
 const PI_VAL: f64 = 3.141592653589793;
 
-// WGSL pow/exp/log are f32-only; route through f32 for transcendentals
-fn pow_f64(base: f64, exponent: f64) -> f64 {
-    return f64(pow(f32(base), f32(exponent)));
-}
+// Newton-refined cube root in f64 (f32 seed + 2 Newton iterations)
 fn cbrt_f64(x: f64) -> f64 {
-    return f64(pow(f32(x), f32(1.0 / 3.0)));
+    if (x <= f64(0.0)) { return f64(0.0); }
+    var y = f64(pow(f32(x), f32(0.333333343)));
+    y = (f64(2.0) * y + x / (y * y)) / f64(3.0);
+    y = (f64(2.0) * y + x / (y * y)) / f64(3.0);
+    return y;
 }
 
 // ─── Skyrme potential ────────────────────────────────────────────
-// Thread per (k, batch): computes U_sky(r_k) for one nucleus
-// Dispatch: (ceil(nr/256), batch_size, 1)
 @compute @workgroup_size(256, 1, 1)
 fn compute_skyrme(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let k = global_id.x;
@@ -77,27 +57,21 @@ fn compute_skyrme(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let rp = rho_p_batch[idx];
     let rn = rho_n_batch[idx];
     let rho = rp + rn;
-    let rho_safe = max(rho, f64(1e-20));
 
-    // Proton potential
-    let u_t0_p = t0 * ((f64(1.0) + x0 / f64(2.0)) * rho - (f64(0.5) + x0) * rp);
-    let rho_alpha = pow_f64(rho_safe, alpha);
-    var rho_alpha_m1: f64;
-    if (rho > f64(1e-15)) {
-        rho_alpha_m1 = pow_f64(rho_safe, alpha - f64(1.0));
-    } else {
-        rho_alpha_m1 = f64(0.0);
-    }
+    // Pre-computed on CPU with full f64 precision
+    let rho_alpha = rho_alpha_batch[idx];
+    let rho_alpha_m1 = rho_alpha_m1_batch[idx];
     let sum_rho2 = rp * rp + rn * rn;
+
+    // Proton Skyrme
+    let u_t0_p = t0 * ((f64(1.0) + x0 / f64(2.0)) * rho - (f64(0.5) + x0) * rp);
     let u_t3_p = (t3 / f64(12.0))
         * ((f64(1.0) + x3 / f64(2.0)) * (alpha + f64(2.0)) * rho_alpha * rho
             - (f64(0.5) + x3) * (alpha * rho_alpha_m1 * sum_rho2
                 + f64(2.0) * rho_alpha * rp));
-
-    // Store proton Skyrme potential (Coulomb added in separate pass)
     u_total_batch[idx] = u_t0_p + u_t3_p;
 
-    // Neutron potential
+    // Neutron Skyrme
     let u_t0_n = t0 * ((f64(1.0) + x0 / f64(2.0)) * rho - (f64(0.5) + x0) * rn);
     let u_t3_n = (t3 / f64(12.0))
         * ((f64(1.0) + x3 / f64(2.0)) * (alpha + f64(2.0)) * rho_alpha * rho
@@ -107,8 +81,6 @@ fn compute_skyrme(@builtin(global_invocation_id) global_id: vec3<u32>) {
 }
 
 // ─── Coulomb: forward cumulative sum (charge enclosed) ───────────
-// One thread per batch element, sequential over grid points
-// Dispatch: (batch_size, 1, 1)
 @compute @workgroup_size(256, 1, 1)
 fn compute_coulomb_forward(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let batch_idx = global_id.x;
@@ -129,8 +101,6 @@ fn compute_coulomb_forward(@builtin(global_invocation_id) global_id: vec3<u32>) 
 }
 
 // ─── Coulomb: backward cumulative sum (outer potential) ──────────
-// One thread per batch element, sequential backward
-// Dispatch: (batch_size, 1, 1)
 @compute @workgroup_size(256, 1, 1)
 fn compute_coulomb_backward(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let batch_idx = global_id.x;
@@ -152,7 +122,6 @@ fn compute_coulomb_backward(@builtin(global_invocation_id) global_id: vec3<u32>)
 }
 
 // ─── Finalize proton potential: add Coulomb to Skyrme ────────────
-// Dispatch: (ceil(nr/256), batch_size, 1)
 @compute @workgroup_size(256, 1, 1)
 fn finalize_proton_potential(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let k = global_id.x;
@@ -167,19 +136,14 @@ fn finalize_proton_potential(@builtin(global_invocation_id) global_id: vec3<u32>
     let rk = max(r_grid[idx], f64(1e-10));
     let rp = max(rho_p_batch[idx], f64(0.0));
 
-    // Coulomb direct
     let v_c = E2 * (charge_enclosed[idx] / rk + phi_outer[idx]);
-
-    // Coulomb exchange (Slater LDA)
     let coeff = -E2 * cbrt_f64(f64(3.0) / PI_VAL);
     let v_cx = coeff * cbrt_f64(rp);
 
-    // Add to proton potential (already contains Skyrme from compute_skyrme)
     u_total_batch[idx] = u_total_batch[idx] + v_c + v_cx;
 }
 
 // ─── Effective mass function f_q(r) ──────────────────────────────
-// Dispatch: (ceil(nr/256), batch_size, 1)
 @compute @workgroup_size(256, 1, 1)
 fn compute_f_q(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let k = global_id.x;
@@ -198,11 +162,9 @@ fn compute_f_q(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let rp = rho_p_batch[idx];
     let rn = rho_n_batch[idx];
 
-    // Proton f_q
     let f_p = max(hbar2_2m + c0t * (rp + rn) - c1n * rp, hbar2_2m * f64(0.3));
     f_q_p_batch[idx] = f_p;
 
-    // Neutron f_q
     let f_n = max(hbar2_2m + c0t * (rp + rn) - c1n * rn, hbar2_2m * f64(0.3));
     f_q_n_batch[idx] = f_n;
 }
