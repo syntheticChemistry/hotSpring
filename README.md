@@ -345,6 +345,7 @@ hotSpring/
 ├── NUCLEAR_EOS_STRATEGY.md             # Nuclear EOS Phase A→B strategy
 ├── HANDOFF_HOTSPRING_TO_TOADSTOOL_FEB_12_2026.md # Cross-project handoff v1 (GPU-resident HFB)
 ├── HANDOFF_HOTSPRING_TO_TOADSTOOL_FEB_16_2026.md # Comprehensive handoff v2 (195 checks, bugs, lessons)
+├── HANDOFF_HOTSPRING_BARRACUDA_V055.md            # v0.5.5 quality hardening handoff
 ├── LICENSE                             # AGPL-3.0
 ├── .gitignore
 │
@@ -588,6 +589,7 @@ These are **silent failures** — wrong results, no error messages. This fragili
 | [`experiments/005_L2_MEGABATCH_COMPLEXITY_BOUNDARY.md`](experiments/005_L2_MEGABATCH_COMPLEXITY_BOUNDARY.md) | L2 mega-batch GPU complexity boundary analysis |
 | [`HANDOFF_HOTSPRING_TO_TOADSTOOL_FEB_12_2026.md`](HANDOFF_HOTSPRING_TO_TOADSTOOL_FEB_12_2026.md) | Cross-project handoff v1: GPU-resident HFB, tier roadmap |
 | [`HANDOFF_HOTSPRING_TO_TOADSTOOL_FEB_16_2026.md`](HANDOFF_HOTSPRING_TO_TOADSTOOL_FEB_16_2026.md) | **Comprehensive handoff v2**: 195 checks, bugs, full inventory, lessons |
+| [`HANDOFF_HOTSPRING_BARRACUDA_V055.md`](HANDOFF_HOTSPRING_BARRACUDA_V055.md) | **v0.5.5 handoff**: code quality hardening, tolerance consolidation, shared infra |
 | [`wateringHole/handoffs/TOADSTOOL_EVOLUTION_REVIEW_FEB14_2026.md`](wateringHole/handoffs/TOADSTOOL_EVOLUTION_REVIEW_FEB14_2026.md) | ToadStool pull review + next evolution targets |
 | [`control/surrogate/REPRODUCE.md`](control/surrogate/REPRODUCE.md) | Step-by-step reproduction guide for surrogate learning |
 
