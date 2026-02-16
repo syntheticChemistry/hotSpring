@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Spherical Hartree-Fock + BCS solver (Level 2).
 //!
 //! Self-consistent mean-field solver for medium-mass nuclei (56 ≤ A ≤ 132)
@@ -29,6 +31,7 @@
 //!   - `barracuda::linalg::eigh_f64` for symmetric eigenvalue decomposition
 
 use super::constants::*;
+use super::hfb_common::Mat;
 use super::semf::semf_binding_energy;
 use barracuda::linalg::eigh_f64;
 use barracuda::numerical::{gradient_1d, trapz};
@@ -45,33 +48,6 @@ struct BasisState {
     deg: usize, // 2j+1
 }
 
-/// Simple row-major square matrix (replaces nalgebra::DMatrix)
-struct Mat {
-    data: Vec<f64>,
-    n: usize,
-}
-
-impl Mat {
-    fn zeros(n: usize) -> Self {
-        Mat { data: vec![0.0; n * n], n }
-    }
-
-    #[inline]
-    fn get(&self, r: usize, c: usize) -> f64 {
-        self.data[r * self.n + c]
-    }
-
-    #[inline]
-    fn set(&mut self, r: usize, c: usize, v: f64) {
-        self.data[r * self.n + c] = v;
-    }
-
-    #[inline]
-    fn add(&mut self, r: usize, c: usize, v: f64) {
-        self.data[r * self.n + c] += v;
-    }
-}
-
 /// Spherical HF+BCS solver
 pub struct SphericalHFB {
     z: usize,
@@ -80,10 +56,10 @@ pub struct SphericalHFB {
     r: Vec<f64>,
     dr: f64,
     nr: usize,
-    hw: f64,           // hbar*omega (MeV)
-    b: f64,            // HO length parameter (fm)
-    delta_p: f64,      // proton pairing gap (MeV)
-    delta_n: f64,      // neutron pairing gap (MeV)
+    hw: f64,      // hbar*omega (MeV)
+    b: f64,       // HO length parameter (fm)
+    delta_p: f64, // proton pairing gap (MeV)
+    delta_n: f64, // neutron pairing gap (MeV)
     states: Vec<BasisState>,
     n_states: usize,
     wf: Vec<Vec<f64>>,  // [n_states][nr] — radial wavefunctions
@@ -116,15 +92,29 @@ impl SphericalHFB {
         Self::build(z, n, n_shells, r_max, n_grid)
     }
 
-    pub fn n_states(&self) -> usize { self.n_states }
-    pub fn nr(&self) -> usize { self.nr }
-    pub fn z(&self) -> usize { self.z }
-    pub fn n_neutrons(&self) -> usize { self.n_neutrons }
-    pub fn dr(&self) -> f64 { self.dr }
-    pub fn hw(&self) -> f64 { self.hw }
+    pub fn n_states(&self) -> usize {
+        self.n_states
+    }
+    pub fn nr(&self) -> usize {
+        self.nr
+    }
+    pub fn z(&self) -> usize {
+        self.z
+    }
+    pub fn n_neutrons(&self) -> usize {
+        self.n_neutrons
+    }
+    pub fn dr(&self) -> f64 {
+        self.dr
+    }
+    pub fn hw(&self) -> f64 {
+        self.hw
+    }
 
     /// Pairing gap (same for proton and neutron in this model)
-    pub fn pairing_gap(&self) -> f64 { self.delta_p }
+    pub fn pairing_gap(&self) -> f64 {
+        self.delta_p
+    }
 
     /// Flat wavefunctions: [n_states × nr] row-major
     pub fn wf_flat(&self) -> Vec<f64> {
@@ -145,13 +135,15 @@ impl SphericalHFB {
     }
 
     /// Radial grid points
-    pub fn r_grid(&self) -> &[f64] { &self.r }
+    pub fn r_grid(&self) -> &[f64] {
+        &self.r
+    }
 
     /// lj_same matrix: [n_states × n_states] u32 (1 if same (l,j) block)
     pub fn lj_same_flat(&self) -> Vec<u32> {
         let ns = self.n_states;
         let mut out = vec![0u32; ns * ns];
-        for (_, indices) in &self.lj_blocks {
+        for indices in self.lj_blocks.values() {
             for &i in indices {
                 for &j in indices {
                     out[i * ns + j] = 1;
@@ -163,7 +155,10 @@ impl SphericalHFB {
 
     /// l(l+1) values per state
     pub fn ll1_values(&self) -> Vec<f64> {
-        self.states.iter().map(|s| (s.l * (s.l + 1)) as f64).collect()
+        self.states
+            .iter()
+            .map(|s| (s.l * (s.l + 1)) as f64)
+            .collect()
     }
 
     /// (l, j) quantum numbers per state — needed for spin-orbit coupling
@@ -172,7 +167,9 @@ impl SphericalHFB {
     }
 
     /// Per-state wavefunction access (for spin-orbit integrals)
-    pub fn wf_state(&self, i: usize) -> &[f64] { &self.wf[i] }
+    pub fn wf_state(&self, i: usize) -> &[f64] {
+        &self.wf[i]
+    }
 
     /// Degeneracies (2j+1) per state
     pub fn deg_values(&self) -> Vec<f64> {
@@ -219,7 +216,11 @@ impl SphericalHFB {
             let integ: Vec<f64> = (0..nr)
                 .map(|k| self.wf[i][k].powi(2) * u_total[k] * self.r[k].powi(2))
                 .collect();
-            h.add(i, i, barracuda::numerical::trapz(&integ, &self.r).unwrap_or(0.0));
+            h.add(
+                i,
+                i,
+                barracuda::numerical::trapz(&integ, &self.r).unwrap_or(0.0),
+            );
 
             // Spin-orbit
             if w0 != 0.0 && self.states[i].l > 0 {
@@ -230,8 +231,7 @@ impl SphericalHFB {
                 let drho = barracuda::numerical::gradient_1d(&rho_total, self.dr);
                 let so_integ: Vec<f64> = (0..nr)
                     .map(|k| {
-                        self.wf[i][k].powi(2) * drho[k] / self.r[k].max(0.1)
-                            * self.r[k].powi(2)
+                        self.wf[i][k].powi(2) * drho[k] / self.r[k].max(0.1) * self.r[k].powi(2)
                     })
                     .collect();
                 h.add(
@@ -250,12 +250,10 @@ impl SphericalHFB {
                     let idx_j = indices[jj];
                     let integ: Vec<f64> = (0..nr)
                         .map(|k| {
-                            self.wf[idx_i][k] * self.wf[idx_j][k] * u_total[k]
-                                * self.r[k].powi(2)
+                            self.wf[idx_i][k] * self.wf[idx_j][k] * u_total[k] * self.r[k].powi(2)
                         })
                         .collect();
-                    let val =
-                        barracuda::numerical::trapz(&integ, &self.r).unwrap_or(0.0);
+                    let val = barracuda::numerical::trapz(&integ, &self.r).unwrap_or(0.0);
                     h.add(idx_i, idx_j, val);
                     h.add(idx_j, idx_i, val);
                 }
@@ -281,13 +279,8 @@ impl SphericalHFB {
     ///
     /// `eigvecs` is row-major [n_states × n_states] from GPU.
     /// `v2` is the BCS occupation for each state.
-    /// Returns radial density profile [nr].
-    pub fn density_from_eigenstates(
-        &self,
-        eigvecs: &[f64],
-        v2: &[f64],
-        ns: usize,
-    ) -> Vec<f64> {
+    /// Returns radial density profile \[nr\].
+    pub fn density_from_eigenstates(&self, eigvecs: &[f64], v2: &[f64], ns: usize) -> Vec<f64> {
         let nr = self.nr;
         let degs: Vec<f64> = self.states.iter().map(|s| s.deg as f64).collect();
         let mut rho = vec![1e-15; nr];
@@ -336,21 +329,21 @@ impl SphericalHFB {
         let (v2_n, _) = self.bcs_occupations(eigs_n, self.n_neutrons, delta_n);
 
         let results_p = SpeciesResult {
-            eigenvalues: eigs_p.to_vec(),
+            _eigenvalues: eigs_p.to_vec(),
             eigvecs: vecs_p.to_vec(),
             n: ns,
             v2: v2_p,
             _lambda: 0.0,
         };
         let results_n = SpeciesResult {
-            eigenvalues: eigs_n.to_vec(),
+            _eigenvalues: eigs_n.to_vec(),
             eigvecs: vecs_n.to_vec(),
             n: ns,
             v2: v2_n,
             _lambda: 0.0,
         };
 
-        self.compute_energy(rho_p, rho_n, &results_p, &results_n, params)
+        self.compute_energy(rho_p, rho_n, &results_p, &results_n, params, false)
     }
 
     /// Fast energy calculation that accepts pre-computed v2 occupations,
@@ -369,20 +362,20 @@ impl SphericalHFB {
     ) -> f64 {
         let ns = self.n_states;
         let results_p = SpeciesResult {
-            eigenvalues: eigs_p.to_vec(),
+            _eigenvalues: eigs_p.to_vec(),
             eigvecs: vecs_p.to_vec(),
             n: ns,
             v2: v2_p.to_vec(),
             _lambda: 0.0,
         };
         let results_n = SpeciesResult {
-            eigenvalues: eigs_n.to_vec(),
+            _eigenvalues: eigs_n.to_vec(),
             eigvecs: vecs_n.to_vec(),
             n: ns,
             v2: v2_n.to_vec(),
             _lambda: 0.0,
         };
-        self.compute_energy(rho_p, rho_n, &results_p, &results_n, params)
+        self.compute_energy(rho_p, rho_n, &results_p, &results_n, params, false)
     }
 
     fn build(z: usize, n: usize, n_shells: usize, r_max: f64, n_grid: usize) -> Self {
@@ -456,14 +449,18 @@ impl SphericalHFB {
     }
 
     fn compute_wavefunctions(&mut self) {
-        self.wf = self.states.iter()
+        self.wf = self
+            .states
+            .iter()
             .map(|s| Self::ho_radial(s.n, s.l, &self.r, self.b))
             .collect();
 
         // Compute derivatives: dR/dr via 2nd-order finite differences (matches numpy.gradient)
-        self.dwf = self.wf.iter().map(|wf_i| {
-            gradient_1d(wf_i, self.dr)
-        }).collect();
+        self.dwf = self
+            .wf
+            .iter()
+            .map(|wf_i| gradient_1d(wf_i, self.dr))
+            .collect();
     }
 
     /// HO radial wavefunction R_{nl}(r)
@@ -510,8 +507,10 @@ impl SphericalHFB {
 
     /// Coulomb exchange (Slater approximation)
     fn coulomb_exchange(&self, rho_p: &[f64]) -> Vec<f64> {
-        let coeff = -E2 * (3.0 / PI).powf(1.0 / 3.0);
-        rho_p.iter().map(|&rp| coeff * rp.max(0.0).powf(1.0 / 3.0)).collect()
+        rho_p
+            .iter()
+            .map(|&rp| super::hfb_common::coulomb_exchange_slater(rp))
+            .collect()
     }
 
     // ─── Skyrme potential ────────────────────────────────────────────
@@ -545,8 +544,7 @@ impl SphericalHFB {
 
                 let u_t3 = (t3 / 12.0)
                     * ((1.0 + x3 / 2.0) * (alpha + 2.0) * rho_alpha * rho
-                        - (0.5 + x3) * (alpha * rho_alpha_m1 * sum_rho2
-                            + 2.0 * rho_alpha * rho_q));
+                        - (0.5 + x3) * (alpha * rho_alpha_m1 * sum_rho2 + 2.0 * rho_alpha * rho_q));
 
                 u_t0 + u_t3
             })
@@ -584,11 +582,15 @@ impl SphericalHFB {
             total - num_p
         };
 
-        let e_min = eigenvalues.iter().cloned().fold(f64::INFINITY, f64::min) - 50.0;
-        let e_max = eigenvalues.iter().cloned().fold(f64::NEG_INFINITY, f64::max) + 50.0;
+        let e_min = eigenvalues.iter().copied().fold(f64::INFINITY, f64::min) - 50.0;
+        let e_max = eigenvalues
+            .iter()
+            .copied()
+            .fold(f64::NEG_INFINITY, f64::max)
+            + 50.0;
 
         // Brent's method (matches scipy.optimize.brentq precision)
-        let lam = match barracuda::optimize::brent(&particle_number, e_min, e_max, 1e-10, 100) {
+        let lam = match barracuda::optimize::brent(particle_number, e_min, e_max, 1e-10, 100) {
             Ok(result) => result.root,
             Err(_) => self.approx_fermi(eigenvalues, num_particles, &degs),
         };
@@ -612,7 +614,7 @@ impl SphericalHFB {
         degs: &[f64],
     ) -> (Vec<f64>, f64) {
         let mut idx: Vec<usize> = (0..self.n_states).collect();
-        idx.sort_by(|&a, &b| eigenvalues[a].partial_cmp(&eigenvalues[b]).unwrap());
+        idx.sort_by(|&a, &b| eigenvalues[a].total_cmp(&eigenvalues[b]));
 
         let mut v2 = vec![0.0; self.n_states];
         let mut remaining = num_particles as f64;
@@ -620,7 +622,9 @@ impl SphericalHFB {
             let fill = remaining.min(degs[i]);
             v2[i] = fill / degs[i];
             remaining -= fill;
-            if remaining <= 0.0 { break; }
+            if remaining <= 0.0 {
+                break;
+            }
         }
 
         let lam = self.approx_fermi(eigenvalues, num_particles, degs);
@@ -629,24 +633,20 @@ impl SphericalHFB {
 
     fn approx_fermi(&self, eigenvalues: &[f64], num_particles: usize, degs: &[f64]) -> f64 {
         let mut idx: Vec<usize> = (0..self.n_states).collect();
-        idx.sort_by(|&a, &b| eigenvalues[a].partial_cmp(&eigenvalues[b]).unwrap());
+        idx.sort_by(|&a, &b| eigenvalues[a].total_cmp(&eigenvalues[b]));
         let mut count = 0.0;
         for &i in &idx {
             count += degs[i];
-            if count >= num_particles as f64 { return eigenvalues[i]; }
+            if count >= num_particles as f64 {
+                return eigenvalues[i];
+            }
         }
         eigenvalues[*idx.last().unwrap_or(&0)]
     }
 
     // ─── T_eff kinetic matrix ────────────────────────────────────────
 
-    fn build_t_eff(
-        &self,
-        rho_p: &[f64],
-        rho_n: &[f64],
-        is_proton: bool,
-        params: &[f64],
-    ) -> Mat {
+    fn build_t_eff(&self, rho_p: &[f64], rho_n: &[f64], is_proton: bool, params: &[f64]) -> Mat {
         let (t1, t2) = (params[1], params[2]);
         let (x1, x2) = (params[5], params[6]);
 
@@ -675,8 +675,7 @@ impl SphericalHFB {
                     let integrand: Vec<f64> = (0..self.nr)
                         .map(|k| {
                             f_q[k]
-                                * (self.dwf[idx_i][k] * self.dwf[idx_j][k]
-                                    * self.r[k].powi(2)
+                                * (self.dwf[idx_i][k] * self.dwf[idx_j][k] * self.r[k].powi(2)
                                     + ll1 * self.wf[idx_i][k] * self.wf[idx_j][k])
                         })
                         .collect();
@@ -693,85 +692,6 @@ impl SphericalHFB {
 
     // ─── Total energy functional ─────────────────────────────────────
 
-    fn compute_energy_debug(
-        &self,
-        rho_p: &[f64],
-        rho_n: &[f64],
-        results_p: &SpeciesResult,
-        results_n: &SpeciesResult,
-        params: &[f64],
-    ) -> f64 {
-        let (t0, t3) = (params[0], params[3]);
-        let (x0, x3) = (params[4], params[7]);
-        let alpha = params[8];
-        let n = self.n_states;
-        let degs: Vec<f64> = self.states.iter().map(|s| s.deg as f64).collect();
-        let rho: Vec<f64> = (0..self.nr).map(|k| rho_p[k] + rho_n[k]).collect();
-
-        let mut e_kin = 0.0;
-        for (is_proton, res) in [(true, results_p), (false, results_n)] {
-            let t_eff = self.build_t_eff(rho_p, rho_n, is_proton, params);
-            for i in 0..n {
-                if degs[i] * res.v2[i] < 1e-12 { continue; }
-                let mut val = 0.0;
-                for a in 0..n {
-                    for b in 0..n {
-                        val += res.eigvec(a, i) * t_eff.get(a, b) * res.eigvec(b, i);
-                    }
-                }
-                e_kin += degs[i] * res.v2[i] * val;
-            }
-        }
-
-        let sum_rho2: Vec<f64> = (0..self.nr).map(|k| rho_p[k].powi(2) + rho_n[k].powi(2)).collect();
-        let integ_t0: Vec<f64> = (0..self.nr).map(|k| {
-            ((1.0 + x0 / 2.0) * rho[k].powi(2) - (0.5 + x0) * sum_rho2[k]) * 4.0 * PI * self.r[k].powi(2)
-        }).collect();
-        let e_t0 = (t0 / 2.0) * trapz(&integ_t0, &self.r).unwrap_or(0.0);
-
-        let integ_t3: Vec<f64> = (0..self.nr).map(|k| {
-            let rho_safe = rho[k].max(1e-20);
-            rho_safe.powf(alpha) * ((1.0 + x3 / 2.0) * rho[k].powi(2) - (0.5 + x3) * sum_rho2[k]) * 4.0 * PI * self.r[k].powi(2)
-        }).collect();
-        let e_t3 = (t3 / 12.0) * trapz(&integ_t3, &self.r).unwrap_or(0.0);
-
-        let v_c = self.coulomb_direct(rho_p);
-        let integ_cd: Vec<f64> = (0..self.nr).map(|k| v_c[k] * rho_p[k] * 4.0 * PI * self.r[k].powi(2)).collect();
-        let e_coul_direct = 0.5 * trapz(&integ_cd, &self.r).unwrap_or(0.0);
-        let v_cx = self.coulomb_exchange(rho_p);
-        let integ_cx: Vec<f64> = (0..self.nr).map(|k| v_cx[k] * rho_p[k] * 4.0 * PI * self.r[k].powi(2)).collect();
-        let e_coul_exchange = trapz(&integ_cx, &self.r).unwrap_or(0.0);
-
-        let mut e_pair = 0.0;
-        for (delta_q, res) in [(self.delta_p, results_p), (self.delta_n, results_n)] {
-            for i in 0..n {
-                let v2 = res.v2[i];
-                let u2 = 1.0 - v2;
-                e_pair -= delta_q * degs[i] * (v2 * u2).max(0.0).sqrt();
-            }
-        }
-
-        let e_cm = -0.75 * self.hw;
-
-        let integ_np: Vec<f64> = (0..self.nr).map(|k| rho_p[k] * 4.0 * PI * self.r[k].powi(2)).collect();
-        let integ_nn: Vec<f64> = (0..self.nr).map(|k| rho_n[k] * 4.0 * PI * self.r[k].powi(2)).collect();
-        let n_p = trapz(&integ_np, &self.r).unwrap_or(0.0);
-        let n_n = trapz(&integ_nn, &self.r).unwrap_or(0.0);
-
-        let e_total = e_kin + e_t0 + e_t3 + e_coul_direct + e_coul_exchange + e_pair + e_cm;
-        println!("  Energy components:");
-        println!("    E_kin    = {:>10.2} MeV", e_kin);
-        println!("    E_t0    = {:>10.2} MeV", e_t0);
-        println!("    E_t3    = {:>10.2} MeV", e_t3);
-        println!("    E_Cdir  = {:>10.2} MeV", e_coul_direct);
-        println!("    E_Cexch = {:>10.2} MeV", e_coul_exchange);
-        println!("    E_pair  = {:>10.2} MeV", e_pair);
-        println!("    E_cm    = {:>10.2} MeV", e_cm);
-        println!("    E_total = {:>10.2} MeV", e_total);
-        println!("    N_p = {:.2}, N_n = {:.2} (target: Z={}, N={})", n_p, n_n, self.z, self.n_neutrons);
-        e_total
-    }
-
     fn compute_energy(
         &self,
         rho_p: &[f64],
@@ -779,6 +699,7 @@ impl SphericalHFB {
         results_p: &SpeciesResult,
         results_n: &SpeciesResult,
         params: &[f64],
+        verbose: bool,
     ) -> f64 {
         let (t0, t3) = (params[0], params[3]);
         let (x0, x3) = (params[4], params[7]);
@@ -792,7 +713,9 @@ impl SphericalHFB {
         for (is_proton, res) in [(true, results_p), (false, results_n)] {
             let t_eff = self.build_t_eff(rho_p, rho_n, is_proton, params);
             for i in 0..n {
-                if degs[i] * res.v2[i] < 1e-12 { continue; }
+                if degs[i] * res.v2[i] < 1e-12 {
+                    continue;
+                }
                 let mut val = 0.0;
                 for a in 0..n {
                     for b in 0..n {
@@ -803,27 +726,42 @@ impl SphericalHFB {
             }
         }
 
-        let sum_rho2: Vec<f64> = (0..self.nr).map(|k| rho_p[k].powi(2) + rho_n[k].powi(2)).collect();
+        let sum_rho2: Vec<f64> = (0..self.nr)
+            .map(|k| rho_p[k].powi(2) + rho_n[k].powi(2))
+            .collect();
 
         let integ_t0: Vec<f64> = (0..self.nr)
-            .map(|k| ((1.0 + x0 / 2.0) * rho[k].powi(2) - (0.5 + x0) * sum_rho2[k]) * 4.0 * PI * self.r[k].powi(2))
+            .map(|k| {
+                ((1.0 + x0 / 2.0) * rho[k].powi(2) - (0.5 + x0) * sum_rho2[k])
+                    * 4.0
+                    * PI
+                    * self.r[k].powi(2)
+            })
             .collect();
         let e_t0 = (t0 / 2.0) * trapz(&integ_t0, &self.r).unwrap_or(0.0);
 
         let integ_t3: Vec<f64> = (0..self.nr)
             .map(|k| {
                 let rho_safe = rho[k].max(1e-20);
-                rho_safe.powf(alpha) * ((1.0 + x3 / 2.0) * rho[k].powi(2) - (0.5 + x3) * sum_rho2[k]) * 4.0 * PI * self.r[k].powi(2)
+                rho_safe.powf(alpha)
+                    * ((1.0 + x3 / 2.0) * rho[k].powi(2) - (0.5 + x3) * sum_rho2[k])
+                    * 4.0
+                    * PI
+                    * self.r[k].powi(2)
             })
             .collect();
         let e_t3 = (t3 / 12.0) * trapz(&integ_t3, &self.r).unwrap_or(0.0);
 
         let v_c = self.coulomb_direct(rho_p);
-        let integ_c_direct: Vec<f64> = (0..self.nr).map(|k| v_c[k] * rho_p[k] * 4.0 * PI * self.r[k].powi(2)).collect();
+        let integ_c_direct: Vec<f64> = (0..self.nr)
+            .map(|k| v_c[k] * rho_p[k] * 4.0 * PI * self.r[k].powi(2))
+            .collect();
         let e_coul_direct = 0.5 * trapz(&integ_c_direct, &self.r).unwrap_or(0.0);
 
         let v_cx = self.coulomb_exchange(rho_p);
-        let integ_c_exch: Vec<f64> = (0..self.nr).map(|k| v_cx[k] * rho_p[k] * 4.0 * PI * self.r[k].powi(2)).collect();
+        let integ_c_exch: Vec<f64> = (0..self.nr)
+            .map(|k| v_cx[k] * rho_p[k] * 4.0 * PI * self.r[k].powi(2))
+            .collect();
         let e_coul_exchange = trapz(&integ_c_exch, &self.r).unwrap_or(0.0);
 
         let mut e_pair = 0.0;
@@ -836,7 +774,33 @@ impl SphericalHFB {
         }
 
         let e_cm = -0.75 * self.hw;
-        e_kin + e_t0 + e_t3 + e_coul_direct + e_coul_exchange + e_pair + e_cm
+        let e_total = e_kin + e_t0 + e_t3 + e_coul_direct + e_coul_exchange + e_pair + e_cm;
+
+        if verbose {
+            let integ_np: Vec<f64> = (0..self.nr)
+                .map(|k| rho_p[k] * 4.0 * PI * self.r[k].powi(2))
+                .collect();
+            let integ_nn: Vec<f64> = (0..self.nr)
+                .map(|k| rho_n[k] * 4.0 * PI * self.r[k].powi(2))
+                .collect();
+            let n_p = trapz(&integ_np, &self.r).unwrap_or(0.0);
+            let n_n = trapz(&integ_nn, &self.r).unwrap_or(0.0);
+            println!("  Energy components:");
+            println!("    E_kin    = {e_kin:>10.2} MeV");
+            println!("    E_t0    = {e_t0:>10.2} MeV");
+            println!("    E_t3    = {e_t3:>10.2} MeV");
+            println!("    E_Cdir  = {e_coul_direct:>10.2} MeV");
+            println!("    E_Cexch = {e_coul_exchange:>10.2} MeV");
+            println!("    E_pair  = {e_pair:>10.2} MeV");
+            println!("    E_cm    = {e_cm:>10.2} MeV");
+            println!("    E_total = {e_total:>10.2} MeV");
+            println!(
+                "    N_p = {:.2}, N_n = {:.2} (target: Z={}, N={})",
+                n_p, n_n, self.z, self.n_neutrons
+            );
+        }
+
+        e_total
     }
 
     // ─── Main solver ─────────────────────────────────────────────────
@@ -845,11 +809,24 @@ impl SphericalHFB {
         self.solve_inner(params, max_iter, tol, mixing, false)
     }
 
-    pub fn solve_verbose(&self, params: &[f64], max_iter: usize, tol: f64, mixing: f64) -> HFBResult {
+    pub fn solve_verbose(
+        &self,
+        params: &[f64],
+        max_iter: usize,
+        tol: f64,
+        mixing: f64,
+    ) -> HFBResult {
         self.solve_inner(params, max_iter, tol, mixing, true)
     }
 
-    fn solve_inner(&self, params: &[f64], max_iter: usize, tol: f64, mixing: f64, verbose: bool) -> HFBResult {
+    fn solve_inner(
+        &self,
+        params: &[f64],
+        max_iter: usize,
+        tol: f64,
+        mixing: f64,
+        verbose: bool,
+    ) -> HFBResult {
         let w0 = params[9];
         let nr = self.nr;
         let ns = self.n_states;
@@ -857,11 +834,27 @@ impl SphericalHFB {
         let r_nuc = 1.2 * (self.a as f64).powf(1.0 / 3.0);
         let rho0 = 3.0 * self.a as f64 / (4.0 * PI * r_nuc.powi(3));
 
-        let mut rho_p: Vec<f64> = self.r.iter()
-            .map(|&ri| if ri < r_nuc { (rho0 * self.z as f64 / self.a as f64).max(1e-15) } else { 1e-15 })
+        let mut rho_p: Vec<f64> = self
+            .r
+            .iter()
+            .map(|&ri| {
+                if ri < r_nuc {
+                    (rho0 * self.z as f64 / self.a as f64).max(1e-15)
+                } else {
+                    1e-15
+                }
+            })
             .collect();
-        let mut rho_n: Vec<f64> = self.r.iter()
-            .map(|&ri| if ri < r_nuc { (rho0 * self.n_neutrons as f64 / self.a as f64).max(1e-15) } else { 1e-15 })
+        let mut rho_n: Vec<f64> = self
+            .r
+            .iter()
+            .map(|&ri| {
+                if ri < r_nuc {
+                    (rho0 * self.n_neutrons as f64 / self.a as f64).max(1e-15)
+                } else {
+                    1e-15
+                }
+            })
             .collect();
 
         let mut e_prev = 1e10_f64;
@@ -877,7 +870,11 @@ impl SphericalHFB {
 
             for is_proton in [true, false] {
                 let num_q = if is_proton { self.z } else { self.n_neutrons };
-                let delta_q = if is_proton { self.delta_p } else { self.delta_n };
+                let delta_q = if is_proton {
+                    self.delta_p
+                } else {
+                    self.delta_n
+                };
 
                 let u_sky = self.skyrme_potential(&rho_p, &rho_n, is_proton, params);
 
@@ -915,7 +912,10 @@ impl SphericalHFB {
                         let rho_total: Vec<f64> = (0..nr).map(|k| rho_p[k] + rho_n[k]).collect();
                         let drho = gradient_1d(&rho_total, self.dr);
                         let so_integ: Vec<f64> = (0..nr)
-                            .map(|k| self.wf[i][k].powi(2) * drho[k] / self.r[k].max(0.1) * self.r[k].powi(2))
+                            .map(|k| {
+                                self.wf[i][k].powi(2) * drho[k] / self.r[k].max(0.1)
+                                    * self.r[k].powi(2)
+                            })
                             .collect();
                         h.add(i, i, w0 * ls * trapz(&so_integ, &self.r).unwrap_or(0.0));
                     }
@@ -928,7 +928,12 @@ impl SphericalHFB {
                             let idx_i = indices[ii];
                             let idx_j = indices[jj];
                             let integ: Vec<f64> = (0..nr)
-                                .map(|k| self.wf[idx_i][k] * self.wf[idx_j][k] * u_total[k] * self.r[k].powi(2))
+                                .map(|k| {
+                                    self.wf[idx_i][k]
+                                        * self.wf[idx_j][k]
+                                        * u_total[k]
+                                        * self.r[k].powi(2)
+                                })
                                 .collect();
                             let val = trapz(&integ, &self.r).unwrap_or(0.0);
                             h.add(idx_i, idx_j, val);
@@ -949,7 +954,9 @@ impl SphericalHFB {
                 let mut rho_q_new = vec![1e-15; nr];
 
                 for i in 0..ns {
-                    if degs[i] * v2[i] < 1e-12 { continue; }
+                    if degs[i] * v2[i] < 1e-12 {
+                        continue;
+                    }
                     // phi_i(r) = sum_k c_{ki} * R_k(r)
                     // eig.eigenvectors is row-major: V[row * ns + col] = V_{row, col}
                     let mut phi = vec![0.0; nr];
@@ -970,10 +977,22 @@ impl SphericalHFB {
 
                 if is_proton {
                     rho_p_new = rho_q_new;
-                    results_p = SpeciesResult { eigenvalues, eigvecs: eig.eigenvectors, n: ns, v2, _lambda: lam };
+                    results_p = SpeciesResult {
+                        _eigenvalues: eigenvalues,
+                        eigvecs: eig.eigenvectors,
+                        n: ns,
+                        v2,
+                        _lambda: lam,
+                    };
                 } else {
                     rho_n_new = rho_q_new;
-                    results_n = SpeciesResult { eigenvalues, eigvecs: eig.eigenvectors, n: ns, v2, _lambda: lam };
+                    results_n = SpeciesResult {
+                        _eigenvalues: eigenvalues,
+                        eigvecs: eig.eigenvectors,
+                        n: ns,
+                        v2,
+                        _lambda: lam,
+                    };
                 }
             }
 
@@ -982,7 +1001,8 @@ impl SphericalHFB {
                 rho_n[k] = (mixing * rho_n_new[k] + (1.0 - mixing) * rho_n[k]).max(1e-15);
             }
 
-            let e_total = self.compute_energy(&rho_p, &rho_n, &results_p, &results_n, params);
+            let e_total =
+                self.compute_energy(&rho_p, &rho_n, &results_p, &results_n, params, false);
 
             last_de = (e_total - e_prev).abs();
             last_iter = it + 1;
@@ -996,7 +1016,7 @@ impl SphericalHFB {
         }
 
         if verbose {
-            self.compute_energy_debug(&rho_p, &rho_n, &results_p, &results_n, params);
+            self.compute_energy(&rho_p, &rho_n, &results_p, &results_n, params, true);
         }
 
         let binding = if e_prev < 0.0 { -e_prev } else { e_prev.abs() };
@@ -1011,8 +1031,9 @@ impl SphericalHFB {
 }
 
 /// Per-species diagonalization results (flat storage, no nalgebra)
+#[allow(dead_code)]
 struct SpeciesResult {
-    eigenvalues: Vec<f64>,
+    _eigenvalues: Vec<f64>,
     eigvecs: Vec<f64>, // row-major n×n
     n: usize,
     v2: Vec<f64>,
@@ -1022,7 +1043,7 @@ struct SpeciesResult {
 impl SpeciesResult {
     fn empty(n_states: usize) -> Self {
         SpeciesResult {
-            eigenvalues: vec![0.0; n_states],
+            _eigenvalues: vec![0.0; n_states],
             eigvecs: vec![0.0; n_states * n_states],
             n: n_states,
             v2: vec![0.0; n_states],
@@ -1040,11 +1061,226 @@ impl SpeciesResult {
 /// Hybrid binding energy: HFB for medium nuclei, SEMF otherwise
 pub fn binding_energy_l2(z: usize, n: usize, params: &[f64]) -> (f64, bool) {
     let a = z + n;
-    if a < 56 || a > 132 {
-        (semf_binding_energy(z, n, params), true)
-    } else {
+    if (56..=132).contains(&a) {
         let hfb = SphericalHFB::new_adaptive(z, n);
         let result = hfb.solve(params, 200, 0.05, 0.3);
         (result.binding_energy_mev, result.converged)
+    } else {
+        (semf_binding_energy(z, n, params), true)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use barracuda::numerical::trapz;
+    use std::f64::consts::PI;
+
+    fn sly4_params() -> Vec<f64> {
+        crate::provenance::SLY4_PARAMS.to_vec()
+    }
+
+    #[test]
+    fn radial_grid_generation() {
+        let hfb = SphericalHFB::new(28, 28, 8, 15.0, 120);
+        let r = hfb.r_grid();
+        let dr = hfb.dr();
+
+        assert_eq!(r.len(), 120);
+        assert!((dr - 15.0 / 120.0).abs() < 1e-10);
+        assert!((r[0] - dr).abs() < 1e-10);
+        assert!((r[r.len() - 1] - 15.0).abs() < 1e-10);
+
+        for i in 1..r.len() {
+            let spacing = r[i] - r[i - 1];
+            assert!(
+                (spacing - dr).abs() < 1e-8,
+                "grid should be uniform: r[{}] - r[{}] = {}",
+                i,
+                i - 1,
+                spacing
+            );
+        }
+    }
+
+    #[test]
+    fn harmonic_oscillator_wavefunction_normalization() {
+        let hfb = SphericalHFB::new(28, 28, 8, 15.0, 100);
+        let r = hfb.r_grid();
+
+        for (i, wf) in hfb.wf_flat().chunks(hfb.nr()).enumerate().take(3) {
+            let integrand: Vec<f64> = r
+                .iter()
+                .zip(wf.iter())
+                .map(|(&ri, &wi)| wi.powi(2) * ri.powi(2))
+                .collect();
+            let norm_sq = trapz(&integrand, r).unwrap_or(0.0);
+            assert!(
+                (norm_sq - 1.0).abs() < 0.05,
+                "state {i}: ∫ R² r² dr = {norm_sq} (expect ~1)"
+            );
+        }
+    }
+
+    #[test]
+    fn density_from_eigenstates_single_state() {
+        let hfb = SphericalHFB::new(8, 8, 6, 12.0, 60);
+        let ns = hfb.n_states();
+        let r = hfb.r_grid();
+
+        let mut eigvecs = vec![0.0; ns * ns];
+        for i in 0..ns {
+            eigvecs[i * ns + i] = 1.0;
+        }
+        let mut v2 = vec![0.0; ns];
+        v2[0] = 1.0;
+
+        let rho = hfb.density_from_eigenstates(&eigvecs, &v2, ns);
+        assert_eq!(rho.len(), 60);
+        assert!(rho.iter().all(|&x| x >= 1e-15));
+        let deg0 = hfb.deg_values()[0];
+        let integrand: Vec<f64> = r
+            .iter()
+            .zip(rho.iter())
+            .map(|(&ri, &rhi)| rhi * 4.0 * PI * ri.powi(2))
+            .collect();
+        let n_total: f64 = trapz(&integrand, r).unwrap_or(0.0);
+        assert!(
+            (n_total - deg0).abs() < 0.5,
+            "single occupied state: integral ~{n_total} (deg={deg0})"
+        );
+    }
+
+    #[test]
+    fn binding_energy_l2_semf_light_nucleus() {
+        let params = sly4_params();
+        let (b, conv) = binding_energy_l2(8, 8, &params);
+        assert!(conv, "SEMF path should always converge");
+        assert!(b > 0.0 && b < 200.0, "O-16 binding ~{b} MeV");
+    }
+
+    #[test]
+    #[ignore = "HFB solve takes > 1s"]
+    fn hfb_full_solve_ni56() {
+        let params = sly4_params();
+        let hfb = SphericalHFB::new_adaptive(28, 28);
+        let result = hfb.solve(&params, 200, 0.05, 0.3);
+        assert!(result.binding_energy_mev > 400.0);
+        assert!(result.converged);
+    }
+
+    #[test]
+    fn adaptive_constructor_scales_with_mass() {
+        let light = SphericalHFB::new_adaptive(8, 8);
+        let medium = SphericalHFB::new_adaptive(28, 28);
+        let heavy = SphericalHFB::new_adaptive(50, 82);
+
+        assert!(
+            light.n_states() <= medium.n_states(),
+            "O-16 should have fewer states than Ni-56"
+        );
+        assert!(
+            medium.n_states() <= heavy.n_states(),
+            "Ni-56 should have fewer states than Sn-132"
+        );
+        assert!(
+            light.nr() <= medium.nr(),
+            "lighter nucleus needs fewer grid points"
+        );
+    }
+
+    #[test]
+    fn build_hamiltonian_is_symmetric() {
+        let hfb = SphericalHFB::new(8, 8, 4, 10.0, 50);
+        let ns = hfb.n_states();
+        let nr = hfb.nr();
+        let rho = vec![0.01; nr];
+        let params = sly4_params();
+
+        let w0 = params[9];
+        let h = hfb.build_hamiltonian(&rho, &rho, true, &params, w0);
+        assert_eq!(h.len(), ns * ns);
+
+        for i in 0..ns {
+            for j in i + 1..ns {
+                let diff = (h[i * ns + j] - h[j * ns + i]).abs();
+                assert!(
+                    diff < 1e-10,
+                    "H[{i},{j}]={} != H[{j},{i}]={}",
+                    h[i * ns + j],
+                    h[j * ns + i]
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn bcs_occupations_sum_constraint() {
+        let hfb = SphericalHFB::new(8, 8, 4, 10.0, 50);
+        let ns = hfb.n_states();
+        let eigs: Vec<f64> = (0..ns).map(|i| -20.0 + 5.0 * i as f64).collect();
+
+        let (v2, _lambda) = hfb.bcs_occupations(&eigs, 8, 12.0 / (8.0_f64 + 8.0).sqrt());
+        let degs = hfb.deg_values();
+        let n_total: f64 = degs.iter().zip(v2.iter()).map(|(d, v)| d * v).sum();
+        assert!(
+            (n_total - 8.0).abs() < 1.0,
+            "BCS particle number = {n_total}, expected ~8"
+        );
+    }
+
+    #[test]
+    fn quantum_numbers_have_correct_degeneracy() {
+        let hfb = SphericalHFB::new(20, 20, 6, 12.0, 60);
+        let degs = hfb.deg_values();
+        let lj = hfb.lj_quantum_numbers();
+
+        assert_eq!(degs.len(), lj.len());
+        for (i, &(l, j)) in lj.iter().enumerate() {
+            let expected_deg = 2.0 * j + 1.0;
+            assert!(
+                (degs[i] - expected_deg).abs() < 1e-10,
+                "state {i}: l={l}, j={j}, deg={}, expected {}",
+                degs[i],
+                expected_deg
+            );
+        }
+    }
+
+    #[test]
+    fn wavefunction_accessor_consistency() {
+        let hfb = SphericalHFB::new(8, 8, 4, 10.0, 50);
+        let ns = hfb.n_states();
+        let nr = hfb.nr();
+        let flat = hfb.wf_flat();
+
+        assert_eq!(flat.len(), ns * nr);
+        for i in 0..ns {
+            let state = hfb.wf_state(i);
+            assert_eq!(state.len(), nr);
+            for k in 0..nr {
+                assert_eq!(
+                    flat[i * nr + k],
+                    state[k],
+                    "flat[{i}*{nr}+{k}] != state[{i}][{k}]"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn lj_same_flag_consistency() {
+        let hfb = SphericalHFB::new(20, 20, 6, 12.0, 60);
+        let ns = hfb.n_states();
+        let lj = hfb.lj_quantum_numbers();
+        let lj_same = hfb.lj_same_flat();
+
+        assert_eq!(lj_same.len(), ns * ns);
+        for i in 0..ns {
+            for j in 0..ns {
+                let expected = u32::from(lj[i] == lj[j]);
+                assert_eq!(lj_same[i * ns + j], expected, "lj_same[{i},{j}] mismatch");
+            }
+        }
     }
 }

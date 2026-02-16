@@ -1,9 +1,11 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Sarkas GPU — Yukawa OCP Molecular Dynamics on Consumer GPU
 //!
 //! Full GPU MD simulation matching Sarkas PP Yukawa DSF study:
 //!   9 cases: κ=1,2,3 × Γ=weak,medium,strong
 //!   Velocity-Verlet, PBC, Berendsen thermostat
-//!   All physics in f64 WGSL (SHADER_F64)
+//!   All physics in f64 WGSL (`SHADER_F64`)
 //!
 //! Validates against Python Sarkas baseline:
 //!   - Energy conservation (drift < 5%)
@@ -12,20 +14,21 @@
 //!   - SSF: S(k→0) compressibility
 //!
 //! Run:
-//!   cargo run --release --bin sarkas_gpu              # quick validation (N=500)
-//!   cargo run --release --bin sarkas_gpu -- --full    # full 9-case sweep (N=2000)
-//!   cargo run --release --bin sarkas_gpu -- --long    # long run: 9 cases, 80k steps (~71 min)
-//!   cargo run --release --bin sarkas_gpu -- --paper   # PAPER PARITY: 9 cases, N=10000, 80k steps
-//!   cargo run --release --bin sarkas_gpu -- --paper-ext # Extended paper: N=10000, 100k steps
-//!   cargo run --release --bin sarkas_gpu -- --nscale  # N-scaling: 500→20000, GPU-only (~2-3h)
-//!   cargo run --release --bin sarkas_gpu -- --scale   # quick scaling test (N=500,2000, GPU+CPU)
+//!   cargo run --release --bin `sarkas_gpu`              # quick validation (N=500)
+//!   cargo run --release --bin `sarkas_gpu` -- --full    # full 9-case sweep (N=2000)
+//!   cargo run --release --bin `sarkas_gpu` -- --long    # long run: 9 cases, 80k steps (~71 min)
+//!   cargo run --release --bin `sarkas_gpu` -- --paper   # PAPER PARITY: 9 cases, N=10000, 80k steps
+//!   cargo run --release --bin `sarkas_gpu` -- --paper-ext # Extended paper: N=10000, 100k steps
+//!   cargo run --release --bin `sarkas_gpu` -- --nscale  # N-scaling: 500→20000, GPU-only (~2-3h)
+//!   cargo run --release --bin `sarkas_gpu` -- --scale   # quick scaling test (N=500,2000, GPU+CPU)
 
 use hotspring_barracuda::bench::{
-    BenchReport, HardwareInventory, PhaseResult, PowerMonitor, peak_rss_mb,
+    peak_rss_mb, BenchReport, HardwareInventory, PhaseResult, PowerMonitor,
 };
 use hotspring_barracuda::md::config::{self, MdConfig};
-use hotspring_barracuda::md::simulation;
 use hotspring_barracuda::md::observables;
+use hotspring_barracuda::md::simulation;
+use hotspring_barracuda::validation::ValidationHarness;
 
 use std::time::Instant;
 
@@ -37,6 +40,7 @@ async fn main() {
     println!("╚══════════════════════════════════════════════════════════════╝");
     println!();
 
+    let mut harness = ValidationHarness::new("sarkas_gpu");
     let args: Vec<String> = std::env::args().collect();
     let full_sweep = args.iter().any(|a| a == "--full");
     let long_run = args.iter().any(|a| a == "--long");
@@ -53,44 +57,49 @@ async fn main() {
     let mut report = BenchReport::new(hw);
 
     if nscale {
-        run_n_scaling(&mut report).await;
+        run_n_scaling(&mut report, &mut harness).await;
     } else if paper_parity {
-        run_paper_parity(&mut report, false).await;
+        run_paper_parity(&mut report, &mut harness, false).await;
     } else if paper_ext {
-        run_paper_parity(&mut report, true).await;
+        run_paper_parity(&mut report, &mut harness, true).await;
     } else if scale_test {
-        run_scaling_test(&mut report).await;
+        run_scaling_test(&mut report, &mut harness).await;
     } else if long_run {
-        run_long_sweep(&mut report).await;
+        run_long_sweep(&mut report, &mut harness).await;
     } else if full_sweep {
-        run_full_sweep(&mut report).await;
+        run_full_sweep(&mut report, &mut harness).await;
     } else {
-        run_quick_validation(&mut report).await;
+        run_quick_validation(&mut report, &mut harness).await;
     }
 
-    // Save benchmark report
-    let report_dir = "../benchmarks/nuclear-eos/results";
+    // Save benchmark report (resolve via CARGO_MANIFEST_DIR, not relative path)
+    let report_dir = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../benchmarks/nuclear-eos/results"
+    );
     match report.save_json(report_dir) {
-        Ok(path) => println!("  Benchmark report saved: {}", path),
-        Err(e) => println!("  Warning: could not save report: {}", e),
+        Ok(path) => println!("  Benchmark report saved: {path}"),
+        Err(e) => println!("  Warning: could not save report: {e}"),
     }
     println!();
     report.print_summary();
+    harness.finish();
 }
 
 /// Quick validation: single case, N=500, short run
-async fn run_quick_validation(report: &mut BenchReport) {
+async fn run_quick_validation(report: &mut BenchReport, harness: &mut ValidationHarness) {
     println!("═══════════════════════════════════════════════════════════");
     println!("  Quick Validation: κ=2, Γ=158, N=500");
     println!("═══════════════════════════════════════════════════════════");
     println!();
 
     let config = config::quick_test_case(500);
-    run_single_case(&config, report).await;
+    let passed = run_single_case(&config, report).await;
+    harness.check_bool("quick_validation_k2_G158_N500", passed);
 }
 
 /// Full sweep: all 9 PP Yukawa cases at N=2000
-async fn run_full_sweep(report: &mut BenchReport) {
+async fn run_full_sweep(report: &mut BenchReport, harness: &mut ValidationHarness) {
     println!("═══════════════════════════════════════════════════════════");
     println!("  Full DSF Study: 9 PP Yukawa cases, N=2000");
     println!("═══════════════════════════════════════════════════════════");
@@ -107,20 +116,22 @@ async fn run_full_sweep(report: &mut BenchReport) {
         println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         println!();
 
-        if run_single_case(case, report).await {
+        let case_passed = run_single_case(case, report).await;
+        if case_passed {
             passed += 1;
         }
+        harness.check_bool(&format!("full_sweep_case_{}", i + 1), case_passed);
         println!();
     }
 
     println!("═══════════════════════════════════════════════════════════");
-    println!("  SWEEP RESULTS: {}/{} cases passed", passed, total);
+    println!("  SWEEP RESULTS: {passed}/{total} cases passed");
     println!("═══════════════════════════════════════════════════════════");
 }
 
 /// Long sweep: all 9 PP Yukawa cases at N=2000, 80k production steps
 /// (~2.5 hours on RTX 4070, higher-fidelity observables)
-async fn run_long_sweep(report: &mut BenchReport) {
+async fn run_long_sweep(report: &mut BenchReport, harness: &mut ValidationHarness) {
     println!("═══════════════════════════════════════════════════════════");
     println!("  LONG Run: 9 PP Yukawa cases, N=2000, 80k production steps");
     println!("  Estimated: ~2.5 hours on RTX 4070");
@@ -134,18 +145,25 @@ async fn run_long_sweep(report: &mut BenchReport) {
 
     for (i, case) in cases.iter().enumerate() {
         println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        println!("  Case {}/{}: {} (80k production steps)", i + 1, total, case.label);
+        println!(
+            "  Case {}/{}: {} (80k production steps)",
+            i + 1,
+            total,
+            case.label
+        );
         println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         println!();
 
-        if run_single_case(case, report).await {
+        let case_passed = run_single_case(case, report).await;
+        if case_passed {
             passed += 1;
         }
+        harness.check_bool(&format!("long_sweep_case_{}", i + 1), case_passed);
         println!();
     }
 
     println!("═══════════════════════════════════════════════════════════");
-    println!("  LONG SWEEP RESULTS: {}/{} cases passed", passed, total);
+    println!("  LONG SWEEP RESULTS: {passed}/{total} cases passed");
     println!("═══════════════════════════════════════════════════════════");
 }
 
@@ -153,22 +171,37 @@ async fn run_long_sweep(report: &mut BenchReport) {
 /// Choi, Dharuman, Murillo (Phys. Rev. E 100, 013206, 2019)
 /// N=10,000, 5k equil + 80k/100k production, 9 PP Yukawa cases
 /// This is the headline comparison: consumer GPU vs HPC cluster
-async fn run_paper_parity(report: &mut BenchReport, extended: bool) {
+async fn run_paper_parity(
+    report: &mut BenchReport,
+    harness: &mut ValidationHarness,
+    extended: bool,
+) {
     let (desc, cases) = if extended {
-        ("PAPER PARITY (extended): 9 PP Yukawa, N=10000, 100k production steps",
-         config::paper_parity_extended_cases())
+        (
+            "PAPER PARITY (extended): 9 PP Yukawa, N=10000, 100k production steps",
+            config::paper_parity_extended_cases(),
+        )
     } else {
-        ("PAPER PARITY: 9 PP Yukawa, N=10000, 80k production steps (matches database)",
-         config::paper_parity_cases())
+        (
+            "PAPER PARITY: 9 PP Yukawa, N=10000, 80k production steps (matches database)",
+            config::paper_parity_cases(),
+        )
     };
 
     println!("╔══════════════════════════════════════════════════════════════╗");
-    println!("║  Experiment 003: {}  ║", if extended { "Paper Parity Extended" } else { "Paper Parity        " });
+    println!(
+        "║  Experiment 003: {}  ║",
+        if extended {
+            "Paper Parity Extended"
+        } else {
+            "Paper Parity        "
+        }
+    );
     println!("║  Choi, Dharuman, Murillo — Phys. Rev. E 100, 013206 (2019) ║");
     println!("║  N=10,000, same physics, consumer GPU vs HPC cluster       ║");
     println!("╚══════════════════════════════════════════════════════════════╝");
     println!();
-    println!("  {}", desc);
+    println!("  {desc}");
     println!();
 
     let mut passed = 0;
@@ -176,19 +209,27 @@ async fn run_paper_parity(report: &mut BenchReport, extended: bool) {
 
     for (i, case) in cases.iter().enumerate() {
         println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        println!("  Case {}/{}: {} (N={}, {}k production)",
-            i + 1, total, case.label, case.n_particles, case.prod_steps / 1000);
+        println!(
+            "  Case {}/{}: {} (N={}, {}k production)",
+            i + 1,
+            total,
+            case.label,
+            case.n_particles,
+            case.prod_steps / 1000
+        );
         println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         println!();
 
-        if run_single_case(case, report).await {
+        let case_passed = run_single_case(case, report).await;
+        if case_passed {
             passed += 1;
         }
+        harness.check_bool(&format!("paper_parity_case_{}", i + 1), case_passed);
         println!();
     }
 
     println!("╔══════════════════════════════════════════════════════════════╗");
-    println!("║  PAPER PARITY RESULTS: {}/{} cases passed                    ║", passed, total);
+    println!("║  PAPER PARITY RESULTS: {passed}/{total} cases passed                    ║");
     if passed == total {
         println!("║  ✅ ALL CASES PASS — consumer GPU matches HPC physics      ║");
     }
@@ -199,7 +240,7 @@ async fn run_paper_parity(report: &mut BenchReport, extended: bool) {
 /// Experiment 001: Demonstrates consumer GPU scaling to paper-parity (N=10k)
 /// and beyond. CPU comparison at N=500 and N=2000 only (CPU is impractical
 /// at larger N — hours per case on even a 24-thread workstation).
-async fn run_n_scaling(report: &mut BenchReport) {
+async fn run_n_scaling(report: &mut BenchReport, harness: &mut ValidationHarness) {
     println!("╔══════════════════════════════════════════════════════════════╗");
     println!("║  Experiment 001: N-Scaling on Consumer GPU                  ║");
     println!("║  κ=2, Γ=158 — Paper parity (N=10k) and beyond              ║");
@@ -216,7 +257,7 @@ async fn run_n_scaling(report: &mut BenchReport) {
 
     for &n in &gpu_sizes {
         let config = MdConfig {
-            label: format!("nscale_N{}", n),
+            label: format!("nscale_N{n}"),
             n_particles: n,
             kappa: 2.0,
             gamma: 158.0,
@@ -230,18 +271,26 @@ async fn run_n_scaling(report: &mut BenchReport) {
         };
 
         println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        println!("  GPU: N = {} (box = {:.1} a_ws, {} pairs)",
-            n, config.box_side(), (n * (n - 1)) / 2);
+        println!(
+            "  GPU: N = {} (box = {:.1} a_ws, {} pairs)",
+            n,
+            config.box_side(),
+            (n * (n - 1)) / 2
+        );
         println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         println!();
 
         let passed = run_single_case(&config, report).await;
+        harness.check_bool(&format!("n_scaling_N{n}"), passed);
 
         if let Some(last) = report.phases.last() {
             let total_steps = config.equil_steps + config.prod_steps;
             let steps_per_sec = total_steps as f64 / last.wall_time_s;
             gpu_results.push((
-                n, steps_per_sec, last.wall_time_s, last.chi2,
+                n,
+                steps_per_sec,
+                last.wall_time_s,
+                last.chi2,
                 last.energy.gpu_watts_avg,
                 last.energy.gpu_watts_peak,
                 last.energy.gpu_joules,
@@ -255,7 +304,7 @@ async fn run_n_scaling(report: &mut BenchReport) {
         // CPU reference for small N only
         if cpu_sizes.contains(&n) {
             println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-            println!("  CPU reference: N = {}", n);
+            println!("  CPU reference: N = {n}");
             println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
             use hotspring_barracuda::md::cpu_reference;
@@ -269,11 +318,13 @@ async fn run_n_scaling(report: &mut BenchReport) {
             cpu_results.push((n, cpu_sim.steps_per_sec));
 
             let energy_val = observables::validate_energy(&cpu_sim.energy_history, &config);
-            println!("    CPU: {:.1} steps/s, drift={:.3}%, wall={:.1}s",
-                cpu_sim.steps_per_sec, energy_val.drift_pct, wall_time);
+            println!(
+                "    CPU: {:.1} steps/s, drift={:.3}%, wall={:.1}s",
+                cpu_sim.steps_per_sec, energy_val.drift_pct, wall_time
+            );
 
             report.add_phase(PhaseResult {
-                phase: format!("Sarkas CPU N={}", n),
+                phase: format!("Sarkas CPU N={n}"),
                 substrate: "CPU Rust f64".into(),
                 wall_time_s: wall_time,
                 per_eval_us: wall_time * 1e6 / total_steps as f64,
@@ -298,38 +349,75 @@ async fn run_n_scaling(report: &mut BenchReport) {
     println!("╚══════════════════════════════════════════════════════════════╝");
     println!();
     println!("  GPU Performance (RTX 4070, κ=2, Γ=158, 30k production steps):");
-    println!("  {:>8} {:>10} {:>10} {:>8} {:>12} {:>8} {:>8} {:>10}",
-             "N", "steps/s", "Wall (s)", "Drift%", "Pairs", "W(avg)", "W(peak)", "Total J");
-    println!("  {:>8} {:>10} {:>10} {:>8} {:>12} {:>8} {:>8} {:>10}",
-             "──", "──────", "───────", "─────", "─────", "──────", "──────", "──────");
+    println!(
+        "  {:>8} {:>10} {:>10} {:>8} {:>12} {:>8} {:>8} {:>10}",
+        "N", "steps/s", "Wall (s)", "Drift%", "Pairs", "W(avg)", "W(peak)", "Total J"
+    );
+    println!(
+        "  {:>8} {:>10} {:>10} {:>8} {:>12} {:>8} {:>8} {:>10}",
+        "──", "──────", "───────", "─────", "─────", "──────", "──────", "──────"
+    );
     for &(n, sps, wall, drift, w_avg, w_peak, joules, _vram, _temp, _samp) in &gpu_results {
-        println!("  {:>8} {:>10.1} {:>10.1} {:>8.3} {:>12} {:>7.1}W {:>7.1}W {:>10.0}",
-            n, sps, wall, drift, (n * (n - 1)) / 2, w_avg, w_peak, joules);
+        println!(
+            "  {:>8} {:>10.1} {:>10.1} {:>8.3} {:>12} {:>7.1}W {:>7.1}W {:>10.0}",
+            n,
+            sps,
+            wall,
+            drift,
+            (n * (n - 1)) / 2,
+            w_avg,
+            w_peak,
+            joules
+        );
     }
 
     // Detailed power/thermal breakdown
     println!();
     println!("  GPU Power & Thermal Detail:");
-    println!("  {:>8} {:>8} {:>8} {:>8} {:>8} {:>10} {:>8}",
-             "N", "W(avg)", "W(peak)", "Temp°C", "VRAM MB", "Samples", "J/step");
-    println!("  {:>8} {:>8} {:>8} {:>8} {:>8} {:>10} {:>8}",
-             "──", "──────", "──────", "──────", "──────", "───────", "──────");
-    for &(n, _sps, wall, _drift, w_avg, w_peak, joules, vram, temp, samp) in &gpu_results {
+    println!(
+        "  {:>8} {:>8} {:>8} {:>8} {:>8} {:>10} {:>8}",
+        "N", "W(avg)", "W(peak)", "Temp°C", "VRAM MB", "Samples", "J/step"
+    );
+    println!(
+        "  {:>8} {:>8} {:>8} {:>8} {:>8} {:>10} {:>8}",
+        "──", "──────", "──────", "──────", "──────", "───────", "──────"
+    );
+    for &(n, _sps, _wall, _drift, w_avg, w_peak, joules, vram, temp, samp) in &gpu_results {
         let total_steps = 5_000 + 30_000; // equil + prod
-        let j_per_step = if joules > 0.0 { joules / total_steps as f64 } else { 0.0 };
-        println!("  {:>8} {:>7.1} {:>7.1} {:>7.0} {:>7.0} {:>10} {:>8.3}",
-            n, w_avg, w_peak, temp, vram, samp, j_per_step);
+        let j_per_step = if joules > 0.0 {
+            joules / f64::from(total_steps)
+        } else {
+            0.0
+        };
+        println!(
+            "  {n:>8} {w_avg:>7.1} {w_peak:>7.1} {temp:>7.0} {vram:>7.0} {samp:>10} {j_per_step:>8.3}"
+        );
     }
 
     // GPU vs CPU comparison
     if !cpu_results.is_empty() {
         println!();
         println!("  GPU vs CPU:");
-        println!("  {:>8} {:>12} {:>12} {:>10}", "N", "GPU steps/s", "CPU steps/s", "Speedup");
-        println!("  {:>8} {:>12} {:>12} {:>10}", "──", "──────────", "──────────", "───────");
+        println!(
+            "  {:>8} {:>12} {:>12} {:>10}",
+            "N", "GPU steps/s", "CPU steps/s", "Speedup"
+        );
+        println!(
+            "  {:>8} {:>12} {:>12} {:>10}",
+            "──", "──────────", "──────────", "───────"
+        );
         for &(n, cpu_s) in &cpu_results {
-            if let Some(&(_, gpu_s, _, _, _, _, _, _, _, _)) = gpu_results.iter().find(|&&(gn, _, _, _, _, _, _, _, _, _)| gn == n) {
-                println!("  {:>8} {:>12.1} {:>12.1} {:>9.1}×", n, gpu_s, cpu_s, gpu_s / cpu_s);
+            if let Some(&(_, gpu_s, _, _, _, _, _, _, _, _)) = gpu_results
+                .iter()
+                .find(|&&(gn, _, _, _, _, _, _, _, _, _)| gn == n)
+            {
+                println!(
+                    "  {:>8} {:>12.1} {:>12.1} {:>9.1}×",
+                    n,
+                    gpu_s,
+                    cpu_s,
+                    gpu_s / cpu_s
+                );
             }
         }
     }
@@ -343,9 +431,14 @@ async fn run_n_scaling(report: &mut BenchReport) {
         for &(n, sps, _, _, _, _, _, _, _, _) in &gpu_results {
             let ratio_n = n as f64 / base_n;
             let ratio_time = base_sps / sps;
-            let exponent = if ratio_n > 1.0 { ratio_time.ln() / ratio_n.ln() } else { 0.0 };
-            println!("    N={:>6}: {:.1} steps/s, time_ratio={:.1}×, scaling exponent ~{:.2}",
-                n, sps, ratio_time, exponent);
+            let exponent = if ratio_n > 1.0 {
+                ratio_time.ln() / ratio_n.ln()
+            } else {
+                0.0
+            };
+            println!(
+                "    N={n:>6}: {sps:.1} steps/s, time_ratio={ratio_time:.1}×, scaling exponent ~{exponent:.2}"
+            );
         }
         println!("    (Perfect O(N²) = exponent 2.0)");
     }
@@ -355,7 +448,7 @@ async fn run_n_scaling(report: &mut BenchReport) {
 }
 
 /// Scaling test: GPU vs CPU at increasing N
-async fn run_scaling_test(report: &mut BenchReport) {
+async fn run_scaling_test(report: &mut BenchReport, harness: &mut ValidationHarness) {
     println!("═══════════════════════════════════════════════════════════");
     println!("  Scaling Test: κ=2, Γ=158 — GPU vs CPU");
     println!("═══════════════════════════════════════════════════════════");
@@ -369,7 +462,7 @@ async fn run_scaling_test(report: &mut BenchReport) {
     for &n in &sizes {
         // Shorter run for scaling test
         let config = MdConfig {
-            label: format!("k2_G158_N{}", n),
+            label: format!("k2_G158_N{n}"),
             n_particles: n,
             kappa: 2.0,
             gamma: 158.0,
@@ -384,9 +477,10 @@ async fn run_scaling_test(report: &mut BenchReport) {
 
         // ── GPU ──
         println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        println!("  GPU: N = {}", n);
+        println!("  GPU: N = {n}");
         println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        run_single_case(&config, report).await;
+        let gpu_passed = run_single_case(&config, report).await;
+        harness.check_bool(&format!("scaling_test_gpu_N{n}"), gpu_passed);
         // Get the last phase's steps/s
         if let Some(last) = report.phases.last() {
             let total_steps = config.equil_steps + config.prod_steps;
@@ -397,7 +491,7 @@ async fn run_scaling_test(report: &mut BenchReport) {
 
         // ── CPU ──
         println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        println!("  CPU: N = {}", n);
+        println!("  CPU: N = {n}");
         println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
         use hotspring_barracuda::md::cpu_reference;
@@ -414,7 +508,7 @@ async fn run_scaling_test(report: &mut BenchReport) {
         println!("    Energy drift: {:.3}%", energy_val.drift_pct);
 
         report.add_phase(PhaseResult {
-            phase: format!("Sarkas CPU N={}", n),
+            phase: format!("Sarkas CPU N={n}"),
             substrate: "CPU Rust f64".into(),
             wall_time_s: wall_time,
             per_eval_us: wall_time * 1e6 / total_steps as f64,
@@ -435,16 +529,19 @@ async fn run_scaling_test(report: &mut BenchReport) {
     println!("═══════════════════════════════════════════════════════════");
     println!("  SCALING SUMMARY");
     println!("═══════════════════════════════════════════════════════════");
-    println!("  {:>8} {:>12} {:>12} {:>10}", "N", "GPU steps/s", "CPU steps/s", "Speedup");
-    println!("  {:>8} {:>12} {:>12} {:>10}", "──", "──────────", "──────────", "───────");
+    println!(
+        "  {:>8} {:>12} {:>12} {:>10}",
+        "N", "GPU steps/s", "CPU steps/s", "Speedup"
+    );
+    println!(
+        "  {:>8} {:>12} {:>12} {:>10}",
+        "──", "──────────", "──────────", "───────"
+    );
     for i in 0..gpu_results.len() {
         let (n, gpu_s) = gpu_results[i];
         let (_, cpu_s) = cpu_results[i];
         let speedup = gpu_s / cpu_s;
-        println!(
-            "  {:>8} {:>12.1} {:>12.1} {:>9.1}×",
-            n, gpu_s, cpu_s, speedup
-        );
+        println!("  {n:>8} {gpu_s:>12.1} {cpu_s:>12.1} {speedup:>9.1}×");
     }
 }
 
@@ -460,11 +557,18 @@ async fn run_single_case(config: &MdConfig, report: &mut BenchReport) -> bool {
     let box_side = config.box_side();
     let cells_per_dim = (box_side / config.rc).floor() as usize;
     let result = if cells_per_dim >= 5 {
-        println!("  Using cell-list mode ({} cells/dim, N={})", cells_per_dim, config.n_particles);
+        println!(
+            "  Using cell-list mode ({} cells/dim, N={})",
+            cells_per_dim, config.n_particles
+        );
         simulation::run_simulation_celllist(config).await
     } else {
-        println!("  Using all-pairs mode (box/rc={:.1}, cells/dim={}, N={})",
-            box_side / config.rc, cells_per_dim, config.n_particles);
+        println!(
+            "  Using all-pairs mode (box/rc={:.1}, cells/dim={}, N={})",
+            box_side / config.rc,
+            cells_per_dim,
+            config.n_particles
+        );
         simulation::run_simulation(config).await
     };
 
@@ -510,7 +614,7 @@ async fn run_single_case(config: &MdConfig, report: &mut BenchReport) -> bool {
             energy_val.passed
         }
         Err(e) => {
-            println!("  ERROR: {}", e);
+            println!("  ERROR: {e}");
             false
         }
     }

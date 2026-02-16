@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Nuclear matter properties from Skyrme parameters (analytic).
 //!
 //! Computes infinite symmetric nuclear matter (SNM) properties: saturation
@@ -19,11 +21,11 @@ use std::f64::consts::PI;
 /// All quantities evaluated at the saturation density ρ₀ where dE/dρ = 0.
 #[derive(Debug, Clone)]
 pub struct NuclearMatterProps {
-    pub rho0_fm3: f64,      // Saturation density (fm⁻³). Empirical: ~0.16
-    pub e_a_mev: f64,       // Energy per nucleon at saturation (MeV). Empirical: ~-16
-    pub k_inf_mev: f64,     // Incompressibility (MeV). Empirical: ~230
-    pub m_eff_ratio: f64,   // Effective mass ratio m*/m. Empirical: ~0.7
-    pub j_mev: f64,         // Symmetry energy (MeV). Empirical: ~32
+    pub rho0_fm3: f64,    // Saturation density (fm⁻³). Empirical: ~0.16
+    pub e_a_mev: f64,     // Energy per nucleon at saturation (MeV). Empirical: ~-16
+    pub k_inf_mev: f64,   // Incompressibility (MeV). Empirical: ~230
+    pub m_eff_ratio: f64, // Effective mass ratio m*/m. Empirical: ~0.7
+    pub j_mev: f64,       // Symmetry energy (MeV). Empirical: ~32
 }
 
 /// Energy per nucleon in symmetric nuclear matter.
@@ -87,8 +89,7 @@ pub fn nuclear_matter_properties(params: &[f64]) -> Option<NuclearMatterProps> {
     // Incompressibility: K∞ = 9ρ₀² d²(E/A)/dρ² (PHYSICS.md §3.3)
     // Empirical: ~230 ± 20 MeV — Blaizot, Phys. Rep. 64, 171 (1980)
     let dr = rho0 * 1e-4;
-    let d2e = (energy_per_nucleon_snm(rho0 + dr, &p)
-        - 2.0 * energy_per_nucleon_snm(rho0, &p)
+    let d2e = (energy_per_nucleon_snm(rho0 + dr, &p) - 2.0 * energy_per_nucleon_snm(rho0, &p)
         + energy_per_nucleon_snm(rho0 - dr, &p))
         / (dr * dr);
     let k_inf = 9.0 * rho0 * rho0 * d2e;
@@ -117,3 +118,120 @@ pub fn nuclear_matter_properties(params: &[f64]) -> Option<NuclearMatterProps> {
     })
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::provenance::SLY4_PARAMS;
+
+    #[test]
+    fn sly4_saturation_density() {
+        let nmp = nuclear_matter_properties(&SLY4_PARAMS).unwrap();
+        // SLy4: ρ₀ ≈ 0.1595 fm⁻³ (Chabanat 1998, Table II)
+        assert!(
+            (nmp.rho0_fm3 - 0.16).abs() < 0.01,
+            "ρ₀ should be ~0.16, got {}",
+            nmp.rho0_fm3
+        );
+    }
+
+    #[test]
+    fn sly4_binding_energy() {
+        let nmp = nuclear_matter_properties(&SLY4_PARAMS).unwrap();
+        // SLy4: E/A ≈ -15.97 MeV
+        assert!(
+            (nmp.e_a_mev - (-15.97)).abs() < 1.0,
+            "E/A should be ~-16, got {}",
+            nmp.e_a_mev
+        );
+    }
+
+    #[test]
+    fn sly4_incompressibility() {
+        let nmp = nuclear_matter_properties(&SLY4_PARAMS).unwrap();
+        // SLy4: K∞ ≈ 230 MeV
+        assert!(
+            (nmp.k_inf_mev - 230.0).abs() < 30.0,
+            "K∞ should be ~230, got {}",
+            nmp.k_inf_mev
+        );
+    }
+
+    #[test]
+    fn sly4_effective_mass() {
+        let nmp = nuclear_matter_properties(&SLY4_PARAMS).unwrap();
+        // SLy4: m*/m typically 0.5–0.7 depending on parametrization details.
+        // The exact value depends on the Θ combination of t₁, t₂, x₂.
+        assert!(
+            nmp.m_eff_ratio > 0.3 && nmp.m_eff_ratio < 1.0,
+            "m*/m should be in (0.3, 1.0), got {}",
+            nmp.m_eff_ratio
+        );
+    }
+
+    #[test]
+    fn sly4_symmetry_energy() {
+        let nmp = nuclear_matter_properties(&SLY4_PARAMS).unwrap();
+        // SLy4: J ≈ 32 MeV
+        assert!(
+            (nmp.j_mev - 32.0).abs() < 3.0,
+            "J should be ~32, got {}",
+            nmp.j_mev
+        );
+    }
+
+    #[test]
+    fn wrong_param_count_returns_none() {
+        assert!(nuclear_matter_properties(&[0.0; 5]).is_none());
+        assert!(nuclear_matter_properties(&[]).is_none());
+    }
+
+    #[test]
+    fn energy_at_saturation_is_minimum() {
+        let nmp = nuclear_matter_properties(&SLY4_PARAMS).unwrap();
+        let p: [f64; 10] = SLY4_PARAMS;
+        let e_at_rho0 = energy_per_nucleon_snm(nmp.rho0_fm3, &p);
+        // E/A should be lower at ρ₀ than at neighboring densities
+        let e_below = energy_per_nucleon_snm(nmp.rho0_fm3 * 0.9, &p);
+        let e_above = energy_per_nucleon_snm(nmp.rho0_fm3 * 1.1, &p);
+        assert!(
+            e_at_rho0 < e_below && e_at_rho0 < e_above,
+            "E/A at ρ₀ should be a minimum: {e_at_rho0} vs {e_below}, {e_above}"
+        );
+    }
+
+    #[test]
+    fn zero_density_gives_zero() {
+        let p: [f64; 10] = SLY4_PARAMS;
+        assert_eq!(energy_per_nucleon_snm(0.0, &p), 0.0);
+    }
+
+    #[test]
+    fn nuclear_matter_determinism() {
+        // Saturation-density bisection and all derived NMP must be bitwise
+        // identical across calls on identical input.
+        let run = || nuclear_matter_properties(&SLY4_PARAMS).unwrap();
+        let a = run();
+        let b = run();
+        assert_eq!(
+            a.rho0_fm3.to_bits(),
+            b.rho0_fm3.to_bits(),
+            "ρ₀ bitwise mismatch"
+        );
+        assert_eq!(
+            a.e_a_mev.to_bits(),
+            b.e_a_mev.to_bits(),
+            "E/A bitwise mismatch"
+        );
+        assert_eq!(
+            a.k_inf_mev.to_bits(),
+            b.k_inf_mev.to_bits(),
+            "K∞ bitwise mismatch"
+        );
+        assert_eq!(
+            a.m_eff_ratio.to_bits(),
+            b.m_eff_ratio.to_bits(),
+            "m*/m bitwise mismatch"
+        );
+        assert_eq!(a.j_mev.to_bits(), b.j_mev.to_bits(), "J bitwise mismatch");
+    }
+}

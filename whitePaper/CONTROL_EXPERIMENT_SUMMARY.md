@@ -240,3 +240,5 @@ Timing: L2=35s, L3=4.52 hrs. L3 deformed solver needs numerical stabilization (c
 | L2 GPU-batched HFB (3 characterization checks) | 3 | 3/3 |
 | L3 Deformed HFB (3 characterization checks) | 3 | 3/3 |
 | **Phase A + C + D + E + F Total** | **169** | **169/169** |
+| **BarraCUDA Pipeline (MD + HFB)** | **26** | **26/26** |
+| **Grand Total** | **195** | **195/195** |

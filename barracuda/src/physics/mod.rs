@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Nuclear physics: Skyrme EDF, SEMF, spherical HFB, deformed HFB
 //!
 //! Direct Rust ports of the Python control implementations.
@@ -8,23 +10,24 @@
 //!   L1 — SEMF (Semi-Empirical Mass Formula)
 //!   L2 — Spherical HFB (Hartree-Fock-Bogoliubov)
 //!   L3 — Axially-deformed HFB (Nilsson basis)
-//!   L4 — Beyond-mean-field (GCM, Fayans, etc.) [future]
+//!   L4 — Beyond-mean-field (GCM, Fayans, etc.) \[future\]
 
+pub mod bcs_gpu;
 pub mod constants;
-pub mod nuclear_matter;
-pub mod semf;
 pub mod hfb;
-pub mod hfb_gpu;
-pub mod hfb_gpu_resident;
+pub mod hfb_common;
 pub mod hfb_deformed;
 pub mod hfb_deformed_gpu;
+pub mod hfb_gpu;
+pub mod hfb_gpu_resident;
+pub mod nuclear_matter;
+pub mod semf;
 
 pub use constants::*;
-pub use nuclear_matter::{nuclear_matter_properties, NuclearMatterProps};
-pub use semf::semf_binding_energy;
-pub use hfb::{SphericalHFB, binding_energy_l2};
-pub use hfb_gpu::binding_energies_l2_gpu;
-pub use hfb_gpu_resident::binding_energies_l2_gpu_resident;
+pub use hfb::{binding_energy_l2, SphericalHFB};
 pub use hfb_deformed::DeformedHFB;
 pub use hfb_deformed_gpu::binding_energies_l3_gpu_auto;
-
+pub use hfb_gpu::binding_energies_l2_gpu;
+pub use hfb_gpu_resident::binding_energies_l2_gpu_resident;
+pub use nuclear_matter::{nuclear_matter_properties, NuclearMatterProps};
+pub use semf::semf_binding_energy;

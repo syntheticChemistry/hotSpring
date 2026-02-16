@@ -2,7 +2,7 @@
 
 **Date**: February 15, 2026
 **Researcher**: Kevin Eastgate (via Cursor AI assistant)
-**Hardware**: RTX 4070 (12 GB GDDR6X), i9-12900K (24 threads), 64 GB DDR5, Pop!_OS 22.04
+**Hardware**: RTX 4070 (12 GB GDDR6X), i9-12900K (24 threads), 32 GB DDR5, Pop!_OS 22.04
 **Binary**: `nuclear_eos_l3_gpu --params=sly4`
 **Status**: COMPLETE — profiling data collected, architecture bottleneck diagnosed
 
@@ -88,7 +88,7 @@ time target/release/nuclear_eos_l3_gpu --params=sly4 > /tmp/l3_gpu_profile.log 2
 | CPU system avg | 3.0% |
 | CPU idle avg | **84.7%** |
 | CPU active avg | **10.7%** (~2.6 of 24 threads) |
-| Memory stable | ~12 GB free of 64 GB |
+| Memory stable | ~12 GB free of 32 GB |
 
 ### 3.3 Comparison: CPU-only vs GPU-hybrid
 

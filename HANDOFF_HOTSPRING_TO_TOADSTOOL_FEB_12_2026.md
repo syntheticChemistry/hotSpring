@@ -3,7 +3,7 @@
 **Date:** February 12, 2026 (revised)
 **From:** hotSpring (Nuclear EOS validation study)
 **To:** Toadstool/BarraCUDA core team
-**License:** AGPL-3.0-or-later
+**License:** AGPL-3.0-only
 
 ---
 

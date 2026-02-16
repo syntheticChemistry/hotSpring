@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Benchmark harness for hotSpring validation runs.
 //!
 //! Captures hardware inventory, wall-clock time, CPU energy (Intel RAPL),
@@ -44,7 +46,7 @@ impl HardwareInventory {
         let ram_total_mb = read_meminfo();
         let (gpu_name, gpu_vram_mb, gpu_driver, gpu_compute_cap) = read_nvidia_smi_inventory();
         let os_kernel = read_stdout("uname", &["-r"]);
-        let rust_version = env!("CARGO_PKG_RUST_VERSION", "unknown").to_string();
+        let rust_version = String::new();
 
         Self {
             gate_name: gate_name.to_string(),
@@ -66,15 +68,47 @@ impl HardwareInventory {
     pub fn print(&self) {
         let w = 52;
         println!("  ┌── Hardware ─{}┐", "─".repeat(w - 14));
-        println!("  │ {:<width$}│", format!("Gate:   {}", self.gate_name), width = w);
-        println!("  │ {:<width$}│", format!("CPU:    {}", self.cpu_model), width = w);
-        println!("  │ {:<width$}│", format!("Cores:  {} ({} threads), L3 {} KB",
-                 self.cpu_cores, self.cpu_threads, self.cpu_cache_kb), width = w);
-        println!("  │ {:<width$}│", format!("RAM:    {} MB", self.ram_total_mb), width = w);
-        println!("  │ {:<width$}│", format!("GPU:    {}", self.gpu_name), width = w);
-        println!("  │ {:<width$}│", format!("VRAM:   {} MB, Driver {}, CC {}",
-                 self.gpu_vram_mb, self.gpu_driver, self.gpu_compute_cap), width = w);
-        println!("  │ {:<width$}│", format!("Kernel: {}", self.os_kernel), width = w);
+        println!(
+            "  │ {:<width$}│",
+            format!("Gate:   {}", self.gate_name),
+            width = w
+        );
+        println!(
+            "  │ {:<width$}│",
+            format!("CPU:    {}", self.cpu_model),
+            width = w
+        );
+        println!(
+            "  │ {:<width$}│",
+            format!(
+                "Cores:  {} ({} threads), L3 {} KB",
+                self.cpu_cores, self.cpu_threads, self.cpu_cache_kb
+            ),
+            width = w
+        );
+        println!(
+            "  │ {:<width$}│",
+            format!("RAM:    {} MB", self.ram_total_mb),
+            width = w
+        );
+        println!(
+            "  │ {:<width$}│",
+            format!("GPU:    {}", self.gpu_name),
+            width = w
+        );
+        println!(
+            "  │ {:<width$}│",
+            format!(
+                "VRAM:   {} MB, Driver {}, CC {}",
+                self.gpu_vram_mb, self.gpu_driver, self.gpu_compute_cap
+            ),
+            width = w
+        );
+        println!(
+            "  │ {:<width$}│",
+            format!("Kernel: {}", self.os_kernel),
+            width = w
+        );
         println!("  └─{}┘", "─".repeat(w + 1));
     }
 }
@@ -116,6 +150,7 @@ struct GpuSample {
 }
 
 /// Background monitor that samples RAPL + nvidia-smi.
+#[derive(Debug)]
 pub struct PowerMonitor {
     /// RAPL energy at start (microjoules).
     rapl_start_uj: Option<u64>,
@@ -166,18 +201,23 @@ impl PowerMonitor {
         let cpu_joules = match (self.rapl_start_uj, read_rapl_energy_uj()) {
             (Some(start), Some(end)) => {
                 // RAPL counter wraps; handle it
-                let delta = if end >= start { end - start } else {
+                let delta = if end >= start {
+                    end - start
+                } else {
                     // max_energy_range_uj wrap
                     let max = read_rapl_max_energy_uj().unwrap_or(u64::MAX);
                     max - start + end
                 };
-                delta as f64 / 1_000_000.0  // µJ → J
+                delta as f64 / 1_000_000.0 // µJ → J
             }
             _ => 0.0,
         };
 
         // GPU energy — integrate power samples over time
-        let samples = self.gpu_samples.lock().unwrap();
+        let samples = self
+            .gpu_samples
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let n = samples.len();
         if n == 0 {
             return EnergyReport {
@@ -194,14 +234,23 @@ impl PowerMonitor {
 
         for i in 0..n {
             gpu_watts_sum += samples[i].watts;
-            if samples[i].watts > gpu_watts_peak { gpu_watts_peak = samples[i].watts; }
-            if samples[i].temp_c > gpu_temp_peak { gpu_temp_peak = samples[i].temp_c; }
-            if samples[i].vram_mib > gpu_vram_peak { gpu_vram_peak = samples[i].vram_mib; }
+            if samples[i].watts > gpu_watts_peak {
+                gpu_watts_peak = samples[i].watts;
+            }
+            if samples[i].temp_c > gpu_temp_peak {
+                gpu_temp_peak = samples[i].temp_c;
+            }
+            if samples[i].vram_mib > gpu_vram_peak {
+                gpu_vram_peak = samples[i].vram_mib;
+            }
 
             // Trapezoidal integration
             if i > 0 {
-                let dt = samples[i].timestamp.duration_since(samples[i - 1].timestamp).as_secs_f64();
-                let avg_w = (samples[i].watts + samples[i - 1].watts) / 2.0;
+                let dt = samples[i]
+                    .timestamp
+                    .duration_since(samples[i - 1].timestamp)
+                    .as_secs_f64();
+                let avg_w = f64::midpoint(samples[i].watts, samples[i - 1].watts);
                 gpu_joules += avg_w * dt;
             }
         }
@@ -279,9 +328,8 @@ impl BenchReport {
             self.hardware.gate_name.to_lowercase().replace(' ', "_"),
             self.timestamp.replace(':', "-").replace(' ', "_"),
         );
-        let path = format!("{}/{}", dir, filename);
-        let json = serde_json::to_string_pretty(self)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+        let path = format!("{dir}/{filename}");
+        let json = serde_json::to_string_pretty(self).map_err(std::io::Error::other)?;
         std::fs::write(&path, json)?;
         Ok(path)
     }
@@ -290,14 +338,26 @@ impl BenchReport {
     pub fn print_summary(&self) {
         println!();
         println!("══════════════════════════════════════════════════════════════════════════════════════════");
-        println!("  SUBSTRATE BENCHMARK REPORT — {} ({} / {})",
-                 self.hardware.gate_name, self.hardware.cpu_model, self.hardware.gpu_name);
+        println!(
+            "  SUBSTRATE BENCHMARK REPORT — {} ({} / {})",
+            self.hardware.gate_name, self.hardware.cpu_model, self.hardware.gpu_name
+        );
         println!("══════════════════════════════════════════════════════════════════════════════════════════");
         println!();
 
         // Table header
-        println!("  {:<18} {:<14} {:>10} {:>10} {:>9} {:>9} {:>10} {:>10} {:>8}",
-                 "Phase", "Substrate", "Wall Time", "per-eval", "Energy J", "J/eval", "W (avg)", "W (peak)", "chi2");
+        println!(
+            "  {:<18} {:<14} {:>10} {:>10} {:>9} {:>9} {:>10} {:>10} {:>8}",
+            "Phase",
+            "Substrate",
+            "Wall Time",
+            "per-eval",
+            "Energy J",
+            "J/eval",
+            "W (avg)",
+            "W (peak)",
+            "chi2"
+        );
         println!("  {}", "─".repeat(100));
 
         for p in &self.phases {
@@ -328,24 +388,28 @@ impl BenchReport {
             };
 
             let energy_str = if primary_joules > 0.01 {
-                format!("{:.2}", primary_joules)
+                format!("{primary_joules:.2}")
             } else if primary_joules > 0.0 {
-                format!("{:.4}", primary_joules)
+                format!("{primary_joules:.4}")
             } else {
                 "—".to_string()
             };
 
             let j_per_eval = if primary_joules > 0.0 && p.n_evals > 0 {
                 let j = primary_joules / p.n_evals as f64;
-                if j > 0.01 { format!("{:.3}", j) }
-                else if j > 0.0001 { format!("{:.1e}", j) }
-                else { format!("{:.2e}", j) }
+                if j > 0.01 {
+                    format!("{j:.3}")
+                } else if j > 0.0001 {
+                    format!("{j:.1e}")
+                } else {
+                    format!("{j:.2e}")
+                }
             } else {
                 "—".to_string()
             };
 
             let watts_str = if primary_watts > 0.1 {
-                format!("{:.0} W", primary_watts)
+                format!("{primary_watts:.0} W")
             } else {
                 "—".to_string()
             };
@@ -357,7 +421,7 @@ impl BenchReport {
                 primary_watts
             };
             let peak_watts_str = if peak_watts > 0.1 {
-                format!("{:.0} W", peak_watts)
+                format!("{peak_watts:.0} W")
             } else {
                 "—".to_string()
             };
@@ -374,32 +438,50 @@ impl BenchReport {
                 format!("{} [C]", p.substrate)
             };
 
-            println!("  {:<18} {:<14} {:>10} {:>10} {:>9} {:>9} {:>10} {:>10} {:>8}",
-                     p.phase, sub_label, wall_str, eval_str, energy_str, j_per_eval, watts_str, peak_watts_str, chi2_str);
+            println!(
+                "  {:<18} {:<14} {:>10} {:>10} {:>9} {:>9} {:>10} {:>10} {:>8}",
+                p.phase,
+                sub_label,
+                wall_str,
+                eval_str,
+                energy_str,
+                j_per_eval,
+                watts_str,
+                peak_watts_str,
+                chi2_str
+            );
         }
         println!("  {}", "─".repeat(100));
-        println!("  [C] = CPU energy (RAPL)  [G] = GPU energy (nvidia-smi, {}ms polling)",
-                 100);
+        println!(
+            "  [C] = CPU energy (RAPL)  [G] = GPU energy (nvidia-smi, {}ms polling)",
+            100
+        );
 
         // Detailed power/thermal breakdown for GPU phases
-        let gpu_phases: Vec<&PhaseResult> = self.phases.iter()
+        let gpu_phases: Vec<&PhaseResult> = self
+            .phases
+            .iter()
             .filter(|p| p.substrate.contains("GPU") || p.substrate.contains("gpu"))
             .collect();
         if !gpu_phases.is_empty() {
             println!();
             println!("  GPU Power Detail:");
-            println!("  {:<22} {:>8} {:>8} {:>8} {:>8} {:>8} {:>8}",
-                     "Phase", "W (avg)", "W (peak)", "Temp °C", "VRAM MB", "Samples", "Total J");
+            println!(
+                "  {:<22} {:>8} {:>8} {:>8} {:>8} {:>8} {:>8}",
+                "Phase", "W (avg)", "W (peak)", "Temp °C", "VRAM MB", "Samples", "Total J"
+            );
             println!("  {}", "─".repeat(72));
             for p in &gpu_phases {
-                println!("  {:<22} {:>7.1} {:>7.1} {:>7.0} {:>7.0} {:>8} {:>8.0}",
-                         p.phase,
-                         p.energy.gpu_watts_avg,
-                         p.energy.gpu_watts_peak,
-                         p.energy.gpu_temp_peak_c,
-                         p.energy.gpu_vram_peak_mib,
-                         p.energy.gpu_samples,
-                         p.energy.gpu_joules);
+                println!(
+                    "  {:<22} {:>7.1} {:>7.1} {:>7.0} {:>7.0} {:>8} {:>8.0}",
+                    p.phase,
+                    p.energy.gpu_watts_avg,
+                    p.energy.gpu_watts_peak,
+                    p.energy.gpu_temp_peak_c,
+                    p.energy.gpu_vram_peak_mib,
+                    p.energy.gpu_samples,
+                    p.energy.gpu_joules
+                );
             }
             println!("  {}", "─".repeat(72));
         }
@@ -408,37 +490,64 @@ impl BenchReport {
         println!();
         let mut seen = std::collections::HashSet::new();
         for p in &self.phases {
-            if seen.contains(&p.phase) { continue; }
+            if seen.contains(&p.phase) {
+                continue;
+            }
             seen.insert(p.phase.clone());
 
-            let matching: Vec<&PhaseResult> = self.phases.iter()
-                .filter(|q| q.phase == p.phase)
-                .collect();
-            if matching.len() < 2 { continue; }
+            let matching: Vec<&PhaseResult> =
+                self.phases.iter().filter(|q| q.phase == p.phase).collect();
+            if matching.len() < 2 {
+                continue;
+            }
 
             // Find fastest and slowest
-            let fastest = matching.iter().min_by(|a, b|
-                a.wall_time_s.partial_cmp(&b.wall_time_s).unwrap()).unwrap();
-            let slowest = matching.iter().max_by(|a, b|
-                a.wall_time_s.partial_cmp(&b.wall_time_s).unwrap()).unwrap();
+            let fastest = matching
+                .iter()
+                .min_by(|a, b| a.wall_time_s.total_cmp(&b.wall_time_s))
+                .expect("matching has >= 2 elements");
+            let slowest = matching
+                .iter()
+                .max_by(|a, b| a.wall_time_s.total_cmp(&b.wall_time_s))
+                .expect("matching has >= 2 elements");
 
             if fastest.wall_time_s > 0.0 && slowest.wall_time_s > fastest.wall_time_s {
                 let speedup = slowest.wall_time_s / fastest.wall_time_s;
-                println!("  {} : {} is {:.1}x faster than {} ({} vs {})",
-                         fastest.phase, fastest.substrate, speedup, slowest.substrate,
-                         format_duration(fastest.wall_time_s), format_duration(slowest.wall_time_s));
+                println!(
+                    "  {} : {} is {:.1}x faster than {} ({} vs {})",
+                    fastest.phase,
+                    fastest.substrate,
+                    speedup,
+                    slowest.substrate,
+                    format_duration(fastest.wall_time_s),
+                    format_duration(slowest.wall_time_s)
+                );
 
                 // Energy comparison if both have primary energy > 0
-                let fast_gpu = fastest.substrate.contains("GPU") || fastest.substrate.contains("gpu");
-                let slow_gpu = slowest.substrate.contains("GPU") || slowest.substrate.contains("gpu");
-                let fast_j = if fast_gpu { fastest.energy.gpu_joules } else { fastest.energy.cpu_joules };
-                let slow_j = if slow_gpu { slowest.energy.gpu_joules } else { slowest.energy.cpu_joules };
+                let fast_gpu =
+                    fastest.substrate.contains("GPU") || fastest.substrate.contains("gpu");
+                let slow_gpu =
+                    slowest.substrate.contains("GPU") || slowest.substrate.contains("gpu");
+                let fast_j = if fast_gpu {
+                    fastest.energy.gpu_joules
+                } else {
+                    fastest.energy.cpu_joules
+                };
+                let slow_j = if slow_gpu {
+                    slowest.energy.gpu_joules
+                } else {
+                    slowest.energy.cpu_joules
+                };
                 if fast_j > 0.0 && slow_j > 0.0 {
                     let ratio = slow_j / fast_j;
-                    println!("           energy: {:.2}J ({}) vs {:.2}J ({}) — {:.1}x less",
-                             fast_j, if fast_gpu {"GPU"} else {"CPU"},
-                             slow_j, if slow_gpu {"GPU"} else {"CPU"},
-                             ratio);
+                    println!(
+                        "           energy: {:.2}J ({}) vs {:.2}J ({}) — {:.1}x less",
+                        fast_j,
+                        if fast_gpu { "GPU" } else { "CPU" },
+                        slow_j,
+                        if slow_gpu { "GPU" } else { "CPU" },
+                        ratio
+                    );
                 }
             }
         }
@@ -522,8 +631,10 @@ fn read_meminfo() -> usize {
 
 fn read_nvidia_smi_inventory() -> (String, usize, String, String) {
     let output = Command::new("nvidia-smi")
-        .args(["--query-gpu=name,memory.total,driver_version,compute_cap",
-               "--format=csv,noheader,nounits"])
+        .args([
+            "--query-gpu=name,memory.total,driver_version,compute_cap",
+            "--format=csv,noheader,nounits",
+        ])
         .output();
 
     match output {
@@ -560,13 +671,17 @@ fn read_rapl_max_energy_uj() -> Option<u64> {
 
 fn spawn_nvidia_smi_poller(
     samples: Arc<Mutex<Vec<GpuSample>>>,
-) -> (Option<std::process::Child>, Option<std::thread::JoinHandle<()>>) {
+) -> (
+    Option<std::process::Child>,
+    Option<std::thread::JoinHandle<()>>,
+) {
     // Try to spawn nvidia-smi in continuous mode (100ms polling)
     let child = Command::new("nvidia-smi")
         .args([
             "--query-gpu=power.draw,temperature.gpu,memory.used",
             "--format=csv,noheader,nounits",
-            "-lms", "100",
+            "-lms",
+            "100",
         ])
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
@@ -574,13 +689,18 @@ fn spawn_nvidia_smi_poller(
 
     match child {
         Ok(mut child) => {
-            let stdout = child.stdout.take().expect("nvidia-smi stdout");
+            let Some(stdout) = child.stdout.take() else {
+                eprintln!("[nvidia-smi] stdout unavailable");
+                return (None, None);
+            };
             let handle = std::thread::spawn(move || {
                 let reader = BufReader::new(stdout);
                 for line in reader.lines() {
                     let Ok(line) = line else { break };
                     let line = line.trim().to_string();
-                    if line.is_empty() { continue; }
+                    if line.is_empty() {
+                        continue;
+                    }
                     // Parse: "85.23, 42, 601"
                     let parts: Vec<&str> = line.split(", ").collect();
                     if parts.len() >= 3 {
@@ -605,22 +725,34 @@ fn spawn_nvidia_smi_poller(
 }
 
 fn read_stdout(cmd: &str, args: &[&str]) -> String {
-    Command::new(cmd)
-        .args(args)
-        .output()
-        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
-        .unwrap_or_else(|_| "unknown".to_string())
+    Command::new(cmd).args(args).output().map_or_else(
+        |_| "unknown".to_string(),
+        |o| String::from_utf8_lossy(&o.stdout).trim().to_string(),
+    )
 }
 
 fn now_iso8601() -> String {
-    // Simple ISO 8601 timestamp from system time (no chrono dependency)
-    let output = Command::new("date")
-        .args(["+%Y-%m-%dT%H:%M:%S"])
-        .output();
-    match output {
-        Ok(o) => String::from_utf8_lossy(&o.stdout).trim().to_string(),
-        Err(_) => "unknown".to_string(),
-    }
+    // Pure-Rust ISO 8601 timestamp — no external `date` command dependency.
+    // Uses Hinnant's civil_from_days algorithm for epoch → calendar conversion.
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let secs = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    let day_secs = (secs % 86400) as u32;
+    let (hour, minute, second) = (day_secs / 3600, (day_secs % 3600) / 60, day_secs % 60);
+    // Civil date from days since 1970-01-01 (Howard Hinnant, public domain)
+    let z = (secs / 86400) as i64 + 719_468;
+    let era = (if z >= 0 { z } else { z - 146_096 }) / 146_097;
+    let doe = (z - era * 146_097) as u32;
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146_096) / 365;
+    let y = i64::from(yoe) + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = if m <= 2 { y + 1 } else { y };
+    format!("{y:04}-{m:02}-{d:02}T{hour:02}:{minute:02}:{second:02}")
 }
 
 fn format_duration(secs: f64) -> String {
@@ -629,7 +761,7 @@ fn format_duration(secs: f64) -> String {
     } else if secs < 1.0 {
         format!("{:.1} ms", secs * 1e3)
     } else if secs < 60.0 {
-        format!("{:.2} s", secs)
+        format!("{secs:.2} s")
     } else {
         format!("{:.1} min", secs / 60.0)
     }
@@ -637,10 +769,123 @@ fn format_duration(secs: f64) -> String {
 
 fn format_eval_time(us: f64) -> String {
     if us < 1000.0 {
-        format!("{:.1} us", us)
+        format!("{us:.1} us")
     } else if us < 1_000_000.0 {
         format!("{:.2} ms", us / 1000.0)
     } else {
         format!("{:.2} s", us / 1_000_000.0)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn energy_report_default_values() {
+        let r = EnergyReport::default();
+        assert_eq!(r.cpu_joules, 0.0);
+        assert_eq!(r.gpu_joules, 0.0);
+        assert_eq!(r.gpu_watts_avg, 0.0);
+        assert_eq!(r.gpu_watts_peak, 0.0);
+        assert_eq!(r.gpu_temp_peak_c, 0.0);
+        assert_eq!(r.gpu_vram_peak_mib, 0.0);
+        assert_eq!(r.gpu_samples, 0);
+    }
+
+    #[test]
+    fn phase_result_creation_and_fields() {
+        let energy = EnergyReport {
+            cpu_joules: 1.5,
+            gpu_joules: 0.0,
+            ..Default::default()
+        };
+        let pr = PhaseResult {
+            phase: "yukawa".to_string(),
+            substrate: "BarraCUDA GPU".to_string(),
+            wall_time_s: 2.5,
+            per_eval_us: 0.42,
+            n_evals: 10_000,
+            energy,
+            peak_rss_mb: 128.0,
+            chi2: 0.03,
+            precision_mev: 0.1,
+            notes: "smoke test".to_string(),
+        };
+        assert_eq!(pr.phase, "yukawa");
+        assert_eq!(pr.substrate, "BarraCUDA GPU");
+        assert!((pr.wall_time_s - 2.5).abs() < 1e-9);
+        assert_eq!(pr.n_evals, 10_000);
+        assert_eq!(pr.energy.cpu_joules, 1.5);
+        assert_eq!(pr.peak_rss_mb, 128.0);
+    }
+
+    #[test]
+    fn format_duration_sub_millisecond() {
+        assert!(format_duration(0.0001).contains("us"));
+    }
+
+    #[test]
+    fn format_duration_milliseconds() {
+        let s = format_duration(0.05);
+        assert!(s.contains("ms"));
+    }
+
+    #[test]
+    fn format_duration_seconds() {
+        let s = format_duration(1.5);
+        assert!(s.contains('s'));
+        assert!(!s.contains("min"));
+    }
+
+    #[test]
+    fn format_duration_minutes() {
+        let s = format_duration(90.0);
+        assert!(s.contains("min"));
+    }
+
+    #[test]
+    fn format_eval_time_microseconds() {
+        let s = format_eval_time(500.0);
+        assert!(s.contains("us"));
+    }
+
+    #[test]
+    fn format_eval_time_milliseconds() {
+        let s = format_eval_time(5_000.0);
+        assert!(s.contains("ms"));
+    }
+
+    #[test]
+    fn format_eval_time_seconds() {
+        let s = format_eval_time(2_000_000.0);
+        assert!(s.contains('s'));
+    }
+
+    #[test]
+    fn now_iso8601_format() {
+        let s = now_iso8601();
+        // Expect YYYY-MM-DDTHH:MM:SS
+        let parts: Vec<&str> = s.split('T').collect();
+        assert_eq!(parts.len(), 2, "expected YYYY-MM-DDTHH:MM:SS format");
+        let date: Vec<&str> = parts[0].split('-').collect();
+        assert_eq!(date.len(), 3);
+        assert_eq!(date[0].len(), 4);
+        assert_eq!(date[1].len(), 2);
+        assert_eq!(date[2].len(), 2);
+    }
+
+    #[test]
+    fn peak_rss_mb_non_negative() {
+        let rss = peak_rss_mb();
+        assert!(rss >= 0.0, "peak_rss_mb should be non-negative");
+    }
+
+    #[test]
+    #[ignore = "requires nvidia-smi and RAPL"]
+    fn power_monitor_start_stop() {
+        let monitor = PowerMonitor::start();
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        let _ = monitor.stop();
     }
 }

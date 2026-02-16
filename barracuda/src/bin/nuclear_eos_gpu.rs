@@ -1,25 +1,29 @@
-//! Nuclear EOS — GPU FP64 Validation (SHADER_F64 on RTX 4070)
+// SPDX-License-Identifier: AGPL-3.0-only
+
+//! Nuclear EOS — GPU FP64 Validation (`SHADER_F64` on RTX 4070)
 //!
 //! Three-way comparison:
 //!   1. Python/SciPy control  (reference numbers from prior runs)
-//!   2. BarraCUDA CPU         (existing L1/L2 path)
-//!   3. BarraCUDA GPU         (NEW: f64 compute shaders via wgpu/Vulkan)
+//!   2. `BarraCUDA` CPU         (existing L1/L2 path)
+//!   3. `BarraCUDA` GPU         (NEW: f64 compute shaders via wgpu/Vulkan)
 //!
 //! L1: Batched SEMF on GPU (all nuclei in one dispatch)
 //! L2: CPU HFB with GPU-accelerated density/potential (per-SCF-iteration)
 //!
-//! Run: cargo run --release --bin nuclear_eos_gpu
+//! Run: cargo run --release --bin `nuclear_eos_gpu`
 
 use hotspring_barracuda::bench::{
-    BenchReport, HardwareInventory, PhaseResult, PowerMonitor, peak_rss_mb,
+    peak_rss_mb, BenchReport, HardwareInventory, PhaseResult, PowerMonitor,
 };
 use hotspring_barracuda::data;
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::physics::{
-    nuclear_matter_properties, semf_binding_energy, binding_energy_l2,
+    binding_energy_l2, nuclear_matter_properties, semf_binding_energy,
 };
+use hotspring_barracuda::provenance;
+use hotspring_barracuda::tolerances;
 
-use barracuda::sample::lhs::latin_hypercube;
+use barracuda::sample::latin_hypercube;
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -34,191 +38,21 @@ use std::time::Instant;
 ///
 /// NOTE: WGSL f64 does NOT have builtin sqrt/pow/max/floor overloads.
 /// All transcendentals are precomputed on CPU and passed as buffers.
-const SHADER_SEMF_BATCH: &str = r#"
-// GPU SEMF: B(Z,N) for N nuclei in parallel using Skyrme-derived coefficients
-//
-// Inputs:
-//   nuclei[7*i+0..6] = Z, N, A^(2/3), A^(1/3), sqrt(A), z_even(0/1), n_even(0/1)
-//   nmp[0..3] = a_v, r0, a_a, e2
-// Output:
-//   energies[i] = B(Z,N) in MeV
+const SHADER_SEMF_BATCH: &str = include_str!("../physics/shaders/semf_batch_f64.wgsl");
 
-@group(0) @binding(0) var<storage, read> nuclei: array<f64>;
-@group(0) @binding(1) var<storage, read> nmp: array<f64>;
-@group(0) @binding(2) var<storage, read_write> energies: array<f64>;
-
-@compute @workgroup_size(64)
-fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
-    let idx = gid.x;
-    if (idx >= arrayLength(&energies)) {
-        return;
-    }
-
-    let base = 7u * idx;
-    let z      = nuclei[base + 0u];
-    let n      = nuclei[base + 1u];
-    let a_23   = nuclei[base + 2u];  // A^(2/3), precomputed on CPU
-    let a_13   = nuclei[base + 3u];  // A^(1/3), precomputed on CPU
-    let sqrt_a = nuclei[base + 4u];  // sqrt(A), precomputed on CPU
-    let z_even = nuclei[base + 5u];  // 1.0 if even, 0.0 if odd
-    let n_even = nuclei[base + 6u];
-
-    let a = z + n;
-
-    let a_v = nmp[0];
-    let r0  = nmp[1];
-    let a_a = nmp[2];
-    let e2  = nmp[3];
-
-    let a_s = a_v * 1.1;
-    let a_c = 3.0 * e2 / (5.0 * r0);
-    let a_p = 12.0 / sqrt_a;
-
-    // Bethe-Weizsacker mass formula (pure f64 arithmetic, no builtins)
-    var b = a_v * a;
-    b = b - a_s * a_23;
-    b = b - a_c * z * (z - 1.0) / a_13;
-    b = b - a_a * (n - z) * (n - z) / a;
-
-    // Pairing: even-even +delta, odd-odd -delta
-    if (z_even > 0.5 && n_even > 0.5) {
-        b = b + a_p;
-    } else if (z_even < 0.5 && n_even < 0.5) {
-        b = b - a_p;
-    }
-
-    // max(b, 0) without builtin: clamp negative to zero
-    if (b < 0.0) {
-        b = b - b;  // sets to 0.0 as f64
-    }
-
-    energies[idx] = b;
-}
-"#;
-
-/// PURE-GPU SEMF: uses math_f64 library — NO CPU precomputation needed
+/// PURE-GPU SEMF: uses `math_f64` library — NO CPU precomputation needed
 ///
 /// This shader computes sqrt, pow (via exp/log) entirely on GPU.
 /// Input: nuclei[3*i+0..2] = Z, N, A (just integers!)
 /// No need for CPU to precompute A^(2/3), A^(1/3), sqrt(A).
-const SHADER_SEMF_PURE_GPU: &str = r#"
-// Pure-GPU SEMF: all math done on GPU via math_f64 library
-// Input:  nuclei[3*i] = Z, nuclei[3*i+1] = N, nuclei[3*i+2] = A
-// Input:  nmp[0..3] = a_v, r0, a_a, e2
-// Output: energies[i] = B(Z,N) in MeV
-
-@group(0) @binding(0) var<storage, read> nuclei: array<f64>;
-@group(0) @binding(1) var<storage, read> nmp: array<f64>;
-@group(0) @binding(2) var<storage, read_write> energies: array<f64>;
-
-@compute @workgroup_size(64)
-fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
-    let idx = gid.x;
-    if (idx >= arrayLength(&energies)) {
-        return;
-    }
-
-    let base = 3u * idx;
-    let z = nuclei[base + 0u];
-    let n = nuclei[base + 1u];
-    let a = nuclei[base + 2u];
-
-    if (a < 1.0) {
-        energies[idx] = a - a;  // 0.0 as f64
-        return;
-    }
-
-    let a_v = nmp[0];
-    let r0  = nmp[1];
-    let a_a = nmp[2];
-    let e2  = nmp[3];
-
-    // ALL transcendentals computed on GPU via math_f64 library
-    // Constants must be f64: construct from 'a' which is f64
-    let two_thirds = (a - a + 2.0) / (a - a + 3.0);
-    let one_third  = (a - a + 1.0) / (a - a + 3.0);
-    let a_23   = pow_f64(a, two_thirds);    // A^(2/3) — GPU computed
-    let a_13   = pow_f64(a, one_third);     // A^(1/3) — GPU computed
-    let sqrt_a = sqrt_f64(a);               // sqrt(A) — GPU computed
-
-    let a_s = a_v * 1.1;
-    let a_c = 3.0 * e2 / (5.0 * r0);
-    let a_p = 12.0 / sqrt_a;
-
-    // Bethe-Weizsacker mass formula
-    var b = a_v * a;
-    b = b - a_s * a_23;
-    b = b - a_c * z * (z - 1.0) / a_13;
-    b = b - a_a * (n - z) * (n - z) / a;
-
-    // Pairing: even-even +delta, odd-odd -delta
-    let z_i = i32(z);
-    let n_i = i32(n);
-    if ((z_i & 1) == 0 && (n_i & 1) == 0) {
-        b = b + a_p;
-    } else if ((z_i & 1) == 1 && (n_i & 1) == 1) {
-        b = b - a_p;
-    }
-
-    energies[idx] = max_f64(b, b - b);  // max(b, 0) via math_f64 library
-}
-"#;
+const SHADER_SEMF_PURE_GPU: &str = include_str!("../physics/shaders/semf_pure_gpu_f64.wgsl");
 
 /// Batched chi2: per-nucleus squared residual
-const SHADER_CHI2: &str = r#"
-// chi2 contribution per nucleus: (B_calc - B_exp)^2 / sigma^2
-@group(0) @binding(0) var<storage, read> b_calc: array<f64>;
-@group(0) @binding(1) var<storage, read> b_exp: array<f64>;
-@group(0) @binding(2) var<storage, read> sigma: array<f64>;
-@group(0) @binding(3) var<storage, read_write> chi2: array<f64>;
-
-@compute @workgroup_size(64)
-fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
-    let idx = gid.x;
-    if (idx >= arrayLength(&chi2)) {
-        return;
-    }
-    let diff = b_calc[idx] - b_exp[idx];
-    let s = sigma[idx];
-    chi2[idx] = diff * diff / (s * s);
-}
-"#;
+const SHADER_CHI2: &str = include_str!("../physics/shaders/chi2_batch_f64.wgsl");
 
 // ═══════════════════════════════════════════════════════════════════
-// NMP targets (from Chabanat 1998, UNEDF0/1)
+// NMP — use provenance::NMP_TARGETS, provenance::NMP_NAMES
 // ═══════════════════════════════════════════════════════════════════
-
-struct NmpTarget {
-    name: &'static str,
-    target: f64,
-    sigma: f64,
-}
-
-const NMP_TARGETS: [NmpTarget; 5] = [
-    NmpTarget { name: "rho0",  target: 0.16,   sigma: 0.005 },
-    NmpTarget { name: "E/A",   target: -15.97,  sigma: 0.5   },
-    NmpTarget { name: "K_inf", target: 230.0,   sigma: 20.0  },
-    NmpTarget { name: "m*/m",  target: 0.69,    sigma: 0.1   },
-    NmpTarget { name: "J",     target: 32.0,    sigma: 2.0   },
-];
-
-fn nmp_chi2(nmp: &hotspring_barracuda::physics::NuclearMatterProps) -> f64 {
-    let vals = [nmp.rho0_fm3, nmp.e_a_mev, nmp.k_inf_mev, nmp.m_eff_ratio, nmp.j_mev];
-    let mut chi2 = 0.0;
-    for (i, &val) in vals.iter().enumerate() {
-        chi2 += ((val - NMP_TARGETS[i].target) / NMP_TARGETS[i].sigma).powi(2);
-    }
-    chi2 / 5.0
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// Known parameter sets
-// ═══════════════════════════════════════════════════════════════════
-
-const SLY4: [f64; 10] = [
-    -2488.91, 486.82, -546.39, 13777.0,
-    0.834, -0.344, -1.0, 1.354, 0.1667, 123.0,
-];
 
 // ═══════════════════════════════════════════════════════════════════
 // Main
@@ -241,7 +75,9 @@ fn main() {
 
     // ── Initialize GPU ──────────────────────────────────────────────
     let rt = tokio::runtime::Runtime::new().unwrap();
-    let gpu = rt.block_on(GpuF64::new()).expect("Failed to create GPU device");
+    let gpu = rt
+        .block_on(GpuF64::new())
+        .expect("Failed to create GPU device");
     print!("  ");
     gpu.print_info();
     if !gpu.has_f64 {
@@ -252,17 +88,9 @@ fn main() {
     println!();
 
     // ── Load data ───────────────────────────────────────────────────
-    let base = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .join("control/surrogate/nuclear-eos");
-
-    let exp_data: HashMap<(usize, usize), (f64, f64)> =
-        data::load_nuclei(&base, data::parse_nuclei_set_from_args())
-            .expect("Failed to load experimental data");
-    let bounds =
-        data::load_bounds(&base.join("wrapper/skyrme_bounds.json"))
-            .expect("Failed to load parameter bounds");
+    let ctx = data::load_eos_context();
+    let exp_data = &*ctx.exp_data;
+    let bounds = &ctx.bounds;
 
     // Sort nuclei for deterministic ordering on GPU
     let mut sorted_nuclei: Vec<((usize, usize), (f64, f64))> =
@@ -270,7 +98,7 @@ fn main() {
     sorted_nuclei.sort_by_key(|&((z, n), _)| (z, n));
     let n_nuclei = sorted_nuclei.len();
 
-    println!("  Nuclei: {} (AME2020 selected)", n_nuclei);
+    println!("  Nuclei: {n_nuclei} (AME2020 selected)");
     println!("  Parameters: {} dimensions (Skyrme)", bounds.len());
     println!();
 
@@ -279,7 +107,7 @@ fn main() {
     let semf_pipeline = gpu.create_pipeline(SHADER_SEMF_BATCH, "SEMF_batch_f64");
     let chi2_pipeline = gpu.create_pipeline(SHADER_CHI2, "chi2_batch_f64");
     let compile_ms = t_compile.elapsed().as_secs_f64() * 1000.0;
-    println!("  GPU shader compilation: {:.1}ms", compile_ms);
+    println!("  GPU shader compilation: {compile_ms:.1}ms");
     println!();
 
     // ── Prepare persistent GPU buffers ──────────────────────────────
@@ -321,7 +149,7 @@ fn main() {
     let mut cpu_energies: Vec<f64> = vec![0.0; n_nuclei];
     for _ in 0..n_iters_l1 {
         for (i, &((z, n), _)) in sorted_nuclei.iter().enumerate() {
-            cpu_energies[i] = semf_binding_energy(z, n, &SLY4);
+            cpu_energies[i] = semf_binding_energy(z, n, &provenance::SLY4_PARAMS);
         }
     }
     let cpu_l1_wall = t_cpu.elapsed().as_secs_f64();
@@ -329,11 +157,13 @@ fn main() {
     let energy_cpu_l1 = pmon_cpu_l1.stop();
 
     // CPU chi2
-    let cpu_chi2: f64 = cpu_energies.iter()
+    let cpu_chi2: f64 = cpu_energies
+        .iter()
         .zip(b_exp_vec.iter())
         .zip(sigma_vec.iter())
         .map(|((bc, be), s)| ((bc - be) / s).powi(2))
-        .sum::<f64>() / n_nuclei as f64;
+        .sum::<f64>()
+        / n_nuclei as f64;
 
     report.add_phase(PhaseResult {
         phase: "L1 SEMF".into(),
@@ -345,15 +175,15 @@ fn main() {
         peak_rss_mb: peak_rss_mb(),
         chi2: cpu_chi2,
         precision_mev: 0.0,
-        notes: format!("{} nuclei x {} iterations", n_nuclei, n_iters_l1),
+        notes: format!("{n_nuclei} nuclei x {n_iters_l1} iterations"),
     });
 
     println!("  CPU (BarraCUDA native):");
-    println!("    chi2/datum = {:.4}", cpu_chi2);
-    println!("    {:.1} us/eval ({} nuclei, {} iterations)", cpu_per_eval_us, n_nuclei, n_iters_l1);
+    println!("    chi2/datum = {cpu_chi2:.4}");
+    println!("    {cpu_per_eval_us:.1} us/eval ({n_nuclei} nuclei, {n_iters_l1} iterations)");
 
     // GPU: derive NMP → shader params, dispatch
-    let nmp = nuclear_matter_properties(&SLY4).unwrap();
+    let nmp = nuclear_matter_properties(&provenance::SLY4_PARAMS).unwrap();
     let r0 = (3.0 / (4.0 * std::f64::consts::PI * nmp.rho0_fm3)).powf(1.0 / 3.0);
     let nmp_arr: Vec<f64> = vec![nmp.e_a_mev.abs(), r0, nmp.j_mev, 1.4399764];
     let nmp_buf = gpu.create_f64_buffer(&nmp_arr, "NMP_sly4");
@@ -363,17 +193,28 @@ fn main() {
         label: Some("SEMF_bg"),
         layout: &semf_pipeline.get_bind_group_layout(0),
         entries: &[
-            wgpu::BindGroupEntry { binding: 0, resource: nuclei_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 1, resource: nmp_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 2, resource: energy_buf.as_entire_binding() },
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: nuclei_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: nmp_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: energy_buf.as_entire_binding(),
+            },
         ],
     });
 
-    let wg = (n_nuclei as u32 + 63) / 64;
+    let wg = (n_nuclei as u32).div_ceil(64);
 
     // Warm up
     for _ in 0..10 {
-        let _ = gpu.dispatch_and_read(&semf_pipeline, &semf_bg, wg, &energy_buf, n_nuclei);
+        let _ = gpu
+            .dispatch_and_read(&semf_pipeline, &semf_bg, wg, &energy_buf, n_nuclei)
+            .expect("GPU SEMF warmup dispatch");
     }
 
     // Benchmark (with power monitoring) — 100k iterations for meaningful energy measurement
@@ -381,7 +222,9 @@ fn main() {
     let t_gpu = Instant::now();
     let mut gpu_energies = vec![0.0f64; n_nuclei];
     for _ in 0..n_iters_l1 {
-        gpu_energies = gpu.dispatch_and_read(&semf_pipeline, &semf_bg, wg, &energy_buf, n_nuclei);
+        gpu_energies = gpu
+            .dispatch_and_read(&semf_pipeline, &semf_bg, wg, &energy_buf, n_nuclei)
+            .expect("GPU SEMF dispatch");
     }
     let gpu_l1_wall = t_gpu.elapsed().as_secs_f64();
     let gpu_per_eval_us = gpu_l1_wall * 1e6 / n_iters_l1 as f64;
@@ -394,22 +237,41 @@ fn main() {
         label: Some("chi2_bg"),
         layout: &chi2_pipeline.get_bind_group_layout(0),
         entries: &[
-            wgpu::BindGroupEntry { binding: 0, resource: b_calc_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 1, resource: b_exp_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 2, resource: sigma_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 3, resource: chi2_out_buf.as_entire_binding() },
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: b_calc_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: b_exp_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: sigma_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 3,
+                resource: chi2_out_buf.as_entire_binding(),
+            },
         ],
     });
-    let chi2_vals = gpu.dispatch_and_read(&chi2_pipeline, &chi2_bg, wg, &chi2_out_buf, n_nuclei);
+    let chi2_vals = gpu
+        .dispatch_and_read(&chi2_pipeline, &chi2_bg, wg, &chi2_out_buf, n_nuclei)
+        .expect("GPU chi2 dispatch");
     let gpu_chi2: f64 = chi2_vals.iter().sum::<f64>() / n_nuclei as f64;
 
     // Precision
-    let max_diff = cpu_energies.iter().zip(gpu_energies.iter())
+    let max_diff = cpu_energies
+        .iter()
+        .zip(gpu_energies.iter())
         .map(|(c, g)| (c - g).abs())
         .fold(0.0f64, f64::max);
-    let mean_diff = cpu_energies.iter().zip(gpu_energies.iter())
+    let mean_diff = cpu_energies
+        .iter()
+        .zip(gpu_energies.iter())
         .map(|(c, g)| (c - g).abs())
-        .sum::<f64>() / n_nuclei as f64;
+        .sum::<f64>()
+        / n_nuclei as f64;
 
     report.add_phase(PhaseResult {
         phase: "L1 SEMF".into(),
@@ -421,24 +283,31 @@ fn main() {
         peak_rss_mb: peak_rss_mb(),
         chi2: gpu_chi2,
         precision_mev: max_diff,
-        notes: format!("precomputed transcendentals, max|delta|={:.2e}", max_diff),
+        notes: format!("precomputed transcendentals, max|delta|={max_diff:.2e}"),
     });
 
     println!();
     println!("  GPU ({})", gpu.adapter_name);
-    println!("    chi2/datum = {:.4}", gpu_chi2);
-    println!("    {:.1} us/eval ({} nuclei, {} iterations)", gpu_per_eval_us, n_nuclei, n_iters_l1);
+    println!("    chi2/datum = {gpu_chi2:.4}");
+    println!("    {gpu_per_eval_us:.1} us/eval ({n_nuclei} nuclei, {n_iters_l1} iterations)");
 
     println!();
     println!("  ── Precision ──");
-    println!("    Max  |B_cpu - B_gpu|: {:.2e} MeV", max_diff);
-    println!("    Mean |B_cpu - B_gpu|: {:.2e} MeV", mean_diff);
-    println!("    |chi2_cpu - chi2_gpu|: {:.2e}", (cpu_chi2 - gpu_chi2).abs());
+    println!("    Max  |B_cpu - B_gpu|: {max_diff:.2e} MeV");
+    println!("    Mean |B_cpu - B_gpu|: {mean_diff:.2e} MeV");
+    println!(
+        "    |chi2_cpu - chi2_gpu|: {:.2e}",
+        (cpu_chi2 - gpu_chi2).abs()
+    );
     let speedup = cpu_per_eval_us / gpu_per_eval_us;
     if speedup >= 1.0 {
-        println!("    GPU speedup: {:.1}x", speedup);
+        println!("    GPU speedup: {speedup:.1}x");
     } else {
-        println!("    GPU overhead: {:.1}x (dispatch > compute for {} nuclei)", 1.0/speedup, n_nuclei);
+        println!(
+            "    GPU overhead: {:.1}x (dispatch > compute for {} nuclei)",
+            1.0 / speedup,
+            n_nuclei
+        );
     }
     if max_diff < 1e-10 {
         println!("    EXACT MATCH (< 1e-10 MeV) ✓");
@@ -466,7 +335,7 @@ fn main() {
     let t_compile2 = Instant::now();
     let pure_pipeline = gpu.create_pipeline(&pure_gpu_shader, "SEMF_pure_gpu_f64");
     let compile2_ms = t_compile2.elapsed().as_secs_f64() * 1000.0;
-    println!("  Shader compilation (with math_f64 lib): {:.1}ms", compile2_ms);
+    println!("  Shader compilation (with math_f64 lib): {compile2_ms:.1}ms");
 
     // Prepare minimal nuclei buffer: just Z, N, A (3 values per nucleus)
     let nuclei_pure: Vec<f64> = sorted_nuclei
@@ -480,15 +349,26 @@ fn main() {
         label: Some("SEMF_pure_bg"),
         layout: &pure_pipeline.get_bind_group_layout(0),
         entries: &[
-            wgpu::BindGroupEntry { binding: 0, resource: nuclei_pure_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 1, resource: nmp_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 2, resource: energy_pure_buf.as_entire_binding() },
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: nuclei_pure_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: nmp_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: energy_pure_buf.as_entire_binding(),
+            },
         ],
     });
 
     // Warm up
     for _ in 0..10 {
-        let _ = gpu.dispatch_and_read(&pure_pipeline, &pure_bg, wg, &energy_pure_buf, n_nuclei);
+        let _ = gpu
+            .dispatch_and_read(&pure_pipeline, &pure_bg, wg, &energy_pure_buf, n_nuclei)
+            .expect("GPU pure warmup");
     }
 
     // Benchmark (with power monitoring) — 100k iterations
@@ -496,22 +376,31 @@ fn main() {
     let t_pure = Instant::now();
     let mut pure_energies = vec![0.0f64; n_nuclei];
     for _ in 0..n_iters_l1 {
-        pure_energies = gpu.dispatch_and_read(&pure_pipeline, &pure_bg, wg, &energy_pure_buf, n_nuclei);
+        pure_energies = gpu
+            .dispatch_and_read(&pure_pipeline, &pure_bg, wg, &energy_pure_buf, n_nuclei)
+            .expect("GPU pure dispatch");
     }
     let pure_wall = t_pure.elapsed().as_secs_f64();
     let pure_per_eval_us = pure_wall * 1e6 / n_iters_l1 as f64;
     let energy_pure = pmon_pure.stop();
 
     // Compare pure-GPU vs CPU
-    let pure_max_diff = cpu_energies.iter().zip(pure_energies.iter())
+    let pure_max_diff = cpu_energies
+        .iter()
+        .zip(pure_energies.iter())
         .map(|(c, g)| (c - g).abs())
         .fold(0.0f64, f64::max);
-    let pure_mean_diff = cpu_energies.iter().zip(pure_energies.iter())
+    let pure_mean_diff = cpu_energies
+        .iter()
+        .zip(pure_energies.iter())
         .map(|(c, g)| (c - g).abs())
-        .sum::<f64>() / n_nuclei as f64;
+        .sum::<f64>()
+        / n_nuclei as f64;
 
     // Also compare pure-GPU vs precomputed-GPU
-    let pure_vs_precomp = gpu_energies.iter().zip(pure_energies.iter())
+    let pure_vs_precomp = gpu_energies
+        .iter()
+        .zip(pure_energies.iter())
         .map(|(p, g)| (p - g).abs())
         .fold(0.0f64, f64::max);
 
@@ -523,31 +412,31 @@ fn main() {
         n_evals: n_iters_l1,
         energy: energy_pure,
         peak_rss_mb: peak_rss_mb(),
-        chi2: gpu_chi2,  // same physics, different math path
+        chi2: gpu_chi2, // same physics, different math path
         precision_mev: pure_max_diff,
-        notes: format!("pure-GPU math_f64, max|delta|={:.2e}", pure_max_diff),
+        notes: format!("pure-GPU math_f64, max|delta|={pure_max_diff:.2e}"),
     });
 
     println!();
     println!("  Pure-GPU (math_f64 library on RTX 4070):");
-    println!("    Time per eval: {:.1} us ({} iters)", pure_per_eval_us, n_iters_l1);
+    println!("    Time per eval: {pure_per_eval_us:.1} us ({n_iters_l1} iters)");
     println!();
     println!("  ── Precision vs CPU ──");
-    println!("    Max  |B_cpu - B_pure_gpu|: {:.2e} MeV", pure_max_diff);
-    println!("    Mean |B_cpu - B_pure_gpu|: {:.2e} MeV", pure_mean_diff);
+    println!("    Max  |B_cpu - B_pure_gpu|: {pure_max_diff:.2e} MeV");
+    println!("    Mean |B_cpu - B_pure_gpu|: {pure_mean_diff:.2e} MeV");
     println!("  ── Precision vs Precomputed-GPU ──");
-    println!("    Max  |B_precomp - B_pure|: {:.2e} MeV", pure_vs_precomp);
+    println!("    Max  |B_precomp - B_pure|: {pure_vs_precomp:.2e} MeV");
     println!("  ── Speed comparison ──");
-    println!("    CPU:             {:.1} us/eval", cpu_per_eval_us);
-    println!("    GPU (precomp):   {:.1} us/eval", gpu_per_eval_us);
-    println!("    GPU (pure math): {:.1} us/eval", pure_per_eval_us);
+    println!("    CPU:             {cpu_per_eval_us:.1} us/eval");
+    println!("    GPU (precomp):   {gpu_per_eval_us:.1} us/eval");
+    println!("    GPU (pure math): {pure_per_eval_us:.1} us/eval");
 
     if pure_max_diff < 1e-6 {
         println!("    Pure-GPU math_f64: VALIDATED (< 1e-6 MeV vs CPU)");
     } else if pure_max_diff < 0.1 {
         println!("    Pure-GPU math_f64: GOOD (< 0.1 MeV — Newton/polynomial precision)");
     } else {
-        println!("    Pure-GPU math_f64: NEEDS TUNING ({:.2e} MeV)", pure_max_diff);
+        println!("    Pure-GPU math_f64: NEEDS TUNING ({pure_max_diff:.2e} MeV)");
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -560,20 +449,24 @@ fn main() {
     println!();
 
     let n_sweep: usize = 512;
-    let samples = latin_hypercube(n_sweep, &bounds, 42).expect("LHS failed");
+    let samples = latin_hypercube(n_sweep, bounds, 42).expect("LHS failed");
 
     // CPU sweep (with power monitoring)
     let pmon_cpu_sweep = PowerMonitor::start();
     let t_cpu_opt = Instant::now();
-    let cpu_chi2s: Vec<f64> = samples.iter().map(|params| {
-        l1_chi2_cpu(params, &sorted_nuclei)
-    }).collect();
+    let cpu_chi2s: Vec<f64> = samples
+        .iter()
+        .map(|params| l1_chi2_cpu(params, &sorted_nuclei))
+        .collect();
     let cpu_opt_wall = t_cpu_opt.elapsed().as_secs_f64();
     let cpu_opt_ms = cpu_opt_wall * 1000.0;
     let energy_cpu_sweep = pmon_cpu_sweep.stop();
-    let cpu_best_idx = cpu_chi2s.iter().enumerate()
-        .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
-        .map(|(i, _)| i).unwrap();
+    let cpu_best_idx = cpu_chi2s
+        .iter()
+        .enumerate()
+        .min_by(|(_, a), (_, b)| a.total_cmp(b))
+        .map(|(i, _)| i)
+        .unwrap();
     let cpu_best = cpu_chi2s[cpu_best_idx];
 
     report.add_phase(PhaseResult {
@@ -586,7 +479,7 @@ fn main() {
         peak_rss_mb: peak_rss_mb(),
         chi2: cpu_best,
         precision_mev: 0.0,
-        notes: format!("{}-point LHS sweep", n_sweep),
+        notes: format!("{n_sweep}-point LHS sweep"),
     });
 
     // GPU sweep (same param sets, with power monitoring)
@@ -594,16 +487,27 @@ fn main() {
     let t_gpu_opt = Instant::now();
     let mut gpu_chi2s = Vec::with_capacity(n_sweep);
     for params in &samples {
-        let chi2 = l1_chi2_gpu(params, &gpu, &semf_pipeline, &chi2_pipeline,
-                                &nuclei_buf, &b_exp_buf, &sigma_buf, n_nuclei);
+        let chi2 = l1_chi2_gpu(
+            params,
+            &gpu,
+            &semf_pipeline,
+            &chi2_pipeline,
+            &nuclei_buf,
+            &b_exp_buf,
+            &sigma_buf,
+            n_nuclei,
+        );
         gpu_chi2s.push(chi2);
     }
     let gpu_opt_wall = t_gpu_opt.elapsed().as_secs_f64();
     let gpu_opt_ms = gpu_opt_wall * 1000.0;
     let energy_gpu_sweep = pmon_gpu_sweep.stop();
-    let gpu_best_idx = gpu_chi2s.iter().enumerate()
-        .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
-        .map(|(i, _)| i).unwrap();
+    let gpu_best_idx = gpu_chi2s
+        .iter()
+        .enumerate()
+        .min_by(|(_, a), (_, b)| a.total_cmp(b))
+        .map(|(i, _)| i)
+        .unwrap();
     let gpu_best = gpu_chi2s[gpu_best_idx];
 
     report.add_phase(PhaseResult {
@@ -616,27 +520,42 @@ fn main() {
         peak_rss_mb: peak_rss_mb(),
         chi2: gpu_best,
         precision_mev: 0.0,
-        notes: format!("{}-point LHS sweep, GPU SEMF+chi2", n_sweep),
+        notes: format!("{n_sweep}-point LHS sweep, GPU SEMF+chi2"),
     });
 
-    println!("  CPU: best chi2/datum = {:.4} (idx {}) in {:.1}ms", cpu_best, cpu_best_idx, cpu_opt_ms);
-    println!("  GPU: best chi2/datum = {:.4} (idx {}) in {:.1}ms", gpu_best, gpu_best_idx, gpu_opt_ms);
+    println!("  CPU: best chi2/datum = {cpu_best:.4} (idx {cpu_best_idx}) in {cpu_opt_ms:.1}ms");
+    println!("  GPU: best chi2/datum = {gpu_best:.4} (idx {gpu_best_idx}) in {gpu_opt_ms:.1}ms");
 
     // Agreement
-    let max_chi2_diff = cpu_chi2s.iter().zip(gpu_chi2s.iter())
+    let max_chi2_diff = cpu_chi2s
+        .iter()
+        .zip(gpu_chi2s.iter())
         .map(|(c, g)| (c - g).abs())
         .fold(0.0f64, f64::max);
-    println!("  Max |chi2_cpu - chi2_gpu|: {:.2e}", max_chi2_diff);
+    println!("  Max |chi2_cpu - chi2_gpu|: {max_chi2_diff:.2e}");
     println!("  Speedup: {:.2}x", cpu_opt_ms / gpu_opt_ms);
 
     // NMP at best
     if let Some(nmp) = nuclear_matter_properties(&samples[gpu_best_idx]) {
         println!();
         println!("  Best GPU solution NMP:");
-        let vals = [nmp.rho0_fm3, nmp.e_a_mev, nmp.k_inf_mev, nmp.m_eff_ratio, nmp.j_mev];
+        let vals = [
+            nmp.rho0_fm3,
+            nmp.e_a_mev,
+            nmp.k_inf_mev,
+            nmp.m_eff_ratio,
+            nmp.j_mev,
+        ];
+        let targets = provenance::NMP_TARGETS.values();
+        let sigmas = provenance::NMP_TARGETS.sigmas();
         for (i, &v) in vals.iter().enumerate() {
-            let pull = (v - NMP_TARGETS[i].target) / NMP_TARGETS[i].sigma;
-            println!("    {:>6} = {:>10.4}  (pull: {:>+.2}σ)", NMP_TARGETS[i].name, v, pull);
+            let pull = (v - targets[i]) / sigmas[i];
+            println!(
+                "    {:>6} = {:>10.4}  (pull: {:>+.2}σ)",
+                provenance::NMP_NAMES[i],
+                v,
+                pull
+            );
         }
     }
 
@@ -658,9 +577,8 @@ fn main() {
 
     // CPU objective for comparison
     let sorted_nuclei_cpu = sorted_nuclei.clone();
-    let cpu_objective = move |x: &[f64]| -> f64 {
-        l1_objective_with_nmp(x, &sorted_nuclei_cpu, lambda)
-    };
+    let cpu_objective =
+        move |x: &[f64]| -> f64 { l1_objective_with_nmp(x, &sorted_nuclei_cpu, lambda) };
 
     let pmon_ds_cpu = PowerMonitor::start();
     let t_cpu_full = Instant::now();
@@ -670,8 +588,8 @@ fn main() {
         .with_eval_budget(200)
         .with_patience(3);
 
-    let result_cpu = direct_sampler(cpu_objective, &bounds, &config_cpu)
-        .expect("CPU DirectSampler failed");
+    let result_cpu =
+        direct_sampler(cpu_objective, bounds, &config_cpu).expect("CPU DirectSampler failed");
     let cpu_full_time = t_cpu_full.elapsed().as_secs_f64();
     let energy_ds_cpu = pmon_ds_cpu.stop();
     let cpu_full_chi2 = result_cpu.f_best.exp() - 1.0;
@@ -690,17 +608,20 @@ fn main() {
     });
 
     println!("  CPU DirectSampler:");
-    println!("    chi2/datum = {:.4} ({} evals in {:.2}s)",
-             cpu_full_chi2, result_cpu.cache.len(), cpu_full_time);
+    println!(
+        "    chi2/datum = {:.4} ({} evals in {:.2}s)",
+        cpu_full_chi2,
+        result_cpu.cache.len(),
+        cpu_full_time
+    );
 
     // GPU-backed objective for DirectSampler
     // Note: DirectSampler is serial per-eval. The real GPU win comes from
     // batching all Nelder-Mead vertices simultaneously (future evolution).
     // For now, we run identical CPU physics to verify result parity.
     let sorted_for_obj = sorted_nuclei_arc.clone();
-    let gpu_objective = move |x: &[f64]| -> f64 {
-        l1_objective_with_nmp(x, &sorted_for_obj, lambda)
-    };
+    let gpu_objective =
+        move |x: &[f64]| -> f64 { l1_objective_with_nmp(x, &sorted_for_obj, lambda) };
 
     let pmon_ds_gpu = PowerMonitor::start();
     let t_gpu_full = Instant::now();
@@ -710,8 +631,8 @@ fn main() {
         .with_eval_budget(200)
         .with_patience(3);
 
-    let result_gpu = direct_sampler(gpu_objective, &bounds, &config_gpu)
-        .expect("GPU DirectSampler failed");
+    let result_gpu =
+        direct_sampler(gpu_objective, bounds, &config_gpu).expect("GPU DirectSampler failed");
     let gpu_full_time = t_gpu_full.elapsed().as_secs_f64();
     let energy_ds_gpu = pmon_ds_gpu.stop();
     let gpu_full_chi2 = result_gpu.f_best.exp() - 1.0;
@@ -730,8 +651,12 @@ fn main() {
     });
 
     println!("  GPU-backed DirectSampler:");
-    println!("    chi2/datum = {:.4} ({} evals in {:.2}s)",
-             gpu_full_chi2, result_gpu.cache.len(), gpu_full_time);
+    println!(
+        "    chi2/datum = {:.4} ({} evals in {:.2}s)",
+        gpu_full_chi2,
+        result_gpu.cache.len(),
+        gpu_full_time
+    );
     println!("  Note: DirectSampler currently serial — GPU batching is a");
     println!("  future evolution (batch all Nelder-Mead vertices at once)");
 
@@ -752,17 +677,21 @@ fn main() {
 
     for &((z, n), (b_exp, _)) in &sorted_nuclei {
         let a = z + n;
-        if a >= 56 && a <= 132 {
-            let (b_calc, converged) = binding_energy_l2(z, n, &SLY4);
+        if (56..=132).contains(&a) {
+            let (b_calc, converged) = binding_energy_l2(z, n, &provenance::SLY4_PARAMS);
             if b_calc > 0.0 {
-                let sigma_theo = (0.01 * b_exp).max(2.0);
+                let sigma_theo = tolerances::sigma_theo(b_exp);
                 l2_chi2 += ((b_calc - b_exp) / sigma_theo).powi(2);
                 l2_count += 1;
-                if converged { l2_converged += 1; }
+                if converged {
+                    l2_converged += 1;
+                }
             }
         }
     }
-    if l2_count > 0 { l2_chi2 /= l2_count as f64; }
+    if l2_count > 0 {
+        l2_chi2 /= l2_count as f64;
+    }
     let l2_time = t_l2.elapsed().as_secs_f64();
     let energy_l2_sly4 = pmon_l2_sly4.stop();
 
@@ -776,13 +705,17 @@ fn main() {
         peak_rss_mb: peak_rss_mb(),
         chi2: l2_chi2,
         precision_mev: 0.0,
-        notes: format!("{}/{} converged", l2_converged, l2_count),
+        notes: format!("{l2_converged}/{l2_count} converged"),
     });
 
     println!("  L2 CPU (SLy4):");
-    println!("    chi2/datum = {:.2}", l2_chi2);
-    println!("    Nuclei: {}/{} converged", l2_converged, l2_count);
-    println!("    Time: {:.1}s ({:.1}s/nucleus avg)", l2_time, l2_time / l2_count.max(1) as f64);
+    println!("    chi2/datum = {l2_chi2:.2}");
+    println!("    Nuclei: {l2_converged}/{l2_count} converged");
+    println!(
+        "    Time: {:.1}s ({:.1}s/nucleus avg)",
+        l2_time,
+        l2_time / l2_count.max(1) as f64
+    );
 
     // ═══════════════════════════════════════════════════════════════
     //  L2 DirectSampler optimization (CPU, with rayon parallelism)
@@ -793,12 +726,10 @@ fn main() {
     println!("══════════════════════════════════════════════════════════════");
     println!();
 
-    let exp_data_arc = Arc::new(exp_data);
+    let exp_data_arc = ctx.exp_data.clone();
     let exp_data_l2 = exp_data_arc.clone();
 
-    let l2_objective = move |x: &[f64]| -> f64 {
-        l2_objective_fn(x, &exp_data_l2, 0.1)
-    };
+    let l2_objective = move |x: &[f64]| -> f64 { l2_objective_fn(x, &exp_data_l2, 0.1) };
 
     let pmon_l2_opt = PowerMonitor::start();
     let t_l2_opt = Instant::now();
@@ -808,13 +739,14 @@ fn main() {
         .with_eval_budget(30)
         .with_patience(2);
 
-    println!("  Config: {} rounds × {} solvers × {} evals (patience={})",
-             l2_config.n_rounds, l2_config.n_solvers,
-             l2_config.max_eval_per_solver, l2_config.patience);
-    println!("  Running... (each eval = full HFB SCF for ~{} nuclei)", l2_count);
+    println!(
+        "  Config: {} rounds × {} solvers × {} evals (patience={})",
+        l2_config.n_rounds, l2_config.n_solvers, l2_config.max_eval_per_solver, l2_config.patience
+    );
+    println!("  Running... (each eval = full HFB SCF for ~{l2_count} nuclei)");
 
-    let result_l2 = direct_sampler(l2_objective, &bounds, &l2_config)
-        .expect("L2 DirectSampler failed");
+    let result_l2 =
+        direct_sampler(l2_objective, bounds, &l2_config).expect("L2 DirectSampler failed");
     let l2_opt_time = t_l2_opt.elapsed().as_secs_f64();
     let energy_l2_opt = pmon_l2_opt.stop();
     let l2_opt_chi2 = result_l2.f_best.exp() - 1.0;
@@ -834,12 +766,22 @@ fn main() {
 
     println!();
     println!("  L2 DirectSampler result:");
-    println!("    chi2/datum = {:.2} ({} evals in {:.1}s)",
-             l2_opt_chi2, result_l2.cache.len(), l2_opt_time);
-    println!("    Time per eval: {:.1}s", l2_opt_time / result_l2.cache.len().max(1) as f64);
+    println!(
+        "    chi2/datum = {:.2} ({} evals in {:.1}s)",
+        l2_opt_chi2,
+        result_l2.cache.len(),
+        l2_opt_time
+    );
+    println!(
+        "    Time per eval: {:.1}s",
+        l2_opt_time / result_l2.cache.len().max(1) as f64
+    );
 
     if let Some(nmp_l2) = nuclear_matter_properties(&result_l2.x_best) {
-        println!("    NMP chi2: {:.4}", nmp_chi2(&nmp_l2));
+        println!(
+            "    NMP chi2: {:.4}",
+            provenance::nmp_chi2_from_props(&nmp_l2) / 5.0
+        );
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -853,13 +795,18 @@ fn main() {
     println!("  ┌─────────┬────────────────┬────────────────┬────────────────┐");
     println!("  │ Level   │ Python/SciPy   │ BarraCUDA CPU  │ BarraCUDA GPU  │");
     println!("  ├─────────┼────────────────┼────────────────┼────────────────┤");
-    println!("  │ L1 SEMF │ chi2 ~6.62     │ chi2 = {:<7.2} │ chi2 = {:<7.2} │",
-             cpu_full_chi2, gpu_full_chi2);
-    println!("  │ L2 HFB  │ chi2 ~61.87    │ chi2 = {:<7.2} │ (SCF on CPU)   │", l2_opt_chi2);
+    println!(
+        "  │ L1 SEMF │ chi2 ~{:.2}     │ chi2 = {cpu_full_chi2:<7.2} │ chi2 = {gpu_full_chi2:<7.2} │",
+        provenance::L1_PYTHON_CHI2.value
+    );
+    println!(
+        "  │ L2 HFB  │ chi2 ~{:.2}    │ chi2 = {l2_opt_chi2:<7.2} │ (SCF on CPU)   │",
+        provenance::L2_PYTHON_CHI2.value
+    );
     println!("  └─────────┴────────────────┴────────────────┴────────────────┘");
     println!();
     println!("  GPU FP64 Validation:");
-    println!("    SEMF precision: max |delta| = {:.2e} MeV", max_diff);
+    println!("    SEMF precision: max |delta| = {max_diff:.2e} MeV");
     println!("    IEEE 754 compliance: 0 ULP (verified by fp64_validation)");
     println!("    Adapter: {}", gpu_arc.adapter_name);
     println!("    SHADER_F64: ENABLED");
@@ -883,9 +830,13 @@ fn main() {
         .parent()
         .unwrap()
         .join("benchmarks/nuclear-eos/results");
-    match report.save_json(report_dir.to_str().unwrap_or("benchmarks/nuclear-eos/results")) {
-        Ok(path) => println!("  Benchmark report saved: {}", path),
-        Err(e) => println!("  Warning: failed to save benchmark report: {}", e),
+    match report.save_json(
+        report_dir
+            .to_str()
+            .unwrap_or("benchmarks/nuclear-eos/results"),
+    ) {
+        Ok(path) => println!("  Benchmark report saved: {path}"),
+        Err(e) => println!("  Warning: failed to save benchmark report: {e}"),
     }
     println!();
 }
@@ -909,13 +860,15 @@ fn l1_chi2_cpu(params: &[f64], nuclei: &[((usize, usize), (f64, f64))]) -> f64 {
     for &((z, n), (b_exp, _)) in nuclei {
         let b_calc = semf_binding_energy(z, n, params);
         if b_calc > 0.0 {
-            let sigma = (0.01 * b_exp).max(2.0);
+            let sigma = tolerances::sigma_theo(b_exp);
             chi2 += ((b_calc - b_exp) / sigma).powi(2);
             count += 1;
         }
     }
-    if count == 0 { return 1e10; }
-    chi2 / count as f64
+    if count == 0 {
+        return 1e10;
+    }
+    chi2 / f64::from(count)
 }
 
 /// L1 chi2/datum via GPU dispatch
@@ -946,14 +899,25 @@ fn l1_chi2_gpu(
         label: Some("SEMF_i"),
         layout: &semf_pipeline.get_bind_group_layout(0),
         entries: &[
-            wgpu::BindGroupEntry { binding: 0, resource: nuclei_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 1, resource: nmp_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 2, resource: energy_buf.as_entire_binding() },
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: nuclei_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: nmp_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: energy_buf.as_entire_binding(),
+            },
         ],
     });
 
-    let wg = (n_nuclei as u32 + 63) / 64;
-    let energies = gpu.dispatch_and_read(semf_pipeline, &semf_bg, wg, &energy_buf, n_nuclei);
+    let wg = (n_nuclei as u32).div_ceil(64);
+    let energies = gpu
+        .dispatch_and_read(semf_pipeline, &semf_bg, wg, &energy_buf, n_nuclei)
+        .expect("GPU L2 SEMF dispatch");
 
     // Chi2 on GPU
     let b_calc_buf = gpu.create_f64_buffer(&energies, "B_calc_i");
@@ -962,22 +926,32 @@ fn l1_chi2_gpu(
         label: Some("chi2_i"),
         layout: &chi2_pipeline.get_bind_group_layout(0),
         entries: &[
-            wgpu::BindGroupEntry { binding: 0, resource: b_calc_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 1, resource: b_exp_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 2, resource: sigma_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 3, resource: chi2_buf.as_entire_binding() },
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: b_calc_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: b_exp_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: sigma_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 3,
+                resource: chi2_buf.as_entire_binding(),
+            },
         ],
     });
-    let chi2_vals = gpu.dispatch_and_read(chi2_pipeline, &chi2_bg, wg, &chi2_buf, n_nuclei);
+    let chi2_vals = gpu
+        .dispatch_and_read(chi2_pipeline, &chi2_bg, wg, &chi2_buf, n_nuclei)
+        .expect("GPU L2 chi2 dispatch");
     chi2_vals.iter().sum::<f64>() / n_nuclei as f64
 }
 
-/// L1 objective with NMP constraint (for DirectSampler)
-fn l1_objective_with_nmp(
-    x: &[f64],
-    nuclei: &[((usize, usize), (f64, f64))],
-    lambda: f64,
-) -> f64 {
+/// L1 objective with NMP constraint (for `DirectSampler`)
+fn l1_objective_with_nmp(x: &[f64], nuclei: &[((usize, usize), (f64, f64))], lambda: f64) -> f64 {
     if x[8] <= 0.01 || x[8] > 1.0 {
         return (1e4_f64).ln_1p();
     }
@@ -986,33 +960,35 @@ fn l1_objective_with_nmp(
         Some(n) => n,
         None => return (1e4_f64).ln_1p(),
     };
-    if nmp.rho0_fm3 < 0.05 || nmp.rho0_fm3 > 0.30 { return (1e4_f64).ln_1p(); }
-    if nmp.e_a_mev > 0.0 { return (1e4_f64).ln_1p(); }
+    if nmp.rho0_fm3 < 0.05 || nmp.rho0_fm3 > 0.30 {
+        return (1e4_f64).ln_1p();
+    }
+    if nmp.e_a_mev > 0.0 {
+        return (1e4_f64).ln_1p();
+    }
 
     let mut chi2_be = 0.0;
     let mut count = 0;
     for &((z, n), (b_exp, _)) in nuclei {
         let b_calc = semf_binding_energy(z, n, x);
         if b_calc > 0.0 {
-            let sigma = (0.01 * b_exp).max(2.0);
+            let sigma = tolerances::sigma_theo(b_exp);
             chi2_be += ((b_calc - b_exp) / sigma).powi(2);
             count += 1;
         }
     }
-    if count == 0 { return (1e4_f64).ln_1p(); }
+    if count == 0 {
+        return (1e4_f64).ln_1p();
+    }
 
-    let chi2_be_datum = chi2_be / count as f64;
-    let chi2_nmp = nmp_chi2(&nmp);
+    let chi2_be_datum = chi2_be / f64::from(count);
+    let chi2_nmp = provenance::nmp_chi2_from_props(&nmp) / 5.0;
     let total = chi2_be_datum + lambda * chi2_nmp;
     total.ln_1p()
 }
 
 /// L2 objective function (HFB + NMP constraint)
-fn l2_objective_fn(
-    x: &[f64],
-    exp_data: &HashMap<(usize, usize), (f64, f64)>,
-    lambda: f64,
-) -> f64 {
+fn l2_objective_fn(x: &[f64], exp_data: &HashMap<(usize, usize), (f64, f64)>, lambda: f64) -> f64 {
     if x[8] <= 0.01 || x[8] > 1.0 {
         return (1e4_f64).ln_1p();
     }
@@ -1021,19 +997,24 @@ fn l2_objective_fn(
         Some(n) => n,
         None => return (1e4_f64).ln_1p(),
     };
-    if nmp.rho0_fm3 < 0.05 || nmp.rho0_fm3 > 0.30 { return (1e4_f64).ln_1p(); }
-    if nmp.e_a_mev > 0.0 { return (1e4_f64).ln_1p(); }
+    if nmp.rho0_fm3 < 0.05 || nmp.rho0_fm3 > 0.30 {
+        return (1e4_f64).ln_1p();
+    }
+    if nmp.e_a_mev > 0.0 {
+        return (1e4_f64).ln_1p();
+    }
 
     let mut chi2_be = 0.0;
     let mut count = 0;
 
     // Use rayon for parallel HFB evaluation
     use rayon::prelude::*;
-    let results: Vec<(f64, f64, f64)> = exp_data.par_iter()
+    let results: Vec<(f64, f64, f64)> = exp_data
+        .par_iter()
         .filter_map(|(&(z, n), &(b_exp, _))| {
             let (b_calc, _converged) = binding_energy_l2(z, n, x);
             if b_calc > 0.0 {
-                let sigma = (0.01 * b_exp).max(2.0);
+                let sigma = tolerances::sigma_theo(b_exp);
                 let chi2 = ((b_calc - b_exp) / sigma).powi(2);
                 Some((chi2, 1.0, 0.0))
             } else {
@@ -1047,10 +1028,12 @@ fn l2_objective_fn(
         count += 1;
     }
 
-    if count == 0 { return (1e4_f64).ln_1p(); }
+    if count == 0 {
+        return (1e4_f64).ln_1p();
+    }
 
-    let chi2_be_datum = chi2_be / count as f64;
-    let chi2_nmp = nmp_chi2(&nmp);
+    let chi2_be_datum = chi2_be / f64::from(count);
+    let chi2_nmp = provenance::nmp_chi2_from_props(&nmp) / 5.0;
     let total = chi2_be_datum + lambda * chi2_nmp;
     total.ln_1p()
 }

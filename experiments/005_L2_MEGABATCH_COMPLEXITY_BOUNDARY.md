@@ -3,7 +3,7 @@
 **Date:** February 15–16, 2026
 **Author:** hotSpring team
 **Hardware:** RTX 4070 (12 GB, SHADER_F64), i9-12900K (24 threads)
-**License:** AGPL-3.0-or-later
+**License:** AGPL-3.0-only
 
 ---
 
@@ -347,4 +347,4 @@ time cargo run --release --bin nuclear_eos_l2_gpu -- --nuclei=full --phase1-only
 
 ---
 
-*AGPL-3.0-or-later | hotSpring project | Updated: February 16, 2026*
+*AGPL-3.0-only | hotSpring project | Updated: February 16, 2026*

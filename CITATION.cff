@@ -21,16 +21,19 @@ keywords:
 abstract: >-
   hotSpring reproduces published computational plasma physics from the
   Murillo Group (Michigan State University) on consumer hardware, validates
-  correctness against reference data (160/160 quantitative checks pass), and
+  correctness against reference data (195/195 quantitative checks pass), and
   re-executes computations using BarraCUDA — a Pure Rust scientific computing
   library with WGSL GPU shaders. The study covers molecular dynamics (Sarkas),
-  plasma equilibration (Two-Temperature Model), and nuclear equation of state
-  surrogate learning (Diaw et al., Nature Machine Intelligence 2024). GPU FP64
+  plasma equilibration (Two-Temperature Model), nuclear equation of state
+  surrogate learning (Diaw et al., Nature Machine Intelligence 2024), and
+  end-to-end BarraCUDA pipeline validation (MD + HFB nuclear physics). GPU FP64
   validated to 4.55e-13 MeV precision. Energy profiling shows 44.8x less
   energy on GPU vs Python for identical physics. Full Sarkas Yukawa OCP
   molecular dynamics runs on consumer GPU (9/9 PP cases pass, 0.000% energy
   drift at 80k production steps, up to 259 steps/s sustained, 3.4x less
-  energy per step than CPU at N=2000).
+  energy per step than CPU at N=2000). BarraCUDA MD pipeline validated
+  (12/12 checks, 0.0000% drift), HFB pipeline validated (14/14 checks,
+  BCS precision 6.2e-11, eigensolve precision 2.4e-12).
 references:
   - type: article
     title: "Efficient learning of accurate surrogates for simulations of complex systems"

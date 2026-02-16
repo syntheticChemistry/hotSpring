@@ -75,7 +75,7 @@ The study answers three questions:
 - L3 deformed HFB: **295/2036 nuclei improved**, best-of-both chi2 = 13.92
 - **Direct first-principles nuclear structure** — not surrogate learning
 - Multi-GPU scaling path: each additional RTX 4070 ($600) doubles parameter throughput
-- **169/169 quantitative checks pass** across all phases
+- **195/195 quantitative checks pass** across all phases + pipeline validation
 
 ---
 

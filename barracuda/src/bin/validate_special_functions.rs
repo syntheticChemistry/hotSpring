@@ -1,4 +1,6 @@
-//! Validate barracuda::special functions against known reference values
+// SPDX-License-Identifier: AGPL-3.0-only
+
+//! Validate `barracuda::special` functions against known reference values
 //!
 //! Tests: gamma, factorial, erf, erfc, bessel (j0, j1, i0, k0),
 //!        laguerre, hermite, legendre, digamma, beta, lgamma,
@@ -8,14 +10,16 @@
 
 use std::f64::consts::PI;
 
+use hotspring_barracuda::provenance;
+use hotspring_barracuda::validation::ValidationHarness;
+
 fn main() {
     println!("═══════════════════════════════════════════════════════════");
     println!("  BarraCUDA Special Functions Validation");
     println!("  Reference: A&S / DLMF / scipy.special");
     println!("═══════════════════════════════════════════════════════════\n");
 
-    let mut total = 0;
-    let mut passed = 0;
+    let mut harness = ValidationHarness::new("special_functions");
 
     // ─── Gamma function ────────────────────────────────────────────
     println!("── Gamma Function Γ(x) ──");
@@ -31,9 +35,8 @@ fn main() {
     ];
     for (x, expected, desc) in &gamma_tests {
         let got = barracuda::special::gamma(*x).unwrap_or(f64::NAN);
-        let ok = check(got, *expected, 1e-10, desc);
-        total += 1;
-        if ok { passed += 1; }
+        check(got, *expected, 1e-10, desc);
+        harness.check_abs_or_rel(desc, got, *expected, 1e-10);
     }
     println!();
 
@@ -48,9 +51,8 @@ fn main() {
     ];
     for (n, expected, desc) in &fact_tests {
         let got = barracuda::special::factorial(*n);
-        let ok = check(got, *expected, 1e-6, desc);
-        total += 1;
-        if ok { passed += 1; }
+        check(got, *expected, 1e-6, desc);
+        harness.check_abs_or_rel(desc, got, *expected, 1e-6);
     }
     println!();
 
@@ -66,9 +68,8 @@ fn main() {
     ];
     for (x, expected, desc) in &erf_tests {
         let got = barracuda::special::erf(*x);
-        let ok = check(got, *expected, 1e-6, desc);
-        total += 1;
-        if ok { passed += 1; }
+        check(got, *expected, 1e-6, desc);
+        harness.check_abs_or_rel(desc, got, *expected, 1e-6);
     }
 
     println!("\n── Complementary Error Function erfc(x) ──");
@@ -79,9 +80,8 @@ fn main() {
     ];
     for (x, expected, desc) in &erfc_tests {
         let got = barracuda::special::erfc(*x);
-        let ok = check(got, *expected, 1e-6, desc);
-        total += 1;
-        if ok { passed += 1; }
+        check(got, *expected, 1e-6, desc);
+        harness.check_abs_or_rel(desc, got, *expected, 1e-6);
     }
     println!();
 
@@ -95,10 +95,13 @@ fn main() {
     ];
     for (x, expected, desc) in &j0_tests {
         let got = barracuda::special::bessel_j0(*x);
-        let tol = if desc.contains("first zero") { 0.001 } else { 1e-6 };
-        let ok = check(got, *expected, tol, desc);
-        total += 1;
-        if ok { passed += 1; }
+        let tol = if desc.contains("first zero") {
+            0.001
+        } else {
+            1e-6
+        };
+        check(got, *expected, tol, desc);
+        harness.check_abs_or_rel(desc, got, *expected, tol);
     }
 
     println!("\n── Bessel J₁(x) ──");
@@ -109,9 +112,8 @@ fn main() {
     ];
     for (x, expected, desc) in &j1_tests {
         let got = barracuda::special::bessel_j1(*x);
-        let ok = check(got, *expected, 1e-6, desc);
-        total += 1;
-        if ok { passed += 1; }
+        check(got, *expected, 1e-6, desc);
+        harness.check_abs_or_rel(desc, got, *expected, 1e-6);
     }
 
     println!("\n── Bessel I₀(x) (Modified, 1st kind) ──");
@@ -122,9 +124,8 @@ fn main() {
     ];
     for (x, expected, desc) in &i0_tests {
         let got = barracuda::special::bessel_i0(*x);
-        let ok = check(got, *expected, 1e-6, desc);
-        total += 1;
-        if ok { passed += 1; }
+        check(got, *expected, 1e-6, desc);
+        harness.check_abs_or_rel(desc, got, *expected, 1e-6);
     }
 
     println!("\n── Bessel K₀(x) (Modified, 2nd kind) ──");
@@ -135,9 +136,8 @@ fn main() {
     ];
     for (x, expected, desc) in &k0_tests {
         let got = barracuda::special::bessel_k0(*x);
-        let ok = check(got, *expected, 1e-6, desc);
-        total += 1;
-        if ok { passed += 1; }
+        check(got, *expected, 1e-6, desc);
+        harness.check_abs_or_rel(desc, got, *expected, 1e-6);
     }
     println!();
 
@@ -152,9 +152,8 @@ fn main() {
     ];
     for (n, alpha, x, expected, desc) in &lag_tests {
         let got = barracuda::special::laguerre(*n, *alpha, *x);
-        let ok = check(got, *expected, 1e-10, desc);
-        total += 1;
-        if ok { passed += 1; }
+        check(got, *expected, 1e-10, desc);
+        harness.check_abs_or_rel(desc, got, *expected, 1e-10);
     }
     println!();
 
@@ -171,9 +170,8 @@ fn main() {
     ];
     for (n, x, expected, desc) in &herm_tests {
         let got = barracuda::special::hermite(*n, *x);
-        let ok = check(got, *expected, 1e-10, desc);
-        total += 1;
-        if ok { passed += 1; }
+        check(got, *expected, 1e-10, desc);
+        harness.check_abs_or_rel(desc, got, *expected, 1e-10);
     }
     println!();
 
@@ -189,9 +187,8 @@ fn main() {
     ];
     for (n, x, expected, desc) in &leg_tests {
         let got = barracuda::special::legendre(*n, *x);
-        let ok = check(got, *expected, 1e-10, desc);
-        total += 1;
-        if ok { passed += 1; }
+        check(got, *expected, 1e-10, desc);
+        harness.check_abs_or_rel(desc, got, *expected, 1e-10);
     }
 
     println!("\n── Associated Legendre Pₙᵐ(x) ──");
@@ -204,9 +201,8 @@ fn main() {
     ];
     for (n, m, x, expected, desc) in &assoc_tests {
         let got = barracuda::special::assoc_legendre(*n, *m, *x);
-        let ok = check(got, *expected, 1e-6, desc);
-        total += 1;
-        if ok { passed += 1; }
+        check(got, *expected, 1e-6, desc);
+        harness.check_abs_or_rel(desc, got, *expected, 1e-6);
     }
     println!();
 
@@ -223,9 +219,8 @@ fn main() {
         let lg_plus = barracuda::special::ln_gamma(*x + h).unwrap_or(f64::NAN);
         let lg_minus = barracuda::special::ln_gamma(*x - h).unwrap_or(f64::NAN);
         let got = (lg_plus - lg_minus) / (2.0 * h);
-        let ok = check(got, *expected, 1e-5, desc);
-        total += 1;
-        if ok { passed += 1; }
+        check(got, *expected, 1e-5, desc);
+        harness.check_abs_or_rel(desc, got, *expected, 1e-5);
     }
     println!();
 
@@ -242,9 +237,8 @@ fn main() {
         let lg_b = barracuda::special::ln_gamma(*b).unwrap_or(f64::NAN);
         let lg_ab = barracuda::special::ln_gamma(*a + *b).unwrap_or(f64::NAN);
         let got = (lg_a + lg_b - lg_ab).exp();
-        let ok = check(got, *expected, 1e-6, desc);
-        total += 1;
-        if ok { passed += 1; }
+        check(got, *expected, 1e-6, desc);
+        harness.check_abs_or_rel(desc, got, *expected, 1e-6);
     }
     println!();
 
@@ -259,9 +253,8 @@ fn main() {
     ];
     for (x, expected, desc) in &lgamma_tests {
         let got = barracuda::special::ln_gamma(*x).unwrap_or(f64::NAN);
-        let ok = check(got, *expected, 1e-6, desc);
-        total += 1;
-        if ok { passed += 1; }
+        check(got, *expected, 1e-6, desc);
+        harness.check_abs_or_rel(desc, got, *expected, 1e-6);
     }
     println!();
 
@@ -278,9 +271,8 @@ fn main() {
     ];
     for (a, x, expected, desc) in &inc_gamma_tests {
         let got = barracuda::special::regularized_gamma_p(*a, *x).unwrap_or(f64::NAN);
-        let ok = check(got, *expected, 1e-6, desc);
-        total += 1;
-        if ok { passed += 1; }
+        check(got, *expected, 1e-6, desc);
+        harness.check_abs_or_rel(desc, got, *expected, 1e-6);
     }
     println!();
 
@@ -290,39 +282,29 @@ fn main() {
     {
         // CDF at critical values: scipy.stats.chi2.cdf(3.841, 1) ≈ 0.95
         let got = barracuda::special::chi_squared_cdf(3.841, 1.0).unwrap_or(f64::NAN);
-        let ok = check(got, 0.95, 0.005, "χ²_CDF(3.841, k=1) ≈ 0.95");
-        total += 1;
-        if ok { passed += 1; }
+        check(got, 0.95, 0.005, "χ²_CDF(3.841, k=1) ≈ 0.95");
+        harness.check_abs_or_rel("χ²_CDF(3.841, k=1) ≈ 0.95", got, 0.95, 0.005);
 
         // CDF at critical values: scipy.stats.chi2.cdf(5.991, 2) ≈ 0.95
         let got = barracuda::special::chi_squared_cdf(5.991, 2.0).unwrap_or(f64::NAN);
-        let ok = check(got, 0.95, 0.005, "χ²_CDF(5.991, k=2) ≈ 0.95");
-        total += 1;
-        if ok { passed += 1; }
+        check(got, 0.95, 0.005, "χ²_CDF(5.991, k=2) ≈ 0.95");
+        harness.check_abs_or_rel("χ²_CDF(5.991, k=2) ≈ 0.95", got, 0.95, 0.005);
 
         // Quantile (inverse CDF): scipy.stats.chi2.ppf(0.95, 1) ≈ 3.8415
         let got = barracuda::special::chi_squared_quantile(0.95, 1.0).unwrap_or(f64::NAN);
-        let ok = check(got, 3.8415, 0.005, "χ²_quantile(0.95, k=1) ≈ 3.8415");
-        total += 1;
-        if ok { passed += 1; }
+        check(got, 3.8415, 0.005, "χ²_quantile(0.95, k=1) ≈ 3.8415");
+        harness.check_abs_or_rel("χ²_quantile(0.95, k=1) ≈ 3.8415", got, 3.8415, 0.005);
 
         // PDF at x=2, k=3: scipy.stats.chi2.pdf(2, 3) ≈ 0.2076
         let got = barracuda::special::chi_squared_pdf(2.0, 3.0).unwrap_or(f64::NAN);
-        let ok = check(got, 0.2076, 0.005, "χ²_PDF(2, k=3) ≈ 0.2076");
-        total += 1;
-        if ok { passed += 1; }
+        check(got, 0.2076, 0.005, "χ²_PDF(2, k=3) ≈ 0.2076");
+        harness.check_abs_or_rel("χ²_PDF(2, k=3) ≈ 0.2076", got, 0.2076, 0.005);
     }
     println!();
 
-    // ─── Summary ──────────────────────────────────────────────────
-    println!("═══════════════════════════════════════════════════════════");
-    println!("  Special Functions: {}/{} passed", passed, total);
-    if passed == total {
-        println!("  ✅ ALL TESTS PASSED");
-    } else {
-        println!("  ❌ {} FAILURES", total - passed);
-    }
-    println!("═══════════════════════════════════════════════════════════");
+    // ─── Summary (with exit code) ──────────────────────────────────
+    println!("\n  Reference: {}", provenance::SPECIAL_FUNCTION_REFS);
+    harness.finish();
 }
 
 fn check(got: f64, expected: f64, tol: f64, desc: &str) -> bool {
@@ -336,12 +318,9 @@ fn check(got: f64, expected: f64, tol: f64, desc: &str) -> bool {
     let pass = err < tol || rel_err < tol;
 
     if pass {
-        println!("  ✅ {} | got={:.10} expected={:.10}", desc, got, expected);
+        println!("  ✅ {desc} | got={got:.10} expected={expected:.10}");
     } else {
-        println!(
-            "  ❌ {} | got={:.10} expected={:.10} err={:.2e}",
-            desc, got, expected, err
-        );
+        println!("  ❌ {desc} | got={got:.10} expected={expected:.10} err={err:.2e}");
     }
     pass
 }

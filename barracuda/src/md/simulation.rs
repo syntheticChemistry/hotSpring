@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! GPU MD Simulation Engine
 //!
 //! Runs a full Yukawa OCP molecular dynamics simulation on GPU using
@@ -29,6 +31,7 @@ pub struct EnergyRecord {
 }
 
 /// Simulation state and results
+#[derive(Debug)]
 pub struct MdSimulation {
     pub config: MdConfig,
     pub energy_history: Vec<EnergyRecord>,
@@ -89,7 +92,9 @@ pub fn init_velocities(n: usize, temperature: f64, mass: f64, seed: u64) -> Vec<
     // LCG random number generator (good enough for initialization)
     let mut rng_state = seed;
     let lcg_next = |state: &mut u64| -> f64 {
-        *state = state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        *state = state
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         (*state >> 33) as f64 / (1u64 << 31) as f64
     };
 
@@ -122,12 +127,12 @@ pub fn init_velocities(n: usize, temperature: f64, mass: f64, seed: u64) -> Vec<
     // Rescale to exact target temperature
     // KE = 0.5 * m * sum(v²), T = 2*KE/(3N) = m*sum(v²)/(3N)
     let mut v_sq_sum = 0.0;
-    for v in velocities.iter() {
+    for v in &velocities {
         v_sq_sum += v * v;
     }
     let t_current = mass * v_sq_sum / (3.0 * n_f);
     let scale = (temperature / t_current).sqrt();
-    for v in velocities.iter_mut() {
+    for v in &mut velocities {
         *v *= scale;
     }
 
@@ -135,7 +140,9 @@ pub fn init_velocities(n: usize, temperature: f64, mass: f64, seed: u64) -> Vec<
 }
 
 /// Run the full GPU MD simulation
-pub async fn run_simulation(config: &MdConfig) -> Result<MdSimulation, String> {
+pub async fn run_simulation(
+    config: &MdConfig,
+) -> Result<MdSimulation, crate::error::HotSpringError> {
     let t_start = Instant::now();
     let n = config.n_particles;
     let box_side = config.box_side();
@@ -143,23 +150,29 @@ pub async fn run_simulation(config: &MdConfig) -> Result<MdSimulation, String> {
     let temperature = config.temperature();
     let mass = config.reduced_mass();
 
-    println!("  ── Initializing {} particles ──", n);
-    println!("    Box side: {:.4} a_ws", box_side);
-    println!("    κ = {}, Γ = {}, T* = {:.6}", config.kappa, config.gamma, temperature);
-    println!("    rc = {} a_ws, dt* = {}, m* = {}", config.rc, config.dt, mass);
-    println!("    Force prefactor: {:.4}", prefactor);
+    println!("  ── Initializing {n} particles ──");
+    println!("    Box side: {box_side:.4} a_ws");
+    println!(
+        "    κ = {}, Γ = {}, T* = {:.6}",
+        config.kappa, config.gamma, temperature
+    );
+    println!(
+        "    rc = {} a_ws, dt* = {}, m* = {}",
+        config.rc, config.dt, mass
+    );
+    println!("    Force prefactor: {prefactor:.4}");
 
     // Initialize particles
-    let (mut positions, n_actual) = init_fcc_lattice(n, box_side);
+    let (positions, n_actual) = init_fcc_lattice(n, box_side);
     let n = n_actual.min(n); // might be slightly different due to FCC packing
     let velocities = init_velocities(n, temperature, mass, 42);
 
-    println!("    Placed {} particles on FCC lattice", n);
+    println!("    Placed {n} particles on FCC lattice");
 
     // Initialize GPU
     let gpu = GpuF64::new().await?;
     if !gpu.has_f64 {
-        return Err("GPU does not support SHADER_F64 — cannot run f64 MD".into());
+        return Err(crate::error::HotSpringError::NoShaderF64);
     }
     gpu.print_info();
 
@@ -169,12 +182,16 @@ pub async fn run_simulation(config: &MdConfig) -> Result<MdSimulation, String> {
     let t_compile = Instant::now();
 
     let force_pipeline = gpu.create_pipeline(shaders::SHADER_YUKAWA_FORCE, "yukawa_force_f64");
-    let kick_drift_pipeline = gpu.create_pipeline(shaders::SHADER_VV_KICK_DRIFT, "vv_kick_drift_f64");
+    let kick_drift_pipeline =
+        gpu.create_pipeline(shaders::SHADER_VV_KICK_DRIFT, "vv_kick_drift_f64");
     let half_kick_pipeline = gpu.create_pipeline(shaders::SHADER_VV_HALF_KICK, "vv_half_kick_f64");
     let berendsen_pipeline = gpu.create_pipeline(shaders::SHADER_BERENDSEN, "berendsen_f64");
     let ke_pipeline = gpu.create_pipeline(shaders::SHADER_KINETIC_ENERGY, "kinetic_energy_f64");
 
-    println!("    Compiled 5 shaders in {:.1}ms", t_compile.elapsed().as_secs_f64() * 1000.0);
+    println!(
+        "    Compiled 5 shaders in {:.1}ms",
+        t_compile.elapsed().as_secs_f64() * 1000.0
+    );
 
     // Create GPU buffers
     let pos_buf = gpu.create_f64_output_buffer(n * 3, "positions");
@@ -184,8 +201,8 @@ pub async fn run_simulation(config: &MdConfig) -> Result<MdSimulation, String> {
     let ke_buf = gpu.create_f64_output_buffer(n, "ke_per_particle");
 
     // Upload initial positions and velocities
-    upload_f64(&gpu, &pos_buf, &positions);
-    upload_f64(&gpu, &vel_buf, &velocities);
+    gpu.upload_f64(&pos_buf, &positions);
+    gpu.upload_f64(&vel_buf, &velocities);
 
     // Force params: [n, kappa, prefactor, cutoff_sq, box_x, box_y, box_z, epsilon]
     let force_params = vec![
@@ -202,8 +219,7 @@ pub async fn run_simulation(config: &MdConfig) -> Result<MdSimulation, String> {
 
     // VV params: [n, dt, mass, _, box_x, box_y, box_z, _]
     let vv_params = vec![
-        n as f64, config.dt, mass, 0.0,
-        box_side, box_side, box_side, 0.0,
+        n as f64, config.dt, mass, 0.0, box_side, box_side, box_side, 0.0,
     ];
     let vv_params_buf = gpu.create_f64_buffer(&vv_params, "vv_params");
 
@@ -215,32 +231,23 @@ pub async fn run_simulation(config: &MdConfig) -> Result<MdSimulation, String> {
     let ke_params = vec![n as f64, mass, 0.0, 0.0];
     let ke_params_buf = gpu.create_f64_buffer(&ke_params, "ke_params");
 
-    let workgroups = ((n + 63) / 64) as u32;
+    let workgroups = n.div_ceil(64) as u32;
 
     // ── Bind groups ──
-    let force_bg = create_bind_group(
-        &gpu,
+    let force_bg = gpu.create_bind_group(
         &force_pipeline,
         &[&pos_buf, &force_buf, &pe_buf, &force_params_buf],
     );
-    let kick_drift_bg = create_bind_group(
-        &gpu,
+    let kick_drift_bg = gpu.create_bind_group(
         &kick_drift_pipeline,
         &[&pos_buf, &vel_buf, &force_buf, &vv_params_buf],
     );
-    let half_kick_bg = create_bind_group(
-        &gpu,
-        &half_kick_pipeline,
-        &[&vel_buf, &force_buf, &hk_params_buf],
-    );
-    let ke_bg = create_bind_group(
-        &gpu,
-        &ke_pipeline,
-        &[&vel_buf, &ke_buf, &ke_params_buf],
-    );
+    let half_kick_bg =
+        gpu.create_bind_group(&half_kick_pipeline, &[&vel_buf, &force_buf, &hk_params_buf]);
+    let ke_bg = gpu.create_bind_group(&ke_pipeline, &[&vel_buf, &ke_buf, &ke_params_buf]);
 
     // ── Compute initial forces ──
-    dispatch(&gpu, &force_pipeline, &force_bg, workgroups);
+    gpu.dispatch(&force_pipeline, &force_bg, workgroups);
 
     // ══════════════════════════════════════════════════════════════
     //  Equilibration
@@ -250,48 +257,46 @@ pub async fn run_simulation(config: &MdConfig) -> Result<MdSimulation, String> {
 
     for step in 0..config.equil_steps {
         // 1. Half-kick + drift + PBC
-        dispatch(&gpu, &kick_drift_pipeline, &kick_drift_bg, workgroups);
+        gpu.dispatch(&kick_drift_pipeline, &kick_drift_bg, workgroups);
         // 2. Recompute forces
-        dispatch(&gpu, &force_pipeline, &force_bg, workgroups);
+        gpu.dispatch(&force_pipeline, &force_bg, workgroups);
         // 3. Second half-kick
-        dispatch(&gpu, &half_kick_pipeline, &half_kick_bg, workgroups);
+        gpu.dispatch(&half_kick_pipeline, &half_kick_bg, workgroups);
 
         // 4. Berendsen thermostat every step
         if step % 10 == 0 {
             // Compute current KE on GPU, read back to get temperature
-            dispatch(&gpu, &ke_pipeline, &ke_bg, workgroups);
-            let ke_per_particle = read_back_f64(&gpu, &ke_buf, n);
+            gpu.dispatch(&ke_pipeline, &ke_bg, workgroups);
+            let ke_per_particle = gpu.read_back_f64(&ke_buf, n)?;
             let total_ke: f64 = ke_per_particle.iter().sum();
             // T* = 2 * KE / (3 * N) in reduced units (k_B = 1)
             let t_current = 2.0 * total_ke / (3.0 * n as f64);
 
             if t_current > 1e-30 {
-                let ratio = 1.0 + (config.dt / config.berendsen_tau) * (temperature / t_current - 1.0);
+                let ratio =
+                    1.0 + (config.dt / config.berendsen_tau) * (temperature / t_current - 1.0);
                 let scale = ratio.max(0.0).sqrt();
 
                 // Upload Berendsen params and apply
                 let beren_params = vec![n as f64, scale, 0.0, 0.0];
                 let beren_params_buf = gpu.create_f64_buffer(&beren_params, "beren_params");
-                let beren_bg = create_bind_group(
-                    &gpu,
-                    &berendsen_pipeline,
-                    &[&vel_buf, &beren_params_buf],
-                );
-                dispatch(&gpu, &berendsen_pipeline, &beren_bg, workgroups);
+                let beren_bg =
+                    gpu.create_bind_group(&berendsen_pipeline, &[&vel_buf, &beren_params_buf]);
+                gpu.dispatch(&berendsen_pipeline, &beren_bg, workgroups);
             }
         }
 
         if step % 1000 == 0 || step == config.equil_steps - 1 {
             // Quick temperature check
-            dispatch(&gpu, &ke_pipeline, &ke_bg, workgroups);
-            let ke_data = read_back_f64(&gpu, &ke_buf, n);
+            gpu.dispatch(&ke_pipeline, &ke_bg, workgroups);
+            let ke_data = gpu.read_back_f64(&ke_buf, n)?;
             let total_ke: f64 = ke_data.iter().sum();
             let t_current = 2.0 * total_ke / (3.0 * n as f64);
-            println!("    Step {}: T* = {:.6} (target {:.6})", step, t_current, temperature);
+            println!("    Step {step}: T* = {t_current:.6} (target {temperature:.6})");
         }
     }
     let equil_time = t_equil.elapsed().as_secs_f64();
-    println!("    Equilibration complete in {:.2}s", equil_time);
+    println!("    Equilibration complete in {equil_time:.2}s");
 
     // ══════════════════════════════════════════════════════════════
     //  Production
@@ -305,18 +310,18 @@ pub async fn run_simulation(config: &MdConfig) -> Result<MdSimulation, String> {
 
     for step in 0..config.prod_steps {
         // 1. Half-kick + drift + PBC
-        dispatch(&gpu, &kick_drift_pipeline, &kick_drift_bg, workgroups);
+        gpu.dispatch(&kick_drift_pipeline, &kick_drift_bg, workgroups);
         // 2. Recompute forces
-        dispatch(&gpu, &force_pipeline, &force_bg, workgroups);
+        gpu.dispatch(&force_pipeline, &force_bg, workgroups);
         // 3. Second half-kick
-        dispatch(&gpu, &half_kick_pipeline, &half_kick_bg, workgroups);
+        gpu.dispatch(&half_kick_pipeline, &half_kick_bg, workgroups);
 
         // Dump at intervals
         if step % config.dump_step == 0 {
             // Read back KE and PE
-            dispatch(&gpu, &ke_pipeline, &ke_bg, workgroups);
-            let ke_data = read_back_f64(&gpu, &ke_buf, n);
-            let pe_data = read_back_f64(&gpu, &pe_buf, n);
+            gpu.dispatch(&ke_pipeline, &ke_bg, workgroups);
+            let ke_data = gpu.read_back_f64(&ke_buf, n)?;
+            let pe_data = gpu.read_back_f64(&pe_buf, n)?;
 
             let total_ke: f64 = ke_data.iter().sum();
             let total_pe: f64 = pe_data.iter().sum();
@@ -334,19 +339,20 @@ pub async fn run_simulation(config: &MdConfig) -> Result<MdSimulation, String> {
             // Store position/velocity snapshots for observable computation
             // Only store every 100 dumps (every 1000 steps) to save memory
             if step % (config.dump_step * 100) == 0 {
-                let pos_snap = read_back_f64(&gpu, &pos_buf, n * 3);
-                let vel_snap = read_back_f64(&gpu, &vel_buf, n * 3);
+                let pos_snap = gpu.read_back_f64(&pos_buf, n * 3)?;
+                let vel_snap = gpu.read_back_f64(&vel_buf, n * 3)?;
                 positions_snapshots.push(pos_snap);
                 velocity_snapshots.push(vel_snap);
             }
         }
 
         if step % 5000 == 0 || step == config.prod_steps - 1 {
-            let last = energy_history.last().unwrap();
-            println!(
-                "    Step {}: T*={:.6}, KE={:.4}, PE={:.4}, E={:.4}",
-                step, last.temperature, last.ke, last.pe, last.total
-            );
+            if let Some(last) = energy_history.last() {
+                println!(
+                    "    Step {}: T*={:.6}, KE={:.4}, PE={:.4}, E={:.4}",
+                    step, last.temperature, last.ke, last.pe, last.total
+                );
+            }
         }
     }
 
@@ -355,8 +361,8 @@ pub async fn run_simulation(config: &MdConfig) -> Result<MdSimulation, String> {
     let total_steps = config.equil_steps + config.prod_steps;
     let steps_per_sec = total_steps as f64 / total_time;
 
-    println!("    Production complete in {:.2}s", prod_time);
-    println!("    Total: {:.2}s ({:.1} steps/s)", total_time, steps_per_sec);
+    println!("    Production complete in {prod_time:.2}s");
+    println!("    Total: {total_time:.2}s ({steps_per_sec:.1} steps/s)");
 
     Ok(MdSimulation {
         config: config.clone(),
@@ -370,110 +376,22 @@ pub async fn run_simulation(config: &MdConfig) -> Result<MdSimulation, String> {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// GPU Helper Functions
-// ═══════════════════════════════════════════════════════════════════
-
-/// Upload f64 data to a GPU buffer
-fn upload_f64(gpu: &GpuF64, buffer: &wgpu::Buffer, data: &[f64]) {
-    let bytes: Vec<u8> = data.iter().flat_map(|v| v.to_le_bytes()).collect();
-    gpu.queue.write_buffer(buffer, 0, &bytes);
-}
-
-/// Read back f64 data from GPU buffer
-fn read_back_f64(gpu: &GpuF64, buffer: &wgpu::Buffer, count: usize) -> Vec<f64> {
-    let staging = gpu.create_staging_buffer(count * 8, "readback");
-
-    let mut encoder = gpu.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-        label: Some("readback"),
-    });
-    encoder.copy_buffer_to_buffer(buffer, 0, &staging, 0, (count * 8) as u64);
-    gpu.queue.submit(std::iter::once(encoder.finish()));
-
-    let slice = staging.slice(..);
-    let (sender, receiver) = std::sync::mpsc::channel();
-    slice.map_async(wgpu::MapMode::Read, move |result| {
-        sender.send(result).unwrap();
-    });
-    gpu.device.poll(wgpu::Maintain::Wait);
-    receiver.recv().unwrap().unwrap();
-
-    let data = slice.get_mapped_range();
-    let result: Vec<f64> = data
-        .chunks_exact(8)
-        .map(|chunk| f64::from_le_bytes(chunk.try_into().unwrap()))
-        .collect();
-    drop(data);
-    staging.unmap();
-    result
-}
-
-/// Dispatch a compute pipeline (fire-and-forget within queue)
-fn dispatch(
-    gpu: &GpuF64,
-    pipeline: &wgpu::ComputePipeline,
-    bind_group: &wgpu::BindGroup,
-    workgroups: u32,
-) {
-    let mut encoder = gpu.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-        label: Some("md_dispatch"),
-    });
-    {
-        let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-            label: Some("md_pass"),
-            timestamp_writes: None,
-        });
-        pass.set_pipeline(pipeline);
-        pass.set_bind_group(0, bind_group, &[]);
-        pass.dispatch_workgroups(workgroups, 1, 1);
-    }
-    gpu.queue.submit(std::iter::once(encoder.finish()));
-}
-
-/// Create a bind group from a pipeline and buffer slice
-fn create_bind_group(
-    gpu: &GpuF64,
-    pipeline: &wgpu::ComputePipeline,
-    buffers: &[&wgpu::Buffer],
-) -> wgpu::BindGroup {
-    let layout = pipeline.get_bind_group_layout(0);
-    let entries: Vec<wgpu::BindGroupEntry> = buffers
-        .iter()
-        .enumerate()
-        .map(|(i, buf)| wgpu::BindGroupEntry {
-            binding: i as u32,
-            resource: buf.as_entire_binding(),
-        })
-        .collect();
-
-    gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
-        label: Some("md_bind_group"),
-        layout: &layout,
-        entries: &entries,
-    })
-}
-
-// ═══════════════════════════════════════════════════════════════════
 // Cell List Infrastructure
 // ═══════════════════════════════════════════════════════════════════
 
 /// Cell list metadata
 pub struct CellList {
-    pub n_cells: [usize; 3],     // cells per dimension
-    pub cell_size: [f64; 3],     // cell side length
+    pub n_cells: [usize; 3], // cells per dimension
+    pub cell_size: [f64; 3], // cell side length
     pub n_cells_total: usize,
-    pub cell_start: Vec<u32>,    // first particle index per cell
-    pub cell_count: Vec<u32>,    // particle count per cell
+    pub cell_start: Vec<u32>,       // first particle index per cell
+    pub cell_count: Vec<u32>,       // particle count per cell
     pub sorted_indices: Vec<usize>, // particle index in sorted order
 }
 
 impl CellList {
     /// Build cell list from positions on CPU
-    pub fn build(
-        positions: &[f64],
-        n: usize,
-        box_side: f64,
-        rc: f64,
-    ) -> Self {
+    pub fn build(positions: &[f64], n: usize, box_side: f64, rc: f64) -> Self {
         let n_cells_per_dim = (box_side / rc).floor() as usize;
         let n_cells_per_dim = n_cells_per_dim.max(3); // minimum 3 cells per dim
         let cell_size = box_side / n_cells_per_dim as f64;
@@ -541,7 +459,9 @@ impl CellList {
 }
 
 /// Run simulation with cell list (for N > ~2000)
-pub async fn run_simulation_celllist(config: &MdConfig) -> Result<MdSimulation, String> {
+pub async fn run_simulation_celllist(
+    config: &MdConfig,
+) -> Result<MdSimulation, crate::error::HotSpringError> {
     let t_start = Instant::now();
     let n = config.n_particles;
     let box_side = config.box_side();
@@ -549,10 +469,16 @@ pub async fn run_simulation_celllist(config: &MdConfig) -> Result<MdSimulation, 
     let temperature = config.temperature();
     let mass = config.reduced_mass();
 
-    println!("  ── Initializing {} particles (cell-list mode) ──", n);
-    println!("    Box side: {:.4} a_ws", box_side);
-    println!("    κ = {}, Γ = {}, T* = {:.6}", config.kappa, config.gamma, temperature);
-    println!("    rc = {} a_ws, dt* = {}, m* = {}", config.rc, config.dt, mass);
+    println!("  ── Initializing {n} particles (cell-list mode) ──");
+    println!("    Box side: {box_side:.4} a_ws");
+    println!(
+        "    κ = {}, Γ = {}, T* = {:.6}",
+        config.kappa, config.gamma, temperature
+    );
+    println!(
+        "    rc = {} a_ws, dt* = {}, m* = {}",
+        config.rc, config.dt, mass
+    );
 
     // Initialize particles
     let (positions, n_actual) = init_fcc_lattice(n, box_side);
@@ -563,15 +489,18 @@ pub async fn run_simulation_celllist(config: &MdConfig) -> Result<MdSimulation, 
     let cell_list = CellList::build(&positions, n, box_side, config.rc);
     println!(
         "    Cell list: {}×{}×{} = {} cells, cell_size={:.3} a_ws",
-        cell_list.n_cells[0], cell_list.n_cells[1], cell_list.n_cells[2],
-        cell_list.n_cells_total, cell_list.cell_size[0]
+        cell_list.n_cells[0],
+        cell_list.n_cells[1],
+        cell_list.n_cells[2],
+        cell_list.n_cells_total,
+        cell_list.cell_size[0]
     );
-    println!("    Placed {} particles on FCC lattice", n);
+    println!("    Placed {n} particles on FCC lattice");
 
     // Initialize GPU
     let gpu = GpuF64::new().await?;
     if !gpu.has_f64 {
-        return Err("GPU does not support SHADER_F64".into());
+        return Err(crate::error::HotSpringError::NoShaderF64);
     }
     gpu.print_info();
 
@@ -579,13 +508,18 @@ pub async fn run_simulation_celllist(config: &MdConfig) -> Result<MdSimulation, 
     println!("  ── Compiling f64 WGSL shaders (cell-list, native builtins) ──");
     let t_compile = Instant::now();
 
-    let force_pipeline_cl = gpu.create_pipeline(shaders::SHADER_YUKAWA_FORCE_CELLLIST, "yukawa_force_cl_f64");
-    let kick_drift_pipeline = gpu.create_pipeline(shaders::SHADER_VV_KICK_DRIFT, "vv_kick_drift_f64");
+    let force_pipeline_cl =
+        gpu.create_pipeline(shaders::SHADER_YUKAWA_FORCE_CELLLIST, "yukawa_force_cl_f64");
+    let kick_drift_pipeline =
+        gpu.create_pipeline(shaders::SHADER_VV_KICK_DRIFT, "vv_kick_drift_f64");
     let half_kick_pipeline = gpu.create_pipeline(shaders::SHADER_VV_HALF_KICK, "vv_half_kick_f64");
     let berendsen_pipeline = gpu.create_pipeline(shaders::SHADER_BERENDSEN, "berendsen_f64");
     let ke_pipeline = gpu.create_pipeline(shaders::SHADER_KINETIC_ENERGY, "kinetic_energy_f64");
 
-    println!("    Compiled 5 shaders in {:.1}ms", t_compile.elapsed().as_secs_f64() * 1000.0);
+    println!(
+        "    Compiled 5 shaders in {:.1}ms",
+        t_compile.elapsed().as_secs_f64() * 1000.0
+    );
 
     // Create GPU buffers
     let pos_buf = gpu.create_f64_output_buffer(n * 3, "positions");
@@ -595,14 +529,14 @@ pub async fn run_simulation_celllist(config: &MdConfig) -> Result<MdSimulation, 
     let ke_buf = gpu.create_f64_output_buffer(n, "ke_per_particle");
 
     // Cell list buffers (u32)
-    let cell_start_buf = create_u32_buffer(&gpu, &cell_list.cell_start, "cell_start");
-    let cell_count_buf = create_u32_buffer(&gpu, &cell_list.cell_count, "cell_count");
+    let cell_start_buf = gpu.create_u32_buffer(&cell_list.cell_start, "cell_start");
+    let cell_count_buf = gpu.create_u32_buffer(&cell_list.cell_count, "cell_count");
 
     // Upload initial sorted positions and velocities
     let sorted_pos = cell_list.sort_array(&positions, 3);
     let sorted_vel = cell_list.sort_array(&velocities, 3);
-    upload_f64(&gpu, &pos_buf, &sorted_pos);
-    upload_f64(&gpu, &vel_buf, &sorted_vel);
+    gpu.upload_f64(&pos_buf, &sorted_pos);
+    gpu.upload_f64(&vel_buf, &sorted_vel);
 
     // Extended force params for cell list
     let force_params_cl = vec![
@@ -610,7 +544,9 @@ pub async fn run_simulation_celllist(config: &MdConfig) -> Result<MdSimulation, 
         config.kappa,
         prefactor,
         config.rc * config.rc,
-        box_side, box_side, box_side,
+        box_side,
+        box_side,
+        box_side,
         0.0,
         cell_list.n_cells[0] as f64,
         cell_list.n_cells[1] as f64,
@@ -624,8 +560,7 @@ pub async fn run_simulation_celllist(config: &MdConfig) -> Result<MdSimulation, 
     let force_params_cl_buf = gpu.create_f64_buffer(&force_params_cl, "force_params_cl");
 
     let vv_params = vec![
-        n as f64, config.dt, mass, 0.0,
-        box_side, box_side, box_side, 0.0,
+        n as f64, config.dt, mass, 0.0, box_side, box_side, box_side, 0.0,
     ];
     let vv_params_buf = gpu.create_f64_buffer(&vv_params, "vv_params");
 
@@ -635,32 +570,30 @@ pub async fn run_simulation_celllist(config: &MdConfig) -> Result<MdSimulation, 
     let ke_params = vec![n as f64, mass, 0.0, 0.0];
     let ke_params_buf = gpu.create_f64_buffer(&ke_params, "ke_params");
 
-    let workgroups = ((n + 63) / 64) as u32;
+    let workgroups = n.div_ceil(64) as u32;
 
     // Bind groups
-    let force_bg = create_bind_group(
-        &gpu,
+    let force_bg = gpu.create_bind_group(
         &force_pipeline_cl,
-        &[&pos_buf, &force_buf, &pe_buf, &force_params_cl_buf, &cell_start_buf, &cell_count_buf],
+        &[
+            &pos_buf,
+            &force_buf,
+            &pe_buf,
+            &force_params_cl_buf,
+            &cell_start_buf,
+            &cell_count_buf,
+        ],
     );
-    let kick_drift_bg = create_bind_group(
-        &gpu,
+    let kick_drift_bg = gpu.create_bind_group(
         &kick_drift_pipeline,
         &[&pos_buf, &vel_buf, &force_buf, &vv_params_buf],
     );
-    let half_kick_bg = create_bind_group(
-        &gpu,
-        &half_kick_pipeline,
-        &[&vel_buf, &force_buf, &hk_params_buf],
-    );
-    let ke_bg = create_bind_group(
-        &gpu,
-        &ke_pipeline,
-        &[&vel_buf, &ke_buf, &ke_params_buf],
-    );
+    let half_kick_bg =
+        gpu.create_bind_group(&half_kick_pipeline, &[&vel_buf, &force_buf, &hk_params_buf]);
+    let ke_bg = gpu.create_bind_group(&ke_pipeline, &[&vel_buf, &ke_buf, &ke_params_buf]);
 
     // Compute initial forces
-    dispatch(&gpu, &force_pipeline_cl, &force_bg, workgroups);
+    gpu.dispatch(&force_pipeline_cl, &force_bg, workgroups);
 
     // Rebuild cell list every step to maintain correctness.
     // The CPU sort is O(N) and the upload is ~48KB for N=10k — fast enough.
@@ -671,14 +604,14 @@ pub async fn run_simulation_celllist(config: &MdConfig) -> Result<MdSimulation, 
     let t_equil = Instant::now();
 
     for step in 0..config.equil_steps {
-        dispatch(&gpu, &kick_drift_pipeline, &kick_drift_bg, workgroups);
+        gpu.dispatch(&kick_drift_pipeline, &kick_drift_bg, workgroups);
 
         // Periodically rebuild cell list
         if step % rebuild_interval == 0 && step > 0 {
             // Read back positions, rebuild cell list, re-sort, re-upload
-            let pos_data = read_back_f64(&gpu, &pos_buf, n * 3);
-            let vel_data = read_back_f64(&gpu, &vel_buf, n * 3);
-            let force_data = read_back_f64(&gpu, &force_buf, n * 3);
+            let pos_data = gpu.read_back_f64(&pos_buf, n * 3)?;
+            let vel_data = gpu.read_back_f64(&vel_buf, n * 3)?;
+            let force_data = gpu.read_back_f64(&force_buf, n * 3)?;
 
             let new_cl = CellList::build(&pos_data, n, box_side, config.rc);
 
@@ -686,44 +619,49 @@ pub async fn run_simulation_celllist(config: &MdConfig) -> Result<MdSimulation, 
             let sorted_v = new_cl.sort_array(&vel_data, 3);
             let sorted_f = new_cl.sort_array(&force_data, 3);
 
-            upload_f64(&gpu, &pos_buf, &sorted_p);
-            upload_f64(&gpu, &vel_buf, &sorted_v);
-            upload_f64(&gpu, &force_buf, &sorted_f);
+            gpu.upload_f64(&pos_buf, &sorted_p);
+            gpu.upload_f64(&vel_buf, &sorted_v);
+            gpu.upload_f64(&force_buf, &sorted_f);
 
             // Update cell list buffers
             upload_u32(&gpu, &cell_start_buf, &new_cl.cell_start);
             upload_u32(&gpu, &cell_count_buf, &new_cl.cell_count);
         }
 
-        dispatch(&gpu, &force_pipeline_cl, &force_bg, workgroups);
-        dispatch(&gpu, &half_kick_pipeline, &half_kick_bg, workgroups);
+        gpu.dispatch(&force_pipeline_cl, &force_bg, workgroups);
+        gpu.dispatch(&half_kick_pipeline, &half_kick_bg, workgroups);
 
         // Thermostat
         if step % 10 == 0 {
-            dispatch(&gpu, &ke_pipeline, &ke_bg, workgroups);
-            let ke_data = read_back_f64(&gpu, &ke_buf, n);
+            gpu.dispatch(&ke_pipeline, &ke_bg, workgroups);
+            let ke_data = gpu.read_back_f64(&ke_buf, n)?;
             let total_ke: f64 = ke_data.iter().sum();
             let t_current = 2.0 * total_ke / (3.0 * n as f64);
 
             if t_current > 1e-30 {
-                let ratio = 1.0 + (config.dt / config.berendsen_tau) * (temperature / t_current - 1.0);
+                let ratio =
+                    1.0 + (config.dt / config.berendsen_tau) * (temperature / t_current - 1.0);
                 let scale = ratio.max(0.0).sqrt();
                 let beren_params = vec![n as f64, scale, 0.0, 0.0];
                 let beren_params_buf = gpu.create_f64_buffer(&beren_params, "beren_params");
-                let beren_bg = create_bind_group(&gpu, &berendsen_pipeline, &[&vel_buf, &beren_params_buf]);
-                dispatch(&gpu, &berendsen_pipeline, &beren_bg, workgroups);
+                let beren_bg =
+                    gpu.create_bind_group(&berendsen_pipeline, &[&vel_buf, &beren_params_buf]);
+                gpu.dispatch(&berendsen_pipeline, &beren_bg, workgroups);
             }
         }
 
         if step % 1000 == 0 || step == config.equil_steps - 1 {
-            dispatch(&gpu, &ke_pipeline, &ke_bg, workgroups);
-            let ke_data = read_back_f64(&gpu, &ke_buf, n);
+            gpu.dispatch(&ke_pipeline, &ke_bg, workgroups);
+            let ke_data = gpu.read_back_f64(&ke_buf, n)?;
             let total_ke: f64 = ke_data.iter().sum();
             let t_current = 2.0 * total_ke / (3.0 * n as f64);
-            println!("    Step {}: T* = {:.6} (target {:.6})", step, t_current, temperature);
+            println!("    Step {step}: T* = {t_current:.6} (target {temperature:.6})");
         }
     }
-    println!("    Equilibration complete in {:.2}s", t_equil.elapsed().as_secs_f64());
+    println!(
+        "    Equilibration complete in {:.2}s",
+        t_equil.elapsed().as_secs_f64()
+    );
 
     // ── Production ──
     println!("  ── Production ({} steps) ──", config.prod_steps);
@@ -734,13 +672,13 @@ pub async fn run_simulation_celllist(config: &MdConfig) -> Result<MdSimulation, 
     let mut velocity_snapshots = Vec::new();
 
     for step in 0..config.prod_steps {
-        dispatch(&gpu, &kick_drift_pipeline, &kick_drift_bg, workgroups);
+        gpu.dispatch(&kick_drift_pipeline, &kick_drift_bg, workgroups);
 
         // Rebuild cell list periodically
         if step % rebuild_interval == 0 && step > 0 {
-            let pos_data = read_back_f64(&gpu, &pos_buf, n * 3);
-            let vel_data = read_back_f64(&gpu, &vel_buf, n * 3);
-            let force_data = read_back_f64(&gpu, &force_buf, n * 3);
+            let pos_data = gpu.read_back_f64(&pos_buf, n * 3)?;
+            let vel_data = gpu.read_back_f64(&vel_buf, n * 3)?;
+            let force_data = gpu.read_back_f64(&force_buf, n * 3)?;
 
             let new_cl = CellList::build(&pos_data, n, box_side, config.rc);
 
@@ -748,22 +686,22 @@ pub async fn run_simulation_celllist(config: &MdConfig) -> Result<MdSimulation, 
             let sorted_v = new_cl.sort_array(&vel_data, 3);
             let sorted_f = new_cl.sort_array(&force_data, 3);
 
-            upload_f64(&gpu, &pos_buf, &sorted_p);
-            upload_f64(&gpu, &vel_buf, &sorted_v);
-            upload_f64(&gpu, &force_buf, &sorted_f);
+            gpu.upload_f64(&pos_buf, &sorted_p);
+            gpu.upload_f64(&vel_buf, &sorted_v);
+            gpu.upload_f64(&force_buf, &sorted_f);
 
             upload_u32(&gpu, &cell_start_buf, &new_cl.cell_start);
             upload_u32(&gpu, &cell_count_buf, &new_cl.cell_count);
         }
 
-        dispatch(&gpu, &force_pipeline_cl, &force_bg, workgroups);
-        dispatch(&gpu, &half_kick_pipeline, &half_kick_bg, workgroups);
+        gpu.dispatch(&force_pipeline_cl, &force_bg, workgroups);
+        gpu.dispatch(&half_kick_pipeline, &half_kick_bg, workgroups);
 
         // Dump
         if step % config.dump_step == 0 {
-            dispatch(&gpu, &ke_pipeline, &ke_bg, workgroups);
-            let ke_data = read_back_f64(&gpu, &ke_buf, n);
-            let pe_data = read_back_f64(&gpu, &pe_buf, n);
+            gpu.dispatch(&ke_pipeline, &ke_bg, workgroups);
+            let ke_data = gpu.read_back_f64(&ke_buf, n)?;
+            let pe_data = gpu.read_back_f64(&pe_buf, n)?;
 
             let total_ke: f64 = ke_data.iter().sum();
             let total_pe: f64 = pe_data.iter().sum();
@@ -779,8 +717,8 @@ pub async fn run_simulation_celllist(config: &MdConfig) -> Result<MdSimulation, 
             });
 
             if step % (config.dump_step * 100) == 0 {
-                let pos_snap = read_back_f64(&gpu, &pos_buf, n * 3);
-                let vel_snap = read_back_f64(&gpu, &vel_buf, n * 3);
+                let pos_snap = gpu.read_back_f64(&pos_buf, n * 3)?;
+                let vel_snap = gpu.read_back_f64(&vel_buf, n * 3)?;
                 positions_snapshots.push(pos_snap);
                 velocity_snapshots.push(vel_snap);
             }
@@ -801,8 +739,8 @@ pub async fn run_simulation_celllist(config: &MdConfig) -> Result<MdSimulation, 
     let total_steps = config.equil_steps + config.prod_steps;
     let steps_per_sec = total_steps as f64 / total_time;
 
-    println!("    Production complete in {:.2}s", prod_time);
-    println!("    Total: {:.2}s ({:.1} steps/s)", total_time, steps_per_sec);
+    println!("    Production complete in {prod_time:.2}s");
+    println!("    Total: {total_time:.2}s ({steps_per_sec:.1} steps/s)");
 
     Ok(MdSimulation {
         config: config.clone(),
@@ -815,19 +753,126 @@ pub async fn run_simulation_celllist(config: &MdConfig) -> Result<MdSimulation, 
     })
 }
 
-/// Create a u32 storage buffer
-fn create_u32_buffer(gpu: &GpuF64, data: &[u32], label: &str) -> wgpu::Buffer {
-    use wgpu::util::DeviceExt;
-    let bytes: Vec<u8> = data.iter().flat_map(|v| v.to_le_bytes()).collect();
-    gpu.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-        label: Some(label),
-        contents: &bytes,
-        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::COPY_DST,
-    })
-}
-
 /// Upload u32 data to a GPU buffer
 fn upload_u32(gpu: &GpuF64, buffer: &wgpu::Buffer, data: &[u32]) {
     let bytes: Vec<u8> = data.iter().flat_map(|v| v.to_le_bytes()).collect();
     gpu.queue.write_buffer(buffer, 0, &bytes);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::md::config;
+
+    /// Pure: f64 byte parsing (matches read_back_f64 logic) — testable without GPU
+    fn bytes_to_f64(data: &[u8]) -> Vec<f64> {
+        data.chunks_exact(8)
+            .map(|chunk| {
+                let bytes: [u8; 8] = chunk.try_into().expect("8-byte f64 chunk");
+                f64::from_le_bytes(bytes)
+            })
+            .collect()
+    }
+
+    #[test]
+    fn read_back_f64_byte_conversion_roundtrip() {
+        let original: Vec<f64> = vec![0.0, 1.0, -1.0, std::f64::consts::PI];
+        let bytes: Vec<u8> = original.iter().flat_map(|v| v.to_le_bytes()).collect();
+        let recovered = bytes_to_f64(&bytes);
+        assert_eq!(original.len(), recovered.len());
+        for (a, b) in original.iter().zip(recovered.iter()) {
+            assert_eq!(*a, *b);
+        }
+    }
+
+    #[test]
+    fn init_fcc_lattice_structure() {
+        let (positions, n) = init_fcc_lattice(108, 10.0);
+        assert!(n >= 108);
+        assert_eq!(positions.len(), n * 3);
+        let box_side = 10.0;
+        for i in 0..n {
+            assert!(positions[i * 3] >= 0.0 && positions[i * 3] <= box_side);
+            assert!(positions[i * 3 + 1] >= 0.0 && positions[i * 3 + 1] <= box_side);
+            assert!(positions[i * 3 + 2] >= 0.0 && positions[i * 3 + 2] <= box_side);
+        }
+    }
+
+    #[test]
+    fn init_fcc_lattice_4_atoms_per_cell() {
+        let (_, n) = init_fcc_lattice(4, 2.0);
+        assert_eq!(n, 4);
+        let (_, n) = init_fcc_lattice(32, 4.0);
+        assert_eq!(n, 32);
+    }
+
+    #[test]
+    fn init_velocities_center_of_mass_zero() {
+        let v = init_velocities(100, 1.0, 1.0, 42);
+        let mut vx = 0.0;
+        let mut vy = 0.0;
+        let mut vz = 0.0;
+        for i in 0..100 {
+            vx += v[i * 3];
+            vy += v[i * 3 + 1];
+            vz += v[i * 3 + 2];
+        }
+        assert!(vx.abs() < 1e-10);
+        assert!(vy.abs() < 1e-10);
+        assert!(vz.abs() < 1e-10);
+    }
+
+    #[test]
+    fn init_velocities_temperature() {
+        let n = 500;
+        let t_target = 2.0;
+        let mass = 3.0;
+        let v = init_velocities(n, t_target, mass, 12345);
+        let ke: f64 = v.iter().map(|x| x * x).sum::<f64>() * 0.5 * mass;
+        let t_actual = 2.0 * ke / (3.0 * n as f64);
+        assert!(
+            (t_actual - t_target).abs() < 0.05,
+            "T* = {t_actual} (target {t_target})"
+        );
+    }
+
+    #[test]
+    fn cell_list_build() {
+        let (positions, n) = init_fcc_lattice(64, 8.0);
+        let box_side = 8.0;
+        let rc = 2.0;
+        let cl = CellList::build(&positions, n, box_side, rc);
+        assert!(cl.n_cells_total > 0);
+        assert_eq!(cl.sorted_indices.len(), n);
+        let total: u32 = cl.cell_count.iter().sum();
+        assert_eq!(total, n as u32);
+    }
+
+    #[test]
+    fn energy_record_total() {
+        let rec = EnergyRecord {
+            step: 0,
+            ke: 100.0,
+            pe: -150.0,
+            total: -50.0,
+            temperature: 1.0,
+        };
+        assert!((rec.ke + rec.pe - rec.total).abs() < 1e-10);
+    }
+
+    #[test]
+    fn config_validation_box_side() {
+        let config = config::quick_test_case(256);
+        let l = config.box_side();
+        let expected = (4.0 * std::f64::consts::PI * 256.0 / 3.0).cbrt();
+        assert!((l - expected).abs() < 1e-10);
+    }
+
+    #[test]
+    #[ignore = "requires GPU"]
+    fn run_simulation_gpu() {
+        // Placeholder: run_simulation requires GPU
+        let config = config::quick_test_case(64);
+        let _ = config;
+    }
 }

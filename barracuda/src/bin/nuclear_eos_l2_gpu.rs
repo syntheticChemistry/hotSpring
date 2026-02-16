@@ -1,62 +1,40 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Nuclear EOS Level 2 — GPU-Batched HFB Pipeline
 //!
-//! Uses BatchedEighGpu from toadstool for O(1) GPU dispatches per SCF iteration,
-//! replacing O(N_nuclei) sequential eigensolves.
+//! Uses `BatchedEighGpu` from toadstool for O(1) GPU dispatches per SCF iteration,
+//! replacing `O(N_nuclei)` sequential eigensolves.
 //!
 //! Architecture:
 //!   1. L1 LHS screening with NMP constraint (CPU, fast)
 //!   2. L2 GPU-batched HFB evaluation per optimizer step
 //!   3. Statistical analysis and comparison
 //!
-//! Run: cargo run --release --bin nuclear_eos_l2_gpu [--nuclei=full] [--seed=42]
+//! Run: cargo run --release --bin `nuclear_eos_l2_gpu` [--nuclei=full] [--seed=42]
 //!      [--max-iter=200] [--tol=0.05] [--mixing=0.3]
 
 use hotspring_barracuda::data;
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::physics::{
+    binding_energies_l2_gpu, binding_energies_l2_gpu_resident, binding_energy_l2,
     nuclear_matter_properties, NuclearMatterProps,
-    binding_energies_l2_gpu, binding_energies_l2_gpu_resident,
-    binding_energy_l2,
 };
+use hotspring_barracuda::provenance;
+use hotspring_barracuda::tolerances;
 
 use barracuda::sample::latin_hypercube;
 
 use std::collections::HashMap;
-use std::path::PathBuf;
-use std::time::Instant;
 use std::io::Write;
+use std::time::Instant;
 
 // ═══════════════════════════════════════════════════════════════════
-// NMP targets
+// NMP chi2 (uses provenance::NMP_TARGETS)
 // ═══════════════════════════════════════════════════════════════════
 
-struct NmpTarget {
-    name: &'static str,
-    target: f64,
-    sigma: f64,
+fn nmp_chi2_per_datum(nmp: &NuclearMatterProps) -> f64 {
+    provenance::nmp_chi2_from_props(nmp) / 5.0
 }
-
-const NMP_TARGETS: [NmpTarget; 5] = [
-    NmpTarget { name: "rho0",  target: 0.16,   sigma: 0.005 },
-    NmpTarget { name: "E/A",   target: -15.97,  sigma: 0.5   },
-    NmpTarget { name: "K_inf", target: 230.0,   sigma: 20.0  },
-    NmpTarget { name: "m*/m",  target: 0.69,    sigma: 0.1   },
-    NmpTarget { name: "J",     target: 32.0,    sigma: 2.0   },
-];
-
-fn nmp_chi2(nmp: &NuclearMatterProps) -> f64 {
-    let vals = [nmp.rho0_fm3, nmp.e_a_mev, nmp.k_inf_mev, nmp.m_eff_ratio, nmp.j_mev];
-    let mut chi2 = 0.0;
-    for (i, &val) in vals.iter().enumerate() {
-        chi2 += ((val - NMP_TARGETS[i].target) / NMP_TARGETS[i].sigma).powi(2);
-    }
-    chi2 / 5.0
-}
-
-const SLY4_PARAMS: [f64; 10] = [
-    -2488.91, 486.82, -546.39, 13777.0,
-    0.834, -0.344, -1.0, 1.354, 0.1667, 123.0,
-];
 
 // ═══════════════════════════════════════════════════════════════════
 // CLI
@@ -76,15 +54,17 @@ struct CliArgs {
 fn parse_args() -> CliArgs {
     let args: Vec<String> = std::env::args().collect();
     let get = |prefix: &str| -> Option<String> {
-        args.iter().find(|a| a.starts_with(prefix)).map(|a| a[prefix.len()..].to_string())
+        args.iter()
+            .find(|a| a.starts_with(prefix))
+            .map(|a| a[prefix.len()..].to_string())
     };
-    let has = |flag: &str| -> bool {
-        args.iter().any(|a| a == flag)
-    };
+    let has = |flag: &str| -> bool { args.iter().any(|a| a == flag) };
 
     CliArgs {
         seed: get("--seed=").and_then(|s| s.parse().ok()).unwrap_or(42),
-        max_iter: get("--max-iter=").and_then(|s| s.parse().ok()).unwrap_or(200),
+        max_iter: get("--max-iter=")
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(200),
         tol: get("--tol=").and_then(|s| s.parse().ok()).unwrap_or(0.05),
         mixing: get("--mixing=").and_then(|s| s.parse().ok()).unwrap_or(0.3),
         n_lhs: get("--n-lhs=").and_then(|s| s.parse().ok()).unwrap_or(64),
@@ -118,15 +98,20 @@ fn main() {
     }
     println!();
 
+    // ── Load data (shared by CPU-only and GPU paths) ─────────────────
+    let ctx = data::load_eos_context();
+
     // ── CPU-only fast path (no GPU needed) ─────────────────────────
     if cli.cpu_only {
-        let nuclei_set = data::parse_nuclei_set_from_args();
-        let base = PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join("control/surrogate/nuclear-eos");
-        let exp_data: HashMap<(usize, usize), (f64, f64)> = data::load_nuclei(&base, nuclei_set).expect("load");
-        let mut sorted_nuclei: Vec<((usize, usize), (f64, f64))> = exp_data.iter().map(|(&k, &v)| (k, v)).collect();
+        let mut sorted_nuclei: Vec<((usize, usize), (f64, f64))> =
+            ctx.exp_data.iter().map(|(&k, &v)| (k, v)).collect();
         sorted_nuclei.sort_by_key(|&((z, n), _)| (z, n));
-        let nuclei_zn: Vec<(usize, usize)> = sorted_nuclei.iter().map(|&((z, n), _)| (z, n)).collect();
-        let b_exp_map: HashMap<(usize, usize), f64> = sorted_nuclei.iter().map(|&((z, n), (b, _))| ((z, n), b)).collect();
+        let nuclei_zn: Vec<(usize, usize)> =
+            sorted_nuclei.iter().map(|&((z, n), _)| (z, n)).collect();
+        let b_exp_map: HashMap<(usize, usize), f64> = sorted_nuclei
+            .iter()
+            .map(|&((z, n), (b, _))| ((z, n), b))
+            .collect();
 
         println!("  Nuclei: {} total", nuclei_zn.len());
         println!();
@@ -136,30 +121,48 @@ fn main() {
         let mut n_conv = 0usize;
         let mut n_hfb = 0usize;
         for &(z, n) in &nuclei_zn {
-            let (b_calc, conv) = binding_energy_l2(z, n, &SLY4_PARAMS);
+            let (b_calc, conv) = binding_energy_l2(z, n, &provenance::SLY4_PARAMS);
             let a = z + n;
-            if a >= 56 && a <= 132 { n_hfb += 1; }
+            if (56..=132).contains(&a) {
+                n_hfb += 1;
+            }
             if b_calc > 0.0 {
                 if let Some(&b_exp) = b_exp_map.get(&(z, n)) {
-                    let sigma = (0.01 * b_exp).max(2.0);
+                    let sigma = tolerances::sigma_theo(b_exp);
                     chi2_sum += ((b_calc - b_exp) / sigma).powi(2);
                     n_valid += 1;
-                    if conv { n_conv += 1; }
+                    if conv {
+                        n_conv += 1;
+                    }
                 }
             }
         }
         let cpu_time = t_cpu.elapsed().as_secs_f64();
-        let chi2_d = if n_valid > 0 { chi2_sum / n_valid as f64 } else { 1e10 };
+        let chi2_d = if n_valid > 0 {
+            chi2_sum / n_valid as f64
+        } else {
+            1e10
+        };
         println!("  CPU-Only SLy4:");
-        println!("    chi2/datum:  {:.4}", chi2_d);
-        println!("    Converged:   {}/{} HFB nuclei", n_conv, n_hfb);
-        println!("    Wall time:   {:.2}s ({:.1}ms per HFB nucleus)", cpu_time, if n_hfb > 0 { cpu_time * 1000.0 / n_hfb as f64 } else { 0.0 });
+        println!("    chi2/datum:  {chi2_d:.4}");
+        println!("    Converged:   {n_conv}/{n_hfb} HFB nuclei");
+        println!(
+            "    Wall time:   {:.2}s ({:.1}ms per HFB nucleus)",
+            cpu_time,
+            if n_hfb > 0 {
+                cpu_time * 1000.0 / n_hfb as f64
+            } else {
+                0.0
+            }
+        );
         return;
     }
 
     // ── Initialize GPU ──────────────────────────────────────────────
     let rt = tokio::runtime::Runtime::new().unwrap();
-    let gpu = rt.block_on(GpuF64::new()).expect("Failed to create GPU device");
+    let gpu = rt
+        .block_on(GpuF64::new())
+        .expect("Failed to create GPU device");
     print!("  ");
     gpu.print_info();
     if !gpu.has_f64 {
@@ -172,39 +175,41 @@ fn main() {
     println!("  WgpuDevice bridge: OK");
     println!();
 
-    // ── Load data ───────────────────────────────────────────────────
-    let base = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .join("control/surrogate/nuclear-eos");
-
-    let nuclei_set = data::parse_nuclei_set_from_args();
-    let exp_data: HashMap<(usize, usize), (f64, f64)> =
-        data::load_nuclei(&base, nuclei_set)
-            .expect("Failed to load experimental data");
-    let bounds =
-        data::load_bounds(&base.join("wrapper/skyrme_bounds.json"))
-            .expect("Failed to load parameter bounds");
+    // ── Use loaded data ──────────────────────────────────────────────
+    let base = &ctx.base;
+    let exp_data = &*ctx.exp_data;
+    let bounds = &ctx.bounds;
 
     // Sort nuclei for deterministic ordering
     let mut sorted_nuclei: Vec<((usize, usize), (f64, f64))> =
         exp_data.iter().map(|(&k, &v)| (k, v)).collect();
     sorted_nuclei.sort_by_key(|&((z, n), _)| (z, n));
 
-    let nuclei_zn: Vec<(usize, usize)> =
-        sorted_nuclei.iter().map(|&((z, n), _)| (z, n)).collect();
-    let b_exp_map: HashMap<(usize, usize), f64> =
-        sorted_nuclei.iter().map(|&((z, n), (b, _))| ((z, n), b)).collect();
+    let nuclei_zn: Vec<(usize, usize)> = sorted_nuclei.iter().map(|&((z, n), _)| (z, n)).collect();
+    let b_exp_map: HashMap<(usize, usize), f64> = sorted_nuclei
+        .iter()
+        .map(|&((z, n), (b, _))| ((z, n), b))
+        .collect();
 
     // Count HFB-range nuclei
-    let n_hfb_range = nuclei_zn.iter().filter(|(z, n)| {
-        let a = z + n;
-        a >= 56 && a <= 132
-    }).count();
+    let n_hfb_range = nuclei_zn
+        .iter()
+        .filter(|(z, n)| {
+            let a = z + n;
+            (56..=132).contains(&a)
+        })
+        .count();
 
-    println!("  Nuclei:      {} total ({} in HFB range A=56-132)", nuclei_zn.len(), n_hfb_range);
+    println!(
+        "  Nuclei:      {} total ({} in HFB range A=56-132)",
+        nuclei_zn.len(),
+        n_hfb_range
+    );
     println!("  Parameters:  {} dimensions (Skyrme)", bounds.len());
-    println!("  SCF config:  max_iter={}, tol={:.3}, mixing={:.2}", cli.max_iter, cli.tol, cli.mixing);
+    println!(
+        "  SCF config:  max_iter={}, tol={:.3}, mixing={:.2}",
+        cli.max_iter, cli.tol, cli.mixing
+    );
     println!("  LHS samples: {}", cli.n_lhs);
     println!();
 
@@ -221,8 +226,12 @@ fn main() {
     // Choose pipeline: GPU-resident (shaders for H-build) or mega-batch (CPU H-build)
     let (gpu_results_vec, gpu_disp, n_hfb_out, n_semf_out, total_disp) = if cli.gpu_resident {
         let r = binding_energies_l2_gpu_resident(
-            wgpu_device.clone(), &nuclei_zn, &SLY4_PARAMS,
-            cli.max_iter, cli.tol, cli.mixing,
+            wgpu_device.clone(),
+            &nuclei_zn,
+            &provenance::SLY4_PARAMS,
+            cli.max_iter,
+            cli.tol,
+            cli.mixing,
         );
         let d = r.gpu_dispatches;
         let td = r.total_gpu_dispatches;
@@ -231,8 +240,12 @@ fn main() {
         (r.results, d, nh, ns, td)
     } else {
         let r = binding_energies_l2_gpu(
-            wgpu_device.clone(), &nuclei_zn, &SLY4_PARAMS,
-            cli.max_iter, cli.tol, cli.mixing,
+            wgpu_device.clone(),
+            &nuclei_zn,
+            &provenance::SLY4_PARAMS,
+            cli.max_iter,
+            cli.tol,
+            cli.mixing,
         );
         let d = r.gpu_dispatches;
         let nh = r.n_hfb;
@@ -249,7 +262,7 @@ fn main() {
     for &(z, n, b_calc, converged) in &gpu_results_vec {
         if b_calc > 0.0 {
             if let Some(&b_exp) = b_exp_map.get(&(z, n)) {
-                let sigma = (0.01 * b_exp).max(2.0);
+                let sigma = tolerances::sigma_theo(b_exp);
                 chi2_sum += ((b_calc - b_exp) / sigma).powi(2);
                 n_valid += 1;
                 if converged {
@@ -258,21 +271,36 @@ fn main() {
             }
         }
     }
-    let chi2_datum = if n_valid > 0 { chi2_sum / n_valid as f64 } else { 1e10 };
+    let chi2_datum = if n_valid > 0 {
+        chi2_sum / n_valid as f64
+    } else {
+        1e10
+    };
 
-    let engine_label = if cli.gpu_resident { "GPU-Resident HFB" } else { "GPU-Batched HFB" };
-    println!("  {} (SLy4):", engine_label);
-    println!("    chi2/datum:     {:.4}", chi2_datum);
-    println!("    Converged:      {}/{} HFB nuclei", n_converged, n_hfb_out);
-    println!("    SEMF fallback:  {} nuclei", n_semf_out);
-    println!("    GPU dispatches: {} (eigh: {}, total: {})", total_disp, gpu_disp, total_disp);
-    println!("    Wall time:      {:.2}s ({:.1}ms per HFB nucleus)",
-        gpu_time, if n_hfb_out > 0 { gpu_time * 1000.0 / n_hfb_out as f64 } else { 0.0 });
+    let engine_label = if cli.gpu_resident {
+        "GPU-Resident HFB"
+    } else {
+        "GPU-Batched HFB"
+    };
+    println!("  {engine_label} (SLy4):");
+    println!("    chi2/datum:     {chi2_datum:.4}");
+    println!("    Converged:      {n_converged}/{n_hfb_out} HFB nuclei");
+    println!("    SEMF fallback:  {n_semf_out} nuclei");
+    println!("    GPU dispatches: {total_disp} (eigh: {gpu_disp}, total: {total_disp})");
+    println!(
+        "    Wall time:      {:.2}s ({:.1}ms per HFB nucleus)",
+        gpu_time,
+        if n_hfb_out > 0 {
+            gpu_time * 1000.0 / n_hfb_out as f64
+        } else {
+            0.0
+        }
+    );
 
-    let sly4_nmp = nuclear_matter_properties(&SLY4_PARAMS);
+    let sly4_nmp = nuclear_matter_properties(&provenance::SLY4_PARAMS);
     if let Some(ref nmp) = sly4_nmp {
-        let chi2_nmp = nmp_chi2(nmp);
-        println!("    NMP chi2/datum: {:.4}", chi2_nmp);
+        let chi2_nmp = nmp_chi2_per_datum(nmp);
+        println!("    NMP chi2/datum: {chi2_nmp:.4}");
     }
     println!();
 
@@ -281,15 +309,18 @@ fn main() {
     std::fs::create_dir_all(&results_dir).ok();
 
     // Per-nucleus Phase 1 detail
-    let phase1_nuclei: Vec<serde_json::Value> = gpu_results_vec.iter().map(|&(z, n, b_calc, conv)| {
-        let b_exp = b_exp_map.get(&(z, n)).copied().unwrap_or(0.0);
-        serde_json::json!({
-            "Z": z, "N": n, "A": z + n,
-            "B_exp": b_exp, "B_calc": b_calc,
-            "converged": conv,
-            "error_MeV": b_calc - b_exp,
+    let phase1_nuclei: Vec<serde_json::Value> = gpu_results_vec
+        .iter()
+        .map(|&(z, n, b_calc, conv)| {
+            let b_exp = b_exp_map.get(&(z, n)).copied().unwrap_or(0.0);
+            serde_json::json!({
+                "Z": z, "N": n, "A": z + n,
+                "B_exp": b_exp, "B_calc": b_calc,
+                "converged": conv,
+                "error_MeV": b_calc - b_exp,
+            })
         })
-    }).collect();
+        .collect();
 
     let phase1_json = serde_json::json!({
         "level": 2,
@@ -314,7 +345,11 @@ fn main() {
         "nuclei": phase1_nuclei,
     });
     let p1_path = results_dir.join("barracuda_l2_gpu_phase1.json");
-    std::fs::write(&p1_path, serde_json::to_string_pretty(&phase1_json).unwrap()).ok();
+    std::fs::write(
+        &p1_path,
+        serde_json::to_string_pretty(&phase1_json).unwrap(),
+    )
+    .ok();
     println!("  Phase 1 results saved: {}", p1_path.display());
     println!();
 
@@ -327,12 +362,14 @@ fn main() {
     //  PHASE 2: LHS sweep with GPU-batched HFB objective
     // ═══════════════════════════════════════════════════════════════
     println!("══════════════════════════════════════════════════════════════");
-    println!("  PHASE 2: LHS Sweep with GPU-Batched HFB ({} samples)", cli.n_lhs);
+    println!(
+        "  PHASE 2: LHS Sweep with GPU-Batched HFB ({} samples)",
+        cli.n_lhs
+    );
     println!("══════════════════════════════════════════════════════════════");
     println!();
 
-    let samples = latin_hypercube(cli.n_lhs, &bounds, cli.seed)
-        .expect("LHS failed");
+    let samples = latin_hypercube(cli.n_lhs, bounds, cli.seed).expect("LHS failed");
 
     let t_sweep = Instant::now();
     let mut best_chi2 = f64::MAX;
@@ -344,12 +381,16 @@ fn main() {
 
     for (i, params) in samples.iter().enumerate() {
         // Quick NMP pre-screen
-        if params[8] <= 0.01 || params[8] > 1.0 { continue; }
+        if params[8] <= 0.01 || params[8] > 1.0 {
+            continue;
+        }
         let nmp = match nuclear_matter_properties(params) {
             Some(n) => n,
             None => continue,
         };
-        if nmp.rho0_fm3 < 0.05 || nmp.rho0_fm3 > 0.30 || nmp.e_a_mev > 0.0 { continue; }
+        if nmp.rho0_fm3 < 0.05 || nmp.rho0_fm3 > 0.30 || nmp.e_a_mev > 0.0 {
+            continue;
+        }
 
         let t_eval = Instant::now();
         let result = binding_energies_l2_gpu(
@@ -370,15 +411,15 @@ fn main() {
         for &(z, n, b_calc, _) in &result.results {
             if b_calc > 0.0 {
                 if let Some(&b_exp) = b_exp_map.get(&(z, n)) {
-                    let sigma = (0.01 * b_exp).max(2.0);
+                    let sigma = tolerances::sigma_theo(b_exp);
                     chi2 += ((b_calc - b_exp) / sigma).powi(2);
                     cnt += 1;
                 }
             }
         }
         if cnt > 0 {
-            let chi2_d = chi2 / cnt as f64;
-            let nmp_penalty = nmp_chi2(&nmp) * 0.1;
+            let chi2_d = chi2 / f64::from(cnt);
+            let nmp_penalty = nmp_chi2_per_datum(&nmp) * 0.1;
             let total = chi2_d + nmp_penalty;
 
             sweep_results.push(serde_json::json!({
@@ -395,9 +436,11 @@ fn main() {
             if total < best_chi2 {
                 best_chi2 = total;
                 best_idx = i;
-                best_params_sweep = Some(params.to_vec());
-                println!("    [{:>3}] chi2_BE={:.4}  NMP={:.4}  total={:.4}  ({:.0}s, dispatches={})",
-                    i, chi2_d, nmp_penalty, total, eval_time, result.gpu_dispatches);
+                best_params_sweep = Some(params.clone());
+                println!(
+                    "    [{:>3}] chi2_BE={:.4}  NMP={:.4}  total={:.4}  ({:.0}s, dispatches={})",
+                    i, chi2_d, nmp_penalty, total, eval_time, result.gpu_dispatches
+                );
                 let _ = std::io::stdout().flush();
             }
         }
@@ -406,11 +449,21 @@ fn main() {
     let sweep_time = t_sweep.elapsed().as_secs_f64();
     println!();
     println!("  LHS Sweep complete:");
-    println!("    Best total chi2: {:.4} (sample {})", best_chi2, best_idx);
-    println!("    Evaluated:       {}/{} (passed NMP screen)", n_evaluated, cli.n_lhs);
-    println!("    Wall time:       {:.1}s ({:.2}s per eval avg)",
-        sweep_time, if n_evaluated > 0 { sweep_time / n_evaluated as f64 } else { 0.0 });
-    println!("    GPU dispatches:  {} total", total_dispatches);
+    println!("    Best total chi2: {best_chi2:.4} (sample {best_idx})");
+    println!(
+        "    Evaluated:       {}/{} (passed NMP screen)",
+        n_evaluated, cli.n_lhs
+    );
+    println!(
+        "    Wall time:       {:.1}s ({:.2}s per eval avg)",
+        sweep_time,
+        if n_evaluated > 0 {
+            sweep_time / n_evaluated as f64
+        } else {
+            0.0
+        }
+    );
+    println!("    GPU dispatches:  {total_dispatches} total");
     println!();
 
     // ═══════════════════════════════════════════════════════════════
@@ -423,21 +476,36 @@ fn main() {
     println!("  GPU:               {}", gpu.adapter_name);
     println!("  SHADER_F64:        YES");
     println!("  BatchedEighGpu:    ACTIVE");
-    println!("  Nuclei:            {} ({} HFB, {} SEMF)",
-        nuclei_zn.len(), n_hfb_range, nuclei_zn.len() - n_hfb_range);
-    println!("  SLy4 chi2/datum:   {:.4}", chi2_datum);
-    println!("  Best sweep chi2:   {:.4}", best_chi2);
+    println!(
+        "  Nuclei:            {} ({} HFB, {} SEMF)",
+        nuclei_zn.len(),
+        n_hfb_range,
+        nuclei_zn.len() - n_hfb_range
+    );
+    println!("  SLy4 chi2/datum:   {chi2_datum:.4}");
+    println!("  Best sweep chi2:   {best_chi2:.4}");
     println!();
     println!("  Architecture advantage:");
-    println!("    CPU (sequential eigh_f64): {} eigensolves × {} SCF iters = {} calls",
-        n_hfb_range * 2, cli.max_iter, n_hfb_range * 2 * cli.max_iter);
-    println!("    GPU (BatchedEighGpu):      ~5 groups × {} iters = ~{} dispatches",
-        cli.max_iter, 5 * cli.max_iter);
-    println!("    Reduction: ~{:.0}x fewer eigensolve calls",
-        (n_hfb_range * 2 * cli.max_iter) as f64 / (5 * cli.max_iter) as f64);
+    println!(
+        "    CPU (sequential eigh_f64): {} eigensolves × {} SCF iters = {} calls",
+        n_hfb_range * 2,
+        cli.max_iter,
+        n_hfb_range * 2 * cli.max_iter
+    );
+    println!(
+        "    GPU (BatchedEighGpu):      ~5 groups × {} iters = ~{} dispatches",
+        cli.max_iter,
+        5 * cli.max_iter
+    );
+    println!(
+        "    Reduction: ~{:.0}x fewer eigensolve calls",
+        (n_hfb_range * 2 * cli.max_iter) as f64 / (5 * cli.max_iter) as f64
+    );
     println!();
 
-    let names = ["t0", "t1", "t2", "t3", "x0", "x1", "x2", "x3", "alpha", "W0"];
+    let names = [
+        "t0", "t1", "t2", "t3", "x0", "x1", "x2", "x3", "alpha", "W0",
+    ];
 
     // Best params
     if let Some(ref best_params) = best_params_sweep {
@@ -449,10 +517,22 @@ fn main() {
         if let Some(nmp) = nuclear_matter_properties(best_params) {
             println!();
             println!("  Best NMP:");
-            let vals = [nmp.rho0_fm3, nmp.e_a_mev, nmp.k_inf_mev, nmp.m_eff_ratio, nmp.j_mev];
+            let vals = [
+                nmp.rho0_fm3,
+                nmp.e_a_mev,
+                nmp.k_inf_mev,
+                nmp.m_eff_ratio,
+                nmp.j_mev,
+            ];
+            let targets = provenance::NMP_TARGETS.values();
+            let sigmas = provenance::NMP_TARGETS.sigmas();
+            let names = ["rho0", "E/A", "K_inf", "m*/m", "J"];
             for (i, &v) in vals.iter().enumerate() {
-                let pull = (v - NMP_TARGETS[i].target) / NMP_TARGETS[i].sigma;
-                println!("    {:>6} = {:>10.4}  (pull: {:>+.2}sigma)", NMP_TARGETS[i].name, v, pull);
+                let pull = (v - targets[i]) / sigmas[i];
+                println!(
+                    "    {:>6} = {:>10.4}  (pull: {:>+.2}sigma)",
+                    names[i], v, pull
+                );
             }
         }
     }
@@ -488,7 +568,11 @@ fn main() {
         "sweep_results": sweep_results,
     });
     let result_path = results_dir.join("barracuda_l2_gpu_sweep.json");
-    std::fs::write(&result_path, serde_json::to_string_pretty(&sweep_json).unwrap()).ok();
+    std::fs::write(
+        &result_path,
+        serde_json::to_string_pretty(&sweep_json).unwrap(),
+    )
+    .ok();
     println!();
     println!("  Results saved: {}", result_path.display());
 }

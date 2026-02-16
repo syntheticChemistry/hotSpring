@@ -252,7 +252,18 @@ synchronous dispatches is a false positive for GPU efficiency.
 | rayon | 1.8+ | CPU parallel HFB |
 | OS | Pop!_OS 22.04 (Linux 6.17) | |
 
-### Grand Total: 169/169 Quantitative Checks Pass
+### BarraCUDA Pipeline Validation (Feb 16, 2026)
+
+End-to-end validation of BarraCUDA's abstracted GPU ops through hotSpring's
+`ValidationHarness`. Proves the ToadStool op layer produces correct physics
+by cross-validating GPU results against CPU f64 references.
+
+| Binary | Ops Tested | Checks | Key Result |
+|--------|-----------|:------:|------------|
+| `validate_barracuda_pipeline` | YukawaForceF64, VelocityVerletKickDrift/HalfKick, BerendsenThermostat, KineticEnergy | 12 | 0.000% energy drift, force error 1.86e-7 |
+| `validate_barracuda_hfb` | BcsBisectionGpu, BatchedEighGpu, BCS with degeneracy | 14 | BCS μ error 6.2e-11, eigenvalue error 2.4e-12 |
+
+### Grand Total: 195/195 Quantitative Checks Pass
 
 | Phase | Checks | Description |
 |-------|:------:|-------------|
@@ -261,4 +272,5 @@ synchronous dispatches is a false positive for GPU efficiency.
 | D (N-scaling + builtins) | 16 | 5 N values + 6 cell-list diag + 5 native builtins |
 | E (Paper-parity + rewire) | 13 | 9 long-run cases + 1 profiling + 3 GPU ops |
 | F (Full-scale nuclear EOS) | 9 | 3 L1 Pareto + 3 L2 GPU + 3 L3 deformed |
-| **Total** | **169** | **All pass** |
+| Pipeline (BarraCUDA ops) | 26 | 12 MD pipeline + 14 HFB pipeline |
+| **Total** | **195** | **All pass** |

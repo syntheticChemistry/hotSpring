@@ -1,7 +1,12 @@
-//! Validate barracuda::ops::linalg functions against known reference values
+// SPDX-License-Identifier: AGPL-3.0-only
+
+//! Validate `barracuda::ops::linalg` functions against known reference values
 //!
 //! Tests: LU decomposition, QR decomposition, SVD, tridiagonal solver
 //! Reference: NumPy/SciPy linear algebra
+
+use hotspring_barracuda::provenance;
+use hotspring_barracuda::validation::ValidationHarness;
 
 fn main() {
     println!("═══════════════════════════════════════════════════════════");
@@ -9,8 +14,7 @@ fn main() {
     println!("  Reference: numpy.linalg / scipy.linalg");
     println!("═══════════════════════════════════════════════════════════\n");
 
-    let mut total = 0;
-    let mut passed = 0;
+    let mut harness = ValidationHarness::new("linear_algebra");
 
     // ─── LU Decomposition ─────────────────────────────────────────
     println!("── LU Decomposition ──");
@@ -39,53 +43,52 @@ fn main() {
                     }
                 }
 
-                total += 1;
                 if lu_ok {
-                    passed += 1;
                     println!("  ✅ PA = LU reconstruction");
                 } else {
                     println!("  ❌ PA ≠ LU reconstruction");
                 }
+                harness.check_bool("PA = LU reconstruction", lu_ok);
 
                 // Test determinant: det = 2*3*9 + 1*3*8 + 1*4*7 - 1*3*8 - 2*3*7 - 1*4*9
                 // = 54 + 24 + 28 - 24 - 42 - 36 = 4
                 let det = lu.det();
-                total += 1;
-                if (det - 4.0).abs() < 1e-10 {
-                    passed += 1;
-                    println!("  ✅ det(A) = {:.6} (expected 4.0)", det);
+                let det_ok = (det - 4.0).abs() < 1e-10;
+                if det_ok {
+                    println!("  ✅ det(A) = {det:.6} (expected 4.0)");
                 } else {
-                    println!("  ❌ det(A) = {:.6} (expected 4.0)", det);
+                    println!("  ❌ det(A) = {det:.6} (expected 4.0)");
                 }
+                harness.check_abs("det(A) = 4.0", det, 4.0, 1e-10);
             }
             Err(e) => {
-                println!("  ❌ LU decomposition failed: {}", e);
-                total += 2;
+                println!("  ❌ LU decomposition failed: {e}");
+                harness.check_bool("LU PA=LU reconstruction", false);
+                harness.check_bool("LU det(A)=4.0", false);
             }
         }
 
         // LU solve: Ax = b
         let b = vec![1.0, 1.0, 1.0];
         match barracuda::ops::linalg::lu_solve(
-            &vec![2.0, 1.0, 1.0, 4.0, 3.0, 3.0, 8.0, 7.0, 9.0],
+            &[2.0, 1.0, 1.0, 4.0, 3.0, 3.0, 8.0, 7.0, 9.0],
             3,
             &b,
         ) {
             Ok(x) => {
                 // Verify Ax ≈ b
-                let ax = mat_vec(&vec![2.0, 1.0, 1.0, 4.0, 3.0, 3.0, 8.0, 7.0, 9.0], &x, 3);
+                let ax = mat_vec(&[2.0, 1.0, 1.0, 4.0, 3.0, 3.0, 8.0, 7.0, 9.0], &x, 3);
                 let err: f64 = ax.iter().zip(b.iter()).map(|(a, b)| (a - b).abs()).sum();
-                total += 1;
                 if err < 1e-10 {
-                    passed += 1;
-                    println!("  ✅ LU solve: ||Ax - b|| = {:.2e}", err);
+                    println!("  ✅ LU solve: ||Ax - b|| = {err:.2e}");
                 } else {
-                    println!("  ❌ LU solve: ||Ax - b|| = {:.2e}", err);
+                    println!("  ❌ LU solve: ||Ax - b|| = {err:.2e}");
                 }
+                harness.check_upper("LU solve ||Ax-b||", err, 1e-10);
             }
             Err(e) => {
-                total += 1;
-                println!("  ❌ LU solve failed: {}", e);
+                println!("  ❌ LU solve failed: {e}");
+                harness.check_bool("LU solve", false);
             }
         }
     }
@@ -114,13 +117,12 @@ fn main() {
                         }
                     }
                 }
-                total += 1;
                 if ortho_ok {
-                    passed += 1;
-                    println!("  ✅ Q^T Q = I (orthonormality, {}×{})", m, m);
+                    println!("  ✅ Q^T Q = I (orthonormality, {m}×{m})");
                 } else {
                     println!("  ❌ Q^T Q ≠ I");
                 }
+                harness.check_bool("QR: Q^T Q = I", ortho_ok);
 
                 // Verify QR ≈ A (Q is m×m, R is m×n → product is m×n)
                 let qr_product = mat_mul_mn(&qr.q, &qr.r, m, m, n);
@@ -129,17 +131,17 @@ fn main() {
                     .zip(a.iter())
                     .map(|(q, a)| (q - a).abs())
                     .sum();
-                total += 1;
                 if err < 1e-10 {
-                    passed += 1;
-                    println!("  ✅ QR = A reconstruction, err = {:.2e}", err);
+                    println!("  ✅ QR = A reconstruction, err = {err:.2e}");
                 } else {
-                    println!("  ❌ QR ≠ A, err = {:.2e}", err);
+                    println!("  ❌ QR ≠ A, err = {err:.2e}");
                 }
+                harness.check_upper("QR = A reconstruction", err, 1e-10);
             }
             Err(e) => {
-                total += 2;
-                println!("  ❌ QR decomposition failed: {}", e);
+                println!("  ❌ QR decomposition failed: {e}");
+                harness.check_bool("QR: Q^T Q = I", false);
+                harness.check_bool("QR = A reconstruction", false);
             }
         }
     }
@@ -154,16 +156,20 @@ fn main() {
             Ok(svd) => {
                 // Singular values should be [3, 2]
                 let sv = &svd.s;
-                total += 1;
-                if sv.len() >= 2 && (sv[0] - 3.0).abs() < 1e-6 && (sv[1] - 2.0).abs() < 1e-6 {
-                    passed += 1;
-                    println!("  ✅ SVD singular values: [{:.4}, {:.4}] (expected [3, 2])", sv[0], sv[1]);
+                let sv_ok =
+                    sv.len() >= 2 && (sv[0] - 3.0).abs() < 1e-6 && (sv[1] - 2.0).abs() < 1e-6;
+                if sv_ok {
+                    println!(
+                        "  ✅ SVD singular values: [{:.4}, {:.4}] (expected [3, 2])",
+                        sv[0], sv[1]
+                    );
                 } else {
-                    println!("  ❌ SVD singular values: {:?} (expected [3, 2])", sv);
+                    println!("  ❌ SVD singular values: {sv:?} (expected [3, 2])");
                 }
+                harness.check_bool("SVD singular values [3,2]", sv_ok);
 
                 // Test reconstruction: A = U Σ V^T
-                let mut reconstructed = vec![0.0; 4];
+                let mut reconstructed = [0.0; 4];
                 for i in 0..2 {
                     for j in 0..2 {
                         for k in 0..sv.len() {
@@ -177,17 +183,17 @@ fn main() {
                     .zip(a.iter())
                     .map(|(r, a)| (r - a).abs())
                     .sum();
-                total += 1;
                 if err < 1e-6 {
-                    passed += 1;
-                    println!("  ✅ UΣVᵀ = A reconstruction, err = {:.2e}", err);
+                    println!("  ✅ UΣVᵀ = A reconstruction, err = {err:.2e}");
                 } else {
-                    println!("  ❌ UΣVᵀ ≠ A, err = {:.2e}", err);
+                    println!("  ❌ UΣVᵀ ≠ A, err = {err:.2e}");
                 }
+                harness.check_upper("SVD UΣVᵀ=A reconstruction", err, 1e-6);
             }
             Err(e) => {
-                total += 2;
-                println!("  ❌ SVD failed: {}", e);
+                println!("  ❌ SVD failed: {e}");
+                harness.check_bool("SVD singular values", false);
+                harness.check_bool("SVD reconstruction", false);
             }
         }
 
@@ -206,18 +212,17 @@ fn main() {
                         }
                     }
                 }
-                total += 1;
                 if ok {
-                    passed += 1;
                     println!("  ✅ Pseudoinverse: A⁺A ≈ I");
                 } else {
                     println!("  ❌ Pseudoinverse: A⁺A ≠ I");
-                    println!("      A⁺A = {:?}", apa);
+                    println!("      A⁺A = {apa:?}");
                 }
+                harness.check_bool("SVD pseudoinverse A⁺A≈I", ok);
             }
             Err(e) => {
-                total += 1;
-                println!("  ❌ Pseudoinverse failed: {}", e);
+                println!("  ❌ Pseudoinverse failed: {e}");
+                harness.check_bool("SVD pseudoinverse", false);
             }
         }
     }
@@ -240,17 +245,16 @@ fn main() {
                 let ax2 = 1.0 * x[1] + 4.0 * x[2];
                 let err = (ax0 - 1.0).abs() + (ax1 - 2.0).abs() + (ax2 - 1.0).abs();
 
-                total += 1;
                 if err < 1e-10 {
-                    passed += 1;
-                    println!("  ✅ Thomas algorithm: ||Ax - d|| = {:.2e}", err);
+                    println!("  ✅ Thomas algorithm: ||Ax - d|| = {err:.2e}");
                 } else {
-                    println!("  ❌ Thomas algorithm: ||Ax - d|| = {:.2e}", err);
+                    println!("  ❌ Thomas algorithm: ||Ax - d|| = {err:.2e}");
                 }
+                harness.check_upper("Thomas algorithm ||Ax-d||", err, 1e-10);
             }
             Err(e) => {
-                total += 1;
-                println!("  ❌ Thomas algorithm failed: {}", e);
+                println!("  ❌ Thomas algorithm failed: {e}");
+                harness.check_bool("Thomas algorithm", false);
             }
         }
 
@@ -259,7 +263,9 @@ fn main() {
         let a_sub = vec![1.0; n - 1];
         let b_diag = vec![-2.0; n];
         let c_sup = vec![1.0; n - 1];
-        let d: Vec<f64> = (0..n).map(|i| if i == n / 2 { -1.0 } else { 0.0 }).collect();
+        let d: Vec<f64> = (0..n)
+            .map(|i| if i == n / 2 { -1.0 } else { 0.0 })
+            .collect();
 
         match barracuda::ops::linalg::tridiagonal::tridiagonal_solve(&a_sub, &b_diag, &c_sup, &d) {
             Ok(x) => {
@@ -271,31 +277,24 @@ fn main() {
                         + if i < n - 1 { c_sup[i] * x[i + 1] } else { 0.0 };
                     err += (ax_i - d[i]).abs();
                 }
-                total += 1;
                 if err < 1e-8 {
-                    passed += 1;
-                    println!("  ✅ Tridiag 100pt: ||Ax - d|| = {:.2e}", err);
+                    println!("  ✅ Tridiag 100pt: ||Ax - d|| = {err:.2e}");
                 } else {
-                    println!("  ❌ Tridiag 100pt: ||Ax - d|| = {:.2e}", err);
+                    println!("  ❌ Tridiag 100pt: ||Ax - d|| = {err:.2e}");
                 }
+                harness.check_upper("Tridiag 100pt ||Ax-d||", err, 1e-8);
             }
             Err(e) => {
-                total += 1;
-                println!("  ❌ Tridiag 100pt failed: {}", e);
+                println!("  ❌ Tridiag 100pt failed: {e}");
+                harness.check_bool("Tridiag 100pt", false);
             }
         }
     }
     println!();
 
-    // ─── Summary ──────────────────────────────────────────────────
-    println!("═══════════════════════════════════════════════════════════");
-    println!("  Linear Algebra: {}/{} passed", passed, total);
-    if passed == total {
-        println!("  ✅ ALL TESTS PASSED");
-    } else {
-        println!("  ❌ {} FAILURES", total - passed);
-    }
-    println!("═══════════════════════════════════════════════════════════");
+    // ─── Summary (with exit code) ──────────────────────────────────
+    println!("\n  Reference: {}", provenance::LINALG_REFS);
+    harness.finish();
 }
 
 // Helper: n×n matrix multiply
@@ -337,4 +336,3 @@ fn transpose(a: &[f64], m: usize, n: usize) -> Vec<f64> {
     }
     t
 }
-

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Reference statistical analysis utilities for BarraCUDA evolution.
 //!
 //! These implementations demonstrate statistical tests and methods
@@ -63,7 +65,7 @@ pub fn chi2_decomposed(
     let chi2_per_datum = if n_valid > 0 { total_chi2 / n_valid as f64 } else { f64::INFINITY };
 
     // Sort contributions by chi2 (worst first)
-    contributions.sort_by(|a, b| b.chi2.partial_cmp(&a.chi2).unwrap());
+    contributions.sort_by(|a, b| b.chi2.total_cmp(&a.chi2));
 
     Chi2Result {
         total_chi2,
@@ -183,7 +185,7 @@ where
         boot_stats.push(statistic(&sample));
     }
 
-    boot_stats.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    boot_stats.sort_by(|a, b| a.total_cmp(b));
 
     let alpha = 1.0 - confidence;
     let lower_idx = ((alpha / 2.0) * n_bootstrap as f64) as usize;

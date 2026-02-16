@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Nuclear EOS Level 2 — Surrogate Learning via BarraCUDA (hybrid HFB)
 //!
 //! Full SparsitySampler workflow using barracuda library modules:

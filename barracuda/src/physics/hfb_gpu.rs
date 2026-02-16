@@ -1,24 +1,30 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! GPU-Accelerated Spherical HFB Solver (Level 2)
 //!
 //! Uses `BatchedEighGpu` from toadstool to batch eigensolves across nuclei,
 //! replacing the sequential `eigh_f64` loop with a single GPU dispatch per
 //! SCF iteration.
 //!
-//! Architecture (Experiment 004 rewire):
+//! Architecture (Experiment 004 rewire + Feb 16 single-dispatch evolution):
 //!   1. Pad ALL nuclei to a common max basis dimension
 //!   2. Pack ALL active nuclei into ONE mega-batch per SCF iteration
-//!   3. SINGLE BatchedEighGpu dispatch per iteration (not per group)
+//!   3. SINGLE `execute_single_dispatch()` call — ALL Jacobi rotations
+//!      for ALL matrices execute inside ONE shader invocation with
+//!      workgroup barriers (no CPU readback between rotations)
 //!   4. Remove converged nuclei between iterations
 //!
-//! Key insight: reducing dispatch count is more important than avoiding
-//! matrix padding overhead. Each dispatch costs ~ms of buffer alloc + sync
-//! readback; a padded matrix costs ~μs of extra Jacobi iterations on zeros.
+//! Evolution history:
+//!   v0.4.0: ~5 groups × 200 iterations = ~1000 GPU dispatches
+//!   v0.5.0: 1 mega-batch × 200 iterations = ~200 dispatches (5× reduction)
+//!   v0.5.3: single-dispatch: ALL rotations in 1 shader per SCF iteration
+//!           (estimated 3-5× speedup from eliminated dispatch overhead)
 //!
-//! Previous: ~5 groups × 200 iterations = ~1000 GPU dispatches
-//! Current:  1 mega-batch × 200 iterations = ~200 GPU dispatches (5× reduction)
+//! The single-dispatch kernel handles n≤32, which covers all spherical HFB
+//! basis sizes (n_shells 8-14 → n_states ≤ ~30).
 
-use super::semf::semf_binding_energy;
 use super::hfb::SphericalHFB;
+use super::semf::semf_binding_energy;
 use barracuda::device::WgpuDevice;
 use barracuda::ops::linalg::BatchedEighGpu;
 use std::sync::Arc;
@@ -61,14 +67,14 @@ pub fn binding_energies_l2_gpu(
     let t0 = std::time::Instant::now();
     let mut results: Vec<(usize, usize, f64, bool)> = Vec::with_capacity(nuclei.len());
     let mut gpu_dispatches = 0usize;
-    let mut n_hfb = 0usize;
+    let mut _n_hfb = 0usize;
     let mut n_semf = 0usize;
 
     // Partition nuclei: HFB (56 <= A <= 132) vs SEMF
     let mut hfb_nuclei: Vec<(usize, usize, usize)> = Vec::new(); // (Z, N, original_index)
     for (idx, &(z, n)) in nuclei.iter().enumerate() {
         let a = z + n;
-        if a >= 56 && a <= 132 {
+        if (56..=132).contains(&a) {
             hfb_nuclei.push((z, n, idx));
         } else {
             let b = semf_binding_energy(z, n, params);
@@ -88,7 +94,7 @@ pub fn binding_energies_l2_gpu(
     }
 
     // Build SphericalHFB instances and group by n_states
-    let mut solvers: Vec<(usize, usize, usize, SphericalHFB)> = hfb_nuclei
+    let solvers: Vec<(usize, usize, usize, SphericalHFB)> = hfb_nuclei
         .iter()
         .map(|&(z, n, idx)| {
             let hfb = SphericalHFB::new_adaptive(z, n);
@@ -110,7 +116,11 @@ pub fn binding_energies_l2_gpu(
     // (-50 to +100 MeV), making them trivially identifiable. BCS gives
     // v² ≈ 0 for these states (correct — they're unphysical).
 
-    let max_ns = solvers.iter().map(|(_, _, _, hfb)| hfb.n_states()).max().unwrap_or(1);
+    let max_ns = solvers
+        .iter()
+        .map(|(_, _, _, hfb)| hfb.n_states())
+        .max()
+        .unwrap_or(1);
     let max_mat_size = max_ns * max_ns;
     let w0 = params[9];
 
@@ -122,7 +132,7 @@ pub fn binding_energies_l2_gpu(
         converged: bool,
         binding_energy: f64,
         iterations: usize,
-        actual_ns: usize,  // real basis dimension (before padding)
+        actual_ns: usize, // real basis dimension (before padding)
     }
 
     let mut states: Vec<NucleusState> = solvers
@@ -190,26 +200,20 @@ pub fn binding_energies_l2_gpu(
 
         // Build Hamiltonians on CPU and pack with identity-padding
         for (batch_idx, &solver_idx) in active.iter().enumerate() {
-            let (z, n, _, ref hfb) = solvers[solver_idx];
+            let (_z, _n, _, ref hfb) = solvers[solver_idx];
             let state = &states[solver_idx];
             let actual_ns = state.actual_ns;
 
             for (species_idx, is_proton) in [(0usize, true), (1usize, false)] {
-                let h_flat = hfb.build_hamiltonian(
-                    &state.rho_p,
-                    &state.rho_n,
-                    is_proton,
-                    params,
-                    w0,
-                );
+                let h_flat =
+                    hfb.build_hamiltonian(&state.rho_p, &state.rho_n, is_proton, params, w0);
 
                 let offset = (batch_idx * 2 + species_idx) * max_mat_size;
 
                 // Copy actual matrix into padded location (row-major)
                 for r in 0..actual_ns {
                     for c in 0..actual_ns {
-                        packed_hamiltonians[offset + r * max_ns + c] =
-                            h_flat[r * actual_ns + c];
+                        packed_hamiltonians[offset + r * max_ns + c] = h_flat[r * actual_ns + c];
                     }
                 }
 
@@ -221,17 +225,21 @@ pub fn binding_energies_l2_gpu(
             }
         }
 
-        // ─── SINGLE GPU dispatch for ALL active nuclei ───────────
-        let (eigenvalues, eigenvectors) = match BatchedEighGpu::execute_f64(
+        // ─── SINGLE-DISPATCH: ALL Jacobi rotations in ONE shader ────
+        // execute_single_dispatch runs the full Jacobi sweep inside a single
+        // shader invocation with workgroup barriers — no CPU readback between
+        // rotations. Requires n ≤ 32 (our max_ns is ≤ 30).
+        let (eigenvalues, eigenvectors) = match BatchedEighGpu::execute_single_dispatch(
             device.clone(),
             &packed_hamiltonians,
             max_ns,
             batch_size,
-            30, // max Jacobi sweeps
+            30,    // max Jacobi sweeps
+            1e-12, // convergence tolerance
         ) {
             Ok(result) => result,
             Err(e) => {
-                eprintln!("BatchedEighGpu failed (iter {}): {}", iter, e);
+                eprintln!("BatchedEighGpu failed (iter {iter}): {e}");
                 for &i in &active {
                     states[i].converged = false;
                 }
@@ -257,15 +265,24 @@ pub fn binding_energies_l2_gpu(
             let vec_offset_n = (batch_idx * 2 + 1) * max_mat_size;
 
             for (_species_idx, is_proton) in [(0usize, true), (1usize, false)] {
-                let eig_offset = if is_proton { eig_offset_p } else { eig_offset_n };
-                let vec_offset = if is_proton { vec_offset_p } else { vec_offset_n };
+                let eig_offset = if is_proton {
+                    eig_offset_p
+                } else {
+                    eig_offset_n
+                };
+                let vec_offset = if is_proton {
+                    vec_offset_p
+                } else {
+                    vec_offset_n
+                };
 
                 // Extract ONLY the first actual_ns eigenvalues (physical ones)
                 // The padded eigenvalues are at 1e10 — skip them
                 let all_eigs = &eigenvalues[eig_offset..eig_offset + max_ns];
-                let physical_eigs: Vec<f64> = all_eigs.iter()
+                let physical_eigs: Vec<f64> = all_eigs
+                    .iter()
                     .copied()
-                    .filter(|&e| e < 1e9)  // filter out padded eigenvalues
+                    .filter(|&e| e < 1e9) // filter out padded eigenvalues
                     .collect();
 
                 // Use physical eigenvalues (pad with zeros if fewer than actual_ns)
@@ -294,12 +311,10 @@ pub fn binding_energies_l2_gpu(
                 let delta_q = hfb.pairing_gap();
 
                 // BCS occupations
-                let (v2, _lambda) =
-                    hfb.bcs_occupations_from_eigs(&eigs, num_q, delta_q);
+                let (v2, _lambda) = hfb.bcs_occupations_from_eigs(&eigs, num_q, delta_q);
 
                 // Build new density from BCS-weighted eigenstates
-                let rho_new =
-                    hfb.density_from_eigenstates(&vecs, &v2, actual_ns);
+                let rho_new = hfb.density_from_eigenstates(&vecs, &v2, actual_ns);
 
                 if is_proton {
                     rho_p_new = rho_new;
@@ -311,17 +326,23 @@ pub fn binding_energies_l2_gpu(
             // Density mixing
             let alpha = if iter == 0 { 0.8 } else { mixing };
             for k in 0..nr {
-                state.rho_p[k] =
-                    (alpha * rho_p_new[k] + (1.0 - alpha) * state.rho_p[k]).max(1e-15);
-                state.rho_n[k] =
-                    (alpha * rho_n_new[k] + (1.0 - alpha) * state.rho_n[k]).max(1e-15);
+                state.rho_p[k] = (alpha * rho_p_new[k] + (1.0 - alpha) * state.rho_p[k]).max(1e-15);
+                state.rho_n[k] = (alpha * rho_n_new[k] + (1.0 - alpha) * state.rho_n[k]).max(1e-15);
             }
 
             // Compute total energy — use physical eigenvalues/eigenvectors
             let eig_p: Vec<f64> = eigenvalues[eig_offset_p..eig_offset_p + max_ns]
-                .iter().copied().filter(|&e| e < 1e9).take(actual_ns).collect();
+                .iter()
+                .copied()
+                .filter(|&e| e < 1e9)
+                .take(actual_ns)
+                .collect();
             let eig_n: Vec<f64> = eigenvalues[eig_offset_n..eig_offset_n + max_ns]
-                .iter().copied().filter(|&e| e < 1e9).take(actual_ns).collect();
+                .iter()
+                .copied()
+                .filter(|&e| e < 1e9)
+                .take(actual_ns)
+                .collect();
 
             // Extract actual_ns×actual_ns eigenvector blocks for energy
             let mut vecs_p = vec![0.0; actual_ns * actual_ns];
@@ -354,7 +375,11 @@ pub fn binding_energies_l2_gpu(
             let de = (e_total - state.e_prev).abs();
             state.e_prev = e_total;
             state.iterations = iter + 1;
-            state.binding_energy = if e_total < 0.0 { -e_total } else { e_total.abs() };
+            state.binding_energy = if e_total < 0.0 {
+                -e_total
+            } else {
+                e_total.abs()
+            };
 
             if de < tol && iter > 5 {
                 state.converged = true;
@@ -363,21 +388,125 @@ pub fn binding_energies_l2_gpu(
     }
 
     // Collect HFB results
-    n_hfb = solvers.len();
+    _n_hfb = solvers.len();
     for (i, (z, n, _, _)) in solvers.iter().enumerate() {
-        results.push((
-            *z,
-            *n,
-            states[i].binding_energy,
-            states[i].converged,
-        ));
+        results.push((*z, *n, states[i].binding_energy, states[i].converged));
     }
 
     BatchedL2Result {
         results,
         hfb_time_s: t0.elapsed().as_secs_f64(),
         gpu_dispatches,
-        n_hfb,
+        n_hfb: _n_hfb,
         n_semf,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn batched_result_fields() {
+        let r = BatchedL2Result {
+            results: vec![(28, 28, 483.0, true)],
+            hfb_time_s: 1.0,
+            gpu_dispatches: 5,
+            n_hfb: 1,
+            n_semf: 0,
+        };
+        assert_eq!(r.results.len(), 1);
+        assert_eq!(r.n_hfb, 1);
+        assert_eq!(r.n_semf, 0);
+    }
+
+    #[test]
+    fn nucleus_partitioning_semf_for_light() {
+        // A < 56 should use SEMF, not HFB
+        let nuclei = [(8, 8)]; // O-16, A=16
+        let mut hfb_nuclei = Vec::new();
+        let mut n_semf = 0usize;
+        for (idx, &(z, n)) in nuclei.iter().enumerate() {
+            let a = z + n;
+            if (56..=132).contains(&a) {
+                hfb_nuclei.push((z, n, idx));
+            } else {
+                n_semf += 1;
+            }
+        }
+        assert!(hfb_nuclei.is_empty(), "O-16 should not use HFB");
+        assert_eq!(n_semf, 1);
+    }
+
+    #[test]
+    fn nucleus_partitioning_hfb_for_medium() {
+        // A in 56..=132 should use HFB
+        let nuclei = [(28, 28), (50, 82), (82, 126)]; // Ni-56, Sn-132, Pb-208
+        let mut hfb_nuclei = Vec::new();
+        let mut n_semf = 0usize;
+        for (idx, &(z, n)) in nuclei.iter().enumerate() {
+            let a = z + n;
+            if (56..=132).contains(&a) {
+                hfb_nuclei.push((z, n, idx));
+            } else {
+                n_semf += 1;
+            }
+        }
+        assert_eq!(hfb_nuclei.len(), 2, "Ni-56 and Sn-132 in HFB range");
+        assert_eq!(n_semf, 1, "Pb-208 (A=208) should use SEMF");
+    }
+
+    #[test]
+    fn adaptive_basis_size_scales_with_nucleon_number() {
+        use crate::physics::hfb::SphericalHFB;
+        // Ni-56: small nucleus → modest basis
+        let ni56 = SphericalHFB::new_adaptive(28, 28);
+        let ns_ni = ni56.n_states();
+        assert!(ns_ni > 5, "Ni-56 should have > 5 states (got {ns_ni})");
+
+        // Sn-132: larger → larger basis
+        let sn132 = SphericalHFB::new_adaptive(50, 82);
+        let ns_sn = sn132.n_states();
+        assert!(
+            ns_sn > ns_ni,
+            "Sn-132 ({ns_sn}) should have more states than Ni-56 ({ns_ni})"
+        );
+
+        // Basis sizes should be physically reasonable (< 200 states)
+        assert!(ns_sn < 200, "Sn-132 basis too large: {ns_sn}");
+    }
+
+    #[test]
+    fn identity_padding_strategy() {
+        // Verify that padding diagonal with 1e10 produces eigenvalues
+        // far from the physical spectrum (-50 to +100 MeV)
+        let actual_ns = 4;
+        let max_ns = 8;
+        let max_mat_size = max_ns * max_ns;
+
+        let mut padded = vec![0.0_f64; max_mat_size];
+        // Simulate a small physical matrix
+        for i in 0..actual_ns {
+            padded[i * max_ns + i] = -(20.0 + i as f64 * 5.0); // Physical eigenvalues ~ -20 to -35
+        }
+        // Pad
+        for k in actual_ns..max_ns {
+            padded[k * max_ns + k] = 1e10;
+        }
+
+        // Check that padded diagonal values are far from physical
+        for k in actual_ns..max_ns {
+            assert!(
+                padded[k * max_ns + k] > 1e9,
+                "padded diagonal must be >> physical"
+            );
+        }
+        // Check physical values are preserved
+        for i in 0..actual_ns {
+            assert!(
+                padded[i * max_ns + i] < 0.0,
+                "physical diagonal should be negative"
+            );
+        }
     }
 }

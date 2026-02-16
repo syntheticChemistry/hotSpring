@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Reference surrogate modeling utilities for BarraCUDA evolution.
 //!
 //! These implementations demonstrate the math and algorithms that
@@ -277,7 +279,7 @@ pub fn filter_training_data(
             let mut sorted: Vec<f64> = y_data.iter().copied()
                 .filter(|v| v.is_finite())
                 .collect();
-            sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            sorted.sort_by(|a, b| a.total_cmp(b));
             if sorted.is_empty() {
                 return (Vec::new(), Vec::new());
             }
@@ -289,13 +291,13 @@ pub fn filter_training_data(
             let mut sorted: Vec<f64> = y_data.iter().copied()
                 .filter(|v| v.is_finite())
                 .collect();
-            sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            sorted.sort_by(|a, b| a.total_cmp(b));
             if sorted.is_empty() {
                 return (Vec::new(), Vec::new());
             }
             let median = sorted[sorted.len() / 2];
             let mut abs_devs: Vec<f64> = sorted.iter().map(|v| (v - median).abs()).collect();
-            abs_devs.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            abs_devs.sort_by(|a, b| a.total_cmp(b));
             let mad = abs_devs[abs_devs.len() / 2];
             median + k * mad * 1.4826  // 1.4826 scales MAD to std dev
         }

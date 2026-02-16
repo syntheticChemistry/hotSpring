@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Axially-Deformed Hartree-Fock + BCS solver (Level 3)
 //!
 //! Extends the spherical L2 solver to handle nuclear deformation:
@@ -19,8 +21,8 @@
 //!   - Bender, Heenen, Reinhard, Rev. Mod. Phys. 75, 121 (2003)
 
 use super::constants::*;
+use super::hfb_common::{factorial_f64, hermite_value, Mat};
 use barracuda::linalg::eigh_f64;
-use barracuda::numerical::trapz;
 use barracuda::special::{gamma, laguerre};
 use std::collections::HashMap;
 use std::f64::consts::PI;
@@ -31,49 +33,21 @@ use std::f64::consts::PI;
 
 /// Nilsson-like quantum numbers for axially-deformed harmonic oscillator
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct DeformedState {
-    n_z: usize,     // quantum number along symmetry axis
-    n_perp: usize,  // perpendicular oscillator quanta
-    lambda: i32,    // projection of orbital angular momentum on z-axis
-    sigma: i32,     // +1 or -1 (spin projection: +1/2 or -1/2)
-    omega_x2: i32,  // 2*Omega = 2*Lambda + sigma (block index, always > 0)
-    parity: i32,    // (-1)^(n_z + 2*n_perp + |lambda|) = (-1)^N
-    n_shell: usize, // major shell N = n_z + 2*n_perp + |lambda|
+    n_z: usize,      // quantum number along symmetry axis
+    n_perp: usize,   // perpendicular oscillator quanta
+    lambda: i32,     // projection of orbital angular momentum on z-axis
+    sigma: i32,      // +1 or -1 (spin projection: +1/2 or -1/2)
+    omega_x2: i32,   // 2*Omega = 2*Lambda + sigma (block index, always > 0)
+    _parity: i32,    // (-1)^(n_z + 2*n_perp + |lambda|) = (-1)^N
+    _n_shell: usize, // major shell N = n_z + 2*n_perp + |lambda|
 }
 
+#[allow(dead_code)]
 impl DeformedState {
     fn omega(&self) -> f64 {
         self.omega_x2 as f64 / 2.0
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// Row-major matrix helper (same pattern as spherical HFB)
-// ═══════════════════════════════════════════════════════════════════
-
-struct Mat {
-    data: Vec<f64>,
-    n: usize,
-}
-
-impl Mat {
-    fn zeros(n: usize) -> Self {
-        Mat { data: vec![0.0; n * n], n }
-    }
-
-    #[inline]
-    fn get(&self, r: usize, c: usize) -> f64 {
-        self.data[r * self.n + c]
-    }
-
-    #[inline]
-    fn set(&mut self, r: usize, c: usize, v: f64) {
-        self.data[r * self.n + c] = v;
-    }
-
-    #[inline]
-    fn add(&mut self, r: usize, c: usize, v: f64) {
-        self.data[r * self.n + c] += v;
     }
 }
 
@@ -82,9 +56,10 @@ impl Mat {
 // ═══════════════════════════════════════════════════════════════════
 
 /// Cylindrical (rho, z) mesh for deformed densities
+#[derive(Debug)]
 struct CylindricalGrid {
-    rho: Vec<f64>,  // perpendicular coordinate
-    z: Vec<f64>,    // symmetry axis coordinate
+    rho: Vec<f64>, // perpendicular coordinate
+    z: Vec<f64>,   // symmetry axis coordinate
     n_rho: usize,
     n_z: usize,
     d_rho: f64,
@@ -98,7 +73,14 @@ impl CylindricalGrid {
         let rho: Vec<f64> = (1..=n_rho).map(|i| i as f64 * d_rho).collect();
         let z: Vec<f64> = (0..n_z).map(|i| -z_max + (i as f64 + 0.5) * d_z).collect();
 
-        CylindricalGrid { rho, z, n_rho, n_z, d_rho, d_z }
+        CylindricalGrid {
+            rho,
+            z,
+            n_rho,
+            n_z,
+            d_rho,
+            d_z,
+        }
     }
 
     /// Volume element: 2*pi*rho * d_rho * d_z
@@ -123,18 +105,19 @@ impl CylindricalGrid {
 // ═══════════════════════════════════════════════════════════════════
 
 /// Axially-symmetric deformed HFB solver
+#[allow(dead_code)]
 pub struct DeformedHFB {
     z: usize,
     n_neutrons: usize,
     a: usize,
     grid: CylindricalGrid,
-    hw_z: f64,     // HO frequency along z (can differ from perp for deformation)
-    hw_perp: f64,  // HO frequency perpendicular
-    b_z: f64,      // HO length parameter along z
-    b_perp: f64,   // HO length parameter perpendicular
-    beta2: f64,    // deformation parameter
-    delta_p: f64,  // proton pairing gap
-    delta_n: f64,  // neutron pairing gap
+    hw_z: f64,    // HO frequency along z (can differ from perp for deformation)
+    hw_perp: f64, // HO frequency perpendicular
+    b_z: f64,     // HO length parameter along z
+    b_perp: f64,  // HO length parameter perpendicular
+    _beta2: f64,  // deformation parameter
+    delta_p: f64, // proton pairing gap
+    delta_n: f64, // neutron pairing gap
     states: Vec<DeformedState>,
     /// Block structure: omega_x2 → state indices
     omega_blocks: HashMap<i32, Vec<usize>>,
@@ -147,8 +130,8 @@ pub struct DeformedHFBResult {
     pub converged: bool,
     pub iterations: usize,
     pub delta_e: f64,
-    pub beta2: f64,      // final deformation
-    pub q20_fm2: f64,    // quadrupole moment
+    pub beta2: f64,   // final deformation
+    pub q20_fm2: f64, // quadrupole moment
     pub rms_radius_fm: f64,
 }
 
@@ -199,7 +182,7 @@ impl DeformedHFB {
             hw_perp,
             b_z,
             b_perp,
-            beta2: beta2_init,
+            _beta2: beta2_init,
             delta_p: delta,
             delta_n: delta,
             states: Vec::new(),
@@ -220,21 +203,21 @@ impl DeformedHFB {
         // Magic numbers: Z,N = 2,8,20,28,50,82,126 → spherical
 
         let magic = [2, 8, 20, 28, 50, 82, 126];
-        let z_magic = magic.iter().any(|&m| (z as i32 - m as i32).unsigned_abs() <= 2);
-        let n_magic = magic.iter().any(|&m| (n as i32 - m as i32).unsigned_abs() <= 2);
+        let z_magic = magic.iter().any(|&m| (z as i32 - m).unsigned_abs() <= 2);
+        let n_magic = magic.iter().any(|&m| (n as i32 - m).unsigned_abs() <= 2);
 
         if z_magic && n_magic {
-            0.0  // doubly magic → spherical
+            0.0 // doubly magic → spherical
         } else if a > 222 {
-            0.25  // actinides
+            0.25 // actinides
         } else if a > 150 && a < 190 {
-            0.28  // rare earths
+            0.28 // rare earths
         } else if a > 20 && a < 28 {
-            0.35  // sd-shell deformed
+            0.35 // sd-shell deformed
         } else if z_magic || n_magic {
-            0.05  // near magic → weakly deformed
+            0.05 // near magic → weakly deformed
         } else {
-            0.15  // generic
+            0.15 // generic
         }
     }
 
@@ -253,15 +236,20 @@ impl DeformedHFB {
 
                     // Lambda can be +/- abs_lambda, but we only need Lambda >= 0
                     // since (Lambda, sigma) and (-Lambda, -sigma) give same Omega
-                    let lambdas = if abs_lambda == 0 { vec![0_i32] }
-                                  else { vec![abs_lambda as i32] };
+                    let lambdas = if abs_lambda == 0 {
+                        vec![0_i32]
+                    } else {
+                        vec![abs_lambda as i32]
+                    };
 
                     for &lambda in &lambdas {
                         for &sigma in &[1_i32, -1_i32] {
                             let omega_x2 = 2 * lambda + sigma;
 
                             // Only positive Omega blocks (time-reversal partner is implicit)
-                            if omega_x2 <= 0 { continue; }
+                            if omega_x2 <= 0 {
+                                continue;
+                            }
 
                             let parity = if n_sh % 2 == 0 { 1 } else { -1 };
 
@@ -271,8 +259,8 @@ impl DeformedHFB {
                                 lambda,
                                 sigma,
                                 omega_x2,
-                                parity,
-                                n_shell: n_sh,
+                                _parity: parity,
+                                _n_shell: n_sh,
                             });
                         }
                     }
@@ -301,7 +289,10 @@ impl DeformedHFB {
 
                 // rho-part: 2D oscillator with |Lambda|
                 let phi_rho = Self::laguerre_oscillator(
-                    state.n_perp, state.lambda.unsigned_abs() as usize, rho, self.b_perp
+                    state.n_perp,
+                    state.lambda.unsigned_abs() as usize,
+                    rho,
+                    self.b_perp,
                 );
 
                 psi[self.grid.idx(i_rho, i_z)] = phi_z * phi_rho;
@@ -349,7 +340,7 @@ impl DeformedHFB {
     /// Uses modified Broyden mixing (Johnson 1988) after initial linear mixing warmup.
     pub fn solve(&mut self, params: &[f64]) -> DeformedHFBResult {
         let max_iter = 200;
-        let tol = 1e-6; // MeV
+        let tol = 1e-6; // Physics: SCF energy convergence threshold — 1 eV ≈ 1e-6 of total BE
         let broyden_warmup = 50; // linear mixing for first N iterations (converge density first)
         let broyden_history = 8; // max Broyden history vectors
 
@@ -362,20 +353,27 @@ impl DeformedHFB {
 
         // Precompute all wavefunctions on the grid, then renormalize
         // to ensure integral |psi|² dV = 1 on the discrete grid
-        let mut wavefunctions: Vec<Vec<f64>> = self.states.iter()
+        let mut wavefunctions: Vec<Vec<f64>> = self
+            .states
+            .iter()
             .map(|s| self.evaluate_wavefunction(s))
             .collect();
 
         // Renormalize each wavefunction on the grid
         for psi in &mut wavefunctions {
-            let norm2: f64 = (0..n_grid).map(|k| {
-                let i_rho = k / self.grid.n_z;
-                let i_z = k % self.grid.n_z;
-                psi[k] * psi[k] * self.grid.volume_element(i_rho, i_z)
-            }).sum();
+            let norm2: f64 = (0..n_grid)
+                .map(|k| {
+                    let i_rho = k / self.grid.n_z;
+                    let i_z = k % self.grid.n_z;
+                    psi[k] * psi[k] * self.grid.volume_element(i_rho, i_z)
+                })
+                .sum();
             if norm2 > 1e-30 {
+                // Physics: division-by-zero guard — well below any physical scale
                 let scale = 1.0 / norm2.sqrt();
-                for v in psi.iter_mut() { *v *= scale; }
+                for v in psi.iter_mut() {
+                    *v *= scale;
+                }
             }
         }
         let mut rho_p = vec![0.0; n_grid];
@@ -402,9 +400,7 @@ impl DeformedHFB {
 
         for iteration in 0..max_iter {
             iter = iteration + 1;
-            let total_rho: Vec<f64> = rho_p.iter().zip(&rho_n)
-                .map(|(&p, &n)| p + n)
-                .collect();
+            let total_rho: Vec<f64> = rho_p.iter().zip(&rho_n).map(|(&p, &n)| p + n).collect();
 
             // Compute tau and J from previous-iteration occupations (zero on first iter)
             let tau_p_vals = self.compute_tau(&wavefunctions, &prev_occ_p);
@@ -417,30 +413,42 @@ impl DeformedHFB {
 
             // Compute full mean-field potentials (with tau, J, precomputed Coulomb)
             let v_p = self.mean_field_potential_fast(
-                params, &rho_p, &rho_n, &total_rho, true,
-                &tau_p_vals, &tau_n_vals, &j_p_vals, &j_n_vals, &v_coulomb
+                params,
+                &rho_p,
+                &rho_n,
+                &total_rho,
+                true,
+                &tau_p_vals,
+                &tau_n_vals,
+                &j_p_vals,
+                &j_n_vals,
+                &v_coulomb,
             );
             let v_n = self.mean_field_potential_fast(
-                params, &rho_p, &rho_n, &total_rho, false,
-                &tau_p_vals, &tau_n_vals, &j_p_vals, &j_n_vals, &v_coulomb
+                params,
+                &rho_p,
+                &rho_n,
+                &total_rho,
+                false,
+                &tau_p_vals,
+                &tau_n_vals,
+                &j_p_vals,
+                &j_n_vals,
+                &v_coulomb,
             );
 
             // Diagonalize block-by-block for each Omega
-            let (eigs_p, occ_p) = self.diagonalize_blocks(
-                &v_p, &wavefunctions, self.z, self.delta_p
-            );
-            let (eigs_n, occ_n) = self.diagonalize_blocks(
-                &v_n, &wavefunctions, self.n_neutrons, self.delta_n
-            );
+            let (eigs_p, occ_p) =
+                self.diagonalize_blocks(&v_p, &wavefunctions, self.z, self.delta_p);
+            let (eigs_n, occ_n) =
+                self.diagonalize_blocks(&v_n, &wavefunctions, self.n_neutrons, self.delta_n);
 
             // Store occupations for next iteration's tau/J
             prev_occ_p = occ_p.clone();
             prev_occ_n = occ_n.clone();
 
             // Compute output densities
-            let (new_rho_p, new_rho_n) = self.compute_densities(
-                &wavefunctions, &occ_p, &occ_n
-            );
+            let (new_rho_p, new_rho_n) = self.compute_densities(&wavefunctions, &occ_p, &occ_n);
 
             // ── Density mixing (Broyden after warmup, linear during warmup) ──
             if iteration < broyden_warmup {
@@ -457,17 +465,24 @@ impl DeformedHFB {
 
                 // Pack current input and output into vectors
                 let input_vec: Vec<f64> = rho_p.iter().chain(rho_n.iter()).copied().collect();
-                let output_vec: Vec<f64> = new_rho_p.iter().chain(new_rho_n.iter()).copied().collect();
-                let residual: Vec<f64> = output_vec.iter().zip(&input_vec)
+                let output_vec: Vec<f64> =
+                    new_rho_p.iter().chain(new_rho_n.iter()).copied().collect();
+                let residual: Vec<f64> = output_vec
+                    .iter()
+                    .zip(&input_vec)
                     .map(|(&out, &inp)| out - inp)
                     .collect();
 
                 // Broyden update
                 if let (Some(prev_r), Some(prev_u)) = (&prev_residual, &prev_input) {
-                    let df: Vec<f64> = residual.iter().zip(prev_r)
+                    let df: Vec<f64> = residual
+                        .iter()
+                        .zip(prev_r)
                         .map(|(&r, &pr)| r - pr)
                         .collect();
-                    let du: Vec<f64> = input_vec.iter().zip(prev_u)
+                    let du: Vec<f64> = input_vec
+                        .iter()
+                        .zip(prev_u)
                         .map(|(&u, &pu)| u - pu)
                         .collect();
 
@@ -482,28 +497,32 @@ impl DeformedHFB {
 
                 // Apply Broyden correction if we have history
                 let mut mixed = vec![0.0; vec_dim];
-                if !broyden_dfs.is_empty() {
+                if broyden_dfs.is_empty() {
+                    // First Broyden step: just linear mixing
+                    for i in 0..vec_dim {
+                        mixed[i] = input_vec[i] + alpha_mix * residual[i];
+                    }
+                } else {
                     // Simplified Broyden: x_new = x + alpha*F - sum_m gamma_m * (du_m + alpha*df_m)
                     // where gamma_m = <df_m | F> / <df_m | df_m>
                     for i in 0..vec_dim {
                         mixed[i] = input_vec[i] + alpha_mix * residual[i];
                     }
                     for m in 0..broyden_dfs.len() {
-                        let df_dot_r: f64 = broyden_dfs[m].iter().zip(&residual)
-                            .map(|(&a, &b)| a * b).sum();
-                        let df_dot_df: f64 = broyden_dfs[m].iter()
-                            .map(|&a| a * a).sum();
+                        let df_dot_r: f64 = broyden_dfs[m]
+                            .iter()
+                            .zip(&residual)
+                            .map(|(&a, &b)| a * b)
+                            .sum();
+                        let df_dot_df: f64 = broyden_dfs[m].iter().map(|&a| a * a).sum();
                         if df_dot_df > 1e-30 {
+                            // Physics: Broyden gamma denominator guard — avoid division by near-zero
                             let gamma = df_dot_r / df_dot_df;
                             for i in 0..vec_dim {
-                                mixed[i] -= gamma * (broyden_dus[m][i] + alpha_mix * broyden_dfs[m][i]);
+                                mixed[i] -=
+                                    gamma * (broyden_dus[m][i] + alpha_mix * broyden_dfs[m][i]);
                             }
                         }
-                    }
-                } else {
-                    // First Broyden step: just linear mixing
-                    for i in 0..vec_dim {
-                        mixed[i] = input_vec[i] + alpha_mix * residual[i];
                     }
                 }
 
@@ -515,25 +534,21 @@ impl DeformedHFB {
                 rho_n = mixed[n_grid..].to_vec();
 
                 // Ensure non-negative densities
-                for v in rho_p.iter_mut() { *v = v.max(0.0); }
-                for v in rho_n.iter_mut() { *v = v.max(0.0); }
+                for v in &mut rho_p {
+                    *v = v.max(0.0);
+                }
+                for v in &mut rho_n {
+                    *v = v.max(0.0);
+                }
             }
 
-            // Verify density normalization (sanity check)
-            let n_p_check: f64 = rho_p.iter().enumerate()
-                .map(|(i, &rp)| rp * self.grid.volume_element(i / self.grid.n_z, i % self.grid.n_z))
-                .sum();
-            let n_n_check: f64 = rho_n.iter().enumerate()
-                .map(|(i, &rn)| rn * self.grid.volume_element(i / self.grid.n_z, i % self.grid.n_z))
-                .sum();
-
             // Compute total energy
-            binding_energy = self.total_energy(
-                params, &rho_p, &rho_n, &eigs_p, &eigs_n, &occ_p, &occ_n
-            );
+            binding_energy =
+                self.total_energy(params, &rho_p, &rho_n, &eigs_p, &eigs_n, &occ_p, &occ_n);
 
             // Divergence protection: if energy is unphysical, bail out
             if !binding_energy.is_finite() || binding_energy.abs() > 1e10 {
+                // Physics: divergence protection — BE typically -500 to -2000 MeV
                 break;
             }
 
@@ -547,15 +562,32 @@ impl DeformedHFB {
             // Debug output for first few iterations (only in test/debug builds)
             #[cfg(test)]
             if iteration < 5 || iteration % 50 == 0 {
-                eprintln!("  iter {:3}: E={:12.3} MeV  N_p={:.2}  N_n={:.2}  dE={:.3e}",
-                    iteration, binding_energy, n_p_check, n_n_check, delta_e);
+                let n_p_check: f64 = rho_p
+                    .iter()
+                    .enumerate()
+                    .map(|(i, &rp)| {
+                        rp * self
+                            .grid
+                            .volume_element(i / self.grid.n_z, i % self.grid.n_z)
+                    })
+                    .sum();
+                let n_n_check: f64 = rho_n
+                    .iter()
+                    .enumerate()
+                    .map(|(i, &rn)| {
+                        rn * self
+                            .grid
+                            .volume_element(i / self.grid.n_z, i % self.grid.n_z)
+                    })
+                    .sum();
+                eprintln!(
+                    "  iter {iteration:3}: E={binding_energy:12.3} MeV  N_p={n_p_check:.2}  N_n={n_n_check:.2}  dE={delta_e:.3e}"
+                );
             }
         }
 
         // Compute deformation observables
-        let rho_total: Vec<f64> = rho_p.iter().zip(&rho_n)
-            .map(|(&p, &n)| p + n)
-            .collect();
+        let rho_total: Vec<f64> = rho_p.iter().zip(&rho_n).map(|(&p, &n)| p + n).collect();
         let q20 = self.quadrupole_moment(&rho_total);
         let beta2 = self.beta2_from_q20(q20);
         let rms_r = self.rms_radius(&rho_total);
@@ -573,17 +605,16 @@ impl DeformedHFB {
 
     /// Compute kinetic energy density tau(r) from wavefunctions and occupations
     /// tau = sum_i n_i |grad psi_i|^2
-    fn compute_tau(
-        &self,
-        wavefunctions: &[Vec<f64>],
-        occ: &[f64],
-    ) -> Vec<f64> {
+    fn compute_tau(&self, wavefunctions: &[Vec<f64>], occ: &[f64]) -> Vec<f64> {
         let n = self.grid.total();
         let mut tau = vec![0.0; n];
 
         for (i, _s) in self.states.iter().enumerate() {
             let occ_i = occ[i] * 2.0; // time-reversal degeneracy
-            if occ_i < 1e-15 { continue; }
+            if occ_i < 1e-15 {
+                // Physics: machine epsilon floor — skip negligible tau contributions
+                continue;
+            }
 
             let psi = &wavefunctions[i];
             // Numerical gradient |grad psi|^2 via finite differences
@@ -621,17 +652,16 @@ impl DeformedHFB {
 
     /// Compute spin-orbit density J(r) = sum_i n_i * psi_i * (l x s) * psi_i
     /// For axially-symmetric case, the relevant component is J_z ~ Lambda * sigma
-    fn compute_spin_current(
-        &self,
-        wavefunctions: &[Vec<f64>],
-        occ: &[f64],
-    ) -> Vec<f64> {
+    fn compute_spin_current(&self, wavefunctions: &[Vec<f64>], occ: &[f64]) -> Vec<f64> {
         let n = self.grid.total();
         let mut j_density = vec![0.0; n];
 
         for (i, s) in self.states.iter().enumerate() {
             let occ_i = occ[i] * 2.0;
-            if occ_i < 1e-15 { continue; }
+            if occ_i < 1e-15 {
+                // Physics: machine epsilon floor — skip negligible J contributions
+                continue;
+            }
 
             // Spin-current: <l·s> contribution is Lambda * sigma / 2
             let ls = s.lambda as f64 * s.sigma as f64 * 0.5;
@@ -662,7 +692,8 @@ impl DeformedHFB {
                 } else if i_rho == self.grid.n_rho - 1 {
                     (density[idx] - density[self.grid.idx(i_rho - 1, i_z)]) / self.grid.d_rho
                 } else {
-                    (density[self.grid.idx(i_rho + 1, i_z)] - density[self.grid.idx(i_rho - 1, i_z)])
+                    (density[self.grid.idx(i_rho + 1, i_z)]
+                        - density[self.grid.idx(i_rho - 1, i_z)])
                         / (2.0 * self.grid.d_rho)
                 };
 
@@ -671,14 +702,15 @@ impl DeformedHFB {
                 } else if i_z == self.grid.n_z - 1 {
                     (density[idx] - density[self.grid.idx(i_rho, i_z - 1)]) / self.grid.d_z
                 } else {
-                    (density[self.grid.idx(i_rho, i_z + 1)] - density[self.grid.idx(i_rho, i_z - 1)])
+                    (density[self.grid.idx(i_rho, i_z + 1)]
+                        - density[self.grid.idx(i_rho, i_z - 1)])
                         / (2.0 * self.grid.d_z)
                 };
 
                 // Radial derivative: project (d/drho, d/dz) onto radial direction
                 let rho_coord = self.grid.rho[i_rho];
                 let z_coord = self.grid.z[i_z];
-                let r = (rho_coord * rho_coord + z_coord * z_coord).sqrt().max(0.01);
+                let r = (rho_coord * rho_coord + z_coord * z_coord).sqrt().max(0.01); // Physics: minimum r for 1/r potential — avoids singularity at origin
                 deriv[idx] = (d_drho * rho_coord + d_dz * z_coord) / r;
             }
         }
@@ -691,11 +723,7 @@ impl DeformedHFB {
     /// Uses spherical monopole approximation:
     ///   V_C(r) = e² * [Q_enclosed(r) / r + V_exterior(r)]
     /// where charges are sorted by radial distance.
-    fn compute_coulomb_potential(
-        &self,
-        rho_p: &[f64],
-        v_coulomb: &mut [f64],
-    ) {
+    fn compute_coulomb_potential(&self, rho_p: &[f64], v_coulomb: &mut [f64]) {
         let n = self.grid.total();
 
         // Precompute radial distances and charges for all grid points
@@ -713,12 +741,14 @@ impl DeformedHFB {
 
         // Sort by radius for efficient enclosed-charge computation
         let mut sorted_idx: Vec<usize> = (0..n).collect();
-        sorted_idx.sort_by(|&a, &b| charge_shells[a].0.partial_cmp(&charge_shells[b].0).unwrap());
+        sorted_idx.sort_by(|&a, &b| charge_shells[a].0.total_cmp(&charge_shells[b].0));
 
         // Prefix sums: total charge and charge/r for exterior
         let total_charge: f64 = charge_shells.iter().map(|(_, c)| c).sum();
-        let total_charge_over_r: f64 = charge_shells.iter()
-            .map(|(r, c)| if *r > 0.01 { c / r } else { 0.0 }).sum();
+        let total_charge_over_r: f64 = charge_shells
+            .iter()
+            .map(|(r, c)| if *r > 0.01 { c / r } else { 0.0 }) // Physics: Coulomb 1/r — guard at origin
+            .sum();
 
         // For each grid point, compute V_C using sorted radial shells
         // V_C(r) = e² * (Q_<(r)/r + sum_{r'>r} q_j/r_j)
@@ -730,7 +760,7 @@ impl DeformedHFB {
             let mut acc_qr = 0.0;
             for (k, &si) in sorted_idx.iter().enumerate() {
                 acc_q += charge_shells[si].1;
-                let r = charge_shells[si].0.max(0.01);
+                let r = charge_shells[si].0.max(0.01); // Physics: Coulomb 1/r — avoid singularity
                 acc_qr += charge_shells[si].1 / r;
                 cum_charge[k] = acc_q;
                 cum_charge_over_r[k] = acc_qr;
@@ -745,7 +775,7 @@ impl DeformedHFB {
 
         // Compute Coulomb potential
         for i in 0..n {
-            let r_i = charge_shells[i].0.max(0.01);
+            let r_i = charge_shells[i].0.max(0.01); // Physics: Coulomb 1/r — avoid singularity
             let k = rank[i];
 
             // Q_enclosed / r_i
@@ -755,12 +785,15 @@ impl DeformedHFB {
 
             // Direct + Slater exchange
             v_coulomb[i] = E2 * (q_inner / r_i + ext_qr)
-                - E2 * (3.0 / PI).powf(1.0 / 3.0) * rho_p[i].max(0.0).powf(1.0 / 3.0);
+                + super::hfb_common::coulomb_exchange_slater(rho_p[i]);
         }
 
         // Handle edge case: if no proton charge, zero out
         if total_charge < 1e-30 {
-            for v in v_coulomb.iter_mut() { *v = 0.0; }
+            // Physics: numerical zero — no protons, zero Coulomb
+            for v in v_coulomb.iter_mut() {
+                *v = 0.0;
+            }
         }
     }
 
@@ -813,9 +846,10 @@ impl DeformedHFB {
 
             // ── Central Skyrme (t0, t3 terms) ──
             let v_central = t0 * ((1.0 + x0 / 2.0) * rho - (0.5 + x0) * rq)
-                + t3 / 12.0 * rho.powf(alpha) *
-                    ((2.0 + alpha) * (1.0 + x3 / 2.0) * rho
-                     - (2.0 * (0.5 + x3) * rq + alpha * (1.0 + x3 / 2.0) * rho));
+                + t3 / 12.0
+                    * rho.powf(alpha)
+                    * ((2.0 + alpha) * (1.0 + x3 / 2.0) * rho
+                        - (2.0 * (0.5 + x3) * rq + alpha * (1.0 + x3 / 2.0) * rho));
 
             // ── Effective mass terms (t1, t2) ──
             let v_eff_mass = t1 / 4.0 * ((2.0 + x1) * tau_total[i] - (1.0 + 2.0 * x1) * tau_q[i])
@@ -828,7 +862,7 @@ impl DeformedHFB {
             let i_z = i % self.grid.n_z;
             let rho_coord = self.grid.rho[i_rho];
             let z_coord = self.grid.z[i_z];
-            let r = (rho_coord * rho_coord + z_coord * z_coord).sqrt().max(0.1);
+            let r = (rho_coord * rho_coord + z_coord * z_coord).sqrt().max(0.1); // Physics: spin-orbit 1/r — minimum radius ~0.1 fm
             let v_so = -w0 / 2.0 * (d_rho_dr[i] + d_rho_q_dr[i]) / r;
 
             let v_total = v_central + v_eff_mass + v_so;
@@ -860,9 +894,11 @@ impl DeformedHFB {
         // Temporary storage: eigenvalue/eigenvector for each block
         let mut block_eigs: Vec<(usize, f64)> = Vec::new(); // (state_idx, eigenvalue)
 
-        for (_, block_indices) in &self.omega_blocks {
+        for block_indices in self.omega_blocks.values() {
             let block_size = block_indices.len();
-            if block_size == 0 { continue; }
+            if block_size == 0 {
+                continue;
+            }
 
             // Build block Hamiltonian
             let mut h = Mat::zeros(block_size);
@@ -876,24 +912,30 @@ impl DeformedHFB {
                     let t_ij = if i == j {
                         let s = &self.states[i];
                         self.hw_z * (s.n_z as f64 + 0.5)
-                            + self.hw_perp * (2.0 * s.n_perp as f64 + s.lambda.unsigned_abs() as f64 + 1.0)
+                            + self.hw_perp
+                                * (2.0 * s.n_perp as f64 + s.lambda.unsigned_abs() as f64 + 1.0)
                     } else {
                         0.0
                     };
 
                     // Potential matrix element: <i|V|j> = integral psi_i * V * psi_j * dV
                     let v_ij = self.potential_matrix_element(
-                        &wavefunctions[i], &wavefunctions[j], v_potential
+                        &wavefunctions[i],
+                        &wavefunctions[j],
+                        v_potential,
                     );
 
                     let h_ij = t_ij + v_ij;
                     h.set(bi, bj, h_ij);
-                    if bi != bj { h.set(bj, bi, h_ij); }
+                    if bi != bj {
+                        h.set(bj, bi, h_ij);
+                    }
                 }
             }
 
             // Diagonalize this block
-            let eig = eigh_f64(&h.data, block_size).expect("eigh_f64 failed for deformed block");
+            let eig = eigh_f64(&h.data, block_size)
+                .expect("eigh_f64: eigendecomposition failed for deformed HFB block");
 
             for (bi, &eval) in eig.eigenvalues.iter().enumerate() {
                 let state_idx = block_indices[bi];
@@ -904,11 +946,12 @@ impl DeformedHFB {
         }
 
         // BCS occupations
-        block_eigs.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+        block_eigs.sort_by(|a, b| a.1.total_cmp(&b.1));
 
         let degs: Vec<f64> = (0..n_states).map(|_| 2.0).collect(); // time-reversal degeneracy
 
         if delta_pair > 1e-10 {
+            // Physics: BCS pairing threshold — below ~10 keV pairing negligible
             // BCS with pairing — use proper number-conserving Fermi energy
             let fermi = Self::find_fermi_bcs(&block_eigs, n_particles, delta_pair);
             for (state_idx, eval) in &block_eigs {
@@ -939,12 +982,10 @@ impl DeformedHFB {
     ///
     /// For BCS: N = sum_i deg_i * v²_i where v²_i = 0.5*(1 - eps_i/E_qp_i)
     /// eps_i = e_i - mu, E_qp_i = sqrt(eps_i² + Delta²)
-    fn find_fermi_bcs(
-        sorted_eigs: &[(usize, f64)],
-        n_particles: usize,
-        delta_pair: f64,
-    ) -> f64 {
-        if sorted_eigs.is_empty() { return 0.0; }
+    fn find_fermi_bcs(sorted_eigs: &[(usize, f64)], n_particles: usize, delta_pair: f64) -> f64 {
+        if sorted_eigs.is_empty() {
+            return 0.0;
+        }
 
         let n_target = n_particles as f64;
 
@@ -961,8 +1002,9 @@ impl DeformedHFB {
         };
 
         // Bisection bounds: mu must be between lowest and highest eigenvalue
-        let e_min = sorted_eigs.first().unwrap().1 - 50.0;
-        let e_max = sorted_eigs.last().unwrap().1 + 50.0;
+        // Safety: sorted_eigs is non-empty (empty check above returns 0.0)
+        let e_min = sorted_eigs[0].1 - 50.0;
+        let e_max = sorted_eigs[sorted_eigs.len() - 1].1 + 50.0;
         let mut mu_lo = e_min;
         let mut mu_hi = e_max;
 
@@ -975,19 +1017,17 @@ impl DeformedHFB {
             } else {
                 mu_hi = mu_mid;
             }
-            if (mu_hi - mu_lo) < 1e-10 { break; }
+            if (mu_hi - mu_lo) < 1e-10 {
+                // Physics: Fermi energy bisection — MeV-scale precision
+                break;
+            }
         }
 
         0.5 * (mu_lo + mu_hi)
     }
 
     /// Potential matrix element: <i|V|j> via numerical integration
-    fn potential_matrix_element(
-        &self,
-        psi_i: &[f64],
-        psi_j: &[f64],
-        v: &[f64],
-    ) -> f64 {
+    fn potential_matrix_element(&self, psi_i: &[f64], psi_j: &[f64], v: &[f64]) -> f64 {
         let mut integral = 0.0;
         for i_rho in 0..self.grid.n_rho {
             for i_z in 0..self.grid.n_z {
@@ -1010,11 +1050,12 @@ impl DeformedHFB {
         let mut rho_p = vec![0.0; n];
         let mut rho_n = vec![0.0; n];
 
-        for (i, s) in self.states.iter().enumerate() {
+        for (i, _s) in self.states.iter().enumerate() {
             let occ_proton = occ_p[i] * 2.0; // 2 for time-reversal degeneracy
             let occ_neutron = occ_n[i] * 2.0;
 
             if occ_proton > 1e-15 || occ_neutron > 1e-15 {
+                // Physics: numerical zero for occupation — below nuclear scale
                 for k in 0..n {
                     let psi2 = wavefunctions[i][k] * wavefunctions[i][k];
                     rho_p[k] += occ_proton * psi2;
@@ -1072,18 +1113,17 @@ impl DeformedHFB {
                 // Skyrme central EDF: Eq. (6) of Chabanat et al. (1998)
                 // H_0 = t0/4 * [(2+x0)*rho^2 - (2*x0+1)*(rho_p^2 + rho_n^2)]
                 // H_3 = t3/24 * rho^alpha * [(2+x3)*rho^2 - (2*x3+1)*(rho_p^2+rho_n^2)]
-                let h_0 = t0 / 4.0 * ((2.0 + x0) * rho * rho
-                    - (1.0 + 2.0 * x0) * (rp * rp + rn * rn));
-                let h_3 = t3 / 24.0 * rho.powf(alpha)
-                    * ((2.0 + x3) * rho * rho
-                       - (1.0 + 2.0 * x3) * (rp * rp + rn * rn));
+                let h_0 =
+                    t0 / 4.0 * ((2.0 + x0) * rho * rho - (1.0 + 2.0 * x0) * (rp * rp + rn * rn));
+                let h_3 = t3 / 24.0
+                    * rho.powf(alpha)
+                    * ((2.0 + x3) * rho * rho - (1.0 + 2.0 * x3) * (rp * rp + rn * rn));
 
                 e_central += (h_0 + h_3) * dv;
 
                 // Coulomb: Slater exchange approximation (no direct integral)
                 // E_Coulomb_exchange = -3/4 * e² * (3/pi)^(1/3) * integral rho_p^(4/3) dV
-                let coul_exch = -0.75 * E2 * (3.0 / PI).powf(1.0 / 3.0)
-                    * rp.max(0.0).powf(4.0 / 3.0);
+                let coul_exch = super::hfb_common::coulomb_exchange_energy_density(rp);
                 e_coul += coul_exch * dv;
             }
         }
@@ -1098,11 +1138,17 @@ impl DeformedHFB {
         // E_pair = -Delta² * G * N / 4, where G ~ 1/(A level density)
         let level_density = self.a as f64 / 28.0; // Rough: N_levels ~ A/28 near Fermi
         let e_pair_p = if self.delta_p > 1e-10 {
+            // Physics: pairing gap threshold — negligible below ~10 keV
             -self.delta_p * self.delta_p * level_density / 4.0
-        } else { 0.0 };
+        } else {
+            0.0
+        };
         let e_pair_n = if self.delta_n > 1e-10 {
+            // Physics: pairing gap threshold — negligible below ~10 keV
             -self.delta_n * self.delta_n * level_density / 4.0
-        } else { 0.0 };
+        } else {
+            0.0
+        };
 
         // ── Center of mass correction (1-body approximation) ──
         // E_CM = -<P²>/(2*m*A) ≈ -0.75 * hbar*omega_0
@@ -1150,33 +1196,12 @@ impl DeformedHFB {
                 sum_rho += rho_total[idx] * dv;
             }
         }
-        if sum_rho > 0.0 { (sum_r2 / sum_rho).sqrt() } else { 0.0 }
+        if sum_rho > 0.0 {
+            (sum_r2 / sum_rho).sqrt()
+        } else {
+            0.0
+        }
     }
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// Helper functions
-// ═══════════════════════════════════════════════════════════════════
-
-/// Hermite polynomial H_n(x) via recurrence
-fn hermite_value(n: usize, x: f64) -> f64 {
-    if n == 0 { return 1.0; }
-    if n == 1 { return 2.0 * x; }
-
-    let mut h_prev = 1.0;
-    let mut h_curr = 2.0 * x;
-    for k in 2..=n {
-        let h_next = 2.0 * x * h_curr - 2.0 * (k - 1) as f64 * h_prev;
-        h_prev = h_curr;
-        h_curr = h_next;
-    }
-    h_curr
-}
-
-/// Factorial for f64
-fn factorial_f64(n: usize) -> f64 {
-    if n <= 1 { return 1.0; }
-    (2..=n).fold(1.0, |acc, k| acc * k as f64)
 }
 
 /// Public API: L3 binding energy from deformed HFB
@@ -1189,6 +1214,7 @@ pub fn binding_energy_l3(z: usize, n: usize, params: &[f64]) -> (f64, bool, f64)
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::provenance::SLY4_PARAMS;
 
     #[test]
     fn test_hermite_values() {
@@ -1201,11 +1227,14 @@ mod tests {
     #[test]
     fn test_deformed_basis_count() {
         let solver = DeformedHFB::new_adaptive(8, 8); // O-16
-        // Should have states in multiple Omega blocks
+                                                      // Should have states in multiple Omega blocks
         assert!(solver.states.len() > 10);
         assert!(solver.omega_blocks.len() >= 2);
-        println!("O-16 deformed basis: {} states, {} Omega blocks",
-            solver.states.len(), solver.omega_blocks.len());
+        println!(
+            "O-16 deformed basis: {} states, {} Omega blocks",
+            solver.states.len(),
+            solver.omega_blocks.len()
+        );
     }
 
     #[test]
@@ -1219,14 +1248,37 @@ mod tests {
     }
 
     #[test]
+    fn test_basis_construction_determinism() {
+        // Basis construction (state enumeration, grid setup, Hermite/factorial)
+        // must be bitwise deterministic.
+        let build = || {
+            let s = DeformedHFB::new_adaptive(8, 8);
+            (
+                s.states.len(),
+                s.omega_blocks.clone(),
+                s.grid.n_rho,
+                s.grid.n_z,
+                s.hw_z.to_bits(),
+                s.hw_perp.to_bits(),
+            )
+        };
+        let a = build();
+        let b = build();
+        assert_eq!(a.0, b.0, "state count mismatch");
+        assert_eq!(a.1, b.1, "omega blocks mismatch");
+        assert_eq!(a.2, b.2, "grid n_rho mismatch");
+        assert_eq!(a.3, b.3, "grid n_z mismatch");
+        assert_eq!(a.4, b.4, "hw_z bitwise mismatch");
+        assert_eq!(a.5, b.5, "hw_perp bitwise mismatch");
+    }
+
+    #[test]
+    #[ignore = "Heavy computation (~30s+); run with: cargo test -- --ignored test_deformed_hfb_runs"]
     fn test_deformed_hfb_runs() {
-        // Just verify it doesn't crash
-        let sly4: [f64; 10] = [
-            -2488.91, 486.82, -546.39, 13777.0,
-            0.834, -0.344, -1.0, 1.354, 0.1667, 123.0,
-        ];
-        let (be, conv, beta2) = binding_energy_l3(8, 8, &sly4);
-        println!("O-16 deformed: B={:.2} MeV, conv={}, beta2={:.4}", be, conv, beta2);
+        // Just verify it doesn't crash; uses SLY4_PARAMS (provenance values match
+        // Chabanat 1998 — previously used truncated -2488.91 etc., equivalent for this test)
+        let (be, conv, beta2) = binding_energy_l3(8, 8, &SLY4_PARAMS);
+        println!("O-16 deformed: B={be:.2} MeV, conv={conv}, beta2={beta2:.4}");
         // O-16 is doubly magic, should be nearly spherical
         assert!(beta2.abs() < 0.5, "O-16 should be nearly spherical");
     }

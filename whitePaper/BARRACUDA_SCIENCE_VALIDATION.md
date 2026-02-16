@@ -1,6 +1,6 @@
 # BarraCUDA Science Validation — Phase B Results
 
-**Date**: February 15, 2026  
+**Date**: February 16, 2026  
 **Workload**: Nuclear Equation of State (Skyrme EDF) + Yukawa OCP Molecular Dynamics  
 **Reference**: Diaw et al. (2024), "Efficient learning of accurate surrogates for simulations of complex systems," *Nature Machine Intelligence*  
 **Hardware**: i9-12900K (24 threads), RTX 4070 (SHADER_F64 confirmed), 32 GB, Pop!_OS 22.04  
@@ -530,7 +530,44 @@ Above: GPU wins. Path to pure-GPU-faster-than-CPU: move H-build, BCS, density
 to WGSL shaders → GPU-resident SCF loop → ~40s (competitive with CPU) → larger
 basis → GPU surpasses CPU. See `experiments/005_L2_MEGABATCH_COMPLEXITY_BOUNDARY.md`.
 
-### 11.4 Reproduction
+### 11.4 BarraCUDA Pipeline Validation (Feb 16, 2026)
+
+End-to-end validation of BarraCUDA's abstracted Tensor/Op API against CPU f64
+references. This proves the ToadStool op layer produces correct physics through
+WGSL/wgpu/Vulkan — no raw shader dispatch needed.
+
+#### MD Pipeline (12/12 checks)
+
+Uses `YukawaForceF64`, `VelocityVerletKickDrift`, `VelocityVerletHalfKick`,
+`BerendsenThermostat`, and `KineticEnergy` from ToadStool. Simulates 108-particle
+Yukawa OCP (κ=2, Γ=158) for 500 steps.
+
+| Check | Result |
+|-------|--------|
+| Force magnitude error vs CPU | **1.86e-7** |
+| Kinetic energy error | **0.0** (exact match) |
+| Temperature error | **9.6e-16** (machine epsilon) |
+| Energy drift (300 production steps) | **0.0000%** |
+| Energy fluctuation | **6.27e-8** |
+
+#### HFB Pipeline (14/14 checks)
+
+Uses hotSpring's local `BcsBisectionGpu` (corrected WGSL shader) and ToadStool's
+`BatchedEighGpu`.
+
+| Check | Result |
+|-------|--------|
+| BCS chemical potential error (6 batches) | **6.2e-11** (vs CPU Brent) |
+| BCS occupation error | **5.1e-13** |
+| O-16 proton BCS particle number error | **0.019** |
+| Eigenvalue error (4×8×8 batch) | **2.4e-12** |
+| Eigenvector orthogonality | **3.1e-15** |
+
+**Bugs found**: Two ToadStool issues documented in handoff — WGSL reserved keyword
+in BCS shader and `WgpuDevice` not requesting SHADER_F64 during device creation.
+Both have exact one-line fixes.
+
+### 11.5 Reproduction
 
 ```bash
 # L1 Pareto sweep (full AME2020, ~11 min)
@@ -541,4 +578,10 @@ cargo run --release --bin nuclear_eos_l2_gpu -- --nuclei=full --phase1-only
 
 # L3 deformed (full AME2020, ~4.5 hrs)
 cargo run --release --bin nuclear_eos_l3_ref -- --nuclei=full --params=best_l2_42
+
+# BarraCUDA MD pipeline validation (requires SHADER_F64)
+cargo run --release --bin validate_barracuda_pipeline
+
+# BarraCUDA HFB pipeline validation (requires SHADER_F64)
+cargo run --release --bin validate_barracuda_hfb
 ```

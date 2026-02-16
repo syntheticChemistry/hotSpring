@@ -1,9 +1,15 @@
-//! Validate barracuda::optimize functions (BFGS, Nelder-Mead, RK45 ODE)
+// SPDX-License-Identifier: AGPL-3.0-only
+
+//! Validate `barracuda::optimize` functions (BFGS, Nelder-Mead, RK45 ODE)
 //!
 //! Tests classic optimization problems + ODE integration
 //! Reference: scipy.optimize, scipy.integrate
 
 use std::f64::consts::PI;
+
+use hotspring_barracuda::provenance;
+use hotspring_barracuda::tolerances;
+use hotspring_barracuda::validation::ValidationHarness;
 
 fn main() {
     println!("═══════════════════════════════════════════════════════════");
@@ -11,8 +17,7 @@ fn main() {
     println!("  Reference: scipy.optimize / scipy.integrate");
     println!("═══════════════════════════════════════════════════════════\n");
 
-    let mut total = 0;
-    let mut passed = 0;
+    let mut harness = ValidationHarness::new("optimizers_numerical");
 
     // ─── BFGS: Rosenbrock ─────────────────────────────────────────
     println!("── BFGS: Rosenbrock f(x) = (1-x₀)² + 100(x₁-x₀²)² ──");
@@ -33,12 +38,10 @@ fn main() {
 
         match barracuda::optimize::bfgs::bfgs(&f, &grad, &[-1.0, 1.0], &config) {
             Ok(result) => {
-                total += 1;
-                if result.converged
-                    && (result.x[0] - 1.0).abs() < 1e-4
-                    && (result.x[1] - 1.0).abs() < 1e-4
-                {
-                    passed += 1;
+                let ok = result.converged
+                    && (result.x[0] - 1.0).abs() < tolerances::BFGS_TOLERANCE
+                    && (result.x[1] - 1.0).abs() < tolerances::BFGS_TOLERANCE;
+                if ok {
                     println!(
                         "  ✅ Converged to ({:.6}, {:.6}) in {} iters, {} fevals",
                         result.x[0], result.x[1], result.n_iter, result.n_feval
@@ -49,10 +52,11 @@ fn main() {
                         result.x[0], result.x[1], result.converged
                     );
                 }
+                harness.check_bool("BFGS Rosenbrock → (1,1)", ok);
             }
             Err(e) => {
-                total += 1;
-                println!("  ❌ BFGS failed: {}", e);
+                println!("  ❌ BFGS failed: {e}");
+                harness.check_bool("BFGS Rosenbrock", false);
             }
         }
     }
@@ -62,26 +66,26 @@ fn main() {
     {
         let n = 5;
         let f = |x: &[f64]| -> f64 { x.iter().map(|xi| xi * xi).sum() };
-        let x0: Vec<f64> = (0..n).map(|i| (i + 1) as f64).collect();
+        let x0: Vec<f64> = (0..n).map(|i| f64::from(i + 1)).collect();
 
         let config = barracuda::optimize::bfgs::BfgsConfig::default();
         match barracuda::optimize::bfgs::bfgs_numerical(&f, &x0, &config) {
             Ok(result) => {
-                total += 1;
                 let max_err = result.x.iter().map(|xi| xi.abs()).fold(0.0_f64, f64::max);
-                if result.converged && max_err < 1e-4 {
-                    passed += 1;
+                let ok = result.converged && max_err < tolerances::BFGS_TOLERANCE;
+                if ok {
                     println!(
                         "  ✅ 5D sphere: converged, max |xᵢ| = {:.2e}, {} fevals",
                         max_err, result.n_feval
                     );
                 } else {
-                    println!("  ❌ 5D sphere: max |xᵢ| = {:.2e}", max_err);
+                    println!("  ❌ 5D sphere: max |xᵢ| = {max_err:.2e}");
                 }
+                harness.check_bool("BFGS numerical 5D sphere", ok);
             }
             Err(e) => {
-                total += 1;
-                println!("  ❌ BFGS numerical failed: {}", e);
+                println!("  ❌ BFGS numerical failed: {e}");
+                harness.check_bool("BFGS numerical 5D sphere", false);
             }
         }
     }
@@ -95,9 +99,8 @@ fn main() {
 
         match barracuda::optimize::nelder_mead(f, &x0, &bounds, 5000, 1e-10) {
             Ok((x, fval, n_eval)) => {
-                total += 1;
-                if (x[0] - 1.0).abs() < 0.1 && (x[1] - 1.0).abs() < 0.1 {
-                    passed += 1;
+                let ok = (x[0] - 1.0).abs() < 0.1 && (x[1] - 1.0).abs() < 0.1;
+                if ok {
                     println!(
                         "  ✅ NM Rosenbrock: ({:.4}, {:.4}), f={:.6}, {} evals",
                         x[0], x[1], fval, n_eval
@@ -108,10 +111,11 @@ fn main() {
                         x[0], x[1], fval
                     );
                 }
+                harness.check_bool("NM Rosenbrock", ok);
             }
             Err(e) => {
-                total += 1;
-                println!("  ❌ NM failed: {}", e);
+                println!("  ❌ NM failed: {e}");
+                harness.check_bool("NM Rosenbrock", false);
             }
         }
     }
@@ -130,9 +134,8 @@ fn main() {
         let bounds = vec![(-5.0, 5.0), (-5.0, 5.0)];
         match barracuda::optimize::multi_start_nelder_mead(ackley, &bounds, 8, 500, 1e-8, 42) {
             Ok((best, _cache, _all)) => {
-                total += 1;
-                if best.f_best < 1.0 {
-                    passed += 1;
+                let ok = best.f_best < 1.0;
+                if ok {
                     println!(
                         "  ✅ Ackley: best f = {:.6} at ({:.4}, {:.4})",
                         best.f_best, best.x_best[0], best.x_best[1]
@@ -140,10 +143,11 @@ fn main() {
                 } else {
                     println!("  ❌ Ackley: best f = {:.6}", best.f_best);
                 }
+                harness.check_bool("Multi-start NM Ackley", ok);
             }
             Err(e) => {
-                total += 1;
-                println!("  ❌ Multi-start NM failed: {}", e);
+                println!("  ❌ Multi-start NM failed: {e}");
+                harness.check_bool("Multi-start NM Ackley", false);
             }
         }
     }
@@ -154,17 +158,21 @@ fn main() {
         let f = |x: f64| x * x - 2.0;
         match barracuda::optimize::bisect(f, 1.0, 2.0, 1e-12, 100) {
             Ok(root) => {
-                total += 1;
-                if (root - std::f64::consts::SQRT_2).abs() < 1e-10 {
-                    passed += 1;
-                    println!("  ✅ √2 = {:.14}", root);
+                let ok = (root - std::f64::consts::SQRT_2).abs() < 1e-10;
+                if ok {
+                    println!("  ✅ √2 = {root:.14}");
                 } else {
-                    println!("  ❌ Got {:.14}, expected {:.14}", root, std::f64::consts::SQRT_2);
+                    println!(
+                        "  ❌ Got {:.14}, expected {:.14}",
+                        root,
+                        std::f64::consts::SQRT_2
+                    );
                 }
+                harness.check_bool("Bisection sqrt(2)", ok);
             }
             Err(e) => {
-                total += 1;
-                println!("  ❌ Bisect failed: {}", e);
+                println!("  ❌ Bisect failed: {e}");
+                harness.check_bool("Bisection sqrt(2)", false);
             }
         }
     }
@@ -179,9 +187,8 @@ fn main() {
             Ok(result) => {
                 let expected = (-2.0_f64).exp();
                 let err = (result.y_final[0] - expected).abs();
-                total += 1;
-                if err < 1e-6 {
-                    passed += 1;
+                let ok = err < 1e-6;
+                if ok {
                     println!(
                         "  ✅ y(2) = {:.10} (expected {:.10}), {} steps",
                         result.y_final[0], expected, result.n_steps
@@ -192,10 +199,11 @@ fn main() {
                         result.y_final[0], expected, err
                     );
                 }
+                harness.check_bool("RK45 exp decay", ok);
             }
             Err(e) => {
-                total += 1;
-                println!("  ❌ RK45 exp decay failed: {}", e);
+                println!("  ❌ RK45 exp decay failed: {e}");
+                harness.check_bool("RK45 exp decay", false);
             }
         }
     }
@@ -207,20 +215,13 @@ fn main() {
         let f = |_t: f64, y: &[f64]| vec![y[1], -y[0]];
         let config = barracuda::numerical::rk45::Rk45Config::new(1e-8, 1e-10);
 
-        match barracuda::numerical::rk45::rk45_solve(
-            &f,
-            0.0,
-            2.0 * PI,
-            &[1.0, 0.0],
-            &config,
-        ) {
+        match barracuda::numerical::rk45::rk45_solve(&f, 0.0, 2.0 * PI, &[1.0, 0.0], &config) {
             Ok(result) => {
                 // After one full period: x(2π) = cos(2π) = 1, v(2π) = -sin(2π) = 0
                 let x_err = (result.y_final[0] - 1.0).abs();
                 let v_err = result.y_final[1].abs();
-                total += 1;
-                if x_err < 1e-5 && v_err < 1e-5 {
-                    passed += 1;
+                let ok = x_err < 1e-5 && v_err < 1e-5;
+                if ok {
                     println!(
                         "  ✅ x(2π)={:.8}, v(2π)={:.8} ({} steps, {} rejected)",
                         result.y_final[0], result.y_final[1], result.n_steps, result.n_rejected
@@ -231,10 +232,11 @@ fn main() {
                         result.y_final[0], result.y_final[1]
                     );
                 }
+                harness.check_bool("RK45 harmonic oscillator", ok);
             }
             Err(e) => {
-                total += 1;
-                println!("  ❌ RK45 harmonic oscillator failed: {}", e);
+                println!("  ❌ RK45 harmonic oscillator failed: {e}");
+                harness.check_bool("RK45 harmonic oscillator", false);
             }
         }
     }
@@ -253,19 +255,16 @@ fn main() {
                 delta * y[0] * y[1] - gamma_lv * y[1],
             ]
         };
-        let config = barracuda::numerical::rk45::Rk45Config::new(1e-6, 1e-8)
-            .with_step_bounds(1e-8, 1.0);
+        let config =
+            barracuda::numerical::rk45::Rk45Config::new(1e-6, 1e-8).with_step_bounds(1e-8, 1.0);
 
         match barracuda::numerical::rk45::rk45_solve(&f, 0.0, 10.0, &[10.0, 5.0], &config) {
             Ok(result) => {
-                total += 1;
-                // Both populations should remain positive
-                if result.y_final[0] > 0.0
+                let ok = result.y_final[0] > 0.0
                     && result.y_final[1] > 0.0
                     && result.y_final[0] < 1e6
-                    && result.y_final[1] < 1e6
-                {
-                    passed += 1;
+                    && result.y_final[1] < 1e6;
+                if ok {
                     println!(
                         "  ✅ Prey={:.4}, Pred={:.4} at t=10 ({} steps)",
                         result.y_final[0], result.y_final[1], result.n_steps
@@ -276,10 +275,11 @@ fn main() {
                         result.y_final[0], result.y_final[1]
                     );
                 }
+                harness.check_bool("RK45 Lotka-Volterra", ok);
             }
             Err(e) => {
-                total += 1;
-                println!("  ❌ RK45 Lotka-Volterra failed: {}", e);
+                println!("  ❌ RK45 Lotka-Volterra failed: {e}");
+                harness.check_bool("RK45 Lotka-Volterra", false);
             }
         }
     }
@@ -312,10 +312,9 @@ fn main() {
                 let mid_idx = nx / 2;
                 let expected = (-PI * PI * t_final).exp(); // sin(π/2) = 1
 
-                total += 1;
                 let err = (sol[mid_idx] - expected).abs();
-                if err < 0.05 {
-                    passed += 1;
+                let ok = err < 0.05;
+                if ok {
                     println!(
                         "  ✅ u(0.5, {:.1}) = {:.6} (analytical {:.6}), err={:.2e}",
                         t_final, sol[mid_idx], expected, err
@@ -326,6 +325,7 @@ fn main() {
                         t_final, sol[mid_idx], expected, err
                     );
                 }
+                harness.check_bool("Crank-Nicolson midpoint", ok);
 
                 // Test stability: should not oscillate
                 // The true solution is smooth, so minor boundary effects are ok
@@ -339,26 +339,20 @@ fn main() {
                         central_oscillations += 1;
                     }
                 }
-                total += 1;
+                let stable_ok = central_oscillations <= 1;
                 if central_oscillations == 0 {
-                    passed += 1;
                     println!("  ✅ No spurious oscillations (stable)");
+                } else if central_oscillations <= 1 {
+                    println!("  ✅ {central_oscillations} minor oscillation (acceptable at peak)");
                 } else {
-                    // Only 1 oscillation at the peak is fine
-                    if central_oscillations <= 1 {
-                        passed += 1;
-                        println!(
-                            "  ✅ {} minor oscillation (acceptable at peak)",
-                            central_oscillations
-                        );
-                    } else {
-                        println!("  ❌ {} central oscillations detected", central_oscillations);
-                    }
+                    println!("  ❌ {central_oscillations} central oscillations detected");
                 }
+                harness.check_bool("Crank-Nicolson stability", stable_ok);
             }
             Err(e) => {
-                total += 2;
-                println!("  ❌ CN solver failed: {}", e);
+                println!("  ❌ CN solver failed: {e}");
+                harness.check_bool("Crank-Nicolson midpoint", false);
+                harness.check_bool("Crank-Nicolson stability", false);
             }
         }
     }
@@ -377,16 +371,13 @@ fn main() {
         for (x, expected, desc) in &cdf_tests {
             let got = barracuda::stats::norm_cdf(*x);
             let err = (got - expected).abs();
-            total += 1;
-            if err < 1e-4 {
-                passed += 1;
-                println!("  ✅ {} | {:.8} (expected {:.8})", desc, got, expected);
+            let ok = err < 1e-4;
+            if ok {
+                println!("  ✅ {desc} | {got:.8} (expected {expected:.8})");
             } else {
-                println!(
-                    "  ❌ {} | {:.8} (expected {:.8}), err={:.2e}",
-                    desc, got, expected, err
-                );
+                println!("  ❌ {desc} | {got:.8} (expected {expected:.8}), err={err:.2e}");
             }
+            harness.check_bool(desc, ok);
         }
 
         // Normal PPF (inverse CDF)
@@ -399,16 +390,13 @@ fn main() {
         for (p, expected, desc) in &ppf_tests {
             let got = barracuda::stats::norm_ppf(*p);
             let err = (got - expected).abs();
-            total += 1;
-            if err < 1e-3 {
-                passed += 1;
-                println!("  ✅ {} | {:.6} (expected {:.6})", desc, got, expected);
+            let ok = err < 1e-3;
+            if ok {
+                println!("  ✅ {desc} | {got:.6} (expected {expected:.6})");
             } else {
-                println!(
-                    "  ❌ {} | {:.6} (expected {:.6}), err={:.2e}",
-                    desc, got, expected, err
-                );
+                println!("  ❌ {desc} | {got:.6} (expected {expected:.6}), err={err:.2e}");
             }
+            harness.check_bool(desc, ok);
         }
     }
     println!();
@@ -421,15 +409,18 @@ fn main() {
         let y = vec![2.0, 4.0, 6.0, 8.0, 10.0];
         match barracuda::stats::pearson_correlation(&x, &y) {
             Ok(r) => {
-                total += 1;
-                if (r - 1.0).abs() < 1e-10 {
-                    passed += 1;
-                    println!("  ✅ Perfect positive: r = {:.10}", r);
+                let ok = (r - 1.0).abs() < 1e-10;
+                if ok {
+                    println!("  ✅ Perfect positive: r = {r:.10}");
                 } else {
-                    println!("  ❌ Perfect positive: r = {:.10} (expected 1.0)", r);
+                    println!("  ❌ Perfect positive: r = {r:.10} (expected 1.0)");
                 }
+                harness.check_bool("Pearson perfect positive", ok);
             }
-            Err(e) => { total += 1; println!("  ❌ pearson_correlation failed: {}", e); }
+            Err(e) => {
+                println!("  ❌ pearson_correlation failed: {e}");
+                harness.check_bool("Pearson perfect positive", false);
+            }
         }
 
         // Zero correlation (orthogonal)
@@ -437,15 +428,18 @@ fn main() {
         let y2 = vec![0.0, 1.0, 0.0, -1.0];
         match barracuda::stats::pearson_correlation(&x2, &y2) {
             Ok(r2) => {
-                total += 1;
-                if r2.abs() < 1e-10 {
-                    passed += 1;
-                    println!("  ✅ Orthogonal: r = {:.10}", r2);
+                let ok = r2.abs() < 1e-10;
+                if ok {
+                    println!("  ✅ Orthogonal: r = {r2:.10}");
                 } else {
-                    println!("  ❌ Orthogonal: r = {:.10} (expected 0.0)", r2);
+                    println!("  ❌ Orthogonal: r = {r2:.10} (expected 0.0)");
                 }
+                harness.check_bool("Pearson orthogonal", ok);
             }
-            Err(e) => { total += 1; println!("  ❌ pearson_correlation failed: {}", e); }
+            Err(e) => {
+                println!("  ❌ pearson_correlation failed: {e}");
+                harness.check_bool("Pearson orthogonal", false);
+            }
         }
     }
     println!();
@@ -455,13 +449,12 @@ fn main() {
     {
         match barracuda::sample::sobol::sobol_sequence(100, 3) {
             Ok(points) => {
-                total += 1;
                 // All points should be in [0, 1]
                 let all_in_unit = points
                     .iter()
-                    .all(|p| p.iter().all(|&v| v >= 0.0 && v <= 1.0));
-                if all_in_unit && points.len() == 100 && points[0].len() == 3 {
-                    passed += 1;
+                    .all(|p| p.iter().all(|&v| (0.0..=1.0).contains(&v)));
+                let ok = all_in_unit && points.len() == 100 && points[0].len() == 3;
+                if ok {
                     println!(
                         "  ✅ 100 points in 3D, all in [0,1]³, first: ({:.4}, {:.4}, {:.4})",
                         points[0][0], points[0][1], points[0][2]
@@ -477,40 +470,33 @@ fn main() {
                         }
                     );
                 }
+                harness.check_bool("Sobol in-unit", ok);
 
                 // Check uniformity: mean should ≈ 0.5 for each dimension
-                total += 1;
                 let mut means_ok = true;
                 for d in 0..3 {
-                    let mean: f64 =
-                        points.iter().map(|p| p[d]).sum::<f64>() / points.len() as f64;
+                    let mean: f64 = points.iter().map(|p| p[d]).sum::<f64>() / points.len() as f64;
                     if (mean - 0.5).abs() > 0.1 {
                         means_ok = false;
                     }
                 }
                 if means_ok {
-                    passed += 1;
                     println!("  ✅ Sobol mean ≈ 0.5 per dimension (good uniformity)");
                 } else {
                     println!("  ❌ Sobol mean deviates from 0.5");
                 }
+                harness.check_bool("Sobol uniformity", means_ok);
             }
             Err(e) => {
-                total += 2;
-                println!("  ❌ Sobol generation failed: {}", e);
+                println!("  ❌ Sobol generation failed: {e}");
+                harness.check_bool("Sobol in-unit", false);
+                harness.check_bool("Sobol uniformity", false);
             }
         }
     }
     println!();
 
-    // ─── Summary ──────────────────────────────────────────────────
-    println!("═══════════════════════════════════════════════════════════");
-    println!("  Optimizers & Numerical: {}/{} passed", passed, total);
-    if passed == total {
-        println!("  ✅ ALL TESTS PASSED");
-    } else {
-        println!("  ❌ {} FAILURES", total - passed);
-    }
-    println!("═══════════════════════════════════════════════════════════");
+    // ─── Summary (with exit code) ──────────────────────────────────
+    println!("\n  Reference: {}", provenance::OPTIMIZER_REFS);
+    harness.finish();
 }
-

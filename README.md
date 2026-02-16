@@ -30,7 +30,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 
 ---
 
-## Current Status (2026-02-15)
+## Current Status (2026-02-16)
 
 | Study | Status | Quantitative Checks |
 |-------|--------|-------------------|
@@ -46,7 +46,10 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **N-Scaling + Native f64** (5 N values) | ✅ Complete | 16/16 pass (500→20k, 0.000% drift) |
 | **Paper-Parity Long Run** (9 cases, 80k steps) | ✅ **Complete** | **9/9 pass** (N=10k, 0.000-0.002% drift, 3.66 hrs, $0.044) |
 | **Toadstool Rewire** (3 GPU ops) | ✅ Complete | BatchedEighGpu, SsfGpu, PppmGpu wired |
-| **TOTAL** | **160/160 checks pass** | 5 upstream bugs found and fixed |
+| **Nuclear EOS Full-Scale** (Phase F, AME2020) | ✅ Complete | **9/9 pass** (L1 Pareto, L2 GPU 2042 nuclei, L3 deformed) |
+| **BarraCUDA MD Pipeline** (6 ops) | ✅ Complete | **12/12 pass** (YukawaF64, VV, Berendsen, KE — 0.000% drift) |
+| **BarraCUDA HFB Pipeline** (3 ops) | ✅ Complete | **14/14 pass** (BCS GPU 6.2e-11, Eigh 2.4e-12) |
+| **TOTAL** | **195/195 checks pass** | 6 upstream bugs found (5 patched, 1 resolved by version pinning) |
 
 See `CONTROL_EXPERIMENT_STATUS.md` for full details.
 
@@ -227,6 +230,62 @@ No streamlining — this is the correct architecture.
 
 ---
 
+## BarraCUDA Crate (v0.5.5)
+
+The `barracuda/` directory is a standalone Rust crate providing the validation
+environment, physics implementations, and GPU compute. Key architectural properties:
+
+- **182 unit tests** (5 ignored GPU/slow tests), plus **26 GPU pipeline checks**
+  via `validate_barracuda_pipeline` (12/12) and `validate_barracuda_hfb` (14/14).
+  Test coverage: 39% line / 57% function (CPU-testable modules average >90%;
+  GPU modules require hardware). Measured with `cargo-llvm-cov`.
+- **AGPL-3.0 only** — all 51 `.rs` files have `SPDX-License-Identifier: AGPL-3.0-only`.
+- **Provenance** — centralized `BaselineProvenance` records trace hardcoded
+  validation values to their Python origins (script path, git commit, date,
+  exact command). All nuclear EOS binaries and library test modules source
+  constants from `provenance::SLY4_PARAMS`, `NMP_TARGETS`, `L1_PYTHON_CHI2`,
+  etc. DOIs for AME2020, Chabanat 1998, Kortelainen 2010, Bender 2003,
+  Lattimer & Prakash 2016 are documented in `provenance.rs`.
+- **Tolerances** — 23 centralized constants in `tolerances.rs` with physical
+  justification (machine precision, numerical method, model, literature).
+  Zero inline magic numbers in validation binaries.
+- **ValidationHarness** — structured pass/fail tracking with exit code 0/1.
+  12 of 20 binaries use it (validation targets). Remaining 8 are optimization
+  explorers and diagnostics.
+- **Shared data loading** — `data::EosContext` and `data::load_eos_context()`
+  eliminate duplicated path construction across all nuclear EOS binaries.
+  `data::chi2_per_datum()` centralizes χ² computation with `tolerances::sigma_theo`.
+- **Typed errors** — `HotSpringError` enum with `Result` propagation in GPU
+  and simulation APIs. Zero `unwrap()` in library production code. Validation
+  binaries use `.expect()` with descriptive messages.
+- **Shared physics** — `hfb_common.rs` consolidates BCS v², Coulomb exchange
+  (Slater), CM correction, Skyrme t₀, Hermite polynomials, and Mat type.
+  Shared across spherical, deformed, and GPU HFB solvers.
+- **GPU helpers centralized** — `GpuF64` provides `upload_f64`, `read_back_f64`,
+  `dispatch`, `create_bind_group`, `create_u32_buffer` methods. No duplicate
+  GPU helpers across binaries.
+- **Zero duplicate math** — all linear algebra, quadrature, optimization,
+  sampling, special functions, and statistics use BarraCUDA primitives.
+- **Capability-based discovery** — GPU backend, power preference, and adapter
+  fallback configured via environment variables. Buffer limits derived from
+  `adapter.limits()`, not hardcoded. Data paths resolved via `HOTSPRING_DATA_ROOT`
+  or directory discovery.
+- **NaN-safe** — all float sorting uses `f64::total_cmp()`.
+- **Zero external commands** — pure-Rust ISO 8601 timestamps (Hinnant algorithm),
+  no `date` shell-out. `nvidia-smi` calls degrade gracefully.
+- **No unsafe code** — zero `unsafe` blocks in the entire crate.
+
+```bash
+cd barracuda
+cargo test               # 182 tests pass (< 1 second)
+cargo clippy --all-targets  # Clean — 0 warnings (pedantic via workspace lints)
+cargo doc --no-deps      # Full API documentation — 0 warnings
+```
+
+See [`barracuda/CHANGELOG.md`](barracuda/CHANGELOG.md) for version history.
+
+---
+
 ## Quick Start
 
 ```bash
@@ -282,8 +341,10 @@ Upstream repos are pinned to specific versions and automatically patched:
 hotSpring/
 ├── README.md                           # This file
 ├── PHYSICS.md                          # Complete physics documentation (equations + references)
-├── CONTROL_EXPERIMENT_STATUS.md        # Comprehensive status + results (160/160)
+├── CONTROL_EXPERIMENT_STATUS.md        # Comprehensive status + results (195/195)
 ├── NUCLEAR_EOS_STRATEGY.md             # Nuclear EOS Phase A→B strategy
+├── HANDOFF_HOTSPRING_TO_TOADSTOOL_FEB_12_2026.md # Cross-project handoff v1 (GPU-resident HFB)
+├── HANDOFF_HOTSPRING_TO_TOADSTOOL_FEB_16_2026.md # Comprehensive handoff v2 (195 checks, bugs, lessons)
 ├── LICENSE                             # AGPL-3.0
 ├── .gitignore
 │
@@ -294,25 +355,69 @@ hotSpring/
 │   ├── CONTROL_EXPERIMENT_SUMMARY.md  # Phase A quick reference
 │   └── METHODOLOGY.md                # Two-phase validation protocol
 │
-├── barracuda/                          # BarraCUDA Rust crate (validation binaries)
+├── barracuda/                          # BarraCUDA Rust crate — v0.5.5 (182 tests)
 │   ├── Cargo.toml                     # Dependencies (requires ecoPrimals/phase1/toadstool)
+│   ├── CHANGELOG.md                   # Version history — baselines, tolerances, evolution
+│   ├── EVOLUTION_READINESS.md         # Rust module → WGSL shader → GPU promotion tier mapping
+│   ├── clippy.toml                    # Clippy thresholds (physics-justified)
 │   └── src/
-│       ├── bench.rs                   # Benchmark harness (time + energy + hardware)
-│       ├── gpu.rs                     # GPU device wrapper (wgpu SHADER_F64)
-│       ├── physics/                   # L1/L2/L3 physics implementations
-│       ├── md/                        # GPU Molecular Dynamics
-│       │   ├── shaders.rs             # f64 WGSL kernels (native builtins)
-│       │   ├── simulation.rs          # MD loop + shader compilation
+│       ├── lib.rs                     # Crate root — module declarations + architecture docs
+│       ├── error.rs                   # Typed errors (HotSpringError: NoAdapter, NoShaderF64, …)
+│       ├── provenance.rs              # Python baseline metadata (script, commit, date, command)
+│       ├── tolerances.rs              # 23 centralized thresholds with physical justification
+│       ├── validation.rs              # Pass/fail harness — structured checks, exit code 0/1
+│       ├── discovery.rs               # Capability-based data path resolution (env var / CWD)
+│       ├── data.rs                    # AME2020 data + Skyrme bounds + EosContext + chi2_per_datum
+│       ├── prescreen.rs               # NMP cascade filter (algebraic → L1 proxy → classifier)
+│       ├── bench.rs                   # Benchmark harness (RAPL, nvidia-smi, JSON reports)
+│       ├── gpu.rs                     # GPU FP64 device wrapper (SHADER_F64 via wgpu/Vulkan)
+│       │
+│       ├── physics/                   # Nuclear structure — L1/L2/L3 implementations
+│       │   ├── constants.rs           # CODATA 2018 physical constants
+│       │   ├── semf.rs                # Semi-empirical mass formula (Bethe-Weizsäcker + Skyrme)
+│       │   ├── nuclear_matter.rs      # Infinite nuclear matter properties (ρ₀, E/A, K∞, m*/m, J)
+│       │   ├── hfb_common.rs          # Shared HFB: Mat, BCS v², Coulomb exchange, Hermite, factorial
+│       │   ├── bcs_gpu.rs             # Local GPU BCS bisection (corrected WGSL shader)
+│       │   ├── hfb.rs                 # Spherical HFB solver (L2)
+│       │   ├── hfb_deformed.rs        # Axially-deformed HFB solver (L3, CPU)
+│       │   ├── hfb_deformed_gpu.rs    # Deformed HFB with GPU eigensolves (L3)
+│       │   ├── hfb_gpu.rs             # GPU-batched HFB (BatchedEighGpu)
+│       │   ├── hfb_gpu_resident.rs    # GPU-resident HFB prototype
+│       │   └── shaders/               # f64 WGSL physics kernels (13 shaders)
+│       │
+│       ├── md/                        # GPU Molecular Dynamics (Yukawa OCP)
+│       │   ├── config.rs              # Simulation configuration (reduced units)
+│       │   ├── shaders.rs             # Shader constants (include_str! + 3 small inline)
+│       │   ├── shaders/               # f64 WGSL production kernels (5 files)
+│       │   ├── simulation.rs          # GPU MD loop (all-pairs + cell-list)
+│       │   ├── cpu_reference.rs       # CPU reference implementation (FCC, Verlet)
+│       │   ├── observables.rs         # Energy, RDF, VACF, SSF computation
 │       │   └── shaders_toadstool_ref/ # ToadStool shader snapshots (divergence tracking)
-│       └── bin/                       # Validation binaries
-│           ├── nuclear_eos_l1_ref.rs  # L1 validation pipeline
-│           ├── nuclear_eos_l2_ref.rs  # L2 validation pipeline (evolved)
+│       │
+│       ├── archive/                   # Historical implementations (stats, surrogate, L1/L2)
+│       │
+│       └── bin/                       # 20 binaries (exit 0 = pass, 1 = fail)
+│           ├── validate_all.rs        # Meta-validator: runs all validation suites
+│           ├── validate_nuclear_eos.rs # L1 SEMF + L2 HFB + NMP validation harness
+│           ├── validate_barracuda_pipeline.rs # Full MD pipeline (12/12 checks)
+│           ├── validate_barracuda_hfb.rs # BCS + eigensolve pipeline (14/14 checks)
+│           ├── validate_md.rs         # CPU MD reference validation
+│           ├── validate_pppm.rs       # PppmGpu κ=0 Coulomb validation
+│           ├── validate_special_functions.rs # Gamma, Bessel, erf, Hermite, …
+│           ├── validate_linalg.rs     # LU, QR, SVD, tridiagonal solver
+│           ├── validate_optimizers.rs # BFGS, Nelder-Mead, RK45, stats
+│           ├── verify_hfb.rs          # HFB physics verification (Rust vs Python)
+│           ├── nuclear_eos_l1_ref.rs  # L1 SEMF optimization pipeline
+│           ├── nuclear_eos_l2_ref.rs  # L2 HFB hybrid optimization
 │           ├── nuclear_eos_l2_gpu.rs  # L2 GPU-batched HFB (BatchedEighGpu)
-│           ├── nuclear_eos_l3_ref.rs  # L3 deformed HFB (architecture)
+│           ├── nuclear_eos_l2_hetero.rs # L2 heterogeneous cascade pipeline
+│           ├── nuclear_eos_l3_ref.rs  # L3 deformed HFB (CPU Rayon)
+│           ├── nuclear_eos_l3_gpu.rs  # L3 deformed HFB (GPU-resident)
 │           ├── nuclear_eos_gpu.rs     # GPU FP64 validation + energy profiling
 │           ├── sarkas_gpu.rs          # GPU Yukawa MD (9 PP cases, f64 WGSL)
-│           ├── validate_pppm.rs       # PppmGpu κ=0 Coulomb validation
-│           └── f64_builtin_test.rs    # Native vs software f64 validation
+│           ├── celllist_diag.rs       # Cell-list vs all-pairs force diagnostic
+│           ├── f64_builtin_test.rs    # Native vs software f64 validation
+│           └── shaders/               # Extracted WGSL diagnostic shaders (8 files)
 │
 ├── control/
 │   ├── comprehensive_control_results.json  # Grand total: 86/86 checks
@@ -358,11 +463,14 @@ hotSpring/
 ├── experiments/                         # Experiment journals (the "why" behind the data)
 │   ├── 001_N_SCALING_GPU.md            # N-scaling (500→20k) + native f64 builtins
 │   ├── 002_CELLLIST_FORCE_DIAGNOSTIC.md # Cell-list i32 modulo bug diagnosis + fix
-│   └── 003_RTX4070_CAPABILITY_PROFILE.md # RTX 4070 capability profile (paper-parity COMPLETE)
+│   ├── 003_RTX4070_CAPABILITY_PROFILE.md # RTX 4070 capability profile (paper-parity COMPLETE)
+│   ├── 004_GPU_DISPATCH_OVERHEAD_L3.md  # L3 deformed HFB GPU dispatch profiling
+│   └── 005_L2_MEGABATCH_COMPLEXITY_BOUNDARY.md # L2 mega-batch GPU complexity analysis
 │
 ├── wateringHole/                       # Cross-project handoffs
 │   └── handoffs/
-│       └── TOADSTOOL_CELLLIST_BUG_ALERT.md  # Cell-list bug alert for toadstool team
+│       ├── TOADSTOOL_CELLLIST_BUG_ALERT.md       # Cell-list bug alert for toadstool team
+│       └── TOADSTOOL_EVOLUTION_REVIEW_FEB14_2026.md # Pull review + next evolution targets
 │
 ├── benchmarks/
 │   ├── PROTOCOL.md                     # Cross-gate benchmark protocol (time + energy)
@@ -442,6 +550,7 @@ Run the UCLA-MSU TTM for laser-plasma equilibration in cylindrical coordinates.
 | 3 | Numba 0.60 `@jit` → `nopython=True` breaks pyfftw | `sarkas/potentials/force_pm.py` | PPPM method crashes |
 | 4 | Thomas-Fermi `χ₁=NaN` poisons recombination | TTM `exp_setup.py` | Zbar solver diverges |
 | 5 | DSF reference file naming (case sensitivity) | Plasma Properties DB | Validation script fails |
+| 6 | Multithreaded dump corruption (v1.1.0) | Sarkas `4b561baa` | All `.npz` checkpoints NaN from step ~10 (resolved by pinning to v1.0.0) |
 
 These are **silent failures** — wrong results, no error messages. This fragility is a core finding.
 
@@ -449,7 +558,7 @@ These are **silent failures** — wrong results, no error messages. This fragili
 
 ## Hardware
 
-- **Eastgate (primary dev)**: i9-12900K, RTX 4070 (12GB, SHADER_F64 confirmed), Akida AKD1000 NPU, 64 GB DDR5. All development and validation.
+- **Eastgate (primary dev)**: i9-12900K, RTX 4070 (12GB, SHADER_F64 confirmed), Akida AKD1000 NPU, 32 GB DDR5. All development and validation.
   - RTX 4070: fp64:fp32 throughput = **~1:2 via wgpu/Vulkan** (not 1:64 as CUDA reports). 998 steps/s at N=500, paper parity at N=10,000 in 5.3 min.
   - VRAM headroom: <600 MB used at N=20,000 — estimated **N≈400,000** before VRAM limits.
 - **Titan V ×2 (on order)**: GV100, 12GB HBM2, 6.9 TFLOPS FP64 each. Expected 1:1 fp64:fp32 (native fp64 silicon). Will enable L3 deformed HFB and large-N sweeps.
@@ -464,8 +573,10 @@ These are **silent failures** — wrong results, no error messages. This fragili
 | Document | Purpose |
 |----------|---------|
 | [`PHYSICS.md`](PHYSICS.md) | Complete physics documentation — every equation, constant, approximation with numbered references |
-| [`CONTROL_EXPERIMENT_STATUS.md`](CONTROL_EXPERIMENT_STATUS.md) | Full status with numbers, 160/160 checks, evolution history |
+| [`CONTROL_EXPERIMENT_STATUS.md`](CONTROL_EXPERIMENT_STATUS.md) | Full status with numbers, 195/195 checks, evolution history |
 | [`NUCLEAR_EOS_STRATEGY.md`](NUCLEAR_EOS_STRATEGY.md) | Strategic plan: Python control → BarraCUDA proof |
+| [`barracuda/CHANGELOG.md`](barracuda/CHANGELOG.md) | Crate version history — baselines, tolerance changes, evolution |
+| [`barracuda/EVOLUTION_READINESS.md`](barracuda/EVOLUTION_READINESS.md) | Rust module → WGSL shader → GPU promotion tier mapping |
 | [`whitePaper/README.md`](whitePaper/README.md) | **White paper index** — the publishable study narrative |
 | [`whitePaper/STUDY.md`](whitePaper/STUDY.md) | Main study: replicating computational plasma physics on consumer hardware |
 | [`whitePaper/BARRACUDA_SCIENCE_VALIDATION.md`](whitePaper/BARRACUDA_SCIENCE_VALIDATION.md) | Phase B technical results: BarraCUDA vs Python/SciPy |
@@ -473,6 +584,11 @@ These are **silent failures** — wrong results, no error messages. This fragili
 | [`experiments/001_N_SCALING_GPU.md`](experiments/001_N_SCALING_GPU.md) | N-scaling sweep + native f64 builtins discovery |
 | [`experiments/002_CELLLIST_FORCE_DIAGNOSTIC.md`](experiments/002_CELLLIST_FORCE_DIAGNOSTIC.md) | Cell-list i32 modulo bug diagnosis and fix |
 | [`experiments/003_RTX4070_CAPABILITY_PROFILE.md`](experiments/003_RTX4070_CAPABILITY_PROFILE.md) | RTX 4070 capability profile + paper-parity long run results |
+| [`experiments/004_GPU_DISPATCH_OVERHEAD_L3.md`](experiments/004_GPU_DISPATCH_OVERHEAD_L3.md) | L3 deformed HFB GPU dispatch profiling |
+| [`experiments/005_L2_MEGABATCH_COMPLEXITY_BOUNDARY.md`](experiments/005_L2_MEGABATCH_COMPLEXITY_BOUNDARY.md) | L2 mega-batch GPU complexity boundary analysis |
+| [`HANDOFF_HOTSPRING_TO_TOADSTOOL_FEB_12_2026.md`](HANDOFF_HOTSPRING_TO_TOADSTOOL_FEB_12_2026.md) | Cross-project handoff v1: GPU-resident HFB, tier roadmap |
+| [`HANDOFF_HOTSPRING_TO_TOADSTOOL_FEB_16_2026.md`](HANDOFF_HOTSPRING_TO_TOADSTOOL_FEB_16_2026.md) | **Comprehensive handoff v2**: 195 checks, bugs, full inventory, lessons |
+| [`wateringHole/handoffs/TOADSTOOL_EVOLUTION_REVIEW_FEB14_2026.md`](wateringHole/handoffs/TOADSTOOL_EVOLUTION_REVIEW_FEB14_2026.md) | ToadStool pull review + next evolution targets |
 | [`control/surrogate/REPRODUCE.md`](control/surrogate/REPRODUCE.md) | Step-by-step reproduction guide for surrogate learning |
 
 ### External References

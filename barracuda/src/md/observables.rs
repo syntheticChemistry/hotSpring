@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
 //! Observable computation for MD validation
 //!
 //! Computes RDF, VACF, SSF, and energy metrics from simulation snapshots.
@@ -16,9 +18,9 @@ use crate::md::simulation::{EnergyRecord, MdSimulation};
 /// RDF result: g(r) binned at discrete r values
 #[derive(Clone, Debug)]
 pub struct Rdf {
-    pub r_values: Vec<f64>,   // bin centers in a_ws
-    pub g_values: Vec<f64>,   // g(r)
-    pub dr: f64,              // bin width
+    pub r_values: Vec<f64>, // bin centers in a_ws
+    pub g_values: Vec<f64>, // g(r)
+    pub dr: f64,            // bin width
 }
 
 /// VACF result: C(t) at discrete lag times
@@ -41,12 +43,7 @@ pub struct EnergyValidation {
 }
 
 /// Compute RDF from position snapshots (CPU post-process)
-pub fn compute_rdf(
-    snapshots: &[Vec<f64>],
-    n: usize,
-    box_side: f64,
-    n_bins: usize,
-) -> Rdf {
+pub fn compute_rdf(snapshots: &[Vec<f64>], n: usize, box_side: f64, n_bins: usize) -> Rdf {
     let r_max = box_side / 2.0; // max meaningful distance with PBC
     let dr = r_max / n_bins as f64;
     let mut histogram = vec![0u64; n_bins];
@@ -86,22 +83,22 @@ pub fn compute_rdf(
         .enumerate()
         .map(|(i, &r)| {
             let shell_vol = 4.0 * PI * r * r * dr;
-            let expected = n_f * n_density * shell_vol;
+            let _expected = n_f * n_density * shell_vol;
             // Factor 2 because we count pairs i<j, but g(r) normalizes per particle
             2.0 * histogram[i] as f64 / (n_frames as f64 * n_f * n_density * shell_vol).max(1e-30)
+            // Physics: division guard — shell volume near origin can be tiny
         })
         .collect();
 
-    Rdf { r_values, g_values, dr }
+    Rdf {
+        r_values,
+        g_values,
+        dr,
+    }
 }
 
 /// Compute VACF from velocity snapshots (CPU post-process)
-pub fn compute_vacf(
-    vel_snapshots: &[Vec<f64>],
-    n: usize,
-    dt_dump: f64,
-    max_lag: usize,
-) -> Vacf {
+pub fn compute_vacf(vel_snapshots: &[Vec<f64>], n: usize, dt_dump: f64, max_lag: usize) -> Vacf {
     let n_frames = vel_snapshots.len();
     let n_lag = max_lag.min(n_frames);
     let mut c_values = vec![0.0f64; n_lag];
@@ -135,7 +132,7 @@ pub fn compute_vacf(
     }
 
     // Normalize by C(0)
-    let c0 = c_values[0].max(1e-30);
+    let c0 = c_values[0].max(1e-30); // Physics: division guard — VACF C(0) normalization
     let c_normalized: Vec<f64> = c_values.iter().map(|&c| c / c0).collect();
 
     // Diffusion coefficient: D* = (1/3) integral_0^inf C(t) dt
@@ -163,7 +160,7 @@ pub fn compute_ssf(
     max_k_harmonics: usize,
 ) -> Vec<(f64, f64)> {
     let dk = 2.0 * PI / box_side;
-    let n_frames = snapshots.len();
+    let _n_frames = snapshots.len();
     let mut sk_values: Vec<(f64, f64)> = Vec::new();
 
     // Compute S(k) for k-vectors along principal axes
@@ -230,7 +227,7 @@ pub fn compute_ssf_gpu(
                 }
             }
             Err(e) => {
-                eprintln!("  SsfGpu::compute_axes failed: {} — skipping snapshot", e);
+                eprintln!("  SsfGpu::compute_axes failed: {e} — skipping snapshot");
             }
         }
     }
@@ -239,13 +236,20 @@ pub fn compute_ssf_gpu(
     accumulator
         .into_iter()
         .map(|(k, sum_sk, count)| {
-            (k, if count > 0 { sum_sk / count as f64 } else { 0.0 })
+            (
+                k,
+                if count > 0 {
+                    sum_sk / count as f64
+                } else {
+                    0.0
+                },
+            )
         })
         .collect()
 }
 
 /// Validate energy conservation
-pub fn validate_energy(history: &[EnergyRecord], config: &MdConfig) -> EnergyValidation {
+pub fn validate_energy(history: &[EnergyRecord], _config: &MdConfig) -> EnergyValidation {
     if history.is_empty() {
         return EnergyValidation {
             mean_total: 0.0,
@@ -270,9 +274,17 @@ pub fn validate_energy(history: &[EnergyRecord], config: &MdConfig) -> EnergyVal
     let std_e = var_e.sqrt();
 
     // Drift: (E_final - E_initial) / |E_mean|
-    let e_initial = stable.first().unwrap().total;
-    let e_final = stable.last().unwrap().total;
+    // Safety: stable is non-empty because skip = history.len()/10 < history.len()
+    let e_initial = stable
+        .first()
+        .expect("stable slice non-empty after skip")
+        .total;
+    let e_final = stable
+        .last()
+        .expect("stable slice non-empty after skip")
+        .total;
     let drift_pct = if mean_e.abs() > 1e-30 {
+        // Physics: division guard — total energy can be near zero
         ((e_final - e_initial) / mean_e.abs()).abs() * 100.0
     } else {
         0.0
@@ -286,7 +298,7 @@ pub fn validate_energy(history: &[EnergyRecord], config: &MdConfig) -> EnergyVal
         / stable.len() as f64;
     let std_t = var_t.sqrt();
 
-    let passed = drift_pct < 5.0; // acceptance criterion
+    let passed = drift_pct < 5.0; // Physics: energy conservation — 5% drift typical for symplectic integrators
 
     EnergyValidation {
         mean_total: mean_e,
@@ -318,10 +330,15 @@ pub fn print_observable_summary_with_gpu(
     // Energy validation
     let energy_val = validate_energy(&sim.energy_history, config);
     let icon = if energy_val.passed { "PASS" } else { "FAIL" };
-    println!("    Energy: drift={:.3}% [{}] (< 5% required)", energy_val.drift_pct, icon);
+    println!(
+        "    Energy: drift={:.3}% [{}] (< 5% required)",
+        energy_val.drift_pct, icon
+    );
     println!(
         "    Temperature: {:.6} +/- {:.6} (target {:.6})",
-        energy_val.mean_temperature, energy_val.std_temperature, config.temperature()
+        energy_val.mean_temperature,
+        energy_val.std_temperature,
+        config.temperature()
     );
 
     // RDF
@@ -338,23 +355,20 @@ pub fn print_observable_summary_with_gpu(
             .iter()
             .enumerate()
             .skip(1) // skip r=0
-            .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
-            .map(|(i, _)| i)
-            .unwrap_or(0);
+            .max_by(|a, b| a.1.total_cmp(b.1))
+            .map_or(0, |(i, _)| i);
         let peak_r = rdf.r_values[peak_idx];
         let peak_g = rdf.g_values[peak_idx];
 
         // Check g(r) → 1 at large r
         let tail_start = (rdf.g_values.len() * 3) / 4;
-        let tail_mean: f64 = rdf.g_values[tail_start..]
-            .iter()
-            .sum::<f64>()
+        let tail_mean: f64 = rdf.g_values[tail_start..].iter().sum::<f64>()
             / (rdf.g_values.len() - tail_start) as f64;
         let tail_err = (tail_mean - 1.0).abs();
-        let rdf_icon = if tail_err < 0.15 { "PASS" } else { "FAIL" };
+        let rdf_icon = if tail_err < 0.15 { "PASS" } else { "FAIL" }; // Physics: RDF tail asymptote — g(r→∞)=1 within 15%
 
-        println!("    RDF: peak at r={:.3} a_ws, g(peak)={:.3}", peak_r, peak_g);
-        println!("    RDF: tail asymptote={:.4} (err={:.4}) [{}]", tail_mean, tail_err, rdf_icon);
+        println!("    RDF: peak at r={peak_r:.3} a_ws, g(peak)={peak_g:.3}");
+        println!("    RDF: tail asymptote={tail_mean:.4} (err={tail_err:.4}) [{rdf_icon}]");
     }
 
     // VACF
@@ -410,12 +424,127 @@ pub fn print_observable_summary_with_gpu(
         if let Some((k0, s0)) = ssf.first() {
             let (k_max, s_max) = ssf
                 .iter()
-                .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
-                .unwrap();
-            println!("    SSF [{}]: S(k->0)={:.4} at k={:.3}", ssf_label, s0, k0);
-            println!("    SSF [{}]: peak S(k)={:.4} at k={:.3} a_ws^-1", ssf_label, s_max, k_max);
+                .max_by(|a, b| a.1.total_cmp(&b.1))
+                .expect("SSF non-empty: guarded by first() check");
+            println!("    SSF [{ssf_label}]: S(k->0)={s0:.4} at k={k0:.3}");
+            println!("    SSF [{ssf_label}]: peak S(k)={s_max:.4} at k={k_max:.3} a_ws^-1");
         }
     }
 
-    println!("    Performance: {:.1} steps/s, total {:.2}s", sim.steps_per_sec, sim.wall_time_s);
+    println!(
+        "    Performance: {:.1} steps/s, total {:.2}s",
+        sim.steps_per_sec, sim.wall_time_s
+    );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn validate_energy_empty_history() {
+        let config = crate::md::config::quick_test_case(500);
+        let result = validate_energy(&[], &config);
+        assert!(!result.passed, "empty history should fail");
+        assert_eq!(result.mean_total, 0.0);
+        assert_eq!(result.std_total, 0.0);
+        assert_eq!(result.drift_pct, 0.0);
+    }
+
+    #[test]
+    fn validate_energy_constant_energy() {
+        let config = crate::md::config::quick_test_case(500);
+        let history: Vec<EnergyRecord> = (0..100)
+            .map(|i| EnergyRecord {
+                step: i,
+                ke: 50.0,
+                pe: -100.0,
+                total: -50.0,
+                temperature: 0.006,
+            })
+            .collect();
+        let result = validate_energy(&history, &config);
+        assert!(result.passed, "constant energy should pass");
+        assert!(result.drift_pct < 0.001, "drift should be ~0");
+    }
+
+    #[test]
+    fn validate_energy_large_drift_fails() {
+        let config = crate::md::config::quick_test_case(500);
+        let history: Vec<EnergyRecord> = (0..100)
+            .map(|i| EnergyRecord {
+                step: i,
+                ke: 50.0,
+                pe: -100.0 + i as f64, // drifting PE
+                total: -50.0 + i as f64,
+                temperature: 0.006,
+            })
+            .collect();
+        let result = validate_energy(&history, &config);
+        assert!(!result.passed, "large drift should fail");
+    }
+
+    #[test]
+    fn validate_energy_diverging_energy_fails() {
+        let config = crate::md::config::quick_test_case(500);
+        let history: Vec<EnergyRecord> = (0..50)
+            .map(|i| EnergyRecord {
+                step: i,
+                ke: 50.0,
+                pe: -100.0 - i as f64 * 2.0, // diverging
+                total: -50.0 - i as f64 * 2.0,
+                temperature: 0.006,
+            })
+            .collect();
+        let result = validate_energy(&history, &config);
+        assert!(!result.passed);
+    }
+
+    #[test]
+    fn energy_record_construction() {
+        let rec = EnergyRecord {
+            step: 100,
+            ke: 25.0,
+            pe: -75.0,
+            total: -50.0,
+            temperature: 0.005,
+        };
+        assert_eq!(rec.step, 100);
+        assert!((rec.ke - 25.0).abs() < 1e-10);
+        assert!((rec.pe - (-75.0)).abs() < 1e-10);
+        assert!((rec.total - (-50.0)).abs() < 1e-10);
+        assert!((rec.temperature - 0.005).abs() < 1e-10);
+    }
+
+    #[test]
+    fn rdf_ideal_gas() {
+        // For an ideal gas (non-interacting), g(r) ≈ 1 everywhere
+        // We approximate with random positions
+        let n = 200;
+        let box_side = 10.0;
+        let mut snap = vec![0.0; n * 3];
+        // Simple deterministic "random" positions
+        let mut seed = 12345u64;
+        for v in &mut snap {
+            seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1);
+            *v = (seed >> 33) as f64 / (1u64 << 31) as f64 * box_side;
+        }
+
+        let rdf = compute_rdf(&[snap], n, box_side, 50);
+        assert_eq!(rdf.g_values.len(), 50);
+        // Tail should be roughly 1.0 for ideal gas (within noise)
+        let tail_mean: f64 = rdf.g_values[30..].iter().sum::<f64>() / 20.0;
+        assert!(
+            (tail_mean - 1.0).abs() < 0.5,
+            "ideal gas g(r→∞) ≈ 1, got {tail_mean}"
+        );
+    }
+
+    #[test]
+    fn vacf_single_snapshot_returns() {
+        let vel = vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0]; // 2 particles
+        let vacf = compute_vacf(&[vel], 2, 0.01, 10);
+        assert_eq!(vacf.c_values.len(), 1);
+        assert!((vacf.c_values[0] - 1.0).abs() < 1e-10);
+    }
 }

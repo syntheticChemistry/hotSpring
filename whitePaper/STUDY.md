@@ -3,7 +3,7 @@
 **Status**: Working draft
 **Date**: February 15, 2026
 **License**: AGPL-3.0
-**Hardware**: Consumer workstation (i9-12900K, 64 GB DDR5, RTX 4070, Pop!_OS 22.04)
+**Hardware**: Consumer workstation (i9-12900K, 32 GB DDR5, RTX 4070, Pop!_OS 22.04)
 **GPU target**: NVIDIA Titan V (GV100, 12 GB HBM2) — on order
 **f64 status**: Native WGSL builtins confirmed (fp64:fp32 ~1:2 via wgpu/Vulkan)
 
@@ -11,7 +11,7 @@
 
 ## Abstract
 
-We perform first-principles nuclear structure calculations on consumer GPU hardware using BarraCUDA — a Pure Rust scientific computing library dispatching f64 WGSL shaders to any GPU vendor via wgpu/Vulkan. The full AME2020 dataset (2,042 experimentally measured nuclei — 39x the published reference) runs on a single RTX 4070: L1 Pareto analysis maps the binding-energy-vs-NMP trade-off (chi2_BE from 0.69 to 15.38), L2 GPU-batched HFB processes 791 nuclei in 66 minutes at 99.85% convergence, and L3 deformed HFB produces first full-scale results (best-of-both chi2 = 13.92). This is direct Skyrme energy density functional computation — not surrogate learning — producing 1,990 novel predictions for nuclei the published paper never evaluated. The platform was validated through five prior phases (A-E) spanning molecular dynamics, plasma equilibration, and nuclear EOS, totaling 169/169 quantitative checks. GPU FP64 is exact (4.55e-13 MeV max error vs CPU), 44.8x more energy-efficient than Python, and achieves paper-parity Yukawa MD at N=10,000 in 3.66 hours for $0.044.
+We perform first-principles nuclear structure calculations on consumer GPU hardware using BarraCUDA — a Pure Rust scientific computing library dispatching f64 WGSL shaders to any GPU vendor via wgpu/Vulkan. The full AME2020 dataset (2,042 experimentally measured nuclei — 39x the published reference) runs on a single RTX 4070: L1 Pareto analysis maps the binding-energy-vs-NMP trade-off (chi2_BE from 0.69 to 15.38), L2 GPU-batched HFB processes 791 nuclei in 66 minutes at 99.85% convergence, and L3 deformed HFB produces first full-scale results (best-of-both chi2 = 13.92). This is direct Skyrme energy density functional computation — not surrogate learning — producing 1,990 novel predictions for nuclei the published paper never evaluated. The platform was validated through five prior phases (A-E) spanning molecular dynamics, plasma equilibration, and nuclear EOS, totaling 195/195 quantitative checks. GPU FP64 is exact (4.55e-13 MeV max error vs CPU), 44.8x more energy-efficient than Python, and achieves paper-parity Yukawa MD at N=10,000 in 3.66 hours for $0.044.
 
 ---
 
@@ -85,7 +85,7 @@ The Rebuild-Extend pattern applies to any computational physics domain with publ
 
 ## 2. Current Results: Phase F — Full-Scale Nuclear Structure (Feb 15, 2026)
 
-Phases A-E validated the platform: 160/160 checks pass, GPU FP64 is exact, Sarkas MD matches published results at paper configuration. Phase F points this validated engine at a problem 39x larger than any published result.
+Phases A-F validated the platform: 195/195 checks pass, GPU FP64 is exact, Sarkas MD matches published results at paper configuration. Phase F points this validated engine at a problem 39x larger than any published result.
 
 ### 2.1 Full AME2020 Dataset
 
@@ -297,7 +297,7 @@ The L2 Phase 1 (SLy4 baseline, completed) and L3 best_l2_42 (completed) provide 
 
 9. **Numerical precision at boundaries matters more than the algorithm.** Three specific issues (gradient stencils, root-finding tolerance, eigensolver conventions) accounted for a 1,764x improvement in L2 HFB.
 
-10. **169/169 quantitative checks pass** across all six phases (A-F).
+10. **195/195 quantitative checks pass** across all phases (A-F + pipeline validation).
 
 ---
 
@@ -473,7 +473,7 @@ For any scientific domain with public reference data:
 - Paper: Diaw et al., Nature Machine Intelligence 2024 (30k evals, 52 nuclei, HFBTHO Fortran)
 - Control: Python mystic + sklearn (chi2=1.93 L2)
 - Rebuild: BarraCUDA Rust/WGSL — L1 GPU, L2 GPU-batched (BatchedEighGpu), L3 CPU (GPU target)
-- Validate: 169/169 checks pass (Phases A-F)
+- Validate: 195/195 checks pass (Phases A-F + BarraCUDA pipeline)
 - Extend: Full AME2020 (2,042 nuclei). L1 Pareto: chi2_BE 0.69-7.37. L2 GPU: 791 nuclei in 66 min. L3: 295/2036 improved.
 - Explore: Pareto frontier on full chart. L3 numerical stabilization. GPU-first architecture migration.
 

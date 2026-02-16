@@ -1,11 +1,62 @@
 [package]
 name = "hotspring-barracuda"
-version = "0.2.0"
+version = "0.5.5"
 edition = "2021"
-description = "Nuclear EOS validation for BarraCUDA — L1/L2 physics with NMP-constrained optimization"
+description = "Nuclear EOS + GPU MD validation for BarraCUDA — L1/L2/L3 physics, Yukawa OCP, typed errors, provenance, capability-based discovery"
 license = "AGPL-3.0"
 
 [workspace]
+
+# ── Lint configuration (applies to all targets: lib + bins) ──
+# Physics code justifies these clippy patterns.
+# See lib.rs for per-lint rationale.
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+cast_precision_loss = "allow"
+cast_possible_truncation = "allow"
+cast_sign_loss = "allow"
+cast_possible_wrap = "allow"
+cast_lossless = "allow"
+similar_names = "allow"
+many_single_char_names = "allow"
+suboptimal_flops = "allow"
+doc_markdown = "allow"
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+return_self_not_must_use = "allow"
+missing_panics_doc = "allow"
+missing_errors_doc = "allow"
+use_self = "allow"
+redundant_else = "allow"
+inline_always = "allow"
+struct_field_names = "allow"
+items_after_statements = "allow"
+wildcard_imports = "allow"
+unreadable_literal = "allow"
+imprecise_flops = "allow"
+implicit_hasher = "allow"
+needless_pass_by_value = "allow"
+cognitive_complexity = "allow"
+too_many_lines = "allow"
+option_if_let_else = "allow"
+too_many_arguments = "allow"
+type_complexity = "allow"
+needless_range_loop = "allow"
+assigning_clones = "allow"
+manual_clamp = "allow"
+manual_let_else = "allow"
+significant_drop_tightening = "allow"
+collection_is_never_read = "allow"
+needless_for_each = "allow"
+no_effect_underscore_binding = "allow"
+unused_self = "allow"
+used_underscore_binding = "allow"
+float_cmp = "allow"
+assertions_on_constants = "allow"
+match_same_arms = "allow"
+
+[lints]
+workspace = true
 
 [dependencies]
 # BarraCUDA: All scientific computing from the library
@@ -94,6 +145,16 @@ path = "src/bin/validate_pppm.rs"
 name = "celllist_diag"
 path = "src/bin/celllist_diag.rs"
 
+# ── BarraCUDA full-pipeline validation (ops → Yukawa OCP → energy conservation) ──
+[[bin]]
+name = "validate_barracuda_pipeline"
+path = "src/bin/validate_barracuda_pipeline.rs"
+
+# ── BarraCUDA HFB pipeline validation (BCS bisection + eigensolve) ──
+[[bin]]
+name = "validate_barracuda_hfb"
+path = "src/bin/validate_barracuda_hfb.rs"
+
 # ── L3 deformed HFB (CPU Rayon) ───────────────────────────────────
 [[bin]]
 name = "nuclear_eos_l3_ref"
@@ -103,3 +164,13 @@ path = "src/bin/nuclear_eos_l3_ref.rs"
 [[bin]]
 name = "nuclear_eos_l3_gpu"
 path = "src/bin/nuclear_eos_l3_gpu.rs"
+
+# ── Nuclear EOS validation: pure Rust replication of Python controls ──
+[[bin]]
+name = "validate_nuclear_eos"
+path = "src/bin/validate_nuclear_eos.rs"
+
+# ── Meta-validator: runs all validation suites ─────────────────────────
+[[bin]]
+name = "validate_all"
+path = "src/bin/validate_all.rs"

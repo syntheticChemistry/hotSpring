@@ -1,7 +1,7 @@
 # hotSpring Control Experiment — Status Report
 
-**Date**: 2026-02-15 (L1+L2 complete, GPU MD Phase C+D+E complete — paper-parity long run 9/9, toadstool rewire, all-pairs vs cell-list profiled)  
-**Gate**: Eastgate (i9-12900K, 64 GB DDR5, RTX 4070 12GB, Pop!_OS 22.04)  
+**Date**: 2026-02-16 (L1+L2 complete, GPU MD Phase C+D+E+F complete — paper-parity long run 9/9, BarraCUDA pipeline 26/26, crate v0.5.5)  
+**Gate**: Eastgate (i9-12900K, 32 GB DDR5, RTX 4070 12GB, Pop!_OS 22.04)  
 **Sarkas**: v1.0.0 (pinned — see §Roadblocks)  
 **Python**: 3.9 (sarkas), 3.10 (ttm, surrogate) via micromamba  
 **f64 Status**: Native WGSL builtins confirmed — fp64:fp32 ~1:2 via wgpu/Vulkan (bottleneck broken)
@@ -414,7 +414,7 @@ scaling but shift the constant factor down by 45-100×.
 ### BarraCUDA Evolution (Phase B — ToadStool Timeline)
 
 The control experiments have now **concretely demonstrated** which BarraCUDA
-capabilities are needed, with **quantitative acceptance criteria from 160 validated checks**:
+capabilities are needed, with **quantitative acceptance criteria from 195 validated checks**:
 
 | BarraCUDA Gap | Demonstrated By | Acceptance Criteria | Priority |
 |---------------|-----------------|---------------------|----------|
@@ -630,7 +630,7 @@ blockers** and deepened the evidence for ecoPrimals' thesis.
     ~200 true evaluations per round with more aggressive direct search.
   - **Evolution needed**: SparsitySampler needs hybrid evaluation mode —
     some solvers on surrogate (exploitation) + some on true objective
-    (exploration). See handoff: `BARRACUDA_LIBRARY_VALIDATION_FEB12_2026.md`
+    (exploration). See handoff: `HANDOFF_HOTSPRING_TO_TOADSTOOL_FEB_16_2026.md`
   - **External gap**: `nalgebra::SymmetricEigen` still needed for L2 HFB
     (barracuda needs `barracuda::linalg::symmetric_eigen`)
 
@@ -927,7 +927,16 @@ electricity per experiment. The exploration space is now effectively unlimited.
 | **Toadstool rewire (3 GPU ops)** | **3** | **3** | **✅ BatchedEighGpu + SsfGpu + PppmGpu wired** |
 | **Phase E Total** | **13** | **13** | **✅ PAPER PARITY LONG RUN + TOADSTOOL REWIRE** |
 | | | | |
-| **Grand Total** | **160** | **160** | **✅ ALL PHASES VALIDATED** |
+| **L1 Pareto frontier (7λ × 5 seeds)** | **3** | **3** | **✅ chi2 0.69-15.38 (22× range), NMP 4/5 at λ=25** |
+| **L2 GPU full AME2020 (2042 nuclei)** | **3** | **3** | **✅ 99.85% convergence, BatchedEighGpu 101 dispatches** |
+| **L3 deformed HFB (2042 nuclei)** | **3** | **3** | **✅ 295/2036 improved over L2, 4 mass regions** |
+| **Phase F Total** | **9** | **9** | **✅ FULL-SCALE NUCLEAR EOS CHARACTERIZATION** |
+| | | | |
+| **BarraCUDA MD pipeline (6 GPU ops)** | **12** | **12** | **✅ YukawaF64+VV+Berendsen+KE: 0.000% drift** |
+| **BarraCUDA HFB pipeline (3 GPU ops)** | **14** | **14** | **✅ BCS GPU 6.2e-11, Eigh 2.4e-12, degeneracy** |
+| **Pipeline Validation Total** | **26** | **26** | **✅ BARRACUDA OPS END-TO-END VALIDATED** |
+| | | | |
+| **Grand Total** | **195** | **195** | **✅ ALL PHASES + PIPELINE VALIDATION** |
 
 **Data archive**: `control/comprehensive_control_results.json`  
 **Nuclear EOS results**: `control/surrogate/nuclear-eos/results/nuclear_eos_surrogate_L{1,2}.json`  
@@ -947,7 +956,7 @@ silent data corruption, and the GPU kernels don't depend on fragile JIT compilat
 chains. The profiling data (97.2% in one function) shows this isn't a distributed
 systems problem — it's a single hot kernel that maps directly to a GPU dispatch.
 
-The **160/160 quantitative checks** (86 Phase A+B, 45 Phase C, 16 Phase D, 13 Phase E) now
+The **195/195 quantitative checks** (86 Phase A+B, 45 Phase C, 16 Phase D, 13 Phase E, 9 Phase F, 26 pipeline) now
 provide concrete acceptance criteria across all phases: every observable, every
 physical trend, every transport coefficient has a validated control value. Phase C
 demonstrates that full Yukawa OCP molecular dynamics runs on a consumer GPU —
@@ -985,7 +994,7 @@ BarraCUDA modules. Library-based SparsitySampler runs end-to-end on both L1
 (35× faster than Python) and L2 (19.6× faster). Accuracy gap in SparsitySampler's
 evaluation strategy is identified and fixable — needs hybrid true+surrogate mode.
 All 12 barracuda modules pass functional validation. See detailed handoff:
-`wateringHole/handoffs/BARRACUDA_LIBRARY_VALIDATION_FEB12_2026.md`.
+`HANDOFF_HOTSPRING_TO_TOADSTOOL_FEB_16_2026.md`.
 
 **GPU dispatch overhead profiling** (Feb 15, 2026): L3 deformed HFB GPU run
 profiled with full nvidia-smi + vmstat monitoring (2,823 GPU samples, 3,093 CPU
@@ -1033,7 +1042,11 @@ surpassing it at larger basis sizes.
 - [`whitePaper/BARRACUDA_SCIENCE_VALIDATION.md`](whitePaper/BARRACUDA_SCIENCE_VALIDATION.md) — Phase B technical results
 - [`whitePaper/CONTROL_EXPERIMENT_SUMMARY.md`](whitePaper/CONTROL_EXPERIMENT_SUMMARY.md) — Phase A quick reference
 - [`benchmarks/PROTOCOL.md`](benchmarks/PROTOCOL.md) — Benchmark protocol (time + energy measurement)
+- [`barracuda/CHANGELOG.md`](barracuda/CHANGELOG.md) — Crate version history (v0.5.5)
+- [`barracuda/EVOLUTION_READINESS.md`](barracuda/EVOLUTION_READINESS.md) — Rust → GPU promotion tiers and blockers
 - [`experiments/001_N_SCALING_GPU.md`](experiments/001_N_SCALING_GPU.md) — N-scaling experiment journal (Phase D)
 - [`experiments/002_CELLLIST_FORCE_DIAGNOSTIC.md`](experiments/002_CELLLIST_FORCE_DIAGNOSTIC.md) — Cell-list bug diagnostic (Phase D)
+- [`experiments/003_RTX4070_CAPABILITY_PROFILE.md`](experiments/003_RTX4070_CAPABILITY_PROFILE.md) — RTX 4070 capability profile (Phase E)
 - [`experiments/004_GPU_DISPATCH_OVERHEAD_L3.md`](experiments/004_GPU_DISPATCH_OVERHEAD_L3.md) — Dispatch overhead profiling (Phase F)
+- [`experiments/005_L2_MEGABATCH_COMPLEXITY_BOUNDARY.md`](experiments/005_L2_MEGABATCH_COMPLEXITY_BOUNDARY.md) — L2 mega-batch complexity boundary
 - [`experiments/005_L2_MEGABATCH_COMPLEXITY_BOUNDARY.md`](experiments/005_L2_MEGABATCH_COMPLEXITY_BOUNDARY.md) — Mega-batch profiling + complexity boundary (Phase F)

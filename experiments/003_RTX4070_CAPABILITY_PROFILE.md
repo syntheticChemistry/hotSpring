@@ -1,7 +1,7 @@
 # Experiment 003: RTX 4070 Capability Profile
 
 **Date**: February 15, 2026  
-**Hardware**: RTX 4070 (12 GB GDDR6X), i9-12900K, 64 GB DDR5  
+**Hardware**: RTX 4070 (12 GB GDDR6X), i9-12900K, 32 GB DDR5  
 **Prerequisite**: Native f64 builtins confirmed (Experiment 001, Phase D)  
 **Status**: EXECUTED — Part 2 (paper-parity) COMPLETE, 9/9 cases pass  
 **Actual run time (Part 2)**: 3.66 hours (219.9 min) total
