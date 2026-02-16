@@ -268,6 +268,55 @@ The following ToadStool primitives are needed for Steps 1–4:
 
 ---
 
+## 9.1 GPU-Resident Attempt (Experiment 005b, Feb 16)
+
+Following the path-to-pure-GPU analysis, hotSpring implemented and tested
+a full GPU-resident pipeline:
+
+**What was built:**
+- `batched_hfb_potentials_f64.wgsl`: Skyrme, Coulomb (forward/backward
+  cumulative sum), exchange, effective mass f_q — all on GPU
+- `batched_hfb_hamiltonian_f64.wgsl`: H = T_eff + V matrix elements via
+  radial grid integration — per-nucleus wavefunctions, derivatives, basis
+  quantum numbers packed as batch arrays
+- `hfb_gpu_resident.rs`: Pre-allocated buffers and pipelines (created ONCE),
+  7 kernel dispatches per iteration in a single compute pass
+- f64 workarounds: `pow_f64()` via f32 cast (NVIDIA NVVM chokes on f64 pow),
+  storage buffers for Skyrme parameters (avoids bitcast<f64>(vec2<u32>))
+
+**What worked:**
+- Shaders compile and dispatch correctly on RTX 4070 SHADER_F64
+- 91% GPU utilization during dispatch
+- 1,320 MiB VRAM under load
+- Per-nucleus wavefunction batching handles varying (Z,N) configurations
+- 7 dispatches per iteration chain in a single wgpu command encoder
+
+**What didn't work:**
+- Each SCF iteration still requires **3 synchronous CPU↔GPU round-trips**:
+  1. `read_buffer_f64(H_p)`: staging alloc + map + copy (~5ms)
+  2. `read_buffer_f64(H_n)`: staging alloc + map + copy (~5ms)
+  3. `BatchedEighGpu::execute_f64()`: internal buffer alloc + readback (~10ms)
+- For 200 iterations × ~10 groups = 2,000 round-trips × ~20ms = **~40s of
+  pure overhead** — the same order as CPU solving everything in 35s
+- Result: GPU-resident is NOT faster than mega-batch for small matrices
+
+**Conclusion:**
+The bottleneck has shifted from *dispatch overhead* (solved by mega-batching)
+to *readback overhead* (synchronous staging buffer operations). The solution
+is ToadStool item 4.1: **dependent op chaining** where shader outputs become
+shader inputs without CPU involvement. BatchedEighGpu must accept input
+buffers already on GPU and write output buffers that stay on GPU.
+
+```
+CURRENT (GPU-resident, blocked):
+  GPU: [pot+H-build] → CPU readback → GPU: [eigh] → CPU readback → CPU: [BCS+ρ]
+
+NEEDED (ToadStool multi-kernel):
+  GPU: [pot+H-build → eigh → BCS → ρ → convergence] → CPU: [1 scalar readback]
+```
+
+---
+
 ## 10. Reproduction
 
 ```bash
@@ -282,6 +331,9 @@ time cargo run --release --bin nuclear_eos_l2_gpu -- --nuclei=full --phase1-only
 
 # CPU reference for comparison (L2 CPU is embedded in L3 run: L2=35.1s)
 time cargo run --release --bin nuclear_eos_l3_ref -- --nuclei=full --params=sly4
+
+# GPU-resident (Experiment 005b — for profiling only, slower due to readback)
+time cargo run --release --bin nuclear_eos_l2_gpu -- --nuclei=full --phase1-only --gpu-resident
 ```
 
 ---

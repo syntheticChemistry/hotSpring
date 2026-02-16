@@ -23,6 +23,22 @@ Zero CPU↔GPU round-trips during iteration. Estimated time: ~40s for 791 nuclei
 (vs CPU's 35s), surpassing CPU at larger basis sizes. This is the architecture
 ToadStool needs to enable.
 
+### GPU-Resident Attempt (Feb 16, 2026)
+
+hotSpring wrote and compiled full WGSL shaders for potentials (Skyrme +
+Coulomb + f_q) and Hamiltonian construction. Dispatch chain works:
+7 kernel dispatches in a single compute pass, 91% GPU utilization,
+1320 MiB VRAM. **However**: the SCF loop still requires synchronous
+`read_buffer_f64` after H-build (staging buffer alloc + map + copy) plus
+BatchedEighGpu's internal readback. Each iteration thus has 3 blocking
+CPU↔GPU transfers. For 200 iterations × multiple groups, this makes the
+GPU-resident path **slower than mega-batch** (which only does 1 readback
+per iteration for eigenvalues).
+
+**This confirms item 4.1 is THE critical ToadStool deliverable.** Without
+dependent op chaining (shader A output → shader B input, no CPU readback),
+GPU-resident SCF cannot outperform CPU for small matrices.
+
 ---
 
 ## 1. What hotSpring Proved
