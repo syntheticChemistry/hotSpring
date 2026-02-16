@@ -15,7 +15,7 @@ use hotspring_barracuda::data;
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::physics::{
     nuclear_matter_properties, NuclearMatterProps,
-    binding_energies_l2_gpu,
+    binding_energies_l2_gpu, binding_energies_l2_gpu_resident,
 };
 
 use barracuda::sample::latin_hypercube;
@@ -68,6 +68,7 @@ struct CliArgs {
     mixing: f64,
     n_lhs: usize,
     phase1_only: bool,
+    gpu_resident: bool,
 }
 
 fn parse_args() -> CliArgs {
@@ -86,6 +87,7 @@ fn parse_args() -> CliArgs {
         mixing: get("--mixing=").and_then(|s| s.parse().ok()).unwrap_or(0.3),
         n_lhs: get("--n-lhs=").and_then(|s| s.parse().ok()).unwrap_or(64),
         phase1_only: has("--phase1-only"),
+        gpu_resident: has("--gpu-resident"),
     }
 }
 
@@ -96,10 +98,17 @@ fn parse_args() -> CliArgs {
 fn main() {
     let cli = parse_args();
 
-    println!("╔══════════════════════════════════════════════════════════════╗");
-    println!("║  Nuclear EOS L2 — GPU-Batched HFB (BatchedEighGpu)         ║");
-    println!("║  toadstool BatchedEighGpu → O(1) dispatches per SCF iter   ║");
-    println!("╚══════════════════════════════════════════════════════════════╝");
+    if cli.gpu_resident {
+        println!("╔══════════════════════════════════════════════════════════════╗");
+        println!("║  Nuclear EOS L2 — GPU-RESIDENT HFB (Experiment 005b)       ║");
+        println!("║  Potentials + H-build on GPU, zero CPU↔GPU H round-trips   ║");
+        println!("╚══════════════════════════════════════════════════════════════╝");
+    } else {
+        println!("╔══════════════════════════════════════════════════════════════╗");
+        println!("║  Nuclear EOS L2 — GPU-Batched HFB (BatchedEighGpu)         ║");
+        println!("║  toadstool BatchedEighGpu → O(1) dispatches per SCF iter   ║");
+        println!("╚══════════════════════════════════════════════════════════════╝");
+    }
     println!();
 
     // ── Initialize GPU ──────────────────────────────────────────────
@@ -162,14 +171,28 @@ fn main() {
     println!();
 
     let t_gpu = Instant::now();
-    let gpu_result = binding_energies_l2_gpu(
-        wgpu_device.clone(),
-        &nuclei_zn,
-        &SLY4_PARAMS,
-        cli.max_iter,
-        cli.tol,
-        cli.mixing,
-    );
+
+    // Choose pipeline: GPU-resident (shaders for H-build) or mega-batch (CPU H-build)
+    let (gpu_results_vec, gpu_disp, n_hfb_out, n_semf_out, total_disp) = if cli.gpu_resident {
+        let r = binding_energies_l2_gpu_resident(
+            wgpu_device.clone(), &nuclei_zn, &SLY4_PARAMS,
+            cli.max_iter, cli.tol, cli.mixing,
+        );
+        let d = r.gpu_dispatches;
+        let td = r.total_gpu_dispatches;
+        let nh = r.n_hfb;
+        let ns = r.n_semf;
+        (r.results, d, nh, ns, td)
+    } else {
+        let r = binding_energies_l2_gpu(
+            wgpu_device.clone(), &nuclei_zn, &SLY4_PARAMS,
+            cli.max_iter, cli.tol, cli.mixing,
+        );
+        let d = r.gpu_dispatches;
+        let nh = r.n_hfb;
+        let ns = r.n_semf;
+        (r.results, d, nh, ns, d)
+    };
     let gpu_time = t_gpu.elapsed().as_secs_f64();
 
     // Compute chi2
@@ -177,7 +200,7 @@ fn main() {
     let mut n_valid = 0usize;
     let mut n_converged = 0usize;
 
-    for &(z, n, b_calc, converged) in &gpu_result.results {
+    for &(z, n, b_calc, converged) in &gpu_results_vec {
         if b_calc > 0.0 {
             if let Some(&b_exp) = b_exp_map.get(&(z, n)) {
                 let sigma = (0.01 * b_exp).max(2.0);
@@ -191,13 +214,14 @@ fn main() {
     }
     let chi2_datum = if n_valid > 0 { chi2_sum / n_valid as f64 } else { 1e10 };
 
-    println!("  GPU-Batched HFB (SLy4):");
+    let engine_label = if cli.gpu_resident { "GPU-Resident HFB" } else { "GPU-Batched HFB" };
+    println!("  {} (SLy4):", engine_label);
     println!("    chi2/datum:     {:.4}", chi2_datum);
-    println!("    Converged:      {}/{} HFB nuclei", n_converged, gpu_result.n_hfb);
-    println!("    SEMF fallback:  {} nuclei", gpu_result.n_semf);
-    println!("    GPU dispatches: {}", gpu_result.gpu_dispatches);
+    println!("    Converged:      {}/{} HFB nuclei", n_converged, n_hfb_out);
+    println!("    SEMF fallback:  {} nuclei", n_semf_out);
+    println!("    GPU dispatches: {} (eigh: {}, total: {})", total_disp, gpu_disp, total_disp);
     println!("    Wall time:      {:.2}s ({:.1}ms per HFB nucleus)",
-        gpu_time, if gpu_result.n_hfb > 0 { gpu_time * 1000.0 / gpu_result.n_hfb as f64 } else { 0.0 });
+        gpu_time, if n_hfb_out > 0 { gpu_time * 1000.0 / n_hfb_out as f64 } else { 0.0 });
 
     let sly4_nmp = nuclear_matter_properties(&SLY4_PARAMS);
     if let Some(ref nmp) = sly4_nmp {
@@ -211,7 +235,7 @@ fn main() {
     std::fs::create_dir_all(&results_dir).ok();
 
     // Per-nucleus Phase 1 detail
-    let phase1_nuclei: Vec<serde_json::Value> = gpu_result.results.iter().map(|&(z, n, b_calc, conv)| {
+    let phase1_nuclei: Vec<serde_json::Value> = gpu_results_vec.iter().map(|&(z, n, b_calc, conv)| {
         let b_exp = b_exp_map.get(&(z, n)).copied().unwrap_or(0.0);
         serde_json::json!({
             "Z": z, "N": n, "A": z + n,
@@ -223,14 +247,14 @@ fn main() {
 
     let phase1_json = serde_json::json!({
         "level": 2,
-        "engine": "barracuda::l2_gpu_batched_hfb",
+        "engine": if cli.gpu_resident { "barracuda::l2_gpu_resident" } else { "barracuda::l2_gpu_batched_hfb" },
         "phase": "sly4_baseline",
         "n_nuclei": nuclei_zn.len(),
-        "n_hfb": gpu_result.n_hfb,
-        "n_semf": gpu_result.n_semf,
+        "n_hfb": n_hfb_out,
+        "n_semf": n_semf_out,
         "chi2_per_datum": chi2_datum,
         "n_converged": n_converged,
-        "gpu_dispatches": gpu_result.gpu_dispatches,
+        "gpu_dispatches": total_disp,
         "wall_time_s": gpu_time,
         "scf_config": {
             "max_iter": cli.max_iter,

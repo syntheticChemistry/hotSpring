@@ -25,27 +25,23 @@
 //
 //   H[i,j] = T_eff[i,j] + V[i,j]
 
-struct HamiltonianParams {
+struct HamiltonianDims {
     n_states: u32,
     nr: u32,
     batch_size: u32,
-    dr_lo: u32, dr_hi: u32,
     _pad: u32,
 }
 
-fn decode_f64_h(lo: u32, hi: u32) -> f64 {
-    return bitcast<f64>(vec2<u32>(lo, hi));
-}
-
-@group(0) @binding(0) var<uniform> params: HamiltonianParams;
-@group(0) @binding(1) var<storage, read> wf: array<f64>;        // [n_states × nr]
-@group(0) @binding(2) var<storage, read> dwf: array<f64>;       // [n_states × nr]
-@group(0) @binding(3) var<storage, read> u_total_batch: array<f64>;  // [batch × nr]
-@group(0) @binding(4) var<storage, read> f_q_batch: array<f64>;      // [batch × nr]
-@group(0) @binding(5) var<storage, read> r_grid: array<f64>;         // [nr]
-@group(0) @binding(6) var<storage, read> lj_same: array<u32>;        // [n_states × n_states]
-@group(0) @binding(7) var<storage, read> ll1_values: array<f64>;     // [n_states] — l(l+1) per state
-@group(0) @binding(8) var<storage, read_write> H_batch: array<f64>;  // [batch × ns × ns]
+@group(0) @binding(0) var<uniform> dims: HamiltonianDims;
+@group(0) @binding(1) var<storage, read> wf_batch: array<f64>;      // [batch × n_states × nr]
+@group(0) @binding(2) var<storage, read> dwf_batch: array<f64>;     // [batch × n_states × nr]
+@group(0) @binding(3) var<storage, read> u_total_batch: array<f64>; // [batch × nr]
+@group(0) @binding(4) var<storage, read> f_q_batch: array<f64>;     // [batch × nr]
+@group(0) @binding(5) var<storage, read> r_grid_batch: array<f64>;  // [batch × nr]
+@group(0) @binding(6) var<storage, read> lj_same_batch: array<u32>; // [batch × ns × ns]
+@group(0) @binding(7) var<storage, read> ll1_batch: array<f64>;     // [batch × ns]
+@group(0) @binding(8) var<storage, read_write> H_batch: array<f64>; // [batch × ns × ns]
+@group(0) @binding(9) var<storage, read> ham_params: array<f64>;    // [0]=dr
 
 // Compute one matrix element H[batch_idx][i][j]
 // Thread index encodes (i, j) pair; batch_idx from z dimension
@@ -59,11 +55,11 @@ fn build_hamiltonian(
     let i_idx = global_id.y;
     let batch_idx = wg_id.z;
 
-    let ns = params.n_states;
-    let nr = params.nr;
-    let dr = decode_f64_h(params.dr_lo, params.dr_hi);
+    let ns = dims.n_states;
+    let nr = dims.nr;
+    let dr = ham_params[0];
 
-    if (i_idx >= ns || j_idx >= ns || batch_idx >= params.batch_size) {
+    if (i_idx >= ns || j_idx >= ns || batch_idx >= dims.batch_size) {
         return;
     }
 
@@ -73,44 +69,44 @@ fn build_hamiltonian(
     }
 
     let pot_base = batch_idx * nr;
+    let wf_base = batch_idx * ns * nr;
+    let lj_base = batch_idx * ns * ns;
+    let ll1_base_idx = batch_idx * ns;
     let h_base = batch_idx * ns * ns;
-    let same_lj = lj_same[i_idx * ns + j_idx];
+    let same_lj = lj_same_batch[lj_base + i_idx * ns + j_idx];
 
     var h_val: f64 = f64(0.0);
 
     // T_eff contribution (only within same (l,j) block)
     if (same_lj == 1u) {
-        let ll1 = ll1_values[i_idx]; // l(l+1), same for i and j in same block
+        let ll1 = ll1_batch[ll1_base_idx + i_idx];
         var t_eff_sum: f64 = f64(0.0);
         for (var k = 0u; k < nr; k++) {
-            let rk = r_grid[k];
+            let rk = r_grid_batch[pot_base + k];
             let fq = f_q_batch[pot_base + k];
-            let wf_i = wf[i_idx * nr + k];
-            let wf_j = wf[j_idx * nr + k];
-            let dwf_i = dwf[i_idx * nr + k];
-            let dwf_j = dwf[j_idx * nr + k];
+            let wf_i = wf_batch[wf_base + i_idx * nr + k];
+            let wf_j = wf_batch[wf_base + j_idx * nr + k];
+            let dwf_i = dwf_batch[wf_base + i_idx * nr + k];
+            let dwf_j = dwf_batch[wf_base + j_idx * nr + k];
 
-            // T_eff integrand: f_q * (dwf_i * dwf_j * r² + l(l+1) * wf_i * wf_j)
             t_eff_sum = t_eff_sum + fq * (dwf_i * dwf_j * rk * rk + ll1 * wf_i * wf_j);
         }
         h_val = h_val + t_eff_sum * dr;
     }
 
-    // Potential contribution: V[i,j] = integral(wf_i * wf_j * U * r² dr)
-    // Diagonal always; off-diagonal only if same (l,j)
+    // Potential contribution
     if (i_idx == j_idx || same_lj == 1u) {
         var v_sum: f64 = f64(0.0);
         for (var k = 0u; k < nr; k++) {
-            let rk = r_grid[k];
+            let rk = r_grid_batch[pot_base + k];
             let u_k = u_total_batch[pot_base + k];
-            let wf_i = wf[i_idx * nr + k];
-            let wf_j = wf[j_idx * nr + k];
+            let wf_i = wf_batch[wf_base + i_idx * nr + k];
+            let wf_j = wf_batch[wf_base + j_idx * nr + k];
             v_sum = v_sum + wf_i * wf_j * u_k * rk * rk;
         }
         h_val = h_val + v_sum * dr;
     }
 
-    // Write to symmetric matrix
     H_batch[h_base + i_idx * ns + j_idx] = h_val;
     if (i_idx != j_idx) {
         H_batch[h_base + j_idx * ns + i_idx] = h_val;

@@ -120,9 +120,56 @@ impl SphericalHFB {
     pub fn nr(&self) -> usize { self.nr }
     pub fn z(&self) -> usize { self.z }
     pub fn n_neutrons(&self) -> usize { self.n_neutrons }
+    pub fn dr(&self) -> f64 { self.dr }
+    pub fn hw(&self) -> f64 { self.hw }
 
     /// Pairing gap (same for proton and neutron in this model)
     pub fn pairing_gap(&self) -> f64 { self.delta_p }
+
+    /// Flat wavefunctions: [n_states × nr] row-major
+    pub fn wf_flat(&self) -> Vec<f64> {
+        let mut out = Vec::with_capacity(self.n_states * self.nr);
+        for s in &self.wf {
+            out.extend_from_slice(s);
+        }
+        out
+    }
+
+    /// Flat wavefunction derivatives: [n_states × nr] row-major
+    pub fn dwf_flat(&self) -> Vec<f64> {
+        let mut out = Vec::with_capacity(self.n_states * self.nr);
+        for s in &self.dwf {
+            out.extend_from_slice(s);
+        }
+        out
+    }
+
+    /// Radial grid points
+    pub fn r_grid(&self) -> &[f64] { &self.r }
+
+    /// lj_same matrix: [n_states × n_states] u32 (1 if same (l,j) block)
+    pub fn lj_same_flat(&self) -> Vec<u32> {
+        let ns = self.n_states;
+        let mut out = vec![0u32; ns * ns];
+        for (_, indices) in &self.lj_blocks {
+            for &i in indices {
+                for &j in indices {
+                    out[i * ns + j] = 1;
+                }
+            }
+        }
+        out
+    }
+
+    /// l(l+1) values per state
+    pub fn ll1_values(&self) -> Vec<f64> {
+        self.states.iter().map(|s| (s.l * (s.l + 1)) as f64).collect()
+    }
+
+    /// Degeneracies (2j+1) per state
+    pub fn deg_values(&self) -> Vec<f64> {
+        self.states.iter().map(|s| s.deg as f64).collect()
+    }
 
     /// Build the full Hamiltonian matrix for one species (proton or neutron).
     ///
