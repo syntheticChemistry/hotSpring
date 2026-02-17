@@ -25,6 +25,7 @@
 
 use super::hfb::SphericalHFB;
 use super::semf::semf_binding_energy;
+use crate::tolerances::DENSITY_FLOOR;
 use barracuda::device::WgpuDevice;
 use barracuda::ops::linalg::BatchedEighGpu;
 use std::sync::Arc;
@@ -148,7 +149,7 @@ pub fn binding_energies_l2_gpu(
                 .map(|k| {
                     let r = (k + 1) as f64 * (15.0 / nr as f64);
                     if r < r_nuc {
-                        (rho0 * *z as f64 / a as f64).max(1e-15)
+                        (rho0 * *z as f64 / a as f64).max(DENSITY_FLOOR)
                     } else {
                         1e-15
                     }
@@ -158,7 +159,7 @@ pub fn binding_energies_l2_gpu(
                 .map(|k| {
                     let r = (k + 1) as f64 * (15.0 / nr as f64);
                     if r < r_nuc {
-                        (rho0 * *n as f64 / a as f64).max(1e-15)
+                        (rho0 * *n as f64 / a as f64).max(DENSITY_FLOOR)
                     } else {
                         1e-15
                     }
@@ -326,8 +327,10 @@ pub fn binding_energies_l2_gpu(
             // Density mixing
             let alpha = if iter == 0 { 0.8 } else { mixing };
             for k in 0..nr {
-                state.rho_p[k] = (alpha * rho_p_new[k] + (1.0 - alpha) * state.rho_p[k]).max(1e-15);
-                state.rho_n[k] = (alpha * rho_n_new[k] + (1.0 - alpha) * state.rho_n[k]).max(1e-15);
+                state.rho_p[k] =
+                    (alpha * rho_p_new[k] + (1.0 - alpha) * state.rho_p[k]).max(DENSITY_FLOOR);
+                state.rho_n[k] =
+                    (alpha * rho_n_new[k] + (1.0 - alpha) * state.rho_n[k]).max(DENSITY_FLOOR);
             }
 
             // Compute total energy — use physical eigenvalues/eigenvectors

@@ -22,6 +22,7 @@
 
 use super::constants::*;
 use super::hfb_common::{factorial_f64, hermite_value, Mat};
+use crate::tolerances::SPIN_ORBIT_R_MIN;
 use barracuda::linalg::eigh_f64;
 use barracuda::special::{gamma, laguerre};
 use std::collections::HashMap;
@@ -862,7 +863,9 @@ impl DeformedHFB {
             let i_z = i % self.grid.n_z;
             let rho_coord = self.grid.rho[i_rho];
             let z_coord = self.grid.z[i_z];
-            let r = (rho_coord * rho_coord + z_coord * z_coord).sqrt().max(0.1); // Physics: spin-orbit 1/r — minimum radius ~0.1 fm
+            let r = (rho_coord * rho_coord + z_coord * z_coord)
+                .sqrt()
+                .max(SPIN_ORBIT_R_MIN);
             let v_so = -w0 / 2.0 * (d_rho_dr[i] + d_rho_q_dr[i]) / r;
 
             let v_total = v_central + v_eff_mass + v_so;

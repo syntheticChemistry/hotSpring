@@ -35,8 +35,11 @@ use super::hfb_common::Mat;
 use super::semf::semf_binding_energy;
 use barracuda::linalg::eigh_f64;
 use barracuda::numerical::{gradient_1d, trapz};
+use barracuda::ops::grid::compute_ls_factor;
 use barracuda::special::{gamma, laguerre};
 use std::collections::HashMap;
+
+use crate::tolerances::{COULOMB_R_MIN, DENSITY_FLOOR, SPIN_ORBIT_R_MIN};
 use std::f64::consts::PI;
 
 /// Basis state quantum numbers
@@ -222,16 +225,15 @@ impl SphericalHFB {
                 barracuda::numerical::trapz(&integ, &self.r).unwrap_or(0.0),
             );
 
-            // Spin-orbit
+            // Spin-orbit — uses barracuda::ops::grid::compute_ls_factor
             if w0 != 0.0 && self.states[i].l > 0 {
-                let j = self.states[i].j;
-                let l_f = self.states[i].l as f64;
-                let ls = (j * (j + 1.0) - l_f * (l_f + 1.0) - 0.75) / 2.0;
+                let ls = compute_ls_factor(self.states[i].l as u32, self.states[i].j);
                 let rho_total: Vec<f64> = (0..nr).map(|k| rho_p[k] + rho_n[k]).collect();
                 let drho = barracuda::numerical::gradient_1d(&rho_total, self.dr);
                 let so_integ: Vec<f64> = (0..nr)
                     .map(|k| {
-                        self.wf[i][k].powi(2) * drho[k] / self.r[k].max(0.1) * self.r[k].powi(2)
+                        self.wf[i][k].powi(2) * drho[k] / self.r[k].max(SPIN_ORBIT_R_MIN)
+                            * self.r[k].powi(2)
                     })
                     .collect();
                 h.add(
@@ -302,7 +304,7 @@ impl SphericalHFB {
         }
 
         for k in 0..nr {
-            rho[k] = rho[k].max(1e-15);
+            rho[k] = rho[k].max(DENSITY_FLOOR);
         }
         rho
     }
@@ -501,7 +503,7 @@ impl SphericalHFB {
         }
 
         (0..nr)
-            .map(|k| E2 * (charge_enclosed[k] / self.r[k].max(1e-10) + phi_outer[k]))
+            .map(|k| E2 * (charge_enclosed[k] / self.r[k].max(COULOMB_R_MIN) + phi_outer[k]))
             .collect()
     }
 
@@ -839,7 +841,7 @@ impl SphericalHFB {
             .iter()
             .map(|&ri| {
                 if ri < r_nuc {
-                    (rho0 * self.z as f64 / self.a as f64).max(1e-15)
+                    (rho0 * self.z as f64 / self.a as f64).max(DENSITY_FLOOR)
                 } else {
                     1e-15
                 }
@@ -850,7 +852,7 @@ impl SphericalHFB {
             .iter()
             .map(|&ri| {
                 if ri < r_nuc {
-                    (rho0 * self.n_neutrons as f64 / self.a as f64).max(1e-15)
+                    (rho0 * self.n_neutrons as f64 / self.a as f64).max(DENSITY_FLOOR)
                 } else {
                     1e-15
                 }
@@ -904,16 +906,14 @@ impl SphericalHFB {
                         .collect();
                     h.add(i, i, trapz(&integ, &self.r).unwrap_or(0.0));
 
-                    // Spin-orbit
+                    // Spin-orbit — uses barracuda::ops::grid::compute_ls_factor
                     if w0 != 0.0 && self.states[i].l > 0 {
-                        let j = self.states[i].j;
-                        let l_f = self.states[i].l as f64;
-                        let ls = (j * (j + 1.0) - l_f * (l_f + 1.0) - 0.75) / 2.0;
+                        let ls = compute_ls_factor(self.states[i].l as u32, self.states[i].j);
                         let rho_total: Vec<f64> = (0..nr).map(|k| rho_p[k] + rho_n[k]).collect();
                         let drho = gradient_1d(&rho_total, self.dr);
                         let so_integ: Vec<f64> = (0..nr)
                             .map(|k| {
-                                self.wf[i][k].powi(2) * drho[k] / self.r[k].max(0.1)
+                                self.wf[i][k].powi(2) * drho[k] / self.r[k].max(SPIN_ORBIT_R_MIN)
                                     * self.r[k].powi(2)
                             })
                             .collect();
@@ -972,7 +972,7 @@ impl SphericalHFB {
                 }
 
                 for k in 0..nr {
-                    rho_q_new[k] = rho_q_new[k].max(1e-15);
+                    rho_q_new[k] = rho_q_new[k].max(DENSITY_FLOOR);
                 }
 
                 if is_proton {
@@ -997,8 +997,8 @@ impl SphericalHFB {
             }
 
             for k in 0..nr {
-                rho_p[k] = (mixing * rho_p_new[k] + (1.0 - mixing) * rho_p[k]).max(1e-15);
-                rho_n[k] = (mixing * rho_n_new[k] + (1.0 - mixing) * rho_n[k]).max(1e-15);
+                rho_p[k] = (mixing * rho_p_new[k] + (1.0 - mixing) * rho_p[k]).max(DENSITY_FLOOR);
+                rho_n[k] = (mixing * rho_n_new[k] + (1.0 - mixing) * rho_n[k]).max(DENSITY_FLOOR);
             }
 
             let e_total =

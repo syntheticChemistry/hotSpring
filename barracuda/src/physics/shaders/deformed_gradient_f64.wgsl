@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 // 2D Finite-Difference Gradient Kernels for Cylindrical Grid (f64)
 //
 // Computes kinetic density τ, spin-current J, density gradient ∇ρ, and

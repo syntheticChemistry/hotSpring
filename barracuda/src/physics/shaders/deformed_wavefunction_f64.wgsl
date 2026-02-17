@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 // Deformed HO Wavefunction Evaluation on 2D Cylindrical Grid (f64)
 //
 // Evaluates Nilsson-basis wavefunctions ψ(ρ,z) = φ_nz(z/b_z) × R_{n⊥,|Λ|}(ρ/b⊥)

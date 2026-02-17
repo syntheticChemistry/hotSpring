@@ -5,6 +5,34 @@ All notable changes to the hotSpring BarraCUDA validation crate.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.6] — 2026-02-17
+
+### Added
+
+- **`SpinOrbitGpu` wired into `hfb_gpu_resident.rs`.** Replaces manual CPU spin-orbit
+  loop with barracuda's `ops::grid::SpinOrbitGpu` dispatch. Falls back to CPU on GPU
+  failure. Eliminates custom l·s factor computation — now uses canonical
+  `barracuda::ops::grid::compute_ls_factor`.
+- **`compute_ls_factor` wired into `hfb.rs`.** Replaces manual
+  `(j*(j+1) - l*(l+1) - 0.75)/2` calculation in both `build_hamiltonian` and
+  `binding_energy_l2` with the barracuda canonical implementation.
+- **Physics guard constants centralized.** Added `DENSITY_FLOOR` (1e-15 fm⁻³),
+  `SPIN_ORBIT_R_MIN` (0.1 fm), `COULOMB_R_MIN` (1e-10 fm) to `tolerances.rs` with
+  physical justification. Replaced 20+ inline magic numbers across 5 physics modules
+  (`hfb.rs`, `hfb_gpu.rs`, `hfb_gpu_resident.rs`, `hfb_deformed.rs`, `hfb_deformed_gpu.rs`).
+- **SPDX headers** on all 17 WGSL shaders that were missing them (now 30/30).
+
+### Changed
+
+- `panic!()` in GPU buffer map failure paths (`hfb_gpu_resident.rs`) converted to
+  idiomatic `expect()` with descriptive messages.
+- WGSL inline math duplicates (`abs_f64`, `cbrt_f64`) annotated with `TODO(evolution)`
+  for future preamble injection from ToadStool canonical `math_f64.wgsl`.
+
+### Fixed
+
+- Clippy `if_not_else` warning in `SpinOrbitGpu` guard.
+
 ## [0.5.5] — 2026-02-16
 
 ### Added

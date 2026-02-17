@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 // GPU SEMF: B(Z,N) for N nuclei in parallel using Skyrme-derived coefficients
 //
 // Inputs:

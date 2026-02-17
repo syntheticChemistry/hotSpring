@@ -230,7 +230,7 @@ No streamlining — this is the correct architecture.
 
 ---
 
-## BarraCUDA Crate (v0.5.5)
+## BarraCUDA Crate (v0.5.6)
 
 The `barracuda/` directory is a standalone Rust crate providing the validation
 environment, physics implementations, and GPU compute. Key architectural properties:
@@ -239,16 +239,19 @@ environment, physics implementations, and GPU compute. Key architectural propert
   via `validate_barracuda_pipeline` (12/12) and `validate_barracuda_hfb` (14/14).
   Test coverage: 39% line / 57% function (CPU-testable modules average >90%;
   GPU modules require hardware). Measured with `cargo-llvm-cov`.
-- **AGPL-3.0 only** — all 51 `.rs` files have `SPDX-License-Identifier: AGPL-3.0-only`.
+- **AGPL-3.0 only** — all 51 `.rs` files and all 30 `.wgsl` shaders have
+  `SPDX-License-Identifier: AGPL-3.0-only`.
 - **Provenance** — centralized `BaselineProvenance` records trace hardcoded
   validation values to their Python origins (script path, git commit, date,
   exact command). All nuclear EOS binaries and library test modules source
   constants from `provenance::SLY4_PARAMS`, `NMP_TARGETS`, `L1_PYTHON_CHI2`,
   etc. DOIs for AME2020, Chabanat 1998, Kortelainen 2010, Bender 2003,
   Lattimer & Prakash 2016 are documented in `provenance.rs`.
-- **Tolerances** — 23 centralized constants in `tolerances.rs` with physical
+- **Tolerances** — 26 centralized constants in `tolerances.rs` with physical
   justification (machine precision, numerical method, model, literature).
-  Zero inline magic numbers in validation binaries.
+  Includes physics guard constants (`DENSITY_FLOOR`, `SPIN_ORBIT_R_MIN`,
+  `COULOMB_R_MIN`). Zero inline magic numbers in validation binaries or
+  physics modules.
 - **ValidationHarness** — structured pass/fail tracking with exit code 0/1.
   12 of 20 binaries use it (validation targets). Remaining 8 are optimization
   explorers and diagnostics.
@@ -265,7 +268,8 @@ environment, physics implementations, and GPU compute. Key architectural propert
   `dispatch`, `create_bind_group`, `create_u32_buffer` methods. No duplicate
   GPU helpers across binaries.
 - **Zero duplicate math** — all linear algebra, quadrature, optimization,
-  sampling, special functions, and statistics use BarraCUDA primitives.
+  sampling, special functions, statistics, and spin-orbit coupling use
+  BarraCUDA primitives (`SpinOrbitGpu`, `compute_ls_factor`).
 - **Capability-based discovery** — GPU backend, power preference, and adapter
   fallback configured via environment variables. Buffer limits derived from
   `adapter.limits()`, not hardcoded. Data paths resolved via `HOTSPRING_DATA_ROOT`
@@ -356,7 +360,7 @@ hotSpring/
 │   ├── CONTROL_EXPERIMENT_SUMMARY.md  # Phase A quick reference
 │   └── METHODOLOGY.md                # Two-phase validation protocol
 │
-├── barracuda/                          # BarraCUDA Rust crate — v0.5.5 (182 tests)
+├── barracuda/                          # BarraCUDA Rust crate — v0.5.6 (182 tests)
 │   ├── Cargo.toml                     # Dependencies (requires ecoPrimals/phase1/toadstool)
 │   ├── CHANGELOG.md                   # Version history — baselines, tolerances, evolution
 │   ├── EVOLUTION_READINESS.md         # Rust module → WGSL shader → GPU promotion tier mapping

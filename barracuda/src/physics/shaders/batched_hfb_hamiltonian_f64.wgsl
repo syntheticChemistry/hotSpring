@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 // Batched HFB Hamiltonian Construction (f64) — GPU Shader
 //
 // Builds the full Hamiltonian matrix H = T_eff + V for all nuclei in a batch.

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 // BCS Bisection Root-Finding (f64) — GPU-Parallel
 //
 // Solves batched BCS chemical-potential problems in parallel:
@@ -27,6 +28,8 @@ struct BisectionParams {
 @group(0) @binding(4) var<storage, read_write> iterations: array<u32>;
 @group(0) @binding(5) var<uniform> config: BisectionParams;
 
+// TODO(evolution): Replace with barracuda::shaders::math::math_f64.wgsl canonical abs_f64
+// via ShaderTemplate::math_f64_subset(["abs_f64"]) preamble injection.
 fn abs_f64(x: f64) -> f64 {
     if (x < f64(0.0)) { return -x; }
     return x;

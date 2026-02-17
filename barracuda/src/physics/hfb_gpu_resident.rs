@@ -19,8 +19,10 @@
 
 use super::hfb::SphericalHFB;
 use super::semf::semf_binding_energy;
+use crate::tolerances::{DENSITY_FLOOR, SPIN_ORBIT_R_MIN};
 use barracuda::device::WgpuDevice;
 use barracuda::linalg::eigh_f64;
+use barracuda::ops::grid::{compute_ls_factor, SpinOrbitGpu};
 use barracuda::ops::linalg::BatchedEighGpu;
 use rayon::prelude::*;
 use std::sync::Arc;
@@ -236,7 +238,7 @@ pub fn binding_energies_l2_gpu_resident(
                 .map(|k| {
                     let r = (k + 1) as f64 * hfb.dr();
                     if r < r_nuc {
-                        (rho0 * *z as f64 / a as f64).max(1e-15) // Physics: numerical zero for density — below nuclear scale
+                        (rho0 * *z as f64 / a as f64).max(DENSITY_FLOOR) // Physics: numerical zero for density — below nuclear scale
                     } else {
                         1e-15 // Physics: numerical zero for density — below nuclear scale
                     }
@@ -246,7 +248,7 @@ pub fn binding_energies_l2_gpu_resident(
                 .map(|k| {
                     let r = (k + 1) as f64 * hfb.dr();
                     if r < r_nuc {
-                        (rho0 * *n as f64 / a as f64).max(1e-15) // Physics: numerical zero for density — below nuclear scale
+                        (rho0 * *n as f64 / a as f64).max(DENSITY_FLOOR) // Physics: numerical zero for density — below nuclear scale
                     } else {
                         1e-15 // Physics: numerical zero for density — below nuclear scale
                     }
@@ -747,13 +749,13 @@ pub fn binding_energies_l2_gpu_resident(
                     "GPU map callback: channel recv failed for H_p (sender dropped)".to_string()
                 })
                 .and_then(|r| r.map_err(|e| format!("GPU buffer map failed for H_p: {e}")))
-                .unwrap_or_else(|e| panic!("{e}"));
+                .expect("GPU staging buffer map for H_p");
             rx_n.recv()
                 .map_err(|_| {
                     "GPU map callback: channel recv failed for H_n (sender dropped)".to_string()
                 })
                 .and_then(|r| r.map_err(|e| format!("GPU buffer map failed for H_n: {e}")))
-                .unwrap_or_else(|e| panic!("{e}"));
+                .expect("GPU staging buffer map for H_n");
 
             let g = &all_groups[gi];
             let active: Vec<usize> = g
@@ -793,7 +795,16 @@ pub fn binding_energies_l2_gpu_resident(
             }
         }
 
-        // 5b. Apply spin-orbit corrections (CPU, full f64)
+        // 5b. Apply spin-orbit corrections via SpinOrbitGpu
+        //
+        // Uses barracuda::ops::grid::SpinOrbitGpu which computes:
+        //   V_so[i] = w0 * ls_i * ∫ |ψ_i(r)|² (dρ/dr)/r r² dr
+        // Returns per-state diagonal contributions to H.
+        let spin_orbit_gpu = if w0 == 0.0 {
+            None
+        } else {
+            Some(SpinOrbitGpu::new(device.clone()))
+        };
         for item in &mut all_work {
             if w0 == 0.0 {
                 continue;
@@ -808,20 +819,47 @@ pub fn binding_energies_l2_gpu_resident(
             let drho = barracuda::numerical::gradient_1d(&rho_total, cur_dr);
             let r = hfb.r_grid();
             let lj_qn = hfb.lj_quantum_numbers();
-            for i in 0..ns {
-                let (l, j) = lj_qn[i];
-                if l == 0 {
-                    continue;
+
+            // Build flat arrays for SpinOrbitGpu
+            let wf_flat = hfb.wf_flat();
+            let wf_squared: Vec<f64> = wf_flat.iter().map(|v| v * v).collect();
+            let ls_factors: Vec<f64> = lj_qn
+                .iter()
+                .map(|&(l, j)| compute_ls_factor(l as u32, j))
+                .collect();
+
+            match spin_orbit_gpu
+                .as_ref()
+                .expect("spin_orbit_gpu initialized when w0 != 0")
+                .compute(&wf_squared, &drho, r, &ls_factors, cur_dr, w0)
+            {
+                Ok(so_diag) => {
+                    for i in 0..ns {
+                        item.h_p[i * ns + i] += so_diag[i];
+                        item.h_n[i * ns + i] += so_diag[i];
+                    }
                 }
-                let l_f = l as f64;
-                let ls = (j * (j + 1.0) - l_f * (l_f + 1.0) - 0.75) / 2.0;
-                let wf_i = hfb.wf_state(i);
-                let so_integ: Vec<f64> = (0..cur_nr)
-                    .map(|k| wf_i[k].powi(2) * drho[k] / r[k].max(0.1) * r[k].powi(2))
-                    .collect();
-                let so_val = w0 * ls * barracuda::numerical::trapz(&so_integ, r).unwrap_or(0.0);
-                item.h_p[i * ns + i] += so_val;
-                item.h_n[i * ns + i] += so_val;
+                Err(_) => {
+                    // Fallback: CPU spin-orbit (same physics, no GPU)
+                    for i in 0..ns {
+                        let (l, j) = lj_qn[i];
+                        if l == 0 {
+                            continue;
+                        }
+                        let ls = compute_ls_factor(l as u32, j);
+                        let wf_i = hfb.wf_state(i);
+                        let so_integ: Vec<f64> = (0..cur_nr)
+                            .map(|k| {
+                                wf_i[k].powi(2) * drho[k] / r[k].max(SPIN_ORBIT_R_MIN)
+                                    * r[k].powi(2)
+                            })
+                            .collect();
+                        let so_val =
+                            w0 * ls * barracuda::numerical::trapz(&so_integ, r).unwrap_or(0.0);
+                        item.h_p[i * ns + i] += so_val;
+                        item.h_n[i * ns + i] += so_val;
+                    }
+                }
             }
         }
 
@@ -920,10 +958,10 @@ pub fn binding_energies_l2_gpu_resident(
                 for k in 0..cur_nr {
                     rho_p_mixed[k] = (alpha_mix * rho_p_new[k]
                         + (1.0 - alpha_mix) * item.rho_p_old[k])
-                        .max(1e-15);
+                        .max(DENSITY_FLOOR);
                     rho_n_mixed[k] = (alpha_mix * rho_n_new[k]
                         + (1.0 - alpha_mix) * item.rho_n_old[k])
-                        .max(1e-15);
+                        .max(DENSITY_FLOOR);
                 }
 
                 let e_total = hfb.compute_energy_with_v2(
@@ -1076,7 +1114,7 @@ mod tests {
             .map(|k| {
                 let r = (k + 1) as f64 * dr;
                 if r < r_nuc {
-                    (rho0 * z as f64 / a as f64).max(1e-15)
+                    (rho0 * z as f64 / a as f64).max(DENSITY_FLOOR)
                 } else {
                     1e-15
                 }

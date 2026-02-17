@@ -316,6 +316,37 @@ pub fn sigma_theo(b_exp: f64) -> f64 {
     (SIGMA_THEO_FRACTION * b_exp).max(SIGMA_THEO_FLOOR_MEV)
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// Physics guard constants (numerical singularity avoidance)
+// ═══════════════════════════════════════════════════════════════════
+
+/// Density floor: minimum nuclear density in fm⁻³.
+///
+/// Prevents division-by-zero in Skyrme potential terms that depend on
+/// `ρ^α` or `ρ^(α-1)` where α ≈ 1/6. At 1e-15 fm⁻³, the density is
+/// ~14 orders of magnitude below saturation density (0.16 fm⁻³), safely
+/// below any physical nuclear density while avoiding floating-point
+/// underflow in `ρ.powf(α)`.
+pub const DENSITY_FLOOR: f64 = 1e-15;
+
+/// Minimum radius for spin-orbit 1/r singularity guard (fm).
+///
+/// The spin-orbit potential V_so ∝ (1/r)(dρ/dr) diverges at r=0.
+/// The physical nuclear surface starts at r ≈ 1.2·A^(1/3) fm (≈3 fm
+/// for A=16), so r < 0.1 fm is deep inside the nuclear core where
+/// the spin-orbit integrand should vanish anyway. The 0.1 fm floor
+/// (~0.5 × proton charge radius) prevents numerical overflow without
+/// affecting physics in the surface region where spin-orbit matters.
+pub const SPIN_ORBIT_R_MIN: f64 = 0.1;
+
+/// Coulomb singularity guard for charge-enclosed / r (fm).
+///
+/// The Coulomb direct potential V_C(r) = e² × Q(r)/r diverges at r=0.
+/// At r = 1e-10 fm (well below quark confinement scale ~1 fm), the
+/// enclosed charge Q(r) ∝ r³ → 0 faster than 1/r → ∞, so the product
+/// is bounded. The guard prevents 0/0 without affecting physics.
+pub const COULOMB_R_MIN: f64 = 1e-10;
+
 #[cfg(test)]
 mod tests {
     use super::*;

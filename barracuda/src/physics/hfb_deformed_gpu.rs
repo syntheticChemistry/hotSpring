@@ -19,6 +19,7 @@ use super::constants::*;
 use super::hfb_common::{factorial_f64, hermite_value};
 use super::hfb_deformed::{binding_energy_l3, DeformedHFBResult};
 use crate::gpu::GpuF64;
+use crate::tolerances::SPIN_ORBIT_R_MIN;
 use barracuda::device::WgpuDevice;
 use barracuda::ops::linalg::BatchedEighGpu;
 use barracuda::special::{gamma, laguerre};
@@ -965,7 +966,7 @@ fn mean_field_potential(
             let iz = i % setup.n_z;
             let rc = (ir + 1) as f64 * setup.d_rho;
             let zc = setup.z_min + (iz as f64 + 0.5) * setup.d_z;
-            let r = (rc * rc + zc * zc).sqrt().max(0.1);
+            let r = (rc * rc + zc * zc).sqrt().max(SPIN_ORBIT_R_MIN);
             let vso = -w0 / 2.0 * (d_rho_dr[i] + d_rq_dr[i]) / r;
 
             let mut v = (vc + ve + vso).clamp(-5000.0, 5000.0);

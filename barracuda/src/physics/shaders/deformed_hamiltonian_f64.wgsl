@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 // Block Hamiltonian Assembly for Deformed HFB on 2D Grid (f64)
 //
 // Builds block-diagonal Hamiltonian matrices H[bi,bj] for each Omega block.
