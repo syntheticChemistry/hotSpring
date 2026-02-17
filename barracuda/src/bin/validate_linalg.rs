@@ -6,6 +6,7 @@
 //! Reference: NumPy/SciPy linear algebra
 
 use hotspring_barracuda::provenance;
+use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
 
 fn main() {
@@ -38,7 +39,7 @@ fn main() {
 
                 let mut lu_ok = true;
                 for i in 0..9 {
-                    if (pa[i] - lu_product[i]).abs() > 1e-10 {
+                    if (pa[i] - lu_product[i]).abs() > tolerances::EXACT_F64 {
                         lu_ok = false;
                     }
                 }
@@ -53,13 +54,13 @@ fn main() {
                 // Test determinant: det = 2*3*9 + 1*3*8 + 1*4*7 - 1*3*8 - 2*3*7 - 1*4*9
                 // = 54 + 24 + 28 - 24 - 42 - 36 = 4
                 let det = lu.det();
-                let det_ok = (det - 4.0).abs() < 1e-10;
+                let det_ok = (det - 4.0).abs() < tolerances::EXACT_F64;
                 if det_ok {
                     println!("  ✅ det(A) = {det:.6} (expected 4.0)");
                 } else {
                     println!("  ❌ det(A) = {det:.6} (expected 4.0)");
                 }
-                harness.check_abs("det(A) = 4.0", det, 4.0, 1e-10);
+                harness.check_abs("det(A) = 4.0", det, 4.0, tolerances::EXACT_F64);
             }
             Err(e) => {
                 println!("  ❌ LU decomposition failed: {e}");
@@ -79,12 +80,12 @@ fn main() {
                 // Verify Ax ≈ b
                 let ax = mat_vec(&[2.0, 1.0, 1.0, 4.0, 3.0, 3.0, 8.0, 7.0, 9.0], &x, 3);
                 let err: f64 = ax.iter().zip(b.iter()).map(|(a, b)| (a - b).abs()).sum();
-                if err < 1e-10 {
+                if err < tolerances::EXACT_F64 {
                     println!("  ✅ LU solve: ||Ax - b|| = {err:.2e}");
                 } else {
                     println!("  ❌ LU solve: ||Ax - b|| = {err:.2e}");
                 }
-                harness.check_upper("LU solve ||Ax-b||", err, 1e-10);
+                harness.check_upper("LU solve ||Ax-b||", err, tolerances::EXACT_F64);
             }
             Err(e) => {
                 println!("  ❌ LU solve failed: {e}");
@@ -112,7 +113,7 @@ fn main() {
                 for i in 0..m {
                     for j in 0..m {
                         let expected = if i == j { 1.0 } else { 0.0 };
-                        if (qtq[i * m + j] - expected).abs() > 1e-10 {
+                        if (qtq[i * m + j] - expected).abs() > tolerances::EXACT_F64 {
                             ortho_ok = false;
                         }
                     }
@@ -131,12 +132,12 @@ fn main() {
                     .zip(a.iter())
                     .map(|(q, a)| (q - a).abs())
                     .sum();
-                if err < 1e-10 {
+                if err < tolerances::EXACT_F64 {
                     println!("  ✅ QR = A reconstruction, err = {err:.2e}");
                 } else {
                     println!("  ❌ QR ≠ A, err = {err:.2e}");
                 }
-                harness.check_upper("QR = A reconstruction", err, 1e-10);
+                harness.check_upper("QR = A reconstruction", err, tolerances::EXACT_F64);
             }
             Err(e) => {
                 println!("  ❌ QR decomposition failed: {e}");
@@ -156,8 +157,9 @@ fn main() {
             Ok(svd) => {
                 // Singular values should be [3, 2]
                 let sv = &svd.s;
-                let sv_ok =
-                    sv.len() >= 2 && (sv[0] - 3.0).abs() < 1e-6 && (sv[1] - 2.0).abs() < 1e-6;
+                let sv_ok = sv.len() >= 2
+                    && (sv[0] - 3.0).abs() < tolerances::SVD_TOLERANCE
+                    && (sv[1] - 2.0).abs() < tolerances::SVD_TOLERANCE;
                 if sv_ok {
                     println!(
                         "  ✅ SVD singular values: [{:.4}, {:.4}] (expected [3, 2])",
@@ -183,12 +185,12 @@ fn main() {
                     .zip(a.iter())
                     .map(|(r, a)| (r - a).abs())
                     .sum();
-                if err < 1e-6 {
+                if err < tolerances::SVD_TOLERANCE {
                     println!("  ✅ UΣVᵀ = A reconstruction, err = {err:.2e}");
                 } else {
                     println!("  ❌ UΣVᵀ ≠ A, err = {err:.2e}");
                 }
-                harness.check_upper("SVD UΣVᵀ=A reconstruction", err, 1e-6);
+                harness.check_upper("SVD UΣVᵀ=A reconstruction", err, tolerances::SVD_TOLERANCE);
             }
             Err(e) => {
                 println!("  ❌ SVD failed: {e}");
@@ -207,7 +209,7 @@ fn main() {
                 for i in 0..2 {
                     for j in 0..2 {
                         let expected = if i == j { 1.0 } else { 0.0 };
-                        if (apa[i * 2 + j] - expected).abs() > 1e-6 {
+                        if (apa[i * 2 + j] - expected).abs() > tolerances::SVD_TOLERANCE {
                             ok = false;
                         }
                     }
@@ -245,12 +247,12 @@ fn main() {
                 let ax2 = 1.0 * x[1] + 4.0 * x[2];
                 let err = (ax0 - 1.0).abs() + (ax1 - 2.0).abs() + (ax2 - 1.0).abs();
 
-                if err < 1e-10 {
+                if err < tolerances::EXACT_F64 {
                     println!("  ✅ Thomas algorithm: ||Ax - d|| = {err:.2e}");
                 } else {
                     println!("  ❌ Thomas algorithm: ||Ax - d|| = {err:.2e}");
                 }
-                harness.check_upper("Thomas algorithm ||Ax-d||", err, 1e-10);
+                harness.check_upper("Thomas algorithm ||Ax-d||", err, tolerances::EXACT_F64);
             }
             Err(e) => {
                 println!("  ❌ Thomas algorithm failed: {e}");
@@ -277,12 +279,12 @@ fn main() {
                         + if i < n - 1 { c_sup[i] * x[i + 1] } else { 0.0 };
                     err += (ax_i - d[i]).abs();
                 }
-                if err < 1e-8 {
+                if err < tolerances::ITERATIVE_F64 {
                     println!("  ✅ Tridiag 100pt: ||Ax - d|| = {err:.2e}");
                 } else {
                     println!("  ❌ Tridiag 100pt: ||Ax - d|| = {err:.2e}");
                 }
-                harness.check_upper("Tridiag 100pt ||Ax-d||", err, 1e-8);
+                harness.check_upper("Tridiag 100pt ||Ax-d||", err, tolerances::ITERATIVE_F64);
             }
             Err(e) => {
                 println!("  ❌ Tridiag 100pt failed: {e}");

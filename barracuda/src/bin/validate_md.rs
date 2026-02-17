@@ -85,7 +85,7 @@ impl TestResult {
 
 fn check_close(gpu: f32, expected: f64, tol: f64, label: &str) -> TestResult {
     let err = (f64::from(gpu) - expected).abs();
-    let rel_err = if expected.abs() > 1e-10 {
+    let rel_err = if expected.abs() > tolerances::EXACT_F64 {
         err / expected.abs()
     } else {
         err
@@ -400,19 +400,21 @@ fn test_coulomb(device: &Arc<WgpuDevice>) -> Vec<TestResult> {
         let expected_ratio = (r2 / r1).powi(2) as f32;
         let ratio_err = ((ratio - expected_ratio) / expected_ratio).abs();
 
-        results.push(if ratio_err < 0.02 {
-            TestResult::pass(
-                "Coulomb: inverse-square law",
-                format!("|F(r1)/F(r2)|={ratio:.4}, expected={expected_ratio:.4}"),
-            )
-        } else {
-            TestResult::fail(
-                "Coulomb: inverse-square law",
-                format!(
+        results.push(
+            if ratio_err < (2.0 * tolerances::MD_FORCE_TOLERANCE) as f32 {
+                TestResult::pass(
+                    "Coulomb: inverse-square law",
+                    format!("|F(r1)/F(r2)|={ratio:.4}, expected={expected_ratio:.4}"),
+                )
+            } else {
+                TestResult::fail(
+                    "Coulomb: inverse-square law",
+                    format!(
                     "|F(r1)/F(r2)|={ratio:.4}, expected={expected_ratio:.4}, err={ratio_err:.4}"
                 ),
-            )
-        });
+                )
+            },
+        );
     }
 
     results
@@ -452,7 +454,7 @@ fn test_morse(device: &Arc<WgpuDevice>) -> Vec<TestResult> {
         let f0_mag = (f[0] * f[0] + f[1] * f[1] + f[2] * f[2]).sqrt();
         let expected_f = morse_force_analytical(r, d, alpha, r0);
 
-        results.push(if f0_mag < 1.0 {
+        results.push(if (f0_mag as f64) < tolerances::MD_EQUILIBRIUM_FORCE_ABS {
             TestResult::pass(
                 "Morse: equilibrium r=r₀ → F≈0",
                 format!("|F|={f0_mag:.4}, analytical={expected_f:.6}"),
@@ -510,7 +512,7 @@ fn test_morse(device: &Arc<WgpuDevice>) -> Vec<TestResult> {
 
         // Newton's 3rd law (note: Morse uses atomic int accumulation with /1000 precision)
         let n3 = (f[0] + f[3]).abs();
-        results.push(if n3 < 0.1 {
+        results.push(if (n3 as f64) < tolerances::NEWTON_3RD_LAW_ABS {
             TestResult::pass("Morse: Newton's 3rd law", format!("|F₀+F₁|={n3:.4}"))
         } else {
             TestResult::fail("Morse: Newton's 3rd law", format!("|F₀+F₁|={n3:.4}"))
@@ -658,13 +660,13 @@ fn test_velocity_verlet(device: &Arc<WgpuDevice>) -> Vec<TestResult> {
         results.push(check_close(
             p[0],
             f64::from(expected_x),
-            0.02,
+            tolerances::GPU_VS_CPU_F64,
             "VV: const-force position x=½at²",
         ));
         results.push(check_close(
             v[0],
             f64::from(expected_v),
-            0.02,
+            tolerances::GPU_VS_CPU_F64,
             "VV: const-force velocity v=at",
         ));
     }

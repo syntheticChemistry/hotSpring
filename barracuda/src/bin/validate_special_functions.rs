@@ -11,6 +11,7 @@
 use std::f64::consts::PI;
 
 use hotspring_barracuda::provenance;
+use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
 
 fn main() {
@@ -35,8 +36,8 @@ fn main() {
     ];
     for (x, expected, desc) in &gamma_tests {
         let got = barracuda::special::gamma(*x).unwrap_or(f64::NAN);
-        check(got, *expected, 1e-10, desc);
-        harness.check_abs_or_rel(desc, got, *expected, 1e-10);
+        check(got, *expected, tolerances::GAMMA_TOLERANCE, desc);
+        harness.check_abs_or_rel(desc, got, *expected, tolerances::GAMMA_TOLERANCE);
     }
     println!();
 
@@ -68,8 +69,8 @@ fn main() {
     ];
     for (x, expected, desc) in &erf_tests {
         let got = barracuda::special::erf(*x);
-        check(got, *expected, 1e-6, desc);
-        harness.check_abs_or_rel(desc, got, *expected, 1e-6);
+        check(got, *expected, tolerances::ERF_TOLERANCE, desc);
+        harness.check_abs_or_rel(desc, got, *expected, tolerances::ERF_TOLERANCE);
     }
 
     println!("\n── Complementary Error Function erfc(x) ──");
@@ -80,8 +81,8 @@ fn main() {
     ];
     for (x, expected, desc) in &erfc_tests {
         let got = barracuda::special::erfc(*x);
-        check(got, *expected, 1e-6, desc);
-        harness.check_abs_or_rel(desc, got, *expected, 1e-6);
+        check(got, *expected, tolerances::ERF_TOLERANCE, desc);
+        harness.check_abs_or_rel(desc, got, *expected, tolerances::ERF_TOLERANCE);
     }
     println!();
 
@@ -96,9 +97,9 @@ fn main() {
     for (x, expected, desc) in &j0_tests {
         let got = barracuda::special::bessel_j0(*x);
         let tol = if desc.contains("first zero") {
-            0.001
+            0.001 // Near-zero expected; no BESSEL_ZERO constant
         } else {
-            1e-6
+            tolerances::BESSEL_TOLERANCE
         };
         check(got, *expected, tol, desc);
         harness.check_abs_or_rel(desc, got, *expected, tol);
@@ -112,8 +113,8 @@ fn main() {
     ];
     for (x, expected, desc) in &j1_tests {
         let got = barracuda::special::bessel_j1(*x);
-        check(got, *expected, 1e-6, desc);
-        harness.check_abs_or_rel(desc, got, *expected, 1e-6);
+        check(got, *expected, tolerances::BESSEL_TOLERANCE, desc);
+        harness.check_abs_or_rel(desc, got, *expected, tolerances::BESSEL_TOLERANCE);
     }
 
     println!("\n── Bessel I₀(x) (Modified, 1st kind) ──");
@@ -124,8 +125,8 @@ fn main() {
     ];
     for (x, expected, desc) in &i0_tests {
         let got = barracuda::special::bessel_i0(*x);
-        check(got, *expected, 1e-6, desc);
-        harness.check_abs_or_rel(desc, got, *expected, 1e-6);
+        check(got, *expected, tolerances::BESSEL_TOLERANCE, desc);
+        harness.check_abs_or_rel(desc, got, *expected, tolerances::BESSEL_TOLERANCE);
     }
 
     println!("\n── Bessel K₀(x) (Modified, 2nd kind) ──");
@@ -136,8 +137,8 @@ fn main() {
     ];
     for (x, expected, desc) in &k0_tests {
         let got = barracuda::special::bessel_k0(*x);
-        check(got, *expected, 1e-6, desc);
-        harness.check_abs_or_rel(desc, got, *expected, 1e-6);
+        check(got, *expected, tolerances::BESSEL_TOLERANCE, desc);
+        harness.check_abs_or_rel(desc, got, *expected, tolerances::BESSEL_TOLERANCE);
     }
     println!();
 
@@ -152,8 +153,8 @@ fn main() {
     ];
     for (n, alpha, x, expected, desc) in &lag_tests {
         let got = barracuda::special::laguerre(*n, *alpha, *x);
-        check(got, *expected, 1e-10, desc);
-        harness.check_abs_or_rel(desc, got, *expected, 1e-10);
+        check(got, *expected, tolerances::LAGUERRE_TOLERANCE, desc);
+        harness.check_abs_or_rel(desc, got, *expected, tolerances::LAGUERRE_TOLERANCE);
     }
     println!();
 
@@ -170,8 +171,8 @@ fn main() {
     ];
     for (n, x, expected, desc) in &herm_tests {
         let got = barracuda::special::hermite(*n, *x);
-        check(got, *expected, 1e-10, desc);
-        harness.check_abs_or_rel(desc, got, *expected, 1e-10);
+        check(got, *expected, tolerances::EXACT_F64, desc);
+        harness.check_abs_or_rel(desc, got, *expected, tolerances::EXACT_F64);
     }
     println!();
 
@@ -187,8 +188,8 @@ fn main() {
     ];
     for (n, x, expected, desc) in &leg_tests {
         let got = barracuda::special::legendre(*n, *x);
-        check(got, *expected, 1e-10, desc);
-        harness.check_abs_or_rel(desc, got, *expected, 1e-10);
+        check(got, *expected, tolerances::EXACT_F64, desc);
+        harness.check_abs_or_rel(desc, got, *expected, tolerances::EXACT_F64);
     }
 
     println!("\n── Associated Legendre Pₙᵐ(x) ──");
@@ -253,8 +254,8 @@ fn main() {
     ];
     for (x, expected, desc) in &lgamma_tests {
         let got = barracuda::special::ln_gamma(*x).unwrap_or(f64::NAN);
-        check(got, *expected, 1e-6, desc);
-        harness.check_abs_or_rel(desc, got, *expected, 1e-6);
+        check(got, *expected, tolerances::GAMMA_TOLERANCE, desc);
+        harness.check_abs_or_rel(desc, got, *expected, tolerances::GAMMA_TOLERANCE);
     }
     println!();
 
@@ -282,23 +283,63 @@ fn main() {
     {
         // CDF at critical values: scipy.stats.chi2.cdf(3.841, 1) ≈ 0.95
         let got = barracuda::special::chi_squared_cdf(3.841, 1.0).unwrap_or(f64::NAN);
-        check(got, 0.95, 0.005, "χ²_CDF(3.841, k=1) ≈ 0.95");
-        harness.check_abs_or_rel("χ²_CDF(3.841, k=1) ≈ 0.95", got, 0.95, 0.005);
+        check(
+            got,
+            0.95,
+            tolerances::CHI2_CDF_TOLERANCE,
+            "χ²_CDF(3.841, k=1) ≈ 0.95",
+        );
+        harness.check_abs_or_rel(
+            "χ²_CDF(3.841, k=1) ≈ 0.95",
+            got,
+            0.95,
+            tolerances::CHI2_CDF_TOLERANCE,
+        );
 
         // CDF at critical values: scipy.stats.chi2.cdf(5.991, 2) ≈ 0.95
         let got = barracuda::special::chi_squared_cdf(5.991, 2.0).unwrap_or(f64::NAN);
-        check(got, 0.95, 0.005, "χ²_CDF(5.991, k=2) ≈ 0.95");
-        harness.check_abs_or_rel("χ²_CDF(5.991, k=2) ≈ 0.95", got, 0.95, 0.005);
+        check(
+            got,
+            0.95,
+            tolerances::CHI2_CDF_TOLERANCE,
+            "χ²_CDF(5.991, k=2) ≈ 0.95",
+        );
+        harness.check_abs_or_rel(
+            "χ²_CDF(5.991, k=2) ≈ 0.95",
+            got,
+            0.95,
+            tolerances::CHI2_CDF_TOLERANCE,
+        );
 
         // Quantile (inverse CDF): scipy.stats.chi2.ppf(0.95, 1) ≈ 3.8415
         let got = barracuda::special::chi_squared_quantile(0.95, 1.0).unwrap_or(f64::NAN);
-        check(got, 3.8415, 0.005, "χ²_quantile(0.95, k=1) ≈ 3.8415");
-        harness.check_abs_or_rel("χ²_quantile(0.95, k=1) ≈ 3.8415", got, 3.8415, 0.005);
+        check(
+            got,
+            3.8415,
+            tolerances::CHI2_CDF_TOLERANCE,
+            "χ²_quantile(0.95, k=1) ≈ 3.8415",
+        );
+        harness.check_abs_or_rel(
+            "χ²_quantile(0.95, k=1) ≈ 3.8415",
+            got,
+            3.8415,
+            tolerances::CHI2_CDF_TOLERANCE,
+        );
 
         // PDF at x=2, k=3: scipy.stats.chi2.pdf(2, 3) ≈ 0.2076
         let got = barracuda::special::chi_squared_pdf(2.0, 3.0).unwrap_or(f64::NAN);
-        check(got, 0.2076, 0.005, "χ²_PDF(2, k=3) ≈ 0.2076");
-        harness.check_abs_or_rel("χ²_PDF(2, k=3) ≈ 0.2076", got, 0.2076, 0.005);
+        check(
+            got,
+            0.2076,
+            tolerances::CHI2_CDF_TOLERANCE,
+            "χ²_PDF(2, k=3) ≈ 0.2076",
+        );
+        harness.check_abs_or_rel(
+            "χ²_PDF(2, k=3) ≈ 0.2076",
+            got,
+            0.2076,
+            tolerances::CHI2_CDF_TOLERANCE,
+        );
     }
     println!();
 

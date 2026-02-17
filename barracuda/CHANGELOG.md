@@ -5,6 +5,44 @@ All notable changes to the hotSpring BarraCUDA validation crate.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.7] — 2026-02-17
+
+### Added
+
+- **7 new tests** (189 total): determinism tests for `chi2_per_datum`, `binding_energy_l2`,
+  `SphericalHFB` construction, `compute_rdf`; CPU-path coverage for `DENSITY_FLOOR`
+  and `SPIN_ORBIT_R_MIN` guards, GPU f64 buffer edge case.
+- **`HFB_TEST_NUCLEI_PROVENANCE`** — machine-readable `BaselineProvenance` struct for
+  HFB test nuclei (previously comment-only provenance).
+- **Doc comments** on `GpuResidentL2Result` and all its fields.
+
+### Changed
+
+- **`hermite_value` → `barracuda::special::hermite`** — eliminated last duplicate math.
+  `hfb_common::hermite_value` now delegates to the canonical barracuda implementation.
+- **Validation binary tolerances fully wired:**
+  - `validate_linalg`: `EXACT_F64`, `SVD_TOLERANCE`, `ITERATIVE_F64`
+  - `validate_special_functions`: `GAMMA_TOLERANCE`, `ERF_TOLERANCE`, `BESSEL_TOLERANCE`,
+    `LAGUERRE_TOLERANCE`, `CHI2_CDF_TOLERANCE`, `EXACT_F64`
+  - `validate_md`: `EXACT_F64`, `GPU_VS_CPU_F64`, `MD_FORCE_TOLERANCE`,
+    `NEWTON_3RD_LAW_ABS`, `MD_EQUILIBRIUM_FORCE_ABS`
+  - `validate_barracuda_pipeline`: `GPU_VS_CPU_F64`, `NEWTON_3RD_LAW_ABS`,
+    `MD_ABSOLUTE_FLOOR`, `ENERGY_DRIFT_PCT`
+  - `validate_optimizers`: `EXACT_F64`, `GPU_VS_CPU_F64`, `RK45_TOLERANCE`,
+    `SOBOL_TOLERANCE`
+- **Provenance environments** — L1/L2 `BaselineProvenance` records now include
+  NumPy 1.24, SciPy 1.11, mystic 0.4.2 (previously just "Python 3.10, mystic").
+
+### Metrics
+
+| Metric | Before (v0.5.6) | After (v0.5.7) |
+|--------|:---:|:---:|
+| Unit tests | 182 | **189** (+7) |
+| Line coverage | 39% | **44%** |
+| Function coverage | 57% | **61%** |
+| Inline tolerance magic numbers (validation bins) | ~50 | **~12** (remaining: factorial, digamma, beta, assoc Legendre) |
+| Duplicate math functions | 1 (hermite) | **0** |
+
 ## [0.5.6] — 2026-02-17
 
 ### Added

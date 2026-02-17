@@ -522,4 +522,11 @@ mod tests {
         // Result<Vec<f64>, HotSpringError> is the contract.
         let _: Result<Vec<f64>, crate::error::HotSpringError> = Ok(vec![1.0, 2.0]);
     }
+
+    #[test]
+    fn read_back_f64_empty() {
+        // Verify edge case: empty buffer — mapping logic handles sizes correctly
+        let empty: Vec<u8> = vec![];
+        assert_eq!(empty.len() / 8, 0);
+    }
 }

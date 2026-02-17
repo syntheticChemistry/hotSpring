@@ -230,14 +230,14 @@ No streamlining — this is the correct architecture.
 
 ---
 
-## BarraCUDA Crate (v0.5.6)
+## BarraCUDA Crate (v0.5.7)
 
 The `barracuda/` directory is a standalone Rust crate providing the validation
 environment, physics implementations, and GPU compute. Key architectural properties:
 
-- **182 unit tests** (5 ignored GPU/slow tests), plus **26 GPU pipeline checks**
+- **189 unit tests** (5 ignored GPU/slow tests), plus **26 GPU pipeline checks**
   via `validate_barracuda_pipeline` (12/12) and `validate_barracuda_hfb` (14/14).
-  Test coverage: 39% line / 57% function (CPU-testable modules average >90%;
+  Test coverage: 44% line / 61% function (CPU-testable modules average >90%;
   GPU modules require hardware). Measured with `cargo-llvm-cov`.
 - **AGPL-3.0 only** — all 51 `.rs` files and all 30 `.wgsl` shaders have
   `SPDX-License-Identifier: AGPL-3.0-only`.
@@ -250,8 +250,9 @@ environment, physics implementations, and GPU compute. Key architectural propert
 - **Tolerances** — 26 centralized constants in `tolerances.rs` with physical
   justification (machine precision, numerical method, model, literature).
   Includes physics guard constants (`DENSITY_FLOOR`, `SPIN_ORBIT_R_MIN`,
-  `COULOMB_R_MIN`). Zero inline magic numbers in validation binaries or
-  physics modules.
+  `COULOMB_R_MIN`). All validation binaries wired to `tolerances::*`
+  (~12 remaining inline literals for niche special functions without
+  dedicated constants).
 - **ValidationHarness** — structured pass/fail tracking with exit code 0/1.
   12 of 20 binaries use it (validation targets). Remaining 8 are optimization
   explorers and diagnostics.
@@ -281,7 +282,7 @@ environment, physics implementations, and GPU compute. Key architectural propert
 
 ```bash
 cd barracuda
-cargo test               # 182 tests pass (< 1 second)
+cargo test               # 189 tests pass (< 4 seconds)
 cargo clippy --all-targets  # Clean — 0 warnings (pedantic via workspace lints)
 cargo doc --no-deps      # Full API documentation — 0 warnings
 ```
@@ -360,7 +361,7 @@ hotSpring/
 │   ├── CONTROL_EXPERIMENT_SUMMARY.md  # Phase A quick reference
 │   └── METHODOLOGY.md                # Two-phase validation protocol
 │
-├── barracuda/                          # BarraCUDA Rust crate — v0.5.6 (182 tests)
+├── barracuda/                          # BarraCUDA Rust crate — v0.5.7 (189 tests)
 │   ├── Cargo.toml                     # Dependencies (requires ecoPrimals/phase1/toadstool)
 │   ├── CHANGELOG.md                   # Version history — baselines, tolerances, evolution
 │   ├── EVOLUTION_READINESS.md         # Rust module → WGSL shader → GPU promotion tier mapping

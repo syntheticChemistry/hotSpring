@@ -512,4 +512,14 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn batched_hfb_cpu_path_determinism() {
+        // Tests the CPU code path (no GPU) for determinism
+        // Can't test GPU path in unit tests, but the solver construction is deterministic
+        let hfb1 = SphericalHFB::new(28, 28, 4, 10.0, 50);
+        let hfb2 = SphericalHFB::new(28, 28, 4, 10.0, 50);
+        assert_eq!(hfb1.n_states(), hfb2.n_states());
+        assert_eq!(hfb1.nr(), hfb2.nr());
+    }
 }

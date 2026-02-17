@@ -158,7 +158,7 @@ fn main() {
         let f = |x: f64| x * x - 2.0;
         match barracuda::optimize::bisect(f, 1.0, 2.0, 1e-12, 100) {
             Ok(root) => {
-                let ok = (root - std::f64::consts::SQRT_2).abs() < 1e-10;
+                let ok = (root - std::f64::consts::SQRT_2).abs() < tolerances::EXACT_F64;
                 if ok {
                     println!("  ✅ √2 = {root:.14}");
                 } else {
@@ -187,7 +187,7 @@ fn main() {
             Ok(result) => {
                 let expected = (-2.0_f64).exp();
                 let err = (result.y_final[0] - expected).abs();
-                let ok = err < 1e-6;
+                let ok = err < tolerances::GPU_VS_CPU_F64;
                 if ok {
                     println!(
                         "  ✅ y(2) = {:.10} (expected {:.10}), {} steps",
@@ -220,7 +220,7 @@ fn main() {
                 // After one full period: x(2π) = cos(2π) = 1, v(2π) = -sin(2π) = 0
                 let x_err = (result.y_final[0] - 1.0).abs();
                 let v_err = result.y_final[1].abs();
-                let ok = x_err < 1e-5 && v_err < 1e-5;
+                let ok = x_err < tolerances::RK45_TOLERANCE && v_err < tolerances::RK45_TOLERANCE;
                 if ok {
                     println!(
                         "  ✅ x(2π)={:.8}, v(2π)={:.8} ({} steps, {} rejected)",
@@ -313,7 +313,7 @@ fn main() {
                 let expected = (-PI * PI * t_final).exp(); // sin(π/2) = 1
 
                 let err = (sol[mid_idx] - expected).abs();
-                let ok = err < 0.05;
+                let ok = err < tolerances::SOBOL_TOLERANCE;
                 if ok {
                     println!(
                         "  ✅ u(0.5, {:.1}) = {:.6} (analytical {:.6}), err={:.2e}",
@@ -333,8 +333,9 @@ fn main() {
                 let central = &sol[10..nx - 10];
                 let mut central_oscillations = 0;
                 for w in central.windows(3) {
-                    if (w[1] > w[0] + 1e-10 && w[1] > w[2] + 1e-10)
-                        || (w[1] + 1e-10 < w[0] && w[1] + 1e-10 < w[2])
+                    if (w[1] > w[0] + tolerances::EXACT_F64 && w[1] > w[2] + tolerances::EXACT_F64)
+                        || (w[1] + tolerances::EXACT_F64 < w[0]
+                            && w[1] + tolerances::EXACT_F64 < w[2])
                     {
                         central_oscillations += 1;
                     }
@@ -409,7 +410,7 @@ fn main() {
         let y = vec![2.0, 4.0, 6.0, 8.0, 10.0];
         match barracuda::stats::pearson_correlation(&x, &y) {
             Ok(r) => {
-                let ok = (r - 1.0).abs() < 1e-10;
+                let ok = (r - 1.0).abs() < tolerances::EXACT_F64;
                 if ok {
                     println!("  ✅ Perfect positive: r = {r:.10}");
                 } else {
@@ -428,7 +429,7 @@ fn main() {
         let y2 = vec![0.0, 1.0, 0.0, -1.0];
         match barracuda::stats::pearson_correlation(&x2, &y2) {
             Ok(r2) => {
-                let ok = r2.abs() < 1e-10;
+                let ok = r2.abs() < tolerances::EXACT_F64;
                 if ok {
                     println!("  ✅ Orthogonal: r = {r2:.10}");
                 } else {

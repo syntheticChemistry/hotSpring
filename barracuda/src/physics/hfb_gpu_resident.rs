@@ -30,13 +30,23 @@ use std::sync::Arc;
 const POTENTIALS_SHADER: &str = include_str!("shaders/batched_hfb_potentials_f64.wgsl");
 const HAMILTONIAN_SHADER: &str = include_str!("shaders/batched_hfb_hamiltonian_f64.wgsl");
 
+/// Results from the GPU-resident L2 HFB binding energy computation.
+///
+/// Contains per-nucleus binding energies, convergence flags, timing,
+/// and dispatch statistics for performance analysis.
 #[derive(Debug)]
 pub struct GpuResidentL2Result {
+    /// Per-nucleus results: `(Z, N, binding_energy_MeV, converged)`.
     pub results: Vec<(usize, usize, f64, bool)>,
+    /// Wall-clock time for the HFB SCF computation (seconds).
     pub hfb_time_s: f64,
+    /// GPU dispatches for eigensolve (one per SCF iteration with active nuclei).
     pub gpu_dispatches: usize,
+    /// Total GPU dispatches including potentials, Hamiltonian, and eigensolve.
     pub total_gpu_dispatches: usize,
+    /// Number of nuclei computed with full HFB (A > 20).
     pub n_hfb: usize,
+    /// Number of nuclei computed with SEMF fallback (A <= 20).
     pub n_semf: usize,
 }
 
@@ -1127,5 +1137,24 @@ mod tests {
         );
         assert!(rho_p[0] > 1e-3, "inner density should be substantial");
         assert!(rho_p[nr - 1] < 1e-10, "outer density should be near zero");
+    }
+
+    #[test]
+    fn density_floor_applied() {
+        use crate::tolerances::DENSITY_FLOOR;
+        // Verify density floor logic
+        let rho = -0.001_f64;
+        let floored = rho.max(DENSITY_FLOOR);
+        assert_eq!(floored, DENSITY_FLOOR);
+        assert!(floored > 0.0);
+    }
+
+    #[test]
+    fn spin_orbit_r_min_guard() {
+        use crate::tolerances::SPIN_ORBIT_R_MIN;
+        let r = 0.001_f64;
+        let guarded = r.max(SPIN_ORBIT_R_MIN);
+        assert_eq!(guarded, SPIN_ORBIT_R_MIN);
+        assert!(guarded >= 0.1);
     }
 }

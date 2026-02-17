@@ -1,6 +1,6 @@
 [package]
 name = "hotspring-barracuda"
-version = "0.5.6"
+version = "0.5.7"
 edition = "2021"
 description = "Nuclear EOS + GPU MD validation for BarraCUDA — L1/L2/L3 physics, Yukawa OCP, typed errors, provenance, capability-based discovery"
 license = "AGPL-3.0"

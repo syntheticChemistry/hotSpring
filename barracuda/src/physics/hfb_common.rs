@@ -6,7 +6,7 @@
 //! and GPU-accelerated deformed HFB implementations.
 //!
 //! - [`Mat`] — lightweight row-major square matrix for Hamiltonian blocks
-//! - [`hermite_value`] — Hermite polynomial via three-term recurrence
+//! - [`hermite_value`] — Re-export of `barracuda::special::hermite` (canonical implementation)
 //! - [`factorial_f64`] — exact factorial as f64
 
 // ═══════════════════════════════════════════════════════════════════
@@ -58,26 +58,16 @@ impl Mat {
 // Math helpers shared across deformed HFB variants
 // ═══════════════════════════════════════════════════════════════════
 
-/// Hermite polynomial H_n(x) via stable three-term recurrence.
+/// Hermite polynomial H_n(x) — delegates to `barracuda::special::hermite`.
 ///
 /// H₀(x) = 1, H₁(x) = 2x, H_{n+1}(x) = 2x·Hₙ(x) − 2n·H_{n−1}(x)
 ///
 /// Used by deformed HFB solvers for axial harmonic oscillator wavefunctions.
+/// Previously a local implementation; now delegates to the canonical barracuda
+/// version to eliminate duplicate math (zero-duplicate-math principle).
+#[inline]
 pub fn hermite_value(n: usize, x: f64) -> f64 {
-    if n == 0 {
-        return 1.0;
-    }
-    if n == 1 {
-        return 2.0 * x;
-    }
-    let mut h_prev = 1.0;
-    let mut h_curr = 2.0 * x;
-    for k in 2..=n {
-        let h_next = 2.0 * x * h_curr - 2.0 * (k - 1) as f64 * h_prev;
-        h_prev = h_curr;
-        h_curr = h_next;
-    }
-    h_curr
+    barracuda::special::hermite(n, x)
 }
 
 /// Factorial n! as f64.

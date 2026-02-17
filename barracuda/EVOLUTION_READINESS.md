@@ -99,6 +99,7 @@ Python baseline → Rust validation → GPU acceleration → sovereign pipeline
 | `barracuda::device::{WgpuDevice, TensorContext}` | GPU device bridge |
 
 No duplicate math — all mathematical operations use BarraCUDA primitives.
+`hermite_value` now delegates to `barracuda::special::hermite` (v0.5.7).
 WGSL `abs_f64` and `cbrt_f64` have inline copies pending preamble injection refactor.
 
 ## Promotion Priority
@@ -117,6 +118,16 @@ WGSL `abs_f64` and `cbrt_f64` have inline copies pending preamble injection refa
    `ShaderTemplate::math_f64_subset()` preamble from ToadStool canonical math
 5. **hfb_deformed_gpu.rs** → Wire existing deformed_*.wgsl shaders for full GPU H-build
 6. **nuclear_matter.rs** → Low priority; CPU bisection is fast enough
+
+## Completed (v0.5.7)
+
+- ✅ `hermite_value` → delegates to `barracuda::special::hermite` (zero duplicate math)
+- ✅ Validation binary tolerances fully wired: `validate_linalg`, `validate_special_functions`,
+  `validate_md`, `validate_barracuda_pipeline`, `validate_optimizers` (~50 inline → ~12 niche)
+- ✅ `HFB_TEST_NUCLEI_PROVENANCE` — machine-readable `BaselineProvenance` struct
+- ✅ L1/L2 provenance environments expanded: NumPy 1.24, SciPy 1.11, mystic 0.4.2
+- ✅ 7 new determinism + coverage tests (189 total, 44% line / 61% function coverage)
+- ✅ `GpuResidentL2Result` fully documented
 
 ## Completed (v0.5.6)
 

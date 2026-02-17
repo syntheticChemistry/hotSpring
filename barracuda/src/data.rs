@@ -404,4 +404,17 @@ mod tests {
             "one-sigma deviation should give chi2 = 1.0, got {chi2}"
         );
     }
+
+    #[test]
+    fn chi2_per_datum_determinism() {
+        // Same inputs → identical chi2 on rerun
+        let params = crate::provenance::SLY4_PARAMS;
+        let mut exp = std::collections::HashMap::new();
+        exp.insert((28, 28), (483.99, 1.0));
+        exp.insert((82, 126), (1636.43, 1.0));
+        let run = || chi2_per_datum(&params, &exp, crate::physics::semf_binding_energy);
+        let a = run();
+        let b = run();
+        assert_eq!(a.to_bits(), b.to_bits(), "chi2_per_datum not deterministic");
+    }
 }

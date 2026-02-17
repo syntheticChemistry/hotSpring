@@ -21,6 +21,7 @@ use barracuda::ops::md::observables::KineticEnergy;
 use barracuda::ops::md::thermostats::BerendsenThermostat;
 use barracuda::tensor::Tensor;
 use hotspring_barracuda::gpu::GpuF64;
+use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
 
 // ═══════════════════════════════════════════════════════════════════
@@ -195,15 +196,27 @@ async fn main() {
     let cpu_px: f64 = cpu_forces.chunks(3).map(|f| f[0]).sum();
     let gpu_px: f64 = gpu_forces.chunks(3).map(|f| f[0]).sum();
     println!("  Momentum conservation: CPU Σfx={cpu_px:.2e}, GPU Σfx={gpu_px:.2e}");
-    harness.check_upper("Force magnitude max relative error", max_mag_rel, 1e-3);
-    harness.check_upper("Force magnitude avg relative error", avg_mag_rel, 1e-5);
+    harness.check_upper(
+        "Force magnitude max relative error",
+        max_mag_rel,
+        tolerances::NEWTON_3RD_LAW_ABS,
+    );
+    harness.check_upper(
+        "Force magnitude avg relative error",
+        avg_mag_rel,
+        tolerances::MD_ABSOLUTE_FLOOR,
+    );
 
     // Compare PE
     let cpu_pe_total: f64 = cpu_pe.iter().sum();
     let gpu_pe_total: f64 = gpu_pe.iter().sum();
     let pe_rel_err = ((cpu_pe_total - gpu_pe_total) / cpu_pe_total).abs();
     println!("  PE total: CPU={cpu_pe_total:.6}, GPU={gpu_pe_total:.6}, rel_err={pe_rel_err:.2e}");
-    harness.check_upper("PE total relative error", pe_rel_err, 1e-6);
+    harness.check_upper(
+        "PE total relative error",
+        pe_rel_err,
+        tolerances::GPU_VS_CPU_F64,
+    );
 
     // ── Phase 2: Single-step integrator validation ──
     println!("\n── Phase 2: Integrator Validation ──────────────────────");
@@ -297,13 +310,21 @@ async fn main() {
         println!(
             "  KE total: GPU={gpu_ke_total:.6}, CPU={cpu_ke_total:.6}, rel_err={ke_rel_err:.2e}"
         );
-        harness.check_upper("KineticEnergy: total KE relative error", ke_rel_err, 1e-6);
+        harness.check_upper(
+            "KineticEnergy: total KE relative error",
+            ke_rel_err,
+            tolerances::GPU_VS_CPU_F64,
+        );
 
         let t_from_ke = KineticEnergy::temperature_from_ke(gpu_ke_total, n);
         let t_from_cpu = compute_temperature(&velocities, n, MASS);
         let t_rel_err = ((t_from_ke - t_from_cpu) / t_from_cpu).abs();
         println!("  T from KE: GPU={t_from_ke:.6}, CPU={t_from_cpu:.6}, rel_err={t_rel_err:.2e}");
-        harness.check_upper("KineticEnergy: temperature relative error", t_rel_err, 1e-6);
+        harness.check_upper(
+            "KineticEnergy: temperature relative error",
+            t_rel_err,
+            tolerances::GPU_VS_CPU_F64,
+        );
     }
 
     // ── Phase 5: Full MD loop (energy conservation) ──
@@ -432,8 +453,12 @@ async fn main() {
             println!("    Drift: {drift_pct:.4}%");
             println!("    Rel fluctuation: {rel_fluct:.2e}");
 
-            harness.check_upper("Energy drift (%)", drift_pct, 1.0);
-            harness.check_upper("Energy relative fluctuation", rel_fluct, 0.05);
+            harness.check_upper("Energy drift (%)", drift_pct, tolerances::ENERGY_DRIFT_PCT);
+            harness.check_upper(
+                "Energy relative fluctuation",
+                rel_fluct,
+                tolerances::ENERGY_DRIFT_PCT / 100.0,
+            );
         }
 
         // Validate final temperature

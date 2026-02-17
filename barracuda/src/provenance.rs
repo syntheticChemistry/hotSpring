@@ -59,7 +59,7 @@ pub const L1_PYTHON_CHI2: BaselineProvenance = BaselineProvenance {
     commit: "fd908c41 (hotSpring control, pinned)",
     date: "2026-01-15",
     command: "python -m wrapper.objective --level=L1 --nuclei=selected --samples=1000 --seed=42",
-    environment: "envs/surrogate.yaml (Python 3.10, mystic)",
+    environment: "envs/surrogate.yaml (Python 3.10, NumPy 1.24, SciPy 1.11, mystic 0.4.2)",
     value: 6.62,
     unit: "chi2/datum",
 };
@@ -71,7 +71,7 @@ pub const L1_PYTHON_CANDIDATES: BaselineProvenance = BaselineProvenance {
     commit: "fd908c41 (hotSpring control, pinned)",
     date: "2026-01-15",
     command: "python -m wrapper.objective --level=L1 --nuclei=selected --samples=1000 --seed=42",
-    environment: "envs/surrogate.yaml (Python 3.10, mystic)",
+    environment: "envs/surrogate.yaml (Python 3.10, NumPy 1.24, SciPy 1.11, mystic 0.4.2)",
     value: 1008.0,
     unit: "candidates evaluated",
 };
@@ -83,7 +83,7 @@ pub const L2_PYTHON_CHI2: BaselineProvenance = BaselineProvenance {
     commit: "fd908c41 (hotSpring control, pinned)",
     date: "2026-01-15",
     command: "python -m wrapper.objective --level=L2 --nuclei=selected --samples=100 --seed=42",
-    environment: "envs/surrogate.yaml (Python 3.10, mystic)",
+    environment: "envs/surrogate.yaml (Python 3.10, NumPy 1.24, SciPy 1.11, mystic 0.4.2)",
     value: 61.87,
     unit: "chi2/datum",
 };
@@ -95,7 +95,7 @@ pub const L2_PYTHON_CANDIDATES: BaselineProvenance = BaselineProvenance {
     commit: "fd908c41 (hotSpring control, pinned)",
     date: "2026-01-15",
     command: "python -m wrapper.objective --level=L2 --nuclei=selected --samples=100 --seed=42",
-    environment: "envs/surrogate.yaml (Python 3.10, mystic)",
+    environment: "envs/surrogate.yaml (Python 3.10, NumPy 1.24, SciPy 1.11, mystic 0.4.2)",
     value: 96.0,
     unit: "candidates evaluated",
 };
@@ -107,7 +107,7 @@ pub const L2_PYTHON_TOTAL_CHI2: BaselineProvenance = BaselineProvenance {
     commit: "fd908c41 (hotSpring control, pinned)",
     date: "2026-01-15",
     command: "python -m wrapper.objective --level=L2 --nuclei=selected --samples=100 --seed=42",
-    environment: "envs/surrogate.yaml (Python 3.10, mystic)",
+    environment: "envs/surrogate.yaml (Python 3.10, NumPy 1.24, SciPy 1.11, mystic 0.4.2)",
     value: 28_450.0,
     unit: "chi2_total",
 };
@@ -350,26 +350,29 @@ pub const SARKAS_PAPER: &str = "Choi, Dharuman, Murillo, Phys. Rev. E 100, 01320
 /// IAEA AMDC: <https://www-nds.iaea.org/amdc/>
 pub const AME2020_DOI: &str = "10.1088/1674-1137/abddaf";
 
+/// Machine-readable provenance for HFB test nuclei Python baselines.
+///
+/// B_python values from L2 spherical HF+BCS solver (`skyrme_hf.py`).
+/// The Rust L2 solver may produce slightly different values due to
+/// numerical method differences (bisection vs Brent, density mixing).
+/// The 12% relative error tolerance accounts for this.
+pub const HFB_TEST_NUCLEI_PROVENANCE: BaselineProvenance = BaselineProvenance {
+    label: "HFB test nuclei binding energies (SLy4, 6 nuclei)",
+    script: "surrogate/nuclear-eos/wrapper/skyrme_hf.py",
+    commit: "fd908c41 (hotSpring control, pinned)",
+    date: "2026-01-15",
+    command: "python -m wrapper.skyrme_hf --param=SLy4 --nuclei=Ni56,Zr90,Sn132,Pb208,Sn112,Zr94",
+    environment: "envs/surrogate.yaml (Python 3.10, NumPy 1.24, SciPy 1.11)",
+    value: 0.0, // aggregate: see HFB_TEST_NUCLEI for per-nucleus values
+    unit: "MeV (per-nucleus binding energies in HFB_TEST_NUCLEI)",
+};
+
 /// HFB test nuclei with experimental and Python-computed binding energies.
 ///
-/// # Python baseline provenance
-///
-/// | Field | Value |
-/// |-------|-------|
-/// | Script | `control/surrogate/nuclear-eos/wrapper/skyrme_hf.py` |
-/// | Commit | `fd908c41` (hotSpring control, pinned) |
-/// | Date | 2026-01-15 |
-/// | Command | `python -m wrapper.skyrme_hf --param=SLy4 --nuclei=Ni56,Zr90,Sn132,Pb208,Sn112,Zr94` |
-/// | Environment | `envs/surrogate.yaml` (Python 3.10, NumPy 1.24, SciPy 1.11) |
+/// Provenance: see [`HFB_TEST_NUCLEI_PROVENANCE`] for machine-readable record.
 ///
 /// B_exp values from AME2020 (Wang et al., "The AME 2020 atomic mass evaluation (II)",
 /// Chinese Physics C 2021). DOI: [`AME2020_DOI`], IAEA AMDC: <https://www-nds.iaea.org/amdc/>
-///
-/// Note: B_python values are from the L2 spherical HF+BCS solver
-/// (`skyrme_hf.py`). The Rust L2 solver (`binding_energy_l2`) may produce
-/// slightly different values due to numerical method differences (bisection
-/// vs Brent, density mixing strategy, convergence criteria). The 12%
-/// relative error tolerance in `validate_nuclear_eos` accounts for this.
 pub const HFB_TEST_NUCLEI: &[(usize, usize, &str, f64, f64)] = &[
     // (Z, N, name, B_exp [MeV], B_python [MeV])
     (28, 28, "Ni-56", 483.99, 476.51),

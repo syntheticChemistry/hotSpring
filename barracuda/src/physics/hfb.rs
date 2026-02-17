@@ -1283,4 +1283,17 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn binding_energy_l2_determinism() {
+        let params = crate::provenance::SLY4_PARAMS;
+        let run = || binding_energy_l2(28, 28, &params);
+        let a = run();
+        let b = run();
+        assert_eq!(
+            a.0.to_bits(),
+            b.0.to_bits(),
+            "L2 binding energy not deterministic"
+        );
+    }
 }

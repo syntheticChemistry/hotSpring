@@ -547,4 +547,19 @@ mod tests {
         assert_eq!(vacf.c_values.len(), 1);
         assert!((vacf.c_values[0] - 1.0).abs() < 1e-10);
     }
+
+    #[test]
+    fn rdf_determinism() {
+        let positions = vec![0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0];
+        let n = 4;
+        let box_l = 5.0;
+        let n_bins = 25; // r_max = box_l/2 = 2.5, dr = 0.1 → 25 bins
+        let snapshots = vec![positions];
+        let a = compute_rdf(&snapshots, n, box_l, n_bins);
+        let b = compute_rdf(&snapshots, n, box_l, n_bins);
+        assert_eq!(a.g_values.len(), b.g_values.len());
+        for (i, (va, vb)) in a.g_values.iter().zip(b.g_values.iter()).enumerate() {
+            assert_eq!(va.to_bits(), vb.to_bits(), "RDF bin {i} not deterministic");
+        }
+    }
 }
