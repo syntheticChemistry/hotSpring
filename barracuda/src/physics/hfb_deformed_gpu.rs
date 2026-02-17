@@ -19,19 +19,19 @@ use super::constants::*;
 use super::hfb_common::{factorial_f64, hermite_value};
 use super::hfb_deformed::{binding_energy_l3, DeformedHFBResult};
 use crate::gpu::GpuF64;
-use crate::tolerances::SPIN_ORBIT_R_MIN;
+use crate::tolerances::{
+    DENSITY_FLOOR, DIVISION_GUARD, GPU_JACOBI_CONVERGENCE, PAIRING_GAP_THRESHOLD,
+    SCF_ENERGY_TOLERANCE, SPIN_ORBIT_R_MIN,
+};
 use barracuda::device::WgpuDevice;
 use barracuda::ops::linalg::BatchedEighGpu;
 use barracuda::special::{gamma, laguerre};
-#[allow(unused_imports)]
 use bytemuck::{Pod, Zeroable};
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::f64::consts::PI;
 use std::sync::Arc;
 use std::time::Instant;
-#[allow(unused_imports)]
-use wgpu::util::DeviceExt;
 
 /// Result from GPU-resident L3 evaluation
 #[derive(Debug)]
@@ -353,7 +353,7 @@ fn deformed_hfb_gpu_single(
     let n_grid = setup.n_grid;
     let n_states = setup.states.len();
     let max_iter = 200;
-    let tol = 1e-6;
+    let tol = SCF_ENERGY_TOLERANCE;
     let broyden_warmup = 50;
 
     // ── Step 1: Precompute wavefunctions (CPU Rayon) ──
@@ -587,7 +587,7 @@ fn diag_blocks_gpu(
             max_bs,
             n_blocks,
             50,
-            1e-12,
+            GPU_JACOBI_CONVERGENCE,
         )
         .or_else(|_| BatchedEighGpu::execute_f64(device.clone(), &packed_h, max_bs, n_blocks, 50))
     } else {
@@ -633,7 +633,7 @@ fn bcs_occupations(sorted_eigs: &[(usize, f64)], n_particles: usize, delta: f64,
     if sorted_eigs.is_empty() {
         return;
     }
-    if delta > 1e-10 {
+    if delta > PAIRING_GAP_THRESHOLD {
         let fermi = find_fermi_bcs(sorted_eigs, n_particles, delta);
         for &(si, eval) in sorted_eigs {
             let eps = eval - fermi;
@@ -679,7 +679,7 @@ fn find_fermi_bcs(sorted_eigs: &[(usize, f64)], n_particles: usize, delta: f64) 
         } else {
             hi = mid;
         }
-        if (hi - lo) < 1e-10 {
+        if (hi - lo) < PAIRING_GAP_THRESHOLD {
             break;
         }
     }
@@ -736,7 +736,7 @@ fn precompute_wavefunctions(setup: &NucleusSetup) -> Vec<f64> {
                     wf[k] * wf[k] * setup.volume_element(ir)
                 })
                 .sum();
-            if norm2 > 1e-30 {
+            if norm2 > DIVISION_GUARD {
                 let sc = 1.0 / norm2.sqrt();
                 for v in &mut wf {
                     *v *= sc;
@@ -781,7 +781,7 @@ fn compute_tau_rayon(
             for (si, _s) in setup.states.iter().enumerate() {
                 let op = occ_p[si] * 2.0;
                 let on = occ_n[si] * 2.0;
-                if op < 1e-15 && on < 1e-15 {
+                if op < DENSITY_FLOOR && on < DENSITY_FLOOR {
                     continue;
                 }
 
@@ -829,7 +829,7 @@ fn compute_spin_current(
     for (si, s) in setup.states.iter().enumerate() {
         let op = occ_p[si] * 2.0;
         let on = occ_n[si] * 2.0;
-        if op < 1e-15 && on < 1e-15 {
+        if op < DENSITY_FLOOR && on < DENSITY_FLOOR {
             continue;
         }
         let ls = f64::from(s.lambda) * f64::from(s.sigma) * 0.5;
@@ -888,7 +888,7 @@ fn compute_coulomb_cpu(setup: &NucleusSetup, rho_p: &[f64], vc: &mut [f64]) {
         let ext = total_qr - cum_qr[k];
         vc[i] = E2 * (qi / ri + ext) + super::hfb_common::coulomb_exchange_slater(rho_p[i]);
     }
-    if tc < 1e-30 {
+    if tc < DIVISION_GUARD {
         for v in vc.iter_mut() {
             *v = 0.0;
         }
@@ -1055,7 +1055,7 @@ fn density_mixing(
                 .map(|(&a, &b)| a * b)
                 .sum();
             let dfd: f64 = broyden_dfs[m].iter().map(|&a| a * a).sum();
-            if dfd > 1e-30 {
+            if dfd > DIVISION_GUARD {
                 let g = dfr / dfd;
                 for i in 0..vd {
                     mixed[i] -= g * (broyden_dus[m][i] + am * broyden_dfs[m][i]);
@@ -1113,11 +1113,11 @@ fn total_energy(
     let rch = 1.2 * (setup.a as f64).powf(1.0 / 3.0);
     ecl += 0.6 * (setup.z as f64) * (setup.z as f64 - 1.0) * E2 / rch;
     let ld = setup.a as f64 / 28.0;
-    let ep = if setup.delta_p > 1e-10 {
+    let ep = if setup.delta_p > PAIRING_GAP_THRESHOLD {
         -setup.delta_p.powi(2) * ld / 4.0
     } else {
         0.0
-    } + if setup.delta_n > 1e-10 {
+    } + if setup.delta_n > PAIRING_GAP_THRESHOLD {
         -setup.delta_n.powi(2) * ld / 4.0
     } else {
         0.0

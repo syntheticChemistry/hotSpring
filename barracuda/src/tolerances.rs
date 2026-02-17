@@ -394,6 +394,32 @@ pub const SPIN_ORBIT_R_MIN: f64 = 0.1;
 /// is bounded. The guard prevents 0/0 without affecting physics.
 pub const COULOMB_R_MIN: f64 = 1e-10;
 
+/// Generic division-by-zero guard for sums and norms.
+///
+/// Used when dividing by quantities that are sums of squares (norm², dot
+/// products) where zero means the vector is identically zero. At 1e-30,
+/// this is well below any physical scale in nuclear/MD applications and
+/// serves only to prevent IEEE inf/NaN. Applies to: Broyden denominator
+/// guards, wavefunction normalization, charge density sums.
+pub const DIVISION_GUARD: f64 = 1e-30;
+
+/// BCS pairing gap threshold: below this Δ (MeV), pairing is negligible.
+///
+/// At 1e-10 MeV (~0.1 neV), the pairing gap is ~10 orders of magnitude
+/// below typical nuclear pairing gaps (0.5–2.0 MeV). Used to switch
+/// between BCS and Fermi-gas occupation formulas, and to skip pairing
+/// energy terms. Also used as bisection convergence tolerance for
+/// the Fermi energy (MeV-scale precision).
+pub const PAIRING_GAP_THRESHOLD: f64 = 1e-10;
+
+/// SCF energy convergence tolerance (MeV).
+///
+/// The self-consistent field loop converges when |E_n − E_{n-1}| < tol.
+/// 1e-6 MeV corresponds to ~1 eV, well below nuclear binding energy
+/// uncertainties. For deformed HFB: typically converges in 50–150 iterations.
+/// For spherical HFB: typically converges in 20–80 iterations.
+pub const SCF_ENERGY_TOLERANCE: f64 = 1e-6;
+
 /// Guard for `ρ.powf(α)` with Skyrme fractional exponents (α ≈ 1/6).
 ///
 /// `powf` of a negative or true-zero value is undefined or NaN.

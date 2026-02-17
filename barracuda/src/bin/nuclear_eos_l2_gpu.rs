@@ -99,7 +99,7 @@ fn main() {
     println!();
 
     // ── Load data (shared by CPU-only and GPU paths) ─────────────────
-    let ctx = data::load_eos_context();
+    let ctx = data::load_eos_context().expect("Failed to load EOS context");
 
     // ── CPU-only fast path (no GPU needed) ─────────────────────────
     if cli.cpu_only {

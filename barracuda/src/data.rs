@@ -8,6 +8,7 @@
 //!
 //! Use `--nuclei=full` CLI flag to switch to the full dataset.
 
+use crate::error::HotSpringError;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -165,26 +166,28 @@ pub struct EosContext {
 /// directory (hotSpring root), loads experimental data for the selected
 /// nuclei set, and reads parameter bounds from `skyrme_bounds.json`.
 ///
-/// # Panics
+/// # Errors
 ///
-/// Panics if the data directory, experimental data, or bounds file cannot be read.
-pub fn load_eos_context() -> EosContext {
+/// Returns [`HotSpringError::DataLoad`] if the data directory, experimental
+/// data, or bounds file cannot be read.
+pub fn load_eos_context() -> Result<EosContext, HotSpringError> {
     let base = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
-        .expect("CARGO_MANIFEST_DIR has no parent")
+        .ok_or_else(|| HotSpringError::DataLoad("CARGO_MANIFEST_DIR has no parent".into()))?
         .join("control/surrogate/nuclear-eos");
 
     let exp_data = std::sync::Arc::new(
-        load_nuclei(&base, parse_nuclei_set_from_args()).expect("Failed to load experimental data"),
+        load_nuclei(&base, parse_nuclei_set_from_args())
+            .map_err(|e| HotSpringError::DataLoad(format!("experimental data: {e}")))?,
     );
     let bounds = load_bounds(&base.join("wrapper/skyrme_bounds.json"))
-        .expect("Failed to load parameter bounds");
+        .map_err(|e| HotSpringError::DataLoad(format!("parameter bounds: {e}")))?;
 
-    EosContext {
+    Ok(EosContext {
         base,
         exp_data,
         bounds,
-    }
+    })
 }
 
 /// Compute per-datum χ² for a binding energy function.

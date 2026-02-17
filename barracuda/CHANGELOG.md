@@ -9,23 +9,32 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- **6 new tolerance constants** with full physical/numerical justifications:
+- **11 new tolerance constants** with full physical/numerical justifications:
   `FACTORIAL_TOLERANCE`, `ASSOC_LEGENDRE_TOLERANCE`, `DIGAMMA_FD_TOLERANCE`,
   `BETA_VIA_LNGAMMA_TOLERANCE`, `INCOMPLETE_GAMMA_TOLERANCE`, `BESSEL_NEAR_ZERO_ABS`,
-  `RHO_POWF_GUARD`, `GPU_JACOBI_CONVERGENCE`.
+  `RHO_POWF_GUARD`, `GPU_JACOBI_CONVERGENCE`, `DIVISION_GUARD`,
+  `PAIRING_GAP_THRESHOLD`, `SCF_ENERGY_TOLERANCE`.
+- **`HotSpringError::DataLoad`** variant — `load_eos_context()` now returns
+  `Result<EosContext, HotSpringError>` instead of panicking on file load failures.
 
 ### Changed
 
 - **WGSL preamble injection:** Inline `abs_f64` (bcs_bisection) and `cbrt_f64`
   (potentials) replaced with `ShaderTemplate::with_math_f64_auto()` canonical
   barracuda math library injection. Zero duplicate WGSL math.
-- **Exhaustive tolerance wiring — special functions:**
-  `validate_special_functions` now uses named constants for all remaining inline
-  tolerances (factorial, associated Legendre, digamma FD, beta, incomplete gamma,
-  Bessel near-zero).
-- **Core physics tolerance wiring:** `hfb.rs`, `hfb_gpu.rs`, `hfb_gpu_resident.rs`
-  — all `1e-15` → `DENSITY_FLOOR`, all `1e-20` → `RHO_POWF_GUARD`, all `1e-12`
-  GPU eigensolve → `GPU_JACOBI_CONVERGENCE`, Brent tolerance → `BRENT_TOLERANCE`.
+- **Exhaustive tolerance wiring across all physics modules:**
+  - `validate_special_functions`: factorial, assoc Legendre, digamma, beta,
+    incomplete gamma, Bessel near-zero
+  - `hfb.rs`: `DENSITY_FLOOR`, `RHO_POWF_GUARD`, `BRENT_TOLERANCE`
+  - `hfb_gpu.rs`: `DENSITY_FLOOR`, `GPU_JACOBI_CONVERGENCE`
+  - `hfb_gpu_resident.rs`: `DENSITY_FLOOR`, `RHO_POWF_GUARD`, `GPU_JACOBI_CONVERGENCE`
+  - `hfb_deformed.rs`: `DENSITY_FLOOR`, `DIVISION_GUARD`, `PAIRING_GAP_THRESHOLD`,
+    `SCF_ENERGY_TOLERANCE`
+  - `hfb_deformed_gpu.rs`: same deformed constants + `GPU_JACOBI_CONVERGENCE`
+  - `md/observables.rs`: `DIVISION_GUARD` for RDF, VACF, energy drift
+- **`load_eos_context()` evolved to `Result<>`** — callers now decide how to handle
+  data loading failures instead of hard panicking in library code.
+- **Removed unused import** `wgpu::util::DeviceExt` from `hfb_deformed_gpu.rs`.
 - **Comprehensive audit completed:** zero unsafe, zero TODO/FIXME, zero mocks,
   zero hardcoded paths, all AGPL-3.0 licensed, all validation binaries follow
   hotSpring pattern (ValidationHarness, exit 0/1).
@@ -36,7 +45,6 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `cargo clippy --all-targets -- -W clippy::pedantic` — clean (warnings only)
 - `cargo test` — 189 passed, 5 ignored (GPU), 0 failed
 - `cargo doc` — clean (0 warnings)
-- `cargo llvm-cov` — 43.6% line / 60.7% function
 
 ## [0.5.7] — 2026-02-17
 

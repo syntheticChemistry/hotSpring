@@ -1036,8 +1036,12 @@ impl SphericalHFB {
     }
 }
 
-/// Per-species diagonalization results (flat storage, no nalgebra)
-#[allow(dead_code)]
+/// Per-species diagonalization results (flat storage, no nalgebra).
+///
+/// Fields use `_` prefix because they are stored for compute_energy access
+/// but not individually read from outside. The struct is constructed and
+/// passed as a whole to `compute_energy`.
+#[allow(dead_code)] // fields read only within struct methods and compute_energy
 struct SpeciesResult {
     _eigenvalues: Vec<f64>,
     eigvecs: Vec<f64>, // row-major n×n

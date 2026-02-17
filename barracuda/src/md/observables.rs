@@ -14,6 +14,7 @@ use barracuda::ops::md::observables::SsfGpu;
 
 use crate::md::config::MdConfig;
 use crate::md::simulation::{EnergyRecord, MdSimulation};
+use crate::tolerances::DIVISION_GUARD;
 
 /// RDF result: g(r) binned at discrete r values
 #[derive(Clone, Debug)]
@@ -85,8 +86,8 @@ pub fn compute_rdf(snapshots: &[Vec<f64>], n: usize, box_side: f64, n_bins: usiz
             let shell_vol = 4.0 * PI * r * r * dr;
             let _expected = n_f * n_density * shell_vol;
             // Factor 2 because we count pairs i<j, but g(r) normalizes per particle
-            2.0 * histogram[i] as f64 / (n_frames as f64 * n_f * n_density * shell_vol).max(1e-30)
-            // Physics: division guard — shell volume near origin can be tiny
+            2.0 * histogram[i] as f64
+                / (n_frames as f64 * n_f * n_density * shell_vol).max(DIVISION_GUARD)
         })
         .collect();
 
@@ -132,7 +133,7 @@ pub fn compute_vacf(vel_snapshots: &[Vec<f64>], n: usize, dt_dump: f64, max_lag:
     }
 
     // Normalize by C(0)
-    let c0 = c_values[0].max(1e-30); // Physics: division guard — VACF C(0) normalization
+    let c0 = c_values[0].max(DIVISION_GUARD);
     let c_normalized: Vec<f64> = c_values.iter().map(|&c| c / c0).collect();
 
     // Diffusion coefficient: D* = (1/3) integral_0^inf C(t) dt
@@ -283,8 +284,7 @@ pub fn validate_energy(history: &[EnergyRecord], _config: &MdConfig) -> EnergyVa
         .last()
         .expect("stable slice non-empty after skip")
         .total;
-    let drift_pct = if mean_e.abs() > 1e-30 {
-        // Physics: division guard — total energy can be near zero
+    let drift_pct = if mean_e.abs() > DIVISION_GUARD {
         ((e_final - e_initial) / mean_e.abs()).abs() * 100.0
     } else {
         0.0

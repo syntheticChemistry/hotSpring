@@ -941,7 +941,7 @@ fn main() {
         .unwrap_or(200);
 
     // ── Load data ──
-    let ctx = data::load_eos_context();
+    let ctx = data::load_eos_context().expect("Failed to load EOS context");
     let base = &ctx.base;
     let exp_data = &*ctx.exp_data;
     let bounds = &ctx.bounds;

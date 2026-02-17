@@ -8,7 +8,7 @@
 
 use std::fmt;
 
-/// Errors arising from GPU initialization or simulation execution.
+/// Errors arising from GPU initialization, simulation, or data loading.
 #[derive(Debug)]
 pub enum HotSpringError {
     /// No compatible GPU adapter was found by wgpu.
@@ -19,6 +19,9 @@ pub enum HotSpringError {
 
     /// GPU lacks the `SHADER_F64` feature required for f64 compute.
     NoShaderF64,
+
+    /// Data file loading failed (path, underlying IO or parse error).
+    DataLoad(String),
 }
 
 impl fmt::Display for HotSpringError {
@@ -32,6 +35,7 @@ impl fmt::Display for HotSpringError {
                     "GPU does not support SHADER_F64 — cannot run f64 computation"
                 )
             }
+            Self::DataLoad(msg) => write!(f, "Data loading failed: {msg}"),
         }
     }
 }

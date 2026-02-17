@@ -22,7 +22,9 @@
 
 use super::constants::*;
 use super::hfb_common::{factorial_f64, hermite_value, Mat};
-use crate::tolerances::SPIN_ORBIT_R_MIN;
+use crate::tolerances::{
+    DENSITY_FLOOR, DIVISION_GUARD, PAIRING_GAP_THRESHOLD, SCF_ENERGY_TOLERANCE, SPIN_ORBIT_R_MIN,
+};
 use barracuda::linalg::eigh_f64;
 use barracuda::special::{gamma, laguerre};
 use std::collections::HashMap;
@@ -341,7 +343,7 @@ impl DeformedHFB {
     /// Uses modified Broyden mixing (Johnson 1988) after initial linear mixing warmup.
     pub fn solve(&mut self, params: &[f64]) -> DeformedHFBResult {
         let max_iter = 200;
-        let tol = 1e-6; // Physics: SCF energy convergence threshold — 1 eV ≈ 1e-6 of total BE
+        let tol = SCF_ENERGY_TOLERANCE;
         let broyden_warmup = 50; // linear mixing for first N iterations (converge density first)
         let broyden_history = 8; // max Broyden history vectors
 
@@ -369,8 +371,7 @@ impl DeformedHFB {
                     psi[k] * psi[k] * self.grid.volume_element(i_rho, i_z)
                 })
                 .sum();
-            if norm2 > 1e-30 {
-                // Physics: division-by-zero guard — well below any physical scale
+            if norm2 > DIVISION_GUARD {
                 let scale = 1.0 / norm2.sqrt();
                 for v in psi.iter_mut() {
                     *v *= scale;
@@ -516,8 +517,7 @@ impl DeformedHFB {
                             .map(|(&a, &b)| a * b)
                             .sum();
                         let df_dot_df: f64 = broyden_dfs[m].iter().map(|&a| a * a).sum();
-                        if df_dot_df > 1e-30 {
-                            // Physics: Broyden gamma denominator guard — avoid division by near-zero
+                        if df_dot_df > DIVISION_GUARD {
                             let gamma = df_dot_r / df_dot_df;
                             for i in 0..vec_dim {
                                 mixed[i] -=
@@ -612,8 +612,7 @@ impl DeformedHFB {
 
         for (i, _s) in self.states.iter().enumerate() {
             let occ_i = occ[i] * 2.0; // time-reversal degeneracy
-            if occ_i < 1e-15 {
-                // Physics: machine epsilon floor — skip negligible tau contributions
+            if occ_i < DENSITY_FLOOR {
                 continue;
             }
 
@@ -659,8 +658,7 @@ impl DeformedHFB {
 
         for (i, s) in self.states.iter().enumerate() {
             let occ_i = occ[i] * 2.0;
-            if occ_i < 1e-15 {
-                // Physics: machine epsilon floor — skip negligible J contributions
+            if occ_i < DENSITY_FLOOR {
                 continue;
             }
 
@@ -790,8 +788,7 @@ impl DeformedHFB {
         }
 
         // Handle edge case: if no proton charge, zero out
-        if total_charge < 1e-30 {
-            // Physics: numerical zero — no protons, zero Coulomb
+        if total_charge < DIVISION_GUARD {
             for v in v_coulomb.iter_mut() {
                 *v = 0.0;
             }
@@ -953,8 +950,7 @@ impl DeformedHFB {
 
         let degs: Vec<f64> = (0..n_states).map(|_| 2.0).collect(); // time-reversal degeneracy
 
-        if delta_pair > 1e-10 {
-            // Physics: BCS pairing threshold — below ~10 keV pairing negligible
+        if delta_pair > PAIRING_GAP_THRESHOLD {
             // BCS with pairing — use proper number-conserving Fermi energy
             let fermi = Self::find_fermi_bcs(&block_eigs, n_particles, delta_pair);
             for (state_idx, eval) in &block_eigs {
@@ -1020,8 +1016,7 @@ impl DeformedHFB {
             } else {
                 mu_hi = mu_mid;
             }
-            if (mu_hi - mu_lo) < 1e-10 {
-                // Physics: Fermi energy bisection — MeV-scale precision
+            if (mu_hi - mu_lo) < PAIRING_GAP_THRESHOLD {
                 break;
             }
         }
@@ -1057,8 +1052,7 @@ impl DeformedHFB {
             let occ_proton = occ_p[i] * 2.0; // 2 for time-reversal degeneracy
             let occ_neutron = occ_n[i] * 2.0;
 
-            if occ_proton > 1e-15 || occ_neutron > 1e-15 {
-                // Physics: numerical zero for occupation — below nuclear scale
+            if occ_proton > DENSITY_FLOOR || occ_neutron > DENSITY_FLOOR {
                 for k in 0..n {
                     let psi2 = wavefunctions[i][k] * wavefunctions[i][k];
                     rho_p[k] += occ_proton * psi2;
@@ -1140,14 +1134,12 @@ impl DeformedHFB {
         // ── BCS pairing energy ──
         // E_pair = -Delta² * G * N / 4, where G ~ 1/(A level density)
         let level_density = self.a as f64 / 28.0; // Rough: N_levels ~ A/28 near Fermi
-        let e_pair_p = if self.delta_p > 1e-10 {
-            // Physics: pairing gap threshold — negligible below ~10 keV
+        let e_pair_p = if self.delta_p > PAIRING_GAP_THRESHOLD {
             -self.delta_p * self.delta_p * level_density / 4.0
         } else {
             0.0
         };
-        let e_pair_n = if self.delta_n > 1e-10 {
-            // Physics: pairing gap threshold — negligible below ~10 keV
+        let e_pair_n = if self.delta_n > PAIRING_GAP_THRESHOLD {
             -self.delta_n * self.delta_n * level_density / 4.0
         } else {
             0.0

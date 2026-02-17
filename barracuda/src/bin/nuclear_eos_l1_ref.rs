@@ -122,7 +122,7 @@ fn main() {
         base,
         exp_data,
         bounds,
-    } = data::load_eos_context();
+    } = data::load_eos_context().expect("Failed to load EOS context");
 
     println!("  Experimental nuclei: {}", exp_data.len());
     println!("  Parameters:          {} dimensions", bounds.len());
@@ -758,7 +758,7 @@ fn run_multi_seed(base_seed: u64, n_seeds: usize, lambda: f64) {
         base: base_path,
         exp_data,
         bounds,
-    } = data::load_eos_context();
+    } = data::load_eos_context().expect("Failed to load EOS context");
 
     println!(
         "  Nuclei: {}, Dimensions: {}, Lambda(NMP): {}",
@@ -906,7 +906,7 @@ fn run_pareto_sweep(base_seed: u64) {
         base: base_path,
         exp_data,
         bounds,
-    } = data::load_eos_context();
+    } = data::load_eos_context().expect("Failed to load EOS context");
 
     let lambdas = [0.0, 1.0, 5.0, 10.0, 25.0, 50.0, 100.0];
     let n_seeds_per_lambda = 5;
