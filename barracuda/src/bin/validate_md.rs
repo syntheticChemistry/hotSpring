@@ -10,6 +10,9 @@
 //!
 //! Each test computes forces on GPU via WGSL, then compares against exact
 //! analytical formulas computed on CPU in f64.
+//!
+//! **Provenance**: All expected values are analytical force laws, not Python
+//! baselines. See `provenance::MD_FORCE_REFS`.
 
 use barracuda::device::WgpuDevice;
 use barracuda::ops::md::forces::{CoulombForce, LennardJonesForce, MorseForce};

@@ -10,6 +10,9 @@
 //! (Brent bisection, `eigh_f64`) to prove the `BarraCUDA` abstraction
 //! produces correct nuclear physics.
 //!
+//! **Provenance**: GPU BCS/eigh vs CPU f64 reference (analytical eigensolve).
+//! See `provenance::GPU_KERNEL_REFS`.
+//!
 //! This is TIER 3 handoff validation: if these pass, the `ToadStool`
 //! team can wire the GPU ops into the full SCF loop.
 

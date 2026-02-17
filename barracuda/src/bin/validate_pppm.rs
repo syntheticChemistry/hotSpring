@@ -10,6 +10,9 @@
 //!   2. NaCl-like crystal (Madelung constant validation)
 //!   3. Random charge system (GPU PPPM vs CPU direct sum)
 //!
+//! **Provenance**: PPPM vs direct Coulomb sum (exact O(N²) reference).
+//! See `provenance::GPU_KERNEL_REFS`.
+//!
 //! Run: `cargo run --release --bin validate_pppm`
 
 use hotspring_barracuda::gpu::GpuF64;

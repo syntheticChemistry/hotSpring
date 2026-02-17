@@ -11,6 +11,8 @@
 //! This is the handoff proof: if these ops pass, `ToadStool` can evolve them
 //! knowing the physics is validated.
 //!
+//! **Provenance**: GPU f32 kernels vs CPU f64 reference. See `provenance::GPU_KERNEL_REFS`.
+//!
 //! **Reference**: hotSpring raw-wgpu path (`sarkas_gpu`) passes 9/9 PP cases
 //! with 0.000% energy drift. This binary validates the `BarraCUDA` abstraction
 //! produces identical physics through a different code path.
