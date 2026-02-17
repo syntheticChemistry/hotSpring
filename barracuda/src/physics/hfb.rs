@@ -39,7 +39,7 @@ use barracuda::ops::grid::compute_ls_factor;
 use barracuda::special::{gamma, laguerre};
 use std::collections::HashMap;
 
-use crate::tolerances::{COULOMB_R_MIN, DENSITY_FLOOR, SPIN_ORBIT_R_MIN};
+use crate::tolerances::{COULOMB_R_MIN, DENSITY_FLOOR, RHO_POWF_GUARD, SPIN_ORBIT_R_MIN};
 use std::f64::consts::PI;
 
 /// Basis state quantum numbers
@@ -285,7 +285,7 @@ impl SphericalHFB {
     pub fn density_from_eigenstates(&self, eigvecs: &[f64], v2: &[f64], ns: usize) -> Vec<f64> {
         let nr = self.nr;
         let degs: Vec<f64> = self.states.iter().map(|s| s.deg as f64).collect();
-        let mut rho = vec![1e-15; nr];
+        let mut rho = vec![DENSITY_FLOOR; nr];
 
         for i in 0..ns {
             if degs[i] * v2[i] < 1e-12 {
@@ -532,12 +532,12 @@ impl SphericalHFB {
             .map(|k| {
                 let rho = rho_p[k] + rho_n[k];
                 let rho_q = if is_proton { rho_p[k] } else { rho_n[k] };
-                let rho_safe = rho.max(1e-20);
+                let rho_safe = rho.max(RHO_POWF_GUARD);
 
                 let u_t0 = t0 * ((1.0 + x0 / 2.0) * rho - (0.5 + x0) * rho_q);
 
                 let rho_alpha = rho_safe.powf(alpha);
-                let rho_alpha_m1 = if rho > 1e-15 {
+                let rho_alpha_m1 = if rho > DENSITY_FLOOR {
                     rho_safe.powf(alpha - 1.0)
                 } else {
                     0.0
@@ -592,7 +592,13 @@ impl SphericalHFB {
             + 50.0;
 
         // Brent's method (matches scipy.optimize.brentq precision)
-        let lam = match barracuda::optimize::brent(particle_number, e_min, e_max, 1e-10, 100) {
+        let lam = match barracuda::optimize::brent(
+            particle_number,
+            e_min,
+            e_max,
+            crate::tolerances::BRENT_TOLERANCE,
+            100,
+        ) {
             Ok(result) => result.root,
             Err(_) => self.approx_fermi(eigenvalues, num_particles, &degs),
         };
@@ -744,7 +750,7 @@ impl SphericalHFB {
 
         let integ_t3: Vec<f64> = (0..self.nr)
             .map(|k| {
-                let rho_safe = rho[k].max(1e-20);
+                let rho_safe = rho[k].max(RHO_POWF_GUARD);
                 rho_safe.powf(alpha)
                     * ((1.0 + x3 / 2.0) * rho[k].powi(2) - (0.5 + x3) * sum_rho2[k])
                     * 4.0
@@ -843,7 +849,7 @@ impl SphericalHFB {
                 if ri < r_nuc {
                     (rho0 * self.z as f64 / self.a as f64).max(DENSITY_FLOOR)
                 } else {
-                    1e-15
+                    DENSITY_FLOOR
                 }
             })
             .collect();
@@ -854,7 +860,7 @@ impl SphericalHFB {
                 if ri < r_nuc {
                     (rho0 * self.n_neutrons as f64 / self.a as f64).max(DENSITY_FLOOR)
                 } else {
-                    1e-15
+                    DENSITY_FLOOR
                 }
             })
             .collect();
@@ -867,8 +873,8 @@ impl SphericalHFB {
         let mut results_n = SpeciesResult::empty(ns);
 
         for it in 0..max_iter {
-            let mut rho_p_new = vec![1e-15; nr];
-            let mut rho_n_new = vec![1e-15; nr];
+            let mut rho_p_new = vec![DENSITY_FLOOR; nr];
+            let mut rho_n_new = vec![DENSITY_FLOOR; nr];
 
             for is_proton in [true, false] {
                 let num_q = if is_proton { self.z } else { self.n_neutrons };
@@ -951,7 +957,7 @@ impl SphericalHFB {
 
                 // New density from BCS-weighted eigenstates
                 let degs: Vec<f64> = self.states.iter().map(|s| s.deg as f64).collect();
-                let mut rho_q_new = vec![1e-15; nr];
+                let mut rho_q_new = vec![DENSITY_FLOOR; nr];
 
                 for i in 0..ns {
                     if degs[i] * v2[i] < 1e-12 {

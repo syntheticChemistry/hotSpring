@@ -19,6 +19,7 @@
 //! `BatchedBisectionGpu`, so results are directly comparable.
 
 use crate::gpu::GpuF64;
+use barracuda::shaders::precision::ShaderTemplate;
 use bytemuck::{Pod, Zeroable};
 use wgpu::util::DeviceExt;
 
@@ -81,7 +82,8 @@ impl<'a> BcsBisectionGpu<'a> {
     /// * `tolerance` - Convergence tolerance (1e-10 to 1e-14)
     pub fn new(gpu: &'a GpuF64, max_iterations: u32, tolerance: f64) -> Self {
         let device = &gpu.device;
-        let shader_src = include_str!("shaders/bcs_bisection_f64.wgsl");
+        let shader_body = include_str!("shaders/bcs_bisection_f64.wgsl");
+        let shader_src = ShaderTemplate::with_math_f64_auto(shader_body);
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("hotSpring BCS Bisection f64"),
             source: wgpu::ShaderSource::Wgsl(shader_src.into()),

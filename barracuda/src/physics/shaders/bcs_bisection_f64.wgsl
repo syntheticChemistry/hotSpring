@@ -28,12 +28,7 @@ struct BisectionParams {
 @group(0) @binding(4) var<storage, read_write> iterations: array<u32>;
 @group(0) @binding(5) var<uniform> config: BisectionParams;
 
-// TODO(evolution): Replace with barracuda::shaders::math::math_f64.wgsl canonical abs_f64
-// via ShaderTemplate::math_f64_subset(["abs_f64"]) preamble injection.
-fn abs_f64(x: f64) -> f64 {
-    if (x < f64(0.0)) { return -x; }
-    return x;
-}
+// abs_f64 injected via ShaderTemplate::with_math_f64_auto() preamble
 
 // BCS particle number: Σ_k deg_k · v²_k(μ) - N
 fn bcs_particle_number(mu: f64, problem_idx: u32) -> f64 {

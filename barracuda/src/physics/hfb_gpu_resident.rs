@@ -19,15 +19,16 @@
 
 use super::hfb::SphericalHFB;
 use super::semf::semf_binding_energy;
-use crate::tolerances::{DENSITY_FLOOR, SPIN_ORBIT_R_MIN};
+use crate::tolerances::{DENSITY_FLOOR, GPU_JACOBI_CONVERGENCE, RHO_POWF_GUARD, SPIN_ORBIT_R_MIN};
 use barracuda::device::WgpuDevice;
 use barracuda::linalg::eigh_f64;
 use barracuda::ops::grid::{compute_ls_factor, SpinOrbitGpu};
 use barracuda::ops::linalg::BatchedEighGpu;
+use barracuda::shaders::precision::ShaderTemplate;
 use rayon::prelude::*;
 use std::sync::Arc;
 
-const POTENTIALS_SHADER: &str = include_str!("shaders/batched_hfb_potentials_f64.wgsl");
+const POTENTIALS_SHADER_BODY: &str = include_str!("shaders/batched_hfb_potentials_f64.wgsl");
 const HAMILTONIAN_SHADER: &str = include_str!("shaders/batched_hfb_hamiltonian_f64.wgsl");
 
 /// Results from the GPU-resident L2 HFB binding energy computation.
@@ -220,9 +221,10 @@ pub fn binding_energies_l2_gpu_resident(
     let raw_device = device.device();
     let raw_queue = device.queue();
 
+    let potentials_shader = ShaderTemplate::with_math_f64_auto(POTENTIALS_SHADER_BODY);
     let pot_module = raw_device.create_shader_module(wgpu::ShaderModuleDescriptor {
         label: Some("potentials"),
-        source: wgpu::ShaderSource::Wgsl(POTENTIALS_SHADER.into()),
+        source: wgpu::ShaderSource::Wgsl(potentials_shader.into()),
     });
     let ham_module = raw_device.create_shader_module(wgpu::ShaderModuleDescriptor {
         label: Some("hamiltonian"),
@@ -248,9 +250,9 @@ pub fn binding_energies_l2_gpu_resident(
                 .map(|k| {
                     let r = (k + 1) as f64 * hfb.dr();
                     if r < r_nuc {
-                        (rho0 * *z as f64 / a as f64).max(DENSITY_FLOOR) // Physics: numerical zero for density — below nuclear scale
+                        (rho0 * *z as f64 / a as f64).max(DENSITY_FLOOR)
                     } else {
-                        1e-15 // Physics: numerical zero for density — below nuclear scale
+                        DENSITY_FLOOR
                     }
                 })
                 .collect();
@@ -258,9 +260,9 @@ pub fn binding_energies_l2_gpu_resident(
                 .map(|k| {
                     let r = (k + 1) as f64 * hfb.dr();
                     if r < r_nuc {
-                        (rho0 * *n as f64 / a as f64).max(DENSITY_FLOOR) // Physics: numerical zero for density — below nuclear scale
+                        (rho0 * *n as f64 / a as f64).max(DENSITY_FLOOR)
                     } else {
-                        1e-15 // Physics: numerical zero for density — below nuclear scale
+                        DENSITY_FLOOR
                     }
                 })
                 .collect();
@@ -630,10 +632,9 @@ pub fn binding_energies_l2_gpu_resident(
             let mut rho_alpha_flat = vec![0.0f64; n_nuclei * g.nr];
             let mut rho_alpha_m1_flat = vec![0.0f64; n_nuclei * g.nr];
             for k in 0..(n_nuclei * g.nr) {
-                let rho = (rho_p_flat[k] + rho_n_flat[k]).max(1e-20); // Physics: rho^alpha guard — avoid underflow/division
+                let rho = (rho_p_flat[k] + rho_n_flat[k]).max(RHO_POWF_GUARD);
                 rho_alpha_flat[k] = rho.powf(alpha_skyrme);
-                rho_alpha_m1_flat[k] = if rho_p_flat[k] + rho_n_flat[k] > 1e-15 {
-                    // Physics: numerical zero — rho^(alpha-1) undefined at zero
+                rho_alpha_m1_flat[k] = if rho_p_flat[k] + rho_n_flat[k] > DENSITY_FLOOR {
                     rho.powf(alpha_skyrme - 1.0)
                 } else {
                     0.0
@@ -899,7 +900,7 @@ pub fn binding_energies_l2_gpu_resident(
                 global_max_ns,
                 batch_size,
                 30,
-                1e-12,
+                GPU_JACOBI_CONVERGENCE,
             )
             .ok()
         } else {
@@ -1126,7 +1127,7 @@ mod tests {
                 if r < r_nuc {
                     (rho0 * z as f64 / a as f64).max(DENSITY_FLOOR)
                 } else {
-                    1e-15
+                    DENSITY_FLOOR
                 }
             })
             .collect();

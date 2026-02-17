@@ -52,8 +52,8 @@ fn main() {
     ];
     for (n, expected, desc) in &fact_tests {
         let got = barracuda::special::factorial(*n);
-        check(got, *expected, 1e-6, desc);
-        harness.check_abs_or_rel(desc, got, *expected, 1e-6);
+        check(got, *expected, tolerances::FACTORIAL_TOLERANCE, desc);
+        harness.check_abs_or_rel(desc, got, *expected, tolerances::FACTORIAL_TOLERANCE);
     }
     println!();
 
@@ -97,7 +97,7 @@ fn main() {
     for (x, expected, desc) in &j0_tests {
         let got = barracuda::special::bessel_j0(*x);
         let tol = if desc.contains("first zero") {
-            0.001 // Near-zero expected; no BESSEL_ZERO constant
+            tolerances::BESSEL_NEAR_ZERO_ABS
         } else {
             tolerances::BESSEL_TOLERANCE
         };
@@ -202,8 +202,8 @@ fn main() {
     ];
     for (n, m, x, expected, desc) in &assoc_tests {
         let got = barracuda::special::assoc_legendre(*n, *m, *x);
-        check(got, *expected, 1e-6, desc);
-        harness.check_abs_or_rel(desc, got, *expected, 1e-6);
+        check(got, *expected, tolerances::ASSOC_LEGENDRE_TOLERANCE, desc);
+        harness.check_abs_or_rel(desc, got, *expected, tolerances::ASSOC_LEGENDRE_TOLERANCE);
     }
     println!();
 
@@ -220,8 +220,8 @@ fn main() {
         let lg_plus = barracuda::special::ln_gamma(*x + h).unwrap_or(f64::NAN);
         let lg_minus = barracuda::special::ln_gamma(*x - h).unwrap_or(f64::NAN);
         let got = (lg_plus - lg_minus) / (2.0 * h);
-        check(got, *expected, 1e-5, desc);
-        harness.check_abs_or_rel(desc, got, *expected, 1e-5);
+        check(got, *expected, tolerances::DIGAMMA_FD_TOLERANCE, desc);
+        harness.check_abs_or_rel(desc, got, *expected, tolerances::DIGAMMA_FD_TOLERANCE);
     }
     println!();
 
@@ -238,8 +238,8 @@ fn main() {
         let lg_b = barracuda::special::ln_gamma(*b).unwrap_or(f64::NAN);
         let lg_ab = barracuda::special::ln_gamma(*a + *b).unwrap_or(f64::NAN);
         let got = (lg_a + lg_b - lg_ab).exp();
-        check(got, *expected, 1e-6, desc);
-        harness.check_abs_or_rel(desc, got, *expected, 1e-6);
+        check(got, *expected, tolerances::BETA_VIA_LNGAMMA_TOLERANCE, desc);
+        harness.check_abs_or_rel(desc, got, *expected, tolerances::BETA_VIA_LNGAMMA_TOLERANCE);
     }
     println!();
 
@@ -272,8 +272,8 @@ fn main() {
     ];
     for (a, x, expected, desc) in &inc_gamma_tests {
         let got = barracuda::special::regularized_gamma_p(*a, *x).unwrap_or(f64::NAN);
-        check(got, *expected, 1e-6, desc);
-        harness.check_abs_or_rel(desc, got, *expected, 1e-6);
+        check(got, *expected, tolerances::INCOMPLETE_GAMMA_TOLERANCE, desc);
+        harness.check_abs_or_rel(desc, got, *expected, tolerances::INCOMPLETE_GAMMA_TOLERANCE);
     }
     println!();
 

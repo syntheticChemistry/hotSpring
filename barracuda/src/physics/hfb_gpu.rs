@@ -25,7 +25,7 @@
 
 use super::hfb::SphericalHFB;
 use super::semf::semf_binding_energy;
-use crate::tolerances::DENSITY_FLOOR;
+use crate::tolerances::{DENSITY_FLOOR, GPU_JACOBI_CONVERGENCE};
 use barracuda::device::WgpuDevice;
 use barracuda::ops::linalg::BatchedEighGpu;
 use std::sync::Arc;
@@ -151,7 +151,7 @@ pub fn binding_energies_l2_gpu(
                     if r < r_nuc {
                         (rho0 * *z as f64 / a as f64).max(DENSITY_FLOOR)
                     } else {
-                        1e-15
+                        DENSITY_FLOOR
                     }
                 })
                 .collect();
@@ -161,7 +161,7 @@ pub fn binding_energies_l2_gpu(
                     if r < r_nuc {
                         (rho0 * *n as f64 / a as f64).max(DENSITY_FLOOR)
                     } else {
-                        1e-15
+                        DENSITY_FLOOR
                     }
                 })
                 .collect();
@@ -235,8 +235,8 @@ pub fn binding_energies_l2_gpu(
             &packed_hamiltonians,
             max_ns,
             batch_size,
-            30,    // max Jacobi sweeps
-            1e-12, // convergence tolerance
+            30,
+            GPU_JACOBI_CONVERGENCE,
         ) {
             Ok(result) => result,
             Err(e) => {
@@ -256,8 +256,8 @@ pub fn binding_energies_l2_gpu(
             let actual_ns = state.actual_ns;
 
             let nr = hfb.nr();
-            let mut rho_p_new = vec![1e-15; nr];
-            let mut rho_n_new = vec![1e-15; nr];
+            let mut rho_p_new = vec![DENSITY_FLOOR; nr];
+            let mut rho_n_new = vec![DENSITY_FLOOR; nr];
 
             // Eigenvalue/eigenvector offsets in padded arrays
             let eig_offset_p = (batch_idx * 2) * max_ns;

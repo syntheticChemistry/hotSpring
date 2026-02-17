@@ -100,7 +100,8 @@ Python baseline → Rust validation → GPU acceleration → sovereign pipeline
 
 No duplicate math — all mathematical operations use BarraCUDA primitives.
 `hermite_value` now delegates to `barracuda::special::hermite` (v0.5.7).
-WGSL `abs_f64` and `cbrt_f64` have inline copies pending preamble injection refactor.
+WGSL `abs_f64` and `cbrt_f64` now injected via `ShaderTemplate::with_math_f64_auto()` (v0.5.8).
+`barracuda::shaders::precision::ShaderTemplate` | WGSL math preamble injection **(v0.5.8)**
 
 ## Promotion Priority
 
@@ -114,10 +115,21 @@ WGSL `abs_f64` and `cbrt_f64` have inline copies pending preamble injection refa
 2. **BCS on GPU** → Move BCS occupations + density accumulation to GPU shader
    (`batched_hfb_density_f64.wgsl` exists, needs pipeline wiring)
 3. ~~**SpinOrbitGpu**~~ ✅ **DONE (v0.5.6)** — Wired with CPU fallback
-4. **WGSL preamble injection** → Replace inline `abs_f64`, `cbrt_f64` with
-   `ShaderTemplate::math_f64_subset()` preamble from ToadStool canonical math
+4. ~~**WGSL preamble injection**~~ ✅ **DONE (v0.5.8)** — `ShaderTemplate::with_math_f64_auto()`
 5. **hfb_deformed_gpu.rs** → Wire existing deformed_*.wgsl shaders for full GPU H-build
 6. **nuclear_matter.rs** → Low priority; CPU bisection is fast enough
+
+## Completed (v0.5.8)
+
+- ✅ **WGSL preamble injection**: `abs_f64` (bcs_bisection) and `cbrt_f64` (potentials) replaced
+  with `ShaderTemplate::with_math_f64_auto()` — zero duplicate WGSL math
+- ✅ **Exhaustive tolerance wiring**: 8 new constants (`FACTORIAL_TOLERANCE`, `ASSOC_LEGENDRE_TOLERANCE`,
+  `DIGAMMA_FD_TOLERANCE`, `BETA_VIA_LNGAMMA_TOLERANCE`, `INCOMPLETE_GAMMA_TOLERANCE`,
+  `BESSEL_NEAR_ZERO_ABS`, `RHO_POWF_GUARD`, `GPU_JACOBI_CONVERGENCE`)
+- ✅ **Core physics tolerance wiring**: `hfb.rs`, `hfb_gpu.rs`, `hfb_gpu_resident.rs` — all
+  inline density floors, powf guards, GPU eigensolve thresholds → named constants
+- ✅ **Comprehensive audit**: zero unsafe, zero TODO/FIXME, zero mocks, zero hardcoded paths,
+  all AGPL-3.0 licensed, all validation binaries follow hotSpring pattern
 
 ## Completed (v0.5.7)
 
@@ -170,7 +182,7 @@ WGSL `abs_f64` and `cbrt_f64` have inline copies pending preamble injection refa
 | GPU energy integrands not wired in spherical HFB | CPU bottleneck in SCF energy | High | Shader exists, needs pipeline wiring |
 | `SumReduceF64` not used for HFB energy sums | CPU readback for reduction | High | barracuda primitive available; needs GPU-buffer variant |
 | BCS + density shader not wired | CPU readback after eigensolve | High | `batched_hfb_density_f64.wgsl` exists |
-| WGSL inline math (`abs_f64`, `cbrt_f64`) | Maintenance drift from canonical | Medium | Annotated, pending preamble injection |
+| ~~WGSL inline math (`abs_f64`, `cbrt_f64`)~~ | ~~Maintenance drift from canonical~~ | ~~Medium~~ | ✅ Resolved v0.5.8 — `ShaderTemplate::with_math_f64_auto()` |
 | 4 files > 1000 lines (HFB lib modules) | Code organization | Medium | Documented deviation; physics-coherent |
 | `pow_f64(base, exp)` in ToadStool exists but not used | Available when needed | Low | WGSL-only |
 | `FusedMapReduceF64` / `KrigingF64` unused | Available for MD post-processing | Low | |

@@ -230,14 +230,14 @@ No streamlining — this is the correct architecture.
 
 ---
 
-## BarraCUDA Crate (v0.5.7)
+## BarraCUDA Crate (v0.5.8)
 
 The `barracuda/` directory is a standalone Rust crate providing the validation
 environment, physics implementations, and GPU compute. Key architectural properties:
 
 - **189 unit tests** (5 ignored GPU/slow tests), plus **26 GPU pipeline checks**
   via `validate_barracuda_pipeline` (12/12) and `validate_barracuda_hfb` (14/14).
-  Test coverage: 44% line / 61% function (CPU-testable modules average >90%;
+  Test coverage: 43.6% line / 60.7% function (CPU-testable modules average >90%;
   GPU modules require hardware). Measured with `cargo-llvm-cov`.
 - **AGPL-3.0 only** — all 51 `.rs` files and all 30 `.wgsl` shaders have
   `SPDX-License-Identifier: AGPL-3.0-only`.
@@ -361,7 +361,7 @@ hotSpring/
 │   ├── CONTROL_EXPERIMENT_SUMMARY.md  # Phase A quick reference
 │   └── METHODOLOGY.md                # Two-phase validation protocol
 │
-├── barracuda/                          # BarraCUDA Rust crate — v0.5.7 (189 tests)
+├── barracuda/                          # BarraCUDA Rust crate — v0.5.8 (189 tests)
 │   ├── Cargo.toml                     # Dependencies (requires ecoPrimals/phase1/toadstool)
 │   ├── CHANGELOG.md                   # Version history — baselines, tolerances, evolution
 │   ├── EVOLUTION_READINESS.md         # Rust module → WGSL shader → GPU promotion tier mapping

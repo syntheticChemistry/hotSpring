@@ -5,6 +5,39 @@ All notable changes to the hotSpring BarraCUDA validation crate.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.8] — 2026-02-17
+
+### Added
+
+- **6 new tolerance constants** with full physical/numerical justifications:
+  `FACTORIAL_TOLERANCE`, `ASSOC_LEGENDRE_TOLERANCE`, `DIGAMMA_FD_TOLERANCE`,
+  `BETA_VIA_LNGAMMA_TOLERANCE`, `INCOMPLETE_GAMMA_TOLERANCE`, `BESSEL_NEAR_ZERO_ABS`,
+  `RHO_POWF_GUARD`, `GPU_JACOBI_CONVERGENCE`.
+
+### Changed
+
+- **WGSL preamble injection:** Inline `abs_f64` (bcs_bisection) and `cbrt_f64`
+  (potentials) replaced with `ShaderTemplate::with_math_f64_auto()` canonical
+  barracuda math library injection. Zero duplicate WGSL math.
+- **Exhaustive tolerance wiring — special functions:**
+  `validate_special_functions` now uses named constants for all remaining inline
+  tolerances (factorial, associated Legendre, digamma FD, beta, incomplete gamma,
+  Bessel near-zero).
+- **Core physics tolerance wiring:** `hfb.rs`, `hfb_gpu.rs`, `hfb_gpu_resident.rs`
+  — all `1e-15` → `DENSITY_FLOOR`, all `1e-20` → `RHO_POWF_GUARD`, all `1e-12`
+  GPU eigensolve → `GPU_JACOBI_CONVERGENCE`, Brent tolerance → `BRENT_TOLERANCE`.
+- **Comprehensive audit completed:** zero unsafe, zero TODO/FIXME, zero mocks,
+  zero hardcoded paths, all AGPL-3.0 licensed, all validation binaries follow
+  hotSpring pattern (ValidationHarness, exit 0/1).
+
+### Quality gate
+
+- `cargo fmt` — clean
+- `cargo clippy --all-targets -- -W clippy::pedantic` — clean (warnings only)
+- `cargo test` — 189 passed, 5 ignored (GPU), 0 failed
+- `cargo doc` — clean (0 warnings)
+- `cargo llvm-cov` — 43.6% line / 60.7% function
+
 ## [0.5.7] — 2026-02-17
 
 ### Added

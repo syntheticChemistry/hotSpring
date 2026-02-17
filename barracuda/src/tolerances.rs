@@ -97,6 +97,53 @@ pub const ERF_TOLERANCE: f64 = 1e-6;
 /// is less precise. 1e-6 is conservative across the full range.
 pub const BESSEL_TOLERANCE: f64 = 1e-6;
 
+/// Factorial: exact integer multiplication in f64.
+///
+/// For n ≤ 20, n! fits within f64 mantissa (2^53 > 20!). The computation
+/// is a chain of exact integer multiplications, so the result should match
+/// the reference to machine precision. Uses `EXACT_F64`.
+pub const FACTORIAL_TOLERANCE: f64 = EXACT_F64;
+
+/// Associated Legendre P_n^m(x): three-term recurrence.
+///
+/// For small n ≤ 5 and |m| ≤ n, the recurrence involves O(n) multiplications
+/// and subtractions. Accumulated rounding is negligible for small n.
+/// Uses `EXACT_F64` (tested up to n=2, m=2).
+pub const ASSOC_LEGENDRE_TOLERANCE: f64 = EXACT_F64;
+
+/// Digamma ψ(x) via finite-difference of ln_gamma.
+///
+/// Central difference (f(x+h) − f(x−h))/(2h) with h=1e-7.
+/// Truncation error: O(h²) = O(1e-14).
+/// Cancellation error: O(ε_mach/h) = O(1e-16/1e-7) = O(1e-9).
+/// Total error dominated by cancellation: ~1e-9.
+/// 1e-5 is conservative (4 orders of margin).
+pub const DIGAMMA_FD_TOLERANCE: f64 = 1e-5;
+
+/// Beta function B(a,b) via exp(lnΓ(a) + lnΓ(b) − lnΓ(a+b)).
+///
+/// Three ln_gamma evaluations (each ~1e-10 Lanczos error) plus exp().
+/// Error propagation through exp amplifies by the exponent magnitude.
+/// For small arguments (a,b ≤ 3), the exponent is O(1) so amplification
+/// is modest. 1e-6 accounts for accumulated composition error.
+pub const BETA_VIA_LNGAMMA_TOLERANCE: f64 = 1e-6;
+
+/// Regularized incomplete gamma P(a,x): series or continued-fraction.
+///
+/// For small a and x, the series converges rapidly with ~1e-10 per-term
+/// accuracy. For larger arguments, the continued-fraction representation
+/// converges more slowly. 1e-6 is conservative across the tested range
+/// (a ≤ 2, x ≤ 100).
+pub const INCOMPLETE_GAMMA_TOLERANCE: f64 = 1e-6;
+
+/// Bessel near-zero absolute tolerance.
+///
+/// Near zero crossings (e.g. J₀(2.4048) ≈ 0), the expected value is zero
+/// and relative error is meaningless. The function changes sign with slope
+/// |J₀'(x)| ≈ 0.5, so an absolute error of 1e-3 corresponds to an
+/// argument error of ~0.002, well within series truncation bounds.
+pub const BESSEL_NEAR_ZERO_ABS: f64 = 1e-3;
+
 /// Chi-squared CDF: regularized incomplete gamma.
 ///
 /// Numerical integration introduces ~0.1% relative error for large df.
@@ -346,6 +393,23 @@ pub const SPIN_ORBIT_R_MIN: f64 = 0.1;
 /// enclosed charge Q(r) ∝ r³ → 0 faster than 1/r → ∞, so the product
 /// is bounded. The guard prevents 0/0 without affecting physics.
 pub const COULOMB_R_MIN: f64 = 1e-10;
+
+/// Guard for `ρ.powf(α)` with Skyrme fractional exponents (α ≈ 1/6).
+///
+/// `powf` of a negative or true-zero value is undefined or NaN.
+/// At 1e-20 fm⁻³ (5 orders below `DENSITY_FLOOR`), the density is so
+/// far below any physical nuclear density that the energy contribution
+/// is negligible, but `powf(1/6)` remains well-defined and avoids NaN.
+/// Used in pre-Skyrme potential rho^α computations on CPU.
+pub const RHO_POWF_GUARD: f64 = 1e-20;
+
+/// GPU Jacobi eigensolve: off-diagonal convergence threshold.
+///
+/// `BatchedEighGpu` uses Jacobi rotation with this threshold to determine
+/// when off-diagonal elements are small enough to stop. For 32×32 matrices
+/// (nuclear HFB), 1e-12 provides eigenvalues accurate to ~1e-8 relative,
+/// well within the `GPU_EIGENSOLVE_REL` tolerance.
+pub const GPU_JACOBI_CONVERGENCE: f64 = 1e-12;
 
 #[cfg(test)]
 mod tests {

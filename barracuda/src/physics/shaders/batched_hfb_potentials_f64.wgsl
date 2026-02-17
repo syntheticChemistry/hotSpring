@@ -28,16 +28,7 @@ struct PotentialDims {
 const E2: f64 = 1.4399764;
 const PI_VAL: f64 = 3.141592653589793;
 
-// Newton-refined cube root in f64 (f32 seed + 2 Newton iterations)
-// TODO(evolution): Replace with barracuda::shaders::math::math_f64.wgsl canonical cbrt_f64
-// via ShaderTemplate::math_f64_subset(["cbrt_f64"]) preamble injection.
-fn cbrt_f64(x: f64) -> f64 {
-    if (x <= f64(0.0)) { return f64(0.0); }
-    var y = f64(pow(f32(x), f32(0.333333343)));
-    y = (f64(2.0) * y + x / (y * y)) / f64(3.0);
-    y = (f64(2.0) * y + x / (y * y)) / f64(3.0);
-    return y;
-}
+// cbrt_f64 injected via ShaderTemplate::with_math_f64_auto() preamble
 
 // ─── Skyrme potential ────────────────────────────────────────────
 @compute @workgroup_size(256, 1, 1)
