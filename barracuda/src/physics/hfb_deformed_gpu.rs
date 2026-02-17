@@ -20,8 +20,9 @@ use super::hfb_common::{factorial_f64, hermite_value};
 use super::hfb_deformed::{binding_energy_l3, DeformedHFBResult};
 use crate::gpu::GpuF64;
 use crate::tolerances::{
-    DENSITY_FLOOR, DIVISION_GUARD, GPU_JACOBI_CONVERGENCE, PAIRING_GAP_THRESHOLD,
-    SCF_ENERGY_TOLERANCE, SPIN_ORBIT_R_MIN,
+    DEFORMATION_GUESS_GENERIC, DEFORMATION_GUESS_SD, DEFORMATION_GUESS_WEAK,
+    DEFORMED_COULOMB_R_MIN, DENSITY_FLOOR, DIVISION_GUARD, GPU_JACOBI_CONVERGENCE,
+    PAIRING_GAP_THRESHOLD, SCF_ENERGY_TOLERANCE, SPIN_ORBIT_R_MIN,
 };
 use barracuda::device::WgpuDevice;
 use barracuda::ops::linalg::BatchedEighGpu;
@@ -174,11 +175,11 @@ impl NucleusSetup {
         } else if a > 150 && a < 190 {
             0.28
         } else if a > 20 && a < 28 {
-            0.35
+            DEFORMATION_GUESS_SD
         } else if z_m || n_m {
-            0.05
+            DEFORMATION_GUESS_WEAK
         } else {
-            0.15
+            DEFORMATION_GUESS_GENERIC
         }
     }
 
@@ -860,14 +861,20 @@ fn compute_coulomb_cpu(setup: &NucleusSetup, rho_p: &[f64], vc: &mut [f64]) {
 
     let total_qr: f64 = shells
         .iter()
-        .map(|(r, c)| if *r > 0.01 { c / r } else { 0.0 })
+        .map(|(r, c)| {
+            if *r > DEFORMED_COULOMB_R_MIN {
+                c / r
+            } else {
+                0.0
+            }
+        })
         .sum();
     let mut cum_q = vec![0.0; ng];
     let mut cum_qr = vec![0.0; ng];
     let (mut aq, mut aqr) = (0.0, 0.0);
     for (k, &si) in sidx.iter().enumerate() {
         aq += shells[si].1;
-        aqr += if shells[si].0 > 0.01 {
+        aqr += if shells[si].0 > DEFORMED_COULOMB_R_MIN {
             shells[si].1 / shells[si].0
         } else {
             0.0
@@ -882,7 +889,7 @@ fn compute_coulomb_cpu(setup: &NucleusSetup, rho_p: &[f64], vc: &mut [f64]) {
 
     let tc: f64 = shells.iter().map(|(_, c)| c).sum();
     for i in 0..ng {
-        let ri = shells[i].0.max(0.01);
+        let ri = shells[i].0.max(DEFORMED_COULOMB_R_MIN);
         let k = rank[i];
         let qi = if k > 0 { cum_q[k - 1] } else { 0.0 };
         let ext = total_qr - cum_qr[k];
@@ -920,7 +927,9 @@ fn density_radial_derivative(setup: &NucleusSetup, density: &[f64]) -> Vec<f64> 
             };
             let rho_c = (ir + 1) as f64 * setup.d_rho;
             let z_c = setup.z_min + (iz as f64 + 0.5) * setup.d_z;
-            let r = (rho_c * rho_c + z_c * z_c).sqrt().max(0.01);
+            let r = (rho_c * rho_c + z_c * z_c)
+                .sqrt()
+                .max(DEFORMED_COULOMB_R_MIN);
             (d_dr * rho_c + d_dz * z_c) / r
         })
         .collect()

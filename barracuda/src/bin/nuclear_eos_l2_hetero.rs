@@ -49,8 +49,8 @@ fn perturb_params(base: &[f64], bounds: &[(f64, f64)], rng: &mut u64, scale: f64
     for (i, &(lo, hi)) in bounds.iter().enumerate() {
         let range = hi - lo;
         *rng = rng
-            .wrapping_mul(6364136223846793005)
-            .wrapping_add(1442695040888963407);
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1_442_695_040_888_963_407);
         let u = (*rng >> 33) as f64 / (1u64 << 31) as f64;
         let perturbation = (u - 0.5) * scale * range;
         candidate[i] = (candidate[i] + perturbation).clamp(lo, hi);
@@ -59,7 +59,7 @@ fn perturb_params(base: &[f64], bounds: &[(f64, f64)], rng: &mut u64, scale: f64
 }
 
 /// Run candidates through NMP (Tier 1), L1 proxy (Tier 2), and classifier (Tier 3).
-/// Returns surviving candidates and updates cascade_stats.
+/// Returns surviving candidates and updates `cascade_stats`.
 fn cascade_filter(
     candidates: &[Vec<f64>],
     constraints: &NMPConstraints,
@@ -1027,7 +1027,7 @@ fn main() {
                 .iter()
                 .find(|a| a.starts_with("--l1-samples="))
                 .and_then(|a| a.strip_prefix("--l1-samples=")?.parse().ok())
-                .unwrap_or(10000);
+                .unwrap_or(10_000);
             let n_eval = args
                 .iter()
                 .find(|a| a.starts_with("--l2-evals="))

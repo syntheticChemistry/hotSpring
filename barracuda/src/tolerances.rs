@@ -437,6 +437,59 @@ pub const RHO_POWF_GUARD: f64 = 1e-20;
 /// well within the `GPU_EIGENSOLVE_REL` tolerance.
 pub const GPU_JACOBI_CONVERGENCE: f64 = 1e-12;
 
+/// BCS density contribution skip threshold.
+///
+/// In the density computation `rho(r) = sum_i deg_i * v2_i * |phi_i(r)|²`,
+/// states with `deg_i * v2_i < 1e-12` contribute negligibly (below f64
+/// precision of the sum) and are skipped for performance. At this threshold,
+/// even a fully-occupied j=15/2 state (deg=16) would need `v2 < 6e-14`,
+/// meaning the eigenvalue is ~25 MeV above the Fermi surface — far into
+/// the continuum where occupations should indeed be zero.
+pub const BCS_DENSITY_SKIP: f64 = 1e-12;
+
+/// BCS pairing-to-sharp-filling transition threshold (MeV).
+///
+/// When the pairing gap delta < 0.01 MeV, pairing correlations are
+/// negligible and the system is in the normal (unpaired) phase. BCS
+/// occupation factors degenerate to a step function, so we switch to
+/// sharp Fermi filling for numerical stability. This threshold is
+/// ~50x smaller than the smallest physical pairing gap in medium/heavy
+/// nuclei (~0.5 MeV), ensuring the switch only activates for truly
+/// unpaired systems.
+pub const SHARP_FILLING_THRESHOLD: f64 = 0.01;
+
+/// Coulomb singularity guard for deformed HFB (fm).
+///
+/// In the deformed basis, grid points are on a 2D cylindrical (rho, z)
+/// mesh. The effective radius r = sqrt(rho² + z²) can be very small near
+/// the origin. For Coulomb 1/r potentials, this floor prevents division
+/// by near-zero. At 0.01 fm (~10x the proton charge radius), enclosed
+/// charge Q(r) ∝ r³ is negligible, so the guard does not affect physics.
+/// This is larger than `COULOMB_R_MIN` (1e-10 fm) because the deformed
+/// grid spacing is coarser and needs a wider guard to avoid numerical noise.
+pub const DEFORMED_COULOMB_R_MIN: f64 = 0.01;
+
+/// Initial deformation guess for nuclei near magic numbers.
+///
+/// Near-magic nuclei are weakly deformed. beta_2 ≈ 0.05 corresponds
+/// to a prolate deformation ~1% change in radius. Used as the starting
+/// point for self-consistent deformed HFB iteration.
+pub const DEFORMATION_GUESS_WEAK: f64 = 0.05;
+
+/// Initial deformation guess for generic (non-magic) nuclei.
+///
+/// Generic mid-shell nuclei typically have beta_2 ≈ 0.15–0.25.
+/// This starting value allows the SCF iteration to converge from
+/// either side of the true deformation minimum.
+pub const DEFORMATION_GUESS_GENERIC: f64 = 0.15;
+
+/// Initial deformation guess for sd-shell deformed nuclei.
+///
+/// Nuclei in the sd-shell (A ≈ 20–40) can be strongly deformed with
+/// beta_2 ≈ 0.3–0.4. This higher starting value helps the SCF loop
+/// find the deformed minimum more quickly.
+pub const DEFORMATION_GUESS_SD: f64 = 0.35;
+
 #[cfg(test)]
 mod tests {
     use super::*;

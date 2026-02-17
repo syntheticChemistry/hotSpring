@@ -119,6 +119,16 @@ WGSL `abs_f64` and `cbrt_f64` now injected via `ShaderTemplate::with_math_f64_au
 5. **hfb_deformed_gpu.rs** → Wire existing deformed_*.wgsl shaders for full GPU H-build
 6. **nuclear_matter.rs** → Low priority; CPU bisection is fast enough
 
+## Completed (v0.5.9)
+
+- ✅ **Final tolerance wiring pass**: 6 new constants (`BCS_DENSITY_SKIP`, `SHARP_FILLING_THRESHOLD`,
+  `DEFORMED_COULOMB_R_MIN`, `DEFORMATION_GUESS_WEAK/GENERIC/SD`) — 15 remaining inline values
+  in `hfb.rs`, `hfb_deformed.rs`, `hfb_deformed_gpu.rs`, `md/observables.rs` → named constants
+- ✅ **Clippy pedantic**: 76 warnings eliminated (408 → 332); remaining are `cast_precision_loss`,
+  `similar_names`, `too_many_lines` — all justified for physics code
+- ✅ **Full audit report**: specs, wateringHole compliance, validation fidelity, dependency health,
+  evolution readiness, test coverage, code size, licensing, data provenance
+
 ## Completed (v0.5.8)
 
 - ✅ **WGSL preamble injection**: `abs_f64` (bcs_bisection) and `cbrt_f64` (potentials) replaced

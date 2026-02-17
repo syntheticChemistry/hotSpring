@@ -23,7 +23,9 @@
 use super::constants::*;
 use super::hfb_common::{factorial_f64, hermite_value, Mat};
 use crate::tolerances::{
-    DENSITY_FLOOR, DIVISION_GUARD, PAIRING_GAP_THRESHOLD, SCF_ENERGY_TOLERANCE, SPIN_ORBIT_R_MIN,
+    DEFORMATION_GUESS_GENERIC, DEFORMATION_GUESS_SD, DEFORMATION_GUESS_WEAK,
+    DEFORMED_COULOMB_R_MIN, DENSITY_FLOOR, DIVISION_GUARD, PAIRING_GAP_THRESHOLD,
+    SCF_ENERGY_TOLERANCE, SPIN_ORBIT_R_MIN,
 };
 use barracuda::linalg::eigh_f64;
 use barracuda::special::{gamma, laguerre};
@@ -216,11 +218,11 @@ impl DeformedHFB {
         } else if a > 150 && a < 190 {
             0.28 // rare earths
         } else if a > 20 && a < 28 {
-            0.35 // sd-shell deformed
+            DEFORMATION_GUESS_SD
         } else if z_magic || n_magic {
-            0.05 // near magic → weakly deformed
+            DEFORMATION_GUESS_WEAK
         } else {
-            0.15 // generic
+            DEFORMATION_GUESS_GENERIC
         }
     }
 
@@ -709,7 +711,9 @@ impl DeformedHFB {
                 // Radial derivative: project (d/drho, d/dz) onto radial direction
                 let rho_coord = self.grid.rho[i_rho];
                 let z_coord = self.grid.z[i_z];
-                let r = (rho_coord * rho_coord + z_coord * z_coord).sqrt().max(0.01); // Physics: minimum r for 1/r potential — avoids singularity at origin
+                let r = (rho_coord * rho_coord + z_coord * z_coord)
+                    .sqrt()
+                    .max(DEFORMED_COULOMB_R_MIN);
                 deriv[idx] = (d_drho * rho_coord + d_dz * z_coord) / r;
             }
         }
@@ -746,7 +750,13 @@ impl DeformedHFB {
         let total_charge: f64 = charge_shells.iter().map(|(_, c)| c).sum();
         let total_charge_over_r: f64 = charge_shells
             .iter()
-            .map(|(r, c)| if *r > 0.01 { c / r } else { 0.0 }) // Physics: Coulomb 1/r — guard at origin
+            .map(|(r, c)| {
+                if *r > DEFORMED_COULOMB_R_MIN {
+                    c / r
+                } else {
+                    0.0
+                }
+            })
             .sum();
 
         // For each grid point, compute V_C using sorted radial shells
@@ -759,7 +769,7 @@ impl DeformedHFB {
             let mut acc_qr = 0.0;
             for (k, &si) in sorted_idx.iter().enumerate() {
                 acc_q += charge_shells[si].1;
-                let r = charge_shells[si].0.max(0.01); // Physics: Coulomb 1/r — avoid singularity
+                let r = charge_shells[si].0.max(DEFORMED_COULOMB_R_MIN);
                 acc_qr += charge_shells[si].1 / r;
                 cum_charge[k] = acc_q;
                 cum_charge_over_r[k] = acc_qr;
@@ -774,7 +784,7 @@ impl DeformedHFB {
 
         // Compute Coulomb potential
         for i in 0..n {
-            let r_i = charge_shells[i].0.max(0.01); // Physics: Coulomb 1/r — avoid singularity
+            let r_i = charge_shells[i].0.max(DEFORMED_COULOMB_R_MIN);
             let k = rank[i];
 
             // Q_enclosed / r_i

@@ -5,6 +5,38 @@ All notable changes to the hotSpring BarraCUDA validation crate.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.9] — 2026-02-17
+
+### Added
+
+- **6 new physics guard constants** with full justifications:
+  `BCS_DENSITY_SKIP` (1e-12), `SHARP_FILLING_THRESHOLD` (0.01 MeV),
+  `DEFORMED_COULOMB_R_MIN` (0.01 fm), `DEFORMATION_GUESS_WEAK` (0.05),
+  `DEFORMATION_GUESS_GENERIC` (0.15), `DEFORMATION_GUESS_SD` (0.35)
+
+### Changed
+
+- **Exhaustive tolerance wiring — final pass**: replaced all remaining inline
+  numeric literals in library code with named constants from `tolerances.rs`:
+  - `hfb.rs`: 3× `1e-12` BCS density skip → `BCS_DENSITY_SKIP`
+  - `hfb.rs`: `0.01` pairing gap → `SHARP_FILLING_THRESHOLD`
+  - `hfb_deformed.rs`: 4× `0.01` Coulomb guard → `DEFORMED_COULOMB_R_MIN`
+  - `hfb_deformed.rs`: deformation guesses → `DEFORMATION_GUESS_*`
+  - `hfb_deformed_gpu.rs`: 4× `0.01` + 3× deformation guesses → named constants
+  - `md/observables.rs`: `5.0` → `ENERGY_DRIFT_PCT`, `0.15` → `RDF_TAIL_TOLERANCE`
+- **Clippy pedantic compliance**: 76 warnings eliminated (408 → 332):
+  - Fixed ~40 `unreadable_literal` warnings (underscore separators in physics constants)
+  - Fixed 4 `doc_markdown` warnings (backtick formatting in doc comments)
+
+### Audit Results (v0.5.9)
+
+- **Quality gates**: fmt PASS, clippy PASS (332 pedantic warnings, all justified), test PASS (189/189), doc PASS
+- **Zero unsafe**, zero TODO/FIXME/HACK, zero mock code in production
+- **SPDX AGPL-3.0-only**: 81/81 files (51 .rs + 30 .wgsl)
+- **Remaining inline numerics in library code**: ~10 (all in test blocks or algorithm parameters)
+- **BarraCUDA compatibility**: upstream v0.2.0 compiles cleanly; 16 primitive families used
+- **No duplicate math**: zero hand-rolled implementations of barracuda primitives
+
 ## [0.5.8] — 2026-02-17
 
 ### Added

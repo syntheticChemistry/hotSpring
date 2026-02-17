@@ -267,7 +267,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {{
 
     let big_n = 1_000_000u32;
     let big_values: Vec<f64> = (0..big_n)
-        .map(|i| (f64::from(i) + 1.0) * 0.000001)
+        .map(|i| (f64::from(i) + 1.0) * 0.000_001)
         .collect();
     let big_bytes: Vec<u8> = big_values.iter().flat_map(|v| v.to_le_bytes()).collect();
     let big_input = gpu

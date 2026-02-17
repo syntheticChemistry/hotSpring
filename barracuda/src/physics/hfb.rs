@@ -39,7 +39,10 @@ use barracuda::ops::grid::compute_ls_factor;
 use barracuda::special::{gamma, laguerre};
 use std::collections::HashMap;
 
-use crate::tolerances::{COULOMB_R_MIN, DENSITY_FLOOR, RHO_POWF_GUARD, SPIN_ORBIT_R_MIN};
+use crate::tolerances::{
+    BCS_DENSITY_SKIP, COULOMB_R_MIN, DENSITY_FLOOR, RHO_POWF_GUARD, SHARP_FILLING_THRESHOLD,
+    SPIN_ORBIT_R_MIN,
+};
 use std::f64::consts::PI;
 
 /// Basis state quantum numbers
@@ -288,7 +291,7 @@ impl SphericalHFB {
         let mut rho = vec![DENSITY_FLOOR; nr];
 
         for i in 0..ns {
-            if degs[i] * v2[i] < 1e-12 {
+            if degs[i] * v2[i] < BCS_DENSITY_SKIP {
                 continue;
             }
             let mut phi = vec![0.0; nr];
@@ -567,7 +570,7 @@ impl SphericalHFB {
 
         let degs: Vec<f64> = self.states.iter().map(|s| s.deg as f64).collect();
 
-        if delta < 0.01 {
+        if delta < SHARP_FILLING_THRESHOLD {
             return self.sharp_filling(eigenvalues, num_particles, &degs);
         }
 
@@ -721,7 +724,7 @@ impl SphericalHFB {
         for (is_proton, res) in [(true, results_p), (false, results_n)] {
             let t_eff = self.build_t_eff(rho_p, rho_n, is_proton, params);
             for i in 0..n {
-                if degs[i] * res.v2[i] < 1e-12 {
+                if degs[i] * res.v2[i] < BCS_DENSITY_SKIP {
                     continue;
                 }
                 let mut val = 0.0;
@@ -960,7 +963,7 @@ impl SphericalHFB {
                 let mut rho_q_new = vec![DENSITY_FLOOR; nr];
 
                 for i in 0..ns {
-                    if degs[i] * v2[i] < 1e-12 {
+                    if degs[i] * v2[i] < BCS_DENSITY_SKIP {
                         continue;
                     }
                     // phi_i(r) = sum_k c_{ki} * R_k(r)

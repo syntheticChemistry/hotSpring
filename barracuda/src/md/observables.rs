@@ -14,7 +14,7 @@ use barracuda::ops::md::observables::SsfGpu;
 
 use crate::md::config::MdConfig;
 use crate::md::simulation::{EnergyRecord, MdSimulation};
-use crate::tolerances::DIVISION_GUARD;
+use crate::tolerances::{DIVISION_GUARD, ENERGY_DRIFT_PCT, RDF_TAIL_TOLERANCE};
 
 /// RDF result: g(r) binned at discrete r values
 #[derive(Clone, Debug)]
@@ -298,7 +298,7 @@ pub fn validate_energy(history: &[EnergyRecord], _config: &MdConfig) -> EnergyVa
         / stable.len() as f64;
     let std_t = var_t.sqrt();
 
-    let passed = drift_pct < 5.0; // Physics: energy conservation — 5% drift typical for symplectic integrators
+    let passed = drift_pct < ENERGY_DRIFT_PCT;
 
     EnergyValidation {
         mean_total: mean_e,
@@ -365,7 +365,11 @@ pub fn print_observable_summary_with_gpu(
         let tail_mean: f64 = rdf.g_values[tail_start..].iter().sum::<f64>()
             / (rdf.g_values.len() - tail_start) as f64;
         let tail_err = (tail_mean - 1.0).abs();
-        let rdf_icon = if tail_err < 0.15 { "PASS" } else { "FAIL" }; // Physics: RDF tail asymptote — g(r→∞)=1 within 15%
+        let rdf_icon = if tail_err < RDF_TAIL_TOLERANCE {
+            "PASS"
+        } else {
+            "FAIL"
+        };
 
         println!("    RDF: peak at r={peak_r:.3} a_ws, g(peak)={peak_g:.3}");
         println!("    RDF: tail asymptote={tail_mean:.4} (err={tail_err:.4}) [{rdf_icon}]");

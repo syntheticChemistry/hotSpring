@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-//! Verification: Rust HFB vs Python reference on SLy4
+//! Verification: Rust HFB vs Python reference on `SLy4`
 //!
-//! Uses provenance constants for SLy4 parameters and test nuclei.
+//! Uses provenance constants for `SLy4` parameters and test nuclei.
 //! Expected values trace to `control/surrogate/nuclear-eos/wrapper/skyrme_hf.py`,
 //! commit `fd908c41`.
 

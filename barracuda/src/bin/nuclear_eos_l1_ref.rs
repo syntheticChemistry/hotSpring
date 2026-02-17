@@ -31,7 +31,7 @@ use std::time::Instant;
 // NMP targets — use provenance::NMP_TARGETS, provenance::print_nmp_analysis
 // ═══════════════════════════════════════════════════════════════════
 
-/// UNEDF0 — alternate parametrization: differs from provenance::UNEDF0_PARAMS.
+/// UNEDF0 — alternate parametrization: differs from `provenance::UNEDF0_PARAMS`.
 /// Local: -1883.69, 277.50, -189.08, 14603.6, 0.0047, -1.116, -1.635, 0.390, 0.3222, 78.66
 /// Provenance: -1883.68, 277.50, -207.20, 14263.6, 0.0085, -1.532, -1.0, 0.397, 1/6, 79.53
 const UNEDF0_PARAMS: [f64; 10] = [

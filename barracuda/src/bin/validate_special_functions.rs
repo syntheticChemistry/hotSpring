@@ -32,7 +32,7 @@ fn main() {
         (5.0, 24.0, "Γ(5) = 4! = 24"),
         (0.5, PI.sqrt(), "Γ(1/2) = √π"),
         (1.5, PI.sqrt() / 2.0, "Γ(3/2) = √π/2"),
-        (10.0, 362880.0, "Γ(10) = 9!"),
+        (10.0, 362_880.0, "Γ(10) = 9!"),
     ];
     for (x, expected, desc) in &gamma_tests {
         let got = barracuda::special::gamma(*x).unwrap_or(f64::NAN);
@@ -47,8 +47,8 @@ fn main() {
         (0, 1.0, "0! = 1"),
         (1, 1.0, "1! = 1"),
         (5, 120.0, "5! = 120"),
-        (10, 3628800.0, "10! = 3628800"),
-        (20, 2432902008176640000.0, "20!"),
+        (10, 3_628_800.0, "10! = 3628800"),
+        (20, 2_432_902_008_176_640_000.0, "20!"),
     ];
     for (n, expected, desc) in &fact_tests {
         let got = barracuda::special::factorial(*n);
@@ -61,11 +61,11 @@ fn main() {
     println!("── Error Function erf(x) ──");
     let erf_tests: Vec<(f64, f64, &str)> = vec![
         (0.0, 0.0, "erf(0) = 0"),
-        (0.5, 0.5204998778, "erf(0.5)"),
-        (1.0, 0.8427007929, "erf(1.0)"),
-        (2.0, 0.9953222650, "erf(2.0)"),
-        (-1.0, -0.8427007929, "erf(-1) = -erf(1)"),
-        (3.0, 0.9999779095, "erf(3.0)"),
+        (0.5, 0.520_499_877_8, "erf(0.5)"),
+        (1.0, 0.842_700_792_9, "erf(1.0)"),
+        (2.0, 0.995_322_265_0, "erf(2.0)"),
+        (-1.0, -0.842_700_792_9, "erf(-1) = -erf(1)"),
+        (3.0, 0.999_977_909_5, "erf(3.0)"),
     ];
     for (x, expected, desc) in &erf_tests {
         let got = barracuda::special::erf(*x);
@@ -76,8 +76,8 @@ fn main() {
     println!("\n── Complementary Error Function erfc(x) ──");
     let erfc_tests: Vec<(f64, f64, &str)> = vec![
         (0.0, 1.0, "erfc(0) = 1"),
-        (1.0, 0.1572992070, "erfc(1.0)"),
-        (2.0, 0.0046777350, "erfc(2.0)"),
+        (1.0, 0.157_299_207_0, "erfc(1.0)"),
+        (2.0, 0.004_677_735_0, "erfc(2.0)"),
     ];
     for (x, expected, desc) in &erfc_tests {
         let got = barracuda::special::erfc(*x);
@@ -90,9 +90,9 @@ fn main() {
     println!("── Bessel J₀(x) ──");
     let j0_tests: Vec<(f64, f64, &str)> = vec![
         (0.0, 1.0, "J₀(0) = 1"),
-        (1.0, 0.7651976866, "J₀(1)"),
+        (1.0, 0.765_197_686_6, "J₀(1)"),
         (2.4048, 0.0, "J₀(2.4048) ≈ 0 (first zero)"),
-        (5.0, -0.1775967713, "J₀(5)"),
+        (5.0, -0.177_596_771_3, "J₀(5)"),
     ];
     for (x, expected, desc) in &j0_tests {
         let got = barracuda::special::bessel_j0(*x);
@@ -108,8 +108,8 @@ fn main() {
     println!("\n── Bessel J₁(x) ──");
     let j1_tests: Vec<(f64, f64, &str)> = vec![
         (0.0, 0.0, "J₁(0) = 0"),
-        (1.0, 0.4400505857, "J₁(1)"),
-        (2.0, 0.5767248078, "J₁(2)"),
+        (1.0, 0.440_050_585_7, "J₁(1)"),
+        (2.0, 0.576_724_807_8, "J₁(2)"),
     ];
     for (x, expected, desc) in &j1_tests {
         let got = barracuda::special::bessel_j1(*x);
@@ -120,8 +120,8 @@ fn main() {
     println!("\n── Bessel I₀(x) (Modified, 1st kind) ──");
     let i0_tests: Vec<(f64, f64, &str)> = vec![
         (0.0, 1.0, "I₀(0) = 1"),
-        (1.0, 1.2660658778, "I₀(1)"),
-        (2.0, 2.2795853024, "I₀(2)"),
+        (1.0, 1.266_065_877_8, "I₀(1)"),
+        (2.0, 2.279_585_302_4, "I₀(2)"),
     ];
     for (x, expected, desc) in &i0_tests {
         let got = barracuda::special::bessel_i0(*x);
@@ -131,9 +131,9 @@ fn main() {
 
     println!("\n── Bessel K₀(x) (Modified, 2nd kind) ──");
     let k0_tests: Vec<(f64, f64, &str)> = vec![
-        (0.5, 0.9244190713, "K₀(0.5)"),
-        (1.0, 0.4210244382, "K₀(1)"),
-        (2.0, 0.1138938727, "K₀(2)"),
+        (0.5, 0.924_419_071_3, "K₀(0.5)"),
+        (1.0, 0.421_024_438_2, "K₀(1)"),
+        (2.0, 0.113_893_872_7, "K₀(2)"),
     ];
     for (x, expected, desc) in &k0_tests {
         let got = barracuda::special::bessel_k0(*x);
@@ -195,9 +195,9 @@ fn main() {
     println!("\n── Associated Legendre Pₙᵐ(x) ──");
     let assoc_tests: Vec<(usize, i32, f64, f64, &str)> = vec![
         (1, 0, 0.5, 0.5, "P₁⁰(0.5) = P₁(0.5)"),
-        (1, 1, 0.5, -0.8660254038, "P₁¹(0.5) = -√(1-0.25)"),
+        (1, 1, 0.5, -0.866_025_403_8, "P₁¹(0.5) = -√(1-0.25)"),
         (2, 0, 0.5, -0.125, "P₂⁰(0.5) = P₂(0.5)"),
-        (2, 1, 0.5, -1.299038106, "P₂¹(0.5)"),
+        (2, 1, 0.5, -1.299_038_106, "P₂¹(0.5)"),
         (2, 2, 0.5, 2.25, "P₂²(0.5) = 3(1-0.25)"),
     ];
     for (n, m, x, expected, desc) in &assoc_tests {
@@ -210,9 +210,9 @@ fn main() {
     // ─── Digamma ψ(x) — computed via ln_gamma numerical derivative ──
     println!("── Digamma ψ(x) ──");
     let digamma_tests: Vec<(f64, f64, &str)> = vec![
-        (1.0, -0.5772156649, "ψ(1) = -γ (Euler-Mascheroni)"),
-        (2.0, 0.4227843351, "ψ(2) = 1 - γ"),
-        (0.5, -1.9635100260, "ψ(1/2) = -γ - 2ln2"),
+        (1.0, -0.577_215_664_9, "ψ(1) = -γ (Euler-Mascheroni)"),
+        (2.0, 0.422_784_335_1, "ψ(2) = 1 - γ"),
+        (0.5, -1.963_510_026_0, "ψ(1/2) = -γ - 2ln2"),
     ];
     for (x, expected, desc) in &digamma_tests {
         // ψ(x) = d/dx ln Γ(x), approximate via central difference
@@ -249,7 +249,7 @@ fn main() {
         (1.0, 0.0, "ln_gamma(1) = ln(0!) = 0"),
         (2.0, 0.0, "ln_gamma(2) = ln(1!) = 0"),
         (5.0, 24.0_f64.ln(), "ln_gamma(5) = ln(24)"),
-        (10.0, 362880.0_f64.ln(), "ln_gamma(10) = ln(9!)"),
+        (10.0, 362_880.0_f64.ln(), "ln_gamma(10) = ln(9!)"),
         (0.5, (PI.sqrt()).ln(), "ln_gamma(1/2) = ln(√π)"),
     ];
     for (x, expected, desc) in &lgamma_tests {

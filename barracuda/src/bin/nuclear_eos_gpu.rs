@@ -185,7 +185,7 @@ fn main() {
     // GPU: derive NMP → shader params, dispatch
     let nmp = nuclear_matter_properties(&provenance::SLY4_PARAMS).unwrap();
     let r0 = (3.0 / (4.0 * std::f64::consts::PI * nmp.rho0_fm3)).powf(1.0 / 3.0);
-    let nmp_arr: Vec<f64> = vec![nmp.e_a_mev.abs(), r0, nmp.j_mev, 1.4399764];
+    let nmp_arr: Vec<f64> = vec![nmp.e_a_mev.abs(), r0, nmp.j_mev, 1.439_976_4];
     let nmp_buf = gpu.create_f64_buffer(&nmp_arr, "NMP_sly4");
     let energy_buf = gpu.create_f64_output_buffer(n_nuclei, "B_calc");
 
@@ -891,7 +891,7 @@ fn l1_chi2_gpu(
     }
 
     let r0 = (3.0 / (4.0 * std::f64::consts::PI * nmp.rho0_fm3)).powf(1.0 / 3.0);
-    let nmp_arr: Vec<f64> = vec![nmp.e_a_mev.abs(), r0, nmp.j_mev, 1.4399764];
+    let nmp_arr: Vec<f64> = vec![nmp.e_a_mev.abs(), r0, nmp.j_mev, 1.439_976_4];
     let nmp_buf = gpu.create_f64_buffer(&nmp_arr, "NMP_i");
     let energy_buf = gpu.create_f64_output_buffer(n_nuclei, "B_i");
 
