@@ -519,4 +519,59 @@ mod tests {
     fn nmp_sigma_is_two() {
         assert!((NMP_N_SIGMA - 2.0).abs() < f64::EPSILON);
     }
+
+    #[test]
+    fn physics_guards_are_positive() {
+        assert!(DENSITY_FLOOR > 0.0);
+        assert!(SPIN_ORBIT_R_MIN > 0.0);
+        assert!(COULOMB_R_MIN > 0.0);
+        assert!(DIVISION_GUARD > 0.0);
+        assert!(PAIRING_GAP_THRESHOLD > 0.0);
+        assert!(RHO_POWF_GUARD > 0.0);
+        assert!(GPU_JACOBI_CONVERGENCE > 0.0);
+        assert!(BCS_DENSITY_SKIP > 0.0);
+    }
+
+    #[test]
+    fn guard_hierarchy() {
+        // RHO_POWF_GUARD < DENSITY_FLOOR < SPIN_ORBIT_R_MIN
+        assert!(RHO_POWF_GUARD < DENSITY_FLOOR);
+        assert!(DIVISION_GUARD < RHO_POWF_GUARD);
+    }
+
+    #[test]
+    fn deformation_guesses_ordered() {
+        assert!(DEFORMATION_GUESS_WEAK < DEFORMATION_GUESS_GENERIC);
+        assert!(DEFORMATION_GUESS_GENERIC < DEFORMATION_GUESS_SD);
+    }
+
+    #[test]
+    fn all_tolerances_are_positive() {
+        let tols = [
+            EXACT_F64,
+            ITERATIVE_F64,
+            GPU_VS_CPU_F64,
+            LU_TOLERANCE,
+            QR_TOLERANCE,
+            SVD_TOLERANCE,
+            TRIDIAG_TOLERANCE,
+            EIGH_TOLERANCE,
+            GAMMA_TOLERANCE,
+            ERF_TOLERANCE,
+            BESSEL_TOLERANCE,
+            MD_FORCE_TOLERANCE,
+            MD_ABSOLUTE_FLOOR,
+            NEWTON_3RD_LAW_ABS,
+            NELDER_MEAD_TOLERANCE,
+            BFGS_TOLERANCE,
+            BRENT_TOLERANCE,
+            RK45_TOLERANCE,
+            SOBOL_TOLERANCE,
+            SCF_ENERGY_TOLERANCE,
+            SHARP_FILLING_THRESHOLD,
+        ];
+        for (i, &t) in tols.iter().enumerate() {
+            assert!(t > 0.0, "tolerance index {i} must be positive, got {t}");
+        }
+    }
 }

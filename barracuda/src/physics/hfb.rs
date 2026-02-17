@@ -1309,4 +1309,81 @@ mod tests {
             "L2 binding energy not deterministic"
         );
     }
+
+    #[test]
+    fn energy_from_densities_finite_for_nucleus() {
+        let hfb = SphericalHFB::new(8, 8, 4, 10.0, 50);
+        let ns = hfb.n_states();
+        let nr = hfb.nr();
+        let rho = vec![0.01; nr];
+        let mut evecs = vec![0.0; ns * ns];
+        for i in 0..ns {
+            evecs[i * ns + i] = 1.0;
+        }
+        let evals: Vec<f64> = (0..ns).map(|i| -20.0 + i as f64 * 2.0).collect();
+        let params = sly4_params();
+        let e =
+            hfb.compute_energy_from_densities(&rho, &rho, &evals, &evecs, &evals, &evecs, &params);
+        assert!(e.is_finite(), "energy must be finite, got {e}");
+    }
+
+    #[test]
+    fn energy_with_v2_finite() {
+        let hfb = SphericalHFB::new(8, 8, 4, 10.0, 50);
+        let ns = hfb.n_states();
+        let nr = hfb.nr();
+        let rho = vec![0.01; nr];
+        let mut evecs = vec![0.0; ns * ns];
+        for i in 0..ns {
+            evecs[i * ns + i] = 1.0;
+        }
+        let evals: Vec<f64> = (0..ns).map(|i| -20.0 + i as f64 * 2.0).collect();
+        let v2 = vec![0.5; ns];
+        let params = sly4_params();
+        let e = hfb.compute_energy_with_v2(
+            &rho, &rho, &evals, &evecs, &evals, &evecs, &v2, &v2, &params,
+        );
+        assert!(e.is_finite(), "energy_with_v2 must be finite, got {e}");
+    }
+
+    #[test]
+    fn pairing_gap_scales_with_mass() {
+        let light = SphericalHFB::new_adaptive(8, 8);
+        let heavy = SphericalHFB::new_adaptive(50, 82);
+        assert!(
+            light.pairing_gap() > heavy.pairing_gap(),
+            "pairing gap should decrease with mass: light={}, heavy={}",
+            light.pairing_gap(),
+            heavy.pairing_gap()
+        );
+    }
+
+    #[test]
+    fn hw_oscillator_frequency_positive() {
+        let hfb = SphericalHFB::new(20, 20, 6, 12.0, 60);
+        assert!(hfb.hw() > 0.0, "oscillator frequency must be positive");
+        assert!(hfb.hw() < 50.0, "oscillator frequency unreasonably large");
+    }
+
+    #[test]
+    fn density_floor_enforced() {
+        let hfb = SphericalHFB::new(8, 8, 4, 10.0, 50);
+        let ns = hfb.n_states();
+        let evecs = vec![0.0; ns * ns];
+        let v2 = vec![0.0; ns];
+        let rho = hfb.density_from_eigenstates(&evecs, &v2, ns);
+        assert!(
+            rho.iter().all(|&x| x >= crate::tolerances::DENSITY_FLOOR),
+            "density must be >= DENSITY_FLOOR everywhere"
+        );
+    }
+
+    #[test]
+    fn wf_flat_and_dwf_flat_dimensions() {
+        let hfb = SphericalHFB::new(8, 8, 4, 10.0, 50);
+        let ns = hfb.n_states();
+        let nr = hfb.nr();
+        assert_eq!(hfb.wf_flat().len(), ns * nr);
+        assert_eq!(hfb.dwf_flat().len(), ns * nr);
+    }
 }
