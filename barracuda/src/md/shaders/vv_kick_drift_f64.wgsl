@@ -1,3 +1,6 @@
+// DEPRECATED — Use barracuda::ops::md::integrators::VelocityVerletKickDrift
+// Retained for fossil record. barracuda canonical: ops/md/integrators/velocity_verlet_split.wgsl
+//
 // VV half-kick + drift + PBC wrap (f64)
 //
 // SPDX-License-Identifier: AGPL-3.0-only

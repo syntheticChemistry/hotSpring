@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-//! Nuclear EOS Level 2 — Surrogate Learning via BarraCUDA (hybrid HFB)
+//! **DEPRECATED** — Superseded by `bin/nuclear_eos_l2_ref.rs` and `bin/nuclear_eos_l2_gpu.rs`.
 //!
-//! Full SparsitySampler workflow using barracuda library modules:
-//!   - `barracuda::sample::sparsity::sparsity_sampler` — iterative surrogate learning
-//!   - `barracuda::special::{gamma, laguerre}` — HO basis wavefunctions
-//!   - `barracuda::numerical::{trapz, gradient_1d}` — numerical integration
-//!   - `barracuda::optimize::bisect` — root-finding
-//!   - `nalgebra::SymmetricEigen` — eigenvalue decomposition (barracuda gap)
+//! This was the first L2 pipeline using barracuda's SparsitySampler with HFB.
+//! Notable: it used `nalgebra::SymmetricEigen` (external C dependency) for
+//! eigensolve — that gap has been filled by `barracuda::ops::linalg::BatchedEighGpu`.
+//! Retained as fossil record only.
 //!
-//! Validates against Python control: `control/surrogate/nuclear-eos/scripts/run_surrogate.py --level=2`
+//! # Original purpose (historical)
+//!
+//! Nuclear EOS Level 2 — Surrogate Learning via BarraCUDA (hybrid HFB).
+//! Full SparsitySampler workflow demonstrating the HFB → barracuda port.
 
 use hotspring_barracuda::data;
 use hotspring_barracuda::physics::{nuclear_matter_properties, hfb::binding_energy_l2};

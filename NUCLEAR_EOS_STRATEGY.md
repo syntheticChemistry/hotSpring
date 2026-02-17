@@ -1,7 +1,7 @@
 # Nuclear EOS Strategy: From Python Control to BarraCUDA Proof
 
-**Date**: 2026-02-08 (initial), 2026-02-11 (L1+L2), 2026-02-15 (Phase E: paper-parity long run + toadstool rewire)  
-**Status**: Phase A ✅ Complete, Phase B ✅ L1+L2 Validated, Phase C ✅ GPU MD (9/9 PP Yukawa), Phase D ✅ Native f64 + N-scaling, Phase E ✅ Paper-parity long run (9/9, N=10k, 80k steps, $0.044) + Toadstool rewire (BatchedEighGpu, SsfGpu, PppmGpu)  
+**Date**: 2026-02-08 (initial), 2026-02-11 (L1+L2), 2026-02-15 (Phase E), 2026-02-17 (GPU density pipeline)  
+**Status**: Phase A ✅ Complete, Phase B ✅ L1+L2 Validated, Phase C ✅ GPU MD (9/9 PP Yukawa), Phase D ✅ Native f64 + N-scaling, Phase E ✅ Paper-parity long run (9/9, N=10k, 80k steps, $0.044) + Toadstool rewire, Phase F ✅ GPU-resident HFB density pipeline  
 **f64 Status**: Native WGSL builtins confirmed — fp64:fp32 ~1:2 via wgpu/Vulkan (bottleneck broken)  
 **Context**: The Code Ocean capsule is gated. We built the nuclear EOS from
 first principles instead — and used it as the Phase A → Phase B transition.

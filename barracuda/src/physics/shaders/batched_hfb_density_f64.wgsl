@@ -125,11 +125,8 @@ fn compute_density(@builtin(global_invocation_id) global_id: vec3<u32>) {
 struct MixParams {
     total_size: u32,  // batch_size * nr
     _pad1: u32,
-    alpha_lo: u32, alpha_hi: u32,
-}
-
-fn decode_mix_f64(lo: u32, hi: u32) -> f64 {
-    return bitcast<f64>(vec2<u32>(lo, hi));
+    alpha_num: u32,   // numerator: alpha = f64(num) / f64(den)
+    alpha_den: u32,   // denominator (avoids bitcast<f64> Naga limitation)
 }
 
 @group(3) @binding(0) var<uniform> mix_params: MixParams;
@@ -144,7 +141,7 @@ fn mix_density(@builtin(global_invocation_id) global_id: vec3<u32>) {
         return;
     }
 
-    let alpha = decode_mix_f64(mix_params.alpha_lo, mix_params.alpha_hi);
+    let alpha = f64(mix_params.alpha_num) / f64(mix_params.alpha_den);
     let mixed = alpha * rho_new[idx] + (f64(1.0) - alpha) * rho_old[idx];
     rho_old[idx] = max(mixed, f64(1e-15));
 }

@@ -48,7 +48,7 @@ Python baseline → Rust validation → GPU acceleration → sovereign pipeline
 
 | Shader | Lines | Pipeline Stage |
 |--------|-------|----------------|
-| `batched_hfb_density_f64.wgsl` | 148 | Density + BCS + energy for spherical HFB |
+| `batched_hfb_density_f64.wgsl` | 150 | Density + BCS + mixing for spherical HFB (batched wf) |
 | `batched_hfb_potentials_f64.wgsl` | 170 | Skyrme potentials (U_total, f_q) |
 | `batched_hfb_hamiltonian_f64.wgsl` | 123 | HFB Hamiltonian H = T_eff + V |
 | `batched_hfb_energy_f64.wgsl` | 147 | HFB energy functional (shared-memory reduce) |
@@ -112,8 +112,7 @@ WGSL `abs_f64` and `cbrt_f64` now injected via `ShaderTemplate::with_math_f64_au
    and its `trapz` calls. **Estimated: ~100 lines of wiring code.**
    Note: `SumReduceF64::sum()` takes `&[f64]` (CPU-side data); full GPU-resident
    reduction requires keeping integrand buffer on GPU — this is the real target.
-2. **BCS on GPU** → Move BCS occupations + density accumulation to GPU shader
-   (`batched_hfb_density_f64.wgsl` exists, needs pipeline wiring)
+2. ~~**BCS on GPU**~~ ✅ **DONE (v0.5.10)** — Density + mixing on GPU; BCS Brent remains on CPU (root-finding not GPU-efficient)
 3. ~~**SpinOrbitGpu**~~ ✅ **DONE (v0.5.6)** — Wired with CPU fallback
 4. ~~**WGSL preamble injection**~~ ✅ **DONE (v0.5.8)** — `ShaderTemplate::with_math_f64_auto()`
 5. **hfb_deformed_gpu.rs** → Wire existing deformed_*.wgsl shaders for full GPU H-build
@@ -196,13 +195,29 @@ WGSL `abs_f64` and `cbrt_f64` now injected via `ShaderTemplate::with_math_f64_au
 - ✅ MD shaders → 5 large shaders extracted to `.wgsl` files
 - ✅ BCS pipeline → Shader compilation cached at construction
 
+## Multi-GPU Benchmark Results (v0.5.10, Feb 17 2026)
+
+RTX 4070 (nvidia proprietary) vs Titan V (NVK/nouveau, open-source).
+See `experiments/006_GPU_FP64_COMPARISON.md` for full analysis.
+
+| Workload | RTX 4070 | Titan V | Ratio | Bottleneck |
+|----------|----------|---------|-------|------------|
+| BCS bisection (2048 nuclei) | 1.54 ms | 1.72 ms | 1.11× | Dispatch overhead |
+| Eigensolve 128×20 | 4.64 ms | 31.11 ms | 6.7× | NVK shader compiler |
+| Eigensolve 128×30 | 12.95 ms | 93.33 ms | 7.2× | NVK shader compiler |
+| L2 HFB pipeline (18 nuclei) | 8.1 ms | 8.6 ms | 1.06× | CPU-dominated (Amdahl) |
+
+**Key finding**: NVK is functionally correct (identical physics to 1e-15)
+but 4–7× slower on compute-bound shaders. This is a driver maturity gap,
+not hardware. Proprietary driver on Titan V would unlock its 6.9 TFLOPS fp64.
+
 ## Evolution Gaps Identified
 
 | Gap | Impact | Priority | Status |
 |-----|--------|----------|--------|
 | GPU energy integrands not wired in spherical HFB | CPU bottleneck in SCF energy | High | Shader exists, needs pipeline wiring |
 | `SumReduceF64` not used for HFB energy sums | CPU readback for reduction | High | barracuda primitive available; needs GPU-buffer variant |
-| BCS + density shader not wired | CPU readback after eigensolve | High | `batched_hfb_density_f64.wgsl` exists |
+| ~~BCS + density shader not wired~~ | ~~CPU readback after eigensolve~~ | ~~High~~ | ✅ Resolved v0.5.10 — density + mixing on GPU, BCS Brent on CPU |
 | ~~WGSL inline math (`abs_f64`, `cbrt_f64`)~~ | ~~Maintenance drift from canonical~~ | ~~Medium~~ | ✅ Resolved v0.5.8 — `ShaderTemplate::with_math_f64_auto()` |
 | 4 files > 1000 lines (HFB lib modules) | Code organization | Medium | Documented deviation; physics-coherent |
 | `pow_f64(base, exp)` in ToadStool exists but not used | Available when needed | Low | WGSL-only |

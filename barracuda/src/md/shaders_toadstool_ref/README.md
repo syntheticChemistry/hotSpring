@@ -1,10 +1,14 @@
-# ToadStool Barracuda WGSL Shader Reference (Snapshot)
+# ARCHIVED — ToadStool Barracuda WGSL Shader Reference (Snapshot)
 
-**Date**: Feb 14, 2026
-**Source**: `phase1/toadstool/crates/barracuda/`
+**Status**: ARCHIVED — barracuda canonical shaders have evolved past these snapshots.
+Shader .wgsl copies removed; barracuda repo is the single source of truth.
 
-These are **snapshot copies** of toadstool's barracuda MD shaders for reference
-and divergence tracking. Main evolution happens in the toadstool repo.
+**Original Date**: Feb 14, 2026
+**Original Source**: `phase1/toadstool/crates/barracuda/`
+
+These were snapshot copies of toadstool's barracuda MD shaders for divergence
+tracking. The divergence history and known-bug documentation below is retained
+for fossil record and upstream coordination.
 
 ## Toadstool Evolution Status (cb89d054, Feb 14 2026)
 

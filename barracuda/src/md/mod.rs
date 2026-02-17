@@ -2,17 +2,27 @@
 
 //! GPU Molecular Dynamics — f64 Yukawa OCP on consumer GPU
 //!
-//! Full MD simulation pipeline matching Sarkas PP Yukawa studies:
-//!   - Yukawa pairwise force (native f64 WGSL builtins)
-//!   - Velocity-Verlet symplectic integrator
-//!   - Periodic boundary conditions (minimum image)
-//!   - Berendsen thermostat (equilibration)
-//!   - Cell-list O(N) force calculation for N > ~2,000
-//!   - Observables: energy, RDF, VACF, SSF
-//!
-//! All physics runs on GPU. CPU handles I/O and observable accumulation.
-//!
+//! Full MD simulation pipeline matching Sarkas PP Yukawa studies.
 //! Reference: Choi, Dharuman, Murillo, Phys. Rev. E 100, 013206 (2019).
+//!
+//! # Deprecation status
+//!
+//! MD force, integrator, thermostat, and observable shaders have been
+//! absorbed by `barracuda::ops::md`. The following submodules are
+//! **deprecated** and retained as fossil record:
+//!
+//! | Module | Absorbed by | Status |
+//! |--------|-------------|--------|
+//! | `shaders` | `barracuda::ops::md::*` | Deprecated — local .wgsl copies |
+//! | `cpu_reference` | barracuda CPU forces | Deprecated — benchmarking reference |
+//!
+//! The following submodules remain **active** (hotSpring-specific):
+//!
+//! | Module | Purpose |
+//! |--------|---------|
+//! | `config` | Sarkas-style config (κ, Γ, DSF parameters) |
+//! | `observables` | Energy validation, CPU RDF/VACF, GPU SSF (via barracuda) |
+//! | `simulation` | MD loop orchestration (should migrate to barracuda ops) |
 
 pub mod config;
 pub mod cpu_reference;

@@ -1,3 +1,6 @@
+// DEPRECATED — Use barracuda::ops::md::observables::Rdf
+// Retained for fossil record. barracuda canonical: ops/md/observables/rdf_histogram_f64.wgsl
+//
 // RDF pair distance histogram (f64 positions, u32 bins)
 //
 // SPDX-License-Identifier: AGPL-3.0-only

@@ -189,7 +189,7 @@ fn main() {
     let nmp_buf = gpu.create_f64_buffer(&nmp_arr, "NMP_sly4");
     let energy_buf = gpu.create_f64_output_buffer(n_nuclei, "B_calc");
 
-    let semf_bg = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
+    let semf_bg = gpu.device().create_bind_group(&wgpu::BindGroupDescriptor {
         label: Some("SEMF_bg"),
         layout: &semf_pipeline.get_bind_group_layout(0),
         entries: &[
@@ -233,7 +233,7 @@ fn main() {
     // GPU chi2 — compute on GPU
     let b_calc_buf = gpu.create_f64_buffer(&gpu_energies, "B_calc_gpu");
     let chi2_out_buf = gpu.create_f64_output_buffer(n_nuclei, "chi2_per_nuc");
-    let chi2_bg = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
+    let chi2_bg = gpu.device().create_bind_group(&wgpu::BindGroupDescriptor {
         label: Some("chi2_bg"),
         layout: &chi2_pipeline.get_bind_group_layout(0),
         entries: &[
@@ -330,7 +330,7 @@ fn main() {
 
     // Build the pure-GPU shader by prepending math_f64 preamble
     use barracuda::shaders::precision::ShaderTemplate;
-    let pure_gpu_shader = ShaderTemplate::with_math_f64(SHADER_SEMF_PURE_GPU);
+    let pure_gpu_shader = ShaderTemplate::with_math_f64_safe(SHADER_SEMF_PURE_GPU);
 
     let t_compile2 = Instant::now();
     let pure_pipeline = gpu.create_pipeline(&pure_gpu_shader, "SEMF_pure_gpu_f64");
@@ -345,7 +345,7 @@ fn main() {
     let nuclei_pure_buf = gpu.create_f64_buffer(&nuclei_pure, "nuclei_ZNA");
     let energy_pure_buf = gpu.create_f64_output_buffer(n_nuclei, "B_pure");
 
-    let pure_bg = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
+    let pure_bg = gpu.device().create_bind_group(&wgpu::BindGroupDescriptor {
         label: Some("SEMF_pure_bg"),
         layout: &pure_pipeline.get_bind_group_layout(0),
         entries: &[
@@ -895,7 +895,7 @@ fn l1_chi2_gpu(
     let nmp_buf = gpu.create_f64_buffer(&nmp_arr, "NMP_i");
     let energy_buf = gpu.create_f64_output_buffer(n_nuclei, "B_i");
 
-    let semf_bg = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
+    let semf_bg = gpu.device().create_bind_group(&wgpu::BindGroupDescriptor {
         label: Some("SEMF_i"),
         layout: &semf_pipeline.get_bind_group_layout(0),
         entries: &[
@@ -922,7 +922,7 @@ fn l1_chi2_gpu(
     // Chi2 on GPU
     let b_calc_buf = gpu.create_f64_buffer(&energies, "B_calc_i");
     let chi2_buf = gpu.create_f64_output_buffer(n_nuclei, "chi2_i");
-    let chi2_bg = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
+    let chi2_bg = gpu.device().create_bind_group(&wgpu::BindGroupDescriptor {
         label: Some("chi2_i"),
         layout: &chi2_pipeline.get_bind_group_layout(0),
         entries: &[

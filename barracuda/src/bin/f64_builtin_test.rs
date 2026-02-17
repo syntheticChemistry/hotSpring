@@ -52,14 +52,14 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {{
 "
         );
 
-        gpu.device.push_error_scope(wgpu::ErrorFilter::Validation);
+        gpu.device().push_error_scope(wgpu::ErrorFilter::Validation);
         let _module = gpu
-            .device
+            .device()
             .create_shader_module(wgpu::ShaderModuleDescriptor {
                 label: Some(name),
                 source: wgpu::ShaderSource::Wgsl(shader.into()),
             });
-        let err = gpu.device.pop_error_scope().await;
+        let err = gpu.device().pop_error_scope().await;
         let compiled = err.is_none();
         match err {
             Some(e) => println!("  {name:<15} FAILED — {e}"),
@@ -109,19 +109,19 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {{
     // Create buffers
     let input_bytes: Vec<u8> = test_values.iter().flat_map(|v| v.to_le_bytes()).collect();
     let input_buf = gpu
-        .device
+        .device()
         .create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("input"),
             contents: &input_bytes,
             usage: wgpu::BufferUsages::STORAGE,
         });
-    let output_buf = gpu.device.create_buffer(&wgpu::BufferDescriptor {
+    let output_buf = gpu.device().create_buffer(&wgpu::BufferDescriptor {
         label: Some("output"),
         size: u64::from(n) * 8,
         usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
         mapped_at_creation: false,
     });
-    let staging_buf = gpu.device.create_buffer(&wgpu::BufferDescriptor {
+    let staging_buf = gpu.device().create_buffer(&wgpu::BufferDescriptor {
         label: Some("staging"),
         size: u64::from(n) * 8,
         usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
@@ -213,7 +213,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {{
     let exp_values: Vec<f64> = (0..n).map(|i| -(f64::from(i) + 1.0) * 0.01).collect();
     let exp_input_bytes: Vec<u8> = exp_values.iter().flat_map(|v| v.to_le_bytes()).collect();
     let exp_input_buf = gpu
-        .device
+        .device()
         .create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("exp_input"),
             contents: &exp_input_bytes,
@@ -271,19 +271,19 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {{
         .collect();
     let big_bytes: Vec<u8> = big_values.iter().flat_map(|v| v.to_le_bytes()).collect();
     let big_input = gpu
-        .device
+        .device()
         .create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("big_input"),
             contents: &big_bytes,
             usage: wgpu::BufferUsages::STORAGE,
         });
-    let big_output = gpu.device.create_buffer(&wgpu::BufferDescriptor {
+    let big_output = gpu.device().create_buffer(&wgpu::BufferDescriptor {
         label: Some("big_output"),
         size: u64::from(big_n) * 8,
         usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
         mapped_at_creation: false,
     });
-    let big_staging = gpu.device.create_buffer(&wgpu::BufferDescriptor {
+    let big_staging = gpu.device().create_buffer(&wgpu::BufferDescriptor {
         label: Some("big_staging"),
         size: u64::from(big_n) * 8,
         usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
@@ -386,42 +386,42 @@ fn run_shader(
     n: u32,
 ) -> Vec<f64> {
     let module = gpu
-        .device
+        .device()
         .create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
             source: wgpu::ShaderSource::Wgsl(shader_src.into()),
         });
 
-    let bind_group_layout = gpu
-        .device
-        .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: None,
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: true },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
+    let bind_group_layout =
+        gpu.device()
+            .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: None,
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: true },
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
                     },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: false },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::COMPUTE,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: false },
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
                     },
-                    count: None,
-                },
-            ],
-        });
+                ],
+            });
 
     let pipeline_layout = gpu
-        .device
+        .device()
         .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: None,
             bind_group_layouts: &[&bind_group_layout],
@@ -429,7 +429,7 @@ fn run_shader(
         });
 
     let pipeline = gpu
-        .device
+        .device()
         .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
             label: None,
             layout: Some(&pipeline_layout),
@@ -437,7 +437,7 @@ fn run_shader(
             entry_point: "main",
         });
 
-    let bind_group = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
+    let bind_group = gpu.device().create_bind_group(&wgpu::BindGroupDescriptor {
         label: None,
         layout: &bind_group_layout,
         entries: &[
@@ -453,7 +453,7 @@ fn run_shader(
     });
 
     let mut encoder = gpu
-        .device
+        .device()
         .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
     {
         let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
@@ -465,7 +465,7 @@ fn run_shader(
         pass.dispatch_workgroups(n.div_ceil(64), 1, 1);
     }
     encoder.copy_buffer_to_buffer(output_buf, 0, staging_buf, 0, u64::from(n) * 8);
-    gpu.queue.submit(Some(encoder.finish()));
+    gpu.queue().submit(Some(encoder.finish()));
 
     let slice = staging_buf.slice(..);
     let (tx, rx) = std::sync::mpsc::channel();
@@ -475,7 +475,7 @@ fn run_shader(
             tx.send(r).ok();
         },
     );
-    gpu.device.poll(wgpu::Maintain::Wait);
+    gpu.device().poll(wgpu::Maintain::Wait);
     rx.recv().unwrap().unwrap();
 
     let data = slice.get_mapped_range();

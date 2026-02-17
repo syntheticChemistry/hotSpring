@@ -756,7 +756,7 @@ pub async fn run_simulation_celllist(
 /// Upload u32 data to a GPU buffer
 fn upload_u32(gpu: &GpuF64, buffer: &wgpu::Buffer, data: &[u32]) {
     let bytes: Vec<u8> = data.iter().flat_map(|v| v.to_le_bytes()).collect();
-    gpu.queue.write_buffer(buffer, 0, &bytes);
+    gpu.queue().write_buffer(buffer, 0, &bytes);
 }
 
 #[cfg(test)]

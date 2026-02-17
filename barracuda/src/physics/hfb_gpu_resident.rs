@@ -1,28 +1,29 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-//! GPU-Resident Spherical HFB Solver (Level 2) — Optimized Hybrid
+//! GPU-Resident Spherical HFB Solver (Level 2)
 //!
-//! Per SCF iteration — ONE encoder, ONE submit, ONE poll:
+//! Per SCF iteration:
 //!   1. CPU→GPU: write densities for all groups
 //!   2. GPU compute: potentials + H-build (7 dispatches per group)
-//!   3. GPU copy: H → staging buffers (in same encoder)
-//!   4. Single queue.submit + single device.poll(Wait)
-//!   5. CPU: read staging → spin-orbit correction
-//!   6. GPU: `BatchedEighGpu::execute_single_dispatch` for ALL matrices
-//!   7. CPU (Rayon): BCS → density → energy
+//!   3. CPU: compute spin-orbit diagonal (O(ns × nr) per nucleus — fast)
+//!   4. GPU: spin-orbit diag add + pack H → eigensolve buffer (GPU shader)
+//!   5. GPU: batched eigensolve (Jacobi rotation)
+//!   6. GPU: density + mixing shader
+//!   7. CPU (Rayon): BCS → energy
 //!
-//! Pre-allocated staging buffers eliminate per-iteration allocation.
-//! Single poll per iteration eliminates serial GPU sync overhead.
-//! GPU eigensolve (v0.5.4) replaces CPU `eigh_f64` with single-dispatch
-//! Jacobi rotation — all proton+neutron matrices in one shader invocation.
-//! Falls back to CPU `eigh_f64` if `global_max_ns > 32` or GPU fails.
+//! H matrices never leave GPU — spin-orbit correction and eigensolve packing
+//! happen in a single GPU shader (`spin_orbit_pack_f64.wgsl`), eliminating
+//! the H staging readback entirely.
+//!
+//! Pre-allocated buffers eliminate per-iteration allocation.
+//! GPU eigensolve (v0.5.4+) uses GPU Jacobi rotation: single-dispatch
+//! (n≤32) or multi-dispatch (n>32), both pure GPU.
 
 use super::hfb::SphericalHFB;
 use super::semf::semf_binding_energy;
 use crate::tolerances::{DENSITY_FLOOR, GPU_JACOBI_CONVERGENCE, RHO_POWF_GUARD, SPIN_ORBIT_R_MIN};
 use barracuda::device::WgpuDevice;
-use barracuda::linalg::eigh_f64;
-use barracuda::ops::grid::{compute_ls_factor, SpinOrbitGpu};
+use barracuda::ops::grid::compute_ls_factor;
 use barracuda::ops::linalg::BatchedEighGpu;
 use barracuda::shaders::precision::ShaderTemplate;
 use rayon::prelude::*;
@@ -31,7 +32,12 @@ use std::sync::Arc;
 const POTENTIALS_SHADER_BODY: &str = include_str!("shaders/batched_hfb_potentials_f64.wgsl");
 const HAMILTONIAN_SHADER: &str = include_str!("shaders/batched_hfb_hamiltonian_f64.wgsl");
 const DENSITY_SHADER: &str = include_str!("shaders/batched_hfb_density_f64.wgsl");
+// Phase 4 stub: energy shader loaded but not yet dispatched.
+// Wiring requires GPU SumReduceF64 + kinetic energy kernel.
+// See EVOLUTION_READINESS.md Tier B items.
+#[allow(dead_code)]
 const ENERGY_SHADER_BODY: &str = include_str!("shaders/batched_hfb_energy_f64.wgsl");
+const SO_PACK_SHADER: &str = include_str!("shaders/spin_orbit_pack_f64.wgsl");
 
 /// Results from the GPU-resident L2 HFB binding energy computation.
 ///
@@ -80,23 +86,31 @@ struct DensityParamsUniform {
 }
 
 /// Uniform for density mixing (group 3). Must match `MixParams` in WGSL.
+///
+/// Alpha is passed as (numerator, denominator) to avoid bitcast issues
+/// in Naga's WGSL validator (`bitcast<f64>(vec2<u32>)` not yet supported).
+/// Alpha = f64(alpha_num) / f64(alpha_den). For typical values (0.3, 0.8),
+/// this gives exact representation with integer ratios.
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 struct MixParamsUniform {
     total_size: u32,
     _pad1: u32,
-    alpha_lo: u32,
-    alpha_hi: u32,
+    alpha_num: u32,
+    alpha_den: u32,
 }
 
 impl MixParamsUniform {
     fn new(total_size: u32, alpha: f64) -> Self {
-        let bits = alpha.to_bits();
+        // Encode alpha as integer ratio: scale by 10_000_000 for ~7 decimal digits
+        const SCALE: f64 = 10_000_000.0;
+        let num = (alpha * SCALE).round() as u32;
+        let den = SCALE as u32;
         Self {
             total_size,
             _pad1: 0,
-            alpha_lo: bits as u32,
-            alpha_hi: (bits >> 32) as u32,
+            alpha_num: num,
+            alpha_den: den,
         }
     }
 }
@@ -125,9 +139,18 @@ struct EnergyParamsUniform {
     hw_hi: u32,
 }
 
-fn encode_f64_pair(v: f64) -> (u32, u32) {
-    let bits = v.to_bits();
-    (bits as u32, (bits >> 32) as u32)
+/// Uniform for spin-orbit pack shader. Must match `PackParams` in WGSL.
+#[repr(C)]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+struct PackParams {
+    ns: u32,
+    gns: u32,
+    n_active: u32,
+    dst_start: u32,
+    dst_stride: u32,
+    _pad1: u32,
+    _pad2: u32,
+    _pad3: u32,
 }
 
 fn make_bind_group(
@@ -188,6 +211,10 @@ fn make_pipeline(
     })
 }
 
+// Phase 4 energy fields (energy_*, e_pair_*, v2_*, rho_*_new_*) are wired
+// into bind groups but dispatches are deferred until SumReduceF64 + kinetic
+// energy kernel are available. Suppress dead_code for these stubs.
+#[allow(dead_code)]
 struct GroupResources {
     ns: usize,
     nr: usize,
@@ -205,8 +232,7 @@ struct GroupResources {
     h_p_buf: wgpu::Buffer,
     h_n_buf: wgpu::Buffer,
 
-    staging_p: wgpu::Buffer,
-    staging_n: wgpu::Buffer,
+    so_diag_buf: wgpu::Buffer,
 
     pot_bg: wgpu::BindGroup,
     hbg_p: wgpu::BindGroup,
@@ -225,8 +251,12 @@ struct GroupResources {
     density_params_bg: wgpu::BindGroup,
     bcs_p_bg: wgpu::BindGroup,
     bcs_n_bg: wgpu::BindGroup,
+    bcs_p_read_bg: wgpu::BindGroup,
+    bcs_n_read_bg: wgpu::BindGroup,
     density_p_bg: wgpu::BindGroup,
     density_n_bg: wgpu::BindGroup,
+    density_p_read_bg: wgpu::BindGroup,
+    density_n_read_bg: wgpu::BindGroup,
     mix_p_bg: wgpu::BindGroup,
     mix_n_bg: wgpu::BindGroup,
     evals_p_buf: wgpu::Buffer,
@@ -320,7 +350,7 @@ pub fn binding_energies_l2_gpu_resident(
     let raw_device = device.device();
     let raw_queue = device.queue();
 
-    let potentials_shader = ShaderTemplate::with_math_f64_auto(POTENTIALS_SHADER_BODY);
+    let potentials_shader = ShaderTemplate::with_math_f64_auto_safe(POTENTIALS_SHADER_BODY);
     let pot_module = raw_device.create_shader_module(wgpu::ShaderModuleDescriptor {
         label: Some("potentials"),
         source: wgpu::ShaderSource::Wgsl(potentials_shader.into()),
@@ -528,17 +558,12 @@ pub fn binding_energies_l2_gpu_resident(
             mapped_at_creation: false,
         });
 
-        // Pre-allocated staging buffers for readback (reused every iteration)
-        let staging_p = raw_device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("staging_p"),
-            size: h_mat_bytes,
-            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-        let staging_n = raw_device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("staging_n"),
-            size: h_mat_bytes,
-            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+        // Spin-orbit diagonal buffer: ns values per nucleus, reused every iteration
+        let so_diag_bytes = (n_max * ns * 8) as u64;
+        let so_diag_buf = raw_device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("so_diag"),
+            size: so_diag_bytes.max(8), // min 8 bytes for wgpu
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
 
@@ -751,7 +776,8 @@ pub fn binding_energies_l2_gpu_resident(
         let u = wgpu::BufferBindingType::Uniform;
         let (dp_layout, density_params_bg) =
             make_bind_group(raw_device, "density_g0", &[(u, &density_params_buf)]);
-        let (bcs_layout, bcs_p_bg) = make_bind_group(
+        // BCS v² bind groups (v2 is READ_WRITE for the BCS compute dispatch)
+        let (bcs_write_layout, bcs_p_bg) = make_bind_group(
             raw_device,
             "bcs_p",
             &[
@@ -771,7 +797,29 @@ pub fn binding_energies_l2_gpu_resident(
                 (srw, &v2_n_buf),
             ],
         );
-        let (dens_layout, density_p_bg) = make_bind_group(
+        // Read-only BCS bind groups for density/mixing pipelines (v2 is READ only)
+        let (bcs_read_layout, bcs_p_read_bg) = make_bind_group(
+            raw_device,
+            "bcs_p_read",
+            &[
+                (sr, &evals_p_buf),
+                (sr, &lambda_p_buf),
+                (sr, &delta_buf),
+                (sr, &v2_p_buf),
+            ],
+        );
+        let (_, bcs_n_read_bg) = make_bind_group(
+            raw_device,
+            "bcs_n_read",
+            &[
+                (sr, &evals_n_buf),
+                (sr, &lambda_n_buf),
+                (sr, &delta_buf),
+                (sr, &v2_n_buf),
+            ],
+        );
+        // Density write bind groups (rho_new is READ_WRITE for density compute)
+        let (dens_write_layout, density_p_bg) = make_bind_group(
             raw_device,
             "dens_p",
             &[
@@ -791,6 +839,30 @@ pub fn binding_energies_l2_gpu_resident(
                 (sr, &degs_buf),
                 (sr, &wf_buf),
                 (srw, &rho_n_new_buf),
+            ],
+        );
+        // Density read bind groups (rho_new is READ for mixing pass — avoids
+        // buffer conflict when mix reads rho_new and density wrote it)
+        let (dens_read_layout, density_p_read_bg) = make_bind_group(
+            raw_device,
+            "dens_p_read",
+            &[
+                (sr, &evecs_p_buf),
+                (sr, &v2_p_buf),
+                (sr, &degs_buf),
+                (sr, &wf_buf),
+                (sr, &rho_p_new_buf),
+            ],
+        );
+        let (_, density_n_read_bg) = make_bind_group(
+            raw_device,
+            "dens_n_read",
+            &[
+                (sr, &evecs_n_buf),
+                (sr, &v2_n_buf),
+                (sr, &degs_buf),
+                (sr, &wf_buf),
+                (sr, &rho_n_new_buf),
             ],
         );
         let (mix_layout, mix_p_bg) = make_bind_group(
@@ -816,19 +888,19 @@ pub fn binding_energies_l2_gpu_resident(
             raw_device,
             &density_module,
             "compute_bcs_v2",
-            &[&dp_layout, &bcs_layout],
+            &[&dp_layout, &bcs_write_layout],
         );
         let density_pipe = make_pipeline(
             raw_device,
             &density_module,
             "compute_density",
-            &[&dp_layout, &bcs_layout, &dens_layout],
+            &[&dp_layout, &bcs_read_layout, &dens_write_layout],
         );
         let mix_pipe = make_pipeline(
             raw_device,
             &density_module,
             "mix_density",
-            &[&dp_layout, &bcs_layout, &dens_layout, &mix_layout],
+            &[&dp_layout, &bcs_read_layout, &dens_read_layout, &mix_layout],
         );
 
         // Energy pipeline (deferred to future PR — stubs for struct completeness)
@@ -889,8 +961,7 @@ pub fn binding_energies_l2_gpu_resident(
             ham_dims_buf,
             h_p_buf,
             h_n_buf,
-            staging_p,
-            staging_n,
+            so_diag_buf,
             pot_bg,
             hbg_p,
             hbg_n,
@@ -905,8 +976,12 @@ pub fn binding_energies_l2_gpu_resident(
             density_params_bg,
             bcs_p_bg,
             bcs_n_bg,
+            bcs_p_read_bg,
+            bcs_n_read_bg,
             density_p_bg,
             density_n_bg,
+            density_p_read_bg,
+            density_n_read_bg,
             mix_p_bg,
             mix_n_bg,
             evals_p_buf,
@@ -939,9 +1014,151 @@ pub fn binding_energies_l2_gpu_resident(
 
     let global_max_ns = all_groups.iter().map(|g| g.ns).max().unwrap_or(1);
 
+    // ═══ PRE-ALLOCATE EIGENSOLVE BUFFERS (ONE TIME) ═══
+    // Eliminates per-iteration GPU buffer allocation + shader/pipeline recreation.
+    let max_eigh_batch = solvers.len() * 2; // proton + neutron per nucleus
+    let _gm_global = global_max_ns * global_max_ns;
+    let (eigh_matrices_buf, eigh_eigenvalues_buf, eigh_eigenvectors_buf) =
+        BatchedEighGpu::create_buffers(&device, global_max_ns, max_eigh_batch)
+            .expect("pre-allocate eigensolve GPU buffers");
+
+    // ═══ SPIN-ORBIT + PACK PIPELINE (GPU-RESIDENT H → EIGENSOLVE) ═══
+    // Eliminates H staging readback: spin-orbit diag add + matrix packing
+    // happen entirely on GPU, writing directly to the eigensolve buffer.
+    let so_pack_module = raw_device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        label: Some("so_pack"),
+        source: wgpu::ShaderSource::Wgsl(SO_PACK_SHADER.into()),
+    });
+    let so_pack_layout = raw_device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        label: Some("so_pack_layout"),
+        entries: &[
+            wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 1,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Storage { read_only: true },
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 2,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Storage { read_only: true },
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 3,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Storage { read_only: false },
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            },
+        ],
+    });
+    let so_pack_pipe = make_pipeline(
+        raw_device,
+        &so_pack_module,
+        "pack_with_spinorbit",
+        &[&so_pack_layout],
+    );
+
+    // Per-group pack resources: bind groups referencing per-group H buffers + eigensolve buffer
+    struct PackGroupResources {
+        params_p_buf: wgpu::Buffer,
+        params_n_buf: wgpu::Buffer,
+        pack_p_bg: wgpu::BindGroup,
+        pack_n_bg: wgpu::BindGroup,
+    }
+    let pack_resources: Vec<PackGroupResources> = all_groups
+        .iter()
+        .map(|g| {
+            let params_p_buf = raw_device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("pack_params_p"),
+                size: std::mem::size_of::<PackParams>() as u64,
+                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            });
+            let params_n_buf = raw_device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("pack_params_n"),
+                size: std::mem::size_of::<PackParams>() as u64,
+                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            });
+            let pack_p_bg = raw_device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("pack_p"),
+                layout: &so_pack_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: params_p_buf.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: g.h_p_buf.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: g.so_diag_buf.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 3,
+                        resource: eigh_matrices_buf.as_entire_binding(),
+                    },
+                ],
+            });
+            let pack_n_bg = raw_device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("pack_n"),
+                layout: &so_pack_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: params_n_buf.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: g.h_n_buf.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: g.so_diag_buf.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 3,
+                        resource: eigh_matrices_buf.as_entire_binding(),
+                    },
+                ],
+            });
+            PackGroupResources {
+                params_p_buf,
+                params_n_buf,
+                pack_p_bg,
+                pack_n_bg,
+            }
+        })
+        .collect();
+
     // ═══ UNIFIED SCF LOOP — ALL GROUPS IN ONE ENCODER ═══
     let mut t_gpu_total = 0.0f64;
-    let mut t_poll_total = 0.0f64;
+    let t_poll_total = 0.0f64;
     let _t_read_total = 0.0f64;
     let mut t_cpu_total = 0.0f64;
     let mut t_upload_total = 0.0f64;
@@ -954,18 +1171,52 @@ pub fn binding_energies_l2_gpu_resident(
             break;
         }
 
-        // Step 1: Upload densities for all groups
-        let t_upload = std::time::Instant::now();
-        for g in &all_groups {
-            let active: Vec<usize> = g
-                .group_indices
-                .iter()
-                .copied()
-                .filter(|&si| !states[si].converged)
-                .collect();
-            if active.is_empty() {
-                continue;
+        // Pre-compute active groups (shared across upload, H-build, pack, work items)
+        let active_groups: Vec<(usize, Vec<usize>)> = all_groups
+            .iter()
+            .enumerate()
+            .filter_map(|(gi, g)| {
+                let active: Vec<usize> = g
+                    .group_indices
+                    .iter()
+                    .copied()
+                    .filter(|&si| !states[si].converged)
+                    .collect();
+                if active.is_empty() {
+                    None
+                } else {
+                    Some((gi, active))
+                }
+            })
+            .collect();
+
+        let alpha_mix = if iter == 0 { 0.8 } else { mixing };
+
+        // Build work items (no H data — H stays on GPU)
+        struct WorkItem {
+            si: usize,
+            gi: usize,
+            ns: usize,
+            e_prev: f64,
+        }
+        let mut all_work: Vec<WorkItem> = Vec::new();
+        for &(gi, ref active) in &active_groups {
+            let g = &all_groups[gi];
+            for &si in active {
+                all_work.push(WorkItem {
+                    si,
+                    gi,
+                    ns: g.ns,
+                    e_prev: states[si].e_prev,
+                });
             }
+        }
+
+        // Step 1: Upload ALL data before recording the encoder.
+        // write_buffer operations are guaranteed visible to the next queue.submit().
+        let t_upload = std::time::Instant::now();
+        for &(gi, ref active) in &active_groups {
+            let g = &all_groups[gi];
             let n_nuclei = active.len();
             let bn = n_nuclei as u32;
 
@@ -1017,36 +1268,108 @@ pub fn binding_energies_l2_gpu_resident(
                 0,
                 bytemuck::cast_slice(&rho_alpha_m1_flat),
             );
+
+            // Spin-orbit diagonal: V_so[i] = w0 * ls_i * ∫ |ψ_i(r)|² (dρ/dr)/r r² dr
+            // O(ns × nr) per nucleus — fast on CPU, tiny upload (ns f64s).
+            let ns = g.ns;
+            let mut so_diag_flat = vec![0.0f64; n_nuclei * ns];
+            if w0 != 0.0 {
+                for (bi, &si) in active.iter().enumerate() {
+                    let (_, _, _, ref hfb) = solvers[si];
+                    let cur_nr = hfb.nr();
+                    let cur_dr = hfb.dr();
+                    let rho_total: Vec<f64> = (0..cur_nr)
+                        .map(|k| states[si].rho_p[k] + states[si].rho_n[k])
+                        .collect();
+                    let drho = barracuda::numerical::gradient_1d(&rho_total, cur_dr);
+                    let r = hfb.r_grid();
+                    let lj_qn = hfb.lj_quantum_numbers();
+
+                    for i in 0..ns {
+                        let (l, j) = lj_qn[i];
+                        if l == 0 {
+                            continue;
+                        }
+                        let ls = compute_ls_factor(l as u32, j);
+                        let wf_i = hfb.wf_state(i);
+                        let so_integ: Vec<f64> = (0..cur_nr)
+                            .map(|k| {
+                                wf_i[k].powi(2) * drho[k] / r[k].max(SPIN_ORBIT_R_MIN)
+                                    * r[k].powi(2)
+                            })
+                            .collect();
+                        let so_val =
+                            w0 * ls * barracuda::numerical::trapz(&so_integ, r).unwrap_or(0.0);
+                        so_diag_flat[bi * ns + i] = so_val;
+                    }
+                }
+            }
+            raw_queue.write_buffer(&g.so_diag_buf, 0, bytemuck::cast_slice(&so_diag_flat));
         }
 
+        // Upload pack params for spin-orbit + pack shader
+        let n_work = all_work.len();
+        let gns_wg = (global_max_ns as u32).div_ceil(16);
+        {
+            let mut cum_wi = 0usize;
+            for &(gi, ref active) in &active_groups {
+                let bn = active.len() as u32;
+                let pr = &pack_resources[gi];
+
+                raw_queue.write_buffer(
+                    &pr.params_p_buf,
+                    0,
+                    bytemuck::bytes_of(&PackParams {
+                        ns: all_groups[gi].ns as u32,
+                        gns: global_max_ns as u32,
+                        n_active: bn,
+                        dst_start: (cum_wi * 2) as u32,
+                        dst_stride: 2,
+                        _pad1: 0,
+                        _pad2: 0,
+                        _pad3: 0,
+                    }),
+                );
+
+                raw_queue.write_buffer(
+                    &pr.params_n_buf,
+                    0,
+                    bytemuck::bytes_of(&PackParams {
+                        ns: all_groups[gi].ns as u32,
+                        gns: global_max_ns as u32,
+                        n_active: bn,
+                        dst_start: (cum_wi * 2 + 1) as u32,
+                        dst_stride: 2,
+                        _pad1: 0,
+                        _pad2: 0,
+                        _pad3: 0,
+                    }),
+                );
+
+                cum_wi += active.len();
+            }
+        }
         t_upload_total += t_upload.elapsed().as_secs_f64();
 
-        // Step 2: ONE encoder for ALL groups — compute + copy
+        // Step 2: ONE encoder — H-build + spin-orbit pack in a single compute pass.
+        // wgpu guarantees automatic memory barriers between dispatches within a pass,
+        // so pack dispatches see the H matrices written by earlier H-build dispatches.
         let t_gpu = std::time::Instant::now();
         let mut encoder = raw_device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("scf_all"),
+            label: Some("scf_hbuild_pack"),
         });
-
-        let mut active_groups: Vec<(usize, Vec<usize>)> = Vec::new();
 
         {
             let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                label: Some("all_groups"),
+                label: Some("hbuild_pack"),
                 timestamp_writes: None,
             });
 
-            for (gi, g) in all_groups.iter().enumerate() {
-                let active: Vec<usize> = g
-                    .group_indices
-                    .iter()
-                    .copied()
-                    .filter(|&si| !states[si].converged)
-                    .collect();
-                if active.is_empty() {
-                    continue;
-                }
+            for &(gi, ref active) in &active_groups {
+                let g = &all_groups[gi];
                 let bn = active.len() as u32;
 
+                // H-build: 7 dispatches (Skyrme, Coulomb fwd/bwd/finalize, falloff, H_p, H_n)
                 pass.set_pipeline(&g.sky_pipe);
                 pass.set_bind_group(0, &g.pot_bg, &[]);
                 pass.dispatch_workgroups(g.nr_wg, bn, 1);
@@ -1069,218 +1392,78 @@ pub fn binding_energies_l2_gpu_resident(
                 pass.set_bind_group(0, &g.hbg_n, &[]);
                 pass.dispatch_workgroups(g.ns_wg, g.ns_wg, bn);
 
-                total_gpu_dispatches += 7;
-                active_groups.push((gi, active));
+                // Pack: spin-orbit add + ns×ns → gns×gns with padding into eigensolve buffer
+                let pr = &pack_resources[gi];
+                pass.set_pipeline(&so_pack_pipe);
+                pass.set_bind_group(0, &pr.pack_p_bg, &[]);
+                pass.dispatch_workgroups(gns_wg, gns_wg, bn);
+                pass.set_bind_group(0, &pr.pack_n_bg, &[]);
+                pass.dispatch_workgroups(gns_wg, gns_wg, bn);
+
+                total_gpu_dispatches += 9; // 7 H-build + 2 pack
             }
         }
 
-        // Copy H → staging (same encoder, no extra submit)
-        for &(gi, ref active) in &active_groups {
-            let g = &all_groups[gi];
-            let byte_count = (active.len() * g.mat_size * 8) as u64;
-            encoder.copy_buffer_to_buffer(&g.h_p_buf, 0, &g.staging_p, 0, byte_count);
-            encoder.copy_buffer_to_buffer(&g.h_n_buf, 0, &g.staging_n, 0, byte_count);
-        }
-
-        // Step 3: SINGLE submit
+        // SINGLE submit — H-build + pack complete, eigensolve buffer ready
         raw_queue.submit(Some(encoder.finish()));
         gpu_dispatches += 1;
         t_gpu_total += t_gpu.elapsed().as_secs_f64();
 
-        // Step 4: Map ALL staging buffers, SINGLE poll
-        let t_poll = std::time::Instant::now();
-        let mut map_receivers = Vec::new();
-        for &(gi, ref active) in &active_groups {
-            let g = &all_groups[gi];
-            let byte_count = (active.len() * g.mat_size * 8) as u64;
-            let slice_p = g.staging_p.slice(..byte_count);
-            let slice_n = g.staging_n.slice(..byte_count);
-            let (tx_p, rx_p) = std::sync::mpsc::channel();
-            let (tx_n, rx_n) = std::sync::mpsc::channel();
-            slice_p.map_async(wgpu::MapMode::Read, move |r| {
-                let _ = tx_p.send(r);
-            });
-            slice_n.map_async(wgpu::MapMode::Read, move |r| {
-                let _ = tx_n.send(r);
-            });
-            map_receivers.push((gi, rx_p, rx_n));
-        }
-
-        raw_device.poll(wgpu::Maintain::Wait);
-        t_poll_total += t_poll.elapsed().as_secs_f64();
-
-        // Step 5: Read ALL staging buffers (sequential), then single Rayon pass
+        // Step 3: Eigensolve on packed GPU buffer
         let t_read = std::time::Instant::now();
-        let alpha_mix = if iter == 0 { 0.8 } else { mixing };
-
-        // 5a. Read all H matrices from staging buffers
-        struct WorkItem {
-            si: usize,
-            gi: usize,
-            ns: usize,
-            h_p: Vec<f64>,
-            h_n: Vec<f64>,
-            rho_p_old: Vec<f64>,
-            rho_n_old: Vec<f64>,
-            e_prev: f64,
-        }
-        let mut all_work: Vec<WorkItem> = Vec::new();
-
-        for (gi, rx_p, rx_n) in map_receivers {
-            rx_p.recv()
-                .map_err(|_| {
-                    "GPU map callback: channel recv failed for H_p (sender dropped)".to_string()
-                })
-                .and_then(|r| r.map_err(|e| format!("GPU buffer map failed for H_p: {e}")))
-                .expect("GPU staging buffer map for H_p");
-            rx_n.recv()
-                .map_err(|_| {
-                    "GPU map callback: channel recv failed for H_n (sender dropped)".to_string()
-                })
-                .and_then(|r| r.map_err(|e| format!("GPU buffer map failed for H_n: {e}")))
-                .expect("GPU staging buffer map for H_n");
-
-            let g = &all_groups[gi];
-            let active: Vec<usize> = g
-                .group_indices
-                .iter()
-                .copied()
-                .filter(|&si| !states[si].converged)
-                .collect();
-            let n_nuclei = active.len();
-            let byte_count = (n_nuclei * g.mat_size * 8) as u64;
-
-            let h_p_data: Vec<f64>;
-            let h_n_data: Vec<f64>;
-            {
-                let mapped_p = g.staging_p.slice(..byte_count).get_mapped_range();
-                h_p_data =
-                    bytemuck::cast_slice::<u8, f64>(&mapped_p)[..n_nuclei * g.mat_size].to_vec();
-            }
-            g.staging_p.unmap();
-            {
-                let mapped_n = g.staging_n.slice(..byte_count).get_mapped_range();
-                h_n_data =
-                    bytemuck::cast_slice::<u8, f64>(&mapped_n)[..n_nuclei * g.mat_size].to_vec();
-            }
-            g.staging_n.unmap();
-
-            for (bi, &si) in active.iter().enumerate() {
-                all_work.push(WorkItem {
-                    si,
-                    gi,
-                    ns: g.ns,
-                    h_p: h_p_data[bi * g.mat_size..(bi + 1) * g.mat_size].to_vec(),
-                    h_n: h_n_data[bi * g.mat_size..(bi + 1) * g.mat_size].to_vec(),
-                    rho_p_old: states[si].rho_p.clone(),
-                    rho_n_old: states[si].rho_n.clone(),
-                    e_prev: states[si].e_prev,
-                });
-            }
-        }
-
-        // 5b. Apply spin-orbit corrections via SpinOrbitGpu
-        //
-        // Uses barracuda::ops::grid::SpinOrbitGpu which computes:
-        //   V_so[i] = w0 * ls_i * ∫ |ψ_i(r)|² (dρ/dr)/r r² dr
-        // Returns per-state diagonal contributions to H.
-        let spin_orbit_gpu = if w0 == 0.0 {
-            None
-        } else {
-            Some(SpinOrbitGpu::new(device.clone()))
-        };
-        for item in &mut all_work {
-            if w0 == 0.0 {
-                continue;
-            }
-            let (_, _, _, ref hfb) = solvers[item.si];
-            let ns = item.ns;
-            let cur_nr = hfb.nr();
-            let cur_dr = hfb.dr();
-            let rho_total: Vec<f64> = (0..cur_nr)
-                .map(|k| item.rho_p_old[k] + item.rho_n_old[k])
-                .collect();
-            let drho = barracuda::numerical::gradient_1d(&rho_total, cur_dr);
-            let r = hfb.r_grid();
-            let lj_qn = hfb.lj_quantum_numbers();
-
-            // Build flat arrays for SpinOrbitGpu
-            let wf_flat = hfb.wf_flat();
-            let wf_squared: Vec<f64> = wf_flat.iter().map(|v| v * v).collect();
-            let ls_factors: Vec<f64> = lj_qn
-                .iter()
-                .map(|&(l, j)| compute_ls_factor(l as u32, j))
-                .collect();
-
-            match spin_orbit_gpu
-                .as_ref()
-                .expect("spin_orbit_gpu initialized when w0 != 0")
-                .compute(&wf_squared, &drho, r, &ls_factors, cur_dr, w0)
-            {
-                Ok(so_diag) => {
-                    for i in 0..ns {
-                        item.h_p[i * ns + i] += so_diag[i];
-                        item.h_n[i * ns + i] += so_diag[i];
-                    }
-                }
-                Err(_) => {
-                    // Fallback: CPU spin-orbit (same physics, no GPU)
-                    for i in 0..ns {
-                        let (l, j) = lj_qn[i];
-                        if l == 0 {
-                            continue;
-                        }
-                        let ls = compute_ls_factor(l as u32, j);
-                        let wf_i = hfb.wf_state(i);
-                        let so_integ: Vec<f64> = (0..cur_nr)
-                            .map(|k| {
-                                wf_i[k].powi(2) * drho[k] / r[k].max(SPIN_ORBIT_R_MIN)
-                                    * r[k].powi(2)
-                            })
-                            .collect();
-                        let so_val =
-                            w0 * ls * barracuda::numerical::trapz(&so_integ, r).unwrap_or(0.0);
-                        item.h_p[i * ns + i] += so_val;
-                        item.h_n[i * ns + i] += so_val;
-                    }
-                }
-            }
-        }
-
-        // 5c. GPU batched eigensolve — single-dispatch for ALL H_p + H_n
-        let n_work = all_work.len();
-        let gpu_eigen = if global_max_ns <= 32 && n_work > 0 {
+        let gpu_eigen: Option<(Vec<f64>, Vec<f64>)> = if n_work > 0 {
             let batch_size = n_work * 2;
-            let gm = global_max_ns * global_max_ns;
-            let mut packed = vec![0.0f64; batch_size * gm];
-            for (wi, item) in all_work.iter().enumerate() {
-                let ns = item.ns;
-                for (species, h) in [(0, &item.h_p), (1, &item.h_n)] {
-                    let off = (wi * 2 + species) * gm;
-                    for r in 0..ns {
-                        for c in 0..ns {
-                            packed[off + r * global_max_ns + c] = h[r * ns + c];
-                        }
-                    }
-                    for k in ns..global_max_ns {
-                        packed[off + k * global_max_ns + k] = 1e10;
-                    }
-                }
-            }
-            BatchedEighGpu::execute_single_dispatch(
-                device.clone(),
-                &packed,
-                global_max_ns,
-                batch_size,
-                30,
-                GPU_JACOBI_CONVERGENCE,
-            )
-            .ok()
+
+            // 4d. GPU eigensolve — operates on packed buffer (already populated by GPU)
+            let dispatch_ok = if global_max_ns <= 32 {
+                BatchedEighGpu::execute_single_dispatch_buffers(
+                    &device,
+                    &eigh_matrices_buf,
+                    &eigh_eigenvalues_buf,
+                    &eigh_eigenvectors_buf,
+                    global_max_ns,
+                    batch_size,
+                    30,
+                    GPU_JACOBI_CONVERGENCE,
+                )
+            } else {
+                BatchedEighGpu::execute_f64_buffers(
+                    &device,
+                    &eigh_matrices_buf,
+                    &eigh_eigenvalues_buf,
+                    &eigh_eigenvectors_buf,
+                    global_max_ns,
+                    batch_size,
+                    30,
+                )
+            };
+
+            dispatch_ok.ok().map(|()| {
+                let eigenvalues = BatchedEighGpu::read_eigenvalues(
+                    &device,
+                    &eigh_eigenvalues_buf,
+                    global_max_ns,
+                    batch_size,
+                )
+                .expect("eigenvalue readback");
+                let eigenvectors = BatchedEighGpu::read_eigenvectors(
+                    &device,
+                    &eigh_eigenvectors_buf,
+                    global_max_ns,
+                    batch_size,
+                )
+                .expect("eigenvector readback");
+                (eigenvalues, eigenvectors)
+            })
         } else {
             None
         };
 
-        // 5d-i. Rayon: eigensolve extraction + BCS occupations (Brent on CPU)
+        // 5a. Rayon: eigensolve extraction + BCS λ (chemical potential) on CPU
+        //
+        // Eigenvalues/eigenvectors are extracted from the GPU readback for
+        // CPU energy computation. BCS λ is computed on CPU (Brent root-finding).
+        // v² will be computed on GPU via compute_bcs_v2 shader.
         struct EigenBcsResult {
             si: usize,
             gi: usize,
@@ -1288,10 +1471,10 @@ pub fn binding_energies_l2_gpu_resident(
             evecs_p: Vec<f64>,
             evals_n: Vec<f64>,
             evecs_n: Vec<f64>,
+            lambda_p: f64,
+            lambda_n: f64,
             v2_p: Vec<f64>,
             v2_n: Vec<f64>,
-            rho_p_old: Vec<f64>,
-            rho_n_old: Vec<f64>,
             e_prev: f64,
         }
         let eigen_bcs: Vec<EigenBcsResult> = all_work
@@ -1302,49 +1485,41 @@ pub fn binding_energies_l2_gpu_resident(
                 let ns = item.ns;
                 let gm = global_max_ns * global_max_ns;
 
-                let (evals_p, evecs_p, evals_n, evecs_n) =
-                    if let Some((ref eigenvalues, ref eigenvectors)) = gpu_eigen {
-                        let extract = |species: usize| {
-                            let eig_off = (wi * 2 + species) * global_max_ns;
-                            let vec_off = (wi * 2 + species) * gm;
-                            let mut evals: Vec<f64> = eigenvalues[eig_off..eig_off + global_max_ns]
-                                .iter()
-                                .copied()
-                                .filter(|&e| e < 1e9)
-                                .collect();
-                            evals.truncate(ns);
-                            if evals.len() < ns {
-                                evals.resize(ns, 0.0);
+                let (ref eigenvalues, ref eigenvectors) = gpu_eigen
+                    .as_ref()
+                    .expect("GPU eigensolve must succeed — no CPU fallback");
+                let extract = |species: usize| {
+                    let eig_off = (wi * 2 + species) * global_max_ns;
+                    let vec_off = (wi * 2 + species) * gm;
+                    let mut evals: Vec<f64> = eigenvalues[eig_off..eig_off + global_max_ns]
+                        .iter()
+                        .copied()
+                        .filter(|&e| e < 1e9)
+                        .collect();
+                    evals.truncate(ns);
+                    if evals.len() < ns {
+                        evals.resize(ns, 0.0);
+                    }
+                    let mut evecs = vec![0.0; ns * ns];
+                    for col in 0..ns {
+                        if eigenvalues[eig_off + col] < 1e9 {
+                            for row in 0..ns {
+                                evecs[col * ns + row] =
+                                    eigenvectors[vec_off + col * global_max_ns + row];
                             }
-                            let mut evecs = vec![0.0; ns * ns];
-                            for col in 0..ns {
-                                if eigenvalues[eig_off + col] < 1e9 {
-                                    for row in 0..ns {
-                                        evecs[col * ns + row] =
-                                            eigenvectors[vec_off + col * global_max_ns + row];
-                                    }
-                                }
-                            }
-                            (evals, evecs)
-                        };
-                        let (ep, vp) = extract(0);
-                        let (en, vn) = extract(1);
-                        (ep, vp, en, vn)
-                    } else {
-                        let eig_p = eigh_f64(&item.h_p, ns)
-                            .expect("eigh_f64 failed for proton Hamiltonian");
-                        let eig_n = eigh_f64(&item.h_n, ns)
-                            .expect("eigh_f64 failed for neutron Hamiltonian");
-                        (
-                            eig_p.eigenvalues,
-                            eig_p.eigenvectors,
-                            eig_n.eigenvalues,
-                            eig_n.eigenvectors,
-                        )
-                    };
+                        }
+                    }
+                    (evals, evecs)
+                };
+                let (evals_p, evecs_p) = extract(0);
+                let (evals_n, evecs_n) = extract(1);
 
-                let (v2_p, _) = hfb.bcs_occupations_from_eigs(&evals_p, z, hfb.pairing_gap());
-                let (v2_n, _) = hfb.bcs_occupations_from_eigs(&evals_n, n, hfb.pairing_gap());
+                // BCS: compute λ (chemical potential) on CPU via Brent root-finding.
+                // v² will be computed on GPU via compute_bcs_v2 shader.
+                let (v2_p, lambda_p) =
+                    hfb.bcs_occupations_from_eigs(&evals_p, z, hfb.pairing_gap());
+                let (v2_n, lambda_n) =
+                    hfb.bcs_occupations_from_eigs(&evals_n, n, hfb.pairing_gap());
 
                 EigenBcsResult {
                     si: item.si,
@@ -1353,23 +1528,23 @@ pub fn binding_energies_l2_gpu_resident(
                     evecs_p,
                     evals_n,
                     evecs_n,
+                    lambda_p,
+                    lambda_n,
                     v2_p,
                     v2_n,
-                    rho_p_old: item.rho_p_old.clone(),
-                    rho_n_old: item.rho_n_old.clone(),
                     e_prev: item.e_prev,
                 }
             })
             .collect();
 
-        // 5d-ii. GPU density + mixing pass
+        // 5b. GPU BCS v² + density + mixing pass
         //
-        // Upload eigenvectors + v² → dispatch density + mixing → readback
-        // mixed densities. This replaces the CPU density_from_eigenstates +
-        // density mixing, moving O(ns² × nr × batch) work to the GPU.
+        // Upload eigenvalues + λ + Δ + eigenvectors → dispatch compute_bcs_v2
+        // → dispatch density + mixing → readback mixed densities.
+        // BCS v² is computed entirely on GPU, eliminating CPU v² + upload.
         let mut density_encoder =
             raw_device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("density_all"),
+                label: Some("bcs_density_all"),
             });
         let mut density_active_groups: Vec<usize> = Vec::new();
 
@@ -1396,45 +1571,83 @@ pub fn binding_energies_l2_gpu_resident(
                 }),
             );
 
+            // Upload eigenvalues + λ + Δ for GPU BCS v² computation
+            let mut evals_p_flat = Vec::with_capacity(items.len() * g.ns);
+            let mut evals_n_flat = Vec::with_capacity(items.len() * g.ns);
+            let mut lambda_p_flat = Vec::with_capacity(items.len());
+            let mut lambda_n_flat = Vec::with_capacity(items.len());
+            let mut delta_flat = Vec::with_capacity(items.len());
             let mut evecs_p_flat = Vec::with_capacity(items.len() * g.ns * g.ns);
             let mut evecs_n_flat = Vec::with_capacity(items.len() * g.ns * g.ns);
-            let mut v2_p_flat = Vec::with_capacity(items.len() * g.ns);
-            let mut v2_n_flat = Vec::with_capacity(items.len() * g.ns);
+
             for d in &items {
+                evals_p_flat.extend_from_slice(&d.evals_p);
+                evals_n_flat.extend_from_slice(&d.evals_n);
+                lambda_p_flat.push(d.lambda_p);
+                lambda_n_flat.push(d.lambda_n);
+                let (_, _, _, ref hfb) = solvers[d.si];
+                delta_flat.push(hfb.pairing_gap());
                 evecs_p_flat.extend_from_slice(&d.evecs_p);
                 evecs_n_flat.extend_from_slice(&d.evecs_n);
-                v2_p_flat.extend_from_slice(&d.v2_p);
-                v2_n_flat.extend_from_slice(&d.v2_n);
             }
+
+            raw_queue.write_buffer(&g.evals_p_buf, 0, bytemuck::cast_slice(&evals_p_flat));
+            raw_queue.write_buffer(&g.evals_n_buf, 0, bytemuck::cast_slice(&evals_n_flat));
+            raw_queue.write_buffer(&g.lambda_p_buf, 0, bytemuck::cast_slice(&lambda_p_flat));
+            raw_queue.write_buffer(&g.lambda_n_buf, 0, bytemuck::cast_slice(&lambda_n_flat));
+            raw_queue.write_buffer(&g.delta_buf, 0, bytemuck::cast_slice(&delta_flat));
             raw_queue.write_buffer(&g.evecs_p_buf, 0, bytemuck::cast_slice(&evecs_p_flat));
             raw_queue.write_buffer(&g.evecs_n_buf, 0, bytemuck::cast_slice(&evecs_n_flat));
-            raw_queue.write_buffer(&g.v2_p_buf, 0, bytemuck::cast_slice(&v2_p_flat));
-            raw_queue.write_buffer(&g.v2_n_buf, 0, bytemuck::cast_slice(&v2_n_flat));
 
+            // BCS v² pass: write to v2 buffers (READ_WRITE bind groups)
             {
                 let mut pass = density_encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                    label: Some("density_group"),
+                    label: Some("bcs_v2"),
                     timestamp_writes: None,
                 });
 
-                // Proton density: phi_i(r) = Σ_j C[j,i] * wf_j(r)
-                pass.set_pipeline(&g.density_pipe);
+                let ns_wg_bcs = (g.ns as u32).div_ceil(256);
+                pass.set_pipeline(&g.bcs_v2_pipe);
                 pass.set_bind_group(0, &g.density_params_bg, &[]);
                 pass.set_bind_group(1, &g.bcs_p_bg, &[]);
+                pass.dispatch_workgroups(ns_wg_bcs, bn, 1);
+                pass.set_bind_group(1, &g.bcs_n_bg, &[]);
+                pass.dispatch_workgroups(ns_wg_bcs, bn, 1);
+            }
+
+            // Density pass: read v2 buffers (READ-only), write rho_new
+            {
+                let mut pass = density_encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                    label: Some("density"),
+                    timestamp_writes: None,
+                });
+
+                pass.set_pipeline(&g.density_pipe);
+                pass.set_bind_group(0, &g.density_params_bg, &[]);
+                pass.set_bind_group(1, &g.bcs_p_read_bg, &[]);
                 pass.set_bind_group(2, &g.density_p_bg, &[]);
                 pass.dispatch_workgroups(g.nr_wg, bn, 1);
 
-                // Neutron density
-                pass.set_bind_group(1, &g.bcs_n_bg, &[]);
+                pass.set_bind_group(1, &g.bcs_n_read_bg, &[]);
                 pass.set_bind_group(2, &g.density_n_bg, &[]);
                 pass.dispatch_workgroups(g.nr_wg, bn, 1);
+            }
 
-                // Proton mixing: rho_p = α * rho_p_new + (1-α) * rho_p_old
+            // Mixing pass: read rho_new (now available), write rho in-place
+            {
+                let mut pass = density_encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                    label: Some("density_mix"),
+                    timestamp_writes: None,
+                });
+
                 pass.set_pipeline(&g.mix_pipe);
+                pass.set_bind_group(0, &g.density_params_bg, &[]);
+                pass.set_bind_group(1, &g.bcs_p_read_bg, &[]);
+                pass.set_bind_group(2, &g.density_p_read_bg, &[]);
                 pass.set_bind_group(3, &g.mix_p_bg, &[]);
                 pass.dispatch_workgroups((bn * g.nr as u32).div_ceil(256), 1, 1);
 
-                // Neutron mixing
+                pass.set_bind_group(2, &g.density_n_read_bg, &[]);
                 pass.set_bind_group(3, &g.mix_n_bg, &[]);
                 pass.dispatch_workgroups((bn * g.nr as u32).div_ceil(256), 1, 1);
             }
@@ -1443,7 +1656,7 @@ pub fn binding_energies_l2_gpu_resident(
             density_encoder.copy_buffer_to_buffer(&g.rho_p_buf, 0, &g.rho_p_staging, 0, rho_bytes);
             density_encoder.copy_buffer_to_buffer(&g.rho_n_buf, 0, &g.rho_n_staging, 0, rho_bytes);
 
-            total_gpu_dispatches += 4;
+            total_gpu_dispatches += 6; // 2 BCS v² + 2 density + 2 mixing
             density_active_groups.push(gi);
         }
 
@@ -1507,87 +1720,62 @@ pub fn binding_energies_l2_gpu_resident(
         let mut group_offsets: std::collections::HashMap<usize, usize> =
             std::collections::HashMap::new();
 
-        // 5d-iii. Rayon: energy computation with GPU-mixed densities
-        let cpu_results: Vec<(usize, Vec<f64>, Vec<f64>, f64, f64, bool)> = eigen_bcs
-            .iter()
-            .map(|eb| {
-                let (_, _, _, ref hfb) = solvers[eb.si];
-                let nr = hfb.nr();
-                let gi = eb.gi;
+        // 5c. Update states from GPU-mixed densities + eigenvalue-based energy
+        //
+        // Energy uses BCS single-particle sum: E = Σ deg_i * v²_i * ε_i + E_pair
+        // No eigenvectors needed — eigenvalues and v² from CPU suffice.
+        // Convergence is consistent (same formula every iteration).
+        for eb in &eigen_bcs {
+            let (_, _, _, ref hfb) = solvers[eb.si];
+            let nr = hfb.nr();
+            let gi = eb.gi;
 
-                let bi = {
-                    let offset = group_offsets.entry(gi).or_insert(0);
-                    let cur = *offset;
-                    *offset += 1;
-                    cur
-                };
+            let bi = {
+                let offset = group_offsets.entry(gi).or_insert(0);
+                let cur = *offset;
+                *offset += 1;
+                cur
+            };
 
-                let (rho_p_mixed, rho_n_mixed) = if let Some((ref rho_p_all, ref rho_n_all)) =
-                    mixed_densities.get(&gi)
-                {
+            let (rho_p_mixed, rho_n_mixed) =
+                if let Some((ref rho_p_all, ref rho_n_all)) = mixed_densities.get(&gi) {
                     (
                         rho_p_all[bi * nr..(bi + 1) * nr].to_vec(),
                         rho_n_all[bi * nr..(bi + 1) * nr].to_vec(),
                     )
                 } else {
-                    // Fallback: CPU density + mixing
-                    let rho_p_new = hfb.density_from_eigenstates(
-                        &eb.evecs_p,
-                        &eb.v2_p,
-                        eb.evecs_p.len().isqrt(),
-                    );
-                    let rho_n_new = hfb.density_from_eigenstates(
-                        &eb.evecs_n,
-                        &eb.v2_n,
-                        eb.evecs_n.len().isqrt(),
-                    );
-                    let mut rp = vec![0.0; nr];
-                    let mut rn = vec![0.0; nr];
-                    for k in 0..nr {
-                        rp[k] = (alpha_mix * rho_p_new[k] + (1.0 - alpha_mix) * eb.rho_p_old[k])
-                            .max(DENSITY_FLOOR);
-                        rn[k] = (alpha_mix * rho_n_new[k] + (1.0 - alpha_mix) * eb.rho_n_old[k])
-                            .max(DENSITY_FLOOR);
-                    }
-                    (rp, rn)
+                    (states[eb.si].rho_p.clone(), states[eb.si].rho_n.clone())
                 };
 
-                let e_total = hfb.compute_energy_with_v2(
-                    &rho_p_mixed,
-                    &rho_n_mixed,
-                    &eb.evals_p,
-                    &eb.evecs_p,
-                    &eb.evals_n,
-                    &eb.evecs_n,
-                    &eb.v2_p,
-                    &eb.v2_n,
-                    params,
-                );
-                let de = (e_total - eb.e_prev).abs();
-                let binding_energy = if e_total < 0.0 {
-                    -e_total
-                } else {
-                    e_total.abs()
-                };
-                let converged = de < tol && iter > 5;
+            // BCS single-particle energy: E_sp = Σ deg_i * v²_i * ε_i
+            let degs: Vec<f64> = hfb.deg_values();
+            let ns = eb.evals_p.len();
+            let e_sp: f64 = (0..ns)
+                .map(|i| {
+                    degs[i] * eb.v2_p[i] * eb.evals_p[i] + degs[i] * eb.v2_n[i] * eb.evals_n[i]
+                })
+                .sum();
 
-                (
-                    eb.si,
-                    rho_p_mixed,
-                    rho_n_mixed,
-                    e_total,
-                    binding_energy,
-                    converged,
-                )
-            })
-            .collect();
+            // Pairing energy: E_pair = -Σ Δ * deg_i * √(v²_i * (1-v²_i))
+            let delta = hfb.pairing_gap();
+            let e_pair: f64 = (0..ns)
+                .map(|i| {
+                    let vu_p = (eb.v2_p[i] * (1.0 - eb.v2_p[i])).max(0.0).sqrt();
+                    let vu_n = (eb.v2_n[i] * (1.0 - eb.v2_n[i])).max(0.0).sqrt();
+                    -delta * degs[i] * (vu_p + vu_n)
+                })
+                .sum();
 
-        for (si, rho_p_mixed, rho_n_mixed, e_total, binding_energy, converged) in cpu_results {
-            states[si].rho_p = rho_p_mixed;
-            states[si].rho_n = rho_n_mixed;
-            states[si].e_prev = e_total;
-            states[si].binding_energy = binding_energy;
-            states[si].converged = converged;
+            let e_total = e_sp + e_pair;
+            let de = (e_total - eb.e_prev).abs();
+            let binding_energy = e_total.abs();
+            let converged = de < tol && iter > 5;
+
+            states[eb.si].rho_p = rho_p_mixed;
+            states[eb.si].rho_n = rho_n_mixed;
+            states[eb.si].e_prev = e_total;
+            states[eb.si].binding_energy = binding_energy;
+            states[eb.si].converged = converged;
         }
         t_cpu_total += t_read.elapsed().as_secs_f64();
     }

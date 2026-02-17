@@ -1,29 +1,84 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-//! GPU FP64 compute for hotSpring science workloads
+//! GPU FP64 compute for hotSpring science workloads.
 //!
-//! Creates a wgpu device with SHADER_F64 enabled, and provides helpers
-//! for running f64 compute shaders on the RTX 4070 (or any Vulkan GPU).
+//! Creates a wgpu device with `SHADER_F64` enabled, and provides helpers
+//! for running f64 compute shaders on any Vulkan GPU (NVIDIA proprietary,
+//! NVK/nouveau, RADV, etc.).
 //!
-//! Validated: RTX 4070 provides TRUE IEEE 754 f64 (0 ULP vs CPU).
-//! Performance: ~2x f32 for bandwidth-limited ops (element-wise, reductions).
+//! ## Adapter selection
 //!
-//! Architecture (Experiment 004 lesson):
-//!   The trains to and from take more time than the work.
-//!   Pre-plan, fill GPU function space, fire at once.
-//!   TensorContext enables begin_batch()/end_batch() for batched dispatch.
+//! Explicit adapter targeting is the default. Set `HOTSPRING_GPU_ADAPTER`
+//! to select a specific GPU:
+//!
+//! | Value | Behavior |
+//! |-------|----------|
+//! | `auto` | wgpu `HighPerformance` preference (legacy default) |
+//! | `0`, `1`, … | Select adapter by enumeration index |
+//! | substring | Case-insensitive name match (e.g. `"titan"`, `"4070"`) |
+//! | *(unset)* | Enumerate all adapters, pick first with `SHADER_F64` |
+//!
+//! Use [`GpuF64::enumerate_adapters`] to list available GPUs before selecting.
+//!
+//! ## Validated hardware
+//!
+//! | GPU | Driver | `shaderFloat64` | Notes |
+//! |-----|--------|-----------------|-------|
+//! | RTX 4070 (Ada) | nvidia proprietary 580.x | true | fp64:fp32 ~1:2 via Vulkan |
+//! | Titan V (GV100) | NVK / nouveau (Mesa 25.1) | true | Native fp64 silicon, open-source |
+//!
+//! Numerical parity confirmed: identical physics to 1e-15 across drivers.
+//!
+//! ## Architecture (Experiment 004 lesson)
+//!
+//! The trains to and from take more time than the work.
+//! Pre-plan, fill GPU function space, fire at once.
+//! `TensorContext` enables `begin_batch()`/`end_batch()` for batched dispatch.
 
 use barracuda::device::{TensorContext, WgpuDevice};
 use std::process::Command;
 use std::sync::Arc;
 
+/// Summary of a discovered GPU adapter.
+#[derive(Debug, Clone)]
+pub struct AdapterInfo {
+    /// Enumeration index (stable within a single run).
+    pub index: usize,
+    /// Adapter name as reported by the driver.
+    pub name: String,
+    /// Vulkan driver name (e.g. `"NVIDIA"`, `"NVK"`, `"radv"`).
+    pub driver: String,
+    /// Whether `SHADER_F64` is supported.
+    pub has_f64: bool,
+    /// Whether `TIMESTAMP_QUERY` is supported.
+    pub has_timestamps: bool,
+    /// Adapter device type (discrete, integrated, software, etc.).
+    pub device_type: wgpu::DeviceType,
+}
+
+impl std::fmt::Display for AdapterInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let f64_tag = if self.has_f64 { "f64" } else { "f32" };
+        let kind = match self.device_type {
+            wgpu::DeviceType::DiscreteGpu => "discrete",
+            wgpu::DeviceType::IntegratedGpu => "integrated",
+            wgpu::DeviceType::VirtualGpu => "virtual",
+            wgpu::DeviceType::Cpu => "cpu",
+            wgpu::DeviceType::Other => "other",
+        };
+        write!(
+            f,
+            "[{}] {} ({}, {}, {})",
+            self.index, self.name, self.driver, kind, f64_tag
+        )
+    }
+}
+
 /// GPU context with FP64 support for science workloads.
 ///
-/// Wraps wgpu device with SHADER_F64 + ToadStool's TensorContext for
-/// batched dispatch (begin_batch/end_batch) and BufferPool reuse.
+/// Wraps wgpu device with `SHADER_F64` + ToadStool's `TensorContext` for
+/// batched dispatch (`begin_batch`/`end_batch`) and `BufferPool` reuse.
 pub struct GpuF64 {
-    pub device: Arc<wgpu::Device>,
-    pub queue: Arc<wgpu::Queue>,
     pub adapter_name: String,
     pub has_f64: bool,
     pub has_timestamps: bool,
@@ -32,6 +87,30 @@ pub struct GpuF64 {
 }
 
 impl GpuF64 {
+    /// Access the underlying wgpu Device.
+    ///
+    /// Delegates to barracuda's `WgpuDevice::device()`.
+    pub fn device(&self) -> &wgpu::Device {
+        self.wgpu_device.device()
+    }
+
+    /// Access the underlying wgpu Queue.
+    ///
+    /// Delegates to barracuda's `WgpuDevice::queue()`.
+    pub fn queue(&self) -> &wgpu::Queue {
+        self.wgpu_device.queue()
+    }
+
+    /// Get Arc-wrapped device (for PppmGpu and other APIs requiring Arc&lt;Device&gt;).
+    pub fn device_arc(&self) -> Arc<wgpu::Device> {
+        self.wgpu_device.device_arc()
+    }
+
+    /// Get Arc-wrapped queue (for PppmGpu and other APIs requiring Arc&lt;Queue&gt;).
+    pub fn queue_arc(&self) -> Arc<wgpu::Queue> {
+        self.wgpu_device.queue_arc()
+    }
+
     /// Bridge to toadstool's WgpuDevice for BatchedEighGpu, SsfGpu, etc.
     ///
     /// This enables all toadstool GPU operations (linalg, FFT, observables)
@@ -55,88 +134,162 @@ impl GpuF64 {
 }
 
 impl GpuF64 {
-    /// Create GPU device requesting SHADER_F64
-    ///
-    /// Falls back gracefully if f64 not available (reports has_f64 = false).
-    pub async fn new() -> Result<Self, crate::error::HotSpringError> {
+    /// Create a wgpu instance with the configured backend.
+    fn create_instance() -> wgpu::Instance {
         let backends = match std::env::var("HOTSPRING_WGPU_BACKEND").as_deref() {
             Ok("vulkan") => wgpu::Backends::VULKAN,
             Ok("metal") => wgpu::Backends::METAL,
             Ok("dx12") => wgpu::Backends::DX12,
             _ => wgpu::Backends::all(),
         };
-        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+        wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends,
             ..Default::default()
-        });
+        })
+    }
 
-        let power_pref = match std::env::var("HOTSPRING_GPU_POWER").as_deref() {
-            Ok("low") => wgpu::PowerPreference::LowPower,
-            _ => wgpu::PowerPreference::HighPerformance,
-        };
-        let allow_fallback = std::env::var("HOTSPRING_ALLOW_FALLBACK").is_ok();
-        let adapter = instance
-            .request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: power_pref,
-                compatible_surface: None,
-                force_fallback_adapter: allow_fallback,
+    /// Enumerate all available GPU adapters.
+    ///
+    /// Returns a summary for each adapter including name, driver, and
+    /// `SHADER_F64` support. Use the `index` field with
+    /// `HOTSPRING_GPU_ADAPTER=<index>` to target a specific GPU.
+    pub fn enumerate_adapters() -> Vec<AdapterInfo> {
+        let instance = Self::create_instance();
+        instance
+            .enumerate_adapters(wgpu::Backends::all())
+            .into_iter()
+            .enumerate()
+            .map(|(i, adapter)| {
+                let info = adapter.get_info();
+                let features = adapter.features();
+                AdapterInfo {
+                    index: i,
+                    name: info.name.clone(),
+                    driver: info.driver.clone(),
+                    has_f64: features.contains(wgpu::Features::SHADER_F64),
+                    has_timestamps: features.contains(wgpu::Features::TIMESTAMP_QUERY),
+                    device_type: info.device_type,
+                }
             })
-            .await
-            .ok_or(crate::error::HotSpringError::NoAdapter)?;
+            .collect()
+    }
 
-        let info = adapter.get_info();
-        let features = adapter.features();
-        let has_f64 = features.contains(wgpu::Features::SHADER_F64);
-        let has_timestamps = features.contains(wgpu::Features::TIMESTAMP_QUERY);
+    /// Create GPU device requesting `SHADER_F64`.
+    ///
+    /// Adapter selection: `HOTSPRING_GPU_ADAPTER` takes priority, then falls
+    /// through to barracuda's `BARRACUDA_GPU_ADAPTER`, then auto-detect.
+    /// This ensures hotSpring-specific targeting works alongside ecosystem-wide
+    /// adapter selection.
+    pub async fn new() -> Result<Self, crate::error::HotSpringError> {
+        // Priority: HOTSPRING_GPU_ADAPTER → BARRACUDA_GPU_ADAPTER → auto
+        let selector = std::env::var("HOTSPRING_GPU_ADAPTER")
+            .or_else(|_| std::env::var("BARRACUDA_GPU_ADAPTER"))
+            .unwrap_or_default()
+            .trim()
+            .to_lowercase();
 
-        let adapter_limits = adapter.limits();
+        // Discover and select adapter (same instance config as enumerate_adapters)
+        let instance = Self::create_instance();
+        let adapters: Vec<wgpu::Adapter> = instance.enumerate_adapters(wgpu::Backends::all());
+        if adapters.is_empty() {
+            return Err(crate::error::HotSpringError::NoAdapter);
+        }
 
-        // Request SHADER_F64 if available
+        let adapter = if selector.is_empty() || selector == "auto" {
+            // Auto-select: prefer discrete GPU with SHADER_F64, then any with SHADER_F64
+            let mut chosen: Option<wgpu::Adapter> = None;
+            let mut fallback: Option<wgpu::Adapter> = None;
+            for a in adapters {
+                if a.features().contains(wgpu::Features::SHADER_F64) {
+                    if a.get_info().device_type == wgpu::DeviceType::DiscreteGpu && chosen.is_none()
+                    {
+                        chosen = Some(a);
+                    } else if fallback.is_none() {
+                        fallback = Some(a);
+                    }
+                }
+            }
+            chosen
+                .or(fallback)
+                .ok_or(crate::error::HotSpringError::NoAdapter)?
+        } else if let Ok(idx) = selector.parse::<usize>() {
+            if idx < adapters.len() {
+                adapters.into_iter().nth(idx).unwrap()
+            } else {
+                // Numeric value exceeds adapter count — treat as name substring
+                adapters
+                    .into_iter()
+                    .find(|a| a.get_info().name.to_ascii_lowercase().contains(&selector))
+                    .ok_or_else(|| {
+                        crate::error::HotSpringError::DeviceCreation(format!(
+                            "No adapter matching '{selector}' (tried as index {idx} and name)"
+                        ))
+                    })?
+            }
+        } else {
+            // Name substring match (case-insensitive)
+            adapters
+                .into_iter()
+                .find(|a| a.get_info().name.to_ascii_lowercase().contains(&selector))
+                .ok_or_else(|| {
+                    crate::error::HotSpringError::DeviceCreation(format!(
+                        "No adapter matching '{selector}'"
+                    ))
+                })?
+        };
+
+        let adapter_info = adapter.get_info();
+
+        // Request features: SHADER_F64 is mandatory for hotSpring physics
+        let adapter_features = adapter.features();
         let mut required_features = wgpu::Features::empty();
-        if has_f64 {
+        if adapter_features.contains(wgpu::Features::SHADER_F64) {
             required_features |= wgpu::Features::SHADER_F64;
         }
-        if has_timestamps {
+        if adapter_features.contains(wgpu::Features::SHADER_F16) {
+            required_features |= wgpu::Features::SHADER_F16;
+        }
+        if adapter_features.contains(wgpu::Features::TIMESTAMP_QUERY) {
             required_features |= wgpu::Features::TIMESTAMP_QUERY;
         }
+
+        // hotSpring science limits: higher storage buffer limits than defaults.
+        // max_storage_buffers_per_shader_stage = 12 for HFB potentials shader
+        // which binds rho_p, rho_n, rho_alpha, rho_alpha_m1, V_sky, V_coul,
+        // V_teff, V_fq, h_p, h_n, dims, wf (12 total).
+        let required_limits = wgpu::Limits {
+            max_storage_buffer_binding_size: 512 * 1024 * 1024,
+            max_buffer_size: 1024 * 1024 * 1024,
+            max_storage_buffers_per_shader_stage: 12,
+            ..wgpu::Limits::default()
+        };
 
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
-                    label: Some("hotSpring FP64 Science Device"),
+                    label: Some("hotSpring science device"),
                     required_features,
-                    required_limits: wgpu::Limits {
-                        max_storage_buffer_binding_size: adapter_limits
-                            .max_storage_buffer_binding_size
-                            .min(512 * 1024 * 1024),
-                        max_buffer_size: adapter_limits.max_buffer_size.min(1024 * 1024 * 1024),
-                        max_storage_buffers_per_shader_stage: adapter_limits
-                            .max_storage_buffers_per_shader_stage
-                            .min(16),
-                        ..wgpu::Limits::default()
-                    },
+                    required_limits,
                 },
                 None,
             )
             .await
             .map_err(|e| crate::error::HotSpringError::DeviceCreation(e.to_string()))?;
 
-        let device = Arc::new(device);
-        let queue = Arc::new(queue);
+        let adapter_name = adapter_info.name.clone();
+        let has_f64 = required_features.contains(wgpu::Features::SHADER_F64);
+        let has_timestamps = required_features.contains(wgpu::Features::TIMESTAMP_QUERY);
 
-        // Create ToadStool WgpuDevice bridge (shared device/queue, no new allocation)
-        let wgpu_device = Arc::new(WgpuDevice::from_existing_simple(
-            device.clone(),
-            queue.clone(),
+        // Wrap in barracuda's WgpuDevice for compatibility with barracuda ops
+        let wgpu_device = Arc::new(WgpuDevice::from_existing(
+            Arc::new(device),
+            Arc::new(queue),
+            adapter_info,
         ));
-
-        // Create TensorContext for batched dispatch and BufferPool
         let tensor_ctx = Arc::new(TensorContext::new(wgpu_device.clone()));
 
         Ok(Self {
-            device,
-            queue,
-            adapter_name: info.name.clone(),
+            adapter_name,
             has_f64,
             has_timestamps,
             wgpu_device,
@@ -144,7 +297,7 @@ impl GpuF64 {
         })
     }
 
-    /// Print device capabilities
+    /// Print device capabilities.
     pub fn print_info(&self) {
         println!("  GPU: {}", self.adapter_name);
         println!("  SHADER_F64: {}", if self.has_f64 { "YES" } else { "NO" });
@@ -154,16 +307,31 @@ impl GpuF64 {
         );
     }
 
+    /// Print all available adapters to stdout.
+    ///
+    /// Useful for discovery before setting `HOTSPRING_GPU_ADAPTER`.
+    pub fn print_available_adapters() {
+        let adapters = Self::enumerate_adapters();
+        println!("  Available GPU adapters:");
+        for info in &adapters {
+            let marker = if info.has_f64 { "✓" } else { "✗" };
+            println!("    {marker} {info}");
+        }
+        if adapters.is_empty() {
+            println!("    (none found)");
+        }
+    }
+
     /// Create a compute pipeline from WGSL shader source
     pub fn create_pipeline(&self, shader_source: &str, label: &str) -> wgpu::ComputePipeline {
         let shader_module = self
-            .device
+            .device()
             .create_shader_module(wgpu::ShaderModuleDescriptor {
                 label: Some(label),
                 source: wgpu::ShaderSource::Wgsl(shader_source.into()),
             });
 
-        self.device
+        self.device()
             .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
                 label: Some(label),
                 layout: None, // Auto-layout
@@ -176,7 +344,7 @@ impl GpuF64 {
     pub fn create_f64_buffer(&self, data: &[f64], label: &str) -> wgpu::Buffer {
         use wgpu::util::DeviceExt;
         let bytes: Vec<u8> = data.iter().flat_map(|v| v.to_le_bytes()).collect();
-        self.device
+        self.device()
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some(label),
                 contents: &bytes,
@@ -186,7 +354,7 @@ impl GpuF64 {
 
     /// Create a writable storage buffer for f64 output
     pub fn create_f64_output_buffer(&self, count: usize, label: &str) -> wgpu::Buffer {
-        self.device.create_buffer(&wgpu::BufferDescriptor {
+        self.device().create_buffer(&wgpu::BufferDescriptor {
             label: Some(label),
             size: (count * 8) as u64, // 8 bytes per f64
             usage: wgpu::BufferUsages::STORAGE
@@ -198,7 +366,7 @@ impl GpuF64 {
 
     /// Create a staging buffer for reading results back to CPU
     pub fn create_staging_buffer(&self, size: usize, label: &str) -> wgpu::Buffer {
-        self.device.create_buffer(&wgpu::BufferDescriptor {
+        self.device().create_buffer(&wgpu::BufferDescriptor {
             label: Some(label),
             size: size as u64,
             usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
@@ -209,7 +377,7 @@ impl GpuF64 {
     /// Create a uniform buffer from raw bytes
     pub fn create_uniform_buffer(&self, data: &[u8], label: &str) -> wgpu::Buffer {
         use wgpu::util::DeviceExt;
-        self.device
+        self.device()
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some(label),
                 contents: data,
@@ -217,32 +385,50 @@ impl GpuF64 {
             })
     }
 
-    /// Query current GPU power draw, temperature, utilization, and VRAM via nvidia-smi.
+    /// Query current GPU power draw, temperature, utilization, and VRAM.
     ///
     /// Returns `(power_watts, temp_celsius, utilization_pct, vram_used_mib)`.
-    /// Returns zeros if nvidia-smi is unavailable.
+    /// Returns zeros if monitoring tools are unavailable.
+    ///
+    /// Attempts `nvidia-smi` (proprietary driver) first, then gracefully
+    /// degrades to zeros for open-source drivers (NVK/nouveau, RADV) where
+    /// runtime power/temp monitoring is not yet standardized.
     pub fn query_gpu_power() -> (f64, f64, f64, f64) {
+        // Try nvidia-smi (only works with proprietary nvidia driver)
+        if let Some(result) = Self::query_nvidia_smi() {
+            return result;
+        }
+        // Open-source drivers (NVK, RADV): no standard power query yet.
+        // hwmon/sysfs could work but is GPU-index-dependent and fragile.
+        // Return zeros — callers handle this gracefully.
+        (0.0, 0.0, 0.0, 0.0)
+    }
+
+    /// Query nvidia-smi for GPU telemetry. Returns `None` if unavailable.
+    fn query_nvidia_smi() -> Option<(f64, f64, f64, f64)> {
         let output = Command::new("nvidia-smi")
             .args([
                 "--query-gpu=power.draw,temperature.gpu,utilization.gpu,memory.used",
                 "--format=csv,noheader,nounits",
             ])
-            .output();
+            .output()
+            .ok()?;
 
-        match output {
-            Ok(out) if out.status.success() => {
-                let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
-                let parts: Vec<&str> = s.split(", ").collect();
-                if parts.len() >= 4 {
-                    let watts = parts[0].trim().parse().unwrap_or(0.0);
-                    let temp = parts[1].trim().parse().unwrap_or(0.0);
-                    let util = parts[2].trim().parse().unwrap_or(0.0);
-                    let vram = parts[3].trim().parse().unwrap_or(0.0);
-                    return (watts, temp, util, vram);
-                }
-                (0.0, 0.0, 0.0, 0.0)
-            }
-            _ => (0.0, 0.0, 0.0, 0.0),
+        if !output.status.success() {
+            return None;
+        }
+
+        let s = String::from_utf8_lossy(&output.stdout);
+        let parts: Vec<&str> = s.trim().split(", ").collect();
+        if parts.len() >= 4 {
+            Some((
+                parts[0].trim().parse().unwrap_or(0.0),
+                parts[1].trim().parse().unwrap_or(0.0),
+                parts[2].trim().parse().unwrap_or(0.0),
+                parts[3].trim().parse().unwrap_or(0.0),
+            ))
+        } else {
+            None
         }
     }
 
@@ -255,7 +441,7 @@ impl GpuF64 {
     /// Upload f64 data to a GPU storage buffer (overwrites from offset 0).
     pub fn upload_f64(&self, buffer: &wgpu::Buffer, data: &[f64]) {
         let bytes: Vec<u8> = data.iter().flat_map(|v| v.to_le_bytes()).collect();
-        self.queue.write_buffer(buffer, 0, &bytes);
+        self.queue().write_buffer(buffer, 0, &bytes);
     }
 
     /// Read back f64 data from a GPU buffer via staging copy.
@@ -268,19 +454,19 @@ impl GpuF64 {
     ) -> Result<Vec<f64>, crate::error::HotSpringError> {
         let staging = self.create_staging_buffer(count * 8, "readback");
         let mut encoder = self
-            .device
+            .device()
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("readback"),
             });
         encoder.copy_buffer_to_buffer(buffer, 0, &staging, 0, (count * 8) as u64);
-        self.queue.submit(std::iter::once(encoder.finish()));
+        self.queue().submit(std::iter::once(encoder.finish()));
 
         let slice = staging.slice(..);
         let (sender, receiver) = std::sync::mpsc::channel();
         slice.map_async(wgpu::MapMode::Read, move |result| {
             let _ = sender.send(result);
         });
-        self.device.poll(wgpu::Maintain::Wait);
+        self.device().poll(wgpu::Maintain::Wait);
         receiver
             .recv()
             .map_err(|_| {
@@ -315,7 +501,7 @@ impl GpuF64 {
         workgroups: u32,
     ) {
         let mut encoder = self
-            .device
+            .device()
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("dispatch"),
             });
@@ -328,7 +514,7 @@ impl GpuF64 {
             pass.set_bind_group(0, bind_group, &[]);
             pass.dispatch_workgroups(workgroups, 1, 1);
         }
-        self.queue.submit(std::iter::once(encoder.finish()));
+        self.queue().submit(std::iter::once(encoder.finish()));
     }
 
     /// Create a bind group from a pipeline and ordered buffer slice.
@@ -348,7 +534,7 @@ impl GpuF64 {
                 resource: buf.as_entire_binding(),
             })
             .collect();
-        self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+        self.device().create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("bind_group"),
             layout: &layout,
             entries: &entries,
@@ -359,7 +545,7 @@ impl GpuF64 {
     pub fn create_u32_buffer(&self, data: &[u32], label: &str) -> wgpu::Buffer {
         use wgpu::util::DeviceExt;
         let bytes: Vec<u8> = data.iter().flat_map(|v| v.to_le_bytes()).collect();
-        self.device
+        self.device()
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some(label),
                 contents: &bytes,
@@ -381,7 +567,7 @@ impl GpuF64 {
         let staging = self.create_staging_buffer(output_count * 8, "staging");
 
         let mut encoder = self
-            .device
+            .device()
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("compute"),
             });
@@ -397,7 +583,7 @@ impl GpuF64 {
         }
 
         encoder.copy_buffer_to_buffer(output_buffer, 0, &staging, 0, (output_count * 8) as u64);
-        self.queue.submit(std::iter::once(encoder.finish()));
+        self.queue().submit(std::iter::once(encoder.finish()));
 
         // Read back via channel — no panics
         let slice = staging.slice(..);
@@ -405,7 +591,7 @@ impl GpuF64 {
         slice.map_async(wgpu::MapMode::Read, move |result| {
             let _ = sender.send(result);
         });
-        self.device.poll(wgpu::Maintain::Wait);
+        self.device().poll(wgpu::Maintain::Wait);
         receiver
             .recv()
             .map_err(|_| {

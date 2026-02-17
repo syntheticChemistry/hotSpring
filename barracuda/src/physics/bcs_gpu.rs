@@ -81,9 +81,9 @@ impl<'a> BcsBisectionGpu<'a> {
     /// * `max_iterations` - Max bisection iterations per problem (50–100 typical)
     /// * `tolerance` - Convergence tolerance (1e-10 to 1e-14)
     pub fn new(gpu: &'a GpuF64, max_iterations: u32, tolerance: f64) -> Self {
-        let device = &gpu.device;
+        let device = gpu.device();
         let shader_body = include_str!("shaders/bcs_bisection_f64.wgsl");
-        let shader_src = ShaderTemplate::with_math_f64_auto(shader_body);
+        let shader_src = ShaderTemplate::with_math_f64_auto_safe(shader_body);
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("hotSpring BCS Bisection f64"),
             source: wgpu::ShaderSource::Wgsl(shader_src.into()),
@@ -228,8 +228,8 @@ impl<'a> BcsBisectionGpu<'a> {
         _entry_point: &str,
     ) -> Result<BcsResult, String> {
         let batch_size = lower.len();
-        let device = &self.gpu.device;
-        let queue = &self.gpu.queue;
+        let device = self.gpu.device();
+        let queue = self.gpu.queue();
 
         // Upload buffers
         let lower_buf = make_f64_buf(device, "lower", lower);

@@ -1,27 +1,31 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-//! f64 WGSL shaders for GPU molecular dynamics.
+//! **DEPRECATED** — MD shaders absorbed by `barracuda::ops::md`.
 //!
-//! All shaders use SHADER_F64 with **native WGSL builtins** (sqrt, exp, round, floor)
-//! operating directly on f64 types. No math_f64 preamble is needed — shaders compile
-//! standalone via Naga/Vulkan on GPUs with SHADER_F64 support.
+//! All MD force, integrator, thermostat, and observable shaders now have
+//! canonical implementations in barracuda:
+//!   - `barracuda::ops::md::forces::{YukawaForceF64, YukawaCelllistF64}`
+//!   - `barracuda::ops::md::integrators::{VelocityVerletKickDrift, VelocityVerletHalfKick}`
+//!   - `barracuda::ops::md::thermostats::BerendsenThermostat`
+//!   - `barracuda::ops::md::observables::{KineticEnergy, Rdf, SsfGpu}`
 //!
-//! Native builtins were validated against math_f64 software implementations:
+//! The `validate_barracuda_pipeline` binary already uses barracuda ops.
+//! `sarkas_gpu` and `md/simulation` should migrate to barracuda ops as well.
+//!
+//! Retained for `celllist_diag` and `f64_builtin_test` comparison testing,
+//! and as fossil record of the native-builtins validation path.
+//!
+//! # Upstream notes
+//!
+//! hotSpring's cell_idx branch fix (NVIDIA-safe) and native f64 builtin
+//! preference should be upstreamed to barracuda's canonical shaders.
+//!
+//! # Historical note
+//!
+//! These shaders used native WGSL f64 builtins (sqrt, exp, round, floor)
+//! validated against barracuda's math_f64 software implementations:
 //!   sqrt: 0 ULP difference, 1.5× faster (1M elements, RTX 4070)
 //!   exp:  8e-8 max diff, 2.2× faster
-//! See experiments/001_N_SCALING_GPU.md §4.4 for details.
-//!
-//! # BarraCUDA primitive usage
-//!
-//! These shaders are **domain-specific physics kernels** that intentionally use
-//! inline reductions (per-particle force accumulation, workgroup-level sums) rather
-//! than composing generic `barracuda::ops::SumReduceF64`. This is a deliberate
-//! performance choice: physics kernels fuse force computation with accumulation,
-//! avoiding the overhead of separate reduce dispatches. The RDF histogram uses
-//! `atomicAdd` for the same reason.
-//!
-//! See `HANDOFF_HOTSPRING_TO_TOADSTOOL_FEB_12_2026.md` for the full evolution
-//! analysis of when to use barracuda primitives vs domain-specific kernels.
 
 /// Patches the barracuda math_f64 preamble for GPUs without full f64 support:
 /// strips the gamma section (lanczos_core_f64 + gamma_f64) and replaces large

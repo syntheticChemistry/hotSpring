@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-//! Nuclear EOS Level 1 — Surrogate Learning via BarraCUDA
+//! **DEPRECATED** — Superseded by `bin/nuclear_eos_l1_ref.rs`.
 //!
-//! Full SparsitySampler workflow using barracuda library modules:
-//!   - `barracuda::sample::sparsity::sparsity_sampler` — iterative surrogate learning
-//!   - `barracuda::surrogate::RBFKernel::ThinPlateSpline` — RBF kernel
-//!   - `barracuda::optimize::multi_start_nelder_mead` — multi-start optimization
-//!   - `barracuda::optimize::bisect` — saturation density root-finding
+//! This was the first L1 pipeline using barracuda's SparsitySampler.
+//! It has been replaced by the more complete `nuclear_eos_l1_ref` binary
+//! which adds NMP prescreening, cascade statistics, and heterogeneous
+//! GPU/CPU routing. Retained as fossil record only.
 //!
-//! Validates against Python control: `control/surrogate/nuclear-eos/scripts/run_surrogate.py --level=1`
+//! # Original purpose (historical)
+//!
+//! Nuclear EOS Level 1 — Surrogate Learning via BarraCUDA.
+//! Full SparsitySampler workflow using barracuda library modules.
 
 use hotspring_barracuda::data;
 use hotspring_barracuda::physics::{nuclear_matter_properties, semf_binding_energy};

@@ -30,7 +30,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 
 ---
 
-## Current Status (2026-02-16)
+## Current Status (2026-02-17)
 
 | Study | Status | Quantitative Checks |
 |-------|--------|-------------------|
@@ -235,24 +235,26 @@ No streamlining — this is the correct architecture.
 The `barracuda/` directory is a standalone Rust crate providing the validation
 environment, physics implementations, and GPU compute. Key architectural properties:
 
-- **189 unit tests** (5 ignored GPU/slow tests), plus **26 GPU pipeline checks**
+- **199 unit tests** (5 ignored GPU/slow tests), plus **26 GPU pipeline checks**
   via `validate_barracuda_pipeline` (12/12) and `validate_barracuda_hfb` (14/14).
-  Test coverage: 43.6% line / 60.7% function (CPU-testable modules average >90%;
+  Test coverage: ~47% line / ~63% function (CPU-testable modules average >90%;
   GPU modules require hardware). Measured with `cargo-llvm-cov`.
 - **AGPL-3.0 only** — all 51 `.rs` files and all 30 `.wgsl` shaders have
   `SPDX-License-Identifier: AGPL-3.0-only`.
 - **Provenance** — centralized `BaselineProvenance` records trace hardcoded
   validation values to their Python origins (script path, git commit, date,
-  exact command). All nuclear EOS binaries and library test modules source
-  constants from `provenance::SLY4_PARAMS`, `NMP_TARGETS`, `L1_PYTHON_CHI2`,
-  etc. DOIs for AME2020, Chabanat 1998, Kortelainen 2010, Bender 2003,
+  exact command). `AnalyticalProvenance` references (DOIs, textbook citations)
+  document mathematical ground truth for special functions, linear algebra,
+  MD force laws, and GPU kernel correctness. All nuclear EOS binaries and
+  library test modules source constants from `provenance::SLY4_PARAMS`,
+  `NMP_TARGETS`, `L1_PYTHON_CHI2`, `MD_FORCE_REFS`, `GPU_KERNEL_REFS`, etc.
+  DOIs for AME2020, Chabanat 1998, Kortelainen 2010, Bender 2003,
   Lattimer & Prakash 2016 are documented in `provenance.rs`.
-- **Tolerances** — 26 centralized constants in `tolerances.rs` with physical
+- **Tolerances** — 42 centralized constants in `tolerances.rs` with physical
   justification (machine precision, numerical method, model, literature).
-  Includes physics guard constants (`DENSITY_FLOOR`, `SPIN_ORBIT_R_MIN`,
-  `COULOMB_R_MIN`). All validation binaries wired to `tolerances::*`
-  (~12 remaining inline literals for niche special functions without
-  dedicated constants).
+  Includes 12 physics guard constants (`DENSITY_FLOOR`, `SPIN_ORBIT_R_MIN`,
+  `COULOMB_R_MIN`, `BCS_DENSITY_SKIP`, `DEFORMED_COULOMB_R_MIN`, etc.).
+  All validation binaries wired to `tolerances::*`.
 - **ValidationHarness** — structured pass/fail tracking with exit code 0/1.
   12 of 20 binaries use it (validation targets). Remaining 8 are optimization
   explorers and diagnostics.
@@ -260,8 +262,9 @@ environment, physics implementations, and GPU compute. Key architectural propert
   eliminate duplicated path construction across all nuclear EOS binaries.
   `data::chi2_per_datum()` centralizes χ² computation with `tolerances::sigma_theo`.
 - **Typed errors** — `HotSpringError` enum with `Result` propagation in GPU
-  and simulation APIs. Zero `unwrap()` in library production code. Validation
-  binaries use `.expect()` with descriptive messages.
+  and simulation APIs. Minimal `expect()` in library code (22 occurrences,
+  mostly GPU staging and file I/O where failure is unrecoverable).
+  Validation binaries use `.expect()` with descriptive messages.
 - **Shared physics** — `hfb_common.rs` consolidates BCS v², Coulomb exchange
   (Slater), CM correction, Skyrme t₀, Hermite polynomials, and Mat type.
   Shared across spherical, deformed, and GPU HFB solvers.
@@ -271,8 +274,9 @@ environment, physics implementations, and GPU compute. Key architectural propert
 - **Zero duplicate math** — all linear algebra, quadrature, optimization,
   sampling, special functions, statistics, and spin-orbit coupling use
   BarraCUDA primitives (`SpinOrbitGpu`, `compute_ls_factor`).
-- **Capability-based discovery** — GPU backend, power preference, and adapter
-  fallback configured via environment variables. Buffer limits derived from
+- **Capability-based discovery** — GPU adapter selection by name, index, or
+  auto-detect (first discrete with `SHADER_F64`). Supports nvidia proprietary,
+  NVK/nouveau, RADV, and any Vulkan driver. Buffer limits derived from
   `adapter.limits()`, not hardcoded. Data paths resolved via `HOTSPRING_DATA_ROOT`
   or directory discovery.
 - **NaN-safe** — all float sorting uses `f64::total_cmp()`.
@@ -282,8 +286,8 @@ environment, physics implementations, and GPU compute. Key architectural propert
 
 ```bash
 cd barracuda
-cargo test               # 189 tests pass (< 4 seconds)
-cargo clippy --all-targets  # Clean — 0 warnings (pedantic via workspace lints)
+cargo test               # 199 tests pass (< 4 seconds)
+cargo clippy --all-targets  # Clean — 3 warnings (energy pipeline stubs, expected)
 cargo doc --no-deps      # Full API documentation — 0 warnings
 ```
 
@@ -361,7 +365,7 @@ hotSpring/
 │   ├── CONTROL_EXPERIMENT_SUMMARY.md  # Phase A quick reference
 │   └── METHODOLOGY.md                # Two-phase validation protocol
 │
-├── barracuda/                          # BarraCUDA Rust crate — v0.5.10 (189 tests)
+├── barracuda/                          # BarraCUDA Rust crate — v0.5.10 (199 tests)
 │   ├── Cargo.toml                     # Dependencies (requires ecoPrimals/phase1/toadstool)
 │   ├── CHANGELOG.md                   # Version history — baselines, tolerances, evolution
 │   ├── EVOLUTION_READINESS.md         # Rust module → WGSL shader → GPU promotion tier mapping
@@ -369,8 +373,8 @@ hotSpring/
 │   └── src/
 │       ├── lib.rs                     # Crate root — module declarations + architecture docs
 │       ├── error.rs                   # Typed errors (HotSpringError: NoAdapter, NoShaderF64, …)
-│       ├── provenance.rs              # Python baseline metadata (script, commit, date, command)
-│       ├── tolerances.rs              # 23 centralized thresholds with physical justification
+│       ├── provenance.rs              # Baseline + analytical provenance (Python, DOIs, textbook)
+│       ├── tolerances.rs              # 42 centralized thresholds with physical justification
 │       ├── validation.rs              # Pass/fail harness — structured checks, exit code 0/1
 │       ├── discovery.rs               # Capability-based data path resolution (env var / CWD)
 │       ├── data.rs                    # AME2020 data + Skyrme bounds + EosContext + chi2_per_datum
@@ -388,8 +392,8 @@ hotSpring/
 │       │   ├── hfb_deformed.rs        # Axially-deformed HFB solver (L3, CPU)
 │       │   ├── hfb_deformed_gpu.rs    # Deformed HFB with GPU eigensolves (L3)
 │       │   ├── hfb_gpu.rs             # GPU-batched HFB (BatchedEighGpu)
-│       │   ├── hfb_gpu_resident.rs    # GPU-resident HFB prototype
-│       │   └── shaders/               # f64 WGSL physics kernels (13 shaders)
+│       │   ├── hfb_gpu_resident.rs    # GPU-resident HFB (potentials + H + eigensolve + density + mixing)
+│       │   └── shaders/               # f64 WGSL physics kernels (13 shaders, ~2000 lines)
 │       │
 │       ├── md/                        # GPU Molecular Dynamics (Yukawa OCP)
 │       │   ├── config.rs              # Simulation configuration (reduced units)
@@ -471,7 +475,8 @@ hotSpring/
 │   ├── 002_CELLLIST_FORCE_DIAGNOSTIC.md # Cell-list i32 modulo bug diagnosis + fix
 │   ├── 003_RTX4070_CAPABILITY_PROFILE.md # RTX 4070 capability profile (paper-parity COMPLETE)
 │   ├── 004_GPU_DISPATCH_OVERHEAD_L3.md  # L3 deformed HFB GPU dispatch profiling
-│   └── 005_L2_MEGABATCH_COMPLEXITY_BOUNDARY.md # L2 mega-batch GPU complexity analysis
+│   ├── 005_L2_MEGABATCH_COMPLEXITY_BOUNDARY.md # L2 mega-batch GPU complexity analysis
+│   └── 006_GPU_FP64_COMPARISON.md             # RTX 4070 vs Titan V fp64 benchmark
 │
 ├── wateringHole/                       # Cross-project handoffs
 │   └── handoffs/
@@ -564,10 +569,12 @@ These are **silent failures** — wrong results, no error messages. This fragili
 
 ## Hardware
 
-- **Eastgate (primary dev)**: i9-12900K, RTX 4070 (12GB, SHADER_F64 confirmed), Akida AKD1000 NPU, 32 GB DDR5. All development and validation.
-  - RTX 4070: fp64:fp32 throughput = **~1:2 via wgpu/Vulkan** (not 1:64 as CUDA reports). 998 steps/s at N=500, paper parity at N=10,000 in 5.3 min.
-  - VRAM headroom: <600 MB used at N=20,000 — estimated **N≈400,000** before VRAM limits.
-- **Titan V ×2 (on order)**: GV100, 12GB HBM2, 6.9 TFLOPS FP64 each. Expected 1:1 fp64:fp32 (native fp64 silicon). Will enable L3 deformed HFB and large-N sweeps.
+- **Eastgate (primary dev)**: i9-12900K, RTX 4070 (12GB) + Titan V (12GB HBM2), Akida AKD1000 NPU, 32 GB DDR5.
+  - RTX 4070 (Ada): nvidia proprietary 580.x, `SHADER_F64` confirmed. fp64:fp32 ~1:2 via wgpu/Vulkan.
+  - Titan V (GV100): **NVK / nouveau (Mesa 25.1, open-source)**, `SHADER_F64` confirmed. Native fp64 silicon, 6.9 TFLOPS FP64, 12GB HBM2.
+  - **Numerical parity**: identical physics to 1e-15 across both GPUs and both drivers.
+  - VRAM headroom: <600 MB used at N=20,000 — estimated N≈400,000 before VRAM limits.
+  - Adapter selection: `HOTSPRING_GPU_ADAPTER=titan` or `=4070` or `=0`/`=1` (see `gpu.rs` docs).
 - **Strandgate**: 64-core EPYC, 32 GB. Full-scale DSF (N=10,000) CPU runs.
 - **Northgate**: i9-14900K. Single-thread comparison.
 - **Southgate**: 5800X3D. V-Cache neighbor list performance.
@@ -592,6 +599,7 @@ These are **silent failures** — wrong results, no error messages. This fragili
 | [`experiments/003_RTX4070_CAPABILITY_PROFILE.md`](experiments/003_RTX4070_CAPABILITY_PROFILE.md) | RTX 4070 capability profile + paper-parity long run results |
 | [`experiments/004_GPU_DISPATCH_OVERHEAD_L3.md`](experiments/004_GPU_DISPATCH_OVERHEAD_L3.md) | L3 deformed HFB GPU dispatch profiling |
 | [`experiments/005_L2_MEGABATCH_COMPLEXITY_BOUNDARY.md`](experiments/005_L2_MEGABATCH_COMPLEXITY_BOUNDARY.md) | L2 mega-batch GPU complexity boundary analysis |
+| [`experiments/006_GPU_FP64_COMPARISON.md`](experiments/006_GPU_FP64_COMPARISON.md) | **RTX 4070 vs Titan V**: fp64 benchmark, driver comparison, NVK vs proprietary |
 | [`HANDOFF_HOTSPRING_TO_TOADSTOOL_FEB_12_2026.md`](HANDOFF_HOTSPRING_TO_TOADSTOOL_FEB_12_2026.md) | Cross-project handoff v1: GPU-resident HFB, tier roadmap |
 | [`HANDOFF_HOTSPRING_TO_TOADSTOOL_FEB_16_2026.md`](HANDOFF_HOTSPRING_TO_TOADSTOOL_FEB_16_2026.md) | **Comprehensive handoff v2**: 195 checks, bugs, full inventory, lessons |
 | [`HANDOFF_HOTSPRING_BARRACUDA_V055.md`](HANDOFF_HOTSPRING_BARRACUDA_V055.md) | **v0.5.5 handoff**: code quality hardening, tolerance consolidation, shared infra |

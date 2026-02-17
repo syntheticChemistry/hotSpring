@@ -1,7 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-//! CPU reference MD simulation for benchmarking comparison
+//! **DEPRECATED** — CPU reference forces absorbed by barracuda.
 //!
+//! barracuda provides CPU Yukawa force implementations. This module
+//! was used for GPU-vs-CPU speed comparison during hotSpring Phase C.
+//! Retained as fossil record for the benchmarking comparison pattern.
+//!
+//! # Original purpose (historical)
+//!
+//! CPU reference MD simulation for benchmarking comparison.
 //! Same physics as the GPU shaders, implemented in pure Rust f64.
 //! Used for GPU vs CPU speed comparison (not for physics validation).
 

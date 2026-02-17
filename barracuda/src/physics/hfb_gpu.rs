@@ -2,22 +2,22 @@
 
 //! GPU-Accelerated Spherical HFB Solver (Level 2)
 //!
-//! Uses `BatchedEighGpu` from toadstool to batch eigensolves across nuclei,
-//! replacing the sequential `eigh_f64` loop with a single GPU dispatch per
-//! SCF iteration.
+//! Pure GPU eigensolve pipeline — no CPU fallbacks. Uses `BatchedEighGpu`
+//! from barracuda/toadstool to batch eigensolves across nuclei.
 //!
-//! Architecture (Experiment 004 rewire + Feb 16 single-dispatch evolution):
+//! Architecture:
 //!   1. Pad ALL nuclei to a common max basis dimension
 //!   2. Pack ALL active nuclei into ONE mega-batch per SCF iteration
-//!   3. SINGLE `execute_single_dispatch()` call — ALL Jacobi rotations
-//!      for ALL matrices execute inside ONE shader invocation with
-//!      workgroup barriers (no CPU readback between rotations)
+//!   3. GPU eigensolve: `execute_single_dispatch()` for n≤32 (all Jacobi
+//!      rotations in one shader), `execute_f64()` for larger matrices
+//!      (multi-dispatch, still pure GPU)
 //!   4. Remove converged nuclei between iterations
 //!
 //! Evolution history:
 //!   v0.4.0: ~5 groups × 200 iterations = ~1000 GPU dispatches
 //!   v0.5.0: 1 mega-batch × 200 iterations = ~200 dispatches (5× reduction)
 //!   v0.5.3: single-dispatch: ALL rotations in 1 shader per SCF iteration
+//!   v0.5.11: eliminated CPU fallback — multi-dispatch for n>32
 //!           (estimated 3-5× speedup from eliminated dispatch overhead)
 //!
 //! The single-dispatch kernel handles n≤32, which covers all spherical HFB
@@ -179,6 +179,17 @@ pub fn binding_energies_l2_gpu(
         .collect();
 
     // ═══════════════════════════════════════════════════════════════
+    // PRE-ALLOCATE: eigensolve buffers + packed array (ONE TIME)
+    // ═══════════════════════════════════════════════════════════════
+    // Eliminates per-iteration GPU buffer allocation, shader compilation,
+    // and bind group creation. Data uploads via queue.write_buffer (DMA).
+    let max_batch_count = solvers.len() * 2; // proton + neutron per nucleus
+    let (eigh_matrices_buf, eigh_eigenvalues_buf, eigh_eigenvectors_buf) =
+        BatchedEighGpu::create_buffers(&device, max_ns, max_batch_count)
+            .expect("pre-allocate eigensolve GPU buffers");
+    let mut packed_hamiltonians: Vec<f64> = vec![0.0; max_batch_count * max_mat_size];
+
+    // ═══════════════════════════════════════════════════════════════
     // Unified SCF loop: ONE dispatch per iteration for ALL nuclei
     // ═══════════════════════════════════════════════════════════════
     let all_indices: Vec<usize> = (0..solvers.len()).collect();
@@ -196,8 +207,8 @@ pub fn binding_energies_l2_gpu(
         }
 
         // Pack ALL active nuclei into ONE mega-batch (padded to max_ns)
-        let batch_size = active.len() * 2; // proton + neutron per nucleus
-        let mut packed_hamiltonians: Vec<f64> = vec![0.0; batch_size * max_mat_size];
+        let batch_size = active.len() * 2;
+        packed_hamiltonians[..batch_size * max_mat_size].fill(0.0);
 
         // Build Hamiltonians on CPU and pack with identity-padding
         for (batch_idx, &solver_idx) in active.iter().enumerate() {
@@ -211,42 +222,65 @@ pub fn binding_energies_l2_gpu(
 
                 let offset = (batch_idx * 2 + species_idx) * max_mat_size;
 
-                // Copy actual matrix into padded location (row-major)
                 for r in 0..actual_ns {
                     for c in 0..actual_ns {
                         packed_hamiltonians[offset + r * max_ns + c] = h_flat[r * actual_ns + c];
                     }
                 }
 
-                // Identity-pad diagonal for extra rows/cols with large value
-                // These produce eigenvalues at 1e10, trivially filtered out
                 for k in actual_ns..max_ns {
                     packed_hamiltonians[offset + k * max_ns + k] = 1e10;
                 }
             }
         }
 
-        // ─── SINGLE-DISPATCH: ALL Jacobi rotations in ONE shader ────
-        // execute_single_dispatch runs the full Jacobi sweep inside a single
-        // shader invocation with workgroup barriers — no CPU readback between
-        // rotations. Requires n ≤ 32 (our max_ns is ≤ 30).
-        let (eigenvalues, eigenvectors) = match BatchedEighGpu::execute_single_dispatch(
-            device.clone(),
-            &packed_hamiltonians,
-            max_ns,
-            batch_size,
-            30,
-            GPU_JACOBI_CONVERGENCE,
-        ) {
-            Ok(result) => result,
-            Err(e) => {
-                eprintln!("BatchedEighGpu failed (iter {iter}): {e}");
-                for &i in &active {
-                    states[i].converged = false;
-                }
-                break;
-            }
+        // ─── GPU EIGENSOLVE: pre-allocated buffers, no per-iteration alloc ──
+        // Upload packed Hamiltonians to pre-allocated GPU buffer (DMA write),
+        // dispatch eigensolve in-place, readback eigenvalues+eigenvectors.
+        // Single-dispatch (n≤32) or multi-dispatch — both pure GPU.
+        device.queue().write_buffer(
+            &eigh_matrices_buf,
+            0,
+            bytemuck::cast_slice(&packed_hamiltonians[..batch_size * max_mat_size]),
+        );
+
+        let eigh_dispatch = if max_ns <= 32 {
+            BatchedEighGpu::execute_single_dispatch_buffers(
+                &device,
+                &eigh_matrices_buf,
+                &eigh_eigenvalues_buf,
+                &eigh_eigenvectors_buf,
+                max_ns,
+                batch_size,
+                30,
+                GPU_JACOBI_CONVERGENCE,
+            )
+        } else {
+            BatchedEighGpu::execute_f64_buffers(
+                &device,
+                &eigh_matrices_buf,
+                &eigh_eigenvalues_buf,
+                &eigh_eigenvectors_buf,
+                max_ns,
+                batch_size,
+                30,
+            )
         };
+        if let Err(e) = eigh_dispatch {
+            eprintln!("BatchedEighGpu failed (iter {iter}): {e}");
+            for &i in &active {
+                states[i].converged = false;
+            }
+            break;
+        }
+
+        // Readback from pre-allocated GPU buffers
+        let eigenvalues =
+            BatchedEighGpu::read_eigenvalues(&device, &eigh_eigenvalues_buf, max_ns, batch_size)
+                .expect("eigenvalue readback");
+        let eigenvectors =
+            BatchedEighGpu::read_eigenvectors(&device, &eigh_eigenvectors_buf, max_ns, batch_size)
+                .expect("eigenvector readback");
         gpu_dispatches += 1;
 
         // Unpack results: extract actual_ns eigenvalues per nucleus

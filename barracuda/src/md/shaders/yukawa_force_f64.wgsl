@@ -1,3 +1,6 @@
+// DEPRECATED — Use barracuda::ops::md::forces::YukawaForceF64
+// Retained for fossil record. barracuda canonical: ops/md/forces/yukawa_f64.wgsl
+//
 // Yukawa All-Pairs Force (f64) with PBC + potential energy
 //
 // SPDX-License-Identifier: AGPL-3.0-only

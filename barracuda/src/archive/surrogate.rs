@@ -1,9 +1,20 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-//! Reference surrogate modeling utilities for BarraCUDA evolution.
+//! **DEPRECATED** — Absorbed by `barracuda::surrogate` and `barracuda::sample::sparsity`.
 //!
-//! These implementations demonstrate the math and algorithms that
-//! BarraCUDA's `surrogate` and `sample::sparsity` modules need to
+//! Retained as fossil record only. All functionality has been promoted to
+//! the barracuda crate:
+//!   - LOO-CV auto-smoothing → `barracuda::surrogate::RBFSurrogate`
+//!   - Penalty-filtered training → `barracuda::sample::sparsity::sparsity_sampler`
+//!   - Adaptive MAD filtering → `barracuda::surrogate::RBFSurrogate::with_filter`
+//!
+//! Do not add new code here. Use barracuda primitives directly.
+//!
+//! # Original purpose (historical)
+//!
+//! Reference surrogate modeling utilities for BarraCUDA evolution.
+//! These implementations demonstrated the math and algorithms that
+//! BarraCUDA's `surrogate` and `sample::sparsity` modules needed to
 //! incorporate for robust scientific optimization.
 //!
 //! ## Key Reference Systems:

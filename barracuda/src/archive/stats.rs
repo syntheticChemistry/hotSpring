@@ -1,10 +1,19 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-//! Reference statistical analysis utilities for BarraCUDA evolution.
+//! **DEPRECATED** — Absorbed by `barracuda::stats`.
 //!
-//! These implementations demonstrate statistical tests and methods
-//! needed for scientific validation workflows. They serve as
-//! specification for BarraCUDA's `stats` module expansion.
+//! Retained as fossil record only. All functionality has been promoted:
+//!   - Chi-squared goodness-of-fit → `barracuda::stats::chi2_decomposed_weighted`
+//!   - Bootstrap CIs → `barracuda::stats::bootstrap_ci`
+//!   - Convergence diagnostics → `barracuda::optimize::convergence_diagnostics`
+//!
+//! Do not add new code here. Use barracuda primitives directly.
+//!
+//! # Original purpose (historical)
+//!
+//! Reference statistical analysis utilities for BarraCUDA evolution.
+//! These implementations demonstrated statistical tests and methods
+//! needed for scientific validation workflows.
 //!
 //! ## Reference Systems:
 //!

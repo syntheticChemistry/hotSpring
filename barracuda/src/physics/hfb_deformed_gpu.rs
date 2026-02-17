@@ -17,7 +17,7 @@
 
 use super::constants::*;
 use super::hfb_common::{factorial_f64, hermite_value};
-use super::hfb_deformed::{binding_energy_l3, DeformedHFBResult};
+use super::hfb_deformed::DeformedHFBResult;
 use crate::gpu::GpuF64;
 use crate::tolerances::{
     DEFORMATION_GUESS_GENERIC, DEFORMATION_GUESS_SD, DEFORMATION_GUESS_WEAK,
@@ -312,27 +312,9 @@ pub fn binding_energies_l3_gpu_auto(
 ) -> GpuResidentL3Result {
     let rt = tokio::runtime::Runtime::new()
         .expect("tokio: failed to create runtime for GPU initialization");
-    let gpu = match rt.block_on(GpuF64::new()) {
-        Ok(g) => g,
-        Err(e) => {
-            eprintln!("GPU init failed: {e}. CPU fallback.");
-            let t0 = Instant::now();
-            let results: Vec<_> = nuclei
-                .par_iter()
-                .map(|&(z, n)| {
-                    let (be, conv, beta2) = binding_energy_l3(z, n, params);
-                    (z, n, be, conv, beta2)
-                })
-                .collect();
-            return GpuResidentL3Result {
-                n_nuclei: nuclei.len(),
-                results,
-                wall_time_s: t0.elapsed().as_secs_f64(),
-                eigh_dispatches: 0,
-                total_gpu_dispatches: 0,
-            };
-        }
-    };
+    let gpu = rt
+        .block_on(GpuF64::new())
+        .expect("GPU init failed — pure GPU pipeline requires GPU adapter");
     gpu.print_info();
     let device = gpu.to_wgpu_device();
     binding_energies_l3_gpu(device, nuclei, params)
@@ -370,6 +352,11 @@ fn deformed_hfb_gpu_single(
         .map(|(_, v)| v.len())
         .max()
         .unwrap_or(1);
+
+    // Pre-allocate eigensolve GPU buffers — reused every SCF iteration
+    let (eigh_matrices_buf, eigh_eigenvalues_buf, eigh_eigenvectors_buf) =
+        BatchedEighGpu::create_buffers(device, max_bs, n_blocks)
+            .expect("pre-allocate eigensolve GPU buffers");
 
     // ── Step 2: SCF loop ──
     let mut rho_p = vec![0.0f64; n_grid];
@@ -409,7 +396,7 @@ fn deformed_hfb_gpu_single(
             &d_rho_dr,
         );
 
-        // ── CPU (Rayon) H build + GPU batched eigensolve ──
+        // ── CPU (Rayon) H build + GPU batched eigensolve (pre-allocated) ──
         let (_eigs_p, occ_p) = diag_blocks_gpu(
             device,
             &setup,
@@ -422,6 +409,9 @@ fn deformed_hfb_gpu_single(
             setup.delta_p,
             eigh_dispatches,
             total_gpu_dispatches,
+            &eigh_matrices_buf,
+            &eigh_eigenvalues_buf,
+            &eigh_eigenvectors_buf,
         );
         let (_eigs_n, occ_n) = diag_blocks_gpu(
             device,
@@ -435,6 +425,9 @@ fn deformed_hfb_gpu_single(
             setup.delta_n,
             eigh_dispatches,
             total_gpu_dispatches,
+            &eigh_matrices_buf,
+            &eigh_eigenvalues_buf,
+            &eigh_eigenvectors_buf,
         );
 
         prev_occ_p = occ_p.clone();
@@ -511,6 +504,9 @@ fn diag_blocks_gpu(
     delta_pair: f64,
     eigh_dispatches: &mut usize,
     total_gpu_dispatches: &mut usize,
+    eigh_matrices_buf: &wgpu::Buffer,
+    eigh_eigenvalues_buf: &wgpu::Buffer,
+    eigh_eigenvectors_buf: &wgpu::Buffer,
 ) -> (Vec<f64>, Vec<f64>) {
     let n_states = setup.states.len();
     let n_grid = setup.n_grid;
@@ -577,37 +573,53 @@ fn diag_blocks_gpu(
         packed_h[i * mat_size..(i + 1) * mat_size].copy_from_slice(&h);
     }
 
-    // ── GPU: Batched eigensolve — single-dispatch preferred ──
-    // execute_single_dispatch runs ALL Jacobi rotations inside ONE shader
-    // invocation (workgroup barriers, no CPU readback between rotations).
-    // Falls back to multi-dispatch execute_f64 if n > 32, then CPU.
-    let gpu_result = if max_bs <= 32 {
-        BatchedEighGpu::execute_single_dispatch(
-            device.clone(),
-            &packed_h,
+    // ── GPU: Batched eigensolve — pre-allocated buffers, no per-call alloc ──
+    device
+        .queue()
+        .write_buffer(eigh_matrices_buf, 0, bytemuck::cast_slice(&packed_h));
+
+    let dispatch_result = if max_bs <= 32 {
+        BatchedEighGpu::execute_single_dispatch_buffers(
+            &Arc::clone(device),
+            eigh_matrices_buf,
+            eigh_eigenvalues_buf,
+            eigh_eigenvectors_buf,
             max_bs,
             n_blocks,
             50,
             GPU_JACOBI_CONVERGENCE,
         )
-        .or_else(|_| BatchedEighGpu::execute_f64(device.clone(), &packed_h, max_bs, n_blocks, 50))
+        .or_else(|_| {
+            BatchedEighGpu::execute_f64_buffers(
+                &Arc::clone(device),
+                eigh_matrices_buf,
+                eigh_eigenvalues_buf,
+                eigh_eigenvectors_buf,
+                max_bs,
+                n_blocks,
+                50,
+            )
+        })
     } else {
-        BatchedEighGpu::execute_f64(device.clone(), &packed_h, max_bs, n_blocks, 50)
+        BatchedEighGpu::execute_f64_buffers(
+            &Arc::clone(device),
+            eigh_matrices_buf,
+            eigh_eigenvalues_buf,
+            eigh_eigenvectors_buf,
+            max_bs,
+            n_blocks,
+            50,
+        )
     };
+    dispatch_result.expect("GPU eigensolve failed — pure GPU pipeline");
 
-    let eigenvalues_flat = if let Ok((evals, _evecs)) = gpu_result {
-        evals
-    } else {
-        // CPU fallback
-        let mut evals = vec![0.0; n_blocks * max_bs];
-        for blk_idx in 0..n_blocks {
-            let h_slice = &packed_h[blk_idx * mat_size..(blk_idx + 1) * mat_size];
-            if let Ok(eig) = barracuda::linalg::eigh_f64(h_slice, max_bs) {
-                evals[blk_idx * max_bs..(blk_idx + 1) * max_bs].copy_from_slice(&eig.eigenvalues);
-            }
-        }
-        evals
-    };
+    let eigenvalues_flat = BatchedEighGpu::read_eigenvalues(
+        &Arc::clone(device),
+        eigh_eigenvalues_buf,
+        max_bs,
+        n_blocks,
+    )
+    .expect("eigenvalue readback");
     *eigh_dispatches += 1;
     *total_gpu_dispatches += 1;
 
