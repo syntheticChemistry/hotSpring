@@ -72,7 +72,7 @@ fn compute_bcs_v2(@builtin(global_invocation_id) global_id: vec3<u32>) {
 @group(2) @binding(0) var<storage, read> eigenvectors: array<f64>;  // [batch × ns × ns]
 @group(2) @binding(1) var<storage, read> v2_in: array<f64>;          // [batch × ns]
 @group(2) @binding(2) var<storage, read> degs: array<f64>;           // [ns] degeneracies (shared)
-@group(2) @binding(3) var<storage, read> wf: array<f64>;             // [ns × nr] wavefunctions (shared)
+@group(2) @binding(3) var<storage, read> wf: array<f64>;             // [batch × ns × nr] wavefunctions (per-nucleus)
 @group(2) @binding(4) var<storage, read_write> rho_out: array<f64>;  // [batch × nr] output
 
 const PI_4: f64 = 12.566370614359172;  // 4π
@@ -101,9 +101,10 @@ fn compute_density(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
         // phi_i(r_k) = sum_j C[j,i] * wf_j(r_k)
         var phi: f64 = f64(0.0);
+        let wf_base = batch_idx * ns * nr;
         for (var j = 0u; j < ns; j++) {
-            let c = eigenvectors[vec_base + j * ns + i]; // V[j, i] row-major
-            phi = phi + c * wf[j * nr + k];
+            let c = eigenvectors[vec_base + j * ns + i];
+            phi = phi + c * wf[wf_base + j * nr + k];
         }
 
         rho_sum = rho_sum + deg_v2 * phi * phi / PI_4;

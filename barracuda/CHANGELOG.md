@@ -5,6 +5,30 @@ All notable changes to the hotSpring BarraCUDA validation crate.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.10] — 2026-02-17
+
+### Added
+
+- **GPU density pipeline** wired into GPU-resident HFB solver:
+  - Density shader (`batched_hfb_density_f64.wgsl`) updated for batched
+    per-nucleus wavefunctions (`wf[batch_idx * ns * nr + j * nr + k]`)
+  - 14 GPU buffers for eigenvectors, BCS occupations, density output, mixing
+  - 3 compute pipelines: `compute_density` (proton/neutron), `mix_density`
+  - Full staging readback with fallback to CPU density on failure
+  - Energy pipeline stubs (bind groups, buffers) for future wiring
+- SCF loop restructured into 3 phases:
+  1. CPU eigensolve extraction + BCS Brent bisection (parallel via Rayon)
+  2. GPU density computation + mixing (batched, single encoder/submit)
+  3. CPU energy computation with GPU-mixed densities
+- `WorkItem` now tracks group index (`gi`) for correct GPU buffer routing
+- `rho_p_buf`/`rho_n_buf` upgraded with `COPY_SRC` for GPU-to-staging transfer
+- L2 GPU validation binary confirmed: chi2/datum=5.42, all physics consistent
+
+### Fixed
+
+- `DensityParamsUniform`, `MixParamsUniform`, `EnergyParamsUniform` fully wired
+  (were stub structs, now used in GPU dispatch)
+
 ## [0.5.9] — 2026-02-17
 
 ### Added

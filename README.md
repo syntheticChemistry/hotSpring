@@ -230,7 +230,7 @@ No streamlining — this is the correct architecture.
 
 ---
 
-## BarraCUDA Crate (v0.5.9)
+## BarraCUDA Crate (v0.5.10)
 
 The `barracuda/` directory is a standalone Rust crate providing the validation
 environment, physics implementations, and GPU compute. Key architectural properties:
@@ -361,7 +361,7 @@ hotSpring/
 │   ├── CONTROL_EXPERIMENT_SUMMARY.md  # Phase A quick reference
 │   └── METHODOLOGY.md                # Two-phase validation protocol
 │
-├── barracuda/                          # BarraCUDA Rust crate — v0.5.9 (189 tests)
+├── barracuda/                          # BarraCUDA Rust crate — v0.5.10 (189 tests)
 │   ├── Cargo.toml                     # Dependencies (requires ecoPrimals/phase1/toadstool)
 │   ├── CHANGELOG.md                   # Version history — baselines, tolerances, evolution
 │   ├── EVOLUTION_READINESS.md         # Rust module → WGSL shader → GPU promotion tier mapping

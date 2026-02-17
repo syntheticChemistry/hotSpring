@@ -30,6 +30,8 @@ use std::sync::Arc;
 
 const POTENTIALS_SHADER_BODY: &str = include_str!("shaders/batched_hfb_potentials_f64.wgsl");
 const HAMILTONIAN_SHADER: &str = include_str!("shaders/batched_hfb_hamiltonian_f64.wgsl");
+const DENSITY_SHADER: &str = include_str!("shaders/batched_hfb_density_f64.wgsl");
+const ENERGY_SHADER_BODY: &str = include_str!("shaders/batched_hfb_energy_f64.wgsl");
 
 /// Results from the GPU-resident L2 HFB binding energy computation.
 ///
@@ -65,6 +67,67 @@ struct HamiltonianDimsUniform {
     nr: u32,
     batch_size: u32,
     _pad: u32,
+}
+
+/// Uniform for density shader (group 0). Must match `DensityParams` in WGSL.
+#[repr(C)]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+struct DensityParamsUniform {
+    n_states: u32,
+    nr: u32,
+    batch_size: u32,
+    _pad: u32,
+}
+
+/// Uniform for density mixing (group 3). Must match `MixParams` in WGSL.
+#[repr(C)]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+struct MixParamsUniform {
+    total_size: u32,
+    _pad1: u32,
+    alpha_lo: u32,
+    alpha_hi: u32,
+}
+
+impl MixParamsUniform {
+    fn new(total_size: u32, alpha: f64) -> Self {
+        let bits = alpha.to_bits();
+        Self {
+            total_size,
+            _pad1: 0,
+            alpha_lo: bits as u32,
+            alpha_hi: (bits >> 32) as u32,
+        }
+    }
+}
+
+/// Uniform for energy shader (group 0). Must match `EnergyParams` in WGSL.
+#[repr(C)]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+struct EnergyParamsUniform {
+    n_states: u32,
+    nr: u32,
+    batch_size: u32,
+    _pad: u32,
+    t0_lo: u32,
+    t0_hi: u32,
+    t3_lo: u32,
+    t3_hi: u32,
+    x0_lo: u32,
+    x0_hi: u32,
+    x3_lo: u32,
+    x3_hi: u32,
+    alpha_lo: u32,
+    alpha_hi: u32,
+    dr_lo: u32,
+    dr_hi: u32,
+    hw_lo: u32,
+    hw_hi: u32,
+}
+
+fn encode_f64_pair(v: f64) -> (u32, u32) {
+    let bits = v.to_bits();
+    (bits as u32, (bits >> 32) as u32)
 }
 
 fn make_bind_group(
@@ -132,6 +195,7 @@ struct GroupResources {
     n_max: usize,
     mat_size: usize,
 
+    // Potentials + Hamiltonian
     rho_p_buf: wgpu::Buffer,
     rho_n_buf: wgpu::Buffer,
     rho_alpha_buf: wgpu::Buffer,
@@ -155,6 +219,41 @@ struct GroupResources {
     fq_pipe: wgpu::ComputePipeline,
     hp_pipe: wgpu::ComputePipeline,
     hn_pipe: wgpu::ComputePipeline,
+
+    // GPU density (BCS v² + density + mixing) — post-eigensolve
+    density_params_buf: wgpu::Buffer,
+    density_params_bg: wgpu::BindGroup,
+    bcs_p_bg: wgpu::BindGroup,
+    bcs_n_bg: wgpu::BindGroup,
+    density_p_bg: wgpu::BindGroup,
+    density_n_bg: wgpu::BindGroup,
+    mix_p_bg: wgpu::BindGroup,
+    mix_n_bg: wgpu::BindGroup,
+    evals_p_buf: wgpu::Buffer,
+    evals_n_buf: wgpu::Buffer,
+    evecs_p_buf: wgpu::Buffer,
+    evecs_n_buf: wgpu::Buffer,
+    lambda_p_buf: wgpu::Buffer,
+    lambda_n_buf: wgpu::Buffer,
+    delta_buf: wgpu::Buffer,
+    v2_p_buf: wgpu::Buffer,
+    v2_n_buf: wgpu::Buffer,
+    rho_p_new_buf: wgpu::Buffer,
+    rho_n_new_buf: wgpu::Buffer,
+    mix_params_buf: wgpu::Buffer,
+    bcs_v2_pipe: wgpu::ComputePipeline,
+    density_pipe: wgpu::ComputePipeline,
+    mix_pipe: wgpu::ComputePipeline,
+    rho_p_staging: wgpu::Buffer,
+    rho_n_staging: wgpu::Buffer,
+
+    // GPU energy integrands — post-density
+    energy_params_bg: wgpu::BindGroup,
+    energy_pair_bg: wgpu::BindGroup,
+    energy_integrands_buf: wgpu::Buffer,
+    e_pair_buf: wgpu::Buffer,
+    energy_staging: wgpu::Buffer,
+    e_pair_staging: wgpu::Buffer,
 
     nr_wg: u32,
     ns_wg: u32,
@@ -352,13 +451,17 @@ pub fn binding_energies_l2_gpu_resident(
         let rho_p_buf = raw_device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("rho_p"),
             size: buf_nr,
-            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            usage: wgpu::BufferUsages::STORAGE
+                | wgpu::BufferUsages::COPY_DST
+                | wgpu::BufferUsages::COPY_SRC,
             mapped_at_creation: false,
         });
         let rho_n_buf = raw_device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("rho_n"),
             size: buf_nr,
-            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            usage: wgpu::BufferUsages::STORAGE
+                | wgpu::BufferUsages::COPY_DST
+                | wgpu::BufferUsages::COPY_SRC,
             mapped_at_creation: false,
         });
         let rho_alpha_buf = raw_device.create_buffer(&wgpu::BufferDescriptor {
@@ -535,6 +638,243 @@ pub fn binding_energies_l2_gpu_resident(
         let hp_pipe = make_pipeline(raw_device, &ham_module, "build_hamiltonian", &[&hl_p]);
         let hn_pipe = make_pipeline(raw_device, &ham_module, "build_hamiltonian", &[&hl_n]);
 
+        // ── GPU density pipeline: BCS v² + density from eigenstates + mixing ──
+        let density_module = raw_device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("density"),
+            source: wgpu::ShaderSource::Wgsl(DENSITY_SHADER.into()),
+        });
+
+        let buf_ns = (n_max * ns * 8) as u64;
+        let buf_evecs = (n_max * ns * ns * 8) as u64;
+        let buf_1 = (n_max * 8) as u64;
+
+        let density_params_buf = raw_device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("density_params"),
+            size: std::mem::size_of::<DensityParamsUniform>() as u64,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let evals_p_buf = raw_device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("evals_p"),
+            size: buf_ns,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let evals_n_buf = raw_device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("evals_n"),
+            size: buf_ns,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let lambda_p_buf = raw_device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("lambda_p"),
+            size: buf_1,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let lambda_n_buf = raw_device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("lambda_n"),
+            size: buf_1,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let delta_buf = raw_device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("delta"),
+            size: buf_1,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let v2_p_buf = raw_device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("v2_p"),
+            size: buf_ns,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let v2_n_buf = raw_device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("v2_n"),
+            size: buf_ns,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let evecs_p_buf = raw_device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("evecs_p"),
+            size: buf_evecs,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let evecs_n_buf = raw_device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("evecs_n"),
+            size: buf_evecs,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let rho_p_new_buf = raw_device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("rho_p_new"),
+            size: buf_nr,
+            usage: wgpu::BufferUsages::STORAGE,
+            mapped_at_creation: false,
+        });
+        let rho_n_new_buf = raw_device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("rho_n_new"),
+            size: buf_nr,
+            usage: wgpu::BufferUsages::STORAGE,
+            mapped_at_creation: false,
+        });
+        let mix_params_buf = raw_device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("mix_params"),
+            size: std::mem::size_of::<MixParamsUniform>() as u64,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let rho_p_staging = raw_device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("rho_p_staging"),
+            size: buf_nr,
+            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let rho_n_staging = raw_device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("rho_n_staging"),
+            size: buf_nr,
+            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        // Degeneracy buffer (shared across batch — all nuclei in group have same basis)
+        let degs: Vec<f64> = solvers[group_indices[0]].3.deg_values();
+        let degs_buf = raw_device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("degs"),
+            contents: bytemuck::cast_slice(&degs),
+            usage: wgpu::BufferUsages::STORAGE,
+        });
+
+        // Bind groups for density shader (4 groups matching WGSL layout)
+        let u = wgpu::BufferBindingType::Uniform;
+        let (dp_layout, density_params_bg) =
+            make_bind_group(raw_device, "density_g0", &[(u, &density_params_buf)]);
+        let (bcs_layout, bcs_p_bg) = make_bind_group(
+            raw_device,
+            "bcs_p",
+            &[
+                (sr, &evals_p_buf),
+                (sr, &lambda_p_buf),
+                (sr, &delta_buf),
+                (srw, &v2_p_buf),
+            ],
+        );
+        let (_, bcs_n_bg) = make_bind_group(
+            raw_device,
+            "bcs_n",
+            &[
+                (sr, &evals_n_buf),
+                (sr, &lambda_n_buf),
+                (sr, &delta_buf),
+                (srw, &v2_n_buf),
+            ],
+        );
+        let (dens_layout, density_p_bg) = make_bind_group(
+            raw_device,
+            "dens_p",
+            &[
+                (sr, &evecs_p_buf),
+                (sr, &v2_p_buf),
+                (sr, &degs_buf),
+                (sr, &wf_buf),
+                (srw, &rho_p_new_buf),
+            ],
+        );
+        let (_, density_n_bg) = make_bind_group(
+            raw_device,
+            "dens_n",
+            &[
+                (sr, &evecs_n_buf),
+                (sr, &v2_n_buf),
+                (sr, &degs_buf),
+                (sr, &wf_buf),
+                (srw, &rho_n_new_buf),
+            ],
+        );
+        let (mix_layout, mix_p_bg) = make_bind_group(
+            raw_device,
+            "mix_p",
+            &[
+                (u, &mix_params_buf),
+                (sr, &rho_p_new_buf),
+                (srw, &rho_p_buf),
+            ],
+        );
+        let (_, mix_n_bg) = make_bind_group(
+            raw_device,
+            "mix_n",
+            &[
+                (u, &mix_params_buf),
+                (sr, &rho_n_new_buf),
+                (srw, &rho_n_buf),
+            ],
+        );
+
+        let bcs_v2_pipe = make_pipeline(
+            raw_device,
+            &density_module,
+            "compute_bcs_v2",
+            &[&dp_layout, &bcs_layout],
+        );
+        let density_pipe = make_pipeline(
+            raw_device,
+            &density_module,
+            "compute_density",
+            &[&dp_layout, &bcs_layout, &dens_layout],
+        );
+        let mix_pipe = make_pipeline(
+            raw_device,
+            &density_module,
+            "mix_density",
+            &[&dp_layout, &bcs_layout, &dens_layout, &mix_layout],
+        );
+
+        // Energy pipeline (deferred to future PR — stubs for struct completeness)
+        let energy_params_buf = raw_device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("energy_params"),
+            size: std::mem::size_of::<EnergyParamsUniform>() as u64,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let energy_integrands_buf = raw_device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("energy_integrands"),
+            size: buf_nr,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+            mapped_at_creation: false,
+        });
+        let e_pair_buf = raw_device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("e_pair"),
+            size: buf_1,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+            mapped_at_creation: false,
+        });
+        let energy_staging = raw_device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("energy_staging"),
+            size: buf_nr,
+            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let e_pair_staging = raw_device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("e_pair_staging"),
+            size: buf_1,
+            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        // Placeholder bind groups using density_params_buf for energy (will be rewired)
+        let (ep_layout, energy_params_bg) = make_bind_group(
+            raw_device,
+            "energy_g0",
+            &[(wgpu::BufferBindingType::Uniform, &energy_params_buf)],
+        );
+        let (_, energy_pair_bg) = make_bind_group(
+            raw_device,
+            "energy_pair",
+            &[(sr, &energy_integrands_buf), (srw, &e_pair_buf)],
+        );
+        let _ = ep_layout;
+
         all_groups.push(GroupResources {
             ns,
             nr,
@@ -561,6 +901,37 @@ pub fn binding_energies_l2_gpu_resident(
             fq_pipe,
             hp_pipe,
             hn_pipe,
+            density_params_buf,
+            density_params_bg,
+            bcs_p_bg,
+            bcs_n_bg,
+            density_p_bg,
+            density_n_bg,
+            mix_p_bg,
+            mix_n_bg,
+            evals_p_buf,
+            evals_n_buf,
+            evecs_p_buf,
+            evecs_n_buf,
+            lambda_p_buf,
+            lambda_n_buf,
+            delta_buf,
+            v2_p_buf,
+            v2_n_buf,
+            rho_p_new_buf,
+            rho_n_new_buf,
+            mix_params_buf,
+            bcs_v2_pipe,
+            density_pipe,
+            mix_pipe,
+            rho_p_staging,
+            rho_n_staging,
+            energy_params_bg,
+            energy_pair_bg,
+            energy_integrands_buf,
+            e_pair_buf,
+            energy_staging,
+            e_pair_staging,
             nr_wg: (nr as u32).div_ceil(256),
             ns_wg: (ns as u32).div_ceil(16),
         });
@@ -745,6 +1116,7 @@ pub fn binding_energies_l2_gpu_resident(
         // 5a. Read all H matrices from staging buffers
         struct WorkItem {
             si: usize,
+            gi: usize,
             ns: usize,
             h_p: Vec<f64>,
             h_n: Vec<f64>,
@@ -796,6 +1168,7 @@ pub fn binding_energies_l2_gpu_resident(
             for (bi, &si) in active.iter().enumerate() {
                 all_work.push(WorkItem {
                     si,
+                    gi,
                     ns: g.ns,
                     h_p: h_p_data[bi * g.mat_size..(bi + 1) * g.mat_size].to_vec(),
                     h_n: h_n_data[bi * g.mat_size..(bi + 1) * g.mat_size].to_vec(),
@@ -907,14 +1280,26 @@ pub fn binding_energies_l2_gpu_resident(
             None
         };
 
-        // 5d. Rayon par_iter: BCS + density + energy
-        let cpu_results: Vec<(usize, Vec<f64>, Vec<f64>, f64, f64, bool)> = all_work
+        // 5d-i. Rayon: eigensolve extraction + BCS occupations (Brent on CPU)
+        struct EigenBcsResult {
+            si: usize,
+            gi: usize,
+            evals_p: Vec<f64>,
+            evecs_p: Vec<f64>,
+            evals_n: Vec<f64>,
+            evecs_n: Vec<f64>,
+            v2_p: Vec<f64>,
+            v2_n: Vec<f64>,
+            rho_p_old: Vec<f64>,
+            rho_n_old: Vec<f64>,
+            e_prev: f64,
+        }
+        let eigen_bcs: Vec<EigenBcsResult> = all_work
             .par_iter()
             .enumerate()
             .map(|(wi, item)| {
                 let (z, n, _, ref hfb) = solvers[item.si];
                 let ns = item.ns;
-                let cur_nr = hfb.nr();
                 let gm = global_max_ns * global_max_ns;
 
                 let (evals_p, evecs_p, evals_n, evecs_n) =
@@ -961,32 +1346,224 @@ pub fn binding_energies_l2_gpu_resident(
                 let (v2_p, _) = hfb.bcs_occupations_from_eigs(&evals_p, z, hfb.pairing_gap());
                 let (v2_n, _) = hfb.bcs_occupations_from_eigs(&evals_n, n, hfb.pairing_gap());
 
-                let rho_p_new = hfb.density_from_eigenstates(&evecs_p, &v2_p, ns);
-                let rho_n_new = hfb.density_from_eigenstates(&evecs_n, &v2_n, ns);
-
-                let mut rho_p_mixed = vec![0.0; cur_nr];
-                let mut rho_n_mixed = vec![0.0; cur_nr];
-                for k in 0..cur_nr {
-                    rho_p_mixed[k] = (alpha_mix * rho_p_new[k]
-                        + (1.0 - alpha_mix) * item.rho_p_old[k])
-                        .max(DENSITY_FLOOR);
-                    rho_n_mixed[k] = (alpha_mix * rho_n_new[k]
-                        + (1.0 - alpha_mix) * item.rho_n_old[k])
-                        .max(DENSITY_FLOOR);
+                EigenBcsResult {
+                    si: item.si,
+                    gi: item.gi,
+                    evals_p,
+                    evecs_p,
+                    evals_n,
+                    evecs_n,
+                    v2_p,
+                    v2_n,
+                    rho_p_old: item.rho_p_old.clone(),
+                    rho_n_old: item.rho_n_old.clone(),
+                    e_prev: item.e_prev,
                 }
+            })
+            .collect();
+
+        // 5d-ii. GPU density + mixing pass
+        //
+        // Upload eigenvectors + v² → dispatch density + mixing → readback
+        // mixed densities. This replaces the CPU density_from_eigenstates +
+        // density mixing, moving O(ns² × nr × batch) work to the GPU.
+        let mut density_encoder =
+            raw_device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("density_all"),
+            });
+        let mut density_active_groups: Vec<usize> = Vec::new();
+
+        for (gi, g) in all_groups.iter().enumerate() {
+            let items: Vec<&EigenBcsResult> = eigen_bcs.iter().filter(|r| r.gi == gi).collect();
+            if items.is_empty() {
+                continue;
+            }
+            let bn = items.len() as u32;
+
+            raw_queue.write_buffer(
+                &g.mix_params_buf,
+                0,
+                bytemuck::bytes_of(&MixParamsUniform::new(bn * g.nr as u32, alpha_mix)),
+            );
+            raw_queue.write_buffer(
+                &g.density_params_buf,
+                0,
+                bytemuck::bytes_of(&DensityParamsUniform {
+                    n_states: g.ns as u32,
+                    nr: g.nr as u32,
+                    batch_size: bn,
+                    _pad: 0,
+                }),
+            );
+
+            let mut evecs_p_flat = Vec::with_capacity(items.len() * g.ns * g.ns);
+            let mut evecs_n_flat = Vec::with_capacity(items.len() * g.ns * g.ns);
+            let mut v2_p_flat = Vec::with_capacity(items.len() * g.ns);
+            let mut v2_n_flat = Vec::with_capacity(items.len() * g.ns);
+            for d in &items {
+                evecs_p_flat.extend_from_slice(&d.evecs_p);
+                evecs_n_flat.extend_from_slice(&d.evecs_n);
+                v2_p_flat.extend_from_slice(&d.v2_p);
+                v2_n_flat.extend_from_slice(&d.v2_n);
+            }
+            raw_queue.write_buffer(&g.evecs_p_buf, 0, bytemuck::cast_slice(&evecs_p_flat));
+            raw_queue.write_buffer(&g.evecs_n_buf, 0, bytemuck::cast_slice(&evecs_n_flat));
+            raw_queue.write_buffer(&g.v2_p_buf, 0, bytemuck::cast_slice(&v2_p_flat));
+            raw_queue.write_buffer(&g.v2_n_buf, 0, bytemuck::cast_slice(&v2_n_flat));
+
+            {
+                let mut pass = density_encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                    label: Some("density_group"),
+                    timestamp_writes: None,
+                });
+
+                // Proton density: phi_i(r) = Σ_j C[j,i] * wf_j(r)
+                pass.set_pipeline(&g.density_pipe);
+                pass.set_bind_group(0, &g.density_params_bg, &[]);
+                pass.set_bind_group(1, &g.bcs_p_bg, &[]);
+                pass.set_bind_group(2, &g.density_p_bg, &[]);
+                pass.dispatch_workgroups(g.nr_wg, bn, 1);
+
+                // Neutron density
+                pass.set_bind_group(1, &g.bcs_n_bg, &[]);
+                pass.set_bind_group(2, &g.density_n_bg, &[]);
+                pass.dispatch_workgroups(g.nr_wg, bn, 1);
+
+                // Proton mixing: rho_p = α * rho_p_new + (1-α) * rho_p_old
+                pass.set_pipeline(&g.mix_pipe);
+                pass.set_bind_group(3, &g.mix_p_bg, &[]);
+                pass.dispatch_workgroups((bn * g.nr as u32).div_ceil(256), 1, 1);
+
+                // Neutron mixing
+                pass.set_bind_group(3, &g.mix_n_bg, &[]);
+                pass.dispatch_workgroups((bn * g.nr as u32).div_ceil(256), 1, 1);
+            }
+
+            let rho_bytes = (items.len() * g.nr * 8) as u64;
+            density_encoder.copy_buffer_to_buffer(&g.rho_p_buf, 0, &g.rho_p_staging, 0, rho_bytes);
+            density_encoder.copy_buffer_to_buffer(&g.rho_n_buf, 0, &g.rho_n_staging, 0, rho_bytes);
+
+            total_gpu_dispatches += 4;
+            density_active_groups.push(gi);
+        }
+
+        raw_queue.submit(Some(density_encoder.finish()));
+
+        // Map density staging buffers
+        let mut density_receivers = Vec::new();
+        for &gi in &density_active_groups {
+            let g = &all_groups[gi];
+            let items_count = eigen_bcs.iter().filter(|r| r.gi == gi).count();
+            let rho_bytes = (items_count * g.nr * 8) as u64;
+
+            let slice_p = g.rho_p_staging.slice(..rho_bytes);
+            let slice_n = g.rho_n_staging.slice(..rho_bytes);
+            let (tx_p, rx_p) = std::sync::mpsc::channel();
+            let (tx_n, rx_n) = std::sync::mpsc::channel();
+            slice_p.map_async(wgpu::MapMode::Read, move |r| {
+                let _ = tx_p.send(r);
+            });
+            slice_n.map_async(wgpu::MapMode::Read, move |r| {
+                let _ = tx_n.send(r);
+            });
+            density_receivers.push((gi, rx_p, rx_n));
+        }
+        raw_device.poll(wgpu::Maintain::Wait);
+
+        // Read back mixed densities per group
+        let mut mixed_densities: std::collections::HashMap<usize, (Vec<f64>, Vec<f64>)> =
+            std::collections::HashMap::new();
+        for (gi, rx_p, rx_n) in density_receivers {
+            rx_p.recv()
+                .map_err(|_| "density rho_p map channel failed".to_string())
+                .and_then(|r| r.map_err(|e| format!("density rho_p map: {e}")))
+                .expect("GPU density staging map for rho_p");
+            rx_n.recv()
+                .map_err(|_| "density rho_n map channel failed".to_string())
+                .and_then(|r| r.map_err(|e| format!("density rho_n map: {e}")))
+                .expect("GPU density staging map for rho_n");
+
+            let g = &all_groups[gi];
+            let items_count = eigen_bcs.iter().filter(|r| r.gi == gi).count();
+            let rho_bytes = (items_count * g.nr * 8) as u64;
+            let rho_p_data: Vec<f64>;
+            let rho_n_data: Vec<f64>;
+            {
+                let mapped = g.rho_p_staging.slice(..rho_bytes).get_mapped_range();
+                rho_p_data =
+                    bytemuck::cast_slice::<u8, f64>(&mapped)[..items_count * g.nr].to_vec();
+            }
+            g.rho_p_staging.unmap();
+            {
+                let mapped = g.rho_n_staging.slice(..rho_bytes).get_mapped_range();
+                rho_n_data =
+                    bytemuck::cast_slice::<u8, f64>(&mapped)[..items_count * g.nr].to_vec();
+            }
+            g.rho_n_staging.unmap();
+            mixed_densities.insert(gi, (rho_p_data, rho_n_data));
+        }
+
+        // Build per-nucleus mixed density slices from GPU readback
+        let mut group_offsets: std::collections::HashMap<usize, usize> =
+            std::collections::HashMap::new();
+
+        // 5d-iii. Rayon: energy computation with GPU-mixed densities
+        let cpu_results: Vec<(usize, Vec<f64>, Vec<f64>, f64, f64, bool)> = eigen_bcs
+            .iter()
+            .map(|eb| {
+                let (_, _, _, ref hfb) = solvers[eb.si];
+                let nr = hfb.nr();
+                let gi = eb.gi;
+
+                let bi = {
+                    let offset = group_offsets.entry(gi).or_insert(0);
+                    let cur = *offset;
+                    *offset += 1;
+                    cur
+                };
+
+                let (rho_p_mixed, rho_n_mixed) = if let Some((ref rho_p_all, ref rho_n_all)) =
+                    mixed_densities.get(&gi)
+                {
+                    (
+                        rho_p_all[bi * nr..(bi + 1) * nr].to_vec(),
+                        rho_n_all[bi * nr..(bi + 1) * nr].to_vec(),
+                    )
+                } else {
+                    // Fallback: CPU density + mixing
+                    let rho_p_new = hfb.density_from_eigenstates(
+                        &eb.evecs_p,
+                        &eb.v2_p,
+                        eb.evecs_p.len().isqrt(),
+                    );
+                    let rho_n_new = hfb.density_from_eigenstates(
+                        &eb.evecs_n,
+                        &eb.v2_n,
+                        eb.evecs_n.len().isqrt(),
+                    );
+                    let mut rp = vec![0.0; nr];
+                    let mut rn = vec![0.0; nr];
+                    for k in 0..nr {
+                        rp[k] = (alpha_mix * rho_p_new[k] + (1.0 - alpha_mix) * eb.rho_p_old[k])
+                            .max(DENSITY_FLOOR);
+                        rn[k] = (alpha_mix * rho_n_new[k] + (1.0 - alpha_mix) * eb.rho_n_old[k])
+                            .max(DENSITY_FLOOR);
+                    }
+                    (rp, rn)
+                };
 
                 let e_total = hfb.compute_energy_with_v2(
                     &rho_p_mixed,
                     &rho_n_mixed,
-                    &evals_p,
-                    &evecs_p,
-                    &evals_n,
-                    &evecs_n,
-                    &v2_p,
-                    &v2_n,
+                    &eb.evals_p,
+                    &eb.evecs_p,
+                    &eb.evals_n,
+                    &eb.evecs_n,
+                    &eb.v2_p,
+                    &eb.v2_n,
                     params,
                 );
-                let de = (e_total - item.e_prev).abs();
+                let de = (e_total - eb.e_prev).abs();
                 let binding_energy = if e_total < 0.0 {
                     -e_total
                 } else {
@@ -995,7 +1572,7 @@ pub fn binding_energies_l2_gpu_resident(
                 let converged = de < tol && iter > 5;
 
                 (
-                    item.si,
+                    eb.si,
                     rho_p_mixed,
                     rho_n_mixed,
                     e_total,

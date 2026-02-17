@@ -25,7 +25,7 @@ Python baseline → Rust validation → GPU acceleration → sovereign pipeline
 | `physics/hfb.rs` | `batched_hfb_*.wgsl` (4 shaders) via `hfb_gpu.rs` | **A** | GPU pipeline exists | None — validated against CPU |
 | `physics/hfb_gpu.rs` | Uses `BatchedEighGpu::execute_single_dispatch` | **A** | Production GPU — single-dispatch (v0.5.3) | None — all rotations in one shader |
 | `physics/bcs_gpu.rs` | `bcs_bisection_f64.wgsl` | **A** | Production GPU — pipeline cached (v0.5.3) | None — ToadStool `target` bug absorbed (`0c477306`) |
-| `physics/hfb_gpu_resident.rs` | `batched_hfb_potentials_f64.wgsl`, `batched_hfb_hamiltonian_f64.wgsl`, `BatchedEighGpu`, `SpinOrbitGpu` | **A** | GPU H-build + eigensolve + spin-orbit (v0.5.6) | BCS/density still CPU |
+| `physics/hfb_gpu_resident.rs` | `batched_hfb_potentials_f64.wgsl`, `batched_hfb_hamiltonian_f64.wgsl`, `batched_hfb_density_f64.wgsl`, `BatchedEighGpu`, `SpinOrbitGpu` | **A** | GPU H-build + eigensolve + spin-orbit + density + mixing (v0.5.10) | Energy still CPU; BCS Brent on CPU |
 | `physics/hfb_deformed.rs` | — | **C** | CPU only | Deformed HFB needs new shaders for 2D grid Hamiltonian build |
 | `physics/hfb_deformed_gpu.rs` | `deformed_*.wgsl` (5 shaders exist, not all wired) | **B** | Partial GPU | H-build on CPU; deformed Hamiltonian shaders exist but unwired. Needs `GenEighGpu` (Ax=λBx) for overlap matrix |
 | `physics/nuclear_matter.rs` | — | **C** | CPU only | Uses `barracuda::optimize::bisect` (CPU); no NMP shader. Low priority — fast on CPU |
@@ -128,6 +128,17 @@ WGSL `abs_f64` and `cbrt_f64` now injected via `ShaderTemplate::with_math_f64_au
   `similar_names`, `too_many_lines` — all justified for physics code
 - ✅ **Full audit report**: specs, wateringHole compliance, validation fidelity, dependency health,
   evolution readiness, test coverage, code size, licensing, data provenance
+
+## Completed (v0.5.10)
+
+- ✅ **GPU density pipeline**: `batched_hfb_density_f64.wgsl` wired into `hfb_gpu_resident.rs`
+  - Shader updated for batched per-nucleus wavefunctions
+  - 14 GPU buffers, 3 compute pipelines (`compute_density`, `mix_density`)
+  - Full staging readback + CPU density fallback
+  - SCF loop restructured: CPU Brent → GPU density + mixing → CPU energy
+  - L2 GPU validation confirmed: chi2/datum=5.42, physics consistent
+- ✅ **Energy pipeline stubs**: bind groups, buffers, staging for future GPU energy dispatch
+- ✅ **rho buffers upgraded**: `COPY_SRC` added for GPU-to-staging density transfer
 
 ## Completed (v0.5.8)
 
