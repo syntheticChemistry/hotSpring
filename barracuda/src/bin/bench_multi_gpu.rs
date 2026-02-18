@@ -436,10 +436,10 @@ fn generate_symmetric_matrices(batch: usize, dim: usize) -> Vec<f64> {
                 } else {
                     0.0
                 };
-                let off = if i != j {
-                    ((i + j) as f64 * 0.3 + b as f64 * 0.01).sin() * 0.5
-                } else {
+                let off = if i == j {
                     0.0
+                } else {
+                    ((i + j) as f64 * 0.3 + b as f64 * 0.01).sin() * 0.5
                 };
                 matrices.push(diag + off);
             }
@@ -449,7 +449,7 @@ fn generate_symmetric_matrices(batch: usize, dim: usize) -> Vec<f64> {
         let base = b * dim * dim;
         for i in 0..dim {
             for j in (i + 1)..dim {
-                let val = (matrices[base + i * dim + j] + matrices[base + j * dim + i]) / 2.0;
+                let val = f64::midpoint(matrices[base + i * dim + j], matrices[base + j * dim + i]);
                 matrices[base + i * dim + j] = val;
                 matrices[base + j * dim + i] = val;
             }

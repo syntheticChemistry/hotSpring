@@ -29,3 +29,4 @@ pub mod cpu_reference;
 pub mod observables;
 pub mod shaders;
 pub mod simulation;
+pub mod yukawa_nvk_safe;

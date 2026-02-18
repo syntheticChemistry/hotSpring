@@ -3,7 +3,7 @@ name = "hotspring-barracuda"
 version = "0.5.10"
 edition = "2021"
 description = "Nuclear EOS + GPU MD validation for BarraCUDA — L1/L2/L3 physics, Yukawa OCP, typed errors, provenance, capability-based discovery"
-license = "AGPL-3.0"
+license = "AGPL-3.0-only"
 
 [workspace]
 
@@ -76,7 +76,11 @@ bytemuck = { version = "1.14", features = ["derive"] }
 tokio = { version = "1.35", features = ["rt-multi-thread", "macros"] }
 
 # GPU compute (wgpu for SHADER_F64 FP64 science compute)
-wgpu = { version = "0.19", features = ["wgsl"] }
+# Must match barracuda's wgpu version (22) to avoid type conflicts.
+wgpu = { version = "22", default-features = false, features = [
+    "wgsl",
+    "vulkan-portability",
+] }
 
 # ── L1 validation (NMP-constrained, Pareto sweep, multi-seed) ──────
 [[bin]]
@@ -174,3 +178,8 @@ path = "src/bin/validate_nuclear_eos.rs"
 [[bin]]
 name = "validate_all"
 path = "src/bin/validate_all.rs"
+
+# ── NVK workgroup-size diagnostic ──────────────────────────────────────
+[[bin]]
+name = "bench_wgsize_nvk"
+path = "src/bin/bench_wgsize_nvk.rs"

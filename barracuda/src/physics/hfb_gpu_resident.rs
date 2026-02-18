@@ -208,6 +208,8 @@ fn make_pipeline(
         layout: Some(&pl),
         module,
         entry_point,
+        compilation_options: wgpu::PipelineCompilationOptions::default(),
+        cache: None,
     })
 }
 
@@ -350,7 +352,7 @@ pub fn binding_energies_l2_gpu_resident(
     let raw_device = device.device();
     let raw_queue = device.queue();
 
-    let potentials_shader = ShaderTemplate::with_math_f64_auto_safe(POTENTIALS_SHADER_BODY);
+    let potentials_shader = ShaderTemplate::for_device_auto(POTENTIALS_SHADER_BODY, &device);
     let pot_module = raw_device.create_shader_module(wgpu::ShaderModuleDescriptor {
         label: Some("potentials"),
         source: wgpu::ShaderSource::Wgsl(potentials_shader.into()),

@@ -17,12 +17,12 @@
 //! with 0.000% energy drift. This binary validates the `BarraCUDA` abstraction
 //! produces identical physics through a different code path.
 
-use barracuda::ops::md::forces::YukawaForceF64;
 use barracuda::ops::md::integrators::{VelocityVerletHalfKick, VelocityVerletKickDrift};
 use barracuda::ops::md::observables::KineticEnergy;
 use barracuda::ops::md::thermostats::BerendsenThermostat;
 use barracuda::tensor::Tensor;
 use hotspring_barracuda::gpu::GpuF64;
+use hotspring_barracuda::md::yukawa_nvk_safe::yukawa_force_f64_nvk_safe;
 use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
 
@@ -153,13 +153,8 @@ async fn main() {
     println!("\n── Phase 1: Force Cross-Validation ──────────────────────");
     let (cpu_forces, cpu_pe) = cpu_yukawa_forces(&positions, n, KAPPA, cutoff_sq, l);
 
-    let pos_tensor =
-        Tensor::from_f64_data(&positions, vec![n, 3], device.clone()).expect("pos tensor");
-    let yukawa =
-        YukawaForceF64::new(pos_tensor, KAPPA, 1.0, RC, l, None).expect("YukawaForceF64 creation");
-    let (gpu_forces_t, gpu_pe_t) = yukawa.execute().expect("YukawaForceF64 execution");
-    let gpu_forces = gpu_forces_t.to_f64_vec().expect("read forces");
-    let gpu_pe = gpu_pe_t.to_f64_vec().expect("read PE");
+    let (gpu_forces, gpu_pe) = yukawa_force_f64_nvk_safe(&device, &positions, n, KAPPA, 1.0, RC, l)
+        .expect("Yukawa NVK-safe execution");
 
     // Compare force vector norms per particle.
     // CPU uses symmetric Newton's-3rd accumulation (j > i), GPU uses full-loop
@@ -378,13 +373,10 @@ async fn main() {
             vel = new_vel_t.to_f64_vec().expect("read vel");
 
             // Step 2: New forces (BarraCUDA op)
-            let pos_t2 =
-                Tensor::from_f64_data(&pos, vec![n, 3], device.clone()).expect("pos tensor");
-            let yukawa =
-                YukawaForceF64::new(pos_t2, KAPPA, 1.0, RC, l, None).expect("YukawaForceF64");
-            let (new_forces_t, pe_t) = yukawa.execute().expect("Yukawa exec");
-            forces = new_forces_t.to_f64_vec().expect("read forces");
-            let pe_vec = pe_t.to_f64_vec().expect("read PE");
+            let (new_forces, pe_vec) =
+                yukawa_force_f64_nvk_safe(&device, &pos, n, KAPPA, 1.0, RC, l)
+                    .expect("Yukawa NVK-safe exec");
+            forces = new_forces;
 
             // Step 3: Second half-kick (BarraCUDA op)
             let vel_t2 =

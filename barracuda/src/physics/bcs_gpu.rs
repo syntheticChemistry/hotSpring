@@ -83,7 +83,8 @@ impl<'a> BcsBisectionGpu<'a> {
     pub fn new(gpu: &'a GpuF64, max_iterations: u32, tolerance: f64) -> Self {
         let device = gpu.device();
         let shader_body = include_str!("shaders/bcs_bisection_f64.wgsl");
-        let shader_src = ShaderTemplate::with_math_f64_auto_safe(shader_body);
+        let shader_src =
+            ShaderTemplate::for_device_auto(shader_body, gpu.to_wgpu_device().as_ref());
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("hotSpring BCS Bisection f64"),
             source: wgpu::ShaderSource::Wgsl(shader_src.into()),
@@ -112,6 +113,8 @@ impl<'a> BcsBisectionGpu<'a> {
             layout: Some(&pl),
             module: &shader,
             entry_point: "bcs_bisection",
+            compilation_options: wgpu::PipelineCompilationOptions::default(),
+            cache: None,
         });
 
         Self {

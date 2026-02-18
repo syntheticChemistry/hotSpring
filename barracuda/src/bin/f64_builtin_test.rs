@@ -12,6 +12,7 @@
 use barracuda::shaders::precision::ShaderTemplate;
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::md::shaders::patch_math_f64_preamble;
+use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
 use std::time::Instant;
 
@@ -174,8 +175,16 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {{
         sw_results[199],
         test_values[199].sqrt()
     );
-    harness.check_upper("sqrt_native_vs_software_max_diff", max_diff, 1e-10);
-    harness.check_upper("sqrt_native_vs_cpu_max_diff", max_diff_cpu, 1e-10);
+    harness.check_upper(
+        "sqrt_native_vs_software_max_diff",
+        max_diff,
+        tolerances::GPU_NATIVE_VS_SOFTWARE_F64,
+    );
+    harness.check_upper(
+        "sqrt_native_vs_cpu_max_diff",
+        max_diff_cpu,
+        tolerances::GPU_NATIVE_VS_SOFTWARE_F64,
+    );
 
     // ── Phase 3: Correctness — native vs software exp ──
     println!();
@@ -258,8 +267,16 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {{
         sw_exp[199],
         exp_values[199].exp()
     );
-    harness.check_upper("exp_native_vs_software_max_diff", max_exp_diff, 1e-10);
-    harness.check_upper("exp_native_vs_cpu_max_diff", max_exp_diff_cpu, 1e-10);
+    harness.check_upper(
+        "exp_native_vs_software_max_diff",
+        max_exp_diff,
+        tolerances::GPU_NATIVE_VS_SOFTWARE_F64,
+    );
+    harness.check_upper(
+        "exp_native_vs_cpu_max_diff",
+        max_exp_diff_cpu,
+        tolerances::GPU_NATIVE_VS_SOFTWARE_F64,
+    );
 
     // ── Phase 4: Performance — 1M elements ──
     println!();
@@ -435,6 +452,8 @@ fn run_shader(
             layout: Some(&pipeline_layout),
             module: &module,
             entry_point: "main",
+            compilation_options: wgpu::PipelineCompilationOptions::default(),
+            cache: None,
         });
 
     let bind_group = gpu.device().create_bind_group(&wgpu::BindGroupDescriptor {

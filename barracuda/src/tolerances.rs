@@ -267,6 +267,19 @@ pub const ENERGY_DRIFT_PCT: f64 = 5.0;
 /// Source: METHODOLOGY.md §Phase C acceptance criteria.
 pub const RDF_TAIL_TOLERANCE: f64 = 0.15;
 
+/// Native GPU f64 builtins vs software (math_f64) implementations.
+///
+/// Native GPU sqrt/exp/log may use hardware-specific algorithms (e.g. Newton-Raphson
+/// with different initial approximations) that differ from the polynomial/rational
+/// approximations in math_f64.wgsl. Observed max differences on RTX 4070 (Ada Lovelace):
+///
+/// - sqrt: ~5e-7 (relative, over 200 test values in \[0.01, 10\])
+/// - exp:  ~8e-8 (relative, over 200 test values in \[-5, 5\])
+///
+/// Both implementations produce correct results; the tolerance captures the
+/// maximum difference between two valid f64 computation paths.
+pub const GPU_NATIVE_VS_SOFTWARE_F64: f64 = 1e-6;
+
 /// GPU eigensolve: relative eigenvalue error tolerance.
 ///
 /// Jacobi rotation on GPU converges to ~1e-4 relative error for matrices

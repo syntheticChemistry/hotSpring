@@ -270,6 +270,7 @@ impl GpuF64 {
                     label: Some("hotSpring science device"),
                     required_features,
                     required_limits,
+                    memory_hints: wgpu::MemoryHints::default(),
                 },
                 None,
             )
@@ -334,9 +335,11 @@ impl GpuF64 {
         self.device()
             .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
                 label: Some(label),
-                layout: None, // Auto-layout
+                layout: None,
                 module: &shader_module,
                 entry_point: "main",
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+                cache: None,
             })
     }
 
