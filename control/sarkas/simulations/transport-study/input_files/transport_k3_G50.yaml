@@ -25,7 +25,7 @@ Potential:
     type: Yukawa
     method: PP
     rc: 3.169203e-10                   # cut-off radius, meter (~6.0 a_ws)
-    kappa: 3.0
+    kappa: 5.679662e+10
 
 Integrator:
     type: Verlet

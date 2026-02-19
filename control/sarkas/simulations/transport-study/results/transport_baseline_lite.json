@@ -2,11 +2,11 @@
   "provenance": {
     "generator": "hotSpring/control/sarkas/simulations/transport-study/scripts/run_transport.py",
     "sarkas_commit": "fd908c41a949",
-    "date": "2026-02-19T01:24:34.491436+00:00",
-    "python_version": "3.10.12 (main, Nov  4 2025, 08:48:33) [GCC 11.4.0]",
-    "numpy_version": "2.2.6",
-    "total_wall_time_s": 6.922118663787842,
-    "n_cases": 3,
+    "date": "2026-02-19T02:12:22.605716+00:00",
+    "python_version": "3.9.23 | packaged by conda-forge | (main, Jun  4 2025, 17:57:12) \n[GCC 13.3.0]",
+    "numpy_version": "1.26.4",
+    "total_wall_time_s": 76.43849587440491,
+    "n_cases": 1,
     "n_failed": 0
   },
   "results": [
@@ -14,37 +14,13 @@
       "case": "transport_k1_G50_lite",
       "kappa": 1.0,
       "gamma": 50.0,
-      "D_star_reduced": 1.3289976526086418,
-      "D_mks": 6.213215707310616e-06,
-      "C0": 156171689.5705557,
-      "C_tail_ratio": 1.000000000145372,
+      "D_star_reduced": 1.3289976522862925,
+      "D_mks": 6.213215707908774e-06,
+      "C0": 156171689.58953816,
+      "C_tail_ratio": 1.0000000000002065,
       "n_vacf_points": 4001,
       "t_max": 1.1935356e-13,
-      "sim_wall_time_s": null
-    },
-    {
-      "case": "transport_k2_G100_lite",
-      "kappa": 2.0,
-      "gamma": 100.0,
-      "D_star_reduced": 0.6644987213088953,
-      "D_mks": 3.10660736278971e-06,
-      "C0": 78085832.44969575,
-      "C_tail_ratio": 1.0000000000286313,
-      "n_vacf_points": 4001,
-      "t_max": 1.1935356e-13,
-      "sim_wall_time_s": null
-    },
-    {
-      "case": "transport_k3_G100_lite",
-      "kappa": 3.0,
-      "gamma": 100.0,
-      "D_star_reduced": 0.026001569184079948,
-      "D_mks": 1.2156030355068116e-07,
-      "C0": 78330715.59016654,
-      "C_tail_ratio": -0.0029898544961078745,
-      "n_vacf_points": 4001,
-      "t_max": 1.1935356e-13,
-      "sim_wall_time_s": null
+      "sim_wall_time_s": 69.4683313369751
     }
   ],
   "failed": []

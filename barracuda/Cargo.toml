@@ -184,6 +184,16 @@ path = "src/bin/validate_all.rs"
 name = "bench_wgsize_nvk"
 path = "src/bin/bench_wgsize_nvk.rs"
 
+# ── Multi-GPU benchmark ───────────────────────────────────────────
+[[bin]]
+name = "bench_multi_gpu"
+path = "src/bin/bench_multi_gpu.rs"
+
+# ── GPU FP64 throughput benchmark ─────────────────────────────────
+[[bin]]
+name = "bench_gpu_fp64"
+path = "src/bin/bench_gpu_fp64.rs"
+
 # ── Transport coefficient validation (Stanton & Murillo 2016) ──────
 [[bin]]
 name = "validate_transport"

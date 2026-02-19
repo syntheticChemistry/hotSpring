@@ -101,7 +101,7 @@ Potential:
     type: Yukawa
     method: PP
     rc: {rc_pp:.6e}                   # cut-off radius, meter (~{rc_aws:.1f} a_ws)
-    kappa: {kappa_float:.1f}
+    kappa: {kappa_reduced}
 
 Integrator:
     type: Verlet
@@ -164,7 +164,7 @@ for kappa, gamma, rc_aws in transport_cases:
         kappa=kappa, gamma=gamma, dt_reduced=dt_reduced,
         a_ws=a_ws, omega_p=omega_p, temperature=T, temperature_eV=T_eV,
         n=n, mass=mass, N=N, Z=Z,
-        kappa_float=float(kappa),
+        kappa_reduced=kappa,
         rc_pp=rc_pp, rc_aws=rc_aws, force_decay=force_decay,
         dt=dt_phys, eq_steps=eq_steps, prod_steps=prod_steps,
         eq_dump=eq_dump, prod_dump=prod_dump,

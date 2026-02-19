@@ -26,7 +26,7 @@ Potential:
     type: Yukawa
     method: PP
     rc: 4.225604e-10
-    kappa: 1.0
+    kappa: 1
 
 Integrator:
     type: Verlet

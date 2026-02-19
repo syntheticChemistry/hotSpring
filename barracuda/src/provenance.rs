@@ -341,6 +341,50 @@ pub const SARKAS_COMMIT: &str = "fd908c41";
 pub const SARKAS_PAPER: &str = "Choi, Dharuman, Murillo, Phys. Rev. E 100, 013206 (2019)";
 
 // ═══════════════════════════════════════════════════════════════════
+// Transport coefficient baselines — validate_transport.rs
+// ═══════════════════════════════════════════════════════════════════
+
+/// Daligault (2012) analytical fit reference.
+///
+/// Test values in `md/transport.rs::d_star_matches_python` are computed
+/// from the Daligault (2012) practical model, NOT from MD simulation.
+/// They are analytical values that both Rust and Python must reproduce.
+pub const DALIGAULT_FIT_PROVENANCE: BaselineProvenance = BaselineProvenance {
+    label: "Daligault D*(Gamma,kappa) analytical fit validation",
+    script: "sarkas/simulations/transport-study/scripts/daligault_fit.py",
+    commit: "0a6405f (hotSpring main, Paper 5 transport commit)",
+    date: "2026-02-19",
+    command: "python3 daligault_fit.py",
+    environment: "Python 3.10, NumPy 2.2",
+    value: 2.8651e-4,
+    unit: "D* reduced (k=1 G=50 reference value)",
+};
+
+/// Standalone Python MD baseline for transport coefficients.
+///
+/// Uses `yukawa_md_baseline.py`: velocity-Verlet in reduced units,
+/// FCC lattice init, Berendsen equilibration, NVE production with VACF.
+/// Bypasses Sarkas (which has dump-file velocity storage issues).
+///
+/// Reference: Stanton & Murillo, PRE 93, 043203 (2016)
+pub const TRANSPORT_MD_BASELINE_PROVENANCE: BaselineProvenance = BaselineProvenance {
+    label: "Standalone Yukawa MD transport baselines (lite: N=500)",
+    script: "sarkas/simulations/transport-study/scripts/yukawa_md_baseline.py",
+    commit: "pending (baseline generation in progress)",
+    date: "2026-02-19",
+    command: "python3 yukawa_md_baseline.py --lite",
+    environment: "Python 3.10, NumPy 2.2, numba 0.60",
+    value: 0.0, // aggregate: individual D* values in results JSON
+    unit: "D* reduced (per-case values in transport_baseline_standalone_lite.json)",
+};
+
+/// Publication: Stanton & Murillo (2016) ionic transport.
+pub const STANTON_MURILLO_DOI: &str = "10.1103/PhysRevE.93.043203";
+
+/// Publication: Daligault (2012) practical D* model.
+pub const DALIGAULT_DOI: &str = "10.1103/PhysRevE.86.047401";
+
+// ═══════════════════════════════════════════════════════════════════
 // HFB validation baselines — verify_hfb.rs
 // ═══════════════════════════════════════════════════════════════════
 
