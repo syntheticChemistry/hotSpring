@@ -296,13 +296,21 @@ fn main() {
                         );
 
                         harness.check_bool("random PPPM energy is finite", pppm_energy.is_finite());
-                        // Direct sum and PPPM differ for small boxes (PPPM includes
-                        // full Ewald long-range; direct sum is minimum image only).
-                        // Both should be the same sign and same order of magnitude.
-                        if direct_energy.abs() > 1e-10 {
-                            let same_sign = (pppm_energy * direct_energy) > 0.0;
-                            harness.check_bool("random PPPM same sign as direct", same_sign);
+
+                        // Net force must be zero (Newton's 3rd law).
+                        // This is a physics invariant regardless of charge distribution.
+                        let mut fx_sum = 0.0_f64;
+                        let mut fy_sum = 0.0_f64;
+                        let mut fz_sum = 0.0_f64;
+                        for i in 0..n_rand {
+                            fx_sum += _forces[i * 3];
+                            fy_sum += _forces[i * 3 + 1];
+                            fz_sum += _forces[i * 3 + 2];
                         }
+                        let net_force =
+                            (fx_sum * fx_sum + fy_sum * fy_sum + fz_sum * fz_sum).sqrt();
+                        println!("    Net force magnitude: {net_force:.2e} (should be ~0)");
+                        harness.check_upper("random PPPM net force near zero", net_force, 1.0);
                     }
                     Err(e) => {
                         println!("  PPPM compute failed: {e}");

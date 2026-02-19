@@ -20,6 +20,7 @@
 //! | `validate_barracuda_pipeline` | Yukawa MD GPU ops | GPU |
 //! | `validate_pppm` | PPPM Coulomb/Ewald | GPU |
 //! | `validate_cpu_gpu_parity` | CPU vs GPU same-physics proof | GPU |
+//! | `validate_nak_eigensolve` | NAK-optimized eigensolve correctness | GPU |
 
 use std::process::{self, Command};
 use std::time::Instant;
@@ -85,6 +86,11 @@ const SUITES: &[Suite] = &[
     Suite {
         name: "CPU/GPU Parity",
         binary: "validate_cpu_gpu_parity",
+        requires_gpu: true,
+    },
+    Suite {
+        name: "NAK Eigensolve (correctness)",
+        binary: "validate_nak_eigensolve",
         requires_gpu: true,
     },
 ];

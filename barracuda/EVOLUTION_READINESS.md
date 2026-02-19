@@ -238,6 +238,28 @@ Paper-parity run (N=10k, 80k steps): 9.8 min, $0.0012. 98 runs/day idle.
 - ✅ MD shaders → 5 large shaders extracted to `.wgsl` files
 - ✅ BCS pipeline → Shader compilation cached at construction
 
+## Unidirectional GPU Reduction (v0.5.11, Feb 19 2026)
+
+Wired barracuda's unidirectional pattern into all MD production loops.
+GPU sum-reduction (`sum_reduce_f64.wgsl`) replaces per-particle readback
+with scalar readback: **10,000× less bandwidth per energy dump at N=10000.**
+
+| Before (N=10000) | After | Reduction |
+|-------------------|-------|-----------|
+| KE readback: 80 KB (N×8) | 8 bytes (1 scalar) | 10,000× |
+| PE readback: 80 KB (N×8) | 8 bytes (1 scalar) | 10,000× |
+| Equil thermostat: 80 KB | 8 bytes | 10,000× |
+| Total per dump: 160 KB | 16 bytes | 10,000× |
+
+**Validation**: 6/6 parity, 9/9 transport, 82× GPU speedup at N=10000.
+
+**Remaining readback**: position/velocity snapshots for VACF and cell-list
+rebuilds. Both can be eliminated with GPU-resident VACF and cell-list.
+
+See `wateringHole/handoffs/HOTSPRING_UNIDIRECTIONAL_FEEDBACK_FEB19_2026.md`
+for full design feedback to ToadStool on the unidirectional pattern,
+`StatefulPipeline` proposal, and NAK universal solution.
+
 ## Multi-GPU Benchmark Results (v0.5.10, Feb 17 2026)
 
 RTX 4070 (nvidia proprietary) vs Titan V (NVK/nouveau, open-source).

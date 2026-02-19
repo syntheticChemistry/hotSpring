@@ -208,3 +208,8 @@ path = "src/bin/validate_cpu_gpu_parity.rs"
 [[bin]]
 name = "bench_cpu_gpu_scaling"
 path = "src/bin/bench_cpu_gpu_scaling.rs"
+
+# ── NAK-optimized eigensolve validation (correctness + perf vs baseline) ──
+[[bin]]
+name = "validate_nak_eigensolve"
+path = "src/bin/validate_nak_eigensolve.rs"

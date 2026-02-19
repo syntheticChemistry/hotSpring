@@ -875,6 +875,12 @@ impl SphericalHFB {
         let mut results_p = SpeciesResult::empty(ns);
         let mut results_n = SpeciesResult::empty(ns);
 
+        // Adaptive mixing: reduce mixing when energy oscillates (sign change
+        // in dE). Shell closures (Z=50, N=82, etc.) notoriously oscillate
+        // with fixed mixing. Floor at 0.05 to maintain progress.
+        let mut alpha = mixing;
+        let mut e_prev2 = 1e10_f64;
+
         for it in 0..max_iter {
             let mut rho_p_new = vec![DENSITY_FLOOR; nr];
             let mut rho_n_new = vec![DENSITY_FLOOR; nr];
@@ -1006,8 +1012,8 @@ impl SphericalHFB {
             }
 
             for k in 0..nr {
-                rho_p[k] = (mixing * rho_p_new[k] + (1.0 - mixing) * rho_p[k]).max(DENSITY_FLOOR);
-                rho_n[k] = (mixing * rho_n_new[k] + (1.0 - mixing) * rho_n[k]).max(DENSITY_FLOOR);
+                rho_p[k] = (alpha * rho_p_new[k] + (1.0 - alpha) * rho_p[k]).max(DENSITY_FLOOR);
+                rho_n[k] = (alpha * rho_n_new[k] + (1.0 - alpha) * rho_n[k]).max(DENSITY_FLOOR);
             }
 
             let e_total =
@@ -1015,6 +1021,16 @@ impl SphericalHFB {
 
             last_de = (e_total - e_prev).abs();
             last_iter = it + 1;
+
+            // Detect oscillation: energy changed sign relative to previous step
+            if it > 2 {
+                let de_now = e_total - e_prev;
+                let de_prev = e_prev - e_prev2;
+                if de_now * de_prev < 0.0 {
+                    alpha = (alpha * 0.7).max(0.05);
+                }
+            }
+            e_prev2 = e_prev;
 
             if last_de < tol && it > 5 {
                 converged = true;

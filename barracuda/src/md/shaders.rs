@@ -181,6 +181,55 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 ";
 
 // ═══════════════════════════════════════════════════════════════════
+// Sum Reduction (f64) — GPU-resident energy reduction
+// ═══════════════════════════════════════════════════════════════════
+//
+// Tree-reduction: N per-particle values → ceil(N/256) partial sums.
+// Two dispatches reduce to a single scalar. This eliminates the need
+// to read back N f64 values — only the scalar result crosses the bus.
+//
+// For N=10000: 80 KB readback → 8 bytes. The unidirectional pattern.
+//
+// Adapted from barracuda::shaders::reduce::sum_reduce_f64.wgsl
+
+pub const SHADER_SUM_REDUCE: &str = r"
+@group(0) @binding(0) var<storage, read> input: array<f64>;
+@group(0) @binding(1) var<storage, read_write> output: array<f64>;
+@group(0) @binding(2) var<storage, read> reduce_params: array<f64>;
+
+var<workgroup> shared_data: array<f64, 256>;
+
+@compute @workgroup_size(256)
+fn main(
+    @builtin(global_invocation_id) global_id: vec3<u32>,
+    @builtin(local_invocation_id) local_id: vec3<u32>,
+    @builtin(workgroup_id) workgroup_id: vec3<u32>,
+) {
+    let tid = local_id.x;
+    let gid = global_id.x;
+    let size = u32(reduce_params[0]);
+
+    if (gid < size) {
+        shared_data[tid] = input[gid];
+    } else {
+        shared_data[tid] = f64(0.0);
+    }
+    workgroupBarrier();
+
+    for (var stride = 128u; stride > 0u; stride = stride >> 1u) {
+        if (tid < stride) {
+            shared_data[tid] = shared_data[tid] + shared_data[tid + stride];
+        }
+        workgroupBarrier();
+    }
+
+    if (tid == 0u) {
+        output[workgroup_id.x] = shared_data[0];
+    }
+}
+";
+
+// ═══════════════════════════════════════════════════════════════════
 // Yukawa Cell-List Force Kernel (f64)
 // ═══════════════════════════════════════════════════════════════════
 
