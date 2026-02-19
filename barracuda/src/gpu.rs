@@ -645,7 +645,10 @@ impl GpuF64 {
         })
     }
 
-    /// Create a storage buffer from u32 data (read-only).
+    /// Create a storage buffer from u32 data.
+    ///
+    /// Includes `COPY_DST` so cell-list buffers can be re-uploaded
+    /// when the neighbor list is rebuilt on CPU.
     pub fn create_u32_buffer(&self, data: &[u32], label: &str) -> wgpu::Buffer {
         use wgpu::util::DeviceExt;
         let bytes: Vec<u8> = data.iter().flat_map(|v| v.to_le_bytes()).collect();
@@ -653,7 +656,9 @@ impl GpuF64 {
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some(label),
                 contents: &bytes,
-                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+                usage: wgpu::BufferUsages::STORAGE
+                    | wgpu::BufferUsages::COPY_SRC
+                    | wgpu::BufferUsages::COPY_DST,
             })
     }
 

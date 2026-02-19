@@ -129,6 +129,35 @@ Force shaders compiled via `GpuF64::create_pipeline_f64()` → barracuda driver-
 - ✅ **Full audit report**: specs, wateringHole compliance, validation fidelity, dependency health,
   evolution readiness, test coverage, code size, licensing, data provenance
 
+## CPU vs GPU Scaling (v0.5.11, Feb 19 2026)
+
+See `experiments/007_CPU_GPU_SCALING_BENCHMARK.md` for full data.
+
+| N | GPU mode | CPU steps/s | GPU steps/s | Speedup |
+|------:|:-----------|----------:|----------:|--------:|
+| 108 | all-pairs | 10,734 | 4,725 | 0.4× |
+| 500 | all-pairs | 651 | 1,167 | **1.8×** |
+| 2,000 | all-pairs | 67 | 449 | **6.7×** |
+| 5,000 | all-pairs | ~6.5* | 158 | **~24×** |
+| 10,000 | cell-list | ~1.6* | 136 | **~84×** |
+
+Paper-parity run (N=10k, 80k steps): 9.8 min, $0.0012. 98 runs/day idle.
+
+### Streaming dispatch (v0.5.11)
+
+- `GpuF64::begin_encoder()` / `submit_encoder()` / `read_staging_f64()`:
+  batch multiple VV steps into single GPU submission
+- Production MD: `dump_step` iterations batched per encoder
+- Cell-list: `rebuild_interval=20` steps between CPU-side rebuilds
+- Result: N=500 GPU went from 1.0× to 1.8×; N=10000 cell-list at 136 steps/s
+
+### Next evolution targets
+
+1. **Toadstool unidirectional pipeline**: 90% GPU-stream / 10% control readback
+2. **GPU-resident cell-list**: build neighbor list on-GPU
+3. **GPU-resident reduction**: energy/temperature without staging readback
+4. **Titan V proprietary driver**: unlock 6.9 TFLOPS fp64, fair hardware comparison
+
 ## Completed (v0.5.11)
 
 - ✅ **Barracuda op integration**: Validation binaries now use `barracuda::ops::md::forces::YukawaForceF64`

@@ -203,3 +203,8 @@ path = "src/bin/validate_transport.rs"
 [[bin]]
 name = "validate_cpu_gpu_parity"
 path = "src/bin/validate_cpu_gpu_parity.rs"
+
+# ── CPU vs GPU N-scaling benchmark (fp64 throughput + cost analysis) ──
+[[bin]]
+name = "bench_cpu_gpu_scaling"
+path = "src/bin/bench_cpu_gpu_scaling.rs"
