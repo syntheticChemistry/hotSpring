@@ -167,7 +167,7 @@ fn main() {
     let approach1_evals = result1.cache.len();
 
     println!("  SparsitySampler: {approach1_evals} evals in {approach1_time:.2}s");
-    let chi2_1 = approach1_f.exp() - 1.0;
+    let chi2_1 = approach1_f.exp_m1();
     println!("  log(1+χ²) = {approach1_f:.6}, χ²/datum = {chi2_1:.4}");
 
     // ═══════════════════════════════════════════════════════════════
@@ -208,7 +208,7 @@ fn main() {
     let approach2_evals = result2.cache.len();
     let approach2_time = t0.elapsed().as_secs_f64() - approach1_time;
 
-    let chi2_2 = approach2_f.exp() - 1.0;
+    let chi2_2 = approach2_f.exp_m1();
     println!("  DirectSampler: {approach2_evals} evals");
     println!("  log(1+χ²) = {approach2_f:.6}, χ²/datum = {chi2_2:.4}");
 
@@ -257,7 +257,7 @@ fn main() {
     } else {
         (&approach2_x, approach2_f, "DirectSampler")
     };
-    let best_chi2 = best_f.exp() - 1.0;
+    let best_chi2 = best_f.exp_m1();
     println!("  Best approach: {best_label} (χ²/datum = {best_chi2:.4})");
 
     // Chi-squared decomposition (weighted, with sigma)
@@ -282,7 +282,7 @@ fn main() {
             }
 
             // Bootstrap CI on per-datum chi²
-            let per_datum_contribs: Vec<f64> = chi2_result.contributions.clone();
+            let per_datum_contribs: Vec<f64> = chi2_result.contributions;
             match bootstrap_ci(
                 &per_datum_contribs,
                 |d| d.iter().sum::<f64>() / d.len() as f64,
@@ -386,7 +386,7 @@ fn main() {
             println!(
                 "    chi2_total (lambda={}): {:.4}",
                 lambda,
-                be_chi2 + lambda * nmp_c2
+                lambda.mul_add(nmp_c2, be_chi2)
             );
             provenance::print_nmp_analysis(&nmp);
             println!();
@@ -810,7 +810,7 @@ fn run_multi_seed(base_seed: u64, n_seeds: usize, lambda: f64) {
         } else {
             (1e4, 0.0)
         };
-        let d_chi2_total = d_chi2_be + lambda * d_chi2_nmp;
+        let d_chi2_total = lambda.mul_add(d_chi2_nmp, d_chi2_be);
 
         println!(
             "  {seed:>6} │ {d_chi2_total:>10.4} {d_chi2_be:>10.4} {d_chi2_nmp:>10.4} {d_evals:>6} {d_time:>6}ms │ {d_j:>8.1}"
@@ -989,7 +989,7 @@ fn run_pareto_sweep(base_seed: u64) {
                     within_2s += 1;
                 }
 
-                let total = be + lam * nc;
+                let total = lam.mul_add(nc, be);
                 if total < best_total {
                     best_total = total;
                     best_params = r.x_best.clone();
@@ -1202,7 +1202,7 @@ fn l1_objective_nmp(
     let chi2_nmp_datum = provenance::nmp_chi2_from_props(&nmp) / 5.0;
 
     // Combined: chi2_BE/datum + lambda * chi2_NMP/datum
-    let chi2_total = chi2_be_datum + lambda * chi2_nmp_datum;
+    let chi2_total = lambda.mul_add(chi2_nmp_datum, chi2_be_datum);
 
     chi2_total.ln_1p()
 }

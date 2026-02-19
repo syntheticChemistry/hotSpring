@@ -22,11 +22,12 @@ fn main() {
     // ─── BFGS: Rosenbrock ─────────────────────────────────────────
     println!("── BFGS: Rosenbrock f(x) = (1-x₀)² + 100(x₁-x₀²)² ──");
     {
-        let f = |x: &[f64]| (1.0 - x[0]).powi(2) + 100.0 * (x[1] - x[0] * x[0]).powi(2);
+        let f =
+            |x: &[f64]| (1.0 - x[0]).mul_add(1.0 - x[0], 100.0 * x[0].mul_add(-x[0], x[1]).powi(2));
         let grad = |x: &[f64]| {
             vec![
-                -2.0 * (1.0 - x[0]) - 400.0 * x[0] * (x[1] - x[0] * x[0]),
-                200.0 * (x[1] - x[0] * x[0]),
+                (-2.0f64).mul_add(1.0 - x[0], -(400.0 * x[0] * x[0].mul_add(-x[0], x[1]))),
+                200.0 * x[0].mul_add(-x[0], x[1]),
             ]
         };
 
@@ -93,7 +94,8 @@ fn main() {
     // ─── Nelder-Mead: Rosenbrock ──────────────────────────────────
     println!("\n── Nelder-Mead: Rosenbrock ──");
     {
-        let f = |x: &[f64]| (1.0 - x[0]).powi(2) + 100.0 * (x[1] - x[0] * x[0]).powi(2);
+        let f =
+            |x: &[f64]| (1.0 - x[0]).mul_add(1.0 - x[0], 100.0 * x[0].mul_add(-x[0], x[1]).powi(2));
         let bounds = vec![(-5.0, 5.0), (-5.0, 5.0)];
         let x0 = vec![0.0, 0.0];
 
@@ -128,7 +130,9 @@ fn main() {
             let n = x.len() as f64;
             let sum_sq: f64 = x.iter().map(|xi| xi * xi).sum::<f64>() / n;
             let sum_cos: f64 = x.iter().map(|xi| (2.0 * PI * xi).cos()).sum::<f64>() / n;
-            -20.0 * (-0.2 * sum_sq.sqrt()).exp() - sum_cos.exp() + 20.0 + std::f64::consts::E
+            (-20.0f64).mul_add((-0.2 * sum_sq.sqrt()).exp(), -sum_cos.exp())
+                + 20.0
+                + std::f64::consts::E
         };
 
         let bounds = vec![(-5.0, 5.0), (-5.0, 5.0)];
@@ -155,7 +159,7 @@ fn main() {
     // ─── Bisection root-finding ───────────────────────────────────
     println!("\n── Bisection: x² - 2 = 0 → x = √2 ──");
     {
-        let f = |x: f64| x * x - 2.0;
+        let f = |x: f64| x.mul_add(x, -2.0);
         match barracuda::optimize::bisect(f, 1.0, 2.0, 1e-12, 100) {
             Ok(root) => {
                 let ok = (root - std::f64::consts::SQRT_2).abs() < tolerances::EXACT_F64;
@@ -252,7 +256,7 @@ fn main() {
         let f = move |_t: f64, y: &[f64]| {
             vec![
                 alpha * y[0] - beta * y[0] * y[1],
-                delta * y[0] * y[1] - gamma_lv * y[1],
+                (delta * y[0]).mul_add(y[1], -(gamma_lv * y[1])),
             ]
         };
         let config =

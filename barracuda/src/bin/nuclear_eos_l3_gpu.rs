@@ -67,7 +67,7 @@ fn main() {
 
     // ── Load data ──────────────────────────────────────────────────
     let ctx = data::load_eos_context().expect("Failed to load EOS context");
-    let exp_data = ctx.exp_data.clone();
+    let exp_data = ctx.exp_data;
 
     let nuclei: Vec<(usize, usize, f64)> = exp_data
         .iter()

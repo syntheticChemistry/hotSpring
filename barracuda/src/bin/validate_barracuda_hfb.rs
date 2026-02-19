@@ -33,7 +33,7 @@ fn cpu_find_fermi_bcs(eigenvalues: &[f64], n_target: f64, delta: f64) -> f64 {
             .iter()
             .map(|&e| {
                 let eps = e - mu;
-                0.5 * (1.0 - eps / (eps * eps + delta * delta).sqrt())
+                0.5 * (1.0 - eps / eps.hypot(delta))
             })
             .sum()
     };
@@ -58,7 +58,7 @@ fn cpu_bcs_occupations(eigenvalues: &[f64], fermi: f64, delta: f64) -> Vec<f64> 
         .iter()
         .map(|&e| {
             let eps = e - fermi;
-            let e_qp = (eps * eps + delta * delta).sqrt();
+            let e_qp = eps.hypot(delta);
             (0.5 * (1.0 - eps / e_qp)).clamp(0.0, 1.0)
         })
         .collect()
@@ -132,8 +132,8 @@ async fn main() {
         let mut upper = Vec::with_capacity(batch_size);
 
         for b in 0..batch_size {
-            let hw = 7.0 + b as f64 * 0.5; // Varying oscillator frequencies
-            let a_mass = 40.0 + b as f64 * 10.0;
+            let hw = (b as f64).mul_add(0.5, 7.0); // Varying oscillator frequencies
+            let a_mass = (b as f64).mul_add(10.0, 40.0);
             let delta = 12.0 / a_mass.sqrt();
             // Keep target within level capacity (n_levels=12, deg=1, max=12)
             let n_particles = (2 + b) as f64;
@@ -221,7 +221,7 @@ async fn main() {
 
         for b in 0..batch_size {
             let hw = 7.0 + b as f64;
-            let g = 0.5 + 0.1 * b as f64;
+            let g = 0.1f64.mul_add(b as f64, 0.5);
             let h = build_test_hamiltonian(ns, hw, g);
 
             // CPU eigensolve for reference
@@ -297,15 +297,9 @@ async fn main() {
 
         // ── Single-dispatch eigensolve (all rotations in one shader) ──
         println!("\n  Single-dispatch eigensolve (all rotations in one shader):");
-        let (sd_vals, sd_vecs) = BatchedEighGpu::execute_single_dispatch(
-            device.clone(),
-            &packed,
-            ns,
-            batch_size,
-            30,
-            1e-12,
-        )
-        .expect("GPU BatchedEighGpu single-dispatch");
+        let (sd_vals, sd_vecs) =
+            BatchedEighGpu::execute_single_dispatch(device, &packed, ns, batch_size, 30, 1e-12)
+                .expect("GPU BatchedEighGpu single-dispatch");
 
         let mut max_sd_err: f64 = 0.0;
         for b in 0..batch_size {
@@ -391,7 +385,7 @@ async fn main() {
         let mut pn: f64 = 0.0;
         for k in 0..n_levels {
             let eps = eigenvalues[k] - mu;
-            let e_k = (eps * eps + delta_val * delta_val).sqrt();
+            let e_k = eps.hypot(delta_val);
             let v2_k = 0.5 * (1.0 - eps / e_k);
             pn += degeneracies[k] * v2_k;
         }
@@ -412,8 +406,8 @@ async fn main() {
         // differs from CPU by up to 0.04 particles.
 
         // Verify μ is within the spectrum
-        let mu_reasonable = mu > eigenvalues[0] - 10.0 * delta_val
-            && mu < *eigenvalues.last().unwrap() + 10.0 * delta_val;
+        let mu_reasonable = mu > 10.0f64.mul_add(-delta_val, eigenvalues[0])
+            && mu < 10.0f64.mul_add(delta_val, *eigenvalues.last().unwrap());
         harness.check_bool("BCS degeneracy: μ within reasonable range", mu_reasonable);
     }
 

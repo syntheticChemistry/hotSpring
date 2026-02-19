@@ -411,7 +411,12 @@ fn compare_forces(gpu: &GpuF64, n: usize, harness: &mut ValidationHarness) {
     let net_fx_v4: f64 = (0..n).map(|i| forces_v4[i * 3]).sum();
     let net_fy_v4: f64 = (0..n).map(|i| forces_v4[i * 3 + 1]).sum();
     let net_fz_v4: f64 = (0..n).map(|i| forces_v4[i * 3 + 2]).sum();
-    let net_f_v4 = (net_fx_v4 * net_fx_v4 + net_fy_v4 * net_fy_v4 + net_fz_v4 * net_fz_v4).sqrt();
+    let net_f_v4 = net_fz_v4
+        .mul_add(
+            net_fz_v4,
+            net_fx_v4.mul_add(net_fx_v4, net_fy_v4 * net_fy_v4),
+        )
+        .sqrt();
     let pe_diff_v4 = (total_pe_ap - total_pe_v4).abs();
     let pe_rel_v4 = if total_pe_ap.abs() > 1e-30 {
         pe_diff_v4 / total_pe_ap.abs()
@@ -491,7 +496,12 @@ fn compare_forces(gpu: &GpuF64, n: usize, harness: &mut ValidationHarness) {
     let net_fx_v2: f64 = (0..n).map(|i| forces_v2[i * 3]).sum();
     let net_fy_v2: f64 = (0..n).map(|i| forces_v2[i * 3 + 1]).sum();
     let net_fz_v2: f64 = (0..n).map(|i| forces_v2[i * 3 + 2]).sum();
-    let net_f_v2 = (net_fx_v2 * net_fx_v2 + net_fy_v2 * net_fy_v2 + net_fz_v2 * net_fz_v2).sqrt();
+    let net_f_v2 = net_fz_v2
+        .mul_add(
+            net_fz_v2,
+            net_fx_v2.mul_add(net_fx_v2, net_fy_v2 * net_fy_v2),
+        )
+        .sqrt();
     println!(
         "  Cell-list v2: PE diff from AP = {pe_diff_v2:.2e} (relative {pe_rel_v2:.2e}), net force = {net_f_v2:.2e}"
     );
@@ -532,8 +542,12 @@ fn compare_forces(gpu: &GpuF64, n: usize, harness: &mut ValidationHarness) {
         let fz_cl = forces_cl[i * 3 + 2];
 
         let mag_ap = (fx_ap * fx_ap + fy_ap * fy_ap + fz_ap * fz_ap).sqrt();
-        let diff =
-            ((fx_ap - fx_cl).powi(2) + (fy_ap - fy_cl).powi(2) + (fz_ap - fz_cl).powi(2)).sqrt();
+        let diff = (fz_ap - fz_cl)
+            .mul_add(
+                fz_ap - fz_cl,
+                (fy_ap - fy_cl).mul_add(fy_ap - fy_cl, (fx_ap - fx_cl).powi(2)),
+            )
+            .sqrt();
 
         total_force_mag_ap += mag_ap;
         rms_diff += diff * diff;
@@ -572,12 +586,22 @@ fn compare_forces(gpu: &GpuF64, n: usize, harness: &mut ValidationHarness) {
     let net_fx_ap: f64 = (0..n).map(|i| forces_ap[i * 3]).sum();
     let net_fy_ap: f64 = (0..n).map(|i| forces_ap[i * 3 + 1]).sum();
     let net_fz_ap: f64 = (0..n).map(|i| forces_ap[i * 3 + 2]).sum();
-    let net_f_ap = (net_fx_ap * net_fx_ap + net_fy_ap * net_fy_ap + net_fz_ap * net_fz_ap).sqrt();
+    let net_f_ap = net_fz_ap
+        .mul_add(
+            net_fz_ap,
+            net_fx_ap.mul_add(net_fx_ap, net_fy_ap * net_fy_ap),
+        )
+        .sqrt();
 
     let net_fx_cl: f64 = (0..n).map(|i| forces_cl[i * 3]).sum();
     let net_fy_cl: f64 = (0..n).map(|i| forces_cl[i * 3 + 1]).sum();
     let net_fz_cl: f64 = (0..n).map(|i| forces_cl[i * 3 + 2]).sum();
-    let net_f_cl = (net_fx_cl * net_fx_cl + net_fy_cl * net_fy_cl + net_fz_cl * net_fz_cl).sqrt();
+    let net_f_cl = net_fz_cl
+        .mul_add(
+            net_fz_cl,
+            net_fx_cl.mul_add(net_fx_cl, net_fy_cl * net_fy_cl),
+        )
+        .sqrt();
 
     println!(
         "  Net force (all-pairs): ({net_fx_ap:.4e}, {net_fy_ap:.4e}, {net_fz_ap:.4e}) |F|={net_f_ap:.4e}"
@@ -627,9 +651,12 @@ fn compare_forces(gpu: &GpuF64, n: usize, harness: &mut ValidationHarness) {
             let fy_cl = forces_cl[i * 3 + 1];
             let fz_cl = forces_cl[i * 3 + 2];
             let mag_ap = (fx_ap * fx_ap + fy_ap * fy_ap + fz_ap * fz_ap).sqrt();
-            let diff =
-                ((fx_ap - fx_cl).powi(2) + (fy_ap - fy_cl).powi(2) + (fz_ap - fz_cl).powi(2))
-                    .sqrt();
+            let diff = (fz_ap - fz_cl)
+                .mul_add(
+                    fz_ap - fz_cl,
+                    (fy_ap - fy_cl).mul_add(fy_ap - fy_cl, (fx_ap - fx_cl).powi(2)),
+                )
+                .sqrt();
             let rel = if mag_ap > 1e-30 { diff / mag_ap } else { diff };
             if rel > threshold {
                 println!("    particle {i:>5}: AP=({fx_ap:+.6e},{fy_ap:+.6e},{fz_ap:+.6e}) CL=({fx_cl:+.6e},{fy_cl:+.6e},{fz_cl:+.6e}) Δ={diff:.2e}");
@@ -642,10 +669,15 @@ fn compare_forces(gpu: &GpuF64, n: usize, harness: &mut ValidationHarness) {
         println!("  Worst 5 mismatches:");
         let mut diffs: Vec<(usize, f64)> = (0..n)
             .map(|i| {
-                let diff = ((forces_ap[i * 3] - forces_cl[i * 3]).powi(2)
-                    + (forces_ap[i * 3 + 1] - forces_cl[i * 3 + 1]).powi(2)
-                    + (forces_ap[i * 3 + 2] - forces_cl[i * 3 + 2]).powi(2))
-                .sqrt();
+                let diff = (forces_ap[i * 3 + 2] - forces_cl[i * 3 + 2])
+                    .mul_add(
+                        forces_ap[i * 3 + 2] - forces_cl[i * 3 + 2],
+                        (forces_ap[i * 3 + 1] - forces_cl[i * 3 + 1]).mul_add(
+                            forces_ap[i * 3 + 1] - forces_cl[i * 3 + 1],
+                            (forces_ap[i * 3] - forces_cl[i * 3]).powi(2),
+                        ),
+                    )
+                    .sqrt();
                 (i, diff)
             })
             .collect();
@@ -752,7 +784,9 @@ fn test_hybrid(gpu: &GpuF64, n: usize, harness: &mut ValidationHarness) {
     let net_fx: f64 = (0..n).map(|i| forces_unsorted[i * 3]).sum();
     let net_fy: f64 = (0..n).map(|i| forces_unsorted[i * 3 + 1]).sum();
     let net_fz: f64 = (0..n).map(|i| forces_unsorted[i * 3 + 2]).sum();
-    let net_f = (net_fx * net_fx + net_fy * net_fy + net_fz * net_fz).sqrt();
+    let net_f = net_fz
+        .mul_add(net_fz, net_fx.mul_add(net_fx, net_fy * net_fy))
+        .sqrt();
 
     println!("  Hybrid (all-pairs loop, cell-list bindings, sorted positions):");
     println!("    PE = {total_pe:.10}");
@@ -816,7 +850,7 @@ async fn main() {
         println!("  sum(cell_count) = {total_count} (should be {n_test})");
         harness.check_abs(
             "phase1b_cell_count_sum",
-            total_count as f64,
+            f64::from(total_count),
             n_test as f64,
             0.5,
         );

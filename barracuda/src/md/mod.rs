@@ -5,24 +5,25 @@
 //! Full MD simulation pipeline matching Sarkas PP Yukawa studies.
 //! Reference: Choi, Dharuman, Murillo, Phys. Rev. E 100, 013206 (2019).
 //!
-//! # Deprecation status
+//! # Architecture
 //!
-//! MD force, integrator, thermostat, and observable shaders have been
-//! absorbed by `barracuda::ops::md`. The following submodules are
-//! **deprecated** and retained as fossil record:
+//! Production simulation runs GPU-resident: particle data stays on GPU between
+//! substeps, CPU reads back only at dump intervals for observables. Shader
+//! compilation uses [`crate::gpu::GpuF64::create_pipeline_f64`] for driver-aware patching
+//! (NVK `exp(f64)` workaround via barracuda).
 //!
-//! | Module | Absorbed by | Status |
-//! |--------|-------------|--------|
-//! | `shaders` | `barracuda::ops::md::*` | Deprecated — local .wgsl copies |
-//! | `cpu_reference` | barracuda CPU forces | Deprecated — benchmarking reference |
-//!
-//! The following submodules remain **active** (hotSpring-specific):
+//! Barracuda ops (`barracuda::ops::md::*`) are used by validation binaries
+//! which don't need GPU-resident performance. Production simulation keeps
+//! local WGSL for the cell-list force kernel (not yet in barracuda GPU path).
 //!
 //! | Module | Purpose |
 //! |--------|---------|
 //! | `config` | Sarkas-style config (κ, Γ, DSF parameters) |
 //! | `observables` | Energy validation, CPU RDF/VACF, GPU SSF (via barracuda) |
-//! | `simulation` | MD loop orchestration (should migrate to barracuda ops) |
+//! | `simulation` | GPU-resident MD loop with cell-list support |
+//! | `shaders` | WGSL shader sources for cell-list + inline kernels |
+//! | `transport` | Daligault (2012) D* fit, Green-Kubo integration |
+//! | `cpu_reference` | CPU Yukawa force for cross-validation |
 
 pub mod config;
 pub mod cpu_reference;
@@ -30,4 +31,3 @@ pub mod observables;
 pub mod shaders;
 pub mod simulation;
 pub mod transport;
-pub mod yukawa_nvk_safe;

@@ -326,7 +326,10 @@ impl GpuF64 {
         }
     }
 
-    /// Create a compute pipeline from WGSL shader source
+    /// Create a compute pipeline from WGSL shader source (raw, no patching).
+    ///
+    /// Use [`Self::create_pipeline_f64`] for shaders that contain `exp()` or `log()`
+    /// on f64 values — those need driver-aware patching on NVK/nouveau.
     pub fn create_pipeline(&self, shader_source: &str, label: &str) -> wgpu::ComputePipeline {
         let shader_module = self
             .device()
@@ -334,6 +337,28 @@ impl GpuF64 {
                 label: Some(label),
                 source: wgpu::ShaderSource::Wgsl(shader_source.into()),
             });
+
+        self.device()
+            .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                label: Some(label),
+                layout: None,
+                module: &shader_module,
+                entry_point: "main",
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+                cache: None,
+            })
+    }
+
+    /// Create a compute pipeline with driver-aware f64 patching.
+    ///
+    /// Delegates to barracuda's `WgpuDevice::compile_shader_f64` which
+    /// auto-patches `exp()` → software `exp_f64()` on NVK/nouveau drivers
+    /// where native f64 `exp` crashes. Safe to call on all drivers — on
+    /// proprietary NVIDIA/AMD the shader passes through unmodified.
+    pub fn create_pipeline_f64(&self, shader_source: &str, label: &str) -> wgpu::ComputePipeline {
+        let shader_module = self
+            .wgpu_device
+            .compile_shader_f64(shader_source, Some(label));
 
         self.device()
             .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {

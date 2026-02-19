@@ -120,7 +120,7 @@ fn main() {
                 z as f64,
                 n as f64,
                 a.powf(2.0 / 3.0),
-                a.powf(1.0 / 3.0),
+                a.cbrt(),
                 a.sqrt(),
                 if z % 2 == 0 { 1.0 } else { 0.0 },
                 if n % 2 == 0 { 1.0 } else { 0.0 },
@@ -184,7 +184,7 @@ fn main() {
 
     // GPU: derive NMP → shader params, dispatch
     let nmp = nuclear_matter_properties(&provenance::SLY4_PARAMS).unwrap();
-    let r0 = (3.0 / (4.0 * std::f64::consts::PI * nmp.rho0_fm3)).powf(1.0 / 3.0);
+    let r0 = (3.0 / (4.0 * std::f64::consts::PI * nmp.rho0_fm3)).cbrt();
     let nmp_arr: Vec<f64> = vec![nmp.e_a_mev.abs(), r0, nmp.j_mev, 1.439_976_4];
     let nmp_buf = gpu.create_f64_buffer(&nmp_arr, "NMP_sly4");
     let energy_buf = gpu.create_f64_output_buffer(n_nuclei, "B_calc");
@@ -592,7 +592,7 @@ fn main() {
         direct_sampler(cpu_objective, bounds, &config_cpu).expect("CPU DirectSampler failed");
     let cpu_full_time = t_cpu_full.elapsed().as_secs_f64();
     let energy_ds_cpu = pmon_ds_cpu.stop();
-    let cpu_full_chi2 = result_cpu.f_best.exp() - 1.0;
+    let cpu_full_chi2 = result_cpu.f_best.exp_m1();
 
     report.add_phase(PhaseResult {
         phase: "L1 DirectSampler".into(),
@@ -619,7 +619,7 @@ fn main() {
     // Note: DirectSampler is serial per-eval. The real GPU win comes from
     // batching all Nelder-Mead vertices simultaneously (future evolution).
     // For now, we run identical CPU physics to verify result parity.
-    let sorted_for_obj = sorted_nuclei_arc.clone();
+    let sorted_for_obj = sorted_nuclei_arc;
     let gpu_objective =
         move |x: &[f64]| -> f64 { l1_objective_with_nmp(x, &sorted_for_obj, lambda) };
 
@@ -635,7 +635,7 @@ fn main() {
         direct_sampler(gpu_objective, bounds, &config_gpu).expect("GPU DirectSampler failed");
     let gpu_full_time = t_gpu_full.elapsed().as_secs_f64();
     let energy_ds_gpu = pmon_ds_gpu.stop();
-    let gpu_full_chi2 = result_gpu.f_best.exp() - 1.0;
+    let gpu_full_chi2 = result_gpu.f_best.exp_m1();
 
     report.add_phase(PhaseResult {
         phase: "L1 DirectSampler".into(),
@@ -727,7 +727,7 @@ fn main() {
     println!();
 
     let exp_data_arc = ctx.exp_data.clone();
-    let exp_data_l2 = exp_data_arc.clone();
+    let exp_data_l2 = exp_data_arc;
 
     let l2_objective = move |x: &[f64]| -> f64 { l2_objective_fn(x, &exp_data_l2, 0.1) };
 
@@ -749,7 +749,7 @@ fn main() {
         direct_sampler(l2_objective, bounds, &l2_config).expect("L2 DirectSampler failed");
     let l2_opt_time = t_l2_opt.elapsed().as_secs_f64();
     let energy_l2_opt = pmon_l2_opt.stop();
-    let l2_opt_chi2 = result_l2.f_best.exp() - 1.0;
+    let l2_opt_chi2 = result_l2.f_best.exp_m1();
 
     report.add_phase(PhaseResult {
         phase: "L2 DirectSampler".into(),
@@ -890,7 +890,7 @@ fn l1_chi2_gpu(
         return 1e10;
     }
 
-    let r0 = (3.0 / (4.0 * std::f64::consts::PI * nmp.rho0_fm3)).powf(1.0 / 3.0);
+    let r0 = (3.0 / (4.0 * std::f64::consts::PI * nmp.rho0_fm3)).cbrt();
     let nmp_arr: Vec<f64> = vec![nmp.e_a_mev.abs(), r0, nmp.j_mev, 1.439_976_4];
     let nmp_buf = gpu.create_f64_buffer(&nmp_arr, "NMP_i");
     let energy_buf = gpu.create_f64_output_buffer(n_nuclei, "B_i");
@@ -983,7 +983,7 @@ fn l1_objective_with_nmp(x: &[f64], nuclei: &[((usize, usize), (f64, f64))], lam
 
     let chi2_be_datum = chi2_be / f64::from(count);
     let chi2_nmp = provenance::nmp_chi2_from_props(&nmp) / 5.0;
-    let total = chi2_be_datum + lambda * chi2_nmp;
+    let total = lambda.mul_add(chi2_nmp, chi2_be_datum);
     total.ln_1p()
 }
 
@@ -1034,6 +1034,6 @@ fn l2_objective_fn(x: &[f64], exp_data: &HashMap<(usize, usize), (f64, f64)>, la
 
     let chi2_be_datum = chi2_be / f64::from(count);
     let chi2_nmp = provenance::nmp_chi2_from_props(&nmp) / 5.0;
-    let total = chi2_be_datum + lambda * chi2_nmp;
+    let total = lambda.mul_add(chi2_nmp, chi2_be_datum);
     total.ln_1p()
 }

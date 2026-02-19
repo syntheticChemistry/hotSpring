@@ -433,7 +433,7 @@ async fn run_n_scaling(report: &mut BenchReport, harness: &mut ValidationHarness
             let ratio_n = n as f64 / base_n;
             let ratio_time = base_sps / sps;
             let exponent = if ratio_n > 1.0 {
-                ratio_time.ln() / ratio_n.ln()
+                ratio_time.log(ratio_n)
             } else {
                 0.0
             };

@@ -63,8 +63,8 @@ fn main() {
     }
 
     if count_hfb > 0 {
-        let avg_py = total_delta_py / count_hfb as f64;
-        let avg_exp = total_delta_exp / count_hfb as f64;
+        let avg_py = total_delta_py / f64::from(count_hfb);
+        let avg_exp = total_delta_exp / f64::from(count_hfb);
         println!(
             "\nHFB nuclei: mean |Rust-Python| = {avg_py:.1} MeV, mean |Rust-Exp| = {avg_exp:.1} MeV"
         );

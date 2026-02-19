@@ -242,9 +242,9 @@ fn main() {
         match barracuda::ops::linalg::tridiagonal::tridiagonal_solve(&a_sub, &b_diag, &c_sup, &d) {
             Ok(x) => {
                 // Verify Ax ≈ d
-                let ax0 = 4.0 * x[0] + 1.0 * x[1];
-                let ax1 = 1.0 * x[0] + 4.0 * x[1] + 1.0 * x[2];
-                let ax2 = 1.0 * x[1] + 4.0 * x[2];
+                let ax0 = 4.0f64.mul_add(x[0], 1.0 * x[1]);
+                let ax1 = 1.0f64.mul_add(x[2], 1.0f64.mul_add(x[0], 4.0 * x[1]));
+                let ax2 = 1.0f64.mul_add(x[1], 4.0 * x[2]);
                 let err = (ax0 - 1.0).abs() + (ax1 - 2.0).abs() + (ax2 - 1.0).abs();
 
                 if err < tolerances::EXACT_F64 {
@@ -274,8 +274,8 @@ fn main() {
                 // Verify Ax ≈ d
                 let mut err = 0.0;
                 for i in 0..n {
-                    let ax_i = b_diag[i] * x[i]
-                        + if i > 0 { a_sub[i - 1] * x[i - 1] } else { 0.0 }
+                    let ax_i = b_diag[i]
+                        .mul_add(x[i], if i > 0 { a_sub[i - 1] * x[i - 1] } else { 0.0 })
                         + if i < n - 1 { c_sup[i] * x[i + 1] } else { 0.0 };
                     err += (ax_i - d[i]).abs();
                 }

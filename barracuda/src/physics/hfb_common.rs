@@ -72,7 +72,7 @@ pub fn hermite_value(n: usize, x: f64) -> f64 {
 
 /// Factorial n! as f64.
 ///
-/// Delegates to [`barracuda::special::factorial`] — the canonical
+/// Delegates to [`barracuda::special::factorial()`] — the canonical
 /// implementation with a lookup table for n ≤ 20 and Stirling's
 /// approximation for larger n.
 pub fn factorial_f64(n: usize) -> f64 {

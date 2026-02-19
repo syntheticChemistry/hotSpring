@@ -66,7 +66,14 @@ struct HamiltonianParamsGpu {
 impl HamiltonianParamsGpu {
     // GPU-resident deformed pipeline — reserved for Tier B evolution
     #[allow(dead_code)]
-    fn new(n_rho: u32, n_z: u32, block_size: u32, n_blocks: u32, d_rho: f64, d_z: f64) -> Self {
+    const fn new(
+        n_rho: u32,
+        n_z: u32,
+        block_size: u32,
+        n_blocks: u32,
+        d_rho: f64,
+        d_z: f64,
+    ) -> Self {
         let dr = d_rho.to_bits();
         let dz = d_z.to_bits();
         Self {
@@ -224,7 +231,7 @@ impl NucleusSetup {
         2.0 * PI * rho * self.d_rho * self.d_z
     }
 
-    fn grid_idx(&self, i_rho: usize, i_z: usize) -> usize {
+    const fn grid_idx(&self, i_rho: usize, i_z: usize) -> usize {
         i_rho * self.n_z + i_z
     }
 }
@@ -1186,7 +1193,7 @@ fn rms_radius(setup: &NucleusSetup, rt: &[f64]) -> f64 {
     }
 }
 
-pub fn estimate_gpu_dispatches(n_nuclei: usize, avg_blocks: usize, max_iter: usize) -> usize {
+pub const fn estimate_gpu_dispatches(n_nuclei: usize, avg_blocks: usize, max_iter: usize) -> usize {
     let per_iter = 4 + avg_blocks; // H build + eigh + BCS + density (GPU dispatches only)
     n_nuclei * (1 + max_iter * per_iter)
 }

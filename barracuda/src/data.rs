@@ -35,7 +35,7 @@ struct NucleiFile {
 }
 
 /// Which AME2020 dataset to use
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NucleiSet {
     /// 52 curated nuclei (doubly-magic, Sn chain, etc.) — fast validation
     Selected,
@@ -57,7 +57,7 @@ impl NucleiSet {
     }
 
     /// JSON filename for this dataset
-    pub fn filename(&self) -> &'static str {
+    pub const fn filename(&self) -> &'static str {
         match self {
             NucleiSet::Selected => "ame2020_selected.json",
             NucleiSet::Full => "ame2020_full.json",
@@ -65,7 +65,7 @@ impl NucleiSet {
     }
 
     /// Human-readable description
-    pub fn description(&self) -> &'static str {
+    pub const fn description(&self) -> &'static str {
         match self {
             NucleiSet::Selected => "AME2020 selected (52 nuclei)",
             NucleiSet::Full => "AME2020 full (2,042 experimentally measured nuclei)",

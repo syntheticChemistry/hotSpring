@@ -172,7 +172,7 @@ impl ValidationHarness {
 
     /// Total number of checks.
     #[must_use]
-    pub fn total_count(&self) -> usize {
+    pub const fn total_count(&self) -> usize {
         self.checks.len()
     }
 

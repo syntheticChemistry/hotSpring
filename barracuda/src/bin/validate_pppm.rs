@@ -99,11 +99,16 @@ fn main() {
                 println!("    Compute:    {:.3}ms", compute_time * 1000.0);
 
                 // Newton 3rd law: forces should be equal and opposite
-                let f_diff = ((forces[0] + forces[3]).powi(2)
-                    + (forces[1] + forces[4]).powi(2)
-                    + (forces[2] + forces[5]).powi(2))
-                .sqrt();
-                let f_mag = (forces[0].powi(2) + forces[1].powi(2) + forces[2].powi(2)).sqrt();
+                let f_diff = (forces[2] + forces[5])
+                    .mul_add(
+                        forces[2] + forces[5],
+                        (forces[1] + forces[4])
+                            .mul_add(forces[1] + forces[4], (forces[0] + forces[3]).powi(2)),
+                    )
+                    .sqrt();
+                let f_mag = forces[2]
+                    .mul_add(forces[2], forces[1].mul_add(forces[1], forces[0].powi(2)))
+                    .sqrt();
                 let newton3_err = if f_mag > 0.0 { f_diff / f_mag } else { 0.0 };
                 println!("    Newton 3rd: |F1+F2|/|F1| = {newton3_err:.2e}");
 
@@ -189,7 +194,9 @@ fn main() {
                         let fx_sum: f64 = forces.iter().step_by(3).sum();
                         let fy_sum: f64 = forces.iter().skip(1).step_by(3).sum();
                         let fz_sum: f64 = forces.iter().skip(2).step_by(3).sum();
-                        let f_net = (fx_sum.powi(2) + fy_sum.powi(2) + fz_sum.powi(2)).sqrt();
+                        let f_net = fz_sum
+                            .mul_add(fz_sum, fy_sum.mul_add(fy_sum, fx_sum.powi(2)))
+                            .sqrt();
                         println!("    |sum F|:         {f_net:.2e} (should be ~0)");
 
                         harness.check_bool("NaCl energy is finite", energy.is_finite());

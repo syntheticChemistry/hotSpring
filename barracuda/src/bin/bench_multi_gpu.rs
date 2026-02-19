@@ -13,10 +13,10 @@
 //!   - Titan V (NVK): NAK compiler crash on native exp(f64) — blocks Yukawa MD
 //!
 //! This binary proves multi-GPU dispatch as a stepping stone toward
-//! toadstool's GpuPool / MultiDevicePool for production workloads.
+//! toadstool's `GpuPool` / `MultiDevicePool` for production workloads.
 //!
 //! Usage:
-//!   cargo run --release --bin bench_multi_gpu
+//!   cargo run --release --bin `bench_multi_gpu`
 
 use barracuda::ops::linalg::BatchedEighGpu;
 use hotspring_barracuda::gpu::GpuF64;
@@ -432,14 +432,14 @@ fn generate_symmetric_matrices(batch: usize, dim: usize) -> Vec<f64> {
         for i in 0..dim {
             for j in 0..dim {
                 let diag = if i == j {
-                    (i as f64 + 1.0) * 10.0 + b as f64 * 0.1
+                    (i as f64 + 1.0).mul_add(10.0, b as f64 * 0.1)
                 } else {
                     0.0
                 };
                 let off = if i == j {
                     0.0
                 } else {
-                    ((i + j) as f64 * 0.3 + b as f64 * 0.01).sin() * 0.5
+                    ((i + j) as f64).mul_add(0.3, b as f64 * 0.01).sin() * 0.5
                 };
                 matrices.push(diag + off);
             }

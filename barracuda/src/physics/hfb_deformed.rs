@@ -95,12 +95,12 @@ impl CylindricalGrid {
 
     /// Flatten (i_rho, i_z) -> index
     #[inline]
-    fn idx(&self, i_rho: usize, i_z: usize) -> usize {
+    const fn idx(&self, i_rho: usize, i_z: usize) -> usize {
         i_rho * self.n_z + i_z
     }
 
     /// Total grid points
-    fn total(&self) -> usize {
+    const fn total(&self) -> usize {
         self.n_rho * self.n_z
     }
 }

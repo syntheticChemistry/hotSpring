@@ -8,11 +8,11 @@
 //! 3. L2 HFB SCF pipeline (full physics on real nuclei)
 //!
 //! Run on each GPU:
-//!   HOTSPRING_GPU_ADAPTER=4070  cargo run --release --bin bench_gpu_fp64
-//!   HOTSPRING_GPU_ADAPTER=titan cargo run --release --bin bench_gpu_fp64
+//!   `HOTSPRING_GPU_ADAPTER=4070`  cargo run --release --bin `bench_gpu_fp64`
+//!   `HOTSPRING_GPU_ADAPTER=titan` cargo run --release --bin `bench_gpu_fp64`
 //!
 //! Provenance: analytical benchmarks with synthetic Hamiltonians (1, 2)
-//! and real AME2020 nuclei with SLy4 parameters (3).
+//! and real AME2020 nuclei with `SLy4` parameters (3).
 //! No Python baseline — this measures GPU throughput, not physics fidelity.
 
 use barracuda::ops::linalg::BatchedEighGpu;
@@ -205,7 +205,7 @@ fn bench_l2_pipeline(gpu: &GpuF64) {
             println!("  Converged: {converged}/{n_nuclei} (in {max_iter} iters)");
         }
     }
-    let elapsed = t0.elapsed().as_secs_f64() / rounds as f64;
+    let elapsed = t0.elapsed().as_secs_f64() / f64::from(rounds);
 
     println!("  Wall per eval:   {:.1} ms", elapsed * 1e3);
     println!(
@@ -240,14 +240,14 @@ fn generate_symmetric_matrices(batch: usize, dim: usize) -> Vec<f64> {
         for i in 0..dim {
             for j in 0..dim {
                 let diag = if i == j {
-                    (i as f64 + 1.0) * 10.0 + b as f64 * 0.1
+                    (i as f64 + 1.0).mul_add(10.0, b as f64 * 0.1)
                 } else {
                     0.0
                 };
                 let off = if i == j {
                     0.0
                 } else {
-                    ((i + j) as f64 * 0.3 + b as f64 * 0.01).sin() * 0.5
+                    ((i + j) as f64).mul_add(0.3, b as f64 * 0.01).sin() * 0.5
                 };
                 matrices.push(diag + off);
             }

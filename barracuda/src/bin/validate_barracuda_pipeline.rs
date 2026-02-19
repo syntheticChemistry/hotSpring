@@ -17,12 +17,12 @@
 //! with 0.000% energy drift. This binary validates the `BarraCUDA` abstraction
 //! produces identical physics through a different code path.
 
+use barracuda::ops::md::forces::YukawaForceF64;
 use barracuda::ops::md::integrators::{VelocityVerletHalfKick, VelocityVerletKickDrift};
 use barracuda::ops::md::observables::KineticEnergy;
 use barracuda::ops::md::thermostats::BerendsenThermostat;
 use barracuda::tensor::Tensor;
 use hotspring_barracuda::gpu::GpuF64;
-use hotspring_barracuda::md::yukawa_nvk_safe::yukawa_force_f64_nvk_safe;
 use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
 
@@ -71,14 +71,14 @@ fn cpu_yukawa_forces(
             dx -= box_side * (dx / box_side).round();
             dy -= box_side * (dy / box_side).round();
             dz -= box_side * (dz / box_side).round();
-            let r_sq = dx * dx + dy * dy + dz * dz;
+            let r_sq = dz.mul_add(dz, dx.mul_add(dx, dy * dy));
             if r_sq > cutoff_sq {
                 continue;
             }
             let r = r_sq.sqrt();
             let inv_r = 1.0 / r;
             let screening = (-kappa * r).exp();
-            let force_mag = screening * (1.0 + kappa * r) / r_sq;
+            let force_mag = screening * kappa.mul_add(r, 1.0) / r_sq;
             let fx = -force_mag * dx * inv_r;
             let fy = -force_mag * dy * inv_r;
             let fz = -force_mag * dz * inv_r;
@@ -99,6 +99,24 @@ fn cpu_yukawa_forces(
 fn compute_temperature(velocities: &[f64], n: usize, mass: f64) -> f64 {
     let ke: f64 = velocities.iter().map(|v| 0.5 * mass * v * v).sum();
     ke / (1.5 * n as f64)
+}
+
+fn gpu_yukawa_forces(
+    device: &std::sync::Arc<barracuda::device::WgpuDevice>,
+    positions: &[f64],
+    n: usize,
+    kappa: f64,
+    prefactor: f64,
+    cutoff: f64,
+    box_side: f64,
+) -> (Vec<f64>, Vec<f64>) {
+    let pos_t = Tensor::from_f64_data(positions, vec![n, 3], device.clone()).expect("pos tensor");
+    let yukawa =
+        YukawaForceF64::new(pos_t, kappa, prefactor, cutoff, box_side, None).expect("Yukawa");
+    let (force_t, pe_t) = yukawa.execute().expect("Yukawa exec");
+    let forces = force_t.to_f64_vec().expect("read forces");
+    let pe = pe_t.to_f64_vec().expect("read pe");
+    (forces, pe)
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -153,8 +171,7 @@ async fn main() {
     println!("\n── Phase 1: Force Cross-Validation ──────────────────────");
     let (cpu_forces, cpu_pe) = cpu_yukawa_forces(&positions, n, KAPPA, cutoff_sq, l);
 
-    let (gpu_forces, gpu_pe) = yukawa_force_f64_nvk_safe(&device, &positions, n, KAPPA, 1.0, RC, l)
-        .expect("Yukawa NVK-safe execution");
+    let (gpu_forces, gpu_pe) = gpu_yukawa_forces(&device, &positions, n, KAPPA, 1.0, RC, l);
 
     // Compare force vector norms per particle.
     // CPU uses symmetric Newton's-3rd accumulation (j > i), GPU uses full-loop
@@ -170,8 +187,8 @@ async fn main() {
         let gx = gpu_forces[i * 3];
         let gy = gpu_forces[i * 3 + 1];
         let gz = gpu_forces[i * 3 + 2];
-        let cpu_mag = (cx * cx + cy * cy + cz * cz).sqrt();
-        let gpu_mag = (gx * gx + gy * gy + gz * gz).sqrt();
+        let cpu_mag = cz.mul_add(cz, cx.mul_add(cx, cy * cy)).sqrt();
+        let gpu_mag = gz.mul_add(gz, gx.mul_add(gx, gy * gy)).sqrt();
         if cpu_mag > 1e-6 {
             let rel = ((cpu_mag - gpu_mag) / cpu_mag).abs();
             if rel > max_mag_rel {
@@ -300,7 +317,7 @@ async fn main() {
         let gpu_ke_total: f64 = ke_per_particle.iter().sum();
         let cpu_ke_total: f64 = velocities
             .chunks(3)
-            .map(|v| 0.5 * MASS * (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]))
+            .map(|v| 0.5 * MASS * v[2].mul_add(v[2], v[0].mul_add(v[0], v[1] * v[1])))
             .sum();
 
         let ke_rel_err = ((gpu_ke_total - cpu_ke_total) / cpu_ke_total).abs();
@@ -327,8 +344,8 @@ async fn main() {
     // ── Phase 5: Full MD loop (energy conservation) ──
     println!("\n── Phase 5: Full MD Loop (BarraCUDA ops) ──────────────");
     {
-        let mut pos = positions.clone();
-        let mut vel = velocities.clone();
+        let mut pos = positions;
+        let mut vel = velocities;
 
         // Initial forces
         let (mut forces, _) = cpu_yukawa_forces(&pos, n, KAPPA, cutoff_sq, l);
@@ -341,7 +358,7 @@ async fn main() {
             pe_initial = pe_vec.iter().sum();
             ke_initial = vel
                 .chunks(3)
-                .map(|v| 0.5 * MASS * (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]))
+                .map(|v| 0.5 * MASS * v[2].mul_add(v[2], v[0].mul_add(v[0], v[1] * v[1])))
                 .sum::<f64>();
         }
         println!(
@@ -373,9 +390,7 @@ async fn main() {
             vel = new_vel_t.to_f64_vec().expect("read vel");
 
             // Step 2: New forces (BarraCUDA op)
-            let (new_forces, pe_vec) =
-                yukawa_force_f64_nvk_safe(&device, &pos, n, KAPPA, 1.0, RC, l)
-                    .expect("Yukawa NVK-safe exec");
+            let (new_forces, pe_vec) = gpu_yukawa_forces(&device, &pos, n, KAPPA, 1.0, RC, l);
             forces = new_forces;
 
             // Step 3: Second half-kick (BarraCUDA op)
@@ -404,7 +419,7 @@ async fn main() {
             if step >= EQUIL_STEPS {
                 let ke: f64 = vel
                     .chunks(3)
-                    .map(|v| 0.5 * MASS * (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]))
+                    .map(|v| 0.5 * MASS * v[2].mul_add(v[2], v[0].mul_add(v[0], v[1] * v[1])))
                     .sum();
                 let pe: f64 = pe_vec.iter().sum();
                 energies.push(ke + pe);
@@ -413,7 +428,7 @@ async fn main() {
             if step % 100 == 0 || step == total_steps - 1 {
                 let ke: f64 = vel
                     .chunks(3)
-                    .map(|v| 0.5 * MASS * (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]))
+                    .map(|v| 0.5 * MASS * v[2].mul_add(v[2], v[0].mul_add(v[0], v[1] * v[1])))
                     .sum();
                 let pe: f64 = pe_vec.iter().sum();
                 let t = compute_temperature(&vel, n, MASS);

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-//! Diagnostic: workgroup_size(1) vs workgroup_size(N) on NVK vs proprietary.
+//! Diagnostic: `workgroup_size(1)` vs `workgroup_size(N)` on NVK vs proprietary.
 //!
 //! Proves that barracuda's `batched_eigh_single_dispatch_f64.wgsl` is slow on
 //! NVK because it uses `@workgroup_size(1, 1, 1)` — a single thread per
@@ -11,8 +11,8 @@
 //! than the 4070, proving GV100 hardware is not the bottleneck.
 //!
 //! Test: Jacobi-rotation-like matrix sweep in two modes:
-//!   A) workgroup_size(1): one thread per matrix (current eigensolve pattern)
-//!   B) workgroup_size(32): 32 threads cooperate per matrix via shared memory
+//!   A) `workgroup_size(1)`: one thread per matrix (current eigensolve pattern)
+//!   B) `workgroup_size(32)`: 32 threads cooperate per matrix via shared memory
 //!
 //! Expected: Mode B is faster on both GPUs, but the speedup on NVK is
 //! dramatically larger because NVK penalizes mode A much more heavily.
@@ -491,9 +491,9 @@ fn gen_symmetric(batch: usize, dim: usize) -> Vec<f64> {
     for b in 0..batch {
         let base = b * dim * dim;
         for i in 0..dim {
-            m[base + i * dim + i] = (i as f64 + 1.0) * 10.0 + b as f64 * 0.1;
+            m[base + i * dim + i] = (i as f64 + 1.0).mul_add(10.0, b as f64 * 0.1);
             for j in (i + 1)..dim {
-                let v = ((i + j) as f64 * 0.3 + b as f64 * 0.01).sin() * 0.5;
+                let v = ((i + j) as f64).mul_add(0.3, b as f64 * 0.01).sin() * 0.5;
                 m[base + i * dim + j] = v;
                 m[base + j * dim + i] = v;
             }

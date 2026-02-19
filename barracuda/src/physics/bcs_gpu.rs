@@ -322,7 +322,7 @@ impl<'a> BcsBisectionGpu<'a> {
 // Helpers
 // ═══════════════════════════════════════════════════════════════════
 
-fn storage_entry(binding: u32, read_only: bool) -> wgpu::BindGroupLayoutEntry {
+const fn storage_entry(binding: u32, read_only: bool) -> wgpu::BindGroupLayoutEntry {
     wgpu::BindGroupLayoutEntry {
         binding,
         visibility: wgpu::ShaderStages::COMPUTE,
@@ -335,12 +335,12 @@ fn storage_entry(binding: u32, read_only: bool) -> wgpu::BindGroupLayoutEntry {
     }
 }
 
-fn storage_entry_u32(binding: u32, read_only: bool) -> wgpu::BindGroupLayoutEntry {
+const fn storage_entry_u32(binding: u32, read_only: bool) -> wgpu::BindGroupLayoutEntry {
     // Same as storage_entry — u32 vs f64 is a shader-side concern
     storage_entry(binding, read_only)
 }
 
-fn uniform_entry(binding: u32) -> wgpu::BindGroupLayoutEntry {
+const fn uniform_entry(binding: u32) -> wgpu::BindGroupLayoutEntry {
     wgpu::BindGroupLayoutEntry {
         binding,
         visibility: wgpu::ShaderStages::COMPUTE,

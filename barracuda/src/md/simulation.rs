@@ -181,7 +181,7 @@ pub async fn run_simulation(
     println!("  ── Compiling f64 WGSL shaders (native builtins) ──");
     let t_compile = Instant::now();
 
-    let force_pipeline = gpu.create_pipeline(shaders::SHADER_YUKAWA_FORCE, "yukawa_force_f64");
+    let force_pipeline = gpu.create_pipeline_f64(shaders::SHADER_YUKAWA_FORCE, "yukawa_force_f64");
     let kick_drift_pipeline =
         gpu.create_pipeline(shaders::SHADER_VV_KICK_DRIFT, "vv_kick_drift_f64");
     let half_kick_pipeline = gpu.create_pipeline(shaders::SHADER_VV_HALF_KICK, "vv_half_kick_f64");
@@ -507,7 +507,7 @@ pub async fn run_simulation_celllist(
     let t_compile = Instant::now();
 
     let force_pipeline_cl =
-        gpu.create_pipeline(shaders::SHADER_YUKAWA_FORCE_CELLLIST, "yukawa_force_cl_f64");
+        gpu.create_pipeline_f64(shaders::SHADER_YUKAWA_FORCE_CELLLIST, "yukawa_force_cl_f64");
     let kick_drift_pipeline =
         gpu.create_pipeline(shaders::SHADER_VV_KICK_DRIFT, "vv_kick_drift_f64");
     let half_kick_pipeline = gpu.create_pipeline(shaders::SHADER_VV_HALF_KICK, "vv_half_kick_f64");

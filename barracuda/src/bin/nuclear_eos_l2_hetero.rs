@@ -670,7 +670,7 @@ fn run_plain_l2(
     let result = sparsity_sampler(&objective, bounds, &config).expect("SparsitySampler failed");
     let elapsed = t0.elapsed();
 
-    let chi2 = result.f_best.exp() - 1.0;
+    let chi2 = result.f_best.exp_m1();
     println!(
         "    χ²/datum: {:.2}, time: {:.1}s, evals: {}",
         chi2,
@@ -742,7 +742,7 @@ fn run_screen_l2(
         .map(|(x, f)| (x.clone(), *f))
         .unwrap();
 
-    let chi2 = best_f.exp() - 1.0;
+    let chi2 = best_f.exp_m1();
 
     println!();
     println!("╔══════════════════════════════════════════════════════════════╗");
@@ -876,7 +876,7 @@ fn run_direct_l2(
 
     let elapsed = t0.elapsed();
     let total_evals = eval_count.load(std::sync::atomic::Ordering::Relaxed);
-    let chi2 = best_f.exp() - 1.0;
+    let chi2 = best_f.exp_m1();
 
     println!();
     println!("╔══════════════════════════════════════════════════════════════╗");
@@ -972,7 +972,7 @@ fn main() {
                 candidates_per_round,
             );
             let hetero_time = total_t0.elapsed().as_secs_f64();
-            let hetero_chi2 = best_f.exp() - 1.0;
+            let hetero_chi2 = best_f.exp_m1();
 
             println!();
             stats.print_summary();
@@ -1037,7 +1037,7 @@ fn main() {
             let (best_params, best_f, total_time, total_evals) =
                 run_screen_l2(bounds, exp_data, n_l1, n_eval);
 
-            let chi2 = best_f.exp() - 1.0;
+            let chi2 = best_f.exp_m1();
             let results_dir = base.join("results");
             std::fs::create_dir_all(&results_dir).ok();
             let result_json = serde_json::json!({
@@ -1071,7 +1071,7 @@ fn main() {
             let (best_params, best_f, total_time, total_evals) =
                 run_direct_l2(bounds, exp_data, n_starts, max_evals_per);
 
-            let chi2 = best_f.exp() - 1.0;
+            let chi2 = best_f.exp_m1();
 
             // Save results
             let results_dir = base.join("results");
@@ -1107,7 +1107,7 @@ fn main() {
             );
             let total_time = total_t0.elapsed().as_secs_f64();
 
-            let chi2 = best_f.exp() - 1.0;
+            let chi2 = best_f.exp_m1();
 
             println!();
             println!("╔══════════════════════════════════════════════════════════════╗");
@@ -1161,7 +1161,7 @@ fn save_results(
     plain_time: Option<f64>,
     plain_evals: Option<usize>,
 ) {
-    let chi2 = best_f.exp() - 1.0;
+    let chi2 = best_f.exp_m1();
     let results_dir = base.join("results");
     std::fs::create_dir_all(&results_dir).ok();
 

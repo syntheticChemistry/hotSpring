@@ -100,8 +100,9 @@ Python baseline → Rust validation → GPU acceleration → sovereign pipeline
 
 No duplicate math — all mathematical operations use BarraCUDA primitives.
 `hermite_value` now delegates to `barracuda::special::hermite` (v0.5.7).
+`factorial_f64` now delegates to `barracuda::special::factorial` (v0.5.10).
 WGSL `abs_f64` and `cbrt_f64` now injected via `ShaderTemplate::with_math_f64_auto()` (v0.5.8).
-`barracuda::shaders::precision::ShaderTemplate` | WGSL math preamble injection **(v0.5.8)**
+Force shaders compiled via `GpuF64::create_pipeline_f64()` → barracuda driver-aware path **(v0.5.11)**.
 
 ## Promotion Priority
 
@@ -127,6 +128,19 @@ WGSL `abs_f64` and `cbrt_f64` now injected via `ShaderTemplate::with_math_f64_au
   `similar_names`, `too_many_lines` — all justified for physics code
 - ✅ **Full audit report**: specs, wateringHole compliance, validation fidelity, dependency health,
   evolution readiness, test coverage, code size, licensing, data provenance
+
+## Completed (v0.5.11)
+
+- ✅ **Barracuda op integration**: Validation binaries now use `barracuda::ops::md::forces::YukawaForceF64`
+  directly instead of the local `yukawa_nvk_safe` workaround module (deleted)
+- ✅ **Driver-aware shader compilation**: Added `GpuF64::create_pipeline_f64()` which delegates to
+  barracuda's `WgpuDevice::compile_shader_f64()` — auto-patches `exp()` on NVK/nouveau
+- ✅ **Production MD uses `create_pipeline_f64()`**: Force shaders in `simulation.rs` now compile
+  via driver-aware path; VV/berendsen/KE use raw path (no exp/log, safe on all drivers)
+- ✅ **Removed `yukawa_nvk_safe.rs`** and `yukawa_force_f64_nvk_safe.wgsl` — barracuda handles NVK
+- ✅ **Clippy pedantic+nursery: 0 warnings** in library code (was 167+ cast_precision_loss, 87 mul_add)
+- ✅ **Zero doc warnings**: All rustdoc links resolve correctly
+- ✅ **Auto-fixed 28 clippy suggestions** across binaries (redundant clone, From, let-else)
 
 ## Completed (v0.5.10)
 

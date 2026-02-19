@@ -98,27 +98,27 @@ impl SphericalHFB {
         Self::build(z, n, n_shells, r_max, n_grid)
     }
 
-    pub fn n_states(&self) -> usize {
+    pub const fn n_states(&self) -> usize {
         self.n_states
     }
-    pub fn nr(&self) -> usize {
+    pub const fn nr(&self) -> usize {
         self.nr
     }
-    pub fn z(&self) -> usize {
+    pub const fn z(&self) -> usize {
         self.z
     }
-    pub fn n_neutrons(&self) -> usize {
+    pub const fn n_neutrons(&self) -> usize {
         self.n_neutrons
     }
-    pub fn dr(&self) -> f64 {
+    pub const fn dr(&self) -> f64 {
         self.dr
     }
-    pub fn hw(&self) -> f64 {
+    pub const fn hw(&self) -> f64 {
         self.hw
     }
 
     /// Pairing gap (same for proton and neutron in this model)
-    pub fn pairing_gap(&self) -> f64 {
+    pub const fn pairing_gap(&self) -> f64 {
         self.delta_p
     }
 

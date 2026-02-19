@@ -675,7 +675,7 @@ fn l1_objective_nmp(x: &[f64], exp_data: &HashMap<(usize, usize), (f64, f64)>, l
 
     let chi2_be_datum = chi2_be / f64::from(n);
     let chi2_nmp_datum = provenance::nmp_chi2_from_props(&nmp) / 5.0;
-    (chi2_be_datum + lambda * chi2_nmp_datum).ln_1p()
+    lambda.mul_add(chi2_nmp_datum, chi2_be_datum).ln_1p()
 }
 
 fn l2_objective_nmp(params: &[f64], nuclei: &[(usize, usize, f64)], lambda: f64) -> f64 {
@@ -718,7 +718,7 @@ fn l2_objective_nmp(params: &[f64], nuclei: &[(usize, usize, f64)], lambda: f64)
 
     let chi2_be_datum = chi2_be / f64::from(n_valid);
     let chi2_nmp_datum = provenance::nmp_chi2_from_props(&nmp) / 5.0;
-    (chi2_be_datum + lambda * chi2_nmp_datum).ln_1p()
+    lambda.mul_add(chi2_nmp_datum, chi2_be_datum).ln_1p()
 }
 
 fn decompose_chi2(params: &[f64], nuclei: &[(usize, usize, f64)], lambda: f64) -> (f64, f64, f64) {
@@ -747,7 +747,7 @@ fn decompose_chi2(params: &[f64], nuclei: &[(usize, usize, f64)], lambda: f64) -
     };
     let chi2_nmp_datum = nuclear_matter_properties(params)
         .map_or(1e4, |n| provenance::nmp_chi2_from_props(&n) / 5.0);
-    let chi2_total = chi2_be_datum + lambda * chi2_nmp_datum;
+    let chi2_total = lambda.mul_add(chi2_nmp_datum, chi2_be_datum);
 
     (chi2_be_datum, chi2_nmp_datum, chi2_total)
 }
