@@ -79,6 +79,51 @@ The study answers three questions:
 
 ---
 
+## Next Phase: Paper Review Candidates
+
+hotSpring's current work centers on the Murillo Group (plasma physics, surrogate learning). The faculty network reveals a natural extension through **Alexei Bazavov** (CMSE & Physics, MSU — master's program professor), whose lattice QCD work shares deep computational overlap with Murillo's plasma MD.
+
+### Why Bazavov extends hotSpring
+
+Both Murillo and Bazavov study **strongly coupled many-body systems** — Murillo in classical dense plasmas, Bazavov in quantum chromodynamics. The computational methods overlap significantly:
+- Both use molecular dynamics (Sarkas ↔ Hybrid Monte Carlo)
+- Both compute equations of state from first principles
+- Both deal with long-range correlations requiring careful treatment
+- Both are GPU-bound, HPC-scale workloads
+
+A shared BarraCUDA kernel library could serve both plasma and lattice QCD.
+
+### Candidate Papers
+
+| Priority | Paper | Why |
+|----------|-------|-----|
+| **Tier 1** | Bazavov [HotQCD] (2014) "The QCD equation of state." Nuclear Physics A 931, 867 | EOS computation from lattice ↔ Sarkas plasma EOS. Both compute thermodynamic properties via particle methods. Most direct overlap with existing hotSpring work |
+| **Tier 1** | Bazavov et al. (2016) "Polyakov loop in 2+1 flavor QCD." Phys Rev D 93, 114502 | Phase transitions in QCD ↔ phase transitions in dense plasmas. Tests same temperature-scanning methodology |
+| **Tier 2** | Bazavov et al. (2025) "Hadronic vacuum polarization for the muon g-2: Complete short and intermediate windows." Phys Rev D 111, 094508 | Precision lattice computation — subpercent precision from noisy data. Exercises GEMM + reduction + statistical analysis at scale |
+| **Tier 2** | Bazavov et al. (2016) "Curvature of the freeze-out line in heavy ion collisions." Phys Rev D 93, 014512 | Inverse problem — inferring freeze-out conditions from observables. Connects to groundSpring's inverse problem theme |
+| **Tier 3** | Bazavov et al. (2015) "Gauge-invariant implementation of the Abelian Higgs model on optical lattices." Phys Rev D 92, 076003 | Quantum simulation on computational lattices — mapping field theories onto discrete grids |
+
+### Existing Reproduction (Murillo Group)
+
+| Paper | Status | Phase |
+|-------|--------|-------|
+| Silvestri, Diaw, Murillo (2024) surrogate learning — Nat Mach Intel | DONE | Phase A |
+| Sarkas Yukawa OCP MD | DONE | Phase A + C (GPU) |
+| Two-Temperature Model (TTM) | DONE | Phase A |
+| Nuclear EOS (SEMF → HFB) | DONE | Phase A + F (full AME2020) |
+
+### BarraCUDA Kernel Coverage for Bazavov Extension
+
+| Kernel Need | Current Status | Gap |
+|-------------|---------------|-----|
+| GEMM (link multiplication) | `gemm_f64.wgsl` — validated | None |
+| FFT (momentum-space ops) | Not yet in BarraCUDA | **Gap**: lattice QCD needs momentum-space transforms |
+| Parallel MD (HMC algorithm) | Sarkas MD engine validated | Adapt for gauge field updates |
+| Reduction (gauge averaging) | `FusedMapReduceF64` — validated | None |
+| Stochastic estimators | Monte Carlo in L1/L2 | Extend to trace estimators |
+
+---
+
 ## Relation to Other Documents
 
 - **`whitePaper/barraCUDA/`** (main repo, gated): The BarraCUDA evolution story — how scientific workloads drove the library's development. Sections 04 and 04a reference hotSpring data.
