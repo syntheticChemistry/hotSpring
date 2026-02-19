@@ -282,8 +282,7 @@ fn main() {
         };
         println!();
         println!(
-            "  Mean total energy: CPU={cpu_mean_e:.4}, GPU={gpu_mean_e:.4}, diff={:.2e}",
-            mean_e_diff
+            "  Mean total energy: CPU={cpu_mean_e:.4}, GPU={gpu_mean_e:.4}, diff={mean_e_diff:.2e}"
         );
         harness.check_upper("Mean energy CPU vs GPU", mean_e_diff, 0.05);
     }
