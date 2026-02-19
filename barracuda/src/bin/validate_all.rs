@@ -19,6 +19,7 @@
 //! | `validate_barracuda_hfb` | BCS bisection, BatchedEigh | GPU |
 //! | `validate_barracuda_pipeline` | Yukawa MD GPU ops | GPU |
 //! | `validate_pppm` | PPPM Coulomb/Ewald | GPU |
+//! | `validate_cpu_gpu_parity` | CPU vs GPU same-physics proof | GPU |
 
 use std::process::{self, Command};
 use std::time::Instant;
@@ -79,6 +80,11 @@ const SUITES: &[Suite] = &[
     Suite {
         name: "PPPM Coulomb/Ewald",
         binary: "validate_pppm",
+        requires_gpu: true,
+    },
+    Suite {
+        name: "CPU/GPU Parity",
+        binary: "validate_cpu_gpu_parity",
         requires_gpu: true,
     },
 ];

@@ -198,3 +198,8 @@ path = "src/bin/bench_gpu_fp64.rs"
 [[bin]]
 name = "validate_transport"
 path = "src/bin/validate_transport.rs"
+
+# ── CPU/GPU parity: same algorithm, same initial conditions, different chip ──
+[[bin]]
+name = "validate_cpu_gpu_parity"
+path = "src/bin/validate_cpu_gpu_parity.rs"

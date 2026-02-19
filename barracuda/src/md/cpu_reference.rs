@@ -1,16 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-//! **DEPRECATED** — CPU reference forces absorbed by barracuda.
+//! CPU Yukawa OCP MD in pure Rust f64.
 //!
-//! barracuda provides CPU Yukawa force implementations. This module
-//! was used for GPU-vs-CPU speed comparison during hotSpring Phase C.
-//! Retained as fossil record for the benchmarking comparison pattern.
+//! Same physics as the GPU path (`simulation.rs`): Velocity-Verlet integrator,
+//! Berendsen thermostat, all-pairs Yukawa forces with PBC minimum-image.
 //!
-//! # Original purpose (historical)
-//!
-//! CPU reference MD simulation for benchmarking comparison.
-//! Same physics as the GPU shaders, implemented in pure Rust f64.
-//! Used for GPU vs CPU speed comparison (not for physics validation).
+//! Used for CPU/GPU parity validation: identical initial conditions (FCC lattice,
+//! seed 42), identical algorithm, different hardware → must produce the same
+//! physics (energy conservation, VACF, D*) within documented f64 tolerances.
 
 use crate::md::config::MdConfig;
 use crate::md::simulation::{init_fcc_lattice, init_velocities, EnergyRecord, MdSimulation};
@@ -178,6 +175,8 @@ pub fn run_simulation_cpu(config: &MdConfig) -> MdSimulation {
     println!("    Production ({} steps)...", config.prod_steps);
     let _t_prod = Instant::now();
     let mut energy_history = Vec::new();
+    let mut positions_snapshots = Vec::new();
+    let mut velocity_snapshots = Vec::new();
 
     for step in 0..config.prod_steps {
         // Half-kick
@@ -236,6 +235,11 @@ pub fn run_simulation_cpu(config: &MdConfig) -> MdSimulation {
                 total: ke + total_pe,
                 temperature: t_current,
             });
+
+            if step % (config.dump_step * config.vel_snapshot_interval) == 0 {
+                positions_snapshots.push(positions.clone());
+                velocity_snapshots.push(velocities.clone());
+            }
         }
 
         if step % 5000 == 0 || step == config.prod_steps - 1 {
@@ -257,8 +261,8 @@ pub fn run_simulation_cpu(config: &MdConfig) -> MdSimulation {
     MdSimulation {
         config: config.clone(),
         energy_history,
-        positions_snapshots: Vec::new(),
-        velocity_snapshots: Vec::new(),
+        positions_snapshots,
+        velocity_snapshots,
         rdf_histogram: Vec::new(),
         wall_time_s: total_time,
         steps_per_sec,
