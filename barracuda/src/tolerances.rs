@@ -321,6 +321,35 @@ pub const PPPM_NEWTON_3RD_ABS: f64 = 1e-6;
 /// error is achievable with modest mesh parameters.
 pub const PPPM_MADELUNG_REL: f64 = 0.01;
 
+// ═══════════════════════════════════════════════════════════════════
+// Transport coefficient tolerances (Stanton & Murillo validation)
+// ═══════════════════════════════════════════════════════════════════
+
+/// D* Rust-vs-Sarkas: relative self-diffusion tolerance.
+///
+/// MD transport coefficients are stochastic; Green-Kubo integration of
+/// VACF has statistical noise that scales as 1/sqrt(N_steps). With
+/// N=500 lite and 20k steps, 5% relative agreement between two
+/// independent MD runs is expected.
+///
+/// Source: Stanton & Murillo (2016) PRE 93 043203, Table I.
+pub const TRANSPORT_D_STAR_VS_SARKAS: f64 = 0.05;
+
+/// D* Rust-vs-Daligault analytical fit: relative tolerance.
+///
+/// The Daligault (2012) fit is a smooth interpolation between asymptotic
+/// limits; MD deviates from the fit by up to 10% at intermediate coupling
+/// (Gamma ~ 10-50) where neither limit applies cleanly.
+///
+/// Source: Daligault PRE 86, 047401 (2012), Fig. 1.
+pub const TRANSPORT_D_STAR_VS_FIT: f64 = 0.10;
+
+/// Viscosity Rust-vs-Sarkas: relative tolerance.
+///
+/// Stress tensor ACF converges more slowly than VACF. 10% agreement
+/// is acceptable for lite validation runs.
+pub const TRANSPORT_VISCOSITY_VS_SARKAS: f64 = 0.10;
+
 /// HFB Rust-vs-Python: relative binding energy tolerance.
 ///
 /// Rust and Python L2 solvers use different numerical methods (bisection

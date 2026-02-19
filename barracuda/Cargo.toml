@@ -183,3 +183,8 @@ path = "src/bin/validate_all.rs"
 [[bin]]
 name = "bench_wgsize_nvk"
 path = "src/bin/bench_wgsize_nvk.rs"
+
+# ── Transport coefficient validation (Stanton & Murillo 2016) ──────
+[[bin]]
+name = "validate_transport"
+path = "src/bin/validate_transport.rs"

@@ -336,9 +336,7 @@ pub async fn run_simulation(
                 temperature: t_current,
             });
 
-            // Store position/velocity snapshots for observable computation
-            // Only store every 100 dumps (every 1000 steps) to save memory
-            if step % (config.dump_step * 100) == 0 {
+            if step % (config.dump_step * config.vel_snapshot_interval) == 0 {
                 let pos_snap = gpu.read_back_f64(&pos_buf, n * 3)?;
                 let vel_snap = gpu.read_back_f64(&vel_buf, n * 3)?;
                 positions_snapshots.push(pos_snap);
@@ -369,7 +367,7 @@ pub async fn run_simulation(
         energy_history,
         positions_snapshots,
         velocity_snapshots,
-        rdf_histogram: Vec::new(), // computed in observables phase
+        rdf_histogram: Vec::new(),
         wall_time_s: total_time,
         steps_per_sec,
     })
@@ -716,7 +714,7 @@ pub async fn run_simulation_celllist(
                 temperature: t_current,
             });
 
-            if step % (config.dump_step * 100) == 0 {
+            if step % (config.dump_step * config.vel_snapshot_interval) == 0 {
                 let pos_snap = gpu.read_back_f64(&pos_buf, n * 3)?;
                 let vel_snap = gpu.read_back_f64(&vel_buf, n * 3)?;
                 positions_snapshots.push(pos_snap);

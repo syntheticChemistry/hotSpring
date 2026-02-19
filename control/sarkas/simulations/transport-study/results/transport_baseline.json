@@ -1,0 +1,19 @@
+{
+  "provenance": {
+    "generator": "hotSpring/control/sarkas/simulations/transport-study/scripts/run_transport.py",
+    "sarkas_commit": "fd908c41a949",
+    "date": "2026-02-19T01:17:31.643669+00:00",
+    "python_version": "3.10.12 (main, Nov  4 2025, 08:48:33) [GCC 11.4.0]",
+    "numpy_version": "2.2.6",
+    "total_wall_time_s": 112.50770664215088,
+    "n_cases": 0,
+    "n_failed": 1
+  },
+  "results": [],
+  "failed": [
+    [
+      "transport_k1_G10.yaml",
+      "[Errno 2] No such file or directory: 'Simulations/transport_k1_G10/Simulation/Equilibration/dumps/checkpoint_1870.npz'"
+    ]
+  ]
+}

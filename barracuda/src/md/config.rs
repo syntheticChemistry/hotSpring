@@ -32,6 +32,11 @@ pub struct MdConfig {
     pub berendsen_tau: f64,
     /// RDF histogram bins
     pub rdf_bins: usize,
+    /// Velocity snapshot interval in multiples of dump_step.
+    /// Snapshot every `vel_snapshot_interval * dump_step` production steps.
+    /// Default: 100 (i.e. every 1000 steps for dump_step=10).
+    /// Set lower (e.g. 1) for transport coefficient studies needing fine VACF.
+    pub vel_snapshot_interval: usize,
 }
 
 impl MdConfig {
@@ -105,6 +110,7 @@ pub fn dsf_pp_cases(n_particles: usize, lite: bool) -> Vec<MdConfig> {
             dump_step: dump,
             berendsen_tau: 5.0,
             rdf_bins: 500,
+            vel_snapshot_interval: 100,
         })
         .collect()
 }
@@ -123,6 +129,7 @@ pub fn quick_test_case(n_particles: usize) -> MdConfig {
         dump_step: 10,
         berendsen_tau: 5.0,
         rdf_bins: 500,
+        vel_snapshot_interval: 100,
     }
 }
 
@@ -172,6 +179,61 @@ pub fn paper_parity_extended_cases() -> Vec<MdConfig> {
             dump_step: 10,
             berendsen_tau: 5.0,
             rdf_bins: 500,
+            vel_snapshot_interval: 100,
+        })
+        .collect()
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Transport Study Matrix — Stanton & Murillo (2016) PRE 93 043203
+// ═══════════════════════════════════════════════════════════════════
+
+/// Transport coefficient study: Gamma-kappa grid for D*, eta*.
+///
+/// Longer production runs with fine velocity snapshot intervals
+/// (every dump_step) for converged Green-Kubo VACF integration.
+///
+/// Reference: Stanton & Murillo (2016) PRE 93 043203
+pub fn transport_cases(n_particles: usize, lite: bool) -> Vec<MdConfig> {
+    let (equil, prod, dump, snap_interval) = if lite {
+        (2_000, 20_000, 5, 1)
+    } else {
+        (10_000, 100_000, 5, 1)
+    };
+
+    let cases = vec![
+        // κ=1: rc = 8.0 a_ws
+        ("t_k1_G10", 1.0, 10.0, 8.0),
+        ("t_k1_G50", 1.0, 50.0, 8.0),
+        ("t_k1_G100", 1.0, 100.0, 8.0),
+        ("t_k1_G175", 1.0, 175.0, 8.0),
+        // κ=2: rc = 6.5 a_ws
+        ("t_k2_G10", 2.0, 10.0, 6.5),
+        ("t_k2_G50", 2.0, 50.0, 6.5),
+        ("t_k2_G100", 2.0, 100.0, 6.5),
+        ("t_k2_G300", 2.0, 300.0, 6.5),
+        // κ=3: rc = 6.0 a_ws
+        ("t_k3_G10", 3.0, 10.0, 6.0),
+        ("t_k3_G50", 3.0, 50.0, 6.0),
+        ("t_k3_G100", 3.0, 100.0, 6.0),
+        ("t_k3_G300", 3.0, 300.0, 6.0),
+    ];
+
+    cases
+        .into_iter()
+        .map(|(label, kappa, gamma, rc)| MdConfig {
+            label: label.to_string(),
+            n_particles,
+            kappa,
+            gamma,
+            dt: 0.01,
+            rc,
+            equil_steps: equil,
+            prod_steps: prod,
+            dump_step: dump,
+            berendsen_tau: 5.0,
+            rdf_bins: 500,
+            vel_snapshot_interval: snap_interval,
         })
         .collect()
 }
@@ -252,5 +314,24 @@ mod tests {
             (n_density - config.number_density()).abs() < 0.01,
             "number density should be consistent with box side"
         );
+    }
+
+    #[test]
+    fn transport_cases_twelve() {
+        let cases = transport_cases(500, true);
+        assert_eq!(cases.len(), 12, "transport study has 12 cases");
+        for c in &cases {
+            assert_eq!(c.vel_snapshot_interval, 1);
+            assert_eq!(c.dump_step, 5);
+        }
+    }
+
+    #[test]
+    fn transport_lite_vs_full_steps() {
+        let lite = transport_cases(500, true);
+        let full = transport_cases(500, false);
+        assert_eq!(lite.len(), full.len());
+        assert!(lite[0].prod_steps < full[0].prod_steps);
+        assert!(lite[0].equil_steps < full[0].equil_steps);
     }
 }

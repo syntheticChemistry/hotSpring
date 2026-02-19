@@ -249,6 +249,129 @@ pub fn compute_ssf_gpu(
         .collect()
 }
 
+/// Stress tensor autocorrelation result for viscosity computation
+#[derive(Clone, Debug)]
+pub struct StressAcf {
+    pub t_values: Vec<f64>,
+    pub c_values: Vec<f64>,
+    pub viscosity: f64,
+}
+
+/// Compute off-diagonal stress tensor from positions, velocities, and Yukawa forces.
+///
+/// sigma_xy(t) = sum_i m*v_ix*v_iy + sum_{i<j} F_ij_x * r_ij_y
+///
+/// For transport, we only need the off-diagonal (xy) component.
+/// Returns one scalar per snapshot.
+pub fn compute_stress_xy(
+    pos_snapshots: &[Vec<f64>],
+    vel_snapshots: &[Vec<f64>],
+    n: usize,
+    box_side: f64,
+    kappa: f64,
+    mass: f64,
+) -> Vec<f64> {
+    let mut stress_series = Vec::with_capacity(pos_snapshots.len());
+
+    for (snap_idx, (pos, vel)) in pos_snapshots.iter().zip(vel_snapshots.iter()).enumerate() {
+        if pos.len() < n * 3 || vel.len() < n * 3 {
+            eprintln!("  StressXY: snapshot {snap_idx} too short, skipping");
+            continue;
+        }
+
+        // Kinetic part: sum_i m * v_ix * v_iy
+        let mut sigma_kin = 0.0;
+        for i in 0..n {
+            sigma_kin += mass * vel[i * 3] * vel[i * 3 + 1];
+        }
+
+        // Virial part: sum_{i<j} F_ij_x * r_ij_y
+        // F_ij = prefactor * exp(-kappa*r) * (1 + kappa*r) / r^2 * r_hat
+        let mut sigma_vir = 0.0;
+        for i in 0..n {
+            let xi = pos[i * 3];
+            let yi = pos[i * 3 + 1];
+            let zi = pos[i * 3 + 2];
+
+            for j in (i + 1)..n {
+                let mut dx = pos[j * 3] - xi;
+                let mut dy = pos[j * 3 + 1] - yi;
+                let mut dz = pos[j * 3 + 2] - zi;
+
+                dx -= box_side * (dx / box_side).round();
+                dy -= box_side * (dy / box_side).round();
+                dz -= box_side * (dz / box_side).round();
+
+                let r2 = dx * dx + dy * dy + dz * dz;
+                let r = r2.sqrt();
+                if r < DIVISION_GUARD {
+                    continue;
+                }
+
+                let exp_kr = (-kappa * r).exp();
+                let f_mag = exp_kr * (1.0 + kappa * r) / r2;
+
+                // F_ij_x * r_ij_y = f_mag * (dx/r) * dy = f_mag * dx * dy / r
+                sigma_vir += f_mag * dx * dy / r;
+            }
+        }
+
+        stress_series.push(sigma_kin + sigma_vir);
+    }
+
+    stress_series
+}
+
+/// Compute stress autocorrelation and Green-Kubo viscosity.
+///
+/// eta* = (V / kT) * integral_0^inf <sigma_xy(0) * sigma_xy(t)> dt
+///
+/// `dt_snap` is the time between consecutive snapshots in reduced units.
+pub fn compute_stress_acf(
+    stress_series: &[f64],
+    dt_snap: f64,
+    volume: f64,
+    temperature: f64,
+    max_lag: usize,
+) -> StressAcf {
+    let n_frames = stress_series.len();
+    let n_lag = max_lag.min(n_frames);
+    let mut c_values = vec![0.0f64; n_lag];
+    let mut counts = vec![0usize; n_lag];
+
+    for t0 in 0..n_frames {
+        for lag in 0..n_lag {
+            let t1 = t0 + lag;
+            if t1 >= n_frames {
+                break;
+            }
+            c_values[lag] += stress_series[t0] * stress_series[t1];
+            counts[lag] += 1;
+        }
+    }
+
+    for i in 0..n_lag {
+        if counts[i] > 0 {
+            c_values[i] /= counts[i] as f64;
+        }
+    }
+
+    // Green-Kubo: eta = (V / kT) * integral C(t) dt
+    let mut integral = 0.0;
+    for i in 1..n_lag {
+        integral += 0.5 * (c_values[i - 1] + c_values[i]) * dt_snap;
+    }
+    let viscosity = volume / temperature.max(DIVISION_GUARD) * integral;
+
+    let t_values: Vec<f64> = (0..n_lag).map(|i| i as f64 * dt_snap).collect();
+
+    StressAcf {
+        t_values,
+        c_values,
+        viscosity,
+    }
+}
+
 /// Validate energy conservation
 pub fn validate_energy(history: &[EnergyRecord], _config: &MdConfig) -> EnergyValidation {
     if history.is_empty() {
@@ -377,7 +500,7 @@ pub fn print_observable_summary_with_gpu(
 
     // VACF
     if sim.velocity_snapshots.len() > 2 {
-        let dt_dump = config.dt * config.dump_step as f64 * 100.0; // stored every 100 dumps
+        let dt_dump = config.dt * config.dump_step as f64 * config.vel_snapshot_interval as f64;
         let max_lag = (sim.velocity_snapshots.len() / 2).max(10);
         let vacf = compute_vacf(
             &sim.velocity_snapshots,

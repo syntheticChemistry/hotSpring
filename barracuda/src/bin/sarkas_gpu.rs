@@ -268,6 +268,7 @@ async fn run_n_scaling(report: &mut BenchReport, harness: &mut ValidationHarness
             dump_step: 10,
             berendsen_tau: 5.0,
             rdf_bins: 500,
+            vel_snapshot_interval: 100,
         };
 
         println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -473,6 +474,7 @@ async fn run_scaling_test(report: &mut BenchReport, harness: &mut ValidationHarn
             dump_step: 100,
             berendsen_tau: 5.0,
             rdf_bins: 500,
+            vel_snapshot_interval: 100,
         };
 
         // ── GPU ──
