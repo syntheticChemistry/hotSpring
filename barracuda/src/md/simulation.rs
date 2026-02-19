@@ -250,48 +250,70 @@ pub async fn run_simulation(
     gpu.dispatch(&force_pipeline, &force_bg, workgroups);
 
     // ══════════════════════════════════════════════════════════════
-    //  Equilibration
+    //  Equilibration — streamed with thermostat readback every 10 steps
+    //
+    //  Batch 10 VV steps into one submission, read back KE for thermostat,
+    //  apply Berendsen scale, repeat. This cuts submissions from equil_steps
+    //  to equil_steps/10.
     // ══════════════════════════════════════════════════════════════
     println!("  ── Equilibration ({} steps) ──", config.equil_steps);
     let t_equil = Instant::now();
 
-    for step in 0..config.equil_steps {
-        // 1. Half-kick + drift + PBC
-        gpu.dispatch(&kick_drift_pipeline, &kick_drift_bg, workgroups);
-        // 2. Recompute forces
-        gpu.dispatch(&force_pipeline, &force_bg, workgroups);
-        // 3. Second half-kick
-        gpu.dispatch(&half_kick_pipeline, &half_kick_bg, workgroups);
+    let equil_ke_staging = gpu.create_staging_buffer(n * 8, "equil_ke_staging");
+    let thermostat_interval = 10;
 
-        // 4. Berendsen thermostat every step
-        if step % 10 == 0 {
-            // Compute current KE on GPU, read back to get temperature
-            gpu.dispatch(&ke_pipeline, &ke_bg, workgroups);
-            let ke_per_particle = gpu.read_back_f64(&ke_buf, n)?;
-            let total_ke: f64 = ke_per_particle.iter().sum();
-            // T* = 2 * KE / (3 * N) in reduced units (k_B = 1)
-            let t_current = 2.0 * total_ke / (3.0 * n as f64);
+    let mut step = 0;
+    while step < config.equil_steps {
+        let batch_size = thermostat_interval.min(config.equil_steps - step);
 
-            if t_current > 1e-30 {
-                let ratio =
-                    1.0 + (config.dt / config.berendsen_tau) * (temperature / t_current - 1.0);
-                let scale = ratio.max(0.0).sqrt();
+        // Stream batch_size VV steps + KE into one submission
+        let mut encoder = gpu.begin_encoder("equil_batch");
+        {
+            let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: Some("equil_stream"),
+                timestamp_writes: None,
+            });
 
-                // Upload Berendsen params and apply
-                let beren_params = vec![n as f64, scale, 0.0, 0.0];
-                let beren_params_buf = gpu.create_f64_buffer(&beren_params, "beren_params");
-                let beren_bg =
-                    gpu.create_bind_group(&berendsen_pipeline, &[&vel_buf, &beren_params_buf]);
-                gpu.dispatch(&berendsen_pipeline, &beren_bg, workgroups);
+            for _ in 0..batch_size {
+                pass.set_pipeline(&kick_drift_pipeline);
+                pass.set_bind_group(0, &kick_drift_bg, &[]);
+                pass.dispatch_workgroups(workgroups, 1, 1);
+
+                pass.set_pipeline(&force_pipeline);
+                pass.set_bind_group(0, &force_bg, &[]);
+                pass.dispatch_workgroups(workgroups, 1, 1);
+
+                pass.set_pipeline(&half_kick_pipeline);
+                pass.set_bind_group(0, &half_kick_bg, &[]);
+                pass.dispatch_workgroups(workgroups, 1, 1);
             }
+
+            // KE for thermostat
+            pass.set_pipeline(&ke_pipeline);
+            pass.set_bind_group(0, &ke_bg, &[]);
+            pass.dispatch_workgroups(workgroups, 1, 1);
+        }
+        encoder.copy_buffer_to_buffer(&ke_buf, 0, &equil_ke_staging, 0, (n * 8) as u64);
+        gpu.submit_encoder(encoder);
+
+        // Read back KE, apply Berendsen (10% bandwidth)
+        let ke_data = gpu.read_staging_f64(&equil_ke_staging)?;
+        let total_ke: f64 = ke_data.iter().sum();
+        let t_current = 2.0 * total_ke / (3.0 * n as f64);
+
+        if t_current > 1e-30 {
+            let ratio = 1.0 + (config.dt / config.berendsen_tau) * (temperature / t_current - 1.0);
+            let scale = ratio.max(0.0).sqrt();
+            let beren_params = vec![n as f64, scale, 0.0, 0.0];
+            let beren_params_buf = gpu.create_f64_buffer(&beren_params, "beren_params");
+            let beren_bg =
+                gpu.create_bind_group(&berendsen_pipeline, &[&vel_buf, &beren_params_buf]);
+            gpu.dispatch(&berendsen_pipeline, &beren_bg, workgroups);
         }
 
-        if step % 1000 == 0 || step == config.equil_steps - 1 {
-            // Quick temperature check
-            gpu.dispatch(&ke_pipeline, &ke_bg, workgroups);
-            let ke_data = gpu.read_back_f64(&ke_buf, n)?;
-            let total_ke: f64 = ke_data.iter().sum();
-            let t_current = 2.0 * total_ke / (3.0 * n as f64);
+        step += batch_size;
+
+        if step % 1000 < thermostat_interval || step >= config.equil_steps {
             println!("    Step {step}: T* = {t_current:.6} (target {temperature:.6})");
         }
     }
@@ -299,59 +321,128 @@ pub async fn run_simulation(
     println!("    Equilibration complete in {equil_time:.2}s");
 
     // ══════════════════════════════════════════════════════════════
-    //  Production
+    //  Production — streamed dispatch
+    //
+    //  Batch dump_step VV steps into a single GPU command encoder.
+    //  One submission per dump interval. ~90% to GPU, ~10% back.
+    //  This eliminates per-step round-trips that dominate at small N.
     // ══════════════════════════════════════════════════════════════
-    println!("  ── Production ({} steps) ──", config.prod_steps);
+    println!("  ── Production ({} steps, streamed) ──", config.prod_steps);
     let t_prod = Instant::now();
 
     let mut energy_history = Vec::new();
     let mut positions_snapshots = Vec::new();
     let mut velocity_snapshots = Vec::new();
 
-    for step in 0..config.prod_steps {
-        // 1. Half-kick + drift + PBC
-        gpu.dispatch(&kick_drift_pipeline, &kick_drift_bg, workgroups);
-        // 2. Recompute forces
-        gpu.dispatch(&force_pipeline, &force_bg, workgroups);
-        // 3. Second half-kick
-        gpu.dispatch(&half_kick_pipeline, &half_kick_bg, workgroups);
+    // Pre-allocate staging buffers (reused across all dumps)
+    let ke_staging = gpu.create_staging_buffer(n * 8, "ke_staging");
+    let pe_staging = gpu.create_staging_buffer(n * 8, "pe_staging");
+    let pos_staging = gpu.create_staging_buffer(n * 3 * 8, "pos_staging");
+    let vel_staging = gpu.create_staging_buffer(n * 3 * 8, "vel_staging");
 
-        // Dump at intervals
-        if step % config.dump_step == 0 {
-            // Read back KE and PE
-            gpu.dispatch(&ke_pipeline, &ke_bg, workgroups);
-            let ke_data = gpu.read_back_f64(&ke_buf, n)?;
-            let pe_data = gpu.read_back_f64(&pe_buf, n)?;
+    let n_dumps = config.prod_steps / config.dump_step;
+    let snap_every = config.vel_snapshot_interval;
 
-            let total_ke: f64 = ke_data.iter().sum();
-            let total_pe: f64 = pe_data.iter().sum();
-            let total_e = total_ke + total_pe;
-            let t_current = 2.0 * total_ke / (3.0 * n as f64);
+    for dump_idx in 0..n_dumps {
+        let step_start = dump_idx * config.dump_step;
+        let step_end = step_start + config.dump_step;
+        let need_snapshot = dump_idx % snap_every == 0;
 
-            energy_history.push(EnergyRecord {
-                step,
-                ke: total_ke,
-                pe: total_pe,
-                total: total_e,
-                temperature: t_current,
+        // ── Stream dump_step VV steps + KE into one submission ──
+        let mut encoder = gpu.begin_encoder("md_batch");
+        {
+            let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: Some("md_stream"),
+                timestamp_writes: None,
             });
 
-            if step % (config.dump_step * config.vel_snapshot_interval) == 0 {
-                let pos_snap = gpu.read_back_f64(&pos_buf, n * 3)?;
-                let vel_snap = gpu.read_back_f64(&vel_buf, n * 3)?;
-                positions_snapshots.push(pos_snap);
-                velocity_snapshots.push(vel_snap);
+            for _ in step_start..step_end {
+                pass.set_pipeline(&kick_drift_pipeline);
+                pass.set_bind_group(0, &kick_drift_bg, &[]);
+                pass.dispatch_workgroups(workgroups, 1, 1);
+
+                pass.set_pipeline(&force_pipeline);
+                pass.set_bind_group(0, &force_bg, &[]);
+                pass.dispatch_workgroups(workgroups, 1, 1);
+
+                pass.set_pipeline(&half_kick_pipeline);
+                pass.set_bind_group(0, &half_kick_bg, &[]);
+                pass.dispatch_workgroups(workgroups, 1, 1);
             }
+
+            // KE at end of batch
+            pass.set_pipeline(&ke_pipeline);
+            pass.set_bind_group(0, &ke_bg, &[]);
+            pass.dispatch_workgroups(workgroups, 1, 1);
         }
 
-        if step % 5000 == 0 || step == config.prod_steps - 1 {
-            if let Some(last) = energy_history.last() {
-                println!(
-                    "    Step {}: T*={:.6}, KE={:.4}, PE={:.4}, E={:.4}",
-                    step, last.temperature, last.ke, last.pe, last.total
-                );
+        // Copy results to staging (still in same encoder, zero extra submits)
+        encoder.copy_buffer_to_buffer(&ke_buf, 0, &ke_staging, 0, (n * 8) as u64);
+        encoder.copy_buffer_to_buffer(&pe_buf, 0, &pe_staging, 0, (n * 8) as u64);
+        if need_snapshot {
+            encoder.copy_buffer_to_buffer(&pos_buf, 0, &pos_staging, 0, (n * 3 * 8) as u64);
+            encoder.copy_buffer_to_buffer(&vel_buf, 0, &vel_staging, 0, (n * 3 * 8) as u64);
+        }
+
+        // ONE submission for dump_step MD steps
+        gpu.submit_encoder(encoder);
+
+        // ── Read back (10% bandwidth) ──
+        let ke_data = gpu.read_staging_f64(&ke_staging)?;
+        let pe_data = gpu.read_staging_f64(&pe_staging)?;
+
+        let total_ke: f64 = ke_data.iter().sum();
+        let total_pe: f64 = pe_data.iter().sum();
+        let total_e = total_ke + total_pe;
+        let t_current = 2.0 * total_ke / (3.0 * n as f64);
+
+        energy_history.push(EnergyRecord {
+            step: step_end - 1,
+            ke: total_ke,
+            pe: total_pe,
+            total: total_e,
+            temperature: t_current,
+        });
+
+        if need_snapshot {
+            positions_snapshots.push(gpu.read_staging_f64(&pos_staging)?);
+            velocity_snapshots.push(gpu.read_staging_f64(&vel_staging)?);
+        }
+
+        if step_end % 5000 < config.dump_step || step_end >= config.prod_steps {
+            println!(
+                "    Step {}: T*={:.6}, KE={:.4}, PE={:.4}, E={:.4}",
+                step_end - 1,
+                t_current,
+                total_ke,
+                total_pe,
+                total_e
+            );
+        }
+    }
+
+    // Handle remaining steps that don't fill a full dump interval
+    let remainder = config.prod_steps % config.dump_step;
+    if remainder > 0 {
+        let mut encoder = gpu.begin_encoder("md_tail");
+        {
+            let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: Some("md_tail"),
+                timestamp_writes: None,
+            });
+            for _ in 0..remainder {
+                pass.set_pipeline(&kick_drift_pipeline);
+                pass.set_bind_group(0, &kick_drift_bg, &[]);
+                pass.dispatch_workgroups(workgroups, 1, 1);
+                pass.set_pipeline(&force_pipeline);
+                pass.set_bind_group(0, &force_bg, &[]);
+                pass.dispatch_workgroups(workgroups, 1, 1);
+                pass.set_pipeline(&half_kick_pipeline);
+                pass.set_bind_group(0, &half_kick_bg, &[]);
+                pass.dispatch_workgroups(workgroups, 1, 1);
             }
         }
+        gpu.submit_encoder(encoder);
     }
 
     let prod_time = t_prod.elapsed().as_secs_f64();
@@ -593,66 +684,77 @@ pub async fn run_simulation_celllist(
     // Compute initial forces
     gpu.dispatch(&force_pipeline_cl, &force_bg, workgroups);
 
-    // Rebuild cell list every step to maintain correctness.
-    // The CPU sort is O(N) and the upload is ~48KB for N=10k — fast enough.
-    let rebuild_interval = 1;
+    // Rebuild cell list every N steps. At dt=0.01, particles move ~0.001 a_ws/step.
+    // Cell size is ~rc/n_cells_per_dim ≈ 2 a_ws. Safe to skip 20 steps between rebuilds.
+    // Between rebuilds, VV steps are streamed to GPU in a single submission.
+    let rebuild_interval = 20;
 
-    // ── Equilibration ──
+    // ── Equilibration — streamed between cell-list rebuilds ──
     println!("  ── Equilibration ({} steps) ──", config.equil_steps);
     let t_equil = Instant::now();
 
-    for step in 0..config.equil_steps {
-        gpu.dispatch(&kick_drift_pipeline, &kick_drift_bg, workgroups);
+    let equil_ke_staging_cl = gpu.create_staging_buffer(n * 8, "equil_ke_staging_cl");
+    let thermostat_interval_cl = rebuild_interval.min(10);
+    let mut step = 0;
 
-        // Periodically rebuild cell list
-        if step % rebuild_interval == 0 && step > 0 {
-            // Read back positions, rebuild cell list, re-sort, re-upload
+    while step < config.equil_steps {
+        let batch = thermostat_interval_cl.min(config.equil_steps - step);
+
+        // Stream batch VV steps into one submission
+        let mut encoder = gpu.begin_encoder("equil_cl_batch");
+        {
+            let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: Some("equil_cl_stream"),
+                timestamp_writes: None,
+            });
+            for _ in 0..batch {
+                pass.set_pipeline(&kick_drift_pipeline);
+                pass.set_bind_group(0, &kick_drift_bg, &[]);
+                pass.dispatch_workgroups(workgroups, 1, 1);
+                pass.set_pipeline(&force_pipeline_cl);
+                pass.set_bind_group(0, &force_bg, &[]);
+                pass.dispatch_workgroups(workgroups, 1, 1);
+                pass.set_pipeline(&half_kick_pipeline);
+                pass.set_bind_group(0, &half_kick_bg, &[]);
+                pass.dispatch_workgroups(workgroups, 1, 1);
+            }
+            pass.set_pipeline(&ke_pipeline);
+            pass.set_bind_group(0, &ke_bg, &[]);
+            pass.dispatch_workgroups(workgroups, 1, 1);
+        }
+        encoder.copy_buffer_to_buffer(&ke_buf, 0, &equil_ke_staging_cl, 0, (n * 8) as u64);
+        gpu.submit_encoder(encoder);
+
+        // Thermostat
+        let ke_data = gpu.read_staging_f64(&equil_ke_staging_cl)?;
+        let total_ke: f64 = ke_data.iter().sum();
+        let t_current = 2.0 * total_ke / (3.0 * n as f64);
+        if t_current > 1e-30 {
+            let ratio = 1.0 + (config.dt / config.berendsen_tau) * (temperature / t_current - 1.0);
+            let scale = ratio.max(0.0).sqrt();
+            let beren_params = vec![n as f64, scale, 0.0, 0.0];
+            let beren_params_buf = gpu.create_f64_buffer(&beren_params, "beren_params");
+            let beren_bg =
+                gpu.create_bind_group(&berendsen_pipeline, &[&vel_buf, &beren_params_buf]);
+            gpu.dispatch(&berendsen_pipeline, &beren_bg, workgroups);
+        }
+
+        step += batch;
+
+        // Cell-list rebuild at rebuild_interval boundaries
+        if step % rebuild_interval == 0 && step < config.equil_steps {
             let pos_data = gpu.read_back_f64(&pos_buf, n * 3)?;
             let vel_data = gpu.read_back_f64(&vel_buf, n * 3)?;
             let force_data = gpu.read_back_f64(&force_buf, n * 3)?;
-
             let new_cl = CellList::build(&pos_data, n, box_side, config.rc);
-
-            let sorted_p = new_cl.sort_array(&pos_data, 3);
-            let sorted_v = new_cl.sort_array(&vel_data, 3);
-            let sorted_f = new_cl.sort_array(&force_data, 3);
-
-            gpu.upload_f64(&pos_buf, &sorted_p);
-            gpu.upload_f64(&vel_buf, &sorted_v);
-            gpu.upload_f64(&force_buf, &sorted_f);
-
-            // Update cell list buffers
+            gpu.upload_f64(&pos_buf, &new_cl.sort_array(&pos_data, 3));
+            gpu.upload_f64(&vel_buf, &new_cl.sort_array(&vel_data, 3));
+            gpu.upload_f64(&force_buf, &new_cl.sort_array(&force_data, 3));
             upload_u32(&gpu, &cell_start_buf, &new_cl.cell_start);
             upload_u32(&gpu, &cell_count_buf, &new_cl.cell_count);
         }
 
-        gpu.dispatch(&force_pipeline_cl, &force_bg, workgroups);
-        gpu.dispatch(&half_kick_pipeline, &half_kick_bg, workgroups);
-
-        // Thermostat
-        if step % 10 == 0 {
-            gpu.dispatch(&ke_pipeline, &ke_bg, workgroups);
-            let ke_data = gpu.read_back_f64(&ke_buf, n)?;
-            let total_ke: f64 = ke_data.iter().sum();
-            let t_current = 2.0 * total_ke / (3.0 * n as f64);
-
-            if t_current > 1e-30 {
-                let ratio =
-                    1.0 + (config.dt / config.berendsen_tau) * (temperature / t_current - 1.0);
-                let scale = ratio.max(0.0).sqrt();
-                let beren_params = vec![n as f64, scale, 0.0, 0.0];
-                let beren_params_buf = gpu.create_f64_buffer(&beren_params, "beren_params");
-                let beren_bg =
-                    gpu.create_bind_group(&berendsen_pipeline, &[&vel_buf, &beren_params_buf]);
-                gpu.dispatch(&berendsen_pipeline, &beren_bg, workgroups);
-            }
-        }
-
-        if step % 1000 == 0 || step == config.equil_steps - 1 {
-            gpu.dispatch(&ke_pipeline, &ke_bg, workgroups);
-            let ke_data = gpu.read_back_f64(&ke_buf, n)?;
-            let total_ke: f64 = ke_data.iter().sum();
-            let t_current = 2.0 * total_ke / (3.0 * n as f64);
+        if step % 1000 < thermostat_interval_cl || step >= config.equil_steps {
             println!("    Step {step}: T* = {t_current:.6} (target {temperature:.6})");
         }
     }
@@ -661,72 +763,112 @@ pub async fn run_simulation_celllist(
         t_equil.elapsed().as_secs_f64()
     );
 
-    // ── Production ──
-    println!("  ── Production ({} steps) ──", config.prod_steps);
+    // ── Production — streamed between cell-list rebuilds ──
+    println!(
+        "  ── Production ({} steps, streamed, rebuild every {}) ──",
+        config.prod_steps, rebuild_interval
+    );
     let t_prod = Instant::now();
 
     let mut energy_history = Vec::new();
     let mut positions_snapshots = Vec::new();
     let mut velocity_snapshots = Vec::new();
 
-    for step in 0..config.prod_steps {
-        gpu.dispatch(&kick_drift_pipeline, &kick_drift_bg, workgroups);
+    let ke_staging_cl = gpu.create_staging_buffer(n * 8, "ke_staging_cl");
+    let pe_staging_cl = gpu.create_staging_buffer(n * 8, "pe_staging_cl");
+    let pos_staging_cl = gpu.create_staging_buffer(n * 3 * 8, "pos_staging_cl");
+    let vel_staging_cl = gpu.create_staging_buffer(n * 3 * 8, "vel_staging_cl");
 
-        // Rebuild cell list periodically
-        if step % rebuild_interval == 0 && step > 0 {
-            let pos_data = gpu.read_back_f64(&pos_buf, n * 3)?;
-            let vel_data = gpu.read_back_f64(&vel_buf, n * 3)?;
-            let force_data = gpu.read_back_f64(&force_buf, n * 3)?;
+    // Align dump and rebuild intervals: stream min(dump_step, rebuild_interval) steps
+    let stream_batch = config.dump_step.min(rebuild_interval);
+    let n_dumps_cl = config.prod_steps / stream_batch;
+    let snap_every_cl = config.vel_snapshot_interval * (config.dump_step / stream_batch).max(1);
 
-            let new_cl = CellList::build(&pos_data, n, box_side, config.rc);
+    for dump_idx in 0..n_dumps_cl {
+        let step_end = (dump_idx + 1) * stream_batch;
+        let is_dump = step_end % config.dump_step == 0;
+        let is_snapshot = is_dump && (dump_idx % snap_every_cl == 0);
+        let is_rebuild = step_end % rebuild_interval == 0;
 
-            let sorted_p = new_cl.sort_array(&pos_data, 3);
-            let sorted_v = new_cl.sort_array(&vel_data, 3);
-            let sorted_f = new_cl.sort_array(&force_data, 3);
-
-            gpu.upload_f64(&pos_buf, &sorted_p);
-            gpu.upload_f64(&vel_buf, &sorted_v);
-            gpu.upload_f64(&force_buf, &sorted_f);
-
-            upload_u32(&gpu, &cell_start_buf, &new_cl.cell_start);
-            upload_u32(&gpu, &cell_count_buf, &new_cl.cell_count);
+        // Stream batch VV steps into one submission
+        let mut encoder = gpu.begin_encoder("prod_cl_batch");
+        {
+            let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: Some("prod_cl_stream"),
+                timestamp_writes: None,
+            });
+            for _ in 0..stream_batch {
+                pass.set_pipeline(&kick_drift_pipeline);
+                pass.set_bind_group(0, &kick_drift_bg, &[]);
+                pass.dispatch_workgroups(workgroups, 1, 1);
+                pass.set_pipeline(&force_pipeline_cl);
+                pass.set_bind_group(0, &force_bg, &[]);
+                pass.dispatch_workgroups(workgroups, 1, 1);
+                pass.set_pipeline(&half_kick_pipeline);
+                pass.set_bind_group(0, &half_kick_bg, &[]);
+                pass.dispatch_workgroups(workgroups, 1, 1);
+            }
+            if is_dump || is_rebuild {
+                pass.set_pipeline(&ke_pipeline);
+                pass.set_bind_group(0, &ke_bg, &[]);
+                pass.dispatch_workgroups(workgroups, 1, 1);
+            }
         }
 
-        gpu.dispatch(&force_pipeline_cl, &force_bg, workgroups);
-        gpu.dispatch(&half_kick_pipeline, &half_kick_bg, workgroups);
+        if is_dump {
+            encoder.copy_buffer_to_buffer(&ke_buf, 0, &ke_staging_cl, 0, (n * 8) as u64);
+            encoder.copy_buffer_to_buffer(&pe_buf, 0, &pe_staging_cl, 0, (n * 8) as u64);
+        }
+        if is_snapshot || is_rebuild {
+            encoder.copy_buffer_to_buffer(&pos_buf, 0, &pos_staging_cl, 0, (n * 3 * 8) as u64);
+            encoder.copy_buffer_to_buffer(&vel_buf, 0, &vel_staging_cl, 0, (n * 3 * 8) as u64);
+        }
+        gpu.submit_encoder(encoder);
 
-        // Dump
-        if step % config.dump_step == 0 {
-            gpu.dispatch(&ke_pipeline, &ke_bg, workgroups);
-            let ke_data = gpu.read_back_f64(&ke_buf, n)?;
-            let pe_data = gpu.read_back_f64(&pe_buf, n)?;
-
+        // Read back at dump points
+        if is_dump {
+            let ke_data = gpu.read_staging_f64(&ke_staging_cl)?;
+            let pe_data = gpu.read_staging_f64(&pe_staging_cl)?;
             let total_ke: f64 = ke_data.iter().sum();
             let total_pe: f64 = pe_data.iter().sum();
             let total_e = total_ke + total_pe;
             let t_current = 2.0 * total_ke / (3.0 * n as f64);
-
             energy_history.push(EnergyRecord {
-                step,
+                step: step_end - 1,
                 ke: total_ke,
                 pe: total_pe,
                 total: total_e,
                 temperature: t_current,
             });
-
-            if step % (config.dump_step * config.vel_snapshot_interval) == 0 {
-                let pos_snap = gpu.read_back_f64(&pos_buf, n * 3)?;
-                let vel_snap = gpu.read_back_f64(&vel_buf, n * 3)?;
-                positions_snapshots.push(pos_snap);
-                velocity_snapshots.push(vel_snap);
-            }
         }
 
-        if step % 5000 == 0 || step == config.prod_steps - 1 {
+        if is_snapshot {
+            positions_snapshots.push(gpu.read_staging_f64(&pos_staging_cl)?);
+            velocity_snapshots.push(gpu.read_staging_f64(&vel_staging_cl)?);
+        }
+
+        // Cell-list rebuild
+        if is_rebuild && step_end < config.prod_steps {
+            let pos_data = gpu.read_staging_f64(&pos_staging_cl)?;
+            let vel_data = gpu.read_back_f64(&vel_buf, n * 3)?;
+            let force_data = gpu.read_back_f64(&force_buf, n * 3)?;
+            let new_cl = CellList::build(&pos_data, n, box_side, config.rc);
+            gpu.upload_f64(&pos_buf, &new_cl.sort_array(&pos_data, 3));
+            gpu.upload_f64(&vel_buf, &new_cl.sort_array(&vel_data, 3));
+            gpu.upload_f64(&force_buf, &new_cl.sort_array(&force_data, 3));
+            upload_u32(&gpu, &cell_start_buf, &new_cl.cell_start);
+            upload_u32(&gpu, &cell_count_buf, &new_cl.cell_count);
+        }
+
+        if step_end % 5000 < stream_batch || step_end >= config.prod_steps {
             if let Some(last) = energy_history.last() {
                 println!(
                     "    Step {}: T*={:.6}, KE={:.4}, PE={:.4}, E={:.4}",
-                    step, last.temperature, last.ke, last.pe, last.total
+                    step_end - 1,
+                    last.temperature,
+                    last.ke,
+                    last.pe,
+                    last.total
                 );
             }
         }

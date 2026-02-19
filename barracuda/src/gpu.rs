@@ -524,7 +524,11 @@ impl GpuF64 {
         Ok(result)
     }
 
-    /// Dispatch a compute pipeline (fire-and-forget within the GPU queue).
+    /// Dispatch a compute pipeline (single-shot submit — convenience only).
+    ///
+    /// **Prefer [`Self::begin_encoder`] + [`Self::submit_encoder`]** for MD loops
+    /// or any multi-dispatch sequence. This method creates a new encoder and
+    /// submits per call — one GPU round-trip per invocation.
     pub fn dispatch(
         &self,
         pipeline: &wgpu::ComputePipeline,
@@ -546,6 +550,75 @@ impl GpuF64 {
             pass.dispatch_workgroups(workgroups, 1, 1);
         }
         self.queue().submit(std::iter::once(encoder.finish()));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // Streaming dispatch: send work to GPU, read back only at control points.
+    //
+    // The trains to and from take more time than the work.
+    // Pre-plan, fill GPU function space, fire at once.
+    //
+    //   begin_encoder()  → CommandEncoder
+    //     ↕  encode N dispatches via compute passes
+    //   submit_encoder() → ONE GPU submission
+    //   read_staging_f64() → read back results (10% bandwidth)
+    //
+    // For MD: batch dump_step VV steps into a single encoder,
+    // submit once, read KE/PE/snapshots. ~90% to GPU, ~10% back.
+    // ═══════════════════════════════════════════════════════════════════
+
+    /// Begin a command encoder for streaming multiple dispatches.
+    ///
+    /// Encode as many compute passes / dispatches as needed, then call
+    /// [`Self::submit_encoder`] to issue a single GPU submission.
+    pub fn begin_encoder(&self, label: &str) -> wgpu::CommandEncoder {
+        self.device()
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some(label) })
+    }
+
+    /// Submit a finished encoder to the GPU queue (single submission).
+    pub fn submit_encoder(&self, encoder: wgpu::CommandEncoder) {
+        self.queue().submit(std::iter::once(encoder.finish()));
+    }
+
+    /// Read f64 data from a staging buffer after submit + poll.
+    ///
+    /// Call this after [`Self::submit_encoder`] when the encoder included a
+    /// `copy_buffer_to_buffer` into the staging buffer.
+    pub fn read_staging_f64(
+        &self,
+        staging: &wgpu::Buffer,
+    ) -> Result<Vec<f64>, crate::error::HotSpringError> {
+        let slice = staging.slice(..);
+        let (sender, receiver) = std::sync::mpsc::channel();
+        slice.map_async(wgpu::MapMode::Read, move |result| {
+            let _ = sender.send(result);
+        });
+        self.device().poll(wgpu::Maintain::Wait);
+        receiver
+            .recv()
+            .map_err(|_| {
+                crate::error::HotSpringError::DeviceCreation(
+                    "GPU map callback: channel recv failed".into(),
+                )
+            })?
+            .map_err(|e| {
+                crate::error::HotSpringError::DeviceCreation(format!("GPU buffer mapping: {e}"))
+            })?;
+
+        let data = slice.get_mapped_range();
+        let result: Vec<f64> = data
+            .chunks_exact(8)
+            .map(|chunk| {
+                let bytes: [u8; 8] = chunk
+                    .try_into()
+                    .expect("chunks_exact(8) guarantees 8-byte slices");
+                f64::from_le_bytes(bytes)
+            })
+            .collect();
+        drop(data);
+        staging.unmap();
+        Ok(result)
     }
 
     /// Create a bind group from a pipeline and ordered buffer slice.
