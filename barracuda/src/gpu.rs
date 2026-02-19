@@ -214,7 +214,10 @@ impl GpuF64 {
                 .ok_or(crate::error::HotSpringError::NoAdapter)?
         } else if let Ok(idx) = selector.parse::<usize>() {
             if idx < adapters.len() {
-                adapters.into_iter().nth(idx).unwrap()
+                adapters
+                    .into_iter()
+                    .nth(idx)
+                    .ok_or(crate::error::HotSpringError::NoAdapter)?
             } else {
                 // Numeric value exceeds adapter count — treat as name substring
                 adapters

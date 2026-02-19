@@ -7,7 +7,7 @@
 //!
 //! - [`Mat`] — lightweight row-major square matrix for Hamiltonian blocks
 //! - [`hermite_value`] — Re-export of `barracuda::special::hermite` (canonical implementation)
-//! - [`factorial_f64`] — exact factorial as f64
+//! - [`factorial_f64`] — delegates to `barracuda::special::factorial`
 
 // ═══════════════════════════════════════════════════════════════════
 // Row-major square matrix
@@ -72,13 +72,11 @@ pub fn hermite_value(n: usize, x: f64) -> f64 {
 
 /// Factorial n! as f64.
 ///
-/// Exact for n ≤ 170 in IEEE 754 double precision.
-/// Used by harmonic oscillator normalization constants.
+/// Delegates to [`barracuda::special::factorial`] — the canonical
+/// implementation with a lookup table for n ≤ 20 and Stirling's
+/// approximation for larger n.
 pub fn factorial_f64(n: usize) -> f64 {
-    if n <= 1 {
-        return 1.0;
-    }
-    (2..=n).fold(1.0, |acc, k| acc * k as f64)
+    barracuda::special::factorial(n)
 }
 
 // ═══════════════════════════════════════════════════════════════════
