@@ -79,48 +79,54 @@ The study answers three questions:
 
 ---
 
-## Next Phase: Paper Review Candidates
+## Bazavov Extension: Lattice QCD on Consumer Hardware
 
-hotSpring's current work centers on the Murillo Group (plasma physics, surrogate learning). The faculty network reveals a natural extension through **Alexei Bazavov** (CMSE & Physics, MSU — master's program professor), whose lattice QCD work shares deep computational overlap with Murillo's plasma MD.
+hotSpring has extended from plasma physics to lattice gauge theory. The
+Bazavov connection (CMSE & Physics, MSU) provides the bridge: both Murillo
+and Bazavov study strongly coupled many-body systems with overlapping
+computational methods (MD ↔ HMC, plasma EOS ↔ QCD EOS).
 
-### Why Bazavov extends hotSpring
+### Completed (February 19, 2026)
 
-Both Murillo and Bazavov study **strongly coupled many-body systems** — Murillo in classical dense plasmas, Bazavov in quantum chromodynamics. The computational methods overlap significantly:
-- Both use molecular dynamics (Sarkas ↔ Hybrid Monte Carlo)
-- Both compute equations of state from first principles
-- Both deal with long-range correlations requiring careful treatment
-- Both are GPU-bound, HPC-scale workloads
+| Paper | Status | Implementation |
+|-------|--------|----------------|
+| Stanton & Murillo (2016) transport | **Partial** | D*, η*, λ* fits + Green-Kubo; normalization bug in stress/heat ACF |
+| HotQCD EOS tables (Bazavov 2014) | **Done** | `lattice/eos_tables.rs` — thermodynamic validation passes |
+| Pure gauge SU(3) Wilson action | **Done** | `lattice/` — 8 modules, 12/12 validation checks |
 
-A shared BarraCUDA kernel library could serve both plasma and lattice QCD.
+### Lattice QCD Infrastructure Built
 
-### Candidate Papers
+| Module | Lines | Purpose | GPU-Ready |
+|--------|-------|---------|-----------|
+| `complex_f64.rs` | 316 | Complex f64 with WGSL template | WGSL string included |
+| `su3.rs` | 460 | SU(3) matrix algebra with WGSL template | WGSL string included |
+| `wilson.rs` | 338 | Wilson gauge action, plaquettes, force | Needs WGSL shader |
+| `hmc.rs` | 350 | HMC with Cayley exponential | Needs WGSL shader |
+| `dirac.rs` | 297 | Staggered Dirac operator | Needs WGSL shader |
+| `cg.rs` | 214 | Conjugate gradient for D†D | Needs WGSL shader |
+| `eos_tables.rs` | 307 | HotQCD reference data | CPU-only (data) |
+| `multi_gpu.rs` | 237 | Temperature scan dispatcher | CPU-threaded, GPU-ready |
 
-| Priority | Paper | Why |
-|----------|-------|-----|
-| **Tier 1** | Bazavov [HotQCD] (2014) "The QCD equation of state." Nuclear Physics A 931, 867 | EOS computation from lattice ↔ Sarkas plasma EOS. Both compute thermodynamic properties via particle methods. Most direct overlap with existing hotSpring work |
-| **Tier 1** | Bazavov et al. (2016) "Polyakov loop in 2+1 flavor QCD." Phys Rev D 93, 114502 | Phase transitions in QCD ↔ phase transitions in dense plasmas. Tests same temperature-scanning methodology |
-| **Tier 2** | Bazavov et al. (2025) "Hadronic vacuum polarization for the muon g-2: Complete short and intermediate windows." Phys Rev D 111, 094508 | Precision lattice computation — subpercent precision from noisy data. Exercises GEMM + reduction + statistical analysis at scale |
-| **Tier 2** | Bazavov et al. (2016) "Curvature of the freeze-out line in heavy ion collisions." Phys Rev D 93, 014512 | Inverse problem — inferring freeze-out conditions from observables. Connects to groundSpring's inverse problem theme |
-| **Tier 3** | Bazavov et al. (2015) "Gauge-invariant implementation of the Abelian Higgs model on optical lattices." Phys Rev D 92, 076003 | Quantum simulation on computational lattices — mapping field theories onto discrete grids |
+### Remaining Gaps for Full Lattice QCD
 
-### Existing Reproduction (Murillo Group)
+| Gap | Needed For | Priority |
+|-----|-----------|----------|
+| FFT (momentum-space) | Full QCD with dynamical fermions | High |
+| GPU SU(3) plaquette shader | GPU-accelerated HMC | High |
+| GPU Dirac operator | Fermion matrix-vector products | High |
+| Larger lattice sizes (8^4, 16^4) | Physical results | Medium |
 
-| Paper | Status | Phase |
-|-------|--------|-------|
-| Silvestri, Diaw, Murillo (2024) surrogate learning — Nat Mach Intel | DONE | Phase A |
-| Sarkas Yukawa OCP MD | DONE | Phase A + C (GPU) |
-| Two-Temperature Model (TTM) | DONE | Phase A |
-| Nuclear EOS (SEMF → HFB) | DONE | Phase A + F (full AME2020) |
+### Existing Reproduction (All Papers)
 
-### BarraCUDA Kernel Coverage for Bazavov Extension
-
-| Kernel Need | Current Status | Gap |
-|-------------|---------------|-----|
-| GEMM (link multiplication) | `gemm_f64.wgsl` — validated | None |
-| FFT (momentum-space ops) | Not yet in BarraCUDA | **Gap**: lattice QCD needs momentum-space transforms |
-| Parallel MD (HMC algorithm) | Sarkas MD engine validated | Adapt for gauge field updates |
-| Reduction (gauge averaging) | `FusedMapReduceF64` — validated | None |
-| Stochastic estimators | Monte Carlo in L1/L2 | Extend to trace estimators |
+| # | Paper | Status | Phase |
+|---|-------|--------|-------|
+| 1 | Sarkas Yukawa OCP MD | Done | A + C-E (GPU) |
+| 2 | Two-Temperature Model (TTM) | Done | A |
+| 3 | Diaw et al. (2024) Surrogate Learning | Done | A |
+| 4 | Nuclear EOS (SEMF → HFB, AME2020) | Done | A + F |
+| 5 | Stanton & Murillo (2016) Transport | Partial | Green-Kubo normalization bug |
+| 7 | HotQCD EOS tables (Bazavov 2014) | Done | Validation passes |
+| 8 | Pure gauge SU(3) Wilson action | Done | 12/12 checks, HMC working |
 
 ---
 

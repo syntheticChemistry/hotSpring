@@ -372,6 +372,153 @@ pub fn compute_stress_acf(
     }
 }
 
+/// Heat current autocorrelation result for thermal conductivity computation
+#[derive(Clone, Debug)]
+pub struct HeatAcf {
+    pub t_values: Vec<f64>,
+    pub c_values: Vec<f64>,
+    pub thermal_conductivity: f64,
+}
+
+/// Compute the microscopic heat current J_q(t) from positions, velocities,
+/// and the Yukawa interaction.
+///
+/// J_q = sum_i (e_i * v_i) + (1/2) sum_{i<j} (F_ij · v_i) r_ij
+///
+/// where e_i = (m/2)|v_i|² + (1/2) sum_{j≠i} u(r_ij) is the per-particle
+/// energy. Returns one 3-vector (as [f64; 3]) per snapshot frame.
+pub fn compute_heat_current(
+    pos_snapshots: &[Vec<f64>],
+    vel_snapshots: &[Vec<f64>],
+    n: usize,
+    box_side: f64,
+    kappa: f64,
+    mass: f64,
+) -> Vec<[f64; 3]> {
+    let mut jq_series = Vec::with_capacity(pos_snapshots.len());
+
+    for (pos, vel) in pos_snapshots.iter().zip(vel_snapshots.iter()) {
+        if pos.len() < n * 3 || vel.len() < n * 3 {
+            continue;
+        }
+
+        let mut pe_i = vec![0.0f64; n];
+        let mut jq = [0.0f64; 3];
+
+        // Per-particle PE from Yukawa pairs and virial heat current
+        for i in 0..n {
+            let xi = pos[i * 3];
+            let yi = pos[i * 3 + 1];
+            let zi = pos[i * 3 + 2];
+            let vix = vel[i * 3];
+            let viy = vel[i * 3 + 1];
+            let viz = vel[i * 3 + 2];
+
+            for j in (i + 1)..n {
+                let mut dx = pos[j * 3] - xi;
+                let mut dy = pos[j * 3 + 1] - yi;
+                let mut dz = pos[j * 3 + 2] - zi;
+
+                dx -= box_side * (dx / box_side).round();
+                dy -= box_side * (dy / box_side).round();
+                dz -= box_side * (dz / box_side).round();
+
+                let r2 = dx * dx + dy * dy + dz * dz;
+                let r = r2.sqrt();
+                if r < DIVISION_GUARD {
+                    continue;
+                }
+
+                let exp_kr = (-kappa * r).exp();
+                let u_pair = exp_kr / r;
+                pe_i[i] += 0.5 * u_pair;
+                pe_i[j] += 0.5 * u_pair;
+
+                let f_mag = exp_kr * (1.0 + kappa * r) / r2;
+                let inv_r = 1.0 / r;
+                let fx = f_mag * dx * inv_r;
+                let fy = f_mag * dy * inv_r;
+                let fz = f_mag * dz * inv_r;
+
+                let vjx = vel[j * 3];
+                let vjy = vel[j * 3 + 1];
+                let vjz = vel[j * 3 + 2];
+
+                let f_dot_vi = fx * vix + fy * viy + fz * viz;
+                let f_dot_vj = -(fx * vjx + fy * vjy + fz * vjz);
+
+                jq[0] += 0.5 * (f_dot_vi + f_dot_vj) * dx;
+                jq[1] += 0.5 * (f_dot_vi + f_dot_vj) * dy;
+                jq[2] += 0.5 * (f_dot_vi + f_dot_vj) * dz;
+            }
+        }
+
+        // Convective part: sum_i e_i * v_i
+        for i in 0..n {
+            let ke_i =
+                0.5 * mass * (vel[i * 3].powi(2) + vel[i * 3 + 1].powi(2) + vel[i * 3 + 2].powi(2));
+            let e_i = ke_i + pe_i[i];
+            jq[0] += e_i * vel[i * 3];
+            jq[1] += e_i * vel[i * 3 + 1];
+            jq[2] += e_i * vel[i * 3 + 2];
+        }
+
+        jq_series.push(jq);
+    }
+
+    jq_series
+}
+
+/// Compute heat current autocorrelation and Green-Kubo thermal conductivity.
+///
+/// λ* = (V / (3 kT²)) × integral_0^inf <J_q(0) · J_q(t)> dt
+pub fn compute_heat_acf(
+    jq_series: &[[f64; 3]],
+    dt_snap: f64,
+    volume: f64,
+    temperature: f64,
+    max_lag: usize,
+) -> HeatAcf {
+    let n_frames = jq_series.len();
+    let n_lag = max_lag.min(n_frames);
+    let mut c_values = vec![0.0f64; n_lag];
+    let mut counts = vec![0usize; n_lag];
+
+    for t0 in 0..n_frames {
+        for lag in 0..n_lag {
+            let t1 = t0 + lag;
+            if t1 >= n_frames {
+                break;
+            }
+            let j0 = &jq_series[t0];
+            let j1 = &jq_series[t1];
+            c_values[lag] += j0[0] * j1[0] + j0[1] * j1[1] + j0[2] * j1[2];
+            counts[lag] += 1;
+        }
+    }
+
+    for i in 0..n_lag {
+        if counts[i] > 0 {
+            c_values[i] /= counts[i] as f64;
+        }
+    }
+
+    let mut integral = 0.0;
+    for i in 1..n_lag {
+        integral += 0.5 * (c_values[i - 1] + c_values[i]) * dt_snap;
+    }
+    let t2 = temperature * temperature;
+    let thermal_conductivity = volume / (3.0 * t2.max(DIVISION_GUARD)) * integral;
+
+    let t_values: Vec<f64> = (0..n_lag).map(|i| i as f64 * dt_snap).collect();
+
+    HeatAcf {
+        t_values,
+        c_values,
+        thermal_conductivity,
+    }
+}
+
 /// Validate energy conservation
 pub fn validate_energy(history: &[EnergyRecord], _config: &MdConfig) -> EnergyValidation {
     if history.is_empty() {

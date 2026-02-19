@@ -1,6 +1,6 @@
 # hotSpring — Paper Review Queue
 
-**Last Updated**: February 18, 2026
+**Last Updated**: February 19, 2026
 **Purpose**: Track papers for reproduction/review, ordered by priority and feasibility
 **Principle**: Reproduce, validate, then decrease cost. Each paper proves the
 pipeline on harder physics — toadStool evolves the GPU acceleration in parallel.
@@ -29,15 +29,16 @@ The goal is maximum science per dollar with no infrastructure investment.
 
 | # | Paper | Journal | Year | Faculty | What We Need | What We Have | Status |
 |---|-------|---------|------|---------|-------------|-------------|--------|
-| 5 | Stanton & Murillo "Ionic transport in high-energy-density matter" | Phys Rev Lett 116, 075002 | 2016 | Murillo | MD across Yukawa phase diagram, VACF → transport coefficients, Green-Kubo integrals | Sarkas GPU MD (9/9 PP), VACF observable, FusedMapReduceF64 | **NEXT** |
+| 5 | Stanton & Murillo "Ionic transport in high-energy-density matter" | Phys Rev Lett 116, 075002 | 2016 | Murillo | MD across Yukawa phase diagram, VACF → transport coefficients, Green-Kubo integrals | Sarkas GPU MD (9/9 PP), VACF observable, FusedMapReduceF64 | **Partial** — D*, η*, λ* fits + Green-Kubo done; stress/heat ACF normalization bug |
 | 6 | Murillo & Weisheit "Dense plasmas, screened interactions, and atomic ionization" | Physics Reports | 1998 | Murillo | Eigensolve for effective potentials, screened Coulomb theory | BatchedEighGpu, BCS bisection, nuclear EOS framework | Queued |
 
-**Paper 5 rationale**: Stanton & Murillo 2016 computes transport coefficients
-(diffusion, viscosity, thermal conductivity) from Yukawa MD simulations —
-exactly what we already run. They validate against an effective Boltzmann
-equation. We reproduce their MD results with BarraCUDA, compute the same
-Green-Kubo transport coefficients from our VACF data, and compare to their
-published fits. This is a direct extension of Phase C-E with no new code.
+**Paper 5 status**: Analytical fits for D*(Γ,κ), η*(Γ,κ), and λ*(Γ,κ) from
+Stanton & Murillo (2016) and Daligault (2012) are implemented in `md/transport.rs`.
+Green-Kubo integration of VACF, stress ACF, and heat current ACF is implemented
+in `md/observables.rs`. However, the validation binary fails: D* from MD is ~30×
+larger than the analytical fit, and η*/λ* are orders of magnitude off, indicating
+a systematic units/normalization error in the stress and heat current computation.
+The diffusion coefficient integral path needs dimensional analysis review.
 
 **Paper 6 rationale**: Murillo & Weisheit 1998 is a foundational review.
 The reproducible numerical content involves effective potentials and
@@ -48,35 +49,44 @@ validates our eigensolve infrastructure on a different physics domain.
 
 | # | Paper | Journal | Year | Faculty | What We Need | Status |
 |---|-------|---------|------|---------|-------------|--------|
-| 7 | HotQCD lattice EOS tables (Bazavov et al.) | Nuclear Physics A 931, 867 | 2014 | Bazavov | Download public EOS tables, validate downstream thermodynamics, compare to Sarkas plasma EOS | Queued |
+| 7 | HotQCD lattice EOS tables (Bazavov et al.) | Nuclear Physics A 931, 867 | 2014 | Bazavov | Download public EOS tables, validate downstream thermodynamics, compare to Sarkas plasma EOS | **Done** — `lattice/eos_tables.rs` + `validate_hotqcd_eos` |
 
-**Paper 7 rationale**: HotQCD EOS tables are publicly available
-(jnoronhahostler/Equation-of-State on GitHub). We do NOT run lattice QCD —
-we use the published EOS as input to validate thermodynamic analysis
-pipelines. This proves the computational overlap between lattice QCD and
-plasma physics without needing FFT, Dirac solvers, or SU(3) ops.
+**Paper 7 status**: ✅ Complete. HotQCD EOS reference table (Bazavov et al. 2014)
+hardcoded in `lattice/eos_tables.rs` with 14 temperature points. Validation checks:
+pressure/energy monotonicity, trace anomaly peak near T_c, asymptotic freedom
+(approach to Stefan-Boltzmann limit), thermodynamic consistency (s/T³ = ε/T⁴ + p/T⁴).
+All checks pass.
 
 ### Tier 2 — Medium-term: Needs Complex f64 + SU(3) (No FFT)
 
 | # | Paper | Journal | Year | Faculty | What We Need | Status |
 |---|-------|---------|------|---------|-------------|--------|
-| 8 | Pure gauge SU(3) Wilson action (subset of Bazavov) | — | — | Bazavov | Complex f64, SU(3) matrix ops, plaquette force, HMC/Metropolis. NO Dirac solver. NO FFT. | Queued |
+| 8 | Pure gauge SU(3) Wilson action (subset of Bazavov) | — | — | Bazavov | Complex f64, SU(3) matrix ops, plaquette force, HMC/Metropolis. NO Dirac solver. NO FFT. | **Done** — `lattice/` module + `validate_pure_gauge` (12/12) |
 
-**Paper 8 rationale**: A pure gauge SU(3) simulation on a small lattice
-(e.g., 4^4) requires only: complex f64, SU(3) link multiplication, plaquette
-computation, and an HMC-like integrator (adapt Velocity Verlet). It does NOT
-need the expensive Dirac solver that dominates full QCD. This is the minimal
-lattice simulation that proves shared MD structure between plasma and QCD.
+**Paper 8 status**: ✅ Complete. Full CPU implementation of pure gauge SU(3)
+lattice QCD validated on 4^4 lattice:
+- `complex_f64.rs`: Complex f64 arithmetic with WGSL template
+- `su3.rs`: SU(3) matrix algebra (multiply, adjoint, trace, det, reunitarize,
+  random near-identity, Lie algebra momenta) with WGSL template
+- `wilson.rs`: Wilson gauge action — plaquettes, staples, gauge force (dP/dt),
+  Polyakov loop. 100% test coverage.
+- `hmc.rs`: Hybrid Monte Carlo with Cayley matrix exponential (exactly unitary),
+  leapfrog integrator, Metropolis accept/reject. 96-100% acceptance at β=5.5-6.0.
+- `dirac.rs`: Staggered Dirac operator, fermion fields, D†D for CG
+- `cg.rs`: Conjugate gradient solver for D†D x = b
+- `multi_gpu.rs`: Temperature scan dispatcher (CPU-threaded, GPU-ready)
+- All 12/12 validation checks pass. Plaquette values match strong-coupling
+  expansion and known lattice results. HMC ΔH = O(0.01).
 
 ### Tier 3 — Long-term: Full Lattice QCD Stack Required
 
 | # | Paper | Journal | Year | Faculty | What We Need | Status |
 |---|-------|---------|------|---------|-------------|--------|
-| 9 | Bazavov [HotQCD] (2014) "The QCD equation of state" | Nucl Phys A 931, 867 | 2014 | Bazavov | FFT, complex f64, SU(3), HMC, Dirac CG solver | Blocked (FFT P0) |
-| 10 | Bazavov et al. (2016) "Polyakov loop in 2+1 flavor QCD" | Phys Rev D 93, 114502 | 2016 | Bazavov | Same as #9 + Polyakov loop observable | Blocked (FFT P0) |
-| 11 | Bazavov et al. (2025) "Hadronic vacuum polarization for the muon g-2" | Phys Rev D 111, 094508 | 2025 | Bazavov | Same as #9 + subpercent precision | Blocked (FFT P0) |
-| 12 | Bazavov et al. (2016) "Curvature of the freeze-out line" | Phys Rev D 93, 014512 | 2016 | Bazavov | Same as #9 + inverse problem | Blocked (FFT P0) |
-| 13 | Bazavov et al. (2015) "Gauge-invariant Abelian Higgs on optical lattices" | Phys Rev D 92, 076003 | 2015 | Bazavov | Complex f64, gauge theory ops | Blocked (complex f64) |
+| 9 | Bazavov [HotQCD] (2014) "The QCD equation of state" | Nucl Phys A 931, 867 | 2014 | Bazavov | FFT, complex f64, SU(3), HMC, Dirac CG solver | Unblocked (complex f64 + SU(3) + HMC + Dirac CG done; FFT still needed for full QCD) |
+| 10 | Bazavov et al. (2016) "Polyakov loop in 2+1 flavor QCD" | Phys Rev D 93, 114502 | 2016 | Bazavov | Same as #9 + Polyakov loop observable | Polyakov loop implemented; FFT needed |
+| 11 | Bazavov et al. (2025) "Hadronic vacuum polarization for the muon g-2" | Phys Rev D 111, 094508 | 2025 | Bazavov | Same as #9 + subpercent precision | FFT needed |
+| 12 | Bazavov et al. (2016) "Curvature of the freeze-out line" | Phys Rev D 93, 014512 | 2016 | Bazavov | Same as #9 + inverse problem | FFT needed |
+| 13 | Bazavov et al. (2015) "Gauge-invariant Abelian Higgs on optical lattices" | Phys Rev D 92, 076003 | 2015 | Bazavov | Complex f64, gauge theory ops | **Unblocked** — complex f64 + SU(3) now available |
 
 ---
 

@@ -276,17 +276,52 @@ See `experiments/006_GPU_FP64_COMPARISON.md` for full analysis.
 but 4–7× slower on compute-bound shaders. This is a driver maturity gap,
 not hardware. Proprietary driver on Titan V would unlock its 6.9 TFLOPS fp64.
 
+## Lattice QCD Modules (v0.5.10, Feb 19 2026)
+
+| Rust Module | Lines | WGSL | Tier | Status |
+|-------------|-------|------|------|--------|
+| `lattice/complex_f64.rs` | 316 | `WGSL_COMPLEX64` string included | **B** | CPU validated; WGSL template ready |
+| `lattice/su3.rs` | 460 | `WGSL_SU3` string included | **B** | CPU validated; WGSL template ready |
+| `lattice/wilson.rs` | 338 | — | **C** | CPU validated (100% coverage); needs shader |
+| `lattice/hmc.rs` | 350 | — | **C** | CPU validated; Cayley exp exactly unitary |
+| `lattice/dirac.rs` | 297 | — | **C** | Staggered Dirac; CPU validated |
+| `lattice/cg.rs` | 214 | — | **C** | CG solver for D†D; CPU validated (94% coverage) |
+| `lattice/eos_tables.rs` | 307 | — | N/A | HotQCD reference data (CPU-only) |
+| `lattice/multi_gpu.rs` | 237 | — | **C** | CPU-threaded dispatcher; needs GPU dispatch |
+
+### HMC Implementation Notes
+
+The HMC leapfrog integrator uses the **Cayley transform** for the SU(3) matrix
+exponential: `exp(X) ≈ (I + X/2)(I - X/2)^{-1}`. This is exactly unitary when
+X is anti-Hermitian, eliminating unitarity drift that plagues Taylor approximations.
+The 3×3 inverse uses cofactor expansion (exact, no iteration).
+
+Gauge force: `dP/dt = -(β/3) Proj_TA(U × V)` where V is the staple sum
+(NOT V†). This was debugged from first principles during the Feb 19 audit —
+the original sign and adjoint were both wrong, causing 0% HMC acceptance.
+
+### Lattice QCD GPU Promotion Roadmap
+
+1. **Complex f64 + SU(3)**: WGSL template strings already exist in source files.
+   Compile via `ShaderTemplate` and validate GPU vs CPU parity.
+2. **Plaquette shader**: Port `wilson.rs` plaquette/staple computation to WGSL.
+   Input: link buffer (4 × Vol × 18 f64). Output: plaquette average (1 f64).
+3. **HMC on GPU**: Port leapfrog + Cayley exp. Keep Metropolis on CPU (single
+   random number per trajectory).
+4. **Dirac CG on GPU**: Dominant cost in full QCD. Sparse matrix-vector product
+   with staggered phases. Requires careful memory layout for coalesced access.
+
 ## Evolution Gaps Identified
 
 | Gap | Impact | Priority | Status |
 |-----|--------|----------|--------|
 | GPU energy integrands not wired in spherical HFB | CPU bottleneck in SCF energy | High | Shader exists, needs pipeline wiring |
 | `SumReduceF64` not used for HFB energy sums | CPU readback for reduction | High | barracuda primitive available; needs GPU-buffer variant |
-| ~~BCS + density shader not wired~~ | ~~CPU readback after eigensolve~~ | ~~High~~ | ✅ Resolved v0.5.10 — density + mixing on GPU, BCS Brent on CPU |
-| ~~WGSL inline math (`abs_f64`, `cbrt_f64`)~~ | ~~Maintenance drift from canonical~~ | ~~Medium~~ | ✅ Resolved v0.5.8 — `ShaderTemplate::with_math_f64_auto()` |
-| 4 files > 1000 lines (HFB lib modules) | Code organization | Medium | Documented deviation; physics-coherent |
-| `pow_f64(base, exp)` in ToadStool exists but not used | Available when needed | Low | WGSL-only |
-| `FusedMapReduceF64` / `KrigingF64` unused | Available for MD post-processing | Low | |
+| Stanton-Murillo transport normalization bug | Paper 5 fails validation | High | Stress/heat ACF dimensional analysis needed |
+| Lattice QCD GPU shaders | CPU-only lattice modules | Medium | WGSL templates ready; needs compilation + validation |
+| 9 files > 1000 lines | Code organization | Medium | Documented deviation; physics-coherent |
+| ~~BCS + density shader not wired~~ | ~~CPU readback after eigensolve~~ | ~~High~~ | ✅ Resolved v0.5.10 |
+| ~~WGSL inline math~~ | ~~Maintenance drift~~ | ~~Medium~~ | ✅ Resolved v0.5.8 |
 
 ## Gaps Resolved (v0.5.5)
 

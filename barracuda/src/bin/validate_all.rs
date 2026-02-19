@@ -21,6 +21,8 @@
 //! | `validate_pppm` | PPPM Coulomb/Ewald | GPU |
 //! | `validate_cpu_gpu_parity` | CPU vs GPU same-physics proof | GPU |
 //! | `validate_nak_eigensolve` | NAK-optimized eigensolve correctness | GPU |
+//! | `validate_stanton_murillo` | Transport coefficients D*, η*, λ* | No |
+//! | `validate_pure_gauge` | Pure gauge SU(3) lattice QCD | No |
 
 use std::process::{self, Command};
 use std::time::Instant;
@@ -92,6 +94,21 @@ const SUITES: &[Suite] = &[
         name: "NAK Eigensolve (correctness)",
         binary: "validate_nak_eigensolve",
         requires_gpu: true,
+    },
+    Suite {
+        name: "Stanton-Murillo Transport (Paper 5)",
+        binary: "validate_stanton_murillo",
+        requires_gpu: false,
+    },
+    Suite {
+        name: "HotQCD EOS Tables (Paper 7)",
+        binary: "validate_hotqcd_eos",
+        requires_gpu: false,
+    },
+    Suite {
+        name: "Pure Gauge SU(3) (Paper 8)",
+        binary: "validate_pure_gauge",
+        requires_gpu: false,
     },
 ];
 

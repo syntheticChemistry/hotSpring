@@ -213,3 +213,18 @@ path = "src/bin/bench_cpu_gpu_scaling.rs"
 [[bin]]
 name = "validate_nak_eigensolve"
 path = "src/bin/validate_nak_eigensolve.rs"
+
+# ── Paper 5: Stanton-Murillo transport coefficient validation ──
+[[bin]]
+name = "validate_stanton_murillo"
+path = "src/bin/validate_stanton_murillo.rs"
+
+# ── Paper 7: HotQCD EOS table validation (Bazavov bridge) ──
+[[bin]]
+name = "validate_hotqcd_eos"
+path = "src/bin/validate_hotqcd_eos.rs"
+
+# ── Paper 8: Pure gauge SU(3) lattice QCD on consumer GPU ──
+[[bin]]
+name = "validate_pure_gauge"
+path = "src/bin/validate_pure_gauge.rs"

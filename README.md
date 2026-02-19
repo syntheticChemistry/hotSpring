@@ -30,7 +30,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 
 ---
 
-## Current Status (2026-02-17)
+## Current Status (2026-02-19)
 
 | Study | Status | Quantitative Checks |
 |-------|--------|-------------------|
@@ -44,12 +44,19 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **BarraCUDA L2** (Rust+WGSL+nalgebra) | ✅ Complete | χ²/datum = **16.11** best, 19.29 NMP-physical (1.7× faster) |
 | **GPU MD PP Yukawa** (9 cases) | ✅ Complete | 45/45 pass (Energy, RDF, VACF, SSF, D*) |
 | **N-Scaling + Native f64** (5 N values) | ✅ Complete | 16/16 pass (500→20k, 0.000% drift) |
-| **Paper-Parity Long Run** (9 cases, 80k steps) | ✅ **Complete** | **9/9 pass** (N=10k, 0.000-0.002% drift, 3.66 hrs, $0.044) |
+| **Paper-Parity Long Run** (9 cases, 80k steps) | ✅ Complete | 9/9 pass (N=10k, 0.000-0.002% drift, 3.66 hrs, $0.044) |
 | **Toadstool Rewire** (3 GPU ops) | ✅ Complete | BatchedEighGpu, SsfGpu, PppmGpu wired |
-| **Nuclear EOS Full-Scale** (Phase F, AME2020) | ✅ Complete | **9/9 pass** (L1 Pareto, L2 GPU 2042 nuclei, L3 deformed) |
-| **BarraCUDA MD Pipeline** (6 ops) | ✅ Complete | **12/12 pass** (YukawaF64, VV, Berendsen, KE — 0.000% drift) |
-| **BarraCUDA HFB Pipeline** (3 ops) | ✅ Complete | **14/14 pass** (BCS GPU 6.2e-11, Eigh 2.4e-12) |
-| **TOTAL** | **195/195 checks pass** | 6 upstream bugs found (5 patched, 1 resolved by version pinning) |
+| **Nuclear EOS Full-Scale** (Phase F, AME2020) | ✅ Complete | 9/9 pass (L1 Pareto, L2 GPU 2042 nuclei, L3 deformed) |
+| **BarraCUDA MD Pipeline** (6 ops) | ✅ Complete | 12/12 pass (YukawaF64, VV, Berendsen, KE — 0.000% drift) |
+| **BarraCUDA HFB Pipeline** (3 ops) | ✅ Complete | 14/14 pass (BCS GPU 6.2e-11, Eigh 2.4e-12) |
+| **Stanton-Murillo Transport** (Paper 5) | ⚠️ Partial | D* systematic mismatch (Green-Kubo normalization) — η*, λ* implemented |
+| **HotQCD EOS Tables** (Paper 7) | ✅ Complete | Thermodynamic consistency, asymptotic freedom validated |
+| **Pure Gauge SU(3)** (Paper 8) | ✅ Complete | 12/12 pass (HMC, Dirac CG, plaquette physics) |
+| **TOTAL** | **14/15 validation suites pass** | 254 unit tests, 6 upstream bugs found |
+
+Papers 5, 7, and 8 from the review queue are now implemented. Lattice QCD
+infrastructure (complex f64, SU(3) matrices, Wilson gauge action, HMC integrator,
+staggered Dirac operator, CG solver) is validated on CPU, ready for GPU promotion.
 
 See `CONTROL_EXPERIMENT_STATUS.md` for full details.
 
@@ -235,10 +242,11 @@ No streamlining — this is the correct architecture.
 The `barracuda/` directory is a standalone Rust crate providing the validation
 environment, physics implementations, and GPU compute. Key architectural properties:
 
-- **199 unit tests** (5 ignored GPU/slow tests), plus **26 GPU pipeline checks**
-  via `validate_barracuda_pipeline` (12/12) and `validate_barracuda_hfb` (14/14).
-  Test coverage: ~47% line / ~63% function (CPU-testable modules average >90%;
-  GPU modules require hardware). Measured with `cargo-llvm-cov`.
+- **254 unit tests** (5 ignored GPU/slow tests), **15 validation suites** (14/15 pass)
+  via `validate_all`. Includes lattice QCD (complex f64, SU(3), Wilson action, HMC,
+  Dirac CG), transport coefficients (Green-Kubo, Stanton-Murillo fits), and HotQCD
+  EOS tables. Test coverage: ~46% line / ~65% function (GPU modules require hardware;
+  CPU-testable modules average >90%). Measured with `cargo-llvm-cov`.
 - **AGPL-3.0 only** — all 51 `.rs` files and all 30 `.wgsl` shaders have
   `SPDX-License-Identifier: AGPL-3.0-only`.
 - **Provenance** — centralized `BaselineProvenance` records trace hardcoded
@@ -286,9 +294,10 @@ environment, physics implementations, and GPU compute. Key architectural propert
 
 ```bash
 cd barracuda
-cargo test               # 199 tests pass (< 4 seconds)
-cargo clippy --all-targets  # Clean — 3 warnings (energy pipeline stubs, expected)
+cargo test               # 254 tests pass (< 15 seconds)
+cargo clippy --all-targets  # Zero warnings
 cargo doc --no-deps      # Full API documentation — 0 warnings
+cargo run --release --bin validate_all  # 14/15 suites pass (~150s)
 ```
 
 See [`barracuda/CHANGELOG.md`](barracuda/CHANGELOG.md) for version history.
@@ -352,9 +361,7 @@ hotSpring/
 ├── PHYSICS.md                          # Complete physics documentation (equations + references)
 ├── CONTROL_EXPERIMENT_STATUS.md        # Comprehensive status + results (195/195)
 ├── NUCLEAR_EOS_STRATEGY.md             # Nuclear EOS Phase A→B strategy
-├── HANDOFF_HOTSPRING_TO_TOADSTOOL_FEB_12_2026.md # Cross-project handoff v1 (GPU-resident HFB)
-├── HANDOFF_HOTSPRING_TO_TOADSTOOL_FEB_16_2026.md # Comprehensive handoff v2 (195 checks, bugs, lessons)
-├── HANDOFF_HOTSPRING_BARRACUDA_V055.md            # v0.5.5 quality hardening handoff
+├── wateringHole/handoffs/                 # 11 cross-project handoffs (fossil record)
 ├── LICENSE                             # AGPL-3.0
 ├── .gitignore
 │
@@ -401,18 +408,33 @@ hotSpring/
 │       │   ├── shaders/               # f64 WGSL production kernels (5 files)
 │       │   ├── simulation.rs          # GPU MD loop (all-pairs + cell-list)
 │       │   ├── cpu_reference.rs       # CPU reference implementation (FCC, Verlet)
-│       │   ├── observables.rs         # Energy, RDF, VACF, SSF computation
+│       │   ├── observables.rs         # Energy, RDF, VACF, SSF, stress ACF, heat ACF
+│       │   ├── transport.rs           # Stanton-Murillo analytical fits (D*, η*, λ*)
 │       │   └── shaders_toadstool_ref/ # ToadStool shader snapshots (divergence tracking)
 │       │
-│       ├── archive/                   # Historical implementations (stats, surrogate, L1/L2)
+│       ├── lattice/                   # Lattice QCD — pure gauge SU(3) (Papers 7, 8)
+│       │   ├── complex_f64.rs         # Complex f64 arithmetic (Rust + WGSL template)
+│       │   ├── su3.rs                 # SU(3) 3×3 complex matrix algebra (Rust + WGSL template)
+│       │   ├── wilson.rs              # Wilson gauge action — plaquettes, staples, force
+│       │   ├── hmc.rs                 # Hybrid Monte Carlo — Cayley exp, leapfrog
+│       │   ├── dirac.rs              # Staggered Dirac operator
+│       │   ├── cg.rs                  # Conjugate gradient solver for D†D
+│       │   ├── eos_tables.rs          # HotQCD EOS tables (Bazavov et al. 2014)
+│       │   └── multi_gpu.rs           # Temperature scan dispatcher
 │       │
-│       └── bin/                       # 20 binaries (exit 0 = pass, 1 = fail)
-│           ├── validate_all.rs        # Meta-validator: runs all validation suites
+│       ├── archive/                   # Historical implementations (fossil record, not compiled)
+│       │
+│       └── bin/                       # 29 binaries (exit 0 = pass, 1 = fail)
+│           ├── validate_all.rs        # Meta-validator: runs all 15 validation suites
 │           ├── validate_nuclear_eos.rs # L1 SEMF + L2 HFB + NMP validation harness
 │           ├── validate_barracuda_pipeline.rs # Full MD pipeline (12/12 checks)
 │           ├── validate_barracuda_hfb.rs # BCS + eigensolve pipeline (14/14 checks)
 │           ├── validate_md.rs         # CPU MD reference validation
 │           ├── validate_pppm.rs       # PppmGpu κ=0 Coulomb validation
+│           ├── validate_transport.rs  # CPU/GPU transport coefficient validation
+│           ├── validate_stanton_murillo.rs # Paper 5: Green-Kubo vs analytical fits
+│           ├── validate_hotqcd_eos.rs # Paper 7: HotQCD EOS thermodynamic validation
+│           ├── validate_pure_gauge.rs # Paper 8: SU(3) HMC + Dirac CG validation (12/12)
 │           ├── validate_special_functions.rs # Gamma, Bessel, erf, Hermite, …
 │           ├── validate_linalg.rs     # LU, QR, SVD, tridiagonal solver
 │           ├── validate_optimizers.rs # BFGS, Nelder-Mead, RK45, stats
@@ -599,11 +621,9 @@ These are **silent failures** — wrong results, no error messages. This fragili
 | [`experiments/003_RTX4070_CAPABILITY_PROFILE.md`](experiments/003_RTX4070_CAPABILITY_PROFILE.md) | RTX 4070 capability profile + paper-parity long run results |
 | [`experiments/004_GPU_DISPATCH_OVERHEAD_L3.md`](experiments/004_GPU_DISPATCH_OVERHEAD_L3.md) | L3 deformed HFB GPU dispatch profiling |
 | [`experiments/005_L2_MEGABATCH_COMPLEXITY_BOUNDARY.md`](experiments/005_L2_MEGABATCH_COMPLEXITY_BOUNDARY.md) | L2 mega-batch GPU complexity boundary analysis |
-| [`experiments/006_GPU_FP64_COMPARISON.md`](experiments/006_GPU_FP64_COMPARISON.md) | **RTX 4070 vs Titan V**: fp64 benchmark, driver comparison, NVK vs proprietary |
-| [`HANDOFF_HOTSPRING_TO_TOADSTOOL_FEB_12_2026.md`](HANDOFF_HOTSPRING_TO_TOADSTOOL_FEB_12_2026.md) | Cross-project handoff v1: GPU-resident HFB, tier roadmap |
-| [`HANDOFF_HOTSPRING_TO_TOADSTOOL_FEB_16_2026.md`](HANDOFF_HOTSPRING_TO_TOADSTOOL_FEB_16_2026.md) | **Comprehensive handoff v2**: 195 checks, bugs, full inventory, lessons |
-| [`HANDOFF_HOTSPRING_BARRACUDA_V055.md`](HANDOFF_HOTSPRING_BARRACUDA_V055.md) | **v0.5.5 handoff**: code quality hardening, tolerance consolidation, shared infra |
-| [`wateringHole/handoffs/TOADSTOOL_EVOLUTION_REVIEW_FEB14_2026.md`](wateringHole/handoffs/TOADSTOOL_EVOLUTION_REVIEW_FEB14_2026.md) | ToadStool pull review + next evolution targets |
+| [`experiments/006_GPU_FP64_COMPARISON.md`](experiments/006_GPU_FP64_COMPARISON.md) | RTX 4070 vs Titan V: fp64 benchmark, driver comparison, NVK vs proprietary |
+| [`experiments/007_CPU_GPU_SCALING_BENCHMARK.md`](experiments/007_CPU_GPU_SCALING_BENCHMARK.md) | CPU vs GPU scaling: crossover analysis, streaming dispatch |
+| [`wateringHole/handoffs/`](wateringHole/handoffs/) | 11 cross-project handoffs to ToadStool/BarraCUDA team |
 | [`control/surrogate/REPRODUCE.md`](control/surrogate/REPRODUCE.md) | Step-by-step reproduction guide for surrogate learning |
 
 ### External References

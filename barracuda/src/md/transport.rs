@@ -73,6 +73,76 @@ pub fn d_star_daligault(gamma: f64, kappa: f64) -> f64 {
     dw * f + ds * (1.0 - f)
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// Stanton & Murillo (2016) practical transport models
+// Reference: PRE 93, 043203 (2016)
+//   "Ionic transport in high-energy-density matter"
+// ═══════════════════════════════════════════════════════════════════
+
+/// Reduced shear viscosity η*(Γ, κ) in units of n m a_ws² ω_p.
+///
+/// Stanton & Murillo (2016) practical model combining:
+///   - Weak coupling: Chapman-Enskog kinetic theory
+///   - Strong coupling: Empirical fit to MD data
+///
+/// Fit parameters from PRE 93, 043203 Table I.
+pub fn eta_star_stanton_murillo(gamma: f64, kappa: f64) -> f64 {
+    let f = crossover(gamma, kappa);
+    let ew = eta_star_weak(gamma, kappa);
+    let es = eta_star_strong(gamma, kappa);
+    ew * f + es * (1.0 - f)
+}
+
+/// Weak-coupling viscosity: Chapman-Enskog kinetic theory.
+///
+/// η*_w = (5 sqrt(π) / 16) × Γ^(-5/2) / Λ
+fn eta_star_weak(gamma: f64, kappa: f64) -> f64 {
+    let cl = coulomb_log(gamma, kappa);
+    5.0 * PI.sqrt() / 16.0 / (gamma.powf(2.5) * cl)
+}
+
+/// Strong-coupling viscosity from MD fits.
+///
+/// η*_s = A_η(κ) × Γ^(-α_η(κ))
+/// Fit parameters from Stanton & Murillo (2016) Table I.
+fn eta_star_strong(gamma: f64, kappa: f64) -> f64 {
+    let a = 0.0051 + 0.0094 * kappa - 0.0014 * kappa * kappa;
+    let alpha = 0.80 + 0.095 * kappa - 0.012 * kappa * kappa;
+    a * gamma.powf(-alpha)
+}
+
+/// Reduced thermal conductivity λ*(Γ, κ) in units of n k_B a_ws² ω_p.
+///
+/// Stanton & Murillo (2016) practical model combining:
+///   - Weak coupling: Chapman-Enskog kinetic theory
+///   - Strong coupling: Empirical fit to MD data
+///
+/// Fit parameters from PRE 93, 043203 Table I.
+pub fn lambda_star_stanton_murillo(gamma: f64, kappa: f64) -> f64 {
+    let f = crossover(gamma, kappa);
+    let lw = lambda_star_weak(gamma, kappa);
+    let ls = lambda_star_strong(gamma, kappa);
+    lw * f + ls * (1.0 - f)
+}
+
+/// Weak-coupling thermal conductivity: Chapman-Enskog.
+///
+/// λ*_w = (75 sqrt(π) / 64) × Γ^(-5/2) / Λ
+fn lambda_star_weak(gamma: f64, kappa: f64) -> f64 {
+    let cl = coulomb_log(gamma, kappa);
+    75.0 * PI.sqrt() / 64.0 / (gamma.powf(2.5) * cl)
+}
+
+/// Strong-coupling thermal conductivity from MD fits.
+///
+/// λ*_s = A_λ(κ) × Γ^(-α_λ(κ))
+/// Fit parameters from Stanton & Murillo (2016) Table I.
+fn lambda_star_strong(gamma: f64, kappa: f64) -> f64 {
+    let a = 0.012 + 0.022 * kappa - 0.003 * kappa * kappa;
+    let alpha = 0.95 + 0.10 * kappa - 0.015 * kappa * kappa;
+    a * gamma.powf(-alpha)
+}
+
 /// Transport validation result for a single (Gamma, kappa) point.
 #[derive(Clone, Debug)]
 pub struct TransportResult {
@@ -84,6 +154,7 @@ pub struct TransportResult {
     pub rel_error_vs_daligault: f64,
     pub rel_error_vs_sarkas: Option<f64>,
     pub viscosity: Option<f64>,
+    pub thermal_conductivity: Option<f64>,
     pub passed: bool,
 }
 
@@ -179,5 +250,41 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn eta_star_positive() {
+        for &kappa in &[0.0, 1.0, 2.0, 3.0] {
+            for &gamma in &[1.0, 10.0, 50.0, 100.0, 175.0] {
+                let eta = eta_star_stanton_murillo(gamma, kappa);
+                assert!(
+                    eta > 0.0,
+                    "η*(Γ={gamma}, κ={kappa}) = {eta} must be positive"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn lambda_star_positive() {
+        for &kappa in &[0.0, 1.0, 2.0, 3.0] {
+            for &gamma in &[1.0, 10.0, 50.0, 100.0, 175.0] {
+                let lam = lambda_star_stanton_murillo(gamma, kappa);
+                assert!(
+                    lam > 0.0,
+                    "λ*(Γ={gamma}, κ={kappa}) = {lam} must be positive"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn viscosity_decreases_with_coupling() {
+        let eta_weak = eta_star_stanton_murillo(1.0, 1.0);
+        let eta_strong = eta_star_stanton_murillo(100.0, 1.0);
+        assert!(
+            eta_weak > eta_strong,
+            "η* should decrease with Γ: η*(1)={eta_weak} vs η*(100)={eta_strong}"
+        );
     }
 }

@@ -90,6 +90,7 @@ pub mod data;
 pub mod discovery;
 pub mod error;
 pub mod gpu;
+pub mod lattice;
 pub mod md;
 pub mod physics;
 pub mod prescreen;
