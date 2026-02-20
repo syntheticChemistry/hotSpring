@@ -112,6 +112,7 @@ All components implemented and validated (13/13 checks pass):
 **Active handoffs:**
 - `wateringHole/handoffs/HOTSPRING_V0516_CONSOLIDATED_HANDOFF_FEB20_2026.md` — full primitive catalog + evolution lessons
 - `wateringHole/handoffs/HOTSPRING_TOADSTOOL_REWIRE_FEB20_2026.md` — v0.5.16 absorption audit + CellListGpu bug + shader designs
+- `wateringHole/handoffs/HOTSPRING_NPU_RESERVOIR_HANDOFF_FEB20_2026.md` — NPU reservoir transport (ESN → Akida absorption path)
 
 (14 prior handoffs archived to `wateringHole/handoffs/archive/`)
 
@@ -150,7 +151,9 @@ with its own `exclusive_prefix_sum.wgsl` (3-binding, matching layout).
 ### Open Items for ToadStool
 
 1. **Fix `CellListGpu` prefix-sum BGL** — binding layout mismatch (3 vs 4 bindings, different order)
-2. **FFT primitive** — blocks full lattice QCD (Tier 3 papers 9-12)
-3. **Complex f64 WGSL shader** — template exists in hotSpring `lattice/complex_f64.rs`, ready for promotion
-4. **SU(3) WGSL shader** — template exists in hotSpring `lattice/su3.rs`, ready for promotion
-5. **Lattice plaquette + HMC WGSL shaders** — CPU implementations validated, need GPU port
+2. **Absorb NPU reservoir transport** — ESN shaders, weight export, Akida wiring (see NPU handoff)
+3. **FFT primitive** — blocks full lattice QCD (Tier 3 papers 9-12)
+4. **Complex f64 WGSL shader** — template exists in hotSpring `lattice/complex_f64.rs`, ready for promotion
+5. **SU(3) WGSL shader** — template exists in hotSpring `lattice/su3.rs`, ready for promotion
+6. **Lattice plaquette + HMC WGSL shaders** — CPU implementations validated, need GPU port
+7. **ESN `export_weights()` method on `esn_v2::ESN`** — needed for GPU-train → NPU-deploy path
