@@ -109,8 +109,11 @@ All components implemented and validated (13/13 checks pass):
 
 ## ToadStool Handoff Notes
 
-**Active handoff:** `wateringHole/handoffs/HOTSPRING_V0516_CONSOLIDATED_HANDOFF_FEB20_2026.md`
-(supersedes all 14 prior handoffs, archived to `wateringHole/handoffs/archive/`)
+**Active handoffs:**
+- `wateringHole/handoffs/HOTSPRING_V0516_CONSOLIDATED_HANDOFF_FEB20_2026.md` — full primitive catalog + evolution lessons
+- `wateringHole/handoffs/HOTSPRING_TOADSTOOL_REWIRE_FEB20_2026.md` — v0.5.16 absorption audit + CellListGpu bug + shader designs
+
+(14 prior handoffs archived to `wateringHole/handoffs/archive/`)
 
 ### Key Facts for ToadStool Team
 
@@ -127,12 +130,27 @@ All components implemented and validated (13/13 checks pass):
 |---------|----------------------|-------------------|
 | v0.5.12 | `ReduceScalarPipeline` | Rewired both MD paths, deleted local `SHADER_SUM_REDUCE` |
 | v0.5.15 | `WgslOptimizer`, `GpuDriverProfile`, `StatefulPipeline` | Rewired all shader compilation via `for_driver_profile()` |
-| v0.5.16 | — | Paper 13 (Abelian Higgs), Wirtinger-correct complex HMC |
+| v0.5.16 | NAK eigensolve shader, `StatefulPipeline` impl, `CellListGpu` attempt, `scalar_buffer()`/`max_f64`/`min_f64` on ReduceScalar | Paper 13 (Abelian Higgs), doc audit |
+
+### ToadStool v0.5.16 Absorption Review (Feb 20, 2026)
+
+**Absorbed successfully:**
+- NAK-optimized eigensolve (`batched_eigh_nak_optimized_f64.wgsl`) — 5 workarounds, drop-in
+- `StatefulPipeline` with `run_iterations()` / `run_until_converged()` — available
+- `ReduceScalarPipeline` gains `scalar_buffer()` for zero-copy GPU chaining, `max_f64`, `min_f64`
+- `WgslLoopUnroller` — `@unroll_hint N` annotation, up to 32× unroll
+- NAK deficiencies documented in `contrib/mesa-nak/NAK_DEFICIENCIES.md`
+
+**Still broken — `CellListGpu` prefix-sum BGL mismatch:**
+`cell_list_gpu.rs` creates a scan BGL with 3 bindings (input=0, output=1, params=2)
+but `prefix_sum.wgsl` expects 4 bindings (params=0, input=1, output=2, scratch=3).
+The binding order and count are incompatible. hotSpring keeps local `GpuCellList`
+with its own `exclusive_prefix_sum.wgsl` (3-binding, matching layout).
 
 ### Open Items for ToadStool
 
-1. **Fix `CellListGpu` bugs** — prefix-sum binding mismatch + `i32 %` truncation
-2. **`reduce_sum()` convenience API** on `ReduceScalarPipeline`
-3. **NAK loop unrolling** — 4× speedup for f64 kernels on NVK (Rust patches to Mesa)
-4. **FFT primitive** — blocks full lattice QCD (Tier 3 papers)
-5. **Complex f64 + SU(3) WGSL validation** — templates exist in hotSpring, ready for GPU promotion
+1. **Fix `CellListGpu` prefix-sum BGL** — binding layout mismatch (3 vs 4 bindings, different order)
+2. **FFT primitive** — blocks full lattice QCD (Tier 3 papers 9-12)
+3. **Complex f64 WGSL shader** — template exists in hotSpring `lattice/complex_f64.rs`, ready for promotion
+4. **SU(3) WGSL shader** — template exists in hotSpring `lattice/su3.rs`, ready for promotion
+5. **Lattice plaquette + HMC WGSL shaders** — CPU implementations validated, need GPU port

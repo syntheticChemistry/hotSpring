@@ -13,15 +13,16 @@
 //! for hardware-accurate ILP scheduling, fossil substitution, and driver-aware
 //! exp/log patching (NVK workaround via barracuda).
 //!
-//! ## Upstream ToadStool capabilities (v0.5.15 rewire)
+//! ## Upstream ToadStool capabilities (v0.5.16 audit)
 //!
 //! | Capability | ToadStool location | hotSpring status |
 //! |---|---|---|
-//! | `ReduceScalarPipeline` | `barracuda::pipeline` | Used (KE/PE reduction) |
-//! | `WgslOptimizer` | `barracuda::shaders::optimizer` | Wired (all shaders) |
+//! | `ReduceScalarPipeline` | `barracuda::pipeline` | Wired (KE/PE reduction) |
+//! | `WgslOptimizer` | `barracuda::shaders::optimizer` | Wired (all shaders via `ShaderTemplate`) |
 //! | `GpuDriverProfile` | `barracuda::device::capabilities` | Wired (shader compile) |
-//! | `StatefulPipeline` | `barracuda::staging` | Available for HFB/SCF |
-//! | `CellListGpu` | `barracuda::ops::md::neighbor` | Not used (has bugs) |
+//! | `StatefulPipeline` | `barracuda::staging` | Available — `run_iterations()` / `run_until_converged()` |
+//! | `CellListGpu` | `barracuda::ops::md::neighbor` | Not used (prefix_sum BGL mismatch — see handoff) |
+//! | NAK eigensolve shader | `shaders/linalg/batched_eigh_nak_optimized_f64.wgsl` | Absorbed from hotSpring |
 //!
 //! | Module | Purpose |
 //! |--------|---------|
