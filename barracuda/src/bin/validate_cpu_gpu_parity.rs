@@ -188,7 +188,11 @@ fn main() {
     println!(
         "  Temperature difference: {t_rel_diff:.2e} (CPU={cpu_final_t:.6}, GPU={gpu_final_t:.6})"
     );
-    harness.check_upper("T* CPU vs GPU relative diff", t_rel_diff, 0.25);
+    harness.check_upper(
+        "T* CPU vs GPU relative diff",
+        t_rel_diff,
+        tolerances::PARITY_T_DIFF,
+    );
 
     // 3c. D* comparison: CPU, GPU, and analytical should agree
     if let (Some(d_cpu), Some(d_gpu)) = (cpu_d_star, gpu_d_star) {
@@ -259,7 +263,7 @@ fn main() {
         harness.check_upper(
             "D* CPU vs GPU relative (parity)",
             cpu_vs_gpu,
-            0.15, // 15% — generous for N=108 statistical noise
+            tolerances::PARITY_D_STAR_REL,
         );
     } else {
         println!("  D* comparison skipped — insufficient velocity snapshots");
@@ -284,7 +288,11 @@ fn main() {
         println!(
             "  Mean total energy: CPU={cpu_mean_e:.4}, GPU={gpu_mean_e:.4}, diff={mean_e_diff:.2e}"
         );
-        harness.check_upper("Mean energy CPU vs GPU", mean_e_diff, 0.05);
+        harness.check_upper(
+            "Mean energy CPU vs GPU",
+            mean_e_diff,
+            tolerances::PARITY_ENERGY_DIFF,
+        );
     }
 
     println!();

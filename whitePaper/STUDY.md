@@ -1,11 +1,11 @@
 # hotSpring: Consumer-GPU Nuclear Structure at Scale
 
 **Status**: Working draft
-**Date**: February 15, 2026
+**Date**: February 19, 2026
 **License**: AGPL-3.0
-**Hardware**: Consumer workstation (i9-12900K, 32 GB DDR5, RTX 4070, Pop!_OS 22.04)
-**GPU target**: NVIDIA Titan V (GV100, 12 GB HBM2) — on order
-**f64 status**: Native WGSL builtins confirmed (fp64:fp32 ~1:2 via wgpu/Vulkan)
+**Hardware**: Consumer workstation (i9-12900K, 32 GB DDR5, RTX 4070 + Titan V, Pop!_OS 22.04)
+**GPUs**: RTX 4070 (Ada, nvidia proprietary, 12 GB GDDR6X) + Titan V (GV100, NVK/nouveau open-source, 12 GB HBM2)
+**f64 status**: Native WGSL builtins confirmed on both GPUs (fp64:fp32 ~1:2 via wgpu/Vulkan)
 
 ---
 
@@ -543,4 +543,70 @@ No institutional access required. No Code Ocean account. No Fortran compiler. Re
 
 ---
 
-*Generated from hotSpring validation pipeline. Last updated: February 15, 2026*
+---
+
+## 7. Extension: Lattice QCD and Transport Coefficients
+
+The Python → Rust → GPU evolution path extends beyond plasma physics to
+quantum field theory. hotSpring has implemented:
+
+### 7.1 Lattice QCD Infrastructure
+
+Eight modules in `barracuda/src/lattice/` totaling ~2,800 lines:
+
+| Module | Lines | Purpose | GPU Status |
+|--------|-------|---------|------------|
+| `complex_f64.rs` | 316 | Complex f64 with WGSL template | WGSL string included |
+| `su3.rs` | 460 | SU(3) matrix algebra with WGSL template | WGSL string included |
+| `constants.rs` | 95 | Centralized LCG PRNG, guards, helpers | Shared by all lattice modules |
+| `wilson.rs` | 338 | Wilson gauge action, plaquettes, force | Needs WGSL shader |
+| `hmc.rs` | 350 | HMC with Cayley exponential | Needs WGSL shader |
+| `dirac.rs` | 297 | Staggered Dirac operator | Needs WGSL shader |
+| `cg.rs` | 214 | Conjugate gradient for D†D | Needs WGSL shader |
+| `eos_tables.rs` | 307 | HotQCD reference data (Bazavov 2014) | CPU-only (data) |
+| `multi_gpu.rs` | 237 | Temperature scan dispatcher | CPU-threaded, GPU-ready |
+
+**Validation**: 12/12 pure gauge checks pass (`validate_pure_gauge`). HotQCD EOS
+thermodynamic consistency validated (`validate_hotqcd_eos`). HMC acceptance rates
+96-100% on 4^4 lattices across β=5.0-7.0.
+
+**Key technical insight**: The Cayley transform `(I + X/2)(I - X/2)^{-1}` is
+exactly unitary for anti-Hermitian X. Second-order Taylor approximation caused
+0% HMC acceptance — a subtle bug with no obvious error message. The 3×3 inverse
+uses exact cofactor expansion, not iteration.
+
+### 7.2 Transport Coefficients (Paper 5)
+
+Green-Kubo extraction from equilibrium MD: self-diffusion (D*), shear viscosity
+(η*), and thermal conductivity (λ*). Analytical fit models from Daligault (2012)
+and Stanton & Murillo (2016), recalibrated against 12 Sarkas Green-Kubo D* values
+at N=2000 (February 2026).
+
+**Validation**: 13/13 checks pass (`validate_stanton_murillo`): MSD≈VACF D*
+consistency, energy conservation, physical ordering, fit agreement within
+calibrated tolerances.
+
+### 7.3 HotQCD EOS (Paper 7)
+
+Bazavov et al. (2014) equation of state tables for (2+1)-flavor QCD. Validates
+thermodynamic consistency (trace anomaly peak, pressure monotonicity, speed of
+sound approaching conformal limit), asymptotic freedom at high temperature.
+
+### 7.4 Structural Parallel: Plasma MD ↔ Lattice QCD
+
+| Plasma MD | Lattice QCD | Shared Structure |
+|-----------|-------------|-----------------|
+| Yukawa force | Gauge plaquette force | Pairwise interaction |
+| Velocity Verlet | HMC leapfrog | Symplectic integrator |
+| Berendsen thermostat | Metropolis accept/reject | Temperature control |
+| RDF, SSF observables | Plaquette average, Wilson loops | Correlation functions |
+| Cell-list neighbor search | Lattice site neighbors | Local spatial structure |
+| `FusedMapReduceF64` | Lattice-site sum | Reduction primitive |
+
+This parallel means that GPU primitives developed for plasma MD (force kernels,
+integrators, reductions) transfer directly to lattice QCD with different force
+laws. The infrastructure investment is shared.
+
+---
+
+*Generated from hotSpring validation pipeline. Last updated: February 19, 2026*

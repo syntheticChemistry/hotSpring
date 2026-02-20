@@ -136,7 +136,7 @@ impl ValidationHarness {
     /// Mirrors the two-mode acceptance used in most validation binaries.
     pub fn check_abs_or_rel(&mut self, label: &str, observed: f64, expected: f64, tolerance: f64) {
         let abs_err = (observed - expected).abs();
-        let rel_err = if expected.abs() > 1e-14 {
+        let rel_err = if expected.abs() > crate::tolerances::NEAR_ZERO_EXPECTED {
             abs_err / expected.abs()
         } else {
             abs_err

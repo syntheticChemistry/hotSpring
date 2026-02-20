@@ -20,6 +20,10 @@
 //! (n≤32) or multi-dispatch (n>32), both pure GPU.
 
 use super::hfb::SphericalHFB;
+use super::hfb_gpu_types::{
+    make_bind_group, make_pipeline, DensityParamsUniform, EnergyParamsUniform, GroupResources,
+    HamiltonianDimsUniform, MixParamsUniform, PackParams, PotentialDimsUniform,
+};
 use super::semf::semf_binding_energy;
 use crate::tolerances::{DENSITY_FLOOR, GPU_JACOBI_CONVERGENCE, RHO_POWF_GUARD, SPIN_ORBIT_R_MIN};
 use barracuda::device::WgpuDevice;
@@ -57,238 +61,6 @@ pub struct GpuResidentL2Result {
     pub n_hfb: usize,
     /// Number of nuclei computed with SEMF fallback (A <= 20).
     pub n_semf: usize,
-}
-
-#[repr(C)]
-#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-struct PotentialDimsUniform {
-    nr: u32,
-    batch_size: u32,
-}
-
-#[repr(C)]
-#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-struct HamiltonianDimsUniform {
-    n_states: u32,
-    nr: u32,
-    batch_size: u32,
-    _pad: u32,
-}
-
-/// Uniform for density shader (group 0). Must match `DensityParams` in WGSL.
-#[repr(C)]
-#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-struct DensityParamsUniform {
-    n_states: u32,
-    nr: u32,
-    batch_size: u32,
-    _pad: u32,
-}
-
-/// Uniform for density mixing (group 3). Must match `MixParams` in WGSL.
-///
-/// Alpha is passed as (numerator, denominator) to avoid bitcast issues
-/// in Naga's WGSL validator (`bitcast<f64>(vec2<u32>)` not yet supported).
-/// Alpha = f64(alpha_num) / f64(alpha_den). For typical values (0.3, 0.8),
-/// this gives exact representation with integer ratios.
-#[repr(C)]
-#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-struct MixParamsUniform {
-    total_size: u32,
-    _pad1: u32,
-    alpha_num: u32,
-    alpha_den: u32,
-}
-
-impl MixParamsUniform {
-    fn new(total_size: u32, alpha: f64) -> Self {
-        // Encode alpha as integer ratio: scale by 10_000_000 for ~7 decimal digits
-        const SCALE: f64 = 10_000_000.0;
-        let num = (alpha * SCALE).round() as u32;
-        let den = SCALE as u32;
-        Self {
-            total_size,
-            _pad1: 0,
-            alpha_num: num,
-            alpha_den: den,
-        }
-    }
-}
-
-/// Uniform for energy shader (group 0). Must match `EnergyParams` in WGSL.
-#[repr(C)]
-#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-struct EnergyParamsUniform {
-    n_states: u32,
-    nr: u32,
-    batch_size: u32,
-    _pad: u32,
-    t0_lo: u32,
-    t0_hi: u32,
-    t3_lo: u32,
-    t3_hi: u32,
-    x0_lo: u32,
-    x0_hi: u32,
-    x3_lo: u32,
-    x3_hi: u32,
-    alpha_lo: u32,
-    alpha_hi: u32,
-    dr_lo: u32,
-    dr_hi: u32,
-    hw_lo: u32,
-    hw_hi: u32,
-}
-
-/// Uniform for spin-orbit pack shader. Must match `PackParams` in WGSL.
-#[repr(C)]
-#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-struct PackParams {
-    ns: u32,
-    gns: u32,
-    n_active: u32,
-    dst_start: u32,
-    dst_stride: u32,
-    _pad1: u32,
-    _pad2: u32,
-    _pad3: u32,
-}
-
-fn make_bind_group(
-    device: &wgpu::Device,
-    label: &str,
-    entries: &[(wgpu::BufferBindingType, &wgpu::Buffer)],
-) -> (wgpu::BindGroupLayout, wgpu::BindGroup) {
-    let layout_entries: Vec<wgpu::BindGroupLayoutEntry> = entries
-        .iter()
-        .enumerate()
-        .map(|(i, (ty, _))| wgpu::BindGroupLayoutEntry {
-            binding: i as u32,
-            visibility: wgpu::ShaderStages::COMPUTE,
-            ty: wgpu::BindingType::Buffer {
-                ty: *ty,
-                has_dynamic_offset: false,
-                min_binding_size: None,
-            },
-            count: None,
-        })
-        .collect();
-    let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        label: Some(&format!("{label}_layout")),
-        entries: &layout_entries,
-    });
-    let bg_entries: Vec<wgpu::BindGroupEntry> = entries
-        .iter()
-        .enumerate()
-        .map(|(i, (_, buf))| wgpu::BindGroupEntry {
-            binding: i as u32,
-            resource: buf.as_entire_binding(),
-        })
-        .collect();
-    let bg = device.create_bind_group(&wgpu::BindGroupDescriptor {
-        label: Some(label),
-        layout: &layout,
-        entries: &bg_entries,
-    });
-    (layout, bg)
-}
-
-fn make_pipeline(
-    device: &wgpu::Device,
-    module: &wgpu::ShaderModule,
-    entry_point: &str,
-    layouts: &[&wgpu::BindGroupLayout],
-) -> wgpu::ComputePipeline {
-    let pl = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-        label: Some(entry_point),
-        bind_group_layouts: layouts,
-        push_constant_ranges: &[],
-    });
-    device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-        label: Some(entry_point),
-        layout: Some(&pl),
-        module,
-        entry_point,
-        compilation_options: wgpu::PipelineCompilationOptions::default(),
-        cache: None,
-    })
-}
-
-// Phase 4 energy fields (energy_*, e_pair_*, v2_*, rho_*_new_*) are wired
-// into bind groups but dispatches are deferred until SumReduceF64 + kinetic
-// energy kernel are available. Suppress dead_code for these stubs.
-#[allow(dead_code)]
-struct GroupResources {
-    ns: usize,
-    nr: usize,
-    group_indices: Vec<usize>,
-    n_max: usize,
-    mat_size: usize,
-
-    // Potentials + Hamiltonian
-    rho_p_buf: wgpu::Buffer,
-    rho_n_buf: wgpu::Buffer,
-    rho_alpha_buf: wgpu::Buffer,
-    rho_alpha_m1_buf: wgpu::Buffer,
-    pot_dims_buf: wgpu::Buffer,
-    ham_dims_buf: wgpu::Buffer,
-    h_p_buf: wgpu::Buffer,
-    h_n_buf: wgpu::Buffer,
-
-    so_diag_buf: wgpu::Buffer,
-
-    pot_bg: wgpu::BindGroup,
-    hbg_p: wgpu::BindGroup,
-    hbg_n: wgpu::BindGroup,
-
-    sky_pipe: wgpu::ComputePipeline,
-    cfwd: wgpu::ComputePipeline,
-    cbwd: wgpu::ComputePipeline,
-    fin_pipe: wgpu::ComputePipeline,
-    fq_pipe: wgpu::ComputePipeline,
-    hp_pipe: wgpu::ComputePipeline,
-    hn_pipe: wgpu::ComputePipeline,
-
-    // GPU density (BCS v² + density + mixing) — post-eigensolve
-    density_params_buf: wgpu::Buffer,
-    density_params_bg: wgpu::BindGroup,
-    bcs_p_bg: wgpu::BindGroup,
-    bcs_n_bg: wgpu::BindGroup,
-    bcs_p_read_bg: wgpu::BindGroup,
-    bcs_n_read_bg: wgpu::BindGroup,
-    density_p_bg: wgpu::BindGroup,
-    density_n_bg: wgpu::BindGroup,
-    density_p_read_bg: wgpu::BindGroup,
-    density_n_read_bg: wgpu::BindGroup,
-    mix_p_bg: wgpu::BindGroup,
-    mix_n_bg: wgpu::BindGroup,
-    evals_p_buf: wgpu::Buffer,
-    evals_n_buf: wgpu::Buffer,
-    evecs_p_buf: wgpu::Buffer,
-    evecs_n_buf: wgpu::Buffer,
-    lambda_p_buf: wgpu::Buffer,
-    lambda_n_buf: wgpu::Buffer,
-    delta_buf: wgpu::Buffer,
-    v2_p_buf: wgpu::Buffer,
-    v2_n_buf: wgpu::Buffer,
-    rho_p_new_buf: wgpu::Buffer,
-    rho_n_new_buf: wgpu::Buffer,
-    mix_params_buf: wgpu::Buffer,
-    bcs_v2_pipe: wgpu::ComputePipeline,
-    density_pipe: wgpu::ComputePipeline,
-    mix_pipe: wgpu::ComputePipeline,
-    rho_p_staging: wgpu::Buffer,
-    rho_n_staging: wgpu::Buffer,
-
-    // GPU energy integrands — post-density
-    energy_params_bg: wgpu::BindGroup,
-    energy_pair_bg: wgpu::BindGroup,
-    energy_integrands_buf: wgpu::Buffer,
-    e_pair_buf: wgpu::Buffer,
-    energy_staging: wgpu::Buffer,
-    e_pair_staging: wgpu::Buffer,
-
-    nr_wg: u32,
-    ns_wg: u32,
 }
 
 pub fn binding_energies_l2_gpu_resident(
@@ -1782,6 +1554,7 @@ pub fn binding_energies_l2_gpu_resident(
         t_cpu_total += t_read.elapsed().as_secs_f64();
     }
 
+    #[cfg(debug_assertions)]
     eprintln!(
         "  [PROFILE] upload={:.3}s gpu={:.3}s poll={:.3}s cpu={:.3}s total={:.3}s",
         t_upload_total,

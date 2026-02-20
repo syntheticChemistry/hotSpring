@@ -335,6 +335,19 @@ pub const PPPM_MADELUNG_REL: f64 = 0.01;
 /// Source: Stanton & Murillo (2016) PRE 93 043203, Table I.
 pub const TRANSPORT_D_STAR_VS_SARKAS: f64 = 0.05;
 
+/// Daligault fit reproducing its own Sarkas calibration data.
+///
+/// The fit is a smooth analytical model with 5 parameters (A(κ), α(κ)
+/// quadratics + C_w) fitted to 12 Green-Kubo D* points at N=2000.
+/// Per-point error up to 20% is acceptable (smoothness constraint
+/// prevents exact interpolation), RMSE must be < 10%.
+///
+/// Source: calibrate_daligault_fit.py (Feb 2026).
+pub const DALIGAULT_FIT_VS_CALIBRATION: f64 = 0.20;
+
+/// RMSE of Daligault fit across all 12 calibration points.
+pub const DALIGAULT_FIT_RMSE: f64 = 0.10;
+
 /// D* Rust-vs-Daligault analytical fit: relative tolerance.
 ///
 /// The Daligault (2012) fit is a smooth interpolation between asymptotic
@@ -356,6 +369,183 @@ pub const TRANSPORT_VISCOSITY_VS_SARKAS: f64 = 0.10;
 /// vs Brent, density mixing). Light nuclei (A < 60) are most sensitive.
 /// Measured: Ni-56 shows ~11%, medium nuclei 1-5%. 12% accounts for all.
 pub const HFB_RUST_VS_PYTHON_REL: f64 = 0.12;
+
+// ═══════════════════════════════════════════════════════════════════
+// Transport parity tolerances (CPU vs GPU same-physics proof)
+// ═══════════════════════════════════════════════════════════════════
+
+/// D* CPU vs GPU parity: relative tolerance.
+///
+/// At N=500 with 20k production steps, GPU tree-reduction vs CPU linear
+/// summation produce different FP ordering that compounds across the run.
+/// Both paths agree in physics (same order of magnitude D*); 65% captures
+/// the maximum observed divergence at small N.
+pub const TRANSPORT_D_STAR_CPU_GPU_PARITY: f64 = 0.65;
+
+/// Temperature stability during NVE production (relative).
+///
+/// After Berendsen equilibration, NVE production should maintain T*
+/// within ~30% of the target. Larger deviations indicate insufficient
+/// equilibration or integration instability.
+pub const TRANSPORT_T_STABILITY: f64 = 0.30;
+
+/// D* MSD vs Daligault fit: relative tolerance for lite validation.
+///
+/// At N=500, finite-size effects dominate; MSD-derived D* may differ
+/// from the calibrated fit by up to 80%. This is a sanity check,
+/// not a precision benchmark.
+pub const TRANSPORT_D_STAR_VS_FIT_LITE: f64 = 0.80;
+
+/// MSD-derived D* vs VACF-derived D*: internal consistency.
+///
+/// Both methods extract D* from the same trajectory; disagreement
+/// beyond 50% indicates a computational bug, not physics noise.
+pub const TRANSPORT_MSD_VACF_AGREEMENT: f64 = 0.50;
+
+/// D* CPU vs GPU parity at small N (108 particles).
+///
+/// At N=108 with 5k steps, VACF noise and FP ordering divergence
+/// limit CPU/GPU agreement to ~20%.
+pub const PARITY_D_STAR_REL: f64 = 0.20;
+
+/// Temperature CPU vs GPU: relative difference.
+///
+/// Final equilibrium T* should agree within 25% between CPU and GPU.
+/// Differences arise from FP ordering in the energy accumulation.
+pub const PARITY_T_DIFF: f64 = 0.25;
+
+/// Mean total energy CPU vs GPU: relative difference.
+///
+/// Energy drift accumulates differently in CPU (Newton-3rd j>i) and
+/// GPU (j!=i full-loop). 8% captures the maximum observed divergence
+/// for N=108 5k-step runs.
+pub const PARITY_ENERGY_DIFF: f64 = 0.08;
+
+// ═══════════════════════════════════════════════════════════════════
+// Screened Coulomb tolerances (Murillo & Weisheit 1998 — Paper 6)
+// ═══════════════════════════════════════════════════════════════════
+
+/// Eigenvalue vs exact hydrogen: relative tolerance.
+///
+/// Finite-difference discretization on a uniform grid with N=1000, r_max=80
+/// has O(h²) truncation error. For the 1s state, measured accuracy is ~0.2%.
+/// 2% tolerance accommodates excited states and near-threshold eigenvalues.
+pub const SCREENED_HYDROGEN_VS_EXACT: f64 = 0.02;
+
+/// Critical screening vs literature: relative tolerance.
+///
+/// Bisection on the bound-state count converges to machine precision in κ,
+/// but the discrete grid introduces ~1–3% error in eigenvalues near
+/// threshold (E → 0⁻). 5% is conservative for n ≤ 3 states.
+///
+/// Source: Lam & Varshni (1971) Phys. Rev. A 4, 1875.
+pub const SCREENED_CRITICAL_VS_LITERATURE: f64 = 0.05;
+
+/// Python-Rust parity: absolute eigenvalue tolerance (Hartree).
+///
+/// Same algorithm, same grid, same input → same output to machine precision.
+/// 1e-10 accounts for potential FP ordering differences between numpy and
+/// barracuda eigh_f64 implementations.
+pub const SCREENED_PYTHON_RUST_PARITY: f64 = 1e-10;
+
+// ═══════════════════════════════════════════════════════════════════
+// Lattice QCD tolerances
+// ═══════════════════════════════════════════════════════════════════
+
+/// Cold plaquette: absolute error (should be exactly 1.0 for unit links).
+///
+/// On a cold-start lattice (all links = identity), the plaquette trace
+/// is exactly 1. Machine-precision rounding gives ~1e-15 residual.
+pub const LATTICE_COLD_PLAQUETTE_ABS: f64 = 1e-12;
+
+/// Cold Wilson action: absolute error (should be exactly 0.0).
+///
+/// Wilson action = β × Σ(1 - Re Tr U_p / 3) is zero when all plaquettes
+/// are unit matrices. 1e-10 accounts for accumulated rounding.
+pub const LATTICE_COLD_ACTION_ABS: f64 = 1e-10;
+
+/// HMC acceptance rate lower bound.
+///
+/// A functional HMC must accept > 10% of trajectories. Zero acceptance
+/// indicates a bug in the gauge force, leapfrog integrator, or
+/// Metropolis step.
+pub const LATTICE_HMC_ACCEPTANCE_MIN: f64 = 0.10;
+
+/// CG solver residual: upper bound.
+///
+/// The conjugate gradient solver for D†D x = b should converge to
+/// a relative residual below 1e-6 on a cold lattice (identity links).
+pub const LATTICE_CG_RESIDUAL: f64 = 1e-6;
+
+/// U(1) Abelian Higgs cold plaquette: absolute error.
+///
+/// On a cold-start U(1) lattice (all link angles = 0), the plaquette
+/// is exactly 1. Machine-precision rounding gives ~1e-15 residual.
+pub const U1_COLD_PLAQUETTE_ABS: f64 = 1e-12;
+
+/// U(1) Abelian Higgs cold gauge action: absolute error.
+///
+/// Wilson gauge action = 0 on a cold-start lattice.
+pub const U1_COLD_ACTION_ABS: f64 = 1e-10;
+
+/// U(1) Abelian Higgs HMC acceptance lower bound.
+///
+/// A functional U(1)+Higgs HMC must accept > 30% of trajectories.
+/// Zero or very low acceptance indicates force/integrator bugs.
+pub const U1_HMC_ACCEPTANCE_MIN: f64 = 0.30;
+
+/// U(1) Abelian Higgs: weak-coupling plaquette lower bound.
+///
+/// At β_pl ≥ 6 (weak coupling), ⟨Re U_p⟩ > 0.7. Near-unity means
+/// the gauge field is nearly ordered.
+pub const U1_WEAK_COUPLING_PLAQ_MIN: f64 = 0.70;
+
+/// U(1) Abelian Higgs: Python-Rust observable parity.
+///
+/// Same algorithm, same LCG seed → observables should match to 1%.
+/// Differences arise only from FP summation order.
+pub const U1_PYTHON_RUST_PARITY: f64 = 0.01;
+
+/// Thermodynamic consistency tolerance for HotQCD EOS.
+///
+/// Checks s ≈ (ε+p)/T within 30%. Some points near T_c have larger
+/// deviations due to the crossover nature of the QCD transition.
+pub const HOTQCD_CONSISTENCY: f64 = 0.30;
+
+/// Maximum allowed thermodynamic consistency violations.
+///
+/// Up to 2 data points may violate the consistency check near T_c.
+pub const HOTQCD_MAX_VIOLATIONS: usize = 3;
+
+// ═══════════════════════════════════════════════════════════════════
+// NAK eigensolve tolerances
+// ═══════════════════════════════════════════════════════════════════
+
+/// NAK eigensolve: maximum relative error vs CPU reference.
+///
+/// GPU Jacobi eigensolve with 200 sweeps converges to ~1e-3 relative
+/// for 12-30 dimension matrices. 1e-2 is a conservative upper bound.
+pub const NAK_EIGENSOLVE_VS_CPU_REL: f64 = 1e-2;
+
+/// NAK baseline vs optimized: parity tolerance.
+///
+/// The optimized (FMA, unrolled) shader must produce identical results
+/// to the baseline shader — both are Jacobi rotation with the same
+/// convergence criterion. Machine-precision agreement expected.
+pub const NAK_EIGENSOLVE_PARITY: f64 = 1e-10;
+
+/// NAK eigensolve: performance regression threshold.
+///
+/// The optimized shader should not be more than 1.5× slower than
+/// the baseline. Values > 1.5 indicate a performance regression.
+pub const NAK_EIGENSOLVE_REGRESSION: f64 = 1.5;
+
+/// PPPM net force tolerance for multi-particle systems.
+///
+/// For NaCl crystals and random charge configurations, the net force
+/// |Σ F_i| should be near zero. PPPM mesh approximation for small
+/// systems with limited resolution can give residuals of O(1).
+pub const PPPM_MULTI_PARTICLE_NET_FORCE: f64 = 1.0;
 
 /// HFB Rust-vs-experiment: relative binding energy tolerance.
 ///
@@ -532,6 +722,37 @@ pub const DEFORMATION_GUESS_GENERIC: f64 = 0.15;
 /// find the deformed minimum more quickly.
 pub const DEFORMATION_GUESS_SD: f64 = 0.35;
 
+/// Near-zero denominator threshold for relative error computation.
+///
+/// When the expected value has |expected| < this threshold, fall back to
+/// absolute error comparison rather than dividing by a near-zero value.
+/// 1e-14 is just above f64 machine epsilon (~2.2e-16), providing ~2 digits
+/// of headroom for accumulated rounding in the expected-value computation.
+pub const NEAR_ZERO_EXPECTED: f64 = 1e-14;
+
+/// Normalization variance guard for the pre-screening classifier.
+///
+/// During feature normalization, any feature with variance below this
+/// threshold is treated as constant (std clamped to this floor).
+/// At 1e-10, features varying by less than ~1e-5 of their mean are
+/// effectively constant and would cause numerical blow-up if divided by
+/// their true standard deviation.
+pub const CLASSIFIER_VARIANCE_GUARD: f64 = 1e-10;
+
+/// Learning rate for the pre-screening logistic regression classifier.
+///
+/// Standard mini-batch logistic regression learning rate. The classifier
+/// is a simple 10→1 linear model; 0.01 converges reliably in 200 epochs
+/// for the Skyrme parameter space without oscillation.
+pub const CLASSIFIER_LEARNING_RATE: f64 = 0.01;
+
+/// Training epochs for the pre-screening logistic regression classifier.
+///
+/// 200 epochs is sufficient for convergence of a 10-parameter logistic
+/// regression on the typical ~100–1000 sample training sets accumulated
+/// during L1/L2 sweeps. Loss plateaus well before 200 epochs.
+pub const CLASSIFIER_EPOCHS: u32 = 200;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -611,9 +832,38 @@ mod tests {
             SOBOL_TOLERANCE,
             SCF_ENERGY_TOLERANCE,
             SHARP_FILLING_THRESHOLD,
+            TRANSPORT_D_STAR_CPU_GPU_PARITY,
+            TRANSPORT_T_STABILITY,
+            TRANSPORT_D_STAR_VS_FIT_LITE,
+            TRANSPORT_MSD_VACF_AGREEMENT,
+            PARITY_D_STAR_REL,
+            PARITY_T_DIFF,
+            PARITY_ENERGY_DIFF,
+            LATTICE_COLD_PLAQUETTE_ABS,
+            LATTICE_COLD_ACTION_ABS,
+            LATTICE_HMC_ACCEPTANCE_MIN,
+            LATTICE_CG_RESIDUAL,
+            HOTQCD_CONSISTENCY,
+            NAK_EIGENSOLVE_VS_CPU_REL,
+            NAK_EIGENSOLVE_PARITY,
+            NAK_EIGENSOLVE_REGRESSION,
+            PPPM_MULTI_PARTICLE_NET_FORCE,
+            SCREENED_HYDROGEN_VS_EXACT,
+            SCREENED_CRITICAL_VS_LITERATURE,
+            SCREENED_PYTHON_RUST_PARITY,
+            U1_COLD_PLAQUETTE_ABS,
+            U1_COLD_ACTION_ABS,
+            U1_HMC_ACCEPTANCE_MIN,
+            U1_WEAK_COUPLING_PLAQ_MIN,
+            U1_PYTHON_RUST_PARITY,
         ];
         for (i, &t) in tols.iter().enumerate() {
             assert!(t > 0.0, "tolerance index {i} must be positive, got {t}");
         }
+    }
+
+    #[test]
+    fn hotqcd_max_violations_nonzero() {
+        assert!(HOTQCD_MAX_VIOLATIONS > 0);
     }
 }

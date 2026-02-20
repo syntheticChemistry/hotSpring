@@ -1,6 +1,6 @@
 # hotSpring — BarraCUDA Requirements
 
-**Last Updated**: February 12, 2026
+**Last Updated**: February 20, 2026
 **Purpose**: GPU kernel requirements, gap analysis, and evolution priorities
 
 ---
@@ -21,79 +21,118 @@
 | SSF (static structure factor) | `SsfGpu` | E | Wavenumber-space observables |
 | RBF interpolation | CPU (SciPy) | A | Surrogate baseline |
 | MLP surrogate | CPU (PyTorch) | A | Neural surrogate comparison |
+| Scalar reduction | `ReduceScalarPipeline` | C-E | KE/PE sum, thermostat (v0.5.12) |
+| Shader optimizer | `WgslOptimizer` | All | Loop unrolling, ILP reordering (v0.5.15 rewire) |
+| Driver profiling | `GpuDriverProfile` | All | Hardware-accurate latency model (v0.5.15 rewire) |
 
 ---
 
 ## Requirements for Bazavov Extension (Lattice QCD)
 
-### Critical Gaps
+### Status Update (Feb 19, 2026)
+
+The lattice QCD infrastructure has been built and validated on CPU. All items
+previously marked "Not in BarraCUDA" for Complex f64, SU(3), and HMC are now
+**implemented in hotSpring** (`barracuda/src/lattice/`, ~2,800 lines) with WGSL
+templates ready for GPU promotion.
+
+### Remaining Gaps
 
 | Need | Current Status | Priority | Effort |
 |------|---------------|----------|--------|
-| **FFT (momentum-space transforms)** | Not in BarraCUDA | **P0** | High — need both real and complex FFT for lattice gauge theory. Momentum-space operations are fundamental to all lattice QCD |
-| **Complex f64 arithmetic** | Partial — real f64 only | **P0** | Medium — lattice fields are SU(3) matrices (complex 3x3). Need complex multiply, conjugate, trace |
-| **SU(3) matrix operations** | Not in BarraCUDA | **P1** | Medium — link multiplication, staples, plaquette. All built on complex GEMM |
-| **Hybrid Monte Carlo (HMC)** | Sarkas MD engine exists | **P1** | Medium — adapt Velocity Verlet for gauge field molecular dynamics. Same integration structure, different force law |
+| **FFT (momentum-space transforms)** | Not in BarraCUDA | **P0** | High — needed for full QCD with dynamical fermions |
+| ~~**Complex f64 arithmetic**~~ | ✅ **Done** — `lattice/complex_f64.rs` + WGSL template | — | — |
+| ~~**SU(3) matrix operations**~~ | ✅ **Done** — `lattice/su3.rs` + WGSL template | — | — |
+| ~~**Hybrid Monte Carlo (HMC)**~~ | ✅ **Done** — `lattice/hmc.rs`, Cayley exponential, 96-100% acceptance | — | — |
+| **GPU SU(3) plaquette shader** | WGSL template exists; needs compilation + validation | **P1** | Low |
+| **GPU Dirac operator** | CPU implementation exists; needs WGSL port | **P1** | Medium |
+| **Larger lattice sizes (8^4, 16^4)** | 4^4 validated; scaling untested | **P2** | Low |
 
-### Existing Kernels That Transfer Directly
+### Kernels That Transfer Directly (Confirmed)
 
-| Lattice QCD Need | BarraCUDA Kernel | Adaptation |
-|-----------------|-----------------|------------|
-| Gauge field update (MD) | Velocity Verlet | Change force law from Yukawa to gauge plaquette |
-| Thermodynamic observables | FusedMapReduceF64 | Same reduction pattern — sum over lattice sites |
-| Eigenvalue computation | BatchedEighGpu | Dirac spectrum, correlation matrix eigenvalues |
-| Parameter scans | L1 Pareto framework | Same structure — scan coupling constants |
-| Statistical analysis | Monte Carlo infrastructure | Jackknife/bootstrap from existing MC |
+| Lattice QCD Need | BarraCUDA Kernel | Status |
+|-----------------|-----------------|--------|
+| Gauge field update (MD) | Velocity Verlet | ✅ Adapted as HMC leapfrog in `hmc.rs` |
+| Thermodynamic observables | FusedMapReduceF64 | ✅ Used for plaquette averages |
+| Eigenvalue computation | BatchedEighGpu | ✅ Available for Dirac spectrum |
+| Parameter scans | L1 Pareto framework | ✅ Same structure for coupling scans |
+| Statistical analysis | Monte Carlo infrastructure | ✅ Jackknife/bootstrap available |
 
-### Stretch Goals
+### Kachkovskiy Extension (Spectral Theory / Transport)
 
-| Need | Why | Effort |
+| Need | Current Status | Priority | Effort |
+|------|---------------|----------|--------|
+| **Lanczos eigensolve** | `BatchedEighGpu` handles dense; need iterative for large sparse | **P1** | Medium — tridiagonalization + QR iteration on GPU |
+| **Sparse matrix-vector product (SpMV)** | Not in BarraCUDA. CG solver exists in `lattice/cg.rs` (CPU) | **P1** | Medium — CSR format SpMV shader. Foundation for Lanczos |
+| **Matrix exponentiation** | Cayley exponential validated for SU(3) in `lattice/hmc.rs` | **P2** | Medium — generalize beyond 3×3 anti-Hermitian |
+
+### Stretch Goals (Updated)
+
+| Need | Why | Status |
 |------|-----|--------|
-| Conjugate gradient solver | Dirac operator inversion — dominant cost in lattice QCD | High |
-| Multi-GPU communication | Lattice domain decomposition | High |
-| Stochastic trace estimator | Disconnected diagrams for flavor-singlet physics | Medium |
+| ~~Conjugate gradient solver~~ | Dirac operator inversion | ✅ **Done** — `lattice/cg.rs` (CPU, 214 lines) |
+| Multi-GPU communication | Lattice domain decomposition | Pending |
+| Stochastic trace estimator | Disconnected diagrams for flavor-singlet physics | Pending |
 
 ---
 
 ## BarraCUDA Evolution Path for hotSpring
 
 ```
-Phase A-F (DONE)              Bazavov Extension (NEXT)
-─────────────────             ──────────────────────
-Yukawa force       ────────→  Gauge plaquette force
-Velocity Verlet    ────────→  HMC integrator
-BatchedEighGpu     ────────→  Dirac eigenvalues
-FusedMapReduce     ────────→  Lattice observables
-Real f64           ────────→  Complex f64 (NEW)
-N/A                ────────→  FFT (NEW)
-N/A                ────────→  SU(3) matrix ops (NEW)
+Phase A-F (DONE)              Bazavov Extension (DONE on CPU)     GPU Promotion (NEXT)
+─────────────────             ──────────────────────────────      ───────────────────
+Yukawa force       ────────→  Gauge plaquette force    ✅         → WGSL plaquette shader
+Velocity Verlet    ────────→  HMC integrator           ✅         → WGSL Cayley exp shader
+BatchedEighGpu     ────────→  Dirac eigenvalues        ✅ (CG)    → WGSL Dirac SpMV
+FusedMapReduce     ────────→  Lattice observables      ✅         → GPU reduction
+Real f64           ────────→  Complex f64              ✅         → WGSL template ready
+N/A                ────────→  SU(3) matrix ops         ✅         → WGSL template ready
+N/A                ────────→  FFT                      Pending    → Full QCD prerequisite
 ```
 
 ---
 
-## Next Science Target: Stanton & Murillo Transport (Paper 5)
+## ~~Next Science Target: Stanton & Murillo Transport (Paper 5)~~ ✅ DONE
 
-Requires NO new BarraCUDA primitives. New hotSpring-local code only:
+All components implemented and validated (13/13 checks pass):
 
 | Component | Depends On | Status |
 |-----------|-----------|--------|
-| Green-Kubo integrator (VACF → D) | Existing VACF observable | Not started |
-| Stress tensor observable (σ_αβ) | Yukawa pair force kernel | Not started |
-| Heat current observable (J_Q) | Pair force + velocities | Not started |
-| Γ-κ parameter sweep | sarkas_gpu infrastructure | Not started |
-
-These observables are computed from existing MD trajectories. No new GPU
-shaders needed — the Green-Kubo integration runs on CPU over GPU-computed
-time series. The stress tensor observable may benefit from a GPU shader
-(pair force outer product reduction) but can start as a CPU post-process.
+| Green-Kubo integrator (VACF → D*) | Existing VACF observable | ✅ `md/observables.rs` |
+| Stress tensor observable (σ_αβ) | Yukawa pair force kernel | ✅ `md/observables.rs` |
+| Heat current observable (J_Q) | Pair force + velocities | ✅ `md/observables.rs` |
+| Daligault (2012) D* fit | Analytical model | ✅ `md/transport.rs` (Sarkas-calibrated) |
+| Stanton-Murillo (2016) η*, λ* fits | Analytical models | ✅ `md/transport.rs` |
+| Validation binary | ValidationHarness | ✅ `bin/validate_stanton_murillo.rs` |
 
 ---
 
 ## ToadStool Handoff Notes
 
-- hotSpring Phases C-F validated that RTX 4070 can sustain f64 MD at 149-259 steps/s
-- The `log_f64` bug (found by wetSpring) affects any lattice observable using logarithms
-- Cell-list O(N) scaling works for short-range forces; lattice QCD may need all-to-all for long-range
-- Energy drift of 0.000% over 80k steps sets the precision bar for any new integrator
-- GPU sovereignty handoff delivered Feb 18, 2026: NVK warp-packed eigensolve,
-  149x NAK gap analysis, driver persistence — see `wateringHole/handoffs/`
+**Active handoff:** `wateringHole/handoffs/HOTSPRING_V0516_CONSOLIDATED_HANDOFF_FEB20_2026.md`
+(supersedes all 14 prior handoffs, archived to `wateringHole/handoffs/archive/`)
+
+### Key Facts for ToadStool Team
+
+- 9 papers reproduced, 320 unit tests, 18/18 validation suites, ~$0.20 total compute cost
+- RTX 4070 sustains f64 MD at 149-259 steps/s; Titan V (NVK) produces identical physics
+- Energy drift 0.000% over 80k steps sets the precision bar for any new integrator
+- `ReduceScalarPipeline` is the most-used upstream primitive after `WgpuDevice`
+- All shader compilation routes through `ShaderTemplate::for_driver_profile()`
+- `CellListGpu` has two open bugs (binding mismatch + `i32 %` truncation) — hotSpring uses local `GpuCellList`
+
+### Evolution Timeline
+
+| Version | ToadStool Absorptions | hotSpring Rewires |
+|---------|----------------------|-------------------|
+| v0.5.12 | `ReduceScalarPipeline` | Rewired both MD paths, deleted local `SHADER_SUM_REDUCE` |
+| v0.5.15 | `WgslOptimizer`, `GpuDriverProfile`, `StatefulPipeline` | Rewired all shader compilation via `for_driver_profile()` |
+| v0.5.16 | — | Paper 13 (Abelian Higgs), Wirtinger-correct complex HMC |
+
+### Open Items for ToadStool
+
+1. **Fix `CellListGpu` bugs** — prefix-sum binding mismatch + `i32 %` truncation
+2. **`reduce_sum()` convenience API** on `ReduceScalarPipeline`
+3. **NAK loop unrolling** — 4× speedup for f64 kernels on NVK (Rust patches to Mesa)
+4. **FFT primitive** — blocks full lattice QCD (Tier 3 papers)
+5. **Complex f64 + SU(3) WGSL validation** — templates exist in hotSpring, ready for GPU promotion

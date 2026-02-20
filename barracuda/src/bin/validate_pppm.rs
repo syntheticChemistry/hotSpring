@@ -205,7 +205,11 @@ fn main() {
                         // (small crystal with periodic images may differ from 1.7476)
                         // Net force on 16-ion crystal: PPPM approximation residual
                         // can be O(1) for small crystals with limited mesh resolution.
-                        harness.check_upper("NaCl net force near zero", f_net, 1.0);
+                        harness.check_upper(
+                            "NaCl net force near zero",
+                            f_net,
+                            tolerances::PPPM_MULTI_PARTICLE_NET_FORCE,
+                        );
                     }
                     Err(e) => {
                         println!("  PPPM compute failed: {e}");
@@ -310,7 +314,11 @@ fn main() {
                         let net_force =
                             (fx_sum * fx_sum + fy_sum * fy_sum + fz_sum * fz_sum).sqrt();
                         println!("    Net force magnitude: {net_force:.2e} (should be ~0)");
-                        harness.check_upper("random PPPM net force near zero", net_force, 1.0);
+                        harness.check_upper(
+                            "random PPPM net force near zero",
+                            net_force,
+                            tolerances::PPPM_MULTI_PARTICLE_NET_FORCE,
+                        );
                     }
                     Err(e) => {
                         println!("  PPPM compute failed: {e}");

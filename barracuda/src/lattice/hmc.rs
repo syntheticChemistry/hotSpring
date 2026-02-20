@@ -88,11 +88,7 @@ pub fn hmc_trajectory(lattice: &mut Lattice, config: &mut HmcConfig) -> HmcResul
     let accept = if delta_h <= 0.0 {
         true
     } else {
-        config.seed = config
-            .seed
-            .wrapping_mul(6364136223846793005)
-            .wrapping_add(1442695040888963407);
-        let r = (config.seed >> 11) as f64 / (1u64 << 53) as f64;
+        let r = super::constants::lcg_uniform_f64(&mut config.seed);
         r < (-delta_h).exp()
     };
 

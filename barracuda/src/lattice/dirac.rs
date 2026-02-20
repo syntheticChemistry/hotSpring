@@ -41,18 +41,14 @@ impl FermionField {
 
     /// Create a random fermion field for CG testing.
     pub fn random(volume: usize, seed: u64) -> Self {
+        use super::constants::lcg_uniform_f64;
+
         let mut rng = seed;
         let mut data = vec![[Complex64::ZERO; 3]; volume];
         for site in &mut data {
             for c in site.iter_mut() {
-                rng = rng
-                    .wrapping_mul(6364136223846793005)
-                    .wrapping_add(1442695040888963407);
-                let re = (rng >> 11) as f64 / (1u64 << 53) as f64 - 0.5;
-                rng = rng
-                    .wrapping_mul(6364136223846793005)
-                    .wrapping_add(1442695040888963407);
-                let im = (rng >> 11) as f64 / (1u64 << 53) as f64 - 0.5;
+                let re = lcg_uniform_f64(&mut rng) - 0.5;
+                let im = lcg_uniform_f64(&mut rng) - 0.5;
                 *c = Complex64::new(re, im);
             }
         }

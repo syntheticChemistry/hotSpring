@@ -110,7 +110,7 @@ pub fn bcs_v2(eps: f64, delta: f64) -> f64 {
 #[inline]
 #[must_use]
 pub fn coulomb_exchange_slater(rho_p: f64) -> f64 {
-    const E2: f64 = 1.439_978; // e² in MeV·fm
+    use super::constants::E2;
     -E2 * (3.0 / std::f64::consts::PI).powf(1.0 / 3.0) * rho_p.max(0.0).powf(1.0 / 3.0)
 }
 
@@ -122,7 +122,7 @@ pub fn coulomb_exchange_slater(rho_p: f64) -> f64 {
 #[inline]
 #[must_use]
 pub fn coulomb_exchange_energy_density(rho_p: f64) -> f64 {
-    const E2: f64 = 1.439_978;
+    use super::constants::E2;
     -0.75 * E2 * (3.0 / std::f64::consts::PI).powf(1.0 / 3.0) * rho_p.max(0.0).powf(4.0 / 3.0)
 }
 

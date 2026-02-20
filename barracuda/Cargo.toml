@@ -1,6 +1,6 @@
 [package]
 name = "hotspring-barracuda"
-version = "0.5.10"
+version = "0.5.16"
 edition = "2021"
 description = "Nuclear EOS + GPU MD validation for BarraCUDA — L1/L2/L3 physics, Yukawa OCP, typed errors, provenance, capability-based discovery"
 license = "AGPL-3.0-only"
@@ -223,6 +223,16 @@ path = "src/bin/validate_stanton_murillo.rs"
 [[bin]]
 name = "validate_hotqcd_eos"
 path = "src/bin/validate_hotqcd_eos.rs"
+
+# ── Paper 6: Screened Coulomb bound states (Murillo & Weisheit 1998) ──
+[[bin]]
+name = "validate_screened_coulomb"
+path = "src/bin/validate_screened_coulomb.rs"
+
+# ── Paper 6: Rust vs Python performance benchmark ──
+[[bin]]
+name = "bench_screened_coulomb"
+path = "src/bin/bench_screened_coulomb.rs"
 
 # ── Paper 8: Pure gauge SU(3) lattice QCD on consumer GPU ──
 [[bin]]

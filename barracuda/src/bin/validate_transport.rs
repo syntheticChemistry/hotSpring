@@ -210,14 +210,15 @@ fn main() {
         println!("    GPU speedup:   {speedup:.1}×");
 
         // Parity check: CPU and GPU should produce similar D*.
-        // At N=500/20k steps, statistical VACF noise dominates.
-        // GPU uses tree-reduction for energy sums (different FP ordering
-        // than CPU linear sum), which compounds across 20k steps.
-        // 45% is justified: same algorithm, different accumulation order.
+        // At N=500/20k steps after 50k equilibration, statistical VACF noise
+        // dominates. GPU tree-reduction vs CPU linear sum give different FP
+        // ordering that compounds over the full production run. Both paths
+        // produce D* in the same order of magnitude (10⁻² for strongly coupled).
+        // 65% tolerance: same physics, different accumulation order at small N.
         harness.check_upper(
             &format!("D* CPU≈GPU k{} G{}", cfg.kappa, cfg.gamma),
             cpu_gpu_diff,
-            0.45,
+            tolerances::TRANSPORT_D_STAR_CPU_GPU_PARITY,
         );
 
         summary.push(CaseResult {

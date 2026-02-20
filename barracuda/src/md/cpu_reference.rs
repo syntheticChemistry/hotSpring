@@ -169,6 +169,25 @@ pub fn run_simulation_cpu(config: &MdConfig) -> MdSimulation {
             }
         }
     }
+    // Final exact rescale to ensure T = T_target at production start.
+    // Berendsen thermostat is gradual; structural rearrangement (FCC→liquid)
+    // can prevent convergence. This rescale sets KE exactly.
+    {
+        let mut ke = 0.0;
+        for i in 0..n {
+            ke += mass
+                * (velocities[i * 3].powi(2)
+                    + velocities[i * 3 + 1].powi(2)
+                    + velocities[i * 3 + 2].powi(2));
+        }
+        ke *= 0.5;
+        let t_current = 2.0 * ke / (3.0 * n as f64);
+        if t_current > 1e-30 {
+            let scale = (temperature / t_current).sqrt();
+            velocities.iter_mut().for_each(|v| *v *= scale);
+        }
+    }
+
     println!("    Equilibration: {:.2}s", t_equil.elapsed().as_secs_f64());
 
     // ── Production ──

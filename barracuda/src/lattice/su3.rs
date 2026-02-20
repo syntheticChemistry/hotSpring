@@ -153,7 +153,7 @@ impl Su3Matrix {
 
         // Normalize row 0
         let n0 = row_norm(&u, 0);
-        if n0 > 1e-30 {
+        if n0 > super::constants::LATTICE_DIVISION_GUARD {
             let inv = 1.0 / n0;
             for j in 0..3 {
                 u.m[0][j] = u.m[0][j].scale(inv);
@@ -166,7 +166,7 @@ impl Su3Matrix {
             u.m[1][j] -= u.m[0][j] * dot01;
         }
         let n1 = row_norm(&u, 1);
-        if n1 > 1e-30 {
+        if n1 > super::constants::LATTICE_DIVISION_GUARD {
             let inv = 1.0 / n1;
             for j in 0..3 {
                 u.m[1][j] = u.m[1][j].scale(inv);
@@ -186,20 +186,10 @@ impl Su3Matrix {
     /// Returns exp(i ε H) where H is a random traceless Hermitian matrix
     /// with components drawn from a simple LCG.
     pub fn random_near_identity(seed: &mut u64, epsilon: f64) -> Self {
-        let mut h = [[Complex64::ZERO; 3]; 3];
+        use super::constants::lcg_gaussian;
 
-        // 8 Gell-Mann generators → 8 random coefficients
-        let mut rand_gauss = || -> f64 {
-            *seed = seed
-                .wrapping_mul(6364136223846793005)
-                .wrapping_add(1442695040888963407);
-            let u1 = (*seed >> 11) as f64 / (1u64 << 53) as f64;
-            *seed = seed
-                .wrapping_mul(6364136223846793005)
-                .wrapping_add(1442695040888963407);
-            let u2 = (*seed >> 11) as f64 / (1u64 << 53) as f64;
-            (-2.0 * u1.max(1e-30).ln()).sqrt() * (2.0 * std::f64::consts::PI * u2).cos()
-        };
+        let mut h = [[Complex64::ZERO; 3]; 3];
+        let mut rand_gauss = || -> f64 { lcg_gaussian(seed) };
 
         // Diagonal (traceless): a3 * λ3 + a8 * λ8
         let a3 = rand_gauss() * epsilon;
@@ -245,18 +235,10 @@ impl Su3Matrix {
     /// the correct canonical distribution exp(-T). The 1/√2 factor comes from
     /// the fundamental representation normalization Tr(T_a T_b) = δ_ab/2.
     pub fn random_algebra(seed: &mut u64) -> Self {
+        use super::constants::lcg_gaussian;
+
         let scale = std::f64::consts::FRAC_1_SQRT_2;
-        let mut rand_gauss = || -> f64 {
-            *seed = seed
-                .wrapping_mul(6364136223846793005)
-                .wrapping_add(1442695040888963407);
-            let u1 = (*seed >> 11) as f64 / (1u64 << 53) as f64;
-            *seed = seed
-                .wrapping_mul(6364136223846793005)
-                .wrapping_add(1442695040888963407);
-            let u2 = (*seed >> 11) as f64 / (1u64 << 53) as f64;
-            scale * (-2.0 * u1.max(1e-30).ln()).sqrt() * (2.0 * std::f64::consts::PI * u2).cos()
-        };
+        let mut rand_gauss = || -> f64 { scale * lcg_gaussian(seed) };
 
         let mut h = Self::ZERO;
 

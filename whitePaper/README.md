@@ -2,7 +2,7 @@
 
 **Status**: Working draft — reviewed for PII, suitable for public repository  
 **Purpose**: Document the replication of Murillo Group computational plasma physics on consumer hardware using BarraCUDA  
-**Date**: February 2026
+**Date**: February 20, 2026
 
 ---
 
@@ -21,10 +21,11 @@
 
 hotSpring replicates published computational plasma physics from the Murillo Group (Michigan State University) on consumer hardware, then re-executes the computations using BarraCUDA — a Pure Rust scientific computing library with zero external dependencies.
 
-The study answers three questions:
-1. **Can published computational science be independently reproduced?** (Answer: yes, but it required fixing 5 silent bugs and rebuilding physics that was behind a gated platform)
+The study answers four questions:
+1. **Can published computational science be independently reproduced?** (Answer: yes, but it required fixing 6 silent bugs and rebuilding physics that was behind a gated platform)
 2. **Can Rust + WebGPU replace the Python scientific stack for real physics?** (Answer: yes — BarraCUDA achieves 478× faster throughput and 44.8× less energy at L1, with GPU FP64 validated to 4.55e-13 MeV precision. Full Sarkas Yukawa MD runs on a $600 consumer GPU: 9/9 PP cases pass at N=10,000 with 80,000 production steps in 3.66 hours for $0.044.)
 3. **Can consumer GPUs do first-principles nuclear structure at scale?** (Answer: yes — the full AME2020 dataset (2,042 nuclei, 39x the published paper) runs on a single RTX 4070. L1 Pareto analysis, L2 GPU-batched HFB, and L3 deformed HFB all produce results. This is direct physics computation, not surrogate learning.)
+4. **Does the Python → Rust → GPU evolution path extend beyond plasma physics?** (Answer: yes — lattice QCD (SU(3) pure gauge, HMC, staggered Dirac), Abelian Higgs (U(1) gauge + Higgs field, 143× faster than Python), transport coefficients (Green-Kubo, Stanton-Murillo), screened Coulomb (Sturm eigensolve, 2274× faster than Python), and HotQCD EOS tables are all validated on CPU with WGSL templates ready for GPU promotion. 9 papers reproduced, 300+ validation checks, ~$0.20 total compute cost.)
 
 ---
 
@@ -86,13 +87,15 @@ Bazavov connection (CMSE & Physics, MSU) provides the bridge: both Murillo
 and Bazavov study strongly coupled many-body systems with overlapping
 computational methods (MD ↔ HMC, plasma EOS ↔ QCD EOS).
 
-### Completed (February 19, 2026)
+### Completed (February 20, 2026)
 
 | Paper | Status | Implementation |
 |-------|--------|----------------|
-| Stanton & Murillo (2016) transport | **Partial** | D*, η*, λ* fits + Green-Kubo; normalization bug in stress/heat ACF |
+| Stanton & Murillo (2016) transport | **Done** | Green-Kubo D*/η*/λ*; Sarkas-calibrated fits + C_w(κ) evolution, 13/13 checks |
+| Murillo & Weisheit (1998) screening | **Done** | Screened Coulomb eigenvalues; Sturm bisection, 23/23 checks, Rust 2274× Python |
 | HotQCD EOS tables (Bazavov 2014) | **Done** | `lattice/eos_tables.rs` — thermodynamic validation passes |
 | Pure gauge SU(3) Wilson action | **Done** | `lattice/` — 8 modules, 12/12 validation checks |
+| Abelian Higgs (Bazavov 2015) | **Done** | `lattice/abelian_higgs.rs` — U(1)+Higgs HMC, 17/17 checks, Rust 143× Python |
 
 ### Lattice QCD Infrastructure Built
 
@@ -105,6 +108,7 @@ computational methods (MD ↔ HMC, plasma EOS ↔ QCD EOS).
 | `dirac.rs` | 297 | Staggered Dirac operator | Needs WGSL shader |
 | `cg.rs` | 214 | Conjugate gradient for D†D | Needs WGSL shader |
 | `eos_tables.rs` | 307 | HotQCD reference data | CPU-only (data) |
+| `abelian_higgs.rs` | ~500 | U(1)+Higgs (1+1)D HMC | Needs WGSL shader |
 | `multi_gpu.rs` | 237 | Temperature scan dispatcher | CPU-threaded, GPU-ready |
 
 ### Remaining Gaps for Full Lattice QCD
@@ -116,17 +120,19 @@ computational methods (MD ↔ HMC, plasma EOS ↔ QCD EOS).
 | GPU Dirac operator | Fermion matrix-vector products | High |
 | Larger lattice sizes (8^4, 16^4) | Physical results | Medium |
 
-### Existing Reproduction (All Papers)
+### All Reproduced Papers (9 total)
 
-| # | Paper | Status | Phase |
-|---|-------|--------|-------|
-| 1 | Sarkas Yukawa OCP MD | Done | A + C-E (GPU) |
-| 2 | Two-Temperature Model (TTM) | Done | A |
-| 3 | Diaw et al. (2024) Surrogate Learning | Done | A |
-| 4 | Nuclear EOS (SEMF → HFB, AME2020) | Done | A + F |
-| 5 | Stanton & Murillo (2016) Transport | Partial | Green-Kubo normalization bug |
-| 7 | HotQCD EOS tables (Bazavov 2014) | Done | Validation passes |
-| 8 | Pure gauge SU(3) Wilson action | Done | 12/12 checks, HMC working |
+| # | Paper | Status | Highlights |
+|---|-------|--------|------------|
+| 1 | Sarkas Yukawa OCP MD | **Done** | 9/9 PP cases, GPU validated, 82× GPU speedup |
+| 2 | Two-Temperature Model (TTM) | **Done** | 6/6 equilibration checks |
+| 3 | Diaw et al. (2024) Surrogate Learning | **Done** | 15/15 benchmark convergence |
+| 4 | Nuclear EOS (SEMF → HFB, AME2020) | **Done** | 2,042 nuclei, GPU-batched HFB, 478× speedup |
+| 5 | Stanton & Murillo (2016) Transport | **Done** | 13/13 checks, Green-Kubo D*/η*/λ* |
+| 6 | Murillo & Weisheit (1998) Screening | **Done** | 23/23 checks, Rust 2274× Python |
+| 7 | HotQCD EOS tables (Bazavov 2014) | **Done** | Thermodynamic validation |
+| 8 | Pure gauge SU(3) Wilson action | **Done** | 12/12 checks, HMC 96-100% acceptance |
+| 13 | Abelian Higgs (Bazavov 2015) | **Done** | 17/17 checks, U(1)+Higgs HMC, Rust 143× Python |
 
 ---
 
@@ -174,11 +180,29 @@ No institutional access required. No Code Ocean account. No Fortran compiler. AG
 
 ---
 
-## GPU FP64 Status (Feb 15, 2026)
+## Codebase Health (Feb 20, 2026)
 
-Native FP64 GPU compute confirmed on RTX 4070 via `wgpu::Features::SHADER_F64` (Vulkan backend):
+| Metric | Value |
+|--------|-------|
+| Unit tests | **320** pass, 5 GPU-ignored (325 total) |
+| Validation suites | **18/18** pass |
+| Clippy warnings | **0** (default + pedantic on library code) |
+| Doc warnings | **0** |
+| Unsafe blocks | **0** |
+| TODO/FIXME/HACK markers | **0** |
+| Centralized tolerances | **68** constants in `tolerances.rs` |
+| Provenance records | All validation targets traced to Python origins or DOIs |
+| AGPL-3.0 compliance | All `.rs` and `.wgsl` files |
+
+---
+
+## GPU FP64 Status (Feb 20, 2026)
+
+Native FP64 GPU compute confirmed on RTX 4070 and Titan V via `wgpu::Features::SHADER_F64` (Vulkan backend):
 - **Precision**: True IEEE 754 double precision (0 ULP error vs CPU f64)
 - **Performance**: ~2x FP64:FP32 ratio for bandwidth-limited operations (not the CUDA-reported 1:64)
 - **Implication**: The RTX 4070 is usable for FP64 science compute today via BarraCUDA's wgpu shaders
+- **Multi-GPU**: RTX 4070 (nvidia proprietary) and Titan V (NVK/nouveau open-source) both produce identical physics to 1e-15
 - **Phase C validation**: Full Yukawa MD (9 cases, N=2000, 80k steps) runs at 149-259 steps/s sustained with 0.000% energy drift
 - **Phase E validation**: Full paper-parity (9 cases, N=10,000, 80k steps) completes in 3.66 hours with 0.000-0.002% drift. Cell-list 4.1× faster than all-pairs.
+- **Unidirectional pipeline**: GPU sum-reduction eliminates per-particle readback — 10,000× bandwidth reduction at N=10,000

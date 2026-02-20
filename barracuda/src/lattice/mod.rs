@@ -23,6 +23,7 @@
 //! | `hmc` | Hybrid Monte Carlo integrator |
 //! | `dirac` | Staggered Dirac operator |
 //! | `cg` | Conjugate gradient solver |
+//! | `abelian_higgs` | U(1) gauge + complex scalar Higgs (1+1)D |
 //!
 //! # References
 //!
@@ -30,8 +31,10 @@
 //! - Gattringer & Lang, "Quantum Chromodynamics on the Lattice" (2010)
 //! - HotQCD Collaboration, Bazavov et al., PRD 90, 094503 (2014)
 
+pub mod abelian_higgs;
 pub mod cg;
 pub mod complex_f64;
+pub mod constants;
 pub mod dirac;
 pub mod eos_tables;
 pub mod hmc;

@@ -122,10 +122,10 @@ struct BoundsFile {
     parameters: HashMap<String, ParamInfo>,
 }
 
-/// Parameter ordering (must match Python)
-pub const PARAM_NAMES: [&str; 10] = [
-    "t0", "t1", "t2", "t3", "x0", "x1", "x2", "x3", "alpha", "W0",
-];
+/// Parameter ordering (must match Python).
+///
+/// Re-exported from [`crate::provenance::PARAM_NAMES`] — single source of truth.
+pub use crate::provenance::PARAM_NAMES;
 
 /// Load parameter bounds → Vec<(min, max)>
 pub fn load_bounds(path: &Path) -> Result<Vec<(f64, f64)>, Box<dyn std::error::Error>> {

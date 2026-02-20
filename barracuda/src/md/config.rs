@@ -196,27 +196,35 @@ pub fn paper_parity_extended_cases() -> Vec<MdConfig> {
 /// Reference: Stanton & Murillo (2016) PRE 93 043203
 pub fn transport_cases(n_particles: usize, lite: bool) -> Vec<MdConfig> {
     let (equil, prod, dump, snap_interval) = if lite {
-        (2_000, 20_000, 5, 1)
+        (50_000, 20_000, 5, 1)
     } else {
-        (10_000, 100_000, 5, 1)
+        (100_000, 100_000, 5, 1)
     };
 
     let cases = vec![
         // κ=1: rc = 8.0 a_ws
         ("t_k1_G10", 1.0, 10.0, 8.0),
+        ("t_k1_G14", 1.0, 14.0, 8.0),   // Sarkas DSF
         ("t_k1_G50", 1.0, 50.0, 8.0),
+        ("t_k1_G72", 1.0, 72.0, 8.0),   // Sarkas DSF
         ("t_k1_G100", 1.0, 100.0, 8.0),
         ("t_k1_G175", 1.0, 175.0, 8.0),
+        ("t_k1_G217", 1.0, 217.0, 8.0),  // Sarkas DSF
         // κ=2: rc = 6.5 a_ws
         ("t_k2_G10", 2.0, 10.0, 6.5),
+        ("t_k2_G31", 2.0, 31.0, 6.5),   // Sarkas DSF
         ("t_k2_G50", 2.0, 50.0, 6.5),
         ("t_k2_G100", 2.0, 100.0, 6.5),
+        ("t_k2_G158", 2.0, 158.0, 6.5),  // Sarkas DSF
         ("t_k2_G300", 2.0, 300.0, 6.5),
+        ("t_k2_G476", 2.0, 476.0, 6.5),  // Sarkas DSF
         // κ=3: rc = 6.0 a_ws
         ("t_k3_G10", 3.0, 10.0, 6.0),
         ("t_k3_G50", 3.0, 50.0, 6.0),
-        ("t_k3_G100", 3.0, 100.0, 6.0),
+        ("t_k3_G100", 3.0, 100.0, 6.0),  // Sarkas DSF
         ("t_k3_G300", 3.0, 300.0, 6.0),
+        ("t_k3_G503", 3.0, 503.0, 6.0),  // Sarkas DSF
+        ("t_k3_G1510", 3.0, 1510.0, 6.0), // Sarkas DSF
     ];
 
     cases
@@ -234,6 +242,23 @@ pub fn transport_cases(n_particles: usize, lite: bool) -> Vec<MdConfig> {
             berendsen_tau: 5.0,
             rdf_bins: 500,
             vel_snapshot_interval: snap_interval,
+        })
+        .collect()
+}
+
+/// Sarkas-matched transport cases only (κ>0 DSF study grid).
+///
+/// Returns the 9 (κ,Γ) points that have exact Sarkas D_MKS reference
+/// values from the DSF study. κ=0 (Coulomb) cases are excluded because
+/// they require PPPM, a different code path.
+pub fn sarkas_validated_cases(n_particles: usize, lite: bool) -> Vec<MdConfig> {
+    transport_cases(n_particles, lite)
+        .into_iter()
+        .filter(|c| {
+            matches!(
+                (c.kappa as u32, c.gamma as u32),
+                (1, 14 | 72 | 217) | (2, 31 | 158 | 476) | (3, 100 | 503 | 1510)
+            )
         })
         .collect()
 }
@@ -317,12 +342,21 @@ mod tests {
     }
 
     #[test]
-    fn transport_cases_twelve() {
+    fn transport_cases_full_grid() {
         let cases = transport_cases(500, true);
-        assert_eq!(cases.len(), 12, "transport study has 12 cases");
+        assert_eq!(cases.len(), 20, "transport grid: 12 original + 8 new Sarkas DSF (k3_G100 was already in grid)");
         for c in &cases {
             assert_eq!(c.vel_snapshot_interval, 1);
             assert_eq!(c.dump_step, 5);
+        }
+    }
+
+    #[test]
+    fn sarkas_validated_cases_nine() {
+        let cases = sarkas_validated_cases(500, true);
+        assert_eq!(cases.len(), 9, "9 Sarkas κ>0 DSF points");
+        for c in &cases {
+            assert!(c.kappa >= 1.0, "no κ=0 in Sarkas-validated set");
         }
     }
 

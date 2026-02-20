@@ -30,7 +30,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 
 ---
 
-## Current Status (2026-02-19)
+## Current Status (2026-02-20)
 
 | Study | Status | Quantitative Checks |
 |-------|--------|-------------------|
@@ -49,14 +49,23 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **Nuclear EOS Full-Scale** (Phase F, AME2020) | ✅ Complete | 9/9 pass (L1 Pareto, L2 GPU 2042 nuclei, L3 deformed) |
 | **BarraCUDA MD Pipeline** (6 ops) | ✅ Complete | 12/12 pass (YukawaF64, VV, Berendsen, KE — 0.000% drift) |
 | **BarraCUDA HFB Pipeline** (3 ops) | ✅ Complete | 14/14 pass (BCS GPU 6.2e-11, Eigh 2.4e-12) |
-| **Stanton-Murillo Transport** (Paper 5) | ⚠️ Partial | D* systematic mismatch (Green-Kubo normalization) — η*, λ* implemented |
+| **Stanton-Murillo Transport** (Paper 5) | ✅ Complete | 13/13 pass (D* Sarkas-calibrated, MSD≈VACF, Green-Kubo η*/λ*) |
 | **HotQCD EOS Tables** (Paper 7) | ✅ Complete | Thermodynamic consistency, asymptotic freedom validated |
 | **Pure Gauge SU(3)** (Paper 8) | ✅ Complete | 12/12 pass (HMC, Dirac CG, plaquette physics) |
-| **TOTAL** | **14/15 validation suites pass** | 254 unit tests, 6 upstream bugs found |
+| **Screened Coulomb** (Paper 6) | ✅ Complete | 23/23 pass (Sturm bisection, Python parity Δ≈10⁻¹², critical screening) |
+| **Abelian Higgs** (Paper 13) | ✅ Complete | 17/17 pass (U(1)+Higgs HMC, phase structure, Rust 143× faster than Python) |
+| **ToadStool Rewire v2** | ✅ Complete | WgslOptimizer + GpuDriverProfile wired into all shader compilation |
+| **TOTAL** | **18/18 validation suites pass** | 325 unit tests (320 passing + 5 GPU-ignored), 6 upstream bugs found |
 
-Papers 5, 7, and 8 from the review queue are now implemented. Lattice QCD
-infrastructure (complex f64, SU(3) matrices, Wilson gauge action, HMC integrator,
-staggered Dirac operator, CG solver) is validated on CPU, ready for GPU promotion.
+Papers 5, 7, and 8 from the review queue are complete. Paper 5 transport fits
+(Daligault 2012) were recalibrated against 12 Sarkas Green-Kubo D* values (Feb 2026)
+and evolved with κ-dependent weak-coupling correction `C_w(κ)` (v0.5.14–15), reducing
+crossover-regime errors from 44–63% to <10%. Transport grid expanded to 20 (κ,Γ)
+points including 9 Sarkas-matched DSF cases with N=2000 ground-truth D*.
+Lattice QCD (complex f64, SU(3), Wilson gauge, HMC, staggered Dirac, CG solver)
+validated on CPU, ready for GPU promotion. Paper 13 (Abelian Higgs) extends lattice
+infrastructure to U(1) gauge + complex scalar Higgs field on (1+1)D lattice,
+demonstrating 143× Rust-over-Python speedup.
 
 See `CONTROL_EXPERIMENT_STATUS.md` for full details.
 
@@ -237,18 +246,19 @@ No streamlining — this is the correct architecture.
 
 ---
 
-## BarraCUDA Crate (v0.5.10)
+## BarraCUDA Crate (v0.5.16)
 
 The `barracuda/` directory is a standalone Rust crate providing the validation
 environment, physics implementations, and GPU compute. Key architectural properties:
 
-- **254 unit tests** (5 ignored GPU/slow tests), **15 validation suites** (14/15 pass)
+- **325 unit tests** (320 passing + 5 GPU-ignored), **18 validation suites** (18/18 pass)
   via `validate_all`. Includes lattice QCD (complex f64, SU(3), Wilson action, HMC,
-  Dirac CG), transport coefficients (Green-Kubo, Stanton-Murillo fits), and HotQCD
-  EOS tables. Test coverage: ~46% line / ~65% function (GPU modules require hardware;
-  CPU-testable modules average >90%). Measured with `cargo-llvm-cov`.
-- **AGPL-3.0 only** — all 51 `.rs` files and all 30 `.wgsl` shaders have
-  `SPDX-License-Identifier: AGPL-3.0-only`.
+  Dirac CG), Abelian Higgs (U(1) + Higgs, HMC), transport coefficients (Green-Kubo
+  D*/η*/λ*, Sarkas-calibrated fits), and HotQCD EOS tables. Test coverage: ~48% line / ~65% function (GPU modules
+  require hardware; CPU-testable modules average >90%). Measured with `cargo-llvm-cov`.
+- **AGPL-3.0 only** — all 69 active `.rs` files have
+  `SPDX-License-Identifier: AGPL-3.0-only`. 22/28 `.wgsl` shaders have
+  the header (6 deprecated toadstool-ref shaders pending).
 - **Provenance** — centralized `BaselineProvenance` records trace hardcoded
   validation values to their Python origins (script path, git commit, date,
   exact command). `AnalyticalProvenance` references (DOIs, textbook citations)
@@ -258,11 +268,12 @@ environment, physics implementations, and GPU compute. Key architectural propert
   `NMP_TARGETS`, `L1_PYTHON_CHI2`, `MD_FORCE_REFS`, `GPU_KERNEL_REFS`, etc.
   DOIs for AME2020, Chabanat 1998, Kortelainen 2010, Bender 2003,
   Lattimer & Prakash 2016 are documented in `provenance.rs`.
-- **Tolerances** — 42 centralized constants in `tolerances.rs` with physical
+- **Tolerances** — 68 centralized constants in `tolerances.rs` with physical
   justification (machine precision, numerical method, model, literature).
   Includes 12 physics guard constants (`DENSITY_FLOOR`, `SPIN_ORBIT_R_MIN`,
-  `COULOMB_R_MIN`, `BCS_DENSITY_SKIP`, `DEFORMED_COULOMB_R_MIN`, etc.).
-  All validation binaries wired to `tolerances::*`.
+  `COULOMB_R_MIN`, `BCS_DENSITY_SKIP`, `DEFORMED_COULOMB_R_MIN`, etc.)
+  plus 24 validation-specific thresholds for transport, lattice QCD, Abelian Higgs,
+  NAK eigensolve, PPPM, and screened Coulomb. All validation binaries wired to `tolerances::*`.
 - **ValidationHarness** — structured pass/fail tracking with exit code 0/1.
   12 of 20 binaries use it (validation targets). Remaining 8 are optimization
   explorers and diagnostics.
@@ -277,8 +288,10 @@ environment, physics implementations, and GPU compute. Key architectural propert
   (Slater), CM correction, Skyrme t₀, Hermite polynomials, and Mat type.
   Shared across spherical, deformed, and GPU HFB solvers.
 - **GPU helpers centralized** — `GpuF64` provides `upload_f64`, `read_back_f64`,
-  `dispatch`, `create_bind_group`, `create_u32_buffer` methods. No duplicate
-  GPU helpers across binaries.
+  `dispatch`, `create_bind_group`, `create_u32_buffer` methods. All shader
+  compilation routes through ToadStool's `WgslOptimizer` with `GpuDriverProfile`
+  for hardware-accurate ILP scheduling (loop unrolling, instruction reordering).
+  No duplicate GPU helpers across binaries.
 - **Zero duplicate math** — all linear algebra, quadrature, optimization,
   sampling, special functions, statistics, and spin-orbit coupling use
   BarraCUDA primitives (`SpinOrbitGpu`, `compute_ls_factor`).
@@ -294,10 +307,10 @@ environment, physics implementations, and GPU compute. Key architectural propert
 
 ```bash
 cd barracuda
-cargo test               # 254 tests pass (< 15 seconds)
+cargo test               # 320 tests pass, 5 GPU-ignored (< 16 seconds)
 cargo clippy --all-targets  # Zero warnings
 cargo doc --no-deps      # Full API documentation — 0 warnings
-cargo run --release --bin validate_all  # 14/15 suites pass (~150s)
+cargo run --release --bin validate_all  # 18/18 suites pass
 ```
 
 See [`barracuda/CHANGELOG.md`](barracuda/CHANGELOG.md) for version history.
@@ -361,7 +374,7 @@ hotSpring/
 ├── PHYSICS.md                          # Complete physics documentation (equations + references)
 ├── CONTROL_EXPERIMENT_STATUS.md        # Comprehensive status + results (195/195)
 ├── NUCLEAR_EOS_STRATEGY.md             # Nuclear EOS Phase A→B strategy
-├── wateringHole/handoffs/                 # 11 cross-project handoffs (fossil record)
+├── wateringHole/handoffs/              # 12 cross-project handoffs (fossil record)
 ├── LICENSE                             # AGPL-3.0
 ├── .gitignore
 │
@@ -372,7 +385,7 @@ hotSpring/
 │   ├── CONTROL_EXPERIMENT_SUMMARY.md  # Phase A quick reference
 │   └── METHODOLOGY.md                # Two-phase validation protocol
 │
-├── barracuda/                          # BarraCUDA Rust crate — v0.5.10 (199 tests)
+├── barracuda/                          # BarraCUDA Rust crate — v0.5.16 (304 tests)
 │   ├── Cargo.toml                     # Dependencies (requires ecoPrimals/phase1/toadstool)
 │   ├── CHANGELOG.md                   # Version history — baselines, tolerances, evolution
 │   ├── EVOLUTION_READINESS.md         # Rust module → WGSL shader → GPU promotion tier mapping
@@ -400,10 +413,12 @@ hotSpring/
 │       │   ├── hfb_deformed_gpu.rs    # Deformed HFB with GPU eigensolves (L3)
 │       │   ├── hfb_gpu.rs             # GPU-batched HFB (BatchedEighGpu)
 │       │   ├── hfb_gpu_resident.rs    # GPU-resident HFB (potentials + H + eigensolve + density + mixing)
+│       │   ├── hfb_gpu_types.rs       # GPU buffer types and uniform helpers for HFB pipeline
 │       │   └── shaders/               # f64 WGSL physics kernels (13 shaders, ~2000 lines)
 │       │
 │       ├── md/                        # GPU Molecular Dynamics (Yukawa OCP)
 │       │   ├── config.rs              # Simulation configuration (reduced units)
+│       │   ├── celllist.rs            # Cell-list spatial decomposition (GPU neighbor search)
 │       │   ├── shaders.rs             # Shader constants (include_str! + 3 small inline)
 │       │   ├── shaders/               # f64 WGSL production kernels (5 files)
 │       │   ├── simulation.rs          # GPU MD loop (all-pairs + cell-list)
@@ -412,11 +427,13 @@ hotSpring/
 │       │   ├── transport.rs           # Stanton-Murillo analytical fits (D*, η*, λ*)
 │       │   └── shaders_toadstool_ref/ # ToadStool shader snapshots (divergence tracking)
 │       │
-│       ├── lattice/                   # Lattice QCD — pure gauge SU(3) (Papers 7, 8)
+│       ├── lattice/                   # Lattice gauge theory (Papers 7, 8, 13)
 │       │   ├── complex_f64.rs         # Complex f64 arithmetic (Rust + WGSL template)
 │       │   ├── su3.rs                 # SU(3) 3×3 complex matrix algebra (Rust + WGSL template)
 │       │   ├── wilson.rs              # Wilson gauge action — plaquettes, staples, force
 │       │   ├── hmc.rs                 # Hybrid Monte Carlo — Cayley exp, leapfrog
+│       │   ├── abelian_higgs.rs       # U(1) + Higgs (1+1)D lattice HMC (Paper 13)
+│       │   ├── constants.rs            # Centralized LCG PRNG, SU(3) constants, guards
 │       │   ├── dirac.rs              # Staggered Dirac operator
 │       │   ├── cg.rs                  # Conjugate gradient solver for D†D
 │       │   ├── eos_tables.rs          # HotQCD EOS tables (Bazavov et al. 2014)
@@ -424,17 +441,20 @@ hotSpring/
 │       │
 │       ├── archive/                   # Historical implementations (fossil record, not compiled)
 │       │
-│       └── bin/                       # 29 binaries (exit 0 = pass, 1 = fail)
-│           ├── validate_all.rs        # Meta-validator: runs all 15 validation suites
+│       └── bin/                       # 31 binaries (exit 0 = pass, 1 = fail)
+│           ├── validate_all.rs        # Meta-validator: runs all 18 validation suites
 │           ├── validate_nuclear_eos.rs # L1 SEMF + L2 HFB + NMP validation harness
 │           ├── validate_barracuda_pipeline.rs # Full MD pipeline (12/12 checks)
 │           ├── validate_barracuda_hfb.rs # BCS + eigensolve pipeline (14/14 checks)
+│           ├── validate_cpu_gpu_parity.rs # CPU vs GPU numerical parity
 │           ├── validate_md.rs         # CPU MD reference validation
+│           ├── validate_nak_eigensolve.rs # NAK GPU eigensolve validation
 │           ├── validate_pppm.rs       # PppmGpu κ=0 Coulomb validation
 │           ├── validate_transport.rs  # CPU/GPU transport coefficient validation
-│           ├── validate_stanton_murillo.rs # Paper 5: Green-Kubo vs analytical fits
+│           ├── validate_stanton_murillo.rs # Paper 5: Green-Kubo vs Sarkas-calibrated fits (13/13)
 │           ├── validate_hotqcd_eos.rs # Paper 7: HotQCD EOS thermodynamic validation
 │           ├── validate_pure_gauge.rs # Paper 8: SU(3) HMC + Dirac CG validation (12/12)
+│           ├── validate_abelian_higgs.rs # Paper 13: U(1)+Higgs HMC validation (17/17)
 │           ├── validate_special_functions.rs # Gamma, Bessel, erf, Hermite, …
 │           ├── validate_linalg.rs     # LU, QR, SVD, tridiagonal solver
 │           ├── validate_optimizers.rs # BFGS, Nelder-Mead, RK45, stats
@@ -447,6 +467,10 @@ hotSpring/
 │           ├── nuclear_eos_l3_gpu.rs  # L3 deformed HFB (GPU-resident)
 │           ├── nuclear_eos_gpu.rs     # GPU FP64 validation + energy profiling
 │           ├── sarkas_gpu.rs          # GPU Yukawa MD (9 PP cases, f64 WGSL)
+│           ├── bench_cpu_gpu_scaling.rs # CPU vs GPU crossover benchmark
+│           ├── bench_gpu_fp64.rs      # GPU FP64 throughput benchmark
+│           ├── bench_multi_gpu.rs     # Multi-GPU dispatch benchmark
+│           ├── bench_wgsize_nvk.rs    # NVK workgroup-size tuning
 │           ├── celllist_diag.rs       # Cell-list vs all-pairs force diagnostic
 │           ├── f64_builtin_test.rs    # Native vs software f64 validation
 │           └── shaders/               # Extracted WGSL diagnostic shaders (8 files)
@@ -498,12 +522,11 @@ hotSpring/
 │   ├── 003_RTX4070_CAPABILITY_PROFILE.md # RTX 4070 capability profile (paper-parity COMPLETE)
 │   ├── 004_GPU_DISPATCH_OVERHEAD_L3.md  # L3 deformed HFB GPU dispatch profiling
 │   ├── 005_L2_MEGABATCH_COMPLEXITY_BOUNDARY.md # L2 mega-batch GPU complexity analysis
-│   └── 006_GPU_FP64_COMPARISON.md             # RTX 4070 vs Titan V fp64 benchmark
+│   ├── 006_GPU_FP64_COMPARISON.md      # RTX 4070 vs Titan V fp64 benchmark
+│   └── 007_CPU_GPU_SCALING_BENCHMARK.md # CPU vs GPU scaling: crossover analysis
 │
 ├── wateringHole/                       # Cross-project handoffs
-│   └── handoffs/
-│       ├── TOADSTOOL_CELLLIST_BUG_ALERT.md       # Cell-list bug alert for toadstool team
-│       └── TOADSTOOL_EVOLUTION_REVIEW_FEB14_2026.md # Pull review + next evolution targets
+│   └── handoffs/                       # 13 unidirectional handoff documents
 │
 ├── benchmarks/
 │   ├── PROTOCOL.md                     # Cross-gate benchmark protocol (time + energy)
@@ -623,7 +646,7 @@ These are **silent failures** — wrong results, no error messages. This fragili
 | [`experiments/005_L2_MEGABATCH_COMPLEXITY_BOUNDARY.md`](experiments/005_L2_MEGABATCH_COMPLEXITY_BOUNDARY.md) | L2 mega-batch GPU complexity boundary analysis |
 | [`experiments/006_GPU_FP64_COMPARISON.md`](experiments/006_GPU_FP64_COMPARISON.md) | RTX 4070 vs Titan V: fp64 benchmark, driver comparison, NVK vs proprietary |
 | [`experiments/007_CPU_GPU_SCALING_BENCHMARK.md`](experiments/007_CPU_GPU_SCALING_BENCHMARK.md) | CPU vs GPU scaling: crossover analysis, streaming dispatch |
-| [`wateringHole/handoffs/`](wateringHole/handoffs/) | 11 cross-project handoffs to ToadStool/BarraCUDA team |
+| [`wateringHole/handoffs/`](wateringHole/handoffs/) | 13 cross-project handoffs to ToadStool/BarraCUDA team |
 | [`control/surrogate/REPRODUCE.md`](control/surrogate/REPRODUCE.md) | Step-by-step reproduction guide for surrogate learning |
 
 ### External References

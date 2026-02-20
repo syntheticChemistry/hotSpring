@@ -137,12 +137,31 @@ pub fn compute_vacf(vel_snapshots: &[Vec<f64>], n: usize, dt_dump: f64, max_lag:
     let c_normalized: Vec<f64> = c_values.iter().map(|&c| c / c0).collect();
 
     // Diffusion coefficient: D* = (1/3) integral_0^inf C(t) dt
-    // Trapezoidal rule
+    //
+    // Use plateau detection: track the running integral D*(t) and stop at
+    // its maximum. Beyond the correlation time, statistical noise in C(t)
+    // causes D*(t) to random-walk, inflating the estimate. This is the
+    // standard Green-Kubo cutoff from MD literature (e.g., Allen & Tildesley).
     let mut integral = 0.0;
+    let mut d_star_max = 0.0;
+    let mut plateau_count = 0;
+    let plateau_window = (20.0 / dt_dump).ceil() as usize; // ~20 ω_p^-1 patience
+
     for i in 1..n_lag {
         integral += 0.5 * (c_values[i - 1] + c_values[i]) * dt_dump;
+        let d_star_running = integral / 3.0;
+
+        if d_star_running > d_star_max {
+            d_star_max = d_star_running;
+            plateau_count = 0;
+        } else {
+            plateau_count += 1;
+            if plateau_count > plateau_window {
+                break;
+            }
+        }
     }
-    let diffusion_coeff = integral / 3.0;
+    let diffusion_coeff = d_star_max;
 
     let t_values: Vec<f64> = (0..n_lag).map(|i| i as f64 * dt_dump).collect();
 
@@ -151,6 +170,92 @@ pub fn compute_vacf(vel_snapshots: &[Vec<f64>], n: usize, dt_dump: f64, max_lag:
         c_values: c_normalized,
         diffusion_coeff,
     }
+}
+
+/// Compute D* from mean-square displacement (Einstein relation).
+///
+/// D* = lim_{t→∞} <|r(t) - r(0)|²> / (6 t)
+///
+/// More robust than Green-Kubo VACF for short runs and strongly-coupled systems,
+/// because MSD is a cumulative quantity rather than an instantaneous correlation.
+/// Uses unwrapped positions (correcting for PBC jumps via velocity integration).
+pub fn compute_d_star_msd(
+    pos_snapshots: &[Vec<f64>],
+    n: usize,
+    box_side: f64,
+    dt_snap: f64,
+) -> f64 {
+    let n_frames = pos_snapshots.len();
+    if n_frames < 4 {
+        return 0.0;
+    }
+
+    // Unwrap positions: accumulate displacements correcting for PBC jumps.
+    // Δr = r(t+1) - r(t), corrected for minimum image.
+    let mut unwrapped = pos_snapshots[0].clone();
+    let mut all_unwrapped = vec![unwrapped.clone()];
+
+    for frame in 1..n_frames {
+        let cur = &pos_snapshots[frame];
+        let prev = &pos_snapshots[frame - 1];
+        for i in 0..n {
+            for d in 0..3 {
+                let idx = i * 3 + d;
+                let mut dr = cur[idx] - prev[idx];
+                dr -= box_side * (dr / box_side).round();
+                unwrapped[idx] += dr;
+            }
+        }
+        all_unwrapped.push(unwrapped.clone());
+    }
+
+    // Compute MSD(lag) = <|r(t0+lag) - r(t0)|²> averaged over t0 and particles.
+    // Fit D* from the linear regime: use the second quarter to third quarter of lags
+    // (skip initial ballistic regime and noisy tail).
+    let max_lag = n_frames / 2;
+    let fit_start = max_lag / 4;
+    let fit_end = 3 * max_lag / 4;
+    if fit_end <= fit_start + 1 {
+        return 0.0;
+    }
+
+    let mut msd_vals = Vec::with_capacity(fit_end - fit_start);
+    let mut time_vals = Vec::with_capacity(fit_end - fit_start);
+
+    for lag in fit_start..fit_end {
+        let mut msd_sum = 0.0;
+        let mut count = 0;
+        for t0 in 0..(n_frames - lag) {
+            let t1 = t0 + lag;
+            let r0 = &all_unwrapped[t0];
+            let r1 = &all_unwrapped[t1];
+            for i in 0..n {
+                let dx = r1[i * 3] - r0[i * 3];
+                let dy = r1[i * 3 + 1] - r0[i * 3 + 1];
+                let dz = r1[i * 3 + 2] - r0[i * 3 + 2];
+                msd_sum += dx * dx + dy * dy + dz * dz;
+            }
+            count += n;
+        }
+        let msd = msd_sum / count as f64;
+        let t = lag as f64 * dt_snap;
+        msd_vals.push(msd);
+        time_vals.push(t);
+    }
+
+    // Linear regression: MSD = 6D*t + offset
+    let n_pts = msd_vals.len() as f64;
+    let t_mean: f64 = time_vals.iter().sum::<f64>() / n_pts;
+    let m_mean: f64 = msd_vals.iter().sum::<f64>() / n_pts;
+    let mut num = 0.0;
+    let mut den = 0.0;
+    for i in 0..msd_vals.len() {
+        let dt = time_vals[i] - t_mean;
+        num += dt * (msd_vals[i] - m_mean);
+        den += dt * dt;
+    }
+    let slope = if den > DIVISION_GUARD { num / den } else { 0.0 };
+    (slope / 6.0).max(0.0)
 }
 
 /// Compute static structure factor S(k) from position snapshots
@@ -356,12 +461,29 @@ pub fn compute_stress_acf(
         }
     }
 
-    // Green-Kubo: eta = (V / kT) * integral C(t) dt
+    // Green-Kubo: eta = (1 / (V kT)) * integral <P_xy(0) P_xy(t)> dt
+    // (stress series is TOTAL P_xy, not per-volume, so prefactor is 1/(VkT))
+    // Plateau detection: stop when running integral peaks (noise dominates beyond)
+    let prefactor = 1.0 / (volume * temperature.max(DIVISION_GUARD));
     let mut integral = 0.0;
+    let mut eta_max = 0.0;
+    let mut plateau_count = 0;
+    let plateau_window = (20.0 / dt_snap).ceil() as usize;
+
     for i in 1..n_lag {
         integral += 0.5 * (c_values[i - 1] + c_values[i]) * dt_snap;
+        let eta_running = prefactor * integral;
+        if eta_running > eta_max {
+            eta_max = eta_running;
+            plateau_count = 0;
+        } else {
+            plateau_count += 1;
+            if plateau_count > plateau_window {
+                break;
+            }
+        }
     }
-    let viscosity = volume / temperature.max(DIVISION_GUARD) * integral;
+    let viscosity = eta_max;
 
     let t_values: Vec<f64> = (0..n_lag).map(|i| i as f64 * dt_snap).collect();
 
@@ -503,12 +625,30 @@ pub fn compute_heat_acf(
         }
     }
 
+    // Green-Kubo: lambda = (1 / (3 V kT^2)) * integral <J_q(0)·J_q(t)> dt
+    // (heat current is TOTAL J_q, not per-volume, so prefactor is 1/(3VkT^2))
+    // Plateau detection: stop when running integral peaks
+    let t2 = temperature * temperature;
+    let prefactor = 1.0 / (3.0 * volume * t2.max(DIVISION_GUARD));
     let mut integral = 0.0;
+    let mut lambda_max = 0.0;
+    let mut plateau_count = 0;
+    let plateau_window = (20.0 / dt_snap).ceil() as usize;
+
     for i in 1..n_lag {
         integral += 0.5 * (c_values[i - 1] + c_values[i]) * dt_snap;
+        let lambda_running = prefactor * integral;
+        if lambda_running > lambda_max {
+            lambda_max = lambda_running;
+            plateau_count = 0;
+        } else {
+            plateau_count += 1;
+            if plateau_count > plateau_window {
+                break;
+            }
+        }
     }
-    let t2 = temperature * temperature;
-    let thermal_conductivity = volume / (3.0 * t2.max(DIVISION_GUARD)) * integral;
+    let thermal_conductivity = lambda_max;
 
     let t_values: Vec<f64> = (0..n_lag).map(|i| i as f64 * dt_snap).collect();
 

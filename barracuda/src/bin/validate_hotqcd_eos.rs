@@ -21,6 +21,7 @@
 //! Data: `github.com/jnoronhahostler/Equation-of-State`
 
 use hotspring_barracuda::lattice::eos_tables::{computational_overlap_summary, HotQcdEos};
+use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
 
 fn main() {
@@ -89,7 +90,7 @@ fn main() {
 
     // ═══ Test 4: Thermodynamic consistency ═══
     println!("═══ Thermodynamic Consistency ═══");
-    let violations = eos.check_thermodynamic_consistency(0.30);
+    let violations = eos.check_thermodynamic_consistency(tolerances::HOTQCD_CONSISTENCY);
     if violations.is_empty() {
         println!("  PASS: s ≈ (ε+p)/T within 30% at all points");
     } else {
@@ -97,7 +98,10 @@ fn main() {
             println!("  Violation at T/T_c = {t:.2}: {:.1}% error", diff * 100.0);
         }
     }
-    harness.check_bool("thermodynamic consistency", violations.len() < 3);
+    harness.check_bool(
+        "thermodynamic consistency",
+        violations.len() < tolerances::HOTQCD_MAX_VIOLATIONS,
+    );
     println!();
 
     // ═══ Test 5: Interpolation ═══

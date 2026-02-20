@@ -22,6 +22,9 @@ pub enum HotSpringError {
 
     /// Data file loading failed (path, underlying IO or parse error).
     DataLoad(String),
+
+    /// Propagated from barracuda primitives (ReduceScalarPipeline, etc.)
+    Barracuda(barracuda::error::BarracudaError),
 }
 
 impl fmt::Display for HotSpringError {
@@ -36,11 +39,18 @@ impl fmt::Display for HotSpringError {
                 )
             }
             Self::DataLoad(msg) => write!(f, "Data loading failed: {msg}"),
+            Self::Barracuda(e) => write!(f, "BarraCUDA error: {e}"),
         }
     }
 }
 
 impl std::error::Error for HotSpringError {}
+
+impl From<barracuda::error::BarracudaError> for HotSpringError {
+    fn from(e: barracuda::error::BarracudaError) -> Self {
+        Self::Barracuda(e)
+    }
+}
 
 #[cfg(test)]
 mod tests {

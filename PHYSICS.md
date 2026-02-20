@@ -7,7 +7,11 @@ hotSpring validation suite. It is intended for physics researchers and students
 who wish to independently verify our results.
 
 Sections 1-9 cover nuclear EOS physics (Skyrme EDF, HFB, SEMF). Section 10 covers
-Yukawa OCP molecular dynamics (Phase C GPU MD).
+Yukawa OCP molecular dynamics (Phase C GPU MD). Section 11 covers transport
+coefficients (Green-Kubo, Daligault/Stanton-Murillo analytical fits). Section 12
+covers lattice QCD (SU(3) pure gauge, Wilson action, HMC, staggered Dirac, HotQCD EOS).
+Section 13 covers screened Coulomb bound states (Murillo & Weisheit 1998).
+Section 14 covers the Abelian Higgs model (Bazavov et al. 2015).
 
 Nuclear EOS implementations exist in both Python (`control/surrogate/nuclear-eos/wrapper/`) and
 Rust (`barracuda/src/physics/`). GPU MD implementations are in Rust (`barracuda/src/md/`)
@@ -28,6 +32,10 @@ comparisons.
 8. [Approximations and Limitations](#8-approximations-and-limitations)
 9. [References](#9-references)
 10. [Yukawa OCP Molecular Dynamics](#10-yukawa-ocp-molecular-dynamics-phase-c)
+11. [Transport Coefficients](#11-transport-coefficients)
+12. [Lattice QCD](#12-lattice-qcd)
+13. [Screened Coulomb Bound States](#13-screened-coulomb-bound-states)
+14. [Abelian Higgs Model](#14-abelian-higgs-model)
 
 ---
 
@@ -724,5 +732,519 @@ In NVE production, E_total is conserved. Energy drift = |E_final - E_initial| / 
 
 ---
 
+## 11. Transport Coefficients
+
+Transport coefficients quantify how momentum, energy, and particles diffuse through
+a plasma. hotSpring implements both molecular-dynamics (Green-Kubo) extraction and
+analytical fit models from the literature.
+
+**References**:
+- Daligault, J., "Practical model for the self-diffusion coefficient in Yukawa
+  one-component plasmas," Phys. Rev. E **86**, 047401 (2012) [18].
+- Stanton, L. G. and Murillo, M. S., "Ionic transport in high-energy-density
+  matter," Phys. Rev. E **93**, 043203 (2016) [19].
+- Ohta, H. and Hamaguchi, S., "Molecular dynamics evaluation of self-diffusion in
+  Yukawa systems," Phys. Plasmas **7**, 4506 (2000) [20].
+
+### 11.1 Green-Kubo Relations
+
+Transport coefficients are extracted from equilibrium MD via time-correlation functions.
+
+**Self-diffusion coefficient** (from velocity autocorrelation):
+
+```
+D* = (1/3) integral_0^inf <v(0) . v(t)> dt
+```
+
+Equivalently from mean-squared displacement (Einstein relation):
+
+```
+D* = lim_{t->inf} (1/6t) <|r(t) - r(0)|^2>
+```
+
+Both methods are implemented. MSD serves as a cross-check on the VACF integral.
+
+**Shear viscosity** (from off-diagonal stress autocorrelation):
+
+```
+η* = (V / k_B T) integral_0^inf <σ_xy(0) σ_xy(t)> dt
+```
+
+where σ_xy is the off-diagonal element of the microscopic stress tensor:
+
+```
+σ_αβ = (1/V) [ sum_i m v_iα v_iβ + (1/2) sum_{i≠j} r_ijα F_ijβ ]
+```
+
+**Thermal conductivity** (from heat current autocorrelation):
+
+```
+λ* = (V / k_B T²) integral_0^inf <J_q(0) . J_q(t)> dt
+```
+
+where the heat current is:
+
+```
+J_q = sum_i [e_i v_i + (1/2) sum_{j≠i} (F_ij . v_i) r_ij]
+```
+
+All Green-Kubo integrals use plateau detection to stop accumulation when the running
+integral peaks, preventing noise from corrupting the result at long lag times.
+
+### 11.2 Daligault (2012) Self-Diffusion Model
+
+The practical model [18] interpolates between two asymptotic regimes.
+
+**Weak coupling** (Landau-Spitzer):
+
+```
+D*_w = C_w(κ) × (3√π / 4) × Γ^(-5/2) / ln(Λ)
+```
+
+**Strong coupling** (Einstein frequency):
+
+```
+D*_s = A(κ) × Γ^(-α(κ))
+```
+
+**Crossover**:
+
+```
+D* = f × D*_w + (1 - f) × D*_s
+f(Γ) = 1 / (1 + (Γ / Γ_x)^2)
+Γ_x(κ) = 10 × exp(κ/2)
+```
+
+**Coulomb logarithm**:
+
+```
+ln(Λ) = ln(1/Γ_eff)   for Γ_eff < 0.1   (clamped ≥ 1.0)
+ln(Λ) = ln(1 + 1/Γ_eff)   for Γ_eff ≥ 0.1   (clamped ≥ 0.1)
+Γ_eff = Γ × exp(-κ)
+```
+
+**Calibrated coefficients** (recalibrated Feb 2026 using 12 Sarkas Green-Kubo
+D* values at N=2000; original Daligault Table I coefficients were ~70× too small
+due to reduced-unit normalization mismatch between the Python baseline convention
+and standard OCP units):
+
+```
+C_w(κ) = exp(1.435 + 0.715κ + 0.401κ²)
+
+A(κ)     = 0.808 + 0.423κ − 0.152κ²
+α(κ)     = 1.049 + 0.044κ − 0.039κ²
+```
+
+The κ-dependent weak-coupling correction `C_w(κ)` replaces the earlier constant
+`C_w=5.3` (v0.5.13). Yukawa screening suppresses the effective Coulomb logarithm
+faster than the classical formula captures; the correction grows exponentially
+with κ (4.2× at κ=0, 13× at κ=1, 87× at κ=2, 1325× at κ=3). With `C_w(κ)`,
+crossover-regime errors drop from 44–63% to <10% across all 12 Sarkas calibration
+points. Fitted from `calibrate_daligault_fit.py` weak-coupling correction analysis.
+
+Source: `barracuda/src/md/transport.rs`, `control/sarkas/simulations/transport-study/scripts/calibrate_daligault_fit.py`.
+
+### 11.3 Stanton & Murillo (2016) Viscosity and Thermal Conductivity
+
+The practical transport models [19] use the same crossover structure as D*.
+
+**Shear viscosity**:
+
+```
+η*_w = C_w(κ) × (5√π / 16) × Γ^(-5/2) / ln(Λ)
+η*_s = A_η(κ) × Γ^(-α_η(κ))
+
+A_η(κ)   = 0.44 + 0.23κ − 0.083κ²
+α_η(κ)   = 0.76 + 0.040κ − 0.036κ²
+```
+
+**Thermal conductivity**:
+
+```
+λ*_w = C_w(κ) × (75√π / 64) × Γ^(-5/2) / ln(Λ)
+λ*_s = A_λ(κ) × Γ^(-α_λ(κ))
+
+A_λ(κ)   = 1.04 + 0.54κ − 0.19κ²
+α_λ(κ)   = 0.90 + 0.042κ − 0.035κ²
+```
+
+The η* and λ* strong-coupling coefficients are proportionally rescaled from the D*
+recalibration (same reduced-unit normalization fix). They have not been independently
+calibrated against stress ACF or heat ACF data at N≥2000.
+
+### 11.4 Reduced Units for Transport
+
+All transport quantities use standard OCP reduced units:
+
+```
+D*  = D / (a_ws² ω_p)
+η*  = η / (n m a_ws² ω_p)
+λ*  = λ / (n k_B a_ws² ω_p)
+```
+
+where a_ws is the Wigner-Seitz radius, ω_p is the plasma frequency, n is the
+number density, and m is the ion mass. The plasma frequency convention is:
+
+```
+ω_p² = n q² / (ε₀ m) = 3 q² / (4π ε₀ m a_ws³)
+```
+
+### 11.5 Validation Strategy
+
+The transport pipeline is validated against:
+
+1. **Internal consistency**: MSD-based D* agrees with VACF-based D* within 50%
+2. **Energy conservation**: NVE drift < 5%
+3. **Temperature stability**: T* fluctuations < 30% of target
+4. **Analytical fits**: D* MSD agrees with Sarkas-calibrated Daligault fit within 80%
+   (80% tolerance accounts for N=500 statistical noise in the validation binary)
+5. **Physical ordering**: D*(κ=2) < D*(κ=1) at matched Γ (stronger screening
+   increases effective coupling, reducing diffusion)
+6. **Positivity**: All D*, η*, λ* must be positive and finite
+
+Source: `barracuda/src/bin/validate_stanton_murillo.rs` (13/13 checks pass).
+
+### 11.6 References (Transport)
+
+[18] Daligault, J., "Practical model for the self-diffusion coefficient in Yukawa
+     one-component plasmas," Phys. Rev. E 86, 047401 (2012).
+
+[19] Stanton, L. G. and Murillo, M. S., "Ionic transport in high-energy-density
+     matter," Phys. Rev. E 93, 043203 (2016).
+
+[20] Ohta, H. and Hamaguchi, S., "Molecular dynamics evaluation of self-diffusion in
+     Yukawa systems," Phys. Plasmas 7, 4506 (2000).
+
+---
+
+## 12. Lattice QCD
+
+hotSpring implements SU(3) pure gauge lattice field theory on CPU, validated
+and ready for GPU promotion. This section covers the mathematical foundations
+implemented in `barracuda/src/lattice/`.
+
+**References**:
+- Wilson, K. G., "Confinement of quarks," Phys. Rev. D **10**, 2445 (1974) [21].
+- Bazavov, A. et al., "Equation of state in (2+1)-flavor QCD," Phys. Rev. D
+  **90**, 094503 (2014) [22].
+- Creutz, M., *Quarks, Gluons and Lattices*, Cambridge University Press (1983) [23].
+- Gattringer, C. and Lang, C. B., *Quantum Chromodynamics on the Lattice*,
+  Springer (2010) [24].
+
+### 12.1 SU(3) Gauge Theory on the Lattice
+
+The fundamental degrees of freedom are SU(3) link variables U_μ(x) — 3×3
+unitary matrices with det = 1 — living on the links of a 4-dimensional
+hypercubic lattice. Each link connects site x to site x + μ̂.
+
+**SU(3) matrix properties:**
+```
+U† U = 1     (unitarity)
+det(U) = 1   (special)
+```
+
+The link variables are elements of the Lie group SU(3), which has 8 generators
+(Gell-Mann matrices λ_a, a=1..8). The corresponding Lie algebra su(3) consists
+of traceless anti-Hermitian 3×3 matrices: H† = -H, Tr(H) = 0.
+
+### 12.2 Wilson Gauge Action
+
+The simplest gauge-invariant lattice action uses the plaquette — the smallest
+closed loop on the lattice:
+
+```
+U_P(x,μ,ν) = U_μ(x) U_ν(x+μ̂) U_μ†(x+ν̂) U_ν†(x)
+```
+
+The Wilson action is:
+
+```
+S_W = β Σ_{x,μ<ν} [1 - (1/N_c) Re Tr U_P(x,μ,ν)]
+```
+
+where β = 2 N_c / g² is the inverse coupling (N_c = 3 for QCD) and g is the
+bare gauge coupling constant.
+
+**Plaquette expectation value**: In the weak-coupling (β → ∞) limit,
+⟨P⟩ = ⟨(1/N_c) Re Tr U_P⟩ → 1. At finite coupling, the perturbative
+prediction is ⟨P⟩ ≈ 1 - d(N_c²-1)/(4N_c β) + O(1/β²), where d=4
+is the spacetime dimension. For β=6.0 (standard benchmark), this gives
+⟨P⟩ ≈ 0.593.
+
+### 12.3 Staples and Force
+
+The derivative of the Wilson action with respect to U_μ(x) involves the
+sum over all plaquettes containing that link. The **staple** Σ_μ(x) is:
+
+```
+Σ_μ(x) = Σ_{ν≠μ} [U_ν(x+μ̂) U_μ†(x+ν̂) U_ν†(x) + U_ν†(x+μ̂-ν̂) U_μ†(x-ν̂) U_ν(x-ν̂)]
+```
+
+The gauge force (for HMC molecular dynamics) is:
+
+```
+F_μ(x) = -(β/2N_c) × ta(U_μ(x) Σ_μ(x))
+```
+
+where ta(M) extracts the traceless anti-Hermitian part: ta(M) = (M - M†)/2 - Tr(M - M†)/(2N_c).
+
+### 12.4 Hybrid Monte Carlo (HMC)
+
+HMC generates gauge configurations by augmenting the system with conjugate
+momenta and performing Hamiltonian dynamics:
+
+1. **Momentum refresh**: Draw P_μ(x) from Gaussian distribution (su(3)-valued)
+2. **Leapfrog integration**: Evolve (U, P) using Hamilton's equations
+3. **Metropolis accept/reject**: Accept with probability min(1, exp(-ΔH))
+
+**Hamiltonian:**
+```
+H[U, P] = (1/2) Σ_{x,μ} Tr(P_μ(x)²) + S_W[U]
+```
+
+**Leapfrog steps:**
+```
+P(τ + ε/2)   = P(τ) - (ε/2) F[U(τ)]
+U(τ + ε)     = exp(ε P(τ+ε/2)) U(τ)
+P(τ + ε)     = P(τ + ε/2) - (ε/2) F[U(τ+ε)]
+```
+
+**Cayley approximation for group exponential:**
+```
+exp(εP) ≈ (1 + εP/2)(1 - εP/2)^{-1}
+```
+
+This preserves unitarity exactly (the Cayley transform maps anti-Hermitian
+matrices to unitary matrices). Implementation in `hmc.rs` uses explicit
+3×3 matrix inverse via the adjugate formula.
+
+### 12.5 Staggered Dirac Operator
+
+The staggered (Kogut-Susskind) fermion formulation replaces spinor degrees
+of freedom with staggered phases:
+
+```
+(D_st χ)(x) = (m/2) χ(x) + (1/2) Σ_μ η_μ(x) [U_μ(x) χ(x+μ̂) - U_μ†(x-μ̂) χ(x-μ̂)]
+```
+
+where η_μ(x) = (-1)^{x_0 + ... + x_{μ-1}} are the staggered sign factors
+and m is the bare quark mass. Each component of χ is a color 3-vector.
+
+### 12.6 Conjugate Gradient Solver
+
+The Dirac equation D†D χ = b is solved by the conjugate gradient method,
+since D†D is Hermitian positive-definite:
+
+```
+r₀ = b - D†D χ₀
+p₀ = r₀
+α_k = ⟨r_k, r_k⟩ / ⟨p_k, D†D p_k⟩
+χ_{k+1} = χ_k + α_k p_k
+r_{k+1} = r_k - α_k D†D p_k
+β_k = ⟨r_{k+1}, r_{k+1}⟩ / ⟨r_k, r_k⟩
+p_{k+1} = r_{k+1} + β_k p_k
+```
+
+Convergence criterion: |r_k|² / |b|² < tolerance (typically 1e-10).
+
+### 12.7 Deterministic PRNG for Lattice
+
+All random number generation uses a Linear Congruential Generator (Knuth MMIX
+variant) for bitwise determinism across runs:
+
+```
+seed_{n+1} = (a × seed_n + c) mod 2^64
+a = 6364136223846793005     (Knuth MMIX multiplier)
+c = 1442695040888963407     (Knuth MMIX increment)
+```
+
+**Uniform [0, 1):** u = (seed >> 11) / 2^53 (53-bit precision).
+
+**Gaussian (Box-Muller):** z = sqrt(-2 ln u₁) cos(2π u₂), where u₁, u₂
+are independent uniform deviates. The ln argument is clamped to 1e-30 to
+avoid ln(0).
+
+All lattice modules share these constants and helpers via `lattice/constants.rs`.
+
+### 12.8 HotQCD Equation of State
+
+The HotQCD collaboration's EOS tables (Bazavov et al. 2014 [22]) provide
+thermodynamic quantities as functions of temperature. hotSpring validates:
+
+- **Trace anomaly** (I/T⁴): peaks near the crossover temperature T_c ≈ 155 MeV
+- **Pressure** (p/T⁴): monotonically increasing, approaching Stefan-Boltzmann
+  limit at high T
+- **Entropy** (s/T³): related to p/T⁴ by thermodynamic identity
+- **Speed of sound** (c_s²): approaches 1/3 (conformal limit) at high T
+
+### 12.9 References (Lattice QCD)
+
+[21] Wilson, K. G., "Confinement of quarks," Phys. Rev. D 10, 2445 (1974).
+
+[22] Bazavov, A. et al. (HotQCD Collaboration), "Equation of state in (2+1)-flavor
+     QCD," Phys. Rev. D 90, 094503 (2014). DOI: 10.1103/PhysRevD.90.094503.
+
+[23] Creutz, M., *Quarks, Gluons and Lattices*, Cambridge University Press (1983).
+
+[24] Gattringer, C. and Lang, C. B., *Quantum Chromodynamics on the Lattice: An
+     Introductory Presentation*, Springer (2010).
+
+---
+
+## 13. Screened Coulomb Bound States
+
+Paper 6: Murillo & Weisheit, Physics Reports 302, 1-65 (1998).
+
+Source: `barracuda/src/physics/screened_coulomb.rs`.
+
+### 13.1 Radial Schrödinger Equation
+
+The screened Coulomb (Yukawa) potential for an electron bound to an ion:
+
+```
+V(r) = -Z exp(-κr) / r
+```
+
+where Z is the nuclear charge and κ is the screening parameter. The radial
+Schrödinger equation for angular momentum quantum number l:
+
+```
+[-½ d²/dr² + l(l+1)/(2r²) + V(r)] R(r) = E R(r)
+```
+
+### 13.2 Finite-Difference Discretization
+
+Uniform grid r_i = (i+1)h, h = r_max/(N+1), i = 0, ..., N-1.
+
+Tridiagonal Hamiltonian:
+```
+H_{ii}    = 1/h² + l(l+1)/(2r_i²) - Z exp(-κr_i)/r_i
+H_{i,i±1} = -1/(2h²)
+```
+
+### 13.3 Sturm Bisection Eigensolve
+
+Count eigenvalues below energy E via Sturm sequence:
+```
+d_0 = H_{00} - E
+d_i = (H_{ii} - E) - H_{i,i-1}² / d_{i-1}
+```
+
+The number of sign changes in {d_0, d_1, ..., d_{N-1}} equals the number of
+eigenvalues below E. Binary bisection on E yields individual eigenvalues to
+machine precision. Complexity: O(N) per eigenvalue.
+
+### 13.4 Critical Screening
+
+At critical screening κ_c, the last bound state unbinds (E → 0⁻).
+Reference values from Lam & Varshni (1971):
+
+```
+κ_c(1s) = 1.1906   (Z=1)
+κ_c(2s) = 0.3189
+κ_c(2p) = 0.2202
+```
+
+### 13.5 Screening Models
+
+Three models implemented in `screened_coulomb.rs`:
+- **Debye**: κ_D = sqrt(4π n_e e² / k_B T_e)
+- **Thomas-Fermi**: κ_TF = sqrt(4π n_e e² / (2/3 E_F))
+- **Ion-sphere**: κ_is = Z^(1/3) / a_ws (Wigner-Seitz)
+
+### 13.6 References (Screened Coulomb)
+
+[25] Murillo, M. S. and Weisheit, J. C., "Dense plasmas, screened interactions,
+     and atomic ionization," Physics Reports 302, 1-65 (1998).
+
+[26] Lam, C. S. and Varshni, Y. P., "Energies of s eigenstates in a static
+     screened Coulomb potential," Phys. Rev. A 4, 1875 (1971).
+
+---
+
+## 14. Abelian Higgs Model
+
+Paper 13: Bazavov et al., Phys. Rev. D 92, 076003 (2015).
+
+Source: `barracuda/src/lattice/abelian_higgs.rs`.
+
+### 14.1 Model Definition
+
+U(1) gauge field coupled to a complex scalar Higgs field on a (1+1)D lattice
+with N_t temporal and N_s spatial sites and periodic boundaries.
+
+**Link variables:** U_μ(x) = exp(iθ_μ(x)), θ_μ ∈ [-π, π)
+
+**Higgs field:** φ(x) ∈ ℂ
+
+### 14.2 Action
+
+```
+S = S_gauge + S_higgs
+
+S_gauge = β_pl Σ_{plaq} (1 - Re U_p)
+
+S_higgs = Σ_x [-2κ Σ_μ Re(φ*(x) U_μ(x) φ(x+μ̂)) + |φ(x)|² + λ(|φ(x)|² - 1)²]
+```
+
+where β_pl = 1/g² is the inverse gauge coupling, κ is the hopping parameter,
+λ is the scalar self-coupling, and U_p is the plaquette:
+
+```
+U_p(x) = U_0(x) U_1(x+0̂) U_0†(x+1̂) U_1†(x)
+```
+
+### 14.3 HMC for Complex Fields
+
+Momenta: real scalars π_μ(x) for link angles, complex p(x) for Higgs.
+
+Kinetic energy: T = ½ Σ π² + ½ Σ |p|²
+
+**Wirtinger derivative for complex fields:**
+
+The equation of motion for the Higgs momentum requires careful treatment
+of the complex field via Wirtinger calculus:
+
+```
+dp/dt = -2 ∂S/∂φ*
+```
+
+The factor of 2 arises because dp/dt = -(∂S/∂φ_R + i ∂S/∂φ_I) = -2 ∂S/∂φ*
+when using the Wirtinger derivative ∂/∂φ* = ½(∂/∂φ_R + i ∂/∂φ_I).
+
+**Gauge link force:**
+```
+d/dθ Re[φ*(x) e^{iθ} φ(x+μ̂)] = -Im[φ*(x) e^{iθ} φ(x+μ̂)]
+```
+
+So the force is F_θ = -dS/dθ = 2κ Im(hop) from the Higgs term, plus
+the Wilson gauge force from plaquettes containing the link.
+
+### 14.4 Phase Structure
+
+In (1+1)D, the model has no true phase transition but smooth crossovers:
+
+- **Confined** (small β, small κ): disordered links, small ⟨|φ|²⟩
+- **Higgs** (large κ): Higgs condensation, ⟨|φ|²⟩ >> 1
+- **Coulomb** (large β, small κ): ordered links, ⟨Re U_p⟩ → 1
+- **Large λ limit**: |φ| frozen to 1, maps to compact XY model
+
+### 14.5 Chemical Potential
+
+Temporal hopping acquires a chemical potential weight:
+
+```
+S_kin = -κ Σ_x [e^μ φ*(x) U_0(x) φ(x+0̂) + e^{-μ} φ*(x+0̂) U_0†(x) φ(x) + spatial terms]
+```
+
+This allows study of finite-density phases.
+
+### 14.6 References (Abelian Higgs)
+
+[27] Bazavov, A. et al., "Gauge-invariant implementation of the Abelian-Higgs
+     model on optical lattices," Phys. Rev. D 92, 076003 (2015).
+
+---
+
 *This document is part of the hotSpring validation suite. License: AGPL-3.0.*
-*Last updated: 2026-02-14.*
+*Last updated: 2026-02-20.*

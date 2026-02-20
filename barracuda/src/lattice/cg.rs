@@ -56,7 +56,7 @@ pub fn cg_solve(
     }
 
     let b_norm_sq = b.norm_sq();
-    if b_norm_sq < 1e-30 {
+    if b_norm_sq < super::constants::LATTICE_DIVISION_GUARD {
         return CgResult {
             converged: true,
             iterations: 0,
@@ -92,7 +92,7 @@ pub fn cg_solve(
 
         // alpha = <r|r> / <p|Ap>
         let p_ap = p.dot(&ap).re;
-        if p_ap.abs() < 1e-30 {
+        if p_ap.abs() < super::constants::LATTICE_DIVISION_GUARD {
             break;
         }
         let alpha = r_norm_sq / p_ap;

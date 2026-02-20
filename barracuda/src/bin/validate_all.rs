@@ -21,8 +21,11 @@
 //! | `validate_pppm` | PPPM Coulomb/Ewald | GPU |
 //! | `validate_cpu_gpu_parity` | CPU vs GPU same-physics proof | GPU |
 //! | `validate_nak_eigensolve` | NAK-optimized eigensolve correctness | GPU |
+//! | `validate_transport` | Transport CPU/GPU parity | GPU |
 //! | `validate_stanton_murillo` | Transport coefficients D*, η*, λ* | No |
+//! | `validate_screened_coulomb` | Yukawa bound states (Murillo-Weisheit) | No |
 //! | `validate_pure_gauge` | Pure gauge SU(3) lattice QCD | No |
+//! | `validate_abelian_higgs` | Abelian Higgs (1+1)D U(1)+scalar | No |
 
 use std::process::{self, Command};
 use std::time::Instant;
@@ -96,8 +99,18 @@ const SUITES: &[Suite] = &[
         requires_gpu: true,
     },
     Suite {
+        name: "Transport CPU/GPU Parity (Paper 5)",
+        binary: "validate_transport",
+        requires_gpu: true,
+    },
+    Suite {
         name: "Stanton-Murillo Transport (Paper 5)",
         binary: "validate_stanton_murillo",
+        requires_gpu: false,
+    },
+    Suite {
+        name: "Screened Coulomb (Paper 6)",
+        binary: "validate_screened_coulomb",
         requires_gpu: false,
     },
     Suite {
@@ -108,6 +121,11 @@ const SUITES: &[Suite] = &[
     Suite {
         name: "Pure Gauge SU(3) (Paper 8)",
         binary: "validate_pure_gauge",
+        requires_gpu: false,
+    },
+    Suite {
+        name: "Abelian Higgs (Paper 13)",
+        binary: "validate_abelian_higgs",
         requires_gpu: false,
     },
 ];

@@ -1,16 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-//! Nuclear physics: Skyrme EDF, SEMF, spherical HFB, deformed HFB
+//! Physics modules: nuclear structure, atomic physics, dense plasma theory.
 //!
 //! Direct Rust ports of the Python control implementations.
 //! Uses BarraCUDA special functions (gamma, laguerre) and numerical
 //! methods (gradient_1d, trapz) wherever possible.
 //!
-//! Levels:
-//!   L1 — SEMF (Semi-Empirical Mass Formula)
-//!   L2 — Spherical HFB (Hartree-Fock-Bogoliubov)
-//!   L3 — Axially-deformed HFB (Nilsson basis)
-//!   L4 — Beyond-mean-field (GCM, Fayans, etc.) \[future\]
+//! Domains:
+//!   Nuclear EOS — SEMF (L1), spherical HFB (L2), deformed HFB (L3)
+//!   Dense plasma — screened Coulomb bound states (Murillo & Weisheit 1998)
 
 pub mod bcs_gpu;
 pub mod constants;
@@ -20,7 +18,9 @@ pub mod hfb_deformed;
 pub mod hfb_deformed_gpu;
 pub mod hfb_gpu;
 pub mod hfb_gpu_resident;
+pub(crate) mod hfb_gpu_types;
 pub mod nuclear_matter;
+pub mod screened_coulomb;
 pub mod semf;
 
 pub use constants::*;

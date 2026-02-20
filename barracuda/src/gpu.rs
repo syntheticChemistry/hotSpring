@@ -35,7 +35,9 @@
 //! Pre-plan, fill GPU function space, fire at once.
 //! `TensorContext` enables `begin_batch()`/`end_batch()` for batched dispatch.
 
+use barracuda::device::capabilities::GpuDriverProfile;
 use barracuda::device::{TensorContext, WgpuDevice};
+use barracuda::shaders::precision::ShaderTemplate;
 use std::process::Command;
 use std::sync::Arc;
 
@@ -84,6 +86,7 @@ pub struct GpuF64 {
     pub has_timestamps: bool,
     wgpu_device: Arc<WgpuDevice>,
     tensor_ctx: Arc<TensorContext>,
+    driver_profile: GpuDriverProfile,
 }
 
 impl GpuF64 {
@@ -291,6 +294,7 @@ impl GpuF64 {
             adapter_info,
         ));
         let tensor_ctx = Arc::new(TensorContext::new(wgpu_device.clone()));
+        let driver_profile = GpuDriverProfile::from_device(&wgpu_device);
 
         Ok(Self {
             adapter_name,
@@ -298,7 +302,13 @@ impl GpuF64 {
             has_timestamps,
             wgpu_device,
             tensor_ctx,
+            driver_profile,
         })
+    }
+
+    /// Access the runtime-detected driver profile for shader specialization.
+    pub const fn driver_profile(&self) -> &GpuDriverProfile {
+        &self.driver_profile
     }
 
     /// Print device capabilities.
@@ -308,6 +318,10 @@ impl GpuF64 {
         println!(
             "  TIMESTAMP_QUERY: {}",
             if self.has_timestamps { "YES" } else { "NO" }
+        );
+        println!(
+            "  Driver: {:?}, Compiler: {:?}, Arch: {:?}",
+            self.driver_profile.driver, self.driver_profile.compiler, self.driver_profile.arch
         );
     }
 
@@ -326,16 +340,23 @@ impl GpuF64 {
         }
     }
 
-    /// Create a compute pipeline from WGSL shader source (raw, no patching).
+    /// Create a compute pipeline with `WgslOptimizer` + `GpuDriverProfile`.
     ///
-    /// Use [`Self::create_pipeline_f64`] for shaders that contain `exp()` or `log()`
-    /// on f64 values — those need driver-aware patching on NVK/nouveau.
+    /// Applies loop unrolling, ILP reordering, and fossil substitution via
+    /// ToadStool's `ShaderTemplate::for_driver_profile()`. Does NOT apply
+    /// exp/log workarounds — use [`Self::create_pipeline_f64`] for shaders
+    /// that call `exp()` or `log()` on f64 values.
     pub fn create_pipeline(&self, shader_source: &str, label: &str) -> wgpu::ComputePipeline {
+        let optimized = ShaderTemplate::for_driver_profile(
+            shader_source,
+            false,
+            &self.driver_profile,
+        );
         let shader_module = self
             .device()
             .create_shader_module(wgpu::ShaderModuleDescriptor {
                 label: Some(label),
-                source: wgpu::ShaderSource::Wgsl(shader_source.into()),
+                source: wgpu::ShaderSource::Wgsl(optimized.into()),
             });
 
         self.device()
@@ -349,16 +370,26 @@ impl GpuF64 {
             })
     }
 
-    /// Create a compute pipeline with driver-aware f64 patching.
+    /// Create a compute pipeline with driver-aware f64 patching + optimization.
     ///
-    /// Delegates to barracuda's `WgpuDevice::compile_shader_f64` which
-    /// auto-patches `exp()` → software `exp_f64()` on NVK/nouveau drivers
-    /// where native f64 `exp` crashes. Safe to call on all drivers — on
-    /// proprietary NVIDIA/AMD the shader passes through unmodified.
+    /// Routes through `ShaderTemplate::for_driver_profile()` which applies:
+    /// 1. Fossil substitution (legacy math_f64 → native builtins)
+    /// 2. exp/log workaround on NVK/nouveau
+    /// 3. Missing math_f64 injection (only functions actually called)
+    /// 4. `WgslOptimizer` (loop unrolling + ILP reordering) with
+    ///    hardware-accurate `LatencyModel` from `GpuDriverProfile`
     pub fn create_pipeline_f64(&self, shader_source: &str, label: &str) -> wgpu::ComputePipeline {
+        let optimized = ShaderTemplate::for_driver_profile(
+            shader_source,
+            self.wgpu_device.needs_f64_exp_log_workaround(),
+            &self.driver_profile,
+        );
         let shader_module = self
-            .wgpu_device
-            .compile_shader_f64(shader_source, Some(label));
+            .device()
+            .create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: Some(label),
+                source: wgpu::ShaderSource::Wgsl(optimized.into()),
+            });
 
         self.device()
             .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {

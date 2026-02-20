@@ -25,6 +25,7 @@ use hotspring_barracuda::lattice::cg;
 use hotspring_barracuda::lattice::dirac::FermionField;
 use hotspring_barracuda::lattice::hmc::{self, HmcConfig};
 use hotspring_barracuda::lattice::wilson::Lattice;
+use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
 
 fn main() {
@@ -49,8 +50,18 @@ fn main() {
         println!("  Action:        {action:.6} (expected 0.0)");
         println!("  Polyakov loop: {poly:.6}");
 
-        harness.check_abs("cold plaquette", plaq, 1.0, 1e-12);
-        harness.check_abs("cold action", action, 0.0, 1e-10);
+        harness.check_abs(
+            "cold plaquette",
+            plaq,
+            1.0,
+            tolerances::LATTICE_COLD_PLAQUETTE_ABS,
+        );
+        harness.check_abs(
+            "cold action",
+            action,
+            0.0,
+            tolerances::LATTICE_COLD_ACTION_ABS,
+        );
     }
     println!();
 
@@ -73,7 +84,11 @@ fn main() {
         println!("  Acceptance:     {:.1}%", stats.acceptance_rate * 100.0);
         println!("  Mean ΔH:        {:.4e}", stats.mean_delta_h);
 
-        harness.check_lower("HMC acceptance β=5.5", stats.acceptance_rate, 0.10);
+        harness.check_lower(
+            "HMC acceptance β=5.5",
+            stats.acceptance_rate,
+            tolerances::LATTICE_HMC_ACCEPTANCE_MIN,
+        );
         harness.check_lower("plaquette β=5.5 > 0", stats.mean_plaquette, 0.0);
         harness.check_upper("plaquette β=5.5 < 1", stats.mean_plaquette, 1.0);
     }
@@ -100,7 +115,11 @@ fn main() {
 
         harness.check_lower("plaquette β=6.0 lower", stats.mean_plaquette, 0.0);
         harness.check_upper("plaquette β=6.0 upper", stats.mean_plaquette, 1.0);
-        harness.check_lower("HMC acceptance β=6.0", stats.acceptance_rate, 0.10);
+        harness.check_lower(
+            "HMC acceptance β=6.0",
+            stats.acceptance_rate,
+            tolerances::LATTICE_HMC_ACCEPTANCE_MIN,
+        );
 
         let poly = lat.average_polyakov_loop();
         println!("  Polyakov loop:  {poly:.6}");
@@ -122,7 +141,11 @@ fn main() {
         println!("  Final residual: {:.4e}", result.final_residual);
 
         harness.check_bool("CG converged (identity)", result.converged);
-        harness.check_upper("CG residual (identity)", result.final_residual, 1e-6);
+        harness.check_upper(
+            "CG residual (identity)",
+            result.final_residual,
+            tolerances::LATTICE_CG_RESIDUAL,
+        );
     }
     println!();
 

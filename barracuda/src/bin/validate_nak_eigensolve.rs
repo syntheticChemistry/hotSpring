@@ -12,6 +12,7 @@
 //! - Both shaders use identical API (same bind group layout)
 
 use hotspring_barracuda::gpu::GpuF64;
+use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
 use std::time::Instant;
 use wgpu::util::DeviceExt;
@@ -433,15 +434,26 @@ fn main() {
         // CPU eigh_f64 uses Householder+QR which is exact to machine epsilon.
         let label_b = format!("baseline d={dim} vs CPU (rel)");
         let label_o = format!("optimized d={dim} vs CPU (rel)");
-        harness.check_upper(&label_b, max_rel_baseline, 1e-2);
-        harness.check_upper(&label_o, max_rel_optimized, 1e-2);
+        harness.check_upper(
+            &label_b,
+            max_rel_baseline,
+            tolerances::NAK_EIGENSOLVE_VS_CPU_REL,
+        );
+        harness.check_upper(
+            &label_o,
+            max_rel_optimized,
+            tolerances::NAK_EIGENSOLVE_VS_CPU_REL,
+        );
 
-        // Optimized MUST match baseline to machine precision
         let label_p = format!("baseline≈optimized d={dim}");
-        harness.check_upper(&label_p, max_parity, 1e-10);
+        harness.check_upper(&label_p, max_parity, tolerances::NAK_EIGENSOLVE_PARITY);
 
         let label_s = format!("optimized d={dim} no regression");
-        harness.check_upper(&label_s, t_optimized / t_baseline, 1.5);
+        harness.check_upper(
+            &label_s,
+            t_optimized / t_baseline,
+            tolerances::NAK_EIGENSOLVE_REGRESSION,
+        );
     }
 
     harness.finish();

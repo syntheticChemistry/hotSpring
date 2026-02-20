@@ -180,54 +180,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 }
 ";
 
-// ═══════════════════════════════════════════════════════════════════
-// Sum Reduction (f64) — GPU-resident energy reduction
-// ═══════════════════════════════════════════════════════════════════
-//
-// Tree-reduction: N per-particle values → ceil(N/256) partial sums.
-// Two dispatches reduce to a single scalar. This eliminates the need
-// to read back N f64 values — only the scalar result crosses the bus.
-//
-// For N=10000: 80 KB readback → 8 bytes. The unidirectional pattern.
-//
-// Adapted from barracuda::shaders::reduce::sum_reduce_f64.wgsl
-
-pub const SHADER_SUM_REDUCE: &str = r"
-@group(0) @binding(0) var<storage, read> input: array<f64>;
-@group(0) @binding(1) var<storage, read_write> output: array<f64>;
-@group(0) @binding(2) var<storage, read> reduce_params: array<f64>;
-
-var<workgroup> shared_data: array<f64, 256>;
-
-@compute @workgroup_size(256)
-fn main(
-    @builtin(global_invocation_id) global_id: vec3<u32>,
-    @builtin(local_invocation_id) local_id: vec3<u32>,
-    @builtin(workgroup_id) workgroup_id: vec3<u32>,
-) {
-    let tid = local_id.x;
-    let gid = global_id.x;
-    let size = u32(reduce_params[0]);
-
-    if (gid < size) {
-        shared_data[tid] = input[gid];
-    } else {
-        shared_data[tid] = f64(0.0);
-    }
-    workgroupBarrier();
-
-    for (var stride = 128u; stride > 0u; stride = stride >> 1u) {
-        if (tid < stride) {
-            shared_data[tid] = shared_data[tid] + shared_data[tid + stride];
-        }
-        workgroupBarrier();
-    }
-
-    if (tid == 0u) {
-        output[workgroup_id.x] = shared_data[0];
-    }
-}
-";
+// Sum reduction (f64) is now provided by barracuda::pipeline::ReduceScalarPipeline.
+// The local SHADER_SUM_REDUCE was removed in v0.5.11 after ToadStool absorbed the
+// two-pass reduction pattern as a first-class API (Feb 19, 2026).
 
 // ═══════════════════════════════════════════════════════════════════
 // Yukawa Cell-List Force Kernel (f64)
@@ -242,6 +197,26 @@ pub const SHADER_YUKAWA_FORCE_CELLLIST: &str =
 
 pub const SHADER_YUKAWA_FORCE_CELLLIST_V2: &str =
     include_str!("shaders/yukawa_force_celllist_v2_f64.wgsl");
+
+// ═══════════════════════════════════════════════════════════════════
+// Yukawa Cell-List Force Kernel — Indirect Indexing (f64)
+// ═══════════════════════════════════════════════════════════════════
+//
+// Same physics as SHADER_YUKAWA_FORCE_CELLLIST but with an extra
+// sorted_indices binding for indirect neighbor access. Positions,
+// velocities, and forces stay in original particle order — no CPU-side
+// sorting needed. Used by GpuCellList (GPU-resident cell-list rebuild).
+
+pub const SHADER_YUKAWA_FORCE_INDIRECT: &str =
+    include_str!("shaders/yukawa_force_celllist_indirect_f64.wgsl");
+
+// ═══════════════════════════════════════════════════════════════════
+// GPU Cell-List Build Shaders (3-pass: bin → scan → scatter)
+// ═══════════════════════════════════════════════════════════════════
+
+pub const SHADER_CELL_BIN: &str = include_str!("shaders/cell_bin_f64.wgsl");
+pub const SHADER_EXCLUSIVE_PREFIX_SUM: &str = include_str!("shaders/exclusive_prefix_sum.wgsl");
+pub const SHADER_CELL_SCATTER: &str = include_str!("shaders/cell_scatter.wgsl");
 
 // ═══════════════════════════════════════════════════════════════════
 // RDF Histogram Kernel (f64)
@@ -264,6 +239,13 @@ mod tests {
             "SHADER_YUKAWA_FORCE_CELLLIST_V2",
             SHADER_YUKAWA_FORCE_CELLLIST_V2,
         ),
+        (
+            "SHADER_YUKAWA_FORCE_INDIRECT",
+            SHADER_YUKAWA_FORCE_INDIRECT,
+        ),
+        ("SHADER_CELL_BIN", SHADER_CELL_BIN),
+        ("SHADER_EXCLUSIVE_PREFIX_SUM", SHADER_EXCLUSIVE_PREFIX_SUM),
+        ("SHADER_CELL_SCATTER", SHADER_CELL_SCATTER),
         ("SHADER_RDF_HISTOGRAM", SHADER_RDF_HISTOGRAM),
     ];
 

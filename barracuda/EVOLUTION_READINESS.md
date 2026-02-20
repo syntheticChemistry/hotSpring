@@ -36,9 +36,10 @@ Python baseline → Rust validation → GPU acceleration → sovereign pipeline
 
 | Rust Module | WGSL Shader(s) | Tier | Status | Blocker |
 |-------------|----------------|------|--------|---------|
-| `md/simulation.rs` | Yukawa (all-pairs + cell-list), VV integrator, Berendsen thermostat, KE reduction, RDF histogram (inline in `md/shaders.rs`) | **A** | Full GPU pipeline | None — production-ready |
-| `md/shaders.rs` | 8 WGSL shaders (5 extracted to `src/md/shaders/`, 3 inline) | **A** | Production | v0.5.3: 5 large shaders extracted to `.wgsl` files |
-| `md/observables.rs` | Uses `SsfGpu` from BarraCUDA | **A** | SSF on GPU; RDF/VACF CPU post-process | RDF/VACF are cheap post-processing; GPU not needed |
+| `md/simulation.rs` | Yukawa (all-pairs + cell-list), VV integrator, Berendsen thermostat, KE per-particle, `ReduceScalarPipeline` (inline in `md/shaders.rs`) | **A** | Full GPU pipeline | None — production-ready |
+| `md/celllist.rs` | GPU 3-pass cell-list (bin→scan→scatter) + indirect force shader. Zero CPU readback | **A** | Full GPU pipeline (v0.5.13) | None — fixes VACF particle-identity bug |
+| `md/shaders.rs` | 12 WGSL shaders (9 `.wgsl` files + 3 inline). GPU cell-list shaders added v0.5.13 | **A** | Production | v0.5.13: GPU cell-list + indirect force |
+| `md/observables.rs` | Uses `SsfGpu` from BarraCUDA | **A** | SSF on GPU; RDF/VACF CPU post-process | VACF now correct (particle identity preserved by indirect indexing) |
 | `md/cpu_reference.rs` | — | N/A | Validation reference | Intentionally CPU-only for baseline comparison |
 | `md/config.rs` | — | N/A | Configuration | Data structures only |
 
@@ -73,8 +74,12 @@ Python baseline → Rust validation → GPU acceleration → sovereign pipeline
 | Shader / Constant | Physics | Location |
 |-------------------|---------|----------|
 | `yukawa_force_f64.wgsl` | Yukawa all-pairs (native f64) | `.wgsl` file |
-| `yukawa_force_celllist_f64.wgsl` | Cell-list v1 (27-neighbor) | `.wgsl` file |
-| `yukawa_force_celllist_v2_f64.wgsl` | Cell-list v2 (flat loop) | `.wgsl` file |
+| `yukawa_force_celllist_f64.wgsl` | Cell-list v1 (27-neighbor, sorted positions) | `.wgsl` file |
+| `yukawa_force_celllist_v2_f64.wgsl` | Cell-list v2 (flat loop, sorted positions) | `.wgsl` file |
+| `yukawa_force_celllist_indirect_f64.wgsl` | Cell-list indirect (unsorted positions + `sorted_indices`) **(v0.5.13)** | `.wgsl` file |
+| `cell_bin_f64.wgsl` | GPU cell-list pass 1/3: atomic particle binning **(v0.5.13)** | `.wgsl` file |
+| `exclusive_prefix_sum.wgsl` | GPU cell-list pass 2/3: exclusive scan **(v0.5.13)** | `.wgsl` file |
+| `cell_scatter.wgsl` | GPU cell-list pass 3/3: index scatter **(v0.5.13)** | `.wgsl` file |
 | `vv_kick_drift_f64.wgsl` | Velocity-Verlet kick+drift | `.wgsl` file |
 | `rdf_histogram_f64.wgsl` | RDF histogram binning | `.wgsl` file |
 | `SHADER_VV_HALF_KICK` | VV second half-kick | inline (26 lines) |
@@ -96,6 +101,8 @@ Python baseline → Rust validation → GPU acceleration → sovereign pipeline
 | `barracuda::stats::*` | Chi², bootstrap CI, correlation |
 | `barracuda::special::*` | Gamma, Laguerre, Bessel, Hermite, Legendre, erf |
 | `barracuda::ops::md::*` | Forces, integrators, thermostats, observables |
+| `barracuda::pipeline::ReduceScalarPipeline` | GPU f64 sum-reduction (KE, PE, thermostat) **(v0.5.12)** |
+| `GpuCellList` (local) | GPU-resident 3-pass cell-list build (bin→scan→scatter) **(v0.5.13)** |
 | `barracuda::device::{WgpuDevice, TensorContext}` | GPU device bridge |
 
 No duplicate math — all mathematical operations use BarraCUDA primitives.
@@ -153,10 +160,84 @@ Paper-parity run (N=10k, 80k steps): 9.8 min, $0.0012. 98 runs/day idle.
 
 ### Next evolution targets
 
-1. **Toadstool unidirectional pipeline**: 90% GPU-stream / 10% control readback
-2. **GPU-resident cell-list**: build neighbor list on-GPU
-3. **GPU-resident reduction**: energy/temperature without staging readback
-4. **Titan V proprietary driver**: unlock 6.9 TFLOPS fp64, fair hardware comparison
+1. ~~**GPU-resident reduction**~~ ✅ **DONE (v0.5.12)** — `ReduceScalarPipeline` from ToadStool
+2. ~~**GPU-resident cell-list**~~ ✅ **DONE (v0.5.13)** — 3-pass GPU build (bin→scan→scatter) + indirect force shader. ToadStool's `CellListGpu` had prefix_sum binding mismatch; hotSpring built corrected implementation locally. Ready for ToadStool absorption.
+3. ~~**Daligault D* model evolution**~~ ✅ **DONE (v0.5.14)** — κ-dependent weak-coupling correction `C_w(κ)` replaces constant `C_w=5.3`. Crossover-regime error reduced from 44-63% to <10% across all 12 Sarkas calibration points. See Completed (v0.5.14).
+4. **`StatefulPipeline` for MD loops**: ToadStool's `run_iterations()` / `run_until_converged()` could replace manual encoder batching. Architectural change — deferred.
+5. **GPU HFB energy integrands**: Shader exists (`batched_hfb_energy_f64.wgsl`); wiring requires threading 10+ buffer references through `GroupResources`. Estimated ~200 lines of refactoring.
+6. **Titan V proprietary driver**: unlock 6.9 TFLOPS fp64, fair hardware comparison
+
+## Completed (v0.5.14)
+
+- ✅ **Daligault D* model evolution**: κ-dependent weak-coupling correction
+  - Replaced constant `C_w=5.3` with `C_w(κ) = exp(1.435 + 0.715κ + 0.401κ²)`
+  - Root cause: Yukawa screening suppresses the Coulomb logarithm faster than the classical formula captures; correction grows exponentially with κ (4.2× at κ=0 → 1332× at κ=3)
+  - Crossover-regime errors: 44-63% → <10% (12/12 points pass 20% per-point, RMSE<10%)
+  - Same `C_w(κ)` applied to η*_w and λ*_w (Chapman-Enskog transport)
+  - Calibrated from `calibrate_daligault_fit.py` weak-coupling correction analysis
+- ✅ **12 Sarkas D_MKS provenance constants**: all 12 Green-Kubo D_MKS values from
+  `all_observables_validation.json` stored in `transport.rs::SARKAS_D_MKS_REFERENCE`
+  with `A2_OMEGA_P` conversion constant and `sarkas_d_star_lookup()` function
+- ✅ **Transport grid expanded**: `transport_cases()` now includes 9 Sarkas DSF points
+  (κ=1: Γ=14,72,217; κ=2: Γ=31,158,476; κ=3: Γ=503,1510) alongside original 12 → 20 total
+- ✅ **`sarkas_validated_cases()` added**: returns 9 κ>0 Sarkas-matched transport configs
+- ✅ **`validate_stanton_murillo.rs` extended**: 2→6 transport points; Sarkas D* reference
+  displayed for matched cases; cross-case D* ordering checks per-κ and cross-κ
+- ✅ **Tolerance constants added**: `DALIGAULT_FIT_VS_CALIBRATION` (20% per-point),
+  `DALIGAULT_FIT_RMSE` (10% over 12 points) in `tolerances.rs`
+- ✅ **281 tests, 0 clippy warnings, 0 failures**
+
+## Completed (audit, Feb 19 2026)
+
+- ✅ **`validate_transport` added to `validate_all.rs`**: was missing from meta-validator SUITES
+- ✅ **37 tolerance constants centralized**: 16 new constants in `tolerances.rs` covering transport parity,
+  lattice QCD, NAK eigensolve, PPPM; wired into 7 validation binaries (was ~21 inline magic numbers)
+- ✅ **`lattice/constants.rs` created**: centralizes LCG PRNG (MMIX multiplier/increment), `lcg_uniform_f64()`,
+  `lcg_gaussian()` Box-Muller, `LATTICE_DIVISION_GUARD`, `N_COLORS`, `N_DIM`; wired into `su3.rs`,
+  `hmc.rs`, `dirac.rs`, `cg.rs` — 14 magic-number sites eliminated
+- ✅ **Provenance expanded**: `HOTQCD_EOS_PROVENANCE` struct + `HOTQCD_DOI`, `PURE_GAUGE_REFS` for
+  lattice QCD validation targets
+- ✅ **25 new tests**: `hfb_gpu_types` (7), `celllist` (7), `lattice/constants` (7), tolerance (2),
+  provenance (2); total 283 (278 passing + 5 GPU-ignored)
+- ✅ **Clippy warnings: 0** (was 3 `uninlined_format_args` in `md/transport.rs`)
+- ✅ **`validate_pppm.rs` semantic fix**: multi-particle net force checks now use
+  `PPPM_MULTI_PARTICLE_NET_FORCE` instead of `PPPM_NEWTON_3RD_ABS`
+
+## Completed (v0.5.13)
+
+- ✅ **GPU-resident cell-list build**: 3-pass GPU pipeline (bin → exclusive prefix sum → scatter)
+  replaces CPU cell-list rebuild. Zero CPU readback for neighbor-list updates.
+  - 4 new WGSL shaders: `cell_bin_f64.wgsl`, `exclusive_prefix_sum.wgsl`, `cell_scatter.wgsl`,
+    `yukawa_force_celllist_indirect_f64.wgsl`
+  - `GpuCellList` struct: compiles 3 pipelines, manages 5 intermediate buffers, single-encoder dispatch
+  - Cell-list rebuild reduced from 7 lines (3 readbacks + CPU sort + 5 uploads) to 1 line (`gpu_cl.build()`)
+  - Eliminated 1.4 MB of PCIe round-trip data per rebuild at N=10,000
+
+- ✅ **Indirect force shader**: Positions, velocities, and forces stay in original particle order.
+  The force shader uses `sorted_indices[cell_start[c] + jj]` for indirect neighbor access.
+  VV integrator, KE shader, and thermostat are unchanged (operate on original-order arrays).
+
+- ✅ **VACF particle-identity fix**: The old sorted-array approach scrambled particle ordering
+  every 20 steps when the cell-list was rebuilt. Velocity autocorrelation C(t) = ⟨v(t)·v(0)⟩
+  requires consistent particle identity across snapshots. The indirect approach preserves
+  original particle ordering — VACF is now correct by construction.
+
+- ✅ **ToadStool `CellListGpu` binding mismatch found**: ToadStool's `prefix_sum.wgsl` has a
+  4-binding layout (uniform + 3 storage) but `cell_list_gpu.rs` wires a 3-binding BGL
+  (2 storage + 1 uniform) — the pipeline would fail to create. hotSpring's local
+  `exclusive_prefix_sum.wgsl` matches the intended 3-binding layout. Ready for ToadStool absorption.
+
+- ✅ **Zero regressions**: 279 tests pass, 0 clippy warnings, 0 doc warnings, 0 linter errors.
+
+## Completed (v0.5.12)
+
+- ✅ **ReduceScalarPipeline rewire**: Local `SHADER_SUM_REDUCE` (inline WGSL copy of barracuda's
+  `sum_reduce_f64.wgsl`) removed from `md/shaders.rs`. Both `md/simulation.rs` and `md/celllist.rs`
+  now use `barracuda::pipeline::ReduceScalarPipeline::sum_f64()` for KE, PE, and thermostat reductions.
+  Eliminated ~50 lines of boilerplate per MD path (4 bind groups, 6 buffers, reduce_pipeline).
+- ✅ **Error bridge**: `HotSpringError::Barracuda(BarracudaError)` variant + `From` impl enables
+  clean `?` propagation from barracuda primitive calls into hotSpring result types.
+- ✅ **Zero regressions**: 283 tests pass (278 + 5 GPU-ignored), 0 clippy warnings, 0 doc warnings.
 
 ## Completed (v0.5.11)
 
@@ -238,11 +319,13 @@ Paper-parity run (N=10k, 80k steps): 9.8 min, $0.0012. 98 runs/day idle.
 - ✅ MD shaders → 5 large shaders extracted to `.wgsl` files
 - ✅ BCS pipeline → Shader compilation cached at construction
 
-## Unidirectional GPU Reduction (v0.5.11, Feb 19 2026)
+## GPU Reduction via ReduceScalarPipeline (v0.5.12, Feb 19 2026)
 
-Wired barracuda's unidirectional pattern into all MD production loops.
-GPU sum-reduction (`sum_reduce_f64.wgsl`) replaces per-particle readback
-with scalar readback: **10,000× less bandwidth per energy dump at N=10000.**
+**Rewired**: Local `SHADER_SUM_REDUCE` (inline WGSL copy) replaced by
+`barracuda::pipeline::ReduceScalarPipeline` from ToadStool (Feb 19 2026
+absorption). Both `simulation.rs` and `celllist.rs` now call
+`reducer.sum_f64(&buffer)` instead of manually managing 4 bind groups,
+6 intermediate buffers, and 4 reduce dispatches per energy readback.
 
 | Before (N=10000) | After | Reduction |
 |-------------------|-------|-----------|
@@ -251,10 +334,14 @@ with scalar readback: **10,000× less bandwidth per energy dump at N=10000.**
 | Equil thermostat: 80 KB | 8 bytes | 10,000× |
 | Total per dump: 160 KB | 16 bytes | 10,000× |
 
-**Validation**: 6/6 parity, 9/9 transport, 82× GPU speedup at N=10000.
+**Code eliminated**: ~50 lines of boilerplate per MD path (reduce pipeline,
+partial buffers, scalar buffers, param buffers, bind groups, inline dispatches).
+`SHADER_SUM_REDUCE` removed from `shaders.rs`.
+
+**Validation**: 283 tests pass, 0 clippy warnings, 0 doc warnings.
 
 **Remaining readback**: position/velocity snapshots for VACF and cell-list
-rebuilds. Both can be eliminated with GPU-resident VACF and cell-list.
+rebuilds. Both can be eliminated with GPU-resident VACF and `CellListGpu`.
 
 See `wateringHole/handoffs/HOTSPRING_UNIDIRECTIONAL_FEEDBACK_FEB19_2026.md`
 for full design feedback to ToadStool on the unidirectional pattern,
@@ -316,12 +403,14 @@ the original sign and adjoint were both wrong, causing 0% HMC acceptance.
 | Gap | Impact | Priority | Status |
 |-----|--------|----------|--------|
 | GPU energy integrands not wired in spherical HFB | CPU bottleneck in SCF energy | High | Shader exists, needs pipeline wiring |
-| `SumReduceF64` not used for HFB energy sums | CPU readback for reduction | High | barracuda primitive available; needs GPU-buffer variant |
-| Stanton-Murillo transport normalization bug | Paper 5 fails validation | High | Stress/heat ACF dimensional analysis needed |
+| ~~`SumReduceF64` not used for MD energy sums~~ | ~~CPU readback for reduction~~ | ~~High~~ | ✅ Resolved v0.5.12: `ReduceScalarPipeline` (GPU-buffer variant) |
 | Lattice QCD GPU shaders | CPU-only lattice modules | Medium | WGSL templates ready; needs compilation + validation |
-| 9 files > 1000 lines | Code organization | Medium | Documented deviation; physics-coherent |
+| 8 files > 1000 lines | Code organization | Medium | Documented deviation; physics-coherent |
+| ~~Stanton-Murillo transport normalization~~ | ~~Paper 5 calibration~~ | ~~High~~ | ✅ Resolved: Sarkas-calibrated (12 points, N=2000) |
 | ~~BCS + density shader not wired~~ | ~~CPU readback after eigensolve~~ | ~~High~~ | ✅ Resolved v0.5.10 |
 | ~~WGSL inline math~~ | ~~Maintenance drift~~ | ~~Medium~~ | ✅ Resolved v0.5.8 |
+| ~~Hardcoded tolerances in validation binaries~~ | ~~Not traceable/justified~~ | ~~High~~ | ✅ Resolved: 37 constants in `tolerances.rs` |
+| ~~Lattice LCG magic numbers scattered~~ | ~~Maintenance risk~~ | ~~Medium~~ | ✅ Resolved: `lattice/constants.rs` centralizes all |
 
 ## Gaps Resolved (v0.5.5)
 

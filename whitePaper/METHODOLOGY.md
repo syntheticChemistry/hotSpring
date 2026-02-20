@@ -263,7 +263,42 @@ by cross-validating GPU results against CPU f64 references.
 | `validate_barracuda_pipeline` | YukawaForceF64, VelocityVerletKickDrift/HalfKick, BerendsenThermostat, KineticEnergy | 12 | 0.000% energy drift, force error 1.86e-7 |
 | `validate_barracuda_hfb` | BcsBisectionGpu, BatchedEighGpu, BCS with degeneracy | 14 | BCS μ error 6.2e-11, eigenvalue error 2.4e-12 |
 
-### Grand Total: 195/195 Quantitative Checks Pass
+### Transport Coefficients (Paper 5 — Feb 19, 2026)
+
+| Observable | Criterion | Status |
+|-----------|-----------|--------|
+| D* MSD ≈ VACF | Within 50% | **Verified** |
+| Energy conservation | NVE drift < 5% | **Verified** |
+| Temperature stability | T* fluctuations < 30% | **Verified** |
+| D* vs analytical fit | Sarkas-calibrated Daligault within 80% | **Verified** |
+| Physical ordering | D*(κ=2) < D*(κ=1) | **Verified** |
+| Positivity | All D*, η*, λ* > 0 | **Verified** |
+
+Result: **13/13 checks pass** (`validate_stanton_murillo`).
+
+### Lattice QCD (Paper 8 — Feb 19, 2026)
+
+| Observable | Criterion | Status |
+|-----------|-----------|--------|
+| Cold plaquette | Near 1.0 (weak coupling) | **Verified** |
+| Hot plaquette | < Cold (thermalized) | **Verified** |
+| HMC acceptance | > 50% at physical β | **96-100%** |
+| Dirac CG convergence | Residual < 1e-10 | **Verified** |
+| Reunitarization | det(U) ≈ 1, U†U ≈ I | **Verified** |
+
+Result: **12/12 checks pass** (`validate_pure_gauge`).
+
+### HotQCD EOS (Paper 7 — Feb 19, 2026)
+
+| Observable | Criterion | Status |
+|-----------|-----------|--------|
+| Trace anomaly peak | Near T_c ≈ 155 MeV | **Verified** |
+| Pressure monotonicity | Increasing with T | **Verified** |
+| Speed of sound | → 1/3 at high T | **Verified** |
+
+Result: Thermodynamic consistency validated (`validate_hotqcd_eos`).
+
+### Grand Total: 283 Unit Tests, 16/16 Validation Suites
 
 | Phase | Checks | Description |
 |-------|:------:|-------------|
@@ -272,5 +307,6 @@ by cross-validating GPU results against CPU f64 references.
 | D (N-scaling + builtins) | 16 | 5 N values + 6 cell-list diag + 5 native builtins |
 | E (Paper-parity + rewire) | 13 | 9 long-run cases + 1 profiling + 3 GPU ops |
 | F (Full-scale nuclear EOS) | 9 | 3 L1 Pareto + 3 L2 GPU + 3 L3 deformed |
+| G (Transport + Lattice QCD) | 25 | 13 transport + 12 pure gauge |
 | Pipeline (BarraCUDA ops) | 26 | 12 MD pipeline + 14 HFB pipeline |
-| **Total** | **195** | **All pass** |
+| **Total** | **220+** | **All pass** |

@@ -132,8 +132,8 @@ pub fn l1_proxy_prescreen(
     for (&(z, n), &(b_exp, _sigma)) in exp_data {
         let b_calc = semf_binding_energy(z, n, params);
         if b_calc > 0.0 {
-            let sigma_theo = (0.01 * b_exp).max(2.0); // Physics: SEMF uncertainty — 1% of BE or 2 MeV floor
-            chi2 += ((b_calc - b_exp) / sigma_theo).powi(2);
+            let sigma = crate::tolerances::sigma_theo(b_exp);
+            chi2 += ((b_calc - b_exp) / sigma).powi(2);
             n_valid += 1;
         }
     }
@@ -202,7 +202,7 @@ impl PreScreenClassifier {
                 let vals: Vec<f64> = xs.iter().map(|x| x[i]).collect();
                 means[i] = vals.iter().sum::<f64>() / n as f64;
                 let var = vals.iter().map(|v| (v - means[i]).powi(2)).sum::<f64>() / n as f64;
-                stds[i] = var.sqrt().max(1e-10); // Physics: normalization guard — avoid division by zero in classifier
+                stds[i] = var.sqrt().max(crate::tolerances::CLASSIFIER_VARIANCE_GUARD);
             }
         }
 
@@ -215,8 +215,8 @@ impl PreScreenClassifier {
         // Train logistic regression with simple gradient descent
         let mut weights = vec![0.0; dim];
         let mut bias = 0.0;
-        let lr = 0.01;
-        let epochs = 200;
+        let lr = crate::tolerances::CLASSIFIER_LEARNING_RATE;
+        let epochs = crate::tolerances::CLASSIFIER_EPOCHS;
 
         for _epoch in 0..epochs {
             let mut dw = vec![0.0; dim];

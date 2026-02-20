@@ -8,13 +8,20 @@
 //! # Architecture
 //!
 //! Production simulation runs GPU-resident: particle data stays on GPU between
-//! substeps, CPU reads back only at dump intervals for observables. Shader
-//! compilation uses [`crate::gpu::GpuF64::create_pipeline_f64`] for driver-aware patching
-//! (NVK `exp(f64)` workaround via barracuda).
+//! substeps, CPU reads back only at dump intervals for observables. All shader
+//! compilation routes through ToadStool's `WgslOptimizer` + `GpuDriverProfile`
+//! for hardware-accurate ILP scheduling, fossil substitution, and driver-aware
+//! exp/log patching (NVK workaround via barracuda).
 //!
-//! Barracuda ops (`barracuda::ops::md::*`) are used by validation binaries
-//! which don't need GPU-resident performance. Production simulation keeps
-//! local WGSL for the cell-list force kernel (not yet in barracuda GPU path).
+//! ## Upstream ToadStool capabilities (v0.5.15 rewire)
+//!
+//! | Capability | ToadStool location | hotSpring status |
+//! |---|---|---|
+//! | `ReduceScalarPipeline` | `barracuda::pipeline` | Used (KE/PE reduction) |
+//! | `WgslOptimizer` | `barracuda::shaders::optimizer` | Wired (all shaders) |
+//! | `GpuDriverProfile` | `barracuda::device::capabilities` | Wired (shader compile) |
+//! | `StatefulPipeline` | `barracuda::staging` | Available for HFB/SCF |
+//! | `CellListGpu` | `barracuda::ops::md::neighbor` | Not used (has bugs) |
 //!
 //! | Module | Purpose |
 //! |--------|---------|
@@ -25,6 +32,7 @@
 //! | `transport` | Daligault (2012) D* fit, Green-Kubo integration |
 //! | `cpu_reference` | CPU Yukawa force for cross-validation |
 
+pub mod celllist;
 pub mod config;
 pub mod cpu_reference;
 pub mod observables;

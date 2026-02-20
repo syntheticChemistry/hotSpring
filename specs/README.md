@@ -1,8 +1,8 @@
 # hotSpring Specifications
 
-**Last Updated**: February 12, 2026
-**Status**: Phase A-F complete — 195/195 quantitative checks
-**Domain**: Computational plasma physics, nuclear structure, surrogate learning
+**Last Updated**: February 19, 2026
+**Status**: Phase A-G complete — 283 unit tests (278 pass + 5 GPU-ignored), 16/16 validation suites
+**Domain**: Computational plasma physics, nuclear structure, transport, lattice QCD, surrogate learning
 
 ---
 
@@ -16,6 +16,7 @@
 | Phase D (f64 + N-scaling) | N=10,000 in 5.3 min, native WGSL builtins |
 | Phase E (Paper parity) | 9/9 PP Yukawa — N=10,000, 80k steps, $0.044 |
 | Phase F (Full nuclear EOS) | 2,042 nuclei on consumer GPU |
+| Phase G (Transport + Lattice) | 13/13 transport, 12/12 pure gauge SU(3) |
 | Faculty | Murillo (CMSE, MSU — MSDS professor) |
 | Faculty extension | Bazavov (CMSE + Physics, MSU — master's professor) |
 
@@ -48,6 +49,8 @@
 ### hotSpring IS:
 - **Plasma physics validation** — Sarkas Yukawa MD, OCP thermodynamics
 - **Nuclear structure computation** — SEMF → HFB → deformed HFB on consumer GPU
+- **Transport coefficients** — Green-Kubo D*/η*/λ*, Stanton-Murillo fits
+- **Lattice gauge theory** — SU(3) pure gauge, Wilson action, HMC, staggered Dirac
 - **Surrogate learning** — Diaw et al. (2024) neural surrogates for physics
 - **BarraCUDA science driver** — the primary workload pushing GPU f64 capabilities
 

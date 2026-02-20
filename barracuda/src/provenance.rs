@@ -370,7 +370,7 @@ pub const DALIGAULT_FIT_PROVENANCE: BaselineProvenance = BaselineProvenance {
 pub const TRANSPORT_MD_BASELINE_PROVENANCE: BaselineProvenance = BaselineProvenance {
     label: "Standalone Yukawa MD transport baselines (lite: N=500)",
     script: "sarkas/simulations/transport-study/scripts/yukawa_md_baseline.py",
-    commit: "pending (baseline generation in progress)",
+    commit: "381fdb64",
     date: "2026-02-19",
     command: "python3 yukawa_md_baseline.py --lite",
     environment: "Python 3.10, NumPy 2.2, numba 0.60",
@@ -426,6 +426,49 @@ pub const HFB_TEST_NUCLEI: &[(usize, usize, &str, f64, f64)] = &[
     (50, 62, "Sn-112", 953.53, 948.82),
     (40, 54, "Zr-94", 814.68, 811.33),
 ];
+
+// ═══════════════════════════════════════════════════════════════════
+// Analytical validation references
+//
+// These validation binaries compare against mathematical ground truth,
+// not Python computational runs. BaselineProvenance is NOT applicable
+// here because the expected values are exact analytical results or
+// published reference tables, not outputs of specific Python scripts.
+// ═══════════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════════
+// HotQCD EOS — from published lattice QCD data
+// ═══════════════════════════════════════════════════════════════════
+
+/// Publication: Bazavov et al. (2014), HotQCD continuum EOS.
+pub const HOTQCD_DOI: &str = "10.1103/PhysRevD.90.094503";
+
+/// HotQCD EOS provenance — published lattice QCD data, not Python runs.
+///
+/// Data points from Bazavov et al., PRD 90, 094503 (2014), Table I.
+/// Used in `lattice/eos_tables.rs` for thermodynamic consistency validation.
+pub const HOTQCD_EOS_PROVENANCE: BaselineProvenance = BaselineProvenance {
+    label: "HotQCD continuum EOS (Nf=2+1, physical pion mass)",
+    script: "N/A (published data table, not from a Python script)",
+    commit: "N/A (literature reference)",
+    date: "2014-11-01",
+    command: "N/A (extracted from PRD 90, 094503, Table I)",
+    environment: "N/A (lattice QCD simulation, not reproducible from Python)",
+    value: 0.0,
+    unit: "p/T^4 (dimensionless; see eos_tables.rs for all data points)",
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// Pure gauge SU(3) — from analytical/textbook results
+// ═══════════════════════════════════════════════════════════════════
+
+/// Reference source for pure gauge SU(3) validation.
+///
+/// - Cold plaquette = 1.0: definition (unit links)
+/// - Strong-coupling: Creutz, "Quarks, Gluons and Lattices" (1983), Ch. 9
+/// - β_c ≈ 5.69 for SU(3) on 4^4: Wilson (1974), Creutz (1980)
+/// - Plaquette at β=6.0 on 8^4 ≈ 0.594: Bali et al. (1993)
+pub const PURE_GAUGE_REFS: &str = "Creutz (1983), Wilson (1974), Bali et al. (1993)";
 
 // ═══════════════════════════════════════════════════════════════════
 // Analytical validation references
@@ -584,6 +627,7 @@ mod tests {
             &L2_PYTHON_CHI2,
             &L2_PYTHON_CANDIDATES,
             &L2_PYTHON_TOTAL_CHI2,
+            &HOTQCD_EOS_PROVENANCE,
         ] {
             assert!(!p.label.is_empty(), "label empty: {}", p.label);
             assert!(!p.script.is_empty());
@@ -593,6 +637,17 @@ mod tests {
             assert!(!p.environment.is_empty());
             assert!(!p.unit.is_empty());
         }
+    }
+
+    #[test]
+    fn hotqcd_doi_is_valid() {
+        assert!(HOTQCD_DOI.starts_with("10."));
+        assert!(!HOTQCD_DOI.is_empty());
+    }
+
+    #[test]
+    fn pure_gauge_refs_non_empty() {
+        assert!(!PURE_GAUGE_REFS.is_empty());
     }
 
     #[test]

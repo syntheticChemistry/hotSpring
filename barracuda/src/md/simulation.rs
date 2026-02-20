@@ -13,7 +13,10 @@
 //! All particle data lives on GPU. CPU reads back energy/positions
 //! only at dump intervals for observable computation.
 
+use barracuda::pipeline::ReduceScalarPipeline;
+
 use crate::gpu::GpuF64;
+pub use crate::md::celllist::{run_simulation_celllist, CellList};
 use crate::md::config::MdConfig;
 use crate::md::shaders;
 
@@ -187,12 +190,15 @@ pub async fn run_simulation(
     let half_kick_pipeline = gpu.create_pipeline(shaders::SHADER_VV_HALF_KICK, "vv_half_kick_f64");
     let berendsen_pipeline = gpu.create_pipeline(shaders::SHADER_BERENDSEN, "berendsen_f64");
     let ke_pipeline = gpu.create_pipeline(shaders::SHADER_KINETIC_ENERGY, "kinetic_energy_f64");
-    let reduce_pipeline = gpu.create_pipeline(shaders::SHADER_SUM_REDUCE, "sum_reduce_f64");
 
     println!(
-        "    Compiled 6 shaders in {:.1}ms",
+        "    Compiled 5 shaders in {:.1}ms",
         t_compile.elapsed().as_secs_f64() * 1000.0
     );
+
+    // ReduceScalarPipeline: two-pass f64 reduction from barracuda.
+    // Replaces local SHADER_SUM_REDUCE + 4 bind groups + 6 buffers.
+    let reducer = ReduceScalarPipeline::new(gpu.to_wgpu_device(), n)?;
 
     // Create GPU buffers
     let pos_buf = gpu.create_f64_output_buffer(n * 3, "positions");
@@ -232,19 +238,7 @@ pub async fn run_simulation(
     let ke_params = vec![n as f64, mass, 0.0, 0.0];
     let ke_params_buf = gpu.create_f64_buffer(&ke_params, "ke_params");
 
-    // GPU sum-reduction buffers: N per-particle values → 1 scalar
-    // Pass 1: N → ceil(N/256) partial sums. Pass 2: partials → 1 scalar.
-    let reduce_wg = 256;
-    let n_partials = n.div_ceil(reduce_wg);
-    let ke_partials_buf = gpu.create_f64_output_buffer(n_partials, "ke_partials");
-    let pe_partials_buf = gpu.create_f64_output_buffer(n_partials, "pe_partials");
-    let ke_scalar_buf = gpu.create_f64_output_buffer(1, "ke_scalar");
-    let pe_scalar_buf = gpu.create_f64_output_buffer(1, "pe_scalar");
-    let reduce_params_n = gpu.create_f64_buffer(&[n as f64], "reduce_params_n");
-    let reduce_params_p = gpu.create_f64_buffer(&[n_partials as f64], "reduce_params_p");
-
     let workgroups = n.div_ceil(64) as u32;
-    let reduce_wg1_count = n_partials.div_ceil(reduce_wg) as u32;
 
     // ── Bind groups ──
     let force_bg = gpu.create_bind_group(
@@ -259,24 +253,6 @@ pub async fn run_simulation(
         gpu.create_bind_group(&half_kick_pipeline, &[&vel_buf, &force_buf, &hk_params_buf]);
     let ke_bg = gpu.create_bind_group(&ke_pipeline, &[&vel_buf, &ke_buf, &ke_params_buf]);
 
-    // Reduction bind groups: two passes each for KE and PE
-    let ke_reduce1_bg = gpu.create_bind_group(
-        &reduce_pipeline,
-        &[&ke_buf, &ke_partials_buf, &reduce_params_n],
-    );
-    let ke_reduce2_bg = gpu.create_bind_group(
-        &reduce_pipeline,
-        &[&ke_partials_buf, &ke_scalar_buf, &reduce_params_p],
-    );
-    let pe_reduce1_bg = gpu.create_bind_group(
-        &reduce_pipeline,
-        &[&pe_buf, &pe_partials_buf, &reduce_params_n],
-    );
-    let pe_reduce2_bg = gpu.create_bind_group(
-        &reduce_pipeline,
-        &[&pe_partials_buf, &pe_scalar_buf, &reduce_params_p],
-    );
-
     // ── Compute initial forces ──
     gpu.dispatch(&force_pipeline, &force_bg, workgroups);
 
@@ -290,14 +266,13 @@ pub async fn run_simulation(
     println!("  ── Equilibration ({} steps) ──", config.equil_steps);
     let t_equil = Instant::now();
 
-    let equil_ke_staging = gpu.create_staging_buffer(8, "equil_ke_staging");
     let thermostat_interval = 10;
 
     let mut step = 0;
     while step < config.equil_steps {
         let batch_size = thermostat_interval.min(config.equil_steps - step);
 
-        // Stream VV steps + KE + GPU reduction into one submission
+        // Stream VV steps + per-particle KE into one submission
         let mut encoder = gpu.begin_encoder("equil_batch");
         {
             let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
@@ -319,25 +294,14 @@ pub async fn run_simulation(
                 pass.dispatch_workgroups(workgroups, 1, 1);
             }
 
-            // Per-particle KE + GPU reduction to scalar
             pass.set_pipeline(&ke_pipeline);
             pass.set_bind_group(0, &ke_bg, &[]);
             pass.dispatch_workgroups(workgroups, 1, 1);
-
-            pass.set_pipeline(&reduce_pipeline);
-            pass.set_bind_group(0, &ke_reduce1_bg, &[]);
-            pass.dispatch_workgroups(reduce_wg1_count, 1, 1);
-
-            pass.set_pipeline(&reduce_pipeline);
-            pass.set_bind_group(0, &ke_reduce2_bg, &[]);
-            pass.dispatch_workgroups(1, 1, 1);
         }
-        encoder.copy_buffer_to_buffer(&ke_scalar_buf, 0, &equil_ke_staging, 0, 8);
         gpu.submit_encoder(encoder);
 
-        // Read back 8 bytes (one f64 scalar), not N×8 bytes
-        let ke_scalar = gpu.read_staging_f64(&equil_ke_staging)?;
-        let total_ke = ke_scalar[0];
+        // ReduceScalarPipeline: N per-particle KE → 1 scalar (8 bytes readback)
+        let total_ke = reducer.sum_f64(&ke_buf)?;
         let t_current = 2.0 * total_ke / (3.0 * n as f64);
 
         if t_current > 1e-30 {
@@ -373,9 +337,7 @@ pub async fn run_simulation(
     let mut positions_snapshots = Vec::new();
     let mut velocity_snapshots = Vec::new();
 
-    // Staging: only 2 scalars (KE total, PE total) per dump — unidirectional.
     // Snapshots (positions, velocities) only when needed for VACF.
-    let energy_staging = gpu.create_staging_buffer(2 * 8, "energy_scalar_staging");
     let pos_staging = gpu.create_staging_buffer(n * 3 * 8, "pos_staging");
     let vel_staging = gpu.create_staging_buffer(n * 3 * 8, "vel_staging");
 
@@ -387,7 +349,7 @@ pub async fn run_simulation(
         let step_end = step_start + config.dump_step;
         let need_snapshot = dump_idx % snap_every == 0;
 
-        // ── Stream dump_step VV steps → KE → GPU reduction into one encoder ──
+        // Stream VV steps + per-particle KE into one encoder
         let mut encoder = gpu.begin_encoder("md_batch");
         {
             let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
@@ -409,44 +371,19 @@ pub async fn run_simulation(
                 pass.dispatch_workgroups(workgroups, 1, 1);
             }
 
-            // Per-particle KE at end of batch
             pass.set_pipeline(&ke_pipeline);
             pass.set_bind_group(0, &ke_bg, &[]);
             pass.dispatch_workgroups(workgroups, 1, 1);
-
-            // GPU sum-reduction: KE (N → partials → scalar)
-            pass.set_pipeline(&reduce_pipeline);
-            pass.set_bind_group(0, &ke_reduce1_bg, &[]);
-            pass.dispatch_workgroups(reduce_wg1_count, 1, 1);
-
-            pass.set_pipeline(&reduce_pipeline);
-            pass.set_bind_group(0, &ke_reduce2_bg, &[]);
-            pass.dispatch_workgroups(1, 1, 1);
-
-            // GPU sum-reduction: PE (N → partials → scalar)
-            pass.set_pipeline(&reduce_pipeline);
-            pass.set_bind_group(0, &pe_reduce1_bg, &[]);
-            pass.dispatch_workgroups(reduce_wg1_count, 1, 1);
-
-            pass.set_pipeline(&reduce_pipeline);
-            pass.set_bind_group(0, &pe_reduce2_bg, &[]);
-            pass.dispatch_workgroups(1, 1, 1);
         }
-
-        // Copy only 2 scalars to staging (16 bytes, not 160 KB)
-        encoder.copy_buffer_to_buffer(&ke_scalar_buf, 0, &energy_staging, 0, 8);
-        encoder.copy_buffer_to_buffer(&pe_scalar_buf, 0, &energy_staging, 8, 8);
         if need_snapshot {
             encoder.copy_buffer_to_buffer(&pos_buf, 0, &pos_staging, 0, (n * 3 * 8) as u64);
             encoder.copy_buffer_to_buffer(&vel_buf, 0, &vel_staging, 0, (n * 3 * 8) as u64);
         }
-
         gpu.submit_encoder(encoder);
 
-        // Read back 16 bytes: [total_ke, total_pe]
-        let scalars = gpu.read_staging_f64(&energy_staging)?;
-        let total_ke = scalars[0];
-        let total_pe = scalars[1];
+        // ReduceScalarPipeline: N → 1 scalar per quantity (8 bytes each)
+        let total_ke = reducer.sum_f64(&ke_buf)?;
+        let total_pe = reducer.sum_f64(&pe_buf)?;
         let total_e = total_ke + total_pe;
         let t_current = 2.0 * total_ke / (3.0 * n as f64);
 
@@ -516,485 +453,6 @@ pub async fn run_simulation(
         wall_time_s: total_time,
         steps_per_sec,
     })
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// Cell List Infrastructure
-// ═══════════════════════════════════════════════════════════════════
-
-/// Cell list metadata
-pub struct CellList {
-    pub n_cells: [usize; 3], // cells per dimension
-    pub cell_size: [f64; 3], // cell side length
-    pub n_cells_total: usize,
-    pub cell_start: Vec<u32>,       // first particle index per cell
-    pub cell_count: Vec<u32>,       // particle count per cell
-    pub sorted_indices: Vec<usize>, // particle index in sorted order
-}
-
-impl CellList {
-    /// Build cell list from positions on CPU
-    pub fn build(positions: &[f64], n: usize, box_side: f64, rc: f64) -> Self {
-        let n_cells_per_dim = (box_side / rc).floor() as usize;
-        let n_cells_per_dim = n_cells_per_dim.max(3); // minimum 3 cells per dim
-        let cell_size = box_side / n_cells_per_dim as f64;
-        let n_cells_total = n_cells_per_dim * n_cells_per_dim * n_cells_per_dim;
-
-        // Assign each particle to a cell
-        let mut cell_ids = Vec::with_capacity(n);
-        for i in 0..n {
-            let cx = ((positions[i * 3] / cell_size) as usize).min(n_cells_per_dim - 1);
-            let cy = ((positions[i * 3 + 1] / cell_size) as usize).min(n_cells_per_dim - 1);
-            let cz = ((positions[i * 3 + 2] / cell_size) as usize).min(n_cells_per_dim - 1);
-            let cell_id = cx + cy * n_cells_per_dim + cz * n_cells_per_dim * n_cells_per_dim;
-            cell_ids.push(cell_id);
-        }
-
-        // Sort particles by cell index
-        let mut indices: Vec<usize> = (0..n).collect();
-        indices.sort_by_key(|&i| cell_ids[i]);
-
-        // Build cell_start and cell_count
-        let mut cell_start = vec![0u32; n_cells_total];
-        let mut cell_count = vec![0u32; n_cells_total];
-
-        for &idx in &indices {
-            cell_count[cell_ids[idx]] += 1;
-        }
-
-        let mut offset = 0u32;
-        for c in 0..n_cells_total {
-            cell_start[c] = offset;
-            offset += cell_count[c];
-        }
-
-        CellList {
-            n_cells: [n_cells_per_dim; 3],
-            cell_size: [cell_size; 3],
-            n_cells_total,
-            cell_start,
-            cell_count,
-            sorted_indices: indices,
-        }
-    }
-
-    /// Sort position/velocity arrays according to cell list order
-    pub fn sort_array(&self, data: &[f64], stride: usize) -> Vec<f64> {
-        let mut sorted = vec![0.0f64; data.len()];
-        for (new_idx, &old_idx) in self.sorted_indices.iter().enumerate() {
-            for s in 0..stride {
-                sorted[new_idx * stride + s] = data[old_idx * stride + s];
-            }
-        }
-        sorted
-    }
-
-    /// Unsort: map from sorted back to original order
-    pub fn unsort_array(&self, data: &[f64], stride: usize) -> Vec<f64> {
-        let mut unsorted = vec![0.0f64; data.len()];
-        for (new_idx, &old_idx) in self.sorted_indices.iter().enumerate() {
-            for s in 0..stride {
-                unsorted[old_idx * stride + s] = data[new_idx * stride + s];
-            }
-        }
-        unsorted
-    }
-}
-
-/// Run simulation with cell list (for N > ~2000)
-pub async fn run_simulation_celllist(
-    config: &MdConfig,
-) -> Result<MdSimulation, crate::error::HotSpringError> {
-    let t_start = Instant::now();
-    let n = config.n_particles;
-    let box_side = config.box_side();
-    let prefactor = config.force_prefactor();
-    let temperature = config.temperature();
-    let mass = config.reduced_mass();
-
-    println!("  ── Initializing {n} particles (cell-list mode) ──");
-    println!("    Box side: {box_side:.4} a_ws");
-    println!(
-        "    κ = {}, Γ = {}, T* = {:.6}",
-        config.kappa, config.gamma, temperature
-    );
-    println!(
-        "    rc = {} a_ws, dt* = {}, m* = {}",
-        config.rc, config.dt, mass
-    );
-
-    // Initialize particles
-    let (positions, n_actual) = init_fcc_lattice(n, box_side);
-    let n = n_actual.min(n);
-    let velocities = init_velocities(n, temperature, mass, 42);
-
-    // Build initial cell list
-    let cell_list = CellList::build(&positions, n, box_side, config.rc);
-    println!(
-        "    Cell list: {}×{}×{} = {} cells, cell_size={:.3} a_ws",
-        cell_list.n_cells[0],
-        cell_list.n_cells[1],
-        cell_list.n_cells[2],
-        cell_list.n_cells_total,
-        cell_list.cell_size[0]
-    );
-    println!("    Placed {n} particles on FCC lattice");
-
-    // Initialize GPU
-    let gpu = GpuF64::new().await?;
-    if !gpu.has_f64 {
-        return Err(crate::error::HotSpringError::NoShaderF64);
-    }
-    gpu.print_info();
-
-    // Compile shaders — native f64 builtins, no math_f64 preamble needed
-    println!("  ── Compiling f64 WGSL shaders (cell-list, native builtins) ──");
-    let t_compile = Instant::now();
-
-    let force_pipeline_cl =
-        gpu.create_pipeline_f64(shaders::SHADER_YUKAWA_FORCE_CELLLIST, "yukawa_force_cl_f64");
-    let kick_drift_pipeline =
-        gpu.create_pipeline(shaders::SHADER_VV_KICK_DRIFT, "vv_kick_drift_f64");
-    let half_kick_pipeline = gpu.create_pipeline(shaders::SHADER_VV_HALF_KICK, "vv_half_kick_f64");
-    let berendsen_pipeline = gpu.create_pipeline(shaders::SHADER_BERENDSEN, "berendsen_f64");
-    let ke_pipeline = gpu.create_pipeline(shaders::SHADER_KINETIC_ENERGY, "kinetic_energy_f64");
-    let reduce_pipeline = gpu.create_pipeline(shaders::SHADER_SUM_REDUCE, "sum_reduce_f64");
-
-    println!(
-        "    Compiled 6 shaders in {:.1}ms",
-        t_compile.elapsed().as_secs_f64() * 1000.0
-    );
-
-    // Create GPU buffers
-    let pos_buf = gpu.create_f64_output_buffer(n * 3, "positions");
-    let vel_buf = gpu.create_f64_output_buffer(n * 3, "velocities");
-    let force_buf = gpu.create_f64_output_buffer(n * 3, "forces");
-    let pe_buf = gpu.create_f64_output_buffer(n, "pe_per_particle");
-    let ke_buf = gpu.create_f64_output_buffer(n, "ke_per_particle");
-
-    // Cell list buffers (u32)
-    let cell_start_buf = gpu.create_u32_buffer(&cell_list.cell_start, "cell_start");
-    let cell_count_buf = gpu.create_u32_buffer(&cell_list.cell_count, "cell_count");
-
-    // Upload initial sorted positions and velocities
-    let sorted_pos = cell_list.sort_array(&positions, 3);
-    let sorted_vel = cell_list.sort_array(&velocities, 3);
-    gpu.upload_f64(&pos_buf, &sorted_pos);
-    gpu.upload_f64(&vel_buf, &sorted_vel);
-
-    // Extended force params for cell list
-    let force_params_cl = vec![
-        n as f64,
-        config.kappa,
-        prefactor,
-        config.rc * config.rc,
-        box_side,
-        box_side,
-        box_side,
-        0.0,
-        cell_list.n_cells[0] as f64,
-        cell_list.n_cells[1] as f64,
-        cell_list.n_cells[2] as f64,
-        cell_list.cell_size[0],
-        cell_list.cell_size[1],
-        cell_list.cell_size[2],
-        cell_list.n_cells_total as f64,
-        0.0, // padding
-    ];
-    let force_params_cl_buf = gpu.create_f64_buffer(&force_params_cl, "force_params_cl");
-
-    let vv_params = vec![
-        n as f64, config.dt, mass, 0.0, box_side, box_side, box_side, 0.0,
-    ];
-    let vv_params_buf = gpu.create_f64_buffer(&vv_params, "vv_params");
-
-    let hk_params = vec![n as f64, config.dt, mass, 0.0];
-    let hk_params_buf = gpu.create_f64_buffer(&hk_params, "hk_params");
-
-    let ke_params = vec![n as f64, mass, 0.0, 0.0];
-    let ke_params_buf = gpu.create_f64_buffer(&ke_params, "ke_params");
-
-    // GPU reduction buffers (same pattern as all-pairs)
-    let reduce_wg = 256;
-    let n_partials = n.div_ceil(reduce_wg);
-    let ke_partials_buf = gpu.create_f64_output_buffer(n_partials, "ke_partials");
-    let pe_partials_buf = gpu.create_f64_output_buffer(n_partials, "pe_partials");
-    let ke_scalar_buf = gpu.create_f64_output_buffer(1, "ke_scalar");
-    let pe_scalar_buf = gpu.create_f64_output_buffer(1, "pe_scalar");
-    let reduce_params_n = gpu.create_f64_buffer(&[n as f64], "reduce_params_n");
-    let reduce_params_p = gpu.create_f64_buffer(&[n_partials as f64], "reduce_params_p");
-
-    let workgroups = n.div_ceil(64) as u32;
-    let reduce_wg1_count = n.div_ceil(reduce_wg) as u32;
-
-    // Bind groups
-    let force_bg = gpu.create_bind_group(
-        &force_pipeline_cl,
-        &[
-            &pos_buf,
-            &force_buf,
-            &pe_buf,
-            &force_params_cl_buf,
-            &cell_start_buf,
-            &cell_count_buf,
-        ],
-    );
-    let kick_drift_bg = gpu.create_bind_group(
-        &kick_drift_pipeline,
-        &[&pos_buf, &vel_buf, &force_buf, &vv_params_buf],
-    );
-    let half_kick_bg =
-        gpu.create_bind_group(&half_kick_pipeline, &[&vel_buf, &force_buf, &hk_params_buf]);
-    let ke_bg = gpu.create_bind_group(&ke_pipeline, &[&vel_buf, &ke_buf, &ke_params_buf]);
-
-    let ke_reduce1_bg = gpu.create_bind_group(
-        &reduce_pipeline,
-        &[&ke_buf, &ke_partials_buf, &reduce_params_n],
-    );
-    let ke_reduce2_bg = gpu.create_bind_group(
-        &reduce_pipeline,
-        &[&ke_partials_buf, &ke_scalar_buf, &reduce_params_p],
-    );
-    let pe_reduce1_bg = gpu.create_bind_group(
-        &reduce_pipeline,
-        &[&pe_buf, &pe_partials_buf, &reduce_params_n],
-    );
-    let pe_reduce2_bg = gpu.create_bind_group(
-        &reduce_pipeline,
-        &[&pe_partials_buf, &pe_scalar_buf, &reduce_params_p],
-    );
-
-    // Compute initial forces
-    gpu.dispatch(&force_pipeline_cl, &force_bg, workgroups);
-
-    // Rebuild cell list every N steps. At dt=0.01, particles move ~0.001 a_ws/step.
-    // Cell size is ~rc/n_cells_per_dim ≈ 2 a_ws. Safe to skip 20 steps between rebuilds.
-    // Between rebuilds, VV steps are streamed to GPU in a single submission.
-    let rebuild_interval = 20;
-
-    // ── Equilibration — streamed between cell-list rebuilds ──
-    println!("  ── Equilibration ({} steps) ──", config.equil_steps);
-    let t_equil = Instant::now();
-
-    let equil_ke_staging_cl = gpu.create_staging_buffer(8, "equil_ke_staging_cl");
-    let thermostat_interval_cl = rebuild_interval.min(10);
-    let mut step = 0;
-
-    while step < config.equil_steps {
-        let batch = thermostat_interval_cl.min(config.equil_steps - step);
-
-        // Stream VV steps + KE + GPU reduction into one submission
-        let mut encoder = gpu.begin_encoder("equil_cl_batch");
-        {
-            let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                label: Some("equil_cl_stream"),
-                timestamp_writes: None,
-            });
-            for _ in 0..batch {
-                pass.set_pipeline(&kick_drift_pipeline);
-                pass.set_bind_group(0, &kick_drift_bg, &[]);
-                pass.dispatch_workgroups(workgroups, 1, 1);
-                pass.set_pipeline(&force_pipeline_cl);
-                pass.set_bind_group(0, &force_bg, &[]);
-                pass.dispatch_workgroups(workgroups, 1, 1);
-                pass.set_pipeline(&half_kick_pipeline);
-                pass.set_bind_group(0, &half_kick_bg, &[]);
-                pass.dispatch_workgroups(workgroups, 1, 1);
-            }
-            pass.set_pipeline(&ke_pipeline);
-            pass.set_bind_group(0, &ke_bg, &[]);
-            pass.dispatch_workgroups(workgroups, 1, 1);
-            pass.set_pipeline(&reduce_pipeline);
-            pass.set_bind_group(0, &ke_reduce1_bg, &[]);
-            pass.dispatch_workgroups(reduce_wg1_count, 1, 1);
-            pass.set_pipeline(&reduce_pipeline);
-            pass.set_bind_group(0, &ke_reduce2_bg, &[]);
-            pass.dispatch_workgroups(1, 1, 1);
-        }
-        encoder.copy_buffer_to_buffer(&ke_scalar_buf, 0, &equil_ke_staging_cl, 0, 8);
-        gpu.submit_encoder(encoder);
-
-        let ke_scalar = gpu.read_staging_f64(&equil_ke_staging_cl)?;
-        let total_ke = ke_scalar[0];
-        let t_current = 2.0 * total_ke / (3.0 * n as f64);
-        if t_current > 1e-30 {
-            let ratio = 1.0 + (config.dt / config.berendsen_tau) * (temperature / t_current - 1.0);
-            let scale = ratio.max(0.0).sqrt();
-            let beren_params = vec![n as f64, scale, 0.0, 0.0];
-            let beren_params_buf = gpu.create_f64_buffer(&beren_params, "beren_params");
-            let beren_bg =
-                gpu.create_bind_group(&berendsen_pipeline, &[&vel_buf, &beren_params_buf]);
-            gpu.dispatch(&berendsen_pipeline, &beren_bg, workgroups);
-        }
-
-        step += batch;
-
-        // Cell-list rebuild at rebuild_interval boundaries
-        if step % rebuild_interval == 0 && step < config.equil_steps {
-            let pos_data = gpu.read_back_f64(&pos_buf, n * 3)?;
-            let vel_data = gpu.read_back_f64(&vel_buf, n * 3)?;
-            let force_data = gpu.read_back_f64(&force_buf, n * 3)?;
-            let new_cl = CellList::build(&pos_data, n, box_side, config.rc);
-            gpu.upload_f64(&pos_buf, &new_cl.sort_array(&pos_data, 3));
-            gpu.upload_f64(&vel_buf, &new_cl.sort_array(&vel_data, 3));
-            gpu.upload_f64(&force_buf, &new_cl.sort_array(&force_data, 3));
-            upload_u32(&gpu, &cell_start_buf, &new_cl.cell_start);
-            upload_u32(&gpu, &cell_count_buf, &new_cl.cell_count);
-        }
-
-        if step % 1000 < thermostat_interval_cl || step >= config.equil_steps {
-            println!("    Step {step}: T* = {t_current:.6} (target {temperature:.6})");
-        }
-    }
-    println!(
-        "    Equilibration complete in {:.2}s",
-        t_equil.elapsed().as_secs_f64()
-    );
-
-    // ── Production — streamed between cell-list rebuilds ──
-    println!(
-        "  ── Production ({} steps, streamed, rebuild every {}) ──",
-        config.prod_steps, rebuild_interval
-    );
-    let t_prod = Instant::now();
-
-    let mut energy_history = Vec::new();
-    let mut positions_snapshots = Vec::new();
-    let mut velocity_snapshots = Vec::new();
-
-    let energy_staging_cl = gpu.create_staging_buffer(2 * 8, "energy_scalar_staging_cl");
-    let pos_staging_cl = gpu.create_staging_buffer(n * 3 * 8, "pos_staging_cl");
-    let vel_staging_cl = gpu.create_staging_buffer(n * 3 * 8, "vel_staging_cl");
-
-    let stream_batch = config.dump_step.min(rebuild_interval);
-    let n_dumps_cl = config.prod_steps / stream_batch;
-    let snap_every_cl = config.vel_snapshot_interval * (config.dump_step / stream_batch).max(1);
-
-    for dump_idx in 0..n_dumps_cl {
-        let step_end = (dump_idx + 1) * stream_batch;
-        let is_dump = step_end % config.dump_step == 0;
-        let is_snapshot = is_dump && (dump_idx % snap_every_cl == 0);
-        let is_rebuild = step_end % rebuild_interval == 0;
-
-        let mut encoder = gpu.begin_encoder("prod_cl_batch");
-        {
-            let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                label: Some("prod_cl_stream"),
-                timestamp_writes: None,
-            });
-            for _ in 0..stream_batch {
-                pass.set_pipeline(&kick_drift_pipeline);
-                pass.set_bind_group(0, &kick_drift_bg, &[]);
-                pass.dispatch_workgroups(workgroups, 1, 1);
-                pass.set_pipeline(&force_pipeline_cl);
-                pass.set_bind_group(0, &force_bg, &[]);
-                pass.dispatch_workgroups(workgroups, 1, 1);
-                pass.set_pipeline(&half_kick_pipeline);
-                pass.set_bind_group(0, &half_kick_bg, &[]);
-                pass.dispatch_workgroups(workgroups, 1, 1);
-            }
-            if is_dump || is_rebuild {
-                pass.set_pipeline(&ke_pipeline);
-                pass.set_bind_group(0, &ke_bg, &[]);
-                pass.dispatch_workgroups(workgroups, 1, 1);
-
-                // GPU reduction: per-particle KE/PE → scalars
-                pass.set_pipeline(&reduce_pipeline);
-                pass.set_bind_group(0, &ke_reduce1_bg, &[]);
-                pass.dispatch_workgroups(reduce_wg1_count, 1, 1);
-                pass.set_pipeline(&reduce_pipeline);
-                pass.set_bind_group(0, &ke_reduce2_bg, &[]);
-                pass.dispatch_workgroups(1, 1, 1);
-
-                pass.set_pipeline(&reduce_pipeline);
-                pass.set_bind_group(0, &pe_reduce1_bg, &[]);
-                pass.dispatch_workgroups(reduce_wg1_count, 1, 1);
-                pass.set_pipeline(&reduce_pipeline);
-                pass.set_bind_group(0, &pe_reduce2_bg, &[]);
-                pass.dispatch_workgroups(1, 1, 1);
-            }
-        }
-
-        if is_dump {
-            encoder.copy_buffer_to_buffer(&ke_scalar_buf, 0, &energy_staging_cl, 0, 8);
-            encoder.copy_buffer_to_buffer(&pe_scalar_buf, 0, &energy_staging_cl, 8, 8);
-        }
-        if is_snapshot || is_rebuild {
-            encoder.copy_buffer_to_buffer(&pos_buf, 0, &pos_staging_cl, 0, (n * 3 * 8) as u64);
-            encoder.copy_buffer_to_buffer(&vel_buf, 0, &vel_staging_cl, 0, (n * 3 * 8) as u64);
-        }
-        gpu.submit_encoder(encoder);
-
-        if is_dump {
-            let scalars = gpu.read_staging_f64(&energy_staging_cl)?;
-            let total_ke = scalars[0];
-            let total_pe = scalars[1];
-            let total_e = total_ke + total_pe;
-            let t_current = 2.0 * total_ke / (3.0 * n as f64);
-            energy_history.push(EnergyRecord {
-                step: step_end - 1,
-                ke: total_ke,
-                pe: total_pe,
-                total: total_e,
-                temperature: t_current,
-            });
-        }
-
-        if is_snapshot {
-            positions_snapshots.push(gpu.read_staging_f64(&pos_staging_cl)?);
-            velocity_snapshots.push(gpu.read_staging_f64(&vel_staging_cl)?);
-        }
-
-        // Cell-list rebuild
-        if is_rebuild && step_end < config.prod_steps {
-            let pos_data = gpu.read_staging_f64(&pos_staging_cl)?;
-            let vel_data = gpu.read_back_f64(&vel_buf, n * 3)?;
-            let force_data = gpu.read_back_f64(&force_buf, n * 3)?;
-            let new_cl = CellList::build(&pos_data, n, box_side, config.rc);
-            gpu.upload_f64(&pos_buf, &new_cl.sort_array(&pos_data, 3));
-            gpu.upload_f64(&vel_buf, &new_cl.sort_array(&vel_data, 3));
-            gpu.upload_f64(&force_buf, &new_cl.sort_array(&force_data, 3));
-            upload_u32(&gpu, &cell_start_buf, &new_cl.cell_start);
-            upload_u32(&gpu, &cell_count_buf, &new_cl.cell_count);
-        }
-
-        if step_end % 5000 < stream_batch || step_end >= config.prod_steps {
-            if let Some(last) = energy_history.last() {
-                println!(
-                    "    Step {}: T*={:.6}, KE={:.4}, PE={:.4}, E={:.4}",
-                    step_end - 1,
-                    last.temperature,
-                    last.ke,
-                    last.pe,
-                    last.total
-                );
-            }
-        }
-    }
-
-    let prod_time = t_prod.elapsed().as_secs_f64();
-    let total_time = t_start.elapsed().as_secs_f64();
-    let total_steps = config.equil_steps + config.prod_steps;
-    let steps_per_sec = total_steps as f64 / total_time;
-
-    println!("    Production complete in {prod_time:.2}s");
-    println!("    Total: {total_time:.2}s ({steps_per_sec:.1} steps/s)");
-
-    Ok(MdSimulation {
-        config: config.clone(),
-        energy_history,
-        positions_snapshots,
-        velocity_snapshots,
-        rdf_histogram: Vec::new(),
-        wall_time_s: total_time,
-        steps_per_sec,
-    })
-}
-
-/// Upload u32 data to a GPU buffer
-fn upload_u32(gpu: &GpuF64, buffer: &wgpu::Buffer, data: &[u32]) {
-    let bytes: Vec<u8> = data.iter().flat_map(|v| v.to_le_bytes()).collect();
-    gpu.queue().write_buffer(buffer, 0, &bytes);
 }
 
 #[cfg(test)]
