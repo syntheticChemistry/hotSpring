@@ -95,5 +95,6 @@ pub mod md;
 pub mod physics;
 pub mod prescreen;
 pub mod provenance;
+pub mod spectral;
 pub mod tolerances;
 pub mod validation;

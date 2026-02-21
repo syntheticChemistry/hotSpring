@@ -8,7 +8,8 @@
 //!
 //! Barracuda ops (`barracuda::ops::md::*`) provide the same physics through
 //! a Tensor API used by validation binaries. The cell-list force shader
-//! remains hotSpring-local (barracuda's cell-list path is CPU-only).
+//! is hotSpring-local but toadstool's CellListGpu is now fixed (commit
+//! `8fb5d5a0`) — migration planned for next evolution cycle.
 //!
 //! VV, half-kick, Berendsen, and KE shaders use no `exp()`/`log()` on f64
 //! and compile safely on all drivers via [`crate::gpu::GpuF64::create_pipeline`].
@@ -205,7 +206,7 @@ pub const SHADER_YUKAWA_FORCE_CELLLIST_V2: &str =
 // Same physics as SHADER_YUKAWA_FORCE_CELLLIST but with an extra
 // sorted_indices binding for indirect neighbor access. Positions,
 // velocities, and forces stay in original particle order — no CPU-side
-// sorting needed. Used by GpuCellList (GPU-resident cell-list rebuild).
+// sorting needed. Used by local GpuCellList (deprecated — upstream fixed).
 
 pub const SHADER_YUKAWA_FORCE_INDIRECT: &str =
     include_str!("shaders/yukawa_force_celllist_indirect_f64.wgsl");
@@ -223,6 +224,21 @@ pub const SHADER_CELL_SCATTER: &str = include_str!("shaders/cell_scatter.wgsl");
 // ═══════════════════════════════════════════════════════════════════
 
 pub const SHADER_RDF_HISTOGRAM: &str = include_str!("shaders/rdf_histogram_f64.wgsl");
+
+// ═══════════════════════════════════════════════════════════════════
+// Echo State Network Reservoir (f32) — shader-originating math
+// ═══════════════════════════════════════════════════════════════════
+//
+// The ESN math originates here in WGSL. ToadStool dispatches to:
+//   GPU: compile shader → wgpu dispatch → same math
+//   NPU: export weights → Akida load_reservoir() → hardware tanh
+//   CPU: reservoir.rs::EchoStateNetwork → pure Rust reference
+//
+// All three substrates execute identical linear algebra + tanh.
+
+pub const SHADER_ESN_RESERVOIR_UPDATE: &str =
+    include_str!("shaders/esn_reservoir_update.wgsl");
+pub const SHADER_ESN_READOUT: &str = include_str!("shaders/esn_readout.wgsl");
 
 #[cfg(test)]
 mod tests {
@@ -247,6 +263,11 @@ mod tests {
         ("SHADER_EXCLUSIVE_PREFIX_SUM", SHADER_EXCLUSIVE_PREFIX_SUM),
         ("SHADER_CELL_SCATTER", SHADER_CELL_SCATTER),
         ("SHADER_RDF_HISTOGRAM", SHADER_RDF_HISTOGRAM),
+        (
+            "SHADER_ESN_RESERVOIR_UPDATE",
+            SHADER_ESN_RESERVOIR_UPDATE,
+        ),
+        ("SHADER_ESN_READOUT", SHADER_ESN_READOUT),
     ];
 
     #[test]

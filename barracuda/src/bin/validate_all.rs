@@ -26,6 +26,20 @@
 //! | `validate_screened_coulomb` | Yukawa bound states (Murillo-Weisheit) | No |
 //! | `validate_pure_gauge` | Pure gauge SU(3) lattice QCD | No |
 //! | `validate_abelian_higgs` | Abelian Higgs (1+1)D U(1)+scalar | No |
+//! | `validate_npu_quantization` | NPU ESN quantization cascade | No |
+//! | `validate_npu_beyond_sdk` | NPU beyond-SDK capabilities | No |
+//! | `validate_npu_pipeline` | NPU physics pipeline math | No |
+//! | `validate_lattice_npu` | Lattice QCD + NPU phase classification | No |
+//! | `validate_hetero_monitor` | Heterogeneous real-time physics monitor | No |
+//! | `validate_spectral` | Spectral theory: Anderson + almost-Mathieu | No |
+//! | `validate_lanczos` | Lanczos + SpMV + 2D Anderson | No |
+//! | `validate_anderson_3d` | 3D Anderson: mobility edge, dimensional hierarchy | No |
+//! | `validate_hofstadter` | Hofstadter butterfly: band counting, spectral topology | No |
+//! | `validate_gpu_spmv` | GPU CSR SpMV: CPU/GPU parity for spectral theory | GPU |
+//! | `validate_gpu_lanczos` | GPU Lanczos eigensolve: GPU SpMV inner loop | GPU |
+//! | `validate_gpu_dirac` | GPU staggered Dirac: SU(3) × color on GPU (Papers 9-12) | GPU |
+//! | `validate_gpu_cg` | GPU CG solver: D†D x = b on GPU (Papers 9-12 complete) | GPU |
+//! | `validate_pure_gpu_qcd` | Pure GPU workload: HMC + CG on thermalized configs | GPU |
 
 use std::process::{self, Command};
 use std::time::Instant;
@@ -127,6 +141,76 @@ const SUITES: &[Suite] = &[
         name: "Abelian Higgs (Paper 13)",
         binary: "validate_abelian_higgs",
         requires_gpu: false,
+    },
+    Suite {
+        name: "NPU Quantization Cascade",
+        binary: "validate_npu_quantization",
+        requires_gpu: false,
+    },
+    Suite {
+        name: "NPU Beyond-SDK Capabilities",
+        binary: "validate_npu_beyond_sdk",
+        requires_gpu: false,
+    },
+    Suite {
+        name: "NPU Physics Pipeline",
+        binary: "validate_npu_pipeline",
+        requires_gpu: false,
+    },
+    Suite {
+        name: "Lattice QCD + NPU Phase",
+        binary: "validate_lattice_npu",
+        requires_gpu: false,
+    },
+    Suite {
+        name: "Heterogeneous Real-Time Monitor",
+        binary: "validate_hetero_monitor",
+        requires_gpu: false,
+    },
+    Suite {
+        name: "Spectral Theory (Kachkovskiy)",
+        binary: "validate_spectral",
+        requires_gpu: false,
+    },
+    Suite {
+        name: "Lanczos + 2D Anderson (Kachkovskiy)",
+        binary: "validate_lanczos",
+        requires_gpu: false,
+    },
+    Suite {
+        name: "3D Anderson (Kachkovskiy)",
+        binary: "validate_anderson_3d",
+        requires_gpu: false,
+    },
+    Suite {
+        name: "Hofstadter Butterfly (Kachkovskiy)",
+        binary: "validate_hofstadter",
+        requires_gpu: false,
+    },
+    Suite {
+        name: "GPU SpMV (Spectral Theory P1)",
+        binary: "validate_gpu_spmv",
+        requires_gpu: true,
+    },
+    Suite {
+        name: "GPU Lanczos Eigensolve",
+        binary: "validate_gpu_lanczos",
+        requires_gpu: true,
+    },
+    Suite {
+        name: "GPU Staggered Dirac (Papers 9-12)",
+        binary: "validate_gpu_dirac",
+        requires_gpu: true,
+    },
+    Suite {
+        name: "GPU CG Solver (Papers 9-12)",
+        binary: "validate_gpu_cg",
+        requires_gpu: true,
+    },
+    Suite {
+        name: "Pure GPU QCD Workload",
+        binary: "validate_pure_gpu_qcd",
+        requires_gpu: true,
     },
 ];
 

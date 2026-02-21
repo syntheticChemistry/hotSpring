@@ -21,7 +21,7 @@
 //! | `WgslOptimizer` | `barracuda::shaders::optimizer` | Wired (all shaders via `ShaderTemplate`) |
 //! | `GpuDriverProfile` | `barracuda::device::capabilities` | Wired (shader compile) |
 //! | `StatefulPipeline` | `barracuda::staging` | Available — `run_iterations()` / `run_until_converged()` |
-//! | `CellListGpu` | `barracuda::ops::md::neighbor` | Not used (prefix_sum BGL mismatch — see handoff) |
+//! | `CellListGpu` | `barracuda::ops::md::neighbor` | **Fixed** (toadstool `8fb5d5a0`) — local `GpuCellList` deprecated, migrate next cycle |
 //! | NAK eigensolve shader | `shaders/linalg/batched_eigh_nak_optimized_f64.wgsl` | Absorbed from hotSpring |
 //!
 //! | Module | Purpose |
@@ -37,6 +37,7 @@ pub mod celllist;
 pub mod config;
 pub mod cpu_reference;
 pub mod observables;
+pub mod reservoir;
 pub mod shaders;
 pub mod simulation;
 pub mod transport;

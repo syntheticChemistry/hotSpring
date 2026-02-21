@@ -1,8 +1,8 @@
 # hotSpring Specifications
 
-**Last Updated**: February 19, 2026
-**Status**: Phase A-G complete — 283 unit tests (278 pass + 5 GPU-ignored), 16/16 validation suites
-**Domain**: Computational plasma physics, nuclear structure, transport, lattice QCD, surrogate learning
+**Last Updated**: February 20, 2026
+**Status**: Phase A-G complete — 345 unit tests (340 pass + 5 GPU-ignored), 27/27 validation suites
+**Domain**: Computational plasma physics, nuclear structure, transport, lattice QCD, spectral theory, surrogate learning
 
 ---
 
@@ -16,9 +16,13 @@
 | Phase D (f64 + N-scaling) | N=10,000 in 5.3 min, native WGSL builtins |
 | Phase E (Paper parity) | 9/9 PP Yukawa — N=10,000, 80k steps, $0.044 |
 | Phase F (Full nuclear EOS) | 2,042 nuclei on consumer GPU |
-| Phase G (Transport + Lattice) | 13/13 transport, 12/12 pure gauge SU(3) |
+| Phase G (Transport + Lattice) | 13/13 transport, 12/12 pure gauge SU(3), 17/17 Abelian Higgs |
+| Phase H (Spectral Theory) | 41/41 (Anderson 1D/2D/3D, Lanczos, Hofstadter butterfly) |
+| Phase I (Heterogeneous) | 68/68 (NPU quantization, beyond-SDK, pipeline, lattice NPU, hetero monitor) |
+| ToadStool Rewire v3 | CellListGpu fixed, lattice GPU shaders, **FFT f64** — Tier 3 unblocked |
 | Faculty | Murillo (CMSE, MSU — MSDS professor) |
 | Faculty extension | Bazavov (CMSE + Physics, MSU — master's professor) |
+| Faculty extension | Kachkovskiy (Math, MSU — spectral theory) |
 
 ---
 
@@ -64,6 +68,11 @@
 - Lattice QCD equation of state
 - Spectral reconstruction inverse problems
 - Hadronic vacuum polarization (muon g-2)
+
+### hotSpring EXTENDS TO (via Kachkovskiy):
+- Anderson localization (1D/2D/3D)
+- Almost-Mathieu operator / Hofstadter butterfly
+- Spectral theory of quasiperiodic operators
 
 ---
 

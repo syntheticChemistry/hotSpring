@@ -65,6 +65,10 @@ nohup.out
 barracuda/target/
 barracuda/Cargo.lock
 
+# ----- metalForge generated artifacts -----
+metalForge/npu/akida/benchmarks/*.fbz
+metalForge/benchmarks/
+
 # ----- Benchmark results (generated) -----
 benchmarks/*/results/
 

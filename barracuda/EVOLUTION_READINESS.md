@@ -1,12 +1,12 @@
-# Evolution Readiness: Rust → WGSL Shader Promotion
+# Evolution Readiness: Rust → WGSL Shader Promotion → ToadStool Absorption
 
-This document maps each Rust module to its GPU shader readiness tier
-and identifies blockers for full GPU-resident pipeline promotion.
+This document maps each Rust module to its GPU shader readiness tier,
+tracks what toadstool has absorbed, and identifies next absorption targets.
 
 ## Evolution Path
 
 ```
-Python baseline → Rust validation → GPU acceleration → sovereign pipeline
+Python baseline → Rust validation → WGSL template → GPU shader → ToadStool absorption → Lean on upstream
 ```
 
 ## Tier Definitions
@@ -16,6 +16,33 @@ Python baseline → Rust validation → GPU acceleration → sovereign pipeline
 | **A** | Rewire | Shader exists and is validated; wire into pipeline |
 | **B** | Adapt | Shader exists but needs modification (API, precision, layout) |
 | **C** | New | No shader exists; must be written from scratch |
+| **✅** | Absorbed | ToadStool has absorbed this as a first-class barracuda primitive |
+
+## ToadStool Absorption Status (Feb 20, 2026 — Post Session 25)
+
+| hotSpring Module | ToadStool Primitive | Commit | Status |
+|-----------------|--------------------| -------|--------|
+| `lattice/complex_f64.rs` WGSL template | `shaders/math/complex_f64.wgsl` | `8fb5d5a0` | ✅ Absorbed |
+| `lattice/su3.rs` WGSL template | `shaders/math/su3.wgsl` | `8fb5d5a0` | ✅ Absorbed |
+| Wilson plaquette design | `shaders/lattice/wilson_plaquette_f64.wgsl` | `8fb5d5a0` | ✅ Absorbed |
+| HMC force design | `shaders/lattice/su3_hmc_force_f64.wgsl` | `8fb5d5a0` | ✅ Absorbed |
+| Abelian Higgs design | `shaders/lattice/higgs_u1_hmc_f64.wgsl` | `8fb5d5a0` | ✅ Absorbed |
+| Local `GpuCellList` | `CellListGpu` (BGL fixed) | `8fb5d5a0` | ✅ Absorbed (local deprecated) |
+| NAK eigensolve workarounds | `batched_eigh_nak_optimized_f64.wgsl` | `82f953c8` | ✅ Absorbed |
+| FFT need documented | `Fft1DF64` + `Fft3DF64` | `1ffe8b1a` | ✅ Absorbed |
+| `ReduceScalar` feedback | `ReduceScalarPipeline` (`scalar_buffer`, `max_f64`, `min_f64`) | v0.5.16 | ✅ Absorbed |
+| Driver profiling feedback | `GpuDriverProfile` + `WgslOptimizer` | v0.5.15 | ✅ Absorbed |
+
+### Next Absorption Targets
+
+| hotSpring Module | What Needs Writing | Priority | Absorption Value |
+|-----------------|-------------------|----------|-----------------|
+| `spectral.rs::CsrMatrix::spmv()` | ~~GPU CSR SpMV WGSL shader~~ | ~~**P1**~~ | ✅ **Done** — `WGSL_SPMV_CSR_F64` validated 8/8 checks (machine-epsilon parity on RTX 4070) |
+| `spectral.rs::lanczos()` | ~~GPU Lanczos eigensolve~~ | ~~**P1**~~ | ✅ **Done** — GPU SpMV inner loop + CPU control, 6/6 checks (eigenvalues match to 1e-15) |
+| `lattice/dirac.rs` | ~~GPU staggered Dirac SpMV~~ | ~~**P1**~~ | ✅ **Done** — `WGSL_DIRAC_STAGGERED_F64` validated 8/8 checks (max error 4.44e-16, cold+hot+asymmetric lattices) |
+| `md/celllist.rs` → upstream | Migrate `run_simulation_celllist` to upstream API | **P1** | Retire ~400 lines of local code |
+| `lattice/cg.rs` | ~~GPU CG solver~~ | ~~**P2**~~ | ✅ **Done** — GPU CG (D†D) validated 9/9 checks (machine-epsilon parity, identical iteration counts) |
+| `physics/hfb_gpu_resident.rs` energy | Wire `batched_hfb_energy_f64.wgsl` | **P2** | Eliminate CPU energy bottleneck in SCF |
 
 ## Physics Modules
 
@@ -37,7 +64,7 @@ Python baseline → Rust validation → GPU acceleration → sovereign pipeline
 | Rust Module | WGSL Shader(s) | Tier | Status | Blocker |
 |-------------|----------------|------|--------|---------|
 | `md/simulation.rs` | Yukawa (all-pairs + cell-list), VV integrator, Berendsen thermostat, KE per-particle, `ReduceScalarPipeline` (inline in `md/shaders.rs`) | **A** | Full GPU pipeline | None — production-ready |
-| `md/celllist.rs` | GPU 3-pass cell-list (bin→scan→scatter) + indirect force shader. Zero CPU readback | **A** | Full GPU pipeline (v0.5.13) | None — fixes VACF particle-identity bug |
+| `md/celllist.rs` | GPU 3-pass cell-list (bin→scan→scatter) + indirect force shader. Zero CPU readback | **✅** | Local deprecated — upstream `CellListGpu` fixed (toadstool `8fb5d5a0`) | Migration to upstream API pending |
 | `md/shaders.rs` | 12 WGSL shaders (9 `.wgsl` files + 3 inline). GPU cell-list shaders added v0.5.13 | **A** | Production | v0.5.13: GPU cell-list + indirect force |
 | `md/observables.rs` | Uses `SsfGpu` from BarraCUDA | **A** | SSF on GPU; RDF/VACF CPU post-process | VACF now correct (particle identity preserved by indirect indexing) |
 | `md/cpu_reference.rs` | — | N/A | Validation reference | Intentionally CPU-only for baseline comparison |
@@ -102,7 +129,10 @@ Python baseline → Rust validation → GPU acceleration → sovereign pipeline
 | `barracuda::special::*` | Gamma, Laguerre, Bessel, Hermite, Legendre, erf |
 | `barracuda::ops::md::*` | Forces, integrators, thermostats, observables |
 | `barracuda::pipeline::ReduceScalarPipeline` | GPU f64 sum-reduction (KE, PE, thermostat) **(v0.5.12)** |
-| `GpuCellList` (local) | GPU-resident 3-pass cell-list build (bin→scan→scatter) **(v0.5.13)** |
+| `GpuCellList` (local, **deprecated**) | GPU-resident 3-pass cell-list build — upstream `CellListGpu` fixed (toadstool `8fb5d5a0`) |
+| `barracuda::ops::lattice::*` | Complex f64, SU(3), Wilson plaquette, HMC force, Abelian Higgs GPU shaders (toadstool `8fb5d5a0`) |
+| `barracuda::ops::fft::Fft1DF64` | GPU FFT f64 for momentum-space (toadstool `1ffe8b1a`) |
+| `barracuda::ops::fft::Fft3DF64` | GPU 3D FFT for lattice QCD / PPPM (toadstool `1ffe8b1a`) |
 | `barracuda::device::{WgpuDevice, TensorContext}` | GPU device bridge |
 
 No duplicate math — all mathematical operations use BarraCUDA primitives.
@@ -363,18 +393,42 @@ See `experiments/006_GPU_FP64_COMPARISON.md` for full analysis.
 but 4–7× slower on compute-bound shaders. This is a driver maturity gap,
 not hardware. Proprietary driver on Titan V would unlock its 6.9 TFLOPS fp64.
 
-## Lattice QCD Modules (v0.5.10, Feb 19 2026)
+### NVK Reinstated (Feb 21, 2026)
+
+NVK rebuilt from Mesa 25.1.5 source (`-Dvulkan-drivers=nouveau`) after Pop!_OS
+Mesa package was found to omit NVK. Titan V now visible as GPU1 alongside
+RTX 4070 (GPU0). Full validation re-confirmed:
+
+- `validate_cpu_gpu_parity`: **6/6 checks passed** (energy, temperature, D* parity)
+- `validate_stanton_murillo`: **40/40 checks passed** (6 (κ,Γ) transport cases, 16.5 min)
+- `bench_gpu_fp64`: BCS bisection + batched eigensolve — all correct
+
+ToadStool barracuda auto-detects NVK via adapter info and applies Volta
+driver profile (`DriverKind::Nvk`, `CompilerKind::Nak`, `GpuArch::Volta`).
+
+## Lattice QCD Modules (Updated Feb 20, 2026 — Post ToadStool Session 25)
 
 | Rust Module | Lines | WGSL | Tier | Status |
 |-------------|-------|------|------|--------|
-| `lattice/complex_f64.rs` | 316 | `WGSL_COMPLEX64` string included | **B** | CPU validated; WGSL template ready |
-| `lattice/su3.rs` | 460 | `WGSL_SU3` string included | **B** | CPU validated; WGSL template ready |
-| `lattice/wilson.rs` | 338 | — | **C** | CPU validated (100% coverage); needs shader |
-| `lattice/hmc.rs` | 350 | — | **C** | CPU validated; Cayley exp exactly unitary |
-| `lattice/dirac.rs` | 297 | — | **C** | Staggered Dirac; CPU validated |
-| `lattice/cg.rs` | 214 | — | **C** | CG solver for D†D; CPU validated (94% coverage) |
+| `lattice/complex_f64.rs` | 316 | `WGSL_COMPLEX64` → `complex_f64.wgsl` | **✅** | **Absorbed** — toadstool `8fb5d5a0` |
+| `lattice/su3.rs` | 460 | `WGSL_SU3` → `su3.wgsl` | **✅** | **Absorbed** — toadstool `8fb5d5a0` |
+| `lattice/wilson.rs` | 338 | → `wilson_plaquette_f64.wgsl` | **✅** | **Absorbed** — GPU plaquette shader |
+| `lattice/hmc.rs` | 350 | → `su3_hmc_force_f64.wgsl` | **✅** | **Absorbed** — GPU HMC force shader |
+| `lattice/abelian_higgs.rs` | ~500 | → `higgs_u1_hmc_f64.wgsl` | **✅** | **Absorbed** — GPU U(1) Higgs HMC |
+| `lattice/dirac.rs` | 440+ | `WGSL_DIRAC_STAGGERED_F64` | **A** | ✅ GPU validated (8/8 checks, max error 4.44e-16); ready for toadstool absorption |
+| `lattice/cg.rs` | 320+ | `WGSL_COMPLEX_DOT_RE_F64` + `WGSL_AXPY_F64` + `WGSL_XPAY_F64` | **A** | ✅ GPU validated (9/9 checks, CG iterations match CPU exactly) |
 | `lattice/eos_tables.rs` | 307 | — | N/A | HotQCD reference data (CPU-only) |
 | `lattice/multi_gpu.rs` | 237 | — | **C** | CPU-threaded dispatcher; needs GPU dispatch |
+
+## Spectral Theory Modules (Feb 20, 2026)
+
+| Rust Module | Lines | WGSL | Tier | Status |
+|-------------|-------|------|------|--------|
+| `spectral.rs` (1D Anderson) | ~200 | — | **C** | CPU validated; Sturm bisection (fast, unlikely GPU target) |
+| `spectral.rs` (CsrMatrix + SpMV) | ~60 | `WGSL_SPMV_CSR_F64` | **A** | ✅ GPU validated (8/8 checks, max error 1.78e-15); ready for toadstool absorption |
+| `spectral.rs` (Lanczos) | ~80 | uses `WGSL_SPMV_CSR_F64` | **A** | ✅ GPU validated (6/6 checks, GPU SpMV inner loop) |
+| `spectral.rs` (2D/3D Anderson) | ~100 | — | **C** | CPU validated; builds CSR → feeds Lanczos (GPU when SpMV lands) |
+| `spectral.rs` (Hofstadter) | ~50 | — | N/A | Sweeps over almost-Mathieu; CPU is fine (fast parameter scan) |
 
 ### HMC Implementation Notes
 
@@ -387,16 +441,25 @@ Gauge force: `dP/dt = -(β/3) Proj_TA(U × V)` where V is the staple sum
 (NOT V†). This was debugged from first principles during the Feb 19 audit —
 the original sign and adjoint were both wrong, causing 0% HMC acceptance.
 
-### Lattice QCD GPU Promotion Roadmap
+### Lattice QCD GPU Promotion Roadmap (Updated Feb 20, 2026)
 
-1. **Complex f64 + SU(3)**: WGSL template strings already exist in source files.
-   Compile via `ShaderTemplate` and validate GPU vs CPU parity.
-2. **Plaquette shader**: Port `wilson.rs` plaquette/staple computation to WGSL.
-   Input: link buffer (4 × Vol × 18 f64). Output: plaquette average (1 f64).
-3. **HMC on GPU**: Port leapfrog + Cayley exp. Keep Metropolis on CPU (single
-   random number per trajectory).
-4. **Dirac CG on GPU**: Dominant cost in full QCD. Sparse matrix-vector product
-   with staggered phases. Requires careful memory layout for coalesced access.
+1. ~~**Complex f64 + SU(3)**~~ ✅ **Absorbed** — toadstool `8fb5d5a0`
+2. ~~**Plaquette shader**~~ ✅ **Absorbed** — `wilson_plaquette_f64.wgsl`
+3. ~~**HMC force on GPU**~~ ✅ **Absorbed** — `su3_hmc_force_f64.wgsl` + `higgs_u1_hmc_f64.wgsl`
+4. ~~**FFT**~~ ✅ **Absorbed** — `Fft1DF64` + `Fft3DF64` (toadstool `1ffe8b1a`)
+5. ~~**Dirac apply on GPU**~~ ✅ **Done** — `WGSL_DIRAC_STAGGERED_F64` validated
+   8/8 checks (cold/hot/asymmetric lattices, max error 4.44e-16).
+6. ~~**GPU CG solver**~~ ✅ **Done** — `WGSL_COMPLEX_DOT_RE_F64` + `WGSL_AXPY_F64`
+   + `WGSL_XPAY_F64` validated 9/9 checks. Full CG iteration on GPU:
+   D†D + dot + axpy + xpay, only scalar coefficients transfer per iteration.
+   **Full GPU lattice QCD pipeline: COMPLETE.**
+7. ✅ **Pure GPU workload validated** — `validate_pure_gpu_qcd` (3/3 checks):
+   CPU HMC thermalization (10 traj, 100% accepted) → GPU CG on thermalized
+   configs (5 solves, 32 iters each, exact iteration match, solution parity
+   4.10e-16). Only 24 bytes/iter CPU↔GPU transfer. **Production-like workload: VALIDATED.**
+8. ✅ **Python baseline established** — `bench_lattice_cg` + `lattice_cg_control.py`:
+   Rust 200× faster than Python on identical CG algorithm. Iterations match exactly
+   (5 cold, 37 hot). Dirac apply: 0.023ms (Rust) vs 4.59ms (Python) = 200×.
 
 ## Evolution Gaps Identified
 
@@ -404,7 +467,12 @@ the original sign and adjoint were both wrong, causing 0% HMC acceptance.
 |-----|--------|----------|--------|
 | GPU energy integrands not wired in spherical HFB | CPU bottleneck in SCF energy | High | Shader exists, needs pipeline wiring |
 | ~~`SumReduceF64` not used for MD energy sums~~ | ~~CPU readback for reduction~~ | ~~High~~ | ✅ Resolved v0.5.12: `ReduceScalarPipeline` (GPU-buffer variant) |
-| Lattice QCD GPU shaders | CPU-only lattice modules | Medium | WGSL templates ready; needs compilation + validation |
+| ~~Lattice QCD GPU shaders~~ | ~~CPU-only lattice modules~~ | ~~Medium~~ | ✅ Absorbed by toadstool S25 (5 GPU shaders) |
+| ~~GPU SpMV (CSR)~~ | ~~CPU-only sparse matrix-vector product~~ | ~~**P1**~~ | ✅ **Done** — `WGSL_SPMV_CSR_F64` validated, `validate_gpu_spmv` binary (28th suite) |
+| ~~GPU Lanczos~~ | ~~CPU-only iterative eigensolve~~ | ~~**P1**~~ | ✅ **Done** — GPU SpMV Lanczos validated, `validate_gpu_lanczos` (29th suite) |
+| ~~GPU Dirac SpMV~~ | ~~CPU-only staggered Dirac operator~~ | ~~**P1**~~ | ✅ **Done** — `WGSL_DIRAC_STAGGERED_F64` validated, `validate_gpu_dirac` binary (30th suite) |
+| ~~Pure GPU QCD workload~~ | ~~Thermalized-config CG validation~~ | ~~**P1**~~ | ✅ **Done** — `validate_pure_gpu_qcd` (3/3): HMC → GPU CG, 4.10e-16 parity (31st suite) |
+| ~~Python baseline~~ | ~~Interpreted-language benchmark~~ | ~~**P1**~~ | ✅ **Done** — Rust 200× faster: CG iters match exactly, Dirac 0.023ms vs 4.59ms |
 | 8 files > 1000 lines | Code organization | Medium | Documented deviation; physics-coherent |
 | ~~Stanton-Murillo transport normalization~~ | ~~Paper 5 calibration~~ | ~~High~~ | ✅ Resolved: Sarkas-calibrated (12 points, N=2000) |
 | ~~BCS + density shader not wired~~ | ~~CPU readback after eigensolve~~ | ~~High~~ | ✅ Resolved v0.5.10 |

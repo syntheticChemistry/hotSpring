@@ -238,3 +238,83 @@ path = "src/bin/bench_screened_coulomb.rs"
 [[bin]]
 name = "validate_pure_gauge"
 path = "src/bin/validate_pure_gauge.rs"
+
+[[bin]]
+name = "validate_reservoir_transport"
+path = "src/bin/validate_reservoir_transport.rs"
+
+[[bin]]
+name = "validate_npu_quantization"
+path = "src/bin/validate_npu_quantization.rs"
+
+[[bin]]
+name = "validate_npu_beyond_sdk"
+path = "src/bin/validate_npu_beyond_sdk.rs"
+
+[[bin]]
+name = "validate_npu_pipeline"
+path = "src/bin/validate_npu_pipeline.rs"
+
+[[bin]]
+name = "validate_lattice_npu"
+path = "src/bin/validate_lattice_npu.rs"
+
+[[bin]]
+name = "validate_hetero_monitor"
+path = "src/bin/validate_hetero_monitor.rs"
+
+[[bin]]
+name = "validate_spectral"
+path = "src/bin/validate_spectral.rs"
+
+[[bin]]
+name = "validate_lanczos"
+path = "src/bin/validate_lanczos.rs"
+
+[[bin]]
+name = "validate_anderson_3d"
+path = "src/bin/validate_anderson_3d.rs"
+
+[[bin]]
+name = "validate_hofstadter"
+path = "src/bin/validate_hofstadter.rs"
+
+# ── GPU SpMV: CSR sparse matrix-vector product on GPU (spectral theory P1) ──
+[[bin]]
+name = "validate_gpu_spmv"
+path = "src/bin/validate_gpu_spmv.rs"
+
+# ── GPU Lanczos: eigensolve via GPU SpMV inner loop ──
+[[bin]]
+name = "validate_gpu_lanczos"
+path = "src/bin/validate_gpu_lanczos.rs"
+
+# ── GPU Dirac: staggered Dirac operator on GPU (Papers 9-12) ──
+[[bin]]
+name = "validate_gpu_dirac"
+path = "src/bin/validate_gpu_dirac.rs"
+
+# ── GPU CG: conjugate gradient D†D on GPU (Papers 9-12 complete) ──
+[[bin]]
+name = "validate_gpu_cg"
+path = "src/bin/validate_gpu_cg.rs"
+
+# ── Lattice QCD CG benchmark: Rust CPU vs Python baseline ──
+[[bin]]
+name = "bench_lattice_cg"
+path = "src/bin/bench_lattice_cg.rs"
+
+# ── Pure GPU lattice QCD: HMC + GPU CG on thermalized configs ──
+[[bin]]
+name = "validate_pure_gpu_qcd"
+path = "src/bin/validate_pure_gpu_qcd.rs"
+
+# ── Paper 13: Abelian Higgs (1+1)D U(1)+scalar field theory ──
+[[bin]]
+name = "validate_abelian_higgs"
+path = "src/bin/validate_abelian_higgs.rs"
+
+# ── Lattice QCD scaling: GPU CG at production lattice sizes ──
+[[bin]]
+name = "bench_lattice_scaling"
+path = "src/bin/bench_lattice_scaling.rs"

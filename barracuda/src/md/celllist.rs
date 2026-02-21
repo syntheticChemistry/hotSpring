@@ -108,11 +108,30 @@ impl CellList {
 // ═══════════════════════════════════════════════════════════════════════
 // GPU-resident cell-list builder
 // ═══════════════════════════════════════════════════════════════════════
+//
+// DEPRECATED (Feb 20, 2026): ToadStool commit 8fb5d5a0 fixed the
+// CellListGpu prefix-sum BGL mismatch. The upstream
+// `barracuda::ops::md::neighbor::CellListGpu` now has the correct
+// 4-binding layout matching `prefix_sum.wgsl`. This local
+// implementation should be migrated to the upstream CellListGpu in the
+// next evolution cycle. Keeping for now to avoid a mid-session API
+// migration across `run_simulation_celllist`, `sarkas_gpu`, and
+// `bench_cpu_gpu_scaling`.
+//
+// Migration path:
+//   1. Replace GpuCellList::new() with barracuda CellListGpu::new()
+//   2. Replace GpuCellList::build() with upstream build()
+//   3. Delete local WGSL shaders: cell_bin_f64, exclusive_prefix_sum,
+//      cell_scatter (upstream shaders cover these)
+//   4. Delete this struct and run_simulation_celllist
+// ═══════════════════════════════════════════════════════════════════════
 
 /// GPU-resident cell-list: 3-pass build with no CPU readback.
 ///
-/// After `build(&pos_buf)`, the GPU buffers `cell_start`, `cell_count`,
-/// and `sorted_indices` are ready for the indirect force shader.
+/// **Deprecated**: Use `barracuda::ops::md::neighbor::CellListGpu` instead.
+/// ToadStool commit `8fb5d5a0` (Feb 20, 2026) fixed the prefix-sum BGL
+/// mismatch that made the upstream version unusable. This local copy is
+/// retained only until the API migration is complete.
 struct GpuCellList {
     mx: u32,
     my: u32,

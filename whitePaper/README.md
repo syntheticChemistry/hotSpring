@@ -21,11 +21,12 @@
 
 hotSpring replicates published computational plasma physics from the Murillo Group (Michigan State University) on consumer hardware, then re-executes the computations using BarraCUDA — a Pure Rust scientific computing library with zero external dependencies.
 
-The study answers four questions:
+The study answers five questions:
 1. **Can published computational science be independently reproduced?** (Answer: yes, but it required fixing 6 silent bugs and rebuilding physics that was behind a gated platform)
 2. **Can Rust + WebGPU replace the Python scientific stack for real physics?** (Answer: yes — BarraCUDA achieves 478× faster throughput and 44.8× less energy at L1, with GPU FP64 validated to 4.55e-13 MeV precision. Full Sarkas Yukawa MD runs on a $600 consumer GPU: 9/9 PP cases pass at N=10,000 with 80,000 production steps in 3.66 hours for $0.044.)
 3. **Can consumer GPUs do first-principles nuclear structure at scale?** (Answer: yes — the full AME2020 dataset (2,042 nuclei, 39x the published paper) runs on a single RTX 4070. L1 Pareto analysis, L2 GPU-batched HFB, and L3 deformed HFB all produce results. This is direct physics computation, not surrogate learning.)
 4. **Does the Python → Rust → GPU evolution path extend beyond plasma physics?** (Answer: yes — lattice QCD (SU(3) pure gauge, HMC, staggered Dirac), Abelian Higgs (U(1) gauge + Higgs field, 143× faster than Python), transport coefficients (Green-Kubo, Stanton-Murillo), screened Coulomb (Sturm eigensolve, 2274× faster than Python), and HotQCD EOS tables are all validated on CPU with WGSL templates ready for GPU promotion. 9 papers reproduced, 300+ validation checks, ~$0.20 total compute cost.)
+5. **Can physics math be truly substrate-portable — CPU → GPU → NPU?** (Answer: yes — ESN reservoir math validated across f64 CPU, f32 NpuSimulator, int4 quantized, and real AKD1000 NPU hardware. 10 SDK assumptions overturned by probing beyond the SDK. The same WGSL shader math trains on GPU and deploys on NPU for inference at 30mW. See `metalForge/npu/akida/BEYOND_SDK.md`.)
 
 ---
 
@@ -99,28 +100,85 @@ computational methods (MD ↔ HMC, plasma EOS ↔ QCD EOS).
 
 ### Lattice QCD Infrastructure Built
 
-| Module | Lines | Purpose | GPU-Ready |
-|--------|-------|---------|-----------|
-| `complex_f64.rs` | 316 | Complex f64 with WGSL template | WGSL string included |
-| `su3.rs` | 460 | SU(3) matrix algebra with WGSL template | WGSL string included |
-| `wilson.rs` | 338 | Wilson gauge action, plaquettes, force | Needs WGSL shader |
-| `hmc.rs` | 350 | HMC with Cayley exponential | Needs WGSL shader |
-| `dirac.rs` | 297 | Staggered Dirac operator | Needs WGSL shader |
-| `cg.rs` | 214 | Conjugate gradient for D†D | Needs WGSL shader |
+| Module | Lines | Purpose | GPU Status |
+|--------|-------|---------|------------|
+| `complex_f64.rs` | 316 | Complex f64 arithmetic | ✅ **Absorbed** — `complex_f64.wgsl` (toadstool `8fb5d5a0`) |
+| `su3.rs` | 460 | SU(3) matrix algebra | ✅ **Absorbed** — `su3.wgsl` (toadstool `8fb5d5a0`) |
+| `wilson.rs` | 338 | Wilson gauge action, plaquettes | ✅ **Absorbed** — `wilson_plaquette_f64.wgsl` |
+| `hmc.rs` | 350 | HMC with Cayley exponential | ✅ **Absorbed** — `su3_hmc_force_f64.wgsl` |
+| `abelian_higgs.rs` | ~500 | U(1)+Higgs (1+1)D HMC | ✅ **Absorbed** — `higgs_u1_hmc_f64.wgsl` |
+| `dirac.rs` | 297 | Staggered Dirac operator | **P1** — GPU SpMV needed (last QCD blocker) |
+| `cg.rs` | 214 | Conjugate gradient for D†D | **P2** — needs GPU SpMV + dot + axpy |
 | `eos_tables.rs` | 307 | HotQCD reference data | CPU-only (data) |
-| `abelian_higgs.rs` | ~500 | U(1)+Higgs (1+1)D HMC | Needs WGSL shader |
 | `multi_gpu.rs` | 237 | Temperature scan dispatcher | CPU-threaded, GPU-ready |
 
 ### Remaining Gaps for Full Lattice QCD
 
-| Gap | Needed For | Priority |
-|-----|-----------|----------|
-| FFT (momentum-space) | Full QCD with dynamical fermions | High |
-| GPU SU(3) plaquette shader | GPU-accelerated HMC | High |
-| GPU Dirac operator | Fermion matrix-vector products | High |
-| Larger lattice sizes (8^4, 16^4) | Physical results | Medium |
+| Gap | Needed For | Priority | Status |
+|-----|-----------|----------|--------|
+| ~~FFT (momentum-space)~~ | Full QCD with dynamical fermions | — | ✅ **Done** — toadstool `Fft1DF64`+`Fft3DF64` (14 GPU tests, 1e-10) |
+| ~~GPU SU(3) plaquette shader~~ | GPU-accelerated HMC | — | ✅ **Done** — `wilson_plaquette_f64.wgsl` |
+| ~~GPU HMC force + Abelian Higgs~~ | GPU-accelerated gauge evolution | — | ✅ **Done** — `su3_hmc_force_f64.wgsl` + `higgs_u1_hmc_f64.wgsl` |
+| GPU Dirac operator | Fermion matrix-vector products | **P1** | CPU validated; WGSL port needed |
+| Larger lattice sizes (8^4, 16^4) | Physical results | **P2** | GPU lattice shaders now available |
 
-### All Reproduced Papers (9 total)
+### Heterogeneous Hardware Pipeline: Lattice QCD Phase Structure
+
+GPU FFT f64 is now available (toadstool Session 25). The full lattice QCD stack
+(Tier 3) only needs GPU Dirac SpMV for dynamical fermions. Meanwhile, the
+**deconfinement phase transition** — the most important observable in finite-
+temperature QCD — is visible in purely position-space quantities: the Polyakov
+loop ⟨|L|⟩ and plaquette ⟨P⟩. No FFT needed for phase structure.
+
+**Pipeline**: GPU generates pure-gauge SU(3) configurations via HMC → NPU
+classifies phases in real-time from (β, ⟨P⟩, ⟨|L|⟩) features → CPU validates
+against known β_c ≈ 5.69. The NPU learns the mapping from gauge observables
+to phase label (confined/deconfined) at negligible cost.
+
+This heterogeneous approach makes lattice gauge theory phase structure accessible
+on consumer hardware today — no FFT, no HPC, just GPU+NPU+CPU for ~$900 total.
+
+**Validated**: `validate_lattice_npu` detects β_c = 5.715 (known 5.692, error 0.4%)
+from real SU(3) HMC observables. ESN classifier achieves 100% test accuracy.
+NpuSimulator f32 parity: max error 2.8e-7. 10/10 checks pass.
+
+### What Was Previously Impossible — Now Demonstrated
+
+`validate_hetero_monitor` (9/9 checks) proves five capabilities that were
+literally impossible before the heterogeneous GPU+NPU+CPU pipeline:
+
+| Capability | Before | Now | Measured |
+|------------|--------|-----|----------|
+| Live phase monitoring during HMC | Offline analysis only | ESN classifies each config as GPU generates it | 9.1 μs per prediction |
+| Continuous transport prediction | Green-Kubo requires full trajectory | NPU predicts D*/η*/λ* from 10-frame window | Multi-output, all finite |
+| Cross-substrate parity | Physics locked to one substrate | Same weights: CPU f64, f32 sim, int4 quantized | f32 error 5.1e-7, int4 error 0.13 |
+| Zero-overhead monitoring | Monitoring paused simulation | Prediction takes 0.09% of HMC time | 9 μs vs 10.3 ms |
+| Predictive steering | Uniform sampling wastes compute | ESN oracle focuses compute near phase boundary | 62% fewer evaluations, β_c error 0.013 |
+
+### R. Anderson Extension: Hot Spring Microbial Evolution (Taq Corollary)
+
+Rika Anderson (Carleton College) studies microbial evolution in extreme environments.
+Her lab has published population genomics of *Sulfolobus islandicus* in the **same
+Yellowstone hot springs** where *Thermus aquaticus* was discovered — the organism
+whose Taq polymerase enabled PCR and anchors the constrained evolution thesis
+(`gen3/CONSTRAINED_EVOLUTION_FORMAL.md` §1.1).
+
+Campbell, Anderson et al. (2017) showed that geographic isolation between hot springs
+drives structured genomic variation, with different populations showing different
+susceptibilities to mobile genetic elements. This is constrained evolution in nature:
+thermal constraint selects for survival, geographic isolation creates independent
+evolutionary trajectories, and mobile elements provide material for innovation.
+
+Anderson's 2021 mSystems paper explicitly cites Lenski's LTEE (§1.2 of the constrained
+evolution thesis) and formalizes when stochastic forces dominate over deterministic
+selection in extreme environments — introducing Muller's ratchet as a consequence
+of extreme energy limitation.
+
+**Papers queued**: See `specs/PAPER_REVIEW_QUEUE.md` — Papers 23-24 (Campbell 2017,
+Anderson 2021). Reproduction of Paper 23 requires bioinformatics only (public
+*Sulfolobus* genomes) — wetSpring's sovereign pipeline handles the computation.
+
+### All Reproduced Papers (18 total, 9 original + 9 Kachkovskiy spectral)
 
 | # | Paper | Status | Highlights |
 |---|-------|--------|------------|
@@ -133,6 +191,53 @@ computational methods (MD ↔ HMC, plasma EOS ↔ QCD EOS).
 | 7 | HotQCD EOS tables (Bazavov 2014) | **Done** | Thermodynamic validation |
 | 8 | Pure gauge SU(3) Wilson action | **Done** | 12/12 checks, HMC 96-100% acceptance |
 | 13 | Abelian Higgs (Bazavov 2015) | **Done** | 17/17 checks, U(1)+Higgs HMC, Rust 143× Python |
+
+---
+
+## metalForge: Hardware Beyond the SDK
+
+hotSpring's metalForge initiative characterizes actual hardware behavior versus
+vendor documentation. The same methodology that found native f64 at 1:2 on
+consumer GPUs (vs CUDA's advertised 1:32) was applied to the BrainChip AKD1000 NPU.
+
+### NPU Beyond-SDK Discoveries (10 SDK assumptions overturned)
+
+| Discovery | SDK Claim | Reality | Validation |
+|-----------|-----------|---------|------------|
+| Input channels | 1 or 3 only | Any count (tested 1-64) | 13/13 HW checks pass |
+| FC layers | Independent | Merge into single HW pass (SkipDMA) | 6.7% overhead for 7 extra layers |
+| Batch inference | Single sample | Batch=8 → 2.35× throughput | 427μs/sample at batch=8 |
+| FC width | ~hundreds | Tested to 8192+ neurons | All map to hardware |
+| Multi-output | Not documented | 10 outputs = 4.5% overhead vs 1 | Free cost for physics |
+| Weight mutation | Not supported | set_variable() updates without reprogram | Exact linearity (error=0) |
+| Power | "30mW" | Board floor 900mW, chip below noise | True inference unmeasurably small |
+| Memory | 8MB SRAM | PCIe BAR1 exposes 16GB address space | Full NP mesh addressable |
+| Program format | Opaque | FlatBuffer (program_info + program_data) | Weights via DMA, not in program |
+| Engine | Simple inference | SkipDMA, on-chip learning, register access | C++ symbol analysis confirmed |
+
+### NPU Validation Suite
+
+| Suite | Checks | Status |
+|-------|--------|--------|
+| Python hardware (npu_beyond_sdk.py) | 13/13 | All pass on AKD1000 |
+| Rust math (validate_npu_beyond_sdk) | 16/16 | All pass (pure math, substrate-independent) |
+| Quantization cascade (npu_quantization_parity.py) | 4/4 | f32<0.01%, int8<5%, int4+act4<50% |
+| Rust quantization (validate_npu_quantization) | 6/6 | All pass |
+| Physics pipeline (npu_physics_pipeline.py) | 10/10 | MD→ESN→NPU→D*,η*,λ* end-to-end |
+| Pipeline math (validate_npu_pipeline) | 10/10 | All pass (substrate-independent) |
+
+### Cross-Substrate Math Parity
+
+The same ESN reservoir math is validated on four substrates:
+
+| Substrate | Precision | Error vs f64 | Validated |
+|-----------|-----------|:---:|:---:|
+| CPU (Rust) | f64 | reference | 16/16 checks |
+| NpuSimulator (Rust) | f32 | <0.001% | 6/6 checks |
+| Quantized (Rust) | int4 | <30% | 6/6 checks |
+| AKD1000 hardware | int4 | measured | 13/13 checks |
+
+This proves the physics is substrate-portable: train on GPU → deploy on NPU.
 
 ---
 
@@ -184,13 +289,15 @@ No institutional access required. No Code Ocean account. No Fortran compiler. AG
 
 | Metric | Value |
 |--------|-------|
-| Unit tests | **320** pass, 5 GPU-ignored (325 total) |
-| Validation suites | **18/18** pass |
+| Unit tests | **345** pass, 5 GPU-ignored (350 total) |
+| Validation suites | **27/27** pass |
+| Python control scripts | **34** (Sarkas, surrogate, TTM, NPU, reservoir, lattice, spectral theory) |
+| Rust validation binaries | **25** (physics, MD, lattice, NPU, transport, spectral 1D/2D/3D, Lanczos, Hofstadter) |
 | Clippy warnings | **0** (default + pedantic on library code) |
 | Doc warnings | **0** |
 | Unsafe blocks | **0** |
 | TODO/FIXME/HACK markers | **0** |
-| Centralized tolerances | **68** constants in `tolerances.rs` |
+| Centralized tolerances | **72** constants in `tolerances.rs` |
 | Provenance records | All validation targets traced to Python origins or DOIs |
 | AGPL-3.0 compliance | All `.rs` and `.wgsl` files |
 

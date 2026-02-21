@@ -730,6 +730,86 @@ pub const DEFORMATION_GUESS_SD: f64 = 0.35;
 /// of headroom for accumulated rounding in the expected-value computation.
 pub const NEAR_ZERO_EXPECTED: f64 = 1e-14;
 
+// ═══════════════════════════════════════════════════════════════════
+// NPU quantization tolerances (metalForge AKD1000 validation)
+// ═══════════════════════════════════════════════════════════════════
+
+/// ESN f64 → f32 prediction parity: relative error.
+///
+/// f32 has ~7.2 significant digits; ESN forward pass with 50-dim reservoir
+/// and 100-frame sequences accumulates ~O(50*100) = 5000 FP operations.
+/// Measured: <0.001% mean error across 6 test cases (Python control).
+pub const NPU_F32_PARITY: f64 = 0.001;
+
+/// ESN f64 → int8 quantized prediction: relative error.
+///
+/// Symmetric uniform quantization of weights to 8-bit integers introduces
+/// quantization noise proportional to max_abs(w) / 127. For W_in in [-0.5, 0.5]
+/// and W_res with spectral_radius=0.95, measured mean error is ~0.34%.
+/// 5% threshold is conservative.
+///
+/// Source: control/metalforge_npu/scripts/npu_quantization_parity.py
+pub const NPU_INT8_QUANTIZATION: f64 = 0.05;
+
+/// ESN f64 → int4 quantized prediction: relative error.
+///
+/// 4-bit quantization maps weights to [-7, 7] integers. The dynamic range
+/// reduction from 15.9 significant digits (f64) to 4 bits (3.9 significant
+/// digits) causes ~5.5% mean error and up to ~14% worst-case for predictions
+/// near the weight matrix's null space.
+/// 30% threshold accommodates worst-case phase diagram corners.
+///
+/// Source: control/metalforge_npu/scripts/npu_quantization_parity.py
+pub const NPU_INT4_QUANTIZATION: f64 = 0.30;
+
+/// ESN f64 → int4 weights + int4 activations: relative error.
+///
+/// When both weights AND activations are quantized to 4-bit (matching AKD1000
+/// hardware), the error compounds through the reservoir update loop. The tanh
+/// activation's non-linearity partially mitigates quantization noise (clamping
+/// to [-1,1]) but the iterative state update amplifies errors over 100 frames.
+/// Measured: ~8.9% mean, ~24% worst-case.
+/// 50% threshold is generous for full-hardware simulation.
+///
+/// Source: control/metalforge_npu/scripts/npu_quantization_parity.py
+pub const NPU_INT4_FULL_QUANTIZATION: f64 = 0.50;
+
+// ═══════════════════════════════════════════════════════════════════
+// NPU beyond-SDK tolerances (metalForge AKD1000 hardware probing)
+// ═══════════════════════════════════════════════════════════════════
+
+/// FC depth overhead: latency increase from depth=1 to depth=7.
+///
+/// All FC layers merge into a single hardware sequence via SkipDMA.
+/// Measured: ~7% overhead for 7 extra layers. 30% is generous.
+///
+/// Source: control/metalforge_npu/scripts/npu_beyond_sdk.py
+pub const NPU_FC_DEPTH_OVERHEAD: f64 = 0.30;
+
+/// Batch inference speedup: batch=8 vs batch=1 throughput ratio.
+///
+/// PCIe round-trip amortizes across batch. Measured: 2.35×.
+/// 1.5× is the minimum acceptable amortization.
+///
+/// Source: control/metalforge_npu/scripts/npu_beyond_sdk.py
+pub const NPU_BATCH_SPEEDUP_MIN: f64 = 1.5;
+
+/// Multi-output overhead: latency increase from 1→10 outputs.
+///
+/// The NP mesh parallelism handles multiple outputs simultaneously.
+/// Measured: 4.5% overhead. 30% is generous.
+///
+/// Source: control/metalforge_npu/scripts/npu_beyond_sdk.py
+pub const NPU_MULTI_OUTPUT_OVERHEAD: f64 = 0.30;
+
+/// Weight mutation linearity: max error for w×k producing output×k.
+///
+/// Changing FC weights via set_variable() must produce proportional
+/// output changes. Measured: 0.0000 error.
+///
+/// Source: control/metalforge_npu/scripts/npu_beyond_sdk.py
+pub const NPU_WEIGHT_MUTATION_LINEARITY: f64 = 0.01;
+
 /// Normalization variance guard for the pre-screening classifier.
 ///
 /// During feature normalization, any feature with variance below this
@@ -856,6 +936,14 @@ mod tests {
             U1_HMC_ACCEPTANCE_MIN,
             U1_WEAK_COUPLING_PLAQ_MIN,
             U1_PYTHON_RUST_PARITY,
+            NPU_F32_PARITY,
+            NPU_INT8_QUANTIZATION,
+            NPU_INT4_QUANTIZATION,
+            NPU_INT4_FULL_QUANTIZATION,
+            NPU_FC_DEPTH_OVERHEAD,
+            NPU_BATCH_SPEEDUP_MIN,
+            NPU_MULTI_OUTPUT_OVERHEAD,
+            NPU_WEIGHT_MUTATION_LINEARITY,
         ];
         for (i, &t) in tols.iter().enumerate() {
             assert!(t > 0.0, "tolerance index {i} must be positive, got {t}");

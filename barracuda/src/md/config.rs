@@ -58,7 +58,18 @@ impl MdConfig {
     }
 
     /// Effective mass in OCP reduced units (a_ws, ω_p⁻¹).
-    /// m* = m × a_ws × ω_p² / F₀ = 4π n a_ws³ = 3.0
+    ///
+    /// Derivation: ω_p² = n q²/(ε₀ m), so m = n q²/(ε₀ ω_p²).
+    /// In reduced units where a_ws=1, ω_p⁻¹=1, E₀=q²/(4πε₀ a_ws):
+    ///   m* = m × a_ws² × ω_p² / E₀ = 4π n a_ws³ = 4π × 3/(4π) = 3.0
+    ///
+    /// This is a *derived* constant from the OCP E₀-unit convention, not
+    /// a magic number. The alternative Sarkas convention uses m*=1 with
+    /// V* = Γ·exp(-κr)/r (energy in k_BT units). Both are standard;
+    /// see Stanton & Murillo PRE 93, 043203 (2016) §II.A.
+    ///
+    /// Evolution note: consider migrating to the Sarkas m*=1 convention
+    /// for ecosystem parity with Python scientific computing tools.
     pub const fn reduced_mass(&self) -> f64 {
         3.0
     }

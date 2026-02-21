@@ -30,7 +30,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 
 ---
 
-## Current Status (2026-02-20)
+## Current Status (2026-02-21)
 
 | Study | Status | Quantitative Checks |
 |-------|--------|-------------------|
@@ -45,7 +45,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **GPU MD PP Yukawa** (9 cases) | ✅ Complete | 45/45 pass (Energy, RDF, VACF, SSF, D*) |
 | **N-Scaling + Native f64** (5 N values) | ✅ Complete | 16/16 pass (500→20k, 0.000% drift) |
 | **Paper-Parity Long Run** (9 cases, 80k steps) | ✅ Complete | 9/9 pass (N=10k, 0.000-0.002% drift, 3.66 hrs, $0.044) |
-| **Toadstool Rewire** (3 GPU ops) | ✅ Complete | BatchedEighGpu, SsfGpu, PppmGpu wired |
+| **ToadStool Rewire v1** (3 GPU ops) | ✅ Complete | BatchedEighGpu, SsfGpu, PppmGpu wired |
 | **Nuclear EOS Full-Scale** (Phase F, AME2020) | ✅ Complete | 9/9 pass (L1 Pareto, L2 GPU 2042 nuclei, L3 deformed) |
 | **BarraCUDA MD Pipeline** (6 ops) | ✅ Complete | 12/12 pass (YukawaF64, VV, Berendsen, KE — 0.000% drift) |
 | **BarraCUDA HFB Pipeline** (3 ops) | ✅ Complete | 14/14 pass (BCS GPU 6.2e-11, Eigh 2.4e-12) |
@@ -55,7 +55,27 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **Screened Coulomb** (Paper 6) | ✅ Complete | 23/23 pass (Sturm bisection, Python parity Δ≈10⁻¹², critical screening) |
 | **Abelian Higgs** (Paper 13) | ✅ Complete | 17/17 pass (U(1)+Higgs HMC, phase structure, Rust 143× faster than Python) |
 | **ToadStool Rewire v2** | ✅ Complete | WgslOptimizer + GpuDriverProfile wired into all shader compilation |
-| **TOTAL** | **18/18 validation suites pass** | 325 unit tests (320 passing + 5 GPU-ignored), 6 upstream bugs found |
+| **ToadStool Rewire v3** | ✅ Complete | CellListGpu fixed, Complex64+SU(3)+plaquette+HMC+Higgs GPU shaders, **FFT f64** — Tier 3 lattice QCD unblocked |
+| **NPU Quantization** (metalForge) | ✅ Complete | 6/6 pass (f32/int8/int4/act4 parity, sparsity, monotonic) |
+| **NPU Beyond-SDK** (metalForge) | ✅ Complete | 29/29 pass (13 HW + 16 Rust math: channels, merge, batch, width, multi-out, mutation, determinism) |
+| **NPU Physics Pipeline** (metalForge) | ✅ Complete | 20/20 pass (10 HW pipeline + 10 Rust math: MD→ESN→NPU→D*,η*,λ*) |
+| **Lattice NPU Pipeline** (metalForge) | ✅ Complete | 10/10 pass (SU(3) HMC→ESN→NpuSimulator phase classification, β_c=5.715) |
+| **Hetero Real-Time Monitor** (metalForge) | ✅ Complete | 9/9 pass (live HMC phase monitor, cross-substrate f64→f32→int4, 0.09% overhead, predictive steering 62% compute saved) |
+| **Spectral Theory** (Kachkovskiy) | ✅ Complete | 10/10 pass (Anderson localization, almost-Mathieu, Herman γ=ln|λ|, Aubry-André transition, Poisson stats) |
+| **Lanczos + 2D Anderson** (Kachkovskiy) | ✅ Complete | 11/11 pass (SpMV parity, Lanczos vs Sturm, full spectrum, GOE→Poisson transition, 2D bandwidth) |
+| **3D Anderson** (Kachkovskiy) | ✅ Complete | 10/10 pass (mobility edge, GOE→Poisson transition, dimensional hierarchy 1D<2D<3D, spectrum symmetry) |
+| **Hofstadter Butterfly** (Kachkovskiy) | ✅ Complete | 10/10 pass (band counting q=2,3,5, fractal Cantor measure, α↔1-α symmetry, gap opening) |
+| **GPU SpMV + Lanczos** (Kachkovskiy GPU) | ✅ Complete | 14/14 pass (CSR SpMV parity 1.78e-15, Lanczos eigenvalues match CPU to 1e-15) |
+| **GPU Dirac + CG** (Papers 9-12 GPU) | ✅ Complete | 17/17 pass (SU(3) Dirac 4.44e-16, CG iters match exactly, D†D positivity) |
+| **Pure GPU QCD Workload** | ✅ Complete | 3/3 pass (HMC → GPU CG on thermalized configs, solution parity 4.10e-16) |
+| **Python vs Rust CG** | ✅ Complete | **200× speedup**: identical iterations (5 cold, 37 hot), Dirac 0.023ms vs 4.59ms |
+| **GPU Scaling (4⁴→16⁴)** | ✅ Complete | GPU **22.2× faster** at 16⁴ (24ms vs 533ms), crossover at V~2000, iters identical |
+| **NPU HW Pipeline** | ✅ Complete | 10/10 on AKD1000: MD→ESN→NPU→D*,η*,λ*, 2469 inf/s, 8796× less energy |
+| **NPU HW Beyond-SDK** | ✅ Complete | 13/13 on AKD1000: 10 SDK assumptions overturned, all validated on hardware |
+| **NPU HW Quantization** | ✅ Complete | 4/4 on AKD1000: f32/int8/int4/act4 cascade, 685μs/inference |
+| **NPU Lattice Phase** | ✅ 7/8 | β_c=5.715 on AKD1000, ESN 100% CPU, int4 NPU 60% (marginal as expected) |
+| **Titan V NVK** | ✅ Complete | NVK built from Mesa 25.1.5. `cpu_gpu_parity` 6/6, `stanton_murillo` 40/40, `bench_gpu_fp64` pass |
+| **TOTAL** | **31/31 Rust validation suites** | + 34/35 NPU HW checks, 345 unit tests, 6 upstream bugs found. Both GPUs validated |
 
 Papers 5, 7, and 8 from the review queue are complete. Paper 5 transport fits
 (Daligault 2012) were recalibrated against 12 Sarkas Green-Kubo D* values (Feb 2026)
@@ -63,9 +83,29 @@ and evolved with κ-dependent weak-coupling correction `C_w(κ)` (v0.5.14–15),
 crossover-regime errors from 44–63% to <10%. Transport grid expanded to 20 (κ,Γ)
 points including 9 Sarkas-matched DSF cases with N=2000 ground-truth D*.
 Lattice QCD (complex f64, SU(3), Wilson gauge, HMC, staggered Dirac, CG solver)
-validated on CPU, ready for GPU promotion. Paper 13 (Abelian Higgs) extends lattice
-infrastructure to U(1) gauge + complex scalar Higgs field on (1+1)D lattice,
-demonstrating 143× Rust-over-Python speedup.
+validated on CPU and GPU. GPU Dirac (8/8) and GPU CG (9/9) form the full GPU
+lattice QCD pipeline. Pure GPU workload validated on thermalized HMC configurations:
+5 CG solves match CPU at machine-epsilon parity (4.10e-16). **Rust is 200× faster
+than Python** for the same CG algorithm (identical iteration counts, identical seeds).
+Paper 13 (Abelian Higgs) extends lattice infrastructure to U(1) gauge + complex
+scalar Higgs field on (1+1)D lattice, demonstrating 143× Rust-over-Python speedup.
+
+metalForge NPU validation (AKD1000) overturns 10 SDK assumptions — arbitrary input
+channels, FC chain merging (SkipDMA), batch PCIe amortization (2.35×), wide FC to
+8192+, multi-output free cost, weight mutation linearity, and hardware determinism —
+all validated on hardware (13/13 Python) and in pure Rust math (16/16).
+ESN quantization cascade (f64→f32→int8→int4) validated across both substrates (6/6).
+Full GPU→NPU physics pipeline validated end-to-end: MD trajectories → ESN training →
+NPU multi-output deployment (D*, η*, λ*) with 9,017× less energy than CPU Green-Kubo.
+Lattice QCD heterogeneous pipeline: SU(3) HMC → ESN phase classifier → NpuSimulator
+detects deconfinement transition at β_c=5.715 (known 5.692, error 0.4%) — **no FFT
+required for lattice phase structure** (though GPU FFT f64 is now available via
+toadstool Session 25 for full QCD). Real-time heterogeneous monitor validates five
+previously-impossible capabilities: live HMC phase monitoring (0.09% overhead), continuous
+multi-output transport prediction (D*/η*/λ*), cross-substrate parity (f64→f32→int4, max
+f32 error 5.1e-7), predictive steering (62% compute savings via adaptive β scan), and
+zero-overhead physics monitoring on $900 consumer hardware. See `metalForge/` for full
+hardware analysis.
 
 See `CONTROL_EXPERIMENT_STATUS.md` for full details.
 
@@ -246,15 +286,56 @@ No streamlining — this is the correct architecture.
 
 ---
 
+## Evolution Architecture: Write → Absorb → Lean
+
+hotSpring follows a deliberate pattern for extending toadstool/barracuda:
+
+```
+hotSpring writes extension    → toadstool absorbs    → hotSpring leans on upstream
+─────────────────────────       ──────────────────       ────────────────────────
+Local GpuCellList (v0.5.13)  → CellListGpu fix (S25) → Deprecated local copy
+Complex64 WGSL template      → complex_f64.wgsl      → First-class barracuda primitive
+SU(3) WGSL template          → su3.wgsl              → First-class barracuda primitive
+Wilson plaquette design       → plaquette_f64.wgsl    → GPU lattice shader
+HMC force design             → su3_hmc_force.wgsl    → GPU lattice shader
+Abelian Higgs design         → higgs_u1_hmc.wgsl     → GPU lattice shader
+NAK eigensolve workarounds   → batched_eigh_nak.wgsl → Upstream shader
+ReduceScalar feedback        → ReduceScalarPipeline  → Rewired in v0.5.12
+Driver profiling feedback    → GpuDriverProfile      → Rewired in v0.5.15
+```
+
+**The cycle**: hotSpring implements physics on CPU with WGSL templates embedded
+in the Rust source. Once validated, designs are handed to toadstool via
+`wateringHole/handoffs/`. Toadstool absorbs them as GPU shaders. hotSpring
+then rewires to use the upstream primitives and deletes local code. Each cycle
+makes the upstream library richer and hotSpring leaner.
+
+**What makes code absorbable**:
+1. WGSL template strings embedded in Rust source (not separate files)
+2. Clear binding layout documentation (binding index, type, purpose)
+3. Dispatch geometry documented (workgroup size, grid dimensions)
+4. CPU reference implementation validated against known physics
+5. Tolerance constants in `tolerances.rs` (not inline magic numbers)
+6. Handoff document with exact code locations and validation results
+
+**Next absorption targets** (see `EVOLUTION_READINESS.md`):
+- GPU SpMV (CSR sparse matrix-vector) — `spectral.rs::CsrMatrix::spmv()`
+- GPU Lanczos eigensolve — `spectral.rs::lanczos()`
+- GPU Dirac operator — `lattice/dirac.rs` (staggered fermion SpMV)
+
+---
+
 ## BarraCUDA Crate (v0.5.16)
 
 The `barracuda/` directory is a standalone Rust crate providing the validation
 environment, physics implementations, and GPU compute. Key architectural properties:
 
-- **325 unit tests** (320 passing + 5 GPU-ignored), **18 validation suites** (18/18 pass)
-  via `validate_all`. Includes lattice QCD (complex f64, SU(3), Wilson action, HMC,
+- **345 unit tests** (340 passing + 5 GPU-ignored), **27 validation suites** (27/27 pass). Includes lattice QCD (complex f64, SU(3), Wilson action, HMC,
   Dirac CG), Abelian Higgs (U(1) + Higgs, HMC), transport coefficients (Green-Kubo
-  D*/η*/λ*, Sarkas-calibrated fits), and HotQCD EOS tables. Test coverage: ~48% line / ~65% function (GPU modules
+  D*/η*/λ*, Sarkas-calibrated fits), HotQCD EOS tables, NPU quantization parity
+  (f64→f32→int8→int4), and NPU beyond-SDK hardware capability validation (arbitrary
+  channels, FC merge, batch amortization, wide FC, multi-output, weight mutation,
+  determinism). Test coverage: ~48% line / ~65% function (GPU modules
   require hardware; CPU-testable modules average >90%). Measured with `cargo-llvm-cov`.
 - **AGPL-3.0 only** — all 69 active `.rs` files have
   `SPDX-License-Identifier: AGPL-3.0-only`. 22/28 `.wgsl` shaders have
@@ -268,12 +349,13 @@ environment, physics implementations, and GPU compute. Key architectural propert
   `NMP_TARGETS`, `L1_PYTHON_CHI2`, `MD_FORCE_REFS`, `GPU_KERNEL_REFS`, etc.
   DOIs for AME2020, Chabanat 1998, Kortelainen 2010, Bender 2003,
   Lattimer & Prakash 2016 are documented in `provenance.rs`.
-- **Tolerances** — 68 centralized constants in `tolerances.rs` with physical
+- **Tolerances** — 72 centralized constants in `tolerances.rs` with physical
   justification (machine precision, numerical method, model, literature).
   Includes 12 physics guard constants (`DENSITY_FLOOR`, `SPIN_ORBIT_R_MIN`,
   `COULOMB_R_MIN`, `BCS_DENSITY_SKIP`, `DEFORMED_COULOMB_R_MIN`, etc.)
-  plus 24 validation-specific thresholds for transport, lattice QCD, Abelian Higgs,
-  NAK eigensolve, PPPM, and screened Coulomb. All validation binaries wired to `tolerances::*`.
+  plus 28 validation-specific thresholds for transport, lattice QCD, Abelian Higgs,
+  NAK eigensolve, PPPM, screened Coulomb, NPU quantization, and NPU beyond-SDK
+  hardware capabilities. All validation binaries wired to `tolerances::*`.
 - **ValidationHarness** — structured pass/fail tracking with exit code 0/1.
   12 of 20 binaries use it (validation targets). Remaining 8 are optimization
   explorers and diagnostics.
@@ -307,10 +389,10 @@ environment, physics implementations, and GPU compute. Key architectural propert
 
 ```bash
 cd barracuda
-cargo test               # 320 tests pass, 5 GPU-ignored (< 16 seconds)
+cargo test               # 345 tests pass, 5 GPU-ignored (< 16 seconds)
 cargo clippy --all-targets  # Zero warnings
 cargo doc --no-deps      # Full API documentation — 0 warnings
-cargo run --release --bin validate_all  # 18/18 suites pass
+cargo run --release --bin validate_all  # 27/27 suites pass
 ```
 
 See [`barracuda/CHANGELOG.md`](barracuda/CHANGELOG.md) for version history.
@@ -374,7 +456,7 @@ hotSpring/
 ├── PHYSICS.md                          # Complete physics documentation (equations + references)
 ├── CONTROL_EXPERIMENT_STATUS.md        # Comprehensive status + results (195/195)
 ├── NUCLEAR_EOS_STRATEGY.md             # Nuclear EOS Phase A→B strategy
-├── wateringHole/handoffs/              # 12 cross-project handoffs (fossil record)
+├── wateringHole/handoffs/              # 3 active + 16 archived cross-project handoffs (fossil record)
 ├── LICENSE                             # AGPL-3.0
 ├── .gitignore
 │
@@ -385,20 +467,21 @@ hotSpring/
 │   ├── CONTROL_EXPERIMENT_SUMMARY.md  # Phase A quick reference
 │   └── METHODOLOGY.md                # Two-phase validation protocol
 │
-├── barracuda/                          # BarraCUDA Rust crate — v0.5.16 (304 tests)
+├── barracuda/                          # BarraCUDA Rust crate — v0.5.16 (345 tests, 27 suites)
 │   ├── Cargo.toml                     # Dependencies (requires ecoPrimals/phase1/toadstool)
 │   ├── CHANGELOG.md                   # Version history — baselines, tolerances, evolution
-│   ├── EVOLUTION_READINESS.md         # Rust module → WGSL shader → GPU promotion tier mapping
+│   ├── EVOLUTION_READINESS.md         # Rust module → GPU promotion tier + absorption status
 │   ├── clippy.toml                    # Clippy thresholds (physics-justified)
 │   └── src/
 │       ├── lib.rs                     # Crate root — module declarations + architecture docs
 │       ├── error.rs                   # Typed errors (HotSpringError: NoAdapter, NoShaderF64, …)
 │       ├── provenance.rs              # Baseline + analytical provenance (Python, DOIs, textbook)
-│       ├── tolerances.rs              # 42 centralized thresholds with physical justification
+│       ├── tolerances.rs              # 72 centralized thresholds with physical justification
 │       ├── validation.rs              # Pass/fail harness — structured checks, exit code 0/1
 │       ├── discovery.rs               # Capability-based data path resolution (env var / CWD)
 │       ├── data.rs                    # AME2020 data + Skyrme bounds + EosContext + chi2_per_datum
 │       ├── prescreen.rs               # NMP cascade filter (algebraic → L1 proxy → classifier)
+│       ├── spectral.rs               # Spectral theory (CsrMatrix, SpMV, Lanczos, Anderson 1D/2D/3D, Hofstadter)
 │       ├── bench.rs                   # Benchmark harness (RAPL, nvidia-smi, JSON reports)
 │       ├── gpu.rs                     # GPU FP64 device wrapper (SHADER_F64 via wgpu/Vulkan)
 │       │
@@ -441,8 +524,8 @@ hotSpring/
 │       │
 │       ├── archive/                   # Historical implementations (fossil record, not compiled)
 │       │
-│       └── bin/                       # 31 binaries (exit 0 = pass, 1 = fail)
-│           ├── validate_all.rs        # Meta-validator: runs all 18 validation suites
+│       └── bin/                       # 43 binaries (exit 0 = pass, 1 = fail)
+│           ├── validate_all.rs        # Meta-validator: runs all 27 validation suites
 │           ├── validate_nuclear_eos.rs # L1 SEMF + L2 HFB + NMP validation harness
 │           ├── validate_barracuda_pipeline.rs # Full MD pipeline (12/12 checks)
 │           ├── validate_barracuda_hfb.rs # BCS + eigensolve pipeline (14/14 checks)
@@ -455,6 +538,16 @@ hotSpring/
 │           ├── validate_hotqcd_eos.rs # Paper 7: HotQCD EOS thermodynamic validation
 │           ├── validate_pure_gauge.rs # Paper 8: SU(3) HMC + Dirac CG validation (12/12)
 │           ├── validate_abelian_higgs.rs # Paper 13: U(1)+Higgs HMC validation (17/17)
+│           ├── validate_npu_quantization.rs # NPU ESN quantization cascade (6/6)
+│           ├── validate_npu_beyond_sdk.rs # NPU beyond-SDK capabilities (16/16 math checks)
+│           ├── validate_lattice_npu.rs  # Lattice QCD + NPU heterogeneous pipeline (10/10)
+│           ├── validate_hetero_monitor.rs # Heterogeneous real-time monitor (9/9) — previously impossible
+│           ├── validate_spectral.rs    # Spectral theory: Anderson + almost-Mathieu (10/10)
+│           ├── validate_lanczos.rs    # Lanczos + SpMV + 2D Anderson (11/11)
+│           ├── validate_anderson_3d.rs # 3D Anderson: mobility edge + dimensional hierarchy (10/10)
+│           ├── validate_hofstadter.rs # Hofstadter butterfly: band counting + spectral topology (10/10)
+│           ├── validate_reservoir_transport.rs # ESN transport prediction validation
+│           ├── validate_screened_coulomb.rs # Screened Coulomb eigenvalues (23/23)
 │           ├── validate_special_functions.rs # Gamma, Bessel, erf, Hermite, …
 │           ├── validate_linalg.rs     # LU, QR, SVD, tridiagonal solver
 │           ├── validate_optimizers.rs # BFGS, Nelder-Mead, RK45, stats
@@ -477,6 +570,13 @@ hotSpring/
 │
 ├── control/
 │   ├── comprehensive_control_results.json  # Grand total: 86/86 checks
+│   │
+│   ├── metalforge_npu/                # NPU hardware validation (AKD1000)
+│   │   ├── scripts/                   # npu_quantization_parity.py, npu_beyond_sdk.py, native_int4_reservoir.py
+│   │   └── results/                   # JSON baselines from hardware runs
+│   │
+│   ├── reservoir_transport/           # ESN transport prediction control
+│   │   └── scripts/                   # reservoir_vacf.py
 │   │
 │   ├── akida_dw_edma/                 # Akida NPU kernel module (patched for 6.17)
 │   │   ├── Makefile
@@ -525,8 +625,17 @@ hotSpring/
 │   ├── 006_GPU_FP64_COMPARISON.md      # RTX 4070 vs Titan V fp64 benchmark
 │   └── 007_CPU_GPU_SCALING_BENCHMARK.md # CPU vs GPU scaling: crossover analysis
 │
+├── metalForge/                         # Hardware characterization & direct-wire programming
+│   ├── README.md                      # Philosophy + hardware inventory
+│   ├── npu/akida/                     # BrainChip AKD1000 NPU exploration
+│   │   ├── HARDWARE.md                # Architecture, compute model, limits
+│   │   ├── EXPLORATION.md             # Novel applications for physics
+│   │   ├── BEYOND_SDK.md              # 10 overturned SDK assumptions (the discovery doc)
+│   │   └── scripts/                   # Python probing scripts (deep_probe.py)
+│   └── gpu/nvidia/                    # RTX 4070 + Titan V characterization
+│
 ├── wateringHole/                       # Cross-project handoffs
-│   └── handoffs/                       # 13 unidirectional handoff documents
+│   └── handoffs/                       # Unidirectional handoff documents
 │
 ├── benchmarks/
 │   ├── PROTOCOL.md                     # Cross-gate benchmark protocol (time + energy)
@@ -616,8 +725,9 @@ These are **silent failures** — wrong results, no error messages. This fragili
 
 - **Eastgate (primary dev)**: i9-12900K, RTX 4070 (12GB) + Titan V (12GB HBM2), Akida AKD1000 NPU, 32 GB DDR5.
   - RTX 4070 (Ada): nvidia proprietary 580.x, `SHADER_F64` confirmed. fp64:fp32 ~1:2 via wgpu/Vulkan.
-  - Titan V (GV100): **NVK / nouveau (Mesa 25.1, open-source)**, `SHADER_F64` confirmed. Native fp64 silicon, 6.9 TFLOPS FP64, 12GB HBM2.
-  - **Numerical parity**: identical physics to 1e-15 across both GPUs and both drivers.
+  - Titan V (GV100): **NVK / nouveau (Mesa 25.1.5, built from source)**, `SHADER_F64` confirmed. Native fp64 silicon, 6.9 TFLOPS FP64, 12GB HBM2. `validate_cpu_gpu_parity` 6/6, `validate_stanton_murillo` 40/40 on NVK.
+  - AKD1000 (BrainChip): PCIe `08:00.0`, 80 NPs, 8MB SRAM, akida 2.19.1. 10 SDK assumptions overturned. See `metalForge/npu/akida/BEYOND_SDK.md`.
+  - **Numerical parity**: identical physics to 1e-15 across both GPUs and both drivers. NPU int4 quantization error bounded at <30%.
   - VRAM headroom: <600 MB used at N=20,000 — estimated N≈400,000 before VRAM limits.
   - Adapter selection: `HOTSPRING_GPU_ADAPTER=titan` or `=4070` or `=0`/`=1` (see `gpu.rs` docs).
 - **Strandgate**: 64-core EPYC, 32 GB. Full-scale DSF (N=10,000) CPU runs.
@@ -646,7 +756,11 @@ These are **silent failures** — wrong results, no error messages. This fragili
 | [`experiments/005_L2_MEGABATCH_COMPLEXITY_BOUNDARY.md`](experiments/005_L2_MEGABATCH_COMPLEXITY_BOUNDARY.md) | L2 mega-batch GPU complexity boundary analysis |
 | [`experiments/006_GPU_FP64_COMPARISON.md`](experiments/006_GPU_FP64_COMPARISON.md) | RTX 4070 vs Titan V: fp64 benchmark, driver comparison, NVK vs proprietary |
 | [`experiments/007_CPU_GPU_SCALING_BENCHMARK.md`](experiments/007_CPU_GPU_SCALING_BENCHMARK.md) | CPU vs GPU scaling: crossover analysis, streaming dispatch |
-| [`wateringHole/handoffs/`](wateringHole/handoffs/) | 13 cross-project handoffs to ToadStool/BarraCUDA team |
+| [`metalForge/README.md`](metalForge/README.md) | Hardware characterization — philosophy, inventory, directory |
+| [`metalForge/npu/akida/BEYOND_SDK.md`](metalForge/npu/akida/BEYOND_SDK.md) | **10 overturned SDK assumptions** — the discovery document |
+| [`metalForge/npu/akida/HARDWARE.md`](metalForge/npu/akida/HARDWARE.md) | AKD1000 deep-dive: architecture, compute model, PCIe BAR mapping |
+| [`metalForge/npu/akida/EXPLORATION.md`](metalForge/npu/akida/EXPLORATION.md) | Novel NPU applications for computational physics |
+| [`wateringHole/handoffs/`](wateringHole/handoffs/) | Cross-project handoffs to ToadStool/BarraCUDA team |
 | [`control/surrogate/REPRODUCE.md`](control/surrogate/REPRODUCE.md) | Step-by-step reproduction guide for surrogate learning |
 
 ### External References
@@ -677,4 +791,9 @@ a network service, you must make your source available under the same terms.
 *hotSpring proves that a $600 GPU can do the same physics as an HPC cluster —
 same observables, same energy conservation, same particle count, same production
 steps — in 3.66 hours for 9 cases, using 0.365 kWh of electricity at $0.044.
-The scarcity was artificial.*
+A $300 NPU runs the same math at 30mW for inference workloads — 9,017× less
+energy than CPU for transport predictions. The heterogeneous pipeline (GPU+NPU+CPU)
+makes five things possible that were previously impossible: real-time phase monitoring
+during live simulation, continuous transport prediction without Green-Kubo post-processing,
+substrate-portable physics (f64→f32→int4), predictive steering that saves 62% of compute,
+and zero-overhead monitoring at 0.09%. The scarcity was artificial.*

@@ -40,13 +40,17 @@ templates ready for GPU promotion.
 
 | Need | Current Status | Priority | Effort |
 |------|---------------|----------|--------|
-| **FFT (momentum-space transforms)** | Not in BarraCUDA | **P0** | High — needed for full QCD with dynamical fermions |
-| ~~**Complex f64 arithmetic**~~ | ✅ **Done** — `lattice/complex_f64.rs` + WGSL template | — | — |
-| ~~**SU(3) matrix operations**~~ | ✅ **Done** — `lattice/su3.rs` + WGSL template | — | — |
+| ~~**FFT (momentum-space transforms)**~~ | ✅ **Done** — toadstool `Fft1DF64` + `Fft3DF64` (commit `1ffe8b1a`, 14 GPU tests, roundtrip 1e-10) | — | — |
+| ~~**Complex f64 arithmetic**~~ | ✅ **Done** — `lattice/complex_f64.rs` + GPU WGSL (`shaders/math/complex_f64.wgsl`, toadstool `8fb5d5a0`) | — | — |
+| ~~**SU(3) matrix operations**~~ | ✅ **Done** — `lattice/su3.rs` + GPU WGSL (`shaders/math/su3.wgsl`, toadstool `8fb5d5a0`) | — | — |
 | ~~**Hybrid Monte Carlo (HMC)**~~ | ✅ **Done** — `lattice/hmc.rs`, Cayley exponential, 96-100% acceptance | — | — |
-| **GPU SU(3) plaquette shader** | WGSL template exists; needs compilation + validation | **P1** | Low |
-| **GPU Dirac operator** | CPU implementation exists; needs WGSL port | **P1** | Medium |
-| **Larger lattice sizes (8^4, 16^4)** | 4^4 validated; scaling untested | **P2** | Low |
+| ~~**GPU SU(3) plaquette shader**~~ | ✅ **Done** — `wilson_plaquette_f64.wgsl` (toadstool `8fb5d5a0`, 4D, 6 orientations, periodic BC) | — | — |
+| ~~**GPU HMC force shader**~~ | ✅ **Done** — `su3_hmc_force_f64.wgsl` (toadstool `8fb5d5a0`, staple sum + algebra projection) | — | — |
+| ~~**GPU U(1) Abelian Higgs**~~ | ✅ **Done** — `higgs_u1_hmc_f64.wgsl` (toadstool `8fb5d5a0`, Wirtinger factor baked in) | — | — |
+| ~~**GPU Dirac operator**~~ | ✅ **Done** — `WGSL_DIRAC_STAGGERED_F64` validated 8/8 (max error 4.44e-16) | — | — |
+| ~~**GPU CG solver**~~ | ✅ **Done** — `WGSL_COMPLEX_DOT_RE_F64` + `WGSL_AXPY_F64` + `WGSL_XPAY_F64`, 9/9 checks | — | — |
+| ~~**Pure GPU QCD workload**~~ | ✅ **Done** — `validate_pure_gpu_qcd` (3/3): HMC → GPU CG on thermalized configs | — | — |
+| **Larger lattice sizes (8^4, 16^4)** | 4^4 + 6^4 + 8^3×4 validated on GPU; scaling to 16^4 next | **P2** | Low |
 
 ### Kernels That Transfer Directly (Confirmed)
 
@@ -60,17 +64,35 @@ templates ready for GPU promotion.
 
 ### Kachkovskiy Extension (Spectral Theory / Transport)
 
+**Status Update (Feb 20, 2026)**: Full spectral theory stack implemented and
+validated in `spectral.rs` (10/10 + 11/11 = 21 checks across two suites). 1D Anderson
+localization, almost-Mathieu Aubry-André transition, Herman's formula γ = ln|λ|,
+Sturm eigensolve, transfer matrix Lyapunov, Poisson level statistics, CSR SpMV,
+Lanczos eigensolve (reorthogonalized), and 2D Anderson model with GOE→Poisson
+transition — all working, all without FFT. P1 CPU primitives complete; GPU promotion next.
+
 | Need | Current Status | Priority | Effort |
 |------|---------------|----------|--------|
-| **Lanczos eigensolve** | `BatchedEighGpu` handles dense; need iterative for large sparse | **P1** | Medium — tridiagonalization + QR iteration on GPU |
-| **Sparse matrix-vector product (SpMV)** | Not in BarraCUDA. CG solver exists in `lattice/cg.rs` (CPU) | **P1** | Medium — CSR format SpMV shader. Foundation for Lanczos |
+| ~~**Tridiagonal eigensolve**~~ | ✅ **Done** — Sturm bisection in `spectral.rs` | — | — |
+| ~~**Transfer matrix Lyapunov**~~ | ✅ **Done** — iterative renormalization in `spectral.rs` | — | — |
+| ~~**Level statistics**~~ | ✅ **Done** — spacing ratio ⟨r⟩ in `spectral.rs` | — | — |
+| ~~**1D Anderson model**~~ | ✅ **Done** — `spectral::anderson_hamiltonian()`, 10/10 checks | — | — |
+| ~~**Almost-Mathieu operator**~~ | ✅ **Done** — `spectral::almost_mathieu_hamiltonian()`, Herman validated | — | — |
+| ~~**Lanczos eigensolve**~~ | ✅ **Done** — full reorthogonalization in `spectral.rs`, cross-validated vs Sturm to 4.4e-16 | — | — |
+| ~~**Sparse matrix-vector product (SpMV)**~~ | ✅ **Done** — CSR format in `spectral.rs`, verified vs dense reference (0 error) | — | — |
 | **Matrix exponentiation** | Cayley exponential validated for SU(3) in `lattice/hmc.rs` | **P2** | Medium — generalize beyond 3×3 anti-Hermitian |
+| ~~**2D Anderson model**~~ | ✅ **Done** — `spectral::anderson_2d()`, GOE→Poisson transition validated, 11/11 checks | — | — |
+| ~~**3D Anderson model**~~ | ✅ **Done** — `spectral::anderson_3d()`, mobility edge + dimensional hierarchy, 10/10 checks | — | — |
+| ~~**GPU SpMV shader**~~ | ✅ **Done** — `WGSL_SPMV_CSR_F64` validated 8/8 (machine-epsilon parity) | — | — |
+| ~~**GPU Lanczos**~~ | ✅ **Done** — GPU SpMV inner loop + CPU control, 6/6 checks | — | — |
+| **Fully GPU-resident Lanczos** | GPU SpMV validated; add GPU dot/axpy/scale for N>100k systems | **P1** | Medium |
 
 ### Stretch Goals (Updated)
 
 | Need | Why | Status |
 |------|-----|--------|
-| ~~Conjugate gradient solver~~ | Dirac operator inversion | ✅ **Done** — `lattice/cg.rs` (CPU, 214 lines) |
+| ~~Conjugate gradient solver~~ | Dirac operator inversion | ✅ **Done** — CPU (`lattice/cg.rs`) + GPU (3 WGSL shaders, 9/9 checks) |
+| ~~Python CG baseline~~ | Prove Rust 200× faster | ✅ **Done** — `bench_lattice_cg` + `lattice_cg_control.py` |
 | Multi-GPU communication | Lattice domain decomposition | Pending |
 | Stochastic trace estimator | Disconnected diagrams for flavor-singlet physics | Pending |
 
@@ -83,11 +105,13 @@ Phase A-F (DONE)              Bazavov Extension (DONE on CPU)     GPU Promotion 
 ─────────────────             ──────────────────────────────      ───────────────────
 Yukawa force       ────────→  Gauge plaquette force    ✅         → WGSL plaquette shader
 Velocity Verlet    ────────→  HMC integrator           ✅         → WGSL Cayley exp shader
-BatchedEighGpu     ────────→  Dirac eigenvalues        ✅ (CG)    → WGSL Dirac SpMV
-FusedMapReduce     ────────→  Lattice observables      ✅         → GPU reduction
-Real f64           ────────→  Complex f64              ✅         → WGSL template ready
-N/A                ────────→  SU(3) matrix ops         ✅         → WGSL template ready
-N/A                ────────→  FFT                      Pending    → Full QCD prerequisite
+BatchedEighGpu     ────────→  Dirac eigenvalues        ✅ (CG)    → WGSL Dirac SpMV ✅ (8/8)
+FusedMapReduce     ────────→  Lattice observables      ✅         → GPU reduction ✅
+Real f64           ────────→  Complex f64              ✅         → GPU WGSL (toadstool 8fb5d5a0) ✅
+N/A                ────────→  SU(3) matrix ops         ✅         → GPU WGSL (toadstool 8fb5d5a0) ✅
+N/A                ────────→  FFT                      ✅         → GPU Fft1DF64/3D (toadstool 1ffe8b1a) ✅
+N/A                ────────→  CG solver (D†D)          ✅ (CPU+GPU) → WGSL CG pipeline ✅ (9/9)
+N/A                ────────→  Pure GPU workload        ✅ (HMC+CG) → 3/3 thermalized ✅
 ```
 
 ---
@@ -118,12 +142,12 @@ All components implemented and validated (13/13 checks pass):
 
 ### Key Facts for ToadStool Team
 
-- 9 papers reproduced, 320 unit tests, 18/18 validation suites, ~$0.20 total compute cost
+- 18 papers reproduced, 345 unit tests, 31/31 validation suites, ~$0.20 total compute cost
 - RTX 4070 sustains f64 MD at 149-259 steps/s; Titan V (NVK) produces identical physics
 - Energy drift 0.000% over 80k steps sets the precision bar for any new integrator
 - `ReduceScalarPipeline` is the most-used upstream primitive after `WgpuDevice`
 - All shader compilation routes through `ShaderTemplate::for_driver_profile()`
-- `CellListGpu` has two open bugs (binding mismatch + `i32 %` truncation) — hotSpring uses local `GpuCellList`
+- `CellListGpu` **FIXED** (toadstool `8fb5d5a0`) — local `GpuCellList` deprecated, migration next cycle
 
 ### Evolution Timeline
 
@@ -132,6 +156,7 @@ All components implemented and validated (13/13 checks pass):
 | v0.5.12 | `ReduceScalarPipeline` | Rewired both MD paths, deleted local `SHADER_SUM_REDUCE` |
 | v0.5.15 | `WgslOptimizer`, `GpuDriverProfile`, `StatefulPipeline` | Rewired all shader compilation via `for_driver_profile()` |
 | v0.5.16 | NAK eigensolve shader, `StatefulPipeline` impl, `CellListGpu` attempt, `scalar_buffer()`/`max_f64`/`min_f64` on ReduceScalar | Paper 13 (Abelian Higgs), doc audit |
+| S18-25 | `CellListGpu` BGL **fix**, Complex64+SU(3) WGSL, Wilson plaquette+HMC+Higgs GPU, **GPU FFT f64** | **Rewire v3**: deprecate local GpuCellList, unblock Tier 3 lattice QCD |
 
 ### ToadStool v0.5.16 Absorption Review (Feb 20, 2026)
 
@@ -142,18 +167,24 @@ All components implemented and validated (13/13 checks pass):
 - `WgslLoopUnroller` — `@unroll_hint N` annotation, up to 32× unroll
 - NAK deficiencies documented in `contrib/mesa-nak/NAK_DEFICIENCIES.md`
 
-**Still broken — `CellListGpu` prefix-sum BGL mismatch:**
-`cell_list_gpu.rs` creates a scan BGL with 3 bindings (input=0, output=1, params=2)
-but `prefix_sum.wgsl` expects 4 bindings (params=0, input=1, output=2, scratch=3).
-The binding order and count are incompatible. hotSpring keeps local `GpuCellList`
-with its own `exclusive_prefix_sum.wgsl` (3-binding, matching layout).
+**~~Still broken~~ FIXED — `CellListGpu` prefix-sum BGL (toadstool `8fb5d5a0`):**
+ToadStool commit `8fb5d5a0` rebuilt the scan BGL to 4 bindings matching
+`prefix_sum.wgsl` exactly, split single pipeline into `scan_pass_a` + `scan_pass_b`,
+and added `n_groups` to scan params. hotSpring's local `GpuCellList` is now
+**deprecated** — migration to upstream `CellListGpu` planned for next cycle.
 
-### Open Items for ToadStool
+### Open Items for ToadStool (Updated Feb 20, 2026 — Post Session 25)
 
-1. **Fix `CellListGpu` prefix-sum BGL** — binding layout mismatch (3 vs 4 bindings, different order)
+1. ~~**Fix `CellListGpu` prefix-sum BGL**~~ — ✅ **DONE** (commit `8fb5d5a0`)
 2. **Absorb NPU reservoir transport** — ESN shaders, weight export, Akida wiring (see NPU handoff)
-3. **FFT primitive** — blocks full lattice QCD (Tier 3 papers 9-12)
-4. **Complex f64 WGSL shader** — template exists in hotSpring `lattice/complex_f64.rs`, ready for promotion
-5. **SU(3) WGSL shader** — template exists in hotSpring `lattice/su3.rs`, ready for promotion
-6. **Lattice plaquette + HMC WGSL shaders** — CPU implementations validated, need GPU port
+3. ~~**FFT primitive**~~ — ✅ **DONE** (commit `1ffe8b1a`, `Fft1DF64` + `Fft3DF64`, 14 GPU tests)
+4. ~~**Complex f64 WGSL shader**~~ — ✅ **DONE** (commit `8fb5d5a0`, `shaders/math/complex_f64.wgsl`)
+5. ~~**SU(3) WGSL shader**~~ — ✅ **DONE** (commit `8fb5d5a0`, `shaders/math/su3.wgsl`)
+6. ~~**Lattice plaquette + HMC WGSL shaders**~~ — ✅ **DONE** (commit `8fb5d5a0`, 3 GPU shaders)
 7. **ESN `export_weights()` method on `esn_v2::ESN`** — needed for GPU-train → NPU-deploy path
+8. ~~**GPU Dirac SpMV shader**~~ — ✅ **Done**: `WGSL_DIRAC_STAGGERED_F64` (8/8 checks, 4.44e-16)
+9. ~~**GPU SpMV for spectral theory**~~ — ✅ **Done**: `WGSL_SPMV_CSR_F64` (8/8 checks, 1.78e-15)
+10. ~~**GPU Lanczos**~~ — ✅ **Done**: GPU SpMV inner loop (6/6 checks, eigenvalues match to 1e-15)
+11. ~~**GPU CG solver**~~ — ✅ **Done**: 3 WGSL shaders (9/9 checks, iterations match exactly)
+12. ~~**Pure GPU workload**~~ — ✅ **Done**: HMC → GPU CG on thermalized configs (3/3, 4.10e-16)
+13. **Fully GPU-resident Lanczos** — GPU dot + axpy + scale for N > 100k (next P1)

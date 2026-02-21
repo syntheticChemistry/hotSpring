@@ -1,0 +1,211 @@
+{
+  "checks": [
+    {
+      "label": "All non-standard channel counts (2,4,5,8,16,32,50,64) map to HW",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "label": "Physics vectors (8-dim and 50-dim) work on hardware",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "label": "All FC depths (1-7) merge into single HW sequence",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "label": "Depth overhead < 30% (7 layers vs 1 layer)",
+      "passed": true,
+      "detail": "7.4%"
+    },
+    {
+      "label": "Batch=8 speedup > 1.5\u00d7 over single inference",
+      "passed": true,
+      "detail": "2.26\u00d7"
+    },
+    {
+      "label": "Batch=8 per-sample latency < 600\u03bcs",
+      "passed": true,
+      "detail": "398\u03bcs"
+    },
+    {
+      "label": "All FC widths (64-1024) map to hardware",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "label": "Width=512 latency > width=64 (compute contributing)",
+      "passed": true,
+      "detail": "512:1153\u03bcs vs 64:715\u03bcs"
+    },
+    {
+      "label": "10-output overhead < 30% vs single output",
+      "passed": true,
+      "detail": "-5.3%"
+    },
+    {
+      "label": "Weight\u00d72 produces output\u00d72",
+      "passed": true,
+      "detail": "err=0.0000"
+    },
+    {
+      "label": "Weight\u00d7(-3) produces output\u00d7(-3)",
+      "passed": true,
+      "detail": "err=0.0000"
+    },
+    {
+      "label": "Hardware is fully deterministic (20 runs, 1 unique output)",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "label": "Model save/load produces identical output",
+      "passed": true,
+      "detail": ""
+    }
+  ],
+  "measurements": {
+    "channel_test": {
+      "2": {
+        "hw_seqs": 1,
+        "lat_us": 704.6937197446823
+      },
+      "4": {
+        "hw_seqs": 1,
+        "lat_us": 711.0921601997688
+      },
+      "5": {
+        "hw_seqs": 1,
+        "lat_us": 626.6552803572267
+      },
+      "8": {
+        "hw_seqs": 1,
+        "lat_us": 627.9246200574562
+      },
+      "16": {
+        "hw_seqs": 1,
+        "lat_us": 629.6682800166309
+      },
+      "32": {
+        "hw_seqs": 1,
+        "lat_us": 629.0904799243435
+      },
+      "50": {
+        "hw_seqs": 1,
+        "lat_us": 630.2540999604389
+      },
+      "64": {
+        "hw_seqs": 1,
+        "lat_us": 628.5425601527095
+      }
+    },
+    "fc_merge": {
+      "1": {
+        "hw_seqs": 1,
+        "lat_us": 636.5135998930782,
+        "total_layers": 3
+      },
+      "2": {
+        "hw_seqs": 1,
+        "lat_us": 639.0338198980317,
+        "total_layers": 4
+      },
+      "3": {
+        "hw_seqs": 1,
+        "lat_us": 634.5442397287115,
+        "total_layers": 5
+      },
+      "4": {
+        "hw_seqs": 1,
+        "lat_us": 665.8217200310901,
+        "total_layers": 6
+      },
+      "7": {
+        "hw_seqs": 1,
+        "lat_us": 683.543219929561,
+        "total_layers": 9
+      }
+    },
+    "batch_inference": {
+      "1": {
+        "total_ms": 0.8976257801987231,
+        "per_sample_us": 897.6257801987231,
+        "throughput": 1114.0499995205269
+      },
+      "2": {
+        "total_ms": 1.1404888198012486,
+        "per_sample_us": 570.2444099006243,
+        "throughput": 1753.634025407226
+      },
+      "4": {
+        "total_ms": 1.7661246401257813,
+        "per_sample_us": 441.5311600314453,
+        "throughput": 2264.845815024202
+      },
+      "8": {
+        "total_ms": 3.1822959397686645,
+        "per_sample_us": 397.78699247108307,
+        "throughput": 2513.908244681215
+      },
+      "16": {
+        "total_ms": 9.635848579928279,
+        "per_sample_us": 602.2405362455174,
+        "throughput": 1660.4661091632772
+      }
+    },
+    "width_scaling": {
+      "64": {
+        "lat_us": 714.5785668399185
+      },
+      "128": {
+        "lat_us": 749.9188330257311
+      },
+      "256": {
+        "lat_us": 877.2733669805651
+      },
+      "512": {
+        "lat_us": 1153.0403998525194
+      },
+      "1024": {
+        "lat_us": 2001.6908325487748
+      }
+    },
+    "multi_output": {
+      "1_output_us": 814.0412901411764,
+      "3_output_us": 786.620480066631,
+      "10_output_us": 770.5761599936523
+    },
+    "weight_mutation": {
+      "w1_result": 240,
+      "w2_result": 480,
+      "w_neg3_result": -720,
+      "ratio_2x_err": 0.0,
+      "ratio_3x_err": 0.0
+    },
+    "determinism": {
+      "n_runs": 20,
+      "unique_outputs": 1
+    },
+    "save_load": {
+      "original": -7,
+      "loaded": -7,
+      "match": true
+    }
+  },
+  "provenance": {
+    "generator": "control/metalforge_npu/scripts/npu_beyond_sdk.py",
+    "method": "AKD1000 beyond-SDK capability validation",
+    "date": "2026-02-20",
+    "akida_sdk": "2.19.1",
+    "device": "PCIe/NSoC_v2/0",
+    "device_version": "BC.00.000.002",
+    "numpy_version": "2.1.3"
+  },
+  "summary": {
+    "passed": 13,
+    "total": 13,
+    "all_pass": true
+  }
+}
