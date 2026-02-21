@@ -88,4 +88,32 @@ mod tests {
         let msg = err.to_string();
         assert!(msg.contains("SHADER_F64"));
     }
+
+    #[test]
+    fn display_data_load() {
+        let err = HotSpringError::DataLoad("experimental data: file not found".into());
+        let s = err.to_string();
+        assert!(s.contains("Data loading failed"));
+        assert!(s.contains("experimental data: file not found"));
+    }
+
+    #[test]
+    fn display_barracuda() {
+        let barracuda_err = barracuda::error::BarracudaError::device("wgpu timeout");
+        let err = HotSpringError::Barracuda(barracuda_err);
+        let s = err.to_string();
+        assert!(s.contains("BarraCUDA error"));
+        assert!(s.contains("Device error"));
+        assert!(s.contains("wgpu timeout"));
+    }
+
+    #[test]
+    fn from_barracuda_error_conversion() {
+        let barracuda_err = barracuda::error::BarracudaError::gpu("buffer overflow");
+        let hotspring_err: HotSpringError = barracuda_err.into();
+        let s = hotspring_err.to_string();
+        assert!(s.contains("BarraCUDA error"));
+        assert!(s.contains("GPU error"));
+        assert!(s.contains("buffer overflow"));
+    }
 }

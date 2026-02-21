@@ -29,8 +29,7 @@ use hotspring_barracuda::md::observables::{
     compute_stress_xy, compute_vacf, validate_energy,
 };
 use hotspring_barracuda::md::transport::{
-    d_star_daligault, eta_star_stanton_murillo, lambda_star_stanton_murillo,
-    sarkas_d_star_lookup,
+    d_star_daligault, eta_star_stanton_murillo, lambda_star_stanton_murillo, sarkas_d_star_lookup,
 };
 use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
@@ -67,23 +66,22 @@ fn main() {
         })
         .collect();
 
-    println!("  Cases: {} transport points (2 original + 4 Sarkas-matched)", selected.len());
+    println!(
+        "  Cases: {} transport points (2 original + 4 Sarkas-matched)",
+        selected.len()
+    );
     println!("  N = 500, lite mode (20k production steps)");
     println!();
 
     let mut harness = ValidationHarness::new("stanton_murillo_transport");
 
-    #[allow(dead_code)]
     struct CaseResult {
         kappa: f64,
         gamma: f64,
         d_star_msd: f64,
         d_star_vacf: f64,
-        d_star_fit: f64,
         eta_star_md: f64,
-        eta_star_fit: f64,
         lambda_star_md: f64,
-        lambda_star_fit: f64,
         t_mean: f64,
         t_target: f64,
     }
@@ -222,11 +220,8 @@ fn main() {
             gamma: cfg.gamma,
             d_star_msd,
             d_star_vacf,
-            d_star_fit: d_fit,
             eta_star_md,
-            eta_star_fit: eta_fit,
             lambda_star_md,
-            lambda_star_fit: lambda_fit,
             t_mean,
             t_target: temperature,
         });
@@ -241,7 +236,11 @@ fn main() {
             .iter()
             .filter(|r| (r.kappa - kappa).abs() < 0.01)
             .collect();
-        kappa_results.sort_by(|a, b| a.gamma.partial_cmp(&b.gamma).unwrap());
+        kappa_results.sort_by(|a, b| {
+            a.gamma
+                .partial_cmp(&b.gamma)
+                .expect("finite gamma comparison")
+        });
         for w in kappa_results.windows(2) {
             harness.check_bool(
                 &format!(
@@ -255,7 +254,10 @@ fn main() {
 
     // Cross-kappa check: at similar Gamma, higher kappa → higher D* (weaker eff. coupling)
     let find = |k: f64, g: f64| -> Option<f64> {
-        results.iter().find(|r| (r.kappa - k).abs() < 0.01 && (r.gamma - g).abs() < 0.5).map(|r| r.d_star_msd)
+        results
+            .iter()
+            .find(|r| (r.kappa - k).abs() < 0.01 && (r.gamma - g).abs() < 0.5)
+            .map(|r| r.d_star_msd)
     };
     if let (Some(d_k2_g100), Some(d_k3_g100)) = (find(2.0, 100.0), find(3.0, 100.0)) {
         harness.check_bool(
@@ -287,7 +289,10 @@ fn main() {
         );
     }
     println!();
-    println!("  Green-Kubo transport pipeline: {} cases validated.", results.len());
+    println!(
+        "  Green-Kubo transport pipeline: {} cases validated.",
+        results.len()
+    );
     println!("  D* fit coefficients Sarkas-calibrated (12 points, N=2000).");
     println!("  η*/λ* fit coefficients proportionally rescaled (not independently calibrated).");
     println!("  Sarkas D* references shown for points with N=2000 ground truth.");

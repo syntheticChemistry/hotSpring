@@ -68,7 +68,6 @@ pub fn binding_energies_l2_gpu(
     let t0 = std::time::Instant::now();
     let mut results: Vec<(usize, usize, f64, bool)> = Vec::with_capacity(nuclei.len());
     let mut gpu_dispatches = 0usize;
-    let mut _n_hfb = 0usize;
     let mut n_semf = 0usize;
 
     // Partition nuclei: HFB (56 <= A <= 132) vs SEMF
@@ -425,7 +424,7 @@ pub fn binding_energies_l2_gpu(
     }
 
     // Collect HFB results
-    _n_hfb = solvers.len();
+    let n_hfb = solvers.len();
     for (i, (z, n, _, _)) in solvers.iter().enumerate() {
         results.push((*z, *n, states[i].binding_energy, states[i].converged));
     }
@@ -434,7 +433,7 @@ pub fn binding_energies_l2_gpu(
         results,
         hfb_time_s: t0.elapsed().as_secs_f64(),
         gpu_dispatches,
-        n_hfb: _n_hfb,
+        n_hfb,
         n_semf,
     }
 }

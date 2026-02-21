@@ -22,6 +22,7 @@ use hotspring_barracuda::spectral::{
     self, anderson_2d, anderson_3d, find_all_eigenvalues, lanczos, lanczos_eigenvalues,
     level_spacing_ratio, CsrMatrix, WGSL_SPMV_CSR_F64,
 };
+use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
 
 #[repr(C)]
@@ -141,7 +142,7 @@ fn gpu_lanczos(
 
         // β = ‖w‖ (CPU)
         let b_next = w.iter().map(|x| x * x).sum::<f64>().sqrt();
-        if b_next < 1e-14 {
+        if b_next < tolerances::LANCZOS_BREAKDOWN_THRESHOLD {
             beta.push(0.0);
             break;
         }
@@ -201,10 +202,13 @@ fn main() {
         .fold(0.0, f64::max);
     println!(
         "  N={}, m={}, max eigenvalue diff: {max_diff1:.2e}",
-        a1.n,
-        cpu_tri1.iterations
+        a1.n, cpu_tri1.iterations
     );
-    harness.check_upper("2D Anderson full Lanczos (8x8)", max_diff1, 1e-10);
+    harness.check_upper(
+        "2D Anderson full Lanczos (8x8)",
+        max_diff1,
+        tolerances::LANCZOS_EIGENVALUE_GPU_PARITY,
+    );
 
     // ══════════════════════════════════════════════════════════════
     //  Check 2: Clean 2D lattice — GPU vs CPU Lanczos
@@ -225,10 +229,13 @@ fn main() {
         .fold(0.0, f64::max);
     println!(
         "  N={}, m={}, max eigenvalue diff: {max_diff2:.2e}",
-        clean.n,
-        cpu_tri2.iterations
+        clean.n, cpu_tri2.iterations
     );
-    harness.check_upper("Clean lattice GPU vs CPU Lanczos", max_diff2, 1e-10);
+    harness.check_upper(
+        "Clean lattice GPU vs CPU Lanczos",
+        max_diff2,
+        tolerances::LANCZOS_EIGENVALUE_GPU_PARITY,
+    );
 
     // ══════════════════════════════════════════════════════════════
     //  Check 3: 3D Anderson (4×4×4), full Lanczos
@@ -249,10 +256,13 @@ fn main() {
         .fold(0.0, f64::max);
     println!(
         "  N={}, m={}, max eigenvalue diff: {max_diff3:.2e}",
-        a3.n,
-        cpu_tri3.iterations
+        a3.n, cpu_tri3.iterations
     );
-    harness.check_upper("3D Anderson full Lanczos (4x4x4)", max_diff3, 1e-10);
+    harness.check_upper(
+        "3D Anderson full Lanczos (4x4x4)",
+        max_diff3,
+        tolerances::LANCZOS_EIGENVALUE_GPU_PARITY,
+    );
 
     // ══════════════════════════════════════════════════════════════
     //  Check 4: Level spacing ratio — localization physics
@@ -262,7 +272,11 @@ fn main() {
     let r_gpu = level_spacing_ratio(&gpu_evals1);
     let r_diff = (r_cpu - r_gpu).abs();
     println!("  ⟨r⟩ CPU = {r_cpu:.6}, ⟨r⟩ GPU = {r_gpu:.6}, diff = {r_diff:.2e}");
-    harness.check_upper("Level spacing ratio GPU vs CPU", r_diff, 1e-10);
+    harness.check_upper(
+        "Level spacing ratio GPU vs CPU",
+        r_diff,
+        tolerances::LANCZOS_EIGENVALUE_GPU_PARITY,
+    );
 
     // ══════════════════════════════════════════════════════════════
     //  Check 5: Larger 2D Anderson (12×12), m=144
@@ -283,10 +297,13 @@ fn main() {
         .fold(0.0, f64::max);
     println!(
         "  N={}, m={}, max eigenvalue diff: {max_diff5:.2e}",
-        a5.n,
-        cpu_tri5.iterations
+        a5.n, cpu_tri5.iterations
     );
-    harness.check_upper("Larger 2D Anderson full Lanczos (12x12)", max_diff5, 1e-10);
+    harness.check_upper(
+        "Larger 2D Anderson full Lanczos (12x12)",
+        max_diff5,
+        tolerances::LANCZOS_EIGENVALUE_GPU_PARITY,
+    );
 
     // ══════════════════════════════════════════════════════════════
     //  Check 6: Strong disorder (W=20) — numerical stability
@@ -307,10 +324,13 @@ fn main() {
         .fold(0.0, f64::max);
     println!(
         "  N={}, m={}, max eigenvalue diff: {max_diff6:.2e}",
-        a6.n,
-        cpu_tri6.iterations
+        a6.n, cpu_tri6.iterations
     );
-    harness.check_upper("Strong disorder GPU Lanczos (W=20)", max_diff6, 1e-10);
+    harness.check_upper(
+        "Strong disorder GPU Lanczos (W=20)",
+        max_diff6,
+        tolerances::LANCZOS_EIGENVALUE_GPU_PARITY,
+    );
 
     // ══════════════════════════════════════════════════════════════
     //  Verdict

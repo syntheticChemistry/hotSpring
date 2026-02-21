@@ -36,12 +36,218 @@ use std::sync::Arc;
 const POTENTIALS_SHADER_BODY: &str = include_str!("shaders/batched_hfb_potentials_f64.wgsl");
 const HAMILTONIAN_SHADER: &str = include_str!("shaders/batched_hfb_hamiltonian_f64.wgsl");
 const DENSITY_SHADER: &str = include_str!("shaders/batched_hfb_density_f64.wgsl");
-// Phase 4 stub: energy shader loaded but not yet dispatched.
-// Wiring requires GPU SumReduceF64 + kinetic energy kernel.
-// See EVOLUTION_READINESS.md Tier B items.
-#[allow(dead_code)]
+// EVOLUTION(GPU): Phase 4 stub — energy shader loaded but not yet dispatched.
+// Wiring requires GPU SumReduceF64 + kinetic energy kernel. See EVOLUTION_READINESS.md Tier B.
+#[allow(dead_code)] // EVOLUTION: will wire when SumReduceF64 + kinetic kernel available
 const ENERGY_SHADER_BODY: &str = include_str!("shaders/batched_hfb_energy_f64.wgsl");
 const SO_PACK_SHADER: &str = include_str!("shaders/spin_orbit_pack_f64.wgsl");
+
+/// Internal state for each nucleus during SCF iterations.
+struct NucleusState {
+    rho_p: Vec<f64>,
+    rho_n: Vec<f64>,
+    e_prev: f64,
+    converged: bool,
+    binding_energy: f64,
+}
+
+/// Work item for SCF iteration (nucleus index, group index, basis size).
+struct WorkItem {
+    si: usize,
+    gi: usize,
+    ns: usize,
+}
+
+/// Per-nucleus results from eigenvalue extraction and BCS occupation computation.
+struct EigenBcsResult {
+    si: usize,
+    gi: usize,
+    evals_p: Vec<f64>,
+    evecs_p: Vec<f64>,
+    evals_n: Vec<f64>,
+    evecs_n: Vec<f64>,
+    lambda_p: f64,
+    lambda_n: f64,
+    v2_p: Vec<f64>,
+    v2_n: Vec<f64>,
+}
+
+fn build_initial_densities(solvers: &[(usize, usize, usize, SphericalHFB)]) -> Vec<NucleusState> {
+    solvers
+        .iter()
+        .map(|(z, n, _, hfb)| {
+            let a = *z + *n;
+            let r_nuc = 1.2 * (a as f64).powf(1.0 / 3.0);
+            let rho0 = 3.0 * a as f64 / (4.0 * std::f64::consts::PI * r_nuc.powi(3));
+            let nr = hfb.nr();
+            let rho_p: Vec<f64> = (0..nr)
+                .map(|k| {
+                    let r = (k + 1) as f64 * hfb.dr();
+                    if r < r_nuc {
+                        (rho0 * *z as f64 / a as f64).max(DENSITY_FLOOR)
+                    } else {
+                        DENSITY_FLOOR
+                    }
+                })
+                .collect();
+            let rho_n: Vec<f64> = (0..nr)
+                .map(|k| {
+                    let r = (k + 1) as f64 * hfb.dr();
+                    if r < r_nuc {
+                        (rho0 * *n as f64 / a as f64).max(DENSITY_FLOOR)
+                    } else {
+                        DENSITY_FLOOR
+                    }
+                })
+                .collect();
+            NucleusState {
+                rho_p,
+                rho_n,
+                e_prev: 1e10,
+                converged: false,
+                binding_energy: 0.0,
+            }
+        })
+        .collect()
+}
+
+fn compute_spin_orbit_diagonal(
+    hfb: &SphericalHFB,
+    rho_p: &[f64],
+    rho_n: &[f64],
+    w0: f64,
+) -> Vec<f64> {
+    let ns = hfb.n_states();
+    let mut so_diag = vec![0.0; ns];
+    if w0 == 0.0 {
+        return so_diag;
+    }
+    let cur_nr = hfb.nr();
+    let cur_dr = hfb.dr();
+    let rho_total: Vec<f64> = (0..cur_nr).map(|k| rho_p[k] + rho_n[k]).collect();
+    let drho = barracuda::numerical::gradient_1d(&rho_total, cur_dr);
+    let r = hfb.r_grid();
+    let lj_qn = hfb.lj_quantum_numbers();
+
+    for i in 0..ns {
+        let (l, j) = lj_qn[i];
+        if l == 0 {
+            continue;
+        }
+        let ls = compute_ls_factor(l as u32, j);
+        let wf_i = hfb.wf_state(i);
+        let so_integ: Vec<f64> = (0..cur_nr)
+            .map(|k| wf_i[k].powi(2) * drho[k] / r[k].max(SPIN_ORBIT_R_MIN) * r[k].powi(2))
+            .collect();
+        let so_val = w0 * ls * barracuda::numerical::trapz(&so_integ, r).unwrap_or(0.0);
+        so_diag[i] = so_val;
+    }
+    so_diag
+}
+
+fn extract_bcs_results(
+    all_work: &[WorkItem],
+    gpu_eigen: &(Vec<f64>, Vec<f64>),
+    solvers: &[(usize, usize, usize, SphericalHFB)],
+    global_max_ns: usize,
+) -> Vec<EigenBcsResult> {
+    let (eigenvalues, eigenvectors) = gpu_eigen;
+    let gm = global_max_ns * global_max_ns;
+
+    all_work
+        .par_iter()
+        .enumerate()
+        .map(|(wi, item)| {
+            let (z, n, _, ref hfb) = solvers[item.si];
+            let ns = item.ns;
+
+            let extract = |species: usize| {
+                let eig_off = (wi * 2 + species) * global_max_ns;
+                let vec_off = (wi * 2 + species) * gm;
+                let mut evals: Vec<f64> = eigenvalues[eig_off..eig_off + global_max_ns]
+                    .iter()
+                    .copied()
+                    .filter(|&e| e < 1e9)
+                    .collect();
+                evals.truncate(ns);
+                if evals.len() < ns {
+                    evals.resize(ns, 0.0);
+                }
+                let mut evecs = vec![0.0; ns * ns];
+                for col in 0..ns {
+                    if eigenvalues[eig_off + col] < 1e9 {
+                        for row in 0..ns {
+                            evecs[col * ns + row] =
+                                eigenvectors[vec_off + col * global_max_ns + row];
+                        }
+                    }
+                }
+                (evals, evecs)
+            };
+            let (evals_p, evecs_p) = extract(0);
+            let (evals_n, evecs_n) = extract(1);
+
+            let (v2_p, lambda_p) = hfb.bcs_occupations_from_eigs(&evals_p, z, hfb.pairing_gap());
+            let (v2_n, lambda_n) = hfb.bcs_occupations_from_eigs(&evals_n, n, hfb.pairing_gap());
+
+            EigenBcsResult {
+                si: item.si,
+                gi: item.gi,
+                evals_p,
+                evecs_p,
+                evals_n,
+                evecs_n,
+                lambda_p,
+                lambda_n,
+                v2_p,
+                v2_n,
+            }
+        })
+        .collect()
+}
+
+fn compute_binding_energy(
+    evals_p: &[f64],
+    evals_n: &[f64],
+    v2_p: &[f64],
+    v2_n: &[f64],
+    degs: &[f64],
+    delta: f64,
+) -> f64 {
+    let ns = evals_p.len();
+    let e_sp: f64 = (0..ns)
+        .map(|i| degs[i] * v2_p[i] * evals_p[i] + degs[i] * v2_n[i] * evals_n[i])
+        .sum();
+    let e_pair: f64 = (0..ns)
+        .map(|i| {
+            let vu_p = (v2_p[i] * (1.0 - v2_p[i])).max(0.0).sqrt();
+            let vu_n = (v2_n[i] * (1.0 - v2_n[i])).max(0.0).sqrt();
+            -delta * degs[i] * (vu_p + vu_n)
+        })
+        .sum();
+    e_sp + e_pair
+}
+
+fn check_convergence_and_update_state(
+    state: &mut NucleusState,
+    rho_p_mixed: Vec<f64>,
+    rho_n_mixed: Vec<f64>,
+    e_total: f64,
+    tol: f64,
+    iter: usize,
+) -> bool {
+    let de = (e_total - state.e_prev).abs();
+    let binding_energy = e_total.abs();
+    let converged = de < tol && iter > 5;
+
+    state.rho_p = rho_p_mixed;
+    state.rho_n = rho_n_mixed;
+    state.e_prev = e_total;
+    state.binding_energy = binding_energy;
+    state.converged = converged;
+
+    converged
+}
 
 /// Results from the GPU-resident L2 HFB binding energy computation.
 ///
@@ -134,50 +340,7 @@ pub fn binding_energies_l2_gpu_resident(
         source: wgpu::ShaderSource::Wgsl(HAMILTONIAN_SHADER.into()),
     });
 
-    struct NucleusState {
-        rho_p: Vec<f64>,
-        rho_n: Vec<f64>,
-        e_prev: f64,
-        converged: bool,
-        binding_energy: f64,
-    }
-
-    let mut states: Vec<NucleusState> = solvers
-        .iter()
-        .map(|(z, n, _, hfb)| {
-            let a = z + n;
-            let r_nuc = 1.2 * (a as f64).powf(1.0 / 3.0);
-            let rho0 = 3.0 * a as f64 / (4.0 * std::f64::consts::PI * r_nuc.powi(3));
-            let nr = hfb.nr();
-            let rho_p: Vec<f64> = (0..nr)
-                .map(|k| {
-                    let r = (k + 1) as f64 * hfb.dr();
-                    if r < r_nuc {
-                        (rho0 * *z as f64 / a as f64).max(DENSITY_FLOOR)
-                    } else {
-                        DENSITY_FLOOR
-                    }
-                })
-                .collect();
-            let rho_n: Vec<f64> = (0..nr)
-                .map(|k| {
-                    let r = (k + 1) as f64 * hfb.dr();
-                    if r < r_nuc {
-                        (rho0 * *n as f64 / a as f64).max(DENSITY_FLOOR)
-                    } else {
-                        DENSITY_FLOOR
-                    }
-                })
-                .collect();
-            NucleusState {
-                rho_p,
-                rho_n,
-                e_prev: 1e10,
-                converged: false,
-                binding_energy: 0.0,
-            }
-        })
-        .collect();
+    let mut states: Vec<NucleusState> = build_initial_densities(&solvers);
 
     let u = wgpu::BufferBindingType::Uniform;
     let sr = wgpu::BufferBindingType::Storage { read_only: true };
@@ -791,7 +954,6 @@ pub fn binding_energies_l2_gpu_resident(
     // ═══ PRE-ALLOCATE EIGENSOLVE BUFFERS (ONE TIME) ═══
     // Eliminates per-iteration GPU buffer allocation + shader/pipeline recreation.
     let max_eigh_batch = solvers.len() * 2; // proton + neutron per nucleus
-    let _gm_global = global_max_ns * global_max_ns;
     let (eigh_matrices_buf, eigh_eigenvalues_buf, eigh_eigenvectors_buf) =
         BatchedEighGpu::create_buffers(&device, global_max_ns, max_eigh_batch)
             .expect("pre-allocate eigensolve GPU buffers");
@@ -933,7 +1095,6 @@ pub fn binding_energies_l2_gpu_resident(
     // ═══ UNIFIED SCF LOOP — ALL GROUPS IN ONE ENCODER ═══
     let mut t_gpu_total = 0.0f64;
     let t_poll_total = 0.0f64;
-    let _t_read_total = 0.0f64;
     let mut t_cpu_total = 0.0f64;
     let mut t_upload_total = 0.0f64;
 
@@ -967,22 +1128,11 @@ pub fn binding_energies_l2_gpu_resident(
         let alpha_mix = if iter == 0 { 0.8 } else { mixing };
 
         // Build work items (no H data — H stays on GPU)
-        struct WorkItem {
-            si: usize,
-            gi: usize,
-            ns: usize,
-            e_prev: f64,
-        }
         let mut all_work: Vec<WorkItem> = Vec::new();
         for &(gi, ref active) in &active_groups {
             let g = &all_groups[gi];
             for &si in active {
-                all_work.push(WorkItem {
-                    si,
-                    gi,
-                    ns: g.ns,
-                    e_prev: states[si].e_prev,
-                });
+                all_work.push(WorkItem { si, gi, ns: g.ns });
             }
         }
 
@@ -1050,32 +1200,9 @@ pub fn binding_energies_l2_gpu_resident(
             if w0 != 0.0 {
                 for (bi, &si) in active.iter().enumerate() {
                     let (_, _, _, ref hfb) = solvers[si];
-                    let cur_nr = hfb.nr();
-                    let cur_dr = hfb.dr();
-                    let rho_total: Vec<f64> = (0..cur_nr)
-                        .map(|k| states[si].rho_p[k] + states[si].rho_n[k])
-                        .collect();
-                    let drho = barracuda::numerical::gradient_1d(&rho_total, cur_dr);
-                    let r = hfb.r_grid();
-                    let lj_qn = hfb.lj_quantum_numbers();
-
-                    for i in 0..ns {
-                        let (l, j) = lj_qn[i];
-                        if l == 0 {
-                            continue;
-                        }
-                        let ls = compute_ls_factor(l as u32, j);
-                        let wf_i = hfb.wf_state(i);
-                        let so_integ: Vec<f64> = (0..cur_nr)
-                            .map(|k| {
-                                wf_i[k].powi(2) * drho[k] / r[k].max(SPIN_ORBIT_R_MIN)
-                                    * r[k].powi(2)
-                            })
-                            .collect();
-                        let so_val =
-                            w0 * ls * barracuda::numerical::trapz(&so_integ, r).unwrap_or(0.0);
-                        so_diag_flat[bi * ns + i] = so_val;
-                    }
+                    let so_diag =
+                        compute_spin_orbit_diagonal(hfb, &states[si].rho_p, &states[si].rho_n, w0);
+                    so_diag_flat[bi * ns..(bi + 1) * ns].copy_from_slice(&so_diag);
                 }
             }
             raw_queue.write_buffer(&g.so_diag_buf, 0, bytemuck::cast_slice(&so_diag_flat));
@@ -1238,78 +1365,14 @@ pub fn binding_energies_l2_gpu_resident(
         // Eigenvalues/eigenvectors are extracted from the GPU readback for
         // CPU energy computation. BCS λ is computed on CPU (Brent root-finding).
         // v² will be computed on GPU via compute_bcs_v2 shader.
-        struct EigenBcsResult {
-            si: usize,
-            gi: usize,
-            evals_p: Vec<f64>,
-            evecs_p: Vec<f64>,
-            evals_n: Vec<f64>,
-            evecs_n: Vec<f64>,
-            lambda_p: f64,
-            lambda_n: f64,
-            v2_p: Vec<f64>,
-            v2_n: Vec<f64>,
-            e_prev: f64,
-        }
-        let eigen_bcs: Vec<EigenBcsResult> = all_work
-            .par_iter()
-            .enumerate()
-            .map(|(wi, item)| {
-                let (z, n, _, ref hfb) = solvers[item.si];
-                let ns = item.ns;
-                let gm = global_max_ns * global_max_ns;
-
-                let (ref eigenvalues, ref eigenvectors) = gpu_eigen
-                    .as_ref()
-                    .expect("GPU eigensolve must succeed — no CPU fallback");
-                let extract = |species: usize| {
-                    let eig_off = (wi * 2 + species) * global_max_ns;
-                    let vec_off = (wi * 2 + species) * gm;
-                    let mut evals: Vec<f64> = eigenvalues[eig_off..eig_off + global_max_ns]
-                        .iter()
-                        .copied()
-                        .filter(|&e| e < 1e9)
-                        .collect();
-                    evals.truncate(ns);
-                    if evals.len() < ns {
-                        evals.resize(ns, 0.0);
-                    }
-                    let mut evecs = vec![0.0; ns * ns];
-                    for col in 0..ns {
-                        if eigenvalues[eig_off + col] < 1e9 {
-                            for row in 0..ns {
-                                evecs[col * ns + row] =
-                                    eigenvectors[vec_off + col * global_max_ns + row];
-                            }
-                        }
-                    }
-                    (evals, evecs)
-                };
-                let (evals_p, evecs_p) = extract(0);
-                let (evals_n, evecs_n) = extract(1);
-
-                // BCS: compute λ (chemical potential) on CPU via Brent root-finding.
-                // v² will be computed on GPU via compute_bcs_v2 shader.
-                let (v2_p, lambda_p) =
-                    hfb.bcs_occupations_from_eigs(&evals_p, z, hfb.pairing_gap());
-                let (v2_n, lambda_n) =
-                    hfb.bcs_occupations_from_eigs(&evals_n, n, hfb.pairing_gap());
-
-                EigenBcsResult {
-                    si: item.si,
-                    gi: item.gi,
-                    evals_p,
-                    evecs_p,
-                    evals_n,
-                    evecs_n,
-                    lambda_p,
-                    lambda_n,
-                    v2_p,
-                    v2_n,
-                    e_prev: item.e_prev,
-                }
-            })
-            .collect();
+        let eigen_bcs: Vec<EigenBcsResult> = extract_bcs_results(
+            &all_work,
+            gpu_eigen
+                .as_ref()
+                .expect("GPU eigensolve must succeed — no CPU fallback"),
+            &solvers,
+            global_max_ns,
+        );
 
         // 5b. GPU BCS v² + density + mixing pass
         //
@@ -1521,35 +1584,19 @@ pub fn binding_energies_l2_gpu_resident(
                     (states[eb.si].rho_p.clone(), states[eb.si].rho_n.clone())
                 };
 
-            // BCS single-particle energy: E_sp = Σ deg_i * v²_i * ε_i
             let degs: Vec<f64> = hfb.deg_values();
-            let ns = eb.evals_p.len();
-            let e_sp: f64 = (0..ns)
-                .map(|i| {
-                    degs[i] * eb.v2_p[i] * eb.evals_p[i] + degs[i] * eb.v2_n[i] * eb.evals_n[i]
-                })
-                .sum();
-
-            // Pairing energy: E_pair = -Σ Δ * deg_i * √(v²_i * (1-v²_i))
             let delta = hfb.pairing_gap();
-            let e_pair: f64 = (0..ns)
-                .map(|i| {
-                    let vu_p = (eb.v2_p[i] * (1.0 - eb.v2_p[i])).max(0.0).sqrt();
-                    let vu_n = (eb.v2_n[i] * (1.0 - eb.v2_n[i])).max(0.0).sqrt();
-                    -delta * degs[i] * (vu_p + vu_n)
-                })
-                .sum();
+            let e_total =
+                compute_binding_energy(&eb.evals_p, &eb.evals_n, &eb.v2_p, &eb.v2_n, &degs, delta);
 
-            let e_total = e_sp + e_pair;
-            let de = (e_total - eb.e_prev).abs();
-            let binding_energy = e_total.abs();
-            let converged = de < tol && iter > 5;
-
-            states[eb.si].rho_p = rho_p_mixed;
-            states[eb.si].rho_n = rho_n_mixed;
-            states[eb.si].e_prev = e_total;
-            states[eb.si].binding_energy = binding_energy;
-            states[eb.si].converged = converged;
+            check_convergence_and_update_state(
+                &mut states[eb.si],
+                rho_p_mixed,
+                rho_n_mixed,
+                e_total,
+                tol,
+                iter,
+            );
         }
         t_cpu_total += t_read.elapsed().as_secs_f64();
     }
@@ -1681,6 +1728,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)] // exact known constant
     fn density_floor_applied() {
         use crate::tolerances::DENSITY_FLOOR;
         // Verify density floor logic
@@ -1691,6 +1739,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)] // exact known constant
     fn spin_orbit_r_min_guard() {
         use crate::tolerances::SPIN_ORBIT_R_MIN;
         let r = 0.001_f64;

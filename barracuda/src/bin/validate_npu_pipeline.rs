@@ -78,11 +78,19 @@ fn check_pipeline_single_output(harness: &mut ValidationHarness) {
     let all_finite = test_preds.iter().all(|v| v.is_finite());
     let all_positive = test_preds.iter().all(|v| *v > -1.0);
 
-    println!("  Test predictions: {:?}",
-             test_preds.iter().map(|v| format!("{v:.6}")).collect::<Vec<_>>());
+    println!(
+        "  Test predictions: {:?}",
+        test_preds
+            .iter()
+            .map(|v| format!("{v:.6}"))
+            .collect::<Vec<_>>()
+    );
 
     harness.check_bool("Pipeline produces finite predictions", all_finite);
-    harness.check_bool("Predictions are physically reasonable (> -1.0)", all_positive);
+    harness.check_bool(
+        "Predictions are physically reasonable (> -1.0)",
+        all_positive,
+    );
 
     // NpuSimulator path
     let exported = esn.export_weights().expect("trained");
@@ -96,9 +104,7 @@ fn check_pipeline_single_output(harness: &mut ValidationHarness) {
     let max_err = test_preds
         .iter()
         .zip(npu_preds.iter())
-        .map(|(&f64_v, &f32_v)| {
-            (f64_v - f32_v).abs() / f64_v.abs().max(1e-10)
-        })
+        .map(|(&f64_v, &f32_v)| (f64_v - f32_v).abs() / f64_v.abs().max(1e-10))
         .fold(0.0_f64, f64::max);
 
     println!("  f64→f32 max error: {:.6}%", max_err * 100.0);
@@ -143,7 +149,7 @@ fn check_pipeline_multi_output(harness: &mut ValidationHarness) {
         })
         .collect();
 
-    esn.train(&sequences[..n_train].to_vec(), &targets[..n_train].to_vec());
+    esn.train(&sequences[..n_train], &targets[..n_train]);
 
     let multi_preds: Vec<Vec<f64>> = sequences[n_train..]
         .iter()
@@ -155,9 +161,11 @@ fn check_pipeline_multi_output(harness: &mut ValidationHarness) {
         multi_preds.iter().all(|p| p.len() == 3),
     );
 
-    let all_distinct = multi_preds.iter().all(|p| {
-        p[0] != p[1] && p[1] != p[2] && p[0] != p[2]
-    });
+    // Exact parity check — independent readout weights produce distinct values
+    #[allow(clippy::float_cmp)] // determinism test: bit-identical outputs required
+    let all_distinct = multi_preds
+        .iter()
+        .all(|p| p[0] != p[1] && p[1] != p[2] && p[0] != p[2]);
     harness.check_bool(
         "D*, η*, λ* are distinct (independent readouts)",
         all_distinct,
@@ -176,13 +184,17 @@ fn check_pipeline_multi_output(harness: &mut ValidationHarness) {
         .iter()
         .zip(npu_multi.iter())
         .flat_map(|(f64_v, f32_v)| {
-            f64_v.iter().zip(f32_v.iter()).map(|(&a, &b)| {
-                (a - b).abs() / a.abs().max(1e-10)
-            })
+            f64_v
+                .iter()
+                .zip(f32_v.iter())
+                .map(|(&a, &b)| (a - b).abs() / a.abs().max(1e-10))
         })
         .fold(0.0_f64, f64::max);
 
-    println!("  Multi-output f64→f32 max error: {:.6}%", max_multi_err * 100.0);
+    println!(
+        "  Multi-output f64→f32 max error: {:.6}%",
+        max_multi_err * 100.0
+    );
     harness.check_upper(
         "Multi-output f64→f32 parity",
         max_multi_err,
@@ -212,17 +224,12 @@ fn check_quantized_pipeline(harness: &mut ValidationHarness) {
         })
         .collect();
 
-    let targets: Vec<Vec<f64>> = (0..6)
-        .map(|_| vec![rng.uniform() * 0.05 + 0.001])
-        .collect();
+    let targets: Vec<Vec<f64>> = (0..6).map(|_| vec![rng.uniform() * 0.05 + 0.001]).collect();
 
-    esn.train(&sequences[..4].to_vec(), &targets[..4].to_vec());
+    esn.train(&sequences[..4], &targets[..4]);
     let exported = esn.export_weights().expect("trained");
 
-    let f64_preds: Vec<f64> = sequences[4..]
-        .iter()
-        .map(|s| esn.predict(s)[0])
-        .collect();
+    let f64_preds: Vec<f64> = sequences[4..].iter().map(|s| esn.predict(s)[0]).collect();
 
     // Simulate int4 quantized readout (like AKD1000 would do)
     let (w_out_q4, s_out) = quantize_f32_vec(&exported.w_out, 4);
@@ -257,10 +264,7 @@ fn check_quantized_pipeline(harness: &mut ValidationHarness) {
 
     // Verify error ordering: int4 > f32 (quantization degrades)
     let mut npu2 = NpuSimulator::from_exported(&exported);
-    let f32_preds: Vec<f64> = sequences[4..]
-        .iter()
-        .map(|s| npu2.predict(s)[0])
-        .collect();
+    let f32_preds: Vec<f64> = sequences[4..].iter().map(|s| npu2.predict(s)[0]).collect();
 
     let max_f32_err = f64_preds
         .iter()
@@ -295,9 +299,7 @@ fn check_continuous_prediction(harness: &mut ValidationHarness) {
                 .collect()
         })
         .collect();
-    let targets: Vec<Vec<f64>> = (0..4)
-        .map(|_| vec![rng.uniform() * 0.05])
-        .collect();
+    let targets: Vec<Vec<f64>> = (0..4).map(|_| vec![rng.uniform() * 0.05]).collect();
 
     esn.train(&sequences, &targets);
 
@@ -311,6 +313,8 @@ fn check_continuous_prediction(harness: &mut ValidationHarness) {
         .collect();
 
     let preds: Vec<f64> = (0..20).map(|_| esn.predict(&test)[0]).collect();
+    // Exact parity check — determinism: same input → bit-identical output
+    #[allow(clippy::float_cmp)] // determinism test: bit-identical outputs required
     let all_same = preds.windows(2).all(|w| w[0] == w[1]);
 
     println!("  20 streaming predictions: all identical = {all_same}");
@@ -323,6 +327,8 @@ fn check_continuous_prediction(harness: &mut ValidationHarness) {
     let exported = esn.export_weights().expect("trained");
     let mut npu = NpuSimulator::from_exported(&exported);
     let npu_preds: Vec<f64> = (0..20).map(|_| npu.predict(&test)[0]).collect();
+    // Exact parity check — NpuSimulator determinism
+    #[allow(clippy::float_cmp)] // determinism test: bit-identical outputs required
     let npu_all_same = npu_preds.windows(2).all(|w| w[0] == w[1]);
 
     harness.check_bool(

@@ -5,6 +5,36 @@ All notable changes to the hotSpring BarraCUDA validation crate.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.16] — 2026-02-21
+
+### Changed
+
+- **Code quality and idiomatic Rust:**
+  - Zero `.unwrap()` across entire crate — all replaced with `.expect("descriptive message")` or `?` propagation
+  - Zero `cargo clippy` warnings across all targets (pedantic + nursery lints enabled)
+  - Zero `cargo doc --no-deps` warnings
+  - Zero `cargo fmt` diffs
+  - `#[allow()]` audit: removed 7 redundant directives, 18 justified remain with comments
+  - Streaming JSON I/O in `data.rs` via `BufReader` + `serde_json::from_reader`
+- **Module refactoring:** Split `spectral.rs` (1,140 lines) into `spectral/` module:
+  `tridiag.rs`, `csr.rs`, `lanczos.rs`, `anderson.rs`, `hofstadter.rs`, `stats.rs`.
+  Split `md/observables.rs` (1,174 lines) into `md/observables/`:
+  `rdf.rs`, `vacf.rs`, `ssf.rs`, `transport.rs`, `energy.rs`, `summary.rs`.
+  Refactored `hfb_gpu_resident.rs`: extracted 5 helper functions from 1,184-line
+  monolithic SCF loop. All public APIs preserved — zero breaking changes.
+- **Compliance:** SPDX `AGPL-3.0-only` on all 106 `.rs` files and all 34 `.wgsl` shaders (line 1).
+  All hardcoded paths migrated to `discovery` module. Runtime hostname detection
+  (no hardcoded system names). 122 centralized tolerance constants in `tolerances.rs`.
+  Provenance records for all validation baselines.
+
+### Added
+
+- **Test coverage:** 441 unit tests (436 passing + 5 GPU-ignored), up from 345.
+  33 validation suites (33/33 pass). Line coverage: 60.4% total, 81.2% non-GPU
+  (measured with `cargo-llvm-cov`). Added tests for: spectral, observables, error
+  handling, complex arithmetic, cell-list, data loading, validation harness, CPU MD,
+  transport.
+
 ## [0.5.10] — 2026-02-17
 
 ### Added

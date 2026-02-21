@@ -86,12 +86,15 @@ pub fn nuclei_data_path(base_dir: &Path, set: NucleiSet) -> PathBuf {
 }
 
 /// Load AME2020 experimental data → HashMap<(Z, N), (B_exp, σ)>
+///
+/// Uses streaming `from_reader` to avoid buffering the entire JSON file
+/// in memory as an intermediate string.
 pub fn load_experimental_data(
     path: &Path,
 ) -> Result<HashMap<(usize, usize), (f64, f64)>, Box<dyn std::error::Error>> {
-    let text = std::fs::read_to_string(path)?;
-    let file: NucleiFile = serde_json::from_str(&text)?;
-    let mut map = HashMap::new();
+    let reader = std::io::BufReader::new(std::fs::File::open(path)?);
+    let file: NucleiFile = serde_json::from_reader(reader)?;
+    let mut map = HashMap::with_capacity(file.nuclei.len());
     for nuc in file.nuclei {
         map.insert(
             (nuc.z, nuc.n),
@@ -128,9 +131,11 @@ struct BoundsFile {
 pub use crate::provenance::PARAM_NAMES;
 
 /// Load parameter bounds → Vec<(min, max)>
+///
+/// Uses streaming `from_reader` to avoid buffering the entire JSON file.
 pub fn load_bounds(path: &Path) -> Result<Vec<(f64, f64)>, Box<dyn std::error::Error>> {
-    let text = std::fs::read_to_string(path)?;
-    let file: BoundsFile = serde_json::from_str(&text)?;
+    let reader = std::io::BufReader::new(std::fs::File::open(path)?);
+    let file: BoundsFile = serde_json::from_reader(reader)?;
     let mut bounds = Vec::with_capacity(10);
     for name in &PARAM_NAMES {
         let info = file
@@ -171,10 +176,7 @@ pub struct EosContext {
 /// Returns [`HotSpringError::DataLoad`] if the data directory, experimental
 /// data, or bounds file cannot be read.
 pub fn load_eos_context() -> Result<EosContext, HotSpringError> {
-    let base = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .ok_or_else(|| HotSpringError::DataLoad("CARGO_MANIFEST_DIR has no parent".into()))?
-        .join("control/surrogate/nuclear-eos");
+    let base = crate::discovery::nuclear_eos_dir();
 
     let exp_data = std::sync::Arc::new(
         load_nuclei(&base, parse_nuclei_set_from_args())
@@ -276,20 +278,44 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::case_sensitive_file_extension_comparisons)]
     fn nuclei_set_filenames() {
-        assert!(NucleiSet::Selected.filename().ends_with(".json"));
-        assert!(NucleiSet::Full.filename().ends_with(".json"));
+        assert!(NucleiSet::Selected
+            .filename()
+            .to_lowercase()
+            .ends_with(".json"));
+        assert!(NucleiSet::Full.filename().to_lowercase().ends_with(".json"));
         assert!(NucleiSet::Selected.filename().contains("selected"));
         assert!(NucleiSet::Full.filename().contains("full"));
+    }
+
+    #[test]
+    fn nuclei_set_description_selected() {
+        assert_eq!(
+            NucleiSet::Selected.description(),
+            "AME2020 selected (52 nuclei)"
+        );
+    }
+
+    #[test]
+    fn nuclei_set_description_full() {
+        assert_eq!(
+            NucleiSet::Full.description(),
+            "AME2020 full (2,042 experimentally measured nuclei)"
+        );
     }
 
     #[test]
     fn nuclei_data_path_construction() {
         let base = Path::new("/test/base");
         let path = nuclei_data_path(base, NucleiSet::Selected);
-        assert!(path.to_str().unwrap().contains("exp_data"));
-        assert!(path.to_str().unwrap().contains("ame2020_selected"));
+        assert!(path
+            .to_str()
+            .expect("path is valid UTF-8")
+            .contains("exp_data"));
+        assert!(path
+            .to_str()
+            .expect("path is valid UTF-8")
+            .contains("ame2020_selected"));
     }
 
     #[test]
@@ -389,7 +415,7 @@ mod tests {
 
         // If binding_energy_fn returns exact experimental values, chi2 = 0
         let chi2 = chi2_per_datum(&[], &exp, |z, n, _params| {
-            *exp.get(&(z, n)).map(|(b, _)| b).unwrap()
+            *exp.get(&(z, n)).map(|(b, _)| b).expect("exp has (z,n)")
         });
         assert!(chi2 < 1e-10, "perfect fit should give chi2 ≈ 0, got {chi2}");
     }
@@ -419,5 +445,65 @@ mod tests {
         let a = run();
         let b = run();
         assert_eq!(a.to_bits(), b.to_bits(), "chi2_per_datum not deterministic");
+    }
+
+    #[test]
+    #[allow(clippy::float_cmp)] // exact known value (0.0)
+    fn chi2_per_datum_empty_exp_returns_zero() {
+        let exp: HashMap<(usize, usize), (f64, f64)> = HashMap::new();
+        let chi2 = chi2_per_datum(&crate::provenance::SLY4_PARAMS, &exp, |_z, _n, _| 100.0);
+        assert_eq!(chi2, 0.0, "empty exp_data should return 0");
+    }
+
+    #[test]
+    fn chi2_per_datum_single_point() {
+        let mut exp = HashMap::new();
+        exp.insert((28, 28), (484.0, 0.5));
+        let chi2 = chi2_per_datum(&[], &exp, |z, n, _| {
+            *exp.get(&(z, n)).map(|(b, _)| b).expect("exp has (z,n)")
+        });
+        assert!(chi2 < 1e-10, "single point perfect fit: chi2={chi2}");
+    }
+
+    #[test]
+    fn load_experimental_data_missing_file_errors() {
+        let path = std::path::Path::new("/nonexistent/ame2020_nonexistent.json");
+        let result = load_experimental_data(path);
+        assert!(result.is_err(), "missing file should error");
+    }
+
+    #[test]
+    fn load_experimental_data_malformed_json_errors() {
+        let temp = std::env::temp_dir().join("barracuda_test_malformed.json");
+        std::fs::write(&temp, "{invalid json").expect("write temp file");
+        let result = load_experimental_data(&temp);
+        std::fs::remove_file(&temp).ok();
+        assert!(result.is_err(), "malformed JSON should error");
+    }
+
+    #[test]
+    fn load_bounds_missing_file_errors() {
+        let path = std::path::Path::new("/nonexistent/skyrme_bounds.json");
+        let result = load_bounds(path);
+        assert!(result.is_err(), "missing bounds file should error");
+    }
+
+    #[test]
+    fn load_bounds_malformed_json_errors() {
+        let temp = std::env::temp_dir().join("barracuda_test_bounds_malformed.json");
+        std::fs::write(&temp, "{broken}").expect("write temp file");
+        let result = load_bounds(&temp);
+        std::fs::remove_file(&temp).ok();
+        assert!(result.is_err(), "malformed bounds JSON should error");
+    }
+
+    #[test]
+    fn load_bounds_missing_parameter_errors() {
+        let temp = std::env::temp_dir().join("barracuda_test_bounds_incomplete.json");
+        let json = r#"{"parameters": {"t0": {"typical_range": [0, 1]}}}"#;
+        std::fs::write(&temp, json).expect("write temp file");
+        let result = load_bounds(&temp);
+        std::fs::remove_file(&temp).ok();
+        assert!(result.is_err(), "missing parameter should error");
     }
 }

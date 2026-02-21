@@ -471,6 +471,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)] // determinism check
     fn read_back_f64_byte_conversion_roundtrip() {
         let original: Vec<f64> = vec![0.0, 1.0, -1.0, std::f64::consts::PI];
         let bytes: Vec<u8> = original.iter().flat_map(|v| v.to_le_bytes()).collect();
@@ -567,7 +568,7 @@ mod tests {
     #[test]
     #[ignore = "requires GPU"]
     fn run_simulation_gpu() {
-        // Placeholder: run_simulation requires GPU
+        // EVOLUTION(GPU): replace with real dispatch test when CI has GPU. Placeholder: run_simulation requires GPU.
         let config = config::quick_test_case(64);
         let _ = config;
     }

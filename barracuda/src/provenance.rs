@@ -651,6 +651,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::assertions_on_constants)] // constants sanity check
     fn provenance_records_have_content() {
         assert!(!L1_PYTHON_CHI2.script.is_empty());
         assert!(!L1_PYTHON_CHI2.commit.is_empty());
@@ -659,6 +660,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::assertions_on_constants)] // constants sanity check
     fn sly4_params_have_correct_length() {
         assert_eq!(SLY4_PARAMS.len(), 10);
         assert_eq!(UNEDF0_PARAMS.len(), 10);

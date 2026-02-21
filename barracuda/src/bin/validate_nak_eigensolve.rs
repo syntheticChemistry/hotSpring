@@ -146,7 +146,7 @@ fn cpu_eigenvalues(matrices: &[f64], batch: usize, dim: usize) -> Vec<Vec<f64>> 
             let mat = &matrices[base..base + dim * dim];
             let eig = barracuda::linalg::eigh_f64(mat, dim).expect("eigh");
             let mut vals = eig.eigenvalues;
-            vals.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            vals.sort_by(|a, b| a.partial_cmp(b).expect("finite f64 comparison"));
             vals
         })
         .collect()
@@ -356,7 +356,7 @@ fn run_gpu_eigh(
     for b in 0..batch {
         let start = b * dim;
         let mut vals: Vec<f64> = eig_data[start..start + dim].to_vec();
-        vals.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        vals.sort_by(|a, b| a.partial_cmp(b).expect("finite f64 comparison"));
         result.push(vals);
     }
 

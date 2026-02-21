@@ -209,11 +209,11 @@ pub fn eigenvalues(z: f64, kappa: f64, l: u32, n_grid: usize, r_max: f64) -> Vec
     let mut diag = vec![0.0_f64; n];
     let off_diag = vec![-0.5 * inv_h2; n - 1];
 
-    for i in 0..n {
+    for (i, d) in diag.iter_mut().enumerate().take(n) {
         let r = (i as f64 + 1.0) * h;
         let v_yukawa = -z * (-kappa * r).exp() / r;
         let v_cent = centrifugal / (r * r);
-        diag[i] = inv_h2 + v_cent + v_yukawa;
+        *d = inv_h2 + v_cent + v_yukawa;
     }
 
     eigenvalues_below_threshold(&diag, &off_diag, 0.0)
@@ -231,9 +231,9 @@ pub fn bound_state_count(z: f64, kappa: f64, l: u32, n_grid: usize, r_max: f64) 
     let mut diag = vec![0.0_f64; n];
     let off_diag = vec![-0.5 * inv_h2; n - 1];
 
-    for i in 0..n {
+    for (i, d) in diag.iter_mut().enumerate().take(n) {
         let r = (i as f64 + 1.0) * h;
-        diag[i] = inv_h2 + centrifugal / (r * r) - z * (-kappa * r).exp() / r;
+        *d = inv_h2 + centrifugal / (r * r) - z * (-kappa * r).exp() / r;
     }
 
     sturm_count(&diag, &off_diag, 0.0)
@@ -366,7 +366,10 @@ mod tests {
     #[test]
     fn no_bound_states_at_large_kappa() {
         let count = bound_state_count(1.0, 5.0, 0, DEFAULT_N_GRID, DEFAULT_R_MAX);
-        assert!(count == 0, "no bound states at κ=5 for hydrogen, found {count}");
+        assert!(
+            count == 0,
+            "no bound states at κ=5 for hydrogen, found {count}"
+        );
     }
 
     #[test]

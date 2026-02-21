@@ -91,7 +91,13 @@ fn main() {
     let _ = std::hint::black_box(eigenvalues(1.0, 1.0, 0, DEFAULT_N_GRID, DEFAULT_R_MAX));
     let _ = std::hint::black_box(eigenvalues(2.0, 0.0, 0, DEFAULT_N_GRID, DEFAULT_R_MAX));
     let _ = std::hint::black_box(eigenvalues(1.0, 0.1, 1, DEFAULT_N_GRID, DEFAULT_R_MAX));
-    let _ = std::hint::black_box(screened_coulomb::bound_state_count(1.0, 5.0, 0, DEFAULT_N_GRID, DEFAULT_R_MAX));
+    let _ = std::hint::black_box(screened_coulomb::bound_state_count(
+        1.0,
+        5.0,
+        0,
+        DEFAULT_N_GRID,
+        DEFAULT_R_MAX,
+    ));
     let _ = std::hint::black_box(critical_screening(1.0, 1, 0, DEFAULT_N_GRID, DEFAULT_R_MAX));
     let _ = std::hint::black_box(critical_screening(1.0, 2, 0, DEFAULT_N_GRID, DEFAULT_R_MAX));
     let _ = std::hint::black_box(critical_screening(1.0, 2, 1, DEFAULT_N_GRID, DEFAULT_R_MAX));

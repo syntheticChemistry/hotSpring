@@ -347,11 +347,8 @@ impl GpuF64 {
     /// exp/log workarounds — use [`Self::create_pipeline_f64`] for shaders
     /// that call `exp()` or `log()` on f64 values.
     pub fn create_pipeline(&self, shader_source: &str, label: &str) -> wgpu::ComputePipeline {
-        let optimized = ShaderTemplate::for_driver_profile(
-            shader_source,
-            false,
-            &self.driver_profile,
-        );
+        let optimized =
+            ShaderTemplate::for_driver_profile(shader_source, false, &self.driver_profile);
         let shader_module = self
             .device()
             .create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -793,6 +790,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)] // determinism check
     fn f64_byte_roundtrip() {
         let original = vec![
             0.0,
@@ -816,6 +814,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)] // exact known constants
     fn f64_byte_conversion_special_values() {
         let values = [std::f64::consts::PI, 1e-308, 1e308];
         let bytes = f64_to_bytes(&values);
@@ -844,8 +843,8 @@ mod tests {
     #[test]
     #[ignore = "requires GPU"]
     fn dispatch_and_read_result_type() {
-        // Placeholder: would need real GpuF64, pipeline, bind_group.
-        // Result<Vec<f64>, HotSpringError> is the contract.
+        // EVOLUTION(GPU): replace with real dispatch test when CI has GPU.
+        // Placeholder: would need real GpuF64, pipeline, bind_group. Result<Vec<f64>, HotSpringError> is the contract.
         let _: Result<Vec<f64>, crate::error::HotSpringError> = Ok(vec![1.0, 2.0]);
     }
 

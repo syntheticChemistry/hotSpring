@@ -26,8 +26,12 @@ fn compute_forces_cpu(
     box_side: f64,
 ) {
     // Zero forces and PE
-    forces.iter_mut().for_each(|f| *f = 0.0);
-    pe.iter_mut().for_each(|p| *p = 0.0);
+    for f in forces.iter_mut() {
+        *f = 0.0;
+    }
+    for p in pe.iter_mut() {
+        *p = 0.0;
+    }
 
     for i in 0..n {
         let xi = positions[i * 3];
@@ -165,7 +169,9 @@ pub fn run_simulation_cpu(config: &MdConfig) -> MdSimulation {
             if t_current > 1e-30 {
                 let ratio = 1.0 + (dt / config.berendsen_tau) * (temperature / t_current - 1.0);
                 let scale = ratio.max(0.0).sqrt();
-                velocities.iter_mut().for_each(|v| *v *= scale);
+                for v in &mut velocities {
+                    *v *= scale;
+                }
             }
         }
     }
@@ -184,7 +190,9 @@ pub fn run_simulation_cpu(config: &MdConfig) -> MdSimulation {
         let t_current = 2.0 * ke / (3.0 * n as f64);
         if t_current > 1e-30 {
             let scale = (temperature / t_current).sqrt();
-            velocities.iter_mut().for_each(|v| *v *= scale);
+            for v in &mut velocities {
+                *v *= scale;
+            }
         }
     }
 
@@ -290,7 +298,88 @@ pub fn run_simulation_cpu(config: &MdConfig) -> MdSimulation {
 
 #[cfg(test)]
 mod tests {
+    use crate::md::config::MdConfig;
     use crate::md::simulation::{init_fcc_lattice, init_velocities};
+
+    /// Minimal config for fast CPU tests (4 particles, few steps).
+    fn minimal_test_config() -> MdConfig {
+        MdConfig {
+            label: "minimal_test".to_string(),
+            n_particles: 4,
+            kappa: 2.0,
+            gamma: 158.0,
+            dt: 0.01,
+            rc: 6.5,
+            equil_steps: 10,
+            prod_steps: 50,
+            dump_step: 5,
+            berendsen_tau: 5.0,
+            rdf_bins: 20,
+            vel_snapshot_interval: 10,
+        }
+    }
+
+    #[test]
+    fn run_simulation_cpu_produces_valid_output() {
+        let config = minimal_test_config();
+        let sim = super::run_simulation_cpu(&config);
+        assert!(
+            !sim.energy_history.is_empty(),
+            "energy history should be populated"
+        );
+        assert!(sim.wall_time_s > 0.0);
+        assert!(sim.steps_per_sec > 0.0);
+        let last = sim.energy_history.last().expect("energy history non-empty");
+        assert!(last.total.is_finite(), "total energy should be finite");
+        assert!(last.temperature > 0.0 && last.temperature.is_finite());
+    }
+
+    #[test]
+    fn run_simulation_cpu_positions_in_box() {
+        let config = minimal_test_config();
+        let sim = super::run_simulation_cpu(&config);
+        let box_side = config.box_side();
+        if let Some(pos) = sim.positions_snapshots.last() {
+            let n = config.n_particles.min(pos.len() / 3);
+            for i in 0..n {
+                let x = pos[i * 3];
+                let y = pos[i * 3 + 1];
+                let z = pos[i * 3 + 2];
+                assert!(
+                    x >= 0.0 && x < box_side,
+                    "PBC: x={x} out of [0, {box_side})"
+                );
+                assert!(
+                    y >= 0.0 && y < box_side,
+                    "PBC: y={y} out of [0, {box_side})"
+                );
+                assert!(
+                    z >= 0.0 && z < box_side,
+                    "PBC: z={z} out of [0, {box_side})"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn run_simulation_cpu_energy_conservation() {
+        let config = minimal_test_config();
+        let sim = super::run_simulation_cpu(&config);
+        assert!(sim.energy_history.len() >= 2);
+        let e0 = sim.energy_history.first().expect("history non-empty").total;
+        let e1 = sim.energy_history.last().expect("history non-empty").total;
+        let mean = sim.energy_history.iter().map(|r| r.total).sum::<f64>()
+            / sim.energy_history.len() as f64;
+        let drift_pct = if mean.abs() > 1e-10 {
+            ((e1 - e0) / mean.abs()).abs() * 100.0
+        } else {
+            0.0
+        };
+        assert!(
+            drift_pct < 50.0,
+            "short run energy drift should be modest: {drift_pct}%"
+        );
+    }
 
     #[test]
     fn fcc_lattice_correct_count() {
@@ -369,6 +458,48 @@ mod tests {
         assert!(
             (f - expected_f).abs() < 1e-12,
             "force should match analytical: {f} vs {expected_f}"
+        );
+    }
+
+    #[test]
+    fn yukawa_force_various_distances() {
+        let kappa = 1.0f64;
+        let prefactor = 1.0;
+        for r in [0.5, 1.0, 2.0, 5.0] {
+            let f = yukawa_force_magnitude(r, kappa, prefactor);
+            let expected = prefactor * (-kappa * r).exp() * (1.0 + kappa * r) / (r * r);
+            assert!(
+                (f - expected).abs() < 1e-12,
+                "r={r}: force {f} vs expected {expected}"
+            );
+            assert!(f > 0.0, "Yukawa force repulsive (positive) at r={r}");
+        }
+    }
+
+    #[test]
+    fn yukawa_force_coulomb_limit() {
+        // κ→0: F = prefactor/r² (Coulomb)
+        let r = 2.0;
+        let prefactor = 1.0;
+        let kappa_small = 1e-10;
+        let f = yukawa_force_magnitude(r, kappa_small, prefactor);
+        let coulomb = prefactor / (r * r);
+        assert!(
+            (f - coulomb).abs() < 1e-8,
+            "kappa≈0 should give Coulomb: {f} vs {coulomb}"
+        );
+    }
+
+    #[test]
+    fn yukawa_force_strong_screening() {
+        // Large κ: force decays faster
+        let r = 1.0;
+        let prefactor = 1.0;
+        let f_k1 = yukawa_force_magnitude(r, 1.0, prefactor);
+        let f_k3 = yukawa_force_magnitude(r, 3.0, prefactor);
+        assert!(
+            f_k3 < f_k1,
+            "higher kappa should give smaller force at same r"
         );
     }
 

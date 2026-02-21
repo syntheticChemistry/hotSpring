@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+//
 // ESN reservoir update kernel (f32)
 //
 // Fused W_in*input + W_res*state → leaky tanh → new state
@@ -7,8 +9,6 @@
 // Same kernel runs on GPU (via ToadStool dispatch) and the
 // equivalent math runs on Akida NPU (via load_reservoir + infer).
 // CPU reference: barracuda/src/md/reservoir.rs::EchoStateNetwork::update()
-//
-// SPDX-License-Identifier: AGPL-3.0-only
 //
 // Bindings:
 //   0: w_in    [R*I] f32, read  — input weights (row-major, R × I)

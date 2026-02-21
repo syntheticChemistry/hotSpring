@@ -104,11 +104,8 @@ impl FermionField {
 
 /// Staggered phase η_μ(x) = (-1)^{x_0 + x_1 + ... + x_{μ-1}}
 fn staggered_phase(x: [usize; 4], mu: usize) -> f64 {
-    let mut sum = 0;
-    for i in 0..mu {
-        sum += x[i];
-    }
-    if sum % 2 == 0 {
+    let sum: usize = x.iter().take(mu).sum();
+    if sum.is_multiple_of(2) {
         1.0
     } else {
         -1.0
@@ -118,9 +115,9 @@ fn staggered_phase(x: [usize; 4], mu: usize) -> f64 {
 /// Apply SU(3) matrix to a color vector: result_c = Σ_c' U_{c,c'} × v_{c'}
 fn su3_times_vec(u: &Su3Matrix, v: &ColorVector) -> ColorVector {
     let mut result = [Complex64::ZERO; 3];
-    for c in 0..3 {
-        for cp in 0..3 {
-            result[c] += u.m[c][cp] * v[cp];
+    for (c, r) in result.iter_mut().enumerate() {
+        for (cp, vcp) in v.iter().enumerate() {
+            *r += u.m[c][cp] * *vcp;
         }
     }
     result
@@ -129,9 +126,9 @@ fn su3_times_vec(u: &Su3Matrix, v: &ColorVector) -> ColorVector {
 /// Apply U† to a color vector: result_c = Σ_c' U†_{c,c'} × v_{c'} = Σ_c' conj(U_{c',c}) × v_{c'}
 fn su3_dagger_times_vec(u: &Su3Matrix, v: &ColorVector) -> ColorVector {
     let mut result = [Complex64::ZERO; 3];
-    for c in 0..3 {
-        for cp in 0..3 {
-            result[c] += u.m[cp][c].conj() * v[cp];
+    for (c, r) in result.iter_mut().enumerate() {
+        for (cp, vcp) in v.iter().enumerate() {
+            *r += u.m[cp][c].conj() * *vcp;
         }
     }
     result
@@ -372,8 +369,8 @@ pub fn apply_dirac(lattice: &Lattice, psi: &FermionField, mass: f64) -> FermionF
         let mut out = [Complex64::ZERO; 3];
 
         // Mass term
-        for c in 0..3 {
-            out[c] = psi.data[idx][c].scale(mass);
+        for (c, o) in out.iter_mut().enumerate() {
+            *o = psi.data[idx][c].scale(mass);
         }
 
         // Hopping terms
@@ -424,8 +421,8 @@ fn apply_dirac_adjoint(lattice: &Lattice, psi: &FermionField, mass: f64) -> Ferm
         let x = lattice.site_coords(idx);
         let mut out = [Complex64::ZERO; 3];
 
-        for c in 0..3 {
-            out[c] = psi.data[idx][c].scale(mass);
+        for (c, o) in out.iter_mut().enumerate() {
+            *o = psi.data[idx][c].scale(mass);
         }
 
         for mu in 0..4 {
@@ -493,6 +490,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)] // exact known phases (±1.0)
     fn staggered_phases() {
         assert_eq!(staggered_phase([0, 0, 0, 0], 0), 1.0);
         assert_eq!(staggered_phase([1, 0, 0, 0], 1), -1.0);
@@ -511,5 +509,117 @@ mod tests {
             (dot_ab.re - dot_ba.re).abs() < 1e-12,
             "dot product should have Re<a|b> = Re<b|a>"
         );
+    }
+
+    #[test]
+    fn fermion_field_norm_sq() {
+        let vol = 16;
+        let psi = FermionField::random(vol, 44);
+        let n2 = psi.norm_sq();
+        assert!(n2 >= 0.0);
+        let dot_self = psi.dot(&psi);
+        assert!((n2 - dot_self.re).abs() < 1e-12);
+    }
+
+    #[test]
+    fn fermion_field_axpy() {
+        let vol = 8;
+        let mut y = FermionField::random(vol, 1);
+        let x = FermionField::random(vol, 2);
+        let a = Complex64::new(0.5, 0.0);
+        let y_before = y.norm_sq();
+        y.axpy(a, &x);
+        assert!(y.norm_sq() > 0.0);
+        assert!((y.norm_sq() - y_before).abs() > 1e-10 || x.norm_sq() > 1e-10);
+    }
+
+    #[test]
+    fn fermion_field_scale_inplace() {
+        let vol = 8;
+        let mut psi = FermionField::random(vol, 45);
+        let n_before = psi.norm_sq();
+        psi.scale_inplace(2.0);
+        assert!((psi.norm_sq() - 4.0 * n_before).abs() < 1e-10);
+    }
+
+    #[test]
+    fn fermion_field_zero() {
+        let vol = 8;
+        let mut psi = FermionField::random(vol, 46);
+        psi.zero();
+        assert!(psi.norm_sq() < 1e-20);
+    }
+
+    #[test]
+    fn fermion_field_copy_from() {
+        let vol = 8;
+        let src = FermionField::random(vol, 47);
+        let mut dst = FermionField::zeros(vol);
+        dst.copy_from(&src);
+        for (s, d) in src.data.iter().zip(dst.data.iter()) {
+            for c in 0..3 {
+                assert!((s[c].re - d[c].re).abs() < 1e-12);
+                assert!((s[c].im - d[c].im).abs() < 1e-12);
+            }
+        }
+    }
+
+    #[test]
+    fn flatten_unflatten_roundtrip() {
+        let vol = 16;
+        let psi = FermionField::random(vol, 48);
+        let flat = flatten_fermion(&psi);
+        let recovered = unflatten_fermion(&flat, vol);
+        assert_eq!(recovered.volume, vol);
+        for (a, b) in psi.data.iter().zip(recovered.data.iter()) {
+            for c in 0..3 {
+                assert!((a[c].re - b[c].re).abs() < 1e-12);
+                assert!((a[c].im - b[c].im).abs() < 1e-12);
+            }
+        }
+    }
+
+    #[test]
+    fn dirac_gpu_layout_from_lattice() {
+        let lat = Lattice::cold_start([2, 2, 2, 2], 6.0);
+        let layout = DiracGpuLayout::from_lattice(&lat);
+        assert_eq!(layout.volume, 16);
+        assert_eq!(layout.links_flat.len(), 16 * 4 * 18);
+        assert_eq!(layout.neighbors.len(), 16 * 8);
+        assert_eq!(layout.phases.len(), 16 * 4);
+    }
+
+    #[test]
+    fn dirac_zero_mass() {
+        let lat = Lattice::cold_start([4, 4, 4, 4], 6.0);
+        let psi = FermionField::random(lat.volume(), 50);
+        let result = apply_dirac(&lat, &psi, 0.0);
+        assert!(result.norm_sq() > 0.0, "hopping terms survive at m=0");
+    }
+
+    #[test]
+    fn dirac_large_mass_dominates() {
+        let lat = Lattice::cold_start([4, 4, 4, 4], 6.0);
+        let psi = FermionField::random(lat.volume(), 51);
+        let result_small = apply_dirac(&lat, &psi, 0.1);
+        let result_large = apply_dirac(&lat, &psi, 100.0);
+        assert!(result_large.norm_sq() > 100.0 * result_small.norm_sq());
+    }
+
+    #[test]
+    fn dirac_sq_zero_mass() {
+        let lat = Lattice::cold_start([4, 4, 4, 4], 6.0);
+        let psi = FermionField::random(lat.volume(), 52);
+        let ddpsi = apply_dirac_sq(&lat, &psi, 0.01);
+        assert!(ddpsi.norm_sq() > 0.0);
+    }
+
+    #[test]
+    fn dirac_periodic_boundary_small_lattice() {
+        let lat = Lattice::cold_start([2, 2, 2, 2], 6.0);
+        let psi = FermionField::random(lat.volume(), 53);
+        let result = apply_dirac(&lat, &psi, 0.5);
+        assert!(result.norm_sq() > 0.0);
+        assert_eq!(result.volume, lat.volume());
     }
 }

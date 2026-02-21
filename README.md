@@ -75,7 +75,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **NPU HW Quantization** | ✅ Complete | 4/4 on AKD1000: f32/int8/int4/act4 cascade, 685μs/inference |
 | **NPU Lattice Phase** | ✅ 7/8 | β_c=5.715 on AKD1000, ESN 100% CPU, int4 NPU 60% (marginal as expected) |
 | **Titan V NVK** | ✅ Complete | NVK built from Mesa 25.1.5. `cpu_gpu_parity` 6/6, `stanton_murillo` 40/40, `bench_gpu_fp64` pass |
-| **TOTAL** | **31/31 Rust validation suites** | + 34/35 NPU HW checks, 345 unit tests, 6 upstream bugs found. Both GPUs validated |
+| **TOTAL** | **33/33 Rust validation suites** | + 34/35 NPU HW checks, 441 unit tests, 6 upstream bugs found. Both GPUs validated |
 
 Papers 5, 7, and 8 from the review queue are complete. Paper 5 transport fits
 (Daligault 2012) were recalibrated against 12 Sarkas Green-Kubo D* values (Feb 2026)
@@ -319,8 +319,8 @@ makes the upstream library richer and hotSpring leaner.
 6. Handoff document with exact code locations and validation results
 
 **Next absorption targets** (see `EVOLUTION_READINESS.md`):
-- GPU SpMV (CSR sparse matrix-vector) — `spectral.rs::CsrMatrix::spmv()`
-- GPU Lanczos eigensolve — `spectral.rs::lanczos()`
+- GPU SpMV (CSR sparse matrix-vector) — `spectral/csr.rs::CsrMatrix::spmv()`
+- GPU Lanczos eigensolve — `spectral/lanczos.rs::lanczos()`
 - GPU Dirac operator — `lattice/dirac.rs` (staggered fermion SpMV)
 
 ---
@@ -330,16 +330,15 @@ makes the upstream library richer and hotSpring leaner.
 The `barracuda/` directory is a standalone Rust crate providing the validation
 environment, physics implementations, and GPU compute. Key architectural properties:
 
-- **345 unit tests** (340 passing + 5 GPU-ignored), **27 validation suites** (27/27 pass). Includes lattice QCD (complex f64, SU(3), Wilson action, HMC,
+- **441 unit tests** (436 passing + 5 GPU-ignored), **33 validation suites** (33/33 pass). Includes lattice QCD (complex f64, SU(3), Wilson action, HMC,
   Dirac CG), Abelian Higgs (U(1) + Higgs, HMC), transport coefficients (Green-Kubo
   D*/η*/λ*, Sarkas-calibrated fits), HotQCD EOS tables, NPU quantization parity
   (f64→f32→int8→int4), and NPU beyond-SDK hardware capability validation (arbitrary
   channels, FC merge, batch amortization, wide FC, multi-output, weight mutation,
-  determinism). Test coverage: ~48% line / ~65% function (GPU modules
-  require hardware; CPU-testable modules average >90%). Measured with `cargo-llvm-cov`.
-- **AGPL-3.0 only** — all 69 active `.rs` files have
-  `SPDX-License-Identifier: AGPL-3.0-only`. 22/28 `.wgsl` shaders have
-  the header (6 deprecated toadstool-ref shaders pending).
+  determinism). Test coverage: ~60% line / ~76% function (81% non-GPU line coverage;
+  GPU modules require hardware). Measured with `cargo-llvm-cov`.
+- **AGPL-3.0 only** — all 106 active `.rs` files and all 34 `.wgsl` shaders have
+  `SPDX-License-Identifier: AGPL-3.0-only` on line 1.
 - **Provenance** — centralized `BaselineProvenance` records trace hardcoded
   validation values to their Python origins (script path, git commit, date,
   exact command). `AnalyticalProvenance` references (DOIs, textbook citations)
@@ -357,15 +356,14 @@ environment, physics implementations, and GPU compute. Key architectural propert
   NAK eigensolve, PPPM, screened Coulomb, NPU quantization, and NPU beyond-SDK
   hardware capabilities. All validation binaries wired to `tolerances::*`.
 - **ValidationHarness** — structured pass/fail tracking with exit code 0/1.
-  12 of 20 binaries use it (validation targets). Remaining 8 are optimization
-  explorers and diagnostics.
+  35 of 50 binaries use it (validation targets). Remaining 15 are optimization
+  explorers, benchmarks, and diagnostics.
 - **Shared data loading** — `data::EosContext` and `data::load_eos_context()`
   eliminate duplicated path construction across all nuclear EOS binaries.
   `data::chi2_per_datum()` centralizes χ² computation with `tolerances::sigma_theo`.
 - **Typed errors** — `HotSpringError` enum with `Result` propagation in GPU
-  and simulation APIs. Minimal `expect()` in library code (22 occurrences,
-  mostly GPU staging and file I/O where failure is unrecoverable).
-  Validation binaries use `.expect()` with descriptive messages.
+  and simulation APIs. Zero `.unwrap()` in the entire crate — all fallible
+  operations use `.expect("descriptive message")` or `?` propagation.
 - **Shared physics** — `hfb_common.rs` consolidates BCS v², Coulomb exchange
   (Slater), CM correction, Skyrme t₀, Hermite polynomials, and Mat type.
   Shared across spherical, deformed, and GPU HFB solvers.
@@ -389,10 +387,10 @@ environment, physics implementations, and GPU compute. Key architectural propert
 
 ```bash
 cd barracuda
-cargo test               # 345 tests pass, 5 GPU-ignored (< 16 seconds)
+cargo test               # 441 tests pass, 5 GPU-ignored (< 16 seconds)
 cargo clippy --all-targets  # Zero warnings
 cargo doc --no-deps      # Full API documentation — 0 warnings
-cargo run --release --bin validate_all  # 27/27 suites pass
+cargo run --release --bin validate_all  # 33/33 suites pass
 ```
 
 See [`barracuda/CHANGELOG.md`](barracuda/CHANGELOG.md) for version history.
@@ -467,7 +465,7 @@ hotSpring/
 │   ├── CONTROL_EXPERIMENT_SUMMARY.md  # Phase A quick reference
 │   └── METHODOLOGY.md                # Two-phase validation protocol
 │
-├── barracuda/                          # BarraCUDA Rust crate — v0.5.16 (345 tests, 27 suites)
+├── barracuda/                          # BarraCUDA Rust crate — v0.5.16 (441 tests, 33 suites)
 │   ├── Cargo.toml                     # Dependencies (requires ecoPrimals/phase1/toadstool)
 │   ├── CHANGELOG.md                   # Version history — baselines, tolerances, evolution
 │   ├── EVOLUTION_READINESS.md         # Rust module → GPU promotion tier + absorption status
@@ -481,7 +479,14 @@ hotSpring/
 │       ├── discovery.rs               # Capability-based data path resolution (env var / CWD)
 │       ├── data.rs                    # AME2020 data + Skyrme bounds + EosContext + chi2_per_datum
 │       ├── prescreen.rs               # NMP cascade filter (algebraic → L1 proxy → classifier)
-│       ├── spectral.rs               # Spectral theory (CsrMatrix, SpMV, Lanczos, Anderson 1D/2D/3D, Hofstadter)
+│       ├── spectral/                 # Spectral theory module
+│       │   ├── mod.rs               # Re-exports
+│       │   ├── tridiag.rs           # Sturm bisection eigensolve
+│       │   ├── csr.rs               # CsrMatrix, SpMV, WGSL shader
+│       │   ├── lanczos.rs           # Lanczos algorithm + tridiagonal extraction
+│       │   ├── anderson.rs          # Anderson 1D/2D/3D + Lyapunov exponent
+│       │   ├── hofstadter.rs        # Almost-Mathieu + Hofstadter butterfly
+│       │   └── stats.rs             # Level spacing ratio, band detection
 │       ├── bench.rs                   # Benchmark harness (RAPL, nvidia-smi, JSON reports)
 │       ├── gpu.rs                     # GPU FP64 device wrapper (SHADER_F64 via wgpu/Vulkan)
 │       │
@@ -503,12 +508,18 @@ hotSpring/
 │       │   ├── config.rs              # Simulation configuration (reduced units)
 │       │   ├── celllist.rs            # Cell-list spatial decomposition (GPU neighbor search)
 │       │   ├── shaders.rs             # Shader constants (include_str! + 3 small inline)
-│       │   ├── shaders/               # f64 WGSL production kernels (5 files)
+│       │   ├── shaders/               # f64 WGSL production kernels (11 files)
 │       │   ├── simulation.rs          # GPU MD loop (all-pairs + cell-list)
 │       │   ├── cpu_reference.rs       # CPU reference implementation (FCC, Verlet)
-│       │   ├── observables.rs         # Energy, RDF, VACF, SSF, stress ACF, heat ACF
-│       │   ├── transport.rs           # Stanton-Murillo analytical fits (D*, η*, λ*)
-│       │   └── shaders_toadstool_ref/ # ToadStool shader snapshots (divergence tracking)
+│       │   ├── observables/           # Observable computation module
+│       │   │   ├── mod.rs           # Re-exports
+│       │   │   ├── rdf.rs           # Radial distribution function
+│       │   │   ├── vacf.rs          # Velocity autocorrelation + MSD
+│       │   │   ├── ssf.rs           # Static structure factor (CPU + GPU)
+│       │   │   ├── transport.rs     # Stress/heat current ACFs (Green-Kubo)
+│       │   │   ├── energy.rs        # Energy validation (drift, conservation)
+│       │   │   └── summary.rs       # Observable summary printing
+│       │   └── transport.rs           # Stanton-Murillo analytical fits (D*, η*, λ*)
 │       │
 │       ├── lattice/                   # Lattice gauge theory (Papers 7, 8, 13)
 │       │   ├── complex_f64.rs         # Complex f64 arithmetic (Rust + WGSL template)
@@ -522,10 +533,8 @@ hotSpring/
 │       │   ├── eos_tables.rs          # HotQCD EOS tables (Bazavov et al. 2014)
 │       │   └── multi_gpu.rs           # Temperature scan dispatcher
 │       │
-│       ├── archive/                   # Historical implementations (fossil record, not compiled)
-│       │
-│       └── bin/                       # 43 binaries (exit 0 = pass, 1 = fail)
-│           ├── validate_all.rs        # Meta-validator: runs all 27 validation suites
+│       └── bin/                       # 50 binaries (exit 0 = pass, 1 = fail)
+│           ├── validate_all.rs        # Meta-validator: runs all 33 validation suites
 │           ├── validate_nuclear_eos.rs # L1 SEMF + L2 HFB + NMP validation harness
 │           ├── validate_barracuda_pipeline.rs # Full MD pipeline (12/12 checks)
 │           ├── validate_barracuda_hfb.rs # BCS + eigensolve pipeline (14/14 checks)

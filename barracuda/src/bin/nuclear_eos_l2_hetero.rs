@@ -70,7 +70,7 @@ fn cascade_filter(
 ) -> Vec<Vec<f64>> {
     let mut survivors = Vec::new();
     for params in candidates {
-        let mut stats = cascade_stats.lock().unwrap();
+        let mut stats = cascade_stats.lock().expect("cascade_stats lock");
         stats.total_candidates += 1;
 
         match nmp_prescreen(params, constraints) {
@@ -122,9 +122,7 @@ fn generate_l1_training_data(
             continue;
         }
 
-        let nmp = if let Some(nmp) = nuclear_matter_properties(&params) {
-            nmp
-        } else {
+        let Some(nmp) = nuclear_matter_properties(&params) else {
             xs.push(params);
             ys.push(9.2);
             continue;
@@ -361,7 +359,7 @@ fn run_heterogeneous_l2(
     let mut surviving_candidates: Vec<Vec<f64>> = Vec::new();
 
     for params in &initial_candidates {
-        let mut stats = cascade_stats.lock().unwrap();
+        let mut stats = cascade_stats.lock().expect("cascade_stats lock");
         stats.total_candidates += 1;
 
         // Tier 1: NMP pre-screen (algebraic, ~0 cost)
@@ -418,7 +416,10 @@ fn run_heterogeneous_l2(
         .collect();
 
     for (x, f) in &eval_results {
-        hfb_cache.lock().unwrap().record(x.clone(), *f);
+        hfb_cache
+            .lock()
+            .expect("hfb_cache lock")
+            .record(x.clone(), *f);
     }
 
     let n_initial = eval_results.len();
@@ -439,7 +440,7 @@ fn run_heterogeneous_l2(
         let round_t0 = Instant::now();
 
         // Get current cache data
-        let (train_x, train_y) = hfb_cache.lock().unwrap().training_data();
+        let (train_x, train_y) = hfb_cache.lock().expect("hfb_cache lock").training_data();
         let n_before = train_x.len();
 
         if train_x.len() < 5 {
@@ -513,7 +514,7 @@ fn run_heterogeneous_l2(
         }
 
         // Best-so-far point + perturbations (exploit known good region)
-        if let Some(best_rec) = hfb_cache.lock().unwrap().best() {
+        if let Some(best_rec) = hfb_cache.lock().expect("hfb_cache lock").best() {
             let best_x = best_rec.x.clone();
             for _ in 0..candidates_per_round / 4 {
                 round_candidates.push(perturb_params(&best_x, bounds, &mut rng_state, 0.1));
@@ -551,10 +552,13 @@ fn run_heterogeneous_l2(
             .collect();
 
         for (x, f) in &results {
-            hfb_cache.lock().unwrap().record(x.clone(), *f);
+            hfb_cache
+                .lock()
+                .expect("hfb_cache lock")
+                .record(x.clone(), *f);
         }
 
-        let cache = hfb_cache.lock().unwrap();
+        let cache = hfb_cache.lock().expect("hfb_cache lock");
         let n_new = cache.len() - n_before;
         let best_f = cache.best_f().unwrap_or(f64::INFINITY);
 
@@ -565,8 +569,8 @@ fn run_heterogeneous_l2(
     }
 
     // ── Final results ──
-    let cache = hfb_cache.lock().unwrap();
-    let final_stats = cascade_stats.lock().unwrap().clone();
+    let cache = hfb_cache.lock().expect("hfb_cache lock");
+    let final_stats = cascade_stats.lock().expect("cascade_stats lock").clone();
 
     if cache.is_empty() {
         println!("    ⚠ No HFB evaluations completed. Cascade too aggressive.");
@@ -587,7 +591,7 @@ fn run_heterogeneous_l2(
         );
     }
 
-    let best_record = cache.best().unwrap();
+    let best_record = cache.best().expect("cache non-empty, best exists");
     let best_x = best_record.x.clone();
     let best_f = best_record.f;
 
@@ -596,9 +600,8 @@ fn run_heterogeneous_l2(
 
 /// L2 objective function (HFB evaluation)
 fn l2_objective(params: &[f64], nuclei: &[(usize, usize, f64)]) -> f64 {
-    let nmp = match nuclear_matter_properties(params) {
-        Some(nmp) => nmp,
-        None => return (1e4_f64).ln_1p(),
+    let Some(nmp) = nuclear_matter_properties(params) else {
+        return (1e4_f64).ln_1p();
     };
 
     let mut penalty = 0.0;
@@ -740,7 +743,7 @@ fn run_screen_l2(
         .iter()
         .min_by(|a, b| a.1.total_cmp(&b.1))
         .map(|(x, f)| (x.clone(), *f))
-        .unwrap();
+        .expect("at least one L2 evaluation result");
 
     let chi2 = best_f.exp_m1();
 
@@ -1051,7 +1054,11 @@ fn main() {
                 "best_params": best_params,
             });
             let path = results_dir.join("barracuda_screen_l2.json");
-            std::fs::write(&path, serde_json::to_string_pretty(&result_json).unwrap()).ok();
+            std::fs::write(
+                &path,
+                serde_json::to_string_pretty(&result_json).expect("JSON serialize"),
+            )
+            .ok();
             println!("\n  Results saved to: {}", path.display());
         }
 
@@ -1088,7 +1095,11 @@ fn main() {
                 "best_params": best_params,
             });
             let path = results_dir.join("barracuda_direct_l2.json");
-            std::fs::write(&path, serde_json::to_string_pretty(&result_json).unwrap()).ok();
+            std::fs::write(
+                &path,
+                serde_json::to_string_pretty(&result_json).expect("JSON serialize"),
+            )
+            .ok();
             println!("\n  Results saved to: {}", path.display());
         }
 
@@ -1201,7 +1212,11 @@ fn save_results(
     }
 
     let path = results_dir.join("barracuda_l2_hetero.json");
-    std::fs::write(&path, serde_json::to_string_pretty(&result_json).unwrap()).ok();
+    std::fs::write(
+        &path,
+        serde_json::to_string_pretty(&result_json).expect("JSON serialize"),
+    )
+    .ok();
     println!();
     println!("  Results saved to: {}", path.display());
 }

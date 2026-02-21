@@ -143,9 +143,13 @@ fn check_live_hmc_monitor(harness: &mut ValidationHarness) {
     // On a 4^4 lattice with synthetic-trained ESN + real HMC data, the
     // domain gap means absolute phase classification may be imprecise.
     // Key check: predictions are finite and bounded (monitoring loop works).
-    let all_finite = confined_predictions.iter().chain(deconfined_predictions.iter())
+    let all_finite = confined_predictions
+        .iter()
+        .chain(deconfined_predictions.iter())
         .all(|v| v.is_finite());
-    let all_bounded = confined_predictions.iter().chain(deconfined_predictions.iter())
+    let all_bounded = confined_predictions
+        .iter()
+        .chain(deconfined_predictions.iter())
         .all(|v| *v > -5.0 && *v < 5.0);
     harness.check_bool("live monitor produces finite predictions", all_finite);
     harness.check_bool("live monitor predictions bounded", all_bounded);
@@ -188,8 +192,8 @@ fn check_transport_predictor(harness: &mut ValidationHarness) {
         .map(|_| {
             vec![
                 rng.uniform() * 0.05 + 0.001, // D*
-                rng.uniform() * 0.3 + 0.1,     // η*
-                rng.uniform() * 0.5 + 0.2,     // λ*
+                rng.uniform() * 0.3 + 0.1,    // η*
+                rng.uniform() * 0.5 + 0.2,    // λ*
             ]
         })
         .collect();
@@ -211,7 +215,9 @@ fn check_transport_predictor(harness: &mut ValidationHarness) {
         }
     }
 
-    println!("  Multi-output (D*, η*, λ*): all finite = {all_finite}, all 3-output = {all_3output}");
+    println!(
+        "  Multi-output (D*, η*, λ*): all finite = {all_finite}, all 3-output = {all_3output}"
+    );
     harness.check_bool("multi-output predictions finite", all_finite);
     harness.check_bool("multi-output correct dimensionality", all_3output);
     println!();
@@ -246,15 +252,16 @@ fn check_cross_substrate_parity(harness: &mut ValidationHarness) {
     let mut max_f32_error = 0.0f64;
     let mut max_int4_error = 0.0f64;
 
-    println!("  {:>6}  {:>10}  {:>10}  {:>10}", "β", "CPU f64", "NPU f32", "int4 sim");
+    println!(
+        "  {:>6}  {:>10}  {:>10}  {:>10}",
+        "β", "CPU f64", "NPU f32", "int4 sim"
+    );
     for &beta in &test_betas {
         let beta_norm = (beta - 5.0) / 2.0;
         let plaq = synthetic_plaquette(beta, 999);
         let poly = synthetic_polyakov(beta, 999);
 
-        let seq: Vec<Vec<f64>> = (0..10)
-            .map(|_| vec![beta_norm, plaq, poly])
-            .collect();
+        let seq: Vec<Vec<f64>> = (0..10).map(|_| vec![beta_norm, plaq, poly]).collect();
 
         let cpu_pred = esn.predict(&seq)[0];
         let f32_pred = npu_sim.predict(&seq)[0];
@@ -338,17 +345,12 @@ fn check_monitoring_overhead(harness: &mut ValidationHarness) {
         total_predict_ns += predict_elapsed;
     }
 
-    let overhead_pct =
-        (total_predict_ns as f64 / total_hmc_ns as f64) * 100.0;
+    let overhead_pct = (total_predict_ns as f64 / total_hmc_ns as f64) * 100.0;
     let hmc_ms = total_hmc_ns as f64 / 1e6 / n_trajectories as f64;
     let pred_us = total_predict_ns as f64 / 1e3 / n_trajectories as f64;
 
-    println!(
-        "  HMC per trajectory: {hmc_ms:.2} ms"
-    );
-    println!(
-        "  ESN prediction: {pred_us:.1} μs"
-    );
+    println!("  HMC per trajectory: {hmc_ms:.2} ms");
+    println!("  ESN prediction: {pred_us:.1} μs");
     println!("  Overhead: {overhead_pct:.2}%");
 
     harness.check_upper("monitoring overhead < 5%", overhead_pct, 5.0);
@@ -391,7 +393,7 @@ fn check_predictive_steering(harness: &mut ValidationHarness) {
 
     // Find the transition region: where prediction crosses 0.5
     let mut transition_lo = coarse_betas[0];
-    let mut transition_hi = *coarse_betas.last().unwrap();
+    let mut transition_hi = *coarse_betas.last().expect("coarse_betas non-empty");
 
     for i in 0..coarse_preds.len() - 1 {
         let (b0, p0) = coarse_preds[i];
@@ -438,8 +440,8 @@ fn check_predictive_steering(harness: &mut ValidationHarness) {
 
     println!("  Refined β_c: {refined_beta_c:.4} (known: {known_beta_c:.3}, error: {error:.4})");
 
-    let uniform_cost = 80;  // 80 points in full scan
-    let adaptive_cost = 10 + n_fine;  // 10 coarse + 20 fine
+    let uniform_cost = 80; // 80 points in full scan
+    let adaptive_cost = 10 + n_fine; // 10 coarse + 20 fine
     let savings_pct = (1.0 - adaptive_cost as f64 / uniform_cost as f64) * 100.0;
     println!("  Compute savings: {adaptive_cost} vs {uniform_cost} evaluations ({savings_pct:.0}% saved)");
 
@@ -510,7 +512,10 @@ fn lcg_normal(seed: u64) -> f64 {
 }
 
 /// Simulate int4 quantization of readout weights for cross-substrate parity.
-fn predict_int4_quantized(weights: &hotspring_barracuda::md::reservoir::ExportedWeights, seq: &[Vec<f64>]) -> f64 {
+fn predict_int4_quantized(
+    weights: &hotspring_barracuda::md::reservoir::ExportedWeights,
+    seq: &[Vec<f64>],
+) -> f64 {
     let rs = weights.reservoir_size;
     let is = weights.input_size;
     let leak = weights.leak_rate;
@@ -537,7 +542,6 @@ fn predict_int4_quantized(weights: &hotspring_barracuda::md::reservoir::Exported
         let mut pre = vec![0.0f32; rs];
         for i in 0..rs {
             let mut val = 0.0f32;
-            #[allow(clippy::cast_possible_truncation)]
             for (j, &u) in input.iter().enumerate() {
                 val += w_in[i][j] * u as f32;
             }
@@ -565,7 +569,10 @@ impl SimpleRng {
         Self(seed)
     }
     fn next_u64(&mut self) -> u64 {
-        self.0 = self.0.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1);
+        self.0 = self
+            .0
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1);
         self.0
     }
     fn uniform(&mut self) -> f64 {

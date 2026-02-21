@@ -289,15 +289,15 @@ No institutional access required. No Code Ocean account. No Fortran compiler. AG
 
 | Metric | Value |
 |--------|-------|
-| Unit tests | **345** pass, 5 GPU-ignored (350 total) |
-| Validation suites | **27/27** pass |
+| Unit tests | **441** pass, 5 GPU-ignored (446 total) |
+| Validation suites | **33/33** pass |
 | Python control scripts | **34** (Sarkas, surrogate, TTM, NPU, reservoir, lattice, spectral theory) |
-| Rust validation binaries | **25** (physics, MD, lattice, NPU, transport, spectral 1D/2D/3D, Lanczos, Hofstadter) |
+| Rust validation binaries | **50** (physics, MD, lattice, NPU, transport, spectral 1D/2D/3D, Lanczos, Hofstadter) |
 | Clippy warnings | **0** (default + pedantic on library code) |
 | Doc warnings | **0** |
 | Unsafe blocks | **0** |
 | TODO/FIXME/HACK markers | **0** |
-| Centralized tolerances | **72** constants in `tolerances.rs` |
+| Centralized tolerances | **122** constants in `tolerances.rs` |
 | Provenance records | All validation targets traced to Python origins or DOIs |
 | AGPL-3.0 compliance | All `.rs` and `.wgsl` files |
 

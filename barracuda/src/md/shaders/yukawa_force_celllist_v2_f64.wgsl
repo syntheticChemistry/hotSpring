@@ -1,10 +1,10 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+//
 // DEPRECATED — Use barracuda::ops::md::forces::YukawaCelllistF64
 // Retained for fossil record. This was a flat-loop experiment to debug
 // Naga/SPIR-V nested-loop issues. barracuda canonical version is stable.
 //
 // Yukawa Cell-List Force v2 (f64) — flat loop, same bindings as v1
-//
-// SPDX-License-Identifier: AGPL-3.0-only
 //
 // Identical physics to yukawa_force_celllist_f64.wgsl but uses a flat
 // single loop over 27 neighbor offsets (precomputed) instead of

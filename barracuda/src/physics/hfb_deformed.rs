@@ -20,7 +20,7 @@
 //!   - Vautherin & Brink, PRC 5, 626 (1972)
 //!   - Bender, Heenen, Reinhard, Rev. Mod. Phys. 75, 121 (2003)
 
-use super::constants::*;
+use super::constants::{E2, HBAR_C, M_NUCLEON};
 use super::hfb_common::{factorial_f64, hermite_value, Mat};
 use crate::tolerances::{
     DEFORMATION_GUESS_GENERIC, DEFORMATION_GUESS_SD, DEFORMATION_GUESS_WEAK,
@@ -38,19 +38,22 @@ use std::f64::consts::PI;
 
 /// Nilsson-like quantum numbers for axially-deformed harmonic oscillator
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 struct DeformedState {
-    n_z: usize,      // quantum number along symmetry axis
-    n_perp: usize,   // perpendicular oscillator quanta
-    lambda: i32,     // projection of orbital angular momentum on z-axis
-    sigma: i32,      // +1 or -1 (spin projection: +1/2 or -1/2)
-    omega_x2: i32,   // 2*Omega = 2*Lambda + sigma (block index, always > 0)
-    _parity: i32,    // (-1)^(n_z + 2*n_perp + |lambda|) = (-1)^N
+    n_z: usize,    // quantum number along symmetry axis
+    n_perp: usize, // perpendicular oscillator quanta
+    lambda: i32,   // projection of orbital angular momentum on z-axis
+    sigma: i32,    // +1 or -1 (spin projection: +1/2 or -1/2)
+    omega_x2: i32, // 2*Omega = 2*Lambda + sigma (block index, always > 0)
+    #[allow(dead_code)]
+    // EVOLUTION(GPU): will be used when deformed_*.wgsl shaders need parity/symmetry checks
+    _parity: i32, // (-1)^(n_z + 2*n_perp + |lambda|) = (-1)^N
+    #[allow(dead_code)]
+    // EVOLUTION(GPU): will be used when deformed_*.wgsl shaders wire shell truncation
     _n_shell: usize, // major shell N = n_z + 2*n_perp + |lambda|
 }
 
-#[allow(dead_code)]
 impl DeformedState {
+    #[allow(dead_code)] // EVOLUTION(GPU): omega() will be used when deformed_*.wgsl shaders need Omega as f64
     fn omega(&self) -> f64 {
         self.omega_x2 as f64 / 2.0
     }
@@ -110,7 +113,6 @@ impl CylindricalGrid {
 // ═══════════════════════════════════════════════════════════════════
 
 /// Axially-symmetric deformed HFB solver
-#[allow(dead_code)]
 pub struct DeformedHFB {
     z: usize,
     n_neutrons: usize,
@@ -120,7 +122,9 @@ pub struct DeformedHFB {
     hw_perp: f64, // HO frequency perpendicular
     b_z: f64,     // HO length parameter along z
     b_perp: f64,  // HO length parameter perpendicular
-    _beta2: f64,  // deformation parameter
+    #[allow(dead_code)]
+    // EVOLUTION(GPU): will be used when deformed_*.wgsl shaders track deformation during SCF
+    _beta2: f64, // deformation parameter
     delta_p: f64, // proton pairing gap
     delta_n: f64, // neutron pairing gap
     states: Vec<DeformedState>,
@@ -176,7 +180,7 @@ impl DeformedHFB {
 
         // Number of shells (slightly more than spherical to capture deformation)
         let n_shells = (2.0 * a_f.powf(1.0 / 3.0)) as usize + 5;
-        let n_shells = n_shells.max(10).min(16);
+        let n_shells = n_shells.clamp(10, 16);
 
         let mut solver = DeformedHFB {
             z,
@@ -448,8 +452,8 @@ impl DeformedHFB {
                 self.diagonalize_blocks(&v_n, &wavefunctions, self.n_neutrons, self.delta_n);
 
             // Store occupations for next iteration's tau/J
-            prev_occ_p = occ_p.clone();
-            prev_occ_n = occ_n.clone();
+            prev_occ_p.clone_from(&occ_p);
+            prev_occ_n.clone_from(&occ_n);
 
             // Compute output densities
             let (new_rho_p, new_rho_n) = self.compute_densities(&wavefunctions, &occ_p, &occ_n);
@@ -731,14 +735,14 @@ impl DeformedHFB {
 
         // Precompute radial distances and charges for all grid points
         let mut charge_shells: Vec<(f64, f64)> = Vec::with_capacity(n); // (radius, charge)
-        for i in 0..n {
+        for (i, &rp) in rho_p.iter().enumerate().take(n) {
             let i_rho = i / self.grid.n_z;
             let i_z = i % self.grid.n_z;
             let rho = self.grid.rho[i_rho];
             let z = self.grid.z[i_z];
             let r = (rho * rho + z * z).sqrt();
             let dv = self.grid.volume_element(i_rho, i_z);
-            let charge = rho_p[i].max(0.0) * dv;
+            let charge = rp.max(0.0) * dv;
             charge_shells.push((r, charge));
         }
 
@@ -848,9 +852,9 @@ impl DeformedHFB {
         let d_rho_dr = self.density_radial_derivative(rho_total);
         let d_rho_q_dr = self.density_radial_derivative(rho_q);
 
-        for i in 0..n {
-            let rho = rho_total[i].max(0.0);
-            let rq = rho_q[i].max(0.0);
+        for (i, (rt, rq)) in rho_total.iter().zip(rho_q.iter()).enumerate() {
+            let rho = rt.max(0.0);
+            let rq = rq.max(0.0);
 
             // ── Central Skyrme (t0, t3 terms) ──
             let v_central = t0 * ((1.0 + x0 / 2.0) * rho - (0.5 + x0) * rq)
@@ -913,11 +917,8 @@ impl DeformedHFB {
             // Build block Hamiltonian
             let mut h = Mat::zeros(block_size);
 
-            for bi in 0..block_size {
-                let i = block_indices[bi];
-                for bj in bi..block_size {
-                    let j = block_indices[bj];
-
+            for (bi, &i) in block_indices.iter().enumerate().take(block_size) {
+                for (bj, &j) in block_indices.iter().enumerate().skip(bi) {
                     // Kinetic energy (diagonal for HO basis)
                     let t_ij = if i == j {
                         let s = &self.states[i];
@@ -1243,6 +1244,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)] // exact known value (0.0)
     fn test_deformation_guess() {
         // Doubly magic
         assert_eq!(DeformedHFB::initial_deformation_guess(20, 20), 0.0);

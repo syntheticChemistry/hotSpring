@@ -211,11 +211,7 @@ fn check_npu_simulator_parity(harness: &mut ValidationHarness) {
     println!("  Max absolute error: {max_error:.6}");
     println!("  Classification agreement: {agreement:.1}% ({agree_count}/{total})");
 
-    harness.check_upper(
-        "f32 max error < 0.1",
-        max_error,
-        0.1,
-    );
+    harness.check_upper("f32 max error < 0.1", max_error, 0.1);
     harness.check_lower("f32 classification agreement > 90%", agreement, 0.90);
     println!();
 }
@@ -251,9 +247,7 @@ fn check_phase_boundary_detection(harness: &mut ValidationHarness) {
         let plaq = synthetic_plaquette(beta, i as u64 + 777);
         let poly = synthetic_polyakov(beta, i as u64 + 777);
 
-        let seq: Vec<Vec<f64>> = (0..10)
-            .map(|_| vec![beta_norm, plaq, poly])
-            .collect();
+        let seq: Vec<Vec<f64>> = (0..10).map(|_| vec![beta_norm, plaq, poly]).collect();
 
         let pred = esn.predict(&seq)[0];
         preds.push(pred);
@@ -278,8 +272,7 @@ fn check_phase_boundary_detection(harness: &mut ValidationHarness) {
     println!("  Detected β_c: {detected_beta_c:.3} (known: {known_beta_c:.3}, error: {error:.3})");
 
     // Monotonicity: predictions should generally increase with β
-    let first_quarter: f64 =
-        preds[..n_scan / 4].iter().sum::<f64>() / (n_scan / 4) as f64;
+    let first_quarter: f64 = preds[..n_scan / 4].iter().sum::<f64>() / (n_scan / 4) as f64;
     let last_quarter: f64 =
         preds[3 * n_scan / 4..].iter().sum::<f64>() / (n_scan - 3 * n_scan / 4) as f64;
 
@@ -305,7 +298,6 @@ fn check_phase_boundary_detection(harness: &mut ValidationHarness) {
 //  Training data generation (synthetic + real lattice mix)
 // ═══════════════════════════════════════════════════════════════════
 
-#[allow(clippy::type_complexity)]
 fn generate_training_data() -> (
     Vec<Vec<Vec<f64>>>,
     Vec<Vec<f64>>,

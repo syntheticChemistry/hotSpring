@@ -16,6 +16,7 @@ use hotspring_barracuda::bench::{
     peak_rss_mb, BenchReport, HardwareInventory, PhaseResult, PowerMonitor,
 };
 use hotspring_barracuda::data;
+use hotspring_barracuda::discovery;
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::physics::{
     binding_energy_l2, nuclear_matter_properties, semf_binding_energy,
@@ -67,14 +68,17 @@ fn main() {
     println!();
 
     // ── Hardware inventory ────────────────────────────────────────────
-    let hw = HardwareInventory::detect("Eastgate");
+    let hostname = std::env::var("HOSTNAME")
+        .or_else(|_| std::env::var("COMPUTERNAME"))
+        .unwrap_or_else(|_| "unknown".to_string());
+    let hw = HardwareInventory::detect(&hostname);
     hw.print();
     println!();
 
     let mut report = BenchReport::new(hw);
 
     // ── Initialize GPU ──────────────────────────────────────────────
-    let rt = tokio::runtime::Runtime::new().unwrap();
+    let rt = tokio::runtime::Runtime::new().expect("tokio runtime creation");
     let gpu = rt
         .block_on(GpuF64::new())
         .expect("Failed to create GPU device");
@@ -183,7 +187,8 @@ fn main() {
     println!("    {cpu_per_eval_us:.1} us/eval ({n_nuclei} nuclei, {n_iters_l1} iterations)");
 
     // GPU: derive NMP → shader params, dispatch
-    let nmp = nuclear_matter_properties(&provenance::SLY4_PARAMS).unwrap();
+    let nmp = nuclear_matter_properties(&provenance::SLY4_PARAMS)
+        .expect("SLY4 nuclear matter properties");
     let r0 = (3.0 / (4.0 * std::f64::consts::PI * nmp.rho0_fm3)).cbrt();
     let nmp_arr: Vec<f64> = vec![nmp.e_a_mev.abs(), r0, nmp.j_mev, 1.439_976_4];
     let nmp_buf = gpu.create_f64_buffer(&nmp_arr, "NMP_sly4");
@@ -466,7 +471,7 @@ fn main() {
         .enumerate()
         .min_by(|(_, a), (_, b)| a.total_cmp(b))
         .map(|(i, _)| i)
-        .unwrap();
+        .expect("sweep produced at least one result");
     let cpu_best = cpu_chi2s[cpu_best_idx];
 
     report.add_phase(PhaseResult {
@@ -507,7 +512,7 @@ fn main() {
         .enumerate()
         .min_by(|(_, a), (_, b)| a.total_cmp(b))
         .map(|(i, _)| i)
-        .unwrap();
+        .expect("sweep produced at least one result");
     let gpu_best = gpu_chi2s[gpu_best_idx];
 
     report.add_phase(PhaseResult {
@@ -826,10 +831,8 @@ fn main() {
     report.print_summary();
 
     // Save JSON report
-    let report_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .join("benchmarks/nuclear-eos/results");
+    let report_dir = discovery::benchmark_results_dir()
+        .unwrap_or_else(|_| PathBuf::from("benchmarks/nuclear-eos/results"));
     match report.save_json(
         report_dir
             .to_str()
@@ -847,9 +850,8 @@ fn main() {
 
 /// L1 chi2/datum for a parameter set (CPU)
 fn l1_chi2_cpu(params: &[f64], nuclei: &[((usize, usize), (f64, f64))]) -> f64 {
-    let nmp = match nuclear_matter_properties(params) {
-        Some(n) => n,
-        None => return 1e10,
+    let Some(nmp) = nuclear_matter_properties(params) else {
+        return 1e10;
     };
     if nmp.rho0_fm3 < 0.05 || nmp.rho0_fm3 > 0.30 || nmp.e_a_mev > 0.0 {
         return 1e10;
@@ -882,9 +884,8 @@ fn l1_chi2_gpu(
     sigma_buf: &wgpu::Buffer,
     n_nuclei: usize,
 ) -> f64 {
-    let nmp = match nuclear_matter_properties(params) {
-        Some(n) => n,
-        None => return 1e10,
+    let Some(nmp) = nuclear_matter_properties(params) else {
+        return 1e10;
     };
     if nmp.rho0_fm3 < 0.05 || nmp.rho0_fm3 > 0.30 || nmp.e_a_mev > 0.0 {
         return 1e10;
@@ -956,9 +957,8 @@ fn l1_objective_with_nmp(x: &[f64], nuclei: &[((usize, usize), (f64, f64))], lam
         return (1e4_f64).ln_1p();
     }
 
-    let nmp = match nuclear_matter_properties(x) {
-        Some(n) => n,
-        None => return (1e4_f64).ln_1p(),
+    let Some(nmp) = nuclear_matter_properties(x) else {
+        return (1e4_f64).ln_1p();
     };
     if nmp.rho0_fm3 < 0.05 || nmp.rho0_fm3 > 0.30 {
         return (1e4_f64).ln_1p();
@@ -993,9 +993,8 @@ fn l2_objective_fn(x: &[f64], exp_data: &HashMap<(usize, usize), (f64, f64)>, la
         return (1e4_f64).ln_1p();
     }
 
-    let nmp = match nuclear_matter_properties(x) {
-        Some(n) => n,
-        None => return (1e4_f64).ln_1p(),
+    let Some(nmp) = nuclear_matter_properties(x) else {
+        return (1e4_f64).ln_1p();
     };
     if nmp.rho0_fm3 < 0.05 || nmp.rho0_fm3 > 0.30 {
         return (1e4_f64).ln_1p();

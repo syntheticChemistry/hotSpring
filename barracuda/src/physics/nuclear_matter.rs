@@ -12,7 +12,7 @@
 //! Uses: `barracuda::optimize::bisect` for saturation density.
 //! See PHYSICS.md §3 for complete equation documentation.
 
-use super::constants::*;
+use super::constants::{HBAR2_2M, HBAR_C, M_NUCLEON};
 use barracuda::optimize::bisect;
 use std::f64::consts::PI;
 
@@ -125,7 +125,7 @@ mod tests {
 
     #[test]
     fn sly4_saturation_density() {
-        let nmp = nuclear_matter_properties(&SLY4_PARAMS).unwrap();
+        let nmp = nuclear_matter_properties(&SLY4_PARAMS).expect("SLY4 NMP");
         // SLy4: ρ₀ ≈ 0.1595 fm⁻³ (Chabanat 1998, Table II)
         assert!(
             (nmp.rho0_fm3 - 0.16).abs() < 0.01,
@@ -136,7 +136,7 @@ mod tests {
 
     #[test]
     fn sly4_binding_energy() {
-        let nmp = nuclear_matter_properties(&SLY4_PARAMS).unwrap();
+        let nmp = nuclear_matter_properties(&SLY4_PARAMS).expect("SLY4 NMP");
         // SLy4: E/A ≈ -15.97 MeV
         assert!(
             (nmp.e_a_mev - (-15.97)).abs() < 1.0,
@@ -147,7 +147,7 @@ mod tests {
 
     #[test]
     fn sly4_incompressibility() {
-        let nmp = nuclear_matter_properties(&SLY4_PARAMS).unwrap();
+        let nmp = nuclear_matter_properties(&SLY4_PARAMS).expect("SLY4 NMP");
         // SLy4: K∞ ≈ 230 MeV
         assert!(
             (nmp.k_inf_mev - 230.0).abs() < 30.0,
@@ -158,7 +158,7 @@ mod tests {
 
     #[test]
     fn sly4_effective_mass() {
-        let nmp = nuclear_matter_properties(&SLY4_PARAMS).unwrap();
+        let nmp = nuclear_matter_properties(&SLY4_PARAMS).expect("SLY4 NMP");
         // SLy4: m*/m typically 0.5–0.7 depending on parametrization details.
         // The exact value depends on the Θ combination of t₁, t₂, x₂.
         assert!(
@@ -170,7 +170,7 @@ mod tests {
 
     #[test]
     fn sly4_symmetry_energy() {
-        let nmp = nuclear_matter_properties(&SLY4_PARAMS).unwrap();
+        let nmp = nuclear_matter_properties(&SLY4_PARAMS).expect("SLY4 NMP");
         // SLy4: J ≈ 32 MeV
         assert!(
             (nmp.j_mev - 32.0).abs() < 3.0,
@@ -187,7 +187,7 @@ mod tests {
 
     #[test]
     fn energy_at_saturation_is_minimum() {
-        let nmp = nuclear_matter_properties(&SLY4_PARAMS).unwrap();
+        let nmp = nuclear_matter_properties(&SLY4_PARAMS).expect("SLY4 NMP");
         let p: [f64; 10] = SLY4_PARAMS;
         let e_at_rho0 = energy_per_nucleon_snm(nmp.rho0_fm3, &p);
         // E/A should be lower at ρ₀ than at neighboring densities
@@ -200,6 +200,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)] // exact known value (0.0)
     fn zero_density_gives_zero() {
         let p: [f64; 10] = SLY4_PARAMS;
         assert_eq!(energy_per_nucleon_snm(0.0, &p), 0.0);
@@ -209,7 +210,7 @@ mod tests {
     fn nuclear_matter_determinism() {
         // Saturation-density bisection and all derived NMP must be bitwise
         // identical across calls on identical input.
-        let run = || nuclear_matter_properties(&SLY4_PARAMS).unwrap();
+        let run = || nuclear_matter_properties(&SLY4_PARAMS).expect("SLY4 NMP");
         let a = run();
         let b = run();
         assert_eq!(

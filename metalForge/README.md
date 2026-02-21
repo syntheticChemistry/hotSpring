@@ -256,7 +256,7 @@ The complete heterogeneous physics pipeline on $900 consumer hardware:
 │   Compare NPU predictions against GPU truth                   │
 │   Monitor convergence, anomaly detection                      │
 │   Predictive steering: 62% compute savings via adaptive scan  │
-│   Pure Rust math — 31/31 validation suites, 0 failures        │
+│   Pure Rust math — 33/33 validation suites, 0 failures        │
 └────────────────────────────────────────────────────────────────┘
 ```
 
@@ -276,7 +276,7 @@ The complete heterogeneous physics pipeline on $900 consumer hardware:
 | HMC monitoring overhead | 0.09% (9μs per trajectory) | `validate_hetero_monitor` |
 | Compute savings (steering) | 62% fewer evaluations | `validate_hetero_monitor` |
 | Rust vs Python (CG solver) | **200× faster** | `bench_lattice_cg` |
-| Rust validation suites | 31/31 pass | `validate_all` |
+| Rust validation suites | 33/33 pass | `validate_all` |
 | NPU HW checks | 34/35 pass (int4 accuracy marginal) | AKD1000 hardware |
 | Total hardware cost | ~$900 | RTX 4070 ($600) + AKD1000 ($300) |
 

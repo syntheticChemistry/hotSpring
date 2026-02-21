@@ -37,8 +37,8 @@ Python baseline → Rust validation → WGSL template → GPU shader → ToadSto
 
 | hotSpring Module | What Needs Writing | Priority | Absorption Value |
 |-----------------|-------------------|----------|-----------------|
-| `spectral.rs::CsrMatrix::spmv()` | ~~GPU CSR SpMV WGSL shader~~ | ~~**P1**~~ | ✅ **Done** — `WGSL_SPMV_CSR_F64` validated 8/8 checks (machine-epsilon parity on RTX 4070) |
-| `spectral.rs::lanczos()` | ~~GPU Lanczos eigensolve~~ | ~~**P1**~~ | ✅ **Done** — GPU SpMV inner loop + CPU control, 6/6 checks (eigenvalues match to 1e-15) |
+| `spectral/csr.rs::CsrMatrix::spmv()` | ~~GPU CSR SpMV WGSL shader~~ | ~~**P1**~~ | ✅ **Done** — `WGSL_SPMV_CSR_F64` validated 8/8 checks (machine-epsilon parity on RTX 4070) |
+| `spectral/lanczos.rs::lanczos()` | ~~GPU Lanczos eigensolve~~ | ~~**P1**~~ | ✅ **Done** — GPU SpMV inner loop + CPU control, 6/6 checks (eigenvalues match to 1e-15) |
 | `lattice/dirac.rs` | ~~GPU staggered Dirac SpMV~~ | ~~**P1**~~ | ✅ **Done** — `WGSL_DIRAC_STAGGERED_F64` validated 8/8 checks (max error 4.44e-16, cold+hot+asymmetric lattices) |
 | `md/celllist.rs` → upstream | Migrate `run_simulation_celllist` to upstream API | **P1** | Retire ~400 lines of local code |
 | `lattice/cg.rs` | ~~GPU CG solver~~ | ~~**P2**~~ | ✅ **Done** — GPU CG (D†D) validated 9/9 checks (machine-epsilon parity, identical iteration counts) |
@@ -66,7 +66,7 @@ Python baseline → Rust validation → WGSL template → GPU shader → ToadSto
 | `md/simulation.rs` | Yukawa (all-pairs + cell-list), VV integrator, Berendsen thermostat, KE per-particle, `ReduceScalarPipeline` (inline in `md/shaders.rs`) | **A** | Full GPU pipeline | None — production-ready |
 | `md/celllist.rs` | GPU 3-pass cell-list (bin→scan→scatter) + indirect force shader. Zero CPU readback | **✅** | Local deprecated — upstream `CellListGpu` fixed (toadstool `8fb5d5a0`) | Migration to upstream API pending |
 | `md/shaders.rs` | 12 WGSL shaders (9 `.wgsl` files + 3 inline). GPU cell-list shaders added v0.5.13 | **A** | Production | v0.5.13: GPU cell-list + indirect force |
-| `md/observables.rs` | Uses `SsfGpu` from BarraCUDA | **A** | SSF on GPU; RDF/VACF CPU post-process | VACF now correct (particle identity preserved by indirect indexing) |
+| `md/observables/` | Uses `SsfGpu` from BarraCUDA | **A** | SSF on GPU; RDF/VACF CPU post-process | VACF now correct (particle identity preserved by indirect indexing) |
 | `md/cpu_reference.rs` | — | N/A | Validation reference | Intentionally CPU-only for baseline comparison |
 | `md/config.rs` | — | N/A | Configuration | Data structures only |
 
@@ -160,9 +160,8 @@ Force shaders compiled via `GpuF64::create_pipeline_f64()` → barracuda driver-
 
 - ✅ **Final tolerance wiring pass**: 6 new constants (`BCS_DENSITY_SKIP`, `SHARP_FILLING_THRESHOLD`,
   `DEFORMED_COULOMB_R_MIN`, `DEFORMATION_GUESS_WEAK/GENERIC/SD`) — 15 remaining inline values
-  in `hfb.rs`, `hfb_deformed.rs`, `hfb_deformed_gpu.rs`, `md/observables.rs` → named constants
-- ✅ **Clippy pedantic**: 76 warnings eliminated (408 → 332); remaining are `cast_precision_loss`,
-  `similar_names`, `too_many_lines` — all justified for physics code
+  in `hfb.rs`, `hfb_deformed.rs`, `hfb_deformed_gpu.rs`, `md/observables/` → named constants
+- ✅ **Clippy pedantic**: 0 clippy warnings across all targets
 - ✅ **Full audit report**: specs, wateringHole compliance, validation fidelity, dependency health,
   evolution readiness, test coverage, code size, licensing, data provenance
 
@@ -215,7 +214,7 @@ Paper-parity run (N=10k, 80k steps): 9.8 min, $0.0012. 98 runs/day idle.
   displayed for matched cases; cross-case D* ordering checks per-κ and cross-κ
 - ✅ **Tolerance constants added**: `DALIGAULT_FIT_VS_CALIBRATION` (20% per-point),
   `DALIGAULT_FIT_RMSE` (10% over 12 points) in `tolerances.rs`
-- ✅ **281 tests, 0 clippy warnings, 0 failures**
+- ✅ **441 tests, 0 clippy warnings, 0 failures**
 
 ## Completed (audit, Feb 19 2026)
 
@@ -228,7 +227,7 @@ Paper-parity run (N=10k, 80k steps): 9.8 min, $0.0012. 98 runs/day idle.
 - ✅ **Provenance expanded**: `HOTQCD_EOS_PROVENANCE` struct + `HOTQCD_DOI`, `PURE_GAUGE_REFS` for
   lattice QCD validation targets
 - ✅ **25 new tests**: `hfb_gpu_types` (7), `celllist` (7), `lattice/constants` (7), tolerance (2),
-  provenance (2); total 283 (278 passing + 5 GPU-ignored)
+  provenance (2); total 441 (436 passing + 5 GPU-ignored)
 - ✅ **Clippy warnings: 0** (was 3 `uninlined_format_args` in `md/transport.rs`)
 - ✅ **`validate_pppm.rs` semantic fix**: multi-particle net force checks now use
   `PPPM_MULTI_PARTICLE_NET_FORCE` instead of `PPPM_NEWTON_3RD_ABS`
@@ -267,7 +266,7 @@ Paper-parity run (N=10k, 80k steps): 9.8 min, $0.0012. 98 runs/day idle.
   Eliminated ~50 lines of boilerplate per MD path (4 bind groups, 6 buffers, reduce_pipeline).
 - ✅ **Error bridge**: `HotSpringError::Barracuda(BarracudaError)` variant + `From` impl enables
   clean `?` propagation from barracuda primitive calls into hotSpring result types.
-- ✅ **Zero regressions**: 283 tests pass (278 + 5 GPU-ignored), 0 clippy warnings, 0 doc warnings.
+- ✅ **Zero regressions**: 441 tests pass (436 + 5 GPU-ignored), 0 clippy warnings, 0 doc warnings.
 
 ## Completed (v0.5.11)
 
@@ -339,7 +338,7 @@ Paper-parity run (N=10k, 80k steps): 9.8 min, $0.0012. 98 runs/day idle.
 
 - ✅ `hfb_gpu_resident.rs` → GPU eigensolve via `execute_single_dispatch` (was CPU `eigh_f64`)
 - ✅ `validate_nuclear_eos` → Formal L1/L2/NMP validation with harness (37 checks)
-- ✅ `validate_all` → Meta-validator for all 9 validation suites
+- ✅ `validate_all` → Meta-validator for all 33 validation suites
 
 ## Completed (v0.5.3)
 
@@ -368,7 +367,7 @@ absorption). Both `simulation.rs` and `celllist.rs` now call
 partial buffers, scalar buffers, param buffers, bind groups, inline dispatches).
 `SHADER_SUM_REDUCE` removed from `shaders.rs`.
 
-**Validation**: 283 tests pass, 0 clippy warnings, 0 doc warnings.
+**Validation**: 441 tests pass, 0 clippy warnings, 0 doc warnings.
 
 **Remaining readback**: position/velocity snapshots for VACF and cell-list
 rebuilds. Both can be eliminated with GPU-resident VACF and `CellListGpu`.
@@ -424,11 +423,11 @@ driver profile (`DriverKind::Nvk`, `CompilerKind::Nak`, `GpuArch::Volta`).
 
 | Rust Module | Lines | WGSL | Tier | Status |
 |-------------|-------|------|------|--------|
-| `spectral.rs` (1D Anderson) | ~200 | — | **C** | CPU validated; Sturm bisection (fast, unlikely GPU target) |
-| `spectral.rs` (CsrMatrix + SpMV) | ~60 | `WGSL_SPMV_CSR_F64` | **A** | ✅ GPU validated (8/8 checks, max error 1.78e-15); ready for toadstool absorption |
-| `spectral.rs` (Lanczos) | ~80 | uses `WGSL_SPMV_CSR_F64` | **A** | ✅ GPU validated (6/6 checks, GPU SpMV inner loop) |
-| `spectral.rs` (2D/3D Anderson) | ~100 | — | **C** | CPU validated; builds CSR → feeds Lanczos (GPU when SpMV lands) |
-| `spectral.rs` (Hofstadter) | ~50 | — | N/A | Sweeps over almost-Mathieu; CPU is fine (fast parameter scan) |
+| `spectral/anderson.rs` (1D Anderson) | ~200 | — | **C** | CPU validated; Sturm bisection (fast, unlikely GPU target) |
+| `spectral/csr.rs` (CsrMatrix + SpMV) | ~60 | `WGSL_SPMV_CSR_F64` | **A** | ✅ GPU validated (8/8 checks, max error 1.78e-15); ready for toadstool absorption |
+| `spectral/lanczos.rs` (Lanczos) | ~80 | uses `WGSL_SPMV_CSR_F64` | **A** | ✅ GPU validated (6/6 checks, GPU SpMV inner loop) |
+| `spectral/anderson.rs` (2D/3D Anderson) | ~100 | — | **C** | CPU validated; builds CSR → feeds Lanczos (GPU when SpMV lands) |
+| `spectral/hofstadter.rs` (Hofstadter) | ~50 | — | N/A | Sweeps over almost-Mathieu; CPU is fine (fast parameter scan) |
 
 ### HMC Implementation Notes
 
@@ -473,7 +472,7 @@ the original sign and adjoint were both wrong, causing 0% HMC acceptance.
 | ~~GPU Dirac SpMV~~ | ~~CPU-only staggered Dirac operator~~ | ~~**P1**~~ | ✅ **Done** — `WGSL_DIRAC_STAGGERED_F64` validated, `validate_gpu_dirac` binary (30th suite) |
 | ~~Pure GPU QCD workload~~ | ~~Thermalized-config CG validation~~ | ~~**P1**~~ | ✅ **Done** — `validate_pure_gpu_qcd` (3/3): HMC → GPU CG, 4.10e-16 parity (31st suite) |
 | ~~Python baseline~~ | ~~Interpreted-language benchmark~~ | ~~**P1**~~ | ✅ **Done** — Rust 200× faster: CG iters match exactly, Dirac 0.023ms vs 4.59ms |
-| 8 files > 1000 lines | Code organization | Medium | Documented deviation; physics-coherent |
+| 9 files > 1000 lines | Code organization | Medium | Documented deviation; physics-coherent |
 | ~~Stanton-Murillo transport normalization~~ | ~~Paper 5 calibration~~ | ~~High~~ | ✅ Resolved: Sarkas-calibrated (12 points, N=2000) |
 | ~~BCS + density shader not wired~~ | ~~CPU readback after eigensolve~~ | ~~High~~ | ✅ Resolved v0.5.10 |
 | ~~WGSL inline math~~ | ~~Maintenance drift~~ | ~~Medium~~ | ✅ Resolved v0.5.8 |

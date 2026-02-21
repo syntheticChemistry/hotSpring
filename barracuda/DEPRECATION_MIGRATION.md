@@ -97,7 +97,7 @@ retained only as fossil record.
 | `data.rs` | AME2020 data loading, EOS context |
 | `discovery.rs` | Capability-based data path resolution |
 | `validation.rs` | ValidationHarness (pass/fail, exit 0/1) |
-| `tolerances.rs` | 42 centralized tolerance constants |
+| `tolerances.rs` | 122 centralized tolerance constants |
 | `provenance.rs` | Python baseline provenance records |
 | `prescreen.rs` | NMP cascade filter |
 | `gpu.rs` | GpuF64 wrapper (thin layer over barracuda WgpuDevice) |
@@ -109,7 +109,7 @@ retained only as fossil record.
 | Module | Status |
 |--------|--------|
 | `md/config.rs` | Active — Sarkas-specific configuration |
-| `md/observables.rs` | Active — energy validation, SSF via barracuda |
+| `md/observables/` | Active — energy validation, SSF via barracuda |
 | `md/simulation.rs` | Active — should migrate to barracuda ops |
 
 ## Upstream Fixes Needed (toadstool/barracuda)

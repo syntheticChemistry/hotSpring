@@ -236,8 +236,7 @@ pub const SHADER_RDF_HISTOGRAM: &str = include_str!("shaders/rdf_histogram_f64.w
 //
 // All three substrates execute identical linear algebra + tanh.
 
-pub const SHADER_ESN_RESERVOIR_UPDATE: &str =
-    include_str!("shaders/esn_reservoir_update.wgsl");
+pub const SHADER_ESN_RESERVOIR_UPDATE: &str = include_str!("shaders/esn_reservoir_update.wgsl");
 pub const SHADER_ESN_READOUT: &str = include_str!("shaders/esn_readout.wgsl");
 
 #[cfg(test)]
@@ -255,18 +254,12 @@ mod tests {
             "SHADER_YUKAWA_FORCE_CELLLIST_V2",
             SHADER_YUKAWA_FORCE_CELLLIST_V2,
         ),
-        (
-            "SHADER_YUKAWA_FORCE_INDIRECT",
-            SHADER_YUKAWA_FORCE_INDIRECT,
-        ),
+        ("SHADER_YUKAWA_FORCE_INDIRECT", SHADER_YUKAWA_FORCE_INDIRECT),
         ("SHADER_CELL_BIN", SHADER_CELL_BIN),
         ("SHADER_EXCLUSIVE_PREFIX_SUM", SHADER_EXCLUSIVE_PREFIX_SUM),
         ("SHADER_CELL_SCATTER", SHADER_CELL_SCATTER),
         ("SHADER_RDF_HISTOGRAM", SHADER_RDF_HISTOGRAM),
-        (
-            "SHADER_ESN_RESERVOIR_UPDATE",
-            SHADER_ESN_RESERVOIR_UPDATE,
-        ),
+        ("SHADER_ESN_RESERVOIR_UPDATE", SHADER_ESN_RESERVOIR_UPDATE),
         ("SHADER_ESN_READOUT", SHADER_ESN_READOUT),
     ];
 

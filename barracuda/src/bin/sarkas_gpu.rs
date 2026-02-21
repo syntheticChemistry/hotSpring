@@ -25,6 +25,7 @@
 use hotspring_barracuda::bench::{
     peak_rss_mb, BenchReport, HardwareInventory, PhaseResult, PowerMonitor,
 };
+use hotspring_barracuda::discovery;
 use hotspring_barracuda::md::config::{self, MdConfig};
 use hotspring_barracuda::md::observables;
 use hotspring_barracuda::md::simulation;
@@ -50,7 +51,10 @@ async fn main() {
     let nscale = args.iter().any(|a| a == "--nscale");
 
     // ── Hardware inventory ──
-    let hw = HardwareInventory::detect("Eastgate");
+    let hostname = std::env::var("HOSTNAME")
+        .or_else(|_| std::env::var("COMPUTERNAME"))
+        .unwrap_or_else(|_| "unknown".to_string());
+    let hw = HardwareInventory::detect(&hostname);
     println!("  Hardware: {} / {}", hw.cpu_model, hw.gpu_name);
     println!();
 
@@ -72,12 +76,12 @@ async fn main() {
         run_quick_validation(&mut report, &mut harness).await;
     }
 
-    // Save benchmark report (resolve via CARGO_MANIFEST_DIR, not relative path)
-    let report_dir = concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../benchmarks/nuclear-eos/results"
-    );
-    match report.save_json(report_dir) {
+    // Save benchmark report (discovery module: HOTSPRING_DATA_ROOT / manifest parent / cwd)
+    let report_dir = match discovery::benchmark_results_dir() {
+        Ok(p) => p.to_string_lossy().into_owned(),
+        Err(_) => "benchmarks/nuclear-eos/results".to_string(),
+    };
+    match report.save_json(&report_dir) {
         Ok(path) => println!("  Benchmark report saved: {path}"),
         Err(e) => println!("  Warning: could not save report: {e}"),
     }

@@ -11,7 +11,7 @@
 //! Port of: `control/surrogate/nuclear-eos/wrapper/skyrme_hf.py::semf_binding_energy`
 //! See PHYSICS.md §4 for complete equation documentation.
 
-use super::constants::*;
+use super::constants::E2;
 use super::nuclear_matter::nuclear_matter_properties;
 use std::f64::consts::PI;
 
@@ -31,9 +31,8 @@ pub fn semf_binding_energy(z: usize, n: usize, params: &[f64]) -> f64 {
     let nf = n as f64;
 
     // Derive SEMF coefficients from nuclear matter properties (PHYSICS.md §4.2)
-    let nmp = match nuclear_matter_properties(params) {
-        Some(nmp) => nmp,
-        None => return 0.0,
+    let Some(nmp) = nuclear_matter_properties(params) else {
+        return 0.0;
     };
 
     // Volume: a_v = |E/A(ρ₀)| — binding energy per nucleon at saturation
@@ -72,6 +71,7 @@ mod tests {
     use crate::provenance::SLY4_PARAMS;
 
     #[test]
+    #[allow(clippy::float_cmp)] // exact known value (0.0)
     fn semf_zero_mass_returns_zero() {
         assert_eq!(semf_binding_energy(0, 0, &SLY4_PARAMS), 0.0);
     }

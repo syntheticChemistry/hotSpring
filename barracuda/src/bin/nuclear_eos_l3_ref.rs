@@ -171,9 +171,6 @@ fn main() {
         let b_l2 = l2_results[i].3;
         let b_l3 = l3_results[i].3;
         let beta2 = l3_results[i].5;
-        let _conv_l2 = l2_results[i].4;
-        let _conv_l3 = l3_results[i].4;
-
         let db_l2 = (b_l2 - b_exp).abs();
         let db_l3 = (b_l3 - b_exp).abs();
         let b_best = if b_l3 > 0.0 && db_l3 < db_l2 {
@@ -400,6 +397,10 @@ fn main() {
         "l3_time_s": l3_time,
     });
     let path = results_dir.join("barracuda_l3_deformed.json");
-    std::fs::write(&path, serde_json::to_string_pretty(&result_json).unwrap()).ok();
+    std::fs::write(
+        &path,
+        serde_json::to_string_pretty(&result_json).expect("JSON serialize"),
+    )
+    .ok();
     println!("\n  Results saved to: {}", path.display());
 }

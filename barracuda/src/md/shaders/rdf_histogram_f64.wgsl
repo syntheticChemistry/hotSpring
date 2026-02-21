@@ -1,9 +1,9 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+//
 // DEPRECATED — Use barracuda::ops::md::observables::Rdf
 // Retained for fossil record. barracuda canonical: ops/md/observables/rdf_histogram_f64.wgsl
 //
 // RDF pair distance histogram (f64 positions, u32 bins)
-//
-// SPDX-License-Identifier: AGPL-3.0-only
 //
 // Computes all-pairs distances with PBC and bins into a histogram.
 // Uses atomicAdd on u32 bins, then normalized on CPU.

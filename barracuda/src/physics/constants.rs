@@ -37,6 +37,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::assertions_on_constants)] // constants sanity check
     fn nucleon_masses_physical() {
         assert!(M_PROTON > 938.0 && M_PROTON < 939.0);
         assert!(M_NEUTRON > 939.0 && M_NEUTRON < 940.0);
@@ -49,12 +50,14 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::assertions_on_constants)] // constants sanity check
     fn coulomb_constant_physical() {
         // e²/(4πε₀) ≈ 1.44 MeV·fm
         assert!(E2 > 1.43 && E2 < 1.45);
     }
 
     #[test]
+    #[allow(clippy::assertions_on_constants)] // constants sanity check
     fn hbar2_2m_derived_correctly() {
         let expected = HBAR_C * HBAR_C / (2.0 * M_NUCLEON);
         assert!(

@@ -54,7 +54,7 @@ fn main() {
     harness.finish();
 }
 
-/// [1] CSR construction: verify nnz = N + 2 × (3 bond types).
+/// \[1\] CSR construction: verify nnz = N + 2 × (3 bond types).
 fn check_3d_nnz(harness: &mut ValidationHarness) {
     println!("[1] 3D Anderson — CSR Construction");
 
@@ -68,13 +68,16 @@ fn check_3d_nnz(harness: &mut ValidationHarness) {
 
     println!("  L={l}, N={n}");
     println!("  nnz = {} (expected {expected_nnz})", mat.nnz());
-    println!("  nnz/N = {:.2} (theory: ≤7 for interior sites)", mat.nnz() as f64 / n as f64);
+    println!(
+        "  nnz/N = {:.2} (theory: ≤7 for interior sites)",
+        mat.nnz() as f64 / n as f64
+    );
 
     harness.check_bool("nnz matches theory", mat.nnz() == expected_nnz);
     println!();
 }
 
-/// [2] Clean 3D bandwidth: approaches 12 as L→∞.
+/// \[2\] Clean 3D bandwidth: approaches 12 as L→∞.
 fn check_clean_3d_bandwidth(harness: &mut ValidationHarness) {
     println!("[2] Clean 3D Lattice — Bandwidth");
 
@@ -85,7 +88,7 @@ fn check_clean_3d_bandwidth(harness: &mut ValidationHarness) {
     let evals = spectral::lanczos_eigenvalues(&result);
 
     let e_min = evals[0];
-    let e_max = *evals.last().unwrap();
+    let e_max = *evals.last().expect("collection verified non-empty");
     let bw = e_max - e_min;
 
     // Exact for open BCs: BW = 12·cos(π/(L+1))
@@ -95,11 +98,15 @@ fn check_clean_3d_bandwidth(harness: &mut ValidationHarness) {
     println!("  E_min = {e_min:.4}, E_max = {e_max:.4}");
     println!("  Bandwidth = {bw:.4} (exact OBC: {exact_bw:.4}, L→∞: 12.0)");
 
-    harness.check_upper("bandwidth matches open-BC theory", (bw - exact_bw).abs(), 0.1);
+    harness.check_upper(
+        "bandwidth matches open-BC theory",
+        (bw - exact_bw).abs(),
+        0.1,
+    );
     println!();
 }
 
-/// [3] 3D Anderson spectrum bounded by [-6 - W/2, 6 + W/2].
+/// \[3\] 3D Anderson spectrum bounded by [-6 - W/2, 6 + W/2].
 fn check_3d_spectrum_bounds(harness: &mut ValidationHarness) {
     println!("[3] 3D Anderson — Spectrum Bounds");
 
@@ -111,7 +118,7 @@ fn check_3d_spectrum_bounds(harness: &mut ValidationHarness) {
 
     let bound = 6.0 + w / 2.0;
     let e_min = evals[0];
-    let e_max = *evals.last().unwrap();
+    let e_max = *evals.last().expect("collection verified non-empty");
     let in_bounds = e_min >= -(bound + 0.1) && e_max <= bound + 0.1;
 
     println!("  L={l}, W={w}, N={}", l * l * l);
@@ -122,7 +129,7 @@ fn check_3d_spectrum_bounds(harness: &mut ValidationHarness) {
     println!();
 }
 
-/// [4] 3D weak disorder: GOE level statistics (extended states, ξ >> L).
+/// \[4\] 3D weak disorder: GOE level statistics (extended states, ξ >> L).
 fn check_3d_goe_statistics(harness: &mut ValidationHarness) {
     println!("[4] 3D Weak Disorder — GOE Level Statistics");
     println!("    Theory: ⟨r⟩ ≈ 0.531 for W << W_c ≈ 16.5 (metallic regime)\n");
@@ -147,11 +154,14 @@ fn check_3d_goe_statistics(harness: &mut ValidationHarness) {
     println!("  L={l}, W={w}, realizations={n_real}");
     println!("  ⟨r⟩ = {r_mean:.4} (GOE = {goe_r:.4})");
 
-    harness.check_bool("⟨r⟩ > 0.48 (GOE-like for 3D metallic regime)", r_mean > 0.48);
+    harness.check_bool(
+        "⟨r⟩ > 0.48 (GOE-like for 3D metallic regime)",
+        r_mean > 0.48,
+    );
     println!();
 }
 
-/// [5] 3D strong disorder: Poisson level statistics (all states localized).
+/// \[5\] 3D strong disorder: Poisson level statistics (all states localized).
 fn check_3d_poisson_statistics(harness: &mut ValidationHarness) {
     println!("[5] 3D Strong Disorder — Poisson Level Statistics");
     println!(
@@ -183,7 +193,7 @@ fn check_3d_poisson_statistics(harness: &mut ValidationHarness) {
     println!();
 }
 
-/// [6] 3D statistics transition: GOE → Poisson with increasing disorder.
+/// \[6\] 3D statistics transition: GOE → Poisson with increasing disorder.
 fn check_3d_statistics_transition(harness: &mut ValidationHarness) {
     println!("[6] 3D Statistics Transition — GOE → Poisson");
     println!("    W_c ≈ 16.5 for band center (Slevin & Ohtsuki 1999)\n");
@@ -210,8 +220,10 @@ fn check_3d_statistics_transition(harness: &mut ValidationHarness) {
         println!("  W={w:>5.1}: ⟨r⟩ = {r_mean:.4}");
     }
 
-    let transition = r_values.first().unwrap() > r_values.last().unwrap();
-    let delta = r_values.first().unwrap() - r_values.last().unwrap();
+    let transition = r_values.first().expect("collection verified non-empty")
+        > r_values.last().expect("collection verified non-empty");
+    let delta = r_values.first().expect("collection verified non-empty")
+        - r_values.last().expect("collection verified non-empty");
     println!("  Δ⟨r⟩ = {delta:.4} (weak→strong)");
 
     harness.check_bool(
@@ -221,7 +233,7 @@ fn check_3d_statistics_transition(harness: &mut ValidationHarness) {
     println!();
 }
 
-/// [7] Mobility edge: at moderate disorder (W < W_c), band center has
+/// \[7\] Mobility edge: at moderate disorder (W < W_c), band center has
 /// extended states (GOE) while band edges have localized states (Poisson).
 ///
 /// This is the defining feature of d ≥ 3 that does NOT exist in 1D or 2D.
@@ -254,7 +266,7 @@ fn check_mobility_edge(harness: &mut ValidationHarness) {
         let edge_high = &evals[4 * n_evals / 5..];
         let r_low = spectral::level_spacing_ratio(edge_low);
         let r_high = spectral::level_spacing_ratio(edge_high);
-        edge_r_sum += (r_low + r_high) / 2.0;
+        edge_r_sum += f64::midpoint(r_low, r_high);
     }
 
     let center_r = center_r_sum / n_real as f64;
@@ -273,7 +285,7 @@ fn check_mobility_edge(harness: &mut ValidationHarness) {
     println!();
 }
 
-/// [8] Dimensional bandwidth hierarchy: 3D > 2D > 1D.
+/// \[8\] Dimensional bandwidth hierarchy: 3D > 2D > 1D.
 fn check_dimensional_bandwidth_hierarchy(harness: &mut ValidationHarness) {
     println!("[8] Dimensional Bandwidth Hierarchy — 1D < 2D < 3D");
 
@@ -283,26 +295,35 @@ fn check_dimensional_bandwidth_hierarchy(harness: &mut ValidationHarness) {
     let n_1d = 500;
     let (d, e) = spectral::anderson_hamiltonian(n_1d, w, 42);
     let evals_1d = spectral::find_all_eigenvalues(&d, &e);
-    let bw_1d = evals_1d.last().unwrap() - evals_1d.first().unwrap();
+    let bw_1d = evals_1d.last().expect("collection verified non-empty")
+        - evals_1d.first().expect("collection verified non-empty");
 
     // 2D: ~22×22 ≈ 484
     let l_2d = 22;
     let mat_2d = spectral::anderson_2d(l_2d, l_2d, w, 42);
     let result_2d = spectral::lanczos(&mat_2d, l_2d * l_2d, 42);
     let evals_2d = spectral::lanczos_eigenvalues(&result_2d);
-    let bw_2d = evals_2d.last().unwrap() - evals_2d.first().unwrap();
+    let bw_2d = evals_2d.last().expect("collection verified non-empty")
+        - evals_2d.first().expect("collection verified non-empty");
 
     // 3D: 8×8×8 = 512
     let l_3d = 8;
     let mat_3d = spectral::anderson_3d(l_3d, l_3d, l_3d, w, 42);
     let result_3d = spectral::lanczos(&mat_3d, l_3d * l_3d * l_3d, 42);
     let evals_3d = spectral::lanczos_eigenvalues(&result_3d);
-    let bw_3d = evals_3d.last().unwrap() - evals_3d.first().unwrap();
+    let bw_3d = evals_3d.last().expect("collection verified non-empty")
+        - evals_3d.first().expect("collection verified non-empty");
 
     println!("  W={w}");
     println!("  1D (N={n_1d}):    bandwidth = {bw_1d:.4}  (clean: 4)");
-    println!("  2D ({l_2d}×{l_2d}={n_2d}): bandwidth = {bw_2d:.4}  (clean: 8)", n_2d = l_2d * l_2d);
-    println!("  3D ({l_3d}³={n_3d}):  bandwidth = {bw_3d:.4}  (clean: 12)", n_3d = l_3d * l_3d * l_3d);
+    println!(
+        "  2D ({l_2d}×{l_2d}={n_2d}): bandwidth = {bw_2d:.4}  (clean: 8)",
+        n_2d = l_2d * l_2d
+    );
+    println!(
+        "  3D ({l_3d}³={n_3d}):  bandwidth = {bw_3d:.4}  (clean: 12)",
+        n_3d = l_3d * l_3d * l_3d
+    );
 
     harness.check_bool(
         "3D bandwidth > 2D bandwidth > 1D bandwidth",
@@ -311,7 +332,7 @@ fn check_dimensional_bandwidth_hierarchy(harness: &mut ValidationHarness) {
     println!();
 }
 
-/// [9] Dimensional statistics hierarchy: 3D has strongest level repulsion
+/// \[9\] Dimensional statistics hierarchy: 3D has strongest level repulsion
 /// at same disorder (most extended states).
 fn check_dimensional_statistics_hierarchy(harness: &mut ValidationHarness) {
     println!("[9] Dimensional Level Statistics — 3D Most Extended");
@@ -370,7 +391,7 @@ fn check_dimensional_statistics_hierarchy(harness: &mut ValidationHarness) {
     println!();
 }
 
-/// [10] 3D spectrum symmetric about E = 0 (particle-hole symmetry).
+/// \[10\] 3D spectrum symmetric about E = 0 (particle-hole symmetry).
 fn check_3d_spectrum_symmetry(harness: &mut ValidationHarness) {
     println!("[10] 3D Anderson — Spectrum Symmetry");
     println!("    Bipartite lattice → spectrum symmetric about E = 0\n");
@@ -381,7 +402,7 @@ fn check_3d_spectrum_symmetry(harness: &mut ValidationHarness) {
     let evals = spectral::lanczos_eigenvalues(&result);
 
     let e_min = evals[0];
-    let e_max = *evals.last().unwrap();
+    let e_max = *evals.last().expect("collection verified non-empty");
     let asymmetry = (e_min + e_max).abs();
 
     println!("  L={l} (clean, no disorder)");

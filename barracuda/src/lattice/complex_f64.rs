@@ -144,7 +144,7 @@ impl MulAssign for Complex64 {
 impl Div for Complex64 {
     type Output = Self;
     #[inline]
-    #[allow(clippy::suspicious_arithmetic_impl)]
+    #[allow(clippy::suspicious_arithmetic_impl)] // complex division via (a+bi)/(c+di) = (ac+bd)/d² + i(bc-ad)/d²
     fn div(self, rhs: Self) -> Self {
         let d = rhs.abs_sq();
         Self {
@@ -311,5 +311,79 @@ mod tests {
         let s2 = std::f64::consts::FRAC_1_SQRT_2;
         assert!((z.re - s2).abs() < 1e-15);
         assert!((z.im - s2).abs() < 1e-15);
+    }
+
+    #[test]
+    fn complex_add_assign() {
+        let mut a = Complex64::new(1.0, 2.0);
+        let b = Complex64::new(3.0, -1.0);
+        a += b;
+        assert!((a.re - 4.0).abs() < 1e-15);
+        assert!((a.im - 1.0).abs() < 1e-15);
+    }
+
+    #[test]
+    fn complex_sub_assign() {
+        let mut a = Complex64::new(5.0, 4.0);
+        let b = Complex64::new(3.0, 1.0);
+        a -= b;
+        assert!((a.re - 2.0).abs() < 1e-15);
+        assert!((a.im - 3.0).abs() < 1e-15);
+    }
+
+    #[test]
+    fn complex_mul_assign() {
+        let mut a = Complex64::new(1.0, 2.0);
+        let b = Complex64::new(3.0, 4.0);
+        a *= b;
+        assert!((a.re - (-5.0)).abs() < 1e-15);
+        assert!((a.im - 10.0).abs() < 1e-15);
+    }
+
+    #[test]
+    fn complex_neg() {
+        let a = Complex64::new(3.0, -4.0);
+        let n = -a;
+        assert!((n.re - (-3.0)).abs() < 1e-15);
+        assert!((n.im - 4.0).abs() < 1e-15);
+    }
+
+    #[test]
+    fn complex_display_positive_im() {
+        let z = Complex64::new(1.5, 2.5);
+        let s = format!("{z}");
+        assert!(s.contains("1.5"));
+        assert!(s.contains('+'));
+        assert!(s.contains("2.5"));
+        assert!(s.contains('i'));
+    }
+
+    #[test]
+    fn complex_display_negative_im() {
+        let z = Complex64::new(1.5, -2.5);
+        let s = format!("{z}");
+        assert!(s.contains("1.5"));
+        assert!(!s.contains("+-")); // format is "{:.6}{:.6}i" for negative
+        assert!(s.contains("-2.5") || s.contains("-2."));
+        assert!(s.contains('i'));
+    }
+
+    #[test]
+    fn complex_scale() {
+        let a = Complex64::new(3.0, 4.0);
+        let b = a.scale(2.0);
+        assert!((b.re - 6.0).abs() < 1e-15);
+        assert!((b.im - 8.0).abs() < 1e-15);
+    }
+
+    #[test]
+    #[allow(clippy::float_cmp)]
+    fn complex_constants() {
+        assert_eq!(Complex64::ZERO.re, 0.0);
+        assert_eq!(Complex64::ZERO.im, 0.0);
+        assert_eq!(Complex64::ONE.re, 1.0);
+        assert_eq!(Complex64::ONE.im, 0.0);
+        assert_eq!(Complex64::I.re, 0.0);
+        assert_eq!(Complex64::I.im, 1.0);
     }
 }

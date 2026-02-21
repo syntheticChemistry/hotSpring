@@ -75,9 +75,8 @@ pub fn nmp_prescreen(params: &[f64], constraints: &NMPConstraints) -> NMPScreenR
         return NMPScreenResult::Fail("alpha out of range".to_string());
     }
 
-    let nmp = match nuclear_matter_properties(params) {
-        Some(nmp) => nmp,
-        None => return NMPScreenResult::Fail("NMP calculation failed".to_string()),
+    let Some(nmp) = nuclear_matter_properties(params) else {
+        return NMPScreenResult::Fail("NMP calculation failed".to_string());
     };
 
     if nmp.rho0_fm3 < constraints.rho0_min || nmp.rho0_fm3 > constraints.rho0_max {
@@ -424,6 +423,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)] // exact known values (0.0)
     fn cascade_stats_default_zero() {
         let stats = CascadeStats::default();
         assert_eq!(stats.total_candidates, 0);
@@ -569,7 +569,7 @@ mod tests {
         exp_data.insert((82, 126), (1636.43, 1.0));
         let result = l1_proxy_prescreen(&SLY4_PARAMS, &exp_data, 1000.0); // very loose
         assert!(result.is_some());
-        let chi2 = result.unwrap();
+        let chi2 = result.expect("result asserted Some");
         assert!(chi2 > 0.0 && chi2 < 1000.0);
     }
 }

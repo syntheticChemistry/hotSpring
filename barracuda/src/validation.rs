@@ -353,4 +353,71 @@ mod tests {
         assert_eq!(h.checks[0].label, "χ²/datum");
         assert_eq!(h.checks[1].label, "E/A (MeV)");
     }
+
+    #[test]
+    fn check_abs_or_rel_abs_pass() {
+        let mut h = ValidationHarness::new("test");
+        h.check_abs_or_rel("abs_pass", 1.0, 1.0, 1e-10);
+        assert!(h.checks[0].passed);
+    }
+
+    #[test]
+    fn check_abs_or_rel_rel_pass() {
+        let mut h = ValidationHarness::new("test");
+        // abs_err = 100, tolerance = 1e-10 → abs fails
+        // rel_err = 100/1e12 ≈ 1e-10 → rel passes with tol 1e-9
+        h.check_abs_or_rel("rel_pass", 1e12 + 100.0, 1e12, 1e-9);
+        assert!(h.checks[0].passed);
+    }
+
+    #[test]
+    fn check_abs_or_rel_both_fail() {
+        let mut h = ValidationHarness::new("test");
+        h.check_abs_or_rel("both_fail", 10.0, 1.0, 0.1);
+        assert!(!h.checks[0].passed);
+    }
+
+    #[test]
+    fn check_lower_pass() {
+        let mut h = ValidationHarness::new("test");
+        h.check_lower("lower_pass", -15.0, -20.0);
+        assert!(h.checks[0].passed);
+    }
+
+    #[test]
+    fn check_lower_fail() {
+        let mut h = ValidationHarness::new("test");
+        h.check_lower("lower_fail", -25.0, -20.0);
+        assert!(!h.checks[0].passed);
+    }
+
+    #[test]
+    fn tolerance_mode_display_all_variants() {
+        assert_eq!(ToleranceMode::Absolute.to_string(), "abs");
+        assert_eq!(ToleranceMode::Relative.to_string(), "rel");
+        assert_eq!(ToleranceMode::Percentage.to_string(), "pct");
+        assert_eq!(ToleranceMode::UpperBound.to_string(), "<");
+        assert_eq!(ToleranceMode::LowerBound.to_string(), ">");
+    }
+
+    #[test]
+    fn format_summary_all_check_types() {
+        let mut h = ValidationHarness::new("full_coverage");
+        h.check_abs("abs", 1.0, 1.0, 1e-10);
+        h.check_rel("rel", 1.0, 1.0, 1e-6);
+        h.check_upper("upper", 0.5, 1.0);
+        h.check_lower("lower", 2.0, 1.0);
+        h.check_abs_or_rel("abs_or_rel", 1.0, 1.0, 0.1);
+        h.check_bool("bool", true);
+        let s = h.format_summary();
+        assert!(s.contains("full_coverage"));
+        assert!(s.contains("abs"));
+        assert!(s.contains("rel"));
+        assert!(s.contains("upper"));
+        assert!(s.contains("lower"));
+        assert!(s.contains("abs_or_rel"));
+        assert!(s.contains("bool"));
+        assert_eq!(h.passed_count(), 6);
+        assert_eq!(h.total_count(), 6);
+    }
 }

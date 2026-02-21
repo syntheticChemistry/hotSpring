@@ -24,14 +24,13 @@ use std::time::Instant;
 use hotspring_barracuda::md::config::MdConfig;
 use hotspring_barracuda::md::cpu_reference::run_simulation_cpu;
 use hotspring_barracuda::md::observables::compute_vacf;
-use hotspring_barracuda::md::reservoir::{velocity_features, EchoStateNetwork, EsnConfig, NpuSimulator};
+use hotspring_barracuda::md::reservoir::{
+    velocity_features, EchoStateNetwork, EsnConfig, NpuSimulator,
+};
 use hotspring_barracuda::validation::ValidationHarness;
 
-#[allow(dead_code)]
 struct CaseData {
     label: String,
-    kappa: f64,
-    gamma: f64,
     d_star_full: f64,
     features_short: Vec<Vec<f64>>,
 }
@@ -78,7 +77,11 @@ fn main() {
     let short_frames = 500;
 
     println!("  Cases: {}", cases_spec.len());
-    println!("  Train: {} cases, Test: {} cases", train_indices.len(), test_indices.len());
+    println!(
+        "  Train: {} cases, Test: {} cases",
+        train_indices.len(),
+        test_indices.len()
+    );
     println!("  N = {n_particles}, prod = 4000 steps (full), short = {short_frames} frames");
     println!();
 
@@ -118,8 +121,6 @@ fn main() {
 
         case_data.push(CaseData {
             label: label.to_string(),
-            kappa: *kappa,
-            gamma: *gamma,
             d_star_full,
             features_short,
         });
@@ -158,7 +159,10 @@ fn main() {
     println!();
     println!("═══ Evaluation ═══");
     println!();
-    println!("  {:<12} {:>12} {:>12} {:>10} {:>6}", "Case", "D*(GK)", "D*(ESN)", "Error", "Set");
+    println!(
+        "  {:<12} {:>12} {:>12} {:>10} {:>6}",
+        "Case", "D*(GK)", "D*(ESN)", "Error", "Set"
+    );
     println!("  {}", "-".repeat(56));
 
     let mut harness = ValidationHarness::new("reservoir_transport");
@@ -174,10 +178,18 @@ fn main() {
             0.0
         };
 
-        let split = if train_indices.contains(&i) { "TRAIN" } else { "TEST" };
+        let split = if train_indices.contains(&i) {
+            "TRAIN"
+        } else {
+            "TEST"
+        };
         println!(
             "  {:<12} {:>12.4e} {:>12.4e} {:>9.1}% {:>6}",
-            cd.label, cd.d_star_full, d_esn, err * 100.0, split
+            cd.label,
+            cd.d_star_full,
+            d_esn,
+            err * 100.0,
+            split
         );
 
         if train_indices.contains(&i) {
@@ -186,10 +198,7 @@ fn main() {
             test_errors.push(err);
         }
 
-        harness.check_bool(
-            &format!("{} D* positive", cd.label),
-            cd.d_star_full > 0.0,
-        );
+        harness.check_bool(&format!("{} D* positive", cd.label), cd.d_star_full > 0.0);
     }
 
     let mean_train_err = if train_errors.is_empty() {
@@ -211,7 +220,9 @@ fn main() {
     harness.check_upper("ESN test mean error < 80%", mean_test_err, 0.80);
     harness.check_bool(
         "All D* positive and finite",
-        case_data.iter().all(|cd| cd.d_star_full > 0.0 && cd.d_star_full.is_finite()),
+        case_data
+            .iter()
+            .all(|cd| cd.d_star_full > 0.0 && cd.d_star_full.is_finite()),
     );
 
     // ── NPU Simulator (f32 cross-substrate parity) ──────────────
@@ -220,13 +231,20 @@ fn main() {
     println!();
 
     let exported = esn.export_weights().expect("ESN trained");
-    println!("  Exported weights: W_in={}, W_res={}, W_out={}",
-             exported.w_in.len(), exported.w_res.len(), exported.w_out.len());
+    println!(
+        "  Exported weights: W_in={}, W_res={}, W_out={}",
+        exported.w_in.len(),
+        exported.w_res.len(),
+        exported.w_out.len()
+    );
 
     let mut npu_sim = NpuSimulator::from_exported(&exported);
 
     println!();
-    println!("  {:<12} {:>12} {:>12} {:>10}", "Case", "D*(CPU f64)", "D*(NPU f32)", "Diff");
+    println!(
+        "  {:<12} {:>12} {:>12} {:>10}",
+        "Case", "D*(CPU f64)", "D*(NPU f32)", "Diff"
+    );
     println!("  {}", "-".repeat(50));
 
     let mut max_cpu_npu_diff = 0.0f64;
@@ -243,21 +261,25 @@ fn main() {
             max_cpu_npu_diff = diff;
         }
 
-        let split = if train_indices.contains(&i) { "TRAIN" } else { "TEST" };
+        let split = if train_indices.contains(&i) {
+            "TRAIN"
+        } else {
+            "TEST"
+        };
         println!(
             "  {:<12} {:>12.4e} {:>12.4e} {:>9.2}%  {}",
-            cd.label, d_cpu, d_npu, diff * 100.0, split
+            cd.label,
+            d_cpu,
+            d_npu,
+            diff * 100.0,
+            split
         );
     }
 
     println!();
     println!("  Max CPU/NPU diff: {:.2}%", max_cpu_npu_diff * 100.0);
 
-    harness.check_upper(
-        "CPU/NPU f64-f32 parity < 5%",
-        max_cpu_npu_diff,
-        0.05,
-    );
+    harness.check_upper("CPU/NPU f64-f32 parity < 5%", max_cpu_npu_diff, 0.05);
 
     let total_ms = total_start.elapsed().as_secs_f64() * 1000.0;
     println!();

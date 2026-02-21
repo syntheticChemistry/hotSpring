@@ -174,7 +174,7 @@ U(1) gauge group, complex scalar matter field. Wirtinger-correct forces.
 | 16 | Jitomirskaya "Metal-insulator transition for the almost Mathieu operator" | Ann. Math. 150, 1159 | 1999 | Kachkovskiy | Extended/localized phase classification | **Done** — Aubry-André transition detected |
 | 17 | Herman "Une méthode pour minorer les exposants de Lyapunov" | Comment. Math. Helv. 58, 453 | 1983 | Kachkovskiy | Lyapunov exponent lower bound for quasiperiodic | **Done** — γ = ln|λ| validated to 4 decimal places |
 
-**Paper 14-17 status**: ✅ Complete. Spectral theory primitives validated in `spectral.rs`.
+**Paper 14-17 status**: ✅ Complete. Spectral theory primitives validated in `spectral/`.
 All implemented without FFT — pure position-space operator theory:
 - **Tridiagonal eigensolve**: Sturm bisection, all eigenvalues to machine precision
 - **Transfer matrix**: Lyapunov exponent via iterative renormalization
@@ -184,7 +184,7 @@ All implemented without FFT — pure position-space operator theory:
 - **Poisson statistics**: ⟨r⟩ = 0.3858 (theory 0.3863, 0.1% error)
 - **W² scaling**: disorder ratios 4.07 and 4.04 (theory 4.0)
 
-**Papers 18-19**: ✅ Complete. Lanczos + SpMV + 2D Anderson validated in `spectral.rs`.
+**Papers 18-19**: ✅ Complete. Lanczos + SpMV + 2D Anderson validated in `spectral/`.
 P1 primitives for GPU promotion now working on CPU:
 - **CsrMatrix + SpMV**: CSR sparse matrix-vector product, verified vs dense (0 error)
 - **Lanczos eigensolve**: Full reorthogonalization, cross-validated vs Sturm (Δ = 4.4e-16)
@@ -334,9 +334,9 @@ FFT. GPU HMC → NPU phase classification → CPU validation against β_c ≈ 5.
 
 | Component | Status | Location |
 |-----------|--------|----------|
-| Green-Kubo integrator (VACF → D*) | ✅ Done | `md/observables.rs` |
-| Stress tensor observable (σ_αβ) | ✅ Done | `md/observables.rs` |
-| Heat current observable (J_Q) | ✅ Done | `md/observables.rs` |
+| Green-Kubo integrator (VACF → D*) | ✅ Done | `md/observables/` |
+| Stress tensor observable (σ_αβ) | ✅ Done | `md/observables/` |
+| Heat current observable (J_Q) | ✅ Done | `md/observables/` |
 | Daligault (2012) D* analytical fit | ✅ Done, Sarkas-calibrated | `md/transport.rs` |
 | Stanton-Murillo (2016) η*, λ* fits | ✅ Done | `md/transport.rs` |
 | Validation binary | ✅ 13/13 pass | `bin/validate_stanton_murillo.rs` |

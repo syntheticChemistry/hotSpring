@@ -33,7 +33,7 @@ fn main() {
 
         let config = barracuda::optimize::bfgs::BfgsConfig {
             max_iter: 5000,
-            gtol: 1e-8,
+            gtol: tolerances::BFGS_GTOL,
             ..Default::default()
         };
 
@@ -99,7 +99,8 @@ fn main() {
         let bounds = vec![(-5.0, 5.0), (-5.0, 5.0)];
         let x0 = vec![0.0, 0.0];
 
-        match barracuda::optimize::nelder_mead(f, &x0, &bounds, 5000, 1e-10) {
+        match barracuda::optimize::nelder_mead(f, &x0, &bounds, 5000, tolerances::NELDER_MEAD_FTOL)
+        {
             Ok((x, fval, n_eval)) => {
                 let ok = (x[0] - 1.0).abs() < 0.1 && (x[1] - 1.0).abs() < 0.1;
                 if ok {
@@ -136,7 +137,14 @@ fn main() {
         };
 
         let bounds = vec![(-5.0, 5.0), (-5.0, 5.0)];
-        match barracuda::optimize::multi_start_nelder_mead(ackley, &bounds, 8, 500, 1e-8, 42) {
+        match barracuda::optimize::multi_start_nelder_mead(
+            ackley,
+            &bounds,
+            8,
+            500,
+            tolerances::BFGS_GTOL,
+            42,
+        ) {
             Ok((best, _cache, _all)) => {
                 let ok = best.f_best < 1.0;
                 if ok {
@@ -160,7 +168,7 @@ fn main() {
     println!("\n── Bisection: x² - 2 = 0 → x = √2 ──");
     {
         let f = |x: f64| x.mul_add(x, -2.0);
-        match barracuda::optimize::bisect(f, 1.0, 2.0, 1e-12, 100) {
+        match barracuda::optimize::bisect(f, 1.0, 2.0, tolerances::BISECT_CONVERGENCE_TOL, 100) {
             Ok(root) => {
                 let ok = (root - std::f64::consts::SQRT_2).abs() < tolerances::EXACT_F64;
                 if ok {
@@ -185,7 +193,10 @@ fn main() {
     println!("\n── RK45 ODE: dy/dt = -y → y(t) = e^(-t) ──");
     {
         let f = |_t: f64, y: &[f64]| vec![-y[0]];
-        let config = barracuda::numerical::rk45::Rk45Config::new(1e-8, 1e-10);
+        let config = barracuda::numerical::rk45::Rk45Config::new(
+            tolerances::RK45_ATOL,
+            tolerances::RK45_RTOL,
+        );
 
         match barracuda::numerical::rk45::rk45_solve(&f, 0.0, 2.0, &[1.0], &config) {
             Ok(result) => {
@@ -217,7 +228,10 @@ fn main() {
     {
         // y = [x, v], dy/dt = [v, -x]
         let f = |_t: f64, y: &[f64]| vec![y[1], -y[0]];
-        let config = barracuda::numerical::rk45::Rk45Config::new(1e-8, 1e-10);
+        let config = barracuda::numerical::rk45::Rk45Config::new(
+            tolerances::RK45_ATOL,
+            tolerances::RK45_RTOL,
+        );
 
         match barracuda::numerical::rk45::rk45_solve(&f, 0.0, 2.0 * PI, &[1.0, 0.0], &config) {
             Ok(result) => {
@@ -376,7 +390,7 @@ fn main() {
         for (x, expected, desc) in &cdf_tests {
             let got = barracuda::stats::norm_cdf(*x);
             let err = (got - expected).abs();
-            let ok = err < 1e-4;
+            let ok = err < tolerances::NORMAL_CDF_TOLERANCE;
             if ok {
                 println!("  ✅ {desc} | {got:.8} (expected {expected:.8})");
             } else {
@@ -395,7 +409,7 @@ fn main() {
         for (p, expected, desc) in &ppf_tests {
             let got = barracuda::stats::norm_ppf(*p);
             let err = (got - expected).abs();
-            let ok = err < 1e-3;
+            let ok = err < tolerances::NORMAL_PPF_TOLERANCE;
             if ok {
                 println!("  ✅ {desc} | {got:.6} (expected {expected:.6})");
             } else {

@@ -118,7 +118,7 @@ impl HotQcdEos {
             return Some(self.points[0].clone());
         }
 
-        let last = self.points.last().unwrap();
+        let last = self.points.last().expect("points verified non-empty above");
         if t_over_tc >= last.t_over_tc {
             return Some(last.clone());
         }
@@ -274,7 +274,7 @@ mod tests {
             .points
             .iter()
             .max_by(|a, b| a.trace_anomaly.total_cmp(&b.trace_anomaly))
-            .unwrap();
+            .expect("eos table non-empty");
         assert!(
             max_ta.t_over_tc > 0.9 && max_ta.t_over_tc < 1.3,
             "trace anomaly should peak near T_c: peaked at T/T_c = {}",
@@ -294,7 +294,7 @@ mod tests {
     #[test]
     fn interpolation_works() {
         let eos = HotQcdEos::reference_table();
-        let p = eos.interpolate(1.25).unwrap();
+        let p = eos.interpolate(1.25).expect("interpolate at 1.25");
         assert!(p.t_over_tc > 1.24 && p.t_over_tc < 1.26);
         assert!(p.pressure > 2.0 && p.pressure < 4.0);
     }
@@ -306,5 +306,123 @@ mod tests {
             (HotQcdEos::SB_PRESSURE_OVER_T4 - 5.209).abs() < 0.01,
             "SB limit should be ~5.209"
         );
+    }
+
+    #[test]
+    fn interpolate_empty_table() {
+        let eos = HotQcdEos { points: vec![] };
+        assert!(eos.interpolate(1.0).is_none());
+    }
+
+    #[test]
+    #[allow(clippy::float_cmp)] // exact known values
+    fn interpolate_single_point() {
+        let eos = HotQcdEos {
+            points: vec![EosPoint {
+                t_over_tc: 1.0,
+                pressure: 1.1,
+                energy_density: 4.0,
+                entropy_density: 6.5,
+                trace_anomaly: 0.7,
+            }],
+        };
+        let p = eos.interpolate(0.5).expect("should return single point");
+        assert_eq!(p.t_over_tc, 1.0);
+        assert_eq!(p.pressure, 1.1);
+
+        let p2 = eos.interpolate(2.0).expect("should return single point");
+        assert_eq!(p2.t_over_tc, 1.0);
+    }
+
+    #[test]
+    #[allow(clippy::float_cmp)] // exact boundary match
+    fn interpolate_at_exact_boundary_min() {
+        let eos = HotQcdEos::reference_table();
+        let first = &eos.points[0];
+        let p = eos.interpolate(first.t_over_tc).expect("at min boundary");
+        assert_eq!(p.t_over_tc, first.t_over_tc);
+        assert!((p.pressure - first.pressure).abs() < 1e-10);
+    }
+
+    #[test]
+    #[allow(clippy::float_cmp)] // exact boundary match
+    fn interpolate_at_exact_boundary_max() {
+        let eos = HotQcdEos::reference_table();
+        let last = eos.points.last().expect("reference table non-empty");
+        let p = eos.interpolate(last.t_over_tc).expect("at max boundary");
+        assert_eq!(p.t_over_tc, last.t_over_tc);
+        assert!((p.pressure - last.pressure).abs() < 1e-10);
+    }
+
+    #[test]
+    #[allow(clippy::float_cmp)] // exact known value
+    fn interpolate_below_minimum() {
+        let eos = HotQcdEos::reference_table();
+        let p = eos.interpolate(0.1).expect("below min returns first point");
+        assert_eq!(p.t_over_tc, eos.points[0].t_over_tc);
+    }
+
+    #[test]
+    #[allow(clippy::float_cmp)] // exact known value
+    fn interpolate_above_maximum() {
+        let eos = HotQcdEos::reference_table();
+        let last_t = eos
+            .points
+            .last()
+            .expect("reference table non-empty")
+            .t_over_tc;
+        let p = eos
+            .interpolate(last_t + 10.0)
+            .expect("above max returns last point");
+        assert_eq!(p.t_over_tc, last_t);
+    }
+
+    #[test]
+    fn eos_display_format() {
+        let eos = HotQcdEos::reference_table();
+        let s = format!("{eos}");
+        assert!(s.contains("T/Tc"));
+        assert!(s.contains("p/T⁴"));
+        assert!(s.contains("ε/T⁴"));
+        assert!(s.contains("s/T³"));
+        assert!(s.contains("(ε-3p)/T⁴"));
+    }
+
+    #[test]
+    #[allow(clippy::float_cmp)] // exact known value (0.0)
+    fn eos_point_speed_of_sound_sq_ideal_zero_energy() {
+        let p = EosPoint {
+            t_over_tc: 1.0,
+            pressure: 1.0,
+            energy_density: 0.0,
+            entropy_density: 0.0,
+            trace_anomaly: 0.0,
+        };
+        assert_eq!(p.speed_of_sound_sq_ideal(), 0.0);
+    }
+
+    #[test]
+    fn check_thermodynamic_consistency_returns_valid() {
+        let eos = HotQcdEos::reference_table();
+        let violations = eos.check_thermodynamic_consistency(0.1);
+        assert!(violations.len() <= eos.points.len());
+        for (t, _) in &violations {
+            assert!(*t > 0.0);
+        }
+    }
+
+    #[test]
+    fn check_thermodynamic_consistency_strict_tolerance() {
+        let eos = HotQcdEos::reference_table();
+        let violations = eos.check_thermodynamic_consistency(1e-6);
+        assert!(violations.len() <= eos.points.len());
+    }
+
+    #[test]
+    fn computational_overlap_summary_non_empty() {
+        let s = computational_overlap_summary();
+        assert!(!s.is_empty());
+        assert!(s.contains("Plasma MD"));
+        assert!(s.contains("Lattice QCD"));
     }
 }

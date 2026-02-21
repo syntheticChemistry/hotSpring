@@ -8,7 +8,9 @@
 
 use barracuda::pipeline::ReduceScalarPipeline;
 use hotspring_barracuda::gpu::GpuF64;
-use hotspring_barracuda::lattice::cg::{cg_solve, WGSL_AXPY_F64, WGSL_COMPLEX_DOT_RE_F64, WGSL_XPAY_F64};
+use hotspring_barracuda::lattice::cg::{
+    cg_solve, WGSL_AXPY_F64, WGSL_COMPLEX_DOT_RE_F64, WGSL_XPAY_F64,
+};
 use hotspring_barracuda::lattice::dirac::{
     flatten_fermion, DiracGpuLayout, FermionField, WGSL_DIRAC_STAGGERED_F64,
 };
@@ -79,29 +81,54 @@ fn gpu_cg_solve(
     let wg_vec = (n_flat as u32).div_ceil(64);
 
     let dirac_dispatch = |input: &wgpu::Buffer, output: &wgpu::Buffer, hop_sign: f64| {
-        let p = DiracParams { volume: vol as u32, pad0: 0, mass_re: mass, hop_sign };
+        let p = DiracParams {
+            volume: vol as u32,
+            pad0: 0,
+            mass_re: mass,
+            hop_sign,
+        };
         let pb = ctx.gpu.create_uniform_buffer(bytemuck::bytes_of(&p), "dp");
-        let bg = ctx.gpu.create_bind_group(ctx.dirac_pl, &[&pb, &links_buf, input, output, &nbr_buf, &phases_buf]);
+        let bg = ctx.gpu.create_bind_group(
+            ctx.dirac_pl,
+            &[&pb, &links_buf, input, output, &nbr_buf, &phases_buf],
+        );
         ctx.gpu.dispatch(ctx.dirac_pl, &bg, wg_dirac);
     };
 
     let dot_re = |a: &wgpu::Buffer, b: &wgpu::Buffer| -> f64 {
-        let p = DotParams { n_pairs: n_pairs as u32, pad0: 0, pad1: 0, pad2: 0 };
-        let pb = ctx.gpu.create_uniform_buffer(bytemuck::bytes_of(&p), "dotp");
-        let bg = ctx.gpu.create_bind_group(ctx.dot_pl, &[&pb, a, b, &dot_buf]);
+        let p = DotParams {
+            n_pairs: n_pairs as u32,
+            pad0: 0,
+            pad1: 0,
+            pad2: 0,
+        };
+        let pb = ctx
+            .gpu
+            .create_uniform_buffer(bytemuck::bytes_of(&p), "dotp");
+        let bg = ctx
+            .gpu
+            .create_bind_group(ctx.dot_pl, &[&pb, a, b, &dot_buf]);
         ctx.gpu.dispatch(ctx.dot_pl, &bg, wg_dot);
         reducer.sum_f64(&dot_buf).expect("reduce")
     };
 
     let axpy = |alpha: f64, x: &wgpu::Buffer, y: &wgpu::Buffer| {
-        let p = ScalarParams { n: n_flat as u32, pad0: 0, alpha };
+        let p = ScalarParams {
+            n: n_flat as u32,
+            pad0: 0,
+            alpha,
+        };
         let pb = ctx.gpu.create_uniform_buffer(bytemuck::bytes_of(&p), "ap");
         let bg = ctx.gpu.create_bind_group(ctx.axpy_pl, &[&pb, x, y]);
         ctx.gpu.dispatch(ctx.axpy_pl, &bg, wg_vec);
     };
 
     let xpay = |x: &wgpu::Buffer, beta: f64, p: &wgpu::Buffer| {
-        let pr = ScalarParams { n: n_flat as u32, pad0: 0, alpha: beta };
+        let pr = ScalarParams {
+            n: n_flat as u32,
+            pad0: 0,
+            alpha: beta,
+        };
         let pb = ctx.gpu.create_uniform_buffer(bytemuck::bytes_of(&pr), "xp");
         let bg = ctx.gpu.create_bind_group(ctx.xpay_pl, &[&pb, x, p]);
         ctx.gpu.dispatch(ctx.xpay_pl, &bg, wg_vec);
@@ -128,7 +155,9 @@ fn gpu_cg_solve(
         dirac_dispatch(&temp_buf, &ap_buf, -1.0);
 
         let p_ap = dot_re(&p_buf, &ap_buf);
-        if p_ap.abs() < 1e-30 { break; }
+        if p_ap.abs() < 1e-30 {
+            break;
+        }
         let alpha = r_norm_sq / p_ap;
 
         axpy(alpha, &p_buf, &x_buf);
@@ -189,8 +218,10 @@ fn main() {
         ([16, 16, 16, 16], "16⁴"),
     ];
 
-    println!("  {:>8}  {:>7}  {:>8}  {:>8}  {:>6}  {:>9}  {:>9}  {:>7}",
-        "Lattice", "Volume", "GPU(ms)", "CPU(ms)", "Iters", "Res", "Upload", "Speedup");
+    println!(
+        "  {:>8}  {:>7}  {:>8}  {:>8}  {:>6}  {:>9}  {:>9}  {:>7}",
+        "Lattice", "Volume", "GPU(ms)", "CPU(ms)", "Iters", "Res", "Upload", "Speedup"
+    );
     println!("  {}", "─".repeat(78));
 
     for (dims, label) in &lattice_configs {
@@ -198,15 +229,18 @@ fn main() {
         let vol = lattice.volume();
 
         // Thermalize
-        let mut hmc_config = HmcConfig { n_md_steps: 10, dt: 0.1, seed: 123 };
+        let mut hmc_config = HmcConfig {
+            n_md_steps: 10,
+            dt: 0.1,
+            seed: 123,
+        };
         for _ in 0..5 {
             hmc_trajectory(&mut lattice, &mut hmc_config);
         }
 
         let layout = DiracGpuLayout::from_lattice(&lattice);
         let n_pairs = vol * 3;
-        let reducer = ReduceScalarPipeline::new(gpu.to_wgpu_device(), n_pairs)
-            .expect("reducer");
+        let reducer = ReduceScalarPipeline::new(gpu.to_wgpu_device(), n_pairs).expect("reducer");
 
         let b = FermionField::random(vol, 99);
         let b_flat = flatten_fermion(&b);
@@ -223,17 +257,20 @@ fn main() {
 
         let upload_kb = (layout.links_flat.len() * 8
             + layout.neighbors.len() * 4
-            + layout.phases.len() * 8) as f64 / 1024.0;
+            + layout.phases.len() * 8) as f64
+            / 1024.0;
 
         let speedup = cpu_ms / gpu_ms;
 
         println!(
-            "  {:>8}  {:>7}  {:>8.1}  {:>8.1}  {:>6}  {:>9.2e}  {:>7.0} KB  {:>6.1}×",
-            label, vol, gpu_ms, cpu_ms, gpu_iters, gpu_res, upload_kb, speedup
+            "  {label:>8}  {vol:>7}  {gpu_ms:>8.1}  {cpu_ms:>8.1}  {gpu_iters:>6}  {gpu_res:>9.2e}  {upload_kb:>7.0} KB  {speedup:>6.1}×"
         );
 
-        assert_eq!(gpu_iters, cpu_result.iterations,
-            "Iteration mismatch at {label}: GPU={gpu_iters} CPU={}", cpu_result.iterations);
+        assert_eq!(
+            gpu_iters, cpu_result.iterations,
+            "Iteration mismatch at {label}: GPU={gpu_iters} CPU={}",
+            cpu_result.iterations
+        );
     }
 
     println!();

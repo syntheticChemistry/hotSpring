@@ -15,6 +15,7 @@
 
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::spectral::{self, anderson_2d, anderson_3d, CsrMatrix, WGSL_SPMV_CSR_F64};
+use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
 use std::time::Instant;
 
@@ -62,8 +63,17 @@ fn gpu_spmv(
     let x_buf = gpu.create_f64_buffer(x, "x_vec");
     let y_buf = gpu.create_f64_output_buffer(n, "y_vec");
 
-    let bind_group =
-        gpu.create_bind_group(pipeline, &[&params_buf, &row_ptr_buf, &col_idx_buf, &values_buf, &x_buf, &y_buf]);
+    let bind_group = gpu.create_bind_group(
+        pipeline,
+        &[
+            &params_buf,
+            &row_ptr_buf,
+            &col_idx_buf,
+            &values_buf,
+            &x_buf,
+            &y_buf,
+        ],
+    );
 
     let workgroups = (n as u32).div_ceil(64);
     gpu.dispatch(pipeline, &bind_group, workgroups);
@@ -121,7 +131,11 @@ fn main() {
     let gpu_y = gpu_spmv(&gpu, &pipeline, &eye, &x);
     let err = max_abs_diff(&x, &gpu_y);
     println!("  I*x max |error|: {err:.2e} (expect 0)");
-    harness.check_upper("Identity SpMV max error", err, 1e-15);
+    harness.check_upper(
+        "Identity SpMV max error",
+        err,
+        tolerances::SPMV_IDENTITY_ABS,
+    );
 
     // ══════════════════════════════════════════════════════════════
     //  Check 2: 2D Anderson (10×10, W=4)
@@ -133,7 +147,11 @@ fn main() {
     let gpu_y2d = gpu_spmv(&gpu, &pipeline, &a2d, &x2d);
     let err2d = max_abs_diff(&cpu_y2d, &gpu_y2d);
     println!("  N={}, nnz={}, max |error|: {err2d:.2e}", a2d.n, a2d.nnz());
-    harness.check_upper("2D Anderson SpMV (10x10)", err2d, 1e-14);
+    harness.check_upper(
+        "2D Anderson SpMV (10x10)",
+        err2d,
+        tolerances::SPMV_GPU_VS_CPU_ABS,
+    );
 
     // ══════════════════════════════════════════════════════════════
     //  Check 3: 3D Anderson (5×5×5, W=6)
@@ -145,7 +163,11 @@ fn main() {
     let gpu_y3d = gpu_spmv(&gpu, &pipeline, &a3d, &x3d);
     let err3d = max_abs_diff(&cpu_y3d, &gpu_y3d);
     println!("  N={}, nnz={}, max |error|: {err3d:.2e}", a3d.n, a3d.nnz());
-    harness.check_upper("3D Anderson SpMV (5x5x5)", err3d, 1e-14);
+    harness.check_upper(
+        "3D Anderson SpMV (5x5x5)",
+        err3d,
+        tolerances::SPMV_GPU_VS_CPU_ABS,
+    );
 
     // ══════════════════════════════════════════════════════════════
     //  Check 4: Clean 2D lattice (no disorder — deterministic)
@@ -161,7 +183,11 @@ fn main() {
         clean.n,
         clean.nnz()
     );
-    harness.check_upper("Clean lattice SpMV (16x16)", err_clean, 1e-14);
+    harness.check_upper(
+        "Clean lattice SpMV (16x16)",
+        err_clean,
+        tolerances::SPMV_GPU_VS_CPU_ABS,
+    );
 
     // ══════════════════════════════════════════════════════════════
     //  Check 5: Iterated SpMV — A²x via two GPU dispatches
@@ -178,16 +204,18 @@ fn main() {
         "  N={}, max |error| after 2 iterations: {err_iter:.2e}",
         a_iter.n
     );
-    harness.check_upper("Iterated SpMV A^2 x", err_iter, 1e-13);
+    harness.check_upper(
+        "Iterated SpMV A^2 x",
+        err_iter,
+        tolerances::SPMV_ITERATED_ABS,
+    );
 
     // ══════════════════════════════════════════════════════════════
     //  Check 6: Large 2D Anderson (32×32 = 1024, W=4)
     // ══════════════════════════════════════════════════════════════
     println!("\n═══ Check 6: Large 2D Anderson (32×32 = 1024) ══════════════");
     let a_large = anderson_2d(32, 32, 4.0, 123);
-    let x_large: Vec<f64> = (0..a_large.n)
-        .map(|i| ((i as f64) * 0.07).sin())
-        .collect();
+    let x_large: Vec<f64> = (0..a_large.n).map(|i| ((i as f64) * 0.07).sin()).collect();
     let cpu_y_large = cpu_spmv(&a_large, &x_large);
     let gpu_y_large = gpu_spmv(&gpu, &pipeline, &a_large, &x_large);
     let err_large = max_abs_diff(&cpu_y_large, &gpu_y_large);
@@ -196,16 +224,18 @@ fn main() {
         a_large.n,
         a_large.nnz()
     );
-    harness.check_upper("Large 2D Anderson SpMV (32x32)", err_large, 1e-14);
+    harness.check_upper(
+        "Large 2D Anderson SpMV (32x32)",
+        err_large,
+        tolerances::SPMV_GPU_VS_CPU_ABS,
+    );
 
     // ══════════════════════════════════════════════════════════════
     //  Check 7: Strong disorder 3D (W=20, near all-localized)
     // ══════════════════════════════════════════════════════════════
     println!("\n═══ Check 7: Strong disorder 3D (6×6×6, W=20) ═════════════");
     let a_strong = anderson_3d(6, 6, 6, 20.0, 55);
-    let x_strong: Vec<f64> = (0..a_strong.n)
-        .map(|i| ((i as f64) * 0.13).cos())
-        .collect();
+    let x_strong: Vec<f64> = (0..a_strong.n).map(|i| ((i as f64) * 0.13).cos()).collect();
     let cpu_y_strong = cpu_spmv(&a_strong, &x_strong);
     let gpu_y_strong = gpu_spmv(&gpu, &pipeline, &a_strong, &x_strong);
     let err_strong = max_abs_diff(&cpu_y_strong, &gpu_y_strong);
@@ -214,16 +244,18 @@ fn main() {
         a_strong.n,
         a_strong.nnz()
     );
-    harness.check_upper("Strong disorder 3D SpMV (W=20)", err_strong, 1e-14);
+    harness.check_upper(
+        "Strong disorder 3D SpMV (W=20)",
+        err_strong,
+        tolerances::SPMV_GPU_VS_CPU_ABS,
+    );
 
     // ══════════════════════════════════════════════════════════════
     //  Check 8: Very large 2D Anderson (64×64 = 4096) + timing
     // ══════════════════════════════════════════════════════════════
     println!("\n═══ Check 8: Very large SpMV (64×64 = 4096) + timing ═══════");
     let a_bench = anderson_2d(64, 64, 4.0, 999);
-    let x_bench: Vec<f64> = (0..a_bench.n)
-        .map(|i| ((i as f64) * 0.03).sin())
-        .collect();
+    let x_bench: Vec<f64> = (0..a_bench.n).map(|i| ((i as f64) * 0.03).sin()).collect();
 
     // Correctness
     let cpu_y_bench = cpu_spmv(&a_bench, &x_bench);
@@ -234,7 +266,11 @@ fn main() {
         a_bench.n,
         a_bench.nnz()
     );
-    harness.check_upper("Very large SpMV correctness (64x64)", err_bench, 1e-14);
+    harness.check_upper(
+        "Very large SpMV correctness (64x64)",
+        err_bench,
+        tolerances::SPMV_GPU_VS_CPU_ABS,
+    );
 
     // Timing (informational — includes buffer allocation overhead)
     let n_reps = 100;
@@ -251,12 +287,8 @@ fn main() {
     }
     let gpu_us = t_gpu.elapsed().as_micros();
 
-    println!(
-        "  Timing ({n_reps} reps, includes buffer alloc): CPU={cpu_us}µs, GPU={gpu_us}µs"
-    );
-    println!(
-        "  NOTE: GPU advantage requires N>100k and persistent buffers (streaming Lanczos)."
-    );
+    println!("  Timing ({n_reps} reps, includes buffer alloc): CPU={cpu_us}µs, GPU={gpu_us}µs");
+    println!("  NOTE: GPU advantage requires N>100k and persistent buffers (streaming Lanczos).");
     println!("        At N=4096, per-dispatch overhead dominates. This test is about CORRECTNESS.");
 
     // ══════════════════════════════════════════════════════════════

@@ -172,10 +172,9 @@ pub(crate) fn make_pipeline(
 // Per-group GPU resources (pre-allocated once, reused across SCF)
 // ═══════════════════════════════════════════════════════════════════
 
-// Phase 4 energy fields (energy_*, e_pair_*, v2_*, rho_*_new_*) are wired
-// into bind groups but dispatches are deferred until SumReduceF64 + kinetic
-// energy kernel are available. Suppress dead_code for these stubs.
-#[allow(dead_code)]
+// EVOLUTION(GPU): Phase 4 energy fields (energy_*, e_pair_*, v2_*, rho_*_new_*) are wired
+// into bind groups but dispatches deferred until SumReduceF64 + kinetic energy kernel available.
+#[allow(dead_code)] // EVOLUTION: struct used; some fields deferred until energy kernel wired
 pub(crate) struct GroupResources {
     pub ns: usize,
     pub nr: usize,

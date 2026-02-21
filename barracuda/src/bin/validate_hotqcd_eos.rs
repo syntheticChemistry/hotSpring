@@ -79,7 +79,7 @@ fn main() {
         .points
         .iter()
         .max_by(|a, b| a.trace_anomaly.total_cmp(&b.trace_anomaly))
-        .unwrap();
+        .expect("HotQCD table non-empty");
     println!(
         "  Peak: (ε-3p)/T⁴ = {:.4} at T/T_c = {:.2}",
         max_ta.trace_anomaly, max_ta.t_over_tc

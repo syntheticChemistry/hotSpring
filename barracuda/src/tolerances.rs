@@ -555,6 +555,139 @@ pub const PPPM_MULTI_PARTICLE_NET_FORCE: f64 = 1.0;
 pub const HFB_RUST_VS_EXP_REL: f64 = 0.10;
 
 // ═══════════════════════════════════════════════════════════════════
+// GPU lattice QCD validation (CG, Dirac, SpMV)
+// ═══════════════════════════════════════════════════════════════════
+
+/// GPU CG solver: cold-lattice solution parity (GPU vs CPU).
+///
+/// On a cold (ordered) SU(3) lattice, the CG solver is well-conditioned.
+/// GPU and CPU f64 solutions should agree to ~1e-6 relative (limited by
+/// FP summation order differences in dot products).
+pub const LATTICE_GPU_CG_COLD_PARITY: f64 = 1e-6;
+
+/// GPU CG solver: hot-lattice solution parity (GPU vs CPU).
+///
+/// On a hot (random) lattice the condition number is higher and FP
+/// accumulation differences between GPU parallel reduction and CPU
+/// sequential sum become more visible. 1e-4 relative is achievable.
+pub const LATTICE_GPU_CG_HOT_PARITY: f64 = 1e-4;
+
+/// GPU CG: D†D x ≈ b residual verification.
+///
+/// After CG converges, reconstructing b' = D†D x and comparing to the
+/// original b gives a residual bounded by the CG tolerance times the
+/// condition number. 1e-7 is conservative for nuclear lattice sizes.
+pub const LATTICE_CG_VERIFY_RESIDUAL: f64 = 1e-7;
+
+/// GPU staggered Dirac: zero-input absolute error.
+///
+/// D*0 must equal 0 exactly; any deviation is a shader indexing bug.
+/// Machine epsilon for f64 is 2.22e-16; 1e-15 allows a few ULP.
+pub const LATTICE_DIRAC_ZERO_INPUT_ABS: f64 = 1e-15;
+
+/// GPU staggered Dirac: cold-lattice parity (GPU vs CPU).
+///
+/// Cold lattice: ordered gauge field, low condition number. GPU and CPU
+/// Dirac apply should agree to ~1e-14 (near machine epsilon, limited
+/// only by FMA vs separate multiply-add).
+pub const LATTICE_DIRAC_COLD_PARITY: f64 = 1e-14;
+
+/// GPU staggered Dirac: hot-lattice parity (GPU vs CPU).
+///
+/// Hot lattice: random gauge field, higher condition number. The GPU
+/// parallel summation order differs from CPU sequential, giving ~1e-13
+/// max component-wise error.
+pub const LATTICE_DIRAC_HOT_PARITY: f64 = 1e-13;
+
+// ═══════════════════════════════════════════════════════════════════
+// GPU SpMV and Lanczos eigensolve validation
+// ═══════════════════════════════════════════════════════════════════
+
+/// GPU SpMV: identity matrix absolute error.
+///
+/// I*x = x must hold to machine precision. Any deviation indicates
+/// a CSR indexing or buffer layout bug in the WGSL shader.
+pub const SPMV_IDENTITY_ABS: f64 = 1e-15;
+
+/// GPU SpMV: general matrix GPU-vs-CPU parity.
+///
+/// For Anderson model and lattice Hamiltonians, GPU CSR SpMV matches
+/// CPU reference to ~1e-14 (near machine epsilon). The parallel
+/// reduction per row introduces at most 1-2 ULP of rounding difference.
+pub const SPMV_GPU_VS_CPU_ABS: f64 = 1e-14;
+
+/// GPU SpMV: iterated product (A²x) error accumulation.
+///
+/// Two successive SpMV applications accumulate rounding errors; the
+/// tolerance is ~10× the single-pass tolerance.
+pub const SPMV_ITERATED_ABS: f64 = 1e-13;
+
+/// GPU Lanczos: β breakdown detection threshold.
+///
+/// In the Lanczos iteration, β_{k+1} = ||w|| measures the norm of the
+/// new Krylov vector. When β < 1e-14, the Krylov subspace is (near-)
+/// invariant and the iteration has converged or broken down.
+pub const LANCZOS_BREAKDOWN_THRESHOLD: f64 = 1e-14;
+
+/// GPU Lanczos: eigenvalue GPU-vs-CPU parity.
+///
+/// Full-spectrum Lanczos eigenvalues from GPU SpMV inner loop match CPU
+/// Lanczos to ~1e-10. The larger tolerance (vs SpMV) reflects error
+/// accumulation over O(N) Lanczos iterations, each with GPU SpMV and
+/// reorthogonalization.
+pub const LANCZOS_EIGENVALUE_GPU_PARITY: f64 = 1e-10;
+
+/// Screened Coulomb: ion-sphere κ_reduced vs √3 analytical value.
+///
+/// The ion-sphere model gives κ_reduced = √3 exactly. The numerical
+/// computation (eigenvalue + potential) agrees to machine precision.
+pub const SCREENED_ION_SPHERE_SQRT3_ABS: f64 = 1e-14;
+
+// ═══════════════════════════════════════════════════════════════════
+// Optimizer and ODE solver tolerances (validation binaries)
+// ═══════════════════════════════════════════════════════════════════
+
+/// BFGS: gradient-norm convergence tolerance.
+///
+/// BFGS converges when ||∇f|| < gtol. For smooth test functions
+/// (Rosenbrock, quadratic), 1e-8 achieves near-optimal minima.
+pub const BFGS_GTOL: f64 = 1e-8;
+
+/// Nelder-Mead: function-value convergence tolerance.
+///
+/// NM converges when the simplex spans < ftol in function value.
+/// 1e-10 is tight but achievable for smooth 2D test functions.
+pub const NELDER_MEAD_FTOL: f64 = 1e-10;
+
+/// Bisection: root-finding convergence tolerance.
+///
+/// Bisection narrows the bracket to width < tol. For f64, 1e-12
+/// gives ~40 bits of accuracy in the root location.
+pub const BISECT_CONVERGENCE_TOL: f64 = 1e-12;
+
+/// RK45: default absolute tolerance for ODE integration.
+///
+/// Controls the local error estimator. For exponential decay and
+/// harmonic oscillator test problems, 1e-8 atol with 1e-10 rtol
+/// gives global errors well below 1e-6.
+pub const RK45_ATOL: f64 = 1e-8;
+
+/// RK45: default relative tolerance for ODE integration.
+pub const RK45_RTOL: f64 = 1e-10;
+
+/// Normal CDF: maximum absolute error vs reference table.
+///
+/// The erf-based CDF implementation matches published tables to ~1e-4.
+/// Limited by the 4-term rational approximation in barracuda::special::erf.
+pub const NORMAL_CDF_TOLERANCE: f64 = 1e-4;
+
+/// Normal PPF (inverse CDF): maximum absolute error vs reference table.
+///
+/// The rational approximation for the quantile function has ~1e-3
+/// accuracy in the tails (|z| > 2).
+pub const NORMAL_PPF_TOLERANCE: f64 = 1e-3;
+
+// ═══════════════════════════════════════════════════════════════════
 // Nuclear EOS acceptance criteria (METHODOLOGY.md)
 // ═══════════════════════════════════════════════════════════════════
 
@@ -838,6 +971,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[allow(clippy::assertions_on_constants)] // constants sanity check
     fn tolerance_ordering() {
         assert!(EXACT_F64 < ITERATIVE_F64);
         assert!(ITERATIVE_F64 < GPU_VS_CPU_F64);
@@ -845,6 +979,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)] // exact known values
     fn sigma_theo_floor() {
         assert_eq!(sigma_theo(100.0), 2.0);
         assert_eq!(sigma_theo(500.0), 5.0);
@@ -852,6 +987,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::assertions_on_constants)] // constants sanity check
     fn energy_drift_is_generous() {
         // Measured drift is 0.000-0.002%; threshold is 5%.
         // This ensures we don't false-fail on numerical noise.
@@ -859,11 +995,13 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)] // exact known value
     fn nmp_sigma_is_two() {
         assert!((NMP_N_SIGMA - 2.0).abs() < f64::EPSILON);
     }
 
     #[test]
+    #[allow(clippy::assertions_on_constants)] // constants sanity check
     fn physics_guards_are_positive() {
         assert!(DENSITY_FLOOR > 0.0);
         assert!(SPIN_ORBIT_R_MIN > 0.0);
@@ -876,6 +1014,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::assertions_on_constants)] // constants sanity check
     fn guard_hierarchy() {
         // RHO_POWF_GUARD < DENSITY_FLOOR < SPIN_ORBIT_R_MIN
         assert!(RHO_POWF_GUARD < DENSITY_FLOOR);
@@ -883,12 +1022,14 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::assertions_on_constants)] // constants sanity check
     fn deformation_guesses_ordered() {
         assert!(DEFORMATION_GUESS_WEAK < DEFORMATION_GUESS_GENERIC);
         assert!(DEFORMATION_GUESS_GENERIC < DEFORMATION_GUESS_SD);
     }
 
     #[test]
+    #[allow(clippy::assertions_on_constants)] // constants sanity check
     fn all_tolerances_are_positive() {
         let tols = [
             EXACT_F64,
@@ -936,6 +1077,25 @@ mod tests {
             U1_HMC_ACCEPTANCE_MIN,
             U1_WEAK_COUPLING_PLAQ_MIN,
             U1_PYTHON_RUST_PARITY,
+            LATTICE_GPU_CG_COLD_PARITY,
+            LATTICE_GPU_CG_HOT_PARITY,
+            LATTICE_CG_VERIFY_RESIDUAL,
+            LATTICE_DIRAC_ZERO_INPUT_ABS,
+            LATTICE_DIRAC_COLD_PARITY,
+            LATTICE_DIRAC_HOT_PARITY,
+            SPMV_IDENTITY_ABS,
+            SPMV_GPU_VS_CPU_ABS,
+            SPMV_ITERATED_ABS,
+            LANCZOS_BREAKDOWN_THRESHOLD,
+            LANCZOS_EIGENVALUE_GPU_PARITY,
+            SCREENED_ION_SPHERE_SQRT3_ABS,
+            BFGS_GTOL,
+            NELDER_MEAD_FTOL,
+            BISECT_CONVERGENCE_TOL,
+            RK45_ATOL,
+            RK45_RTOL,
+            NORMAL_CDF_TOLERANCE,
+            NORMAL_PPF_TOLERANCE,
             NPU_F32_PARITY,
             NPU_INT8_QUANTIZATION,
             NPU_INT4_QUANTIZATION,
@@ -951,6 +1111,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::assertions_on_constants)] // constants sanity check
     fn hotqcd_max_violations_nonzero() {
         assert!(HOTQCD_MAX_VIOLATIONS > 0);
     }

@@ -56,7 +56,7 @@ fn main() {
     harness.finish();
 }
 
-/// [1] SpMV: CSR product matches dense reference on a known matrix.
+/// \[1\] SpMV: CSR product matches dense reference on a known matrix.
 fn check_spmv_correctness(harness: &mut ValidationHarness) {
     println!("[1] SpMV Correctness — CSR vs Dense Reference");
 
@@ -94,11 +94,11 @@ fn check_spmv_correctness(harness: &mut ValidationHarness) {
 
     // Dense reference: y[i] = d[i]*x[i] + e[i-1]*x[i-1] + e[i]*x[i+1]
     let y_ref = [
-        1.0 * 1.0 + (-1.0) * 2.0,
-        (-1.0) * 1.0 + 2.0 * 2.0 + (-1.0) * 3.0,
-        (-1.0) * 2.0 + 3.0 * 3.0 + (-1.0) * 4.0,
-        (-1.0) * 3.0 + 4.0 * 4.0 + (-1.0) * 5.0,
-        (-1.0) * 4.0 + 5.0 * 5.0,
+        1.0 * 1.0 + -2.0,
+        -1.0 + 2.0 * 2.0 + -3.0,
+        -2.0 + 3.0 * 3.0 + -4.0,
+        -3.0 + 4.0 * 4.0 + -5.0,
+        -4.0 + 5.0 * 5.0,
     ];
 
     let max_err: f64 = y
@@ -115,7 +115,7 @@ fn check_spmv_correctness(harness: &mut ValidationHarness) {
     println!();
 }
 
-/// [2] Lanczos vs Sturm: 1D Anderson extremal eigenvalues match.
+/// \[2\] Lanczos vs Sturm: 1D Anderson extremal eigenvalues match.
 fn check_lanczos_sturm_parity(harness: &mut ValidationHarness) {
     println!("[2] Lanczos vs Sturm — 1D Anderson Parity");
 
@@ -130,9 +130,9 @@ fn check_lanczos_sturm_parity(harness: &mut ValidationHarness) {
     let lanczos_evals = spectral::lanczos_eigenvalues(&lanczos_result);
 
     let sturm_min = sturm_evals[0];
-    let sturm_max = *sturm_evals.last().unwrap();
+    let sturm_max = *sturm_evals.last().expect("collection verified non-empty");
     let lanczos_min = lanczos_evals[0];
-    let lanczos_max = *lanczos_evals.last().unwrap();
+    let lanczos_max = *lanczos_evals.last().expect("collection verified non-empty");
 
     println!("  N={n}, W={w}");
     println!("  Sturm:   [{sturm_min:.6}, {sturm_max:.6}]");
@@ -147,7 +147,7 @@ fn check_lanczos_sturm_parity(harness: &mut ValidationHarness) {
     println!();
 }
 
-/// [3] Lanczos full spectrum: m=N iterations recovers all eigenvalues.
+/// \[3\] Lanczos full spectrum: m=N iterations recovers all eigenvalues.
 fn check_lanczos_full_spectrum(harness: &mut ValidationHarness) {
     println!("[3] Lanczos Full Spectrum — m = N Recovers All Eigenvalues");
 
@@ -160,7 +160,10 @@ fn check_lanczos_full_spectrum(harness: &mut ValidationHarness) {
     let lanczos_result = spectral::lanczos(&csr, n, 77);
     let lanczos_evals = spectral::lanczos_eigenvalues(&lanczos_result);
 
-    assert_eq!(lanczos_result.iterations, n, "Lanczos should run n iterations");
+    assert_eq!(
+        lanczos_result.iterations, n,
+        "Lanczos should run n iterations"
+    );
 
     let max_err: f64 = sturm_evals
         .iter()
@@ -176,7 +179,7 @@ fn check_lanczos_full_spectrum(harness: &mut ValidationHarness) {
     println!();
 }
 
-/// [4] Lanczos convergence: extremal eigenvalues converge with iteration count.
+/// \[4\] Lanczos convergence: extremal eigenvalues converge with iteration count.
 fn check_lanczos_convergence(harness: &mut ValidationHarness) {
     println!("[4] Lanczos Convergence — Eigenvalues Improve with Iterations");
 
@@ -200,12 +203,13 @@ fn check_lanczos_convergence(harness: &mut ValidationHarness) {
     }
 
     // Error should decrease monotonically (or at least the last should be < first)
-    let converging = errors.last().unwrap() < errors.first().unwrap();
+    let converging = errors.last().expect("collection verified non-empty")
+        < errors.first().expect("collection verified non-empty");
     harness.check_bool("extremal eigenvalue converges with iterations", converging);
     println!();
 }
 
-/// [5] Clean 2D lattice: bandwidth = 8 (from -4 to 4).
+/// \[5\] Clean 2D lattice: bandwidth = 8 (from -4 to 4).
 fn check_clean_2d_bandwidth(harness: &mut ValidationHarness) {
     println!("[5] Clean 2D Lattice — Bandwidth = 8");
 
@@ -215,7 +219,7 @@ fn check_clean_2d_bandwidth(harness: &mut ValidationHarness) {
     let evals = spectral::lanczos_eigenvalues(&result);
 
     let e_min = evals[0];
-    let e_max = *evals.last().unwrap();
+    let e_max = *evals.last().expect("collection verified non-empty");
     let bw = e_max - e_min;
 
     println!("  L×L = {l}×{l}, N = {}", l * l);
@@ -226,7 +230,7 @@ fn check_clean_2d_bandwidth(harness: &mut ValidationHarness) {
     println!();
 }
 
-/// [6] 2D Anderson: spectrum bounded by [-4 - W/2, 4 + W/2].
+/// \[6\] 2D Anderson: spectrum bounded by [-4 - W/2, 4 + W/2].
 fn check_2d_spectrum_bounds(harness: &mut ValidationHarness) {
     println!("[6] 2D Anderson — Spectrum Bounds");
 
@@ -238,7 +242,7 @@ fn check_2d_spectrum_bounds(harness: &mut ValidationHarness) {
 
     let bound = 4.0 + w / 2.0;
     let e_min = evals[0];
-    let e_max = *evals.last().unwrap();
+    let e_max = *evals.last().expect("collection verified non-empty");
     let in_bounds = e_min >= -(bound + 0.1) && e_max <= bound + 0.1;
 
     println!("  L={l}, W={w}, N={}", l * l);
@@ -249,7 +253,7 @@ fn check_2d_spectrum_bounds(harness: &mut ValidationHarness) {
     println!();
 }
 
-/// [7] 2D weak disorder: GOE level statistics (⟨r⟩ ≈ 0.531).
+/// \[7\] 2D weak disorder: GOE level statistics (⟨r⟩ ≈ 0.531).
 ///
 /// W=2.0 on L=16 places the system in the metallic regime (ξ >> L)
 /// where random-matrix universality applies. Very weak disorder (W<1)
@@ -280,11 +284,14 @@ fn check_2d_goe_statistics(harness: &mut ValidationHarness) {
     println!("  L={l}, W={w}, realizations={n_real}");
     println!("  ⟨r⟩ = {r_mean:.4} (GOE = {goe_r:.4})");
 
-    harness.check_bool("⟨r⟩ > 0.48 (GOE-like for metallic 2D regime)", r_mean > 0.48);
+    harness.check_bool(
+        "⟨r⟩ > 0.48 (GOE-like for metallic 2D regime)",
+        r_mean > 0.48,
+    );
     println!();
 }
 
-/// [8] 2D strong disorder: Poisson level statistics (⟨r⟩ ≈ 0.386).
+/// \[8\] 2D strong disorder: Poisson level statistics (⟨r⟩ ≈ 0.386).
 fn check_2d_poisson_statistics(harness: &mut ValidationHarness) {
     println!("[8] 2D Strong Disorder — Poisson Level Statistics");
     println!(
@@ -316,7 +323,7 @@ fn check_2d_poisson_statistics(harness: &mut ValidationHarness) {
     println!();
 }
 
-/// [9] 2D statistics transition: ⟨r⟩ decreases monotonically with disorder.
+/// \[9\] 2D statistics transition: ⟨r⟩ decreases monotonically with disorder.
 fn check_2d_statistics_transition(harness: &mut ValidationHarness) {
     println!("[9] 2D Statistics Transition — GOE → Poisson with Disorder");
 
@@ -343,16 +350,21 @@ fn check_2d_statistics_transition(harness: &mut ValidationHarness) {
     }
 
     // r should decrease monotonically (GOE→Poisson) — check first > last
-    let transition = r_values.first().unwrap() > r_values.last().unwrap();
+    let transition = r_values.first().expect("collection verified non-empty")
+        > r_values.last().expect("collection verified non-empty");
     // At least ~0.05 drop
-    let delta = r_values.first().unwrap() - r_values.last().unwrap();
+    let delta = r_values.first().expect("collection verified non-empty")
+        - r_values.last().expect("collection verified non-empty");
     println!("  Δ⟨r⟩ = {delta:.4} (weak→strong)");
 
-    harness.check_bool("⟨r⟩ decreases from weak to strong disorder", transition && delta > 0.05);
+    harness.check_bool(
+        "⟨r⟩ decreases from weak to strong disorder",
+        transition && delta > 0.05,
+    );
     println!();
 }
 
-/// [10] 2D bandwidth > 1D bandwidth for same disorder.
+/// \[10\] 2D bandwidth > 1D bandwidth for same disorder.
 fn check_2d_vs_1d_bandwidth(harness: &mut ValidationHarness) {
     println!("[10] 2D vs 1D Bandwidth Comparison");
 
@@ -362,14 +374,16 @@ fn check_2d_vs_1d_bandwidth(harness: &mut ValidationHarness) {
     let n_1d = 400;
     let (d, e) = spectral::anderson_hamiltonian(n_1d, w, 42);
     let evals_1d = spectral::find_all_eigenvalues(&d, &e);
-    let bw_1d = evals_1d.last().unwrap() - evals_1d.first().unwrap();
+    let bw_1d = evals_1d.last().expect("collection verified non-empty")
+        - evals_1d.first().expect("collection verified non-empty");
 
     // 2D: 20×20=400, bandwidth ≈ 8+W (clean BW=8, -4..4)
     let l = 20;
     let mat = spectral::anderson_2d(l, l, w, 42);
     let result = spectral::lanczos(&mat, l * l, 42);
     let evals_2d = spectral::lanczos_eigenvalues(&result);
-    let bw_2d = evals_2d.last().unwrap() - evals_2d.first().unwrap();
+    let bw_2d = evals_2d.last().expect("collection verified non-empty")
+        - evals_2d.first().expect("collection verified non-empty");
 
     println!("  W={w}");
     println!("  1D (N={n_1d}): bandwidth = {bw_1d:.4}");

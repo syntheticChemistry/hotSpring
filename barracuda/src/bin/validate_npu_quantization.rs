@@ -61,12 +61,15 @@ fn main() {
     esn.train(&train_seqs, &train_targets);
 
     // Get f64 predictions for all cases
-    let f64_preds: Vec<f64> = sequences
-        .iter()
-        .map(|seq| esn.predict(seq)[0])
-        .collect();
+    let f64_preds: Vec<f64> = sequences.iter().map(|seq| esn.predict(seq)[0]).collect();
 
-    println!("  f64 predictions: {:?}", f64_preds.iter().map(|v| format!("{v:.4}")).collect::<Vec<_>>());
+    println!(
+        "  f64 predictions: {:?}",
+        f64_preds
+            .iter()
+            .map(|v| format!("{v:.4}"))
+            .collect::<Vec<_>>()
+    );
 
     // Export weights for NpuSimulator (f32)
     let exported = esn.export_weights().expect("ESN must be trained");
@@ -85,7 +88,10 @@ fn main() {
         if err > max_f32_err {
             max_f32_err = err;
         }
-        println!("  Case {i}: f64={p64:.6} f32={p32:.6} err={:.6}%", err * 100.0);
+        println!(
+            "  Case {i}: f64={p64:.6} f32={p32:.6} err={:.6}%",
+            err * 100.0
+        );
     }
     harness.check_upper(
         "f64→f32 max relative error",
@@ -102,8 +108,10 @@ fn main() {
         .iter()
         .map(|seq| {
             predict_quantized(
-                &w_in_q8, s_in_8,
-                &w_res_q8, s_res_8,
+                &w_in_q8,
+                s_in_8,
+                &w_res_q8,
+                s_res_8,
                 &exported.w_out,
                 seq,
                 exported.reservoir_size,
@@ -120,7 +128,10 @@ fn main() {
         if err > max_int8_err {
             max_int8_err = err;
         }
-        println!("  Case {i}: f64={p64:.6} int8={p8:.6} err={:.4}%", err * 100.0);
+        println!(
+            "  Case {i}: f64={p64:.6} int8={p8:.6} err={:.4}%",
+            err * 100.0
+        );
     }
     harness.check_upper(
         "f64→int8 max relative error",
@@ -137,8 +148,10 @@ fn main() {
         .iter()
         .map(|seq| {
             predict_quantized(
-                &w_in_q4, s_in_4,
-                &w_res_q4, s_res_4,
+                &w_in_q4,
+                s_in_4,
+                &w_res_q4,
+                s_res_4,
                 &exported.w_out,
                 seq,
                 exported.reservoir_size,
@@ -155,7 +168,10 @@ fn main() {
         if err > max_int4_err {
             max_int4_err = err;
         }
-        println!("  Case {i}: f64={p64:.6} int4={p4:.6} err={:.4}%", err * 100.0);
+        println!(
+            "  Case {i}: f64={p64:.6} int4={p4:.6} err={:.4}%",
+            err * 100.0
+        );
     }
     harness.check_upper(
         "f64→int4 max relative error",
@@ -169,8 +185,10 @@ fn main() {
         .iter()
         .map(|seq| {
             predict_quantized(
-                &w_in_q4, s_in_4,
-                &w_res_q4, s_res_4,
+                &w_in_q4,
+                s_in_4,
+                &w_res_q4,
+                s_res_4,
                 &exported.w_out,
                 seq,
                 exported.reservoir_size,
@@ -187,7 +205,10 @@ fn main() {
         if err > max_int4_full_err {
             max_int4_full_err = err;
         }
-        println!("  Case {i}: f64={p64:.6} int4+act4={p4f:.6} err={:.4}%", err * 100.0);
+        println!(
+            "  Case {i}: f64={p64:.6} int4+act4={p4f:.6} err={:.4}%",
+            err * 100.0
+        );
     }
     harness.check_upper(
         "f64→int4+act4 max relative error",
@@ -199,10 +220,13 @@ fn main() {
     println!("\n[6] Weight sparsity analysis");
     let w_res_sparsity_f32 = exported.w_res.iter().filter(|&&v| v.abs() < 1e-30).count() as f64
         / exported.w_res.len() as f64;
-    let w_res_sparsity_q4 = w_res_q4.iter().filter(|&&v| v == 0).count() as f64
-        / w_res_q4.len() as f64;
-    println!("  W_res sparsity: f32={:.1}%  int4={:.1}%",
-             w_res_sparsity_f32 * 100.0, w_res_sparsity_q4 * 100.0);
+    let w_res_sparsity_q4 =
+        w_res_q4.iter().filter(|&&v| v == 0).count() as f64 / w_res_q4.len() as f64;
+    println!(
+        "  W_res sparsity: f32={:.1}%  int4={:.1}%",
+        w_res_sparsity_f32 * 100.0,
+        w_res_sparsity_q4 * 100.0
+    );
 
     harness.check_bool(
         "W_res int4 sparsity >= f32 sparsity (quantization increases sparsity)",
@@ -238,8 +262,10 @@ fn quantize_f32_vec(weights: &[f32], bits: u32) -> (Vec<i8>, f32) {
 }
 
 fn predict_quantized(
-    w_in_q: &[i8], s_in: f32,
-    w_res_q: &[i8], s_res: f32,
+    w_in_q: &[i8],
+    s_in: f32,
+    w_res_q: &[i8],
+    s_res: f32,
     w_out: &[f32],
     input_sequence: &[Vec<f64>],
     reservoir_size: usize,
@@ -279,16 +305,11 @@ fn predict_quantized(
         }
     }
 
-    let os = w_out.len() / rs;
     let mut result = 0.0_f64;
     for j in 0..rs {
         result += f64::from(w_out[j]) * f64::from(state[j]);
     }
-    if os > 1 {
-        result
-    } else {
-        result
-    }
+    result
 }
 
 // Minimal PRNG for reproducible test data (not for crypto)
@@ -298,11 +319,16 @@ struct SimpleRng {
 
 impl SimpleRng {
     fn new(seed: u64) -> Self {
-        Self { state: seed.wrapping_add(0x9E3779B97F4A7C15) }
+        Self {
+            state: seed.wrapping_add(0x9E3779B97F4A7C15),
+        }
     }
 
     fn next_u64(&mut self) -> u64 {
-        self.state = self.state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        self.state = self
+            .state
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         self.state
     }
 

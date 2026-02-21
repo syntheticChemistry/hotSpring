@@ -1,6 +1,6 @@
 # hotSpring Control Experiment — Status Report
 
-**Date**: 2026-02-17 (L1+L2 complete, GPU MD Phase C+D+E+F complete — paper-parity long run 9/9, BarraCUDA pipeline 26/26, crate v0.5.10)  
+**Date**: 2026-02-17 (L1+L2 complete, GPU MD Phase C+D+E+F complete — paper-parity long run 9/9, BarraCUDA pipeline 26/26, crate v0.5.16)  
 **Gate**: Eastgate (i9-12900K, 32 GB DDR5, RTX 4070 12GB, Pop!_OS 22.04)  
 **Sarkas**: v1.0.0 (pinned — see §Roadblocks)  
 **Python**: 3.9 (sarkas), 3.10 (ttm, surrogate) via micromamba  
@@ -1042,7 +1042,7 @@ surpassing it at larger basis sizes.
 - [`whitePaper/BARRACUDA_SCIENCE_VALIDATION.md`](whitePaper/BARRACUDA_SCIENCE_VALIDATION.md) — Phase B technical results
 - [`whitePaper/CONTROL_EXPERIMENT_SUMMARY.md`](whitePaper/CONTROL_EXPERIMENT_SUMMARY.md) — Phase A quick reference
 - [`benchmarks/PROTOCOL.md`](benchmarks/PROTOCOL.md) — Benchmark protocol (time + energy measurement)
-- [`barracuda/CHANGELOG.md`](barracuda/CHANGELOG.md) — Crate version history (v0.5.10)
+- [`barracuda/CHANGELOG.md`](barracuda/CHANGELOG.md) — Crate version history (v0.5.16)
 - [`barracuda/EVOLUTION_READINESS.md`](barracuda/EVOLUTION_READINESS.md) — Rust → GPU promotion tiers and blockers
 - [`experiments/001_N_SCALING_GPU.md`](experiments/001_N_SCALING_GPU.md) — N-scaling experiment journal (Phase D)
 - [`experiments/002_CELLLIST_FORCE_DIAGNOSTIC.md`](experiments/002_CELLLIST_FORCE_DIAGNOSTIC.md) — Cell-list bug diagnostic (Phase D)

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+//
 // ESN readout kernel (f32)
 //
 // output[i] = W_out[i,:] · state  (matrix-vector product)
@@ -5,8 +7,6 @@
 // Separated from reservoir update so readout can run on CPU
 // while reservoir runs on GPU/NPU. In practice, readout is
 // cheap (output_size << reservoir_size) and often stays on host.
-//
-// SPDX-License-Identifier: AGPL-3.0-only
 //
 // Bindings:
 //   0: w_out   [O*R] f32, read  — readout weights (row-major, O × R)

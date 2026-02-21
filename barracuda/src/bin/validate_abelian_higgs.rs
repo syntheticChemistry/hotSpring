@@ -56,10 +56,25 @@ fn main() {
         println!("  ⟨|φ|²⟩:       {hsq:.12} (expected 1.0)");
         println!("  ⟨|L|⟩:        {poly:.12} (expected 1.0)");
 
-        harness.check_abs("cold plaquette", plaq, 1.0, tolerances::U1_COLD_PLAQUETTE_ABS);
-        harness.check_abs("cold gauge action", action, 0.0, tolerances::U1_COLD_ACTION_ABS);
+        harness.check_abs(
+            "cold plaquette",
+            plaq,
+            1.0,
+            tolerances::U1_COLD_PLAQUETTE_ABS,
+        );
+        harness.check_abs(
+            "cold gauge action",
+            action,
+            0.0,
+            tolerances::U1_COLD_ACTION_ABS,
+        );
         harness.check_abs("cold ⟨|φ|²⟩", hsq, 1.0, tolerances::U1_COLD_PLAQUETTE_ABS);
-        harness.check_abs("cold Polyakov", poly, 1.0, tolerances::U1_COLD_PLAQUETTE_ABS);
+        harness.check_abs(
+            "cold Polyakov",
+            poly,
+            1.0,
+            tolerances::U1_COLD_PLAQUETTE_ABS,
+        );
     }
     println!();
 
@@ -165,12 +180,7 @@ fn main() {
         );
         println!("  Acceptance: {:.1}%", stats.acceptance_rate * 100.0);
 
-        harness.check_abs(
-            "large λ freezes |φ|² ≈ 1",
-            stats.avg_higgs_sq,
-            1.0,
-            0.15,
-        );
+        harness.check_abs("large λ freezes |φ|² ≈ 1", stats.avg_higgs_sq, 1.0, 0.15);
         harness.check_lower(
             "large λ acceptance",
             stats.acceptance_rate,
@@ -209,9 +219,7 @@ fn main() {
         let python_ms = 1750.0; // from control run: ~1.75s per config
         let speedup = python_ms / rust_ms;
 
-        println!(
-            "  Rust:   {n_therm} therm + {n_traj} traj in {rust_ms:.1} ms"
-        );
+        println!("  Rust:   {n_therm} therm + {n_traj} traj in {rust_ms:.1} ms");
         println!("  Python: ~{python_ms:.0} ms (reference)");
         println!("  Speedup: {speedup:.1}×");
         println!("  Plaquette: {:.6}", stats.avg_plaquette);

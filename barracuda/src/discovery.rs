@@ -114,7 +114,9 @@ mod tests {
     fn nuclear_eos_dir_is_reasonable() {
         let dir = nuclear_eos_dir();
         assert!(
-            dir.to_str().unwrap().contains("nuclear-eos"),
+            dir.to_str()
+                .expect("path is valid UTF-8")
+                .contains("nuclear-eos"),
             "nuclear EOS dir should contain 'nuclear-eos': {dir:?}"
         );
     }
@@ -124,5 +126,59 @@ mod tests {
         assert!(!paths::NUCLEAR_EOS.is_empty());
         assert!(!paths::EXP_DATA.is_empty());
         assert!(!paths::SKYRME_BOUNDS.is_empty());
+    }
+
+    #[test]
+    fn skyrme_bounds_path_contains_filename() {
+        let p = skyrme_bounds_path();
+        assert!(
+            p.to_str()
+                .expect("path is valid UTF-8")
+                .contains("skyrme_bounds"),
+            "path should contain skyrme_bounds: {p:?}"
+        );
+    }
+
+    #[test]
+    fn benchmark_results_dir_creates_or_exists() {
+        let result = benchmark_results_dir();
+        assert!(result.is_ok(), "benchmark_results_dir should succeed");
+        let dir = result.expect("benchmark_results_dir returned Ok");
+        assert!(dir.is_dir() || dir.parent().is_some_and(std::path::Path::is_dir));
+        assert!(
+            dir.to_str()
+                .expect("path is valid UTF-8")
+                .contains("benchmarks"),
+            "path should contain benchmarks: {dir:?}"
+        );
+    }
+
+    #[test]
+    fn discover_data_root_with_invalid_env_falls_back() {
+        // When HOTSPRING_DATA_ROOT points to dir without control/, we fall back.
+        let bad_root = std::env::temp_dir().join("barracuda_no_control");
+        std::fs::create_dir_all(&bad_root).ok();
+        let prev = std::env::var("HOTSPRING_DATA_ROOT").ok();
+        std::env::set_var("HOTSPRING_DATA_ROOT", bad_root.as_os_str());
+        let root = discover_data_root();
+        if let Some(p) = prev {
+            std::env::set_var("HOTSPRING_DATA_ROOT", p);
+        } else {
+            std::env::remove_var("HOTSPRING_DATA_ROOT");
+        }
+        std::fs::remove_dir_all(&bad_root).ok();
+        // Should have fallen back to manifest parent or cwd, not the invalid path
+        assert!(
+            root.join("control").is_dir(),
+            "fallback root must have control/: {root:?}"
+        );
+    }
+
+    #[test]
+    fn paths_constants_sensible() {
+        assert!(paths::NUCLEAR_EOS.contains("nuclear-eos"));
+        assert!(paths::EXP_DATA.contains("exp"));
+        assert!(paths::SKYRME_BOUNDS.to_ascii_lowercase().ends_with(".json"));
+        assert!(paths::BENCHMARK_RESULTS.contains("benchmark"));
     }
 }

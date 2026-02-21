@@ -15,7 +15,7 @@
 //! ~10 blocks per nucleus, 200 iterations) is the ideal GPU target because
 //! it's dense linear algebra with high arithmetic intensity.
 
-use super::constants::*;
+use super::constants::{E2, HBAR_C, M_NUCLEON};
 use super::hfb_common::{factorial_f64, hermite_value};
 use super::hfb_deformed::DeformedHFBResult;
 use crate::gpu::GpuF64;
@@ -64,8 +64,7 @@ struct HamiltonianParamsGpu {
 }
 
 impl HamiltonianParamsGpu {
-    // GPU-resident deformed pipeline — reserved for Tier B evolution
-    #[allow(dead_code)]
+    #[allow(dead_code)] // EVOLUTION(GPU): used in test_params_gpu_layout; will wire to deformed_*.wgsl when GPU pipeline is complete
     const fn new(
         n_rho: u32,
         n_z: u32,
@@ -93,7 +92,6 @@ impl HamiltonianParamsGpu {
 // Basis + Grid Setup
 // ═══════════════════════════════════════════════════════════════════
 
-#[allow(dead_code)]
 struct BasisState {
     n_z: u32,
     n_perp: u32,
@@ -101,10 +99,11 @@ struct BasisState {
     lambda: i32,
     sigma: i32,
     omega_x2: i32,
+    #[allow(dead_code)]
+    // EVOLUTION(GPU): will be used when deformed_*.wgsl shaders need shell truncation
     _n_shell: u32,
 }
 
-#[allow(dead_code)]
 struct NucleusSetup {
     z: usize,
     n_neutrons: usize,
@@ -115,6 +114,8 @@ struct NucleusSetup {
     d_rho: f64,
     d_z: f64,
     z_min: f64,
+    #[allow(dead_code)]
+    // EVOLUTION(GPU): will be used when deformed_*.wgsl shaders wire grid bounds
     _rho_max: f64,
     hw_z: f64,
     hw_perp: f64,
@@ -144,7 +145,7 @@ impl NucleusSetup {
         let d_rho = rho_max / n_rho as f64;
         let d_z = 2.0 * z_max / n_z_val as f64;
         let delta = 12.0 / a_f.max(4.0).sqrt();
-        let n_shells = ((2.0 * a_f.powf(1.0 / 3.0)) as usize + 5).max(10).min(16);
+        let n_shells = ((2.0 * a_f.powf(1.0 / 3.0)) as usize + 5).clamp(10, 16);
 
         let mut setup = NucleusSetup {
             z,
@@ -244,14 +245,15 @@ impl NucleusSetup {
 // GPU buffer helpers
 // ═══════════════════════════════════════════════════════════════════
 
-// GPU-resident deformed pipeline — reserved for Tier B evolution
-#[allow(dead_code)]
+// EVOLUTION(GPU): will be used when deformed_*.wgsl shaders are wired for full GPU-resident pipeline
+#[allow(dead_code)] // EVOLUTION: deferred until deformed_*.wgsl pipeline wired
 fn create_f64_storage_buf(device: &WgpuDevice, label: &str, data: &[f64]) -> wgpu::Buffer {
     let bytes: Vec<u8> = data.iter().flat_map(|v| v.to_le_bytes()).collect();
     device.create_storage_buffer(label, &bytes)
 }
 
-#[allow(dead_code)]
+// EVOLUTION(GPU): will be used when deformed_*.wgsl shaders are wired for full GPU-resident pipeline
+#[allow(dead_code)] // EVOLUTION: deferred until deformed_*.wgsl pipeline wired
 fn read_f64_from_gpu(device: &WgpuDevice, buf: &wgpu::Buffer, count: usize) -> Vec<f64> {
     device
         .read_buffer_f64(buf, count)
@@ -437,8 +439,8 @@ fn deformed_hfb_gpu_single(
             &eigh_eigenvectors_buf,
         );
 
-        prev_occ_p = occ_p.clone();
-        prev_occ_n = occ_n.clone();
+        prev_occ_p.clone_from(&occ_p);
+        prev_occ_n.clone_from(&occ_n);
 
         // ── CPU (Rayon): density accumulation ──
         let (new_rho_p, new_rho_n) =
@@ -865,14 +867,14 @@ fn compute_spin_current(
 fn compute_coulomb_cpu(setup: &NucleusSetup, rho_p: &[f64], vc: &mut [f64]) {
     let ng = setup.n_grid;
     let mut shells: Vec<(f64, f64)> = Vec::with_capacity(ng);
-    for i in 0..ng {
+    for (i, &rp) in rho_p.iter().enumerate().take(ng) {
         let ir = i / setup.n_z;
         let iz = i % setup.n_z;
         let rho = (ir + 1) as f64 * setup.d_rho;
         let z = setup.z_min + (iz as f64 + 0.5) * setup.d_z;
         let r = (rho * rho + z * z).sqrt();
         let dv = setup.volume_element(ir);
-        shells.push((r, rho_p[i].max(0.0) * dv));
+        shells.push((r, rp.max(0.0) * dv));
     }
 
     let mut sidx: Vec<usize> = (0..ng).collect();
@@ -1073,8 +1075,8 @@ fn density_mixing(
         }
 
         let mut mixed = vec![0.0; vd];
-        for i in 0..vd {
-            mixed[i] = input[i] + am * residual[i];
+        for (m, (inp, res)) in input.iter().zip(residual.iter()).enumerate().take(vd) {
+            mixed[m] = inp + am * res;
         }
         for m in 0..broyden_dfs.len() {
             let dfr: f64 = broyden_dfs[m]

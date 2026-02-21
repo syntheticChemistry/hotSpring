@@ -24,7 +24,6 @@ use std::time::Instant;
 /// Run force comparison at a given N
 fn compare_forces(gpu: &GpuF64, n: usize, harness: &mut ValidationHarness) {
     let kappa = 2.0;
-    let _gamma = 158.0;
     let rc = 6.5;
     let prefactor = 1.0; // reduced units for OCP
 
@@ -1004,7 +1003,6 @@ async fn main() {
             let cx = debug_data[i * 8] as i32;
             let cy = debug_data[i * 8 + 1] as i32;
             let cz = debug_data[i * 8 + 2] as i32;
-            let _cells = debug_data[i * 8 + 3] as i32;
             let checked = debug_data[i * 8 + 4] as i32;
             let pairs = debug_data[i * 8 + 5] as i32;
             let nx_r = debug_data[i * 8 + 6] as i32;

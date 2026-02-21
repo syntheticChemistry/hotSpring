@@ -1,10 +1,10 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+//
 // DEPRECATED — Use barracuda::ops::md::forces::YukawaCelllistF64
 // Retained for fossil record. barracuda canonical: ops/md/forces/yukawa_celllist_f64.wgsl
 // NOTE: hotSpring cell_idx branch fix should be upstreamed to barracuda.
 //
 // Yukawa Cell-List Force (f64) with PBC + potential energy
-//
-// SPDX-License-Identifier: AGPL-3.0-only
 //
 // Bindings:
 //   0: positions    [N*3]       f64, read  — sorted by cell index

@@ -495,12 +495,14 @@ fn run_shader(
         },
     );
     gpu.device().poll(wgpu::Maintain::Wait);
-    rx.recv().unwrap().unwrap();
+    rx.recv()
+        .expect("channel recv from map_async")
+        .expect("wgpu buffer map_async succeeded");
 
     let data = slice.get_mapped_range();
     let result: Vec<f64> = data
         .chunks_exact(8)
-        .map(|c| f64::from_le_bytes(c.try_into().unwrap()))
+        .map(|c| f64::from_le_bytes(c.try_into().expect("8-byte chunk")))
         .collect();
     drop(data);
     staging_buf.unmap();

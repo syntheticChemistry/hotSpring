@@ -91,7 +91,8 @@ fn check_anderson_lyapunov(harness: &mut ValidationHarness) {
             gamma.abs()
         };
 
-        println!("  W={w:.1}: γ(0) = {gamma:.6}, theory = {theory:.6}, rel error = {rel_err:.1}%",
+        println!(
+            "  W={w:.1}: γ(0) = {gamma:.6}, theory = {theory:.6}, rel error = {rel_err:.1}%",
             rel_err = rel_err * 100.0
         );
     }
@@ -122,7 +123,10 @@ fn check_anderson_localization(harness: &mut ValidationHarness) {
         if !localized {
             all_positive = false;
         }
-        println!("  E={e:>5.1}: γ = {gamma:.6} {}", if localized { "✓" } else { "✗" });
+        println!(
+            "  E={e:>5.1}: γ = {gamma:.6} {}",
+            if localized { "✓" } else { "✗" }
+        );
     }
 
     harness.check_bool("all energies have γ > 0 (localized)", all_positive);
@@ -150,7 +154,10 @@ fn check_anderson_level_stats(harness: &mut ValidationHarness) {
     }
     let r_mean = r_sum / n_real as f64;
 
-    println!("  N={n}, W={w}, ⟨r⟩ = {r_mean:.4} (Poisson = {:.4})", spectral::POISSON_R);
+    println!(
+        "  N={n}, W={w}, ⟨r⟩ = {r_mean:.4} (Poisson = {:.4})",
+        spectral::POISSON_R
+    );
 
     let deviation = (r_mean - spectral::POISSON_R).abs();
     harness.check_upper("⟨r⟩ within 0.03 of Poisson", deviation, 0.03);
@@ -188,7 +195,9 @@ fn check_herman_formula(harness: &mut ValidationHarness) {
 
     for &lambda in &[1.5, 2.0, 3.0, 5.0] {
         let pot: Vec<f64> = (0..n)
-            .map(|i| 2.0 * lambda * (std::f64::consts::TAU * spectral::GOLDEN_RATIO * i as f64).cos())
+            .map(|i| {
+                2.0 * lambda * (std::f64::consts::TAU * spectral::GOLDEN_RATIO * i as f64).cos()
+            })
             .collect();
         let gamma = spectral::lyapunov_exponent(&pot, 0.0);
         let theory = lambda.ln();
@@ -227,7 +236,11 @@ fn check_aubry_andre_transition(harness: &mut ValidationHarness) {
             .collect();
         let gamma = spectral::lyapunov_exponent(&pot, 0.0);
         let theory = if lambda > 1.0 { lambda.ln() } else { 0.0 };
-        let phase = if lambda < 1.0 { "extended" } else { "localized" };
+        let phase = if lambda < 1.0 {
+            "extended"
+        } else {
+            "localized"
+        };
 
         println!("  λ={lambda:.2}: γ = {gamma:.5}, theory = {theory:.5}  [{phase}]");
 

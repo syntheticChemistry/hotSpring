@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 // NAK-Optimized Batched Symmetric Eigensolve (f64)
 //
 // Workarounds for 5 NAK shader compiler deficiencies identified in

@@ -8,19 +8,38 @@ license = "AGPL-3.0-only"
 [workspace]
 
 # ── Lint configuration (applies to all targets: lib + bins) ──
-# Physics code justifies these clippy patterns.
-# See lib.rs for per-lint rationale.
+# Physics code justifies certain clippy patterns. Each allow is annotated.
 [workspace.lints.clippy]
 pedantic = { level = "warn", priority = -1 }
+
+# Physics casts: usize↔f64 is endemic in computational physics (particle
+# counts, grid indices, accumulator conversions). These are intentional.
 cast_precision_loss = "allow"
 cast_possible_truncation = "allow"
 cast_sign_loss = "allow"
 cast_possible_wrap = "allow"
 cast_lossless = "allow"
+
+# Physics naming: vx/vy/vz, rho_p/rho_n, r/k/q/E/V are standard notation.
 similar_names = "allow"
 many_single_char_names = "allow"
-suboptimal_flops = "allow"
+
+# Physics notation in doc comments (e.g. χ², κ, Γ, SU(3)).
 doc_markdown = "allow"
+
+# Physics constants (e.g. 0.520_499_877_8 for erf(0.5)) are clearer unseparated.
+unreadable_literal = "allow"
+
+# Scientific formulas: a*b + c is often clearer than mul_add in physics context.
+suboptimal_flops = "allow"
+imprecise_flops = "allow"
+
+# Physics APIs: HFB solvers genuinely need 10+ parameters; these are not design smells.
+too_many_arguments = "allow"
+too_many_lines = "allow"
+cognitive_complexity = "allow"
+
+# Ergonomic allows for physics library API style.
 module_name_repetitions = "allow"
 must_use_candidate = "allow"
 return_self_not_must_use = "allow"
@@ -28,32 +47,14 @@ missing_panics_doc = "allow"
 missing_errors_doc = "allow"
 use_self = "allow"
 redundant_else = "allow"
-inline_always = "allow"
 struct_field_names = "allow"
 items_after_statements = "allow"
-wildcard_imports = "allow"
-unreadable_literal = "allow"
-imprecise_flops = "allow"
+option_if_let_else = "allow"
+type_complexity = "allow"
 implicit_hasher = "allow"
 needless_pass_by_value = "allow"
-cognitive_complexity = "allow"
-too_many_lines = "allow"
-option_if_let_else = "allow"
-too_many_arguments = "allow"
-type_complexity = "allow"
-needless_range_loop = "allow"
-assigning_clones = "allow"
-manual_clamp = "allow"
-manual_let_else = "allow"
+inline_always = "allow"
 significant_drop_tightening = "allow"
-collection_is_never_read = "allow"
-needless_for_each = "allow"
-no_effect_underscore_binding = "allow"
-unused_self = "allow"
-used_underscore_binding = "allow"
-float_cmp = "allow"
-assertions_on_constants = "allow"
-match_same_arms = "allow"
 
 [lints]
 workspace = true

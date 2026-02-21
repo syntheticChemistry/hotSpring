@@ -25,7 +25,13 @@ use hotspring_barracuda::physics::screened_coulomb::{
 use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
 
-/// Python reference eigenvalues (scipy eigh_tridiagonal, N=2000, r_max=100).
+/// Python reference eigenvalues for Python-Rust parity checks.
+///
+/// # Provenance
+///
+/// - **Script**: `control/screened_coulomb/scripts/yukawa_eigenvalues.py`
+/// - **Method**: `scipy.linalg.eigh_tridiagonal` with N=2000, r_max=100
+/// - **Environment**: Python 3.11, SciPy 1.11
 ///
 /// These are the exact eigenvalues of the discrete Hamiltonian matrix,
 /// computed to LAPACK precision (~1e-15). Our Sturm bisection should
@@ -66,14 +72,24 @@ fn main() {
         let rel_err = ((computed - exact) / exact).abs();
         let label = format!("H_{n}s vs exact");
         println!("    {label}: {computed:.8} vs {exact:.8} (err {rel_err:.2e})");
-        harness.check_rel(&label, computed, exact, tolerances::SCREENED_HYDROGEN_VS_EXACT);
+        harness.check_rel(
+            &label,
+            computed,
+            exact,
+            tolerances::SCREENED_HYDROGEN_VS_EXACT,
+        );
     }
 
     // 2p vs exact
     let e2p = evals_p[0];
     let rel_2p = ((e2p - (-0.125)) / (-0.125)).abs();
     println!("    H_2p vs exact: {e2p:.8} vs -0.12500000 (err {rel_2p:.2e})");
-    harness.check_rel("H_2p vs exact", e2p, -0.125, tolerances::SCREENED_HYDROGEN_VS_EXACT);
+    harness.check_rel(
+        "H_2p vs exact",
+        e2p,
+        -0.125,
+        tolerances::SCREENED_HYDROGEN_VS_EXACT,
+    );
 
     // ══════════════════════════════════════════════════════════════
     // 2. Python-Rust parity (same matrix, different eigensolve)
@@ -132,12 +148,7 @@ fn main() {
         let label_char = ['s', 'p', 'd'][l as usize];
         let label = format!("κ_c({n}{label_char}) vs lit");
         println!("    {label}: {kc:.6} vs {lit:.5} (err {rel_err:.2e})");
-        harness.check_rel(
-            &label,
-            kc,
-            lit,
-            tolerances::SCREENED_CRITICAL_VS_LITERATURE,
-        );
+        harness.check_rel(&label, kc, lit, tolerances::SCREENED_CRITICAL_VS_LITERATURE);
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -184,7 +195,10 @@ fn main() {
     let e_h = eigenvalues(1.0, 0.0, 0, DEFAULT_N_GRID, DEFAULT_R_MAX)[0];
     let e_he = eigenvalues(2.0, 0.0, 0, DEFAULT_N_GRID, DEFAULT_R_MAX)[0];
     let z_scaling = e_he < e_h * 3.5;
-    println!("    Z-scaling: He+(1s)={e_he:.6} vs H(1s)={e_h:.6}, ratio={:.2} → {z_scaling}", e_he / e_h);
+    println!(
+        "    Z-scaling: He+(1s)={e_he:.6} vs H(1s)={e_h:.6}, ratio={:.2} → {z_scaling}",
+        e_he / e_h
+    );
     harness.check_bool("Z² scaling (He+ deeper)", z_scaling);
 
     // ══════════════════════════════════════════════════════════════
@@ -203,14 +217,17 @@ fn main() {
     let sp_strong = screening_models::stewart_pyatt_kappa_reduced(1000.0);
     let is_val = screening_models::ion_sphere_kappa_reduced();
     let sp_limit = ((sp_strong - is_val) / is_val).abs() < 0.05;
-    println!(
-        "    SP→IS: SP(Γ=1000)={sp_strong:.4}, IS={is_val:.4}, converged={sp_limit}"
-    );
+    println!("    SP→IS: SP(Γ=1000)={sp_strong:.4}, IS={is_val:.4}, converged={sp_limit}");
     harness.check_bool("Stewart-Pyatt → ion-sphere limit", sp_limit);
 
     // Ion-sphere = √3
     let is_exact = 3.0_f64.sqrt();
-    harness.check_abs("ion-sphere = √3", is_val, is_exact, 1e-14);
+    harness.check_abs(
+        "ion-sphere = √3",
+        is_val,
+        is_exact,
+        tolerances::SCREENED_ION_SPHERE_SQRT3_ABS,
+    );
 
     // ══════════════════════════════════════════════════════════════
     // Summary

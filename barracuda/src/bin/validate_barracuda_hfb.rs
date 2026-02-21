@@ -407,7 +407,11 @@ async fn main() {
 
         // Verify μ is within the spectrum
         let mu_reasonable = mu > 10.0f64.mul_add(-delta_val, eigenvalues[0])
-            && mu < 10.0f64.mul_add(delta_val, *eigenvalues.last().unwrap());
+            && mu
+                < 10.0f64.mul_add(
+                    delta_val,
+                    *eigenvalues.last().expect("eigenvalues non-empty"),
+                );
         harness.check_bool("BCS degeneracy: μ within reasonable range", mu_reasonable);
     }
 

@@ -65,7 +65,7 @@ templates ready for GPU promotion.
 ### Kachkovskiy Extension (Spectral Theory / Transport)
 
 **Status Update (Feb 20, 2026)**: Full spectral theory stack implemented and
-validated in `spectral.rs` (10/10 + 11/11 = 21 checks across two suites). 1D Anderson
+validated in `spectral/` (10/10 + 11/11 = 21 checks across two suites). 1D Anderson
 localization, almost-Mathieu Aubry-André transition, Herman's formula γ = ln|λ|,
 Sturm eigensolve, transfer matrix Lyapunov, Poisson level statistics, CSR SpMV,
 Lanczos eigensolve (reorthogonalized), and 2D Anderson model with GOE→Poisson
@@ -73,13 +73,13 @@ transition — all working, all without FFT. P1 CPU primitives complete; GPU pro
 
 | Need | Current Status | Priority | Effort |
 |------|---------------|----------|--------|
-| ~~**Tridiagonal eigensolve**~~ | ✅ **Done** — Sturm bisection in `spectral.rs` | — | — |
-| ~~**Transfer matrix Lyapunov**~~ | ✅ **Done** — iterative renormalization in `spectral.rs` | — | — |
-| ~~**Level statistics**~~ | ✅ **Done** — spacing ratio ⟨r⟩ in `spectral.rs` | — | — |
+| ~~**Tridiagonal eigensolve**~~ | ✅ **Done** — Sturm bisection in `spectral/` | — | — |
+| ~~**Transfer matrix Lyapunov**~~ | ✅ **Done** — iterative renormalization in `spectral/` | — | — |
+| ~~**Level statistics**~~ | ✅ **Done** — spacing ratio ⟨r⟩ in `spectral/` | — | — |
 | ~~**1D Anderson model**~~ | ✅ **Done** — `spectral::anderson_hamiltonian()`, 10/10 checks | — | — |
 | ~~**Almost-Mathieu operator**~~ | ✅ **Done** — `spectral::almost_mathieu_hamiltonian()`, Herman validated | — | — |
-| ~~**Lanczos eigensolve**~~ | ✅ **Done** — full reorthogonalization in `spectral.rs`, cross-validated vs Sturm to 4.4e-16 | — | — |
-| ~~**Sparse matrix-vector product (SpMV)**~~ | ✅ **Done** — CSR format in `spectral.rs`, verified vs dense reference (0 error) | — | — |
+| ~~**Lanczos eigensolve**~~ | ✅ **Done** — full reorthogonalization in `spectral/`, cross-validated vs Sturm to 4.4e-16 | — | — |
+| ~~**Sparse matrix-vector product (SpMV)**~~ | ✅ **Done** — CSR format in `spectral/`, verified vs dense reference (0 error) | — | — |
 | **Matrix exponentiation** | Cayley exponential validated for SU(3) in `lattice/hmc.rs` | **P2** | Medium — generalize beyond 3×3 anti-Hermitian |
 | ~~**2D Anderson model**~~ | ✅ **Done** — `spectral::anderson_2d()`, GOE→Poisson transition validated, 11/11 checks | — | — |
 | ~~**3D Anderson model**~~ | ✅ **Done** — `spectral::anderson_3d()`, mobility edge + dimensional hierarchy, 10/10 checks | — | — |
@@ -122,9 +122,9 @@ All components implemented and validated (13/13 checks pass):
 
 | Component | Depends On | Status |
 |-----------|-----------|--------|
-| Green-Kubo integrator (VACF → D*) | Existing VACF observable | ✅ `md/observables.rs` |
-| Stress tensor observable (σ_αβ) | Yukawa pair force kernel | ✅ `md/observables.rs` |
-| Heat current observable (J_Q) | Pair force + velocities | ✅ `md/observables.rs` |
+| Green-Kubo integrator (VACF → D*) | Existing VACF observable | ✅ `md/observables/` |
+| Stress tensor observable (σ_αβ) | Yukawa pair force kernel | ✅ `md/observables/` |
+| Heat current observable (J_Q) | Pair force + velocities | ✅ `md/observables/` |
 | Daligault (2012) D* fit | Analytical model | ✅ `md/transport.rs` (Sarkas-calibrated) |
 | Stanton-Murillo (2016) η*, λ* fits | Analytical models | ✅ `md/transport.rs` |
 | Validation binary | ValidationHarness | ✅ `bin/validate_stanton_murillo.rs` |
@@ -142,7 +142,7 @@ All components implemented and validated (13/13 checks pass):
 
 ### Key Facts for ToadStool Team
 
-- 18 papers reproduced, 345 unit tests, 31/31 validation suites, ~$0.20 total compute cost
+- 18 papers reproduced, 441 unit tests, 33/33 validation suites, ~$0.20 total compute cost
 - RTX 4070 sustains f64 MD at 149-259 steps/s; Titan V (NVK) produces identical physics
 - Energy drift 0.000% over 80k steps sets the precision bar for any new integrator
 - `ReduceScalarPipeline` is the most-used upstream primitive after `WgpuDevice`

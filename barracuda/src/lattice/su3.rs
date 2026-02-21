@@ -208,20 +208,17 @@ impl Su3Matrix {
 
         // exp(iH) ≈ I + iH - H²/2 (second-order Cayley for small ε)
         let mut result = Self::IDENTITY;
-        for i in 0..3 {
-            for j in 0..3 {
-                result.m[i][j] += Complex64::I * h[i][j];
+        for (i, row) in result.m.iter_mut().enumerate() {
+            for (j, cell) in row.iter_mut().enumerate() {
+                *cell += Complex64::I * h[i][j];
             }
         }
 
         // H² contribution
-        for i in 0..3 {
-            for j in 0..3 {
-                let mut h2_ij = Complex64::ZERO;
-                for k in 0..3 {
-                    h2_ij += h[i][k] * h[k][j];
-                }
-                result.m[i][j] -= h2_ij.scale(0.5);
+        for (i, row) in result.m.iter_mut().enumerate() {
+            for (j, cell) in row.iter_mut().enumerate() {
+                let h2_ij = (0..3).fold(Complex64::ZERO, |acc, k| acc + h[i][k] * h[k][j]);
+                *cell -= h2_ij.scale(0.5);
             }
         }
 

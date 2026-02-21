@@ -15,12 +15,14 @@
 
 use barracuda::pipeline::ReduceScalarPipeline;
 use hotspring_barracuda::gpu::GpuF64;
-use hotspring_barracuda::lattice::cg::{cg_solve, WGSL_AXPY_F64, WGSL_COMPLEX_DOT_RE_F64, WGSL_XPAY_F64};
+use hotspring_barracuda::lattice::cg::{
+    cg_solve, WGSL_AXPY_F64, WGSL_COMPLEX_DOT_RE_F64, WGSL_XPAY_F64,
+};
 use hotspring_barracuda::lattice::dirac::{
-    flatten_fermion, unflatten_fermion, DiracGpuLayout, FermionField,
-    WGSL_DIRAC_STAGGERED_F64,
+    flatten_fermion, unflatten_fermion, DiracGpuLayout, FermionField, WGSL_DIRAC_STAGGERED_F64,
 };
 use hotspring_barracuda::lattice::wilson::Lattice;
+use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
 
 // ── GPU buffer parameter structs ────────────────────────────────────
@@ -79,10 +81,19 @@ impl GpuCg<'_> {
             mass_re: self.mass,
             hop_sign,
         };
-        let params_buf = self.gpu.create_uniform_buffer(bytemuck::bytes_of(&params), "d_params");
+        let params_buf = self
+            .gpu
+            .create_uniform_buffer(bytemuck::bytes_of(&params), "d_params");
         let bg = self.gpu.create_bind_group(
             self.dirac_pipeline,
-            &[&params_buf, &self.links_buf, input, output, &self.nbr_buf, &self.phases_buf],
+            &[
+                &params_buf,
+                &self.links_buf,
+                input,
+                output,
+                &self.nbr_buf,
+                &self.phases_buf,
+            ],
         );
         let wg = (self.volume as u32).div_ceil(64);
         self.gpu.dispatch(self.dirac_pipeline, &bg, wg);
@@ -100,8 +111,12 @@ impl GpuCg<'_> {
             pad1: 0,
             pad2: 0,
         };
-        let params_buf = self.gpu.create_uniform_buffer(bytemuck::bytes_of(&params), "dot_p");
-        let bg = self.gpu.create_bind_group(self.dot_pipeline, &[&params_buf, a, b, dot_buf]);
+        let params_buf = self
+            .gpu
+            .create_uniform_buffer(bytemuck::bytes_of(&params), "dot_p");
+        let bg = self
+            .gpu
+            .create_bind_group(self.dot_pipeline, &[&params_buf, a, b, dot_buf]);
         let wg = (self.n_pairs as u32).div_ceil(64);
         self.gpu.dispatch(self.dot_pipeline, &bg, wg);
         self.reducer.sum_f64(dot_buf).expect("dot reduce")
@@ -113,8 +128,12 @@ impl GpuCg<'_> {
             pad0: 0,
             alpha,
         };
-        let params_buf = self.gpu.create_uniform_buffer(bytemuck::bytes_of(&params), "axpy_p");
-        let bg = self.gpu.create_bind_group(self.axpy_pipeline, &[&params_buf, x, y]);
+        let params_buf = self
+            .gpu
+            .create_uniform_buffer(bytemuck::bytes_of(&params), "axpy_p");
+        let bg = self
+            .gpu
+            .create_bind_group(self.axpy_pipeline, &[&params_buf, x, y]);
         let wg = (self.n_flat as u32).div_ceil(64);
         self.gpu.dispatch(self.axpy_pipeline, &bg, wg);
     }
@@ -125,18 +144,17 @@ impl GpuCg<'_> {
             pad0: 0,
             alpha: beta,
         };
-        let params_buf = self.gpu.create_uniform_buffer(bytemuck::bytes_of(&params), "xpay_p");
-        let bg = self.gpu.create_bind_group(self.xpay_pipeline, &[&params_buf, x, p]);
+        let params_buf = self
+            .gpu
+            .create_uniform_buffer(bytemuck::bytes_of(&params), "xpay_p");
+        let bg = self
+            .gpu
+            .create_bind_group(self.xpay_pipeline, &[&params_buf, x, p]);
         let wg = (self.n_flat as u32).div_ceil(64);
         self.gpu.dispatch(self.xpay_pipeline, &bg, wg);
     }
 
-    fn solve(
-        &self,
-        b_flat: &[f64],
-        tol: f64,
-        max_iter: usize,
-    ) -> (Vec<f64>, usize, f64) {
+    fn solve(&self, b_flat: &[f64], tol: f64, max_iter: usize) -> (Vec<f64>, usize, f64) {
         let n_flat = self.n_flat;
 
         let x_buf = self.gpu.create_f64_output_buffer(n_flat, "cg_x");
@@ -241,12 +259,11 @@ fn main() {
         let vol = lat.volume();
         let layout = DiracGpuLayout::from_lattice(&lat);
         let mass = 1.0;
-        let tol = 1e-8;
+        let tol = tolerances::ITERATIVE_F64;
         let n_flat = vol * 6;
         let n_pairs = vol * 3;
 
-        let reducer = ReduceScalarPipeline::new(gpu.to_wgpu_device(), n_pairs)
-            .expect("reducer");
+        let reducer = ReduceScalarPipeline::new(gpu.to_wgpu_device(), n_pairs).expect("reducer");
 
         let links_buf = gpu.create_f64_buffer(&layout.links_flat, "links");
         let nbr_buf = gpu.create_u32_buffer(&layout.neighbors, "nbr");
@@ -279,9 +296,7 @@ fn main() {
         let cpu_result = cg_solve(&lat, &mut cpu_x, &b, mass, tol, 500);
         let cpu_x_flat = flatten_fermion(&cpu_x);
 
-        println!(
-            "  GPU: iters={gpu_iters}, residual={gpu_residual:.2e}"
-        );
+        println!("  GPU: iters={gpu_iters}, residual={gpu_residual:.2e}");
         println!(
             "  CPU: iters={}, residual={:.2e}",
             cpu_result.iterations, cpu_result.final_residual
@@ -293,8 +308,11 @@ fn main() {
             .map(|(a, b)| (a - b).abs())
             .fold(0.0, f64::max);
         let rel_diff = {
-            let diff_sq: f64 = gpu_x_flat.iter().zip(&cpu_x_flat)
-                .map(|(a, b)| (a - b) * (a - b)).sum();
+            let diff_sq: f64 = gpu_x_flat
+                .iter()
+                .zip(&cpu_x_flat)
+                .map(|(a, b)| (a - b) * (a - b))
+                .sum();
             let norm_sq: f64 = cpu_x_flat.iter().map(|a| a * a).sum();
             (diff_sq / norm_sq.max(1e-30)).sqrt()
         };
@@ -302,7 +320,11 @@ fn main() {
 
         harness.check_bool("Cold CG converged (GPU)", gpu_residual < tol);
         harness.check_bool("Cold CG converged (CPU)", cpu_result.converged);
-        harness.check_upper("Cold CG solution diff", rel_diff, 1e-6);
+        harness.check_upper(
+            "Cold CG solution diff",
+            rel_diff,
+            tolerances::LATTICE_GPU_CG_COLD_PARITY,
+        );
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -314,12 +336,11 @@ fn main() {
         let vol = lat.volume();
         let layout = DiracGpuLayout::from_lattice(&lat);
         let mass = 0.5;
-        let tol = 1e-6;
+        let tol = tolerances::LATTICE_CG_RESIDUAL;
         let n_flat = vol * 6;
         let n_pairs = vol * 3;
 
-        let reducer = ReduceScalarPipeline::new(gpu.to_wgpu_device(), n_pairs)
-            .expect("reducer");
+        let reducer = ReduceScalarPipeline::new(gpu.to_wgpu_device(), n_pairs).expect("reducer");
         let links_buf = gpu.create_f64_buffer(&layout.links_flat, "links");
         let nbr_buf = gpu.create_u32_buffer(&layout.neighbors, "nbr");
         let phases_buf = gpu.create_f64_buffer(&layout.phases, "phases");
@@ -357,15 +378,22 @@ fn main() {
         );
 
         let rel_diff = {
-            let diff_sq: f64 = gpu_x_flat.iter().zip(&cpu_x_flat)
-                .map(|(a, b)| (a - b) * (a - b)).sum();
+            let diff_sq: f64 = gpu_x_flat
+                .iter()
+                .zip(&cpu_x_flat)
+                .map(|(a, b)| (a - b) * (a - b))
+                .sum();
             let norm_sq: f64 = cpu_x_flat.iter().map(|a| a * a).sum();
             (diff_sq / norm_sq.max(1e-30)).sqrt()
         };
         println!("  Solution rel diff: {rel_diff:.2e}");
 
         harness.check_bool("Hot CG converged (GPU)", gpu_residual < tol);
-        harness.check_upper("Hot CG solution diff", rel_diff, 1e-4);
+        harness.check_upper(
+            "Hot CG solution diff",
+            rel_diff,
+            tolerances::LATTICE_GPU_CG_HOT_PARITY,
+        );
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -377,12 +405,11 @@ fn main() {
         let vol = lat.volume();
         let layout = DiracGpuLayout::from_lattice(&lat);
         let mass = 1.0;
-        let tol = 1e-8;
+        let tol = tolerances::ITERATIVE_F64;
         let n_flat = vol * 6;
         let n_pairs = vol * 3;
 
-        let reducer = ReduceScalarPipeline::new(gpu.to_wgpu_device(), n_pairs)
-            .expect("reducer");
+        let reducer = ReduceScalarPipeline::new(gpu.to_wgpu_device(), n_pairs).expect("reducer");
         let links_buf = gpu.create_f64_buffer(&layout.links_flat, "links");
         let nbr_buf = gpu.create_u32_buffer(&layout.neighbors, "nbr");
         let phases_buf = gpu.create_f64_buffer(&layout.phases, "phases");
@@ -414,13 +441,20 @@ fn main() {
         let ax = hotspring_barracuda::lattice::dirac::apply_dirac_sq(&lat, &x_field, mass);
         let ax_flat = flatten_fermion(&ax);
 
-        let diff_sq: f64 = ax_flat.iter().zip(&b_flat)
-            .map(|(a, b)| (a - b) * (a - b)).sum();
+        let diff_sq: f64 = ax_flat
+            .iter()
+            .zip(&b_flat)
+            .map(|(a, b)| (a - b) * (a - b))
+            .sum();
         let b_norm_sq: f64 = b_flat.iter().map(|v| v * v).sum();
         let verify_residual = (diff_sq / b_norm_sq).sqrt();
 
         println!("  ||D†D x - b|| / ||b|| = {verify_residual:.2e}");
-        harness.check_upper("D†D x ≈ b verification", verify_residual, 1e-7);
+        harness.check_upper(
+            "D†D x ≈ b verification",
+            verify_residual,
+            tolerances::LATTICE_CG_VERIFY_RESIDUAL,
+        );
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -432,12 +466,11 @@ fn main() {
         let vol = lat.volume();
         let layout = DiracGpuLayout::from_lattice(&lat);
         let mass = 0.5;
-        let tol = 1e-6;
+        let tol = tolerances::LATTICE_CG_RESIDUAL;
         let n_flat = vol * 6;
         let n_pairs = vol * 3;
 
-        let reducer = ReduceScalarPipeline::new(gpu.to_wgpu_device(), n_pairs)
-            .expect("reducer");
+        let reducer = ReduceScalarPipeline::new(gpu.to_wgpu_device(), n_pairs).expect("reducer");
         let links_buf = gpu.create_f64_buffer(&layout.links_flat, "links");
         let nbr_buf = gpu.create_u32_buffer(&layout.neighbors, "nbr");
         let phases_buf = gpu.create_f64_buffer(&layout.phases, "phases");
@@ -475,15 +508,22 @@ fn main() {
 
         let cpu_x_flat = flatten_fermion(&cpu_x);
         let rel_diff = {
-            let diff_sq: f64 = gpu_x_flat.iter().zip(&cpu_x_flat)
-                .map(|(a, b)| (a - b) * (a - b)).sum();
+            let diff_sq: f64 = gpu_x_flat
+                .iter()
+                .zip(&cpu_x_flat)
+                .map(|(a, b)| (a - b) * (a - b))
+                .sum();
             let norm_sq: f64 = cpu_x_flat.iter().map(|a| a * a).sum();
             (diff_sq / norm_sq.max(1e-30)).sqrt()
         };
         println!("  Solution rel diff: {rel_diff:.2e}");
 
         harness.check_bool("6^4 CG converged (GPU)", gpu_residual < tol);
-        harness.check_upper("6^4 CG solution diff", rel_diff, 1e-4);
+        harness.check_upper(
+            "6^4 CG solution diff",
+            rel_diff,
+            tolerances::LATTICE_GPU_CG_HOT_PARITY,
+        );
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -495,12 +535,11 @@ fn main() {
         let vol = lat.volume();
         let layout = DiracGpuLayout::from_lattice(&lat);
         let mass = 1.0;
-        let tol = 1e-10;
+        let tol = tolerances::EXACT_F64;
         let n_flat = vol * 6;
         let n_pairs = vol * 3;
 
-        let reducer = ReduceScalarPipeline::new(gpu.to_wgpu_device(), n_pairs)
-            .expect("reducer");
+        let reducer = ReduceScalarPipeline::new(gpu.to_wgpu_device(), n_pairs).expect("reducer");
         let links_buf = gpu.create_f64_buffer(&layout.links_flat, "links");
         let nbr_buf = gpu.create_u32_buffer(&layout.neighbors, "nbr");
         let phases_buf = gpu.create_f64_buffer(&layout.phases, "phases");

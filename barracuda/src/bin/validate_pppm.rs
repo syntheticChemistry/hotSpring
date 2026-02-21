@@ -285,7 +285,7 @@ fn main() {
                     .compute_with_kspace(&positions_rand, &charges_rand)
                     .await
                 {
-                    Ok((_forces, pppm_energy)) => {
+                    Ok((forces, pppm_energy)) => {
                         let pppm_time = t_pppm.elapsed().as_secs_f64();
 
                         println!();
@@ -307,9 +307,9 @@ fn main() {
                         let mut fy_sum = 0.0_f64;
                         let mut fz_sum = 0.0_f64;
                         for i in 0..n_rand {
-                            fx_sum += _forces[i * 3];
-                            fy_sum += _forces[i * 3 + 1];
-                            fz_sum += _forces[i * 3 + 2];
+                            fx_sum += forces[i * 3];
+                            fy_sum += forces[i * 3 + 1];
+                            fz_sum += forces[i * 3 + 2];
                         }
                         let net_force =
                             (fx_sum * fx_sum + fy_sum * fy_sum + fz_sum * fz_sum).sqrt();

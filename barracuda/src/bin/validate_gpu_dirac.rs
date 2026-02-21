@@ -20,6 +20,7 @@ use hotspring_barracuda::lattice::dirac::{
     WGSL_DIRAC_STAGGERED_F64,
 };
 use hotspring_barracuda::lattice::wilson::Lattice;
+use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
 
 #[repr(C)]
@@ -81,7 +82,11 @@ fn max_component_diff(cpu: &[f64], gpu_out: &[f64]) -> f64 {
 }
 
 fn relative_norm_diff(cpu: &[f64], gpu_out: &[f64]) -> f64 {
-    let diff_sq: f64 = cpu.iter().zip(gpu_out).map(|(a, b)| (a - b) * (a - b)).sum();
+    let diff_sq: f64 = cpu
+        .iter()
+        .zip(gpu_out)
+        .map(|(a, b)| (a - b) * (a - b))
+        .sum();
     let norm_sq: f64 = cpu.iter().map(|a| a * a).sum();
     if norm_sq < 1e-30 {
         diff_sq.sqrt()
@@ -127,7 +132,11 @@ fn main() {
         let gpu_out = gpu_dirac(&gpu, &pipeline, &layout, &psi_flat, 0.1);
         let max_err: f64 = gpu_out.iter().map(|v| v.abs()).fold(0.0, f64::max);
         println!("  V={}, max |component|: {max_err:.2e}", lat.volume());
-        harness.check_upper("D*0 = 0 (cold 4^4)", max_err, 1e-15);
+        harness.check_upper(
+            "D*0 = 0 (cold 4^4)",
+            max_err,
+            tolerances::LATTICE_DIRAC_ZERO_INPUT_ABS,
+        );
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -148,7 +157,11 @@ fn main() {
         let max_err = max_component_diff(&cpu_flat, &gpu_out);
         let rel_err = relative_norm_diff(&cpu_flat, &gpu_out);
         println!("  V={vol}, max |diff|: {max_err:.2e}, rel: {rel_err:.2e}");
-        harness.check_upper("Cold lattice Dirac (4^4)", max_err, 1e-14);
+        harness.check_upper(
+            "Cold lattice Dirac (4^4)",
+            max_err,
+            tolerances::LATTICE_DIRAC_COLD_PARITY,
+        );
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -169,7 +182,11 @@ fn main() {
         let max_err = max_component_diff(&cpu_flat, &gpu_out);
         let rel_err = relative_norm_diff(&cpu_flat, &gpu_out);
         println!("  V={vol}, max |diff|: {max_err:.2e}, rel: {rel_err:.2e}");
-        harness.check_upper("Hot lattice Dirac (4^4)", max_err, 1e-13);
+        harness.check_upper(
+            "Hot lattice Dirac (4^4)",
+            max_err,
+            tolerances::LATTICE_DIRAC_HOT_PARITY,
+        );
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -189,7 +206,11 @@ fn main() {
 
         let max_err = max_component_diff(&cpu_flat, &gpu_out);
         println!("  V={vol}, max |diff|: {max_err:.2e}");
-        harness.check_upper("Pure hopping Dirac (m=0)", max_err, 1e-13);
+        harness.check_upper(
+            "Pure hopping Dirac (m=0)",
+            max_err,
+            tolerances::LATTICE_DIRAC_HOT_PARITY,
+        );
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -236,7 +257,11 @@ fn main() {
             })
             .sum();
         println!("  <ψ|D†D|ψ> = {inner:.6e} (must be > 0)");
-        harness.check_upper("D composition parity", max_err, 1e-14);
+        harness.check_upper(
+            "D composition parity",
+            max_err,
+            tolerances::LATTICE_DIRAC_COLD_PARITY,
+        );
         harness.check_bool("D†D positive definite", inner > 0.0);
     }
 
@@ -258,7 +283,11 @@ fn main() {
         let max_err = max_component_diff(&cpu_flat, &gpu_out);
         let rel_err = relative_norm_diff(&cpu_flat, &gpu_out);
         println!("  V={vol}, max |diff|: {max_err:.2e}, rel: {rel_err:.2e}");
-        harness.check_upper("Hot lattice Dirac (6^4)", max_err, 1e-13);
+        harness.check_upper(
+            "Hot lattice Dirac (6^4)",
+            max_err,
+            tolerances::LATTICE_DIRAC_HOT_PARITY,
+        );
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -279,7 +308,11 @@ fn main() {
         let max_err = max_component_diff(&cpu_flat, &gpu_out);
         let rel_err = relative_norm_diff(&cpu_flat, &gpu_out);
         println!("  V={vol}, max |diff|: {max_err:.2e}, rel: {rel_err:.2e}");
-        harness.check_upper("Asymmetric lattice Dirac (8^3x4)", max_err, 1e-13);
+        harness.check_upper(
+            "Asymmetric lattice Dirac (8^3x4)",
+            max_err,
+            tolerances::LATTICE_DIRAC_HOT_PARITY,
+        );
     }
 
     // ══════════════════════════════════════════════════════════════

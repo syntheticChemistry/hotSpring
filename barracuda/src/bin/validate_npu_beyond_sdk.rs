@@ -82,7 +82,11 @@ fn check_arbitrary_input_dims(harness: &mut ValidationHarness) {
         let train_seqs: Vec<Vec<Vec<f64>>> = (0..n_train)
             .map(|_| {
                 (0..n_frames)
-                    .map(|_| (0..input_size).map(|_| rng.standard_normal() * 0.3).collect())
+                    .map(|_| {
+                        (0..input_size)
+                            .map(|_| rng.standard_normal() * 0.3)
+                            .collect()
+                    })
                     .collect()
             })
             .collect();
@@ -93,7 +97,11 @@ fn check_arbitrary_input_dims(harness: &mut ValidationHarness) {
         esn.train(&train_seqs, &train_targets);
 
         let test_seq: Vec<Vec<f64>> = (0..n_frames)
-            .map(|_| (0..input_size).map(|_| rng.standard_normal() * 0.3).collect())
+            .map(|_| {
+                (0..input_size)
+                    .map(|_| rng.standard_normal() * 0.3)
+                    .collect()
+            })
             .collect();
 
         let pred = esn.predict(&test_seq)[0];
@@ -156,7 +164,10 @@ fn check_deep_fc_parity(harness: &mut ValidationHarness) {
     let state = npu_sim.predict_return_state(&test_seq);
 
     // Reconstruct f32 prediction from state for comparison
-    let pred_f32: f64 = exported.w_out.iter().zip(state.iter())
+    let pred_f32: f64 = exported
+        .w_out
+        .iter()
+        .zip(state.iter())
         .map(|(&w, &s)| f64::from(w * s))
         .sum();
 
@@ -181,7 +192,10 @@ fn check_deep_fc_parity(harness: &mut ValidationHarness) {
     }
 
     let deep_err = (pred_f64 - deep_val).abs() / pred_f64.abs().max(1e-10);
-    println!("  int4-readout pred: {deep_val:.6}  err: {:.4}%", deep_err * 100.0);
+    println!(
+        "  int4-readout pred: {deep_val:.6}  err: {:.4}%",
+        deep_err * 100.0
+    );
 
     harness.check_upper(
         "int4 readout error bounded (deep FC math validation)",
@@ -238,8 +252,13 @@ fn check_multi_output(harness: &mut ValidationHarness) {
         .collect();
 
     let predictions = esn.predict(&test_seq);
-    println!("  Predictions: {:?}",
-             predictions.iter().map(|v| format!("{v:.4}")).collect::<Vec<_>>());
+    println!(
+        "  Predictions: {:?}",
+        predictions
+            .iter()
+            .map(|v| format!("{v:.4}"))
+            .collect::<Vec<_>>()
+    );
 
     harness.check_bool(
         "Multi-output ESN (3 outputs) produces correct count",
@@ -247,11 +266,10 @@ fn check_multi_output(harness: &mut ValidationHarness) {
     );
 
     let all_finite = predictions.iter().all(|v| v.is_finite() && v.abs() < 1e6);
-    harness.check_bool(
-        "All 3 outputs are finite and reasonable",
-        all_finite,
-    );
+    harness.check_bool("All 3 outputs are finite and reasonable", all_finite);
 
+    // Exact parity check — independent readouts must differ
+    #[allow(clippy::float_cmp)] // determinism test: bit-identical outputs required
     let all_different = predictions[0] != predictions[1]
         && predictions[1] != predictions[2]
         && predictions[0] != predictions[2];
@@ -308,20 +326,34 @@ fn check_weight_mutation(harness: &mut ValidationHarness) {
     let state = npu.predict_return_state(&test_seq);
 
     // Reconstruct prediction from state × w_out to confirm baseline
-    let pred_check: f64 = state.iter().enumerate()
+    let pred_check: f64 = state
+        .iter()
+        .enumerate()
         .map(|(j, &s)| f64::from(exported.w_out[j]) * f64::from(s))
         .sum();
 
     // Weight scaling: multiply w_out by 2 and -3
-    let pred_2x: f64 = state.iter().enumerate()
+    let pred_2x: f64 = state
+        .iter()
+        .enumerate()
         .map(|(j, &s)| f64::from(exported.w_out[j]) * 2.0 * f64::from(s))
         .sum();
-    let pred_neg3x: f64 = state.iter().enumerate()
+    let pred_neg3x: f64 = state
+        .iter()
+        .enumerate()
         .map(|(j, &s)| f64::from(exported.w_out[j]) * (-3.0) * f64::from(s))
         .sum();
 
-    let ratio_2x = if pred_check.abs() > 1e-10 { pred_2x / pred_check } else { f64::NAN };
-    let ratio_neg3x = if pred_check.abs() > 1e-10 { pred_neg3x / pred_check } else { f64::NAN };
+    let ratio_2x = if pred_check.abs() > 1e-10 {
+        pred_2x / pred_check
+    } else {
+        f64::NAN
+    };
+    let ratio_neg3x = if pred_check.abs() > 1e-10 {
+        pred_neg3x / pred_check
+    } else {
+        f64::NAN
+    };
 
     println!("  pred(w×1) = {pred_check:.6}  (f64={pred_1x:.6})");
     println!("  pred(w×2) = {pred_2x:.6}  ratio = {ratio_2x:.4}");
@@ -395,7 +427,10 @@ fn check_wide_fc_quantization(harness: &mut ValidationHarness) {
         let pred_f32 = npu.predict(&test_seq)[0];
 
         let err = (pred_f64 - pred_f32).abs() / pred_f64.abs().max(1e-10);
-        println!("  rs={rs_size}: f64={pred_f64:.6} f32={pred_f32:.6} err={:.6}%", err * 100.0);
+        println!(
+            "  rs={rs_size}: f64={pred_f64:.6} f32={pred_f32:.6} err={:.6}%",
+            err * 100.0
+        );
 
         harness.check_upper(
             &format!("Wide FC (rs={rs_size}) f64→f32 parity"),
@@ -428,11 +463,16 @@ fn check_determinism(harness: &mut ValidationHarness) {
         .collect();
 
     let results: Vec<f64> = (0..10).map(|_| esn.predict(&test_seq)[0]).collect();
+    // Exact parity check — determinism: same input → bit-identical output
+    #[allow(clippy::float_cmp)] // determinism test: bit-identical outputs required
     let all_same = results.windows(2).all(|w| w[0] == w[1]);
     println!("  10 runs: all identical = {all_same}");
     println!("  value = {:.6}", results[0]);
 
-    harness.check_bool("10 identical predictions from same input (determinism)", all_same);
+    harness.check_bool(
+        "10 identical predictions from same input (determinism)",
+        all_same,
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════

@@ -782,6 +782,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[allow(clippy::float_cmp)] // exact known values (0.0)
     fn energy_report_default_values() {
         let r = EnergyReport::default();
         assert_eq!(r.cpu_joules, 0.0);
@@ -794,6 +795,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)] // exact known values
     fn phase_result_creation_and_fields() {
         let energy = EnergyReport {
             cpu_joules: 1.5,

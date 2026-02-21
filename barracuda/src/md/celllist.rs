@@ -245,7 +245,8 @@ impl GpuCellList {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        gpu.queue().write_buffer(&scatter_params_buf, 0, &scatter_params);
+        gpu.queue()
+            .write_buffer(&scatter_params_buf, 0, &scatter_params);
 
         GpuCellList {
             mx,
@@ -442,11 +443,9 @@ pub async fn run_simulation_celllist(
         gpu.create_pipeline_f64(shaders::SHADER_YUKAWA_FORCE_INDIRECT, "force_indirect_f64");
     let kick_drift_pipeline =
         gpu.create_pipeline(shaders::SHADER_VV_KICK_DRIFT, "vv_kick_drift_f64");
-    let half_kick_pipeline =
-        gpu.create_pipeline(shaders::SHADER_VV_HALF_KICK, "vv_half_kick_f64");
+    let half_kick_pipeline = gpu.create_pipeline(shaders::SHADER_VV_HALF_KICK, "vv_half_kick_f64");
     let berendsen_pipeline = gpu.create_pipeline(shaders::SHADER_BERENDSEN, "berendsen_f64");
-    let ke_pipeline =
-        gpu.create_pipeline(shaders::SHADER_KINETIC_ENERGY, "kinetic_energy_f64");
+    let ke_pipeline = gpu.create_pipeline(shaders::SHADER_KINETIC_ENERGY, "kinetic_energy_f64");
 
     println!(
         "    Compiled 5+3 shaders in {:.1}ms",
@@ -564,8 +563,7 @@ pub async fn run_simulation_celllist(
         let total_ke = reducer.sum_f64(&ke_buf)?;
         let t_current = 2.0 * total_ke / (3.0 * n as f64);
         if t_current > 1e-30 {
-            let ratio =
-                1.0 + (config.dt / config.berendsen_tau) * (temperature / t_current - 1.0);
+            let ratio = 1.0 + (config.dt / config.berendsen_tau) * (temperature / t_current - 1.0);
             let scale = ratio.max(0.0).sqrt();
             let beren_params = vec![n as f64, scale, 0.0, 0.0];
             let beren_params_buf = gpu.create_f64_buffer(&beren_params, "beren_params");
@@ -806,5 +804,65 @@ mod tests {
         let expected_nc = cpu_n * cpu_n * cpu_n;
         assert_eq!(cpu_n, 5);
         assert_eq!(expected_nc, 125);
+    }
+
+    #[test]
+    fn sort_array_stride_one() {
+        let box_side = 10.0;
+        let rc = 3.0;
+        let n = 8;
+        let pos = sample_positions(n, box_side);
+        let cl = CellList::build(&pos, n, box_side, rc);
+        let scalar_data: Vec<f64> = (0..n).map(|i| i as f64).collect();
+        let sorted = cl.sort_array(&scalar_data, 1);
+        assert_eq!(sorted.len(), n);
+        for (new_idx, &old_idx) in cl.sorted_indices.iter().enumerate() {
+            assert!(
+                (sorted[new_idx] - old_idx as f64).abs() < 1e-15,
+                "sorted[{new_idx}] should be {old_idx}, got {}",
+                sorted[new_idx]
+            );
+        }
+    }
+
+    #[test]
+    fn cell_size_consistency() {
+        let box_side = 10.0;
+        let rc = 2.5;
+        let n = 50;
+        let pos = sample_positions(n, box_side);
+        let cl = CellList::build(&pos, n, box_side, rc);
+        let expected_cell_size = box_side / cl.n_cells[0] as f64;
+        for d in 0..3 {
+            assert!(
+                (cl.cell_size[d] - expected_cell_size).abs() < 1e-15,
+                "cell_size[{d}] = {} should equal {}",
+                cl.cell_size[d],
+                expected_cell_size
+            );
+        }
+    }
+
+    #[test]
+    fn two_particles_same_cell() {
+        let box_side = 10.0;
+        let rc = 5.0;
+        let pos = vec![1.0, 1.0, 1.0, 1.1, 1.1, 1.1];
+        let cl = CellList::build(&pos, 2, box_side, rc);
+        assert_eq!(cl.sorted_indices.len(), 2);
+        let total_count: u32 = cl.cell_count.iter().sum();
+        assert_eq!(total_count, 2);
+        let nonzero_cells: Vec<usize> = cl
+            .cell_count
+            .iter()
+            .enumerate()
+            .filter(|(_, &c)| c > 0)
+            .map(|(i, _)| i)
+            .collect();
+        assert_eq!(
+            nonzero_cells.len(),
+            1,
+            "both particles should be in same cell"
+        );
     }
 }

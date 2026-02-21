@@ -46,7 +46,12 @@ pub struct AbelianHiggsParams {
 
 impl AbelianHiggsParams {
     pub fn new(beta_pl: f64, kappa: f64, lambda: f64) -> Self {
-        Self { beta_pl, kappa, lambda, mu: 0.0 }
+        Self {
+            beta_pl,
+            kappa,
+            lambda,
+            mu: 0.0,
+        }
     }
 
     pub fn with_mu(mut self, mu: f64) -> Self {
@@ -118,7 +123,9 @@ impl U1HiggsLattice {
     pub fn cold_start(nt: usize, ns: usize, params: AbelianHiggsParams) -> Self {
         let vol = nt * ns;
         Self {
-            nt, ns, params,
+            nt,
+            ns,
+            params,
             links: vec![0.0; vol * 2],
             higgs: vec![Complex64::ONE; vol],
         }
@@ -137,7 +144,13 @@ impl U1HiggsLattice {
                 Complex64::new(re, im)
             })
             .collect();
-        Self { nt, ns, params, links, higgs }
+        Self {
+            nt,
+            ns,
+            params,
+            links,
+            higgs,
+        }
     }
 
     // ── Plaquette ────────────────────────────────────────────────────
@@ -149,8 +162,7 @@ impl U1HiggsLattice {
     pub fn plaquette_phase(&self, t: usize, x: usize) -> f64 {
         let (t_fwd, _) = self.neighbor_fwd(t, x, 0);
         let (_, x_fwd) = self.neighbor_fwd(t, x, 1);
-        self.link_angle(t, x, 0)
-            + self.link_angle(t_fwd, x, 1)
+        self.link_angle(t, x, 0) + self.link_angle(t_fwd, x, 1)
             - self.link_angle(t, x_fwd, 0)
             - self.link_angle(t, x, 1)
     }
@@ -235,7 +247,11 @@ impl U1HiggsLattice {
 
     /// Average Higgs field ⟨φ⟩ (complex).
     pub fn average_higgs(&self) -> Complex64 {
-        let sum: Complex64 = self.higgs.iter().copied().fold(Complex64::ZERO, |a, b| a + b);
+        let sum: Complex64 = self
+            .higgs
+            .iter()
+            .copied()
+            .fold(Complex64::ZERO, |a, b| a + b);
         sum.scale(1.0 / self.volume() as f64)
     }
 
@@ -268,10 +284,12 @@ impl U1HiggsLattice {
         // Forward plaquette: link appears as U_μ(x)
         {
             let (t_mu, x_mu) = self.neighbor_fwd(t, x, mu);
-            let phase = self.link_angle(t, x, mu)
-                + self.link_angle(t_mu, x_mu, nu)
-                - self.link_angle(self.neighbor_fwd(t, x, nu).0,
-                                  self.neighbor_fwd(t, x, nu).1, mu)
+            let phase = self.link_angle(t, x, mu) + self.link_angle(t_mu, x_mu, nu)
+                - self.link_angle(
+                    self.neighbor_fwd(t, x, nu).0,
+                    self.neighbor_fwd(t, x, nu).1,
+                    mu,
+                )
                 - self.link_angle(t, x, nu);
             force += self.params.beta_pl * phase.sin();
         }
@@ -280,8 +298,7 @@ impl U1HiggsLattice {
         {
             let (t_bwd, x_bwd) = self.neighbor_bwd(t, x, nu);
             let (t_bwd_mu, x_bwd_mu) = self.neighbor_fwd(t_bwd, x_bwd, mu);
-            let phase = self.link_angle(t_bwd, x_bwd, nu)
-                + self.link_angle(t, x, mu)
+            let phase = self.link_angle(t_bwd, x_bwd, nu) + self.link_angle(t, x, mu)
                 - self.link_angle(t_bwd_mu, x_bwd_mu, nu)
                 - self.link_angle(t_bwd, x_bwd, mu);
             force += self.params.beta_pl * phase.sin();
@@ -348,12 +365,7 @@ impl U1HiggsLattice {
     /// Run one HMC trajectory.
     ///
     /// Returns `(accepted, delta_h, action_before, action_after)`.
-    pub fn hmc_trajectory(
-        &mut self,
-        n_md_steps: usize,
-        dt: f64,
-        seed: &mut u64,
-    ) -> HmcResult {
+    pub fn hmc_trajectory(&mut self, n_md_steps: usize, dt: f64, seed: &mut u64) -> HmcResult {
         let vol = self.volume();
 
         // Save old configuration for Metropolis reject
@@ -361,9 +373,7 @@ impl U1HiggsLattice {
         let old_higgs = self.higgs.clone();
 
         // Random momenta: real scalars for link angles, complex for Higgs
-        let mut pi_links: Vec<f64> = (0..vol * 2)
-            .map(|_| lcg_gaussian(seed))
-            .collect();
+        let mut pi_links: Vec<f64> = (0..vol * 2).map(|_| lcg_gaussian(seed)).collect();
         let mut pi_higgs: Vec<Complex64> = (0..vol)
             .map(|_| Complex64::new(lcg_gaussian(seed), lcg_gaussian(seed)))
             .collect();
@@ -423,15 +433,15 @@ impl U1HiggsLattice {
 
     /// Update link angles: θ → θ + dt × π.
     fn update_links(&mut self, pi_links: &[f64], dt: f64) {
-        for i in 0..self.links.len() {
-            self.links[i] += dt * pi_links[i];
+        for (l, &pi) in self.links.iter_mut().zip(pi_links.iter()) {
+            *l += dt * pi;
         }
     }
 
     /// Update Higgs fields: φ → φ + dt × p.
     fn update_higgs(&mut self, pi_higgs: &[Complex64], dt: f64) {
-        for i in 0..self.higgs.len() {
-            self.higgs[i] += pi_higgs[i].scale(dt);
+        for (h, pi) in self.higgs.iter_mut().zip(pi_higgs.iter()) {
+            *h += pi.scale(dt);
         }
     }
 

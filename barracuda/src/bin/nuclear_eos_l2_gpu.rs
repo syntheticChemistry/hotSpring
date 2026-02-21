@@ -159,7 +159,7 @@ fn main() {
     }
 
     // ── Initialize GPU ──────────────────────────────────────────────
-    let rt = tokio::runtime::Runtime::new().unwrap();
+    let rt = tokio::runtime::Runtime::new().expect("tokio runtime creation");
     let gpu = rt
         .block_on(GpuF64::new())
         .expect("Failed to create GPU device");
@@ -347,7 +347,7 @@ fn main() {
     let p1_path = results_dir.join("barracuda_l2_gpu_phase1.json");
     std::fs::write(
         &p1_path,
-        serde_json::to_string_pretty(&phase1_json).unwrap(),
+        serde_json::to_string_pretty(&phase1_json).expect("JSON serialize"),
     )
     .ok();
     println!("  Phase 1 results saved: {}", p1_path.display());
@@ -384,9 +384,8 @@ fn main() {
         if params[8] <= 0.01 || params[8] > 1.0 {
             continue;
         }
-        let nmp = match nuclear_matter_properties(params) {
-            Some(n) => n,
-            None => continue,
+        let Some(nmp) = nuclear_matter_properties(params) else {
+            continue;
         };
         if nmp.rho0_fm3 < 0.05 || nmp.rho0_fm3 > 0.30 || nmp.e_a_mev > 0.0 {
             continue;
@@ -570,7 +569,7 @@ fn main() {
     let result_path = results_dir.join("barracuda_l2_gpu_sweep.json");
     std::fs::write(
         &result_path,
-        serde_json::to_string_pretty(&sweep_json).unwrap(),
+        serde_json::to_string_pretty(&sweep_json).expect("JSON serialize"),
     )
     .ok();
     println!();

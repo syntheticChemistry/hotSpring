@@ -174,9 +174,8 @@ fn main() {
                 let mut reconstructed = [0.0; 4];
                 for i in 0..2 {
                     for j in 0..2 {
-                        for k in 0..sv.len() {
-                            reconstructed[i * 2 + j] +=
-                                svd.u[i * 2 + k] * sv[k] * svd.vt[k * 2 + j];
+                        for (k, &sv_k) in sv.iter().enumerate() {
+                            reconstructed[i * 2 + j] += svd.u[i * 2 + k] * sv_k * svd.vt[k * 2 + j];
                         }
                     }
                 }

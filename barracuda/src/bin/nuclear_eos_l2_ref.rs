@@ -276,7 +276,7 @@ fn main() {
             sp_config.n_iterations = 4;
             sp_config.auto_smoothing = true;
             sp_config.penalty_filter = PenaltyFilter::AdaptiveMAD(5.0);
-            sp_config.warm_start_seeds = seeds.clone();
+            sp_config.warm_start_seeds.clone_from(&seeds);
 
             let nuclei_sp = nuclei.clone();
             let lambda_sp = cli.lambda;
@@ -449,7 +449,7 @@ fn main() {
         let best = all_results
             .iter()
             .min_by(|a, b| a.chi2_be.total_cmp(&b.chi2_be))
-            .unwrap();
+            .expect("at least one multi-seed result");
         let mean_be: f64 = all_results.iter().map(|r| r.chi2_be).sum::<f64>() / cli.multi as f64;
         let std_be = if cli.multi > 1 {
             let var: f64 = all_results
@@ -476,7 +476,7 @@ fn main() {
     let best = all_results
         .iter()
         .min_by(|a, b| a.chi2_be.total_cmp(&b.chi2_be))
-        .unwrap();
+        .expect("at least one multi-seed result");
 
     println!();
     println!("═══════════════════════════════════════════════════════════════");
@@ -619,7 +619,11 @@ fn main() {
         },
     });
     let path = results_dir.join("barracuda_l2_evolved.json");
-    std::fs::write(&path, serde_json::to_string_pretty(&result_json).unwrap()).ok();
+    std::fs::write(
+        &path,
+        serde_json::to_string_pretty(&result_json).expect("JSON serialize"),
+    )
+    .ok();
     println!("\n  Results saved to: {}", path.display());
 }
 
@@ -647,9 +651,8 @@ fn l1_objective_nmp(x: &[f64], exp_data: &HashMap<(usize, usize), (f64, f64)>, l
         return (1e4_f64).ln_1p();
     }
 
-    let nmp = match nuclear_matter_properties(x) {
-        Some(n) => n,
-        None => return (1e4_f64).ln_1p(),
+    let Some(nmp) = nuclear_matter_properties(x) else {
+        return (1e4_f64).ln_1p();
     };
 
     if nmp.rho0_fm3 < 0.05 || nmp.rho0_fm3 > 0.30 {
@@ -683,9 +686,8 @@ fn l2_objective_nmp(params: &[f64], nuclei: &[(usize, usize, f64)], lambda: f64)
         return (1e10_f64).ln_1p();
     }
 
-    let nmp = match nuclear_matter_properties(params) {
-        Some(n) => n,
-        None => return (1e10_f64).ln_1p(),
+    let Some(nmp) = nuclear_matter_properties(params) else {
+        return (1e10_f64).ln_1p();
     };
 
     if nmp.rho0_fm3 < 0.05 || nmp.rho0_fm3 > 0.30 {

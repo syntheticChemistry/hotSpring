@@ -409,8 +409,11 @@ fn main() {
     let nuclei_set = data::parse_nuclei_set_from_args();
     let nuclei_text = std::fs::read_to_string(data::nuclei_data_path(&base, nuclei_set))
         .expect("Failed to read nuclei JSON");
-    let nuclei_file: serde_json::Value = serde_json::from_str(&nuclei_text).unwrap();
-    let nuclei_list = nuclei_file["nuclei"].as_array().unwrap();
+    let nuclei_file: serde_json::Value =
+        serde_json::from_str(&nuclei_text).expect("nuclei JSON parse failed");
+    let nuclei_list = nuclei_file["nuclei"]
+        .as_array()
+        .expect("nuclei JSON has nuclei array");
 
     // Build residuals with full nucleus info
     struct NucleusResidual {
@@ -429,11 +432,16 @@ fn main() {
 
     let mut residuals: Vec<NucleusResidual> = Vec::new();
     for nuc in nuclei_list {
-        let z = nuc["Z"].as_u64().unwrap() as usize;
-        let n = nuc["N"].as_u64().unwrap() as usize;
-        let a = nuc["A"].as_u64().unwrap() as usize;
-        let element = nuc["element"].as_str().unwrap().to_string();
-        let b_exp = nuc["binding_energy_MeV"].as_f64().unwrap();
+        let z = nuc["Z"].as_u64().expect("nucleus Z") as usize;
+        let n = nuc["N"].as_u64().expect("nucleus N") as usize;
+        let a = nuc["A"].as_u64().expect("nucleus A") as usize;
+        let element = nuc["element"]
+            .as_str()
+            .expect("nucleus element")
+            .to_string();
+        let b_exp = nuc["binding_energy_MeV"]
+            .as_f64()
+            .expect("nucleus binding_energy_MeV");
 
         let b_calc = semf_binding_energy(z, n, best_x);
         if b_calc > 0.0 {
@@ -745,7 +753,11 @@ fn main() {
         },
     });
     let path = results_dir.join("barracuda_l1_deep_analysis.json");
-    std::fs::write(&path, serde_json::to_string_pretty(&result_json).unwrap()).ok();
+    std::fs::write(
+        &path,
+        serde_json::to_string_pretty(&result_json).expect("JSON serialize"),
+    )
+    .ok();
     println!("\n  Full results saved to: {}", path.display());
 }
 
@@ -859,7 +871,7 @@ fn run_multi_seed(base_seed: u64, n_seeds: usize, lambda: f64) {
         .iter()
         .enumerate()
         .min_by(|a, b| a.1.direct_chi2_total.total_cmp(&b.1.direct_chi2_total))
-        .unwrap()
+        .expect("at least one multi-seed result")
         .0;
     println!(
         "  Best seed: {} (chi2_BE={:.4}, chi2_NMP={:.4}, J={:.1})",
@@ -893,7 +905,11 @@ fn run_multi_seed(base_seed: u64, n_seeds: usize, lambda: f64) {
         })).collect::<Vec<_>>(),
     });
     let path = results_dir.join(format!("barracuda_l1_multi_seed_lambda{lambda}.json"));
-    std::fs::write(&path, serde_json::to_string_pretty(&multi_json).unwrap()).ok();
+    std::fs::write(
+        &path,
+        serde_json::to_string_pretty(&multi_json).expect("JSON serialize"),
+    )
+    .ok();
     println!("\n  Results saved to: {}", path.display());
 }
 
@@ -992,7 +1008,7 @@ fn run_pareto_sweep(base_seed: u64) {
                 let total = lam.mul_add(nc, be);
                 if total < best_total {
                     best_total = total;
-                    best_params = r.x_best.clone();
+                    best_params.clone_from(&r.x_best);
                 }
             }
 
@@ -1144,7 +1160,11 @@ fn run_pareto_sweep(base_seed: u64) {
         })).collect::<Vec<_>>(),
     });
     let path = results_dir.join("barracuda_l1_pareto_sweep.json");
-    std::fs::write(&path, serde_json::to_string_pretty(&pareto_json).unwrap()).ok();
+    std::fs::write(
+        &path,
+        serde_json::to_string_pretty(&pareto_json).expect("JSON serialize"),
+    )
+    .ok();
     println!("\n  Full results saved to: {}", path.display());
 }
 
@@ -1167,9 +1187,8 @@ fn l1_objective_nmp(
     }
 
     // NMP check
-    let nmp = match nuclear_matter_properties(x) {
-        Some(n) => n,
-        None => return (1e4_f64).ln_1p(),
+    let Some(nmp) = nuclear_matter_properties(x) else {
+        return (1e4_f64).ln_1p();
     };
 
     // Hard rejection for grossly unphysical (keeps optimizer from wasting time)

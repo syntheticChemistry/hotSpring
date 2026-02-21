@@ -117,7 +117,7 @@ impl EchoStateNetwork {
         let alpha = self.config.leak_rate;
         let mut pre = vec![0.0; rs];
 
-        for i in 0..rs {
+        for (i, pre_i) in pre.iter_mut().enumerate().take(rs) {
             let mut val = 0.0;
             for (j, &u) in input.iter().enumerate() {
                 val += self.w_in[i][j] * u;
@@ -125,11 +125,11 @@ impl EchoStateNetwork {
             for j in 0..rs {
                 val += self.w_res[i][j] * self.state[j];
             }
-            pre[i] = val;
+            *pre_i = val;
         }
 
-        for i in 0..rs {
-            self.state[i] = (1.0 - alpha) * self.state[i] + alpha * pre[i].tanh();
+        for (i, s) in self.state.iter_mut().enumerate() {
+            *s = (1.0 - alpha) * *s + alpha * pre[i].tanh();
         }
     }
 
@@ -156,7 +156,11 @@ impl EchoStateNetwork {
         for (i, seq) in input_sequences.iter().enumerate() {
             self.reset_state();
             let states = self.collect_states(seq);
-            x_mat[i] = states.last().unwrap().clone();
+            x_mat[i].clone_from(
+                states
+                    .last()
+                    .expect("collect_states always produces at least one state"),
+            );
         }
 
         // Ridge regression: W_out = Y^T X (X^T X + lambda I)^{-1}
@@ -164,10 +168,7 @@ impl EchoStateNetwork {
         let mut xtx = vec![vec![0.0; rs]; rs];
         for i in 0..rs {
             for j in 0..rs {
-                let mut sum = 0.0;
-                for k in 0..n {
-                    sum += x_mat[k][i] * x_mat[k][j];
-                }
+                let sum: f64 = x_mat.iter().take(n).map(|row| row[i] * row[j]).sum();
                 xtx[i][j] = sum;
             }
             xtx[i][i] += self.config.regularization;
@@ -177,11 +178,12 @@ impl EchoStateNetwork {
         let mut xty = vec![vec![0.0; os]; rs];
         for i in 0..rs {
             for j in 0..os {
-                let mut sum = 0.0;
-                for k in 0..n {
-                    sum += x_mat[k][i] * targets[k][j];
-                }
-                xty[i][j] = sum;
+                xty[i][j] = x_mat
+                    .iter()
+                    .zip(targets)
+                    .take(n)
+                    .map(|(row, t)| row[i] * t[j])
+                    .sum();
             }
         }
 
@@ -200,11 +202,14 @@ impl EchoStateNetwork {
     pub fn predict(&mut self, input_sequence: &[Vec<f64>]) -> Vec<f64> {
         self.reset_state();
         let states = self.collect_states(input_sequence);
-        let final_state = states.last().unwrap();
+        let final_state = states
+            .last()
+            .expect("collect_states always produces at least one state");
         let w_out = self.w_out.as_ref().expect("ESN not trained");
-        w_out.iter().map(|row| {
-            row.iter().zip(final_state.iter()).map(|(w, s)| w * s).sum()
-        }).collect()
+        w_out
+            .iter()
+            .map(|row| row.iter().zip(final_state.iter()).map(|(w, s)| w * s).sum())
+            .collect()
     }
 }
 
@@ -298,18 +303,20 @@ impl EchoStateNetwork {
         let is = self.config.input_size;
         let os = self.config.output_size;
 
-        #[allow(clippy::cast_possible_truncation)]
-        let w_in_flat: Vec<f32> = self.w_in.iter()
+        let w_in_flat: Vec<f32> = self
+            .w_in
+            .iter()
             .flat_map(|row| row.iter().map(|&v| v as f32))
             .collect();
 
-        #[allow(clippy::cast_possible_truncation)]
-        let w_res_flat: Vec<f32> = self.w_res.iter()
+        let w_res_flat: Vec<f32> = self
+            .w_res
+            .iter()
             .flat_map(|row| row.iter().map(|&v| v as f32))
             .collect();
 
-        #[allow(clippy::cast_possible_truncation)]
-        let w_out_flat: Vec<f32> = w_out_2d.iter()
+        let w_out_flat: Vec<f32> = w_out_2d
+            .iter()
             .flat_map(|row| row.iter().map(|&v| v as f32))
             .collect();
 
@@ -372,29 +379,28 @@ impl NpuSimulator {
 
         for input in input_sequence {
             let mut pre = vec![0.0f32; self.reservoir_size];
-            for i in 0..self.reservoir_size {
+            for (i, pre_i) in pre.iter_mut().enumerate() {
                 let mut val = 0.0f32;
-                #[allow(clippy::cast_possible_truncation)]
                 for (j, &u) in input.iter().enumerate() {
                     val += self.w_in[i][j] * u as f32;
                 }
                 for j in 0..self.reservoir_size {
                     val += self.w_res[i][j] * self.state[j];
                 }
-                pre[i] = val;
+                *pre_i = val;
             }
-            for i in 0..self.reservoir_size {
-                self.state[i] = (1.0 - self.leak_rate) * self.state[i]
-                    + self.leak_rate * pre[i].tanh();
+            for (i, s) in self.state.iter_mut().enumerate() {
+                *s = (1.0 - self.leak_rate) * *s + self.leak_rate * pre[i].tanh();
             }
         }
 
-        self.w_out.iter().map(|row| {
-            let sum: f32 = row.iter().zip(self.state.iter())
-                .map(|(w, s)| w * s)
-                .sum();
-            f64::from(sum)
-        }).collect()
+        self.w_out
+            .iter()
+            .map(|row| {
+                let sum: f32 = row.iter().zip(self.state.iter()).map(|(w, s)| w * s).sum();
+                f64::from(sum)
+            })
+            .collect()
     }
 
     /// Process input and return the raw reservoir state (before readout).
@@ -402,20 +408,18 @@ impl NpuSimulator {
         self.state.fill(0.0);
         for input in input_sequence {
             let mut pre = vec![0.0f32; self.reservoir_size];
-            for i in 0..self.reservoir_size {
+            for (i, pre_i) in pre.iter_mut().enumerate() {
                 let mut val = 0.0f32;
-                #[allow(clippy::cast_possible_truncation)]
                 for (j, &u) in input.iter().enumerate() {
                     val += self.w_in[i][j] * u as f32;
                 }
                 for j in 0..self.reservoir_size {
                     val += self.w_res[i][j] * self.state[j];
                 }
-                pre[i] = val;
+                *pre_i = val;
             }
-            for i in 0..self.reservoir_size {
-                self.state[i] = (1.0 - self.leak_rate) * self.state[i]
-                    + self.leak_rate * pre[i].tanh();
+            for (i, s) in self.state.iter_mut().enumerate() {
+                *s = (1.0 - self.leak_rate) * *s + self.leak_rate * pre[i].tanh();
             }
         }
         self.state.clone()
@@ -433,14 +437,15 @@ fn solve_linear_system(a: &[Vec<f64>], b: &[Vec<f64>]) -> Vec<Vec<f64>> {
     let mut aug: Vec<Vec<f64>> = (0..n)
         .map(|i| {
             let mut row = a[i].clone();
-            for j in 0..m {
-                row.push(b[i][j]);
+            for val in b[i].iter().take(m) {
+                row.push(*val);
             }
             row
         })
         .collect();
 
     // Gaussian elimination with partial pivoting
+    #[allow(clippy::needless_range_loop)] // clarity: aug[row][j] and aug[col][j] indexed by range
     for col in 0..n {
         let mut max_row = col;
         let mut max_val = aug[col][col].abs();
@@ -458,8 +463,11 @@ fn solve_linear_system(a: &[Vec<f64>], b: &[Vec<f64>]) -> Vec<Vec<f64>> {
             continue;
         }
 
+        #[allow(clippy::needless_range_loop)]
+        // clarity: two rows indexed; iterator would require split_at_mut
         for row in (col + 1)..n {
             let factor = aug[row][col] / pivot;
+            #[allow(clippy::needless_range_loop)] // clarity: aug[row] and aug[col] indexed together
             for j in col..n + m {
                 aug[row][j] -= factor * aug[col][j];
             }
@@ -495,18 +503,16 @@ fn spectral_radius_estimate(w: &[Vec<f64>]) -> f64 {
 
     for _ in 0..100 {
         let mut w_v = vec![0.0; n];
-        for i in 0..n {
-            for j in 0..n {
-                w_v[i] += w[i][j] * v[j];
-            }
+        for (i, w_v_i) in w_v.iter_mut().enumerate() {
+            *w_v_i = w[i].iter().zip(v.iter()).map(|(wij, vj)| wij * vj).sum();
         }
         let norm: f64 = w_v.iter().map(|x| x * x).sum::<f64>().sqrt();
         if norm < 1e-30 {
             return 0.0;
         }
         lambda = norm;
-        for i in 0..n {
-            v[i] = w_v[i] / norm;
+        for (vi, w_vi) in v.iter_mut().zip(w_v.iter()) {
+            *vi = w_vi / norm;
         }
     }
     lambda
@@ -575,14 +581,18 @@ mod tests {
         };
         let mut esn = EchoStateNetwork::new(config);
 
-        let seq1: Vec<Vec<f64>> = (0..100).map(|t| {
-            let x = (t as f64) * 0.1;
-            vec![x.sin(), x.cos()]
-        }).collect();
-        let seq2: Vec<Vec<f64>> = (0..100).map(|t| {
-            let x = (t as f64) * 0.2;
-            vec![x.sin(), x.cos()]
-        }).collect();
+        let seq1: Vec<Vec<f64>> = (0..100)
+            .map(|t| {
+                let x = (t as f64) * 0.1;
+                vec![x.sin(), x.cos()]
+            })
+            .collect();
+        let seq2: Vec<Vec<f64>> = (0..100)
+            .map(|t| {
+                let x = (t as f64) * 0.2;
+                vec![x.sin(), x.cos()]
+            })
+            .collect();
 
         esn.train(&[seq1.clone(), seq2.clone()], &[vec![1.0], vec![2.0]]);
 
@@ -624,21 +634,25 @@ mod tests {
         };
         let mut esn = EchoStateNetwork::new(config);
 
-        let seq1: Vec<Vec<f64>> = (0..50).map(|t| {
-            let x = (t as f64) * 0.1;
-            vec![x.sin(), x.cos()]
-        }).collect();
-        let seq2: Vec<Vec<f64>> = (0..50).map(|t| {
-            let x = (t as f64) * 0.2;
-            vec![x.sin(), x.cos()]
-        }).collect();
+        let seq1: Vec<Vec<f64>> = (0..50)
+            .map(|t| {
+                let x = (t as f64) * 0.1;
+                vec![x.sin(), x.cos()]
+            })
+            .collect();
+        let seq2: Vec<Vec<f64>> = (0..50)
+            .map(|t| {
+                let x = (t as f64) * 0.2;
+                vec![x.sin(), x.cos()]
+            })
+            .collect();
 
         esn.train(&[seq1.clone(), seq2.clone()], &[vec![1.0], vec![2.0]]);
 
-        let exported = esn.export_weights().unwrap();
+        let exported = esn.export_weights().expect("ESN export_weights");
         assert_eq!(exported.w_in.len(), 30 * 2);
         assert_eq!(exported.w_res.len(), 30 * 30);
-        assert_eq!(exported.w_out.len(), 1 * 30);
+        assert_eq!(exported.w_out.len(), 30);
 
         let mut npu = NpuSimulator::from_exported(&exported);
         let cpu_pred = esn.predict(&seq1)[0];
@@ -674,9 +688,7 @@ mod tests {
                     .collect()
             })
             .collect();
-        let targets: Vec<Vec<f64>> = (0..n_cases)
-            .map(|_| vec![rng.standard_normal()])
-            .collect();
+        let targets: Vec<Vec<f64>> = (0..n_cases).map(|_| vec![rng.standard_normal()]).collect();
 
         let n_reps = if cfg!(debug_assertions) { 3 } else { 100 };
         let t0 = Instant::now();
@@ -693,16 +705,19 @@ mod tests {
         println!("Rust ESN: {n_reps} reps in {elapsed:.3}s");
         println!("  Per iteration (train+6 predict): {per_iter_ms:.1} ms");
         if !cfg!(debug_assertions) {
-            assert!(per_iter_ms < 50.0, "ESN should complete in <50ms per iteration (release)");
+            assert!(
+                per_iter_ms < 50.0,
+                "ESN should complete in <50ms per iteration (release)"
+            );
         }
     }
 
     #[test]
     fn spectral_radius_identity() {
         let n = 5;
-        let w: Vec<Vec<f64>> = (0..n).map(|i| {
-            (0..n).map(|j| if i == j { 1.0 } else { 0.0 }).collect()
-        }).collect();
+        let w: Vec<Vec<f64>> = (0..n)
+            .map(|i| (0..n).map(|j| if i == j { 1.0 } else { 0.0 }).collect())
+            .collect();
         let sr = spectral_radius_estimate(&w);
         assert!((sr - 1.0).abs() < 0.01, "sr={sr}");
     }

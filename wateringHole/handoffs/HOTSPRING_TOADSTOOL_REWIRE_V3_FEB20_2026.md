@@ -5,7 +5,7 @@
 **To:** ToadStool / BarraCUDA core team
 **License:** AGPL-3.0-only
 **Context:** ToadStool Sessions 18-25 (commits `81a6fd4b`..`dc540afd`) reviewed
-against hotSpring v0.5.16 (27/27 validation suites, 345 unit tests, 18 papers)
+against hotSpring v0.5.16 (33/33 validation suites, 441 unit tests, 18 papers)
 
 ---
 
@@ -104,8 +104,8 @@ before this sprint:
 
 | Metric | Value |
 |--------|-------|
-| Unit tests | **345** pass, 5 GPU-ignored |
-| Validation suites | **27/27** pass (CPU) |
+| Unit tests | **441** pass, 5 GPU-ignored |
+| Validation suites | **33/33** pass (CPU) |
 | Clippy warnings | **0** |
 | Papers reproduced | **18** |
 | Total compute cost | **~$0.20** |
