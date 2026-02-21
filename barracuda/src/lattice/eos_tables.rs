@@ -118,6 +118,8 @@ impl HotQcdEos {
             return Some(self.points[0].clone());
         }
 
+        // SAFETY: early return above guarantees points non-empty
+        #[allow(clippy::expect_used)]
         let last = self.points.last().expect("points verified non-empty above");
         if t_over_tc >= last.t_over_tc {
             return Some(last.clone());

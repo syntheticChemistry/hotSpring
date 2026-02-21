@@ -22,6 +22,7 @@
 
 use super::constants::{E2, HBAR_C, M_NUCLEON};
 use super::hfb_common::{factorial_f64, hermite_value, Mat};
+use crate::error::HotSpringError;
 use crate::tolerances::{
     DEFORMATION_GUESS_GENERIC, DEFORMATION_GUESS_SD, DEFORMATION_GUESS_WEAK,
     DEFORMED_COULOMB_R_MIN, DENSITY_FLOOR, DIVISION_GUARD, PAIRING_GAP_THRESHOLD,
@@ -347,7 +348,7 @@ impl DeformedHFB {
     ///
     /// SCF iteration: density → mean field → diagonalize → new density → mix → repeat
     /// Uses modified Broyden mixing (Johnson 1988) after initial linear mixing warmup.
-    pub fn solve(&mut self, params: &[f64]) -> DeformedHFBResult {
+    pub fn solve(&mut self, params: &[f64]) -> Result<DeformedHFBResult, HotSpringError> {
         let max_iter = 200;
         let tol = SCF_ENERGY_TOLERANCE;
         let broyden_warmup = 50; // linear mixing for first N iterations (converge density first)
@@ -447,9 +448,9 @@ impl DeformedHFB {
 
             // Diagonalize block-by-block for each Omega
             let (eigs_p, occ_p) =
-                self.diagonalize_blocks(&v_p, &wavefunctions, self.z, self.delta_p);
+                self.diagonalize_blocks(&v_p, &wavefunctions, self.z, self.delta_p)?;
             let (eigs_n, occ_n) =
-                self.diagonalize_blocks(&v_n, &wavefunctions, self.n_neutrons, self.delta_n);
+                self.diagonalize_blocks(&v_n, &wavefunctions, self.n_neutrons, self.delta_n)?;
 
             // Store occupations for next iteration's tau/J
             prev_occ_p.clone_from(&occ_p);
@@ -599,7 +600,7 @@ impl DeformedHFB {
         let beta2 = self.beta2_from_q20(q20);
         let rms_r = self.rms_radius(&rho_total);
 
-        DeformedHFBResult {
+        Ok(DeformedHFBResult {
             binding_energy_mev: binding_energy,
             converged,
             iterations: iter,
@@ -607,7 +608,7 @@ impl DeformedHFB {
             beta2,
             q20_fm2: q20,
             rms_radius_fm: rms_r,
-        }
+        })
     }
 
     /// Compute kinetic energy density tau(r) from wavefunctions and occupations
@@ -900,7 +901,7 @@ impl DeformedHFB {
         wavefunctions: &[Vec<f64>],
         n_particles: usize,
         delta_pair: f64,
-    ) -> (Vec<f64>, Vec<f64>) {
+    ) -> Result<(Vec<f64>, Vec<f64>), HotSpringError> {
         let n_states = self.states.len();
         let mut all_eigenvalues = vec![0.0; n_states];
         let mut all_occupations = vec![0.0; n_states];
@@ -945,8 +946,7 @@ impl DeformedHFB {
             }
 
             // Diagonalize this block
-            let eig = eigh_f64(&h.data, block_size)
-                .expect("eigh_f64: eigendecomposition failed for deformed HFB block");
+            let eig = eigh_f64(&h.data, block_size)?;
 
             for (bi, &eval) in eig.eigenvalues.iter().enumerate() {
                 let state_idx = block_indices[bi];
@@ -985,7 +985,7 @@ impl DeformedHFB {
             }
         }
 
-        (all_eigenvalues, all_occupations)
+        Ok((all_eigenvalues, all_occupations))
     }
 
     /// Find chemical potential that conserves particle number via bisection
@@ -1211,10 +1211,14 @@ impl DeformedHFB {
 }
 
 /// Public API: L3 binding energy from deformed HFB
-pub fn binding_energy_l3(z: usize, n: usize, params: &[f64]) -> (f64, bool, f64) {
+pub fn binding_energy_l3(
+    z: usize,
+    n: usize,
+    params: &[f64],
+) -> Result<(f64, bool, f64), HotSpringError> {
     let mut solver = DeformedHFB::new_adaptive(z, n);
-    let result = solver.solve(params);
-    (result.binding_energy_mev, result.converged, result.beta2)
+    let result = solver.solve(params)?;
+    Ok((result.binding_energy_mev, result.converged, result.beta2))
 }
 
 #[cfg(test)]
@@ -1284,7 +1288,7 @@ mod tests {
     fn test_deformed_hfb_runs() {
         // Just verify it doesn't crash; uses SLY4_PARAMS (provenance values match
         // Chabanat 1998 — previously used truncated -2488.91 etc., equivalent for this test)
-        let (be, conv, beta2) = binding_energy_l3(8, 8, &SLY4_PARAMS);
+        let (be, conv, beta2) = binding_energy_l3(8, 8, &SLY4_PARAMS).expect("L3 solve");
         println!("O-16 deformed: B={be:.2} MeV, conv={conv}, beta2={beta2:.4}");
         // O-16 is doubly magic, should be nearly spherical
         assert!(beta2.abs() < 0.5, "O-16 should be nearly spherical");

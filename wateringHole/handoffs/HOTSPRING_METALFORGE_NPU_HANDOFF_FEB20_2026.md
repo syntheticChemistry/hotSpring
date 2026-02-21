@@ -4,8 +4,8 @@
 **From:** hotSpring (computational physics Spring)
 **To:** ToadStool / BarraCUDA core team
 **License:** AGPL-3.0-only
-**Builds on:** `HOTSPRING_V0516_CONSOLIDATED_HANDOFF_FEB20_2026.md` (science portfolio)
-and `HOTSPRING_NPU_RESERVOIR_HANDOFF_FEB20_2026.md` (ESN transport)
+**Builds on:** `HOTSPRING_V060_CONSOLIDATED_HANDOFF_FEB21_2026.md` (science portfolio)
+and `HOTSPRING_NPU_RESERVOIR_HANDOFF_FEB20_2026.md` (ESN transport, archived)
 
 ---
 
@@ -14,7 +14,7 @@ and `HOTSPRING_NPU_RESERVOIR_HANDOFF_FEB20_2026.md` (ESN transport)
 hotSpring has completed comprehensive hardware probing of the BrainChip AKD1000
 NPU, overturning 10 SDK assumptions and building a validated experiment suite
 (29/29 checks across Python hardware and Rust math). Combined with the existing
-science portfolio (9 papers, 20 validation suites, 325 tests), this establishes
+science portfolio (18 papers, 33 validation suites, 454 tests), this establishes
 the full train-on-GPU → deploy-on-NPU pipeline for physics workloads.
 
 ### What's New Since Last Handoff
@@ -168,7 +168,7 @@ path = "src/bin/validate_npu_beyond_sdk.rs"
 
 ## Part 3: Barracuda Evolution Review
 
-### What hotSpring Built in Barracuda (v0.5.16)
+### What hotSpring Built in Barracuda (v0.6.0)
 
 | Domain | Modules | Shaders | Validation |
 |--------|---------|---------|------------|

@@ -69,7 +69,7 @@ pub fn compute_ssf_gpu(
     let mut accumulator: Vec<(f64, f64, usize)> = Vec::new();
 
     for snap in snapshots {
-        match SsfGpu::compute_axes(device.clone(), snap, box_side, max_k_harmonics) {
+        match SsfGpu::compute_axes(Arc::clone(&device), snap, box_side, max_k_harmonics) {
             Ok(sk_pairs) => {
                 // Grow accumulator on first snapshot
                 if accumulator.is_empty() {
@@ -117,6 +117,55 @@ mod tests {
         for (k, s) in &ssf {
             assert!(*k > 0.0);
             assert!(*s >= 0.0, "S(k) must be non-negative");
+        }
+    }
+
+    #[test]
+    fn compute_ssf_empty_snapshots() {
+        let ssf = compute_ssf(&[], 0, 5.0, 3);
+        assert_eq!(ssf.len(), 3);
+        for (_, s) in &ssf {
+            assert!(s.is_nan() || *s == 0.0, "empty snapshots: S(k)=NaN or 0");
+        }
+    }
+
+    #[test]
+    fn compute_ssf_multi_frame_averaging() {
+        let pos1 = vec![0.0, 0.0, 0.0, 2.5, 0.0, 0.0];
+        let pos2 = vec![0.0, 0.0, 0.0, 2.5, 0.0, 0.0];
+        let ssf_one = compute_ssf(&[pos1.clone()], 2, 5.0, 5);
+        let ssf_two = compute_ssf(&[pos1, pos2], 2, 5.0, 5);
+        assert_eq!(ssf_one.len(), ssf_two.len());
+        for (a, b) in ssf_one.iter().zip(ssf_two.iter()) {
+            assert!((a.0 - b.0).abs() < 1e-14, "k-values should match");
+            assert!((a.1 - b.1).abs() < 1e-14, "identical frames → same S(k)");
+        }
+    }
+
+    #[test]
+    fn compute_ssf_k_spacing() {
+        let pos = vec![0.0, 0.0, 0.0, 1.0, 1.0, 1.0];
+        let box_side = 10.0;
+        let dk = 2.0 * std::f64::consts::PI / box_side;
+        let ssf = compute_ssf(&[pos], 2, box_side, 4);
+        for (i, (k, _)) in ssf.iter().enumerate() {
+            let expected_k = (i + 1) as f64 * dk;
+            assert!(
+                (k - expected_k).abs() < 1e-14,
+                "k-vector spacing should be 2π/L"
+            );
+        }
+    }
+
+    #[test]
+    fn compute_ssf_single_particle_is_one() {
+        let pos = vec![2.0, 3.0, 1.0];
+        let ssf = compute_ssf(&[pos], 1, 5.0, 3);
+        for (_, s) in &ssf {
+            assert!(
+                (*s - 1.0).abs() < 1e-14,
+                "S(k) for a single particle should be 1.0, got {s}"
+            );
         }
     }
 }

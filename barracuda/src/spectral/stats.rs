@@ -76,6 +76,8 @@ pub fn detect_bands(eigenvalues: &[f64], gap_factor: f64) -> Vec<(f64, f64)> {
             band_start = w[1];
         }
     }
+    // SAFETY: early return above ensures eigenvalues.len() ≥ 2
+    #[allow(clippy::expect_used)]
     bands.push((
         band_start,
         *eigenvalues

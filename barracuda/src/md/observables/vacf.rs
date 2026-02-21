@@ -106,10 +106,9 @@ pub fn compute_d_star_msd(
         return 0.0;
     }
 
-    // Unwrap positions: accumulate displacements correcting for PBC jumps.
-    // Δr = r(t+1) - r(t), corrected for minimum image.
     let mut unwrapped = pos_snapshots[0].clone();
-    let mut all_unwrapped = vec![unwrapped.clone()];
+    let mut all_unwrapped = Vec::with_capacity(n_frames);
+    all_unwrapped.push(unwrapped.clone());
 
     for frame in 1..n_frames {
         let cur = &pos_snapshots[frame];

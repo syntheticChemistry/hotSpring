@@ -172,7 +172,7 @@ impl PowerMonitor {
         let gpu_samples: Arc<Mutex<Vec<GpuSample>>> = Arc::new(Mutex::new(Vec::new()));
 
         // Spawn nvidia-smi in loop mode (100 ms interval)
-        let (smi_child, reader_handle) = spawn_nvidia_smi_poller(gpu_samples.clone());
+        let (smi_child, reader_handle) = spawn_nvidia_smi_poller(Arc::clone(&gpu_samples));
 
         Self {
             rapl_start_uj,
@@ -502,10 +502,12 @@ impl BenchReport {
             }
 
             // Find fastest and slowest
+            #[allow(clippy::expect_used)] // SAFETY: matching.len() >= 2 guaranteed by prior check
             let fastest = matching
                 .iter()
                 .min_by(|a, b| a.wall_time_s.total_cmp(&b.wall_time_s))
                 .expect("matching has >= 2 elements");
+            #[allow(clippy::expect_used)] // SAFETY: matching.len() >= 2 guaranteed by prior check
             let slowest = matching
                 .iter()
                 .max_by(|a, b| a.wall_time_s.total_cmp(&b.wall_time_s))

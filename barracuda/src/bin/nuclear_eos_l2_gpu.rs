@@ -121,7 +121,8 @@ fn main() {
         let mut n_conv = 0usize;
         let mut n_hfb = 0usize;
         for &(z, n) in &nuclei_zn {
-            let (b_calc, conv) = binding_energy_l2(z, n, &provenance::SLY4_PARAMS);
+            let (b_calc, conv) =
+                binding_energy_l2(z, n, &provenance::SLY4_PARAMS).expect("HFB solve");
             let a = z + n;
             if (56..=132).contains(&a) {
                 n_hfb += 1;
@@ -232,7 +233,8 @@ fn main() {
             cli.max_iter,
             cli.tol,
             cli.mixing,
-        );
+        )
+        .expect("GPU-resident HFB failed");
         let d = r.gpu_dispatches;
         let td = r.total_gpu_dispatches;
         let nh = r.n_hfb;
@@ -246,7 +248,8 @@ fn main() {
             cli.max_iter,
             cli.tol,
             cli.mixing,
-        );
+        )
+        .expect("GPU HFB solve");
         let d = r.gpu_dispatches;
         let nh = r.n_hfb;
         let ns = r.n_semf;
@@ -399,7 +402,8 @@ fn main() {
             cli.max_iter,
             cli.tol,
             cli.mixing,
-        );
+        )
+        .expect("GPU HFB solve");
         let eval_time = t_eval.elapsed().as_secs_f64();
         total_dispatches += result.gpu_dispatches;
         n_evaluated += 1;

@@ -342,4 +342,38 @@ mod tests {
         let t = kinetic_energy(&momenta);
         assert!(t.abs() < 1e-14, "T(0) should be 0");
     }
+
+    #[test]
+    fn hmc_trajectory_determinism() {
+        let results: Vec<_> = (0..2)
+            .map(|_| {
+                let mut lat = Lattice::hot_start([4, 4, 4, 4], 5.5, 42);
+                let mut cfg = HmcConfig {
+                    n_md_steps: 10,
+                    dt: 0.02,
+                    seed: 42,
+                };
+                let r = hmc_trajectory(&mut lat, &mut cfg);
+                (
+                    r.plaquette,
+                    r.delta_h,
+                    r.accepted,
+                    lat.average_polyakov_loop(),
+                )
+            })
+            .collect();
+        assert!(
+            (results[0].0 - results[1].0).abs() < f64::EPSILON,
+            "plaquette must be identical across runs"
+        );
+        assert!(
+            (results[0].1 - results[1].1).abs() < f64::EPSILON,
+            "delta_h must be identical across runs"
+        );
+        assert_eq!(results[0].2, results[1].2, "acceptance must match");
+        assert!(
+            (results[0].3 - results[1].3).abs() < f64::EPSILON,
+            "Polyakov loop must be identical"
+        );
+    }
 }

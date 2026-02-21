@@ -39,6 +39,7 @@ use barracuda::ops::grid::compute_ls_factor;
 use barracuda::special::{gamma, laguerre};
 use std::collections::HashMap;
 
+use crate::error::HotSpringError;
 use crate::tolerances::{
     BCS_DENSITY_SKIP, COULOMB_R_MIN, DENSITY_FLOOR, RHO_POWF_GUARD, SHARP_FILLING_THRESHOLD,
     SPIN_ORBIT_R_MIN,
@@ -814,7 +815,13 @@ impl SphericalHFB {
 
     // ─── Main solver ─────────────────────────────────────────────────
 
-    pub fn solve(&self, params: &[f64], max_iter: usize, tol: f64, mixing: f64) -> HFBResult {
+    pub fn solve(
+        &self,
+        params: &[f64],
+        max_iter: usize,
+        tol: f64,
+        mixing: f64,
+    ) -> Result<HFBResult, HotSpringError> {
         self.solve_inner(params, max_iter, tol, mixing, false)
     }
 
@@ -824,7 +831,7 @@ impl SphericalHFB {
         max_iter: usize,
         tol: f64,
         mixing: f64,
-    ) -> HFBResult {
+    ) -> Result<HFBResult, HotSpringError> {
         self.solve_inner(params, max_iter, tol, mixing, true)
     }
 
@@ -835,7 +842,7 @@ impl SphericalHFB {
         tol: f64,
         mixing: f64,
         verbose: bool,
-    ) -> HFBResult {
+    ) -> Result<HFBResult, HotSpringError> {
         let w0 = params[9];
         let nr = self.nr;
         let ns = self.n_states;
@@ -954,7 +961,7 @@ impl SphericalHFB {
                 }
 
                 // ── Diagonalize using barracuda::linalg::eigh_f64 ──
-                let eig = eigh_f64(&h.data, ns).expect("eigh_f64 failed");
+                let eig = eigh_f64(&h.data, ns)?;
                 let eigenvalues = eig.eigenvalues;
                 // eigenvectors in row-major flat format: V[row * ns + col]
 
@@ -1043,12 +1050,12 @@ impl SphericalHFB {
 
         let binding = if e_prev < 0.0 { -e_prev } else { e_prev.abs() };
 
-        HFBResult {
+        Ok(HFBResult {
             binding_energy_mev: binding,
             converged,
             iterations: last_iter,
             delta_e: last_de,
-        }
+        })
     }
 }
 
@@ -1087,14 +1094,18 @@ impl SpeciesResult {
 }
 
 /// Hybrid binding energy: HFB for medium nuclei, SEMF otherwise
-pub fn binding_energy_l2(z: usize, n: usize, params: &[f64]) -> (f64, bool) {
+pub fn binding_energy_l2(
+    z: usize,
+    n: usize,
+    params: &[f64],
+) -> Result<(f64, bool), HotSpringError> {
     let a = z + n;
     if (56..=132).contains(&a) {
         let hfb = SphericalHFB::new_adaptive(z, n);
-        let result = hfb.solve(params, 200, 0.05, 0.3);
-        (result.binding_energy_mev, result.converged)
+        let result = hfb.solve(params, 200, 0.05, 0.3)?;
+        Ok((result.binding_energy_mev, result.converged))
     } else {
-        (semf_binding_energy(z, n, params), true)
+        Ok((semf_binding_energy(z, n, params), true))
     }
 }
 
@@ -1182,7 +1193,7 @@ mod tests {
     #[test]
     fn binding_energy_l2_semf_light_nucleus() {
         let params = sly4_params();
-        let (b, conv) = binding_energy_l2(8, 8, &params);
+        let (b, conv) = binding_energy_l2(8, 8, &params).expect("HFB solve");
         assert!(conv, "SEMF path should always converge");
         assert!(b > 0.0 && b < 200.0, "O-16 binding ~{b} MeV");
     }
@@ -1192,7 +1203,7 @@ mod tests {
     fn hfb_full_solve_ni56() {
         let params = sly4_params();
         let hfb = SphericalHFB::new_adaptive(28, 28);
-        let result = hfb.solve(&params, 200, 0.05, 0.3);
+        let result = hfb.solve(&params, 200, 0.05, 0.3).expect("HFB solve");
         assert!(result.binding_energy_mev > 400.0);
         assert!(result.converged);
     }
@@ -1316,7 +1327,7 @@ mod tests {
     #[test]
     fn binding_energy_l2_determinism() {
         let params = crate::provenance::SLY4_PARAMS;
-        let run = || binding_energy_l2(28, 28, &params);
+        let run = || binding_energy_l2(28, 28, &params).expect("HFB solve");
         let a = run();
         let b = run();
         assert_eq!(

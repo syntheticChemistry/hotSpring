@@ -25,6 +25,7 @@
 //! Thouless, Kohmoto, Nightingale, den Nijs (1982) PRL 49, 405 — TKNN invariant
 
 use hotspring_barracuda::spectral;
+use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
 use std::time::Instant;
 
@@ -180,7 +181,11 @@ fn check_particle_hole_symmetry(harness: &mut ValidationHarness) {
 
     // Symmetry may not be exact due to finite N and incommensurate α,
     // but should be small
-    harness.check_upper("max |E_min + E_max| < 0.5", max_asymmetry, 0.5);
+    harness.check_upper(
+        "max |E_min + E_max| within symmetry tolerance",
+        max_asymmetry,
+        tolerances::HOFSTADTER_SYMMETRY_TOLERANCE,
+    );
     println!();
 }
 

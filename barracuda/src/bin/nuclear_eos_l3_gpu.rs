@@ -94,7 +94,7 @@ fn main() {
     let l2_results: Vec<(usize, usize, f64, f64, bool)> = nuclei
         .iter()
         .map(|&(z, n, b_exp)| {
-            let (b_calc, conv) = binding_energy_l2(z, n, params);
+            let (b_calc, conv) = binding_energy_l2(z, n, params).expect("HFB solve");
             (z, n, b_exp, b_calc, conv)
         })
         .collect();
@@ -116,7 +116,8 @@ fn main() {
     let t2 = Instant::now();
     let nuclei_zn: Vec<(usize, usize)> = nuclei.iter().map(|&(z, n, _)| (z, n)).collect();
 
-    let l3_result = binding_energies_l3_gpu_auto(&nuclei_zn, params);
+    let l3_result = binding_energies_l3_gpu_auto(&nuclei_zn, params)
+        .expect("L3 GPU deformed HFB failed (runtime, adapter, or eigensolve)");
     let l3_time = t2.elapsed().as_secs_f64();
 
     println!(

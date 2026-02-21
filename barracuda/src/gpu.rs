@@ -119,7 +119,7 @@ impl GpuF64 {
     /// This enables all toadstool GPU operations (linalg, FFT, observables)
     /// from hotSpring binaries using the same underlying wgpu device.
     pub fn to_wgpu_device(&self) -> Arc<WgpuDevice> {
-        self.wgpu_device.clone()
+        Arc::clone(&self.wgpu_device)
     }
 
     /// Access the TensorContext for batched dispatch.
@@ -293,7 +293,7 @@ impl GpuF64 {
             Arc::new(queue),
             adapter_info,
         ));
-        let tensor_ctx = Arc::new(TensorContext::new(wgpu_device.clone()));
+        let tensor_ctx = Arc::new(TensorContext::new(Arc::clone(&wgpu_device)));
         let driver_profile = GpuDriverProfile::from_device(&wgpu_device);
 
         Ok(Self {
@@ -541,6 +541,8 @@ impl GpuF64 {
         let result: Vec<f64> = data
             .chunks_exact(8)
             .map(|chunk| {
+                // SAFETY: chunks_exact(8) guarantees 8-byte slices
+                #[allow(clippy::expect_used)]
                 let bytes: [u8; 8] = chunk
                     .try_into()
                     .expect("chunks_exact(8) guarantees 8-byte slices");
@@ -638,6 +640,8 @@ impl GpuF64 {
         let result: Vec<f64> = data
             .chunks_exact(8)
             .map(|chunk| {
+                // SAFETY: chunks_exact(8) guarantees 8-byte slices
+                #[allow(clippy::expect_used)]
                 let bytes: [u8; 8] = chunk
                     .try_into()
                     .expect("chunks_exact(8) guarantees 8-byte slices");
@@ -744,6 +748,8 @@ impl GpuF64 {
         let result: Vec<f64> = data
             .chunks_exact(8)
             .map(|chunk| {
+                // SAFETY: chunks_exact(8) guarantees 8-byte slices
+                #[allow(clippy::expect_used)]
                 let bytes: [u8; 8] = chunk
                     .try_into()
                     .expect("chunks_exact(8) guarantees 8-byte slices");

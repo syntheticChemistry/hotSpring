@@ -395,15 +395,11 @@ async fn main() {
         println!("  Iterations: {}", result.iterations[0]);
 
         let pn_err = (pn - 8.0).abs();
-        // 3 levels with large Δ — convergence floor per MD_EQUILIBRIUM_FORCE_ABS
         harness.check_upper(
             "BCS degeneracy: O-16 proton number error",
             pn_err,
-            tolerances::MD_EQUILIBRIUM_FORCE_ABS,
+            tolerances::BCS_DEGENERACY_PARTICLE_NUMBER_ABS,
         );
-        // 0.05 tolerance: nuclear BCS with degeneracy on O-16 (8 protons)
-        // has sub-shell filling sensitivity; GPU bisection convergence
-        // differs from CPU by up to 0.04 particles.
 
         // Verify μ is within the spectrum
         let mu_reasonable = mu > 10.0f64.mul_add(-delta_val, eigenvalues[0])

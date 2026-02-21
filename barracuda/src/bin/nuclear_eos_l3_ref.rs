@@ -91,7 +91,7 @@ fn main() {
     let l2_results: Vec<(usize, usize, f64, f64, bool)> = nuclei
         .par_iter()
         .map(|&(z, n, b_exp)| {
-            let (b_calc, conv) = binding_energy_l2(z, n, params);
+            let (b_calc, conv) = binding_energy_l2(z, n, params).expect("HFB solve");
             (z, n, b_exp, b_calc, conv)
         })
         .collect();
@@ -116,7 +116,7 @@ fn main() {
     let l3_results: Vec<(usize, usize, f64, f64, bool, f64)> = nuclei
         .par_iter()
         .map(|&(z, n, b_exp)| {
-            let (b_calc, conv, beta2) = binding_energy_l3(z, n, params);
+            let (b_calc, conv, beta2) = binding_energy_l3(z, n, params).expect("L3 solve");
             (z, n, b_exp, b_calc, conv, beta2)
         })
         .collect();

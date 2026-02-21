@@ -700,7 +700,7 @@ fn l2_objective_nmp(params: &[f64], nuclei: &[(usize, usize, f64)], lambda: f64)
     let results: Vec<(f64, f64)> = nuclei
         .par_iter()
         .map(|&(z, n, b_exp)| {
-            let (b_calc, _conv) = binding_energy_l2(z, n, params);
+            let (b_calc, _conv) = binding_energy_l2(z, n, params).expect("HFB solve");
             (b_calc, b_exp)
         })
         .collect();
@@ -727,7 +727,7 @@ fn decompose_chi2(params: &[f64], nuclei: &[(usize, usize, f64)], lambda: f64) -
     let results: Vec<(f64, f64)> = nuclei
         .par_iter()
         .map(|&(z, n, b_exp)| {
-            let (b_calc, _) = binding_energy_l2(z, n, params);
+            let (b_calc, _) = binding_energy_l2(z, n, params).expect("HFB solve");
             (b_calc, b_exp)
         })
         .collect();
@@ -761,7 +761,7 @@ fn compute_l2_binding_energies(
     let results: Vec<(f64, f64)> = nuclei
         .par_iter()
         .map(|&(z, n, b_exp)| {
-            let (b_calc, _) = binding_energy_l2(z, n, params);
+            let (b_calc, _) = binding_energy_l2(z, n, params).expect("HFB solve");
             (b_calc, b_exp)
         })
         .collect();

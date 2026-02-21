@@ -27,6 +27,7 @@ use hotspring_barracuda::md::observables::compute_vacf;
 use hotspring_barracuda::md::reservoir::{
     velocity_features, EchoStateNetwork, EsnConfig, NpuSimulator,
 };
+use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
 
 struct CaseData {
@@ -170,7 +171,7 @@ fn main() {
     let mut test_errors = Vec::new();
 
     for (i, cd) in case_data.iter().enumerate() {
-        let pred = esn.predict(&cd.features_short);
+        let pred = esn.predict(&cd.features_short).expect("ESN trained");
         let d_esn = pred[0];
         let err = if cd.d_star_full.abs() > 1e-30 {
             (d_esn - cd.d_star_full).abs() / cd.d_star_full.abs()
@@ -216,8 +217,16 @@ fn main() {
     println!("  Mean train error: {:.1}%", mean_train_err * 100.0);
     println!("  Mean test error:  {:.1}%", mean_test_err * 100.0);
 
-    harness.check_upper("ESN train mean error < 50%", mean_train_err, 0.50);
-    harness.check_upper("ESN test mean error < 80%", mean_test_err, 0.80);
+    harness.check_upper(
+        "ESN train mean error < 50%",
+        mean_train_err,
+        tolerances::ESN_VACF_R2_MIN,
+    );
+    harness.check_upper(
+        "ESN test mean error < 80%",
+        mean_test_err,
+        tolerances::ESN_D_STAR_REL,
+    );
     harness.check_bool(
         "All D* positive and finite",
         case_data
@@ -250,7 +259,7 @@ fn main() {
     let mut max_cpu_npu_diff = 0.0f64;
 
     for (i, cd) in case_data.iter().enumerate() {
-        let d_cpu = esn.predict(&cd.features_short)[0];
+        let d_cpu = esn.predict(&cd.features_short).expect("ESN trained")[0];
         let d_npu = npu_sim.predict(&cd.features_short)[0];
         let diff = if d_cpu.abs() > 1e-30 {
             (d_npu - d_cpu).abs() / d_cpu.abs()
@@ -279,7 +288,11 @@ fn main() {
     println!();
     println!("  Max CPU/NPU diff: {:.2}%", max_cpu_npu_diff * 100.0);
 
-    harness.check_upper("CPU/NPU f64-f32 parity < 5%", max_cpu_npu_diff, 0.05);
+    harness.check_upper(
+        "CPU/NPU f64-f32 parity < 5%",
+        max_cpu_npu_diff,
+        tolerances::ESN_TRAINING_LOSS_MAX,
+    );
 
     let total_ms = total_start.elapsed().as_secs_f64() * 1000.0;
     println!();

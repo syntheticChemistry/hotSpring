@@ -18,6 +18,7 @@
 use super::constants::{E2, HBAR_C, M_NUCLEON};
 use super::hfb_common::{factorial_f64, hermite_value};
 use super::hfb_deformed::DeformedHFBResult;
+use crate::error::HotSpringError;
 use crate::gpu::GpuF64;
 use crate::tolerances::{
     DEFORMATION_GUESS_GENERIC, DEFORMATION_GUESS_SD, DEFORMATION_GUESS_WEAK,
@@ -268,7 +269,7 @@ pub fn binding_energies_l3_gpu(
     device: Arc<WgpuDevice>,
     nuclei: &[(usize, usize)],
     params: &[f64],
-) -> GpuResidentL3Result {
+) -> Result<GpuResidentL3Result, HotSpringError> {
     let t0 = Instant::now();
     println!("    GPU: BatchedEighGpu for eigensolves, Rayon parallel across nuclei");
     println!(
@@ -285,45 +286,57 @@ pub fn binding_energies_l3_gpu(
     let done_count = AtomicUsize::new(0);
     let total = nuclei.len();
 
-    let results: Vec<(usize, usize, f64, bool, f64)> = nuclei.par_iter().map(|&(z, n)| {
-        let mut eigh_d = 0usize;
-        let mut total_d = 0usize;
-        let result = deformed_hfb_gpu_single(
-            &device, z, n, params,
-            &mut eigh_d, &mut total_d,
-        );
-        eigh_count.fetch_add(eigh_d, Ordering::Relaxed);
-        dispatch_count.fetch_add(total_d, Ordering::Relaxed);
-        let idx = done_count.fetch_add(1, Ordering::Relaxed) + 1;
-        let a = z + n;
-        let status = if result.converged { "conv" } else { "NOCONV" };
-        if idx <= 5 || idx.is_multiple_of(10) || idx == total || !result.converged {
-            println!("    [{:>4}/{:>4}] Z={:>3} N={:>3} A={:>3} | BE={:>10.3} MeV β₂={:>6.3} {} iter={} {:.1}s elapsed",
-                idx, total, z, n, a,
-                result.binding_energy_mev, result.beta2, status,
-                result.iterations, t0.elapsed().as_secs_f64());
-        }
-        (z, n, result.binding_energy_mev, result.converged, result.beta2)
-    }).collect();
+    let results: Vec<(usize, usize, f64, bool, f64)> = nuclei
+        .par_iter()
+        .map(|&(z, n)| -> Result<(usize, usize, f64, bool, f64), HotSpringError> {
+            let mut eigh_d = 0usize;
+            let mut total_d = 0usize;
+            let result = deformed_hfb_gpu_single(
+                &device,
+                z,
+                n,
+                params,
+                &mut eigh_d,
+                &mut total_d,
+            )?;
+            eigh_count.fetch_add(eigh_d, Ordering::Relaxed);
+            dispatch_count.fetch_add(total_d, Ordering::Relaxed);
+            let idx = done_count.fetch_add(1, Ordering::Relaxed) + 1;
+            let a = z + n;
+            let status = if result.converged { "conv" } else { "NOCONV" };
+            if idx <= 5 || idx.is_multiple_of(10) || idx == total || !result.converged {
+                println!(
+                    "    [{:>4}/{:>4}] Z={:>3} N={:>3} A={:>3} | BE={:>10.3} MeV β₂={:>6.3} {} iter={} {:.1}s elapsed",
+                    idx, total, z, n, a,
+                    result.binding_energy_mev,
+                    result.beta2,
+                    status,
+                    result.iterations,
+                    t0.elapsed().as_secs_f64()
+                );
+            }
+            Ok((z, n, result.binding_energy_mev, result.converged, result.beta2))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
 
-    GpuResidentL3Result {
+    Ok(GpuResidentL3Result {
         n_nuclei: nuclei.len(),
         results,
         wall_time_s: t0.elapsed().as_secs_f64(),
         eigh_dispatches: eigh_count.load(Ordering::Relaxed),
         total_gpu_dispatches: dispatch_count.load(Ordering::Relaxed),
-    }
+    })
 }
 
 pub fn binding_energies_l3_gpu_auto(
     nuclei: &[(usize, usize)],
     params: &[f64],
-) -> GpuResidentL3Result {
+) -> Result<GpuResidentL3Result, HotSpringError> {
     let rt = tokio::runtime::Runtime::new()
-        .expect("tokio: failed to create runtime for GPU initialization");
+        .map_err(|e| HotSpringError::GpuCompute(format!("tokio: failed to create runtime: {e}")))?;
     let gpu = rt
         .block_on(GpuF64::new())
-        .expect("GPU init failed — pure GPU pipeline requires GPU adapter");
+        .map_err(|e| HotSpringError::GpuCompute(format!("GPU init failed: {e}")))?;
     gpu.print_info();
     let device = gpu.to_wgpu_device();
     binding_energies_l3_gpu(device, nuclei, params)
@@ -340,7 +353,7 @@ fn deformed_hfb_gpu_single(
     params: &[f64],
     eigh_dispatches: &mut usize,
     total_gpu_dispatches: &mut usize,
-) -> DeformedHFBResult {
+) -> Result<DeformedHFBResult, HotSpringError> {
     let setup = NucleusSetup::new(z, n);
     let n_grid = setup.n_grid;
     let n_states = setup.states.len();
@@ -364,8 +377,9 @@ fn deformed_hfb_gpu_single(
 
     // Pre-allocate eigensolve GPU buffers — reused every SCF iteration
     let (eigh_matrices_buf, eigh_eigenvalues_buf, eigh_eigenvectors_buf) =
-        BatchedEighGpu::create_buffers(device, max_bs, n_blocks)
-            .expect("pre-allocate eigensolve GPU buffers");
+        BatchedEighGpu::create_buffers(device, max_bs, n_blocks).map_err(|e| {
+            HotSpringError::GpuCompute(format!("pre-allocate eigensolve GPU buffers: {e}"))
+        })?;
 
     // ── Step 2: SCF loop ──
     let mut rho_p = vec![0.0f64; n_grid];
@@ -421,7 +435,7 @@ fn deformed_hfb_gpu_single(
             &eigh_matrices_buf,
             &eigh_eigenvalues_buf,
             &eigh_eigenvectors_buf,
-        );
+        )?;
         let (_eigs_n, occ_n) = diag_blocks_gpu(
             device,
             &setup,
@@ -437,7 +451,7 @@ fn deformed_hfb_gpu_single(
             &eigh_matrices_buf,
             &eigh_eigenvalues_buf,
             &eigh_eigenvectors_buf,
-        );
+        )?;
 
         prev_occ_p.clone_from(&occ_p);
         prev_occ_n.clone_from(&occ_n);
@@ -481,7 +495,7 @@ fn deformed_hfb_gpu_single(
     let beta2 = beta2_from_q20(setup.a, q20);
     let rms_r = rms_radius(&setup, &rho_total);
 
-    DeformedHFBResult {
+    Ok(DeformedHFBResult {
         binding_energy_mev: binding_energy,
         converged,
         iterations: iter,
@@ -489,7 +503,7 @@ fn deformed_hfb_gpu_single(
         beta2,
         q20_fm2: q20,
         rms_radius_fm: rms_r,
-    }
+    })
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -516,12 +530,12 @@ fn diag_blocks_gpu(
     eigh_matrices_buf: &wgpu::Buffer,
     eigh_eigenvalues_buf: &wgpu::Buffer,
     eigh_eigenvectors_buf: &wgpu::Buffer,
-) -> (Vec<f64>, Vec<f64>) {
+) -> Result<(Vec<f64>, Vec<f64>), HotSpringError> {
     let n_states = setup.states.len();
     let n_grid = setup.n_grid;
 
     if max_bs < 2 || n_blocks == 0 {
-        return (vec![0.0; n_states], vec![0.0; n_states]);
+        return Ok((vec![0.0; n_states], vec![0.0; n_states]));
     }
 
     let mat_size = max_bs * max_bs;
@@ -620,7 +634,8 @@ fn diag_blocks_gpu(
             50,
         )
     };
-    dispatch_result.expect("GPU eigensolve failed — pure GPU pipeline");
+    dispatch_result
+        .map_err(|e| HotSpringError::GpuCompute(format!("GPU eigensolve failed: {e}")))?;
 
     let eigenvalues_flat = BatchedEighGpu::read_eigenvalues(
         &Arc::clone(device),
@@ -628,7 +643,7 @@ fn diag_blocks_gpu(
         max_bs,
         n_blocks,
     )
-    .expect("eigenvalue readback");
+    .map_err(|e| HotSpringError::GpuCompute(format!("eigenvalue readback: {e}")))?;
     *eigh_dispatches += 1;
     *total_gpu_dispatches += 1;
 
@@ -648,7 +663,7 @@ fn diag_blocks_gpu(
     block_eigs.sort_by(|a, b| a.1.total_cmp(&b.1));
     bcs_occupations(&block_eigs, n_particles, delta_pair, &mut all_occupations);
 
-    (all_eigenvalues, all_occupations)
+    Ok((all_eigenvalues, all_occupations))
 }
 
 fn bcs_occupations(sorted_eigs: &[(usize, f64)], n_particles: usize, delta: f64, occ: &mut [f64]) {

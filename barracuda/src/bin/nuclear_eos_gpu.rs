@@ -683,7 +683,8 @@ fn main() {
     for &((z, n), (b_exp, _)) in &sorted_nuclei {
         let a = z + n;
         if (56..=132).contains(&a) {
-            let (b_calc, converged) = binding_energy_l2(z, n, &provenance::SLY4_PARAMS);
+            let (b_calc, converged) =
+                binding_energy_l2(z, n, &provenance::SLY4_PARAMS).expect("HFB solve");
             if b_calc > 0.0 {
                 let sigma_theo = tolerances::sigma_theo(b_exp);
                 l2_chi2 += ((b_calc - b_exp) / sigma_theo).powi(2);
@@ -832,11 +833,11 @@ fn main() {
 
     // Save JSON report
     let report_dir = discovery::benchmark_results_dir()
-        .unwrap_or_else(|_| PathBuf::from("benchmarks/nuclear-eos/results"));
+        .unwrap_or_else(|_| PathBuf::from(discovery::paths::BENCHMARK_RESULTS));
     match report.save_json(
         report_dir
             .to_str()
-            .unwrap_or("benchmarks/nuclear-eos/results"),
+            .unwrap_or(discovery::paths::BENCHMARK_RESULTS),
     ) {
         Ok(path) => println!("  Benchmark report saved: {path}"),
         Err(e) => println!("  Warning: failed to save benchmark report: {e}"),
@@ -1011,7 +1012,7 @@ fn l2_objective_fn(x: &[f64], exp_data: &HashMap<(usize, usize), (f64, f64)>, la
     let results: Vec<(f64, f64, f64)> = exp_data
         .par_iter()
         .filter_map(|(&(z, n), &(b_exp, _))| {
-            let (b_calc, _converged) = binding_energy_l2(z, n, x);
+            let (b_calc, _converged) = binding_energy_l2(z, n, x).expect("HFB solve");
             if b_calc > 0.0 {
                 let sigma = tolerances::sigma_theo(b_exp);
                 let chi2 = ((b_calc - b_exp) / sigma).powi(2);

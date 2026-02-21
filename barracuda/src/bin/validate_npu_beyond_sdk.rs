@@ -104,7 +104,7 @@ fn check_arbitrary_input_dims(harness: &mut ValidationHarness) {
             })
             .collect();
 
-        let pred = esn.predict(&test_seq)[0];
+        let pred = esn.predict(&test_seq).expect("ESN trained")[0];
         let is_finite = pred.is_finite() && pred.abs() < 1e6;
 
         println!("  input_size={input_size:3}: pred={pred:.6} finite={is_finite}");
@@ -159,7 +159,7 @@ fn check_deep_fc_parity(harness: &mut ValidationHarness) {
         })
         .collect();
 
-    let pred_f64 = esn.predict(&test_seq)[0];
+    let pred_f64 = esn.predict(&test_seq).expect("ESN trained")[0];
     let mut npu_sim = NpuSimulator::from_exported(&exported);
     let state = npu_sim.predict_return_state(&test_seq);
 
@@ -251,7 +251,7 @@ fn check_multi_output(harness: &mut ValidationHarness) {
         })
         .collect();
 
-    let predictions = esn.predict(&test_seq);
+    let predictions = esn.predict(&test_seq).expect("ESN trained");
     println!(
         "  Predictions: {:?}",
         predictions
@@ -320,7 +320,7 @@ fn check_weight_mutation(harness: &mut ValidationHarness) {
         })
         .collect();
 
-    let pred_1x = esn.predict(&test_seq)[0];
+    let pred_1x = esn.predict(&test_seq).expect("ESN trained")[0];
 
     let mut npu = NpuSimulator::from_exported(&exported);
     let state = npu.predict_return_state(&test_seq);
@@ -422,7 +422,7 @@ fn check_wide_fc_quantization(harness: &mut ValidationHarness) {
             })
             .collect();
 
-        let pred_f64 = esn.predict(&test_seq)[0];
+        let pred_f64 = esn.predict(&test_seq).expect("ESN trained")[0];
         let mut npu = NpuSimulator::from_exported(&exported);
         let pred_f32 = npu.predict(&test_seq)[0];
 
@@ -462,7 +462,9 @@ fn check_determinism(harness: &mut ValidationHarness) {
         .map(|_| (0..8).map(|_| rng.standard_normal() * 0.3).collect())
         .collect();
 
-    let results: Vec<f64> = (0..10).map(|_| esn.predict(&test_seq)[0]).collect();
+    let results: Vec<f64> = (0..10)
+        .map(|_| esn.predict(&test_seq).expect("ESN trained")[0])
+        .collect();
     // Exact parity check — determinism: same input → bit-identical output
     #[allow(clippy::float_cmp)] // determinism test: bit-identical outputs required
     let all_same = results.windows(2).all(|w| w[0] == w[1]);

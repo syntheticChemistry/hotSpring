@@ -24,6 +24,7 @@
 use hotspring_barracuda::lattice::hmc::{self, HmcConfig};
 use hotspring_barracuda::lattice::wilson::Lattice;
 use hotspring_barracuda::md::reservoir::{EchoStateNetwork, EsnConfig, NpuSimulator};
+use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
 
 fn main() {
@@ -151,7 +152,7 @@ fn check_esn_phase_classifier(harness: &mut ValidationHarness) {
     let total = test_seqs.len();
 
     for (seq, target) in test_seqs.iter().zip(test_targets.iter()) {
-        let pred = esn.predict(seq)[0];
+        let pred = esn.predict(seq).expect("ESN trained")[0];
         let pred_class = if pred > 0.5 { 1.0 } else { 0.0 };
         if (pred_class - target[0]).abs() < 0.01 {
             correct += 1;
@@ -161,7 +162,11 @@ fn check_esn_phase_classifier(harness: &mut ValidationHarness) {
     let accuracy = correct as f64 / total as f64;
     println!("  CPU f64 accuracy: {accuracy:.1}% ({correct}/{total})");
 
-    harness.check_lower("ESN phase accuracy > 80%", accuracy, 0.80);
+    harness.check_lower(
+        "ESN phase accuracy > ESN_PHASE_ACCURACY_MIN",
+        accuracy,
+        tolerances::ESN_PHASE_ACCURACY_MIN,
+    );
     println!();
 }
 
@@ -193,7 +198,7 @@ fn check_npu_simulator_parity(harness: &mut ValidationHarness) {
     let total = test_seqs.len();
 
     for seq in &test_seqs {
-        let cpu_pred = esn.predict(seq)[0];
+        let cpu_pred = esn.predict(seq).expect("ESN trained")[0];
         let npu_pred = npu_sim.predict(seq)[0];
         let err = (cpu_pred - npu_pred).abs();
         if err > max_error {
@@ -211,8 +216,16 @@ fn check_npu_simulator_parity(harness: &mut ValidationHarness) {
     println!("  Max absolute error: {max_error:.6}");
     println!("  Classification agreement: {agreement:.1}% ({agree_count}/{total})");
 
-    harness.check_upper("f32 max error < 0.1", max_error, 0.1);
-    harness.check_lower("f32 classification agreement > 90%", agreement, 0.90);
+    harness.check_upper(
+        "f32 max error < ESN_F32_LATTICE_LOOSE_PARITY",
+        max_error,
+        tolerances::ESN_F32_LATTICE_LOOSE_PARITY,
+    );
+    harness.check_lower(
+        "f32 classification agreement > ESN_F32_CLASSIFICATION_AGREEMENT",
+        agreement,
+        tolerances::ESN_F32_CLASSIFICATION_AGREEMENT,
+    );
     println!();
 }
 
@@ -249,7 +262,7 @@ fn check_phase_boundary_detection(harness: &mut ValidationHarness) {
 
         let seq: Vec<Vec<f64>> = (0..10).map(|_| vec![beta_norm, plaq, poly]).collect();
 
-        let pred = esn.predict(&seq)[0];
+        let pred = esn.predict(&seq).expect("ESN trained")[0];
         preds.push(pred);
         betas.push(beta);
     }
@@ -282,8 +295,11 @@ fn check_phase_boundary_detection(harness: &mut ValidationHarness) {
     let monotonic = last_quarter > first_quarter;
     harness.check_bool("predictions monotonically increase with β", monotonic);
 
-    // β_c within 0.5 of known value (generous for 4^4 with limited stats)
-    harness.check_upper("β_c error < 0.5", error, 0.5);
+    harness.check_upper(
+        "β_c error < PHASE_BOUNDARY",
+        error,
+        tolerances::PHASE_BOUNDARY_BETA_C_ERROR,
+    );
 
     // Phase separation: low-β predictions < 0.5, high-β > 0.5 (on average)
     let low_phase = first_quarter < 0.5;

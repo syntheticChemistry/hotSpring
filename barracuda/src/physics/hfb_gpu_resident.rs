@@ -25,6 +25,7 @@ use super::hfb_gpu_types::{
     HamiltonianDimsUniform, MixParamsUniform, PackParams, PotentialDimsUniform,
 };
 use super::semf::semf_binding_energy;
+use crate::error::HotSpringError;
 use crate::tolerances::{DENSITY_FLOOR, GPU_JACOBI_CONVERGENCE, RHO_POWF_GUARD, SPIN_ORBIT_R_MIN};
 use barracuda::device::WgpuDevice;
 use barracuda::ops::grid::compute_ls_factor;
@@ -276,7 +277,7 @@ pub fn binding_energies_l2_gpu_resident(
     max_iter: usize,
     tol: f64,
     mixing: f64,
-) -> GpuResidentL2Result {
+) -> Result<GpuResidentL2Result, HotSpringError> {
     let t0 = std::time::Instant::now();
     let mut results: Vec<(usize, usize, f64, bool)> = Vec::with_capacity(nuclei.len());
     let mut gpu_dispatches = 0usize;
@@ -295,14 +296,14 @@ pub fn binding_energies_l2_gpu_resident(
     }
 
     if hfb_nuclei.is_empty() {
-        return GpuResidentL2Result {
+        return Ok(GpuResidentL2Result {
             results,
             hfb_time_s: t0.elapsed().as_secs_f64(),
             gpu_dispatches,
             total_gpu_dispatches,
             n_hfb: 0,
             n_semf,
-        };
+        });
     }
 
     let solvers: Vec<(usize, usize, usize, SphericalHFB)> = hfb_nuclei
@@ -955,8 +956,9 @@ pub fn binding_energies_l2_gpu_resident(
     // Eliminates per-iteration GPU buffer allocation + shader/pipeline recreation.
     let max_eigh_batch = solvers.len() * 2; // proton + neutron per nucleus
     let (eigh_matrices_buf, eigh_eigenvalues_buf, eigh_eigenvectors_buf) =
-        BatchedEighGpu::create_buffers(&device, global_max_ns, max_eigh_batch)
-            .expect("pre-allocate eigensolve GPU buffers");
+        BatchedEighGpu::create_buffers(&device, global_max_ns, max_eigh_batch).map_err(|e| {
+            HotSpringError::GpuCompute(format!("pre-allocate eigensolve GPU buffers: {e}"))
+        })?;
 
     // ═══ SPIN-ORBIT + PACK PIPELINE (GPU-RESIDENT H → EIGENSOLVE) ═══
     // Eliminates H staging readback: spin-orbit diag add + matrix packing
@@ -1339,21 +1341,26 @@ pub fn binding_energies_l2_gpu_resident(
                 )
             };
 
-            dispatch_ok.ok().map(|()| {
+            Some({
+                dispatch_ok.map_err(|e| {
+                    HotSpringError::GpuCompute(format!(
+                        "GPU eigensolve must succeed — no CPU fallback: {e}"
+                    ))
+                })?;
                 let eigenvalues = BatchedEighGpu::read_eigenvalues(
                     &device,
                     &eigh_eigenvalues_buf,
                     global_max_ns,
                     batch_size,
                 )
-                .expect("eigenvalue readback");
+                .map_err(|e| HotSpringError::GpuCompute(format!("eigenvalue readback: {e}")))?;
                 let eigenvectors = BatchedEighGpu::read_eigenvectors(
                     &device,
                     &eigh_eigenvectors_buf,
                     global_max_ns,
                     batch_size,
                 )
-                .expect("eigenvector readback");
+                .map_err(|e| HotSpringError::GpuCompute(format!("eigenvector readback: {e}")))?;
                 (eigenvalues, eigenvectors)
             })
         } else {
@@ -1367,9 +1374,11 @@ pub fn binding_energies_l2_gpu_resident(
         // v² will be computed on GPU via compute_bcs_v2 shader.
         let eigen_bcs: Vec<EigenBcsResult> = extract_bcs_results(
             &all_work,
-            gpu_eigen
-                .as_ref()
-                .expect("GPU eigensolve must succeed — no CPU fallback"),
+            gpu_eigen.as_ref().ok_or_else(|| {
+                HotSpringError::GpuCompute(
+                    "GPU eigensolve must succeed — no CPU fallback".to_string(),
+                )
+            })?,
             &solvers,
             global_max_ns,
         );
@@ -1525,13 +1534,15 @@ pub fn binding_energies_l2_gpu_resident(
             std::collections::HashMap::new();
         for (gi, rx_p, rx_n) in density_receivers {
             rx_p.recv()
-                .map_err(|_| "density rho_p map channel failed".to_string())
-                .and_then(|r| r.map_err(|e| format!("density rho_p map: {e}")))
-                .expect("GPU density staging map for rho_p");
+                .map_err(|_| {
+                    HotSpringError::GpuCompute("density rho_p map channel failed".to_string())
+                })?
+                .map_err(|e| HotSpringError::GpuCompute(format!("density rho_p map: {e}")))?;
             rx_n.recv()
-                .map_err(|_| "density rho_n map channel failed".to_string())
-                .and_then(|r| r.map_err(|e| format!("density rho_n map: {e}")))
-                .expect("GPU density staging map for rho_n");
+                .map_err(|_| {
+                    HotSpringError::GpuCompute("density rho_n map channel failed".to_string())
+                })?
+                .map_err(|e| HotSpringError::GpuCompute(format!("density rho_n map: {e}")))?;
 
             let g = &all_groups[gi];
             let items_count = eigen_bcs.iter().filter(|r| r.gi == gi).count();
@@ -1616,14 +1627,14 @@ pub fn binding_energies_l2_gpu_resident(
         results.push((*z, *n, states[i].binding_energy, states[i].converged));
     }
 
-    GpuResidentL2Result {
+    Ok(GpuResidentL2Result {
         results,
         hfb_time_s: t0.elapsed().as_secs_f64(),
         gpu_dispatches,
         total_gpu_dispatches,
         n_hfb,
         n_semf,
-    }
+    })
 }
 
 #[cfg(test)]

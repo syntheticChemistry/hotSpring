@@ -142,7 +142,7 @@ All components implemented and validated (13/13 checks pass):
 
 ### Key Facts for ToadStool Team
 
-- 18 papers reproduced, 441 unit tests, 33/33 validation suites, ~$0.20 total compute cost
+- 18 papers reproduced, 454 unit tests, 33/33 validation suites, ~$0.20 total compute cost
 - RTX 4070 sustains f64 MD at 149-259 steps/s; Titan V (NVK) produces identical physics
 - Energy drift 0.000% over 80k steps sets the precision bar for any new integrator
 - `ReduceScalarPipeline` is the most-used upstream primitive after `WgpuDevice`

@@ -23,6 +23,12 @@ pub enum HotSpringError {
     /// Data file loading failed (path, underlying IO or parse error).
     DataLoad(String),
 
+    /// GPU compute operation failed (buffer map, dispatch, readback).
+    GpuCompute(String),
+
+    /// Invalid operation (e.g. predict before train).
+    InvalidOperation(String),
+
     /// Propagated from barracuda primitives (ReduceScalarPipeline, etc.)
     Barracuda(barracuda::error::BarracudaError),
 }
@@ -39,6 +45,8 @@ impl fmt::Display for HotSpringError {
                 )
             }
             Self::DataLoad(msg) => write!(f, "Data loading failed: {msg}"),
+            Self::GpuCompute(msg) => write!(f, "GPU compute failed: {msg}"),
+            Self::InvalidOperation(msg) => write!(f, "Invalid operation: {msg}"),
             Self::Barracuda(e) => write!(f, "BarraCUDA error: {e}"),
         }
     }
@@ -115,5 +123,21 @@ mod tests {
         assert!(s.contains("BarraCUDA error"));
         assert!(s.contains("GPU error"));
         assert!(s.contains("buffer overflow"));
+    }
+
+    #[test]
+    fn display_gpu_compute() {
+        let err = HotSpringError::GpuCompute("eigenvalue readback: buffer map failed".into());
+        let s = err.to_string();
+        assert!(s.contains("GPU compute failed"));
+        assert!(s.contains("eigenvalue readback"));
+    }
+
+    #[test]
+    fn display_invalid_operation() {
+        let err = HotSpringError::InvalidOperation("ESN not trained".into());
+        let s = err.to_string();
+        assert!(s.contains("Invalid operation"));
+        assert!(s.contains("ESN not trained"));
     }
 }

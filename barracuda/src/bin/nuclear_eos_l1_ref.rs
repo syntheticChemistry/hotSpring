@@ -405,12 +405,13 @@ fn main() {
     println!("═══════════════════════════════════════════════════════════════");
     println!();
 
-    // Load full nucleus data for element names
     let nuclei_set = data::parse_nuclei_set_from_args();
-    let nuclei_text = std::fs::read_to_string(data::nuclei_data_path(&base, nuclei_set))
-        .expect("Failed to read nuclei JSON");
+    let nuclei_path = data::nuclei_data_path(&base, nuclei_set);
+    let nuclei_reader = std::io::BufReader::new(
+        std::fs::File::open(&nuclei_path).expect("Failed to open nuclei JSON"),
+    );
     let nuclei_file: serde_json::Value =
-        serde_json::from_str(&nuclei_text).expect("nuclei JSON parse failed");
+        serde_json::from_reader(nuclei_reader).expect("nuclei JSON parse failed");
     let nuclei_list = nuclei_file["nuclei"]
         .as_array()
         .expect("nuclei JSON has nuclei array");

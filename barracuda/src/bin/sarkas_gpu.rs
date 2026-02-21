@@ -79,7 +79,7 @@ async fn main() {
     // Save benchmark report (discovery module: HOTSPRING_DATA_ROOT / manifest parent / cwd)
     let report_dir = match discovery::benchmark_results_dir() {
         Ok(p) => p.to_string_lossy().into_owned(),
-        Err(_) => "benchmarks/nuclear-eos/results".to_string(),
+        Err(_) => discovery::paths::BENCHMARK_RESULTS.to_string(),
     };
     match report.save_json(&report_dir) {
         Ok(path) => println!("  Benchmark report saved: {path}"),

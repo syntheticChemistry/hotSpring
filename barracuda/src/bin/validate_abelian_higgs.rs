@@ -115,7 +115,11 @@ fn main() {
         println!("  Acceptance: {:.1}%", stats.acceptance_rate * 100.0);
         println!("  ⟨|ΔH|⟩:    {:.4}", stats.avg_abs_delta_h);
 
-        harness.check_upper("strong coupling plaquette < 0.5", stats.avg_plaquette, 0.5);
+        harness.check_upper(
+            "strong coupling plaquette < 0.5",
+            stats.avg_plaquette,
+            tolerances::U1_STRONG_COUPLING_PLAQ_MAX,
+        );
         harness.check_lower(
             "strong coupling acceptance",
             stats.acceptance_rate,
@@ -136,7 +140,11 @@ fn main() {
         println!("  Acceptance: {:.1}%", stats.acceptance_rate * 100.0);
         println!("  ⟨|ΔH|⟩:    {:.4}", stats.avg_abs_delta_h);
 
-        harness.check_lower("Higgs condensation ⟨|φ|²⟩ > 1.5", stats.avg_higgs_sq, 1.5);
+        harness.check_lower(
+            "Higgs condensation ⟨|φ|²⟩ > 1.5",
+            stats.avg_higgs_sq,
+            tolerances::U1_HIGGS_CONDENSATE_BOUNDARY,
+        );
         harness.check_lower(
             "Higgs condensation acceptance",
             stats.acceptance_rate,
@@ -180,7 +188,12 @@ fn main() {
         );
         println!("  Acceptance: {:.1}%", stats.acceptance_rate * 100.0);
 
-        harness.check_abs("large λ freezes |φ|² ≈ 1", stats.avg_higgs_sq, 1.0, 0.15);
+        harness.check_abs(
+            "large λ freezes |φ|² ≈ 1",
+            stats.avg_higgs_sq,
+            1.0,
+            tolerances::U1_CONDENSATE_MONOTONICITY,
+        );
         harness.check_lower(
             "large λ acceptance",
             stats.acceptance_rate,

@@ -102,7 +102,8 @@ fn main() {
         match barracuda::optimize::nelder_mead(f, &x0, &bounds, 5000, tolerances::NELDER_MEAD_FTOL)
         {
             Ok((x, fval, n_eval)) => {
-                let ok = (x[0] - 1.0).abs() < 0.1 && (x[1] - 1.0).abs() < 0.1;
+                let ok = (x[0] - 1.0).abs() < tolerances::NELDER_MEAD_TOLERANCE
+                    && (x[1] - 1.0).abs() < tolerances::NELDER_MEAD_TOLERANCE;
                 if ok {
                     println!(
                         "  ✅ NM Rosenbrock: ({:.4}, {:.4}), f={:.6}, {} evals",
@@ -495,7 +496,7 @@ fn main() {
                 let mut means_ok = true;
                 for d in 0..3 {
                     let mean: f64 = points.iter().map(|p| p[d]).sum::<f64>() / points.len() as f64;
-                    if (mean - 0.5).abs() > 0.1 {
+                    if (mean - 0.5).abs() > tolerances::SOBOL_TOLERANCE {
                         means_ok = false;
                     }
                 }

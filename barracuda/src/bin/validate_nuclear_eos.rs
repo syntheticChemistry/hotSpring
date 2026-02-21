@@ -148,7 +148,7 @@ fn phase4_l2_hfb(harness: &mut ValidationHarness) {
     let mut n_converged = 0usize;
 
     for &(z, n, name, b_exp, b_python) in HFB_TEST_NUCLEI {
-        let (b_rust, converged) = binding_energy_l2(z, n, &SLY4_PARAMS);
+        let (b_rust, converged) = binding_energy_l2(z, n, &SLY4_PARAMS).expect("HFB solve");
 
         if converged {
             n_converged += 1;
@@ -179,29 +179,29 @@ fn phase4_l2_hfb(harness: &mut ValidationHarness) {
             rel_err_exp * 100.0,
         );
 
-        // Each nucleus: Rust vs Python within 12%.
-        // Method differences (bisection vs Brent, density mixing, convergence
-        // criteria) produce up to ~11% for light nuclei like Ni-56 where the
-        // basis is small and sensitive to mixing strategy.
         harness.check_upper(
-            &format!("L2 HFB {name}: Rust vs Python < 12%"),
+            &format!(
+                "L2 HFB {name}: Rust vs Python < {:.0}%",
+                tolerances::HFB_RUST_VS_PYTHON_REL * 100.0
+            ),
             rel_err_python,
-            0.12,
+            tolerances::HFB_RUST_VS_PYTHON_REL,
         );
 
-        // Each nucleus: Rust vs experiment within 15% (model limitations)
         harness.check_upper(
-            &format!("L2 HFB {name}: Rust vs AME2020 < 15%"),
+            &format!(
+                "L2 HFB {name}: Rust vs AME2020 < {:.0}%",
+                tolerances::HFB_RUST_VS_EXP_REL * 100.0
+            ),
             rel_err_exp,
-            0.15,
+            tolerances::HFB_RUST_VS_EXP_REL,
         );
     }
 
-    // Summary checks
     harness.check_upper(
         "L2 HFB: max Rust-vs-Python relative error",
         max_rel_err,
-        0.12,
+        tolerances::HFB_RUST_VS_PYTHON_REL,
     );
     harness.check_lower(
         "L2 HFB: convergence rate",
@@ -283,8 +283,8 @@ fn phase6_cross_parametrization(harness: &mut ValidationHarness) {
     harness.check_lower("Cross-param: UNEDF0 B > 500 MeV", b_unedf0, 500.0);
 
     // L2 HFB cross-check for Pb-208
-    let (b_sly4_l2, conv_sly4) = binding_energy_l2(82, 126, &SLY4_PARAMS);
-    let (b_unedf0_l2, conv_unedf0) = binding_energy_l2(82, 126, &UNEDF0_PARAMS);
+    let (b_sly4_l2, conv_sly4) = binding_energy_l2(82, 126, &SLY4_PARAMS).expect("HFB solve");
+    let (b_unedf0_l2, conv_unedf0) = binding_energy_l2(82, 126, &UNEDF0_PARAMS).expect("HFB solve");
 
     println!(
         "  Pb-208 HFB: SLy4={b_sly4_l2:.2} (conv={conv_sly4}), \

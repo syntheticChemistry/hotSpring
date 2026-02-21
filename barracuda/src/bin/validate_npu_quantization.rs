@@ -61,7 +61,10 @@ fn main() {
     esn.train(&train_seqs, &train_targets);
 
     // Get f64 predictions for all cases
-    let f64_preds: Vec<f64> = sequences.iter().map(|seq| esn.predict(seq)[0]).collect();
+    let f64_preds: Vec<f64> = sequences
+        .iter()
+        .map(|seq| esn.predict(seq).expect("ESN trained")[0])
+        .collect();
 
     println!(
         "  f64 predictions: {:?}",

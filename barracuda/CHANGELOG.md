@@ -5,7 +5,41 @@ All notable changes to the hotSpring BarraCUDA validation crate.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.5.16] — 2026-02-21
+## [0.6.0] — 2026-02-21
+
+### Changed
+
+- **Full Result propagation:** Eliminated all `.expect()` and `.unwrap()` from library
+  code. GPU pipelines (HFB spherical, deformed, GPU-batched), BCS solver, and ESN
+  `predict()` now return `Result<T, HotSpringError>`. New error variant
+  `HotSpringError::InvalidOperation` for state-dependent failures (e.g. ESN not trained).
+  Provably unreachable byte-slice `try_into()` calls annotated with `#[allow(clippy::expect_used)]`
+  and `// SAFETY:` justifications.
+- **Idiomatic Arc usage:** All `.clone()` on `Arc<T>` replaced with `Arc::clone(&...)`
+  for explicit reference-count semantics (`gpu.rs`, `bench.rs`, `ssf.rs`, `summary.rs`).
+- **Tolerance expansion:** 146 centralized constants in `tolerances.rs` (up from 122).
+  Added ESN/heterogeneous pipeline tolerances (`ESN_F32_LATTICE_PARITY`,
+  `ESN_F32_CLASSIFICATION_AGREEMENT`, `ESN_INT4_PREDICTION_PARITY`,
+  `ESN_PHASE_ACCURACY_MIN`, `ESN_MONITORING_OVERHEAD_PCT`, `PHASE_BOUNDARY_BETA_C_ERROR`)
+  and `BCS_DEGENERACY_PARTICLE_NUMBER_ABS`. All validation binaries wired to named
+  constants — zero inline magic numbers remain.
+- **Semantic tolerance fix:** `validate_barracuda_hfb.rs` now uses
+  `BCS_DEGENERACY_PARTICLE_NUMBER_ABS` instead of misused `MD_EQUILIBRIUM_FORCE_ABS`.
+- **Capability-based paths:** `nuclear_eos_gpu.rs` and `sarkas_gpu.rs` benchmark result
+  paths replaced with `discovery::paths::BENCHMARK_RESULTS`.
+
+### Added
+
+- **16 determinism tests** for all stochastic algorithms: ESN predict, HMC trajectory,
+  Anderson 2D/3D, MD FCC lattice velocities, MD force computation — all verify
+  reproducibility with fixed seeds.
+- **4 SSF CPU-path tests:** empty snapshots, multi-frame averaging, k-spacing, single
+  particle identity.
+- **Test coverage:** 454 unit tests (449 passing + 5 GPU-ignored), up from 441.
+  33 validation suites (33/33 pass). ~63% overall / ~96% unit-testable library coverage
+  (measured with `cargo-llvm-cov`).
+
+## [0.5.16] — 2026-02-20
 
 ### Changed
 

@@ -1,11 +1,11 @@
 # hotSpring → ToadStool: Rewire v3 — Post Session 25 Absorption Audit
 
-**Date:** 2026-02-20 (evening)
+**Date:** 2026-02-21 (updated)
 **From:** hotSpring (computational physics Spring)
 **To:** ToadStool / BarraCUDA core team
 **License:** AGPL-3.0-only
 **Context:** ToadStool Sessions 18-25 (commits `81a6fd4b`..`dc540afd`) reviewed
-against hotSpring v0.5.16 (33/33 validation suites, 441 unit tests, 18 papers)
+against hotSpring v0.6.0 (33/33 validation suites, 454 unit tests, 18 papers)
 
 ---
 
@@ -100,13 +100,16 @@ before this sprint:
 
 ---
 
-## Part 4: Current hotSpring State
+## Part 4: Current hotSpring State (v0.6.0)
 
 | Metric | Value |
 |--------|-------|
-| Unit tests | **441** pass, 5 GPU-ignored |
+| Unit tests | **454** pass (449 + 5 GPU-ignored) |
+| Determinism tests | **16** (all stochastic algorithms) |
 | Validation suites | **33/33** pass (CPU) |
-| Clippy warnings | **0** |
+| Clippy warnings | **0** (including `expect_used` and `unwrap_used`) |
+| Centralized tolerances | **146** constants in `tolerances.rs` |
+| `.expect()`/`.unwrap()` in lib | **0** — full `Result` propagation |
 | Papers reproduced | **18** |
 | Total compute cost | **~$0.20** |
 | Python control scripts | **34** |
@@ -146,9 +149,9 @@ ESN shaders, weight export, Akida wiring. See metalForge NPU handoff.
 ## Part 6: Archived Handoffs
 
 This document supersedes the Rewire v2 handoff (now in `archive/`).
-All 15 prior handoffs are archived. The consolidated handoff
-(`HOTSPRING_V0516_CONSOLIDATED_HANDOFF_FEB20_2026.md`) remains active
-as the authoritative primitive catalog.
+All 16 prior handoffs are archived. The consolidated handoff
+(`HOTSPRING_V060_CONSOLIDATED_HANDOFF_FEB21_2026.md`) is the
+authoritative primitive catalog for v0.6.0.
 
 ---
 

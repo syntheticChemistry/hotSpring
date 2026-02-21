@@ -30,6 +30,7 @@
 
 use hotspring_barracuda::spectral;
 use hotspring_barracuda::spectral::CsrMatrix;
+use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
 
 fn main() {
@@ -111,7 +112,11 @@ fn check_spmv_correctness(harness: &mut ValidationHarness) {
     println!("  Dense ref = {y_ref:?}");
     println!("  Max error = {max_err:.2e}");
 
-    harness.check_upper("SpMV matches dense reference", max_err, 1e-14);
+    harness.check_upper(
+        "SpMV matches dense reference",
+        max_err,
+        tolerances::LANCZOS_TRIDIAG_EIGENVALUE_ABS,
+    );
     println!();
 }
 
@@ -142,8 +147,16 @@ fn check_lanczos_sturm_parity(harness: &mut ValidationHarness) {
     let err_max = (sturm_max - lanczos_max).abs();
     println!("  Δ(min) = {err_min:.2e}, Δ(max) = {err_max:.2e}");
 
-    harness.check_upper("Lanczos min eigenvalue matches Sturm", err_min, 1e-6);
-    harness.check_upper("Lanczos max eigenvalue matches Sturm", err_max, 1e-6);
+    harness.check_upper(
+        "Lanczos min eigenvalue matches Sturm",
+        err_min,
+        tolerances::LANCZOS_EXTREMAL_REL,
+    );
+    harness.check_upper(
+        "Lanczos max eigenvalue matches Sturm",
+        err_max,
+        tolerances::LANCZOS_EXTREMAL_REL,
+    );
     println!();
 }
 
@@ -175,7 +188,11 @@ fn check_lanczos_full_spectrum(harness: &mut ValidationHarness) {
     println!("  Lanczos iterations: {}", lanczos_result.iterations);
     println!("  Max |λ_Sturm - λ_Lanczos| = {max_err:.2e}");
 
-    harness.check_upper("full spectrum max error < 1e-8", max_err, 1e-8);
+    harness.check_upper(
+        "full spectrum max error < 1e-8",
+        max_err,
+        tolerances::ANDERSON_EIGENVALUE_ABS,
+    );
     println!();
 }
 
@@ -267,7 +284,7 @@ fn check_2d_goe_statistics(harness: &mut ValidationHarness) {
     let l = 16;
     let w = 2.0;
     let n_real = 8;
-    let goe_r = 0.531;
+    let goe_r = tolerances::GOE_MEAN_R;
 
     let mut r_sum = 0.0;
     for seed in 0..n_real {
@@ -286,7 +303,7 @@ fn check_2d_goe_statistics(harness: &mut ValidationHarness) {
 
     harness.check_bool(
         "⟨r⟩ > 0.48 (GOE-like for metallic 2D regime)",
-        r_mean > 0.48,
+        r_mean >= tolerances::GOE_MEAN_R - tolerances::GOE_DEVIATION_TOLERANCE,
     );
     println!();
 }
@@ -319,7 +336,11 @@ fn check_2d_poisson_statistics(harness: &mut ValidationHarness) {
     println!("  ⟨r⟩ = {r_mean:.4} (Poisson = {:.4})", spectral::POISSON_R);
 
     let deviation = (r_mean - spectral::POISSON_R).abs();
-    harness.check_upper("⟨r⟩ within 0.04 of Poisson", deviation, 0.04);
+    harness.check_upper(
+        "⟨r⟩ within 0.04 of Poisson",
+        deviation,
+        tolerances::POISSON_DEVIATION_TOLERANCE,
+    );
     println!();
 }
 
@@ -359,7 +380,7 @@ fn check_2d_statistics_transition(harness: &mut ValidationHarness) {
 
     harness.check_bool(
         "⟨r⟩ decreases from weak to strong disorder",
-        transition && delta > 0.05,
+        transition && delta > tolerances::GOE_DEVIATION_TOLERANCE,
     );
     println!();
 }

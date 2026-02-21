@@ -25,6 +25,7 @@
 
 use super::hfb::SphericalHFB;
 use super::semf::semf_binding_energy;
+use crate::error::HotSpringError;
 use crate::tolerances::{DENSITY_FLOOR, GPU_JACOBI_CONVERGENCE};
 use barracuda::device::WgpuDevice;
 use barracuda::ops::linalg::BatchedEighGpu;
@@ -64,7 +65,7 @@ pub fn binding_energies_l2_gpu(
     max_iter: usize,
     tol: f64,
     mixing: f64,
-) -> BatchedL2Result {
+) -> Result<BatchedL2Result, HotSpringError> {
     let t0 = std::time::Instant::now();
     let mut results: Vec<(usize, usize, f64, bool)> = Vec::with_capacity(nuclei.len());
     let mut gpu_dispatches = 0usize;
@@ -84,13 +85,13 @@ pub fn binding_energies_l2_gpu(
     }
 
     if hfb_nuclei.is_empty() {
-        return BatchedL2Result {
+        return Ok(BatchedL2Result {
             results,
             hfb_time_s: t0.elapsed().as_secs_f64(),
             gpu_dispatches,
             n_hfb: 0,
             n_semf,
-        };
+        });
     }
 
     // Build SphericalHFB instances and group by n_states
@@ -184,8 +185,9 @@ pub fn binding_energies_l2_gpu(
     // and bind group creation. Data uploads via queue.write_buffer (DMA).
     let max_batch_count = solvers.len() * 2; // proton + neutron per nucleus
     let (eigh_matrices_buf, eigh_eigenvalues_buf, eigh_eigenvectors_buf) =
-        BatchedEighGpu::create_buffers(&device, max_ns, max_batch_count)
-            .expect("pre-allocate eigensolve GPU buffers");
+        BatchedEighGpu::create_buffers(&device, max_ns, max_batch_count).map_err(|e| {
+            HotSpringError::GpuCompute(format!("pre-allocate eigensolve GPU buffers: {e}"))
+        })?;
     let mut packed_hamiltonians: Vec<f64> = vec![0.0; max_batch_count * max_mat_size];
 
     // ═══════════════════════════════════════════════════════════════
@@ -276,10 +278,10 @@ pub fn binding_energies_l2_gpu(
         // Readback from pre-allocated GPU buffers
         let eigenvalues =
             BatchedEighGpu::read_eigenvalues(&device, &eigh_eigenvalues_buf, max_ns, batch_size)
-                .expect("eigenvalue readback");
+                .map_err(|e| HotSpringError::GpuCompute(format!("eigenvalue readback: {e}")))?;
         let eigenvectors =
             BatchedEighGpu::read_eigenvectors(&device, &eigh_eigenvectors_buf, max_ns, batch_size)
-                .expect("eigenvector readback");
+                .map_err(|e| HotSpringError::GpuCompute(format!("eigenvector readback: {e}")))?;
         gpu_dispatches += 1;
 
         // Unpack results: extract actual_ns eigenvalues per nucleus
@@ -429,13 +431,13 @@ pub fn binding_energies_l2_gpu(
         results.push((*z, *n, states[i].binding_energy, states[i].converged));
     }
 
-    BatchedL2Result {
+    Ok(BatchedL2Result {
         results,
         hfb_time_s: t0.elapsed().as_secs_f64(),
         gpu_dispatches,
         n_hfb,
         n_semf,
-    }
+    })
 }
 
 #[cfg(test)]

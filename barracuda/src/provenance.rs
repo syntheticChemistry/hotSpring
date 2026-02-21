@@ -23,6 +23,7 @@
 //! | SLy4 (Chabanat et al.) | [10.1016/S0375-9474(98)00180-8](https://doi.org/10.1016/S0375-9474(98)00180-8) | Nucl. Phys. A 635, 231-256 (1998) |
 //! | UNEDF0 (Kortelainen et al.) | [10.1103/PhysRevC.82.024313](https://doi.org/10.1103/PhysRevC.82.024313) | Phys. Rev. C 82, 024313 (2010) |
 //! | Bender, Heenen, Reinhard | [10.1103/RevModPhys.75.121](https://doi.org/10.1103/RevModPhys.75.121) | E/A NMP target |
+//! | Blaizot, Gogny, Grammaticos | [10.1016/0375-9474(76)90292-1](https://doi.org/10.1016/0375-9474(76)90292-1) | K∞ NMP target; Nucl. Phys. A 265, 315 (1976) |
 //! | Lattimer & Prakash | [10.1016/j.physrep.2015.12.005](https://doi.org/10.1016/j.physrep.2015.12.005) | J (symmetry energy) NMP target |
 //! | Sarkas MD software | [10.1016/j.cpc.2021.108245](https://doi.org/10.1016/j.cpc.2021.108245) | Silvestri et al., CPC (2022); control runs from `control/sarkas/` |
 //! | Surrogate learning archive | [10.5281/zenodo.10908462](https://doi.org/10.5281/zenodo.10908462) | Zenodo CC-BY, nuclear EOS convergence |

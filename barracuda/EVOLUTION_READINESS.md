@@ -214,7 +214,7 @@ Paper-parity run (N=10k, 80k steps): 9.8 min, $0.0012. 98 runs/day idle.
   displayed for matched cases; cross-case D* ordering checks per-κ and cross-κ
 - ✅ **Tolerance constants added**: `DALIGAULT_FIT_VS_CALIBRATION` (20% per-point),
   `DALIGAULT_FIT_RMSE` (10% over 12 points) in `tolerances.rs`
-- ✅ **441 tests, 0 clippy warnings, 0 failures**
+- ✅ **454 tests, 0 clippy warnings, 0 failures**
 
 ## Completed (audit, Feb 19 2026)
 
@@ -266,7 +266,7 @@ Paper-parity run (N=10k, 80k steps): 9.8 min, $0.0012. 98 runs/day idle.
   Eliminated ~50 lines of boilerplate per MD path (4 bind groups, 6 buffers, reduce_pipeline).
 - ✅ **Error bridge**: `HotSpringError::Barracuda(BarracudaError)` variant + `From` impl enables
   clean `?` propagation from barracuda primitive calls into hotSpring result types.
-- ✅ **Zero regressions**: 441 tests pass (436 + 5 GPU-ignored), 0 clippy warnings, 0 doc warnings.
+- ✅ **Zero regressions**: 454 tests pass (449 + 5 GPU-ignored), 0 clippy warnings, 0 doc warnings.
 
 ## Completed (v0.5.11)
 
@@ -367,7 +367,7 @@ absorption). Both `simulation.rs` and `celllist.rs` now call
 partial buffers, scalar buffers, param buffers, bind groups, inline dispatches).
 `SHADER_SUM_REDUCE` removed from `shaders.rs`.
 
-**Validation**: 441 tests pass, 0 clippy warnings, 0 doc warnings.
+**Validation**: 454 tests pass, 0 clippy warnings, 0 doc warnings.
 
 **Remaining readback**: position/velocity snapshots for VACF and cell-list
 rebuilds. Both can be eliminated with GPU-resident VACF and `CellListGpu`.

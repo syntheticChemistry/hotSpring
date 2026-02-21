@@ -72,7 +72,7 @@ fn check_pipeline_single_output(harness: &mut ValidationHarness) {
 
     let test_preds: Vec<f64> = sequences[n_train..]
         .iter()
-        .map(|s| esn.predict(s)[0])
+        .map(|s| esn.predict(s).expect("ESN trained")[0])
         .collect();
 
     let all_finite = test_preds.iter().all(|v| v.is_finite());
@@ -153,7 +153,7 @@ fn check_pipeline_multi_output(harness: &mut ValidationHarness) {
 
     let multi_preds: Vec<Vec<f64>> = sequences[n_train..]
         .iter()
-        .map(|s| esn.predict(s))
+        .map(|s| esn.predict(s).expect("ESN trained"))
         .collect();
 
     harness.check_bool(
@@ -229,7 +229,10 @@ fn check_quantized_pipeline(harness: &mut ValidationHarness) {
     esn.train(&sequences[..4], &targets[..4]);
     let exported = esn.export_weights().expect("trained");
 
-    let f64_preds: Vec<f64> = sequences[4..].iter().map(|s| esn.predict(s)[0]).collect();
+    let f64_preds: Vec<f64> = sequences[4..]
+        .iter()
+        .map(|s| esn.predict(s).expect("ESN trained")[0])
+        .collect();
 
     // Simulate int4 quantized readout (like AKD1000 would do)
     let (w_out_q4, s_out) = quantize_f32_vec(&exported.w_out, 4);
@@ -312,7 +315,9 @@ fn check_continuous_prediction(harness: &mut ValidationHarness) {
         })
         .collect();
 
-    let preds: Vec<f64> = (0..20).map(|_| esn.predict(&test)[0]).collect();
+    let preds: Vec<f64> = (0..20)
+        .map(|_| esn.predict(&test).expect("ESN trained")[0])
+        .collect();
     // Exact parity check — determinism: same input → bit-identical output
     #[allow(clippy::float_cmp)] // determinism test: bit-identical outputs required
     let all_same = preds.windows(2).all(|w| w[0] == w[1]);

@@ -30,6 +30,7 @@ use hotspring_barracuda::validation::ValidationHarness;
 /// # Provenance
 ///
 /// - **Script**: `control/screened_coulomb/scripts/yukawa_eigenvalues.py`
+/// - **Commit**: `3f0d36d` (hotSpring)
 /// - **Method**: `scipy.linalg.eigh_tridiagonal` with N=2000, r_max=100
 /// - **Environment**: Python 3.11, SciPy 1.11
 ///
@@ -43,6 +44,10 @@ const PYTHON_REF_1S_K05: f64 = -0.147_862_177_236_561_37;
 const PYTHON_REF_1S_K10: f64 = -0.010_192_508_268_288_38;
 const PYTHON_REF_HE_1S_K0: f64 = -1.995_029_791_615_593_2;
 const PYTHON_REF_1S_K01: f64 = -0.406_749_026_963_666_44;
+
+/// Hydrogen n=2 eigenvalue E₂ = −1/(2n²) = −0.125 (exact analytical value).
+/// Both 2s and 2p are degenerate at κ=0.
+const HYDROGEN_2S_EXACT: f64 = -0.125;
 
 fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");
@@ -82,12 +87,12 @@ fn main() {
 
     // 2p vs exact
     let e2p = evals_p[0];
-    let rel_2p = ((e2p - (-0.125)) / (-0.125)).abs();
+    let rel_2p = ((e2p - HYDROGEN_2S_EXACT) / HYDROGEN_2S_EXACT).abs();
     println!("    H_2p vs exact: {e2p:.8} vs -0.12500000 (err {rel_2p:.2e})");
     harness.check_rel(
         "H_2p vs exact",
         e2p,
-        -0.125,
+        HYDROGEN_2S_EXACT,
         tolerances::SCREENED_HYDROGEN_VS_EXACT,
     );
 
@@ -216,7 +221,7 @@ fn main() {
     // Stewart-Pyatt → ion-sphere at strong coupling
     let sp_strong = screening_models::stewart_pyatt_kappa_reduced(1000.0);
     let is_val = screening_models::ion_sphere_kappa_reduced();
-    let sp_limit = ((sp_strong - is_val) / is_val).abs() < 0.05;
+    let sp_limit = ((sp_strong - is_val) / is_val).abs() < tolerances::SCREENED_SP_TO_IS_LIMIT;
     println!("    SP→IS: SP(Γ=1000)={sp_strong:.4}, IS={is_val:.4}, converged={sp_limit}");
     harness.check_bool("Stewart-Pyatt → ion-sphere limit", sp_limit);
 

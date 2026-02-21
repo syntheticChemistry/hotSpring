@@ -104,7 +104,7 @@ pub fn print_observable_summary_with_gpu(
     if !sim.positions_snapshots.is_empty() {
         let (ssf, ssf_label) = if let Some(ref dev) = gpu_device {
             let gpu_ssf = compute_ssf_gpu(
-                dev.clone(),
+                Arc::clone(dev),
                 &sim.positions_snapshots,
                 config.n_particles,
                 config.box_side(),
@@ -133,6 +133,8 @@ pub fn print_observable_summary_with_gpu(
         };
 
         if let Some((k0, s0)) = ssf.first() {
+            // SAFETY: first() returned Some, so ssf has ≥1 element; max_by always returns Some
+            #[allow(clippy::expect_used)]
             let (k_max, s_max) = ssf
                 .iter()
                 .max_by(|a, b| a.1.total_cmp(&b.1))

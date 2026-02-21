@@ -217,6 +217,14 @@ pub struct TransportResult {
 /// These are the 12 calibration points from which the Daligault fit
 /// coefficients were derived. The fit MUST reproduce these to within
 /// `DALIGAULT_FIT_VS_CALIBRATION` tolerance.
+///
+/// Provenance:
+///   Script:  control/sarkas/simulations/dsf-study/scripts/validate_all_observables.py
+///   Source:  all_observables_validation.json (Green-Kubo VACF integration, N=2000)
+///   Commit:  0a6405f (hotSpring main, Paper 5 transport)
+///   Date:    2026-02-19
+///   Env:     envs/sarkas.yaml (Python 3.10, Sarkas 1.0.0, NumPy 2.2)
+///   Command: python3 validate_all_observables.py --cases=all --output=all_observables_validation.json
 pub const SARKAS_D_MKS_REFERENCE: [(f64, f64, f64); 12] = [
     (0.0, 10.0, 5.856_310_235_929_256e-07),
     (0.0, 50.0, 6.053_635_489_140_258e-08),
@@ -240,6 +248,14 @@ pub const SARKAS_D_MKS_REFERENCE: [(f64, f64, f64); 12] = [
 ///
 /// Physics: peak position should increase slightly with Γ (more ordered),
 /// peak height increases strongly with Γ (sharper structure).
+///
+/// Provenance:
+///   Script:  control/sarkas/simulations/dsf-study/scripts/validate_all_observables.py
+///   Source:  all_observables_validation.json (RDF histogram binning, N=2000)
+///   Commit:  0a6405f (hotSpring main, Paper 5 transport)
+///   Date:    2026-02-19
+///   Env:     envs/sarkas.yaml (Python 3.10, Sarkas 1.0.0, NumPy 2.2)
+///   Command: python3 validate_all_observables.py --cases=all --output=all_observables_validation.json
 pub const SARKAS_RDF_REFERENCE: [(f64, f64, f64, f64); 12] = [
     // (kappa, gamma, first_peak_r_aws, first_peak_g)
     (0.0, 10.0, 1.644, 1.140),

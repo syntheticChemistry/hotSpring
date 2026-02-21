@@ -424,4 +424,40 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn anderson_2d_determinism() {
+        let evals: Vec<Vec<f64>> = (0..2)
+            .map(|_| {
+                let mat = anderson_2d(10, 10, 4.0, 42);
+                let result = lanczos(&mat, 100, 42);
+                lanczos_eigenvalues(&result)
+            })
+            .collect();
+        assert_eq!(evals[0].len(), evals[1].len());
+        for (a, b) in evals[0].iter().zip(&evals[1]) {
+            assert!(
+                (a - b).abs() < f64::EPSILON,
+                "Anderson 2D eigenvalues must be identical across runs"
+            );
+        }
+    }
+
+    #[test]
+    fn anderson_3d_determinism() {
+        let evals: Vec<Vec<f64>> = (0..2)
+            .map(|_| {
+                let mat = anderson_3d(4, 4, 4, 5.0, 123);
+                let result = lanczos(&mat, 64, 123);
+                lanczos_eigenvalues(&result)
+            })
+            .collect();
+        assert_eq!(evals[0].len(), evals[1].len());
+        for (a, b) in evals[0].iter().zip(&evals[1]) {
+            assert!(
+                (a - b).abs() < f64::EPSILON,
+                "3D Anderson eigenvalues must be identical"
+            );
+        }
+    }
 }

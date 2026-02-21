@@ -27,6 +27,7 @@
 //! Avila (2015) Acta Math. 215, 1
 
 use hotspring_barracuda::spectral;
+use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
 
 fn main() {
@@ -160,7 +161,11 @@ fn check_anderson_level_stats(harness: &mut ValidationHarness) {
     );
 
     let deviation = (r_mean - spectral::POISSON_R).abs();
-    harness.check_upper("⟨r⟩ within 0.03 of Poisson", deviation, 0.03);
+    harness.check_upper(
+        "⟨r⟩ within Poisson deviation tolerance",
+        deviation,
+        tolerances::POISSON_DEVIATION_TOLERANCE,
+    );
     println!();
 }
 
@@ -214,7 +219,11 @@ fn check_herman_formula(harness: &mut ValidationHarness) {
     let theory_2 = (2.0f64).ln();
     let error = (gamma_2 - theory_2).abs();
 
-    harness.check_upper("γ at λ=2 within 0.02 of ln(2)", error, 0.02);
+    harness.check_upper(
+        "γ at λ=2 within Lyapunov tolerance of ln(2)",
+        error,
+        tolerances::ANDERSON_1D_LYAPUNOV_TOLERANCE,
+    );
     println!();
 }
 

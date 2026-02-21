@@ -32,7 +32,7 @@ fn main() {
 
     for &(z, n, name, b_exp, b_python) in HFB_TEST_NUCLEI {
         let t0 = Instant::now();
-        let (b_rust, conv) = binding_energy_l2(z, n, &SLY4_PARAMS);
+        let (b_rust, conv) = binding_energy_l2(z, n, &SLY4_PARAMS).expect("HFB solve");
         let dt = t0.elapsed().as_secs_f64();
 
         let a = z + n;

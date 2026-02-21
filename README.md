@@ -75,7 +75,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **NPU HW Quantization** | ✅ Complete | 4/4 on AKD1000: f32/int8/int4/act4 cascade, 685μs/inference |
 | **NPU Lattice Phase** | ✅ 7/8 | β_c=5.715 on AKD1000, ESN 100% CPU, int4 NPU 60% (marginal as expected) |
 | **Titan V NVK** | ✅ Complete | NVK built from Mesa 25.1.5. `cpu_gpu_parity` 6/6, `stanton_murillo` 40/40, `bench_gpu_fp64` pass |
-| **TOTAL** | **33/33 Rust validation suites** | + 34/35 NPU HW checks, 441 unit tests, 6 upstream bugs found. Both GPUs validated |
+| **TOTAL** | **33/33 Rust validation suites** | + 34/35 NPU HW checks, 454 unit tests, 16 determinism tests, 6 upstream bugs found. Both GPUs validated |
 
 Papers 5, 7, and 8 from the review queue are complete. Paper 5 transport fits
 (Daligault 2012) were recalibrated against 12 Sarkas Green-Kubo D* values (Feb 2026)
@@ -325,18 +325,18 @@ makes the upstream library richer and hotSpring leaner.
 
 ---
 
-## BarraCUDA Crate (v0.5.16)
+## BarraCUDA Crate (v0.6.0)
 
 The `barracuda/` directory is a standalone Rust crate providing the validation
 environment, physics implementations, and GPU compute. Key architectural properties:
 
-- **441 unit tests** (436 passing + 5 GPU-ignored), **33 validation suites** (33/33 pass). Includes lattice QCD (complex f64, SU(3), Wilson action, HMC,
-  Dirac CG), Abelian Higgs (U(1) + Higgs, HMC), transport coefficients (Green-Kubo
-  D*/η*/λ*, Sarkas-calibrated fits), HotQCD EOS tables, NPU quantization parity
-  (f64→f32→int8→int4), and NPU beyond-SDK hardware capability validation (arbitrary
-  channels, FC merge, batch amortization, wide FC, multi-output, weight mutation,
-  determinism). Test coverage: ~60% line / ~76% function (81% non-GPU line coverage;
-  GPU modules require hardware). Measured with `cargo-llvm-cov`.
+- **454 unit tests** (449 passing + 5 GPU-ignored), **33 validation suites** (33/33 pass),
+  **16 determinism tests** (rerun-identical for all stochastic algorithms). Includes
+  lattice QCD (complex f64, SU(3), Wilson action, HMC, Dirac CG), Abelian Higgs
+  (U(1) + Higgs, HMC), transport coefficients (Green-Kubo D*/η*/λ*, Sarkas-calibrated
+  fits), HotQCD EOS tables, NPU quantization parity (f64→f32→int8→int4), and NPU
+  beyond-SDK hardware capability validation. Test coverage: ~63% overall / ~96%
+  unit-testable library code (GPU modules require hardware). Measured with `cargo-llvm-cov`.
 - **AGPL-3.0 only** — all 106 active `.rs` files and all 34 `.wgsl` shaders have
   `SPDX-License-Identifier: AGPL-3.0-only` on line 1.
 - **Provenance** — centralized `BaselineProvenance` records trace hardcoded
@@ -348,22 +348,26 @@ environment, physics implementations, and GPU compute. Key architectural propert
   `NMP_TARGETS`, `L1_PYTHON_CHI2`, `MD_FORCE_REFS`, `GPU_KERNEL_REFS`, etc.
   DOIs for AME2020, Chabanat 1998, Kortelainen 2010, Bender 2003,
   Lattimer & Prakash 2016 are documented in `provenance.rs`.
-- **Tolerances** — 72 centralized constants in `tolerances.rs` with physical
+- **Tolerances** — 146 centralized constants in `tolerances.rs` with physical
   justification (machine precision, numerical method, model, literature).
   Includes 12 physics guard constants (`DENSITY_FLOOR`, `SPIN_ORBIT_R_MIN`,
   `COULOMB_R_MIN`, `BCS_DENSITY_SKIP`, `DEFORMED_COULOMB_R_MIN`, etc.)
-  plus 28 validation-specific thresholds for transport, lattice QCD, Abelian Higgs,
-  NAK eigensolve, PPPM, screened Coulomb, NPU quantization, and NPU beyond-SDK
-  hardware capabilities. All validation binaries wired to `tolerances::*`.
+  plus validation thresholds for transport, lattice QCD, Abelian Higgs,
+  NAK eigensolve, PPPM, screened Coulomb, spectral theory, ESN heterogeneous
+  pipeline, NPU quantization, and NPU beyond-SDK hardware capabilities.
+  Zero inline magic numbers — all validation binaries wired to `tolerances::*`.
 - **ValidationHarness** — structured pass/fail tracking with exit code 0/1.
   35 of 50 binaries use it (validation targets). Remaining 15 are optimization
   explorers, benchmarks, and diagnostics.
 - **Shared data loading** — `data::EosContext` and `data::load_eos_context()`
   eliminate duplicated path construction across all nuclear EOS binaries.
   `data::chi2_per_datum()` centralizes χ² computation with `tolerances::sigma_theo`.
-- **Typed errors** — `HotSpringError` enum with `Result` propagation in GPU
-  and simulation APIs. Zero `.unwrap()` in the entire crate — all fallible
-  operations use `.expect("descriptive message")` or `?` propagation.
+- **Typed errors** — `HotSpringError` enum with full `Result` propagation
+  across all GPU pipelines, HFB solvers, and ESN prediction. Variants:
+  `NoAdapter`, `NoShaderF64`, `DeviceCreation`, `DataLoad`, `Barracuda`,
+  `GpuCompute`, `InvalidOperation`. **Zero `.unwrap()` and zero `.expect()`
+  in library code** — all fallible operations use `?` propagation. Provably
+  unreachable byte-slice conversions annotated with SAFETY comments.
 - **Shared physics** — `hfb_common.rs` consolidates BCS v², Coulomb exchange
   (Slater), CM correction, Skyrme t₀, Hermite polynomials, and Mat type.
   Shared across spherical, deformed, and GPU HFB solvers.
@@ -387,8 +391,8 @@ environment, physics implementations, and GPU compute. Key architectural propert
 
 ```bash
 cd barracuda
-cargo test               # 441 tests pass, 5 GPU-ignored (< 16 seconds)
-cargo clippy --all-targets  # Zero warnings
+cargo test               # 454 tests pass, 5 GPU-ignored (< 16 seconds)
+cargo clippy --all-targets -- -W clippy::expect_used -W clippy::unwrap_used  # Zero warnings
 cargo doc --no-deps      # Full API documentation — 0 warnings
 cargo run --release --bin validate_all  # 33/33 suites pass
 ```
@@ -454,7 +458,7 @@ hotSpring/
 ├── PHYSICS.md                          # Complete physics documentation (equations + references)
 ├── CONTROL_EXPERIMENT_STATUS.md        # Comprehensive status + results (195/195)
 ├── NUCLEAR_EOS_STRATEGY.md             # Nuclear EOS Phase A→B strategy
-├── wateringHole/handoffs/              # 3 active + 16 archived cross-project handoffs (fossil record)
+├── wateringHole/handoffs/              # 3 active + 17 archived cross-project handoffs (fossil record)
 ├── LICENSE                             # AGPL-3.0
 ├── .gitignore
 │
@@ -465,16 +469,16 @@ hotSpring/
 │   ├── CONTROL_EXPERIMENT_SUMMARY.md  # Phase A quick reference
 │   └── METHODOLOGY.md                # Two-phase validation protocol
 │
-├── barracuda/                          # BarraCUDA Rust crate — v0.5.16 (441 tests, 33 suites)
+├── barracuda/                          # BarraCUDA Rust crate — v0.6.0 (454 tests, 33 suites)
 │   ├── Cargo.toml                     # Dependencies (requires ecoPrimals/phase1/toadstool)
 │   ├── CHANGELOG.md                   # Version history — baselines, tolerances, evolution
 │   ├── EVOLUTION_READINESS.md         # Rust module → GPU promotion tier + absorption status
 │   ├── clippy.toml                    # Clippy thresholds (physics-justified)
 │   └── src/
 │       ├── lib.rs                     # Crate root — module declarations + architecture docs
-│       ├── error.rs                   # Typed errors (HotSpringError: NoAdapter, NoShaderF64, …)
+│       ├── error.rs                   # Typed errors (HotSpringError: NoAdapter, NoShaderF64, GpuCompute, InvalidOperation, …)
 │       ├── provenance.rs              # Baseline + analytical provenance (Python, DOIs, textbook)
-│       ├── tolerances.rs              # 72 centralized thresholds with physical justification
+│       ├── tolerances.rs              # 146 centralized thresholds with physical justification
 │       ├── validation.rs              # Pass/fail harness — structured checks, exit code 0/1
 │       ├── discovery.rs               # Capability-based data path resolution (env var / CWD)
 │       ├── data.rs                    # AME2020 data + Skyrme bounds + EosContext + chi2_per_datum
@@ -502,6 +506,7 @@ hotSpring/
 │       │   ├── hfb_gpu.rs             # GPU-batched HFB (BatchedEighGpu)
 │       │   ├── hfb_gpu_resident.rs    # GPU-resident HFB (potentials + H + eigensolve + density + mixing)
 │       │   ├── hfb_gpu_types.rs       # GPU buffer types and uniform helpers for HFB pipeline
+│       │   ├── screened_coulomb.rs    # Screened Coulomb eigenvalue solver (Sturm bisection)
 │       │   └── shaders/               # f64 WGSL physics kernels (13 shaders, ~2000 lines)
 │       │
 │       ├── md/                        # GPU Molecular Dynamics (Yukawa OCP)
@@ -511,6 +516,7 @@ hotSpring/
 │       │   ├── shaders/               # f64 WGSL production kernels (11 files)
 │       │   ├── simulation.rs          # GPU MD loop (all-pairs + cell-list)
 │       │   ├── cpu_reference.rs       # CPU reference implementation (FCC, Verlet)
+│       │   ├── reservoir.rs           # Echo State Network (ESN) for transport prediction
 │       │   ├── observables/           # Observable computation module
 │       │   │   ├── mod.rs           # Re-exports
 │       │   │   ├── rdf.rs           # Radial distribution function
@@ -643,6 +649,11 @@ hotSpring/
 │   │   └── scripts/                   # Python probing scripts (deep_probe.py)
 │   └── gpu/nvidia/                    # RTX 4070 + Titan V characterization
 │
+├── specs/                              # Specifications and requirements
+│   ├── README.md                      # Spec index + scope definition
+│   ├── PAPER_REVIEW_QUEUE.md          # Papers to review/reproduce, prioritized by tier
+│   └── BARRACUDA_REQUIREMENTS.md      # GPU kernel requirements and gap analysis
+│
 ├── wateringHole/                       # Cross-project handoffs
 │   └── handoffs/                       # Unidirectional handoff documents
 │
@@ -754,6 +765,9 @@ These are **silent failures** — wrong results, no error messages. This fragili
 | [`NUCLEAR_EOS_STRATEGY.md`](NUCLEAR_EOS_STRATEGY.md) | Strategic plan: Python control → BarraCUDA proof |
 | [`barracuda/CHANGELOG.md`](barracuda/CHANGELOG.md) | Crate version history — baselines, tolerance changes, evolution |
 | [`barracuda/EVOLUTION_READINESS.md`](barracuda/EVOLUTION_READINESS.md) | Rust module → WGSL shader → GPU promotion tier mapping |
+| [`specs/README.md`](specs/README.md) | Specification index + scope definition |
+| [`specs/PAPER_REVIEW_QUEUE.md`](specs/PAPER_REVIEW_QUEUE.md) | Papers to review/reproduce, prioritized by tier |
+| [`specs/BARRACUDA_REQUIREMENTS.md`](specs/BARRACUDA_REQUIREMENTS.md) | GPU kernel requirements and gap analysis |
 | [`whitePaper/README.md`](whitePaper/README.md) | **White paper index** — the publishable study narrative |
 | [`whitePaper/STUDY.md`](whitePaper/STUDY.md) | Main study: replicating computational plasma physics on consumer hardware |
 | [`whitePaper/BARRACUDA_SCIENCE_VALIDATION.md`](whitePaper/BARRACUDA_SCIENCE_VALIDATION.md) | Phase B technical results: BarraCUDA vs Python/SciPy |

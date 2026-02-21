@@ -156,11 +156,10 @@ impl EchoStateNetwork {
         for (i, seq) in input_sequences.iter().enumerate() {
             self.reset_state();
             let states = self.collect_states(seq);
-            x_mat[i].clone_from(
-                states
-                    .last()
-                    .expect("collect_states always produces at least one state"),
-            );
+            let state = states
+                .last()
+                .map_or_else(|| self.state.as_slice(), Vec::as_slice);
+            x_mat[i].clone_from_slice(state);
         }
 
         // Ridge regression: W_out = Y^T X (X^T X + lambda I)^{-1}
@@ -199,17 +198,28 @@ impl EchoStateNetwork {
     }
 
     /// Predict transport coefficients from a velocity feature sequence.
-    pub fn predict(&mut self, input_sequence: &[Vec<f64>]) -> Vec<f64> {
+    ///
+    /// # Errors
+    /// Returns `Err` if the ESN has not been trained (no `w_out`).
+    pub fn predict(
+        &mut self,
+        input_sequence: &[Vec<f64>],
+    ) -> Result<Vec<f64>, crate::error::HotSpringError> {
         self.reset_state();
         let states = self.collect_states(input_sequence);
         let final_state = states
             .last()
-            .expect("collect_states always produces at least one state");
-        let w_out = self.w_out.as_ref().expect("ESN not trained");
-        w_out
+            .map_or_else(|| self.state.as_slice(), Vec::as_slice);
+        let w_out = self
+            .w_out
+            .as_ref()
+            .ok_or(crate::error::HotSpringError::InvalidOperation(
+                "ESN not trained".into(),
+            ))?;
+        Ok(w_out
             .iter()
             .map(|row| row.iter().zip(final_state.iter()).map(|(w, s)| w * s).sum())
-            .collect()
+            .collect())
     }
 }
 
@@ -596,8 +606,8 @@ mod tests {
 
         esn.train(&[seq1.clone(), seq2.clone()], &[vec![1.0], vec![2.0]]);
 
-        let p1 = esn.predict(&seq1);
-        let p2 = esn.predict(&seq2);
+        let p1 = esn.predict(&seq1).expect("ESN trained");
+        let p2 = esn.predict(&seq2).expect("ESN trained");
 
         assert!((p1[0] - 1.0).abs() < 0.5, "p1={}", p1[0]);
         assert!((p2[0] - 2.0).abs() < 0.5, "p2={}", p2[0]);
@@ -655,7 +665,7 @@ mod tests {
         assert_eq!(exported.w_out.len(), 30);
 
         let mut npu = NpuSimulator::from_exported(&exported);
-        let cpu_pred = esn.predict(&seq1)[0];
+        let cpu_pred = esn.predict(&seq1).expect("ESN trained")[0];
         let npu_pred = npu.predict(&seq1)[0];
         let diff = (cpu_pred - npu_pred).abs() / cpu_pred.abs().max(1e-10);
         assert!(diff < 0.01, "CPU/NPU diff {diff} should be < 1%");
@@ -696,7 +706,7 @@ mod tests {
             let mut esn = EchoStateNetwork::new(config.clone());
             esn.train(&sequences[..4], &targets[..4]);
             for seq in &sequences {
-                let _ = esn.predict(seq);
+                let _ = esn.predict(seq).expect("ESN trained");
             }
         }
         let elapsed = t0.elapsed().as_secs_f64();
@@ -720,5 +730,38 @@ mod tests {
             .collect();
         let sr = spectral_radius_estimate(&w);
         assert!((sr - 1.0).abs() < 0.01, "sr={sr}");
+    }
+
+    #[test]
+    fn esn_predict_determinism() {
+        let config = EsnConfig {
+            input_size: 3,
+            reservoir_size: 20,
+            output_size: 1,
+            spectral_radius: 0.95,
+            connectivity: 0.2,
+            leak_rate: 0.3,
+            regularization: 1e-2,
+            seed: 42,
+        };
+        let seqs: Vec<Vec<Vec<f64>>> = vec![
+            (0..10).map(|i| vec![i as f64 * 0.1, 0.5, -0.3]).collect(),
+            (0..10).map(|i| vec![0.0, i as f64 * 0.05, 0.2]).collect(),
+        ];
+        let targets = vec![vec![1.0], vec![0.0]];
+
+        let results: Vec<Vec<f64>> = (0..2)
+            .map(|_| {
+                let mut esn = EchoStateNetwork::new(config.clone());
+                esn.train(&seqs, &targets);
+                esn.predict(&seqs[0]).expect("ESN trained")
+            })
+            .collect();
+        assert!(
+            (results[0][0] - results[1][0]).abs() < f64::EPSILON,
+            "ESN predictions must be identical: {} vs {}",
+            results[0][0],
+            results[1][0]
+        );
     }
 }

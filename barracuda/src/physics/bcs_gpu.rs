@@ -393,7 +393,11 @@ fn read_f64(
     let data = slice.get_mapped_range();
     let result: Vec<f64> = data
         .chunks_exact(8)
-        .map(|c| f64::from_le_bytes(c.try_into().expect("8-byte chunk")))
+        .map(|c| {
+            // SAFETY: chunks_exact(8) guarantees 8-byte slices
+            #[allow(clippy::expect_used)]
+            f64::from_le_bytes(c.try_into().expect("8-byte chunk"))
+        })
         .collect();
     drop(data);
     staging.unmap();
@@ -431,7 +435,11 @@ fn read_u32(
     let data = slice.get_mapped_range();
     let result: Vec<u32> = data
         .chunks_exact(4)
-        .map(|c| u32::from_le_bytes(c.try_into().expect("4-byte chunk")))
+        .map(|c| {
+            // SAFETY: chunks_exact(4) guarantees 4-byte slices
+            #[allow(clippy::expect_used)]
+            u32::from_le_bytes(c.try_into().expect("4-byte chunk"))
+        })
         .collect();
     drop(data);
     staging.unmap();

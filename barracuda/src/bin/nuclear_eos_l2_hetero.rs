@@ -617,7 +617,7 @@ fn l2_objective(params: &[f64], nuclei: &[(usize, usize, f64)]) -> f64 {
     let results: Vec<(f64, f64)> = nuclei
         .iter()
         .map(|&(z, n, b_exp)| {
-            let (b_calc, _conv) = binding_energy_l2(z, n, params);
+            let (b_calc, _conv) = binding_energy_l2(z, n, params).expect("HFB solve");
             (b_calc, b_exp)
         })
         .collect();

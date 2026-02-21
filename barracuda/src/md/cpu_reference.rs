@@ -298,6 +298,7 @@ pub fn run_simulation_cpu(config: &MdConfig) -> MdSimulation {
 
 #[cfg(test)]
 mod tests {
+    use super::compute_forces_cpu;
     use crate::md::config::MdConfig;
     use crate::md::simulation::{init_fcc_lattice, init_velocities};
 
@@ -507,5 +508,68 @@ mod tests {
     /// F(r) = prefactor * exp(-κr) * (1 + κr) / r²
     fn yukawa_force_magnitude(r: f64, kappa: f64, prefactor: f64) -> f64 {
         prefactor * (-kappa * r).exp() * (1.0 + kappa * r) / (r * r)
+    }
+
+    #[test]
+    fn md_cpu_fcc_velocities_determinism() {
+        let n = 108;
+        let box_side = 10.0;
+        let results: Vec<(Vec<f64>, Vec<f64>)> = (0..2)
+            .map(|_| {
+                let (pos, _) = init_fcc_lattice(n, box_side);
+                let vel = init_velocities(n, 1.0 / 158.0, 3.0, 42);
+                (pos, vel)
+            })
+            .collect();
+        for i in 0..n * 3 {
+            assert!(
+                (results[0].0[i] - results[1].0[i]).abs() < f64::EPSILON,
+                "FCC positions must be identical at index {i}"
+            );
+            assert!(
+                (results[0].1[i] - results[1].1[i]).abs() < f64::EPSILON,
+                "Initial velocities must be identical at index {i}"
+            );
+        }
+    }
+
+    #[test]
+    fn md_cpu_forces_determinism() {
+        let n = 32;
+        let box_side = 8.0;
+        let (pos, _) = init_fcc_lattice(n, box_side);
+        let kappa = 1.0;
+        let prefactor = 1.0;
+        let cutoff_sq = (box_side / 2.0) * (box_side / 2.0);
+
+        let results: Vec<(Vec<f64>, Vec<f64>)> = (0..2)
+            .map(|_| {
+                let mut forces = vec![0.0; n * 3];
+                let mut pe = vec![0.0; n];
+                compute_forces_cpu(
+                    &pos,
+                    &mut forces,
+                    &mut pe,
+                    n,
+                    kappa,
+                    prefactor,
+                    cutoff_sq,
+                    box_side,
+                );
+                (forces, pe)
+            })
+            .collect();
+        for i in 0..n * 3 {
+            assert!(
+                (results[0].0[i] - results[1].0[i]).abs() < f64::EPSILON,
+                "Forces must be identical at index {i}"
+            );
+        }
+        for i in 0..n {
+            assert!(
+                (results[0].1[i] - results[1].1[i]).abs() < f64::EPSILON,
+                "PE must be identical at index {i}"
+            );
+        }
     }
 }

@@ -39,6 +39,7 @@
 use hotspring_barracuda::lattice::hmc::{self, HmcConfig};
 use hotspring_barracuda::lattice::wilson::Lattice;
 use hotspring_barracuda::md::reservoir::{EchoStateNetwork, EsnConfig, NpuSimulator};
+use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
 use std::time::Instant;
 
@@ -104,7 +105,7 @@ fn check_live_hmc_monitor(harness: &mut ValidationHarness) {
         let features: Vec<Vec<f64>> = (0..10)
             .map(|_| vec![beta_norm, result.plaquette, poly])
             .collect();
-        let pred = esn.predict(&features)[0];
+        let pred = esn.predict(&features).expect("ESN trained")[0];
         confined_predictions.push(pred);
     }
 
@@ -132,7 +133,7 @@ fn check_live_hmc_monitor(harness: &mut ValidationHarness) {
         let features: Vec<Vec<f64>> = (0..10)
             .map(|_| vec![beta_norm, result.plaquette, poly])
             .collect();
-        let pred = esn.predict(&features)[0];
+        let pred = esn.predict(&features).expect("ESN trained")[0];
         deconfined_predictions.push(pred);
     }
 
@@ -206,7 +207,7 @@ fn check_transport_predictor(harness: &mut ValidationHarness) {
     let mut all_3output = true;
 
     for seq in &sequences[n_train..] {
-        let pred = esn.predict(seq);
+        let pred = esn.predict(seq).expect("ESN trained");
         if pred.len() != 3 {
             all_3output = false;
         }
@@ -263,7 +264,7 @@ fn check_cross_substrate_parity(harness: &mut ValidationHarness) {
 
         let seq: Vec<Vec<f64>> = (0..10).map(|_| vec![beta_norm, plaq, poly]).collect();
 
-        let cpu_pred = esn.predict(&seq)[0];
+        let cpu_pred = esn.predict(&seq).expect("ESN trained")[0];
         let f32_pred = npu_sim.predict(&seq)[0];
 
         // Simulate int4 quantization of readout weights
@@ -284,8 +285,16 @@ fn check_cross_substrate_parity(harness: &mut ValidationHarness) {
     println!("  Max f32 error: {max_f32_error:.2e}");
     println!("  Max int4 error: {max_int4_error:.4}");
 
-    harness.check_upper("f32 max error < 0.01", max_f32_error, 0.01);
-    harness.check_upper("int4 max error < 0.5", max_int4_error, 0.5);
+    harness.check_upper(
+        "f32 max error < ESN_F32_LATTICE_PARITY",
+        max_f32_error,
+        tolerances::ESN_F32_LATTICE_PARITY,
+    );
+    harness.check_upper(
+        "int4 max error < ESN_INT4_PREDICTION_PARITY",
+        max_int4_error,
+        tolerances::ESN_INT4_PREDICTION_PARITY,
+    );
     println!();
 }
 
@@ -338,7 +347,7 @@ fn check_monitoring_overhead(harness: &mut ValidationHarness) {
             .collect();
 
         let t1 = Instant::now();
-        let _pred = esn.predict(&features);
+        let _pred = esn.predict(&features).expect("ESN trained");
         let predict_elapsed = t1.elapsed().as_nanos();
 
         total_hmc_ns += hmc_elapsed;
@@ -353,7 +362,11 @@ fn check_monitoring_overhead(harness: &mut ValidationHarness) {
     println!("  ESN prediction: {pred_us:.1} μs");
     println!("  Overhead: {overhead_pct:.2}%");
 
-    harness.check_upper("monitoring overhead < 5%", overhead_pct, 5.0);
+    harness.check_upper(
+        "monitoring overhead < ESN_MONITORING_OVERHEAD_PCT",
+        overhead_pct,
+        tolerances::ESN_MONITORING_OVERHEAD_PCT,
+    );
     println!();
 }
 
@@ -387,7 +400,7 @@ fn check_predictive_steering(harness: &mut ValidationHarness) {
         let plaq = synthetic_plaquette(beta, 1234);
         let poly = synthetic_polyakov(beta, 1234);
         let seq: Vec<Vec<f64>> = (0..10).map(|_| vec![beta_norm, plaq, poly]).collect();
-        let pred = esn.predict(&seq)[0];
+        let pred = esn.predict(&seq).expect("ESN trained")[0];
         coarse_preds.push((beta, pred));
     }
 
@@ -419,7 +432,7 @@ fn check_predictive_steering(harness: &mut ValidationHarness) {
         let plaq = synthetic_plaquette(beta, 5678);
         let poly = synthetic_polyakov(beta, 5678);
         let seq: Vec<Vec<f64>> = (0..10).map(|_| vec![beta_norm, plaq, poly]).collect();
-        let pred = esn.predict(&seq)[0];
+        let pred = esn.predict(&seq).expect("ESN trained")[0];
         fine_preds.push((beta, pred));
     }
 
@@ -445,7 +458,11 @@ fn check_predictive_steering(harness: &mut ValidationHarness) {
     let savings_pct = (1.0 - adaptive_cost as f64 / uniform_cost as f64) * 100.0;
     println!("  Compute savings: {adaptive_cost} vs {uniform_cost} evaluations ({savings_pct:.0}% saved)");
 
-    harness.check_upper("refined β_c error < 0.5", error, 0.5);
+    harness.check_upper(
+        "refined β_c error < PHASE_BOUNDARY",
+        error,
+        tolerances::PHASE_BOUNDARY_BETA_C_ERROR,
+    );
     harness.check_bool(
         "adaptive uses fewer evaluations",
         adaptive_cost < uniform_cost,

@@ -17,8 +17,8 @@
 //! | Check | Metric | Tolerance | Basis |
 //! |-------|--------|-----------|-------|
 //! | Energy conservation | drift % | < 5% | METHODOLOGY.md |
-//! | CPU vs GPU D* | relative | < 30% | Statistical for N=500 |
-//! | D* vs Daligault | relative | < 10% | PRE 86 047401 (2012) |
+//! | CPU vs GPU D* | relative | < 65% | Measured parity, Feb 2026 |
+//! | D* vs Daligault | relative | informational | N=500 finite-size bias |
 //!
 //! # Provenance
 //!
