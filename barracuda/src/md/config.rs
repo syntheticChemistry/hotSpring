@@ -129,7 +129,7 @@ pub fn dsf_pp_cases(n_particles: usize, lite: bool) -> Vec<MdConfig> {
 /// Single test case for quick validation
 pub fn quick_test_case(n_particles: usize) -> MdConfig {
     MdConfig {
-        label: "k2_G158_test".to_string(),
+        label: String::from("k2_G158_test"),
         n_particles,
         kappa: 2.0,
         gamma: 158.0,

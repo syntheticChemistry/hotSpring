@@ -72,11 +72,11 @@ pub fn nmp_prescreen(params: &[f64], constraints: &NMPConstraints) -> NMPScreenR
     // Alpha sanity check
     if params.len() != 10 || params[8] <= 0.01 || params[8] > 1.0 {
         // Physics: Skyrme alpha — 0.01 lower bound, density exponent must be positive
-        return NMPScreenResult::Fail("alpha out of range".to_string());
+        return NMPScreenResult::Fail(String::from("alpha out of range"));
     }
 
     let Some(nmp) = nuclear_matter_properties(params) else {
-        return NMPScreenResult::Fail("NMP calculation failed".to_string());
+        return NMPScreenResult::Fail(String::from("NMP calculation failed"));
     };
 
     if nmp.rho0_fm3 < constraints.rho0_min || nmp.rho0_fm3 > constraints.rho0_max {
@@ -141,7 +141,7 @@ pub fn l1_proxy_prescreen(
         return None; // reject
     }
 
-    let chi2_per_datum = chi2 / n_valid as f64;
+    let chi2_per_datum = chi2 / f64::from(n_valid);
     if chi2_per_datum < chi2_threshold {
         Some(chi2_per_datum)
     } else {
@@ -342,6 +342,7 @@ impl CascadeStats {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use crate::provenance::SLY4_PARAMS;
@@ -403,7 +404,7 @@ mod tests {
             .map(|i| {
                 SLY4_PARAMS
                     .iter()
-                    .map(|&v| v + (i as f64 - 10.0) * 0.01 * v.abs().max(1.0))
+                    .map(|&v| v + (f64::from(i) - 10.0) * 0.01 * v.abs().max(1.0))
                     .collect()
             })
             .collect();
@@ -484,7 +485,7 @@ mod tests {
             .map(|i| {
                 SLY4_PARAMS
                     .iter()
-                    .map(|&v| v + (i as f64 - 7.0) * 0.001 * v.abs().max(1.0))
+                    .map(|&v| v + (f64::from(i) - 7.0) * 0.001 * v.abs().max(1.0))
                     .collect()
             })
             .collect();
@@ -493,7 +494,7 @@ mod tests {
         let bad_params: Vec<Vec<f64>> = (0..15)
             .map(|i| {
                 vec![
-                    -5000.0 + i as f64 * 100.0,
+                    -5000.0 + f64::from(i) * 100.0,
                     1000.0,
                     -2000.0,
                     20000.0,

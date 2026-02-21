@@ -131,6 +131,7 @@ fn dot(a: &[f64], b: &[f64]) -> f64 {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use crate::spectral::{anderson_hamiltonian, find_all_eigenvalues};

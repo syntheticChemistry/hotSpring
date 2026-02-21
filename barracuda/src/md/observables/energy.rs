@@ -45,17 +45,20 @@ pub fn validate_energy(history: &[EnergyRecord], _config: &MdConfig) -> EnergyVa
     let std_e = var_e.sqrt();
 
     // Drift: (E_final - E_initial) / |E_mean|
-    // SAFETY: stable non-empty — early return if history.is_empty(); with len≥1, skip=len/10 < len
-    #[allow(clippy::expect_used)]
-    let e_initial = stable
-        .first()
-        .expect("stable slice non-empty after skip")
-        .total;
-    #[allow(clippy::expect_used)]
-    let e_final = stable
-        .last()
-        .expect("stable slice non-empty after skip")
-        .total;
+    // stable is non-empty: early return if history.is_empty(); with len≥1, skip=len/10 < len
+    let (e_initial, e_final) = match (stable.first(), stable.last()) {
+        (Some(first), Some(last)) => (first.total, last.total),
+        _ => {
+            return EnergyValidation {
+                mean_total: mean_e,
+                std_total: std_e,
+                drift_pct: 0.0,
+                mean_temperature: 0.0,
+                std_temperature: 0.0,
+                passed: false,
+            }
+        }
+    };
     let drift_pct = if mean_e.abs() > DIVISION_GUARD {
         ((e_final - e_initial) / mean_e.abs()).abs() * 100.0
     } else {

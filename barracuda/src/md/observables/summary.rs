@@ -29,7 +29,7 @@ pub fn print_observable_summary(sim: &MdSimulation, config: &MdConfig) {
 pub fn print_observable_summary_with_gpu(
     sim: &MdSimulation,
     config: &MdConfig,
-    gpu_device: Option<Arc<WgpuDevice>>,
+    gpu_device: Option<&Arc<WgpuDevice>>,
 ) {
     println!();
     println!("  ── Observable Summary: {} ──", config.label);
@@ -102,9 +102,9 @@ pub fn print_observable_summary_with_gpu(
 
     // SSF — GPU or CPU path
     if !sim.positions_snapshots.is_empty() {
-        let (ssf, ssf_label) = if let Some(ref dev) = gpu_device {
+        let (ssf, ssf_label) = if let Some(dev) = gpu_device {
             let gpu_ssf = compute_ssf_gpu(
-                Arc::clone(dev),
+                dev,
                 &sim.positions_snapshots,
                 config.n_particles,
                 config.box_side(),
@@ -132,13 +132,9 @@ pub fn print_observable_summary_with_gpu(
             (cpu_ssf, "CPU")
         };
 
-        if let Some((k0, s0)) = ssf.first() {
-            // SAFETY: first() returned Some, so ssf has ≥1 element; max_by always returns Some
-            #[allow(clippy::expect_used)]
-            let (k_max, s_max) = ssf
-                .iter()
-                .max_by(|a, b| a.1.total_cmp(&b.1))
-                .expect("SSF non-empty: guarded by first() check");
+        if let (Some((k0, s0)), Some((k_max, s_max))) =
+            (ssf.first(), ssf.iter().max_by(|a, b| a.1.total_cmp(&b.1)))
+        {
             println!("    SSF [{ssf_label}]: S(k->0)={s0:.4} at k={k0:.3}");
             println!("    SSF [{ssf_label}]: peak S(k)={s_max:.4} at k={k_max:.3} a_ws^-1");
         }
@@ -148,4 +144,99 @@ pub fn print_observable_summary_with_gpu(
         "    Performance: {:.1} steps/s, total {:.2}s",
         sim.steps_per_sec, sim.wall_time_s
     );
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod tests {
+    use std::sync::Arc;
+
+    use crate::md::config::quick_test_case;
+    use crate::md::simulation::{init_fcc_lattice, init_velocities, EnergyRecord, MdSimulation};
+
+    use super::{print_observable_summary, print_observable_summary_with_gpu};
+
+    fn make_minimal_sim() -> (MdSimulation, crate::md::config::MdConfig) {
+        let config = quick_test_case(32);
+        let t = config.temperature();
+        let energy_history: Vec<EnergyRecord> = (0..20)
+            .map(|i| EnergyRecord {
+                step: i * 10,
+                ke: 48.0 * t,
+                pe: -96.0,
+                total: 48.0 * t - 96.0,
+                temperature: t,
+            })
+            .collect();
+        let sim = MdSimulation {
+            config: config.clone(),
+            energy_history,
+            positions_snapshots: vec![],
+            velocity_snapshots: vec![],
+            rdf_histogram: vec![],
+            wall_time_s: 1.5,
+            steps_per_sec: 5000.0,
+        };
+        (sim, config)
+    }
+
+    fn make_full_sim() -> (MdSimulation, crate::md::config::MdConfig) {
+        let config = quick_test_case(32);
+        let box_side = config.box_side();
+        let t = config.temperature();
+        let mass = config.reduced_mass();
+        let n = 32;
+
+        let (positions, _) = init_fcc_lattice(n, box_side);
+        let velocities = init_velocities(n, t, mass, 42);
+
+        let n_pos_snapshots = 3;
+        let positions_snapshots = vec![positions; n_pos_snapshots];
+
+        let n_vel_snapshots = 15;
+        let velocity_snapshots = vec![velocities; n_vel_snapshots];
+
+        let energy_history: Vec<EnergyRecord> = (0..50)
+            .map(|i| EnergyRecord {
+                step: i * 10,
+                ke: 48.0 * t,
+                pe: -96.0,
+                total: 48.0 * t - 96.0,
+                temperature: t,
+            })
+            .collect();
+
+        let sim = MdSimulation {
+            config: config.clone(),
+            energy_history,
+            positions_snapshots,
+            velocity_snapshots,
+            rdf_histogram: vec![],
+            wall_time_s: 2.0,
+            steps_per_sec: 4000.0,
+        };
+        (sim, config)
+    }
+
+    #[test]
+    fn summary_minimal_no_panic() {
+        let (sim, config) = make_minimal_sim();
+        print_observable_summary(&sim, &config);
+    }
+
+    #[test]
+    fn summary_full_all_branches_no_panic() {
+        let (sim, config) = make_full_sim();
+        print_observable_summary(&sim, &config);
+    }
+
+    #[test]
+    fn summary_gpu_none_cpu_fallback_no_panic() {
+        let (sim, config) = make_full_sim();
+        print_observable_summary_with_gpu(
+            &sim,
+            &config,
+            None::<Arc<barracuda::device::WgpuDevice>>.as_ref(),
+        );
+    }
 }

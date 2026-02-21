@@ -43,6 +43,16 @@ fn rel_error(a: f64, b: f64) -> f64 {
 }
 
 fn main() {
+    struct CaseResult {
+        kappa: f64,
+        gamma: f64,
+        d_star_msd: f64,
+        d_star_vacf: f64,
+        eta_star_md: f64,
+        lambda_star_md: f64,
+        t_mean: f64,
+        t_target: f64,
+    }
     println!("╔══════════════════════════════════════════════════════════════╗");
     println!("║  Stanton-Murillo Transport Validation (Paper 5)            ║");
     println!("║  D*, η*, λ* across (Γ, κ) phase diagram                   ║");
@@ -74,17 +84,6 @@ fn main() {
     println!();
 
     let mut harness = ValidationHarness::new("stanton_murillo_transport");
-
-    struct CaseResult {
-        kappa: f64,
-        gamma: f64,
-        d_star_msd: f64,
-        d_star_vacf: f64,
-        eta_star_md: f64,
-        lambda_star_md: f64,
-        t_mean: f64,
-        t_target: f64,
-    }
     let mut results = Vec::new();
 
     for cfg in &selected {
@@ -231,7 +230,7 @@ fn main() {
     // Cross-case physics checks: D* ordering
     // Sort by coupling strength (Gamma) within each kappa
     for kappa_int in [1, 2, 3] {
-        let kappa = kappa_int as f64;
+        let kappa = f64::from(kappa_int);
         let mut kappa_results: Vec<&CaseResult> = results
             .iter()
             .filter(|r| (r.kappa - kappa).abs() < 0.01)

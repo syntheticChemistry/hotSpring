@@ -297,6 +297,7 @@ pub fn run_simulation_cpu(config: &MdConfig) -> MdSimulation {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::compute_forces_cpu;
     use crate::md::config::MdConfig;

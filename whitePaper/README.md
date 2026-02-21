@@ -2,7 +2,7 @@
 
 **Status**: Working draft — reviewed for PII, suitable for public repository  
 **Purpose**: Document the replication of Murillo Group computational plasma physics on consumer hardware using BarraCUDA  
-**Date**: February 20, 2026
+**Date**: February 21, 2026
 
 ---
 
@@ -19,7 +19,14 @@
 
 ## What This Study Is
 
-hotSpring replicates published computational plasma physics from the Murillo Group (Michigan State University) on consumer hardware, then re-executes the computations using BarraCUDA — a Pure Rust scientific computing library with zero external dependencies.
+hotSpring is a computational physics biome within ecoPrimals. It replicates
+published work from the Murillo Group (Michigan State University) on consumer
+hardware, then re-executes the computations using BarraCUDA — a pure Rust
+scientific computing library. ToadStool/barracuda is the shared fungus: hotSpring
+leans on it for GPU device management and shader dispatch, evolves new shaders and
+physics systems locally, and hands them off for upstream absorption. Other springs
+(neuralSpring, desertSpring) follow the same pattern independently — they don't
+import hotSpring, but can review its code in `ecoPrimals/` and learn from it.
 
 The study answers five questions:
 1. **Can published computational science be independently reproduced?** (Answer: yes, but it required fixing 6 silent bugs and rebuilding physics that was behind a gated platform)
@@ -107,8 +114,8 @@ computational methods (MD ↔ HMC, plasma EOS ↔ QCD EOS).
 | `wilson.rs` | 338 | Wilson gauge action, plaquettes | ✅ **Absorbed** — `wilson_plaquette_f64.wgsl` |
 | `hmc.rs` | 350 | HMC with Cayley exponential | ✅ **Absorbed** — `su3_hmc_force_f64.wgsl` |
 | `abelian_higgs.rs` | ~500 | U(1)+Higgs (1+1)D HMC | ✅ **Absorbed** — `higgs_u1_hmc_f64.wgsl` |
-| `dirac.rs` | 297 | Staggered Dirac operator | **P1** — GPU SpMV needed (last QCD blocker) |
-| `cg.rs` | 214 | Conjugate gradient for D†D | **P2** — needs GPU SpMV + dot + axpy |
+| `dirac.rs` | 297 | Staggered Dirac operator | ✅ **Validated** — `WGSL_DIRAC_STAGGERED_F64` (8/8 checks, 4.44e-16) |
+| `cg.rs` | 214 | Conjugate gradient for D†D | ✅ **Validated** — 3 WGSL shaders (9/9 checks, iterations match exactly) |
 | `eos_tables.rs` | 307 | HotQCD reference data | CPU-only (data) |
 | `multi_gpu.rs` | 237 | Temperature scan dispatcher | CPU-threaded, GPU-ready |
 
@@ -119,8 +126,8 @@ computational methods (MD ↔ HMC, plasma EOS ↔ QCD EOS).
 | ~~FFT (momentum-space)~~ | Full QCD with dynamical fermions | — | ✅ **Done** — toadstool `Fft1DF64`+`Fft3DF64` (14 GPU tests, 1e-10) |
 | ~~GPU SU(3) plaquette shader~~ | GPU-accelerated HMC | — | ✅ **Done** — `wilson_plaquette_f64.wgsl` |
 | ~~GPU HMC force + Abelian Higgs~~ | GPU-accelerated gauge evolution | — | ✅ **Done** — `su3_hmc_force_f64.wgsl` + `higgs_u1_hmc_f64.wgsl` |
-| GPU Dirac operator | Fermion matrix-vector products | **P1** | CPU validated; WGSL port needed |
-| Larger lattice sizes (8^4, 16^4) | Physical results | **P2** | GPU lattice shaders now available |
+| ~~GPU Dirac operator~~ | Fermion matrix-vector products | — | ✅ **Done** — `WGSL_DIRAC_STAGGERED_F64` validated 8/8 |
+| Larger lattice sizes (8^4, 16^4) | Physical results | **P2** | 4⁴-16⁴ validated, 19.6× GPU speedup at 16⁴ |
 
 ### Heterogeneous Hardware Pipeline: Lattice QCD Phase Structure
 
@@ -178,7 +185,9 @@ of extreme energy limitation.
 Anderson 2021). Reproduction of Paper 23 requires bioinformatics only (public
 *Sulfolobus* genomes) — wetSpring's sovereign pipeline handles the computation.
 
-### All Reproduced Papers (18 total, 9 original + 9 Kachkovskiy spectral)
+### All Reproduced Papers (22 total)
+
+Papers 14-22 are documented in `specs/PAPER_REVIEW_QUEUE.md`.
 
 | # | Paper | Status | Highlights |
 |---|-------|--------|------------|
@@ -241,6 +250,48 @@ This proves the physics is substrate-portable: train on GPU → deploy on NPU.
 
 ---
 
+## Evolution Architecture: Biome → Fungus → Absorption
+
+hotSpring is a biome. ToadStool/barracuda is the fungus — present in every
+biome, evolved independently by each. The pattern:
+
+```
+hotSpring writes local → validates physics → hands off to toadstool → leans on upstream → deletes local
+```
+
+### What hotSpring evolved that toadstool absorbed
+
+| Contribution | Type | Upstream Location |
+|-------------|------|-------------------|
+| Complex f64 arithmetic | WGSL shader | `shaders/math/complex_f64.wgsl` |
+| SU(3) matrix algebra | WGSL shader | `shaders/math/su3.wgsl` |
+| Wilson plaquette | WGSL shader | `shaders/lattice/wilson_plaquette_f64.wgsl` |
+| SU(3) HMC force | WGSL shader | `shaders/lattice/su3_hmc_force_f64.wgsl` |
+| Abelian Higgs HMC | WGSL shader | `shaders/lattice/higgs_u1_hmc_f64.wgsl` |
+| CellList GPU fix | Rust op | `barracuda::ops::md::neighbor` |
+| NAK eigensolve | WGSL shader | `batched_eigh_nak_optimized_f64.wgsl` |
+| ReduceScalar feedback | Pipeline | `barracuda::pipeline` |
+| Driver profiling | System | `barracuda::device::capabilities` |
+
+### What hotSpring is evolving now (ready for absorption)
+
+| Module | Shader | Tests | Absorption priority |
+|--------|--------|-------|---------------------|
+| CSR SpMV | `WGSL_SPMV_CSR_F64` | 8/8 | Tier 1 |
+| Staggered Dirac | `WGSL_DIRAC_STAGGERED_F64` | 8/8 | Tier 1 |
+| CG solver | 3 WGSL shaders | 9/9 | Tier 1 |
+| ESN reservoir | 2 WGSL shaders | 16+ | Tier 1 |
+| NPU substrate probe | Rust (no WGSL) | 13 | Tier 1 (new substrate type) |
+
+### metalForge Forge: Hardware Discovery
+
+`metalForge/forge/` discovers local hardware via wgpu (same path barracuda uses)
+plus local NPU/CPU probing. It finds: 2 GPUs (RTX 4070 + Titan V, both SHADER_F64),
+1 NPU (AKD1000), 1 CPU (i9-12900K with AVX2). Dispatch routes workloads by
+capability: f64 compute → GPU, quantized inference → NPU, validation → CPU.
+
+---
+
 ## Relation to Other Documents
 
 - **`whitePaper/barraCUDA/`** (main repo, gated): The BarraCUDA evolution story — how scientific workloads drove the library's development. Sections 04 and 04a reference hotSpring data.
@@ -285,25 +336,26 @@ No institutional access required. No Code Ocean account. No Fortran compiler. AG
 
 ---
 
-## Codebase Health (Feb 20, 2026)
+## Codebase Health (Feb 21, 2026)
 
 | Metric | Value |
 |--------|-------|
-| Unit tests | **441** pass, 5 GPU-ignored (446 total) |
+| Unit tests | **463** pass, 5 GPU-ignored (468 total) |
 | Validation suites | **33/33** pass |
 | Python control scripts | **34** (Sarkas, surrogate, TTM, NPU, reservoir, lattice, spectral theory) |
 | Rust validation binaries | **50** (physics, MD, lattice, NPU, transport, spectral 1D/2D/3D, Lanczos, Hofstadter) |
-| Clippy warnings | **0** (default + pedantic on library code) |
+| `expect()`/`unwrap()` in library | **0** (crate-level deny) |
+| Clippy warnings | **0** (pedantic + 5 lint categories eliminated) |
 | Doc warnings | **0** |
 | Unsafe blocks | **0** |
 | TODO/FIXME/HACK markers | **0** |
-| Centralized tolerances | **122** constants in `tolerances.rs` |
+| Centralized tolerances | **146** constants in `tolerances/` module tree |
 | Provenance records | All validation targets traced to Python origins or DOIs |
 | AGPL-3.0 compliance | All `.rs` and `.wgsl` files |
 
 ---
 
-## GPU FP64 Status (Feb 20, 2026)
+## GPU FP64 Status (Feb 21, 2026)
 
 Native FP64 GPU compute confirmed on RTX 4070 and Titan V via `wgpu::Features::SHADER_F64` (Vulkan backend):
 - **Precision**: True IEEE 754 double precision (0 ULP error vs CPU f64)

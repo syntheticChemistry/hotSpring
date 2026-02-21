@@ -32,6 +32,41 @@ pub mod paths {
     pub const SURROGATE_CONTROL: &str = "control/surrogate";
 }
 
+/// Discover the data root, returning an error if no valid root is found.
+///
+/// # Errors
+///
+/// Returns `HotSpringError::DataLoad` if no path with a `control/` directory
+/// can be found via any discovery strategy.
+pub fn try_discover_data_root() -> Result<PathBuf, crate::error::HotSpringError> {
+    // 1. Explicit environment override
+    if let Ok(root) = std::env::var("HOTSPRING_DATA_ROOT") {
+        let p = PathBuf::from(&root);
+        if is_valid_root(&p) {
+            return Ok(p);
+        }
+    }
+
+    // 2. CARGO_MANIFEST_DIR parent
+    let manifest_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    if let Some(parent) = manifest_root.parent() {
+        if is_valid_root(parent) {
+            return Ok(parent.to_path_buf());
+        }
+    }
+
+    // 3. CWD
+    if let Ok(cwd) = std::env::current_dir() {
+        if is_valid_root(&cwd) {
+            return Ok(cwd);
+        }
+    }
+
+    Err(crate::error::HotSpringError::DataLoad(
+        "no valid hotSpring data root found (need directory with control/ subdirectory)".into(),
+    ))
+}
+
 /// Discover the hotSpring data root directory.
 ///
 /// Checks, in order:
@@ -40,40 +75,52 @@ pub mod paths {
 /// 3. Current working directory
 ///
 /// Returns the first path that exists and contains a `control/` subdirectory.
+/// If no valid root is found, falls back to the manifest parent (may fail gracefully downstream).
 #[must_use]
 pub fn discover_data_root() -> PathBuf {
-    // 1. Explicit environment override
-    if let Ok(root) = std::env::var("HOTSPRING_DATA_ROOT") {
-        let p = PathBuf::from(&root);
-        if is_valid_root(&p) {
-            return p;
-        }
-        eprintln!("  WARNING: HOTSPRING_DATA_ROOT={root} does not contain control/ — falling back");
-    }
-
-    // 2. CARGO_MANIFEST_DIR parent (development: barracuda/ → hotSpring/)
-    let manifest_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let manifest_parent = manifest_root.parent().map(Path::to_path_buf);
-    if let Some(ref parent) = manifest_parent {
-        if is_valid_root(parent) {
-            return parent.clone();
+    if let Ok(root) = try_discover_data_root() {
+        root
+    } else {
+        let manifest_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        match manifest_root.parent() {
+            Some(p) => p.to_path_buf(),
+            None => manifest_root,
         }
     }
-
-    // 3. Current working directory
-    if let Ok(cwd) = std::env::current_dir() {
-        if is_valid_root(&cwd) {
-            return cwd;
-        }
-    }
-
-    // Last resort: use manifest parent anyway (will fail gracefully downstream)
-    manifest_parent.unwrap_or(manifest_root)
 }
 
 /// Check if a directory looks like a valid hotSpring root.
 fn is_valid_root(path: &Path) -> bool {
     path.join("control").is_dir()
+}
+
+/// Check which validation capabilities are available at the discovered root.
+#[must_use]
+pub fn available_capabilities() -> Vec<&'static str> {
+    let root = discover_data_root();
+    let mut caps = Vec::new();
+    if root.join(paths::NUCLEAR_EOS).is_dir() {
+        caps.push("nuclear-eos");
+    }
+    if root.join(paths::SARKAS_CONTROL).is_dir() {
+        caps.push("sarkas-md");
+    }
+    if root.join(paths::SURROGATE_CONTROL).is_dir() {
+        caps.push("surrogate");
+    }
+    if root.join("control/screened_coulomb").is_dir() {
+        caps.push("screened-coulomb");
+    }
+    if root.join("control/lattice_qcd").is_dir() {
+        caps.push("lattice-qcd");
+    }
+    if root.join("control/metalforge_npu").is_dir() {
+        caps.push("npu");
+    }
+    if root.join("control/reservoir_transport").is_dir() {
+        caps.push("reservoir-transport");
+    }
+    caps
 }
 
 /// Resolve the nuclear EOS data directory.
@@ -100,6 +147,7 @@ pub fn benchmark_results_dir() -> std::io::Result<PathBuf> {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
 
@@ -154,6 +202,75 @@ mod tests {
     }
 
     #[test]
+    fn try_discover_data_root_ok_when_valid() {
+        // In development, we should find a valid root
+        let result = try_discover_data_root();
+        assert!(
+            result.is_ok(),
+            "try_discover_data_root should succeed in dev"
+        );
+        let root = result.expect("Ok");
+        assert!(
+            root.join("control").is_dir(),
+            "discovered root must have control/: {root:?}"
+        );
+    }
+
+    #[test]
+    #[allow(deprecated)] // set_var/remove_var deprecated (edition 2024: unsafe); tests run sequentially
+    fn try_discover_data_root_err_has_data_load_message() {
+        // When try_discover_data_root fails (e.g. in isolated CI), error is DataLoad
+        let bad_root = std::env::temp_dir().join("hotspring_no_control_test");
+        std::fs::create_dir_all(&bad_root).ok();
+        let prev = std::env::var("HOTSPRING_DATA_ROOT").ok();
+        std::env::set_var("HOTSPRING_DATA_ROOT", bad_root.as_os_str());
+
+        let result = try_discover_data_root();
+
+        if let Some(p) = prev {
+            std::env::set_var("HOTSPRING_DATA_ROOT", p);
+        } else {
+            std::env::remove_var("HOTSPRING_DATA_ROOT");
+        }
+        std::fs::remove_dir_all(&bad_root).ok();
+
+        if let Err(e) = result {
+            assert!(
+                e.to_string().contains("Data loading failed"),
+                "DataLoad error should mention data loading: {e}"
+            );
+        }
+        // If Ok: manifest parent or cwd had control/, which is fine
+    }
+
+    #[test]
+    fn discover_data_root_delegates_to_try() {
+        let root = discover_data_root();
+        assert!(
+            root.exists(),
+            "discover_data_root must return existing path"
+        );
+        // When try succeeds, discover matches try
+        if let Ok(try_root) = try_discover_data_root() {
+            assert_eq!(
+                root, try_root,
+                "discover should match try when try succeeds"
+            );
+        }
+    }
+
+    #[test]
+    fn available_capabilities_returns_vec() {
+        let caps = available_capabilities();
+        // In development, at least nuclear-eos or control/ should exist
+        assert!(
+            caps.contains(&"nuclear-eos") || caps.contains(&"surrogate") || caps.is_empty(),
+            "capabilities should be sensible: {caps:?}"
+        );
+    }
+
+    #[test]
+    #[allow(deprecated)] // set_var/remove_var deprecated (edition 2024: unsafe); tests run sequentially
     fn discover_data_root_with_invalid_env_falls_back() {
         // When HOTSPRING_DATA_ROOT points to dir without control/, we fall back.
         let bad_root = std::env::temp_dir().join("barracuda_no_control");

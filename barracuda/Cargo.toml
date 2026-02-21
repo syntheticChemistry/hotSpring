@@ -59,6 +59,9 @@ significant_drop_tightening = "allow"
 [lints]
 workspace = true
 
+[features]
+gpu_energy = []
+
 [dependencies]
 # BarraCUDA: All scientific computing from the library
 barracuda = { path = "../../phase1/toadstool/crates/barracuda" }

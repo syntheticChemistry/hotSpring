@@ -82,6 +82,19 @@ fn parse_args() -> CliArgs {
 }
 
 fn main() {
+    struct NucleusResidual {
+        z: usize,
+        n: usize,
+        a: usize,
+        element: String,
+        b_exp: f64,
+        b_calc: f64,
+        delta_b: f64,   // B_calc - B_exp (MeV)
+        abs_delta: f64, // |ΔB| (MeV)
+        rel_delta: f64, // |ΔB/B_exp|
+        chi2_i: f64,    // per-nucleus chi² contribution
+        _sigma: f64,
+    }
     let cli = parse_args();
     let base_seed = cli.seed;
     let lambda = cli.lambda;
@@ -415,21 +428,6 @@ fn main() {
     let nuclei_list = nuclei_file["nuclei"]
         .as_array()
         .expect("nuclei JSON has nuclei array");
-
-    // Build residuals with full nucleus info
-    struct NucleusResidual {
-        z: usize,
-        n: usize,
-        a: usize,
-        element: String,
-        b_exp: f64,
-        b_calc: f64,
-        delta_b: f64,   // B_calc - B_exp (MeV)
-        abs_delta: f64, // |ΔB| (MeV)
-        rel_delta: f64, // |ΔB/B_exp|
-        chi2_i: f64,    // per-nucleus chi² contribution
-        _sigma: f64,
-    }
 
     let mut residuals: Vec<NucleusResidual> = Vec::new();
     for nuc in nuclei_list {
@@ -767,6 +765,15 @@ fn main() {
 // ═══════════════════════════════════════════════════════════════════
 
 fn run_multi_seed(base_seed: u64, n_seeds: usize, lambda: f64) {
+    struct SeedResult {
+        seed: u64,
+        direct_chi2_total: f64,
+        direct_chi2_be: f64,
+        direct_chi2_nmp: f64,
+        direct_evals: usize,
+        direct_time_ms: u128,
+        direct_j: f64,
+    }
     let EosContext {
         base: base_path,
         exp_data,
@@ -780,16 +787,6 @@ fn run_multi_seed(base_seed: u64, n_seeds: usize, lambda: f64) {
         lambda
     );
     println!();
-
-    struct SeedResult {
-        seed: u64,
-        direct_chi2_total: f64,
-        direct_chi2_be: f64,
-        direct_chi2_nmp: f64,
-        direct_evals: usize,
-        direct_time_ms: u128,
-        direct_j: f64,
-    }
 
     let mut results: Vec<SeedResult> = Vec::new();
 
@@ -919,6 +916,19 @@ fn run_multi_seed(base_seed: u64, n_seeds: usize, lambda: f64) {
 // ═══════════════════════════════════════════════════════════════════
 
 fn run_pareto_sweep(base_seed: u64) {
+    struct ParetoPoint {
+        lambda: f64,
+        chi2_be_mean: f64,
+        chi2_be_std: f64,
+        chi2_nmp_mean: f64,
+        chi2_nmp_std: f64,
+        j_mean: f64,
+        j_std: f64,
+        rms_mev_mean: f64,
+        all_nmp_within_2sigma: usize,
+        n_seeds: usize,
+        best_params: Vec<f64>,
+    }
     let EosContext {
         base: base_path,
         exp_data,
@@ -943,20 +953,6 @@ fn run_pareto_sweep(base_seed: u64) {
     let unedf0_nmp = nuclear_matter_properties(UNEDF0_PARAMS.as_slice())
         .map_or(1e4, |n| provenance::nmp_chi2_from_props(&n) / 5.0);
     let unedf0_j = nuclear_matter_properties(UNEDF0_PARAMS.as_slice()).map_or(0.0, |n| n.j_mev);
-
-    struct ParetoPoint {
-        lambda: f64,
-        chi2_be_mean: f64,
-        chi2_be_std: f64,
-        chi2_nmp_mean: f64,
-        chi2_nmp_std: f64,
-        j_mean: f64,
-        j_std: f64,
-        rms_mev_mean: f64,
-        all_nmp_within_2sigma: usize,
-        n_seeds: usize,
-        best_params: Vec<f64>,
-    }
 
     let mut pareto: Vec<ParetoPoint> = Vec::new();
 

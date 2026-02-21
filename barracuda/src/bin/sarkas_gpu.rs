@@ -308,11 +308,11 @@ async fn run_n_scaling(report: &mut BenchReport, harness: &mut ValidationHarness
 
         // CPU reference for small N only
         if cpu_sizes.contains(&n) {
+            use hotspring_barracuda::md::cpu_reference;
             println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
             println!("  CPU reference: N = {n}");
             println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
-            use hotspring_barracuda::md::cpu_reference;
             let t0 = Instant::now();
             let monitor = PowerMonitor::start();
             let cpu_sim = cpu_reference::run_simulation_cpu(&config);
@@ -465,6 +465,7 @@ async fn run_scaling_test(report: &mut BenchReport, harness: &mut ValidationHarn
     let mut cpu_results: Vec<(usize, f64)> = Vec::new();
 
     for &n in &sizes {
+        use hotspring_barracuda::md::cpu_reference;
         // Shorter run for scaling test
         let config = MdConfig {
             label: format!("k2_G158_N{n}"),
@@ -500,7 +501,6 @@ async fn run_scaling_test(report: &mut BenchReport, harness: &mut ValidationHarn
         println!("  CPU: N = {n}");
         println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
-        use hotspring_barracuda::md::cpu_reference;
         let t0 = Instant::now();
         let monitor = PowerMonitor::start();
         let cpu_sim = cpu_reference::run_simulation_cpu(&config);
@@ -593,7 +593,7 @@ async fn run_single_case(config: &MdConfig, report: &mut BenchReport) -> bool {
             };
 
             // Print observable summary (with GPU SSF if available)
-            observables::print_observable_summary_with_gpu(&sim, config, ssf_device);
+            observables::print_observable_summary_with_gpu(&sim, config, ssf_device.as_ref());
 
             // Add to benchmark report
             let total_steps = config.equil_steps + config.prod_steps;

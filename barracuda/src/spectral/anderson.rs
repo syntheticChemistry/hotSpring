@@ -258,7 +258,7 @@ pub fn clean_3d_lattice(l: usize) -> CsrMatrix {
 pub(crate) struct LcgRng(u64);
 
 impl LcgRng {
-    pub(crate) fn new(seed: u64) -> Self {
+    pub(crate) const fn new(seed: u64) -> Self {
         Self(seed.wrapping_add(1))
     }
 
@@ -276,6 +276,7 @@ impl LcgRng {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use crate::spectral::{lanczos, lanczos_eigenvalues, GOLDEN_RATIO};
@@ -295,7 +296,7 @@ mod tests {
         // Almost-Mathieu with λ=2, α=golden ratio: γ = ln(2) ≈ 0.693
         let n = 50_000;
         let pot: Vec<f64> = (0..n)
-            .map(|i| 2.0 * 2.0 * (std::f64::consts::TAU * GOLDEN_RATIO * i as f64).cos())
+            .map(|i| 2.0 * 2.0 * (std::f64::consts::TAU * GOLDEN_RATIO * f64::from(i)).cos())
             .collect();
         let gamma = lyapunov_exponent(&pot, 0.0);
         let expected = (2.0f64).ln();
@@ -310,7 +311,7 @@ mod tests {
         // Almost-Mathieu with λ=0.5: γ should be ~0 (extended)
         let n = 50_000;
         let pot: Vec<f64> = (0..n)
-            .map(|i| 2.0 * 0.5 * (std::f64::consts::TAU * GOLDEN_RATIO * i as f64).cos())
+            .map(|i| 2.0 * 0.5 * (std::f64::consts::TAU * GOLDEN_RATIO * f64::from(i)).cos())
             .collect();
         let gamma = lyapunov_exponent(&pot, 0.0);
         assert!(

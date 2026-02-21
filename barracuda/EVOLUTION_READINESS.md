@@ -141,6 +141,17 @@ No duplicate math — all mathematical operations use BarraCUDA primitives.
 WGSL `abs_f64` and `cbrt_f64` now injected via `ShaderTemplate::with_math_f64_auto()` (v0.5.8).
 Force shaders compiled via `GpuF64::create_pipeline_f64()` → barracuda driver-aware path **(v0.5.11)**.
 
+## Completed (v0.6.1, Feb 21 2026)
+
+- ✅ **Zero `expect()`/`unwrap()` in library code**: `#![deny(clippy::expect_used, clippy::unwrap_used)]` enforced crate-wide. All 15 production `expect()` calls replaced with `Result` propagation, `bytemuck` zero-copy, or safe pattern matching.
+- ✅ **Tolerances module tree**: `tolerances.rs` (1384 lines) refactored into `tolerances/{mod,core,md,physics,lattice,npu}.rs`. Each submodule under 300 lines. Zero API change via `pub use` re-exports.
+- ✅ **Provenance completeness**: `SCREENED_COULOMB_PROVENANCE` and `DALIGAULT_CALIBRATION_PROVENANCE` added. Commit verification documentation included.
+- ✅ **Capability-based discovery**: `try_discover_data_root()` returns `Result`; `available_capabilities()` probes runtime validation domains.
+- ✅ **Tolerances tightened**: `ENERGY_DRIFT_PCT` 5%→0.5%, `RDF_TAIL_TOLERANCE` 0.15→0.02 (both still 10×+ above measured worst case).
+- ✅ **Zero-copy GPU buffer reads**: `bytemuck::try_cast_slice` with alignment fallback replaces manual byte conversion.
+- ✅ **Control JSON policy documented** in tolerances module.
+- ✅ **463 tests (458 passing + 5 GPU-ignored), 0 clippy warnings, 0 doc warnings**
+
 ## Promotion Priority
 
 1. **GPU energy integrands + SumReduceF64** → Wire `batched_hfb_energy_f64.wgsl` into
@@ -472,7 +483,7 @@ the original sign and adjoint were both wrong, causing 0% HMC acceptance.
 | ~~GPU Dirac SpMV~~ | ~~CPU-only staggered Dirac operator~~ | ~~**P1**~~ | ✅ **Done** — `WGSL_DIRAC_STAGGERED_F64` validated, `validate_gpu_dirac` binary (30th suite) |
 | ~~Pure GPU QCD workload~~ | ~~Thermalized-config CG validation~~ | ~~**P1**~~ | ✅ **Done** — `validate_pure_gpu_qcd` (3/3): HMC → GPU CG, 4.10e-16 parity (31st suite) |
 | ~~Python baseline~~ | ~~Interpreted-language benchmark~~ | ~~**P1**~~ | ✅ **Done** — Rust 200× faster: CG iters match exactly, Dirac 0.023ms vs 4.59ms |
-| 9 files > 1000 lines | Code organization | Medium | Documented deviation; physics-coherent |
+| 8 files > 1000 lines | Code organization | Medium | Documented deviation; physics-coherent (tolerances.rs split) |
 | ~~Stanton-Murillo transport normalization~~ | ~~Paper 5 calibration~~ | ~~High~~ | ✅ Resolved: Sarkas-calibrated (12 points, N=2000) |
 | ~~BCS + density shader not wired~~ | ~~CPU readback after eigensolve~~ | ~~High~~ | ✅ Resolved v0.5.10 |
 | ~~WGSL inline math~~ | ~~Maintenance drift~~ | ~~Medium~~ | ✅ Resolved v0.5.8 |

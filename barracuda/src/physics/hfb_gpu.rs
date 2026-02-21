@@ -51,6 +51,11 @@ pub struct BatchedL2Result {
 /// Nuclei with 56 <= A <= 132 use the spherical HFB solver with GPU-batched
 /// eigendecomposition. All others use the L1 SEMF formula.
 ///
+/// # Errors
+///
+/// Returns [`HotSpringError::GpuCompute`] if GPU buffer allocation or
+/// batched eigensolve fails.
+///
 /// # Arguments
 /// * `device` - toadstool WgpuDevice (from `GpuF64::to_wgpu_device()`)
 /// * `nuclei` - list of (Z, N) pairs
@@ -59,13 +64,22 @@ pub struct BatchedL2Result {
 /// * `tol` - energy convergence tolerance in MeV (default: 0.05)
 /// * `mixing` - density mixing factor (default: 0.3)
 pub fn binding_energies_l2_gpu(
-    device: Arc<WgpuDevice>,
+    device: &Arc<WgpuDevice>,
     nuclei: &[(usize, usize)],
     params: &[f64],
     max_iter: usize,
     tol: f64,
     mixing: f64,
 ) -> Result<BatchedL2Result, HotSpringError> {
+    struct NucleusState {
+        rho_p: Vec<f64>,
+        rho_n: Vec<f64>,
+        e_prev: f64,
+        converged: bool,
+        binding_energy: f64,
+        iterations: usize,
+        actual_ns: usize, // real basis dimension (before padding)
+    }
     let t0 = std::time::Instant::now();
     let mut results: Vec<(usize, usize, f64, bool)> = Vec::with_capacity(nuclei.len());
     let mut gpu_dispatches = 0usize;
@@ -125,46 +139,11 @@ pub fn binding_energies_l2_gpu(
     let max_mat_size = max_ns * max_ns;
     let w0 = params[9];
 
-    // Per-nucleus SCF state
-    struct NucleusState {
-        rho_p: Vec<f64>,
-        rho_n: Vec<f64>,
-        e_prev: f64,
-        converged: bool,
-        binding_energy: f64,
-        iterations: usize,
-        actual_ns: usize, // real basis dimension (before padding)
-    }
-
     let mut states: Vec<NucleusState> = solvers
         .iter()
         .map(|(z, n, _, hfb)| {
-            let a = z + n;
-            let r_nuc = 1.2 * (a as f64).powf(1.0 / 3.0);
-            let rho0 = 3.0 * a as f64 / (4.0 * std::f64::consts::PI * r_nuc.powi(3));
-            let nr = hfb.nr();
-
-            // Initialize Wood-Saxon-like density profile
-            let rho_p: Vec<f64> = (0..nr)
-                .map(|k| {
-                    let r = (k + 1) as f64 * (15.0 / nr as f64);
-                    if r < r_nuc {
-                        (rho0 * *z as f64 / a as f64).max(DENSITY_FLOOR)
-                    } else {
-                        DENSITY_FLOOR
-                    }
-                })
-                .collect();
-            let rho_n: Vec<f64> = (0..nr)
-                .map(|k| {
-                    let r = (k + 1) as f64 * (15.0 / nr as f64);
-                    if r < r_nuc {
-                        (rho0 * *n as f64 / a as f64).max(DENSITY_FLOOR)
-                    } else {
-                        DENSITY_FLOOR
-                    }
-                })
-                .collect();
+            let (rho_p, rho_n) =
+                super::hfb_common::initial_wood_saxon_density(*z, *n, hfb.nr(), hfb.dr());
 
             NucleusState {
                 rho_p,
@@ -185,7 +164,7 @@ pub fn binding_energies_l2_gpu(
     // and bind group creation. Data uploads via queue.write_buffer (DMA).
     let max_batch_count = solvers.len() * 2; // proton + neutron per nucleus
     let (eigh_matrices_buf, eigh_eigenvalues_buf, eigh_eigenvectors_buf) =
-        BatchedEighGpu::create_buffers(&device, max_ns, max_batch_count).map_err(|e| {
+        BatchedEighGpu::create_buffers(device, max_ns, max_batch_count).map_err(|e| {
             HotSpringError::GpuCompute(format!("pre-allocate eigensolve GPU buffers: {e}"))
         })?;
     let mut packed_hamiltonians: Vec<f64> = vec![0.0; max_batch_count * max_mat_size];
@@ -247,7 +226,7 @@ pub fn binding_energies_l2_gpu(
 
         let eigh_dispatch = if max_ns <= 32 {
             BatchedEighGpu::execute_single_dispatch_buffers(
-                &device,
+                device,
                 &eigh_matrices_buf,
                 &eigh_eigenvalues_buf,
                 &eigh_eigenvectors_buf,
@@ -258,7 +237,7 @@ pub fn binding_energies_l2_gpu(
             )
         } else {
             BatchedEighGpu::execute_f64_buffers(
-                &device,
+                device,
                 &eigh_matrices_buf,
                 &eigh_eigenvalues_buf,
                 &eigh_eigenvectors_buf,
@@ -277,10 +256,10 @@ pub fn binding_energies_l2_gpu(
 
         // Readback from pre-allocated GPU buffers
         let eigenvalues =
-            BatchedEighGpu::read_eigenvalues(&device, &eigh_eigenvalues_buf, max_ns, batch_size)
+            BatchedEighGpu::read_eigenvalues(device, &eigh_eigenvalues_buf, max_ns, batch_size)
                 .map_err(|e| HotSpringError::GpuCompute(format!("eigenvalue readback: {e}")))?;
         let eigenvectors =
-            BatchedEighGpu::read_eigenvectors(&device, &eigh_eigenvectors_buf, max_ns, batch_size)
+            BatchedEighGpu::read_eigenvectors(device, &eigh_eigenvectors_buf, max_ns, batch_size)
                 .map_err(|e| HotSpringError::GpuCompute(format!("eigenvector readback: {e}")))?;
         gpu_dispatches += 1;
 

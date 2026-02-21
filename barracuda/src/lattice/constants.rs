@@ -119,7 +119,7 @@ mod tests {
         let mut seed = 42u64;
         let n = 10_000;
         let sum: f64 = (0..n).map(|_| lcg_gaussian(&mut seed)).sum();
-        let mean = sum / n as f64;
+        let mean = sum / f64::from(n);
         assert!(mean.abs() < 0.1, "mean should be near 0, got {mean}");
     }
 }

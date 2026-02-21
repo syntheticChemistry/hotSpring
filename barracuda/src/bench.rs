@@ -321,6 +321,11 @@ impl BenchReport {
     }
 
     /// Save to JSON file.  Returns the path written.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` if the directory cannot be created, the path cannot be
+    /// written, or JSON serialization fails.
     pub fn save_json(&self, dir: &str) -> std::io::Result<String> {
         std::fs::create_dir_all(dir)?;
         let filename = format!(
@@ -365,7 +370,7 @@ impl BenchReport {
             let eval_str = if p.per_eval_us > 0.0 {
                 format_eval_time(p.per_eval_us)
             } else {
-                "—".to_string()
+                String::from("—")
             };
 
             // Determine primary energy source by substrate
@@ -392,7 +397,7 @@ impl BenchReport {
             } else if primary_joules > 0.0 {
                 format!("{primary_joules:.4}")
             } else {
-                "—".to_string()
+                String::from("—")
             };
 
             let j_per_eval = if primary_joules > 0.0 && p.n_evals > 0 {
@@ -405,13 +410,13 @@ impl BenchReport {
                     format!("{j:.2e}")
                 }
             } else {
-                "—".to_string()
+                String::from("—")
             };
 
             let watts_str = if primary_watts > 0.1 {
                 format!("{primary_watts:.0} W")
             } else {
-                "—".to_string()
+                String::from("—")
             };
 
             let peak_watts = if is_gpu_phase {
@@ -423,13 +428,13 @@ impl BenchReport {
             let peak_watts_str = if peak_watts > 0.1 {
                 format!("{peak_watts:.0} W")
             } else {
-                "—".to_string()
+                String::from("—")
             };
 
             let chi2_str = if p.chi2 < 1e8 {
                 format!("{:.2}", p.chi2)
             } else {
-                "—".to_string()
+                String::from("—")
             };
 
             let sub_label = if is_gpu_phase {
@@ -501,17 +506,19 @@ impl BenchReport {
                 continue;
             }
 
-            // Find fastest and slowest
-            #[allow(clippy::expect_used)] // SAFETY: matching.len() >= 2 guaranteed by prior check
-            let fastest = matching
+            // Find fastest and slowest (matching.len() >= 2 from the guard above)
+            let Some(fastest) = matching
                 .iter()
                 .min_by(|a, b| a.wall_time_s.total_cmp(&b.wall_time_s))
-                .expect("matching has >= 2 elements");
-            #[allow(clippy::expect_used)] // SAFETY: matching.len() >= 2 guaranteed by prior check
-            let slowest = matching
+            else {
+                continue;
+            };
+            let Some(slowest) = matching
                 .iter()
                 .max_by(|a, b| a.wall_time_s.total_cmp(&b.wall_time_s))
-                .expect("matching has >= 2 elements");
+            else {
+                continue;
+            };
 
             if fastest.wall_time_s > 0.0 && slowest.wall_time_s > fastest.wall_time_s {
                 let speedup = slowest.wall_time_s / fastest.wall_time_s;

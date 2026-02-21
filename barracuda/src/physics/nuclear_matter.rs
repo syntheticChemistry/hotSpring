@@ -119,6 +119,7 @@ pub fn nuclear_matter_properties(params: &[f64]) -> Option<NuclearMatterProps> {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use crate::provenance::SLY4_PARAMS;

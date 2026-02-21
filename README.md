@@ -75,7 +75,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **NPU HW Quantization** | ✅ Complete | 4/4 on AKD1000: f32/int8/int4/act4 cascade, 685μs/inference |
 | **NPU Lattice Phase** | ✅ 7/8 | β_c=5.715 on AKD1000, ESN 100% CPU, int4 NPU 60% (marginal as expected) |
 | **Titan V NVK** | ✅ Complete | NVK built from Mesa 25.1.5. `cpu_gpu_parity` 6/6, `stanton_murillo` 40/40, `bench_gpu_fp64` pass |
-| **TOTAL** | **33/33 Rust validation suites** | + 34/35 NPU HW checks, 454 unit tests, 16 determinism tests, 6 upstream bugs found. Both GPUs validated |
+| **TOTAL** | **32/32 Rust validation suites** | 463 unit tests (458 passing + 5 GPU-ignored), + 34/35 NPU HW checks, 16 determinism tests, 6 upstream bugs found. Both GPUs validated |
 
 Papers 5, 7, and 8 from the review queue are complete. Paper 5 transport fits
 (Daligault 2012) were recalibrated against 12 Sarkas Green-Kubo D* values (Feb 2026)
@@ -288,7 +288,11 @@ No streamlining — this is the correct architecture.
 
 ## Evolution Architecture: Write → Absorb → Lean
 
-hotSpring follows a deliberate pattern for extending toadstool/barracuda:
+hotSpring is a biome. ToadStool (barracuda) is the fungus — it lives in
+every biome. hotSpring, neuralSpring, desertSpring each lean on toadstool
+independently, evolve shaders and systems locally, and toadstool absorbs
+what works. Springs don't reference each other — they learn from each other
+by reviewing code in `ecoPrimals/`, not by importing.
 
 ```
 hotSpring writes extension    → toadstool absorbs    → hotSpring leans on upstream
@@ -315,22 +319,36 @@ makes the upstream library richer and hotSpring leaner.
 2. Clear binding layout documentation (binding index, type, purpose)
 3. Dispatch geometry documented (workgroup size, grid dimensions)
 4. CPU reference implementation validated against known physics
-5. Tolerance constants in `tolerances.rs` (not inline magic numbers)
+5. Tolerance constants in `tolerances/` module tree (not inline magic numbers)
 6. Handoff document with exact code locations and validation results
 
-**Next absorption targets** (see `EVOLUTION_READINESS.md`):
+**Next absorption targets** (see `barracuda/ABSORPTION_MANIFEST.md`):
 - GPU SpMV (CSR sparse matrix-vector) — `spectral/csr.rs::CsrMatrix::spmv()`
 - GPU Lanczos eigensolve — `spectral/lanczos.rs::lanczos()`
 - GPU Dirac operator — `lattice/dirac.rs` (staggered fermion SpMV)
+- NPU substrate discovery — `metalForge/forge/src/probe.rs` (local evolution)
+
+**Absorption-ready inventory** (v0.6.1):
+
+| Module | Type | WGSL Shader | Status |
+|--------|------|------------|--------|
+| `spectral/csr.rs` | SpMV | `WGSL_SPMV_CSR_F64` | (C) Ready — 8/8 GPU checks |
+| `spectral/lanczos.rs` | Eigensolve | CPU + GPU SpMV inner loop | (C) Ready — 6/6 checks |
+| `lattice/dirac.rs` | Dirac SpMV | `WGSL_DIRAC_STAGGERED_F64` | (C) Ready — 8/8 checks |
+| `lattice/cg.rs` | CG solver | `WGSL_COMPLEX_DOT_RE_F64` + 2 more | (C) Ready — 9/9 checks |
+| `md/reservoir.rs` | ESN | `esn_reservoir_update.wgsl` + readout | (C) Ready — NPU validated |
+| `physics/screened_coulomb.rs` | Sturm eigensolve | CPU only | (C) Ready — 23/23 checks |
+| `spectral/anderson.rs` | Anderson 1D/2D/3D | CPU | (C) Ready — 31 checks |
+| `spectral/hofstadter.rs` | Hofstadter butterfly | CPU | (C) Ready — 10 checks |
 
 ---
 
-## BarraCUDA Crate (v0.6.0)
+## BarraCUDA Crate (v0.6.1)
 
 The `barracuda/` directory is a standalone Rust crate providing the validation
 environment, physics implementations, and GPU compute. Key architectural properties:
 
-- **454 unit tests** (449 passing + 5 GPU-ignored), **33 validation suites** (33/33 pass),
+- **463 unit tests** (458 passing + 5 GPU-ignored), **33 validation suites** (33/33 pass),
   **16 determinism tests** (rerun-identical for all stochastic algorithms). Includes
   lattice QCD (complex f64, SU(3), Wilson action, HMC, Dirac CG), Abelian Higgs
   (U(1) + Higgs, HMC), transport coefficients (Green-Kubo D*/η*/λ*, Sarkas-calibrated
@@ -348,7 +366,7 @@ environment, physics implementations, and GPU compute. Key architectural propert
   `NMP_TARGETS`, `L1_PYTHON_CHI2`, `MD_FORCE_REFS`, `GPU_KERNEL_REFS`, etc.
   DOIs for AME2020, Chabanat 1998, Kortelainen 2010, Bender 2003,
   Lattimer & Prakash 2016 are documented in `provenance.rs`.
-- **Tolerances** — 146 centralized constants in `tolerances.rs` with physical
+- **Tolerances** — 146 centralized constants in the `tolerances/` module tree with physical
   justification (machine precision, numerical method, model, literature).
   Includes 12 physics guard constants (`DENSITY_FLOOR`, `SPIN_ORBIT_R_MIN`,
   `COULOMB_R_MIN`, `BCS_DENSITY_SKIP`, `DEFORMED_COULOMB_R_MIN`, etc.)
@@ -365,8 +383,9 @@ environment, physics implementations, and GPU compute. Key architectural propert
 - **Typed errors** — `HotSpringError` enum with full `Result` propagation
   across all GPU pipelines, HFB solvers, and ESN prediction. Variants:
   `NoAdapter`, `NoShaderF64`, `DeviceCreation`, `DataLoad`, `Barracuda`,
-  `GpuCompute`, `InvalidOperation`. **Zero `.unwrap()` and zero `.expect()`
-  in library code** — all fallible operations use `?` propagation. Provably
+  `GpuCompute`, `InvalidOperation`.   **Zero `.unwrap()` and zero `.expect()`
+  in library code** — `#![deny(clippy::expect_used, clippy::unwrap_used)]` enforced crate-wide;
+  all fallible operations use `?` propagation. Provably
   unreachable byte-slice conversions annotated with SAFETY comments.
 - **Shared physics** — `hfb_common.rs` consolidates BCS v², Coulomb exchange
   (Slater), CM correction, Skyrme t₀, Hermite polynomials, and Mat type.
@@ -391,8 +410,8 @@ environment, physics implementations, and GPU compute. Key architectural propert
 
 ```bash
 cd barracuda
-cargo test               # 454 tests pass, 5 GPU-ignored (< 16 seconds)
-cargo clippy --all-targets -- -W clippy::expect_used -W clippy::unwrap_used  # Zero warnings
+cargo test               # 463 tests pass, 5 GPU-ignored (< 16 seconds)
+cargo clippy --all-targets -- -W clippy::expect_used -W clippy::unwrap_used  # Zero warnings (deny enforced in lib.rs)
 cargo doc --no-deps      # Full API documentation — 0 warnings
 cargo run --release --bin validate_all  # 33/33 suites pass
 ```
@@ -469,7 +488,7 @@ hotSpring/
 │   ├── CONTROL_EXPERIMENT_SUMMARY.md  # Phase A quick reference
 │   └── METHODOLOGY.md                # Two-phase validation protocol
 │
-├── barracuda/                          # BarraCUDA Rust crate — v0.6.0 (454 tests, 33 suites)
+├── barracuda/                          # BarraCUDA Rust crate — v0.6.1 (463 tests, 33 suites)
 │   ├── Cargo.toml                     # Dependencies (requires ecoPrimals/phase1/toadstool)
 │   ├── CHANGELOG.md                   # Version history — baselines, tolerances, evolution
 │   ├── EVOLUTION_READINESS.md         # Rust module → GPU promotion tier + absorption status
@@ -478,7 +497,7 @@ hotSpring/
 │       ├── lib.rs                     # Crate root — module declarations + architecture docs
 │       ├── error.rs                   # Typed errors (HotSpringError: NoAdapter, NoShaderF64, GpuCompute, InvalidOperation, …)
 │       ├── provenance.rs              # Baseline + analytical provenance (Python, DOIs, textbook)
-│       ├── tolerances.rs              # 146 centralized thresholds with physical justification
+│       ├── tolerances/                # 146 centralized thresholds (mod, core, md, physics, lattice, npu)
 │       ├── validation.rs              # Pass/fail harness — structured checks, exit code 0/1
 │       ├── discovery.rs               # Capability-based data path resolution (env var / CWD)
 │       ├── data.rs                    # AME2020 data + Skyrme bounds + EosContext + chi2_per_datum
@@ -638,10 +657,22 @@ hotSpring/
 │   ├── 004_GPU_DISPATCH_OVERHEAD_L3.md  # L3 deformed HFB GPU dispatch profiling
 │   ├── 005_L2_MEGABATCH_COMPLEXITY_BOUNDARY.md # L2 mega-batch GPU complexity analysis
 │   ├── 006_GPU_FP64_COMPARISON.md      # RTX 4070 vs Titan V fp64 benchmark
-│   └── 007_CPU_GPU_SCALING_BENCHMARK.md # CPU vs GPU scaling: crossover analysis
+│   ├── 007_CPU_GPU_SCALING_BENCHMARK.md # CPU vs GPU scaling: crossover analysis
+│   ├── 008_PARITY_BENCHMARK.md       # Python vs Rust CPU vs Rust GPU parity benchmark (32/32 suites)
+│   └── 008_PARITY_BENCHMARK.sh       # Automated benchmark runner
 │
-├── metalForge/                         # Hardware characterization & direct-wire programming
-│   ├── README.md                      # Philosophy + hardware inventory
+├── metalForge/                         # Hardware characterization & cross-substrate dispatch
+│   ├── README.md                      # Philosophy + hardware inventory + forge docs
+│   ├── forge/                         # Rust crate — local hardware discovery (13 tests)
+│   │   ├── Cargo.toml                # Deps: barracuda (toadstool), wgpu 22
+│   │   ├── src/
+│   │   │   ├── lib.rs               # Crate root — biome-native discovery
+│   │   │   ├── substrate.rs         # Capability model (GPU, NPU, CPU)
+│   │   │   ├── probe.rs             # GPU via wgpu, CPU via procfs, NPU via /dev
+│   │   │   ├── inventory.rs         # Unified substrate inventory
+│   │   │   └── dispatch.rs          # Capability-based workload routing
+│   │   └── examples/
+│   │       └── inventory.rs         # Prints discovered hardware + dispatch examples
 │   ├── npu/akida/                     # BrainChip AKD1000 NPU exploration
 │   │   ├── HARDWARE.md                # Architecture, compute model, limits
 │   │   ├── EXPLORATION.md             # Novel applications for physics
@@ -779,6 +810,7 @@ These are **silent failures** — wrong results, no error messages. This fragili
 | [`experiments/005_L2_MEGABATCH_COMPLEXITY_BOUNDARY.md`](experiments/005_L2_MEGABATCH_COMPLEXITY_BOUNDARY.md) | L2 mega-batch GPU complexity boundary analysis |
 | [`experiments/006_GPU_FP64_COMPARISON.md`](experiments/006_GPU_FP64_COMPARISON.md) | RTX 4070 vs Titan V: fp64 benchmark, driver comparison, NVK vs proprietary |
 | [`experiments/007_CPU_GPU_SCALING_BENCHMARK.md`](experiments/007_CPU_GPU_SCALING_BENCHMARK.md) | CPU vs GPU scaling: crossover analysis, streaming dispatch |
+| [`experiments/008_PARITY_BENCHMARK.md`](experiments/008_PARITY_BENCHMARK.md) | Python → Rust CPU → Rust GPU parity benchmark (32/32 suites) |
 | [`metalForge/README.md`](metalForge/README.md) | Hardware characterization — philosophy, inventory, directory |
 | [`metalForge/npu/akida/BEYOND_SDK.md`](metalForge/npu/akida/BEYOND_SDK.md) | **10 overturned SDK assumptions** — the discovery document |
 | [`metalForge/npu/akida/HARDWARE.md`](metalForge/npu/akida/HARDWARE.md) | AKD1000 deep-dive: architecture, compute model, PCIe BAR mapping |

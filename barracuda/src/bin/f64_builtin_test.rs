@@ -18,6 +18,7 @@ use std::time::Instant;
 
 #[tokio::main]
 async fn main() {
+    use wgpu::util::DeviceExt;
     let mut harness = ValidationHarness::new("f64_builtin_test");
     let gpu = GpuF64::new().await.expect("No GPU");
     println!("GPU: {}", gpu.adapter_name);
@@ -128,8 +129,6 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {{
         usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
-
-    use wgpu::util::DeviceExt;
 
     // Run native sqrt
     let native_results = run_shader(

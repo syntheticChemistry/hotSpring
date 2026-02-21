@@ -75,7 +75,7 @@ pub fn hofstadter_butterfly(q_max: usize, lambda: f64, n_sites: usize) -> Vec<(f
 }
 
 /// Greatest common divisor (Euclid's algorithm).
-pub fn gcd(mut a: usize, mut b: usize) -> usize {
+pub const fn gcd(mut a: usize, mut b: usize) -> usize {
     while b != 0 {
         let t = b;
         b = a % b;

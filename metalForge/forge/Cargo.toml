@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+
+[package]
+name = "hotspring-forge"
+version = "0.1.0"
+edition = "2021"
+description = "Hardware discovery and cross-substrate dispatch for hotSpring"
+license = "AGPL-3.0-only"
+
+[workspace]
+
+[dependencies]
+# Toadstool barracuda — the fungus. GPU device management, shader dispatch,
+# buffer management. We lean on it, evolve locally, it absorbs.
+barracuda = { path = "../../../phase1/toadstool/crates/barracuda" }
+
+# GPU compute — must match barracuda's wgpu version (22)
+wgpu = { version = "22", default-features = false, features = [
+    "wgsl",
+    "vulkan-portability",
+] }
+
+[dev-dependencies]
+
+[lints.clippy]
+expect_used = "deny"
+unwrap_used = "deny"

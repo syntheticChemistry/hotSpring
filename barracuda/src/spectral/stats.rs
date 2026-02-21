@@ -37,7 +37,7 @@ pub fn level_spacing_ratio(eigenvalues: &[f64]) -> f64 {
     }
 
     if count > 0 {
-        sum / count as f64
+        sum / f64::from(count)
     } else {
         0.0
     }
@@ -76,14 +76,9 @@ pub fn detect_bands(eigenvalues: &[f64], gap_factor: f64) -> Vec<(f64, f64)> {
             band_start = w[1];
         }
     }
-    // SAFETY: early return above ensures eigenvalues.len() ≥ 2
-    #[allow(clippy::expect_used)]
-    bands.push((
-        band_start,
-        *eigenvalues
-            .last()
-            .expect("eigenvalues verified non-empty above"),
-    ));
+    if let Some(&last_ev) = eigenvalues.last() {
+        bands.push((band_start, last_ev));
+    }
 
     bands
 }
@@ -126,7 +121,7 @@ mod tests {
 
     #[test]
     fn level_spacing_ratio_equally_spaced() {
-        let evals: Vec<f64> = (0..10).map(|i| i as f64).collect();
+        let evals: Vec<f64> = (0..10).map(f64::from).collect();
         let r = level_spacing_ratio(&evals);
         assert!((r - 1.0).abs() < 1e-10, "equal spacing gives r=1");
     }
@@ -164,7 +159,7 @@ mod tests {
 
     #[test]
     fn detect_bands_no_gap() {
-        let evals: Vec<f64> = (0..20).map(|i| i as f64).collect();
+        let evals: Vec<f64> = (0..20).map(f64::from).collect();
         let bands = detect_bands(&evals, 10.0);
         assert_eq!(bands.len(), 1);
         assert_eq!(bands[0], (0.0, 19.0));
@@ -172,8 +167,8 @@ mod tests {
 
     #[test]
     fn detect_bands_large_gap() {
-        let mut evals: Vec<f64> = (0..5).map(|i| i as f64).collect();
-        evals.extend((100..105).map(|i| i as f64));
+        let mut evals: Vec<f64> = (0..5).map(f64::from).collect();
+        evals.extend((100..105).map(f64::from));
         let bands = detect_bands(&evals, 2.0);
         assert!(bands.len() >= 2);
         assert!((bands[0].1 - bands[0].0).abs() < 5.0);

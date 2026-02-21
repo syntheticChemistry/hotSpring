@@ -333,14 +333,7 @@ mod tests {
         let vel = vec![0.0, 0.0, 0.0];
         let pos_ok = vec![0.0, 0.0, 0.0, 1.0, 0.0, 0.0];
         let vel_ok = vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
-        let stress = compute_stress_xy(
-            &[pos.clone(), pos_ok],
-            &[vel.clone(), vel_ok],
-            2,
-            5.0,
-            2.0,
-            3.0,
-        );
+        let stress = compute_stress_xy(&[pos, pos_ok], &[vel, vel_ok], 2, 5.0, 2.0, 3.0);
         assert_eq!(stress.len(), 1, "first snapshot too short, second ok");
     }
 

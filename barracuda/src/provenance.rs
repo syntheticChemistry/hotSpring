@@ -27,6 +27,16 @@
 //! | Lattimer & Prakash | [10.1016/j.physrep.2015.12.005](https://doi.org/10.1016/j.physrep.2015.12.005) | J (symmetry energy) NMP target |
 //! | Sarkas MD software | [10.1016/j.cpc.2021.108245](https://doi.org/10.1016/j.cpc.2021.108245) | Silvestri et al., CPC (2022); control runs from `control/sarkas/` |
 //! | Surrogate learning archive | [10.5281/zenodo.10908462](https://doi.org/10.5281/zenodo.10908462) | Zenodo CC-BY, nuclear EOS convergence |
+//!
+//! ## Commit Verification
+//!
+//! To verify baseline commits against the hotSpring repo:
+//! ```text
+//! git log --oneline fd908c41 -1   # Nuclear EOS control (pinned)
+//! git log --oneline 0a6405f -1    # Transport study (Paper 5)
+//! git log --oneline 381fdb64 -1   # MD baseline (standalone)
+//! git log --oneline 3f0d36d -1    # Screened Coulomb eigenvalues
+//! ```
 
 /// A single provenance record tying a Rust reference value to its Python origin.
 #[derive(Debug, Clone)]
@@ -350,6 +360,9 @@ pub const SARKAS_PAPER: &str = "Choi, Dharuman, Murillo, Phys. Rev. E 100, 01320
 /// Test values in `md/transport.rs::d_star_matches_python` are computed
 /// from the Daligault (2012) practical model, NOT from MD simulation.
 /// They are analytical values that both Rust and Python must reproduce.
+///
+/// Script distinction: `calibrate_daligault_fit.py` fits C_w(κ) from Sarkas MD;
+/// `daligault_fit.py` is the validation script using the fitted model.
 pub const DALIGAULT_FIT_PROVENANCE: BaselineProvenance = BaselineProvenance {
     label: "Daligault D*(Gamma,kappa) analytical fit validation",
     script: "sarkas/simulations/transport-study/scripts/daligault_fit.py",
@@ -359,6 +372,22 @@ pub const DALIGAULT_FIT_PROVENANCE: BaselineProvenance = BaselineProvenance {
     environment: "Python 3.10, NumPy 2.2",
     value: 2.8651e-4,
     unit: "D* reduced (k=1 G=50 reference value)",
+};
+
+/// Calibration script for Daligault weak-coupling correction C_w(κ).
+///
+/// `calibrate_daligault_fit.py` runs a grid search over (κ, Γ) points from
+/// Sarkas MD and fits C_w(κ) = exp(1.435 + 0.715κ + 0.401κ²).
+/// `daligault_fit.py` is the validation script using the fitted model.
+pub const DALIGAULT_CALIBRATION_PROVENANCE: BaselineProvenance = BaselineProvenance {
+    label: "Daligault C_w(kappa) calibration from 12 Sarkas points",
+    script: "sarkas/simulations/transport-study/scripts/calibrate_daligault_fit.py",
+    commit: "0a6405f (hotSpring main, Paper 5 transport commit)",
+    date: "2026-02-19",
+    command: "python3 calibrate_daligault_fit.py",
+    environment: "Python 3.10, NumPy 2.2",
+    value: 0.0,
+    unit: "C_w fit coefficients (see md/transport.rs for usage)",
 };
 
 /// Standalone Python MD baseline for transport coefficients.
@@ -470,6 +499,22 @@ pub const HOTQCD_EOS_PROVENANCE: BaselineProvenance = BaselineProvenance {
 /// - β_c ≈ 5.69 for SU(3) on 4^4: Wilson (1974), Creutz (1980)
 /// - Plaquette at β=6.0 on 8^4 ≈ 0.594: Bali et al. (1993)
 pub const PURE_GAUGE_REFS: &str = "Creutz (1983), Wilson (1974), Bali et al. (1993)";
+
+/// Python baseline for screened Coulomb bound-state eigenvalues.
+///
+/// 8 reference eigenvalues (1s, 2s, 2p, 3s for κ=0 and κ=0.5) computed via
+/// `yukawa_eigenvalues.py` using a finite-difference Schrödinger solver.
+/// Reference: Lam & Varshni (1971), Murillo & Weisheit (1998).
+pub const SCREENED_COULOMB_PROVENANCE: BaselineProvenance = BaselineProvenance {
+    label: "Screened Coulomb bound-state eigenvalues (8 states)",
+    script: "control/screened_coulomb/scripts/yukawa_eigenvalues.py",
+    commit: "3f0d36d (hotSpring main)",
+    date: "2026-02-19",
+    command: "python3 yukawa_eigenvalues.py",
+    environment: "Python 3.10, NumPy 2.2, SciPy 1.14",
+    value: 0.0,
+    unit: "E_n (atomic units; per-state values in validate_screened_coulomb.rs)",
+};
 
 // ═══════════════════════════════════════════════════════════════════
 // Analytical validation references
@@ -629,6 +674,8 @@ mod tests {
             &L2_PYTHON_CANDIDATES,
             &L2_PYTHON_TOTAL_CHI2,
             &HOTQCD_EOS_PROVENANCE,
+            &SCREENED_COULOMB_PROVENANCE,
+            &DALIGAULT_CALIBRATION_PROVENANCE,
         ] {
             assert!(!p.label.is_empty(), "label empty: {}", p.label);
             assert!(!p.script.is_empty());

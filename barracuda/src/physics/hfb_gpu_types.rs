@@ -172,15 +172,13 @@ pub(crate) fn make_pipeline(
 // Per-group GPU resources (pre-allocated once, reused across SCF)
 // ═══════════════════════════════════════════════════════════════════
 
-// EVOLUTION(GPU): Phase 4 energy fields (energy_*, e_pair_*, v2_*, rho_*_new_*) are wired
-// into bind groups but dispatches deferred until SumReduceF64 + kinetic energy kernel available.
-#[allow(dead_code)] // EVOLUTION: struct used; some fields deferred until energy kernel wired
+// EVOLUTION(GPU): Phase 4 energy fields (energy_*, e_pair_*) are feature-gated.
+// When gpu_energy is enabled, buffers exist but dispatches deferred until SumReduceF64 + kinetic kernel.
 pub(crate) struct GroupResources {
     pub ns: usize,
     pub nr: usize,
     pub group_indices: Vec<usize>,
     pub n_max: usize,
-    pub mat_size: usize,
 
     pub rho_p_buf: wgpu::Buffer,
     pub rho_n_buf: wgpu::Buffer,
@@ -224,9 +222,13 @@ pub(crate) struct GroupResources {
     pub lambda_p_buf: wgpu::Buffer,
     pub lambda_n_buf: wgpu::Buffer,
     pub delta_buf: wgpu::Buffer,
+    #[allow(dead_code)] // GPU buffers kept alive for bind group validity
     pub v2_p_buf: wgpu::Buffer,
+    #[allow(dead_code)]
     pub v2_n_buf: wgpu::Buffer,
+    #[allow(dead_code)]
     pub rho_p_new_buf: wgpu::Buffer,
+    #[allow(dead_code)]
     pub rho_n_new_buf: wgpu::Buffer,
     pub mix_params_buf: wgpu::Buffer,
     pub bcs_v2_pipe: wgpu::ComputePipeline,
@@ -235,11 +237,23 @@ pub(crate) struct GroupResources {
     pub rho_p_staging: wgpu::Buffer,
     pub rho_n_staging: wgpu::Buffer,
 
+    #[cfg(feature = "gpu_energy")]
+    #[allow(dead_code)] // EVOLUTION: wired but not yet dispatched
     pub energy_params_bg: wgpu::BindGroup,
+    #[cfg(feature = "gpu_energy")]
+    #[allow(dead_code)]
     pub energy_pair_bg: wgpu::BindGroup,
+    #[cfg(feature = "gpu_energy")]
+    #[allow(dead_code)]
     pub energy_integrands_buf: wgpu::Buffer,
+    #[cfg(feature = "gpu_energy")]
+    #[allow(dead_code)]
     pub e_pair_buf: wgpu::Buffer,
+    #[cfg(feature = "gpu_energy")]
+    #[allow(dead_code)]
     pub energy_staging: wgpu::Buffer,
+    #[cfg(feature = "gpu_energy")]
+    #[allow(dead_code)]
     pub e_pair_staging: wgpu::Buffer,
 
     pub nr_wg: u32,
@@ -289,7 +303,7 @@ mod tests {
     fn mix_params_uniform_alpha_encoding() {
         let u = MixParamsUniform::new(200, 0.3);
         assert_eq!(u.total_size, 200);
-        let alpha_recovered = u.alpha_num as f64 / u.alpha_den as f64;
+        let alpha_recovered = f64::from(u.alpha_num) / f64::from(u.alpha_den);
         assert!(
             (alpha_recovered - 0.3).abs() < 1e-6,
             "alpha round-trip: {alpha_recovered}"
@@ -302,7 +316,7 @@ mod tests {
         assert_eq!(u_zero.alpha_num, 0);
 
         let u_one = MixParamsUniform::new(100, 1.0);
-        let alpha = u_one.alpha_num as f64 / u_one.alpha_den as f64;
+        let alpha = f64::from(u_one.alpha_num) / f64::from(u_one.alpha_den);
         assert!((alpha - 1.0).abs() < 1e-6);
     }
 

@@ -163,7 +163,7 @@ fn test_lennard_jones(device: &Arc<WgpuDevice>) -> Vec<TestResult> {
 
         // Newton's third law
         let n3_err = (f[0] + f[3]).abs();
-        results.push(if (n3_err as f64) < tolerances::NEWTON_3RD_LAW_ABS {
+        results.push(if f64::from(n3_err) < tolerances::NEWTON_3RD_LAW_ABS {
             TestResult::pass("LJ: Newton's 3rd law (Fx)", format!("F0+F1={n3_err:.6}"))
         } else {
             TestResult::fail("LJ: Newton's 3rd law (Fx)", format!("F0+F1={n3_err:.6}"))
@@ -194,17 +194,19 @@ fn test_lennard_jones(device: &Arc<WgpuDevice>) -> Vec<TestResult> {
 
         // At equilibrium, force should be ~0
         let f0_mag = (f[0] * f[0] + f[1] * f[1] + f[2] * f[2]).sqrt();
-        results.push(if (f0_mag as f64) < tolerances::MD_EQUILIBRIUM_FORCE_ABS {
-            TestResult::pass(
-                "LJ: equilibrium r=2^(1/6)σ → F≈0",
-                format!("|F|={f0_mag:.6}"),
-            )
-        } else {
-            TestResult::fail(
-                "LJ: equilibrium r=2^(1/6)σ → F≈0",
-                format!("|F|={f0_mag:.6}"),
-            )
-        });
+        results.push(
+            if f64::from(f0_mag) < tolerances::MD_EQUILIBRIUM_FORCE_ABS {
+                TestResult::pass(
+                    "LJ: equilibrium r=2^(1/6)σ → F≈0",
+                    format!("|F|={f0_mag:.6}"),
+                )
+            } else {
+                TestResult::fail(
+                    "LJ: equilibrium r=2^(1/6)σ → F≈0",
+                    format!("|F|={f0_mag:.6}"),
+                )
+            },
+        );
     }
 
     // ── Test 3: Three particles, triangular arrangement ──
@@ -244,7 +246,7 @@ fn test_lennard_jones(device: &Arc<WgpuDevice>) -> Vec<TestResult> {
         let total_fz = f[2] + f[5] + f[8];
         let total_f = (total_fx * total_fx + total_fy * total_fy + total_fz * total_fz).sqrt();
 
-        results.push(if (total_f as f64) < tolerances::MD_FORCE_TOLERANCE {
+        results.push(if f64::from(total_f) < tolerances::MD_FORCE_TOLERANCE {
             TestResult::pass(
                 "LJ: 3-particle momentum conservation",
                 format!("|F_total|={total_f:.6}"),
@@ -308,7 +310,7 @@ fn test_coulomb(device: &Arc<WgpuDevice>) -> Vec<TestResult> {
 
         // Newton's 3rd law
         let n3 = (f[0] + f[3]).abs();
-        results.push(if (n3 as f64) < tolerances::NEWTON_3RD_LAW_ABS {
+        results.push(if f64::from(n3) < tolerances::NEWTON_3RD_LAW_ABS {
             TestResult::pass("Coulomb: Newton's 3rd law", format!("|F₀+F₁|={n3:.6}"))
         } else {
             TestResult::fail("Coulomb: Newton's 3rd law", format!("|F₀+F₁|={n3:.6}"))
@@ -457,17 +459,19 @@ fn test_morse(device: &Arc<WgpuDevice>) -> Vec<TestResult> {
         let f0_mag = (f[0] * f[0] + f[1] * f[1] + f[2] * f[2]).sqrt();
         let expected_f = morse_force_analytical(r, d, alpha, r0);
 
-        results.push(if (f0_mag as f64) < tolerances::MD_EQUILIBRIUM_FORCE_ABS {
-            TestResult::pass(
-                "Morse: equilibrium r=r₀ → F≈0",
-                format!("|F|={f0_mag:.4}, analytical={expected_f:.6}"),
-            )
-        } else {
-            TestResult::fail(
-                "Morse: equilibrium r=r₀ → F≈0",
-                format!("|F|={f0_mag:.4}, analytical={expected_f:.6}"),
-            )
-        });
+        results.push(
+            if f64::from(f0_mag) < tolerances::MD_EQUILIBRIUM_FORCE_ABS {
+                TestResult::pass(
+                    "Morse: equilibrium r=r₀ → F≈0",
+                    format!("|F|={f0_mag:.4}, analytical={expected_f:.6}"),
+                )
+            } else {
+                TestResult::fail(
+                    "Morse: equilibrium r=r₀ → F≈0",
+                    format!("|F|={f0_mag:.4}, analytical={expected_f:.6}"),
+                )
+            },
+        );
     }
 
     // ── Test 2: Stretched bond (r > r₀, attractive force) ──
@@ -515,7 +519,7 @@ fn test_morse(device: &Arc<WgpuDevice>) -> Vec<TestResult> {
 
         // Newton's 3rd law (note: Morse uses atomic int accumulation with /1000 precision)
         let n3 = (f[0] + f[3]).abs();
-        results.push(if (n3 as f64) < tolerances::NEWTON_3RD_LAW_ABS {
+        results.push(if f64::from(n3) < tolerances::NEWTON_3RD_LAW_ABS {
             TestResult::pass("Morse: Newton's 3rd law", format!("|F₀+F₁|={n3:.4}"))
         } else {
             TestResult::fail("Morse: Newton's 3rd law", format!("|F₀+F₁|={n3:.4}"))

@@ -60,6 +60,9 @@ const SHADER_CHI2: &str = include_str!("../physics/shaders/chi2_batch_f64.wgsl")
 // ═══════════════════════════════════════════════════════════════════
 
 fn main() {
+    use barracuda::sample::direct::{direct_sampler, DirectSamplerConfig};
+    use barracuda::shaders::precision::ShaderTemplate;
+
     println!("╔══════════════════════════════════════════════════════════════╗");
     println!("║  hotSpring GPU FP64 — Nuclear EOS L1 + L2                   ║");
     println!("║  Three-way: Python → BarraCUDA CPU → BarraCUDA GPU          ║");
@@ -334,7 +337,6 @@ fn main() {
     println!();
 
     // Build the pure-GPU shader by prepending math_f64 preamble
-    use barracuda::shaders::precision::ShaderTemplate;
     let pure_gpu_shader = ShaderTemplate::with_math_f64_safe(SHADER_SEMF_PURE_GPU);
 
     let t_compile2 = Instant::now();
@@ -572,8 +574,6 @@ fn main() {
     println!("  L1 Full Optimization: DirectSampler (GPU-backed objective)");
     println!("══════════════════════════════════════════════════════════════");
     println!();
-
-    use barracuda::sample::direct::{direct_sampler, DirectSamplerConfig};
 
     let lambda = 0.1;
 
@@ -990,6 +990,7 @@ fn l1_objective_with_nmp(x: &[f64], nuclei: &[((usize, usize), (f64, f64))], lam
 
 /// L2 objective function (HFB + NMP constraint)
 fn l2_objective_fn(x: &[f64], exp_data: &HashMap<(usize, usize), (f64, f64)>, lambda: f64) -> f64 {
+    use rayon::prelude::*;
     if x[8] <= 0.01 || x[8] > 1.0 {
         return (1e4_f64).ln_1p();
     }
@@ -1007,8 +1008,6 @@ fn l2_objective_fn(x: &[f64], exp_data: &HashMap<(usize, usize), (f64, f64)>, la
     let mut chi2_be = 0.0;
     let mut count = 0;
 
-    // Use rayon for parallel HFB evaluation
-    use rayon::prelude::*;
     let results: Vec<(f64, f64, f64)> = exp_data
         .par_iter()
         .filter_map(|(&(z, n), &(b_exp, _))| {

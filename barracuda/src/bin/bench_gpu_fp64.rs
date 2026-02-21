@@ -191,7 +191,7 @@ fn bench_l2_pipeline(gpu: &GpuF64) {
     // Warmup — GPU-resident: potentials, H-build, density, mixing all on GPU
     let max_iter = 30; // Keep low for benchmarking (focus on GPU dispatch throughput)
     println!("  Warming up (1 eval, {n_nuclei} nuclei, {max_iter} iters, GPU-resident)...");
-    let _ = binding_energies_l2_gpu_resident(device.clone(), &nuclei, &params, max_iter, 0.05, 0.3)
+    let _ = binding_energies_l2_gpu_resident(&device, &nuclei, &params, max_iter, 0.05, 0.3)
         .expect("GPU-resident HFB warmup failed");
 
     // Measure
@@ -200,7 +200,7 @@ fn bench_l2_pipeline(gpu: &GpuF64) {
     let t0 = Instant::now();
     for r in 0..rounds {
         let result =
-            binding_energies_l2_gpu_resident(device.clone(), &nuclei, &params, max_iter, 0.05, 0.3)
+            binding_energies_l2_gpu_resident(&device, &nuclei, &params, max_iter, 0.05, 0.3)
                 .expect("GPU-resident HFB benchmark failed");
         if r == rounds - 1 {
             let converged = result.results.iter().filter(|r| r.3).count();

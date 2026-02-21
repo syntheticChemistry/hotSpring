@@ -89,6 +89,10 @@ pub fn nuclei_data_path(base_dir: &Path, set: NucleiSet) -> PathBuf {
 ///
 /// Uses streaming `from_reader` to avoid buffering the entire JSON file
 /// in memory as an intermediate string.
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be opened or JSON deserialization fails.
 pub fn load_experimental_data(
     path: &Path,
 ) -> Result<HashMap<(usize, usize), (f64, f64)>, Box<dyn std::error::Error>> {
@@ -105,6 +109,10 @@ pub fn load_experimental_data(
 }
 
 /// Load experimental data with dataset selection (convenience wrapper)
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be opened or JSON deserialization fails.
 pub fn load_nuclei(
     base_dir: &Path,
     set: NucleiSet,
@@ -133,6 +141,11 @@ pub use crate::provenance::PARAM_NAMES;
 /// Load parameter bounds → Vec<(min, max)>
 ///
 /// Uses streaming `from_reader` to avoid buffering the entire JSON file.
+///
+/// # Errors
+///
+/// Returns an error if the file cannot be opened, JSON deserialization fails,
+/// or a required parameter is missing from the bounds file.
 pub fn load_bounds(path: &Path) -> Result<Vec<(f64, f64)>, Box<dyn std::error::Error>> {
     let reader = std::io::BufReader::new(std::fs::File::open(path)?);
     let file: BoundsFile = serde_json::from_reader(reader)?;
@@ -217,17 +230,18 @@ pub fn chi2_per_datum(
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use crate::provenance::SLY4_PARAMS;
 
     #[test]
     fn parse_nuclei_json_without_file() {
-        let json = r#"{"nuclei": [{"Z": 28, "N": 28, "A": 56, "element": "Ni", "binding_energy_MeV": 483.99, "uncertainty_MeV": 0.5}]}"#;
         #[derive(serde::Deserialize)]
         struct NucleiFile {
             nuclei: Vec<Nucleus>,
         }
+        let json = r#"{"nuclei": [{"Z": 28, "N": 28, "A": 56, "element": "Ni", "binding_energy_MeV": 483.99, "uncertainty_MeV": 0.5}]}"#;
         let file: NucleiFile = serde_json::from_str(json).expect("parse");
         assert_eq!(file.nuclei.len(), 1);
         let n = &file.nuclei[0];

@@ -33,7 +33,7 @@ impl CsrMatrix {
     }
 
     /// Number of non-zero entries.
-    pub fn nnz(&self) -> usize {
+    pub const fn nnz(&self) -> usize {
         self.values.len()
     }
 }

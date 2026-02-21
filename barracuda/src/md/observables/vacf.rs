@@ -190,7 +190,7 @@ mod tests {
     fn vacf_multiple_frames() {
         // Constant velocities → C(t) = 1 for all t
         let vel = vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0]; // 2 particles
-        let vel_snaps = vec![vel.clone(), vel.clone(), vel.clone(), vel.clone()];
+        let vel_snaps = vec![vel; 4];
         let vacf = compute_vacf(&vel_snaps, 2, 0.01, 4);
         assert_eq!(vacf.c_values.len(), 4);
         for (i, &c) in vacf.c_values.iter().enumerate() {
@@ -220,21 +220,23 @@ mod tests {
             compute_d_star_msd(std::slice::from_ref(&pos), 2, 5.0, 0.01),
             0.0
         );
-        assert_eq!(
-            compute_d_star_msd(&[pos.clone(), pos.clone()], 2, 5.0, 0.01),
-            0.0
-        );
-        assert_eq!(
-            compute_d_star_msd(&[pos.clone(), pos.clone(), pos.clone()], 2, 5.0, 0.01),
-            0.0
-        );
+        let snaps = vec![pos; 3];
+        assert_eq!(compute_d_star_msd(&snaps[..2], 2, 5.0, 0.01), 0.0);
+        assert_eq!(compute_d_star_msd(&snaps[..], 2, 5.0, 0.01), 0.0);
     }
 
     #[test]
     fn compute_d_star_msd_deterministic() {
         let mut snaps = Vec::new();
         for i in 0..20 {
-            let pos = vec![i as f64 * 0.01, 0.0, 0.0, 1.0 + i as f64 * 0.01, 0.0, 0.0]; // 2 particles diffusing
+            let pos = vec![
+                f64::from(i) * 0.01,
+                0.0,
+                0.0,
+                1.0 + f64::from(i) * 0.01,
+                0.0,
+                0.0,
+            ]; // 2 particles diffusing
             snaps.push(pos);
         }
         let d1 = compute_d_star_msd(&snaps, 2, 10.0, 0.1);

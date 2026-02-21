@@ -118,9 +118,7 @@ impl HotQcdEos {
             return Some(self.points[0].clone());
         }
 
-        // SAFETY: early return above guarantees points non-empty
-        #[allow(clippy::expect_used)]
-        let last = self.points.last().expect("points verified non-empty above");
+        let last = self.points.last()?;
         if t_over_tc >= last.t_over_tc {
             return Some(last.clone());
         }
@@ -234,6 +232,7 @@ pub fn computational_overlap_summary() -> String {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
 

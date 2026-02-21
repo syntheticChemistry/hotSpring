@@ -201,7 +201,7 @@ fn check_herman_formula(harness: &mut ValidationHarness) {
     for &lambda in &[1.5, 2.0, 3.0, 5.0] {
         let pot: Vec<f64> = (0..n)
             .map(|i| {
-                2.0 * lambda * (std::f64::consts::TAU * spectral::GOLDEN_RATIO * i as f64).cos()
+                2.0 * lambda * (std::f64::consts::TAU * spectral::GOLDEN_RATIO * f64::from(i)).cos()
             })
             .collect();
         let gamma = spectral::lyapunov_exponent(&pot, 0.0);
@@ -213,7 +213,7 @@ fn check_herman_formula(harness: &mut ValidationHarness) {
 
     // Quantitative check at λ=2
     let pot_2: Vec<f64> = (0..n)
-        .map(|i| 2.0 * 2.0 * (std::f64::consts::TAU * spectral::GOLDEN_RATIO * i as f64).cos())
+        .map(|i| 2.0 * 2.0 * (std::f64::consts::TAU * spectral::GOLDEN_RATIO * f64::from(i)).cos())
         .collect();
     let gamma_2 = spectral::lyapunov_exponent(&pot_2, 0.0);
     let theory_2 = (2.0f64).ln();
@@ -240,7 +240,7 @@ fn check_aubry_andre_transition(harness: &mut ValidationHarness) {
     for &lambda in &lambdas {
         let pot: Vec<f64> = (0..n)
             .map(|i| {
-                2.0 * lambda * (std::f64::consts::TAU * spectral::GOLDEN_RATIO * i as f64).cos()
+                2.0 * lambda * (std::f64::consts::TAU * spectral::GOLDEN_RATIO * f64::from(i)).cos()
             })
             .collect();
         let gamma = spectral::lyapunov_exponent(&pot, 0.0);

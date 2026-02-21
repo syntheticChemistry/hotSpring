@@ -35,17 +35,17 @@ pub struct Lattice {
 
 impl Lattice {
     /// Total number of lattice sites.
-    pub fn volume(&self) -> usize {
+    pub const fn volume(&self) -> usize {
         self.dims[0] * self.dims[1] * self.dims[2] * self.dims[3]
     }
 
     /// Convert 4D coordinates to linear site index.
-    pub fn site_index(&self, x: [usize; 4]) -> usize {
+    pub const fn site_index(&self, x: [usize; 4]) -> usize {
         x[0] + self.dims[0] * (x[1] + self.dims[1] * (x[2] + self.dims[2] * x[3]))
     }
 
     /// Convert linear site index to 4D coordinates.
-    pub fn site_coords(&self, idx: usize) -> [usize; 4] {
+    pub const fn site_coords(&self, idx: usize) -> [usize; 4] {
         let x0 = idx % self.dims[0];
         let rem = idx / self.dims[0];
         let x1 = rem % self.dims[1];
@@ -56,7 +56,7 @@ impl Lattice {
     }
 
     /// Neighbor in direction mu with periodic boundary conditions.
-    pub fn neighbor(&self, x: [usize; 4], mu: usize, forward: bool) -> [usize; 4] {
+    pub const fn neighbor(&self, x: [usize; 4], mu: usize, forward: bool) -> [usize; 4] {
         let mut y = x;
         if forward {
             y[mu] = (x[mu] + 1) % self.dims[mu];

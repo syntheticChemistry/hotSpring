@@ -150,6 +150,47 @@ pub fn skyrme_central_t0(t0: f64, x0: f64, rho: f64, rho_q: f64) -> f64 {
     t0 * ((1.0 + x0 / 2.0) * rho - (0.5 + x0) * rho_q)
 }
 
+/// Initialize Wood-Saxon-like density profile for protons and neutrons.
+///
+/// Uses a sharp-cutoff approximation: uniform density inside nuclear radius
+/// R = r₀ A^(1/3) (r₀ = 1.2 fm), zero outside, floored at `DENSITY_FLOOR` everywhere.
+/// Central density ρ₀ = 3A/(4πR³); proton/neutron fractions Z/A and N/A.
+///
+/// Returns `(rho_p, rho_n)` vectors of length `nr`. Grid points: `r[k] = (k+1)*dr`.
+#[must_use]
+pub fn initial_wood_saxon_density(z: usize, n: usize, nr: usize, dr: f64) -> (Vec<f64>, Vec<f64>) {
+    use crate::tolerances::DENSITY_FLOOR;
+
+    let a = z + n;
+    let a_f = a as f64;
+    let r_nuc = 1.2 * a_f.powf(1.0 / 3.0);
+    let rho0 = 3.0 * a_f / (4.0 * std::f64::consts::PI * r_nuc.powi(3));
+
+    let rho_p: Vec<f64> = (0..nr)
+        .map(|k| {
+            let r = (k + 1) as f64 * dr;
+            if r < r_nuc {
+                (rho0 * z as f64 / a_f).max(DENSITY_FLOOR)
+            } else {
+                DENSITY_FLOOR
+            }
+        })
+        .collect();
+
+    let rho_n: Vec<f64> = (0..nr)
+        .map(|k| {
+            let r = (k + 1) as f64 * dr;
+            if r < r_nuc {
+                (rho0 * n as f64 / a_f).max(DENSITY_FLOOR)
+            } else {
+                DENSITY_FLOOR
+            }
+        })
+        .collect();
+
+    (rho_p, rho_n)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -258,6 +299,39 @@ mod tests {
         // CM correction subtracts energy
         assert!(cm_correction(10.0) < 0.0);
         assert!((cm_correction(10.0) - (-7.5)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn initial_wood_saxon_density_determinism() {
+        let (a, b) = initial_wood_saxon_density(8, 8, 100, 0.15);
+        let (a2, b2) = initial_wood_saxon_density(8, 8, 100, 0.15);
+        for (x, y) in a.iter().zip(a2.iter()) {
+            assert_eq!(x.to_bits(), y.to_bits());
+        }
+        for (x, y) in b.iter().zip(b2.iter()) {
+            assert_eq!(x.to_bits(), y.to_bits());
+        }
+    }
+
+    #[test]
+    fn initial_wood_saxon_density_shape_and_normalization() {
+        let (rho_p, rho_n) = initial_wood_saxon_density(28, 28, 120, 15.0 / 120.0);
+        assert_eq!(rho_p.len(), 120);
+        assert_eq!(rho_n.len(), 120);
+        // 56Ni: R ≈ 1.2 * 56^(1/3) ≈ 4.6 fm; dr = 0.125 → r[35] ≈ 4.5, r[36] ≈ 4.625
+        // Inside r_nuc density is uniform; outside is DENSITY_FLOOR
+        assert!(
+            rho_p[30] > 1e-10,
+            "inside nucleus: proton density should be finite"
+        );
+        assert!(
+            rho_n[30] > 1e-10,
+            "inside nucleus: neutron density should be finite"
+        );
+        assert!(
+            rho_p[115] < 1e-10,
+            "outside nucleus: density should be floor"
+        );
     }
 
     #[test]

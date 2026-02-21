@@ -574,6 +574,7 @@ impl Xoshiro256pp {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
 
@@ -593,13 +594,13 @@ mod tests {
 
         let seq1: Vec<Vec<f64>> = (0..100)
             .map(|t| {
-                let x = (t as f64) * 0.1;
+                let x = f64::from(t) * 0.1;
                 vec![x.sin(), x.cos()]
             })
             .collect();
         let seq2: Vec<Vec<f64>> = (0..100)
             .map(|t| {
-                let x = (t as f64) * 0.2;
+                let x = f64::from(t) * 0.2;
                 vec![x.sin(), x.cos()]
             })
             .collect();
@@ -646,18 +647,19 @@ mod tests {
 
         let seq1: Vec<Vec<f64>> = (0..50)
             .map(|t| {
-                let x = (t as f64) * 0.1;
+                let x = f64::from(t) * 0.1;
                 vec![x.sin(), x.cos()]
             })
             .collect();
         let seq2: Vec<Vec<f64>> = (0..50)
             .map(|t| {
-                let x = (t as f64) * 0.2;
+                let x = f64::from(t) * 0.2;
                 vec![x.sin(), x.cos()]
             })
             .collect();
 
-        esn.train(&[seq1.clone(), seq2.clone()], &[vec![1.0], vec![2.0]]);
+        let sequences = vec![seq1, seq2];
+        esn.train(&sequences, &[vec![1.0], vec![2.0]]);
 
         let exported = esn.export_weights().expect("ESN export_weights");
         assert_eq!(exported.w_in.len(), 30 * 2);
@@ -665,8 +667,8 @@ mod tests {
         assert_eq!(exported.w_out.len(), 30);
 
         let mut npu = NpuSimulator::from_exported(&exported);
-        let cpu_pred = esn.predict(&seq1).expect("ESN trained")[0];
-        let npu_pred = npu.predict(&seq1)[0];
+        let cpu_pred = esn.predict(&sequences[0]).expect("ESN trained")[0];
+        let npu_pred = npu.predict(&sequences[0])[0];
         let diff = (cpu_pred - npu_pred).abs() / cpu_pred.abs().max(1e-10);
         assert!(diff < 0.01, "CPU/NPU diff {diff} should be < 1%");
     }
@@ -710,7 +712,7 @@ mod tests {
             }
         }
         let elapsed = t0.elapsed().as_secs_f64();
-        let per_iter_ms = elapsed * 1000.0 / n_reps as f64;
+        let per_iter_ms = elapsed * 1000.0 / f64::from(n_reps);
 
         println!("Rust ESN: {n_reps} reps in {elapsed:.3}s");
         println!("  Per iteration (train+6 predict): {per_iter_ms:.1} ms");
@@ -745,8 +747,12 @@ mod tests {
             seed: 42,
         };
         let seqs: Vec<Vec<Vec<f64>>> = vec![
-            (0..10).map(|i| vec![i as f64 * 0.1, 0.5, -0.3]).collect(),
-            (0..10).map(|i| vec![0.0, i as f64 * 0.05, 0.2]).collect(),
+            (0..10)
+                .map(|i| vec![f64::from(i) * 0.1, 0.5, -0.3])
+                .collect(),
+            (0..10)
+                .map(|i| vec![0.0, f64::from(i) * 0.05, 0.2])
+                .collect(),
         ];
         let targets = vec![vec![1.0], vec![0.0]];
 

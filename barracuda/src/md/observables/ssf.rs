@@ -44,7 +44,7 @@ pub fn compute_ssf(
             }
         }
 
-        sk_values.push((k_mag, sk_sum / count as f64));
+        sk_values.push((k_mag, sk_sum / f64::from(count)));
     }
 
     sk_values
@@ -55,7 +55,7 @@ pub fn compute_ssf(
 /// This mirrors `compute_ssf` but runs each snapshot on the GPU via
 /// `SsfGpu::compute_axes`. Falls back to CPU if GPU dispatch fails.
 pub fn compute_ssf_gpu(
-    device: Arc<WgpuDevice>,
+    device: &Arc<WgpuDevice>,
     snapshots: &[Vec<f64>],
     _n: usize,
     box_side: f64,
@@ -69,7 +69,7 @@ pub fn compute_ssf_gpu(
     let mut accumulator: Vec<(f64, f64, usize)> = Vec::new();
 
     for snap in snapshots {
-        match SsfGpu::compute_axes(Arc::clone(&device), snap, box_side, max_k_harmonics) {
+        match SsfGpu::compute_axes(Arc::clone(device), snap, box_side, max_k_harmonics) {
             Ok(sk_pairs) => {
                 // Grow accumulator on first snapshot
                 if accumulator.is_empty() {
@@ -106,6 +106,7 @@ pub fn compute_ssf_gpu(
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
 
@@ -133,7 +134,7 @@ mod tests {
     fn compute_ssf_multi_frame_averaging() {
         let pos1 = vec![0.0, 0.0, 0.0, 2.5, 0.0, 0.0];
         let pos2 = vec![0.0, 0.0, 0.0, 2.5, 0.0, 0.0];
-        let ssf_one = compute_ssf(&[pos1.clone()], 2, 5.0, 5);
+        let ssf_one = compute_ssf(std::slice::from_ref(&pos1), 2, 5.0, 5);
         let ssf_two = compute_ssf(&[pos1, pos2], 2, 5.0, 5);
         assert_eq!(ssf_one.len(), ssf_two.len());
         for (a, b) in ssf_one.iter().zip(ssf_two.iter()) {

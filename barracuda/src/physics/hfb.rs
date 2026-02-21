@@ -59,7 +59,6 @@ struct BasisState {
 pub struct SphericalHFB {
     z: usize,
     n_neutrons: usize,
-    a: usize,
     r: Vec<f64>,
     dr: f64,
     nr: usize,
@@ -399,7 +398,6 @@ impl SphericalHFB {
         let mut hfb = SphericalHFB {
             z,
             n_neutrons: n,
-            a,
             r,
             dr,
             nr: n_grid,
@@ -430,7 +428,7 @@ impl SphericalHFB {
                         self.states.push(BasisState {
                             n: n_rad,
                             l,
-                            j: j2 as f64 / 2.0,
+                            j: f64::from(j2) / 2.0,
                             deg: (j2 + 1) as usize,
                         });
                     }
@@ -815,6 +813,11 @@ impl SphericalHFB {
 
     // ─── Main solver ─────────────────────────────────────────────────
 
+    /// Solve the HFB equation for the given Skyrme parameters.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`HotSpringError::Barracuda`] if the CPU eigensolve fails.
     pub fn solve(
         &self,
         params: &[f64],
@@ -825,6 +828,11 @@ impl SphericalHFB {
         self.solve_inner(params, max_iter, tol, mixing, false)
     }
 
+    /// Solve with per-iteration energy printout.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`HotSpringError::Barracuda`] if the CPU eigensolve fails.
     pub fn solve_verbose(
         &self,
         params: &[f64],
@@ -847,31 +855,10 @@ impl SphericalHFB {
         let nr = self.nr;
         let ns = self.n_states;
 
-        let r_nuc = 1.2 * (self.a as f64).powf(1.0 / 3.0);
-        let rho0 = 3.0 * self.a as f64 / (4.0 * PI * r_nuc.powi(3));
-
-        let mut rho_p: Vec<f64> = self
-            .r
-            .iter()
-            .map(|&ri| {
-                if ri < r_nuc {
-                    (rho0 * self.z as f64 / self.a as f64).max(DENSITY_FLOOR)
-                } else {
-                    DENSITY_FLOOR
-                }
-            })
-            .collect();
-        let mut rho_n: Vec<f64> = self
-            .r
-            .iter()
-            .map(|&ri| {
-                if ri < r_nuc {
-                    (rho0 * self.n_neutrons as f64 / self.a as f64).max(DENSITY_FLOOR)
-                } else {
-                    DENSITY_FLOOR
-                }
-            })
-            .collect();
+        let (rho_p_init, rho_n_init) =
+            super::hfb_common::initial_wood_saxon_density(self.z, self.n_neutrons, nr, self.dr);
+        let mut rho_p = rho_p_init;
+        let mut rho_n = rho_n_init;
 
         let mut e_prev = 1e10_f64;
         let mut converged = false;
@@ -1093,7 +1080,11 @@ impl SpeciesResult {
     }
 }
 
-/// Hybrid binding energy: HFB for medium nuclei, SEMF otherwise
+/// Hybrid binding energy: HFB for medium nuclei, SEMF otherwise.
+///
+/// # Errors
+///
+/// Returns [`HotSpringError::Barracuda`] if the HFB eigensolve fails.
 pub fn binding_energy_l2(
     z: usize,
     n: usize,
@@ -1110,6 +1101,7 @@ pub fn binding_energy_l2(
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use barracuda::numerical::trapz;

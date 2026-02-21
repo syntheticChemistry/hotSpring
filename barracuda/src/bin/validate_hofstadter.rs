@@ -307,7 +307,7 @@ fn check_cantor_measure(harness: &mut ValidationHarness) {
     let mut measures = Vec::new();
 
     for &q in &qs {
-        let alpha = 1.0 / q as f64;
+        let alpha = 1.0 / f64::from(q);
         let (d, e) = spectral::almost_mathieu_hamiltonian(n, 1.0, alpha, 0.0);
         let evals = spectral::find_all_eigenvalues(&d, &e);
         let bands = spectral::detect_bands(&evals, 8.0);
@@ -345,7 +345,7 @@ fn check_localized_phase_gaps(harness: &mut ValidationHarness) {
     let mut all_correct = true;
 
     for &q in &qs {
-        let alpha = 1.0 / q as f64;
+        let alpha = 1.0 / (q as f64);
         let (d, e) = spectral::almost_mathieu_hamiltonian(n, lambda, alpha, 0.0);
         let evals = spectral::find_all_eigenvalues(&d, &e);
         let bands = spectral::detect_bands(&evals, 8.0);

@@ -5,6 +5,37 @@ All notable changes to the hotSpring BarraCUDA validation crate.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.6.1 — Code Quality Evolution (Feb 21, 2026)
+
+### Safety
+- `#![deny(clippy::expect_used, clippy::unwrap_used)]` enforced in library code
+- All 15 production `expect()` calls eliminated: `bytemuck` zero-copy, safe pattern matching, `Result` propagation
+- Zero `unsafe` blocks (unchanged)
+
+### Architecture
+- `tolerances.rs` (1384 lines) → `tolerances/{mod,core,md,physics,lattice,npu}.rs` module tree
+- `discovery.rs`: `try_discover_data_root()` Result API + `available_capabilities()` runtime probing
+- `gpu.rs`: `mapped_bytes_to_f64()` helper — `bytemuck::try_cast_slice` with alignment fallback
+- `hfb_common.rs`: `initial_wood_saxon_density()` extracted — shared by `hfb.rs`, `hfb_gpu.rs`, `hfb_gpu_resident.rs`
+- `hfb_gpu_resident.rs`: GPU energy pipeline feature-gated behind `gpu_energy` (dead allocation removed from default build)
+- `hfb.rs`: Removed unused `a` field from `SphericalHFB`; `hfb_gpu_types.rs`: removed unused `mat_size` field
+
+### Provenance
+- `SCREENED_COULOMB_PROVENANCE` + `DALIGAULT_CALIBRATION_PROVENANCE` added to `provenance.rs`
+- Commit verification documentation for all 4 baseline commits
+- Control JSON policy documented
+
+### Quality
+- `ENERGY_DRIFT_PCT` tightened: 5% → 0.5% (250× above measured worst case)
+- `RDF_TAIL_TOLERANCE` tightened: 0.15 → 0.02 (12× above measured worst case)
+- 9 new tests (3 summary.rs + 4 discovery.rs + 2 Wood-Saxon): 463 total (458 passing + 5 GPU-ignored)
+- `partial_cmp().expect()` → `total_cmp()` in all sort operations
+- `.to_string()` on literals → `String::from()` in production code
+- `bytemuck::cast_slice` for zero-copy u32 buffer creation
+- 13 library functions promoted to `const fn` (lattice accessors, spectral constructors)
+- 5 redundant `.clone()` calls removed (summary, transport, VACF, reservoir)
+- Deprecated `set_var`/`remove_var` suppressed in tests with edition 2024 migration plan
+
 ## [0.6.0] — 2026-02-21
 
 ### Changed

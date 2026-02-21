@@ -45,7 +45,7 @@ pub struct AbelianHiggsParams {
 }
 
 impl AbelianHiggsParams {
-    pub fn new(beta_pl: f64, kappa: f64, lambda: f64) -> Self {
+    pub const fn new(beta_pl: f64, kappa: f64, lambda: f64) -> Self {
         Self {
             beta_pl,
             kappa,
@@ -54,7 +54,7 @@ impl AbelianHiggsParams {
         }
     }
 
-    pub fn with_mu(mut self, mu: f64) -> Self {
+    pub const fn with_mu(mut self, mu: f64) -> Self {
         self.mu = mu;
         self
     }
@@ -76,20 +76,20 @@ pub struct U1HiggsLattice {
 
 impl U1HiggsLattice {
     /// Total number of lattice sites.
-    pub fn volume(&self) -> usize {
+    pub const fn volume(&self) -> usize {
         self.nt * self.ns
     }
 
     /// Flat site index from coordinates (t, x).
     #[inline]
-    pub fn site_index(&self, t: usize, x: usize) -> usize {
+    pub const fn site_index(&self, t: usize, x: usize) -> usize {
         t * self.ns + x
     }
 
     /// Neighbor site in direction mu (+1) with periodic boundaries.
     /// mu=0: temporal, mu=1: spatial.
     #[inline]
-    pub fn neighbor_fwd(&self, t: usize, x: usize, mu: usize) -> (usize, usize) {
+    pub const fn neighbor_fwd(&self, t: usize, x: usize, mu: usize) -> (usize, usize) {
         if mu == 0 {
             ((t + 1) % self.nt, x)
         } else {
@@ -99,7 +99,7 @@ impl U1HiggsLattice {
 
     /// Neighbor site in direction -mu with periodic boundaries.
     #[inline]
-    pub fn neighbor_bwd(&self, t: usize, x: usize, mu: usize) -> (usize, usize) {
+    pub const fn neighbor_bwd(&self, t: usize, x: usize, mu: usize) -> (usize, usize) {
         if mu == 0 {
             ((t + self.nt - 1) % self.nt, x)
         } else {

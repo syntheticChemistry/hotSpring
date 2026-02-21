@@ -367,15 +367,15 @@ struct SimpleRng {
 impl SimpleRng {
     fn new(seed: u64) -> Self {
         Self {
-            state: seed.wrapping_add(0x9E3779B97F4A7C15),
+            state: seed.wrapping_add(0x9E37_79B9_7F4A_7C15),
         }
     }
 
     fn next_u64(&mut self) -> u64 {
         self.state = self
             .state
-            .wrapping_mul(6364136223846793005)
-            .wrapping_add(1442695040888963407);
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1_442_695_040_888_963_407);
         self.state
     }
 

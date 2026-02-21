@@ -128,6 +128,10 @@ impl<'a> BcsBisectionGpu<'a> {
 
     /// Solve BCS pairing: find μ where Σ v²_k(μ) = N.
     ///
+    /// # Errors
+    ///
+    /// Returns an error string if GPU buffer creation, dispatch, or readback fails.
+    ///
     /// # Arguments
     /// * `lower` - Lower bounds for μ \[batch_size\]
     /// * `upper` - Upper bounds for μ \[batch_size\]
@@ -172,6 +176,10 @@ impl<'a> BcsBisectionGpu<'a> {
     }
 
     /// Solve BCS with level degeneracy (nuclear HFB: deg_k = 2j+1).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error string if GPU buffer creation, dispatch, or readback fails.
     ///
     /// # Arguments
     /// * `lower` - Lower bounds for μ \[batch_size\]
@@ -394,9 +402,9 @@ fn read_f64(
     let result: Vec<f64> = data
         .chunks_exact(8)
         .map(|c| {
-            // SAFETY: chunks_exact(8) guarantees 8-byte slices
-            #[allow(clippy::expect_used)]
-            f64::from_le_bytes(c.try_into().expect("8-byte chunk"))
+            let mut b = [0u8; 8];
+            b.copy_from_slice(c);
+            f64::from_le_bytes(b)
         })
         .collect();
     drop(data);
@@ -436,9 +444,9 @@ fn read_u32(
     let result: Vec<u32> = data
         .chunks_exact(4)
         .map(|c| {
-            // SAFETY: chunks_exact(4) guarantees 4-byte slices
-            #[allow(clippy::expect_used)]
-            u32::from_le_bytes(c.try_into().expect("4-byte chunk"))
+            let mut b = [0u8; 4];
+            b.copy_from_slice(c);
+            u32::from_le_bytes(b)
         })
         .collect();
     drop(data);

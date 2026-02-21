@@ -84,7 +84,7 @@ mod tests {
         // Simple deterministic "random" positions
         let mut seed = 12345u64;
         for v in &mut snap {
-            seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1);
+            seed = seed.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1);
             *v = (seed >> 33) as f64 / (1u64 << 31) as f64 * box_side;
         }
 

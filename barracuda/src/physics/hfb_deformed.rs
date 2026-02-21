@@ -22,9 +22,9 @@
 
 use super::constants::{E2, HBAR_C, M_NUCLEON};
 use super::hfb_common::{factorial_f64, hermite_value, Mat};
+use super::hfb_deformed_common::{beta2_from_q20, deformation_guess, rms_radius};
 use crate::error::HotSpringError;
 use crate::tolerances::{
-    DEFORMATION_GUESS_GENERIC, DEFORMATION_GUESS_SD, DEFORMATION_GUESS_WEAK,
     DEFORMED_COULOMB_R_MIN, DENSITY_FLOOR, DIVISION_GUARD, PAIRING_GAP_THRESHOLD,
     SCF_ENERGY_TOLERANCE, SPIN_ORBIT_R_MIN,
 };
@@ -56,7 +56,7 @@ struct DeformedState {
 impl DeformedState {
     #[allow(dead_code)] // EVOLUTION(GPU): omega() will be used when deformed_*.wgsl shaders need Omega as f64
     fn omega(&self) -> f64 {
-        self.omega_x2 as f64 / 2.0
+        f64::from(self.omega_x2) / 2.0
     }
 }
 
@@ -155,7 +155,7 @@ impl DeformedHFB {
         let hw0 = 41.0 * a_f.powf(-1.0 / 3.0);
 
         // Initial deformation guess: prolate for typical deformed nuclei
-        let beta2_init = Self::initial_deformation_guess(z, n);
+        let beta2_init = deformation_guess(z, n);
 
         // Deformed oscillator parameters
         // omega_z = omega_0 * (1 - 2*beta2/3)
@@ -201,34 +201,6 @@ impl DeformedHFB {
 
         solver.build_deformed_basis(n_shells);
         solver
-    }
-
-    /// Heuristic initial deformation based on nuclear chart
-    fn initial_deformation_guess(z: usize, n: usize) -> f64 {
-        let a = z + n;
-        // Known deformed regions:
-        // 1. Rare earths: 150 < A < 190 (beta2 ~ 0.2-0.35)
-        // 2. Actinides: A > 222 (beta2 ~ 0.2-0.3)
-        // 3. Light deformed: 20 < A < 28 (beta2 ~ 0.3-0.5)
-        // Magic numbers: Z,N = 2,8,20,28,50,82,126 → spherical
-
-        let magic = [2, 8, 20, 28, 50, 82, 126];
-        let z_magic = magic.iter().any(|&m| (z as i32 - m).unsigned_abs() <= 2);
-        let n_magic = magic.iter().any(|&m| (n as i32 - m).unsigned_abs() <= 2);
-
-        if z_magic && n_magic {
-            0.0 // doubly magic → spherical
-        } else if a > 222 {
-            0.25 // actinides
-        } else if a > 150 && a < 190 {
-            0.28 // rare earths
-        } else if a > 20 && a < 28 {
-            DEFORMATION_GUESS_SD
-        } else if z_magic || n_magic {
-            DEFORMATION_GUESS_WEAK
-        } else {
-            DEFORMATION_GUESS_GENERIC
-        }
     }
 
     /// Build deformed HO basis: enumerate (n_z, n_perp, Lambda, sigma)
@@ -320,7 +292,7 @@ impl DeformedHFB {
         // H_{2m+1}(x) related to L_m^{1/2}(x²) * x
         // But simpler: direct Hermite via recurrence
         let h_n = hermite_value(n, xi);
-        let norm = 1.0 / (b * PI.sqrt() * (1 << n) as f64 * factorial_f64(n)).sqrt();
+        let norm = 1.0 / (b * PI.sqrt() * f64::from(1 << n) * factorial_f64(n)).sqrt();
         norm * h_n * (-xi * xi / 2.0).exp()
     }
 
@@ -348,6 +320,10 @@ impl DeformedHFB {
     ///
     /// SCF iteration: density → mean field → diagonalize → new density → mix → repeat
     /// Uses modified Broyden mixing (Johnson 1988) after initial linear mixing warmup.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`HotSpringError::Barracuda`] if the CPU eigensolve fails.
     pub fn solve(&mut self, params: &[f64]) -> Result<DeformedHFBResult, HotSpringError> {
         let max_iter = 200;
         let tol = SCF_ENERGY_TOLERANCE;
@@ -597,8 +573,15 @@ impl DeformedHFB {
         // Compute deformation observables
         let rho_total: Vec<f64> = rho_p.iter().zip(&rho_n).map(|(&p, &n)| p + n).collect();
         let q20 = self.quadrupole_moment(&rho_total);
-        let beta2 = self.beta2_from_q20(q20);
-        let rms_r = self.rms_radius(&rho_total);
+        let beta2 = beta2_from_q20(self.a, q20);
+        let rms_r = rms_radius(
+            &rho_total,
+            self.grid.n_rho,
+            self.grid.n_z,
+            self.grid.d_rho,
+            self.grid.d_z,
+            self.grid.z[0] - 0.5 * self.grid.d_z, // z_min = -z_max, z[0] = -z_max + 0.5*d_z
+        );
 
         Ok(DeformedHFBResult {
             binding_energy_mev: binding_energy,
@@ -670,7 +653,7 @@ impl DeformedHFB {
             }
 
             // Spin-current: <l·s> contribution is Lambda * sigma / 2
-            let ls = s.lambda as f64 * s.sigma as f64 * 0.5;
+            let ls = f64::from(s.lambda) * f64::from(s.sigma) * 0.5;
 
             for k in 0..n {
                 let psi2 = wavefunctions[i][k] * wavefunctions[i][k];
@@ -925,7 +908,7 @@ impl DeformedHFB {
                         let s = &self.states[i];
                         self.hw_z * (s.n_z as f64 + 0.5)
                             + self.hw_perp
-                                * (2.0 * s.n_perp as f64 + s.lambda.unsigned_abs() as f64 + 1.0)
+                                * (2.0 * s.n_perp as f64 + f64::from(s.lambda.unsigned_abs()) + 1.0)
                     } else {
                         0.0
                     };
@@ -1096,7 +1079,7 @@ impl DeformedHFB {
         for (i, s) in self.states.iter().enumerate() {
             let deg = 2.0; // time-reversal degeneracy
             let t_i = self.hw_z * (s.n_z as f64 + 0.5)
-                + self.hw_perp * (2.0 * s.n_perp as f64 + s.lambda.unsigned_abs() as f64 + 1.0);
+                + self.hw_perp * (2.0 * s.n_perp as f64 + f64::from(s.lambda.unsigned_abs()) + 1.0);
             e_kin += deg * (occ_p[i] + occ_n[i]) * t_i;
         }
 
@@ -1178,39 +1161,13 @@ impl DeformedHFB {
         }
         q20
     }
-
-    /// Extract beta2 deformation parameter from Q20
-    fn beta2_from_q20(&self, q20: f64) -> f64 {
-        let a = self.a as f64;
-        let r0 = 1.2 * a.powf(1.0 / 3.0);
-        // beta2 = sqrt(5*pi) * Q20 / (3 * A * R0²)
-        (5.0 * PI).sqrt() * q20 / (3.0 * a * r0 * r0)
-    }
-
-    /// RMS radius from density
-    fn rms_radius(&self, rho_total: &[f64]) -> f64 {
-        let mut sum_r2 = 0.0;
-        let mut sum_rho = 0.0;
-        for i_rho in 0..self.grid.n_rho {
-            for i_z in 0..self.grid.n_z {
-                let idx = self.grid.idx(i_rho, i_z);
-                let dv = self.grid.volume_element(i_rho, i_z);
-                let rho = self.grid.rho[i_rho];
-                let z = self.grid.z[i_z];
-                let r2 = rho * rho + z * z;
-                sum_r2 += rho_total[idx] * r2 * dv;
-                sum_rho += rho_total[idx] * dv;
-            }
-        }
-        if sum_rho > 0.0 {
-            (sum_r2 / sum_rho).sqrt()
-        } else {
-            0.0
-        }
-    }
 }
 
-/// Public API: L3 binding energy from deformed HFB
+/// Public API: L3 binding energy from deformed HFB.
+///
+/// # Errors
+///
+/// Returns [`HotSpringError::Barracuda`] if the deformed HFB eigensolve fails.
 pub fn binding_energy_l3(
     z: usize,
     n: usize,
@@ -1222,6 +1179,7 @@ pub fn binding_energy_l3(
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use crate::provenance::SLY4_PARAMS;
@@ -1251,11 +1209,11 @@ mod tests {
     #[allow(clippy::float_cmp)] // exact known value (0.0)
     fn test_deformation_guess() {
         // Doubly magic
-        assert_eq!(DeformedHFB::initial_deformation_guess(20, 20), 0.0);
+        assert_eq!(deformation_guess(20, 20), 0.0);
         // Rare earth
-        assert!(DeformedHFB::initial_deformation_guess(66, 96) > 0.2);
+        assert!(deformation_guess(66, 96) > 0.2);
         // Actinide
-        assert!(DeformedHFB::initial_deformation_guess(92, 146) > 0.2);
+        assert!(deformation_guess(92, 146) > 0.2);
     }
 
     #[test]

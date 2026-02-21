@@ -89,7 +89,7 @@ fn main() {
             let _ = apply_dirac(&lat, &psi, 0.5);
         }
         let dt = t0.elapsed();
-        let per_apply_ms = dt.as_secs_f64() * 1000.0 / n_reps as f64;
+        let per_apply_ms = dt.as_secs_f64() * 1000.0 / f64::from(n_reps);
         println!(
             "  {n_reps} Dirac applies: {:.1}ms total, {per_apply_ms:.4}ms/apply",
             dt.as_secs_f64() * 1000.0

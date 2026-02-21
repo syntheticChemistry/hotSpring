@@ -18,10 +18,10 @@
 use super::constants::{E2, HBAR_C, M_NUCLEON};
 use super::hfb_common::{factorial_f64, hermite_value};
 use super::hfb_deformed::DeformedHFBResult;
+use super::hfb_deformed_common::{beta2_from_q20, deformation_guess, rms_radius};
 use crate::error::HotSpringError;
 use crate::gpu::GpuF64;
 use crate::tolerances::{
-    DEFORMATION_GUESS_GENERIC, DEFORMATION_GUESS_SD, DEFORMATION_GUESS_WEAK,
     DEFORMED_COULOMB_R_MIN, DENSITY_FLOOR, DIVISION_GUARD, GPU_JACOBI_CONVERGENCE,
     PAIRING_GAP_THRESHOLD, SCF_ENERGY_TOLERANCE, SPIN_ORBIT_R_MIN,
 };
@@ -133,7 +133,7 @@ impl NucleusSetup {
         let a = z + n;
         let a_f = a as f64;
         let hw0 = 41.0 * a_f.powf(-1.0 / 3.0);
-        let beta2_init = Self::deformation_guess(z, n);
+        let beta2_init = deformation_guess(z, n);
         let hw_z = hw0 * (1.0 - 2.0 * beta2_init / 3.0);
         let hw_perp = hw0 * (1.0 + beta2_init / 3.0);
         let b_z = HBAR_C / (M_NUCLEON * hw_z).sqrt();
@@ -170,26 +170,6 @@ impl NucleusSetup {
         };
         setup.build_basis(n_shells);
         setup
-    }
-
-    fn deformation_guess(z: usize, n: usize) -> f64 {
-        let a = z + n;
-        let magic = [2, 8, 20, 28, 50, 82, 126];
-        let z_m = magic.iter().any(|&m| (z as i32 - m).unsigned_abs() <= 2);
-        let n_m = magic.iter().any(|&m| (n as i32 - m).unsigned_abs() <= 2);
-        if z_m && n_m {
-            0.0
-        } else if a > 222 {
-            0.25
-        } else if a > 150 && a < 190 {
-            0.28
-        } else if a > 20 && a < 28 {
-            DEFORMATION_GUESS_SD
-        } else if z_m || n_m {
-            DEFORMATION_GUESS_WEAK
-        } else {
-            DEFORMATION_GUESS_GENERIC
-        }
     }
 
     fn build_basis(&mut self, n_shells: usize) {
@@ -265,11 +245,19 @@ fn read_f64_from_gpu(device: &WgpuDevice, buf: &wgpu::Buffer, count: usize) -> V
 // Public API
 // ═══════════════════════════════════════════════════════════════════
 
+/// Batch compute L3 binding energies on GPU with deformed HFB.
+///
+/// # Errors
+///
+/// Returns [`HotSpringError::GpuCompute`] or [`HotSpringError::Barracuda`]
+/// if GPU eigensolve or SCF iteration fails.
 pub fn binding_energies_l3_gpu(
-    device: Arc<WgpuDevice>,
+    device: &Arc<WgpuDevice>,
     nuclei: &[(usize, usize)],
     params: &[f64],
 ) -> Result<GpuResidentL3Result, HotSpringError> {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
     let t0 = Instant::now();
     println!("    GPU: BatchedEighGpu for eigensolves, Rayon parallel across nuclei");
     println!(
@@ -280,7 +268,6 @@ pub fn binding_energies_l3_gpu(
 
     // Process all nuclei in parallel using Rayon
     // Each nucleus builds H on its own CPU thread, then uses shared GPU for eigensolve
-    use std::sync::atomic::{AtomicUsize, Ordering};
     let eigh_count = AtomicUsize::new(0);
     let dispatch_count = AtomicUsize::new(0);
     let done_count = AtomicUsize::new(0);
@@ -292,7 +279,7 @@ pub fn binding_energies_l3_gpu(
             let mut eigh_d = 0usize;
             let mut total_d = 0usize;
             let result = deformed_hfb_gpu_single(
-                &device,
+                device,
                 z,
                 n,
                 params,
@@ -328,6 +315,12 @@ pub fn binding_energies_l3_gpu(
     })
 }
 
+/// Same as [`binding_energies_l3_gpu`] but auto-initializes the GPU device.
+///
+/// # Errors
+///
+/// Returns [`HotSpringError::GpuCompute`] if GPU init or runtime creation fails.
+/// Returns [`HotSpringError::Barracuda`] if SCF iteration fails.
 pub fn binding_energies_l3_gpu_auto(
     nuclei: &[(usize, usize)],
     params: &[f64],
@@ -339,7 +332,7 @@ pub fn binding_energies_l3_gpu_auto(
         .map_err(|e| HotSpringError::GpuCompute(format!("GPU init failed: {e}")))?;
     gpu.print_info();
     let device = gpu.to_wgpu_device();
-    binding_energies_l3_gpu(device, nuclei, params)
+    binding_energies_l3_gpu(&device, nuclei, params)
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -493,7 +486,14 @@ fn deformed_hfb_gpu_single(
     let rho_total: Vec<f64> = rho_p.iter().zip(&rho_n).map(|(&p, &nv)| p + nv).collect();
     let q20 = quadrupole(&setup, &rho_total);
     let beta2 = beta2_from_q20(setup.a, q20);
-    let rms_r = rms_radius(&setup, &rho_total);
+    let rms_r = rms_radius(
+        &rho_total,
+        setup.n_rho,
+        setup.n_z,
+        setup.d_rho,
+        setup.d_z,
+        setup.z_min,
+    );
 
     Ok(DeformedHFBResult {
         binding_energy_mev: binding_energy,
@@ -1182,32 +1182,6 @@ fn quadrupole(setup: &NucleusSetup, rt: &[f64]) -> f64 {
         }
     }
     q
-}
-
-fn beta2_from_q20(a: usize, q20: f64) -> f64 {
-    let af = a as f64;
-    let r0 = 1.2 * af.powf(1.0 / 3.0);
-    (5.0 * PI).sqrt() * q20 / (3.0 * af * r0 * r0)
-}
-
-fn rms_radius(setup: &NucleusSetup, rt: &[f64]) -> f64 {
-    let (mut sr2, mut sr) = (0.0, 0.0);
-    for ir in 0..setup.n_rho {
-        let dv = setup.volume_element(ir);
-        for iz in 0..setup.n_z {
-            let rho = (ir + 1) as f64 * setup.d_rho;
-            let z = setup.z_min + (iz as f64 + 0.5) * setup.d_z;
-            let r2 = rho * rho + z * z;
-            let idx = setup.grid_idx(ir, iz);
-            sr2 += rt[idx] * r2 * dv;
-            sr += rt[idx] * dv;
-        }
-    }
-    if sr > 0.0 {
-        (sr2 / sr).sqrt()
-    } else {
-        0.0
-    }
 }
 
 pub const fn estimate_gpu_dispatches(n_nuclei: usize, avg_blocks: usize, max_iter: usize) -> usize {

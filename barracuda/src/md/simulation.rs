@@ -96,8 +96,8 @@ pub fn init_velocities(n: usize, temperature: f64, mass: f64, seed: u64) -> Vec<
     let mut rng_state = seed;
     let lcg_next = |state: &mut u64| -> f64 {
         *state = state
-            .wrapping_mul(6364136223846793005)
-            .wrapping_add(1442695040888963407);
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1_442_695_040_888_963_407);
         (*state >> 33) as f64 / (1u64 << 31) as f64
     };
 
@@ -142,7 +142,14 @@ pub fn init_velocities(n: usize, temperature: f64, mass: f64, seed: u64) -> Vec<
     velocities
 }
 
-/// Run the full GPU MD simulation
+/// Run the full GPU MD simulation.
+///
+/// # Errors
+///
+/// Returns [`crate::error::HotSpringError::NoAdapter`] if no GPU adapter is found.
+/// Returns [`crate::error::HotSpringError::NoShaderF64`] if the GPU lacks SHADER_F64.
+/// Returns [`crate::error::HotSpringError::DeviceCreation`] or
+/// [`crate::error::HotSpringError::Barracuda`] if GPU initialization or pipeline setup fails.
 pub async fn run_simulation(
     config: &MdConfig,
 ) -> Result<MdSimulation, crate::error::HotSpringError> {
@@ -456,6 +463,7 @@ pub async fn run_simulation(
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use crate::md::config;

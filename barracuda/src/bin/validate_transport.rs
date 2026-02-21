@@ -98,6 +98,15 @@ fn rel_error(a: f64, b: f64) -> f64 {
 }
 
 fn main() {
+    struct CaseResult {
+        kappa: f64,
+        gamma: f64,
+        d_cpu: f64,
+        d_gpu: f64,
+        d_fit: f64,
+        cpu_gpu_diff: f64,
+        speedup: f64,
+    }
     println!("╔══════════════════════════════════════════════════════════════╗");
     println!("║  Transport Coefficient Validation — CPU & GPU              ║");
     println!("║  Stanton & Murillo (2016) PRE 93 043203                    ║");
@@ -124,16 +133,6 @@ fn main() {
     println!();
 
     let mut harness = ValidationHarness::new("transport_cpu_gpu");
-
-    struct CaseResult {
-        kappa: f64,
-        gamma: f64,
-        d_cpu: f64,
-        d_gpu: f64,
-        d_fit: f64,
-        cpu_gpu_diff: f64,
-        speedup: f64,
-    }
     let mut summary = Vec::new();
 
     for cfg in &selected {

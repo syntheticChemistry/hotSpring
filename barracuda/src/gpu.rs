@@ -183,6 +183,13 @@ impl GpuF64 {
     /// through to barracuda's `BARRACUDA_GPU_ADAPTER`, then auto-detect.
     /// This ensures hotSpring-specific targeting works alongside ecosystem-wide
     /// adapter selection.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::error::HotSpringError::NoAdapter`] if no compatible adapter is found.
+    /// Returns [`crate::error::HotSpringError::DeviceCreation`] if device request fails or the
+    /// adapter name/index does not match.
+    /// Returns [`crate::error::HotSpringError::NoShaderF64`] if no adapter supports SHADER_F64.
     pub async fn new() -> Result<Self, crate::error::HotSpringError> {
         // Priority: HOTSPRING_GPU_ADAPTER → BARRACUDA_GPU_ADAPTER → auto
         let selector = std::env::var("HOTSPRING_GPU_ADAPTER")
@@ -505,7 +512,10 @@ impl GpuF64 {
 
     /// Read back f64 data from a GPU buffer via staging copy.
     ///
-    /// Returns `Err` if the GPU map callback fails or the channel is dropped.
+    /// # Errors
+    ///
+    /// Returns [`crate::error::HotSpringError::DeviceCreation`] if the GPU map callback fails
+    /// or the channel is dropped.
     pub fn read_back_f64(
         &self,
         buffer: &wgpu::Buffer,
@@ -538,17 +548,7 @@ impl GpuF64 {
             })?;
 
         let data = slice.get_mapped_range();
-        let result: Vec<f64> = data
-            .chunks_exact(8)
-            .map(|chunk| {
-                // SAFETY: chunks_exact(8) guarantees 8-byte slices
-                #[allow(clippy::expect_used)]
-                let bytes: [u8; 8] = chunk
-                    .try_into()
-                    .expect("chunks_exact(8) guarantees 8-byte slices");
-                f64::from_le_bytes(bytes)
-            })
-            .collect();
+        let result = mapped_bytes_to_f64(&data);
         drop(data);
         staging.unmap();
         Ok(result)
@@ -615,6 +615,11 @@ impl GpuF64 {
     ///
     /// Call this after [`Self::submit_encoder`] when the encoder included a
     /// `copy_buffer_to_buffer` into the staging buffer.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::error::HotSpringError::DeviceCreation`] if the GPU map callback fails
+    /// or the channel is dropped.
     pub fn read_staging_f64(
         &self,
         staging: &wgpu::Buffer,
@@ -637,17 +642,7 @@ impl GpuF64 {
             })?;
 
         let data = slice.get_mapped_range();
-        let result: Vec<f64> = data
-            .chunks_exact(8)
-            .map(|chunk| {
-                // SAFETY: chunks_exact(8) guarantees 8-byte slices
-                #[allow(clippy::expect_used)]
-                let bytes: [u8; 8] = chunk
-                    .try_into()
-                    .expect("chunks_exact(8) guarantees 8-byte slices");
-                f64::from_le_bytes(bytes)
-            })
-            .collect();
+        let result = mapped_bytes_to_f64(&data);
         drop(data);
         staging.unmap();
         Ok(result)
@@ -683,11 +678,11 @@ impl GpuF64 {
     /// when the neighbor list is rebuilt on CPU.
     pub fn create_u32_buffer(&self, data: &[u32], label: &str) -> wgpu::Buffer {
         use wgpu::util::DeviceExt;
-        let bytes: Vec<u8> = data.iter().flat_map(|v| v.to_le_bytes()).collect();
+        let bytes: &[u8] = bytemuck::cast_slice(data);
         self.device()
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some(label),
-                contents: &bytes,
+                contents: bytes,
                 usage: wgpu::BufferUsages::STORAGE
                     | wgpu::BufferUsages::COPY_SRC
                     | wgpu::BufferUsages::COPY_DST,
@@ -696,7 +691,10 @@ impl GpuF64 {
 
     /// Dispatch a compute pipeline and read back f64 results.
     ///
-    /// Returns `Err` if the GPU map callback fails or the channel is dropped.
+    /// # Errors
+    ///
+    /// Returns [`crate::error::HotSpringError::DeviceCreation`] if the GPU map callback fails
+    /// or the channel is dropped.
     pub fn dispatch_and_read(
         &self,
         pipeline: &wgpu::ComputePipeline,
@@ -745,17 +743,7 @@ impl GpuF64 {
             })?;
 
         let data = slice.get_mapped_range();
-        let result: Vec<f64> = data
-            .chunks_exact(8)
-            .map(|chunk| {
-                // SAFETY: chunks_exact(8) guarantees 8-byte slices
-                #[allow(clippy::expect_used)]
-                let bytes: [u8; 8] = chunk
-                    .try_into()
-                    .expect("chunks_exact(8) guarantees 8-byte slices");
-                f64::from_le_bytes(bytes)
-            })
-            .collect();
+        let result = mapped_bytes_to_f64(&data);
         drop(data);
         staging.unmap();
 
@@ -763,7 +751,27 @@ impl GpuF64 {
     }
 }
 
+/// Convert mapped GPU buffer bytes to f64 values.
+///
+/// GPU mapped buffers are typically page-aligned, so `bytemuck::try_cast_slice`
+/// will succeed. Falls back to manual byte conversion if alignment is wrong.
+fn mapped_bytes_to_f64(data: &[u8]) -> Vec<f64> {
+    bytemuck::try_cast_slice(data).map_or_else(
+        |_| {
+            data.chunks_exact(8)
+                .map(|chunk| {
+                    let mut b = [0u8; 8];
+                    b.copy_from_slice(chunk);
+                    f64::from_le_bytes(b)
+                })
+                .collect()
+        },
+        <[f64]>::to_vec,
+    )
+}
+
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
 

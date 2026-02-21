@@ -64,6 +64,8 @@ nohup.out
 # ----- Rust build artifacts -----
 barracuda/target/
 barracuda/Cargo.lock
+metalForge/forge/target/
+metalForge/forge/Cargo.lock
 
 # ----- metalForge generated artifacts -----
 metalForge/npu/akida/benchmarks/*.fbz

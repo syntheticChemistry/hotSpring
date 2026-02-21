@@ -227,7 +227,7 @@ fn main() {
     // Choose pipeline: GPU-resident (shaders for H-build) or mega-batch (CPU H-build)
     let (gpu_results_vec, gpu_disp, n_hfb_out, n_semf_out, total_disp) = if cli.gpu_resident {
         let r = binding_energies_l2_gpu_resident(
-            wgpu_device.clone(),
+            &wgpu_device,
             &nuclei_zn,
             &provenance::SLY4_PARAMS,
             cli.max_iter,
@@ -242,7 +242,7 @@ fn main() {
         (r.results, d, nh, ns, td)
     } else {
         let r = binding_energies_l2_gpu(
-            wgpu_device.clone(),
+            &wgpu_device,
             &nuclei_zn,
             &provenance::SLY4_PARAMS,
             cli.max_iter,
@@ -396,7 +396,7 @@ fn main() {
 
         let t_eval = Instant::now();
         let result = binding_energies_l2_gpu(
-            wgpu_device.clone(),
+            &wgpu_device,
             &nuclei_zn,
             params,
             cli.max_iter,

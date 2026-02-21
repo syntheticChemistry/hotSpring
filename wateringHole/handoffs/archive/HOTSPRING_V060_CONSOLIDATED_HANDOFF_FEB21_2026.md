@@ -1,4 +1,4 @@
-# hotSpring v0.6.0 → ToadStool/BarraCUDA: Consolidated Handoff
+# hotSpring v0.6.0 / v0.6.1 → ToadStool/BarraCUDA: Consolidated Handoff
 
 **Date:** 2026-02-21
 **From:** hotSpring (computational physics Spring)
@@ -6,18 +6,22 @@
 **License:** AGPL-3.0-only
 **Supersedes:** `HOTSPRING_V0516_CONSOLIDATED_HANDOFF_FEB20_2026.md` (archived)
 
+> **Note:** v0.6.1 builds on v0.6.0 with additional code quality evolution
+> (modular tolerances, pedantic lints eliminated, shared Wood-Saxon impl,
+> provenance completeness). This handoff covers both releases.
+
 ---
 
 ## Executive Summary
 
-hotSpring v0.6.0 is a hardened, audit-clean release. The v0.5.16 → v0.6.0 bump
+hotSpring v0.6.0 / v0.6.1 is a hardened, audit-clean release. The v0.5.16 → v0.6.0 bump
 reflects a full code quality audit: **zero `.expect()` and zero `.unwrap()` in
 library code**, full `Result` propagation across all GPU and simulation APIs,
 146 centralized tolerances with zero inline magic numbers, 16 determinism tests
 for every stochastic algorithm, and idiomatic `Arc::clone` everywhere.
 
 The science portfolio is unchanged — **18 papers reproduced, 33/33 validation
-suites, 454 unit tests**. What changed is the Rust code quality: the crate is
+suites, 463 unit tests**. What changed is the Rust code quality: the crate is
 now ready for absorption and evolution without needing cleanup first.
 
 ### What Changed: v0.5.16 → v0.6.0
@@ -34,6 +38,24 @@ now ready for absorption and evolution without needing cleanup first.
 | SSF CPU tests | 0 | **4** (empty, multi-frame, k-spacing, single-particle) |
 | Unit tests | 441 | **454** |
 | Clippy `expect_used` | not enforced | **zero warnings** |
+
+### What Changed: v0.6.0 → v0.6.1
+
+| Change | Before (v0.6.0) | After (v0.6.1) |
+|--------|-----------------|----------------|
+| `#![deny(clippy::expect_used)]` | warnings only | **crate-level deny** |
+| `tolerances.rs` | 1384-line monolith | **`tolerances/` module tree** (5 submodules) |
+| `const fn` library functions | 0 | **13** (lattice, spectral accessors) |
+| Redundant `.clone()` | 5 in library | **0** |
+| `cast_lossless` warnings | 76 | **0** — all `From` conversions |
+| `unreadable_literal` | 18 | **0** — underscore-separated |
+| `missing_errors_doc` | 21 | **0** — all `# Errors` documented |
+| `items_after_statements` | 21 | **0** |
+| `needless_pass_by_value` | 5 | **0** — `&Arc<WgpuDevice>` pattern |
+| Wood-Saxon density | 3 duplicate impls | **1 shared** `hfb_common::initial_wood_saxon_density` |
+| GPU energy pipeline | dead allocation | **feature-gated** (`gpu_energy`) |
+| Provenance records | missing 2 | **all** baselines traced |
+| Unit tests | 454 | **463** (+2 Wood-Saxon, +3 summary, +4 discovery) |
 
 ---
 
@@ -185,6 +207,12 @@ Sturm bisection eigensolve for tridiagonal Hamiltonian. Specialized atomic physi
 Echo State Network for transport prediction (D*, η*, λ*). Includes `NpuSimulator`
 for substrate-independent validation. `predict()` now returns `Result` (v0.6.0).
 
+### Shared Wood-Saxon Density (v0.6.1)
+
+**Location:** `physics/hfb_common.rs`
+`hfb_common::initial_wood_saxon_density()` provides a single shared implementation
+used by all HFB paths (spherical, deformed, GPU). Replaces three duplicate impls.
+
 ---
 
 ## Part 3: Error Handling Architecture (v0.6.0)
@@ -230,11 +258,11 @@ Functions that now return `Result`:
 
 ---
 
-## Part 5: Codebase Health (v0.6.0)
+## Part 5: Codebase Health (v0.6.0 / v0.6.1)
 
 | Metric | Value |
 |--------|-------|
-| Unit tests | **454** pass (449 + 5 GPU-ignored) |
+| Unit tests | **463** pass (458 + 5 GPU-ignored) |
 | Determinism tests | **16** (all stochastic algorithms) |
 | Validation suites | **33/33** pass |
 | Clippy warnings | **0** (pedantic + `expect_used` + `unwrap_used`) |
@@ -242,14 +270,15 @@ Functions that now return `Result`:
 | `.expect()` in library | **0** |
 | `.unwrap()` in library | **0** |
 | `unsafe` blocks | **0** |
-| Centralized tolerances | **146** in `tolerances.rs` |
+| Centralized tolerances | **146** in `tolerances/` module tree |
+| Pedantic lints resolved | **141** (5 categories eliminated) |
 | Inline magic numbers | **0** in validation binaries |
 | SPDX compliance | **All** 106 `.rs` + 34 `.wgsl` files |
 | Provenance records | All targets traced to Python origins or DOIs |
 | Coverage | ~63% overall / ~96% unit-testable library |
 
 ```bash
-cargo test               # 454 pass, 5 GPU-ignored
+cargo test               # 463 pass, 5 GPU-ignored
 cargo clippy --all-targets -- -W clippy::expect_used -W clippy::unwrap_used  # 0 warnings
 cargo doc --no-deps      # 0 warnings
 cargo run --release --bin validate_all  # 33/33 suites

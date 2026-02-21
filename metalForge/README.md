@@ -128,6 +128,59 @@ comprehensive discovery document.
 
 ---
 
+## Forge Crate — Hardware Discovery via Toadstool/Barracuda
+
+`metalForge/forge/` is a Rust crate that discovers compute substrates
+on this machine. GPU discovery leans on **wgpu** (the same path
+toadstool/barracuda uses) — we don't reinvent what the fungus already
+provides. NPU discovery is local evolution that toadstool can absorb.
+
+Toadstool is the fungus. It lives in every biome. hotSpring, neuralSpring,
+desertSpring — each lean on toadstool separately, evolve shaders and
+systems locally, and toadstool absorbs what works. Springs don't reference
+each other.
+
+```bash
+cd metalForge/forge
+cargo test                    # 13 tests — GPU via wgpu, CPU via procfs, NPU via /dev
+cargo clippy --all-targets    # Zero warnings (deny expect_used/unwrap_used)
+cargo run --example inventory # discovers THIS machine's hardware
+```
+
+### Architecture
+
+| Module | Purpose |
+|--------|---------|
+| `substrate.rs` | Capability model — substrates have identities, properties, and capabilities |
+| `probe.rs` | GPU via wgpu adapter enumeration (barracuda's path), CPU via `/proc/cpuinfo`, NPU via `/dev/akida0` |
+| `inventory.rs` | Assembles all probes into a unified inventory |
+| `dispatch.rs` | Routes workloads to the best capable substrate (GPU > NPU > CPU) |
+
+### Design Principles
+
+- **Lean on toadstool**: GPU discovery uses wgpu, the same API barracuda
+  uses. No sysfs reimplementation. SHADER_F64, timestamps, driver info —
+  all from the Vulkan adapter query that toadstool already does.
+- **Evolve locally**: NPU probing (`/dev/akida0`) is local to hotSpring.
+  Toadstool doesn't have NPU substrate support yet, so we build it here.
+  Once toadstool absorbs it, we lean on that and delete ours.
+- **Capability-based dispatch**: Code asks "who can do f64 + CG?" not "send
+  to GPU #0". If hardware changes, dispatch adapts automatically.
+- **Springs don't cross-call**: neuralSpring can see how hotSpring uses
+  toadstool (in `ecoPrimals/`), but doesn't import from hotSpring. Each
+  spring evolves toadstool independently.
+
+### What It Discovers on This Machine
+
+| # | Substrate | Identity | Capabilities |
+|---|-----------|----------|-------------|
+| 0 | CPU | i9-12900K (16C/24T, 30720KB, AVX2) | f64, f32, spmv, eigen, cg, simd |
+| 1 | GPU | RTX 4070 (NVIDIA 580.82.09, Vulkan, SHADER_F64) | f64, f32, shader, reduce, spmv, eigen, cg, timestamps |
+| 2 | GPU | Titan V (NVK/Mesa 25.1.5, Vulkan, SHADER_F64) | f64, f32, shader, reduce, spmv, eigen, cg, timestamps |
+| 3 | NPU | BrainChip AKD1000 (/dev/akida0) | f32, quant(8), quant(4), batch(8), weight-mut |
+
+---
+
 ## Lattice QCD: Heterogeneous Hardware Pipeline
 
 Full lattice QCD (Tier 3 papers) previously required FFT for dynamical fermions.

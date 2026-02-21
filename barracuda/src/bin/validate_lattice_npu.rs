@@ -159,7 +159,7 @@ fn check_esn_phase_classifier(harness: &mut ValidationHarness) {
         }
     }
 
-    let accuracy = correct as f64 / total as f64;
+    let accuracy = f64::from(correct) / total as f64;
     println!("  CPU f64 accuracy: {accuracy:.1}% ({correct}/{total})");
 
     harness.check_lower(
@@ -212,7 +212,7 @@ fn check_npu_simulator_parity(harness: &mut ValidationHarness) {
         }
     }
 
-    let agreement = agree_count as f64 / total as f64;
+    let agreement = f64::from(agree_count) / total as f64;
     println!("  Max absolute error: {max_error:.6}");
     println!("  Classification agreement: {agreement:.1}% ({agree_count}/{total})");
 
@@ -320,7 +320,7 @@ fn generate_training_data() -> (
     Vec<Vec<Vec<f64>>>,
     Vec<Vec<f64>>,
 ) {
-    let beta_values: Vec<f64> = (0..30).map(|i| 4.5 + 2.0 * (i as f64) / 29.0).collect();
+    let beta_values: Vec<f64> = (0..30).map(|i| 4.5 + 2.0 * f64::from(i) / 29.0).collect();
     let beta_c = 5.692;
 
     let mut train_seqs = Vec::new();

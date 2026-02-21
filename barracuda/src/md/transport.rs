@@ -404,13 +404,13 @@ mod tests {
 
         // Within each kappa, D* should decrease with increasing Gamma
         for kappa_int in 0..=3 {
-            let kappa = kappa_int as f64;
+            let kappa = f64::from(kappa_int);
             let mut points: Vec<(f64, f64)> = ref_data
                 .iter()
                 .filter(|(k, _, _)| (*k - kappa).abs() < 0.01)
                 .map(|&(_, g, d)| (g, d))
                 .collect();
-            points.sort_by(|a, b| a.0.partial_cmp(&b.0).expect("finite f64 comparison"));
+            points.sort_by(|a, b| a.0.total_cmp(&b.0));
 
             for w in points.windows(2) {
                 let (g1, d1) = w[0];
@@ -489,13 +489,13 @@ mod tests {
     #[test]
     fn rdf_peak_height_increases_with_coupling() {
         for kappa_int in 0..=3 {
-            let kappa = kappa_int as f64;
+            let kappa = f64::from(kappa_int);
             let mut points: Vec<(f64, f64)> = SARKAS_RDF_REFERENCE
                 .iter()
                 .filter(|(k, _, _, _)| (*k - kappa).abs() < 0.01)
                 .map(|&(_, g, _, peak_g)| (g, peak_g))
                 .collect();
-            points.sort_by(|a, b| a.0.partial_cmp(&b.0).expect("finite f64 comparison"));
+            points.sort_by(|a, b| a.0.total_cmp(&b.0));
 
             for w in points.windows(2) {
                 let (g1, h1) = w[0];

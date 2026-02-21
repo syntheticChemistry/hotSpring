@@ -1,0 +1,161 @@
+# hotSpring → BarraCUDA/ToadStool Absorption Manifest
+
+**Date:** February 21, 2026
+**Version:** v0.6.1
+**License:** AGPL-3.0-only
+
+---
+
+## Biome Model
+
+hotSpring is a biome. ToadStool/barracuda is the fungus — present in every
+biome. hotSpring, neuralSpring, desertSpring each lean on toadstool separately,
+evolve shaders and systems locally, and toadstool absorbs what works. Springs
+don't import each other. They learn by reviewing code in `ecoPrimals/`.
+
+## Absorption Pattern
+
+hotSpring follows Write → Absorb → Lean:
+
+1. **Write**: Implement physics on CPU with WGSL templates in Rust source
+2. **Validate**: Test against Python baselines and known physics
+3. **Hand off**: Document in `wateringHole/handoffs/` with code locations
+4. **Absorb**: ToadStool absorbs as GPU shaders, BarraCUDA absorbs as ops
+5. **Lean**: hotSpring rewires to upstream, deletes local code
+
+---
+
+## Already Absorbed (Lean Phase)
+
+These were written by hotSpring and absorbed by toadstool/barracuda:
+
+| Component | Session | Upstream Location | hotSpring Status |
+|-----------|---------|-------------------|------------------|
+| Complex f64 WGSL | S18-25 | `shaders/math/complex_f64.wgsl` | Leaning on upstream |
+| SU(3) WGSL | S18-25 | `shaders/math/su3.wgsl` | Leaning on upstream |
+| Wilson plaquette | S18-25 | `shaders/lattice/wilson_plaquette_f64.wgsl` | Leaning on upstream |
+| SU(3) HMC force | S18-25 | `shaders/lattice/su3_hmc_force_f64.wgsl` | Leaning on upstream |
+| Abelian Higgs HMC | S18-25 | `shaders/lattice/higgs_u1_hmc_f64.wgsl` | Leaning on upstream |
+| CellListGpu fix | S25 | `barracuda::ops::md::neighbor` | Local deprecated |
+| NAK eigensolve | S16 | `batched_eigh_nak_optimized_f64.wgsl` | Leaning on upstream |
+| ReduceScalarPipeline | S12 | `barracuda::pipeline` | Leaning on upstream |
+| GpuDriverProfile | S15 | `barracuda::device::capabilities` | Leaning on upstream |
+| WgslOptimizer | S15 | `barracuda::shaders` | Leaning on upstream |
+
+---
+
+## Ready for Absorption (Category C)
+
+These modules are self-contained, well-tested, documented, and follow
+the absorption pattern. Each has WGSL templates (where applicable),
+CPU reference implementations, and validation suites.
+
+### Tier 1 — High Priority (GPU acceleration benefit)
+
+| Module | Location | WGSL | Tests | What it does |
+|--------|----------|------|-------|--------------|
+| CSR SpMV | `spectral/csr.rs` | `WGSL_SPMV_CSR_F64` | 8/8 | Sparse matrix-vector product (f64) |
+| Lanczos | `spectral/lanczos.rs` | Uses SpMV | 6/6 | Krylov eigensolve with reorthogonalization |
+| Staggered Dirac | `lattice/dirac.rs` | `WGSL_DIRAC_STAGGERED_F64` | 8/8 | SU(3) staggered fermion operator |
+| CG Solver | `lattice/cg.rs` | `WGSL_COMPLEX_DOT_RE_F64`, `WGSL_AXPY_F64`, `WGSL_XPAY_F64` | 9/9 | Conjugate gradient for D†D |
+| ESN Reservoir | `md/reservoir.rs` | `esn_reservoir_update.wgsl`, `esn_readout.wgsl` | 16+ | Echo State Network for transport/phase prediction |
+
+### Tier 2 — Medium Priority (CPU → upstream library)
+
+| Module | Location | Tests | What it does |
+|--------|----------|-------|--------------|
+| Anderson 1D/2D/3D | `spectral/anderson.rs` | 31 | Anderson localization + Lyapunov exponent |
+| Hofstadter butterfly | `spectral/hofstadter.rs` | 10 | Almost-Mathieu operator, band counting |
+| Level statistics | `spectral/stats.rs` | Tests | GOE→Poisson spacing ratio |
+| Sturm eigensolve | `spectral/tridiag.rs` | Tests | Bisection eigenvalues for tridiagonal |
+| Screened Coulomb | `physics/screened_coulomb.rs` | 23/23 | Murillo-Weisheit Sturm eigensolve |
+| Wilson action | `lattice/wilson.rs` | 12/12 | Plaquettes, staples, gauge force |
+| HMC integrator | `lattice/hmc.rs` | Tests | Cayley matrix exp, leapfrog, Metropolis |
+| Abelian Higgs | `lattice/abelian_higgs.rs` | 17/17 | U(1)+Higgs (1+1)D HMC |
+
+### Tier 3 — Low Priority (hotSpring-specific, but reusable patterns)
+
+| Module | Location | Notes |
+|--------|----------|-------|
+| BCS GPU | `physics/bcs_gpu.rs` | GPU BCS bisection (corrected shader) |
+| Deformed HFB | `physics/hfb_deformed*.rs` | Axially-deformed nuclear structure |
+| HFB GPU resident | `physics/hfb_gpu_resident.rs` | Full GPU-resident SCF pipeline |
+| Stanton-Murillo fits | `md/transport.rs` | Analytical transport coefficient models |
+
+---
+
+## Stays Local (Category A/B)
+
+These are hotSpring-specific infrastructure:
+
+| Module | Why it stays |
+|--------|--------------|
+| `validation.rs` | hotSpring pass/fail harness |
+| `provenance.rs` | hotSpring baseline traceability |
+| `tolerances/` | hotSpring validation thresholds |
+| `discovery.rs` | hotSpring data path resolution |
+| `data.rs` | AME2020 + Skyrme bounds |
+| `prescreen.rs` | Nuclear EOS cascade filter |
+| `bench.rs` | hotSpring benchmark harness |
+| `error.rs` | HotSpringError (wraps BarracudaError) |
+
+---
+
+## WGSL Shader Inventory (for ToadStool)
+
+All WGSL shaders in hotSpring, organized by absorption status:
+
+### Already Absorbed
+
+- `complex_f64.wgsl` → `shaders/math/complex_f64.wgsl`
+- `su3.wgsl` → `shaders/math/su3.wgsl`
+- `wilson_plaquette_f64.wgsl` → `shaders/lattice/`
+- `su3_hmc_force_f64.wgsl` → `shaders/lattice/`
+- `higgs_u1_hmc_f64.wgsl` → `shaders/lattice/`
+- `batched_eigh_nak_optimized_f64.wgsl` → upstream shader
+
+### Ready for Absorption
+
+- `WGSL_SPMV_CSR_F64` (inline in `spectral/csr.rs`)
+- `WGSL_DIRAC_STAGGERED_F64` (inline in `lattice/dirac.rs`)
+- `WGSL_COMPLEX_DOT_RE_F64` (inline in `lattice/cg.rs`)
+- `WGSL_AXPY_F64` (inline in `lattice/cg.rs`)
+- `WGSL_XPAY_F64` (inline in `lattice/cg.rs`)
+- `esn_reservoir_update.wgsl` (in `md/shaders/`)
+- `esn_readout.wgsl` (in `md/shaders/`)
+
+### Local (physics-specific, not general)
+
+- 14 physics shaders in `physics/shaders/` (HFB, BCS, deformed, SEMF, chi², spin-orbit)
+- 11 MD production shaders in `md/shaders/` (Yukawa, cell-list, VV, RDF, ESN)
+
+---
+
+## New: NPU Substrate Discovery
+
+hotSpring's metalForge forge crate provides working NPU substrate discovery
+that toadstool doesn't have yet. Key components:
+
+| Component | Location | What it does |
+|-----------|----------|--------------|
+| NPU probe | `metalForge/forge/src/probe.rs::probe_npus()` | Discovers `/dev/akida*` device nodes |
+| NPU capabilities | `metalForge/forge/src/substrate.rs` | QuantizedInference, BatchInference, WeightMutation |
+| NPU dispatch | `metalForge/forge/src/dispatch.rs` | Routes inference work to NPU when capable |
+
+These can be absorbed into `barracuda::device::substrate::Substrate::discover_all()`
+to give toadstool native NPU awareness.
+
+See `wateringHole/handoffs/HOTSPRING_V061_FORGE_HANDOFF_FEB21_2026.md` for the
+full handoff with hardware measurements and validation results.
+
+---
+
+## Handoff Procedure
+
+For each absorption candidate:
+
+1. Open issue in toadstool describing the primitive
+2. Create handoff doc in `wateringHole/handoffs/`
+3. Include: Rust source, WGSL template, binding layout, dispatch geometry, test suite
+4. After absorption: rewire hotSpring to `use barracuda::ops::*`, delete local code
+5. Run `validate_all` to confirm 33/33 suites still pass

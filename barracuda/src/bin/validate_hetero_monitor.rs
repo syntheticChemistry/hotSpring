@@ -355,8 +355,8 @@ fn check_monitoring_overhead(harness: &mut ValidationHarness) {
     }
 
     let overhead_pct = (total_predict_ns as f64 / total_hmc_ns as f64) * 100.0;
-    let hmc_ms = total_hmc_ns as f64 / 1e6 / n_trajectories as f64;
-    let pred_us = total_predict_ns as f64 / 1e3 / n_trajectories as f64;
+    let hmc_ms = total_hmc_ns as f64 / 1e6 / f64::from(n_trajectories);
+    let pred_us = total_predict_ns as f64 / 1e3 / f64::from(n_trajectories);
 
     println!("  HMC per trajectory: {hmc_ms:.2} ms");
     println!("  ESN prediction: {pred_us:.1} μs");
@@ -392,7 +392,7 @@ fn check_predictive_steering(harness: &mut ValidationHarness) {
     esn.train(&train_seqs, &train_targets);
 
     // Coarse scan: 10 β values
-    let coarse_betas: Vec<f64> = (0..10).map(|i| 4.5 + 2.0 * i as f64 / 9.0).collect();
+    let coarse_betas: Vec<f64> = (0..10).map(|i| 4.5 + 2.0 * f64::from(i) / 9.0).collect();
     let mut coarse_preds = Vec::new();
 
     for &beta in &coarse_betas {
@@ -423,7 +423,9 @@ fn check_predictive_steering(harness: &mut ValidationHarness) {
     // Fine scan: 20 β values in the transition region only
     let n_fine = 20;
     let fine_betas: Vec<f64> = (0..n_fine)
-        .map(|i| transition_lo + (transition_hi - transition_lo) * i as f64 / (n_fine - 1) as f64)
+        .map(|i| {
+            transition_lo + (transition_hi - transition_lo) * f64::from(i) / f64::from(n_fine - 1)
+        })
         .collect();
 
     let mut fine_preds = Vec::new();
@@ -455,7 +457,7 @@ fn check_predictive_steering(harness: &mut ValidationHarness) {
 
     let uniform_cost = 80; // 80 points in full scan
     let adaptive_cost = 10 + n_fine; // 10 coarse + 20 fine
-    let savings_pct = (1.0 - adaptive_cost as f64 / uniform_cost as f64) * 100.0;
+    let savings_pct = (1.0 - f64::from(adaptive_cost) / f64::from(uniform_cost)) * 100.0;
     println!("  Compute savings: {adaptive_cost} vs {uniform_cost} evaluations ({savings_pct:.0}% saved)");
 
     harness.check_upper(
@@ -475,7 +477,7 @@ fn check_predictive_steering(harness: &mut ValidationHarness) {
 // ═══════════════════════════════════════════════════════════════════
 
 fn generate_phase_training_data() -> (Vec<Vec<Vec<f64>>>, Vec<Vec<f64>>) {
-    let beta_values: Vec<f64> = (0..30).map(|i| 4.5 + 2.0 * (i as f64) / 29.0).collect();
+    let beta_values: Vec<f64> = (0..30).map(|i| 4.5 + 2.0 * f64::from(i) / 29.0).collect();
     let beta_c = 5.692;
     let mut seqs = Vec::new();
     let mut targets = Vec::new();
@@ -575,7 +577,7 @@ fn predict_int4_quantized(
     // Apply quantized readout
     let mut sum = 0.0f32;
     for i in 0..rs {
-        sum += (w_out_q[i] as f32) * scale * state[i];
+        sum += f32::from(w_out_q[i]) * scale * state[i];
     }
     f64::from(sum)
 }

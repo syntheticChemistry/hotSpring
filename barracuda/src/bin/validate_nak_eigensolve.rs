@@ -347,7 +347,7 @@ fn run_gpu_eigh(
         gpu.queue().submit(Some(enc.finish()));
         gpu.device().poll(wgpu::Maintain::Wait);
     }
-    let elapsed_ms = t0.elapsed().as_secs_f64() * 1000.0 / rounds as f64;
+    let elapsed_ms = t0.elapsed().as_secs_f64() * 1000.0 / f64::from(rounds);
 
     // Read eigenvalues
     let eig_data = gpu.read_staging_f64(&staging).expect("read eigenvalues");

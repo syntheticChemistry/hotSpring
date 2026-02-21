@@ -2,6 +2,10 @@
 
 // Clippy configuration is in [workspace.lints.clippy] in Cargo.toml.
 // See there for rationale on each allowed lint.
+//
+// Library code must propagate errors, not panic. Binaries may use
+// expect()/unwrap() at the top level — these lints apply only here.
+#![deny(clippy::expect_used, clippy::unwrap_used)]
 
 //! hotSpring Nuclear EOS — BarraCUDA validation environment
 //!

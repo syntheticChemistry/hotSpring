@@ -157,7 +157,7 @@ impl GpuCellList {
         let my = mx;
         let mz = mx;
         let nc = mx * my * mz;
-        let cell_size = box_side / mx as f64;
+        let cell_size = box_side / f64::from(mx);
 
         let dev = gpu.device();
         let storage_rw = wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST;
@@ -170,19 +170,19 @@ impl GpuCellList {
         });
         let cell_counts_buf = dev.create_buffer(&wgpu::BufferDescriptor {
             label: Some("gpu_cl:cell_counts"),
-            size: (nc as u64) * 4,
+            size: u64::from(nc) * 4,
             usage: storage_rw,
             mapped_at_creation: false,
         });
         let cell_start_buf = dev.create_buffer(&wgpu::BufferDescriptor {
             label: Some("gpu_cl:cell_start"),
-            size: (nc as u64) * 4,
+            size: u64::from(nc) * 4,
             usage: storage_rw,
             mapped_at_creation: false,
         });
         let write_cursors_buf = dev.create_buffer(&wgpu::BufferDescriptor {
             label: Some("gpu_cl:write_cursors"),
-            size: (nc as u64) * 4,
+            size: u64::from(nc) * 4,
             usage: storage_rw,
             mapped_at_creation: false,
         });
@@ -385,7 +385,7 @@ impl GpuCellList {
     }
 
     fn cell_size(&self, box_side: f64) -> f64 {
-        box_side / self.mx as f64
+        box_side / f64::from(self.mx)
     }
 }
 
@@ -394,6 +394,13 @@ impl GpuCellList {
 // ═══════════════════════════════════════════════════════════════════════
 
 /// Run simulation with GPU cell-list (indirect indexing, zero-readback rebuild).
+///
+/// # Errors
+///
+/// Returns [`crate::error::HotSpringError::NoAdapter`] if no GPU adapter is found.
+/// Returns [`crate::error::HotSpringError::NoShaderF64`] if the GPU lacks SHADER_F64.
+/// Returns [`crate::error::HotSpringError::DeviceCreation`] or
+/// [`crate::error::HotSpringError::Barracuda`] if GPU initialization or pipeline setup fails.
 pub async fn run_simulation_celllist(
     config: &MdConfig,
 ) -> Result<MdSimulation, crate::error::HotSpringError> {
@@ -475,13 +482,13 @@ pub async fn run_simulation_celllist(
         box_side,
         box_side,
         0.0,
-        gpu_cl.mx as f64,
-        gpu_cl.my as f64,
-        gpu_cl.mz as f64,
+        f64::from(gpu_cl.mx),
+        f64::from(gpu_cl.my),
+        f64::from(gpu_cl.mz),
         cell_size,
         cell_size,
         cell_size,
-        gpu_cl.nc as f64,
+        f64::from(gpu_cl.nc),
         0.0,
     ];
     let force_params_buf = gpu.create_f64_buffer(&force_params, "force_params");

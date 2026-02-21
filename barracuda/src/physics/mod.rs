@@ -15,6 +15,7 @@ pub mod constants;
 pub mod hfb;
 pub mod hfb_common;
 pub mod hfb_deformed;
+pub mod hfb_deformed_common;
 pub mod hfb_deformed_gpu;
 pub mod hfb_gpu;
 pub mod hfb_gpu_resident;

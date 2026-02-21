@@ -20,9 +20,11 @@
 //! (n≤32) or multi-dispatch (n>32), both pure GPU.
 
 use super::hfb::SphericalHFB;
+#[cfg(feature = "gpu_energy")]
+use super::hfb_gpu_types::EnergyParamsUniform;
 use super::hfb_gpu_types::{
-    make_bind_group, make_pipeline, DensityParamsUniform, EnergyParamsUniform, GroupResources,
-    HamiltonianDimsUniform, MixParamsUniform, PackParams, PotentialDimsUniform,
+    make_bind_group, make_pipeline, DensityParamsUniform, GroupResources, HamiltonianDimsUniform,
+    MixParamsUniform, PackParams, PotentialDimsUniform,
 };
 use super::semf::semf_binding_energy;
 use crate::error::HotSpringError;
@@ -39,6 +41,7 @@ const HAMILTONIAN_SHADER: &str = include_str!("shaders/batched_hfb_hamiltonian_f
 const DENSITY_SHADER: &str = include_str!("shaders/batched_hfb_density_f64.wgsl");
 // EVOLUTION(GPU): Phase 4 stub — energy shader loaded but not yet dispatched.
 // Wiring requires GPU SumReduceF64 + kinetic energy kernel. See EVOLUTION_READINESS.md Tier B.
+#[cfg(feature = "gpu_energy")]
 #[allow(dead_code)] // EVOLUTION: will wire when SumReduceF64 + kinetic kernel available
 const ENERGY_SHADER_BODY: &str = include_str!("shaders/batched_hfb_energy_f64.wgsl");
 const SO_PACK_SHADER: &str = include_str!("shaders/spin_orbit_pack_f64.wgsl");
@@ -77,30 +80,8 @@ fn build_initial_densities(solvers: &[(usize, usize, usize, SphericalHFB)]) -> V
     solvers
         .iter()
         .map(|(z, n, _, hfb)| {
-            let a = *z + *n;
-            let r_nuc = 1.2 * (a as f64).powf(1.0 / 3.0);
-            let rho0 = 3.0 * a as f64 / (4.0 * std::f64::consts::PI * r_nuc.powi(3));
-            let nr = hfb.nr();
-            let rho_p: Vec<f64> = (0..nr)
-                .map(|k| {
-                    let r = (k + 1) as f64 * hfb.dr();
-                    if r < r_nuc {
-                        (rho0 * *z as f64 / a as f64).max(DENSITY_FLOOR)
-                    } else {
-                        DENSITY_FLOOR
-                    }
-                })
-                .collect();
-            let rho_n: Vec<f64> = (0..nr)
-                .map(|k| {
-                    let r = (k + 1) as f64 * hfb.dr();
-                    if r < r_nuc {
-                        (rho0 * *n as f64 / a as f64).max(DENSITY_FLOOR)
-                    } else {
-                        DENSITY_FLOOR
-                    }
-                })
-                .collect();
+            let (rho_p, rho_n) =
+                super::hfb_common::initial_wood_saxon_density(*z, *n, hfb.nr(), hfb.dr());
             NucleusState {
                 rho_p,
                 rho_n,
@@ -270,14 +251,30 @@ pub struct GpuResidentL2Result {
     pub n_semf: usize,
 }
 
+/// Batch compute L2 binding energies on GPU with full GPU-resident pipeline.
+///
+/// # Errors
+///
+/// Returns [`HotSpringError::GpuCompute`] if GPU buffer allocation, shader
+/// compilation, or eigensolve fails.
 pub fn binding_energies_l2_gpu_resident(
-    device: Arc<WgpuDevice>,
+    device: &Arc<WgpuDevice>,
     nuclei: &[(usize, usize)],
     params: &[f64],
     max_iter: usize,
     tol: f64,
     mixing: f64,
 ) -> Result<GpuResidentL2Result, HotSpringError> {
+    use wgpu::util::DeviceExt;
+
+    // Per-group pack resources: bind groups referencing per-group H buffers + eigensolve buffer
+    struct PackGroupResources {
+        params_p_buf: wgpu::Buffer,
+        params_n_buf: wgpu::Buffer,
+        pack_p_bg: wgpu::BindGroup,
+        pack_n_bg: wgpu::BindGroup,
+    }
+
     let t0 = std::time::Instant::now();
     let mut results: Vec<(usize, usize, f64, bool)> = Vec::with_capacity(nuclei.len());
     let mut gpu_dispatches = 0usize;
@@ -331,7 +328,7 @@ pub fn binding_energies_l2_gpu_resident(
     let raw_device = device.device();
     let raw_queue = device.queue();
 
-    let potentials_shader = ShaderTemplate::for_device_auto(POTENTIALS_SHADER_BODY, &device);
+    let potentials_shader = ShaderTemplate::for_device_auto(POTENTIALS_SHADER_BODY, device);
     let pot_module = raw_device.create_shader_module(wgpu::ShaderModuleDescriptor {
         label: Some("potentials"),
         source: wgpu::ShaderSource::Wgsl(potentials_shader.into()),
@@ -358,8 +355,6 @@ pub fn binding_energies_l2_gpu_resident(
         let dr = solvers[group_indices[0]].3.dr();
         let mat_size = ns * ns;
         let n_max = group_indices.len();
-
-        use wgpu::util::DeviceExt;
 
         let mut all_wf = Vec::with_capacity(n_max * ns * nr);
         let mut all_dwf = Vec::with_capacity(n_max * ns * nr);
@@ -841,56 +836,72 @@ pub fn binding_energies_l2_gpu_resident(
             &[&dp_layout, &bcs_read_layout, &dens_read_layout, &mix_layout],
         );
 
-        // Energy pipeline (deferred to future PR — stubs for struct completeness)
-        let energy_params_buf = raw_device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("energy_params"),
-            size: std::mem::size_of::<EnergyParamsUniform>() as u64,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-        let energy_integrands_buf = raw_device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("energy_integrands"),
-            size: buf_nr,
-            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
-            mapped_at_creation: false,
-        });
-        let e_pair_buf = raw_device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("e_pair"),
-            size: buf_1,
-            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
-            mapped_at_creation: false,
-        });
-        let energy_staging = raw_device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("energy_staging"),
-            size: buf_nr,
-            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-        let e_pair_staging = raw_device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("e_pair_staging"),
-            size: buf_1,
-            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-        // Placeholder bind groups using density_params_buf for energy (will be rewired)
-        let (ep_layout, energy_params_bg) = make_bind_group(
-            raw_device,
-            "energy_g0",
-            &[(wgpu::BufferBindingType::Uniform, &energy_params_buf)],
-        );
-        let (_, energy_pair_bg) = make_bind_group(
-            raw_device,
-            "energy_pair",
-            &[(sr, &energy_integrands_buf), (srw, &e_pair_buf)],
-        );
-        let _ = ep_layout;
+        // Energy pipeline (deferred to future PR — stubs for struct completeness).
+        // Feature-gated: removes ~40 lines of dead allocation from default build.
+        #[cfg(feature = "gpu_energy")]
+        let (
+            energy_params_bg,
+            energy_pair_bg,
+            energy_integrands_buf,
+            e_pair_buf,
+            energy_staging,
+            e_pair_staging,
+        ) = {
+            let energy_params_buf = raw_device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("energy_params"),
+                size: std::mem::size_of::<EnergyParamsUniform>() as u64,
+                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            });
+            let energy_integrands_buf = raw_device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("energy_integrands"),
+                size: buf_nr,
+                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+                mapped_at_creation: false,
+            });
+            let e_pair_buf = raw_device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("e_pair"),
+                size: buf_1,
+                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+                mapped_at_creation: false,
+            });
+            let energy_staging = raw_device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("energy_staging"),
+                size: buf_nr,
+                usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            });
+            let e_pair_staging = raw_device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("e_pair_staging"),
+                size: buf_1,
+                usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            });
+            let (_, energy_params_bg) = make_bind_group(
+                raw_device,
+                "energy_g0",
+                &[(wgpu::BufferBindingType::Uniform, &energy_params_buf)],
+            );
+            let (_, energy_pair_bg) = make_bind_group(
+                raw_device,
+                "energy_pair",
+                &[(sr, &energy_integrands_buf), (srw, &e_pair_buf)],
+            );
+            (
+                energy_params_bg,
+                energy_pair_bg,
+                energy_integrands_buf,
+                e_pair_buf,
+                energy_staging,
+                e_pair_staging,
+            )
+        };
 
         all_groups.push(GroupResources {
             ns,
             nr,
             group_indices: group_indices.clone(),
             n_max,
-            mat_size,
             rho_p_buf,
             rho_n_buf,
             rho_alpha_buf,
@@ -939,11 +950,17 @@ pub fn binding_energies_l2_gpu_resident(
             mix_pipe,
             rho_p_staging,
             rho_n_staging,
+            #[cfg(feature = "gpu_energy")]
             energy_params_bg,
+            #[cfg(feature = "gpu_energy")]
             energy_pair_bg,
+            #[cfg(feature = "gpu_energy")]
             energy_integrands_buf,
+            #[cfg(feature = "gpu_energy")]
             e_pair_buf,
+            #[cfg(feature = "gpu_energy")]
             energy_staging,
+            #[cfg(feature = "gpu_energy")]
             e_pair_staging,
             nr_wg: (nr as u32).div_ceil(256),
             ns_wg: (ns as u32).div_ceil(16),
@@ -956,7 +973,7 @@ pub fn binding_energies_l2_gpu_resident(
     // Eliminates per-iteration GPU buffer allocation + shader/pipeline recreation.
     let max_eigh_batch = solvers.len() * 2; // proton + neutron per nucleus
     let (eigh_matrices_buf, eigh_eigenvalues_buf, eigh_eigenvectors_buf) =
-        BatchedEighGpu::create_buffers(&device, global_max_ns, max_eigh_batch).map_err(|e| {
+        BatchedEighGpu::create_buffers(device, global_max_ns, max_eigh_batch).map_err(|e| {
             HotSpringError::GpuCompute(format!("pre-allocate eigensolve GPU buffers: {e}"))
         })?;
 
@@ -1019,13 +1036,6 @@ pub fn binding_energies_l2_gpu_resident(
         &[&so_pack_layout],
     );
 
-    // Per-group pack resources: bind groups referencing per-group H buffers + eigensolve buffer
-    struct PackGroupResources {
-        params_p_buf: wgpu::Buffer,
-        params_n_buf: wgpu::Buffer,
-        pack_p_bg: wgpu::BindGroup,
-        pack_n_bg: wgpu::BindGroup,
-    }
     let pack_resources: Vec<PackGroupResources> = all_groups
         .iter()
         .map(|g| {
@@ -1095,9 +1105,13 @@ pub fn binding_energies_l2_gpu_resident(
         .collect();
 
     // ═══ UNIFIED SCF LOOP — ALL GROUPS IN ONE ENCODER ═══
+    #[allow(unused_variables, unused_assignments)]
     let mut t_gpu_total = 0.0f64;
+    #[allow(unused_variables)]
     let t_poll_total = 0.0f64;
+    #[allow(unused_variables, unused_assignments)]
     let mut t_cpu_total = 0.0f64;
+    #[allow(unused_variables, unused_assignments)]
     let mut t_upload_total = 0.0f64;
 
     for iter in 0..max_iter {
@@ -1320,7 +1334,7 @@ pub fn binding_energies_l2_gpu_resident(
             // 4d. GPU eigensolve — operates on packed buffer (already populated by GPU)
             let dispatch_ok = if global_max_ns <= 32 {
                 BatchedEighGpu::execute_single_dispatch_buffers(
-                    &device,
+                    device,
                     &eigh_matrices_buf,
                     &eigh_eigenvalues_buf,
                     &eigh_eigenvectors_buf,
@@ -1331,7 +1345,7 @@ pub fn binding_energies_l2_gpu_resident(
                 )
             } else {
                 BatchedEighGpu::execute_f64_buffers(
-                    &device,
+                    device,
                     &eigh_matrices_buf,
                     &eigh_eigenvalues_buf,
                     &eigh_eigenvectors_buf,
@@ -1348,14 +1362,14 @@ pub fn binding_energies_l2_gpu_resident(
                     ))
                 })?;
                 let eigenvalues = BatchedEighGpu::read_eigenvalues(
-                    &device,
+                    device,
                     &eigh_eigenvalues_buf,
                     global_max_ns,
                     batch_size,
                 )
                 .map_err(|e| HotSpringError::GpuCompute(format!("eigenvalue readback: {e}")))?;
                 let eigenvectors = BatchedEighGpu::read_eigenvectors(
-                    &device,
+                    device,
                     &eigh_eigenvectors_buf,
                     global_max_ns,
                     batch_size,
@@ -1375,9 +1389,9 @@ pub fn binding_energies_l2_gpu_resident(
         let eigen_bcs: Vec<EigenBcsResult> = extract_bcs_results(
             &all_work,
             gpu_eigen.as_ref().ok_or_else(|| {
-                HotSpringError::GpuCompute(
-                    "GPU eigensolve must succeed — no CPU fallback".to_string(),
-                )
+                HotSpringError::GpuCompute(String::from(
+                    "GPU eigensolve must succeed — no CPU fallback",
+                ))
             })?,
             &solvers,
             global_max_ns,
@@ -1535,12 +1549,12 @@ pub fn binding_energies_l2_gpu_resident(
         for (gi, rx_p, rx_n) in density_receivers {
             rx_p.recv()
                 .map_err(|_| {
-                    HotSpringError::GpuCompute("density rho_p map channel failed".to_string())
+                    HotSpringError::GpuCompute(String::from("density rho_p map channel failed"))
                 })?
                 .map_err(|e| HotSpringError::GpuCompute(format!("density rho_p map: {e}")))?;
             rx_n.recv()
                 .map_err(|_| {
-                    HotSpringError::GpuCompute("density rho_n map channel failed".to_string())
+                    HotSpringError::GpuCompute(String::from("density rho_n map channel failed"))
                 })?
                 .map_err(|e| HotSpringError::GpuCompute(format!("density rho_n map: {e}")))?;
 
@@ -1714,8 +1728,8 @@ mod tests {
         let z = 28;
         let n = 28;
         let a = z + n;
-        let r_nuc = 1.2 * (a as f64).powf(1.0 / 3.0);
-        let rho0 = 3.0 * a as f64 / (4.0 * std::f64::consts::PI * r_nuc.powi(3));
+        let r_nuc = 1.2 * f64::from(a).powf(1.0 / 3.0);
+        let rho0 = 3.0 * f64::from(a) / (4.0 * std::f64::consts::PI * r_nuc.powi(3));
         let nr = 100;
         let dr = 15.0 / nr as f64;
 
@@ -1723,7 +1737,7 @@ mod tests {
             .map(|k| {
                 let r = (k + 1) as f64 * dr;
                 if r < r_nuc {
-                    (rho0 * z as f64 / a as f64).max(DENSITY_FLOOR)
+                    (rho0 * f64::from(z) / f64::from(a)).max(DENSITY_FLOOR)
                 } else {
                     DENSITY_FLOOR
                 }
