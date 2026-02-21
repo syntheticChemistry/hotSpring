@@ -43,7 +43,7 @@ impl Default for EsnConfig {
             spectral_radius: 0.95,
             connectivity: 0.2,
             leak_rate: 0.3,
-            regularization: 1e-2,
+            regularization: crate::tolerances::ESN_REGULARIZATION,
             seed: 42,
         }
     }
@@ -210,12 +210,9 @@ impl EchoStateNetwork {
         let final_state = states
             .last()
             .map_or_else(|| self.state.as_slice(), Vec::as_slice);
-        let w_out = self
-            .w_out
-            .as_ref()
-            .ok_or(crate::error::HotSpringError::InvalidOperation(
-                "ESN not trained".into(),
-            ))?;
+        let w_out = self.w_out.as_ref().ok_or_else(|| {
+            crate::error::HotSpringError::InvalidOperation("ESN not trained".into())
+        })?;
         Ok(w_out
             .iter()
             .map(|row| row.iter().zip(final_state.iter()).map(|(w, s)| w * s).sum())
@@ -732,6 +729,88 @@ mod tests {
             .collect();
         let sr = spectral_radius_estimate(&w);
         assert!((sr - 1.0).abs() < 0.01, "sr={sr}");
+    }
+
+    #[test]
+    fn velocity_features_known_values() {
+        let vels = vec![vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0]]; // 2 particles
+        let feats = velocity_features(&vels, 2, 1.5, 100.0);
+        assert_eq!(feats.len(), 1);
+        let f = &feats[0];
+        assert_eq!(f.len(), 8);
+        assert!((f[0] - 0.5).abs() < 1e-10, "mean_vx: {}", f[0]); // (1+0)/2
+        assert!((f[1] - 0.5).abs() < 1e-10, "mean_vy: {}", f[1]); // (0+1)/2
+        assert!((f[2] - 0.0).abs() < 1e-10, "mean_vz: {}", f[2]); // (0+0)/2
+        assert!((f[3] - 1.0).abs() < 1e-10, "mean_speed: {}", f[3]); // (1+1)/2
+        assert!((f[4] - 0.5).abs() < 1e-10, "ke_per_particle: {}", f[4]); // (0.5+0.5)/2
+        let v_rms_expected = 1.0; // sqrt((1+1)/2) = 1.0
+        assert!((f[5] - v_rms_expected).abs() < 1e-10, "v_rms: {}", f[5]);
+        let kappa_scaled = 1.5 / 3.0;
+        assert!(
+            (f[6] - kappa_scaled).abs() < 1e-10,
+            "kappa_scaled: {}",
+            f[6]
+        );
+        let gamma_scaled = 100.0_f64.log10() / 3.0;
+        assert!(
+            (f[7] - gamma_scaled).abs() < 1e-10,
+            "gamma_scaled: {}",
+            f[7]
+        );
+    }
+
+    #[test]
+    fn velocity_features_multiple_frames() {
+        let frame1 = vec![3.0, 0.0, 0.0]; // 1 particle, speed=3
+        let frame2 = vec![0.0, 4.0, 0.0]; // 1 particle, speed=4
+        let feats = velocity_features(&[frame1, frame2], 1, 1.0, 1.0);
+        assert_eq!(feats.len(), 2);
+        assert!((feats[0][3] - 3.0).abs() < 1e-10, "frame1 speed");
+        assert!((feats[1][3] - 4.0).abs() < 1e-10, "frame2 speed");
+    }
+
+    #[test]
+    #[allow(clippy::expect_used)]
+    fn npu_predict_return_state_consistent() {
+        let config = EsnConfig {
+            input_size: 3,
+            reservoir_size: 15,
+            output_size: 1,
+            spectral_radius: 0.9,
+            connectivity: 0.3,
+            leak_rate: 0.3,
+            regularization: 1e-2,
+            seed: 77,
+        };
+        let seq: Vec<Vec<f64>> = (0..5)
+            .map(|i| vec![f64::from(i) * 0.1, 0.5, -0.2])
+            .collect();
+        let mut esn = EchoStateNetwork::new(config);
+        esn.train(&[seq.clone()], &[vec![1.0]]);
+        let exported = esn.export_weights().expect("export");
+
+        let mut npu1 = NpuSimulator::from_exported(&exported);
+        let mut npu2 = NpuSimulator::from_exported(&exported);
+
+        let pred = npu1.predict(&seq);
+        let state = npu2.predict_return_state(&seq);
+
+        assert_eq!(state.len(), exported.reservoir_size);
+        let readout_from_state: f64 = exported
+            .w_out
+            .chunks(exported.reservoir_size)
+            .next()
+            .expect("w_out row")
+            .iter()
+            .zip(state.iter())
+            .map(|(&w, &s)| f64::from(w) * f64::from(s))
+            .sum();
+        assert!(
+            (pred[0] - readout_from_state).abs() < 1e-4,
+            "predict vs state readout: {} vs {}",
+            pred[0],
+            readout_from_state
+        );
     }
 
     #[test]

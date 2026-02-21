@@ -87,6 +87,16 @@ pub const NPU_WEIGHT_MUTATION_LINEARITY: f64 = 0.01;
 // Reservoir computing (ESN) transport tolerances
 // ═══════════════════════════════════════════════════════════════════
 
+/// ESN ridge regression regularization parameter (Tikhonov λ).
+///
+/// Controls the bias-variance trade-off in the readout weight solution
+/// W_out = Y · X^T · (X · X^T + λI)^{-1}. At 1e-2, the regularization
+/// prevents overfitting to noise in short (60-frame) training sequences
+/// while preserving sufficient accuracy for D* / VACF / phase predictions.
+///
+/// Used as the default in all ESN validation binaries and `EsnConfig::default()`.
+pub const ESN_REGULARIZATION: f64 = 1e-2;
+
 /// ESN VACF prediction: R² correlation threshold.
 ///
 /// The echo state network trained on MD VACF data should achieve R² > 0.50

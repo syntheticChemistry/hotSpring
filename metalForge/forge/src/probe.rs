@@ -137,9 +137,8 @@ pub fn probe_npus() -> Vec<Substrate> {
 }
 
 fn parse_cpuinfo() -> (Option<String>, Option<u32>, Option<u32>, Option<u32>, bool) {
-    let content = match fs::read_to_string("/proc/cpuinfo") {
-        Ok(c) => c,
-        Err(_) => return (None, None, None, None, false),
+    let Ok(content) = fs::read_to_string("/proc/cpuinfo") else {
+        return (None, None, None, None, false);
     };
 
     let mut model = None;

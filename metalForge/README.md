@@ -46,6 +46,17 @@ substrate ecoPrimals touches.
 ```
 metalForge/
 ├── README.md                  ← this file
+├── forge/                     ← Rust crate: substrate discovery + dispatch (16 tests)
+│   ├── Cargo.toml             ← deps: barracuda (toadstool), wgpu 22, tokio
+│   ├── src/
+│   │   ├── lib.rs             ← crate root — biome-native discovery architecture
+│   │   ├── substrate.rs       ← Capability model (12 capability variants)
+│   │   ├── probe.rs           ← GPU (wgpu), CPU (/proc), NPU (/dev) discovery
+│   │   ├── inventory.rs       ← unified substrate inventory
+│   │   ├── dispatch.rs        ← capability-based workload routing
+│   │   └── bridge.rs          ← forge↔barracuda device bridge (absorption seam)
+│   └── examples/
+│       └── inventory.rs       ← discovers THIS machine's hardware
 ├── npu/
 │   └── akida/
 │       ├── HARDWARE.md        ← AKD1000 deep-dive: architecture, compute model, limits
@@ -142,7 +153,7 @@ each other.
 
 ```bash
 cd metalForge/forge
-cargo test                    # 13 tests — GPU via wgpu, CPU via procfs, NPU via /dev
+cargo test                    # 16 tests — GPU via wgpu, CPU via procfs, NPU via /dev, bridge
 cargo clippy --all-targets    # Zero warnings (deny expect_used/unwrap_used)
 cargo run --example inventory # discovers THIS machine's hardware
 ```
@@ -155,6 +166,33 @@ cargo run --example inventory # discovers THIS machine's hardware
 | `probe.rs` | GPU via wgpu adapter enumeration (barracuda's path), CPU via `/proc/cpuinfo`, NPU via `/dev/akida0` |
 | `inventory.rs` | Assembles all probes into a unified inventory |
 | `dispatch.rs` | Routes workloads to the best capable substrate (GPU > NPU > CPU) |
+| `bridge.rs` | **Forge↔barracuda bridge** — create `WgpuDevice` from substrates, wrap existing devices as substrates |
+
+### Absorption-Ready Bridge (v0.6.1)
+
+The `bridge` module connects forge substrates to barracuda's device layer:
+
+| Function | Direction | Purpose |
+|----------|-----------|---------|
+| `create_device()` | Forge → barracuda | Create `WgpuDevice` from forge substrate (uses adapter index) |
+| `best_f64_gpu()` | Forge → barracuda | Find best f64-capable GPU for immediate device creation |
+| `substrate_from_device()` | barracuda → Forge | Wrap existing `WgpuDevice` as a forge substrate for dispatch |
+
+This bridge is the absorption seam. Toadstool's `device::substrate` module
+already has `SubstrateType` and `discover_all()` — absorbing forge means
+merging the `Capability` enum, CPU/NPU probing, and capability-based `route()`.
+
+### Absorption Mapping (forge → toadstool)
+
+| Forge Module | Toadstool Target | Gap |
+|-------------|------------------|-----|
+| `substrate::Capability` | `device::unified::Capability` | Forge has richer enum (12 variants vs toadstool's 4) |
+| `substrate::Substrate` | `device::substrate::Substrate` | Forge adds CPU+NPU; toadstool is GPU-only |
+| `probe::probe_gpus()` | `substrate::Substrate::discover_all()` | Equivalent; forge adds capability mapping |
+| `probe::probe_cpu()` | (missing) | Toadstool has no CPU substrate discovery |
+| `probe::probe_npus()` | `device::akida::detect_akida_boards()` | Toadstool PCIe scan is richer; forge `/dev` check is simpler |
+| `dispatch::route()` | `toadstool_integration::select_best_device()` | Forge uses capability sets; toadstool uses `HardwareWorkload` enum |
+| `bridge::create_device()` | `WgpuDevice::from_adapter_index()` | Direct mapping — bridge delegates to barracuda |
 
 ### Design Principles
 
@@ -164,6 +202,9 @@ cargo run --example inventory # discovers THIS machine's hardware
 - **Evolve locally**: NPU probing (`/dev/akida0`) is local to hotSpring.
   Toadstool doesn't have NPU substrate support yet, so we build it here.
   Once toadstool absorbs it, we lean on that and delete ours.
+- **Bridge for absorption**: The `bridge` module explicitly connects forge
+  to barracuda's API so the toadstool team can see exactly how the pieces
+  fit together.
 - **Capability-based dispatch**: Code asks "who can do f64 + CG?" not "send
   to GPU #0". If hardware changes, dispatch adapts automatically.
 - **Springs don't cross-call**: neuralSpring can see how hotSpring uses

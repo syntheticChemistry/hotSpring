@@ -93,3 +93,109 @@ pub fn rms_radius(
         0.0
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tolerances::{
+        DEFORMATION_GUESS_GENERIC, DEFORMATION_GUESS_SD, DEFORMATION_GUESS_WEAK,
+    };
+
+    #[test]
+    #[allow(clippy::float_cmp)]
+    fn doubly_magic_nuclei_are_spherical() {
+        assert_eq!(deformation_guess(8, 8), 0.0); // O-16
+        assert_eq!(deformation_guess(20, 20), 0.0); // Ca-40
+        assert_eq!(deformation_guess(20, 28), 0.0); // Ca-48
+        assert_eq!(deformation_guess(82, 126), 0.0); // Pb-208
+    }
+
+    #[test]
+    fn actinides_are_well_deformed() {
+        assert_eq!(deformation_guess(92, 146), 0.25); // U-238
+        assert_eq!(deformation_guess(94, 150), 0.25); // Pu-244
+    }
+
+    #[test]
+    fn rare_earths_strongly_deformed() {
+        assert_eq!(deformation_guess(66, 96), 0.28); // Dy-162
+        assert_eq!(deformation_guess(68, 98), 0.28); // Er-166
+    }
+
+    #[test]
+    fn sd_shell_nuclei_deformed() {
+        assert_eq!(deformation_guess(12, 12), DEFORMATION_GUESS_SD); // Mg-24
+    }
+
+    #[test]
+    fn single_magic_weakly_deformed() {
+        assert_eq!(deformation_guess(50, 60), DEFORMATION_GUESS_WEAK); // Sn-110, Z magic
+        assert_eq!(deformation_guess(40, 50), DEFORMATION_GUESS_WEAK); // Zr-90, N magic
+    }
+
+    #[test]
+    fn generic_nuclei_moderate_deformation() {
+        assert_eq!(deformation_guess(40, 56), DEFORMATION_GUESS_GENERIC); // Zr-96
+    }
+
+    #[test]
+    fn beta2_from_q20_zero_for_spherical() {
+        assert_eq!(beta2_from_q20(16, 0.0), 0.0);
+    }
+
+    #[test]
+    fn beta2_from_q20_sign_follows_q20() {
+        let b_pos = beta2_from_q20(16, 100.0);
+        let b_neg = beta2_from_q20(16, -100.0);
+        assert!(b_pos > 0.0);
+        assert!(b_neg < 0.0);
+        assert!((b_pos + b_neg).abs() < 1e-12, "should be antisymmetric");
+    }
+
+    #[test]
+    fn beta2_from_q20_known_scaling() {
+        let b_16 = beta2_from_q20(16, 50.0);
+        let b_208 = beta2_from_q20(208, 50.0);
+        assert!(
+            b_16.abs() > b_208.abs(),
+            "lighter nucleus → larger β₂ for same Q20"
+        );
+    }
+
+    #[test]
+    fn rms_radius_uniform_density() {
+        let n_rho = 10;
+        let n_z = 10;
+        let d_rho = 0.5;
+        let d_z = 0.5;
+        let z_min = -2.5;
+        let density = vec![1.0; n_rho * n_z];
+        let r = rms_radius(&density, n_rho, n_z, d_rho, d_z, z_min);
+        assert!(r > 0.0, "RMS radius of uniform density must be positive");
+        assert!(r.is_finite());
+    }
+
+    #[test]
+    fn rms_radius_zero_density_returns_zero() {
+        let density = vec![0.0; 25];
+        let r = rms_radius(&density, 5, 5, 1.0, 1.0, -2.5);
+        assert_eq!(r, 0.0);
+    }
+
+    #[test]
+    fn rms_radius_single_point_density() {
+        let n_rho = 5;
+        let n_z = 5;
+        let d_rho = 1.0;
+        let d_z = 1.0;
+        let z_min = -2.5;
+        let mut density = vec![0.0; n_rho * n_z];
+        // Place density at i_rho=2, i_z=2 → rho=3.0, z=-2.5+2.5=0.0
+        density[2 * n_z + 2] = 1.0;
+        let r = rms_radius(&density, n_rho, n_z, d_rho, d_z, z_min);
+        assert!(
+            (r - 3.0).abs() < 0.01,
+            "single point at rho=3 → r_rms ≈ 3, got {r}"
+        );
+    }
+}

@@ -75,7 +75,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **NPU HW Quantization** | ✅ Complete | 4/4 on AKD1000: f32/int8/int4/act4 cascade, 685μs/inference |
 | **NPU Lattice Phase** | ✅ 7/8 | β_c=5.715 on AKD1000, ESN 100% CPU, int4 NPU 60% (marginal as expected) |
 | **Titan V NVK** | ✅ Complete | NVK built from Mesa 25.1.5. `cpu_gpu_parity` 6/6, `stanton_murillo` 40/40, `bench_gpu_fp64` pass |
-| **TOTAL** | **32/32 Rust validation suites** | 463 unit tests (458 passing + 5 GPU-ignored), + 34/35 NPU HW checks, 16 determinism tests, 6 upstream bugs found. Both GPUs validated |
+| **TOTAL** | **33/33 Rust validation suites** | 505 unit tests (505 passing + 5 GPU-ignored), + 34/35 NPU HW checks, 16 determinism tests, 6 upstream bugs found. Both GPUs validated |
 
 Papers 5, 7, and 8 from the review queue are complete. Paper 5 transport fits
 (Daligault 2012) were recalibrated against 12 Sarkas Green-Kubo D* values (Feb 2026)
@@ -348,7 +348,8 @@ makes the upstream library richer and hotSpring leaner.
 The `barracuda/` directory is a standalone Rust crate providing the validation
 environment, physics implementations, and GPU compute. Key architectural properties:
 
-- **463 unit tests** (458 passing + 5 GPU-ignored), **33 validation suites** (33/33 pass),
+- **505 unit tests** (505 passing + 5 GPU-ignored), **33 validation suites** (33/33 pass),
+  **24 integration tests** (3 suites: physics, data, transport),
   **16 determinism tests** (rerun-identical for all stochastic algorithms). Includes
   lattice QCD (complex f64, SU(3), Wilson action, HMC, Dirac CG), Abelian Higgs
   (U(1) + Higgs, HMC), transport coefficients (Green-Kubo D*/η*/λ*, Sarkas-calibrated
@@ -366,14 +367,16 @@ environment, physics implementations, and GPU compute. Key architectural propert
   `NMP_TARGETS`, `L1_PYTHON_CHI2`, `MD_FORCE_REFS`, `GPU_KERNEL_REFS`, etc.
   DOIs for AME2020, Chabanat 1998, Kortelainen 2010, Bender 2003,
   Lattimer & Prakash 2016 are documented in `provenance.rs`.
-- **Tolerances** — 146 centralized constants in the `tolerances/` module tree with physical
+- **Tolerances** — 154 centralized constants in the `tolerances/` module tree with physical
   justification (machine precision, numerical method, model, literature).
   Includes 12 physics guard constants (`DENSITY_FLOOR`, `SPIN_ORBIT_R_MIN`,
-  `COULOMB_R_MIN`, `BCS_DENSITY_SKIP`, `DEFORMED_COULOMB_R_MIN`, etc.)
+  `COULOMB_R_MIN`, `BCS_DENSITY_SKIP`, `DEFORMED_COULOMB_R_MIN`, etc.),
+  8 solver configuration constants (`HFB_MAX_ITER`, `BROYDEN_WARMUP`,
+  `BROYDEN_HISTORY`, `CELLLIST_REBUILD_INTERVAL`, etc.),
   plus validation thresholds for transport, lattice QCD, Abelian Higgs,
   NAK eigensolve, PPPM, screened Coulomb, spectral theory, ESN heterogeneous
   pipeline, NPU quantization, and NPU beyond-SDK hardware capabilities.
-  Zero inline magic numbers — all validation binaries wired to `tolerances::*`.
+  Zero inline magic numbers — all validation binaries and solver loops wired to `tolerances::*`.
 - **ValidationHarness** — structured pass/fail tracking with exit code 0/1.
   35 of 50 binaries use it (validation targets). Remaining 15 are optimization
   explorers, benchmarks, and diagnostics.
@@ -410,8 +413,8 @@ environment, physics implementations, and GPU compute. Key architectural propert
 
 ```bash
 cd barracuda
-cargo test               # 463 tests pass, 5 GPU-ignored (< 16 seconds)
-cargo clippy --all-targets -- -W clippy::expect_used -W clippy::unwrap_used  # Zero warnings (deny enforced in lib.rs)
+cargo test               # 505 unit + 24 integration + 8 forge tests, 5 GPU-ignored (< 60 seconds)
+cargo clippy --all-targets  # Zero warnings (pedantic + nursery, deny enforced in lib.rs)
 cargo doc --no-deps      # Full API documentation — 0 warnings
 cargo run --release --bin validate_all  # 33/33 suites pass
 ```
@@ -477,7 +480,7 @@ hotSpring/
 ├── PHYSICS.md                          # Complete physics documentation (equations + references)
 ├── CONTROL_EXPERIMENT_STATUS.md        # Comprehensive status + results (195/195)
 ├── NUCLEAR_EOS_STRATEGY.md             # Nuclear EOS Phase A→B strategy
-├── wateringHole/handoffs/              # 3 active + 17 archived cross-project handoffs (fossil record)
+├── wateringHole/handoffs/              # 3 active + 18 archived cross-project handoffs (fossil record)
 ├── LICENSE                             # AGPL-3.0
 ├── .gitignore
 │
@@ -488,7 +491,7 @@ hotSpring/
 │   ├── CONTROL_EXPERIMENT_SUMMARY.md  # Phase A quick reference
 │   └── METHODOLOGY.md                # Two-phase validation protocol
 │
-├── barracuda/                          # BarraCUDA Rust crate — v0.6.1 (463 tests, 33 suites)
+├── barracuda/                          # BarraCUDA Rust crate — v0.6.1 (505 unit + 24 integration tests, 33 suites)
 │   ├── Cargo.toml                     # Dependencies (requires ecoPrimals/phase1/toadstool)
 │   ├── CHANGELOG.md                   # Version history — baselines, tolerances, evolution
 │   ├── EVOLUTION_READINESS.md         # Rust module → GPU promotion tier + absorption status
@@ -497,7 +500,7 @@ hotSpring/
 │       ├── lib.rs                     # Crate root — module declarations + architecture docs
 │       ├── error.rs                   # Typed errors (HotSpringError: NoAdapter, NoShaderF64, GpuCompute, InvalidOperation, …)
 │       ├── provenance.rs              # Baseline + analytical provenance (Python, DOIs, textbook)
-│       ├── tolerances/                # 146 centralized thresholds (mod, core, md, physics, lattice, npu)
+│       ├── tolerances/                # 154 centralized thresholds (mod, core, md, physics, lattice, npu)
 │       ├── validation.rs              # Pass/fail harness — structured checks, exit code 0/1
 │       ├── discovery.rs               # Capability-based data path resolution (env var / CWD)
 │       ├── data.rs                    # AME2020 data + Skyrme bounds + EosContext + chi2_per_datum
@@ -518,15 +521,16 @@ hotSpring/
 │       │   ├── semf.rs                # Semi-empirical mass formula (Bethe-Weizsäcker + Skyrme)
 │       │   ├── nuclear_matter.rs      # Infinite nuclear matter properties (ρ₀, E/A, K∞, m*/m, J)
 │       │   ├── hfb_common.rs          # Shared HFB: Mat, BCS v², Coulomb exchange, Hermite, factorial
+│       │   ├── hfb_deformed_common.rs # Shared deformation physics: guesses, beta2, rms radius
 │       │   ├── bcs_gpu.rs             # Local GPU BCS bisection (corrected WGSL shader)
-│       │   ├── hfb.rs                 # Spherical HFB solver (L2)
-│       │   ├── hfb_deformed.rs        # Axially-deformed HFB solver (L3, CPU)
-│       │   ├── hfb_deformed_gpu.rs    # Deformed HFB with GPU eigensolves (L3)
+│       │   ├── hfb/                   # Spherical HFB solver (L2) — mod, potentials, tests
+│       │   ├── hfb_deformed/          # Axially-deformed HFB (L3, CPU) — mod, potentials, basis, tests
+│       │   ├── hfb_deformed_gpu/      # Deformed HFB + GPU eigensolves (L3) — mod, types, physics, gpu_diag, tests
 │       │   ├── hfb_gpu.rs             # GPU-batched HFB (BatchedEighGpu)
-│       │   ├── hfb_gpu_resident.rs    # GPU-resident HFB (potentials + H + eigensolve + density + mixing)
+│       │   ├── hfb_gpu_resident/      # GPU-resident HFB pipeline — mod, types, tests
 │       │   ├── hfb_gpu_types.rs       # GPU buffer types and uniform helpers for HFB pipeline
-│       │   ├── screened_coulomb.rs    # Screened Coulomb eigenvalue solver (Sturm bisection)
-│       │   └── shaders/               # f64 WGSL physics kernels (13 shaders, ~2000 lines)
+│       │   ├── screened_coulomb.rs     # Screened Coulomb eigenvalue solver (Sturm bisection)
+│       │   └── shaders/               # f64 WGSL physics kernels (14 shaders, ~2000 lines)
 │       │
 │       ├── md/                        # GPU Molecular Dynamics (Yukawa OCP)
 │       │   ├── config.rs              # Simulation configuration (reduced units)
@@ -558,6 +562,11 @@ hotSpring/
 │       │   ├── eos_tables.rs          # HotQCD EOS tables (Bazavov et al. 2014)
 │       │   └── multi_gpu.rs           # Temperature scan dispatcher
 │       │
+│   ├── tests/                         # Integration tests (24 tests, 3 suites)
+│   │   ├── integration_physics.rs     # HFB solver, binding energy, density round-trips (11 tests)
+│   │   ├── integration_data.rs        # AME2020 data loading + chi2 (8 tests)
+│   │   └── integration_transport.rs   # ESN + Daligault fits (5 tests)
+│   │
 │       └── bin/                       # 50 binaries (exit 0 = pass, 1 = fail)
 │           ├── validate_all.rs        # Meta-validator: runs all 33 validation suites
 │           ├── validate_nuclear_eos.rs # L1 SEMF + L2 HFB + NMP validation harness
@@ -663,14 +672,15 @@ hotSpring/
 │
 ├── metalForge/                         # Hardware characterization & cross-substrate dispatch
 │   ├── README.md                      # Philosophy + hardware inventory + forge docs
-│   ├── forge/                         # Rust crate — local hardware discovery (13 tests)
-│   │   ├── Cargo.toml                # Deps: barracuda (toadstool), wgpu 22
+│   ├── forge/                         # Rust crate — local hardware discovery (16 tests)
+│   │   ├── Cargo.toml                # Deps: barracuda (toadstool), wgpu 22, tokio
 │   │   ├── src/
 │   │   │   ├── lib.rs               # Crate root — biome-native discovery
 │   │   │   ├── substrate.rs         # Capability model (GPU, NPU, CPU)
 │   │   │   ├── probe.rs             # GPU via wgpu, CPU via procfs, NPU via /dev
 │   │   │   ├── inventory.rs         # Unified substrate inventory
-│   │   │   └── dispatch.rs          # Capability-based workload routing
+│   │   │   ├── dispatch.rs          # Capability-based workload routing
+│   │   │   └── bridge.rs            # Forge↔barracuda device bridge (absorption seam)
 │   │   └── examples/
 │   │       └── inventory.rs         # Prints discovered hardware + dispatch examples
 │   ├── npu/akida/                     # BrainChip AKD1000 NPU exploration

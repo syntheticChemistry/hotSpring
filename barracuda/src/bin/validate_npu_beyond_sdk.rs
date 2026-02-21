@@ -445,7 +445,7 @@ fn check_determinism(harness: &mut ValidationHarness) {
     println!("\n[6] Determinism");
 
     let config = EsnConfig::default();
-    let mut esn = EchoStateNetwork::new(config.clone());
+    let mut esn = EchoStateNetwork::new(config);
 
     let mut rng = SimpleRng::new(33);
     let train_seqs: Vec<Vec<Vec<f64>>> = (0..4)

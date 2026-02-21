@@ -36,11 +36,12 @@ fn main() {
     println!();
 
     // Initialize both GPUs
+    #[allow(deprecated)] // set_var deprecated in edition 2024; safe here (single-threaded init)
     let gpu_4070 = rt.block_on(async {
         std::env::set_var("HOTSPRING_GPU_ADAPTER", "4070");
         GpuF64::new().await
     });
-    // Reset env before second init
+    #[allow(deprecated)]
     std::env::set_var("HOTSPRING_GPU_ADAPTER", "titan");
     let gpu_titan = rt.block_on(GpuF64::new());
 

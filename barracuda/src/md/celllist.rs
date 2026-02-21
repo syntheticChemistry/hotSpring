@@ -12,7 +12,7 @@
 //! ## Data flow (v0.5.12)
 //!
 //! ```text
-//! GPU cell-list rebuild (every 20 steps):
+//! GPU cell-list rebuild (every CELLLIST_REBUILD_INTERVAL steps):
 //!   Pass 1: cell_bin       — particle → cell assignment + atomic count
 //!   Pass 2: prefix_sum     — cell_counts → cell_start (exclusive scan)
 //!   Pass 3: cell_scatter   — write sorted_indices[cell_start[c] + k] = i
@@ -32,6 +32,7 @@ use crate::gpu::GpuF64;
 use crate::md::config::MdConfig;
 use crate::md::shaders;
 use crate::md::simulation::{init_fcc_lattice, init_velocities, EnergyRecord, MdSimulation};
+use crate::tolerances::{CELLLIST_REBUILD_INTERVAL, THERMOSTAT_INTERVAL};
 use std::time::Instant;
 
 /// CPU cell list for spatial decomposition (retained for tests and diagnostics).
@@ -530,7 +531,7 @@ pub async fn run_simulation_celllist(
     gpu_cl.build(&gpu, &pos_buf);
     gpu.dispatch(&force_pipeline, &force_bg, workgroups);
 
-    let rebuild_interval = 20;
+    let rebuild_interval = CELLLIST_REBUILD_INTERVAL;
 
     // ══════════════════════════════════════════════════════════════
     // Equilibration — GPU cell-list rebuild every rebuild_interval steps
@@ -538,7 +539,7 @@ pub async fn run_simulation_celllist(
     println!("  ── Equilibration ({} steps) ──", config.equil_steps);
     let t_equil = Instant::now();
 
-    let thermostat_interval = rebuild_interval.min(10);
+    let thermostat_interval = rebuild_interval.min(THERMOSTAT_INTERVAL);
     let mut step = 0;
 
     while step < config.equil_steps {
@@ -859,6 +860,77 @@ mod tests {
         assert_eq!(cl.sorted_indices.len(), 2);
         let total_count: u32 = cl.cell_count.iter().sum();
         assert_eq!(total_count, 2);
+        let nonzero_count = cl.cell_count.iter().filter(|&&c| c > 0).count();
+        assert_eq!(nonzero_count, 1, "both particles should be in same cell");
+    }
+
+    #[test]
+    fn boundary_positions_clamped() {
+        let box_side = 10.0;
+        let rc = 3.0;
+        let pos = vec![
+            box_side - 1e-10,
+            box_side - 1e-10,
+            box_side - 1e-10,
+            0.0,
+            0.0,
+            0.0,
+        ];
+        let cl = CellList::build(&pos, 2, box_side, rc);
+        assert_eq!(cl.sorted_indices.len(), 2);
+        let total_count: u32 = cl.cell_count.iter().sum();
+        assert_eq!(total_count, 2, "boundary particles must be assigned");
+    }
+
+    #[test]
+    fn very_small_cutoff_gives_many_cells() {
+        let box_side = 10.0;
+        let rc = 0.5;
+        let pos = sample_positions(20, box_side);
+        let cl = CellList::build(&pos, 20, box_side, rc);
+        assert!(
+            cl.n_cells[0] >= 20,
+            "small cutoff should give many cells: got {}",
+            cl.n_cells[0]
+        );
+    }
+
+    #[test]
+    fn sort_unsort_round_trip_stride_4() {
+        let box_side = 10.0;
+        let rc = 3.0;
+        let n = 25;
+        let pos = sample_positions(n, box_side);
+        let cl = CellList::build(&pos, n, box_side, rc);
+        let data: Vec<f64> = (0..n * 4).map(|i| i as f64 * 0.1).collect();
+        let sorted = cl.sort_array(&data, 4);
+        let recovered = cl.unsort_array(&sorted, 4);
+        for i in 0..data.len() {
+            assert!(
+                (data[i] - recovered[i]).abs() < 1e-15,
+                "stride-4 round-trip failed at index {i}"
+            );
+        }
+    }
+
+    #[test]
+    fn many_particles_in_small_box() {
+        let box_side = 2.0;
+        let rc = 0.5;
+        let n = 500;
+        let pos = sample_positions(n, box_side);
+        let cl = CellList::build(&pos, n, box_side, rc);
+        let total_count: u32 = cl.cell_count.iter().sum();
+        assert_eq!(total_count as usize, n, "all particles must be accounted");
+        assert!(cl.n_cells_total > 27, "should have many cells");
+    }
+
+    #[test]
+    fn cell_list_particles_in_correct_cells() {
+        let box_side = 10.0;
+        let rc = 5.0;
+        let pos = vec![1.0, 1.0, 1.0, 6.0, 6.0, 6.0];
+        let cl = CellList::build(&pos, 2, box_side, rc);
         let nonzero_cells: Vec<usize> = cl
             .cell_count
             .iter()
@@ -868,8 +940,8 @@ mod tests {
             .collect();
         assert_eq!(
             nonzero_cells.len(),
-            1,
-            "both particles should be in same cell"
+            2,
+            "particles far apart should be in different cells"
         );
     }
 }

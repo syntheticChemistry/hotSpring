@@ -282,6 +282,10 @@ hotSpring writes local → validates physics → hands off to toadstool → lean
 | CG solver | 3 WGSL shaders | 9/9 | Tier 1 |
 | ESN reservoir | 2 WGSL shaders | 16+ | Tier 1 |
 | NPU substrate probe | Rust (no WGSL) | 13 | Tier 1 (new substrate type) |
+| HFB potentials shader | `batched_hfb_potentials_f64.wgsl` | 14/14 | Tier 2 |
+| HFB density shader | `batched_hfb_density_f64.wgsl` | GPU-validated | Tier 2 |
+| BCS bisection shader | `bcs_bisection_f64.wgsl` | 6.2e-11 | Tier 2 |
+| Tolerance/config module | Rust pattern (no WGSL) | 154 constants | Tier 2 (pattern) |
 
 ### metalForge Forge: Hardware Discovery
 
@@ -340,16 +344,20 @@ No institutional access required. No Code Ocean account. No Fortran compiler. AG
 
 | Metric | Value |
 |--------|-------|
-| Unit tests | **463** pass, 5 GPU-ignored (468 total) |
+| Unit tests | **505** pass, 5 GPU-ignored |
+| Integration tests | **24** pass (3 suites: physics, data, transport) |
 | Validation suites | **33/33** pass |
+| metalForge forge tests | **13** pass |
 | Python control scripts | **34** (Sarkas, surrogate, TTM, NPU, reservoir, lattice, spectral theory) |
 | Rust validation binaries | **50** (physics, MD, lattice, NPU, transport, spectral 1D/2D/3D, Lanczos, Hofstadter) |
 | `expect()`/`unwrap()` in library | **0** (crate-level deny) |
-| Clippy warnings | **0** (pedantic + 5 lint categories eliminated) |
+| Clippy warnings | **0** (pedantic + nursery, workspace-wide) |
 | Doc warnings | **0** |
 | Unsafe blocks | **0** |
-| TODO/FIXME/HACK markers | **0** |
-| Centralized tolerances | **146** constants in `tolerances/` module tree |
+| External FFI/C bindings | **0** (all pure Rust except wgpu GPU driver bridge) |
+| Centralized tolerances | **154** constants (including 8 solver config) |
+| Hardcoded solver params | **0** (all centralized in `tolerances/`) |
+| Files over 1000 LOC | **1** (`hfb_gpu_resident/mod.rs` — monolithic GPU pipeline) |
 | Provenance records | All validation targets traced to Python origins or DOIs |
 | AGPL-3.0 compliance | All `.rs` and `.wgsl` files |
 

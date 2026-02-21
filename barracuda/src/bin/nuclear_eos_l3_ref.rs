@@ -163,7 +163,6 @@ fn main() {
     let mut observed_l3 = Vec::new();
     let mut observed_best = Vec::new();
     let mut expected_vals = Vec::new();
-    let mut sigma_vals = Vec::new();
 
     for i in 0..nuclei.len() {
         let (z, n, b_exp) = nuclei[i];
@@ -201,7 +200,6 @@ fn main() {
             observed_l3.push(b_l3);
             observed_best.push(b_best);
             expected_vals.push(b_exp);
-            sigma_vals.push(sigma_theo);
         }
 
         let better = if b_l3 > 0.0 && db_l3 < db_l2 {

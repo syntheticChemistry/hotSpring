@@ -26,8 +26,8 @@ This handoff covers:
 ## 1. metalForge Forge: Local Hardware Discovery
 
 **Location:** `hotSpring/metalForge/forge/`
-**Status:** 13 tests, zero clippy warnings, zero fmt issues
-**Deps:** `barracuda` (from toadstool), `wgpu` 22
+**Status:** 16 tests, zero clippy warnings, zero fmt issues
+**Deps:** `barracuda` (from toadstool), `wgpu` 22, `tokio` 1
 
 ### What It Does
 
@@ -61,23 +61,46 @@ The forge routes workloads to substrates by capability, not by name:
 
 | Module | Lines | Purpose |
 |--------|-------|---------|
-| `substrate.rs` | ~170 | Substrate, Identity, Properties, Capability types |
-| `probe.rs` | ~180 | wgpu GPU probe, procfs CPU probe, /dev NPU probe |
-| `inventory.rs` | ~70 | Assemble all probes into unified inventory |
-| `dispatch.rs` | ~100 | Route workloads to best capable substrate |
+| `substrate.rs` | ~212 | Substrate, Identity, Properties, Capability types |
+| `probe.rs` | ~207 | wgpu GPU probe, procfs CPU probe, /dev NPU probe |
+| `inventory.rs` | ~99 | Assemble all probes into unified inventory |
+| `dispatch.rs` | ~189 | Route workloads to best capable substrate |
+| `bridge.rs` | ~140 | **Forge↔barracuda device bridge** (absorption seam) |
+
+### Bridge Module (New v0.6.1)
+
+The `bridge.rs` module is the explicit absorption seam. It connects
+forge substrates to barracuda's device creation API:
+
+| Function | Direction | What it does |
+|----------|-----------|--------------|
+| `create_device()` | Forge → barracuda | Creates `WgpuDevice` from forge substrate via `from_adapter_index()` |
+| `best_f64_gpu()` | Forge scan | Returns best f64-capable GPU substrate from inventory |
+| `substrate_from_device()` | barracuda → Forge | Wraps existing `WgpuDevice` as a forge substrate |
+
+This means code that uses barracuda for GPU compute can now also
+participate in capability-based dispatch. The bridge makes the
+absorption path explicit — toadstool can see exactly how the pieces
+connect.
 
 ### Absorption Opportunity
 
-The NPU probing logic (`probe_npus()`) and the `Capability` enum
-extensions (QuantizedInference, BatchInference, WeightMutation) are
-the new contributions. toadstool's `barracuda::device::substrate` already
-has `SubstrateType::Npu`, but no actual NPU discovery logic. The forge
-provides a working implementation that probes `/dev/akida*` device nodes.
+The bridge module, NPU probing logic (`probe_npus()`), CPU probing
+(`probe_cpu()`), and the `Capability` enum (12 variants including
+QuantizedInference, BatchInference, WeightMutation) are the contributions.
 
-The dispatch logic (`dispatch::route()`) complements
-`barracuda::device::toadstool_integration::select_best_device()` by adding
-NPU-aware routing. The priority model (GPU > NPU > CPU) with capability
-matching is a pattern toadstool could absorb.
+toadstool's `barracuda::device::substrate` already has `SubstrateType::Npu`,
+but no actual NPU discovery logic or CPU substrate support. The forge
+provides working implementations for both plus the capability-based
+dispatch that toadstool's `HardwareWorkload` enum could evolve toward.
+
+| Forge Module | Toadstool Target | Gap |
+|-------------|------------------|-----|
+| `substrate::Capability` | `device::unified::Capability` | Forge has 12 variants vs toadstool's 4 |
+| `probe::probe_cpu()` | `substrate::Substrate::discover_all()` | Toadstool has no CPU substrate |
+| `probe::probe_npus()` | `device::akida` | Forge `/dev` check complements PCIe scan |
+| `dispatch::route()` | `toadstool_integration::select_best_device()` | Capability sets vs workload enum |
+| `bridge::create_device()` | Already delegates to `WgpuDevice::from_adapter_index()` | Direct mapping |
 
 ---
 
@@ -250,15 +273,92 @@ For reference, these hotSpring contributions are already upstream:
 
 | Metric | Value |
 |--------|-------|
-| Unit tests | **463** pass, 5 GPU-ignored |
+| Unit tests | **505** pass, 5 GPU-ignored |
+| Integration tests | **24** pass (3 suites: physics, data, transport) |
 | Validation suites | **33/33** pass |
 | `expect()`/`unwrap()` in library | **0** (crate-level deny) |
-| Clippy warnings | **0** |
+| Clippy warnings (pedantic + nursery) | **0** |
 | Doc warnings | **0** |
 | Unsafe blocks | **0** |
-| Centralized tolerances | **146** constants |
+| External FFI/C bindings | **0** (all pure Rust except wgpu GPU driver bridge) |
+| Centralized tolerances | **154** constants (including 8 new solver config) |
+| Hardcoded solver params in library | **0** (all centralized in `tolerances/`) |
+| Files over 1000 LOC | **1** (`hfb_gpu_resident/mod.rs` at 1456 — monolithic GPU pipeline) |
 | AGPL-3.0 compliance | All `.rs` and `.wgsl` files |
 | metalForge forge tests | **13** pass |
+
+---
+
+## 6b. Structural Evolution (v0.6.1)
+
+### Large File Refactoring
+
+All monolithic files from v0.6.0 that exceeded 1000 LOC have been decomposed
+into module directories with smart domain boundaries:
+
+| Original File | Original LOC | Result | Largest Module |
+|---|---|---|---|
+| `physics/hfb.rs` | 1,408 | `physics/hfb/{mod,potentials,tests}.rs` | 856 |
+| `physics/hfb_deformed.rs` | 1,254 | `physics/hfb_deformed/{mod,potentials,basis,tests}.rs` | 441 |
+| `physics/hfb_deformed_gpu.rs` | 1,218 | `physics/hfb_deformed_gpu/{mod,types,physics,gpu_diag,tests}.rs` | 467 |
+| `physics/hfb_gpu_resident.rs` | 1,775 | `physics/hfb_gpu_resident/{mod,types,tests}.rs` | 1,456 |
+
+`hfb_gpu_resident/mod.rs` remains at 1,456 lines because the GPU pipeline
+(shader setup → buffer allocation → SCF dispatch → eigensolve → readback)
+is a single coherent unit where splitting would break GPU resource lifetimes.
+Types and physics helpers have been extracted to keep the pipeline function
+self-contained.
+
+### Clippy Configuration
+
+Workspace-level `[workspace.lints.clippy]` enables pedantic + nursery with
+physics-justified allows (`cast_precision_loss`, `similar_names`, etc.).
+Both `barracuda` and `metalForge/forge` compile with zero warnings.
+
+### Solver Configuration Centralization
+
+All hardcoded solver tuning parameters have been extracted to `tolerances/`:
+
+| Constant | Value | Used By | Rationale |
+|----------|-------|---------|-----------|
+| `HFB_MAX_ITER` | 200 | All HFB solvers | Sufficient for Z=8..120 chart |
+| `BROYDEN_WARMUP` | 50 | Deformed HFB | Stabilize density before quasi-Newton |
+| `BROYDEN_HISTORY` | 8 | Deformed HFB | Memory vs convergence balance |
+| `HFB_L2_MIXING` | 0.3 | Spherical HFB | Conservative linear mixing |
+| `HFB_L2_TOLERANCE` | 0.05 MeV | Spherical HFB | ~0.005% relative for A~100 |
+| `FERMI_SEARCH_MARGIN` | 50.0 MeV | BCS bisection | Bracket loosely-bound systems |
+| `CELLLIST_REBUILD_INTERVAL` | 20 | MD GPU | Rebuild vs accuracy tradeoff |
+| `THERMOSTAT_INTERVAL` | 10 | MD equilibration | Smooth Berendsen coupling |
+
+All 8 constants have sanity-check unit tests verifying physical reasonableness.
+
+### Test Coverage Improvements
+
+| Module | Before | After | New Tests |
+|--------|--------|-------|-----------|
+| `physics/hfb_deformed_common.rs` | 32.88% | **100%** | 13 unit tests |
+| `physics/hfb_deformed/` | 0% (new) | 44% basis, 100% tests | 12 unit tests |
+| `md/celllist.rs` (CPU paths) | ~80% | ~90% | 5 edge-case tests |
+| `md/observables/ssf.rs` | 73.18% | ~90% | 4 edge-case tests |
+| `bench.rs` | ~60% | ~80% | 3 BenchReport tests (JSON round-trip) |
+| `md/reservoir.rs` (ESN) | ~70% | ~85% | 3 tests (velocity values, NPU state) |
+| `physics/hfb_common.rs` | ~85% | ~95% | 2 Coulomb exchange density tests |
+| `tolerances/mod.rs` | existing | +2 | solver_config + md_config sanity |
+| Integration tests | none | 24 | 3 new test suites |
+
+### Dependency & Safety Audit
+
+- All dependencies are pure Rust (wgpu is Rust API over GPU drivers — unavoidable)
+- Zero `unsafe` blocks in all library code
+- Zero FFI (`extern "C"` / `extern "system"`) declarations
+- Platform-specific paths (`/proc/`, `/sys/`, `/dev/`) degrade gracefully on non-Linux
+
+### GpuCellList Migration Status
+
+The deprecated local `GpuCellList` is documented with a clear migration path
+to upstream `barracuda::ops::md::neighbor::CellListGpu` (fixed in toadstool
+commit `8fb5d5a0`). Migration deferred to GPU-validated session to avoid
+risk to the MD simulation pipeline.
 
 ---
 
@@ -271,13 +371,15 @@ For reference, these hotSpring contributions are already upstream:
 2. **ESN reservoir shaders** → GPU training + readout for transport/phase
    prediction. Absorb as `barracuda::ops::ml::esn`.
 
-3. **NPU substrate discovery** → Add `/dev/akida*` probing to
-   `barracuda::device::substrate::Substrate::discover_all()`. The forge
-   code is a working reference.
+3. **Forge bridge + substrate discovery** → The `bridge.rs` module shows
+   exactly how forge substrates connect to `WgpuDevice::from_adapter_index()`.
+   Add CPU+NPU probing to `barracuda::device::substrate::Substrate::discover_all()`.
+   The forge `Capability` enum (12 variants) can extend toadstool's 4.
 
 4. **Tolerance module pattern** → Consider a `barracuda::tolerances` module
    for upstream validation constants. The module tree structure (core, md,
-   physics, lattice, npu) scales cleanly.
+   physics, lattice, npu) scales cleanly. The 8 solver config constants
+   demonstrate the pattern: physically justified defaults with doc comments.
 
 ---
 
@@ -287,11 +389,37 @@ For reference, these hotSpring contributions are already upstream:
 barracuda/src/lib.rs                     — crate-level deny(expect_used, unwrap_used)
 barracuda/src/tolerances/                — NEW module tree (5 submodules, 146 constants)
 barracuda/src/physics/hfb_common.rs      — shared initial_wood_saxon_density()
-barracuda/src/physics/hfb_deformed_common.rs — NEW shared deformation physics
+barracuda/src/physics/hfb_deformed_common.rs — NEW shared deformation physics (100% coverage)
+barracuda/src/physics/hfb/               — REFACTORED from hfb.rs (1408 → 3 files)
+barracuda/src/physics/hfb_deformed/      — REFACTORED from hfb_deformed.rs (1254 → 4 files)
+barracuda/src/physics/hfb_deformed_gpu/  — REFACTORED from hfb_deformed_gpu.rs (1218 → 5 files)
+barracuda/src/physics/hfb_gpu_resident/  — REFACTORED from hfb_gpu_resident.rs (1775 → 3 files)
+barracuda/tests/integration_physics.rs   — NEW (8 tests)
+barracuda/tests/integration_data.rs      — NEW (11 tests)
+barracuda/tests/integration_transport.rs — NEW (5 tests)
+barracuda/src/md/celllist.rs             — 5 new edge-case tests + centralized rebuild/thermostat config
+barracuda/src/md/reservoir.rs            — 3 new tests (velocity features, NPU state consistency)
+barracuda/src/md/observables/ssf.rs      — 4 new edge-case tests
+barracuda/src/bench.rs                   — 3 new tests (BenchReport JSON round-trip, serialize)
+barracuda/src/physics/hfb_common.rs      — 2 new tests (Coulomb exchange energy density)
+barracuda/src/physics/hfb/mod.rs         — centralized solver config (HFB_MAX_ITER, HFB_L2_TOLERANCE, etc.)
+barracuda/src/physics/hfb_deformed/mod.rs — centralized solver config
+barracuda/src/physics/hfb_deformed_gpu/  — centralized solver config across mod/physics/gpu_diag
+barracuda/src/bin/bench_gpu_fp64.rs      — use centralized HFB_L2_TOLERANCE, HFB_L2_MIXING
+barracuda/src/tolerances/physics.rs      — NEW: 6 solver config constants (HFB_MAX_ITER, BROYDEN_*, FERMI_*)
+barracuda/src/tolerances/md.rs           — NEW: 2 MD config constants (CELLLIST_REBUILD_INTERVAL, THERMOSTAT_INTERVAL)
+barracuda/src/tolerances/mod.rs          — re-export new constants, 2 new sanity tests
+barracuda/src/provenance.rs              — corrected paths, extended provenance test
+barracuda/Cargo.toml                     — pedantic + nursery lint configuration
+metalForge/forge/Cargo.toml              — pedantic + nursery lint configuration
 barracuda/ABSORPTION_MANIFEST.md         — NEW comprehensive inventory
 barracuda/EVOLUTION_READINESS.md         — updated absorption status
-metalForge/forge/                        — NEW Rust crate (13 tests, 4 modules)
-metalForge/README.md                     — forge docs, biome model
-whitePaper/README.md                     — evolution architecture section
-README.md                               — biome model, forge in directory tree
+metalForge/forge/                        — Rust crate (16 tests, 5 modules including bridge)
+metalForge/forge/src/bridge.rs           — NEW: forge↔barracuda device bridge (absorption seam)
+metalForge/forge/Cargo.toml              — added tokio dependency for device creation
+metalForge/README.md                     — forge docs, bridge, absorption mapping table
+whitePaper/README.md                     — evolution architecture, codebase health updated
+README.md                               — test counts (505), tolerance counts (154), directory tree
+barracuda/ABSORPTION_MANIFEST.md         — bridge module, absorption mapping table
+barracuda/EVOLUTION_READINESS.md         — v0.6.1 structural evolution section
 ```

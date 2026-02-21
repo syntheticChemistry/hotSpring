@@ -230,3 +230,54 @@ pub const DEFORMATION_GUESS_SD: f64 = 0.35;
 /// 1e-14 is just above f64 machine epsilon (~2.2e-16), providing ~2 digits
 /// of headroom for accumulated rounding in the expected-value computation.
 pub const NEAR_ZERO_EXPECTED: f64 = 1e-14;
+
+// ═══════════════════════════════════════════════════════════════════
+// HFB solver configuration
+//
+// These control the self-consistent field (SCF) iteration loop for
+// nuclear HFB solvers. Changing these affects convergence speed and
+// reliability for all L2 and L3 binding energy calculations.
+// ═══════════════════════════════════════════════════════════════════
+
+/// Maximum SCF iterations for HFB solvers.
+///
+/// 200 iterations is sufficient for all nuclei in the AME2020 chart
+/// (tested Z=8..120, N=8..180). Convergence typically occurs in 40–80
+/// iterations for spherical, 80–150 for deformed nuclei. The limit
+/// prevents infinite loops on pathological parameter sets.
+pub const HFB_MAX_ITER: usize = 200;
+
+/// Broyden mixing warmup iterations.
+///
+/// During the first `BROYDEN_WARMUP` iterations, simple linear mixing
+/// is used (alpha=0.5). After warmup, Broyden's method uses the
+/// accumulated history for quasi-Newton acceleration. 50 iterations
+/// allows the density to stabilize before switching to the more
+/// aggressive Broyden update.
+pub const BROYDEN_WARMUP: usize = 50;
+
+/// Maximum Broyden history vectors retained.
+///
+/// The modified Broyden method stores `BROYDEN_HISTORY` pairs of
+/// (delta_f, delta_u) vectors. 8 vectors balance memory use against
+/// convergence acceleration. Older vectors are discarded FIFO.
+pub const BROYDEN_HISTORY: usize = 8;
+
+/// Default L2 (spherical HFB) mixing fraction.
+///
+/// Linear mixing alpha for density updates: rho_new = (1-α)*rho_old + α*rho_calc.
+/// 0.3 is conservative; higher values converge faster but may oscillate.
+pub const HFB_L2_MIXING: f64 = 0.3;
+
+/// Default L2 (spherical HFB) convergence tolerance (MeV).
+///
+/// SCF is converged when |E_n - E_{n-1}| < tol. 0.05 MeV is ~0.005%
+/// relative accuracy for A~100 nuclei (BE ≈ 800 MeV).
+pub const HFB_L2_TOLERANCE: f64 = 0.05;
+
+/// Fermi level bisection search range (MeV).
+///
+/// The BCS Fermi level search spans [E_min - margin, E_max + margin]
+/// where margin is this value. 50 MeV ensures the Fermi level is
+/// always bracketed even for loosely-bound systems.
+pub const FERMI_SEARCH_MARGIN: f64 = 50.0;

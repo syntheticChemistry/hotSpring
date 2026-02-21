@@ -1,6 +1,6 @@
 # hotSpring — BarraCUDA Requirements
 
-**Last Updated**: February 20, 2026
+**Last Updated**: February 21, 2026
 **Purpose**: GPU kernel requirements, gap analysis, and evolution priorities
 
 ---
@@ -134,15 +134,15 @@ All components implemented and validated (13/13 checks pass):
 ## ToadStool Handoff Notes
 
 **Active handoffs:**
-- `wateringHole/handoffs/HOTSPRING_V0516_CONSOLIDATED_HANDOFF_FEB20_2026.md` — full primitive catalog + evolution lessons
-- `wateringHole/handoffs/HOTSPRING_TOADSTOOL_REWIRE_FEB20_2026.md` — v0.5.16 absorption audit + CellListGpu bug + shader designs
-- `wateringHole/handoffs/HOTSPRING_NPU_RESERVOIR_HANDOFF_FEB20_2026.md` — NPU reservoir transport (ESN → Akida absorption path)
+- `wateringHole/handoffs/HOTSPRING_V061_FORGE_HANDOFF_FEB21_2026.md` — forge bridge, absorption manifest, structural evolution
+- `wateringHole/handoffs/HOTSPRING_METALFORGE_NPU_HANDOFF_FEB20_2026.md` — NPU discovery + heterogeneous pipeline
+- `wateringHole/handoffs/HOTSPRING_TOADSTOOL_REWIRE_V3_FEB20_2026.md` — post Session 25 absorption audit
 
-(14 prior handoffs archived to `wateringHole/handoffs/archive/`)
+(18 prior handoffs archived to `wateringHole/handoffs/archive/`)
 
 ### Key Facts for ToadStool Team
 
-- 18 papers reproduced, 454 unit tests, 33/33 validation suites, ~$0.20 total compute cost
+- 22 papers reproduced, 505 unit + 24 integration tests, 33/33 validation suites, ~$0.20 total compute cost
 - RTX 4070 sustains f64 MD at 149-259 steps/s; Titan V (NVK) produces identical physics
 - Energy drift 0.000% over 80k steps sets the precision bar for any new integrator
 - `ReduceScalarPipeline` is the most-used upstream primitive after `WgpuDevice`

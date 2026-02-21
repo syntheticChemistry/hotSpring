@@ -524,12 +524,13 @@ mod tests {
 
     #[test]
     fn c_weak_matches_python_calibration() {
+        use crate::tolerances::TRANSPORT_C_W_CALIBRATION_REL;
         let expected = [(0.0, 4.20), (1.0, 12.82), (2.0, 87.3), (3.0, 1325.0)];
         for &(kappa, c_expected) in &expected {
             let c = c_weak(kappa);
             let err = (c - c_expected).abs() / c_expected;
             assert!(
-                err < 0.02,
+                err < TRANSPORT_C_W_CALIBRATION_REL,
                 "C_w(κ={kappa}) = {c:.1} vs expected {c_expected:.1}, err={:.1}%",
                 err * 100.0
             );

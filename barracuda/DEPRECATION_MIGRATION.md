@@ -1,7 +1,7 @@
 # hotSpring Deprecation & Migration Tracker
 
 **Status**: Active — tracking barracuda absorption and hotSpring minimization.
-**Last updated**: Feb 17, 2026
+**Last updated**: Feb 21, 2026
 
 ## Principle
 
@@ -82,12 +82,12 @@ retained only as fossil record.
 | `physics/semf.rs` | SEMF binding energy |
 | `physics/nuclear_matter.rs` | NMP (ρ₀, E/A, K∞, m*/m, J) |
 | `physics/constants.rs` | CODATA 2018 nuclear constants |
-| `physics/hfb.rs` | Spherical HFB+BCS solver |
+| `physics/hfb/` | Spherical HFB+BCS solver (refactored module dir) |
 | `physics/hfb_common.rs` | Shared HFB helpers |
 | `physics/hfb_gpu.rs` | Batched GPU HFB (uses barracuda BatchedEighGpu) |
-| `physics/hfb_gpu_resident.rs` | GPU-resident HFB SCF loop |
-| `physics/hfb_deformed.rs` | Deformed HFB (CPU) |
-| `physics/hfb_deformed_gpu.rs` | Deformed HFB (GPU, Tier B) |
+| `physics/hfb_gpu_resident/` | GPU-resident HFB SCF loop (refactored module dir) |
+| `physics/hfb_deformed/` | Deformed HFB, CPU (refactored module dir) |
+| `physics/hfb_deformed_gpu/` | Deformed HFB, GPU Tier B (refactored module dir) |
 | `physics/bcs_gpu.rs` | BCS bisection params + GPU types |
 
 ### Infrastructure Modules (hotSpring-specific)
@@ -97,7 +97,7 @@ retained only as fossil record.
 | `data.rs` | AME2020 data loading, EOS context |
 | `discovery.rs` | Capability-based data path resolution |
 | `validation.rs` | ValidationHarness (pass/fail, exit 0/1) |
-| `tolerances.rs` | 122 centralized tolerance constants |
+| `tolerances/` | 154 centralized tolerance + solver config constants |
 | `provenance.rs` | Python baseline provenance records |
 | `prescreen.rs` | NMP cascade filter |
 | `gpu.rs` | GpuF64 wrapper (thin layer over barracuda WgpuDevice) |
@@ -116,37 +116,18 @@ retained only as fossil record.
 
 These fixes discovered in hotSpring should be upstreamed to barracuda:
 
-### 1. BCS Bisection `target` Keyword (Critical)
+### ~~1. BCS Bisection `target` Keyword~~ ✅ RESOLVED
 
-**File**: `bcs_bisection_f64.wgsl`
-**Issue**: WGSL reserved keyword `target` used as variable name in
-barracuda's `batched_bisection_f64.wgsl`. hotSpring's BCS shader uses
-`target_val` to avoid the compilation error.
-**Action**: Rename `target` → `target_val` in barracuda's shader.
+Absorbed by toadstool commit `0c477306`. hotSpring rewired in v0.5.3.
 
-### 2. Cell-List `cell_idx` Modulo Bug (Critical)
+### ~~2. Cell-List `cell_idx` Modulo Bug~~ ✅ RESOLVED
 
-**File**: `yukawa_celllist_f64.wgsl`
-**Issue**: `((cx % nx) + nx) % nx` produces wrong results on NVIDIA/Naga
-for negative `i32` operands. hotSpring uses branch-based wrapping:
-```wgsl
-fn wrap(c: i32, n: i32) -> u32 {
-    if c < 0 { return u32(c + n); }
-    if c >= n { return u32(c - n); }
-    return u32(c);
-}
-```
-**Action**: Upstream branch-based cell_idx to barracuda cell-list shaders.
-**Reference**: `wateringHole/handoffs/TOADSTOOL_CELLLIST_BUG_ALERT.md`
+Absorbed by toadstool commit `8fb5d5a0`. hotSpring local `GpuCellList` deprecated.
 
-### 3. Native f64 Builtins (Enhancement)
+### ~~3. Native f64 Builtins~~ ✅ RESOLVED
 
-**Issue**: barracuda MD shaders use `sqrt_f64`/`exp_f64` from math_f64
-preamble. Native WGSL builtins are 1.5-2.2× faster on GPUs with
-SHADER_F64 support (validated: RTX 4070, Titan V).
-**Action**: Add native-builtin path to barracuda ShaderTemplate,
-selected when SHADER_F64 is available.
-**Reference**: `experiments/001_N_SCALING_GPU.md §4.4`
+Absorbed as `ShaderTemplate::for_driver_auto()` and `GpuDriverProfile`.
+All shader compilation now routes through driver-aware path (v0.5.15 rewire).
 
 ### 4. Eigensolve Encoder API (Enhancement)
 

@@ -78,9 +78,10 @@ CPU reference implementations, and validation suites.
 | Module | Location | Notes |
 |--------|----------|-------|
 | BCS GPU | `physics/bcs_gpu.rs` | GPU BCS bisection (corrected shader) |
-| Deformed HFB | `physics/hfb_deformed*.rs` | Axially-deformed nuclear structure |
-| HFB GPU resident | `physics/hfb_gpu_resident.rs` | Full GPU-resident SCF pipeline |
+| Deformed HFB | `physics/hfb_deformed/` | Axially-deformed nuclear structure (refactored module dir) |
+| HFB GPU resident | `physics/hfb_gpu_resident/` | Full GPU-resident SCF pipeline (refactored module dir) |
 | Stanton-Murillo fits | `md/transport.rs` | Analytical transport coefficient models |
+| Tolerance/config pattern | `tolerances/` | 154 centralized constants — reusable module pattern for upstream |
 
 ---
 
@@ -131,19 +132,33 @@ All WGSL shaders in hotSpring, organized by absorption status:
 
 ---
 
-## New: NPU Substrate Discovery
+## NPU Substrate Discovery + Bridge (v0.6.1)
 
-hotSpring's metalForge forge crate provides working NPU substrate discovery
+hotSpring's metalForge forge crate provides working cross-substrate
+discovery, capability-based dispatch, and a barracuda device bridge
 that toadstool doesn't have yet. Key components:
 
 | Component | Location | What it does |
 |-----------|----------|--------------|
 | NPU probe | `metalForge/forge/src/probe.rs::probe_npus()` | Discovers `/dev/akida*` device nodes |
-| NPU capabilities | `metalForge/forge/src/substrate.rs` | QuantizedInference, BatchInference, WeightMutation |
-| NPU dispatch | `metalForge/forge/src/dispatch.rs` | Routes inference work to NPU when capable |
+| CPU probe | `metalForge/forge/src/probe.rs::probe_cpu()` | `/proc/cpuinfo` + `/proc/meminfo` discovery |
+| Capability model | `metalForge/forge/src/substrate.rs` | 12-variant enum (F64Compute, QuantizedInference, BatchInference, ...) |
+| Dispatch | `metalForge/forge/src/dispatch.rs` | Routes workloads by capability (GPU > NPU > CPU) |
+| **Bridge** | `metalForge/forge/src/bridge.rs` | **Absorption seam**: forge substrate ↔ barracuda `WgpuDevice` |
 
-These can be absorbed into `barracuda::device::substrate::Substrate::discover_all()`
-to give toadstool native NPU awareness.
+The bridge module is the explicit absorption point:
+- `create_device()` — forge substrate → barracuda `WgpuDevice` (via `from_adapter_index`)
+- `best_f64_gpu()` — inventory scan → best f64-capable substrate
+- `substrate_from_device()` — existing barracuda device → forge substrate
+
+### Absorption targets for toadstool
+
+| Forge Module | Toadstool Target | What to absorb |
+|-------------|------------------|----------------|
+| `substrate::Capability` | `device::unified::Capability` | Merge 12 forge variants into toadstool's 4 |
+| `probe::probe_cpu()` | `substrate::Substrate::discover_all()` | Add CPU substrate to toadstool discovery |
+| `probe::probe_npus()` | `device::akida` | Lightweight `/dev` check complements PCIe scan |
+| `dispatch::route()` | `toadstool_integration::select_best_device()` | Capability-set routing complements `HardwareWorkload` |
 
 See `wateringHole/handoffs/HOTSPRING_V061_FORGE_HANDOFF_FEB21_2026.md` for the
 full handoff with hardware measurements and validation results.

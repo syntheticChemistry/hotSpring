@@ -11,6 +11,7 @@ license = "AGPL-3.0-only"
 # Physics code justifies certain clippy patterns. Each allow is annotated.
 [workspace.lints.clippy]
 pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
 
 # Physics casts: usize↔f64 is endemic in computational physics (particle
 # counts, grid indices, accumulator conversions). These are intentional.
@@ -55,6 +56,18 @@ implicit_hasher = "allow"
 needless_pass_by_value = "allow"
 inline_always = "allow"
 significant_drop_tightening = "allow"
+
+# RNG helpers and builders are clearer as non-const — wrapping_mul/rotate_left
+# chains in const context add noise without benefit.
+missing_const_for_fn = "allow"
+
+# Shared-code-in-branches: physics validation binaries intentionally have
+# parallel if/else blocks that include common print preambles for clarity.
+branches_sharing_code = "allow"
+
+# pub(crate) on items inside a pub(crate) module is technically redundant but
+# signals intent for cross-module GPU type sharing within the crate.
+redundant_pub_crate = "allow"
 
 [lints]
 workspace = true

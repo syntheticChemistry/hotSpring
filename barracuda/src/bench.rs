@@ -591,7 +591,6 @@ pub fn peak_rss_mb() -> f64 {
 fn read_cpuinfo() -> (String, usize, usize, usize) {
     let content = std::fs::read_to_string("/proc/cpuinfo").unwrap_or_default();
     let mut model = String::from("unknown");
-    let mut physical_ids = std::collections::HashSet::new();
     let mut core_ids = std::collections::HashSet::new();
     let mut thread_count = 0usize;
     let mut cache_kb = 0usize;
@@ -600,10 +599,6 @@ fn read_cpuinfo() -> (String, usize, usize, usize) {
         if line.starts_with("model name") {
             if let Some(v) = line.split(':').nth(1) {
                 model = v.trim().to_string();
-            }
-        } else if line.starts_with("physical id") {
-            if let Some(v) = line.split(':').nth(1) {
-                physical_ids.insert(v.trim().to_string());
             }
         } else if line.starts_with("core id") {
             if let Some(v) = line.split(':').nth(1) {
@@ -898,5 +893,113 @@ mod tests {
         let monitor = PowerMonitor::start();
         std::thread::sleep(std::time::Duration::from_millis(50));
         let _ = monitor.stop();
+    }
+
+    #[test]
+    fn bench_report_new_and_add_phase() {
+        let hw = HardwareInventory {
+            gate_name: "test".to_string(),
+            cpu_model: "x86".to_string(),
+            cpu_cores: 4,
+            cpu_threads: 8,
+            cpu_cache_kb: 8192,
+            ram_total_mb: 16384,
+            gpu_name: "RTX 4070".to_string(),
+            gpu_vram_mb: 12288,
+            gpu_driver: "560.0".to_string(),
+            gpu_compute_cap: "8.9".to_string(),
+            os_kernel: "6.x".to_string(),
+            rust_version: "1.80".to_string(),
+        };
+        let mut report = BenchReport::new(hw);
+        assert!(report.phases.is_empty());
+        assert!(!report.timestamp.is_empty());
+
+        let phase = PhaseResult {
+            phase: "yukawa".to_string(),
+            substrate: "GPU".to_string(),
+            wall_time_s: 1.0,
+            per_eval_us: 100.0,
+            n_evals: 10_000,
+            energy: EnergyReport::default(),
+            peak_rss_mb: 64.0,
+            chi2: 0.01,
+            precision_mev: 0.05,
+            notes: String::new(),
+        };
+        report.add_phase(phase);
+        assert_eq!(report.phases.len(), 1);
+        assert_eq!(report.phases[0].phase, "yukawa");
+    }
+
+    #[test]
+    #[allow(clippy::expect_used)]
+    fn bench_report_save_json_round_trip() {
+        let hw = HardwareInventory {
+            gate_name: "CI_Test".to_string(),
+            cpu_model: "test".to_string(),
+            cpu_cores: 1,
+            cpu_threads: 1,
+            cpu_cache_kb: 0,
+            ram_total_mb: 0,
+            gpu_name: "none".to_string(),
+            gpu_vram_mb: 0,
+            gpu_driver: String::new(),
+            gpu_compute_cap: String::new(),
+            os_kernel: String::new(),
+            rust_version: String::new(),
+        };
+        let mut report = BenchReport::new(hw);
+        report.add_phase(PhaseResult {
+            phase: "semf".to_string(),
+            substrate: "CPU".to_string(),
+            wall_time_s: 0.5,
+            per_eval_us: 50.0,
+            n_evals: 100,
+            energy: EnergyReport::default(),
+            peak_rss_mb: 32.0,
+            chi2: 0.02,
+            precision_mev: 0.1,
+            notes: "test".to_string(),
+        });
+
+        let dir = std::env::temp_dir().join("hotspring_bench_test");
+        let dir_str = dir.to_str().expect("temp path");
+        let path = report.save_json(dir_str).expect("save_json");
+        assert!(std::path::Path::new(&path).exists());
+
+        let contents = std::fs::read_to_string(&path).expect("read json");
+        let loaded: BenchReport = serde_json::from_str(&contents).expect("deserialize");
+        assert_eq!(loaded.phases.len(), 1);
+        assert_eq!(loaded.phases[0].phase, "semf");
+        assert_eq!(loaded.hardware.gate_name, "CI_Test");
+
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_dir(dir);
+    }
+
+    #[test]
+    #[allow(clippy::expect_used)]
+    fn bench_report_serialize_deserialize() {
+        let hw = HardwareInventory {
+            gate_name: "serde_test".to_string(),
+            cpu_model: "x86".to_string(),
+            cpu_cores: 2,
+            cpu_threads: 4,
+            cpu_cache_kb: 4096,
+            ram_total_mb: 8192,
+            gpu_name: "none".to_string(),
+            gpu_vram_mb: 0,
+            gpu_driver: String::new(),
+            gpu_compute_cap: String::new(),
+            os_kernel: String::new(),
+            rust_version: String::new(),
+        };
+        let report = BenchReport::new(hw);
+        let json = serde_json::to_string(&report).expect("serialize");
+        let back: BenchReport = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(back.hardware.gate_name, "serde_test");
+        assert_eq!(back.hardware.cpu_cores, 2);
+        assert!(back.phases.is_empty());
     }
 }

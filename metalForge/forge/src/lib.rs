@@ -37,6 +37,7 @@
 //!    └─────────────────────────────┘
 //! ```
 
+pub mod bridge;
 pub mod dispatch;
 pub mod inventory;
 pub mod probe;

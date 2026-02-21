@@ -350,4 +350,35 @@ mod tests {
             "t0 potential should be attractive for nuclear matter"
         );
     }
+
+    #[test]
+    fn coulomb_exchange_energy_density_sign_and_scaling() {
+        let eps_zero = coulomb_exchange_energy_density(0.0);
+        assert!(eps_zero.abs() < 1e-30, "zero density → zero energy density");
+
+        let rho_sat = 0.08; // proton saturation density ~0.08 fm⁻³
+        let eps = coulomb_exchange_energy_density(rho_sat);
+        assert!(
+            eps < 0.0,
+            "Coulomb exchange energy density must be negative"
+        );
+
+        // ε ∝ ρ^{4/3}, so doubling density → 2^{4/3} ≈ 2.52× increase
+        let eps2 = coulomb_exchange_energy_density(2.0 * rho_sat);
+        let ratio = eps2 / eps;
+        let expected = 2.0_f64.powf(4.0 / 3.0);
+        assert!(
+            (ratio - expected).abs() < 1e-10,
+            "scaling: {ratio} vs expected {expected}"
+        );
+    }
+
+    #[test]
+    fn coulomb_exchange_energy_density_negative_density_clamped() {
+        let eps = coulomb_exchange_energy_density(-0.1);
+        assert!(
+            eps.abs() < 1e-30,
+            "negative density should be clamped to zero"
+        );
+    }
 }

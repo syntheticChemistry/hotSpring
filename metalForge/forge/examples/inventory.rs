@@ -5,6 +5,9 @@
 //! GPU discovery uses the same wgpu path that toadstool/barracuda uses.
 //! NPU and CPU discovery are local probes.
 
+use hotspring_forge::dispatch::{self, Workload};
+use hotspring_forge::substrate::Capability;
+
 fn main() {
     let substrates = hotspring_forge::inventory::discover();
     hotspring_forge::inventory::print_inventory(&substrates);
@@ -12,9 +15,6 @@ fn main() {
     println!();
     println!("Dispatch examples:");
     println!();
-
-    use hotspring_forge::dispatch::{self, Workload};
-    use hotspring_forge::substrate::Capability;
 
     let workloads = [
         Workload::new(

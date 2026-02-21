@@ -45,7 +45,7 @@ impl Workload {
 
     /// Set the preferred substrate kind.
     #[must_use]
-    pub fn prefer(mut self, kind: SubstrateKind) -> Self {
+    pub const fn prefer(mut self, kind: SubstrateKind) -> Self {
         self.preferred_substrate = Some(kind);
         self
     }

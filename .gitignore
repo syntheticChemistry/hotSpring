@@ -78,9 +78,15 @@ benchmarks/*/results/
 .DS_Store
 Thumbs.db
 
+# ----- Python virtual environments -----
+venv/
+.venv/
+env/
+
 # ----- IDE -----
 .vscode/
 .idea/
+.cursor/
 
 # ============================================================
 # NOTE: These ARE tracked (small, important for reproducibility):

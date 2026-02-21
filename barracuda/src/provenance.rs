@@ -357,8 +357,8 @@ pub const SARKAS_PAPER: &str = "Choi, Dharuman, Murillo, Phys. Rev. E 100, 01320
 
 /// Daligault (2012) analytical fit reference.
 ///
-/// Test values in `md/transport.rs::d_star_matches_python` are computed
-/// from the Daligault (2012) practical model, NOT from MD simulation.
+/// Test values in `md/transport.rs::d_star_matches_all_12_sarkas_calibration_points`
+/// are computed from the Daligault (2012) practical model, NOT from MD simulation.
 /// They are analytical values that both Rust and Python must reproduce.
 ///
 /// Script distinction: `calibrate_daligault_fit.py` fits C_w(κ) from Sarkas MD;
@@ -507,7 +507,7 @@ pub const PURE_GAUGE_REFS: &str = "Creutz (1983), Wilson (1974), Bali et al. (19
 /// Reference: Lam & Varshni (1971), Murillo & Weisheit (1998).
 pub const SCREENED_COULOMB_PROVENANCE: BaselineProvenance = BaselineProvenance {
     label: "Screened Coulomb bound-state eigenvalues (8 states)",
-    script: "control/screened_coulomb/scripts/yukawa_eigenvalues.py",
+    script: "screened_coulomb/scripts/yukawa_eigenvalues.py",
     commit: "3f0d36d (hotSpring main)",
     date: "2026-02-19",
     command: "python3 yukawa_eigenvalues.py",
@@ -676,6 +676,9 @@ mod tests {
             &HOTQCD_EOS_PROVENANCE,
             &SCREENED_COULOMB_PROVENANCE,
             &DALIGAULT_CALIBRATION_PROVENANCE,
+            &DALIGAULT_FIT_PROVENANCE,
+            &TRANSPORT_MD_BASELINE_PROVENANCE,
+            &HFB_TEST_NUCLEI_PROVENANCE,
         ] {
             assert!(!p.label.is_empty(), "label empty: {}", p.label);
             assert!(!p.script.is_empty());

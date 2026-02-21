@@ -169,4 +169,73 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn compute_ssf_zero_harmonics() {
+        let pos = vec![1.0, 2.0, 3.0];
+        let ssf = compute_ssf(&[pos], 1, 5.0, 0);
+        assert!(ssf.is_empty(), "max_k_harmonics=0 should give empty result");
+    }
+
+    #[test]
+    fn compute_ssf_large_system_positive() {
+        let n = 50;
+        let box_side = 10.0;
+        let mut pos = Vec::with_capacity(n * 3);
+        let mut seed = 123u64;
+        for _ in 0..n * 3 {
+            seed = seed.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1);
+            pos.push((seed >> 33) as f64 / (1u64 << 31) as f64 * box_side);
+        }
+        let ssf = compute_ssf(&[pos], n, box_side, 10);
+        assert_eq!(ssf.len(), 10);
+        for (k, s) in &ssf {
+            assert!(*k > 0.0, "k must be positive");
+            assert!(s.is_finite(), "S(k) must be finite");
+            assert!(*s >= 0.0, "S(k) must be non-negative");
+        }
+    }
+
+    #[test]
+    fn compute_ssf_uniform_lattice_order() {
+        let n = 8;
+        let box_side = 4.0;
+        let spacing = box_side / 2.0;
+        let mut pos = Vec::new();
+        for ix in 0..2 {
+            for iy in 0..2 {
+                for iz in 0..2 {
+                    pos.push(ix as f64 * spacing);
+                    pos.push(iy as f64 * spacing);
+                    pos.push(iz as f64 * spacing);
+                }
+            }
+        }
+        let ssf = compute_ssf(&[pos], n, box_side, 5);
+        assert!(
+            ssf[0].1 > ssf[4].1 * 0.01,
+            "lowest k should have finite S(k)"
+        );
+    }
+
+    #[test]
+    fn compute_ssf_many_frames_reduces_variance() {
+        let n = 10;
+        let box_side = 5.0;
+        let mut frames = Vec::new();
+        for f in 0..20 {
+            let mut pos = Vec::with_capacity(n * 3);
+            let mut seed = (f * 1000 + 42) as u64;
+            for _ in 0..n * 3 {
+                seed = seed.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1);
+                pos.push((seed >> 33) as f64 / (1u64 << 31) as f64 * box_side);
+            }
+            frames.push(pos);
+        }
+        let ssf = compute_ssf(&frames, n, box_side, 3);
+        for (_, s) in &ssf {
+            assert!(s.is_finite(), "averaged S(k) should be finite");
+            assert!(*s > 0.0, "averaged S(k) should be positive");
+        }
+    }
 }

@@ -20,6 +20,7 @@ use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::physics::bcs_gpu::BcsBisectionGpu;
 use hotspring_barracuda::physics::hfb_gpu_resident::binding_energies_l2_gpu_resident;
 use hotspring_barracuda::provenance;
+use hotspring_barracuda::tolerances::{HFB_L2_MIXING, HFB_L2_TOLERANCE};
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -191,17 +192,30 @@ fn bench_l2_pipeline(gpu: &GpuF64) {
     // Warmup — GPU-resident: potentials, H-build, density, mixing all on GPU
     let max_iter = 30; // Keep low for benchmarking (focus on GPU dispatch throughput)
     println!("  Warming up (1 eval, {n_nuclei} nuclei, {max_iter} iters, GPU-resident)...");
-    let _ = binding_energies_l2_gpu_resident(&device, &nuclei, &params, max_iter, 0.05, 0.3)
-        .expect("GPU-resident HFB warmup failed");
+    let _ = binding_energies_l2_gpu_resident(
+        &device,
+        &nuclei,
+        &params,
+        max_iter,
+        HFB_L2_TOLERANCE,
+        HFB_L2_MIXING,
+    )
+    .expect("GPU-resident HFB warmup failed");
 
     // Measure
     let rounds = 2;
     println!("  Measuring ({rounds} evals)...");
     let t0 = Instant::now();
     for r in 0..rounds {
-        let result =
-            binding_energies_l2_gpu_resident(&device, &nuclei, &params, max_iter, 0.05, 0.3)
-                .expect("GPU-resident HFB benchmark failed");
+        let result = binding_energies_l2_gpu_resident(
+            &device,
+            &nuclei,
+            &params,
+            max_iter,
+            HFB_L2_TOLERANCE,
+            HFB_L2_MIXING,
+        )
+        .expect("GPU-resident HFB benchmark failed");
         if r == rounds - 1 {
             let converged = result.results.iter().filter(|r| r.3).count();
             println!("  Converged: {converged}/{n_nuclei} (in {max_iter} iters)");

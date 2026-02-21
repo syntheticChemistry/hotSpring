@@ -163,6 +163,15 @@ pub const DALIGAULT_FIT_RMSE: f64 = 0.10;
 /// Source: Daligault PRE 86, 047401 (2012), Fig. 1.
 pub const TRANSPORT_D_STAR_VS_FIT: f64 = 0.10;
 
+/// C_w(κ) calibration: relative error vs Python analytical fit.
+///
+/// The weak-coupling coefficient C_w(κ) = exp(a₀ + a₁κ + a₂κ²) from
+/// calibrate_daligault_fit.py must match its own analytical values to 2%.
+/// The fit was calibrated at κ ∈ {0, 1, 2, 3} with 12 Sarkas data points.
+///
+/// Source: calibrate_daligault_fit.py, commit 0a6405f, Feb 2026.
+pub const TRANSPORT_C_W_CALIBRATION_REL: f64 = 0.02;
+
 /// Viscosity Rust-vs-Sarkas: relative tolerance.
 ///
 /// Stress tensor ACF converges more slowly than VACF. 10% agreement
@@ -266,3 +275,25 @@ pub const PARITY_ENERGY_DIFF: f64 = 0.08;
 /// |Σ F_i| should be near zero. PPPM mesh approximation for small
 /// systems with limited resolution can give residuals of O(1).
 pub const PPPM_MULTI_PARTICLE_NET_FORCE: f64 = 1.0;
+
+// ═══════════════════════════════════════════════════════════════════
+// MD solver configuration
+//
+// These control the cell-list GPU simulation loop behavior.
+// Changing these affects performance and thermostat coupling.
+// ═══════════════════════════════════════════════════════════════════
+
+/// Cell-list rebuild interval (MD steps).
+///
+/// GPU cell-list is rebuilt every this many steps during both
+/// equilibration and production. 20 steps balances rebuild cost
+/// (~0.3ms per rebuild) against force accuracy. Particles moving
+/// further than cell_size/2 between rebuilds can miss neighbors.
+pub const CELLLIST_REBUILD_INTERVAL: usize = 20;
+
+/// Thermostat application interval (MD steps).
+///
+/// Berendsen thermostat is applied every this many steps during
+/// equilibration. 10 steps provides smooth temperature coupling
+/// without overdamping velocity correlations.
+pub const THERMOSTAT_INTERVAL: usize = 10;

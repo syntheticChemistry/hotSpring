@@ -18,7 +18,7 @@ Python baseline → Rust validation → WGSL template → GPU shader → ToadSto
 | **C** | New | No shader exists; must be written from scratch |
 | **✅** | Absorbed | ToadStool has absorbed this as a first-class barracuda primitive |
 
-## ToadStool Absorption Status (Feb 20, 2026 — Post Session 25)
+## ToadStool Absorption Status (Feb 21, 2026 — Post v0.6.1 Structural Evolution)
 
 | hotSpring Module | ToadStool Primitive | Commit | Status |
 |-----------------|--------------------| -------|--------|
@@ -52,9 +52,9 @@ Python baseline → Rust validation → WGSL template → GPU shader → ToadSto
 | `physics/hfb.rs` | `batched_hfb_*.wgsl` (4 shaders) via `hfb_gpu.rs` | **A** | GPU pipeline exists | None — validated against CPU |
 | `physics/hfb_gpu.rs` | Uses `BatchedEighGpu::execute_single_dispatch` | **A** | Production GPU — single-dispatch (v0.5.3) | None — all rotations in one shader |
 | `physics/bcs_gpu.rs` | `bcs_bisection_f64.wgsl` | **A** | Production GPU — pipeline cached (v0.5.3) | None — ToadStool `target` bug absorbed (`0c477306`) |
-| `physics/hfb_gpu_resident.rs` | `batched_hfb_potentials_f64.wgsl`, `batched_hfb_hamiltonian_f64.wgsl`, `batched_hfb_density_f64.wgsl`, `BatchedEighGpu`, `SpinOrbitGpu` | **A** | GPU H-build + eigensolve + spin-orbit + density + mixing (v0.5.10) | Energy still CPU; BCS Brent on CPU |
-| `physics/hfb_deformed.rs` | — | **C** | CPU only | Deformed HFB needs new shaders for 2D grid Hamiltonian build |
-| `physics/hfb_deformed_gpu.rs` | `deformed_*.wgsl` (5 shaders exist, not all wired) | **B** | Partial GPU | H-build on CPU; deformed Hamiltonian shaders exist but unwired. Needs `GenEighGpu` (Ax=λBx) for overlap matrix |
+| `physics/hfb_gpu_resident/` | `batched_hfb_potentials_f64.wgsl`, `batched_hfb_hamiltonian_f64.wgsl`, `batched_hfb_density_f64.wgsl`, `BatchedEighGpu`, `SpinOrbitGpu` | **A** | GPU H-build + eigensolve + spin-orbit + density + mixing (v0.5.10, refactored v0.6.1) | Energy still CPU; BCS Brent on CPU |
+| `physics/hfb_deformed/` | — | **C** | CPU only (refactored: mod, potentials, basis, tests) | Deformed HFB needs new shaders for 2D grid Hamiltonian build |
+| `physics/hfb_deformed_gpu/` | `deformed_*.wgsl` (5 shaders exist, not all wired) | **B** | Partial GPU (refactored: mod, types, physics, gpu_diag, tests) | H-build on CPU; deformed Hamiltonian shaders exist but unwired |
 | `physics/nuclear_matter.rs` | — | **C** | CPU only | Uses `barracuda::optimize::bisect` (CPU); no NMP shader. Low priority — fast on CPU |
 | `physics/hfb_common.rs` | — | N/A | Shared utilities | Pure CPU helpers (WS radii, deformation estimation) |
 | `physics/constants.rs` | — | N/A | Physical constants | Data only |
@@ -145,12 +145,15 @@ Force shaders compiled via `GpuF64::create_pipeline_f64()` → barracuda driver-
 
 - ✅ **Zero `expect()`/`unwrap()` in library code**: `#![deny(clippy::expect_used, clippy::unwrap_used)]` enforced crate-wide. All 15 production `expect()` calls replaced with `Result` propagation, `bytemuck` zero-copy, or safe pattern matching.
 - ✅ **Tolerances module tree**: `tolerances.rs` (1384 lines) refactored into `tolerances/{mod,core,md,physics,lattice,npu}.rs`. Each submodule under 300 lines. Zero API change via `pub use` re-exports.
+- ✅ **Solver config centralized**: 8 new constants (`HFB_MAX_ITER`, `BROYDEN_WARMUP`, `BROYDEN_HISTORY`, `HFB_L2_MIXING`, `HFB_L2_TOLERANCE`, `FERMI_SEARCH_MARGIN`, `CELLLIST_REBUILD_INTERVAL`, `THERMOSTAT_INTERVAL`) extracted from 7 files. Zero hardcoded solver params in library code.
+- ✅ **Large file refactoring**: 4 monolithic files decomposed into module directories: `hfb/` (3 files), `hfb_deformed/` (4 files), `hfb_deformed_gpu/` (5 files), `hfb_gpu_resident/` (3 files). All new files under 500 LOC except `hfb_gpu_resident/mod.rs` (1456 — monolithic GPU pipeline).
+- ✅ **Integration test suites**: 3 new suites: `integration_physics.rs` (11), `integration_data.rs` (8), `integration_transport.rs` (5) — 24 tests covering cross-module interactions.
 - ✅ **Provenance completeness**: `SCREENED_COULOMB_PROVENANCE` and `DALIGAULT_CALIBRATION_PROVENANCE` added. Commit verification documentation included.
 - ✅ **Capability-based discovery**: `try_discover_data_root()` returns `Result`; `available_capabilities()` probes runtime validation domains.
 - ✅ **Tolerances tightened**: `ENERGY_DRIFT_PCT` 5%→0.5%, `RDF_TAIL_TOLERANCE` 0.15→0.02 (both still 10×+ above measured worst case).
 - ✅ **Zero-copy GPU buffer reads**: `bytemuck::try_cast_slice` with alignment fallback replaces manual byte conversion.
 - ✅ **Control JSON policy documented** in tolerances module.
-- ✅ **463 tests (458 passing + 5 GPU-ignored), 0 clippy warnings, 0 doc warnings**
+- ✅ **505 unit tests + 24 integration + 8 forge (505 passing + 5 GPU-ignored), 0 clippy warnings, 0 doc warnings, 154 centralized constants**
 
 ## Promotion Priority
 
@@ -483,7 +486,7 @@ the original sign and adjoint were both wrong, causing 0% HMC acceptance.
 | ~~GPU Dirac SpMV~~ | ~~CPU-only staggered Dirac operator~~ | ~~**P1**~~ | ✅ **Done** — `WGSL_DIRAC_STAGGERED_F64` validated, `validate_gpu_dirac` binary (30th suite) |
 | ~~Pure GPU QCD workload~~ | ~~Thermalized-config CG validation~~ | ~~**P1**~~ | ✅ **Done** — `validate_pure_gpu_qcd` (3/3): HMC → GPU CG, 4.10e-16 parity (31st suite) |
 | ~~Python baseline~~ | ~~Interpreted-language benchmark~~ | ~~**P1**~~ | ✅ **Done** — Rust 200× faster: CG iters match exactly, Dirac 0.023ms vs 4.59ms |
-| 8 files > 1000 lines | Code organization | Medium | Documented deviation; physics-coherent (tolerances.rs split) |
+| ~~8 files > 1000 lines~~ | ~~Code organization~~ | ~~Medium~~ | ✅ Resolved v0.6.1: 4 monolithic files decomposed into module dirs. Only `hfb_gpu_resident/mod.rs` (1456) remains >1000 (justified — monolithic GPU pipeline) |
 | ~~Stanton-Murillo transport normalization~~ | ~~Paper 5 calibration~~ | ~~High~~ | ✅ Resolved: Sarkas-calibrated (12 points, N=2000) |
 | ~~BCS + density shader not wired~~ | ~~CPU readback after eigensolve~~ | ~~High~~ | ✅ Resolved v0.5.10 |
 | ~~WGSL inline math~~ | ~~Maintenance drift~~ | ~~Medium~~ | ✅ Resolved v0.5.8 |
