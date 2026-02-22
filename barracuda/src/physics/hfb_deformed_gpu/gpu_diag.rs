@@ -46,8 +46,11 @@ pub(super) fn diag_blocks_gpu(
                 let i = block_indices[bi];
                 let si = &setup.states[i];
 
-                let t_i = setup.hw_z * (f64::from(si.n_z) + 0.5)
-                    + setup.hw_perp * (2.0 * f64::from(si.n_perp) + f64::from(si.abs_lambda) + 1.0);
+                let t_i = setup.hw_z.mul_add(
+                    f64::from(si.n_z) + 0.5,
+                    setup.hw_perp
+                        * (2.0_f64.mul_add(f64::from(si.n_perp), f64::from(si.abs_lambda)) + 1.0),
+                );
                 h[bi * max_bs + bi] = t_i;
 
                 for bj in bi..bs {
@@ -167,7 +170,7 @@ pub(super) fn bcs_occupations(
         let fermi = find_fermi_bcs(sorted_eigs, n_particles, delta);
         for &(si, eval) in sorted_eigs {
             let eps = eval - fermi;
-            let e_qp = (eps * eps + delta * delta).sqrt();
+            let e_qp = eps.hypot(delta);
             occ[si] = (0.5 * (1.0 - eps / e_qp)).clamp(0.0, 1.0);
         }
     } else {
@@ -194,7 +197,7 @@ pub(super) fn find_fermi_bcs(sorted_eigs: &[(usize, f64)], n_particles: usize, d
             .iter()
             .map(|&(_, e)| {
                 let eps = e - mu;
-                2.0 * 0.5 * (1.0 - eps / (eps * eps + delta * delta).sqrt())
+                2.0 * 0.5 * (1.0 - eps / eps.hypot(delta))
             })
             .sum()
     };

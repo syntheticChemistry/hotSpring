@@ -46,6 +46,7 @@ pub struct MdSimulation {
 }
 
 /// Initialize particles on an FCC lattice, then add Maxwell-Boltzmann velocities
+#[must_use]
 pub fn init_fcc_lattice(n: usize, box_side: f64) -> (Vec<f64>, usize) {
     // Find smallest n_cell such that 4*n_cell^3 >= n (FCC has 4 atoms per unit cell)
     let mut n_cell = 1usize;
@@ -86,7 +87,8 @@ pub fn init_fcc_lattice(n: usize, box_side: f64) -> (Vec<f64>, usize) {
 
 /// Generate Maxwell-Boltzmann velocities for given temperature
 /// T* = 1/Gamma in reduced units.  KE = (3/2) N T*
-/// Per component: <v²_α> = T*/m*  →  σ = sqrt(T*/m*)
+/// Per component: ⟨`v²_α`⟩ = `T*`/`m*`  →  σ = sqrt(`T*`/`m*`)
+#[must_use]
 pub fn init_velocities(n: usize, temperature: f64, mass: f64, seed: u64) -> Vec<f64> {
     // Simple Box-Muller PRNG for Gaussian distribution
     let sigma = (temperature / mass).sqrt(); // sqrt(T*/m*) per component
@@ -147,7 +149,7 @@ pub fn init_velocities(n: usize, temperature: f64, mass: f64, seed: u64) -> Vec<
 /// # Errors
 ///
 /// Returns [`crate::error::HotSpringError::NoAdapter`] if no GPU adapter is found.
-/// Returns [`crate::error::HotSpringError::NoShaderF64`] if the GPU lacks SHADER_F64.
+/// Returns [`crate::error::HotSpringError::NoShaderF64`] if the GPU lacks `SHADER_F64`.
 /// Returns [`crate::error::HotSpringError::DeviceCreation`] or
 /// [`crate::error::HotSpringError::Barracuda`] if GPU initialization or pipeline setup fails.
 pub async fn run_simulation(
@@ -312,7 +314,8 @@ pub async fn run_simulation(
         let t_current = 2.0 * total_ke / (3.0 * n as f64);
 
         if t_current > 1e-30 {
-            let ratio = 1.0 + (config.dt / config.berendsen_tau) * (temperature / t_current - 1.0);
+            let ratio =
+                (config.dt / config.berendsen_tau).mul_add(temperature / t_current - 1.0, 1.0);
             let scale = ratio.max(0.0).sqrt();
             let beren_params = vec![n as f64, scale, 0.0, 0.0];
             let beren_params_buf = gpu.create_f64_buffer(&beren_params, "beren_params");

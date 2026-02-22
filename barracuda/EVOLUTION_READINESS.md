@@ -18,7 +18,7 @@ Python baseline → Rust validation → WGSL template → GPU shader → ToadSto
 | **C** | New | No shader exists; must be written from scratch |
 | **✅** | Absorbed | ToadStool has absorbed this as a first-class barracuda primitive |
 
-## ToadStool Absorption Status (Feb 21, 2026 — Post v0.6.1 Structural Evolution)
+## ToadStool Absorption Status (Feb 22, 2026 — Post v0.6.3 WGSL Extraction + Coverage Push)
 
 | hotSpring Module | ToadStool Primitive | Commit | Status |
 |-----------------|--------------------| -------|--------|
@@ -40,9 +40,9 @@ Python baseline → Rust validation → WGSL template → GPU shader → ToadSto
 | `spectral/csr.rs::CsrMatrix::spmv()` | ~~GPU CSR SpMV WGSL shader~~ | ~~**P1**~~ | ✅ **Done** — `WGSL_SPMV_CSR_F64` validated 8/8 checks (machine-epsilon parity on RTX 4070) |
 | `spectral/lanczos.rs::lanczos()` | ~~GPU Lanczos eigensolve~~ | ~~**P1**~~ | ✅ **Done** — GPU SpMV inner loop + CPU control, 6/6 checks (eigenvalues match to 1e-15) |
 | `lattice/dirac.rs` | ~~GPU staggered Dirac SpMV~~ | ~~**P1**~~ | ✅ **Done** — `WGSL_DIRAC_STAGGERED_F64` validated 8/8 checks (max error 4.44e-16, cold+hot+asymmetric lattices) |
-| `md/celllist.rs` → upstream | Migrate `run_simulation_celllist` to upstream API | **P1** | Retire ~400 lines of local code |
+| `md/celllist.rs` → upstream | ~~Migrate `run_simulation_celllist` to upstream API~~ | ~~**P1**~~ | ✅ **Done (v0.6.2)** — `CellListGpu` migrated, 282 lines + 3 shaders deleted |
 | `lattice/cg.rs` | ~~GPU CG solver~~ | ~~**P2**~~ | ✅ **Done** — GPU CG (D†D) validated 9/9 checks (machine-epsilon parity, identical iteration counts) |
-| `physics/hfb_gpu_resident.rs` energy | Wire `batched_hfb_energy_f64.wgsl` | **P2** | Eliminate CPU energy bottleneck in SCF |
+| `physics/hfb_gpu_resident.rs` energy | ~~Wire `batched_hfb_energy_f64.wgsl`~~ | ~~**P2**~~ | ✅ **Done (v0.6.2)** — GPU energy dispatch wired behind `gpu_energy` feature flag |
 
 ## Physics Modules
 
@@ -52,7 +52,7 @@ Python baseline → Rust validation → WGSL template → GPU shader → ToadSto
 | `physics/hfb.rs` | `batched_hfb_*.wgsl` (4 shaders) via `hfb_gpu.rs` | **A** | GPU pipeline exists | None — validated against CPU |
 | `physics/hfb_gpu.rs` | Uses `BatchedEighGpu::execute_single_dispatch` | **A** | Production GPU — single-dispatch (v0.5.3) | None — all rotations in one shader |
 | `physics/bcs_gpu.rs` | `bcs_bisection_f64.wgsl` | **A** | Production GPU — pipeline cached (v0.5.3) | None — ToadStool `target` bug absorbed (`0c477306`) |
-| `physics/hfb_gpu_resident/` | `batched_hfb_potentials_f64.wgsl`, `batched_hfb_hamiltonian_f64.wgsl`, `batched_hfb_density_f64.wgsl`, `BatchedEighGpu`, `SpinOrbitGpu` | **A** | GPU H-build + eigensolve + spin-orbit + density + mixing (v0.5.10, refactored v0.6.1) | Energy still CPU; BCS Brent on CPU |
+| `physics/hfb_gpu_resident/` | `batched_hfb_potentials_f64.wgsl`, `batched_hfb_hamiltonian_f64.wgsl`, `batched_hfb_density_f64.wgsl`, `batched_hfb_energy_f64.wgsl`, `BatchedEighGpu`, `SpinOrbitGpu` | **A** | GPU H-build + eigensolve + spin-orbit + density + mixing + energy (v0.6.2) | BCS Brent on CPU (root-finding not GPU-efficient) |
 | `physics/hfb_deformed/` | — | **C** | CPU only (refactored: mod, potentials, basis, tests) | Deformed HFB needs new shaders for 2D grid Hamiltonian build |
 | `physics/hfb_deformed_gpu/` | `deformed_*.wgsl` (5 shaders exist, not all wired) | **B** | Partial GPU (refactored: mod, types, physics, gpu_diag, tests) | H-build on CPU; deformed Hamiltonian shaders exist but unwired |
 | `physics/nuclear_matter.rs` | — | **C** | CPU only | Uses `barracuda::optimize::bisect` (CPU); no NMP shader. Low priority — fast on CPU |
@@ -64,8 +64,8 @@ Python baseline → Rust validation → WGSL template → GPU shader → ToadSto
 | Rust Module | WGSL Shader(s) | Tier | Status | Blocker |
 |-------------|----------------|------|--------|---------|
 | `md/simulation.rs` | Yukawa (all-pairs + cell-list), VV integrator, Berendsen thermostat, KE per-particle, `ReduceScalarPipeline` (inline in `md/shaders.rs`) | **A** | Full GPU pipeline | None — production-ready |
-| `md/celllist.rs` | GPU 3-pass cell-list (bin→scan→scatter) + indirect force shader. Zero CPU readback | **✅** | Local deprecated — upstream `CellListGpu` fixed (toadstool `8fb5d5a0`) | Migration to upstream API pending |
-| `md/shaders.rs` | 12 WGSL shaders (9 `.wgsl` files + 3 inline). GPU cell-list shaders added v0.5.13 | **A** | Production | v0.5.13: GPU cell-list + indirect force |
+| `md/celllist.rs` | GPU cell-list via upstream `CellListGpu` + indirect force shader. Zero CPU readback | **✅** | **Migrated** (v0.6.2) — local `GpuCellList` deleted, upstream `barracuda::ops::md::CellListGpu` | None |
+| `md/shaders.rs` | 11 WGSL shaders (all `.wgsl` files, zero inline). GPU cell-list shaders added v0.5.13 | **A** | Production | v0.6.3: all inline extracted to `.wgsl` |
 | `md/observables/` | Uses `SsfGpu` from BarraCUDA | **A** | SSF on GPU; RDF/VACF CPU post-process | VACF now correct (particle identity preserved by indirect indexing) |
 | `md/cpu_reference.rs` | — | N/A | Validation reference | Intentionally CPU-only for baseline comparison |
 | `md/config.rs` | — | N/A | Configuration | Data structures only |
@@ -87,31 +87,30 @@ Python baseline → Rust validation → WGSL template → GPU shader → ToadSto
 | `deformed_gradient_f64.wgsl` | 205 | Gradient of deformed densities |
 | `deformed_potentials_f64.wgsl` | 268 | Deformed mean-field potentials |
 
-### MD Reference Shaders (`src/md/shaders_toadstool_ref/`, 4 files, ~334 lines)
+### MD Reference Shaders (`src/md/shaders_toadstool_ref/`)
 
-| Shader | Lines | Pipeline Stage |
-|--------|-------|----------------|
-| `yukawa_f64.wgsl` | 97 | Yukawa all-pairs force with PBC |
-| `yukawa_celllist_f64.wgsl` | 132 | Cell-list Yukawa force |
-| `velocity_verlet_split.wgsl` | 73 | VV kick-drift-kick integrator |
-| `vv_half_kick_f64.wgsl` | 32 | VV second half-kick |
+Toadstool reference shaders were absorbed upstream; only `README.md` remains.
+Original shaders (`yukawa_f64.wgsl`, `yukawa_celllist_f64.wgsl`,
+`velocity_verlet_split.wgsl`, `vv_half_kick_f64.wgsl`) served as absorption
+templates — production equivalents live in `src/md/shaders/`.
 
-### MD Production Shaders (`src/md/shaders/` + inline)
+### MD Production Shaders (`src/md/shaders/`)
 
-| Shader / Constant | Physics | Location |
-|-------------------|---------|----------|
+| Shader | Physics | Location |
+|--------|---------|----------|
 | `yukawa_force_f64.wgsl` | Yukawa all-pairs (native f64) | `.wgsl` file |
 | `yukawa_force_celllist_f64.wgsl` | Cell-list v1 (27-neighbor, sorted positions) | `.wgsl` file |
 | `yukawa_force_celllist_v2_f64.wgsl` | Cell-list v2 (flat loop, sorted positions) | `.wgsl` file |
 | `yukawa_force_celllist_indirect_f64.wgsl` | Cell-list indirect (unsorted positions + `sorted_indices`) **(v0.5.13)** | `.wgsl` file |
-| `cell_bin_f64.wgsl` | GPU cell-list pass 1/3: atomic particle binning **(v0.5.13)** | `.wgsl` file |
-| `exclusive_prefix_sum.wgsl` | GPU cell-list pass 2/3: exclusive scan **(v0.5.13)** | `.wgsl` file |
-| `cell_scatter.wgsl` | GPU cell-list pass 3/3: index scatter **(v0.5.13)** | `.wgsl` file |
 | `vv_kick_drift_f64.wgsl` | Velocity-Verlet kick+drift | `.wgsl` file |
+| `vv_half_kick_f64.wgsl` | VV second half-kick | `.wgsl` file **(v0.6.3)** |
+| `berendsen_f64.wgsl` | Berendsen thermostat rescale | `.wgsl` file **(v0.6.3)** |
+| `kinetic_energy_f64.wgsl` | Kinetic energy reduction | `.wgsl` file **(v0.6.3)** |
 | `rdf_histogram_f64.wgsl` | RDF histogram binning | `.wgsl` file |
-| `SHADER_VV_HALF_KICK` | VV second half-kick | inline (26 lines) |
-| `SHADER_BERENDSEN` | Berendsen thermostat rescale | inline (22 lines) |
-| `SHADER_KINETIC_ENERGY` | Kinetic energy reduction | inline (22 lines) |
+| `esn_reservoir_update.wgsl` | ESN reservoir state update (f32) | `.wgsl` file |
+| `esn_readout.wgsl` | ESN readout layer (f32) | `.wgsl` file |
+
+**Note**: `cell_bin_f64.wgsl`, `exclusive_prefix_sum.wgsl`, `cell_scatter.wgsl` were deleted in v0.6.2 (GPU cell-list build migrated to upstream `CellListGpu`).
 
 ## BarraCUDA Primitives Used
 
@@ -138,8 +137,32 @@ Python baseline → Rust validation → WGSL template → GPU shader → ToadSto
 No duplicate math — all mathematical operations use BarraCUDA primitives.
 `hermite_value` now delegates to `barracuda::special::hermite` (v0.5.7).
 `factorial_f64` now delegates to `barracuda::special::factorial` (v0.5.10).
+`solve_linear_system` now delegates to `barracuda::linalg::solve_f64` (v0.6.2).
 WGSL `abs_f64` and `cbrt_f64` now injected via `ShaderTemplate::with_math_f64_auto()` (v0.5.8).
 Force shaders compiled via `GpuF64::create_pipeline_f64()` → barracuda driver-aware path **(v0.5.11)**.
+`GpuCellList` migrated to upstream `barracuda::ops::md::CellListGpu` (v0.6.2) — 3 local shaders deleted.
+
+## Completed (v0.6.3, Feb 22 2026)
+
+- ✅ **Inline WGSL extraction**: 5 more inline shader strings extracted to `.wgsl` files:
+  - `md/shaders.rs`: `SHADER_VV_HALF_KICK` → `vv_half_kick_f64.wgsl`, `SHADER_BERENDSEN` → `berendsen_f64.wgsl`, `SHADER_KINETIC_ENERGY` → `kinetic_energy_f64.wgsl`
+  - `lattice/complex_f64.rs`: `WGSL_COMPLEX64` → `shaders/complex_f64.wgsl`
+  - `lattice/su3.rs`: `WGSL_SU3` → `shaders/su3_f64.wgsl`
+- ✅ **Deformed HFB coverage**: 13 new tests covering `diagonalize_blocks` (V=0, constant V, sharp Fermi), `potential_matrix_element` (constant V, Hermitian symmetry), `solve()` SCF loop (smoke test, determinism, physical bounds), `binding_energy_l3`, and Hermite/Laguerre norm integrals
+- ✅ **648 tests** (was 638), 0 failures, 6 ignored
+- ✅ **Stale documentation cleaned**: Deleted shader references (`cell_bin_f64.wgsl`, `exclusive_prefix_sum.wgsl`, `cell_scatter.wgsl`) removed from shader inventory; extracted shaders added
+
+## Completed (v0.6.2, Feb 21 2026)
+
+- ✅ **Zero clippy pedantic+nursery warnings**: was ~1500 in v0.6.1, now 0. Systematic resolution of `mul_add` (150+), `doc_markdown` (600+), `must_use` (186+), `imprecise_flops` (30+), `use_self` (14), `const_fn` (4), `option_if_let_else` (5), `HashMap` hasher (2), `significant_drop_tightening` (1).
+- ✅ **Duplicate math eliminated**: `reservoir.rs` Gaussian elimination → `barracuda::linalg::solve_f64`
+- ✅ **GPU energy pipeline wired**: `batched_hfb_energy_f64.wgsl` dispatched in SCF loop behind `gpu_energy` feature flag
+- ✅ **Large file refactoring**: `bench.rs` (1005→4 files), `hfb_gpu_resident/mod.rs` (7 helpers extracted), `celllist_diag.rs` (1156→951)
+- ✅ **Cast safety documentation**: Crate-level `#![allow]` with mantissa/range analysis; per-function annotations on critical GPU casts
+- ✅ **MutexGuard tightening**: `PowerMonitor::finish()` clones samples immediately, drops lock before processing
+- ✅ **561 tests** (was 505), 0 failures, 67.4% region / 78.8% function coverage
+- ✅ **metalForge/forge**: zero pedantic warnings
+- ✅ **Version**: 0.6.0 → 0.6.2
 
 ## Completed (v0.6.1, Feb 21 2026)
 
@@ -157,13 +180,7 @@ Force shaders compiled via `GpuF64::create_pipeline_f64()` → barracuda driver-
 
 ## Promotion Priority
 
-1. **GPU energy integrands + SumReduceF64** → Wire `batched_hfb_energy_f64.wgsl` into
-   `hfb_gpu_resident.rs` SCF loop. Shader already exists; needs pipeline creation,
-   Skyrme parameter upload, and `barracuda::ops::SumReduceF64` to reduce
-   per-grid-point integrands to scalar total. Eliminates CPU `compute_energy_with_v2`
-   and its `trapz` calls. **Estimated: ~100 lines of wiring code.**
-   Note: `SumReduceF64::sum()` takes `&[f64]` (CPU-side data); full GPU-resident
-   reduction requires keeping integrand buffer on GPU — this is the real target.
+1. ~~**GPU energy integrands + SumReduceF64**~~ ✅ **DONE (v0.6.2)** — `batched_hfb_energy_f64.wgsl` wired into SCF loop behind `gpu_energy` feature flag. `compute_energy_integrands` + `compute_pairing_energy` GPU passes, staging buffer readback. CPU fallback preserved.
 2. ~~**BCS on GPU**~~ ✅ **DONE (v0.5.10)** — Density + mixing on GPU; BCS Brent remains on CPU (root-finding not GPU-efficient)
 3. ~~**SpinOrbitGpu**~~ ✅ **DONE (v0.5.6)** — Wired with CPU fallback
 4. ~~**WGSL preamble injection**~~ ✅ **DONE (v0.5.8)** — `ShaderTemplate::with_math_f64_auto()`
@@ -336,7 +353,7 @@ Paper-parity run (N=10k, 80k steps): 9.8 min, $0.0012. 98 runs/day idle.
   - 20+ inline `1e-15`, `0.1`, `1e-10` guards replaced across 5 physics modules
 - ✅ SPDX headers added to all 17 WGSL shaders that were missing them (30/30 total)
 - ✅ `panic!()` in library code converted to `expect()` (GPU buffer map failures)
-- ✅ WGSL math duplicates annotated with `TODO(evolution)` for preamble injection
+- ✅ WGSL math duplicates resolved via `ShaderTemplate::with_math_f64_auto()` preamble injection
 
 ## Completed (v0.5.5)
 
@@ -423,8 +440,8 @@ driver profile (`DriverKind::Nvk`, `CompilerKind::Nak`, `GpuArch::Volta`).
 
 | Rust Module | Lines | WGSL | Tier | Status |
 |-------------|-------|------|------|--------|
-| `lattice/complex_f64.rs` | 316 | `WGSL_COMPLEX64` → `complex_f64.wgsl` | **✅** | **Absorbed** — toadstool `8fb5d5a0` |
-| `lattice/su3.rs` | 460 | `WGSL_SU3` → `su3.wgsl` | **✅** | **Absorbed** — toadstool `8fb5d5a0` |
+| `lattice/complex_f64.rs` | 257 | `WGSL_COMPLEX64` → `shaders/complex_f64.wgsl` | **✅** | **Absorbed** — toadstool `8fb5d5a0`; extracted v0.6.3 |
+| `lattice/su3.rs` | 393 | `WGSL_SU3` → `shaders/su3_f64.wgsl` | **✅** | **Absorbed** — toadstool `8fb5d5a0`; extracted v0.6.3 |
 | `lattice/wilson.rs` | 338 | → `wilson_plaquette_f64.wgsl` | **✅** | **Absorbed** — GPU plaquette shader |
 | `lattice/hmc.rs` | 350 | → `su3_hmc_force_f64.wgsl` | **✅** | **Absorbed** — GPU HMC force shader |
 | `lattice/abelian_higgs.rs` | ~500 | → `higgs_u1_hmc_f64.wgsl` | **✅** | **Absorbed** — GPU U(1) Higgs HMC |
@@ -478,7 +495,7 @@ the original sign and adjoint were both wrong, causing 0% HMC acceptance.
 
 | Gap | Impact | Priority | Status |
 |-----|--------|----------|--------|
-| GPU energy integrands not wired in spherical HFB | CPU bottleneck in SCF energy | High | Shader exists, needs pipeline wiring |
+| ~~GPU energy integrands not wired in spherical HFB~~ | ~~CPU bottleneck in SCF energy~~ | ~~High~~ | ✅ Resolved v0.6.2: `batched_hfb_energy_f64.wgsl` wired behind `gpu_energy` feature flag |
 | ~~`SumReduceF64` not used for MD energy sums~~ | ~~CPU readback for reduction~~ | ~~High~~ | ✅ Resolved v0.5.12: `ReduceScalarPipeline` (GPU-buffer variant) |
 | ~~Lattice QCD GPU shaders~~ | ~~CPU-only lattice modules~~ | ~~Medium~~ | ✅ Absorbed by toadstool S25 (5 GPU shaders) |
 | ~~GPU SpMV (CSR)~~ | ~~CPU-only sparse matrix-vector product~~ | ~~**P1**~~ | ✅ **Done** — `WGSL_SPMV_CSR_F64` validated, `validate_gpu_spmv` binary (28th suite) |

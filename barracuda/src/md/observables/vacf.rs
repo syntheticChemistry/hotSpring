@@ -15,6 +15,7 @@ pub struct Vacf {
 }
 
 /// Compute VACF from velocity snapshots (CPU post-process)
+#[must_use]
 pub fn compute_vacf(vel_snapshots: &[Vec<f64>], n: usize, dt_dump: f64, max_lag: usize) -> Vacf {
     let n_frames = vel_snapshots.len();
     let n_lag = max_lag.min(n_frames);
@@ -32,9 +33,10 @@ pub fn compute_vacf(vel_snapshots: &[Vec<f64>], n: usize, dt_dump: f64, max_lag:
 
             let mut dot_sum = 0.0;
             for i in 0..n {
-                dot_sum += v0[i * 3] * v1[i * 3]
-                    + v0[i * 3 + 1] * v1[i * 3 + 1]
-                    + v0[i * 3 + 2] * v1[i * 3 + 2];
+                dot_sum += v0[i * 3 + 2].mul_add(
+                    v1[i * 3 + 2],
+                    v0[i * 3 + 1].mul_add(v1[i * 3 + 1], v0[i * 3] * v1[i * 3]),
+                );
             }
             c_values[lag] += dot_sum / n as f64;
             counts[lag] += 1;
@@ -64,7 +66,7 @@ pub fn compute_vacf(vel_snapshots: &[Vec<f64>], n: usize, dt_dump: f64, max_lag:
     let plateau_window = (20.0 / dt_dump).ceil() as usize; // ~20 ω_p^-1 patience
 
     for i in 1..n_lag {
-        integral += 0.5 * (c_values[i - 1] + c_values[i]) * dt_dump;
+        integral += (0.5 * dt_dump).mul_add(c_values[i - 1] + c_values[i], 0.0);
         let d_star_running = integral / 3.0;
 
         if d_star_running > d_star_max {
@@ -95,6 +97,7 @@ pub fn compute_vacf(vel_snapshots: &[Vec<f64>], n: usize, dt_dump: f64, max_lag:
 /// More robust than Green-Kubo VACF for short runs and strongly-coupled systems,
 /// because MSD is a cumulative quantity rather than an instantaneous correlation.
 /// Uses unwrapped positions (correcting for PBC jumps via velocity integration).
+#[must_use]
 pub fn compute_d_star_msd(
     pos_snapshots: &[Vec<f64>],
     n: usize,
@@ -148,7 +151,7 @@ pub fn compute_d_star_msd(
                 let dx = r1[i * 3] - r0[i * 3];
                 let dy = r1[i * 3 + 1] - r0[i * 3 + 1];
                 let dz = r1[i * 3 + 2] - r0[i * 3 + 2];
-                msd_sum += dx * dx + dy * dy + dz * dz;
+                msd_sum += dz.mul_add(dz, dy.mul_add(dy, dx * dx));
             }
             count += n;
         }
@@ -166,8 +169,8 @@ pub fn compute_d_star_msd(
     let mut den = 0.0;
     for i in 0..msd_vals.len() {
         let dt = time_vals[i] - t_mean;
-        num += dt * (msd_vals[i] - m_mean);
-        den += dt * dt;
+        num += dt.mul_add(msd_vals[i] - m_mean, 0.0);
+        den += dt.mul_add(dt, 0.0);
     }
     let slope = if den > DIVISION_GUARD { num / den } else { 0.0 };
     (slope / 6.0).max(0.0)

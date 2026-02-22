@@ -27,9 +27,9 @@
 //!
 //! # References
 //!
-//! - Creutz, "Quarks, Gluons and Lattices" (1983)
+//! - `Creutz`, "Quarks, Gluons and Lattices" (1983)
 //! - Gattringer & Lang, "Quantum Chromodynamics on the Lattice" (2010)
-//! - HotQCD Collaboration, Bazavov et al., PRD 90, 094503 (2014)
+//! - `HotQCD` Collaboration, Bazavov et al., PRD 90, 094503 (2014)
 
 pub mod abelian_higgs;
 pub mod cg;

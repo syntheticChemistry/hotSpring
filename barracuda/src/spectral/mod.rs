@@ -5,11 +5,11 @@
 //! Implements lattice Hamiltonians and spectral analysis tools for the
 //! Kachkovskiy extension (spectral theory / transport):
 //!
-//! - **CsrMatrix + SpMV**: sparse matrix-vector product (P1 GPU primitive)
+//! - **`CsrMatrix` + `SpMV`**: sparse matrix-vector product (P1 GPU primitive)
 //! - **Lanczos eigensolve**: Krylov tridiagonalization with full reorthogonalization
 //! - **Anderson model**: random potential in 1D, 2D, and 3D
 //!   - 1D/2D: all states localized (Abrahams et al. 1979)
-//!   - 3D: genuine metal-insulator transition with mobility edge (W_c ≈ 16.5)
+//!   - 3D: genuine metal-insulator transition with mobility edge (`W_c` ≈ 16.5)
 //! - **Almost-Mathieu operator**: quasiperiodic potential, Aubry-André transition
 //! - **Transfer matrix**: Lyapunov exponent computation
 //! - **Tridiagonal eigensolve**: Sturm bisection for all eigenvalues
@@ -18,10 +18,10 @@
 //! # Physics
 //!
 //! The 1D discrete Schrödinger equation on ℤ:
-//!   ψ_{n+1} + ψ_{n-1} + V_n ψ_n = E ψ_n
+//!   ψ_{n+1} + ψ_{n-1} + `V_n` `ψ_n` = E `ψ_n`
 //!
 //! is equivalent to the eigenvalue problem for the tridiagonal matrix
-//! H with diagonal V_i and off-diagonal −1. The spectral properties of H
+//! H with diagonal `V_i` and off-diagonal −1. The spectral properties of H
 //! (eigenvalues, eigenvectors, Lyapunov exponent) determine transport:
 //! extended states → metallic, localized states → insulating.
 //!

@@ -17,14 +17,14 @@
 //!
 //! Physics features (matching Python reference):
 //!   - Separate proton/neutron Hamiltonians and densities
-//!   - BCS pairing: constant gap Δ = 12/√A MeV (Ring & Schuck §6.2)
+//!   - BCS pairing: constant gap Δ = 12/√A `MeV` (Ring & Schuck §6.2)
 //!   - Coulomb: Poisson direct + Slater exchange (Slater, Phys. Rev. 81, 385)
 //!   - Isospin structure in Skyrme potential (t₀/x₀, t₃/x₃)
-//!   - Effective kinetic matrix T_eff (t₁/t₂ effective mass terms)
+//!   - Effective kinetic matrix `T_eff` (t₁/t₂ effective mass terms)
 //!   - Spin-orbit splitting (W₀ parameter)
-//!   - Center-of-mass correction: E_CM = -3/4 ℏω (Bohr & Mottelson §4-2)
+//!   - Center-of-mass correction: `E_CM` = -3/4 `ℏω` (Bohr & Mottelson §4-2)
 //!
-//! Uses (all BarraCUDA native — zero external dependencies):
+//! Uses (all `BarraCUDA` native — zero external dependencies):
 //!   - `barracuda::special::{gamma, laguerre}` for HO basis wavefunctions
 //!   - `barracuda::numerical::{trapz, gradient_1d}` for radial integrals & derivatives
 //!   - `barracuda::optimize::brent` for BCS chemical potential (matches scipy.optimize.brentq)
@@ -33,7 +33,7 @@
 //! # Module structure
 //!
 //! - `mod.rs` — types, basis construction, BCS, solver, energy functional
-//! - `potentials.rs` — Coulomb, Skyrme, T_eff, Hamiltonian matrix assembly
+//! - `potentials.rs` — Coulomb, Skyrme, `T_eff`, Hamiltonian matrix assembly
 
 mod potentials;
 #[cfg(test)]
@@ -95,46 +95,56 @@ pub struct HFBResult {
 // ═══════════════════════════════════════════════════════════════════
 
 impl SphericalHFB {
+    #[must_use]
     pub fn new(z: usize, n: usize, n_shells: usize, r_max: f64, n_grid: usize) -> Self {
         Self::build(z, n, n_shells, r_max, n_grid)
     }
 
     /// Adaptive parameters matching the Python reference solver defaults
+    #[must_use]
     pub fn new_adaptive(z: usize, n: usize) -> Self {
         let a = z + n;
         let a_f = a as f64;
-        let n_shells = (2.0 * a_f.powf(1.0 / 3.0)) as usize + 4;
+        let n_shells = (2.0 * a_f.cbrt()) as usize + 4;
         let n_shells = n_shells.clamp(8, 14);
-        let r_max = (1.2 * a_f.powf(1.0 / 3.0) + 8.0_f64).max(12.0);
+        let r_max = 1.2f64.mul_add(a_f.cbrt(), 8.0_f64).max(12.0);
         let n_grid = ((r_max * 12.0) as usize).max(120);
         Self::build(z, n, n_shells, r_max, n_grid)
     }
 
+    #[must_use]
     pub const fn n_states(&self) -> usize {
         self.n_states
     }
+    #[must_use]
     pub const fn nr(&self) -> usize {
         self.nr
     }
+    #[must_use]
     pub const fn z(&self) -> usize {
         self.z
     }
+    #[must_use]
     pub const fn n_neutrons(&self) -> usize {
         self.n_neutrons
     }
+    #[must_use]
     pub const fn dr(&self) -> f64 {
         self.dr
     }
+    #[must_use]
     pub const fn hw(&self) -> f64 {
         self.hw
     }
 
     /// Pairing gap (same for proton and neutron in this model)
+    #[must_use]
     pub const fn pairing_gap(&self) -> f64 {
         self.delta_p
     }
 
-    /// Flat wavefunctions: [n_states × nr] row-major
+    /// Flat wavefunctions: `[n_states × nr]` row-major
+    #[must_use]
     pub fn wf_flat(&self) -> Vec<f64> {
         let mut out = Vec::with_capacity(self.n_states * self.nr);
         for s in &self.wf {
@@ -143,7 +153,8 @@ impl SphericalHFB {
         out
     }
 
-    /// Flat wavefunction derivatives: [n_states × nr] row-major
+    /// Flat wavefunction derivatives: `[n_states × nr]` row-major
+    #[must_use]
     pub fn dwf_flat(&self) -> Vec<f64> {
         let mut out = Vec::with_capacity(self.n_states * self.nr);
         for s in &self.dwf {
@@ -153,11 +164,13 @@ impl SphericalHFB {
     }
 
     /// Radial grid points
+    #[must_use]
     pub fn r_grid(&self) -> &[f64] {
         &self.r
     }
 
-    /// lj_same matrix: [n_states × n_states] u32 (1 if same (l,j) block)
+    /// `lj_same` matrix: `[n_states × n_states]` u32 (1 if same (l,j) block)
+    #[must_use]
     pub fn lj_same_flat(&self) -> Vec<u32> {
         let ns = self.n_states;
         let mut out = vec![0u32; ns * ns];
@@ -172,6 +185,7 @@ impl SphericalHFB {
     }
 
     /// l(l+1) values per state
+    #[must_use]
     pub fn ll1_values(&self) -> Vec<f64> {
         self.states
             .iter()
@@ -180,16 +194,19 @@ impl SphericalHFB {
     }
 
     /// (l, j) quantum numbers per state — needed for spin-orbit coupling
+    #[must_use]
     pub fn lj_quantum_numbers(&self) -> Vec<(usize, f64)> {
         self.states.iter().map(|s| (s.l, s.j)).collect()
     }
 
     /// Per-state wavefunction access (for spin-orbit integrals)
+    #[must_use]
     pub fn wf_state(&self, i: usize) -> &[f64] {
         &self.wf[i]
     }
 
     /// Degeneracies (2j+1) per state
+    #[must_use]
     pub fn deg_values(&self) -> Vec<f64> {
         self.states.iter().map(|s| s.deg as f64).collect()
     }
@@ -208,7 +225,7 @@ impl SphericalHFB {
         let r: Vec<f64> = (1..=n_grid).map(|i| i as f64 * dr).collect();
         let delta = 12.0 / (a.max(4) as f64).sqrt();
 
-        let mut hfb = SphericalHFB {
+        let mut hfb = Self {
             z,
             n_neutrons: n,
             r,
@@ -229,6 +246,7 @@ impl SphericalHFB {
         hfb
     }
 
+    #[allow(clippy::cast_possible_truncation)] // lj_blocks key: j < 50, (j*1000) fits u64
     fn build_basis(&mut self, n_shells: usize) {
         for n_sh in 0..n_shells {
             for l in 0..=n_sh {
@@ -301,6 +319,7 @@ impl SphericalHFB {
     ///
     /// Returns a flat row-major `n_states × n_states` matrix suitable for
     /// packing into `BatchedEighGpu`.
+    #[must_use]
     pub fn build_hamiltonian(
         &self,
         rho_p: &[f64],
@@ -335,6 +354,7 @@ impl SphericalHFB {
     }
 
     /// Compute BCS occupations from externally-provided eigenvalues.
+    #[must_use]
     pub fn bcs_occupations_from_eigs(
         &self,
         eigenvalues: &[f64],
@@ -345,6 +365,7 @@ impl SphericalHFB {
     }
 
     /// Compute density from BCS-weighted eigenstates (GPU-unpacked format).
+    #[must_use]
     pub fn density_from_eigenstates(&self, eigvecs: &[f64], v2: &[f64], ns: usize) -> Vec<f64> {
         let nr = self.nr;
         let degs: Vec<f64> = self.states.iter().map(|s| s.deg as f64).collect();
@@ -374,6 +395,7 @@ impl SphericalHFB {
     }
 
     /// Compute total energy from proton/neutron densities and eigendecompositions.
+    #[must_use]
     pub fn compute_energy_from_densities(
         &self,
         rho_p: &[f64],
@@ -395,6 +417,7 @@ impl SphericalHFB {
     }
 
     /// Fast energy calculation that accepts pre-computed v2 occupations.
+    #[must_use]
     pub fn compute_energy_with_v2(
         &self,
         rho_p: &[f64],
@@ -439,7 +462,7 @@ impl SphericalHFB {
                 .zip(degs.iter())
                 .map(|(&ek_raw, &d)| {
                     let ek = ek_raw - lam;
-                    let big_ek = (ek * ek + delta * delta).sqrt();
+                    let big_ek = ek.hypot(delta);
                     let v2 = 0.5 * (1.0 - ek / big_ek);
                     d * v2
                 })
@@ -454,22 +477,23 @@ impl SphericalHFB {
             .fold(f64::NEG_INFINITY, f64::max)
             + FERMI_SEARCH_MARGIN;
 
-        let lam = match barracuda::optimize::brent(
+        let lam = barracuda::optimize::brent(
             particle_number,
             e_min,
             e_max,
             crate::tolerances::BRENT_TOLERANCE,
             100,
-        ) {
-            Ok(result) => result.root,
-            Err(_) => self.approx_fermi(eigenvalues, num_particles, &degs),
-        };
+        )
+        .map_or_else(
+            |_| self.approx_fermi(eigenvalues, num_particles, &degs),
+            |result| result.root,
+        );
 
         let v2: Vec<f64> = eigenvalues
             .iter()
             .map(|&eps| {
                 let ek = eps - lam;
-                let big_ek = (ek * ek + delta * delta).sqrt();
+                let big_ek = ek.hypot(delta);
                 0.5 * (1.0 - ek / big_ek)
             })
             .collect();
@@ -550,12 +574,12 @@ impl SphericalHFB {
 
         let rho_powf_guard = crate::tolerances::RHO_POWF_GUARD;
         let sum_rho2: Vec<f64> = (0..self.nr)
-            .map(|k| rho_p[k].powi(2) + rho_n[k].powi(2))
+            .map(|k| rho_p[k].mul_add(rho_p[k], rho_n[k].powi(2)))
             .collect();
 
         let integ_t0: Vec<f64> = (0..self.nr)
             .map(|k| {
-                ((1.0 + x0 / 2.0) * rho[k].powi(2) - (0.5 + x0) * sum_rho2[k])
+                (1.0 + x0 / 2.0).mul_add(rho[k].powi(2), -((0.5 + x0) * sum_rho2[k]))
                     * 4.0
                     * PI
                     * self.r[k].powi(2)
@@ -567,7 +591,7 @@ impl SphericalHFB {
             .map(|k| {
                 let rho_safe = rho[k].max(rho_powf_guard);
                 rho_safe.powf(alpha)
-                    * ((1.0 + x3 / 2.0) * rho[k].powi(2) - (0.5 + x3) * sum_rho2[k])
+                    * (1.0 + x3 / 2.0).mul_add(rho[k].powi(2), -((0.5 + x3) * sum_rho2[k]))
                     * 4.0
                     * PI
                     * self.r[k].powi(2)
@@ -755,8 +779,12 @@ impl SphericalHFB {
             }
 
             for k in 0..nr {
-                rho_p[k] = (alpha * rho_p_new[k] + (1.0 - alpha) * rho_p[k]).max(DENSITY_FLOOR);
-                rho_n[k] = (alpha * rho_n_new[k] + (1.0 - alpha) * rho_n[k]).max(DENSITY_FLOOR);
+                rho_p[k] = alpha
+                    .mul_add(rho_p_new[k], (1.0 - alpha) * rho_p[k])
+                    .max(DENSITY_FLOOR);
+                rho_n[k] = alpha
+                    .mul_add(rho_n_new[k], (1.0 - alpha) * rho_n[k])
+                    .max(DENSITY_FLOOR);
             }
 
             let e_total =
@@ -812,7 +840,13 @@ struct SpeciesResult {
 }
 
 impl SpeciesResult {
-    fn new(eigenvalues: Vec<f64>, eigvecs: Vec<f64>, n: usize, v2: Vec<f64>, lambda: f64) -> Self {
+    const fn new(
+        eigenvalues: Vec<f64>,
+        eigvecs: Vec<f64>,
+        n: usize,
+        v2: Vec<f64>,
+        lambda: f64,
+    ) -> Self {
         Self {
             _eigenvalues: eigenvalues,
             eigvecs,

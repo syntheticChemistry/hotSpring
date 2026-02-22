@@ -4,18 +4,19 @@
 //! with random potential, plus transfer-matrix Lyapunov exponent.
 //!
 //! 1D/2D: all states localized (Abrahams et al. 1979).
-//! 3D: genuine metal-insulator transition at W_c ≈ 16.5.
+//! 3D: genuine metal-insulator transition at `W_c` ≈ 16.5.
 
 use super::csr::CsrMatrix;
 
 /// Construct the 1D Anderson Hamiltonian on N sites with periodic boundary
-/// conditions: H = -Δ + V, where V_i ~ Uniform[-W/2, W/2].
+/// conditions: H = -Δ + V, where `V_i` ~ Uniform[-W/2, W/2].
 ///
-/// Returns (diagonal, off_diagonal) for the tridiagonal representation.
+/// Returns (diagonal, `off_diagonal`) for the tridiagonal representation.
 /// The hopping is t = 1, so the clean bandwidth is [-2, 2].
 ///
 /// # Provenance
 /// Anderson (1958), Phys. Rev. 109, 1492
+#[must_use]
 pub fn anderson_hamiltonian(n: usize, disorder: f64, seed: u64) -> (Vec<f64>, Vec<f64>) {
     let mut rng = LcgRng::new(seed);
 
@@ -27,25 +28,27 @@ pub fn anderson_hamiltonian(n: usize, disorder: f64, seed: u64) -> (Vec<f64>, Ve
 
 /// Generate the random potential for the Anderson model (for use with
 /// transfer matrix methods that need the raw potential, not the tridiag form).
+#[must_use]
 pub fn anderson_potential(n: usize, disorder: f64, seed: u64) -> Vec<f64> {
     let mut rng = LcgRng::new(seed);
     (0..n).map(|_| disorder * (rng.uniform() - 0.5)).collect()
 }
 
-/// Compute the Lyapunov exponent γ(E) via the transfer matrix method.
+/// Compute the Lyapunov exponent `γ`(E) via the transfer matrix method.
 ///
-/// For the 1D Schrödinger equation ψ_{n+1} + ψ_{n-1} + V_n ψ_n = E ψ_n,
+/// For the 1D Schrödinger equation ψ_{n+1} + ψ_{n-1} + `V_n` `ψ_n` = E `ψ_n`,
 /// the transfer matrix at site n is:
-///   T_n = [[E − V_n, −1], [1, 0]]
+///   `T_n` = [[E − `V_n`, −1], [1, 0]]
 ///
-/// The Lyapunov exponent γ = lim_{N→∞} (1/N) ln ‖T_N ⋯ T_1‖ measures
+/// The Lyapunov exponent `γ` = lim_{N→∞} (1/N) ln ‖`T_N` ⋯ `T_1`‖ measures
 /// the exponential growth rate. γ > 0 implies localization.
 ///
 /// Uses iterative renormalization to prevent overflow.
 ///
 /// # Known results
-/// - Anderson model, E=0, small W: γ(0) ≈ W²/96 (Kappus-Wegner 1981)
+/// - Anderson model, E=0, small W: `γ`(0) ≈ W²/96 (Kappus-Wegner 1981)
 /// - Almost-Mathieu, irrational α: γ(E) = max(0, ln|λ|) a.e. (Herman 1983, Avila 2015)
+#[must_use]
 pub fn lyapunov_exponent(potential: &[f64], energy: f64) -> f64 {
     let n = potential.len();
     if n == 0 {
@@ -57,7 +60,7 @@ pub fn lyapunov_exponent(potential: &[f64], energy: f64) -> f64 {
     let mut log_growth = 0.0f64;
 
     for &v_i in potential {
-        let v_next = (energy - v_i) * v_curr - v_prev;
+        let v_next = (energy - v_i).mul_add(v_curr, -v_prev);
         v_prev = v_curr;
         v_curr = v_next;
 
@@ -73,6 +76,7 @@ pub fn lyapunov_exponent(potential: &[f64], energy: f64) -> f64 {
 }
 
 /// Compute Lyapunov exponent averaged over multiple disorder realizations.
+#[must_use]
 pub fn lyapunov_averaged(
     n_sites: usize,
     disorder: f64,
@@ -91,18 +95,19 @@ pub fn lyapunov_averaged(
 /// Construct the 2D Anderson Hamiltonian on an Lx × Ly square lattice
 /// with open boundary conditions.
 ///
-/// H = -Δ₂D + V, where Δ₂D is the 2D discrete Laplacian (4 nearest
-/// neighbors) and V_i ~ Uniform[-W/2, W/2].
+/// H = -`Δ₂D` + V, where `Δ₂D` is the 2D discrete Laplacian (4 nearest
+/// neighbors) and `V_i` ~ Uniform[-W/2, W/2].
 ///
 /// The clean bandwidth is [-4, 4] (hopping t=1, coordination number z=4).
 /// With disorder W, spectrum lies in [-4-W/2, 4+W/2].
 ///
-/// Returns a CsrMatrix of dimension N = Lx × Ly.
+/// Returns a `CsrMatrix` of dimension N = Lx × Ly.
 ///
 /// # Provenance
 /// Abrahams, Anderson, Licciardello, Ramakrishnan (1979) "Scaling Theory
 /// of Localization in an Open and Topologically Disordered System"
 /// Phys. Rev. Lett. 42, 673
+#[must_use]
 pub fn anderson_2d(lx: usize, ly: usize, disorder: f64, seed: u64) -> CsrMatrix {
     let n = lx * ly;
     let mut rng = LcgRng::new(seed);
@@ -160,6 +165,7 @@ pub fn anderson_2d(lx: usize, ly: usize, disorder: f64, seed: u64) -> CsrMatrix 
 }
 
 /// Construct the clean 2D tight-binding Hamiltonian (no disorder).
+#[must_use]
 pub fn clean_2d_lattice(lx: usize, ly: usize) -> CsrMatrix {
     anderson_2d(lx, ly, 0.0, 0)
 }
@@ -168,26 +174,27 @@ pub fn clean_2d_lattice(lx: usize, ly: usize) -> CsrMatrix {
 /// with open boundary conditions.
 ///
 /// H = -Δ₃D + V, where Δ₃D is the 3D discrete Laplacian (6 nearest
-/// neighbors) and V_i ~ Uniform[-W/2, W/2].
+/// neighbors) and `V_i` ~ Uniform[-W/2, W/2].
 ///
 /// The clean bandwidth is [-6, 6] (hopping t=1, coordination number z=6).
 /// With disorder W, spectrum lies in [-6-W/2, 6+W/2].
 ///
 /// In 3D, a genuine **Anderson metal-insulator transition** exists at
-/// critical disorder W_c ≈ 16.5 (band center, orthogonal class):
-/// - W < W_c: extended states near band center, localized at band edges
+/// critical disorder `W_c` ≈ 16.5 (band center, orthogonal class):
+/// - W < `W_c`: extended states near band center, localized at band edges
 ///   → **mobility edge** separates extended from localized states
-/// - W > W_c: all states localized
+/// - W > `W_c`: all states localized
 ///
 /// This is qualitatively different from 1D/2D where all states are
 /// localized for any nonzero disorder.
 ///
-/// Returns a CsrMatrix of dimension N = Lx × Ly × Lz.
+/// Returns a `CsrMatrix` of dimension N = Lx × Ly × Lz.
 ///
 /// # Provenance
 /// Anderson (1958) Phys. Rev. 109, 1492
 /// Abrahams, Anderson, Licciardello, Ramakrishnan (1979) Phys. Rev. Lett. 42, 673
-/// Slevin & Ohtsuki (1999) Phys. Rev. Lett. 82, 382 [W_c ≈ 16.5]
+/// Slevin & Ohtsuki (1999) Phys. Rev. Lett. 82, 382 [`W_c` ≈ 16.5]
+#[must_use]
 pub fn anderson_3d(lx: usize, ly: usize, lz: usize, disorder: f64, seed: u64) -> CsrMatrix {
     let n = lx * ly * lz;
     let mut rng = LcgRng::new(seed);
@@ -246,6 +253,7 @@ pub fn anderson_3d(lx: usize, ly: usize, lz: usize, disorder: f64, seed: u64) ->
 }
 
 /// Construct the clean 3D tight-binding Hamiltonian (no disorder).
+#[must_use]
 pub fn clean_3d_lattice(l: usize) -> CsrMatrix {
     anderson_3d(l, l, l, 0.0, 0)
 }
@@ -255,14 +263,14 @@ pub fn clean_3d_lattice(l: usize) -> CsrMatrix {
 // ═══════════════════════════════════════════════════════════════════
 
 /// LCG RNG for reproducible disorder; used by Anderson models and Lanczos.
-pub(crate) struct LcgRng(u64);
+pub struct LcgRng(u64);
 
 impl LcgRng {
     pub(crate) const fn new(seed: u64) -> Self {
         Self(seed.wrapping_add(1))
     }
 
-    fn next_u64(&mut self) -> u64 {
+    const fn next_u64(&mut self) -> u64 {
         self.0 = self
             .0
             .wrapping_mul(6_364_136_223_846_793_005)

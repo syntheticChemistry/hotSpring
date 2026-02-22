@@ -12,9 +12,9 @@ use super::tridiag::find_all_eigenvalues;
 /// Result of the Lanczos algorithm: a tridiagonal representation of the
 /// original matrix restricted to the Krylov subspace.
 pub struct LanczosTridiag {
-    /// Diagonal elements α_j = ⟨v_j, A v_j⟩
+    /// Diagonal elements `α_j` = ⟨`v_j`, A `v_j`⟩
     pub alpha: Vec<f64>,
-    /// Off-diagonal elements β_j = ‖w_j‖
+    /// Off-diagonal elements `β_j` = ‖`w_j`‖
     pub beta: Vec<f64>,
     /// Number of Lanczos iterations performed.
     pub iterations: usize,
@@ -36,6 +36,7 @@ pub struct LanczosTridiag {
 ///
 /// # Provenance
 /// Lanczos (1950), J. Res. Nat. Bur. Standards 45, 255
+#[must_use]
 pub fn lanczos(matrix: &CsrMatrix, max_iter: usize, seed: u64) -> LanczosTridiag {
     let n = matrix.n;
     let m = max_iter.min(n);
@@ -116,6 +117,7 @@ pub fn lanczos(matrix: &CsrMatrix, max_iter: usize, seed: u64) -> LanczosTridiag
 }
 
 /// Extract eigenvalues from a Lanczos tridiagonal via Sturm bisection.
+#[must_use]
 pub fn lanczos_eigenvalues(result: &LanczosTridiag) -> Vec<f64> {
     let m = result.iterations;
     if m == 0 {

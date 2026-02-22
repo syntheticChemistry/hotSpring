@@ -4,7 +4,7 @@
 //!
 //! Computes RDF, VACF, SSF, and energy metrics from simulation snapshots.
 //! CPU path computes from GPU-generated snapshots.
-//! GPU path uses toadstool's SsfGpu for O(N) GPU-accelerated S(k).
+//! GPU path uses toadstool's `SsfGpu` for O(N) GPU-accelerated S(k).
 
 pub mod energy;
 pub mod rdf;

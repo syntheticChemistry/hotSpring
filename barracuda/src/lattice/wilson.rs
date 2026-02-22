@@ -5,11 +5,11 @@
 //! The fundamental building block is the plaquette — the smallest closed loop
 //! of link variables on the lattice:
 //!
-//!   P_μν(x) = U_μ(x) U_ν(x+μ) U_μ†(x+ν) U_ν†(x)
+//!   `P_μν`(x) = `U_μ`(x) `U_ν`(x+μ) `U_μ`†(x+ν) `U_ν`†(x)
 //!
 //! The Wilson action is:
 //!
-//!   S = β × Σ_{x,μ<ν} (1 - Re Tr P_μν(x) / 3)
+//!   S = β × Σ\_{x,μ<ν} (1 - Re Tr `P_μν`(x) / 3)
 //!
 //! where β = 6/g² is the inverse bare coupling.
 //!
@@ -35,16 +35,19 @@ pub struct Lattice {
 
 impl Lattice {
     /// Total number of lattice sites.
+    #[must_use]
     pub const fn volume(&self) -> usize {
         self.dims[0] * self.dims[1] * self.dims[2] * self.dims[3]
     }
 
     /// Convert 4D coordinates to linear site index.
+    #[must_use]
     pub const fn site_index(&self, x: [usize; 4]) -> usize {
         x[0] + self.dims[0] * (x[1] + self.dims[1] * (x[2] + self.dims[2] * x[3]))
     }
 
     /// Convert linear site index to 4D coordinates.
+    #[must_use]
     pub const fn site_coords(&self, idx: usize) -> [usize; 4] {
         let x0 = idx % self.dims[0];
         let rem = idx / self.dims[0];
@@ -56,6 +59,7 @@ impl Lattice {
     }
 
     /// Neighbor in direction mu with periodic boundary conditions.
+    #[must_use]
     pub const fn neighbor(&self, x: [usize; 4], mu: usize, forward: bool) -> [usize; 4] {
         let mut y = x;
         if forward {
@@ -66,19 +70,20 @@ impl Lattice {
         y
     }
 
-    /// Get link U_mu(x).
+    /// Get link `U_mu`(x).
     pub fn link(&self, x: [usize; 4], mu: usize) -> Su3Matrix {
         let idx = self.site_index(x);
         self.links[idx * 4 + mu]
     }
 
-    /// Set link U_mu(x).
+    /// Set link `U_mu`(x).
     pub fn set_link(&mut self, x: [usize; 4], mu: usize, u: Su3Matrix) {
         let idx = self.site_index(x);
         self.links[idx * 4 + mu] = u;
     }
 
     /// Initialize to cold start: all links = identity (ordered configuration).
+    #[must_use]
     pub fn cold_start(dims: [usize; 4], beta: f64) -> Self {
         let vol = dims[0] * dims[1] * dims[2] * dims[3];
         Self {
@@ -89,6 +94,7 @@ impl Lattice {
     }
 
     /// Initialize to hot start: random SU(3) links (disordered configuration).
+    #[must_use]
     pub fn hot_start(dims: [usize; 4], beta: f64, seed: u64) -> Self {
         let vol = dims[0] * dims[1] * dims[2] * dims[3];
         let mut rng_seed = seed;
@@ -98,7 +104,7 @@ impl Lattice {
         Self { dims, links, beta }
     }
 
-    /// Compute plaquette P_μν(x) = U_μ(x) U_ν(x+μ) U_μ†(x+ν) U_ν†(x).
+    /// Compute plaquette `P_μν`(x) = `U_μ`(x) `U_ν`(x+μ) `U_μ`†(x+ν) `U_ν`†(x).
     pub fn plaquette(&self, x: [usize; 4], mu: usize, nu: usize) -> Su3Matrix {
         let x_mu = self.neighbor(x, mu, true);
         let x_nu = self.neighbor(x, nu, true);
@@ -116,6 +122,7 @@ impl Lattice {
     /// For a cold (ordered) start, this is 1.0.
     /// For a hot (disordered) start, this is near 0.
     /// At equilibrium with coupling β, this follows the strong-coupling expansion.
+    #[must_use]
     pub fn average_plaquette(&self) -> f64 {
         let vol = self.volume();
         let mut sum = 0.0;
@@ -135,15 +142,15 @@ impl Lattice {
         sum / count as f64
     }
 
-    /// Compute the staple sum for link U_μ(x).
+    /// Compute the staple sum for link `U_μ`(x).
     ///
     /// The staple is the sum of the 6 "horseshoe" paths that complete
-    /// a plaquette with U_μ(x). The force on U_μ(x) is proportional to
+    /// a plaquette with `U_μ`(x). The force on `U_μ`(x) is proportional to
     /// the staple sum.
     ///
     /// For each ν ≠ μ:
-    ///   upper staple: U_ν(x+μ) U_μ†(x+ν) U_ν†(x)
-    ///   lower staple: U_ν†(x+μ-ν) U_μ†(x-ν) U_ν(x-ν)
+    ///   upper staple: `U_ν`(x+μ) `U_μ`†(x+ν) `U_ν`†(x)
+    ///   lower staple: `U_ν`†(x+μ-ν) `U_μ`†(x-ν) `U_ν`(x-ν)
     pub fn staple(&self, x: [usize; 4], mu: usize) -> Su3Matrix {
         let mut s = Su3Matrix::ZERO;
         let x_mu = self.neighbor(x, mu, true);
@@ -172,6 +179,7 @@ impl Lattice {
     }
 
     /// Wilson gauge action: S = β × Σ_{x,μ<ν} (1 - Re Tr P / 3)
+    #[must_use]
     pub fn wilson_action(&self) -> f64 {
         let vol = self.volume();
         let mut sum = 0.0;
@@ -189,9 +197,9 @@ impl Lattice {
         self.beta * sum
     }
 
-    /// Gauge force dP/dt = -(β/3) × Proj_TA(U × V)
+    /// Gauge force dP/dt = -(β/3) × `Proj_TA`(U × V)
     ///
-    /// where V is the staple sum and Proj_TA is the traceless anti-Hermitian
+    /// where V is the staple sum and `Proj_TA` is the traceless anti-Hermitian
     /// projection. Derived from H = S(U) + T(P) with the metric
     /// g(X,Y) = -Tr(XY) on su(3).
     pub fn gauge_force(&self, x: [usize; 4], mu: usize) -> Su3Matrix {
@@ -213,7 +221,7 @@ impl Lattice {
 
     /// Polyakov loop: product of temporal links at a fixed spatial position.
     ///
-    /// L(x_s) = Tr( Π_{t=0}^{N_t-1} U_0(t, x_s) )
+    /// `L`(x\_s) = Tr( Π\_{t=0}^{N\_t-1} `U_0`(t, x\_s) )
     ///
     /// The Polyakov loop is an order parameter for the deconfinement transition.
     /// <|L|> ≈ 0 in the confined phase, <|L|> > 0 in the deconfined phase.
@@ -227,7 +235,8 @@ impl Lattice {
         prod.trace().scale(1.0 / 3.0)
     }
 
-    /// Average Polyakov loop magnitude: spatial average of |L(x_s)|.
+    /// Average Polyakov loop magnitude: spatial average of |`L`(x\_s)|.
+    #[must_use]
     pub fn average_polyakov_loop(&self) -> f64 {
         let ns = [self.dims[0], self.dims[1], self.dims[2]];
         let spatial_vol = ns[0] * ns[1] * ns[2];

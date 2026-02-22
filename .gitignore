@@ -74,6 +74,10 @@ metalForge/benchmarks/
 # ----- Benchmark results (generated) -----
 benchmarks/*/results/
 
+# ----- Environment / secrets -----
+.env
+.env.*
+
 # ----- OS artifacts -----
 .DS_Store
 Thumbs.db

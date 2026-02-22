@@ -46,7 +46,7 @@ substrate ecoPrimals touches.
 ```
 metalForge/
 ├── README.md                  ← this file
-├── forge/                     ← Rust crate: substrate discovery + dispatch (16 tests)
+├── forge/                     ← Rust crate: substrate discovery + dispatch (19 tests, v0.2.0)
 │   ├── Cargo.toml             ← deps: barracuda (toadstool), wgpu 22, tokio
 │   ├── src/
 │   │   ├── lib.rs             ← crate root — biome-native discovery architecture
@@ -153,7 +153,7 @@ each other.
 
 ```bash
 cd metalForge/forge
-cargo test                    # 16 tests — GPU via wgpu, CPU via procfs, NPU via /dev, bridge
+cargo test                    # 19 tests — GPU via wgpu, CPU via procfs, NPU via /dev, bridge, profiles
 cargo clippy --all-targets    # Zero warnings (deny expect_used/unwrap_used)
 cargo run --example inventory # discovers THIS machine's hardware
 ```
@@ -165,10 +165,10 @@ cargo run --example inventory # discovers THIS machine's hardware
 | `substrate.rs` | Capability model — substrates have identities, properties, and capabilities |
 | `probe.rs` | GPU via wgpu adapter enumeration (barracuda's path), CPU via `/proc/cpuinfo`, NPU via `/dev/akida0` |
 | `inventory.rs` | Assembles all probes into a unified inventory |
-| `dispatch.rs` | Routes workloads to the best capable substrate (GPU > NPU > CPU) |
+| `dispatch.rs` | Routes workloads to the best capable substrate (GPU > NPU > CPU) + physics profiles |
 | `bridge.rs` | **Forge↔barracuda bridge** — create `WgpuDevice` from substrates, wrap existing devices as substrates |
 
-### Absorption-Ready Bridge (v0.6.1)
+### Absorption-Ready Bridge (v0.2.0)
 
 The `bridge` module connects forge substrates to barracuda's device layer:
 
@@ -190,7 +190,7 @@ merging the `Capability` enum, CPU/NPU probing, and capability-based `route()`.
 | `substrate::Substrate` | `device::substrate::Substrate` | Forge adds CPU+NPU; toadstool is GPU-only |
 | `probe::probe_gpus()` | `substrate::Substrate::discover_all()` | Equivalent; forge adds capability mapping |
 | `probe::probe_cpu()` | (missing) | Toadstool has no CPU substrate discovery |
-| `probe::probe_npus()` | `device::akida::detect_akida_boards()` | Toadstool PCIe scan is richer; forge `/dev` check is simpler |
+| `probe::probe_npus()` | `device::akida::detect_akida_boards()` | Forge now scans PCIe sysfs for vendor ID + reports SRAM |
 | `dispatch::route()` | `toadstool_integration::select_best_device()` | Forge uses capability sets; toadstool uses `HardwareWorkload` enum |
 | `bridge::create_device()` | `WgpuDevice::from_adapter_index()` | Direct mapping — bridge delegates to barracuda |
 

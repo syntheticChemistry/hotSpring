@@ -15,7 +15,7 @@ use barracuda::special::{gamma, laguerre};
 use std::f64::consts::PI;
 
 impl DeformedHFB {
-    /// Build deformed HO basis: enumerate (n_z, n_perp, Lambda, sigma)
+    /// Build deformed HO basis: enumerate (`n_z`, `n_perp`, `Lambda`, `sigma`)
     pub(super) fn build_deformed_basis(&mut self, n_shells: usize) {
         self.states.clear();
         self.omega_blocks.clear();
@@ -63,7 +63,7 @@ impl DeformedHFB {
     }
 
     /// Evaluate deformed HO wavefunction on the cylindrical grid.
-    /// psi(rho, z) = phi_nz(z/b_z) * phi_{n_perp,|Lambda|}(rho/b_perp)
+    /// ψ(ρ, z) = `phi_nz`(z/`b_z`) × `phi_{n_perp,|Lambda|}`(ρ/`b_perp`)
     pub(super) fn evaluate_wavefunction(&self, state: &DeformedState) -> Vec<f64> {
         let mut psi = vec![0.0; self.grid.total()];
 
@@ -87,7 +87,7 @@ impl DeformedHFB {
         psi
     }
 
-    /// 1D harmonic oscillator along z: H_n(z/b) * exp(-z²/2b²) * normalization
+    /// 1D harmonic oscillator along z: `H_n`(z/b) × exp(-z²/2b²) × normalization
     pub(super) fn hermite_oscillator(n: usize, z: f64, b: f64) -> f64 {
         let xi = z / b;
         let h_n = hermite_value(n, xi);
@@ -97,8 +97,8 @@ impl DeformedHFB {
 
     /// 2D oscillator radial part: Laguerre basis.
     ///
-    /// R_{n_perp, |Lambda|}(rho) includes 1/sqrt(pi) azimuthal normalization
-    /// so that integral |R|² * 2*pi*rho * d_rho = 1.
+    /// `R_{n_perp, |Lambda|}`(ρ) includes 1/sqrt(π) azimuthal normalization
+    /// so that integral |R|² * 2*pi*rho * `d_rho` = 1.
     pub(super) fn laguerre_oscillator(n_perp: usize, abs_lambda: usize, rho: f64, b: f64) -> f64 {
         let eta = (rho / b).powi(2);
         let alpha = abs_lambda as f64;
@@ -137,9 +137,13 @@ impl DeformedHFB {
                 for (bj, &j) in block_indices.iter().enumerate().skip(bi) {
                     let t_ij = if i == j {
                         let s = &self.states[i];
-                        self.hw_z * (s.n_z as f64 + 0.5)
-                            + self.hw_perp
-                                * (2.0 * s.n_perp as f64 + f64::from(s.lambda.unsigned_abs()) + 1.0)
+                        self.hw_z.mul_add(
+                            s.n_z as f64 + 0.5,
+                            self.hw_perp
+                                * (2.0f64
+                                    .mul_add(s.n_perp as f64, f64::from(s.lambda.unsigned_abs()))
+                                    + 1.0),
+                        )
                     } else {
                         0.0
                     };
@@ -175,7 +179,7 @@ impl DeformedHFB {
             let fermi = Self::find_fermi_bcs(&block_eigs, n_particles, delta_pair);
             for (state_idx, eval) in &block_eigs {
                 let eps = eval - fermi;
-                let e_qp = (eps * eps + delta_pair * delta_pair).sqrt();
+                let e_qp = eps.hypot(delta_pair);
                 let v2 = 0.5 * (1.0 - eps / e_qp);
                 all_occupations[*state_idx] = v2.clamp(0.0, 1.0);
             }
@@ -212,7 +216,7 @@ impl DeformedHFB {
             let mut n = 0.0;
             for &(_, eval) in sorted_eigs {
                 let eps = eval - mu;
-                let e_qp = (eps * eps + delta_pair * delta_pair).sqrt();
+                let e_qp = eps.hypot(delta_pair);
                 let v2 = 0.5 * (1.0 - eps / e_qp);
                 n += 2.0 * v2;
             }

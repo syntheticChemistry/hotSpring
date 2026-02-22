@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #![allow(clippy::expect_used)]
+#![allow(clippy::unwrap_used)]
 
 use super::*;
 use barracuda::numerical::trapz;
@@ -302,4 +303,142 @@ fn wf_flat_and_dwf_flat_dimensions() {
     let nr = hfb.nr();
     assert_eq!(hfb.wf_flat().len(), ns * nr);
     assert_eq!(hfb.dwf_flat().len(), ns * nr);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// BCS and density helper tests (coverage for uncovered branches)
+// ═══════════════════════════════════════════════════════════════════
+
+#[test]
+fn bcs_occupations_zero_particles() {
+    let hfb = SphericalHFB::new(8, 8, 4, 10.0, 50);
+    let ns = hfb.n_states();
+    let eigs: Vec<f64> = (0..ns).map(|i| -20.0 + 5.0 * i as f64).collect();
+    let delta = 12.0 / 16.0_f64.sqrt();
+
+    let (v2, lambda) = hfb.bcs_occupations(&eigs, 0, delta);
+    assert_eq!(v2.len(), ns);
+    #[allow(clippy::float_cmp)]
+    {
+        assert!(v2.iter().all(|&x| x == 0.0));
+        assert_eq!(lambda, 0.0);
+    }
+}
+
+#[test]
+fn bcs_occupations_sharp_filling_small_delta() {
+    let hfb = SphericalHFB::new(8, 8, 4, 10.0, 50);
+    let ns = hfb.n_states();
+    let eigs: Vec<f64> = (0..ns).map(|i| -20.0 + 5.0 * i as f64).collect();
+    let delta = 0.005; // Below SHARP_FILLING_THRESHOLD (0.01)
+
+    let (v2, lambda) = hfb.bcs_occupations(&eigs, 8, delta);
+    let degs = hfb.deg_values();
+    let n_total: f64 = degs.iter().zip(v2.iter()).map(|(d, v)| d * v).sum();
+    assert!(
+        (n_total - 8.0).abs() < 1.0,
+        "sharp filling: particle number = {n_total}, expected ~8"
+    );
+    assert!(lambda.is_finite());
+}
+
+#[test]
+fn bcs_occupations_from_eigs_public_api() {
+    let hfb = SphericalHFB::new(8, 8, 4, 10.0, 50);
+    let ns = hfb.n_states();
+    let eigs: Vec<f64> = (0..ns).map(|i| -20.0 + 5.0 * i as f64).collect();
+    let delta = 12.0 / 16.0_f64.sqrt();
+
+    let (v2, _lam) = hfb.bcs_occupations_from_eigs(&eigs, 8, delta);
+    let degs = hfb.deg_values();
+    let n_total: f64 = degs.iter().zip(v2.iter()).map(|(d, v)| d * v).sum();
+    assert!((n_total - 8.0).abs() < 1.0);
+}
+
+#[test]
+fn density_from_eigenstates_skips_small_v2() {
+    use crate::tolerances::BCS_DENSITY_SKIP;
+    let hfb = SphericalHFB::new(8, 8, 4, 10.0, 50);
+    let ns = hfb.n_states();
+    let mut eigvecs = vec![0.0; ns * ns];
+    eigvecs[0] = 1.0;
+    let mut v2 = vec![0.0; ns];
+    v2[0] = BCS_DENSITY_SKIP / 2.0 / hfb.deg_values()[0]; // d*v2 < BCS_DENSITY_SKIP
+    let rho = hfb.density_from_eigenstates(&eigvecs, &v2, ns);
+    assert_eq!(rho.len(), 50);
+    assert!(rho.iter().all(|&x| x >= crate::tolerances::DENSITY_FLOOR));
+}
+
+#[test]
+fn sharp_filling_partial_occupation() {
+    let hfb = SphericalHFB::new(8, 8, 4, 10.0, 50);
+    let ns = hfb.n_states();
+    let eigs: Vec<f64> = (0..ns).map(|i| -20.0 + 5.0 * i as f64).collect();
+    let delta = 0.005;
+    let (v2, _) = hfb.bcs_occupations(&eigs, 3, delta);
+    assert!(v2.iter().any(|&x| x > 0.0));
+    assert!(v2.iter().any(|&x| x < 1.0));
+}
+
+#[test]
+#[allow(clippy::float_cmp)]
+fn ll1_values_match_l_quantum_numbers() {
+    let hfb = SphericalHFB::new(8, 8, 4, 10.0, 50);
+    let ll1 = hfb.ll1_values();
+    let lj = hfb.lj_quantum_numbers();
+    assert_eq!(ll1.len(), lj.len());
+    for (i, &(l, _)) in lj.iter().enumerate() {
+        assert_eq!(ll1[i], (l * (l + 1)) as f64);
+    }
+}
+
+#[test]
+fn accessors_z_n_nr_dr() {
+    let hfb = SphericalHFB::new(28, 30, 6, 12.0, 60);
+    assert_eq!(hfb.z(), 28);
+    assert_eq!(hfb.n_neutrons(), 30);
+    assert_eq!(hfb.nr(), 60);
+    assert!((hfb.dr() - 0.2).abs() < 1e-10);
+}
+
+#[test]
+fn compute_energy_verbose_no_panic() {
+    let hfb = SphericalHFB::new(8, 8, 4, 10.0, 50);
+    let ns = hfb.n_states();
+    let nr = hfb.nr();
+    let rho = vec![0.01; nr];
+    let mut evecs = vec![0.0; ns * ns];
+    for i in 0..ns {
+        evecs[i * ns + i] = 1.0;
+    }
+    let evals: Vec<f64> = (0..ns).map(|i| -20.0 + i as f64 * 2.0).collect();
+    let v2 = vec![0.5; ns];
+    let params = sly4_params();
+    let results_p = super::SpeciesResult::new(evals.clone(), evecs.clone(), ns, v2.clone(), 0.0);
+    let results_n = super::SpeciesResult::new(evals, evecs, ns, v2, 0.0);
+    let e = hfb.compute_energy(&rho, &rho, &results_p, &results_n, &params, true);
+    assert!(e.is_finite());
+}
+
+#[test]
+fn binding_energy_l2_semf_path_light_nucleus() {
+    let params = sly4_params();
+    let (b_light, conv) = binding_energy_l2(4, 4, &params).expect("SEMF");
+    assert!(conv);
+    assert!(b_light > 0.0 && b_light < 150.0);
+}
+
+#[test]
+fn binding_energy_l2_hfb_path_medium_nucleus() {
+    let params = sly4_params();
+    let (b, conv) = binding_energy_l2(28, 28, &params).expect("HFB");
+    assert!(b > 400.0);
+    let _ = conv;
+}
+
+#[test]
+fn new_adaptive_clamps_n_shells() {
+    let hfb = SphericalHFB::new_adaptive(200, 200);
+    assert!(hfb.n_states() > 0);
+    assert!(hfb.nr() >= 120);
 }

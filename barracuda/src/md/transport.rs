@@ -9,7 +9,7 @@
 //! The model interpolates between weak-coupling (Landau-Spitzer) and
 //! strong-coupling (Einstein) limits with a smooth crossover function.
 //!
-//! All quantities in reduced units: D* = D / (a_ws^2 * omega_p)
+//! All quantities in reduced units: `D*` = D / (`a_ws`^2 × `omega_p`)
 
 use std::f64::consts::PI;
 
@@ -22,35 +22,37 @@ fn coulomb_log(gamma: f64, kappa: f64) -> f64 {
     if gamma_eff < 0.1 {
         (1.0 / gamma_eff).ln().max(1.0)
     } else {
-        (1.0 + 1.0 / gamma_eff).ln().max(0.1)
+        (1.0 / gamma_eff).ln_1p().max(0.1)
     }
 }
 
 /// Kappa-dependent weak-coupling correction factor.
 ///
-/// C_w(κ) = exp(1.435 + 0.715κ + 0.401κ²)
+/// `C_w`(κ) = exp(1.435 + 0.715κ + 0.401κ²)
 ///
-/// At κ=0 this recovers C_w ≈ 4.20 (OCP reduced-unit normalization).
+/// At κ=0 this recovers `C_w` ≈ 4.20 (OCP reduced-unit normalization).
 /// At higher κ, Yukawa screening suppresses the effective Coulomb
 /// logarithm faster than the classical formula captures, requiring an
 /// exponentially growing correction. Fitted from Sarkas VACF data at
-/// 4 crossover-regime points (Γ ≈ Γ_x) where the weak-coupling term
+/// 4 crossover-regime points (Γ ≈ `Γ_x`) where the weak-coupling term
 /// dominates: (κ=0,Γ=10), (κ=1,Γ=14), (κ=2,Γ=31), (κ=3,Γ=100).
 ///
-/// Calibration source: calibrate_daligault_fit.py → weak-coupling
+/// Calibration source: `calibrate_daligault_fit.py` → weak-coupling
 /// correction analysis (Feb 2026).
 fn c_weak(kappa: f64) -> f64 {
-    (1.435 + 0.715 * kappa + 0.401 * kappa * kappa).exp()
+    0.401_f64
+        .mul_add(kappa * kappa, 0.715_f64.mul_add(kappa, 1.435))
+        .exp()
 }
 
 /// Weak-coupling (Landau-Spitzer) self-diffusion in reduced units.
 ///
-/// D*_w = C_w(κ) × (3 sqrt(π) / 4) / (Γ^(5/2) × ln(Λ))
+/// `D*_w` = `C_w`(κ) × (3 sqrt(π) / 4) / (Γ^(5/2) × ln(Λ))
 ///
-/// The κ-dependent prefactor C_w(κ) accounts for reduced-unit
+/// The κ-dependent prefactor `C_w`(κ) accounts for reduced-unit
 /// normalization and Yukawa screening effects on the Coulomb logarithm.
 /// Calibrated against Sarkas DSF study Green-Kubo D at 12 (Γ,κ) points
-/// (Feb 2026). Replaces constant C_w=5.3 (v0.5.13) which gave 44-63%
+/// (Feb 2026). Replaces constant `C_w`=5.3 (v0.5.13) which gave 44-63%
 /// errors in the crossover regime.
 fn d_star_weak(gamma: f64, kappa: f64) -> f64 {
     let cl = coulomb_log(gamma, kappa);
@@ -66,16 +68,16 @@ fn d_star_weak(gamma: f64, kappa: f64) -> f64 {
 /// Table I coefficients gave D* ~70× too small due to reduced-unit
 /// normalization mismatch.
 fn d_star_strong(gamma: f64, kappa: f64) -> f64 {
-    let a = 0.808 + 0.423 * kappa - 0.152 * kappa * kappa;
-    let alpha = 1.049 + 0.044 * kappa - 0.039 * kappa * kappa;
+    let a = (-0.152_f64).mul_add(kappa * kappa, 0.423_f64.mul_add(kappa, 0.808));
+    let alpha = (-0.039_f64).mul_add(kappa * kappa, 0.044_f64.mul_add(kappa, 1.049));
     a * gamma.powf(-alpha)
 }
 
 /// Crossover function between weak and strong coupling.
 ///
-/// f(Gamma) = 1 / (1 + (Gamma / Gamma_x)^p)
+/// f(Gamma) = 1 / (1 + (Gamma / `Gamma_x`)^p)
 ///
-/// where Gamma_x(kappa) is the crossover coupling parameter.
+/// where `Gamma_x`(kappa) is the crossover coupling parameter.
 fn crossover(gamma: f64, kappa: f64) -> f64 {
     let gamma_x = 10.0 * (0.5 * kappa).exp();
     let p = 2.0;
@@ -87,16 +89,17 @@ fn crossover(gamma: f64, kappa: f64) -> f64 {
 /// Daligault (2012) practical model combining weak and strong coupling.
 ///
 /// # Arguments
-/// * `gamma` - Coupling parameter (Gamma = q^2 / (4pi eps0 a_ws kB T))
-/// * `kappa` - Screening parameter (kappa = a_ws / lambda_D)
+/// * `gamma` - Coupling parameter (Gamma = q^2 / (4π ε₀ `a_ws` `k_B` T))
+/// * `kappa` - Screening parameter (κ = `a_ws` / `lambda_D`)
 ///
 /// # Returns
-/// D* = D / (a_ws^2 * omega_p) in reduced units.
+/// `D*` = D / (`a_ws`² × `omega_p`) in reduced units.
+#[must_use]
 pub fn d_star_daligault(gamma: f64, kappa: f64) -> f64 {
     let f = crossover(gamma, kappa);
     let dw = d_star_weak(gamma, kappa);
     let ds = d_star_strong(gamma, kappa);
-    dw * f + ds * (1.0 - f)
+    dw.mul_add(f, ds * (1.0 - f))
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -105,23 +108,24 @@ pub fn d_star_daligault(gamma: f64, kappa: f64) -> f64 {
 //   "Ionic transport in high-energy-density matter"
 // ═══════════════════════════════════════════════════════════════════
 
-/// Reduced shear viscosity η*(Γ, κ) in units of n m a_ws² ω_p.
+/// Reduced shear viscosity η*(Γ, κ) in units of n m `a_ws`² `ω_p`.
 ///
 /// Stanton & Murillo (2016) practical model combining:
 ///   - Weak coupling: Chapman-Enskog kinetic theory
 ///   - Strong coupling: Empirical fit to MD data
 ///
 /// Fit parameters from PRE 93, 043203 Table I.
+#[must_use]
 pub fn eta_star_stanton_murillo(gamma: f64, kappa: f64) -> f64 {
     let f = crossover(gamma, kappa);
     let ew = eta_star_weak(gamma, kappa);
     let es = eta_star_strong(gamma, kappa);
-    ew * f + es * (1.0 - f)
+    ew.mul_add(f, es * (1.0 - f))
 }
 
 /// Weak-coupling viscosity: Chapman-Enskog kinetic theory.
 ///
-/// η*_w = C_w(κ) × (5 sqrt(π) / 16) × Γ^(-5/2) / Λ
+/// `η*_w` = `C_w`(κ) × (5 sqrt(π) / 16) × Γ^(-5/2) / Λ
 ///
 /// Uses the same κ-dependent correction as D*_w — the Coulomb logarithm
 /// enters identically in all Chapman-Enskog transport coefficients.
@@ -132,35 +136,36 @@ fn eta_star_weak(gamma: f64, kappa: f64) -> f64 {
 
 /// Strong-coupling viscosity from MD fits.
 ///
-/// η*_s = A_η(κ) × Γ^(-α_η(κ))
+/// `η*_s` = `A_η`(κ) × Γ^(-`α_η`(κ))
 ///
 /// Coefficients rescaled proportionally to the D* recalibration
 /// (same reduced-unit normalization fix). Not independently calibrated
 /// against MD η* data — treat as estimated until stress ACF validation
 /// at N≥2000 is available.
 fn eta_star_strong(gamma: f64, kappa: f64) -> f64 {
-    let a = 0.44 + 0.23 * kappa - 0.083 * kappa * kappa;
-    let alpha = 0.76 + 0.040 * kappa - 0.036 * kappa * kappa;
+    let a = (-0.083_f64).mul_add(kappa * kappa, 0.23_f64.mul_add(kappa, 0.44));
+    let alpha = (-0.036_f64).mul_add(kappa * kappa, 0.040_f64.mul_add(kappa, 0.76));
     a * gamma.powf(-alpha)
 }
 
-/// Reduced thermal conductivity λ*(Γ, κ) in units of n k_B a_ws² ω_p.
+/// Reduced thermal conductivity λ*(Γ, κ) in units of n `k_B` `a_ws`² `ω_p`.
 ///
 /// Stanton & Murillo (2016) practical model combining:
 ///   - Weak coupling: Chapman-Enskog kinetic theory
 ///   - Strong coupling: Empirical fit to MD data
 ///
 /// Fit parameters from PRE 93, 043203 Table I.
+#[must_use]
 pub fn lambda_star_stanton_murillo(gamma: f64, kappa: f64) -> f64 {
     let f = crossover(gamma, kappa);
     let lw = lambda_star_weak(gamma, kappa);
     let ls = lambda_star_strong(gamma, kappa);
-    lw * f + ls * (1.0 - f)
+    lw.mul_add(f, ls * (1.0 - f))
 }
 
 /// Weak-coupling thermal conductivity: Chapman-Enskog.
 ///
-/// λ*_w = C_w(κ) × (75 sqrt(π) / 64) × Γ^(-5/2) / Λ
+/// `λ*_w` = `C_w`(κ) × (75 sqrt(π) / 64) × Γ^(-5/2) / Λ
 ///
 /// Uses the same κ-dependent correction as D*_w and η*_w.
 fn lambda_star_weak(gamma: f64, kappa: f64) -> f64 {
@@ -170,13 +175,13 @@ fn lambda_star_weak(gamma: f64, kappa: f64) -> f64 {
 
 /// Strong-coupling thermal conductivity from MD fits.
 ///
-/// λ*_s = A_λ(κ) × Γ^(-α_λ(κ))
+/// `λ*_s` = `A_λ`(κ) × Γ^(-`α_λ`(κ))
 ///
 /// Coefficients rescaled proportionally to D* recalibration.
 /// Not independently calibrated — estimated from D* normalization fix.
 fn lambda_star_strong(gamma: f64, kappa: f64) -> f64 {
-    let a = 1.04 + 0.54 * kappa - 0.19 * kappa * kappa;
-    let alpha = 0.90 + 0.042 * kappa - 0.035 * kappa * kappa;
+    let a = (-0.19_f64).mul_add(kappa * kappa, 0.54_f64.mul_add(kappa, 1.04));
+    let alpha = (-0.035_f64).mul_add(kappa * kappa, 0.042_f64.mul_add(kappa, 0.90));
     a * gamma.powf(-alpha)
 }
 
@@ -212,7 +217,7 @@ pub struct TransportResult {
 // Conversion: D* = D_MKS / (a_ws² × ω_p)
 // ═══════════════════════════════════════════════════════════════════
 
-/// Sarkas-validated D_MKS reference: (kappa, gamma, D_MKS [m²/s]).
+/// Sarkas-validated `D_MKS` reference: (kappa, gamma, `D_MKS` [m²/s]).
 ///
 /// These are the 12 calibration points from which the Daligault fit
 /// coefficients were derived. The fit MUST reproduce these to within
@@ -220,11 +225,11 @@ pub struct TransportResult {
 ///
 /// Provenance:
 ///   Script:  control/sarkas/simulations/dsf-study/scripts/validate_all_observables.py
-///   Source:  all_observables_validation.json (Green-Kubo VACF integration, N=2000)
+///   Source:  `all_observables_validation.json` (Green-Kubo VACF integration, N=2000)
 ///   Commit:  0a6405f (hotSpring main, Paper 5 transport)
 ///   Date:    2026-02-19
-///   Env:     envs/sarkas.yaml (Python 3.10, Sarkas 1.0.0, NumPy 2.2)
-///   Command: python3 validate_all_observables.py --cases=all --output=all_observables_validation.json
+///   Env:     `envs/sarkas.yaml` (Python 3.10, Sarkas 1.0.0, `NumPy` 2.2)
+///   Command: `python3 validate_all_observables.py --cases=all --output=all_observables_validation.json`
 pub const SARKAS_D_MKS_REFERENCE: [(f64, f64, f64); 12] = [
     (0.0, 10.0, 5.856_310_235_929_256e-07),
     (0.0, 50.0, 6.053_635_489_140_258e-08),
@@ -240,22 +245,22 @@ pub const SARKAS_D_MKS_REFERENCE: [(f64, f64, f64); 12] = [
     (3.0, 1510.0, 7.712_262_677_617_913e-09),
 ];
 
-/// Sarkas-validated RDF first-peak reference: (kappa, gamma, peak_r_aws, peak_g).
+/// Sarkas-validated RDF first-peak reference: (kappa, gamma, `peak_r_aws`, `peak_g`).
 ///
 /// First peak of g(r) from Sarkas N=2000 RDF computation.
-/// peak_r_aws is the first-peak position in units of a_ws.
-/// peak_g is the first-peak height g(r_peak).
+/// `peak_r_aws` is the first-peak position in units of `a_ws`.
+/// `peak_g` is the first-peak height g(`r_peak`).
 ///
 /// Physics: peak position should increase slightly with Γ (more ordered),
 /// peak height increases strongly with Γ (sharper structure).
 ///
 /// Provenance:
 ///   Script:  control/sarkas/simulations/dsf-study/scripts/validate_all_observables.py
-///   Source:  all_observables_validation.json (RDF histogram binning, N=2000)
+///   Source:  `all_observables_validation.json` (RDF histogram binning, N=2000)
 ///   Commit:  0a6405f (hotSpring main, Paper 5 transport)
 ///   Date:    2026-02-19
-///   Env:     envs/sarkas.yaml (Python 3.10, Sarkas 1.0.0, NumPy 2.2)
-///   Command: python3 validate_all_observables.py --cases=all --output=all_observables_validation.json
+///   Env:     `envs/sarkas.yaml` (Python 3.10, Sarkas 1.0.0, `NumPy` 2.2)
+///   Command: `python3 validate_all_observables.py --cases=all --output=all_observables_validation.json`
 pub const SARKAS_RDF_REFERENCE: [(f64, f64, f64, f64); 12] = [
     // (kappa, gamma, first_peak_r_aws, first_peak_g)
     (0.0, 10.0, 1.644, 1.140),
@@ -273,6 +278,7 @@ pub const SARKAS_RDF_REFERENCE: [(f64, f64, f64, f64); 12] = [
 ];
 
 /// Look up Sarkas RDF first-peak reference for a given (kappa, gamma).
+#[must_use]
 pub fn sarkas_rdf_lookup(kappa: f64, gamma: f64) -> Option<(f64, f64)> {
     for &(k, g, peak_r, peak_g) in &SARKAS_RDF_REFERENCE {
         if (k - kappa).abs() < 0.01 && (g - gamma).abs() < 0.5 {
@@ -282,18 +288,19 @@ pub fn sarkas_rdf_lookup(kappa: f64, gamma: f64) -> Option<(f64, f64)> {
     None
 }
 
-/// D_MKS → D* conversion factor: a_ws² × ω_p [m²/s].
+/// `D_MKS` → `D*` conversion factor: `a_ws`² × `ω_p` [m²/s].
 ///
 /// Derived from Sarkas DSF study physical parameters:
-///   n = 1.62e30 m⁻³, Z = 1, m = m_p = 1.67262192369e-27 kg
-///   a_ws = (3/(4πn))^(1/3) = 5.282005e-11 m
-///   ω_p  = sqrt(n e²/(ε₀ m)) = 1.675694e15 rad/s
+///   n = 1.62e30 m⁻³, Z = 1, m = `m_p` = 1.67262192369e-27 kg
+///   `a_ws` = (3/(4πn))^(1/3) = 5.282005e-11 m
+///   `ω_p`  = sqrt(n e²/(ε₀ m)) = 1.675694e15 rad/s
 ///   a²ωp = 4.675114e-6 m²/s
 ///
-/// Source: calibrate_daligault_fit.py exact computation.
+/// Source: `calibrate_daligault_fit.py` exact computation.
 pub const A2_OMEGA_P: f64 = 4.675_114e-06;
 
 /// Convert Sarkas reference to reduced D*.
+#[must_use]
 pub fn sarkas_d_star_reference() -> [(f64, f64, f64); 12] {
     let mut out = [(0.0, 0.0, 0.0); 12];
     for (i, &(kappa, gamma, d_mks)) in SARKAS_D_MKS_REFERENCE.iter().enumerate() {
@@ -303,6 +310,7 @@ pub fn sarkas_d_star_reference() -> [(f64, f64, f64); 12] {
 }
 
 /// Look up Sarkas D* for a given (kappa, gamma), if available.
+#[must_use]
 pub fn sarkas_d_star_lookup(kappa: f64, gamma: f64) -> Option<f64> {
     for &(k, g, d_mks) in &SARKAS_D_MKS_REFERENCE {
         if (k - kappa).abs() < 0.01 && (g - gamma).abs() < 0.5 {

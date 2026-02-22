@@ -250,7 +250,7 @@ fn main() {
             .map(|(i, (p, d))| {
                 if i % 2 == 0 {
                     // re(conj(p) * d) = p_re * d_re + p_im * d_im
-                    p * d + psi_flat[i + 1] * cpu_ddpsi_flat[i + 1]
+                    psi_flat[i + 1].mul_add(cpu_ddpsi_flat[i + 1], p * d)
                 } else {
                     0.0
                 }

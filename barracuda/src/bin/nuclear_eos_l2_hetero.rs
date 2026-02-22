@@ -39,6 +39,87 @@ use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 // ═══════════════════════════════════════════════════════════════════
+// CLI and output helpers
+// ═══════════════════════════════════════════════════════════════════
+
+struct CliConfig {
+    mode: String,
+    n_rounds: usize,
+    l1_samples: usize,
+    candidates_per_round: usize,
+}
+
+fn parse_cli() -> CliConfig {
+    let args: Vec<String> = std::env::args().collect();
+    let mode = args
+        .iter()
+        .find(|a| a.starts_with("--mode="))
+        .and_then(|a| a.strip_prefix("--mode="))
+        .unwrap_or("hetero")
+        .to_string();
+    let n_rounds = args
+        .iter()
+        .find(|a| a.starts_with("--rounds="))
+        .and_then(|a| a.strip_prefix("--rounds=")?.parse().ok())
+        .unwrap_or(15);
+    let l1_samples = args
+        .iter()
+        .find(|a| a.starts_with("--l1-samples="))
+        .and_then(|a| a.strip_prefix("--l1-samples=")?.parse().ok())
+        .unwrap_or(5000);
+    let candidates_per_round = args
+        .iter()
+        .find(|a| a.starts_with("--candidates="))
+        .and_then(|a| a.strip_prefix("--candidates=")?.parse().ok())
+        .unwrap_or(200);
+    CliConfig {
+        mode,
+        n_rounds,
+        l1_samples,
+        candidates_per_round,
+    }
+}
+
+fn parse_mode_arg(args: &[String], key: &str, def: usize) -> usize {
+    let prefix = format!("{key}=");
+    args.iter()
+        .find(|a| a.starts_with(&prefix))
+        .and_then(|a| a.strip_prefix(&prefix)?.parse().ok())
+        .unwrap_or(def)
+}
+
+fn print_l2_result_box(
+    title: &str,
+    chi2: f64,
+    log_chi2: f64,
+    evals: usize,
+    time_s: f64,
+    throughput: f64,
+) {
+    println!("╔══════════════════════════════════════════════════════════════╗");
+    println!("║  {title:<58} ║");
+    println!("╠══════════════════════════════════════════════════════════════╣");
+    println!("║  χ²/datum:       {chi2:12.4}                              ║");
+    println!("║  log(1+χ²):      {log_chi2:12.4}                              ║");
+    println!("║  HFB evals:      {evals:6}                                    ║");
+    println!("║  Total time:     {time_s:6.1}s                                   ║");
+    println!("║  HFB throughput: {throughput:6.1} evals/s                            ║");
+    println!("╚══════════════════════════════════════════════════════════════╝");
+}
+
+fn save_json_to_results(base: &std::path::Path, filename: &str, json: &serde_json::Value) {
+    let results_dir = base.join("results");
+    std::fs::create_dir_all(&results_dir).ok();
+    let path = results_dir.join(filename);
+    std::fs::write(
+        &path,
+        serde_json::to_string_pretty(json).expect("JSON serialize"),
+    )
+    .ok();
+    println!("\n  Results saved to: {}", path.display());
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // Local helpers for parameter perturbation and cascade filtering
 // ═══════════════════════════════════════════════════════════════════
 
@@ -920,28 +1001,8 @@ fn main() {
     println!("╚══════════════════════════════════════════════════════════════╝");
     println!();
 
-    // ── Parse args ──
-    let args: Vec<String> = std::env::args().collect();
-    let mode = args
-        .iter()
-        .find(|a| a.starts_with("--mode="))
-        .and_then(|a| a.strip_prefix("--mode="))
-        .unwrap_or("hetero");
-    let n_rounds = args
-        .iter()
-        .find(|a| a.starts_with("--rounds="))
-        .and_then(|a| a.strip_prefix("--rounds=")?.parse().ok())
-        .unwrap_or(15);
-    let l1_samples = args
-        .iter()
-        .find(|a| a.starts_with("--l1-samples="))
-        .and_then(|a| a.strip_prefix("--l1-samples=")?.parse().ok())
-        .unwrap_or(5000);
-    let candidates_per_round = args
-        .iter()
-        .find(|a| a.starts_with("--candidates="))
-        .and_then(|a| a.strip_prefix("--candidates=")?.parse().ok())
-        .unwrap_or(200);
+    let cli = parse_cli();
+    let mode = cli.mode.as_str();
 
     // ── Load data ──
     let ctx = data::load_eos_context().expect("Failed to load EOS context");
@@ -958,12 +1019,11 @@ fn main() {
 
     match mode {
         "both" | "compare" => {
-            // Run both for comparison
             println!("═══════════════════════════════════════════════════════════");
             println!("  HETEROGENEOUS PIPELINE");
             println!("═══════════════════════════════════════════════════════════");
 
-            let (l1_xs, l1_ys) = generate_l1_training_data(bounds, exp_data, l1_samples);
+            let (l1_xs, l1_ys) = generate_l1_training_data(bounds, exp_data, cli.l1_samples);
             let clf_result = train_classifier(&l1_xs, &l1_ys);
             let (best_params, best_f, cache, stats) = run_heterogeneous_l2(
                 bounds,
@@ -971,8 +1031,8 @@ fn main() {
                 &l1_xs,
                 &l1_ys,
                 &clf_result,
-                n_rounds,
-                candidates_per_round,
+                cli.n_rounds,
+                cli.candidates_per_round,
             );
             let hetero_time = total_t0.elapsed().as_secs_f64();
             let hetero_chi2 = best_f.exp_m1();
@@ -986,7 +1046,8 @@ fn main() {
             println!("═══════════════════════════════════════════════════════════");
 
             let _plain_t0 = Instant::now();
-            let (plain_chi2, plain_time, plain_evals) = run_plain_l2(bounds, exp_data, n_rounds);
+            let (plain_chi2, plain_time, plain_evals) =
+                run_plain_l2(bounds, exp_data, cli.n_rounds);
 
             println!();
             println!("╔══════════════════════════════════════════════════════════════╗");
@@ -1025,24 +1086,12 @@ fn main() {
         }
 
         "screen" => {
-            // Pure L1 screening: evaluate best L1 solutions with L2 HFB, no NM
-            let n_l1 = args
-                .iter()
-                .find(|a| a.starts_with("--l1-samples="))
-                .and_then(|a| a.strip_prefix("--l1-samples=")?.parse().ok())
-                .unwrap_or(10_000);
-            let n_eval = args
-                .iter()
-                .find(|a| a.starts_with("--l2-evals="))
-                .and_then(|a| a.strip_prefix("--l2-evals=")?.parse().ok())
-                .unwrap_or(200);
-
+            let args: Vec<String> = std::env::args().collect();
+            let n_l1 = parse_mode_arg(&args, "--l1-samples", 10_000);
+            let n_eval = parse_mode_arg(&args, "--l2-evals", 200);
             let (best_params, best_f, total_time, total_evals) =
                 run_screen_l2(bounds, exp_data, n_l1, n_eval);
-
             let chi2 = best_f.exp_m1();
-            let results_dir = base.join("results");
-            std::fs::create_dir_all(&results_dir).ok();
             let result_json = serde_json::json!({
                 "level": 2,
                 "engine": "barracuda::l1_screen_l2_eval",
@@ -1053,36 +1102,16 @@ fn main() {
                 "time_seconds": total_time,
                 "best_params": best_params,
             });
-            let path = results_dir.join("barracuda_screen_l2.json");
-            std::fs::write(
-                &path,
-                serde_json::to_string_pretty(&result_json).expect("JSON serialize"),
-            )
-            .ok();
-            println!("\n  Results saved to: {}", path.display());
+            save_json_to_results(base, "barracuda_screen_l2.json", &result_json);
         }
 
         "direct" => {
-            // Direct multi-start NM on true L2 objective (no surrogate)
-            let n_starts = args
-                .iter()
-                .find(|a| a.starts_with("--starts="))
-                .and_then(|a| a.strip_prefix("--starts=")?.parse().ok())
-                .unwrap_or(10);
-            let max_evals_per = args
-                .iter()
-                .find(|a| a.starts_with("--evals="))
-                .and_then(|a| a.strip_prefix("--evals=")?.parse().ok())
-                .unwrap_or(200);
-
+            let args: Vec<String> = std::env::args().collect();
+            let n_starts = parse_mode_arg(&args, "--starts", 10);
+            let max_evals_per = parse_mode_arg(&args, "--evals", 200);
             let (best_params, best_f, total_time, total_evals) =
                 run_direct_l2(bounds, exp_data, n_starts, max_evals_per);
-
             let chi2 = best_f.exp_m1();
-
-            // Save results
-            let results_dir = base.join("results");
-            std::fs::create_dir_all(&results_dir).ok();
             let result_json = serde_json::json!({
                 "level": 2,
                 "engine": "barracuda::direct_multi_start_nm",
@@ -1094,18 +1123,11 @@ fn main() {
                 "time_seconds": total_time,
                 "best_params": best_params,
             });
-            let path = results_dir.join("barracuda_direct_l2.json");
-            std::fs::write(
-                &path,
-                serde_json::to_string_pretty(&result_json).expect("JSON serialize"),
-            )
-            .ok();
-            println!("\n  Results saved to: {}", path.display());
+            save_json_to_results(base, "barracuda_direct_l2.json", &result_json);
         }
 
         _ => {
-            // Heterogeneous only (default)
-            let (l1_xs, l1_ys) = generate_l1_training_data(bounds, exp_data, l1_samples);
+            let (l1_xs, l1_ys) = generate_l1_training_data(bounds, exp_data, cli.l1_samples);
             let clf_result = train_classifier(&l1_xs, &l1_ys);
             let (best_params, best_f, cache, stats) = run_heterogeneous_l2(
                 bounds,
@@ -1113,29 +1135,20 @@ fn main() {
                 &l1_xs,
                 &l1_ys,
                 &clf_result,
-                n_rounds,
-                candidates_per_round,
+                cli.n_rounds,
+                cli.candidates_per_round,
             );
             let total_time = total_t0.elapsed().as_secs_f64();
-
             let chi2 = best_f.exp_m1();
-
             println!();
-            println!("╔══════════════════════════════════════════════════════════════╗");
-            println!("║  Heterogeneous L2 Results                                  ║");
-            println!("╠══════════════════════════════════════════════════════════════╣");
-            println!("║  χ²/datum:       {chi2:12.4}                              ║");
-            println!("║  log(1+χ²):      {best_f:12.4}                              ║");
-            println!(
-                "║  HFB evals:      {:6}                                    ║",
-                cache.len()
+            print_l2_result_box(
+                "Heterogeneous L2 Results",
+                chi2,
+                best_f,
+                cache.len(),
+                total_time,
+                cache.len() as f64 / total_time,
             );
-            println!("║  Total time:     {total_time:6.1}s                                   ║");
-            println!(
-                "║  HFB throughput: {:6.1} evals/s                            ║",
-                cache.len() as f64 / total_time
-            );
-            println!("╚══════════════════════════════════════════════════════════════╝");
             println!();
 
             stats.print_summary();

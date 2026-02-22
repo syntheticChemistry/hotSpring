@@ -102,35 +102,38 @@ pub fn print_observable_summary_with_gpu(
 
     // SSF — GPU or CPU path
     if !sim.positions_snapshots.is_empty() {
-        let (ssf, ssf_label) = if let Some(dev) = gpu_device {
-            let gpu_ssf = compute_ssf_gpu(
-                dev,
-                &sim.positions_snapshots,
-                config.n_particles,
-                config.box_side(),
-                20,
-            );
-            if gpu_ssf.is_empty() {
-                // GPU failed, fall back to CPU
+        let (ssf, ssf_label) = gpu_device.map_or_else(
+            || {
                 let cpu_ssf = compute_ssf(
                     &sim.positions_snapshots,
                     config.n_particles,
                     config.box_side(),
                     20,
                 );
-                (cpu_ssf, "CPU fallback")
-            } else {
-                (gpu_ssf, "GPU SsfGpu")
-            }
-        } else {
-            let cpu_ssf = compute_ssf(
-                &sim.positions_snapshots,
-                config.n_particles,
-                config.box_side(),
-                20,
-            );
-            (cpu_ssf, "CPU")
-        };
+                (cpu_ssf, "CPU")
+            },
+            |dev| {
+                let gpu_ssf = compute_ssf_gpu(
+                    dev,
+                    &sim.positions_snapshots,
+                    config.n_particles,
+                    config.box_side(),
+                    20,
+                );
+                if gpu_ssf.is_empty() {
+                    // GPU failed, fall back to CPU
+                    let cpu_ssf = compute_ssf(
+                        &sim.positions_snapshots,
+                        config.n_particles,
+                        config.box_side(),
+                        20,
+                    );
+                    (cpu_ssf, "CPU fallback")
+                } else {
+                    (gpu_ssf, "GPU SsfGpu")
+                }
+            },
+        );
 
         if let (Some((k0, s0)), Some((k_max, s_max))) =
             (ssf.first(), ssf.iter().max_by(|a, b| a.1.total_cmp(&b.1)))
@@ -147,7 +150,7 @@ pub fn print_observable_summary_with_gpu(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
+#[allow(clippy::expect_used, clippy::unwrap_used)]
 mod tests {
     use std::sync::Arc;
 
@@ -238,5 +241,53 @@ mod tests {
             &config,
             None::<Arc<barracuda::device::WgpuDevice>>.as_ref(),
         );
+    }
+
+    #[test]
+    fn summary_skips_vacf_when_too_few_velocity_snapshots() {
+        let (sim, config) = make_full_sim();
+        let sim_with_two_vel = MdSimulation {
+            velocity_snapshots: sim.velocity_snapshots[..2].to_vec(),
+            ..sim
+        };
+        print_observable_summary(&sim_with_two_vel, &config);
+    }
+
+    #[test]
+    fn summary_energy_fail_icon_when_high_drift() {
+        let config = quick_test_case(32);
+        let t = config.temperature();
+        let e_mean = 48.0 * t - 96.0;
+        let drift = 0.01; // 1% drift — above ENERGY_DRIFT_PCT 0.5%
+        let e_initial = e_mean;
+        let e_final = e_mean * (1.0 + drift);
+        let energy_history: Vec<EnergyRecord> = (0..20)
+            .map(|i| {
+                let e = if i == 0 {
+                    e_initial
+                } else if i == 19 {
+                    e_final
+                } else {
+                    e_mean
+                };
+                EnergyRecord {
+                    step: i * 10,
+                    ke: 48.0 * t,
+                    pe: e - 48.0 * t,
+                    total: e,
+                    temperature: t,
+                }
+            })
+            .collect();
+        let sim = MdSimulation {
+            config: config.clone(),
+            energy_history,
+            positions_snapshots: vec![],
+            velocity_snapshots: vec![],
+            rdf_histogram: vec![],
+            wall_time_s: 1.0,
+            steps_per_sec: 5000.0,
+        };
+        print_observable_summary(&sim, &config);
     }
 }

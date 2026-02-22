@@ -25,6 +25,7 @@ use std::collections::HashMap;
 /// Parameter sets producing NMP outside these bounds are rejected
 /// before any expensive calculation.
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct NMPConstraints {
     pub rho0_min: f64,  // Minimum saturation density (fm⁻³)
     pub rho0_max: f64,  // Maximum saturation density
@@ -59,6 +60,7 @@ impl Default for NMPConstraints {
 
 /// Result of Tier 1 NMP pre-screening
 #[derive(Debug, Clone)]
+#[must_use]
 pub enum NMPScreenResult {
     /// Passed — NMP within physical bounds
     Pass(NuclearMatterProps),
@@ -120,9 +122,9 @@ pub fn nmp_prescreen(params: &[f64], constraints: &NMPConstraints) -> NMPScreenR
 /// Tier 2: Quick L1 SEMF χ²/datum check.
 /// If a parameterization can't fit nuclei at the simple SEMF level,
 /// it won't work with HFB either. Cost: ~0.1ms
-pub fn l1_proxy_prescreen(
+pub fn l1_proxy_prescreen<S: std::hash::BuildHasher>(
     params: &[f64],
-    exp_data: &HashMap<(usize, usize), (f64, f64)>,
+    exp_data: &HashMap<(usize, usize), (f64, f64), S>,
     chi2_threshold: f64,
 ) -> Option<f64> {
     let mut chi2 = 0.0;
@@ -161,6 +163,7 @@ pub fn l1_proxy_prescreen(
 ///
 /// Architecture: 10 inputs → normalize → linear(10→1) → sigmoid → P(promising)
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct PreScreenClassifier {
     /// Weights \[10\] — one per Skyrme parameter
     pub weights: Vec<f64>,
@@ -178,8 +181,8 @@ pub struct PreScreenClassifier {
 impl PreScreenClassifier {
     /// Train classifier on accumulated evaluation data.
     ///
-    /// Training data: (params, f_value) pairs from previous runs.
-    /// Labels: f_value < label_threshold → positive (promising)
+    /// Training data: (params, `f_value`) pairs from previous runs.
+    /// Labels: `f_value` &lt; `label_threshold` → positive (promising)
     pub fn train(xs: &[Vec<f64>], ys: &[f64], label_threshold: f64) -> Self {
         let n = xs.len();
         let dim = if n > 0 { xs[0].len() } else { 10 };
@@ -299,6 +302,7 @@ impl PreScreenClassifier {
 
 /// Pre-screening cascade statistics
 #[derive(Debug, Default, Clone)]
+#[must_use]
 pub struct CascadeStats {
     pub total_candidates: usize,
     pub tier1_rejected: usize,  // NMP out of bounds
@@ -343,6 +347,7 @@ impl CascadeStats {
 
 #[cfg(test)]
 #[allow(clippy::expect_used)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use crate::provenance::SLY4_PARAMS;
@@ -572,5 +577,72 @@ mod tests {
         assert!(result.is_some());
         let chi2 = result.expect("result asserted Some");
         assert!(chi2 > 0.0 && chi2 < 1000.0);
+    }
+
+    #[test]
+    fn l1_proxy_prescreen_all_negative_binding_n_valid_zero() {
+        let mut exp_data = HashMap::new();
+        exp_data.insert((2, 2), (28.3, 1.0));
+        let bad_params = vec![
+            -5000.0, 1000.0, -2000.0, 20000.0, 2.0, -2.0, 1.0, 2.0, 0.5, 200.0,
+        ];
+        let result = l1_proxy_prescreen(&bad_params, &exp_data, 1000.0);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn l1_proxy_prescreen_chi2_at_threshold_boundary() {
+        let mut exp_data = HashMap::new();
+        exp_data.insert((28, 28), (483.99, 1.0));
+        let chi2_exact = 50.0;
+        let result = l1_proxy_prescreen(&SLY4_PARAMS, &exp_data, chi2_exact);
+        if let Some(chi2) = result {
+            assert!(chi2 < chi2_exact);
+        }
+    }
+
+    #[test]
+    fn cascade_stats_print_summary_no_panic() {
+        let stats = CascadeStats {
+            total_candidates: 100,
+            tier1_rejected: 20,
+            tier2_rejected: 15,
+            tier3_rejected: 10,
+            tier4_evaluated: 55,
+        };
+        stats.print_summary();
+    }
+
+    #[test]
+    fn cascade_stats_pass_rate_nonzero() {
+        let stats = CascadeStats {
+            total_candidates: 100,
+            tier1_rejected: 50,
+            tier2_rejected: 20,
+            tier3_rejected: 10,
+            tier4_evaluated: 20,
+        };
+        assert!((stats.pass_rate() - 0.2).abs() < 1e-10);
+    }
+
+    #[test]
+    fn classifier_train_empty_data() {
+        let xs: Vec<Vec<f64>> = vec![];
+        let ys: Vec<f64> = vec![];
+        let clf = PreScreenClassifier::train(&xs, &ys, 10.0);
+        assert_eq!(clf.n_train, 0);
+        assert_eq!(clf.weights.len(), 10);
+        assert_eq!(clf.norm.len(), 10);
+    }
+
+    #[test]
+    fn classifier_export_weights() {
+        let xs = vec![SLY4_PARAMS.to_vec()];
+        let ys = vec![5.0];
+        let clf = PreScreenClassifier::train(&xs, &ys, 10.0);
+        let (weights, bias, norm) = clf.export_weights();
+        assert_eq!(weights.len(), 10);
+        assert_eq!(norm.len(), 10);
+        assert!(bias.is_finite());
     }
 }

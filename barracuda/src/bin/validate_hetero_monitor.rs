@@ -192,9 +192,9 @@ fn check_transport_predictor(harness: &mut ValidationHarness) {
     let targets: Vec<Vec<f64>> = (0..n_train + n_test)
         .map(|_| {
             vec![
-                rng.uniform() * 0.05 + 0.001, // D*
-                rng.uniform() * 0.3 + 0.1,    // η*
-                rng.uniform() * 0.5 + 0.2,    // λ*
+                rng.uniform().mul_add(0.05, 0.001), // D*
+                rng.uniform().mul_add(0.3, 0.1),    // η*
+                rng.uniform().mul_add(0.5, 0.2),    // λ*
             ]
         })
         .collect();
@@ -504,9 +504,9 @@ fn generate_phase_training_data() -> (Vec<Vec<Vec<f64>>>, Vec<Vec<f64>>) {
 fn synthetic_plaquette(beta: f64, seed: u64) -> f64 {
     let beta_c = 5.692;
     let phase_frac = 1.0 / (1.0 + (-((beta - beta_c) / 0.075)).exp());
-    let strong = beta / 18.0 + (beta / 18.0).powi(2);
+    let strong = (beta / 18.0).mul_add(beta / 18.0, beta / 18.0);
     let weak = 1.0 - 3.0 / (4.0 * beta);
-    let plaq = (1.0 - phase_frac) * strong + phase_frac * weak;
+    let plaq = (1.0 - phase_frac).mul_add(strong, phase_frac * weak);
     let noise = lcg_normal(seed) * 0.005;
     (plaq + noise).clamp(0.0, 1.0)
 }
@@ -570,7 +570,7 @@ fn predict_int4_quantized(
             pre[i] = val;
         }
         for i in 0..rs {
-            state[i] = (1.0 - leak) * state[i] + leak * pre[i].tanh();
+            state[i] = (1.0 - leak).mul_add(state[i], leak * pre[i].tanh());
         }
     }
 

@@ -3,7 +3,7 @@
 //! GPU-Accelerated Deformed HFB Solver (Level 3)
 //!
 //! Architecture: CPU (Rayon) builds block Hamiltonians + physics,
-//! GPU (BatchedEighGpu) does ALL eigensolves in one batched dispatch.
+//! GPU (`BatchedEighGpu`) does ALL eigensolves in one batched dispatch.
 //!
 //! Pipeline per SCF iteration:
 //!   CPU (Rayon, 24 threads): tau, J, Coulomb, potentials, H build, density, energy
@@ -296,6 +296,7 @@ fn deformed_hfb_gpu_single(
     })
 }
 
+#[must_use]
 pub const fn estimate_gpu_dispatches(n_nuclei: usize, avg_blocks: usize, max_iter: usize) -> usize {
     let per_iter = 4 + avg_blocks;
     n_nuclei * (1 + max_iter * per_iter)

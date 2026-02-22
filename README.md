@@ -30,7 +30,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 
 ---
 
-## Current Status (2026-02-21)
+## Current Status (2026-02-22)
 
 | Study | Status | Quantitative Checks |
 |-------|--------|-------------------|
@@ -75,7 +75,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **NPU HW Quantization** | ✅ Complete | 4/4 on AKD1000: f32/int8/int4/act4 cascade, 685μs/inference |
 | **NPU Lattice Phase** | ✅ 7/8 | β_c=5.715 on AKD1000, ESN 100% CPU, int4 NPU 60% (marginal as expected) |
 | **Titan V NVK** | ✅ Complete | NVK built from Mesa 25.1.5. `cpu_gpu_parity` 6/6, `stanton_murillo` 40/40, `bench_gpu_fp64` pass |
-| **TOTAL** | **33/33 Rust validation suites** | 505 unit tests (505 passing + 5 GPU-ignored), + 34/35 NPU HW checks, 16 determinism tests, 6 upstream bugs found. Both GPUs validated |
+| **TOTAL** | **33/33 Rust validation suites** | 648 unit tests (648 passing + 6 GPU/heavy-ignored), + 34/35 NPU HW checks, 16 determinism tests, 6 upstream bugs found. Both GPUs validated |
 
 Papers 5, 7, and 8 from the review queue are complete. Paper 5 transport fits
 (Daligault 2012) were recalibrated against 12 Sarkas Green-Kubo D* values (Feb 2026)
@@ -315,7 +315,7 @@ then rewires to use the upstream primitives and deletes local code. Each cycle
 makes the upstream library richer and hotSpring leaner.
 
 **What makes code absorbable**:
-1. WGSL template strings embedded in Rust source (not separate files)
+1. WGSL shaders in dedicated `.wgsl` files (loaded via `include_str!`)
 2. Clear binding layout documentation (binding index, type, purpose)
 3. Dispatch geometry documented (workgroup size, grid dimensions)
 4. CPU reference implementation validated against known physics
@@ -323,12 +323,12 @@ makes the upstream library richer and hotSpring leaner.
 6. Handoff document with exact code locations and validation results
 
 **Next absorption targets** (see `barracuda/ABSORPTION_MANIFEST.md`):
-- GPU SpMV (CSR sparse matrix-vector) — `spectral/csr.rs::CsrMatrix::spmv()`
-- GPU Lanczos eigensolve — `spectral/lanczos.rs::lanczos()`
-- GPU Dirac operator — `lattice/dirac.rs` (staggered fermion SpMV)
+- Deformed HFB GPU H-build — `physics/hfb_deformed_gpu/` (5 shaders exist, unwired)
+- Sturm tridiagonal eigensolve — `spectral/tridiag.rs` (CPU, 23/23 checks)
+- ESN reservoir + readout — `md/reservoir.rs` (GPU+NPU validated)
 - NPU substrate discovery — `metalForge/forge/src/probe.rs` (local evolution)
 
-**Absorption-ready inventory** (v0.6.1):
+**Absorption-ready inventory** (v0.6.3):
 
 | Module | Type | WGSL Shader | Status |
 |--------|------|------------|--------|
@@ -343,19 +343,19 @@ makes the upstream library richer and hotSpring leaner.
 
 ---
 
-## BarraCUDA Crate (v0.6.1)
+## BarraCUDA Crate (v0.6.3)
 
 The `barracuda/` directory is a standalone Rust crate providing the validation
 environment, physics implementations, and GPU compute. Key architectural properties:
 
-- **505 unit tests** (505 passing + 5 GPU-ignored), **33 validation suites** (33/33 pass),
+- **648 unit tests** (648 passing + 6 GPU/heavy-ignored), **33 validation suites** (33/33 pass),
   **24 integration tests** (3 suites: physics, data, transport),
   **16 determinism tests** (rerun-identical for all stochastic algorithms). Includes
   lattice QCD (complex f64, SU(3), Wilson action, HMC, Dirac CG), Abelian Higgs
   (U(1) + Higgs, HMC), transport coefficients (Green-Kubo D*/η*/λ*, Sarkas-calibrated
   fits), HotQCD EOS tables, NPU quantization parity (f64→f32→int8→int4), and NPU
-  beyond-SDK hardware capability validation. Test coverage: ~63% overall / ~96%
-  unit-testable library code (GPU modules require hardware). Measured with `cargo-llvm-cov`.
+  beyond-SDK hardware capability validation. Test coverage: **74.9% region / 83.8% function**
+  (648 tests; GPU modules require hardware for higher coverage). Measured with `cargo-llvm-cov`.
 - **AGPL-3.0 only** — all 106 active `.rs` files and all 34 `.wgsl` shaders have
   `SPDX-License-Identifier: AGPL-3.0-only` on line 1.
 - **Provenance** — centralized `BaselineProvenance` records trace hardcoded
@@ -413,8 +413,8 @@ environment, physics implementations, and GPU compute. Key architectural propert
 
 ```bash
 cd barracuda
-cargo test               # 505 unit + 24 integration + 8 forge tests, 5 GPU-ignored (< 60 seconds)
-cargo clippy --all-targets  # Zero warnings (pedantic + nursery, deny enforced in lib.rs)
+cargo test               # 648 unit + 24 integration + 19 forge tests, 6 GPU/heavy-ignored (< 60 seconds)
+cargo clippy --all-targets  # Zero warnings (pedantic + nursery via Cargo.toml workspace lints)
 cargo doc --no-deps      # Full API documentation — 0 warnings
 cargo run --release --bin validate_all  # 33/33 suites pass
 ```
@@ -491,7 +491,7 @@ hotSpring/
 │   ├── CONTROL_EXPERIMENT_SUMMARY.md  # Phase A quick reference
 │   └── METHODOLOGY.md                # Two-phase validation protocol
 │
-├── barracuda/                          # BarraCUDA Rust crate — v0.6.1 (505 unit + 24 integration tests, 33 suites)
+├── barracuda/                          # BarraCUDA Rust crate — v0.6.3 (648 unit + 24 integration tests, 33 suites)
 │   ├── Cargo.toml                     # Dependencies (requires ecoPrimals/phase1/toadstool)
 │   ├── CHANGELOG.md                   # Version history — baselines, tolerances, evolution
 │   ├── EVOLUTION_READINESS.md         # Rust module → GPU promotion tier + absorption status
@@ -513,7 +513,7 @@ hotSpring/
 │       │   ├── anderson.rs          # Anderson 1D/2D/3D + Lyapunov exponent
 │       │   ├── hofstadter.rs        # Almost-Mathieu + Hofstadter butterfly
 │       │   └── stats.rs             # Level spacing ratio, band detection
-│       ├── bench.rs                   # Benchmark harness (RAPL, nvidia-smi, JSON reports)
+│       ├── bench/                      # Benchmark harness — mod, hardware, power, report (RAPL, nvidia-smi, JSON)
 │       ├── gpu.rs                     # GPU FP64 device wrapper (SHADER_F64 via wgpu/Vulkan)
 │       │
 │       ├── physics/                   # Nuclear structure — L1/L2/L3 implementations
@@ -535,7 +535,7 @@ hotSpring/
 │       ├── md/                        # GPU Molecular Dynamics (Yukawa OCP)
 │       │   ├── config.rs              # Simulation configuration (reduced units)
 │       │   ├── celllist.rs            # Cell-list spatial decomposition (GPU neighbor search)
-│       │   ├── shaders.rs             # Shader constants (include_str! + 3 small inline)
+│       │   ├── shaders.rs             # Shader constants (all via include_str!, zero inline)
 │       │   ├── shaders/               # f64 WGSL production kernels (11 files)
 │       │   ├── simulation.rs          # GPU MD loop (all-pairs + cell-list)
 │       │   ├── cpu_reference.rs       # CPU reference implementation (FCC, Verlet)
@@ -672,7 +672,7 @@ hotSpring/
 │
 ├── metalForge/                         # Hardware characterization & cross-substrate dispatch
 │   ├── README.md                      # Philosophy + hardware inventory + forge docs
-│   ├── forge/                         # Rust crate — local hardware discovery (16 tests)
+│   ├── forge/                         # Rust crate — local hardware discovery (19 tests, v0.2.0)
 │   │   ├── Cargo.toml                # Deps: barracuda (toadstool), wgpu 22, tokio
 │   │   ├── src/
 │   │   │   ├── lib.rs               # Crate root — biome-native discovery

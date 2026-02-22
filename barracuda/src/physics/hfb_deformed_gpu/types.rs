@@ -37,6 +37,7 @@ pub(super) struct HamiltonianParamsGpu {
 }
 
 impl HamiltonianParamsGpu {
+    #[allow(clippy::cast_possible_truncation)] // f64 bit-splitting for WGSL uniform; no truncation
     #[allow(dead_code)] // EVOLUTION(GPU): used in test_params_gpu_layout; will wire to deformed_*.wgsl when GPU pipeline is complete
     pub(super) const fn new(
         n_rho: u32,
@@ -106,7 +107,7 @@ impl NucleusSetup {
         let hw_perp = hw0 * (1.0 + beta2_init / 3.0);
         let b_z = HBAR_C / (M_NUCLEON * hw_z).sqrt();
         let b_perp = HBAR_C / (M_NUCLEON * hw_perp).sqrt();
-        let r0 = 1.2 * a_f.powf(1.0 / 3.0);
+        let r0 = 1.2 * a_f.cbrt();
         let rho_max = (r0 + 8.0).max(12.0);
         let z_max = (r0 * (1.0 + beta2_init.abs()) + 8.0).max(14.0);
         let n_rho = ((rho_max * 8.0) as usize).max(60);
@@ -114,9 +115,9 @@ impl NucleusSetup {
         let d_rho = rho_max / n_rho as f64;
         let d_z = 2.0 * z_max / n_z_val as f64;
         let delta = 12.0 / a_f.max(4.0).sqrt();
-        let n_shells = ((2.0 * a_f.powf(1.0 / 3.0)) as usize + 5).clamp(10, 16);
+        let n_shells = ((2.0 * a_f.cbrt()) as usize + 5).clamp(10, 16);
 
-        let mut setup = NucleusSetup {
+        let mut setup = Self {
             z,
             n_neutrons: n,
             a,
@@ -140,6 +141,7 @@ impl NucleusSetup {
         setup
     }
 
+    #[allow(clippy::cast_possible_truncation)] // Basis quantum numbers: n_z, n_perp, abs_l, n_shell ≤ 16
     pub(super) fn build_basis(&mut self, n_shells: usize) {
         for n_sh in 0..n_shells {
             for n_z_v in 0..=n_sh {

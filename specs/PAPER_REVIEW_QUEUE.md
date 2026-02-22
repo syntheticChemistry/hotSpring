@@ -1,6 +1,6 @@
 # hotSpring — Paper Review Queue
 
-**Last Updated**: February 20, 2026
+**Last Updated**: February 22, 2026
 **Purpose**: Track papers for reproduction/review, ordered by priority and feasibility
 **Principle**: Reproduce, validate, then decrease cost. Each paper proves the
 pipeline on harder physics — toadStool evolves the GPU acceleration in parallel.
@@ -21,7 +21,7 @@ pipeline on harder physics — toadStool evolves the GPU acceleration in paralle
 | 8 | Pure gauge SU(3) Wilson action | Tier 2 | 12/12 | Bazavov | ~$0.02 |
 | 13 | Abelian Higgs (Bazavov 2015) | Tier 2 | 17/17 | Bazavov | ~$0.001 |
 
-**Total science cost**: ~$0.20 for 18 papers, 390+ validation checks.
+**Total science cost**: ~$0.20 for 22 papers, 390+ validation checks.
 Papers 6, 7, 13-22 add checks at negligible cost (CPU-only, <15 seconds each).
 
 ### metalForge NPU Pipeline Validation (Feb 20, 2026)
@@ -362,7 +362,7 @@ FFT. GPU HMC → NPU phase classification → CPU validation against β_c ≈ 5.
 | #13 Abelian Higgs (1+1)D | ~1 min | **$0.001** | ✅ Done |
 | Total (Tier 0-2 + 13) | ~5 hours | **~$0.05** | **9/9 complete** |
 
-**Cumulative science portfolio**: 18 papers reproduced, ~$0.20 total compute cost.
+**Cumulative science portfolio**: 22 papers reproduced, ~$0.20 total compute cost.
 All Tier 0-2 targets complete + Paper 13 (Abelian Higgs) + Papers 14-22 (Kachkovskiy
 spectral theory: 1D/2D/3D Anderson + almost-Mathieu + Lanczos + Hofstadter butterfly).
 Python control baselines established: spectral theory Rust 8× faster, lattice QCD CG

@@ -66,7 +66,7 @@ impl SphericalHFB {
                 let rho_q = if is_proton { rho_p[k] } else { rho_n[k] };
                 let rho_safe = rho.max(RHO_POWF_GUARD);
 
-                let u_t0 = t0 * ((1.0 + x0 / 2.0) * rho - (0.5 + x0) * rho_q);
+                let u_t0 = t0 * (1.0 + x0 / 2.0).mul_add(rho, -((0.5 + x0) * rho_q));
 
                 let rho_alpha = rho_safe.powf(alpha);
                 let rho_alpha_m1 = if rho > DENSITY_FLOOR {
@@ -74,18 +74,21 @@ impl SphericalHFB {
                 } else {
                     0.0
                 };
-                let sum_rho2 = rho_p[k].powi(2) + rho_n[k].powi(2);
+                let sum_rho2 = rho_p[k].mul_add(rho_p[k], rho_n[k].powi(2));
 
                 let u_t3 = (t3 / 12.0)
-                    * ((1.0 + x3 / 2.0) * (alpha + 2.0) * rho_alpha * rho
-                        - (0.5 + x3) * (alpha * rho_alpha_m1 * sum_rho2 + 2.0 * rho_alpha * rho_q));
+                    * ((1.0 + x3 / 2.0).mul_add(
+                        (alpha + 2.0) * rho_alpha * rho,
+                        -(0.5 + x3)
+                            * (alpha * rho_alpha_m1).mul_add(sum_rho2, 2.0 * rho_alpha * rho_q),
+                    ));
 
                 u_t0 + u_t3
             })
             .collect()
     }
 
-    /// Effective kinetic energy matrix T_eff (Skyrme t₁/t₂ effective mass terms).
+    /// Effective kinetic energy matrix `T_eff` (Skyrme t₁/t₂ effective mass terms).
     pub(super) fn build_t_eff(
         &self,
         rho_p: &[f64],
@@ -96,8 +99,8 @@ impl SphericalHFB {
         let (t1, t2) = (params[1], params[2]);
         let (x1, x2) = (params[5], params[6]);
 
-        let c0t = 0.25 * (t1 * (1.0 + x1 / 2.0) + t2 * (1.0 + x2 / 2.0));
-        let c1n = 0.25 * (t1 * (0.5 + x1) - t2 * (0.5 + x2));
+        let c0t = 0.25 * t1.mul_add(1.0 + x1 / 2.0, t2 * (1.0 + x2 / 2.0));
+        let c1n = 0.25 * t1.mul_add(0.5 + x1, -(t2 * (0.5 + x2)));
 
         let rho_q: &[f64] = if is_proton { rho_p } else { rho_n };
         let f_q: Vec<f64> = (0..self.nr)
@@ -118,8 +121,10 @@ impl SphericalHFB {
                     let integrand: Vec<f64> = (0..self.nr)
                         .map(|k| {
                             f_q[k]
-                                * (self.dwf[idx_i][k] * self.dwf[idx_j][k] * self.r[k].powi(2)
-                                    + ll1 * self.wf[idx_i][k] * self.wf[idx_j][k])
+                                * self.dwf[idx_i][k].mul_add(
+                                    self.dwf[idx_j][k] * self.r[k].powi(2),
+                                    ll1 * self.wf[idx_i][k] * self.wf[idx_j][k],
+                                )
                         })
                         .collect();
 

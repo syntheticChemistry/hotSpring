@@ -3,7 +3,7 @@
 //! Hardware probing — GPU via wgpu/barracuda, NPU and CPU locally.
 //!
 //! GPU discovery leans on wgpu (which toadstool/barracuda uses). We get
-//! adapter name, device type, driver, backend, and feature flags (SHADER_F64)
+//! adapter name, device type, driver, backend, and feature flags (`SHADER_F64`)
 //! directly from the Vulkan/wgpu layer — no sysfs reimplementation needed.
 //!
 //! NPU discovery is local (probing `/dev/akida*`). This is evolution that
@@ -18,7 +18,8 @@ use std::fs;
 ///
 /// Uses the same wgpu instance/backend configuration that barracuda uses.
 /// Each adapter becomes a substrate with capabilities derived from its
-/// feature flags (SHADER_F64 → `F64Compute`, etc.).
+/// feature flags (`SHADER_F64` → `F64Compute`, etc.).
+#[must_use]
 pub fn probe_gpus() -> Vec<Substrate> {
     let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
         backends: wgpu::Backends::all(),
@@ -51,6 +52,9 @@ pub fn probe_gpus() -> Vec<Substrate> {
             capabilities.push(Capability::TimestampQuery);
         }
 
+        let limits = adapter.limits();
+        let max_buffer = limits.max_buffer_size;
+
         gpus.push(Substrate {
             kind: SubstrateKind::Gpu,
             identity: Identity {
@@ -62,6 +66,7 @@ pub fn probe_gpus() -> Vec<Substrate> {
                 pci_id: None,
             },
             properties: Properties {
+                memory_bytes: Some(max_buffer),
                 has_f64,
                 has_timestamps,
                 ..Properties::default()
@@ -74,6 +79,7 @@ pub fn probe_gpus() -> Vec<Substrate> {
 }
 
 /// Probe CPU via `/proc/cpuinfo` and `/proc/meminfo`.
+#[must_use]
 pub fn probe_cpu() -> Substrate {
     let (model, cores, threads, cache_kb, has_avx2) = parse_cpuinfo();
     let mem_bytes = parse_meminfo();
@@ -107,22 +113,40 @@ pub fn probe_cpu() -> Substrate {
 
 /// Probe for NPU devices.
 ///
-/// Currently discovers BrainChip AKD1000 via `/dev/akida0`. This is local
-/// evolution — toadstool doesn't have NPU substrate support yet, so we
-/// probe directly. Once toadstool absorbs NPU dispatch, we lean on that.
+/// Discovers `BrainChip` AKD1000 via `/dev/akida0` and enriches properties
+/// from PCIe sysfs (SRAM, vendor ID). This is local evolution — toadstool
+/// doesn't have NPU substrate support yet, so we probe directly. Once
+/// toadstool absorbs NPU dispatch, we lean on that.
+///
+/// # Absorption target: `toadstool::device::npu`
+///
+/// This probe should become `barracuda::device::npu::detect_akida_boards()`
+/// once toadstool adds NPU substrate support.
+#[must_use]
 pub fn probe_npus() -> Vec<Substrate> {
     let mut npus = Vec::new();
 
-    let akida_path = std::path::Path::new("/dev/akida0");
-    if akida_path.exists() {
+    for idx in 0..4 {
+        let dev_path = format!("/dev/akida{idx}");
+        let path = std::path::Path::new(&dev_path);
+        if !path.exists() {
+            continue;
+        }
+
+        let pci_id = scan_akida_pci();
+
         npus.push(Substrate {
             kind: SubstrateKind::Npu,
             identity: Identity {
                 name: String::from("BrainChip AKD1000"),
-                device_node: Some(String::from("/dev/akida0")),
+                device_node: Some(dev_path),
+                pci_id,
                 ..Identity::named("BrainChip AKD1000")
             },
-            properties: Properties::default(),
+            properties: Properties {
+                memory_bytes: Some(AKIDA_SRAM_BYTES),
+                ..Properties::default()
+            },
             capabilities: vec![
                 Capability::F32Compute,
                 Capability::QuantizedInference { bits: 8 },
@@ -135,6 +159,28 @@ pub fn probe_npus() -> Vec<Substrate> {
 
     npus
 }
+
+/// Scan PCIe bus for Akida vendor:device ID via sysfs.
+fn scan_akida_pci() -> Option<String> {
+    const BRAINCHIP_VENDOR: &str = "0x1e7c";
+    let Ok(entries) = fs::read_dir("/sys/bus/pci/devices") else {
+        return None;
+    };
+    for entry in entries.flatten() {
+        let vendor_path = entry.path().join("vendor");
+        if let Ok(vendor) = fs::read_to_string(&vendor_path) {
+            if vendor.trim() == BRAINCHIP_VENDOR {
+                let device_path = entry.path().join("device");
+                let device = fs::read_to_string(device_path).unwrap_or_default();
+                return Some(format!("{}:{}", BRAINCHIP_VENDOR, device.trim()));
+            }
+        }
+    }
+    None
+}
+
+/// AKD1000 has 8 MB SRAM (fixed architecture).
+const AKIDA_SRAM_BYTES: u64 = 8 * 1024 * 1024;
 
 fn parse_cpuinfo() -> (Option<String>, Option<u32>, Option<u32>, Option<u32>, bool) {
     let Ok(content) = fs::read_to_string("/proc/cpuinfo") else {

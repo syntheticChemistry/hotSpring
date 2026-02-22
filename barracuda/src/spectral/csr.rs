@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-//! Compressed Sparse Row matrix format and SpMV.
+//! Compressed Sparse Row matrix format and `SpMV`.
 //!
-//! CSR is the standard format for GPU SpMV kernels (P1 for Kachkovskiy GPU
+//! CSR is the standard format for GPU `SpMV` kernels (P1 for Kachkovskiy GPU
 //! promotion). Includes the WGSL compute shader for direct GPU absorption.
 
 /// Sparse symmetric matrix in Compressed Sparse Row format.
 ///
-/// This is the standard format for GPU SpMV kernels (P1 for Kachkovskiy GPU
+/// This is the standard format for GPU `SpMV` kernels (P1 for Kachkovskiy GPU
 /// promotion). The CSR layout maps directly to a WGSL compute shader.
 #[derive(Debug, Clone)]
 pub struct CsrMatrix {
@@ -21,7 +21,7 @@ impl CsrMatrix {
     /// Sparse matrix-vector product: y = A * x.
     ///
     /// This is the P1 primitive for GPU promotion — the inner loop of Lanczos.
-    /// CPU version; GPU SpMV available via `WGSL_SPMV_CSR_F64` shader.
+    /// CPU version; GPU `SpMV` available via `WGSL_SPMV_CSR_F64` shader.
     pub fn spmv(&self, x: &[f64], y: &mut [f64]) {
         for (i, yi) in y.iter_mut().enumerate().take(self.n) {
             let mut sum = 0.0;
@@ -33,6 +33,7 @@ impl CsrMatrix {
     }
 
     /// Number of non-zero entries.
+    #[must_use]
     pub const fn nnz(&self) -> usize {
         self.values.len()
     }
@@ -53,7 +54,7 @@ impl CsrMatrix {
 /// | 2 | storage, read | `col_idx: array<u32>` (nnz entries) |
 /// | 3 | storage, read | `values: array<f64>` (nnz entries) |
 /// | 4 | storage, read | `x: array<f64>` (n entries, input) |
-/// | 5 | storage, read_write | `y: array<f64>` (n entries, output) |
+/// | 5 | storage, `read_write` | `y: array<f64>` (n entries, output) |
 ///
 /// ## Dispatch
 ///
@@ -63,39 +64,7 @@ impl CsrMatrix {
 ///
 /// GPU promotion of CPU [`CsrMatrix::spmv()`] for Kachkovskiy spectral
 /// theory GPU Lanczos and Bazavov lattice QCD GPU Dirac.
-pub const WGSL_SPMV_CSR_F64: &str = r"
-struct Params {
-    n: u32,
-    nnz: u32,
-    pad0: u32,
-    pad1: u32,
-}
-
-@group(0) @binding(0) var<uniform> params: Params;
-@group(0) @binding(1) var<storage, read> row_ptr: array<u32>;
-@group(0) @binding(2) var<storage, read> col_idx: array<u32>;
-@group(0) @binding(3) var<storage, read> vals: array<f64>;
-@group(0) @binding(4) var<storage, read> x_vec: array<f64>;
-@group(0) @binding(5) var<storage, read_write> y_vec: array<f64>;
-
-@compute @workgroup_size(64)
-fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
-    let row = gid.x;
-    if row >= params.n {
-        return;
-    }
-
-    let start = row_ptr[row];
-    let end = row_ptr[row + 1u];
-
-    var sum: f64 = f64(0.0);
-    for (var j = start; j < end; j = j + 1u) {
-        sum = sum + vals[j] * x_vec[col_idx[j]];
-    }
-
-    y_vec[row] = sum;
-}
-";
+pub const WGSL_SPMV_CSR_F64: &str = include_str!("shaders/spmv_csr_f64.wgsl");
 
 #[cfg(test)]
 mod tests {

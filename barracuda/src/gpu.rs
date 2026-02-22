@@ -78,8 +78,9 @@ impl std::fmt::Display for AdapterInfo {
 
 /// GPU context with FP64 support for science workloads.
 ///
-/// Wraps wgpu device with `SHADER_F64` + ToadStool's `TensorContext` for
+/// Wraps wgpu device with `SHADER_F64` + `ToadStool`'s `TensorContext` for
 /// batched dispatch (`begin_batch`/`end_batch`) and `BufferPool` reuse.
+#[must_use]
 pub struct GpuF64 {
     pub adapter_name: String,
     pub has_f64: bool,
@@ -93,6 +94,7 @@ impl GpuF64 {
     /// Access the underlying wgpu Device.
     ///
     /// Delegates to barracuda's `WgpuDevice::device()`.
+    #[must_use]
     pub fn device(&self) -> &wgpu::Device {
         self.wgpu_device.device()
     }
@@ -100,29 +102,33 @@ impl GpuF64 {
     /// Access the underlying wgpu Queue.
     ///
     /// Delegates to barracuda's `WgpuDevice::queue()`.
+    #[must_use]
     pub fn queue(&self) -> &wgpu::Queue {
         self.wgpu_device.queue()
     }
 
-    /// Get Arc-wrapped device (for PppmGpu and other APIs requiring Arc&lt;Device&gt;).
+    /// Get Arc-wrapped device (for `PppmGpu` and other APIs requiring Arc&lt;Device&gt;).
+    #[must_use]
     pub fn device_arc(&self) -> Arc<wgpu::Device> {
         self.wgpu_device.device_arc()
     }
 
-    /// Get Arc-wrapped queue (for PppmGpu and other APIs requiring Arc&lt;Queue&gt;).
+    /// Get Arc-wrapped queue (for `PppmGpu` and other APIs requiring Arc&lt;Queue&gt;).
+    #[must_use]
     pub fn queue_arc(&self) -> Arc<wgpu::Queue> {
         self.wgpu_device.queue_arc()
     }
 
-    /// Bridge to toadstool's WgpuDevice for BatchedEighGpu, SsfGpu, etc.
+    /// Bridge to toadstool's `WgpuDevice` for `BatchedEighGpu`, `SsfGpu`, etc.
     ///
     /// This enables all toadstool GPU operations (linalg, FFT, observables)
     /// from hotSpring binaries using the same underlying wgpu device.
+    #[must_use]
     pub fn to_wgpu_device(&self) -> Arc<WgpuDevice> {
         Arc::clone(&self.wgpu_device)
     }
 
-    /// Access the TensorContext for batched dispatch.
+    /// Access the `TensorContext` for batched dispatch.
     ///
     /// Usage:
     /// ```rust,ignore
@@ -131,6 +137,7 @@ impl GpuF64 {
     /// // ... queue multiple GPU operations ...
     /// ctx.end_batch()?;  // Single GPU submission
     /// ```
+    #[must_use]
     pub const fn tensor_context(&self) -> &Arc<TensorContext> {
         &self.tensor_ctx
     }
@@ -156,6 +163,7 @@ impl GpuF64 {
     /// Returns a summary for each adapter including name, driver, and
     /// `SHADER_F64` support. Use the `index` field with
     /// `HOTSPRING_GPU_ADAPTER=<index>` to target a specific GPU.
+    #[must_use]
     pub fn enumerate_adapters() -> Vec<AdapterInfo> {
         let instance = Self::create_instance();
         instance
@@ -189,7 +197,7 @@ impl GpuF64 {
     /// Returns [`crate::error::HotSpringError::NoAdapter`] if no compatible adapter is found.
     /// Returns [`crate::error::HotSpringError::DeviceCreation`] if device request fails or the
     /// adapter name/index does not match.
-    /// Returns [`crate::error::HotSpringError::NoShaderF64`] if no adapter supports SHADER_F64.
+    /// Returns [`crate::error::HotSpringError::NoShaderF64`] if no adapter supports `SHADER_F64`.
     pub async fn new() -> Result<Self, crate::error::HotSpringError> {
         // Priority: HOTSPRING_GPU_ADAPTER → BARRACUDA_GPU_ADAPTER → auto
         let selector = std::env::var("HOTSPRING_GPU_ADAPTER")
@@ -314,6 +322,7 @@ impl GpuF64 {
     }
 
     /// Access the runtime-detected driver profile for shader specialization.
+    #[must_use]
     pub const fn driver_profile(&self) -> &GpuDriverProfile {
         &self.driver_profile
     }
@@ -350,9 +359,10 @@ impl GpuF64 {
     /// Create a compute pipeline with `WgslOptimizer` + `GpuDriverProfile`.
     ///
     /// Applies loop unrolling, ILP reordering, and fossil substitution via
-    /// ToadStool's `ShaderTemplate::for_driver_profile()`. Does NOT apply
+    /// `ToadStool`'s `ShaderTemplate::for_driver_profile()`. Does NOT apply
     /// exp/log workarounds — use [`Self::create_pipeline_f64`] for shaders
     /// that call `exp()` or `log()` on f64 values.
+    #[must_use]
     pub fn create_pipeline(&self, shader_source: &str, label: &str) -> wgpu::ComputePipeline {
         let optimized =
             ShaderTemplate::for_driver_profile(shader_source, false, &self.driver_profile);
@@ -377,11 +387,12 @@ impl GpuF64 {
     /// Create a compute pipeline with driver-aware f64 patching + optimization.
     ///
     /// Routes through `ShaderTemplate::for_driver_profile()` which applies:
-    /// 1. Fossil substitution (legacy math_f64 → native builtins)
+    /// 1. Fossil substitution (legacy `math_f64` → native builtins)
     /// 2. exp/log workaround on NVK/nouveau
-    /// 3. Missing math_f64 injection (only functions actually called)
+    /// 3. Missing `math_f64` injection (only functions actually called)
     /// 4. `WgslOptimizer` (loop unrolling + ILP reordering) with
     ///    hardware-accurate `LatencyModel` from `GpuDriverProfile`
+    #[must_use]
     pub fn create_pipeline_f64(&self, shader_source: &str, label: &str) -> wgpu::ComputePipeline {
         let optimized = ShaderTemplate::for_driver_profile(
             shader_source,
@@ -407,6 +418,7 @@ impl GpuF64 {
     }
 
     /// Create a storage buffer from f64 data (read-only)
+    #[must_use]
     pub fn create_f64_buffer(&self, data: &[f64], label: &str) -> wgpu::Buffer {
         use wgpu::util::DeviceExt;
         let bytes: Vec<u8> = data.iter().flat_map(|v| v.to_le_bytes()).collect();
@@ -419,6 +431,7 @@ impl GpuF64 {
     }
 
     /// Create a writable storage buffer for f64 output
+    #[must_use]
     pub fn create_f64_output_buffer(&self, count: usize, label: &str) -> wgpu::Buffer {
         self.device().create_buffer(&wgpu::BufferDescriptor {
             label: Some(label),
@@ -431,6 +444,7 @@ impl GpuF64 {
     }
 
     /// Create a staging buffer for reading results back to CPU
+    #[must_use]
     pub fn create_staging_buffer(&self, size: usize, label: &str) -> wgpu::Buffer {
         self.device().create_buffer(&wgpu::BufferDescriptor {
             label: Some(label),
@@ -441,6 +455,7 @@ impl GpuF64 {
     }
 
     /// Create a uniform buffer from raw bytes
+    #[must_use]
     pub fn create_uniform_buffer(&self, data: &[u8], label: &str) -> wgpu::Buffer {
         use wgpu::util::DeviceExt;
         self.device()
@@ -459,6 +474,7 @@ impl GpuF64 {
     /// Attempts `nvidia-smi` (proprietary driver) first, then gracefully
     /// degrades to zeros for open-source drivers (NVK/nouveau, RADV) where
     /// runtime power/temp monitoring is not yet standardized.
+    #[must_use]
     pub fn query_gpu_power() -> (f64, f64, f64, f64) {
         // Try nvidia-smi (only works with proprietary nvidia driver)
         if let Some(result) = Self::query_nvidia_smi() {
@@ -499,6 +515,7 @@ impl GpuF64 {
     }
 
     /// Snapshot of current GPU VRAM usage in MiB.
+    #[must_use]
     pub fn gpu_vram_used_mib() -> f64 {
         let (_, _, _, vram) = Self::query_gpu_power();
         vram
@@ -601,6 +618,7 @@ impl GpuF64 {
     ///
     /// Encode as many compute passes / dispatches as needed, then call
     /// [`Self::submit_encoder`] to issue a single GPU submission.
+    #[must_use]
     pub fn begin_encoder(&self, label: &str) -> wgpu::CommandEncoder {
         self.device()
             .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some(label) })
@@ -676,6 +694,7 @@ impl GpuF64 {
     ///
     /// Includes `COPY_DST` so cell-list buffers can be re-uploaded
     /// when the neighbor list is rebuilt on CPU.
+    #[must_use]
     pub fn create_u32_buffer(&self, data: &[u32], label: &str) -> wgpu::Buffer {
         use wgpu::util::DeviceExt;
         let bytes: &[u8] = bytemuck::cast_slice(data);

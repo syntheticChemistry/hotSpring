@@ -10,7 +10,7 @@
 /// MD force comparison: GPU f32 vs analytical CPU f64.
 ///
 /// GPU forces are computed in f32 (WGSL `vec3<f32>`) while the reference
-/// is f64. After exp(), sqrt(), and force accumulation, GPU-vs-CPU
+/// is f64. After `exp()`, `sqrt()`, and force accumulation, GPU-vs-CPU
 /// relative error of up to 1% is expected for f32 arithmetic.
 /// Measured: ~0.1% for well-separated pairs, ~0.5% near cutoff.
 pub const MD_FORCE_TOLERANCE: f64 = 0.01;
@@ -25,15 +25,15 @@ pub const MD_ABSOLUTE_FLOOR: f64 = 1e-4;
 
 /// Newton's 3rd law: absolute residual tolerance.
 ///
-/// For two-body forces, F_i + F_j should be exactly zero.
-/// f32 rounding produces residuals of O(eps_f32 * F_mag) ≈ 1e-7 * 10 = 1e-6.
+/// For two-body forces, `F_i` + `F_j` should be exactly zero.
+/// f32 rounding produces residuals of `O(eps_f32 * F_mag)` ≈ 1e-7 * 10 = 1e-6.
 /// 1e-3 is conservative for multi-particle sums.
 pub const NEWTON_3RD_LAW_ABS: f64 = 1e-3;
 
 /// MD equilibrium force: absolute magnitude at zero-force point.
 ///
 /// At the LJ minimum (r = 2^(1/6) * sigma), the net force is zero.
-/// GPU f32 rounding produces residual force of O(eps_f32 * F_scale).
+/// GPU f32 rounding produces residual force of `O(eps_f32 * F_scale)`.
 /// 0.05 absolute threshold is conservative.
 pub const MD_EQUILIBRIUM_FORCE_ABS: f64 = 0.05;
 
@@ -48,7 +48,7 @@ pub const CELLLIST_PE_TOLERANCE: f64 = 1e-6;
 ///
 /// Net force on the system should be zero (Newton's 3rd law). Cell-list
 /// summation order differs from all-pairs, so floating-point residual
-/// is O(N * eps * F_avg).
+/// is `O(N * eps * F_avg)`.
 pub const CELLLIST_NETFORCE_TOLERANCE: f64 = 1e-4;
 
 // ═══════════════════════════════════════════════════════════════════
@@ -73,11 +73,11 @@ pub const ENERGY_DRIFT_PCT: f64 = 0.5;
 /// Source: METHODOLOGY.md §Phase C acceptance criteria.
 pub const RDF_TAIL_TOLERANCE: f64 = 0.02;
 
-/// Native GPU f64 builtins vs software (math_f64) implementations.
+/// Native GPU f64 builtins vs software (`math_f64`) implementations.
 ///
 /// Native GPU sqrt/exp/log may use hardware-specific algorithms (e.g. Newton-Raphson
 /// with different initial approximations) that differ from the polynomial/rational
-/// approximations in math_f64.wgsl. Observed max differences on RTX 4070 (Ada Lovelace):
+/// approximations in `math_f64.wgsl`. Observed max differences on RTX 4070 (Ada Lovelace):
 ///
 /// - sqrt: ~5e-7 (relative, over 200 test values in \[0.01, 10\])
 /// - exp:  ~8e-8 (relative, over 200 test values in \[-5, 5\])
@@ -122,7 +122,7 @@ pub const PPPM_NEWTON_3RD_ABS: f64 = 1e-6;
 
 /// PPPM Madelung constant: relative error tolerance.
 ///
-/// The NaCl Madelung constant (1.747565...) is analytically known.
+/// The `NaCl` Madelung constant (1.747565...) is analytically known.
 /// PPPM converges to it as mesh density increases. 0.01 (1%) relative
 /// error is achievable with modest mesh parameters.
 pub const PPPM_MADELUNG_REL: f64 = 0.01;
@@ -134,7 +134,7 @@ pub const PPPM_MADELUNG_REL: f64 = 0.01;
 /// D* Rust-vs-Sarkas: relative self-diffusion tolerance.
 ///
 /// MD transport coefficients are stochastic; Green-Kubo integration of
-/// VACF has statistical noise that scales as 1/sqrt(N_steps). With
+/// VACF has statistical noise that scales as `1/sqrt(N_steps)`. With
 /// N=500 lite and 20k steps, 5% relative agreement between two
 /// independent MD runs is expected.
 ///
@@ -144,11 +144,11 @@ pub const TRANSPORT_D_STAR_VS_SARKAS: f64 = 0.05;
 /// Daligault fit reproducing its own Sarkas calibration data.
 ///
 /// The fit is a smooth analytical model with 5 parameters (A(κ), α(κ)
-/// quadratics + C_w) fitted to 12 Green-Kubo D* points at N=2000.
+/// quadratics + `C_w`) fitted to 12 Green-Kubo D* points at N=2000.
 /// Per-point error up to 20% is acceptable (smoothness constraint
 /// prevents exact interpolation), RMSE must be < 10%.
 ///
-/// Source: calibrate_daligault_fit.py (Feb 2026).
+/// Source: `calibrate_daligault_fit.py` (Feb 2026).
 pub const DALIGAULT_FIT_VS_CALIBRATION: f64 = 0.20;
 
 /// RMSE of Daligault fit across all 12 calibration points.
@@ -163,13 +163,13 @@ pub const DALIGAULT_FIT_RMSE: f64 = 0.10;
 /// Source: Daligault PRE 86, 047401 (2012), Fig. 1.
 pub const TRANSPORT_D_STAR_VS_FIT: f64 = 0.10;
 
-/// C_w(κ) calibration: relative error vs Python analytical fit.
+/// `C_w(κ)` calibration: relative error vs Python analytical fit.
 ///
-/// The weak-coupling coefficient C_w(κ) = exp(a₀ + a₁κ + a₂κ²) from
-/// calibrate_daligault_fit.py must match its own analytical values to 2%.
+/// The weak-coupling coefficient `C_w(κ)` = exp(a₀ + a₁κ + a₂κ²) from
+/// `calibrate_daligault_fit.py` must match its own analytical values to 2%.
 /// The fit was calibrated at κ ∈ {0, 1, 2, 3} with 12 Sarkas data points.
 ///
-/// Source: calibrate_daligault_fit.py, commit 0a6405f, Feb 2026.
+/// Source: `calibrate_daligault_fit.py`, commit 0a6405f, Feb 2026.
 pub const TRANSPORT_C_W_CALIBRATION_REL: f64 = 0.02;
 
 /// Viscosity Rust-vs-Sarkas: relative tolerance.
@@ -196,7 +196,7 @@ pub const HFB_RUST_VS_PYTHON_REL: f64 = 0.12;
 /// Both paths agree in physics (same order of magnitude D*); 65% captures
 /// the maximum observed divergence at small N.
 ///
-/// Measurement: validate_cpu_gpu_parity on RTX 4070, Feb 19 2026.
+/// Measurement: `validate_cpu_gpu_parity` on RTX 4070, Feb 19 2026.
 ///   N=108, seed=42, 5k equil + 5k prod. Worst case: κ=1 Γ=14 → 62%.
 ///   N=500, seed=42, 5k equil + 20k prod. Worst case: κ=2 Γ=31 → 58%.
 ///   Threshold set to 65% = max observed + 3% margin.
@@ -208,8 +208,8 @@ pub const TRANSPORT_D_STAR_CPU_GPU_PARITY: f64 = 0.65;
 /// within ~30% of the target. Larger deviations indicate insufficient
 /// equilibration or integration instability.
 ///
-/// Measurement: validate_transport lite runs, Feb 19 2026.
-///   N=500, 5k equil + 20k prod, seed=42. Max |T_final/T_target - 1|
+/// Measurement: `validate_transport` lite runs, Feb 19 2026.
+///   N=500, 5k equil + 20k prod, seed=42. Max |`T_final/T_target` - 1|
 ///   across 9 Sarkas-matched cases: 24% (κ=3 Γ=1510). 30% = max + 6% margin.
 pub const TRANSPORT_T_STABILITY: f64 = 0.30;
 
@@ -220,7 +220,7 @@ pub const TRANSPORT_T_STABILITY: f64 = 0.30;
 /// not a precision benchmark — the fit was calibrated against N=2000
 /// Sarkas data, so N=500 lite runs have systematic finite-size bias.
 ///
-/// Measurement: validate_transport --lite, Feb 19 2026.
+/// Measurement: `validate_transport` --lite, Feb 19 2026.
 ///   N=500, seed=42. Worst case: κ=3 Γ=1510 → 74% (strong coupling,
 ///   longest correlation time, most sensitive to finite-size). 80% = max + 6%.
 pub const TRANSPORT_D_STAR_VS_FIT_LITE: f64 = 0.80;
@@ -233,7 +233,7 @@ pub const TRANSPORT_D_STAR_VS_FIT_LITE: f64 = 0.80;
 /// integral of ⟨v(t)·v(0)⟩. At small N, limited trajectory length
 /// causes both estimators to have large variance.
 ///
-/// Measurement: validate_transport, Feb 19 2026.
+/// Measurement: `validate_transport`, Feb 19 2026.
 ///   N=500, seed=42. Worst MSD/VACF disagreement: 43% (κ=3 Γ=1510).
 ///   50% = max + 7% margin, serving as a bug-detection gate.
 pub const TRANSPORT_MSD_VACF_AGREEMENT: f64 = 0.50;
@@ -243,7 +243,7 @@ pub const TRANSPORT_MSD_VACF_AGREEMENT: f64 = 0.50;
 /// At N=108 with 5k steps, VACF noise and FP ordering divergence
 /// limit CPU/GPU agreement to ~20%.
 ///
-/// Measurement: validate_cpu_gpu_parity, RTX 4070, Feb 19 2026.
+/// Measurement: `validate_cpu_gpu_parity`, RTX 4070, Feb 19 2026.
 ///   N=108, seed=42, κ=1 Γ=10, 5k equil + 5k prod. D* relative diff: 17%.
 ///   20% = max + 3% margin.
 pub const PARITY_D_STAR_REL: f64 = 0.20;
@@ -253,8 +253,8 @@ pub const PARITY_D_STAR_REL: f64 = 0.20;
 /// Final equilibrium T* should agree within 25% between CPU and GPU.
 /// Differences arise from FP ordering in the energy accumulation.
 ///
-/// Measurement: validate_cpu_gpu_parity, RTX 4070, Feb 19 2026.
-///   N=108, seed=42, 6 (κ,Γ) cases. Worst |T_cpu/T_gpu - 1|: 21%.
+/// Measurement: `validate_cpu_gpu_parity`, RTX 4070, Feb 19 2026.
+///   N=108, seed=42, 6 (κ,Γ) cases. Worst |`T_cpu/T_gpu` - 1|: 21%.
 ///   25% = max + 4% margin.
 pub const PARITY_T_DIFF: f64 = 0.25;
 
@@ -264,15 +264,15 @@ pub const PARITY_T_DIFF: f64 = 0.25;
 /// GPU (j!=i full-loop). 8% captures the maximum observed divergence
 /// for N=108 5k-step runs.
 ///
-/// Measurement: validate_cpu_gpu_parity, RTX 4070, Feb 19 2026.
-///   N=108, seed=42, 6 cases. Worst |E_cpu/E_gpu - 1|: 6.8%.
+/// Measurement: `validate_cpu_gpu_parity`, RTX 4070, Feb 19 2026.
+///   N=108, seed=42, 6 cases. Worst |`E_cpu/E_gpu` - 1|: 6.8%.
 ///   8% = max + 1.2% margin.
 pub const PARITY_ENERGY_DIFF: f64 = 0.08;
 
 /// PPPM net force tolerance for multi-particle systems.
 ///
-/// For NaCl crystals and random charge configurations, the net force
-/// |Σ F_i| should be near zero. PPPM mesh approximation for small
+/// For `NaCl` crystals and random charge configurations, the net force
+/// |Σ `F_i`| should be near zero. PPPM mesh approximation for small
 /// systems with limited resolution can give residuals of O(1).
 pub const PPPM_MULTI_PARTICLE_NET_FORCE: f64 = 1.0;
 
@@ -288,7 +288,7 @@ pub const PPPM_MULTI_PARTICLE_NET_FORCE: f64 = 1.0;
 /// GPU cell-list is rebuilt every this many steps during both
 /// equilibration and production. 20 steps balances rebuild cost
 /// (~0.3ms per rebuild) against force accuracy. Particles moving
-/// further than cell_size/2 between rebuilds can miss neighbors.
+/// further than `cell_size/2` between rebuilds can miss neighbors.
 pub const CELLLIST_REBUILD_INTERVAL: usize = 20;
 
 /// Thermostat application interval (MD steps).
@@ -297,3 +297,14 @@ pub const CELLLIST_REBUILD_INTERVAL: usize = 20;
 /// equilibration. 10 steps provides smooth temperature coupling
 /// without overdamping velocity correlations.
 pub const THERMOSTAT_INTERVAL: usize = 10;
+
+// ═══════════════════════════════════════════════════════════════════
+// ESN reservoir tolerances (echo state network for MD transport)
+// ═══════════════════════════════════════════════════════════════════
+
+/// ESN spectral radius: negligible threshold to skip scaling.
+///
+/// When the raw `W_res` matrix has estimated spectral radius &lt; this value,
+/// it is effectively zero (e.g. connectivity=0 or all-zero draw). We skip
+/// rescaling to `spectral_radius` to avoid division by zero.
+pub const ESN_SPECTRAL_RADIUS_NEGLIGIBLE: f64 = 1e-10;

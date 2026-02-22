@@ -1,7 +1,7 @@
 # hotSpring → BarraCUDA/ToadStool Absorption Manifest
 
-**Date:** February 21, 2026
-**Version:** v0.6.1
+**Date:** February 22, 2026
+**Version:** v0.6.3
 **License:** AGPL-3.0-only
 
 ---
@@ -97,7 +97,7 @@ These are hotSpring-specific infrastructure:
 | `discovery.rs` | hotSpring data path resolution |
 | `data.rs` | AME2020 + Skyrme bounds |
 | `prescreen.rs` | Nuclear EOS cascade filter |
-| `bench.rs` | hotSpring benchmark harness |
+| `bench/` | hotSpring benchmark harness (mod, hardware, power, report) |
 | `error.rs` | HotSpringError (wraps BarracudaError) |
 
 ---
@@ -117,11 +117,11 @@ All WGSL shaders in hotSpring, organized by absorption status:
 
 ### Ready for Absorption
 
-- `WGSL_SPMV_CSR_F64` (inline in `spectral/csr.rs`)
-- `WGSL_DIRAC_STAGGERED_F64` (inline in `lattice/dirac.rs`)
-- `WGSL_COMPLEX_DOT_RE_F64` (inline in `lattice/cg.rs`)
-- `WGSL_AXPY_F64` (inline in `lattice/cg.rs`)
-- `WGSL_XPAY_F64` (inline in `lattice/cg.rs`)
+- `spmv_csr_f64.wgsl` (in `spectral/shaders/`)
+- `dirac_staggered_f64.wgsl` (in `lattice/shaders/`)
+- `complex_dot_re_f64.wgsl` (in `lattice/shaders/`)
+- `axpy_f64.wgsl` (in `lattice/shaders/`)
+- `xpay_f64.wgsl` (in `lattice/shaders/`)
 - `esn_reservoir_update.wgsl` (in `md/shaders/`)
 - `esn_readout.wgsl` (in `md/shaders/`)
 
@@ -132,19 +132,21 @@ All WGSL shaders in hotSpring, organized by absorption status:
 
 ---
 
-## NPU Substrate Discovery + Bridge (v0.6.1)
+## NPU Substrate Discovery + Bridge (forge v0.2.0)
 
-hotSpring's metalForge forge crate provides working cross-substrate
-discovery, capability-based dispatch, and a barracuda device bridge
-that toadstool doesn't have yet. Key components:
+hotSpring's metalForge forge crate (v0.2.0, 19 tests) provides working
+cross-substrate discovery, capability-based dispatch, physics workload
+profiles, and a barracuda device bridge that toadstool doesn't have yet.
 
 | Component | Location | What it does |
 |-----------|----------|--------------|
-| NPU probe | `metalForge/forge/src/probe.rs::probe_npus()` | Discovers `/dev/akida*` device nodes |
-| CPU probe | `metalForge/forge/src/probe.rs::probe_cpu()` | `/proc/cpuinfo` + `/proc/meminfo` discovery |
-| Capability model | `metalForge/forge/src/substrate.rs` | 12-variant enum (F64Compute, QuantizedInference, BatchInference, ...) |
-| Dispatch | `metalForge/forge/src/dispatch.rs` | Routes workloads by capability (GPU > NPU > CPU) |
-| **Bridge** | `metalForge/forge/src/bridge.rs` | **Absorption seam**: forge substrate ↔ barracuda `WgpuDevice` |
+| NPU probe | `forge/src/probe.rs::probe_npus()` | Discovers `/dev/akida*` + PCIe sysfs vendor scan + SRAM reporting |
+| CPU probe | `forge/src/probe.rs::probe_cpu()` | `/proc/cpuinfo` + `/proc/meminfo` discovery |
+| GPU probe | `forge/src/probe.rs::probe_gpus()` | wgpu adapters with VRAM from `adapter.limits()` |
+| Capability model | `forge/src/substrate.rs` | 12-variant enum (F64Compute, QuantizedInference, BatchInference, ...) |
+| Dispatch | `forge/src/dispatch.rs` | Routes workloads by capability (GPU > NPU > CPU) |
+| **Profiles** | `forge/src/dispatch.rs::profiles` | Physics workloads: MD force, HFB eigensolve, lattice CG, ESN NPU/GPU, spectral SpMV, CPU validation, hetero phase classifier |
+| **Bridge** | `forge/src/bridge.rs` | **Absorption seam**: forge substrate ↔ barracuda `WgpuDevice` |
 
 The bridge module is the explicit absorption point:
 - `create_device()` — forge substrate → barracuda `WgpuDevice` (via `from_adapter_index`)
@@ -157,11 +159,13 @@ The bridge module is the explicit absorption point:
 |-------------|------------------|----------------|
 | `substrate::Capability` | `device::unified::Capability` | Merge 12 forge variants into toadstool's 4 |
 | `probe::probe_cpu()` | `substrate::Substrate::discover_all()` | Add CPU substrate to toadstool discovery |
-| `probe::probe_npus()` | `device::akida` | Lightweight `/dev` check complements PCIe scan |
+| `probe::probe_npus()` | `device::akida` | PCIe sysfs vendor scan + `/dev` detection + SRAM reporting |
+| `probe::probe_gpus()` | `substrate::Substrate::discover_all()` | VRAM via `adapter.limits()` + feature-to-capability mapping |
 | `dispatch::route()` | `toadstool_integration::select_best_device()` | Capability-set routing complements `HardwareWorkload` |
+| `dispatch::profiles` | — | Physics workload definitions for hotSpring domains |
 
 See `wateringHole/handoffs/HOTSPRING_V061_FORGE_HANDOFF_FEB21_2026.md` for the
-full handoff with hardware measurements and validation results.
+forge handoff with hardware measurements and validation results.
 
 ---
 

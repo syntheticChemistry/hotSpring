@@ -311,8 +311,9 @@ fn main() {
                             fy_sum += forces[i * 3 + 1];
                             fz_sum += forces[i * 3 + 2];
                         }
-                        let net_force =
-                            (fx_sum * fx_sum + fy_sum * fy_sum + fz_sum * fz_sum).sqrt();
+                        let net_force = fz_sum
+                            .mul_add(fz_sum, fx_sum.mul_add(fx_sum, fy_sum * fy_sum))
+                            .sqrt();
                         println!("    Net force magnitude: {net_force:.2e} (should be ~0)");
                         harness.check_upper(
                             "random PPPM net force near zero",

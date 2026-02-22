@@ -17,10 +17,11 @@ use std::f64::consts::PI;
 
 /// Binding energy via Bethe–Weizsäcker SEMF with Skyrme-derived coefficients.
 ///
-/// B(Z,N) = a_v·A − a_s·A^(2/3) − a_c·Z(Z−1)/A^(1/3) − a_a·(N−Z)²/A + δ(Z,N)
+/// B(Z,N) = `a_v`·A − `a_s`·A^(2/3) − `a_c`·Z(Z−1)/A^(1/3) − `a_a`·(N−Z)²/A + δ(Z,N)
 ///
-/// Coefficients a_v, a_c, a_a are derived from infinite nuclear matter properties
+/// Coefficients `a_v`, `a_c`, `a_a` are derived from infinite nuclear matter properties
 /// (saturation density, symmetry energy) computed from the Skyrme EDF parameters.
+#[must_use]
 pub fn semf_binding_energy(z: usize, n: usize, params: &[f64]) -> f64 {
     let a = z + n;
     if a == 0 {
@@ -38,7 +39,7 @@ pub fn semf_binding_energy(z: usize, n: usize, params: &[f64]) -> f64 {
     // Volume: a_v = |E/A(ρ₀)| — binding energy per nucleon at saturation
     let a_v = nmp.e_a_mev.abs();
     // Nuclear radius parameter r₀ from saturation density: r₀ = (3/(4πρ₀))^(1/3)
-    let r0 = (3.0 / (4.0 * PI * nmp.rho0_fm3)).powf(1.0 / 3.0);
+    let r0 = (3.0 / (4.0 * PI * nmp.rho0_fm3)).cbrt();
     // Surface: a_s = 1.1 × a_v — empirical surface-to-volume ratio
     // (Thomas–Fermi calculations give 1.0–1.2 depending on parametrization)
     let a_s = a_v * 1.1;
@@ -52,7 +53,7 @@ pub fn semf_binding_energy(z: usize, n: usize, params: &[f64]) -> f64 {
     // Bethe–Weizsäcker mass formula
     let mut b = a_v * af; // Volume
     b -= a_s * af.powf(2.0 / 3.0); // Surface
-    b -= a_c * zf * (zf - 1.0) / af.powf(1.0 / 3.0); // Coulomb
+    b -= a_c * zf * (zf - 1.0) / af.cbrt(); // Coulomb
     b -= a_a * (nf - zf).powi(2) / af; // Asymmetry
 
     // Pairing: δ = +a_p (even-even), 0 (odd-A), -a_p (odd-odd)

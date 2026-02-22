@@ -21,7 +21,7 @@
 //!           (estimated 3-5× speedup from eliminated dispatch overhead)
 //!
 //! The single-dispatch kernel handles n≤32, which covers all spherical HFB
-//! basis sizes (n_shells 8-14 → n_states ≤ ~30).
+//! basis sizes (`n_shells` 8-14 → `n_states` ≤ ~30).
 
 use super::hfb::SphericalHFB;
 use super::semf::semf_binding_energy;
@@ -34,7 +34,7 @@ use std::sync::Arc;
 /// Result from GPU-batched L2 evaluation across many nuclei
 #[derive(Debug)]
 pub struct BatchedL2Result {
-    /// (Z, N, binding_energy_mev, converged) for each nucleus
+    /// (Z, N, `binding_energy_mev`, converged) for each nucleus
     pub results: Vec<(usize, usize, f64, bool)>,
     /// Total wall time for HFB nuclei (seconds)
     pub hfb_time_s: f64,
@@ -57,11 +57,11 @@ pub struct BatchedL2Result {
 /// batched eigensolve fails.
 ///
 /// # Arguments
-/// * `device` - toadstool WgpuDevice (from `GpuF64::to_wgpu_device()`)
+/// * `device` - toadstool `WgpuDevice` (from `GpuF64::to_wgpu_device()`)
 /// * `nuclei` - list of (Z, N) pairs
 /// * `params` - 10-element Skyrme parameter vector
 /// * `max_iter` - maximum SCF iterations (default: 200)
-/// * `tol` - energy convergence tolerance in MeV (default: 0.05)
+/// * `tol` - energy convergence tolerance in `MeV` (default: 0.05)
 /// * `mixing` - density mixing factor (default: 0.3)
 pub fn binding_energies_l2_gpu(
     device: &Arc<WgpuDevice>,

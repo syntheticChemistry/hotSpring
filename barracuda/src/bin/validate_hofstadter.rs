@@ -59,7 +59,7 @@ fn check_spectrum_bounds(harness: &mut ValidationHarness) {
 
     let lambda = 1.0;
     let n = 500;
-    let bound = 2.0 + 2.0 * lambda;
+    let bound = 2.0f64.mul_add(lambda, 2.0);
 
     let alphas = [1.0 / 2.0, 1.0 / 3.0, 1.0 / 5.0, 2.0 / 5.0, 3.0 / 7.0];
     let mut all_bounded = true;

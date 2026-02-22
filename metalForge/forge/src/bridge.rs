@@ -10,7 +10,7 @@
 //! # Absorption path
 //!
 //! Forge `Substrate` → barracuda `WgpuDevice`. The capability model
-//! (F64Compute, ShaderDispatch, etc.) maps directly to barracuda's
+//! (`F64Compute`, `ShaderDispatch`, etc.) maps directly to barracuda's
 //! feature requirements. The bridge provides:
 //!
 //! 1. `create_device` — forge substrate → barracuda `WgpuDevice`
@@ -29,6 +29,7 @@ use barracuda::device::WgpuDevice;
 ///
 /// Returns `None` if the substrate is not a GPU, has no adapter index,
 /// or if device creation fails.
+#[must_use]
 pub fn create_device(substrate: &Substrate) -> Option<WgpuDevice> {
     if substrate.kind != SubstrateKind::Gpu {
         return None;

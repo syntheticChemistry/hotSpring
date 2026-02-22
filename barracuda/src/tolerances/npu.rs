@@ -17,11 +17,11 @@ pub const NPU_F32_PARITY: f64 = 0.001;
 /// ESN f64 → int8 quantized prediction: relative error.
 ///
 /// Symmetric uniform quantization of weights to 8-bit integers introduces
-/// quantization noise proportional to max_abs(w) / 127. For W_in in [-0.5, 0.5]
-/// and W_res with spectral_radius=0.95, measured mean error is ~0.34%.
+/// quantization noise proportional to `max_abs(w)` / 127. For `W_in` in [-0.5, 0.5]
+/// and `W_res` with `spectral_radius=0.95`, measured mean error is ~0.34%.
 /// 5% threshold is conservative.
 ///
-/// Source: control/metalforge_npu/scripts/npu_quantization_parity.py
+/// Source: `control/metalforge_npu/scripts/npu_quantization_parity.py`
 pub const NPU_INT8_QUANTIZATION: f64 = 0.05;
 
 /// ESN f64 → int4 quantized prediction: relative error.
@@ -32,7 +32,7 @@ pub const NPU_INT8_QUANTIZATION: f64 = 0.05;
 /// near the weight matrix's null space.
 /// 30% threshold accommodates worst-case phase diagram corners.
 ///
-/// Source: control/metalforge_npu/scripts/npu_quantization_parity.py
+/// Source: `control/metalforge_npu/scripts/npu_quantization_parity.py`
 pub const NPU_INT4_QUANTIZATION: f64 = 0.30;
 
 /// ESN f64 → int4 weights + int4 activations: relative error.
@@ -44,7 +44,7 @@ pub const NPU_INT4_QUANTIZATION: f64 = 0.30;
 /// Measured: ~8.9% mean, ~24% worst-case.
 /// 50% threshold is generous for full-hardware simulation.
 ///
-/// Source: control/metalforge_npu/scripts/npu_quantization_parity.py
+/// Source: `control/metalforge_npu/scripts/npu_quantization_parity.py`
 pub const NPU_INT4_FULL_QUANTIZATION: f64 = 0.50;
 
 // ═══════════════════════════════════════════════════════════════════
@@ -53,18 +53,18 @@ pub const NPU_INT4_FULL_QUANTIZATION: f64 = 0.50;
 
 /// FC depth overhead: latency increase from depth=1 to depth=7.
 ///
-/// All FC layers merge into a single hardware sequence via SkipDMA.
+/// All FC layers merge into a single hardware sequence via `SkipDMA`.
 /// Measured: ~7% overhead for 7 extra layers. 30% is generous.
 ///
-/// Source: control/metalforge_npu/scripts/npu_beyond_sdk.py
+/// Source: `control/metalforge_npu/scripts/npu_beyond_sdk.py`
 pub const NPU_FC_DEPTH_OVERHEAD: f64 = 0.30;
 
 /// Batch inference speedup: batch=8 vs batch=1 throughput ratio.
 ///
-/// PCIe round-trip amortizes across batch. Measured: 2.35×.
+/// `PCIe` round-trip amortizes across batch. Measured: 2.35×.
 /// 1.5× is the minimum acceptable amortization.
 ///
-/// Source: control/metalforge_npu/scripts/npu_beyond_sdk.py
+/// Source: `control/metalforge_npu/scripts/npu_beyond_sdk.py`
 pub const NPU_BATCH_SPEEDUP_MIN: f64 = 1.5;
 
 /// Multi-output overhead: latency increase from 1→10 outputs.
@@ -72,15 +72,15 @@ pub const NPU_BATCH_SPEEDUP_MIN: f64 = 1.5;
 /// The NP mesh parallelism handles multiple outputs simultaneously.
 /// Measured: 4.5% overhead. 30% is generous.
 ///
-/// Source: control/metalforge_npu/scripts/npu_beyond_sdk.py
+/// Source: `control/metalforge_npu/scripts/npu_beyond_sdk.py`
 pub const NPU_MULTI_OUTPUT_OVERHEAD: f64 = 0.30;
 
 /// Weight mutation linearity: max error for w×k producing output×k.
 ///
-/// Changing FC weights via set_variable() must produce proportional
+/// Changing FC weights via `set_variable()` must produce proportional
 /// output changes. Measured: 0.0000 error.
 ///
-/// Source: control/metalforge_npu/scripts/npu_beyond_sdk.py
+/// Source: `control/metalforge_npu/scripts/npu_beyond_sdk.py`
 pub const NPU_WEIGHT_MUTATION_LINEARITY: f64 = 0.01;
 
 // ═══════════════════════════════════════════════════════════════════
@@ -90,7 +90,7 @@ pub const NPU_WEIGHT_MUTATION_LINEARITY: f64 = 0.01;
 /// ESN ridge regression regularization parameter (Tikhonov λ).
 ///
 /// Controls the bias-variance trade-off in the readout weight solution
-/// W_out = Y · X^T · (X · X^T + λI)^{-1}. At 1e-2, the regularization
+/// `W_out` = Y · X^T · (X · X^T + λI)^{-1}. At 1e-2, the regularization
 /// prevents overfitting to noise in short (60-frame) training sequences
 /// while preserving sufficient accuracy for D* / VACF / phase predictions.
 ///
@@ -132,7 +132,7 @@ pub const ESN_F32_LATTICE_PARITY: f64 = 0.01;
 
 /// ESN f64 vs f32 classification agreement: minimum fraction.
 ///
-/// On a 4^4 lattice phase scan, CPU f64 and NpuSimulator f32 predictions
+/// On a 4^4 lattice phase scan, CPU f64 and `NpuSimulator` f32 predictions
 /// must classify the same phase (confined vs deconfined) for > 90% of
 /// test points. Disagreement below 90% indicates a quantization or
 /// numerical issue beyond expected f32 noise.
@@ -140,7 +140,7 @@ pub const ESN_F32_CLASSIFICATION_AGREEMENT: f64 = 0.90;
 
 /// ESN f64 vs f32 prediction parity: absolute error (lattice NPU binary).
 ///
-/// More generous than `ESN_F32_LATTICE_PARITY` because the lattice_npu
+/// More generous than `ESN_F32_LATTICE_PARITY` because the `lattice_npu`
 /// binary drives predictions through real HMC configurations (not
 /// synthetic) with higher variance in observables. 0.1 captures the
 /// worst-case divergence for 30-dim reservoir + 10-frame sequences.
@@ -148,7 +148,7 @@ pub const ESN_F32_LATTICE_LOOSE_PARITY: f64 = 0.1;
 
 /// ESN int4 quantized vs f64: absolute prediction error.
 ///
-/// 4-bit quantization of readout weights maps W_out to [-7, 7] integers.
+/// 4-bit quantization of readout weights maps `W_out` to [-7, 7] integers.
 /// Reservoir state is kept at f32. Measured max error: ~0.3 on phase
 /// classification predictions spanning [0, 1]. 0.5 is the acceptance
 /// threshold (larger errors indicate readout quantization noise dominates).
@@ -168,9 +168,9 @@ pub const ESN_PHASE_ACCURACY_MIN: f64 = 0.80;
 /// negligible relative to HMC (~5 ms per trajectory on a 4^4 lattice).
 pub const ESN_MONITORING_OVERHEAD_PCT: f64 = 5.0;
 
-/// Phase boundary detection: β_c error on 4^4 SU(3) lattice.
+/// Phase boundary detection: `β_c` error on 4^4 SU(3) lattice.
 ///
-/// The known β_c ≈ 5.692 for SU(3) on 4^4. With limited statistics and
+/// The known `β_c` ≈ 5.692 for SU(3) on 4^4. With limited statistics and
 /// a small lattice, the ESN-detected crossover can be off by ~0.3-0.4.
 /// 0.5 accommodates finite-size effects and ESN surrogate uncertainty.
 ///
@@ -181,7 +181,7 @@ pub const PHASE_BOUNDARY_BETA_C_ERROR: f64 = 0.5;
 ///
 /// BCS bisection for degenerate levels (e.g., O-16 with 3 proton levels,
 /// 2j+1 degeneracies) converges more slowly than non-degenerate BCS due
-/// to the discrete shell structure. With n_levels=3 and large Δ=12/√A,
+/// to the discrete shell structure. With `n_levels=3` and large Δ=12/√A,
 /// GPU bisection converges within 0.04 particles of the target.
 /// 0.05 = max observed + 0.01 margin.
 pub const BCS_DEGENERACY_PARTICLE_NUMBER_ABS: f64 = 0.05;

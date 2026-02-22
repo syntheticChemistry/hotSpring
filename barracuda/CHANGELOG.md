@@ -5,6 +5,103 @@ All notable changes to the hotSpring BarraCUDA validation crate.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.6.3 — WGSL Extraction & Coverage Push (Feb 22, 2026)
+
+### Inline WGSL Extraction (5 shaders)
+
+- `SHADER_VV_HALF_KICK` → `md/shaders/vv_half_kick_f64.wgsl`
+- `SHADER_BERENDSEN` → `md/shaders/berendsen_f64.wgsl`
+- `SHADER_KINETIC_ENERGY` → `md/shaders/kinetic_energy_f64.wgsl`
+- `WGSL_COMPLEX64` → `lattice/shaders/complex_f64.wgsl`
+- `WGSL_SU3` → `lattice/shaders/su3_f64.wgsl`
+
+All switched to `include_str!()`. Zero inline WGSL remaining in production library code.
+
+### Deformed HFB Coverage: 29% → 95%
+
+13 new tests covering previously-untested critical paths:
+
+- **`diagonalize_blocks`**: V=0 (HO eigenvalues), constant-V (shift), sharp Fermi (zero pairing)
+- **`potential_matrix_element`**: constant-V diagonal, Hermitian symmetry
+- **`solve()` SCF loop**: smoke test (minimal grid), deterministic rerun, physical result bounds
+- **`binding_energy_l3`**: public API smoke (marked `#[ignore]` — ~90s)
+- **Norm integrals**: Hermite oscillator 1D norm, Laguerre oscillator 2D norm
+
+Module coverage: `hfb_deformed/mod.rs` 29.3% → 94.9%, `basis.rs` 65.8% → 98.7%.
+
+### Metrics
+
+- **648 tests** (was 638), 0 failures, 6 ignored
+- **Coverage**: 74.9% region / 83.8% function / 72.0% line (was 73.0 / 82.9 / 70.4)
+- **Zero clippy warnings** (all targets, pedantic + nursery)
+- **Zero doc warnings**
+- **Version**: 0.6.2 → 0.6.3
+
+## v0.6.2 — Deep Debt Resolution & Pedantic Clean (Feb 21, 2026)
+
+### Clippy Pedantic: Zero Warnings
+- **0 warnings** on `clippy::pedantic + clippy::nursery` (was ~1500 in v0.6.1)
+- 150+ `mul_add` conversions: improved IEEE 754 accuracy in all physics computations
+- 600+ `doc_markdown` fixes: backtick-wrapped identifiers in all doc comments
+- 30+ `imprecise_flops` fixes: `cbrt()`, `hypot()`, `ln_1p()` replacing less-accurate expressions
+- `#[must_use]` on all pure functions and key data types (186+ annotations)
+- `Self` replacing type name repetition via `use_self` lint
+- `is_multiple_of()` replacing manual modulo checks
+- `const fn` on 4 eligible functions (`lcg_step`, `next_u64`, `SpeciesResult::new`, `LcgRng::next_u64`)
+- HashMap hasher generalized on `chi2_per_datum` and `l1_proxy_prescreen`
+- Crate-level lint configuration: documented `#![allow]` for physics-appropriate lints (cast precision, sign, wrap)
+
+### Duplicate Math Eliminated
+- `reservoir.rs` Gaussian elimination (60 lines) → `barracuda::linalg::solve_f64`
+- Single upstream call per RHS column; zero local linear algebra code
+
+### Refactoring
+- `bench.rs` (1005 lines) decomposed into `bench/` module directory:
+  `hardware.rs` (193), `power.rs` (218), `report.rs` (354), `mod.rs` (246)
+- `hfb_gpu_resident/mod.rs` refactored: 7 extracted helper functions
+  (`create_potential_pipelines`, `create_hamiltonian_pipelines`, `create_density_pipelines`,
+  `allocate_group_resources`, `upload_densities`, `dispatch_hbuild_and_pack`, `run_density_mixing_pass`)
+- `celllist_diag.rs` reduced below 1000 lines (1156→951); shared `unsort_pe()`, `net_force()`
+- `nuclear_eos_l1_ref.rs` and `nuclear_eos_l2_hetero.rs` restructured with extracted helpers
+
+### GPU Energy Pipeline (Feature: `gpu_energy`)
+- Wired `batched_hfb_energy_f64.wgsl` shader dispatch (was stub since v0.5.10)
+- `compute_energy_integrands` + `compute_pairing_energy` GPU passes
+- Staging buffer readback and trapezoidal sum
+- CPU fallback preserved when feature disabled
+
+### Magic Number Extraction
+- `NMP_SIGMA_THRESHOLD`, `TRIDIAG_STURM_PIVOT_GUARD`, `ESN_SPECTRAL_RADIUS_NEGLIGIBLE`
+- Pivot guards wired to `DIVISION_GUARD`
+
+### Cast Safety
+- Per-function `#[allow(clippy::cast_possible_truncation)]` with documented bounds
+- Crate-level documented allows for physics-safe casts with mantissa/range analysis
+
+### MutexGuard Drop Tightening
+- `PowerMonitor::finish()`: GPU samples cloned and mutex released before processing
+
+### Test Coverage
+- **638 tests** (was 505 in v0.6.1), 0 failures, 5 GPU-ignored
+- +133 new tests across: hfb_deformed/{potentials,basis,mod}, hfb/mod, prescreen,
+  hfb_gpu_types, data, bench/{report,hardware}, md/observables/{ssf,summary},
+  screened_coulomb, error, discovery, lattice/multi_gpu, spectral/stats, validation
+- **72.4% region / 82.5% function** coverage (was 65.7% / 77.6%)
+
+### CellListGpu Migration (P1 Evolution Target)
+- Local `GpuCellList` (282 lines) deleted — replaced with upstream `barracuda::ops::md::CellListGpu`
+- 3 local WGSL shaders deleted: `cell_bin_f64.wgsl`, `exclusive_prefix_sum.wgsl`, `cell_scatter.wgsl`
+- Force shader `yukawa_force_celllist_indirect_f64.wgsl` unchanged (buffer-compatible)
+
+### Inline WGSL Extraction
+- 5 inline shader strings extracted to dedicated `.wgsl` files:
+  `complex_dot_re_f64.wgsl`, `axpy_f64.wgsl`, `xpay_f64.wgsl`, `dirac_staggered_f64.wgsl`, `spmv_csr_f64.wgsl`
+- All loaded via `include_str!("shaders/filename.wgsl")`
+
+### metalForge/forge
+- Zero pedantic clippy warnings (was 10)
+- `#[must_use]` on all probe functions; backticks in all doc comments
+
 ## v0.6.1 — Code Quality Evolution (Feb 21, 2026)
 
 ### Safety

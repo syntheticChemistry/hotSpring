@@ -3,8 +3,8 @@
 //! Physics modules: nuclear structure, atomic physics, dense plasma theory.
 //!
 //! Direct Rust ports of the Python control implementations.
-//! Uses BarraCUDA special functions (gamma, laguerre) and numerical
-//! methods (gradient_1d, trapz) wherever possible.
+//! Uses `BarraCUDA` special functions (`gamma`, `laguerre`) and numerical
+//! methods (`gradient_1d`, `trapz`) wherever possible.
 //!
 //! Domains:
 //!   Nuclear EOS — SEMF (L1), spherical HFB (L2), deformed HFB (L3)

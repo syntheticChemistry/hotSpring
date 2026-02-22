@@ -359,9 +359,9 @@ fn generate_training_data() -> (
 fn synthetic_plaquette(beta: f64, seed: u64) -> f64 {
     let beta_c = 5.692;
     let phase_frac = 1.0 / (1.0 + (-((beta - beta_c) / 0.075)).exp());
-    let strong = beta / 18.0 + (beta / 18.0).powi(2);
+    let strong = (beta / 18.0).mul_add(beta / 18.0, beta / 18.0);
     let weak = 1.0 - 3.0 / (4.0 * beta);
-    let plaq = (1.0 - phase_frac) * strong + phase_frac * weak;
+    let plaq = (1.0 - phase_frac).mul_add(strong, phase_frac * weak);
     let noise = lcg_normal(seed) * 0.005;
     (plaq + noise).clamp(0.0, 1.0)
 }

@@ -43,7 +43,7 @@ retained only as fossil record.
 |--------|-------------|--------|
 | `md/shaders.rs` | `barracuda::ops::md::*` | Retained for celllist_diag/f64_builtin_test |
 | `md/cpu_reference.rs` | barracuda CPU force implementations | Fossil record |
-| `md/shaders_toadstool_ref/` | Removed — barracuda repo is canonical | README retained as fossil |
+| `md/shaders_toadstool_ref/` | Removed — barracuda repo is canonical | Directory deleted (v0.6.3) |
 
 ### Snapshot Copies (removed)
 

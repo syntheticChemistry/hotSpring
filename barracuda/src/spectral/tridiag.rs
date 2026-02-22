@@ -12,6 +12,7 @@
 ///
 /// - `diagonal`: main diagonal d[0..n]
 /// - `off_diag`: sub/super-diagonal e[0..n-1]
+#[must_use]
 pub fn sturm_count(diagonal: &[f64], off_diag: &[f64], lambda: f64) -> usize {
     let n = diagonal.len();
     if n == 0 {
@@ -24,12 +25,13 @@ pub fn sturm_count(diagonal: &[f64], off_diag: &[f64], lambda: f64) -> usize {
         count += 1;
     }
 
+    let pivot_guard = crate::tolerances::TRIDIAG_STURM_PIVOT_GUARD;
     for i in 1..n {
-        let q_safe = if q.abs() < 1e-300 {
+        let q_safe = if q.abs() < pivot_guard {
             if q >= 0.0 {
-                1e-300
+                pivot_guard
             } else {
-                -1e-300
+                -pivot_guard
             }
         } else {
             q
@@ -46,6 +48,7 @@ pub fn sturm_count(diagonal: &[f64], off_diag: &[f64], lambda: f64) -> usize {
 ///
 /// Returns eigenvalues sorted in ascending order. Complexity: O(N² log(1/ε)).
 /// Exact to machine precision for well-separated eigenvalues.
+#[must_use]
 pub fn find_all_eigenvalues(diagonal: &[f64], off_diag: &[f64]) -> Vec<f64> {
     let n = diagonal.len();
     if n == 0 {

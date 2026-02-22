@@ -21,6 +21,22 @@ use hotspring_barracuda::md::shaders::patch_math_f64_preamble;
 
 use std::time::Instant;
 
+fn unsort_pe(pe_sorted: &[f64], sorted_indices: &[usize], n: usize) -> Vec<f64> {
+    let mut u = vec![0.0f64; n];
+    for (new_idx, &old_idx) in sorted_indices.iter().enumerate() {
+        u[old_idx] = pe_sorted[new_idx];
+    }
+    u
+}
+
+fn net_force(forces: &[f64], n: usize) -> (f64, f64, f64, f64) {
+    let fx: f64 = (0..n).map(|i| forces[i * 3]).sum();
+    let fy: f64 = (0..n).map(|i| forces[i * 3 + 1]).sum();
+    let fz: f64 = (0..n).map(|i| forces[i * 3 + 2]).sum();
+    let mag = fx.mul_add(fx, fy.mul_add(fy, fz * fz)).sqrt();
+    (fx, fy, fz, mag)
+}
+
 /// Run force comparison at a given N
 fn compare_forces(gpu: &GpuF64, n: usize, harness: &mut ValidationHarness) {
     let kappa = 2.0;
@@ -181,15 +197,8 @@ fn compare_forces(gpu: &GpuF64, n: usize, harness: &mut ValidationHarness) {
     let pe_cl_sorted = gpu.read_back_f64(&pe_buf_cl, n).expect("GPU readback");
     let cl_time = t0.elapsed().as_secs_f64();
 
-    // Unsort cell-list forces back to original order for comparison
     let forces_cl = cell_list.unsort_array(&forces_cl_sorted, 3);
-    let pe_cl_unsorted: Vec<f64> = {
-        let mut unsorted = vec![0.0f64; n];
-        for (new_idx, &old_idx) in cell_list.sorted_indices.iter().enumerate() {
-            unsorted[old_idx] = pe_cl_sorted[new_idx];
-        }
-        unsorted
-    };
+    let pe_cl_unsorted = unsort_pe(&pe_cl_sorted, &cell_list.sorted_indices, n);
 
     let total_pe_cl: f64 = pe_cl_unsorted.iter().sum();
     println!(
@@ -230,13 +239,7 @@ fn compare_forces(gpu: &GpuF64, n: usize, harness: &mut ValidationHarness) {
     let v2_time = t0.elapsed().as_secs_f64();
 
     let forces_v2 = cell_list.unsort_array(&forces_v2_sorted, 3);
-    let pe_v2_unsorted: Vec<f64> = {
-        let mut unsorted = vec![0.0f64; n];
-        for (new_idx, &old_idx) in cell_list.sorted_indices.iter().enumerate() {
-            unsorted[old_idx] = pe_v2_sorted[new_idx];
-        }
-        unsorted
-    };
+    let pe_v2_unsorted = unsort_pe(&pe_v2_sorted, &cell_list.sorted_indices, n);
 
     let total_pe_v2: f64 = pe_v2_unsorted.iter().sum();
     println!(
@@ -280,13 +283,7 @@ fn compare_forces(gpu: &GpuF64, n: usize, harness: &mut ValidationHarness) {
     let pe_v4_sorted = gpu.read_back_f64(&pe_buf_v4, n).expect("GPU readback");
 
     let forces_v4 = cell_list.unsort_array(&forces_v4_sorted, 3);
-    let pe_v4_unsorted: Vec<f64> = {
-        let mut u = vec![0.0f64; n];
-        for (new_idx, &old_idx) in cell_list.sorted_indices.iter().enumerate() {
-            u[old_idx] = pe_v4_sorted[new_idx];
-        }
-        u
-    };
+    let pe_v4_unsorted = unsort_pe(&pe_v4_sorted, &cell_list.sorted_indices, n);
     let total_pe_v4: f64 = pe_v4_unsorted.iter().sum();
     // ── V5: Cell-list enumeration WITHOUT cutoff (f64 cell data) ──
     let cl_v5_src = format!(
@@ -313,13 +310,7 @@ fn compare_forces(gpu: &GpuF64, n: usize, harness: &mut ValidationHarness) {
     );
     gpu.dispatch(&cl_v5_pipeline, &v5_bg, workgroups);
     let pe_v5 = gpu.read_back_f64(&pe_buf_v5_gpu, n).expect("GPU readback");
-    let pe_v5_unsorted: Vec<f64> = {
-        let mut u = vec![0.0f64; n];
-        for (ni, &oi) in cell_list.sorted_indices.iter().enumerate() {
-            u[oi] = pe_v5[ni];
-        }
-        u
-    };
+    let pe_v5_unsorted = unsort_pe(&pe_v5, &cell_list.sorted_indices, n);
     let total_pe_v5: f64 = pe_v5_unsorted.iter().sum();
     println!("  V5 (cell-list enum, NO cutoff, f64): PE = {total_pe_v5:.6}");
 
@@ -407,15 +398,7 @@ fn compare_forces(gpu: &GpuF64, n: usize, harness: &mut ValidationHarness) {
         println!();
     }
 
-    let net_fx_v4: f64 = (0..n).map(|i| forces_v4[i * 3]).sum();
-    let net_fy_v4: f64 = (0..n).map(|i| forces_v4[i * 3 + 1]).sum();
-    let net_fz_v4: f64 = (0..n).map(|i| forces_v4[i * 3 + 2]).sum();
-    let net_f_v4 = net_fz_v4
-        .mul_add(
-            net_fz_v4,
-            net_fx_v4.mul_add(net_fx_v4, net_fy_v4 * net_fy_v4),
-        )
-        .sqrt();
+    let (_, _, _, net_f_v4) = net_force(&forces_v4, n);
     let pe_diff_v4 = (total_pe_ap - total_pe_v4).abs();
     let pe_rel_v4 = if total_pe_ap.abs() > 1e-30 {
         pe_diff_v4 / total_pe_ap.abs()
@@ -451,13 +434,7 @@ fn compare_forces(gpu: &GpuF64, n: usize, harness: &mut ValidationHarness) {
     );
     gpu.dispatch(&cl_v3_pipeline, &v3_bg, workgroups);
     let pe_v3_sorted = gpu.read_back_f64(&pe_buf_v3_gpu, n).expect("GPU readback");
-    let pe_v3_unsorted: Vec<f64> = {
-        let mut u = vec![0.0f64; n];
-        for (new_idx, &old_idx) in cell_list.sorted_indices.iter().enumerate() {
-            u[old_idx] = pe_v3_sorted[new_idx];
-        }
-        u
-    };
+    let pe_v3_unsorted = unsort_pe(&pe_v3_sorted, &cell_list.sorted_indices, n);
     let total_pe_v3: f64 = pe_v3_unsorted.iter().sum();
     println!("  V3 (no cutoff, AP loop, sorted): PE = {total_pe_v3:.6}");
 
@@ -492,15 +469,7 @@ fn compare_forces(gpu: &GpuF64, n: usize, harness: &mut ValidationHarness) {
     } else {
         pe_diff_v2
     };
-    let net_fx_v2: f64 = (0..n).map(|i| forces_v2[i * 3]).sum();
-    let net_fy_v2: f64 = (0..n).map(|i| forces_v2[i * 3 + 1]).sum();
-    let net_fz_v2: f64 = (0..n).map(|i| forces_v2[i * 3 + 2]).sum();
-    let net_f_v2 = net_fz_v2
-        .mul_add(
-            net_fz_v2,
-            net_fx_v2.mul_add(net_fx_v2, net_fy_v2 * net_fy_v2),
-        )
-        .sqrt();
+    let (_, _, _, net_f_v2) = net_force(&forces_v2, n);
     println!(
         "  Cell-list v2: PE diff from AP = {pe_diff_v2:.2e} (relative {pe_rel_v2:.2e}), net force = {net_f_v2:.2e}"
     );
@@ -581,26 +550,8 @@ fn compare_forces(gpu: &GpuF64, n: usize, harness: &mut ValidationHarness) {
     println!("  Particles with |ΔF/F| > {threshold:.0e}: {n_mismatched}/{n}");
     println!("  Average |F|: {avg_force:.6}");
 
-    // Net force check (should be ~0 for both kernels if Newton's 3rd law holds)
-    let net_fx_ap: f64 = (0..n).map(|i| forces_ap[i * 3]).sum();
-    let net_fy_ap: f64 = (0..n).map(|i| forces_ap[i * 3 + 1]).sum();
-    let net_fz_ap: f64 = (0..n).map(|i| forces_ap[i * 3 + 2]).sum();
-    let net_f_ap = net_fz_ap
-        .mul_add(
-            net_fz_ap,
-            net_fx_ap.mul_add(net_fx_ap, net_fy_ap * net_fy_ap),
-        )
-        .sqrt();
-
-    let net_fx_cl: f64 = (0..n).map(|i| forces_cl[i * 3]).sum();
-    let net_fy_cl: f64 = (0..n).map(|i| forces_cl[i * 3 + 1]).sum();
-    let net_fz_cl: f64 = (0..n).map(|i| forces_cl[i * 3 + 2]).sum();
-    let net_f_cl = net_fz_cl
-        .mul_add(
-            net_fz_cl,
-            net_fx_cl.mul_add(net_fx_cl, net_fy_cl * net_fy_cl),
-        )
-        .sqrt();
+    let (net_fx_ap, net_fy_ap, net_fz_ap, net_f_ap) = net_force(&forces_ap, n);
+    let (net_fx_cl, net_fy_cl, net_fz_cl, net_f_cl) = net_force(&forces_cl, n);
 
     println!(
         "  Net force (all-pairs): ({net_fx_ap:.4e}, {net_fy_ap:.4e}, {net_fz_ap:.4e}) |F|={net_f_ap:.4e}"
@@ -696,8 +647,282 @@ fn compare_forces(gpu: &GpuF64, n: usize, harness: &mut ValidationHarness) {
     println!();
 }
 
+fn run_phase1b_integrity(harness: &mut ValidationHarness) {
+    let n_test = 108;
+    let box_s = (n_test as f64).cbrt() * (4.0 * std::f64::consts::PI / 3.0_f64).cbrt();
+    let (pos, n_a) = init_fcc_lattice(n_test, box_s);
+    let n_test = n_a.min(n_test);
+    let cl = CellList::build(&pos, n_test, box_s, 6.5);
+    println!("╔══════════════════════════════════════════════════════════════╗");
+    println!("║  Phase 1b: Cell list integrity check (N=108)                ║");
+    println!("╚══════════════════════════════════════════════════════════════╝");
+    println!(
+        "  cells/dim = {}, total cells = {}",
+        cl.n_cells[0], cl.n_cells_total
+    );
+    let total_count: u32 = cl.cell_count.iter().sum();
+    println!("  sum(cell_count) = {total_count} (should be {n_test})");
+    harness.check_abs(
+        "phase1b_cell_count_sum",
+        f64::from(total_count),
+        n_test as f64,
+        0.5,
+    );
+    let mut seen = vec![false; n_test];
+    for &idx in &cl.sorted_indices {
+        assert!(idx < n_test, "sorted_indices out of range: {idx}");
+        assert!(!seen[idx], "duplicate in sorted_indices: {idx}");
+        seen[idx] = true;
+    }
+    println!("  sorted_indices: valid permutation of 0..{n_test} ✓");
+    println!("  Cell contents:");
+    for c in 0..cl.n_cells_total {
+        let start = cl.cell_start[c] as usize;
+        let count = cl.cell_count[c] as usize;
+        if count > 0 {
+            let cx = c % cl.n_cells[0];
+            let cy = (c / cl.n_cells[0]) % cl.n_cells[1];
+            let cz = c / (cl.n_cells[0] * cl.n_cells[1]);
+            println!("    cell ({cx},{cy},{cz}) = idx {c}: start={start}, count={count}");
+        }
+    }
+    let sp = cl.sort_array(&pos, 3);
+    let (xi, yi, zi) = (sp[0], sp[1], sp[2]);
+    let (ci_x, ci_y, ci_z) = (
+        (xi / cl.cell_size[0]) as i32,
+        (yi / cl.cell_size[1]) as i32,
+        (zi / cl.cell_size[2]) as i32,
+    );
+    let nx = cl.n_cells[0] as i32;
+    println!("  Sorted particle 0: pos=({xi:.4},{yi:.4},{zi:.4}), cell=({ci_x},{ci_y},{ci_z})");
+    let mut total_checked = 0usize;
+    let mut cells_visited = Vec::new();
+    for dz in -1..=1i32 {
+        for dy in -1..=1i32 {
+            for dx in -1..=1i32 {
+                let (wx, wy, wz) = (
+                    ((ci_x + dx) % nx + nx) % nx,
+                    ((ci_y + dy) % nx + nx) % nx,
+                    ((ci_z + dz) % nx + nx) % nx,
+                );
+                let c_idx = (wx + wy * nx + wz * nx * nx) as usize;
+                let count = cl.cell_count[c_idx] as usize;
+                total_checked += count;
+                cells_visited.push((dx, dy, dz, wx, wy, wz, c_idx, count));
+            }
+        }
+    }
+    let mut cell_ids: Vec<usize> = cells_visited.iter().map(|v| v.6).collect();
+    let n_unique_before = cell_ids.len();
+    cell_ids.sort_unstable();
+    cell_ids.dedup();
+    let n_unique = cell_ids.len();
+    println!("  27 neighbor offsets map to {n_unique} unique cells (expect 27 for nx=3)");
+    if n_unique < n_unique_before {
+        println!("  ⚠ DUPLICATE CELLS DETECTED! {n_unique_before} visits but {n_unique} unique");
+        for v in &cells_visited {
+            println!(
+                "    offset ({:+},{:+},{:+}) → wrapped ({},{},{}) = cell {}, count={}",
+                v.0, v.1, v.2, v.3, v.4, v.5, v.6, v.7
+            );
+        }
+    }
+    println!(
+        "  Total particles checked by sorted particle 0: {} (expect {} = N-1 for all cells)",
+        total_checked,
+        n_test - 1
+    );
+    println!();
+}
+
+fn run_phase1c_pair_count(gpu: &GpuF64, harness: &mut ValidationHarness) {
+    println!("╔══════════════════════════════════════════════════════════════╗");
+    println!("║  Phase 1c: GPU pair count comparison (N=108)                ║");
+    println!("╚══════════════════════════════════════════════════════════════╝");
+    println!();
+    let n_test = 108usize;
+    let rc = 6.5;
+    let box_s = (n_test as f64).cbrt() * (4.0 * std::f64::consts::PI / 3.0_f64).cbrt();
+    let (pos, n_a) = init_fcc_lattice(n_test, box_s);
+    let n_test = n_a.min(n_test);
+    let cl = CellList::build(&pos, n_test, box_s, rc);
+    let sorted_pos = cl.sort_array(&pos, 3);
+    let md_math = patch_math_f64_preamble(&ShaderTemplate::math_f64_preamble());
+    let count_shader_src = format!(
+        "{}\n\n{}",
+        md_math,
+        include_str!("shaders/celllist_diag/paircount_celllist_f64.wgsl")
+    );
+    let count_pipeline = gpu.create_pipeline(&count_shader_src, "pair_count_diag");
+    let pos_buf = gpu.create_f64_output_buffer(n_test * 3, "pos_count");
+    let debug_buf = gpu.create_f64_output_buffer(n_test * 8, "debug_count");
+    gpu.upload_f64(&pos_buf, &sorted_pos);
+    let params_cl = vec![
+        n_test as f64,
+        2.0,
+        1.0,
+        rc * rc,
+        box_s,
+        box_s,
+        box_s,
+        0.0,
+        cl.n_cells[0] as f64,
+        cl.n_cells[1] as f64,
+        cl.n_cells[2] as f64,
+        cl.cell_size[0],
+        cl.cell_size[1],
+        cl.cell_size[2],
+        cl.n_cells_total as f64,
+        0.0,
+    ];
+    let params_buf = gpu.create_f64_buffer(&params_cl, "params_count");
+    let cs_buf = gpu.create_u32_buffer(&cl.cell_start, "cs_count");
+    let cc_buf = gpu.create_u32_buffer(&cl.cell_count, "cc_count");
+    let bg = gpu.create_bind_group(
+        &count_pipeline,
+        &[&pos_buf, &debug_buf, &params_buf, &cs_buf, &cc_buf],
+    );
+    gpu.dispatch(&count_pipeline, &bg, n_test.div_ceil(64) as u32);
+    let debug_data = gpu
+        .read_back_f64(&debug_buf, n_test * 8)
+        .expect("GPU readback");
+    println!("  GPU pair-count results (first 10 sorted particles):");
+    println!(
+        "  {:>4} {:>8} {:>8} {:>8} {:>6} {:>8} {:>6} {:>4} {:>8}",
+        "idx", "pos_x", "pos_y", "pos_z", "cell", "checked", "pairs", "nx", "cell_sx"
+    );
+    for i in 0..10.min(n_test) {
+        let (cx, cy, cz) = (
+            debug_data[i * 8] as i32,
+            debug_data[i * 8 + 1] as i32,
+            debug_data[i * 8 + 2] as i32,
+        );
+        let (checked, pairs, nx_r, csx) = (
+            debug_data[i * 8 + 4] as i32,
+            debug_data[i * 8 + 5] as i32,
+            debug_data[i * 8 + 6] as i32,
+            debug_data[i * 8 + 7],
+        );
+        println!(
+            "  {:>4} {:>8.3} {:>8.3} {:>8.3} ({},{},{}) {:>8} {:>6} {:>4} {:>8.4}",
+            i,
+            sorted_pos[i * 3],
+            sorted_pos[i * 3 + 1],
+            sorted_pos[i * 3 + 2],
+            cx,
+            cy,
+            cz,
+            checked,
+            pairs,
+            nx_r,
+            csx
+        );
+    }
+    let (nx_gpu, csx_gpu) = (debug_data[6] as i32, debug_data[7]);
+    println!();
+    println!(
+        "  GPU reads: nx={} (expect {}), cell_sx={:.4} (expect {:.4})",
+        nx_gpu, cl.n_cells[0], csx_gpu, cl.cell_size[0]
+    );
+    let total_pairs_cl: f64 = (0..n_test).map(|i| debug_data[i * 8 + 5]).sum();
+    println!("  Total pairs found (cell-list): {total_pairs_cl:.0}");
+    println!();
+    let ap_count_src = format!(
+        "{}\n\n{}",
+        md_math,
+        include_str!("shaders/celllist_diag/paircount_allpairs_f64.wgsl")
+    );
+    let ap_count_pipeline = gpu.create_pipeline(&ap_count_src, "ap_count_diag");
+    let ap_pos_buf = gpu.create_f64_output_buffer(n_test * 3, "ap_pos_count");
+    let ap_counts_buf = gpu.create_f64_output_buffer(n_test * 2, "ap_counts");
+    gpu.upload_f64(&ap_pos_buf, &sorted_pos);
+    let ap_params = vec![n_test as f64, 2.0, 1.0, rc * rc, box_s, box_s, box_s, 0.0];
+    let ap_params_buf = gpu.create_f64_buffer(&ap_params, "ap_params_count");
+    let ap_bg = gpu.create_bind_group(
+        &ap_count_pipeline,
+        &[&ap_pos_buf, &ap_counts_buf, &ap_params_buf],
+    );
+    gpu.dispatch(&ap_count_pipeline, &ap_bg, n_test.div_ceil(64) as u32);
+    let ap_count_data = gpu
+        .read_back_f64(&ap_counts_buf, n_test * 2)
+        .expect("GPU readback");
+    println!("  All-pairs pair counts (same sorted positions, first 10):");
+    let mut total_ap_pairs = 0.0f64;
+    let mut total_ap_pe = 0.0f64;
+    for i in 0..10.min(n_test) {
+        let (ap_pc, ap_pe, cl_pc) = (
+            ap_count_data[i * 2],
+            ap_count_data[i * 2 + 1],
+            debug_data[i * 8 + 5],
+        );
+        total_ap_pairs += ap_pc;
+        total_ap_pe += ap_pe;
+        let m = if (ap_pc - cl_pc).abs() < 0.5 {
+            "✓"
+        } else {
+            "✗ DIFF"
+        };
+        println!("    particle {i:>3}: AP pairs={ap_pc:.0}, CL pairs={cl_pc:.0} {m}  AP_PE={ap_pe:.6}, CL_PE=?");
+    }
+    for i in 10..n_test {
+        total_ap_pairs += ap_count_data[i * 2];
+        total_ap_pe += ap_count_data[i * 2 + 1];
+    }
+    println!("  Total AP pairs: {total_ap_pairs:.0}, Total CL pairs: {total_pairs_cl:.0}");
+    harness.check_abs(
+        "phase1c_pair_count_AP_vs_CL",
+        total_ap_pairs,
+        total_pairs_cl,
+        0.5,
+    );
+    println!("  Total AP PE: {total_ap_pe:.6}");
+    println!();
+    let verify_u32_src = format!(
+        "{}\n\n{}",
+        md_math,
+        include_str!("shaders/celllist_diag/verify_u32_f64.wgsl")
+    );
+    let verify_pipeline = gpu.create_pipeline(&verify_u32_src, "verify_u32");
+    let out_buf = gpu.create_f64_output_buffer(27 * 2, "verify_out");
+    let verify_bg = gpu.create_bind_group(&verify_pipeline, &[&cs_buf, &cc_buf, &out_buf]);
+    gpu.dispatch(&verify_pipeline, &verify_bg, 1);
+    let verify_data = gpu.read_back_f64(&out_buf, 27 * 2).expect("GPU readback");
+    println!("  u32 buffer verification (GPU reads vs CPU values):");
+    println!(
+        "  {:>4} {:>10} {:>10} {:>10} {:>10} {:>5}",
+        "cell", "GPU_start", "CPU_start", "GPU_count", "CPU_count", "match"
+    );
+    let mut all_match = true;
+    for c in 0..27 {
+        let (gpu_start, gpu_count) = (verify_data[c * 2] as u32, verify_data[c * 2 + 1] as u32);
+        let (cpu_start, cpu_count) = (cl.cell_start[c], cl.cell_count[c]);
+        let ok = gpu_start == cpu_start && gpu_count == cpu_count;
+        if !ok {
+            all_match = false;
+        }
+        println!(
+            "  {:>4} {:>10} {:>10} {:>10} {:>10} {:>5}",
+            c,
+            gpu_start,
+            cpu_start,
+            gpu_count,
+            cpu_count,
+            if ok { "✓" } else { "✗ MISMATCH" }
+        );
+    }
+    harness.check_bool("phase1c_u32_buffer_match", all_match);
+    println!(
+        "  {}",
+        if all_match {
+            "✓ All u32 buffer reads match CPU values"
+        } else {
+            "✗ u32 BUFFER READ MISMATCH — this is the bug source!"
+        }
+    );
+    println!();
+}
+
 /// Hybrid test: uses cell-list BINDINGS but all-pairs LOOP
-/// This isolates whether the bug is in cell enumeration or buffer infrastructure
 fn test_hybrid(gpu: &GpuF64, n: usize, harness: &mut ValidationHarness) {
     let kappa = 2.0;
     let rc = 6.5;
@@ -769,23 +994,10 @@ fn test_hybrid(gpu: &GpuF64, n: usize, harness: &mut ValidationHarness) {
     let forces_h = gpu.read_back_f64(&force_buf, n * 3).expect("GPU readback");
     let pe_h = gpu.read_back_f64(&pe_buf_gpu, n).expect("GPU readback");
 
-    // Unsort back to original order
     let forces_unsorted = cell_list.unsort_array(&forces_h, 3);
-    let pe_unsorted: Vec<f64> = {
-        let mut u = vec![0.0f64; n];
-        for (new_idx, &old_idx) in cell_list.sorted_indices.iter().enumerate() {
-            u[old_idx] = pe_h[new_idx];
-        }
-        u
-    };
-
+    let pe_unsorted = unsort_pe(&pe_h, &cell_list.sorted_indices, n);
     let total_pe: f64 = pe_unsorted.iter().sum();
-    let net_fx: f64 = (0..n).map(|i| forces_unsorted[i * 3]).sum();
-    let net_fy: f64 = (0..n).map(|i| forces_unsorted[i * 3 + 1]).sum();
-    let net_fz: f64 = (0..n).map(|i| forces_unsorted[i * 3 + 2]).sum();
-    let net_f = net_fz
-        .mul_add(net_fz, net_fx.mul_add(net_fx, net_fy * net_fy))
-        .sqrt();
+    let (net_fx, net_fy, net_fz, net_f) = net_force(&forces_unsorted, n);
 
     println!("  Hybrid (all-pairs loop, cell-list bindings, sorted positions):");
     println!("    PE = {total_pe:.10}");
@@ -830,314 +1042,10 @@ async fn main() {
         compare_forces(&gpu, n, &mut harness);
     }
 
-    // ── Phase 1b: Verify cell_start/cell_count arrays for N=108 ──
-    {
-        let n_test = 108;
-        let box_s = (n_test as f64).cbrt() * (4.0 * std::f64::consts::PI / 3.0_f64).cbrt();
-        let (pos, n_a) = init_fcc_lattice(n_test, box_s);
-        let n_test = n_a.min(n_test);
-        let cl = CellList::build(&pos, n_test, box_s, 6.5);
+    run_phase1b_integrity(&mut harness);
+    run_phase1c_pair_count(&gpu, &mut harness);
 
-        println!("╔══════════════════════════════════════════════════════════════╗");
-        println!("║  Phase 1b: Cell list integrity check (N=108)                ║");
-        println!("╚══════════════════════════════════════════════════════════════╝");
-        println!(
-            "  cells/dim = {}, total cells = {}",
-            cl.n_cells[0], cl.n_cells_total
-        );
-        let total_count: u32 = cl.cell_count.iter().sum();
-        println!("  sum(cell_count) = {total_count} (should be {n_test})");
-        harness.check_abs(
-            "phase1b_cell_count_sum",
-            f64::from(total_count),
-            n_test as f64,
-            0.5,
-        );
-
-        // Check sorted_indices is a valid permutation
-        let mut seen = vec![false; n_test];
-        for &idx in &cl.sorted_indices {
-            assert!(idx < n_test, "sorted_indices out of range: {idx}");
-            assert!(!seen[idx], "duplicate in sorted_indices: {idx}");
-            seen[idx] = true;
-        }
-        println!("  sorted_indices: valid permutation of 0..{n_test} ✓");
-
-        // Print cell contents
-        println!("  Cell contents:");
-        for c in 0..cl.n_cells_total {
-            let start = cl.cell_start[c] as usize;
-            let count = cl.cell_count[c] as usize;
-            if count > 0 {
-                let cx = c % cl.n_cells[0];
-                let cy = (c / cl.n_cells[0]) % cl.n_cells[1];
-                let cz = c / (cl.n_cells[0] * cl.n_cells[1]);
-                println!("    cell ({cx},{cy},{cz}) = idx {c}: start={start}, count={count}");
-            }
-        }
-
-        // For particle 0 in sorted order, check which cells would be searched
-        let sp = cl.sort_array(&pos, 3);
-        let xi = sp[0];
-        let yi = sp[1];
-        let zi = sp[2];
-        let cell_sx = cl.cell_size[0];
-        let ci_x = (xi / cell_sx) as i32;
-        let ci_y = (yi / cl.cell_size[1]) as i32;
-        let ci_z = (zi / cl.cell_size[2]) as i32;
-        let nx = cl.n_cells[0] as i32;
-        println!("  Sorted particle 0: pos=({xi:.4},{yi:.4},{zi:.4}), cell=({ci_x},{ci_y},{ci_z})");
-
-        // Simulate the 3x3x3 search
-        let mut total_checked = 0usize;
-        let mut cells_visited = Vec::new();
-        for dz in -1..=1i32 {
-            for dy in -1..=1i32 {
-                for dx in -1..=1i32 {
-                    let wx = ((ci_x + dx) % nx + nx) % nx;
-                    let wy = ((ci_y + dy) % nx + nx) % nx;
-                    let wz = ((ci_z + dz) % nx + nx) % nx;
-                    let c_idx = (wx + wy * nx + wz * nx * nx) as usize;
-                    let count = cl.cell_count[c_idx] as usize;
-                    total_checked += count;
-                    cells_visited.push((dx, dy, dz, wx, wy, wz, c_idx, count));
-                }
-            }
-        }
-
-        // Check for duplicate cells
-        let mut cell_ids: Vec<usize> = cells_visited.iter().map(|v| v.6).collect();
-        let n_unique_before = cell_ids.len();
-        cell_ids.sort_unstable();
-        cell_ids.dedup();
-        let n_unique = cell_ids.len();
-        println!("  27 neighbor offsets map to {n_unique} unique cells (expect 27 for nx=3)");
-        if n_unique < n_unique_before {
-            println!(
-                "  ⚠ DUPLICATE CELLS DETECTED! {n_unique_before} visits but {n_unique} unique"
-            );
-            for v in &cells_visited {
-                println!(
-                    "    offset ({:+},{:+},{:+}) → wrapped ({},{},{}) = cell {}, count={}",
-                    v.0, v.1, v.2, v.3, v.4, v.5, v.6, v.7
-                );
-            }
-        }
-        println!(
-            "  Total particles checked by sorted particle 0: {} (expect {} = N-1 for all cells)",
-            total_checked,
-            n_test - 1
-        );
-        println!();
-    }
-
-    // ── Phase 1c: GPU pair-counting diagnostic ──
-    {
-        println!("╔══════════════════════════════════════════════════════════════╗");
-        println!("║  Phase 1c: GPU pair count comparison (N=108)                ║");
-        println!("╚══════════════════════════════════════════════════════════════╝");
-        println!();
-
-        let n_test = 108usize;
-        let rc = 6.5;
-        let box_s = (n_test as f64).cbrt() * (4.0 * std::f64::consts::PI / 3.0_f64).cbrt();
-        let (pos, n_a) = init_fcc_lattice(n_test, box_s);
-        let n_test = n_a.min(n_test);
-        let cl = CellList::build(&pos, n_test, box_s, rc);
-        let sorted_pos = cl.sort_array(&pos, 3);
-
-        let md_math = patch_math_f64_preamble(&ShaderTemplate::math_f64_preamble());
-
-        // Kernel that counts pairs and outputs per-particle cell assignments & debug info
-        let count_shader_src = format!(
-            "{}\n\n{}",
-            md_math,
-            include_str!("shaders/celllist_diag/paircount_celllist_f64.wgsl"),
-        );
-
-        let count_pipeline = gpu.create_pipeline(&count_shader_src, "pair_count_diag");
-
-        let pos_buf = gpu.create_f64_output_buffer(n_test * 3, "pos_count");
-        let debug_buf = gpu.create_f64_output_buffer(n_test * 8, "debug_count");
-        gpu.upload_f64(&pos_buf, &sorted_pos);
-
-        let params_cl = vec![
-            n_test as f64,
-            2.0,
-            1.0,
-            rc * rc,
-            box_s,
-            box_s,
-            box_s,
-            0.0,
-            cl.n_cells[0] as f64,
-            cl.n_cells[1] as f64,
-            cl.n_cells[2] as f64,
-            cl.cell_size[0],
-            cl.cell_size[1],
-            cl.cell_size[2],
-            cl.n_cells_total as f64,
-            0.0,
-        ];
-        let params_buf = gpu.create_f64_buffer(&params_cl, "params_count");
-        let cs_buf = gpu.create_u32_buffer(&cl.cell_start, "cs_count");
-        let cc_buf = gpu.create_u32_buffer(&cl.cell_count, "cc_count");
-
-        let bg = gpu.create_bind_group(
-            &count_pipeline,
-            &[&pos_buf, &debug_buf, &params_buf, &cs_buf, &cc_buf],
-        );
-        let wg = n_test.div_ceil(64) as u32;
-
-        gpu.dispatch(&count_pipeline, &bg, wg);
-        let debug_data = gpu
-            .read_back_f64(&debug_buf, n_test * 8)
-            .expect("GPU readback");
-
-        println!("  GPU pair-count results (first 10 sorted particles):");
-        println!(
-            "  {:>4} {:>8} {:>8} {:>8} {:>6} {:>8} {:>6} {:>4} {:>8}",
-            "idx", "pos_x", "pos_y", "pos_z", "cell", "checked", "pairs", "nx", "cell_sx"
-        );
-        for i in 0..10.min(n_test) {
-            let cx = debug_data[i * 8] as i32;
-            let cy = debug_data[i * 8 + 1] as i32;
-            let cz = debug_data[i * 8 + 2] as i32;
-            let checked = debug_data[i * 8 + 4] as i32;
-            let pairs = debug_data[i * 8 + 5] as i32;
-            let nx_r = debug_data[i * 8 + 6] as i32;
-            let csx = debug_data[i * 8 + 7];
-            println!(
-                "  {:>4} {:>8.3} {:>8.3} {:>8.3} ({},{},{}) {:>8} {:>6} {:>4} {:>8.4}",
-                i,
-                sorted_pos[i * 3],
-                sorted_pos[i * 3 + 1],
-                sorted_pos[i * 3 + 2],
-                cx,
-                cy,
-                cz,
-                checked,
-                pairs,
-                nx_r,
-                csx
-            );
-        }
-
-        // Check: does GPU read nx correctly?
-        let nx_gpu = debug_data[6] as i32;
-        let csx_gpu = debug_data[7];
-        println!();
-        println!(
-            "  GPU reads: nx={} (expect {}), cell_sx={:.4} (expect {:.4})",
-            nx_gpu, cl.n_cells[0], csx_gpu, cl.cell_size[0]
-        );
-
-        // Compare pair counts
-        let total_pairs_cl: f64 = (0..n_test).map(|i| debug_data[i * 8 + 5]).sum();
-        println!("  Total pairs found (cell-list): {total_pairs_cl:.0}");
-        println!();
-
-        // Also count pairs via all-pairs for comparison
-        let ap_count_src = format!(
-            "{}\n\n{}",
-            md_math,
-            include_str!("shaders/celllist_diag/paircount_allpairs_f64.wgsl"),
-        );
-        let ap_count_pipeline = gpu.create_pipeline(&ap_count_src, "ap_count_diag");
-        let ap_pos_buf = gpu.create_f64_output_buffer(n_test * 3, "ap_pos_count");
-        let ap_counts_buf = gpu.create_f64_output_buffer(n_test * 2, "ap_counts");
-        gpu.upload_f64(&ap_pos_buf, &sorted_pos); // SAME sorted positions!
-        let ap_params = vec![n_test as f64, 2.0, 1.0, rc * rc, box_s, box_s, box_s, 0.0];
-        let ap_params_buf = gpu.create_f64_buffer(&ap_params, "ap_params_count");
-        let ap_bg = gpu.create_bind_group(
-            &ap_count_pipeline,
-            &[&ap_pos_buf, &ap_counts_buf, &ap_params_buf],
-        );
-        gpu.dispatch(&ap_count_pipeline, &ap_bg, n_test.div_ceil(64) as u32);
-        let ap_count_data = gpu
-            .read_back_f64(&ap_counts_buf, n_test * 2)
-            .expect("GPU readback");
-
-        println!("  All-pairs pair counts (same sorted positions, first 10):");
-        let mut total_ap_pairs = 0.0f64;
-        let mut total_ap_pe = 0.0f64;
-        for i in 0..10.min(n_test) {
-            let ap_pc = ap_count_data[i * 2];
-            let ap_pe = ap_count_data[i * 2 + 1];
-            let cl_pc = debug_data[i * 8 + 5];
-            total_ap_pairs += ap_pc;
-            total_ap_pe += ap_pe;
-            let match_str = if (ap_pc - cl_pc).abs() < 0.5 {
-                "✓"
-            } else {
-                "✗ DIFF"
-            };
-            println!(
-                "    particle {i:>3}: AP pairs={ap_pc:.0}, CL pairs={cl_pc:.0} {match_str}  AP_PE={ap_pe:.6}, CL_PE=?"
-            );
-        }
-        for i in 10..n_test {
-            total_ap_pairs += ap_count_data[i * 2];
-            total_ap_pe += ap_count_data[i * 2 + 1];
-        }
-        println!("  Total AP pairs: {total_ap_pairs:.0}, Total CL pairs: {total_pairs_cl:.0}");
-        harness.check_abs(
-            "phase1c_pair_count_AP_vs_CL",
-            total_ap_pairs,
-            total_pairs_cl,
-            0.5,
-        );
-        println!("  Total AP PE: {total_ap_pe:.6}");
-        println!();
-
-        // Now verify u32 buffer reads: GPU shader that reads cell_start/cell_count
-        // and outputs them to a debug buffer for comparison
-        let verify_u32_src = format!(
-            "{}\n\n{}",
-            md_math,
-            include_str!("shaders/celllist_diag/verify_u32_f64.wgsl"),
-        );
-        let verify_pipeline = gpu.create_pipeline(&verify_u32_src, "verify_u32");
-        let out_buf = gpu.create_f64_output_buffer(27 * 2, "verify_out");
-        let verify_bg = gpu.create_bind_group(&verify_pipeline, &[&cs_buf, &cc_buf, &out_buf]);
-        gpu.dispatch(&verify_pipeline, &verify_bg, 1);
-        let verify_data = gpu.read_back_f64(&out_buf, 27 * 2).expect("GPU readback");
-
-        println!("  u32 buffer verification (GPU reads vs CPU values):");
-        println!(
-            "  {:>4} {:>10} {:>10} {:>10} {:>10} {:>5}",
-            "cell", "GPU_start", "CPU_start", "GPU_count", "CPU_count", "match"
-        );
-        let mut all_match = true;
-        for c in 0..27 {
-            let gpu_start = verify_data[c * 2] as u32;
-            let gpu_count = verify_data[c * 2 + 1] as u32;
-            let cpu_start = cl.cell_start[c];
-            let cpu_count = cl.cell_count[c];
-            let ok = gpu_start == cpu_start && gpu_count == cpu_count;
-            if !ok {
-                all_match = false;
-            }
-            println!(
-                "  {:>4} {:>10} {:>10} {:>10} {:>10} {:>5}",
-                c,
-                gpu_start,
-                cpu_start,
-                gpu_count,
-                cpu_count,
-                if ok { "✓" } else { "✗ MISMATCH" }
-            );
-        }
-        harness.check_bool("phase1c_u32_buffer_match", all_match);
-        if all_match {
-            println!("  ✓ All u32 buffer reads match CPU values");
-        } else {
-            println!("  ✗ u32 BUFFER READ MISMATCH — this is the bug source!");
-        }
-        println!();
-    }
-
-    // ── Phase 2: Hybrid test (all-pairs loop, cell-list bindings) ──
+    // ── Phase 2: Hybrid test ──
     println!();
     println!("╔══════════════════════════════════════════════════════════════╗");
     println!("║  Phase 2: Hybrid Isolation Test                             ║");

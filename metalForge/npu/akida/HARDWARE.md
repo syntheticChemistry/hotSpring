@@ -10,7 +10,7 @@
 The udev rule at `/etc/udev/rules.d/99-akida-pcie.rules` sets `MODE="0666"`
 but does not always trigger on boot. Current workaround: `pkexec chmod 666 /dev/akida0`.
 
-**TODO (Rust)**: ToadStool's device manager should handle this properly —
+**Evolution target (Rust)**: ToadStool's device manager should handle this properly —
 open `/dev/akida0` via a Rust `DeviceManager` that either:
 1. Uses a udev helper crate to trigger the rule, or
 2. Opens the device fd with appropriate capabilities (CAP_DAC_OVERRIDE via

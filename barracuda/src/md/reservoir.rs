@@ -21,7 +21,7 @@
 //! - Jaeger (2001) "The echo state approach to recurrent neural networks"
 //! - Stanton & Murillo, PRE 93, 043203 (2016) — transport coefficients
 
-/// ESN configuration matching ToadStool's `barracuda::esn_v2::ESNConfig`.
+/// ESN configuration matching `ToadStool`'s `barracuda::esn_v2::ESNConfig`.
 #[derive(Debug, Clone)]
 pub struct EsnConfig {
     pub input_size: usize,
@@ -51,7 +51,7 @@ impl Default for EsnConfig {
 
 /// Pure-CPU Echo State Network (f64 precision).
 ///
-/// Matches the Python NumPy ESN implementation exactly for cross-validation.
+/// Matches the Python `NumPy` ESN implementation exactly for cross-validation.
 /// Uses the same PRNG seeding strategy for reproducible weight initialization.
 pub struct EchoStateNetwork {
     config: EsnConfig,
@@ -90,7 +90,7 @@ impl EchoStateNetwork {
             .collect();
 
         let sr = spectral_radius_estimate(&w_res);
-        if sr > 1e-10 {
+        if sr > crate::tolerances::ESN_SPECTRAL_RADIUS_NEGLIGIBLE {
             let scale = config.spectral_radius / sr;
             for row in &mut w_res {
                 for v in row.iter_mut() {
@@ -129,7 +129,7 @@ impl EchoStateNetwork {
         }
 
         for (i, s) in self.state.iter_mut().enumerate() {
-            *s = (1.0 - alpha) * *s + alpha * pre[i].tanh();
+            *s = (1.0 - alpha).mul_add(*s, alpha * pre[i].tanh());
         }
     }
 
@@ -251,7 +251,7 @@ pub fn velocity_features(
                 let vx = frame[3 * i];
                 let vy = frame[3 * i + 1];
                 let vz = frame[3 * i + 2];
-                let v2 = vx * vx + vy * vy + vz * vz;
+                let v2 = vz.mul_add(vz, vx.mul_add(vx, vy * vy));
                 let speed = v2.sqrt();
                 sum_vx += vx;
                 sum_vy += vy;
@@ -283,14 +283,14 @@ pub fn velocity_features(
 /// Exported ESN weights for cross-substrate deployment (NPU, GPU).
 ///
 /// All weights are f32 to match the Akida `load_reservoir` API and
-/// ToadStool's f32 tensor convention.
+/// `ToadStool`'s f32 tensor convention.
 #[derive(Debug, Clone)]
 pub struct ExportedWeights {
-    /// Input weights, flattened row-major: (reservoir_size × input_size)
+    /// Input weights, flattened row-major: (`reservoir_size` × `input_size`)
     pub w_in: Vec<f32>,
-    /// Reservoir weights, flattened row-major: (reservoir_size × reservoir_size)
+    /// Reservoir weights, flattened row-major: (`reservoir_size` × `reservoir_size`)
     pub w_res: Vec<f32>,
-    /// Readout weights, flattened row-major: (output_size × reservoir_size)
+    /// Readout weights, flattened row-major: (`output_size` × `reservoir_size`)
     pub w_out: Vec<f32>,
     pub input_size: usize,
     pub reservoir_size: usize,
@@ -302,7 +302,7 @@ impl EchoStateNetwork {
     /// Export trained weights as flat f32 arrays for NPU/GPU deployment.
     ///
     /// The Akida driver expects `load_reservoir(w_in: &[f32], w_res: &[f32])`
-    /// with flattened row-major layout. The readout W_out is applied on the
+    /// with flattened row-major layout. The readout `W_out` is applied on the
     /// host CPU after NPU inference returns the reservoir state.
     pub fn export_weights(&self) -> Option<ExportedWeights> {
         let w_out_2d = self.w_out.as_ref()?;
@@ -397,7 +397,7 @@ impl NpuSimulator {
                 *pre_i = val;
             }
             for (i, s) in self.state.iter_mut().enumerate() {
-                *s = (1.0 - self.leak_rate) * *s + self.leak_rate * pre[i].tanh();
+                *s = (1.0 - self.leak_rate).mul_add(*s, self.leak_rate * pre[i].tanh());
             }
         }
 
@@ -426,74 +426,31 @@ impl NpuSimulator {
                 *pre_i = val;
             }
             for (i, s) in self.state.iter_mut().enumerate() {
-                *s = (1.0 - self.leak_rate) * *s + self.leak_rate * pre[i].tanh();
+                *s = (1.0 - self.leak_rate).mul_add(*s, self.leak_rate * pre[i].tanh());
             }
         }
         self.state.clone()
     }
 }
 
-// ═══════════════════════════════════════════════════════════════════
-//  Linear algebra helpers
-// ═══════════════════════════════════════════════════════════════════
-
+/// Solve AX = B for multiple right-hand sides using `barracuda::linalg::solve_f64`.
+///
+/// Delegates to barracuda's Gauss-Jordan solver (partial pivoting, f64).
+/// Each column of B is solved independently.
 fn solve_linear_system(a: &[Vec<f64>], b: &[Vec<f64>]) -> Vec<Vec<f64>> {
     let n = a.len();
     let m = b[0].len();
 
-    let mut aug: Vec<Vec<f64>> = (0..n)
-        .map(|i| {
-            let mut row = a[i].clone();
-            for val in b[i].iter().take(m) {
-                row.push(*val);
-            }
-            row
-        })
-        .collect();
+    let a_flat: Vec<f64> = a.iter().flat_map(|row| row.iter().copied()).collect();
 
-    // Gaussian elimination with partial pivoting
-    #[allow(clippy::needless_range_loop)] // clarity: aug[row][j] and aug[col][j] indexed by range
-    for col in 0..n {
-        let mut max_row = col;
-        let mut max_val = aug[col][col].abs();
-        for row in (col + 1)..n {
-            let val = aug[row][col].abs();
-            if val > max_val {
-                max_val = val;
-                max_row = row;
-            }
-        }
-        aug.swap(col, max_row);
-
-        let pivot = aug[col][col];
-        if pivot.abs() < 1e-30 {
-            continue;
-        }
-
-        #[allow(clippy::needless_range_loop)]
-        // clarity: two rows indexed; iterator would require split_at_mut
-        for row in (col + 1)..n {
-            let factor = aug[row][col] / pivot;
-            #[allow(clippy::needless_range_loop)] // clarity: aug[row] and aug[col] indexed together
-            for j in col..n + m {
-                aug[row][j] -= factor * aug[col][j];
-            }
-        }
-    }
-
-    // Back substitution
     let mut x = vec![vec![0.0; m]; n];
-    for i in (0..n).rev() {
-        if aug[i][i].abs() < 1e-30 {
-            continue;
-        }
-        for j in 0..m {
-            let mut sum = aug[i][n + j];
-            for k in (i + 1)..n {
-                sum -= aug[i][k] * x[k][j];
+    for col in 0..m {
+        let b_col: Vec<f64> = (0..n).map(|row| b[row][col]).collect();
+        if let Ok(sol) = barracuda::linalg::solve_f64(&a_flat, &b_col, n) {
+            for (row, &val) in sol.iter().enumerate() {
+                x[row][col] = val;
             }
-            x[i][j] = sum / aug[i][i];
-        }
+        } // singular: leave zeros (matches original skip behavior)
     }
     x
 }
@@ -514,7 +471,7 @@ fn spectral_radius_estimate(w: &[Vec<f64>]) -> f64 {
             *w_v_i = w[i].iter().zip(v.iter()).map(|(wij, vj)| wij * vj).sum();
         }
         let norm: f64 = w_v.iter().map(|x| x * x).sum::<f64>().sqrt();
-        if norm < 1e-30 {
+        if norm < crate::tolerances::DIVISION_GUARD {
             return 0.0;
         }
         lambda = norm;
@@ -545,7 +502,7 @@ impl Xoshiro256pp {
         Self { s }
     }
 
-    fn next_u64(&mut self) -> u64 {
+    const fn next_u64(&mut self) -> u64 {
         let result = (self.s[0].wrapping_add(self.s[3]))
             .rotate_left(23)
             .wrapping_add(self.s[0]);
@@ -564,7 +521,7 @@ impl Xoshiro256pp {
     }
 
     fn standard_normal(&mut self) -> f64 {
-        let u1 = self.uniform().max(1e-30);
+        let u1 = self.uniform().max(crate::tolerances::DIVISION_GUARD);
         let u2 = self.uniform();
         (-2.0 * u1.ln()).sqrt() * (2.0 * std::f64::consts::PI * u2).cos()
     }
@@ -786,7 +743,7 @@ mod tests {
             .map(|i| vec![f64::from(i) * 0.1, 0.5, -0.2])
             .collect();
         let mut esn = EchoStateNetwork::new(config);
-        esn.train(&[seq.clone()], &[vec![1.0]]);
+        esn.train(std::slice::from_ref(&seq), &[vec![1.0]]);
         let exported = esn.export_weights().expect("export");
 
         let mut npu1 = NpuSimulator::from_exported(&exported);

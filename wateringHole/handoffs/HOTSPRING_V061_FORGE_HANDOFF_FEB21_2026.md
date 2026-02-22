@@ -273,19 +273,20 @@ For reference, these hotSpring contributions are already upstream:
 
 | Metric | Value |
 |--------|-------|
-| Unit tests | **505** pass, 5 GPU-ignored |
+| Unit tests | **638** pass, 5 GPU-ignored |
 | Integration tests | **24** pass (3 suites: physics, data, transport) |
 | Validation suites | **33/33** pass |
 | `expect()`/`unwrap()` in library | **0** (crate-level deny) |
-| Clippy warnings (pedantic + nursery) | **0** |
+| Clippy warnings (all targets, pedantic + nursery) | **0** |
 | Doc warnings | **0** |
 | Unsafe blocks | **0** |
 | External FFI/C bindings | **0** (all pure Rust except wgpu GPU driver bridge) |
 | Centralized tolerances | **154** constants (including 8 new solver config) |
 | Hardcoded solver params in library | **0** (all centralized in `tolerances/`) |
-| Files over 1000 LOC | **1** (`hfb_gpu_resident/mod.rs` at 1456 — monolithic GPU pipeline) |
+| Files over 1000 LOC | **1** (`hfb_gpu_resident/mod.rs` at 1793 — monolithic GPU pipeline + helpers) |
 | AGPL-3.0 compliance | All `.rs` and `.wgsl` files |
-| metalForge forge tests | **13** pass |
+| metalForge forge tests | **8** pass |
+| Test coverage (region/function) | **72.4% / 82.5%** |
 
 ---
 

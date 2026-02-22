@@ -20,6 +20,7 @@ pub struct EnergyValidation {
 }
 
 /// Validate energy conservation
+#[must_use]
 pub fn validate_energy(history: &[EnergyRecord], _config: &MdConfig) -> EnergyValidation {
     if history.is_empty() {
         return EnergyValidation {

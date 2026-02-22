@@ -24,7 +24,7 @@
 //!
 //! # References
 //!
-//! - HotQCD Collaboration workflow for temperature scans
+//! - `HotQCD` Collaboration workflow for temperature scans
 //! - ecoPrimals/whitePaper/gen3/about/HARDWARE.md — basement HPC inventory
 
 use super::hmc::{self, HmcConfig};
@@ -50,7 +50,7 @@ pub struct TemperatureScanConfig {
     pub hmc_n_md_steps: usize,
     /// Number of parallel workers (threads)
     pub n_workers: usize,
-    /// Random seed base (each β gets seed_base + index)
+    /// Random seed base (each `β` gets `seed_base` + index)
     pub seed_base: u64,
 }
 
@@ -233,5 +233,66 @@ mod tests {
         assert!(!config.beta_values.is_empty());
         assert!(config.n_workers > 0);
         assert!(config.hmc_dt > 0.0);
+    }
+
+    #[test]
+    fn scan_single_beta_single_worker() {
+        let config = TemperatureScanConfig {
+            dims: [4, 4, 4, 4],
+            beta_values: vec![5.5],
+            n_trajectories: 3,
+            n_thermalization: 2,
+            hmc_dt: 0.1,
+            hmc_n_md_steps: 5,
+            n_workers: 1,
+            seed_base: 123,
+        };
+
+        let result = run_temperature_scan(&config);
+        assert_eq!(result.points.len(), 1);
+        assert!((result.points[0].beta - 5.5).abs() < 1e-10);
+    }
+
+    #[test]
+    fn scan_n_workers_exceeds_n_beta_clamped() {
+        let config = TemperatureScanConfig {
+            dims: [4, 4, 4, 4],
+            beta_values: vec![5.0, 6.0],
+            n_trajectories: 2,
+            n_thermalization: 1,
+            hmc_dt: 0.1,
+            hmc_n_md_steps: 3,
+            n_workers: 10,
+            seed_base: 0,
+        };
+
+        let result = run_temperature_scan(&config);
+        assert_eq!(result.points.len(), 2);
+    }
+
+    #[test]
+    fn print_scan_summary_no_panic() {
+        let result = TemperatureScanResult {
+            points: vec![
+                TemperaturePoint {
+                    beta: 5.0,
+                    mean_plaquette: 0.42,
+                    std_plaquette: 0.03,
+                    polyakov_loop: 0.1,
+                    acceptance_rate: 0.75,
+                    wall_time_s: 1.5,
+                },
+                TemperaturePoint {
+                    beta: 6.0,
+                    mean_plaquette: 0.55,
+                    std_plaquette: 0.02,
+                    polyakov_loop: 0.05,
+                    acceptance_rate: 0.82,
+                    wall_time_s: 2.0,
+                },
+            ],
+            total_wall_time_s: 2.0,
+        };
+        print_scan_summary(&result);
     }
 }

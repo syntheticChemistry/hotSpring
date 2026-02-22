@@ -16,10 +16,11 @@ pub struct StressAcf {
 
 /// Compute off-diagonal stress tensor from positions, velocities, and Yukawa forces.
 ///
-/// sigma_xy(t) = sum_i m*v_ix*v_iy + sum_{i<j} F_ij_x * r_ij_y
+/// `sigma_xy`(t) = `sum_i` m×`v_ix`×`v_iy` + sum_{i<j} `F_ij_x` × `r_ij_y`
 ///
 /// For transport, we only need the off-diagonal (xy) component.
 /// Returns one scalar per snapshot.
+#[must_use]
 pub fn compute_stress_xy(
     pos_snapshots: &[Vec<f64>],
     vel_snapshots: &[Vec<f64>],
@@ -59,14 +60,14 @@ pub fn compute_stress_xy(
                 dy -= box_side * (dy / box_side).round();
                 dz -= box_side * (dz / box_side).round();
 
-                let r2 = dx * dx + dy * dy + dz * dz;
+                let r2 = dz.mul_add(dz, dy.mul_add(dy, dx * dx));
                 let r = r2.sqrt();
                 if r < DIVISION_GUARD {
                     continue;
                 }
 
                 let exp_kr = (-kappa * r).exp();
-                let f_mag = exp_kr * (1.0 + kappa * r) / r2;
+                let f_mag = exp_kr * kappa.mul_add(r, 1.0) / r2;
 
                 // F_ij_x * r_ij_y = f_mag * (dx/r) * dy = f_mag * dx * dy / r
                 sigma_vir += f_mag * dx * dy / r;
@@ -81,9 +82,10 @@ pub fn compute_stress_xy(
 
 /// Compute stress autocorrelation and Green-Kubo viscosity.
 ///
-/// eta* = (V / kT) * integral_0^inf <sigma_xy(0) * sigma_xy(t)> dt
+/// `η*` = (V / `kT`) × `integral_0`^∞ ⟨`sigma_xy`(0) × `sigma_xy`(t)⟩ dt
 ///
 /// `dt_snap` is the time between consecutive snapshots in reduced units.
+#[must_use]
 pub fn compute_stress_acf(
     stress_series: &[f64],
     dt_snap: f64,
@@ -123,7 +125,7 @@ pub fn compute_stress_acf(
     let plateau_window = (20.0 / dt_snap).ceil() as usize;
 
     for i in 1..n_lag {
-        integral += 0.5 * (c_values[i - 1] + c_values[i]) * dt_snap;
+        integral += (0.5 * dt_snap).mul_add(c_values[i - 1] + c_values[i], 0.0);
         let eta_running = prefactor * integral;
         if eta_running > eta_max {
             eta_max = eta_running;
@@ -154,13 +156,14 @@ pub struct HeatAcf {
     pub thermal_conductivity: f64,
 }
 
-/// Compute the microscopic heat current J_q(t) from positions, velocities,
+/// Compute the microscopic heat current `J_q`(t) from positions, velocities,
 /// and the Yukawa interaction.
 ///
-/// J_q = sum_i (e_i * v_i) + (1/2) sum_{i<j} (F_ij · v_i) r_ij
+/// `J_q` = `sum_i` (`e_i` × `v_i`) + (1/2) sum_{i<j} (`F_ij` · `v_i`) `r_ij`
 ///
-/// where e_i = (m/2)|v_i|² + (1/2) sum_{j≠i} u(r_ij) is the per-particle
+/// where `e_i` = (m/2)|`v_i`|² + (1/2) sum_{j≠i} u(`r_ij`) is the per-particle
 /// energy. Returns one 3-vector (as [f64; 3]) per snapshot frame.
+#[must_use]
 pub fn compute_heat_current(
     pos_snapshots: &[Vec<f64>],
     vel_snapshots: &[Vec<f64>],
@@ -197,7 +200,7 @@ pub fn compute_heat_current(
                 dy -= box_side * (dy / box_side).round();
                 dz -= box_side * (dz / box_side).round();
 
-                let r2 = dx * dx + dy * dy + dz * dz;
+                let r2 = dz.mul_add(dz, dy.mul_add(dy, dx * dx));
                 let r = r2.sqrt();
                 if r < DIVISION_GUARD {
                     continue;
@@ -208,7 +211,7 @@ pub fn compute_heat_current(
                 pe_i[i] += 0.5 * u_pair;
                 pe_i[j] += 0.5 * u_pair;
 
-                let f_mag = exp_kr * (1.0 + kappa * r) / r2;
+                let f_mag = exp_kr * kappa.mul_add(r, 1.0) / r2;
                 let inv_r = 1.0 / r;
                 let fx = f_mag * dx * inv_r;
                 let fy = f_mag * dy * inv_r;
@@ -218,8 +221,8 @@ pub fn compute_heat_current(
                 let vjy = vel[j * 3 + 1];
                 let vjz = vel[j * 3 + 2];
 
-                let f_dot_vi = fx * vix + fy * viy + fz * viz;
-                let f_dot_vj = -(fx * vjx + fy * vjy + fz * vjz);
+                let f_dot_vi = fz.mul_add(viz, fy.mul_add(viy, fx * vix));
+                let f_dot_vj = -fz.mul_add(vjz, fy.mul_add(vjy, fx * vjx));
 
                 jq[0] += 0.5 * (f_dot_vi + f_dot_vj) * dx;
                 jq[1] += 0.5 * (f_dot_vi + f_dot_vj) * dy;
@@ -229,8 +232,12 @@ pub fn compute_heat_current(
 
         // Convective part: sum_i e_i * v_i
         for i in 0..n {
-            let ke_i =
-                0.5 * mass * (vel[i * 3].powi(2) + vel[i * 3 + 1].powi(2) + vel[i * 3 + 2].powi(2));
+            let ke_i = 0.5
+                * mass
+                * vel[i * 3 + 2].mul_add(
+                    vel[i * 3 + 2],
+                    vel[i * 3 + 1].mul_add(vel[i * 3 + 1], vel[i * 3] * vel[i * 3]),
+                );
             let e_i = ke_i + pe_i[i];
             jq[0] += e_i * vel[i * 3];
             jq[1] += e_i * vel[i * 3 + 1];
@@ -245,7 +252,8 @@ pub fn compute_heat_current(
 
 /// Compute heat current autocorrelation and Green-Kubo thermal conductivity.
 ///
-/// λ* = (V / (3 kT²)) × integral_0^inf <J_q(0) · J_q(t)> dt
+/// `λ*` = (V / (3 `kT`²)) × `integral_0`^∞ ⟨`J_q`(0) · `J_q`(t)⟩ dt
+#[must_use]
 pub fn compute_heat_acf(
     jq_series: &[[f64; 3]],
     dt_snap: f64,
@@ -266,7 +274,7 @@ pub fn compute_heat_acf(
             }
             let j0 = &jq_series[t0];
             let j1 = &jq_series[t1];
-            c_values[lag] += j0[0] * j1[0] + j0[1] * j1[1] + j0[2] * j1[2];
+            c_values[lag] += j0[2].mul_add(j1[2], j0[1].mul_add(j1[1], j0[0] * j1[0]));
             counts[lag] += 1;
         }
     }
@@ -288,7 +296,7 @@ pub fn compute_heat_acf(
     let plateau_window = (20.0 / dt_snap).ceil() as usize;
 
     for i in 1..n_lag {
-        integral += 0.5 * (c_values[i - 1] + c_values[i]) * dt_snap;
+        integral += (0.5 * dt_snap).mul_add(c_values[i - 1] + c_values[i], 0.0);
         let lambda_running = prefactor * integral;
         if lambda_running > lambda_max {
             lambda_max = lambda_running;

@@ -9,11 +9,11 @@
 //!
 //! Production simulation runs GPU-resident: particle data stays on GPU between
 //! substeps, CPU reads back only at dump intervals for observables. All shader
-//! compilation routes through ToadStool's `WgslOptimizer` + `GpuDriverProfile`
+//! compilation routes through `ToadStool`'s `WgslOptimizer` + `GpuDriverProfile`
 //! for hardware-accurate ILP scheduling, fossil substitution, and driver-aware
 //! exp/log patching (NVK workaround via barracuda).
 //!
-//! ## Upstream ToadStool capabilities (v0.5.16 audit)
+//! ## Upstream `ToadStool` capabilities (v0.5.16 audit)
 //!
 //! | Capability | ToadStool location | hotSpring status |
 //! |---|---|---|

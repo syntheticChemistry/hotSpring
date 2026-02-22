@@ -7,8 +7,8 @@
 
 /// Compute the mean level spacing ratio ⟨r⟩ from sorted eigenvalues.
 ///
-/// r_i = min(s_i, s_{i+1}) / max(s_i, s_{i+1})
-/// where s_i = λ_{i+1} − λ_i.
+/// `r_i` = `min(s_i`, s_{i+1}) / `max(s_i`, s_{i+1})
+/// where `s_i` = λ_{i+1} − `λ_i`.
 ///
 /// Known values:
 /// - Poisson (localized): ⟨r⟩ = 2 ln 2 − 1 ≈ 0.3863
@@ -17,6 +17,7 @@
 /// # Provenance
 /// Oganesyan & Huse (2007), Phys. Rev. B 75, 155111
 /// Atas et al. (2013), Phys. Rev. Lett. 110, 084101
+#[must_use]
 pub fn level_spacing_ratio(eigenvalues: &[f64]) -> f64 {
     let n = eigenvalues.len();
     if n < 3 {
@@ -53,7 +54,7 @@ pub const GOE_R: f64 = 0.5307;
 ///
 /// Groups eigenvalues into bands separated by gaps. A "gap" is defined as a
 /// spacing exceeding `gap_factor` times the median spacing. Returns a vector
-/// of (band_min, band_max) pairs.
+/// of (`band_min`, `band_max`) pairs.
 pub fn detect_bands(eigenvalues: &[f64], gap_factor: f64) -> Vec<(f64, f64)> {
     if eigenvalues.len() < 2 {
         if eigenvalues.len() == 1 {
@@ -173,5 +174,38 @@ mod tests {
         assert!(bands.len() >= 2);
         assert!((bands[0].1 - bands[0].0).abs() < 5.0);
         assert!((bands[1].1 - bands[1].0).abs() < 5.0);
+    }
+
+    #[test]
+    #[allow(clippy::float_cmp)]
+    fn level_spacing_ratio_empty_returns_zero() {
+        let evals: Vec<f64> = vec![];
+        assert_eq!(level_spacing_ratio(&evals), 0.0);
+    }
+
+    #[test]
+    #[allow(clippy::float_cmp)]
+    fn level_spacing_ratio_single_element_returns_zero() {
+        let evals = vec![2.5];
+        assert_eq!(level_spacing_ratio(&evals), 0.0);
+    }
+
+    #[test]
+    #[allow(clippy::float_cmp)]
+    fn level_spacing_ratio_alternating_zeros_count_zero() {
+        let evals = vec![0.0, 1.0, 1.0, 2.0];
+        let r = level_spacing_ratio(&evals);
+        assert_eq!(
+            r, 0.0,
+            "s1=0 or s2=0 skips that pair; this pattern may yield count=0"
+        );
+    }
+
+    #[test]
+    fn detect_bands_two_eigenvalues_one_band() {
+        let evals = vec![1.0, 2.0];
+        let bands = detect_bands(&evals, 2.0);
+        assert_eq!(bands.len(), 1);
+        assert_eq!(bands[0], (1.0, 2.0));
     }
 }

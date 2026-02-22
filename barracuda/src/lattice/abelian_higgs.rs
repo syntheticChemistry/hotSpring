@@ -2,27 +2,27 @@
 
 //! Abelian Higgs model on a (1+1)D lattice.
 //!
-//! Implements the U(1) gauge + complex scalar Higgs model from
+//! Implements the `U(1)` gauge + complex scalar Higgs model from
 //! Bazavov et al., Phys. Rev. D 92, 076003 (2015).
 //!
 //! # Action
 //!
-//! S = S_gauge + S_higgs
+//! S = `S_gauge` + `S_higgs`
 //!
-//! S_gauge = β_pl Σ_{plaq} (1 − Re U_p)
+//! `S_gauge` = `β_pl` Σ\_{plaq} (1 − Re `U_p`)
 //!
-//! S_higgs = Σ_x [ −κ Σ_μ (φ*(x) U_μ(x) φ(x+μ̂) + h.c.)
+//! `S_higgs` = Σ\_x [ −κ Σ\_μ (φ\*(x) `U_μ`(x) φ(x+μ̂) + h.c.)
 //!                  + |φ(x)|² + λ(|φ(x)|² − 1)² ]
 //!
-//! where U_μ(x) = e^{iθ_μ(x)} are U(1) link variables and φ(x) are
+//! where `U_μ`(x) = e^{i`θ_μ`(x)} are `U(1)` link variables and φ(x) are
 //! complex scalar Higgs fields.
 //!
 //! # Phase structure
 //!
 //! The model exhibits three regimes:
-//! - **Confined** (small β, small κ): disordered links, small Higgs VEV
+//! - **Confined** (small β, small κ): disordered links, small Higgs `VEV`
 //! - **Higgs** (large κ): Higgs condensation, ⟨|φ|²⟩ → 1
-//! - **Coulomb** (large β, small κ): ordered links, small Higgs VEV
+//! - **Coulomb** (large β, small κ): ordered links, small Higgs `VEV`
 //!
 //! In (1+1)D with λ → ∞ and spin-1 truncation, the model maps to
 //! a two-species Bose-Hubbard model.
@@ -34,7 +34,7 @@ use std::f64::consts::PI;
 /// Parameters for the Abelian Higgs model.
 #[derive(Clone, Debug)]
 pub struct AbelianHiggsParams {
-    /// Inverse gauge coupling: β_pl = 1/g².
+    /// Inverse gauge coupling: `β_pl` = 1/g².
     pub beta_pl: f64,
     /// Hopping parameter (gauge–Higgs coupling).
     pub kappa: f64,
@@ -45,6 +45,7 @@ pub struct AbelianHiggsParams {
 }
 
 impl AbelianHiggsParams {
+    #[must_use]
     pub const fn new(beta_pl: f64, kappa: f64, lambda: f64) -> Self {
         Self {
             beta_pl,
@@ -54,6 +55,7 @@ impl AbelianHiggsParams {
         }
     }
 
+    #[must_use]
     pub const fn with_mu(mut self, mu: f64) -> Self {
         self.mu = mu;
         self
@@ -68,7 +70,7 @@ pub struct U1HiggsLattice {
     pub nt: usize,
     pub ns: usize,
     pub params: AbelianHiggsParams,
-    /// Link angles θ_μ(x) ∈ [−π, π). Layout: `links[site * 2 + mu]`.
+    /// Link angles `θ_μ`(x) ∈ [−π, π). Layout: `links[site * 2 + mu]`.
     pub links: Vec<f64>,
     /// Higgs field φ(x). Layout: `higgs[site]`.
     pub higgs: Vec<Complex64>,
@@ -76,12 +78,14 @@ pub struct U1HiggsLattice {
 
 impl U1HiggsLattice {
     /// Total number of lattice sites.
+    #[must_use]
     pub const fn volume(&self) -> usize {
         self.nt * self.ns
     }
 
     /// Flat site index from coordinates (t, x).
     #[inline]
+    #[must_use]
     pub const fn site_index(&self, t: usize, x: usize) -> usize {
         t * self.ns + x
     }
@@ -89,6 +93,7 @@ impl U1HiggsLattice {
     /// Neighbor site in direction mu (+1) with periodic boundaries.
     /// mu=0: temporal, mu=1: spatial.
     #[inline]
+    #[must_use]
     pub const fn neighbor_fwd(&self, t: usize, x: usize, mu: usize) -> (usize, usize) {
         if mu == 0 {
             ((t + 1) % self.nt, x)
@@ -99,6 +104,7 @@ impl U1HiggsLattice {
 
     /// Neighbor site in direction -mu with periodic boundaries.
     #[inline]
+    #[must_use]
     pub const fn neighbor_bwd(&self, t: usize, x: usize, mu: usize) -> (usize, usize) {
         if mu == 0 {
             ((t + self.nt - 1) % self.nt, x)
@@ -107,19 +113,21 @@ impl U1HiggsLattice {
         }
     }
 
-    /// Access link angle θ_μ at site (t, x).
+    /// Access link angle `θ_μ` at site (t, x).
     #[inline]
+    #[must_use]
     pub fn link_angle(&self, t: usize, x: usize, mu: usize) -> f64 {
         self.links[self.site_index(t, x) * 2 + mu]
     }
 
-    /// Access link U_μ = e^{iθ} at site (t, x).
+    /// Access link `U_μ` = e^{iθ} at site (t, x).
     #[inline]
     pub fn link(&self, t: usize, x: usize, mu: usize) -> Complex64 {
         Complex64::from_polar(self.link_angle(t, x, mu))
     }
 
     /// Cold start: all links θ=0 (ordered), all Higgs φ=1.
+    #[must_use]
     pub fn cold_start(nt: usize, ns: usize, params: AbelianHiggsParams) -> Self {
         let vol = nt * ns;
         Self {
@@ -135,11 +143,11 @@ impl U1HiggsLattice {
     pub fn hot_start(nt: usize, ns: usize, params: AbelianHiggsParams, seed: &mut u64) -> Self {
         let vol = nt * ns;
         let links: Vec<f64> = (0..vol * 2)
-            .map(|_| 2.0 * PI * lcg_uniform_f64(seed) - PI)
+            .map(|_| (2.0 * PI).mul_add(lcg_uniform_f64(seed), -PI))
             .collect();
         let higgs: Vec<Complex64> = (0..vol)
             .map(|_| {
-                let re = lcg_gaussian(seed) * 0.5 + 1.0;
+                let re = lcg_gaussian(seed).mul_add(0.5, 1.0);
                 let im = lcg_gaussian(seed) * 0.5;
                 Complex64::new(re, im)
             })
@@ -155,10 +163,11 @@ impl U1HiggsLattice {
 
     // ── Plaquette ────────────────────────────────────────────────────
 
-    /// Plaquette U_p = U_0(x) U_1(x+0̂) U_0†(x+1̂) U_1†(x).
+    /// Plaquette `U_p` = `U_0`(x) `U_1`(x+0̂) `U_0`†(x+1̂) `U_1`†(x).
     ///
     /// In (1+1)D there's exactly one plaquette orientation (temporal × spatial).
-    /// Returns the phase: θ_0(x) + θ_1(x+0̂) − θ_0(x+1̂) − θ_1(x).
+    /// Returns the phase: `θ_0`(x) + `θ_1`(x+0̂) − `θ_0`(x+1̂) − `θ_1`(x).
+    #[must_use]
     pub fn plaquette_phase(&self, t: usize, x: usize) -> f64 {
         let (t_fwd, _) = self.neighbor_fwd(t, x, 0);
         let (_, x_fwd) = self.neighbor_fwd(t, x, 1);
@@ -167,12 +176,14 @@ impl U1HiggsLattice {
             - self.link_angle(t, x, 1)
     }
 
-    /// Re(U_p) = cos(plaquette_phase).
+    /// `Re`(`U_p`) = cos(`plaquette_phase`).
+    #[must_use]
     pub fn plaquette_re(&self, t: usize, x: usize) -> f64 {
         self.plaquette_phase(t, x).cos()
     }
 
-    /// Average plaquette ⟨Re U_p⟩ over all sites.
+    /// Average plaquette ⟨Re `U_p`⟩ over all sites.
+    #[must_use]
     pub fn average_plaquette(&self) -> f64 {
         let mut sum = 0.0;
         for t in 0..self.nt {
@@ -185,7 +196,8 @@ impl U1HiggsLattice {
 
     // ── Action ───────────────────────────────────────────────────────
 
-    /// Wilson gauge action: S_gauge = β_pl Σ (1 − Re U_p).
+    /// Wilson gauge action: `S_gauge` = `β_pl` Σ (1 − Re `U_p`).
+    #[must_use]
     pub fn gauge_action(&self) -> f64 {
         let mut s = 0.0;
         for t in 0..self.nt {
@@ -198,10 +210,11 @@ impl U1HiggsLattice {
 
     /// Higgs action: kinetic + potential.
     ///
-    /// S_higgs = Σ_x [ −κ Σ_μ (φ*(x) U_μ(x) φ(x+μ̂) + h.c.)
+    /// `S_higgs` = Σ\_x [ −κ Σ\_μ (φ\*(x) `U_μ`(x) φ(x+μ̂) + h.c.)
     ///                  + |φ(x)|² + λ(|φ(x)|² − 1)² ]
     ///
     /// Chemical potential: temporal hopping gets exp(±μ) weight.
+    #[must_use]
     pub fn higgs_action(&self) -> f64 {
         let kappa = self.params.kappa;
         let lambda = self.params.lambda;
@@ -215,7 +228,7 @@ impl U1HiggsLattice {
                 let phi = self.higgs[idx];
                 let phi_sq = phi.abs_sq();
 
-                s_pot += phi_sq + lambda * (phi_sq - 1.0) * (phi_sq - 1.0);
+                s_pot += (lambda * (phi_sq - 1.0)).mul_add(phi_sq - 1.0, phi_sq);
 
                 for mu_dir in 0..2 {
                     let (t_fwd, x_fwd) = self.neighbor_fwd(t, x, mu_dir);
@@ -229,10 +242,11 @@ impl U1HiggsLattice {
                 }
             }
         }
-        -2.0 * kappa * s_kin + s_pot
+        (-2.0 * kappa).mul_add(s_kin, s_pot)
     }
 
-    /// Total action S = S_gauge + S_higgs.
+    /// Total action S = `S_gauge` + `S_higgs`.
+    #[must_use]
     pub fn total_action(&self) -> f64 {
         self.gauge_action() + self.higgs_action()
     }
@@ -240,6 +254,7 @@ impl U1HiggsLattice {
     // ── Observables ──────────────────────────────────────────────────
 
     /// Average Higgs field modulus squared ⟨|φ|²⟩.
+    #[must_use]
     pub fn average_higgs_sq(&self) -> f64 {
         let sum: f64 = self.higgs.iter().map(|phi| phi.abs_sq()).sum();
         sum / self.volume() as f64
@@ -256,7 +271,7 @@ impl U1HiggsLattice {
     }
 
     /// Polyakov loop: product of temporal links along a spatial slice.
-    /// L(x) = Π_{t=0}^{Nt-1} U_0(t, x)
+    /// L(x) = Π\_{t=0}^{Nt-1} `U_0`(t, x)
     pub fn polyakov_loop(&self, x: usize) -> Complex64 {
         let mut prod = Complex64::ONE;
         for t in 0..self.nt {
@@ -266,6 +281,7 @@ impl U1HiggsLattice {
     }
 
     /// Average Polyakov loop ⟨|L|⟩.
+    #[must_use]
     pub fn average_polyakov_loop(&self) -> f64 {
         let sum: f64 = (0..self.ns).map(|x| self.polyakov_loop(x).abs()).sum();
         sum / self.ns as f64
@@ -273,7 +289,7 @@ impl U1HiggsLattice {
 
     // ── HMC forces ───────────────────────────────────────────────────
 
-    /// Gauge force on link angle θ_μ(t, x): −dS_gauge/dθ.
+    /// Gauge force on link angle `θ_μ`(t, x): −d`S_gauge`/dθ.
     ///
     /// For the single plaquette orientation in (1+1)D, each link appears
     /// in exactly two plaquettes (forward and backward).
@@ -307,10 +323,10 @@ impl U1HiggsLattice {
         -force
     }
 
-    /// Higgs force on link angle θ_μ(t, x): −dS_higgs/dθ.
+    /// Higgs force on link angle `θ_μ`(t, x): −d`S_higgs`/dθ.
     ///
-    /// d/dθ Re[φ*(x) e^{iθ} φ(x+μ̂)] = −Im[φ*(x) e^{iθ} φ(x+μ̂)]
-    /// so −dS_higgs/dθ = −2κ × Im(hop) × chem_weight.
+    /// d/dθ Re[φ\*(x) e^{iθ} φ(x+μ̂)] = −Im[φ\*(x) e^{iθ} φ(x+μ̂)]
+    /// so −d`S_higgs`/dθ = −2κ × Im(`hop`) × `chem_weight`.
     fn higgs_link_force(&self, t: usize, x: usize, mu: usize) -> f64 {
         let (t_fwd, x_fwd) = self.neighbor_fwd(t, x, mu);
         let idx = self.site_index(t, x);
@@ -327,7 +343,7 @@ impl U1HiggsLattice {
 
     /// Force on Higgs field φ(x): −2 dS/dφ* (complex).
     ///
-    /// The factor of 2 arises because dp/dt = −(∂S/∂φ_R + i ∂S/∂φ_I) = −2 ∂S/∂φ*
+    /// The factor of 2 arises because dp/dt = −(∂S/∂`φ_R` + i ∂S/∂`φ_I`) = −2 ∂S/∂φ\*
     /// when using Wirtinger derivatives with the kinetic energy T = ½|p|².
     fn higgs_field_force(&self, t: usize, x: usize) -> Complex64 {
         let idx = self.site_index(t, x);
@@ -338,7 +354,7 @@ impl U1HiggsLattice {
         let mu = self.params.mu;
 
         // ∂S_pot/∂φ* = φ(1 + 2λ(|φ|² − 1))
-        let pot_grad = phi.scale(1.0 + 2.0 * lambda * (phi_sq - 1.0));
+        let pot_grad = phi.scale((2.0 * lambda).mul_add(phi_sq - 1.0, 1.0));
 
         // ∂S_kin/∂φ* = −κ Σ_μ [U_μ(x) φ(x+μ̂) + U†_μ(x−μ̂) φ(x−μ̂)]
         let mut kin_neighbors = Complex64::ZERO;
@@ -497,7 +513,7 @@ impl U1HiggsLattice {
     }
 }
 
-/// Kinetic energy: T = ½ Σ π² + ½ Σ |p_φ|².
+/// Kinetic energy: T = ½ Σ π² + ½ Σ |`p_φ`|².
 fn kinetic_energy(pi_links: &[f64], pi_higgs: &[Complex64]) -> f64 {
     let ke_links: f64 = pi_links.iter().map(|p| p * p).sum();
     let ke_higgs: f64 = pi_higgs.iter().map(|p| p.abs_sq()).sum();

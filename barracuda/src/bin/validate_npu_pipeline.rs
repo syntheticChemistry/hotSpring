@@ -62,7 +62,7 @@ fn check_pipeline_single_output(harness: &mut ValidationHarness) {
         .collect();
 
     let targets: Vec<Vec<f64>> = (0..n_cases)
-        .map(|_| vec![rng.uniform() * 0.05 + 0.001])
+        .map(|_| vec![rng.uniform().mul_add(0.05, 0.001)])
         .collect();
 
     let train_seqs: Vec<Vec<Vec<f64>>> = sequences[..n_train].to_vec();
@@ -144,7 +144,7 @@ fn check_pipeline_multi_output(harness: &mut ValidationHarness) {
     // Simulate D*, η*, λ* as correlated transport coefficients
     let targets: Vec<Vec<f64>> = (0..8)
         .map(|_| {
-            let d = rng.uniform() * 0.05 + 0.001;
+            let d = rng.uniform().mul_add(0.05, 0.001);
             vec![d, d * 0.8, d * 1.2]
         })
         .collect();
@@ -224,7 +224,9 @@ fn check_quantized_pipeline(harness: &mut ValidationHarness) {
         })
         .collect();
 
-    let targets: Vec<Vec<f64>> = (0..6).map(|_| vec![rng.uniform() * 0.05 + 0.001]).collect();
+    let targets: Vec<Vec<f64>> = (0..6)
+        .map(|_| vec![rng.uniform().mul_add(0.05, 0.001)])
+        .collect();
 
     esn.train(&sequences[..4], &targets[..4]);
     let exported = esn.export_weights().expect("trained");

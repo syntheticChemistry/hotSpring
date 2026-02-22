@@ -95,11 +95,11 @@ fn check_spmv_correctness(harness: &mut ValidationHarness) {
 
     // Dense reference: y[i] = d[i]*x[i] + e[i-1]*x[i-1] + e[i]*x[i+1]
     let y_ref = [
-        1.0 * 1.0 + -2.0,
-        -1.0 + 2.0 * 2.0 + -3.0,
-        -2.0 + 3.0 * 3.0 + -4.0,
-        -3.0 + 4.0 * 4.0 + -5.0,
-        -4.0 + 5.0 * 5.0,
+        1.0f64.mul_add(1.0, -2.0),
+        2.0f64.mul_add(2.0, -1.0) + -3.0,
+        3.0f64.mul_add(3.0, -2.0) + -4.0,
+        4.0f64.mul_add(4.0, -3.0) + -5.0,
+        5.0f64.mul_add(5.0, -4.0),
     ];
 
     let max_err: f64 = y

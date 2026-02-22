@@ -14,7 +14,7 @@ pub const LATTICE_COLD_PLAQUETTE_ABS: f64 = 1e-12;
 
 /// Cold Wilson action: absolute error (should be exactly 0.0).
 ///
-/// Wilson action = β × Σ(1 - Re Tr U_p / 3) is zero when all plaquettes
+/// Wilson action = β × Σ(1 - Re Tr `U_p` / 3) is zero when all plaquettes
 /// are unit matrices. 1e-10 accounts for accumulated rounding.
 pub const LATTICE_COLD_ACTION_ABS: f64 = 1e-10;
 
@@ -50,7 +50,7 @@ pub const U1_HMC_ACCEPTANCE_MIN: f64 = 0.30;
 
 /// U(1) Abelian Higgs: weak-coupling plaquette lower bound.
 ///
-/// At β_pl ≥ 6 (weak coupling), ⟨Re U_p⟩ > 0.7. Near-unity means
+/// At `β_pl` ≥ 6 (weak coupling), ⟨Re `U_p`⟩ > 0.7. Near-unity means
 /// the gauge field is nearly ordered.
 pub const U1_WEAK_COUPLING_PLAQ_MIN: f64 = 0.70;
 
@@ -62,7 +62,7 @@ pub const U1_PYTHON_RUST_PARITY: f64 = 0.01;
 
 /// U(1) Abelian Higgs: strong-coupling plaquette upper bound.
 ///
-/// At β_pl=0.5 (strong coupling), ⟨Re U_p⟩ < 0.5. Near-zero means
+/// At `β_pl=0.5` (strong coupling), ⟨Re `U_p`⟩ < 0.5. Near-zero means
 /// the gauge field is strongly disordered.
 pub const U1_STRONG_COUPLING_PLAQ_MAX: f64 = 0.50;
 
@@ -76,20 +76,20 @@ pub const U1_HIGGS_CONDENSATE_BOUNDARY: f64 = 1.5;
 
 /// U(1) Abelian Higgs: condensate vs coupling monotonicity tolerance.
 ///
-/// The condensate should increase with κ_higgs (Higgs self-coupling).
+/// The condensate should increase with `κ_higgs` (Higgs self-coupling).
 /// 0.15 relative tolerance on the monotonicity check accommodates
 /// finite-size fluctuations on small (L=16) lattices.
 pub const U1_CONDENSATE_MONOTONICITY: f64 = 0.15;
 
-/// Thermodynamic consistency tolerance for HotQCD EOS.
+/// Thermodynamic consistency tolerance for `HotQCD` EOS.
 ///
-/// Checks s ≈ (ε+p)/T within 30%. Some points near T_c have larger
+/// Checks s ≈ (ε+p)/T within 30%. Some points near `T_c` have larger
 /// deviations due to the crossover nature of the QCD transition.
 pub const HOTQCD_CONSISTENCY: f64 = 0.30;
 
 /// Maximum allowed thermodynamic consistency violations.
 ///
-/// Up to 3 data points may violate the consistency check near T_c,
+/// Up to 3 data points may violate the consistency check near `T_c`,
 /// where the QCD crossover produces large ∂s/∂T gradients that amplify
 /// the discretization error in s ≈ (ε+p)/T. Measured: 2 violations
 /// typical, 3 worst-case on coarse interpolation grids.
@@ -167,22 +167,22 @@ pub const LATTICE_DIRAC_HOT_PARITY: f64 = 1e-13;
 // GPU SpMV and Lanczos eigensolve validation
 // ═══════════════════════════════════════════════════════════════════
 
-/// GPU SpMV: identity matrix absolute error.
+/// GPU `SpMV`: identity matrix absolute error.
 ///
 /// I*x = x must hold to machine precision. Any deviation indicates
 /// a CSR indexing or buffer layout bug in the WGSL shader.
 pub const SPMV_IDENTITY_ABS: f64 = 1e-15;
 
-/// GPU SpMV: general matrix GPU-vs-CPU parity.
+/// GPU `SpMV`: general matrix GPU-vs-CPU parity.
 ///
-/// For Anderson model and lattice Hamiltonians, GPU CSR SpMV matches
+/// For Anderson model and lattice Hamiltonians, GPU CSR `SpMV` matches
 /// CPU reference to ~1e-14 (near machine epsilon). The parallel
 /// reduction per row introduces at most 1-2 ULP of rounding difference.
 pub const SPMV_GPU_VS_CPU_ABS: f64 = 1e-14;
 
-/// GPU SpMV: iterated product (A²x) error accumulation.
+/// GPU `SpMV`: iterated product (A²x) error accumulation.
 ///
-/// Two successive SpMV applications accumulate rounding errors; the
+/// Two successive `SpMV` applications accumulate rounding errors; the
 /// tolerance is ~10× the single-pass tolerance.
 pub const SPMV_ITERATED_ABS: f64 = 1e-13;
 
@@ -195,9 +195,9 @@ pub const LANCZOS_BREAKDOWN_THRESHOLD: f64 = 1e-14;
 
 /// GPU Lanczos: eigenvalue GPU-vs-CPU parity.
 ///
-/// Full-spectrum Lanczos eigenvalues from GPU SpMV inner loop match CPU
-/// Lanczos to ~1e-10. The larger tolerance (vs SpMV) reflects error
-/// accumulation over O(N) Lanczos iterations, each with GPU SpMV and
+/// Full-spectrum Lanczos eigenvalues from GPU `SpMV` inner loop match CPU
+/// Lanczos to ~1e-10. The larger tolerance (vs `SpMV`) reflects error
+/// accumulation over O(N) Lanczos iterations, each with GPU `SpMV` and
 /// reorthogonalization.
 pub const LANCZOS_EIGENVALUE_GPU_PARITY: f64 = 1e-10;
 
@@ -221,7 +221,7 @@ pub const LANCZOS_EXTREMAL_REL: f64 = 1e-6;
 
 /// Anderson localization: IPR relative tolerance.
 ///
-/// The inverse participation ratio IPR = Σ|ψ_i|⁴ fluctuates between
+/// The inverse participation ratio IPR = `Σ|ψ_i|⁴` fluctuates between
 /// disorder realizations. For W=2 (weak disorder), IPR ~ 1/N (extended);
 /// for W=20 (strong disorder), IPR ~ O(1) (localized). 1e-8 absolute
 /// tolerance for the tridiagonal→Lanczos eigenvalue comparison.
@@ -230,7 +230,7 @@ pub const ANDERSON_EIGENVALUE_ABS: f64 = 1e-8;
 /// GOE level-spacing ratio: analytical ⟨r⟩ ≈ 0.5307.
 ///
 /// For extended states in the GOE universality class, the mean adjacent
-/// gap ratio is r_GOE = 4 - 2√3 ≈ 0.5307 (Atas et al., PRL 110, 2013).
+/// gap ratio is `r_GOE` = 4 - 2√3 ≈ 0.5307 (Atas et al., PRL 110, 2013).
 /// Finite-size fluctuations at N=200 give ~0.04 spread.
 pub const GOE_MEAN_R: f64 = 0.5307;
 
@@ -252,6 +252,14 @@ pub const POISSON_MEAN_R: f64 = 0.3863;
 /// 0.05 tolerance matches the GOE side.
 pub const POISSON_DEVIATION_TOLERANCE: f64 = 0.05;
 
+/// Sturm bisection: LDLT pivot guard to avoid division by zero.
+///
+/// In the Sturm sequence (LDLT factorization), when q = diagonal - λ
+/// is nearly zero, we substitute ±1e-300 to prevent inf/NaN. This is
+/// well below any physical eigenvalue scale and serves only to avoid
+/// floating-point exceptions in the recurrence.
+pub const TRIDIAG_STURM_PIVOT_GUARD: f64 = 1e-300;
+
 /// Anderson 1D localization length: ln(2) analytical value tolerance.
 ///
 /// At W=2 in 1D, the Lyapunov exponent γ ≈ W²/96. The localization
@@ -262,6 +270,6 @@ pub const ANDERSON_1D_LYAPUNOV_TOLERANCE: f64 = 0.02;
 /// Hofstadter butterfly: energy band symmetry tolerance.
 ///
 /// The Hofstadter Hamiltonian at rational flux p/q has spectrum
-/// symmetric about E=0: |E_min + E_max| should be near zero.
+/// symmetric about E=0: |`E_min` + `E_max`| should be near zero.
 /// Finite q gives max asymmetry of ~0.5 for edge-of-band states.
 pub const HOFSTADTER_SYMMETRY_TOLERANCE: f64 = 0.5;

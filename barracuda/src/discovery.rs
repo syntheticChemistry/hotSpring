@@ -78,19 +78,16 @@ pub fn try_discover_data_root() -> Result<PathBuf, crate::error::HotSpringError>
 /// If no valid root is found, falls back to the manifest parent (may fail gracefully downstream).
 #[must_use]
 pub fn discover_data_root() -> PathBuf {
-    if let Ok(root) = try_discover_data_root() {
-        root
-    } else {
+    try_discover_data_root().unwrap_or_else(|_| {
         let manifest_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        match manifest_root.parent() {
-            Some(p) => p.to_path_buf(),
-            None => manifest_root,
-        }
-    }
+        manifest_root
+            .parent()
+            .map_or_else(|| manifest_root.clone(), std::path::Path::to_path_buf)
+    })
 }
 
 /// Check if a directory looks like a valid hotSpring root.
-fn is_valid_root(path: &Path) -> bool {
+pub(crate) fn is_valid_root(path: &Path) -> bool {
     path.join("control").is_dir()
 }
 
@@ -297,5 +294,63 @@ mod tests {
         assert!(paths::EXP_DATA.contains("exp"));
         assert!(paths::SKYRME_BOUNDS.to_ascii_lowercase().ends_with(".json"));
         assert!(paths::BENCHMARK_RESULTS.contains("benchmark"));
+    }
+
+    #[test]
+    #[allow(clippy::unwrap_used)]
+    fn is_valid_root_rejects_dir_without_control() {
+        let tmp = std::env::temp_dir().join("hotspring_no_control");
+        std::fs::create_dir_all(&tmp).unwrap();
+        assert!(!is_valid_root(&tmp));
+        std::fs::remove_dir_all(&tmp).ok();
+    }
+
+    #[test]
+    #[allow(clippy::unwrap_used)]
+    fn is_valid_root_rejects_file() {
+        let tmp = std::env::temp_dir().join("hotspring_file_not_dir");
+        std::fs::write(&tmp, "x").unwrap();
+        assert!(!is_valid_root(&tmp));
+        std::fs::remove_file(&tmp).ok();
+    }
+
+    #[test]
+    #[allow(clippy::unwrap_used)]
+    fn is_valid_root_accepts_dir_with_control() {
+        let tmp = std::env::temp_dir().join("hotspring_valid_root");
+        std::fs::create_dir_all(tmp.join("control")).unwrap();
+        assert!(is_valid_root(&tmp));
+        std::fs::remove_dir_all(&tmp).ok();
+    }
+
+    #[test]
+    #[allow(clippy::unwrap_used, deprecated)]
+    fn try_discover_with_valid_env_root() {
+        let tmp = std::env::temp_dir().join("hotspring_valid_env_root");
+        std::fs::create_dir_all(tmp.join("control")).unwrap();
+        let prev = std::env::var("HOTSPRING_DATA_ROOT").ok();
+        std::env::set_var("HOTSPRING_DATA_ROOT", tmp.as_os_str());
+
+        let result = try_discover_data_root();
+
+        if let Some(p) = prev {
+            std::env::set_var("HOTSPRING_DATA_ROOT", p);
+        } else {
+            std::env::remove_var("HOTSPRING_DATA_ROOT");
+        }
+        std::fs::remove_dir_all(&tmp).ok();
+
+        let discovered = result.expect("valid env root should succeed");
+        assert_eq!(discovered, tmp);
+    }
+
+    #[test]
+    #[allow(clippy::unwrap_used)]
+    fn available_capabilities_detects_nuclear_eos_when_present() {
+        let root = discover_data_root();
+        let caps = available_capabilities();
+        if root.join(paths::NUCLEAR_EOS).is_dir() {
+            assert!(caps.contains(&"nuclear-eos"));
+        }
     }
 }

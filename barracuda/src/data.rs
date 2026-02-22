@@ -85,7 +85,7 @@ pub fn nuclei_data_path(base_dir: &Path, set: NucleiSet) -> PathBuf {
     base_dir.join("exp_data").join(set.filename())
 }
 
-/// Load AME2020 experimental data → HashMap<(Z, N), (B_exp, σ)>
+/// Load AME2020 experimental data → `HashMap`<(Z, N), (`B_exp`, σ)>
 ///
 /// Uses streaming `from_reader` to avoid buffering the entire JSON file
 /// in memory as an intermediate string.
@@ -169,10 +169,11 @@ pub fn load_bounds(path: &Path) -> Result<Vec<(f64, f64)>, Box<dyn std::error::E
 /// Shared across all nuclear EOS binaries (L1, L2, L3, GPU variants).
 /// Resolves the `control/surrogate/nuclear-eos` directory relative to
 /// `CARGO_MANIFEST_DIR/../` and loads experimental data and parameter bounds.
+#[must_use]
 pub struct EosContext {
     /// Base directory for nuclear EOS data files.
     pub base: PathBuf,
-    /// Experimental binding energies: (Z, N) → (B_exp, σ).
+    /// Experimental binding energies: (Z, N) → (`B_exp`, σ).
     pub exp_data: std::sync::Arc<HashMap<(usize, usize), (f64, f64)>>,
     /// Skyrme parameter bounds: Vec<(min, max)>.
     pub bounds: Vec<(f64, f64)>,
@@ -211,9 +212,9 @@ pub fn load_eos_context() -> Result<EosContext, HotSpringError> {
 /// and computes `((B_calc - B_exp) / sigma_theo)²`. Returns the mean χ²/datum.
 ///
 /// Uses [`crate::tolerances::sigma_theo`] for the theoretical uncertainty.
-pub fn chi2_per_datum(
+pub fn chi2_per_datum<S: std::hash::BuildHasher>(
     params: &[f64],
-    exp_data: &HashMap<(usize, usize), (f64, f64)>,
+    exp_data: &HashMap<(usize, usize), (f64, f64), S>,
     binding_energy_fn: impl Fn(usize, usize, &[f64]) -> f64,
 ) -> f64 {
     let mut chi2 = 0.0;
@@ -230,7 +231,7 @@ pub fn chi2_per_datum(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
     use crate::provenance::SLY4_PARAMS;
@@ -519,5 +520,74 @@ mod tests {
         let result = load_bounds(&temp);
         std::fs::remove_file(&temp).ok();
         assert!(result.is_err(), "missing parameter should error");
+    }
+
+    #[test]
+    fn load_experimental_data_empty_nuclei() {
+        let temp = std::env::temp_dir().join("barracuda_test_empty_nuclei.json");
+        std::fs::write(&temp, r#"{"nuclei": []}"#).expect("write temp file");
+        let data = load_experimental_data(&temp).expect("empty nuclei should parse");
+        std::fs::remove_file(&temp).ok();
+        assert!(data.is_empty());
+    }
+
+    #[test]
+    fn load_experimental_data_invalid_nucleus_missing_field() {
+        let temp = std::env::temp_dir().join("barracuda_test_invalid_nucleus.json");
+        let json = r#"{"nuclei": [{"Z": 1, "N": 0, "element": "H"}]}"#;
+        std::fs::write(&temp, json).expect("write temp file");
+        let result = load_experimental_data(&temp);
+        std::fs::remove_file(&temp).ok();
+        assert!(
+            result.is_err(),
+            "nucleus missing binding_energy_MeV should error"
+        );
+    }
+
+    #[test]
+    fn load_experimental_data_invalid_nucleus_wrong_type() {
+        let temp = std::env::temp_dir().join("barracuda_test_nucleus_wrong_type.json");
+        let json = r#"{"nuclei": [{"Z": "not_a_number", "N": 28, "A": 56, "element": "Ni", "binding_energy_MeV": 483.99, "uncertainty_MeV": 0.5}]}"#;
+        std::fs::write(&temp, json).expect("write temp file");
+        let result = load_experimental_data(&temp);
+        std::fs::remove_file(&temp).ok();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn load_bounds_empty_parameters_errors() {
+        let temp = std::env::temp_dir().join("barracuda_test_bounds_empty.json");
+        std::fs::write(&temp, r#"{"parameters": {}}"#).expect("write temp file");
+        let result = load_bounds(&temp);
+        std::fs::remove_file(&temp).ok();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn nuclei_set_from_arg_case_insensitive() {
+        assert_eq!(NucleiSet::from_arg("FULL"), NucleiSet::Full);
+        assert_eq!(NucleiSet::from_arg("SELECTED"), NucleiSet::Selected);
+    }
+
+    #[test]
+    fn nuclei_set_from_arg_empty_falls_back_to_selected() {
+        assert_eq!(NucleiSet::from_arg(""), NucleiSet::Selected);
+    }
+
+    #[test]
+    fn nuclei_data_path_full_set() {
+        let base = Path::new("/data");
+        let path = nuclei_data_path(base, NucleiSet::Full);
+        assert!(path.to_str().unwrap().contains("ame2020_full"));
+    }
+
+    #[test]
+    fn chi2_per_datum_uses_sigma_theo() {
+        // sigma_theo scales with B_exp; verify chi2 scales correctly
+        let mut exp = HashMap::new();
+        exp.insert((28, 28), (484.0, 0.5));
+        let sigma = crate::tolerances::sigma_theo(484.0);
+        let chi2 = chi2_per_datum(&[], &exp, |_z, _n, _| 484.0 + sigma);
+        assert!((chi2 - 1.0).abs() < 0.1, "one-sigma deviation → chi2≈1");
     }
 }

@@ -16,6 +16,7 @@ use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign};
 
 /// Complex number with f64 real and imaginary parts.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[must_use]
 pub struct Complex64 {
     pub re: f64,
     pub im: f64,
@@ -41,7 +42,7 @@ impl Complex64 {
 
     #[inline]
     pub fn abs_sq(self) -> f64 {
-        self.re * self.re + self.im * self.im
+        self.re.mul_add(self.re, self.im * self.im)
     }
 
     #[inline]
@@ -128,8 +129,8 @@ impl Mul for Complex64 {
     #[inline]
     fn mul(self, rhs: Self) -> Self {
         Self {
-            re: self.re * rhs.re - self.im * rhs.im,
-            im: self.re * rhs.im + self.im * rhs.re,
+            re: self.re.mul_add(rhs.re, -(self.im * rhs.im)),
+            im: self.re.mul_add(rhs.im, self.im * rhs.re),
         }
     }
 }
@@ -148,8 +149,8 @@ impl Div for Complex64 {
     fn div(self, rhs: Self) -> Self {
         let d = rhs.abs_sq();
         Self {
-            re: (self.re * rhs.re + self.im * rhs.im) / d,
-            im: (self.im * rhs.re - self.re * rhs.im) / d,
+            re: self.re.mul_add(rhs.re, self.im * rhs.im) / d,
+            im: self.im.mul_add(rhs.re, -(self.re * rhs.im)) / d,
         }
     }
 }
@@ -179,66 +180,7 @@ impl fmt::Display for Complex64 {
 ///
 /// Matches the Rust-side implementation exactly. Can be prepended to any
 /// WGSL shader that needs complex arithmetic.
-pub const WGSL_COMPLEX64: &str = r"
-struct Complex64 {
-    re: f64,
-    im: f64,
-}
-
-fn c64_new(re: f64, im: f64) -> Complex64 {
-    return Complex64(re, im);
-}
-
-fn c64_zero() -> Complex64 {
-    return Complex64(f64(0.0), f64(0.0));
-}
-
-fn c64_one() -> Complex64 {
-    return Complex64(f64(1.0), f64(0.0));
-}
-
-fn c64_add(a: Complex64, b: Complex64) -> Complex64 {
-    return Complex64(a.re + b.re, a.im + b.im);
-}
-
-fn c64_sub(a: Complex64, b: Complex64) -> Complex64 {
-    return Complex64(a.re - b.re, a.im - b.im);
-}
-
-fn c64_mul(a: Complex64, b: Complex64) -> Complex64 {
-    return Complex64(a.re * b.re - a.im * b.im, a.re * b.im + a.im * b.re);
-}
-
-fn c64_conj(a: Complex64) -> Complex64 {
-    return Complex64(a.re, -a.im);
-}
-
-fn c64_scale(a: Complex64, s: f64) -> Complex64 {
-    return Complex64(a.re * s, a.im * s);
-}
-
-fn c64_abs_sq(a: Complex64) -> f64 {
-    return a.re * a.re + a.im * a.im;
-}
-
-fn c64_abs(a: Complex64) -> f64 {
-    return sqrt(c64_abs_sq(a));
-}
-
-fn c64_inv(a: Complex64) -> Complex64 {
-    let d = c64_abs_sq(a);
-    return Complex64(a.re / d, -a.im / d);
-}
-
-fn c64_div(a: Complex64, b: Complex64) -> Complex64 {
-    return c64_mul(a, c64_inv(b));
-}
-
-fn c64_exp(a: Complex64) -> Complex64 {
-    let r = exp(a.re);
-    return Complex64(r * cos(a.im), r * sin(a.im));
-}
-";
+pub const WGSL_COMPLEX64: &str = include_str!("shaders/complex_f64.wgsl");
 
 #[cfg(test)]
 mod tests {

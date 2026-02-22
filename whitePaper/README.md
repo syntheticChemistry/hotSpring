@@ -2,7 +2,7 @@
 
 **Status**: Working draft — reviewed for PII, suitable for public repository  
 **Purpose**: Document the replication of Murillo Group computational plasma physics on consumer hardware using BarraCUDA  
-**Date**: February 21, 2026
+**Date**: February 22, 2026
 
 ---
 
@@ -344,10 +344,12 @@ No institutional access required. No Code Ocean account. No Fortran compiler. AG
 
 | Metric | Value |
 |--------|-------|
-| Unit tests | **505** pass, 5 GPU-ignored |
+| Crate | v0.6.3 |
+| Unit tests | **648** pass, 6 GPU/heavy-ignored |
 | Integration tests | **24** pass (3 suites: physics, data, transport) |
+| Coverage | 74.9% region / 83.8% function |
 | Validation suites | **33/33** pass |
-| metalForge forge tests | **13** pass |
+| metalForge forge tests | **19** pass |
 | Python control scripts | **34** (Sarkas, surrogate, TTM, NPU, reservoir, lattice, spectral theory) |
 | Rust validation binaries | **50** (physics, MD, lattice, NPU, transport, spectral 1D/2D/3D, Lanczos, Hofstadter) |
 | `expect()`/`unwrap()` in library | **0** (crate-level deny) |

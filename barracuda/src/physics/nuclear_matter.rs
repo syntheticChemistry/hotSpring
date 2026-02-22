@@ -30,7 +30,7 @@ pub struct NuclearMatterProps {
 
 /// Energy per nucleon in symmetric nuclear matter.
 ///
-/// E/A(ρ) = E_kin + E_t0 + E_t3 + E_t1t2
+/// E/A(ρ) = `E_kin` + `E_t0` + `E_t3` + `E_t1t2`
 ///
 /// See PHYSICS.md §3.1 for term-by-term derivation.
 fn energy_per_nucleon_snm(rho: f64, p: &[f64; 10]) -> f64 {
@@ -43,7 +43,7 @@ fn energy_per_nucleon_snm(rho: f64, p: &[f64; 10]) -> f64 {
     let alpha = p[8];
 
     // Fermi momentum: k_F = (3π²ρ/2)^(1/3)
-    let kf = (3.0 * PI * PI * rho / 2.0).powf(1.0 / 3.0);
+    let kf = (3.0 * PI * PI * rho / 2.0).cbrt();
     // Kinetic density: τ = (3/5) k_F² ρ  [fm⁻⁵]
     let tau = (3.0 / 5.0) * kf * kf * rho;
 
@@ -55,7 +55,7 @@ fn energy_per_nucleon_snm(rho: f64, p: &[f64; 10]) -> f64 {
     let e_t3 = (1.0 / 16.0) * t3 * rho.powf(alpha + 1.0);
 
     // t₁t₂ momentum-dependent: (1/16)Θ·τ where Θ = 3t₁ + t₂(5+4x₂)
-    let theta = 3.0 * t1 + t2 * (5.0 + 4.0 * x2);
+    let theta = 3.0_f64.mul_add(t1, t2 * 4.0_f64.mul_add(x2, 5.0));
     let e_t1t2 = (1.0 / 16.0) * theta * tau;
 
     e_kin + e_t0 + e_t3 + e_t1t2
@@ -64,6 +64,7 @@ fn energy_per_nucleon_snm(rho: f64, p: &[f64; 10]) -> f64 {
 /// Compute nuclear matter properties from Skyrme parameters.
 ///
 /// Uses `barracuda::optimize::bisect` for saturation density (replacing scipy.optimize.brentq).
+#[must_use]
 pub fn nuclear_matter_properties(params: &[f64]) -> Option<NuclearMatterProps> {
     if params.len() != 10 {
         return None;
@@ -89,22 +90,24 @@ pub fn nuclear_matter_properties(params: &[f64]) -> Option<NuclearMatterProps> {
     // Incompressibility: K∞ = 9ρ₀² d²(E/A)/dρ² (PHYSICS.md §3.3)
     // Empirical: ~230 ± 20 MeV — Blaizot, Phys. Rep. 64, 171 (1980)
     let dr = rho0 * 1e-4;
-    let d2e = (energy_per_nucleon_snm(rho0 + dr, &p) - 2.0 * energy_per_nucleon_snm(rho0, &p)
-        + energy_per_nucleon_snm(rho0 - dr, &p))
+    let d2e = (2.0_f64.mul_add(
+        -energy_per_nucleon_snm(rho0, &p),
+        energy_per_nucleon_snm(rho0 + dr, &p),
+    ) + energy_per_nucleon_snm(rho0 - dr, &p))
         / (dr * dr);
     let k_inf = 9.0 * rho0 * rho0 * d2e;
 
     // Effective mass: m*/m = 1/(1 + (m_N/4ℏ²c²)Θρ₀) (PHYSICS.md §3.4)
-    let theta = 3.0 * t1 + t2 * (5.0 + 4.0 * x2);
-    let m_eff = 1.0 / (1.0 + (M_NUCLEON / (4.0 * HBAR_C * HBAR_C)) * theta * rho0);
+    let theta = 3.0_f64.mul_add(t1, t2 * 4.0_f64.mul_add(x2, 5.0));
+    let m_eff = 1.0 / ((M_NUCLEON / (4.0 * HBAR_C * HBAR_C) * theta).mul_add(rho0, 1.0));
 
     // Symmetry energy: J = J_kin + J_t0 + J_t3 + J_t1t2 (PHYSICS.md §3.5)
     // Empirical: ~32 ± 2 MeV — Lattimer & Prakash, Phys. Rep. 621, 127 (2016)
-    let kf0 = (3.0 * PI * PI * rho0 / 2.0).powf(1.0 / 3.0);
+    let kf0 = (3.0 * PI * PI * rho0 / 2.0).cbrt();
     let j_kin = HBAR2_2M * kf0 * kf0 / (3.0 * m_eff);
-    let j_t0 = -(t0 / 4.0) * (2.0 * x0 + 1.0) * rho0;
-    let j_t3 = -(t3 / 24.0) * (2.0 * x3 + 1.0) * rho0.powf(alpha + 1.0);
-    let theta_s = t2 * (4.0 + 5.0 * x2) - 3.0 * t1 * x1;
+    let j_t0 = -(t0 / 4.0) * 2.0_f64.mul_add(x0, 1.0) * rho0;
+    let j_t3 = -(t3 / 24.0) * 2.0_f64.mul_add(x3, 1.0) * rho0.powf(alpha + 1.0);
+    let theta_s = t2.mul_add(5.0_f64.mul_add(x2, 4.0), -(3.0 * t1 * x1));
     let tau0 = (3.0 / 5.0) * kf0 * kf0 * rho0;
     let j_t1t2 = -(1.0 / 24.0) * theta_s * tau0;
     let j = j_kin + j_t0 + j_t3 + j_t1t2;

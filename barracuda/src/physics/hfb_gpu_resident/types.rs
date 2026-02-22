@@ -105,7 +105,7 @@ pub(super) fn compute_binding_energy(
 ) -> f64 {
     let ns = evals_p.len();
     let e_sp: f64 = (0..ns)
-        .map(|i| degs[i] * v2_p[i] * evals_p[i] + degs[i] * v2_n[i] * evals_n[i])
+        .map(|i| (degs[i] * v2_p[i]).mul_add(evals_p[i], degs[i] * v2_n[i] * evals_n[i]))
         .sum();
     let e_pair: f64 = (0..ns)
         .map(|i| {

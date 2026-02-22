@@ -26,6 +26,7 @@
 //! - Zero CPU readback for cell-list rebuild (was 720 KB round-trip at N=10000)
 //! - Preserves particle identity across snapshots (fixes VACF correctness)
 
+use barracuda::ops::md::CellListGpu;
 use barracuda::pipeline::ReduceScalarPipeline;
 
 use crate::gpu::GpuF64;
@@ -107,290 +108,6 @@ impl CellList {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// GPU-resident cell-list builder
-// ═══════════════════════════════════════════════════════════════════════
-//
-// DEPRECATED (Feb 20, 2026): ToadStool commit 8fb5d5a0 fixed the
-// CellListGpu prefix-sum BGL mismatch. The upstream
-// `barracuda::ops::md::neighbor::CellListGpu` now has the correct
-// 4-binding layout matching `prefix_sum.wgsl`. This local
-// implementation should be migrated to the upstream CellListGpu in the
-// next evolution cycle. Keeping for now to avoid a mid-session API
-// migration across `run_simulation_celllist`, `sarkas_gpu`, and
-// `bench_cpu_gpu_scaling`.
-//
-// Migration path:
-//   1. Replace GpuCellList::new() with barracuda CellListGpu::new()
-//   2. Replace GpuCellList::build() with upstream build()
-//   3. Delete local WGSL shaders: cell_bin_f64, exclusive_prefix_sum,
-//      cell_scatter (upstream shaders cover these)
-//   4. Delete this struct and run_simulation_celllist
-// ═══════════════════════════════════════════════════════════════════════
-
-/// GPU-resident cell-list: 3-pass build with no CPU readback.
-///
-/// **Deprecated**: Use `barracuda::ops::md::neighbor::CellListGpu` instead.
-/// ToadStool commit `8fb5d5a0` (Feb 20, 2026) fixed the prefix-sum BGL
-/// mismatch that made the upstream version unusable. This local copy is
-/// retained only until the API migration is complete.
-struct GpuCellList {
-    mx: u32,
-    my: u32,
-    mz: u32,
-    nc: u32,
-    n: u32,
-    cell_ids_buf: wgpu::Buffer,
-    cell_counts_buf: wgpu::Buffer,
-    cell_start_buf: wgpu::Buffer,
-    write_cursors_buf: wgpu::Buffer,
-    sorted_indices_buf: wgpu::Buffer,
-    bin_pipeline: wgpu::ComputePipeline,
-    scan_pipeline: wgpu::ComputePipeline,
-    scatter_pipeline: wgpu::ComputePipeline,
-    bin_params_buf: wgpu::Buffer,
-    scan_params_buf: wgpu::Buffer,
-    scatter_params_buf: wgpu::Buffer,
-}
-
-impl GpuCellList {
-    fn new(gpu: &GpuF64, n: usize, box_side: f64, cutoff: f64) -> Self {
-        let mx = ((box_side / cutoff).floor() as u32).max(3);
-        let my = mx;
-        let mz = mx;
-        let nc = mx * my * mz;
-        let cell_size = box_side / f64::from(mx);
-
-        let dev = gpu.device();
-        let storage_rw = wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST;
-
-        let cell_ids_buf = dev.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("gpu_cl:cell_ids"),
-            size: (n as u64) * 4,
-            usage: storage_rw,
-            mapped_at_creation: false,
-        });
-        let cell_counts_buf = dev.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("gpu_cl:cell_counts"),
-            size: u64::from(nc) * 4,
-            usage: storage_rw,
-            mapped_at_creation: false,
-        });
-        let cell_start_buf = dev.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("gpu_cl:cell_start"),
-            size: u64::from(nc) * 4,
-            usage: storage_rw,
-            mapped_at_creation: false,
-        });
-        let write_cursors_buf = dev.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("gpu_cl:write_cursors"),
-            size: u64::from(nc) * 4,
-            usage: storage_rw,
-            mapped_at_creation: false,
-        });
-        let sorted_indices_buf = dev.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("gpu_cl:sorted_indices"),
-            size: (n as u64) * 4,
-            usage: storage_rw,
-            mapped_at_creation: false,
-        });
-
-        // Compile the 3-pass shaders with auto-layout
-        let bin_pipeline = gpu.create_pipeline(shaders::SHADER_CELL_BIN, "cell_bin");
-        let scan_pipeline =
-            gpu.create_pipeline(shaders::SHADER_EXCLUSIVE_PREFIX_SUM, "exclusive_scan");
-        let scatter_pipeline = gpu.create_pipeline(shaders::SHADER_CELL_SCATTER, "cell_scatter");
-
-        // Pass 1 params: [n, mx, my, mz, box_lx, box_ly, box_lz, cell_size]
-        let bin_params: Vec<u8> = [
-            n as u32,
-            mx,
-            my,
-            mz,
-            (box_side as f32).to_bits(),
-            (box_side as f32).to_bits(),
-            (box_side as f32).to_bits(),
-            (cell_size as f32).to_bits(),
-        ]
-        .iter()
-        .flat_map(|v| v.to_le_bytes())
-        .collect();
-        let bin_params_buf = dev.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("gpu_cl:bin_params"),
-            size: bin_params.len() as u64,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-        gpu.queue().write_buffer(&bin_params_buf, 0, &bin_params);
-
-        // Pass 2 params: [nc, 0, 0, 0]
-        let scan_params: Vec<u8> = [nc, 0u32, 0, 0]
-            .iter()
-            .flat_map(|v| v.to_le_bytes())
-            .collect();
-        let scan_params_buf = dev.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("gpu_cl:scan_params"),
-            size: scan_params.len() as u64,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-        gpu.queue().write_buffer(&scan_params_buf, 0, &scan_params);
-
-        // Pass 3 params: [n, nc, 0, 0]
-        let scatter_params: Vec<u8> = [n as u32, nc, 0, 0]
-            .iter()
-            .flat_map(|v| v.to_le_bytes())
-            .collect();
-        let scatter_params_buf = dev.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("gpu_cl:scatter_params"),
-            size: scatter_params.len() as u64,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-        gpu.queue()
-            .write_buffer(&scatter_params_buf, 0, &scatter_params);
-
-        GpuCellList {
-            mx,
-            my,
-            mz,
-            nc,
-            n: n as u32,
-            cell_ids_buf,
-            cell_counts_buf,
-            cell_start_buf,
-            write_cursors_buf,
-            sorted_indices_buf,
-            bin_pipeline,
-            scan_pipeline,
-            scatter_pipeline,
-            bin_params_buf,
-            scan_params_buf,
-            scatter_params_buf,
-        }
-    }
-
-    /// Rebuild the cell list from GPU-resident positions. Zero CPU readback.
-    fn build(&self, gpu: &GpuF64, pos_buf: &wgpu::Buffer) {
-        let dev = gpu.device();
-        let queue = gpu.queue();
-
-        // Zero cell_counts and write_cursors
-        let zeros = vec![0u8; self.nc as usize * 4];
-        queue.write_buffer(&self.cell_counts_buf, 0, &zeros);
-        queue.write_buffer(&self.write_cursors_buf, 0, &zeros);
-
-        // Pass 1: bin (particle → cell assignment + atomic count)
-        let bg_bin = dev.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("gpu_cl:bg_bin"),
-            layout: &self.bin_pipeline.get_bind_group_layout(0),
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: self.bin_params_buf.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: pos_buf.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: self.cell_counts_buf.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 3,
-                    resource: self.cell_ids_buf.as_entire_binding(),
-                },
-            ],
-        });
-
-        // Pass 2: exclusive prefix sum (cell_counts → cell_start)
-        let bg_scan = dev.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("gpu_cl:bg_scan"),
-            layout: &self.scan_pipeline.get_bind_group_layout(0),
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: self.cell_counts_buf.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: self.cell_start_buf.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: self.scan_params_buf.as_entire_binding(),
-                },
-            ],
-        });
-
-        // Pass 3: scatter (write sorted_indices)
-        let bg_scatter = dev.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("gpu_cl:bg_scatter"),
-            layout: &self.scatter_pipeline.get_bind_group_layout(0),
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: self.scatter_params_buf.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: self.cell_ids_buf.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: self.cell_start_buf.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 3,
-                    resource: self.write_cursors_buf.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 4,
-                    resource: self.sorted_indices_buf.as_entire_binding(),
-                },
-            ],
-        });
-
-        // Single encoder: 3 compute passes
-        let mut enc = dev.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("gpu_cl:build"),
-        });
-        {
-            let mut pass = enc.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                label: Some("cell_bin"),
-                timestamp_writes: None,
-            });
-            pass.set_pipeline(&self.bin_pipeline);
-            pass.set_bind_group(0, &bg_bin, &[]);
-            pass.dispatch_workgroups(self.n.div_ceil(64), 1, 1);
-        }
-        {
-            let mut pass = enc.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                label: Some("prefix_sum"),
-                timestamp_writes: None,
-            });
-            pass.set_pipeline(&self.scan_pipeline);
-            pass.set_bind_group(0, &bg_scan, &[]);
-            pass.dispatch_workgroups(1, 1, 1);
-        }
-        {
-            let mut pass = enc.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                label: Some("cell_scatter"),
-                timestamp_writes: None,
-            });
-            pass.set_pipeline(&self.scatter_pipeline);
-            pass.set_bind_group(0, &bg_scatter, &[]);
-            pass.dispatch_workgroups(self.n.div_ceil(64), 1, 1);
-        }
-        queue.submit(Some(enc.finish()));
-    }
-
-    fn cell_size(&self, box_side: f64) -> f64 {
-        box_side / f64::from(self.mx)
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════════════
 // Cell-list MD simulation with GPU-resident rebuild
 // ═══════════════════════════════════════════════════════════════════════
 
@@ -399,9 +116,10 @@ impl GpuCellList {
 /// # Errors
 ///
 /// Returns [`crate::error::HotSpringError::NoAdapter`] if no GPU adapter is found.
-/// Returns [`crate::error::HotSpringError::NoShaderF64`] if the GPU lacks SHADER_F64.
+/// Returns [`crate::error::HotSpringError::NoShaderF64`] if the GPU lacks `SHADER_F64`.
 /// Returns [`crate::error::HotSpringError::DeviceCreation`] or
 /// [`crate::error::HotSpringError::Barracuda`] if GPU initialization or pipeline setup fails.
+#[allow(clippy::cast_possible_truncation)] // Cell-list dimensions: N ≤ 100,000, grid ≤ 100³
 pub async fn run_simulation_celllist(
     config: &MdConfig,
 ) -> Result<MdSimulation, crate::error::HotSpringError> {
@@ -436,11 +154,16 @@ pub async fn run_simulation_celllist(
     gpu.print_info();
 
     // ── Build GPU cell-list infrastructure ──
-    let gpu_cl = GpuCellList::new(&gpu, n, box_side, config.rc);
-    let cell_size = gpu_cl.cell_size(box_side);
+    let gpu_cl = CellListGpu::new(gpu.to_wgpu_device(), n, [box_side; 3], config.rc)?;
+    let (mx, my, mz) = gpu_cl.grid();
+    let cell_size = box_side / f64::from(mx);
     println!(
         "    GPU cell list: {}×{}×{} = {} cells, cell_size={:.3} a_ws",
-        gpu_cl.mx, gpu_cl.my, gpu_cl.mz, gpu_cl.nc, cell_size
+        mx,
+        my,
+        mz,
+        gpu_cl.n_cells(),
+        cell_size
     );
 
     // ── Compile shaders ──
@@ -473,7 +196,7 @@ pub async fn run_simulation_celllist(
     gpu.upload_f64(&pos_buf, &positions);
     gpu.upload_f64(&vel_buf, &velocities);
 
-    // Force params: same layout as sorted shader, grid from GpuCellList
+    // Force params: same layout as sorted shader, grid from CellListGpu
     let force_params = vec![
         n as f64,
         config.kappa,
@@ -483,13 +206,13 @@ pub async fn run_simulation_celllist(
         box_side,
         box_side,
         0.0,
-        f64::from(gpu_cl.mx),
-        f64::from(gpu_cl.my),
-        f64::from(gpu_cl.mz),
+        f64::from(mx),
+        f64::from(my),
+        f64::from(mz),
         cell_size,
         cell_size,
         cell_size,
-        f64::from(gpu_cl.nc),
+        f64::from(gpu_cl.n_cells()),
         0.0,
     ];
     let force_params_buf = gpu.create_f64_buffer(&force_params, "force_params");
@@ -514,9 +237,9 @@ pub async fn run_simulation_celllist(
             &force_buf,
             &pe_buf,
             &force_params_buf,
-            &gpu_cl.cell_start_buf,
-            &gpu_cl.cell_counts_buf,
-            &gpu_cl.sorted_indices_buf,
+            gpu_cl.cell_start(),
+            gpu_cl.cell_count(),
+            gpu_cl.sorted_indices(),
         ],
     );
     let kick_drift_bg = gpu.create_bind_group(
@@ -528,7 +251,7 @@ pub async fn run_simulation_celllist(
     let ke_bg = gpu.create_bind_group(&ke_pipeline, &[&vel_buf, &ke_buf, &ke_params_buf]);
 
     // ── Initial cell-list build + force computation ──
-    gpu_cl.build(&gpu, &pos_buf);
+    gpu_cl.build(&pos_buf)?;
     gpu.dispatch(&force_pipeline, &force_bg, workgroups);
 
     let rebuild_interval = CELLLIST_REBUILD_INTERVAL;
@@ -571,7 +294,8 @@ pub async fn run_simulation_celllist(
         let total_ke = reducer.sum_f64(&ke_buf)?;
         let t_current = 2.0 * total_ke / (3.0 * n as f64);
         if t_current > 1e-30 {
-            let ratio = 1.0 + (config.dt / config.berendsen_tau) * (temperature / t_current - 1.0);
+            let ratio =
+                (config.dt / config.berendsen_tau).mul_add(temperature / t_current - 1.0, 1.0);
             let scale = ratio.max(0.0).sqrt();
             let beren_params = vec![n as f64, scale, 0.0, 0.0];
             let beren_params_buf = gpu.create_f64_buffer(&beren_params, "beren_params");
@@ -583,8 +307,8 @@ pub async fn run_simulation_celllist(
         step += batch;
 
         // GPU cell-list rebuild: zero CPU readback
-        if step % rebuild_interval == 0 && step < config.equil_steps {
-            gpu_cl.build(&gpu, &pos_buf);
+        if step.is_multiple_of(rebuild_interval) && step < config.equil_steps {
+            gpu_cl.build(&pos_buf)?;
         }
 
         if step % 1000 < thermostat_interval || step >= config.equil_steps {
@@ -618,9 +342,9 @@ pub async fn run_simulation_celllist(
 
     for dump_idx in 0..n_dumps {
         let step_end = (dump_idx + 1) * stream_batch;
-        let is_dump = step_end % config.dump_step == 0;
-        let is_snapshot = is_dump && (dump_idx % snap_every == 0);
-        let is_rebuild = step_end % rebuild_interval == 0;
+        let is_dump = step_end.is_multiple_of(config.dump_step);
+        let is_snapshot = is_dump && dump_idx.is_multiple_of(snap_every);
+        let is_rebuild = step_end.is_multiple_of(rebuild_interval);
 
         let mut encoder = gpu.begin_encoder("prod_cl_batch");
         {
@@ -672,7 +396,7 @@ pub async fn run_simulation_celllist(
 
         // GPU cell-list rebuild: zero CPU readback, zero upload
         if is_rebuild && step_end < config.prod_steps {
-            gpu_cl.build(&gpu, &pos_buf);
+            gpu_cl.build(&pos_buf)?;
         }
 
         if step_end % 5000 < stream_batch || step_end >= config.prod_steps {
@@ -931,16 +655,14 @@ mod tests {
         let rc = 5.0;
         let pos = vec![1.0, 1.0, 1.0, 6.0, 6.0, 6.0];
         let cl = CellList::build(&pos, 2, box_side, rc);
-        let nonzero_cells: Vec<usize> = cl
+        let nonzero_count = cl
             .cell_count
             .iter()
             .enumerate()
             .filter(|(_, &c)| c > 0)
-            .map(|(i, _)| i)
-            .collect();
+            .count();
         assert_eq!(
-            nonzero_cells.len(),
-            2,
+            nonzero_count, 2,
             "particles far apart should be in different cells"
         );
     }

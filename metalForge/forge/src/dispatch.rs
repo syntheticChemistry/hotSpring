@@ -90,10 +90,95 @@ pub fn route<'a>(workload: &Workload, substrates: &'a [Substrate]) -> Option<Dec
     })
 }
 
+/// Predefined workload profiles for hotSpring physics.
+///
+/// These encode the capability requirements for each physics domain.
+/// When toadstool absorbs forge's dispatch, these profiles document
+/// what each biome needs from the substrate layer.
+pub mod profiles {
+    use super::Workload;
+    use crate::substrate::{Capability, SubstrateKind};
+
+    /// Yukawa OCP molecular dynamics (GPU f64 force + reduce + cell-list).
+    #[must_use]
+    pub fn md_force() -> Workload {
+        Workload::new(
+            "MD force kernel",
+            vec![Capability::F64Compute, Capability::ScalarReduce],
+        )
+    }
+
+    /// HFB nuclear structure (GPU batched eigensolve).
+    #[must_use]
+    pub fn hfb_eigensolve() -> Workload {
+        Workload::new(
+            "HFB eigensolve",
+            vec![Capability::F64Compute, Capability::Eigensolve],
+        )
+    }
+
+    /// Lattice QCD CG solver (GPU Dirac + dot product + axpy).
+    #[must_use]
+    pub fn lattice_cg() -> Workload {
+        Workload::new(
+            "Lattice CG solver",
+            vec![Capability::F64Compute, Capability::ConjugateGradient],
+        )
+    }
+
+    /// ESN transport prediction on NPU (quantized inference).
+    #[must_use]
+    pub fn esn_npu_inference() -> Workload {
+        Workload::new(
+            "ESN NPU inference",
+            vec![Capability::QuantizedInference { bits: 8 }],
+        )
+        .prefer(SubstrateKind::Npu)
+    }
+
+    /// ESN transport prediction on GPU (f32 reservoir + readout).
+    #[must_use]
+    pub fn esn_gpu_inference() -> Workload {
+        Workload::new(
+            "ESN GPU inference",
+            vec![Capability::F32Compute, Capability::ShaderDispatch],
+        )
+        .prefer(SubstrateKind::Gpu)
+    }
+
+    /// CPU validation (f64 reference, no GPU required).
+    #[must_use]
+    pub fn cpu_validation() -> Workload {
+        Workload::new("CPU validation", vec![Capability::F64Compute])
+            .prefer(SubstrateKind::Cpu)
+    }
+
+    /// SpMV spectral theory (GPU sparse matrix-vector).
+    #[must_use]
+    pub fn spectral_spmv() -> Workload {
+        Workload::new(
+            "Spectral SpMV",
+            vec![Capability::F64Compute, Capability::SparseSpMV],
+        )
+    }
+
+    /// Heterogeneous pipeline: GPU compute + NPU inference + CPU steering.
+    /// Returns the NPU workload — GPU and CPU are handled by separate routes.
+    #[must_use]
+    pub fn hetero_npu_phase_classifier() -> Workload {
+        Workload::new(
+            "Phase classifier (hetero)",
+            vec![Capability::QuantizedInference { bits: 4 }],
+        )
+        .prefer(SubstrateKind::Npu)
+    }
+}
+
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod tests {
     use super::*;
+    use super::profiles;
     use crate::substrate::{Identity, Properties};
 
     fn make_gpu(name: &str, caps: Vec<Capability>) -> Substrate {
@@ -166,6 +251,37 @@ mod tests {
         let d = route(&work, &subs).expect("should route");
         assert_eq!(d.substrate.kind, SubstrateKind::Cpu);
         assert_eq!(d.reason, Reason::Preferred);
+    }
+
+    #[test]
+    fn profile_md_force_routes_to_gpu() {
+        let gpu = make_gpu(
+            "RTX 4070",
+            vec![Capability::F64Compute, Capability::ScalarReduce],
+        );
+        let cpu = make_cpu();
+        let subs = [gpu, cpu];
+        let work = profiles::md_force();
+        let d = route(&work, &subs).expect("MD force should route");
+        assert_eq!(d.substrate.kind, SubstrateKind::Gpu);
+    }
+
+    #[test]
+    fn profile_cpu_validation_prefers_cpu() {
+        let gpu = make_gpu("GPU", vec![Capability::F64Compute]);
+        let cpu = make_cpu();
+        let subs = [gpu, cpu];
+        let work = profiles::cpu_validation();
+        let d = route(&work, &subs).expect("validation should route");
+        assert_eq!(d.substrate.kind, SubstrateKind::Cpu);
+        assert_eq!(d.reason, Reason::Preferred);
+    }
+
+    #[test]
+    fn profile_esn_npu_falls_back_to_cpu_without_npu() {
+        let subs = [make_cpu()];
+        let work = profiles::esn_npu_inference();
+        assert!(route(&work, &subs).is_none(), "no NPU capability on CPU");
     }
 
     #[test]

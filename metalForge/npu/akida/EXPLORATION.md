@@ -329,8 +329,9 @@ Two AKD1000 boards: ~60mW total, full phase diagram coverage.
 1. **SDK installed** (Akida 2.19.1), hardware detected: 78 NPs (CNP1×78,
    CNP2×54, FNP2×4, FNP3×18)
 2. **Device permissions**: udev rule exists but doesn't trigger on boot.
-   Fixed via `pkexec chmod 666 /dev/akida0`. TODO: solve in Rust
-   (`DeviceManager` with proper udev/capabilities handling).
+   Fixed via `pkexec chmod 666 /dev/akida0`. **Evolution target**: solve in
+   Rust (`DeviceManager` with proper udev/capabilities handling — tracked in
+   `metalForge/README.md` Remaining Work).
 3. **Direct model build**: Bypassed the Keras→QuantizeML→CNN2SNN pipeline
    entirely. Built Akida model via native API with `set_variable()` weight
    injection. This is the "direct wire" path.

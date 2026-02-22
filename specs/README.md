@@ -1,7 +1,7 @@
 # hotSpring Specifications
 
 **Last Updated**: February 21, 2026
-**Status**: Phase A-I complete — 454 unit tests (449 pass + 5 GPU-ignored), 33/33 validation suites, crate v0.6.0
+**Status**: Phase A-I complete — 648 tests (648 passing + 6 GPU/heavy-ignored), 33/33 validation suites, crate v0.6.3
 **Domain**: Computational plasma physics, nuclear structure, transport, lattice QCD, spectral theory, surrogate learning
 
 ---

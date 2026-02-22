@@ -20,7 +20,7 @@
 //! | Dataset / Publication | DOI / Accession | Notes |
 //! |----------------------|-----------------|-------|
 //! | AME2020 mass table | [10.1088/1674-1137/abddaf](https://doi.org/10.1088/1674-1137/abddaf) | Experimental binding energies; IAEA AMDC |
-//! | SLy4 (Chabanat et al.) | [10.1016/S0375-9474(98)00180-8](https://doi.org/10.1016/S0375-9474(98)00180-8) | Nucl. Phys. A 635, 231-256 (1998) |
+//! | `SLy4` (Chabanat et al.) | [10.1016/S0375-9474(98)00180-8](https://doi.org/10.1016/S0375-9474(98)00180-8) | Nucl. Phys. A 635, 231-256 (1998) |
 //! | UNEDF0 (Kortelainen et al.) | [10.1103/PhysRevC.82.024313](https://doi.org/10.1103/PhysRevC.82.024313) | Phys. Rev. C 82, 024313 (2010) |
 //! | Bender, Heenen, Reinhard | [10.1103/RevModPhys.75.121](https://doi.org/10.1103/RevModPhys.75.121) | E/A NMP target |
 //! | Blaizot, Gogny, Grammaticos | [10.1016/0375-9474(76)90292-1](https://doi.org/10.1016/0375-9474(76)90292-1) | K∞ NMP target; Nucl. Phys. A 265, 315 (1976) |
@@ -40,6 +40,7 @@
 
 /// A single provenance record tying a Rust reference value to its Python origin.
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct BaselineProvenance {
     /// Human-readable label (e.g. "L1 best chi2/datum")
     pub label: &'static str,
@@ -87,7 +88,7 @@ pub const L1_PYTHON_CANDIDATES: BaselineProvenance = BaselineProvenance {
     unit: "candidates evaluated",
 };
 
-/// Python L2 (HFB) best χ²/datum — surrogate/nuclear-eos/wrapper/objective.py
+/// Python L2 (HFB) best `χ²`/datum — surrogate/nuclear-eos/wrapper/objective.py
 pub const L2_PYTHON_CHI2: BaselineProvenance = BaselineProvenance {
     label: "L2 Python best chi2/datum (52 nuclei)",
     script: "surrogate/nuclear-eos/wrapper/objective.py",
@@ -111,7 +112,7 @@ pub const L2_PYTHON_CANDIDATES: BaselineProvenance = BaselineProvenance {
     unit: "candidates evaluated",
 };
 
-/// Python L2 total χ² (un-normalized)
+/// Python L2 total `χ²` (un-normalized)
 pub const L2_PYTHON_TOTAL_CHI2: BaselineProvenance = BaselineProvenance {
     label: "L2 Python total chi2 (52 nuclei, unnormalized)",
     script: "surrogate/nuclear-eos/wrapper/objective.py",
@@ -213,7 +214,7 @@ impl NmpTargets {
         ]
     }
 
-    /// Check if NMP values are within n_sigma of targets
+    /// Check if NMP values are within `n_sigma` of targets
     #[must_use]
     pub fn within_sigma(&self, values: &[f64; 5], n_sigma: f64) -> [bool; 5] {
         let targets = self.values();
@@ -226,7 +227,7 @@ impl NmpTargets {
 // Reference Skyrme parametrizations — from published literature
 // ═══════════════════════════════════════════════════════════════════
 
-/// SLy4 Skyrme parameters (Chabanat et al., Nucl. Phys. A 635, 231-256, 1998, Table I).
+/// `SLy4` Skyrme parameters (Chabanat et al., Nucl. Phys. A 635, 231-256, 1998, Table I).
 ///
 /// DOI: [10.1016/S0375-9474(98)00180-8](https://doi.org/10.1016/S0375-9474(98)00180-8)
 ///
@@ -274,10 +275,11 @@ pub const PARAM_NAMES: [&str; 10] = [
 
 /// Compute NMP χ² from nuclear matter property values.
 ///
-/// χ²_NMP = Σ ((value_i - target_i) / sigma_i)²
+/// `χ²_NMP` = Σ ((`value_i` - `target_i`) / `sigma_i`)²
 ///
 /// Uses [`NMP_TARGETS`] as the reference. Returns the sum of squared pulls
 /// for the five nuclear matter observables.
+#[must_use]
 pub fn nmp_chi2(values: &[f64; 5]) -> f64 {
     let targets = NMP_TARGETS.values();
     let sigmas = NMP_TARGETS.sigmas();
@@ -292,6 +294,7 @@ pub fn nmp_chi2(values: &[f64; 5]) -> f64 {
 /// Compute NMP χ² from a [`NuclearMatterProps`](crate::physics::NuclearMatterProps).
 ///
 /// Convenience wrapper that extracts the five NMP values and calls [`nmp_chi2`].
+#[must_use]
 pub fn nmp_chi2_from_props(nmp: &crate::physics::NuclearMatterProps) -> f64 {
     let values = [
         nmp.rho0_fm3,
@@ -331,7 +334,11 @@ pub fn print_nmp_analysis(nmp: &crate::physics::NuclearMatterProps) {
     );
     for i in 0..5 {
         let pull = (values[i] - targets[i]).abs() / sigmas[i];
-        let status = if pull < 2.0 { "PASS" } else { "FAIL" };
+        let status = if pull < crate::tolerances::NMP_SIGMA_THRESHOLD {
+            "PASS"
+        } else {
+            "FAIL"
+        };
         println!(
             "    {:>8}  {:>10.4}  {:>8}  {:>10.4}  {:>8.4}  {:>6.2}σ  {status}",
             NMP_NAMES[i], values[i], NMP_UNITS[i], targets[i], sigmas[i], pull,
@@ -361,7 +368,7 @@ pub const SARKAS_PAPER: &str = "Choi, Dharuman, Murillo, Phys. Rev. E 100, 01320
 /// are computed from the Daligault (2012) practical model, NOT from MD simulation.
 /// They are analytical values that both Rust and Python must reproduce.
 ///
-/// Script distinction: `calibrate_daligault_fit.py` fits C_w(κ) from Sarkas MD;
+/// Script distinction: `calibrate_daligault_fit.py` fits `C_w`(κ) from Sarkas MD;
 /// `daligault_fit.py` is the validation script using the fitted model.
 pub const DALIGAULT_FIT_PROVENANCE: BaselineProvenance = BaselineProvenance {
     label: "Daligault D*(Gamma,kappa) analytical fit validation",
@@ -374,10 +381,10 @@ pub const DALIGAULT_FIT_PROVENANCE: BaselineProvenance = BaselineProvenance {
     unit: "D* reduced (k=1 G=50 reference value)",
 };
 
-/// Calibration script for Daligault weak-coupling correction C_w(κ).
+/// Calibration script for Daligault weak-coupling correction `C_w`(κ).
 ///
 /// `calibrate_daligault_fit.py` runs a grid search over (κ, Γ) points from
-/// Sarkas MD and fits C_w(κ) = exp(1.435 + 0.715κ + 0.401κ²).
+/// Sarkas MD and fits `C_w`(κ) = exp(1.435 + 0.715κ + 0.401κ²).
 /// `daligault_fit.py` is the validation script using the fitted model.
 pub const DALIGAULT_CALIBRATION_PROVENANCE: BaselineProvenance = BaselineProvenance {
     label: "Daligault C_w(kappa) calibration from 12 Sarkas points",
@@ -426,7 +433,7 @@ pub const AME2020_DOI: &str = "10.1088/1674-1137/abddaf";
 
 /// Machine-readable provenance for HFB test nuclei Python baselines.
 ///
-/// B_python values from L2 spherical HF+BCS solver (`skyrme_hf.py`).
+/// `B_python` values from L2 spherical HF+BCS solver (`skyrme_hf.py`).
 /// The Rust L2 solver may produce slightly different values due to
 /// numerical method differences (bisection vs Brent, density mixing).
 /// The 12% relative error tolerance accounts for this.
@@ -445,7 +452,7 @@ pub const HFB_TEST_NUCLEI_PROVENANCE: BaselineProvenance = BaselineProvenance {
 ///
 /// Provenance: see [`HFB_TEST_NUCLEI_PROVENANCE`] for machine-readable record.
 ///
-/// B_exp values from AME2020 (Wang et al., "The AME 2020 atomic mass evaluation (II)",
+/// `B_exp` values from AME2020 (Wang et al., "The AME 2020 atomic mass evaluation (II)",
 /// Chinese Physics C 2021). DOI: [`AME2020_DOI`], IAEA AMDC: <https://www-nds.iaea.org/amdc/>
 pub const HFB_TEST_NUCLEI: &[(usize, usize, &str, f64, f64)] = &[
     // (Z, N, name, B_exp [MeV], B_python [MeV])
@@ -470,10 +477,10 @@ pub const HFB_TEST_NUCLEI: &[(usize, usize, &str, f64, f64)] = &[
 // HotQCD EOS — from published lattice QCD data
 // ═══════════════════════════════════════════════════════════════════
 
-/// Publication: Bazavov et al. (2014), HotQCD continuum EOS.
+/// Publication: Bazavov et al. (2014), `HotQCD` continuum EOS.
 pub const HOTQCD_DOI: &str = "10.1103/PhysRevD.90.094503";
 
-/// HotQCD EOS provenance — published lattice QCD data, not Python runs.
+/// `HotQCD` EOS provenance — published lattice QCD data, not Python runs.
 ///
 /// Data points from Bazavov et al., PRD 90, 094503 (2014), Table I.
 /// Used in `lattice/eos_tables.rs` for thermodynamic consistency validation.
@@ -496,7 +503,7 @@ pub const HOTQCD_EOS_PROVENANCE: BaselineProvenance = BaselineProvenance {
 ///
 /// - Cold plaquette = 1.0: definition (unit links)
 /// - Strong-coupling: Creutz, "Quarks, Gluons and Lattices" (1983), Ch. 9
-/// - β_c ≈ 5.69 for SU(3) on 4^4: Wilson (1974), Creutz (1980)
+/// - `β_c` ≈ 5.69 for SU(3) on 4^4: Wilson (1974), Creutz (1980)
 /// - Plaquette at β=6.0 on 8^4 ≈ 0.594: Bali et al. (1993)
 pub const PURE_GAUGE_REFS: &str = "Creutz (1983), Wilson (1974), Bali et al. (1993)";
 
@@ -531,14 +538,14 @@ pub const SCREENED_COULOMB_PROVENANCE: BaselineProvenance = BaselineProvenance {
 /// J₀(0) = 1) or published high-precision tables:
 ///   - Abramowitz & Stegun, "Handbook of Mathematical Functions" (1964)
 ///   - NIST Digital Library of Mathematical Functions, <https://dlmf.nist.gov> (2023)
-///   - SciPy 1.11 `scipy.special` used for cross-validation, not as primary source
+///   - `SciPy` 1.11 `scipy.special` used for cross-validation (not as primary source)
 pub const SPECIAL_FUNCTION_REFS: &str =
     "Abramowitz & Stegun (1964), NIST DLMF (2023), scipy.special 1.11";
 
 /// Reference source for linear algebra validation.
 ///
-/// Expected values are mathematical identities: ‖A − LU‖ < ε, QᵀQ = I,
-/// Ax = λx for eigendecomposition. Cross-validated against NumPy 1.26 / SciPy 1.11.
+/// Expected values are mathematical identities: ‖A − LU‖ &lt; ε, `QᵀQ` = I,
+/// Ax = `λ`x for eigendecomposition. Cross-validated against `NumPy` 1.26 / `SciPy` 1.11.
 pub const LINALG_REFS: &str = "NumPy 1.26 / SciPy 1.11 linear algebra";
 
 /// Reference source for optimizer validation.
@@ -546,7 +553,7 @@ pub const LINALG_REFS: &str = "NumPy 1.26 / SciPy 1.11 linear algebra";
 /// Expected values are analytical optima of standard test functions:
 /// Rosenbrock minimum at (1,1), sphere minimum at origin, etc.
 /// ODE integrators validated via known solutions (exponential decay, harmonic).
-/// Cross-validated against SciPy 1.11 `optimize` and `integrate`.
+/// Cross-validated against `SciPy` 1.11 `optimize` and `integrate` modules.
 pub const OPTIMIZER_REFS: &str = "scipy.optimize 1.11, scipy.integrate 1.11";
 
 /// Reference source for MD validation.

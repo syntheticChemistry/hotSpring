@@ -7,9 +7,9 @@
 use super::tridiag::find_all_eigenvalues;
 
 /// Construct the almost-Mathieu (Harper) operator on N sites:
-///   H ψ_n = ψ_{n+1} + ψ_{n-1} + 2λ cos(2παn + θ) ψ_n
+///   H `ψ_n` = ψ_{n+1} + ψ_{n-1} + 2λ cos(2παn + θ) `ψ_n`
 ///
-/// Returns (diagonal, off_diagonal) for the tridiagonal representation.
+/// Returns (diagonal, `off_diagonal`) for the tridiagonal representation.
 ///
 /// At the Aubry-André self-dual point λ = 1, the operator undergoes a
 /// metal-insulator transition:
@@ -21,6 +21,7 @@ use super::tridiag::find_all_eigenvalues;
 /// - Aubry & André (1980)
 /// - Harper (1955), Proc. Phys. Soc. London A 68, 874
 /// - Hofstadter (1976), Phys. Rev. B 14, 2239 (butterfly)
+#[must_use]
 pub fn almost_mathieu_hamiltonian(
     n: usize,
     lambda: f64,
@@ -28,7 +29,12 @@ pub fn almost_mathieu_hamiltonian(
     theta: f64,
 ) -> (Vec<f64>, Vec<f64>) {
     let diagonal: Vec<f64> = (0..n)
-        .map(|i| 2.0 * lambda * (std::f64::consts::TAU * alpha * i as f64 + theta).cos())
+        .map(|i| {
+            2.0 * lambda
+                * (std::f64::consts::TAU * alpha)
+                    .mul_add(i as f64, theta)
+                    .cos()
+        })
         .collect();
     let off_diag = vec![1.0; n - 1];
 
@@ -42,7 +48,7 @@ pub const GOLDEN_RATIO: f64 = 0.618_033_988_749_894_9;
 /// Compute the Hofstadter butterfly: spectrum of the almost-Mathieu operator
 /// as a function of magnetic flux α.
 ///
-/// For each rational flux α = p/q with q ≤ q_max and gcd(p,q) = 1,
+/// For each rational flux α = p/q with q ≤ `q_max` and gcd(p,q) = 1,
 /// computes all eigenvalues of a large almost-Mathieu operator. The
 /// resulting (α, E) point cloud forms the Hofstadter butterfly — a fractal
 /// spectrum that is the canonical example of spectral topology.
@@ -56,6 +62,7 @@ pub const GOLDEN_RATIO: f64 = 0.618_033_988_749_894_9;
 /// # Provenance
 /// Hofstadter (1976) Phys. Rev. B 14, 2239
 /// Avila & Jitomirskaya (2009) Ann. Math. 170, 303
+#[must_use]
 pub fn hofstadter_butterfly(q_max: usize, lambda: f64, n_sites: usize) -> Vec<(f64, Vec<f64>)> {
     let mut results = Vec::new();
 
@@ -75,6 +82,7 @@ pub fn hofstadter_butterfly(q_max: usize, lambda: f64, n_sites: usize) -> Vec<(f
 }
 
 /// Greatest common divisor (Euclid's algorithm).
+#[must_use]
 pub const fn gcd(mut a: usize, mut b: usize) -> usize {
     while b != 0 {
         let t = b;

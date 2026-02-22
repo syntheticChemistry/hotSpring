@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-//! HotQCD EOS table loader and thermodynamic comparison (Paper 7).
+//! `HotQCD` EOS table loader and thermodynamic comparison (Paper 7).
 //!
 //! Loads published lattice QCD equation-of-state tables from
-//! HotQCD collaboration and provides analysis tools to compare
+//! `HotQCD` collaboration and provides analysis tools to compare
 //! QCD thermodynamics with plasma EOS patterns.
 //!
 //! # Data sources
@@ -11,19 +11,19 @@
 //! - Bazavov et al., PRD 90, 094503 (2014) — "Equation of state in
 //!   (2+1)-flavor QCD"
 //! - Published tables: `github.com/jnoronhahostler/Equation-of-State`
-//!   - Columns: T/T_c, p/T^4, e/T^4, s/T^3, (e-3p)/T^4 (trace anomaly)
+//!   - Columns: `T/T_c`, p/T^4, e/T^4, s/T^3, (e-3p)/T^4 (trace anomaly)
 //!
 //! # Provenance
 //!
 //! All reference values from Bazavov et al. (2014) Table II.
-//! T_c = 154 ± 9 MeV (HotQCD, 2014).
+//! `T_c` = 154 ± 9 `MeV` (`HotQCD`, 2014).
 
 use std::fmt;
 
-/// A single row of the HotQCD EOS table.
+/// A single row of the `HotQCD` EOS table.
 #[derive(Clone, Debug)]
 pub struct EosPoint {
-    /// Temperature ratio T / T_c
+    /// Temperature ratio T / `T_c`
     pub t_over_tc: f64,
     /// Pressure: p / T^4
     pub pressure: f64,
@@ -36,8 +36,9 @@ pub struct EosPoint {
 }
 
 impl EosPoint {
-    /// Speed of sound squared: c_s² = dp/dε = s / (ε + p) × T × ds/dT
+    /// Speed of sound squared: `c_s`² = dp/dε = s / (ε + p) × T × ds/dT
     /// Approximated from discrete data as p/ε for an ideal gas comparison.
+    #[must_use]
     pub fn speed_of_sound_sq_ideal(&self) -> f64 {
         if self.energy_density > 1e-30 {
             self.pressure / self.energy_density
@@ -47,7 +48,7 @@ impl EosPoint {
     }
 }
 
-/// HotQCD equation of state table.
+/// `HotQCD` equation of state table.
 #[derive(Clone, Debug)]
 pub struct HotQcdEos {
     pub points: Vec<EosPoint>,
@@ -64,6 +65,7 @@ impl HotQcdEos {
     /// Script: `hotSpring/control/lattice/extract_hotqcd_eos.py`
     /// Source: `github.com/jnoronhahostler/Equation-of-State` (stout action)
     /// Date: Feb 2026
+    #[must_use]
     pub fn reference_table() -> Self {
         // Bazavov et al. (2014) selected data points
         // T/T_c, p/T^4, ε/T^4, s/T^3, (ε-3p)/T^4
@@ -103,12 +105,13 @@ impl HotQcdEos {
     ///
     /// At asymptotically high T, the QCD EOS approaches the ideal gas of
     /// quarks and gluons:
-    ///   p/T^4 → (8π²/45) [1 + (21/32) N_f] = 5.209 for N_f = 3
+    ///   p/T^4 → (8π²/45) [1 + (21/32) `N_f`] = 5.209 for `N_f` = 3
     ///
     /// This is the upper bound that validates the approach to asymptotic freedom.
     pub const SB_PRESSURE_OVER_T4: f64 = 5.209;
 
-    /// Interpolate the EOS at a given T/T_c using linear interpolation.
+    /// Interpolate the EOS at a given `T/T_c` using linear interpolation.
+    #[must_use]
     pub fn interpolate(&self, t_over_tc: f64) -> Option<EosPoint> {
         if self.points.is_empty() {
             return None;
@@ -129,12 +132,13 @@ impl HotQcdEos {
                 let frac = (t_over_tc - lo.t_over_tc) / (hi.t_over_tc - lo.t_over_tc);
                 return Some(EosPoint {
                     t_over_tc,
-                    pressure: lo.pressure + frac * (hi.pressure - lo.pressure),
-                    energy_density: lo.energy_density
-                        + frac * (hi.energy_density - lo.energy_density),
-                    entropy_density: lo.entropy_density
-                        + frac * (hi.entropy_density - lo.entropy_density),
-                    trace_anomaly: lo.trace_anomaly + frac * (hi.trace_anomaly - lo.trace_anomaly),
+                    pressure: frac.mul_add(hi.pressure - lo.pressure, lo.pressure),
+                    energy_density: frac
+                        .mul_add(hi.energy_density - lo.energy_density, lo.energy_density),
+                    entropy_density: frac
+                        .mul_add(hi.entropy_density - lo.entropy_density, lo.entropy_density),
+                    trace_anomaly: frac
+                        .mul_add(hi.trace_anomaly - lo.trace_anomaly, lo.trace_anomaly),
                 });
             }
         }
@@ -144,7 +148,8 @@ impl HotQcdEos {
 
     /// Check that the high-T limit approaches Stefan-Boltzmann.
     ///
-    /// At T/T_c > 2, p/T^4 should be > 80% of SB limit.
+    /// At `T/T_c` > 2, p/T^4 should be > 80% of SB limit.
+    #[must_use]
     pub fn check_asymptotic_freedom(&self) -> bool {
         self.points
             .iter()
@@ -155,6 +160,7 @@ impl HotQcdEos {
     /// Check thermodynamic consistency: s = (ε + p) / T.
     ///
     /// In dimensionless form: s/T³ = ε/T⁴ + p/T⁴
+    #[must_use]
     pub fn check_thermodynamic_consistency(&self, tolerance: f64) -> Vec<(f64, f64)> {
         let mut violations = Vec::new();
         for p in &self.points {
@@ -196,9 +202,9 @@ impl fmt::Display for HotQcdEos {
 pub struct PlasmaEosPoint {
     /// Coupling Γ (analogue of 1/T in natural units)
     pub gamma: f64,
-    /// Excess internal energy U_ex / (N k_B T)
+    /// Excess internal energy `U_ex` / (N `k_B` T)
     pub excess_energy: f64,
-    /// Pressure P / (n k_B T)
+    /// Pressure P / (n `k_B` T)
     pub pressure_ratio: f64,
 }
 
@@ -215,6 +221,7 @@ pub struct PlasmaEosPoint {
 ///   2. Same observable extraction (Green-Kubo, correlation functions)
 ///   3. Same finite-size scaling analysis
 ///   4. Same GPU acceleration patterns (streaming, reduction)
+#[must_use]
 pub fn computational_overlap_summary() -> String {
     let mut s = String::new();
     s.push_str("  Computational pattern overlap: Plasma MD ↔ Lattice QCD\n\n");

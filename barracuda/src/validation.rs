@@ -58,6 +58,7 @@ impl std::fmt::Display for ToleranceMode {
 
 /// Accumulates validation checks and produces a summary with exit code.
 #[derive(Debug, Default)]
+#[must_use]
 pub struct ValidationHarness {
     /// Name of the validation binary
     pub name: String,
@@ -67,7 +68,7 @@ pub struct ValidationHarness {
 
 impl ValidationHarness {
     /// Create a new harness for a named validation binary.
-    #[must_use]
+    #[must_use = "validation harness must be used to run checks"]
     pub fn new(name: &str) -> Self {
         Self {
             name: name.to_string(),
@@ -419,5 +420,49 @@ mod tests {
         assert!(s.contains("bool"));
         assert_eq!(h.passed_count(), 6);
         assert_eq!(h.total_count(), 6);
+    }
+
+    #[test]
+    fn check_abs_or_rel_near_zero_expected() {
+        let mut h = ValidationHarness::new("test");
+        // When expected is near zero, rel_err = abs_err (avoids div by zero)
+        h.check_abs_or_rel("tiny_obs_near_zero_exp", 1e-15, 0.0, 1e-10);
+        assert!(h.checks[0].passed, "abs_err 1e-15 < 1e-10 should pass");
+        h.check_abs_or_rel("larger_obs_near_zero_exp", 0.1, 1e-20, 0.01);
+        assert!(!h.checks[1].passed, "abs_err 0.1 > 0.01 should fail");
+    }
+
+    #[test]
+    fn check_rel_exact_zero_expected() {
+        let mut h = ValidationHarness::new("test");
+        h.check_rel("obs_small", 1e-16, 0.0, 1e-10);
+        assert!(h.checks[0].passed, "|obs| < tol when expected=0");
+        h.check_rel("obs_large", 1.0, 0.0, 1e-10);
+        assert!(!h.checks[1].passed, "|obs| > tol when expected=0");
+    }
+
+    #[test]
+    fn check_upper_boundary_equal_fails() {
+        let mut h = ValidationHarness::new("test");
+        h.check_upper("at_threshold", 1.0, 1.0);
+        assert!(!h.checks[0].passed, "observed < threshold; equal fails");
+    }
+
+    #[test]
+    fn check_lower_boundary_equal_fails() {
+        let mut h = ValidationHarness::new("test");
+        h.check_lower("at_threshold", 1.0, 1.0);
+        assert!(!h.checks[0].passed, "observed > threshold; equal fails");
+    }
+
+    #[test]
+    fn format_summary_includes_failed_icon() {
+        let mut h = ValidationHarness::new("test");
+        h.check_abs("pass", 1.0, 1.0, 0.1);
+        h.check_abs("fail", 2.0, 1.0, 0.01);
+        let s = h.format_summary();
+        assert!(s.contains('✓') || s.contains("pass"));
+        assert!(s.contains('✗') || s.contains("fail"));
+        assert!(s.contains("1/2"));
     }
 }

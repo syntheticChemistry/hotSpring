@@ -50,7 +50,7 @@ pub fn compute_ssf(
     sk_values
 }
 
-/// Compute S(k) using toadstool's SsfGpu, averaged over snapshots.
+/// Compute S(k) using toadstool's `SsfGpu`, averaged over snapshots.
 ///
 /// This mirrors `compute_ssf` but runs each snapshot on the GPU via
 /// `SsfGpu::compute_axes`. Falls back to CPU if GPU dispatch fails.
@@ -106,7 +106,7 @@ pub fn compute_ssf_gpu(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
 
@@ -236,6 +236,99 @@ mod tests {
         for (_, s) in &ssf {
             assert!(s.is_finite(), "averaged S(k) should be finite");
             assert!(*s > 0.0, "averaged S(k) should be positive");
+        }
+    }
+
+    #[test]
+    fn compute_ssf_max_k_harmonics_one() {
+        let pos = vec![1.0, 1.0, 1.0];
+        let ssf = compute_ssf(&[pos], 1, 5.0, 1);
+        assert_eq!(ssf.len(), 1);
+        assert!((ssf[0].1 - 1.0).abs() < 1e-14, "single particle S(k)=1");
+    }
+
+    #[test]
+    fn compute_ssf_two_particles_periodic() {
+        let box_side = 4.0;
+        let pos = vec![
+            0.0,
+            0.0,
+            0.0,
+            box_side / 2.0,
+            box_side / 2.0,
+            box_side / 2.0,
+        ];
+        let ssf = compute_ssf(&[pos], 2, box_side, 2);
+        assert_eq!(ssf.len(), 2);
+        for (k, s) in &ssf {
+            assert!(*k > 0.0);
+            assert!(*s >= 0.0 && s.is_finite());
+        }
+    }
+
+    #[test]
+    fn compute_ssf_positions_with_fractional_coords() {
+        let pos = vec![1.5, 2.3, 0.7, 3.1, 1.9, 2.5, 0.2, 4.8, 3.3];
+        let ssf = compute_ssf(&[pos], 3, 10.0, 4);
+        assert_eq!(ssf.len(), 4);
+        for (k, s) in &ssf {
+            assert!(*k > 0.0);
+            assert!(s.is_finite(), "S(k) must be finite");
+        }
+    }
+
+    #[test]
+    fn compute_ssf_three_axes_contribute() {
+        // S(k) averages over 3 axes; verify all contribute
+        let pos = vec![0.0, 0.0, 0.0, 1.0, 0.0, 0.0]; // 2 particles along x
+        let ssf = compute_ssf(&[pos], 2, 5.0, 1);
+        assert_eq!(ssf.len(), 1);
+        // For k along x, y, z: x has structure, y/z are uniform
+        assert!(ssf[0].1 > 0.0 && ssf[0].1.is_finite());
+    }
+
+    #[test]
+    fn compute_ssf_single_particle_all_k_equal() {
+        // For a single particle, S(k) = 1 for all k (no structure)
+        let pos = vec![0.0, 0.0, 0.0];
+        let ssf = compute_ssf(&[pos], 1, 10.0, 5);
+        assert_eq!(ssf.len(), 5);
+        for (k, s) in &ssf {
+            assert!(*k > 0.0);
+            assert!(
+                (*s - 1.0).abs() < 1e-14,
+                "single particle S(k)={s} should be 1.0"
+            );
+        }
+    }
+
+    #[test]
+    fn compute_ssf_first_harmonic_is_dk() {
+        let box_side = 5.0;
+        let dk = 2.0 * std::f64::consts::PI / box_side;
+        let pos = vec![1.0, 2.0, 3.0];
+        let ssf = compute_ssf(&[pos], 1, box_side, 1);
+        assert_eq!(ssf.len(), 1);
+        assert!((ssf[0].0 - dk).abs() < 1e-14, "first k should be 2π/L");
+    }
+
+    #[test]
+    fn compute_ssf_empty_snapshots_count() {
+        // max_k_harmonics=3 with empty snapshots still produces 3 (k, S) pairs
+        // but S is NaN (0/0) or 0
+        let ssf = compute_ssf(&[], 0, 5.0, 3);
+        assert_eq!(ssf.len(), 3);
+    }
+
+    #[test]
+    fn compute_ssf_all_particles_at_origin() {
+        // All particles at origin: rho(k) = N for each axis, S(k) = N
+        let n = 4;
+        let pos = vec![0.0; n * 3];
+        let ssf = compute_ssf(&[pos], n, 5.0, 2);
+        for (k, s) in &ssf {
+            assert!(*k > 0.0);
+            assert!((*s - n as f64).abs() < 1e-10, "S(k) = N when all at origin");
         }
     }
 }

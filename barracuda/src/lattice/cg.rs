@@ -39,26 +39,7 @@ use super::wilson::Lattice;
 /// | 1 | storage, read | `a: array<f64>` (2×n_pairs) |
 /// | 2 | storage, read | `b: array<f64>` (2×n_pairs) |
 /// | 3 | storage, read_write | `out: array<f64>` (n_pairs) |
-pub const WGSL_COMPLEX_DOT_RE_F64: &str = r"
-struct Params {
-    n_pairs: u32,
-    pad0: u32,
-    pad1: u32,
-    pad2: u32,
-}
-
-@group(0) @binding(0) var<uniform> params: Params;
-@group(0) @binding(1) var<storage, read> a: array<f64>;
-@group(0) @binding(2) var<storage, read> b: array<f64>;
-@group(0) @binding(3) var<storage, read_write> out: array<f64>;
-
-@compute @workgroup_size(64)
-fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
-    let i = gid.x;
-    if i >= params.n_pairs { return; }
-    out[i] = a[i * 2u] * b[i * 2u] + a[i * 2u + 1u] * b[i * 2u + 1u];
-}
-";
+pub const WGSL_COMPLEX_DOT_RE_F64: &str = include_str!("shaders/complex_dot_re_f64.wgsl");
 
 /// WGSL shader: real-scalar axpy on f64 arrays.
 ///
@@ -72,24 +53,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 /// | 0 | uniform | `{ n: u32, pad: u32, alpha: f64 }` |
 /// | 1 | storage, read | `x: array<f64>` |
 /// | 2 | storage, read_write | `y: array<f64>` |
-pub const WGSL_AXPY_F64: &str = r"
-struct Params {
-    n: u32,
-    pad0: u32,
-    alpha: f64,
-}
-
-@group(0) @binding(0) var<uniform> params: Params;
-@group(0) @binding(1) var<storage, read> x: array<f64>;
-@group(0) @binding(2) var<storage, read_write> y: array<f64>;
-
-@compute @workgroup_size(64)
-fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
-    let i = gid.x;
-    if i >= params.n { return; }
-    y[i] = y[i] + params.alpha * x[i];
-}
-";
+pub const WGSL_AXPY_F64: &str = include_str!("shaders/axpy_f64.wgsl");
 
 /// WGSL shader: xpay operation `p[i] = x[i] + beta * p[i]`.
 ///
@@ -102,24 +66,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 /// | 0 | uniform | `{ n: u32, pad: u32, beta: f64 }` |
 /// | 1 | storage, read | `x: array<f64>` |
 /// | 2 | storage, read_write | `p: array<f64>` |
-pub const WGSL_XPAY_F64: &str = r"
-struct Params {
-    n: u32,
-    pad0: u32,
-    beta: f64,
-}
-
-@group(0) @binding(0) var<uniform> params: Params;
-@group(0) @binding(1) var<storage, read> x: array<f64>;
-@group(0) @binding(2) var<storage, read_write> p: array<f64>;
-
-@compute @workgroup_size(64)
-fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
-    let i = gid.x;
-    if i >= params.n { return; }
-    p[i] = x[i] + params.beta * p[i];
-}
-";
+pub const WGSL_XPAY_F64: &str = include_str!("shaders/xpay_f64.wgsl");
 
 /// CG solver result.
 #[derive(Clone, Debug)]

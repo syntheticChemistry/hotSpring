@@ -28,7 +28,7 @@ pub(super) fn precompute_wavefunctions(setup: &NucleusSetup) -> Vec<f64> {
             for i_rho in 0..setup.n_rho {
                 for i_z in 0..setup.n_z {
                     let rho = (i_rho + 1) as f64 * setup.d_rho;
-                    let z_c = setup.z_min + (i_z as f64 + 0.5) * setup.d_z;
+                    let z_c = (i_z as f64 + 0.5).mul_add(setup.d_z, setup.z_min);
 
                     let xi = z_c / setup.b_z;
                     let h_n = hermite_value(s.n_z as usize, xi);
@@ -166,8 +166,8 @@ pub(super) fn compute_coulomb_cpu(setup: &NucleusSetup, rho_p: &[f64], vc: &mut 
         let ir = i / setup.n_z;
         let iz = i % setup.n_z;
         let rho = (ir + 1) as f64 * setup.d_rho;
-        let z = setup.z_min + (iz as f64 + 0.5) * setup.d_z;
-        let r = (rho * rho + z * z).sqrt();
+        let z = (iz as f64 + 0.5).mul_add(setup.d_z, setup.z_min);
+        let r = rho.hypot(z);
         let dv = setup.volume_element(ir);
         shells.push((r, rp.max(0.0) * dv));
     }
@@ -209,8 +209,10 @@ pub(super) fn compute_coulomb_cpu(setup: &NucleusSetup, rho_p: &[f64], vc: &mut 
         let k = rank[i];
         let qi = if k > 0 { cum_q[k - 1] } else { 0.0 };
         let ext = total_qr - cum_qr[k];
-        vc[i] =
-            E2 * (qi / ri + ext) + crate::physics::hfb_common::coulomb_exchange_slater(rho_p[i]);
+        vc[i] = E2.mul_add(
+            qi / ri + ext,
+            crate::physics::hfb_common::coulomb_exchange_slater(rho_p[i]),
+        );
     }
     if tc < DIVISION_GUARD {
         for v in vc.iter_mut() {
@@ -243,10 +245,8 @@ pub(super) fn density_radial_derivative(setup: &NucleusSetup, density: &[f64]) -
                     / (2.0 * setup.d_z)
             };
             let rho_c = (ir + 1) as f64 * setup.d_rho;
-            let z_c = setup.z_min + (iz as f64 + 0.5) * setup.d_z;
-            let r = (rho_c * rho_c + z_c * z_c)
-                .sqrt()
-                .max(DEFORMED_COULOMB_R_MIN);
+            let z_c = (iz as f64 + 0.5).mul_add(setup.d_z, setup.z_min);
+            let r = rho_c.hypot(z_c).max(DEFORMED_COULOMB_R_MIN);
             (d_dr * rho_c + d_dz * z_c) / r
         })
         .collect()
@@ -280,20 +280,26 @@ pub(super) fn mean_field_potential(
             let rq = rho_q[i].max(0.0);
             let tau_tot = tau_p[i] + tau_n[i];
 
-            let vc = t0 * ((1.0 + x0 / 2.0) * rho - (0.5 + x0) * rq)
-                + t3 / 12.0
+            let vc = t0.mul_add(
+                (1.0 + x0 / 2.0).mul_add(rho, -((0.5 + x0) * rq)),
+                t3 / 12.0
                     * rho.powf(alpha)
-                    * ((2.0 + alpha) * (1.0 + x3 / 2.0) * rho
-                        - (2.0 * (0.5 + x3) * rq + alpha * (1.0 + x3 / 2.0) * rho));
+                    * ((2.0 + alpha) * (1.0 + x3 / 2.0)).mul_add(
+                        rho,
+                        -(2.0 * (0.5 + x3)).mul_add(rq, alpha * (1.0 + x3 / 2.0) * rho),
+                    ),
+            );
 
-            let ve = t1 / 4.0 * ((2.0 + x1) * tau_tot - (1.0 + 2.0 * x1) * tau_q[i])
-                + t2 / 4.0 * ((2.0 + x2) * tau_tot + (1.0 + 2.0 * x2) * tau_q[i]);
+            let ve = t1.mul_add(
+                1.0 / 4.0 * (2.0 + x1).mul_add(tau_tot, -(2.0_f64.mul_add(x1, 1.0) * tau_q[i])),
+                t2 / 4.0 * (2.0 + x2).mul_add(tau_tot, 2.0_f64.mul_add(x2, 1.0) * tau_q[i]),
+            );
 
             let ir = i / setup.n_z;
             let iz = i % setup.n_z;
             let rc = (ir + 1) as f64 * setup.d_rho;
-            let zc = setup.z_min + (iz as f64 + 0.5) * setup.d_z;
-            let r = (rc * rc + zc * zc).sqrt().max(SPIN_ORBIT_R_MIN);
+            let zc = (iz as f64 + 0.5).mul_add(setup.d_z, setup.z_min);
+            let r = rc.hypot(zc).max(SPIN_ORBIT_R_MIN);
             let vso = -w0 / 2.0 * (d_rho_dr[i] + d_rq_dr[i]) / r;
 
             let mut v = (vc + ve + vso).clamp(-5000.0, 5000.0);
@@ -352,8 +358,8 @@ pub(super) fn density_mixing(
     if iteration < warmup {
         let am = if iteration == 0 { 1.0 } else { 0.5 };
         for i in 0..ng {
-            rho_p[i] = (1.0 - am) * rho_p[i] + am * new_p[i];
-            rho_n[i] = (1.0 - am) * rho_n[i] + am * new_n[i];
+            rho_p[i] = (1.0_f64 - am).mul_add(rho_p[i], am * new_p[i]);
+            rho_n[i] = (1.0_f64 - am).mul_add(rho_n[i], am * new_n[i]);
         }
     } else {
         let am = 0.4;
@@ -413,8 +419,10 @@ pub(super) fn total_energy(
 ) -> f64 {
     let mut e_kin = 0.0;
     for (i, s) in setup.states.iter().enumerate() {
-        let t = setup.hw_z * (f64::from(s.n_z) + 0.5)
-            + setup.hw_perp * (2.0 * f64::from(s.n_perp) + f64::from(s.abs_lambda) + 1.0);
+        let t = setup.hw_z.mul_add(
+            f64::from(s.n_z) + 0.5,
+            setup.hw_perp * (2.0_f64.mul_add(f64::from(s.n_perp), f64::from(s.abs_lambda)) + 1.0),
+        );
         e_kin += 2.0 * (occ_p[i] + occ_n[i]) * t;
     }
 
@@ -429,16 +437,19 @@ pub(super) fn total_energy(
             let rho = (rho_p[idx] + rho_n[idx]).max(0.0);
             let rp = rho_p[idx].max(0.0);
             let rn = rho_n[idx].max(0.0);
-            let h0 = t0 / 4.0 * ((2.0 + x0) * rho * rho - (1.0 + 2.0 * x0) * (rp * rp + rn * rn));
+            let h0 = t0 / 4.0
+                * ((2.0 + x0) * rho)
+                    .mul_add(rho, -(2.0_f64.mul_add(x0, 1.0) * (rp * rp + rn * rn)));
             let h3 = t3 / 24.0
                 * rho.powf(alpha)
-                * ((2.0 + x3) * rho * rho - (1.0 + 2.0 * x3) * (rp * rp + rn * rn));
+                * ((2.0 + x3) * rho)
+                    .mul_add(rho, -(2.0_f64.mul_add(x3, 1.0) * (rp * rp + rn * rn)));
             ec += (h0 + h3) * dv;
             ecl += crate::physics::hfb_common::coulomb_exchange_energy_density(rp) * dv;
         }
     }
 
-    let rch = 1.2 * (setup.a as f64).powf(1.0 / 3.0);
+    let rch = 1.2 * (setup.a as f64).cbrt();
     ecl += 0.6 * (setup.z as f64) * (setup.z as f64 - 1.0) * E2 / rch;
     let ld = setup.a as f64 / 28.0;
     let ep = if setup.delta_p > PAIRING_GAP_THRESHOLD {
@@ -451,7 +462,7 @@ pub(super) fn total_energy(
         0.0
     };
     let hw0 = 41.0 * (setup.a as f64).powf(-1.0 / 3.0);
-    e_kin + ec + ecl + ep - 0.75 * hw0
+    0.75_f64.mul_add(-hw0, e_kin + ec + ecl + ep)
 }
 
 pub(super) fn quadrupole(setup: &NucleusSetup, rt: &[f64]) -> f64 {
@@ -460,8 +471,8 @@ pub(super) fn quadrupole(setup: &NucleusSetup, rt: &[f64]) -> f64 {
         let dv = setup.volume_element(ir);
         for iz in 0..setup.n_z {
             let rho = (ir + 1) as f64 * setup.d_rho;
-            let z = setup.z_min + (iz as f64 + 0.5) * setup.d_z;
-            q += rt[setup.grid_idx(ir, iz)] * (2.0 * z * z - rho * rho) * dv;
+            let z = (iz as f64 + 0.5).mul_add(setup.d_z, setup.z_min);
+            q += rt[setup.grid_idx(ir, iz)] * (2.0 * z).mul_add(z, -(rho * rho)) * dv;
         }
     }
     q

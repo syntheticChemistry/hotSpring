@@ -47,22 +47,26 @@ pub fn deformation_guess(z: usize, n: usize) -> f64 {
 #[must_use]
 pub fn beta2_from_q20(a: usize, q20: f64) -> f64 {
     let a_f = a as f64;
-    let r0 = 1.2 * a_f.powf(1.0 / 3.0);
+    let r0 = 1.2 * a_f.cbrt();
     (5.0 * PI).sqrt() * q20 / (3.0 * a_f * r0 * r0)
 }
 
 /// RMS radius from density on a cylindrical grid.
 ///
-/// Formula: r_RMS = √(∫ ρ·r² dV / ∫ ρ dV).
-/// Grid layout: ρ = (i_ρ + 1)·dρ, z = z_min + (i_z + 0.5)·dz, idx = i_ρ·n_z + i_z.
+/// Formula: `r_RMS` = √(∫ ρ·r² dV / ∫ ρ dV).
+/// Grid layout: ρ = (`i_ρ` + 1)·`d_ρ`, z = `z_min` + (`i_z` + 0.5)·`d_z`, idx = `i_ρ`·`n_z` + `i_z`.
 ///
 /// # Arguments
-/// * `density` - Density at each grid point, length = n_rho × n_z
+/// * `density` - Density at each grid point, length = `n_rho` × `n_z`
 /// * `n_rho` - Number of radial points
 /// * `n_z` - Number of axial points
 /// * `d_rho` - Radial spacing (fm)
 /// * `d_z` - Axial spacing (fm)
-/// * `z_min` - z-coordinate of cell center at i_z=0 (fm)
+/// * `z_min` - z-coordinate of cell center at `i_z`=0 (fm)
+///
+/// # Panics
+///
+/// Panics if `density.len() != n_rho * n_z`.
 #[must_use]
 pub fn rms_radius(
     density: &[f64],
@@ -80,7 +84,7 @@ pub fn rms_radius(
         let rho = (i_rho + 1) as f64 * d_rho;
         let dv = 2.0 * PI * rho * d_rho * d_z;
         for i_z in 0..n_z {
-            let z = z_min + (i_z as f64 + 0.5) * d_z;
+            let z = (i_z as f64 + 0.5).mul_add(d_z, z_min);
             let r2 = rho * rho + z * z;
             let idx = i_rho * n_z + i_z;
             sum_r2 += density[idx] * r2 * dv;
@@ -111,34 +115,40 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn actinides_are_well_deformed() {
         assert_eq!(deformation_guess(92, 146), 0.25); // U-238
         assert_eq!(deformation_guess(94, 150), 0.25); // Pu-244
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn rare_earths_strongly_deformed() {
         assert_eq!(deformation_guess(66, 96), 0.28); // Dy-162
         assert_eq!(deformation_guess(68, 98), 0.28); // Er-166
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn sd_shell_nuclei_deformed() {
         assert_eq!(deformation_guess(12, 12), DEFORMATION_GUESS_SD); // Mg-24
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn single_magic_weakly_deformed() {
         assert_eq!(deformation_guess(50, 60), DEFORMATION_GUESS_WEAK); // Sn-110, Z magic
         assert_eq!(deformation_guess(40, 50), DEFORMATION_GUESS_WEAK); // Zr-90, N magic
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn generic_nuclei_moderate_deformation() {
         assert_eq!(deformation_guess(40, 56), DEFORMATION_GUESS_GENERIC); // Zr-96
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn beta2_from_q20_zero_for_spherical() {
         assert_eq!(beta2_from_q20(16, 0.0), 0.0);
     }
@@ -176,6 +186,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)]
     fn rms_radius_zero_density_returns_zero() {
         let density = vec![0.0; 25];
         let r = rms_radius(&density, 5, 5, 1.0, 1.0, -2.5);

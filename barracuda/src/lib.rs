@@ -1,15 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-// Clippy configuration is in [workspace.lints.clippy] in Cargo.toml.
-// See there for rationale on each allowed lint.
-//
-// Library code must propagate errors, not panic. Binaries may use
-// expect()/unwrap() at the top level — these lints apply only here.
+// Clippy pedantic/nursery + physics-specific allows are in [workspace.lints.clippy]
+// in Cargo.toml. Library code must propagate errors, not panic:
 #![deny(clippy::expect_used, clippy::unwrap_used)]
 
-//! hotSpring Nuclear EOS — BarraCUDA validation environment
+//! hotSpring Nuclear EOS — `BarraCUDA` validation environment
 //!
-//! Validates BarraCUDA library against Python/scipy controls using nuclear
+//! Validates `BarraCUDA` library against Python/scipy controls using nuclear
 //! equation-of-state workloads (Skyrme energy density functional) and GPU
 //! molecular dynamics (Yukawa OCP).
 //!
@@ -28,7 +25,7 @@
 //! - **`data`** — AME2020 experimental data and Skyrme parameter bounds
 //! - **`physics`** — SEMF, nuclear matter, spherical HFB, deformed HFB
 //! - **`error`** — typed errors for GPU/simulation failure modes
-//! - **`gpu`** — GPU FP64 device wrapper (SHADER_F64 via wgpu/Vulkan)
+//! - **`gpu`** — GPU FP64 device wrapper (`SHADER_F64` via wgpu/Vulkan)
 //! - **`md`** — GPU molecular dynamics (f64 WGSL Yukawa OCP)
 //! - **`prescreen`** — NMP cascade filter for L2 heterogeneous pipeline
 //! - **`bench`** — benchmark harness (RAPL, nvidia-smi, JSON reports)

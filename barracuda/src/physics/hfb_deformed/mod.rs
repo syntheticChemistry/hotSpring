@@ -4,16 +4,16 @@
 //!
 //! Extends the spherical L2 solver to handle nuclear deformation:
 //!   - Axially-symmetric HFB in cylindrical coordinates (rho, z)
-//!   - Nilsson quantum numbers: n_z, n_perp, Lambda, Omega
-//!   - Deformation parameter beta_2 from quadrupole moment Q20
+//!   - Nilsson quantum numbers: `n_z`, `n_perp`, `Lambda`, `Omega`
+//!   - Deformation parameter `beta_2` from quadrupole moment `Q20`
 //!   - Block-diagonal structure by Omega (K quantum number)
 //!   - Self-consistent deformed densities
 //!
-//! Uses (all BarraCUDA native):
-//!   - barracuda::linalg::eigh_f64 — block diagonalization
-//!   - barracuda::optimize::brent — BCS chemical potential
-//!   - barracuda::numerical::{trapz, gradient_1d} — integrals & gradients
-//!   - barracuda::special::{gamma, laguerre} — basis functions
+//! Uses (all `BarraCUDA` native):
+//!   - `barracuda::linalg::eigh_f64` — block diagonalization
+//!   - `barracuda::optimize::brent` — BCS chemical potential
+//!   - `barracuda::numerical::{trapz, gradient_1d}` — integrals & gradients
+//!   - `barracuda::special::{gamma, laguerre}` — basis functions
 //!
 //! References:
 //!   - Ring & Schuck, "The Nuclear Many-Body Problem" (2004), Ch. 11
@@ -82,7 +82,9 @@ impl CylindricalGrid {
         let d_rho = rho_max / n_rho as f64;
         let d_z = 2.0 * z_max / n_z as f64;
         let rho: Vec<f64> = (1..=n_rho).map(|i| i as f64 * d_rho).collect();
-        let z: Vec<f64> = (0..n_z).map(|i| -z_max + (i as f64 + 0.5) * d_z).collect();
+        let z: Vec<f64> = (0..n_z)
+            .map(|i| (i as f64 + 0.5).mul_add(d_z, -z_max))
+            .collect();
 
         CylindricalGrid {
             rho,
@@ -94,12 +96,12 @@ impl CylindricalGrid {
         }
     }
 
-    /// Volume element: 2*pi*rho * d_rho * d_z
+    /// Volume element: 2*pi*rho * `d_rho` * `d_z`
     pub(super) fn volume_element(&self, i_rho: usize, _i_z: usize) -> f64 {
         2.0 * PI * self.rho[i_rho] * self.d_rho * self.d_z
     }
 
-    /// Flatten (i_rho, i_z) -> index
+    /// Flatten (`i_rho`, `i_z`) -> index
     #[inline]
     pub(super) const fn idx(&self, i_rho: usize, i_z: usize) -> usize {
         i_rho * self.n_z + i_z
@@ -161,7 +163,7 @@ impl DeformedHFB {
         let b_z = HBAR_C / (M_NUCLEON * hw_z).sqrt();
         let b_perp = HBAR_C / (M_NUCLEON * hw_perp).sqrt();
 
-        let r0 = 1.2 * a_f.powf(1.0 / 3.0);
+        let r0 = 1.2 * a_f.cbrt();
         let rho_max = (r0 + 8.0).max(12.0);
         let z_max = (r0 * (1.0 + beta2_init.abs()) + 8.0).max(14.0);
         let n_rho = ((rho_max * 8.0) as usize).max(60);
@@ -171,7 +173,7 @@ impl DeformedHFB {
 
         let delta = 12.0 / a_f.max(4.0).sqrt();
 
-        let n_shells = (2.0 * a_f.powf(1.0 / 3.0)) as usize + 5;
+        let n_shells = (2.0 * a_f.cbrt()) as usize + 5;
         let n_shells = n_shells.clamp(10, 16);
 
         let mut solver = DeformedHFB {
@@ -190,6 +192,42 @@ impl DeformedHFB {
             omega_blocks: HashMap::new(),
         };
 
+        solver.build_deformed_basis(n_shells);
+        solver
+    }
+
+    /// Minimal constructor for unit tests (small grid + controllable n_shells).
+    #[cfg(test)]
+    pub fn new_test_minimal(n_shells: usize, n_rho: usize, n_z: usize) -> Self {
+        let z = 8;
+        let n = 8;
+        let a = z + n;
+        let a_f = a as f64;
+        let beta2_init = deformation_guess(z, n);
+        let hw0 = 41.0 * a_f.powf(-1.0 / 3.0);
+        let hw_z = hw0 * (1.0 - 2.0 * beta2_init / 3.0);
+        let hw_perp = hw0 * (1.0 + beta2_init / 3.0);
+        let b_z = HBAR_C / (M_NUCLEON * hw_z).sqrt();
+        let b_perp = HBAR_C / (M_NUCLEON * hw_perp).sqrt();
+        let rho_max = 8.0;
+        let z_max = 6.0;
+        let grid = CylindricalGrid::new(rho_max, z_max, n_rho, n_z);
+        let delta = 12.0 / a_f.max(4.0).sqrt();
+        let mut solver = DeformedHFB {
+            z,
+            n_neutrons: n,
+            a,
+            grid,
+            hw_z,
+            hw_perp,
+            b_z,
+            b_perp,
+            _beta2: beta2_init,
+            delta_p: delta,
+            delta_n: delta,
+            states: Vec::new(),
+            omega_blocks: HashMap::new(),
+        };
         solver.build_deformed_basis(n_shells);
         solver
     }
@@ -288,8 +326,8 @@ impl DeformedHFB {
             if iteration < broyden_warmup {
                 let alpha_mix = if iteration == 0 { 1.0 } else { 0.5 };
                 for i in 0..n_grid {
-                    rho_p[i] = (1.0 - alpha_mix) * rho_p[i] + alpha_mix * new_rho_p[i];
-                    rho_n[i] = (1.0 - alpha_mix) * rho_n[i] + alpha_mix * new_rho_n[i];
+                    rho_p[i] = (1.0_f64 - alpha_mix).mul_add(rho_p[i], alpha_mix * new_rho_p[i]);
+                    rho_n[i] = (1.0_f64 - alpha_mix).mul_add(rho_n[i], alpha_mix * new_rho_n[i]);
                 }
             } else {
                 let alpha_mix = 0.4;
@@ -412,7 +450,7 @@ impl DeformedHFB {
             self.grid.n_z,
             self.grid.d_rho,
             self.grid.d_z,
-            self.grid.z[0] - 0.5 * self.grid.d_z,
+            0.5_f64.mul_add(-self.grid.d_z, self.grid.z[0]),
         );
 
         Ok(DeformedHFBResult {

@@ -21,8 +21,8 @@ pub const ITERATIVE_F64: f64 = 1e-8;
 
 /// Tolerance for comparing GPU f64 results against CPU f64.
 ///
-/// GPU SHADER_F64 uses the same IEEE 754 representation but different
-/// instruction ordering. Max observed difference: 8e-8 for exp() on
+/// GPU `SHADER_F64` uses the same IEEE 754 representation but different
+/// instruction ordering. Max observed difference: 8e-8 for `exp()` on
 /// RTX 4070 (see `experiments/001_N_SCALING_GPU.md` §4.4).
 pub const GPU_VS_CPU_F64: f64 = 1e-6;
 
@@ -33,7 +33,7 @@ pub const GPU_VS_CPU_F64: f64 = 1e-6;
 /// LU decomposition: determinant and solve accuracy.
 ///
 /// LU is O(n³) with exact pivoting; accumulated rounding is small.
-/// Reference: NumPy `numpy.linalg.solve` achieves ~1e-14 for well-conditioned
+/// Reference: `NumPy` `numpy.linalg.solve` achieves ~1e-14 for well-conditioned
 /// systems. We allow 1e-10 for condition numbers up to ~1e5.
 pub const LU_TOLERANCE: f64 = EXACT_F64;
 
@@ -91,25 +91,25 @@ pub const BESSEL_TOLERANCE: f64 = 1e-6;
 /// the reference to machine precision. Uses `EXACT_F64`.
 pub const FACTORIAL_TOLERANCE: f64 = EXACT_F64;
 
-/// Associated Legendre P_n^m(x): three-term recurrence.
+/// Associated Legendre `P_n^m(x)`: three-term recurrence.
 ///
 /// For small n ≤ 5 and |m| ≤ n, the recurrence involves O(n) multiplications
 /// and subtractions. Accumulated rounding is negligible for small n.
 /// Uses `EXACT_F64` (tested up to n=2, m=2).
 pub const ASSOC_LEGENDRE_TOLERANCE: f64 = EXACT_F64;
 
-/// Digamma ψ(x) via finite-difference of ln_gamma.
+/// Digamma ψ(x) via finite-difference of `ln_gamma`.
 ///
 /// Central difference (f(x+h) − f(x−h))/(2h) with h=1e-7.
 /// Truncation error: O(h²) = O(1e-14).
-/// Cancellation error: O(ε_mach/h) = O(1e-16/1e-7) = O(1e-9).
+/// Cancellation error: `O(ε_mach/h)` = O(1e-16/1e-7) = O(1e-9).
 /// Total error dominated by cancellation: ~1e-9.
 /// 1e-5 is conservative (4 orders of margin).
 pub const DIGAMMA_FD_TOLERANCE: f64 = 1e-5;
 
 /// Beta function B(a,b) via exp(lnΓ(a) + lnΓ(b) − lnΓ(a+b)).
 ///
-/// Three ln_gamma evaluations (each ~1e-10 Lanczos error) plus exp().
+/// Three `ln_gamma` evaluations (each ~1e-10 Lanczos error) plus `exp()`.
 /// Error propagation through exp amplifies by the exponent magnitude.
 /// For small arguments (a,b ≤ 3), the exponent is O(1) so amplification
 /// is modest. 1e-6 accounts for accumulated composition error.
@@ -218,7 +218,7 @@ pub const RK45_RTOL: f64 = 1e-10;
 /// Normal CDF: maximum absolute error vs reference table.
 ///
 /// The erf-based CDF implementation matches published tables to ~1e-4.
-/// Limited by the 4-term rational approximation in barracuda::special::erf.
+/// Limited by the 4-term rational approximation in `barracuda::special::erf`.
 pub const NORMAL_CDF_TOLERANCE: f64 = 1e-4;
 
 /// Normal PPF (inverse CDF): maximum absolute error vs reference table.

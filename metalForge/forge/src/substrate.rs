@@ -64,7 +64,7 @@ pub enum SubstrateKind {
 /// A capability discovered at runtime on a substrate.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Capability {
-    /// IEEE 754 f64 compute (GPU SHADER_F64 or CPU native).
+    /// IEEE 754 f64 compute (GPU `SHADER_F64` or CPU native).
     F64Compute,
     /// f32 compute.
     F32Compute,

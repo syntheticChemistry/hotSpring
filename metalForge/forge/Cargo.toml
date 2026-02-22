@@ -2,7 +2,7 @@
 
 [package]
 name = "hotspring-forge"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "Hardware discovery and cross-substrate dispatch for hotSpring"
 license = "AGPL-3.0-only"

@@ -7,13 +7,13 @@
 //! Physics Reports 302, 1–65 (Paper 6 in the hotSpring review queue).
 //!
 //! The screened Coulomb potential for a hydrogen-like atom (nuclear charge Z)
-//! embedded in a plasma with screening parameter κ:
+//! embedded in a plasma with screening parameter `κ`:
 //!
 //!   V(r) = −Z exp(−κr) / r   [Hartree atomic units]
 //!
-//! At κ = 0 this recovers unscreened hydrogen: E_n = −Z²/(2n²).
+//! At κ = 0 this recovers unscreened hydrogen: `E_n` = −Z²/(2n²).
 //! As κ increases, bound states become shallower and eventually vanish.
-//! The critical screening parameter κ_c(n,l) is the value at which
+//! The critical screening parameter `κ_c`(n,l) is the value at which
 //! the (n,l) state ceases to be bound.
 //!
 //! This connects directly to the Yukawa OCP MD (Papers 1, 5): the same
@@ -22,11 +22,11 @@
 //!
 //! # Numerical method
 //!
-//! Discretize the radial Schrödinger equation for u(r) = r R(r) on a
-//! uniform grid r_i = (i+1)h, h = r_max/(N+1), with finite differences:
+//! Discretize the radial Schrödinger equation for `u`(r) = r R(r) on a
+//! uniform grid `r_i` = (i+1)h, h = r_max/(N+1), with finite differences:
 //!
-//!   H u = E u,   H_{ii} = 1/h² + l(l+1)/(2r_i²) − Z exp(−κr_i)/r_i
-//!                 H_{i,i±1} = −1/(2h²)
+//!   H u = E u,   `H_{ii}` = 1/h² + l(l+1)/(2`r_i`²) − Z exp(−κ`r_i`)/`r_i`
+//!                 `H_{i,i±1}` = −1/(2h²)
 //!
 //! The Hamiltonian is tridiagonal. Bound-state eigenvalues (E < 0) are
 //! found via Sturm bisection — O(N) per eigenvalue, no full diagonalization.
@@ -41,12 +41,12 @@
 pub const DEFAULT_N_GRID: usize = 2000;
 pub const DEFAULT_R_MAX: f64 = 100.0;
 
-/// Literature critical screening parameters κ_c (a.u.) for hydrogen (Z=1).
+/// Literature critical screening parameters `κ_c` (a.u.) for hydrogen (Z=1).
 ///
-/// At κ > κ_c(n,l) the (n,l) bound state ceases to exist. Values from
+/// At κ > `κ_c`(n,l) the (n,l) bound state ceases to exist. Values from
 /// Lam & Varshni (1971) Phys. Rev. A 4, 1875 and Rogers et al. (1970).
 ///
-/// Format: (n, l, κ_c)
+/// Format: (n, l, `κ_c`)
 pub const CRITICAL_SCREENING_REFERENCE: &[(u32, u32, f64)] = &[
     (1, 0, 1.19061), // 1s
     (2, 0, 0.31750), // 2s
@@ -58,7 +58,7 @@ pub const CRITICAL_SCREENING_REFERENCE: &[(u32, u32, f64)] = &[
 
 /// Exact hydrogen eigenvalues for comparison at κ = 0.
 ///
-/// E_{n} = −Z²/(2n²) in Hartree. n = 1, 2, 3 shown.
+/// `E_{n}` = −Z²/(2n²) in Hartree. n = 1, 2, 3 shown.
 pub const HYDROGEN_EXACT: &[(u32, f64)] = &[
     (1, -0.500_000_000),
     (2, -0.125_000_000),
@@ -67,25 +67,25 @@ pub const HYDROGEN_EXACT: &[(u32, f64)] = &[
 
 /// Screening models from Murillo & Weisheit (1998) §3.
 ///
-/// Connect the abstract screening parameter κ to physical plasma
+/// Connect the abstract screening parameter `κ` to physical plasma
 /// conditions (density n, temperature T, coupling Γ).
 pub mod screening_models {
-    /// Debye-Hückel screening in reduced units: κ_DH × a_ws = √(3Γ).
+    /// Debye-Hückel screening in reduced units: `κ_DH` × `a_ws` = √(3Γ).
     ///
     /// Valid in the weak-coupling limit (Γ ≪ 1). At stronger coupling,
     /// ion correlations reduce screening below the Debye prediction.
     ///
-    /// Derivation: λ_D² = kT/(4πne²), a_ws = (3/(4πn))^{1/3},
-    /// κ = a_ws/λ_D = √(3Γ) where Γ = e²/(a_ws kT).
+    /// Derivation: `λ_D`² = `kT`/(4πne²), `a_ws` = (3/(4πn))^{1/3},
+    /// κ = `a_ws`/`λ_D` = √(3Γ) where Γ = e²/(`a_ws` `kT`).
     #[must_use]
     pub fn debye_kappa_reduced(gamma: f64) -> f64 {
         (3.0 * gamma).sqrt()
     }
 
-    /// Ion-sphere screening: κ_IS × a_ws ≈ √3 ≈ 1.73.
+    /// Ion-sphere screening: `κ_IS` × `a_ws` ≈ √3 ≈ 1.73.
     ///
-    /// Strong-coupling limit — the ion sphere of radius a_ws contains
-    /// exactly Z electrons, providing complete screening beyond a_ws.
+    /// Strong-coupling limit — the ion sphere of radius `a_ws` contains
+    /// exactly Z electrons, providing complete screening beyond `a_ws`.
     #[must_use]
     pub fn ion_sphere_kappa_reduced() -> f64 {
         3.0_f64.sqrt()
@@ -93,9 +93,9 @@ pub mod screening_models {
 
     /// Stewart-Pyatt interpolation: bridges Debye ↔ ion-sphere.
     ///
-    /// IPD: Δ/(kT) = (3Γ/2) × [(1 + (λ_D/a_ws)³)^{2/3} − (λ_D/a_ws)²]
+    /// IPD: Δ/(`kT`) = (3Γ/2) × [(1 + (`λ_D`/`a_ws`)³)^{2/3} − (`λ_D`/`a_ws`)²]
     ///
-    /// Returns an effective κ × a_ws by matching IPD to Yukawa depth shift.
+    /// Returns an effective κ × `a_ws` by matching IPD to Yukawa depth shift.
     /// Reduces to Debye at Γ→0 and ion-sphere at Γ→∞.
     #[must_use]
     pub fn stewart_pyatt_kappa_reduced(gamma: f64) -> f64 {
@@ -118,8 +118,8 @@ pub mod screening_models {
 /// Count eigenvalues of a symmetric tridiagonal matrix below `lambda`.
 ///
 /// Uses the Sturm sequence property: the number of sign changes in the
-/// sequence d_0, d_1, ..., d_{n-1} equals the number of eigenvalues < λ,
-/// where d_i = (a_i - λ) - b_{i-1}²/d_{i-1}.
+/// sequence `d_0`, `d_1`, ..., `d_{n-1}` equals the number of eigenvalues &lt; λ,
+/// where `d_i` = (a_i - λ) - b_{i-1}²/`d_{i-1}`.
 fn sturm_count(diag: &[f64], off_diag: &[f64], lambda: f64) -> usize {
     let n = diag.len();
     let mut count = 0;
@@ -145,7 +145,7 @@ fn sturm_count(diag: &[f64], off_diag: &[f64], lambda: f64) -> usize {
 
 /// Find all eigenvalues of a symmetric tridiagonal matrix below `threshold`.
 ///
-/// Uses Sturm bisection: O(N) per eigenvalue, O(N × n_bound) total.
+/// Uses Sturm bisection: O(N) per eigenvalue, O(N × `n_bound`) total.
 /// Much faster than full diagonalization for large N with few bound states.
 fn eigenvalues_below_threshold(diag: &[f64], off_diag: &[f64], threshold: f64) -> Vec<f64> {
     let n_bound = sturm_count(diag, off_diag, threshold);
@@ -281,6 +281,7 @@ pub fn ground_state_energy(z: f64, kappa: f64, l: u32, n_grid: usize, r_max: f64
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 
@@ -514,6 +515,40 @@ mod tests {
             (below_1[0] - expected).abs() < 1e-10,
             "got {}, expected {expected}",
             below_1[0]
+        );
+    }
+
+    // ── Uncovered regions: ground_state_energy None, sturm d_safe, n_bound=0 ──
+
+    #[test]
+    fn ground_state_energy_none_when_no_bound_state() {
+        let e = ground_state_energy(1.0, 10.0, 0, DEFAULT_N_GRID, DEFAULT_R_MAX);
+        assert!(e.is_none(), "κ=10: no bound state for hydrogen");
+    }
+
+    #[test]
+    fn ground_state_energy_some_for_weak_screening() {
+        let e = ground_state_energy(1.0, 0.01, 0, DEFAULT_N_GRID, DEFAULT_R_MAX);
+        assert!(e.is_some());
+        let ev = e.unwrap();
+        assert!(ev < 0.0, "bound state energy should be negative");
+        assert!(ev > -0.6, "1s at κ=0.01 should be close to −0.5");
+    }
+
+    #[test]
+    fn eigenvalues_below_threshold_empty_when_none_below() {
+        let diag = vec![5.0, 5.0, 5.0];
+        let off = vec![0.0, 0.0];
+        let below = eigenvalues_below_threshold(&diag, &off, 0.0);
+        assert!(below.is_empty());
+    }
+
+    #[test]
+    fn stewart_pyatt_weak_coupling_positive() {
+        let sp = screening_models::stewart_pyatt_kappa_reduced(0.01);
+        assert!(
+            sp >= 0.0 && sp.is_finite(),
+            "SP should be non-negative and finite"
         );
     }
 }

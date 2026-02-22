@@ -38,6 +38,24 @@ const UNEDF0_PARAMS: [f64; 10] = [
     -1883.69, 277.50, -189.08, 14603.6, 0.0047, -1.116, -1.635, 0.390, 0.3222, 78.66,
 ];
 
+const PARAM_NAMES: [&str; 10] = [
+    "t0", "t1", "t2", "t3", "x0", "x1", "x2", "x3", "alpha", "W0",
+];
+
+struct NucleusResidual {
+    z: usize,
+    n: usize,
+    a: usize,
+    element: String,
+    b_exp: f64,
+    b_calc: f64,
+    delta_b: f64,
+    abs_delta: f64,
+    rel_delta: f64,
+    chi2_i: f64,
+    _sigma: f64,
+}
+
 struct CliArgs {
     seed: u64,
     n_seeds: usize,
@@ -54,6 +72,450 @@ fn make_l1_objective_nmp(
 ) -> impl Fn(&[f64]) -> f64 {
     let exp_data = exp_data.clone();
     move |x: &[f64]| l1_objective_nmp(x, &exp_data, lambda)
+}
+
+fn compute_mean_std(vals: &[f64]) -> (f64, f64) {
+    let n = vals.len() as f64;
+    if n < 1.0 {
+        return (0.0, 0.0);
+    }
+    let mean = vals.iter().sum::<f64>() / n;
+    let var = vals.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / (n - 1.0).max(1.0);
+    (mean, var.sqrt())
+}
+
+fn print_comparison_summary(
+    chi2_1: f64,
+    approach1_evals: usize,
+    approach1_time: f64,
+    chi2_2: f64,
+    approach2_evals: usize,
+    approach2_time: f64,
+    better: f64,
+) {
+    println!(
+        "  {:40} {:>10} {:>8} {:>8}",
+        "Method", "χ²/datum", "Evals", "Time"
+    );
+    println!(
+        "  {:40} {:>10} {:>8} {:>8}",
+        "─".repeat(40),
+        "─".repeat(10),
+        "─".repeat(8),
+        "─".repeat(8)
+    );
+    println!(
+        "  {:40} {:>10.4} {:>8} {:>7.2}s",
+        "SparsitySampler + NativeAutoSmooth", chi2_1, approach1_evals, approach1_time
+    );
+    println!(
+        "  {:40} {:>10.4} {:>8} {:>7.2}s",
+        "Native DirectSampler", chi2_2, approach2_evals, approach2_time
+    );
+    println!(
+        "  {:40} {:>10.4} {:>8} {:>8}",
+        "Python/scipy control (reference)",
+        provenance::L1_PYTHON_CHI2.value,
+        provenance::L1_PYTHON_CANDIDATES.value,
+        "~180s"
+    );
+    println!(
+        "  {:40} {:>10.4} {:>8} {:>8}",
+        "Previous BarraCUDA best (manual smooth)", 1.19, 164, "0.25s"
+    );
+    println!();
+
+    if better < provenance::L1_PYTHON_CHI2.value {
+        let fewer = provenance::L1_PYTHON_CANDIDATES.value
+            / (approach1_evals.min(approach2_evals).max(1) as f64);
+        println!(
+            "  ✅ BarraCUDA BEATS Python by {:.1}%",
+            100.0 * (provenance::L1_PYTHON_CHI2.value - better) / provenance::L1_PYTHON_CHI2.value
+        );
+        if fewer > 1.0 {
+            println!("     with {fewer:.0}× fewer evaluations");
+        }
+    } else {
+        println!(
+            "  ⚠ BarraCUDA behind Python by {:.1}% — needs more tuning",
+            100.0 * (better - provenance::L1_PYTHON_CHI2.value) / provenance::L1_PYTHON_CHI2.value
+        );
+    }
+}
+
+fn print_reference_baselines(
+    exp_data: &std::collections::HashMap<(usize, usize), (f64, f64)>,
+    lambda: f64,
+) {
+    for (name, params) in &[
+        ("SLy4", provenance::SLY4_PARAMS.as_slice()),
+        ("UNEDF0", UNEDF0_PARAMS.as_slice()),
+    ] {
+        let be_chi2 = compute_be_chi2_only(params, exp_data);
+        if let Some(nmp) = nuclear_matter_properties(params) {
+            let nmp_c2 = provenance::nmp_chi2_from_props(&nmp) / 5.0;
+            println!("  {name} (published):");
+            println!("    chi2_BE/datum:  {be_chi2:.4}");
+            println!("    chi2_NMP/datum: {nmp_c2:.4}");
+            println!(
+                "    chi2_total (lambda={}): {:.4}",
+                lambda,
+                lambda.mul_add(nmp_c2, be_chi2)
+            );
+            provenance::print_nmp_analysis(&nmp);
+            println!();
+        } else {
+            println!("  {name} — NMP computation failed (params outside bisection range)");
+            println!();
+        }
+    }
+}
+
+fn print_best_parameters(best_x: &[f64]) {
+    println!("  Best Skyrme parameters:");
+    for (i, name) in PARAM_NAMES.iter().enumerate() {
+        if i < best_x.len() {
+            println!("    {:>6} = {:>14.6}", name, best_x[i]);
+        }
+    }
+}
+
+fn print_semf_capability_analysis(rms: f64, best_chi2: f64, mean_rel: f64) {
+    println!("  Our SEMF results:");
+    println!("    RMS     = {rms:.4} MeV");
+    println!("    χ²/datum = {best_chi2:.4} (with σ_theo = max(1%·B, 2 MeV))");
+    println!();
+
+    if rms < 3.0 {
+        println!("  VERDICT: SEMF optimized to NEAR-THEORETICAL-LIMIT.");
+        println!("    - Our RMS {rms:.2} MeV is competitive with published SEMF fits.");
+        println!("    - χ²/datum < 1.0 means we fit WITHIN assumed uncertainties.");
+    } else if rms < 5.0 {
+        println!("  VERDICT: Good SEMF fit, room for minor coefficient improvement.");
+    } else {
+        println!("  VERDICT: SEMF fit sub-optimal, optimizer may need more budget.");
+    }
+    println!();
+    println!("  To reach paper-level ~10^-6 accuracy:");
+    println!(
+        "    - Current gap: {:.1} orders of magnitude",
+        (mean_rel / 1.0e-6).log10()
+    );
+    println!("    - Requires: L2 (HFB) physics solver, not SEMF");
+    println!(
+        "    - SEMF theoretical floor: ~{:.1} MeV RMS (~{:.1e} relative for A=200)",
+        rms.max(2.0),
+        rms.max(2.0) / 1700.0
+    );
+    println!("    - HFB theoretical floor: ~0.5 MeV RMS (~3e-4 relative)");
+    println!("    - Paper target of 10^-6: requires beyond-HFB corrections");
+    println!("      (e.g., Wigner, rotational, shape coexistence)");
+}
+
+fn run_deep_residual_analysis(
+    base: &std::path::Path,
+    best_x: &[f64],
+    best_chi2: f64,
+    chi2_1: f64,
+    approach1_evals: usize,
+    approach1_time: f64,
+    approach1_f: f64,
+    chi2_2: f64,
+    approach2_evals: usize,
+    result2: &barracuda::sample::direct::DirectSamplerResult,
+    base_seed: u64,
+) {
+    let nuclei_set = data::parse_nuclei_set_from_args();
+    let nuclei_path = data::nuclei_data_path(base, nuclei_set);
+    let nuclei_reader = std::io::BufReader::new(
+        std::fs::File::open(&nuclei_path).expect("Failed to open nuclei JSON"),
+    );
+    let nuclei_file: serde_json::Value =
+        serde_json::from_reader(nuclei_reader).expect("nuclei JSON parse failed");
+    let nuclei_list = nuclei_file["nuclei"]
+        .as_array()
+        .expect("nuclei JSON has nuclei array");
+
+    let mut residuals: Vec<NucleusResidual> = Vec::new();
+    for nuc in nuclei_list {
+        let z = nuc["Z"].as_u64().expect("nucleus Z") as usize;
+        let n = nuc["N"].as_u64().expect("nucleus N") as usize;
+        let a = nuc["A"].as_u64().expect("nucleus A") as usize;
+        let element = nuc["element"]
+            .as_str()
+            .expect("nucleus element")
+            .to_string();
+        let b_exp = nuc["binding_energy_MeV"]
+            .as_f64()
+            .expect("nucleus binding_energy_MeV");
+
+        let b_calc = semf_binding_energy(z, n, best_x);
+        if b_calc > 0.0 {
+            let delta_b = b_calc - b_exp;
+            let sigma = tolerances::sigma_theo(b_exp);
+            residuals.push(NucleusResidual {
+                z,
+                n,
+                a,
+                element,
+                b_exp,
+                b_calc,
+                delta_b,
+                abs_delta: delta_b.abs(),
+                rel_delta: (delta_b / b_exp).abs(),
+                chi2_i: (delta_b / sigma).powi(2),
+                _sigma: sigma,
+            });
+        }
+    }
+
+    let n_nuclei = residuals.len();
+    println!("  Nuclei fitted: {n_nuclei}");
+    println!();
+
+    let rms = (residuals.iter().map(|r| r.delta_b.powi(2)).sum::<f64>() / n_nuclei as f64).sqrt();
+    let mae = residuals.iter().map(|r| r.abs_delta).sum::<f64>() / n_nuclei as f64;
+    let max_err = residuals
+        .iter()
+        .map(|r| r.abs_delta)
+        .fold(0.0_f64, f64::max);
+    let mean_rel = residuals.iter().map(|r| r.rel_delta).sum::<f64>() / n_nuclei as f64;
+    let max_rel = residuals
+        .iter()
+        .map(|r| r.rel_delta)
+        .fold(0.0_f64, f64::max);
+    let median_rel = {
+        let mut rels: Vec<f64> = residuals.iter().map(|r| r.rel_delta).collect();
+        rels.sort_by(f64::total_cmp);
+        if rels.len().is_multiple_of(2) {
+            f64::midpoint(rels[rels.len() / 2 - 1], rels[rels.len() / 2])
+        } else {
+            rels[rels.len() / 2]
+        }
+    };
+    let mean_signed = residuals.iter().map(|r| r.delta_b).sum::<f64>() / n_nuclei as f64;
+
+    println!("  ┌─────────────────────────────────────────────────┐");
+    println!("  │  GLOBAL ACCURACY METRICS                        │");
+    println!("  ├─────────────────────────────────────────────────┤");
+    println!("  │  RMS deviation:        {rms:>10.4} MeV             │");
+    println!("  │  Mean absolute error:  {mae:>10.4} MeV             │");
+    println!("  │  Max absolute error:   {max_err:>10.4} MeV             │");
+    println!("  │  Mean signed error:    {mean_signed:>10.4} MeV (bias)      │");
+    println!("  │                                                 │");
+    println!("  │  Mean |ΔB/B|:          {mean_rel:>12.6e}             │");
+    println!("  │  Median |ΔB/B|:        {median_rel:>12.6e}             │");
+    println!("  │  Max |ΔB/B|:           {max_rel:>12.6e}             │");
+    println!("  │                                                 │");
+    println!("  │  Paper target:         ~1.0e-06 (relative)      │");
+    println!("  │  Our mean relative:    {mean_rel:>12.6e}             │");
+    println!(
+        "  │  Gap to paper:         {:.1}× (orders of mag)   │",
+        (mean_rel / 1.0e-6).log10()
+    );
+    println!("  └─────────────────────────────────────────────────┘");
+
+    let thresholds = [1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 5e-2, 1e-1];
+    println!();
+    println!("  Relative accuracy |ΔB/B| distribution:");
+    for &thresh in &thresholds {
+        let count = residuals.iter().filter(|r| r.rel_delta < thresh).count();
+        let pct = 100.0 * count as f64 / n_nuclei as f64;
+        let bar = "█".repeat((pct / 2.0) as usize);
+        println!("    < {thresh:.0e}: {count:>4}/{n_nuclei} ({pct:>5.1}%) {bar}");
+    }
+    let abs_thresholds = [0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0];
+    println!();
+    println!("  Absolute accuracy |ΔB| distribution:");
+    for &thresh in &abs_thresholds {
+        let count = residuals.iter().filter(|r| r.abs_delta < thresh).count();
+        let pct = 100.0 * count as f64 / n_nuclei as f64;
+        let bar = "█".repeat((pct / 2.0) as usize);
+        println!("    < {thresh:>5.1} MeV: {count:>4}/{n_nuclei} ({pct:>5.1}%) {bar}");
+    }
+
+    let regions: Vec<(&str, Box<dyn Fn(&NucleusResidual) -> bool>)> = vec![
+        ("Light A<50", Box::new(|r: &NucleusResidual| r.a < 50)),
+        (
+            "Medium 50-100",
+            Box::new(|r: &NucleusResidual| r.a >= 50 && r.a < 100),
+        ),
+        (
+            "Heavy 100-200",
+            Box::new(|r: &NucleusResidual| r.a >= 100 && r.a < 200),
+        ),
+        (
+            "Very heavy 200+",
+            Box::new(|r: &NucleusResidual| r.a >= 200),
+        ),
+    ];
+    println!();
+    println!("  Accuracy by mass region:");
+    println!(
+        "  {:>12} {:>6} {:>10} {:>10} {:>12} {:>10}",
+        "Region", "Count", "RMS(MeV)", "MAE(MeV)", "Mean|ΔB/B|", "χ²/datum"
+    );
+    for (label, pred) in &regions {
+        let group: Vec<&NucleusResidual> = residuals.iter().filter(|r| pred(r)).collect();
+        if group.is_empty() {
+            continue;
+        }
+        let ng = group.len() as f64;
+        let g_rms = (group.iter().map(|r| r.delta_b.powi(2)).sum::<f64>() / ng).sqrt();
+        let g_mae = group.iter().map(|r| r.abs_delta).sum::<f64>() / ng;
+        let g_rel = group.iter().map(|r| r.rel_delta).sum::<f64>() / ng;
+        let g_chi2 = group.iter().map(|r| r.chi2_i).sum::<f64>() / ng;
+        println!(
+            "  {:>12} {:>6} {:>10.3} {:>10.3} {:>12.6e} {:>10.4}",
+            label,
+            group.len(),
+            g_rms,
+            g_mae,
+            g_rel,
+            g_chi2
+        );
+    }
+
+    let mut by_rel: Vec<&NucleusResidual> = residuals.iter().collect();
+    by_rel.sort_by(|a, b| a.rel_delta.total_cmp(&b.rel_delta));
+    println!();
+    println!("  Top 10 BEST-fitted nuclei (lowest |ΔB/B|):");
+    println!(
+        "  {:>6} {:>4} {:>4} {:>10} {:>10} {:>10} {:>12}",
+        "Nuclide", "Z", "N", "B_exp", "B_calc", "ΔB(MeV)", "|ΔB/B|"
+    );
+    for r in by_rel.iter().take(10) {
+        println!(
+            "  {:>3}-{:<3} {:>4} {:>4} {:>10.3} {:>10.3} {:>+10.3} {:>12.6e}",
+            r.element, r.a, r.z, r.n, r.b_exp, r.b_calc, r.delta_b, r.rel_delta
+        );
+    }
+
+    by_rel.reverse();
+    println!();
+    println!("  Top 10 WORST-fitted nuclei (highest |ΔB/B|):");
+    println!(
+        "  {:>6} {:>4} {:>4} {:>10} {:>10} {:>10} {:>12}",
+        "Nuclide", "Z", "N", "B_exp", "B_calc", "ΔB(MeV)", "|ΔB/B|"
+    );
+    for r in by_rel.iter().take(10) {
+        println!(
+            "  {:>3}-{:<3} {:>4} {:>4} {:>10.3} {:>10.3} {:>+10.3} {:>12.6e}",
+            r.element, r.a, r.z, r.n, r.b_exp, r.b_calc, r.delta_b, r.rel_delta
+        );
+    }
+
+    let mut by_abs: Vec<&NucleusResidual> = residuals.iter().collect();
+    by_abs.sort_by(|a, b| b.abs_delta.total_cmp(&a.abs_delta));
+    println!();
+    println!("  Top 10 largest |ΔB| (MeV):");
+    println!(
+        "  {:>6} {:>4} {:>4} {:>10} {:>10} {:>10} {:>10}",
+        "Nuclide", "Z", "N", "B_exp", "B_calc", "ΔB(MeV)", "χ²_i"
+    );
+    for r in by_abs.iter().take(10) {
+        println!(
+            "  {:>3}-{:<3} {:>4} {:>4} {:>10.3} {:>10.3} {:>+10.3} {:>10.4}",
+            r.element, r.a, r.z, r.n, r.b_exp, r.b_calc, r.delta_b, r.chi2_i
+        );
+    }
+
+    println!();
+    println!("═══════════════════════════════════════════════════════════════");
+    println!("  SEMF MODEL CAPABILITY vs PAPER TARGET");
+    println!("═══════════════════════════════════════════════════════════════");
+    println!();
+    println!("  This analysis distinguishes OPTIMIZATION accuracy from MODEL accuracy.");
+    println!("  The SEMF (Bethe-Weizsäcker) is a 5-term mass formula.");
+    println!("  Published SEMF fits achieve RMS ~2-3 MeV.");
+    println!("  Paper-level (~10^-6 relative) requires HFB-level physics:");
+    println!("    - HFB mass tables (Goriely et al.): RMS ~0.5-0.7 MeV");
+    println!("    - DFT/Fayans: RMS ~0.3 MeV for select nuclei");
+    println!("    - For B~1000 MeV, 10^-6 = 0.001 MeV = 1 keV");
+    println!();
+    print_semf_capability_analysis(rms, best_chi2, mean_rel);
+
+    print_best_parameters(best_x);
+
+    let results_dir = base.join("results");
+    std::fs::create_dir_all(&results_dir).ok();
+
+    let per_nucleus_json: Vec<serde_json::Value> = residuals
+        .iter()
+        .map(|r| {
+            serde_json::json!({
+                "element": r.element,
+                "Z": r.z, "N": r.n, "A": r.a,
+                "B_exp_MeV": r.b_exp,
+                "B_calc_MeV": r.b_calc,
+                "delta_B_MeV": r.delta_b,
+                "abs_delta_MeV": r.abs_delta,
+                "relative_accuracy": r.rel_delta,
+                "chi2_contribution": r.chi2_i,
+            })
+        })
+        .collect();
+
+    let result_json = serde_json::json!({
+        "level": 1,
+        "engine": "barracuda::native_revalidation_v2",
+        "barracuda_version": "phase5_evolved",
+        "run_date": "2026-02-13",
+        "seed": base_seed,
+        "approach1_sparsity_native_autosmooth": {
+            "chi2_per_datum": chi2_1,
+            "log_chi2": approach1_f,
+            "total_evals": approach1_evals,
+            "time_seconds": approach1_time,
+            "auto_smoothing": true,
+            "penalty_filter": "AdaptiveMAD(5.0)",
+        },
+        "approach2_native_direct_sampler": {
+            "chi2_per_datum": chi2_2,
+            "log_chi2": result2.f_best,
+            "total_evals": approach2_evals,
+            "early_stopped": result2.early_stopped,
+            "n_rounds": result2.rounds.len(),
+        },
+        "accuracy_metrics": {
+            "rms_MeV": rms,
+            "mae_MeV": mae,
+            "max_error_MeV": max_err,
+            "mean_signed_error_MeV": mean_signed,
+            "mean_relative_accuracy": mean_rel,
+            "median_relative_accuracy": median_rel,
+            "max_relative_accuracy": max_rel,
+            "n_nuclei": n_nuclei,
+            "chi2_per_datum": best_chi2,
+        },
+        "paper_comparison": {
+            "paper_target_relative": 1.0e-6,
+            "our_mean_relative": mean_rel,
+            "gap_orders_of_magnitude": (mean_rel / 1.0e-6).log10(),
+            "semf_theoretical_limit_MeV": 2.0,
+            "hfb_theoretical_limit_MeV": 0.5,
+            "notes": "SEMF is a 5-term model; 10^-6 requires HFB+ physics"
+        },
+        "best_parameters": {
+            "names": PARAM_NAMES.to_vec(),
+            "values": best_x.to_vec(),
+        },
+        "per_nucleus": per_nucleus_json,
+        "references": {
+            "python_scipy": {
+                "chi2_per_datum": provenance::L1_PYTHON_CHI2.value,
+                "evals": provenance::L1_PYTHON_CANDIDATES.value,
+            },
+            "previous_barracuda_best": { "chi2_per_datum": 0.7971, "evals": 64 },
+        },
+    });
+    let path = results_dir.join("barracuda_l1_deep_analysis.json");
+    std::fs::write(
+        &path,
+        serde_json::to_string_pretty(&result_json).expect("JSON serialize"),
+    )
+    .ok();
+    println!("\n  Full results saved to: {}", path.display());
 }
 
 fn parse_args() -> CliArgs {
@@ -82,19 +544,6 @@ fn parse_args() -> CliArgs {
 }
 
 fn main() {
-    struct NucleusResidual {
-        z: usize,
-        n: usize,
-        a: usize,
-        element: String,
-        b_exp: f64,
-        b_calc: f64,
-        delta_b: f64,   // B_calc - B_exp (MeV)
-        abs_delta: f64, // |ΔB| (MeV)
-        rel_delta: f64, // |ΔB/B_exp|
-        chi2_i: f64,    // per-nucleus chi² contribution
-        _sigma: f64,
-    }
     let cli = parse_args();
     let base_seed = cli.seed;
     let lambda = cli.lambda;
@@ -319,445 +768,47 @@ fn main() {
         provenance::print_nmp_analysis(&nmp);
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // COMPARISON SUMMARY
-    // ═══════════════════════════════════════════════════════════════
     println!();
     println!("═══════════════════════════════════════════════════════════════");
     println!("  COMPARISON SUMMARY");
     println!("═══════════════════════════════════════════════════════════════");
     println!();
-    println!(
-        "  {:40} {:>10} {:>8} {:>8}",
-        "Method", "χ²/datum", "Evals", "Time"
-    );
-    println!(
-        "  {:40} {:>10} {:>8} {:>8}",
-        "─".repeat(40),
-        "─".repeat(10),
-        "─".repeat(8),
-        "─".repeat(8)
-    );
-    println!(
-        "  {:40} {:>10.4} {:>8} {:>7.2}s",
-        "SparsitySampler + NativeAutoSmooth", chi2_1, approach1_evals, approach1_time
-    );
-    println!(
-        "  {:40} {:>10.4} {:>8} {:>7.2}s",
-        "Native DirectSampler", chi2_2, approach2_evals, approach2_time
-    );
-    println!(
-        "  {:40} {:>10.4} {:>8} {:>8}",
-        "Python/scipy control (reference)",
-        provenance::L1_PYTHON_CHI2.value,
-        provenance::L1_PYTHON_CANDIDATES.value,
-        "~180s"
-    );
-    println!(
-        "  {:40} {:>10.4} {:>8} {:>8}",
-        "Previous BarraCUDA best (manual smooth)", 1.19, 164, "0.25s"
-    );
-    println!();
-
     let better = chi2_1.min(chi2_2);
-    if better < provenance::L1_PYTHON_CHI2.value {
-        let fewer = provenance::L1_PYTHON_CANDIDATES.value
-            / (approach1_evals.min(approach2_evals).max(1) as f64);
-        println!(
-            "  ✅ BarraCUDA BEATS Python by {:.1}%",
-            100.0 * (provenance::L1_PYTHON_CHI2.value - better) / provenance::L1_PYTHON_CHI2.value
-        );
-        if fewer > 1.0 {
-            println!("     with {fewer:.0}× fewer evaluations");
-        }
-    } else {
-        println!(
-            "  ⚠ BarraCUDA behind Python by {:.1}% — needs more tuning",
-            100.0 * (better - provenance::L1_PYTHON_CHI2.value) / provenance::L1_PYTHON_CHI2.value
-        );
-    }
+    print_comparison_summary(
+        chi2_1,
+        approach1_evals,
+        approach1_time,
+        chi2_2,
+        approach2_evals,
+        approach2_time,
+        better,
+    );
 
-    // ═══════════════════════════════════════════════════════════════
-    // REFERENCE BASELINES: SLy4 and UNEDF0
-    // ═══════════════════════════════════════════════════════════════
     println!();
     println!("═══════════════════════════════════════════════════════════════");
     println!("  REFERENCE BASELINES — Published Parametrizations");
     println!("═══════════════════════════════════════════════════════════════");
     println!();
+    print_reference_baselines(&exp_data, lambda);
 
-    for (name, params) in &[
-        ("SLy4", provenance::SLY4_PARAMS.as_slice()),
-        ("UNEDF0", UNEDF0_PARAMS.as_slice()),
-    ] {
-        let be_chi2 = compute_be_chi2_only(params, &exp_data);
-        if let Some(nmp) = nuclear_matter_properties(params) {
-            let nmp_c2 = provenance::nmp_chi2_from_props(&nmp) / 5.0;
-            println!("  {name} (published):");
-            println!("    chi2_BE/datum:  {be_chi2:.4}");
-            println!("    chi2_NMP/datum: {nmp_c2:.4}");
-            println!(
-                "    chi2_total (lambda={}): {:.4}",
-                lambda,
-                lambda.mul_add(nmp_c2, be_chi2)
-            );
-            provenance::print_nmp_analysis(&nmp);
-            println!();
-        } else {
-            println!("  {name} — NMP computation failed (params outside bisection range)");
-            println!();
-        }
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // DEEP RESIDUAL ANALYSIS — per-nucleus accuracy vs paper ~10^-6
-    // ═══════════════════════════════════════════════════════════════
     println!();
     println!("═══════════════════════════════════════════════════════════════");
     println!("  DEEP RESIDUAL ANALYSIS — Paper Accuracy Comparison");
     println!("═══════════════════════════════════════════════════════════════");
     println!();
-
-    let nuclei_set = data::parse_nuclei_set_from_args();
-    let nuclei_path = data::nuclei_data_path(&base, nuclei_set);
-    let nuclei_reader = std::io::BufReader::new(
-        std::fs::File::open(&nuclei_path).expect("Failed to open nuclei JSON"),
+    run_deep_residual_analysis(
+        &base,
+        best_x,
+        best_chi2,
+        chi2_1,
+        approach1_evals,
+        approach1_time,
+        approach1_f,
+        chi2_2,
+        approach2_evals,
+        &result2,
+        base_seed,
     );
-    let nuclei_file: serde_json::Value =
-        serde_json::from_reader(nuclei_reader).expect("nuclei JSON parse failed");
-    let nuclei_list = nuclei_file["nuclei"]
-        .as_array()
-        .expect("nuclei JSON has nuclei array");
-
-    let mut residuals: Vec<NucleusResidual> = Vec::new();
-    for nuc in nuclei_list {
-        let z = nuc["Z"].as_u64().expect("nucleus Z") as usize;
-        let n = nuc["N"].as_u64().expect("nucleus N") as usize;
-        let a = nuc["A"].as_u64().expect("nucleus A") as usize;
-        let element = nuc["element"]
-            .as_str()
-            .expect("nucleus element")
-            .to_string();
-        let b_exp = nuc["binding_energy_MeV"]
-            .as_f64()
-            .expect("nucleus binding_energy_MeV");
-
-        let b_calc = semf_binding_energy(z, n, best_x);
-        if b_calc > 0.0 {
-            let delta_b = b_calc - b_exp;
-            let sigma = tolerances::sigma_theo(b_exp);
-            residuals.push(NucleusResidual {
-                z,
-                n,
-                a,
-                element,
-                b_exp,
-                b_calc,
-                delta_b,
-                abs_delta: delta_b.abs(),
-                rel_delta: (delta_b / b_exp).abs(),
-                chi2_i: (delta_b / sigma).powi(2),
-                _sigma: sigma,
-            });
-        }
-    }
-
-    let n_nuclei = residuals.len();
-    println!("  Nuclei fitted: {n_nuclei}");
-    println!();
-
-    // Global statistics
-    let rms = (residuals.iter().map(|r| r.delta_b.powi(2)).sum::<f64>() / n_nuclei as f64).sqrt();
-    let mae = residuals.iter().map(|r| r.abs_delta).sum::<f64>() / n_nuclei as f64;
-    let max_err = residuals
-        .iter()
-        .map(|r| r.abs_delta)
-        .fold(0.0_f64, f64::max);
-    let mean_rel = residuals.iter().map(|r| r.rel_delta).sum::<f64>() / n_nuclei as f64;
-    let max_rel = residuals
-        .iter()
-        .map(|r| r.rel_delta)
-        .fold(0.0_f64, f64::max);
-    let median_rel = {
-        let mut rels: Vec<f64> = residuals.iter().map(|r| r.rel_delta).collect();
-        rels.sort_by(f64::total_cmp);
-        if rels.len().is_multiple_of(2) {
-            f64::midpoint(rels[rels.len() / 2 - 1], rels[rels.len() / 2])
-        } else {
-            rels[rels.len() / 2]
-        }
-    };
-    let mean_signed = residuals.iter().map(|r| r.delta_b).sum::<f64>() / n_nuclei as f64;
-
-    println!("  ┌─────────────────────────────────────────────────┐");
-    println!("  │  GLOBAL ACCURACY METRICS                        │");
-    println!("  ├─────────────────────────────────────────────────┤");
-    println!("  │  RMS deviation:        {rms:>10.4} MeV             │");
-    println!("  │  Mean absolute error:  {mae:>10.4} MeV             │");
-    println!("  │  Max absolute error:   {max_err:>10.4} MeV             │");
-    println!("  │  Mean signed error:    {mean_signed:>10.4} MeV (bias)      │");
-    println!("  │                                                 │");
-    println!("  │  Mean |ΔB/B|:          {mean_rel:>12.6e}             │");
-    println!("  │  Median |ΔB/B|:        {median_rel:>12.6e}             │");
-    println!("  │  Max |ΔB/B|:           {max_rel:>12.6e}             │");
-    println!("  │                                                 │");
-    println!("  │  Paper target:         ~1.0e-06 (relative)      │");
-    println!("  │  Our mean relative:    {mean_rel:>12.6e}             │");
-    println!(
-        "  │  Gap to paper:         {:.1}× (orders of mag)   │",
-        (mean_rel / 1.0e-6).log10()
-    );
-    println!("  └─────────────────────────────────────────────────┘");
-
-    // Relative accuracy distribution
-    println!();
-    println!("  Relative accuracy |ΔB/B| distribution:");
-    let thresholds = [1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 5e-2, 1e-1];
-    for &thresh in &thresholds {
-        let count = residuals.iter().filter(|r| r.rel_delta < thresh).count();
-        let pct = 100.0 * count as f64 / n_nuclei as f64;
-        let bar = "█".repeat((pct / 2.0) as usize);
-        println!("    < {thresh:.0e}: {count:>4}/{n_nuclei} ({pct:>5.1}%) {bar}");
-    }
-
-    // Absolute accuracy distribution (MeV)
-    println!();
-    println!("  Absolute accuracy |ΔB| distribution:");
-    let abs_thresholds = [0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0];
-    for &thresh in &abs_thresholds {
-        let count = residuals.iter().filter(|r| r.abs_delta < thresh).count();
-        let pct = 100.0 * count as f64 / n_nuclei as f64;
-        let bar = "█".repeat((pct / 2.0) as usize);
-        println!("    < {thresh:>5.1} MeV: {count:>4}/{n_nuclei} ({pct:>5.1}%) {bar}");
-    }
-
-    // Accuracy by mass region
-    println!();
-    println!("  Accuracy by mass region:");
-    println!(
-        "  {:>12} {:>6} {:>10} {:>10} {:>12} {:>10}",
-        "Region", "Count", "RMS(MeV)", "MAE(MeV)", "Mean|ΔB/B|", "χ²/datum"
-    );
-
-    let regions: Vec<(&str, Box<dyn Fn(&NucleusResidual) -> bool>)> = vec![
-        ("Light A<50", Box::new(|r: &NucleusResidual| r.a < 50)),
-        (
-            "Medium 50-100",
-            Box::new(|r: &NucleusResidual| r.a >= 50 && r.a < 100),
-        ),
-        (
-            "Heavy 100-200",
-            Box::new(|r: &NucleusResidual| r.a >= 100 && r.a < 200),
-        ),
-        (
-            "Very heavy 200+",
-            Box::new(|r: &NucleusResidual| r.a >= 200),
-        ),
-    ];
-    for (label, pred) in &regions {
-        let group: Vec<&NucleusResidual> = residuals.iter().filter(|r| pred(r)).collect();
-        if group.is_empty() {
-            continue;
-        }
-        let ng = group.len() as f64;
-        let g_rms = (group.iter().map(|r| r.delta_b.powi(2)).sum::<f64>() / ng).sqrt();
-        let g_mae = group.iter().map(|r| r.abs_delta).sum::<f64>() / ng;
-        let g_rel = group.iter().map(|r| r.rel_delta).sum::<f64>() / ng;
-        let g_chi2 = group.iter().map(|r| r.chi2_i).sum::<f64>() / ng;
-        println!(
-            "  {:>12} {:>6} {:>10.3} {:>10.3} {:>12.6e} {:>10.4}",
-            label,
-            group.len(),
-            g_rms,
-            g_mae,
-            g_rel,
-            g_chi2
-        );
-    }
-
-    // Top 10 best-fitted nuclei
-    let mut by_rel: Vec<&NucleusResidual> = residuals.iter().collect();
-    by_rel.sort_by(|a, b| a.rel_delta.total_cmp(&b.rel_delta));
-    println!();
-    println!("  Top 10 BEST-fitted nuclei (lowest |ΔB/B|):");
-    println!(
-        "  {:>6} {:>4} {:>4} {:>10} {:>10} {:>10} {:>12}",
-        "Nuclide", "Z", "N", "B_exp", "B_calc", "ΔB(MeV)", "|ΔB/B|"
-    );
-    for r in by_rel.iter().take(10) {
-        println!(
-            "  {:>3}-{:<3} {:>4} {:>4} {:>10.3} {:>10.3} {:>+10.3} {:>12.6e}",
-            r.element, r.a, r.z, r.n, r.b_exp, r.b_calc, r.delta_b, r.rel_delta
-        );
-    }
-
-    // Top 10 worst-fitted nuclei
-    by_rel.reverse();
-    println!();
-    println!("  Top 10 WORST-fitted nuclei (highest |ΔB/B|):");
-    println!(
-        "  {:>6} {:>4} {:>4} {:>10} {:>10} {:>10} {:>12}",
-        "Nuclide", "Z", "N", "B_exp", "B_calc", "ΔB(MeV)", "|ΔB/B|"
-    );
-    for r in by_rel.iter().take(10) {
-        println!(
-            "  {:>3}-{:<3} {:>4} {:>4} {:>10.3} {:>10.3} {:>+10.3} {:>12.6e}",
-            r.element, r.a, r.z, r.n, r.b_exp, r.b_calc, r.delta_b, r.rel_delta
-        );
-    }
-
-    // Top 10 by absolute MeV error
-    let mut by_abs: Vec<&NucleusResidual> = residuals.iter().collect();
-    by_abs.sort_by(|a, b| b.abs_delta.total_cmp(&a.abs_delta));
-    println!();
-    println!("  Top 10 largest |ΔB| (MeV):");
-    println!(
-        "  {:>6} {:>4} {:>4} {:>10} {:>10} {:>10} {:>10}",
-        "Nuclide", "Z", "N", "B_exp", "B_calc", "ΔB(MeV)", "χ²_i"
-    );
-    for r in by_abs.iter().take(10) {
-        println!(
-            "  {:>3}-{:<3} {:>4} {:>4} {:>10.3} {:>10.3} {:>+10.3} {:>10.4}",
-            r.element, r.a, r.z, r.n, r.b_exp, r.b_calc, r.delta_b, r.chi2_i
-        );
-    }
-
-    // SEMF model capability analysis
-    println!();
-    println!("═══════════════════════════════════════════════════════════════");
-    println!("  SEMF MODEL CAPABILITY vs PAPER TARGET");
-    println!("═══════════════════════════════════════════════════════════════");
-    println!();
-    println!("  This analysis distinguishes OPTIMIZATION accuracy from MODEL accuracy.");
-    println!("  The SEMF (Bethe-Weizsäcker) is a 5-term mass formula.");
-    println!("  Published SEMF fits achieve RMS ~2-3 MeV.");
-    println!("  Paper-level (~10^-6 relative) requires HFB-level physics:");
-    println!("    - HFB mass tables (Goriely et al.): RMS ~0.5-0.7 MeV");
-    println!("    - DFT/Fayans: RMS ~0.3 MeV for select nuclei");
-    println!("    - For B~1000 MeV, 10^-6 = 0.001 MeV = 1 keV");
-    println!();
-    println!("  Our SEMF results:");
-    println!("    RMS     = {rms:.4} MeV");
-    println!("    χ²/datum = {best_chi2:.4} (with σ_theo = max(1%·B, 2 MeV))");
-    println!();
-
-    if rms < 3.0 {
-        println!("  VERDICT: SEMF optimized to NEAR-THEORETICAL-LIMIT.");
-        println!("    - Our RMS {rms:.2} MeV is competitive with published SEMF fits.");
-        println!("    - χ²/datum < 1.0 means we fit WITHIN assumed uncertainties.");
-    } else if rms < 5.0 {
-        println!("  VERDICT: Good SEMF fit, room for minor coefficient improvement.");
-    } else {
-        println!("  VERDICT: SEMF fit sub-optimal, optimizer may need more budget.");
-    }
-    println!();
-    println!("  To reach paper-level ~10^-6 accuracy:");
-    println!(
-        "    - Current gap: {:.1} orders of magnitude",
-        (mean_rel / 1.0e-6).log10()
-    );
-    println!("    - Requires: L2 (HFB) physics solver, not SEMF");
-    println!(
-        "    - SEMF theoretical floor: ~{:.1} MeV RMS (~{:.1e} relative for A=200)",
-        rms.max(2.0),
-        rms.max(2.0) / 1700.0
-    );
-    println!("    - HFB theoretical floor: ~0.5 MeV RMS (~3e-4 relative)");
-    println!("    - Paper target of 10^-6: requires beyond-HFB corrections");
-    println!("      (e.g., Wigner, rotational, shape coexistence)");
-
-    // Parameter dump
-    println!();
-    println!("  Best Skyrme parameters:");
-    let param_names = [
-        "t0", "t1", "t2", "t3", "x0", "x1", "x2", "x3", "alpha", "W0",
-    ];
-    for (i, name) in param_names.iter().enumerate() {
-        if i < best_x.len() {
-            println!("    {:>6} = {:>14.6}", name, best_x[i]);
-        }
-    }
-
-    // Save enhanced results
-    let results_dir = base.join("results");
-    std::fs::create_dir_all(&results_dir).ok();
-
-    let per_nucleus_json: Vec<serde_json::Value> = residuals
-        .iter()
-        .map(|r| {
-            serde_json::json!({
-                "element": r.element,
-                "Z": r.z, "N": r.n, "A": r.a,
-                "B_exp_MeV": r.b_exp,
-                "B_calc_MeV": r.b_calc,
-                "delta_B_MeV": r.delta_b,
-                "abs_delta_MeV": r.abs_delta,
-                "relative_accuracy": r.rel_delta,
-                "chi2_contribution": r.chi2_i,
-            })
-        })
-        .collect();
-
-    let result_json = serde_json::json!({
-        "level": 1,
-        "engine": "barracuda::native_revalidation_v2",
-        "barracuda_version": "phase5_evolved",
-        "run_date": "2026-02-13",
-        "seed": base_seed,
-        "approach1_sparsity_native_autosmooth": {
-            "chi2_per_datum": chi2_1,
-            "log_chi2": approach1_f,
-            "total_evals": approach1_evals,
-            "time_seconds": approach1_time,
-            "auto_smoothing": true,
-            "penalty_filter": "AdaptiveMAD(5.0)",
-        },
-        "approach2_native_direct_sampler": {
-            "chi2_per_datum": chi2_2,
-            "log_chi2": approach2_f,
-            "total_evals": approach2_evals,
-            "early_stopped": result2.early_stopped,
-            "n_rounds": result2.rounds.len(),
-        },
-        "accuracy_metrics": {
-            "rms_MeV": rms,
-            "mae_MeV": mae,
-            "max_error_MeV": max_err,
-            "mean_signed_error_MeV": mean_signed,
-            "mean_relative_accuracy": mean_rel,
-            "median_relative_accuracy": median_rel,
-            "max_relative_accuracy": max_rel,
-            "n_nuclei": n_nuclei,
-            "chi2_per_datum": best_chi2,
-        },
-        "paper_comparison": {
-            "paper_target_relative": 1.0e-6,
-            "our_mean_relative": mean_rel,
-            "gap_orders_of_magnitude": (mean_rel / 1.0e-6).log10(),
-            "semf_theoretical_limit_MeV": 2.0,
-            "hfb_theoretical_limit_MeV": 0.5,
-            "notes": "SEMF is a 5-term model; 10^-6 requires HFB+ physics"
-        },
-        "best_parameters": {
-            "names": param_names.to_vec(),
-            "values": best_x.clone(),
-        },
-        "per_nucleus": per_nucleus_json,
-        "references": {
-            "python_scipy": {
-                "chi2_per_datum": provenance::L1_PYTHON_CHI2.value,
-                "evals": provenance::L1_PYTHON_CANDIDATES.value,
-            },
-            "previous_barracuda_best": { "chi2_per_datum": 0.7971, "evals": 64 },
-        },
-    });
-    let path = results_dir.join("barracuda_l1_deep_analysis.json");
-    std::fs::write(
-        &path,
-        serde_json::to_string_pretty(&result_json).expect("JSON serialize"),
-    )
-    .ok();
-    println!("\n  Full results saved to: {}", path.display());
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -847,18 +898,9 @@ fn run_multi_seed(base_seed: u64, n_seeds: usize, lambda: f64) {
     let nmp_vals: Vec<f64> = results.iter().map(|r| r.direct_chi2_nmp).collect();
     let j_vals: Vec<f64> = results.iter().map(|r| r.direct_j).collect();
 
-    let be_mean = be_vals.iter().sum::<f64>() / n_seeds as f64;
-    let be_std = (be_vals.iter().map(|v| (v - be_mean).powi(2)).sum::<f64>()
-        / (n_seeds as f64 - 1.0).max(1.0))
-    .sqrt();
-    let nmp_mean = nmp_vals.iter().sum::<f64>() / n_seeds as f64;
-    let nmp_std = (nmp_vals.iter().map(|v| (v - nmp_mean).powi(2)).sum::<f64>()
-        / (n_seeds as f64 - 1.0).max(1.0))
-    .sqrt();
-    let j_mean = j_vals.iter().sum::<f64>() / n_seeds as f64;
-    let j_std = (j_vals.iter().map(|v| (v - j_mean).powi(2)).sum::<f64>()
-        / (n_seeds as f64 - 1.0).max(1.0))
-    .sqrt();
+    let (be_mean, be_std) = compute_mean_std(&be_vals);
+    let (nmp_mean, nmp_std) = compute_mean_std(&nmp_vals);
+    let (j_mean, j_std) = compute_mean_std(&j_vals);
 
     println!();
     println!("  chi2_BE/datum:  {be_mean:.4} +/- {be_std:.4}");
@@ -1023,19 +1065,10 @@ fn run_pareto_sweep(base_seed: u64) {
         }
 
         let elapsed = t0.elapsed().as_secs_f64();
-        let n = n_seeds_per_lambda as f64;
-        let be_mean = be_vals.iter().sum::<f64>() / n;
-        let be_std = (be_vals.iter().map(|v| (v - be_mean).powi(2)).sum::<f64>()
-            / (n - 1.0).max(1.0))
-        .sqrt();
-        let nmp_mean = nmp_vals.iter().sum::<f64>() / n;
-        let nmp_std = (nmp_vals.iter().map(|v| (v - nmp_mean).powi(2)).sum::<f64>()
-            / (n - 1.0).max(1.0))
-        .sqrt();
-        let j_mean = j_vals.iter().sum::<f64>() / n;
-        let j_std =
-            (j_vals.iter().map(|v| (v - j_mean).powi(2)).sum::<f64>() / (n - 1.0).max(1.0)).sqrt();
-        let rms_mean = rms_vals.iter().sum::<f64>() / n;
+        let (be_mean, be_std) = compute_mean_std(&be_vals);
+        let (nmp_mean, nmp_std) = compute_mean_std(&nmp_vals);
+        let (j_mean, j_std) = compute_mean_std(&j_vals);
+        let rms_mean = rms_vals.iter().sum::<f64>() / rms_vals.len() as f64;
 
         println!("  lambda={lam:>5.0}: chi2_BE={be_mean:.4}+/-{be_std:.4}, chi2_NMP={nmp_mean:.4}+/-{nmp_std:.4}, J={j_mean:.1}+/-{j_std:.1}, RMS={rms_mean:.2}MeV, 2sigma={within_2s}/{n_seeds_per_lambda} [{elapsed:.1}s]");
 

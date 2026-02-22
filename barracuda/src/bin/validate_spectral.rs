@@ -178,7 +178,7 @@ fn check_almost_mathieu_bounds(harness: &mut ValidationHarness) {
     let (d, e) = spectral::almost_mathieu_hamiltonian(n, lambda, spectral::GOLDEN_RATIO, 0.0);
     let evals = spectral::find_all_eigenvalues(&d, &e);
 
-    let bound = 2.0 + 2.0 * lambda;
+    let bound = 2.0f64.mul_add(lambda, 2.0);
     let all_bounded = evals.iter().all(|&ev| ev.abs() <= bound + 0.01);
     let min_ev = evals.first().copied().unwrap_or(0.0);
     let max_ev = evals.last().copied().unwrap_or(0.0);

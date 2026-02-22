@@ -40,7 +40,7 @@ pub(crate) struct DensityParamsUniform {
 ///
 /// Alpha is passed as (numerator, denominator) to avoid bitcast issues
 /// in Naga's WGSL validator (`bitcast<f64>(vec2<u32>)` not yet supported).
-/// Alpha = f64(alpha_num) / f64(alpha_den). For typical values (0.3, 0.8),
+/// Alpha = `f64(alpha_num)` / `f64(alpha_den)`. For typical values (0.3, 0.8),
 /// this gives exact representation with integer ratios.
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
@@ -64,6 +64,13 @@ impl MixParamsUniform {
             alpha_den: den,
         }
     }
+}
+
+/// Encode f64 as (lo, hi) u32 pair for WGSL `bitcast<f64>(vec2<u32>(lo, hi))`.
+#[cfg(feature = "gpu_energy")]
+pub(crate) fn f64_to_u32_pair(x: f64) -> (u32, u32) {
+    let u: u64 = bytemuck::cast(x);
+    ((u & 0xFFFF_FFFF) as u32, (u >> 32) as u32)
 }
 
 /// Uniform for energy shader (group 0). Must match `EnergyParams` in WGSL.
@@ -172,8 +179,7 @@ pub(crate) fn make_pipeline(
 // Per-group GPU resources (pre-allocated once, reused across SCF)
 // ═══════════════════════════════════════════════════════════════════
 
-// EVOLUTION(GPU): Phase 4 energy fields (energy_*, e_pair_*) are feature-gated.
-// When gpu_energy is enabled, buffers exist but dispatches deferred until SumReduceF64 + kinetic kernel.
+// Energy pipeline (potential integrands + pairing) when gpu_energy feature is enabled.
 pub(crate) struct GroupResources {
     pub ns: usize,
     pub nr: usize,
@@ -238,22 +244,22 @@ pub(crate) struct GroupResources {
     pub rho_n_staging: wgpu::Buffer,
 
     #[cfg(feature = "gpu_energy")]
-    #[allow(dead_code)] // EVOLUTION: wired but not yet dispatched
-    pub energy_params_bg: wgpu::BindGroup,
+    pub energy_params_buf: wgpu::Buffer,
     #[cfg(feature = "gpu_energy")]
-    #[allow(dead_code)]
+    pub energy_integrands_bg: wgpu::BindGroup,
+    #[cfg(feature = "gpu_energy")]
     pub energy_pair_bg: wgpu::BindGroup,
     #[cfg(feature = "gpu_energy")]
-    #[allow(dead_code)]
+    pub energy_integrands_pipe: wgpu::ComputePipeline,
+    #[cfg(feature = "gpu_energy")]
+    pub pairing_energy_pipe: wgpu::ComputePipeline,
+    #[cfg(feature = "gpu_energy")]
     pub energy_integrands_buf: wgpu::Buffer,
     #[cfg(feature = "gpu_energy")]
-    #[allow(dead_code)]
     pub e_pair_buf: wgpu::Buffer,
     #[cfg(feature = "gpu_energy")]
-    #[allow(dead_code)]
     pub energy_staging: wgpu::Buffer,
     #[cfg(feature = "gpu_energy")]
-    #[allow(dead_code)]
     pub e_pair_staging: wgpu::Buffer,
 
     pub nr_wg: u32,
@@ -261,6 +267,7 @@ pub(crate) struct GroupResources {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 
@@ -339,5 +346,146 @@ mod tests {
         };
         assert_eq!(p.ns, 10);
         assert_eq!(std::mem::size_of::<PackParams>(), 32);
+    }
+
+    #[test]
+    fn potential_dims_uniform_zeroable() {
+        let z: PotentialDimsUniform = bytemuck::Zeroable::zeroed();
+        assert_eq!(z.nr, 0);
+        assert_eq!(z.batch_size, 0);
+    }
+
+    #[test]
+    fn hamiltonian_dims_uniform_zeroable() {
+        let z: HamiltonianDimsUniform = bytemuck::Zeroable::zeroed();
+        assert_eq!(z.n_states, 0);
+        assert_eq!(z.nr, 0);
+    }
+
+    #[test]
+    fn density_params_uniform_zeroable() {
+        let z: DensityParamsUniform = bytemuck::Zeroable::zeroed();
+        assert_eq!(z.n_states, 0);
+    }
+
+    #[test]
+    fn mix_params_uniform_zeroable() {
+        let z: MixParamsUniform = bytemuck::Zeroable::zeroed();
+        assert_eq!(z.total_size, 0);
+        assert_eq!(z.alpha_num, 0);
+    }
+
+    #[test]
+    fn energy_params_uniform_zeroable() {
+        let z: EnergyParamsUniform = bytemuck::Zeroable::zeroed();
+        assert_eq!(z.n_states, 0);
+    }
+
+    #[test]
+    fn pack_params_zeroable() {
+        let z: PackParams = bytemuck::Zeroable::zeroed();
+        assert_eq!(z.ns, 0);
+        assert_eq!(z.gns, 0);
+    }
+
+    #[test]
+    fn mix_params_uniform_various_alphas() {
+        let u = MixParamsUniform::new(64, 0.5);
+        let alpha = f64::from(u.alpha_num) / f64::from(u.alpha_den);
+        assert!((alpha - 0.5).abs() < 1e-6);
+
+        let u = MixParamsUniform::new(128, 0.8);
+        let alpha = f64::from(u.alpha_num) / f64::from(u.alpha_den);
+        assert!((alpha - 0.8).abs() < 1e-6);
+    }
+
+    // Non-zero construction with realistic HFB parameters
+    #[test]
+    fn potential_dims_uniform_realistic() {
+        let u = PotentialDimsUniform {
+            nr: 120,
+            batch_size: 10,
+        };
+        assert_eq!(u.nr, 120);
+        assert_eq!(u.batch_size, 10);
+        assert_eq!(std::mem::size_of::<PotentialDimsUniform>(), 8);
+    }
+
+    #[test]
+    fn hamiltonian_dims_uniform_realistic() {
+        let u = HamiltonianDimsUniform {
+            n_states: 30,
+            nr: 100,
+            batch_size: 18,
+            _pad: 0,
+        };
+        assert_eq!(u.n_states, 30);
+        assert_eq!(u.nr, 100);
+        assert_eq!(std::mem::size_of::<HamiltonianDimsUniform>(), 16);
+    }
+
+    #[test]
+    fn density_params_uniform_realistic() {
+        let u = DensityParamsUniform {
+            n_states: 30,
+            nr: 100,
+            batch_size: 18,
+            _pad: 0,
+        };
+        assert_eq!(u.n_states, 30);
+        assert_eq!(u.nr, 100);
+        assert_eq!(std::mem::size_of::<DensityParamsUniform>(), 16);
+    }
+
+    #[test]
+    fn energy_params_uniform_nonzero_layout() {
+        let u = EnergyParamsUniform {
+            n_states: 30,
+            nr: 100,
+            batch_size: 18,
+            _pad: 0,
+            t0_lo: 1,
+            t0_hi: 2,
+            t3_lo: 3,
+            t3_hi: 4,
+            x0_lo: 5,
+            x0_hi: 6,
+            x3_lo: 7,
+            x3_hi: 8,
+            alpha_lo: 9,
+            alpha_hi: 10,
+            dr_lo: 11,
+            dr_hi: 12,
+            hw_lo: 13,
+            hw_hi: 14,
+        };
+        assert_eq!(u.n_states, 30);
+        assert_eq!(u.t0_lo, 1);
+        assert_eq!(std::mem::size_of::<EnergyParamsUniform>(), 72);
+    }
+
+    #[test]
+    fn pack_params_realistic() {
+        let p = PackParams {
+            ns: 30,
+            gns: 15,
+            n_active: 25,
+            dst_start: 0,
+            dst_stride: 36,
+            _pad1: 0,
+            _pad2: 0,
+            _pad3: 0,
+        };
+        assert_eq!(p.ns, 30);
+        assert_eq!(p.gns, 15);
+        assert_eq!(std::mem::size_of::<PackParams>(), 32);
+    }
+
+    #[test]
+    fn mix_params_uniform_realistic_scf() {
+        let u = MixParamsUniform::new(120 * 2, 0.3);
+        assert_eq!(u.total_size, 240);
+        let alpha = f64::from(u.alpha_num) / f64::from(u.alpha_den);
+        assert!((alpha - 0.3).abs() < 1e-6);
     }
 }

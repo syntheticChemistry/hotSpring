@@ -3,19 +3,19 @@
 //! GPU BCS Bisection — hotSpring Nuclear HFB Implementation
 //!
 //! Solves batched BCS chemical-potential problems on GPU:
-//!   Find μ such that Σ_k deg_k · v²_k(μ) = N
+//!   Find μ such that `Σ_k` `deg_k` · `v²_k`(μ) = N
 //!
 //! This is hotSpring's domain-specific BCS solver with nuclear HFB features:
 //!   - `solve_bcs_with_degeneracy()` for shell-model level degeneracies (2j+1)
 //!   - Custom buffer layout matching nuclear physics conventions
 //!
 //! **Status (Feb 16 2026)**: The `target` → `target_val` WGSL keyword fix has
-//! been absorbed by ToadStool (commit `0c477306`). This local shader was always
+//! been absorbed by `ToadStool` (commit `0c477306`). This local shader was always
 //! correct (uses `target_n` for particle number). We retain the local copy for
-//! the domain-specific `use_degeneracy` feature that ToadStool's generic
+//! the domain-specific `use_degeneracy` feature that `ToadStool`'s generic
 //! `BatchedBisectionGpu` does not provide.
 //!
-//! Uses the same buffer layout and uniform struct as BarraCUDA's
+//! Uses the same buffer layout and uniform struct as `BarraCUDA`'s
 //! `BatchedBisectionGpu`, so results are directly comparable.
 
 use crate::gpu::GpuF64;
@@ -77,9 +77,10 @@ impl<'a> BcsBisectionGpu<'a> {
     /// Compiles the BCS WGSL shader and caches the compute pipeline.
     ///
     /// # Arguments
-    /// * `gpu` - hotSpring's GpuF64 device (has SHADER_F64)
+    /// * `gpu` - hotSpring's `GpuF64` device (has `SHADER_F64`)
     /// * `max_iterations` - Max bisection iterations per problem (50–100 typical)
     /// * `tolerance` - Convergence tolerance (1e-10 to 1e-14)
+    #[must_use]
     pub fn new(gpu: &'a GpuF64, max_iterations: u32, tolerance: f64) -> Self {
         let device = gpu.device();
         let shader_body = include_str!("shaders/bcs_bisection_f64.wgsl");
@@ -126,18 +127,18 @@ impl<'a> BcsBisectionGpu<'a> {
         }
     }
 
-    /// Solve BCS pairing: find μ where Σ v²_k(μ) = N.
+    /// Solve BCS pairing: find μ where Σ `v²_k`(μ) = N.
     ///
     /// # Errors
     ///
     /// Returns an error string if GPU buffer creation, dispatch, or readback fails.
     ///
     /// # Arguments
-    /// * `lower` - Lower bounds for μ \[batch_size\]
-    /// * `upper` - Upper bounds for μ \[batch_size\]
-    /// * `eigenvalues` - Single-particle energies \[batch_size × n_levels\]
-    /// * `delta` - Pairing gap per problem \[batch_size\]
-    /// * `target_n` - Target particle number per problem \[batch_size\]
+    /// * `lower` - Lower bounds for μ `[batch_size]`
+    /// * `upper` - Upper bounds for μ `[batch_size]`
+    /// * `eigenvalues` - Single-particle energies `[batch_size × n_levels]`
+    /// * `delta` - Pairing gap per problem `[batch_size]`
+    /// * `target_n` - Target particle number per problem `[batch_size]`
     pub fn solve_bcs(
         &self,
         lower: &[f64],
@@ -175,19 +176,19 @@ impl<'a> BcsBisectionGpu<'a> {
         )
     }
 
-    /// Solve BCS with level degeneracy (nuclear HFB: deg_k = 2j+1).
+    /// Solve BCS with level degeneracy (nuclear HFB: `deg_k` = 2j+1).
     ///
     /// # Errors
     ///
     /// Returns an error string if GPU buffer creation, dispatch, or readback fails.
     ///
     /// # Arguments
-    /// * `lower` - Lower bounds for μ \[batch_size\]
-    /// * `upper` - Upper bounds for μ \[batch_size\]
-    /// * `eigenvalues` - Energy levels \[batch_size × n_levels\]
-    /// * `degeneracies` - Degeneracy per level \[batch_size × n_levels\]
-    /// * `delta` - Pairing gap per problem \[batch_size\]
-    /// * `target_n` - Target particle number per problem \[batch_size\]
+    /// * `lower` - Lower bounds for μ `[batch_size]`
+    /// * `upper` - Upper bounds for μ `[batch_size]`
+    /// * `eigenvalues` - Energy levels `[batch_size × n_levels]`
+    /// * `degeneracies` - Degeneracy per level `[batch_size × n_levels]`
+    /// * `delta` - Pairing gap per problem `[batch_size]`
+    /// * `target_n` - Target particle number per problem `[batch_size]`
     pub fn solve_bcs_with_degeneracy(
         &self,
         lower: &[f64],
@@ -229,6 +230,7 @@ impl<'a> BcsBisectionGpu<'a> {
         )
     }
 
+    #[allow(clippy::cast_possible_truncation)] // BCS batch_size ≤ 128, n_levels ≤ 30
     fn dispatch(
         &self,
         lower: &[f64],
@@ -370,6 +372,7 @@ fn make_f64_buf(device: &wgpu::Device, label: &str, data: &[f64]) -> wgpu::Buffe
     })
 }
 
+#[allow(clippy::cast_possible_truncation)] // BCS buffer sizes: count ≤ 128
 fn read_f64(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
@@ -412,6 +415,7 @@ fn read_f64(
     Ok(result)
 }
 
+#[allow(clippy::cast_possible_truncation)] // BCS buffer sizes: count ≤ 128
 fn read_u32(
     device: &wgpu::Device,
     queue: &wgpu::Queue,

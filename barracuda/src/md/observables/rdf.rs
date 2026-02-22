@@ -17,6 +17,7 @@ pub struct Rdf {
 }
 
 /// Compute RDF from position snapshots (CPU post-process)
+#[must_use]
 pub fn compute_rdf(snapshots: &[Vec<f64>], n: usize, box_side: f64, n_bins: usize) -> Rdf {
     let r_max = box_side / 2.0; // max meaningful distance with PBC
     let dr = r_max / n_bins as f64;
@@ -39,7 +40,7 @@ pub fn compute_rdf(snapshots: &[Vec<f64>], n: usize, box_side: f64, n_bins: usiz
                 dy -= box_side * (dy / box_side).round();
                 dz -= box_side * (dz / box_side).round();
 
-                let r = (dx * dx + dy * dy + dz * dz).sqrt();
+                let r = dz.mul_add(dz, dy.mul_add(dy, dx * dx)).sqrt();
                 let bin = (r / dr) as usize;
                 if bin < n_bins {
                     histogram[bin] += 1;
@@ -56,7 +57,7 @@ pub fn compute_rdf(snapshots: &[Vec<f64>], n: usize, box_side: f64, n_bins: usiz
         .iter()
         .enumerate()
         .map(|(i, &r)| {
-            let shell_vol = 4.0 * PI * r * r * dr;
+            let shell_vol = (4.0 * PI * dr).mul_add(r * r, 0.0);
             // Factor 2 because we count pairs i<j, but g(r) normalizes per particle
             2.0 * histogram[i] as f64
                 / (n_frames as f64 * n_f * n_density * shell_vol).max(DIVISION_GUARD)

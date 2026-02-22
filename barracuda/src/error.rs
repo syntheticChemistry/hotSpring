@@ -10,6 +10,7 @@ use std::fmt;
 
 /// Errors arising from GPU initialization, simulation, or data loading.
 #[derive(Debug)]
+#[must_use]
 pub enum HotSpringError {
     /// No compatible GPU adapter was found by wgpu.
     NoAdapter,
@@ -29,7 +30,7 @@ pub enum HotSpringError {
     /// Invalid operation (e.g. predict before train).
     InvalidOperation(String),
 
-    /// Propagated from barracuda primitives (ReduceScalarPipeline, etc.)
+    /// Propagated from barracuda primitives (`ReduceScalarPipeline`, etc.)
     Barracuda(barracuda::error::BarracudaError),
 }
 
@@ -139,5 +140,27 @@ mod tests {
         let s = err.to_string();
         assert!(s.contains("Invalid operation"));
         assert!(s.contains("ESN not trained"));
+    }
+
+    #[test]
+    fn debug_format_includes_variant() {
+        let err = HotSpringError::NoAdapter;
+        let s = format!("{err:?}");
+        assert!(s.contains("NoAdapter"));
+    }
+
+    #[test]
+    #[allow(clippy::unwrap_used)]
+    fn from_via_question_mark_in_result() {
+        fn inner() -> Result<(), HotSpringError> {
+            let e: Result<(), _> = Err(barracuda::error::BarracudaError::device("test device err"));
+            e?;
+            Ok(())
+        }
+        let result = inner();
+        assert!(result.is_err());
+        let s = result.unwrap_err().to_string();
+        assert!(s.contains("BarraCUDA error"));
+        assert!(s.contains("test device err"));
     }
 }

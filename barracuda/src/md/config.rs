@@ -2,25 +2,26 @@
 
 //! Sarkas-compatible simulation configuration
 //!
-//! Defines plasma parameters in reduced units (a_ws, omega_p^-1)
+//! Defines plasma parameters in reduced units (`a_ws`, omega_p^-1)
 //! matching the Sarkas DSF study matrix.
 
 use std::f64::consts::PI;
 
 /// Simulation configuration in reduced units
 #[derive(Clone, Debug)]
+#[must_use]
 pub struct MdConfig {
     /// Label for this case
     pub label: String,
     /// Number of particles
     pub n_particles: usize,
-    /// Screening parameter (κ = a_ws / λ_D)
+    /// Screening parameter (κ = `a_ws` / `λ_D`)
     pub kappa: f64,
-    /// Coupling parameter (Γ = q²/(4πε₀ a_ws k_B T))
+    /// Coupling parameter (Γ = q²/(4πε₀ `a_ws` `k_B` T))
     pub gamma: f64,
-    /// Reduced timestep (dt* = dt × ω_p)
+    /// Reduced timestep (`dt*` = dt × `ω_p`)
     pub dt: f64,
-    /// Cutoff radius in a_ws
+    /// Cutoff radius in `a_ws`
     pub rc: f64,
     /// Equilibration steps
     pub equil_steps: usize,
@@ -32,49 +33,54 @@ pub struct MdConfig {
     pub berendsen_tau: f64,
     /// RDF histogram bins
     pub rdf_bins: usize,
-    /// Velocity snapshot interval in multiples of dump_step.
+    /// Velocity snapshot interval in multiples of `dump_step`.
     /// Snapshot every `vel_snapshot_interval * dump_step` production steps.
-    /// Default: 100 (i.e. every 1000 steps for dump_step=10).
+    /// Default: 100 (i.e. every 1000 steps for `dump_step`=10).
     /// Set lower (e.g. 1) for transport coefficient studies needing fine VACF.
     pub vel_snapshot_interval: usize,
 }
 
 impl MdConfig {
-    /// Box side length in reduced units: L = (4π N/3)^(1/3) a_ws
+    /// Box side length in reduced units: L = (4π N/3)^(1/3) `a_ws`
+    #[must_use]
     pub fn box_side(&self) -> f64 {
         (4.0 * PI * self.n_particles as f64 / 3.0).cbrt()
     }
 
     /// Temperature in reduced units: T* = 1/Γ
+    #[must_use]
     pub fn temperature(&self) -> f64 {
         1.0 / self.gamma
     }
 
     /// Yukawa force prefactor in reduced units: 1.0
-    /// F* = exp(-κ r*) × (1 + κ r*) / r*²  (dimensionless in units of E₀/a_ws)
+    /// F* = exp(-κ r*) × (1 + κ r*) / r*²  (dimensionless in units of E₀/`a_ws`)
     /// The coupling Γ enters through the temperature: T* = 1/Γ
+    #[must_use]
     pub const fn force_prefactor(&self) -> f64 {
         1.0
     }
 
-    /// Effective mass in OCP reduced units (a_ws, ω_p⁻¹).
+    /// Effective mass in OCP reduced units (`a_ws`, `ω_p`⁻¹).
     ///
-    /// Derivation: ω_p² = n q²/(ε₀ m), so m = n q²/(ε₀ ω_p²).
-    /// In reduced units where a_ws=1, ω_p⁻¹=1, E₀=q²/(4πε₀ a_ws):
-    ///   m* = m × a_ws² × ω_p² / E₀ = 4π n a_ws³ = 4π × 3/(4π) = 3.0
+    /// Derivation: `ω_p²` = n q²/(ε₀ m), so m = n q²/(ε₀ `ω_p²`).
+    /// In reduced units where `a_ws`=1, `ω_p`⁻¹=1, E₀=q²/(4πε₀ `a_ws`):
+    ///   `m*` = m × `a_ws²` × `ω_p²` / E₀ = 4π n `a_ws³` = 4π × 3/(4π) = 3.0
     ///
     /// This is a *derived* constant from the OCP E₀-unit convention, not
     /// a magic number. The alternative Sarkas convention uses m*=1 with
-    /// V* = Γ·exp(-κr)/r (energy in k_BT units). Both are standard;
+    /// V* = Γ·exp(-κr)/r (energy in `k_B`T units). Both are standard;
     /// see Stanton & Murillo PRE 93, 043203 (2016) §II.A.
     ///
     /// Evolution note: consider migrating to the Sarkas m*=1 convention
     /// for ecosystem parity with Python scientific computing tools.
+    #[must_use]
     pub const fn reduced_mass(&self) -> f64 {
         3.0
     }
 
     /// Number density in reduced units: n* = 3/(4π)
+    #[must_use]
     pub fn number_density(&self) -> f64 {
         3.0 / (4.0 * PI)
     }
@@ -85,6 +91,7 @@ impl MdConfig {
 // ═══════════════════════════════════════════════════════════════════
 
 /// Generate all 9 PP Yukawa configurations from the DSF study
+#[must_use]
 pub fn dsf_pp_cases(n_particles: usize, lite: bool) -> Vec<MdConfig> {
     let (equil, prod, dump) = if lite {
         (5_000, 30_000, 10)
@@ -148,10 +155,11 @@ pub fn quick_test_case(n_particles: usize) -> MdConfig {
 ///
 /// Matches Choi, Dharuman, Murillo (Phys. Rev. E 100, 013206, 2019) and the
 /// Dense Plasma Properties Database:
-///   N=10,000, 5k equil + 80k production, dt=0.01 ω_p⁻¹
+///   N=10,000, 5k equil + 80k production, dt=0.01 `ω_p⁻¹`
 ///
 /// This is the headline validation: same physics, same parameters,
 /// consumer GPU vs HPC cluster.
+#[must_use]
 pub fn paper_parity_cases() -> Vec<MdConfig> {
     dsf_pp_cases(10_000, false) // N=10,000, 5k equil + 80k production
 }
@@ -160,6 +168,7 @@ pub fn paper_parity_cases() -> Vec<MdConfig> {
 ///
 /// Reference: Choi, Dharuman, Murillo (Phys. Rev. E 100, 013206, 2019) — see
 /// Dense Plasma Properties Database for exact parameters.
+#[must_use]
 pub fn paper_parity_extended_cases() -> Vec<MdConfig> {
     let cases = vec![
         // κ=1: rc = 8.0 a_ws
@@ -202,9 +211,10 @@ pub fn paper_parity_extended_cases() -> Vec<MdConfig> {
 /// Transport coefficient study: Gamma-kappa grid for D*, eta*.
 ///
 /// Longer production runs with fine velocity snapshot intervals
-/// (every dump_step) for converged Green-Kubo VACF integration.
+/// (every `dump_step`) for converged Green-Kubo VACF integration.
 ///
 /// Reference: Stanton & Murillo (2016) PRE 93 043203
+#[must_use]
 pub fn transport_cases(n_particles: usize, lite: bool) -> Vec<MdConfig> {
     let (equil, prod, dump, snap_interval) = if lite {
         (50_000, 20_000, 5, 1)
@@ -259,9 +269,10 @@ pub fn transport_cases(n_particles: usize, lite: bool) -> Vec<MdConfig> {
 
 /// Sarkas-matched transport cases only (κ>0 DSF study grid).
 ///
-/// Returns the 9 (κ,Γ) points that have exact Sarkas D_MKS reference
+/// Returns the 9 (κ,Γ) points that have exact Sarkas `D_MKS` reference
 /// values from the DSF study. κ=0 (Coulomb) cases are excluded because
 /// they require PPPM, a different code path.
+#[must_use]
 pub fn sarkas_validated_cases(n_particles: usize, lite: bool) -> Vec<MdConfig> {
     transport_cases(n_particles, lite)
         .into_iter()
@@ -382,5 +393,64 @@ mod tests {
         assert_eq!(lite.len(), full.len());
         assert!(lite[0].prod_steps < full[0].prod_steps);
         assert!(lite[0].equil_steps < full[0].equil_steps);
+    }
+
+    #[test]
+    fn paper_parity_extended_uses_100k_prod() {
+        let cases = paper_parity_extended_cases();
+        assert_eq!(cases.len(), 9);
+        for c in &cases {
+            assert_eq!(c.n_particles, 10_000);
+            assert_eq!(c.prod_steps, 100_000);
+            assert_eq!(c.equil_steps, 5_000);
+            assert!(c.label.ends_with("_paper"));
+        }
+    }
+
+    #[test]
+    fn dsf_pp_lite_vs_full() {
+        let lite = dsf_pp_cases(500, true);
+        let full = dsf_pp_cases(500, false);
+        assert_eq!(lite.len(), full.len());
+        assert!(lite[0].equil_steps == full[0].equil_steps);
+        assert!(
+            lite[0].prod_steps < full[0].prod_steps,
+            "lite has fewer prod steps"
+        );
+    }
+
+    #[test]
+    fn quick_test_case_fields() {
+        let c = quick_test_case(1000);
+        assert_eq!(c.label, "k2_G158_test");
+        assert_eq!(c.n_particles, 1000);
+        assert!((c.kappa - 2.0).abs() < 1e-10);
+        assert!((c.gamma - 158.0).abs() < 1e-10);
+        assert!((c.dt - 0.01).abs() < 1e-10);
+        assert!((c.rc - 6.5).abs() < 1e-10);
+        assert_eq!(c.equil_steps, 1_000);
+        assert_eq!(c.prod_steps, 5_000);
+        assert_eq!(c.dump_step, 10);
+        assert!((c.berendsen_tau - 5.0).abs() < 1e-10);
+        assert_eq!(c.rdf_bins, 500);
+        assert_eq!(c.vel_snapshot_interval, 100);
+    }
+
+    #[test]
+    fn sarkas_validated_subset_of_transport() {
+        let transport = transport_cases(500, true);
+        let sarkas = sarkas_validated_cases(500, true);
+        let sarkas_labels: std::collections::HashSet<_> = sarkas.iter().map(|c| &c.label).collect();
+        for c in &transport {
+            let is_sarkas_point = matches!(
+                (c.kappa as u32, c.gamma as u32),
+                (1, 14 | 72 | 217) | (2, 31 | 158 | 476) | (3, 100 | 503 | 1510)
+            );
+            assert_eq!(
+                sarkas_labels.contains(&c.label),
+                is_sarkas_point,
+                "sarkas_validated_cases should match filter"
+            );
+        }
     }
 }

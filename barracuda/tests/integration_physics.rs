@@ -50,6 +50,7 @@ fn binding_energy_l2_medium_nucleus_uses_hfb() {
 }
 
 #[test]
+#[allow(clippy::assertions_on_constants)]
 fn hfb_solver_respects_tolerance_ordering() {
     assert!(
         tolerances::EXACT_F64 < tolerances::ITERATIVE_F64,
@@ -105,7 +106,7 @@ fn bcs_occupations_particle_conservation() {
     let ns = hfb.n_states();
     let a = 40.0_f64;
     let delta = 12.0 / a.sqrt();
-    let eigs: Vec<f64> = (0..ns).map(|i| -30.0 + 3.0 * i as f64).collect();
+    let eigs: Vec<f64> = (0..ns).map(|i| 3.0f64.mul_add(i as f64, -30.0)).collect();
 
     let (v2, _lam) = hfb.bcs_occupations_from_eigs(&eigs, 20, delta);
     let degs = hfb.deg_values();
@@ -142,7 +143,7 @@ fn energy_from_densities_finite() {
     for i in 0..ns {
         evecs[i * ns + i] = 1.0;
     }
-    let evals: Vec<f64> = (0..ns).map(|i| -20.0 + i as f64 * 2.0).collect();
+    let evals: Vec<f64> = (0..ns).map(|i| (i as f64).mul_add(2.0, -20.0)).collect();
     let e =
         hfb.compute_energy_from_densities(&rho, &rho, &evals, &evecs, &evals, &evecs, &SLY4_PARAMS);
     assert!(e.is_finite(), "energy must be finite, got {e}");

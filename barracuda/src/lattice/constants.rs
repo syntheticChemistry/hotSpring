@@ -41,7 +41,7 @@ pub const HOT_START_EPSILON: f64 = 1.5;
 
 /// Advance the LCG state by one step.
 #[inline]
-pub fn lcg_step(seed: &mut u64) {
+pub const fn lcg_step(seed: &mut u64) {
     *seed = seed
         .wrapping_mul(LCG_MULTIPLIER)
         .wrapping_add(LCG_INCREMENT);

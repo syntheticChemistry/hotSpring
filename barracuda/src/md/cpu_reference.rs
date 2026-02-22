@@ -48,14 +48,14 @@ fn compute_forces_cpu(
             dy -= box_side * (dy / box_side).round();
             dz -= box_side * (dz / box_side).round();
 
-            let r_sq = dx * dx + dy * dy + dz * dz;
+            let r_sq = dz.mul_add(dz, dy.mul_add(dy, dx * dx));
             if r_sq > cutoff_sq {
                 continue;
             }
 
             let r = r_sq.sqrt();
             let screening = (-kappa * r).exp();
-            let force_mag = prefactor * screening * (1.0 + kappa * r) / r_sq;
+            let force_mag = prefactor * screening * kappa.mul_add(r, 1.0) / r_sq;
             let inv_r = 1.0 / r;
 
             // Newton's third law: apply to both particles
@@ -79,6 +79,7 @@ fn compute_forces_cpu(
 }
 
 /// Run CPU MD simulation (for benchmarking)
+#[must_use]
 pub fn run_simulation_cpu(config: &MdConfig) -> MdSimulation {
     let t_start = Instant::now();
     let n = config.n_particles;
@@ -156,18 +157,20 @@ pub fn run_simulation_cpu(config: &MdConfig) -> MdSimulation {
         }
 
         // Berendsen thermostat
-        if step % 10 == 0 {
+        if step.is_multiple_of(10) {
             let mut ke = 0.0;
             for i in 0..n {
                 ke += mass
-                    * (velocities[i * 3].powi(2)
-                        + velocities[i * 3 + 1].powi(2)
-                        + velocities[i * 3 + 2].powi(2));
+                    * velocities[i * 3 + 2].mul_add(
+                        velocities[i * 3 + 2],
+                        velocities[i * 3 + 1]
+                            .mul_add(velocities[i * 3 + 1], velocities[i * 3] * velocities[i * 3]),
+                    );
             }
             ke *= 0.5;
             let t_current = 2.0 * ke / (3.0 * n as f64);
             if t_current > 1e-30 {
-                let ratio = 1.0 + (dt / config.berendsen_tau) * (temperature / t_current - 1.0);
+                let ratio = (dt / config.berendsen_tau).mul_add(temperature / t_current - 1.0, 1.0);
                 let scale = ratio.max(0.0).sqrt();
                 for v in &mut velocities {
                     *v *= scale;
@@ -182,9 +185,11 @@ pub fn run_simulation_cpu(config: &MdConfig) -> MdSimulation {
         let mut ke = 0.0;
         for i in 0..n {
             ke += mass
-                * (velocities[i * 3].powi(2)
-                    + velocities[i * 3 + 1].powi(2)
-                    + velocities[i * 3 + 2].powi(2));
+                * velocities[i * 3 + 2].mul_add(
+                    velocities[i * 3 + 2],
+                    velocities[i * 3 + 1]
+                        .mul_add(velocities[i * 3 + 1], velocities[i * 3] * velocities[i * 3]),
+                );
         }
         ke *= 0.5;
         let t_current = 2.0 * ke / (3.0 * n as f64);
@@ -243,14 +248,16 @@ pub fn run_simulation_cpu(config: &MdConfig) -> MdSimulation {
             velocities[i * 3 + 2] += half_dt * forces[i * 3 + 2] * inv_m;
         }
 
-        if step % config.dump_step == 0 {
+        if step.is_multiple_of(config.dump_step) {
             let mut ke = 0.0;
             let total_pe: f64 = pe.iter().sum();
             for i in 0..n {
                 ke += mass
-                    * (velocities[i * 3].powi(2)
-                        + velocities[i * 3 + 1].powi(2)
-                        + velocities[i * 3 + 2].powi(2));
+                    * velocities[i * 3 + 2].mul_add(
+                        velocities[i * 3 + 2],
+                        velocities[i * 3 + 1]
+                            .mul_add(velocities[i * 3 + 1], velocities[i * 3] * velocities[i * 3]),
+                    );
             }
             ke *= 0.5;
             let t_current = 2.0 * ke / (3.0 * n as f64);
@@ -263,13 +270,13 @@ pub fn run_simulation_cpu(config: &MdConfig) -> MdSimulation {
                 temperature: t_current,
             });
 
-            if step % (config.dump_step * config.vel_snapshot_interval) == 0 {
+            if step.is_multiple_of(config.dump_step * config.vel_snapshot_interval) {
                 positions_snapshots.push(positions.clone());
                 velocity_snapshots.push(velocities.clone());
             }
         }
 
-        if step % 5000 == 0 || step == config.prod_steps - 1 {
+        if step.is_multiple_of(5000) || step == config.prod_steps - 1 {
             if let Some(last) = energy_history.last() {
                 println!(
                     "    Step {}: T*={:.6}, E={:.4}",
@@ -453,7 +460,7 @@ mod tests {
         let prefactor: f64 = 1.0;
 
         // F = prefactor * exp(-κr) * (1 + κr) / r²
-        let expected_f = prefactor * (-kappa * r).exp() * (1.0 + kappa * r) / (r * r);
+        let expected_f = prefactor * (-kappa * r).exp() * kappa.mul_add(r, 1.0) / (r * r);
 
         // Actual computation via the force function
         let f = yukawa_force_magnitude(r, kappa, prefactor);
@@ -469,7 +476,7 @@ mod tests {
         let prefactor = 1.0;
         for r in [0.5, 1.0, 2.0, 5.0] {
             let f = yukawa_force_magnitude(r, kappa, prefactor);
-            let expected = prefactor * (-kappa * r).exp() * (1.0 + kappa * r) / (r * r);
+            let expected = prefactor * (-kappa * r).exp() * kappa.mul_add(r, 1.0) / (r * r);
             assert!(
                 (f - expected).abs() < 1e-12,
                 "r={r}: force {f} vs expected {expected}"
@@ -508,7 +515,7 @@ mod tests {
     /// Compute Yukawa force magnitude for testing.
     /// F(r) = prefactor * exp(-κr) * (1 + κr) / r²
     fn yukawa_force_magnitude(r: f64, kappa: f64, prefactor: f64) -> f64 {
-        prefactor * (-kappa * r).exp() * (1.0 + kappa * r) / (r * r)
+        prefactor * (-kappa * r).exp() * kappa.mul_add(r, 1.0) / (r * r)
     }
 
     #[test]

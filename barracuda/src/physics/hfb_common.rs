@@ -28,8 +28,9 @@ pub struct Mat {
 
 impl Mat {
     /// Create an n×n zero matrix.
+    #[must_use]
     pub fn zeros(n: usize) -> Self {
-        Mat {
+        Self {
             data: vec![0.0; n * n],
             n,
         }
@@ -37,6 +38,7 @@ impl Mat {
 
     /// Read element (r, c).
     #[inline]
+    #[must_use]
     pub fn get(&self, r: usize, c: usize) -> f64 {
         self.data[r * self.n + c]
     }
@@ -58,7 +60,7 @@ impl Mat {
 // Math helpers shared across deformed HFB variants
 // ═══════════════════════════════════════════════════════════════════
 
-/// Hermite polynomial H_n(x) — delegates to `barracuda::special::hermite`.
+/// Hermite polynomial `H_n`(x) — delegates to `barracuda::special::hermite`.
 ///
 /// H₀(x) = 1, H₁(x) = 2x, H_{n+1}(x) = 2x·Hₙ(x) − 2n·H_{n−1}(x)
 ///
@@ -66,6 +68,7 @@ impl Mat {
 /// Previously a local implementation; now delegates to the canonical barracuda
 /// version to eliminate duplicate math (zero-duplicate-math principle).
 #[inline]
+#[must_use]
 pub fn hermite_value(n: usize, x: f64) -> f64 {
     barracuda::special::hermite(n, x)
 }
@@ -75,6 +78,7 @@ pub fn hermite_value(n: usize, x: f64) -> f64 {
 /// Delegates to [`barracuda::special::factorial()`] — the canonical
 /// implementation with a lookup table for n ≤ 20 and Stirling's
 /// approximation for larger n.
+#[must_use]
 pub fn factorial_f64(n: usize) -> f64 {
     barracuda::special::factorial(n)
 }
@@ -85,23 +89,23 @@ pub fn factorial_f64(n: usize) -> f64 {
 
 /// BCS quasiparticle occupation v² for a single state.
 ///
-/// v²(ε, Δ) = ½ (1 − ε / E_qp), where E_qp = √(ε² + Δ²).
+/// v²(ε, Δ) = ½ (1 − ε / `E_qp`), where `E_qp` = √(ε² + Δ²).
 ///
 /// - `eps`: single-particle energy relative to chemical potential (ε = e − μ)
-/// - `delta`: pairing gap Δ (MeV)
+/// - `delta`: pairing gap Δ (`MeV`)
 ///
 /// Returns occupation probability v² ∈ [0, 1].
 #[inline]
 #[must_use]
 pub fn bcs_v2(eps: f64, delta: f64) -> f64 {
-    let e_qp = (eps * eps + delta * delta).sqrt();
+    let e_qp = eps.hypot(delta);
     // Physics: e_qp is always ≥ |Δ| > 0 when pairing is active
     0.5 * (1.0 - eps / e_qp)
 }
 
 /// Coulomb exchange potential (Slater approximation) at a single point.
 ///
-/// V_ex(r) = −e² (3/π)^{1/3} ρ_p(r)^{1/3}
+/// `V_ex`(r) = −e² (3/π)^{1/3} `ρ_p`(r)^{1/3}
 ///
 /// - `rho_p`: proton density at this point (fm⁻³)
 ///
@@ -111,24 +115,24 @@ pub fn bcs_v2(eps: f64, delta: f64) -> f64 {
 #[must_use]
 pub fn coulomb_exchange_slater(rho_p: f64) -> f64 {
     use super::constants::E2;
-    -E2 * (3.0 / std::f64::consts::PI).powf(1.0 / 3.0) * rho_p.max(0.0).powf(1.0 / 3.0)
+    -E2 * (3.0 / std::f64::consts::PI).cbrt() * rho_p.max(0.0).cbrt()
 }
 
 /// Coulomb exchange energy density (Slater approximation).
 ///
-/// ε_ex(r) = −¾ e² (3/π)^{1/3} ρ_p(r)^{4/3}
+/// `ε_ex`(r) = −¾ e² (3/π)^{1/3} `ρ_p`(r)^{4/3}
 ///
 /// Integrate over volume to get total Coulomb exchange energy.
 #[inline]
 #[must_use]
 pub fn coulomb_exchange_energy_density(rho_p: f64) -> f64 {
     use super::constants::E2;
-    -0.75 * E2 * (3.0 / std::f64::consts::PI).powf(1.0 / 3.0) * rho_p.max(0.0).powf(4.0 / 3.0)
+    -0.75 * E2 * (3.0 / std::f64::consts::PI).cbrt() * rho_p.max(0.0).powf(4.0 / 3.0)
 }
 
 /// Center-of-mass correction to the total energy.
 ///
-/// E_cm = −¾ ℏω, where ℏω is the harmonic oscillator energy spacing.
+/// `E_cm` = −¾ `ℏω`, where `ℏω` is the harmonic oscillator energy spacing.
 ///
 /// This one-body approximation removes spurious CM kinetic energy
 /// (see Bender et al. 2003, §II.E).
@@ -140,14 +144,14 @@ pub fn cm_correction(hw: f64) -> f64 {
 
 /// Skyrme central potential t₀ contribution at a single point.
 ///
-/// U_t₀ = t₀ [(1 + x₀/2)ρ − (½ + x₀)ρ_q]
+/// `U_t₀` = t₀ [(1 + x₀/2)`ρ` − (½ + x₀)`ρ_q`]
 ///
-/// - `rho`: total density ρ = ρ_p + ρ_n
-/// - `rho_q`: isospin density ρ_q (ρ_p for protons, ρ_n for neutrons)
+/// - `rho`: total density `ρ` = `ρ_p` + `ρ_n`
+/// - `rho_q`: isospin density `ρ_q` (`ρ_p` for protons, `ρ_n` for neutrons)
 #[inline]
 #[must_use]
 pub fn skyrme_central_t0(t0: f64, x0: f64, rho: f64, rho_q: f64) -> f64 {
-    t0 * ((1.0 + x0 / 2.0) * rho - (0.5 + x0) * rho_q)
+    t0 * (1.0 + x0 / 2.0).mul_add(rho, -((0.5 + x0) * rho_q))
 }
 
 /// Initialize Wood-Saxon-like density profile for protons and neutrons.
@@ -163,7 +167,7 @@ pub fn initial_wood_saxon_density(z: usize, n: usize, nr: usize, dr: f64) -> (Ve
 
     let a = z + n;
     let a_f = a as f64;
-    let r_nuc = 1.2 * a_f.powf(1.0 / 3.0);
+    let r_nuc = 1.2 * a_f.cbrt();
     let rho0 = 3.0 * a_f / (4.0 * std::f64::consts::PI * r_nuc.powi(3));
 
     let rho_p: Vec<f64> = (0..nr)

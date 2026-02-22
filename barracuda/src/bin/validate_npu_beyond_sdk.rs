@@ -91,7 +91,7 @@ fn check_arbitrary_input_dims(harness: &mut ValidationHarness) {
             })
             .collect();
         let train_targets: Vec<Vec<f64>> = (0..n_train)
-            .map(|_| vec![rng.uniform() * 1.5 + 0.1])
+            .map(|_| vec![rng.uniform().mul_add(1.5, 0.1)])
             .collect();
 
         esn.train(&train_seqs, &train_targets);
@@ -145,7 +145,7 @@ fn check_deep_fc_parity(harness: &mut ValidationHarness) {
         })
         .collect();
     let train_targets: Vec<Vec<f64>> = (0..n_train)
-        .map(|_| vec![rng.uniform() * 1.9 + 0.1])
+        .map(|_| vec![rng.uniform().mul_add(1.9, 0.1)])
         .collect();
 
     esn.train(&train_seqs, &train_targets);
@@ -236,7 +236,7 @@ fn check_multi_output(harness: &mut ValidationHarness) {
     let train_targets: Vec<Vec<f64>> = (0..n_train)
         .map(|_| {
             (0..config.output_size)
-                .map(|_| rng.uniform() * 2.0 + 0.1)
+                .map(|_| rng.uniform().mul_add(2.0, 0.1))
                 .collect()
         })
         .collect();
@@ -306,7 +306,7 @@ fn check_weight_mutation(harness: &mut ValidationHarness) {
         })
         .collect();
     let train_targets: Vec<Vec<f64>> = (0..n_train)
-        .map(|_| vec![rng.uniform() * 1.5 + 0.2])
+        .map(|_| vec![rng.uniform().mul_add(1.5, 0.2)])
         .collect();
 
     esn.train(&train_seqs, &train_targets);
@@ -408,7 +408,7 @@ fn check_wide_fc_quantization(harness: &mut ValidationHarness) {
             })
             .collect();
         let train_targets: Vec<Vec<f64>> = (0..n_train)
-            .map(|_| vec![rng.uniform() * 1.5 + 0.1])
+            .map(|_| vec![rng.uniform().mul_add(1.5, 0.1)])
             .collect();
 
         esn.train(&train_seqs, &train_targets);

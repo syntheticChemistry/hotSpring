@@ -142,12 +142,12 @@ All components implemented and validated (13/13 checks pass):
 
 ### Key Facts for ToadStool Team
 
-- 22 papers reproduced, 505 unit + 24 integration tests, 33/33 validation suites, ~$0.20 total compute cost
+- 22 papers reproduced, 648 unit + 24 integration tests, 33/33 validation suites, ~$0.20 total compute cost
 - RTX 4070 sustains f64 MD at 149-259 steps/s; Titan V (NVK) produces identical physics
 - Energy drift 0.000% over 80k steps sets the precision bar for any new integrator
 - `ReduceScalarPipeline` is the most-used upstream primitive after `WgpuDevice`
 - All shader compilation routes through `ShaderTemplate::for_driver_profile()`
-- `CellListGpu` **FIXED** (toadstool `8fb5d5a0`) — local `GpuCellList` deprecated, migration next cycle
+- `CellListGpu` **FIXED** (toadstool `8fb5d5a0`) — **migrated** (v0.6.2): local `GpuCellList` deleted, 3 shaders removed, -282 lines
 
 ### Evolution Timeline
 

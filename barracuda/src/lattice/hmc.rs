@@ -8,10 +8,10 @@
 //!
 //! The algorithm:
 //!   1. Draw random momenta P from Gaussian distribution
-//!   2. Compute H_old = T(P) + S(U)
-//!   3. Leapfrog integrate (U, P) for N_md steps
-//!   4. Compute H_new = T(P') + S(U')
-//!   5. Accept with probability min(1, exp(H_old - H_new))
+//!   2. Compute `H_old` = T(P) + S(U)
+//!   3. Leapfrog integrate (U, P) for `N_md` steps
+//!   4. Compute `H_new` = T(P') + S(U')
+//!   5. Accept with probability min(1, exp(`H_old` - `H_new`))
 //!
 //! The kinetic energy T(P) = -Tr(P²)/2 summed over all links.
 //!

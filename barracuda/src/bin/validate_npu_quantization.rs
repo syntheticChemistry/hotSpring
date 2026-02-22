@@ -49,7 +49,7 @@ fn main() {
         })
         .collect();
     let targets: Vec<Vec<f64>> = (0..n_cases)
-        .map(|_| vec![rng.uniform() * 1.9 + 0.1])
+        .map(|_| vec![rng.uniform().mul_add(1.9, 0.1)])
         .collect();
 
     let train_idx = [0, 1, 2, 3];
@@ -293,7 +293,7 @@ fn predict_quantized(
             pre[i] = val;
         }
         for i in 0..rs {
-            state[i] = (1.0 - leak_rate) * state[i] + leak_rate * pre[i].tanh();
+            state[i] = (1.0 - leak_rate).mul_add(state[i], leak_rate * pre[i].tanh());
         }
 
         if let Some(bits) = act_bits {
