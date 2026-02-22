@@ -6,6 +6,10 @@
 
 use crate::tolerances::DIVISION_GUARD;
 
+/// Plateau detection window: stop integrating Green-Kubo ACF after this
+/// many seconds of non-increasing running integral (in time units / dt_snap).
+const PLATEAU_DETECTION_TIME: f64 = 20.0;
+
 /// Stress tensor autocorrelation result for viscosity computation
 #[derive(Clone, Debug)]
 pub struct StressAcf {
@@ -122,7 +126,7 @@ pub fn compute_stress_acf(
     let mut integral = 0.0;
     let mut eta_max = 0.0;
     let mut plateau_count = 0;
-    let plateau_window = (20.0 / dt_snap).ceil() as usize;
+    let plateau_window = (PLATEAU_DETECTION_TIME / dt_snap).ceil() as usize;
 
     for i in 1..n_lag {
         integral += (0.5 * dt_snap).mul_add(c_values[i - 1] + c_values[i], 0.0);
@@ -293,7 +297,7 @@ pub fn compute_heat_acf(
     let mut integral = 0.0;
     let mut lambda_max = 0.0;
     let mut plateau_count = 0;
-    let plateau_window = (20.0 / dt_snap).ceil() as usize;
+    let plateau_window = (PLATEAU_DETECTION_TIME / dt_snap).ceil() as usize;
 
     for i in 1..n_lag {
         integral += (0.5 * dt_snap).mul_add(c_values[i - 1] + c_values[i], 0.0);

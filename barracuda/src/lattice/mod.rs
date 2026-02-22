@@ -23,6 +23,7 @@
 //! | `hmc` | Hybrid Monte Carlo integrator |
 //! | `dirac` | Staggered Dirac operator |
 //! | `cg` | Conjugate gradient solver |
+//! | `pseudofermion` | Pseudofermion action and dynamical fermion HMC |
 //! | `abelian_higgs` | U(1) gauge + complex scalar Higgs (1+1)D |
 //!
 //! # References
@@ -39,5 +40,6 @@ pub mod dirac;
 pub mod eos_tables;
 pub mod hmc;
 pub mod multi_gpu;
+pub mod pseudofermion;
 pub mod su3;
 pub mod wilson;

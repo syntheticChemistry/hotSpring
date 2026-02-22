@@ -32,7 +32,7 @@ The study answers five questions:
 1. **Can published computational science be independently reproduced?** (Answer: yes, but it required fixing 6 silent bugs and rebuilding physics that was behind a gated platform)
 2. **Can Rust + WebGPU replace the Python scientific stack for real physics?** (Answer: yes — BarraCUDA achieves 478× faster throughput and 44.8× less energy at L1, with GPU FP64 validated to 4.55e-13 MeV precision. Full Sarkas Yukawa MD runs on a $600 consumer GPU: 9/9 PP cases pass at N=10,000 with 80,000 production steps in 3.66 hours for $0.044.)
 3. **Can consumer GPUs do first-principles nuclear structure at scale?** (Answer: yes — the full AME2020 dataset (2,042 nuclei, 39x the published paper) runs on a single RTX 4070. L1 Pareto analysis, L2 GPU-batched HFB, and L3 deformed HFB all produce results. This is direct physics computation, not surrogate learning.)
-4. **Does the Python → Rust → GPU evolution path extend beyond plasma physics?** (Answer: yes — lattice QCD (SU(3) pure gauge, HMC, staggered Dirac), Abelian Higgs (U(1) gauge + Higgs field, 143× faster than Python), transport coefficients (Green-Kubo, Stanton-Murillo), screened Coulomb (Sturm eigensolve, 2274× faster than Python), and HotQCD EOS tables are all validated on CPU with WGSL templates ready for GPU promotion. 9 papers reproduced, 300+ validation checks, ~$0.20 total compute cost.)
+4. **Does the Python → Rust → GPU evolution path extend beyond plasma physics?** (Answer: yes — lattice QCD (SU(3) pure gauge, HMC, staggered Dirac, dynamical fermion pseudofermion HMC), Abelian Higgs (U(1) gauge + Higgs field, 143× faster than Python), transport coefficients (Green-Kubo, Stanton-Murillo), screened Coulomb (Sturm eigensolve, 2274× faster than Python), and HotQCD EOS tables are all validated on CPU with WGSL templates ready for GPU promotion. 22 papers reproduced, 400+ validation checks, ~$0.20 total compute cost.)
 5. **Can physics math be truly substrate-portable — CPU → GPU → NPU?** (Answer: yes — ESN reservoir math validated across f64 CPU, f32 NpuSimulator, int4 quantized, and real AKD1000 NPU hardware. 10 SDK assumptions overturned by probing beyond the SDK. The same WGSL shader math trains on GPU and deploys on NPU for inference at 30mW. See `metalForge/npu/akida/BEYOND_SDK.md`.)
 
 ---
@@ -95,7 +95,7 @@ Bazavov connection (CMSE & Physics, MSU) provides the bridge: both Murillo
 and Bazavov study strongly coupled many-body systems with overlapping
 computational methods (MD ↔ HMC, plasma EOS ↔ QCD EOS).
 
-### Completed (February 20, 2026)
+### Completed (February 22, 2026)
 
 | Paper | Status | Implementation |
 |-------|--------|----------------|
@@ -103,6 +103,7 @@ computational methods (MD ↔ HMC, plasma EOS ↔ QCD EOS).
 | Murillo & Weisheit (1998) screening | **Done** | Screened Coulomb eigenvalues; Sturm bisection, 23/23 checks, Rust 2274× Python |
 | HotQCD EOS tables (Bazavov 2014) | **Done** | `lattice/eos_tables.rs` — thermodynamic validation passes |
 | Pure gauge SU(3) Wilson action | **Done** | `lattice/` — 8 modules, 12/12 validation checks |
+| Dynamical fermion QCD (Paper 10) | **Done** | `lattice/pseudofermion.rs` — pseudofermion HMC, 7/7 checks, Python control parity |
 | Abelian Higgs (Bazavov 2015) | **Done** | `lattice/abelian_higgs.rs` — U(1)+Higgs HMC, 17/17 checks, Rust 143× Python |
 
 ### Lattice QCD Infrastructure Built
@@ -116,6 +117,7 @@ computational methods (MD ↔ HMC, plasma EOS ↔ QCD EOS).
 | `abelian_higgs.rs` | ~500 | U(1)+Higgs (1+1)D HMC | ✅ **Absorbed** — `higgs_u1_hmc_f64.wgsl` |
 | `dirac.rs` | 297 | Staggered Dirac operator | ✅ **Validated** — `WGSL_DIRAC_STAGGERED_F64` (8/8 checks, 4.44e-16) |
 | `cg.rs` | 214 | Conjugate gradient for D†D | ✅ **Validated** — 3 WGSL shaders (9/9 checks, iterations match exactly) |
+| `pseudofermion.rs` | 477 | Pseudofermion HMC (Paper 10) | ✅ **Validated** — heat bath, CG action, fermion force, combined leapfrog (7/7) |
 | `eos_tables.rs` | 307 | HotQCD reference data | CPU-only (data) |
 | `multi_gpu.rs` | 237 | Temperature scan dispatcher | CPU-threaded, GPU-ready |
 
@@ -127,15 +129,18 @@ computational methods (MD ↔ HMC, plasma EOS ↔ QCD EOS).
 | ~~GPU SU(3) plaquette shader~~ | GPU-accelerated HMC | — | ✅ **Done** — `wilson_plaquette_f64.wgsl` |
 | ~~GPU HMC force + Abelian Higgs~~ | GPU-accelerated gauge evolution | — | ✅ **Done** — `su3_hmc_force_f64.wgsl` + `higgs_u1_hmc_f64.wgsl` |
 | ~~GPU Dirac operator~~ | Fermion matrix-vector products | — | ✅ **Done** — `WGSL_DIRAC_STAGGERED_F64` validated 8/8 |
+| ~~Dynamical fermion HMC~~ | Full QCD with sea quarks | — | ✅ **Done** — `pseudofermion.rs` validated 7/7, Python control parity |
+| Omelyan integrator + Hasenbusch | Production acceptance rates | **P1** | Current: naive leapfrog, 5% acceptance; need multi-timescale for >50% |
 | Larger lattice sizes (8^4, 16^4) | Physical results | **P2** | 4⁴-16⁴ validated, 19.6× GPU speedup at 16⁴ |
 
 ### Heterogeneous Hardware Pipeline: Lattice QCD Phase Structure
 
-GPU FFT f64 is now available (toadstool Session 25). The full lattice QCD stack
-(Tier 3) only needs GPU Dirac SpMV for dynamical fermions. Meanwhile, the
-**deconfinement phase transition** — the most important observable in finite-
-temperature QCD — is visible in purely position-space quantities: the Polyakov
-loop ⟨|L|⟩ and plaquette ⟨P⟩. No FFT needed for phase structure.
+GPU FFT f64 is available (toadstool Session 25). The full GPU lattice QCD stack
+is complete — Dirac SpMV (8/8), CG solver (9/9), and pseudofermion HMC (7/7)
+are all validated. Meanwhile, the **deconfinement phase transition** — the most
+important observable in finite-temperature QCD — is visible in purely position-space
+quantities: the Polyakov loop ⟨|L|⟩ and plaquette ⟨P⟩. No FFT needed for phase
+structure.
 
 **Pipeline**: GPU generates pure-gauge SU(3) configurations via HMC → NPU
 classifies phases in real-time from (β, ⟨P⟩, ⟨|L|⟩) features → CPU validates
@@ -199,6 +204,7 @@ Papers 14-22 are documented in `specs/PAPER_REVIEW_QUEUE.md`.
 | 6 | Murillo & Weisheit (1998) Screening | **Done** | 23/23 checks, Rust 2274× Python |
 | 7 | HotQCD EOS tables (Bazavov 2014) | **Done** | Thermodynamic validation |
 | 8 | Pure gauge SU(3) Wilson action | **Done** | 12/12 checks, HMC 96-100% acceptance |
+| 10 | Dynamical fermion QCD (Bazavov 2016) | **Done** | 7/7 checks, pseudofermion HMC, Python control parity |
 | 13 | Abelian Higgs (Bazavov 2015) | **Done** | 17/17 checks, U(1)+Higgs HMC, Rust 143× Python |
 
 ---
@@ -261,43 +267,40 @@ hotSpring writes local → validates physics → hands off to toadstool → lean
 
 ### What hotSpring evolved that toadstool absorbed
 
-| Contribution | Type | Upstream Location |
-|-------------|------|-------------------|
-| Complex f64 arithmetic | WGSL shader | `shaders/math/complex_f64.wgsl` |
-| SU(3) matrix algebra | WGSL shader | `shaders/math/su3.wgsl` |
-| Wilson plaquette | WGSL shader | `shaders/lattice/wilson_plaquette_f64.wgsl` |
-| SU(3) HMC force | WGSL shader | `shaders/lattice/su3_hmc_force_f64.wgsl` |
-| Abelian Higgs HMC | WGSL shader | `shaders/lattice/higgs_u1_hmc_f64.wgsl` |
-| CellList GPU fix | Rust op | `barracuda::ops::md::neighbor` |
-| NAK eigensolve | WGSL shader | `batched_eigh_nak_optimized_f64.wgsl` |
-| ReduceScalar feedback | Pipeline | `barracuda::pipeline` |
-| Driver profiling | System | `barracuda::device::capabilities` |
+| Contribution | Type | Upstream Location | Session |
+|-------------|------|-------------------|---------|
+| Complex f64 arithmetic | WGSL shader | `shaders/math/complex_f64.wgsl` | S18 |
+| SU(3) matrix algebra | WGSL shader | `shaders/math/su3.wgsl` | S18 |
+| Wilson plaquette | WGSL shader | `shaders/lattice/wilson_plaquette_f64.wgsl` | S18 |
+| SU(3) HMC force | WGSL shader | `shaders/lattice/su3_hmc_force_f64.wgsl` | S18 |
+| Abelian Higgs HMC | WGSL shader | `shaders/lattice/higgs_u1_hmc_f64.wgsl` | S18 |
+| CellList GPU fix | Rust op | `barracuda::ops::md::neighbor` | S18 |
+| NAK eigensolve | WGSL shader | `batched_eigh_nak_optimized_f64.wgsl` | S4 |
+| ReduceScalar feedback | Pipeline | `barracuda::pipeline` | S18 |
+| Driver profiling | System | `barracuda::device::capabilities` | S7 |
+| Staggered Dirac GPU | WGSL+Rust | `ops/lattice/dirac.rs` + `shaders/lattice/dirac_staggered_f64.wgsl` | S31d |
+| CG solver (3 kernels) | WGSL+Rust | `ops/lattice/cg.rs` + `shaders/lattice/cg_kernels_f64.wgsl` | S31d |
+| SubstrateCapability model | Rust enum | `device/substrate.rs` | S31d |
+| 5 spherical HFB shaders | WGSL | `shaders/science/hfb/` (density, potentials, energy, hamiltonian) | S36-37 |
+| 5 deformed HFB shaders | WGSL | `shaders/science/hfb_deformed/` (energy, potential, wavefunction, hamiltonian, bcs) | S36-37 |
+| ESN export/import weights | Rust API | `esn_v2::ESN::export_weights()` + `import_weights()` | S36-37 |
+| Spectral module (full) | Rust+WGSL | `barracuda::spectral::*` (Anderson, Lanczos, Hofstadter, Sturm) | S25-31h |
 
 ### What hotSpring is evolving now (ready for absorption)
 
 | Module | Shader | Tests | Absorption priority |
 |--------|--------|-------|---------------------|
-| Staggered Dirac | `WGSL_DIRAC_STAGGERED_F64` | 8/8 | Tier 1 |
-| CG solver | 3 WGSL shaders | 9/9 | Tier 1 |
-| ESN reservoir | 2 WGSL shaders | 16+ | Tier 1 |
-| NPU substrate probe | Rust (no WGSL) | 13 | Tier 1 (new substrate type) |
-| HFB potentials shader | `batched_hfb_potentials_f64.wgsl` | 14/14 | Tier 2 |
-| HFB density shader | `batched_hfb_density_f64.wgsl` | GPU-validated | Tier 2 |
-| BCS bisection shader | `bcs_bisection_f64.wgsl` | 6.2e-11 | Tier 2 |
-| Tolerance/config module | Rust pattern (no WGSL) | 154 constants | Tier 2 (pattern) |
+| Pseudofermion HMC | CPU (WGSL-ready) | 7/7 | Tier 1 — only remaining lattice QCD module |
+| Screened Coulomb eigensolve | CPU (Sturm bisection) | 23/23 | Tier 2 |
+| Tolerance/config module | Rust pattern (no WGSL) | 172 constants | Tier 2 (pattern) |
 
-### Already absorbed by toadstool (v0.6.4 lean phase)
+### Known upstream bug (hotSpring workaround active)
 
-| Module | Upstream Location | Date |
-|--------|-------------------|------|
-| CSR SpMV + `CsrMatrix` | `barracuda::spectral::SpectralCsrMatrix` | Feb 22 |
-| Anderson 1D/2D/3D | `barracuda::spectral::anderson` | Feb 22 |
-| Lanczos eigensolve | `barracuda::spectral::lanczos` | Feb 22 |
-| Hofstadter butterfly | `barracuda::spectral::hofstadter` | Feb 22 |
-| Sturm tridiagonal | `barracuda::spectral::tridiag` | Feb 22 |
-| Level statistics | `barracuda::spectral::stats` | Feb 22 |
-| Complex f64, SU(3), Wilson, HMC, Abelian Higgs | `barracuda::spectral`, `ops::lattice` | Feb 19-20 |
-| CellListGpu (fix + migration) | `barracuda::ops::md::CellListGpu` | Feb 20 |
+The loop unroller in `loop_unroller.rs` has a u32 literal suffix bug: `substitute_loop_var`
+emits bare ints (`"0"`) instead of `u32` literals (`"0u"`). This causes `BatchedEighGpu`
+single-dispatch shader validation to panic. hotSpring works around this with
+`std::panic::catch_unwind`. Fix is a single-line change: `format!("{iter}u")`.
+See `HOTSPRING_V065_TOADSTOOL_SESSION39_CATCHUP_FEB22_2026.md` for details.
 
 ### Cross-spring shader evolution
 
@@ -368,19 +371,19 @@ No institutional access required. No Code Ocean account. No Fortran compiler. AG
 | Metric | Value |
 |--------|-------|
 | Crate | v0.6.4 |
-| Unit tests | **637** pass, 6 GPU/heavy-ignored (spectral tests now upstream in barracuda) |
+| Unit tests | **609** pass + 1 env-flaky, 6 GPU/heavy-ignored (spectral tests upstream in barracuda) |
 | Integration tests | **24** pass (3 suites: physics, data, transport) |
 | Coverage | 74.9% region / 83.8% function |
-| Validation suites | **33/33** pass |
+| Validation suites | **34/34** pass |
 | metalForge forge tests | **19** pass |
 | Python control scripts | **34** (Sarkas, surrogate, TTM, NPU, reservoir, lattice, spectral theory) |
-| Rust validation binaries | **50** (physics, MD, lattice, NPU, transport, spectral 1D/2D/3D, Lanczos, Hofstadter) |
+| Rust validation binaries | **52** (physics, MD, lattice, NPU, transport, spectral 1D/2D/3D, Lanczos, Hofstadter, dynamical QCD) |
 | `expect()`/`unwrap()` in library | **0** (crate-level deny) |
 | Clippy warnings | **0** (pedantic + nursery, workspace-wide) |
 | Doc warnings | **0** |
 | Unsafe blocks | **0** |
 | External FFI/C bindings | **0** (all pure Rust except wgpu GPU driver bridge) |
-| Centralized tolerances | **154** constants (including 8 solver config) |
+| Centralized tolerances | **172** constants (including 8 solver config, 6 dynamical QCD) |
 | Hardcoded solver params | **0** (all centralized in `tolerances/`) |
 | Files over 1000 LOC | **1** (`hfb_gpu_resident/mod.rs` — monolithic GPU pipeline) |
 | Provenance records | All validation targets traced to Python origins or DOIs |

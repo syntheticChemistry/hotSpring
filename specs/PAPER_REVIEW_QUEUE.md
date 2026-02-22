@@ -5,24 +5,150 @@
 **Principle**: Reproduce, validate, then decrease cost. Each paper proves the
 pipeline on harder physics — toadStool evolves the GPU acceleration in parallel.
 
+**Evolution path per paper**: Python Control → BarraCUDA CPU → BarraCUDA GPU → metalForge
+
 ---
 
-## Completed Reproductions
+## Pipeline Status: Every Paper × Every Substrate
 
-| # | Paper | Phase | Checks | Faculty | Cost |
-|---|-------|-------|--------|---------|------|
-| 1 | Sarkas Yukawa OCP MD (Silvestri et al.) | A + C-E | 9/9 PP cases at N=10k, 80k steps | Murillo | $0.044 |
-| 2 | Two-Temperature Model (TTM) | A | 6/6 | Murillo | ~$0.001 |
-| 3 | Diaw et al. (2024) Surrogate Learning — Nat Mach Intel | A | 15/15 | Murillo | ~$0.01 |
-| 4 | Nuclear EOS (SEMF → HFB, AME2020) | A + F | 2,042 nuclei, 195/195 | Murillo | ~$0.10 |
-| 5 | Stanton & Murillo (2016) Transport | Tier 0 | 13/13 | Murillo | ~$0.02 |
-| 6 | Murillo & Weisheit (1998) Screening | Tier 0 | 23/23 | Murillo | ~$0.001 |
-| 7 | HotQCD EOS tables (Bazavov 2014) | Tier 1 | Thermo validation | Bazavov | ~$0.001 |
-| 8 | Pure gauge SU(3) Wilson action | Tier 2 | 12/12 | Bazavov | ~$0.02 |
-| 13 | Abelian Higgs (Bazavov 2015) | Tier 2 | 17/17 | Bazavov | ~$0.001 |
+| # | Paper | Python Control | BarraCUDA CPU | BarraCUDA GPU | metalForge |
+|---|-------|:---:|:---:|:---:|:---:|
+| 1 | Sarkas Yukawa OCP MD | ✅ `sarkas-upstream/` (12 cases) | ✅ `validate_md` | ✅ `sarkas_gpu` (9/9, 0.000% drift) | — |
+| 2 | TTM (laser-plasma) | ✅ `ttm/` (3 species) | — (ODE solver, not ported) | — | — |
+| 3 | Diaw surrogate learning | ✅ `surrogate/` (9 functions) | ✅ `nuclear_eos_l1_ref` (surrogate path) | ✅ `nuclear_eos_gpu` (GPU RBF) | — |
+| 4 | Nuclear EOS (SEMF→HFB) | ✅ `surrogate/nuclear-eos/` | ✅ `validate_nuclear_eos` (195/195) | ✅ `nuclear_eos_l2_gpu` + `l3_gpu` | — |
+| 5 | Stanton-Murillo transport | ✅ `sarkas/../transport-study/` | ✅ `validate_stanton_murillo` (13/13) | ✅ `validate_transport` (CPU/GPU parity) | ✅ NPU: ESN transport prediction |
+| 6 | Murillo-Weisheit screening | ✅ `screened_coulomb/` | ✅ `validate_screened_coulomb` (23/23) | — (CPU-only eigensolve) | — |
+| 7 | HotQCD EOS tables | — (data only, no sim) | ✅ `validate_hotqcd_eos` | — (data validation) | — |
+| 8 | Pure gauge SU(3) | ✅ `lattice_qcd/quenched_beta_scan.py` | ✅ `validate_pure_gauge` (12/12) | ✅ GPU plaquette + HMC force shaders | ✅ NPU: phase classification |
+| 9 | Production QCD β-scan | ✅ `lattice_qcd/quenched_beta_scan.py` | ✅ `validate_production_qcd` (10/10) | ✅ GPU CG (9/9) + Dirac (8/8) | ✅ NPU: `validate_lattice_npu` (10/10) |
+| 10 | Dynamical fermion QCD | ✅ `lattice_qcd/dynamical_fermion_control.py` | ✅ `validate_dynamical_qcd` (7/7) | ⬜ GPU pseudofermion force (pending) | ⬜ NPU: dynamical phase classify |
+| 11 | Hadronic vacuum polarization | — | ⬜ (needs production runs) | ✅ GPU pipeline ready | — |
+| 12 | Freeze-out curvature | — | ⬜ (needs production runs) | ✅ GPU pipeline ready | — |
+| 13 | Abelian Higgs | ✅ `abelian_higgs/abelian_higgs_hmc.py` | ✅ `validate_abelian_higgs` (17/17) | ✅ GPU Higgs shader absorbed | — |
+| 14 | Anderson 1D localization | ✅ `spectral_theory/spectral_control.py` | ✅ `validate_spectral` (10/10) | ✅ GPU SpMV (8/8) | — |
+| 15 | Aubry-André transition | ✅ (in spectral_control.py) | ✅ (in validate_spectral) | ✅ (via GPU SpMV) | — |
+| 16 | Jitomirskaya metal-insulator | ✅ (in spectral_control.py) | ✅ (in validate_spectral) | ✅ (via GPU SpMV) | — |
+| 17 | Herman Lyapunov bound | ✅ (in spectral_control.py) | ✅ (in validate_spectral) | — (transfer matrix, CPU) | — |
+| 18 | Lanczos eigensolve | ✅ (in spectral_control.py) | ✅ `validate_lanczos` (11/11) | ✅ `validate_gpu_lanczos` (6/6) | — |
+| 19 | 2D Anderson scaling | ✅ (in spectral_control.py) | ✅ `validate_lanczos` (2D checks) | ✅ (via GPU Lanczos) | — |
+| 20 | 3D Anderson mobility edge | ✅ (in spectral_control.py — 3D extension) | ✅ `validate_anderson_3d` (10/10) | — (large matrix, P2) | — |
+| 21 | Hofstadter butterfly | ✅ (in spectral_control.py) | ✅ `validate_hofstadter` (10/10) | — (Sturm, CPU-natural) | — |
+| 22 | Ten Martini (Cantor) | ✅ (in spectral_control.py) | ✅ (in validate_hofstadter) | — (Sturm, CPU-natural) | — |
+| 23 | Sulfolobus meta-populations | — | — | — | — (wetSpring domain) |
+| 24 | Anderson subseafloor review | — (reference only) | — | — | — |
 
-**Total science cost**: ~$0.20 for 22 papers, 390+ validation checks.
+### Totals
+
+| Substrate | Papers with validation | Coverage |
+|-----------|:---:|:---:|
+| **Python Control** | **18/22** | Papers 1-6, 8-10, 13-22 |
+| **BarraCUDA CPU** | **20/22** | All except 2 (TTM ODE), 23 (bioinformatics) |
+| **BarraCUDA GPU** | **15/22** | Papers 1, 3-5, 8-9, 13-19 + pure GPU QCD workload |
+| **metalForge (GPU+NPU)** | **3/22** | Papers 5, 8-9 (transport + phase classification) |
+
+### Missing Controls (Action Items)
+
+| Paper | What's Needed | Effort | Priority |
+|-------|--------------|--------|----------|
+| 7 (HotQCD EOS) | No control needed — uses published reference data | — | — |
+| 11 (HVP g-2) | Production QCD runs at scale (16⁴+) | High | P2 |
+| 12 (Freeze-out) | Same as #11 + inverse problem | High | P2 |
+| 20 (3D Anderson) | ✅ DONE — 3D Anderson added to spectral_control.py (Feb 22, 2026) | — | — |
+| 23 (Sulfolobus) | Bioinformatics pipeline (wetSpring domain) | Medium | P3 |
+
+**Total science cost**: ~$0.20 for 22 papers, 400+ validation checks.
 Papers 6, 7, 13-22 add checks at negligible cost (CPU-only, <15 seconds each).
+
+---
+
+## BarraCUDA Evolution: CPU → GPU → metalForge
+
+The evolution path validates the same physics on progressively more capable
+substrates. Each level proves correctness before promoting to the next.
+
+### Level 1: BarraCUDA CPU (Pure Rust Math)
+
+All physics implemented in pure Rust, validated against Python controls.
+No GPU required. This is the correctness foundation.
+
+| Domain | Binary | Checks | Rust vs Python |
+|--------|--------|:---:|:---:|
+| MD forces + integrators | `validate_md` | pass | — |
+| Nuclear EOS (L1-L3) | `validate_nuclear_eos` | 195/195 | 478× faster |
+| Transport coefficients | `validate_stanton_murillo` | 13/13 | — |
+| Screened Coulomb | `validate_screened_coulomb` | 23/23 | 2274× faster |
+| Pure gauge SU(3) HMC | `validate_pure_gauge` | 12/12 | 56× faster |
+| Production QCD β-scan | `validate_production_qcd` | 10/10 | — |
+| Dynamical fermion QCD | `validate_dynamical_qcd` | 7/7 | — |
+| Abelian Higgs HMC | `validate_abelian_higgs` | 17/17 | 143× faster |
+| HotQCD EOS tables | `validate_hotqcd_eos` | pass | — |
+| Spectral theory (1D/2D/3D) | `validate_spectral` + 3 more | 41/41 | 8× faster |
+| Hofstadter butterfly | `validate_hofstadter` | 10/10 | — |
+| Lattice QCD CG solver | `validate_gpu_cg` (CPU path) | 9/9 | 200× faster |
+| Special functions + linalg | `validate_special_functions` + `validate_linalg` | pass | — |
+
+**Status**: 20/22 papers have BarraCUDA CPU validation. Rust consistently
+50×–2000× faster than Python for identical algorithms.
+
+### Level 2: BarraCUDA GPU (WGSL Shaders via wgpu/Vulkan)
+
+GPU acceleration for compute-bound operations. Same physics, dispatched
+to consumer GPU (RTX 4070 or any Vulkan SHADER_F64 device).
+
+| Domain | Shader / Binary | Checks | GPU vs CPU |
+|--------|----------------|:---:|:---:|
+| Yukawa MD (all-pairs + cell-list) | `sarkas_gpu` | 9/9 at N=10k | 4.1× (cell-list) |
+| Nuclear EOS L2 (batched HFB) | `nuclear_eos_l2_gpu` | 791 nuclei | 1.7× |
+| Nuclear EOS L3 (deformed HFB) | `nuclear_eos_l3_gpu` | 295 improved | — |
+| CPU/GPU parity | `validate_cpu_gpu_parity` | 6/6 | parity 1e-15 |
+| Staggered Dirac operator | `validate_gpu_dirac` | 8/8 | parity 4.44e-16 |
+| CG solver (D†D) | `validate_gpu_cg` | 9/9 | **22.2× at 16⁴** |
+| Pure GPU QCD workload | `validate_pure_gpu_qcd` | 3/3 | parity 4.10e-16 |
+| GPU SpMV (spectral) | `validate_gpu_spmv` | 8/8 | parity 1.78e-15 |
+| GPU Lanczos eigensolve | `validate_gpu_lanczos` | 6/6 | parity 1e-15 |
+| Transport CPU/GPU | `validate_transport` | pass | — |
+| NAK eigensolve | `validate_nak_eigensolve` | pass | — |
+| PPPM Coulomb | `validate_pppm` | pass | — |
+| HFB pipeline | `validate_barracuda_hfb` | 14/14 | — |
+| MD pipeline | `validate_barracuda_pipeline` | 12/12 | — |
+
+**Status**: 15/22 papers have GPU validation paths. GPU CG solver achieves
+22.2× speedup at 16⁴ lattice volume. Machine-epsilon CPU/GPU parity proven.
+
+### Level 3: metalForge (GPU + NPU + CPU Heterogeneous)
+
+Mixed-substrate dispatch: GPU generates data, NPU classifies/predicts,
+CPU orchestrates. $900 total hardware cost.
+
+| Domain | Binary / Script | Checks | Key Result |
+|--------|----------------|:---:|:---:|
+| NPU beyond-SDK capabilities | `validate_npu_beyond_sdk` | 16/16 | 10 SDK assumptions overturned |
+| NPU quantization cascade | `validate_npu_quantization` | 6/6 | f32/int8/int4 parity |
+| NPU physics pipeline | `validate_npu_pipeline` | 10/10 | MD→ESN→NPU→D*,η*,λ* |
+| Lattice QCD + NPU phase | `validate_lattice_npu` | 10/10 | β_c=5.715 (0.4% error) |
+| Heterogeneous monitor | `validate_hetero_monitor` | 9/9 | 5 previously impossible capabilities |
+| NPU HW pipeline | `npu_physics_pipeline.py` | 10/10 | 9,017× less energy than CPU |
+| NPU HW beyond-SDK | `npu_beyond_sdk.py` | 13/13 | Hardware-validated |
+| NPU HW quantization | `npu_quantization_parity.py` | 4/4 | Hardware-validated |
+| NPU lattice phase (HW) | `npu_lattice_phase.py` | 9/9 | GPU HMC → NPU classify |
+
+**Status**: 3 physics domains (transport, pure gauge QCD, production QCD)
+have end-to-end heterogeneous pipeline validation. NPU inference at 30mW
+for transport predictions. GPU+NPU+CPU streaming validated.
+
+### Level 4: Sovereign Pipeline (all substrates, no proprietary deps)
+
+| Milestone | Status |
+|-----------|--------|
+| NVK/nouveau on Titan V | ✅ 6/6 parity, 40/40 transport |
+| Both GPUs produce identical physics | ✅ to 1e-15 |
+| NPU on open driver (akida PCIe) | ✅ 34/35 HW checks |
+| AGPL-3.0 on all source | ✅ 106 .rs + 34 .wgsl |
+| Zero proprietary dependencies | ✅ (wgpu → Vulkan → open driver) |
+| Zero external FFI/C bindings | ✅ all pure Rust |
+
+---
 
 ### metalForge NPU Pipeline Validation (Feb 20, 2026)
 
@@ -289,10 +415,37 @@ momentum-space propagator computation. **Full pipeline COMPLETE**: Dirac 8/8 + C
 
 | # | Paper | Journal | Year | Faculty | What We Need | Status |
 |---|-------|---------|------|---------|-------------|--------|
-| 9 | Bazavov [HotQCD] (2014) "The QCD equation of state" | Nucl Phys A 931, 867 | 2014 | Bazavov | ~~FFT~~, ~~complex f64~~, ~~SU(3)~~, ~~HMC~~, ~~GPU Dirac~~, ~~GPU CG~~ | **GPU pipeline COMPLETE** — Dirac 8/8 + CG 9/9 checks |
+| 9 | Bazavov [HotQCD] (2014) "The QCD equation of state" | Nucl Phys A 931, 867 | 2014 | Bazavov | ~~FFT~~, ~~complex f64~~, ~~SU(3)~~, ~~HMC~~, ~~GPU Dirac~~, ~~GPU CG~~ | **Quenched β-scan 10/10** — 4^4+8^4 validated, production runs next |
 | 10 | Bazavov et al. (2016) "Polyakov loop in 2+1 flavor QCD" | Phys Rev D 93, 114502 | 2016 | Bazavov | Same as #9 + Polyakov loop | **GPU pipeline COMPLETE** — Polyakov loop + GPU CG done |
 | 11 | Bazavov et al. (2025) "Hadronic vacuum polarization for the muon g-2" | Phys Rev D 111, 094508 | 2025 | Bazavov | Same as #9 + subpercent precision | **GPU pipeline COMPLETE** — f64 FFT + Dirac + CG |
 | 12 | Bazavov et al. (2016) "Curvature of the freeze-out line" | Phys Rev D 93, 014512 | 2016 | Bazavov | Same as #9 + inverse problem | **GPU pipeline COMPLETE** — requires #9 production run |
+
+**Paper 9 status**: Quenched (pure gauge) β-scan validated on 4^4 and 8^4
+lattices. `validate_production_qcd` binary: 10/10 checks pass.
+- **4^4 scan**: 9 β values (4.0–6.5), plaquette monotonic, ⟨P⟩=0.588 at β=6.0
+  (1.1% from Bali reference 0.594), susceptibility peaks at β=5.70 (=β_c).
+- **8^4 scaling**: plaquette matches 4^4 within 2.8% at β=6.0.
+- **Polyakov transition**: confined ⟨|L|⟩=0.285 < deconfined ⟨|L|⟩=0.334.
+- **Determinism**: rerun-identical to machine epsilon.
+- **Python control**: `control/lattice_qcd/scripts/quenched_beta_scan.py`
+  (algorithm-identical HMC, same LCG seed).
+- **Python control parity**: ✅ Complete. 9 β values on 4^4, all plaquettes
+  agree within 2.3% (statistical noise on 30 trajectories). Python 446s vs
+  Rust 8.0s — **Rust 56× faster**. Bug found and fixed in Python: uniform
+  momentum distribution violated HMC detailed balance; corrected to Gaussian
+  (Gell-Mann basis, matching Rust).
+- **Dynamical fermions**: pseudofermion HMC module (`pseudofermion.rs`) complete.
+  Heat bath, CG-based action, fermion force, combined leapfrog. 4/4 tests pass.
+- **Dynamical QCD validation**: `validate_dynamical_qcd` (7/7 checks):
+  ΔH O(dt²) scaling ✓, plaquette (0,1) ✓, S_F > 0 ✓, acceptance > 1% ✓,
+  dynamical vs quenched shift bounded ✓, mass dependence ✓, phase ordering ✓.
+  Heavy quarks (m=2.0) on 4^4 with quenched pre-thermalization.
+  Python control: `control/lattice_qcd/scripts/dynamical_fermion_control.py`
+  (algorithm-identical, S_F≈1500, ΔH≈1-18 — matches Rust exactly).
+- **Next**: (1) Omelyan integrator + Hasenbusch mass preconditioning for
+  production acceptance rates, (2) GPU promotion of HMC kernels,
+  (3) 16^4/32^4 production runs.
+See `experiments/009_PRODUCTION_LATTICE_QCD.md` for full results.
 
 **ToadStool GPU primitives now available**: `Fft1DF64`, `Fft3DF64`,
 `complex_f64.wgsl`, `su3.wgsl`, `wilson_plaquette_f64.wgsl`,

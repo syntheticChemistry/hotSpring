@@ -96,6 +96,100 @@ pub const HOTQCD_CONSISTENCY: f64 = 0.30;
 pub const HOTQCD_MAX_VIOLATIONS: usize = 3;
 
 // ═══════════════════════════════════════════════════════════════════
+// Production QCD β-scan tolerances
+// ═══════════════════════════════════════════════════════════════════
+
+/// β-scan plaquette monotonicity: relative margin.
+///
+/// The average plaquette `<P>` must increase monotonically with β.
+/// At each β, the plaquette is averaged over measurement trajectories
+/// after thermalization. Zero tolerance — any non-monotonic pair fails.
+pub const BETA_SCAN_PLAQUETTE_MONOTONICITY: f64 = 0.0;
+
+/// β-scan Polyakov loop: confined-phase upper bound.
+///
+/// In the confined phase (β < β_c ≈ 5.69 for SU(3) on N_t=4),
+/// the spatial average of |L| should be suppressed. On a 4^4 lattice,
+/// finite-size effects give |L| ~ 0.1-0.3 even in confinement.
+/// 0.40 allows for fluctuations on small volumes.
+pub const BETA_SCAN_CONFINED_POLYAKOV_MAX: f64 = 0.40;
+
+/// β-scan acceptance rate: minimum for all β values.
+///
+/// Every β point in the scan must have HMC acceptance > 30%.
+/// Lower than 30% suggests the step size is too large for that coupling.
+pub const BETA_SCAN_ACCEPTANCE_MIN: f64 = 0.30;
+
+/// β-scan plaquette: Python-Rust parity.
+///
+/// Same algorithm, same LCG seed → same plaquette trajectory. The
+/// parity is limited by FP summation order differences between NumPy
+/// and Rust iterators. On 4^4 (256 sites), 1% relative is achievable.
+pub const BETA_SCAN_PYTHON_RUST_PLAQUETTE_PARITY: f64 = 0.01;
+
+/// β-scan 8^4 scaling: plaquette should approach 4^4 at large β.
+///
+/// At β ≥ 6.0 (weak coupling), finite-size effects vanish and the
+/// 4^4 and 8^4 plaquettes converge. 5% relative tolerance accounts
+/// for residual finite-volume corrections.
+pub const BETA_SCAN_SCALING_PARITY: f64 = 0.05;
+
+/// Known plaquette at β=6.0 on 4^4: ~0.594.
+///
+/// Bali et al. (1993) and Necco & Sommer (2002) give the continuum-limit
+/// plaquette. On a finite 4^4 lattice, measured value is 0.55-0.61 with
+/// O(100) trajectories. 10% relative tolerance.
+pub const BETA6_PLAQUETTE_REF: f64 = 0.594;
+
+/// Tolerance for β=6.0 plaquette reference comparison.
+pub const BETA6_PLAQUETTE_TOLERANCE: f64 = 0.10;
+
+// ═══════════════════════════════════════════════════════════════════
+// Dynamical fermion QCD tolerances (Paper 10)
+// ═══════════════════════════════════════════════════════════════════
+
+/// Dynamical HMC acceptance rate lower bound.
+///
+/// Naive staggered fermion HMC without multi-timescale integration or
+/// mass preconditioning has low acceptance on coarse lattices due to
+/// the stiff fermion force. Any nonzero acceptance proves the Metropolis
+/// step is functioning. Production efficiency requires Omelyan integrator
+/// and Hasenbusch mass splitting (future optimization).
+pub const DYNAMICAL_HMC_ACCEPTANCE_MIN: f64 = 0.01;
+
+/// Dynamical plaquette: must remain physical (0 < P < 1).
+///
+/// Fermion backreaction modifies the plaquette relative to quenched,
+/// but it must remain in (0, 1) for any valid SU(3) configuration.
+pub const DYNAMICAL_PLAQUETTE_MAX: f64 = 1.0;
+
+/// Dynamical fermion action: must be positive.
+///
+/// S_F = φ†(D†D)⁻¹φ ≥ 0 since D†D is positive-definite. A negative
+/// value indicates a CG convergence failure or sign error.
+pub const DYNAMICAL_FERMION_ACTION_MIN: f64 = 0.0;
+
+/// CG convergence: all solves must converge within max iterations.
+///
+/// The CG solver for (D†D)x = φ should converge at the requested
+/// tolerance within 5000 iterations on 4^4 lattices.
+pub const DYNAMICAL_CG_MAX_ITER: usize = 5000;
+
+/// Dynamical plaquette vs quenched: fermion backreaction changes plaquette.
+///
+/// At the same β, dynamical fermions shift the plaquette relative to
+/// quenched. The shift should not exceed 0.15 on 4^4 with light quarks
+/// (m=0.1). A larger shift indicates incorrect fermion force.
+pub const DYNAMICAL_VS_QUENCHED_SHIFT_MAX: f64 = 0.15;
+
+/// Polyakov loop confined-phase upper bound (dynamical).
+///
+/// In the confined phase with dynamical fermions, |L| is suppressed
+/// but string breaking allows slightly larger values than quenched.
+/// 0.5 is generous for 4^4 with light quarks.
+pub const DYNAMICAL_CONFINED_POLYAKOV_MAX: f64 = 0.50;
+
+// ═══════════════════════════════════════════════════════════════════
 // NAK eigensolve tolerances
 // ═══════════════════════════════════════════════════════════════════
 

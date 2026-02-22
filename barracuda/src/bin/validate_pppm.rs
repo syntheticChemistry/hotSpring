@@ -70,8 +70,9 @@ fn main() {
         let params =
             PppmParams::custom(n, [box_side, box_side, box_side], [16, 16, 16], 0.5, 4.0, 4);
 
+        let wgpu_dev = gpu.to_wgpu_device();
         let t0 = Instant::now();
-        let pppm = match PppmGpu::new(gpu.device_arc(), gpu.queue_arc(), params).await {
+        let pppm = match PppmGpu::from_device(&wgpu_dev, params).await {
             Ok(p) => p,
             Err(e) => {
                 println!("  PppmGpu::new failed: {e}");
@@ -168,7 +169,7 @@ fn main() {
             4,
         );
 
-        match PppmGpu::new(gpu.device_arc(), gpu.queue_arc(), params_nacl).await {
+        match PppmGpu::from_device(&wgpu_dev, params_nacl).await {
             Ok(pppm_nacl) => {
                 let t2 = Instant::now();
                 match pppm_nacl
@@ -278,7 +279,7 @@ fn main() {
             4,
         );
 
-        match PppmGpu::new(gpu.device_arc(), gpu.queue_arc(), params_rand).await {
+        match PppmGpu::from_device(&wgpu_dev, params_rand).await {
             Ok(pppm_rand) => {
                 let t_pppm = Instant::now();
                 match pppm_rand

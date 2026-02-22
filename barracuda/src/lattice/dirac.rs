@@ -308,7 +308,7 @@ pub fn apply_dirac_sq(lattice: &Lattice, psi: &FermionField, mass: f64) -> Fermi
 ///
 /// For staggered fermions: D† has the same structure but with η → -η
 /// for the hopping terms (equivalently, reverse forward/backward).
-fn apply_dirac_adjoint(lattice: &Lattice, psi: &FermionField, mass: f64) -> FermionField {
+pub fn apply_dirac_adjoint(lattice: &Lattice, psi: &FermionField, mass: f64) -> FermionField {
     let vol = lattice.volume();
     let mut result = FermionField::zeros(vol);
 

@@ -57,7 +57,7 @@ const SO_PACK_SHADER: &str = include_str!("../shaders/spin_orbit_pack_f64.wgsl")
 ///
 /// Returns [`HotSpringError::GpuCompute`] if GPU buffer allocation, shader
 /// compilation, or eigensolve fails.
-#[allow(clippy::cast_possible_truncation)]
+#[allow(clippy::cast_possible_truncation, unused_assignments)]
 pub fn binding_energies_l2_gpu_resident(
     device: &Arc<WgpuDevice>,
     nuclei: &[(usize, usize)],
@@ -72,16 +72,20 @@ pub fn binding_energies_l2_gpu_resident(
     let mut total_gpu_dispatches = 0usize;
     let mut n_semf = 0usize;
 
-    let mut hfb_nuclei: Vec<(usize, usize, usize)> = Vec::new();
-    for (idx, &(z, n)) in nuclei.iter().enumerate() {
-        let a = z + n;
-        if (56..=132).contains(&a) {
-            hfb_nuclei.push((z, n, idx));
-        } else {
-            results.push((z, n, semf_binding_energy(z, n, params), true));
-            n_semf += 1;
-        }
-    }
+    let hfb_nuclei: Vec<(usize, usize, usize)> = nuclei
+        .iter()
+        .enumerate()
+        .filter_map(|(idx, &(z, n))| {
+            let a = z + n;
+            if (56..=132).contains(&a) {
+                Some((z, n, idx))
+            } else {
+                results.push((z, n, semf_binding_energy(z, n, params), true));
+                n_semf += 1;
+                None
+            }
+        })
+        .collect();
 
     if hfb_nuclei.is_empty() {
         return Ok(GpuResidentL2Result {
@@ -207,13 +211,13 @@ pub fn binding_energies_l2_gpu_resident(
         .collect();
 
     // ═══ UNIFIED SCF LOOP ═══
-    #[allow(unused_variables, unused_assignments)]
+    #[allow(unused_variables)]
     let mut t_gpu_total = 0.0f64;
     #[allow(unused_variables)]
     let t_poll_total = 0.0f64;
-    #[allow(unused_variables, unused_assignments)]
+    #[allow(unused_variables)]
     let mut t_cpu_total = 0.0f64;
-    #[allow(unused_variables, unused_assignments)]
+    #[allow(unused_variables)]
     let mut t_upload_total = 0.0f64;
 
     for iter in 0..max_iter {

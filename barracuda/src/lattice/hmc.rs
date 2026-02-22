@@ -267,6 +267,11 @@ pub struct HmcStatistics {
     pub plaquette_history: Vec<f64>,
 }
 
+/// Public access to the Cayley matrix exponential for use by `pseudofermion`.
+pub fn exp_su3_cayley_pub(p: &Su3Matrix, dt: f64) -> Su3Matrix {
+    exp_su3_cayley(p, dt)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

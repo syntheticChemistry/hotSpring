@@ -40,4 +40,5 @@ pub mod observables;
 pub mod reservoir;
 pub mod shaders;
 pub mod simulation;
+pub mod simulation_transport_gpu;
 pub mod transport;

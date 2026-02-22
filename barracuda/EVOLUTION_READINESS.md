@@ -87,12 +87,11 @@ Python baseline → Rust validation → WGSL template → GPU shader → ToadSto
 | `deformed_gradient_f64.wgsl` | 205 | Gradient of deformed densities |
 | `deformed_potentials_f64.wgsl` | 268 | Deformed mean-field potentials |
 
-### MD Reference Shaders (`src/md/shaders_toadstool_ref/`)
+### MD Reference Shaders (absorbed — directory removed)
 
-Toadstool reference shaders were absorbed upstream; only `README.md` remains.
-Original shaders (`yukawa_f64.wgsl`, `yukawa_celllist_f64.wgsl`,
-`velocity_verlet_split.wgsl`, `vv_half_kick_f64.wgsl`) served as absorption
-templates — production equivalents live in `src/md/shaders/`.
+Toadstool reference shaders were absorbed upstream and the
+`src/md/shaders_toadstool_ref/` directory was deleted in v0.6.3.
+Production equivalents live in `src/md/shaders/`.
 
 ### MD Production Shaders (`src/md/shaders/`)
 

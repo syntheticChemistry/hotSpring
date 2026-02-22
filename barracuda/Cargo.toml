@@ -256,6 +256,16 @@ path = "src/bin/bench_screened_coulomb.rs"
 name = "validate_pure_gauge"
 path = "src/bin/validate_pure_gauge.rs"
 
+# ── Papers 9-12: Production lattice QCD (quenched β-scan) ──
+[[bin]]
+name = "validate_production_qcd"
+path = "src/bin/validate_production_qcd.rs"
+
+# ── Paper 10: Dynamical fermion QCD (pseudofermion HMC) ──
+[[bin]]
+name = "validate_dynamical_qcd"
+path = "src/bin/validate_dynamical_qcd.rs"
+
 [[bin]]
 name = "validate_reservoir_transport"
 path = "src/bin/validate_reservoir_transport.rs"
@@ -335,3 +345,13 @@ path = "src/bin/validate_abelian_higgs.rs"
 [[bin]]
 name = "bench_lattice_scaling"
 path = "src/bin/bench_lattice_scaling.rs"
+
+# ── GPU-only transport: D* via batched VACF, zero velocity readback ──
+[[bin]]
+name = "validate_transport_gpu_only"
+path = "src/bin/validate_transport_gpu_only.rs"
+
+# ── GPU-resident transport: VACF on GpuVelocityRing vs CPU reference ──
+[[bin]]
+name = "validate_transport_gpu_resident"
+path = "src/bin/validate_transport_gpu_resident.rs"

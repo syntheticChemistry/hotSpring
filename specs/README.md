@@ -1,7 +1,7 @@
 # hotSpring Specifications
 
 **Last Updated**: February 22, 2026
-**Status**: Phase A-I complete — 637 tests (637 passing + 6 GPU/heavy-ignored; spectral tests upstream), 33/33 validation suites, crate v0.6.4
+**Status**: Phase A-I complete — 616 tests (609 passing + 1 env-flaky + 6 GPU/heavy-ignored; spectral tests upstream), 34/34 validation suites, crate v0.6.4+
 **Domain**: Computational plasma physics, nuclear structure, transport, lattice QCD, spectral theory, surrogate learning
 
 ---
@@ -16,11 +16,12 @@
 | Phase D (f64 + N-scaling) | N=10,000 in 5.3 min, native WGSL builtins |
 | Phase E (Paper parity) | 9/9 PP Yukawa — N=10,000, 80k steps, $0.044 |
 | Phase F (Full nuclear EOS) | 2,042 nuclei on consumer GPU |
-| Phase G (Transport + Lattice) | 13/13 transport, 12/12 pure gauge SU(3), 17/17 Abelian Higgs |
+| Phase G (Transport + Lattice) | 13/13 transport, 12/12 pure gauge SU(3), 7/7 dynamical QCD, 17/17 Abelian Higgs |
 | Phase H (Spectral Theory) | 41/41 (Anderson 1D/2D/3D, Lanczos, Hofstadter butterfly) |
 | Phase I (Heterogeneous) | 68/68 (NPU quantization, beyond-SDK, pipeline, lattice NPU, hetero monitor) |
 | ToadStool Rewire v3 | CellListGpu fixed, lattice GPU shaders, **FFT f64** — Tier 3 unblocked |
 | ToadStool Rewire v4 | Spectral module fully leaning on upstream (41 KB deleted), `CsrMatrix` alias, `BatchIprGpu` available |
+| ToadStool S39 Catch-Up | Sessions 31d-39 reviewed: Dirac+CG+HFB+ESN absorbed. Remaining: pseudofermion HMC + loop_unroller u32 fix |
 | Faculty | Murillo (CMSE, MSU — MSDS professor) |
 | Faculty extension | Bazavov (CMSE + Physics, MSU — master's professor) |
 | Faculty extension | Kachkovskiy (Math, MSU — spectral theory) |
@@ -55,7 +56,7 @@
 - **Plasma physics validation** — Sarkas Yukawa MD, OCP thermodynamics
 - **Nuclear structure computation** — SEMF → HFB → deformed HFB on consumer GPU
 - **Transport coefficients** — Green-Kubo D*/η*/λ*, Stanton-Murillo fits
-- **Lattice gauge theory** — SU(3) pure gauge, Wilson action, HMC, staggered Dirac
+- **Lattice gauge theory** — SU(3) pure gauge, Wilson action, HMC, staggered Dirac, dynamical fermion pseudofermion HMC
 - **Surrogate learning** — Diaw et al. (2024) neural surrogates for physics
 - **BarraCUDA science driver** — the primary workload pushing GPU f64 capabilities
 

@@ -21,10 +21,10 @@
 //! | `validate_pppm` | PPPM Coulomb/Ewald | GPU |
 //! | `validate_cpu_gpu_parity` | CPU vs GPU same-physics proof | GPU |
 //! | `validate_nak_eigensolve` | NAK-optimized eigensolve correctness | GPU |
-//! | `validate_transport` | Transport CPU/GPU parity | GPU |
-//! | `validate_stanton_murillo` | Transport coefficients D*, η*, λ* | No |
+//! | `validate_transport_gpu_only` | GPU-only transport: D* via GPU VACF | GPU |
 //! | `validate_screened_coulomb` | Yukawa bound states (Murillo-Weisheit) | No |
 //! | `validate_pure_gauge` | Pure gauge SU(3) lattice QCD | No |
+//! | `validate_dynamical_qcd` | Dynamical fermion HMC (Paper 10) | No |
 //! | `validate_abelian_higgs` | Abelian Higgs (1+1)D U(1)+scalar | No |
 //! | `validate_npu_quantization` | NPU ESN quantization cascade | No |
 //! | `validate_npu_beyond_sdk` | NPU beyond-SDK capabilities | No |
@@ -35,6 +35,7 @@
 //! | `validate_lanczos` | Lanczos + SpMV + 2D Anderson | No |
 //! | `validate_anderson_3d` | 3D Anderson: mobility edge, dimensional hierarchy | No |
 //! | `validate_hofstadter` | Hofstadter butterfly: band counting, spectral topology | No |
+//! | `validate_barracuda_evolution` | CPU foundation: all domains, evolution evidence | No |
 //! | `validate_gpu_spmv` | GPU CSR SpMV: CPU/GPU parity for spectral theory | GPU |
 //! | `validate_gpu_lanczos` | GPU Lanczos eigensolve: GPU SpMV inner loop | GPU |
 //! | `validate_gpu_dirac` | GPU staggered Dirac: SU(3) × color on GPU (Papers 9-12) | GPU |
@@ -113,14 +114,9 @@ const SUITES: &[Suite] = &[
         requires_gpu: true,
     },
     Suite {
-        name: "Transport CPU/GPU Parity (Paper 5)",
-        binary: "validate_transport",
+        name: "GPU-Only Transport (Paper 5)",
+        binary: "validate_transport_gpu_only",
         requires_gpu: true,
-    },
-    Suite {
-        name: "Stanton-Murillo Transport (Paper 5)",
-        binary: "validate_stanton_murillo",
-        requires_gpu: false,
     },
     Suite {
         name: "Screened Coulomb (Paper 6)",
@@ -135,6 +131,16 @@ const SUITES: &[Suite] = &[
     Suite {
         name: "Pure Gauge SU(3) (Paper 8)",
         binary: "validate_pure_gauge",
+        requires_gpu: false,
+    },
+    Suite {
+        name: "Production QCD β-Scan (Papers 9-12)",
+        binary: "validate_production_qcd",
+        requires_gpu: false,
+    },
+    Suite {
+        name: "Dynamical Fermion QCD (Paper 10)",
+        binary: "validate_dynamical_qcd",
         requires_gpu: false,
     },
     Suite {
@@ -185,6 +191,11 @@ const SUITES: &[Suite] = &[
     Suite {
         name: "Hofstadter Butterfly (Kachkovskiy)",
         binary: "validate_hofstadter",
+        requires_gpu: false,
+    },
+    Suite {
+        name: "BarraCUDA Evolution (CPU Foundation)",
+        binary: "validate_barracuda_evolution",
         requires_gpu: false,
     },
     Suite {

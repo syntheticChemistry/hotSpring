@@ -547,19 +547,23 @@ fn readback_mixed_densities(
                 bytemuck::cast_slice::<u8, f64>(&mapped)[..items_count].to_vec()
             };
             g.e_pair_staging.unmap();
-            let mut group_energies = Vec::with_capacity(items_count);
-            for bi in 0..items_count {
-                let base = bi * nr;
-                let integrand_slice = &integrands[base..base + nr];
-                let trapz_sum = if nr <= 1 {
-                    integrand_slice.first().copied().unwrap_or(0.0)
-                } else {
-                    integrand_slice[0] / 2.0
-                        + integrand_slice[1..nr - 1].iter().sum::<f64>()
-                        + integrand_slice[nr - 1] / 2.0
-                };
-                group_energies.push(trapz_sum + e_pair[bi]);
-            }
+            let group_energies: Vec<f64> = e_pair
+                .iter()
+                .enumerate()
+                .take(items_count)
+                .map(|(bi, &ep)| {
+                    let base = bi * nr;
+                    let integrand_slice = &integrands[base..base + nr];
+                    let trapz_sum = if nr <= 1 {
+                        integrand_slice.first().copied().unwrap_or(0.0)
+                    } else {
+                        integrand_slice[0] / 2.0
+                            + integrand_slice[1..nr - 1].iter().sum::<f64>()
+                            + integrand_slice[nr - 1] / 2.0
+                    };
+                    trapz_sum + ep
+                })
+                .collect();
             energies.insert(gi, group_energies);
         }
         Some(energies)

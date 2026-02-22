@@ -552,23 +552,28 @@ quantum field theory. hotSpring has implemented:
 
 ### 7.1 Lattice QCD Infrastructure
 
-Eight modules in `barracuda/src/lattice/` totaling ~2,800 lines:
+Twelve modules in `barracuda/src/lattice/` totaling ~4,200 lines:
 
 | Module | Lines | Purpose | GPU Status |
 |--------|-------|---------|------------|
-| `complex_f64.rs` | 316 | Complex f64 with WGSL template | WGSL string included |
-| `su3.rs` | 460 | SU(3) matrix algebra with WGSL template | WGSL string included |
+| `complex_f64.rs` | 316 | Complex f64 with WGSL template | ✅ Absorbed — `complex_f64.wgsl` |
+| `su3.rs` | 460 | SU(3) matrix algebra with WGSL template | ✅ Absorbed — `su3.wgsl` |
 | `constants.rs` | 95 | Centralized LCG PRNG, guards, helpers | Shared by all lattice modules |
-| `wilson.rs` | 338 | Wilson gauge action, plaquettes, force | Needs WGSL shader |
-| `hmc.rs` | 350 | HMC with Cayley exponential | Needs WGSL shader |
-| `dirac.rs` | 297 | Staggered Dirac operator | Needs WGSL shader |
-| `cg.rs` | 214 | Conjugate gradient for D†D | Needs WGSL shader |
+| `wilson.rs` | 338 | Wilson gauge action, plaquettes, force | ✅ Absorbed — `wilson_plaquette_f64.wgsl` |
+| `hmc.rs` | 350 | HMC with Cayley exponential | ✅ Absorbed — `su3_hmc_force_f64.wgsl` |
+| `pseudofermion.rs` | 477 | Pseudofermion HMC (Paper 10) | CPU, WGSL-ready pattern |
+| `dirac.rs` | 297 | Staggered Dirac operator | ✅ GPU validated — `WGSL_DIRAC_STAGGERED_F64` (8/8) |
+| `cg.rs` | 214 | Conjugate gradient for D†D | ✅ GPU validated — 3 WGSL shaders (9/9) |
+| `abelian_higgs.rs` | ~500 | U(1)+Higgs (1+1)D HMC (Paper 13) | ✅ Absorbed — `higgs_u1_hmc_f64.wgsl` |
 | `eos_tables.rs` | 307 | HotQCD reference data (Bazavov 2014) | CPU-only (data) |
 | `multi_gpu.rs` | 237 | Temperature scan dispatcher | CPU-threaded, GPU-ready |
+| `mod.rs` | 30 | Module declarations and re-exports | — |
 
-**Validation**: 12/12 pure gauge checks pass (`validate_pure_gauge`). HotQCD EOS
-thermodynamic consistency validated (`validate_hotqcd_eos`). HMC acceptance rates
-96-100% on 4^4 lattices across β=5.0-7.0.
+**Validation**: 12/12 pure gauge checks pass (`validate_pure_gauge`). 7/7
+dynamical fermion QCD checks pass (`validate_dynamical_qcd`). 17/17 Abelian
+Higgs checks pass (`validate_abelian_higgs`). HotQCD EOS thermodynamic
+consistency validated (`validate_hotqcd_eos`). HMC acceptance rates 96-100%
+on 4^4 lattices across β=5.0-7.0.
 
 **Key technical insight**: The Cayley transform `(I + X/2)(I - X/2)^{-1}` is
 exactly unitary for anti-Hermitian X. Second-order Taylor approximation caused
@@ -592,7 +597,42 @@ Bazavov et al. (2014) equation of state tables for (2+1)-flavor QCD. Validates
 thermodynamic consistency (trace anomaly peak, pressure monotonicity, speed of
 sound approaching conformal limit), asymptotic freedom at high temperature.
 
-### 7.4 Structural Parallel: Plasma MD ↔ Lattice QCD
+### 7.4 Dynamical Fermion QCD (Paper 10)
+
+Full pseudofermion HMC for lattice QCD with dynamical quarks. This is the
+first validation that exercises the entire lattice stack together: SU(3) gauge
+fields, staggered Dirac operator, conjugate gradient solver, and pseudofermion
+force in a combined molecular dynamics evolution.
+
+**Implementation**: `lattice/pseudofermion.rs` (477 lines) provides:
+- Pseudofermion heat bath via Gaussian sampling and CG inversion
+- Fermion action S_F = Re(φ†(D†D)⁻¹φ) via CG
+- Fermion force F = TA(U × M) with staggered phase outer products
+- Combined leapfrog integrating gauge + fermion forces simultaneously
+
+**Validation**: 7/7 checks pass (`validate_dynamical_qcd`):
+1. ΔH scales as O(dt²) — confirming symplectic integrator correctness
+2. All plaquettes in physical range (0,1)
+3. Fermion action positive (D†D positive-definite)
+4. Acceptance > 1% (5% achieved with naive leapfrog on coarse lattice)
+5. Dynamical vs quenched plaquette shift bounded (9.6%)
+6. Mass dependence — m=2 ≠ m=10 produce measurably different physics
+7. Phase ordering — P(β=5.0) < P(β=6.0) (confinement → deconfinement)
+
+**Critical bug found and fixed**: The fermion force initially omitted the
+gauge link U_μ(x) multiplication before the traceless anti-Hermitian projection.
+This meant the force lived in the tangent space at the identity instead of at
+U_μ(x), causing ΔH ~500 and 0% acceptance. The fix: F = TA(U_μ × M) matches
+the gauge force convention F_G = TA(U_μ × Staple).
+
+**Python control**: `control/lattice_qcd/scripts/dynamical_fermion_control.py`
+confirms identical behavior — same S_F magnitude (~1500), same ΔH range (1–18).
+
+**Next**: Omelyan integrator + Hasenbusch mass preconditioning for production
+acceptance rates (>50%). Current naive leapfrog is sufficient to prove physics
+correctness but not for efficient parameter exploration.
+
+### 7.5 Structural Parallel: Plasma MD ↔ Lattice QCD
 
 | Plasma MD | Lattice QCD | Shared Structure |
 |-----------|-------------|-----------------|

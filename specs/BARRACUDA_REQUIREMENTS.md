@@ -50,6 +50,8 @@ templates ready for GPU promotion.
 | ~~**GPU Dirac operator**~~ | ✅ **Done** — `WGSL_DIRAC_STAGGERED_F64` validated 8/8 (max error 4.44e-16) | — | — |
 | ~~**GPU CG solver**~~ | ✅ **Done** — `WGSL_COMPLEX_DOT_RE_F64` + `WGSL_AXPY_F64` + `WGSL_XPAY_F64`, 9/9 checks | — | — |
 | ~~**Pure GPU QCD workload**~~ | ✅ **Done** — `validate_pure_gpu_qcd` (3/3): HMC → GPU CG on thermalized configs | — | — |
+| ~~**Dynamical fermion HMC**~~ | ✅ **Done** — `lattice/pseudofermion.rs`: heat bath, CG action, fermion force, combined leapfrog (7/7 checks) | — | — |
+| **Omelyan integrator + Hasenbusch preconditioning** | Naive leapfrog: 5% acceptance; need multi-timescale for >50% production rates | **P1** | Medium |
 | **Larger lattice sizes (8^4, 16^4)** | 4^4 + 6^4 + 8^3×4 validated on GPU; scaling to 16^4 next | **P2** | Low |
 
 ### Kernels That Transfer Directly (Confirmed)
@@ -113,6 +115,7 @@ Real f64           ────────→  Complex f64              ✅    
 N/A                ────────→  SU(3) matrix ops         ✅         → GPU WGSL (toadstool 8fb5d5a0) ✅
 N/A                ────────→  FFT                      ✅         → GPU Fft1DF64/3D (toadstool 1ffe8b1a) ✅
 N/A                ────────→  CG solver (D†D)          ✅ (CPU+GPU) → WGSL CG pipeline ✅ (9/9)
+N/A                ────────→  Pseudofermion HMC        ✅ (CPU)     → dynamical_qcd 7/7 ✅
 N/A                ────────→  Pure GPU workload        ✅ (HMC+CG) → 3/3 thermalized ✅
 ```
 
@@ -145,7 +148,7 @@ All components implemented and validated (13/13 checks pass):
 
 ### Key Facts for ToadStool Team
 
-- 22 papers reproduced, 637 unit + 24 integration tests, 33/33 validation suites, ~$0.20 total compute cost (spectral tests now upstream)
+- 22 papers reproduced, 616 unit + 24 integration tests, 34/34 validation suites, ~$0.20 total compute cost (spectral tests upstream)
 - RTX 4070 sustains f64 MD at 149-259 steps/s; Titan V (NVK) produces identical physics
 - Energy drift 0.000% over 80k steps sets the precision bar for any new integrator
 - `ReduceScalarPipeline` is the most-used upstream primitive after `WgpuDevice`
@@ -161,6 +164,9 @@ All components implemented and validated (13/13 checks pass):
 | v0.5.16 | NAK eigensolve shader, `StatefulPipeline` impl, `CellListGpu` attempt, `scalar_buffer()`/`max_f64`/`min_f64` on ReduceScalar | Paper 13 (Abelian Higgs), doc audit |
 | S18-25 | `CellListGpu` BGL **fix**, Complex64+SU(3) WGSL, Wilson plaquette+HMC+Higgs GPU, **GPU FFT f64** | **Rewire v3**: deprecate local GpuCellList, unblock Tier 3 lattice QCD |
 | S25-31h | Full `spectral` module absorption, `BatchIprGpu`, `GenEighGpu`, `GemmCachedF64`, `NelderMeadGpu`, WGSL precision fixes | **Rewire v4**: spectral lean — deleted ~41 KB local code, re-export from upstream |
+| S31d | **Dirac + CG lattice GPU** (`ops/lattice/dirac.rs`, `ops/lattice/cg.rs`), `SubstrateCapability` model | Confirmed shader parity — hotSpring local WGSL matches upstream |
+| S36-37 | **5 deformed HFB shaders** (`shaders/science/hfb_deformed/`), **5 spherical HFB shaders** (`shaders/science/hfb/`), ESN `export_weights()` + `import_weights()`, Yukawa cell-list GPU dispatch, trig precision fixes (TS-003, TS-001) | ESN GPU→NPU deploy path now unblocked upstream |
+| S38-39 | Zero clippy warnings, blind `unwrap()` elimination, env-test race fix, `NetworkLoadBalancer`/`NetworkDistributor` tests (3,847+ tests) | No hotSpring changes needed; toadstool hardening |
 
 ### ToadStool v0.5.16 Absorption Review (Feb 20, 2026)
 
@@ -177,22 +183,24 @@ ToadStool commit `8fb5d5a0` rebuilt the scan BGL to 4 bindings matching
 and added `n_groups` to scan params. hotSpring's local `GpuCellList` is now
 **deprecated** — migration to upstream `CellListGpu` planned for next cycle.
 
-### Open Items for ToadStool (Updated Feb 22, 2026 — Post Rewire v4)
+### Open Items for ToadStool (Updated Feb 22, 2026 — Post Session 39 Catch-Up)
 
 1. ~~**Fix `CellListGpu` prefix-sum BGL**~~ — ✅ **DONE** (commit `8fb5d5a0`)
-2. **Absorb NPU reservoir transport** — ESN shaders, weight export, Akida wiring (see NPU handoff)
+2. ~~**Absorb NPU reservoir transport**~~ — ✅ **DONE** (Session 36-37: `esn_v2::ESN` has `export_weights()` + `import_weights()`)
 3. ~~**FFT primitive**~~ — ✅ **DONE** (commit `1ffe8b1a`, `Fft1DF64` + `Fft3DF64`, 14 GPU tests)
 4. ~~**Complex f64 WGSL shader**~~ — ✅ **DONE** (commit `8fb5d5a0`, `shaders/math/complex_f64.wgsl`)
 5. ~~**SU(3) WGSL shader**~~ — ✅ **DONE** (commit `8fb5d5a0`, `shaders/math/su3.wgsl`)
 6. ~~**Lattice plaquette + HMC WGSL shaders**~~ — ✅ **DONE** (commit `8fb5d5a0`, 3 GPU shaders)
-7. **ESN `export_weights()` method on `esn_v2::ESN`** — needed for GPU-train → NPU-deploy path
+7. ~~**ESN `export_weights()` method on `esn_v2::ESN`**~~ — ✅ **DONE** (Session 36-37: both `export_weights()` and `import_weights()` implemented)
 8. ~~**GPU Dirac SpMV shader**~~ — ✅ **Done**: `WGSL_DIRAC_STAGGERED_F64` (8/8 checks, 4.44e-16)
 9. ~~**GPU SpMV for spectral theory**~~ — ✅ **Done** and **absorbed**: `barracuda::spectral::WGSL_SPMV_CSR_F64`
 10. ~~**GPU Lanczos**~~ — ✅ **Done** and **absorbed**: upstream `barracuda::spectral::lanczos`
 11. ~~**GPU CG solver**~~ — ✅ **Done**: 3 WGSL shaders (9/9 checks, iterations match exactly)
 12. ~~**Pure GPU workload**~~ — ✅ **Done**: HMC → GPU CG on thermalized configs (3/3, 4.10e-16)
 13. **Fully GPU-resident Lanczos** — GPU dot + axpy + scale for N > 100k (next P1)
-14. **Absorb Staggered Dirac shader** — `WGSL_DIRAC_STAGGERED_F64` ready for upstream (8/8 checks, Tier 1)
-15. **Absorb CG solver shaders** — `WGSL_COMPLEX_DOT_RE_F64` + `WGSL_AXPY_F64` + `WGSL_XPAY_F64` (9/9 checks, Tier 1)
-16. **Absorb HFB shader suite** — potentials + density + BCS bisection (14+GPU+6 checks, Tier 2)
-17. **Absorb deformed HFB pipeline** — GPU-resident SCF loop, could use upstream `GemmCachedF64`
+14. ~~**Absorb Staggered Dirac shader**~~ — ✅ **DONE** (Session 31d: `ops/lattice/dirac.rs` + `shaders/lattice/dirac_staggered_f64.wgsl`)
+15. ~~**Absorb CG solver shaders**~~ — ✅ **DONE** (Session 31d: `ops/lattice/cg.rs` + `shaders/lattice/cg_kernels_f64.wgsl`)
+16. **Absorb pseudofermion HMC** — `lattice/pseudofermion.rs`: heat bath, fermion force (gauge link fix), combined leapfrog (7/7 checks, Tier 1) — **STILL PENDING**
+17. ~~**Absorb HFB shader suite**~~ — ✅ **DONE** (Session 36-37: 5 spherical HFB shaders in `shaders/science/hfb/`)
+18. ~~**Absorb deformed HFB pipeline**~~ — ✅ **DONE** (Session 36-37: 5 deformed HFB shaders in `shaders/science/hfb_deformed/`)
+19. **Fix loop_unroller u32 bug** — `substitute_loop_var()` in `loop_unroller.rs:310` emits bare `iter.to_string()` (e.g. `"0"`) instead of `"{iter}u"`. WGSL type-infers bare ints as `i32`, causing shader validation errors when the substituted variable is passed to `u32`-typed function parameters (e.g. `idx2d(k, j)` → `idx2d(0, j)` instead of `idx2d(0u, j)`). This causes the `BatchedEighGpu` single-dispatch panic. **P1 — single-line fix.**

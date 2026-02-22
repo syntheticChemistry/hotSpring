@@ -91,33 +91,33 @@ pub(crate) fn is_valid_root(path: &Path) -> bool {
     path.join("control").is_dir()
 }
 
-/// Check which validation capabilities are available at the discovered root.
+/// Capability→path mapping for runtime discovery.
+///
+/// Each primal only knows itself; capabilities are discovered by probing
+/// the filesystem at runtime rather than hardcoding knowledge of other primals.
+const CAPABILITY_PROBES: &[(&str, &str)] = &[
+    ("nuclear-eos", paths::NUCLEAR_EOS),
+    ("sarkas-md", paths::SARKAS_CONTROL),
+    ("surrogate", paths::SURROGATE_CONTROL),
+    ("screened-coulomb", "control/screened_coulomb"),
+    ("lattice-qcd", "control/lattice_qcd"),
+    ("npu", "control/metalforge_npu"),
+    ("reservoir-transport", "control/reservoir_transport"),
+    ("spectral-theory", "control/spectral_theory"),
+];
+
+/// Discover which validation capabilities are available at runtime.
+///
+/// Probes the filesystem for known control directories. No hardcoded
+/// assumptions about which primals exist — purely capability-based.
 #[must_use]
 pub fn available_capabilities() -> Vec<&'static str> {
     let root = discover_data_root();
-    let mut caps = Vec::new();
-    if root.join(paths::NUCLEAR_EOS).is_dir() {
-        caps.push("nuclear-eos");
-    }
-    if root.join(paths::SARKAS_CONTROL).is_dir() {
-        caps.push("sarkas-md");
-    }
-    if root.join(paths::SURROGATE_CONTROL).is_dir() {
-        caps.push("surrogate");
-    }
-    if root.join("control/screened_coulomb").is_dir() {
-        caps.push("screened-coulomb");
-    }
-    if root.join("control/lattice_qcd").is_dir() {
-        caps.push("lattice-qcd");
-    }
-    if root.join("control/metalforge_npu").is_dir() {
-        caps.push("npu");
-    }
-    if root.join("control/reservoir_transport").is_dir() {
-        caps.push("reservoir-transport");
-    }
-    caps
+    CAPABILITY_PROBES
+        .iter()
+        .filter(|(_, path)| root.join(path).is_dir())
+        .map(|(cap, _)| *cap)
+        .collect()
 }
 
 /// Resolve the nuclear EOS data directory.

@@ -477,6 +477,26 @@ pub const HFB_TEST_NUCLEI: &[(usize, usize, &str, f64, f64)] = &[
 // HotQCD EOS — from published lattice QCD data
 // ═══════════════════════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════════════════════
+// Quenched QCD β-scan baselines — from control/lattice_qcd/
+// ═══════════════════════════════════════════════════════════════════
+
+/// Python baseline for quenched SU(3) β-scan (Paper 9).
+///
+/// Independent HMC at 9 β values on a 4^4 lattice, collecting plaquette,
+/// Polyakov loop, and acceptance rate. Algorithm-identical to Rust:
+/// same LCG PRNG, Cayley matrix exponential, leapfrog integrator.
+pub const QUENCHED_BETA_SCAN_PROVENANCE: BaselineProvenance = BaselineProvenance {
+    label: "Quenched SU(3) β-scan on 4^4 (Paper 9)",
+    script: "lattice_qcd/scripts/quenched_beta_scan.py",
+    commit: "e047444 (hotSpring v0.6.4)",
+    date: "2026-02-22",
+    command: "python3 -u quenched_beta_scan.py",
+    environment: "Python 3.10, NumPy 2.2",
+    value: 0.588,
+    unit: "<P> at β=6.0 on 4^4 (Rust reference; Python control TBD)",
+};
+
 /// Publication: Bazavov et al. (2014), `HotQCD` continuum EOS.
 pub const HOTQCD_DOI: &str = "10.1103/PhysRevD.90.094503";
 
@@ -681,6 +701,7 @@ mod tests {
             &L2_PYTHON_CANDIDATES,
             &L2_PYTHON_TOTAL_CHI2,
             &HOTQCD_EOS_PROVENANCE,
+            &QUENCHED_BETA_SCAN_PROVENANCE,
             &SCREENED_COULOMB_PROVENANCE,
             &DALIGAULT_CALIBRATION_PROVENANCE,
             &DALIGAULT_FIT_PROVENANCE,

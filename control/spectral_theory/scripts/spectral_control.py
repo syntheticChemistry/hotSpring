@@ -12,18 +12,21 @@ using NumPy. Establishes the Python parity baseline for:
   4. Anderson 2D eigenvalues (sparse, numpy.linalg.eigh on dense)
   5. Almost-Mathieu / Hofstadter bands
   6. Timing comparison: Python vs Rust
+  7. Anderson 3D: bandwidth, statistics transition, mobility edge (Paper 20)
 
 Provenance:
   Anderson (1958) Phys. Rev. 109, 1492
+  Abrahams, Anderson, Licciardello, Ramakrishnan (1979) Phys. Rev. Lett. 42, 673
   Aubry & André (1980) Ann. Israel Phys. Soc. 3, 133
   Herman (1983) Comment. Math. Helv. 58, 453
   Hofstadter (1976) Phys. Rev. B 14, 2239
+  Slevin & Ohtsuki (1999) Phys. Rev. Lett. 82, 382
 
 Usage:
   python3 spectral_control.py
   python3 spectral_control.py --json  # Output results as JSON
 
-Dependencies: numpy only (no scipy required)
+Dependencies: numpy, scipy (for sparse 3D)
 """
 
 import json
@@ -31,9 +34,11 @@ import sys
 import time
 
 import numpy as np
+from scipy import sparse
 
 GOLDEN_RATIO = (1.0 + np.sqrt(5.0)) / 2.0
 POISSON_R = 2.0 * np.log(2.0) - 1.0  # ≈ 0.3863
+GOE_R = 0.531
 
 
 # ── Anderson 1D ──────────────────────────────────────────────────
@@ -125,6 +130,41 @@ def almost_mathieu_hamiltonian(n, lam, alpha, theta=0.0):
     off_diag = -np.ones(n - 1)
     H = np.diag(diagonal) + np.diag(off_diag, 1) + np.diag(off_diag, -1)
     return H
+
+
+# ── Anderson 3D ──────────────────────────────────────────────────
+
+def anderson_3d_hamiltonian(lx, ly, lz, disorder, seed=42):
+    """Sparse 3D Anderson Hamiltonian on Lx × Ly × Lz cubic lattice (open BC)."""
+    n = lx * ly * lz
+    rng = np.random.default_rng(seed)
+    diag = disorder * (rng.random(n) - 0.5)
+
+    rows, cols, vals = [], [], []
+    for ix in range(lx):
+        for iy in range(ly):
+            for iz in range(lz):
+                i = ix * ly * lz + iy * lz + iz
+                rows.append(i); cols.append(i); vals.append(diag[i])
+                if ix > 0:
+                    j = (ix - 1) * ly * lz + iy * lz + iz
+                    rows.append(i); cols.append(j); vals.append(-1.0)
+                    rows.append(j); cols.append(i); vals.append(-1.0)
+                if iy > 0:
+                    j = ix * ly * lz + (iy - 1) * lz + iz
+                    rows.append(i); cols.append(j); vals.append(-1.0)
+                    rows.append(j); cols.append(i); vals.append(-1.0)
+                if iz > 0:
+                    j = ix * ly * lz + iy * lz + (iz - 1)
+                    rows.append(i); cols.append(j); vals.append(-1.0)
+                    rows.append(j); cols.append(i); vals.append(-1.0)
+
+    return sparse.csr_matrix((vals, (rows, cols)), shape=(n, n))
+
+
+def clean_3d_hamiltonian(l):
+    """Clean 3D tight-binding Hamiltonian (zero disorder)."""
+    return anderson_3d_hamiltonian(l, l, l, 0.0, seed=0)
 
 
 # ── Validation checks ───────────────────────────────────────────
@@ -237,14 +277,130 @@ def run_all():
     results["hofstadter"] = {"n": n_hof}
     print()
 
-    # ── 6. Timing summary ────────────────────────────────────────
-    print("[6] Timing Summary — Python Baseline")
+    # ── 6. 3D Anderson — bandwidth ──────────────────────────────
+    print("[6] Anderson 3D — Clean Bandwidth")
+    l_3d = 8
+    n_3d = l_3d ** 3
+    t0 = time.perf_counter()
+    H_3d_clean = clean_3d_hamiltonian(l_3d).toarray()
+    evals_3d_clean = np.sort(np.linalg.eigh(H_3d_clean)[0])
+    t_3d_clean = time.perf_counter() - t0
+    bw_3d = evals_3d_clean[-1] - evals_3d_clean[0]
+    exact_bw = 12.0 * np.cos(np.pi / (l_3d + 1))
+    print(f"  L={l_3d}, N={n_3d}")
+    print(f"  Spectrum: [{evals_3d_clean[0]:.4f}, {evals_3d_clean[-1]:.4f}]")
+    print(f"  Bandwidth = {bw_3d:.4f} (exact OBC: {exact_bw:.4f}, L→∞: 12.0)")
+    print(f"  |E_min + E_max| = {abs(evals_3d_clean[0] + evals_3d_clean[-1]):.2e} (symmetry)")
+    print(f"  Time: {t_3d_clean*1000:.1f} ms")
+    results["anderson_3d_bandwidth"] = {
+        "l": l_3d, "bandwidth": float(bw_3d), "exact_obc": float(exact_bw),
+        "time_ms": t_3d_clean * 1000,
+    }
+    print()
+
+    # ── 7. 3D Anderson — GOE→Poisson transition ──────────────────
+    print("[7] Anderson 3D — GOE → Poisson Transition")
+    print("    W_c ≈ 16.5 for band center (Slevin & Ohtsuki 1999)")
+    l_3d = 8
+    n_3d = l_3d ** 3
+    w_values_3d = [2.0, 6.0, 12.0, 20.0, 35.0]
+    n_real_3d = 5
+    r_3d_vals = []
+    t0 = time.perf_counter()
+    for w in w_values_3d:
+        r_sum = 0.0
+        for seed in range(n_real_3d):
+            H = anderson_3d_hamiltonian(l_3d, l_3d, l_3d, w, seed * 137 + 42).toarray()
+            ev = np.sort(np.linalg.eigh(H)[0])
+            mid = len(ev) // 4
+            end = 3 * len(ev) // 4
+            r_sum += level_spacing_ratio(ev[mid:end])
+        r_mean_w = r_sum / n_real_3d
+        r_3d_vals.append(r_mean_w)
+        print(f"  W={w:>5.1f}: ⟨r⟩ = {r_mean_w:.4f}")
+    t_3d_trans = time.perf_counter() - t0
+    delta_r = r_3d_vals[0] - r_3d_vals[-1]
+    transition_ok = r_3d_vals[0] > r_3d_vals[-1] and delta_r > 0.05
+    print(f"  Δ⟨r⟩(weak→strong) = {delta_r:.4f}  {'PASS' if transition_ok else 'FAIL'}")
+    print(f"  Time: {t_3d_trans*1000:.1f} ms")
+    results["anderson_3d_transition"] = {
+        "w_values": w_values_3d, "r_values": [float(r) for r in r_3d_vals],
+        "delta_r": float(delta_r), "pass": transition_ok,
+        "time_ms": t_3d_trans * 1000,
+    }
+    print()
+
+    # ── 8. 3D Anderson — mobility edge ──────────────────────────
+    print("[8] Anderson 3D — Mobility Edge (d≥3 signature)")
+    print("    Band center: extended (GOE); Band edges: localized (Poisson)")
+    l_3d = 8
+    w_me = 12.0
+    n_real_me = 10
+    center_r_sum = 0.0
+    edge_r_sum = 0.0
+    t0 = time.perf_counter()
+    for seed in range(n_real_me):
+        H = anderson_3d_hamiltonian(l_3d, l_3d, l_3d, w_me, seed * 137 + 42).toarray()
+        ev = np.sort(np.linalg.eigh(H)[0])
+        n_ev = len(ev)
+        quarter = n_ev // 4
+        center = ev[quarter:3 * quarter]
+        center_r_sum += level_spacing_ratio(center)
+        edge_low = ev[:n_ev // 5]
+        edge_high = ev[4 * n_ev // 5:]
+        r_low = level_spacing_ratio(edge_low)
+        r_high = level_spacing_ratio(edge_high)
+        edge_r_sum += (r_low + r_high) / 2.0
+    t_me = time.perf_counter() - t0
+    center_r = center_r_sum / n_real_me
+    edge_r = edge_r_sum / n_real_me
+    me_pass = center_r > edge_r
+    print(f"  L={l_3d}, W={w_me}, realizations={n_real_me}")
+    print(f"  Band center ⟨r⟩ = {center_r:.4f} (expect GOE ≈ 0.53)")
+    print(f"  Band edges  ⟨r⟩ = {edge_r:.4f}  (expect closer to Poisson ≈ 0.39)")
+    print(f"  Δ⟨r⟩(center-edge) = {center_r - edge_r:.4f}  {'PASS' if me_pass else 'FAIL'}")
+    print(f"  Time: {t_me*1000:.1f} ms")
+    results["anderson_3d_mobility_edge"] = {
+        "center_r": float(center_r), "edge_r": float(edge_r),
+        "pass": me_pass, "time_ms": t_me * 1000,
+    }
+    print()
+
+    # ── 9. Dimensional bandwidth hierarchy ───────────────────────
+    print("[9] Dimensional Bandwidth Hierarchy — 1D < 2D < 3D")
+    w_dim = 2.0
+    ev_1d = anderson_1d_eigenvalues(500, w_dim, seed=42)
+    bw_1d = ev_1d[-1] - ev_1d[0]
+    H_2d_dim = anderson_2d_hamiltonian(22, 22, w_dim, seed=42)
+    ev_2d_dim = np.sort(np.linalg.eigh(H_2d_dim)[0])
+    bw_2d = ev_2d_dim[-1] - ev_2d_dim[0]
+    H_3d_dim = anderson_3d_hamiltonian(8, 8, 8, w_dim, seed=42).toarray()
+    ev_3d_dim = np.sort(np.linalg.eigh(H_3d_dim)[0])
+    bw_3d_dim = ev_3d_dim[-1] - ev_3d_dim[0]
+    hier_pass = bw_3d_dim > bw_2d > bw_1d
+    print(f"  W={w_dim}")
+    print(f"  1D (N=500):    bw = {bw_1d:.4f}  (clean: 4)")
+    print(f"  2D (22×22):    bw = {bw_2d:.4f}  (clean: 8)")
+    print(f"  3D (8³=512):   bw = {bw_3d_dim:.4f}  (clean: 12)")
+    print(f"  Hierarchy: {'PASS' if hier_pass else 'FAIL'}")
+    results["dimensional_hierarchy"] = {
+        "bw_1d": float(bw_1d), "bw_2d": float(bw_2d), "bw_3d": float(bw_3d_dim),
+        "pass": hier_pass,
+    }
+    print()
+
+    # ── 10. Timing summary ───────────────────────────────────────
+    print("[10] Timing Summary — Python Baseline")
     print(f"  Anderson 1D (N=1000):     {results['anderson_1d']['time_ms']:.1f} ms")
     print(f"  Herman Lyapunov (N=100k): {results['herman_formula']['time_ms']:.1f} ms")
     print(f"  Level stats (10 real):    {results['level_stats_1d']['time_ms']:.1f} ms")
     print(f"  Anderson 2D (16×16):      {results['anderson_2d']['time_ms']:.1f} ms")
+    print(f"  Anderson 3D bandwidth:    {results['anderson_3d_bandwidth']['time_ms']:.1f} ms")
+    print(f"  Anderson 3D transition:   {results['anderson_3d_transition']['time_ms']:.1f} ms")
+    print(f"  Anderson 3D mobility:     {results['anderson_3d_mobility_edge']['time_ms']:.1f} ms")
     total_ms = sum(results[k]["time_ms"] for k in [
-        "anderson_1d", "herman_formula", "level_stats_1d", "anderson_2d"
+        "anderson_1d", "herman_formula", "level_stats_1d", "anderson_2d",
+        "anderson_3d_bandwidth", "anderson_3d_transition", "anderson_3d_mobility_edge",
     ])
     print(f"  Total:                    {total_ms:.1f} ms")
     results["total_time_ms"] = total_ms

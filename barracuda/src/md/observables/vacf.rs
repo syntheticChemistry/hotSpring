@@ -6,6 +6,10 @@
 
 use crate::tolerances::DIVISION_GUARD;
 
+/// Plateau detection: D* considered converged after this many
+/// seconds of non-increasing integral (expressed as time / dt_dump).
+const PLATEAU_DETECTION_TIME: f64 = 20.0;
+
 /// VACF result: C(t) at discrete lag times
 #[derive(Clone, Debug)]
 pub struct Vacf {
@@ -63,7 +67,7 @@ pub fn compute_vacf(vel_snapshots: &[Vec<f64>], n: usize, dt_dump: f64, max_lag:
     let mut integral = 0.0;
     let mut d_star_max = 0.0;
     let mut plateau_count = 0;
-    let plateau_window = (20.0 / dt_dump).ceil() as usize; // ~20 ω_p^-1 patience
+    let plateau_window = (PLATEAU_DETECTION_TIME / dt_dump).ceil() as usize;
 
     for i in 1..n_lag {
         integral += (0.5 * dt_dump).mul_add(c_values[i - 1] + c_values[i], 0.0);

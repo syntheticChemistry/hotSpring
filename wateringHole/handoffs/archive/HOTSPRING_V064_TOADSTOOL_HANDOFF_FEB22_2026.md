@@ -10,17 +10,21 @@
 
 ## Executive Summary
 
-hotSpring has completed four ToadStool rewire cycles. The spectral module
-(Anderson localization, Lanczos, Hofstadter, Sturm, CSR SpMV, level statistics)
-is now fully leaning on upstream `barracuda::spectral` — 41 KB of local code
-deleted, re-exports and a backward-compatible `CsrMatrix` alias retained. All
-33 validation suites pass. 22 papers reproduced. 637 unit + 24 integration tests.
+hotSpring has completed four ToadStool rewire cycles plus dynamical fermion QCD
+(Paper 10). The spectral module is fully leaning on upstream `barracuda::spectral`
+(41 KB deleted). Pseudofermion HMC completes the lattice QCD CPU stack — all
+quenched and dynamical operations validated. All 34 validation suites pass.
+22 papers reproduced. 616 unit + 24 integration tests.
 
 This handoff identifies:
 1. What hotSpring has ready for ToadStool to absorb next
 2. What ToadStool has that hotSpring should use more
 3. Cross-spring shader evolution insights
 4. Lessons learned from the absorption cycle
+
+**Full pipeline map**: See `specs/PAPER_REVIEW_QUEUE.md` for the per-paper ×
+per-substrate matrix (Python Control → BarraCUDA CPU → BarraCUDA GPU → metalForge).
+Coverage: 17/22 Python controls, 20/22 CPU, 15/22 GPU, 3/22 metalForge.
 
 ---
 
@@ -63,7 +67,20 @@ Together with the Dirac shader, these form the **complete GPU lattice QCD pipeli
 `validate_pure_gpu_qcd` proves it works on thermalized HMC configurations (3/3 checks,
 solution parity 4.10e-16).
 
-#### 1.3 ESN Reservoir (2 shaders)
+#### 1.3 Pseudofermion HMC (Paper 10)
+
+| Property | Value |
+|----------|-------|
+| Source | `barracuda/src/lattice/pseudofermion.rs` (477 lines) |
+| Tests | 4 unit tests + 7/7 validation checks |
+| GPU status | CPU, follows WGSL-ready pattern |
+| Suggested upstream | `barracuda::ops::lattice::PseudofermionHmc` |
+
+Implements heat bath, CG-based action, fermion force with gauge link projection,
+and combined leapfrog. Critical fix: force must be F = TA(U × M), not TA(M).
+See `HOTSPRING_V064_DYNAMICAL_QCD_HANDOFF_FEB22_2026.md` for full details.
+
+#### 1.4 ESN Reservoir (2 shaders)
 
 | Shader | Purpose |
 |--------|---------|
@@ -232,24 +249,31 @@ Anderson localization diagnostics.
 | Metric | Before | After | Δ |
 |--------|--------|-------|---|
 | Local spectral source | 41 KB (6 files) | 0 KB (re-exports only) | −41 KB |
-| Local tests | 648 | 637 | −11 (moved upstream) |
-| Validation suites | 33/33 | 33/33 | No regression |
+| Local tests | 648 | 616 | −32 (moved upstream + spectral lean) |
+| Validation suites | 33/33 | 34/34 | +1 (dynamical QCD) |
 | Compilation time | — | Faster (less local code) | Improved |
 
 ---
 
 ## Part 5: Concrete Next Steps
 
+> **NOTE (Feb 22, 2026):** ToadStool Sessions 31d–39 absorbed most items below.
+> See `HOTSPRING_V065_TOADSTOOL_SESSION39_CATCHUP_FEB22_2026.md` for the current
+> absorption status. Items marked ✅ ABSORBED below are confirmed in toadstool.
+
 ### For ToadStool to Absorb
 
-| Priority | What | Source | Impact |
+| Priority | What | Source | Status |
 |----------|------|--------|--------|
-| **P1** | Staggered Dirac GPU shader | `lattice/dirac.rs` | Completes upstream lattice QCD pipeline |
-| **P1** | CG solver (3 shaders) | `lattice/cg.rs` | D†D inversion on GPU — core lattice QCD |
-| **P1** | ESN `export_weights()` | `esn_v2::ESN` | Enables GPU-train → NPU-deploy workflow |
-| **P2** | Screened Coulomb | `physics/screened_coulomb.rs` | Plasma physics eigenvalue solver |
-| **P2** | HFB shader suite | `physics/hfb_gpu_resident/` | 4 production shaders, GPU-resident SCF pattern |
-| **P3** | forge substrate discovery | `metalForge/forge/src/` | NPU + CPU discovery for heterogeneous dispatch |
+| **P1** | Staggered Dirac GPU shader | `lattice/dirac.rs` | ✅ **ABSORBED** — Session 31d: `ops/lattice/dirac.rs` |
+| **P1** | CG solver (3 shaders) | `lattice/cg.rs` | ✅ **ABSORBED** — Session 31d: `ops/lattice/cg.rs` |
+| **P1** | Pseudofermion HMC | `lattice/pseudofermion.rs` | ❌ **Still pending** — 477 lines, 7/7 checks |
+| **P1** | ESN `export_weights()` | `esn_v2::ESN` | ✅ **ABSORBED** — Session 36-37: `export_weights()` + `import_weights()` |
+| **P1** | Loop unroller u32 fix | `loop_unroller.rs` | ❌ **Still open** — see catch-up handoff for root cause + fix |
+| **P2** | Screened Coulomb | `physics/screened_coulomb.rs` | ❌ **Still pending** — 23/23 checks |
+| **P2** | HFB shader suite (spherical) | `physics/hfb_gpu_resident/` | ✅ **ABSORBED** — Session 36-37: 5 shaders in `shaders/science/hfb/` |
+| **P2** | HFB shader suite (deformed) | `physics/hfb_deformed_gpu/` | ✅ **ABSORBED** — Session 36-37: 5 shaders in `shaders/science/hfb_deformed/` |
+| **P3** | forge substrate discovery | `metalForge/forge/src/` | ✅ **Partial** — `SubstrateCapability` enum (Session 31d); full probe still in metalForge |
 
 ### For hotSpring to Adopt
 
@@ -259,7 +283,7 @@ Anderson localization diagnostics.
 | **P1** | `BatchIprGpu` | `spectral` | GPU Anderson localization diagnostics (already re-exported) |
 | **P2** | `NelderMeadGpu` | `optimize` | GPU-parallel L1 parameter search |
 | **P2** | `UnidirectionalPipeline` | `staging` | Streaming MD dispatch (replace manual encoder batching) |
-| **P3** | Upstream `ESN` | `esn_v2` | Replace local `md/reservoir.rs` (pending `export_weights()`) |
+| **P3** | Upstream `ESN` | `esn_v2` | Replace local `md/reservoir.rs` — upstream now has `export_weights()` ✅ |
 
 ### Cross-Spring Observations for ToadStool
 
@@ -300,10 +324,12 @@ src/bin/validate_screened_coulomb.rs    # 23/23 checks
 ### Active Handoff Documents
 
 ```
-wateringHole/handoffs/HOTSPRING_V064_TOADSTOOL_HANDOFF_FEB22_2026.md  ← this document
-wateringHole/handoffs/HOTSPRING_TOADSTOOL_REWIRE_V4_FEB22_2026.md     ← spectral lean
-wateringHole/handoffs/CROSS_SPRING_EVOLUTION_FEB22_2026.md            ← shader evolution map
-wateringHole/handoffs/HOTSPRING_V063_EVOLUTION_HANDOFF_FEB22_2026.md  ← v0.6.3 extraction
+wateringHole/handoffs/HOTSPRING_V065_TOADSTOOL_SESSION39_CATCHUP_FEB22_2026.md  ← LATEST: toadstool S31d-39 absorption acknowledgement
+wateringHole/handoffs/HOTSPRING_V064_TOADSTOOL_HANDOFF_FEB22_2026.md            ← this document (absorption targets updated)
+wateringHole/handoffs/HOTSPRING_V064_DYNAMICAL_QCD_HANDOFF_FEB22_2026.md        ← dynamical QCD details + GPU promotion insights
+wateringHole/handoffs/HOTSPRING_TOADSTOOL_REWIRE_V4_FEB22_2026.md               ← spectral lean
+wateringHole/handoffs/CROSS_SPRING_EVOLUTION_FEB22_2026.md                      ← shader evolution map
+wateringHole/handoffs/HOTSPRING_V063_EVOLUTION_HANDOFF_FEB22_2026.md            ← v0.6.3 extraction
 ```
 
 22 prior handoffs archived to `wateringHole/handoffs/archive/`.
@@ -315,9 +341,9 @@ wateringHole/handoffs/HOTSPRING_V063_EVOLUTION_HANDOFF_FEB22_2026.md  ← v0.6.3
 | Metric | Value |
 |--------|-------|
 | Crate version | v0.6.4 |
-| Unit tests | 637 pass (6 GPU/heavy-ignored; spectral tests now upstream) |
+| Unit tests | 616 (609 pass + 1 env-flaky + 6 GPU/heavy-ignored; spectral tests upstream) |
 | Integration tests | 24 pass (3 suites) |
-| Validation suites | 33/33 pass |
+| Validation suites | 34/34 pass |
 | metalForge forge tests | 19 pass |
 | Coverage | 74.9% region / 83.8% function |
 | Clippy warnings | 0 (pedantic + nursery) |
@@ -325,10 +351,10 @@ wateringHole/handoffs/HOTSPRING_V063_EVOLUTION_HANDOFF_FEB22_2026.md  ← v0.6.3
 | Unsafe blocks | 0 |
 | `expect()`/`unwrap()` in library | 0 |
 | Papers reproduced | 22 |
-| Centralized tolerances | 154 constants |
+| Centralized tolerances | 172 constants |
 | WGSL shaders (library) | 34 (zero inline) |
-| Python control scripts | 34 |
-| Rust validation binaries | 50 |
+| Python control scripts | 35+ |
+| Rust validation binaries | 52 |
 
 ---
 
