@@ -12,7 +12,7 @@ hotSpring is where we reproduce published computational physics work from the Mu
 
 - **Phase A (Control)**: Run the original Python code (Sarkas, mystic, TTM) on our hardware. Validate against reference data. Profile performance. Fix upstream bugs. **✅ Complete — 86/86 quantitative checks pass.**
 
-- **Phase B (BarraCUDA)**: Re-execute the same computation on ToadStool's BarraCUDA engine — pure Rust, WGSL shaders, any GPU vendor. **✅ L1 validated (478× faster, better χ²). L2 validated (1.7× faster).**
+- **Phase B (BarraCuda)**: Re-execute the same computation on ToadStool's BarraCuda engine — pure Rust, WGSL shaders, any GPU vendor. **✅ L1 validated (478× faster, better χ²). L2 validated (1.7× faster).**
 
 - **Phase C (GPU MD)**: Run Sarkas Yukawa OCP molecular dynamics entirely on GPU using f64 WGSL shaders. **✅ 9/9 PP Yukawa DSF cases pass on RTX 4070. 0.000% energy drift at 80k production steps. Up to 259 steps/s sustained. 3.4× less energy per step than CPU at N=2000.**
 
@@ -40,15 +40,15 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **Surrogate Learning** (9 functions) | ✅ Complete | 15/15 pass + iterative workflow |
 | **Nuclear EOS L1** (Python, SEMF) | ✅ Complete | χ²/datum = 6.62 |
 | **Nuclear EOS L2** (Python, HFB hybrid) | ✅ Complete | χ²/datum = 1.93 |
-| **BarraCUDA L1** (Rust+WGSL, f64) | ✅ Complete | χ²/datum = **2.27** (478× faster) |
-| **BarraCUDA L2** (Rust+WGSL+nalgebra) | ✅ Complete | χ²/datum = **16.11** best, 19.29 NMP-physical (1.7× faster) |
+| **BarraCuda L1** (Rust+WGSL, f64) | ✅ Complete | χ²/datum = **2.27** (478× faster) |
+| **BarraCuda L2** (Rust+WGSL+nalgebra) | ✅ Complete | χ²/datum = **16.11** best, 19.29 NMP-physical (1.7× faster) |
 | **GPU MD PP Yukawa** (9 cases) | ✅ Complete | 45/45 pass (Energy, RDF, VACF, SSF, D*) |
 | **N-Scaling + Native f64** (5 N values) | ✅ Complete | 16/16 pass (500→20k, 0.000% drift) |
 | **Paper-Parity Long Run** (9 cases, 80k steps) | ✅ Complete | 9/9 pass (N=10k, 0.000-0.002% drift, 3.66 hrs, $0.044) |
 | **ToadStool Rewire v1** (3 GPU ops) | ✅ Complete | BatchedEighGpu, SsfGpu, PppmGpu wired |
 | **Nuclear EOS Full-Scale** (Phase F, AME2020) | ✅ Complete | 9/9 pass (L1 Pareto, L2 GPU 2042 nuclei, L3 deformed) |
-| **BarraCUDA MD Pipeline** (6 ops) | ✅ Complete | 12/12 pass (YukawaF64, VV, Berendsen, KE — 0.000% drift) |
-| **BarraCUDA HFB Pipeline** (3 ops) | ✅ Complete | 14/14 pass (BCS GPU 6.2e-11, Eigh 2.4e-12) |
+| **BarraCuda MD Pipeline** (6 ops) | ✅ Complete | 12/12 pass (YukawaF64, VV, Berendsen, KE — 0.000% drift) |
+| **BarraCuda HFB Pipeline** (3 ops) | ✅ Complete | 14/14 pass (BCS GPU 6.2e-11, Eigh 2.4e-12) |
 | **Stanton-Murillo Transport** (Paper 5) | ✅ Complete | 13/13 pass (D* Sarkas-calibrated, MSD≈VACF, Green-Kubo η*/λ*) |
 | **HotQCD EOS Tables** (Paper 7) | ✅ Complete | Thermodynamic consistency, asymptotic freedom validated |
 | **Pure Gauge SU(3)** (Paper 8) | ✅ Complete | 12/12 pass (HMC, Dirac CG, plaquette physics) |
@@ -117,9 +117,9 @@ hardware analysis.
 
 See `CONTROL_EXPERIMENT_STATUS.md` for full details.
 
-### Nuclear EOS Head-to-Head: BarraCUDA vs Python
+### Nuclear EOS Head-to-Head: BarraCuda vs Python
 
-| Metric | Python L1 | BarraCUDA L1 | Python L2 | BarraCUDA L2 |
+| Metric | Python L1 | BarraCuda L1 | Python L2 | BarraCuda L2 |
 |--------|-----------|-------------|-----------|-------------|
 | Best χ²/datum | 6.62 | **2.27** ✅ | **1.93** | **16.11** |
 | Best NMP-physical | — | — | — | 19.29 (5/5 within 2σ) |
@@ -146,10 +146,10 @@ and validate our math at each stage. Each configuration cross-checks the physics
 | L1 SLy4 (Python=CPU=GPU) | 4.99 | 100k | Fixed params | **Implementation parity: all substrates identical** |
 | L1 GPU precision | |Δ|=4.55e-13 | — | Precomputed transcendentals | **Sub-ULP: GPU math is bit-exact** |
 
-**L1 takeaway**: BarraCUDA finds a better minimum (2.27 vs 6.62) and runs 478× faster.
+**L1 takeaway**: BarraCuda finds a better minimum (2.27 vs 6.62) and runs 478× faster.
 GPU path uses **44.8× less energy** than Python for identical physics (126 J vs 5,648 J).
 
-**L2 takeaway**: Best BarraCUDA L2 is 16.11 (Run A). Python achieves 1.93 with SparsitySampler — the gap is sampling strategy, not physics. The range of L2 values (16–25) across configurations confirms the landscape is multimodal. SparsitySampler port is the #1 priority.
+**L2 takeaway**: Best BarraCuda L2 is 16.11 (Run A). Python achieves 1.93 with SparsitySampler — the gap is sampling strategy, not physics. The range of L2 values (16–25) across configurations confirms the landscape is multimodal. SparsitySampler port is the #1 priority.
 
 ### The f64 Bottleneck: Broken
 
@@ -358,7 +358,7 @@ makes the upstream library richer and hotSpring leaner.
 
 ---
 
-## BarraCUDA Crate (v0.6.4)
+## BarraCuda Crate (v0.6.4)
 
 The `barracuda/` directory is a standalone Rust crate providing the validation
 environment, physics implementations, and GPU compute. Key architectural properties:
@@ -416,7 +416,7 @@ environment, physics implementations, and GPU compute. Key architectural propert
   No duplicate GPU helpers across binaries.
 - **Zero duplicate math** — all linear algebra, quadrature, optimization,
   sampling, special functions, statistics, and spin-orbit coupling use
-  BarraCUDA primitives (`SpinOrbitGpu`, `compute_ls_factor`).
+  BarraCuda primitives (`SpinOrbitGpu`, `compute_ls_factor`).
 - **Capability-based discovery** — GPU adapter selection by name, index, or
   auto-detect (first discrete with `SHADER_F64`). Supports nvidia proprietary,
   NVK/nouveau, RADV, and any Vulkan driver. Buffer limits derived from
@@ -507,7 +507,7 @@ hotSpring/
 │   ├── CONTROL_EXPERIMENT_SUMMARY.md  # Phase A quick reference
 │   └── METHODOLOGY.md                # Two-phase validation protocol
 │
-├── barracuda/                          # BarraCUDA Rust crate — v0.6.4 (616 unit + 24 integration tests, 34 suites)
+├── barracuda/                          # BarraCuda Rust crate — v0.6.4 (616 unit + 24 integration tests, 34 suites)
 │   ├── Cargo.toml                     # Dependencies (requires ecoPrimals/phase1/toadstool)
 │   ├── CHANGELOG.md                   # Version history — baselines, tolerances, evolution
 │   ├── EVOLUTION_READINESS.md         # Rust module → GPU promotion tier + absorption status
@@ -662,7 +662,7 @@ hotSpring/
 │   │       ├── exp_data/              # AME2020 experimental binding energies
 │   │       ├── scripts/               # run_surrogate.py, gpu_rbf.py
 │   │       ├── wrapper/               # objective.py, skyrme_hf.py, skyrme_hfb.py
-│   │       └── results/               # L1, L2, BarraCUDA JSON results
+│   │       └── results/               # L1, L2, BarraCuda JSON results
 │   │
 │   └── ttm/                            # Study 3: Two-Temperature Model
 │       ├── README.md
@@ -760,7 +760,7 @@ Reproduce "Efficient learning of accurate surrogates for simulations of complex 
 
 Built from first principles — no HFBTHO, no Code Ocean. Pure Python physics:
 
-| Level | Method | Python χ²/datum | BarraCUDA χ²/datum | Speedup |
+| Level | Method | Python χ²/datum | BarraCuda χ²/datum | Speedup |
 |-------|--------|-----------------|--------------------|---------|
 | 1 | SEMF + nuclear matter (52 nuclei) | 6.62 | **2.27** ✅ | **478×** |
 | 2 | HF+BCS hybrid (18 focused nuclei) | **1.93** | **16.11** / 19.29 (NMP) | 1.7× |
@@ -768,7 +768,7 @@ Built from first principles — no HFBTHO, no Code Ocean. Pure Python physics:
 
 - **L1**: Skyrme EDF → nuclear matter properties → SEMF → χ²(AME2020)
 - **L2**: Spherical HF+BCS solver for 56≤A≤132, SEMF elsewhere, 18 focused nuclei
-- **BarraCUDA**: Full Rust port with WGSL cdist, f64 LA, LHS, multi-start Nelder-Mead
+- **BarraCuda**: Full Rust port with WGSL cdist, f64 LA, LHS, multi-start Nelder-Mead
 
 ### Study 3: Two-Temperature Model
 
@@ -816,7 +816,7 @@ These are **silent failures** — wrong results, no error messages. This fragili
 |----------|---------|
 | [`PHYSICS.md`](PHYSICS.md) | Complete physics documentation — every equation, constant, approximation with numbered references |
 | [`CONTROL_EXPERIMENT_STATUS.md`](CONTROL_EXPERIMENT_STATUS.md) | Full status with numbers, 195/195 checks, evolution history |
-| [`NUCLEAR_EOS_STRATEGY.md`](NUCLEAR_EOS_STRATEGY.md) | Strategic plan: Python control → BarraCUDA proof |
+| [`NUCLEAR_EOS_STRATEGY.md`](NUCLEAR_EOS_STRATEGY.md) | Strategic plan: Python control → BarraCuda proof |
 | [`barracuda/CHANGELOG.md`](barracuda/CHANGELOG.md) | Crate version history — baselines, tolerance changes, evolution |
 | [`barracuda/EVOLUTION_READINESS.md`](barracuda/EVOLUTION_READINESS.md) | Rust module → WGSL shader → GPU promotion tier mapping |
 | [`specs/README.md`](specs/README.md) | Specification index + scope definition |
@@ -824,7 +824,7 @@ These are **silent failures** — wrong results, no error messages. This fragili
 | [`specs/BARRACUDA_REQUIREMENTS.md`](specs/BARRACUDA_REQUIREMENTS.md) | GPU kernel requirements and gap analysis |
 | [`whitePaper/README.md`](whitePaper/README.md) | **White paper index** — the publishable study narrative |
 | [`whitePaper/STUDY.md`](whitePaper/STUDY.md) | Main study: replicating computational plasma physics on consumer hardware |
-| [`whitePaper/BARRACUDA_SCIENCE_VALIDATION.md`](whitePaper/BARRACUDA_SCIENCE_VALIDATION.md) | Phase B technical results: BarraCUDA vs Python/SciPy |
+| [`whitePaper/BARRACUDA_SCIENCE_VALIDATION.md`](whitePaper/BARRACUDA_SCIENCE_VALIDATION.md) | Phase B technical results: BarraCuda vs Python/SciPy |
 | [`benchmarks/PROTOCOL.md`](benchmarks/PROTOCOL.md) | Benchmark protocol: time + energy + hardware measurement |
 | [`experiments/001_N_SCALING_GPU.md`](experiments/001_N_SCALING_GPU.md) | N-scaling sweep + native f64 builtins discovery |
 | [`experiments/002_CELLLIST_FORCE_DIAGNOSTIC.md`](experiments/002_CELLLIST_FORCE_DIAGNOSTIC.md) | Cell-list i32 modulo bug diagnosis and fix |
@@ -839,7 +839,7 @@ These are **silent failures** — wrong results, no error messages. This fragili
 | [`metalForge/npu/akida/BEYOND_SDK.md`](metalForge/npu/akida/BEYOND_SDK.md) | **10 overturned SDK assumptions** — the discovery document |
 | [`metalForge/npu/akida/HARDWARE.md`](metalForge/npu/akida/HARDWARE.md) | AKD1000 deep-dive: architecture, compute model, PCIe BAR mapping |
 | [`metalForge/npu/akida/EXPLORATION.md`](metalForge/npu/akida/EXPLORATION.md) | Novel NPU applications for computational physics |
-| [`wateringHole/handoffs/`](wateringHole/handoffs/) | Cross-project handoffs to ToadStool/BarraCUDA team |
+| [`wateringHole/handoffs/`](wateringHole/handoffs/) | Cross-project handoffs to ToadStool/BarraCuda team |
 | [`control/surrogate/REPRODUCE.md`](control/surrogate/REPRODUCE.md) | Step-by-step reproduction guide for surrogate learning |
 
 ### External References

@@ -1,4 +1,4 @@
-# hotSpring → BarraCUDA/ToadStool Absorption Manifest
+# hotSpring → BarraCuda/ToadStool Absorption Manifest
 
 **Date:** February 22, 2026
 **Version:** v0.6.4
@@ -20,7 +20,7 @@ hotSpring follows Write → Absorb → Lean:
 1. **Write**: Implement physics on CPU with WGSL templates in Rust source
 2. **Validate**: Test against Python baselines and known physics
 3. **Hand off**: Document in `wateringHole/handoffs/` with code locations
-4. **Absorb**: ToadStool absorbs as GPU shaders, BarraCUDA absorbs as ops
+4. **Absorb**: ToadStool absorbs as GPU shaders, BarraCuda absorbs as ops
 5. **Lean**: hotSpring rewires to upstream, deletes local code
 
 ---

@@ -307,7 +307,7 @@ The 4-hour investment removes a permanent ceiling on system size. Without it:
 - N=50,000 would take ~24 hours per case (all-pairs)
 - N=100,000 would be infeasible
 - HPC GPU scaling (A100, H100) would be impossible
-- The same bug would silently corrupt any future cell-list work in BarraCUDA
+- The same bug would silently corrupt any future cell-list work in BarraCuda
 
 With the fix:
 - N=50,000 estimated at ~15-30 min per case (cell-list)
@@ -398,7 +398,7 @@ trivial once you know the cause. The 6-phase diagnostic that found it is not.
 **Document the "why."** If we had just forced all-pairs and moved on, the next
 person to write a cell-list kernel in WGSL would hit the same bug. By documenting
 the root cause, the diagnostic process, and the fix, we save every future
-BarraCUDA developer from repeating 4 hours of isolation testing.
+BarraCuda developer from repeating 4 hours of isolation testing.
 
 ---
 

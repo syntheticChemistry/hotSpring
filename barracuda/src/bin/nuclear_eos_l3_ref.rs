@@ -12,7 +12,7 @@
 //!   3. Compare: for each nucleus, use min(spherical, deformed) energy
 //!   4. Report per-region accuracy breakdown
 //!
-//! Uses 100% `BarraCUDA` native math.
+//! Uses 100% `BarraCuda` native math.
 //!
 //! Run: cargo run --release --bin `nuclear_eos_l3_ref` [--seed=42]
 
@@ -60,7 +60,7 @@ fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");
     println!("║  Nuclear EOS L3 — Deformed HFB Validation                  ║");
     println!("║  Axially-deformed HFB + BCS + Skyrme                       ║");
-    println!("║  Math: 100% BarraCUDA native                               ║");
+    println!("║  Math: 100% BarraCuda native                               ║");
     println!("╚══════════════════════════════════════════════════════════════╝");
     println!();
     println!("  Parameter set: {param_set}");

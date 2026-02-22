@@ -66,7 +66,7 @@ Python baseline → Rust validation → WGSL template → GPU shader → ToadSto
 | `md/simulation.rs` | Yukawa (all-pairs + cell-list), VV integrator, Berendsen thermostat, KE per-particle, `ReduceScalarPipeline` (inline in `md/shaders.rs`) | **A** | Full GPU pipeline | None — production-ready |
 | `md/celllist.rs` | GPU cell-list via upstream `CellListGpu` + indirect force shader. Zero CPU readback | **✅** | **Migrated** (v0.6.2) — local `GpuCellList` deleted, upstream `barracuda::ops::md::CellListGpu` | None |
 | `md/shaders.rs` | 11 WGSL shaders (all `.wgsl` files, zero inline). GPU cell-list shaders added v0.5.13 | **A** | Production | v0.6.3: all inline extracted to `.wgsl` |
-| `md/observables/` | Uses `SsfGpu` from BarraCUDA | **A** | SSF on GPU; RDF/VACF CPU post-process | VACF now correct (particle identity preserved by indirect indexing) |
+| `md/observables/` | Uses `SsfGpu` from BarraCuda | **A** | SSF on GPU; RDF/VACF CPU post-process | VACF now correct (particle identity preserved by indirect indexing) |
 | `md/cpu_reference.rs` | — | N/A | Validation reference | Intentionally CPU-only for baseline comparison |
 | `md/config.rs` | — | N/A | Configuration | Data structures only |
 
@@ -111,9 +111,9 @@ Production equivalents live in `src/md/shaders/`.
 
 **Note**: `cell_bin_f64.wgsl`, `exclusive_prefix_sum.wgsl`, `cell_scatter.wgsl` were deleted in v0.6.2 (GPU cell-list build migrated to upstream `CellListGpu`).
 
-## BarraCUDA Primitives Used
+## BarraCuda Primitives Used
 
-| BarraCUDA Module | hotSpring Usage |
+| BarraCuda Module | hotSpring Usage |
 |------------------|-----------------|
 | `barracuda::linalg::eigh_f64` | Symmetric eigendecomposition (CPU) |
 | `barracuda::ops::linalg::BatchedEighGpu` | Batched GPU eigensolve |
@@ -133,7 +133,7 @@ Production equivalents live in `src/md/shaders/`.
 | `barracuda::ops::fft::Fft3DF64` | GPU 3D FFT for lattice QCD / PPPM (toadstool `1ffe8b1a`) |
 | `barracuda::device::{WgpuDevice, TensorContext}` | GPU device bridge |
 
-No duplicate math — all mathematical operations use BarraCUDA primitives.
+No duplicate math — all mathematical operations use BarraCuda primitives.
 `hermite_value` now delegates to `barracuda::special::hermite` (v0.5.7).
 `factorial_f64` now delegates to `barracuda::special::factorial` (v0.5.10).
 `solve_linear_system` now delegates to `barracuda::linalg::solve_f64` (v0.6.2).

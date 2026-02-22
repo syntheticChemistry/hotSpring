@@ -418,7 +418,7 @@ These are real silicon constraints, not SDK limitations:
 
 ## Comparison: GPU f64 Discovery vs NPU Exploration
 
-| Aspect | GPU (BarraCUDA) | NPU (metalForge) |
+| Aspect | GPU (BarraCuda) | NPU (metalForge) |
 |--------|-----------------|-------------------|
 | **SDK claim** | f64 at 1:32 (CUDA) | InputConv: 1 or 3 channels only |
 | **Reality** | f64 at 1:2 (wgpu/Vulkan) | Any channel count works (SW shim) |

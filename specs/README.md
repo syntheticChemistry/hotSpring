@@ -11,7 +11,7 @@
 | Metric | Value |
 |--------|-------|
 | Phase A (Python) | 86/86 PASS — Sarkas MD, TTM, surrogate, nuclear EOS |
-| Phase B (BarraCUDA GPU) | Validated — 478x speedup, 44.8x energy reduction |
+| Phase B (BarraCuda GPU) | Validated — 478x speedup, 44.8x energy reduction |
 | Phase C (GPU MD) | 9/9 PP Yukawa — N=2,000, 80k steps, 0.000% drift |
 | Phase D (f64 + N-scaling) | N=10,000 in 5.3 min, native WGSL builtins |
 | Phase E (Paper parity) | 9/9 PP Yukawa — N=10,000, 80k steps, $0.044 |
@@ -58,7 +58,7 @@
 - **Transport coefficients** — Green-Kubo D*/η*/λ*, Stanton-Murillo fits
 - **Lattice gauge theory** — SU(3) pure gauge, Wilson action, HMC, staggered Dirac, dynamical fermion pseudofermion HMC
 - **Surrogate learning** — Diaw et al. (2024) neural surrogates for physics
-- **BarraCUDA science driver** — the primary workload pushing GPU f64 capabilities
+- **BarraCuda science driver** — the primary workload pushing GPU f64 capabilities
 
 ### hotSpring IS NOT:
 - Machine learning research (neuralSpring)

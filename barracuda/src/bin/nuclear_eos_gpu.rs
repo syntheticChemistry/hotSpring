@@ -4,8 +4,8 @@
 //!
 //! Three-way comparison:
 //!   1. Python/SciPy control  (reference numbers from prior runs)
-//!   2. `BarraCUDA` CPU         (existing L1/L2 path)
-//!   3. `BarraCUDA` GPU         (NEW: f64 compute shaders via wgpu/Vulkan)
+//!   2. `BarraCuda` CPU         (existing L1/L2 path)
+//!   3. `BarraCuda` GPU         (NEW: f64 compute shaders via wgpu/Vulkan)
 //!
 //! L1: Batched SEMF on GPU (all nuclei in one dispatch)
 //! L2: CPU HFB with GPU-accelerated density/potential (per-SCF-iteration)
@@ -65,7 +65,7 @@ fn main() {
 
     println!("╔══════════════════════════════════════════════════════════════╗");
     println!("║  hotSpring GPU FP64 — Nuclear EOS L1 + L2                   ║");
-    println!("║  Three-way: Python → BarraCUDA CPU → BarraCUDA GPU          ║");
+    println!("║  Three-way: Python → BarraCuda CPU → BarraCuda GPU          ║");
     println!("║  + Substrate Benchmark (time / energy / hardware)            ║");
     println!("╚══════════════════════════════════════════════════════════════╝");
     println!();
@@ -174,7 +174,7 @@ fn main() {
 
     report.add_phase(PhaseResult {
         phase: "L1 SEMF".into(),
-        substrate: "BarraCUDA CPU".into(),
+        substrate: "BarraCuda CPU".into(),
         wall_time_s: cpu_l1_wall,
         per_eval_us: cpu_per_eval_us,
         n_evals: n_iters_l1,
@@ -185,7 +185,7 @@ fn main() {
         notes: format!("{n_nuclei} nuclei x {n_iters_l1} iterations"),
     });
 
-    println!("  CPU (BarraCUDA native):");
+    println!("  CPU (BarraCuda native):");
     println!("    chi2/datum = {cpu_chi2:.4}");
     println!("    {cpu_per_eval_us:.1} us/eval ({n_nuclei} nuclei, {n_iters_l1} iterations)");
 
@@ -283,7 +283,7 @@ fn main() {
 
     report.add_phase(PhaseResult {
         phase: "L1 SEMF".into(),
-        substrate: "BarraCUDA GPU".into(),
+        substrate: "BarraCuda GPU".into(),
         wall_time_s: gpu_l1_wall,
         per_eval_us: gpu_per_eval_us,
         n_evals: n_iters_l1,
@@ -478,7 +478,7 @@ fn main() {
 
     report.add_phase(PhaseResult {
         phase: "L1 sweep".into(),
-        substrate: "BarraCUDA CPU".into(),
+        substrate: "BarraCuda CPU".into(),
         wall_time_s: cpu_opt_wall,
         per_eval_us: cpu_opt_wall * 1e6 / n_sweep as f64,
         n_evals: n_sweep,
@@ -519,7 +519,7 @@ fn main() {
 
     report.add_phase(PhaseResult {
         phase: "L1 sweep".into(),
-        substrate: "BarraCUDA GPU".into(),
+        substrate: "BarraCuda GPU".into(),
         wall_time_s: gpu_opt_wall,
         per_eval_us: gpu_opt_wall * 1e6 / n_sweep as f64,
         n_evals: n_sweep,
@@ -601,7 +601,7 @@ fn main() {
 
     report.add_phase(PhaseResult {
         phase: "L1 DirectSampler".into(),
-        substrate: "BarraCUDA CPU".into(),
+        substrate: "BarraCuda CPU".into(),
         wall_time_s: cpu_full_time,
         per_eval_us: cpu_full_time * 1e6 / result_cpu.cache.len().max(1) as f64,
         n_evals: result_cpu.cache.len(),
@@ -644,7 +644,7 @@ fn main() {
 
     report.add_phase(PhaseResult {
         phase: "L1 DirectSampler".into(),
-        substrate: "BarraCUDA GPU".into(),
+        substrate: "BarraCuda GPU".into(),
         wall_time_s: gpu_full_time,
         per_eval_us: gpu_full_time * 1e6 / result_gpu.cache.len().max(1) as f64,
         n_evals: result_gpu.cache.len(),
@@ -703,7 +703,7 @@ fn main() {
 
     report.add_phase(PhaseResult {
         phase: "L2 HFB SLy4".into(),
-        substrate: "BarraCUDA CPU".into(),
+        substrate: "BarraCuda CPU".into(),
         wall_time_s: l2_time,
         per_eval_us: l2_time * 1e6 / l2_count.max(1) as f64,
         n_evals: l2_count,
@@ -759,7 +759,7 @@ fn main() {
 
     report.add_phase(PhaseResult {
         phase: "L2 DirectSampler".into(),
-        substrate: "BarraCUDA CPU".into(),
+        substrate: "BarraCuda CPU".into(),
         wall_time_s: l2_opt_time,
         per_eval_us: l2_opt_time * 1e6 / result_l2.cache.len().max(1) as f64,
         n_evals: result_l2.cache.len(),
@@ -799,7 +799,7 @@ fn main() {
     println!("══════════════════════════════════════════════════════════════");
     println!();
     println!("  ┌─────────┬────────────────┬────────────────┬────────────────┐");
-    println!("  │ Level   │ Python/SciPy   │ BarraCUDA CPU  │ BarraCUDA GPU  │");
+    println!("  │ Level   │ Python/SciPy   │ BarraCuda CPU  │ BarraCuda GPU  │");
     println!("  ├─────────┼────────────────┼────────────────┼────────────────┤");
     println!(
         "  │ L1 SEMF │ chi2 ~{:.2}     │ chi2 = {cpu_full_chi2:<7.2} │ chi2 = {gpu_full_chi2:<7.2} │",

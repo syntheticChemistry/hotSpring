@@ -6,7 +6,7 @@
 //! GPU power/temperature/VRAM (nvidia-smi), and process memory for every
 //! validation phase.  Produces machine-readable JSON and human-readable
 //! summary tables so that identical physics can be compared across
-//! substrates (Python, `BarraCUDA` CPU, `BarraCUDA` GPU) and gates.
+//! substrates (Python, `BarraCuda` CPU, `BarraCuda` GPU) and gates.
 //!
 //! See `benchmarks/PROTOCOL.md` for the full measurement specification.
 //!
@@ -49,7 +49,7 @@ mod tests {
         };
         let pr = PhaseResult {
             phase: "yukawa".to_string(),
-            substrate: "BarraCUDA GPU".to_string(),
+            substrate: "BarraCuda GPU".to_string(),
             wall_time_s: 2.5,
             per_eval_us: 0.42,
             n_evals: 10_000,
@@ -60,7 +60,7 @@ mod tests {
             notes: "smoke test".to_string(),
         };
         assert_eq!(pr.phase, "yukawa");
-        assert_eq!(pr.substrate, "BarraCUDA GPU");
+        assert_eq!(pr.substrate, "BarraCuda GPU");
         assert!((pr.wall_time_s - 2.5).abs() < 1e-9);
         assert_eq!(pr.n_evals, 10_000);
         assert_eq!(pr.energy.cpu_joules, 1.5);

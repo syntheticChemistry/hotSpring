@@ -2,7 +2,7 @@
 
 //! Molecular Dynamics Force & Integrator Validation
 //!
-//! Validates `BarraCUDA`'s WGSL GPU force kernels against analytical CPU references:
+//! Validates `BarraCuda`'s WGSL GPU force kernels against analytical CPU references:
 //!   - Lennard-Jones (van der Waals)
 //!   - Coulomb (electrostatic)
 //!   - Morse (bonded/anharmonic)
@@ -688,7 +688,7 @@ fn test_velocity_verlet(device: &Arc<WgpuDevice>) -> Vec<TestResult> {
 #[tokio::main]
 async fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");
-    println!("║  BarraCUDA MD Force & Integrator Validation                ║");
+    println!("║  BarraCuda MD Force & Integrator Validation                ║");
     println!("║  GPU WGSL kernels vs. CPU f64 analytical references        ║");
     println!("╚══════════════════════════════════════════════════════════════╝");
     println!();

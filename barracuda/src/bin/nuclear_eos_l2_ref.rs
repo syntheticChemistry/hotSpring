@@ -3,7 +3,7 @@
 //! Nuclear EOS Level 2 — NMP-Constrained HFB Pipeline (Evolved)
 //!
 //! Physics: p/n HFB + BCS + Coulomb(Poisson+Slater) + `T_eff` + CM correction
-//! Math: 100% `BarraCUDA` native (`gradient_1d`, `eigh_f64`, brent, trapz)
+//! Math: 100% `BarraCuda` native (`gradient_1d`, `eigh_f64`, brent, trapz)
 //!
 //! Uses:
 //!   1. `barracuda::sample::direct::direct_sampler` — round-based NM with warm-start
@@ -88,7 +88,7 @@ fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");
     println!("║  Nuclear EOS L2 — NMP-Constrained HFB Pipeline (Evolved)   ║");
     println!("║  Physics: p/n HFB + BCS + Coulomb + T_eff + CM             ║");
-    println!("║  Math: 100% BarraCUDA (gradient_1d, eigh_f64, brent)       ║");
+    println!("║  Math: 100% BarraCuda (gradient_1d, eigh_f64, brent)       ║");
     println!("╚══════════════════════════════════════════════════════════════╝");
     println!();
     println!("  lambda(L2):      {}", cli.lambda);
@@ -508,14 +508,14 @@ fn main() {
 
     println!(
         "  {:42} {:>10.2} {:>8} {:>8}",
-        "Prev BarraCUDA L2 (pre-fix)",
+        "Prev BarraCuda L2 (pre-fix)",
         provenance::L2_PYTHON_TOTAL_CHI2.value,
         4022,
         "743s"
     );
     println!(
         "  {:42} {:>10.2} {:>8} {:>8}",
-        "Prev BarraCUDA L2 (post-fix, small budget)", 16.11, 40, "1559s"
+        "Prev BarraCuda L2 (post-fix, small budget)", 16.11, 40, "1559s"
     );
     println!(
         "  {:42} {:>10.2} {:>8} {:>8}",
@@ -529,7 +529,7 @@ fn main() {
     if best.chi2_be < provenance::L2_PYTHON_CHI2.value {
         let improvement = provenance::L2_PYTHON_CHI2.value / best.chi2_be;
         println!(
-            "\n  PYTHON PARITY: EXCEEDED by {:.1}x (BarraCUDA {:.2} vs Python {})",
+            "\n  PYTHON PARITY: EXCEEDED by {:.1}x (BarraCuda {:.2} vs Python {})",
             improvement,
             best.chi2_be,
             provenance::L2_PYTHON_CHI2.value

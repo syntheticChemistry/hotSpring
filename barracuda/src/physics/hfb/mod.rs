@@ -24,7 +24,7 @@
 //!   - Spin-orbit splitting (W₀ parameter)
 //!   - Center-of-mass correction: `E_CM` = -3/4 `ℏω` (Bohr & Mottelson §4-2)
 //!
-//! Uses (all `BarraCUDA` native — zero external dependencies):
+//! Uses (all `BarraCuda` native — zero external dependencies):
 //!   - `barracuda::special::{gamma, laguerre}` for HO basis wavefunctions
 //!   - `barracuda::numerical::{trapz, gradient_1d}` for radial integrals & derivatives
 //!   - `barracuda::optimize::brent` for BCS chemical potential (matches scipy.optimize.brentq)

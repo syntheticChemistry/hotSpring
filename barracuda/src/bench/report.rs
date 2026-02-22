@@ -451,7 +451,7 @@ mod tests {
     fn phase_result_construction() {
         let pr = PhaseResult {
             phase: "test_phase".to_string(),
-            substrate: "BarraCUDA CPU".to_string(),
+            substrate: "BarraCuda CPU".to_string(),
             wall_time_s: 2.5,
             per_eval_us: 100.5,
             n_evals: 1_000,

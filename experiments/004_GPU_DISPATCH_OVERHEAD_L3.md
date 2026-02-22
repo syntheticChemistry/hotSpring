@@ -207,7 +207,7 @@ For each SCF iteration (orchestrated by CPU, executed by GPU):
 
 ---
 
-## 6. What ToadStool/BarraCUDA Can Help With
+## 6. What ToadStool/BarraCuda Can Help With
 
 ### Already available (from Feb 14–15 evolution)
 

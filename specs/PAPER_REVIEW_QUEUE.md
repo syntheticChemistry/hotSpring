@@ -5,13 +5,13 @@
 **Principle**: Reproduce, validate, then decrease cost. Each paper proves the
 pipeline on harder physics — toadStool evolves the GPU acceleration in parallel.
 
-**Evolution path per paper**: Python Control → BarraCUDA CPU → BarraCUDA GPU → metalForge
+**Evolution path per paper**: Python Control → BarraCuda CPU → BarraCuda GPU → metalForge
 
 ---
 
 ## Pipeline Status: Every Paper × Every Substrate
 
-| # | Paper | Python Control | BarraCUDA CPU | BarraCUDA GPU | metalForge |
+| # | Paper | Python Control | BarraCuda CPU | BarraCuda GPU | metalForge |
 |---|-------|:---:|:---:|:---:|:---:|
 | 1 | Sarkas Yukawa OCP MD | ✅ `sarkas-upstream/` (12 cases) | ✅ `validate_md` | ✅ `sarkas_gpu` (9/9, 0.000% drift) | — |
 | 2 | TTM (laser-plasma) | ✅ `ttm/` (3 species) | — (ODE solver, not ported) | — | — |
@@ -43,8 +43,8 @@ pipeline on harder physics — toadStool evolves the GPU acceleration in paralle
 | Substrate | Papers with validation | Coverage |
 |-----------|:---:|:---:|
 | **Python Control** | **18/22** | Papers 1-6, 8-10, 13-22 |
-| **BarraCUDA CPU** | **20/22** | All except 2 (TTM ODE), 23 (bioinformatics) |
-| **BarraCUDA GPU** | **15/22** | Papers 1, 3-5, 8-9, 13-19 + pure GPU QCD workload |
+| **BarraCuda CPU** | **20/22** | All except 2 (TTM ODE), 23 (bioinformatics) |
+| **BarraCuda GPU** | **15/22** | Papers 1, 3-5, 8-9, 13-19 + pure GPU QCD workload |
 | **metalForge (GPU+NPU)** | **3/22** | Papers 5, 8-9 (transport + phase classification) |
 
 ### Missing Controls (Action Items)
@@ -62,12 +62,12 @@ Papers 6, 7, 13-22 add checks at negligible cost (CPU-only, <15 seconds each).
 
 ---
 
-## BarraCUDA Evolution: CPU → GPU → metalForge
+## BarraCuda Evolution: CPU → GPU → metalForge
 
 The evolution path validates the same physics on progressively more capable
 substrates. Each level proves correctness before promoting to the next.
 
-### Level 1: BarraCUDA CPU (Pure Rust Math)
+### Level 1: BarraCuda CPU (Pure Rust Math)
 
 All physics implemented in pure Rust, validated against Python controls.
 No GPU required. This is the correctness foundation.
@@ -88,10 +88,10 @@ No GPU required. This is the correctness foundation.
 | Lattice QCD CG solver | `validate_gpu_cg` (CPU path) | 9/9 | 200× faster |
 | Special functions + linalg | `validate_special_functions` + `validate_linalg` | pass | — |
 
-**Status**: 20/22 papers have BarraCUDA CPU validation. Rust consistently
+**Status**: 20/22 papers have BarraCuda CPU validation. Rust consistently
 50×–2000× faster than Python for identical algorithms.
 
-### Level 2: BarraCUDA GPU (WGSL Shaders via wgpu/Vulkan)
+### Level 2: BarraCuda GPU (WGSL Shaders via wgpu/Vulkan)
 
 GPU acceleration for compute-bound operations. Same physics, dispatched
 to consumer GPU (RTX 4070 or any Vulkan SHADER_F64 device).
@@ -209,7 +209,7 @@ Phase classification for pure-gauge SU(3) via GPU HMC + NPU inference:
 
 ### Tier 0 — Immediate: Zero New Primitives Required
 
-These papers can be reproduced using only existing BarraCUDA capabilities.
+These papers can be reproduced using only existing BarraCuda capabilities.
 The goal is maximum science per dollar with no infrastructure investment.
 
 | # | Paper | Journal | Year | Faculty | What We Need | What We Have | Status |
@@ -385,7 +385,7 @@ elements provide the raw material for innovation (like citrate metabolism in Ara
 The paper uses public *Sulfolobus* genomes — reproduction requires bioinformatics only,
 no wet lab. wetSpring's sovereign 16S/metagenomics pipeline can handle the analysis.
 
-**BarraCUDA relevance**: Population genomics computation (pairwise SNP comparison → GEMM),
+**BarraCuda relevance**: Population genomics computation (pairwise SNP comparison → GEMM),
 mobile element detection (sequence alignment → Smith-Waterman or BLAST-like), phylogenetic
 tree construction (parallel likelihood evaluation), diversity metrics (Shannon, Simpson
 → FusedMapReduceF64). All primitives already validated in wetSpring.

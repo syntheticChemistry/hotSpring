@@ -1,6 +1,6 @@
 # hotSpring Control Experiment — Status Report
 
-**Date**: 2026-02-22 (L1+L2 complete, GPU MD Phase C+D+E+F complete — paper-parity long run 9/9, BarraCUDA pipeline 26/26, crate v0.6.4)  
+**Date**: 2026-02-22 (L1+L2 complete, GPU MD Phase C+D+E+F complete — paper-parity long run 9/9, BarraCuda pipeline 26/26, crate v0.6.4)  
 **Gate**: Eastgate (i9-12900K, 32 GB DDR5, RTX 4070 12GB, Pop!_OS 22.04)  
 **Sarkas**: v1.0.0 (pinned — see §Roadblocks)  
 **Python**: 3.9 (sarkas), 3.10 (ttm, surrogate) via micromamba  
@@ -32,7 +32,7 @@ runs end-to-end on Eastgate with correct results:
 **Key result**: The Sarkas simulation engine produces physically correct output on
 v1.0.0. Temperature control is tight (±2% of target), energy conservation holds,
 and all output artifacts are valid. This establishes our **baseline of correctness**
-for comparing against BarraCUDA re-implementation.
+for comparing against BarraCuda re-implementation.
 
 ### 2. TTM Hydro Model — 1D Spatial Profiles (✅ Partial Pass)
 
@@ -72,7 +72,7 @@ equilibration for three noble gas plasmas:
 the Spitzer-Meshkov transport model. Helium equilibrates fastest (lightest ion,
 strongest coupling), Xenon slowest (heaviest). These timescales are physically
 reasonable and provide a second, independent physics code as a control target
-for BarraCUDA's eventual ODE solver capabilities.
+for BarraCuda's eventual ODE solver capabilities.
 
 ### 4. Surrogate Learning — Benchmark Functions (✅ Full Pass)
 
@@ -227,7 +227,7 @@ scientific code. It would produce physically plausible-looking output (the
 simulation runs, the timing is right) but the actual data is NaN. Without our
 explicit dump-level verification, this would have gone undetected.
 
-**BarraCUDA relevance**: This validates the ecoPrimals thesis that
+**BarraCuda relevance**: This validates the ecoPrimals thesis that
 correctness verification must be built into the compute layer, not bolted on
 after the fact. A Rust/WGSL implementation with type-level correctness guarantees
 would prevent this class of bug entirely.
@@ -260,7 +260,7 @@ pyfftw.builders.fftn is not supported in Numba nopython mode.
 
 **Fix**: Changed `@jit` → `@jit(forceobj=True)` in `force_pm.py:529` to allow
 object mode fallback (as the code's own comment says: "Numba does not support
-pyfftw yet"). This is the same fix pattern as the NTT→FFT evolution in BarraCUDA.
+pyfftw yet"). This is the same fix pattern as the NTT→FFT evolution in BarraCuda.
 
 **Status**: 2/3 PPPM cases PASSED validation, case 3 (κ=0, Γ=150) re-running.
 
@@ -330,7 +330,7 @@ Fixed by patching to `math.factorial`.
 
 ---
 
-## Profiling Results — BarraCUDA GPU Offload Targets
+## Profiling Results — BarraCuda GPU Offload Targets
 
 ### Sarkas PP Force Kernel: 97.2% of Execution Time
 
@@ -351,9 +351,9 @@ total 116s). The dominant hotspot is overwhelmingly a single function:
 - Inner particle-pair loop: distance → force → acceleration + virial
 - Uses Newton's 3rd law (only compute i < j pairs)
 - Compiled with `@njit` (Numba nopython mode)
-- **This is THE GPU kernel target for BarraCUDA**
+- **This is THE GPU kernel target for BarraCuda**
 
-**BarraCUDA mapping**:
+**BarraCuda mapping**:
 - Cell assignment: parallelize over particles → GPU kernel
 - Cell-pair interactions: parallelize over cell pairs → GPU workgroups
 - Force evaluation: per-pair → GPU threads within workgroup
@@ -386,7 +386,7 @@ scaling but shift the constant factor down by 45-100×.
 | ~~Validate DSF against Dense Plasma DB~~ | ~~Correctness~~ | ~~1 session~~ | ~~Eastgate~~ | ✅ 8.5% err |
 | ~~Fix PPPM "segfault" (Numba 0.60 compat)~~ | ~~3 DSF cases~~ | ~~1 fix~~ | ~~Eastgate~~ | ✅ Fixed |
 | ~~Run 3 PPPM DSF cases (lite)~~ | ~~DSF Coulomb~~ | ~~~1 hour~~ | ~~Eastgate~~ | ✅ 3/3 PASS |
-| ~~Profile Sarkas hotspots~~ | ~~BarraCUDA gaps~~ | ~~1 session~~ | ~~Eastgate~~ | ✅ 97.2% in force_pp |
+| ~~Profile Sarkas hotspots~~ | ~~BarraCuda gaps~~ | ~~1 session~~ | ~~Eastgate~~ | ✅ 97.2% in force_pp |
 | ~~Fix TTM Zbar (TF → Saha ionization)~~ | ~~Hydro model~~ | ~~1 fix~~ | ~~Eastgate~~ | ✅ 77% of steps |
 | ~~Validate PPPM DSF against Dense Plasma DB~~ | ~~3 Coulomb~~ | ~~1 session~~ | ~~Eastgate~~ | ✅ 5.5% err |
 | ~~TTM hydro: switch TF→Saha ionization~~ | ~~Hydro model~~ | ~~1 fix~~ | ~~Eastgate~~ | ✅ 3/3 run |
@@ -411,12 +411,12 @@ scaling but shift the constant factor down by 45-100×.
 | ~~RBF surrogate training on GPU~~ | ~~Phase B surrogate pipeline~~ | ~~After ToadStool Cholesky shader~~ | ~~Any GPU gate~~ | ✅ Done (PyTorch CUDA) |
 | Cross-gate benchmark protocol | Publication data | After 10G backbone | All |
 
-### BarraCUDA Evolution (Phase B — ToadStool Timeline)
+### BarraCuda Evolution (Phase B — ToadStool Timeline)
 
-The control experiments have now **concretely demonstrated** which BarraCUDA
+The control experiments have now **concretely demonstrated** which BarraCuda
 capabilities are needed, with **quantitative acceptance criteria from 195 validated checks**:
 
-| BarraCUDA Gap | Demonstrated By | Acceptance Criteria | Priority |
+| BarraCuda Gap | Demonstrated By | Acceptance Criteria | Priority |
 |---------------|-----------------|---------------------|----------|
 | **PP force kernel (WGSL)** | Sarkas PP: 22 it/s CPU | Energy drift <2%, RDF peak ±0.05 a_ws, D within 10% | 🔴 Critical |
 | **Complex FFT (WGSL)** | PPPM: fragile pyfftw+Numba | DSF plasmon error <10%, FFT(IFFT(x))=x | 🔴 Critical |
@@ -426,7 +426,7 @@ capabilities are needed, with **quantitative acceptance criteria from 195 valida
 | **ODE solver** | TTM local: 2s CPU → ms target | Te=Ti equilibration, |Te-Ti|<1K at end | 🟢 Nice-to-have |
 | **Bessel/special functions** | TTM hydro cylindrical coords | J0, J1 match tables to 1e-12 | 🟢 Nice-to-have |
 
-**Phase B validation protocol**: Run the same 12 DSF cases on BarraCUDA GPU kernels
+**Phase B validation protocol**: Run the same 12 DSF cases on BarraCuda GPU kernels
 and compare all 5 observables (DSF, energy, RDF, SSF, VACF) against the Python control
 baseline. Matching within statistical uncertainty (N=2000) is the acceptance gate.
 The comprehensive control results JSON (`control/comprehensive_control_results.json`)
@@ -539,18 +539,18 @@ blockers** and deepened the evidence for ecoPrimals' thesis.
     match the objective to where the model adds value.
   - Saved: `results/nuclear_eos_surrogate_L2.json`
 
-  **BarraCUDA (Rust + WGSL) Validation — COMPLETED** (Feb 11, 2026):
+  **BarraCuda (Rust + WGSL) Validation — COMPLETED** (Feb 11, 2026):
   The nuclear EOS L1 and L2 surrogate learning pipelines have been ported to
-  pure Rust + BarraCUDA WGSL shaders, eliminating all Python/PyTorch/scipy
+  pure Rust + BarraCuda WGSL shaders, eliminating all Python/PyTorch/scipy
   dependencies. Three key algorithmic improvements were implemented:
   - **Latin Hypercube Sampling (LHS)**: Space-filling exploration in round 0
   - **Multi-start Nelder-Mead**: 5 restarts from top-5 best points on surrogate
   - **CPU-only predict fast path**: Avoids GPU dispatch overhead for single-point
     evaluations in NM inner loop (90× speedup over GPU-dispatched NM)
 
-  Head-to-head results (BarraCUDA f64 vs Python control):
+  Head-to-head results (BarraCuda f64 vs Python control):
 
-  | Metric | Python L1 | BarraCUDA L1 | Python L2 | BarraCUDA L2 |
+  | Metric | Python L1 | BarraCuda L1 | Python L2 | BarraCuda L2 |
   |--------|-----------|-------------|-----------|-------------|
   | Best χ²/datum | 6.62 | **2.27** ✅ | **1.93** | **16.11** (Run A) |
   | Best NMP-physical | — | — | — | 19.29 (Run B, 5/5 within 2σ) |
@@ -559,25 +559,25 @@ blockers** and deepened the evidence for ecoPrimals' thesis.
   | Evals/second | 5.5 | **2,621** | 0.28 | 0.48 |
   | Speedup | — | **478×** | — | **1.7×** |
 
-  L1 BarraCUDA nuclear matter (best fit):
+  L1 BarraCuda nuclear matter (best fit):
   - ρ₀ = 0.176 fm⁻³ (expt ~0.16), E/A = −15.84 MeV (expt −16.0), K∞ = 195 MeV
 
-  L2 BarraCUDA nuclear matter (best fit):
+  L2 BarraCuda nuclear matter (best fit):
   - ρ₀ = 0.136 fm⁻³, E/A = −14.34 MeV, K∞ = 239 MeV
 
   **Key findings**:
-  - L1: BarraCUDA achieves **better χ² (2.27 vs 6.62)** at **478× throughput** —
+  - L1: BarraCuda achieves **better χ² (2.27 vs 6.62)** at **478× throughput** —
     the combination of LHS + multi-start NM + f64 precision on Rust/WGSL
     comprehensively outperforms the Python/PyTorch control at L1.
-  - L2: BarraCUDA achieves **16.11** χ² (Run A, 60 evals) and **19.29** (Run B, all
+  - L2: BarraCuda achieves **16.11** χ² (Run A, 60 evals) and **19.29** (Run B, all
     NMP physical). Python reaches 1.93 at 3008 evals with mystic SparsitySampler.
-    The range of BarraCUDA L2 values (16–25) confirms the landscape is multimodal.
+    The range of BarraCuda L2 values (16–25) confirms the landscape is multimodal.
     The remaining gap is in sampling strategy, not
     compute or physics. SparsitySampler port is the #1 priority for L2 parity.
   - **GPU dispatch overhead discovery**: Using GPU for single-point surrogate
     predictions in the NM inner loop caused a 90× slowdown (dispatch latency >>
     computation). CPU-only `predict_cpu()` fast path resolved this. Key lesson
-    for BarraCUDA architecture: auto-route small workloads to CPU.
+    for BarraCuda architecture: auto-route small workloads to CPU.
   - **Precision**: Dual-precision strategy (f32 cdist on GPU → promote → f64 on CPU
     for TPS kernel, linear solve, and physics) matches Python's torch.float64 path.
   - Results saved: `results/nuclear_eos_surrogate_L{1,2}_barracuda.json`
@@ -589,10 +589,10 @@ blockers** and deepened the evidence for ecoPrimals' thesis.
   - CPU: Fallback, small matrices, NM inner loop
   This eliminates the dual-precision GPU→CPU roundtrip for f64 operations.
 
-  **BarraCUDA Library Validation — COMPLETED** (Feb 12, 2026):
+  **BarraCuda Library Validation — COMPLETED** (Feb 12, 2026):
   The toadstool team evolved barracuda's scientific computing modules per the
   Feb 11 handoff. We validated the full library-based workflow against both the
-  Python control and our earlier custom (inline) BarraCUDA implementation.
+  Python control and our earlier custom (inline) BarraCuda implementation.
 
   All requested modules work correctly:
   - `sample::sparsity::sparsity_sampler` — end-to-end iterative surrogate learning
@@ -604,7 +604,7 @@ blockers** and deepened the evidence for ecoPrimals' thesis.
   - `numerical::{trapz, gradient_1d}` — numerical integration/differentiation
   - `linalg::solve_f64` — linear system solve (inside RBFSurrogate)
 
-  Head-to-head (library SparsitySampler vs Python vs old custom BarraCUDA):
+  Head-to-head (library SparsitySampler vs Python vs old custom BarraCuda):
 
   | Metric | Python L1 | Library L1 | Old Custom L1 |
   |--------|-----------|------------|---------------|
@@ -613,7 +613,7 @@ blockers** and deepened the evidence for ecoPrimals' thesis.
   | Time | 184s | **5.2s** | **2.3s** |
   | Speedup vs Python | — | **35×** | **80×** |
 
-  | Metric | Python L2 (initial) | Python L2 (SparsitySampler) | BarraCUDA L2 (Run A) | BarraCUDA L2 (Run B) |
+  | Metric | Python L2 (initial) | Python L2 (SparsitySampler) | BarraCuda L2 (Run A) | BarraCuda L2 (Run B) |
   |--------|--------------------|-----------------------------|---------------------|---------------------|
   | χ²/datum | 61.87 | **1.93** | **16.11** | **19.29** (5/5 NMP) |
   | Total evals | 96 | 3,008 | 60 | 60 |
@@ -661,7 +661,7 @@ blockers** and deepened the evidence for ecoPrimals' thesis.
     - OPENBLAS_NUM_THREADS=1 (prevent BLAS thread contention): 60s → 12.4s (4.8×)
     - multiprocessing.Pool (parallel nuclei): 12.4s → 2.7s (additional 4.6×)
     - Combined 22× speedup on consumer i9-12900K
-  - **Level 3** (axially deformed HFB): designated as **BarraCUDA target** —
+  - **Level 3** (axially deformed HFB): designated as **BarraCuda target** —
     this is where WGSL shaders replace Fortran eigensolvers.
 
   **Akida NPU integration** (Feb 10, 2026):
@@ -678,28 +678,28 @@ blockers** and deepened the evidence for ecoPrimals' thesis.
     (physical/unphysical parameter regions at ~300mW vs GPU 200W)
 
   Level architecture for nuclear EOS:
-  | Level | Method | Python χ²/datum | BarraCUDA χ²/datum | Speedup | Platform |
+  | Level | Method | Python χ²/datum | BarraCuda χ²/datum | Speedup | Platform |
   |-------|--------|-----------------|--------------------|---------|----------|
   | 1 | SEMF + nuclear matter (52 nuclei) | 6.62 | **2.27** ✅ | **478×** | Rust + WGSL |
   | 2 | HF+BCS hybrid (18 focused nuclei) | **1.93** | **16.11** (best) / 19.29 (NMP) | 1.7× | Rust + WGSL + nalgebra + rayon |
-  | 3 | Axially deformed HFB | ~0.5% (target) | - | - | **BarraCUDA + Titan V** |
+  | 3 | Axially deformed HFB | ~0.5% (target) | - | - | **BarraCuda + Titan V** |
 
   Hardware utilization for control experiments:
   | Hardware | Role | Status |
   |----------|------|--------|
   | i9-12900K (CPU) | HFB eigensolvers via mp.Pool/rayon + BLAS opt | ✅ 22× speedup |
-  | RTX 4070 (GPU) | RBF cdist (f32), PyTorch CUDA, BarraCUDA WGSL | ✅ GPU RBF operational |
+  | RTX 4070 (GPU) | RBF cdist (f32), PyTorch CUDA, BarraCuda WGSL | ✅ GPU RBF operational |
   | AKD1000 (NPU) | Surrogate pre-screening classifier | ✅ Hardware operational |
   | **Titan V ×2** (on order) | **f64 GPU compute (13.8 TFLOPS combined)** | 📦 Ordered |
 
   The heterogeneous compute strategy is now **fully operational**: CPU does the
   physics (HFB eigensolvers), GPU does the math (RBF O(n³) matrix solve), and
-  NPU is staged for energy-efficient pre-screening. **BarraCUDA (Rust + WGSL)
+  NPU is staged for energy-efficient pre-screening. **BarraCuda (Rust + WGSL)
   now beats the Python control on L1** (2.27 vs 6.62 χ²/datum, 478× faster).
   L2 needs SparsitySampler for accuracy parity but is already 1.7× faster per
   evaluation. The Titan V GPUs will enable native f64 on GPU, eliminating the
   current dual-precision CPU roundtrip. Level 3 targets GPU dispatch via
-  BarraCUDA WGSL shaders for the eigenvalue problem.
+  BarraCuda WGSL shaders for the eigenvalue problem.
 
 ### Phase D: N-Scaling and Cell-List Evolution (Feb 14, 2026)
 
@@ -908,8 +908,8 @@ electricity per experiment. The exploration space is now effectively unlimited.
 | Nuclear EOS L1 Python (SEMF, 52 nuclei) | 1 | 1 | ✅ χ²/datum=6.62 |
 | Nuclear EOS L2 Python (HFB hybrid, 18 nuclei) | 1 | 1 | ✅ χ²/datum=1.93 |
 | GPU RBF accelerator (PyTorch CUDA) | 1 | 1 | ✅ 2-7× speedup |
-| **BarraCUDA L1 (Rust+WGSL, f64, LHS+NM)** | **1** | **1** | **✅ χ²=2.27 (478× faster)** |
-| **BarraCUDA L2 (Rust+WGSL+nalgebra, f64)** | **1** | **1** | **✅ χ²=16.11 best / 19.29 NMP (1.7× faster)** |
+| **BarraCuda L1 (Rust+WGSL, f64, LHS+NM)** | **1** | **1** | **✅ χ²=2.27 (478× faster)** |
+| **BarraCuda L2 (Rust+WGSL+nalgebra, f64)** | **1** | **1** | **✅ χ²=16.11 best / 19.29 NMP (1.7× faster)** |
 | **Phase A + B Total** | **86** | **86** | **✅ CONTROL + BARRACUDA VALIDATED** |
 | | | | |
 | **GPU MD PP Yukawa κ=1 (3 cases × 5 obs)** | **15** | **15** | **✅ Γ=14,72,217, drift≤0.006% (80k steps)** |
@@ -932,15 +932,15 @@ electricity per experiment. The exploration space is now effectively unlimited.
 | **L3 deformed HFB (2042 nuclei)** | **3** | **3** | **✅ 295/2036 improved over L2, 4 mass regions** |
 | **Phase F Total** | **9** | **9** | **✅ FULL-SCALE NUCLEAR EOS CHARACTERIZATION** |
 | | | | |
-| **BarraCUDA MD pipeline (6 GPU ops)** | **12** | **12** | **✅ YukawaF64+VV+Berendsen+KE: 0.000% drift** |
-| **BarraCUDA HFB pipeline (3 GPU ops)** | **14** | **14** | **✅ BCS GPU 6.2e-11, Eigh 2.4e-12, degeneracy** |
+| **BarraCuda MD pipeline (6 GPU ops)** | **12** | **12** | **✅ YukawaF64+VV+Berendsen+KE: 0.000% drift** |
+| **BarraCuda HFB pipeline (3 GPU ops)** | **14** | **14** | **✅ BCS GPU 6.2e-11, Eigh 2.4e-12, degeneracy** |
 | **Pipeline Validation Total** | **26** | **26** | **✅ BARRACUDA OPS END-TO-END VALIDATED** |
 | | | | |
 | **Grand Total** | **195** | **195** | **✅ ALL PHASES + PIPELINE VALIDATION** |
 
 **Data archive**: `control/comprehensive_control_results.json`  
 **Nuclear EOS results**: `control/surrogate/nuclear-eos/results/nuclear_eos_surrogate_L{1,2}.json`  
-**BarraCUDA results**: `control/surrogate/nuclear-eos/results/nuclear_eos_surrogate_L{1,2}_barracuda.json`
+**BarraCuda results**: `control/surrogate/nuclear-eos/results/nuclear_eos_surrogate_L{1,2}_barracuda.json`
 
 ### The ecoPrimals Thesis, Strengthened
 
@@ -950,7 +950,7 @@ require significant patching to run on current Python stacks** (NumPy 2.x, panda
 inscrutable errors or produced NaN without warning. The upstream notebooks "just
 work" because they pin exact environments from 2-3 years ago.
 
-This is the exact problem BarraCUDA solves: a Rust/WGSL compute engine where
+This is the exact problem BarraCuda solves: a Rust/WGSL compute engine where
 the mathematical operations are correct by construction, the type system prevents
 silent data corruption, and the GPU kernels don't depend on fragile JIT compilation
 chains. The profiling data (97.2% in one function) shows this isn't a distributed
@@ -971,7 +971,7 @@ The cell-list kernel — after deep-debugging a WGSL `i32 %` portability bug acr
 scaling to N=100,000+ on consumer hardware. The nuclear EOS surrogate learning demonstrates the full
 pipeline — physics objective, surrogate training (GPU-accelerated), iterative
 optimization — working on consumer hardware without institutional access.
-**BarraCUDA has already surpassed the Python control on L1** (χ²=2.27 vs 6.62,
+**BarraCuda has already surpassed the Python control on L1** (χ²=2.27 vs 6.62,
 478× throughput) and demonstrated 1.7× throughput advantage on L2. The remaining
 L2 accuracy gap traces to sampling strategy (SparsitySampler), not compute or
 physics fidelity. With 2× Titan V GPUs on order for native f64 on GPU, the
@@ -990,7 +990,7 @@ is the kind of engineering lesson that separates "it works on my machine" from
 "it works everywhere." See `experiments/002_CELLLIST_FORCE_DIAGNOSTIC.md`.
 
 **Library validation** (Feb 12, 2026): The toadstool team evolved all requested
-BarraCUDA modules. Library-based SparsitySampler runs end-to-end on both L1
+BarraCuda modules. Library-based SparsitySampler runs end-to-end on both L1
 (35× faster than Python) and L2 (19.6× faster). Accuracy gap in SparsitySampler's
 evaluation strategy is identified and fixable — needs hybrid true+surrogate mode.
 All 12 barracuda modules pass functional validation. See detailed handoff:

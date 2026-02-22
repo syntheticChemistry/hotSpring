@@ -1,4 +1,4 @@
-# Nuclear EOS Strategy: From Python Control to BarraCUDA Proof
+# Nuclear EOS Strategy: From Python Control to BarraCuda Proof
 
 > **FULLY EXECUTED** (Feb 21, 2026) — All phases A–F complete. 195/195 quantitative
 > checks pass. This document is retained as fossil record. See `CONTROL_EXPERIMENT_STATUS.md`
@@ -14,15 +14,15 @@ first principles instead — and used it as the Phase A → Phase B transition.
 
 ## The Strategic Question
 
-> Should we solve the nuclear EOS in Python, or is this where BarraCUDA
+> Should we solve the nuclear EOS in Python, or is this where BarraCuda
 > starts proving it can do the math on ANY hardware?
 
-**Answer: Both.** Python establishes correctness (Phase A). BarraCUDA
+**Answer: Both.** Python establishes correctness (Phase A). BarraCuda
 demonstrates hardware independence (Phase B). The surrogate learning
 workflow is the *perfect* transition because the math maps almost 1:1
-to existing BarraCUDA operations.
+to existing BarraCuda operations.
 
-**Result**: BarraCUDA L1 achieves **better accuracy** (χ²=2.27 vs 6.62) at
+**Result**: BarraCuda L1 achieves **better accuracy** (χ²=2.27 vs 6.62) at
 **478× throughput** on consumer hardware. The thesis is validated.
 
 ---
@@ -50,7 +50,7 @@ the nuclear physics from scratch:
 - 18 focused nuclei where HFB adds value
 
 ### Level 3: Axially Deformed HFB (target)
-- Designated for BarraCUDA + Titan V f64 GPU compute
+- Designated for BarraCuda + Titan V f64 GPU compute
 - Requires 2D mesh, larger matrices, iterative eigensolvers
 - This is the "Murillo parity" target
 
@@ -81,7 +81,7 @@ Math:
   3. Linear solve:              K·w = y                       → cholesky.wgsl ✅ (or CPU f64)
   4. Prediction:                f̂(x) = Σ wᵢ · K(x, xᵢ)     → CPU fast path ✅
 
-Implemented in both Python (scipy/PyTorch) and Rust (BarraCUDA).
+Implemented in both Python (scipy/PyTorch) and Rust (BarraCuda).
 ```
 
 ### Layer 3: Surrogate Inference (NPU — tiny model, fast prediction)
@@ -105,7 +105,7 @@ Status: Hardware verified. Model pipeline needs cnn2snn conversion.
 | L1 | 6.62 | 1,008 | 184s | scipy RBF + Nelder-Mead |
 | L2 | **1.93** | 3,008 | 3.2h | GPU RBF + SparsitySampler + 8-worker parallel |
 
-### Phase B: BarraCUDA (Rust + WGSL) ✅
+### Phase B: BarraCuda (Rust + WGSL) ✅
 
 | Level | χ²/datum | Evals | Time | Speedup | Method |
 |-------|----------|-------|------|---------|--------|
@@ -129,16 +129,16 @@ Status: Hardware verified. Model pipeline needs cnn2snn conversion.
    SparsitySampler port is the #1 priority.
 
 4. **LHS + multi-start NM beats random + single NM**: On L1, this combination
-   improved χ² from 6.62 (Python) to 2.27 (BarraCUDA) — better accuracy AND
+   improved χ² from 6.62 (Python) to 2.27 (BarraCuda) — better accuracy AND
    478× faster throughput.
 
 ---
 
-## What BarraCUDA Already Has vs What It Needs
+## What BarraCuda Already Has vs What It Needs
 
 ### Exists and Validated ✅
 
-| BarraCUDA Op | Surrogate Use | Status |
+| BarraCuda Op | Surrogate Use | Status |
 |-------------|---------------|--------|
 | `cdist.wgsl` | RBF pairwise distances | ✅ Production (f32 GPU) |
 | `tps_kernel.wgsl` | Thin-plate spline kernel | ✅ Production |
@@ -213,7 +213,7 @@ The GPU path makes experiments that were previously impractical (days/weeks) int
 
 The `sarkas_gpu` binary runs the full Sarkas PP Yukawa DSF study (9 cases)
 entirely on GPU using f64 WGSL shaders. This is the first step toward
-replacing the Python Sarkas codebase with BarraCUDA for plasma MD.
+replacing the Python Sarkas codebase with BarraCuda for plasma MD.
 
 ### What's Running
 - Yukawa all-pairs force kernel (f64 WGSL, `SHADER_F64`)
@@ -266,7 +266,7 @@ same observables.**
 ## The One-Liner
 
 > Python proved we can do the physics.
-> BarraCUDA proved we can do it 478× faster on a consumer GPU.
+> BarraCuda proved we can do it 478× faster on a consumer GPU.
 > Native f64 builtins broke the bottleneck — 2-6× more throughput, $0.001 per paper-parity run.
 > Now Sarkas runs on a $600 GPU — same physics, same observables, no HPC needed.
 > Together they prove the scarcity was artificial.

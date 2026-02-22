@@ -106,7 +106,7 @@ Built Skyrme EDF nuclear physics from scratch using only public data (AME2020) a
 
 Python L2 uses mystic's SparsitySampler with 3,008 evaluations, achieving 1.93 chi2/datum — this is the current best accuracy on L2 across all substrates.
 
-This serves as the Phase A baseline for Phase B (BarraCUDA) comparison.
+This serves as the Phase A baseline for Phase B (BarraCuda) comparison.
 
 ---
 
@@ -240,5 +240,5 @@ Timing: L2=35s, L3=4.52 hrs. L3 deformed solver needs numerical stabilization (c
 | L2 GPU-batched HFB (3 characterization checks) | 3 | 3/3 |
 | L3 Deformed HFB (3 characterization checks) | 3 | 3/3 |
 | **Phase A + C + D + E + F Total** | **169** | **169/169** |
-| **BarraCUDA Pipeline (MD + HFB)** | **26** | **26/26** |
+| **BarraCuda Pipeline (MD + HFB)** | **26** | **26/26** |
 | **Grand Total** | **195** | **195/195** |

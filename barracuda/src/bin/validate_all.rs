@@ -89,12 +89,12 @@ const SUITES: &[Suite] = &[
         requires_gpu: true,
     },
     Suite {
-        name: "BarraCUDA HFB Pipeline",
+        name: "BarraCuda HFB Pipeline",
         binary: "validate_barracuda_hfb",
         requires_gpu: true,
     },
     Suite {
-        name: "BarraCUDA MD Pipeline",
+        name: "BarraCuda MD Pipeline",
         binary: "validate_barracuda_pipeline",
         requires_gpu: true,
     },
@@ -194,7 +194,7 @@ const SUITES: &[Suite] = &[
         requires_gpu: false,
     },
     Suite {
-        name: "BarraCUDA Evolution (CPU Foundation)",
+        name: "BarraCuda Evolution (CPU Foundation)",
         binary: "validate_barracuda_evolution",
         requires_gpu: false,
     },

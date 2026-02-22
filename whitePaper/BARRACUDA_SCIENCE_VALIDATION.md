@@ -1,10 +1,10 @@
-# BarraCUDA Science Validation — Phase B Results
+# BarraCuda Science Validation — Phase B Results
 
 **Date**: February 16, 2026  
 **Workload**: Nuclear Equation of State (Skyrme EDF) + Yukawa OCP Molecular Dynamics  
 **Reference**: Diaw et al. (2024), "Efficient learning of accurate surrogates for simulations of complex systems," *Nature Machine Intelligence*  
 **Hardware**: i9-12900K (24 threads), RTX 4070 (SHADER_F64 confirmed), 32 GB, Pop!_OS 22.04  
-**BarraCUDA Version**: Phase 5+ (100% Rust, zero external dependencies, FP64 GPU validated)  
+**BarraCuda Version**: Phase 5+ (100% Rust, zero external dependencies, FP64 GPU validated)  
 **See also**: [STUDY.md](STUDY.md) for the full study narrative; [METHODOLOGY.md](METHODOLOGY.md) for the validation protocol
 
 ---
@@ -34,8 +34,8 @@ The nuclear EOS parameter optimization fits 10 Skyrme interaction parameters to 
 
 | Method | chi2/datum | Evaluations | Time | Speedup |
 |--------|-----------|-------------|------|---------|
-| **BarraCUDA DirectSampler** | **2.27** | 6,028 | 2.3s | **478×** |
-| BarraCUDA GPU DirectSampler | **1.52** | 48 | 32.4s | — |
+| **BarraCuda DirectSampler** | **2.27** | 6,028 | 2.3s | **478×** |
+| BarraCuda GPU DirectSampler | **1.52** | 48 | 32.4s | — |
 | Python/SciPy (mystic) | 6.62 | 1,008 | ~184s | baseline |
 
 ### 2.2 Implementation Parity (SLy4 Baseline, 100k Iterations)
@@ -45,12 +45,12 @@ All three substrates produce identical physics at the SLy4 reference point:
 | Substrate | chi2/datum | us/eval | Energy (J) | vs Python |
 |-----------|-----------|---------|------------|-----------|
 | Python (CPython 3.10) | 4.99 | 1,143 | 5,648 | baseline |
-| BarraCUDA CPU (Rust) | 4.9851 | 72.7 | 374 | **15.1× less energy** |
-| BarraCUDA GPU (RTX 4070) | 4.9851 | 39.7 | 126 | **44.8× less energy** |
+| BarraCuda CPU (Rust) | 4.9851 | 72.7 | 374 | **15.1× less energy** |
+| BarraCuda GPU (RTX 4070) | 4.9851 | 39.7 | 126 | **44.8× less energy** |
 
 GPU precision: Max |B_cpu - B_gpu| = 4.55e-13 MeV (sub-ULP, bit-exact).
 
-**Summary**: BarraCUDA achieves **478× faster** throughput than Python at L1. The GPU path uses **44.8× less energy** than Python for identical physics. Energy measured via Intel RAPL (CPU) and nvidia-smi polling (GPU).
+**Summary**: BarraCuda achieves **478× faster** throughput than Python at L1. The GPU path uses **44.8× less energy** than Python for identical physics. Energy measured via Intel RAPL (CPU) and nvidia-smi polling (GPU).
 
 ---
 
@@ -58,7 +58,7 @@ GPU precision: Max |B_cpu - B_gpu| = 4.55e-13 MeV (sub-ULP, bit-exact).
 
 ### 3.0 Current Best (GPU benchmark, DirectSampler)
 
-| Metric | BarraCUDA | Python (mystic) |
+| Metric | BarraCuda | Python (mystic) |
 |--------|-----------|-----------------|
 | chi2_BE/datum | **23.09** | **1.93** |
 | Evaluations | 12 | 3,008 |
@@ -66,7 +66,7 @@ GPU precision: Max |B_cpu - B_gpu| = 4.55e-13 MeV (sub-ULP, bit-exact).
 | Throughput | 0.48 eval/s | 0.28 eval/s |
 | Energy | 32,500 J (135W CPU) | — |
 
-**L2 accuracy note**: Python achieves better chi2 (1.93 vs 23.09) because it uses mystic's SparsitySampler with 250× more evaluations. The physics implementation is equivalent — the gap is in the optimization strategy. Porting SparsitySampler to BarraCUDA is the #1 L2 priority.
+**L2 accuracy note**: Python achieves better chi2 (1.93 vs 23.09) because it uses mystic's SparsitySampler with 250× more evaluations. The physics implementation is equivalent — the gap is in the optimization strategy. Porting SparsitySampler to BarraCuda is the #1 L2 priority.
 
 ### 3.1 Run A: Best Accuracy (seed=42, lambda=0.1)
 
@@ -76,7 +76,7 @@ GPU precision: Max |B_cpu - B_gpu| = 4.55e-13 MeV (sub-ULP, bit-exact).
 | chi2_NMP/datum | 3.21 |
 | HFB evaluations | 60 |
 | Wall time | 3,208s |
-| vs initial BarraCUDA (pre-fix) | **1,764x improvement** |
+| vs initial BarraCuda (pre-fix) | **1,764x improvement** |
 | NMP within 2sigma | 4/5 (rho0 at -3.6sigma) |
 
 ### 3.2 Run B: Best Physics (seed=123, lambda=1.0)
@@ -112,9 +112,9 @@ Very heavy nuclei (actinides) are effectively exact at L2.
 
 ---
 
-## 4. BarraCUDA Math Functions Used
+## 4. BarraCuda Math Functions Used
 
-All math is BarraCUDA native — zero external dependencies (nalgebra removed):
+All math is BarraCuda native — zero external dependencies (nalgebra removed):
 
 | Function | Equivalent | Usage in HFB |
 |----------|-----------|-------------|
@@ -148,11 +148,11 @@ All math is BarraCUDA native — zero external dependencies (nalgebra removed):
 
 ## 6. Numerical Precision Findings
 
-Three specific numerical differences between BarraCUDA and NumPy/SciPy were identified and resolved. Each caused systematic errors in the self-consistent field (SCF) loop:
+Three specific numerical differences between BarraCuda and NumPy/SciPy were identified and resolved. Each caused systematic errors in the self-consistent field (SCF) loop:
 
 ### 6.1 gradient_1d Boundary Stencil
 
-**Problem**: BarraCUDA used 1st-order forward/backward differences at array boundaries. NumPy uses 2nd-order one-sided stencils.
+**Problem**: BarraCuda used 1st-order forward/backward differences at array boundaries. NumPy uses 2nd-order one-sided stencils.
 
 **Impact**: ~65 MeV systematic offset in HFB binding energies.
 
@@ -168,7 +168,7 @@ grad[-1] = (3*f[-1] - 4*f[-2] + f[-3]) / (2*dx)
 
 **Impact**: Occupation number errors accumulate through ~50 SCF iterations.
 
-**Fix**: Replaced bisection with BarraCUDA's Brent root-finder (tol=1e-10).
+**Fix**: Replaced bisection with BarraCuda's Brent root-finder (tol=1e-10).
 
 ### 6.3 Eigensolver Convention
 
@@ -176,7 +176,7 @@ grad[-1] = (3*f[-1] - 4*f[-2] + f[-3]) / (2*dx)
 
 **Impact**: Small but systematic energy shifts.
 
-**Fix**: Replaced nalgebra with BarraCUDA's native eigh_f64 (Jacobi algorithm).
+**Fix**: Replaced nalgebra with BarraCuda's native eigh_f64 (Jacobi algorithm).
 
 **Lesson**: In iterative self-consistent calculations, small numerical differences compound. Matching the reference implementation's numerical methods exactly is necessary before claiming parity.
 
@@ -451,7 +451,7 @@ See `experiments/003_RTX4070_CAPABILITY_PROFILE.md` for full results and gap ana
 
 ## 11. Phase F: Full-Scale Nuclear EOS (Feb 15, 2026)
 
-Phase F applies the validated BarraCUDA/toadstool stack to the full AME2020 dataset (2,042 nuclei) — 39x more nuclei than the published paper.
+Phase F applies the validated BarraCuda/toadstool stack to the full AME2020 dataset (2,042 nuclei) — 39x more nuclei than the published paper.
 
 ### 11.1 L1 Pareto Frontier (2,042 nuclei)
 
@@ -530,9 +530,9 @@ Above: GPU wins. Path to pure-GPU-faster-than-CPU: move H-build, BCS, density
 to WGSL shaders → GPU-resident SCF loop → ~40s (competitive with CPU) → larger
 basis → GPU surpasses CPU. See `experiments/005_L2_MEGABATCH_COMPLEXITY_BOUNDARY.md`.
 
-### 11.4 BarraCUDA Pipeline Validation (Feb 16, 2026)
+### 11.4 BarraCuda Pipeline Validation (Feb 16, 2026)
 
-End-to-end validation of BarraCUDA's abstracted Tensor/Op API against CPU f64
+End-to-end validation of BarraCuda's abstracted Tensor/Op API against CPU f64
 references. This proves the ToadStool op layer produces correct physics through
 WGSL/wgpu/Vulkan — no raw shader dispatch needed.
 
@@ -579,9 +579,9 @@ cargo run --release --bin nuclear_eos_l2_gpu -- --nuclei=full --phase1-only
 # L3 deformed (full AME2020, ~4.5 hrs)
 cargo run --release --bin nuclear_eos_l3_ref -- --nuclei=full --params=best_l2_42
 
-# BarraCUDA MD pipeline validation (requires SHADER_F64)
+# BarraCuda MD pipeline validation (requires SHADER_F64)
 cargo run --release --bin validate_barracuda_pipeline
 
-# BarraCUDA HFB pipeline validation (requires SHADER_F64)
+# BarraCuda HFB pipeline validation (requires SHADER_F64)
 cargo run --release --bin validate_barracuda_hfb
 ```

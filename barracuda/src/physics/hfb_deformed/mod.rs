@@ -9,7 +9,7 @@
 //!   - Block-diagonal structure by Omega (K quantum number)
 //!   - Self-consistent deformed densities
 //!
-//! Uses (all `BarraCUDA` native):
+//! Uses (all `BarraCuda` native):
 //!   - `barracuda::linalg::eigh_f64` — block diagonalization
 //!   - `barracuda::optimize::brent` — BCS chemical potential
 //!   - `barracuda::numerical::{trapz, gradient_1d}` — integrals & gradients

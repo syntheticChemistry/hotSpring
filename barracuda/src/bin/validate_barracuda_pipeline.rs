@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-//! `BarraCUDA` Full-Pipeline MD Validation
+//! `BarraCuda` Full-Pipeline MD Validation
 //!
-//! Proves that `BarraCUDA`'s abstracted GPU ops (`YukawaForceF64`,
+//! Proves that `BarraCuda`'s abstracted GPU ops (`YukawaForceF64`,
 //! VelocityVerletKickDrift/HalfKick, `BerendsenThermostat`, `KineticEnergy`)
 //! produce correct Yukawa OCP physics end-to-end.
 //!
-//! **Strategy**: Run a short MD simulation through `BarraCUDA`'s Tensor/op API,
+//! **Strategy**: Run a short MD simulation through `BarraCuda`'s Tensor/op API,
 //! then validate energy conservation and force correctness against CPU f64.
 //! This is the handoff proof: if these ops pass, `ToadStool` can evolve them
 //! knowing the physics is validated.
@@ -14,7 +14,7 @@
 //! **Provenance**: GPU f32 kernels vs CPU f64 reference. See `provenance::GPU_KERNEL_REFS`.
 //!
 //! **Reference**: hotSpring raw-wgpu path (`sarkas_gpu`) passes 9/9 PP cases
-//! with 0.000% energy drift. This binary validates the `BarraCUDA` abstraction
+//! with 0.000% energy drift. This binary validates the `BarraCuda` abstraction
 //! produces identical physics through a different code path.
 
 use barracuda::ops::md::forces::YukawaForceF64;
@@ -126,16 +126,16 @@ fn gpu_yukawa_forces(
 #[tokio::main]
 async fn main() {
     println!("═══════════════════════════════════════════════════════════");
-    println!("  BarraCUDA Full-Pipeline Yukawa OCP Validation");
+    println!("  BarraCuda Full-Pipeline Yukawa OCP Validation");
     println!("  Pure Rust GPU via WGSL/wgpu/Vulkan — no CUDA");
-    println!("  Proving: BarraCUDA ops → correct physics end-to-end");
+    println!("  Proving: BarraCuda ops → correct physics end-to-end");
     println!("═══════════════════════════════════════════════════════════\n");
 
     let mut harness = ValidationHarness::new("barracuda_pipeline");
 
     // ── Initialize GPU with SHADER_F64 ──
     // hotSpring's GpuF64 properly requests wgpu::Features::SHADER_F64,
-    // then we bridge to BarraCUDA's WgpuDevice for Tensor ops.
+    // then we bridge to BarraCuda's WgpuDevice for Tensor ops.
     let gpu = match GpuF64::new().await {
         Ok(g) => g,
         Err(e) => {
@@ -151,7 +151,7 @@ async fn main() {
     }
     gpu.print_info();
     let device = gpu.to_wgpu_device();
-    println!("  BarraCUDA WgpuDevice bridged (SHADER_F64 confirmed)");
+    println!("  BarraCuda WgpuDevice bridged (SHADER_F64 confirmed)");
 
     // ── Setup system ──
     let l = box_side(N_TARGET);
@@ -167,7 +167,7 @@ async fn main() {
     let velocities = hotspring_barracuda::md::simulation::init_velocities(n, t_target, MASS, 42);
     println!("  Placed {n} particles on FCC lattice");
 
-    // ── Phase 1: Force validation (BarraCUDA vs CPU) ──
+    // ── Phase 1: Force validation (BarraCuda vs CPU) ──
     println!("\n── Phase 1: Force Cross-Validation ──────────────────────");
     let (cpu_forces, cpu_pe) = cpu_yukawa_forces(&positions, n, KAPPA, cutoff_sq, l);
 
@@ -342,7 +342,7 @@ async fn main() {
     }
 
     // ── Phase 5: Full MD loop (energy conservation) ──
-    println!("\n── Phase 5: Full MD Loop (BarraCUDA ops) ──────────────");
+    println!("\n── Phase 5: Full MD Loop (BarraCuda ops) ──────────────");
     {
         let mut pos = positions;
         let mut vel = velocities;
@@ -374,7 +374,7 @@ async fn main() {
         for step in 0..total_steps {
             let box_size = [l, l, l];
 
-            // Step 1: Half-kick + drift (BarraCUDA op)
+            // Step 1: Half-kick + drift (BarraCuda op)
             let pos_t =
                 Tensor::from_f64_data(&pos, vec![n, 3], device.clone()).expect("pos tensor");
             let vel_t =
@@ -389,11 +389,11 @@ async fn main() {
             pos = new_pos_t.to_f64_vec().expect("read pos");
             vel = new_vel_t.to_f64_vec().expect("read vel");
 
-            // Step 2: New forces (BarraCUDA op)
+            // Step 2: New forces (BarraCuda op)
             let (new_forces, pe_vec) = gpu_yukawa_forces(&device, &pos, n, KAPPA, 1.0, RC, l);
             forces = new_forces;
 
-            // Step 3: Second half-kick (BarraCUDA op)
+            // Step 3: Second half-kick (BarraCuda op)
             let vel_t2 =
                 Tensor::from_f64_data(&vel, vec![n, 3], device.clone()).expect("vel tensor");
             let force_t2 =

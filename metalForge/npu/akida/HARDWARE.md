@@ -312,7 +312,7 @@ Economy clock mode saves 18% power at only 19% latency cost.
 
 ## 7. The GPU Parallel: What "Direct Wire" Means for NPU
 
-### What we did with GPU (BarraCUDA)
+### What we did with GPU (BarraCuda)
 
 The conventional wisdom: consumer GPUs have f64 at 1:32 throughput (NVIDIA
 artificially limits FP64 on GeForce). Useless for scientific computing.

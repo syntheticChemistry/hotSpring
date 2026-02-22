@@ -540,8 +540,8 @@ All energies in MeV. Binding energies are positive (bound states).
 |--------|---------|-------|---------|-------|
 | L1 SLy4 baseline (Python=CPU=GPU) | 4.99 | 100k | 114s / 7.3s / 4.0s | Implementation parity: identical on all substrates |
 | Python L1 (mystic optimizer) | 6.62 | 1,008 | 184s | scipy LHS + Nelder-Mead |
-| BarraCUDA L1 (DirectSampler) | **2.27** | 6,028 | **2.3s** | **478× faster**, better χ² |
-| BarraCUDA L1 GPU (extended) | **1.52** | 48 | 32.4s | GPU-accelerated objective eval |
+| BarraCuda L1 (DirectSampler) | **2.27** | 6,028 | **2.3s** | **478× faster**, better χ² |
+| BarraCuda L1 GPU (extended) | **1.52** | 48 | 32.4s | GPU-accelerated objective eval |
 
 **L2 (HFB) — Evolution trajectory**:
 
@@ -551,7 +551,7 @@ All energies in MeV. Binding energies are positive (bound states).
 | +5 physics features | ~92 | — | — | Physics implementation |
 | +gradient_1d boundary fix | ~25 | — | — | 2nd-order stencils critical in SCF |
 | +brent root-finding | ~18 | — | — | Root-finder precision ×10⁹ |
-| **Run A** (best accuracy) | **16.11** | 60 | seed=42, λ=0.1 | Best BarraCUDA L2 achieved |
+| **Run A** (best accuracy) | **16.11** | 60 | seed=42, λ=0.1 | Best BarraCuda L2 achieved |
 | **Run B** (best NMP) | **19.29** | 60 | seed=123, λ=1.0 | All 5 NMP within 2σ |
 | GPU benchmark DirectSampler | 23.09 | 12 | energy-profiled | GPU cost: 32,500 J at 135W |
 | Extended ref run | 25.43 | 1,009 | different seed/λ | Landscape is multimodal |
@@ -560,7 +560,7 @@ All energies in MeV. Binding energies are positive (bound states).
 The 1,764× improvement from 28,450 to 16.11 came through four validation-driven
 cycles. The range of L2 values (16–25) across configurations confirms the 10D
 Skyrme landscape is multimodal — more evaluations do not guarantee better χ² without
-the right sampling strategy. Python's SparsitySampler (1.93) outperforms BarraCUDA's
+the right sampling strategy. Python's SparsitySampler (1.93) outperforms BarraCuda's
 DirectSampler because it explores the landscape more efficiently, not because the
 physics implementation differs. Porting SparsitySampler is the #1 L2 priority.
 

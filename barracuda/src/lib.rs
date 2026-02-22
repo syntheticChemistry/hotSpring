@@ -4,9 +4,9 @@
 // in Cargo.toml. Library code must propagate errors, not panic:
 #![deny(clippy::expect_used, clippy::unwrap_used)]
 
-//! hotSpring Nuclear EOS — `BarraCUDA` validation environment
+//! hotSpring Nuclear EOS — `BarraCuda` validation environment
 //!
-//! Validates `BarraCUDA` library against Python/scipy controls using nuclear
+//! Validates `BarraCuda` library against Python/scipy controls using nuclear
 //! equation-of-state workloads (Skyrme energy density functional) and GPU
 //! molecular dynamics (Yukawa OCP).
 //!

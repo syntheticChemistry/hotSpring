@@ -17,7 +17,7 @@ what it can't, and where the physics meets the transistors.
 We don't just benchmark. We probe. We map register spaces, measure cache
 line behavior, exploit hardware quirks, and find the paths that vendor SDKs
 don't advertise. The GPU work (native f64 at 1:2 on consumer cards via
-BarraCUDA) proved this approach works. metalForge extends it to every
+BarraCuda) proved this approach works. metalForge extends it to every
 substrate ecoPrimals touches.
 
 ---

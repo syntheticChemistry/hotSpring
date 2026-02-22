@@ -1,4 +1,4 @@
-# hotSpring BarraCUDA — Clippy configuration
+# hotSpring BarraCuda — Clippy configuration
 #
 # Physics code necessarily uses usize↔f64 casts, similar variable names
 # (vx/vy/vz, rho_p/rho_n), and single-character physics variables (r, k, q).

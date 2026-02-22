@@ -1,8 +1,8 @@
 [package]
 name = "hotspring-barracuda"
-version = "0.6.4"
+version = "0.6.7"
 edition = "2021"
-description = "Nuclear EOS + GPU MD validation for BarraCUDA — L1/L2/L3 physics, Yukawa OCP, lattice QCD, spectral theory, typed errors, full Result propagation, provenance, capability-based discovery"
+description = "Nuclear EOS + GPU MD validation for BarraCuda — L1/L2/L3 physics, Yukawa OCP, lattice QCD, spectral theory, typed errors, full Result propagation, provenance, capability-based discovery"
 license = "AGPL-3.0-only"
 
 [workspace]
@@ -76,7 +76,7 @@ workspace = true
 gpu_energy = []
 
 [dependencies]
-# BarraCUDA: All scientific computing from the library
+# BarraCuda: All scientific computing from the library
 barracuda = { path = "../../phase1/toadstool/crates/barracuda" }
 
 # Data loading
@@ -119,7 +119,7 @@ path = "src/bin/nuclear_eos_l2_gpu.rs"
 name = "nuclear_eos_l2_hetero"
 path = "src/bin/nuclear_eos_l2_hetero.rs"
 
-# ── BarraCUDA library validation suites ─────────────────────────────
+# ── BarraCuda library validation suites ─────────────────────────────
 [[bin]]
 name = "validate_special_functions"
 path = "src/bin/validate_special_functions.rs"
@@ -166,12 +166,12 @@ path = "src/bin/validate_pppm.rs"
 name = "celllist_diag"
 path = "src/bin/celllist_diag.rs"
 
-# ── BarraCUDA full-pipeline validation (ops → Yukawa OCP → energy conservation) ──
+# ── BarraCuda full-pipeline validation (ops → Yukawa OCP → energy conservation) ──
 [[bin]]
 name = "validate_barracuda_pipeline"
 path = "src/bin/validate_barracuda_pipeline.rs"
 
-# ── BarraCUDA HFB pipeline validation (BCS bisection + eigensolve) ──
+# ── BarraCuda HFB pipeline validation (BCS bisection + eigensolve) ──
 [[bin]]
 name = "validate_barracuda_hfb"
 path = "src/bin/validate_barracuda_hfb.rs"

@@ -21,7 +21,7 @@ use hotspring_barracuda::validation::ValidationHarness;
 
 fn main() {
     println!("═══════════════════════════════════════════════════════════");
-    println!("  BarraCUDA Special Functions Validation");
+    println!("  BarraCuda Special Functions Validation");
     println!("  Reference: A&S / DLMF / scipy.special");
     println!("═══════════════════════════════════════════════════════════\n");
 

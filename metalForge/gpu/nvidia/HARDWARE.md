@@ -69,7 +69,7 @@ allowing nouveau to bind the Titan V while nvidia claims the RTX 4070.
 #### Key Finding
 
 Titan V via NVK produces **identical physics** to RTX 4070 via proprietary
-driver. This validates that BarraCUDA's wgpu path is driver-independent.
+driver. This validates that BarraCuda's wgpu path is driver-independent.
 
 #### System Setup
 
@@ -88,7 +88,7 @@ driver. This validates that BarraCUDA's wgpu path is driver-independent.
 
 ## The f64 Discovery
 
-BarraCUDA's defining contribution: consumer NVIDIA GPUs (GeForce) advertise
+BarraCuda's defining contribution: consumer NVIDIA GPUs (GeForce) advertise
 f64 at 1:32 throughput. This is a **CUDA driver limitation**, not a hardware
 limitation. Via wgpu (Vulkan backend), the same silicon runs f64 at 1:2.
 
@@ -114,7 +114,7 @@ neighbor list and force arrays fit in cache, this could mean:
 - Potential 2-4× speedup on memory-bound force kernels
 
 This is an unexplored frontier for computational physics on consumer GPUs.
-BarraCUDA/ToadStool's wgpu backend already supports AMD via Vulkan — the
+BarraCuda/ToadStool's wgpu backend already supports AMD via Vulkan — the
 question is purely about characterization.
 
 ### Required Hardware (not yet available locally)

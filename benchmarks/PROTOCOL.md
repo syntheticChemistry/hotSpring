@@ -159,7 +159,7 @@ Key question: what fraction of time is:
 - Integration (Velocity-Verlet)?
 - I/O and diagnostics?
 
-This directly informs which BarraCUDA shaders are highest priority.
+This directly informs which BarraCuda shaders are highest priority.
 
 ---
 
@@ -198,13 +198,13 @@ Task: Nuclear EOS surrogate
 
 Same workload on every available compute substrate:
 - **Python** — scipy/numpy (reference)
-- **BarraCUDA CPU** — native Rust (L1 + L2)
-- **BarraCUDA GPU** — WGSL f64 shaders via wgpu/Vulkan (L1, evolving to L2+)
+- **BarraCuda CPU** — native Rust (L1 + L2)
+- **BarraCuda GPU** — WGSL f64 shaders via wgpu/Vulkan (L1, evolving to L2+)
 - **NPU (Akida)** — future
 
 ### Nuclear EOS substrate matrix
 
-| Phase | Python | BarraCUDA CPU | BarraCUDA GPU |
+| Phase | Python | BarraCuda CPU | BarraCuda GPU |
 |-------|--------|---------------|---------------|
 | L1 SEMF (100k) | ✅ 1,143 us/eval, 5,648 J | ✅ 72.7 us/eval, 374 J | ✅ 39.7 us/eval, 126 J |
 | L1 LHS sweep (512 pts) | ✅ 147.2s, 7,420 J | ✅ 5.07s, 265 J | ✅ 3.75s, 122 J |
@@ -221,17 +221,17 @@ physics, different cost**.
 ```
 L1 SEMF (100k iterations, 52 nuclei):
   Python:          chi2 = 4.99,  1,143 us/eval,  5,648 J,   49 W CPU
-  BarraCUDA CPU:   chi2 = 4.99,   72.7 us/eval,    374 J,   51 W CPU
-  BarraCUDA GPU:   chi2 = 4.99,   39.7 us/eval,    126 J,   32 W GPU
+  BarraCuda CPU:   chi2 = 4.99,   72.7 us/eval,    374 J,   51 W CPU
+  BarraCuda GPU:   chi2 = 4.99,   39.7 us/eval,    126 J,   32 W GPU
   GPU precision:   Max |B_cpu - B_gpu| = 4.55e-13 MeV
 
 L1 LHS Sweep (512 parameter sets):
   Python:          chi2 = 6.87 (best/512), 147.2s, 7,420 J
-  BarraCUDA CPU:   chi2 = 5.69 (best/512),   5.07s,  265 J
-  BarraCUDA GPU:   chi2 = 5.69 (best/512),   3.75s,  122 J
+  BarraCuda CPU:   chi2 = 5.69 (best/512),   5.07s,  265 J
+  BarraCuda GPU:   chi2 = 5.69 (best/512),   3.75s,  122 J
 
 L2 HFB DirectSampler (12 evals):
-  BarraCUDA CPU:   chi2 = 23.09,  252s, 32,500 J (135W avg)
+  BarraCuda CPU:   chi2 = 23.09,  252s, 32,500 J (135W avg)
 ```
 
 ### Gate matrix

@@ -1,9 +1,60 @@
 # Changelog
 
-All notable changes to the hotSpring BarraCUDA validation crate.
+All notable changes to the hotSpring BarraCuda validation crate.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## v0.6.7 — ToadStool S42 Catch-Up + Loop Unroller Fix (Feb 22, 2026)
+
+### Loop Unroller u32 Fix (Applied to ToadStool)
+Fixed the documented `substitute_loop_var` bug in toadstool's loop unroller:
+`iter.to_string()` → `format!("{iter}u")`. WGSL now emits `0u`, `1u` etc. instead of
+bare `i32` literals, resolving `BatchedEighGpu::execute_single_dispatch` WGSL
+validation panics.
+
+### catch_unwind Removal
+`validate_barracuda_hfb.rs` no longer wraps single-dispatch eigensolve in
+`std::panic::catch_unwind`. Direct call with `.expect()`.
+
+### BarraCUDA → BarraCuda Rename
+Display name synchronized with toadstool's S42 rename. 20 Rust source files,
+28 documentation files, `Cargo.toml`, `clippy.toml`, `CITATION.cff` updated.
+Archive handoffs preserved as fossil record.
+
+### ToadStool S40–42 Evolution Tracked
+- S40: Richards PDE solver, moving window GPU stats
+- S41: 6 f64 shader compile bugs fixed (including GemmCachedF64), API exposure for Springs
+- S42: 19 new WGSL shaders (612 total), shader-first unified math
+- Jacobi eigenvector rotation fix, ODE f64 builtins, SNP binding mismatch
+
+### Metrics
+- **34/34 validation suites** pass (702.7s)
+- **Zero clippy warnings** (all targets)
+- **All unit tests pass**
+- **Version**: 0.6.5 → 0.6.7
+
+## v0.6.5 — Deep Debt Resolution + GPU Transport Pipeline (Feb 22, 2026)
+
+### GPU Module Refactoring
+Monolithic `gpu.rs` (895 lines) refactored into `gpu/` module:
+`adapter.rs`, `buffers.rs`, `dispatch.rs`, `telemetry.rs`, `mod.rs`.
+
+### Idiomatic Rust Evolution
+- `.expect()` → `Result` in GPU transport functions
+- `partial_cmp().unwrap()` → `total_cmp()` for NaN-safe sorting
+- `Vec::new()+push` → iterator `collect()` patterns
+- Magic numbers → named constants (`WORKGROUP_SIZE`, `PLATEAU_DETECTION_TIME`)
+
+### API Evolution
+- `PppmGpu::new()` deprecated → `PppmGpu::from_device()`
+- Binary targets registered in `Cargo.toml`
+- Documentation synchronized
+
+### Metrics
+- **34/34 validation suites** pass (688.0s)
+- **Zero clippy warnings**
+- **Version**: 0.6.4 → 0.6.5
 
 ## v0.6.4 — ToadStool Rewire v4: Spectral Lean (Feb 22, 2026)
 
@@ -282,7 +333,7 @@ Module coverage: `hfb_deformed/mod.rs` 29.3% → 94.9%, `basis.rs` 65.8% → 98.
 - **Zero unsafe**, zero TODO/FIXME/HACK, zero mock code in production
 - **SPDX AGPL-3.0-only**: 81/81 files (51 .rs + 30 .wgsl)
 - **Remaining inline numerics in library code**: ~10 (all in test blocks or algorithm parameters)
-- **BarraCUDA compatibility**: upstream v0.2.0 compiles cleanly; 16 primitive families used
+- **BarraCuda compatibility**: upstream v0.2.0 compiles cleanly; 16 primitive families used
 - **No duplicate math**: zero hand-rolled implementations of barracuda primitives
 
 ## [0.5.8] — 2026-02-17
@@ -553,7 +604,7 @@ Module coverage: `hfb_deformed/mod.rs` 29.3% → 94.9%, `basis.rs` 65.8% → 98.
   `dispatch`, `create_bind_group`, `create_u32_buffer` moved from duplicate
   free functions in `simulation.rs` / `celllist_diag.rs` to `GpuF64` methods.
 - **`EVOLUTION_READINESS.md`** — Rust module → WGSL shader → promotion tier
-  mapping with blockers and BarraCUDA primitive inventory.
+  mapping with blockers and BarraCuda primitive inventory.
 - **Zero library `unwrap()` calls.** All 5 remaining `unwrap()` in library
   code replaced with safe indexing or `expect()` with invariant documentation.
 - **`patch_math_f64_preamble` centralized.** Moved from duplicate local
@@ -637,7 +688,7 @@ Module coverage: `hfb_deformed/mod.rs` 29.3% → 94.9%, `basis.rs` 65.8% → 98.
 ### Added
 
 - **`validate_barracuda_pipeline`** binary — end-to-end Yukawa OCP MD through
-  BarraCUDA's abstracted ops (YukawaForceF64, VelocityVerletKickDrift/HalfKick,
+  BarraCuda's abstracted ops (YukawaForceF64, VelocityVerletKickDrift/HalfKick,
   BerendsenThermostat, KineticEnergy). 12/12 checks pass; 0.000% energy drift
   over 300 production steps; force magnitude error 1.86e-7.
 - **`validate_barracuda_hfb`** binary — GPU BCS bisection + batched eigensolve
@@ -775,8 +826,8 @@ None — all thresholds stable since Phase B.
 ### Added
 
 - Initial L1/L2 nuclear EOS validation.
-- BarraCUDA L1: χ²=2.27, 478× faster than Python.
-- BarraCUDA L2: χ²=16.11, 1.7× faster than Python.
+- BarraCuda L1: χ²=2.27, 478× faster than Python.
+- BarraCuda L2: χ²=16.11, 1.7× faster than Python.
 - Sarkas MD Phase A (60/60 checks).
 - Surrogate learning (15/15 checks).
 - TTM validation (6/6 checks).

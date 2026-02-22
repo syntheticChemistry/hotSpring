@@ -30,8 +30,8 @@ All 32 hotSpring validation suites passed on RTX 4070 in 1,771.7 seconds total:
 | 5 | Nuclear EOS (Pure Rust) | 1.8s | L1 SEMF, L2 HFB, NMP |
 | 6 | HFB Verification (SLy4) | 2.5s | HFB verbose verification |
 | 7 | WGSL f64 Builtins | 0.5s | GPU f64 shader builtins |
-| 8 | BarraCUDA HFB Pipeline | 0.5s | BCS bisection, BatchedEigh |
-| 9 | BarraCUDA MD Pipeline | 6.5s | Yukawa MD GPU ops |
+| 8 | BarraCuda HFB Pipeline | 0.5s | BCS bisection, BatchedEigh |
+| 9 | BarraCuda MD Pipeline | 6.5s | Yukawa MD GPU ops |
 | 10 | PPPM Coulomb/Ewald | 0.6s | Long-range electrostatics |
 | 11 | CPU/GPU Parity | 3.4s | Same-physics proof |
 | 12 | NAK Eigensolve | 1.2s | NAK-optimized correctness |

@@ -15,7 +15,7 @@
 //! the domain-specific `use_degeneracy` feature that `ToadStool`'s generic
 //! `BatchedBisectionGpu` does not provide.
 //!
-//! Uses the same buffer layout and uniform struct as `BarraCUDA`'s
+//! Uses the same buffer layout and uniform struct as `BarraCuda`'s
 //! `BatchedBisectionGpu`, so results are directly comparable.
 
 use crate::gpu::GpuF64;

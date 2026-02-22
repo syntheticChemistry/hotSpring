@@ -1,4 +1,4 @@
-# hotSpring — BarraCUDA Requirements
+# hotSpring — BarraCuda Requirements
 
 **Last Updated**: February 22, 2026
 **Purpose**: GPU kernel requirements, gap analysis, and evolution priorities
@@ -32,7 +32,7 @@
 ### Status Update (Feb 19, 2026)
 
 The lattice QCD infrastructure has been built and validated on CPU. All items
-previously marked "Not in BarraCUDA" for Complex f64, SU(3), and HMC are now
+previously marked "Not in BarraCuda" for Complex f64, SU(3), and HMC are now
 **implemented in hotSpring** (`barracuda/src/lattice/`, ~2,800 lines) with WGSL
 templates ready for GPU promotion.
 
@@ -56,7 +56,7 @@ templates ready for GPU promotion.
 
 ### Kernels That Transfer Directly (Confirmed)
 
-| Lattice QCD Need | BarraCUDA Kernel | Status |
+| Lattice QCD Need | BarraCuda Kernel | Status |
 |-----------------|-----------------|--------|
 | Gauge field update (MD) | Velocity Verlet | ✅ Adapted as HMC leapfrog in `hmc.rs` |
 | Thermodynamic observables | FusedMapReduceF64 | ✅ Used for plaquette averages |
@@ -102,7 +102,7 @@ neuralSpring) now available for GPU localization diagnostics.
 
 ---
 
-## BarraCUDA Evolution Path for hotSpring
+## BarraCuda Evolution Path for hotSpring
 
 ```
 Phase A-F (DONE)              Bazavov Extension (DONE on CPU)     GPU Promotion (NEXT)

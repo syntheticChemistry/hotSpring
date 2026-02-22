@@ -1,7 +1,7 @@
-# Experiment 010: BarraCUDA CPU vs GPU — Systematic Parity Validation
+# Experiment 010: BarraCuda CPU vs GPU — Systematic Parity Validation
 
 **Date**: February 22, 2026
-**Goal**: Consolidated evidence that BarraCUDA pure Rust CPU math and WGSL GPU
+**Goal**: Consolidated evidence that BarraCuda pure Rust CPU math and WGSL GPU
 dispatch produce identical physics across all validated domains.
 **Binary**: `validate_barracuda_evolution`
 

@@ -11,7 +11,7 @@
 
 ## Abstract
 
-We perform first-principles nuclear structure calculations on consumer GPU hardware using BarraCUDA — a Pure Rust scientific computing library dispatching f64 WGSL shaders to any GPU vendor via wgpu/Vulkan. The full AME2020 dataset (2,042 experimentally measured nuclei — 39x the published reference) runs on a single RTX 4070: L1 Pareto analysis maps the binding-energy-vs-NMP trade-off (chi2_BE from 0.69 to 15.38), L2 GPU-batched HFB processes 791 nuclei in 66 minutes at 99.85% convergence, and L3 deformed HFB produces first full-scale results (best-of-both chi2 = 13.92). This is direct Skyrme energy density functional computation — not surrogate learning — producing 1,990 novel predictions for nuclei the published paper never evaluated. The platform was validated through five prior phases (A-E) spanning molecular dynamics, plasma equilibration, and nuclear EOS, totaling 195/195 quantitative checks. GPU FP64 is exact (4.55e-13 MeV max error vs CPU), 44.8x more energy-efficient than Python, and achieves paper-parity Yukawa MD at N=10,000 in 3.66 hours for $0.044.
+We perform first-principles nuclear structure calculations on consumer GPU hardware using BarraCuda — a Pure Rust scientific computing library dispatching f64 WGSL shaders to any GPU vendor via wgpu/Vulkan. The full AME2020 dataset (2,042 experimentally measured nuclei — 39x the published reference) runs on a single RTX 4070: L1 Pareto analysis maps the binding-energy-vs-NMP trade-off (chi2_BE from 0.69 to 15.38), L2 GPU-batched HFB processes 791 nuclei in 66 minutes at 99.85% convergence, and L3 deformed HFB produces first full-scale results (best-of-both chi2 = 13.92). This is direct Skyrme energy density functional computation — not surrogate learning — producing 1,990 novel predictions for nuclei the published paper never evaluated. The platform was validated through five prior phases (A-E) spanning molecular dynamics, plasma equilibration, and nuclear EOS, totaling 195/195 quantitative checks. GPU FP64 is exact (4.55e-13 MeV max error vs CPU), 44.8x more energy-efficient than Python, and achieves paper-parity Yukawa MD at N=10,000 in 3.66 hours for $0.044.
 
 ---
 
@@ -289,7 +289,7 @@ The L2 Phase 1 (SLy4 baseline, completed) and L3 best_l2_42 (completed) provide 
 
 5. **Reproducing published physics required fixing five silent upstream bugs.** 4/5 produce wrong results with no error message. Rust's type system prevents this class of failure.
 
-6. **478x faster throughput, 44.8x less energy.** BarraCUDA L1: chi2=2.27 in 2.3s vs Python's 6.62 in 184s. GPU uses 126 J vs Python's 5,648 J for 100k evaluations.
+6. **478x faster throughput, 44.8x less energy.** BarraCuda L1: chi2=2.27 in 2.3s vs Python's 6.62 in 184s. GPU uses 126 J vs Python's 5,648 J for 100k evaluations.
 
 7. **GPU FP64 is exact and production-ready.** RTX 4070 SHADER_F64 delivers true IEEE 754 double precision (4.55e-13 MeV max error). Practical FP64:FP32 ratio is ~2x via wgpu/Vulkan, not CUDA's 1:64.
 
@@ -307,7 +307,7 @@ Phases A-E established that the platform produces correct physics. Detailed tabl
 
 ### 4.1 Scope and Hardware
 
-Three published workloads from the Murillo Group (Michigan State University), each validated in two phases: **Phase A** (Python control — reproduce, find bugs) and **Phase B** (BarraCUDA — reimplement in Pure Rust + WGSL):
+Three published workloads from the Murillo Group (Michigan State University), each validated in two phases: **Phase A** (Python control — reproduce, find bugs) and **Phase B** (BarraCuda — reimplement in Pure Rust + WGSL):
 
 | Workload | Source | Domain |
 |----------|--------|--------|
@@ -341,15 +341,15 @@ The upstream bugs were critical to discover:
 
 4 of 5 bugs are silent — the code runs, produces output, gives no error. Only explicit data validation catches them. This class of failure is prevented by Rust's type system.
 
-### 4.3 Phase B: BarraCUDA Recreation
+### 4.3 Phase B: BarraCuda Recreation
 
 Zero external dependencies. All math is native Rust. Three-substrate energy comparison (L1 SEMF, 100k iterations, 52 nuclei):
 
 | Substrate | chi2/datum | us/eval | Energy (J) | vs Python |
 |-----------|:---------:|:-------:|:----------:|:---------:|
 | Python (CPython 3.10) | 4.99 | 1,143 | 5,648 | baseline |
-| BarraCUDA CPU (Rust) | 4.9851 | 72.7 | 374 | 15.1x less energy |
-| BarraCUDA GPU (RTX 4070) | 4.9851 | 39.7 | 126 | **44.8x less energy** |
+| BarraCuda CPU (Rust) | 4.9851 | 72.7 | 374 | 15.1x less energy |
+| BarraCuda GPU (RTX 4070) | 4.9851 | 39.7 | 126 | **44.8x less energy** |
 
 GPU FP64 precision: Max |B_cpu - B_gpu| = **4.55e-13 MeV** (sub-ULP, bit-exact). The practical FP64:FP32 ratio on RTX 4070 via wgpu/Vulkan is **~2x** — not the 1:64 CUDA reports — because wgpu bypasses driver-level FP64 throttling.
 
@@ -461,7 +461,7 @@ For any scientific domain with public reference data:
 
 1. PICK    a published paper with reproducible results
 2. CONTROL reproduce in Python (validate against paper)
-3. REBUILD reimplement in Rust + BarraCUDA/WGSL (correctness + performance)
+3. REBUILD reimplement in Rust + BarraCuda/WGSL (correctness + performance)
 4. VALIDATE match paper results within tolerance (paper parity)
 5. EXTEND  run on full public datasets (GPU makes this cheap)
 6. EXPLORE novel parameter space, new physics (beyond the paper)
@@ -472,15 +472,15 @@ For any scientific domain with public reference data:
 **Nuclear Equation of State**:
 - Paper: Diaw et al., Nature Machine Intelligence 2024 (30k evals, 52 nuclei, HFBTHO Fortran)
 - Control: Python mystic + sklearn (chi2=1.93 L2)
-- Rebuild: BarraCUDA Rust/WGSL — L1 GPU, L2 GPU-batched (BatchedEighGpu), L3 CPU (GPU target)
-- Validate: 195/195 checks pass (Phases A-F + BarraCUDA pipeline)
+- Rebuild: BarraCuda Rust/WGSL — L1 GPU, L2 GPU-batched (BatchedEighGpu), L3 CPU (GPU target)
+- Validate: 195/195 checks pass (Phases A-F + BarraCuda pipeline)
 - Extend: Full AME2020 (2,042 nuclei). L1 Pareto: chi2_BE 0.69-7.37. L2 GPU: 791 nuclei in 66 min. L3: 295/2036 improved.
 - Explore: Pareto frontier on full chart. L3 numerical stabilization. GPU-first architecture migration.
 
 **Molecular Dynamics**:
 - Paper: Choi, Dharuman, Murillo — Dense Plasma Properties Database
 - Control: Sarkas Python MD
-- Rebuild: BarraCUDA WGSL f64 (all-pairs + cell-list Yukawa)
+- Rebuild: BarraCuda WGSL f64 (all-pairs + cell-list Yukawa)
 - Validate: 9/9 cases, 0.000% drift, 80k steps, N=10,000
 - Extend: N=20,000 (2x paper, Sarkas OOM at N=10k). 3.66 hrs, $0.044.
 
@@ -490,7 +490,7 @@ For any scientific domain with public reference data:
 |-------|---------|---------|-----------|---------|----------|
 | Paper (reference) | 52 nuclei | HFBTHO Fortran | ~10^-5 | Hours (HPC) | ORNL cluster |
 | Python control | 52 nuclei | L1 SEMF | 2.27 | 180s | i9-12900K |
-| BarraCUDA L1 (GPU) | 52 nuclei | L1 SEMF | 2.27 | 1.9 ms/eval | RTX 4070 |
+| BarraCuda L1 (GPU) | 52 nuclei | L1 SEMF | 2.27 | 1.9 ms/eval | RTX 4070 |
 | **Phase F: L1 Pareto** | **2,042 nuclei** | **L1 SEMF** | **0.69-7.37** | **~100s/lambda** | **i9-12900K** |
 | **Phase F: L2 GPU v1** | **2,042 nuclei** | **GPU-batched HFB** | **224.52** | **66 min** | **RTX 4070** |
 | **Phase F: L2 GPU v2** | **2,042 nuclei** | **GPU mega-batch** | **224.52** | **40.9 min** | **RTX 4070** |
@@ -519,7 +519,7 @@ cargo run --release --bin nuclear_eos_l3_ref -- --nuclei=full --params=best_l2_4
 # Phase E: Paper-parity Yukawa MD
 cargo run --release --bin sarkas_gpu -- --paper   # 9 cases, N=10k, 80k steps (~3.66 hrs)
 
-# Phase B: BarraCUDA nuclear EOS (52 nuclei)
+# Phase B: BarraCuda nuclear EOS (52 nuclei)
 cargo run --release --bin nuclear_eos_l1_ref      # L1 (~3 seconds)
 cargo run --release --bin nuclear_eos_l2_ref -- --seed=42 --lambda=0.1  # L2 (~55 min)
 

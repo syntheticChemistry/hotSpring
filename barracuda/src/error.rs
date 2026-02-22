@@ -48,7 +48,7 @@ impl fmt::Display for HotSpringError {
             Self::DataLoad(msg) => write!(f, "Data loading failed: {msg}"),
             Self::GpuCompute(msg) => write!(f, "GPU compute failed: {msg}"),
             Self::InvalidOperation(msg) => write!(f, "Invalid operation: {msg}"),
-            Self::Barracuda(e) => write!(f, "BarraCUDA error: {e}"),
+            Self::Barracuda(e) => write!(f, "BarraCuda error: {e}"),
         }
     }
 }
@@ -111,7 +111,7 @@ mod tests {
         let barracuda_err = barracuda::error::BarracudaError::device("wgpu timeout");
         let err = HotSpringError::Barracuda(barracuda_err);
         let s = err.to_string();
-        assert!(s.contains("BarraCUDA error"));
+        assert!(s.contains("BarraCuda error"));
         assert!(s.contains("Device error"));
         assert!(s.contains("wgpu timeout"));
     }
@@ -121,7 +121,7 @@ mod tests {
         let barracuda_err = barracuda::error::BarracudaError::gpu("buffer overflow");
         let hotspring_err: HotSpringError = barracuda_err.into();
         let s = hotspring_err.to_string();
-        assert!(s.contains("BarraCUDA error"));
+        assert!(s.contains("BarraCuda error"));
         assert!(s.contains("GPU error"));
         assert!(s.contains("buffer overflow"));
     }
@@ -160,7 +160,7 @@ mod tests {
         let result = inner();
         assert!(result.is_err());
         let s = result.unwrap_err().to_string();
-        assert!(s.contains("BarraCUDA error"));
+        assert!(s.contains("BarraCuda error"));
         assert!(s.contains("test device err"));
     }
 }

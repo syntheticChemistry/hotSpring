@@ -13,7 +13,7 @@ use hotspring_barracuda::validation::ValidationHarness;
 
 fn main() {
     println!("═══════════════════════════════════════════════════════════");
-    println!("  BarraCUDA Optimizer & Numerical Methods Validation");
+    println!("  BarraCuda Optimizer & Numerical Methods Validation");
     println!("  Reference: scipy.optimize / scipy.integrate");
     println!("═══════════════════════════════════════════════════════════\n");
 

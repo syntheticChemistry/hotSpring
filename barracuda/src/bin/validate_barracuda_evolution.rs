@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-//! BarraCUDA Evolution Validation — CPU Foundation + Substrate Coverage
+//! BarraCuda Evolution Validation — CPU Foundation + Substrate Coverage
 //!
 //! Runs representative checks from each physics domain on CPU, establishing
 //! the correctness foundation that GPU validation binaries build upon.
 //!
 //! **Evolution chain**:
-//!   Python Control → BarraCUDA CPU (this binary) → WGSL GPU → metalForge
+//!   Python Control → BarraCuda CPU (this binary) → WGSL GPU → metalForge
 //!
 //! GPU parity is proven by the individual `validate_gpu_*` binaries.
 //! This binary proves the CPU math is correct across all domains first.
@@ -33,7 +33,7 @@ use hotspring_barracuda::validation::ValidationHarness;
 
 fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");
-    println!("║  BarraCUDA Evolution — CPU Foundation Validation            ║");
+    println!("║  BarraCuda Evolution — CPU Foundation Validation            ║");
     println!("║  Correctness base for GPU + metalForge parity proofs       ║");
     println!("╚══════════════════════════════════════════════════════════════╝");
     println!();
@@ -361,8 +361,8 @@ fn print_evolution_summary() {
     println!();
     println!("  Substrate coverage:");
     println!("    Python Control:    18/22 papers (1-6, 8-10, 13-22)");
-    println!("    BarraCUDA CPU:     20/22 papers (this binary covers key domains)");
-    println!("    BarraCUDA GPU:     15/22 papers (validate_gpu_*, validate_pure_gpu_qcd)");
+    println!("    BarraCuda CPU:     20/22 papers (this binary covers key domains)");
+    println!("    BarraCuda GPU:     15/22 papers (validate_gpu_*, validate_pure_gpu_qcd)");
     println!("    metalForge:         3/22 papers (transport, phase, classification)");
     println!();
     println!("  GPU parity (from dedicated binaries):");

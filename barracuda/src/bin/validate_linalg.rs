@@ -11,7 +11,7 @@ use hotspring_barracuda::validation::ValidationHarness;
 
 fn main() {
     println!("═══════════════════════════════════════════════════════════");
-    println!("  BarraCUDA Linear Algebra Validation");
+    println!("  BarraCuda Linear Algebra Validation");
     println!("  Reference: numpy.linalg / scipy.linalg");
     println!("═══════════════════════════════════════════════════════════\n");
 

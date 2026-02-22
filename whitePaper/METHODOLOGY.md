@@ -18,13 +18,13 @@ Reproduce published computational physics results using the original Python impl
 
 Phase A uses the original authors' code wherever possible. When code is inaccessible (Code Ocean gating), we reconstruct from the paper's description plus available data.
 
-### Phase B: BarraCUDA Execution
+### Phase B: BarraCuda Execution
 
-Re-implement the same computations using only BarraCUDA native functions (Pure Rust + WGSL). Compare:
+Re-implement the same computations using only BarraCuda native functions (Pure Rust + WGSL). Compare:
 - **Accuracy**: chi2/datum on identical experimental datasets
 - **Throughput**: evaluations per second
 - **Evaluation efficiency**: function evaluations needed to reach solution quality
-- **Dependencies**: external library count (BarraCUDA target: zero)
+- **Dependencies**: external library count (BarraCuda target: zero)
 - **Reproducibility**: deterministic results from seed
 - **Physical constraints**: Nuclear Matter Properties within published ranges
 
@@ -79,16 +79,16 @@ over 52 nuclei from the AME2020 mass evaluation (IAEA Nuclear Data Services).
 
 | Level | Physics | Fidelity | Cost per eval | Phase A | Phase B |
 |-------|---------|----------|--------------|---------|---------|
-| L1 | SEMF (analytic) | Low | ~microseconds | Python | BarraCUDA |
-| L2 | Spherical HFB (SCF) | Medium | ~seconds | Python | BarraCUDA |
-| L3 | Deformed HFB (SCF, 2D) | High | ~minutes | — | BarraCUDA (in progress) |
+| L1 | SEMF (analytic) | Low | ~microseconds | Python | BarraCuda |
+| L2 | Spherical HFB (SCF) | Medium | ~seconds | Python | BarraCuda |
+| L3 | Deformed HFB (SCF, 2D) | High | ~minutes | — | BarraCuda (in progress) |
 
 #### Optimization Methods
 
 | Method | Algorithm | Library |
 |--------|-----------|---------|
-| DirectSampler | Round-based multi-start Nelder-Mead | BarraCUDA |
-| SparsitySampler | RBF surrogate-guided + exploration | BarraCUDA / mystic |
+| DirectSampler | Round-based multi-start Nelder-Mead | BarraCuda |
+| SparsitySampler | RBF surrogate-guided + exploration | BarraCuda / mystic |
 | Python/mystic | SparsitySampler + NelderMeadSimplexSolver | SciPy ecosystem |
 
 #### NMP Constraint Targets
@@ -108,14 +108,14 @@ From published literature (Chabanat 1998, Bender 2003):
 ## 3. Comparison Protocol
 
 1. Run Python reference with default settings, record chi2/datum and NMP
-2. Run BarraCUDA with same experimental data, same parameter bounds, varied seeds
+2. Run BarraCuda with same experimental data, same parameter bounds, varied seeds
 3. Compare on identical metrics: accuracy, NMP correctness, evaluation count, wall time
 4. **Measure energy**: CPU via Intel RAPL, GPU via nvidia-smi polling (100ms interval), integrated to Joules
 5. Report per-region accuracy breakdown (light A<56, medium 56-100, heavy 100-200, very heavy 200+)
 6. Report bootstrap confidence intervals on chi2/datum
 7. All results saved to JSON (structured benchmark reports with hardware inventory) for exact reproduction
 8. Seed-deterministic: same seed produces identical results
-9. **Three-substrate comparison**: Python, BarraCUDA CPU, BarraCUDA GPU — same physics, different hardware cost
+9. **Three-substrate comparison**: Python, BarraCuda CPU, BarraCuda GPU — same physics, different hardware cost
 10. **GPU MD validation** (Phase C): energy conservation, RDF physical trends, VACF diffusion, SSF compressibility — validated against known plasma physics expectations
 
 ---
@@ -252,9 +252,9 @@ synchronous dispatches is a false positive for GPU efficiency.
 | rayon | 1.8+ | CPU parallel HFB |
 | OS | Pop!_OS 22.04 (Linux 6.17) | |
 
-### BarraCUDA Pipeline Validation (Feb 16, 2026)
+### BarraCuda Pipeline Validation (Feb 16, 2026)
 
-End-to-end validation of BarraCUDA's abstracted GPU ops through hotSpring's
+End-to-end validation of BarraCuda's abstracted GPU ops through hotSpring's
 `ValidationHarness`. Proves the ToadStool op layer produces correct physics
 by cross-validating GPU results against CPU f64 references.
 
@@ -308,5 +308,5 @@ Result: Thermodynamic consistency validated (`validate_hotqcd_eos`).
 | E (Paper-parity + rewire) | 13 | 9 long-run cases + 1 profiling + 3 GPU ops |
 | F (Full-scale nuclear EOS) | 9 | 3 L1 Pareto + 3 L2 GPU + 3 L3 deformed |
 | G (Transport + Lattice QCD) | 25 | 13 transport + 12 pure gauge |
-| Pipeline (BarraCUDA ops) | 26 | 12 MD pipeline + 14 HFB pipeline |
+| Pipeline (BarraCuda ops) | 26 | 12 MD pipeline + 14 HFB pipeline |
 | **Total** | **220+** | **All pass** |

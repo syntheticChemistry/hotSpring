@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-//! Nuclear EOS Level 1 — Revalidation with `BarraCUDA` Native APIs
+//! Nuclear EOS Level 1 — Revalidation with `BarraCuda` Native APIs
 //!
-//! Now uses `BarraCUDA`'s own implementations (evolved from our reference specs):
+//! Now uses `BarraCuda`'s own implementations (evolved from our reference specs):
 //!   1. `barracuda::sample::direct::direct_sampler` — round-based NM
 //!   2. `barracuda::sample::sparsity` — with `auto_smoothing` + `penalty_filter`
 //!   3. `barracuda::surrogate::loo_cv_optimal_smoothing` — LOO-CV grid search
@@ -121,7 +121,7 @@ fn print_comparison_summary(
     );
     println!(
         "  {:40} {:>10.4} {:>8} {:>8}",
-        "Previous BarraCUDA best (manual smooth)", 1.19, 164, "0.25s"
+        "Previous BarraCuda best (manual smooth)", 1.19, 164, "0.25s"
     );
     println!();
 
@@ -129,7 +129,7 @@ fn print_comparison_summary(
         let fewer = provenance::L1_PYTHON_CANDIDATES.value
             / (approach1_evals.min(approach2_evals).max(1) as f64);
         println!(
-            "  ✅ BarraCUDA BEATS Python by {:.1}%",
+            "  ✅ BarraCuda BEATS Python by {:.1}%",
             100.0 * (provenance::L1_PYTHON_CHI2.value - better) / provenance::L1_PYTHON_CHI2.value
         );
         if fewer > 1.0 {
@@ -137,7 +137,7 @@ fn print_comparison_summary(
         }
     } else {
         println!(
-            "  ⚠ BarraCUDA behind Python by {:.1}% — needs more tuning",
+            "  ⚠ BarraCuda behind Python by {:.1}% — needs more tuning",
             100.0 * (better - provenance::L1_PYTHON_CHI2.value) / provenance::L1_PYTHON_CHI2.value
         );
     }
@@ -549,7 +549,7 @@ fn main() {
     let lambda = cli.lambda;
 
     println!("╔══════════════════════════════════════════════════════════════╗");
-    println!("║  Nuclear EOS L1 — BarraCUDA Native Revalidation            ║");
+    println!("║  Nuclear EOS L1 — BarraCuda Native Revalidation            ║");
     println!("║  NMP-Constrained Objective (UNEDF-style)                   ║");
     println!("╚══════════════════════════════════════════════════════════════╝");
     println!();

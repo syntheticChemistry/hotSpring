@@ -2,7 +2,7 @@
 
 **Date:** February 22, 2026
 **From:** hotSpring (computational physics biome)
-**To:** ToadStool / BarraCUDA core team
+**To:** ToadStool / BarraCuda core team
 **License:** AGPL-3.0-only
 **Context:** Transport coefficient validation promoted from CPU to pure GPU
 unidirectional streaming pipeline, eliminating all position/velocity readback.

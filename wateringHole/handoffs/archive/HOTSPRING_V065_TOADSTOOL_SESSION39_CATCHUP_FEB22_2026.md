@@ -2,7 +2,7 @@
 
 **Date:** February 22, 2026
 **From:** hotSpring (computational physics biome)
-**To:** ToadStool / BarraCUDA core team
+**To:** ToadStool / BarraCuda core team
 **License:** AGPL-3.0-only
 **Context:** ToadStool Sessions 31d–39 absorbed most of hotSpring v0.6.4 handoff items.
 This document acknowledges absorptions, updates the remaining gap list, and documents

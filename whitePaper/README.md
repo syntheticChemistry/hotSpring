@@ -1,7 +1,7 @@
 # hotSpring White Paper
 
 **Status**: Working draft — reviewed for PII, suitable for public repository  
-**Purpose**: Document the replication of Murillo Group computational plasma physics on consumer hardware using BarraCUDA  
+**Purpose**: Document the replication of Murillo Group computational plasma physics on consumer hardware using BarraCuda  
 **Date**: February 22, 2026
 
 ---
@@ -11,7 +11,7 @@
 | Document | Description | Audience |
 |----------|-------------|----------|
 | [STUDY.md](STUDY.md) | **Main study** — full writeup of the two-phase validation, data sources, results, and path to paper parity | Reviewers, collaborators |
-| [BARRACUDA_SCIENCE_VALIDATION.md](BARRACUDA_SCIENCE_VALIDATION.md) | Phase B technical results — BarraCUDA vs Python/SciPy numbers | Technical reference |
+| [BARRACUDA_SCIENCE_VALIDATION.md](BARRACUDA_SCIENCE_VALIDATION.md) | Phase B technical results — BarraCuda vs Python/SciPy numbers | Technical reference |
 | [CONTROL_EXPERIMENT_SUMMARY.md](CONTROL_EXPERIMENT_SUMMARY.md) | Phase A summary — Python reproduction of published work | Quick reference |
 | [METHODOLOGY.md](METHODOLOGY.md) | Two-phase validation protocol | Methodology review |
 
@@ -21,7 +21,7 @@
 
 hotSpring is a computational physics biome within ecoPrimals. It replicates
 published work from the Murillo Group (Michigan State University) on consumer
-hardware, then re-executes the computations using BarraCUDA — a pure Rust
+hardware, then re-executes the computations using BarraCuda — a pure Rust
 scientific computing library. ToadStool/barracuda is the shared fungus: hotSpring
 leans on it for GPU device management and shader dispatch, evolves new shaders and
 physics systems locally, and hands them off for upstream absorption. Other springs
@@ -30,7 +30,7 @@ import hotSpring, but can review its code in `ecoPrimals/` and learn from it.
 
 The study answers five questions:
 1. **Can published computational science be independently reproduced?** (Answer: yes, but it required fixing 6 silent bugs and rebuilding physics that was behind a gated platform)
-2. **Can Rust + WebGPU replace the Python scientific stack for real physics?** (Answer: yes — BarraCUDA achieves 478× faster throughput and 44.8× less energy at L1, with GPU FP64 validated to 4.55e-13 MeV precision. Full Sarkas Yukawa MD runs on a $600 consumer GPU: 9/9 PP cases pass at N=10,000 with 80,000 production steps in 3.66 hours for $0.044.)
+2. **Can Rust + WebGPU replace the Python scientific stack for real physics?** (Answer: yes — BarraCuda achieves 478× faster throughput and 44.8× less energy at L1, with GPU FP64 validated to 4.55e-13 MeV precision. Full Sarkas Yukawa MD runs on a $600 consumer GPU: 9/9 PP cases pass at N=10,000 with 80,000 production steps in 3.66 hours for $0.044.)
 3. **Can consumer GPUs do first-principles nuclear structure at scale?** (Answer: yes — the full AME2020 dataset (2,042 nuclei, 39x the published paper) runs on a single RTX 4070. L1 Pareto analysis, L2 GPU-batched HFB, and L3 deformed HFB all produce results. This is direct physics computation, not surrogate learning.)
 4. **Does the Python → Rust → GPU evolution path extend beyond plasma physics?** (Answer: yes — lattice QCD (SU(3) pure gauge, HMC, staggered Dirac, dynamical fermion pseudofermion HMC), Abelian Higgs (U(1) gauge + Higgs field, 143× faster than Python), transport coefficients (Green-Kubo, Stanton-Murillo), screened Coulomb (Sturm eigensolve, 2274× faster than Python), and HotQCD EOS tables are all validated on CPU with WGSL templates ready for GPU promotion. 22 papers reproduced, 400+ validation checks, ~$0.20 total compute cost.)
 5. **Can physics math be truly substrate-portable — CPU → GPU → NPU?** (Answer: yes — ESN reservoir math validated across f64 CPU, f32 NpuSimulator, int4 quantized, and real AKD1000 NPU hardware. 10 SDK assumptions overturned by probing beyond the SDK. The same WGSL shader math trains on GPU and deploys on NPU for inference at 30mW. See `metalForge/npu/akida/BEYOND_SDK.md`.)
@@ -47,9 +47,9 @@ The study answers five questions:
 - Nuclear EOS: Python L1 (chi2=6.62), L2 (chi2=1.93 via SparsitySampler)
 - 5 silent upstream bugs found and fixed
 
-### Phase B (BarraCUDA): GPU-validated, energy-profiled
+### Phase B (BarraCuda): GPU-validated, energy-profiled
 
-| Level | BarraCUDA | Python/SciPy | Speedup | Energy Ratio |
+| Level | BarraCuda | Python/SciPy | Speedup | Energy Ratio |
 |-------|-----------|-------------|---------|:------------:|
 | L1 (SEMF baseline) | 4.99 chi2/datum | 4.99 | 28.8× (GPU) | **44.8× less** |
 | L1 (DirectSampler) | **2.27** chi2/datum | 6.62 | **478×** | — |
@@ -324,9 +324,9 @@ capability: f64 compute → GPU, quantized inference → NPU, validation → CPU
 
 ## Relation to Other Documents
 
-- **`whitePaper/barraCUDA/`** (main repo, gated): The BarraCUDA evolution story — how scientific workloads drove the library's development. Sections 04 and 04a reference hotSpring data.
+- **`whitePaper/barraCUDA/`** (main repo, gated): The BarraCuda evolution story — how scientific workloads drove the library's development. Sections 04 and 04a reference hotSpring data.
 - **`whitePaper/gen3/`** (main repo, gated): The constrained evolution thesis — hotSpring provides quantitative evidence for convergent evolution between ML and physics math.
-- **`wateringHole/handoffs/`** (internal): Detailed technical handoffs to the ToadStool/BarraCUDA team with code locations, bug fixes, and GPU roadmap.
+- **`wateringHole/handoffs/`** (internal): Detailed technical handoffs to the ToadStool/BarraCuda team with code locations, bug fixes, and GPU roadmap.
 - **This directory** (`hotSpring/whitePaper/`): Public-facing study focused on the science replication itself.
 
 ---
@@ -337,7 +337,7 @@ capability: f64 compute → GPU, quantized inference → NPU, validation → CPU
 # Phase A (Python, ~12 hours total)
 bash scripts/regenerate-all.sh
 
-# Phase B (BarraCUDA, ~2 hours total)
+# Phase B (BarraCuda, ~2 hours total)
 cd barracuda
 cargo run --release --bin nuclear_eos_l1_ref          # L1: ~3 seconds
 cargo run --release --bin nuclear_eos_l2_ref -- --seed=42 --lambda=0.1   # L2: ~55 min
@@ -396,7 +396,7 @@ No institutional access required. No Code Ocean account. No Fortran compiler. AG
 Native FP64 GPU compute confirmed on RTX 4070 and Titan V via `wgpu::Features::SHADER_F64` (Vulkan backend):
 - **Precision**: True IEEE 754 double precision (0 ULP error vs CPU f64)
 - **Performance**: ~2x FP64:FP32 ratio for bandwidth-limited operations (not the CUDA-reported 1:64)
-- **Implication**: The RTX 4070 is usable for FP64 science compute today via BarraCUDA's wgpu shaders
+- **Implication**: The RTX 4070 is usable for FP64 science compute today via BarraCuda's wgpu shaders
 - **Multi-GPU**: RTX 4070 (nvidia proprietary) and Titan V (NVK/nouveau open-source) both produce identical physics to 1e-15
 - **Phase C validation**: Full Yukawa MD (9 cases, N=2000, 80k steps) runs at 149-259 steps/s sustained with 0.000% energy drift
 - **Phase E validation**: Full paper-parity (9 cases, N=10,000, 80k steps) completes in 3.66 hours with 0.000-0.002% drift. Cell-list 4.1× faster than all-pairs.

@@ -2,7 +2,7 @@
 
 **Date:** February 22, 2026
 **From:** hotSpring (computational physics biome)
-**To:** ToadStool / BarraCUDA core team
+**To:** ToadStool / BarraCuda core team
 **License:** AGPL-3.0-only
 **Context:** 34/34 validation suites pass. Dynamical fermion QCD (Paper 10) complete.
 
@@ -193,8 +193,8 @@ production acceptance rates (>70%) without multi-timescale integration.
 | 5 | Nuclear EOS (Pure Rust) | 2.2s | 9/9 |
 | 6 | HFB Verification (SLy4) | 2.6s | — |
 | 7 | WGSL f64 Builtins | 0.6s | — |
-| 8 | BarraCUDA HFB Pipeline | 0.6s | 14/14 |
-| 9 | BarraCUDA MD Pipeline | 8.7s | 12/12 |
+| 8 | BarraCuda HFB Pipeline | 0.6s | 14/14 |
+| 9 | BarraCuda MD Pipeline | 8.7s | 12/12 |
 | 10 | PPPM Coulomb/Ewald | 0.5s | — |
 | 11 | CPU/GPU Parity | 3.1s | — |
 | 12 | NAK Eigensolve | 1.2s | — |
@@ -223,9 +223,9 @@ production acceptance rates (>70%) without multi-timescale integration.
 
 **Total: 34 passed, 0 failed, 0 skipped (2157.4s)**
 
-### BarraCUDA HFB Pipeline Note
+### BarraCuda HFB Pipeline Note
 
-Suite 8 (BarraCUDA HFB Pipeline) passes via `std::panic::catch_unwind` around
+Suite 8 (BarraCuda HFB Pipeline) passes via `std::panic::catch_unwind` around
 the single-dispatch `BatchedEighGpu::execute_single_dispatch()`. The upstream
 toadstool `loop_unroller.rs` emits bare integer literals (e.g., "0") instead
 of `u32` literals (e.g., "0u") in WGSL after `@unroll_hint` expansion. `wgpu`
