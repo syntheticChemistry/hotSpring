@@ -1,6 +1,6 @@
 # hotSpring — BarraCUDA Requirements
 
-**Last Updated**: February 21, 2026
+**Last Updated**: February 22, 2026
 **Purpose**: GPU kernel requirements, gap analysis, and evolution priorities
 
 ---
@@ -64,12 +64,14 @@ templates ready for GPU promotion.
 
 ### Kachkovskiy Extension (Spectral Theory / Transport)
 
-**Status Update (Feb 20, 2026)**: Full spectral theory stack implemented and
-validated in `spectral/` (10/10 + 11/11 = 21 checks across two suites). 1D Anderson
-localization, almost-Mathieu Aubry-André transition, Herman's formula γ = ln|λ|,
-Sturm eigensolve, transfer matrix Lyapunov, Poisson level statistics, CSR SpMV,
-Lanczos eigensolve (reorthogonalized), and 2D Anderson model with GOE→Poisson
-transition — all working, all without FFT. P1 CPU primitives complete; GPU promotion next.
+**Status Update (Feb 22, 2026)**: Full spectral theory stack **absorbed upstream**
+into `barracuda::spectral` (ToadStool Rewire v4). hotSpring now re-exports from
+the upstream crate — local implementations deleted (~41 KB), backward-compatible
+`CsrMatrix` type alias provided. 1D/2D/3D Anderson localization, almost-Mathieu
+Aubry-André transition, Herman's formula γ = ln|λ|, Sturm eigensolve, transfer
+matrix Lyapunov, Poisson level statistics, CSR SpMV, Lanczos eigensolve, and
+Hofstadter butterfly all live in the shared barracuda crate. `BatchIprGpu` (from
+neuralSpring) now available for GPU localization diagnostics.
 
 | Need | Current Status | Priority | Effort |
 |------|---------------|----------|--------|
@@ -134,15 +136,16 @@ All components implemented and validated (13/13 checks pass):
 ## ToadStool Handoff Notes
 
 **Active handoffs:**
-- `wateringHole/handoffs/HOTSPRING_V061_FORGE_HANDOFF_FEB21_2026.md` — forge bridge, absorption manifest, structural evolution
-- `wateringHole/handoffs/HOTSPRING_METALFORGE_NPU_HANDOFF_FEB20_2026.md` — NPU discovery + heterogeneous pipeline
-- `wateringHole/handoffs/HOTSPRING_TOADSTOOL_REWIRE_V3_FEB20_2026.md` — post Session 25 absorption audit
+- `wateringHole/handoffs/HOTSPRING_V064_TOADSTOOL_HANDOFF_FEB22_2026.md` — **comprehensive** v0.6.4 evolution handoff (absorption targets, upstream adoption candidates, cross-spring insights)
+- `wateringHole/handoffs/HOTSPRING_TOADSTOOL_REWIRE_V4_FEB22_2026.md` — spectral lean details
+- `wateringHole/handoffs/CROSS_SPRING_EVOLUTION_FEB22_2026.md` — full cross-spring shader evolution map
+- `wateringHole/handoffs/HOTSPRING_V063_EVOLUTION_HANDOFF_FEB22_2026.md` — v0.6.3 WGSL extraction, coverage push
 
-(18 prior handoffs archived to `wateringHole/handoffs/archive/`)
+(22 prior handoffs archived to `wateringHole/handoffs/archive/`)
 
 ### Key Facts for ToadStool Team
 
-- 22 papers reproduced, 648 unit + 24 integration tests, 33/33 validation suites, ~$0.20 total compute cost
+- 22 papers reproduced, 637 unit + 24 integration tests, 33/33 validation suites, ~$0.20 total compute cost (spectral tests now upstream)
 - RTX 4070 sustains f64 MD at 149-259 steps/s; Titan V (NVK) produces identical physics
 - Energy drift 0.000% over 80k steps sets the precision bar for any new integrator
 - `ReduceScalarPipeline` is the most-used upstream primitive after `WgpuDevice`
@@ -157,6 +160,7 @@ All components implemented and validated (13/13 checks pass):
 | v0.5.15 | `WgslOptimizer`, `GpuDriverProfile`, `StatefulPipeline` | Rewired all shader compilation via `for_driver_profile()` |
 | v0.5.16 | NAK eigensolve shader, `StatefulPipeline` impl, `CellListGpu` attempt, `scalar_buffer()`/`max_f64`/`min_f64` on ReduceScalar | Paper 13 (Abelian Higgs), doc audit |
 | S18-25 | `CellListGpu` BGL **fix**, Complex64+SU(3) WGSL, Wilson plaquette+HMC+Higgs GPU, **GPU FFT f64** | **Rewire v3**: deprecate local GpuCellList, unblock Tier 3 lattice QCD |
+| S25-31h | Full `spectral` module absorption, `BatchIprGpu`, `GenEighGpu`, `GemmCachedF64`, `NelderMeadGpu`, WGSL precision fixes | **Rewire v4**: spectral lean — deleted ~41 KB local code, re-export from upstream |
 
 ### ToadStool v0.5.16 Absorption Review (Feb 20, 2026)
 
@@ -173,7 +177,7 @@ ToadStool commit `8fb5d5a0` rebuilt the scan BGL to 4 bindings matching
 and added `n_groups` to scan params. hotSpring's local `GpuCellList` is now
 **deprecated** — migration to upstream `CellListGpu` planned for next cycle.
 
-### Open Items for ToadStool (Updated Feb 20, 2026 — Post Session 25)
+### Open Items for ToadStool (Updated Feb 22, 2026 — Post Rewire v4)
 
 1. ~~**Fix `CellListGpu` prefix-sum BGL**~~ — ✅ **DONE** (commit `8fb5d5a0`)
 2. **Absorb NPU reservoir transport** — ESN shaders, weight export, Akida wiring (see NPU handoff)
@@ -183,8 +187,12 @@ and added `n_groups` to scan params. hotSpring's local `GpuCellList` is now
 6. ~~**Lattice plaquette + HMC WGSL shaders**~~ — ✅ **DONE** (commit `8fb5d5a0`, 3 GPU shaders)
 7. **ESN `export_weights()` method on `esn_v2::ESN`** — needed for GPU-train → NPU-deploy path
 8. ~~**GPU Dirac SpMV shader**~~ — ✅ **Done**: `WGSL_DIRAC_STAGGERED_F64` (8/8 checks, 4.44e-16)
-9. ~~**GPU SpMV for spectral theory**~~ — ✅ **Done**: `WGSL_SPMV_CSR_F64` (8/8 checks, 1.78e-15)
-10. ~~**GPU Lanczos**~~ — ✅ **Done**: GPU SpMV inner loop (6/6 checks, eigenvalues match to 1e-15)
+9. ~~**GPU SpMV for spectral theory**~~ — ✅ **Done** and **absorbed**: `barracuda::spectral::WGSL_SPMV_CSR_F64`
+10. ~~**GPU Lanczos**~~ — ✅ **Done** and **absorbed**: upstream `barracuda::spectral::lanczos`
 11. ~~**GPU CG solver**~~ — ✅ **Done**: 3 WGSL shaders (9/9 checks, iterations match exactly)
 12. ~~**Pure GPU workload**~~ — ✅ **Done**: HMC → GPU CG on thermalized configs (3/3, 4.10e-16)
 13. **Fully GPU-resident Lanczos** — GPU dot + axpy + scale for N > 100k (next P1)
+14. **Absorb Staggered Dirac shader** — `WGSL_DIRAC_STAGGERED_F64` ready for upstream (8/8 checks, Tier 1)
+15. **Absorb CG solver shaders** — `WGSL_COMPLEX_DOT_RE_F64` + `WGSL_AXPY_F64` + `WGSL_XPAY_F64` (9/9 checks, Tier 1)
+16. **Absorb HFB shader suite** — potentials + density + BCS bisection (14+GPU+6 checks, Tier 2)
+17. **Absorb deformed HFB pipeline** — GPU-resident SCF loop, could use upstream `GemmCachedF64`

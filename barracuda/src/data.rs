@@ -230,6 +230,28 @@ pub fn chi2_per_datum<S: std::hash::BuildHasher>(
     chi2 / n as f64
 }
 
+/// Save a JSON result to the benchmark results directory.
+///
+/// Creates the output directory if needed, serializes `value` to pretty JSON,
+/// and writes it to `{results_dir}/{filename}`. Returns the written path.
+///
+/// # Errors
+///
+/// Returns `HotSpringError::DataLoad` if directory creation or file writing fails.
+pub fn save_results_json(
+    filename: &str,
+    value: &serde_json::Value,
+) -> Result<std::path::PathBuf, HotSpringError> {
+    let dir = crate::discovery::benchmark_results_dir()
+        .map_err(|e| HotSpringError::DataLoad(format!("results dir: {e}")))?;
+    let path = dir.join(filename);
+    let json = serde_json::to_string_pretty(value)
+        .map_err(|e| HotSpringError::DataLoad(format!("JSON serialize: {e}")))?;
+    std::fs::write(&path, json)
+        .map_err(|e| HotSpringError::DataLoad(format!("write {}: {e}", path.display())))?;
+    Ok(path)
+}
+
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {

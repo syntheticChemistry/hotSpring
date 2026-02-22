@@ -2,28 +2,13 @@
 
 //! Spectral theory for discrete Schrödinger operators.
 //!
-//! Implements lattice Hamiltonians and spectral analysis tools for the
-//! Kachkovskiy extension (spectral theory / transport):
+//! **Upstream lean**: This module re-exports from `barracuda::spectral`, which
+//! absorbed hotSpring's spectral implementation (v0.6.0, Sessions 25-31h).
 //!
-//! - **`CsrMatrix` + `SpMV`**: sparse matrix-vector product (P1 GPU primitive)
-//! - **Lanczos eigensolve**: Krylov tridiagonalization with full reorthogonalization
-//! - **Anderson model**: random potential in 1D, 2D, and 3D
-//!   - 1D/2D: all states localized (Abrahams et al. 1979)
-//!   - 3D: genuine metal-insulator transition with mobility edge (`W_c` ≈ 16.5)
-//! - **Almost-Mathieu operator**: quasiperiodic potential, Aubry-André transition
-//! - **Transfer matrix**: Lyapunov exponent computation
-//! - **Tridiagonal eigensolve**: Sturm bisection for all eigenvalues
-//! - **Level statistics**: spacing ratio for localization diagnostics
-//!
-//! # Physics
-//!
-//! The 1D discrete Schrödinger equation on ℤ:
-//!   ψ_{n+1} + ψ_{n-1} + `V_n` `ψ_n` = E `ψ_n`
-//!
-//! is equivalent to the eigenvalue problem for the tridiagonal matrix
-//! H with diagonal `V_i` and off-diagonal −1. The spectral properties of H
-//! (eigenvalues, eigenvectors, Lyapunov exponent) determine transport:
-//! extended states → metallic, localized states → insulating.
+//! The full API — Anderson localization, Almost-Mathieu operator, Lanczos
+//! eigensolve, Sturm tridiagonal, level statistics, and CSR SpMV — now lives
+//! in the shared barracuda crate. hotSpring re-exports for backward
+//! compatibility of validation binaries and integration tests.
 //!
 //! # Provenance
 //!
@@ -34,19 +19,17 @@
 //! - Avila (2015) "Global theory of one-frequency Schrödinger operators" (Fields Medal)
 //! - Kappus & Wegner (1981) "Anomaly in the band centre of the 1D Anderson model"
 
-mod anderson;
-mod csr;
-mod hofstadter;
-mod lanczos;
-mod stats;
-mod tridiag;
-
-pub use anderson::{
-    anderson_2d, anderson_3d, anderson_hamiltonian, anderson_potential, clean_2d_lattice,
-    clean_3d_lattice, lyapunov_averaged, lyapunov_exponent,
+pub use barracuda::spectral::{
+    almost_mathieu_hamiltonian, anderson_2d, anderson_3d, anderson_hamiltonian, anderson_potential,
+    clean_2d_lattice, clean_3d_lattice, detect_bands, find_all_eigenvalues, gcd,
+    hofstadter_butterfly, lanczos, lanczos_eigenvalues, level_spacing_ratio, sturm_count,
+    BatchIprGpu, LanczosTridiag, SpectralCsrMatrix, GOE_R, GOLDEN_RATIO, POISSON_R,
+    WGSL_SPMV_CSR_F64,
 };
-pub use csr::{CsrMatrix, WGSL_SPMV_CSR_F64};
-pub use hofstadter::{almost_mathieu_hamiltonian, gcd, hofstadter_butterfly, GOLDEN_RATIO};
-pub use lanczos::{lanczos, lanczos_eigenvalues, LanczosTridiag};
-pub use stats::{detect_bands, level_spacing_ratio, GOE_R, POISSON_R};
-pub use tridiag::{find_all_eigenvalues, sturm_count};
+pub use barracuda::spectral::{lyapunov_averaged, lyapunov_exponent};
+
+/// Backward-compatible type alias for the upstream `SpectralCsrMatrix`.
+///
+/// hotSpring validation binaries use `CsrMatrix`; upstream renamed to
+/// `SpectralCsrMatrix` to avoid collision with `linalg::sparse::CsrMatrix`.
+pub type CsrMatrix = SpectralCsrMatrix;

@@ -277,7 +277,6 @@ hotSpring writes local → validates physics → hands off to toadstool → lean
 
 | Module | Shader | Tests | Absorption priority |
 |--------|--------|-------|---------------------|
-| CSR SpMV | `WGSL_SPMV_CSR_F64` | 8/8 | Tier 1 |
 | Staggered Dirac | `WGSL_DIRAC_STAGGERED_F64` | 8/8 | Tier 1 |
 | CG solver | 3 WGSL shaders | 9/9 | Tier 1 |
 | ESN reservoir | 2 WGSL shaders | 16+ | Tier 1 |
@@ -286,6 +285,30 @@ hotSpring writes local → validates physics → hands off to toadstool → lean
 | HFB density shader | `batched_hfb_density_f64.wgsl` | GPU-validated | Tier 2 |
 | BCS bisection shader | `bcs_bisection_f64.wgsl` | 6.2e-11 | Tier 2 |
 | Tolerance/config module | Rust pattern (no WGSL) | 154 constants | Tier 2 (pattern) |
+
+### Already absorbed by toadstool (v0.6.4 lean phase)
+
+| Module | Upstream Location | Date |
+|--------|-------------------|------|
+| CSR SpMV + `CsrMatrix` | `barracuda::spectral::SpectralCsrMatrix` | Feb 22 |
+| Anderson 1D/2D/3D | `barracuda::spectral::anderson` | Feb 22 |
+| Lanczos eigensolve | `barracuda::spectral::lanczos` | Feb 22 |
+| Hofstadter butterfly | `barracuda::spectral::hofstadter` | Feb 22 |
+| Sturm tridiagonal | `barracuda::spectral::tridiag` | Feb 22 |
+| Level statistics | `barracuda::spectral::stats` | Feb 22 |
+| Complex f64, SU(3), Wilson, HMC, Abelian Higgs | `barracuda::spectral`, `ops::lattice` | Feb 19-20 |
+| CellListGpu (fix + migration) | `barracuda::ops::md::CellListGpu` | Feb 20 |
+
+### Cross-spring shader evolution
+
+ToadStool's barracuda crate benefits from multi-Spring contributions.
+See `wateringHole/handoffs/CROSS_SPRING_EVOLUTION_FEB22_2026.md` for the
+full map. Key cross-pollination:
+
+- **wetSpring → all**: `(zero + literal)` f64 constant precision fix in `math_f64.wgsl` improved `log_f64` from ~1e-3 to ~1e-15
+- **hotSpring → all**: NVK driver workarounds via `ShaderTemplate`, spectral module, eigensolve profiling
+- **neuralSpring → hotSpring**: `BatchIprGpu` for GPU Anderson localization diagnostics
+- **wetSpring → hotSpring**: `GemmCached` (60× speedup for repeated GEMM) benefits HFB SCF loop
 
 ### metalForge Forge: Hardware Discovery
 
@@ -340,12 +363,12 @@ No institutional access required. No Code Ocean account. No Fortran compiler. AG
 
 ---
 
-## Codebase Health (Feb 21, 2026)
+## Codebase Health (Feb 22, 2026)
 
 | Metric | Value |
 |--------|-------|
-| Crate | v0.6.3 |
-| Unit tests | **648** pass, 6 GPU/heavy-ignored |
+| Crate | v0.6.4 |
+| Unit tests | **637** pass, 6 GPU/heavy-ignored (spectral tests now upstream in barracuda) |
 | Integration tests | **24** pass (3 suites: physics, data, transport) |
 | Coverage | 74.9% region / 83.8% function |
 | Validation suites | **33/33** pass |

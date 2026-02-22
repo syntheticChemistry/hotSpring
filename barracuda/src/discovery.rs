@@ -148,10 +148,42 @@ pub fn benchmark_results_dir() -> std::io::Result<PathBuf> {
 mod tests {
     use super::*;
 
+    /// RAII guard for temporarily overriding an environment variable.
+    ///
+    /// Restores the previous value (or removes the variable) on drop.
+    /// Uses `unsafe` env mutation — safe here because cargo test runs
+    /// unit tests in a single process, and these tests are non-concurrent
+    /// (no `#[test]` spawns threads that read `HOTSPRING_DATA_ROOT`).
+    struct EnvGuard {
+        key: &'static str,
+        prev: Option<String>,
+    }
+
+    impl EnvGuard {
+        fn set(key: &'static str, value: &std::ffi::OsStr) -> Self {
+            let prev = std::env::var(key).ok();
+            // SAFETY: No concurrent threads read this env var during these tests.
+            unsafe { std::env::set_var(key, value) };
+            Self { key, prev }
+        }
+    }
+
+    impl Drop for EnvGuard {
+        fn drop(&mut self) {
+            // SAFETY: Restoring the env var we changed — same thread, no concurrent readers.
+            unsafe {
+                if let Some(ref p) = self.prev {
+                    std::env::set_var(self.key, p);
+                } else {
+                    std::env::remove_var(self.key);
+                }
+            }
+        }
+    }
+
     #[test]
     fn discover_finds_root() {
         let root = discover_data_root();
-        // In development, this should find the hotSpring root
         assert!(root.exists(), "discovered root {root:?} should exist");
     }
 
@@ -200,7 +232,6 @@ mod tests {
 
     #[test]
     fn try_discover_data_root_ok_when_valid() {
-        // In development, we should find a valid root
         let result = try_discover_data_root();
         assert!(
             result.is_ok(),
@@ -214,21 +245,12 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)] // set_var/remove_var deprecated (edition 2024: unsafe); tests run sequentially
     fn try_discover_data_root_err_has_data_load_message() {
-        // When try_discover_data_root fails (e.g. in isolated CI), error is DataLoad
         let bad_root = std::env::temp_dir().join("hotspring_no_control_test");
         std::fs::create_dir_all(&bad_root).ok();
-        let prev = std::env::var("HOTSPRING_DATA_ROOT").ok();
-        std::env::set_var("HOTSPRING_DATA_ROOT", bad_root.as_os_str());
+        let _guard = EnvGuard::set("HOTSPRING_DATA_ROOT", bad_root.as_os_str());
 
         let result = try_discover_data_root();
-
-        if let Some(p) = prev {
-            std::env::set_var("HOTSPRING_DATA_ROOT", p);
-        } else {
-            std::env::remove_var("HOTSPRING_DATA_ROOT");
-        }
         std::fs::remove_dir_all(&bad_root).ok();
 
         if let Err(e) = result {
@@ -237,7 +259,6 @@ mod tests {
                 "DataLoad error should mention data loading: {e}"
             );
         }
-        // If Ok: manifest parent or cwd had control/, which is fine
     }
 
     #[test]
@@ -247,7 +268,6 @@ mod tests {
             root.exists(),
             "discover_data_root must return existing path"
         );
-        // When try succeeds, discover matches try
         if let Ok(try_root) = try_discover_data_root() {
             assert_eq!(
                 root, try_root,
@@ -259,7 +279,6 @@ mod tests {
     #[test]
     fn available_capabilities_returns_vec() {
         let caps = available_capabilities();
-        // In development, at least nuclear-eos or control/ should exist
         assert!(
             caps.contains(&"nuclear-eos") || caps.contains(&"surrogate") || caps.is_empty(),
             "capabilities should be sensible: {caps:?}"
@@ -267,21 +286,13 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)] // set_var/remove_var deprecated (edition 2024: unsafe); tests run sequentially
     fn discover_data_root_with_invalid_env_falls_back() {
-        // When HOTSPRING_DATA_ROOT points to dir without control/, we fall back.
         let bad_root = std::env::temp_dir().join("barracuda_no_control");
         std::fs::create_dir_all(&bad_root).ok();
-        let prev = std::env::var("HOTSPRING_DATA_ROOT").ok();
-        std::env::set_var("HOTSPRING_DATA_ROOT", bad_root.as_os_str());
+        let guard = EnvGuard::set("HOTSPRING_DATA_ROOT", bad_root.as_os_str());
         let root = discover_data_root();
-        if let Some(p) = prev {
-            std::env::set_var("HOTSPRING_DATA_ROOT", p);
-        } else {
-            std::env::remove_var("HOTSPRING_DATA_ROOT");
-        }
+        drop(guard);
         std::fs::remove_dir_all(&bad_root).ok();
-        // Should have fallen back to manifest parent or cwd, not the invalid path
         assert!(
             root.join("control").is_dir(),
             "fallback root must have control/: {root:?}"
@@ -324,20 +335,14 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::unwrap_used, deprecated)]
+    #[allow(clippy::unwrap_used)]
     fn try_discover_with_valid_env_root() {
         let tmp = std::env::temp_dir().join("hotspring_valid_env_root");
         std::fs::create_dir_all(tmp.join("control")).unwrap();
-        let prev = std::env::var("HOTSPRING_DATA_ROOT").ok();
-        std::env::set_var("HOTSPRING_DATA_ROOT", tmp.as_os_str());
+        let guard = EnvGuard::set("HOTSPRING_DATA_ROOT", tmp.as_os_str());
 
         let result = try_discover_data_root();
-
-        if let Some(p) = prev {
-            std::env::set_var("HOTSPRING_DATA_ROOT", p);
-        } else {
-            std::env::remove_var("HOTSPRING_DATA_ROOT");
-        }
+        drop(guard);
         std::fs::remove_dir_all(&tmp).ok();
 
         let discovered = result.expect("valid env root should succeed");

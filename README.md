@@ -56,6 +56,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **Abelian Higgs** (Paper 13) | ✅ Complete | 17/17 pass (U(1)+Higgs HMC, phase structure, Rust 143× faster than Python) |
 | **ToadStool Rewire v2** | ✅ Complete | WgslOptimizer + GpuDriverProfile wired into all shader compilation |
 | **ToadStool Rewire v3** | ✅ Complete | CellListGpu fixed, Complex64+SU(3)+plaquette+HMC+Higgs GPU shaders, **FFT f64** — Tier 3 lattice QCD unblocked |
+| **ToadStool Rewire v4** | ✅ Complete | Spectral module fully leaning on upstream (Sessions 25-31h absorbed). 41 KB local code deleted, `CsrMatrix` alias retained. BatchIprGpu now available |
 | **NPU Quantization** (metalForge) | ✅ Complete | 6/6 pass (f32/int8/int4/act4 parity, sparsity, monotonic) |
 | **NPU Beyond-SDK** (metalForge) | ✅ Complete | 29/29 pass (13 HW + 16 Rust math: channels, merge, batch, width, multi-out, mutation, determinism) |
 | **NPU Physics Pipeline** (metalForge) | ✅ Complete | 20/20 pass (10 HW pipeline + 10 Rust math: MD→ESN→NPU→D*,η*,λ*) |
@@ -75,7 +76,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **NPU HW Quantization** | ✅ Complete | 4/4 on AKD1000: f32/int8/int4/act4 cascade, 685μs/inference |
 | **NPU Lattice Phase** | ✅ 7/8 | β_c=5.715 on AKD1000, ESN 100% CPU, int4 NPU 60% (marginal as expected) |
 | **Titan V NVK** | ✅ Complete | NVK built from Mesa 25.1.5. `cpu_gpu_parity` 6/6, `stanton_murillo` 40/40, `bench_gpu_fp64` pass |
-| **TOTAL** | **33/33 Rust validation suites** | 648 unit tests (648 passing + 6 GPU/heavy-ignored), + 34/35 NPU HW checks, 16 determinism tests, 6 upstream bugs found. Both GPUs validated |
+| **TOTAL** | **33/33 Rust validation suites** | 637 unit tests (637 passing + 6 GPU/heavy-ignored; spectral tests now upstream), + 34/35 NPU HW checks, 16 determinism tests, 6 upstream bugs found. Both GPUs validated |
 
 Papers 5, 7, and 8 from the review queue are complete. Paper 5 transport fits
 (Daligault 2012) were recalibrated against 12 Sarkas Green-Kubo D* values (Feb 2026)
@@ -323,39 +324,44 @@ makes the upstream library richer and hotSpring leaner.
 6. Handoff document with exact code locations and validation results
 
 **Next absorption targets** (see `barracuda/ABSORPTION_MANIFEST.md`):
-- Deformed HFB GPU H-build — `physics/hfb_deformed_gpu/` (5 shaders exist, unwired)
-- Sturm tridiagonal eigensolve — `spectral/tridiag.rs` (CPU, 23/23 checks)
-- ESN reservoir + readout — `md/reservoir.rs` (GPU+NPU validated)
+- Staggered Dirac shader — `lattice/dirac.rs` + `WGSL_DIRAC_STAGGERED_F64` (8/8 checks, Tier 1)
+- CG solver shaders — `lattice/cg.rs` + 3 WGSL shaders (9/9 checks, Tier 1)
+- ESN reservoir + readout — `md/reservoir.rs` (GPU+NPU validated, Tier 1)
+- HFB shader suite — potentials + density + BCS bisection (14+GPU+6 checks, Tier 2)
 - NPU substrate discovery — `metalForge/forge/src/probe.rs` (local evolution)
 
-**Absorption-ready inventory** (v0.6.3):
+**Already leaning on upstream** (v0.6.4):
+
+| Module | Upstream | Status |
+|--------|----------|--------|
+| `spectral/` | `barracuda::spectral::*` | **✅ Leaning** — 41 KB local deleted, re-exports + `CsrMatrix` alias |
+| `md/celllist.rs` | `barracuda::ops::md::CellListGpu` | **✅ Leaning** — local `GpuCellList` deleted |
+
+**Absorption-ready inventory** (v0.6.4):
 
 | Module | Type | WGSL Shader | Status |
 |--------|------|------------|--------|
-| `spectral/csr.rs` | SpMV | `WGSL_SPMV_CSR_F64` | (C) Ready — 8/8 GPU checks |
-| `spectral/lanczos.rs` | Eigensolve | CPU + GPU SpMV inner loop | (C) Ready — 6/6 checks |
 | `lattice/dirac.rs` | Dirac SpMV | `WGSL_DIRAC_STAGGERED_F64` | (C) Ready — 8/8 checks |
 | `lattice/cg.rs` | CG solver | `WGSL_COMPLEX_DOT_RE_F64` + 2 more | (C) Ready — 9/9 checks |
 | `md/reservoir.rs` | ESN | `esn_reservoir_update.wgsl` + readout | (C) Ready — NPU validated |
 | `physics/screened_coulomb.rs` | Sturm eigensolve | CPU only | (C) Ready — 23/23 checks |
-| `spectral/anderson.rs` | Anderson 1D/2D/3D | CPU | (C) Ready — 31 checks |
-| `spectral/hofstadter.rs` | Hofstadter butterfly | CPU | (C) Ready — 10 checks |
+| `physics/hfb_deformed_gpu/` | Deformed HFB | 5 WGSL shaders | (C) Ready — GPU-validated |
 
 ---
 
-## BarraCUDA Crate (v0.6.3)
+## BarraCUDA Crate (v0.6.4)
 
 The `barracuda/` directory is a standalone Rust crate providing the validation
 environment, physics implementations, and GPU compute. Key architectural properties:
 
-- **648 unit tests** (648 passing + 6 GPU/heavy-ignored), **33 validation suites** (33/33 pass),
+- **637 unit tests** (637 passing + 6 GPU/heavy-ignored; spectral tests now upstream in barracuda), **33 validation suites** (33/33 pass),
   **24 integration tests** (3 suites: physics, data, transport),
   **16 determinism tests** (rerun-identical for all stochastic algorithms). Includes
   lattice QCD (complex f64, SU(3), Wilson action, HMC, Dirac CG), Abelian Higgs
   (U(1) + Higgs, HMC), transport coefficients (Green-Kubo D*/η*/λ*, Sarkas-calibrated
   fits), HotQCD EOS tables, NPU quantization parity (f64→f32→int8→int4), and NPU
   beyond-SDK hardware capability validation. Test coverage: **74.9% region / 83.8% function**
-  (648 tests; GPU modules require hardware for higher coverage). Measured with `cargo-llvm-cov`.
+  (637 tests; spectral tests now upstream in barracuda; GPU modules require hardware for higher coverage). Measured with `cargo-llvm-cov`.
 - **AGPL-3.0 only** — all 106 active `.rs` files and all 34 `.wgsl` shaders have
   `SPDX-License-Identifier: AGPL-3.0-only` on line 1.
 - **Provenance** — centralized `BaselineProvenance` records trace hardcoded
@@ -413,7 +419,7 @@ environment, physics implementations, and GPU compute. Key architectural propert
 
 ```bash
 cd barracuda
-cargo test               # 648 unit + 24 integration + 19 forge tests, 6 GPU/heavy-ignored (< 60 seconds)
+cargo test               # 637 unit + 24 integration + 19 forge tests, 6 GPU/heavy-ignored (< 60 seconds; spectral tests now upstream)
 cargo clippy --all-targets  # Zero warnings (pedantic + nursery via Cargo.toml workspace lints)
 cargo doc --no-deps      # Full API documentation — 0 warnings
 cargo run --release --bin validate_all  # 33/33 suites pass
@@ -480,7 +486,7 @@ hotSpring/
 ├── PHYSICS.md                          # Complete physics documentation (equations + references)
 ├── CONTROL_EXPERIMENT_STATUS.md        # Comprehensive status + results (195/195)
 ├── NUCLEAR_EOS_STRATEGY.md             # Nuclear EOS Phase A→B strategy
-├── wateringHole/handoffs/              # 3 active + 18 archived cross-project handoffs (fossil record)
+├── wateringHole/handoffs/              # 4 active + 22 archived cross-project handoffs (fossil record)
 ├── LICENSE                             # AGPL-3.0
 ├── .gitignore
 │
@@ -491,7 +497,7 @@ hotSpring/
 │   ├── CONTROL_EXPERIMENT_SUMMARY.md  # Phase A quick reference
 │   └── METHODOLOGY.md                # Two-phase validation protocol
 │
-├── barracuda/                          # BarraCUDA Rust crate — v0.6.3 (648 unit + 24 integration tests, 33 suites)
+├── barracuda/                          # BarraCUDA Rust crate — v0.6.4 (637 unit + 24 integration tests, 33 suites)
 │   ├── Cargo.toml                     # Dependencies (requires ecoPrimals/phase1/toadstool)
 │   ├── CHANGELOG.md                   # Version history — baselines, tolerances, evolution
 │   ├── EVOLUTION_READINESS.md         # Rust module → GPU promotion tier + absorption status
@@ -505,14 +511,8 @@ hotSpring/
 │       ├── discovery.rs               # Capability-based data path resolution (env var / CWD)
 │       ├── data.rs                    # AME2020 data + Skyrme bounds + EosContext + chi2_per_datum
 │       ├── prescreen.rs               # NMP cascade filter (algebraic → L1 proxy → classifier)
-│       ├── spectral/                 # Spectral theory module
-│       │   ├── mod.rs               # Re-exports
-│       │   ├── tridiag.rs           # Sturm bisection eigensolve
-│       │   ├── csr.rs               # CsrMatrix, SpMV, WGSL shader
-│       │   ├── lanczos.rs           # Lanczos algorithm + tridiagonal extraction
-│       │   ├── anderson.rs          # Anderson 1D/2D/3D + Lyapunov exponent
-│       │   ├── hofstadter.rs        # Almost-Mathieu + Hofstadter butterfly
-│       │   └── stats.rs             # Level spacing ratio, band detection
+│       ├── spectral/                 # Spectral theory — re-exports from upstream barracuda::spectral
+│       │   └── mod.rs               # pub use barracuda::spectral::* + CsrMatrix alias (v0.6.4 lean)
 │       ├── bench/                      # Benchmark harness — mod, hardware, power, report (RAPL, nvidia-smi, JSON)
 │       ├── gpu.rs                     # GPU FP64 device wrapper (SHADER_F64 via wgpu/Vulkan)
 │       │

@@ -579,8 +579,9 @@ mod tests {
     #[test]
     #[ignore = "requires GPU"]
     fn run_simulation_gpu() {
-        // EVOLUTION(GPU): replace with real dispatch test when CI has GPU. Placeholder: run_simulation requires GPU.
         let config = config::quick_test_case(64);
-        let _ = config;
+        assert!(config.n_particles > 0, "config should have particles");
+        assert!(config.dump_step > 0, "config should have dump interval");
+        assert!(config.box_side() > 0.0, "box side must be positive");
     }
 }

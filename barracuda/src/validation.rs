@@ -220,6 +220,27 @@ impl ValidationHarness {
 }
 
 impl ValidationHarness {
+    /// Print provenance records for all baselines used by this validation binary.
+    ///
+    /// Call this before running checks to produce a machine-readable
+    /// provenance section linking every expected value to its origin.
+    pub fn print_provenance(&self, baselines: &[&crate::provenance::BaselineProvenance]) {
+        println!(
+            "═══ {}: provenance ({} baselines) ═══",
+            self.name,
+            baselines.len()
+        );
+        for bp in baselines {
+            println!(
+                "  {}: value={:.6e} {}\n    script: {}\n    commit: {}\n    date: {}\n    command: {}",
+                bp.label, bp.value, bp.unit, bp.script, bp.commit, bp.date, bp.command
+            );
+        }
+        println!();
+    }
+}
+
+impl ValidationHarness {
     /// Format the validation summary as a string (for testing; `finish` prints and exits).
     #[cfg(test)]
     pub fn format_summary(&self) -> String {

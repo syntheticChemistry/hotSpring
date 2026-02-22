@@ -1,7 +1,7 @@
 # hotSpring: Consumer-GPU Nuclear Structure at Scale
 
 **Status**: Working draft
-**Date**: February 19, 2026
+**Date**: February 22, 2026
 **License**: AGPL-3.0
 **Hardware**: Consumer workstation (i9-12900K, 32 GB DDR5, RTX 4070 + Titan V, Pop!_OS 22.04)
 **GPUs**: RTX 4070 (Ada, nvidia proprietary, 12 GB GDDR6X) + Titan V (GV100, NVK/nouveau open-source, 12 GB HBM2)
@@ -609,4 +609,4 @@ laws. The infrastructure investment is shared.
 
 ---
 
-*Generated from hotSpring validation pipeline. Last updated: February 19, 2026*
+*Generated from hotSpring validation pipeline. Last updated: February 22, 2026*

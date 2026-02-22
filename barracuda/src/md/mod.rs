@@ -21,7 +21,7 @@
 //! | `WgslOptimizer` | `barracuda::shaders::optimizer` | Wired (all shaders via `ShaderTemplate`) |
 //! | `GpuDriverProfile` | `barracuda::device::capabilities` | Wired (shader compile) |
 //! | `StatefulPipeline` | `barracuda::staging` | Available — `run_iterations()` / `run_until_converged()` |
-//! | `CellListGpu` | `barracuda::ops::md::neighbor` | **Fixed** (toadstool `8fb5d5a0`) — local `GpuCellList` deprecated, migrate next cycle |
+//! | `CellListGpu` | `barracuda::ops::md::neighbor` | **Migrated** (v0.6.2) — local `GpuCellList` deleted, using upstream |
 //! | NAK eigensolve shader | `shaders/linalg/batched_eigh_nak_optimized_f64.wgsl` | Absorbed from hotSpring |
 //!
 //! | Module | Purpose |

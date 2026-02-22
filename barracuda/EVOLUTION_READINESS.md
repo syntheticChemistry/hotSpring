@@ -18,7 +18,7 @@ Python baseline → Rust validation → WGSL template → GPU shader → ToadSto
 | **C** | New | No shader exists; must be written from scratch |
 | **✅** | Absorbed | ToadStool has absorbed this as a first-class barracuda primitive |
 
-## ToadStool Absorption Status (Feb 22, 2026 — Post v0.6.3 WGSL Extraction + Coverage Push)
+## ToadStool Absorption Status (Feb 22, 2026 — Post v0.6.4 Spectral Lean + Rewire)
 
 | hotSpring Module | ToadStool Primitive | Commit | Status |
 |-----------------|--------------------| -------|--------|
@@ -450,15 +450,25 @@ driver profile (`DriverKind::Nvk`, `CompilerKind::Nak`, `GpuArch::Volta`).
 | `lattice/eos_tables.rs` | 307 | — | N/A | HotQCD reference data (CPU-only) |
 | `lattice/multi_gpu.rs` | 237 | — | **C** | CPU-threaded dispatcher; needs GPU dispatch |
 
-## Spectral Theory Modules (Feb 20, 2026)
+## Spectral Theory Modules (Feb 22, 2026 — Fully Leaning on Upstream)
 
-| Rust Module | Lines | WGSL | Tier | Status |
-|-------------|-------|------|------|--------|
-| `spectral/anderson.rs` (1D Anderson) | ~200 | — | **C** | CPU validated; Sturm bisection (fast, unlikely GPU target) |
-| `spectral/csr.rs` (CsrMatrix + SpMV) | ~60 | `WGSL_SPMV_CSR_F64` | **A** | ✅ GPU validated (8/8 checks, max error 1.78e-15); ready for toadstool absorption |
-| `spectral/lanczos.rs` (Lanczos) | ~80 | uses `WGSL_SPMV_CSR_F64` | **A** | ✅ GPU validated (6/6 checks, GPU SpMV inner loop) |
-| `spectral/anderson.rs` (2D/3D Anderson) | ~100 | — | **C** | CPU validated; builds CSR → feeds Lanczos (GPU when SpMV lands) |
-| `spectral/hofstadter.rs` (Hofstadter) | ~50 | — | N/A | Sweeps over almost-Mathieu; CPU is fine (fast parameter scan) |
+**All spectral source code deleted from hotSpring.** The `spectral/mod.rs` now
+contains only re-exports from `barracuda::spectral` plus a `CsrMatrix` type
+alias for backward compatibility. ~41 KB of local source removed.
+
+ToadStool absorbed the entire spectral module in Sessions 25-31h (commit
+`dc540afd`..`0bd6a92d`), including Anderson 1D/2D/3D, Lanczos, Hofstadter,
+Sturm tridiagonal, level statistics, CSR SpMV, and a new `BatchIprGpu`.
+
+| Upstream Module | hotSpring Status |
+|----------------|------------------|
+| `barracuda::spectral::anderson` | ✅ **Leaning** — re-exported |
+| `barracuda::spectral::SpectralCsrMatrix` | ✅ **Leaning** — aliased as `CsrMatrix` |
+| `barracuda::spectral::lanczos` | ✅ **Leaning** — re-exported |
+| `barracuda::spectral::hofstadter` | ✅ **Leaning** — re-exported |
+| `barracuda::spectral::tridiag` | ✅ **Leaning** — re-exported |
+| `barracuda::spectral::stats` | ✅ **Leaning** — re-exported |
+| `barracuda::spectral::BatchIprGpu` | ✅ **NEW** — available via re-export |
 
 ### HMC Implementation Notes
 

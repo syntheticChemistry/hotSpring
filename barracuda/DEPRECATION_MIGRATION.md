@@ -1,7 +1,7 @@
 # hotSpring Deprecation & Migration Tracker
 
 **Status**: Active — tracking barracuda absorption and hotSpring minimization.
-**Last updated**: Feb 21, 2026
+**Last updated**: Feb 22, 2026
 
 ## Principle
 
@@ -23,6 +23,18 @@ retained only as fossil record.
 | `archive/stats.rs` | `barracuda::stats`, `barracuda::optimize::convergence_diagnostics` | Fossil record |
 | `archive/nuclear_eos_l1.rs` | `bin/nuclear_eos_l1_ref.rs` | Fossil record |
 | `archive/nuclear_eos_l2.rs` | `bin/nuclear_eos_l2_ref.rs`, `bin/nuclear_eos_l2_gpu.rs` | Fossil record |
+
+### Spectral Module (fully leaning — local sources deleted, Feb 22 2026)
+
+| Module | Absorbed by | Status |
+|--------|-------------|--------|
+| `spectral/anderson.rs` | `barracuda::spectral::anderson` | **Deleted** — re-exported from upstream |
+| `spectral/csr.rs` | `barracuda::spectral::SpectralCsrMatrix` | **Deleted** — `CsrMatrix` alias retained |
+| `spectral/hofstadter.rs` | `barracuda::spectral::hofstadter` | **Deleted** — re-exported from upstream |
+| `spectral/lanczos.rs` | `barracuda::spectral::lanczos` | **Deleted** — re-exported from upstream |
+| `spectral/stats.rs` | `barracuda::spectral::stats` | **Deleted** — re-exported from upstream |
+| `spectral/tridiag.rs` | `barracuda::spectral::tridiag` | **Deleted** — re-exported from upstream |
+| `spectral/shaders/spmv_csr_f64.wgsl` | `barracuda::spectral::WGSL_SPMV_CSR_F64` | **Deleted** — upstream has inline shader |
 
 ### MD Shaders (deprecated — barracuda ops/md canonical)
 

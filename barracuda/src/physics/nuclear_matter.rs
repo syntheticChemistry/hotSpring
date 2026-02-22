@@ -121,6 +121,41 @@ pub fn nuclear_matter_properties(params: &[f64]) -> Option<NuclearMatterProps> {
     })
 }
 
+impl NuclearMatterProps {
+    /// Check whether the NMP are in the physically plausible domain.
+    ///
+    /// Rejects parametrizations with clearly unphysical saturation behaviour:
+    /// ```text
+    /// ρ₀ ∈ [0.05, 0.30] fm⁻³  (all published Skyrme)
+    /// E/A < 0                   (must be bound)
+    /// K∞ > 0                    (stability)
+    /// m*/m ∈ (0, 1)            (causality)
+    /// J > 0                     (asymmetry cost)
+    /// ```
+    #[must_use]
+    pub fn is_physical(&self) -> bool {
+        (0.05..=0.30).contains(&self.rho0_fm3)
+            && self.e_a_mev < 0.0
+            && self.k_inf_mev > 0.0
+            && self.m_eff_ratio > 0.0
+            && self.m_eff_ratio < 1.0
+            && self.j_mev > 0.0
+    }
+
+    /// Hard penalty for unphysical NMP (returns `f64::MAX` for rejected).
+    ///
+    /// Use this as a fast pre-screen in optimization loops to avoid
+    /// expensive HFB evaluations for clearly unphysical parametrizations.
+    #[must_use]
+    pub fn hard_penalty(&self) -> Option<f64> {
+        if self.is_physical() {
+            None
+        } else {
+            Some(f64::MAX)
+        }
+    }
+}
+
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod tests {
@@ -238,5 +273,25 @@ mod tests {
             "m*/m bitwise mismatch"
         );
         assert_eq!(a.j_mev.to_bits(), b.j_mev.to_bits(), "J bitwise mismatch");
+    }
+
+    #[test]
+    fn sly4_is_physical() {
+        let nmp = nuclear_matter_properties(&SLY4_PARAMS).expect("SLY4 NMP");
+        assert!(nmp.is_physical(), "SLy4 must be physical");
+        assert!(nmp.hard_penalty().is_none(), "SLy4 must pass hard filter");
+    }
+
+    #[test]
+    fn unphysical_nmp_rejected() {
+        let bad = NuclearMatterProps {
+            rho0_fm3: 0.01,
+            e_a_mev: 5.0,
+            k_inf_mev: -100.0,
+            m_eff_ratio: 1.5,
+            j_mev: -10.0,
+        };
+        assert!(!bad.is_physical());
+        assert!(bad.hard_penalty().is_some());
     }
 }

@@ -149,8 +149,7 @@ pub mod profiles {
     /// CPU validation (f64 reference, no GPU required).
     #[must_use]
     pub fn cpu_validation() -> Workload {
-        Workload::new("CPU validation", vec![Capability::F64Compute])
-            .prefer(SubstrateKind::Cpu)
+        Workload::new("CPU validation", vec![Capability::F64Compute]).prefer(SubstrateKind::Cpu)
     }
 
     /// SpMV spectral theory (GPU sparse matrix-vector).
@@ -177,8 +176,8 @@ pub mod profiles {
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod tests {
-    use super::*;
     use super::profiles;
+    use super::*;
     use crate::substrate::{Identity, Properties};
 
     fn make_gpu(name: &str, caps: Vec<Capability>) -> Substrate {

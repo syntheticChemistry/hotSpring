@@ -1,7 +1,7 @@
 # hotSpring → BarraCUDA/ToadStool Absorption Manifest
 
 **Date:** February 22, 2026
-**Version:** v0.6.3
+**Version:** v0.6.4
 **License:** AGPL-3.0-only
 
 ---
@@ -31,6 +31,14 @@ These were written by hotSpring and absorbed by toadstool/barracuda:
 
 | Component | Session | Upstream Location | hotSpring Status |
 |-----------|---------|-------------------|------------------|
+| **Spectral module** | S25-31h | `barracuda::spectral` | **Fully leaning** — local sources deleted, re-exports from upstream |
+| CSR SpMV + WGSL | S25-31h | `barracuda::spectral::SpectralCsrMatrix` | Leaning (alias `CsrMatrix` for compat) |
+| Lanczos eigensolve | S25-31h | `barracuda::spectral::lanczos` | Leaning on upstream |
+| Anderson 1D/2D/3D | S25-31h | `barracuda::spectral::anderson` | Leaning on upstream |
+| Hofstadter butterfly | S25-31h | `barracuda::spectral::hofstadter` | Leaning on upstream |
+| Sturm tridiagonal | S25-31h | `barracuda::spectral::tridiag` | Leaning on upstream |
+| Level statistics | S25-31h | `barracuda::spectral::stats` | Leaning on upstream |
+| BatchIprGpu | S25-31h | `barracuda::spectral::BatchIprGpu` | **NEW** — available via re-export |
 | Complex f64 WGSL | S18-25 | `shaders/math/complex_f64.wgsl` | Leaning on upstream |
 | SU(3) WGSL | S18-25 | `shaders/math/su3.wgsl` | Leaning on upstream |
 | Wilson plaquette | S18-25 | `shaders/lattice/wilson_plaquette_f64.wgsl` | Leaning on upstream |
@@ -54,8 +62,6 @@ CPU reference implementations, and validation suites.
 
 | Module | Location | WGSL | Tests | What it does |
 |--------|----------|------|-------|--------------|
-| CSR SpMV | `spectral/csr.rs` | `WGSL_SPMV_CSR_F64` | 8/8 | Sparse matrix-vector product (f64) |
-| Lanczos | `spectral/lanczos.rs` | Uses SpMV | 6/6 | Krylov eigensolve with reorthogonalization |
 | Staggered Dirac | `lattice/dirac.rs` | `WGSL_DIRAC_STAGGERED_F64` | 8/8 | SU(3) staggered fermion operator |
 | CG Solver | `lattice/cg.rs` | `WGSL_COMPLEX_DOT_RE_F64`, `WGSL_AXPY_F64`, `WGSL_XPAY_F64` | 9/9 | Conjugate gradient for D†D |
 | ESN Reservoir | `md/reservoir.rs` | `esn_reservoir_update.wgsl`, `esn_readout.wgsl` | 16+ | Echo State Network for transport/phase prediction |
@@ -64,10 +70,6 @@ CPU reference implementations, and validation suites.
 
 | Module | Location | Tests | What it does |
 |--------|----------|-------|--------------|
-| Anderson 1D/2D/3D | `spectral/anderson.rs` | 31 | Anderson localization + Lyapunov exponent |
-| Hofstadter butterfly | `spectral/hofstadter.rs` | 10 | Almost-Mathieu operator, band counting |
-| Level statistics | `spectral/stats.rs` | Tests | GOE→Poisson spacing ratio |
-| Sturm eigensolve | `spectral/tridiag.rs` | Tests | Bisection eigenvalues for tridiagonal |
 | Screened Coulomb | `physics/screened_coulomb.rs` | 23/23 | Murillo-Weisheit Sturm eigensolve |
 | Wilson action | `lattice/wilson.rs` | 12/12 | Plaquettes, staples, gauge force |
 | HMC integrator | `lattice/hmc.rs` | Tests | Cayley matrix exp, leapfrog, Metropolis |
@@ -115,9 +117,12 @@ All WGSL shaders in hotSpring, organized by absorption status:
 - `higgs_u1_hmc_f64.wgsl` → `shaders/lattice/`
 - `batched_eigh_nak_optimized_f64.wgsl` → upstream shader
 
+### Already Absorbed (local source deleted)
+
+- `spmv_csr_f64.wgsl` → `barracuda::spectral::WGSL_SPMV_CSR_F64` (local dir deleted)
+
 ### Ready for Absorption
 
-- `spmv_csr_f64.wgsl` (in `spectral/shaders/`)
 - `dirac_staggered_f64.wgsl` (in `lattice/shaders/`)
 - `complex_dot_re_f64.wgsl` (in `lattice/shaders/`)
 - `axpy_f64.wgsl` (in `lattice/shaders/`)
@@ -164,8 +169,28 @@ The bridge module is the explicit absorption point:
 | `dispatch::route()` | `toadstool_integration::select_best_device()` | Capability-set routing complements `HardwareWorkload` |
 | `dispatch::profiles` | — | Physics workload definitions for hotSpring domains |
 
-See `wateringHole/handoffs/HOTSPRING_V061_FORGE_HANDOFF_FEB21_2026.md` for the
+See `wateringHole/handoffs/archive/HOTSPRING_V061_FORGE_HANDOFF_FEB21_2026.md` for the
 forge handoff with hardware measurements and validation results.
+
+---
+
+## Cross-Spring Evolution
+
+ToadStool's barracuda crate benefits from multi-Spring contributions.
+See `wateringHole/handoffs/CROSS_SPRING_EVOLUTION_FEB22_2026.md` for the
+full cross-Spring evolution map.
+
+Key cross-pollination:
+
+| From | To | What | Impact |
+|------|-----|------|--------|
+| wetSpring | all Springs | `(zero + literal)` f64 constant precision in `math_f64.wgsl` | `log_f64` 1e-3 → 1e-15 precision |
+| hotSpring | all Springs | NVK `exp()`/`log()` workaround via `ShaderTemplate` | Correct results on open-source drivers |
+| hotSpring | all Springs | Spectral module (Anderson, Lanczos, CSR SpMV) | GPU-accelerated sparse eigensolve |
+| wetSpring | hotSpring | `GemmCached` (60× speedup for repeated GEMM) | HFB SCF loop acceleration |
+| neuralSpring | hotSpring | `BatchIprGpu` | GPU Anderson localization diagnostics |
+| neuralSpring | all Springs | TensorSession (matmul, relu, softmax, attention) | GPU ML layer ops |
+| hotSpring | all Springs | `complex_f64.wgsl` + `su3.wgsl` | Lattice field theory math |
 
 ---
 

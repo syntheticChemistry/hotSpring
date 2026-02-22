@@ -1,7 +1,7 @@
 # hotSpring Specifications
 
-**Last Updated**: February 21, 2026
-**Status**: Phase A-I complete — 648 tests (648 passing + 6 GPU/heavy-ignored), 33/33 validation suites, crate v0.6.3
+**Last Updated**: February 22, 2026
+**Status**: Phase A-I complete — 637 tests (637 passing + 6 GPU/heavy-ignored; spectral tests upstream), 33/33 validation suites, crate v0.6.4
 **Domain**: Computational plasma physics, nuclear structure, transport, lattice QCD, spectral theory, surrogate learning
 
 ---
@@ -20,6 +20,7 @@
 | Phase H (Spectral Theory) | 41/41 (Anderson 1D/2D/3D, Lanczos, Hofstadter butterfly) |
 | Phase I (Heterogeneous) | 68/68 (NPU quantization, beyond-SDK, pipeline, lattice NPU, hetero monitor) |
 | ToadStool Rewire v3 | CellListGpu fixed, lattice GPU shaders, **FFT f64** — Tier 3 unblocked |
+| ToadStool Rewire v4 | Spectral module fully leaning on upstream (41 KB deleted), `CsrMatrix` alias, `BatchIprGpu` available |
 | Faculty | Murillo (CMSE, MSU — MSDS professor) |
 | Faculty extension | Bazavov (CMSE + Physics, MSU — master's professor) |
 | Faculty extension | Kachkovskiy (Math, MSU — spectral theory) |

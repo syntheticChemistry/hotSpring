@@ -160,3 +160,42 @@ fn binding_energy_l2_deterministic() {
         "L2 binding energy must be deterministic"
     );
 }
+
+#[test]
+fn semf_deterministic_across_multiple_runs() {
+    let nuclei = [(8, 8), (26, 30), (50, 82), (82, 126)];
+    for &(z, n) in &nuclei {
+        let results: Vec<u64> = (0..5)
+            .map(|_| semf_binding_energy(z, n, &SLY4_PARAMS).to_bits())
+            .collect();
+        assert!(
+            results.windows(2).all(|w| w[0] == w[1]),
+            "SEMF must be bitwise deterministic for Z={z} N={n}"
+        );
+    }
+}
+
+#[test]
+fn hfb_solver_symmetry_conjugate_nuclei() {
+    let hfb_a = SphericalHFB::new_adaptive(28, 30);
+    let hfb_b = SphericalHFB::new_adaptive(30, 28);
+    assert_eq!(
+        hfb_a.n_states(),
+        hfb_b.n_states(),
+        "conjugate nuclei should have same basis size"
+    );
+}
+
+#[test]
+fn binding_energy_l2_multiple_nuclei_deterministic() {
+    let nuclei = [(28, 28), (28, 30)];
+    for &(z, n) in &nuclei {
+        let a = binding_energy_l2(z, n, &SLY4_PARAMS).expect("L2");
+        let b = binding_energy_l2(z, n, &SLY4_PARAMS).expect("L2");
+        assert_eq!(
+            a.0.to_bits(),
+            b.0.to_bits(),
+            "L2 must be bitwise deterministic for Z={z} N={n}"
+        );
+    }
+}

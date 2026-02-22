@@ -35,6 +35,13 @@ use hotspring_barracuda::validation::ValidationHarness;
 fn main() {
     let mut harness = ValidationHarness::new("Nuclear EOS Validation (Pure Rust)");
 
+    harness.print_provenance(&[
+        &provenance::L1_PYTHON_CHI2,
+        &provenance::L1_PYTHON_CANDIDATES,
+        &provenance::L2_PYTHON_CHI2,
+        &provenance::L2_PYTHON_CANDIDATES,
+    ]);
+
     phase1_l1_semf(&mut harness);
     phase2_nmp_sly4(&mut harness);
     phase3_nmp_unedf0(&mut harness);

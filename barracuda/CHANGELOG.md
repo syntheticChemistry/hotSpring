@@ -5,6 +5,38 @@ All notable changes to the hotSpring BarraCUDA validation crate.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.6.4 — ToadStool Rewire v4: Spectral Lean (Feb 22, 2026)
+
+### Spectral Module → Fully Leaning on Upstream
+
+ToadStool Sessions 25-31h absorbed hotSpring's entire spectral module into
+`barracuda::spectral`. Local source files deleted (~41 KB), replaced with
+re-exports from upstream:
+
+- `spectral/anderson.rs` → `barracuda::spectral::anderson_*`
+- `spectral/csr.rs` → `barracuda::spectral::SpectralCsrMatrix` (+ `CsrMatrix` alias)
+- `spectral/hofstadter.rs` → `barracuda::spectral::hofstadter_butterfly`
+- `spectral/lanczos.rs` → `barracuda::spectral::lanczos`
+- `spectral/stats.rs` → `barracuda::spectral::{level_spacing_ratio, detect_bands}`
+- `spectral/tridiag.rs` → `barracuda::spectral::{sturm_count, find_all_eigenvalues}`
+- `spectral/shaders/spmv_csr_f64.wgsl` → `barracuda::spectral::WGSL_SPMV_CSR_F64`
+
+New upstream primitive now available: `barracuda::spectral::BatchIprGpu`.
+
+### Documentation Updated
+
+- `ABSORPTION_MANIFEST.md`: Spectral moved to "Already Absorbed" section
+- `DEPRECATION_MIGRATION.md`: Spectral module tracked as fully deprecated
+- `EVOLUTION_READINESS.md`: Spectral section updated to "Fully Leaning"
+- `README.md`: Test counts updated, Rewire v4 status added
+
+### Metrics
+
+- **637 tests** (was 648; 44 spectral tests now run upstream in barracuda), 0 failures, 6 ignored
+- **Zero clippy warnings** (all targets, pedantic)
+- **Zero doc warnings**
+- **Version**: 0.6.3 → 0.6.4
+
 ## v0.6.3 — WGSL Extraction & Coverage Push (Feb 22, 2026)
 
 ### Inline WGSL Extraction (5 shaders)

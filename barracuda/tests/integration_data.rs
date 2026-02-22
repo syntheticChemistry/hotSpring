@@ -113,3 +113,55 @@ fn transport_tolerances_ordered() {
         "Sarkas parity should be tighter than lite fit"
     );
 }
+
+#[test]
+fn provenance_baseline_values_are_finite() {
+    let baselines = [
+        &provenance::L1_PYTHON_CHI2,
+        &provenance::L1_PYTHON_CANDIDATES,
+        &provenance::L2_PYTHON_CHI2,
+        &provenance::L2_PYTHON_CANDIDATES,
+    ];
+    for bp in &baselines {
+        assert!(bp.value.is_finite(), "{}: value must be finite", bp.label);
+        assert!(bp.value > 0.0, "{}: value must be positive", bp.label);
+    }
+}
+
+#[test]
+fn provenance_dates_are_iso8601() {
+    let baselines = [
+        &provenance::L1_PYTHON_CHI2,
+        &provenance::L2_PYTHON_CHI2,
+        &provenance::HOTQCD_EOS_PROVENANCE,
+    ];
+    for bp in &baselines {
+        assert!(
+            bp.date.len() == 10 && bp.date.chars().nth(4) == Some('-'),
+            "{}: date should be ISO 8601: {}",
+            bp.label,
+            bp.date
+        );
+    }
+}
+
+#[test]
+fn validation_harness_print_provenance_runs() {
+    use hotspring_barracuda::validation::ValidationHarness;
+    let h = ValidationHarness::new("provenance_test");
+    h.print_provenance(&[&provenance::L1_PYTHON_CHI2]);
+}
+
+#[test]
+fn all_doi_constants_are_valid() {
+    let dois = [
+        provenance::AME2020_DOI,
+        provenance::HOTQCD_DOI,
+        provenance::STANTON_MURILLO_DOI,
+        provenance::DALIGAULT_DOI,
+    ];
+    for doi in &dois {
+        assert!(doi.starts_with("10."), "DOI must start with 10.: {doi}");
+        assert!(doi.contains('/'), "DOI must contain /: {doi}");
+    }
+}

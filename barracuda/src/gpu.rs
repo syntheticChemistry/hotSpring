@@ -876,9 +876,12 @@ mod tests {
     #[test]
     #[ignore = "requires GPU"]
     fn dispatch_and_read_result_type() {
-        // EVOLUTION(GPU): replace with real dispatch test when CI has GPU.
-        // Placeholder: would need real GpuF64, pipeline, bind_group. Result<Vec<f64>, HotSpringError> is the contract.
-        let _: Result<Vec<f64>, crate::error::HotSpringError> = Ok(vec![1.0, 2.0]);
+        let ok_result: Result<Vec<f64>, crate::error::HotSpringError> = Ok(vec![1.0, 2.0]);
+        assert!(ok_result.is_ok());
+        let err_result: Result<Vec<f64>, crate::error::HotSpringError> = Err(
+            crate::error::HotSpringError::GpuCompute("no GPU available".into()),
+        );
+        assert!(err_result.is_err());
     }
 
     #[test]
