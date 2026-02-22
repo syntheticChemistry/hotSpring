@@ -274,7 +274,7 @@ by cross-validating GPU results against CPU f64 references.
 | Physical ordering | D*(κ=2) < D*(κ=1) | **Verified** |
 | Positivity | All D*, η*, λ* > 0 | **Verified** |
 
-Result: **13/13 checks pass** (`validate_stanton_murillo`).
+Result: **13/13 checks pass** (`validate_stanton_murillo`). GPU-only pipeline: `validate_transport_gpu_only` (~493s, zero readback).
 
 ### Lattice QCD (Paper 8 — Feb 19, 2026)
 
@@ -298,7 +298,7 @@ Result: **12/12 checks pass** (`validate_pure_gauge`).
 
 Result: Thermodynamic consistency validated (`validate_hotqcd_eos`).
 
-### Grand Total: 283 Unit Tests, 16/16 Validation Suites
+### Grand Total: 619 Unit Tests, 34/34 Validation Suites
 
 | Phase | Checks | Description |
 |-------|:------:|-------------|

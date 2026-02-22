@@ -225,13 +225,11 @@ production acceptance rates (>70%) without multi-timescale integration.
 
 ### BarraCuda HFB Pipeline Note
 
-Suite 8 (BarraCuda HFB Pipeline) passes via `std::panic::catch_unwind` around
-the single-dispatch `BatchedEighGpu::execute_single_dispatch()`. The upstream
-toadstool `loop_unroller.rs` emits bare integer literals (e.g., "0") instead
-of `u32` literals (e.g., "0u") in WGSL after `@unroll_hint` expansion. `wgpu`
-panics on this instead of returning an error. The multi-dispatch path works
-correctly. **Fix location**: `toadstool/crates/barracuda/src/ops/linalg/loop_unroller.rs`
-— append `u` suffix to integer literals in generated WGSL index expressions.
+**Update (v0.6.7):** The loop_unroller u32 bug has been **FIXED** — hotSpring
+applied the one-line fix (`iter.to_string()` → `format!("{iter}u")`) to toadstool's
+`substitute_loop_var` in Session 42+. The `catch_unwind` workaround has been
+removed. Single-dispatch `BatchedEighGpu` now passes (eigenvalue error 2.38e-12,
+orthogonality 2.89e-15). HFB pipeline validation: **16/16** checks (was 14/14).
 
 ---
 
@@ -239,13 +237,13 @@ correctly. **Fix location**: `toadstool/crates/barracuda/src/ops/linalg/loop_unr
 
 ### Tier 1 — Complete the Upstream Lattice QCD Pipeline
 
-| What | Source | Why |
-|------|--------|-----|
-| Staggered Dirac GPU shader | `lattice/dirac.rs` → `WGSL_DIRAC_STAGGERED_F64` | 8/8 checks, machine-epsilon parity |
-| CG solver (3 shaders) | `lattice/cg.rs` → 3 WGSL shaders | 9/9 checks, 200× faster than Python |
-| Pseudofermion HMC | `lattice/pseudofermion.rs` | 7/7 checks, completes dynamical QCD |
-| ESN `export_weights()` | `esn_v2::ESN` | Enables GPU-train → NPU-deploy |
-| Loop unroller u32 fix | `loop_unroller.rs` | Fixes `BatchedEighGpu` single-dispatch panic |
+| What | Source | Why | Status |
+|------|--------|-----|--------|
+| ~~Staggered Dirac GPU shader~~ | `lattice/dirac.rs` → `WGSL_DIRAC_STAGGERED_F64` | 8/8 checks | ✅ Absorbed (S31d) |
+| ~~CG solver (3 shaders)~~ | `lattice/cg.rs` → 3 WGSL shaders | 9/9 checks | ✅ Absorbed (S31d) |
+| **Pseudofermion HMC** | `lattice/pseudofermion.rs` | 7/7 checks, completes dynamical QCD | **Still pending** |
+| ~~ESN `export_weights()`~~ | `esn_v2::ESN` | GPU-train → NPU-deploy | ✅ Absorbed (S36-37) |
+| ~~Loop unroller u32 fix~~ | `loop_unroller.rs` | `BatchedEighGpu` single-dispatch | ✅ Fixed (v0.6.7) |
 
 ### Tier 2 — Production QCD Improvements
 
@@ -291,9 +289,9 @@ All wired to `tolerances::*` — zero inline magic numbers.
    Any investment in faster GPU CG (mixed precision, preconditioning) has the
    highest ROI for lattice QCD.
 
-2. **`std::panic::catch_unwind` is a code smell in validation** — the HFB
-   single-dispatch workaround works but is fragile. The root cause is in
-   `loop_unroller.rs` and should be fixed upstream.
+2. **`catch_unwind` was a code smell — now resolved** (v0.6.7). The loop_unroller
+   u32 bug in toadstool was fixed with a one-line change. Single-dispatch
+   eigensolve now works correctly without any workaround.
 
 3. **Pseudofermion heat bath creates a CG→gauge→CG dependency chain** per
    trajectory: heat bath CG → n×(force CG + link update) → action CG.
@@ -326,12 +324,12 @@ All wired to `tolerances::*` — zero inline magic numbers.
 
 | Metric | Value |
 |--------|-------|
-| Crate version | v0.6.4 |
-| Unit tests | 616 (609 passing + 1 env-flaky + 6 GPU-ignored) |
+| Crate version | v0.6.7 (was v0.6.4 at time of writing) |
+| Unit tests | 619 (612 passing + 1 env-flaky + 6 GPU-ignored) |
 | Integration tests | 24 (3 suites) |
-| Validation suites | **34/34** pass |
-| Tolerance constants | **172** (was 154; +6 dynamical QCD, +12 production QCD) |
-| Rust validation binaries | **52** (was 50; +validate_dynamical_qcd, +validate_production_qcd) |
+| Validation suites | **34/34** pass (702.7s) |
+| Tolerance constants | **172** |
+| Rust validation binaries | **55** (+validate_barracuda_evolution, +validate_transport_gpu_only, +validate_transport_gpu_resident) |
 | Python control scripts | 35+ (added dynamical_fermion_control.py) |
 | Papers reproduced | 22 |
 | Total compute cost | ~$0.20 |
@@ -358,18 +356,19 @@ barracuda/src/tolerances/lattice.rs              # +6 dynamical QCD constants
 barracuda/src/tolerances/mod.rs                  # re-exports + test update
 barracuda/Cargo.toml                             # +1 [[bin]] target
 barracuda/src/bin/validate_all.rs                # +1 suite (34 total)
-barracuda/src/bin/validate_barracuda_hfb.rs      # catch_unwind for single-dispatch
+barracuda/src/bin/validate_barracuda_hfb.rs      # catch_unwind removed (v0.6.7)
 ```
 
 ### Active Handoff Documents
 
 ```
-wateringHole/handoffs/HOTSPRING_V064_DYNAMICAL_QCD_HANDOFF_FEB22_2026.md  ← this document
-wateringHole/handoffs/HOTSPRING_V064_TOADSTOOL_HANDOFF_FEB22_2026.md      ← comprehensive v0.6.4
-wateringHole/handoffs/HOTSPRING_TOADSTOOL_REWIRE_V4_FEB22_2026.md         ← spectral lean
-wateringHole/handoffs/CROSS_SPRING_EVOLUTION_FEB22_2026.md                ← shader evolution map
-wateringHole/handoffs/HOTSPRING_V063_EVOLUTION_HANDOFF_FEB22_2026.md      ← v0.6.3 extraction
+wateringHole/handoffs/HOTSPRING_V067_TOADSTOOL_SESSION42_HANDOFF_FEB22_2026.md  ← latest (S40-42 catch-up)
+wateringHole/handoffs/HOTSPRING_V066_GPU_TRANSPORT_HANDOFF_FEB22_2026.md        ← GPU transport pipeline
+wateringHole/handoffs/HOTSPRING_V064_DYNAMICAL_QCD_HANDOFF_FEB22_2026.md        ← this document
+wateringHole/handoffs/CROSS_SPRING_EVOLUTION_FEB22_2026.md                      ← shader evolution map
 ```
+
+*Prior handoffs archived in `wateringHole/handoffs/archive/`*
 
 ---
 

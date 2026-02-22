@@ -177,6 +177,8 @@ All 9 PP Yukawa cases at N=10,000, 80,000 production steps — matching the Dens
 
 Toadstool GPU ops wired: BatchedEighGpu (L2 HFB), SsfGpu (MD observables), PppmGpu (κ=0 Coulomb).
 
+**GPU-only transport pipeline**: `validate_transport_gpu_only` runs full Green-Kubo D*/η*/λ* on GPU with zero readback (~493s).
+
 ---
 
 ## 8. Phase F: Full-Scale Nuclear EOS (Feb 15, 2026)

@@ -306,6 +306,11 @@ path = "src/bin/validate_anderson_3d.rs"
 name = "validate_hofstadter"
 path = "src/bin/validate_hofstadter.rs"
 
+# ── BarraCuda evolution: CPU foundation across all physics domains ──
+[[bin]]
+name = "validate_barracuda_evolution"
+path = "src/bin/validate_barracuda_evolution.rs"
+
 # ── GPU SpMV: CSR sparse matrix-vector product on GPU (spectral theory P1) ──
 [[bin]]
 name = "validate_gpu_spmv"

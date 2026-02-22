@@ -4,7 +4,7 @@
 **Workload**: Nuclear Equation of State (Skyrme EDF) + Yukawa OCP Molecular Dynamics  
 **Reference**: Diaw et al. (2024), "Efficient learning of accurate surrogates for simulations of complex systems," *Nature Machine Intelligence*  
 **Hardware**: i9-12900K (24 threads), RTX 4070 (SHADER_F64 confirmed), 32 GB, Pop!_OS 22.04  
-**BarraCuda Version**: Phase 5+ (100% Rust, zero external dependencies, FP64 GPU validated)  
+**BarraCuda Version**: v0.6.7 (Phase 5+, 100% Rust, zero external dependencies, FP64 GPU validated)  
 **See also**: [STUDY.md](STUDY.md) for the full study narrative; [METHODOLOGY.md](METHODOLOGY.md) for the validation protocol
 
 ---

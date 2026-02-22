@@ -48,8 +48,9 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **ToadStool Rewire v1** (3 GPU ops) | ✅ Complete | BatchedEighGpu, SsfGpu, PppmGpu wired |
 | **Nuclear EOS Full-Scale** (Phase F, AME2020) | ✅ Complete | 9/9 pass (L1 Pareto, L2 GPU 2042 nuclei, L3 deformed) |
 | **BarraCuda MD Pipeline** (6 ops) | ✅ Complete | 12/12 pass (YukawaF64, VV, Berendsen, KE — 0.000% drift) |
-| **BarraCuda HFB Pipeline** (3 ops) | ✅ Complete | 14/14 pass (BCS GPU 6.2e-11, Eigh 2.4e-12) |
+| **BarraCuda HFB Pipeline** (3 ops) | ✅ Complete | 16/16 pass (BCS GPU 6.2e-11, Eigh 2.4e-12, single-dispatch) |
 | **Stanton-Murillo Transport** (Paper 5) | ✅ Complete | 13/13 pass (D* Sarkas-calibrated, MSD≈VACF, Green-Kubo η*/λ*) |
+| **GPU-Only Transport Pipeline** | ✅ Complete | Green-Kubo D*/η*/λ* entirely on GPU, ~493s |
 | **HotQCD EOS Tables** (Paper 7) | ✅ Complete | Thermodynamic consistency, asymptotic freedom validated |
 | **Pure Gauge SU(3)** (Paper 8) | ✅ Complete | 12/12 pass (HMC, Dirac CG, plaquette physics) |
 | **Screened Coulomb** (Paper 6) | ✅ Complete | 23/23 pass (Sturm bisection, Python parity Δ≈10⁻¹², critical screening) |
@@ -57,7 +58,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **ToadStool Rewire v2** | ✅ Complete | WgslOptimizer + GpuDriverProfile wired into all shader compilation |
 | **ToadStool Rewire v3** | ✅ Complete | CellListGpu fixed, Complex64+SU(3)+plaquette+HMC+Higgs GPU shaders, **FFT f64** — Tier 3 lattice QCD unblocked |
 | **ToadStool Rewire v4** | ✅ Complete | Spectral module fully leaning on upstream (Sessions 25-31h absorbed). 41 KB local code deleted, `CsrMatrix` alias retained. BatchIprGpu now available |
-| **ToadStool Session 39 Catch-Up** | ✅ Reviewed | S31d: Dirac+CG GPU absorbed. S36-37: HFB shaders (10) + ESN weights absorbed. S38-39: zero clippy, 3847+ tests. Remaining: pseudofermion HMC + loop_unroller u32 fix |
+| **ToadStool Session 42+ Catch-Up** | ✅ Reviewed | S42+: 612 shaders. Dirac+CG GPU absorbed. HFB shaders (10) + ESN weights absorbed. loop_unroller fixed, catch_unwind removed. Remaining: pseudofermion HMC |
 | **NPU Quantization** (metalForge) | ✅ Complete | 6/6 pass (f32/int8/int4/act4 parity, sparsity, monotonic) |
 | **NPU Beyond-SDK** (metalForge) | ✅ Complete | 29/29 pass (13 HW + 16 Rust math: channels, merge, batch, width, multi-out, mutation, determinism) |
 | **NPU Physics Pipeline** (metalForge) | ✅ Complete | 20/20 pass (10 HW pipeline + 10 Rust math: MD→ESN→NPU→D*,η*,λ*) |
@@ -78,7 +79,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **NPU HW Quantization** | ✅ Complete | 4/4 on AKD1000: f32/int8/int4/act4 cascade, 685μs/inference |
 | **NPU Lattice Phase** | ✅ 7/8 | β_c=5.715 on AKD1000, ESN 100% CPU, int4 NPU 60% (marginal as expected) |
 | **Titan V NVK** | ✅ Complete | NVK built from Mesa 25.1.5. `cpu_gpu_parity` 6/6, `stanton_murillo` 40/40, `bench_gpu_fp64` pass |
-| **TOTAL** | **34/34 Rust validation suites** | 616 unit tests (609 passing + 1 env-flaky + 6 GPU/heavy-ignored; spectral tests upstream), + 34/35 NPU HW checks, 16 determinism tests, 6 upstream bugs found. Both GPUs validated |
+| **TOTAL** | **34/34 Rust validation suites** | 619 unit tests (612 passing + 1 env-flaky + 6 GPU/heavy-ignored; spectral tests upstream), + 34/35 NPU HW checks, 16 determinism tests, 6 upstream bugs found. Both GPUs validated |
 
 Papers 5, 7, 8, and 10 from the review queue are complete. Paper 5 transport fits
 (Daligault 2012) were recalibrated against 12 Sarkas Green-Kubo D* values (Feb 2026)
@@ -338,14 +339,14 @@ makes the upstream library richer and hotSpring leaner.
 - HFB shader suite — potentials + density + BCS bisection (14+GPU+6 checks, Tier 2)
 - NPU substrate discovery — `metalForge/forge/src/probe.rs` (local evolution)
 
-**Already leaning on upstream** (v0.6.4):
+**Already leaning on upstream** (v0.6.7):
 
 | Module | Upstream | Status |
 |--------|----------|--------|
 | `spectral/` | `barracuda::spectral::*` | **✅ Leaning** — 41 KB local deleted, re-exports + `CsrMatrix` alias |
 | `md/celllist.rs` | `barracuda::ops::md::CellListGpu` | **✅ Leaning** — local `GpuCellList` deleted |
 
-**Absorption-ready inventory** (v0.6.4):
+**Absorption-ready inventory** (v0.6.7):
 
 | Module | Type | WGSL Shader | Status |
 |--------|------|------------|--------|
@@ -358,12 +359,12 @@ makes the upstream library richer and hotSpring leaner.
 
 ---
 
-## BarraCuda Crate (v0.6.4)
+## BarraCuda Crate (v0.6.7)
 
 The `barracuda/` directory is a standalone Rust crate providing the validation
 environment, physics implementations, and GPU compute. Key architectural properties:
 
-- **616 unit tests** (609 passing + 1 env-flaky + 6 GPU/heavy-ignored; spectral tests upstream in barracuda), **34 validation suites** (34/34 pass),
+- **619 unit tests** (612 passing + 1 env-flaky + 6 GPU/heavy-ignored; spectral tests upstream in barracuda), **34 validation suites** (34/34 pass),
   **24 integration tests** (3 suites: physics, data, transport),
   **16 determinism tests** (rerun-identical for all stochastic algorithms). Includes
   lattice QCD (complex f64, SU(3), Wilson action, HMC, Dirac CG, pseudofermion HMC),
@@ -372,7 +373,7 @@ environment, physics implementations, and GPU compute. Key architectural propert
   and NPU beyond-SDK hardware capability validation. Test coverage: **74.9% region /
   83.8% function** (spectral tests upstream in barracuda; GPU modules require hardware
   for higher coverage). Measured with `cargo-llvm-cov`.
-- **AGPL-3.0 only** — all 106 active `.rs` files and all 34 `.wgsl` shaders have
+- **AGPL-3.0 only** — all 135 active `.rs` files and all 43 `.wgsl` shaders have
   `SPDX-License-Identifier: AGPL-3.0-only` on line 1.
 - **Provenance** — centralized `BaselineProvenance` records trace hardcoded
   validation values to their Python origins (script path, git commit, date,
@@ -394,7 +395,7 @@ environment, physics implementations, and GPU compute. Key architectural propert
   pipeline, NPU quantization, and NPU beyond-SDK hardware capabilities.
   Zero inline magic numbers — all validation binaries and solver loops wired to `tolerances::*`.
 - **ValidationHarness** — structured pass/fail tracking with exit code 0/1.
-  36 of 52 binaries use it (validation targets). Remaining 16 are optimization
+  36 of 55 binaries use it (validation targets). Remaining 19 are optimization
   explorers, benchmarks, and diagnostics.
 - **Shared data loading** — `data::EosContext` and `data::load_eos_context()`
   eliminate duplicated path construction across all nuclear EOS binaries.
@@ -429,7 +430,7 @@ environment, physics implementations, and GPU compute. Key architectural propert
 
 ```bash
 cd barracuda
-cargo test               # 616 unit + 24 integration + 19 forge tests, 6 GPU/heavy-ignored (< 60 seconds; spectral tests upstream)
+cargo test               # 619 unit + 24 integration + 19 forge tests, 6 GPU/heavy-ignored (~702.7s; spectral tests upstream)
 cargo clippy --all-targets  # Zero warnings (pedantic + nursery via Cargo.toml workspace lints)
 cargo doc --no-deps      # Full API documentation — 0 warnings
 cargo run --release --bin validate_all  # 34/34 suites pass
@@ -494,7 +495,7 @@ Upstream repos are pinned to specific versions and automatically patched:
 hotSpring/
 ├── README.md                           # This file
 ├── PHYSICS.md                          # Complete physics documentation (equations + references)
-├── CONTROL_EXPERIMENT_STATUS.md        # Comprehensive status + results (195/195)
+├── CONTROL_EXPERIMENT_STATUS.md        # Comprehensive status + results (197/197)
 ├── NUCLEAR_EOS_STRATEGY.md             # Nuclear EOS Phase A→B strategy
 ├── wateringHole/handoffs/              # 6 active + 22 archived cross-project handoffs (fossil record)
 ├── LICENSE                             # AGPL-3.0
@@ -507,7 +508,7 @@ hotSpring/
 │   ├── CONTROL_EXPERIMENT_SUMMARY.md  # Phase A quick reference
 │   └── METHODOLOGY.md                # Two-phase validation protocol
 │
-├── barracuda/                          # BarraCuda Rust crate — v0.6.4 (616 unit + 24 integration tests, 34 suites)
+├── barracuda/                          # BarraCuda Rust crate — v0.6.7 (619 unit + 24 integration tests, 34 suites)
 │   ├── Cargo.toml                     # Dependencies (requires ecoPrimals/phase1/toadstool)
 │   ├── CHANGELOG.md                   # Version history — baselines, tolerances, evolution
 │   ├── EVOLUTION_READINESS.md         # Rust module → GPU promotion tier + absorption status
@@ -522,7 +523,7 @@ hotSpring/
 │       ├── data.rs                    # AME2020 data + Skyrme bounds + EosContext + chi2_per_datum
 │       ├── prescreen.rs               # NMP cascade filter (algebraic → L1 proxy → classifier)
 │       ├── spectral/                 # Spectral theory — re-exports from upstream barracuda::spectral
-│       │   └── mod.rs               # pub use barracuda::spectral::* + CsrMatrix alias (v0.6.4 lean)
+│       │   └── mod.rs               # pub use barracuda::spectral::* + CsrMatrix alias (v0.6.7 lean)
 │       ├── bench/                      # Benchmark harness — mod, hardware, power, report (RAPL, nvidia-smi, JSON)
 │       ├── gpu/                       # GPU FP64 device wrapper (adapter, buffers, dispatch, telemetry)
 │       │
@@ -578,11 +579,11 @@ hotSpring/
 │   │   ├── integration_data.rs        # AME2020 data loading + chi2 (8 tests)
 │   │   └── integration_transport.rs   # ESN + Daligault fits (5 tests)
 │   │
-│       └── bin/                       # 52 binaries (exit 0 = pass, 1 = fail)
+│       └── bin/                       # 55 binaries (exit 0 = pass, 1 = fail)
 │           ├── validate_all.rs        # Meta-validator: runs all 34 validation suites
 │           ├── validate_nuclear_eos.rs # L1 SEMF + L2 HFB + NMP validation harness
 │           ├── validate_barracuda_pipeline.rs # Full MD pipeline (12/12 checks)
-│           ├── validate_barracuda_hfb.rs # BCS + eigensolve pipeline (14/14 checks)
+│           ├── validate_barracuda_hfb.rs # BCS + eigensolve pipeline (16/16 checks)
 │           ├── validate_cpu_gpu_parity.rs # CPU vs GPU numerical parity
 │           ├── validate_md.rs         # CPU MD reference validation
 │           ├── validate_nak_eigensolve.rs # NAK GPU eigensolve validation
@@ -681,7 +682,8 @@ hotSpring/
 │   ├── 007_CPU_GPU_SCALING_BENCHMARK.md # CPU vs GPU scaling: crossover analysis
 │   ├── 008_PARITY_BENCHMARK.md       # Python vs Rust CPU vs Rust GPU parity benchmark (32/32 suites)
 │   ├── 008_PARITY_BENCHMARK.sh       # Automated benchmark runner
-│   └── 009_PRODUCTION_LATTICE_QCD.md  # Production QCD: quenched β-scan + dynamical fermion HMC
+│   ├── 009_PRODUCTION_LATTICE_QCD.md  # Production QCD: quenched β-scan + dynamical fermion HMC
+│   └── 010_BARRACUDA_CPU_VS_GPU.md   # BarraCuda CPU vs GPU systematic parity validation
 │
 ├── metalForge/                         # Hardware characterization & cross-substrate dispatch
 │   ├── README.md                      # Philosophy + hardware inventory + forge docs
@@ -815,7 +817,7 @@ These are **silent failures** — wrong results, no error messages. This fragili
 | Document | Purpose |
 |----------|---------|
 | [`PHYSICS.md`](PHYSICS.md) | Complete physics documentation — every equation, constant, approximation with numbered references |
-| [`CONTROL_EXPERIMENT_STATUS.md`](CONTROL_EXPERIMENT_STATUS.md) | Full status with numbers, 195/195 checks, evolution history |
+| [`CONTROL_EXPERIMENT_STATUS.md`](CONTROL_EXPERIMENT_STATUS.md) | Full status with numbers, 197/197 checks, evolution history |
 | [`NUCLEAR_EOS_STRATEGY.md`](NUCLEAR_EOS_STRATEGY.md) | Strategic plan: Python control → BarraCuda proof |
 | [`barracuda/CHANGELOG.md`](barracuda/CHANGELOG.md) | Crate version history — baselines, tolerance changes, evolution |
 | [`barracuda/EVOLUTION_READINESS.md`](barracuda/EVOLUTION_READINESS.md) | Rust module → WGSL shader → GPU promotion tier mapping |
@@ -835,6 +837,7 @@ These are **silent failures** — wrong results, no error messages. This fragili
 | [`experiments/007_CPU_GPU_SCALING_BENCHMARK.md`](experiments/007_CPU_GPU_SCALING_BENCHMARK.md) | CPU vs GPU scaling: crossover analysis, streaming dispatch |
 | [`experiments/008_PARITY_BENCHMARK.md`](experiments/008_PARITY_BENCHMARK.md) | Python → Rust CPU → Rust GPU parity benchmark (32/32 suites) |
 | [`experiments/009_PRODUCTION_LATTICE_QCD.md`](experiments/009_PRODUCTION_LATTICE_QCD.md) | Production lattice QCD: quenched β-scan + dynamical fermion HMC (Paper 10) |
+| [`experiments/010_BARRACUDA_CPU_VS_GPU.md`](experiments/010_BARRACUDA_CPU_VS_GPU.md) | BarraCuda CPU vs GPU systematic parity validation |
 | [`metalForge/README.md`](metalForge/README.md) | Hardware characterization — philosophy, inventory, directory |
 | [`metalForge/npu/akida/BEYOND_SDK.md`](metalForge/npu/akida/BEYOND_SDK.md) | **10 overturned SDK assumptions** — the discovery document |
 | [`metalForge/npu/akida/HARDWARE.md`](metalForge/npu/akida/HARDWARE.md) | AKD1000 deep-dive: architecture, compute model, PCIe BAR mapping |

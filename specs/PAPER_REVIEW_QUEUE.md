@@ -17,7 +17,7 @@ pipeline on harder physics — toadStool evolves the GPU acceleration in paralle
 | 2 | TTM (laser-plasma) | ✅ `ttm/` (3 species) | — (ODE solver, not ported) | — | — |
 | 3 | Diaw surrogate learning | ✅ `surrogate/` (9 functions) | ✅ `nuclear_eos_l1_ref` (surrogate path) | ✅ `nuclear_eos_gpu` (GPU RBF) | — |
 | 4 | Nuclear EOS (SEMF→HFB) | ✅ `surrogate/nuclear-eos/` | ✅ `validate_nuclear_eos` (195/195) | ✅ `nuclear_eos_l2_gpu` + `l3_gpu` | — |
-| 5 | Stanton-Murillo transport | ✅ `sarkas/../transport-study/` | ✅ `validate_stanton_murillo` (13/13) | ✅ `validate_transport` (CPU/GPU parity) | ✅ NPU: ESN transport prediction |
+| 5 | Stanton-Murillo transport | ✅ `sarkas/../transport-study/` | ✅ `validate_stanton_murillo` (13/13) | ✅ `validate_transport` (CPU/GPU parity); `validate_transport_gpu_only` (~493s) | ✅ NPU: ESN transport prediction |
 | 6 | Murillo-Weisheit screening | ✅ `screened_coulomb/` | ✅ `validate_screened_coulomb` (23/23) | — (CPU-only eigensolve) | — |
 | 7 | HotQCD EOS tables | — (data only, no sim) | ✅ `validate_hotqcd_eos` | — (data validation) | — |
 | 8 | Pure gauge SU(3) | ✅ `lattice_qcd/quenched_beta_scan.py` | ✅ `validate_pure_gauge` (12/12) | ✅ GPU plaquette + HMC force shaders | ✅ NPU: phase classification |
@@ -110,7 +110,7 @@ to consumer GPU (RTX 4070 or any Vulkan SHADER_F64 device).
 | Transport CPU/GPU | `validate_transport` | pass | — |
 | NAK eigensolve | `validate_nak_eigensolve` | pass | — |
 | PPPM Coulomb | `validate_pppm` | pass | — |
-| HFB pipeline | `validate_barracuda_hfb` | 14/14 | — |
+| HFB pipeline | `validate_barracuda_hfb` | 16/16 | Single-dispatch (v0.6.7) |
 | MD pipeline | `validate_barracuda_pipeline` | 12/12 | — |
 
 **Status**: 15/22 papers have GPU validation paths. GPU CG solver achieves

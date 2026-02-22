@@ -1,6 +1,6 @@
 # hotSpring Control Experiment — Status Report
 
-**Date**: 2026-02-22 (L1+L2 complete, GPU MD Phase C+D+E+F complete — paper-parity long run 9/9, BarraCuda pipeline 26/26, crate v0.6.4)  
+**Date**: 2026-02-22 (L1+L2 complete, GPU MD Phase C+D+E+F complete — paper-parity long run 9/9, BarraCuda pipeline 28/28, crate v0.6.7)  
 **Gate**: Eastgate (i9-12900K, 32 GB DDR5, RTX 4070 12GB, Pop!_OS 22.04)  
 **Sarkas**: v1.0.0 (pinned — see §Roadblocks)  
 **Python**: 3.9 (sarkas), 3.10 (ttm, surrogate) via micromamba  
@@ -933,10 +933,10 @@ electricity per experiment. The exploration space is now effectively unlimited.
 | **Phase F Total** | **9** | **9** | **✅ FULL-SCALE NUCLEAR EOS CHARACTERIZATION** |
 | | | | |
 | **BarraCuda MD pipeline (6 GPU ops)** | **12** | **12** | **✅ YukawaF64+VV+Berendsen+KE: 0.000% drift** |
-| **BarraCuda HFB pipeline (3 GPU ops)** | **14** | **14** | **✅ BCS GPU 6.2e-11, Eigh 2.4e-12, degeneracy** |
+| **BarraCuda HFB pipeline (3 GPU ops)** | **16** | **16** | **✅ BCS GPU 6.2e-11, Eigh 2.4e-12, single-dispatch** |
 | **Pipeline Validation Total** | **26** | **26** | **✅ BARRACUDA OPS END-TO-END VALIDATED** |
 | | | | |
-| **Grand Total** | **195** | **195** | **✅ ALL PHASES + PIPELINE VALIDATION** |
+| **Grand Total** | **197** | **197** | **✅ ALL PHASES + PIPELINE VALIDATION** |
 
 **Data archive**: `control/comprehensive_control_results.json`  
 **Nuclear EOS results**: `control/surrogate/nuclear-eos/results/nuclear_eos_surrogate_L{1,2}.json`  
@@ -956,7 +956,7 @@ silent data corruption, and the GPU kernels don't depend on fragile JIT compilat
 chains. The profiling data (97.2% in one function) shows this isn't a distributed
 systems problem — it's a single hot kernel that maps directly to a GPU dispatch.
 
-The **195/195 quantitative checks** (86 Phase A+B, 45 Phase C, 16 Phase D, 13 Phase E, 9 Phase F, 26 pipeline) now
+The **197/197 quantitative checks** (86 Phase A+B, 45 Phase C, 16 Phase D, 13 Phase E, 9 Phase F, 28 pipeline) now
 provide concrete acceptance criteria across all phases: every observable, every
 physical trend, every transport coefficient has a validated control value. Phase C
 demonstrates that full Yukawa OCP molecular dynamics runs on a consumer GPU —
@@ -1042,11 +1042,11 @@ surpassing it at larger basis sizes.
 - [`whitePaper/BARRACUDA_SCIENCE_VALIDATION.md`](whitePaper/BARRACUDA_SCIENCE_VALIDATION.md) — Phase B technical results
 - [`whitePaper/CONTROL_EXPERIMENT_SUMMARY.md`](whitePaper/CONTROL_EXPERIMENT_SUMMARY.md) — Phase A quick reference
 - [`benchmarks/PROTOCOL.md`](benchmarks/PROTOCOL.md) — Benchmark protocol (time + energy measurement)
-- [`barracuda/CHANGELOG.md`](barracuda/CHANGELOG.md) — Crate version history (v0.6.4)
+- [`barracuda/CHANGELOG.md`](barracuda/CHANGELOG.md) — Crate version history (v0.6.7)
 - [`barracuda/EVOLUTION_READINESS.md`](barracuda/EVOLUTION_READINESS.md) — Rust → GPU promotion tiers and blockers
 - [`experiments/001_N_SCALING_GPU.md`](experiments/001_N_SCALING_GPU.md) — N-scaling experiment journal (Phase D)
 - [`experiments/002_CELLLIST_FORCE_DIAGNOSTIC.md`](experiments/002_CELLLIST_FORCE_DIAGNOSTIC.md) — Cell-list bug diagnostic (Phase D)
 - [`experiments/003_RTX4070_CAPABILITY_PROFILE.md`](experiments/003_RTX4070_CAPABILITY_PROFILE.md) — RTX 4070 capability profile (Phase E)
 - [`experiments/004_GPU_DISPATCH_OVERHEAD_L3.md`](experiments/004_GPU_DISPATCH_OVERHEAD_L3.md) — Dispatch overhead profiling (Phase F)
 - [`experiments/005_L2_MEGABATCH_COMPLEXITY_BOUNDARY.md`](experiments/005_L2_MEGABATCH_COMPLEXITY_BOUNDARY.md) — L2 mega-batch complexity boundary
-- [`experiments/005_L2_MEGABATCH_COMPLEXITY_BOUNDARY.md`](experiments/005_L2_MEGABATCH_COMPLEXITY_BOUNDARY.md) — Mega-batch profiling + complexity boundary (Phase F)
+- [`experiments/010_BARRACUDA_CPU_VS_GPU.md`](experiments/010_BARRACUDA_CPU_VS_GPU.md) — BarraCuda CPU vs GPU systematic parity validation

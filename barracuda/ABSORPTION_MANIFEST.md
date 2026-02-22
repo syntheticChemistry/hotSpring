@@ -1,7 +1,7 @@
 # hotSpring → BarraCuda/ToadStool Absorption Manifest
 
 **Date:** February 22, 2026
-**Version:** v0.6.4
+**Version:** v0.6.7
 **License:** AGPL-3.0-only
 
 ---
@@ -49,6 +49,7 @@ These were written by hotSpring and absorbed by toadstool/barracuda:
 | ReduceScalarPipeline | S12 | `barracuda::pipeline` | Leaning on upstream |
 | GpuDriverProfile | S15 | `barracuda::device::capabilities` | Leaning on upstream |
 | WgslOptimizer | S15 | `barracuda::shaders` | Leaning on upstream |
+| Staggered Dirac + CG | S31d | `ops/lattice/dirac.rs`, `ops/lattice/cg.rs` | **Fully absorbed upstream** — Dirac 8/8, CG 9/9 |
 
 ---
 
@@ -62,8 +63,8 @@ CPU reference implementations, and validation suites.
 
 | Module | Location | WGSL | Tests | What it does |
 |--------|----------|------|-------|--------------|
-| Staggered Dirac | `lattice/dirac.rs` | `WGSL_DIRAC_STAGGERED_F64` | 8/8 | SU(3) staggered fermion operator |
-| CG Solver | `lattice/cg.rs` | `WGSL_COMPLEX_DOT_RE_F64`, `WGSL_AXPY_F64`, `WGSL_XPAY_F64` | 9/9 | Conjugate gradient for D†D |
+| ~~Staggered Dirac~~ | ~~`lattice/dirac.rs`~~ | — | — | ✅ **Absorbed** (S31d) — `ops/lattice/dirac.rs` |
+| ~~CG Solver~~ | ~~`lattice/cg.rs`~~ | — | — | ✅ **Absorbed** (S31d) — `ops/lattice/cg.rs` |
 | ESN Reservoir | `md/reservoir.rs` | `esn_reservoir_update.wgsl`, `esn_readout.wgsl` | 16+ | Echo State Network for transport/phase prediction |
 
 ### Tier 2 — Medium Priority (CPU → upstream library)
@@ -83,7 +84,7 @@ CPU reference implementations, and validation suites.
 | Deformed HFB | `physics/hfb_deformed/` | Axially-deformed nuclear structure (refactored module dir) |
 | HFB GPU resident | `physics/hfb_gpu_resident/` | Full GPU-resident SCF pipeline (refactored module dir) |
 | Stanton-Murillo fits | `md/transport.rs` | Analytical transport coefficient models |
-| Tolerance/config pattern | `tolerances/` | 154 centralized constants — reusable module pattern for upstream |
+| Tolerance/config pattern | `tolerances/` | 172 centralized constants — reusable module pattern for upstream |
 
 ---
 
@@ -123,10 +124,8 @@ All WGSL shaders in hotSpring, organized by absorption status:
 
 ### Ready for Absorption
 
-- `dirac_staggered_f64.wgsl` (in `lattice/shaders/`)
-- `complex_dot_re_f64.wgsl` (in `lattice/shaders/`)
-- `axpy_f64.wgsl` (in `lattice/shaders/`)
-- `xpay_f64.wgsl` (in `lattice/shaders/`)
+- ~~`dirac_staggered_f64.wgsl`~~ → **Absorbed** (S31d) — `shaders/lattice/dirac_staggered_f64.wgsl`
+- ~~`complex_dot_re_f64.wgsl`, `axpy_f64.wgsl`, `xpay_f64.wgsl`~~ → **Absorbed** (S31d) — `shaders/lattice/cg_kernels_f64.wgsl`
 - `esn_reservoir_update.wgsl` (in `md/shaders/`)
 - `esn_readout.wgsl` (in `md/shaders/`)
 
@@ -202,4 +201,4 @@ For each absorption candidate:
 2. Create handoff doc in `wateringHole/handoffs/`
 3. Include: Rust source, WGSL template, binding layout, dispatch geometry, test suite
 4. After absorption: rewire hotSpring to `use barracuda::ops::*`, delete local code
-5. Run `validate_all` to confirm 33/33 suites still pass
+5. Run `validate_all` to confirm 34/34 suites still pass

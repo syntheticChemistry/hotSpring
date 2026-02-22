@@ -139,16 +139,16 @@ All components implemented and validated (13/13 checks pass):
 ## ToadStool Handoff Notes
 
 **Active handoffs:**
-- `wateringHole/handoffs/HOTSPRING_V064_TOADSTOOL_HANDOFF_FEB22_2026.md` — **comprehensive** v0.6.4 evolution handoff (absorption targets, upstream adoption candidates, cross-spring insights)
-- `wateringHole/handoffs/HOTSPRING_TOADSTOOL_REWIRE_V4_FEB22_2026.md` — spectral lean details
+- `wateringHole/handoffs/HOTSPRING_V067_TOADSTOOL_SESSION42_HANDOFF_FEB22_2026.md` — **latest** v0.6.7 evolution handoff (ToadStool Session 42+, loop_unroller fix)
+- `wateringHole/handoffs/HOTSPRING_V066_GPU_TRANSPORT_HANDOFF_FEB22_2026.md` — GPU transport
+- `wateringHole/handoffs/HOTSPRING_V064_DYNAMICAL_QCD_HANDOFF_FEB22_2026.md` — dynamical QCD
 - `wateringHole/handoffs/CROSS_SPRING_EVOLUTION_FEB22_2026.md` — full cross-spring shader evolution map
-- `wateringHole/handoffs/HOTSPRING_V063_EVOLUTION_HANDOFF_FEB22_2026.md` — v0.6.3 WGSL extraction, coverage push
 
 (22 prior handoffs archived to `wateringHole/handoffs/archive/`)
 
 ### Key Facts for ToadStool Team
 
-- 22 papers reproduced, 616 unit + 24 integration tests, 34/34 validation suites, ~$0.20 total compute cost (spectral tests upstream)
+- 22 papers reproduced, 619 unit + 24 integration tests, 34/34 validation suites, ~$0.20 total compute cost (spectral tests upstream)
 - RTX 4070 sustains f64 MD at 149-259 steps/s; Titan V (NVK) produces identical physics
 - Energy drift 0.000% over 80k steps sets the precision bar for any new integrator
 - `ReduceScalarPipeline` is the most-used upstream primitive after `WgpuDevice`
@@ -167,6 +167,7 @@ All components implemented and validated (13/13 checks pass):
 | S31d | **Dirac + CG lattice GPU** (`ops/lattice/dirac.rs`, `ops/lattice/cg.rs`), `SubstrateCapability` model | Confirmed shader parity — hotSpring local WGSL matches upstream |
 | S36-37 | **5 deformed HFB shaders** (`shaders/science/hfb_deformed/`), **5 spherical HFB shaders** (`shaders/science/hfb/`), ESN `export_weights()` + `import_weights()`, Yukawa cell-list GPU dispatch, trig precision fixes (TS-003, TS-001) | ESN GPU→NPU deploy path now unblocked upstream |
 | S38-39 | Zero clippy warnings, blind `unwrap()` elimination, env-test race fix, `NetworkLoadBalancer`/`NetworkDistributor` tests (3,847+ tests) | No hotSpring changes needed; toadstool hardening |
+| S40-42 | **loop_unroller u32 fix** (hotSpring applied to toadstool), 612 shaders, `validate_barracuda_evolution` | v0.6.7 — 619 unit tests, 34/34 suites, 55 binaries, 172 tolerances |
 
 ### ToadStool v0.5.16 Absorption Review (Feb 20, 2026)
 
@@ -203,4 +204,4 @@ and added `n_groups` to scan params. hotSpring's local `GpuCellList` is now
 16. **Absorb pseudofermion HMC** — `lattice/pseudofermion.rs`: heat bath, fermion force (gauge link fix), combined leapfrog (7/7 checks, Tier 1) — **STILL PENDING**
 17. ~~**Absorb HFB shader suite**~~ — ✅ **DONE** (Session 36-37: 5 spherical HFB shaders in `shaders/science/hfb/`)
 18. ~~**Absorb deformed HFB pipeline**~~ — ✅ **DONE** (Session 36-37: 5 deformed HFB shaders in `shaders/science/hfb_deformed/`)
-19. **Fix loop_unroller u32 bug** — `substitute_loop_var()` in `loop_unroller.rs:310` emits bare `iter.to_string()` (e.g. `"0"`) instead of `"{iter}u"`. WGSL type-infers bare ints as `i32`, causing shader validation errors when the substituted variable is passed to `u32`-typed function parameters (e.g. `idx2d(k, j)` → `idx2d(0, j)` instead of `idx2d(0u, j)`). This causes the `BatchedEighGpu` single-dispatch panic. **P1 — single-line fix.**
+19. ~~**Fix loop_unroller u32 bug**~~ — ✅ **DONE** (v0.6.7): hotSpring applied the fix to toadstool — `substitute_loop_var()` now emits `{iter}u` instead of bare `{iter}`. `BatchedEighGpu` single-dispatch now works.

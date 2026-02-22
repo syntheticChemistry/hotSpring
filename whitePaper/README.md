@@ -259,7 +259,8 @@ This proves the physics is substrate-portable: train on GPU → deploy on NPU.
 ## Evolution Architecture: Biome → Fungus → Absorption
 
 hotSpring is a biome. ToadStool/barracuda is the fungus — present in every
-biome, evolved independently by each. The pattern:
+biome, evolved independently by each. ToadStool at Session 42+ with 612 shaders
+(Jacobi fix, f64 compile fixes). The pattern:
 
 ```
 hotSpring writes local → validates physics → hands off to toadstool → leans on upstream → deletes local
@@ -294,13 +295,11 @@ hotSpring writes local → validates physics → hands off to toadstool → lean
 | Screened Coulomb eigensolve | CPU (Sturm bisection) | 23/23 | Tier 2 |
 | Tolerance/config module | Rust pattern (no WGSL) | 172 constants | Tier 2 (pattern) |
 
-### Known upstream bug (hotSpring workaround active)
+### Loop unroller u32 bug — FIXED
 
-The loop unroller in `loop_unroller.rs` has a u32 literal suffix bug: `substitute_loop_var`
-emits bare ints (`"0"`) instead of `u32` literals (`"0u"`). This causes `BatchedEighGpu`
-single-dispatch shader validation to panic. hotSpring works around this with
-`std::panic::catch_unwind`. Fix is a single-line change: `format!("{iter}u")`.
-See `HOTSPRING_V065_TOADSTOOL_SESSION39_CATCHUP_FEB22_2026.md` for details.
+The loop unroller in `loop_unroller.rs` had a u32 literal suffix bug: `substitute_loop_var`
+emitted bare ints (`"0"`) instead of `u32` literals (`"0u"`). This caused `BatchedEighGpu`
+single-dispatch shader validation to panic. **Fixed** upstream; `catch_unwind` workaround removed.
 
 ### Cross-spring shader evolution
 
@@ -324,7 +323,7 @@ capability: f64 compute → GPU, quantized inference → NPU, validation → CPU
 
 ## Relation to Other Documents
 
-- **`whitePaper/barraCUDA/`** (main repo, gated): The BarraCuda evolution story — how scientific workloads drove the library's development. Sections 04 and 04a reference hotSpring data.
+- **`whitePaper/barraCuda/`** (main repo, gated): The BarraCuda evolution story — how scientific workloads drove the library's development. Sections 04 and 04a reference hotSpring data.
 - **`whitePaper/gen3/`** (main repo, gated): The constrained evolution thesis — hotSpring provides quantitative evidence for convergent evolution between ML and physics math.
 - **`wateringHole/handoffs/`** (internal): Detailed technical handoffs to the ToadStool/BarraCuda team with code locations, bug fixes, and GPU roadmap.
 - **This directory** (`hotSpring/whitePaper/`): Public-facing study focused on the science replication itself.
@@ -370,14 +369,16 @@ No institutional access required. No Code Ocean account. No Fortran compiler. AG
 
 | Metric | Value |
 |--------|-------|
-| Crate | v0.6.4 |
-| Unit tests | **609** pass + 1 env-flaky, 6 GPU/heavy-ignored (spectral tests upstream in barracuda) |
+| Crate | v0.6.7 |
+| Unit tests | **619** pass + 1 env-flaky, 6 GPU/heavy-ignored (spectral tests upstream in barracuda) |
 | Integration tests | **24** pass (3 suites: physics, data, transport) |
+| WGSL shaders | **43** |
+| Rust files | **135** |
 | Coverage | 74.9% region / 83.8% function |
 | Validation suites | **34/34** pass |
 | metalForge forge tests | **19** pass |
 | Python control scripts | **34** (Sarkas, surrogate, TTM, NPU, reservoir, lattice, spectral theory) |
-| Rust validation binaries | **52** (physics, MD, lattice, NPU, transport, spectral 1D/2D/3D, Lanczos, Hofstadter, dynamical QCD) |
+| Rust validation binaries | **55** (physics, MD, lattice, NPU, transport, spectral 1D/2D/3D, Lanczos, Hofstadter, dynamical QCD) |
 | `expect()`/`unwrap()` in library | **0** (crate-level deny) |
 | Clippy warnings | **0** (pedantic + nursery, workspace-wide) |
 | Doc warnings | **0** |
@@ -400,4 +401,5 @@ Native FP64 GPU compute confirmed on RTX 4070 and Titan V via `wgpu::Features::S
 - **Multi-GPU**: RTX 4070 (nvidia proprietary) and Titan V (NVK/nouveau open-source) both produce identical physics to 1e-15
 - **Phase C validation**: Full Yukawa MD (9 cases, N=2000, 80k steps) runs at 149-259 steps/s sustained with 0.000% energy drift
 - **Phase E validation**: Full paper-parity (9 cases, N=10,000, 80k steps) completes in 3.66 hours with 0.000-0.002% drift. Cell-list 4.1× faster than all-pairs.
+- **GPU-only transport pipeline**: `validate_transport_gpu_only` runs full Green-Kubo D*/η*/λ* pipeline on GPU with zero readback (~493s).
 - **Unidirectional pipeline**: GPU sum-reduction eliminates per-particle readback — 10,000× bandwidth reduction at N=10,000

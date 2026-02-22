@@ -21,7 +21,7 @@
 | Phase I (Heterogeneous) | 68/68 (NPU quantization, beyond-SDK, pipeline, lattice NPU, hetero monitor) |
 | ToadStool Rewire v3 | CellListGpu fixed, lattice GPU shaders, **FFT f64** — Tier 3 unblocked |
 | ToadStool Rewire v4 | Spectral module fully leaning on upstream (41 KB deleted), `CsrMatrix` alias, `BatchIprGpu` available |
-| ToadStool S39 Catch-Up | Sessions 31d-39 reviewed: Dirac+CG+HFB+ESN absorbed. Remaining: pseudofermion HMC + loop_unroller u32 fix |
+| ToadStool S39 Catch-Up | Sessions 31d-39 reviewed: Dirac+CG+HFB+ESN absorbed. loop_unroller u32 fix DONE (v0.6.7). Remaining: pseudofermion HMC |
 | Faculty | Murillo (CMSE, MSU — MSDS professor) |
 | Faculty extension | Bazavov (CMSE + Physics, MSU — master's professor) |
 | Faculty extension | Kachkovskiy (Math, MSU — spectral theory) |

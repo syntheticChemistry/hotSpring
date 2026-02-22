@@ -18,7 +18,7 @@ Python baseline → Rust validation → WGSL template → GPU shader → ToadSto
 | **C** | New | No shader exists; must be written from scratch |
 | **✅** | Absorbed | ToadStool has absorbed this as a first-class barracuda primitive |
 
-## ToadStool Absorption Status (Feb 22, 2026 — Post v0.6.4 Spectral Lean + Rewire)
+## ToadStool Absorption Status (Feb 22, 2026 — Post v0.6.7 Spectral Lean + Rewire)
 
 | hotSpring Module | ToadStool Primitive | Commit | Status |
 |-----------------|--------------------| -------|--------|
