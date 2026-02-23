@@ -82,6 +82,25 @@ impl GpuF64 {
         self.queue().submit(std::iter::once(encoder.finish()));
     }
 
+    /// Encode a compute pass into an existing encoder (no submit).
+    ///
+    /// Use with [`Self::begin_encoder`] to batch many dispatches into a single
+    /// GPU submission, eliminating per-dispatch overhead.
+    pub fn encode_pass(
+        encoder: &mut wgpu::CommandEncoder,
+        pipeline: &wgpu::ComputePipeline,
+        bind_group: &wgpu::BindGroup,
+        workgroups: u32,
+    ) {
+        let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+            label: Some("streaming_pass"),
+            timestamp_writes: None,
+        });
+        pass.set_pipeline(pipeline);
+        pass.set_bind_group(0, bind_group, &[]);
+        pass.dispatch_workgroups(workgroups, 1, 1);
+    }
+
     /// Dispatch a compute pipeline and read back f64 results.
     ///
     /// # Errors

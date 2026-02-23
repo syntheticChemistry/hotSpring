@@ -32,6 +32,7 @@ pub struct BenchReport {
 
 impl BenchReport {
     /// Create a new report with hardware inventory.
+    #[must_use]
     pub fn new(hw: HardwareInventory) -> Self {
         let timestamp = now_iso8601();
         Self {
@@ -291,6 +292,7 @@ impl BenchReport {
 }
 
 /// Read peak resident set size (`VmHWM`) in MB.
+#[must_use]
 pub fn peak_rss_mb() -> f64 {
     let status = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
     for line in status.lines() {
@@ -307,7 +309,7 @@ pub fn peak_rss_mb() -> f64 {
 }
 
 /// Pure-Rust ISO 8601 timestamp.
-pub(crate) fn now_iso8601() -> String {
+pub fn now_iso8601() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
     let secs = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -330,7 +332,7 @@ pub(crate) fn now_iso8601() -> String {
 }
 
 /// Format duration for display.
-pub(crate) fn format_duration(secs: f64) -> String {
+pub fn format_duration(secs: f64) -> String {
     if secs < 0.001 {
         format!("{:.1} us", secs * 1e6)
     } else if secs < 1.0 {
@@ -343,7 +345,7 @@ pub(crate) fn format_duration(secs: f64) -> String {
 }
 
 /// Format per-evaluation time for display.
-pub(crate) fn format_eval_time(us: f64) -> String {
+pub fn format_eval_time(us: f64) -> String {
     if us < 1000.0 {
         format!("{us:.1} us")
     } else if us < 1_000_000.0 {

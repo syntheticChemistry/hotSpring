@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-//! BarraCuda Evolution Validation — CPU Foundation + Substrate Coverage
+//! `BarraCuda` Evolution Validation — CPU Foundation + Substrate Coverage
 //!
 //! Runs representative checks from each physics domain on CPU, establishing
 //! the correctness foundation that GPU validation binaries build upon.
 //!
 //! **Evolution chain**:
-//!   Python Control → BarraCuda CPU (this binary) → WGSL GPU → metalForge
+//!   Python Control → `BarraCuda` CPU (this binary) → WGSL GPU → metalForge
 //!
 //! GPU parity is proven by the individual `validate_gpu_*` binaries.
 //! This binary proves the CPU math is correct across all domains first.
@@ -29,6 +29,7 @@ use hotspring_barracuda::lattice::pseudofermion::{
 };
 use hotspring_barracuda::lattice::wilson::Lattice;
 use hotspring_barracuda::spectral;
+use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
 
 fn main() {
@@ -55,7 +56,7 @@ fn main() {
     harness.finish();
 }
 
-/// [1] Pure gauge SU(3) HMC — thermalization and plaquette.
+/// \[1\] Pure gauge SU(3) HMC — thermalization and plaquette.
 fn check_pure_gauge_hmc(harness: &mut ValidationHarness) {
     println!("[1] Pure Gauge SU(3) HMC — Papers 8-9");
 
@@ -66,6 +67,7 @@ fn check_pure_gauge_hmc(harness: &mut ValidationHarness) {
         n_md_steps: 15,
         dt: 0.05,
         seed: 100,
+        ..Default::default()
     };
 
     let mut accepted = 0;
@@ -81,12 +83,19 @@ fn check_pure_gauge_hmc(harness: &mut ValidationHarness) {
     println!("  Final plaquette: {plaq:.6}");
     println!("  Acceptance: {accepted}/20");
 
-    harness.check_bool("plaquette in physical range (0, 1)", plaq > 0.0 && plaq < 1.0);
-    harness.check_bool("HMC acceptance > 30%", accepted > 6);
+    harness.check_bool(
+        "plaquette in physical range (0, 1)",
+        plaq > tolerances::LATTICE_PLAQUETTE_PHYSICAL_MIN
+            && plaq < tolerances::LATTICE_PLAQUETTE_PHYSICAL_MAX,
+    );
+    harness.check_bool(
+        "HMC acceptance > 30%",
+        accepted > tolerances::EVOLUTION_PURE_GAUGE_MIN_ACCEPTED,
+    );
     println!();
 }
 
-/// [2] Staggered Dirac operator + CG solver on thermalized lattice.
+/// \[2\] Staggered Dirac operator + CG solver on thermalized lattice.
 fn check_dirac_cg(harness: &mut ValidationHarness) {
     println!("[2] Staggered Dirac + CG Solver — Papers 9-12");
 
@@ -97,6 +106,7 @@ fn check_dirac_cg(harness: &mut ValidationHarness) {
         n_md_steps: 15,
         dt: 0.05,
         seed: 200,
+        ..Default::default()
     };
     for _ in 0..10 {
         hmc::hmc_trajectory(&mut lattice, &mut config);
@@ -112,7 +122,14 @@ fn check_dirac_cg(harness: &mut ValidationHarness) {
     println!("  Dirac applied: |src|² = {norm_src:.4}, |D·src|² = {norm_dst:.4}");
 
     let mut x = FermionField::zeros(volume);
-    let cg_result = cg::cg_solve(&lattice, &mut x, &source, mass, 1e-10, 5000);
+    let cg_result = cg::cg_solve(
+        &lattice,
+        &mut x,
+        &source,
+        mass,
+        tolerances::LATTICE_CG_TOLERANCE_STRICT,
+        5000,
+    );
     println!(
         "  CG solve: {} iters, residual {:.2e}, converged: {}",
         cg_result.iterations, cg_result.final_residual, cg_result.converged
@@ -120,11 +137,15 @@ fn check_dirac_cg(harness: &mut ValidationHarness) {
 
     harness.check_bool("Dirac produces non-zero output", norm_dst > 0.0);
     harness.check_bool("CG converges", cg_result.converged);
-    harness.check_upper("CG residual < 1e-8", cg_result.final_residual, 1e-8);
+    harness.check_upper(
+        "CG residual < 1e-8",
+        cg_result.final_residual,
+        tolerances::LATTICE_CG_RESIDUAL_STRICT,
+    );
     println!();
 }
 
-/// [3] Pseudofermion action via dynamical HMC single trajectory.
+/// \[3\] Pseudofermion action via dynamical HMC single trajectory.
 fn check_pseudofermion(harness: &mut ValidationHarness) {
     println!("[3] Pseudofermion HMC — Paper 10");
 
@@ -136,6 +157,7 @@ fn check_pseudofermion(harness: &mut ValidationHarness) {
         n_md_steps: 15,
         dt: 0.05,
         seed: 300,
+        ..Default::default()
     };
     for _ in 0..20 {
         hmc::hmc_trajectory(&mut lattice, &mut qconfig);
@@ -147,11 +169,12 @@ fn check_pseudofermion(harness: &mut ValidationHarness) {
         seed: 42,
         fermion: PseudofermionConfig {
             mass: 2.0,
-            cg_tol: 1e-8,
+            cg_tol: tolerances::DYNAMICAL_CG_TOLERANCE,
             cg_max_iter: 5000,
         },
         beta,
         n_flavors_over_4: 2,
+        ..Default::default()
     };
 
     let result = dynamical_hmc_trajectory(&mut lattice, &mut dyn_config);
@@ -163,18 +186,16 @@ fn check_pseudofermion(harness: &mut ValidationHarness) {
     println!("  Plaquette: {:.6}", result.plaquette);
 
     harness.check_bool("ΔH is finite", result.delta_h.is_finite());
-    harness.check_bool(
-        "fermion CG converges (iters > 0)",
-        result.cg_iterations > 0,
-    );
+    harness.check_bool("fermion CG converges (iters > 0)", result.cg_iterations > 0);
     harness.check_bool(
         "plaquette physical after dynamical HMC",
-        result.plaquette > 0.0 && result.plaquette < 1.0,
+        result.plaquette > tolerances::LATTICE_PLAQUETTE_PHYSICAL_MIN
+            && result.plaquette < tolerances::LATTICE_PLAQUETTE_PHYSICAL_MAX,
     );
     println!();
 }
 
-/// [4] Abelian Higgs model — U(1) gauge + scalar.
+/// \[4\] Abelian Higgs model — U(1) gauge + scalar.
 fn check_abelian_higgs(harness: &mut ValidationHarness) {
     println!("[4] Abelian Higgs — Paper 13");
 
@@ -194,13 +215,22 @@ fn check_abelian_higgs(harness: &mut ValidationHarness) {
     println!("  Cold plaquette: {plaq_cold:.6}");
     println!("  After 50 HMC trajectories: {plaq_hot:.6}");
 
-    harness.check_bool("cold plaquette = 1.0", (plaq_cold - 1.0).abs() < 1e-10);
-    harness.check_bool("thermalized plaquette < 1.0", plaq_hot < 1.0);
-    harness.check_bool("thermalized plaquette > 0", plaq_hot > 0.0);
+    harness.check_bool(
+        "cold plaquette = 1.0",
+        (plaq_cold - 1.0).abs() < tolerances::U1_COLD_PLAQUETTE_ABS,
+    );
+    harness.check_bool(
+        "thermalized plaquette < 1.0",
+        plaq_hot < tolerances::LATTICE_PLAQUETTE_PHYSICAL_MAX,
+    );
+    harness.check_bool(
+        "thermalized plaquette > 0",
+        plaq_hot > tolerances::LATTICE_PLAQUETTE_PHYSICAL_MIN,
+    );
     println!();
 }
 
-/// [5] Spectral theory: 1D Anderson — Sturm eigenvalues + level statistics.
+/// \[5\] Spectral theory: 1D Anderson — Sturm eigenvalues + level statistics.
 fn check_spectral_1d(harness: &mut ValidationHarness) {
     println!("[5] Anderson 1D — Papers 14-17");
 
@@ -222,12 +252,12 @@ fn check_spectral_1d(harness: &mut ValidationHarness) {
     harness.check_upper(
         "1D ⟨r⟩ near Poisson (localized)",
         (r - spectral::POISSON_R).abs(),
-        0.06,
+        tolerances::ANDERSON_1D_LEVEL_SPACING_DEVIATION,
     );
     println!();
 }
 
-/// [6] Spectral theory: 2D Anderson via Lanczos.
+/// \[6\] Spectral theory: 2D Anderson via Lanczos.
 fn check_spectral_2d(harness: &mut ValidationHarness) {
     println!("[6] Anderson 2D — Paper 19");
 
@@ -245,7 +275,7 @@ fn check_spectral_2d(harness: &mut ValidationHarness) {
     println!();
 }
 
-/// [7] Spectral theory: 3D Anderson — GOE→Poisson transition.
+/// \[7\] Spectral theory: 3D Anderson — GOE→Poisson transition.
 fn check_spectral_3d(harness: &mut ValidationHarness) {
     println!("[7] Anderson 3D — Paper 20");
 
@@ -255,15 +285,14 @@ fn check_spectral_3d(harness: &mut ValidationHarness) {
     let mat_clean = spectral::clean_3d_lattice(l);
     let result_clean = spectral::lanczos(&mat_clean, n, 42);
     let evals_clean = spectral::lanczos_eigenvalues(&result_clean);
-    let bw_clean = evals_clean.last().expect("non-empty")
-        - evals_clean.first().expect("non-empty");
+    let bw_clean = evals_clean.last().expect("non-empty") - evals_clean.first().expect("non-empty");
     let exact_bw = 12.0 * (std::f64::consts::PI / (l as f64 + 1.0)).cos();
     println!("  Clean 3D (L={l}): bw = {bw_clean:.4} (exact OBC: {exact_bw:.4})");
 
     harness.check_upper(
         "clean 3D bandwidth matches OBC theory",
         (bw_clean - exact_bw).abs(),
-        0.1,
+        tolerances::ANDERSON_3D_CLEAN_BANDWIDTH_ABS,
     );
 
     let w_weak = 4.0;
@@ -291,7 +320,10 @@ fn check_spectral_3d(harness: &mut ValidationHarness) {
     let r_strong = r_strong_sum / n_real as f64;
 
     println!("  W={w_weak}: ⟨r⟩ = {r_weak:.4} (GOE ≈ 0.531)");
-    println!("  W={w_strong}: ⟨r⟩ = {r_strong:.4} (Poisson ≈ {:.4})", spectral::POISSON_R);
+    println!(
+        "  W={w_strong}: ⟨r⟩ = {r_strong:.4} (Poisson ≈ {:.4})",
+        spectral::POISSON_R
+    );
 
     harness.check_bool(
         "GOE→Poisson transition: r(weak) > r(strong)",
@@ -299,12 +331,12 @@ fn check_spectral_3d(harness: &mut ValidationHarness) {
     );
     harness.check_bool(
         "transition Δ⟨r⟩ > 0.05 (genuine phase transition)",
-        r_weak - r_strong > 0.05,
+        r_weak - r_strong > tolerances::ANDERSON_3D_GOE_POISSON_DELTA_R_MIN,
     );
     println!();
 }
 
-/// [8] Hofstadter butterfly — band counting.
+/// \[8\] Hofstadter butterfly — band counting.
 fn check_hofstadter(harness: &mut ValidationHarness) {
     println!("[8] Hofstadter Butterfly — Papers 21-22");
 
@@ -314,7 +346,10 @@ fn check_hofstadter(harness: &mut ValidationHarness) {
         let (d, e) = spectral::almost_mathieu_hamiltonian(n, 1.0, alpha, 0.0);
         let evals = spectral::find_all_eigenvalues(&d, &e);
         let bands = spectral::detect_bands(&evals, 10.0);
-        let n_wide = bands.iter().filter(|(lo, hi)| hi - lo > 0.01).count();
+        let n_wide = bands
+            .iter()
+            .filter(|(lo, hi)| hi - lo > tolerances::HOFSTADTER_WIDE_BAND_MIN_WIDTH)
+            .count();
         println!("  α=1/{q}: {n_wide} wide bands (expect {expected_bands})");
         harness.check_bool(
             &format!("α=1/{q} produces {expected_bands} bands"),
@@ -324,7 +359,7 @@ fn check_hofstadter(harness: &mut ValidationHarness) {
     println!();
 }
 
-/// [9] Dimensional bandwidth hierarchy: 1D < 2D < 3D.
+/// \[9\] Dimensional bandwidth hierarchy: 1D &lt; 2D &lt; 3D.
 fn check_dimensional_hierarchy(harness: &mut ValidationHarness) {
     println!("[9] Dimensional Hierarchy — Cross-dimensional proof");
 

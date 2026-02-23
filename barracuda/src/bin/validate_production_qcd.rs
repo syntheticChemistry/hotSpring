@@ -4,7 +4,7 @@
 //!
 //! Runs a quenched SU(3) β-scan across the deconfinement transition
 //! on 4^4 and 8^4 lattices, validating observables against literature
-//! and the HotQCD reference table.
+//! and the `HotQCD` reference table.
 //!
 //! This binary establishes the **Rust CPU baseline** for lattice QCD
 //! production. The evolution path:
@@ -203,6 +203,7 @@ fn main() {
                     n_md_steps: 15,
                     dt: 0.05,
                     seed: 42,
+                    ..Default::default()
                 };
                 let stats = hmc::run_hmc(&mut lat, 10, 5, &mut cfg);
                 stats.mean_plaquette

@@ -8,7 +8,7 @@
 //! **Architecture**: Run GPU MD simulation (existing path), then:
 //!   1. Upload velocity snapshots to GPU ring buffer (simulating GPU-resident storage)
 //!   2. Compute VACF on GPU via per-particle dot product + reduction
-//!   3. Green-Kubo integrate on CPU (O(n_lag) — trivial)
+//!   3. Green-Kubo integrate on CPU (`O(n_lag)` — trivial)
 //!   4. Compare D*(GPU VACF) vs D*(CPU VACF) — must match
 //!
 //! This is step 1 of the full unidirectional pipeline. Step 2 would
@@ -23,8 +23,8 @@
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::md::config;
 use hotspring_barracuda::md::cpu_reference;
-use hotspring_barracuda::md::observables::{compute_vacf, validate_energy, GpuVelocityRing};
 use hotspring_barracuda::md::observables::transport_gpu::compute_vacf_gpu;
+use hotspring_barracuda::md::observables::{compute_vacf, validate_energy, GpuVelocityRing};
 use hotspring_barracuda::md::transport::d_star_daligault;
 use hotspring_barracuda::validation::ValidationHarness;
 
@@ -71,7 +71,9 @@ fn main() {
     println!("═══ Phase 2: GPU VACF (velocity ring + dot product shader) ═══");
 
     let rt = tokio::runtime::Runtime::new().expect("tokio runtime");
-    let gpu = rt.block_on(async { GpuF64::new().await }).expect("GPU init");
+    let gpu = rt
+        .block_on(async { GpuF64::new().await })
+        .expect("GPU init");
 
     if !gpu.has_f64 {
         println!("  SKIP: GPU lacks f64 support");
@@ -94,8 +96,8 @@ fn main() {
     println!("  Uploaded {n_snapshots} snapshots to GPU ring ({upload_time:.2}s)");
 
     let t_gpu_vacf = Instant::now();
-    let vacf_gpu = compute_vacf_gpu(&gpu, &ring, dt_snap, max_lag)
-        .expect("GPU VACF computation failed");
+    let vacf_gpu =
+        compute_vacf_gpu(&gpu, &ring, dt_snap, max_lag).expect("GPU VACF computation failed");
     let gpu_vacf_time = t_gpu_vacf.elapsed().as_secs_f64();
 
     println!("  D*(GPU VACF) = {:.4e}", vacf_gpu.diffusion_coeff);

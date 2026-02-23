@@ -36,7 +36,7 @@ struct CaseData {
     features_short: Vec<Vec<f64>>,
 }
 
-fn reservoir_config(n_particles: usize) -> MdConfig {
+const fn reservoir_config(n_particles: usize) -> MdConfig {
     MdConfig {
         label: String::new(),
         n_particles,

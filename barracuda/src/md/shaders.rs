@@ -30,6 +30,7 @@
 /// hotSpring MD shaders use native WGSL builtins (`SHADER_F64`) and do not
 /// need this preamble. It is only used by `celllist_diag` and `f64_builtin_test`
 /// for software-vs-native comparison testing.
+#[must_use]
 pub fn patch_math_f64_preamble(preamble: &str) -> String {
     let mut result = String::with_capacity(preamble.len());
     let mut skip = false;

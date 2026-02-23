@@ -13,6 +13,13 @@
 //! Run: cargo run --release --bin `nuclear_eos_l1_ref`
 
 use hotspring_barracuda::data;
+use hotspring_barracuda::gpu::GpuF64;
+use hotspring_barracuda::nuclear_eos_helpers::{
+    build_residuals_semf, compute_be_chi2_only, compute_binding_energies, compute_mean_std,
+    compute_residual_metrics, per_nucleus_residuals_to_json, print_accuracy_by_region,
+    print_accuracy_distributions, print_accuracy_metrics_box, print_best_parameters,
+    print_semf_capability_analysis, print_top_nuclei,
+};
 use hotspring_barracuda::physics::{nuclear_matter_properties, semf_binding_energy};
 use hotspring_barracuda::provenance;
 use hotspring_barracuda::tolerances;
@@ -38,24 +45,6 @@ const UNEDF0_PARAMS: [f64; 10] = [
     -1883.69, 277.50, -189.08, 14603.6, 0.0047, -1.116, -1.635, 0.390, 0.3222, 78.66,
 ];
 
-const PARAM_NAMES: [&str; 10] = [
-    "t0", "t1", "t2", "t3", "x0", "x1", "x2", "x3", "alpha", "W0",
-];
-
-struct NucleusResidual {
-    z: usize,
-    n: usize,
-    a: usize,
-    element: String,
-    b_exp: f64,
-    b_calc: f64,
-    delta_b: f64,
-    abs_delta: f64,
-    rel_delta: f64,
-    chi2_i: f64,
-    _sigma: f64,
-}
-
 struct CliArgs {
     seed: u64,
     n_seeds: usize,
@@ -72,16 +61,6 @@ fn make_l1_objective_nmp(
 ) -> impl Fn(&[f64]) -> f64 {
     let exp_data = exp_data.clone();
     move |x: &[f64]| l1_objective_nmp(x, &exp_data, lambda)
-}
-
-fn compute_mean_std(vals: &[f64]) -> (f64, f64) {
-    let n = vals.len() as f64;
-    if n < 1.0 {
-        return (0.0, 0.0);
-    }
-    let mean = vals.iter().sum::<f64>() / n;
-    let var = vals.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / (n - 1.0).max(1.0);
-    (mean, var.sqrt())
 }
 
 fn print_comparison_summary(
@@ -171,47 +150,6 @@ fn print_reference_baselines(
     }
 }
 
-fn print_best_parameters(best_x: &[f64]) {
-    println!("  Best Skyrme parameters:");
-    for (i, name) in PARAM_NAMES.iter().enumerate() {
-        if i < best_x.len() {
-            println!("    {:>6} = {:>14.6}", name, best_x[i]);
-        }
-    }
-}
-
-fn print_semf_capability_analysis(rms: f64, best_chi2: f64, mean_rel: f64) {
-    println!("  Our SEMF results:");
-    println!("    RMS     = {rms:.4} MeV");
-    println!("    χ²/datum = {best_chi2:.4} (with σ_theo = max(1%·B, 2 MeV))");
-    println!();
-
-    if rms < 3.0 {
-        println!("  VERDICT: SEMF optimized to NEAR-THEORETICAL-LIMIT.");
-        println!("    - Our RMS {rms:.2} MeV is competitive with published SEMF fits.");
-        println!("    - χ²/datum < 1.0 means we fit WITHIN assumed uncertainties.");
-    } else if rms < 5.0 {
-        println!("  VERDICT: Good SEMF fit, room for minor coefficient improvement.");
-    } else {
-        println!("  VERDICT: SEMF fit sub-optimal, optimizer may need more budget.");
-    }
-    println!();
-    println!("  To reach paper-level ~10^-6 accuracy:");
-    println!(
-        "    - Current gap: {:.1} orders of magnitude",
-        (mean_rel / 1.0e-6).log10()
-    );
-    println!("    - Requires: L2 (HFB) physics solver, not SEMF");
-    println!(
-        "    - SEMF theoretical floor: ~{:.1} MeV RMS (~{:.1e} relative for A=200)",
-        rms.max(2.0),
-        rms.max(2.0) / 1700.0
-    );
-    println!("    - HFB theoretical floor: ~0.5 MeV RMS (~3e-4 relative)");
-    println!("    - Paper target of 10^-6: requires beyond-HFB corrections");
-    println!("      (e.g., Wigner, rotational, shape coexistence)");
-}
-
 fn run_deep_residual_analysis(
     base: &std::path::Path,
     best_x: &[f64],
@@ -225,200 +163,16 @@ fn run_deep_residual_analysis(
     result2: &barracuda::sample::direct::DirectSamplerResult,
     base_seed: u64,
 ) {
-    let nuclei_set = data::parse_nuclei_set_from_args();
-    let nuclei_path = data::nuclei_data_path(base, nuclei_set);
-    let nuclei_reader = std::io::BufReader::new(
-        std::fs::File::open(&nuclei_path).expect("Failed to open nuclei JSON"),
-    );
-    let nuclei_file: serde_json::Value =
-        serde_json::from_reader(nuclei_reader).expect("nuclei JSON parse failed");
-    let nuclei_list = nuclei_file["nuclei"]
-        .as_array()
-        .expect("nuclei JSON has nuclei array");
-
-    let mut residuals: Vec<NucleusResidual> = Vec::new();
-    for nuc in nuclei_list {
-        let z = nuc["Z"].as_u64().expect("nucleus Z") as usize;
-        let n = nuc["N"].as_u64().expect("nucleus N") as usize;
-        let a = nuc["A"].as_u64().expect("nucleus A") as usize;
-        let element = nuc["element"]
-            .as_str()
-            .expect("nucleus element")
-            .to_string();
-        let b_exp = nuc["binding_energy_MeV"]
-            .as_f64()
-            .expect("nucleus binding_energy_MeV");
-
-        let b_calc = semf_binding_energy(z, n, best_x);
-        if b_calc > 0.0 {
-            let delta_b = b_calc - b_exp;
-            let sigma = tolerances::sigma_theo(b_exp);
-            residuals.push(NucleusResidual {
-                z,
-                n,
-                a,
-                element,
-                b_exp,
-                b_calc,
-                delta_b,
-                abs_delta: delta_b.abs(),
-                rel_delta: (delta_b / b_exp).abs(),
-                chi2_i: (delta_b / sigma).powi(2),
-                _sigma: sigma,
-            });
-        }
-    }
-
+    let residuals = build_residuals_semf(base, best_x).expect("build_residuals_semf failed");
     let n_nuclei = residuals.len();
     println!("  Nuclei fitted: {n_nuclei}");
     println!();
 
-    let rms = (residuals.iter().map(|r| r.delta_b.powi(2)).sum::<f64>() / n_nuclei as f64).sqrt();
-    let mae = residuals.iter().map(|r| r.abs_delta).sum::<f64>() / n_nuclei as f64;
-    let max_err = residuals
-        .iter()
-        .map(|r| r.abs_delta)
-        .fold(0.0_f64, f64::max);
-    let mean_rel = residuals.iter().map(|r| r.rel_delta).sum::<f64>() / n_nuclei as f64;
-    let max_rel = residuals
-        .iter()
-        .map(|r| r.rel_delta)
-        .fold(0.0_f64, f64::max);
-    let median_rel = {
-        let mut rels: Vec<f64> = residuals.iter().map(|r| r.rel_delta).collect();
-        rels.sort_by(f64::total_cmp);
-        if rels.len().is_multiple_of(2) {
-            f64::midpoint(rels[rels.len() / 2 - 1], rels[rels.len() / 2])
-        } else {
-            rels[rels.len() / 2]
-        }
-    };
-    let mean_signed = residuals.iter().map(|r| r.delta_b).sum::<f64>() / n_nuclei as f64;
-
-    println!("  ┌─────────────────────────────────────────────────┐");
-    println!("  │  GLOBAL ACCURACY METRICS                        │");
-    println!("  ├─────────────────────────────────────────────────┤");
-    println!("  │  RMS deviation:        {rms:>10.4} MeV             │");
-    println!("  │  Mean absolute error:  {mae:>10.4} MeV             │");
-    println!("  │  Max absolute error:   {max_err:>10.4} MeV             │");
-    println!("  │  Mean signed error:    {mean_signed:>10.4} MeV (bias)      │");
-    println!("  │                                                 │");
-    println!("  │  Mean |ΔB/B|:          {mean_rel:>12.6e}             │");
-    println!("  │  Median |ΔB/B|:        {median_rel:>12.6e}             │");
-    println!("  │  Max |ΔB/B|:           {max_rel:>12.6e}             │");
-    println!("  │                                                 │");
-    println!("  │  Paper target:         ~1.0e-06 (relative)      │");
-    println!("  │  Our mean relative:    {mean_rel:>12.6e}             │");
-    println!(
-        "  │  Gap to paper:         {:.1}× (orders of mag)   │",
-        (mean_rel / 1.0e-6).log10()
-    );
-    println!("  └─────────────────────────────────────────────────┘");
-
-    let thresholds = [1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 5e-2, 1e-1];
-    println!();
-    println!("  Relative accuracy |ΔB/B| distribution:");
-    for &thresh in &thresholds {
-        let count = residuals.iter().filter(|r| r.rel_delta < thresh).count();
-        let pct = 100.0 * count as f64 / n_nuclei as f64;
-        let bar = "█".repeat((pct / 2.0) as usize);
-        println!("    < {thresh:.0e}: {count:>4}/{n_nuclei} ({pct:>5.1}%) {bar}");
-    }
-    let abs_thresholds = [0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0];
-    println!();
-    println!("  Absolute accuracy |ΔB| distribution:");
-    for &thresh in &abs_thresholds {
-        let count = residuals.iter().filter(|r| r.abs_delta < thresh).count();
-        let pct = 100.0 * count as f64 / n_nuclei as f64;
-        let bar = "█".repeat((pct / 2.0) as usize);
-        println!("    < {thresh:>5.1} MeV: {count:>4}/{n_nuclei} ({pct:>5.1}%) {bar}");
-    }
-
-    let regions: Vec<(&str, Box<dyn Fn(&NucleusResidual) -> bool>)> = vec![
-        ("Light A<50", Box::new(|r: &NucleusResidual| r.a < 50)),
-        (
-            "Medium 50-100",
-            Box::new(|r: &NucleusResidual| r.a >= 50 && r.a < 100),
-        ),
-        (
-            "Heavy 100-200",
-            Box::new(|r: &NucleusResidual| r.a >= 100 && r.a < 200),
-        ),
-        (
-            "Very heavy 200+",
-            Box::new(|r: &NucleusResidual| r.a >= 200),
-        ),
-    ];
-    println!();
-    println!("  Accuracy by mass region:");
-    println!(
-        "  {:>12} {:>6} {:>10} {:>10} {:>12} {:>10}",
-        "Region", "Count", "RMS(MeV)", "MAE(MeV)", "Mean|ΔB/B|", "χ²/datum"
-    );
-    for (label, pred) in &regions {
-        let group: Vec<&NucleusResidual> = residuals.iter().filter(|r| pred(r)).collect();
-        if group.is_empty() {
-            continue;
-        }
-        let ng = group.len() as f64;
-        let g_rms = (group.iter().map(|r| r.delta_b.powi(2)).sum::<f64>() / ng).sqrt();
-        let g_mae = group.iter().map(|r| r.abs_delta).sum::<f64>() / ng;
-        let g_rel = group.iter().map(|r| r.rel_delta).sum::<f64>() / ng;
-        let g_chi2 = group.iter().map(|r| r.chi2_i).sum::<f64>() / ng;
-        println!(
-            "  {:>12} {:>6} {:>10.3} {:>10.3} {:>12.6e} {:>10.4}",
-            label,
-            group.len(),
-            g_rms,
-            g_mae,
-            g_rel,
-            g_chi2
-        );
-    }
-
-    let mut by_rel: Vec<&NucleusResidual> = residuals.iter().collect();
-    by_rel.sort_by(|a, b| a.rel_delta.total_cmp(&b.rel_delta));
-    println!();
-    println!("  Top 10 BEST-fitted nuclei (lowest |ΔB/B|):");
-    println!(
-        "  {:>6} {:>4} {:>4} {:>10} {:>10} {:>10} {:>12}",
-        "Nuclide", "Z", "N", "B_exp", "B_calc", "ΔB(MeV)", "|ΔB/B|"
-    );
-    for r in by_rel.iter().take(10) {
-        println!(
-            "  {:>3}-{:<3} {:>4} {:>4} {:>10.3} {:>10.3} {:>+10.3} {:>12.6e}",
-            r.element, r.a, r.z, r.n, r.b_exp, r.b_calc, r.delta_b, r.rel_delta
-        );
-    }
-
-    by_rel.reverse();
-    println!();
-    println!("  Top 10 WORST-fitted nuclei (highest |ΔB/B|):");
-    println!(
-        "  {:>6} {:>4} {:>4} {:>10} {:>10} {:>10} {:>12}",
-        "Nuclide", "Z", "N", "B_exp", "B_calc", "ΔB(MeV)", "|ΔB/B|"
-    );
-    for r in by_rel.iter().take(10) {
-        println!(
-            "  {:>3}-{:<3} {:>4} {:>4} {:>10.3} {:>10.3} {:>+10.3} {:>12.6e}",
-            r.element, r.a, r.z, r.n, r.b_exp, r.b_calc, r.delta_b, r.rel_delta
-        );
-    }
-
-    let mut by_abs: Vec<&NucleusResidual> = residuals.iter().collect();
-    by_abs.sort_by(|a, b| b.abs_delta.total_cmp(&a.abs_delta));
-    println!();
-    println!("  Top 10 largest |ΔB| (MeV):");
-    println!(
-        "  {:>6} {:>4} {:>4} {:>10} {:>10} {:>10} {:>10}",
-        "Nuclide", "Z", "N", "B_exp", "B_calc", "ΔB(MeV)", "χ²_i"
-    );
-    for r in by_abs.iter().take(10) {
-        println!(
-            "  {:>3}-{:<3} {:>4} {:>4} {:>10.3} {:>10.3} {:>+10.3} {:>10.4}",
-            r.element, r.a, r.z, r.n, r.b_exp, r.b_calc, r.delta_b, r.chi2_i
-        );
-    }
+    let metrics = compute_residual_metrics(&residuals);
+    print_accuracy_metrics_box(&metrics);
+    print_accuracy_distributions(&residuals, n_nuclei);
+    print_accuracy_by_region(&residuals);
+    print_top_nuclei(&residuals, 10);
 
     println!();
     println!("═══════════════════════════════════════════════════════════════");
@@ -433,28 +187,14 @@ fn run_deep_residual_analysis(
     println!("    - DFT/Fayans: RMS ~0.3 MeV for select nuclei");
     println!("    - For B~1000 MeV, 10^-6 = 0.001 MeV = 1 keV");
     println!();
-    print_semf_capability_analysis(rms, best_chi2, mean_rel);
+    print_semf_capability_analysis(metrics.rms, best_chi2, metrics.mean_rel);
 
     print_best_parameters(best_x);
 
     let results_dir = base.join("results");
     std::fs::create_dir_all(&results_dir).ok();
 
-    let per_nucleus_json: Vec<serde_json::Value> = residuals
-        .iter()
-        .map(|r| {
-            serde_json::json!({
-                "element": r.element,
-                "Z": r.z, "N": r.n, "A": r.a,
-                "B_exp_MeV": r.b_exp,
-                "B_calc_MeV": r.b_calc,
-                "delta_B_MeV": r.delta_b,
-                "abs_delta_MeV": r.abs_delta,
-                "relative_accuracy": r.rel_delta,
-                "chi2_contribution": r.chi2_i,
-            })
-        })
-        .collect();
+    let per_nucleus_json = per_nucleus_residuals_to_json(&residuals);
 
     let result_json = serde_json::json!({
         "level": 1,
@@ -478,26 +218,26 @@ fn run_deep_residual_analysis(
             "n_rounds": result2.rounds.len(),
         },
         "accuracy_metrics": {
-            "rms_MeV": rms,
-            "mae_MeV": mae,
-            "max_error_MeV": max_err,
-            "mean_signed_error_MeV": mean_signed,
-            "mean_relative_accuracy": mean_rel,
-            "median_relative_accuracy": median_rel,
-            "max_relative_accuracy": max_rel,
+            "rms_MeV": metrics.rms,
+            "mae_MeV": metrics.mae,
+            "max_error_MeV": metrics.max_err,
+            "mean_signed_error_MeV": metrics.mean_signed,
+            "mean_relative_accuracy": metrics.mean_rel,
+            "median_relative_accuracy": metrics.median_rel,
+            "max_relative_accuracy": metrics.max_rel,
             "n_nuclei": n_nuclei,
             "chi2_per_datum": best_chi2,
         },
         "paper_comparison": {
             "paper_target_relative": 1.0e-6,
-            "our_mean_relative": mean_rel,
-            "gap_orders_of_magnitude": (mean_rel / 1.0e-6).log10(),
+            "our_mean_relative": metrics.mean_rel,
+            "gap_orders_of_magnitude": (metrics.mean_rel / 1.0e-6).log10(),
             "semf_theoretical_limit_MeV": 2.0,
             "hfb_theoretical_limit_MeV": 0.5,
             "notes": "SEMF is a 5-term model; 10^-6 requires HFB+ physics"
         },
         "best_parameters": {
-            "names": PARAM_NAMES.to_vec(),
+            "names": data::PARAM_NAMES.to_vec(),
             "values": best_x.to_vec(),
         },
         "per_nucleus": per_nucleus_json,
@@ -592,6 +332,18 @@ fn main() {
 
     let objective = make_l1_objective_nmp(&exp_data, lambda);
 
+    // Initialize GPU device (required for RBF surrogate training inside samplers)
+    let rt = tokio::runtime::Runtime::new().expect("tokio runtime creation");
+    let gpu = rt
+        .block_on(GpuF64::new())
+        .expect("Failed to create GPU device (required for surrogate training)");
+    let device = gpu.to_wgpu_device();
+    println!("  Device: {} (SHADER_F64: {})", gpu.adapter_name, gpu.has_f64);
+    if !gpu.has_f64 {
+        println!("  WARNING: SHADER_F64 not supported — surrogate training may fail");
+    }
+    println!();
+
     // ═══════════════════════════════════════════════════════════════
     // APPROACH 1: SparsitySampler with native auto-smoothing
     // ═══════════════════════════════════════════════════════════════
@@ -621,7 +373,8 @@ fn main() {
     println!("  Penalty filter: AdaptiveMAD(5.0)");
     println!();
 
-    let result1 = sparsity_sampler(&objective, &bounds, &config).expect("SparsitySampler failed");
+    let result1 =
+        sparsity_sampler(device.clone(), objective, &bounds, &config).expect("SparsitySampler failed");
 
     let approach1_time = t0.elapsed().as_secs_f64();
     let approach1_f = result1.f_best;
@@ -663,7 +416,7 @@ fn main() {
     println!();
 
     let result2 =
-        direct_sampler(objective2, &bounds, &direct_config).expect("DirectSampler failed");
+        direct_sampler(device, objective2, &bounds, &direct_config).expect("DirectSampler failed");
 
     let approach2_f = result2.f_best;
     let approach2_x = result2.x_best.clone();
@@ -816,6 +569,12 @@ fn main() {
 // ═══════════════════════════════════════════════════════════════════
 
 fn run_multi_seed(base_seed: u64, n_seeds: usize, lambda: f64) {
+    let rt = tokio::runtime::Runtime::new().expect("tokio runtime creation");
+    let gpu = rt
+        .block_on(GpuF64::new())
+        .expect("Failed to create GPU device (required for DirectSampler)");
+    let device = gpu.to_wgpu_device();
+
     struct SeedResult {
         seed: u64,
         direct_chi2_total: f64,
@@ -860,7 +619,8 @@ fn run_multi_seed(base_seed: u64, n_seeds: usize, lambda: f64) {
             .with_eval_budget(120)
             .with_patience(3);
         let t0 = Instant::now();
-        let r_d = direct_sampler(obj_d, &bounds, &dc).expect("DirectSampler failed");
+        let r_d =
+            direct_sampler(device.clone(), obj_d, &bounds, &dc).expect("DirectSampler failed");
         let d_time = t0.elapsed().as_millis();
         let d_evals = r_d.cache.len();
 
@@ -958,6 +718,12 @@ fn run_multi_seed(base_seed: u64, n_seeds: usize, lambda: f64) {
 // ═══════════════════════════════════════════════════════════════════
 
 fn run_pareto_sweep(base_seed: u64) {
+    let rt = tokio::runtime::Runtime::new().expect("tokio runtime creation");
+    let gpu = rt
+        .block_on(GpuF64::new())
+        .expect("Failed to create GPU device (required for DirectSampler)");
+    let device = gpu.to_wgpu_device();
+
     struct ParetoPoint {
         lambda: f64,
         chi2_be_mean: f64,
@@ -1016,7 +782,8 @@ fn run_pareto_sweep(base_seed: u64) {
                 .with_solvers(8)
                 .with_eval_budget(120)
                 .with_patience(3);
-            let r = direct_sampler(obj, &bounds, &dc).expect("DirectSampler failed");
+            let r =
+                direct_sampler(device.clone(), obj, &bounds, &dc).expect("DirectSampler failed");
 
             let be = compute_be_chi2_only(&r.x_best, &exp_data);
             be_vals.push(be);
@@ -1254,46 +1021,4 @@ fn l1_objective_nmp(
     let chi2_total = lambda.mul_add(chi2_nmp_datum, chi2_be_datum);
 
     chi2_total.ln_1p()
-}
-
-/// Compute binding energy chi2/datum only (for reference baselines)
-fn compute_be_chi2_only(
-    x: &[f64],
-    exp_data: &std::collections::HashMap<(usize, usize), (f64, f64)>,
-) -> f64 {
-    let mut chi2 = 0.0;
-    let mut n = 0;
-    for (&(z, nn), &(b_exp, _sigma)) in exp_data {
-        let b_calc = semf_binding_energy(z, nn, x);
-        if b_calc > 0.0 {
-            let sigma_theo = tolerances::sigma_theo(b_exp);
-            chi2 += ((b_calc - b_exp) / sigma_theo).powi(2);
-            n += 1;
-        }
-    }
-    if n == 0 {
-        return 1e4;
-    }
-    chi2 / f64::from(n)
-}
-
-/// Compute per-nucleus binding energies at given parameters.
-fn compute_binding_energies(
-    params: &[f64],
-    exp_data: &std::collections::HashMap<(usize, usize), (f64, f64)>,
-) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
-    let mut observed = Vec::new();
-    let mut expected = Vec::new();
-    let mut sigma = Vec::new();
-
-    for (&(z, n), &(b_exp, _)) in exp_data {
-        let b_calc = semf_binding_energy(z, n, params);
-        if b_calc > 0.0 {
-            observed.push(b_calc);
-            expected.push(b_exp);
-            sigma.push(tolerances::sigma_theo(b_exp));
-        }
-    }
-
-    (observed, expected, sigma)
 }

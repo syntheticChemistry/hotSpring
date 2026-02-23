@@ -299,15 +299,13 @@ async fn main() {
         // Loop unroller u32 fix (toadstool S42+): substitute_loop_var now emits
         // "0u", "1u" etc. instead of bare ints, so WGSL type-checks pass.
         println!("\n  Single-dispatch eigensolve (all rotations in one shader):");
-        let (sd_vals, sd_vecs) = BatchedEighGpu::execute_single_dispatch(
-            device, &packed, ns, batch_size, 30, 1e-12,
-        )
-        .expect("single-dispatch eigensolve failed");
+        let (sd_vals, sd_vecs) =
+            BatchedEighGpu::execute_single_dispatch(device, &packed, ns, batch_size, 30, 1e-12)
+                .expect("single-dispatch eigensolve failed");
 
         let mut max_sd_err: f64 = 0.0;
         for b in 0..batch_size {
-            let mut cpu_evals: Vec<f64> =
-                cpu_eigenvalues[b * ns..(b + 1) * ns].to_vec();
+            let mut cpu_evals: Vec<f64> = cpu_eigenvalues[b * ns..(b + 1) * ns].to_vec();
             let mut sd_evals: Vec<f64> = sd_vals[b * ns..(b + 1) * ns].to_vec();
             cpu_evals.sort_by(f64::total_cmp);
             sd_evals.sort_by(f64::total_cmp);
@@ -323,9 +321,7 @@ async fn main() {
                 }
             }
         }
-        println!(
-            "  Max eigenvalue relative error (single-dispatch): {max_sd_err:.2e}"
-        );
+        println!("  Max eigenvalue relative error (single-dispatch): {max_sd_err:.2e}");
         harness.check_upper(
             "Eigensolve: single-dispatch eigenvalue error",
             max_sd_err,
@@ -349,9 +345,7 @@ async fn main() {
                 }
             }
         }
-        println!(
-            "  Max orthogonality error (single-dispatch): {max_sd_ortho:.2e}"
-        );
+        println!("  Max orthogonality error (single-dispatch): {max_sd_ortho:.2e}");
         harness.check_upper(
             "Eigensolve: single-dispatch orthogonality",
             max_sd_ortho,

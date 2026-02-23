@@ -3,7 +3,7 @@
 //! Screened Coulomb performance benchmark: pure Rust vs Python/scipy.
 //!
 //! Measures wall-clock time for the same computations performed by the
-//! Python control (scipy.linalg.eigh_tridiagonal), demonstrating that
+//! Python control (`scipy.linalg.eigh_tridiagonal`), demonstrating that
 //! pure Rust math (Sturm bisection) matches or exceeds compiled LAPACK.
 //!
 //! | Computation        | Python/scipy     | Rust/barracuda     |

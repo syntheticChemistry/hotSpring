@@ -68,6 +68,7 @@ impl FermionField {
     }
 
     /// Squared norm: ||self||² = <self | self>.re
+    #[must_use]
     pub fn norm_sq(&self) -> f64 {
         self.dot(self).re
     }
@@ -188,6 +189,7 @@ impl DiracGpuLayout {
     ///
     /// Gauge links are interleaved re/im, neighbors are pre-computed
     /// with periodic boundaries, phases are ±1.0 staggered factors.
+    #[must_use]
     pub fn from_lattice(lattice: &Lattice) -> Self {
         let vol = lattice.volume();
 
@@ -230,6 +232,7 @@ impl DiracGpuLayout {
 }
 
 /// Flatten a fermion field to f64 array (interleaved re/im).
+#[must_use]
 pub fn flatten_fermion(psi: &FermionField) -> Vec<f64> {
     let mut flat = Vec::with_capacity(psi.volume * 6);
     for site in &psi.data {

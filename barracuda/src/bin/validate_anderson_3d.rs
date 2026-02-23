@@ -7,12 +7,12 @@
 //!
 //! **Scaling theory (Abrahams et al. 1979)**:
 //! - d = 1, 2: ALL states localized for any disorder (no transition)
-//! - d ≥ 3: a critical disorder W_c exists above which all states localize
+//! - d ≥ 3: a critical disorder `W_c` exists above which all states localize
 //!
 //! **3D Anderson model on cubic lattice**:
 //! - Coordination z = 6 (nearest neighbors), clean bandwidth = 12 ([-6, 6])
-//! - Critical disorder W_c ≈ 16.5 (Slevin & Ohtsuki 1999)
-//! - **Mobility edge**: at W < W_c, extended states near band center coexist
+//! - Critical disorder `W_c` ≈ 16.5 (Slevin & Ohtsuki 1999)
+//! - **Mobility edge**: at W < `W_c`, extended states near band center coexist
 //!   with localized states at band edges — a coexistence that is IMPOSSIBLE
 //!   in 1D or 2D
 //!
@@ -233,7 +233,7 @@ fn check_3d_statistics_transition(harness: &mut ValidationHarness) {
     println!();
 }
 
-/// \[7\] Mobility edge: at moderate disorder (W < W_c), band center has
+/// \[7\] Mobility edge: at moderate disorder (W < `W_c`), band center has
 /// extended states (GOE) while band edges have localized states (Poisson).
 ///
 /// This is the defining feature of d ≥ 3 that does NOT exist in 1D or 2D.

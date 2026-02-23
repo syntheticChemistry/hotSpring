@@ -6,8 +6,8 @@
 //!   1. Run SU(3) pure-gauge HMC at multiple β values
 //!   2. Extract position-space observables (plaquette, Polyakov loop)
 //!   3. Train ESN to classify phases from observables
-//!   4. Validate via NpuSimulator (f32) — substrate-independent
-//!   5. Verify phase boundary detection (β_c ≈ 5.69)
+//!   4. Validate via `NpuSimulator` (f32) — substrate-independent
+//!   5. Verify phase boundary detection (`β_c` ≈ 5.69)
 //!
 //! The Python control (`npu_lattice_phase.py`) validates on actual AKD1000.
 //! This binary proves the underlying math is correct with real lattice data.
@@ -17,7 +17,7 @@
 //!
 //! # Provenance
 //!
-//! β_c ≈ 5.69 for SU(3) on 4^4: Wilson (1974), Creutz (1980)
+//! `β_c` ≈ 5.69 for SU(3) on 4^4: Wilson (1974), Creutz (1980)
 //! Polyakov loop as deconfinement order parameter: Polyakov (1978)
 //! Strong-coupling expansion: Creutz, "Quarks, Gluons and Lattices" (1983)
 
@@ -59,6 +59,7 @@ fn check_lattice_observables(harness: &mut ValidationHarness) {
             n_md_steps: 20,
             dt: 0.02,
             seed: 42,
+            ..Default::default()
         };
 
         let stats = hmc::run_hmc(&mut lat, 10, 10, &mut config);
@@ -94,6 +95,7 @@ fn check_phase_separation(harness: &mut ValidationHarness) {
         n_md_steps: 30,
         dt: 0.015,
         seed: 100,
+        ..Default::default()
     };
     let stats_c = hmc::run_hmc(&mut lat_c, 20, 20, &mut cfg_c);
     let poly_c = lat_c.average_polyakov_loop();
@@ -104,6 +106,7 @@ fn check_phase_separation(harness: &mut ValidationHarness) {
         n_md_steps: 30,
         dt: 0.015,
         seed: 200,
+        ..Default::default()
     };
     let stats_d = hmc::run_hmc(&mut lat_d, 20, 20, &mut cfg_d);
     let poly_d = lat_d.average_polyakov_loop();
@@ -170,7 +173,7 @@ fn check_esn_phase_classifier(harness: &mut ValidationHarness) {
     println!();
 }
 
-/// Validate NpuSimulator (f32) agrees with CPU (f64) for phase classification.
+/// Validate `NpuSimulator` (f32) agrees with CPU (f64) for phase classification.
 fn check_npu_simulator_parity(harness: &mut ValidationHarness) {
     println!("[4] NpuSimulator f32 Parity");
 

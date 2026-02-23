@@ -32,14 +32,29 @@
 //! - Gattringer & Lang, "Quantum Chromodynamics on the Lattice" (2010)
 //! - `HotQCD` Collaboration, Bazavov et al., PRD 90, 094503 (2014)
 
+/// U(1) gauge + complex scalar Higgs field theory in (1+1)D.
 pub mod abelian_higgs;
+/// Conjugate gradient solver for D-dagger-D on GPU.
 pub mod cg;
+/// Complex f64 arithmetic (re, im) with WGSL shader template.
 pub mod complex_f64;
+/// LCG PRNG, lattice constants, and shared numerical guards.
 pub mod constants;
+/// Hadronic correlator and susceptibility measurements.
+pub mod correlator;
+/// Staggered Dirac operator (GPU SpMV via WGSL).
 pub mod dirac;
+/// HotQCD EOS tables (Bazavov et al. PRD 90, 094503).
 pub mod eos_tables;
+/// Pure GPU HMC: all math on GPU via fp64 WGSL shaders.
+pub mod gpu_hmc;
+/// Hybrid Monte Carlo integrator (Cayley SU(3) exponential).
 pub mod hmc;
+/// Multi-GPU lattice dispatcher (CPU-threaded, evolution target).
 pub mod multi_gpu;
+/// Pseudofermion action and dynamical fermion HMC.
 pub mod pseudofermion;
+/// SU(3) 3x3 complex matrix operations (group, algebra, Cayley).
 pub mod su3;
+/// Wilson gauge action: plaquettes, staples, gauge force.
 pub mod wilson;

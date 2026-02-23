@@ -12,13 +12,13 @@
 //! | Cold plaquette | 1.0 | exact | Definition |
 //! | HMC acceptance | > 50% | lower bound | Algorithm sanity |
 //! | Plaquette at β=6 | ~0.594 | 5% | Strong-coupling expansion + MC data |
-//! | Polyakov confined | < 0.3 | upper bound | Confinement at β < β_c |
+//! | Polyakov confined | < 0.3 | upper bound | Confinement at β < `β_c` |
 //! | CG convergence | residual < 1e-6 | upper bound | Algorithm correctness |
 //!
 //! # Provenance
 //!
 //! Strong-coupling expansion: Creutz (1983), Ch. 9
-//! β_c ≈ 5.69 for SU(3) on 4^4: Wilson (1974), Creutz (1980)
+//! `β_c` ≈ 5.69 for SU(3) on 4^4: Wilson (1974), Creutz (1980)
 //! Plaquette at β=6.0 on 8^4: ~0.594, Bali et al. (1993)
 
 use hotspring_barracuda::lattice::cg;
@@ -73,6 +73,7 @@ fn main() {
             n_md_steps: 50,
             dt: 0.01,
             seed: 42,
+            ..Default::default()
         };
 
         let stats = hmc::run_hmc(&mut lat, 30, 20, &mut config);
@@ -89,8 +90,16 @@ fn main() {
             stats.acceptance_rate,
             tolerances::LATTICE_HMC_ACCEPTANCE_MIN,
         );
-        harness.check_lower("plaquette β=5.5 > 0", stats.mean_plaquette, 0.0);
-        harness.check_upper("plaquette β=5.5 < 1", stats.mean_plaquette, 1.0);
+        harness.check_lower(
+            "plaquette β=5.5 > 0",
+            stats.mean_plaquette,
+            tolerances::LATTICE_PLAQUETTE_PHYSICAL_MIN,
+        );
+        harness.check_upper(
+            "plaquette β=5.5 < 1",
+            stats.mean_plaquette,
+            tolerances::LATTICE_PLAQUETTE_PHYSICAL_MAX,
+        );
     }
     println!();
 
@@ -102,6 +111,7 @@ fn main() {
             n_md_steps: 50,
             dt: 0.01,
             seed: 123,
+            ..Default::default()
         };
 
         let stats = hmc::run_hmc(&mut lat, 50, 30, &mut config);
@@ -113,8 +123,16 @@ fn main() {
         println!("  Acceptance:     {:.1}%", stats.acceptance_rate * 100.0);
         println!("  Mean ΔH:        {:.4e}", stats.mean_delta_h);
 
-        harness.check_lower("plaquette β=6.0 lower", stats.mean_plaquette, 0.0);
-        harness.check_upper("plaquette β=6.0 upper", stats.mean_plaquette, 1.0);
+        harness.check_lower(
+            "plaquette β=6.0 lower",
+            stats.mean_plaquette,
+            tolerances::LATTICE_PLAQUETTE_PHYSICAL_MIN,
+        );
+        harness.check_upper(
+            "plaquette β=6.0 upper",
+            stats.mean_plaquette,
+            tolerances::LATTICE_PLAQUETTE_PHYSICAL_MAX,
+        );
         harness.check_lower(
             "HMC acceptance β=6.0",
             stats.acceptance_rate,
@@ -134,7 +152,14 @@ fn main() {
         let b = FermionField::random(vol, 42);
         let mut x = FermionField::zeros(vol);
 
-        let result = cg::cg_solve(&lat, &mut x, &b, 0.5, 1e-8, 500);
+        let result = cg::cg_solve(
+            &lat,
+            &mut x,
+            &b,
+            0.5,
+            tolerances::LATTICE_CG_TOLERANCE_IDENTITY,
+            500,
+        );
 
         println!("  Converged: {}", result.converged);
         println!("  Iterations: {}", result.iterations);
@@ -157,6 +182,7 @@ fn main() {
             n_md_steps: 10,
             dt: 0.05,
             seed: 777,
+            ..Default::default()
         };
 
         // Thermalize
@@ -168,7 +194,14 @@ fn main() {
         let b = FermionField::random(vol, 99);
         let mut x = FermionField::zeros(vol);
 
-        let result = cg::cg_solve(&lat, &mut x, &b, 0.5, 1e-4, 2000);
+        let result = cg::cg_solve(
+            &lat,
+            &mut x,
+            &b,
+            0.5,
+            tolerances::LATTICE_CG_TOLERANCE_THERMALIZED,
+            2000,
+        );
 
         println!("  Converged: {}", result.converged);
         println!("  Iterations: {}", result.iterations);
@@ -187,6 +220,7 @@ fn main() {
             n_md_steps: 50,
             dt: 0.01,
             seed: 555,
+            ..Default::default()
         };
 
         let stats = hmc::run_hmc(&mut lat, 50, 30, &mut config);
@@ -199,7 +233,11 @@ fn main() {
         println!("  Acceptance: {:.1}%", stats.acceptance_rate * 100.0);
 
         // Strong-coupling expansion is approximate — generous tolerance
-        harness.check_lower("plaquette β=4.0 > 0", stats.mean_plaquette, 0.0);
+        harness.check_lower(
+            "plaquette β=4.0 > 0",
+            stats.mean_plaquette,
+            tolerances::LATTICE_PLAQUETTE_PHYSICAL_MIN,
+        );
     }
     println!();
 

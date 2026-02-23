@@ -12,14 +12,14 @@
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-pub(crate) struct PotentialDimsUniform {
+pub struct PotentialDimsUniform {
     pub nr: u32,
     pub batch_size: u32,
 }
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-pub(crate) struct HamiltonianDimsUniform {
+pub struct HamiltonianDimsUniform {
     pub n_states: u32,
     pub nr: u32,
     pub batch_size: u32,
@@ -29,7 +29,7 @@ pub(crate) struct HamiltonianDimsUniform {
 /// Uniform for density shader (group 0). Must match `DensityParams` in WGSL.
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-pub(crate) struct DensityParamsUniform {
+pub struct DensityParamsUniform {
     pub n_states: u32,
     pub nr: u32,
     pub batch_size: u32,
@@ -44,7 +44,7 @@ pub(crate) struct DensityParamsUniform {
 /// this gives exact representation with integer ratios.
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-pub(crate) struct MixParamsUniform {
+pub struct MixParamsUniform {
     pub total_size: u32,
     pub _pad1: u32,
     pub alpha_num: u32,
@@ -76,7 +76,7 @@ pub(crate) fn f64_to_u32_pair(x: f64) -> (u32, u32) {
 /// Uniform for energy shader (group 0). Must match `EnergyParams` in WGSL.
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-pub(crate) struct EnergyParamsUniform {
+pub struct EnergyParamsUniform {
     pub n_states: u32,
     pub nr: u32,
     pub batch_size: u32,
@@ -100,7 +100,7 @@ pub(crate) struct EnergyParamsUniform {
 /// Uniform for spin-orbit pack shader. Must match `PackParams` in WGSL.
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-pub(crate) struct PackParams {
+pub struct PackParams {
     pub ns: u32,
     pub gns: u32,
     pub n_active: u32,
@@ -115,7 +115,7 @@ pub(crate) struct PackParams {
 // GPU resource helpers
 // ═══════════════════════════════════════════════════════════════════
 
-pub(crate) fn make_bind_group(
+pub fn make_bind_group(
     device: &wgpu::Device,
     label: &str,
     entries: &[(wgpu::BufferBindingType, &wgpu::Buffer)],
@@ -154,7 +154,7 @@ pub(crate) fn make_bind_group(
     (layout, bg)
 }
 
-pub(crate) fn make_pipeline(
+pub fn make_pipeline(
     device: &wgpu::Device,
     module: &wgpu::ShaderModule,
     entry_point: &str,
@@ -180,7 +180,7 @@ pub(crate) fn make_pipeline(
 // ═══════════════════════════════════════════════════════════════════
 
 // Energy pipeline (potential integrands + pairing) when gpu_energy feature is enabled.
-pub(crate) struct GroupResources {
+pub struct GroupResources {
     pub ns: usize,
     pub nr: usize,
     pub group_indices: Vec<usize>,

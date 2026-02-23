@@ -13,41 +13,18 @@
 //!   5. Screening models: Debye, ion-sphere, Stewart-Pyatt consistency
 //!
 //! Provenance: Python reference from `control/screened_coulomb/scripts/
-//! yukawa_eigenvalues.py` using scipy.linalg.eigh_tridiagonal (LAPACK dstevd),
-//! grid N=2000, r_max=100.
+//! yukawa_eigenvalues.py` using `scipy.linalg.eigh_tridiagonal` (LAPACK dstevd),
+//! grid N=2000, `r_max=100`.
 //!
 //! Exit code 0 = all checks pass, 1 = any failure.
 
 use hotspring_barracuda::physics::screened_coulomb::{
     self, critical_screening, eigenvalues, screening_models, CRITICAL_SCREENING_REFERENCE,
-    DEFAULT_N_GRID, DEFAULT_R_MAX, HYDROGEN_EXACT,
+    DEFAULT_N_GRID, DEFAULT_R_MAX, HYDROGEN_E2_EXACT, HYDROGEN_EXACT,
 };
+use hotspring_barracuda::provenance::PYTHON_SCREENED_COULOMB_EIGENVALUES;
 use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
-
-/// Python reference eigenvalues for Python-Rust parity checks.
-///
-/// # Provenance
-///
-/// - **Script**: `control/screened_coulomb/scripts/yukawa_eigenvalues.py`
-/// - **Commit**: `3f0d36d` (hotSpring)
-/// - **Method**: `scipy.linalg.eigh_tridiagonal` with N=2000, r_max=100
-/// - **Environment**: Python 3.11, SciPy 1.11
-///
-/// These are the exact eigenvalues of the discrete Hamiltonian matrix,
-/// computed to LAPACK precision (~1e-15). Our Sturm bisection should
-/// agree to ~1e-8 or better.
-const PYTHON_REF_1S_K0: f64 = -0.499_688_201_506_501_2;
-const PYTHON_REF_2S_K0: f64 = -0.124_980_494_356_236_7;
-const PYTHON_REF_2P_K0: f64 = -0.125_006_506_393_321_7;
-const PYTHON_REF_1S_K05: f64 = -0.147_862_177_236_561_37;
-const PYTHON_REF_1S_K10: f64 = -0.010_192_508_268_288_38;
-const PYTHON_REF_HE_1S_K0: f64 = -1.995_029_791_615_593_2;
-const PYTHON_REF_1S_K01: f64 = -0.406_749_026_963_666_44;
-
-/// Hydrogen n=2 eigenvalue E₂ = −1/(2n²) = −0.125 (exact analytical value).
-/// Both 2s and 2p are degenerate at κ=0.
-const HYDROGEN_2S_EXACT: f64 = -0.125;
 
 fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");
@@ -87,12 +64,12 @@ fn main() {
 
     // 2p vs exact
     let e2p = evals_p[0];
-    let rel_2p = ((e2p - HYDROGEN_2S_EXACT) / HYDROGEN_2S_EXACT).abs();
+    let rel_2p = ((e2p - HYDROGEN_E2_EXACT) / HYDROGEN_E2_EXACT).abs();
     println!("    H_2p vs exact: {e2p:.8} vs -0.12500000 (err {rel_2p:.2e})");
     harness.check_rel(
         "H_2p vs exact",
         e2p,
-        HYDROGEN_2S_EXACT,
+        HYDROGEN_E2_EXACT,
         tolerances::SCREENED_HYDROGEN_VS_EXACT,
     );
 
@@ -101,29 +78,31 @@ fn main() {
     // ══════════════════════════════════════════════════════════════
     println!("\n  ── Python-Rust parity ──");
 
+    // Order matches PYTHON_SCREENED_COULOMB_EIGENVALUES: 1s κ=0, 2s κ=0, 2p κ=0,
+    // 1s κ=0.1, 1s κ=0.5, 1s κ=1.0, He⁺ 1s κ=0
     let parity_cases: &[(&str, f64, f64)] = &[
-        ("1s κ=0", evals_s[0], PYTHON_REF_1S_K0),
-        ("2s κ=0", evals_s[1], PYTHON_REF_2S_K0),
-        ("2p κ=0", evals_p[0], PYTHON_REF_2P_K0),
+        ("1s κ=0", evals_s[0], PYTHON_SCREENED_COULOMB_EIGENVALUES[0]),
+        ("2s κ=0", evals_s[1], PYTHON_SCREENED_COULOMB_EIGENVALUES[1]),
+        ("2p κ=0", evals_p[0], PYTHON_SCREENED_COULOMB_EIGENVALUES[2]),
         (
             "1s κ=0.1",
             eigenvalues(1.0, 0.1, 0, DEFAULT_N_GRID, DEFAULT_R_MAX)[0],
-            PYTHON_REF_1S_K01,
+            PYTHON_SCREENED_COULOMB_EIGENVALUES[3],
         ),
         (
             "1s κ=0.5",
             eigenvalues(1.0, 0.5, 0, DEFAULT_N_GRID, DEFAULT_R_MAX)[0],
-            PYTHON_REF_1S_K05,
+            PYTHON_SCREENED_COULOMB_EIGENVALUES[4],
         ),
         (
             "1s κ=1.0",
             eigenvalues(1.0, 1.0, 0, DEFAULT_N_GRID, DEFAULT_R_MAX)[0],
-            PYTHON_REF_1S_K10,
+            PYTHON_SCREENED_COULOMB_EIGENVALUES[5],
         ),
         (
             "He+ 1s κ=0",
             eigenvalues(2.0, 0.0, 0, DEFAULT_N_GRID, DEFAULT_R_MAX)[0],
-            PYTHON_REF_HE_1S_K0,
+            PYTHON_SCREENED_COULOMB_EIGENVALUES[6],
         ),
     ];
 
@@ -199,7 +178,7 @@ fn main() {
     // Z=2 deeper than Z=1
     let e_h = eigenvalues(1.0, 0.0, 0, DEFAULT_N_GRID, DEFAULT_R_MAX)[0];
     let e_he = eigenvalues(2.0, 0.0, 0, DEFAULT_N_GRID, DEFAULT_R_MAX)[0];
-    let z_scaling = e_he < e_h * 3.5;
+    let z_scaling = e_he < e_h * tolerances::SCREENED_Z2_SCALING_MIN_RATIO;
     println!(
         "    Z-scaling: He+(1s)={e_he:.6} vs H(1s)={e_h:.6}, ratio={:.2} → {z_scaling}",
         e_he / e_h

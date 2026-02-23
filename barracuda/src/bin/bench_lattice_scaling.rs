@@ -233,6 +233,7 @@ fn main() {
             n_md_steps: 10,
             dt: 0.1,
             seed: 123,
+            ..Default::default()
         };
         for _ in 0..5 {
             hmc_trajectory(&mut lattice, &mut hmc_config);

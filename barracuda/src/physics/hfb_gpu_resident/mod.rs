@@ -444,7 +444,10 @@ pub fn binding_energies_l2_gpu_resident(
 
 // ── Local helpers for SO-pack setup ──
 
-fn so_pack_layout_entry(binding: u32, ty: wgpu::BufferBindingType) -> wgpu::BindGroupLayoutEntry {
+const fn so_pack_layout_entry(
+    binding: u32,
+    ty: wgpu::BufferBindingType,
+) -> wgpu::BindGroupLayoutEntry {
     wgpu::BindGroupLayoutEntry {
         binding,
         visibility: wgpu::ShaderStages::COMPUTE,

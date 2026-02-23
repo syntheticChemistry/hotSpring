@@ -17,7 +17,7 @@
 //!   5. Quantization through arbitrary FC widths (wide FC scaling)
 //!   6. Batch processing determinism (same input → same output)
 //!
-//! Reference: metalForge/npu/akida/BEYOND_SDK.md
+//! Reference: `metalForge/npu/akida/BEYOND_SDK.md`
 
 use hotspring_barracuda::md::reservoir::{EchoStateNetwork, EsnConfig, NpuSimulator};
 use hotspring_barracuda::tolerances;
@@ -55,7 +55,7 @@ fn main() {
 
 /// Check 1: ESN works with arbitrary input dimensions (not just 8).
 ///
-/// The SDK claims InputConv needs 1 or 3 channels, but we showed ANY
+/// The SDK claims `InputConv` needs 1 or 3 channels, but we showed ANY
 /// dimension works. Here we verify the Rust ESN math handles 2, 5, 16,
 /// 50, 64 input dimensions correctly.
 fn check_arbitrary_input_dims(harness: &mut ValidationHarness) {
@@ -118,7 +118,7 @@ fn check_arbitrary_input_dims(harness: &mut ValidationHarness) {
 
 /// Check 2: Deep FC chain produces same math as single-layer.
 ///
-/// On hardware, multiple FC layers merge into one HW sequence (SkipDMA).
+/// On hardware, multiple FC layers merge into one HW sequence (`SkipDMA`).
 /// Mathematically, chaining quantized FC layers should produce different
 /// results than a single layer, but the depth overhead on latency should
 /// be small. Here we verify that deeper models still produce finite,
@@ -377,7 +377,7 @@ fn check_weight_mutation(harness: &mut ValidationHarness) {
 /// Check 5: Wide FC quantization — larger reservoir sizes still quantize well.
 ///
 /// On hardware, FC width scales to 8192+. Here we verify the math works
-/// for reservoir_size=128 and 256.
+/// for `reservoir_size=128` and 256.
 fn check_wide_fc_quantization(harness: &mut ValidationHarness) {
     println!("\n[5] Wide FC quantization");
 
@@ -500,13 +500,13 @@ struct SimpleRng {
 }
 
 impl SimpleRng {
-    fn new(seed: u64) -> Self {
+    const fn new(seed: u64) -> Self {
         Self {
             state: seed.wrapping_add(0x9E37_79B9_7F4A_7C15),
         }
     }
 
-    fn next_u64(&mut self) -> u64 {
+    const fn next_u64(&mut self) -> u64 {
         self.state = self
             .state
             .wrapping_mul(6_364_136_223_846_793_005)

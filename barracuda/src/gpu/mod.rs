@@ -18,14 +18,14 @@
 //! | substring | Case-insensitive name match (e.g. `"titan"`, `"4070"`) |
 //! | *(unset)* | Enumerate all adapters, pick first with `SHADER_F64` |
 //!
-//! Use [`GpuF64::enumerate_adapters`] to list available GPUs before selecting.
+//! Use `GpuF64::enumerate_adapters` to list available GPUs before selecting.
 //!
 //! ## Module structure
 //!
-//! - [`adapter`] — adapter discovery and selection
-//! - [`buffers`] — f64/u32 buffer creation, upload, readback
-//! - [`dispatch`] — command encoding and dispatch
-//! - [`telemetry`] — GPU power, temperature, VRAM monitoring
+//! - `adapter` — adapter discovery and selection
+//! - `buffers` — f64/u32 buffer creation, upload, readback
+//! - `dispatch` — command encoding and dispatch
+//! - `telemetry` — GPU power, temperature, VRAM monitoring
 
 mod adapter;
 mod buffers;

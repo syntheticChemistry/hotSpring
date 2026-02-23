@@ -2,16 +2,16 @@
 
 //! GPU Lanczos Eigensolve Validation
 //!
-//! Proves that using GPU SpMV as the inner loop of Lanczos produces correct
+//! Proves that using GPU `SpMV` as the inner loop of Lanczos produces correct
 //! eigenvalues for spectral theory Hamiltonians. The matrix stays GPU-resident;
 //! vector x is uploaded and y = Ax is read back per iteration. All other
 //! Lanczos operations (dot, axpy, reorthogonalization) run on CPU.
 //!
 //! This demonstrates the natural hybrid pattern: GPU for the expensive O(nnz)
-//! SpMV, CPU for the cheap O(n) vector ops and sequential control flow.
+//! `SpMV`, CPU for the cheap O(n) vector ops and sequential control flow.
 //!
 //! Validates against:
-//!   - CPU Lanczos eigenvalues (identical algorithm, CPU SpMV)
+//!   - CPU Lanczos eigenvalues (identical algorithm, CPU `SpMV`)
 //!   - Known analytical eigenvalues (clean lattice)
 //!   - Level spacing statistics (localization physics)
 //!
@@ -38,7 +38,7 @@ struct SpMVParams {
 struct Lcg(u64);
 
 impl Lcg {
-    fn new(seed: u64) -> Self {
+    const fn new(seed: u64) -> Self {
         Self(seed.wrapping_add(1))
     }
 
@@ -51,9 +51,9 @@ impl Lcg {
     }
 }
 
-/// GPU Lanczos: GPU SpMV + CPU vector operations.
+/// GPU Lanczos: GPU `SpMV` + CPU vector operations.
 ///
-/// Matrix stays GPU-resident. Per iteration: upload x → GPU SpMV → readback y.
+/// Matrix stays GPU-resident. Per iteration: upload x → GPU `SpMV` → readback y.
 /// Returns Lanczos tridiagonal coefficients (alpha, beta) for Sturm bisection.
 fn gpu_lanczos(
     gpu: &GpuF64,

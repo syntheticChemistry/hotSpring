@@ -161,7 +161,6 @@ def main():
 
     # ---- Summary ----
     print("\n" + "=" * 60)
-    n_pass = sum(1 for _ in range(1))  # placeholder
     if failures:
         print(f"RESULT: {len(failures)} CHECK(S) FAILED")
         for f in failures:

@@ -1,4 +1,4 @@
-# NVIDIA GPU Characterization — RTX 4070 + Titan V
+# NVIDIA GPU Characterization — RTX 4070 + RTX 3090 + Titan V
 
 **Purpose**: Document the GPU hardware that hotSpring's validated physics runs on,
 establish baseline for cross-substrate comparison.
@@ -7,7 +7,7 @@ establish baseline for cross-substrate comparison.
 
 ## Local Hardware
 
-### RTX 4070 (Primary — all validated MD)
+### RTX 4070 (Eastgate — all validated MD)
 
 | Property | Value |
 |----------|-------|
@@ -30,7 +30,46 @@ establish baseline for cross-substrate comparison.
 | Energy drift (80k steps) | 0.000% | Sets precision bar |
 | HFB eigensolve (791 nuclei) | 99.85% convergence | BatchedEighGpu |
 
-### Titan V (Secondary — NVK validation)
+### RTX 3090 (biomeGate — large-lattice compute)
+
+| Property | Value |
+|----------|-------|
+| Architecture | Ampere (GA102) |
+| CUDA Cores | 10,496 |
+| VRAM | 24 GB GDDR6X |
+| Memory bandwidth | 936 GB/s |
+| L2 Cache | 6 MB |
+| TDP | 350W |
+| Driver | nvidia proprietary |
+| f64 throughput | **1:2 via wgpu** (not CUDA's artificial 1:32) |
+
+biomeGate's primary compute GPU. The 24 GB VRAM is 2× the RTX 4070, enabling
+GPU-resident dynamical fermion lattices up to 24⁴ without sublattice decomposition.
+The 936 GB/s memory bandwidth (1.86× the 4070) benefits memory-bound lattice
+sweeps. Ampere GA102 uses the same nvidia proprietary Vulkan driver path as Ada
+AD104 — all existing WGSL shaders run unmodified.
+
+#### VRAM Capacity: Lattice Size vs GPU
+
+SU(3) dynamical fermion HMC uses ~3.3 KB/site (gauge links, momenta, force,
+9 fermion fields, neighbor table, phase table, reduction scratch).
+
+| Lattice | Sites | VRAM | RTX 4070 (12 GB) | RTX 3090 (24 GB) | RTX 5090 (32 GB) |
+|---------|------:|-----:|:-:|:-:|:-:|
+| 8⁴ | 4,096 | 13 MB | Yes | Yes | Yes |
+| 16⁴ | 65,536 | 209 MB | Yes | Yes | Yes |
+| 24⁴ | 331,776 | 1.06 GB | Yes | Yes | Yes |
+| 32⁴ | 1,048,576 | 3.3 GB | Yes | Yes | Yes |
+| 40⁴ | 2,560,000 | 8.2 GB | Yes | Yes | Yes |
+| 44⁴ | 3,748,096 | 11.9 GB | Tight | Yes | Yes |
+| 48⁴ | 5,308,416 | 16.9 GB | No | Yes | Yes |
+| 56⁴ | 9,834,496 | 31.3 GB | No | Tight (quenched) | Yes |
+| 64⁴ | 16,777,216 | 53.4 GB | No | No | No (sublattice) |
+
+The RTX 3090's 24 GB unlocks 48⁴ — a lattice volume 2× larger than the 4070's
+practical maximum. For quenched QCD (no fermion buffers), up to ~56⁴ fits.
+
+### Titan V (Eastgate + biomeGate — NVK validation)
 
 | Property | Value |
 |----------|-------|
@@ -172,4 +211,5 @@ With toadstool Session 25, the full lattice QCD GPU stack exists:
 - `Fft1DF64` / `Fft3DF64` — momentum-space transforms
 
 A 16^4 SU(3) lattice (~37 MB) fits entirely in RTX 4070's 12 GB VRAM with
-room for 300+ lattice copies. GPU HMC could run 100-1000x faster than CPU.
+room for 300+ lattice copies. The RTX 3090's 24 GB fits 48⁴ dynamical fermion
+lattices — 80× more sites than 16⁴. GPU HMC could run 100-1000x faster than CPU.

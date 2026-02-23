@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-//! Lanczos + SpMV + 2D Anderson Validation — Kachkovskiy Extension (Tier 2)
+//! Lanczos + `SpMV` + 2D Anderson Validation — Kachkovskiy Extension (Tier 2)
 //!
 //! Validates the P1 primitives for GPU promotion of spectral theory:
 //!
-//! **SpMV (Sparse Matrix-Vector Product)**:
+//! **`SpMV` (Sparse Matrix-Vector Product)**:
 //! - CSR format correctness against dense reference
 //! - Foundation for all iterative eigensolvers on GPU
 //!
@@ -57,7 +57,7 @@ fn main() {
     harness.finish();
 }
 
-/// \[1\] SpMV: CSR product matches dense reference on a known matrix.
+/// \[1\] `SpMV`: CSR product matches dense reference on a known matrix.
 fn check_spmv_correctness(harness: &mut ValidationHarness) {
     println!("[1] SpMV Correctness — CSR vs Dense Reference");
 

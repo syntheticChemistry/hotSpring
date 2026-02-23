@@ -6,7 +6,7 @@
 //! absorbed hotSpring's spectral implementation (v0.6.0, Sessions 25-31h).
 //!
 //! The full API — Anderson localization, Almost-Mathieu operator, Lanczos
-//! eigensolve, Sturm tridiagonal, level statistics, and CSR SpMV — now lives
+//! eigensolve, Sturm tridiagonal, level statistics, and CSR `SpMV` — now lives
 //! in the shared barracuda crate. hotSpring re-exports for backward
 //! compatibility of validation binaries and integration tests.
 //!

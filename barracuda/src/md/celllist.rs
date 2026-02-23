@@ -47,6 +47,7 @@ pub struct CellList {
 }
 
 impl CellList {
+    #[must_use]
     pub fn build(positions: &[f64], n: usize, box_side: f64, rc: f64) -> Self {
         let n_cells_per_dim = (box_side / rc).floor() as usize;
         let n_cells_per_dim = n_cells_per_dim.max(3);
@@ -76,7 +77,7 @@ impl CellList {
             offset += cell_count[c];
         }
 
-        CellList {
+        Self {
             n_cells: [n_cells_per_dim; 3],
             cell_size: [cell_size; 3],
             n_cells_total,
@@ -86,6 +87,7 @@ impl CellList {
         }
     }
 
+    #[must_use]
     pub fn sort_array(&self, data: &[f64], stride: usize) -> Vec<f64> {
         let mut sorted = vec![0.0f64; data.len()];
         for (new_idx, &old_idx) in self.sorted_indices.iter().enumerate() {
@@ -96,6 +98,7 @@ impl CellList {
         sorted
     }
 
+    #[must_use]
     pub fn unsort_array(&self, data: &[f64], stride: usize) -> Vec<f64> {
         let mut unsorted = vec![0.0f64; data.len()];
         for (new_idx, &old_idx) in self.sorted_indices.iter().enumerate() {

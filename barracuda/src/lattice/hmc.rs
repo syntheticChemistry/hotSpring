@@ -23,16 +23,29 @@
 use super::complex_f64::Complex64;
 use super::su3::Su3Matrix;
 use super::wilson::Lattice;
+use crate::tolerances::OMELYAN_LAMBDA;
+
+/// HMC integrator type.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum IntegratorType {
+    /// Standard leapfrog: O(dt²) shadow Hamiltonian error.
+    #[default]
+    Leapfrog,
+    /// Omelyan 2MN: O(dt⁴) shadow Hamiltonian error (same force count per step).
+    Omelyan,
+}
 
 /// HMC configuration parameters.
 #[derive(Clone, Debug)]
 pub struct HmcConfig {
-    /// Number of leapfrog steps per trajectory
+    /// Number of MD steps per trajectory
     pub n_md_steps: usize,
     /// MD step size (dt)
     pub dt: f64,
     /// Random seed for momentum refresh
     pub seed: u64,
+    /// Integrator type (default: Leapfrog for backward compat)
+    pub integrator: IntegratorType,
 }
 
 impl Default for HmcConfig {
@@ -41,6 +54,7 @@ impl Default for HmcConfig {
             n_md_steps: 20,
             dt: 0.05,
             seed: 42,
+            integrator: IntegratorType::Leapfrog,
         }
     }
 }
@@ -75,8 +89,11 @@ pub fn hmc_trajectory(lattice: &mut Lattice, config: &mut HmcConfig) -> HmcResul
     let kinetic_before = kinetic_energy(&momenta);
     let h_old = action_before + kinetic_before;
 
-    // Leapfrog integration
-    leapfrog(lattice, &mut momenta, config.n_md_steps, config.dt);
+    // MD integration
+    match config.integrator {
+        IntegratorType::Leapfrog => leapfrog(lattice, &mut momenta, config.n_md_steps, config.dt),
+        IntegratorType::Omelyan => omelyan(lattice, &mut momenta, config.n_md_steps, config.dt),
+    }
 
     let action_after = lattice.wilson_action();
     let kinetic_after = kinetic_energy(&momenta);
@@ -104,6 +121,51 @@ pub fn hmc_trajectory(lattice: &mut Lattice, config: &mut HmcConfig) -> HmcResul
         action_before,
         action_after,
         plaquette,
+    }
+}
+
+/// Omelyan (2MN) integration for (U, P) on the SU(3) manifold.
+///
+/// Per step: P→P+λ·dt·F, U→U+dt/2·P, P→P+(1-2λ)·dt·F, U→U+dt/2·P, P→P+λ·dt·F.
+/// Achieves O(dt⁴) shadow Hamiltonian error vs O(dt²) for leapfrog.
+fn omelyan(lattice: &mut Lattice, momenta: &mut [Su3Matrix], n_steps: usize, dt: f64) {
+    let vol = lattice.volume();
+    let lam = OMELYAN_LAMBDA;
+    let half_dt = 0.5 * dt;
+
+    for _step in 0..n_steps {
+        // P -> P + λ·dt·F(U)
+        update_momenta(lattice, momenta, lam * dt);
+
+        // U -> U + dt/2·P
+        for idx in 0..vol {
+            let x = lattice.site_coords(idx);
+            for mu in 0..4 {
+                let p = momenta[idx * 4 + mu];
+                let u = lattice.link(x, mu);
+                let exp_p = exp_su3_cayley(&p, half_dt);
+                let new_u = (exp_p * u).reunitarize();
+                lattice.set_link(x, mu, new_u);
+            }
+        }
+
+        // P -> P + (1-2λ)·dt·F(U)
+        update_momenta(lattice, momenta, (1.0 - 2.0 * lam) * dt);
+
+        // U -> U + dt/2·P
+        for idx in 0..vol {
+            let x = lattice.site_coords(idx);
+            for mu in 0..4 {
+                let p = momenta[idx * 4 + mu];
+                let u = lattice.link(x, mu);
+                let exp_p = exp_su3_cayley(&p, half_dt);
+                let new_u = (exp_p * u).reunitarize();
+                lattice.set_link(x, mu, new_u);
+            }
+        }
+
+        // P -> P + λ·dt·F(U)
+        update_momenta(lattice, momenta, lam * dt);
     }
 }
 
@@ -283,6 +345,7 @@ mod tests {
             n_md_steps: 10,
             dt: 0.01,
             seed: 42,
+            ..Default::default()
         };
 
         let result = hmc_trajectory(&mut lat, &mut config);
@@ -304,6 +367,7 @@ mod tests {
                 n_md_steps: 5,
                 dt: 0.02,
                 seed: 42,
+                ..Default::default()
             };
             hmc_trajectory(&mut lat, &mut config)
         };
@@ -314,6 +378,7 @@ mod tests {
                 n_md_steps: 10,
                 dt: 0.01,
                 seed: 42,
+                ..Default::default()
             };
             hmc_trajectory(&mut lat, &mut config)
         };
@@ -349,6 +414,140 @@ mod tests {
     }
 
     #[test]
+    fn omelyan_vs_leapfrog_delta_h() {
+        // Same trajectory time τ: verify |ΔH_omelyan| < |ΔH_leapfrog|
+        // Omelyan has O(dt⁴) shadow Hamiltonian error vs O(dt²) for leapfrog.
+        let tau = 0.2;
+        let n_steps = 10;
+        let dt = tau / (n_steps as f64);
+
+        let leapfrog_result = {
+            let mut lat = Lattice::hot_start([4, 4, 4, 4], 6.0, 42);
+            let mut config = HmcConfig {
+                n_md_steps: n_steps,
+                dt,
+                seed: 42,
+                integrator: IntegratorType::Leapfrog,
+                ..Default::default()
+            };
+            hmc_trajectory(&mut lat, &mut config)
+        };
+
+        let omelyan_result = {
+            let mut lat = Lattice::hot_start([4, 4, 4, 4], 6.0, 42);
+            let mut config = HmcConfig {
+                n_md_steps: n_steps,
+                dt,
+                seed: 42,
+                integrator: IntegratorType::Omelyan,
+                ..Default::default()
+            };
+            hmc_trajectory(&mut lat, &mut config)
+        };
+
+        assert!(
+            omelyan_result.delta_h.abs() < leapfrog_result.delta_h.abs(),
+            "|ΔH| Omelyan ({:.4e}) should be smaller than leapfrog ({:.4e})",
+            omelyan_result.delta_h.abs(),
+            leapfrog_result.delta_h.abs()
+        );
+    }
+
+    #[test]
+    fn omelyan_reversibility() {
+        // Forward N steps + flip momenta + forward N steps + flip ≈ identity.
+        // Verifies the Omelyan integrator is time-reversible.
+        let mut lat = Lattice::hot_start([4, 4, 4, 4], 6.0, 77);
+        let vol = lat.volume();
+        let n_steps = 5;
+        let dt = 0.02;
+
+        let links_initial = lat.links.clone();
+        let mut momenta = vec![Su3Matrix::ZERO; vol * 4];
+        for p in &mut momenta {
+            *p = Su3Matrix::random_algebra(&mut 77u64);
+        }
+        let momenta_initial: Vec<Su3Matrix> = momenta.clone();
+
+        // Forward
+        omelyan(&mut lat, &mut momenta, n_steps, dt);
+
+        // Flip momenta (time reversal)
+        for p in &mut momenta {
+            *p = p.scale(-1.0);
+        }
+
+        // Forward again (equivalent to backward evolution)
+        omelyan(&mut lat, &mut momenta, n_steps, dt);
+
+        // Flip back
+        for p in &mut momenta {
+            *p = p.scale(-1.0);
+        }
+
+        // Compare links
+        let mut max_link_diff = 0.0_f64;
+        for (a, b) in lat.links.iter().zip(links_initial.iter()) {
+            for i in 0..3 {
+                for j in 0..3 {
+                    let d = (a.m[i][j] - b.m[i][j]).abs_sq();
+                    if d > max_link_diff {
+                        max_link_diff = d;
+                    }
+                }
+            }
+        }
+        assert!(
+            max_link_diff < 1e-10,
+            "links should return to initial (max diff²={max_link_diff:.4e})"
+        );
+
+        // Compare momenta
+        let mut max_p_diff = 0.0_f64;
+        for (a, b) in momenta.iter().zip(momenta_initial.iter()) {
+            for i in 0..3 {
+                for j in 0..3 {
+                    let d = (a.m[i][j] - b.m[i][j]).abs_sq();
+                    if d > max_p_diff {
+                        max_p_diff = d;
+                    }
+                }
+            }
+        }
+        assert!(
+            max_p_diff < 1e-10,
+            "momenta should return to initial (max diff²={max_p_diff:.4e})"
+        );
+    }
+
+    #[test]
+    fn omelyan_acceptance_rate() {
+        // 30 trajectories on 4⁴, verify acceptance > 70%.
+        let mut lat = Lattice::hot_start([4, 4, 4, 4], 6.0, 123);
+        let mut config = HmcConfig {
+            n_md_steps: 10,
+            dt: 0.05,
+            seed: 456,
+            integrator: IntegratorType::Omelyan,
+            ..Default::default()
+        };
+
+        let mut accepted = 0usize;
+        for _ in 0..30 {
+            let result = hmc_trajectory(&mut lat, &mut config);
+            if result.accepted {
+                accepted += 1;
+            }
+        }
+        let rate = accepted as f64 / 30.0;
+        assert!(
+            rate > 0.70,
+            "Omelyan acceptance rate should be > 70%, got {:.1}%",
+            rate * 100.0
+        );
+    }
+
+    #[test]
     fn hmc_trajectory_determinism() {
         let results: Vec<_> = (0..2)
             .map(|_| {
@@ -357,6 +556,7 @@ mod tests {
                     n_md_steps: 10,
                     dt: 0.02,
                     seed: 42,
+                    ..Default::default()
                 };
                 let r = hmc_trajectory(&mut lat, &mut cfg);
                 (

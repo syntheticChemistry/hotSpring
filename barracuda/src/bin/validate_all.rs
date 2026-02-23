@@ -223,6 +223,31 @@ const SUITES: &[Suite] = &[
         binary: "validate_pure_gpu_qcd",
         requires_gpu: true,
     },
+    Suite {
+        name: "GPU Streaming HMC",
+        binary: "validate_gpu_streaming",
+        requires_gpu: true,
+    },
+    Suite {
+        name: "GPU Streaming Dynamical",
+        binary: "validate_gpu_streaming_dyn",
+        requires_gpu: true,
+    },
+    Suite {
+        name: "Reservoir Transport (ESN)",
+        binary: "validate_reservoir_transport",
+        requires_gpu: true,
+    },
+    Suite {
+        name: "Stanton-Murillo Transport (Paper 5)",
+        binary: "validate_stanton_murillo",
+        requires_gpu: false,
+    },
+    Suite {
+        name: "Transport CPU/GPU Parity",
+        binary: "validate_transport",
+        requires_gpu: true,
+    },
 ];
 
 fn main() {

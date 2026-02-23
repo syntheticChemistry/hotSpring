@@ -8,7 +8,7 @@
 //! the reference; this binary proves the Rust implementation matches.
 //!
 //! Checks:
-//!   1. f64 → f32 parity (NpuSimulator path)
+//!   1. f64 → f32 parity (`NpuSimulator` path)
 //!   2. f64 → int8 quantized weights prediction error
 //!   3. f64 → int4 quantized weights prediction error
 //!   4. f64 → int4 weights + int4 activations (full hardware sim)
@@ -321,13 +321,13 @@ struct SimpleRng {
 }
 
 impl SimpleRng {
-    fn new(seed: u64) -> Self {
+    const fn new(seed: u64) -> Self {
         Self {
             state: seed.wrapping_add(0x9E37_79B9_7F4A_7C15),
         }
     }
 
-    fn next_u64(&mut self) -> u64 {
+    const fn next_u64(&mut self) -> u64 {
         self.state = self
             .state
             .wrapping_mul(6_364_136_223_846_793_005)

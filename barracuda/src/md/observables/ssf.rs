@@ -10,6 +10,7 @@ use barracuda::device::WgpuDevice;
 use barracuda::ops::md::observables::SsfGpu;
 
 /// Compute static structure factor S(k) from position snapshots
+#[must_use]
 pub fn compute_ssf(
     snapshots: &[Vec<f64>],
     n: usize,
@@ -54,6 +55,7 @@ pub fn compute_ssf(
 ///
 /// This mirrors `compute_ssf` but runs each snapshot on the GPU via
 /// `SsfGpu::compute_axes`. Falls back to CPU if GPU dispatch fails.
+#[must_use]
 pub fn compute_ssf_gpu(
     device: &Arc<WgpuDevice>,
     snapshots: &[Vec<f64>],

@@ -18,6 +18,9 @@ use hotspring_barracuda::bench::{
 use hotspring_barracuda::data;
 use hotspring_barracuda::discovery;
 use hotspring_barracuda::gpu::GpuF64;
+use hotspring_barracuda::nuclear_eos_helpers::{
+    print_nmp_with_pulls, print_pure_gpu_precision, print_semf_gpu_precision,
+};
 use hotspring_barracuda::physics::{
     binding_energy_l2, nuclear_matter_properties, semf_binding_energy,
 };
@@ -300,32 +303,14 @@ fn main() {
     println!("    {gpu_per_eval_us:.1} us/eval ({n_nuclei} nuclei, {n_iters_l1} iterations)");
 
     println!();
-    println!("  ── Precision ──");
-    println!("    Max  |B_cpu - B_gpu|: {max_diff:.2e} MeV");
-    println!("    Mean |B_cpu - B_gpu|: {mean_diff:.2e} MeV");
-    println!(
-        "    |chi2_cpu - chi2_gpu|: {:.2e}",
-        (cpu_chi2 - gpu_chi2).abs()
+    print_semf_gpu_precision(
+        max_diff,
+        mean_diff,
+        (cpu_chi2 - gpu_chi2).abs(),
+        cpu_per_eval_us,
+        gpu_per_eval_us,
+        n_nuclei,
     );
-    let speedup = cpu_per_eval_us / gpu_per_eval_us;
-    if speedup >= 1.0 {
-        println!("    GPU speedup: {speedup:.1}x");
-    } else {
-        println!(
-            "    GPU overhead: {:.1}x (dispatch > compute for {} nuclei)",
-            1.0 / speedup,
-            n_nuclei
-        );
-    }
-    if max_diff < 1e-10 {
-        println!("    EXACT MATCH (< 1e-10 MeV) ✓");
-    } else if max_diff < 1e-6 {
-        println!("    Precision: EXCELLENT (< 1e-6 MeV)");
-    } else if max_diff < 0.01 {
-        println!("    Precision: GOOD (< 0.01 MeV — rounding)");
-    } else {
-        println!("    !! DISCREPANCY > 0.01 MeV — investigate");
-    }
 
     // ═══════════════════════════════════════════════════════════════
     //  L1 SEMF: PURE-GPU (math_f64 library — no CPU precomputation)
@@ -424,27 +409,15 @@ fn main() {
         notes: format!("pure-GPU math_f64, max|delta|={pure_max_diff:.2e}"),
     });
 
-    println!();
-    println!("  Pure-GPU (math_f64 library on RTX 4070):");
-    println!("    Time per eval: {pure_per_eval_us:.1} us ({n_iters_l1} iters)");
-    println!();
-    println!("  ── Precision vs CPU ──");
-    println!("    Max  |B_cpu - B_pure_gpu|: {pure_max_diff:.2e} MeV");
-    println!("    Mean |B_cpu - B_pure_gpu|: {pure_mean_diff:.2e} MeV");
-    println!("  ── Precision vs Precomputed-GPU ──");
-    println!("    Max  |B_precomp - B_pure|: {pure_vs_precomp:.2e} MeV");
-    println!("  ── Speed comparison ──");
-    println!("    CPU:             {cpu_per_eval_us:.1} us/eval");
-    println!("    GPU (precomp):   {gpu_per_eval_us:.1} us/eval");
-    println!("    GPU (pure math): {pure_per_eval_us:.1} us/eval");
-
-    if pure_max_diff < 1e-6 {
-        println!("    Pure-GPU math_f64: VALIDATED (< 1e-6 MeV vs CPU)");
-    } else if pure_max_diff < 0.1 {
-        println!("    Pure-GPU math_f64: GOOD (< 0.1 MeV — Newton/polynomial precision)");
-    } else {
-        println!("    Pure-GPU math_f64: NEEDS TUNING ({pure_max_diff:.2e} MeV)");
-    }
+    print_pure_gpu_precision(
+        pure_max_diff,
+        pure_mean_diff,
+        pure_vs_precomp,
+        cpu_per_eval_us,
+        gpu_per_eval_us,
+        pure_per_eval_us,
+        n_iters_l1,
+    );
 
     // ═══════════════════════════════════════════════════════════════
     //  L1 OPTIMIZATION: 64-eval sweep, CPU vs GPU objective
@@ -542,28 +515,10 @@ fn main() {
     println!("  Max |chi2_cpu - chi2_gpu|: {max_chi2_diff:.2e}");
     println!("  Speedup: {:.2}x", cpu_opt_ms / gpu_opt_ms);
 
-    // NMP at best
     if let Some(nmp) = nuclear_matter_properties(&samples[gpu_best_idx]) {
         println!();
         println!("  Best GPU solution NMP:");
-        let vals = [
-            nmp.rho0_fm3,
-            nmp.e_a_mev,
-            nmp.k_inf_mev,
-            nmp.m_eff_ratio,
-            nmp.j_mev,
-        ];
-        let targets = provenance::NMP_TARGETS.values();
-        let sigmas = provenance::NMP_TARGETS.sigmas();
-        for (i, &v) in vals.iter().enumerate() {
-            let pull = (v - targets[i]) / sigmas[i];
-            println!(
-                "    {:>6} = {:>10.4}  (pull: {:>+.2}σ)",
-                provenance::NMP_NAMES[i],
-                v,
-                pull
-            );
-        }
+        print_nmp_with_pulls(&nmp);
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -578,6 +533,7 @@ fn main() {
     let lambda = 0.1;
 
     let gpu_arc = Arc::new(gpu);
+    let device = gpu_arc.to_wgpu_device();
     let sorted_nuclei_arc = Arc::new(sorted_nuclei.clone());
 
     // CPU objective for comparison
@@ -594,7 +550,7 @@ fn main() {
         .with_patience(3);
 
     let result_cpu =
-        direct_sampler(cpu_objective, bounds, &config_cpu).expect("CPU DirectSampler failed");
+        direct_sampler(device.clone(), cpu_objective, bounds, &config_cpu).expect("CPU DirectSampler failed");
     let cpu_full_time = t_cpu_full.elapsed().as_secs_f64();
     let energy_ds_cpu = pmon_ds_cpu.stop();
     let cpu_full_chi2 = result_cpu.f_best.exp_m1();
@@ -637,7 +593,7 @@ fn main() {
         .with_patience(3);
 
     let result_gpu =
-        direct_sampler(gpu_objective, bounds, &config_gpu).expect("GPU DirectSampler failed");
+        direct_sampler(device.clone(), gpu_objective, bounds, &config_gpu).expect("GPU DirectSampler failed");
     let gpu_full_time = t_gpu_full.elapsed().as_secs_f64();
     let energy_ds_gpu = pmon_ds_gpu.stop();
     let gpu_full_chi2 = result_gpu.f_best.exp_m1();
@@ -752,7 +708,7 @@ fn main() {
     println!("  Running... (each eval = full HFB SCF for ~{l2_count} nuclei)");
 
     let result_l2 =
-        direct_sampler(l2_objective, bounds, &l2_config).expect("L2 DirectSampler failed");
+        direct_sampler(device.clone(), l2_objective, bounds, &l2_config).expect("L2 DirectSampler failed");
     let l2_opt_time = t_l2_opt.elapsed().as_secs_f64();
     let energy_l2_opt = pmon_l2_opt.stop();
     let l2_opt_chi2 = result_l2.f_best.exp_m1();

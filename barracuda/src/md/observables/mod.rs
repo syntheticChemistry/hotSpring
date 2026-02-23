@@ -23,7 +23,7 @@ pub use transport::{
     StressAcf,
 };
 pub use transport_gpu::{
-    compute_stress_xy_gpu, compute_vacf_gpu, GpuVacf, GpuVelocityRing,
-    WGSL_STRESS_VIRIAL_F64, WGSL_VACF_BATCH_F64, WGSL_VACF_DOT_F64,
+    compute_stress_xy_gpu, compute_vacf_gpu, GpuVacf, GpuVelocityRing, WGSL_STRESS_VIRIAL_F64,
+    WGSL_VACF_BATCH_F64, WGSL_VACF_DOT_F64,
 };
 pub use vacf::{compute_d_star_msd, compute_vacf, Vacf};

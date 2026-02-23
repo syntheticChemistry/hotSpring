@@ -138,6 +138,7 @@ pub fn run_temperature_scan(config: &TemperatureScanConfig) -> TemperatureScanRe
                         n_md_steps: hmc_n_md,
                         dt: hmc_dt,
                         seed: seed_base + idx as u64 * 1000,
+                        ..Default::default()
                     };
 
                     let stats = hmc::run_hmc(&mut lat, n_traj, n_therm, &mut hmc_config);

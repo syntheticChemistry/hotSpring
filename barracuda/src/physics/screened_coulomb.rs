@@ -23,7 +23,7 @@
 //! # Numerical method
 //!
 //! Discretize the radial Schrödinger equation for `u`(r) = r R(r) on a
-//! uniform grid `r_i` = (i+1)h, h = r_max/(N+1), with finite differences:
+//! uniform grid `r_i` = (i+1)h, h = `r_max/(N+1)`, with finite differences:
 //!
 //!   H u = E u,   `H_{ii}` = 1/h² + l(l+1)/(2`r_i`²) − Z exp(−κ`r_i`)/`r_i`
 //!                 `H_{i,i±1}` = −1/(2h²)
@@ -64,6 +64,11 @@ pub const HYDROGEN_EXACT: &[(u32, f64)] = &[
     (2, -0.125_000_000),
     (3, -0.055_555_556),
 ];
+
+/// Hydrogen n=2 eigenvalue E₂ = −1/(2n²) = −0.125 (exact analytical).
+///
+/// Both 2s and 2p are degenerate at κ=0. Used for parity checks.
+pub const HYDROGEN_E2_EXACT: f64 = -0.125;
 
 /// Screening models from Murillo & Weisheit (1998) §3.
 ///
@@ -119,7 +124,7 @@ pub mod screening_models {
 ///
 /// Uses the Sturm sequence property: the number of sign changes in the
 /// sequence `d_0`, `d_1`, ..., `d_{n-1}` equals the number of eigenvalues &lt; λ,
-/// where `d_i` = (a_i - λ) - b_{i-1}²/`d_{i-1}`.
+/// where `d_i` = (`a_i` - λ) - b_{i-1}²/`d_{i-1}`.
 fn sturm_count(diag: &[f64], off_diag: &[f64], lambda: f64) -> usize {
     let n = diag.len();
     let mut count = 0;
@@ -239,7 +244,7 @@ pub fn bound_state_count(z: f64, kappa: f64, l: u32, n_grid: usize, r_max: f64) 
     sturm_count(&diag, &off_diag, 0.0)
 }
 
-/// Critical screening parameter κ_c where the (n,l) state becomes unbound.
+/// Critical screening parameter `κ_c` where the (n,l) state becomes unbound.
 ///
 /// Uses bisection on the bound-state count from the Sturm sequence.
 ///

@@ -18,7 +18,7 @@ Python baseline → Rust validation → WGSL template → GPU shader → ToadSto
 | **C** | New | No shader exists; must be written from scratch |
 | **✅** | Absorbed | ToadStool has absorbed this as a first-class barracuda primitive |
 
-## ToadStool Absorption Status (Feb 22, 2026 — Post v0.6.7 Spectral Lean + Rewire)
+## ToadStool Absorption Status (Feb 23, 2026 — Post v0.6.8 biomeGate + Streaming CG)
 
 | hotSpring Module | ToadStool Primitive | Commit | Status |
 |-----------------|--------------------| -------|--------|
@@ -43,6 +43,10 @@ Python baseline → Rust validation → WGSL template → GPU shader → ToadSto
 | `md/celllist.rs` → upstream | ~~Migrate `run_simulation_celllist` to upstream API~~ | ~~**P1**~~ | ✅ **Done (v0.6.2)** — `CellListGpu` migrated, 282 lines + 3 shaders deleted |
 | `lattice/cg.rs` | ~~GPU CG solver~~ | ~~**P2**~~ | ✅ **Done** — GPU CG (D†D) validated 9/9 checks (machine-epsilon parity, identical iteration counts) |
 | `physics/hfb_gpu_resident.rs` energy | ~~Wire `batched_hfb_energy_f64.wgsl`~~ | ~~**P2**~~ | ✅ **Done (v0.6.2)** — GPU energy dispatch wired behind `gpu_energy` feature flag |
+| `lattice/gpu_hmc.rs` streaming | ~~GPU streaming HMC dispatch~~ | ~~**P1**~~ | ✅ **Done (v0.6.8)** — single-encoder batched dispatch, 67× CPU at 16⁴, 9/9 checks |
+| `lattice/gpu_hmc.rs` resident CG | ~~GPU-resident CG scalars~~ | ~~**P1**~~ | ✅ **Done (v0.6.8)** — α/β/rz on GPU, 10-iter batches, 15,360× readback reduction, 30.7× speedup |
+| `lattice/gpu_hmc.rs` bidirectional | ~~Async readback + NPU branch~~ | ~~**P1**~~ | ✅ **Done (v0.6.8)** — 90% to GPU, 10% readback, std::sync::mpsc NPU observation routing |
+| `md/reservoir.rs` CPU solver | ~~GPU-free ESN training~~ | ~~**P2**~~ | ✅ **Done (v0.6.8)** — local gauss_jordan_solve() for small ESN matrices (50-200 dim) |
 
 ## Physics Modules
 
@@ -136,7 +140,7 @@ Production equivalents live in `src/md/shaders/`.
 No duplicate math — all mathematical operations use BarraCuda primitives.
 `hermite_value` now delegates to `barracuda::special::hermite` (v0.5.7).
 `factorial_f64` now delegates to `barracuda::special::factorial` (v0.5.10).
-`solve_linear_system` now delegates to `barracuda::linalg::solve_f64` (v0.6.2).
+`solve_linear_system` in `reservoir.rs` uses local `gauss_jordan_solve()` CPU fallback (v0.6.8; was `barracuda::linalg::solve_f64` in v0.6.2).
 WGSL `abs_f64` and `cbrt_f64` now injected via `ShaderTemplate::with_math_f64_auto()` (v0.5.8).
 Force shaders compiled via `GpuF64::create_pipeline_f64()` → barracuda driver-aware path **(v0.5.11)**.
 `GpuCellList` migrated to upstream `barracuda::ops::md::CellListGpu` (v0.6.2) — 3 local shaders deleted.

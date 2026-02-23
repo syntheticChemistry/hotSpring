@@ -5,6 +5,42 @@ All notable changes to the hotSpring BarraCuda validation crate.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.6.8 — biomeGate Prep + Streaming CG + Debt Fix + Suite Expansion (Feb 23, 2026)
+
+### biomeGate Node Preparation
+Registered biomeGate (Threadripper 3970X, RTX 3090 + Titan V, Akida NPU, 256GB DDR4)
+as lab-deployable mini HPC. Node profile system (`metalForge/nodes/`) enables
+`source biomegate.env && cargo run` for any node. Multi-GPU bench now reads
+`HOTSPRING_GPU_PRIMARY`/`HOTSPRING_GPU_SECONDARY` env vars (was hardcoded 4070/titan).
+NVK setup guide at `metalForge/gpu/nvidia/NVK_SETUP.md`.
+
+### API Debt Resolution
+- `md/reservoir.rs`: `solve_f64` → local `gauss_jordan_solve()` CPU fallback (ESN matrices 50-200 dim)
+- `nuclear_eos_l1_ref.rs`, `nuclear_eos_gpu.rs`, `nuclear_eos_l2_hetero.rs`, `nuclear_eos_l2_ref.rs`:
+  `direct_sampler`, `sparsity_sampler`, `RBFSurrogate::train` updated for `Arc<WgpuDevice>` first arg
+
+### Validation Suite Expansion (34 → 39)
+`validate_all.rs` now includes 5 additional suites:
+- `validate_gpu_streaming` (9/9 — streaming HMC, 4⁴→16⁴)
+- `validate_gpu_streaming_dyn` (13/13 — dynamical fermion streaming, GPU-resident CG)
+- `validate_reservoir_transport` (10/10 — ESN transport prediction)
+- `validate_stanton_murillo` (13/13 — Paper 5 transport)
+- `validate_transport` (CPU/GPU transport parity)
+
+### Documentation Cleanup
+- Root README, whitePaper/README, whitePaper/STUDY.md updated to Feb 23
+- Experiment journal 011: GPU streaming + resident CG + bidirectional pipeline
+- New handoff: biomeGate prep + streaming CG + debt fix
+- `experiments/data/` added to `.gitignore` (profiling CSVs untracked)
+- `verify_results.py` placeholder `n_pass` removed
+
+### Metrics
+- **39/39 validation suites** pass (was 34/34)
+- **155/155 checks** in latest manual validation session
+- **Zero clippy warnings** (all targets)
+- **All unit tests pass**
+- **Version**: 0.6.7 → 0.6.8
+
 ## v0.6.7 — ToadStool S42 Catch-Up + Loop Unroller Fix (Feb 22, 2026)
 
 ### Loop Unroller u32 Fix (Applied to ToadStool)

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-//! HotQCD EOS Table Validation (Paper 7).
+//! `HotQCD` EOS Table Validation (Paper 7).
 //!
-//! Validates the loaded HotQCD lattice QCD equation-of-state tables
+//! Validates the loaded `HotQCD` lattice QCD equation-of-state tables
 //! against known physical constraints and demonstrates the computational
 //! overlap between plasma MD and lattice QCD.
 //!
@@ -12,12 +12,12 @@
 //! |-------|-----------|-------|
 //! | Pressure monotonicity | dp/dT > 0 | Thermodynamic stability |
 //! | Asymptotic freedom | p/T^4 → SB at high T | QCD running coupling |
-//! | Trace anomaly peak | near T_c | Lattice QCD consensus |
+//! | Trace anomaly peak | near `T_c` | Lattice QCD consensus |
 //! | Thermodynamic consistency | s ≈ (ε+p)/T | First law |
 //!
 //! # Provenance
 //!
-//! Bazavov et al., PRD 90, 094503 (2014) — HotQCD continuum EOS
+//! Bazavov et al., PRD 90, 094503 (2014) — `HotQCD` continuum EOS
 //! Data: `github.com/jnoronhahostler/Equation-of-State`
 
 use hotspring_barracuda::lattice::eos_tables::{computational_overlap_summary, HotQcdEos};

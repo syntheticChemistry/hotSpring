@@ -25,6 +25,13 @@ pub const LATTICE_COLD_ACTION_ABS: f64 = 1e-10;
 /// Metropolis step.
 pub const LATTICE_HMC_ACCEPTANCE_MIN: f64 = 0.10;
 
+/// Omelyan (2MN) integrator λ parameter.
+///
+/// Optimal value for second-order minimum-norm integrator (Omelyan, Mryglod,
+/// Folk 2003, Comp. Phys. Comm. 146, 188). Achieves O(dt⁴) errors in the
+/// shadow Hamiltonian vs O(dt²) for leapfrog.
+pub const OMELYAN_LAMBDA: f64 = 0.1931833275037836;
+
 /// CG solver residual: upper bound.
 ///
 /// The conjugate gradient solver for D†D x = b should converge to
@@ -108,7 +115,7 @@ pub const BETA_SCAN_PLAQUETTE_MONOTONICITY: f64 = 0.0;
 
 /// β-scan Polyakov loop: confined-phase upper bound.
 ///
-/// In the confined phase (β < β_c ≈ 5.69 for SU(3) on N_t=4),
+/// In the confined phase (β < `β_c` ≈ 5.69 for SU(3) on `N_t=4`),
 /// the spatial average of |L| should be suppressed. On a 4^4 lattice,
 /// finite-size effects give |L| ~ 0.1-0.3 even in confinement.
 /// 0.40 allows for fluctuations on small volumes.
@@ -123,7 +130,7 @@ pub const BETA_SCAN_ACCEPTANCE_MIN: f64 = 0.30;
 /// β-scan plaquette: Python-Rust parity.
 ///
 /// Same algorithm, same LCG seed → same plaquette trajectory. The
-/// parity is limited by FP summation order differences between NumPy
+/// parity is limited by FP summation order differences between `NumPy`
 /// and Rust iterators. On 4^4 (256 sites), 1% relative is achievable.
 pub const BETA_SCAN_PYTHON_RUST_PLAQUETTE_PARITY: f64 = 0.01;
 
@@ -165,7 +172,7 @@ pub const DYNAMICAL_PLAQUETTE_MAX: f64 = 1.0;
 
 /// Dynamical fermion action: must be positive.
 ///
-/// S_F = φ†(D†D)⁻¹φ ≥ 0 since D†D is positive-definite. A negative
+/// `S_F` = φ†(D†D)⁻¹φ ≥ 0 since D†D is positive-definite. A negative
 /// value indicates a CG convergence failure or sign error.
 pub const DYNAMICAL_FERMION_ACTION_MIN: f64 = 0.0;
 
@@ -367,3 +374,95 @@ pub const ANDERSON_1D_LYAPUNOV_TOLERANCE: f64 = 0.02;
 /// symmetric about E=0: |`E_min` + `E_max`| should be near zero.
 /// Finite q gives max asymmetry of ~0.5 for edge-of-band states.
 pub const HOFSTADTER_SYMMETRY_TOLERANCE: f64 = 0.5;
+
+/// Hofstadter butterfly: minimum band width to count as "wide band".
+///
+/// Bands narrower than 0.01 are numerical artifacts from finite-N truncation.
+/// Only bands with (hi - lo) > this threshold are counted toward expected
+/// band structure (Paper 21).
+pub const HOFSTADTER_WIDE_BAND_MIN_WIDTH: f64 = 0.01;
+
+// ═══════════════════════════════════════════════════════════════════
+// Evolution validation tolerances (validate_barracuda_evolution)
+// ═══════════════════════════════════════════════════════════════════
+
+/// Plaquette physical lower bound.
+///
+/// For any valid SU(3) or U(1) configuration, Re Tr U_p / Nc ∈ (0, 1).
+/// The lower bound 0 is strict; negative plaquettes indicate a bug.
+pub const LATTICE_PLAQUETTE_PHYSICAL_MIN: f64 = 0.0;
+
+/// Plaquette physical upper bound.
+///
+/// Unit matrices give plaquette = 1. Thermalized configurations have
+/// ⟨P⟩ < 1. Used for check_upper and physical-range sanity.
+pub const LATTICE_PLAQUETTE_PHYSICAL_MAX: f64 = 1.0;
+
+/// Evolution pure-gauge HMC: minimum accepted count for 20 trajectories.
+///
+/// Requires accepted > 6, i.e. ≥ 35% acceptance. Ensures the HMC
+/// integrator and Metropolis step are functioning; 30% is algorithmic
+/// sanity threshold (Paper 8).
+pub const EVOLUTION_PURE_GAUGE_MIN_ACCEPTED: u32 = 6;
+
+/// CG solver convergence tolerance (strict, evolution Dirac check).
+///
+/// The evolution binary uses 1e-10 for the Dirac CG solve. Stricter
+/// than LATTICE_CG_RESIDUAL because the cold/thermalized lattice
+/// is well-conditioned and we want solution parity with reference.
+pub const LATTICE_CG_TOLERANCE_STRICT: f64 = 1e-10;
+
+/// CG residual upper bound (strict, evolution Dirac check).
+///
+/// After CG solve, |Ax - b|/|b| must be < 1e-8. Stricter than
+/// LATTICE_CG_RESIDUAL (1e-6) for evolution correctness proof.
+pub const LATTICE_CG_RESIDUAL_STRICT: f64 = 1e-8;
+
+/// Dynamical HMC: CG convergence tolerance for pseudofermion action.
+///
+/// The CG solve for (D†D)⁻¹φ uses 1e-8. Balances accuracy vs iteration
+/// count; lighter masses need stricter tolerance.
+pub const DYNAMICAL_CG_TOLERANCE: f64 = 1e-8;
+
+/// CG solver tolerance on identity (cold) lattice.
+///
+/// Cold lattice has condition number ~1; 1e-8 achieves near-machine
+/// precision for the identity-link case (validate_pure_gauge).
+pub const LATTICE_CG_TOLERANCE_IDENTITY: f64 = 1e-8;
+
+/// CG solver tolerance on thermalized lattice.
+///
+/// Hot lattice has higher condition number; 1e-4 is achievable
+/// within 2000 iterations. Used for thermalized-lattice sanity check.
+pub const LATTICE_CG_TOLERANCE_THERMALIZED: f64 = 1e-4;
+
+/// Anderson 1D: |⟨r⟩ - r_Poisson| deviation tolerance.
+///
+/// At N=500, W=4, the localized phase gives ⟨r⟩ ≈ r_Poisson with
+/// sample variance ~0.05–0.06. 0.06 accommodates evolution validation
+/// (Paper 17).
+pub const ANDERSON_1D_LEVEL_SPACING_DEVIATION: f64 = 0.06;
+
+/// Anderson 3D clean lattice: bandwidth vs OBC theory tolerance.
+///
+/// Clean 3D bandwidth = 12 cos(π/(L+1)). Finite-L Lanczos gives
+/// ~0.1 absolute error vs exact OBC formula (Paper 20).
+pub const ANDERSON_3D_CLEAN_BANDWIDTH_ABS: f64 = 0.1;
+
+/// Anderson 3D GOE→Poisson transition: minimum Δ⟨r⟩.
+///
+/// Genuine phase transition requires r(weak) - r(strong) > 0.05.
+/// Smaller differences can be finite-size fluctuations.
+pub const ANDERSON_3D_GOE_POISSON_DELTA_R_MIN: f64 = 0.05;
+
+/// U(1) leapfrog reversibility: |ΔH| upper bound for small dt.
+///
+/// With dt=0.01 and 100 steps, |ΔH| should be < 1.0. Verifies
+/// integrator reversibility as dt → 0 (validate_abelian_higgs).
+pub const U1_LEAPFROG_REVERSIBILITY_DELTA_H_MAX: f64 = 1.0;
+
+/// U(1) Abelian Higgs: minimum Rust-vs-Python speedup.
+///
+/// Rust implementation must be faster than Python reference.
+/// Speedup = python_ms / rust_ms; must be > 1.0.
+pub const U1_SPEEDUP_MIN: f64 = 1.0;

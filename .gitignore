@@ -71,6 +71,9 @@ metalForge/forge/Cargo.lock
 metalForge/npu/akida/benchmarks/*.fbz
 metalForge/benchmarks/
 
+# ----- Experiment profiling data (generated, regenerable) -----
+experiments/data/
+
 # ----- Benchmark results (generated) -----
 benchmarks/*/results/
 

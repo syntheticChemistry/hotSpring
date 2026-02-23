@@ -1,22 +1,22 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-//! Multi-GPU cooperative benchmark: distribute work across RTX 4070 + Titan V.
+//! Multi-GPU cooperative benchmark: distribute work across two GPUs.
 //!
 //! Demonstrates three modes:
 //!   1. **Comparative**: Same workload on each card (side-by-side)
 //!   2. **Cooperative**: Split batches across both cards simultaneously
 //!   3. **Specialized**: Route workloads to the best card for each task type
 //!
-//! Findings from single-card benchmarks:
-//!   - Titan V (NVK): 3-6× faster BCS bisection (pure fp64 arithmetic)
-//!   - RTX 4070 (NVIDIA): 2-5× faster eigensolve (dispatch-latency sensitive)
-//!   - Titan V (NVK): NAK compiler crash on native exp(f64) — blocks Yukawa MD
+//! GPU selection via environment variables (node-agnostic):
+//!   - `HOTSPRING_GPU_PRIMARY`   — Card A name substring (default: `"4070"`)
+//!   - `HOTSPRING_GPU_SECONDARY` — Card B name substring (default: `"titan"`)
 //!
-//! This binary proves multi-GPU dispatch as a stepping stone toward
-//! toadstool's `GpuPool` / `MultiDevicePool` for production workloads.
+//! Example (biomeGate):
+//!   HOTSPRING_GPU_PRIMARY=3090 HOTSPRING_GPU_SECONDARY=titan \
+//!     cargo run --release --bin bench_multi_gpu
 //!
-//! Usage:
-//!   cargo run --release --bin `bench_multi_gpu`
+//! Or source a node profile:
+//!   source metalForge/nodes/biomegate.env && cargo run --release --bin bench_multi_gpu
 
 use barracuda::ops::linalg::BatchedEighGpu;
 use hotspring_barracuda::gpu::GpuF64;
@@ -35,52 +35,59 @@ fn main() {
     println!("═══════════════════════════════════════════════════════════");
     println!();
 
+    let primary_name = std::env::var("HOTSPRING_GPU_PRIMARY").unwrap_or_else(|_| "4070".into());
+    let secondary_name =
+        std::env::var("HOTSPRING_GPU_SECONDARY").unwrap_or_else(|_| "titan".into());
+
+    println!("  Config: primary={primary_name:?}, secondary={secondary_name:?}");
+    println!();
+
     // Initialize both GPUs
     #[allow(deprecated)] // set_var deprecated in edition 2024; safe here (single-threaded init)
-    let gpu_4070 = rt.block_on(async {
-        std::env::set_var("HOTSPRING_GPU_ADAPTER", "4070");
+    let gpu_primary = rt.block_on(async {
+        std::env::set_var("HOTSPRING_GPU_ADAPTER", &primary_name);
         GpuF64::new().await
     });
     #[allow(deprecated)]
-    std::env::set_var("HOTSPRING_GPU_ADAPTER", "titan");
-    let gpu_titan = rt.block_on(GpuF64::new());
+    std::env::set_var("HOTSPRING_GPU_ADAPTER", &secondary_name);
+    let gpu_secondary = rt.block_on(GpuF64::new());
 
-    let gpu_4070 = match gpu_4070 {
+    let gpu_primary = match gpu_primary {
         Ok(g) => {
             println!("  Card A: {} (SHADER_F64={})", g.adapter_name, g.has_f64);
             g
         }
         Err(e) => {
-            eprintln!("  Card A (4070): UNAVAILABLE ({e})");
+            eprintln!("  Card A ({primary_name}): UNAVAILABLE ({e})");
             return;
         }
     };
-    let gpu_titan = match gpu_titan {
+    let gpu_secondary = match gpu_secondary {
         Ok(g) => {
             println!("  Card B: {} (SHADER_F64={})", g.adapter_name, g.has_f64);
             g
         }
         Err(e) => {
-            eprintln!("  Card B (Titan): UNAVAILABLE ({e})");
+            eprintln!("  Card B ({secondary_name}): UNAVAILABLE ({e})");
             return;
         }
     };
     println!();
 
     // Phase 1: Comparative BCS bisection
-    comparative_bcs(&gpu_4070, &gpu_titan);
+    comparative_bcs(&gpu_primary, &gpu_secondary);
     println!();
 
     // Phase 2: Cooperative BCS — split batch across both cards
-    cooperative_bcs(&gpu_4070, &gpu_titan);
+    cooperative_bcs(&gpu_primary, &gpu_secondary);
     println!();
 
     // Phase 3: Cooperative eigensolve — split batch across both cards
-    cooperative_eigensolve(&gpu_4070, &gpu_titan);
+    cooperative_eigensolve(&gpu_primary, &gpu_secondary);
     println!();
 
     // Phase 4: Specialized routing — each card does what it's best at
-    specialized_routing(&gpu_4070, &gpu_titan);
+    specialized_routing(&gpu_primary, &gpu_secondary);
 }
 
 /// Phase 1: Same BCS workload on each card for comparison.
@@ -323,8 +330,14 @@ fn cooperative_eigensolve(gpu_a: &GpuF64, gpu_b: &GpuF64) {
 /// Phase 4: Route each workload to the card that's best at it.
 fn specialized_routing(gpu_a: &GpuF64, gpu_b: &GpuF64) {
     println!("── Phase 4: Specialized Routing (best card per task) ─────");
-    println!("  Strategy: BCS→Titan V (fp64 throughput),");
-    println!("            Eigensolve→RTX 4070 (low dispatch latency)");
+    println!(
+        "  Strategy: BCS→{} (fp64 throughput),",
+        gpu_b.adapter_name
+    );
+    println!(
+        "            Eigensolve→{} (low dispatch latency)",
+        gpu_a.adapter_name
+    );
 
     let bcs_batch = 4096;
     let eig_batch = 128;
@@ -338,14 +351,14 @@ fn specialized_routing(gpu_a: &GpuF64, gpu_b: &GpuF64) {
     let upper = vec![200.0_f64; bcs_batch];
     let matrices = generate_symmetric_matrices(eig_batch, dim);
 
-    let bcs_titan = BcsBisectionGpu::new(gpu_b, 100, 1e-12);
-    let dev_4070: Arc<barracuda::device::WgpuDevice> = gpu_a.to_wgpu_device();
+    let bcs_secondary = BcsBisectionGpu::new(gpu_b, 100, 1e-12);
+    let dev_primary: Arc<barracuda::device::WgpuDevice> = gpu_a.to_wgpu_device();
 
     // Warmup
     for _ in 0..WARMUP {
-        let _ = bcs_titan.solve_bcs(&lower, &upper, &eigenvalues, &delta, &target_n);
+        let _ = bcs_secondary.solve_bcs(&lower, &upper, &eigenvalues, &delta, &target_n);
         let _ = BatchedEighGpu::execute_single_dispatch(
-            dev_4070.clone(),
+            dev_primary.clone(),
             &matrices,
             dim,
             eig_batch,
@@ -360,7 +373,7 @@ fn specialized_routing(gpu_a: &GpuF64, gpu_b: &GpuF64) {
     for _ in 0..MEASURE {
         let _ = bcs_a.solve_bcs(&lower, &upper, &eigenvalues, &delta, &target_n);
         let _ = BatchedEighGpu::execute_single_dispatch(
-            dev_4070.clone(),
+            dev_primary.clone(),
             &matrices,
             dim,
             eig_batch,
@@ -370,14 +383,15 @@ fn specialized_routing(gpu_a: &GpuF64, gpu_b: &GpuF64) {
     }
     let t_seq = t0.elapsed().as_secs_f64() / MEASURE as f64;
 
-    // Specialized: BCS on Titan V, eigensolve on 4070, simultaneously
+    // Specialized: BCS on secondary, eigensolve on primary, simultaneously
     let t0 = Instant::now();
     for _ in 0..MEASURE {
-        let dev = dev_4070.clone();
+        let dev = dev_primary.clone();
         let mats = matrices.clone();
         std::thread::scope(|s| {
             s.spawn(|| {
-                let _ = bcs_titan.solve_bcs(&lower, &upper, &eigenvalues, &delta, &target_n);
+                let _ =
+                    bcs_secondary.solve_bcs(&lower, &upper, &eigenvalues, &delta, &target_n);
             });
             s.spawn(move || {
                 let _ =

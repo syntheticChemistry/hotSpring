@@ -5,7 +5,7 @@
 //! Validates the end-to-end math of the GPU→NPU transport prediction pipeline:
 //!   1. Generate MD-like velocity features (simulates GPU output)
 //!   2. Train ESN on CPU (f64 gold standard)
-//!   3. Predict via NpuSimulator (f32 — simulates NPU deployment)
+//!   3. Predict via `NpuSimulator` (f32 — simulates NPU deployment)
 //!   4. Predict via int4-quantized readout (simulates hardware)
 //!   5. Multi-output readout (D*, η*, λ* simultaneously)
 //!   6. Verify pipeline composition (feature→reservoir→readout)
@@ -14,7 +14,7 @@
 //! This binary proves the math is substrate-independent.
 //!
 //! Key thesis: the same trained weights produce valid predictions across
-//! f64 (CPU), f32 (NpuSimulator), int4 (quantized), and hardware (AKD1000).
+//! f64 (CPU), f32 (`NpuSimulator`), int4 (quantized), and hardware (AKD1000).
 
 use hotspring_barracuda::md::reservoir::{EchoStateNetwork, EsnConfig, NpuSimulator};
 use hotspring_barracuda::tolerances;
@@ -367,13 +367,13 @@ struct SimpleRng {
 }
 
 impl SimpleRng {
-    fn new(seed: u64) -> Self {
+    const fn new(seed: u64) -> Self {
         Self {
             state: seed.wrapping_add(0x9E37_79B9_7F4A_7C15),
         }
     }
 
-    fn next_u64(&mut self) -> u64 {
+    const fn next_u64(&mut self) -> u64 {
         self.state = self
             .state
             .wrapping_mul(6_364_136_223_846_793_005)

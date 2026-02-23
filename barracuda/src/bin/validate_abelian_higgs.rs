@@ -26,6 +26,7 @@
 //! exhibits smooth crossovers between confined, Coulomb, and Higgs regimes.
 
 use hotspring_barracuda::lattice::abelian_higgs::{AbelianHiggsParams, U1HiggsLattice};
+use hotspring_barracuda::provenance::ABELIAN_HIGGS_PYTHON_TIMING_MS;
 use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
 use std::time::Instant;
@@ -164,8 +165,16 @@ fn main() {
         println!("  ⟨|φ|²⟩:    {:.6}", stats.avg_higgs_sq);
         println!("  Acceptance: {:.1}%", stats.acceptance_rate * 100.0);
 
-        harness.check_lower("confined plaquette > 0", stats.avg_plaquette, 0.0);
-        harness.check_upper("confined plaquette < 1", stats.avg_plaquette, 1.0);
+        harness.check_lower(
+            "confined plaquette > 0",
+            stats.avg_plaquette,
+            tolerances::LATTICE_PLAQUETTE_PHYSICAL_MIN,
+        );
+        harness.check_upper(
+            "confined plaquette < 1",
+            stats.avg_plaquette,
+            tolerances::LATTICE_PLAQUETTE_PHYSICAL_MAX,
+        );
         harness.check_lower(
             "confined acceptance",
             stats.acceptance_rate,
@@ -214,7 +223,11 @@ fn main() {
         println!("  |ΔH| (dt=0.1, 10 steps):   {:.6}", r1.delta_h.abs());
         println!("  |ΔH| (dt=0.01, 100 steps):  {:.6}", r2.delta_h.abs());
 
-        harness.check_upper("dt=0.01 |ΔH| < 1.0", r2.delta_h.abs(), 1.0);
+        harness.check_upper(
+            "dt=0.01 |ΔH| < 1.0",
+            r2.delta_h.abs(),
+            tolerances::U1_LEAPFROG_REVERSIBILITY_DELTA_H_MAX,
+        );
     }
     println!();
 
@@ -229,7 +242,7 @@ fn main() {
         let stats = lat.run_hmc(n_therm, n_traj, 10, 0.08, &mut 123u64);
         let rust_ms = bench_start.elapsed().as_secs_f64() * 1000.0;
 
-        let python_ms = 1750.0; // from control run: ~1.75s per config
+        let python_ms = ABELIAN_HIGGS_PYTHON_TIMING_MS.value;
         let speedup = python_ms / rust_ms;
 
         println!("  Rust:   {n_therm} therm + {n_traj} traj in {rust_ms:.1} ms");
@@ -237,7 +250,11 @@ fn main() {
         println!("  Speedup: {speedup:.1}×");
         println!("  Plaquette: {:.6}", stats.avg_plaquette);
 
-        harness.check_lower("Rust faster than Python", speedup, 1.0);
+        harness.check_lower(
+            "Rust faster than Python",
+            speedup,
+            tolerances::U1_SPEEDUP_MIN,
+        );
     }
     println!();
 

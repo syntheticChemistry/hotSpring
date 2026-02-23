@@ -86,7 +86,7 @@ impl CylindricalGrid {
             .map(|i| (i as f64 + 0.5).mul_add(d_z, -z_max))
             .collect();
 
-        CylindricalGrid {
+        Self {
             rho,
             z,
             n_rho,
@@ -150,6 +150,7 @@ pub struct DeformedHFBResult {
 
 impl DeformedHFB {
     /// Create deformed HFB solver with adaptive parameters
+    #[must_use]
     pub fn new_adaptive(z: usize, n: usize) -> Self {
         let a = z + n;
         let a_f = a as f64;
@@ -176,7 +177,7 @@ impl DeformedHFB {
         let n_shells = (2.0 * a_f.cbrt()) as usize + 5;
         let n_shells = n_shells.clamp(10, 16);
 
-        let mut solver = DeformedHFB {
+        let mut solver = Self {
             z,
             n_neutrons: n,
             a,

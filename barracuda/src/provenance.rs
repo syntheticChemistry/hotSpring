@@ -497,6 +497,21 @@ pub const QUENCHED_BETA_SCAN_PROVENANCE: BaselineProvenance = BaselineProvenance
     unit: "<P> at β=6.0 on 4^4 (Rust reference; Python control TBD)",
 };
 
+/// Python baseline for Abelian Higgs (1+1)D HMC timing.
+///
+/// Reference runtime from `abelian_higgs_hmc.py` on 8×8 lattice, β=6, κ=0.3, λ=1.0,
+/// 50 thermalization + 100 trajectory HMC. Used to verify Rust speedup.
+pub const ABELIAN_HIGGS_PYTHON_TIMING_MS: BaselineProvenance = BaselineProvenance {
+    label: "Abelian Higgs (1+1)D Python HMC timing (8×8, 50 therm + 100 traj)",
+    script: "abelian_higgs/scripts/abelian_higgs_hmc.py",
+    commit: "3f0d36d (hotSpring main)",
+    date: "2026-02-22",
+    command: "python3 abelian_higgs_hmc.py",
+    environment: "Python 3.10, NumPy 2.2",
+    value: 1750.0,
+    unit: "ms",
+};
+
 /// Publication: Bazavov et al. (2014), `HotQCD` continuum EOS.
 pub const HOTQCD_DOI: &str = "10.1103/PhysRevD.90.094503";
 
@@ -540,8 +555,24 @@ pub const SCREENED_COULOMB_PROVENANCE: BaselineProvenance = BaselineProvenance {
     command: "python3 yukawa_eigenvalues.py",
     environment: "Python 3.10, NumPy 2.2, SciPy 1.14",
     value: 0.0,
-    unit: "E_n (atomic units; per-state values in validate_screened_coulomb.rs)",
+    unit: "E_n (atomic units; per-state values in PYTHON_SCREENED_COULOMB_EIGENVALUES)",
 };
+
+/// Python reference eigenvalues for screened Coulomb (Yukawa) bound states.
+///
+/// Provenance: [`SCREENED_COULOMB_PROVENANCE`].
+/// Order: 1s κ=0, 2s κ=0, 2p κ=0, 1s κ=0.1, 1s κ=0.5, 1s κ=1.0, He⁺ 1s κ=0.
+/// Computed via `scipy.linalg.eigh_tridiagonal` in `yukawa_eigenvalues.py` with
+/// N=2000 grid, r_max=100.
+pub const PYTHON_SCREENED_COULOMB_EIGENVALUES: [f64; 7] = [
+    -0.499_688_201_506_501_2,  // 1s κ=0 (H)
+    -0.124_980_494_356_236_7,  // 2s κ=0 (H)
+    -0.125_006_506_393_321_7,  // 2p κ=0 (H)
+    -0.406_749_026_963_666_44, // 1s κ=0.1 (H)
+    -0.147_862_177_236_561_37, // 1s κ=0.5 (H)
+    -0.010_192_508_268_288_38, // 1s κ=1.0 (H)
+    -1.995_029_791_615_593_2,  // 1s κ=0 (He⁺)
+];
 
 // ═══════════════════════════════════════════════════════════════════
 // Analytical validation references
@@ -707,6 +738,7 @@ mod tests {
             &DALIGAULT_FIT_PROVENANCE,
             &TRANSPORT_MD_BASELINE_PROVENANCE,
             &HFB_TEST_NUCLEI_PROVENANCE,
+            &ABELIAN_HIGGS_PYTHON_TIMING_MS,
         ] {
             assert!(!p.label.is_empty(), "label empty: {}", p.label);
             assert!(!p.script.is_empty());

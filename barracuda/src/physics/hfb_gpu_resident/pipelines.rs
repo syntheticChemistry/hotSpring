@@ -3,7 +3,7 @@
 //! GPU compute pipeline factories for the HFB solver.
 //!
 //! Encapsulates shader module → compute pipeline creation for each HFB
-//! pipeline stage: potentials (Skyrme, Coulomb, f_q), Hamiltonian build,
+//! pipeline stage: potentials (Skyrme, Coulomb, `f_q`), Hamiltonian build,
 //! BCS v², density, mixing, and (optionally) energy.
 
 use super::super::hfb_gpu_types::make_pipeline;

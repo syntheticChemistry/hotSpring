@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-//! GPU SpMV (CSR Sparse Matrix-Vector Product) Validation
+//! GPU `SpMV` (CSR Sparse Matrix-Vector Product) Validation
 //!
-//! Proves that the WGSL CSR SpMV shader produces identical f64 results
+//! Proves that the WGSL CSR `SpMV` shader produces identical f64 results
 //! to the CPU `CsrMatrix::spmv()` across all spectral theory matrix types.
 //! This is the P1 GPU primitive that enables:
 //!   - GPU Lanczos eigensolve (Kachkovskiy spectral theory)

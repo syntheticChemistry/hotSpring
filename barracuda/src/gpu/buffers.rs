@@ -116,6 +116,50 @@ impl GpuF64 {
         self.read_staging_f64_inner(staging)
     }
 
+    /// Initiate a non-blocking readback from a staging buffer.
+    ///
+    /// Returns a channel receiver that signals when the map is complete.
+    /// Call `device().poll(Maintain::Poll)` to drive progress without blocking,
+    /// or `device().poll(Maintain::Wait)` to block.
+    pub fn start_async_readback(
+        &self,
+        staging: &wgpu::Buffer,
+    ) -> std::sync::mpsc::Receiver<Result<(), wgpu::BufferAsyncError>> {
+        let (tx, rx) = std::sync::mpsc::sync_channel(1);
+        staging
+            .slice(..)
+            .map_async(wgpu::MapMode::Read, move |result| {
+                let _ = tx.send(result);
+            });
+        self.device().poll(wgpu::Maintain::Poll);
+        rx
+    }
+
+    /// Complete an async readback: block until ready, read f64 data, unmap.
+    pub fn finish_async_readback_f64(
+        &self,
+        staging: &wgpu::Buffer,
+        rx: std::sync::mpsc::Receiver<Result<(), wgpu::BufferAsyncError>>,
+    ) -> Result<Vec<f64>, crate::error::HotSpringError> {
+        self.device().poll(wgpu::Maintain::Wait);
+        rx.recv()
+            .map_err(|_| {
+                crate::error::HotSpringError::DeviceCreation(
+                    "Async readback: channel recv failed".into(),
+                )
+            })?
+            .map_err(|e| {
+                crate::error::HotSpringError::DeviceCreation(format!(
+                    "Async readback mapping: {e}"
+                ))
+            })?;
+        let data = staging.slice(..).get_mapped_range();
+        let result = mapped_bytes_to_f64(&data);
+        drop(data);
+        staging.unmap();
+        Ok(result)
+    }
+
     fn read_staging_f64_inner(
         &self,
         staging: &wgpu::Buffer,
@@ -149,7 +193,7 @@ impl GpuF64 {
 ///
 /// GPU mapped buffers are typically page-aligned, so `bytemuck::try_cast_slice`
 /// will succeed. Falls back to manual byte conversion if alignment is wrong.
-pub(crate) fn mapped_bytes_to_f64(data: &[u8]) -> Vec<f64> {
+pub fn mapped_bytes_to_f64(data: &[u8]) -> Vec<f64> {
     bytemuck::try_cast_slice(data).map_or_else(
         |_| {
             data.chunks_exact(8)

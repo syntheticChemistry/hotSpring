@@ -43,6 +43,32 @@ pub const SCREENED_ION_SPHERE_SQRT3_ABS: f64 = 1e-14;
 /// with increasing κ. 0.05 absolute tolerance on the normalized overlap.
 pub const SCREENED_SP_TO_IS_LIMIT: f64 = 0.05;
 
+/// Screened Coulomb: minimum |E_He+/E_H| for Z² scaling check.
+///
+/// At κ=0, E ∝ −Z² so He+ (Z=2) is 4× deeper than H (Z=1).
+/// Finite grid gives ratio ~3.9–4.0; 3.5 is conservative lower bound.
+pub const SCREENED_Z2_SCALING_MIN_RATIO: f64 = 3.5;
+
+// ═══════════════════════════════════════════════════════════════════
+// TTM (Two-Temperature Model) Paper 2 — laser-plasma equilibration
+// ═══════════════════════════════════════════════════════════════════
+
+/// TTM equilibrium temperature vs Python control: relative tolerance.
+///
+/// Spitzer-based 0D model vs SMT ( Stanton–Murillo) in Python.
+/// Different transport models → ~10–20% difference in T_eq. 20% accommodates.
+pub const TTM_EQUILIBRIUM_T_REL: f64 = 0.20;
+
+/// TTM Helium: Spitzer Z=1 gives T_eq=(Te0+Ti0)/2=15150 K; Python SMT gives 10700.
+/// 50% accommodates model difference for light species.
+pub const TTM_HELIUM_EQUILIBRIUM_T_REL: f64 = 0.50;
+
+/// TTM energy conservation: relative drift allowed.
+///
+/// RK4 integration; total energy E = Ce·Te + Ci·Ti should be conserved.
+/// 1% drift acceptable for long runs.
+pub const TTM_ENERGY_DRIFT_REL: f64 = 0.01;
+
 // ═══════════════════════════════════════════════════════════════════
 // Nuclear EOS acceptance criteria (METHODOLOGY.md)
 // ═══════════════════════════════════════════════════════════════════

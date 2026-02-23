@@ -12,6 +12,7 @@
 //!   cargo run --release --bin `celllist_diag`
 
 use hotspring_barracuda::gpu::GpuF64;
+use hotspring_barracuda::md::diag::{force_comparison_stats, net_force, print_force_mismatches};
 use hotspring_barracuda::md::shaders;
 use hotspring_barracuda::md::simulation::{init_fcc_lattice, CellList};
 use hotspring_barracuda::validation::ValidationHarness;
@@ -20,22 +21,6 @@ use barracuda::shaders::precision::ShaderTemplate;
 use hotspring_barracuda::md::shaders::patch_math_f64_preamble;
 
 use std::time::Instant;
-
-fn unsort_pe(pe_sorted: &[f64], sorted_indices: &[usize], n: usize) -> Vec<f64> {
-    let mut u = vec![0.0f64; n];
-    for (new_idx, &old_idx) in sorted_indices.iter().enumerate() {
-        u[old_idx] = pe_sorted[new_idx];
-    }
-    u
-}
-
-fn net_force(forces: &[f64], n: usize) -> (f64, f64, f64, f64) {
-    let fx: f64 = (0..n).map(|i| forces[i * 3]).sum();
-    let fy: f64 = (0..n).map(|i| forces[i * 3 + 1]).sum();
-    let fz: f64 = (0..n).map(|i| forces[i * 3 + 2]).sum();
-    let mag = fx.mul_add(fx, fy.mul_add(fy, fz * fz)).sqrt();
-    (fx, fy, fz, mag)
-}
 
 /// Run force comparison at a given N
 fn compare_forces(gpu: &GpuF64, n: usize, harness: &mut ValidationHarness) {
@@ -198,7 +183,7 @@ fn compare_forces(gpu: &GpuF64, n: usize, harness: &mut ValidationHarness) {
     let cl_time = t0.elapsed().as_secs_f64();
 
     let forces_cl = cell_list.unsort_array(&forces_cl_sorted, 3);
-    let pe_cl_unsorted = unsort_pe(&pe_cl_sorted, &cell_list.sorted_indices, n);
+    let pe_cl_unsorted = cell_list.unsort_array(&pe_cl_sorted, 1);
 
     let total_pe_cl: f64 = pe_cl_unsorted.iter().sum();
     println!(
@@ -239,7 +224,7 @@ fn compare_forces(gpu: &GpuF64, n: usize, harness: &mut ValidationHarness) {
     let v2_time = t0.elapsed().as_secs_f64();
 
     let forces_v2 = cell_list.unsort_array(&forces_v2_sorted, 3);
-    let pe_v2_unsorted = unsort_pe(&pe_v2_sorted, &cell_list.sorted_indices, n);
+    let pe_v2_unsorted = cell_list.unsort_array(&pe_v2_sorted, 1);
 
     let total_pe_v2: f64 = pe_v2_unsorted.iter().sum();
     println!(
@@ -283,7 +268,7 @@ fn compare_forces(gpu: &GpuF64, n: usize, harness: &mut ValidationHarness) {
     let pe_v4_sorted = gpu.read_back_f64(&pe_buf_v4, n).expect("GPU readback");
 
     let forces_v4 = cell_list.unsort_array(&forces_v4_sorted, 3);
-    let pe_v4_unsorted = unsort_pe(&pe_v4_sorted, &cell_list.sorted_indices, n);
+    let pe_v4_unsorted = cell_list.unsort_array(&pe_v4_sorted, 1);
     let total_pe_v4: f64 = pe_v4_unsorted.iter().sum();
     // ── V5: Cell-list enumeration WITHOUT cutoff (f64 cell data) ──
     let cl_v5_src = format!(
@@ -310,7 +295,7 @@ fn compare_forces(gpu: &GpuF64, n: usize, harness: &mut ValidationHarness) {
     );
     gpu.dispatch(&cl_v5_pipeline, &v5_bg, workgroups);
     let pe_v5 = gpu.read_back_f64(&pe_buf_v5_gpu, n).expect("GPU readback");
-    let pe_v5_unsorted = unsort_pe(&pe_v5, &cell_list.sorted_indices, n);
+    let pe_v5_unsorted = cell_list.unsort_array(&pe_v5, 1);
     let total_pe_v5: f64 = pe_v5_unsorted.iter().sum();
     println!("  V5 (cell-list enum, NO cutoff, f64): PE = {total_pe_v5:.6}");
 
@@ -434,7 +419,7 @@ fn compare_forces(gpu: &GpuF64, n: usize, harness: &mut ValidationHarness) {
     );
     gpu.dispatch(&cl_v3_pipeline, &v3_bg, workgroups);
     let pe_v3_sorted = gpu.read_back_f64(&pe_buf_v3_gpu, n).expect("GPU readback");
-    let pe_v3_unsorted = unsort_pe(&pe_v3_sorted, &cell_list.sorted_indices, n);
+    let pe_v3_unsorted = cell_list.unsort_array(&pe_v3_sorted, 1);
     let total_pe_v3: f64 = pe_v3_unsorted.iter().sum();
     println!("  V3 (no cutoff, AP loop, sorted): PE = {total_pe_v3:.6}");
 
@@ -493,55 +478,9 @@ fn compare_forces(gpu: &GpuF64, n: usize, harness: &mut ValidationHarness) {
     println!("  Total PE: all-pairs = {total_pe_ap:.10}, cell-list = {total_pe_cl:.10}");
     println!("  PE difference: {pe_diff:.2e} (relative: {pe_rel:.2e})");
 
-    // Per-particle force comparison
-    let mut max_force_diff = 0.0f64;
-    let mut max_force_particle = 0usize;
-    let mut rms_diff = 0.0f64;
-    let mut total_force_mag_ap = 0.0f64;
-    let mut n_mismatched = 0usize;
-    let threshold = 1e-8; // relative difference threshold
-
-    for i in 0..n {
-        let fx_ap = forces_ap[i * 3];
-        let fy_ap = forces_ap[i * 3 + 1];
-        let fz_ap = forces_ap[i * 3 + 2];
-        let fx_cl = forces_cl[i * 3];
-        let fy_cl = forces_cl[i * 3 + 1];
-        let fz_cl = forces_cl[i * 3 + 2];
-
-        let mag_ap = (fx_ap * fx_ap + fy_ap * fy_ap + fz_ap * fz_ap).sqrt();
-        let diff = (fz_ap - fz_cl)
-            .mul_add(
-                fz_ap - fz_cl,
-                (fy_ap - fy_cl).mul_add(fy_ap - fy_cl, (fx_ap - fx_cl).powi(2)),
-            )
-            .sqrt();
-
-        total_force_mag_ap += mag_ap;
-        rms_diff += diff * diff;
-
-        let rel = if mag_ap > 1e-30 { diff / mag_ap } else { diff };
-        if rel > threshold {
-            n_mismatched += 1;
-        }
-        if diff > max_force_diff {
-            max_force_diff = diff;
-            max_force_particle = i;
-        }
-    }
-
-    rms_diff = (rms_diff / n as f64).sqrt();
-    let avg_force = total_force_mag_ap / n as f64;
-    let rms_rel = if avg_force > 1e-30 {
-        rms_diff / avg_force
-    } else {
-        rms_diff
-    };
-    let max_rel = if avg_force > 1e-30 {
-        max_force_diff / avg_force
-    } else {
-        max_force_diff
-    };
+    let threshold = 1e-8;
+    let (max_force_diff, max_force_particle, rms_diff, rms_rel, max_rel, avg_force, n_mismatched) =
+        force_comparison_stats(&forces_ap, &forces_cl, n, threshold);
 
     println!("  Force RMS diff: {rms_diff:.4e} (relative: {rms_rel:.4e})");
     println!(
@@ -585,65 +524,7 @@ fn compare_forces(gpu: &GpuF64, n: usize, harness: &mut ValidationHarness) {
         }
     }
 
-    // Show first few mismatched particles for debugging
-    if n_mismatched > 0 && n_mismatched <= 20 {
-        println!();
-        println!("  Mismatched particles (first up to 10):");
-        let mut shown = 0;
-        for i in 0..n {
-            if shown >= 10 {
-                break;
-            }
-            let fx_ap = forces_ap[i * 3];
-            let fy_ap = forces_ap[i * 3 + 1];
-            let fz_ap = forces_ap[i * 3 + 2];
-            let fx_cl = forces_cl[i * 3];
-            let fy_cl = forces_cl[i * 3 + 1];
-            let fz_cl = forces_cl[i * 3 + 2];
-            let mag_ap = (fx_ap * fx_ap + fy_ap * fy_ap + fz_ap * fz_ap).sqrt();
-            let diff = (fz_ap - fz_cl)
-                .mul_add(
-                    fz_ap - fz_cl,
-                    (fy_ap - fy_cl).mul_add(fy_ap - fy_cl, (fx_ap - fx_cl).powi(2)),
-                )
-                .sqrt();
-            let rel = if mag_ap > 1e-30 { diff / mag_ap } else { diff };
-            if rel > threshold {
-                println!("    particle {i:>5}: AP=({fx_ap:+.6e},{fy_ap:+.6e},{fz_ap:+.6e}) CL=({fx_cl:+.6e},{fy_cl:+.6e},{fz_cl:+.6e}) Δ={diff:.2e}");
-                shown += 1;
-            }
-        }
-    } else if n_mismatched > 20 {
-        // Show worst 5
-        println!();
-        println!("  Worst 5 mismatches:");
-        let mut diffs: Vec<(usize, f64)> = (0..n)
-            .map(|i| {
-                let diff = (forces_ap[i * 3 + 2] - forces_cl[i * 3 + 2])
-                    .mul_add(
-                        forces_ap[i * 3 + 2] - forces_cl[i * 3 + 2],
-                        (forces_ap[i * 3 + 1] - forces_cl[i * 3 + 1]).mul_add(
-                            forces_ap[i * 3 + 1] - forces_cl[i * 3 + 1],
-                            (forces_ap[i * 3] - forces_cl[i * 3]).powi(2),
-                        ),
-                    )
-                    .sqrt();
-                (i, diff)
-            })
-            .collect();
-        diffs.sort_by(|a, b| b.1.total_cmp(&a.1));
-        for &(i, diff) in diffs.iter().take(5) {
-            let pos = &positions[i * 3..i * 3 + 3];
-            let cx = (pos[0] / cell_size) as usize;
-            let cy = (pos[1] / cell_size) as usize;
-            let cz = (pos[2] / cell_size) as usize;
-            println!("    particle {:>5}: pos=({:.3},{:.3},{:.3}) cell=({},{},{}) Δ|F|={:.4e}  AP=({:+.4e},{:+.4e},{:+.4e})  CL=({:+.4e},{:+.4e},{:+.4e})",
-                i, pos[0], pos[1], pos[2], cx, cy, cz, diff,
-                forces_ap[i*3], forces_ap[i*3+1], forces_ap[i*3+2],
-                forces_cl[i*3], forces_cl[i*3+1], forces_cl[i*3+2]);
-        }
-    }
-
+    print_force_mismatches(&forces_ap, &forces_cl, &positions, cell_size, n, threshold);
     println!();
 }
 
@@ -995,7 +876,7 @@ fn test_hybrid(gpu: &GpuF64, n: usize, harness: &mut ValidationHarness) {
     let pe_h = gpu.read_back_f64(&pe_buf_gpu, n).expect("GPU readback");
 
     let forces_unsorted = cell_list.unsort_array(&forces_h, 3);
-    let pe_unsorted = unsort_pe(&pe_h, &cell_list.sorted_indices, n);
+    let pe_unsorted = cell_list.unsort_array(&pe_h, 1);
     let total_pe: f64 = pe_unsorted.iter().sum();
     let (net_fx, net_fy, net_fz, net_f) = net_force(&forces_unsorted, n);
 

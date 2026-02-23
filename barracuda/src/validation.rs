@@ -68,6 +68,18 @@ pub struct ValidationHarness {
 
 impl ValidationHarness {
     /// Create a new harness for a named validation binary.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use hotspring_barracuda::validation::ValidationHarness;
+    ///
+    /// let mut harness = ValidationHarness::new("my_validation");
+    /// harness.check_bool("feature works", true);
+    /// harness.check_abs("value match", 3.14, 3.14, 0.01);
+    /// assert_eq!(harness.passed_count(), 2);
+    /// assert!(harness.all_passed());
+    /// ```
     #[must_use = "validation harness must be used to run checks"]
     pub fn new(name: &str) -> Self {
         Self {
@@ -186,6 +198,17 @@ impl ValidationHarness {
     /// Print summary and exit with appropriate code.
     ///
     /// Exit 0 if all checks pass, exit 1 if any fails.
+    /// Terminates the process; use only at the end of `main`.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use hotspring_barracuda::validation::ValidationHarness;
+    ///
+    /// let mut harness = ValidationHarness::new("example");
+    /// harness.check_bool("ok", true);
+    /// harness.finish();  // exits 0
+    /// ```
     pub fn finish(&self) -> ! {
         println!();
         println!(

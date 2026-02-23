@@ -4,16 +4,16 @@
 //!
 //! Modified simulation loop that stores velocity snapshots in a GPU ring
 //! buffer instead of reading them back to CPU. VACF and D* computed
-//! entirely on GPU. Only scalar transport coefficients cross PCIe.
+//! entirely on GPU. Only scalar transport coefficients cross `PCIe`.
 //!
-//! **Eliminated**: O(n_snapshots × N × 3 × 8) bytes of position/velocity
+//! **Eliminated**: `O(n_snapshots` × N × 3 × 8) bytes of position/velocity
 //! readback per case. For N=500, 4000 snapshots: 48 MB → 0.
 //!
 //! **Retained**: 8-byte KE/PE scalars for energy bookkeeping.
 
 use crate::gpu::GpuF64;
 use crate::md::config::MdConfig;
-use crate::md::observables::transport_gpu::{compute_vacf_gpu, GpuVelocityRing, GpuVacf};
+use crate::md::observables::transport_gpu::{compute_vacf_gpu, GpuVacf, GpuVelocityRing};
 use crate::md::shaders;
 use crate::md::simulation::{init_fcc_lattice, init_velocities, EnergyRecord};
 
@@ -61,7 +61,10 @@ pub async fn run_transport_gpu(
     let mass = config.reduced_mass();
 
     println!("  ── GPU-Only Transport: {n} particles ──");
-    println!("    κ={}, Γ={}, T*={temperature:.6}", config.kappa, config.gamma);
+    println!(
+        "    κ={}, Γ={}, T*={temperature:.6}",
+        config.kappa, config.gamma
+    );
 
     let (positions, n_actual) = init_fcc_lattice(n, box_side);
     let n = n_actual.min(n);
@@ -73,7 +76,8 @@ pub async fn run_transport_gpu(
     }
 
     let force_pipeline = gpu.create_pipeline_f64(shaders::SHADER_YUKAWA_FORCE, "yukawa_force_f64");
-    let kick_drift_pipeline = gpu.create_pipeline(shaders::SHADER_VV_KICK_DRIFT, "vv_kick_drift_f64");
+    let kick_drift_pipeline =
+        gpu.create_pipeline(shaders::SHADER_VV_KICK_DRIFT, "vv_kick_drift_f64");
     let half_kick_pipeline = gpu.create_pipeline(shaders::SHADER_VV_HALF_KICK, "vv_half_kick_f64");
     let berendsen_pipeline = gpu.create_pipeline(shaders::SHADER_BERENDSEN, "berendsen_f64");
     let ke_pipeline = gpu.create_pipeline(shaders::SHADER_KINETIC_ENERGY, "kinetic_energy_f64");
@@ -90,11 +94,19 @@ pub async fn run_transport_gpu(
     gpu.upload_f64(&vel_buf, &velocities);
 
     let force_params = vec![
-        n as f64, config.kappa, prefactor, config.rc * config.rc,
-        box_side, box_side, box_side, 0.0,
+        n as f64,
+        config.kappa,
+        prefactor,
+        config.rc * config.rc,
+        box_side,
+        box_side,
+        box_side,
+        0.0,
     ];
     let force_params_buf = gpu.create_f64_buffer(&force_params, "force_params");
-    let vv_params = vec![n as f64, config.dt, mass, 0.0, box_side, box_side, box_side, 0.0];
+    let vv_params = vec![
+        n as f64, config.dt, mass, 0.0, box_side, box_side, box_side, 0.0,
+    ];
     let vv_params_buf = gpu.create_f64_buffer(&vv_params, "vv_params");
     let hk_params = vec![n as f64, config.dt, mass, 0.0];
     let hk_params_buf = gpu.create_f64_buffer(&hk_params, "hk_params");
@@ -103,9 +115,16 @@ pub async fn run_transport_gpu(
 
     let workgroups = n.div_ceil(WORKGROUP_SIZE) as u32;
 
-    let force_bg = gpu.create_bind_group(&force_pipeline, &[&pos_buf, &force_buf, &pe_buf, &force_params_buf]);
-    let kick_drift_bg = gpu.create_bind_group(&kick_drift_pipeline, &[&pos_buf, &vel_buf, &force_buf, &vv_params_buf]);
-    let half_kick_bg = gpu.create_bind_group(&half_kick_pipeline, &[&vel_buf, &force_buf, &hk_params_buf]);
+    let force_bg = gpu.create_bind_group(
+        &force_pipeline,
+        &[&pos_buf, &force_buf, &pe_buf, &force_params_buf],
+    );
+    let kick_drift_bg = gpu.create_bind_group(
+        &kick_drift_pipeline,
+        &[&pos_buf, &vel_buf, &force_buf, &vv_params_buf],
+    );
+    let half_kick_bg =
+        gpu.create_bind_group(&half_kick_pipeline, &[&vel_buf, &force_buf, &hk_params_buf]);
     let ke_bg = gpu.create_bind_group(&ke_pipeline, &[&vel_buf, &ke_buf, &ke_params_buf]);
 
     gpu.dispatch(&force_pipeline, &force_bg, workgroups);
@@ -119,7 +138,8 @@ pub async fn run_transport_gpu(
         let mut encoder = gpu.begin_encoder("equil");
         {
             let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                label: Some("equil_stream"), timestamp_writes: None,
+                label: Some("equil_stream"),
+                timestamp_writes: None,
             });
             for _ in 0..batch_size {
                 pass.set_pipeline(&kick_drift_pipeline);
@@ -141,11 +161,13 @@ pub async fn run_transport_gpu(
         let total_ke = reducer.sum_f64(&ke_buf)?;
         let t_current = 2.0 * total_ke / (3.0 * n as f64);
         if t_current > 1e-30 {
-            let ratio = (config.dt / config.berendsen_tau).mul_add(temperature / t_current - 1.0, 1.0);
+            let ratio =
+                (config.dt / config.berendsen_tau).mul_add(temperature / t_current - 1.0, 1.0);
             let scale = ratio.max(0.0).sqrt();
             let beren_params = vec![n as f64, scale, 0.0, 0.0];
             let beren_params_buf = gpu.create_f64_buffer(&beren_params, "beren_params");
-            let beren_bg = gpu.create_bind_group(&berendsen_pipeline, &[&vel_buf, &beren_params_buf]);
+            let beren_bg =
+                gpu.create_bind_group(&berendsen_pipeline, &[&vel_buf, &beren_params_buf]);
             gpu.dispatch(&berendsen_pipeline, &beren_bg, workgroups);
         }
         step += batch_size;
@@ -155,7 +177,10 @@ pub async fn run_transport_gpu(
     // ── Production with GPU velocity ring ──
     // Instead of reading back velocity snapshots to CPU,
     // copy velocity buffer directly into GPU ring slots.
-    println!("    Production ({} steps, GPU-resident snapshots)...", config.prod_steps);
+    println!(
+        "    Production ({} steps, GPU-resident snapshots)...",
+        config.prod_steps
+    );
     let t_prod = Instant::now();
 
     let n_dumps = config.prod_steps / config.dump_step;
@@ -171,7 +196,8 @@ pub async fn run_transport_gpu(
         let mut encoder = gpu.begin_encoder("md_batch");
         {
             let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                label: Some("md_stream"), timestamp_writes: None,
+                label: Some("md_stream"),
+                timestamp_writes: None,
             });
             for _ in 0..config.dump_step {
                 pass.set_pipeline(&kick_drift_pipeline);
@@ -213,7 +239,9 @@ pub async fn run_transport_gpu(
         if step_end % PROGRESS_REPORT_INTERVAL < config.dump_step || step_end >= config.prod_steps {
             println!(
                 "    Step {}: T*={:.6}, E={:.4}",
-                step_end - 1, t_current, total_ke + total_pe,
+                step_end - 1,
+                t_current,
+                total_ke + total_pe,
             );
         }
     }
@@ -230,7 +258,10 @@ pub async fn run_transport_gpu(
     let max_lag = (ring.available() / 2).max(10);
     let gpu_vacf = compute_vacf_gpu(&gpu, &ring, dt_snap, max_lag)?;
     let vacf_time = t_vacf.elapsed().as_secs_f64();
-    println!("    GPU VACF: {vacf_time:.2}s → D* = {:.4e}", gpu_vacf.diffusion_coeff);
+    println!(
+        "    GPU VACF: {vacf_time:.2}s → D* = {:.4e}",
+        gpu_vacf.diffusion_coeff
+    );
 
     let wall_time = t_start.elapsed().as_secs_f64();
 

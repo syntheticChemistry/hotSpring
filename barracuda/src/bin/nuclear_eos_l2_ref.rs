@@ -29,6 +29,7 @@ use barracuda::stats::{bootstrap_ci, chi2_decomposed_weighted};
 use rayon::prelude::*;
 
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Instant;
 
 // ═══════════════════════════════════════════════════════════════════
@@ -106,6 +107,12 @@ fn main() {
     );
     println!("  Rayon threads:   {}", rayon::current_num_threads());
     println!();
+
+    // ── GPU device (required for DirectSampler/SparsitySampler RBF surrogate) ─
+    let rt = tokio::runtime::Runtime::new().expect("tokio runtime");
+    let device = rt
+        .block_on(barracuda::device::Auto::new())
+        .expect("GPU device required for RBF surrogate (barracuda::Auto)");
 
     // ── Load data ──────────────────────────────────────────────────
     let ctx = data::load_eos_context().expect("Failed to load EOS context");
@@ -216,7 +223,7 @@ fn main() {
         let l2_obj_ds = move |x: &[f64]| -> f64 { l2_objective_nmp(x, &nuclei_ds, lambda_l2) };
 
         let result_direct =
-            direct_sampler(l2_obj_ds, bounds, &direct_config).expect("DirectSampler failed");
+            direct_sampler(device.clone(), l2_obj_ds, bounds, &direct_config).expect("DirectSampler failed");
 
         let direct_time = t2.elapsed().as_secs_f64();
 
@@ -282,7 +289,7 @@ fn main() {
             let lambda_sp = cli.lambda;
             let l2_obj_sp = move |x: &[f64]| -> f64 { l2_objective_nmp(x, &nuclei_sp, lambda_sp) };
 
-            match sparsity_sampler(l2_obj_sp, bounds, &sp_config) {
+            match sparsity_sampler(device.clone(), l2_obj_sp, bounds, &sp_config) {
                 Ok(result_sp) => {
                     let sp_time = t_sp.elapsed().as_secs_f64();
                     let (sp_be, sp_nmp, sp_total) =

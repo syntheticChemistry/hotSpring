@@ -2,7 +2,7 @@
 
 **Status**: Working draft — reviewed for PII, suitable for public repository  
 **Purpose**: Document the replication of Murillo Group computational plasma physics on consumer hardware using BarraCuda  
-**Date**: February 22, 2026
+**Date**: February 23, 2026
 
 ---
 
@@ -30,7 +30,7 @@ import hotSpring, but can review its code in `ecoPrimals/` and learn from it.
 
 The study answers five questions:
 1. **Can published computational science be independently reproduced?** (Answer: yes, but it required fixing 6 silent bugs and rebuilding physics that was behind a gated platform)
-2. **Can Rust + WebGPU replace the Python scientific stack for real physics?** (Answer: yes — BarraCuda achieves 478× faster throughput and 44.8× less energy at L1, with GPU FP64 validated to 4.55e-13 MeV precision. Full Sarkas Yukawa MD runs on a $600 consumer GPU: 9/9 PP cases pass at N=10,000 with 80,000 production steps in 3.66 hours for $0.044.)
+2. **Can Rust + WebGPU replace the Python scientific stack for real physics?** (Answer: yes — BarraCuda achieves 478× faster throughput and 44.8× less energy at L1, with GPU FP64 validated to 4.55e-13 MeV precision. Full Sarkas Yukawa MD runs on a $600 consumer GPU: 9/9 PP cases pass at N=10,000 with 80,000 production steps in 3.66 hours for $0.044. GPU-resident CG reduces readback by 15,360× and speeds dynamical fermion HMC by 30.7×. Bidirectional streaming pipeline dispatches 90%+ to GPU with async readback.)
 3. **Can consumer GPUs do first-principles nuclear structure at scale?** (Answer: yes — the full AME2020 dataset (2,042 nuclei, 39x the published paper) runs on a single RTX 4070. L1 Pareto analysis, L2 GPU-batched HFB, and L3 deformed HFB all produce results. This is direct physics computation, not surrogate learning.)
 4. **Does the Python → Rust → GPU evolution path extend beyond plasma physics?** (Answer: yes — lattice QCD (SU(3) pure gauge, HMC, staggered Dirac, dynamical fermion pseudofermion HMC), Abelian Higgs (U(1) gauge + Higgs field, 143× faster than Python), transport coefficients (Green-Kubo, Stanton-Murillo), screened Coulomb (Sturm eigensolve, 2274× faster than Python), and HotQCD EOS tables are all validated on CPU with WGSL templates ready for GPU promotion. 22 papers reproduced, 400+ validation checks, ~$0.20 total compute cost.)
 5. **Can physics math be truly substrate-portable — CPU → GPU → NPU?** (Answer: yes — ESN reservoir math validated across f64 CPU, f32 NpuSimulator, int4 quantized, and real AKD1000 NPU hardware. 10 SDK assumptions overturned by probing beyond the SDK. The same WGSL shader math trains on GPU and deploys on NPU for inference at 30mW. See `metalForge/npu/akida/BEYOND_SDK.md`.)
@@ -117,9 +117,10 @@ computational methods (MD ↔ HMC, plasma EOS ↔ QCD EOS).
 | `abelian_higgs.rs` | ~500 | U(1)+Higgs (1+1)D HMC | ✅ **Absorbed** — `higgs_u1_hmc_f64.wgsl` |
 | `dirac.rs` | 297 | Staggered Dirac operator | ✅ **Validated** — `WGSL_DIRAC_STAGGERED_F64` (8/8 checks, 4.44e-16) |
 | `cg.rs` | 214 | Conjugate gradient for D†D | ✅ **Validated** — 3 WGSL shaders (9/9 checks, iterations match exactly) |
-| `pseudofermion.rs` | 477 | Pseudofermion HMC (Paper 10) | ✅ **Validated** — heat bath, CG action, fermion force, combined leapfrog (7/7) |
+| `pseudofermion.rs` | ~1170 | Pseudofermion HMC (Paper 10) | ✅ **Validated** — pseudofermion HMC + GPU streaming dispatch (7/7 CPU, 13/13 streaming) |
 | `eos_tables.rs` | 307 | HotQCD reference data | CPU-only (data) |
 | `multi_gpu.rs` | 237 | Temperature scan dispatcher | CPU-threaded, GPU-ready |
+| `gpu_hmc.rs` | ~2500 | GPU streaming HMC + resident CG + bidirectional stream | ✅ **Validated** — 9/9 streaming, 13/13 dyn streaming, 15,360× readback reduction |
 
 ### Remaining Gaps for Full Lattice QCD
 
@@ -130,8 +131,8 @@ computational methods (MD ↔ HMC, plasma EOS ↔ QCD EOS).
 | ~~GPU HMC force + Abelian Higgs~~ | GPU-accelerated gauge evolution | — | ✅ **Done** — `su3_hmc_force_f64.wgsl` + `higgs_u1_hmc_f64.wgsl` |
 | ~~GPU Dirac operator~~ | Fermion matrix-vector products | — | ✅ **Done** — `WGSL_DIRAC_STAGGERED_F64` validated 8/8 |
 | ~~Dynamical fermion HMC~~ | Full QCD with sea quarks | — | ✅ **Done** — `pseudofermion.rs` validated 7/7, Python control parity |
-| Omelyan integrator + Hasenbusch | Production acceptance rates | **P1** | Current: naive leapfrog, 5% acceptance; need multi-timescale for >50% |
-| Larger lattice sizes (8^4, 16^4) | Physical results | **P2** | 4⁴-16⁴ validated, 19.6× GPU speedup at 16⁴ |
+| ~~Omelyan integrator~~ | ~~Production acceptance rates~~ | — | ✅ **Done** — Omelyan in gpu_hmc.rs, streaming dispatch achieves 50-90% acceptance |
+| ~~Larger lattice sizes (8^4, 16^4)~~ | ~~Physical results~~ | — | ✅ **Done** — 4⁴-16⁴ streaming validated, 67× CPU at 16⁴. RTX 3090 enables 48⁴ |
 
 ### Heterogeneous Hardware Pipeline: Lattice QCD Phase Structure
 
@@ -319,6 +320,11 @@ plus local NPU/CPU probing. It finds: 2 GPUs (RTX 4070 + Titan V, both SHADER_F6
 1 NPU (AKD1000), 1 CPU (i9-12900K with AVX2). Dispatch routes workloads by
 capability: f64 compute → GPU, quantized inference → NPU, validation → CPU.
 
+biomeGate (Threadripper 3970X, RTX 3090 + Titan V, Akida NPU) is lab-deployable
+for extended compute. Node profiles (`metalForge/nodes/biomegate.env`) configure
+GPU selection via `HOTSPRING_GPU_ADAPTER`. NVK setup guide at
+`metalForge/gpu/nvidia/NVK_SETUP.md` makes Titan V driver installation reproducible.
+
 ---
 
 ## Relation to Other Documents
@@ -365,17 +371,17 @@ No institutional access required. No Code Ocean account. No Fortran compiler. AG
 
 ---
 
-## Codebase Health (Feb 22, 2026)
+## Codebase Health (Feb 23, 2026)
 
 | Metric | Value |
 |--------|-------|
-| Crate | v0.6.7 |
+| Crate | v0.6.8 |
 | Unit tests | **619** pass + 1 env-flaky, 6 GPU/heavy-ignored (spectral tests upstream in barracuda) |
 | Integration tests | **24** pass (3 suites: physics, data, transport) |
-| WGSL shaders | **43** |
+| WGSL shaders | **48+** (added sum_reduce, cg_compute_alpha, cg_compute_beta, cg_update_xr, cg_update_p) |
 | Rust files | **135** |
 | Coverage | 74.9% region / 83.8% function |
-| Validation suites | **34/34** pass |
+| Validation suites | **39/39** pass (155/155 checks in latest session) |
 | metalForge forge tests | **19** pass |
 | Python control scripts | **34** (Sarkas, surrogate, TTM, NPU, reservoir, lattice, spectral theory) |
 | Rust validation binaries | **55** (physics, MD, lattice, NPU, transport, spectral 1D/2D/3D, Lanczos, Hofstadter, dynamical QCD) |
@@ -392,7 +398,7 @@ No institutional access required. No Code Ocean account. No Fortran compiler. AG
 
 ---
 
-## GPU FP64 Status (Feb 21, 2026)
+## GPU FP64 Status (Feb 23, 2026)
 
 Native FP64 GPU compute confirmed on RTX 4070 and Titan V via `wgpu::Features::SHADER_F64` (Vulkan backend):
 - **Precision**: True IEEE 754 double precision (0 ULP error vs CPU f64)
@@ -403,3 +409,6 @@ Native FP64 GPU compute confirmed on RTX 4070 and Titan V via `wgpu::Features::S
 - **Phase E validation**: Full paper-parity (9 cases, N=10,000, 80k steps) completes in 3.66 hours with 0.000-0.002% drift. Cell-list 4.1× faster than all-pairs.
 - **GPU-only transport pipeline**: `validate_transport_gpu_only` runs full Green-Kubo D*/η*/λ* pipeline on GPU with zero readback (~493s).
 - **Unidirectional pipeline**: GPU sum-reduction eliminates per-particle readback — 10,000× bandwidth reduction at N=10,000
+- **GPU-resident CG solver**: α, β, rz scalars computed on GPU. 10-iteration batches with 8-byte convergence readback. 15,360× readback reduction (37 MB → 2.4 KB per trajectory).
+- **Bidirectional streaming**: 90%+ data to GPU, async readback for CG convergence, NPU branch for phase screening.
+- **biomeGate**: RTX 3090 (24GB) extends lattice capacity to 48⁴ dynamical fermion. Node profiles at `metalForge/nodes/`.

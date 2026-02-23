@@ -13,7 +13,7 @@
 //! |-----------|----------|-----------|-------|
 //! | Plaquette range | 0 < P < 1 | exact | SU(3) unitarity |
 //! | Acceptance rate | > 20% | lower bound | Algorithm sanity |
-//! | Fermion action | S_F > 0 | positivity | D†D positive-definite |
+//! | Fermion action | `S_F` > 0 | positivity | D†D positive-definite |
 //! | CG convergence | all converge | exact | Solver correctness |
 //! | Plaquette shift | dynamical ≠ quenched | boolean | Fermion backreaction |
 //! | ΔH scaling | halving dt reduces ΔH by ~4× | ratio | Leapfrog O(dt²) |
@@ -28,7 +28,7 @@
 
 use hotspring_barracuda::lattice::hmc::{self, HmcConfig};
 use hotspring_barracuda::lattice::pseudofermion::{
-    DynamicalHmcConfig, DynamicalHmcResult, PseudofermionConfig, dynamical_hmc_trajectory,
+    dynamical_hmc_trajectory, DynamicalHmcConfig, DynamicalHmcResult, PseudofermionConfig,
 };
 use hotspring_barracuda::lattice::wilson::Lattice;
 use hotspring_barracuda::tolerances;
@@ -81,6 +81,7 @@ fn main() {
         n_md_steps: 15,
         dt: 0.05,
         seed: 42,
+        ..Default::default()
     };
     println!("  Quenched pre-thermalization (20 traj)...");
     let q_pre = hmc::run_hmc(&mut lat, 20, 0, &mut qhmc);
@@ -106,6 +107,7 @@ fn main() {
         },
         beta,
         n_flavors_over_4: 1,
+        ..Default::default()
     };
 
     println!("  Dynamical thermalization ({n_therm} traj, dt=0.001, m=2.0)...");
@@ -253,6 +255,7 @@ fn single_trajectory_dh(
         },
         beta,
         n_flavors_over_4: 1,
+        ..Default::default()
     };
     let r = dynamical_hmc_trajectory(&mut lat, &mut config);
     r.delta_h
@@ -274,6 +277,7 @@ fn run_short_dynamical(
         n_md_steps: 15,
         dt: 0.05,
         seed,
+        ..Default::default()
     };
     hmc::run_hmc(&mut lat, 15, 0, &mut qcfg);
 
@@ -288,6 +292,7 @@ fn run_short_dynamical(
         },
         beta,
         n_flavors_over_4: 1,
+        ..Default::default()
     };
 
     for _ in 0..n_therm {

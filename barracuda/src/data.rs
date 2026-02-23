@@ -45,35 +45,39 @@ pub enum NucleiSet {
 
 impl NucleiSet {
     /// Parse from CLI argument string
+    #[must_use]
     pub fn from_arg(s: &str) -> Self {
         match s.to_lowercase().as_str() {
-            "full" | "all" | "2042" => NucleiSet::Full,
-            "selected" | "52" | "default" => NucleiSet::Selected,
+            "full" | "all" | "2042" => Self::Full,
+            "selected" | "52" | "default" => Self::Selected,
             _ => {
                 eprintln!("  WARNING: Unknown nuclei set '{s}', using selected (52)");
-                NucleiSet::Selected
+                Self::Selected
             }
         }
     }
 
     /// JSON filename for this dataset
+    #[must_use]
     pub const fn filename(&self) -> &'static str {
         match self {
-            NucleiSet::Selected => "ame2020_selected.json",
-            NucleiSet::Full => "ame2020_full.json",
+            Self::Selected => "ame2020_selected.json",
+            Self::Full => "ame2020_full.json",
         }
     }
 
     /// Human-readable description
+    #[must_use]
     pub const fn description(&self) -> &'static str {
         match self {
-            NucleiSet::Selected => "AME2020 selected (52 nuclei)",
-            NucleiSet::Full => "AME2020 full (2,042 experimentally measured nuclei)",
+            Self::Selected => "AME2020 selected (52 nuclei)",
+            Self::Full => "AME2020 full (2,042 experimentally measured nuclei)",
         }
     }
 }
 
 /// Parse --nuclei=... from CLI args, defaulting to Selected
+#[must_use]
 pub fn parse_nuclei_set_from_args() -> NucleiSet {
     std::env::args()
         .find(|a| a.starts_with("--nuclei="))
@@ -81,6 +85,7 @@ pub fn parse_nuclei_set_from_args() -> NucleiSet {
 }
 
 /// Resolve the path to the nuclei JSON file for a given dataset
+#[must_use]
 pub fn nuclei_data_path(base_dir: &Path, set: NucleiSet) -> PathBuf {
     base_dir.join("exp_data").join(set.filename())
 }
@@ -212,6 +217,19 @@ pub fn load_eos_context() -> Result<EosContext, HotSpringError> {
 /// and computes `((B_calc - B_exp) / sigma_theo)²`. Returns the mean χ²/datum.
 ///
 /// Uses [`crate::tolerances::sigma_theo`] for the theoretical uncertainty.
+///
+/// # Example
+///
+/// ```
+/// use std::collections::HashMap;
+/// use hotspring_barracuda::data::chi2_per_datum;
+///
+/// let mut exp = HashMap::new();
+/// exp.insert((28, 28), (484.0, 0.1));  // Ni-56: (B_exp, sigma_exp)
+/// let params: &[f64] = &[];
+/// let chi2 = chi2_per_datum(params, &exp, |_z, _n, _| 484.0);
+/// assert!(chi2 < 0.01);  // perfect fit
+/// ```
 pub fn chi2_per_datum<S: std::hash::BuildHasher>(
     params: &[f64],
     exp_data: &HashMap<(usize, usize), (f64, f64), S>,
@@ -228,6 +246,52 @@ pub fn chi2_per_datum<S: std::hash::BuildHasher>(
         chi2 += ((b_calc - b_exp) / sigma).powi(2);
     }
     chi2 / n as f64
+}
+
+/// Save JSON to a results subdirectory under the given base path.
+///
+/// Creates `{base}/results/` if needed, writes to `{base}/results/{filename}`.
+/// Used by nuclear EOS binaries (L1, L2, L3) for engine-specific result files.
+pub fn save_json_to_results(base: &Path, filename: &str, json: &serde_json::Value) {
+    let results_dir = base.join("results");
+    let _ = std::fs::create_dir_all(&results_dir);
+    let path = results_dir.join(filename);
+    if let Ok(s) = serde_json::to_string_pretty(json) {
+        let _ = std::fs::write(&path, s);
+        println!("\n  Results saved to: {}", path.display());
+    }
+}
+
+/// Print an L2 result summary box (χ², evals, time, throughput).
+///
+/// Shared format across L2 heterogeneous, screen, and direct modes.
+pub fn print_l2_result_box(
+    title: &str,
+    chi2: f64,
+    log_chi2: f64,
+    evals: usize,
+    time_s: f64,
+    throughput: f64,
+) {
+    println!("╔══════════════════════════════════════════════════════════════╗");
+    println!("║  {title:<58} ║");
+    println!("╠══════════════════════════════════════════════════════════════╣");
+    println!("║  χ²/datum:       {chi2:12.4}                              ║");
+    println!("║  log(1+χ²):      {log_chi2:12.4}                              ║");
+    println!("║  HFB evals:      {evals:6}                                    ║");
+    println!("║  Total time:     {time_s:6.1}s                                   ║");
+    println!("║  HFB throughput: {throughput:6.1} evals/s                            ║");
+    println!("╚══════════════════════════════════════════════════════════════╝");
+}
+
+/// Parse `--key=value` from CLI args as `usize`, returning `default` if missing or invalid.
+#[must_use]
+pub fn parse_cli_usize(args: &[String], key: &str, default: usize) -> usize {
+    let prefix = format!("{key}=");
+    args.iter()
+        .find(|a| a.starts_with(&prefix))
+        .and_then(|a| a.strip_prefix(&prefix)?.parse().ok())
+        .unwrap_or(default)
 }
 
 /// Save a JSON result to the benchmark results directory.

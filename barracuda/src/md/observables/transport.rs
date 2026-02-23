@@ -7,7 +7,7 @@
 use crate::tolerances::DIVISION_GUARD;
 
 /// Plateau detection window: stop integrating Green-Kubo ACF after this
-/// many seconds of non-increasing running integral (in time units / dt_snap).
+/// many seconds of non-increasing running integral (in time units / `dt_snap`).
 const PLATEAU_DETECTION_TIME: f64 = 20.0;
 
 /// Stress tensor autocorrelation result for viscosity computation

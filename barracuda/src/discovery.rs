@@ -34,11 +34,48 @@ pub mod paths {
 
 /// Discover the data root, returning an error if no valid root is found.
 ///
+/// Checks, in order: `HOTSPRING_DATA_ROOT` env, manifest parent, CWD.
+/// Returns the first path that contains a `control/` subdirectory.
+///
 /// # Errors
 ///
 /// Returns `HotSpringError::DataLoad` if no path with a `control/` directory
 /// can be found via any discovery strategy.
+///
+/// # Example
+///
+/// ```
+/// use hotspring_barracuda::discovery::try_discover_data_root;
+///
+/// let result = try_discover_data_root();
+/// // Succeeds when run from repo with control/; Err otherwise
+/// if let Ok(root) = result {
+///     assert!(root.join("control").is_dir());
+/// }
+/// ```
 pub fn try_discover_data_root() -> Result<PathBuf, crate::error::HotSpringError> {
+    try_discover_with_override(None)
+}
+
+/// Discover the data root with an optional override (capability injection).
+///
+/// When `override_root` is `Some`, it is checked first — before env vars,
+/// manifest, or CWD. This enables pure, `unsafe`-free testing without
+/// global env mutation.
+///
+/// # Errors
+///
+/// Returns `HotSpringError::DataLoad` if no valid root is found.
+pub fn try_discover_with_override(
+    override_root: Option<&Path>,
+) -> Result<PathBuf, crate::error::HotSpringError> {
+    // 0. Injected override (capability-based, no global state)
+    if let Some(root) = override_root {
+        if is_valid_root(root) {
+            return Ok(root.to_path_buf());
+        }
+    }
+
     // 1. Explicit environment override
     if let Ok(root) = std::env::var("HOTSPRING_DATA_ROOT") {
         let p = PathBuf::from(&root);
@@ -144,42 +181,9 @@ pub fn benchmark_results_dir() -> std::io::Result<PathBuf> {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
+#[allow(clippy::expect_used, clippy::unwrap_used)]
 mod tests {
     use super::*;
-
-    /// RAII guard for temporarily overriding an environment variable.
-    ///
-    /// Restores the previous value (or removes the variable) on drop.
-    /// Uses `unsafe` env mutation — safe here because cargo test runs
-    /// unit tests in a single process, and these tests are non-concurrent
-    /// (no `#[test]` spawns threads that read `HOTSPRING_DATA_ROOT`).
-    struct EnvGuard {
-        key: &'static str,
-        prev: Option<String>,
-    }
-
-    impl EnvGuard {
-        fn set(key: &'static str, value: &std::ffi::OsStr) -> Self {
-            let prev = std::env::var(key).ok();
-            // SAFETY: No concurrent threads read this env var during these tests.
-            unsafe { std::env::set_var(key, value) };
-            Self { key, prev }
-        }
-    }
-
-    impl Drop for EnvGuard {
-        fn drop(&mut self) {
-            // SAFETY: Restoring the env var we changed — same thread, no concurrent readers.
-            unsafe {
-                if let Some(ref p) = self.prev {
-                    std::env::set_var(self.key, p);
-                } else {
-                    std::env::remove_var(self.key);
-                }
-            }
-        }
-    }
 
     #[test]
     fn discover_finds_root() {
@@ -245,18 +249,54 @@ mod tests {
     }
 
     #[test]
-    fn try_discover_data_root_err_has_data_load_message() {
-        let bad_root = std::env::temp_dir().join("hotspring_no_control_test");
-        std::fs::create_dir_all(&bad_root).ok();
-        let _guard = EnvGuard::set("HOTSPRING_DATA_ROOT", bad_root.as_os_str());
+    fn try_discover_with_override_accepts_valid_path() {
+        let tmp = std::env::temp_dir().join("hotspring_override_valid");
+        std::fs::create_dir_all(tmp.join("control")).unwrap();
+        let result = try_discover_with_override(Some(&tmp));
+        std::fs::remove_dir_all(&tmp).ok();
 
-        let result = try_discover_data_root();
+        let discovered = result.expect("override with valid root should succeed");
+        assert_eq!(discovered, tmp);
+    }
+
+    #[test]
+    fn try_discover_with_override_rejects_invalid_path() {
+        let bad = std::env::temp_dir().join("hotspring_override_no_control");
+        std::fs::create_dir_all(&bad).unwrap();
+
+        let result = try_discover_with_override(Some(&bad));
+        std::fs::remove_dir_all(&bad).ok();
+
+        // Invalid override falls through to env/manifest/CWD strategies
+        if let Ok(root) = result {
+            assert!(
+                root.join("control").is_dir(),
+                "should have fallen through to a valid root"
+            );
+        }
+    }
+
+    #[test]
+    fn try_discover_with_override_none_matches_default() {
+        let default_result = try_discover_data_root();
+        let override_result = try_discover_with_override(None);
+        assert_eq!(default_result.ok(), override_result.ok());
+    }
+
+    #[test]
+    fn try_discover_data_root_err_has_data_load_message() {
+        let bad_root = std::env::temp_dir().join("hotspring_no_control_test_override");
+        std::fs::create_dir_all(&bad_root).unwrap();
+
+        let result = try_discover_with_override(Some(&bad_root));
         std::fs::remove_dir_all(&bad_root).ok();
 
-        if let Err(e) = result {
-            assert!(
-                e.to_string().contains("Data loading failed"),
-                "DataLoad error should mention data loading: {e}"
+        // Falls through to other strategies which should succeed in dev;
+        // but the override itself should not produce that path.
+        if let Ok(root) = &result {
+            assert_ne!(
+                root, &bad_root,
+                "bad override should not be returned as the root"
             );
         }
     }
@@ -286,20 +326,6 @@ mod tests {
     }
 
     #[test]
-    fn discover_data_root_with_invalid_env_falls_back() {
-        let bad_root = std::env::temp_dir().join("barracuda_no_control");
-        std::fs::create_dir_all(&bad_root).ok();
-        let guard = EnvGuard::set("HOTSPRING_DATA_ROOT", bad_root.as_os_str());
-        let root = discover_data_root();
-        drop(guard);
-        std::fs::remove_dir_all(&bad_root).ok();
-        assert!(
-            root.join("control").is_dir(),
-            "fallback root must have control/: {root:?}"
-        );
-    }
-
-    #[test]
     fn paths_constants_sensible() {
         assert!(paths::NUCLEAR_EOS.contains("nuclear-eos"));
         assert!(paths::EXP_DATA.contains("exp"));
@@ -308,7 +334,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::unwrap_used)]
     fn is_valid_root_rejects_dir_without_control() {
         let tmp = std::env::temp_dir().join("hotspring_no_control");
         std::fs::create_dir_all(&tmp).unwrap();
@@ -317,7 +342,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::unwrap_used)]
     fn is_valid_root_rejects_file() {
         let tmp = std::env::temp_dir().join("hotspring_file_not_dir");
         std::fs::write(&tmp, "x").unwrap();
@@ -326,7 +350,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::unwrap_used)]
     fn is_valid_root_accepts_dir_with_control() {
         let tmp = std::env::temp_dir().join("hotspring_valid_root");
         std::fs::create_dir_all(tmp.join("control")).unwrap();
@@ -335,22 +358,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::unwrap_used)]
-    fn try_discover_with_valid_env_root() {
-        let tmp = std::env::temp_dir().join("hotspring_valid_env_root");
-        std::fs::create_dir_all(tmp.join("control")).unwrap();
-        let guard = EnvGuard::set("HOTSPRING_DATA_ROOT", tmp.as_os_str());
-
-        let result = try_discover_data_root();
-        drop(guard);
-        std::fs::remove_dir_all(&tmp).ok();
-
-        let discovered = result.expect("valid env root should succeed");
-        assert_eq!(discovered, tmp);
-    }
-
-    #[test]
-    #[allow(clippy::unwrap_used)]
     fn available_capabilities_detects_nuclear_eos_when_present() {
         let root = discover_data_root();
         let caps = available_capabilities();

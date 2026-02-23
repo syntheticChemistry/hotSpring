@@ -6,7 +6,7 @@
 //! pipeline: GPU MD → GPU velocity ring → GPU VACF → scalar D*.
 //!
 //! **Zero position/velocity readback during simulation.**
-//! Only 16 bytes/dump (KE + PE scalars) cross PCIe during production.
+//! Only 16 bytes/dump (KE + PE scalars) cross `PCIe` during production.
 //!
 //! Validates the same physics as `validate_stanton_murillo`:
 //!   - Energy conservation
@@ -94,7 +94,11 @@ fn main() {
         };
 
         let ev = validate_energy(&res.energy_history, cfg);
-        println!("  Energy drift: {:.4}% ({})", ev.drift_pct, if ev.passed { "OK" } else { "WARN" });
+        println!(
+            "  Energy drift: {:.4}% ({})",
+            ev.drift_pct,
+            if ev.passed { "OK" } else { "WARN" }
+        );
 
         harness.check_upper(
             &format!("energy k{} G{}", cfg.kappa, cfg.gamma),
@@ -128,7 +132,10 @@ fn main() {
 
         if let Some(d_sarkas) = sarkas_d_star_lookup(cfg.kappa, cfg.gamma) {
             let sarkas_err = rel_error(d_star, d_sarkas);
-            println!("  D*(Sarkas) = {d_sarkas:.4e} (err: {:.1}%)", sarkas_err * 100.0);
+            println!(
+                "  D*(Sarkas) = {d_sarkas:.4e} (err: {:.1}%)",
+                sarkas_err * 100.0
+            );
         }
 
         results.push(CaseResult {
@@ -171,8 +178,7 @@ fn main() {
     for r in &results {
         println!(
             "  {:>3.0} {:>5.0} {:>11.4e} {:>11.4e} {:>7.1}s {:>7.1}s {:>7.1}s",
-            r.kappa, r.gamma, r.d_star, r.d_fit,
-            r.wall_time, r.sim_time, r.vacf_time,
+            r.kappa, r.gamma, r.d_star, r.d_fit, r.wall_time, r.sim_time, r.vacf_time,
         );
         total_wall += r.wall_time;
     }

@@ -9,7 +9,7 @@
 //! # Provenance
 //!
 //! Reference values from: Abramowitz & Stegun Tables (1972), DLMF (NIST),
-//! SciPy 1.11 `scipy.special`. Cross-validated against Wolfram Alpha for
+//! `SciPy` 1.11 `scipy.special`. Cross-validated against Wolfram Alpha for
 //! digits of precision shown. All values truncated (not rounded) to the
 //! digits shown, ensuring exact reproducibility.
 

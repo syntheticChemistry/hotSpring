@@ -19,14 +19,15 @@
 //!   - `--mode=hetero` — heterogeneous pipeline (default)
 
 use hotspring_barracuda::data;
-use hotspring_barracuda::physics::hfb::binding_energy_l2;
-use hotspring_barracuda::physics::{nuclear_matter_properties, semf_binding_energy};
+use hotspring_barracuda::physics::nuclear_matter_properties;
+use hotspring_barracuda::pipeline::{
+    generate_l1_training_data, l2_objective, train_classifier, ClassifierResult,
+};
 use hotspring_barracuda::prescreen::{
-    l1_proxy_prescreen, nmp_prescreen, CascadeStats, NMPConstraints, NMPScreenResult,
-    PreScreenClassifier,
+    cascade_filter, l1_proxy_prescreen, nmp_prescreen, perturb_params, CascadeStats,
+    NMPConstraints, NMPScreenResult,
 };
 use hotspring_barracuda::provenance;
-use hotspring_barracuda::tolerances;
 
 use barracuda::optimize::{multi_start_nelder_mead, EvaluationCache};
 use barracuda::sample::latin_hypercube;
@@ -37,6 +38,8 @@ use rayon::prelude::*;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
+
+use barracuda::device::WgpuDevice;
 
 // ═══════════════════════════════════════════════════════════════════
 // CLI and output helpers
@@ -57,328 +60,11 @@ fn parse_cli() -> CliConfig {
         .and_then(|a| a.strip_prefix("--mode="))
         .unwrap_or("hetero")
         .to_string();
-    let n_rounds = args
-        .iter()
-        .find(|a| a.starts_with("--rounds="))
-        .and_then(|a| a.strip_prefix("--rounds=")?.parse().ok())
-        .unwrap_or(15);
-    let l1_samples = args
-        .iter()
-        .find(|a| a.starts_with("--l1-samples="))
-        .and_then(|a| a.strip_prefix("--l1-samples=")?.parse().ok())
-        .unwrap_or(5000);
-    let candidates_per_round = args
-        .iter()
-        .find(|a| a.starts_with("--candidates="))
-        .and_then(|a| a.strip_prefix("--candidates=")?.parse().ok())
-        .unwrap_or(200);
     CliConfig {
         mode,
-        n_rounds,
-        l1_samples,
-        candidates_per_round,
-    }
-}
-
-fn parse_mode_arg(args: &[String], key: &str, def: usize) -> usize {
-    let prefix = format!("{key}=");
-    args.iter()
-        .find(|a| a.starts_with(&prefix))
-        .and_then(|a| a.strip_prefix(&prefix)?.parse().ok())
-        .unwrap_or(def)
-}
-
-fn print_l2_result_box(
-    title: &str,
-    chi2: f64,
-    log_chi2: f64,
-    evals: usize,
-    time_s: f64,
-    throughput: f64,
-) {
-    println!("╔══════════════════════════════════════════════════════════════╗");
-    println!("║  {title:<58} ║");
-    println!("╠══════════════════════════════════════════════════════════════╣");
-    println!("║  χ²/datum:       {chi2:12.4}                              ║");
-    println!("║  log(1+χ²):      {log_chi2:12.4}                              ║");
-    println!("║  HFB evals:      {evals:6}                                    ║");
-    println!("║  Total time:     {time_s:6.1}s                                   ║");
-    println!("║  HFB throughput: {throughput:6.1} evals/s                            ║");
-    println!("╚══════════════════════════════════════════════════════════════╝");
-}
-
-fn save_json_to_results(base: &std::path::Path, filename: &str, json: &serde_json::Value) {
-    let results_dir = base.join("results");
-    std::fs::create_dir_all(&results_dir).ok();
-    let path = results_dir.join(filename);
-    std::fs::write(
-        &path,
-        serde_json::to_string_pretty(json).expect("JSON serialize"),
-    )
-    .ok();
-    println!("\n  Results saved to: {}", path.display());
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// Local helpers for parameter perturbation and cascade filtering
-// ═══════════════════════════════════════════════════════════════════
-
-/// Perturb base parameters by random amounts scaled by `scale` (fraction of
-/// parameter range, e.g. 0.1 = ±5%, 0.2 = ±10%), then clamp to bounds.
-fn perturb_params(base: &[f64], bounds: &[(f64, f64)], rng: &mut u64, scale: f64) -> Vec<f64> {
-    let mut candidate = base.to_vec();
-    for (i, &(lo, hi)) in bounds.iter().enumerate() {
-        let range = hi - lo;
-        *rng = rng
-            .wrapping_mul(6_364_136_223_846_793_005)
-            .wrapping_add(1_442_695_040_888_963_407);
-        let u = (*rng >> 33) as f64 / (1u64 << 31) as f64;
-        let perturbation = (u - 0.5) * scale * range;
-        candidate[i] = (candidate[i] + perturbation).clamp(lo, hi);
-    }
-    candidate
-}
-
-/// Run candidates through NMP (Tier 1), L1 proxy (Tier 2), and classifier (Tier 3).
-/// Returns surviving candidates and updates `cascade_stats`.
-fn cascade_filter(
-    candidates: &[Vec<f64>],
-    constraints: &NMPConstraints,
-    exp_data: &HashMap<(usize, usize), (f64, f64)>,
-    use_classifier: bool,
-    classifier: &PreScreenClassifier,
-    cascade_stats: &Arc<Mutex<CascadeStats>>,
-) -> Vec<Vec<f64>> {
-    let mut survivors = Vec::new();
-    for params in candidates {
-        let mut stats = cascade_stats.lock().expect("cascade_stats lock");
-        stats.total_candidates += 1;
-
-        match nmp_prescreen(params, constraints) {
-            NMPScreenResult::Fail(_) => {
-                stats.tier1_rejected += 1;
-                continue;
-            }
-            NMPScreenResult::Pass(_) => {}
-        }
-        if l1_proxy_prescreen(params, exp_data, 200.0).is_none() {
-            stats.tier2_rejected += 1;
-            continue;
-        }
-        if use_classifier && !classifier.predict(params) {
-            stats.tier3_rejected += 1;
-            continue;
-        }
-        stats.tier4_evaluated += 1;
-        drop(stats);
-
-        survivors.push(params.clone());
-    }
-    survivors
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// Phase 1: Generate L1 training data (fast, previous work)
-// ═══════════════════════════════════════════════════════════════════
-
-fn generate_l1_training_data(
-    bounds: &[(f64, f64)],
-    exp_data: &HashMap<(usize, usize), (f64, f64)>,
-    n_samples: usize,
-) -> (Vec<Vec<f64>>, Vec<f64>) {
-    println!("  Phase 1: Generating L1 training data ({n_samples} samples)...");
-    let t0 = Instant::now();
-
-    let samples = latin_hypercube(n_samples, bounds, 42).expect("LHS sampling failed");
-    let mut xs = Vec::with_capacity(n_samples);
-    let mut ys = Vec::with_capacity(n_samples);
-
-    for sample in &samples {
-        let params = sample.clone();
-
-        // Compute L1 objective
-        if params[8] <= 0.01 || params[8] > 1.0 {
-            xs.push(params);
-            ys.push(9.2); // ln(1+10000) penalty
-            continue;
-        }
-
-        let Some(nmp) = nuclear_matter_properties(&params) else {
-            xs.push(params);
-            ys.push(9.2);
-            continue;
-        };
-
-        let mut penalty = 0.0;
-        if nmp.rho0_fm3 < 0.08 {
-            penalty += 50.0 * (0.08 - nmp.rho0_fm3) / 0.08;
-        } else if nmp.rho0_fm3 > 0.25 {
-            penalty += 50.0 * (nmp.rho0_fm3 - 0.25) / 0.25;
-        }
-        if nmp.e_a_mev > -5.0 {
-            penalty += 20.0 * (nmp.e_a_mev + 5.0).max(0.0);
-        }
-
-        let mut chi2 = 0.0;
-        let mut n_valid = 0;
-        for (&(z, n), &(b_exp, _sigma)) in exp_data {
-            let b_calc = semf_binding_energy(z, n, &params);
-            if b_calc > 0.0 {
-                let sigma_theo = tolerances::sigma_theo(b_exp);
-                chi2 += ((b_calc - b_exp) / sigma_theo).powi(2);
-                n_valid += 1;
-            }
-        }
-
-        let obj = if n_valid > 0 {
-            (chi2 / f64::from(n_valid) + penalty).ln_1p()
-        } else {
-            9.2
-        };
-
-        xs.push(params);
-        ys.push(obj);
-    }
-
-    let n_good = ys.iter().filter(|&&y| y < 5.0).count();
-    println!(
-        "    Generated {} samples in {:.2}s",
-        n_samples,
-        t0.elapsed().as_secs_f64()
-    );
-    println!(
-        "    Good (log(1+χ²) < 5): {} ({:.1}%)",
-        n_good,
-        100.0 * n_good as f64 / n_samples as f64
-    );
-    println!();
-
-    (xs, ys)
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// Phase 2: Train pre-screening classifier
-// ═══════════════════════════════════════════════════════════════════
-
-/// Result of classifier training, including quality metrics
-struct ClassifierResult {
-    classifier: PreScreenClassifier,
-    _recall: f64,
-    usable: bool, // true if recall is high enough to trust the classifier
-}
-
-fn train_classifier(xs: &[Vec<f64>], ys: &[f64]) -> ClassifierResult {
-    println!("  Phase 2: Training pre-screening classifier...");
-    let t0 = Instant::now();
-
-    // Use a generous label threshold: log(1+χ²) < 7.0 (~χ² < 1096)
-    // This captures a wider band of "possibly reasonable" parameter sets
-    let label_threshold = 7.0;
-    let mut classifier = PreScreenClassifier::train(xs, ys, label_threshold);
-
-    // Test accuracy on training data
-    let mut tp = 0;
-    let mut fp = 0;
-    let mut tn = 0;
-    let mut fn_ = 0;
-
-    for (x, &y) in xs.iter().zip(ys.iter()) {
-        let pred = classifier.predict(x);
-        let actual = y < label_threshold;
-        if pred && actual {
-            tp += 1;
-        }
-        if pred && !actual {
-            fp += 1;
-        }
-        if !pred && actual {
-            fn_ += 1;
-        }
-        if !pred && !actual {
-            tn += 1;
-        }
-    }
-
-    let n_positive = tp + fn_;
-    let recall = if n_positive > 0 {
-        f64::from(tp) / f64::from(n_positive)
-    } else {
-        0.0
-    };
-    let precision = if tp + fp > 0 {
-        f64::from(tp) / f64::from(tp + fp)
-    } else {
-        0.0
-    };
-    let accuracy = f64::from(tp + tn) / xs.len().max(1) as f64;
-
-    println!(
-        "    Trained in {:.3}s on {} samples ({} positive at threshold={:.1})",
-        t0.elapsed().as_secs_f64(),
-        xs.len(),
-        n_positive,
-        label_threshold
-    );
-    println!("    Accuracy:  {:.1}%", accuracy * 100.0);
-    println!("    Precision: {:.1}%", precision * 100.0);
-    println!("    Recall:    {:.1}%", recall * 100.0);
-    println!("    [TP={tp}, FP={fp}, FN={fn_}, TN={tn}]");
-
-    // If recall is poor, lower the decision threshold to be more permissive
-    let usable = if recall < 0.5 && n_positive > 5 {
-        // Try lowering threshold until recall ≥ 50%
-        let mut best_threshold = 0.5;
-        let mut best_recall = recall;
-        for t in (5..50).map(|i| f64::from(i) / 100.0) {
-            classifier.threshold = t;
-            let mut tp2 = 0;
-            let mut fn2 = 0;
-            for (x, &y) in xs.iter().zip(ys.iter()) {
-                let pred = classifier.predict(x);
-                let actual = y < label_threshold;
-                if pred && actual {
-                    tp2 += 1;
-                }
-                if !pred && actual {
-                    fn2 += 1;
-                }
-            }
-            let r = if tp2 + fn2 > 0 {
-                f64::from(tp2) / f64::from(tp2 + fn2)
-            } else {
-                0.0
-            };
-            if r > best_recall {
-                best_recall = r;
-                best_threshold = t;
-            }
-            if r >= 0.5 {
-                break;
-            }
-        }
-        classifier.threshold = best_threshold;
-        println!(
-            "    ⚠ Low recall — adjusted threshold to {:.2} (recall now {:.1}%)",
-            best_threshold,
-            best_recall * 100.0
-        );
-        best_recall >= 0.1 // usable if at least 10% recall after adjustment
-    } else if n_positive <= 5 {
-        println!("    ⚠ Too few positives ({n_positive}) — classifier DISABLED (bypass Tier 3)");
-        false
-    } else {
-        true
-    };
-
-    if !usable {
-        println!("    → Cascade will skip Tier 3 (classifier), using Tiers 1+2 only");
-    }
-    println!();
-
-    ClassifierResult {
-        classifier,
-        _recall: recall,
-        usable,
+        n_rounds: data::parse_cli_usize(&args, "--rounds", 15),
+        l1_samples: data::parse_cli_usize(&args, "--l1-samples", 5000),
+        candidates_per_round: data::parse_cli_usize(&args, "--candidates", 200),
     }
 }
 
@@ -387,6 +73,7 @@ fn train_classifier(xs: &[Vec<f64>], ys: &[f64]) -> ClassifierResult {
 // ═══════════════════════════════════════════════════════════════════
 
 fn run_heterogeneous_l2(
+    device: Arc<WgpuDevice>,
     bounds: &[(f64, f64)],
     exp_data: &HashMap<(usize, usize), (f64, f64)>,
     l1_xs: &[Vec<f64>],
@@ -437,38 +124,14 @@ fn run_heterogeneous_l2(
     );
 
     // ── Filter initial candidates through cascade ──
-    let mut surviving_candidates: Vec<Vec<f64>> = Vec::new();
-
-    for params in &initial_candidates {
-        let mut stats = cascade_stats.lock().expect("cascade_stats lock");
-        stats.total_candidates += 1;
-
-        // Tier 1: NMP pre-screen (algebraic, ~0 cost)
-        match nmp_prescreen(params, &constraints) {
-            NMPScreenResult::Fail(_) => {
-                stats.tier1_rejected += 1;
-                continue;
-            }
-            NMPScreenResult::Pass(_) => {}
-        }
-
-        // Tier 2: L1 proxy pre-screen (~0.1ms)
-        if l1_proxy_prescreen(params, exp_data, 200.0).is_none() {
-            stats.tier2_rejected += 1;
-            continue;
-        }
-
-        // Tier 3: Classifier pre-screen (only if usable)
-        if use_classifier && !classifier.predict(params) {
-            stats.tier3_rejected += 1;
-            continue;
-        }
-
-        stats.tier4_evaluated += 1;
-        drop(stats);
-
-        surviving_candidates.push(params.clone());
-    }
+    let surviving_candidates = cascade_filter(
+        &initial_candidates,
+        &constraints,
+        exp_data,
+        use_classifier,
+        classifier,
+        &cascade_stats,
+    );
 
     println!(
         "    Survived cascade: {} / {} ({:.1}%)",
@@ -535,7 +198,7 @@ fn run_heterogeneous_l2(
 
         // Build RBF surrogate on real HFB values (no penalties!)
         let surrogate =
-            match RBFSurrogate::train(&train_x, &train_y, RBFKernel::ThinPlateSpline, 0.0) {
+            match RBFSurrogate::train(device.clone(), &train_x, &train_y, RBFKernel::ThinPlateSpline, 0.0) {
                 Ok(s) => s,
                 Err(e) => {
                     println!(
@@ -679,52 +342,12 @@ fn run_heterogeneous_l2(
     (best_x, best_f, cache.clone(), final_stats)
 }
 
-/// L2 objective function (HFB evaluation)
-fn l2_objective(params: &[f64], nuclei: &[(usize, usize, f64)]) -> f64 {
-    let Some(nmp) = nuclear_matter_properties(params) else {
-        return (1e4_f64).ln_1p();
-    };
-
-    let mut penalty = 0.0;
-    if nmp.rho0_fm3 < 0.08 {
-        penalty += 50.0 * (0.08 - nmp.rho0_fm3) / 0.08;
-    } else if nmp.rho0_fm3 > 0.25 {
-        penalty += 50.0 * (nmp.rho0_fm3 - 0.25) / 0.25;
-    }
-    if nmp.e_a_mev > -5.0 {
-        penalty += 20.0 * (nmp.e_a_mev + 5.0).max(0.0);
-    }
-
-    let results: Vec<(f64, f64)> = nuclei
-        .iter()
-        .map(|&(z, n, b_exp)| {
-            let (b_calc, _conv) = binding_energy_l2(z, n, params).expect("HFB solve");
-            (b_calc, b_exp)
-        })
-        .collect();
-
-    let mut chi2 = 0.0;
-    let mut n_valid = 0;
-    for (b_calc, b_exp) in results {
-        if b_calc > 0.0 {
-            let sigma_theo = tolerances::sigma_theo(b_exp);
-            chi2 += ((b_calc - b_exp) / sigma_theo).powi(2);
-            n_valid += 1;
-        }
-    }
-
-    if n_valid == 0 {
-        return (1e4_f64).ln_1p();
-    }
-
-    (chi2 / f64::from(n_valid) + penalty).ln_1p()
-}
-
 // ═══════════════════════════════════════════════════════════════════
 // Phase 4 (comparison): Plain SparsitySampler L2
 // ═══════════════════════════════════════════════════════════════════
 
 fn run_plain_l2(
+    device: Arc<WgpuDevice>,
     bounds: &[(f64, f64)],
     exp_data: &HashMap<(usize, usize), (f64, f64)>,
     n_rounds: usize,
@@ -751,7 +374,7 @@ fn run_plain_l2(
         .with_kernel(RBFKernel::ThinPlateSpline);
 
     let t0 = Instant::now();
-    let result = sparsity_sampler(&objective, bounds, &config).expect("SparsitySampler failed");
+    let result = sparsity_sampler(device, &objective, bounds, &config).expect("SparsitySampler failed");
     let elapsed = t0.elapsed();
 
     let chi2 = result.f_best.exp_m1();
@@ -780,7 +403,8 @@ fn run_screen_l2(
     println!();
 
     // Phase 1: Generate and score with L1
-    let (l1_xs, l1_ys) = generate_l1_training_data(bounds, exp_data, n_l1_samples);
+    let (l1_xs, l1_ys) = generate_l1_training_data(bounds, exp_data, n_l1_samples)
+        .expect("L1 training data generation failed");
 
     // Sort by L1 score, take top-k for L2 evaluation
     let mut indices: Vec<usize> = (0..l1_ys.len()).collect();
@@ -827,23 +451,15 @@ fn run_screen_l2(
         .expect("at least one L2 evaluation result");
 
     let chi2 = best_f.exp_m1();
-
-    println!();
-    println!("╔══════════════════════════════════════════════════════════════╗");
-    println!("║  L1-Screen → L2-Eval Results                              ║");
-    println!("╠══════════════════════════════════════════════════════════════╣");
-    println!("║  χ²/datum:       {chi2:12.4}                              ║");
-    println!("║  log(1+χ²):      {best_f:12.4}                              ║");
-    println!("║  L2 evals:       {n_eval:6}                                    ║");
-    println!(
-        "║  Time (L2):      {:6.1}s                                   ║",
-        elapsed.as_secs_f64()
+    let time_s = elapsed.as_secs_f64();
+    data::print_l2_result_box(
+        "L1-Screen → L2-Eval Results",
+        chi2,
+        best_f,
+        n_eval,
+        time_s,
+        n_eval as f64 / time_s,
     );
-    println!(
-        "║  HFB throughput: {:6.1} evals/s                            ║",
-        n_eval as f64 / elapsed.as_secs_f64()
-    );
-    println!("╚══════════════════════════════════════════════════════════════╝");
 
     // Distribution of L2 scores
     let mut scores: Vec<f64> = results.iter().map(|(_, f)| *f).collect();
@@ -893,7 +509,8 @@ fn run_direct_l2(
     println!();
 
     // Phase 1: Generate L1 data to find good seed regions
-    let (l1_xs, l1_ys) = generate_l1_training_data(bounds, exp_data, 5000);
+    let (l1_xs, l1_ys) = generate_l1_training_data(bounds, exp_data, 5000)
+        .expect("L1 training data generation failed");
 
     // Sort by L1 score, take top-k as NM starting points
     let mut indices: Vec<usize> = (0..l1_ys.len()).collect();
@@ -959,26 +576,16 @@ fn run_direct_l2(
     }
 
     let elapsed = t0.elapsed();
-    let total_evals = eval_count.load(std::sync::atomic::Ordering::Relaxed);
+    let time_s = elapsed.as_secs_f64();
     let chi2 = best_f.exp_m1();
-
-    println!();
-    println!("╔══════════════════════════════════════════════════════════════╗");
-    println!("║  Direct L2 Results (L1-seeded NM)                         ║");
-    println!("╠══════════════════════════════════════════════════════════════╣");
-    println!("║  χ²/datum:       {chi2:12.4}                              ║");
-    println!("║  log(1+χ²):      {best_f:12.4}                              ║");
-    println!("║  Total evals:    {total_evals:6}  (obj calls)                      ║");
-    println!("║  HFB evals:      {total_hfb:6}  (expensive)                      ║");
-    println!(
-        "║  Time:           {:6.1}s  (NM only)                       ║",
-        elapsed.as_secs_f64()
+    data::print_l2_result_box(
+        "Direct L2 Results (L1-seeded NM)",
+        chi2,
+        best_f,
+        total_hfb,
+        time_s,
+        total_hfb as f64 / time_s,
     );
-    println!(
-        "║  HFB throughput: {:6.1} evals/s                            ║",
-        total_hfb as f64 / elapsed.as_secs_f64()
-    );
-    println!("╚══════════════════════════════════════════════════════════════╝");
 
     // Nuclear matter at best
     if let Some(nmp) = nuclear_matter_properties(&best_x) {
@@ -1000,6 +607,11 @@ fn main() {
     println!("║  Compute: CPU(NMP) → NPU/CPU(clf) → CPU∥(HFB) → GPU(RBF) ║");
     println!("╚══════════════════════════════════════════════════════════════╝");
     println!();
+
+    let rt = tokio::runtime::Runtime::new().expect("tokio runtime");
+    let device = rt
+        .block_on(barracuda::device::Auto::new())
+        .expect("GPU device required for RBF surrogate (barracuda::Auto)");
 
     let cli = parse_cli();
     let mode = cli.mode.as_str();
@@ -1023,9 +635,11 @@ fn main() {
             println!("  HETEROGENEOUS PIPELINE");
             println!("═══════════════════════════════════════════════════════════");
 
-            let (l1_xs, l1_ys) = generate_l1_training_data(bounds, exp_data, cli.l1_samples);
+            let (l1_xs, l1_ys) = generate_l1_training_data(bounds, exp_data, cli.l1_samples)
+                .expect("L1 training data generation failed");
             let clf_result = train_classifier(&l1_xs, &l1_ys);
             let (best_params, best_f, cache, stats) = run_heterogeneous_l2(
+                device.clone(),
                 bounds,
                 exp_data,
                 &l1_xs,
@@ -1047,7 +661,7 @@ fn main() {
 
             let _plain_t0 = Instant::now();
             let (plain_chi2, plain_time, plain_evals) =
-                run_plain_l2(bounds, exp_data, cli.n_rounds);
+                run_plain_l2(device.clone(), bounds, exp_data, cli.n_rounds);
 
             println!();
             println!("╔══════════════════════════════════════════════════════════════╗");
@@ -1087,8 +701,8 @@ fn main() {
 
         "screen" => {
             let args: Vec<String> = std::env::args().collect();
-            let n_l1 = parse_mode_arg(&args, "--l1-samples", 10_000);
-            let n_eval = parse_mode_arg(&args, "--l2-evals", 200);
+            let n_l1 = data::parse_cli_usize(&args, "--l1-samples", 10_000);
+            let n_eval = data::parse_cli_usize(&args, "--l2-evals", 200);
             let (best_params, best_f, total_time, total_evals) =
                 run_screen_l2(bounds, exp_data, n_l1, n_eval);
             let chi2 = best_f.exp_m1();
@@ -1102,13 +716,13 @@ fn main() {
                 "time_seconds": total_time,
                 "best_params": best_params,
             });
-            save_json_to_results(base, "barracuda_screen_l2.json", &result_json);
+            data::save_json_to_results(base, "barracuda_screen_l2.json", &result_json);
         }
 
         "direct" => {
             let args: Vec<String> = std::env::args().collect();
-            let n_starts = parse_mode_arg(&args, "--starts", 10);
-            let max_evals_per = parse_mode_arg(&args, "--evals", 200);
+            let n_starts = data::parse_cli_usize(&args, "--starts", 10);
+            let max_evals_per = data::parse_cli_usize(&args, "--evals", 200);
             let (best_params, best_f, total_time, total_evals) =
                 run_direct_l2(bounds, exp_data, n_starts, max_evals_per);
             let chi2 = best_f.exp_m1();
@@ -1123,13 +737,15 @@ fn main() {
                 "time_seconds": total_time,
                 "best_params": best_params,
             });
-            save_json_to_results(base, "barracuda_direct_l2.json", &result_json);
+            data::save_json_to_results(base, "barracuda_direct_l2.json", &result_json);
         }
 
         _ => {
-            let (l1_xs, l1_ys) = generate_l1_training_data(bounds, exp_data, cli.l1_samples);
+            let (l1_xs, l1_ys) = generate_l1_training_data(bounds, exp_data, cli.l1_samples)
+                .expect("L1 training data generation failed");
             let clf_result = train_classifier(&l1_xs, &l1_ys);
             let (best_params, best_f, cache, stats) = run_heterogeneous_l2(
+                device,
                 bounds,
                 exp_data,
                 &l1_xs,
@@ -1141,7 +757,7 @@ fn main() {
             let total_time = total_t0.elapsed().as_secs_f64();
             let chi2 = best_f.exp_m1();
             println!();
-            print_l2_result_box(
+            data::print_l2_result_box(
                 "Heterogeneous L2 Results",
                 chi2,
                 best_f,
@@ -1186,9 +802,6 @@ fn save_results(
     plain_evals: Option<usize>,
 ) {
     let chi2 = best_f.exp_m1();
-    let results_dir = base.join("results");
-    std::fs::create_dir_all(&results_dir).ok();
-
     let mut result_json = serde_json::json!({
         "level": 2,
         "engine": "hotspring::heterogeneous_pipeline",
@@ -1224,12 +837,5 @@ fn save_results(
         });
     }
 
-    let path = results_dir.join("barracuda_l2_hetero.json");
-    std::fs::write(
-        &path,
-        serde_json::to_string_pretty(&result_json).expect("JSON serialize"),
-    )
-    .ok();
-    println!();
-    println!("  Results saved to: {}", path.display());
+    data::save_json_to_results(base, "barracuda_l2_hetero.json", &result_json);
 }

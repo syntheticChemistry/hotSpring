@@ -5,9 +5,9 @@
 //! Consolidates duplicated code across spherical HFB (L2), deformed HFB (L3),
 //! and GPU-accelerated deformed HFB implementations.
 //!
-//! - [`Mat`] — lightweight row-major square matrix for Hamiltonian blocks
-//! - [`hermite_value`] — Re-export of `barracuda::special::hermite` (canonical implementation)
-//! - [`factorial_f64`] — delegates to `barracuda::special::factorial`
+//! - `Mat` — lightweight row-major square matrix for Hamiltonian blocks
+//! - `hermite_value` — Re-export of `barracuda::special::hermite` (canonical implementation)
+//! - `factorial_f64` — delegates to `barracuda::special::factorial`
 
 // ═══════════════════════════════════════════════════════════════════
 // Row-major square matrix

@@ -13,7 +13,7 @@
 //! The RTX 4070 exposes fp64 builtins through Vulkan/wgpu at ~1:2 fp64:fp32
 //! INSTRUCTION throughput, bypassing CUDA's 1:64 ratio. MD workloads are
 //! memory-bandwidth-bound (low arithmetic intensity), so application-level
-//! TFLOPS understate the instruction-level ratio. The f64_builtin_test binary
+//! TFLOPS understate the instruction-level ratio. The `f64_builtin_test` binary
 //! measures the raw instruction throughput.
 //!
 //! Exit code 0 = benchmark complete.

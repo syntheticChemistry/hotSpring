@@ -3,6 +3,7 @@
 // Clippy pedantic/nursery + physics-specific allows are in [workspace.lints.clippy]
 // in Cargo.toml. Library code must propagate errors, not panic:
 #![deny(clippy::expect_used, clippy::unwrap_used)]
+#![warn(missing_docs)]
 
 //! hotSpring Nuclear EOS — `BarraCuda` validation environment
 //!
@@ -40,16 +41,35 @@
 //!
 //! AGPL-3.0 — see LICENSE in repository root.
 
+/// Benchmark harness (RAPL energy, `nvidia-smi`, JSON reports).
 pub mod bench;
+/// AME2020 experimental data, Skyrme parameter bounds, and chi-squared.
 pub mod data;
+/// Capability-based data-path resolution (zero hardcoded absolute paths).
 pub mod discovery;
+/// Typed errors for GPU, simulation, and data-loading failure modes.
 pub mod error;
+/// GPU FP64 compute wrapper (`SHADER_F64` via wgpu/Vulkan).
 pub mod gpu;
+/// Lattice QCD: SU(3), Wilson action, HMC, Dirac, CG, Abelian Higgs.
 pub mod lattice;
+/// GPU molecular dynamics (f64 WGSL Yukawa OCP, cell-list, transport).
 pub mod md;
+/// Shared helpers for nuclear EOS validation binaries (L1/L2).
+pub mod nuclear_eos_helpers;
+/// Nuclear structure: SEMF, nuclear matter, spherical/deformed HFB, BCS.
 pub mod physics;
+/// L2 heterogeneous pipeline: L1 data gen, classifier training, L2 objective.
+pub mod pipeline;
+/// NMP cascade filter for L2 heterogeneous pipeline.
 pub mod prescreen;
+/// Traces every hardcoded value to its Python origin (script, commit, date).
 pub mod provenance;
+/// Spectral theory re-exports from `barracuda::spectral`.
 pub mod spectral;
+/// Centralized, justified validation thresholds (~170 constants).
 pub mod tolerances;
+/// Two-Temperature Model (laser-plasma 0D ODE solver).
+pub mod ttm;
+/// Pass/fail harness for validation binaries (exit 0/1).
 pub mod validation;

@@ -219,6 +219,7 @@ fn main() {
         n_md_steps: 10,
         dt: 0.1,
         seed: 123,
+        ..Default::default()
     };
 
     let n_therm = 10;

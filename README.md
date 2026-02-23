@@ -30,7 +30,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 
 ---
 
-## Current Status (2026-02-22)
+## Current Status (2026-02-23)
 
 | Study | Status | Quantitative Checks |
 |-------|--------|-------------------|
@@ -79,7 +79,12 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **NPU HW Quantization** | ✅ Complete | 4/4 on AKD1000: f32/int8/int4/act4 cascade, 685μs/inference |
 | **NPU Lattice Phase** | ✅ 7/8 | β_c=5.715 on AKD1000, ESN 100% CPU, int4 NPU 60% (marginal as expected) |
 | **Titan V NVK** | ✅ Complete | NVK built from Mesa 25.1.5. `cpu_gpu_parity` 6/6, `stanton_murillo` 40/40, `bench_gpu_fp64` pass |
-| **TOTAL** | **34/34 Rust validation suites** | 619 unit tests (612 passing + 1 env-flaky + 6 GPU/heavy-ignored; spectral tests upstream), + 34/35 NPU HW checks, 16 determinism tests, 6 upstream bugs found. Both GPUs validated |
+| **GPU Streaming HMC** | ✅ Complete | 9/9 pass (4⁴→16⁴, streaming 67× CPU, dispatch parity, GPU PRNG) |
+| **GPU Streaming Dynamical** | ✅ Complete | 13/13 pass (dynamical fermion streaming, GPU-resident CG, bidirectional stream) |
+| **GPU-Resident CG** | ✅ Complete | 15,360× readback reduction, 30.7× speedup, α/β/rz GPU-resident |
+| **biomeGate Prep** | ✅ Complete | Node profiles, env-var GPU selection, NVK setup guide, RTX 3090 characterization |
+| **API Debt Fix** | ✅ Complete | solve_f64→CPU Gauss-Jordan, sampler/surrogate device args, 4 binaries fixed |
+| **TOTAL** | **39/39 Rust validation suites** | 155/155 checks in latest session. 619 unit tests, 34/35 NPU HW checks, 16 determinism tests, 6 upstream bugs found. Both GPUs validated, biomeGate node prepped |
 
 Papers 5, 7, 8, and 10 from the review queue are complete. Paper 5 transport fits
 (Daligault 2012) were recalibrated against 12 Sarkas Green-Kubo D* values (Feb 2026)
@@ -339,14 +344,14 @@ makes the upstream library richer and hotSpring leaner.
 - HFB shader suite — potentials + density + BCS bisection (14+GPU+6 checks, Tier 2)
 - NPU substrate discovery — `metalForge/forge/src/probe.rs` (local evolution)
 
-**Already leaning on upstream** (v0.6.7):
+**Already leaning on upstream** (v0.6.8):
 
 | Module | Upstream | Status |
 |--------|----------|--------|
 | `spectral/` | `barracuda::spectral::*` | **✅ Leaning** — 41 KB local deleted, re-exports + `CsrMatrix` alias |
 | `md/celllist.rs` | `barracuda::ops::md::CellListGpu` | **✅ Leaning** — local `GpuCellList` deleted |
 
-**Absorption-ready inventory** (v0.6.7):
+**Absorption-ready inventory** (v0.6.8):
 
 | Module | Type | WGSL Shader | Status |
 |--------|------|------------|--------|
@@ -359,12 +364,12 @@ makes the upstream library richer and hotSpring leaner.
 
 ---
 
-## BarraCuda Crate (v0.6.7)
+## BarraCuda Crate (v0.6.8)
 
 The `barracuda/` directory is a standalone Rust crate providing the validation
 environment, physics implementations, and GPU compute. Key architectural properties:
 
-- **619 unit tests** (612 passing + 1 env-flaky + 6 GPU/heavy-ignored; spectral tests upstream in barracuda), **34 validation suites** (34/34 pass),
+- **619 unit tests** (612 passing + 1 env-flaky + 6 GPU/heavy-ignored; spectral tests upstream in barracuda), **39 validation suites** (39/39 pass),
   **24 integration tests** (3 suites: physics, data, transport),
   **16 determinism tests** (rerun-identical for all stochastic algorithms). Includes
   lattice QCD (complex f64, SU(3), Wilson action, HMC, Dirac CG, pseudofermion HMC),
@@ -433,7 +438,7 @@ cd barracuda
 cargo test               # 619 unit + 24 integration + 19 forge tests, 6 GPU/heavy-ignored (~702.7s; spectral tests upstream)
 cargo clippy --all-targets  # Zero warnings (pedantic + nursery via Cargo.toml workspace lints)
 cargo doc --no-deps      # Full API documentation — 0 warnings
-cargo run --release --bin validate_all  # 34/34 suites pass
+cargo run --release --bin validate_all  # 39/39 suites pass
 ```
 
 See [`barracuda/CHANGELOG.md`](barracuda/CHANGELOG.md) for version history.
@@ -508,7 +513,7 @@ hotSpring/
 │   ├── CONTROL_EXPERIMENT_SUMMARY.md  # Phase A quick reference
 │   └── METHODOLOGY.md                # Two-phase validation protocol
 │
-├── barracuda/                          # BarraCuda Rust crate — v0.6.7 (619 unit + 24 integration tests, 34 suites)
+├── barracuda/                          # BarraCuda Rust crate — v0.6.8 (619 unit + 24 integration tests, 39 suites)
 │   ├── Cargo.toml                     # Dependencies (requires ecoPrimals/phase1/toadstool)
 │   ├── CHANGELOG.md                   # Version history — baselines, tolerances, evolution
 │   ├── EVOLUTION_READINESS.md         # Rust module → GPU promotion tier + absorption status
@@ -523,7 +528,7 @@ hotSpring/
 │       ├── data.rs                    # AME2020 data + Skyrme bounds + EosContext + chi2_per_datum
 │       ├── prescreen.rs               # NMP cascade filter (algebraic → L1 proxy → classifier)
 │       ├── spectral/                 # Spectral theory — re-exports from upstream barracuda::spectral
-│       │   └── mod.rs               # pub use barracuda::spectral::* + CsrMatrix alias (v0.6.7 lean)
+│       │   └── mod.rs               # pub use barracuda::spectral::* + CsrMatrix alias (v0.6.8 lean)
 │       ├── bench/                      # Benchmark harness — mod, hardware, power, report (RAPL, nvidia-smi, JSON)
 │       ├── gpu/                       # GPU FP64 device wrapper (adapter, buffers, dispatch, telemetry)
 │       │
@@ -571,6 +576,7 @@ hotSpring/
 │       │   ├── constants.rs           # Centralized LCG PRNG, SU(3) constants, guards
 │       │   ├── dirac.rs              # Staggered Dirac operator
 │       │   ├── cg.rs                  # Conjugate gradient solver for D†D
+│       │   ├── gpu_hmc.rs                # GPU streaming + resident CG HMC (dispatch, streaming, resident, bidirectional)
 │       │   ├── eos_tables.rs          # HotQCD EOS tables (Bazavov et al. 2014)
 │       │   └── multi_gpu.rs           # Temperature scan dispatcher
 │       │
@@ -580,7 +586,7 @@ hotSpring/
 │   │   └── integration_transport.rs   # ESN + Daligault fits (5 tests)
 │   │
 │       └── bin/                       # 55 binaries (exit 0 = pass, 1 = fail)
-│           ├── validate_all.rs        # Meta-validator: runs all 34 validation suites
+│           ├── validate_all.rs        # Meta-validator: runs all 39 validation suites
 │           ├── validate_nuclear_eos.rs # L1 SEMF + L2 HFB + NMP validation harness
 │           ├── validate_barracuda_pipeline.rs # Full MD pipeline (12/12 checks)
 │           ├── validate_barracuda_hfb.rs # BCS + eigensolve pipeline (16/16 checks)
@@ -619,6 +625,9 @@ hotSpring/
 │           ├── bench_cpu_gpu_scaling.rs # CPU vs GPU crossover benchmark
 │           ├── bench_gpu_fp64.rs      # GPU FP64 throughput benchmark
 │           ├── bench_multi_gpu.rs     # Multi-GPU dispatch benchmark
+│           ├── validate_gpu_streaming.rs    # GPU streaming HMC scaling (4⁴→16⁴, 9/9)
+│           ├── validate_gpu_streaming_dyn.rs # Streaming dynamical fermion HMC (13/13)
+│           ├── validate_gpu_dynamical_hmc.rs # GPU dynamical HMC validation
 │           ├── bench_wgsize_nvk.rs    # NVK workgroup-size tuning
 │           ├── celllist_diag.rs       # Cell-list vs all-pairs force diagnostic
 │           ├── f64_builtin_test.rs    # Native vs software f64 validation
@@ -703,7 +712,12 @@ hotSpring/
 │   │   ├── EXPLORATION.md             # Novel applications for physics
 │   │   ├── BEYOND_SDK.md              # 10 overturned SDK assumptions (the discovery doc)
 │   │   └── scripts/                   # Python probing scripts (deep_probe.py)
+│   ├── nodes/                        # Per-gate environment profiles
+│   │   ├── README.md                 # Profile system docs + variable reference
+│   │   ├── biomegate.env             # biomeGate: RTX 3090 + Titan V + Akida
+│   │   └── eastgate.env              # Eastgate: RTX 4070 + Titan V + Akida
 │   └── gpu/nvidia/                    # RTX 4070 + Titan V characterization
+│       └── NVK_SETUP.md               # Reproducible Titan V NVK driver setup checklist
 │
 ├── specs/                              # Specifications and requirements
 │   ├── README.md                      # Spec index + scope definition
@@ -806,9 +820,13 @@ These are **silent failures** — wrong results, no error messages. This fragili
   - **Numerical parity**: identical physics to 1e-15 across both GPUs and both drivers. NPU int4 quantization error bounded at <30%.
   - VRAM headroom: <600 MB used at N=20,000 — estimated N≈400,000 before VRAM limits.
   - Adapter selection: `HOTSPRING_GPU_ADAPTER=titan` or `=4070` or `=0`/`=1` (see `gpu/` module docs).
-- **Strandgate**: 64-core EPYC, 32 GB. Full-scale DSF (N=10,000) CPU runs.
-- **Northgate**: i9-14900K. Single-thread comparison.
-- **Southgate**: 5800X3D. V-Cache neighbor list performance.
+- **biomeGate (semi-mobile mini HPC)**: Threadripper 3970X (32c/64t), RTX 3090 (24GB) + Titan V (12GB HBM2), Akida NPU, 256 GB DDR4, 5TB NVMe.
+  - RTX 3090 (Ampere GA102): 24 GB enables 48⁴ dynamical fermion lattices GPU-resident (2× the 4070's 40⁴ max).
+  - Lab-deployable for extended compute runs. Node profile: `source metalForge/nodes/biomegate.env`.
+  - Same NVK setup for Titan V validated on Eastgate, documented in `metalForge/gpu/nvidia/NVK_SETUP.md`.
+- **Strandgate**: 64-core EPYC, 256 GB ECC. Full-scale DSF (N=10,000) CPU runs. RTX 3090 + RX 6950 XT (dual-vendor GPU).
+- **Northgate**: i9-14900K, RTX 5090. Single-thread comparison + AI/LLM compute.
+- **Southgate**: 5800X3D, RTX 3090. V-Cache neighbor list performance.
 
 ---
 
@@ -870,12 +888,13 @@ a network service, you must make your source available under the same terms.
 
 ---
 
-*hotSpring proves that a $600 GPU can do the same physics as an HPC cluster —
+*hotSpring proves that consumer GPUs can do the same physics as an HPC cluster —
 same observables, same energy conservation, same particle count, same production
 steps — in 3.66 hours for 9 cases, using 0.365 kWh of electricity at $0.044.
 A $300 NPU runs the same math at 30mW for inference workloads — 9,017× less
-energy than CPU for transport predictions. The heterogeneous pipeline (GPU+NPU+CPU)
-makes five things possible that were previously impossible: real-time phase monitoring
-during live simulation, continuous transport prediction without Green-Kubo post-processing,
-substrate-portable physics (f64→f32→int4), predictive steering that saves 62% of compute,
-and zero-overhead monitoring at 0.09%. The scarcity was artificial.*
+energy than CPU for transport predictions. GPU-resident CG reduces readback by
+15,360× and speeds dynamical fermion QCD by 30.7×. The bidirectional streaming
+pipeline (GPU+NPU+CPU) enables real-time phase monitoring, predictive steering,
+and zero-overhead observation. biomeGate (RTX 3090, 24GB) extends lattice capacity
+to 48⁴ — 2× the 4070. Node profiles make "git pull and run" trivial across the
+mesh. The scarcity was artificial.*

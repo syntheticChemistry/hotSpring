@@ -11,7 +11,7 @@
 //!    velocity features in real-time. Before: Green-Kubo post-processing only.
 //!
 //! 3. **Cross-substrate parity** — Same trained ESN validated on CPU f64,
-//!    NpuSimulator f32, and int4-quantized. Before: single-substrate lock-in.
+//!    `NpuSimulator` f32, and int4-quantized. Before: single-substrate lock-in.
 //!
 //! 4. **Zero-overhead monitoring** — prediction time is <1% of simulation time.
 //!    Before: monitoring required pausing or slowing the simulation.
@@ -91,6 +91,7 @@ fn check_live_hmc_monitor(harness: &mut ValidationHarness) {
         n_md_steps: 20,
         dt: 0.02,
         seed: 42,
+        ..Default::default()
     };
 
     let mut confined_predictions = Vec::new();
@@ -119,6 +120,7 @@ fn check_live_hmc_monitor(harness: &mut ValidationHarness) {
         n_md_steps: 20,
         dt: 0.02,
         seed: 99,
+        ..Default::default()
     };
 
     let mut deconfined_predictions = Vec::new();
@@ -224,7 +226,7 @@ fn check_transport_predictor(harness: &mut ValidationHarness) {
     println!();
 }
 
-/// Same math validated on CPU f64, NpuSimulator f32, and int4 quantized.
+/// Same math validated on CPU f64, `NpuSimulator` f32, and int4 quantized.
 fn check_cross_substrate_parity(harness: &mut ValidationHarness) {
     println!("[3] Cross-Substrate Parity (CPU → f32 → int4)");
     println!("    Previously impossible: physics locked to one substrate.");
@@ -324,6 +326,7 @@ fn check_monitoring_overhead(harness: &mut ValidationHarness) {
         n_md_steps: 20,
         dt: 0.02,
         seed: 42,
+        ..Default::default()
     };
 
     // Warmup
@@ -584,10 +587,10 @@ fn predict_int4_quantized(
 
 struct SimpleRng(u64);
 impl SimpleRng {
-    fn new(seed: u64) -> Self {
+    const fn new(seed: u64) -> Self {
         Self(seed)
     }
-    fn next_u64(&mut self) -> u64 {
+    const fn next_u64(&mut self) -> u64 {
         self.0 = self
             .0
             .wrapping_mul(6_364_136_223_846_793_005)

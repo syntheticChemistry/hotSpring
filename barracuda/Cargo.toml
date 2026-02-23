@@ -1,6 +1,6 @@
 [package]
 name = "hotspring-barracuda"
-version = "0.6.7"
+version = "0.6.8"
 edition = "2021"
 description = "Nuclear EOS + GPU MD validation for BarraCuda — L1/L2/L3 physics, Yukawa OCP, lattice QCD, spectral theory, typed errors, full Result propagation, provenance, capability-based discovery"
 license = "AGPL-3.0-only"
@@ -74,6 +74,7 @@ workspace = true
 
 [features]
 gpu_energy = []
+npu-hw = ["dep:akida-driver", "dep:akida-models"]
 
 [dependencies]
 # BarraCuda: All scientific computing from the library
@@ -91,6 +92,10 @@ bytemuck = { version = "1.14", features = ["derive"] }
 
 # Async runtime for GPU validation (validate_md)
 tokio = { version = "1.35", features = ["rt-multi-thread", "macros"] }
+
+# NPU hardware: BrainChip Akida via toadStool's pure Rust driver (optional)
+akida-driver = { path = "../../phase1/toadstool/crates/neuromorphic/akida-driver", optional = true }
+akida-models = { path = "../../phase1/toadstool/crates/neuromorphic/akida-models", optional = true }
 
 # GPU compute (wgpu for SHADER_F64 FP64 science compute)
 # Must match barracuda's wgpu version (22) to avoid type conflicts.
@@ -266,6 +271,26 @@ path = "src/bin/validate_production_qcd.rs"
 name = "validate_dynamical_qcd"
 path = "src/bin/validate_dynamical_qcd.rs"
 
+# ── Production QCD V2: Omelyan integrator + Hasenbusch preconditioning ──
+[[bin]]
+name = "validate_production_qcd_v2"
+path = "src/bin/validate_production_qcd_v2.rs"
+
+# ── HVP g-2: Hadronic vacuum polarization correlator (Paper 11) ──
+[[bin]]
+name = "validate_hvp_g2"
+path = "src/bin/validate_hvp_g2.rs"
+
+# ── Freeze-out curvature: Susceptibility β-scan (Paper 12) ──
+[[bin]]
+name = "validate_freeze_out"
+path = "src/bin/validate_freeze_out.rs"
+
+# ── Pure GPU HMC: all math on GPU via fp64 WGSL shaders ──
+[[bin]]
+name = "validate_pure_gpu_hmc"
+path = "src/bin/validate_pure_gpu_hmc.rs"
+
 [[bin]]
 name = "validate_reservoir_transport"
 path = "src/bin/validate_reservoir_transport.rs"
@@ -351,6 +376,41 @@ path = "src/bin/validate_abelian_higgs.rs"
 name = "bench_lattice_scaling"
 path = "src/bin/bench_lattice_scaling.rs"
 
+# ── GPU HMC scaling benchmark: CPU vs GPU at production sizes ──
+[[bin]]
+name = "bench_gpu_hmc"
+path = "src/bin/bench_gpu_hmc.rs"
+
+# ── GPU β-scan: full temperature sweep entirely on GPU ──
+[[bin]]
+name = "validate_gpu_beta_scan"
+path = "src/bin/validate_gpu_beta_scan.rs"
+
+# ── GPU dynamical fermion HMC validation ──
+[[bin]]
+name = "validate_gpu_dynamical_hmc"
+path = "src/bin/validate_gpu_dynamical_hmc.rs"
+
+# ── metalForge mixed-substrate pipeline (GPU→NPU→CPU) ──
+[[bin]]
+name = "validate_mixed_substrate"
+path = "src/bin/validate_mixed_substrate.rs"
+
+# ── Three-substrate streaming pipeline: CPU→GPU→NPU→CPU ──
+[[bin]]
+name = "validate_streaming_pipeline"
+path = "src/bin/validate_streaming_pipeline.rs"
+
+# ── GPU streaming HMC: zero dispatch overhead via batched encoders ──
+[[bin]]
+name = "validate_gpu_streaming"
+path = "src/bin/validate_gpu_streaming.rs"
+
+# ── Streaming dynamical fermion GPU HMC: full QCD with GPU PRNG ──
+[[bin]]
+name = "validate_gpu_streaming_dyn"
+path = "src/bin/validate_gpu_streaming_dyn.rs"
+
 # ── GPU-only transport: D* via batched VACF, zero velocity readback ──
 [[bin]]
 name = "validate_transport_gpu_only"
@@ -360,3 +420,8 @@ path = "src/bin/validate_transport_gpu_only.rs"
 [[bin]]
 name = "validate_transport_gpu_resident"
 path = "src/bin/validate_transport_gpu_resident.rs"
+
+# ── Paper 2: TTM 0D ODE solver (laser-plasma electron-ion equilibration) ──
+[[bin]]
+name = "validate_ttm"
+path = "src/bin/validate_ttm.rs"

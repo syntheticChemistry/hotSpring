@@ -26,6 +26,7 @@ pub struct HardwareInventory {
 
 impl HardwareInventory {
     /// Auto-detect hardware from Linux sysfs / nvidia-smi.
+    #[must_use]
     pub fn detect(gate_name: &str) -> Self {
         let (cpu_model, cpu_cores, cpu_threads, cpu_cache_kb) = read_cpuinfo();
         let ram_total_mb = read_meminfo();
@@ -169,7 +170,7 @@ fn read_nvidia_smi_inventory() -> (String, usize, String, String) {
 }
 
 /// RAPL energy (microjoules). Used by `PowerMonitor`.
-pub(crate) fn read_rapl_energy_uj() -> Option<u64> {
+pub fn read_rapl_energy_uj() -> Option<u64> {
     // Note: RAPL energy_uj requires read access to /sys/class/powercap/.
     // If permission denied, run with: sudo chmod a+r /sys/class/powercap/intel-rapl:0/energy_uj
     // Or run the binary with CAP_DAC_READ_SEARCH capability.
@@ -179,7 +180,7 @@ pub(crate) fn read_rapl_energy_uj() -> Option<u64> {
 }
 
 /// RAPL max energy range (microjoules). Used for counter wrap handling.
-pub(crate) fn read_rapl_max_energy_uj() -> Option<u64> {
+pub fn read_rapl_max_energy_uj() -> Option<u64> {
     std::fs::read_to_string("/sys/class/powercap/intel-rapl:0/max_energy_range_uj")
         .ok()
         .and_then(|s| s.trim().parse().ok())

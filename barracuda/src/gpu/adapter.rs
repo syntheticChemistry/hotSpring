@@ -42,7 +42,7 @@ impl std::fmt::Display for AdapterInfo {
 }
 
 /// Create a wgpu instance with the backend configured via `HOTSPRING_WGPU_BACKEND`.
-pub(crate) fn create_instance() -> wgpu::Instance {
+pub fn create_instance() -> wgpu::Instance {
     let backends = match std::env::var("HOTSPRING_WGPU_BACKEND").as_deref() {
         Ok("vulkan") => wgpu::Backends::VULKAN,
         Ok("metal") => wgpu::Backends::METAL,
@@ -83,12 +83,12 @@ pub fn enumerate_adapters() -> Vec<AdapterInfo> {
 }
 
 /// Select an adapter based on the `HOTSPRING_GPU_ADAPTER` / `BARRACUDA_GPU_ADAPTER`
-/// environment variables. Falls back to auto-detection (discrete + SHADER_F64 first).
+/// environment variables. Falls back to auto-detection (discrete + `SHADER_F64` first).
 ///
 /// # Errors
 ///
 /// Returns [`crate::error::HotSpringError`] if no compatible adapter is found.
-pub(crate) fn select_adapter() -> Result<wgpu::Adapter, crate::error::HotSpringError> {
+pub fn select_adapter() -> Result<wgpu::Adapter, crate::error::HotSpringError> {
     let selector = std::env::var("HOTSPRING_GPU_ADAPTER")
         .or_else(|_| std::env::var("BARRACUDA_GPU_ADAPTER"))
         .unwrap_or_default()

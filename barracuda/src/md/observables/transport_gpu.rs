@@ -9,13 +9,13 @@
 //! a single flat GPU buffer (ring). After production, a batched VACF shader
 //! computes C(lag) for each lag in ONE dispatch (iterating over all time
 //! origins inside the shader), then reduces to a scalar. Total GPU round
-//! trips: n_lag × 2 (one dispatch + one reduction per lag).
+//! trips: `n_lag` × 2 (one dispatch + one reduction per lag).
 //!
 //! **Data flow**: GPU MD → GPU ring (copy) → batched VACF shader → reduce → scalar
 //!
 //! This eliminates both:
-//!   - O(n_frames × N × 3 × 8) bytes of velocity readback
-//!   - O(n_frames × n_lag) individual GPU dispatches (old per-origin approach)
+//!   - `O(n_frames` × N × 3 × 8) bytes of velocity readback
+//!   - `O(n_frames` × `n_lag`) individual GPU dispatches (old per-origin approach)
 
 use crate::gpu::GpuF64;
 use crate::tolerances::DIVISION_GUARD;
@@ -26,7 +26,7 @@ use barracuda::pipeline::ReduceScalarPipeline;
 const WORKGROUP_SIZE: u32 = 64;
 
 /// VACF plateau detection: D* considered converged after this many
-/// seconds of non-increasing integral (expressed as time / dt_dump).
+/// seconds of non-increasing integral (expressed as time / `dt_dump`).
 const PLATEAU_DETECTION_TIME: f64 = 20.0;
 
 /// WGSL shader: batched VACF — one dispatch computes C(lag) across all origins.
@@ -35,7 +35,7 @@ pub const WGSL_VACF_BATCH_F64: &str = include_str!("../shaders/vacf_batch_f64.wg
 /// WGSL shader: per-particle v(t0) · v(t) for VACF (single-origin, kept for tests).
 pub const WGSL_VACF_DOT_F64: &str = include_str!("../shaders/vacf_dot_f64.wgsl");
 
-/// WGSL shader: per-particle σ_xy for Green-Kubo viscosity.
+/// WGSL shader: per-particle `σ_xy` for Green-Kubo viscosity.
 pub const WGSL_STRESS_VIRIAL_F64: &str = include_str!("../shaders/stress_virial_f64.wgsl");
 
 /// GPU-resident velocity ring buffer backed by a single flat buffer.
@@ -46,7 +46,7 @@ pub const WGSL_STRESS_VIRIAL_F64: &str = include_str!("../shaders/stress_virial_
 /// GPU→GPU copy during production: `copy_buffer_to_buffer` from the live
 /// velocity buffer into the correct offset of this flat buffer.
 pub struct GpuVelocityRing {
-    /// Single flat buffer: [n_slots × N × 3] f64 values.
+    /// Single flat buffer: [`n_slots` × N × 3] f64 values.
     pub flat_buf: wgpu::Buffer,
     /// Individual slot buffers (for backward compat with single-origin API).
     pub slots: Vec<wgpu::Buffer>,
@@ -60,6 +60,7 @@ pub struct GpuVelocityRing {
 
 impl GpuVelocityRing {
     /// Create a ring buffer for `n_slots` velocity snapshots of `n_particles`.
+    #[must_use]
     pub fn new(gpu: &GpuF64, n_particles: usize, n_slots: usize) -> Self {
         let stride = n_particles * 3;
         let total_f64 = n_slots * stride;
@@ -145,7 +146,7 @@ pub struct GpuVacf {
 ///
 /// For each lag: ONE dispatch of `vacf_batch_f64.wgsl` (iterates over all
 /// time origins inside the shader) + ONE `ReduceScalarPipeline::sum_f64`.
-/// Total round trips: 2 × n_lag instead of 2 × n_frames × n_lag.
+/// Total round trips: 2 × `n_lag` instead of 2 × `n_frames` × `n_lag`.
 ///
 /// # Errors
 ///
@@ -188,7 +189,8 @@ pub fn compute_vacf_gpu(
             lag: lag as u32,
             stride: ring.stride as u32,
         };
-        let params_buf = gpu.create_uniform_buffer(bytemuck::bytes_of(&params), "vacf_batch_params");
+        let params_buf =
+            gpu.create_uniform_buffer(bytemuck::bytes_of(&params), "vacf_batch_params");
 
         let bg = gpu.create_bind_group(&pipeline, &[&ring.flat_buf, &out_buf, &params_buf]);
         gpu.dispatch(&pipeline, &bg, workgroups);
@@ -228,7 +230,7 @@ pub fn compute_vacf_gpu(
     })
 }
 
-/// Compute σ_xy on GPU for a single snapshot (positions + velocities on GPU).
+/// Compute `σ_xy` on GPU for a single snapshot (positions + velocities on GPU).
 ///
 /// # Errors
 ///
@@ -248,8 +250,14 @@ pub fn compute_stress_xy_gpu(
 
     let cutoff = box_side / 2.0;
     let params_data: [f64; 8] = [
-        n as f64, kappa, mass, cutoff * cutoff,
-        box_side, box_side, box_side, 0.0,
+        n as f64,
+        kappa,
+        mass,
+        cutoff * cutoff,
+        box_side,
+        box_side,
+        box_side,
+        0.0,
     ];
     let params_buf = gpu.create_f64_buffer(&params_data, "stress_params");
 

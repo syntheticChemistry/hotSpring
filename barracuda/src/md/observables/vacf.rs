@@ -7,7 +7,7 @@
 use crate::tolerances::DIVISION_GUARD;
 
 /// Plateau detection: D* considered converged after this many
-/// seconds of non-increasing integral (expressed as time / dt_dump).
+/// seconds of non-increasing integral (expressed as time / `dt_dump`).
 const PLATEAU_DETECTION_TIME: f64 = 20.0;
 
 /// VACF result: C(t) at discrete lag times

@@ -33,12 +33,26 @@
 //! | `transport` | Daligault (2012) D* fit, Green-Kubo integration |
 //! | `cpu_reference` | CPU Yukawa force for cross-validation |
 
+/// Cell-list neighbor search (GPU-resident via upstream `CellListGpu`).
 pub mod celllist;
+/// Sarkas-style MD configuration (kappa, Gamma, DSF parameters).
 pub mod config;
+/// CPU Yukawa force reference for GPU cross-validation.
 pub mod cpu_reference;
+/// Diagnostic helpers for force comparison (celllist_diag).
+pub mod diag;
+/// Energy, RDF, SSF, VACF, transport observables.
 pub mod observables;
+/// Real NPU hardware adapter (BrainChip Akida AKD1000).
+#[cfg(feature = "npu-hw")]
+pub mod npu_hw;
+/// Echo State Network (ESN) reservoir for transport coefficient prediction.
 pub mod reservoir;
+/// WGSL shader sources loaded from `.wgsl` files (zero inline).
 pub mod shaders;
+/// GPU-resident MD simulation loop with cell-list support.
 pub mod simulation;
+/// GPU transport pipeline: batched VACF, Green-Kubo D*.
 pub mod simulation_transport_gpu;
+/// Daligault (2012) D* fit, Stanton-Murillo transport coefficients.
 pub mod transport;

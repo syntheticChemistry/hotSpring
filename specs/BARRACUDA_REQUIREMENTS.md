@@ -51,7 +51,7 @@ templates ready for GPU promotion.
 | ~~**GPU CG solver**~~ | ✅ **Done** — `WGSL_COMPLEX_DOT_RE_F64` + `WGSL_AXPY_F64` + `WGSL_XPAY_F64`, 9/9 checks | — | — |
 | ~~**Pure GPU QCD workload**~~ | ✅ **Done** — `validate_pure_gpu_qcd` (3/3): HMC → GPU CG on thermalized configs | — | — |
 | ~~**Dynamical fermion HMC**~~ | ✅ **Done** — `lattice/pseudofermion.rs`: heat bath, CG action, fermion force, combined leapfrog (7/7 checks) | — | — |
-| **Omelyan integrator + Hasenbusch preconditioning** | Naive leapfrog: 5% acceptance; need multi-timescale for >50% production rates | **P1** | Medium |
+| ~~**Omelyan integrator + Hasenbusch preconditioning**~~ | ✅ **Done** — Omelyan 2MN (λ=0.1932) in `hmc.rs`, Hasenbusch 2-level split in `pseudofermion.rs`, `validate_production_qcd_v2` (10/10) | — | — |
 | **Larger lattice sizes (8^4, 16^4)** | 4^4 + 6^4 + 8^3×4 validated on GPU; scaling to 16^4 next | **P2** | Low |
 
 ### Kernels That Transfer Directly (Confirmed)

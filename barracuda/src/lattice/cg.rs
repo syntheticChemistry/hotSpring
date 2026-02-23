@@ -68,6 +68,32 @@ pub const WGSL_AXPY_F64: &str = include_str!("shaders/axpy_f64.wgsl");
 /// | 2 | storage, read_write | `p: array<f64>` |
 pub const WGSL_XPAY_F64: &str = include_str!("shaders/xpay_f64.wgsl");
 
+/// WGSL shader: tree sum reduction for f64 arrays.
+///
+/// Reduces N values to ceil(N/256) partial sums per dispatch. Chain two
+/// dispatches for full scalar output. Workgroup size = 256, shared memory.
+///
+/// ## Binding layout
+///
+/// | Binding | Type | Content |
+/// |---------|------|---------|
+/// | 0 | storage, read | `input: array<f64>` (N) |
+/// | 1 | storage, read_write | `output: array<f64>` (ceil(N/256)) |
+/// | 2 | uniform | `{ size: u32, pad: u32×3 }` |
+pub const WGSL_SUM_REDUCE_F64: &str = include_str!("shaders/sum_reduce_f64.wgsl");
+
+/// WGSL shader: CG scalar alpha = rz / pAp (1-thread kernel).
+pub const WGSL_CG_COMPUTE_ALPHA_F64: &str = include_str!("shaders/cg_compute_alpha_f64.wgsl");
+
+/// WGSL shader: CG scalar beta = rz_new / rz_old + copy (1-thread kernel).
+pub const WGSL_CG_COMPUTE_BETA_F64: &str = include_str!("shaders/cg_compute_beta_f64.wgsl");
+
+/// WGSL shader: CG vector update x += alpha*p, r -= alpha*ap (reads alpha from GPU buffer).
+pub const WGSL_CG_UPDATE_XR_F64: &str = include_str!("shaders/cg_update_xr_f64.wgsl");
+
+/// WGSL shader: CG vector update p = r + beta*p (reads beta from GPU buffer).
+pub const WGSL_CG_UPDATE_P_F64: &str = include_str!("shaders/cg_update_p_f64.wgsl");
+
 /// CG solver result.
 #[derive(Clone, Debug)]
 pub struct CgResult {
