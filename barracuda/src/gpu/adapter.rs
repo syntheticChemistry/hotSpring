@@ -85,15 +85,18 @@ pub fn enumerate_adapters() -> Vec<AdapterInfo> {
 /// Select an adapter based on the `HOTSPRING_GPU_ADAPTER` / `BARRACUDA_GPU_ADAPTER`
 /// environment variables. Falls back to auto-detection (discrete + `SHADER_F64` first).
 ///
+/// The value may be a comma-separated priority list, e.g. `"3090,titan,auto"`.
+/// Each token is tried in order; the first match wins. `"auto"` at any position
+/// triggers the automatic discrete-GPU-first heuristic. If no token matches,
+/// returns an error.
+///
 /// # Errors
 ///
 /// Returns [`crate::error::HotSpringError`] if no compatible adapter is found.
 pub fn select_adapter() -> Result<wgpu::Adapter, crate::error::HotSpringError> {
-    let selector = std::env::var("HOTSPRING_GPU_ADAPTER")
+    let raw = std::env::var("HOTSPRING_GPU_ADAPTER")
         .or_else(|_| std::env::var("BARRACUDA_GPU_ADAPTER"))
-        .unwrap_or_default()
-        .trim()
-        .to_lowercase();
+        .unwrap_or_default();
 
     let instance = create_instance();
     let adapters: Vec<wgpu::Adapter> = instance.enumerate_adapters(wgpu::Backends::all());
@@ -101,13 +104,40 @@ pub fn select_adapter() -> Result<wgpu::Adapter, crate::error::HotSpringError> {
         return Err(crate::error::HotSpringError::NoAdapter);
     }
 
-    if selector.is_empty() || selector == "auto" {
-        auto_select(adapters)
-    } else if let Ok(idx) = selector.parse::<usize>() {
-        select_by_index_or_name(adapters, idx, &selector)
-    } else {
-        select_by_name(adapters, &selector)
+    // Support comma-separated priority lists: "3090,titan,auto"
+    let tokens: Vec<&str> = raw.split(',').map(str::trim).filter(|s| !s.is_empty()).collect();
+    let tokens = if tokens.is_empty() { vec!["auto"] } else { tokens };
+
+    for token in &tokens {
+        let selector = token.to_lowercase();
+        if selector == "auto" {
+            // Clone adapter vec for the fallback path — wgpu::Adapter is not Clone,
+            // so re-enumerate. auto_select consumes the vec.
+            let fresh: Vec<wgpu::Adapter> = create_instance().enumerate_adapters(wgpu::Backends::all());
+            if let Ok(a) = auto_select(fresh) {
+                return Ok(a);
+            }
+        } else if let Ok(idx) = selector.parse::<usize>() {
+            if let Ok(a) = select_by_index_or_name(
+                create_instance().enumerate_adapters(wgpu::Backends::all()),
+                idx,
+                &selector,
+            ) {
+                return Ok(a);
+            }
+        } else if let Ok(a) = select_by_name(
+            create_instance().enumerate_adapters(wgpu::Backends::all()),
+            &selector,
+        ) {
+            return Ok(a);
+        }
     }
+
+    Err(crate::error::HotSpringError::DeviceCreation(format!(
+        "No adapter matched any of {:?}. Available: {:?}",
+        tokens,
+        adapters.iter().map(|a| a.get_info().name).collect::<Vec<_>>(),
+    )))
 }
 
 fn auto_select(
