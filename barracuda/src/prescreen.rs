@@ -27,6 +27,7 @@ use std::sync::{Arc, Mutex};
 /// before any expensive calculation.
 #[derive(Debug, Clone)]
 #[must_use]
+#[allow(missing_docs)]
 pub struct NMPConstraints {
     pub rho0_min: f64,  // Minimum saturation density (fm⁻³)
     pub rho0_max: f64,  // Maximum saturation density
@@ -165,6 +166,7 @@ pub fn l1_proxy_prescreen<S: std::hash::BuildHasher>(
 /// Architecture: 10 inputs → normalize → linear(10→1) → sigmoid → P(promising)
 #[derive(Debug, Clone)]
 #[must_use]
+#[allow(missing_docs)]
 pub struct PreScreenClassifier {
     /// Weights \[10\] — one per Skyrme parameter
     pub weights: Vec<f64>,
@@ -176,6 +178,7 @@ pub struct PreScreenClassifier {
     pub threshold: f64,
     /// Training statistics
     pub n_train: usize,
+    /// Number of positive (promising) training examples.
     pub n_positive: usize,
 }
 
@@ -393,6 +396,7 @@ pub fn cascade_filter<S: std::hash::BuildHasher>(
 /// Pre-screening cascade statistics
 #[derive(Debug, Default, Clone)]
 #[must_use]
+#[allow(missing_docs)]
 pub struct CascadeStats {
     pub total_candidates: usize,
     pub tier1_rejected: usize,  // NMP out of bounds
@@ -402,6 +406,7 @@ pub struct CascadeStats {
 }
 
 impl CascadeStats {
+    /// Fraction of candidates that passed all pre-screening tiers.
     #[must_use]
     pub fn pass_rate(&self) -> f64 {
         if self.total_candidates == 0 {
@@ -410,6 +415,7 @@ impl CascadeStats {
         self.tier4_evaluated as f64 / self.total_candidates as f64
     }
 
+    /// Print a human-readable summary of pre-screening rejection rates.
     pub fn print_summary(&self) {
         println!("  Pre-screening cascade:");
         println!("    Total candidates:     {}", self.total_candidates);

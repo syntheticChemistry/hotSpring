@@ -9,6 +9,7 @@ use super::power::EnergyReport;
 
 /// Result from a single benchmark phase.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(missing_docs)]
 pub struct PhaseResult {
     pub phase: String,
     pub substrate: String,
@@ -24,6 +25,7 @@ pub struct PhaseResult {
 
 /// Full benchmark report for a validation run.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(missing_docs)]
 pub struct BenchReport {
     pub timestamp: String,
     pub hardware: HardwareInventory,

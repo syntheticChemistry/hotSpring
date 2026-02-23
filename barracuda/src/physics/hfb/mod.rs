@@ -83,6 +83,7 @@ pub struct SphericalHFB {
 
 /// Result from HFB solve
 #[derive(Debug, Clone)]
+#[allow(missing_docs)]
 pub struct HFBResult {
     pub binding_energy_mev: f64,
     pub converged: bool,
@@ -95,6 +96,7 @@ pub struct HFBResult {
 // ═══════════════════════════════════════════════════════════════════
 
 impl SphericalHFB {
+    /// Create HFB solver with given grid and basis parameters.
     #[must_use]
     pub fn new(z: usize, n: usize, n_shells: usize, r_max: f64, n_grid: usize) -> Self {
         Self::build(z, n, n_shells, r_max, n_grid)
@@ -112,26 +114,32 @@ impl SphericalHFB {
         Self::build(z, n, n_shells, r_max, n_grid)
     }
 
+    /// Number of basis states.
     #[must_use]
     pub const fn n_states(&self) -> usize {
         self.n_states
     }
+    /// Number of radial grid points.
     #[must_use]
     pub const fn nr(&self) -> usize {
         self.nr
     }
+    /// Proton number.
     #[must_use]
     pub const fn z(&self) -> usize {
         self.z
     }
+    /// Neutron number.
     #[must_use]
     pub const fn n_neutrons(&self) -> usize {
         self.n_neutrons
     }
+    /// Radial grid spacing (fm).
     #[must_use]
     pub const fn dr(&self) -> f64 {
         self.dr
     }
+    /// Oscillator energy ℏω (MeV).
     #[must_use]
     pub const fn hw(&self) -> f64 {
         self.hw

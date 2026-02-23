@@ -45,6 +45,7 @@ pub struct AbelianHiggsParams {
 }
 
 impl AbelianHiggsParams {
+    /// Create new Abelian Higgs parameters.
     #[must_use]
     pub const fn new(beta_pl: f64, kappa: f64, lambda: f64) -> Self {
         Self {
@@ -55,6 +56,7 @@ impl AbelianHiggsParams {
         }
     }
 
+    /// Set chemical potential (temporal hopping weight).
     #[must_use]
     pub const fn with_mu(mut self, mu: f64) -> Self {
         self.mu = mu;
@@ -66,6 +68,7 @@ impl AbelianHiggsParams {
 ///
 /// Layout: `nt` temporal × `ns` spatial sites with periodic boundaries.
 /// Links: 2 per site (temporal μ=0, spatial μ=1).
+#[allow(missing_docs)]
 pub struct U1HiggsLattice {
     pub nt: usize,
     pub ns: usize,
@@ -522,6 +525,7 @@ fn kinetic_energy(pi_links: &[f64], pi_higgs: &[Complex64]) -> f64 {
 
 /// Result of a single HMC trajectory.
 #[derive(Clone, Debug)]
+#[allow(missing_docs)]
 pub struct HmcResult {
     pub accepted: bool,
     pub delta_h: f64,
@@ -533,6 +537,7 @@ pub struct HmcResult {
 
 /// Statistics from a sequence of HMC trajectories.
 #[derive(Clone, Debug)]
+#[allow(missing_docs)]
 pub struct HmcStatistics {
     pub acceptance_rate: f64,
     pub avg_plaquette: f64,

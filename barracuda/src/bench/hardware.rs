@@ -9,6 +9,7 @@ use std::process::Command;
 
 /// Complete hardware description captured once at the start of a run.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(missing_docs)]
 pub struct HardwareInventory {
     pub gate_name: String,
     pub cpu_model: String,

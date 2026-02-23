@@ -172,6 +172,7 @@ pub const NMP_TARGETS: NmpTargets = NmpTargets {
 
 /// A single NMP target with uncertainty and source
 #[derive(Debug, Clone, Copy)]
+#[allow(missing_docs)]
 pub struct NmpTarget {
     pub value: f64,
     pub sigma: f64,
@@ -181,6 +182,7 @@ pub struct NmpTarget {
 
 /// All five NMP targets
 #[derive(Debug, Clone, Copy)]
+#[allow(missing_docs)]
 pub struct NmpTargets {
     pub rho0: NmpTarget,
     pub e_a: NmpTarget,

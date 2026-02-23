@@ -12,6 +12,7 @@ const PLATEAU_DETECTION_TIME: f64 = 20.0;
 
 /// Stress tensor autocorrelation result for viscosity computation
 #[derive(Clone, Debug)]
+#[allow(missing_docs)]
 pub struct StressAcf {
     pub t_values: Vec<f64>,
     pub c_values: Vec<f64>,
@@ -154,6 +155,7 @@ pub fn compute_stress_acf(
 
 /// Heat current autocorrelation result for thermal conductivity computation
 #[derive(Clone, Debug)]
+#[allow(missing_docs)]
 pub struct HeatAcf {
     pub t_values: Vec<f64>,
     pub c_values: Vec<f64>,

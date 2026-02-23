@@ -44,6 +44,7 @@ use std::sync::Arc;
 /// Wraps wgpu device with `SHADER_F64` + `ToadStool`'s `TensorContext` for
 /// batched dispatch (`begin_batch`/`end_batch`) and `BufferPool` reuse.
 #[must_use]
+#[allow(missing_docs)]
 pub struct GpuF64 {
     pub adapter_name: String,
     pub has_f64: bool,

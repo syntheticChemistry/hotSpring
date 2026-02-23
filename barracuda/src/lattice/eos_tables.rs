@@ -50,6 +50,7 @@ impl EosPoint {
 
 /// `HotQCD` equation of state table.
 #[derive(Clone, Debug)]
+#[allow(missing_docs)]
 pub struct HotQcdEos {
     pub points: Vec<EosPoint>,
 }

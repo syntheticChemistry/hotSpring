@@ -61,6 +61,7 @@ impl Default for HmcConfig {
 
 /// HMC trajectory result.
 #[derive(Clone, Debug)]
+#[allow(missing_docs)]
 pub struct HmcResult {
     pub accepted: bool,
     pub delta_h: f64,
@@ -320,6 +321,7 @@ pub fn run_hmc(
 
 /// Statistics from an HMC run.
 #[derive(Clone, Debug)]
+#[allow(missing_docs)]
 pub struct HmcStatistics {
     pub mean_plaquette: f64,
     pub std_plaquette: f64,

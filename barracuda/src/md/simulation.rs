@@ -25,6 +25,7 @@ use std::time::Instant;
 
 /// Per-step energy record
 #[derive(Clone, Debug)]
+#[allow(missing_docs)]
 pub struct EnergyRecord {
     pub step: usize,
     pub ke: f64,
@@ -35,6 +36,7 @@ pub struct EnergyRecord {
 
 /// Simulation state and results
 #[derive(Debug)]
+#[allow(missing_docs)]
 pub struct MdSimulation {
     pub config: MdConfig,
     pub energy_history: Vec<EnergyRecord>,

@@ -23,6 +23,7 @@
 
 /// ESN configuration matching `ToadStool`'s `barracuda::esn_v2::ESNConfig`.
 #[derive(Debug, Clone)]
+#[allow(missing_docs)]
 pub struct EsnConfig {
     pub input_size: usize,
     pub reservoir_size: usize,
@@ -287,6 +288,7 @@ pub fn velocity_features(
 /// All weights are f32 to match the Akida `load_reservoir` API and
 /// `ToadStool`'s f32 tensor convention.
 #[derive(Debug, Clone)]
+#[allow(missing_docs)]
 pub struct ExportedWeights {
     /// Input weights, flattened row-major: (`reservoir_size` × `input_size`)
     pub w_in: Vec<f32>,

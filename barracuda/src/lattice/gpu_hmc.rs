@@ -139,17 +139,29 @@ pub struct GpuHmcResult {
 
 /// GPU-resident HMC state: buffers that persist across trajectories.
 pub struct GpuHmcState {
+    /// SU(3) link field U_μ(x), flattened to f64 (n_links × 18).
     pub link_buf: wgpu::Buffer,
+    /// Backup copy of link_buf for Metropolis reject rollback.
     pub link_backup: wgpu::Buffer,
+    /// Conjugate momenta P_μ(x), same layout as link_buf.
     pub mom_buf: wgpu::Buffer,
+    /// Gauge force ∂S/∂U accumulated per link.
     pub force_buf: wgpu::Buffer,
+    /// Per-link kinetic energy T = Tr(P†P)/2 output buffer.
     pub ke_out_buf: wgpu::Buffer,
+    /// Per-site plaquette sum output buffer.
     pub plaq_out_buf: wgpu::Buffer,
+    /// Neighbor index table: 8 neighbors per site (±μ for μ=0..3).
     pub nbr_buf: wgpu::Buffer,
+    /// Number of lattice sites (product of all dimensions).
     pub volume: usize,
+    /// Number of gauge links (volume × N_DIM).
     pub n_links: usize,
+    /// Gauge coupling β = 2N_c/g².
     pub beta: f64,
+    /// GPU workgroup count for link-indexed dispatches.
     pub wg_links: u32,
+    /// GPU workgroup count for site-indexed dispatches.
     pub wg_vol: u32,
 }
 
@@ -202,9 +214,7 @@ pub fn gpu_hmc_trajectory(
     dt: f64,
     seed: &mut u64,
 ) -> GpuHmcResult {
-    let vol = state.volume;
     let n_links = state.n_links;
-    let beta = state.beta;
 
     // Generate random momenta (CPU) and upload once
     let momenta: Vec<super::su3::Su3Matrix> = (0..n_links)
@@ -450,12 +460,17 @@ impl GpuDynHmcPipelines {
 pub struct GpuDynHmcState {
     /// Quenched HMC buffers (links, momenta, force, etc.)
     pub gauge: GpuHmcState,
-    /// Fermion field buffers for CG solver (x, r, p, ap, temp, dot_out)
+    /// CG solution vector x: (D†D)x = b.
     pub x_buf: wgpu::Buffer,
+    /// CG residual r = b − Ax.
     pub r_buf: wgpu::Buffer,
+    /// CG search direction p.
     pub p_buf: wgpu::Buffer,
+    /// CG Ap = (D†D)p.
     pub ap_buf: wgpu::Buffer,
+    /// Scratch buffer for D·p intermediate.
     pub temp_buf: wgpu::Buffer,
+    /// Scalar dot-product output (one f64).
     pub dot_buf: wgpu::Buffer,
     /// y = D·x buffer for fermion force
     pub y_buf: wgpu::Buffer,
@@ -555,7 +570,6 @@ pub fn gpu_dynamical_hmc_trajectory(
 ) -> GpuDynHmcResult {
     let vol = state.gauge.volume;
     let n_links = state.gauge.n_links;
-    let beta = state.gauge.beta;
 
     // Generate random momenta (CPU) and upload
     let momenta: Vec<super::su3::Su3Matrix> = (0..n_links)
@@ -696,7 +710,6 @@ fn gpu_total_force_dispatch(
     state: &GpuDynHmcState,
     dt: f64,
 ) -> usize {
-    let vol = state.gauge.volume;
     let n_links = state.gauge.n_links;
     let gs = &state.gauge;
 
@@ -741,8 +754,6 @@ fn gpu_cg_solve_internal(
     let vol = state.gauge.volume;
     let n_flat = vol * 6;
     let n_pairs = vol * 3;
-    let wg_dirac = ((vol as u32) + 63) / 64;
-    let wg_vec = ((n_flat as u32) + 63) / 64;
 
     // Initialize: x = 0, r = b, p = b
     let zeros = vec![0.0_f64; n_flat];
@@ -966,13 +977,18 @@ fn gpu_xpay(
 pub const WGSL_RANDOM_MOMENTA: &str = include_str!("shaders/su3_random_momenta_f64.wgsl");
 
 /// Streaming HMC pipelines: quenched HMC + GPU PRNG.
+#[allow(missing_docs)]
 pub struct GpuHmcStreamingPipelines {
+    /// Base quenched HMC pipeline set (force, link/momentum update, plaquette).
     pub hmc: GpuHmcPipelines,
+    /// GPU PRNG shader for on-device SU(3) algebra momentum generation.
     pub prng_pipeline: wgpu::ComputePipeline,
 }
 
 impl GpuHmcStreamingPipelines {
+    /// Compile all streaming HMC pipelines including GPU PRNG.
     #[must_use]
+    #[allow(missing_docs)]
     pub fn new(gpu: &GpuF64) -> Self {
         Self {
             hmc: GpuHmcPipelines::new(gpu),
@@ -1249,14 +1265,20 @@ pub const WGSL_GAUSSIAN_FERMION: &str = include_str!("shaders/gaussian_fermion_f
 /// heat bath. The CG solver still requires per-iteration readbacks, but all
 /// other operations (gauge force, link/momentum updates, PRNG generation)
 /// use batched encoders.
+#[allow(missing_docs)]
 pub struct GpuDynHmcStreamingPipelines {
+    /// Base dynamical fermion HMC pipeline set.
     pub dyn_hmc: GpuDynHmcPipelines,
+    /// GPU PRNG shader for SU(3) algebra momentum generation.
     pub momenta_prng_pipeline: wgpu::ComputePipeline,
+    /// GPU Gaussian sampler for pseudofermion heat-bath η.
     pub fermion_prng_pipeline: wgpu::ComputePipeline,
 }
 
 impl GpuDynHmcStreamingPipelines {
+    /// Compile all dynamical streaming HMC pipelines including GPU PRNG for momenta and pseudofermion.
     #[must_use]
+    #[allow(missing_docs)]
     pub fn new(gpu: &GpuF64) -> Self {
         Self {
             dyn_hmc: GpuDynHmcPipelines::new(gpu),
@@ -1398,22 +1420,34 @@ fn make_ferm_prng_params(volume: u32, traj_id: u32, seed: &mut u64) -> Vec<u8> {
 
 /// Shader constants for GPU-resident CG.
 pub const WGSL_SUM_REDUCE: &str = super::cg::WGSL_SUM_REDUCE_F64;
+/// CG α = ⟨r,r⟩ / ⟨p,Ap⟩ shader.
 pub const WGSL_CG_COMPUTE_ALPHA: &str = super::cg::WGSL_CG_COMPUTE_ALPHA_F64;
+/// CG β = ⟨r_new,r_new⟩ / ⟨r_old,r_old⟩ shader.
 pub const WGSL_CG_COMPUTE_BETA: &str = super::cg::WGSL_CG_COMPUTE_BETA_F64;
+/// CG x += α·p and r -= α·Ap update shader.
 pub const WGSL_CG_UPDATE_XR: &str = super::cg::WGSL_CG_UPDATE_XR_F64;
+/// CG p = r + β·p search-direction update shader.
 pub const WGSL_CG_UPDATE_P: &str = super::cg::WGSL_CG_UPDATE_P_F64;
 
 /// Compiled pipelines for GPU-resident CG.
+#[allow(missing_docs)]
 pub struct GpuResidentCgPipelines {
+    /// Parallel sum-reduce for dot-product accumulation.
     pub reduce_pipeline: wgpu::ComputePipeline,
+    /// Step-length α = ⟨r,r⟩ / ⟨p,Ap⟩ computation.
     pub compute_alpha_pipeline: wgpu::ComputePipeline,
+    /// Search-direction scaling β = ⟨r',r'⟩ / ⟨r,r⟩ computation.
     pub compute_beta_pipeline: wgpu::ComputePipeline,
+    /// Solution x and residual r update in one dispatch.
     pub update_xr_pipeline: wgpu::ComputePipeline,
+    /// Conjugate search-direction p update.
     pub update_p_pipeline: wgpu::ComputePipeline,
 }
 
 impl GpuResidentCgPipelines {
+    /// Compile all GPU-resident CG pipelines (reduce, alpha, beta, update_xr, update_p).
     #[must_use]
+    #[allow(missing_docs)]
     pub fn new(gpu: &GpuF64) -> Self {
         Self {
             reduce_pipeline: gpu.create_pipeline_f64(WGSL_SUM_REDUCE, "cg_reduce"),
@@ -2149,7 +2183,6 @@ pub fn gpu_dynamical_hmc_trajectory_resident(
 /// Wraps `map_async` with a channel-based completion signal.
 /// GPU can continue working while the CPU waits for the scalar.
 pub struct AsyncCgReadback {
-    staging: wgpu::Buffer,
     receiver: std::sync::mpsc::Receiver<Result<(), wgpu::BufferAsyncError>>,
 }
 
@@ -2167,13 +2200,7 @@ impl AsyncCgReadback {
             });
         // Non-blocking poll to kick the GPU
         gpu.device().poll(wgpu::Maintain::Poll);
-        Some(Self {
-            // SAFETY: wgpu staging buffer is shared behind Arc internally.
-            // We store a reference-equivalent handle. The caller must ensure
-            // the staging buffer outlives this struct.
-            staging: gpu.create_staging_buffer(8, "async_readback_placeholder"),
-            receiver: rx,
-        })
+        Some(Self { receiver: rx })
     }
 
     /// Poll: check if the readback is ready without blocking.
@@ -2442,11 +2469,17 @@ fn encode_cg_batch(
 // ═══════════════════════════════════════════════════════════════════
 
 /// Observable scalars for the readback stream.
+#[allow(missing_docs)]
 pub struct StreamObservables {
+    /// Mean plaquette ⟨P⟩ = Re Tr(U□) / (3·N_plaq).
     pub plaquette: f64,
+    /// Real part of the Polyakov loop (order parameter for deconfinement).
     pub polyakov_re: f64,
+    /// Hamiltonian change ΔH = H_new − H_old (Metropolis test input).
     pub delta_h: f64,
+    /// Number of CG iterations taken this trajectory.
     pub cg_iterations: usize,
+    /// Metropolis accept/reject decision (true = accepted).
     pub accepted: bool,
 }
 

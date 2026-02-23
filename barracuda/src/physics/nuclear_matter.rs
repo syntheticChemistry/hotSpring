@@ -20,6 +20,7 @@ use std::f64::consts::PI;
 ///
 /// All quantities evaluated at the saturation density ρ₀ where dE/dρ = 0.
 #[derive(Debug, Clone)]
+#[allow(missing_docs)]
 pub struct NuclearMatterProps {
     pub rho0_fm3: f64,    // Saturation density (fm⁻³). Empirical: ~0.16
     pub e_a_mev: f64,     // Energy per nucleon at saturation (MeV). Empirical: ~-16

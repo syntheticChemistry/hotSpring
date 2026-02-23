@@ -71,6 +71,7 @@ impl Default for TemperatureScanConfig {
 
 /// Result for a single temperature point.
 #[derive(Clone, Debug)]
+#[allow(missing_docs)]
 pub struct TemperaturePoint {
     pub beta: f64,
     pub mean_plaquette: f64,
@@ -82,6 +83,7 @@ pub struct TemperaturePoint {
 
 /// Result of a full temperature scan.
 #[derive(Clone, Debug)]
+#[allow(missing_docs)]
 pub struct TemperatureScanResult {
     pub points: Vec<TemperaturePoint>,
     pub total_wall_time_s: f64,

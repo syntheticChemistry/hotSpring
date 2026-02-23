@@ -17,11 +17,13 @@ use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign};
 /// Complex number with f64 real and imaginary parts.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[must_use]
+#[allow(missing_docs)]
 pub struct Complex64 {
     pub re: f64,
     pub im: f64,
 }
 
+#[allow(missing_docs)]
 impl Complex64 {
     pub const ZERO: Self = Self { re: 0.0, im: 0.0 };
     pub const ONE: Self = Self { re: 1.0, im: 0.0 };

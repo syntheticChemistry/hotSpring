@@ -13,6 +13,7 @@ use std::f64::consts::PI;
 
 /// Result from GPU-resident L3 evaluation
 #[derive(Debug)]
+#[allow(missing_docs)]
 pub struct GpuResidentL3Result {
     pub results: Vec<(usize, usize, f64, bool, f64)>,
     pub wall_time_s: f64,

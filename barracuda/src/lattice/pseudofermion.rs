@@ -376,6 +376,7 @@ pub fn hasenbusch_ratio_force(
 
 /// Result of a Hasenbusch HMC trajectory.
 #[derive(Clone, Debug)]
+#[allow(missing_docs)]
 pub struct HasenbuschHmcResult {
     pub accepted: bool,
     pub delta_h: f64,
@@ -482,6 +483,7 @@ pub fn hasenbusch_hmc_trajectory(
 
 /// Configuration for Hasenbusch HMC.
 #[derive(Clone, Debug)]
+#[allow(missing_docs)]
 pub struct HasenbuschHmcConfig {
     pub dt: f64,
     pub seed: u64,
@@ -646,6 +648,7 @@ impl Default for DynamicalHmcConfig {
 
 /// Result of a dynamical fermion HMC trajectory.
 #[derive(Clone, Debug)]
+#[allow(missing_docs)]
 pub struct DynamicalHmcResult {
     pub accepted: bool,
     pub delta_h: f64,

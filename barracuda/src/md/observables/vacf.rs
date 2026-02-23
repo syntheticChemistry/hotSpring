@@ -12,6 +12,7 @@ const PLATEAU_DETECTION_TIME: f64 = 20.0;
 
 /// VACF result: C(t) at discrete lag times
 #[derive(Clone, Debug)]
+#[allow(missing_docs)]
 pub struct Vacf {
     pub t_values: Vec<f64>,   // lag times in omega_p^-1
     pub c_values: Vec<f64>,   // normalized C(t) / C(0)

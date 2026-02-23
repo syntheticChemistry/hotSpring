@@ -138,6 +138,7 @@ pub struct DeformedHFB {
 
 /// Result from deformed HFB solve
 #[derive(Debug, Clone)]
+#[allow(missing_docs)]
 pub struct DeformedHFBResult {
     pub binding_energy_mev: f64,
     pub converged: bool,

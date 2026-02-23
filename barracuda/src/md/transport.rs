@@ -187,6 +187,7 @@ fn lambda_star_strong(gamma: f64, kappa: f64) -> f64 {
 
 /// Transport validation result for a single (Gamma, kappa) point.
 #[derive(Clone, Debug)]
+#[allow(missing_docs)]
 pub struct TransportResult {
     pub kappa: f64,
     pub gamma: f64,

@@ -109,6 +109,7 @@ pub const NMP_SIGMA_THRESHOLD: f64 = 2.0;
 /// physics (deformation, pairing fluctuations); the 2 `MeV` floor prevents
 /// division by zero for light nuclei.
 pub const SIGMA_THEO_FRACTION: f64 = 0.01;
+/// Minimum σ_theo in MeV to avoid division by zero for light nuclei.
 pub const SIGMA_THEO_FLOOR_MEV: f64 = 2.0;
 
 /// Compute theoretical uncertainty for a given experimental binding energy.

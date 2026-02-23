@@ -37,6 +37,7 @@ use crate::tolerances::{CELLLIST_REBUILD_INTERVAL, THERMOSTAT_INTERVAL};
 use std::time::Instant;
 
 /// CPU cell list for spatial decomposition (retained for tests and diagnostics).
+#[allow(missing_docs)]
 pub struct CellList {
     pub n_cells: [usize; 3],
     pub cell_size: [f64; 3],
@@ -47,6 +48,7 @@ pub struct CellList {
 }
 
 impl CellList {
+    /// Build cell list from particle positions.
     #[must_use]
     pub fn build(positions: &[f64], n: usize, box_side: f64, rc: f64) -> Self {
         let n_cells_per_dim = (box_side / rc).floor() as usize;
@@ -87,6 +89,7 @@ impl CellList {
         }
     }
 
+    /// Reorder data array by cell list's sorted indices.
     #[must_use]
     pub fn sort_array(&self, data: &[f64], stride: usize) -> Vec<f64> {
         let mut sorted = vec![0.0f64; data.len()];
@@ -98,6 +101,7 @@ impl CellList {
         sorted
     }
 
+    /// Restore original particle order from cell-sorted array.
     #[must_use]
     pub fn unsort_array(&self, data: &[f64], stride: usize) -> Vec<f64> {
         let mut unsorted = vec![0.0f64; data.len()];

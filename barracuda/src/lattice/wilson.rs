@@ -25,6 +25,7 @@ use super::su3::Su3Matrix;
 ///
 /// Links are stored as `links[site_index][mu]` where mu ∈ {0,1,2,3}
 /// represents the four spacetime directions.
+#[allow(missing_docs)]
 pub struct Lattice {
     pub dims: [usize; 4],
     /// Link variables: links[site * 4 + mu]

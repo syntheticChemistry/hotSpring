@@ -10,6 +10,7 @@ use crate::tolerances::{DIVISION_GUARD, ENERGY_DRIFT_PCT};
 
 /// Energy validation result
 #[derive(Clone, Debug)]
+#[allow(missing_docs)]
 pub struct EnergyValidation {
     pub mean_total: f64,
     pub std_total: f64,

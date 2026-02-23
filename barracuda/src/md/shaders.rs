@@ -72,13 +72,13 @@ pub fn patch_math_f64_preamble(preamble: &str) -> String {
 //   F = -dU/dr = prefactor * exp(-kappa*r) * (1 + kappa*r) / r² * r_hat
 //
 // The shader also accumulates per-particle potential energy (half-counted).
-
+/// Yukawa pairwise force kernel WGSL source.
 pub const SHADER_YUKAWA_FORCE: &str = include_str!("shaders/yukawa_force_f64.wgsl");
 
 // ═══════════════════════════════════════════════════════════════════
 // Velocity-Verlet Half-Kick + Drift + PBC Wrap (f64)
 // ═══════════════════════════════════════════════════════════════════
-
+/// VV half-kick, drift, and PBC wrap WGSL source.
 pub const SHADER_VV_KICK_DRIFT: &str = include_str!("shaders/vv_kick_drift_f64.wgsl");
 
 // ═══════════════════════════════════════════════════════════════════
@@ -87,7 +87,7 @@ pub const SHADER_VV_KICK_DRIFT: &str = include_str!("shaders/vv_kick_drift_f64.w
 //
 // After forces are recomputed with new positions, apply the second
 // half-kick: v += 0.5 * dt * a_new
-
+/// VV second half-kick WGSL source.
 pub const SHADER_VV_HALF_KICK: &str = include_str!("shaders/vv_half_kick_f64.wgsl");
 
 // ═══════════════════════════════════════════════════════════════════
@@ -96,7 +96,7 @@ pub const SHADER_VV_HALF_KICK: &str = include_str!("shaders/vv_half_kick_f64.wgs
 //
 // Rescales velocities: v *= sqrt(1 + (dt/tau) * (T_target/T_current - 1))
 // Applied once per step during equilibration.
-
+/// Berendsen thermostat WGSL source.
 pub const SHADER_BERENDSEN: &str = include_str!("shaders/berendsen_f64.wgsl");
 
 // ═══════════════════════════════════════════════════════════════════
@@ -104,7 +104,7 @@ pub const SHADER_BERENDSEN: &str = include_str!("shaders/berendsen_f64.wgsl");
 // ═══════════════════════════════════════════════════════════════════
 //
 // Computes per-particle KE = 0.5 * m * v² for temperature calculation.
-
+/// Kinetic energy reduction WGSL source.
 pub const SHADER_KINETIC_ENERGY: &str = include_str!("shaders/kinetic_energy_f64.wgsl");
 
 // Sum reduction (f64) is now provided by barracuda::pipeline::ReduceScalarPipeline.
@@ -114,14 +114,14 @@ pub const SHADER_KINETIC_ENERGY: &str = include_str!("shaders/kinetic_energy_f64
 // ═══════════════════════════════════════════════════════════════════
 // Yukawa Cell-List Force Kernel (f64)
 // ═══════════════════════════════════════════════════════════════════
-
+/// Yukawa cell-list force WGSL source.
 pub const SHADER_YUKAWA_FORCE_CELLLIST: &str =
     include_str!("shaders/yukawa_force_celllist_f64.wgsl");
 
 // ═══════════════════════════════════════════════════════════════════
 // Yukawa Cell-List Force Kernel v2 (f64) — flat neighbor loop
 // ═══════════════════════════════════════════════════════════════════
-
+/// Yukawa cell-list force v2 (flat neighbor loop) WGSL source.
 pub const SHADER_YUKAWA_FORCE_CELLLIST_V2: &str =
     include_str!("shaders/yukawa_force_celllist_v2_f64.wgsl");
 
@@ -133,14 +133,14 @@ pub const SHADER_YUKAWA_FORCE_CELLLIST_V2: &str =
 // sorted_indices binding for indirect neighbor access. Positions,
 // velocities, and forces stay in original particle order — no CPU-side
 // sorting needed. Used with `barracuda::ops::md::CellListGpu`.
-
+/// Yukawa cell-list force with indirect indexing WGSL source.
 pub const SHADER_YUKAWA_FORCE_INDIRECT: &str =
     include_str!("shaders/yukawa_force_celllist_indirect_f64.wgsl");
 
 // ═══════════════════════════════════════════════════════════════════
 // RDF Histogram Kernel (f64)
 // ═══════════════════════════════════════════════════════════════════
-
+/// RDF histogram binning WGSL source.
 pub const SHADER_RDF_HISTOGRAM: &str = include_str!("shaders/rdf_histogram_f64.wgsl");
 
 // ═══════════════════════════════════════════════════════════════════
@@ -153,8 +153,9 @@ pub const SHADER_RDF_HISTOGRAM: &str = include_str!("shaders/rdf_histogram_f64.w
 //   CPU: reservoir.rs::EchoStateNetwork → pure Rust reference
 //
 // All three substrates execute identical linear algebra + tanh.
-
+/// ESN reservoir update WGSL source.
 pub const SHADER_ESN_RESERVOIR_UPDATE: &str = include_str!("shaders/esn_reservoir_update.wgsl");
+/// ESN readout WGSL source.
 pub const SHADER_ESN_READOUT: &str = include_str!("shaders/esn_readout.wgsl");
 
 #[cfg(test)]

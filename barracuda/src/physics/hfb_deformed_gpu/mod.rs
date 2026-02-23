@@ -296,6 +296,7 @@ fn deformed_hfb_gpu_single(
     })
 }
 
+/// Estimate total GPU dispatches for L3 batch (eigh + CG iterations).
 #[must_use]
 pub const fn estimate_gpu_dispatches(n_nuclei: usize, avg_blocks: usize, max_iter: usize) -> usize {
     let per_iter = 4 + avg_blocks;

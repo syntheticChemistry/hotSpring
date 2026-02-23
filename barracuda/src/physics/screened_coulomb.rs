@@ -38,7 +38,9 @@
 //! - Rogers, Graboske & Harwood, Phys. Rev. A 1, 1577 (1970)
 //! - Harris, J. Chem. Phys. 36, 1609 (1962) — screened eigenvalues
 
+/// Default radial grid points for screened Coulomb eigenproblem.
 pub const DEFAULT_N_GRID: usize = 2000;
+/// Default maximum radius (a.u.) for radial integration.
 pub const DEFAULT_R_MAX: f64 = 100.0;
 
 /// Literature critical screening parameters `κ_c` (a.u.) for hydrogen (Z=1).

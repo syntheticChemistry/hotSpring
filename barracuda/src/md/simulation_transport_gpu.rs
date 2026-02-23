@@ -34,6 +34,7 @@ const DEFAULT_VELOCITY_SEED: u64 = 42;
 const PROGRESS_REPORT_INTERVAL: usize = 5000;
 
 /// Result of a GPU-only transport simulation.
+#[allow(missing_docs)]
 pub struct GpuTransportResult {
     pub energy_history: Vec<EnergyRecord>,
     pub gpu_vacf: GpuVacf,

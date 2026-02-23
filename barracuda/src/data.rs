@@ -15,6 +15,7 @@ use std::path::{Path, PathBuf};
 
 /// A single nucleus from AME2020
 #[derive(Debug, Clone, Deserialize)]
+#[allow(missing_docs)]
 pub struct Nucleus {
     #[serde(rename = "Z")]
     pub z: usize,

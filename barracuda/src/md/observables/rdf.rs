@@ -10,6 +10,7 @@ use crate::tolerances::DIVISION_GUARD;
 
 /// RDF result: g(r) binned at discrete r values
 #[derive(Clone, Debug)]
+#[allow(missing_docs)]
 pub struct Rdf {
     pub r_values: Vec<f64>, // bin centers in a_ws
     pub g_values: Vec<f64>, // g(r)
