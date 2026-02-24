@@ -84,6 +84,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **GPU-Resident CG** | ✅ Complete | 15,360× readback reduction, 30.7× speedup, α/β/rz GPU-resident |
 | **biomeGate Prep** | ✅ Complete | Node profiles, env-var GPU selection, NVK setup guide, RTX 3090 characterization |
 | **API Debt Fix** | ✅ Complete | solve_f64→CPU Gauss-Jordan, sampler/surrogate device args, 4 binaries fixed |
+| **Production β-Scan (biomeGate)** | 🔄 Running | Titan V 16⁴ complete (9/9, 47 min, NVK first). RTX 3090 32⁴ in progress (5/12, ~8.5h remaining). **χ=22.8 at β=5.5** — deconfinement transition detected on 1M-site lattice |
 | **TOTAL** | **39/39 Rust validation suites** | 155/155 checks in latest session. 619 unit tests, 34/35 NPU HW checks, 16 determinism tests, 6 upstream bugs found. Both GPUs validated, biomeGate node prepped |
 
 Papers 5, 7, 8, and 10 from the review queue are complete. Paper 5 transport fits
@@ -693,7 +694,10 @@ hotSpring/
 │   ├── 008_PARITY_BENCHMARK.md       # Python vs Rust CPU vs Rust GPU parity benchmark (32/32 suites)
 │   ├── 008_PARITY_BENCHMARK.sh       # Automated benchmark runner
 │   ├── 009_PRODUCTION_LATTICE_QCD.md  # Production QCD: quenched β-scan + dynamical fermion HMC
-│   └── 010_BARRACUDA_CPU_VS_GPU.md   # BarraCuda CPU vs GPU systematic parity validation
+│   ├── 010_BARRACUDA_CPU_VS_GPU.md   # BarraCuda CPU vs GPU systematic parity validation
+│   ├── 011_GPU_STREAMING_RESIDENT_CG.md  # GPU streaming HMC + resident CG (22/22)
+│   ├── 012_FP64_CORE_STREAMING_DISCOVERY.md  # FP64 core streaming — DF64 9.9× native f64
+│   └── 013_BIOMEGATE_PRODUCTION_BETA_SCAN.md # biomeGate 32⁴ + 16⁴ production runs
 │
 ├── metalForge/                         # Hardware characterization & cross-substrate dispatch
 │   ├── README.md                      # Philosophy + hardware inventory + forge docs
@@ -857,6 +861,9 @@ These are **silent failures** — wrong results, no error messages. This fragili
 | [`experiments/008_PARITY_BENCHMARK.md`](experiments/008_PARITY_BENCHMARK.md) | Python → Rust CPU → Rust GPU parity benchmark (32/32 suites) |
 | [`experiments/009_PRODUCTION_LATTICE_QCD.md`](experiments/009_PRODUCTION_LATTICE_QCD.md) | Production lattice QCD: quenched β-scan + dynamical fermion HMC (Paper 10) |
 | [`experiments/010_BARRACUDA_CPU_VS_GPU.md`](experiments/010_BARRACUDA_CPU_VS_GPU.md) | BarraCuda CPU vs GPU systematic parity validation |
+| [`experiments/011_GPU_STREAMING_RESIDENT_CG.md`](experiments/011_GPU_STREAMING_RESIDENT_CG.md) | GPU streaming HMC + resident CG + bidirectional pipeline (22/22) |
+| [`experiments/012_FP64_CORE_STREAMING_DISCOVERY.md`](experiments/012_FP64_CORE_STREAMING_DISCOVERY.md) | FP64 core streaming discovery — DF64 9.9× native f64 on consumer GPUs |
+| [`experiments/013_BIOMEGATE_PRODUCTION_BETA_SCAN.md`](experiments/013_BIOMEGATE_PRODUCTION_BETA_SCAN.md) | biomeGate production β-scan: 32⁴ on RTX 3090, 16⁴ on Titan V NVK |
 | [`metalForge/README.md`](metalForge/README.md) | Hardware characterization — philosophy, inventory, directory |
 | [`metalForge/npu/akida/BEYOND_SDK.md`](metalForge/npu/akida/BEYOND_SDK.md) | **10 overturned SDK assumptions** — the discovery document |
 | [`metalForge/npu/akida/HARDWARE.md`](metalForge/npu/akida/HARDWARE.md) | AKD1000 deep-dive: architecture, compute model, PCIe BAR mapping |

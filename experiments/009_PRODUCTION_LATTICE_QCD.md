@@ -157,6 +157,21 @@ random numbers instead of Gaussian (Box-Muller). This violated HMC detailed
 balance, producing incorrect equilibrium (⟨P⟩ ≈ 0.95 at all β). Fixed to
 use Gell-Mann basis with Gaussian coefficients, matching Rust `random_algebra`.
 
+## biomeGate Production Extension (Experiment 013)
+
+Experiment 009 focused on 4⁴ and 8⁴ CPU baselines on Eastgate. Experiment 013
+extends to production-scale GPU runs on biomeGate:
+
+| Run | GPU | Lattice | Points | Status | Key Finding |
+|-----|-----|---------|--------|--------|-------------|
+| Titan V 16⁴ | Titan V (NVK) | 65,536 sites | 9/9 | **Complete** (47 min) | First NVK lattice QCD production run |
+| RTX 3090 32⁴ | RTX 3090 | 1,048,576 sites | 5/12 | **Running** (~8.5h remaining) | χ=22.8 deconfinement signal at β=5.5 |
+| Titan V 30⁴ | Titan V (NVK) | 810,000 sites | 0/10 | **Failed** | PTE fault (NVK VRAM bug) |
+| Titan V 32⁴ | Titan V (NVK) | 1,048,576 sites | 0/8 | **Failed** | PTE fault (NVK VRAM bug) |
+
+See [`013_BIOMEGATE_PRODUCTION_BETA_SCAN.md`](013_BIOMEGATE_PRODUCTION_BETA_SCAN.md)
+for full results and analysis.
+
 ## Evolution Path
 
 ### Next: GPU Promotion

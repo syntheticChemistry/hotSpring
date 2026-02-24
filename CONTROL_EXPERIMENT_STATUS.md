@@ -1043,11 +1043,18 @@ surpassing it at larger basis sizes.
 - [`whitePaper/BARRACUDA_SCIENCE_VALIDATION.md`](whitePaper/BARRACUDA_SCIENCE_VALIDATION.md) — Phase B technical results
 - [`whitePaper/CONTROL_EXPERIMENT_SUMMARY.md`](whitePaper/CONTROL_EXPERIMENT_SUMMARY.md) — Phase A quick reference
 - [`benchmarks/PROTOCOL.md`](benchmarks/PROTOCOL.md) — Benchmark protocol (time + energy measurement)
-- [`barracuda/CHANGELOG.md`](barracuda/CHANGELOG.md) — Crate version history (v0.6.7)
+- [`barracuda/CHANGELOG.md`](barracuda/CHANGELOG.md) — Crate version history (v0.6.8)
 - [`barracuda/EVOLUTION_READINESS.md`](barracuda/EVOLUTION_READINESS.md) — Rust → GPU promotion tiers and blockers
 - [`experiments/001_N_SCALING_GPU.md`](experiments/001_N_SCALING_GPU.md) — N-scaling experiment journal (Phase D)
 - [`experiments/002_CELLLIST_FORCE_DIAGNOSTIC.md`](experiments/002_CELLLIST_FORCE_DIAGNOSTIC.md) — Cell-list bug diagnostic (Phase D)
 - [`experiments/003_RTX4070_CAPABILITY_PROFILE.md`](experiments/003_RTX4070_CAPABILITY_PROFILE.md) — RTX 4070 capability profile (Phase E)
 - [`experiments/004_GPU_DISPATCH_OVERHEAD_L3.md`](experiments/004_GPU_DISPATCH_OVERHEAD_L3.md) — Dispatch overhead profiling (Phase F)
 - [`experiments/005_L2_MEGABATCH_COMPLEXITY_BOUNDARY.md`](experiments/005_L2_MEGABATCH_COMPLEXITY_BOUNDARY.md) — L2 mega-batch complexity boundary
+- [`experiments/006_GPU_FP64_COMPARISON.md`](experiments/006_GPU_FP64_COMPARISON.md) — RTX 4070 vs Titan V fp64 benchmark
+- [`experiments/007_CPU_GPU_SCALING_BENCHMARK.md`](experiments/007_CPU_GPU_SCALING_BENCHMARK.md) — CPU vs GPU scaling crossover analysis
+- [`experiments/008_PARITY_BENCHMARK.md`](experiments/008_PARITY_BENCHMARK.md) — Python → Rust CPU → Rust GPU parity (32/32 suites)
+- [`experiments/009_PRODUCTION_LATTICE_QCD.md`](experiments/009_PRODUCTION_LATTICE_QCD.md) — Production QCD β-scan + dynamical fermion HMC
 - [`experiments/010_BARRACUDA_CPU_VS_GPU.md`](experiments/010_BARRACUDA_CPU_VS_GPU.md) — BarraCuda CPU vs GPU systematic parity validation
+- [`experiments/011_GPU_STREAMING_RESIDENT_CG.md`](experiments/011_GPU_STREAMING_RESIDENT_CG.md) — GPU streaming HMC + resident CG (22/22 checks)
+- [`experiments/012_FP64_CORE_STREAMING_DISCOVERY.md`](experiments/012_FP64_CORE_STREAMING_DISCOVERY.md) — FP64 core streaming: DF64 9.9× native f64
+- [`experiments/013_BIOMEGATE_PRODUCTION_BETA_SCAN.md`](experiments/013_BIOMEGATE_PRODUCTION_BETA_SCAN.md) — biomeGate production β-scan (32⁴ on 3090, 16⁴ on Titan V NVK)

@@ -719,9 +719,16 @@ End-to-end validation of the CPU→GPU→NPU→CPU architecture:
 | 48³×96 | 10,616,832 | 5.8 GB | tight | feasible |
 | 64⁴ | 16,777,216 | 9.2 GB | no | feasible |
 
+**biomeGate production runs (Feb 24, 2026)**: RTX 3090 is running a 12-point
+32⁴ quenched β-scan with 200 measurements per point (~14.6 hrs total). At 5/12
+points complete, χ=22.8 at β=5.5 is the **deconfinement phase transition** — a
+30× spike over neighboring points. Titan V completed 16⁴ (9/9, 47 min) via NVK —
+first known lattice QCD production run on open-source driver. NVK fails at 30⁴+
+(PTE fault). See `experiments/013_BIOMEGATE_PRODUCTION_BETA_SCAN.md`.
+
 At 32⁴ the pipeline architecture is unchanged — same shaders, same streaming,
 same single-encoder dispatch. The only variable is VRAM capacity. Production
-lattice QCD at 32⁴+ is architecturally achievable on consumer 24 GB GPUs.
+lattice QCD at 32⁴+ is now demonstrated on consumer 24 GB GPUs.
 
 **Distributed scale**: Each HMC trajectory is an independent dispatch. Parameter
 scans (β, mass, lattice size) are embarrassingly parallel. WGSL/Vulkan runs on
