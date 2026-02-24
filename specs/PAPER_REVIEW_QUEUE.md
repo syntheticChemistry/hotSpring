@@ -698,6 +698,51 @@ is proven first, locally, on one GPU.
 
 ---
 
+## Track 5 — Distributed Computing History ("Local Ruins" for NUCLEUS)
+
+**Purpose**: Review foundational distributed computing papers to understand scheduling,
+fault tolerance, and heterogeneous hardware management before deploying the basement
+HPC as a covalent NUCLEUS mesh. These are the "local ruins" — systems that solved
+distribution problems decades ago on volunteer hardware. Their lessons directly inform
+NUCLEUS deployment.
+
+**Connection to ecoPrimals**: ToadStool already has `HybridCloudScheduler` and
+distributed GPU scheduling in `crates/distributed/`. BOINC papers inform how to evolve
+this for the NUCLEUS mesh. Key difference: BOINC is server-client with anonymous
+volunteers; NUCLEUS is peer-to-peer with covalent trust (family seed). The scheduling
+algorithms are relevant; the trust model is not.
+
+### Folding@home
+
+| # | Paper | Journal | Year | Why | Status |
+|---|-------|---------|------|-----|--------|
+| 25 | Shirts & Pande "Screen Savers of the World, Unite!" | Science 290:1903-4 | 2000 | Founding vision — volunteer MD on idle CPUs. The original "latent gaming power" argument | Queue |
+| 26 | Pande "Folding@home architecture" | Stanford CS | 2009 | 5 PetaFLOPS on volunteer hardware. Scheduling, fault tolerance, result validation at scale | Queue |
+| 27 | Zimmerman et al. "Folding@home: Achievements from over twenty years of citizen science herald the exascale era" | Biophysical Journal 122(14):2852-2863 | 2023 | 20-year retrospective. Lessons learned, failure modes, what worked vs what didn't | Queue |
+
+### SETI@home / BOINC
+
+| # | Paper | Journal | Year | Why | Status |
+|---|-------|---------|------|-----|--------|
+| 28 | Anderson et al. "SETI@home: An Experiment in Public-Resource Computing" | CACM 45(11):56-61 | 2002 | First internet-scale volunteer computing. Task distribution, credit system, cheating resistance | Queue |
+| 29 | Anderson "BOINC: A System for Public-Resource Computing and Storage" | 5th IEEE/ACM Grid Computing | 2004 | The framework that generalized SETI@home. Work unit model, redundant computation, scheduling hierarchy | Queue — **Priority: reproduce scheduling algorithm** |
+| 30 | Anderson & Fedak "The computational and storage potential of volunteer computing" | IEEE/ACM CCGrid | 2006 | Empirical measurement of volunteer compute capacity. Validates the 200:1 citizen-to-cloud ratio from Latent Value Economy paper | Queue |
+| 31 | Kondo et al. "Scheduling task parallel applications for rapid turnaround on desktop grids" | JPDC 67(11):1209-1227 | 2007 | BOINC scheduling algorithms for heterogeneous hardware. Directly comparable to ToadStool HybridCloudScheduler | Queue — **Priority: compare to HybridCloudScheduler** |
+
+### What to Extract
+
+| BOINC Concept | NUCLEUS Analog | Key Difference |
+|---------------|----------------|----------------|
+| Work units | NUCLEUS atomics (Tower/Node/Nest) | Fixed granularity vs adaptive composition |
+| Redundant computation | Cryptographic verification (BearDog) | Quorum voting vs lineage trust |
+| Anonymous volunteers | Covalent family (SoloKey FIDO2 seed) | Zero-trust vs family-trust |
+| Server-client scheduling | biomeOS plasmodium (peer-to-peer) | Central coordinator vs distributed consensus |
+| Heterogeneous CPU mix | DDR3→DDR5, RTX 2070→5090 mesh | CPUs only vs GPU/NPU/CPU mixed substrate |
+| Credit system | sunCloud radiating attribution | Points vs cryptographic provenance |
+| Result validation (quorum) | BearDog lineage hash | Statistical consensus vs deterministic verification |
+
+---
+
 ## Notes
 
 - **Bazavov full lattice**: ~~FFT~~ ✅ + ~~Dirac~~ ✅ + ~~CG~~ ✅ + ~~HMC~~ ✅ + ~~Streaming~~ ✅ — **ALL GPU PRIMITIVES COMPLETE**.
