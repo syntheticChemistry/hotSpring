@@ -1,7 +1,7 @@
 # hotSpring → BarraCuda/ToadStool Absorption Manifest
 
 **Date:** February 22, 2026
-**Version:** v0.6.7
+**Version:** v0.6.8
 **License:** AGPL-3.0-only
 
 ---

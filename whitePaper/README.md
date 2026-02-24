@@ -372,7 +372,7 @@ No institutional access required. No Code Ocean account. No Fortran compiler. AG
 
 ---
 
-## Codebase Health (Feb 23, 2026)
+## Codebase Health (Feb 24, 2026)
 
 | Metric | Value |
 |--------|-------|
@@ -399,7 +399,7 @@ No institutional access required. No Code Ocean account. No Fortran compiler. AG
 
 ---
 
-## GPU FP64 Status (Feb 23, 2026)
+## GPU FP64 Status (Feb 24, 2026)
 
 Native FP64 GPU compute confirmed on RTX 4070, RTX 3090, and Titan V via `wgpu::Features::SHADER_F64` (Vulkan backend):
 - **Precision**: True IEEE 754 double precision (0 ULP error vs CPU f64)

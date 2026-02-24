@@ -1,10 +1,11 @@
 # hotSpring Control Experiment — Status Report
 
-**Date**: 2026-02-22 (L1+L2 complete, GPU MD Phase C+D+E+F complete — paper-parity long run 9/9, BarraCuda pipeline 28/28, crate v0.6.7)  
-**Gate**: Eastgate (i9-12900K, 32 GB DDR5, RTX 4070 12GB, Pop!_OS 22.04)  
+**Date**: 2026-02-24 (L1+L2 complete, GPU MD Phase C+D+E+F complete — paper-parity long run 9/9, BarraCuda pipeline 39/39, crate v0.6.8)  
+**Gates**: Eastgate (i9-12900K, RTX 4070 12GB) + biomeGate (Threadripper 3970X, RTX 3090 24GB + Titan V 12GB HBM2, Akida NPU, 256GB DDR4)  
 **Sarkas**: v1.0.0 (pinned — see §Roadblocks)  
 **Python**: 3.9 (sarkas), 3.10 (ttm, surrogate) via micromamba  
-**f64 Status**: Native WGSL builtins confirmed. Consumer Ampere/Ada: fp64:fp32 ~1:64 (both CUDA and Vulkan). Double-float hybrid delivers 9.9× native f64 — bottleneck broken.
+**f64 Status**: Native WGSL builtins confirmed. Consumer Ampere/Ada: fp64:fp32 ~1:64 (both CUDA and Vulkan). Double-float (f32-pair) hybrid delivers 3.24 TFLOPS at 14 digits (9.9× native f64). Titan V: genuine 1:2 via NVK.  
+**toadStool**: Session 53 (4,176 tests, 646 WGSL shaders, 26 cross-spring absorption items complete). hotSpring 39/39 validation pass in 6542.6s on biomeGate.
 
 ---
 

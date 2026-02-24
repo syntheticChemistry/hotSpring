@@ -1,7 +1,7 @@
 # hotSpring: Consumer-GPU Nuclear Structure at Scale
 
 **Status**: Working draft
-**Date**: February 23, 2026
+**Date**: February 24, 2026 (toadStool S53 rewire, 39/39 validation on biomeGate)
 **License**: AGPL-3.0
 **Hardware**: Consumer workstations — Eastgate (i9-12900, 32 GB DDR5, RTX 4070 + Titan V) + biomeGate (Threadripper 3970X, 256 GB DDR4, RTX 3090 + Titan V + Akida NPU)
 **GPUs**: RTX 4070 (Ada, 12 GB), RTX 3090 (Ampere, 24 GB), Titan V (Volta/NVK, 12 GB) — native f64 via wgpu/Vulkan
