@@ -29,9 +29,6 @@
 //! 8. Anderson: NpuSimulator parity (100% agreement)
 //! 9. Cross-domain: all 4 ESNs deployable on same NpuSimulator substrate
 
-use hotspring_barracuda::lattice::abelian_higgs;
-use hotspring_barracuda::lattice::hmc::{self, HmcConfig};
-use hotspring_barracuda::lattice::wilson::Lattice;
 use hotspring_barracuda::md::reservoir::{EchoStateNetwork, EsnConfig, NpuSimulator};
 use hotspring_barracuda::validation::ValidationHarness;
 
@@ -336,7 +333,7 @@ fn check_cross_domain(harness: &mut ValidationHarness) {
     let mut deployable = 0;
     let domains = ["DynQCD", "FreezeOut", "AbelianHiggs", "Anderson"];
 
-    for (i, name) in domains.iter().enumerate() {
+    for (_i, name) in domains.iter().enumerate() {
         let config = esn_config_3in();
         let mut esn = EchoStateNetwork::new(config);
 

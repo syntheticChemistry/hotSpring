@@ -50,7 +50,6 @@ fn main() {
             println!("  Skipping GPU validation");
             harness.check_bool("GPU available (SHADER_F64)", false);
             harness.finish();
-            std::process::exit(0);
         }
     };
 

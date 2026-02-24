@@ -230,5 +230,114 @@ The biome model works. Specific evidence:
 
 ---
 
+## 10. Update: Sessions 43–53 Cross-Spring Absorption (Feb 22–24, 2026)
+
+ToadStool Sessions 43–53 completed the full cross-spring absorption plan:
+**26 items** from all 4 Springs absorbed into barracuda. 448 files changed,
+82k lines churned. The fungus now holds the complete compute substrate.
+
+### hotSpring Contributions (S45–S52)
+
+| Item | Impact | Who Benefits |
+|------|--------|-------------|
+| CG solver shaders (5 WGSL) | 15,360× readback reduction | All Springs doing iterative GPU solves |
+| Lattice QCD GPU: su3, dirac, fermion (12 WGSL) | Full gauge theory on GPU | neuralSpring (field theory nets), wetSpring (lattice bio) |
+| GPU-resident CG infrastructure (ReducePass, StreamObservables) | Zero CPU round-trips | All Springs with iterative GPU compute |
+| solve_f64 CPU fallback | ESN-sized matrices (50–200 dim) | wetSpring (ESN training), neuralSpring (small systems) |
+| Screened Coulomb eigensolve | Yukawa screening on GPU | wetSpring (electrostatics), neuralSpring (charged systems) |
+| atanh.wgsl bind group fix | Correct spectral computation | All Springs using hyperbolic functions |
+| Core streaming / DF64 discovery | 9.9× f64 throughput on consumer GPUs | **All Springs** — the biggest find |
+
+### wetSpring Contributions (S45–S52)
+
+| Item | Impact | Who Benefits |
+|------|--------|-------------|
+| BatchedOdeRK4Generic + ODE trait | One shader replaces 5 domain-specific ODEs | hotSpring (nuclear kinetics), neuralSpring (dynamical systems) |
+| ESN NPU weight export (int8 quantization) | GPU→NPU deployment pipeline | neuralSpring (inference), metalForge (dispatch) |
+| 5 bio ODE shaders (phage, bistable, cooperation, capacitor) | Domain-specific kinetics | neuralSpring (evolutionary dynamics) |
+| batch_pair_reduce_f64 FMA fix | Correct f64 reductions on all drivers | **hotSpring** (BCS bisection uses batch reductions) |
+| FlatTree (Newick + edge constructors) | Phylogenetic tree GPU compute | neuralSpring (evolutionary nets) |
+| ESN ridge regression | Readout training on GPU | neuralSpring (reservoir computing), metalForge (NPU) |
+
+### neuralSpring Contributions (S45–S52)
+
+| Item | Impact | Who Benefits |
+|------|--------|-------------|
+| 38 GPU ops promoted to dispatch API | Unified tensor→GPU interface | **hotSpring** (eigensolve dispatch), wetSpring (bio tensor ops) |
+| Conv2D/Pool GPU wiring | LeNet-5 and CNN on GPU | wetSpring (image-based bio), airSpring (sensor CNNs) |
+| Swarm neuroevolution shaders | Population-based optimization on GPU | wetSpring (evolutionary search), airSpring (control) |
+| xoshiro128ss.wgsl (GPU RNG) | Reproducible parallel randomness | hotSpring (Monte Carlo), wetSpring (stochastic bio) |
+| Tolerance registry | Centralized precision management | **All Springs** — consistent error tolerances |
+| FST variance decomposition | Population genetics on GPU | wetSpring (metagenomics) |
+
+### airSpring Contributions (S49)
+
+| Item | Impact | Who Benefits |
+|------|--------|-------------|
+| Richards 1D solver (Van Genuchten-Mualem) | Unsaturated flow in soil | wetSpring (environmental modeling), hotSpring (porous media) |
+
+### The Key Cross-Pollination Events
+
+1. **hotSpring's DF64 core-streaming → everyone**: The double-float hybrid
+   strategy discovered on biomeGate applies to ALL consumer GPU compute
+   across every Spring. Estimated 7× HMC speedup, similar gains for any
+   f64-heavy workload.
+
+2. **wetSpring's batch_pair_reduce fix → hotSpring's BCS convergence**:
+   The FMA→multiply+add fix in the f64 batch reduction shader was found by
+   wetSpring doing DADA2 E-step comparisons. hotSpring's BCS bisection uses
+   the same reduction pattern — it now produces bit-identical results across
+   NVK, RADV, and proprietary drivers.
+
+3. **neuralSpring's xoshiro128ss → hotSpring's Monte Carlo**: The GPU-native
+   PRNG shader from neuralSpring's neuroevolution work is exactly what
+   hotSpring needs for GPU-resident HMC random momentum generation.
+
+4. **hotSpring's CG shaders → neuralSpring's attention**: The conjugate
+   gradient solver infrastructure (alpha/beta computation, tree reduction)
+   maps directly to iterative refinement in attention mechanisms.
+
+### Validation: 39/39 on biomeGate (toadStool S53)
+
+hotSpring compiled against toadStool S53 with **zero errors, zero warnings**.
+Full validation suite: **39/39 PASS in 6542.6s** on biomeGate (RTX 3090 +
+Titan V + Akida NPU, Threadripper 3970X).
+
+| Suite | Time | Spring Origin |
+|-------|------|--------------|
+| Special Functions | 0.6s | hotSpring + wetSpring |
+| Linear Algebra | 0.5s | hotSpring |
+| MD Forces | 2.1s | hotSpring |
+| Nuclear EOS | 3.2s | hotSpring |
+| HFB (SLy4) | 4.2s | hotSpring + wetSpring (GemmCached) |
+| WGSL f64 Builtins | 1.7s | hotSpring + wetSpring (precision) |
+| BarraCuda HFB | 1.7s | hotSpring + neuralSpring (TensorSession) |
+| BarraCuda MD | 15.7s | hotSpring + wetSpring (bio forces) |
+| PPPM Coulomb | 1.7s | hotSpring |
+| CPU/GPU Parity | 8.8s | hotSpring + wetSpring (precision) |
+| NAK Eigensolve | 2.7s | hotSpring |
+| GPU Transport (Paper 5) | 1260.0s | hotSpring + wetSpring |
+| Screened Coulomb | 0.6s | hotSpring |
+| HotQCD EOS | 0.4s | hotSpring |
+| Pure Gauge SU(3) | 28.9s | hotSpring |
+| QCD β-Scan | 52.9s | hotSpring |
+| Dynamical Fermion QCD | 65.8s | hotSpring |
+| Abelian Higgs | 0.5s | hotSpring |
+| NPU Pipeline | 0.7s | wetSpring + metalForge |
+| Lattice QCD + NPU | 14.2s | hotSpring + wetSpring + metalForge |
+| Spectral Theory | 6.2s | hotSpring + neuralSpring (BatchIpr) |
+| Kachkovskiy (4 suites) | 32.5s | hotSpring + neuralSpring |
+| BarraCuda Evolution | 6.1s | All Springs |
+| GPU SpMV | 1.9s | hotSpring |
+| GPU Lanczos | 3.3s | hotSpring |
+| GPU Dirac/CG/QCD | 5.5s | hotSpring |
+| GPU Streaming HMC | 441.1s | hotSpring |
+| GPU Streaming Dynamical | 770.3s | hotSpring |
+| Reservoir Transport (ESN) | 118.5s | wetSpring + neuralSpring |
+| Stanton-Murillo (Paper 5) | 2108.7s | hotSpring |
+| Transport Parity | 1577.2s | hotSpring + wetSpring |
+
+---
+
 *License: AGPL-3.0-only. All discoveries, code, and documentation are
 sovereign community property. No proprietary dependency required.*

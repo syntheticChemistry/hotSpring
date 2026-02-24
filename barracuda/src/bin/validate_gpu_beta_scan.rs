@@ -121,7 +121,6 @@ fn main() {
             println!("  GPU not available: {e}");
             harness.check_bool("GPU available", false);
             harness.finish();
-            std::process::exit(0);
         }
     };
 

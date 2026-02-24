@@ -430,3 +430,8 @@ path = "src/bin/validate_transport_gpu_resident.rs"
 [[bin]]
 name = "validate_ttm"
 path = "src/bin/validate_ttm.rs"
+
+# ── Production quenched beta-scan (multi-point, checkpointed) ──
+[[bin]]
+name = "production_beta_scan"
+path = "src/bin/production_beta_scan.rs"

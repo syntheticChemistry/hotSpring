@@ -18,11 +18,10 @@
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::lattice::cg;
 use hotspring_barracuda::lattice::dirac::{
-    apply_dirac, apply_dirac_sq, flatten_fermion, DiracGpuLayout, FermionField,
+    apply_dirac, flatten_fermion, FermionField,
 };
 use hotspring_barracuda::lattice::gpu_hmc::{
-    build_neighbors, flatten_links, flatten_momenta, gpu_dynamical_hmc_trajectory,
-    gpu_links_to_lattice, GpuDynHmcPipelines, GpuDynHmcState,
+    gpu_dynamical_hmc_trajectory, GpuDynHmcPipelines, GpuDynHmcState,
 };
 use hotspring_barracuda::lattice::hmc::{self, HmcConfig, IntegratorType};
 use hotspring_barracuda::lattice::pseudofermion::{
@@ -48,7 +47,6 @@ fn main() {
             println!("  GPU not available: {e}");
             harness.check_bool("GPU available", false);
             harness.finish();
-            std::process::exit(0);
         }
     };
 
@@ -79,7 +77,7 @@ fn main() {
     println!("═══ Phase 1: GPU fermion force parity ═══");
 
     let vol = lat.volume();
-    let mut seed_test = 123u64;
+    let seed_test = 123u64;
     let x_field = FermionField::random(vol, seed_test);
     let x_flat = flatten_fermion(&x_field);
 
@@ -146,7 +144,7 @@ fn main() {
     println!();
     println!("═══ Phase 2: GPU CG solver parity ═══");
 
-    let mut seed_phi = 456u64;
+    let seed_phi = 456u64;
     let b_field = FermionField::random(vol, seed_phi);
     let b_flat = flatten_fermion(&b_field);
 
@@ -329,11 +327,11 @@ fn gpu_fermion_action_test(
     pipelines: &GpuDynHmcPipelines,
     state: &GpuDynHmcState,
 ) -> (f64, usize) {
-    use hotspring_barracuda::lattice::gpu_hmc::GpuDynHmcState;
+    
 
     let vol = state.gauge.volume;
     let n_flat = vol * 6;
-    let n_pairs = vol * 3;
+    let _n_pairs = vol * 3;
 
     // Zero x
     let zeros = vec![0.0_f64; n_flat];
@@ -352,8 +350,8 @@ fn gpu_fermion_action_test(
     }
 
     // CG: (D†D)x = phi
-    let wg_dirac = ((vol as u32) + 63) / 64;
-    let wg_vec = ((n_flat as u32) + 63) / 64;
+    let _wg_dirac = ((vol as u32) + 63) / 64;
+    let _wg_vec = ((n_flat as u32) + 63) / 64;
 
     let b_norm_sq = gpu_dot_test(gpu, pipelines, state, &state.r_buf, &state.r_buf);
     if b_norm_sq < 1e-30 {

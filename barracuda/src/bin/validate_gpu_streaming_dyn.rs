@@ -19,7 +19,7 @@
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::lattice::gpu_hmc::{
     gpu_dynamical_hmc_trajectory, gpu_dynamical_hmc_trajectory_streaming,
-    gpu_dynamical_hmc_trajectory_resident, gpu_links_to_lattice,
+    gpu_dynamical_hmc_trajectory_resident,
     GpuDynHmcPipelines, GpuDynHmcState, GpuDynHmcStreamingPipelines, GpuHmcState,
     GpuHmcStreamingPipelines, GpuResidentCgPipelines, GpuResidentCgBuffers,
     BidirectionalStream,
@@ -48,7 +48,6 @@ fn main() {
             println!("  GPU not available: {e}");
             harness.check_bool("GPU available", false);
             harness.finish();
-            std::process::exit(0);
         }
     };
     println!("  GPU: {}", gpu.adapter_name);

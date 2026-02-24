@@ -29,7 +29,6 @@ use barracuda::stats::{bootstrap_ci, chi2_decomposed_weighted};
 use rayon::prelude::*;
 
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::time::Instant;
 
 // ═══════════════════════════════════════════════════════════════════
