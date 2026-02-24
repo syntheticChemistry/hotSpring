@@ -50,8 +50,8 @@ fn gaussian(site_idx: u32, pair: u32) -> f64 {
 }
 
 @compute @workgroup_size(64)
-fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
-    let idx = gid.x;
+fn main(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgroups) nwg: vec3<u32>) {
+    let idx = gid.x + gid.y * nwg.x * 64u;
     if idx >= params.volume { return; }
 
     let base = idx * 6u;

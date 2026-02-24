@@ -10,11 +10,12 @@
 //!
 //! ## fp64 context
 //!
-//! The RTX 4070 exposes fp64 builtins through Vulkan/wgpu at ~1:2 fp64:fp32
-//! INSTRUCTION throughput, bypassing CUDA's 1:64 ratio. MD workloads are
-//! memory-bandwidth-bound (low arithmetic intensity), so application-level
-//! TFLOPS understate the instruction-level ratio. The `f64_builtin_test` binary
-//! measures the raw instruction throughput.
+//! Consumer Ampere/Ada GPUs have hardware fp64:fp32 ~1:64 (confirmed by
+//! bench_fp64_ratio). MD workloads are memory-bandwidth-bound (low arithmetic
+//! intensity), so fp64 vs fp32 throughput difference is smaller than the raw
+//! instruction ratio suggests. Double-float (f32-pair) on FP32 cores delivers
+//! 9.9× native f64 throughput for compute-bound kernels. Titan V (Volta) has
+//! genuine 1:2 hardware via NVK.
 //!
 //! Exit code 0 = benchmark complete.
 
@@ -285,20 +286,18 @@ fn main() {
     println!("  Arithmetic intensity: ~42 FLOPs per pair / ~96 bytes = 0.44 FLOP/byte.");
     println!("  RTX 4070 bandwidth ceiling: 504 GB/s × 0.44 ≈ 0.22 TFLOPS (theoretical).");
     println!();
-    println!("  The Vulkan fp64 INSTRUCTION throughput is ~1:2 (vs CUDA's 1:64).");
-    println!("  This is confirmed by f64_builtin_test (sqrt, exp, FMA micro-benchmarks).");
-    println!("  MD can't saturate it because each f64 op requires a memory read.");
+    println!("  Consumer Ampere/Ada fp64 is hardware ~1:64 (bench_fp64_ratio: 0.33 TFLOPS).");
+    println!("  MD is memory-bound, so fp64 penalty is smaller than the raw ratio.");
+    println!("  Double-float (f32-pair) on FP32 cores: 3.24 TFLOPS at 14 digits (9.9× native).");
     println!();
-    println!("  To unlock full fp64 throughput:");
-    println!("    - Compute-bound workloads: eigensolve, BCS bisection, FFT");
+    println!("  Strategies for higher throughput:");
+    println!("    - Core streaming: DF64 bulk math on FP32 cores + native f64 for reductions");
     println!("    - Toadstool unidirectional: eliminate ALL CPU↔GPU round-trips");
     println!("    - GPU-resident cell-list: construct neighbor lists on-GPU");
-    println!("    - Titan V (HBM2, 652 GB/s): +30% bandwidth → closes gap to 1:2");
+    println!("    - Titan V (HBM2, 652 GB/s, 1:2 native fp64): best f64 consumer card via NVK");
     println!();
-    println!("  The CUDA 1:64 gimp means CUDA gets ~0.45 TFLOPS fp64 on this card.");
-    println!("  Our Vulkan path already exceeds that with memory-bound MD workloads.");
-    println!("  Compute-bound shaders (eigensolve) hit 4-7× CUDA's theoretical limit.");
-    println!("  The silicon supports 1:2. The driver exposes it. CUDA hides it.");
+    println!("  The core-streaming hybrid maximizes chip utilization on consumer GPUs.");
+    println!("  See bench_fp64_ratio and TOADSTOOL_CORE_STREAMING_FP64_HANDOFF for details.");
     println!();
     println!("Benchmark complete.");
 }

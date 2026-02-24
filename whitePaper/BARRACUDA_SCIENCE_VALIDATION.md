@@ -305,7 +305,7 @@ The `--long` run produces publication-quality data with better-amortized through
 
 All Phase C results above used **software-emulated** f64 transcendentals (`math_f64.wgsl` — ~500 lines of f32-pair arithmetic implementing `sqrt_f64`, `exp_f64`, etc.). This kept GPU ALU utilization artificially low and throughput well below hardware capability.
 
-**Discovery**: The toadstool/barracuda team confirmed that `wgpu::Features::SHADER_F64` exposes native hardware f64 operations. WGSL's built-in `sqrt()`, `exp()`, `round()`, `floor()` all operate directly on f64 types. The true fp64:fp32 throughput ratio on consumer GPUs (via Vulkan) is **~1:2** — not the 1:64 CUDA reports, because wgpu bypasses driver-level FP64 throttling.
+**Discovery**: The toadstool/barracuda team confirmed that `wgpu::Features::SHADER_F64` exposes native hardware f64 operations. WGSL's built-in `sqrt()`, `exp()`, `round()`, `floor()` all operate directly on f64 types. Native builtins are 1.5-2.2x faster than the software `math_f64` emulation library. Subsequent `bench_fp64_ratio` measurement (Feb 24 2026) showed consumer Ampere/Ada hardware fp64:fp32 is ~1:64 (same as CUDA), while the Titan V (GV100) provides genuine 1:2 via 2,560 dedicated FP64 cores accessible through the open-source NVK driver.
 
 | Function | Native | Software (math_f64) | Speedup | Accuracy |
 |----------|--------|---------------------|---------|----------|
@@ -377,7 +377,7 @@ At N=10,000 (paper parity), a single GPU run costs **$0.001 in electricity**. Th
 | Resource | Value | Implication |
 |----------|-------|-------------|
 | VRAM at N=20k | 587 MB / 12,288 MB (4.8%) | **N≈400,000** feasible before VRAM limits |
-| fp64:fp32 ratio | ~1:2 (via wgpu/Vulkan) | Not throttled like CUDA's 1:64 |
+| fp64:fp32 ratio | ~1:64 on consumer Ampere/Ada; 1:2 on Titan V (GV100) | Hardware-determined; Titan V gives compute-class fp64 via NVK |
 | Paper parity time | 5.3 minutes | Enables 100+ parameter sweeps per day |
 | 9-case sweep time | 71 minutes | Full DSF validation in lunch break |
 | Energy conservation | 0.000% at all N | Physics is correct at every scale |

@@ -131,8 +131,9 @@ fn reunitarize(u_in: array<f64, 18>) -> array<f64, 18> {
 }
 
 @compute @workgroup_size(64)
-fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
-    let link_idx = gid.x;
+fn main(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgroups) nwg: vec3<u32>) {
+    let idx = gid.x + gid.y * nwg.x * 64u;
+    let link_idx = idx;
     if link_idx >= params.n_links { return; }
 
     let base_p = link_idx * 18u;

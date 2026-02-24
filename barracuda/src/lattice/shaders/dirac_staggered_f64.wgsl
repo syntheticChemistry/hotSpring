@@ -15,8 +15,9 @@ struct Params {
 @group(0) @binding(5) var<storage, read> phases: array<f64>;
 
 @compute @workgroup_size(64)
-fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
-    let site = gid.x;
+fn main(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgroups) nwg: vec3<u32>) {
+    let idx = gid.x + gid.y * nwg.x * 64u;
+    let site = idx;
     if site >= params.volume { return; }
 
     let psi_base = site * 6u;

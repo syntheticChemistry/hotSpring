@@ -213,8 +213,9 @@ Papers 14-22 are documented in `specs/PAPER_REVIEW_QUEUE.md`.
 ## metalForge: Hardware Beyond the SDK
 
 hotSpring's metalForge initiative characterizes actual hardware behavior versus
-vendor documentation. The same methodology that found native f64 at 1:2 on
-consumer GPUs (vs CUDA's advertised 1:32) was applied to the BrainChip AKD1000 NPU.
+vendor documentation. The same methodology that confirmed Titan V (GV100) native
+f64 at 1:2 via NVK and measured consumer Ampere/Ada fp64 at ~1:64 (matching CUDA
+hardware, correcting an earlier overestimate) was applied to the BrainChip AKD1000 NPU.
 
 ### NPU Beyond-SDK Discoveries (10 SDK assumptions overturned)
 
@@ -400,11 +401,11 @@ No institutional access required. No Code Ocean account. No Fortran compiler. AG
 
 ## GPU FP64 Status (Feb 23, 2026)
 
-Native FP64 GPU compute confirmed on RTX 4070 and Titan V via `wgpu::Features::SHADER_F64` (Vulkan backend):
+Native FP64 GPU compute confirmed on RTX 4070, RTX 3090, and Titan V via `wgpu::Features::SHADER_F64` (Vulkan backend):
 - **Precision**: True IEEE 754 double precision (0 ULP error vs CPU f64)
-- **Performance**: ~2x FP64:FP32 ratio for bandwidth-limited operations (not the CUDA-reported 1:64)
-- **Implication**: The RTX 4070 is usable for FP64 science compute today via BarraCuda's wgpu shaders
-- **Multi-GPU**: RTX 4070 (nvidia proprietary) and Titan V (NVK/nouveau open-source) both produce identical physics to 1e-15
+- **Performance**: Consumer Ampere/Ada fp64:fp32 ~1:64 (hardware limit, same as CUDA); Titan V (GV100) provides native 1:2 via 2,560 dedicated FP64 cores. Confirmed by `bench_fp64_ratio` FMA chain micro-benchmark (Feb 24 2026).
+- **Implication**: Consumer GPUs provide exact fp64 for correctness; the Titan V (~$500 used) provides compute-class fp64 throughput via the open-source NVK driver
+- **Multi-GPU**: RTX 3090/4070 (nvidia proprietary) and Titan V (NVK/nouveau open-source) both produce identical physics to 1e-15
 - **Phase C validation**: Full Yukawa MD (9 cases, N=2000, 80k steps) runs at 149-259 steps/s sustained with 0.000% energy drift
 - **Phase E validation**: Full paper-parity (9 cases, N=10,000, 80k steps) completes in 3.66 hours with 0.000-0.002% drift. Cell-list 4.1× faster than all-pairs.
 - **GPU-only transport pipeline**: `validate_transport_gpu_only` runs full Green-Kubo D*/η*/λ* pipeline on GPU with zero readback (~493s).

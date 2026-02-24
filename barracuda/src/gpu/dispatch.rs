@@ -14,6 +14,18 @@
 
 use super::GpuF64;
 
+/// Split workgroup count into (x, y, 1) for 2D dispatch when x > 65535.
+/// Shaders must linearize via `gid.x + gid.y * num_workgroups.x * WG_SIZE`.
+pub fn split_workgroups(total: u32) -> (u32, u32, u32) {
+    if total <= 65535 {
+        (total, 1, 1)
+    } else {
+        let y = total.div_ceil(65535);
+        let x = total.div_ceil(y);
+        (x, y, 1)
+    }
+}
+
 impl GpuF64 {
     /// Create a bind group from a pipeline and ordered buffer slice.
     ///
@@ -62,7 +74,8 @@ impl GpuF64 {
             });
             pass.set_pipeline(pipeline);
             pass.set_bind_group(0, bind_group, &[]);
-            pass.dispatch_workgroups(workgroups, 1, 1);
+            let (wx, wy, wz) = split_workgroups(workgroups);
+            pass.dispatch_workgroups(wx, wy, wz);
         }
         self.queue().submit(std::iter::once(encoder.finish()));
     }
@@ -98,7 +111,8 @@ impl GpuF64 {
         });
         pass.set_pipeline(pipeline);
         pass.set_bind_group(0, bind_group, &[]);
-        pass.dispatch_workgroups(workgroups, 1, 1);
+        let (wx, wy, wz) = split_workgroups(workgroups);
+        pass.dispatch_workgroups(wx, wy, wz);
     }
 
     /// Dispatch a compute pipeline and read back f64 results.
@@ -130,7 +144,8 @@ impl GpuF64 {
             });
             pass.set_pipeline(pipeline);
             pass.set_bind_group(0, bind_group, &[]);
-            pass.dispatch_workgroups(workgroups, 1, 1);
+            let (wx, wy, wz) = split_workgroups(workgroups);
+            pass.dispatch_workgroups(wx, wy, wz);
         }
 
         encoder.copy_buffer_to_buffer(output_buffer, 0, &staging, 0, (output_count * 8) as u64);

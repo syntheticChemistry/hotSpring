@@ -19,7 +19,7 @@ establish baseline for cross-substrate comparison.
 | TDP | 200W |
 | PCIe Slot | `01:00.0` |
 | Driver | 580.82.09 (proprietary) |
-| f64 throughput | **1:2 via wgpu** (not CUDA's artificial 1:32) |
+| f64 throughput | Hardware ~1:64 (AD104: limited FP64 units). DF64 (f32-pair) at ~3 TFLOPS. See `bench_fp64_ratio`. |
 
 #### hotSpring Performance (validated)
 
@@ -41,7 +41,7 @@ establish baseline for cross-substrate comparison.
 | L2 Cache | 6 MB |
 | TDP | 350W |
 | Driver | nvidia proprietary |
-| f64 throughput | **1:2 via wgpu** (not CUDA's artificial 1:32) |
+| f64 throughput | Hardware ~1:64 (GA102: 164 FP64 units, 0.33 TFLOPS). DF64 (f32-pair) at 3.24 TFLOPS. See `bench_fp64_ratio`. |
 
 biomeGate's primary compute GPU. The 24 GB VRAM is 2× the RTX 4070, enabling
 GPU-resident dynamical fermion lattices up to 24⁴ without sublattice decomposition.
@@ -125,20 +125,32 @@ driver. This validates that BarraCuda's wgpu path is driver-independent.
 
 ---
 
-## The f64 Discovery
+## The f64 Discovery (Corrected Feb 24, 2026)
 
-BarraCuda's defining contribution: consumer NVIDIA GPUs (GeForce) advertise
-f64 at 1:32 throughput. This is a **CUDA driver limitation**, not a hardware
-limitation. Via wgpu (Vulkan backend), the same silicon runs f64 at 1:2.
+**Original claim (incorrect):** Consumer GPUs run f64 at 1:2 via wgpu/Vulkan.
 
-| GPU | CUDA f64:f32 | wgpu f64:f32 | Hardware Reality |
-|-----|-------------|-------------|-----------------|
-| RTX 4070 | 1:32 | **1:2** | 1:2 |
-| Titan V | 1:2 (full) | **1:2** | 1:2 |
-| RTX 3090 | 1:32 | **1:2** | 1:2 |
+**Corrected via `bench_fp64_ratio` FMA chain micro-benchmark:**
 
-This is the precedent for metalForge: vendor SDKs present a limited view
-of the hardware. Going lower finds capabilities they don't advertise.
+| GPU | CUDA fp64 | Vulkan fp64 | Hardware | Strategy |
+|-----|-----------|-------------|----------|----------|
+| RTX 4070 (Ada) | ~1:64 | ~1:64 | ~1:64 (limited FP64 units) | DF64 hybrid |
+| RTX 3090 (Ampere) | 0.29 TFLOPS | 0.33 TFLOPS | 1:64 (164 FP64 units) | DF64 hybrid |
+| Titan V (Volta) | N/A (NVK only) | 0.59 TFLOPS | **1:2 (2560 FP64 cores)** | Native f64 |
+
+Consumer Ampere/Ada fp64 is hardware ~1:64 — confirmed by both CUDA and Vulkan
+giving the same fp64 throughput. The ratio IS silicon, not driver software.
+
+**The real discovery:** Double-float (f32-pair) arithmetic on the FP32 cores
+delivers **3.24 TFLOPS** at 14-digit precision — **9.9× faster than native
+f64** on consumer GPUs. This "core streaming" strategy routes bulk math to
+the massive FP32 array and reserves native f64 for precision-critical ops.
+
+The Titan V has genuine 1:2 hardware (same GV100 die as Tesla V100),
+accessible through the open-source NVK driver even after NVIDIA dropped
+Volta from proprietary driver support.
+
+This remains a metalForge precedent: understanding actual hardware behavior
+(not just SDK documentation) reveals better strategies than either vendor path.
 
 ---
 

@@ -12,8 +12,9 @@ The BrainChip SDK (MetaTF) presents the AKD1000 as an image-classification accel
 with strict constraints: 1 or 3 input channels, feed-forward only, no tanh.
 
 **We tested every assumption against the actual hardware.** Several are SDK-enforced
-limitations, not silicon limitations. This parallels our GPU f64 discovery — where the
-CUDA driver throttled f64 to 1:32 but the hardware runs 1:2 via wgpu.
+limitations, not silicon limitations. This parallels our GPU f64 discovery — where we
+initially thought wgpu bypassed CUDA's fp64 throttle; rigorous benchmarking confirmed
+both APIs give ~1:64 (hardware ratio). The real breakthrough was the double-float hybrid.
 
 ### Key Discoveries
 
@@ -420,9 +421,9 @@ These are real silicon constraints, not SDK limitations:
 
 | Aspect | GPU (BarraCuda) | NPU (metalForge) |
 |--------|-----------------|-------------------|
-| **SDK claim** | f64 at 1:32 (CUDA) | InputConv: 1 or 3 channels only |
-| **Reality** | f64 at 1:2 (wgpu/Vulkan) | Any channel count works (SW shim) |
-| **Method** | Bypass CUDA driver | Bypass SDK channel check |
+| **SDK claim** | f64 at 1:2 via wgpu (bypass CUDA) | InputConv: 1 or 3 channels only |
+| **Reality** | Both CUDA and Vulkan ~1:64; DF64 hybrid 9.9× native f64 | Any channel count works (SW shim) |
+| **Method** | Double-float on FP32 cores | Bypass SDK channel check |
 | **Impact** | 16× f64 speedup | Physics vectors work directly |
 | **Additional finds** | — | Batch amortizes PCIe 2.4× |
 | **Additional finds** | — | FC chains merge to single HW pass |

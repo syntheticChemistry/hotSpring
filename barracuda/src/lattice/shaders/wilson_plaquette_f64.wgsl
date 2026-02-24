@@ -102,8 +102,9 @@ fn plaquette_re_tr(site: u32, mu: u32, nu: u32) -> f64 {
 }
 
 @compute @workgroup_size(64)
-fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
-    let site = gid.x;
+fn main(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgroups) nwg: vec3<u32>) {
+    let idx = gid.x + gid.y * nwg.x * 64u;
+    let site = idx;
     if site >= params.volume { return; }
 
     var plaq_sum: f64 = f64(0.0);

@@ -70,20 +70,22 @@ MD workloads are **memory-bandwidth-bound**, not compute-bound.
 - RTX 4070 bandwidth ceiling: 504 GB/s × 0.44 = 0.22 TFLOPS (theoretical max)
 - Measured peak: ~0.097 TFLOPS at N=10000 (44% of bandwidth ceiling)
 
-The fp64 INSTRUCTION throughput is ~1:2 (vs CUDA's 1:64), confirmed by:
-- `f64_builtin_test`: native sqrt/exp on f64 compiles and produces correct results
-- Experiment 006: Jacobi eigensolve (compute-bound) runs 4-7× faster than the Titan V
-  on NVK, which is impossible at CUDA's 1:64 ratio
+Native f64 builtins compile and produce correct results (`f64_builtin_test`), and
+are 1.5-2.2× faster than the `math_f64` software emulation library.
 
-### The CUDA gimp vs Vulkan truth
+**CORRECTION (Feb 24, 2026):** The original "~1:2" claim was incorrect. Definitive
+`bench_fp64_ratio` FMA chain measurement on RTX 3090 (GA102):
 
-| Path | fp64 TFLOPS | fp64:fp32 ratio |
-|------|----------:|:----------------|
-| CUDA (gimped) | 0.46 | 1:64 |
-| Vulkan instruction (target) | 14.6 | 1:2 |
-| Vulkan MD application (bandwidth-bound) | 0.097 | N/A (memory-limited) |
+| Path | fp32 TFLOPS | fp64 TFLOPS | fp64:fp32 ratio |
+|------|----------:|----------:|:----------------|
+| CUDA (nvcc -O3) | 22.07 | 0.29 | 1:77 |
+| Vulkan/wgpu (nvidia proprietary) | 14.05 | 0.33 | 1:43 |
+| Titan V NVK (GV100, hardware 1:2) | 0.33 | 0.25 | 1:1.3 |
 
-The silicon supports 1:2. The Vulkan driver exposes it. CUDA hides it.
+Consumer Ampere fp64:fp32 is hardware ~1:64 (164 FP64 units across 82 SMs).
+The Titan V has 2,560 dedicated FP64 cores (genuine 1:2 silicon, same die as V100).
+The earlier "4-7× faster eigensolve" comparison was confounded by NVK dispatch
+overhead, not fp64 ratio.
 
 ### Path to saturating fp64 compute
 

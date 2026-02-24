@@ -11,8 +11,9 @@ struct Params {
 @group(0) @binding(2) var<storage, read_write> p: array<f64>;
 
 @compute @workgroup_size(64)
-fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
-    let i = gid.x;
+fn main(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgroups) nwg: vec3<u32>) {
+    let idx = gid.x + gid.y * nwg.x * 64u;
+    let i = idx;
     if i >= params.n { return; }
     p[i] = x[i] + params.beta * p[i];
 }

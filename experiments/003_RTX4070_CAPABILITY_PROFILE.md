@@ -348,7 +348,7 @@ This is a computational trivial expansion that may significantly improve accurac
 | Setup time | Seconds (local) | Minutes-hours (queue) | 10-100× faster |
 | Availability | 24/7 | Queue-dependent | Always available |
 | Max N (practical) | ~200-400K | ~1M+ | HPC wins for huge N |
-| FP64 TFLOPS | ~0.3 (bandwidth-limited ~1:2) | ~10-100 (A100/H100) | HPC wins for compute |
+| FP64 TFLOPS | ~0.3 native, ~3.2 DF64 hybrid | ~10-100 (A100/H100) | HPC wins for compute |
 | Energy per paper-parity run | 19.4 kJ | ~100-500 kJ (shared infra) | 5-25× more efficient |
 
 **The key insight**: For N ≤ 100,000 and exploration-phase work (parameter sweeps,
@@ -368,25 +368,24 @@ we have measured it.
 
 ### GPU Hardware Landscape (2025-2026)
 
-| GPU | VRAM | fp64:fp32 (via wgpu) | SHADER_F64 | Est. N=10k time | Street Price |
-|-----|------|----------------------|------------|-----------------|-------------|
-| RTX 3060 | 12 GB | ~1:2 | ✅ | ~8-10 min | $250 |
-| RTX 3070 | 8 GB | ~1:2 | ✅ | ~6-8 min | $300 |
-| RTX 3080 | 10 GB | ~1:2 | ✅ | ~4-6 min | $400 |
-| **RTX 4070** | **12 GB** | **~1:2** | **✅** | **5.3 min** | **$500** |
-| RTX 4080 | 16 GB | ~1:2 | ✅ | ~3-4 min | $800 |
-| RTX 4090 | 24 GB | ~1:2 | ✅ | ~2-3 min | $1,600 |
-| RTX 5060 | 16 GB | ~1:2 (expected) | ✅ (expected) | ~4-5 min | $400 |
-| RTX 5070 | 12 GB | ~1:2 (expected) | ✅ (expected) | ~3-4 min | $550 |
-| RTX 5080 | 16 GB | ~1:2 (expected) | ✅ (expected) | ~2-3 min | $1,000 |
-| RTX 5090 | 32 GB | ~1:2 (expected) | ✅ (expected) | ~1-2 min | $2,000 |
-| AMD RX 6800 XT | 16 GB | ~1:2 | ✅ | ~6-8 min | $350 |
-| AMD RX 7900 XTX | 24 GB | ~1:2 | ✅ | ~3-5 min | $800 |
-| **Titan V** | **12 GB HBM2** | **1:2 native** | **✅** | **~30s** | **$700 used** |
+| GPU | VRAM | fp64 HW ratio | DF64 hybrid | SHADER_F64 | Est. N=10k time | Street Price |
+|-----|------|---------------|-------------|------------|-----------------|-------------|
+| RTX 3060 | 12 GB | ~1:64 | ~10× via DF64 | ✅ | ~8-10 min | $250 |
+| RTX 3070 | 8 GB | ~1:64 | ~10× via DF64 | ✅ | ~6-8 min | $300 |
+| RTX 3080 | 10 GB | ~1:64 | ~10× via DF64 | ✅ | ~4-6 min | $400 |
+| **RTX 3090** | **24 GB** | **~1:64** | **9.9× (3.24T)** | **✅** | **~4 min** | **$700** |
+| **RTX 4070** | **12 GB** | **~1:64** | **~10× via DF64** | **✅** | **5.3 min** | **$500** |
+| RTX 4080 | 16 GB | ~1:64 | ~10× via DF64 | ✅ | ~3-4 min | $800 |
+| RTX 4090 | 24 GB | ~1:64 | ~10× via DF64 | ✅ | ~2-3 min | $1,600 |
+| RTX 5090 | 32 GB | ~1:64 (expected) | ~10× via DF64 | ✅ (expected) | ~1-2 min | $2,000 |
+| AMD RX 6800 XT | 16 GB | ~1:16 | ~4× via DF64 | ✅ | ~6-8 min | $350 |
+| AMD RX 7900 XTX | 24 GB | ~1:16 | ~4× via DF64 | ✅ | ~3-5 min | $800 |
+| **Titan V** | **12 GB HBM2** | **1:2 native** | **N/A (native)** | **✅** | **~30s** | **$700 used** |
 
-**Key point**: wgpu/Vulkan bypasses CUDA's fp64 throttle. Every GPU in this table gets
-~1:2 fp64:fp32 performance through the same WGSL shaders. No CUDA. No vendor lock-in.
-AMD and NVIDIA run the same code at comparable performance.
+**Key point**: Both CUDA and Vulkan give the same fp64 throughput (~0.3 TFLOPS on RTX 3090) —
+the hardware fp64:fp32 ratio is ~1:64 on consumer Ampere/Ada. The double-float (f32-pair)
+hybrid on FP32 cores delivers 9.9× native f64. Every GPU runs the same WGSL shaders. No CUDA.
+No vendor lock-in. AMD and NVIDIA run the same code at comparable performance.
 
 ### Steam Hardware Survey Context
 
@@ -520,7 +519,7 @@ budget tier — and project what a next-gen GPU (RTX 5090) could do at the same 
 
 The RTX 5090 (GB202, expected specs) brings ~2× the shader cores and ~2× the
 memory bandwidth of the 4070, at ~2× the power draw (~300W TDP vs ~200W).
-Through wgpu/Vulkan, it should maintain the same ~1:2 fp64:fp32 ratio.
+Consumer fp64 is hardware ~1:64; the DF64 hybrid core-streaming strategy applies.
 
 | Metric | RTX 4070 (measured) | RTX 5090 (projected) | Basis |
 |--------|:-------------------:|:-------------------:|-------|

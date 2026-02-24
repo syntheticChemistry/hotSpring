@@ -25,9 +25,10 @@ fn main(
     @builtin(global_invocation_id) global_id: vec3<u32>,
     @builtin(local_invocation_id) local_id: vec3<u32>,
     @builtin(workgroup_id) workgroup_id: vec3<u32>,
+    @builtin(num_workgroups) nwg: vec3<u32>,
 ) {
     let tid = local_id.x;
-    let gid = global_id.x;
+    let gid = global_id.x + global_id.y * nwg.x * 256u;
 
     if (gid < params.size) {
         shared_data[tid] = input[gid];
@@ -44,6 +45,7 @@ fn main(
     }
 
     if (tid == 0u) {
-        output[workgroup_id.x] = shared_data[0];
+        let wg_linear = workgroup_id.x + workgroup_id.y * nwg.x;
+        output[wg_linear] = shared_data[0];
     }
 }

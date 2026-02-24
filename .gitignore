@@ -95,6 +95,9 @@ env/
 .idea/
 .cursor/
 
+# CUDA compiled binaries
+barracuda/cuda/bench_fp64_ratio_cuda
+
 # ============================================================
 # NOTE: These ARE tracked (small, important for reproducibility):
 #   control/sarkas/simulations/dsf-study/results/*.json   (validation results)

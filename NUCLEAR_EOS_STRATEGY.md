@@ -6,7 +6,7 @@
 
 **Date**: 2026-02-08 (initial), 2026-02-11 (L1+L2), 2026-02-15 (Phase E), 2026-02-17 (GPU density pipeline)  
 **Status**: Phase A ✅ Complete, Phase B ✅ L1+L2 Validated, Phase C ✅ GPU MD (9/9 PP Yukawa), Phase D ✅ Native f64 + N-scaling, Phase E ✅ Paper-parity long run (9/9, N=10k, 80k steps, $0.044) + Toadstool rewire, Phase F ✅ GPU-resident HFB density pipeline  
-**f64 Status**: Native WGSL builtins confirmed — fp64:fp32 ~1:2 via wgpu/Vulkan (bottleneck broken)  
+**f64 Status**: Native WGSL builtins confirmed. Consumer Ampere/Ada: fp64:fp32 ~1:64 (both CUDA and Vulkan). Double-float hybrid delivers 9.9× native f64 — bottleneck broken.  
 **Context**: The Code Ocean capsule is gated. We built the nuclear EOS from
 first principles instead — and used it as the Phase A → Phase B transition.
 
@@ -171,13 +171,14 @@ Status: Hardware verified. Model pipeline needs cnn2snn conversion.
 | Hardware | Role | FP64 TFLOPS | fp64:fp32 | Status |
 |----------|------|-------------|-----------|--------|
 | i9-12900K (CPU) | HFB eigensolvers, NM fast path | ~0.5 | N/A | ✅ Active |
-| RTX 4070 (GPU) | **f64 science compute** (native builtins) | ~0.3 (compute) / **~1:2** (bandwidth) | **~1:2** | ✅ **Active — bottleneck broken** |
+| RTX 4070 (GPU) | **f64 science compute** (native builtins + DF64 hybrid) | ~0.3 (native) / **3.24** (DF64) | **~1:64** (native) | ✅ **Active — bottleneck broken** |
 | AKD1000 (NPU) | Pre-screening classifier | N/A | N/A | ✅ Hardware ready |
 | **Titan V ×2** | **f64 GPU compute** | **13.8 combined** | **1:2 native** | 📦 On order |
 
 **UPDATE Feb 15, 2026 — f64 Bottleneck Broken**: The RTX 4070 now runs native f64 builtins
-(`sqrt`, `exp`, `round`, `floor`) via `SHADER_F64`/Naga/Vulkan. The true fp64:fp32 ratio is
-~1:2, not the 1:64 CUDA reports. This changes the compute equation:
+(`sqrt`, `exp`, `round`, `floor`) via `SHADER_F64`/Naga/Vulkan. Rigorous benchmarking confirmed
+fp64:fp32 ~1:64 (both CUDA and Vulkan match hardware). The breakthrough: **double-float (f32-pair)**
+on FP32 cores delivers 3.24 TFLOPS at 14-digit precision (9.9× native f64). This changes the compute equation:
 
 | Role | Before (software f64) | After (native f64) |
 |------|----------------------|-------------------|

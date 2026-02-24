@@ -28,8 +28,9 @@ struct Params {
 @group(0) @binding(6) var<storage, read_write> force: array<f64>;
 
 @compute @workgroup_size(64)
-fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
-    let site = gid.x;
+fn main(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgroups) nwg: vec3<u32>) {
+    let idx = gid.x + gid.y * nwg.x * 64u;
+    let site = idx;
     if site >= params.volume { return; }
 
     let xp = site * 6u;
@@ -66,9 +67,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
                 let t2_re = ya_fwd_re * xb_here_re + ya_fwd_im * xb_here_im;
                 let t2_im = ya_fwd_im * xb_here_re - ya_fwd_re * xb_here_im;
 
-                let idx = (a * 3u + b) * 2u;
-                m[idx]     = half_eta * (t1_re - t2_re);
-                m[idx + 1u] = half_eta * (t1_im - t2_im);
+                let moff = (a * 3u + b) * 2u;
+                m[moff]     = half_eta * (t1_re - t2_re);
+                m[moff + 1u] = half_eta * (t1_im - t2_im);
             }
         }
 

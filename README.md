@@ -16,7 +16,7 @@ hotSpring is where we reproduce published computational physics work from the Mu
 
 - **Phase C (GPU MD)**: Run Sarkas Yukawa OCP molecular dynamics entirely on GPU using f64 WGSL shaders. **✅ 9/9 PP Yukawa DSF cases pass on RTX 4070. 0.000% energy drift at 80k production steps. Up to 259 steps/s sustained. 3.4× less energy per step than CPU at N=2000.**
 
-- **Phase D (Native f64 Builtins + N-Scaling)**: Replaced software-emulated f64 transcendentals with hardware-native WGSL builtins. **✅ 2-6× throughput improvement. N=10,000 paper parity in 5.3 minutes. N=20,000 in 10.4 minutes. Full sweep (500→20k) in 34 minutes. 0.000% energy drift at all N. The f64 bottleneck is broken — true fp64:fp32 ratio is ~1:2 (not 1:64).**
+- **Phase D (Native f64 Builtins + N-Scaling)**: Replaced software-emulated f64 transcendentals with hardware-native WGSL builtins. **✅ 2-6× throughput improvement. N=10,000 paper parity in 5.3 minutes. N=20,000 in 10.4 minutes. Full sweep (500→20k) in 34 minutes. 0.000% energy drift at all N. The f64 bottleneck is broken — double-float (f32-pair) on FP32 cores delivers 3.24 TFLOPS at 14-digit precision (9.9× native f64).**
 
 - **Phase E (Paper-Parity Long Run + Toadstool Rewire)**: 9-case Yukawa OCP sweep at N=10,000, 80k production steps — matching the Dense Plasma Properties Database exactly. **✅ 9/9 cases pass, 0.000-0.002% energy drift, 3.66 hours total, $0.044 electricity. Cell-list 4.1× faster than all-pairs. Toadstool GPU ops (BatchedEighGpu, SsfGpu, PppmGpu) wired into hotSpring.**
 
@@ -161,13 +161,14 @@ GPU path uses **44.8× less energy** than Python for identical physics (126 J vs
 
 Before February 14, 2026, all GPU MD shaders used **software-emulated** f64 transcendentals
 (`math_f64.wgsl` — hundreds of lines of f32-pair arithmetic for `sqrt_f64()`, `exp_f64()`, etc.).
-This kept the GPU ALU underutilized and throughput artificially low. We believed NVIDIA's 1:64
-fp64:fp32 hardware ratio was the bottleneck.
+This kept the GPU ALU underutilized and throughput artificially low. We initially believed
+wgpu/Vulkan might bypass CUDA's fp64 throttle (1:2 vs 1:64).
 
-**Discovery**: The toadstool/barracuda team confirmed that wgpu/Vulkan's `SHADER_F64` feature
-exposes **native hardware f64 operations** — `sqrt()`, `exp()`, `round()`, `floor()` all operate
-directly on f64 types. The true fp64:fp32 throughput ratio on consumer GPUs (via Vulkan) is
-**~1:2**, not 1:64. The 1:64 penalty only applies to CUDA's native fp64 units, which wgpu bypasses.
+**Discovery (corrected via bench_fp64_ratio)**: Rigorous FMA-chain benchmarking confirmed
+consumer Ampere/Ada GPUs have hardware fp64:fp32 ~1:64 — both CUDA and Vulkan give the same
+~0.3 TFLOPS fp64 throughput on RTX 3090. The "1:2" claim was wrong. The **real** breakthrough:
+**double-float (f32-pair) on FP32 cores** delivers 3.24 TFLOPS at 14-digit precision — **9.9×**
+native f64. That hybrid strategy is the actual bottleneck-breaker.
 
 | Metric | Software f64 (before) | Native f64 (after) | Improvement |
 |--------|----------------------|-------------------|-------------|
@@ -814,7 +815,7 @@ These are **silent failures** — wrong results, no error messages. This fragili
 ## Hardware
 
 - **Eastgate (primary dev)**: i9-12900K, RTX 4070 (12GB) + Titan V (12GB HBM2), Akida AKD1000 NPU, 32 GB DDR5.
-  - RTX 4070 (Ada): nvidia proprietary 580.x, `SHADER_F64` confirmed. fp64:fp32 ~1:2 via wgpu/Vulkan.
+  - RTX 4070 (Ada): nvidia proprietary 580.x, `SHADER_F64` confirmed. fp64:fp32 ~1:64 (consumer Ampere/Ada); double-float hybrid delivers 9.9× native f64.
   - Titan V (GV100): **NVK / nouveau (Mesa 25.1.5, built from source)**, `SHADER_F64` confirmed. Native fp64 silicon, 6.9 TFLOPS FP64, 12GB HBM2. `validate_cpu_gpu_parity` 6/6, `validate_stanton_murillo` 40/40 on NVK.
   - AKD1000 (BrainChip): PCIe `08:00.0`, 80 NPs, 8MB SRAM, akida 2.19.1. 10 SDK assumptions overturned. See `metalForge/npu/akida/BEYOND_SDK.md`.
   - **Numerical parity**: identical physics to 1e-15 across both GPUs and both drivers. NPU int4 quantization error bounded at <30%.

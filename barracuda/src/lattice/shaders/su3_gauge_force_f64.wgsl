@@ -68,8 +68,9 @@ fn zero_su3() -> array<f64, 18> {
 }
 
 @compute @workgroup_size(64)
-fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
-    let link_idx = gid.x;
+fn main(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgroups) nwg: vec3<u32>) {
+    let idx = gid.x + gid.y * nwg.x * 64u;
+    let link_idx = idx;
     let n_links = params.volume * 4u;
     if link_idx >= n_links { return; }
 

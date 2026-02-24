@@ -16,8 +16,8 @@ what it can't, and where the physics meets the transistors.
 
 We don't just benchmark. We probe. We map register spaces, measure cache
 line behavior, exploit hardware quirks, and find the paths that vendor SDKs
-don't advertise. The GPU work (native f64 at 1:2 on consumer cards via
-BarraCuda) proved this approach works. metalForge extends it to every
+don't advertise. The GPU work (double-float hybrid achieving 9.9× native f64
+on consumer cards via BarraCuda) proved this approach works. metalForge extends it to every
 substrate ecoPrimals touches.
 
 ---
@@ -27,7 +27,7 @@ substrate ecoPrimals touches.
 | Substrate | Device | PCIe Slot | Key Spec | Status |
 |-----------|--------|-----------|----------|--------|
 | **NPU** | BrainChip AKD1000 | `08:00.0` | 80 NPs, 8MB SRAM, ~30mW, event-based | Driver loaded, `/dev/akida0` |
-| **GPU (primary)** | NVIDIA RTX 4070 | `01:00.0` | 12GB, Ada Lovelace, native f64 1:2 | Active — all MD validated |
+| **GPU (primary)** | NVIDIA RTX 4070 | `01:00.0` | 12GB, Ada Lovelace, f64 hardware ~1:64, DF64 ~3 TFLOPS | Active — all MD validated |
 | **GPU (secondary)** | NVIDIA Titan V | `05:00.0` | 12GB, Volta GV100, NVK driver | Validated — identical physics |
 | **CPU** | Intel i9-12900K | — | 16C/24T, 30MB L3, Alder Lake P+E | Reference substrate |
 

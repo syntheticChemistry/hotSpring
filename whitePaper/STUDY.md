@@ -4,8 +4,8 @@
 **Date**: February 23, 2026
 **License**: AGPL-3.0
 **Hardware**: Consumer workstations — Eastgate (i9-12900, 32 GB DDR5, RTX 4070 + Titan V) + biomeGate (Threadripper 3970X, 256 GB DDR4, RTX 3090 + Titan V + Akida NPU)
-**GPUs**: RTX 4070 (Ada, 12 GB), RTX 3090 (Ampere, 24 GB), Titan V (Volta/NVK, 12 GB) — all f64 at 1:2 via wgpu/Vulkan
-**f64 status**: Native WGSL builtins confirmed on both GPUs (fp64:fp32 ~1:2 via wgpu/Vulkan)
+**GPUs**: RTX 4070 (Ada, 12 GB), RTX 3090 (Ampere, 24 GB), Titan V (Volta/NVK, 12 GB) — native f64 via wgpu/Vulkan
+**f64 status**: Native WGSL f64 builtins confirmed on all GPUs. Titan V: hardware 1:2 fp64:fp32 (GV100). Consumer Ampere/Ada: hardware ~1:64, matching CUDA (see bench_fp64_ratio for definitive FMA chain measurement)
 
 ---
 
@@ -291,7 +291,7 @@ The L2 Phase 1 (SLy4 baseline, completed) and L3 best_l2_42 (completed) provide 
 
 6. **478x faster throughput, 44.8x less energy.** BarraCuda L1: chi2=2.27 in 2.3s vs Python's 6.62 in 184s. GPU uses 126 J vs Python's 5,648 J for 100k evaluations.
 
-7. **GPU FP64 is exact and production-ready.** RTX 4070 SHADER_F64 delivers true IEEE 754 double precision (4.55e-13 MeV max error). Practical FP64:FP32 ratio is ~2x via wgpu/Vulkan, not CUDA's 1:64.
+7. **GPU FP64 is exact and production-ready.** RTX 4070 SHADER_F64 delivers true IEEE 754 double precision (4.55e-13 MeV max error). Consumer Ampere/Ada hardware fp64:fp32 is ~1:64 (same as CUDA); the Titan V (GV100) provides native 1:2 via dedicated FP64 cores. Both confirmed by `bench_fp64_ratio` FMA chain micro-benchmark.
 
 8. **Full Sarkas Yukawa MD on consumer GPU.** 9/9 PP cases at N=10,000, 80k steps, 0.000-0.002% drift, 3.66 hours, $0.044. Cell-list 4.1x faster than all-pairs. N-scaling to N=20,000 (2x paper). WGSL i32 % bug deep-debugged for platform viability.
 
@@ -351,7 +351,7 @@ Zero external dependencies. All math is native Rust. Three-substrate energy comp
 | BarraCuda CPU (Rust) | 4.9851 | 72.7 | 374 | 15.1x less energy |
 | BarraCuda GPU (RTX 4070) | 4.9851 | 39.7 | 126 | **44.8x less energy** |
 
-GPU FP64 precision: Max |B_cpu - B_gpu| = **4.55e-13 MeV** (sub-ULP, bit-exact). The practical FP64:FP32 ratio on RTX 4070 via wgpu/Vulkan is **~2x** — not the 1:64 CUDA reports — because wgpu bypasses driver-level FP64 throttling.
+GPU FP64 precision: Max |B_cpu - B_gpu| = **4.55e-13 MeV** (sub-ULP, bit-exact). Consumer Ampere/Ada GPUs have hardware fp64:fp32 ~1:64 (confirmed by `bench_fp64_ratio`: RTX 3090 = 1:43 Vulkan, 1:77 CUDA, both consistent with 164 dedicated FP64 units). The Titan V (GV100) provides native 1:2 hardware via 2,560 dedicated FP64 cores — a genuine compute-class fp64 card accessible through the open-source NVK driver.
 
 L1 DirectSampler optimization: chi2=**2.27** in 2.3s (6,028 evals) vs Python's 6.62 in 184s (1,008 evals) — **478x throughput**.
 
@@ -375,7 +375,7 @@ Three phases extended GPU validation from basic MD through full paper parity. Th
 
 **Phase C** (N=2,000, 80k steps): 9/9 PP Yukawa cases pass. Five observables validated per case (energy conservation, RDF, VACF, SSF, diffusion). GPU runs 3.7x faster, 3.4x less energy than CPU at N=2,000.
 
-**Phase D** (N-scaling): Discovery that WGSL native `sqrt()`, `exp()`, `round()`, `floor()` work correctly on f64 types gave 2-6x throughput improvement — far exceeding the 1.5-2x from isolated benchmarks. N-scaling results:
+**Phase D** (N-scaling): Switching from the `math_f64` software emulation library to WGSL native `sqrt()`, `exp()`, `round()`, `floor()` on f64 types gave 2-6x throughput improvement (native builtins are 1.5-2.2x faster per operation, but the compounding effect across the force kernel is larger). N-scaling results:
 
 | N | GPU steps/s | Wall time | Energy drift | Method |
 |:---:|:---:|:---:|:---:|:---:|

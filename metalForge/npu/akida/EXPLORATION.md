@@ -252,8 +252,9 @@ for DMA, and `akida_visible_memory()` for the full addressable space.
 
 **This is the GPU f64 parallel**: The Python SDK is like CUDA — it presents
 a limited view of the hardware. The C++ Engine is like Vulkan/wgpu — it
-lets us talk to the metal. And just like we found f64 at 1:2 by going
-through wgpu, we might find capabilities the SDK doesn't advertise.
+lets us talk to the metal. And just like we found the DF64 core-streaming
+strategy by benchmarking actual hardware, we might find capabilities the
+SDK doesn't advertise.
 
 **Estimated effort**: 1-2 weeks (highly exploratory)
 **Novelty**: Very high

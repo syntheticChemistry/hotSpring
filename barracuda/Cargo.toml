@@ -216,6 +216,11 @@ path = "src/bin/bench_multi_gpu.rs"
 name = "bench_gpu_fp64"
 path = "src/bin/bench_gpu_fp64.rs"
 
+# ── Definitive FP64:FP32 ratio micro-benchmark (pure FMA chain) ──
+[[bin]]
+name = "bench_fp64_ratio"
+path = "src/bin/bench_fp64_ratio.rs"
+
 # ── Transport coefficient validation (Stanton & Murillo 2016) ──────
 [[bin]]
 name = "validate_transport"

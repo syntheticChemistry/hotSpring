@@ -4,7 +4,7 @@
 **Gate**: Eastgate (i9-12900K, 32 GB DDR5, RTX 4070 12GB, Pop!_OS 22.04)  
 **Sarkas**: v1.0.0 (pinned — see §Roadblocks)  
 **Python**: 3.9 (sarkas), 3.10 (ttm, surrogate) via micromamba  
-**f64 Status**: Native WGSL builtins confirmed — fp64:fp32 ~1:2 via wgpu/Vulkan (bottleneck broken)
+**f64 Status**: Native WGSL builtins confirmed. Consumer Ampere/Ada: fp64:fp32 ~1:64 (both CUDA and Vulkan). Double-float hybrid delivers 9.9× native f64 — bottleneck broken.
 
 ---
 
@@ -890,7 +890,7 @@ With native f64 builtins confirmed, the RTX 4070 is now a practical f64 science 
 | Full 9-case sweep (80k steps) | **71 minutes, 225 kJ** | All 9 PP Yukawa cases |
 | Energy drift at all N | **0.000%** | Verified N=500 through N=20,000 |
 | Parameter sweep (50 pts × N=10k) | **~4 hours** | Overnight — routine |
-| fp64:fp32 ratio | **~1:2** (not 1:64) | wgpu/Vulkan bypasses CUDA throttle |
+| fp64:fp32 ratio | **~1:64** (native); **9.9×** via DF64 hybrid | Both CUDA and Vulkan match hardware; double-float is the breakthrough |
 
 **What this unlocks**: parameter sweeps over hundreds of κ,Γ combinations, extended
 production runs (500k steps overnight), multi-seed optimization, and expanding from

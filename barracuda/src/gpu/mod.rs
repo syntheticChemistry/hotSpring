@@ -129,8 +129,8 @@ impl GpuF64 {
         }
 
         let required_limits = wgpu::Limits {
-            max_storage_buffer_binding_size: 512 * 1024 * 1024,
-            max_buffer_size: 1024 * 1024 * 1024,
+            max_storage_buffer_binding_size: 2 * 1024 * 1024 * 1024, // 2 GB for 48^4 lattices
+            max_buffer_size: 4 * 1024 * 1024 * 1024, // 4 GB
             max_storage_buffers_per_shader_stage: 12,
             ..wgpu::Limits::default()
         };

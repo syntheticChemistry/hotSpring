@@ -314,13 +314,15 @@ Economy clock mode saves 18% power at only 19% latency cost.
 
 ### What we did with GPU (BarraCuda)
 
-The conventional wisdom: consumer GPUs have f64 at 1:32 throughput (NVIDIA
-artificially limits FP64 on GeForce). Useless for scientific computing.
+The conventional wisdom: consumer GPUs have f64 at 1:64 throughput (limited
+dedicated FP64 hardware on GeForce). Too slow for compute-heavy science.
 
-**What we actually found**: The RTX 4070 runs f64 at **1:2** throughput via
-wgpu/Vulkan, because the hardware doesn't have a 1:32 penalty — the CUDA
-driver does. By going through wgpu instead of CUDA, we bypass the artificial
-throttle and get native f64 at half the f32 rate.
+**What we actually found** (corrected Feb 24, 2026): Consumer Ampere/Ada
+fp64 IS hardware ~1:64 — confirmed by `bench_fp64_ratio` on RTX 3090 (0.33
+TFLOPS fp64 via both CUDA and Vulkan). BUT: double-float (f32-pair)
+arithmetic on the massive FP32 core array delivers **3.24 TFLOPS at 14-digit
+precision** — 9.9× faster than native f64. The Titan V (Volta, 1:2 native)
+provides genuine compute-class f64 through the open-source NVK driver.
 
 ### What "direct wire" means for NPU
 
