@@ -5,6 +5,79 @@ All notable changes to the hotSpring BarraCuda validation crate.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.6.13 — GPU Polyakov Loop + NVK Guard + PRNG Fix (Feb 25, 2026)
+
+### GPU-resident Polyakov loop (eliminates CPU readback)
+
+Absorbed toadStool `GpuPolyakovLoop` pattern: temporal Wilson line computed
+entirely on GPU. Returns both magnitude and phase (previously only magnitude
+via CPU readback of the full V×4×18 link buffer).
+
+- Added: `polyakov_loop_f64.wgsl` — GPU Polyakov loop shader (t-major indexing)
+- Added: `su3_math_f64.wgsl` — naga-safe SU(3) math library for shader composition
+- Changed: `GpuHmcPipelines` — added `polyakov_pipeline`
+- Changed: `GpuHmcState` — added `poly_out_buf`, `poly_params_buf`, `spatial_vol`
+- Changed: `gpu_polyakov_loop()` — GPU-compute, returns `(magnitude, phase)` tuple
+- Changed: All 5 binary call sites updated for new signature
+- Fixed: `su3_random_momenta_f64.wgsl` — f32/f64 type mismatch in `box_muller_cos`
+
+### NVK allocation guard (toadStool cross-spring evolution)
+
+- Added: `GpuHmcState::from_lattice()` — NVK allocation guard warns when total
+  estimated VRAM exceeds nouveau PTE fault limit (~1.2 GB)
+
+### Benchmark (v0.6.13, RTX 3090 with DF64 Hybrid)
+
+| Lattice | CPU ms/traj | GPU ms/traj | Speedup |
+|---------|-------------|-------------|---------|
+| 4⁴      | 73.4        | 22.6        | 3.2×    |
+| 8⁴      | 1157.3      | 30.1        | 38.5×   |
+| 8³×16   | 2341.7      | 48.1        | 48.6×   |
+| 16⁴     | 18342.1     | 259.5       | 70.7×   |
+
+### Validation (all pass)
+
+- `validate_gpu_streaming`: 7/7 — bit-identical streaming vs dispatch parity
+- `validate_gpu_beta_scan`: 6/6 — monotonic plaquette, physical Polyakov loop
+- `bench_gpu_hmc`: 4 lattice sizes, 100% acceptance at β=6.0
+
+### Cross-spring evolution
+
+- toadStool `GpuPolyakovLoop` → hotSpring v0.6.13 (GPU-resident observable)
+- toadStool `check_allocation_safe()` → hotSpring v0.6.13 (NVK PTE guard)
+- hotSpring `su3_math_f64.wgsl` (naga-safe) → candidate for toadStool absorption
+
+---
+
+## v0.6.12 — toadStool S60 DF64 Expansion (Feb 25, 2026)
+
+### Expanded DF64 core streaming to 60% of HMC
+
+Absorbed toadStool S60 improvements: FMA-optimized df64_core.wgsl,
+df64_transcendentals.wgsl, and expanded DF64 coverage from gauge force only
+(40% of HMC) to gauge force + Wilson plaquette + kinetic energy (60% of HMC).
+
+- Added: `wilson_plaquette_df64.wgsl` — DF64 plaquette with neighbor-buffer indexing
+- Added: `su3_kinetic_energy_df64.wgsl` — DF64 kinetic energy (from toadStool)
+- Changed: `GpuHmcPipelines::new()` — auto-selects DF64 for plaquette and KE on consumer GPUs
+- Changed: Uses `su3_df64_preamble()` with FMA-optimized two_prod and transcendentals
+- Added: `production_mixed_pipeline.rs` — three-substrate production binary (3090+NPU+Titan V)
+- Added: Experiment 015 write-up (mixed pipeline partial results)
+
+### Benchmark (v0.6.12 vs v0.6.11)
+
+| Lattice | v0.6.11 | v0.6.12 | Improvement |
+|---------|---------|---------|-------------|
+| 8⁴      | 36.7 ms | 32.2 ms | 12% faster  |
+| 16⁴     | 293 ms  | 270 ms  | 8% faster   |
+
+### Cross-spring evolution
+
+- toadStool S60 → hotSpring v0.6.12: FMA df64_core, transcendentals, KE shader
+- hotSpring → toadStool: neighbor-buffer DF64 plaquette shader pattern
+
+---
+
 ## v0.6.11 — Site-Indexing Standardization (Feb 25, 2026)
 
 ### Breaking: t-major site ordering

@@ -30,17 +30,16 @@
 use super::wilson::Lattice;
 use crate::gpu::GpuF64;
 
-// Hardware-adaptive DF64 core streaming (hotSpring Exp 012 → toadStool S58-S62).
+// Hardware-adaptive DF64 core streaming (hotSpring Exp 012 → toadStool S58-S60).
 // Auto-selects between native f64 and DF64 (f32-pair) based on GPU hardware:
 //   - Titan V, V100, A100, MI250 → native f64 (1:2 FP64:FP32)
-//   - RTX 3090, 4070, consumer → DF64 on FP32 cores (~10× throughput)
+//   - RTX 3090, 4070, consumer → DF64 on FP32 cores (force + plaquette + KE)
 //
 // Cross-spring evolution:
 //   hotSpring Exp 012 → df64_core.wgsl → toadStool S58 absorption
-//   → toadStool built su3_df64.wgsl + DF64 lattice shaders
-//   → hotSpring v0.6.10 adapts local shaders for DF64 with neighbor-buffer indexing
+//   → toadStool S60: FMA-optimized df64_core + transcendentals + KE DF64
+//   → hotSpring v0.6.12 absorbs S60, adds DF64 plaquette + KE (60% of HMC in DF64)
 use barracuda::device::driver_profile::Fp64Strategy;
-use barracuda::ops::lattice::su3::{WGSL_DF64_CORE, WGSL_SU3_DF64};
 
 /// WGSL shader: Wilson plaquette per site (6 planes, Re Tr P/3).
 pub const WGSL_WILSON_PLAQUETTE: &str = include_str!("shaders/wilson_plaquette_f64.wgsl");
@@ -60,13 +59,35 @@ pub const WGSL_LINK_UPDATE: &str = include_str!("shaders/su3_link_update_f64.wgs
 /// WGSL shader: kinetic energy -½ Re Tr(P²) per link.
 pub const WGSL_KINETIC_ENERGY: &str = include_str!("shaders/su3_kinetic_energy_f64.wgsl");
 
+/// WGSL shader: DF64 plaquette — SU(3) products on FP32 cores (neighbor-buffer indexing).
+pub const WGSL_PLAQUETTE_DF64: &str = include_str!("shaders/wilson_plaquette_df64.wgsl");
+
+/// WGSL shader: DF64 kinetic energy — P² on FP32 cores (toadStool S60).
+pub const WGSL_KINETIC_ENERGY_DF64: &str = include_str!("shaders/su3_kinetic_energy_df64.wgsl");
+
+/// WGSL shader: GPU Polyakov loop — temporal Wilson line on GPU.
+/// Cross-spring evolution: toadStool polyakov_loop_f64 → hotSpring v0.6.13.
+pub const WGSL_POLYAKOV_LOOP: &str = include_str!("shaders/polyakov_loop_f64.wgsl");
+
+/// WGSL shader preamble: complex_f64 + su3_math_f64 (safe for composition, no ptr I/O).
+const WGSL_COMPLEX_F64: &str = include_str!("shaders/complex_f64.wgsl");
+const WGSL_SU3_MATH_F64: &str = include_str!("shaders/su3_math_f64.wgsl");
+
 /// GPU HMC pipeline: local shaders with hardware-adaptive DF64 for SU(3) matmul
 /// kernels (force, plaquette, kinetic energy).
 ///
-/// On consumer GPUs (RTX 3090, 4070 — 1:64 FP64:FP32), the gauge force shader
-/// routes 18/19 SU(3) matrix multiplications per link through the FP32 core
-/// array via DF64 (f32-pair), yielding ~10× throughput. On compute-class GPUs
-/// (Titan V, V100 — 1:2 hardware), native f64 is used directly.
+/// On consumer GPUs (RTX 3090, 4070 — 1:64 FP64:FP32), the gauge force,
+/// plaquette, and kinetic energy shaders route SU(3) matrix products through
+/// the FP32 core array via DF64 (f32-pair), yielding ~2.8× total trajectory
+/// speedup. On compute-class GPUs (Titan V, V100 — 1:2 hardware), native f64
+/// is used directly.
+///
+/// DF64 coverage (v0.6.12, toadStool S60 absorption):
+///   - Gauge force (~40% HMC) — DF64 since v0.6.10
+///   - Wilson plaquette (~15% HMC) — DF64 since v0.6.12
+///   - Kinetic energy (~5% HMC) — DF64 since v0.6.12
+///   - Polyakov loop — GPU-resident since v0.6.13 (was CPU readback)
+///   Total: ~60% of HMC in DF64 (up from 40%)
 pub struct GpuHmcPipelines {
     /// Wilson plaquette per-site kernel
     pub plaquette_pipeline: wgpu::ComputePipeline,
@@ -78,6 +99,8 @@ pub struct GpuHmcPipelines {
     pub link_pipeline: wgpu::ComputePipeline,
     /// Kinetic energy per-link kernel
     pub kinetic_pipeline: wgpu::ComputePipeline,
+    /// Polyakov loop (temporal Wilson line) — full GPU, no CPU readback
+    pub polyakov_pipeline: wgpu::ComputePipeline,
     /// Which FP64 strategy was selected for this hardware
     pub fp64_strategy: Fp64Strategy,
 }
@@ -92,11 +115,22 @@ impl GpuHmcPipelines {
     pub fn new(gpu: &GpuF64) -> Self {
         let strategy = gpu.driver_profile().fp64_strategy();
 
+        // Full DF64 preamble: complex_f64 + su3 + df64_core + df64_transcendentals + su3_df64
+        let df64_preamble = barracuda::ops::lattice::su3::su3_df64_preamble();
+
         let force_src = match strategy {
             Fp64Strategy::Native => WGSL_GAUGE_FORCE.to_string(),
-            Fp64Strategy::Hybrid => {
-                format!("{}\n{}\n{}", WGSL_DF64_CORE, WGSL_SU3_DF64, WGSL_GAUGE_FORCE_DF64)
-            }
+            Fp64Strategy::Hybrid => format!("{}\n{}", df64_preamble, WGSL_GAUGE_FORCE_DF64),
+        };
+
+        let plaq_src = match strategy {
+            Fp64Strategy::Native => WGSL_WILSON_PLAQUETTE.to_string(),
+            Fp64Strategy::Hybrid => format!("{}\n{}", df64_preamble, WGSL_PLAQUETTE_DF64),
+        };
+
+        let ke_src = match strategy {
+            Fp64Strategy::Native => WGSL_KINETIC_ENERGY.to_string(),
+            Fp64Strategy::Hybrid => format!("{}\n{}", df64_preamble, WGSL_KINETIC_ENERGY_DF64),
         };
 
         eprintln!(
@@ -104,16 +138,19 @@ impl GpuHmcPipelines {
             strategy,
             match strategy {
                 Fp64Strategy::Native => "native f64 on all cores",
-                Fp64Strategy::Hybrid => "DF64 on FP32 cores for gauge force (~10× throughput)",
+                Fp64Strategy::Hybrid => "DF64 on FP32 cores for force + plaquette + KE (~2.8× trajectory speedup)",
             }
         );
 
+        let poly_src = format!("{}\n{}\n{}", WGSL_COMPLEX_F64, WGSL_SU3_MATH_F64, WGSL_POLYAKOV_LOOP);
+
         Self {
-            plaquette_pipeline: gpu.create_pipeline_f64(WGSL_WILSON_PLAQUETTE, "hmc_plaq"),
+            plaquette_pipeline: gpu.create_pipeline_f64(&plaq_src, "hmc_plaq"),
             force_pipeline: gpu.create_pipeline_f64(&force_src, "hmc_force"),
             momentum_pipeline: gpu.create_pipeline_f64(WGSL_MOMENTUM_UPDATE, "hmc_mom_update"),
             link_pipeline: gpu.create_pipeline_f64(WGSL_LINK_UPDATE, "hmc_link_update"),
-            kinetic_pipeline: gpu.create_pipeline_f64(WGSL_KINETIC_ENERGY, "hmc_ke"),
+            kinetic_pipeline: gpu.create_pipeline_f64(&ke_src, "hmc_ke"),
+            polyakov_pipeline: gpu.create_pipeline_f64(&poly_src, "hmc_polyakov"),
             fp64_strategy: strategy,
         }
     }
@@ -197,26 +234,71 @@ pub struct GpuHmcState {
     pub ke_out_buf: wgpu::Buffer,
     /// Per-site plaquette sum output buffer.
     pub plaq_out_buf: wgpu::Buffer,
+    /// Per-site Polyakov loop output buffer: (Re, Im) per spatial site.
+    pub poly_out_buf: wgpu::Buffer,
+    /// Uniform parameter buffer for Polyakov loop shader.
+    pub poly_params_buf: wgpu::Buffer,
     /// Neighbor index table: 8 neighbors per site (±μ for μ=0..3).
     pub nbr_buf: wgpu::Buffer,
+    /// Lattice dimensions `[Nx, Ny, Nz, Nt]`.
+    pub dims: [usize; 4],
     /// Number of lattice sites (product of all dimensions).
     pub volume: usize,
     /// Number of gauge links (volume × N_DIM).
     pub n_links: usize,
     /// Gauge coupling β = 2N_c/g².
     pub beta: f64,
+    /// Spatial volume Nx × Ny × Nz.
+    pub spatial_vol: usize,
     /// GPU workgroup count for link-indexed dispatches.
     pub wg_links: u32,
     /// GPU workgroup count for site-indexed dispatches.
     pub wg_vol: u32,
 }
 
+/// Polyakov loop shader uniform params — must match WGSL PolyParams layout.
+#[repr(C)]
+#[derive(Copy, Clone)]
+struct PolyParams {
+    nt: u32,
+    nx: u32,
+    ny: u32,
+    nz: u32,
+    volume: u32,
+    spatial_vol: u32,
+    _pad0: u32,
+    _pad1: u32,
+}
+
+unsafe impl bytemuck::Pod for PolyParams {}
+unsafe impl bytemuck::Zeroable for PolyParams {}
+
 impl GpuHmcState {
     /// Upload a lattice to GPU and create all persistent buffers.
+    ///
+    /// Includes NVK allocation guard (toadStool cross-spring evolution):
+    /// checks total estimated VRAM against nouveau driver PTE fault limit.
     #[must_use]
     pub fn from_lattice(gpu: &GpuF64, lattice: &Lattice, beta: f64) -> Self {
         let vol = lattice.volume();
         let n_links = vol * 4;
+        let [nx, ny, nz, nt] = lattice.dims;
+        let spatial_vol = nx * ny * nz;
+
+        // NVK allocation guard (absorbed from toadStool gpu_hmc_trajectory.rs):
+        // 6 link-sized buffers + 2 scalar buffers + neighbor table + Polyakov output
+        let link_bytes = (n_links * 18 * 8) as u64;
+        let total_estimate = 6 * link_bytes
+            + (vol as u64 * 8)      // plaq_out
+            + (n_links as u64 * 8)  // ke_out
+            + (spatial_vol as u64 * 2 * 8) // poly_out
+            + (vol as u64 * 8 * 4); // nbr
+        let profile = gpu.driver_profile();
+        if let Err(e) = profile.check_allocation_safe(total_estimate) {
+            eprintln!("[HMC] NVK allocation guard: {e}");
+            eprintln!("[HMC] Total estimated: {:.1} MB", total_estimate as f64 / 1e6);
+        }
+
         let links_flat = flatten_links(lattice);
         let neighbors = build_neighbors(lattice);
 
@@ -227,7 +309,26 @@ impl GpuHmcState {
         let force_buf = gpu.create_f64_output_buffer(n_links * 18, "hmc_force");
         let ke_out_buf = gpu.create_f64_output_buffer(n_links, "hmc_ke");
         let plaq_out_buf = gpu.create_f64_output_buffer(vol, "hmc_plaq");
+        let poly_out_buf = gpu.create_f64_output_buffer(spatial_vol * 2, "hmc_polyakov");
         let nbr_buf = gpu.create_u32_buffer(&neighbors, "hmc_nbr");
+
+        let poly_params = PolyParams {
+            nt: nt as u32,
+            nx: nx as u32,
+            ny: ny as u32,
+            nz: nz as u32,
+            volume: vol as u32,
+            spatial_vol: spatial_vol as u32,
+            _pad0: 0,
+            _pad1: 0,
+        };
+        let poly_params_buf = gpu.device().create_buffer(&wgpu::BufferDescriptor {
+            label: Some("hmc_poly_params"),
+            size: std::mem::size_of::<PolyParams>() as u64,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        gpu.queue().write_buffer(&poly_params_buf, 0, bytemuck::bytes_of(&poly_params));
 
         Self {
             link_buf,
@@ -236,10 +337,14 @@ impl GpuHmcState {
             force_buf,
             ke_out_buf,
             plaq_out_buf,
+            poly_out_buf,
+            poly_params_buf,
             nbr_buf,
+            dims: lattice.dims,
             volume: vol,
             n_links,
             beta,
+            spatial_vol,
             wg_links: ((n_links + 63) / 64) as u32,
             wg_vol: ((vol + 63) / 64) as u32,
         }
@@ -2515,7 +2620,12 @@ fn encode_cg_batch(
 // ═══════════════════════════════════════════════════════════════════
 
 /// Observable scalars for the readback stream.
+///
+/// 8-feature vector for NPU multi-output ESN monitoring:
+///   \[plaquette, plaquette_var, polyakov_mag, polyakov_phase,
+///    action_density, acceptance_rate, delta_h_mag, cg_iterations\]
 #[allow(missing_docs)]
+#[derive(Clone, Debug)]
 pub struct StreamObservables {
     /// Mean plaquette ⟨P⟩ = Re Tr(U□) / (3·N_plaq).
     pub plaquette: f64,
@@ -2527,6 +2637,47 @@ pub struct StreamObservables {
     pub cg_iterations: usize,
     /// Metropolis accept/reject decision (true = accepted).
     pub accepted: bool,
+    /// Plaquette variance over recent trajectory window.
+    pub plaquette_var: f64,
+    /// Polyakov loop phase angle (atan2 of imaginary/real).
+    pub polyakov_phase: f64,
+    /// Action density S / V_4.
+    pub action_density: f64,
+}
+
+impl StreamObservables {
+    /// Convert to 8-element feature vector for NPU inference.
+    ///
+    /// Features are ordered to match the multi-output ESN input convention:
+    /// `[plaq, plaq_var, poly_mag, poly_phase, action_density, acc_rate, |ΔH|, cg_iter]`
+    #[must_use]
+    pub fn to_feature_vec(&self, running_acceptance_rate: f64) -> Vec<f64> {
+        vec![
+            self.plaquette,
+            self.plaquette_var,
+            self.polyakov_re,
+            self.polyakov_phase,
+            self.action_density,
+            running_acceptance_rate,
+            self.delta_h.abs(),
+            self.cg_iterations as f64,
+        ]
+    }
+}
+
+impl Default for StreamObservables {
+    fn default() -> Self {
+        Self {
+            plaquette: 0.0,
+            polyakov_re: 0.0,
+            delta_h: 0.0,
+            cg_iterations: 0,
+            accepted: false,
+            plaquette_var: 0.0,
+            polyakov_phase: 0.0,
+            action_density: 0.0,
+        }
+    }
 }
 
 /// Bidirectional stream: GPU ↔ CPU with NPU screening branch.
@@ -2546,6 +2697,8 @@ pub struct BidirectionalStream {
     pub accepted: usize,
     /// Accumulated CG iterations across all trajectories.
     pub total_cg: usize,
+    /// Recent plaquette history for variance estimation (ring buffer).
+    plaquette_history: Vec<f64>,
 }
 
 impl BidirectionalStream {
@@ -2558,6 +2711,7 @@ impl BidirectionalStream {
             trajectories: 0,
             accepted: 0,
             total_cg: 0,
+            plaquette_history: Vec::with_capacity(32),
         }
     }
 
@@ -2607,14 +2761,41 @@ impl BidirectionalStream {
         }
         self.total_cg += result.cg_iterations;
 
+        // Track plaquette history for variance
+        self.plaquette_history.push(result.plaquette);
+        if self.plaquette_history.len() > 32 {
+            self.plaquette_history.remove(0);
+        }
+
         // Send observables to NPU screening (non-blocking)
         if let Some(ref tx) = self.npu_tx {
+            let (poly_mag, poly_phase) = gpu_polyakov_loop(
+                gpu,
+                &streaming_pipelines.dyn_hmc.gauge,
+                &state.gauge,
+            );
+
+            let plaq_var = if self.plaquette_history.len() > 1 {
+                let mean = self.plaquette_history.iter().sum::<f64>()
+                    / self.plaquette_history.len() as f64;
+                self.plaquette_history
+                    .iter()
+                    .map(|p| (p - mean).powi(2))
+                    .sum::<f64>()
+                    / (self.plaquette_history.len() - 1) as f64
+            } else {
+                0.0
+            };
+
             let obs = StreamObservables {
                 plaquette: result.plaquette,
-                polyakov_re: 0.0, // TODO: compute Polyakov loop
+                polyakov_re: poly_mag,
                 delta_h: result.delta_h,
                 cg_iterations: result.cg_iterations,
                 accepted: result.accepted,
+                plaquette_var: plaq_var,
+                polyakov_phase: poly_phase,
+                action_density: result.plaquette * 6.0, // S/V = β(1-P) * 6 planes
             };
             let _ = tx.send(obs);
         }
@@ -2650,6 +2831,70 @@ pub fn gpu_links_to_lattice(gpu: &GpuF64, state: &GpuHmcState, lattice: &mut Lat
     if let Ok(flat) = gpu.read_back_f64(&state.link_buf, state.n_links * 18) {
         unflatten_links_into(lattice, &flat);
     }
+}
+
+/// Compute the average Polyakov loop on GPU (no CPU readback of full link buffer).
+///
+/// Cross-spring evolution: toadStool GpuPolyakovLoop → hotSpring v0.6.13.
+/// Dispatches the Polyakov loop shader on GPU, then reads back only the
+/// spatial_vol × 2 output (Re, Im) instead of the full V × 4 × 18 link buffer.
+/// Returns (magnitude, phase) averaged over spatial sites.
+pub fn gpu_polyakov_loop(
+    gpu: &GpuF64,
+    pipelines: &GpuHmcPipelines,
+    state: &GpuHmcState,
+) -> (f64, f64) {
+    let spatial_vol = state.spatial_vol;
+    let wg = ((spatial_vol + 63) / 64) as u32;
+
+    {
+        let mut enc = gpu.begin_encoder("polyakov_dispatch");
+        let bind_group = gpu.device().create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("polyakov_bg"),
+            layout: &pipelines.polyakov_pipeline.get_bind_group_layout(0),
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: state.poly_params_buf.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: state.link_buf.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: state.poly_out_buf.as_entire_binding(),
+                },
+            ],
+        });
+        {
+            let mut pass = enc.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: Some("polyakov_pass"),
+                timestamp_writes: None,
+            });
+            pass.set_pipeline(&pipelines.polyakov_pipeline);
+            pass.set_bind_group(0, &bind_group, &[]);
+            pass.dispatch_workgroups(wg, 1, 1);
+        }
+        gpu.submit_encoder(enc);
+    }
+
+    let Ok(poly_data) = gpu.read_back_f64(&state.poly_out_buf, spatial_vol * 2) else {
+        return (0.0, 0.0);
+    };
+
+    let mut sum_re = 0.0;
+    let mut sum_im = 0.0;
+    for i in 0..spatial_vol {
+        let re = poly_data[i * 2];
+        let im = poly_data[i * 2 + 1];
+        sum_re += (re * re + im * im).sqrt();
+        sum_im += im.atan2(re);
+    }
+    (
+        sum_re / spatial_vol as f64,
+        sum_im / spatial_vol as f64,
+    )
 }
 
 /// Unflatten f64 array back to SU(3) link matrices and update lattice.

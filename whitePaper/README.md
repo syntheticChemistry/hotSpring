@@ -2,7 +2,7 @@
 
 **Status**: Working draft — reviewed for PII, suitable for public repository  
 **Purpose**: Document the replication of Murillo Group computational plasma physics on consumer hardware using BarraCuda  
-**Date**: February 25, 2026 (v0.6.11 — DF64 unleashed, site-indexing standardized)
+**Date**: February 25, 2026 (v0.6.13 — cross-spring evolution, GPU Polyakov, NVK guard)
 
 ---
 
@@ -14,6 +14,7 @@
 | [BARRACUDA_SCIENCE_VALIDATION.md](BARRACUDA_SCIENCE_VALIDATION.md) | Phase B technical results — BarraCuda vs Python/SciPy numbers | Technical reference |
 | [CONTROL_EXPERIMENT_SUMMARY.md](CONTROL_EXPERIMENT_SUMMARY.md) | Phase A summary — Python reproduction of published work | Quick reference |
 | [METHODOLOGY.md](METHODOLOGY.md) | Two-phase validation protocol | Methodology review |
+| [baseCamp/](baseCamp/) | Per-domain research briefings (Murillo plasma, lattice QCD, Kachkovskiy spectral, cross-spring) | Faculty, collaborators |
 
 ---
 
@@ -134,7 +135,7 @@ computational methods (MD ↔ HMC, plasma EOS ↔ QCD EOS).
 | ~~Omelyan integrator~~ | ~~Production acceptance rates~~ | — | ✅ **Done** — Omelyan in gpu_hmc.rs, streaming dispatch achieves 50-90% acceptance |
 | ~~Larger lattice sizes (8^4, 16^4)~~ | ~~Physical results~~ | — | ✅ **Done** — 4⁴-16⁴ streaming validated, 67× CPU at 16⁴. RTX 3090 enables 48⁴ |
 | ~~Production beta-scan (32⁴)~~ | ~~Phase transition resolution~~ | — | ✅ **Done** — 12-point 32⁴ scan, 13.6h, χ=40.1 at β=5.69 matches β_c=5.692 |
-| DF64 hybrid core streaming | 6.7× HMC speedup on consumer GPUs | 🔴 Next | `df64_core.wgsl` validated; HMC kernels not yet rewired |
+| ~~DF64 hybrid core streaming~~ | ~~6.7× HMC speedup~~ | — | ✅ **Done** — v0.6.10-v0.6.12: gauge force, plaquette, KE all DF64. 60% of HMC in DF64, 2× speedup at 32⁴ |
 
 ### Production β-Scan Results (Feb 24, 2026)
 
@@ -304,7 +305,9 @@ hotSpring writes local → validates physics → hands off to toadstool → lean
 
 | Module | Shader | Tests | Absorption priority |
 |--------|--------|-------|---------------------|
-| Pseudofermion HMC | CPU (WGSL-ready) | 7/7 | Tier 1 — only remaining lattice QCD module |
+| GPU Polyakov loop | `polyakov_loop_f64.wgsl` | 6/6 beta scan | Tier 1 — bidirectional evolution with toadStool |
+| NVK allocation guard | Rust integration | Production tested | Tier 1 — protects nouveau users |
+| `su3_math_f64.wgsl` | Naga-safe SU(3) pure math | 13/13 | Tier 1 — composition-safe for shader prepending |
 | Screened Coulomb eigensolve | CPU (Sturm bisection) | 23/23 | Tier 2 |
 | Tolerance/config module | Rust pattern (no WGSL) | 172 constants | Tier 2 (pattern) |
 
@@ -383,20 +386,20 @@ No institutional access required. No Code Ocean account. No Fortran compiler. AG
 
 ---
 
-## Codebase Health (Feb 24, 2026)
+## Codebase Health (Feb 25, 2026)
 
 | Metric | Value |
 |--------|-------|
-| Crate | v0.6.8 |
+| Crate | v0.6.13 |
 | Unit tests | **619** pass + 1 env-flaky, 6 GPU/heavy-ignored (spectral tests upstream in barracuda) |
 | Integration tests | **24** pass (3 suites: physics, data, transport) |
-| WGSL shaders | **48+** (added sum_reduce, cg_compute_alpha, cg_compute_beta, cg_update_xr, cg_update_p) |
+| WGSL shaders | **24** lattice + 11 MD + 14 HFB + extras = **65+** |
 | Rust files | **135** |
 | Coverage | 74.9% region / 83.8% function |
 | Validation suites | **39/39** pass (155/155 checks in latest session) |
 | metalForge forge tests | **19** pass |
 | Python control scripts | **34** (Sarkas, surrogate, TTM, NPU, reservoir, lattice, spectral theory) |
-| Rust validation binaries | **55** (physics, MD, lattice, NPU, transport, spectral 1D/2D/3D, Lanczos, Hofstadter, dynamical QCD) |
+| Rust validation binaries | **76** (physics, MD, lattice, NPU, transport, spectral, benchmarks, production) |
 | `expect()`/`unwrap()` in library | **0** (crate-level deny) |
 | Clippy warnings | **0** (pedantic + nursery, workspace-wide) |
 | Doc warnings | **0** |

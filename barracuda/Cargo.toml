@@ -1,6 +1,6 @@
 [package]
 name = "hotspring-barracuda"
-version = "0.6.11"
+version = "0.6.13"
 edition = "2021"
 description = "Nuclear EOS + GPU MD validation for BarraCuda — L1/L2/L3 physics, Yukawa OCP, lattice QCD, spectral theory, typed errors, full Result propagation, provenance, capability-based discovery"
 license = "AGPL-3.0-only"
@@ -431,7 +431,41 @@ path = "src/bin/validate_transport_gpu_resident.rs"
 name = "validate_ttm"
 path = "src/bin/validate_ttm.rs"
 
+# ── Three-substrate orchestration: 3090 + NPU + Titan V ──
+[[bin]]
+name = "validate_three_substrate"
+path = "src/bin/validate_three_substrate.rs"
+
+# ── Multi-observable NPU monitoring: 8-feature ESN ──
+[[bin]]
+name = "validate_multi_observable_npu"
+path = "src/bin/validate_multi_observable_npu.rs"
+
+# ── NPU-driven adaptive beta steering ──
+[[bin]]
+name = "validate_adaptive_beta_scan"
+path = "src/bin/validate_adaptive_beta_scan.rs"
+
+# ── CG convergence predictor for dynamical QCD ──
+[[bin]]
+name = "validate_cg_predictor"
+path = "src/bin/validate_cg_predictor.rs"
+
+# ── STDP on-chip learning at phase boundary ──
+[[bin]]
+name = "validate_online_learning"
+path = "src/bin/validate_online_learning.rs"
+
+# ── Titan V teaches NPU via precision ground truth ──
+[[bin]]
+name = "validate_titan_oracle"
+path = "src/bin/validate_titan_oracle.rs"
+
 # ── Production quenched beta-scan (multi-point, checkpointed) ──
 [[bin]]
 name = "production_beta_scan"
 path = "src/bin/production_beta_scan.rs"
+
+[[bin]]
+name = "production_mixed_pipeline"
+path = "src/bin/production_mixed_pipeline.rs"

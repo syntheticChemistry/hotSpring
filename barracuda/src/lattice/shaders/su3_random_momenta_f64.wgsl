@@ -39,8 +39,8 @@ fn box_muller_cos(u1: f64, u2: f64) -> f64 {
     var safe = u1;
     if safe < f64(1e-20) { safe = f64(1e-20); }
     let r = sqrt_f64(f64(-2.0) * log_f64(safe));
-    let theta = f32(f64(6.283185307179586) * u2);
-    return r * f64(cos(theta));
+    let theta = f64(6.283185307179586) * u2;
+    return r * cos(theta);
 }
 
 fn gaussian(link_idx: u32, pair: u32) -> f64 {

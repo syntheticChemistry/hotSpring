@@ -1,7 +1,7 @@
 # hotSpring → BarraCuda/ToadStool Absorption Manifest
 
-**Date:** February 22, 2026
-**Version:** v0.6.8
+**Date:** February 25, 2026
+**Version:** v0.6.13
 **License:** AGPL-3.0-only
 
 ---
@@ -66,6 +66,8 @@ CPU reference implementations, and validation suites.
 | ~~Staggered Dirac~~ | ~~`lattice/dirac.rs`~~ | — | — | ✅ **Absorbed** (S31d) — `ops/lattice/dirac.rs` |
 | ~~CG Solver~~ | ~~`lattice/cg.rs`~~ | — | — | ✅ **Absorbed** (S31d) — `ops/lattice/cg.rs` |
 | ESN Reservoir | `md/reservoir.rs` | `esn_reservoir_update.wgsl`, `esn_readout.wgsl` | 16+ | Echo State Network for transport/phase prediction |
+| GPU Polyakov loop | `lattice/shaders/polyakov_loop_f64.wgsl` | WGSL compute shader | 6/6 | GPU-resident Polyakov loop (v0.6.13, bidirectional with toadStool) |
+| Naga-safe SU(3) math | `lattice/shaders/su3_math_f64.wgsl` | WGSL pure math | 13/13 | Composition-safe SU(3) without ptr I/O (v0.6.13) |
 
 ### Tier 2 — Medium Priority (CPU → upstream library)
 
@@ -157,8 +159,17 @@ complete shader preamble (complex_f64 + su3 + df64_core + su3_df64).
 - `spmv_csr_f64.wgsl` → `barracuda::spectral::WGSL_SPMV_CSR_F64` (local dir deleted)
 - `df64_core.wgsl` → `barracuda::ops::lattice::su3::WGSL_DF64_CORE` (local deleted, S58)
 
+### Absorbed in v0.6.13 (Feb 25, 2026) — Cross-Spring Rewiring
+
+- `polyakov_loop_f64.wgsl` — GPU-resident Polyakov loop (from toadStool → hotSpring, bidirectional)
+- `su3_math_f64.wgsl` — naga-safe SU(3) pure math (hotSpring v0.6.13, **pending upstream absorption**)
+- NVK allocation guard — `check_allocation_safe()` integration in `gpu_hmc.rs`
+- PRNG type-safety fix in `su3_random_momenta_f64.wgsl` (f32→f64 cast removed)
+
 ### Ready for Absorption
 
+- `su3_math_f64.wgsl` (in `lattice/shaders/`) — naga-safe SU(3) math for shader composition
+- `polyakov_loop_f64.wgsl` (in `lattice/shaders/`) — GPU-resident temporal Wilson line
 - `esn_reservoir_update.wgsl` (in `md/shaders/`)
 - `esn_readout.wgsl` (in `md/shaders/`)
 
@@ -234,4 +245,4 @@ For each absorption candidate:
 2. Create handoff doc in `wateringHole/handoffs/`
 3. Include: Rust source, WGSL template, binding layout, dispatch geometry, test suite
 4. After absorption: rewire hotSpring to `use barracuda::ops::*`, delete local code
-5. Run `validate_all` to confirm 34/34 suites still pass
+5. Run `validate_all` to confirm 39/39 suites still pass

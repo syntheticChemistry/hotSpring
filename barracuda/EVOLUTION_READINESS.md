@@ -18,7 +18,7 @@ Python baseline → Rust validation → WGSL template → GPU shader → ToadSto
 | **C** | New | No shader exists; must be written from scratch |
 | **✅** | Absorbed | ToadStool has absorbed this as a first-class barracuda primitive |
 
-## ToadStool Absorption Status (Feb 24, 2026 — Post v0.6.8 biomeGate + Streaming CG)
+## ToadStool Absorption Status (Feb 25, 2026 — v0.6.13 Cross-Spring Rewiring)
 
 | hotSpring Module | ToadStool Primitive | Commit | Status |
 |-----------------|--------------------| -------|--------|
@@ -530,3 +530,29 @@ the original sign and adjoint were both wrong, causing 0% HMC acceptance.
 - ✅ Nuclear EOS path duplication → Shared `data::load_eos_context()` replaces 9 inline path constructions
 - ✅ Inline tolerances → 30+ magic numbers replaced with `tolerances::` constants
 - ✅ Inline `sigma_theo` → 19 instances replaced with `tolerances::sigma_theo()`
+
+## Evolution v0.6.9 → v0.6.13 (Feb 24-25, 2026)
+
+| Version | Key Change | Status |
+|---------|-----------|--------|
+| v0.6.9 | toadStool S62 sync. Spectral lean (41 KB deleted). CsrMatrix alias | ✅ Fully leaning |
+| v0.6.10 | DF64 gauge force on RTX 3090. 9.9× FP32 core throughput | ✅ Production |
+| v0.6.11 | t-major site indexing standardization. 119/119 unit tests | ✅ Convention adopted |
+| v0.6.12 | toadStool S60 DF64 expansion (plaquette, KE, transcendentals). 60% HMC DF64 | ✅ Absorbed |
+| v0.6.13 | GPU Polyakov loop (72× less transfer). NVK guard. su3_math_f64. PRNG fix | ✅ 13/13 checks |
+
+### New Shaders (v0.6.10-v0.6.13)
+
+| Shader | Version | Origin | Absorption Status |
+|--------|---------|--------|-------------------|
+| `su3_gauge_force_df64.wgsl` | v0.6.10 | hotSpring | Local (DF64 neighbor-buffer variant) |
+| `wilson_plaquette_df64.wgsl` | v0.6.12 | toadStool S60 | Bidirectional |
+| `su3_kinetic_energy_df64.wgsl` | v0.6.12 | toadStool S60 | Bidirectional |
+| `polyakov_loop_f64.wgsl` | v0.6.13 | toadStool → hotSpring | Bidirectional (pending upstream sync) |
+| `su3_math_f64.wgsl` | v0.6.13 | hotSpring | Local (pending upstream absorption) |
+
+### Key Discoveries
+
+- **DF64 core streaming** (v0.6.10): FP32 cores deliver 3.24 TFLOPS at 14-digit precision on consumer GPUs. 9.9× native f64 throughput.
+- **Naga composition bug** (v0.6.13): `naga` rejects WGSL with unused `ptr<storage>` functions when prepended as preamble. Workaround: split into `su3_math_f64.wgsl`.
+- **PRNG type mismatch** (v0.6.13): `ShaderTemplate` patches `cos`→`cos_f64`, but `f32(theta)` broke the call. Fix: keep theta as `f64` throughout.
