@@ -399,6 +399,59 @@ only dimensionality with a genuine metal-insulator transition:
 - **Fully GPU-resident Lanczos** — GPU dot + axpy + scale for N > 100k systems (P2)
 - **Generalized matrix exponentiation** — beyond 3×3 anti-Hermitian (P3)
 
+### Tier 4 — Warm Dense Matter & Ignition (NIF/JLF Feb 2026, baseCamp Sub-thesis 07)
+
+Murillo co-authored the "Roadmap for warm dense matter physics" (arXiv:2505.02494,
+70+ authors, revised Feb 13 2026). He attended the NIF & JLF User Groups Meeting
+(February 10-12, 2026, Livermore, CA) where the latest NIF ignition results were
+discussed (6 successful shots, peak gain 2.3x at 5.2 MJ). These targets extend
+hotSpring into the computational frontier of warm dense matter — Murillo's core domain.
+
+#### Tier 4a — Immediate: Open Data / Code Reproduction
+
+| # | Paper / Resource | Year | What | BarraCUDA Status |
+|---|-----------------|------|------|------------------|
+| 32 | Militzer FPEOS Database (Berkeley) | 2020+ | EOS tables for 11 elements, 10 compounds via PIMC + DFT-MD. Open C++/Python. 5,000 first-principles sims, 0.5-50 g/cc, 10⁴-10⁹ K | Reproduce lookup + interpolation in Rust; validate against published tables. GEMM + interpolation — ready |
+| 33 | atoMEC average-atom code (SciPy Proceedings) | 2023 | Open Python average-atom model for WDM. Computationally cheap alternative to full MD. Perfect Phase 0 Python control | Ready for reproduction — ideal Python baseline |
+| 34 | Vorberger, Graziani, Murillo et al. "Roadmap for warm dense matter physics" | arXiv:2505.02494 | 70+ author field survey. Maps every open computational challenge in WDM | Reference — identify specific reproduction targets from each section |
+
+#### Tier 4b — Medium: GPU Transport Extension
+
+| # | Paper / Resource | Year | What | BarraCUDA Status |
+|---|-----------------|------|------|------------------|
+| 35 | Transport coefficient comparison (Murillo's roadmap section) | 2025-26 | Viscosity, diffusion, thermal conductivity benchmark across codes. Direct extension of Paper 5 (Stanton-Murillo) | Green-Kubo validated (13/13). Extend to WDM conditions (higher T, partial ionization) |
+| 36 | Dragon OF-DFT MD (multi-GPU) | 2023 | Orbital-free DFT for WDM. Institutional groups need 4-8 GPUs. Can BarraCUDA do it on 1 consumer GPU at smaller N? | GEMM + FFT (FFT validated ✅). New primitive: kinetic energy functional |
+| 37 | Perturbo v3.0 GPU transport (arXiv:2511.03683) | 2025 | GPU electronic transport from electron-phonon. 40x speedup with OpenACC. Can WGSL match? | Boltzmann transport equation → potential new BarraCUDA primitive |
+
+#### Tier 4c — Longer Horizon: NIF Diagnostics
+
+| # | Paper / Resource | Year | What | BarraCUDA Status |
+|---|-----------------|------|------|------------------|
+| 38 | Dynamic structure factor S(q,ω) from MD | — | Key NIF diagnostic for XRTS. Bridge between MD simulation and experimental data | FFT validated ✅. Extend Sarkas MD to compute S(q,ω) via velocity autocorrelation → FFT |
+| 39 | Colliding Planar Shocks (LLNL new NIF platform) | 2025 | Counter-propagating shocks for uniform WDM. Shock propagation modeling | Velocity Verlet + Hugoniot EOS (partially in place) |
+| 40 | Dornheim et al. XRTS diagnostics — model-free temperature extraction | 2025 | Correlation function metrology for WDM (arXiv:2510.00493) | FFT + spectral analysis. Reference for validation against NIF data |
+| 41 | Wavepacket MD for partially-ionized plasma (arXiv:2510.27446) | 2025 | Beyond classical point particles — quantum effects via wavepackets | New primitive: wavepacket evolution. Phase G target |
+
+#### Tier 4d — Distributed WDM Compute
+
+| # | Paper / Resource | Year | What | BarraCUDA Status |
+|---|-----------------|------|------|------------------|
+| 42 | Anderson & Fedak "The computational and storage potential of volunteer computing" | 2006 | Empirical measurement of volunteer compute capacity. Validates distributed approach | Already in Track 5 (#30). Cross-reference for WDM distribution |
+
+**Connection to existing hotSpring work**: Tier 4 extends the Sarkas MD (Paper 1),
+transport coefficients (Paper 5), and nuclear EOS (Paper 4) into WDM conditions.
+The FFT gap is closed (toadStool `1ffe8b1a`). Transport is validated (13/13).
+The progression: classical MD → WDM transport → OF-DFT → XRTS diagnostics →
+distributed WDM computation on consumer GPU fleets.
+
+**Connection to baseCamp Sub-thesis 07**: These reproduction targets provide the
+validation backbone for the claim that WDM simulation doesn't require institutional
+HPC. Each paper reproduced on consumer GPU strengthens the argument.
+
+**Connection to NIF/JLF meeting (Feb 10-12, 2026)**: Murillo attended this meeting.
+Papers 38-40 directly relate to NIF experimental diagnostics. Reproducing these
+computational methods on consumer hardware provides the field with accessible tools.
+
 ### R. Anderson Extension — Hot Spring Microbial Evolution (Taq Corollary)
 
 Rika Anderson (Carleton College) studies microbial evolution in extreme environments,
