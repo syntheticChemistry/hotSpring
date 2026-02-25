@@ -2,7 +2,7 @@
 
 **Status**: Working draft — reviewed for PII, suitable for public repository  
 **Purpose**: Document the replication of Murillo Group computational plasma physics on consumer hardware using BarraCuda  
-**Date**: February 24, 2026
+**Date**: February 25, 2026 (v0.6.11 — DF64 unleashed, site-indexing standardized)
 
 ---
 

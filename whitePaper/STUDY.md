@@ -708,6 +708,8 @@ End-to-end validation of the CPU→GPU→NPU→CPU architecture:
 | Transport prediction (800 pts) | CPU: 2,850 J | NPU: 0.32 J | **9,017×** |
 | Lattice QCD CG (16⁴) | Python: 370 ms | Rust: 1.8 ms | **200×** |
 | GPU HMC (16⁴) | CPU: 17.6s | GPU: 0.44s | **40×** |
+| GPU HMC (16⁴, DF64 v0.6.11) | CPU: 18.0s | GPU: 0.29s | **61×** |
+| GPU HMC (32⁴, DF64 v0.6.11) | CPU: ~288s | GPU: 7.7s | **~37×** |
 | 22 physics papers reproduced | Institutional HPC | Consumer hardware | **$0.20 total** |
 
 **What the largest systems tell us**:
@@ -719,16 +721,26 @@ End-to-end validation of the CPU→GPU→NPU→CPU architecture:
 | 48³×96 | 10,616,832 | 5.8 GB | tight | feasible |
 | 64⁴ | 16,777,216 | 9.2 GB | no | feasible |
 
-**biomeGate production runs (Feb 24, 2026)**: RTX 3090 completed a 12-point
-32⁴ quenched β-scan (200 measurements per point, 13.6 hours, $0.58 electricity).
-Susceptibility peak χ=40.1 at β=5.69 matches the known critical coupling
-β_c=5.692 to three significant figures — the **deconfinement phase transition**
-clearly resolved on a 1M-site lattice. Finite-size scaling confirmed: 16⁴
-(Titan V, χ~1.0) vs 32⁴ (3090, χ=40-53) shows 40-50× amplification with volume.
-Titan V completed 16⁴ (9/9, 47 min) via NVK — first known lattice QCD production
-run on open-source driver. NVK fails at 30⁴+ (PTE fault). This run used only
-1.6% of the 3090's chip (native f64); DF64 hybrid (Experiment 012) would reduce
-the same run to ~2 hours. See `experiments/013_BIOMEGATE_PRODUCTION_BETA_SCAN.md`.
+**biomeGate production runs (Feb 24-25, 2026)**: RTX 3090 completed a 12-point
+32⁴ quenched β-scan (200 measurements per point, 13.6 hours, $0.58 electricity)
+using native f64. Susceptibility peak χ=40.1 at β=5.69 matches the known critical
+coupling β_c=5.692 to three significant figures — the **deconfinement phase
+transition** clearly resolved on a 1M-site lattice. Finite-size scaling confirmed:
+16⁴ (Titan V, χ~1.0) vs 32⁴ (3090, χ=40-53) shows 40-50× amplification with
+volume. Titan V completed 16⁴ (9/9, 47 min) via NVK — first known lattice QCD
+production run on open-source driver. NVK fails at 30⁴+ (PTE fault).
+
+**DF64 unleashed (v0.6.11, Feb 25)**: After activating the DF64 core streaming
+strategy (Experiment 012) and standardizing site-indexing with toadStool, the
+RTX 3090 runs 32⁴ quenched HMC at **7.7s/trajectory** — a 2× speedup over the
+native f64 run. The gauge force staple computation (40% of HMC) routes through
+the FP32 core array at 3.24 TFLOPS (DF64), vs 0.33 TFLOPS native f64.
+Estimated full 12-point β-scan: **~7 hours, ~$0.30**. Physics validated: 90%
+acceptance, plaquette 0.522 at β=6.0. Dynamical fermion HMC validated at 4⁴
+(6/6 checks, 80% acceptance) and streaming validated at 8⁴ (13/13 checks,
+GPU-resident CG with 15,360× readback reduction). See
+`experiments/013_BIOMEGATE_PRODUCTION_BETA_SCAN.md` and
+`experiments/014_DF64_UNLEASHED_BENCHMARK.md`.
 
 At 32⁴ the pipeline architecture is unchanged — same shaders, same streaming,
 same single-encoder dispatch. The only variable is VRAM capacity. Production
@@ -743,12 +755,12 @@ complete a full β-scan of 32⁴ in hours, not months.
 
 Honest accounting of what the pipeline has NOT yet achieved.
 
-**Streaming dynamical fermion HMC**: The dynamical fermion GPU pipeline is
-validated (6/6: force parity 8.33e-17, CG 3.23e-12, 90% accept) with 8 WGSL
-shaders (5 gauge + 3 fermion). But it uses per-operation dispatch, not the
-single-encoder streaming used by quenched HMC. Promoting the dynamical path
-to streaming dispatch + GPU PRNG eliminates the remaining host-device round-trips
-and enables the full QCD pipeline at production volumes.
+**Streaming dynamical fermion HMC**: Now validated end-to-end (13/13 checks
+at 4⁴ and 8⁴) with 20 shader pipelines (8 gauge + 5 fermion + 2 PRNG +
+5 resident CG). GPU-resident CG reduces readback by 15,360× and eliminates
+per-CG-iteration host-device round-trips. Bidirectional streaming (GPU + NPU
+channels) validated at 4⁴. Production dynamical QCD at 16⁴+ requires parameter
+tuning (step size, quark mass) and thermalization optimization for larger volumes.
 
 **Multi-GPU**: All validation runs on a single RTX 4070. Multi-GPU requires
 lattice decomposition (sublattice per GPU, boundary exchange between them).
@@ -833,15 +845,17 @@ The RTX 3090's 24 GB enables 48⁴ dynamical fermion QCD — a volume 2.1× larg
 than the 4070's 40⁴ practical maximum. For quenched HMC (fewer buffers), up to
 ~56⁴ fits.
 
-**Estimated campaign times** (scaling from validated 4070 benchmarks, RTX 3090
-memory bandwidth is 1.86× higher):
+**Estimated campaign times** (v0.6.11 with DF64 core streaming on RTX 3090,
+validated 32⁴ at 7.7s/traj quenched):
 
 | Campaign | Lattice | Est. time/traj | 1000 traj | 20-pt β-scan | Energy |
 |----------|---------|---------------:|----------:|-------------:|-------:|
-| Quenched β-scan | 48⁴ | ~25s | 7 hrs | 6 days | $12 |
-| Dynamical QCD | 40⁴ | ~120s | 33 hrs | 28 days | $25 |
-| Dynamical T-scan | 48³×24 | ~160s | 44 hrs | 37 days | $30 |
-| Full dynamical | 48⁴ | ~300s | 83 hrs | 69 days | $55 |
+| Quenched β-scan | 32⁴ | 7.7s (measured) | 2.1 hrs | 1.8 days | $3 |
+| Quenched β-scan | 48⁴ | ~18s | 5 hrs | 4 days | $7 |
+| Dynamical QCD | 32⁴ | ~60-120s | 33 hrs | 28 days | $25 |
+| Dynamical QCD | 40⁴ | ~90-180s | 50 hrs | 42 days | $35 |
+| Dynamical T-scan | 48³×24 | ~120-240s | 67 hrs | 56 days | $45 |
+| Full dynamical | 48⁴ | ~200-400s | 83 hrs | 69 days | $55 |
 
 **Dual-GPU on biomeGate**: The RTX 3090 handles production compute while the
 Titan V (NVK) runs verification trajectories concurrently — same physics
@@ -914,4 +928,4 @@ Distribution is engineering.
 
 ---
 
-*Generated from hotSpring validation pipeline. Last updated: February 24, 2026*
+*Generated from hotSpring validation pipeline. Last updated: February 25, 2026 (v0.6.11, DF64 unleashed)*

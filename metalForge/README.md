@@ -31,6 +31,15 @@ substrate ecoPrimals touches.
 | **GPU (secondary)** | NVIDIA Titan V | `05:00.0` | 12GB, Volta GV100, NVK driver | Validated — identical physics |
 | **CPU** | Intel i9-12900K | — | 16C/24T, 30MB L3, Alder Lake P+E | Reference substrate |
 
+**biomeGate node** (alternate deployment):
+
+| Substrate | Device | Key Spec | Status |
+|-----------|--------|----------|--------|
+| **GPU (primary)** | NVIDIA RTX 3090 | 24GB, Ampere GA102, DF64 3.24 TFLOPS | Production — 32⁴ QCD at 7.7s/traj |
+| **GPU (secondary)** | NVIDIA Titan V | 12GB, Volta GV100, NVK, native f64 1:2 | NVK validated ≤16⁴ (PTE limit at 30⁴+) |
+| **NPU** | BrainChip AKD1000 | 78 NPs, 8MB SRAM, ~30mW | ESN inference validated |
+| **CPU** | AMD Threadripper 3970X | 32C/64T, 128MB L3, Zen2 | 256GB DDR4 |
+
 ### Future Targets (no hardware yet)
 
 | Substrate | Target | Why |

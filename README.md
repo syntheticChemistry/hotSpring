@@ -30,7 +30,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 
 ---
 
-## Current Status (2026-02-24)
+## Current Status (2026-02-25)
 
 | Study | Status | Quantitative Checks |
 |-------|--------|-------------------|
@@ -85,7 +85,10 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **biomeGate Prep** | ✅ Complete | Node profiles, env-var GPU selection, NVK setup guide, RTX 3090 characterization |
 | **API Debt Fix** | ✅ Complete | solve_f64→CPU Gauss-Jordan, sampler/surrogate device args, 4 binaries fixed |
 | **Production β-Scan (biomeGate)** | ✅ Complete | Titan V 16⁴ (9/9, 47 min, first NVK QCD). RTX 3090 32⁴ (12/12, 13.6h, $0.58). **Deconfinement transition: χ=40.1 at β=5.69** matches known β_c=5.692. Finite-size scaling confirmed (16⁴ vs 32⁴) |
-| **TOTAL** | **39/39 Rust validation suites** | 155/155 checks in latest session. 619 unit tests, 34/35 NPU HW checks, 16 determinism tests, 6 upstream bugs found. Both GPUs validated, biomeGate node prepped |
+| **DF64 Core Streaming** | ✅ Complete | v0.6.10: DF64 gauge force live on RTX 3090. 9.9× FP32 core throughput. Validated 3/3 pure GPU HMC |
+| **Site-Indexing Standardization** | ✅ Complete | v0.6.11: adopted toadStool t-major convention. 119/119 unit, 3/3 HMC, 6/6 beta scan, 7/7 streaming pass |
+| **DF64 Unleashed Benchmark** | ✅ Complete | 32⁴ at 7.7s/traj (2× faster). Dynamical 13/13 streaming. Resident CG 15,360× readback reduction |
+| **TOTAL** | **39/39 Rust validation suites** | 155/155 checks in latest session. 619 unit tests, 34/35 NPU HW checks, 16 determinism tests, 6 upstream bugs found. Both GPUs validated, DF64 unleashed |
 
 Papers 5, 7, 8, and 10 from the review queue are complete. Paper 5 transport fits
 (Daligault 2012) were recalibrated against 12 Sarkas Green-Kubo D* values (Feb 2026)
