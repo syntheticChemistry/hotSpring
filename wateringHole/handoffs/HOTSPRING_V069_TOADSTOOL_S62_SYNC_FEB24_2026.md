@@ -182,3 +182,37 @@ the DF64 precision is sufficient for HMC gauge force computation.
 
 *hotSpring v0.6.10 — DF64 core streaming live on consumer GPUs.
 All validation checks pass. Deconfinement signal reproduced at β=5.69.*
+
+---
+
+## Update: v0.6.11 — Site-Indexing Standardization (Feb 25, 2026)
+
+### What Was Done
+
+hotSpring adopted toadStool's t-major site-indexing convention:
+
+| Property | Before (v0.6.10) | After (v0.6.11) |
+|----------|------------------|------------------|
+| Formula | `x + Nx*(y + Ny*(z + Nz*t))` | `t*NxNyNz + x*NyNz + y*Nz + z` |
+| Fastest varying | x | z |
+| Changed | — | `Lattice::site_index()` + `site_coords()` in `wilson.rs` |
+
+This is a two-function change. All downstream Rust code and all WGSL shaders
+(which use pre-computed neighbor buffers) follow automatically.
+
+### Validation (v0.6.11)
+- 119/119 unit tests pass
+- 3/3 pure GPU HMC checks (plaq=0.584339, 100% acceptance, DF64 active)
+- 6/6 GPU beta scan checks (plaquette monotonic, cross-lattice ≤5% parity)
+- 7/7 streaming HMC checks (dispatch/streaming parity exact to 1e-8)
+
+### Why This Matters
+
+With matching site indexing, hotSpring can now use toadStool's upstream lattice
+ops directly — no buffer reordering, no local shader copies for data layout
+reasons. The remaining local shaders exist for the neighbor-buffer pattern
+(pre-computed rather than inline coordinate math).
+
+**See:** `TOADSTOOL_SITE_INDEXING_NAK_SOLVER_HANDOFF_FEB25_2026.md` for the
+full evolution task charging toadStool with neighbor-buffer support and the
+Rust-native NAK solver.

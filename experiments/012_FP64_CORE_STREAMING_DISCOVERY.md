@@ -196,3 +196,23 @@ the FP32 core array. Final multiply + algebra projection remain in native f64.
 All trajectories produce physical plaquette values (~0.52-0.59 at β=6.0)
 and small ΔH (~10⁻² to 10⁻⁴), confirming the DF64 precision is sufficient
 for HMC gauge force computation.
+
+---
+
+## Site-Indexing Standardization (v0.6.11, Feb 25, 2026)
+
+The site-indexing incompatibility that forced hotSpring to maintain a local
+DF64 force shader has been resolved. hotSpring v0.6.11 adopted toadStool's
+t-major convention: `idx = t*NxNyNz + x*NyNz + y*Nz + z` (z fastest).
+
+The change was two functions in `wilson.rs`. All WGSL shaders use pre-computed
+neighbor buffers and required zero changes. Validation:
+- 119/119 unit tests pass
+- 3/3 pure GPU HMC (plaq=0.584339, 100% acceptance, DF64 active)
+- 6/6 beta scan (plaquette monotonic, cross-lattice parity)
+- 7/7 streaming HMC (dispatch/streaming parity exact to 1e-8)
+
+The local `su3_gauge_force_df64.wgsl` still exists (it uses the neighbor-buffer
+pattern which upstream doesn't yet support), but the data layout is now
+compatible. toadStool has been charged with adding neighbor-buffer support to
+upstream ops, at which point hotSpring can delete the local copy entirely.

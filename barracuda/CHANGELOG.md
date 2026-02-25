@@ -5,6 +5,26 @@ All notable changes to the hotSpring BarraCuda validation crate.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.6.11 — Site-Indexing Standardization (Feb 25, 2026)
+
+### Breaking: t-major site ordering
+
+Migrated `Lattice::site_index` and `site_coords` from hotSpring's original
+x-fastest ordering (`idx = x + Nx*(y + Ny*(z + Nz*t))`) to toadStool's
+z-fastest ordering (`idx = t*NxNyNz + x*NyNz + y*Nz + z`).
+
+This aligns hotSpring with upstream toadStool lattice ops, enabling direct use
+of upstream DF64 shaders and HMC operations without buffer reordering. Existing
+serialized lattice snapshots are incompatible with this ordering.
+
+- Changed: `Lattice::site_index()` — z fastest, t slowest (was x fastest)
+- Changed: `Lattice::site_coords()` — decomposition matches new convention
+- Validated: 119/119 unit tests pass
+- Validated: 3/3 pure GPU HMC checks (plaq=0.584339, 100% acceptance)
+- Validated: 6/6 GPU beta scan checks (plaquette monotonic, cross-lattice parity)
+- Validated: 7/7 streaming HMC checks (dispatch/streaming parity exact to 1e-8)
+- Version: 0.6.10 → 0.6.11
+
 ## v0.6.10 — DF64 Core Streaming Rewire (Feb 25, 2026)
 
 ### DF64 Gauge Force — Live on Consumer GPUs

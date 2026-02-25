@@ -42,21 +42,34 @@ impl Lattice {
     }
 
     /// Convert 4D coordinates to linear site index.
+    ///
+    /// Convention: `dims = [Nx, Ny, Nz, Nt]`, `x = [x, y, z, t]`.
+    /// Index order: z fastest, then y, then x, then t (slowest).
+    /// `idx = t*NxNyNz + x*NyNz + y*Nz + z`
+    ///
+    /// This matches toadStool's upstream lattice ops, enabling direct use
+    /// of upstream DF64 shaders without buffer reordering.
     #[must_use]
     pub const fn site_index(&self, x: [usize; 4]) -> usize {
-        x[0] + self.dims[0] * (x[1] + self.dims[1] * (x[2] + self.dims[2] * x[3]))
+        x[3] * (self.dims[0] * self.dims[1] * self.dims[2])
+            + x[0] * (self.dims[1] * self.dims[2])
+            + x[1] * self.dims[2]
+            + x[2]
     }
 
     /// Convert linear site index to 4D coordinates.
+    ///
+    /// Returns `[x, y, z, t]` where `dims = [Nx, Ny, Nz, Nt]`.
     #[must_use]
     pub const fn site_coords(&self, idx: usize) -> [usize; 4] {
-        let x0 = idx % self.dims[0];
-        let rem = idx / self.dims[0];
-        let x1 = rem % self.dims[1];
-        let rem2 = rem / self.dims[1];
+        let nxyz = self.dims[0] * self.dims[1] * self.dims[2];
+        let t = idx / nxyz;
+        let rem = idx % nxyz;
+        let x0 = rem / (self.dims[1] * self.dims[2]);
+        let rem2 = rem % (self.dims[1] * self.dims[2]);
+        let x1 = rem2 / self.dims[2];
         let x2 = rem2 % self.dims[2];
-        let x3 = rem2 / self.dims[2];
-        [x0, x1, x2, x3]
+        [x0, x1, x2, t]
     }
 
     /// Neighbor in direction mu with periodic boundary conditions.
