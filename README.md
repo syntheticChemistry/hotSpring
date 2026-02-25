@@ -346,14 +346,14 @@ makes the upstream library richer and hotSpring leaner.
 - HFB shader suite — potentials + density + BCS bisection (14+GPU+6 checks, Tier 2)
 - NPU substrate discovery — `metalForge/forge/src/probe.rs` (local evolution)
 
-**Already leaning on upstream** (v0.6.8):
+**Already leaning on upstream** (v0.6.9, synced to toadStool S62):
 
 | Module | Upstream | Status |
 |--------|----------|--------|
 | `spectral/` | `barracuda::spectral::*` | **✅ Leaning** — 41 KB local deleted, re-exports + `CsrMatrix` alias |
 | `md/celllist.rs` | `barracuda::ops::md::CellListGpu` | **✅ Leaning** — local `GpuCellList` deleted |
 
-**Absorption-ready inventory** (v0.6.8):
+**Absorption-ready inventory** (v0.6.9):
 
 | Module | Type | WGSL Shader | Status |
 |--------|------|------------|--------|
@@ -366,7 +366,7 @@ makes the upstream library richer and hotSpring leaner.
 
 ---
 
-## BarraCuda Crate (v0.6.8)
+## BarraCuda Crate (v0.6.9)
 
 The `barracuda/` directory is a standalone Rust crate providing the validation
 environment, physics implementations, and GPU compute. Key architectural properties:
@@ -515,7 +515,7 @@ hotSpring/
 │   ├── CONTROL_EXPERIMENT_SUMMARY.md  # Phase A quick reference
 │   └── METHODOLOGY.md                # Two-phase validation protocol
 │
-├── barracuda/                          # BarraCuda Rust crate — v0.6.8 (619 unit + 24 integration tests, 39 suites)
+├── barracuda/                          # BarraCuda Rust crate — v0.6.9 (619 unit + 24 integration tests, 39 suites)
 │   ├── Cargo.toml                     # Dependencies (requires ecoPrimals/phase1/toadstool)
 │   ├── CHANGELOG.md                   # Version history — baselines, tolerances, evolution
 │   ├── EVOLUTION_READINESS.md         # Rust module → GPU promotion tier + absorption status
@@ -530,7 +530,7 @@ hotSpring/
 │       ├── data.rs                    # AME2020 data + Skyrme bounds + EosContext + chi2_per_datum
 │       ├── prescreen.rs               # NMP cascade filter (algebraic → L1 proxy → classifier)
 │       ├── spectral/                 # Spectral theory — re-exports from upstream barracuda::spectral
-│       │   └── mod.rs               # pub use barracuda::spectral::* + CsrMatrix alias (v0.6.8 lean)
+│       │   └── mod.rs               # pub use barracuda::spectral::* + CsrMatrix alias (v0.6.9 lean)
 │       ├── bench/                      # Benchmark harness — mod, hardware, power, report (RAPL, nvidia-smi, JSON)
 │       ├── gpu/                       # GPU FP64 device wrapper (adapter, buffers, dispatch, telemetry)
 │       │

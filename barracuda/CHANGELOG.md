@@ -5,6 +5,35 @@ All notable changes to the hotSpring BarraCuda validation crate.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.6.9 — ToadStool S58–S62 Sync + DF64 Absorption Confirmation (Feb 24, 2026)
+
+### ToadStool Sync (S53 → S62)
+
+Pulled 10 toadStool sessions (172 files changed, +15,847/-7,066 lines).
+hotSpring compiles cleanly against the new upstream with zero errors/warnings.
+
+### DF64 Core Streaming — Absorbed and Extended
+
+toadStool absorbed hotSpring's DF64 discovery (Experiment 012) in S58, then
+built the full production DF64 HMC pipeline:
+
+- `df64_core.wgsl` → `shaders/math/df64_core.wgsl` (absorbed)
+- `su3_df64.wgsl` — DF64 SU(3) matrix algebra (NEW, toadStool-built)
+- `su3_hmc_force_df64.wgsl` — DF64 gauge force (NEW, the 6.7× speedup kernel)
+- `wilson_plaquette_df64.wgsl`, `wilson_action_df64.wgsl`, `kinetic_energy_df64.wgsl` (NEW)
+- `Fp64Strategy` enum — auto-selects Native vs Hybrid per-GPU
+- All lattice ops now auto-select f64/DF64 based on hardware
+
+### Local Cleanup
+
+- Deleted local `df64_core.wgsl` (now upstream at `barracuda::ops::lattice::su3::WGSL_DF64_CORE`)
+- Updated ABSORPTION_MANIFEST with S58–S62 absorption tracking
+
+### Metrics
+- **39/39 validation suites** pass (unchanged)
+- **Zero compile errors** against toadStool S62
+- **Version**: 0.6.8 → 0.6.9
+
 ## v0.6.8 — biomeGate Prep + Streaming CG + Debt Fix + Suite Expansion (Feb 23, 2026)
 
 ### biomeGate Node Preparation

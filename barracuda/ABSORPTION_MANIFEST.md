@@ -117,15 +117,48 @@ All WGSL shaders in hotSpring, organized by absorption status:
 - `su3_hmc_force_f64.wgsl` → `shaders/lattice/`
 - `higgs_u1_hmc_f64.wgsl` → `shaders/lattice/`
 - `batched_eigh_nak_optimized_f64.wgsl` → upstream shader
+- ~~`dirac_staggered_f64.wgsl`~~ → **Absorbed** (S31d) — `shaders/lattice/dirac_staggered_f64.wgsl`
+- ~~`complex_dot_re_f64.wgsl`, `axpy_f64.wgsl`, `xpay_f64.wgsl`~~ → **Absorbed** (S31d) — `shaders/lattice/cg_kernels_f64.wgsl`
+
+### Absorbed in S58–S62 (Feb 24, 2026) — DF64 Core Streaming
+
+hotSpring's DF64 discovery (Experiment 012) was absorbed and **extended** by toadStool:
+
+- `df64_core.wgsl` → `shaders/math/df64_core.wgsl` — **local deleted** (was `lattice/shaders/df64_core.wgsl`)
+- `su3_df64.wgsl` → `shaders/math/su3_df64.wgsl` — **NEW** (toadStool built DF64 SU(3) matrix algebra)
+- `su3_hmc_force_df64.wgsl` → `shaders/lattice/` — **NEW** (toadStool built DF64 HMC force)
+- `wilson_plaquette_df64.wgsl` → `shaders/lattice/` — **NEW** (toadStool built DF64 plaquette)
+- `wilson_action_df64.wgsl` → `shaders/lattice/` — **NEW** (toadStool built DF64 Wilson action)
+- `kinetic_energy_df64.wgsl` → `shaders/lattice/` — **NEW** (toadStool built DF64 kinetic energy)
+- `gemm_df64.wgsl` → `shaders/linalg/` — **NEW** (toadStool built DF64 dense GEMM)
+- `lennard_jones_df64.wgsl` → `ops/md/forces/` — **NEW** (toadStool built DF64 LJ force)
+- `bench_fp64_ratio.rs` → `bin/bench_fp64_ratio.rs` — absorbed from hotSpring
+- `Fp64Strategy` enum → `device/driver_profile.rs` — **NEW** (toadStool built auto-selection)
+- `GpuDriverProfile::fp64_strategy()` → auto-selects Native vs Hybrid per-GPU
+
+**Production HMC wiring**: All lattice ops (`plaquette.rs`, `hmc_force_su3.rs`,
+`gpu_wilson_action.rs`, `gpu_kinetic_energy.rs`) now auto-select between f64
+and DF64 shaders based on `Fp64Strategy`. The 6.7× speedup is available upstream.
+
+**Key API**: `barracuda::ops::lattice::su3::su3_df64_preamble()` builds the
+complete shader preamble (complex_f64 + su3 + df64_core + su3_df64).
+
+### Also Absorbed (S54–S58)
+
+- `patch_transcendentals_in_code` — NVK/NAK workaround for exp/log/pow (S58)
+- `validation.rs` — validation harness pattern (from neuralSpring, originally hotSpring-inspired)
+- `metropolis.wgsl` — GPU Metropolis-Hastings (from neuralSpring S54)
+- `ode_bio/` — 5 biological ODE systems (from wetSpring S58)
+- `nmf.rs` — Non-negative matrix factorization (from wetSpring S58)
+- Anderson transport: `anderson_conductance()`, `localization_length()` (S52)
 
 ### Already Absorbed (local source deleted)
 
 - `spmv_csr_f64.wgsl` → `barracuda::spectral::WGSL_SPMV_CSR_F64` (local dir deleted)
+- `df64_core.wgsl` → `barracuda::ops::lattice::su3::WGSL_DF64_CORE` (local deleted, S58)
 
 ### Ready for Absorption
 
-- ~~`dirac_staggered_f64.wgsl`~~ → **Absorbed** (S31d) — `shaders/lattice/dirac_staggered_f64.wgsl`
-- ~~`complex_dot_re_f64.wgsl`, `axpy_f64.wgsl`, `xpay_f64.wgsl`~~ → **Absorbed** (S31d) — `shaders/lattice/cg_kernels_f64.wgsl`
 - `esn_reservoir_update.wgsl` (in `md/shaders/`)
 - `esn_readout.wgsl` (in `md/shaders/`)
 
