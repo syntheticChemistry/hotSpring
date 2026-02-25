@@ -124,8 +124,6 @@ fn main() {
     println!("  GPU: {}", gpu.adapter_name);
     println!();
 
-    let pipelines = GpuHmcPipelines::new(&gpu);
-
     let configs: Vec<(&str, [usize; 4])> = vec![
         ("4⁴", [4, 4, 4, 4]),
         ("8⁴", [8, 8, 8, 8]),
@@ -135,6 +133,8 @@ fn main() {
 
     let beta = 6.0;
     let mut results = Vec::new();
+
+    let pipelines = GpuHmcPipelines::new(&gpu);
 
     for (label, dims) in &configs {
         let vol: usize = dims.iter().product();

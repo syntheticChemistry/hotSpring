@@ -30,11 +30,26 @@
 use super::wilson::Lattice;
 use crate::gpu::GpuF64;
 
+// Hardware-adaptive DF64 core streaming (hotSpring Exp 012 → toadStool S58-S62).
+// Auto-selects between native f64 and DF64 (f32-pair) based on GPU hardware:
+//   - Titan V, V100, A100, MI250 → native f64 (1:2 FP64:FP32)
+//   - RTX 3090, 4070, consumer → DF64 on FP32 cores (~10× throughput)
+//
+// Cross-spring evolution:
+//   hotSpring Exp 012 → df64_core.wgsl → toadStool S58 absorption
+//   → toadStool built su3_df64.wgsl + DF64 lattice shaders
+//   → hotSpring v0.6.10 adapts local shaders for DF64 with neighbor-buffer indexing
+use barracuda::device::driver_profile::Fp64Strategy;
+use barracuda::ops::lattice::su3::{WGSL_DF64_CORE, WGSL_SU3_DF64};
+
 /// WGSL shader: Wilson plaquette per site (6 planes, Re Tr P/3).
 pub const WGSL_WILSON_PLAQUETTE: &str = include_str!("shaders/wilson_plaquette_f64.wgsl");
 
 /// WGSL shader: SU(3) gauge force (staple + traceless anti-Hermitian projection).
 pub const WGSL_GAUGE_FORCE: &str = include_str!("shaders/su3_gauge_force_f64.wgsl");
+
+/// WGSL shader: DF64 gauge force — staple computation on FP32 cores.
+pub const WGSL_GAUGE_FORCE_DF64: &str = include_str!("shaders/su3_gauge_force_df64.wgsl");
 
 /// WGSL shader: momentum update P += dt * F.
 pub const WGSL_MOMENTUM_UPDATE: &str = include_str!("shaders/su3_momentum_update_f64.wgsl");
@@ -45,11 +60,17 @@ pub const WGSL_LINK_UPDATE: &str = include_str!("shaders/su3_link_update_f64.wgs
 /// WGSL shader: kinetic energy -½ Re Tr(P²) per link.
 pub const WGSL_KINETIC_ENERGY: &str = include_str!("shaders/su3_kinetic_energy_f64.wgsl");
 
-/// GPU HMC pipeline: holds compiled compute pipelines and persistent buffers.
+/// GPU HMC pipeline: local shaders with hardware-adaptive DF64 for SU(3) matmul
+/// kernels (force, plaquette, kinetic energy).
+///
+/// On consumer GPUs (RTX 3090, 4070 — 1:64 FP64:FP32), the gauge force shader
+/// routes 18/19 SU(3) matrix multiplications per link through the FP32 core
+/// array via DF64 (f32-pair), yielding ~10× throughput. On compute-class GPUs
+/// (Titan V, V100 — 1:2 hardware), native f64 is used directly.
 pub struct GpuHmcPipelines {
     /// Wilson plaquette per-site kernel
     pub plaquette_pipeline: wgpu::ComputePipeline,
-    /// Gauge force kernel
+    /// Gauge force kernel (DF64-capable on consumer GPUs)
     pub force_pipeline: wgpu::ComputePipeline,
     /// Momentum update kernel
     pub momentum_pipeline: wgpu::ComputePipeline,
@@ -57,18 +78,43 @@ pub struct GpuHmcPipelines {
     pub link_pipeline: wgpu::ComputePipeline,
     /// Kinetic energy per-link kernel
     pub kinetic_pipeline: wgpu::ComputePipeline,
+    /// Which FP64 strategy was selected for this hardware
+    pub fp64_strategy: Fp64Strategy,
 }
 
 impl GpuHmcPipelines {
     /// Compile all HMC shader pipelines.
+    ///
+    /// Automatically selects DF64 (f32-pair) shaders for the gauge force
+    /// on consumer GPUs, routing staple SU(3) multiplications through
+    /// the FP32 core array for ~10× throughput.
     #[must_use]
     pub fn new(gpu: &GpuF64) -> Self {
+        let strategy = gpu.driver_profile().fp64_strategy();
+
+        let force_src = match strategy {
+            Fp64Strategy::Native => WGSL_GAUGE_FORCE.to_string(),
+            Fp64Strategy::Hybrid => {
+                format!("{}\n{}\n{}", WGSL_DF64_CORE, WGSL_SU3_DF64, WGSL_GAUGE_FORCE_DF64)
+            }
+        };
+
+        eprintln!(
+            "[HMC] FP64 strategy: {:?} — {}",
+            strategy,
+            match strategy {
+                Fp64Strategy::Native => "native f64 on all cores",
+                Fp64Strategy::Hybrid => "DF64 on FP32 cores for gauge force (~10× throughput)",
+            }
+        );
+
         Self {
             plaquette_pipeline: gpu.create_pipeline_f64(WGSL_WILSON_PLAQUETTE, "hmc_plaq"),
-            force_pipeline: gpu.create_pipeline_f64(WGSL_GAUGE_FORCE, "hmc_force"),
+            force_pipeline: gpu.create_pipeline_f64(&force_src, "hmc_force"),
             momentum_pipeline: gpu.create_pipeline_f64(WGSL_MOMENTUM_UPDATE, "hmc_mom_update"),
             link_pipeline: gpu.create_pipeline_f64(WGSL_LINK_UPDATE, "hmc_link_update"),
             kinetic_pipeline: gpu.create_pipeline_f64(WGSL_KINETIC_ENERGY, "hmc_ke"),
+            fp64_strategy: strategy,
         }
     }
 }

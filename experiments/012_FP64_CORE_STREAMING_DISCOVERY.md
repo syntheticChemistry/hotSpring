@@ -161,3 +161,38 @@ the GPU-NPU-CPU streaming pipeline, applied one level deeper into the silicon.
 
 The story is actually stronger with the correction. We caught our own error
 through rigorous benchmarking and found something more useful.
+
+---
+
+## Production Activation (v0.6.10, Feb 25, 2026)
+
+The DF64 core streaming strategy is now **live in production HMC**.
+
+`GpuHmcPipelines` auto-detects GPU hardware via `Fp64Strategy` and compiles
+the DF64 gauge force shader (`su3_gauge_force_df64.wgsl`) on consumer GPUs.
+The 18 staple SU(3) multiplications per link (40% of HMC wall time) run on
+the FP32 core array. Final multiply + algebra projection remain in native f64.
+
+### Cross-Spring Evolution Trail
+
+1. hotSpring Exp 012 (this experiment) → `df64_core.wgsl` (Dekker splitting)
+2. toadStool S58 absorbs `df64_core.wgsl`, builds `su3_df64.wgsl` (DF64 SU(3))
+3. toadStool S58-S62 builds full DF64 HMC pipeline + `Fp64Strategy` auto-select
+4. hotSpring v0.6.10 imports upstream DF64 math library, writes local
+   `su3_gauge_force_df64.wgsl` with hotSpring's neighbor-buffer indexing
+   (upstream uses coordinate-based indexing — incompatible site ordering)
+5. wetSpring contributed f64 transcendental workarounds for Ada Lovelace
+   via `Workaround::NvvmAdaF64Transcendentals` in driver_profile.rs
+
+### Bench Results (v0.6.10, RTX 3090, DF64 gauge force active)
+
+| Lattice | Volume | CPU ms/traj | GPU ms/traj | GPU/CPU |
+|---------|--------|------------|------------|---------|
+| 4⁴ | 256 | 71.7 | 21.3 | 3.4× |
+| 8⁴ | 4,096 | 1,146 | 31.4 | 36.5× |
+| 8³×16 | 8,192 | 2,322 | 43.4 | 53.5× |
+| 16⁴ | 65,536 | 18,424 | 259 | 71.1× |
+
+All trajectories produce physical plaquette values (~0.52-0.59 at β=6.0)
+and small ΔH (~10⁻² to 10⁻⁴), confirming the DF64 precision is sufficient
+for HMC gauge force computation.

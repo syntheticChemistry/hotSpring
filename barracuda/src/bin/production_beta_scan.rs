@@ -99,9 +99,6 @@ fn main() {
         }
     };
     println!("  GPU: {}", gpu.adapter_name);
-
-    let pipelines = GpuHmcStreamingPipelines::new(&gpu);
-    println!("  Streaming HMC pipelines compiled");
     println!();
 
     let vol_f = vol as f64;
@@ -114,6 +111,8 @@ fn main() {
 
     let total_start = Instant::now();
     let mut results = Vec::new();
+
+    let pipelines = GpuHmcStreamingPipelines::new(&gpu);
 
     for (bi, &beta) in args.betas.iter().enumerate() {
         println!("── β = {:.4} ({}/{}) ──", beta, bi + 1, args.betas.len());

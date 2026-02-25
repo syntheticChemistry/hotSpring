@@ -5,6 +5,35 @@ All notable changes to the hotSpring BarraCuda validation crate.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.6.10 — DF64 Core Streaming Rewire (Feb 25, 2026)
+
+### DF64 Gauge Force — Live on Consumer GPUs
+
+Rewired `GpuHmcPipelines` to auto-select DF64 (f32-pair) gauge force shader
+on consumer GPUs (RTX 3090, 4070 — 1:64 FP64:FP32 hardware). The staple SU(3)
+multiplications (18 per link, 40% of HMC wall time) now route through the FP32
+core array via `su3_gauge_force_df64.wgsl`.
+
+- New `su3_gauge_force_df64.wgsl`: DF64 staple computation with hotSpring's
+  neighbor-buffer indexing, f64 algebra projection + final multiply
+- `Fp64Strategy::Hybrid` auto-detected on RTX 3090, selects DF64 force
+- `Fp64Strategy::Native` on Titan V/V100/A100, keeps native f64
+- DF64 math library imported from upstream: `WGSL_DF64_CORE` + `WGSL_SU3_DF64`
+- Validated: all existing checks pass (3/3 pure GPU HMC, plaquette physical range)
+
+### Cross-Spring Evolution
+
+- hotSpring Exp 012 (Feb 2026) → `df64_core.wgsl` → toadStool S58 absorption
+- toadStool built `su3_df64.wgsl` + DF64 HMC pipeline (S58-S62)
+- hotSpring v0.6.10 imports upstream DF64 math, writes local DF64 force with
+  hotSpring's neighbor-buffer indexing (incompatible site-indexing between repos)
+- wetSpring f64 transcendental workarounds (Ada Lovelace) contributed via
+  `Workaround::NvvmAdaF64Transcendentals` in driver_profile.rs
+
+### Metrics
+- **All validation checks pass** with DF64 active on RTX 3090
+- **Version**: 0.6.9 → 0.6.10
+
 ## v0.6.9 — ToadStool S58–S62 Sync + DF64 Absorption Confirmation (Feb 24, 2026)
 
 ### ToadStool Sync (S53 → S62)

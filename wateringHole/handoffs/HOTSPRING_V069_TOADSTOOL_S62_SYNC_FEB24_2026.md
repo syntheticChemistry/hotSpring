@@ -134,6 +134,51 @@ Validation plan: rerun 3 β points with DF64 and compare observables.
 
 ---
 
-*hotSpring v0.6.9 synced to toadStool S62.
-39/39 validation suites. Zero compile errors. Zero warnings.
-biomeGate production campaign complete: deconfinement at β=5.69, $0.58 total.*
+---
+
+## Update: v0.6.10 — DF64 Core Streaming LIVE (Feb 25, 2026)
+
+### What Was Done
+
+hotSpring v0.6.10 rewired `GpuHmcPipelines` to auto-select the DF64 gauge
+force shader on consumer GPUs. The implementation imports `WGSL_DF64_CORE` +
+`WGSL_SU3_DF64` from upstream and writes a LOCAL `su3_gauge_force_df64.wgsl`
+that uses hotSpring's neighbor-buffer indexing convention.
+
+### Why Not Use Upstream Ops Directly?
+
+**Site-indexing incompatibility.** toadStool's lattice ops compute neighbors
+from site coordinates inline (t-major: `idx = t * NxNyNz + x * NyNz + y * Nz + z`).
+hotSpring stores links using t-minor ordering: `idx = t + Nt * (x + Nx * (y + Ny * z))`.
+Passing hotSpring's link buffers to upstream ops produces wrong neighbor lookups
+and catastrophic HMC blowup (ΔH ~4800, non-physical).
+
+**Recommendation for toadStool:** Consider standardizing site ordering, or
+making the lattice ops accept a pre-computed neighbor buffer as an alternative.
+This would allow cross-spring consumers to use upstream ops directly regardless
+of their internal indexing convention.
+
+### Benchmark Results (v0.6.10, RTX 3090, DF64 gauge force active)
+
+| Lattice | Volume | CPU ms/traj | GPU ms/traj | GPU/CPU |
+|---------|--------|------------|------------|---------|
+| 4⁴ | 256 | 71.7 | 21.3 | 3.4× |
+| 8⁴ | 4,096 | 1,146 | 31.4 | 36.5× |
+| 8³×16 | 8,192 | 2,322 | 43.4 | 53.5× |
+| 16⁴ | 65,536 | 18,424 | 259 | 71.1× |
+
+All trajectories produce physical plaquette values and small ΔH, confirming
+the DF64 precision is sufficient for HMC gauge force computation.
+
+### Cross-Spring Evolution (complete trail)
+
+1. **hotSpring Exp 012** (Feb 24) — `df64_core.wgsl` (Dekker f32-pair arithmetic)
+2. **toadStool S58** — absorbs `df64_core.wgsl`, creates `su3_df64.wgsl`
+3. **toadStool S58-S62** — full DF64 HMC pipeline + `Fp64Strategy` auto-select
+4. **hotSpring v0.6.10** — imports upstream DF64 math, writes local DF64 force
+   with neighbor-buffer indexing (discovered site-ordering incompatibility)
+5. **wetSpring** — contributed `NvvmAdaF64Transcendentals` workaround for RTX 4070
+6. **neuralSpring** — benefits from DF64 for ESN reservoir precision ops
+
+*hotSpring v0.6.10 — DF64 core streaming live on consumer GPUs.
+All validation checks pass. Deconfinement signal reproduced at β=5.69.*

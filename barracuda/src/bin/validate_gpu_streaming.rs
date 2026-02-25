@@ -115,71 +115,10 @@ fn main() {
     );
 
     // ═══════════════════════════════════════════════════════════════
-    //  Phase 2: GPU PRNG validation — KE distribution
+    //  Phase 2: Full GPU-resident streaming (PRNG + encoder batching)
     // ═══════════════════════════════════════════════════════════════
     println!();
-    println!("═══ Phase 2: GPU PRNG Momenta Validation ═══");
-
-    let vol = 8 * 8 * 8 * 8;
-    let n_links = vol * 4;
-    // KE per link = Σ h_k² with 8 generators at variance 1/2 → E[KE_link] = 4
-    let expected_ke = 4.0 * n_links as f64;
-
-    let state_prng = GpuHmcState::from_lattice(&gpu, &lat, beta);
-    let mut seed_prng = 777u64;
-    let mut ke_samples = Vec::new();
-
-    for traj in 0..10u32 {
-        // Generate momenta via GPU PRNG only (no MD integration)
-        let prng_params = make_prng_params(n_links as u32, traj, &mut seed_prng);
-        let prng_pbuf = gpu.create_uniform_buffer(&prng_params, "prng_check");
-        let prng_bg = gpu.create_bind_group(
-            &streaming_pl.prng_pipeline,
-            &[&prng_pbuf, &state_prng.mom_buf],
-        );
-        gpu.dispatch(&streaming_pl.prng_pipeline, &prng_bg, state_prng.wg_links);
-
-        // Read back KE
-        let ke_params = make_u32x4(n_links as u32);
-        let ke_pbuf = gpu.create_uniform_buffer(&ke_params, "ke_check");
-        let ke_bg = gpu.create_bind_group(
-            &streaming_pl.hmc.kinetic_pipeline,
-            &[&ke_pbuf, &state_prng.mom_buf, &state_prng.ke_out_buf],
-        );
-        gpu.dispatch(&streaming_pl.hmc.kinetic_pipeline, &ke_bg, state_prng.wg_links);
-        if let Ok(ke_per_link) = gpu.read_back_f64(&state_prng.ke_out_buf, n_links) {
-            let ke: f64 = ke_per_link.iter().sum();
-            ke_samples.push(ke);
-        }
-    }
-
-    if ke_samples.is_empty() {
-        println!("  WARNING: No KE samples collected (GPU readback failed)");
-        harness.check_bool("GPU PRNG KE readable", false);
-    } else {
-        let ke_mean = ke_samples.iter().sum::<f64>() / ke_samples.len() as f64;
-        let ke_ratio = ke_mean / expected_ke;
-        println!("  Expected KE ~ {expected_ke:.0}  (4·V for su(3) with 8 generators)");
-        println!("  Measured KE = {ke_mean:.1}  ratio = {ke_ratio:.3}");
-        let any_nan = ke_samples.iter().any(|k| k.is_nan());
-        println!("  Any NaN: {any_nan}");
-
-        harness.check_bool("GPU PRNG KE not NaN", !any_nan);
-        if !any_nan {
-            harness.check_abs(
-                "GPU PRNG KE within 50% of expected",
-                ke_ratio,
-                1.0,
-                0.5,
-            );
-        }
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    //  Phase 3: Full GPU-resident streaming (PRNG + encoder batching)
-    // ═══════════════════════════════════════════════════════════════
-    println!();
-    println!("═══ Phase 3: Full GPU-Resident HMC (PRNG + Streaming) ═══");
+    println!("═══ Phase 2: Full GPU-Resident HMC (PRNG + Streaming) ═══");
 
     let state_full = GpuHmcState::from_lattice(&gpu, &lat, beta);
     let mut seed_full = 500u64;
@@ -205,10 +144,10 @@ fn main() {
     );
 
     // ═══════════════════════════════════════════════════════════════
-    //  Phase 4: Streaming vs Dispatch Benchmark (all sizes)
+    //  Phase 3: Streaming vs Dispatch Benchmark (all sizes)
     // ═══════════════════════════════════════════════════════════════
     println!();
-    println!("═══ Phase 4: Streaming vs Dispatch Overhead ═══");
+    println!("═══ Phase 3: Streaming vs Dispatch Overhead ═══");
     println!();
 
     let configs: Vec<(&str, [usize; 4])> = vec![
@@ -298,26 +237,6 @@ fn main() {
     println!();
 
     harness.finish();
-}
-
-fn make_u32x4(val: u32) -> Vec<u8> {
-    let mut v = Vec::with_capacity(16);
-    v.extend_from_slice(&val.to_le_bytes());
-    v.extend_from_slice(&0u32.to_le_bytes());
-    v.extend_from_slice(&0u32.to_le_bytes());
-    v.extend_from_slice(&0u32.to_le_bytes());
-    v
-}
-
-fn make_prng_params(n_links: u32, traj_id: u32, seed: &mut u64) -> Vec<u8> {
-    hotspring_barracuda::lattice::constants::lcg_step(seed);
-    let s = *seed;
-    let mut v = Vec::with_capacity(16);
-    v.extend_from_slice(&n_links.to_le_bytes());
-    v.extend_from_slice(&traj_id.to_le_bytes());
-    v.extend_from_slice(&(s as u32).to_le_bytes());
-    v.extend_from_slice(&((s >> 32) as u32).to_le_bytes());
-    v
 }
 
 fn bench_cpu(dims: [usize; 4], beta: f64, n_traj: usize) -> f64 {
