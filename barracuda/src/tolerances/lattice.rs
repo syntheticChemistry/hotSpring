@@ -466,3 +466,35 @@ pub const U1_LEAPFROG_REVERSIBILITY_DELTA_H_MAX: f64 = 1.0;
 /// Rust implementation must be faster than Python reference.
 /// Speedup = python_ms / rust_ms; must be > 1.0.
 pub const U1_SPEEDUP_MIN: f64 = 1.0;
+
+// ═══════════════════════════════════════════════════════════════════
+// GPU streaming and dynamical HMC validation tolerances
+// ═══════════════════════════════════════════════════════════════════
+
+/// GPU streaming plaquette: dispatch-vs-streaming parity.
+///
+/// GPU streaming HMC batches encoder submissions instead of per-step
+/// submit+poll. The plaquette from streaming must match per-dispatch
+/// to 1e-10 (near machine epsilon for accumulated f64 sums).
+pub const GPU_STREAMING_PLAQUETTE_PARITY: f64 = 1e-10;
+
+/// GPU dynamical fermion force: CPU-vs-GPU parity.
+///
+/// The staggered fermion force involves D†D⁻¹ and SU(3) matrix products.
+/// GPU parallel reduction order differs from CPU sequential, giving ~1e-12
+/// component-wise max error on small (4^4) lattices.
+pub const GPU_FERMION_FORCE_PARITY: f64 = 1e-12;
+
+/// GPU dynamical CG action: CPU-vs-GPU parity.
+///
+/// After CG solve on both CPU and GPU with identical tolerance, the
+/// fermion action S_F = φ†(D†D)⁻¹φ agrees to ~1e-6 relative. The
+/// larger error (vs force parity) reflects CG iteration count differences.
+pub const GPU_CG_ACTION_PARITY: f64 = 1e-6;
+
+/// Dispatch-vs-streaming dynamical HMC plaquette tolerance.
+///
+/// The dynamical streaming variant batches CG readbacks. The plaquette
+/// should agree with the dispatch variant to 10% relative (the CG
+/// convergence path may differ due to streaming encoder boundaries).
+pub const GPU_DYN_STREAMING_PLAQUETTE_PARITY: f64 = 0.10;

@@ -17,15 +17,12 @@
 //! 7. 8⁴ dynamical scaling — full system at 16× volume
 
 use hotspring_barracuda::gpu::GpuF64;
+use hotspring_barracuda::lattice::gpu_hmc::gpu_hmc_trajectory_streaming;
 use hotspring_barracuda::lattice::gpu_hmc::{
-    gpu_dynamical_hmc_trajectory, gpu_dynamical_hmc_trajectory_streaming,
-    gpu_dynamical_hmc_trajectory_resident,
-    GpuDynHmcPipelines, GpuDynHmcState, GpuDynHmcStreamingPipelines, GpuHmcState,
-    GpuHmcStreamingPipelines, GpuResidentCgPipelines, GpuResidentCgBuffers,
-    BidirectionalStream,
-};
-use hotspring_barracuda::lattice::gpu_hmc::{
-    gpu_hmc_trajectory_streaming,
+    gpu_dynamical_hmc_trajectory, gpu_dynamical_hmc_trajectory_resident,
+    gpu_dynamical_hmc_trajectory_streaming, BidirectionalStream, GpuDynHmcPipelines,
+    GpuDynHmcState, GpuDynHmcStreamingPipelines, GpuHmcState, GpuHmcStreamingPipelines,
+    GpuResidentCgBuffers, GpuResidentCgPipelines,
 };
 use hotspring_barracuda::lattice::hmc::{self, HmcConfig, IntegratorType};
 use hotspring_barracuda::lattice::wilson::Lattice;
@@ -93,21 +90,34 @@ fn main() {
 
     for i in 0..n_traj {
         let res = gpu_dynamical_hmc_trajectory(
-            &gpu, &dispatch_pipelines, &state, n_md, dt, &mut seed_dispatch,
+            &gpu,
+            &dispatch_pipelines,
+            &state,
+            n_md,
+            dt,
+            &mut seed_dispatch,
         );
         dispatch_plaqs.push(res.plaquette);
-        if res.accepted { dispatch_accepts += 1; }
+        if res.accepted {
+            dispatch_accepts += 1;
+        }
         if i % 5 == 0 {
-            println!("    traj {i}: plaq={:.6}, ΔH={:.4e}, CG={}, {}",
-                res.plaquette, res.delta_h, res.cg_iterations,
-                if res.accepted { "ACC" } else { "REJ" });
+            println!(
+                "    traj {i}: plaq={:.6}, ΔH={:.4e}, CG={}, {}",
+                res.plaquette,
+                res.delta_h,
+                res.cg_iterations,
+                if res.accepted { "ACC" } else { "REJ" }
+            );
         }
     }
     let dispatch_time = t_dispatch.elapsed().as_secs_f64();
     let dispatch_mean_plaq: f64 = dispatch_plaqs.iter().sum::<f64>() / dispatch_plaqs.len() as f64;
     let dispatch_acc_rate = dispatch_accepts as f64 / n_traj as f64;
-    println!("  Dispatch: ⟨P⟩={dispatch_mean_plaq:.6}, acc={:.0}%, {dispatch_time:.1}s",
-        dispatch_acc_rate * 100.0);
+    println!(
+        "  Dispatch: ⟨P⟩={dispatch_mean_plaq:.6}, acc={:.0}%, {dispatch_time:.1}s",
+        dispatch_acc_rate * 100.0
+    );
     println!();
 
     // ═══ Phase 2: Streaming dynamical HMC ═══
@@ -123,21 +133,35 @@ fn main() {
 
     for i in 0..n_traj {
         let res = gpu_dynamical_hmc_trajectory_streaming(
-            &gpu, &streaming_pipelines, &state2, n_md, dt, i as u32, &mut seed_stream,
+            &gpu,
+            &streaming_pipelines,
+            &state2,
+            n_md,
+            dt,
+            i as u32,
+            &mut seed_stream,
         );
         stream_plaqs.push(res.plaquette);
-        if res.accepted { stream_accepts += 1; }
+        if res.accepted {
+            stream_accepts += 1;
+        }
         if i % 5 == 0 {
-            println!("    traj {i}: plaq={:.6}, ΔH={:.4e}, CG={}, {}",
-                res.plaquette, res.delta_h, res.cg_iterations,
-                if res.accepted { "ACC" } else { "REJ" });
+            println!(
+                "    traj {i}: plaq={:.6}, ΔH={:.4e}, CG={}, {}",
+                res.plaquette,
+                res.delta_h,
+                res.cg_iterations,
+                if res.accepted { "ACC" } else { "REJ" }
+            );
         }
     }
     let streaming_time = t_streaming.elapsed().as_secs_f64();
     let stream_mean_plaq: f64 = stream_plaqs.iter().sum::<f64>() / stream_plaqs.len() as f64;
     let stream_acc_rate = stream_accepts as f64 / n_traj as f64;
-    println!("  Streaming: ⟨P⟩={stream_mean_plaq:.6}, acc={:.0}%, {streaming_time:.1}s",
-        stream_acc_rate * 100.0);
+    println!(
+        "  Streaming: ⟨P⟩={stream_mean_plaq:.6}, acc={:.0}%, {streaming_time:.1}s",
+        stream_acc_rate * 100.0
+    );
     println!();
 
     // Checks
@@ -147,11 +171,7 @@ fn main() {
     );
     let plaq_diff = (dispatch_mean_plaq - stream_mean_plaq).abs();
     println!("  Plaquette diff (dispatch vs streaming): {plaq_diff:.6}");
-    harness.check_upper(
-        "Dispatch-streaming plaquette within 10%",
-        plaq_diff,
-        0.10,
-    );
+    harness.check_upper("Dispatch-streaming plaquette within 10%", plaq_diff, 0.10);
     harness.check_bool(
         "Streaming plaquette in physical range (0.2, 0.8)",
         stream_mean_plaq > 0.2 && stream_mean_plaq < 0.8,
@@ -179,7 +199,13 @@ fn main() {
         let mut plaqs_b = Vec::new();
         for i in 0..5 {
             let res = gpu_dynamical_hmc_trajectory_streaming(
-                &gpu, &streaming_pipelines, &st, n_md, dt, i as u32, &mut seed_b,
+                &gpu,
+                &streaming_pipelines,
+                &st,
+                n_md,
+                dt,
+                i as u32,
+                &mut seed_b,
             );
             plaqs_b.push(res.plaquette);
         }
@@ -210,13 +236,21 @@ fn main() {
     let mut quench_plaqs = Vec::new();
     for i in 0..10 {
         let res = gpu_hmc_trajectory_streaming(
-            &gpu, &quenched_pipelines, &qs, n_md, 0.05, i as u32, &mut seed_q,
+            &gpu,
+            &quenched_pipelines,
+            &qs,
+            n_md,
+            0.05,
+            i as u32,
+            &mut seed_q,
         );
         quench_plaqs.push(res.plaquette);
     }
     let quench_mean: f64 = quench_plaqs.iter().sum::<f64>() / quench_plaqs.len() as f64;
     let shift = (stream_mean_plaq - quench_mean).abs();
-    println!("  Quenched ⟨P⟩={quench_mean:.6}, Dynamical ⟨P⟩={stream_mean_plaq:.6}, shift={shift:.6}");
+    println!(
+        "  Quenched ⟨P⟩={quench_mean:.6}, Dynamical ⟨P⟩={stream_mean_plaq:.6}, shift={shift:.6}"
+    );
 
     harness.check_bool(
         "Dynamical-quenched plaquette shift detected",
@@ -248,28 +282,39 @@ fn main() {
 
     for i in 0..n_traj_8 {
         let res = gpu_dynamical_hmc_trajectory_streaming(
-            &gpu, &streaming_pipelines, &state_8, n_md, dt, i as u32, &mut seed_8,
+            &gpu,
+            &streaming_pipelines,
+            &state_8,
+            n_md,
+            dt,
+            i as u32,
+            &mut seed_8,
         );
         plaqs_8.push(res.plaquette);
-        if res.accepted { acc_8 += 1; }
-        println!("    traj {i}: plaq={:.6}, ΔH={:.4e}, CG={}, {}",
-            res.plaquette, res.delta_h, res.cg_iterations,
-            if res.accepted { "ACC" } else { "REJ" });
+        if res.accepted {
+            acc_8 += 1;
+        }
+        println!(
+            "    traj {i}: plaq={:.6}, ΔH={:.4e}, CG={}, {}",
+            res.plaquette,
+            res.delta_h,
+            res.cg_iterations,
+            if res.accepted { "ACC" } else { "REJ" }
+        );
     }
     let time_8 = t_8.elapsed().as_secs_f64();
     let mean_8: f64 = plaqs_8.iter().sum::<f64>() / plaqs_8.len() as f64;
-    println!("  8⁴: ⟨P⟩={mean_8:.6}, acc={:.0}%, {time_8:.1}s ({:.1}s/traj)",
+    println!(
+        "  8⁴: ⟨P⟩={mean_8:.6}, acc={:.0}%, {time_8:.1}s ({:.1}s/traj)",
         acc_8 as f64 / n_traj_8 as f64 * 100.0,
-        time_8 / n_traj_8 as f64);
+        time_8 / n_traj_8 as f64
+    );
 
     harness.check_bool(
         "8⁴ plaquette in valid range (0.2, 1.01)",
         mean_8 > 0.2 && mean_8 < 1.01,
     );
-    harness.check_bool(
-        "8⁴ streaming dynamical completed successfully",
-        true,
-    );
+    harness.check_bool("8⁴ streaming dynamical completed successfully", true);
     println!();
 
     // ═══ Phase 6: GPU-Resident CG validation ═══
@@ -277,7 +322,10 @@ fn main() {
 
     let state_r = GpuDynHmcState::from_lattice(&gpu, &lat, beta, mass, cg_tol, cg_max_iter);
     let cg_bufs = GpuResidentCgBuffers::new(
-        &gpu, &streaming_pipelines.dyn_hmc, &resident_cg_pipelines, &state_r,
+        &gpu,
+        &streaming_pipelines.dyn_hmc,
+        &resident_cg_pipelines,
+        &state_r,
     );
     let check_interval = 10;
 
@@ -301,12 +349,18 @@ fn main() {
             check_interval,
         );
         resident_plaqs.push(res.plaquette);
-        if res.accepted { resident_accepts += 1; }
+        if res.accepted {
+            resident_accepts += 1;
+        }
         resident_cg_total += res.cg_iterations;
         if i % 5 == 0 {
-            println!("    traj {i}: plaq={:.6}, ΔH={:.4e}, CG={}, {}",
-                res.plaquette, res.delta_h, res.cg_iterations,
-                if res.accepted { "ACC" } else { "REJ" });
+            println!(
+                "    traj {i}: plaq={:.6}, ΔH={:.4e}, CG={}, {}",
+                res.plaquette,
+                res.delta_h,
+                res.cg_iterations,
+                if res.accepted { "ACC" } else { "REJ" }
+            );
         }
     }
     let resident_time = t_resident.elapsed().as_secs_f64();
@@ -314,18 +368,19 @@ fn main() {
     let resident_acc_rate = resident_accepts as f64 / n_traj as f64;
 
     let n_pairs_4 = 4usize.pow(4) * 3;
-    let old_readback_bytes = 2.0 * (n_pairs_4 as f64) * 8.0 * (resident_cg_total as f64 / n_traj as f64);
-    let new_readback_bytes = 8.0 * (resident_cg_total as f64 / n_traj as f64) / (check_interval as f64);
+    let old_readback_bytes =
+        2.0 * (n_pairs_4 as f64) * 8.0 * (resident_cg_total as f64 / n_traj as f64);
+    let new_readback_bytes =
+        8.0 * (resident_cg_total as f64 / n_traj as f64) / (check_interval as f64);
     let reduction_factor = old_readback_bytes / new_readback_bytes.max(1.0);
 
-    println!("  Resident CG: ⟨P⟩={resident_mean_plaq:.6}, acc={:.0}%, {resident_time:.1}s",
-        resident_acc_rate * 100.0);
+    println!(
+        "  Resident CG: ⟨P⟩={resident_mean_plaq:.6}, acc={:.0}%, {resident_time:.1}s",
+        resident_acc_rate * 100.0
+    );
     println!("  Readback reduction: {old_readback_bytes:.0} → {new_readback_bytes:.0} bytes/traj ({reduction_factor:.0}× less)");
 
-    harness.check_bool(
-        "Resident CG acceptance > 20%",
-        resident_acc_rate > 0.20,
-    );
+    harness.check_bool("Resident CG acceptance > 20%", resident_acc_rate > 0.20);
     harness.check_bool(
         "Resident CG plaquette in physical range (0.2, 0.8)",
         resident_mean_plaq > 0.2 && resident_mean_plaq < 0.8,
@@ -336,10 +391,7 @@ fn main() {
         resident_vs_dispatch,
         0.15,
     );
-    harness.check_bool(
-        "Readback reduction > 100×",
-        reduction_factor > 100.0,
-    );
+    harness.check_bool("Readback reduction > 100×", reduction_factor > 100.0);
     println!();
 
     // ═══ Phase 7: Bidirectional stream integration ═══
@@ -347,7 +399,10 @@ fn main() {
 
     let state_bi = GpuDynHmcState::from_lattice(&gpu, &lat, beta, mass, cg_tol, cg_max_iter);
     let cg_bufs_bi = GpuResidentCgBuffers::new(
-        &gpu, &streaming_pipelines.dyn_hmc, &resident_cg_pipelines, &state_bi,
+        &gpu,
+        &streaming_pipelines.dyn_hmc,
+        &resident_cg_pipelines,
+        &state_bi,
     );
     let mut stream = BidirectionalStream::new();
     let mut seed_bi = 500u64;
@@ -367,24 +422,25 @@ fn main() {
             check_interval,
         );
         if i % 2 == 0 {
-            println!("    traj {i}: plaq={:.6}, ΔH={:.4e}, CG={}",
-                res.plaquette, res.delta_h, res.cg_iterations);
+            println!(
+                "    traj {i}: plaq={:.6}, ΔH={:.4e}, CG={}",
+                res.plaquette, res.delta_h, res.cg_iterations
+            );
         }
     }
     let bi_time = t_bi.elapsed().as_secs_f64();
-    println!("  Stream: {} traj, {:.0}% acc, {:.0} avg CG, {bi_time:.1}s",
+    println!(
+        "  Stream: {} traj, {:.0}% acc, {:.0} avg CG, {bi_time:.1}s",
         stream.trajectories,
         stream.acceptance_rate() * 100.0,
-        stream.total_cg as f64 / stream.trajectories.max(1) as f64);
+        stream.total_cg as f64 / stream.trajectories.max(1) as f64
+    );
 
     harness.check_bool(
         "Bidirectional stream completed 5 trajectories",
         stream.trajectories == 5,
     );
-    harness.check_bool(
-        "Bidirectional stream acceptance > 0%",
-        stream.accepted > 0,
-    );
+    harness.check_bool("Bidirectional stream acceptance > 0%", stream.accepted > 0);
     println!();
 
     // ═══ Summary ═══
@@ -400,11 +456,16 @@ fn main() {
         stream_acc_rate * 100.0);
     println!("║  4⁴ resident:  ⟨P⟩={resident_mean_plaq:.4}, acc={:.0}%, {resident_time:.1}s                    ║",
         resident_acc_rate * 100.0);
-    println!("║  8⁴ streaming: ⟨P⟩={mean_8:.4}, acc={:.0}%, {time_8:.1}s                       ║",
-        acc_8 as f64 / n_traj_8 as f64 * 100.0);
-    println!("║  Bidirectional: {}/{} acc, {:.0} avg CG/traj                              ║",
-        stream.accepted, stream.trajectories,
-        stream.total_cg as f64 / stream.trajectories.max(1) as f64);
+    println!(
+        "║  8⁴ streaming: ⟨P⟩={mean_8:.4}, acc={:.0}%, {time_8:.1}s                       ║",
+        acc_8 as f64 / n_traj_8 as f64 * 100.0
+    );
+    println!(
+        "║  Bidirectional: {}/{} acc, {:.0} avg CG/traj                              ║",
+        stream.accepted,
+        stream.trajectories,
+        stream.total_cg as f64 / stream.trajectories.max(1) as f64
+    );
     println!("╚══════════════════════════════════════════════════════════════════════════════╝");
     println!();
 

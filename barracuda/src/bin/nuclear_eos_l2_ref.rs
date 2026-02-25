@@ -221,8 +221,8 @@ fn main() {
         let lambda_l2 = cli.lambda;
         let l2_obj_ds = move |x: &[f64]| -> f64 { l2_objective_nmp(x, &nuclei_ds, lambda_l2) };
 
-        let result_direct =
-            direct_sampler(device.clone(), l2_obj_ds, bounds, &direct_config).expect("DirectSampler failed");
+        let result_direct = direct_sampler(device.clone(), l2_obj_ds, bounds, &direct_config)
+            .expect("DirectSampler failed");
 
         let direct_time = t2.elapsed().as_secs_f64();
 

@@ -105,15 +105,24 @@ pub fn select_adapter() -> Result<wgpu::Adapter, crate::error::HotSpringError> {
     }
 
     // Support comma-separated priority lists: "3090,titan,auto"
-    let tokens: Vec<&str> = raw.split(',').map(str::trim).filter(|s| !s.is_empty()).collect();
-    let tokens = if tokens.is_empty() { vec!["auto"] } else { tokens };
+    let tokens: Vec<&str> = raw
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .collect();
+    let tokens = if tokens.is_empty() {
+        vec!["auto"]
+    } else {
+        tokens
+    };
 
     for token in &tokens {
         let selector = token.to_lowercase();
         if selector == "auto" {
             // Clone adapter vec for the fallback path — wgpu::Adapter is not Clone,
             // so re-enumerate. auto_select consumes the vec.
-            let fresh: Vec<wgpu::Adapter> = create_instance().enumerate_adapters(wgpu::Backends::all());
+            let fresh: Vec<wgpu::Adapter> =
+                create_instance().enumerate_adapters(wgpu::Backends::all());
             if let Ok(a) = auto_select(fresh) {
                 return Ok(a);
             }
@@ -136,7 +145,10 @@ pub fn select_adapter() -> Result<wgpu::Adapter, crate::error::HotSpringError> {
     Err(crate::error::HotSpringError::DeviceCreation(format!(
         "No adapter matched any of {:?}. Available: {:?}",
         tokens,
-        adapters.iter().map(|a| a.get_info().name).collect::<Vec<_>>(),
+        adapters
+            .iter()
+            .map(|a| a.get_info().name)
+            .collect::<Vec<_>>(),
     )))
 }
 

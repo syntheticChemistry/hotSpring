@@ -92,7 +92,7 @@ fn main() {
     gpu.print_info();
     if !gpu.has_f64 {
         println!("\n  SHADER_F64 not supported — cannot run FP64 science compute.");
-        println!("  Check: cargo run --bin check_caps (in toadstool/showcase/cross-platform)");
+        println!("  Check GPU capabilities with: cargo run --bin f64_builtin_test");
         return;
     }
     println!();
@@ -549,8 +549,8 @@ fn main() {
         .with_eval_budget(200)
         .with_patience(3);
 
-    let result_cpu =
-        direct_sampler(device.clone(), cpu_objective, bounds, &config_cpu).expect("CPU DirectSampler failed");
+    let result_cpu = direct_sampler(device.clone(), cpu_objective, bounds, &config_cpu)
+        .expect("CPU DirectSampler failed");
     let cpu_full_time = t_cpu_full.elapsed().as_secs_f64();
     let energy_ds_cpu = pmon_ds_cpu.stop();
     let cpu_full_chi2 = result_cpu.f_best.exp_m1();
@@ -592,8 +592,8 @@ fn main() {
         .with_eval_budget(200)
         .with_patience(3);
 
-    let result_gpu =
-        direct_sampler(device.clone(), gpu_objective, bounds, &config_gpu).expect("GPU DirectSampler failed");
+    let result_gpu = direct_sampler(device.clone(), gpu_objective, bounds, &config_gpu)
+        .expect("GPU DirectSampler failed");
     let gpu_full_time = t_gpu_full.elapsed().as_secs_f64();
     let energy_ds_gpu = pmon_ds_gpu.stop();
     let gpu_full_chi2 = result_gpu.f_best.exp_m1();
@@ -708,7 +708,7 @@ fn main() {
     println!("  Running... (each eval = full HFB SCF for ~{l2_count} nuclei)");
 
     let result_l2 =
-        direct_sampler(device.clone(), l2_objective, bounds, &l2_config).expect("L2 DirectSampler failed");
+        direct_sampler(device, l2_objective, bounds, &l2_config).expect("L2 DirectSampler failed");
     let l2_opt_time = t_l2_opt.elapsed().as_secs_f64();
     let energy_l2_opt = pmon_l2_opt.stop();
     let l2_opt_chi2 = result_l2.f_best.exp_m1();

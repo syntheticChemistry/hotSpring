@@ -121,7 +121,9 @@ impl NpuHardware {
             .map(|i| weights.w_out[i * rs..(i + 1) * rs].to_vec())
             .collect();
 
-        let device_available = std::path::Path::new("/dev/akida0").exists();
+        let device_available = DeviceManager::discover()
+            .map(|m| !m.devices().is_empty())
+            .unwrap_or(false);
 
         Self {
             w_in,

@@ -24,7 +24,7 @@ use hotspring_barracuda::md::reservoir::{EchoStateNetwork, EsnConfig, NpuSimulat
 use hotspring_barracuda::validation::ValidationHarness;
 use std::time::Instant;
 
-const KNOWN_BETA_C: f64 = 5.6925;
+use hotspring_barracuda::provenance::KNOWN_BETA_C_SU3_NT4 as KNOWN_BETA_C;
 
 fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");
@@ -94,14 +94,12 @@ fn main() {
     let (mut train_seqs, mut train_targets) =
         generate_gpu_training_data(&gpu_primary, &primary_pipelines, &initial_betas);
 
-    let mut esn = EchoStateNetwork::new(esn_config.clone());
+    let mut esn = EchoStateNetwork::new(esn_config);
     esn.train(&train_seqs, &train_targets);
 
     let initial_beta_c = detect_beta_c_from_esn(&mut esn);
     let initial_err = (initial_beta_c - KNOWN_BETA_C).abs();
-    println!(
-        "  Student β_c before oracle: {initial_beta_c:.4} (err={initial_err:.4})"
-    );
+    println!("  Student β_c before oracle: {initial_beta_c:.4} (err={initial_err:.4})");
     println!();
 
     // ═══ Phase 2: Oracle Generates Ground Truth ═══
@@ -109,9 +107,7 @@ fn main() {
     let oracle_start = Instant::now();
 
     // NPU flags interesting betas (near the transition)
-    let flagged_betas: Vec<f64> = (0..20)
-        .map(|i| 5.4 + 0.6 * (i as f64) / 19.0)
-        .collect();
+    let flagged_betas: Vec<f64> = (0..20).map(|i| 5.4 + 0.6 * (i as f64) / 19.0).collect();
 
     let mut oracle_data: Vec<(f64, f64, f64)> = Vec::new(); // (beta, plaq, poly)
 
@@ -172,9 +168,7 @@ fn main() {
     let refined_err = (refined_beta_c - KNOWN_BETA_C).abs();
     let teach_elapsed = teach_start.elapsed();
 
-    println!(
-        "  Student β_c after oracle: {refined_beta_c:.4} (err={refined_err:.4})"
-    );
+    println!("  Student β_c after oracle: {refined_beta_c:.4} (err={refined_err:.4})");
     println!(
         "  Improvement: {:.4} → {:.4} ({:.1}× better)",
         initial_err,
@@ -235,8 +229,12 @@ fn main() {
     let npu_energy_j = npu_power_w * npu_inference_time_s;
     let titan_energy_j = titan_power_w * oracle_elapsed.as_secs_f64();
 
-    println!("  NPU screening:  {} inferences, {:.3}J", oracle_inference_count, npu_energy_j);
-    println!("  Titan V oracle: {} measurements, {:.1}J", oracle_data.len(), titan_energy_j);
+    println!("  NPU screening:  {oracle_inference_count} inferences, {npu_energy_j:.3}J");
+    println!(
+        "  Titan V oracle: {} measurements, {:.1}J",
+        oracle_data.len(),
+        titan_energy_j
+    );
     println!(
         "  Energy ratio: NPU {:.0}× more efficient per inference",
         titan_energy_j / npu_energy_j.max(1e-9)
@@ -252,17 +250,12 @@ fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");
     println!("║  Oracle Teaching Summary                                   ║");
     println!("╠══════════════════════════════════════════════════════════════╣");
+    println!("║  Oracle: {oracle_label:<50} ║");
     println!(
-        "║  Oracle: {:<50} ║",
-        oracle_label
+        "║  β_c before: {initial_beta_c:.4} (err {initial_err:.4})                              ║"
     );
     println!(
-        "║  β_c before: {:.4} (err {:.4})                              ║",
-        initial_beta_c, initial_err
-    );
-    println!(
-        "║  β_c after:  {:.4} (err {:.4})                              ║",
-        refined_beta_c, refined_err
+        "║  β_c after:  {refined_beta_c:.4} (err {refined_err:.4})                              ║"
     );
     println!(
         "║  Accuracy: {:.0}%                                             ║",
@@ -300,9 +293,8 @@ fn generate_gpu_training_data(
         let beta_norm = (beta - 5.0) / 2.0;
 
         for t in 0..10 {
-            let r = gpu_hmc_trajectory_streaming(
-                gpu, pipelines, &state, 20, 0.02, t as u32, &mut seed,
-            );
+            let r =
+                gpu_hmc_trajectory_streaming(gpu, pipelines, &state, 20, 0.02, t as u32, &mut seed);
             let (poly, _) = gpu_polyakov_loop(gpu, &pipelines.hmc, &state);
             seq.push(vec![beta_norm, r.plaquette, poly]);
         }

@@ -149,9 +149,7 @@ impl GpuF64 {
                 )
             })?
             .map_err(|e| {
-                crate::error::HotSpringError::DeviceCreation(format!(
-                    "Async readback mapping: {e}"
-                ))
+                crate::error::HotSpringError::DeviceCreation(format!("Async readback mapping: {e}"))
             })?;
         let data = staging.slice(..).get_mapped_range();
         let result = mapped_bytes_to_f64(&data);

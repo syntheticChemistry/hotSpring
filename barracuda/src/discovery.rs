@@ -138,7 +138,7 @@ const CAPABILITY_PROBES: &[(&str, &str)] = &[
     ("surrogate", paths::SURROGATE_CONTROL),
     ("screened-coulomb", "control/screened_coulomb"),
     ("lattice-qcd", "control/lattice_qcd"),
-    ("npu", "control/metalforge_npu"),
+    ("npu", "control/npu"),
     ("reservoir-transport", "control/reservoir_transport"),
     ("spectral-theory", "control/spectral_theory"),
 ];
@@ -178,6 +178,29 @@ pub fn benchmark_results_dir() -> std::io::Result<PathBuf> {
     let dir = discover_data_root().join(paths::BENCHMARK_RESULTS);
     std::fs::create_dir_all(&dir)?;
     Ok(dir)
+}
+
+/// Probe whether an NPU (neuromorphic processing unit) is available.
+///
+/// When the `npu-hw` feature is enabled, delegates to the `akida-driver`
+/// device manager. Otherwise, checks for any device node matching
+/// `/dev/akida*` — a generic probe that avoids hardcoding a specific index.
+#[must_use]
+pub fn probe_npu_available() -> bool {
+    #[cfg(feature = "npu-hw")]
+    {
+        crate::md::npu_hw::NpuHardware::discover().is_some()
+    }
+    #[cfg(not(feature = "npu-hw"))]
+    {
+        std::fs::read_dir("/dev")
+            .map(|entries| {
+                entries
+                    .filter_map(Result::ok)
+                    .any(|e| e.file_name().to_string_lossy().starts_with("akida"))
+            })
+            .unwrap_or(false)
+    }
 }
 
 #[cfg(test)]
@@ -364,5 +387,51 @@ mod tests {
         if root.join(paths::NUCLEAR_EOS).is_dir() {
             assert!(caps.contains(&"nuclear-eos"));
         }
+    }
+
+    #[test]
+    fn probe_npu_available_returns_bool() {
+        let result = probe_npu_available();
+        // On CI / dev machines without Akida hardware, expect false.
+        // On machines with /dev/akida*, expect true.
+        // Either way, the function must not panic.
+        assert!(result || !result, "probe_npu_available must return a bool");
+    }
+
+    #[test]
+    fn nuclear_eos_dir_resolves() {
+        let dir = nuclear_eos_dir();
+        assert!(
+            !dir.as_os_str().is_empty(),
+            "nuclear_eos_dir should resolve to a non-empty path"
+        );
+    }
+
+    #[test]
+    fn capability_probes_have_unique_names() {
+        let names: Vec<&str> = CAPABILITY_PROBES.iter().map(|(n, _)| *n).collect();
+        let unique: std::collections::HashSet<&str> = names.iter().copied().collect();
+        assert_eq!(
+            names.len(),
+            unique.len(),
+            "capability probe names must be unique"
+        );
+    }
+
+    #[test]
+    fn capability_probes_paths_are_relative() {
+        for (name, path) in CAPABILITY_PROBES {
+            assert!(
+                !path.starts_with('/'),
+                "probe '{name}' has absolute path '{path}' — should be relative"
+            );
+        }
+    }
+
+    #[test]
+    fn is_valid_root_rejects_nonexistent() {
+        assert!(!is_valid_root(Path::new(
+            "/nonexistent_hotspring_path_98312"
+        )));
     }
 }

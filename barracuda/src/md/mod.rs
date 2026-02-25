@@ -41,11 +41,11 @@ pub mod config;
 pub mod cpu_reference;
 /// Diagnostic helpers for force comparison (celllist_diag).
 pub mod diag;
-/// Energy, RDF, SSF, VACF, transport observables.
-pub mod observables;
 /// Real NPU hardware adapter (BrainChip Akida AKD1000).
 #[cfg(feature = "npu-hw")]
 pub mod npu_hw;
+/// Energy, RDF, SSF, VACF, transport observables.
+pub mod observables;
 /// Echo State Network (ESN) reservoir for transport coefficient prediction.
 pub mod reservoir;
 /// WGSL shader sources loaded from `.wgsl` files (zero inline).

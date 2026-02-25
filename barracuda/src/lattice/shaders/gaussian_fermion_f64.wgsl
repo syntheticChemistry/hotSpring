@@ -19,21 +19,7 @@ struct Params {
 @group(0) @binding(0) var<uniform> params: Params;
 @group(0) @binding(1) var<storage, read_write> fermion: array<f64>;
 
-fn pcg_hash(inp: u32) -> u32 {
-    var state = inp * 747796405u + 2891336453u;
-    var word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
-    return (word >> 22u) ^ word;
-}
-
-fn hash_u32(site_idx: u32, seq: u32) -> u32 {
-    let key = site_idx ^ (params.seed_lo * 2654435761u) ^ (params.traj_id * 2246822519u);
-    return pcg_hash(pcg_hash(key + seq) ^ params.seed_hi);
-}
-
-fn uniform_f64(site_idx: u32, seq: u32) -> f64 {
-    let v = hash_u32(site_idx, seq);
-    return (f64(v) + f64(0.5)) / f64(4294967296.0);
-}
+// pcg_hash, hash_u32, uniform_f64 provided by prng_pcg_f64.wgsl (prepended in Rust).
 
 fn box_muller_cos(u1: f64, u2: f64) -> f64 {
     var safe = u1;

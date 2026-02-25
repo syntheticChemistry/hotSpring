@@ -187,7 +187,7 @@ pub fn integrate_ttm_rk4(
         ti_history.push(ti);
     }
 
-    let equilibrium_temperature = (te + ti) / 2.0;
+    let equilibrium_temperature = f64::midpoint(te, ti);
     let equilibration_time =
         find_equilibration_time_internal(&times, &te_history, &ti_history, 100.0);
 

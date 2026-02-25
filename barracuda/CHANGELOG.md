@@ -5,6 +5,77 @@ All notable changes to the hotSpring BarraCuda validation crate.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.6.14 — Debt Reduction + Cross-Primal Discovery (Feb 25, 2026)
+
+### Cross-primal hardcoding → capability-based discovery
+
+Eliminated all hardcoded cross-primal references from production code.
+Code now has self-knowledge only and discovers other primals at runtime.
+
+- Changed: `validate_three_substrate.rs`, `production_mixed_pipeline.rs` — replaced
+  hardcoded `/dev/akida0` path with `discovery::probe_npu_available()` (sysfs scan)
+- Changed: `discovery.rs` — renamed `control/metalforge_npu` → `control/npu`
+  (generic capability, no embedded primal name)
+- Changed: `nuclear_eos_gpu.rs` — removed toadstool path from error message
+- Changed: `bench_multi_gpu.rs` — replaced metalForge doc reference with env vars
+- Added: `discovery::probe_npu_available()` — feature-gated NPU probe
+  (`npu-hw` → akida-driver, fallback → `/dev/akida*` sysfs scan)
+
+### Gauss-Jordan → barracuda LU decomposition
+
+Replaced the local 68-line `gauss_jordan_solve` in `reservoir.rs` with
+`barracuda::ops::linalg::lu_solve` — the shared primitive with partial pivoting.
+Same API surface (dense Ax=b), but uses the validated barracuda implementation.
+
+### WGSL shader deduplication
+
+Created `prng_pcg_f64.wgsl` shared PRNG library (PCG hash + uniform f64).
+Lattice PRNG shaders (`su3_random_momenta_f64`, `gaussian_fermion_f64`) now
+compose via `include_str!` concatenation, eliminating 30 lines of duplicated code.
+Each consumer retains its own `box_muller_cos`/`gaussian` (f64 cos vs f32 cast
+difference is intentional — validated separately).
+
+### Clippy pedantic/nursery: zero warnings (lib + bins)
+
+Fixed all 57 clippy warnings across 17 validation binaries:
+- `manual_div_ceil` → `.div_ceil()` (7)
+- `uninlined_format_args` → inline `{var}` (13)
+- `manual_let_else` → `let...else` (1)
+- `ref_option` → `Option<&T>` (1)
+- `needless_pass_by_ref_mut` → `&T` (2)
+- `collection_is_never_read` — removed dead polyakov collectors (3)
+- `no_effect_underscore_binding` — removed unused bindings (2)
+- Various: `redundant_clone`, `map_unwrap_or`, `unnecessary_hashes`,
+  `manual_midpoint`, `cloned_instead_of_copied`, etc.
+
+### Discovery coverage improvements
+
+Added 5 new tests to `discovery.rs` (18 → 23 tests):
+- `probe_npu_available_returns_bool` — exercises the NPU probe path
+- `nuclear_eos_dir_resolves` — ensures resolution produces non-empty path
+- `capability_probes_have_unique_names` — validates probe registry uniqueness
+- `capability_probes_paths_are_relative` — no accidental absolute paths
+- `is_valid_root_rejects_nonexistent` — hardening
+
+### Validation fidelity hardening
+
+- Added: `provenance::KNOWN_BETA_C_SU3_NT4` (5.6925) with Bali/Engels/Creutz citations
+- Changed: 7 binaries migrated from local `const KNOWN_BETA_C` to centralized provenance
+- Added: `tolerances::GPU_STREAMING_PLAQUETTE_PARITY` (1e-10) — streaming vs dispatch
+- Added: `tolerances::GPU_FERMION_FORCE_PARITY` (1e-12) — CPU vs GPU fermion force
+- Added: `tolerances::GPU_CG_ACTION_PARITY` (1e-6) — CPU vs GPU CG action
+- Added: `tolerances::GPU_DYN_STREAMING_PLAQUETTE_PARITY` (0.10) — dynamical streaming
+
+### Audit results (clean)
+
+- 0 mocks in production code (NpuSimulator is a legitimate software implementation)
+- 0 TODO/FIXME/HACK/unimplemented markers across 167 .rs files
+- 0 clippy warnings (lib + bins, pedantic + nursery)
+- 664 tests passing (629 lib + 31 integration + 4 doc), 0 failures
+- ~150 centralized tolerances with physics justification (~95% coverage)
+
+---
+
 ## v0.6.13 — GPU Polyakov Loop + NVK Guard + PRNG Fix (Feb 25, 2026)
 
 ### GPU-resident Polyakov loop (eliminates CPU readback)

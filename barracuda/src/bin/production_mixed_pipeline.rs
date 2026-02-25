@@ -33,7 +33,7 @@ use hotspring_barracuda::md::reservoir::{EchoStateNetwork, EsnConfig, NpuSimulat
 
 use std::time::Instant;
 
-const KNOWN_BETA_C: f64 = 5.6925;
+use hotspring_barracuda::provenance::KNOWN_BETA_C_SU3_NT4 as KNOWN_BETA_C;
 
 struct CliArgs {
     lattice: usize,
@@ -60,7 +60,12 @@ fn parse_args() -> CliArgs {
         }
     }
 
-    CliArgs { lattice, n_therm, seed, output }
+    CliArgs {
+        lattice,
+        n_therm,
+        seed,
+        output,
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -88,7 +93,10 @@ fn main() {
     println!("╚══════════════════════════════════════════════════════════════╝");
     println!();
     println!("  Lattice:  {}⁴ ({} sites)", args.lattice, vol);
-    println!("  VRAM est: {:.1} GB (quenched)", vol as f64 * 4.0 * 18.0 * 8.0 * 3.0 / 1e9);
+    println!(
+        "  VRAM est: {:.1} GB (quenched)",
+        vol as f64 * 4.0 * 18.0 * 8.0 * 3.0 / 1e9
+    );
     println!("  Therm:    {} per β point", args.n_therm);
     println!("  Strategy: Adaptive NPU steering (vs 12-point uniform in Exp 013)");
     println!("  Seed:     {}", args.seed);
@@ -129,10 +137,14 @@ fn main() {
         }
     };
 
-    let npu_available = std::path::Path::new("/dev/akida0").exists();
+    let npu_available = hotspring_barracuda::discovery::probe_npu_available();
     println!(
         "  NPU:        {}",
-        if npu_available { "AKD1000 (hardware)" } else { "NpuSimulator (ESN)" }
+        if npu_available {
+            "AKD1000 (hardware)"
+        } else {
+            "NpuSimulator (ESN)"
+        }
     );
     println!();
 
@@ -141,7 +153,10 @@ fn main() {
     let scale = (ref_vol / vol_f).powf(0.25);
     let dt = (0.05 * scale).max(0.002);
     let n_md = ((0.5 / dt).round() as usize).max(10);
-    println!("  HMC:        dt={dt:.4}, n_md={n_md}, traj_len={:.3}", dt * n_md as f64);
+    println!(
+        "  HMC:        dt={dt:.4}, n_md={n_md}, traj_len={:.3}",
+        dt * n_md as f64
+    );
     println!();
 
     let pipelines = GpuHmcStreamingPipelines::new(&gpu);
@@ -154,15 +169,33 @@ fn main() {
     let seed_betas = vec![5.0, 5.69, 6.5];
     let seed_meas = 500;
 
-    println!("═══ Phase 1: Seed Scan ({} points × {} meas) ═══", seed_betas.len(), seed_meas);
+    println!(
+        "═══ Phase 1: Seed Scan ({} points × {} meas) ═══",
+        seed_betas.len(),
+        seed_meas
+    );
     let seed_data = run_beta_points(
-        &gpu, &pipelines, &seed_betas, dims, args.n_therm, seed_meas, n_md, dt, args.seed,
+        &gpu,
+        &pipelines,
+        &seed_betas,
+        dims,
+        args.n_therm,
+        seed_meas,
+        n_md,
+        dt,
+        args.seed,
     );
     for r in &seed_data {
         total_trajectories += r.n_traj + args.n_therm;
         println!(
             "  β={:.4}: ⟨P⟩={:.6}±{:.6}  |L|={:.4}  χ={:.2}  acc={:.0}%  ({:.1}s)",
-            r.beta, r.mean_plaq, r.std_plaq, r.polyakov, r.susceptibility, r.acceptance * 100.0, r.wall_s,
+            r.beta,
+            r.mean_plaq,
+            r.std_plaq,
+            r.polyakov,
+            r.susceptibility,
+            r.acceptance * 100.0,
+            r.wall_s,
         );
     }
     results.extend(seed_data.iter().cloned());
@@ -202,27 +235,46 @@ fn main() {
     let max_adaptive_points = 6;
     let adaptive_meas = 600;
 
-    println!("═══ Phase 3: NPU Adaptive Steering (up to {} extra points) ═══", max_adaptive_points);
-    let mut measured_betas: Vec<f64> = seed_betas.clone();
+    println!("═══ Phase 3: NPU Adaptive Steering (up to {max_adaptive_points} extra points) ═══");
+    let mut measured_betas: Vec<f64> = seed_betas;
     let mut adaptive_count = 0;
 
     for round in 0..max_adaptive_points {
         let next_beta = find_max_uncertainty_beta(&mut npu, &measured_betas, 4.0, 7.0, 60);
         if next_beta.is_nan() || measured_betas.iter().any(|&b| (b - next_beta).abs() < 0.03) {
-            println!("  Round {}: no new β with sufficient uncertainty, stopping", round + 1);
+            println!(
+                "  Round {}: no new β with sufficient uncertainty, stopping",
+                round + 1
+            );
             break;
         }
 
-        println!("  Round {}: NPU selects β={:.4} (max uncertainty)", round + 1, next_beta);
+        println!(
+            "  Round {}: NPU selects β={:.4} (max uncertainty)",
+            round + 1,
+            next_beta
+        );
         let point_data = run_beta_points(
-            &gpu, &pipelines, &[next_beta], dims, args.n_therm, adaptive_meas, n_md, dt,
+            &gpu,
+            &pipelines,
+            &[next_beta],
+            dims,
+            args.n_therm,
+            adaptive_meas,
+            n_md,
+            dt,
             args.seed + 100 + round as u64,
         );
         for r in &point_data {
             total_trajectories += r.n_traj + args.n_therm;
             println!(
                 "    ⟨P⟩={:.6}±{:.6}  |L|={:.4}  χ={:.2}  acc={:.0}%  ({:.1}s)",
-                r.mean_plaq, r.std_plaq, r.polyakov, r.susceptibility, r.acceptance * 100.0, r.wall_s,
+                r.mean_plaq,
+                r.std_plaq,
+                r.polyakov,
+                r.susceptibility,
+                r.acceptance * 100.0,
+                r.wall_s,
             );
         }
         results.extend(point_data.iter().cloned());
@@ -232,9 +284,14 @@ fn main() {
         // Retrain ESN with new data
         let (seqs, tgts) = build_training_data(&results);
         let mut esn2 = EchoStateNetwork::new(EsnConfig {
-            input_size: 4, reservoir_size: 50, output_size: 2,
-            spectral_radius: 0.95, connectivity: 0.2, leak_rate: 0.3,
-            regularization: 1e-3, seed: 99 + round as u64,
+            input_size: 4,
+            reservoir_size: 50,
+            output_size: 2,
+            spectral_radius: 0.95,
+            connectivity: 0.2,
+            leak_rate: 0.3,
+            regularization: 1e-3,
+            seed: 99 + round as u64,
         });
         esn2.train(&seqs, &tgts);
         if let Some(w) = esn2.export_weights() {
@@ -254,28 +311,45 @@ fn main() {
         .filter(|b| !measured_betas.iter().any(|mb| (mb - b).abs() < 0.03))
         .collect();
 
-    if !refine_betas.is_empty() {
-        println!("═══ Phase 4: Refinement Near β_c={:.4} ({} extra points) ═══", final_beta_c, refine_betas.len());
+    if refine_betas.is_empty() {
+        println!("═══ Phase 4: Refinement — β_c region already covered ═══");
+    } else {
+        println!(
+            "═══ Phase 4: Refinement Near β_c={:.4} ({} extra points) ═══",
+            final_beta_c,
+            refine_betas.len()
+        );
         let refine_data = run_beta_points(
-            &gpu, &pipelines, &refine_betas, dims, args.n_therm, 800, n_md, dt,
+            &gpu,
+            &pipelines,
+            &refine_betas,
+            dims,
+            args.n_therm,
+            800,
+            n_md,
+            dt,
             args.seed + 500,
         );
         for r in &refine_data {
             total_trajectories += r.n_traj + args.n_therm;
             println!(
                 "  β={:.4}: ⟨P⟩={:.6}±{:.6}  |L|={:.4}  χ={:.2}  acc={:.0}%  ({:.1}s)",
-                r.beta, r.mean_plaq, r.std_plaq, r.polyakov, r.susceptibility, r.acceptance * 100.0, r.wall_s,
+                r.beta,
+                r.mean_plaq,
+                r.std_plaq,
+                r.polyakov,
+                r.susceptibility,
+                r.acceptance * 100.0,
+                r.wall_s,
             );
         }
-        results.extend(refine_data.into_iter());
-    } else {
-        println!("═══ Phase 4: Refinement — β_c region already covered ═══");
+        results.extend(refine_data);
     }
     println!();
 
     // ═══ Phase 5: Titan V Validation Oracle ═══
     println!("═══ Phase 5: Titan V Validation Oracle ═══");
-    run_titan_validation(&gpu_titan, &results, dims, n_md, dt);
+    run_titan_validation(gpu_titan.as_ref(), &results, dims, n_md, dt);
     println!();
 
     // ═══ Summary & Comparison ═══
@@ -283,14 +357,27 @@ fn main() {
     results.sort_by(|a, b| a.beta.partial_cmp(&b.beta).unwrap());
 
     println!("═══════════════════════════════════════════════════════════");
-    println!("  Mixed Pipeline β-Scan Summary: {}⁴ Quenched SU(3)", args.lattice);
+    println!(
+        "  Mixed Pipeline β-Scan Summary: {}⁴ Quenched SU(3)",
+        args.lattice
+    );
     println!("═══════════════════════════════════════════════════════════");
-    println!("  {:>6} {:>10} {:>10} {:>10} {:>10} {:>8} {:>6} {:>8}",
-        "β", "⟨P⟩", "σ(P)", "|L|", "χ", "acc%", "traj", "time");
+    println!(
+        "  {:>6} {:>10} {:>10} {:>10} {:>10} {:>8} {:>6} {:>8}",
+        "β", "⟨P⟩", "σ(P)", "|L|", "χ", "acc%", "traj", "time"
+    );
     for r in &results {
-        println!("  {:>6.4} {:>10.6} {:>10.6} {:>10.4} {:>10.4} {:>7.1}% {:>6} {:>7.1}s",
-            r.beta, r.mean_plaq, r.std_plaq, r.polyakov, r.susceptibility,
-            r.acceptance * 100.0, r.n_traj, r.wall_s);
+        println!(
+            "  {:>6.4} {:>10.6} {:>10.6} {:>10.4} {:>10.4} {:>7.1}% {:>6} {:>7.1}s",
+            r.beta,
+            r.mean_plaq,
+            r.std_plaq,
+            r.polyakov,
+            r.susceptibility,
+            r.acceptance * 100.0,
+            r.n_traj,
+            r.wall_s
+        );
     }
     println!();
 
@@ -305,44 +392,76 @@ fn main() {
     println!("  ├─────────────────────────────────────────────────────────┤");
     println!("  │  Metric             Mixed Pipeline    Exp 013 Baseline │");
     println!("  │  β points           {:<19} {:<18} │", results.len(), 12);
-    println!("  │  Total trajectories {:<19} {:<18} │", total_trajectories, exp013_traj);
+    println!("  │  Total trajectories {total_trajectories:<19} {exp013_traj:<18} │");
     println!("  │  Measurement traj   {:<19} {:<18} │", total_meas, 12000);
-    println!("  │  Wall time          {:<18.1}s {:<17.1}s │", total_wall, exp013_wall);
-    println!("  │  Wall time (hrs)    {:<18.2}h {:<17.2}h │", total_wall / 3600.0, exp013_wall / 3600.0);
-    println!("  │  Energy (est.)      {:<17.2} kWh {:<16.2} kWh │", mixed_energy_kwh, exp013_energy_kwh);
-    println!("  │  Speedup            {:<19.1}×                   │", exp013_wall / total_wall);
-    println!("  │  Energy savings     {:<18.0}%                   │", (1.0 - mixed_energy_kwh / exp013_energy_kwh) * 100.0);
-    println!("  │  Traj reduction     {:<18.0}%                   │", (1.0 - total_trajectories as f64 / exp013_traj as f64) * 100.0);
+    println!("  │  Wall time          {total_wall:<18.1}s {exp013_wall:<17.1}s │");
+    println!(
+        "  │  Wall time (hrs)    {:<18.2}h {:<17.2}h │",
+        total_wall / 3600.0,
+        exp013_wall / 3600.0
+    );
+    println!(
+        "  │  Energy (est.)      {mixed_energy_kwh:<17.2} kWh {exp013_energy_kwh:<16.2} kWh │"
+    );
+    println!(
+        "  │  Speedup            {:<19.1}×                   │",
+        exp013_wall / total_wall
+    );
+    println!(
+        "  │  Energy savings     {:<18.0}%                   │",
+        (1.0 - mixed_energy_kwh / exp013_energy_kwh) * 100.0
+    );
+    println!(
+        "  │  Traj reduction     {:<18.0}%                   │",
+        (1.0 - total_trajectories as f64 / exp013_traj as f64) * 100.0
+    );
     println!("  └─────────────────────────────────────────────────────────┘");
     println!();
 
     // Physics quality check
     println!("  Physics Quality:");
-    let near_bc: Vec<&BetaResult> = results.iter().filter(|r| (r.beta - KNOWN_BETA_C).abs() < 0.15).collect();
+    let near_bc: Vec<&BetaResult> = results
+        .iter()
+        .filter(|r| (r.beta - KNOWN_BETA_C).abs() < 0.15)
+        .collect();
     let far_confined: Vec<&BetaResult> = results.iter().filter(|r| r.beta < 5.5).collect();
     let far_deconfined: Vec<&BetaResult> = results.iter().filter(|r| r.beta > 6.0).collect();
 
     if !near_bc.is_empty() {
-        let max_chi = near_bc.iter().map(|r| r.susceptibility).fold(0.0_f64, f64::max);
+        let max_chi = near_bc
+            .iter()
+            .map(|r| r.susceptibility)
+            .fold(0.0_f64, f64::max);
         println!("    Susceptibility peak near β_c: χ_max = {max_chi:.2}");
     }
     if !far_confined.is_empty() {
-        let mean_poly: f64 = far_confined.iter().map(|r| r.polyakov).sum::<f64>() / far_confined.len() as f64;
+        let mean_poly: f64 =
+            far_confined.iter().map(|r| r.polyakov).sum::<f64>() / far_confined.len() as f64;
         println!("    Confined |L| (β<5.5):  {mean_poly:.4}");
     }
     if !far_deconfined.is_empty() {
-        let mean_poly: f64 = far_deconfined.iter().map(|r| r.polyakov).sum::<f64>() / far_deconfined.len() as f64;
+        let mean_poly: f64 =
+            far_deconfined.iter().map(|r| r.polyakov).sum::<f64>() / far_deconfined.len() as f64;
         println!("    Deconfined |L| (β>6.0): {mean_poly:.4}");
     }
-    let monotonic = results.windows(2).all(|w| w[1].mean_plaq >= w[0].mean_plaq - 0.01);
-    println!("    Plaquette monotonicity: {}", if monotonic { "PASS" } else { "MARGINAL" });
+    let monotonic = results
+        .windows(2)
+        .all(|w| w[1].mean_plaq >= w[0].mean_plaq - 0.01);
+    println!(
+        "    Plaquette monotonicity: {}",
+        if monotonic { "PASS" } else { "MARGINAL" }
+    );
     println!();
 
     println!("  GPU: {}", gpu.adapter_name);
     if let Some(ref t) = gpu_titan {
         println!("  Titan V: {}", t.adapter_name);
     }
-    println!("  Total wall time: {:.1}s ({:.2} hours)", total_wall, total_wall / 3600.0);
+    println!(
+        "  Total wall time: {:.1}s ({:.2} hours)",
+        total_wall,
+        total_wall / 3600.0
+    );
     println!();
 
     if let Some(path) = args.output {
@@ -437,7 +556,13 @@ fn run_beta_points(
 
         for i in 0..n_meas {
             let r = gpu_hmc_trajectory_streaming(
-                gpu, pipelines, &state, n_md, dt, (n_therm + i) as u32, &mut seed,
+                gpu,
+                pipelines,
+                &state,
+                n_md,
+                dt,
+                (n_therm + i) as u32,
+                &mut seed,
             );
             plaq_vals.push(r.plaquette);
             if r.accepted {
@@ -450,7 +575,10 @@ fn run_beta_points(
         }
 
         let mean_plaq: f64 = plaq_vals.iter().sum::<f64>() / plaq_vals.len() as f64;
-        let var_plaq: f64 = plaq_vals.iter().map(|p| (p - mean_plaq).powi(2)).sum::<f64>()
+        let var_plaq: f64 = plaq_vals
+            .iter()
+            .map(|p| (p - mean_plaq).powi(2))
+            .sum::<f64>()
             / (plaq_vals.len() - 1).max(1) as f64;
         let std_plaq = var_plaq.sqrt();
 
@@ -475,9 +603,16 @@ fn run_beta_points(
         };
 
         out.push(BetaResult {
-            beta, mean_plaq, std_plaq, polyakov: mean_poly,
-            susceptibility, action_density, acceptance, n_traj: n_meas,
-            wall_s, phase,
+            beta,
+            mean_plaq,
+            std_plaq,
+            polyakov: mean_poly,
+            susceptibility,
+            action_density,
+            acceptance,
+            n_traj: n_meas,
+            wall_s,
+            phase,
         });
     }
 
@@ -526,7 +661,11 @@ fn predict_beta_c(npu: &mut NpuSimulator) -> f64 {
         let beta_norm = (beta - 5.0) / 2.0;
         let plaq_est = 0.35 + 0.25 * (beta - 4.5) / 2.5;
         let poly_est = if beta > 5.7 { 0.3 } else { 0.05 };
-        let chi_est = if (beta - 5.69).abs() < 0.2 { 500.0 } else { 50.0 };
+        let chi_est = if (beta - 5.69).abs() < 0.2 {
+            500.0
+        } else {
+            50.0
+        };
 
         let seq: Vec<Vec<f64>> = vec![vec![beta_norm, plaq_est, poly_est, chi_est / 1000.0]; 10];
         let pred = npu.predict(&seq);
@@ -571,7 +710,11 @@ fn find_max_uncertainty_beta(
         let beta_norm = (beta - 5.0) / 2.0;
         let plaq_est = 0.35 + 0.25 * (beta - 4.5) / 2.5;
         let poly_est = if beta > 5.7 { 0.3 } else { 0.05 };
-        let chi_est = if (beta - 5.69).abs() < 0.2 { 500.0 } else { 50.0 };
+        let chi_est = if (beta - 5.69).abs() < 0.2 {
+            500.0
+        } else {
+            50.0
+        };
 
         let seq: Vec<Vec<f64>> = vec![vec![beta_norm, plaq_est, poly_est, chi_est / 1000.0]; 10];
         let pred = npu.predict(&seq);
@@ -599,16 +742,14 @@ fn find_max_uncertainty_beta(
 
 /// Run Titan V (or CPU) validation oracle on critical configurations.
 fn run_titan_validation(
-    gpu_titan: &Option<GpuF64>,
+    gpu_titan: Option<&GpuF64>,
     results: &[BetaResult],
     dims: [usize; 4],
     n_md: usize,
     dt: f64,
 ) {
-    let transition_results: Vec<&BetaResult> = results
-        .iter()
-        .filter(|r| r.phase == "transition")
-        .collect();
+    let transition_results: Vec<&BetaResult> =
+        results.iter().filter(|r| r.phase == "transition").collect();
 
     if transition_results.is_empty() {
         println!("  No transition-region points to validate");
@@ -637,8 +778,13 @@ fn run_titan_validation(
             let mut seed = 88888u64;
             for t in 0..20 {
                 gpu_hmc_trajectory_streaming(
-                    titan, &titan_pipelines, &state, n_md.min(30),
-                    dt.max(0.01), t as u32, &mut seed,
+                    titan,
+                    &titan_pipelines,
+                    &state,
+                    n_md.min(30),
+                    dt.max(0.01),
+                    t as u32,
+                    &mut seed,
                 );
             }
 
@@ -646,8 +792,13 @@ fn run_titan_validation(
             let n_verify = 50;
             for t in 0..n_verify {
                 let tr = gpu_hmc_trajectory_streaming(
-                    titan, &titan_pipelines, &state, n_md.min(30),
-                    dt.max(0.01), (20 + t) as u32, &mut seed,
+                    titan,
+                    &titan_pipelines,
+                    &state,
+                    n_md.min(30),
+                    dt.max(0.01),
+                    (20 + t) as u32,
+                    &mut seed,
                 );
                 plaq_sum += tr.plaquette;
             }
@@ -659,7 +810,11 @@ fn run_titan_validation(
 
             println!(
                 "  β={:.4}: 3090 ⟨P⟩={:.6} vs Titan V ⟨P⟩={:.6} ({}⁴, native f64) Δ={:.6} {}",
-                r.beta, r.mean_plaq, titan_plaq, titan_dims[0], plaq_diff,
+                r.beta,
+                r.mean_plaq,
+                titan_plaq,
+                titan_dims[0],
+                plaq_diff,
                 if agree { "✓ AGREE" } else { "△ CHECK" },
             );
             println!(
@@ -685,7 +840,10 @@ fn run_titan_validation(
 
             println!(
                 "  β={:.4}: GPU ⟨P⟩={:.6} vs CPU f64 ⟨P⟩={:.6} Δ={:.6} {}",
-                r.beta, r.mean_plaq, stats.mean_plaquette, plaq_diff,
+                r.beta,
+                r.mean_plaq,
+                stats.mean_plaquette,
+                plaq_diff,
                 if agree { "✓ AGREE" } else { "△ CHECK" },
             );
             println!(

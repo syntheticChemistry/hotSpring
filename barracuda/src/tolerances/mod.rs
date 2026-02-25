@@ -33,7 +33,9 @@ pub mod lattice;
 pub mod md;
 /// Neural processing unit: quantization parity, latency, pipeline.
 pub mod npu;
-/// Nuclear physics: HFB, BCS, NMP, screened Coulomb, deformation.
+/// Nuclear physics tolerances.
+///
+/// HFB, BCS, NMP, screened Coulomb, deformation.
 pub mod physics;
 
 pub use core::{

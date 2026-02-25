@@ -83,15 +83,22 @@ fn main() {
     let mut streaming_results = Vec::new();
     for _ in 0..5 {
         let r = gpu_hmc_trajectory_streaming_cpu_mom(
-            &gpu, &streaming_pl, &state_s, n_md, dt_md, &mut seed_s,
+            &gpu,
+            &streaming_pl,
+            &state_s,
+            n_md,
+            dt_md,
+            &mut seed_s,
         );
         streaming_results.push((r.delta_h, r.plaquette, r.accepted));
     }
 
     let mut max_dh_diff = 0.0_f64;
     let mut max_plaq_diff = 0.0_f64;
-    for (i, ((dh_d, pl_d, _), (dh_s, pl_s, _))) in
-        dispatch_results.iter().zip(streaming_results.iter()).enumerate()
+    for (i, ((dh_d, pl_d, _), (dh_s, pl_s, _))) in dispatch_results
+        .iter()
+        .zip(streaming_results.iter())
+        .enumerate()
     {
         let dh_err = (dh_d - dh_s).abs();
         let pl_err = (pl_d - pl_s).abs();
@@ -108,11 +115,7 @@ fn main() {
         max_dh_diff,
         1e-8,
     );
-    harness.check_upper(
-        "Streaming plaquette matches dispatch",
-        max_plaq_diff,
-        1e-10,
-    );
+    harness.check_upper("Streaming plaquette matches dispatch", max_plaq_diff, 1e-10);
 
     // ═══════════════════════════════════════════════════════════════
     //  Phase 2: Full GPU-resident streaming (PRNG + encoder batching)
@@ -126,10 +129,18 @@ fn main() {
     let mut full_accepts = 0u32;
     for traj in 0..10u32 {
         let r = gpu_hmc_trajectory_streaming(
-            &gpu, &streaming_pl, &state_full, n_md, dt_md, traj, &mut seed_full,
+            &gpu,
+            &streaming_pl,
+            &state_full,
+            n_md,
+            dt_md,
+            traj,
+            &mut seed_full,
         );
         full_plaqs.push(r.plaquette);
-        if r.accepted { full_accepts += 1; }
+        if r.accepted {
+            full_accepts += 1;
+        }
     }
     let full_mean_plaq = full_plaqs.iter().sum::<f64>() / full_plaqs.len() as f64;
     println!("  Plaquette: {full_mean_plaq:.6}  accept: {full_accepts}/10");
@@ -138,10 +149,7 @@ fn main() {
         "GPU-resident HMC plaquette in physical range [0.3, 0.7]",
         full_mean_plaq > 0.3 && full_mean_plaq < 0.7,
     );
-    harness.check_bool(
-        "GPU-resident HMC acceptance >= 3/10",
-        full_accepts >= 3,
-    );
+    harness.check_bool("GPU-resident HMC acceptance >= 3/10", full_accepts >= 3);
 
     // ═══════════════════════════════════════════════════════════════
     //  Phase 3: Streaming vs Dispatch Benchmark (all sizes)

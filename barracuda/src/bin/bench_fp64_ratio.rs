@@ -27,7 +27,7 @@ const MEASURE: usize = 10;
 
 fn fma_shader_f64() -> String {
     format!(
-        r#"
+        r"
 @group(0) @binding(0) var<storage, read_write> output: array<f64>;
 
 @compute @workgroup_size({WG_SIZE})
@@ -47,13 +47,13 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {{
 
     output[i] = acc;
 }}
-"#
+"
     )
 }
 
 fn fma_shader_f32() -> String {
     format!(
-        r#"
+        r"
 @group(0) @binding(0) var<storage, read_write> output: array<f32>;
 
 @compute @workgroup_size({WG_SIZE})
@@ -71,13 +71,13 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {{
 
     output[i] = acc;
 }}
-"#
+"
     )
 }
 
 fn fma_shader_df64() -> String {
     format!(
-        r#"
+        r"
 // Double-float (f32-pair) FMA chain — runs on FP32 cores at ~14-digit precision
 struct Df64 {{
     hi: f32,
@@ -139,7 +139,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {{
     output[i * 2u] = acc.hi;
     output[i * 2u + 1u] = acc.lo;
 }}
-"#
+"
     )
 }
 
@@ -292,8 +292,8 @@ fn bench_shader_inner(
         gpu.queue().submit(Some(encoder.finish()));
         gpu.device().poll(wgpu::Maintain::Wait);
     }
-    let elapsed = t0.elapsed().as_secs_f64() / MEASURE as f64;
-    elapsed
+
+    t0.elapsed().as_secs_f64() / MEASURE as f64
 }
 
 #[tokio::main]
@@ -342,8 +342,10 @@ async fn main() {
     let df64_equiv_tflops = total_flops / df64_time / 1e12;
     println!("  Time:       {:.3} ms", df64_time * 1e3);
     println!("  Throughput: {df64_equiv_tflops:.2} equivalent-f64 TFLOPS");
-    println!("  (each df64 FMA = ~10 f32 ops → {:.2} raw f32 TFLOPS)",
-        df64_equiv_tflops * 10.0);
+    println!(
+        "  (each df64 FMA = ~10 f32 ops → {:.2} raw f32 TFLOPS)",
+        df64_equiv_tflops * 10.0
+    );
     println!();
 
     // ── Summary ──
@@ -353,13 +355,25 @@ async fn main() {
     println!("  RESULTS");
     println!();
     println!("  {:>22} {:>10} {:>10} {:>10}", "", "FP32", "FP64", "DF64");
-    println!("  {:>22} {:>10} {:>10} {:>10}", "──────────", "─────", "─────", "─────");
-    println!("  {:>22} {:>8.2} T {:>8.3} T {:>8.2} T",
-        "Throughput (TFLOPS)", f32_tflops, f64_tflops, df64_equiv_tflops);
-    println!("  {:>22} {:>10} {:>8.1}× {:>8.1}×",
-        "vs FP64", format!("{:.0}×", ratio_64_32), "1.0", format!("{:.1}", speedup_df64_vs_f64));
-    println!("  {:>22} {:>10} {:>10} {:>10}",
-        "Precision (digits)", "7", "16", "14");
+    println!(
+        "  {:>22} {:>10} {:>10} {:>10}",
+        "──────────", "─────", "─────", "─────"
+    );
+    println!(
+        "  {:>22} {:>8.2} T {:>8.3} T {:>8.2} T",
+        "Throughput (TFLOPS)", f32_tflops, f64_tflops, df64_equiv_tflops
+    );
+    println!(
+        "  {:>22} {:>10} {:>8.1}× {:>8.1}×",
+        "vs FP64",
+        format!("{:.0}×", ratio_64_32),
+        "1.0",
+        format!("{:.1}", speedup_df64_vs_f64)
+    );
+    println!(
+        "  {:>22} {:>10} {:>10} {:>10}",
+        "Precision (digits)", "7", "16", "14"
+    );
     println!();
 
     if speedup_df64_vs_f64 > 2.0 {

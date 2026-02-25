@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 // wilson_plaquette_df64.wgsl — Hybrid Wilson plaquette (DF64 core streaming)
 //
 // Prepend: complex_f64.wgsl + su3.wgsl + df64_core.wgsl + df64_transcendentals.wgsl + su3_df64.wgsl

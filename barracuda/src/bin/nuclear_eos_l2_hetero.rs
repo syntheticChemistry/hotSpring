@@ -197,18 +197,23 @@ fn run_heterogeneous_l2(
         }
 
         // Build RBF surrogate on real HFB values (no penalties!)
-        let surrogate =
-            match RBFSurrogate::train(device.clone(), &train_x, &train_y, RBFKernel::ThinPlateSpline, 0.0) {
-                Ok(s) => s,
-                Err(e) => {
-                    println!(
-                        "      Round {}: surrogate training failed: {:?}",
-                        round + 1,
-                        e
-                    );
-                    continue;
-                }
-            };
+        let surrogate = match RBFSurrogate::train(
+            device.clone(),
+            &train_x,
+            &train_y,
+            RBFKernel::ThinPlateSpline,
+            0.0,
+        ) {
+            Ok(s) => s,
+            Err(e) => {
+                println!(
+                    "      Round {}: surrogate training failed: {:?}",
+                    round + 1,
+                    e
+                );
+                continue;
+            }
+        };
 
         // Multi-start Nelder-Mead on NMP-aware surrogate
         // The surrogate prediction is penalized for NMP-invalid regions,
@@ -374,7 +379,8 @@ fn run_plain_l2(
         .with_kernel(RBFKernel::ThinPlateSpline);
 
     let t0 = Instant::now();
-    let result = sparsity_sampler(device, &objective, bounds, &config).expect("SparsitySampler failed");
+    let result =
+        sparsity_sampler(device, &objective, bounds, &config).expect("SparsitySampler failed");
     let elapsed = t0.elapsed();
 
     let chi2 = result.f_best.exp_m1();
@@ -661,7 +667,7 @@ fn main() {
 
             let _plain_t0 = Instant::now();
             let (plain_chi2, plain_time, plain_evals) =
-                run_plain_l2(device.clone(), bounds, exp_data, cli.n_rounds);
+                run_plain_l2(device, bounds, exp_data, cli.n_rounds);
 
             println!();
             println!("╔══════════════════════════════════════════════════════════════╗");

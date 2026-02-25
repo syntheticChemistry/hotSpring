@@ -15,8 +15,7 @@
 
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::lattice::gpu_hmc::{
-    gpu_hmc_trajectory_streaming, gpu_links_to_lattice, GpuHmcState,
-    GpuHmcStreamingPipelines,
+    gpu_hmc_trajectory_streaming, gpu_links_to_lattice, GpuHmcState, GpuHmcStreamingPipelines,
 };
 use hotspring_barracuda::lattice::hmc::{self, HmcConfig, IntegratorType};
 use hotspring_barracuda::lattice::wilson::Lattice;
@@ -45,7 +44,10 @@ fn parse_args() -> CliArgs {
         if let Some(val) = arg.strip_prefix("--lattice=") {
             lattice = val.parse().expect("--lattice=N");
         } else if let Some(val) = arg.strip_prefix("--betas=") {
-            betas = val.split(',').map(|s| s.parse().expect("beta float")).collect();
+            betas = val
+                .split(',')
+                .map(|s| s.parse().expect("beta float"))
+                .collect();
         } else if let Some(val) = arg.strip_prefix("--therm=") {
             n_therm = val.parse().expect("--therm=N");
         } else if let Some(val) = arg.strip_prefix("--meas=") {
@@ -57,7 +59,14 @@ fn parse_args() -> CliArgs {
         }
     }
 
-    CliArgs { lattice, betas, n_therm, n_meas, seed, output }
+    CliArgs {
+        lattice,
+        betas,
+        n_therm,
+        n_meas,
+        seed,
+        output,
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -77,14 +86,15 @@ fn main() {
     let args = parse_args();
     let dims = [args.lattice, args.lattice, args.lattice, args.lattice];
     let vol: usize = dims.iter().product();
-    let _n_plaq = vol * 6;
-
     println!("╔══════════════════════════════════════════════════════════════╗");
     println!("║  Production Quenched β-Scan — GPU Streaming HMC (fp64)     ║");
     println!("╚══════════════════════════════════════════════════════════════╝");
     println!();
     println!("  Lattice:  {}⁴ ({} sites)", args.lattice, vol);
-    println!("  VRAM est: {:.1} GB (quenched)", vol as f64 * 4.0 * 18.0 * 8.0 * 3.0 / 1e9);
+    println!(
+        "  VRAM est: {:.1} GB (quenched)",
+        vol as f64 * 4.0 * 18.0 * 8.0 * 3.0 / 1e9
+    );
     println!("  β values: {:?}", args.betas);
     println!("  Therm:    {}, Meas: {}", args.n_therm, args.n_meas);
     println!("  Seed:     {}", args.seed);
@@ -106,7 +116,12 @@ fn main() {
     let scale = (ref_vol / vol_f).powf(0.25);
     let dt = (0.05 * scale).max(0.002);
     let n_md = ((0.5 / dt).round() as usize).max(10);
-    println!("  HMC:      dt={:.4}, n_md={}, traj_length={:.3}", dt, n_md, dt * n_md as f64);
+    println!(
+        "  HMC:      dt={:.4}, n_md={}, traj_length={:.3}",
+        dt,
+        n_md,
+        dt * n_md as f64
+    );
     println!();
 
     let total_start = Instant::now();
@@ -153,7 +168,15 @@ fn main() {
         print!("  Measuring ({} traj)...", args.n_meas);
         std::io::stdout().flush().ok();
         for i in 0..args.n_meas {
-            let r = gpu_hmc_trajectory_streaming(&gpu, &pipelines, &state, n_md, dt, (args.n_therm + i) as u32, &mut seed);
+            let r = gpu_hmc_trajectory_streaming(
+                &gpu,
+                &pipelines,
+                &state,
+                n_md,
+                dt,
+                (args.n_therm + i) as u32,
+                &mut seed,
+            );
             plaq_vals.push(r.plaquette);
             if r.accepted {
                 n_accepted += 1;
@@ -172,7 +195,10 @@ fn main() {
         println!(" done");
 
         let mean_plaq: f64 = plaq_vals.iter().sum::<f64>() / plaq_vals.len() as f64;
-        let var_plaq: f64 = plaq_vals.iter().map(|p| (p - mean_plaq).powi(2)).sum::<f64>()
+        let var_plaq: f64 = plaq_vals
+            .iter()
+            .map(|p| (p - mean_plaq).powi(2))
+            .sum::<f64>()
             / (plaq_vals.len() - 1).max(1) as f64;
         let std_plaq = var_plaq.sqrt();
 
@@ -203,7 +229,12 @@ fn main() {
 
         println!(
             "  ⟨P⟩ = {:.6} ± {:.6}  |L| = {:.4}  χ = {:.4}  acc = {:.0}%  ({:.1}s)",
-            mean_plaq, std_plaq, mean_poly, susceptibility, acceptance * 100.0, wall_s,
+            mean_plaq,
+            std_plaq,
+            mean_poly,
+            susceptibility,
+            acceptance * 100.0,
+            wall_s,
         );
         println!();
     }
@@ -211,17 +242,33 @@ fn main() {
     let total_wall = total_start.elapsed().as_secs_f64();
 
     println!("═══════════════════════════════════════════════════════════");
-    println!("  Production β-Scan Summary: {}⁴ Quenched SU(3)", args.lattice);
+    println!(
+        "  Production β-Scan Summary: {}⁴ Quenched SU(3)",
+        args.lattice
+    );
     println!("═══════════════════════════════════════════════════════════");
-    println!("  {:>6} {:>10} {:>10} {:>10} {:>10} {:>8} {:>8}",
-        "β", "⟨P⟩", "σ(P)", "|L|", "χ", "acc%", "time");
+    println!(
+        "  {:>6} {:>10} {:>10} {:>10} {:>10} {:>8} {:>8}",
+        "β", "⟨P⟩", "σ(P)", "|L|", "χ", "acc%", "time"
+    );
     for r in &results {
-        println!("  {:>6.4} {:>10.6} {:>10.6} {:>10.4} {:>10.4} {:>7.1}% {:>7.1}s",
-            r.beta, r.mean_plaq, r.std_plaq, r.polyakov, r.susceptibility,
-            r.acceptance * 100.0, r.wall_s);
+        println!(
+            "  {:>6.4} {:>10.6} {:>10.6} {:>10.4} {:>10.4} {:>7.1}% {:>7.1}s",
+            r.beta,
+            r.mean_plaq,
+            r.std_plaq,
+            r.polyakov,
+            r.susceptibility,
+            r.acceptance * 100.0,
+            r.wall_s
+        );
     }
     println!();
-    println!("  Total wall time: {:.1}s ({:.1} min)", total_wall, total_wall / 60.0);
+    println!(
+        "  Total wall time: {:.1}s ({:.1} min)",
+        total_wall,
+        total_wall / 60.0
+    );
     println!("  GPU: {}", gpu.adapter_name);
     println!();
 

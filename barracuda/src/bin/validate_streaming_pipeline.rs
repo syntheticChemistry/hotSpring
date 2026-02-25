@@ -17,8 +17,7 @@
 
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::lattice::gpu_hmc::{
-    gpu_hmc_trajectory_streaming, gpu_links_to_lattice,
-    GpuHmcState, GpuHmcStreamingPipelines,
+    gpu_hmc_trajectory_streaming, gpu_links_to_lattice, GpuHmcState, GpuHmcStreamingPipelines,
 };
 use hotspring_barracuda::lattice::hmc::{self, HmcConfig};
 use hotspring_barracuda::lattice::wilson::Lattice;
@@ -62,7 +61,6 @@ fn main() {
     let n_therm = 20;
     let n_traj = 15;
     let mut cpu_plaquettes = Vec::new();
-    let mut cpu_polyakovs = Vec::new();
 
     for &beta in &beta_values {
         let mut lat = Lattice::hot_start([4, 4, 4, 4], beta, 42);
@@ -82,14 +80,16 @@ fn main() {
             stats.acceptance_rate * 100.0
         );
         cpu_plaquettes.push(stats.mean_plaquette);
-        cpu_polyakovs.push(poly);
     }
 
     let cpu_elapsed = cpu_start.elapsed();
     println!("  CPU time: {:.1}s", cpu_elapsed.as_secs_f64());
 
     let cpu_monotonic = cpu_plaquettes.windows(2).all(|w| w[1] >= w[0] - 0.01);
-    harness.check_bool("CPU plaquettes monotonically increase with β", cpu_monotonic);
+    harness.check_bool(
+        "CPU plaquettes monotonically increase with β",
+        cpu_monotonic,
+    );
     println!();
 
     // ═══════════════════════════════════════════════════════════════
@@ -99,7 +99,6 @@ fn main() {
     let gpu_start = Instant::now();
 
     let mut gpu_plaquettes_small = Vec::new();
-    let mut gpu_polyakovs_small = Vec::new();
     let mut max_plaq_err = 0.0f64;
 
     for (i, &beta) in beta_values.iter().enumerate() {
@@ -148,11 +147,14 @@ fn main() {
         );
 
         gpu_plaquettes_small.push(mean_plaq);
-        gpu_polyakovs_small.push(poly);
     }
 
     let gpu_small_elapsed = gpu_start.elapsed();
-    println!("  GPU time: {:.1}s (CPU was {:.1}s)", gpu_small_elapsed.as_secs_f64(), cpu_elapsed.as_secs_f64());
+    println!(
+        "  GPU time: {:.1}s (CPU was {:.1}s)",
+        gpu_small_elapsed.as_secs_f64(),
+        cpu_elapsed.as_secs_f64()
+    );
 
     // Statistical tolerance: different PRNG seeds (CPU momenta vs GPU PRNG) give
     // different trajectories but same physics. 15 trajectories on 4⁴ → ~5% noise.
@@ -163,7 +165,10 @@ fn main() {
     );
 
     let gpu_monotonic = gpu_plaquettes_small.windows(2).all(|w| w[1] >= w[0] - 0.01);
-    harness.check_bool("GPU plaquettes monotonically increase with β", gpu_monotonic);
+    harness.check_bool(
+        "GPU plaquettes monotonically increase with β",
+        gpu_monotonic,
+    );
 
     let gpu_faster = gpu_small_elapsed < cpu_elapsed;
     harness.check_bool("GPU streaming faster than CPU at 4⁴ β-scan", gpu_faster);
@@ -178,7 +183,6 @@ fn main() {
     let n_therm_8 = 10;
     let n_traj_8 = 10;
     let mut gpu_plaquettes_8 = Vec::new();
-    let mut gpu_polyakovs_8 = Vec::new();
 
     for &beta in &beta_values {
         let mut lat = Lattice::hot_start([8, 8, 8, 8], beta, 42);
@@ -201,7 +205,13 @@ fn main() {
 
         for t in 0..n_traj_8 {
             let r = gpu_hmc_trajectory_streaming(
-                &gpu, &pipelines, &state, 10, 0.04, t as u32 + 1000, &mut seed,
+                &gpu,
+                &pipelines,
+                &state,
+                10,
+                0.04,
+                t as u32 + 1000,
+                &mut seed,
             );
             plaq_sum += r.plaquette;
             if r.accepted {
@@ -220,14 +230,16 @@ fn main() {
         );
 
         gpu_plaquettes_8.push(mean_plaq);
-        gpu_polyakovs_8.push(poly);
     }
 
     let scale_elapsed = scale_start.elapsed();
     println!("  GPU 8⁴ time: {:.1}s", scale_elapsed.as_secs_f64());
 
     let scale_monotonic = gpu_plaquettes_8.windows(2).all(|w| w[1] >= w[0] - 0.01);
-    harness.check_bool("8⁴ plaquettes monotonically increase with β", scale_monotonic);
+    harness.check_bool(
+        "8⁴ plaquettes monotonically increase with β",
+        scale_monotonic,
+    );
 
     let scale_physical = gpu_plaquettes_8.iter().all(|&p| p > 0.1 && p < 0.9);
     harness.check_bool("8⁴ plaquettes in physical range (0.1, 0.9)", scale_physical);
@@ -252,12 +264,7 @@ fn main() {
 
     // Generate training sequences from GPU observables at multiple β
     let (train_seqs, train_targets, test_seqs, test_targets) =
-        build_esn_data_from_gpu(
-            &gpu,
-            &pipelines,
-            &beta_values,
-            known_beta_c,
-        );
+        build_esn_data_from_gpu(&gpu, &pipelines, &beta_values, known_beta_c);
 
     let mut esn = EchoStateNetwork::new(esn_config);
     esn.train(&train_seqs, &train_targets);
@@ -273,7 +280,10 @@ fn main() {
         }
     }
     let esn_accuracy = f64::from(correct) / total as f64;
-    println!("  ESN f64 accuracy: {:.0}% ({correct}/{total})", esn_accuracy * 100.0);
+    println!(
+        "  ESN f64 accuracy: {:.0}% ({correct}/{total})",
+        esn_accuracy * 100.0
+    );
 
     harness.check_lower(
         "ESN phase classification accuracy > 80%",
@@ -303,7 +313,10 @@ fn main() {
     let npu_agreement = f64::from(npu_agree) / total as f64;
 
     println!("  NpuSimulator f32 max error: {max_npu_err:.6}");
-    println!("  NpuSimulator classification agreement: {:.0}% ({npu_agree}/{total})", npu_agreement * 100.0);
+    println!(
+        "  NpuSimulator classification agreement: {:.0}% ({npu_agree}/{total})",
+        npu_agreement * 100.0
+    );
 
     harness.check_upper(
         "NpuSimulator f32 error < tolerance",
@@ -320,7 +333,7 @@ fn main() {
     // ═══════════════════════════════════════════════════════════════
     //  Phase 4b: Real NPU Hardware (AKD1000 via akida-driver)
     // ═══════════════════════════════════════════════════════════════
-    run_npu_hardware_phase(&mut harness, &mut esn, &test_seqs, &test_targets);
+    run_npu_hardware_phase(&harness, &esn, &test_seqs, &test_targets);
 
     // ═══════════════════════════════════════════════════════════════
     //  Phase 5: CPU Final Verification
@@ -369,7 +382,8 @@ fn main() {
 
     // 5b: Monotonicity verification (low β → confined, high β → deconfined)
     let first_quarter: f64 = preds[..n_scan / 4].iter().sum::<f64>() / (n_scan / 4) as f64;
-    let last_quarter: f64 = preds[3 * n_scan / 4..].iter().sum::<f64>() / (n_scan - 3 * n_scan / 4) as f64;
+    let last_quarter: f64 =
+        preds[3 * n_scan / 4..].iter().sum::<f64>() / (n_scan - 3 * n_scan / 4) as f64;
     println!("  Mean NPU prediction (low β): {first_quarter:.3}");
     println!("  Mean NPU prediction (high β): {last_quarter:.3}");
 
@@ -379,26 +393,44 @@ fn main() {
     // 5c: Cross-scale consistency — GPU 4⁴ and 8⁴ agree on plaquette ordering
     let ordering_consistent = beta_values.iter().enumerate().all(|(i, _)| {
         // Both scales should show increasing plaquette with β (within noise)
-        if i == 0 { return true; }
+        if i == 0 {
+            return true;
+        }
         let small_ok = gpu_plaquettes_small[i] >= gpu_plaquettes_small[i - 1] - 0.02;
         let large_ok = gpu_plaquettes_8[i] >= gpu_plaquettes_8[i - 1] - 0.02;
         small_ok && large_ok
     });
-    harness.check_bool("Cross-scale plaquette ordering consistent (4⁴ ↔ 8⁴)", ordering_consistent);
+    harness.check_bool(
+        "Cross-scale plaquette ordering consistent (4⁴ ↔ 8⁴)",
+        ordering_consistent,
+    );
 
     // ── Summary table ──
     println!();
     println!("╔══════════════════════════════════════════════════════════════════════════╗");
     println!("║  Three-Substrate Pipeline Summary                                      ║");
     println!("╠══════════════════════════════════════════════════════════════════════════╣");
-    println!("║  1. CPU baseline (4⁴):    {:.1}s — ground truth established              ║", cpu_elapsed.as_secs_f64());
-    println!("║  2. GPU parity (4⁴):      {:.1}s — matches CPU, {:.1}× faster             ║",
+    println!(
+        "║  1. CPU baseline (4⁴):    {:.1}s — ground truth established              ║",
+        cpu_elapsed.as_secs_f64()
+    );
+    println!(
+        "║  2. GPU parity (4⁴):      {:.1}s — matches CPU, {:.1}× faster             ║",
         gpu_small_elapsed.as_secs_f64(),
-        cpu_elapsed.as_secs_f64() / gpu_small_elapsed.as_secs_f64().max(0.001));
-    println!("║  3. GPU scale (8⁴):       {:.1}s — 16× volume, streaming                  ║", scale_elapsed.as_secs_f64());
-    println!("║  4. NPU screening:        ESN {:.0}%, NpuSim {:.0}% agreement             ║",
-        esn_accuracy * 100.0, npu_agreement * 100.0);
-    println!("║  5. CPU verification:     β_c = {:.3} (error {:.3})                     ║", detected_beta_c, beta_c_error);
+        cpu_elapsed.as_secs_f64() / gpu_small_elapsed.as_secs_f64().max(0.001)
+    );
+    println!(
+        "║  3. GPU scale (8⁴):       {:.1}s — 16× volume, streaming                  ║",
+        scale_elapsed.as_secs_f64()
+    );
+    println!(
+        "║  4. NPU screening:        ESN {:.0}%, NpuSim {:.0}% agreement             ║",
+        esn_accuracy * 100.0,
+        npu_agreement * 100.0
+    );
+    println!(
+        "║  5. CPU verification:     β_c = {detected_beta_c:.3} (error {beta_c_error:.3})                     ║"
+    );
     println!("╠══════════════════════════════════════════════════════════════════════════╣");
     println!("║  Transfer: CPU→GPU 0B | GPU→CPU 16B/traj | GPU→NPU 24B/traj            ║");
     println!("╚══════════════════════════════════════════════════════════════════════════╝");
@@ -410,8 +442,8 @@ fn main() {
 /// Phase 4b: Probe real NPU hardware and compare with NpuSimulator.
 #[allow(unused_variables)]
 fn run_npu_hardware_phase(
-    harness: &mut ValidationHarness,
-    esn: &mut EchoStateNetwork,
+    harness: &ValidationHarness,
+    esn: &EchoStateNetwork,
     test_seqs: &[Vec<Vec<f64>>],
     test_targets: &[Vec<f64>],
 ) {
@@ -423,9 +455,14 @@ fn run_npu_hardware_phase(
 
         match NpuHardware::discover() {
             Some(info) => {
-                println!("  Device: {} @ PCIe {}", info.chip_version, info.pcie_address);
-                println!("  NPUs: {}, SRAM: {} MB, PCIe Gen{} x{}",
-                    info.npu_count, info.memory_mb, info.pcie_gen, info.pcie_lanes);
+                println!(
+                    "  Device: {} @ PCIe {}",
+                    info.chip_version, info.pcie_address
+                );
+                println!(
+                    "  NPUs: {}, SRAM: {} MB, PCIe Gen{} x{}",
+                    info.npu_count, info.memory_mb, info.pcie_gen, info.pcie_lanes
+                );
 
                 harness.check_bool("AKD1000 discovered on PCIe bus", true);
 
@@ -451,8 +488,10 @@ fn run_npu_hardware_phase(
                 let hw_agreement = f64::from(hw_agree) / total as f64;
 
                 println!("  NPU HW max error vs CPU: {max_hw_err:.6}");
-                println!("  NPU HW classification agreement: {:.0}% ({hw_agree}/{total})",
-                    hw_agreement * 100.0);
+                println!(
+                    "  NPU HW classification agreement: {:.0}% ({hw_agree}/{total})",
+                    hw_agreement * 100.0
+                );
 
                 harness.check_upper(
                     "NPU HW f32 error < tolerance",
@@ -490,7 +529,12 @@ fn build_esn_data_from_gpu(
     pipelines: &GpuHmcStreamingPipelines,
     beta_values: &[f64],
     beta_c: f64,
-) -> (Vec<Vec<Vec<f64>>>, Vec<Vec<f64>>, Vec<Vec<Vec<f64>>>, Vec<Vec<f64>>) {
+) -> (
+    Vec<Vec<Vec<f64>>>,
+    Vec<Vec<f64>>,
+    Vec<Vec<Vec<f64>>>,
+    Vec<Vec<f64>>,
+) {
     let mut train_seqs = Vec::new();
     let mut train_targets = Vec::new();
     let mut test_seqs = Vec::new();
@@ -526,7 +570,13 @@ fn build_esn_data_from_gpu(
 
             for frame in 0..seq_len {
                 let r = gpu_hmc_trajectory_streaming(
-                    gpu, pipelines, &state, 15, 0.025, frame as u32 + sample as u32 * 100, &mut seed,
+                    gpu,
+                    pipelines,
+                    &state,
+                    15,
+                    0.025,
+                    frame as u32 + sample as u32 * 100,
+                    &mut seed,
                 );
 
                 gpu_links_to_lattice(gpu, &state, &mut lat);

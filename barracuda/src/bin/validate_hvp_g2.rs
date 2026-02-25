@@ -183,7 +183,7 @@ fn main() {
     println!();
 
     let k: Vec<f64> = (0..nt).map(|t| hvp_kernel(t, nt)).collect();
-    let k_max = k.iter().cloned().fold(0.0_f64, f64::max);
+    let k_max = k.iter().copied().fold(0.0_f64, f64::max);
     let k_max_t = k
         .iter()
         .position(|&v| (v - k_max).abs() < 1e-15)

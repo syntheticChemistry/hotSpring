@@ -1,7 +1,8 @@
 # hotSpring — BarraCuda Requirements
 
-**Last Updated**: February 22, 2026
+**Last Updated**: February 25, 2026
 **Purpose**: GPU kernel requirements, gap analysis, and evolution priorities
+**Crate**: hotspring-barracuda v0.6.14 — 664 tests, 76 binaries, 25 WGSL shaders
 
 ---
 
@@ -139,16 +140,16 @@ All components implemented and validated (13/13 checks pass):
 ## ToadStool Handoff Notes
 
 **Active handoffs:**
-- `wateringHole/handoffs/HOTSPRING_V067_TOADSTOOL_SESSION42_HANDOFF_FEB22_2026.md` — **latest** v0.6.7 evolution handoff (ToadStool Session 42+, loop_unroller fix)
-- `wateringHole/handoffs/HOTSPRING_V066_GPU_TRANSPORT_HANDOFF_FEB22_2026.md` — GPU transport
-- `wateringHole/handoffs/HOTSPRING_V064_DYNAMICAL_QCD_HANDOFF_FEB22_2026.md` — dynamical QCD
-- `wateringHole/handoffs/CROSS_SPRING_EVOLUTION_FEB22_2026.md` — full cross-spring shader evolution map
+- `wateringHole/handoffs/HOTSPRING_V0614_TOADSTOOL_BARRACUDA_EVOLUTION_HANDOFF_FEB25_2026.md` — **latest** v0.6.14 evolution + absorption roadmap + paper controls
+- `wateringHole/handoffs/HOTSPRING_V0613_TOADSTOOL_ABSORPTION_HANDOFF_FEB25_2026.md` — v0.6.10-14 comprehensive absorption manifest
+- `wateringHole/handoffs/HOTSPRING_V0613_CROSS_SPRING_REWIRING_FEB25_2026.md` — GPU Polyakov loop + NVK guard + PRNG fix
+- `wateringHole/handoffs/HOTSPRING_V0612_TOADSTOOL_S60_ABSORPTION_FEB25_2026.md` — DF64 expansion
 
-(22 prior handoffs archived to `wateringHole/handoffs/archive/`)
+(35 prior handoffs archived to `wateringHole/handoffs/archive/`)
 
 ### Key Facts for ToadStool Team
 
-- 22 papers reproduced, 619 unit + 24 integration tests, 34/34 validation suites, ~$0.20 total compute cost (spectral tests upstream)
+- 22 papers reproduced, 664 tests (629 lib + 31 integration + 4 doc), 39/39 validation suites, ~$0.20 total compute cost
 - RTX 4070 sustains f64 MD at 149-259 steps/s; Titan V (NVK) produces identical physics
 - Energy drift 0.000% over 80k steps sets the precision bar for any new integrator
 - `ReduceScalarPipeline` is the most-used upstream primitive after `WgpuDevice`

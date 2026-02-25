@@ -439,10 +439,11 @@ impl NpuSimulator {
     }
 }
 
-/// Solve AX = B for multiple right-hand sides via Gauss-Jordan (partial pivoting, f64).
+/// Solve AX = B for multiple right-hand sides via LU decomposition (partial pivoting, f64).
 ///
-/// CPU-only: ESN ridge regression solves small systems (reservoir_size × reservoir_size,
-/// typically 50-200). Each column of B is solved independently.
+/// Delegates to `barracuda::ops::linalg::lu_solve` — the shared primitive for dense
+/// linear solves. ESN ridge regression produces small systems (reservoir_size × reservoir_size,
+/// typically 50–200); each column of B is solved independently.
 fn solve_linear_system(a: &[Vec<f64>], b: &[Vec<f64>]) -> Vec<Vec<f64>> {
     let n = a.len();
     let m = b[0].len();
@@ -452,61 +453,13 @@ fn solve_linear_system(a: &[Vec<f64>], b: &[Vec<f64>]) -> Vec<Vec<f64>> {
     let mut x = vec![vec![0.0; m]; n];
     for col in 0..m {
         let b_col: Vec<f64> = (0..n).map(|row| b[row][col]).collect();
-        if let Some(sol) = gauss_jordan_solve(&a_flat, &b_col, n) {
+        if let Ok(sol) = barracuda::ops::linalg::lu_solve(&a_flat, n, &b_col) {
             for (row, &val) in sol.iter().enumerate() {
                 x[row][col] = val;
             }
         }
     }
     x
-}
-
-/// Gauss-Jordan elimination with partial pivoting for Ax = b.
-///
-/// Returns None if the system is singular (pivot below epsilon).
-fn gauss_jordan_solve(a: &[f64], b: &[f64], n: usize) -> Option<Vec<f64>> {
-    let mut aug = vec![0.0; n * (n + 1)];
-    for i in 0..n {
-        for j in 0..n {
-            aug[i * (n + 1) + j] = a[i * n + j];
-        }
-        aug[i * (n + 1) + n] = b[i];
-    }
-
-    for k in 0..n {
-        let mut max_row = k;
-        let mut max_val = aug[k * (n + 1) + k].abs();
-        for i in (k + 1)..n {
-            let v = aug[i * (n + 1) + k].abs();
-            if v > max_val {
-                max_val = v;
-                max_row = i;
-            }
-        }
-        if max_val < 1e-30 {
-            return None;
-        }
-        if max_row != k {
-            for j in 0..=(n) {
-                aug.swap(k * (n + 1) + j, max_row * (n + 1) + j);
-            }
-        }
-        let pivot = aug[k * (n + 1) + k];
-        for j in k..=(n) {
-            aug[k * (n + 1) + j] /= pivot;
-        }
-        for i in 0..n {
-            if i == k {
-                continue;
-            }
-            let factor = aug[i * (n + 1) + k];
-            for j in k..=(n) {
-                aug[i * (n + 1) + j] -= factor * aug[k * (n + 1) + j];
-            }
-        }
-    }
-
-    Some((0..n).map(|i| aug[i * (n + 1) + n]).collect())
 }
 
 fn spectral_radius_estimate(w: &[Vec<f64>]) -> f64 {

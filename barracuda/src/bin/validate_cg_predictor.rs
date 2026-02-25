@@ -66,11 +66,11 @@ fn main() {
                 50.0 + 200.0 * roughness + 30.0 * (6.0 / beta) + 10.0 * ((i as f64) * 0.5).sin();
 
             let features = vec![
-                (beta - 5.0) / 2.0,       // normalized beta
-                result.plaquette,          // mean plaquette
-                poly,                      // Polyakov loop
-                result.delta_h.abs(),      // |ΔH|
-                roughness,                 // gauge roughness
+                (beta - 5.0) / 2.0,   // normalized beta
+                result.plaquette,     // mean plaquette
+                poly,                 // Polyakov loop
+                result.delta_h.abs(), // |ΔH|
+                roughness,            // gauge roughness
             ];
 
             training_data.push((features, simulated_cg_iters));
@@ -170,18 +170,21 @@ fn main() {
     }
 
     let mean_err: f64 = errors.iter().sum::<f64>() / errors.len().max(1) as f64;
-    let max_err: f64 = errors.iter().cloned().fold(0.0, f64::max);
+    let max_err: f64 = errors.iter().copied().fold(0.0, f64::max);
     let cat_acc = correct_category as f64 / total.max(1) as f64;
 
     println!("  Mean absolute error: {mean_err:.1} iterations");
     println!("  Max absolute error: {max_err:.1} iterations");
-    println!("  Category accuracy (fast/med/slow): {:.0}%", cat_acc * 100.0);
-
-    harness.check_bool("CG predictions finite", errors.iter().all(|e| e.is_finite()));
-    harness.check_bool(
-        "Mean CG error < 100 iterations",
-        mean_err < 100.0,
+    println!(
+        "  Category accuracy (fast/med/slow): {:.0}%",
+        cat_acc * 100.0
     );
+
+    harness.check_bool(
+        "CG predictions finite",
+        errors.iter().all(|e| e.is_finite()),
+    );
+    harness.check_bool("Mean CG error < 100 iterations", mean_err < 100.0);
     println!();
 
     // ═══ Phase 4: NpuSimulator Parity ═══

@@ -17,9 +17,7 @@
 
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::lattice::cg;
-use hotspring_barracuda::lattice::dirac::{
-    apply_dirac, flatten_fermion, FermionField,
-};
+use hotspring_barracuda::lattice::dirac::{apply_dirac, flatten_fermion, FermionField};
 use hotspring_barracuda::lattice::gpu_hmc::{
     gpu_dynamical_hmc_trajectory, GpuDynHmcPipelines, GpuDynHmcState,
 };
@@ -94,7 +92,7 @@ fn main() {
 
     // Dispatch fermion force
     let vol_u32 = vol as u32;
-    let wg = (vol_u32 + 63) / 64;
+    let wg = vol_u32.div_ceil(64);
     let mut params_data = Vec::with_capacity(16);
     params_data.extend_from_slice(&vol_u32.to_le_bytes());
     params_data.extend_from_slice(&0u32.to_le_bytes());
@@ -187,10 +185,7 @@ fn main() {
         "  CPU CG: {} iters, action = {:.6}",
         cpu_cg.iterations, cpu_action
     );
-    println!(
-        "  GPU CG: {} iters, action = {:.6}",
-        gpu_cg_iters, gpu_action
-    );
+    println!("  GPU CG: {gpu_cg_iters} iters, action = {gpu_action:.6}");
     println!("  Relative action error: {action_err:.2e}");
     harness.check_bool("CG action parity < 1e-6", action_err < 1e-6);
 
@@ -327,12 +322,8 @@ fn gpu_fermion_action_test(
     pipelines: &GpuDynHmcPipelines,
     state: &GpuDynHmcState,
 ) -> (f64, usize) {
-    
-
     let vol = state.gauge.volume;
     let n_flat = vol * 6;
-    let _n_pairs = vol * 3;
-
     // Zero x
     let zeros = vec![0.0_f64; n_flat];
     gpu.upload_f64(&state.x_buf, &zeros);
@@ -350,8 +341,8 @@ fn gpu_fermion_action_test(
     }
 
     // CG: (D†D)x = phi
-    let _wg_dirac = ((vol as u32) + 63) / 64;
-    let _wg_vec = ((n_flat as u32) + 63) / 64;
+    let _wg_dirac = (vol as u32).div_ceil(64);
+    let _wg_vec = (n_flat as u32).div_ceil(64);
 
     let b_norm_sq = gpu_dot_test(gpu, pipelines, state, &state.r_buf, &state.r_buf);
     if b_norm_sq < 1e-30 {
@@ -402,7 +393,7 @@ fn gpu_dirac_test(
     hop_sign: f64,
 ) {
     let vol = state.gauge.volume;
-    let wg = ((vol as u32) + 63) / 64;
+    let wg = (vol as u32).div_ceil(64);
     let mut params = Vec::with_capacity(24);
     params.extend_from_slice(&(vol as u32).to_le_bytes());
     params.extend_from_slice(&0u32.to_le_bytes());
@@ -431,7 +422,7 @@ fn gpu_dot_test(
     b: &wgpu::Buffer,
 ) -> f64 {
     let n_pairs = state.gauge.volume * 3;
-    let wg = ((n_pairs as u32) + 63) / 64;
+    let wg = (n_pairs as u32).div_ceil(64);
     let mut params = Vec::with_capacity(16);
     params.extend_from_slice(&(n_pairs as u32).to_le_bytes());
     params.extend_from_slice(&0u32.to_le_bytes());
@@ -454,7 +445,7 @@ fn gpu_axpy_test(
     y: &wgpu::Buffer,
     n: usize,
 ) {
-    let wg = ((n as u32) + 63) / 64;
+    let wg = (n as u32).div_ceil(64);
     let mut params = Vec::with_capacity(16);
     params.extend_from_slice(&(n as u32).to_le_bytes());
     params.extend_from_slice(&0u32.to_le_bytes());
@@ -472,7 +463,7 @@ fn gpu_xpay_test(
     p: &wgpu::Buffer,
     n: usize,
 ) {
-    let wg = ((n as u32) + 63) / 64;
+    let wg = (n as u32).div_ceil(64);
     let mut params = Vec::with_capacity(16);
     params.extend_from_slice(&(n as u32).to_le_bytes());
     params.extend_from_slice(&0u32.to_le_bytes());

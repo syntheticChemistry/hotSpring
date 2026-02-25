@@ -30,7 +30,7 @@ use hotspring_barracuda::md::reservoir::{EchoStateNetwork, EsnConfig, NpuSimulat
 use hotspring_barracuda::validation::ValidationHarness;
 use std::time::Instant;
 
-const KNOWN_BETA_C: f64 = 5.6925;
+use hotspring_barracuda::provenance::KNOWN_BETA_C_SU3_NT4 as KNOWN_BETA_C;
 
 fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");
@@ -81,13 +81,7 @@ fn main() {
 
         for t in 0..n_traj {
             let result = gpu_hmc_trajectory_streaming(
-                &gpu,
-                &pipelines,
-                &state,
-                20,
-                0.02,
-                t as u32,
-                &mut seed,
+                &gpu, &pipelines, &state, 20, 0.02, t as u32, &mut seed,
             );
 
             plaquette_history.push(result.plaquette);
@@ -98,8 +92,7 @@ fn main() {
             let (poly_mag, poly_phase) = gpu_polyakov_loop(&gpu, &pipelines.hmc, &state);
 
             let plaq_var = if plaquette_history.len() > 1 {
-                let mean =
-                    plaquette_history.iter().sum::<f64>() / plaquette_history.len() as f64;
+                let mean = plaquette_history.iter().sum::<f64>() / plaquette_history.len() as f64;
                 plaquette_history
                     .iter()
                     .map(|p| (p - mean).powi(2))
@@ -216,8 +209,12 @@ fn main() {
 
         println!(
             "  β={:.2}: phase={:.2} (target {:.0}), β_c={:.3}, therm={:.2}, anom={:.3}",
-            all_features[test_seqs.iter().position(|s| std::ptr::eq(s, seq)).unwrap_or(0) * 3]
-                .0,
+            all_features[test_seqs
+                .iter()
+                .position(|s| std::ptr::eq(s, seq))
+                .unwrap_or(0)
+                * 3]
+            .0,
             pred[0],
             target[0],
             pred[1] * 2.0 + 5.0,
@@ -244,9 +241,7 @@ fn main() {
     );
     harness.check_bool(
         "All 4 outputs produced",
-        test_seqs
-            .iter()
-            .all(|s| esn.predict(s).unwrap().len() == 4),
+        test_seqs.iter().all(|s| esn.predict(s).unwrap().len() == 4),
     );
 
     // ═══ Phase 4: NpuSimulator Parity ═══
@@ -284,9 +279,7 @@ fn main() {
     harness.check_bool("NpuSimulator handles 8 features", max_err.is_finite());
     harness.check_bool(
         "4-output NpuSimulator parity",
-        test_seqs
-            .iter()
-            .all(|s| npu_sim.predict(s).len() == 4),
+        test_seqs.iter().all(|s| npu_sim.predict(s).len() == 4),
     );
 
     println!();

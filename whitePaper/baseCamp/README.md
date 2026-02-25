@@ -2,7 +2,7 @@
 
 **Date:** February 25, 2026
 **Project:** hotSpring (ecoPrimals)
-**Status:** v0.6.13, 16 experiments, 39/39 validation suites, 619 unit tests
+**Status:** v0.6.14, 17 experiments, 39/39 validation suites, 664 tests
 
 ---
 
@@ -37,5 +37,5 @@ Published paper (Python/FORTRAN/HPC)
 
 - **wetSpring** (`../../../wetSpring/whitePaper/baseCamp/`): Per-faculty briefings for bio/phylogenetic domains. Shares DF64, ESN, and pairwise distance shaders via toadStool.
 - **toadStool** (`../../../phase1/toadstool/`): Shared compute library. 164+ shaders absorbing from all springs.
-- **Experiment journals**: `../../experiments/` (001-016)
+- **Experiment journals**: `../../experiments/` (001-017)
 - **Handoffs**: `../../wateringHole/handoffs/` (fossil record of all cross-project exchanges)

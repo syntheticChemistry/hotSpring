@@ -168,7 +168,6 @@ fn main() {
         beta: beta_dyn,
         n_flavors_over_4: 1,
         integrator: IntegratorType::Omelyan,
-        ..Default::default()
     };
 
     for _ in 0..10 {

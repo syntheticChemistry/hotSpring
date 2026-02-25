@@ -338,7 +338,10 @@ fn main() {
         .block_on(GpuF64::new())
         .expect("Failed to create GPU device (required for surrogate training)");
     let device = gpu.to_wgpu_device();
-    println!("  Device: {} (SHADER_F64: {})", gpu.adapter_name, gpu.has_f64);
+    println!(
+        "  Device: {} (SHADER_F64: {})",
+        gpu.adapter_name, gpu.has_f64
+    );
     if !gpu.has_f64 {
         println!("  WARNING: SHADER_F64 not supported — surrogate training may fail");
     }
@@ -373,8 +376,8 @@ fn main() {
     println!("  Penalty filter: AdaptiveMAD(5.0)");
     println!();
 
-    let result1 =
-        sparsity_sampler(device.clone(), objective, &bounds, &config).expect("SparsitySampler failed");
+    let result1 = sparsity_sampler(device.clone(), objective, &bounds, &config)
+        .expect("SparsitySampler failed");
 
     let approach1_time = t0.elapsed().as_secs_f64();
     let approach1_f = result1.f_best;

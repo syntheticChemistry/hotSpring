@@ -333,7 +333,7 @@ fn check_cross_domain(harness: &mut ValidationHarness) {
     let mut deployable = 0;
     let domains = ["DynQCD", "FreezeOut", "AbelianHiggs", "Anderson"];
 
-    for (_i, name) in domains.iter().enumerate() {
+    for name in &domains {
         let config = esn_config_3in();
         let mut esn = EchoStateNetwork::new(config);
 

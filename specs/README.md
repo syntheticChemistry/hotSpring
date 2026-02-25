@@ -1,7 +1,7 @@
 # hotSpring Specifications
 
-**Last Updated**: February 22, 2026
-**Status**: Phase A-I complete — 616 tests (609 passing + 1 env-flaky + 6 GPU/heavy-ignored; spectral tests upstream), 34/34 validation suites, crate v0.6.4+
+**Last Updated**: February 25, 2026
+**Status**: Phase A-I complete — 664 tests (629 lib + 31 integration + 4 doc), 39/39 validation suites, crate v0.6.14
 **Domain**: Computational plasma physics, nuclear structure, transport, lattice QCD, spectral theory, surrogate learning
 
 ---
@@ -21,7 +21,8 @@
 | Phase I (Heterogeneous) | 68/68 (NPU quantization, beyond-SDK, pipeline, lattice NPU, hetero monitor) |
 | ToadStool Rewire v3 | CellListGpu fixed, lattice GPU shaders, **FFT f64** — Tier 3 unblocked |
 | ToadStool Rewire v4 | Spectral module fully leaning on upstream (41 KB deleted), `CsrMatrix` alias, `BatchIprGpu` available |
-| ToadStool S39 Catch-Up | Sessions 31d-39 reviewed: Dirac+CG+HFB+ESN absorbed. loop_unroller u32 fix DONE (v0.6.7). Remaining: pseudofermion HMC |
+| ToadStool S42+ Catch-Up | 612 shaders absorbed. Dirac+CG GPU absorbed. HFB+ESN absorbed. Remaining: pseudofermion HMC |
+| Phase J (Debt Reduction) | v0.6.14: 0 clippy (lib+bins), cross-primal discovery, β_c provenance, WGSL dedup |
 | Faculty | Murillo (CMSE, MSU — MSDS professor) |
 | Faculty extension | Bazavov (CMSE + Physics, MSU — master's professor) |
 | Faculty extension | Kachkovskiy (Math, MSU — spectral theory) |

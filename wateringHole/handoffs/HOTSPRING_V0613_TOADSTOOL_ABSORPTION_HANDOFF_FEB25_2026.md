@@ -3,7 +3,7 @@
 **Date:** February 25, 2026
 **From:** hotSpring (biomeGate)
 **To:** toadStool / barracuda core team
-**Covers:** hotSpring v0.6.10 → v0.6.13 (full DF64 + cross-spring evolution)
+**Covers:** hotSpring v0.6.10 → v0.6.14 (full DF64 + cross-spring evolution + debt reduction)
 **License:** AGPL-3.0-only
 
 ---
@@ -15,13 +15,15 @@ baseline through DF64 core streaming, site-indexing standardization, and
 cross-spring rewiring. This handoff documents everything toadStool needs to
 absorb, evolve, and redistribute to all springs.
 
-**Key metrics:**
-- 76 binaries, 24 lattice WGSL shaders, 619 unit tests
+**Key metrics (v0.6.14):**
+- 76 binaries, 25 lattice WGSL shaders, 664 tests (629 lib + 31 integration + 4 doc)
 - 32⁴ quenched HMC at 7.7s/trajectory (2× faster than v0.6.8)
 - GPU Polyakov loop: 72× less data transfer
 - DF64: 60% of HMC pipeline, 3.24 TFLOPS on FP32 cores
-- 13/13 validation checks in v0.6.13 session
-- Zero TODO/FIXME in library code
+- Zero TODO/FIXME in 167 .rs files, zero clippy warnings (lib + bins)
+- Zero mocks in production code, zero unsafe blocks
+- All cross-primal hardcoding eliminated → capability-based discovery
+- β_c provenance centralized, ~150 validation tolerances with physics justification
 
 ---
 
@@ -209,27 +211,77 @@ capability with:
 | v0.6.11 | Feb 25 | t-major site indexing standardization (119/119 unit tests pass) |
 | v0.6.12 | Feb 25 | toadStool S60 DF64 expansion (plaquette, KE, transcendentals). 60% HMC in DF64 |
 | v0.6.13 | Feb 25 | GPU Polyakov loop, NVK guard, su3_math_f64, PRNG fix. 13/13 checks |
+| v0.6.14 | Feb 25 | Debt reduction: cross-primal discovery, gauss-jordan→lu_solve, WGSL dedup, 57 clippy fixes, β_c provenance |
 
 ### Crate Health
 
 | Metric | Value |
 |--------|-------|
-| Version | 0.6.13 |
-| Unit tests | 619 |
+| Version | 0.6.14 |
+| Tests | 664 (629 lib + 31 integration + 4 doc) |
 | Binaries | 76 |
-| WGSL shaders (lattice) | 24 |
+| WGSL shaders (lattice) | 25 (incl. prng_pcg_f64 shared library) |
 | Open TODO/FIXME | 0 |
+| Clippy warnings (lib+bins) | 0 |
 | `#[allow(dead_code)]` | 9 files (HFB GPU pipeline, future wiring) |
 | Unsafe blocks | 0 |
-| Clippy warnings | 0 |
+| Mocks in production | 0 (NpuSimulator is a legitimate software impl) |
+| Cross-primal hardcoding | 0 (all capability-based discovery) |
+| Validation tolerances | ~150 centralized with physics justification |
 
 ---
 
-## Part 5: Recommended Absorption Order
+## Part 5: v0.6.14 Debt Reduction (New)
+
+### Cross-Primal Discovery
+
+All hardcoded cross-primal references eliminated from production code:
+- `/dev/akida0` → `discovery::probe_npu_available()` (sysfs scan / akida-driver)
+- `control/metalforge_npu` → `control/npu` (generic capability name)
+- toadstool/showcase path → removed from error messages
+- metalForge doc reference → replaced with env var documentation
+
+**toadStool action:** Adopt the `probe_npu_available()` pattern for hardware discovery.
+The sysfs scan fallback (`/dev/akida*`) works without the `npu-hw` feature gate.
+
+### Dependency Evolution
+
+- `gauss_jordan_solve` (68-line local implementation) → `barracuda::ops::linalg::lu_solve`
+- All external deps analyzed: serde, rayon, bytemuck, tokio, wgpu are KEEP (essential, pure Rust, or required for GPU). `akida-models` is EVOLVE (optional, not directly used).
+
+### WGSL Shader Deduplication
+
+Created `prng_pcg_f64.wgsl` shared PRNG library (PCG hash → uniform f64).
+Both PRNG consumer shaders now compose via `include_str!` + `LazyLock<String>`.
+The `box_muller_cos`/`gaussian` functions remain per-consumer (f64 cos vs f32 cast
+difference is intentional and validated separately).
+
+**toadStool action:** Consider absorbing `prng_pcg_f64.wgsl` as a shared PRNG library
+alongside `complex_f64.wgsl` and `su3_math_f64.wgsl`.
+
+### Validation Fidelity Hardening
+
+- `KNOWN_BETA_C_SU3_NT4` (5.6925) added to `provenance.rs` with Bali/Engels/Creutz citations
+- 7 binaries migrated from local `const KNOWN_BETA_C` to centralized provenance
+- 4 new GPU validation tolerances in `tolerances::lattice` (streaming parity, fermion force, CG action, dynamical streaming)
+- ~150 tolerance constants, ~95% of validation thresholds now centralized
+
+### Evolution Readiness Assessment
+
+| Status | Modules |
+|--------|---------|
+| **READY** | `lattice/gpu_hmc` (GPU-resident HMC, DF64, streaming, resident CG), `physics/hfb_gpu_resident` (full L2 pipeline), `physics/bcs_gpu` |
+| **NEAR-READY** | `md` (GPU simulation, needs DEPRECATED shader migration to `barracuda::ops::md::*`) |
+| **NOT READY** | CPU-only: `hmc`, `pseudofermion`, `abelian_higgs`, `screened_coulomb`, `nuclear_matter` |
+
+---
+
+## Part 6: Recommended Absorption Order
 
 1. **su3_math_f64.wgsl** — immediate, fixes a real naga composition bug
 2. **polyakov_loop_f64.wgsl** — immediate, GPU-resident observable
-3. **PRNG type-safety audit** — quick, prevents silent breakage
-4. **Neighbor buffer abstraction** — medium, unlocks indexing portability
-5. **DF64 gauge force upstream** — high-value, biggest DF64 performance gain
-6. **NAK Rust-native workarounds** — longer term, enables open-driver sovereignty
+3. **prng_pcg_f64.wgsl** — immediate, shared PRNG library for all Gaussian generation
+4. **PRNG type-safety audit** — quick, prevents silent breakage
+5. **Neighbor buffer abstraction** — medium, unlocks indexing portability
+6. **DF64 gauge force upstream** — high-value, biggest DF64 performance gain
+7. **NAK Rust-native workarounds** — longer term, enables open-driver sovereignty

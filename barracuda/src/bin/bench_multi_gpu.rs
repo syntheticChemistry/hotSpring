@@ -16,7 +16,7 @@
 //!     cargo run --release --bin bench_multi_gpu
 //!
 //! Or source a node profile:
-//!   source metalForge/nodes/biomegate.env && cargo run --release --bin bench_multi_gpu
+//!   HOTSPRING_GPU_PRIMARY=0 HOTSPRING_GPU_SECONDARY=1 cargo run --release --bin bench_multi_gpu
 
 use barracuda::ops::linalg::BatchedEighGpu;
 use hotspring_barracuda::gpu::GpuF64;
@@ -330,10 +330,7 @@ fn cooperative_eigensolve(gpu_a: &GpuF64, gpu_b: &GpuF64) {
 /// Phase 4: Route each workload to the card that's best at it.
 fn specialized_routing(gpu_a: &GpuF64, gpu_b: &GpuF64) {
     println!("── Phase 4: Specialized Routing (best card per task) ─────");
-    println!(
-        "  Strategy: BCS→{} (fp64 throughput),",
-        gpu_b.adapter_name
-    );
+    println!("  Strategy: BCS→{} (fp64 throughput),", gpu_b.adapter_name);
     println!(
         "            Eigensolve→{} (low dispatch latency)",
         gpu_a.adapter_name
@@ -390,8 +387,7 @@ fn specialized_routing(gpu_a: &GpuF64, gpu_b: &GpuF64) {
         let mats = matrices.clone();
         std::thread::scope(|s| {
             s.spawn(|| {
-                let _ =
-                    bcs_secondary.solve_bcs(&lower, &upper, &eigenvalues, &delta, &target_n);
+                let _ = bcs_secondary.solve_bcs(&lower, &upper, &eigenvalues, &delta, &target_n);
             });
             s.spawn(move || {
                 let _ =

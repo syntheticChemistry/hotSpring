@@ -22,7 +22,7 @@ use hotspring_barracuda::md::reservoir::{EchoStateNetwork, EsnConfig, NpuSimulat
 use hotspring_barracuda::validation::ValidationHarness;
 use std::time::Instant;
 
-const KNOWN_BETA_C: f64 = 5.6925;
+use hotspring_barracuda::provenance::KNOWN_BETA_C_SU3_NT4 as KNOWN_BETA_C;
 const BETA_MIN: f64 = 4.5;
 const BETA_MAX: f64 = 6.5;
 
@@ -162,9 +162,7 @@ fn main() {
     println!(
         "  Adaptive β_c = {adaptive_beta_c:.4} (error {adaptive_err:.4}) — {total_points} points"
     );
-    println!(
-        "  Uniform  β_c = {uniform_beta_c:.4} (error {uniform_err:.4}) — {n_uniform} points"
-    );
+    println!("  Uniform  β_c = {uniform_beta_c:.4} (error {uniform_err:.4}) — {n_uniform} points");
 
     // Check how many adaptive points fell near β_c
     let near_transition: usize = measured
@@ -181,10 +179,7 @@ fn main() {
     let savings = 1.0 - (total_points as f64 / n_uniform as f64);
     println!("  Point savings: {:.0}% fewer points", savings * 100.0);
 
-    harness.check_bool(
-        "Adaptive β_c within 0.5 of known",
-        adaptive_err < 0.5,
-    );
+    harness.check_bool("Adaptive β_c within 0.5 of known", adaptive_err < 0.5);
     harness.check_bool(
         "Adaptive scan concentrates near transition",
         near_fraction > 0.2,
@@ -200,12 +195,10 @@ fn main() {
     println!("║  Adaptive Beta Steering Summary                            ║");
     println!("╠══════════════════════════════════════════════════════════════╣");
     println!(
-        "║  Adaptive: {} pts, β_c={:.4}, err={:.4}                    ║",
-        total_points, adaptive_beta_c, adaptive_err
+        "║  Adaptive: {total_points} pts, β_c={adaptive_beta_c:.4}, err={adaptive_err:.4}                    ║"
     );
     println!(
-        "║  Uniform:  {} pts, β_c={:.4}, err={:.4}                    ║",
-        n_uniform, uniform_beta_c, uniform_err
+        "║  Uniform:  {n_uniform} pts, β_c={uniform_beta_c:.4}, err={uniform_err:.4}                    ║"
     );
     println!(
         "║  NPU concentration: {:.0}% of points near transition          ║",
@@ -240,8 +233,7 @@ fn run_gpu_measurement(
     let n_traj = 8;
 
     for t in 0..n_traj {
-        let r =
-            gpu_hmc_trajectory_streaming(gpu, pipelines, &state, 20, 0.02, t as u32, &mut seed);
+        let r = gpu_hmc_trajectory_streaming(gpu, pipelines, &state, 20, 0.02, t as u32, &mut seed);
         plaq_sum += r.plaquette;
     }
 
@@ -263,7 +255,7 @@ fn build_feature_sequence(beta: f64, plaq: f64, poly: f64) -> Vec<Vec<f64>> {
 /// Find the beta value where NPU prediction is most uncertain (closest to 0.5).
 fn find_max_uncertainty(npu: &mut NpuSimulator, measured: &[(f64, f64, f64)]) -> f64 {
     let n_candidates = 50;
-    let mut best_beta = (BETA_MIN + BETA_MAX) / 2.0;
+    let mut best_beta = f64::midpoint(BETA_MIN, BETA_MAX);
     let mut best_uncertainty = 0.0;
 
     for i in 0..n_candidates {
@@ -311,7 +303,7 @@ fn detect_beta_c(npu: &mut NpuSimulator, measured: &[(f64, f64, f64)]) -> f64 {
 /// Simple β_c detection from Polyakov loop jump (no NPU).
 fn detect_beta_c_simple(measured: &[(f64, f64, f64)]) -> f64 {
     let mut max_dpoly = 0.0;
-    let mut beta_c = (BETA_MIN + BETA_MAX) / 2.0;
+    let mut beta_c = f64::midpoint(BETA_MIN, BETA_MAX);
 
     for window in measured.windows(2) {
         let (b1, _, p1) = window[0];
@@ -319,7 +311,7 @@ fn detect_beta_c_simple(measured: &[(f64, f64, f64)]) -> f64 {
         let dpoly = (p2 - p1).abs() / (b2 - b1).abs().max(0.001);
         if dpoly > max_dpoly {
             max_dpoly = dpoly;
-            beta_c = (b1 + b2) / 2.0;
+            beta_c = f64::midpoint(b1, b2);
         }
     }
 

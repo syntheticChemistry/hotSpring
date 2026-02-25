@@ -21,7 +21,7 @@ use hotspring_barracuda::md::reservoir::{EchoStateNetwork, EsnConfig, NpuSimulat
 use hotspring_barracuda::validation::ValidationHarness;
 use std::time::Instant;
 
-const KNOWN_BETA_C: f64 = 5.6925;
+use hotspring_barracuda::provenance::KNOWN_BETA_C_SU3_NT4 as KNOWN_BETA_C;
 
 fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");
@@ -54,9 +54,7 @@ fn main() {
 
     let initial_beta_c = detect_beta_c_from_esn(&esn);
     let initial_err = (initial_beta_c - KNOWN_BETA_C).abs();
-    println!(
-        "  Initial β_c estimate: {initial_beta_c:.4} (error: {initial_err:.4})"
-    );
+    println!("  Initial β_c estimate: {initial_beta_c:.4} (error: {initial_err:.4})");
     println!();
 
     // ═══ Phase 2: Online Learning Simulation ═══
@@ -135,9 +133,7 @@ fn main() {
         1.0
     };
 
-    println!(
-        "  Initial error: {initial_err:.4} → Final error: {final_online_err:.4}"
-    );
+    println!("  Initial error: {initial_err:.4} → Final error: {final_online_err:.4}");
     println!(
         "  Improvement: {:.1}× ({:.0}% error reduction)",
         1.0 / convergence_factor.max(0.001),
@@ -158,10 +154,7 @@ fn main() {
     }
 
     harness.check_bool("Online learning improves β_c estimate", improved);
-    harness.check_bool(
-        "Convergence roughly monotonic",
-        monotonic,
-    );
+    harness.check_bool("Convergence roughly monotonic", monotonic);
     harness.check_bool(
         "Online matches offline quality",
         (final_online_err - offline_err).abs() < 0.2,
@@ -203,7 +196,7 @@ fn main() {
 }
 
 fn generate_hmc_data(betas: &[f64]) -> (Vec<Vec<Vec<f64>>>, Vec<Vec<f64>>) {
-    generate_hmc_data_f64(&betas.iter().copied().collect::<Vec<_>>())
+    generate_hmc_data_f64(betas)
 }
 
 fn generate_hmc_data_f64(betas: &[f64]) -> (Vec<Vec<Vec<f64>>>, Vec<Vec<f64>>) {
@@ -240,9 +233,8 @@ fn generate_hmc_data_f64(betas: &[f64]) -> (Vec<Vec<Vec<f64>>>, Vec<Vec<f64>>) {
 }
 
 fn detect_beta_c_from_esn(esn: &EchoStateNetwork) -> f64 {
-    let weights = match esn.export_weights() {
-        Some(w) => w,
-        None => return KNOWN_BETA_C,
+    let Some(weights) = esn.export_weights() else {
+        return KNOWN_BETA_C;
     };
     let mut npu = NpuSimulator::from_exported(&weights);
 

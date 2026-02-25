@@ -17,8 +17,8 @@
 
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::lattice::gpu_hmc::{
-    gpu_hmc_trajectory_streaming, gpu_polyakov_loop, GpuHmcState,
-    GpuHmcStreamingPipelines, StreamObservables,
+    gpu_hmc_trajectory_streaming, gpu_polyakov_loop, GpuHmcState, GpuHmcStreamingPipelines,
+    StreamObservables,
 };
 use hotspring_barracuda::lattice::hmc::{self, HmcConfig};
 use hotspring_barracuda::lattice::wilson::Lattice;
@@ -26,7 +26,7 @@ use hotspring_barracuda::md::reservoir::{EchoStateNetwork, EsnConfig, NpuSimulat
 use hotspring_barracuda::validation::ValidationHarness;
 use std::time::Instant;
 
-const KNOWN_BETA_C: f64 = 5.6925;
+use hotspring_barracuda::provenance::KNOWN_BETA_C_SU3_NT4 as KNOWN_BETA_C;
 const BETA_VALUES: [f64; 5] = [5.0, 5.5, 5.7, 6.0, 6.5];
 
 fn main() {
@@ -63,28 +63,24 @@ fn main() {
             Some(v) => std::env::set_var("HOTSPRING_GPU_ADAPTER", v),
             None => std::env::remove_var("HOTSPRING_GPU_ADAPTER"),
         }
-        match result {
-            Ok(g) => {
-                let is_different = gpu_primary
-                    .as_ref()
-                    .map_or(true, |p| p.adapter_name != g.adapter_name);
-                if is_different {
-                    println!("  Titan V (NVK): {}", g.adapter_name);
-                    Some(g)
-                } else {
-                    println!("  Titan V: same adapter as primary, skipping dual-GPU");
-                    None
-                }
-            }
-            Err(_) => {
-                println!("  Titan V not available — validation oracle disabled");
+        if let Ok(g) = result {
+            let is_different = gpu_primary
+                .as_ref()
+                .is_none_or(|p| p.adapter_name != g.adapter_name);
+            if is_different {
+                println!("  Titan V (NVK): {}", g.adapter_name);
+                Some(g)
+            } else {
+                println!("  Titan V: same adapter as primary, skipping dual-GPU");
                 None
             }
+        } else {
+            println!("  Titan V not available — validation oracle disabled");
+            None
         }
     };
 
-    // NPU (AKD1000 via /dev/akida0)
-    let npu_available = std::path::Path::new("/dev/akida0").exists();
+    let npu_available = hotspring_barracuda::discovery::probe_npu_available();
     println!(
         "  NPU (AKD1000): {}",
         if npu_available {
@@ -158,13 +154,7 @@ fn main() {
 
         for t in 0..n_traj {
             let result = gpu_hmc_trajectory_streaming(
-                &gpu,
-                &pipelines,
-                &state,
-                20,
-                0.02,
-                t as u32,
-                &mut seed,
+                &gpu, &pipelines, &state, 20, 0.02, t as u32, &mut seed,
             );
 
             let (poly_mag, poly_phase) = gpu_polyakov_loop(&gpu, &pipelines.hmc, &state);
@@ -190,9 +180,9 @@ fn main() {
             // Flag configurations near phase boundary for Titan V validation
             let near_boundary = (npu_pred - 0.5).abs() < 0.3;
             if near_boundary && t == n_traj - 1 {
-                let flat =
-                    gpu.read_back_f64(&state.link_buf, state.n_links * 18)
-                        .unwrap_or_default();
+                let flat = gpu
+                    .read_back_f64(&state.link_buf, state.n_links * 18)
+                    .unwrap_or_default();
                 flagged_configs.push((beta, flat, state.dims));
             }
 
@@ -256,15 +246,12 @@ fn main() {
             let (titan_poly, _) = gpu_polyakov_loop(titan, &titan_pipelines.hmc, &state);
 
             println!(
-                "  Titan V @ β={:.1}: ⟨P⟩={:.6} (native f64), ⟨|L|⟩={:.4}",
-                beta, titan_plaq, titan_poly
+                "  Titan V @ β={beta:.1}: ⟨P⟩={titan_plaq:.6} (native f64), ⟨|L|⟩={titan_poly:.4}"
             );
             titan_results.push((*beta, titan_plaq, titan_poly));
         }
 
-        let titan_physical = titan_results
-            .iter()
-            .all(|(_, p, _)| *p > 0.1 && *p < 0.9);
+        let titan_physical = titan_results.iter().all(|(_, p, _)| *p > 0.1 && *p < 0.9);
         harness.check_bool("Titan V produces physical plaquettes", titan_physical);
     } else {
         println!("  Titan V not available — running CPU f64 fallback oracle");

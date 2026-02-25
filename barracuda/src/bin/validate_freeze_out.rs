@@ -37,6 +37,7 @@
 use hotspring_barracuda::lattice::correlator::{plaquette_susceptibility, polyakov_susceptibility};
 use hotspring_barracuda::lattice::hmc::{self, HmcConfig, IntegratorType};
 use hotspring_barracuda::lattice::wilson::Lattice;
+use hotspring_barracuda::provenance::KNOWN_BETA_C_SU3_NT4;
 use hotspring_barracuda::validation::ValidationHarness;
 use std::time::Instant;
 
@@ -138,11 +139,10 @@ fn main() {
                 .partial_cmp(&b.chi_plaq)
                 .unwrap_or(std::cmp::Ordering::Equal)
         })
-        .map(|(i, p)| (i, p.chi_plaq))
-        .unwrap_or((0, 0.0));
+        .map_or((0, 0.0), |(i, p)| (i, p.chi_plaq));
     let beta_c_plaq = points[chi_p_max_idx].beta;
 
-    let (chi_l_max_idx, _chi_l_max) = points
+    let (chi_l_max_idx, chi_l_max) = points
         .iter()
         .enumerate()
         .max_by(|(_, a), (_, b)| {
@@ -150,14 +150,13 @@ fn main() {
                 .partial_cmp(&b.chi_poly)
                 .unwrap_or(std::cmp::Ordering::Equal)
         })
-        .map(|(i, p)| (i, p.chi_poly))
-        .unwrap_or((0, 0.0));
+        .map_or((0, 0.0), |(i, p)| (i, p.chi_poly));
     let beta_c_poly = points[chi_l_max_idx].beta;
 
     println!("  χ_P peak: β_c = {beta_c_plaq:.2} (index {chi_p_max_idx})");
     println!("  χ_L peak: β_c = {beta_c_poly:.2} (index {chi_l_max_idx})");
 
-    let known_beta_c = 5.69;
+    let known_beta_c = KNOWN_BETA_C_SU3_NT4;
     let plaq_err = (beta_c_plaq - known_beta_c).abs() / known_beta_c;
     let poly_err = (beta_c_poly - known_beta_c).abs() / known_beta_c;
     println!(
@@ -172,7 +171,7 @@ fn main() {
     // On 4⁴, the Polyakov susceptibility is dominated by finite-volume
     // fluctuations and may not show a clean interior peak. We check that
     // the susceptibility is positive (non-trivial signal exists).
-    harness.check_bool("χ_L shows non-trivial signal", _chi_l_max > 0.0);
+    harness.check_bool("χ_L shows non-trivial signal", chi_l_max > 0.0);
 
     // On 4⁴, plaquette and Polyakov susceptibilities can disagree due to
     // finite-volume crossover effects. On larger lattices (8⁴+) they converge.
@@ -200,7 +199,7 @@ fn main() {
         .iter()
         .filter(|p| p.beta < known_beta_c - 0.3)
         .map(|p| p.mean_poly)
-        .last()
+        .next_back()
         .unwrap_or(0.0);
     let poly_high = points
         .iter()

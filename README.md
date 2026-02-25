@@ -91,7 +91,8 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **toadStool S60 DF64 Expansion** | ✅ Complete | v0.6.12: FMA-optimized df64_core, transcendentals, DF64 plaquette + KE. 60% of HMC in DF64 (up from 40%). 8-12% additional speedup |
 | **Mixed Pipeline β-Scan** | ⏸️ Partial | v0.6.12: 3-substrate (3090+NPU+Titan V). DF64 2× confirmed at 32⁴. 8% power reduction. NPU adaptive steering Round 1 complete |
 | **Cross-Spring Rewiring** | ✅ Complete | v0.6.13: GPU Polyakov loop (72× less transfer), NVK alloc guard, PRNG fix. 164+ shaders across 4 springs. 13/13 checks |
-| **TOTAL** | **39/39 Rust validation suites** | 619 unit tests, 76 binaries, 24 WGSL shaders, 34/35 NPU HW checks. Both GPUs validated, DF64 unleashed, cross-spring evolution mapped |
+| **Debt Reduction Audit** | ✅ Complete | v0.6.14: 0 mocks, 0 TODOs, 0 clippy warnings (lib+bins), cross-primal discovery, β_c provenance, WGSL dedup, 150+ centralized tolerances |
+| **TOTAL** | **39/39 Rust validation suites** | 664 tests (629 lib + 31 integration + 4 doc), 76 binaries, 25 WGSL shaders, 34/35 NPU HW checks. Both GPUs validated, DF64 unleashed, cross-spring evolution mapped |
 
 Papers 5, 7, 8, and 10 from the review queue are complete. Paper 5 transport fits
 (Daligault 2012) were recalibrated against 12 Sarkas Green-Kubo D* values (Feb 2026)
@@ -372,13 +373,12 @@ makes the upstream library richer and hotSpring leaner.
 
 ---
 
-## BarraCuda Crate (v0.6.13)
+## BarraCuda Crate (v0.6.14)
 
 The `barracuda/` directory is a standalone Rust crate providing the validation
 environment, physics implementations, and GPU compute. Key architectural properties:
 
-- **619 unit tests** (612 passing + 1 env-flaky + 6 GPU/heavy-ignored; spectral tests upstream in barracuda), **39 validation suites** (39/39 pass),
-  **24 integration tests** (3 suites: physics, data, transport),
+- **664 tests** (629 lib + 31 integration + 4 doc), **39 validation suites** (39/39 pass),
   **16 determinism tests** (rerun-identical for all stochastic algorithms). Includes
   lattice QCD (complex f64, SU(3), Wilson action, HMC, Dirac CG, pseudofermion HMC),
   Abelian Higgs (U(1) + Higgs, HMC), transport coefficients (Green-Kubo D*/η*/λ*,
@@ -397,7 +397,7 @@ environment, physics implementations, and GPU compute. Key architectural propert
   `NMP_TARGETS`, `L1_PYTHON_CHI2`, `MD_FORCE_REFS`, `GPU_KERNEL_REFS`, etc.
   DOIs for AME2020, Chabanat 1998, Kortelainen 2010, Bender 2003,
   Lattimer & Prakash 2016 are documented in `provenance.rs`.
-- **Tolerances** — 172 centralized constants in the `tolerances/` module tree with physical
+- **Tolerances** — ~150 centralized constants in the `tolerances/` module tree with physical
   justification (machine precision, numerical method, model, literature).
   Includes 12 physics guard constants (`DENSITY_FLOOR`, `SPIN_ORBIT_R_MIN`,
   `COULOMB_R_MIN`, `BCS_DENSITY_SKIP`, `DEFORMED_COULOMB_R_MIN`, etc.),
@@ -443,7 +443,7 @@ environment, physics implementations, and GPU compute. Key architectural propert
 
 ```bash
 cd barracuda
-cargo test               # 619 unit + 24 integration + 19 forge tests, 6 GPU/heavy-ignored (~702.7s; spectral tests upstream)
+cargo test               # 664 tests (629 lib + 31 integration + 4 doc), 6 GPU/heavy-ignored (~700s; spectral tests upstream)
 cargo clippy --all-targets  # Zero warnings (pedantic + nursery via Cargo.toml workspace lints)
 cargo doc --no-deps      # Full API documentation — 0 warnings
 cargo run --release --bin validate_all  # 39/39 suites pass
@@ -526,7 +526,7 @@ hotSpring/
 │       ├── kachkovskiy_spectral.md    # Spectral theory — Anderson, Hofstadter
 │       └── cross_spring_evolution.md  # Cross-spring shader ecosystem (164+ shaders)
 │
-├── barracuda/                          # BarraCuda Rust crate — v0.6.13 (619 unit + 24 integration tests, 76 binaries, 24 WGSL shaders)
+├── barracuda/                          # BarraCuda Rust crate — v0.6.14 (664 tests, 76 binaries, 25 WGSL shaders)
 │   ├── Cargo.toml                     # Dependencies (requires ecoPrimals/phase1/toadstool)
 │   ├── CHANGELOG.md                   # Version history — baselines, tolerances, evolution
 │   ├── EVOLUTION_READINESS.md         # Rust module → GPU promotion tier + absorption status
@@ -589,8 +589,14 @@ hotSpring/
 │       │   ├── constants.rs           # Centralized LCG PRNG, SU(3) constants, guards
 │       │   ├── dirac.rs              # Staggered Dirac operator
 │       │   ├── cg.rs                  # Conjugate gradient solver for D†D
-│       │   ├── gpu_hmc.rs                # GPU streaming + resident CG HMC (dispatch, streaming, resident, bidirectional)
+│       │   ├── gpu_hmc/              # GPU HMC module (v0.6.13 refactor from monolithic gpu_hmc.rs)
+│       │   │   ├── mod.rs            # Shared types, dispatch helpers, pure gauge trajectory
+│       │   │   ├── dynamical.rs      # Dynamical fermion HMC
+│       │   │   ├── streaming.rs      # Streaming variants (GPU PRNG, batched encoders)
+│       │   │   ├── resident_cg.rs    # GPU-resident CG solver (15,360× readback reduction)
+│       │   │   └── observables.rs    # Stream observables + bidirectional NPU screening
 │       │   ├── eos_tables.rs          # HotQCD EOS tables (Bazavov et al. 2014)
+│       │   ├── correlator.rs          # Plaquette/Polyakov susceptibility, HVP kernel
 │       │   └── multi_gpu.rs           # Temperature scan dispatcher
 │       │
 │   ├── tests/                         # Integration tests (24 tests, 3 suites)
@@ -711,7 +717,8 @@ hotSpring/
 │   ├── 013_BIOMEGATE_PRODUCTION_BETA_SCAN.md # biomeGate 32⁴ + 16⁴ production runs
 │   ├── 014_DF64_UNLEASHED_BENCHMARK.md # DF64 unleashed: 2× speedup at 32⁴ production
 │   ├── 015_MIXED_PIPELINE_BENCHMARK.md # Mixed pipeline: 3090+NPU+Titan V adaptive scan
-│   └── 016_CROSS_SPRING_EVOLUTION_MAP.md # Cross-spring evolution: 164+ shaders mapped
+│   ├── 016_CROSS_SPRING_EVOLUTION_MAP.md # Cross-spring evolution: 164+ shaders mapped
+│   └── 017_DEBT_REDUCTION_AUDIT.md    # v0.6.14: 0 clippy, discovery, provenance, WGSL dedup
 │
 ├── metalForge/                         # Hardware characterization & cross-substrate dispatch
 │   ├── README.md                      # Philosophy + hardware inventory + forge docs
@@ -744,7 +751,8 @@ hotSpring/
 │   └── BARRACUDA_REQUIREMENTS.md      # GPU kernel requirements and gap analysis
 │
 ├── wateringHole/                       # Cross-project handoffs
-│   └── handoffs/                       # 7 active + 35 archived unidirectional handoff documents
+│   ├── README.md                      # Handoff index, conventions, cross-spring docs
+│   └── handoffs/                       # 6 active + 39 archived unidirectional handoff documents
 │
 ├── benchmarks/
 │   ├── PROTOCOL.md                     # Cross-gate benchmark protocol (time + energy)
@@ -881,6 +889,7 @@ These are **silent failures** — wrong results, no error messages. This fragili
 | [`experiments/014_DF64_UNLEASHED_BENCHMARK.md`](experiments/014_DF64_UNLEASHED_BENCHMARK.md) | DF64 unleashed: 32⁴ at 7.7s/traj (2× faster), dynamical streaming validated |
 | [`experiments/015_MIXED_PIPELINE_BENCHMARK.md`](experiments/015_MIXED_PIPELINE_BENCHMARK.md) | Mixed pipeline: 3-substrate (3090+NPU+Titan V), adaptive β steering |
 | [`experiments/016_CROSS_SPRING_EVOLUTION_MAP.md`](experiments/016_CROSS_SPRING_EVOLUTION_MAP.md) | Cross-spring shader evolution map: 164+ shaders across hotSpring/wetSpring/neuralSpring/airSpring |
+| [`experiments/017_DEBT_REDUCTION_AUDIT.md`](experiments/017_DEBT_REDUCTION_AUDIT.md) | v0.6.14 debt audit: 0 clippy (lib+bin), cross-primal discovery, β_c provenance, WGSL dedup |
 | [`metalForge/README.md`](metalForge/README.md) | Hardware characterization — philosophy, inventory, directory |
 | [`metalForge/npu/akida/BEYOND_SDK.md`](metalForge/npu/akida/BEYOND_SDK.md) | **10 overturned SDK assumptions** — the discovery document |
 | [`metalForge/npu/akida/HARDWARE.md`](metalForge/npu/akida/HARDWARE.md) | AKD1000 deep-dive: architecture, compute model, PCIe BAR mapping |

@@ -161,8 +161,7 @@ fn main() {
     let plaq_60 = results_8
         .iter()
         .find(|r| (r.beta - 6.0).abs() < 0.01)
-        .map(|r| r.mean_plaq)
-        .unwrap_or(0.0);
+        .map_or(0.0, |r| r.mean_plaq);
     harness.check_bool(
         "8⁴ plaquette at β=6.0 in (0.55, 0.65)",
         plaq_60 > 0.55 && plaq_60 < 0.65,
@@ -191,7 +190,7 @@ fn main() {
     println!("  ─────  ────────────────  ─────────────  ─────");
     for ra in &results_asym {
         let r8 = results_8.iter().find(|r| (r.beta - ra.beta).abs() < 0.01);
-        let plaq_8 = r8.map(|r| r.mean_plaq).unwrap_or(0.0);
+        let plaq_8 = r8.map_or(0.0, |r| r.mean_plaq);
         let delta = (ra.mean_plaq - plaq_8).abs();
         println!(
             "  {:.1}    {:.6}          {:.6}       {:.4}",

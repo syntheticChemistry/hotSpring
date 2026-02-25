@@ -153,8 +153,8 @@ pub fn hvp_kernel(t: usize, nt: usize) -> f64 {
 pub fn hvp_integral(correlator: &[f64]) -> f64 {
     let nt = correlator.len();
     let mut sum = 0.0;
-    for t in 1..nt / 2 {
-        sum += hvp_kernel(t, nt) * correlator[t];
+    for (t, &c_t) in correlator.iter().enumerate().skip(1).take(nt / 2 - 1) {
+        sum += hvp_kernel(t, nt) * c_t;
     }
     sum
 }

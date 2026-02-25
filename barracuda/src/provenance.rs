@@ -544,6 +544,18 @@ pub const HOTQCD_EOS_PROVENANCE: BaselineProvenance = BaselineProvenance {
 /// - Plaquette at β=6.0 on 8^4 ≈ 0.594: Bali et al. (1993)
 pub const PURE_GAUGE_REFS: &str = "Creutz (1983), Wilson (1974), Bali et al. (1993)";
 
+/// Known critical coupling β_c for SU(3) deconfinement on N_t = 4.
+///
+/// β_c ≈ 5.6925 (Wilson plaquette action) from:
+/// - Bali et al., Phys. Rev. D 47, 3676 (1993)
+/// - Engels et al., Nucl. Phys. B 332, 737 (1990)
+/// - Creutz, Phys. Rev. D 21, 2308 (1980) (original SU(3) MC)
+///
+/// On finite 4^4 lattices, the crossover is broad; effective β_c measured
+/// from susceptibility peaks falls in 5.65–5.72 depending on observable.
+/// 5.6925 is the infinite-volume extrapolation for N_t = 4.
+pub const KNOWN_BETA_C_SU3_NT4: f64 = 5.6925;
+
 /// Python baseline for screened Coulomb bound-state eigenvalues.
 ///
 /// 8 reference eigenvalues (1s, 2s, 2p, 3s for κ=0 and κ=0.5) computed via
