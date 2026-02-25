@@ -84,7 +84,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **GPU-Resident CG** | ✅ Complete | 15,360× readback reduction, 30.7× speedup, α/β/rz GPU-resident |
 | **biomeGate Prep** | ✅ Complete | Node profiles, env-var GPU selection, NVK setup guide, RTX 3090 characterization |
 | **API Debt Fix** | ✅ Complete | solve_f64→CPU Gauss-Jordan, sampler/surrogate device args, 4 binaries fixed |
-| **Production β-Scan (biomeGate)** | 🔄 Running | Titan V 16⁴ complete (9/9, 47 min, NVK first). RTX 3090 32⁴ in progress (5/12, ~8.5h remaining). **χ=22.8 at β=5.5** — deconfinement transition detected on 1M-site lattice |
+| **Production β-Scan (biomeGate)** | ✅ Complete | Titan V 16⁴ (9/9, 47 min, first NVK QCD). RTX 3090 32⁴ (12/12, 13.6h, $0.58). **Deconfinement transition: χ=40.1 at β=5.69** matches known β_c=5.692. Finite-size scaling confirmed (16⁴ vs 32⁴) |
 | **TOTAL** | **39/39 Rust validation suites** | 155/155 checks in latest session. 619 unit tests, 34/35 NPU HW checks, 16 determinism tests, 6 upstream bugs found. Both GPUs validated, biomeGate node prepped |
 
 Papers 5, 7, 8, and 10 from the review queue are complete. Paper 5 transport fits

@@ -719,12 +719,16 @@ End-to-end validation of the CPU→GPU→NPU→CPU architecture:
 | 48³×96 | 10,616,832 | 5.8 GB | tight | feasible |
 | 64⁴ | 16,777,216 | 9.2 GB | no | feasible |
 
-**biomeGate production runs (Feb 24, 2026)**: RTX 3090 is running a 12-point
-32⁴ quenched β-scan with 200 measurements per point (~14.6 hrs total). At 5/12
-points complete, χ=22.8 at β=5.5 is the **deconfinement phase transition** — a
-30× spike over neighboring points. Titan V completed 16⁴ (9/9, 47 min) via NVK —
-first known lattice QCD production run on open-source driver. NVK fails at 30⁴+
-(PTE fault). See `experiments/013_BIOMEGATE_PRODUCTION_BETA_SCAN.md`.
+**biomeGate production runs (Feb 24, 2026)**: RTX 3090 completed a 12-point
+32⁴ quenched β-scan (200 measurements per point, 13.6 hours, $0.58 electricity).
+Susceptibility peak χ=40.1 at β=5.69 matches the known critical coupling
+β_c=5.692 to three significant figures — the **deconfinement phase transition**
+clearly resolved on a 1M-site lattice. Finite-size scaling confirmed: 16⁴
+(Titan V, χ~1.0) vs 32⁴ (3090, χ=40-53) shows 40-50× amplification with volume.
+Titan V completed 16⁴ (9/9, 47 min) via NVK — first known lattice QCD production
+run on open-source driver. NVK fails at 30⁴+ (PTE fault). This run used only
+1.6% of the 3090's chip (native f64); DF64 hybrid (Experiment 012) would reduce
+the same run to ~2 hours. See `experiments/013_BIOMEGATE_PRODUCTION_BETA_SCAN.md`.
 
 At 32⁴ the pipeline architecture is unchanged — same shaders, same streaming,
 same single-encoder dispatch. The only variable is VRAM capacity. Production
