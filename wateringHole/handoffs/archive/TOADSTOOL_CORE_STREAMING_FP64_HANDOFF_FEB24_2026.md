@@ -326,6 +326,7 @@ could make the AMD path even more interesting than NVIDIA for this workload.**
 
 ---
 
-*This handoff references the ongoing biomeGate compute campaign. Production
-runs are still active: RTX 3090 on 32^4 quenched beta-scan (3/12 points),
-Titan V on 30^4 quenched beta-scan (1/10 points).*
+*Update: biomeGate compute campaign complete. RTX 3090 32^4 quenched beta-scan
+finished 12/12 points in 13.6 hours ($0.58). Deconfinement transition at β=5.69
+(χ=40.1) matches known β_c=5.692. Titan V 30^4 failed (NVK PTE fault).
+See experiments/013_BIOMEGATE_PRODUCTION_BETA_SCAN.md for full results.*

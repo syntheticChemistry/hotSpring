@@ -263,7 +263,7 @@ pyfftw.builders.fftn is not supported in Numba nopython mode.
 object mode fallback (as the code's own comment says: "Numba does not support
 pyfftw yet"). This is the same fix pattern as the NTT→FFT evolution in BarraCuda.
 
-**Status**: 2/3 PPPM cases PASSED validation, case 3 (κ=0, Γ=150) re-running.
+**Status**: 3/3 PPPM cases PASSED validation (see table below).
 
 **PPPM Validation Results** (plasmon peaks only, ka≤2):
 
@@ -415,7 +415,7 @@ scaling but shift the constant factor down by 45-100×.
 ### BarraCuda Evolution (Phase B — ToadStool Timeline)
 
 The control experiments have now **concretely demonstrated** which BarraCuda
-capabilities are needed, with **quantitative acceptance criteria from 195 validated checks**:
+capabilities are needed, with **quantitative acceptance criteria from 197 validated checks**:
 
 | BarraCuda Gap | Demonstrated By | Acceptance Criteria | Priority |
 |---------------|-----------------|---------------------|----------|

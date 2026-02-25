@@ -132,7 +132,7 @@ Backward-compatible: with 1D dispatch, `gid.y = 0` so `idx = gid.x`.
 | Run | GPU | Lattice | Points | Wall Time | Per-Point | Acceptance |
 |-----|-----|---------|--------|-----------|-----------|------------|
 | quenched scan | Titan V (NVK) | 16^4 | 9 | 47.4 min | 316s | 53-66% |
-| quenched scan | RTX 3090 | 32^4 | 2/12 (running) | ~2 hrs so far | 3876s | 20% |
+| quenched scan | RTX 3090 | 32^4 | 12/12 (complete) | 13.6 hrs ($0.58) | 4082s avg | 15-24% |
 | quenched scan | Titan V (NVK) | 32^4 | CRASH | — | — | — |
 
 ### 2.3 Per-Trajectory Timing
@@ -307,7 +307,7 @@ key performance advantage. Investigate:
 | nuclear_eos_l1_ref | DONE | Pareto sweep, λ=100 best |
 | nuclear_eos_l2_gpu | DONE | Phase 1 SLy4 baseline, 32 min on RTX 3090 |
 | 16^4 β-scan Titan V | DONE | 9 points, 47 min, physics validated |
-| 32^4 β-scan RTX 3090 | RUNNING | 2/12 points, ~3876s/point |
+| 32^4 β-scan RTX 3090 | COMPLETE | 12/12 points, 13.6 hrs, χ=40.1 at β=5.69 |
 | 32^4 β-scan Titan V | FAILED | NVK device loss — needs investigation |
 | 48^4 β-scan | BLOCKED | Waiting for 32^4 to finish on 3090 |
 | Dynamical fermion | BLOCKED | Waiting for quenched scan completion |
@@ -316,8 +316,8 @@ key performance advantage. Investigate:
 
 ### What to Examine
 
-- 32^4 β-scan on 3090: still running (3/12 points done, ~3876s per point = ~13 hrs for all 12)
-- 30^4 β-scan on Titan V: running (1/10 points done, max safe NVK lattice size)
+- 32^4 β-scan on 3090: **COMPLETE** (12/12 points, 13.6 hrs, $0.58). Peak χ=40.1 at β=5.69 matches β_c=5.692
+- 30^4 β-scan on Titan V: **FAILED** (NVK PTE fault — documented above)
 - Acceptance rate at strong coupling (β=4.0): only 20% — need adaptive step size
 - 48^4 and dynamical runs deferred until quenched scan completes
 - NVK 32^4 device loss: top priority for ToadStool investigation

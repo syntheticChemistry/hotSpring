@@ -133,15 +133,26 @@ computational methods (MD ↔ HMC, plasma EOS ↔ QCD EOS).
 | ~~Dynamical fermion HMC~~ | Full QCD with sea quarks | — | ✅ **Done** — `pseudofermion.rs` validated 7/7, Python control parity |
 | ~~Omelyan integrator~~ | ~~Production acceptance rates~~ | — | ✅ **Done** — Omelyan in gpu_hmc.rs, streaming dispatch achieves 50-90% acceptance |
 | ~~Larger lattice sizes (8^4, 16^4)~~ | ~~Physical results~~ | — | ✅ **Done** — 4⁴-16⁴ streaming validated, 67× CPU at 16⁴. RTX 3090 enables 48⁴ |
+| ~~Production beta-scan (32⁴)~~ | ~~Phase transition resolution~~ | — | ✅ **Done** — 12-point 32⁴ scan, 13.6h, χ=40.1 at β=5.69 matches β_c=5.692 |
+| DF64 hybrid core streaming | 6.7× HMC speedup on consumer GPUs | 🔴 Next | `df64_core.wgsl` validated; HMC kernels not yet rewired |
+
+### Production β-Scan Results (Feb 24, 2026)
+
+The RTX 3090 completed a 12-point quenched SU(3) β-scan on a 32⁴ lattice (1M sites,
+200 measurements/point, 3,000 HMC trajectories) in 13.6 hours for $0.58 of electricity.
+The susceptibility peak χ=40.1 at β=5.69 matches the known critical coupling
+β_c=5.692 to three significant figures — **deconfinement phase transition resolved**.
+Finite-size scaling confirmed: 16⁴ (Titan V NVK, χ~1.0) vs 32⁴ (3090, χ=40-53).
+This used only 1.6% of the 3090's chip (native f64). DF64 hybrid would reduce the
+same run to ~2 hours. See `experiments/013_BIOMEGATE_PRODUCTION_BETA_SCAN.md`.
 
 ### Heterogeneous Hardware Pipeline: Lattice QCD Phase Structure
 
 GPU FFT f64 is available (toadstool Session 25). The full GPU lattice QCD stack
 is complete — Dirac SpMV (8/8), CG solver (9/9), and pseudofermion HMC (7/7)
-are all validated. Meanwhile, the **deconfinement phase transition** — the most
-important observable in finite-temperature QCD — is visible in purely position-space
-quantities: the Polyakov loop ⟨|L|⟩ and plaquette ⟨P⟩. No FFT needed for phase
-structure.
+are all validated. The **deconfinement phase transition** — the most
+important observable in finite-temperature QCD — is now resolved on a 32⁴ lattice
+using position-space quantities: the Polyakov loop ⟨|L|⟩ and plaquette ⟨P⟩.
 
 **Pipeline**: GPU generates pure-gauge SU(3) configurations via HMC → NPU
 classifies phases in real-time from (β, ⟨P⟩, ⟨|L|⟩) features → CPU validates
