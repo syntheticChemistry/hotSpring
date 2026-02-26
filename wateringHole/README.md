@@ -57,6 +57,7 @@ fossil record — never deleted, always available for provenance.
 
 | File | Date | Topic |
 |------|------|-------|
+| `HOTSPRING_V0614_NPU_HARDWARE_CROSS_RUN_LEARNING_HANDOFF_FEB26_2026.md` | Feb 26 | NPU hardware integration: live AKD1000, cross-run ESN learning, barracuda evolution review |
 | `HOTSPRING_V0614_CROSS_SUBSTRATE_ESN_TOADSTOOL_HANDOFF_FEB26_2026.md` | Feb 26 | Cross-substrate ESN: GPU dispatch, f32 buffers, NPU envelope, absorption guide |
 | `METALFORGE_STREAMING_PIPELINE_EVOLUTION_FEB26_2026.md` | Feb 26 | metalForge streaming pipeline: daisy-chain topology, NPU placement, substrate routing |
 | `AKIDA_BEHAVIOR_REPORT_FEB26_2026.md` | Feb 26 | Akida AKD1000 behavior report: capabilities beyond SDK, feedback for BrainChip |

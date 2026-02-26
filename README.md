@@ -96,7 +96,8 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **Forge Evolution Validation** (Exp 019) | ✅ Complete | metalForge streaming pipeline: 9/9 domains, substrate routing, DAG topology validation |
 | **NPU Characterization Campaign** (Exp 020) | ✅ Complete | 13/13: thermalization detector 87.5%, rejection predictor 96.2%, 6-output multi-model, 6 pipeline placements, Akida feedback report drafted |
 | **Cross-Substrate ESN Comparison** (Exp 021) | ✅ Complete | 35/35: First GPU ESN dispatch via WGSL. GPU crossover at RS≈512 (8.2× at RS=1024). NPU 1000× faster streaming (2.8μs/step). Capability envelope: threshold, streaming, multi-output, mutation, QCD screening all confirmed |
-| **TOTAL** | **39/39 Rust validation suites** | ~697 tests, 78 binaries, 62 WGSL shaders, 34/35 NPU HW checks. Both GPUs validated, DF64 production, cross-substrate ESN characterized, NPU capability envelope mapped |
+| **NPU Offload Mixed Pipeline** (Exp 022) | 🔄 Running | 8⁴ validated (10 β pts, 60% therm early-exit, 86% reject accuracy). 32⁴ production on **live AKD1000 hardware NPU** via PCIe. NPU worker thread (therm+reject+classify+steer), cross-run ESN bootstrap, trajectory logging |
+| **TOTAL** | **39/39 Rust validation suites** | ~697 tests, 78 binaries, 62 WGSL shaders, 34/35 NPU HW checks. Both GPUs validated, DF64 production, cross-substrate ESN characterized, **live AKD1000 PCIe NPU integrated** |
 
 Papers 5, 7, 8, and 10 from the review queue are complete. Paper 5 transport fits
 (Daligault 2012) were recalibrated against 12 Sarkas Green-Kubo D* values (Feb 2026)
@@ -514,7 +515,7 @@ hotSpring/
 ├── PHYSICS.md                          # Complete physics documentation (equations + references)
 ├── CONTROL_EXPERIMENT_STATUS.md        # Comprehensive status + results (197/197)
 ├── NUCLEAR_EOS_STRATEGY.md             # Nuclear EOS Phase A→B strategy
-├── wateringHole/handoffs/              # 9 active + 39 archived cross-project handoffs (fossil record)
+├── wateringHole/handoffs/              # 10 active + 39 archived cross-project handoffs (fossil record)
 ├── LICENSE                             # AGPL-3.0
 ├── .gitignore
 │
@@ -705,7 +706,7 @@ hotSpring/
 │       ├── Two-Temperature-Model/      # Cloned + patched via scripts/clone-repos.sh
 │       └── scripts/                    # Local + hydro model runners
 │
-├── experiments/                         # Experiment journals (the "why" behind the data)
+├── experiments/                         # Experiment journals — 22 experiments (the "why" behind the data)
 │   ├── 001_N_SCALING_GPU.md            # N-scaling (500→20k) + native f64 builtins
 │   ├── 002_CELLLIST_FORCE_DIAGNOSTIC.md # Cell-list i32 modulo bug diagnosis + fix
 │   ├── 003_RTX4070_CAPABILITY_PROFILE.md # RTX 4070 capability profile (paper-parity COMPLETE)
@@ -727,7 +728,8 @@ hotSpring/
 │   ├── 018_DF64_PRODUCTION_BENCHMARK.md # DF64 production: 32⁴ mixed 7.1h, dual-GPU validated
 │   ├── 019_FORGE_EVOLUTION_VALIDATION.md # metalForge streaming pipeline: 9 domains, substrate routing
 │   ├── 020_NPU_CHARACTERIZATION_CAMPAIGN.md # NPU campaign: 6 placements, multi-model, Akida feedback
-│   └── 021_CROSS_SUBSTRATE_ESN_COMPARISON.md # Cross-substrate ESN: GPU dispatch, scaling, NPU envelope
+│   ├── 021_CROSS_SUBSTRATE_ESN_COMPARISON.md # Cross-substrate ESN: GPU dispatch, scaling, NPU envelope
+│   └── 022_NPU_OFFLOAD_MIXED_PIPELINE.md # NPU offload: live AKD1000, cross-run ESN, 4 placements
 │
 ├── metalForge/                         # Hardware characterization & cross-substrate dispatch
 │   ├── README.md                      # Philosophy + hardware inventory + forge docs
@@ -761,7 +763,7 @@ hotSpring/
 │
 ├── wateringHole/                       # Cross-project handoffs
 │   ├── README.md                      # Handoff index, conventions, cross-spring docs
-│   └── handoffs/                       # 6 active + 39 archived unidirectional handoff documents
+│   └── handoffs/                       # 10 active + 39 archived unidirectional handoff documents
 │
 ├── benchmarks/
 │   ├── PROTOCOL.md                     # Cross-gate benchmark protocol (time + energy)
@@ -903,6 +905,7 @@ These are **silent failures** — wrong results, no error messages. This fragili
 | [`experiments/019_FORGE_EVOLUTION_VALIDATION.md`](experiments/019_FORGE_EVOLUTION_VALIDATION.md) | metalForge streaming pipeline evolution: 9/9 domains, substrate routing |
 | [`experiments/020_NPU_CHARACTERIZATION_CAMPAIGN.md`](experiments/020_NPU_CHARACTERIZATION_CAMPAIGN.md) | NPU characterization: thermalization, rejection, multi-output, 6 placements, Akida feedback |
 | [`experiments/021_CROSS_SUBSTRATE_ESN_COMPARISON.md`](experiments/021_CROSS_SUBSTRATE_ESN_COMPARISON.md) | Cross-substrate ESN: GPU dispatch, scaling crossover RS≈512, NPU 1000× streaming, capability envelope |
+| [`experiments/022_NPU_OFFLOAD_MIXED_PIPELINE.md`](experiments/022_NPU_OFFLOAD_MIXED_PIPELINE.md) | NPU offload mixed pipeline: live AKD1000 hardware, cross-run ESN bootstrap, 4 NPU placements |
 | [`metalForge/README.md`](metalForge/README.md) | Hardware characterization — philosophy, inventory, directory |
 | [`metalForge/npu/akida/BEYOND_SDK.md`](metalForge/npu/akida/BEYOND_SDK.md) | **10 overturned SDK assumptions** — the discovery document |
 | [`metalForge/npu/akida/HARDWARE.md`](metalForge/npu/akida/HARDWARE.md) | AKD1000 deep-dive: architecture, compute model, PCIe BAR mapping |
@@ -949,5 +952,6 @@ substrate: GPU for physics + large reservoirs, NPU for streaming screening, CPU
 for precision. 62 WGSL shaders evolved across hotSpring's physics domains via
 toadStool's cross-spring absorption cycle. biomeGate (RTX 3090, 24GB) resolves
 the QCD deconfinement transition at 32⁴ (χ=40.1 at β=5.69, matching β_c=5.692)
-in 13.6 hours for $0.58. 21 experiments, 78 binaries, ~697 tests.
+in 13.6 hours for $0.58. 22 experiments, 78 binaries, ~697 tests. Live AKD1000 NPU via PCIe —
+the first neuromorphic silicon in a lattice QCD production pipeline.
 The scarcity was artificial.*

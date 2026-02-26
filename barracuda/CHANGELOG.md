@@ -5,7 +5,28 @@ All notable changes to the hotSpring BarraCuda validation crate.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## v0.6.14 — Debt Reduction + Cross-Primal Discovery (Feb 25, 2026)
+## v0.6.14 — Debt Reduction + Cross-Primal Discovery + NPU Offload (Feb 25-26, 2026)
+
+### NPU offload mixed pipeline (Exp 022)
+
+Integrated all four NPU placement strategies into `production_mixed_pipeline.rs`:
+thermalization early-exit, rejection prediction, phase classification, and
+adaptive β steering. Key additions:
+
+- Added: dedicated NPU worker thread (`spawn_npu_worker()`) with typed
+  `NpuRequest`/`NpuResponse` enums over `mpsc::channel` — GPU never stalls
+- Added: `--trajectory-log=PATH` for per-trajectory JSONL output
+- Added: `--bootstrap-from=PATH` to load previous ESN weights or train from
+  historical trajectory logs (cross-run learning)
+- Added: `--save-weights=PATH` to export final trained ESN for future runs
+- Changed: `ExportedWeights` now derives `Serialize`/`Deserialize` for JSON round-trip
+- Added: `NpuSimulator` accessor methods (`export_w_in`, `export_w_res`,
+  `export_w_out`, `input_size`, `reservoir_size`, `output_size`, `leak_rate`)
+- Fixed: `action_density` bug in `observables.rs` — was `plaq × 6` (wrong),
+  now `6 × (1 − plaq)` (correct Wilson gauge action density)
+- Validated: 8⁴ lattice (10 β points, 60% therm early-exit, 86% reject accuracy)
+- Production: 32⁴ lattice running on live AKD1000 hardware NPU via PCIe
+  (`npu-hw` feature, `akida-driver` crate)
 
 ### Cross-primal hardcoding → capability-based discovery
 

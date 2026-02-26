@@ -287,7 +287,7 @@ pub fn velocity_features(
 ///
 /// All weights are f32 to match the Akida `load_reservoir` API and
 /// `ToadStool`'s f32 tensor convention.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[allow(missing_docs)]
 pub struct ExportedWeights {
     /// Input weights, flattened row-major: (`reservoir_size` × `input_size`)
@@ -414,6 +414,48 @@ impl NpuSimulator {
                 f64::from(sum)
             })
             .collect()
+    }
+
+    /// Flat row-major input weights for serialization.
+    #[must_use]
+    pub fn export_w_in(&self) -> Vec<f32> {
+        self.w_in.iter().flat_map(|row| row.iter().copied()).collect()
+    }
+
+    /// Flat row-major reservoir weights for serialization.
+    #[must_use]
+    pub fn export_w_res(&self) -> Vec<f32> {
+        self.w_res.iter().flat_map(|row| row.iter().copied()).collect()
+    }
+
+    /// Flat row-major readout weights for serialization.
+    #[must_use]
+    pub fn export_w_out(&self) -> Vec<f32> {
+        self.w_out.iter().flat_map(|row| row.iter().copied()).collect()
+    }
+
+    /// Input dimensionality.
+    #[must_use]
+    pub fn input_size(&self) -> usize {
+        if self.w_in.is_empty() { 0 } else { self.w_in[0].len() }
+    }
+
+    /// Reservoir dimensionality.
+    #[must_use]
+    pub fn reservoir_size(&self) -> usize {
+        self.reservoir_size
+    }
+
+    /// Output dimensionality.
+    #[must_use]
+    pub fn output_size(&self) -> usize {
+        self.w_out.len()
+    }
+
+    /// Leak rate.
+    #[must_use]
+    pub fn leak_rate(&self) -> f32 {
+        self.leak_rate
     }
 
     /// Process input and return the raw reservoir state (before readout).

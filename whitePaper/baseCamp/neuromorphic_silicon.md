@@ -2,7 +2,7 @@
 
 **Papers:** None (this is hardware exploration, not paper reproduction)
 **Updated:** February 26, 2026
-**Status:** Active exploration — AKD1000 characterized, Exp 020 complete, Akida feedback drafted
+**Status:** Active exploration — AKD1000 characterized, Exp 020+021+022, **live hardware NPU in production QCD pipeline**
 **Hardware:** BrainChip AKD1000 (Akida 1.0) via PCIe Gen2 x1
 
 ---
@@ -474,9 +474,65 @@ workloads, the NPU is the only viable real-time substrate.
 | `experiments/021_CROSS_SUBSTRATE_ESN_COMPARISON.md` | Cross-substrate comparison results |
 | `wateringHole/handoffs/AKIDA_BEHAVIOR_REPORT_FEB26_2026.md` | Akida feedback report |
 
+## Part 9: Live NPU in Production QCD (Exp 022)
+
+Experiment 022 is the culmination: the AKD1000 hardware NPU is live in the
+production 32⁴ lattice QCD mixed pipeline via PCIe transfer. This is the first
+time real neuromorphic silicon is integrated into a production lattice QCD run.
+
+### What Changed
+
+| Before (Exp 020-021) | After (Exp 022) |
+|---|---|
+| NpuSimulator (CPU f32 math) | **AKD1000 hardware via PCIe** |
+| NPU characterization only | **NPU in production physics pipeline** |
+| Single-run ESN | **Cross-run learning (bootstrap + export weights)** |
+| NPU on main thread | **Dedicated NPU worker thread + mpsc channels** |
+
+### Live Hardware Integration
+
+The `npu-hw` cargo feature enables `akida-driver` — a pure Rust driver for the
+AKD1000 that maps the PCIe BAR, programs NP mesh weights, and reads inference
+results. The kernel module (`akida-pcie.ko`) was built from source for kernel
+6.17 and loaded via `pkexec`. `/dev/akida0` is the device node.
+
+### Cross-Run Learning Loop
+
+Each run now produces trained ESN weights that the next run absorbs:
+
+```
+Run N: GPU HMC → trajectory log → ESN trains during run → --save-weights=esn.json
+                                                                  ↓
+Run N+1: --bootstrap-from=esn.json → ESN starts pre-trained → refines further
+```
+
+The ESN accumulates knowledge across runs. The 8⁴ validation showed 60%
+thermalization early-exit rate; with cross-run bootstrap from historical data,
+the 32⁴ run starts with a trained model from 749 simulator data points.
+
+### 8⁴ Validation Results
+
+| Metric | Value |
+|---|---|
+| Thermalization early-exits | 6/10 β points (60%) |
+| Rejection prediction accuracy | 86.0% |
+| Phase classifications | 10/10 |
+| Total NPU calls | 5,947 |
+| NPU overhead per trajectory | ~1.2ms (0.016% of 7.6s trajectory) |
+
+### Production Status
+
+The 32⁴ run with live AKD1000 hardware is currently in progress on biomeGate:
+- RTX 3090 (DF64 HMC) + AKD1000 (hardware NPU) + Titan V (f64 oracle)
+- ESN bootstrapped from 749 simulator data points
+- Cross-run weights will be exported for future runs
+
+---
+
 ## References
 
 ### Our Experiments
+- Exp 022: NPU Offload Mixed Pipeline — live AKD1000 hardware, cross-run ESN, 4 placements
 - Exp 021: Cross-Substrate ESN Comparison — GPU ESN dispatch, scaling crossover, capability envelope
 - Exp 020: NPU Characterization Campaign — thermalization, rejection, multi-output, placement
 - Exp 018: DF64 Production Benchmark (baselines to beat)

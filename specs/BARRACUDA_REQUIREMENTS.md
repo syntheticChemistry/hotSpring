@@ -142,10 +142,11 @@ All components implemented and validated (13/13 checks pass):
 **Active handoffs:**
 - `wateringHole/handoffs/HOTSPRING_V0614_TOADSTOOL_BARRACUDA_EVOLUTION_HANDOFF_FEB25_2026.md` — **latest** v0.6.14 evolution + absorption roadmap + paper controls
 - `wateringHole/handoffs/HOTSPRING_V0613_TOADSTOOL_ABSORPTION_HANDOFF_FEB25_2026.md` — v0.6.10-14 comprehensive absorption manifest
-- `wateringHole/handoffs/HOTSPRING_V0613_CROSS_SPRING_REWIRING_FEB25_2026.md` — GPU Polyakov loop + NVK guard + PRNG fix
-- `wateringHole/handoffs/HOTSPRING_V0612_TOADSTOOL_S60_ABSORPTION_FEB25_2026.md` — DF64 expansion
+- `wateringHole/handoffs/HOTSPRING_V0614_NPU_HARDWARE_CROSS_RUN_LEARNING_HANDOFF_FEB26_2026.md` — live AKD1000, cross-run ESN, barracuda review
+- `wateringHole/handoffs/archive/HOTSPRING_V0613_CROSS_SPRING_REWIRING_FEB25_2026.md` — GPU Polyakov loop + NVK guard + PRNG fix (archived)
+- `wateringHole/handoffs/archive/HOTSPRING_V0612_TOADSTOOL_S60_ABSORPTION_FEB25_2026.md` — DF64 expansion (archived)
 
-(35 prior handoffs archived to `wateringHole/handoffs/archive/`)
+(39 prior handoffs archived to `wateringHole/handoffs/archive/`)
 
 ### Key Facts for ToadStool Team
 

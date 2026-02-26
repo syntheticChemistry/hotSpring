@@ -177,7 +177,7 @@ impl BidirectionalStream {
                 accepted: result.accepted,
                 plaquette_var: plaq_var,
                 polyakov_phase: poly_phase,
-                action_density: result.plaquette * 6.0,
+                action_density: 6.0 * (1.0 - result.plaquette),
             };
             let _ = tx.send(obs);
         }
