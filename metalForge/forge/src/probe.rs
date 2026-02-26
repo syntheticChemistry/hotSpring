@@ -11,7 +11,7 @@
 //!
 //! CPU discovery reads `/proc/cpuinfo` for model, core count, and SIMD flags.
 
-use crate::substrate::{Capability, Identity, Properties, Substrate, SubstrateKind};
+use crate::substrate::{Capability, Fp64Rate, Identity, Properties, Substrate, SubstrateKind};
 use std::fs;
 
 /// Probe all GPU adapters via wgpu.
@@ -39,8 +39,14 @@ pub fn probe_gpus() -> Vec<Substrate> {
 
         let has_f64 = features.contains(wgpu::Features::SHADER_F64);
         let has_timestamps = features.contains(wgpu::Features::TIMESTAMP_QUERY);
+        let fp64_rate = classify_fp64_rate(&info.name);
+        let supports_df64 = features.contains(wgpu::Features::SHADER_F16);
 
-        let mut capabilities = vec![Capability::F32Compute, Capability::ShaderDispatch];
+        let mut capabilities = vec![
+            Capability::F32Compute,
+            Capability::ShaderDispatch,
+            Capability::StreamingStage,
+        ];
         if has_f64 {
             capabilities.push(Capability::F64Compute);
             capabilities.push(Capability::ScalarReduce);
@@ -48,9 +54,13 @@ pub fn probe_gpus() -> Vec<Substrate> {
             capabilities.push(Capability::Eigensolve);
             capabilities.push(Capability::ConjugateGradient);
         }
+        if supports_df64 {
+            capabilities.push(Capability::DF64Compute);
+        }
         if has_timestamps {
             capabilities.push(Capability::TimestampQuery);
         }
+        capabilities.push(Capability::PcieTransfer);
 
         let limits = adapter.limits();
         let max_buffer = limits.max_buffer_size;
@@ -69,6 +79,8 @@ pub fn probe_gpus() -> Vec<Substrate> {
                 memory_bytes: Some(max_buffer),
                 has_f64,
                 has_timestamps,
+                fp64_rate: Some(fp64_rate),
+                has_df64: supports_df64,
                 ..Properties::default()
             },
             capabilities,
@@ -153,6 +165,8 @@ pub fn probe_npus() -> Vec<Substrate> {
                 Capability::QuantizedInference { bits: 4 },
                 Capability::BatchInference { max_batch: 8 },
                 Capability::WeightMutation,
+                Capability::PcieTransfer,
+                Capability::StreamingStage,
             ],
         });
     }
@@ -181,6 +195,25 @@ fn scan_akida_pci() -> Option<String> {
 
 /// AKD1000 has 8 MB SRAM (fixed architecture).
 const AKIDA_SRAM_BYTES: u64 = 8 * 1024 * 1024;
+
+/// Classify a GPU's native FP64:FP32 throughput ratio from its name.
+///
+/// Volta (Titan V, V100): 1:2. Datacenter (A100, H100): 1:1 or 1:2.
+/// Consumer Ampere/Ada/Turing: 1:64. This heuristic covers the GPUs we
+/// actually have; toadstool's `GpuDriverProfile` does deeper calibration.
+fn classify_fp64_rate(name: &str) -> Fp64Rate {
+    let name_lower = name.to_lowercase();
+    if name_lower.contains("a100") || name_lower.contains("h100") {
+        Fp64Rate::Full
+    } else if name_lower.contains("titan v")
+        || name_lower.contains("v100")
+        || name_lower.contains("gv100")
+    {
+        Fp64Rate::Half
+    } else {
+        Fp64Rate::Narrow
+    }
+}
 
 fn parse_cpuinfo() -> (Option<String>, Option<u32>, Option<u32>, Option<u32>, bool) {
     let Ok(content) = fs::read_to_string("/proc/cpuinfo") else {

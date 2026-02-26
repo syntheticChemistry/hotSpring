@@ -30,7 +30,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 
 ---
 
-## Current Status (2026-02-25)
+## Current Status (2026-02-26)
 
 | Study | Status | Quantitative Checks |
 |-------|--------|-------------------|
@@ -92,7 +92,11 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **Mixed Pipeline β-Scan** | ⏸️ Partial | v0.6.12: 3-substrate (3090+NPU+Titan V). DF64 2× confirmed at 32⁴. 8% power reduction. NPU adaptive steering Round 1 complete |
 | **Cross-Spring Rewiring** | ✅ Complete | v0.6.13: GPU Polyakov loop (72× less transfer), NVK alloc guard, PRNG fix. 164+ shaders across 4 springs. 13/13 checks |
 | **Debt Reduction Audit** | ✅ Complete | v0.6.14: 0 mocks, 0 TODOs, 0 clippy warnings (lib+bins), cross-primal discovery, β_c provenance, WGSL dedup, 150+ centralized tolerances |
-| **TOTAL** | **39/39 Rust validation suites** | 664 tests (629 lib + 31 integration + 4 doc), 76 binaries, 25 WGSL shaders, 34/35 NPU HW checks. Both GPUs validated, DF64 unleashed, cross-spring evolution mapped |
+| **DF64 Production Benchmark** (Exp 018) | ✅ Complete | 32⁴ at 7.1h mixed (vs 13.6h FP64-only). RTX 3090 + Titan V dual-GPU validated |
+| **Forge Evolution Validation** (Exp 019) | ✅ Complete | metalForge streaming pipeline: 9/9 domains, substrate routing, DAG topology validation |
+| **NPU Characterization Campaign** (Exp 020) | ✅ Complete | 13/13: thermalization detector 87.5%, rejection predictor 96.2%, 6-output multi-model, 6 pipeline placements, Akida feedback report drafted |
+| **Cross-Substrate ESN Comparison** (Exp 021) | ✅ Complete | 35/35: First GPU ESN dispatch via WGSL. GPU crossover at RS≈512 (8.2× at RS=1024). NPU 1000× faster streaming (2.8μs/step). Capability envelope: threshold, streaming, multi-output, mutation, QCD screening all confirmed |
+| **TOTAL** | **39/39 Rust validation suites** | ~697 tests, 78 binaries, 62 WGSL shaders, 34/35 NPU HW checks. Both GPUs validated, DF64 production, cross-substrate ESN characterized, NPU capability envelope mapped |
 
 Papers 5, 7, 8, and 10 from the review queue are complete. Paper 5 transport fits
 (Daligault 2012) were recalibrated against 12 Sarkas Green-Kubo D* values (Feb 2026)
@@ -378,7 +382,7 @@ makes the upstream library richer and hotSpring leaner.
 The `barracuda/` directory is a standalone Rust crate providing the validation
 environment, physics implementations, and GPU compute. Key architectural properties:
 
-- **664 tests** (629 lib + 31 integration + 4 doc), **39 validation suites** (39/39 pass),
+- **~697 tests** (~665 lib + 31 integration + doc), **39 validation suites** (39/39 pass),
   **16 determinism tests** (rerun-identical for all stochastic algorithms). Includes
   lattice QCD (complex f64, SU(3), Wilson action, HMC, Dirac CG, pseudofermion HMC),
   Abelian Higgs (U(1) + Higgs, HMC), transport coefficients (Green-Kubo D*/η*/λ*,
@@ -443,7 +447,7 @@ environment, physics implementations, and GPU compute. Key architectural propert
 
 ```bash
 cd barracuda
-cargo test               # 664 tests (629 lib + 31 integration + 4 doc), 6 GPU/heavy-ignored (~700s; spectral tests upstream)
+cargo test               # ~697 tests (~665 lib + 31 integration + doc), 6 GPU/heavy-ignored (~700s; spectral tests upstream)
 cargo clippy --all-targets  # Zero warnings (pedantic + nursery via Cargo.toml workspace lints)
 cargo doc --no-deps      # Full API documentation — 0 warnings
 cargo run --release --bin validate_all  # 39/39 suites pass
@@ -510,7 +514,7 @@ hotSpring/
 ├── PHYSICS.md                          # Complete physics documentation (equations + references)
 ├── CONTROL_EXPERIMENT_STATUS.md        # Comprehensive status + results (197/197)
 ├── NUCLEAR_EOS_STRATEGY.md             # Nuclear EOS Phase A→B strategy
-├── wateringHole/handoffs/              # 7 active + 35 archived cross-project handoffs (fossil record)
+├── wateringHole/handoffs/              # 9 active + 39 archived cross-project handoffs (fossil record)
 ├── LICENSE                             # AGPL-3.0
 ├── .gitignore
 │
@@ -524,9 +528,10 @@ hotSpring/
 │       ├── murillo_plasma.md          # Murillo Group — dense plasma MD (Papers 1-6)
 │       ├── murillo_lattice_qcd.md     # Lattice QCD — quenched & dynamical (Papers 7-12)
 │       ├── kachkovskiy_spectral.md    # Spectral theory — Anderson, Hofstadter
-│       └── cross_spring_evolution.md  # Cross-spring shader ecosystem (164+ shaders)
+│       ├── cross_spring_evolution.md  # Cross-spring shader ecosystem (164+ shaders)
+│       └── neuromorphic_silicon.md    # AKD1000 NPU exploration — silicon behavior, cross-substrate ESN
 │
-├── barracuda/                          # BarraCuda Rust crate — v0.6.14 (664 tests, 76 binaries, 25 WGSL shaders)
+├── barracuda/                          # BarraCuda Rust crate — v0.6.14 (~697 tests, 78 binaries, 62 WGSL shaders)
 │   ├── Cargo.toml                     # Dependencies (requires ecoPrimals/phase1/toadstool)
 │   ├── CHANGELOG.md                   # Version history — baselines, tolerances, evolution
 │   ├── EVOLUTION_READINESS.md         # Rust module → GPU promotion tier + absorption status
@@ -604,7 +609,7 @@ hotSpring/
 │   │   ├── integration_data.rs        # AME2020 data loading + chi2 (8 tests)
 │   │   └── integration_transport.rs   # ESN + Daligault fits (5 tests)
 │   │
-│       └── bin/                       # 76 binaries (exit 0 = pass, 1 = fail)
+│       └── bin/                       # 78 binaries (exit 0 = pass, 1 = fail)
 │           ├── validate_all.rs        # Meta-validator: runs all 39 validation suites
 │           ├── validate_nuclear_eos.rs # L1 SEMF + L2 HFB + NMP validation harness
 │           ├── validate_barracuda_pipeline.rs # Full MD pipeline (12/12 checks)
@@ -718,7 +723,11 @@ hotSpring/
 │   ├── 014_DF64_UNLEASHED_BENCHMARK.md # DF64 unleashed: 2× speedup at 32⁴ production
 │   ├── 015_MIXED_PIPELINE_BENCHMARK.md # Mixed pipeline: 3090+NPU+Titan V adaptive scan
 │   ├── 016_CROSS_SPRING_EVOLUTION_MAP.md # Cross-spring evolution: 164+ shaders mapped
-│   └── 017_DEBT_REDUCTION_AUDIT.md    # v0.6.14: 0 clippy, discovery, provenance, WGSL dedup
+│   ├── 017_DEBT_REDUCTION_AUDIT.md    # v0.6.14: 0 clippy, discovery, provenance, WGSL dedup
+│   ├── 018_DF64_PRODUCTION_BENCHMARK.md # DF64 production: 32⁴ mixed 7.1h, dual-GPU validated
+│   ├── 019_FORGE_EVOLUTION_VALIDATION.md # metalForge streaming pipeline: 9 domains, substrate routing
+│   ├── 020_NPU_CHARACTERIZATION_CAMPAIGN.md # NPU campaign: 6 placements, multi-model, Akida feedback
+│   └── 021_CROSS_SUBSTRATE_ESN_COMPARISON.md # Cross-substrate ESN: GPU dispatch, scaling, NPU envelope
 │
 ├── metalForge/                         # Hardware characterization & cross-substrate dispatch
 │   ├── README.md                      # Philosophy + hardware inventory + forge docs
@@ -890,6 +899,10 @@ These are **silent failures** — wrong results, no error messages. This fragili
 | [`experiments/015_MIXED_PIPELINE_BENCHMARK.md`](experiments/015_MIXED_PIPELINE_BENCHMARK.md) | Mixed pipeline: 3-substrate (3090+NPU+Titan V), adaptive β steering |
 | [`experiments/016_CROSS_SPRING_EVOLUTION_MAP.md`](experiments/016_CROSS_SPRING_EVOLUTION_MAP.md) | Cross-spring shader evolution map: 164+ shaders across hotSpring/wetSpring/neuralSpring/airSpring |
 | [`experiments/017_DEBT_REDUCTION_AUDIT.md`](experiments/017_DEBT_REDUCTION_AUDIT.md) | v0.6.14 debt audit: 0 clippy (lib+bin), cross-primal discovery, β_c provenance, WGSL dedup |
+| [`experiments/018_DF64_PRODUCTION_BENCHMARK.md`](experiments/018_DF64_PRODUCTION_BENCHMARK.md) | DF64 production: 32⁴ at 7.1h mixed vs 13.6h FP64, dual-GPU (3090+Titan V) |
+| [`experiments/019_FORGE_EVOLUTION_VALIDATION.md`](experiments/019_FORGE_EVOLUTION_VALIDATION.md) | metalForge streaming pipeline evolution: 9/9 domains, substrate routing |
+| [`experiments/020_NPU_CHARACTERIZATION_CAMPAIGN.md`](experiments/020_NPU_CHARACTERIZATION_CAMPAIGN.md) | NPU characterization: thermalization, rejection, multi-output, 6 placements, Akida feedback |
+| [`experiments/021_CROSS_SUBSTRATE_ESN_COMPARISON.md`](experiments/021_CROSS_SUBSTRATE_ESN_COMPARISON.md) | Cross-substrate ESN: GPU dispatch, scaling crossover RS≈512, NPU 1000× streaming, capability envelope |
 | [`metalForge/README.md`](metalForge/README.md) | Hardware characterization — philosophy, inventory, directory |
 | [`metalForge/npu/akida/BEYOND_SDK.md`](metalForge/npu/akida/BEYOND_SDK.md) | **10 overturned SDK assumptions** — the discovery document |
 | [`metalForge/npu/akida/HARDWARE.md`](metalForge/npu/akida/HARDWARE.md) | AKD1000 deep-dive: architecture, compute model, PCIe BAR mapping |
@@ -926,12 +939,15 @@ a network service, you must make your source available under the same terms.
 same observables, same energy conservation, same particle count, same production
 steps — in 3.66 hours for 9 cases, using 0.365 kWh of electricity at $0.044.
 A $300 NPU runs the same math at 30mW for inference workloads — 9,017× less
-energy than CPU for transport predictions. GPU-resident CG reduces readback by
-15,360× and speeds dynamical fermion QCD by 30.7×. DF64 core streaming delivers
-3.24 TFLOPS at 14-digit precision on FP32 cores — 9.9× native f64 throughput.
-The bidirectional streaming pipeline (GPU+NPU+CPU) enables real-time phase
-monitoring, predictive steering, and zero-overhead observation. 164+ WGSL shaders
-evolved across 4 springs via toadStool's cross-spring absorption cycle.
-biomeGate (RTX 3090, 24GB) resolves the QCD deconfinement transition at 32⁴
-(χ=40.1 at β=5.69, matching β_c=5.692) in 13.6 hours for $0.58. The scarcity
-was artificial.*
+energy than CPU for transport predictions, 1000× faster than GPU for streaming
+ESN inference (2.8μs/step). GPU-resident CG reduces readback by 15,360× and
+speeds dynamical fermion QCD by 30.7×. DF64 core streaming delivers 3.24 TFLOPS
+at 14-digit precision on FP32 cores — 9.9× native f64 throughput. A GPU can
+run the ESN reservoir directly via WGSL — GPU wins at RS≥512 (8.2× at 1024).
+The cross-substrate pipeline (GPU+NPU+CPU) assigns each workload to its optimal
+substrate: GPU for physics + large reservoirs, NPU for streaming screening, CPU
+for precision. 62 WGSL shaders evolved across hotSpring's physics domains via
+toadStool's cross-spring absorption cycle. biomeGate (RTX 3090, 24GB) resolves
+the QCD deconfinement transition at 32⁴ (χ=40.1 at β=5.69, matching β_c=5.692)
+in 13.6 hours for $0.58. 21 experiments, 78 binaries, ~697 tests.
+The scarcity was artificial.*

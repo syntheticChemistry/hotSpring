@@ -2,7 +2,7 @@
 
 **Status**: Working draft — reviewed for PII, suitable for public repository  
 **Purpose**: Document the replication of Murillo Group computational plasma physics on consumer hardware using BarraCuda  
-**Date**: February 25, 2026 (v0.6.13 — cross-spring evolution, GPU Polyakov, NVK guard)
+**Date**: February 26, 2026 (v0.6.14 — cross-substrate ESN, NPU characterization, DF64 production)
 
 ---
 
@@ -14,7 +14,7 @@
 | [BARRACUDA_SCIENCE_VALIDATION.md](BARRACUDA_SCIENCE_VALIDATION.md) | Phase B technical results — BarraCuda vs Python/SciPy numbers | Technical reference |
 | [CONTROL_EXPERIMENT_SUMMARY.md](CONTROL_EXPERIMENT_SUMMARY.md) | Phase A summary — Python reproduction of published work | Quick reference |
 | [METHODOLOGY.md](METHODOLOGY.md) | Two-phase validation protocol | Methodology review |
-| [baseCamp/](baseCamp/) | Per-domain research briefings (Murillo plasma, lattice QCD, Kachkovskiy spectral, cross-spring) | Faculty, collaborators |
+| [baseCamp/](baseCamp/) | Per-domain research briefings (Murillo plasma, lattice QCD, Kachkovskiy spectral, cross-spring, neuromorphic silicon) | Faculty, collaborators |
 
 ---
 
@@ -85,7 +85,7 @@ The study answers five questions:
 - L3 deformed HFB: **295/2036 nuclei improved**, best-of-both chi2 = 13.92
 - **Direct first-principles nuclear structure** — not surrogate learning
 - Multi-GPU scaling path: each additional RTX 4070 ($600) doubles parameter throughput
-- **195/195 quantitative checks pass** across all phases + pipeline validation
+- **197/197 quantitative checks pass** across all phases + pipeline validation
 
 ---
 
@@ -386,20 +386,21 @@ No institutional access required. No Code Ocean account. No Fortran compiler. AG
 
 ---
 
-## Codebase Health (Feb 25, 2026)
+## Codebase Health (Feb 26, 2026)
 
 | Metric | Value |
 |--------|-------|
-| Crate | v0.6.13 |
-| Unit tests | **619** pass + 1 env-flaky, 6 GPU/heavy-ignored (spectral tests upstream in barracuda) |
-| Integration tests | **24** pass (3 suites: physics, data, transport) |
-| WGSL shaders | **24** lattice + 11 MD + 14 HFB + extras = **65+** |
-| Rust files | **135** |
+| Crate | v0.6.14 |
+| Unit tests | ~**665** pass + 1 env-flaky, 6 GPU/heavy-ignored (spectral tests upstream in barracuda) |
+| Integration tests | **31** pass (3 suites: physics, data, transport) |
+| WGSL shaders | **27** lattice + 14 MD + 14 HFB + 8 diag = **62** |
+| Rust files | **135+** |
 | Coverage | 74.9% region / 83.8% function |
-| Validation suites | **39/39** pass (155/155 checks in latest session) |
+| Validation suites | **39/39** pass |
 | metalForge forge tests | **19** pass |
+| Experiments | **21** (001-021) |
 | Python control scripts | **34** (Sarkas, surrogate, TTM, NPU, reservoir, lattice, spectral theory) |
-| Rust validation binaries | **76** (physics, MD, lattice, NPU, transport, spectral, benchmarks, production) |
+| Rust validation binaries | **78** (physics, MD, lattice, NPU, transport, spectral, benchmarks, production, ESN cross-substrate) |
 | `expect()`/`unwrap()` in library | **0** (crate-level deny) |
 | Clippy warnings | **0** (pedantic + nursery, workspace-wide) |
 | Doc warnings | **0** |

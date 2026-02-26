@@ -187,6 +187,119 @@ impl GpuF64 {
     }
 }
 
+// ═══════════════════════════════════════════════════════════════════
+//  f32 buffer helpers (ESN shaders, NPU parity testing)
+// ═══════════════════════════════════════════════════════════════════
+
+impl GpuF64 {
+    /// Create a storage buffer from f32 data (read-only).
+    #[must_use]
+    pub fn create_f32_buffer(&self, data: &[f32], label: &str) -> wgpu::Buffer {
+        use wgpu::util::DeviceExt;
+        let bytes: &[u8] = bytemuck::cast_slice(data);
+        self.device()
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some(label),
+                contents: bytes,
+                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+            })
+    }
+
+    /// Create a writable storage buffer for f32 output.
+    #[must_use]
+    pub fn create_f32_rw_buffer(&self, data: &[f32], label: &str) -> wgpu::Buffer {
+        use wgpu::util::DeviceExt;
+        let bytes: &[u8] = bytemuck::cast_slice(data);
+        self.device()
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some(label),
+                contents: bytes,
+                usage: wgpu::BufferUsages::STORAGE
+                    | wgpu::BufferUsages::COPY_SRC
+                    | wgpu::BufferUsages::COPY_DST,
+            })
+    }
+
+    /// Create a zero-initialized f32 output buffer.
+    #[must_use]
+    pub fn create_f32_output_buffer(&self, count: usize, label: &str) -> wgpu::Buffer {
+        self.device().create_buffer(&wgpu::BufferDescriptor {
+            label: Some(label),
+            size: (count * 4) as u64,
+            usage: wgpu::BufferUsages::STORAGE
+                | wgpu::BufferUsages::COPY_SRC
+                | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        })
+    }
+
+    /// Upload f32 data to a GPU storage buffer (overwrites from offset 0).
+    pub fn upload_f32(&self, buffer: &wgpu::Buffer, data: &[f32]) {
+        let bytes: &[u8] = bytemuck::cast_slice(data);
+        self.queue().write_buffer(buffer, 0, bytes);
+    }
+
+    /// Read back f32 data from a GPU buffer via staging copy.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::error::HotSpringError::DeviceCreation`] if the GPU map
+    /// callback fails or the channel is dropped.
+    pub fn read_back_f32(
+        &self,
+        buffer: &wgpu::Buffer,
+        count: usize,
+    ) -> Result<Vec<f32>, crate::error::HotSpringError> {
+        let staging = self.create_staging_buffer(count * 4, "readback_f32");
+        let mut encoder = self
+            .device()
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("readback_f32"),
+            });
+        encoder.copy_buffer_to_buffer(buffer, 0, &staging, 0, (count * 4) as u64);
+        self.queue().submit(std::iter::once(encoder.finish()));
+
+        let slice = staging.slice(..);
+        let (sender, receiver) = std::sync::mpsc::channel();
+        slice.map_async(wgpu::MapMode::Read, move |result| {
+            let _ = sender.send(result);
+        });
+        self.device().poll(wgpu::Maintain::Wait);
+        receiver
+            .recv()
+            .map_err(|_| {
+                crate::error::HotSpringError::DeviceCreation(
+                    "GPU map callback f32: channel recv failed".into(),
+                )
+            })?
+            .map_err(|e| {
+                crate::error::HotSpringError::DeviceCreation(format!("GPU buffer mapping f32: {e}"))
+            })?;
+
+        let data = slice.get_mapped_range();
+        let result = mapped_bytes_to_f32(&data);
+        drop(data);
+        staging.unmap();
+        Ok(result)
+    }
+}
+
+/// Convert mapped GPU buffer bytes to f32 values.
+pub fn mapped_bytes_to_f32(data: &[u8]) -> Vec<f32> {
+    bytemuck::try_cast_slice(data).map_or_else(
+        |_| {
+            data.chunks_exact(4)
+                .map(|chunk| {
+                    let mut b = [0u8; 4];
+                    b.copy_from_slice(chunk);
+                    f32::from_le_bytes(b)
+                })
+                .collect()
+        },
+        <[f32]>::to_vec,
+    )
+}
+
 /// Convert mapped GPU buffer bytes to f64 values.
 ///
 /// GPU mapped buffers are typically page-aligned, so `bytemuck::try_cast_slice`

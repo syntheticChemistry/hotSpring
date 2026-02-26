@@ -40,5 +40,6 @@
 pub mod bridge;
 pub mod dispatch;
 pub mod inventory;
+pub mod pipeline;
 pub mod probe;
 pub mod substrate;

@@ -65,7 +65,12 @@ pub fn substrate_from_device(device: &WgpuDevice) -> Substrate {
     let info = device.adapter_info();
     let has_f64 = device.has_f64_shaders();
 
-    let mut capabilities = vec![Capability::F32Compute, Capability::ShaderDispatch];
+    let mut capabilities = vec![
+        Capability::F32Compute,
+        Capability::ShaderDispatch,
+        Capability::PcieTransfer,
+        Capability::StreamingStage,
+    ];
     if has_f64 {
         capabilities.push(Capability::F64Compute);
         capabilities.push(Capability::ScalarReduce);
@@ -73,6 +78,7 @@ pub fn substrate_from_device(device: &WgpuDevice) -> Substrate {
         capabilities.push(Capability::Eigensolve);
         capabilities.push(Capability::ConjugateGradient);
     }
+    capabilities.push(Capability::DF64Compute);
 
     Substrate {
         kind: SubstrateKind::Gpu,
@@ -87,6 +93,7 @@ pub fn substrate_from_device(device: &WgpuDevice) -> Substrate {
         properties: Properties {
             has_f64,
             has_timestamps: false,
+            has_df64: true,
             ..Properties::default()
         },
         capabilities,

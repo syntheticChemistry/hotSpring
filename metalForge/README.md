@@ -400,3 +400,81 @@ applies the Volta driver profile (`DriverKind::Nvk`, `CompilerKind::Nak`,
 
 Validated on Titan V: `validate_cpu_gpu_parity` 6/6, `bench_gpu_fp64` pass.
 Select with `HOTSPRING_GPU_ADAPTER=titan` or `BARRACUDA_GPU_ADAPTER=titan`.
+
+---
+
+## NPU Characterization Campaign (Exp 020, Feb 26, 2026)
+
+Comprehensive NPU characterization for the QCD physics pipeline. See
+`experiments/020_NPU_CHARACTERIZATION_CAMPAIGN.md` for full results.
+
+### Key Results
+
+| Metric | Value |
+|---|---|
+| Training data | 1800 trajectories (12 β × 150 traj) |
+| Thermalization detector | **87.5% accuracy**, 61.8% savings (3.15h projected) |
+| Rejection predictor | **96.2% accuracy** |
+| 6-output multi-model | All outputs finite, multi-output free confirmed |
+| Best placement | Pre-thermalization (A): 390 traj saved |
+| NpuSimulator latency | p50=331µs, p95=403µs |
+| Prediction drift | 0.0 (deterministic) |
+| Weight mutation | 0.015ms (simulator) |
+| Validation checks | **13/13 passed** |
+
+### NPU Pipeline Placement Summary
+
+The NPU's highest-value position is **pre-thermalization screening** (Position A),
+where it monitors plaquette convergence during HMC warm-up and signals early
+termination. This single optimization projects to 3.15h savings from the 5.1h
+thermalization budget in production runs.
+
+### Files
+
+- Campaign binary: `barracuda/src/bin/npu_experiment_campaign.rs`
+- Akida feedback report: `wateringHole/handoffs/AKIDA_BEHAVIOR_REPORT_FEB26_2026.md`
+- Results JSONL: `/tmp/hotspring-runs/v0614/npu_campaign_results.jsonl`
+
+---
+
+## Cross-Substrate ESN Comparison (Exp 021, Feb 26, 2026)
+
+First-ever GPU ESN dispatch using WGSL shaders (`esn_reservoir_update.wgsl`,
+`esn_readout.wgsl`) on the RTX 3090. Identical workloads tested on CPU-f64,
+CPU-f32, GPU-f32, and NPU-simulator. See
+`experiments/021_CROSS_SUBSTRATE_ESN_COMPARISON.md` for full results.
+
+### Scaling Crossover: GPU vs CPU for ESN Inference
+
+| RS    | CPU-f32 (μs) | GPU-f32 (μs) | Winner |
+|-------|-------------|-------------|--------|
+| 64    | 82          | 3,465       | CPU (42×) |
+| 256   | 1,094       | 3,372       | CPU (3.1×) |
+| **512** | **4,542** | **4,624** | **~tie** |
+| 1024  | 16,481      | 3,665       | GPU (4.5×) |
+
+**GPU crossover at RS ≈ 512.** Below: CPU wins (dispatch overhead). Above:
+GPU parallelism dominates. At RS=1024 with 200-step sequences, GPU achieves
+**8.2× speedup** over CPU-f64.
+
+### Substrate Roles for ESN Workloads
+
+| Substrate | Optimal For |
+|-----------|-------------|
+| NPU       | Streaming inference (2.8 μs/step), screening, multi-output |
+| CPU-f64   | Precision-critical readout, RS < 200 |
+| GPU-f32   | Large reservoirs (RS ≥ 512), high-dimensional physics embedding |
+
+### Engineering Discovery: Recurrent Network GPU Dispatch
+
+Encoder batching (multiple dispatches in one CommandEncoder) fails for
+recurrent networks. The reservoir state at step t depends on step t-1,
+requiring per-step submit. ToadStool must implement per-step dispatch or
+double-buffered ping-pong state management for GPU-resident ESN.
+
+### Files
+
+- Benchmark binary: `barracuda/src/bin/cross_substrate_esn_benchmark.rs`
+- f32 GPU buffers: `barracuda/src/gpu/buffers.rs` (new `create_f32_*` methods)
+- Results JSONL: `/tmp/hotspring-runs/exp021/cross_substrate_results.jsonl`
+- Validation: **35/35 checks passed**

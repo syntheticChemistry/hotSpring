@@ -126,6 +126,19 @@ pub mod profiles {
         )
     }
 
+    /// Lattice QCD CG with DF64 extension (concurrent native + DF64).
+    #[must_use]
+    pub fn lattice_cg_df64() -> Workload {
+        Workload::new(
+            "Lattice CG solver (DF64 extended)",
+            vec![
+                Capability::F64Compute,
+                Capability::DF64Compute,
+                Capability::ConjugateGradient,
+            ],
+        )
+    }
+
     /// ESN transport prediction on NPU (quantized inference).
     #[must_use]
     pub fn esn_npu_inference() -> Workload {
@@ -170,6 +183,28 @@ pub mod profiles {
             vec![Capability::QuantizedInference { bits: 4 }],
         )
         .prefer(SubstrateKind::Npu)
+    }
+
+    /// Streaming pipeline stage — requires PCIe transfer for daisy-chain.
+    #[must_use]
+    pub fn streaming_compute() -> Workload {
+        Workload::new(
+            "Streaming compute stage",
+            vec![
+                Capability::F64Compute,
+                Capability::StreamingStage,
+                Capability::PcieTransfer,
+            ],
+        )
+    }
+
+    /// Cross-card validation oracle (Titan V native f64 verification).
+    #[must_use]
+    pub fn validation_oracle() -> Workload {
+        Workload::new(
+            "Validation oracle",
+            vec![Capability::F64Compute, Capability::PcieTransfer],
+        )
     }
 }
 

@@ -30,6 +30,7 @@ struct CliArgs {
     n_meas: usize,
     seed: u64,
     output: Option<String>,
+    trajectory_log: Option<String>,
 }
 
 fn parse_args() -> CliArgs {
@@ -39,6 +40,7 @@ fn parse_args() -> CliArgs {
     let mut n_meas = 1000;
     let mut seed = 42u64;
     let mut output = None;
+    let mut trajectory_log = None;
 
     for arg in std::env::args().skip(1) {
         if let Some(val) = arg.strip_prefix("--lattice=") {
@@ -56,6 +58,8 @@ fn parse_args() -> CliArgs {
             seed = val.parse().expect("--seed=N");
         } else if let Some(val) = arg.strip_prefix("--output=") {
             output = Some(val.to_string());
+        } else if let Some(val) = arg.strip_prefix("--trajectory-log=") {
+            trajectory_log = Some(val.to_string());
         }
     }
 
@@ -66,6 +70,7 @@ fn parse_args() -> CliArgs {
         n_meas,
         seed,
         output,
+        trajectory_log,
     }
 }
 
@@ -80,6 +85,37 @@ struct BetaResult {
     acceptance: f64,
     n_traj: usize,
     wall_s: f64,
+}
+
+/// Compute running plaquette variance from a history window.
+fn plaquette_variance(history: &[f64]) -> f64 {
+    if history.len() < 2 {
+        return 0.0;
+    }
+    let mean = history.iter().sum::<f64>() / history.len() as f64;
+    history.iter().map(|p| (p - mean).powi(2)).sum::<f64>() / (history.len() - 1) as f64
+}
+
+/// Compute complex Polyakov loop average (returns (|L|, phase)).
+fn complex_polyakov_average(lat: &Lattice) -> (f64, f64) {
+    let ns = [lat.dims[0], lat.dims[1], lat.dims[2]];
+    let spatial_vol = ns[0] * ns[1] * ns[2];
+    let mut sum_re = 0.0;
+    let mut sum_im = 0.0;
+    for ix in 0..ns[0] {
+        for iy in 0..ns[1] {
+            for iz in 0..ns[2] {
+                let c = lat.polyakov_loop([ix, iy, iz]);
+                sum_re += c.re;
+                sum_im += c.im;
+            }
+        }
+    }
+    let avg_re = sum_re / spatial_vol as f64;
+    let avg_im = sum_im / spatial_vol as f64;
+    let mag = (avg_re * avg_re + avg_im * avg_im).sqrt();
+    let phase = avg_im.atan2(avg_re);
+    (mag, phase)
 }
 
 fn main() {
@@ -98,6 +134,9 @@ fn main() {
     println!("  β values: {:?}", args.betas);
     println!("  Therm:    {}, Meas: {}", args.n_therm, args.n_meas);
     println!("  Seed:     {}", args.seed);
+    if args.trajectory_log.is_some() {
+        println!("  Trajectory log: ENABLED (JSONL per-trajectory)");
+    }
     println!();
 
     let rt = tokio::runtime::Runtime::new().unwrap_or_else(|e| panic!("runtime: {e}"));
@@ -112,7 +151,7 @@ fn main() {
     println!();
 
     let vol_f = vol as f64;
-    let ref_vol = 4096.0_f64; // 8^4 reference volume
+    let ref_vol = 4096.0_f64;
     let scale = (ref_vol / vol_f).powf(0.25);
     let dt = (0.05 * scale).max(0.002);
     let n_md = ((0.5 / dt).round() as usize).max(10);
@@ -123,6 +162,13 @@ fn main() {
         dt * n_md as f64
     );
     println!();
+
+    let mut traj_writer: Option<std::io::BufWriter<std::fs::File>> =
+        args.trajectory_log.as_ref().map(|path| {
+            let f = std::fs::File::create(path)
+                .unwrap_or_else(|e| panic!("Cannot create trajectory log {path}: {e}"));
+            std::io::BufWriter::new(f)
+        });
 
     let total_start = Instant::now();
     let mut results = Vec::new();
@@ -149,11 +195,43 @@ fn main() {
 
         let state = GpuHmcState::from_lattice(&gpu, &lat, beta);
         let mut seed = args.seed * 100 + bi as u64;
+        let mut plaq_history: Vec<f64> = Vec::with_capacity(32);
 
         print!("  Thermalizing ({} traj)...", args.n_therm);
         std::io::stdout().flush().ok();
         for i in 0..args.n_therm {
-            gpu_hmc_trajectory_streaming(&gpu, &pipelines, &state, n_md, dt, i as u32, &mut seed);
+            let traj_start = Instant::now();
+            let r = gpu_hmc_trajectory_streaming(
+                &gpu, &pipelines, &state, n_md, dt, i as u32, &mut seed,
+            );
+            let wall_us = traj_start.elapsed().as_micros() as u64;
+
+            plaq_history.push(r.plaquette);
+            if plaq_history.len() > 32 {
+                plaq_history.remove(0);
+            }
+
+            if let Some(ref mut w) = traj_writer {
+                gpu_links_to_lattice(&gpu, &state, &mut lat);
+                let (poly_mag, poly_phase) = complex_polyakov_average(&lat);
+                let pvar = plaquette_variance(&plaq_history);
+                let line = serde_json::json!({
+                    "beta": beta,
+                    "traj_idx": i,
+                    "is_therm": true,
+                    "accepted": r.accepted,
+                    "plaquette": r.plaquette,
+                    "polyakov_re": poly_mag,
+                    "delta_h": r.delta_h,
+                    "cg_iters": 0,
+                    "plaquette_var": pvar,
+                    "polyakov_phase": poly_phase,
+                    "action_density": 6.0 * (1.0 - r.plaquette),
+                    "wall_us": wall_us,
+                });
+                writeln!(w, "{line}").ok();
+            }
+
             if (i + 1) % 50 == 0 {
                 print!(" {}", i + 1);
                 std::io::stdout().flush().ok();
@@ -164,10 +242,12 @@ fn main() {
         let mut plaq_vals = Vec::with_capacity(args.n_meas);
         let mut poly_vals = Vec::with_capacity(args.n_meas);
         let mut n_accepted = 0usize;
+        plaq_history.clear();
 
         print!("  Measuring ({} traj)...", args.n_meas);
         std::io::stdout().flush().ok();
         for i in 0..args.n_meas {
+            let traj_start = Instant::now();
             let r = gpu_hmc_trajectory_streaming(
                 &gpu,
                 &pipelines,
@@ -177,14 +257,47 @@ fn main() {
                 (args.n_therm + i) as u32,
                 &mut seed,
             );
+            let wall_us = traj_start.elapsed().as_micros() as u64;
+
             plaq_vals.push(r.plaquette);
+            plaq_history.push(r.plaquette);
+            if plaq_history.len() > 32 {
+                plaq_history.remove(0);
+            }
             if r.accepted {
                 n_accepted += 1;
             }
 
-            if (i + 1) % 100 == 0 {
+            let do_poly_readback = traj_writer.is_some() || (i + 1) % 100 == 0;
+            let mut poly_mag = 0.0;
+            let mut poly_phase = 0.0;
+            if do_poly_readback {
                 gpu_links_to_lattice(&gpu, &state, &mut lat);
-                poly_vals.push(lat.average_polyakov_loop());
+                let (m, p) = complex_polyakov_average(&lat);
+                poly_mag = m;
+                poly_phase = p;
+                if (i + 1) % 100 == 0 {
+                    poly_vals.push(poly_mag);
+                }
+            }
+
+            if let Some(ref mut w) = traj_writer {
+                let pvar = plaquette_variance(&plaq_history);
+                let line = serde_json::json!({
+                    "beta": beta,
+                    "traj_idx": args.n_therm + i,
+                    "is_therm": false,
+                    "accepted": r.accepted,
+                    "plaquette": r.plaquette,
+                    "polyakov_re": poly_mag,
+                    "delta_h": r.delta_h,
+                    "cg_iters": 0,
+                    "plaquette_var": pvar,
+                    "polyakov_phase": poly_phase,
+                    "action_density": 6.0 * (1.0 - r.plaquette),
+                    "wall_us": wall_us,
+                });
+                writeln!(w, "{line}").ok();
             }
 
             if (i + 1) % 200 == 0 {
@@ -193,6 +306,10 @@ fn main() {
             }
         }
         println!(" done");
+
+        if let Some(ref mut w) = traj_writer {
+            w.flush().ok();
+        }
 
         let mean_plaq: f64 = plaq_vals.iter().sum::<f64>() / plaq_vals.len() as f64;
         let var_plaq: f64 = plaq_vals
@@ -271,6 +388,10 @@ fn main() {
     );
     println!("  GPU: {}", gpu.adapter_name);
     println!();
+
+    if let Some(ref path) = args.trajectory_log {
+        println!("  Trajectory log: {path}");
+    }
 
     if let Some(path) = args.output {
         let json = serde_json::json!({

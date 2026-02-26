@@ -1,7 +1,7 @@
 # wateringHole — Cross-Project Handoffs
 
 **Project:** hotSpring (ecoPrimals)
-**Last Updated:** February 25, 2026
+**Last Updated:** February 26, 2026
 
 ---
 
@@ -57,6 +57,9 @@ fossil record — never deleted, always available for provenance.
 
 | File | Date | Topic |
 |------|------|-------|
+| `HOTSPRING_V0614_CROSS_SUBSTRATE_ESN_TOADSTOOL_HANDOFF_FEB26_2026.md` | Feb 26 | Cross-substrate ESN: GPU dispatch, f32 buffers, NPU envelope, absorption guide |
+| `METALFORGE_STREAMING_PIPELINE_EVOLUTION_FEB26_2026.md` | Feb 26 | metalForge streaming pipeline: daisy-chain topology, NPU placement, substrate routing |
+| `AKIDA_BEHAVIOR_REPORT_FEB26_2026.md` | Feb 26 | Akida AKD1000 behavior report: capabilities beyond SDK, feedback for BrainChip |
 | `HOTSPRING_V0614_TOADSTOOL_BARRACUDA_EVOLUTION_HANDOFF_FEB25_2026.md` | Feb 25 | v0.6.14 barracuda evolution + absorption roadmap + paper controls |
 | `HOTSPRING_V0613_TOADSTOOL_ABSORPTION_HANDOFF_FEB25_2026.md` | Feb 25 | v0.6.10-14 comprehensive absorption manifest for toadStool |
 | `F64_TRANSCENDENTAL_INTERCONNECT_FEB25_2026.md` | Feb 25 | f64 transcendental sharing across springs |

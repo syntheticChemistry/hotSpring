@@ -437,3 +437,98 @@ For ecoPrimals, this changes the calculus:
 - 3.86× runtime improvement, 3.38× energy reduction via sparsity-aware training
 - **Relevance**: Our ESN's natural sparsity (post-ReLU quantization) should
   benefit from similar optimization
+
+---
+
+## Addendum: Exp 020 NPU Characterization Campaign (Feb 26, 2026)
+
+### Campaign Results
+
+Ran comprehensive NPU characterization with 1800 trajectories (12 β-points × 150 traj)
+using three specialized ESN models and six pipeline placements. All via NpuSimulator
+(CPU f32 emulation of AKD1000) — ready for hardware validation.
+
+### Models Trained and Validated
+
+| Model | Architecture | Accuracy | Key Finding |
+|---|---|---|---|
+| Thermalization Detector | 10-in → 50 reservoir → 1 out | **87.5%** | Saves 61.8% of therm budget (3.15h projected) |
+| Rejection Predictor | 5-in → 50 reservoir → 1 out | **96.2%** | Near-perfect but limited by high acceptance at 4⁴ |
+| 6-Output Multi-Model | 8-in → 50 reservoir → 6 out | 33.3% phase (small N) | All 6 outputs finite, multi-output free confirmed |
+
+### NPU Placement Discovery
+
+| Placement | Best Use Case | Time Impact |
+|---|---|---|
+| Pre-thermalization (A) | Detect equilibrium early | **-3.15h** (biggest win) |
+| Mid-trajectory (B) | Abort rejected trajectories | Potential at large lattices |
+| Post-trajectory (C) | Phase classification (baseline) | Reference approach |
+| Inter-beta steering (D) | Adaptive β selection | Needs more training data |
+| Pre-run bootstrap (E) | Eliminate seed scanning | Warm-start from Exp 013/018 |
+| All combined (F) | Maximum pipeline optimization | 87.5% accuracy, 390 traj saved |
+
+### Characterization Metrics
+
+- **Latency**: p50=331µs, p95=403µs, p99=520µs (simulator; hardware expected ~390µs)
+- **Drift**: 0.0 over 50 batches (deterministic)
+- **Mutation**: 0.015ms (simulator); 14ms target on hardware
+- **Accuracy vs N**: 100% phase accuracy achieved with 10 training β-points
+
+### Files
+
+- Campaign binary: `barracuda/src/bin/npu_experiment_campaign.rs`
+- Results: `/tmp/hotspring-runs/v0614/npu_campaign_results.jsonl`
+- Full report: `experiments/020_NPU_CHARACTERIZATION_CAMPAIGN.md`
+- Akida feedback: `wateringHole/handoffs/AKIDA_BEHAVIOR_REPORT_FEB26_2026.md`
+
+---
+
+## Addendum: Cross-Substrate ESN Comparison (Exp 021)
+
+### NPU vs GPU vs CPU: Same Workload, Different Silicon
+
+The cross-substrate benchmark (Exp 021) ran identical ESN inference on
+CPU-f64, CPU-f32, GPU-f32, and NPU-simulator with reservoir sizes 8–1024.
+
+**NPU advantage zone**: Streaming single-step inference at 2.8 μs/step.
+GPU dispatch overhead (~3.5ms per submit cycle) makes it 1000× slower
+than NPU for single-step screening. The NPU naturally maps to the
+"examine each trajectory as it arrives" pattern.
+
+**GPU advantage zone**: RS ≥ 512. At RS=1024 the GPU achieves 8.2× speedup
+over CPU-f64. For future high-dimensional embedding (e.g., full Wilson
+loop configuration vectors as ESN input), GPU-resident reservoir computing
+becomes the right substrate.
+
+**NPU capability envelope confirmed**:
+- Threshold detection: 100% accuracy
+- Streaming inference: 2.8 μs/step (matches CPU)
+- Multi-output (1–8 heads): No latency penalty, max|Δ| < 3e-7
+- Weight mutation: 141 μs per reload cycle
+- QCD thermalization: 100% accuracy (38/38)
+- Multi-observable anomaly scoring: RMSE = 0.003
+
+**Precision finding**: f32→f64 divergence is RS-dependent. RS=100 shows
+~7% relative error (precision "sweet spot" where errors compound without
+enough neurons to dilute). RS ≤ 50 and RS ≥ 200 show < 3% error.
+
+### Substrate Assignment for metalForge Pipeline
+
+```
+GPU (HMC physics, DF64)
+  ↓ observable stream
+NPU (2.8μs screening, threshold/anomaly/thermalization)
+  ↓ flagged trajectories
+CPU (f64 precision verification, readout arbitration)
+```
+
+For future large-reservoir applications:
+```
+GPU₁ (physics) → GPU₂ (large RS ESN) → NPU (lightweight screening)
+```
+
+### Files
+
+- Benchmark: `barracuda/src/bin/cross_substrate_esn_benchmark.rs`
+- Experiment log: `experiments/021_CROSS_SUBSTRATE_ESN_COMPARISON.md`
+- Results JSONL: `/tmp/hotspring-runs/exp021/cross_substrate_results.jsonl`

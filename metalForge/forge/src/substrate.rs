@@ -51,6 +51,55 @@ pub struct Properties {
     pub has_f64: bool,
     /// Supports timestamp queries (GPU).
     pub has_timestamps: bool,
+    /// Hardware FP64:FP32 throughput ratio (e.g. 1:2 for Titan V, 1:64 for Ampere).
+    pub fp64_rate: Option<Fp64Rate>,
+    /// GPU supports DF64 (double-float f32-pair emulation on FP32 cores).
+    pub has_df64: bool,
+}
+
+/// Hardware FP64 throughput relative to FP32.
+///
+/// Determines the optimal `Fp64Strategy`: cards with `Full` or `Half` benefit
+/// from native f64 paths, while `Narrow` cards benefit from DF64 extension.
+/// `Concurrent` saturates native units THEN overflows to DF64 on FP32 cores.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Fp64Rate {
+    /// 1:1 FP64:FP32 (datacenter: A100, H100).
+    Full,
+    /// 1:2 FP64:FP32 (Titan V / Volta, some Turing).
+    Half,
+    /// 1:32 or 1:64 FP64:FP32 (consumer Ampere, Ada, Turing).
+    Narrow,
+}
+
+/// How to execute f64 work on a GPU substrate.
+///
+/// DF64 *extends* native FP64 — it doesn't replace it. We saturate the
+/// native FP64 units first, then overflow into DF64 on FP32 cores to get
+/// more aggregate f64 TFLOPS from the same silicon.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Fp64Strategy {
+    /// Use only hardware FP64 units (safe for Full/Half rate GPUs).
+    Native,
+    /// Use only DF64 on FP32 cores (fallback when native f64 unavailable).
+    Hybrid,
+    /// Saturate native FP64 units AND overflow to DF64 on FP32 cores.
+    /// Maximizes aggregate f64 throughput on Narrow-rate GPUs.
+    Concurrent,
+}
+
+impl Fp64Strategy {
+    /// Select the optimal strategy for a substrate's properties.
+    #[must_use]
+    pub const fn for_properties(props: &Properties) -> Self {
+        match props.fp64_rate {
+            Some(Fp64Rate::Full | Fp64Rate::Half) => Self::Native,
+            Some(Fp64Rate::Narrow) if props.has_df64 => Self::Concurrent,
+            _ if props.has_f64 => Self::Native,
+            _ if props.has_df64 => Self::Hybrid,
+            _ => Self::Native,
+        }
+    }
 }
 
 /// The kind of compute device.
@@ -66,6 +115,9 @@ pub enum SubstrateKind {
 pub enum Capability {
     /// IEEE 754 f64 compute (GPU `SHADER_F64` or CPU native).
     F64Compute,
+    /// DF64: double-float (f32-pair) emulated f64 on FP32 shader cores.
+    /// Provides ~14 digits of precision at FP32-core throughput.
+    DF64Compute,
     /// f32 compute.
     F32Compute,
     /// Integer quantized inference at a given bit width.
@@ -88,6 +140,10 @@ pub enum Capability {
     SimdVector,
     /// GPU timestamp query support.
     TimestampQuery,
+    /// PCIe peer-to-peer or DMA transfer capability.
+    PcieTransfer,
+    /// Streaming pipeline stage support (daisy-chain).
+    StreamingStage,
 }
 
 impl fmt::Display for SubstrateKind {
@@ -135,6 +191,7 @@ impl Capability {
     pub const fn label(&self) -> &'static str {
         match self {
             Self::F64Compute => "f64",
+            Self::DF64Compute => "df64",
             Self::F32Compute => "f32",
             Self::QuantizedInference { .. } => "quant",
             Self::BatchInference { .. } => "batch",
@@ -146,6 +203,8 @@ impl Capability {
             Self::ShaderDispatch => "shader",
             Self::SimdVector => "simd",
             Self::TimestampQuery => "timestamps",
+            Self::PcieTransfer => "pcie",
+            Self::StreamingStage => "streaming",
         }
     }
 }
