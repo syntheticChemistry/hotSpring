@@ -1,8 +1,8 @@
 # Murillo Group — Dense Plasma Molecular Dynamics
 
 **Papers:** 1-6 (Sarkas MD, TTM, Surrogate Learning, Transport, Screened Coulomb)
-**Updated:** February 25, 2026
-**Status:** ✅ 60/60 observable checks pass, paper parity achieved
+**Updated:** February 27, 2026
+**Status:** ✅ 60/60 observable checks pass, paper parity achieved. Dynamical fermion run planned (Exp 023)
 
 ---
 
@@ -34,6 +34,18 @@ reproduction covers:
 ## Key Finding
 
 A $600 consumer GPU (RTX 4070) reproduces the exact same physics as the Murillo Group's HPC cluster runs — same particle count, same production steps, same energy conservation — in 3.66 hours for $0.044 in electricity.
+
+## Next: Dynamical Fermion QCD (Exp 023)
+
+The quenched SU(3) runs (Exp 013, 018, 022) validated pure gauge physics at 32⁴.
+Exp 023 extends to dynamical staggered fermions — the first dynamical QCD at 32⁴
+on consumer GPU. The NPU now runs 11 inference heads: GPU prep (quenched length,
+parameter suggestion, CG estimate), quenched monitoring with early-exit, dynamical
+thermalization and rejection, phase classification, and intra-scan adaptive steering.
+
+Expected: crossover (not first-order) phase transition, β_c shifted lower than
+5.69, CG solver at 50–200 iterations per trajectory. Run planned for weekend of
+Feb 28–Mar 1, 2026. Results will inform the March 4 coffee with Professor Murillo.
 
 ## Cross-Spring Contributions
 
