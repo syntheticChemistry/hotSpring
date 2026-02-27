@@ -447,7 +447,11 @@ fn readback_mixed_densities(
     ),
     HotSpringError,
 > {
-    let mut density_receivers = Vec::new();
+    let mut density_receivers: Vec<(
+        usize,
+        std::sync::mpsc::Receiver<Result<(), wgpu::BufferAsyncError>>,
+        std::sync::mpsc::Receiver<Result<(), wgpu::BufferAsyncError>>,
+    )> = Vec::new();
     #[cfg(feature = "gpu_energy")]
     let mut energy_receivers = Vec::new();
 
@@ -460,10 +464,10 @@ fn readback_mixed_densities(
         let slice_n = g.rho_n_staging.slice(..rho_bytes);
         let (tx_p, rx_p) = std::sync::mpsc::channel();
         let (tx_n, rx_n) = std::sync::mpsc::channel();
-        slice_p.map_async(wgpu::MapMode::Read, move |r| {
+        slice_p.map_async(wgpu::MapMode::Read, move |r: Result<(), wgpu::BufferAsyncError>| {
             let _ = tx_p.send(r);
         });
-        slice_n.map_async(wgpu::MapMode::Read, move |r| {
+        slice_n.map_async(wgpu::MapMode::Read, move |r: Result<(), wgpu::BufferAsyncError>| {
             let _ = tx_n.send(r);
         });
         density_receivers.push((gi, rx_p, rx_n));
@@ -476,12 +480,12 @@ fn readback_mixed_densities(
             let (tx_pair, rx_pair) = std::sync::mpsc::channel();
             g.energy_staging
                 .slice(..energy_bytes)
-                .map_async(wgpu::MapMode::Read, move |r| {
+                .map_async(wgpu::MapMode::Read, move |r: Result<(), wgpu::BufferAsyncError>| {
                     let _ = tx_e.send(r);
                 });
             g.e_pair_staging
                 .slice(..e_pair_bytes)
-                .map_async(wgpu::MapMode::Read, move |r| {
+                .map_async(wgpu::MapMode::Read, move |r: Result<(), wgpu::BufferAsyncError>| {
                     let _ = tx_pair.send(r);
                 });
             energy_receivers.push((gi, items_count, g.nr, rx_e, rx_pair));

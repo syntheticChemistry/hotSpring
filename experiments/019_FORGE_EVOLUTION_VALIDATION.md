@@ -136,7 +136,7 @@ Phase 3 (future): GPU→NPU DMA if hardware supports it (requires IOMMU cooperat
 The production mixed pipeline continues in background:
 - Phase 1: Seed scan complete (3 points × 500 meas) — 4.4 hours
 - Phase 2: ESN trained — 0.4ms
-- Phase 3: Adaptive steering Round 1 (β=5.5254) — IN PROGRESS
+- Phase 3: Adaptive steering Round 1 (β=5.5254) — COMPLETE
 
 GPU utilization: 100%, 72-74°C.
 

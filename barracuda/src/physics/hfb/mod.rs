@@ -768,8 +768,9 @@ impl SphericalHFB {
                         }
                     }
                     let fact = degs[i] * v2[i] / (4.0 * PI);
-                    for (r, &p) in rho_q_new.iter_mut().zip(phi.iter()) {
-                        *r += fact * p.powi(2);
+                    for (r, p) in rho_q_new.iter_mut().zip(phi.iter()) {
+                        let p_val: f64 = *p;
+                        *r += fact * p_val.powi(2);
                     }
                 }
 

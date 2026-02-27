@@ -169,7 +169,7 @@ pub(super) fn extract_bcs_results(
     all_work
         .par_iter()
         .enumerate()
-        .map(|(wi, item)| {
+        .map(|(wi, item): (usize, &WorkItem)| {
             let (z, n, _, ref hfb) = solvers[item.si];
             let ns = item.ns;
 
@@ -199,8 +199,10 @@ pub(super) fn extract_bcs_results(
             let (evals_p, evecs_p) = extract(0);
             let (evals_n, evecs_n) = extract(1);
 
-            let (v2_p, lambda_p) = hfb.bcs_occupations_from_eigs(&evals_p, z, hfb.pairing_gap());
-            let (v2_n, lambda_n) = hfb.bcs_occupations_from_eigs(&evals_n, n, hfb.pairing_gap());
+            let (v2_p, lambda_p): (Vec<f64>, f64) =
+                hfb.bcs_occupations_from_eigs(&evals_p, z, hfb.pairing_gap());
+            let (v2_n, lambda_n): (Vec<f64>, f64) =
+                hfb.bcs_occupations_from_eigs(&evals_n, n, hfb.pairing_gap());
 
             EigenBcsResult {
                 si: item.si,

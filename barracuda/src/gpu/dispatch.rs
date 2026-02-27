@@ -39,7 +39,7 @@ impl GpuF64 {
         let entries: Vec<wgpu::BindGroupEntry> = buffers
             .iter()
             .enumerate()
-            .map(|(i, buf)| wgpu::BindGroupEntry {
+            .map(|(i, buf): (usize, &&wgpu::Buffer)| wgpu::BindGroupEntry {
                 binding: i as u32,
                 resource: buf.as_entire_binding(),
             })

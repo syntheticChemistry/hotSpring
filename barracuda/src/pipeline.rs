@@ -44,13 +44,13 @@ pub fn generate_l1_training_data<S: std::hash::BuildHasher>(
     println!("  Phase 1: Generating L1 training data ({n_samples} samples)...");
     let t0 = Instant::now();
 
-    let samples = latin_hypercube(n_samples, bounds, 42)
+    let samples: Vec<Vec<f64>> = latin_hypercube(n_samples, bounds, 42)
         .map_err(|e| crate::error::HotSpringError::InvalidOperation(format!("LHS: {e}")))?;
     let mut xs = Vec::with_capacity(n_samples);
     let mut ys = Vec::with_capacity(n_samples);
 
     for sample in &samples {
-        let params = sample.clone();
+        let params: Vec<f64> = sample.clone();
 
         if params[8] <= 0.01 || params[8] > 1.0 {
             xs.push(params);

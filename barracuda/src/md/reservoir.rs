@@ -479,6 +479,141 @@ impl NpuSimulator {
         }
         self.state.clone()
     }
+
+    /// Swap the readout weight matrix at runtime (~14 ms on Akida via `set_variable()`).
+    ///
+    /// The reservoir weights stay fixed; only the readout layer changes. This enables
+    /// regime-specific readout heads (confined/transition/deconfined) while sharing
+    /// the same reservoir dynamics.
+    pub fn set_readout_weights(&mut self, w_out_flat: &[f32]) {
+        let os = w_out_flat.len() / self.reservoir_size;
+        self.w_out = (0..os)
+            .map(|i| w_out_flat[i * self.reservoir_size..(i + 1) * self.reservoir_size].to_vec())
+            .collect();
+    }
+
+    /// Apply a specific readout head to the current reservoir state.
+    ///
+    /// Returns the scalar output for a single head (row index into w_out).
+    /// Useful for multi-head ESN where different heads serve different purposes.
+    #[must_use]
+    pub fn readout_head(&self, head_idx: usize) -> f64 {
+        if head_idx >= self.w_out.len() {
+            return 0.0;
+        }
+        let sum: f32 = self.w_out[head_idx]
+            .iter()
+            .zip(self.state.iter())
+            .map(|(w, s)| w * s)
+            .sum();
+        f64::from(sum)
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  Multi-Head ESN — 9-head readout for dynamical fermion pipeline
+// ═══════════════════════════════════════════════════════════════════
+
+/// Head indices for the 9-output multi-head ESN.
+///
+/// Akida's SkipDMA merges all FC layers into one hardware pass, so
+/// multi-output adds zero latency over single-output.
+pub mod heads {
+    /// Pre-scan: beta priority score from meta table context.
+    pub const BETA_PRIORITY: usize = 0;
+    /// Pre-scan: parameter suggestion (dt, n_md).
+    pub const PARAM_SUGGEST: usize = 1;
+    /// During: thermalization convergence detector.
+    pub const THERM_DETECT: usize = 2;
+    /// During: rejection likelihood predictor.
+    pub const REJECT_PREDICT: usize = 3;
+    /// During: phase classifier (confined/transition/deconfined).
+    pub const PHASE_CLASSIFY: usize = 4;
+    /// During: CG iteration count estimator.
+    pub const CG_ESTIMATE: usize = 5;
+    /// Post: quality score for a completed beta point.
+    pub const QUALITY_SCORE: usize = 6;
+    /// Post: anomaly flag for unexpected observables.
+    pub const ANOMALY_DETECT: usize = 7;
+    /// Post: next-run recommendation from full scan results.
+    pub const NEXT_RUN_RECOMMEND: usize = 8;
+    /// Pre-GPU: predicted optimal quenched pre-therm length (0–1 → 0–200 steps).
+    pub const QUENCHED_LENGTH: usize = 9;
+    /// During-quenched: thermalization detector for quenched phase early-exit.
+    pub const QUENCHED_THERM: usize = 10;
+    /// Total number of heads.
+    pub const NUM_HEADS: usize = 11;
+}
+
+/// Multi-head NPU simulator wrapping a single reservoir with 9 readout heads.
+///
+/// The reservoir state is computed once per input sequence; each head applies
+/// its own readout weights to produce independent outputs. Weight swapping
+/// via `set_regime_weights()` takes ~14 ms on Akida hardware.
+pub struct MultiHeadNpu {
+    base: NpuSimulator,
+    regime_weight_sets: Vec<ExportedWeights>,
+    current_regime: usize,
+}
+
+impl MultiHeadNpu {
+    /// Create from exported weights with `output_size == NUM_HEADS`.
+    #[must_use]
+    pub fn from_exported(weights: &ExportedWeights) -> Self {
+        Self {
+            base: NpuSimulator::from_exported(weights),
+            regime_weight_sets: Vec::new(),
+            current_regime: 0,
+        }
+    }
+
+    /// Register a set of readout weights for a specific physics regime.
+    ///
+    /// Regime 0 = confined, 1 = transition, 2 = deconfined. Each set must
+    /// have the same reservoir_size but may have different output_size.
+    pub fn register_regime_weights(&mut self, weights: ExportedWeights) {
+        self.regime_weight_sets.push(weights);
+    }
+
+    /// Swap readout weights to a specific regime (e.g., when phase changes).
+    /// Returns `true` if the swap was performed.
+    pub fn set_regime(&mut self, regime_idx: usize) -> bool {
+        if regime_idx >= self.regime_weight_sets.len() || regime_idx == self.current_regime {
+            return false;
+        }
+        let w = &self.regime_weight_sets[regime_idx];
+        self.base.set_readout_weights(&w.w_out);
+        self.current_regime = regime_idx;
+        true
+    }
+
+    /// Run the reservoir on an input sequence, then return all head outputs.
+    ///
+    /// This is the primary inference path: one reservoir pass, 9 readout values.
+    pub fn predict_all_heads(&mut self, input_sequence: &[Vec<f64>]) -> Vec<f64> {
+        self.base.predict(input_sequence)
+    }
+
+    /// Run reservoir and return a single head's output.
+    pub fn predict_head(
+        &mut self,
+        input_sequence: &[Vec<f64>],
+        head_idx: usize,
+    ) -> f64 {
+        let _ = self.base.predict_return_state(input_sequence);
+        self.base.readout_head(head_idx)
+    }
+
+    /// Access the underlying single-output predictor.
+    pub fn base_mut(&mut self) -> &mut NpuSimulator {
+        &mut self.base
+    }
+
+    /// Current regime index.
+    #[must_use]
+    pub fn current_regime(&self) -> usize {
+        self.current_regime
+    }
 }
 
 /// Solve AX = B for multiple right-hand sides via LU decomposition (partial pivoting, f64).
@@ -496,8 +631,8 @@ fn solve_linear_system(a: &[Vec<f64>], b: &[Vec<f64>]) -> Vec<Vec<f64>> {
     for col in 0..m {
         let b_col: Vec<f64> = (0..n).map(|row| b[row][col]).collect();
         if let Ok(sol) = barracuda::ops::linalg::lu_solve(&a_flat, n, &b_col) {
-            for (row, &val) in sol.iter().enumerate() {
-                x[row][col] = val;
+            for (row, val) in sol.iter().enumerate() {
+                x[row][col] = *val;
             }
         }
     }
@@ -816,6 +951,80 @@ mod tests {
             "predict vs state readout: {} vs {}",
             pred[0],
             readout_from_state
+        );
+    }
+
+    #[test]
+    fn multi_head_esn_nine_outputs() {
+        let config = EsnConfig {
+            input_size: 4,
+            reservoir_size: 50,
+            output_size: super::heads::NUM_HEADS,
+            spectral_radius: 0.95,
+            connectivity: 0.2,
+            leak_rate: 0.3,
+            regularization: 1e-3,
+            seed: 42,
+        };
+        let mut esn = EchoStateNetwork::new(config);
+
+        let seqs: Vec<Vec<Vec<f64>>> = (0..5)
+            .map(|i| {
+                (0..10)
+                    .map(|t| {
+                        let x = (t as f64 + i as f64) * 0.1;
+                        vec![x.sin(), x.cos(), x * 0.5, (x * 2.0).sin()]
+                    })
+                    .collect()
+            })
+            .collect();
+        let targets: Vec<Vec<f64>> = (0..5)
+            .map(|i| (0..super::heads::NUM_HEADS).map(|h| (i + h) as f64 * 0.1).collect())
+            .collect();
+
+        esn.train(&seqs, &targets);
+        let exported = esn.export_weights().expect("export");
+        assert_eq!(exported.output_size, super::heads::NUM_HEADS);
+        assert_eq!(
+            exported.w_out.len(),
+            super::heads::NUM_HEADS * 50
+        );
+
+        let mut multi = MultiHeadNpu::from_exported(&exported);
+        let outputs = multi.predict_all_heads(&seqs[0]);
+        assert_eq!(outputs.len(), super::heads::NUM_HEADS);
+
+        let head_2 = multi.predict_head(&seqs[0], super::heads::THERM_DETECT);
+        assert!(head_2.is_finite());
+    }
+
+    #[test]
+    fn npu_readout_weight_swap() {
+        let config = EsnConfig {
+            input_size: 2,
+            reservoir_size: 20,
+            output_size: 1,
+            spectral_radius: 0.9,
+            connectivity: 0.2,
+            leak_rate: 0.3,
+            regularization: 1e-3,
+            seed: 42,
+        };
+        let mut esn = EchoStateNetwork::new(config);
+        let seq: Vec<Vec<f64>> = (0..10).map(|i| vec![i as f64 * 0.1, 0.5]).collect();
+        esn.train(std::slice::from_ref(&seq), &[vec![1.0]]);
+        let exported = esn.export_weights().expect("export");
+
+        let mut npu = NpuSimulator::from_exported(&exported);
+        let pred_before = npu.predict(&seq)[0];
+
+        let swapped_w_out: Vec<f32> = exported.w_out.iter().map(|w| w * 2.0).collect();
+        npu.set_readout_weights(&swapped_w_out);
+        let pred_after = npu.predict(&seq)[0];
+
+        assert!(
+            (pred_after - pred_before * 2.0).abs() < 0.01,
+            "doubled weights should double output: {pred_before} -> {pred_after}"
         );
     }
 

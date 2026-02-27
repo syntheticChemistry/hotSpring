@@ -473,3 +473,18 @@ path = "src/bin/production_beta_scan.rs"
 [[bin]]
 name = "production_mixed_pipeline"
 path = "src/bin/production_mixed_pipeline.rs"
+
+# ── Production dynamical fermion beta-scan (resident CG) ──
+[[bin]]
+name = "production_dynamical_scan"
+path = "src/bin/production_dynamical_scan.rs"
+
+# ── Meta-table burst scanner (quenched + dynamical parameter sweeps) ──
+[[bin]]
+name = "meta_table_scan"
+path = "src/bin/meta_table_scan.rs"
+
+# ── Production dynamical + 9-head NPU mixed pipeline (Exp 023) ──
+[[bin]]
+name = "production_dynamical_mixed"
+path = "src/bin/production_dynamical_mixed.rs"

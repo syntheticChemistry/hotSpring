@@ -1,8 +1,8 @@
 # Neuromorphic Silicon Exploration — What the Metal Actually Does
 
 **Papers:** None (this is hardware exploration, not paper reproduction)
-**Updated:** February 26, 2026
-**Status:** Active exploration — AKD1000 characterized, Exp 020+021+022, **live hardware NPU in production QCD pipeline**
+**Updated:** February 27, 2026
+**Status:** Active exploration — AKD1000 characterized, Exp 020+021+022+023, **11-head NPU orchestrating GPU in production QCD pipeline**
 **Hardware:** BrainChip AKD1000 (Akida 1.0) via PCIe Gen2 x1
 
 ---
@@ -522,16 +522,90 @@ the 32⁴ run starts with a trained model from 749 simulator data points.
 
 ### Production Status
 
-The 32⁴ run with live AKD1000 hardware is currently in progress on biomeGate:
+The 32⁴ run with live AKD1000 hardware completed on biomeGate:
 - RTX 3090 (DF64 HMC) + AKD1000 (hardware NPU) + Titan V (f64 oracle)
 - ESN bootstrapped from 749 simulator data points
-- Cross-run weights will be exported for future runs
+- Cross-run weights exported for future runs
+
+---
+
+## Part 7: NPU-as-GPU-Conductor (Exp 023)
+
+Exp 022 proved the NPU works alongside the GPU. Exp 023 makes the NPU
+orchestrate the GPU — predicting workload parameters before computation
+starts, monitoring phase convergence during computation, and dynamically
+steering the scan in real-time.
+
+### 11-Head Architecture
+
+The ESN grew from 9 to 11 readout heads:
+
+| Head | Index | Phase | Function |
+|------|-------|-------|----------|
+| BETA_PRIORITY | 0 | Pre-GPU | β ordering by expected physics value |
+| SUGGEST_PARAMS | 1 | Pre-GPU | dt, n_md for the dynamical phase |
+| THERM_DETECT | 2 | During dynamical | Thermalization convergence → early-exit |
+| REJECT_PREDICT | 3 | During dynamical | Accept/reject prediction → GPU skip |
+| PHASE_CLASSIFY | 4 | During dynamical | Confined/deconfined/transition |
+| CG_ESTIMATE | 5 | Pre-GPU | CG iterations → adaptive check_interval |
+| QUALITY_SCORE | 6 | Post | Measurement quality assessment |
+| ANOMALY_DETECT | 7 | Post | Flag unusual trajectory behavior |
+| RECOMMEND | 8 | Post | Next-run parameter recommendation |
+| **QUENCHED_LENGTH** | **9** | **Pre-GPU** | Predict optimal quenched pre-therm steps |
+| **QUENCHED_THERM** | **10** | **During quenched** | Monitor quenched phase for early-exit |
+
+On AKD1000, SkipDMA merges all FC layers into one hardware pass — 11
+outputs cost the same as 9 in hardware inference latency.
+
+### Pipelined NPU During GPU Upload
+
+```
+GPU:  upload lattice → quenched pre-therm (N steps) → dynamical
+NPU:  [QuenchedLength][SuggestParams][CgEstimate]————→ collect
+       ↑ fire during upload                             ↑ after quenched
+```
+
+Three NPU predictions fire *before* the quenched phase starts and are
+collected *after* it completes. The GPU and NPU run in parallel.
+
+### Quenched Phase Monitoring
+
+Previously the quenched phase ran for a fixed 50 steps regardless of
+convergence. Near β_c (transition region), more steps are needed; far
+from it, most are wasted. Head 10 monitors plaquette convergence every
+10 steps and triggers early exit when the lattice has thermalized.
+
+Expected savings: 30–50% of quenched steps near extremes, 0% near β_c
+(where full budget is needed).
+
+### Adaptive CG Check Interval
+
+The NPU CG estimate sets the residual check frequency during the
+dynamical CG solver:
+
+| CG estimate | check_interval | Rationale |
+|-------------|---------------|-----------|
+| < 200 iters | 20 | Easy: fewer readbacks → more GPU throughput |
+| 200–1000 | 10 | Standard |
+| > 1000 | 5 | Hard: catch divergence early |
+
+### Intra-Scan Adaptive β Steering
+
+After 3+ measured β points, the NPU evaluates 40 candidate β values:
+
+1. Score each by `priority × (1 + 0.5 × uncertainty)`
+2. Filter out candidates too close to measured points (< 0.3 × spacing)
+3. Insert the best candidate into the live scan queue
+
+The scan self-heals — if the initial grid misses the transition region,
+the NPU inserts gap-filling points mid-run.
 
 ---
 
 ## References
 
 ### Our Experiments
+- Exp 023: NPU GPU-Prep + 11-Head — NPU-as-GPU-conductor, pipelined predictions, quenched monitoring, adaptive CG, intra-scan steering
 - Exp 022: NPU Offload Mixed Pipeline — live AKD1000 hardware, cross-run ESN, 4 placements
 - Exp 021: Cross-Substrate ESN Comparison — GPU ESN dispatch, scaling crossover, capability envelope
 - Exp 020: NPU Characterization Campaign — thermalization, rejection, multi-output, placement

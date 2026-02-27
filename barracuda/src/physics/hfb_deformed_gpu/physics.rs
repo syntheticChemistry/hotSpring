@@ -22,7 +22,7 @@ pub(super) fn precompute_wavefunctions(setup: &NucleusSetup) -> Vec<f64> {
 
     let wf_per_state: Vec<Vec<f64>> = (0..n_states)
         .into_par_iter()
-        .map(|si| {
+        .map(|si: usize| {
             let s = &setup.states[si];
             let mut wf = vec![0.0f64; n_grid];
             for i_rho in 0..setup.n_rho {
@@ -71,8 +71,8 @@ pub(super) fn precompute_wavefunctions(setup: &NucleusSetup) -> Vec<f64> {
         .collect();
 
     let mut wavefunctions = vec![0.0; n_states * n_grid];
-    for (si, wf) in wf_per_state.into_iter().enumerate() {
-        wavefunctions[si * n_grid..(si + 1) * n_grid].copy_from_slice(&wf);
+    for (si, wf) in wf_per_state.iter().enumerate() {
+        wavefunctions[si * n_grid..(si + 1) * n_grid].copy_from_slice(wf);
     }
     wavefunctions
 }
@@ -91,7 +91,7 @@ pub(super) fn compute_tau_rayon(
 
     let tau: Vec<(f64, f64)> = (0..ng)
         .into_par_iter()
-        .map(|k| {
+        .map(|k: usize| {
             let i_rho = k / n_z;
             let i_z = k % n_z;
             let mut tp = 0.0;
@@ -225,7 +225,7 @@ pub(super) fn density_radial_derivative(setup: &NucleusSetup, density: &[f64]) -
     let ng = setup.n_grid;
     (0..ng)
         .into_par_iter()
-        .map(|k| {
+        .map(|k: usize| {
             let ir = k / setup.n_z;
             let iz = k % setup.n_z;
             let d_dr = if ir == 0 {
@@ -275,9 +275,9 @@ pub(super) fn mean_field_potential(
 
     (0..ng)
         .into_par_iter()
-        .map(|i| {
-            let rho = rho_total[i].max(0.0);
-            let rq = rho_q[i].max(0.0);
+        .map(|i: usize| {
+            let rho: f64 = rho_total[i].max(0.0);
+            let rq: f64 = rho_q[i].max(0.0);
             let tau_tot = tau_p[i] + tau_n[i];
 
             let vc = t0.mul_add(
@@ -320,8 +320,8 @@ pub(super) fn compute_densities_rayon(
     let ng = setup.n_grid;
     let rho: Vec<(f64, f64)> = (0..ng)
         .into_par_iter()
-        .map(|k| {
-            let (mut rp, mut rn) = (0.0, 0.0);
+        .map(|k: usize| {
+            let (mut rp, mut rn): (f64, f64) = (0.0, 0.0);
             for (i, _) in setup.states.iter().enumerate() {
                 let psi2 = wf[i * ng + k] * wf[i * ng + k];
                 rp += occ_p[i] * 2.0 * psi2;

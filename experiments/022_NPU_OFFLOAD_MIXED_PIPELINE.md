@@ -4,7 +4,7 @@
 **Binary**: `production_mixed_pipeline`  
 **Hardware**: NVIDIA GeForce RTX 3090 (DF64), NVIDIA TITAN V (NVK, f64 oracle), **BrainChip AKD1000 (live PCIe NPU)**  
 **Crate**: hotspring-barracuda v0.6.14 (`npu-hw` feature enabled)  
-**Status**: 🔄 8⁴ validation COMPLETE — 32⁴ production IN PROGRESS (live AKD1000 hardware)
+**Status**: ✅ COMPLETE — 8⁴ validation + 32⁴ production on live AKD1000 hardware. Superseded by Exp 023 (11-head GPU conductor)
 
 ---
 

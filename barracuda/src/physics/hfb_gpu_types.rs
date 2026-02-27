@@ -141,9 +141,11 @@ pub fn make_bind_group(
     let bg_entries: Vec<wgpu::BindGroupEntry> = entries
         .iter()
         .enumerate()
-        .map(|(i, (_, buf))| wgpu::BindGroupEntry {
-            binding: i as u32,
-            resource: buf.as_entire_binding(),
+        .map(|(i, (_, buf)): (usize, &(wgpu::BufferBindingType, &wgpu::Buffer))| {
+            wgpu::BindGroupEntry {
+                binding: i as u32,
+                resource: buf.as_entire_binding(),
+            }
         })
         .collect();
     let bg = device.create_bind_group(&wgpu::BindGroupDescriptor {

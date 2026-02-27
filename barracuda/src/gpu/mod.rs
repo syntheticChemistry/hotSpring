@@ -135,17 +135,19 @@ impl GpuF64 {
             ..wgpu::Limits::default()
         };
 
-        let (device, queue) = selected
-            .request_device(
-                &wgpu::DeviceDescriptor {
-                    label: Some("hotSpring science device"),
-                    required_features,
-                    required_limits,
-                    memory_hints: wgpu::MemoryHints::default(),
-                },
-                None,
-            )
-            .await
+        let device_result: Result<(wgpu::Device, wgpu::Queue), wgpu::RequestDeviceError> =
+            selected
+                .request_device(
+                    &wgpu::DeviceDescriptor {
+                        label: Some("hotSpring science device"),
+                        required_features,
+                        required_limits,
+                        memory_hints: wgpu::MemoryHints::default(),
+                    },
+                    None,
+                )
+                .await;
+        let (device, queue) = device_result
             .map_err(|e| crate::error::HotSpringError::DeviceCreation(e.to_string()))?;
 
         let adapter_name = adapter_info.name.clone();

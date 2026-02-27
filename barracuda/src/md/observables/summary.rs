@@ -102,7 +102,7 @@ pub fn print_observable_summary_with_gpu(
 
     // SSF — GPU or CPU path
     if !sim.positions_snapshots.is_empty() {
-        let (ssf, ssf_label) = gpu_device.map_or_else(
+        let (ssf, ssf_label): (Vec<(f64, f64)>, &str) = gpu_device.map_or_else(
             || {
                 let cpu_ssf = compute_ssf(
                     &sim.positions_snapshots,
@@ -136,7 +136,7 @@ pub fn print_observable_summary_with_gpu(
         );
 
         if let (Some((k0, s0)), Some((k_max, s_max))) =
-            (ssf.first(), ssf.iter().max_by(|a, b| a.1.total_cmp(&b.1)))
+            (ssf.first(), ssf.iter().max_by(|a: &&(f64, f64), b: &&(f64, f64)| a.1.total_cmp(&b.1)))
         {
             println!("    SSF [{ssf_label}]: S(k->0)={s0:.4} at k={k0:.3}");
             println!("    SSF [{ssf_label}]: peak S(k)={s_max:.4} at k={k_max:.3} a_ws^-1");

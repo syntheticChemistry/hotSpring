@@ -67,7 +67,7 @@ pub fn enumerate_adapters() -> Vec<AdapterInfo> {
         .enumerate_adapters(wgpu::Backends::all())
         .into_iter()
         .enumerate()
-        .map(|(i, adapter)| {
+        .map(|(i, adapter): (usize, wgpu::Adapter)| {
             let info = adapter.get_info();
             let features = adapter.features();
             AdapterInfo {
@@ -147,7 +147,7 @@ pub fn select_adapter() -> Result<wgpu::Adapter, crate::error::HotSpringError> {
         tokens,
         adapters
             .iter()
-            .map(|a| a.get_info().name)
+            .map(|a: &wgpu::Adapter| a.get_info().name)
             .collect::<Vec<_>>(),
     )))
 }
@@ -157,7 +157,8 @@ fn auto_select(
 ) -> Result<wgpu::Adapter, crate::error::HotSpringError> {
     let mut chosen: Option<wgpu::Adapter> = None;
     let mut fallback: Option<wgpu::Adapter> = None;
-    for a in adapters {
+    for a in adapters.into_iter() {
+        let a: wgpu::Adapter = a;
         if a.features().contains(wgpu::Features::SHADER_F64) {
             if a.get_info().device_type == wgpu::DeviceType::DiscreteGpu && chosen.is_none() {
                 chosen = Some(a);
@@ -184,7 +185,7 @@ fn select_by_index_or_name(
     } else {
         adapters
             .into_iter()
-            .find(|a| a.get_info().name.to_ascii_lowercase().contains(selector))
+            .find(|a: &wgpu::Adapter| a.get_info().name.to_ascii_lowercase().contains(selector))
             .ok_or_else(|| {
                 crate::error::HotSpringError::DeviceCreation(format!(
                     "No adapter matching '{selector}' (tried as index {idx} and name)"
@@ -199,7 +200,7 @@ fn select_by_name(
 ) -> Result<wgpu::Adapter, crate::error::HotSpringError> {
     adapters
         .into_iter()
-        .find(|a| a.get_info().name.to_ascii_lowercase().contains(selector))
+        .find(|a: &wgpu::Adapter| a.get_info().name.to_ascii_lowercase().contains(selector))
         .ok_or_else(|| {
             crate::error::HotSpringError::DeviceCreation(format!(
                 "No adapter matching '{selector}'"

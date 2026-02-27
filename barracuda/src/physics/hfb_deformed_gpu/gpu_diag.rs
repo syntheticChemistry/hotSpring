@@ -38,7 +38,7 @@ pub(super) fn diag_blocks_gpu(
 
     let block_h_matrices: Vec<Vec<f64>> = sorted_blocks
         .par_iter()
-        .map(|(_, block_indices)| {
+        .map(|(_, block_indices): &(i32, &Vec<usize>)| {
             let bs = block_indices.len();
             let mut h = vec![0.0f64; max_bs * max_bs];
 
@@ -85,8 +85,8 @@ pub(super) fn diag_blocks_gpu(
         .collect();
 
     let mut packed_h = vec![0.0f64; n_blocks * mat_size];
-    for (i, h) in block_h_matrices.into_iter().enumerate() {
-        packed_h[i * mat_size..(i + 1) * mat_size].copy_from_slice(&h);
+    for (i, h) in block_h_matrices.iter().enumerate() {
+        packed_h[i * mat_size..(i + 1) * mat_size].copy_from_slice(h);
     }
 
     device
