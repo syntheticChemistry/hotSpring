@@ -586,7 +586,7 @@ pub fn gpu_dynamical_hmc_trajectory_resident(
         let ferm_prng_pbuf = gpu.create_uniform_buffer(&ferm_prng_params, "rcg_ferm_p");
         let ferm_prng_bg = gpu.create_bind_group(
             &streaming_pipelines.fermion_prng_pipeline,
-            &[&ferm_prng_pbuf, &state.phi_buf],
+            &[&ferm_prng_pbuf, &state.temp_buf],
         );
         let wg_vol = (vol as u32).div_ceil(64);
         GpuF64::encode_pass(
@@ -596,6 +596,23 @@ pub fn gpu_dynamical_hmc_trajectory_resident(
             wg_vol,
         );
 
+        gpu.submit_encoder(enc);
+    }
+
+    // Pseudofermion heatbath: φ = D† ξ (not raw Gaussian)
+    // This ensures S_ferm = φ†(D†D)⁻¹φ = ξ†ξ ~ χ²(N_dof),
+    // keeping the fermion force at the correct scale.
+    gpu_dirac_dispatch(
+        gpu,
+        &streaming_pipelines.dyn_hmc,
+        state,
+        &state.temp_buf,
+        &state.phi_buf,
+        -1.0,
+    );
+
+    {
+        let mut enc = gpu.begin_encoder("rcg_backup");
         enc.copy_buffer_to_buffer(
             &gs.link_buf,
             0,

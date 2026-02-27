@@ -842,6 +842,8 @@ struct CliArgs {
     n_quenched_pretherm: usize,
     n_meas: usize,
     seed: u64,
+    dt_override: Option<f64>,
+    n_md_override: Option<usize>,
     output: Option<String>,
     trajectory_log: Option<String>,
     bootstrap_from: Option<String>,
@@ -859,6 +861,8 @@ fn parse_args() -> CliArgs {
     let mut n_quenched_pretherm = 50;
     let mut n_meas = 500;
     let mut seed = 42u64;
+    let mut dt_override: Option<f64> = None;
+    let mut n_md_override: Option<usize> = None;
     let mut output = None;
     let mut trajectory_log = None;
     let mut bootstrap_from = None;
@@ -893,6 +897,10 @@ fn parse_args() -> CliArgs {
             bootstrap_from = Some(val.to_string());
         } else if let Some(val) = arg.strip_prefix("--save-weights=") {
             save_weights = Some(val.to_string());
+        } else if let Some(val) = arg.strip_prefix("--dt=") {
+            dt_override = Some(val.parse().expect("--dt=F"));
+        } else if let Some(val) = arg.strip_prefix("--n-md=") {
+            n_md_override = Some(val.parse().expect("--n-md=N"));
         }
     }
 
@@ -907,6 +915,8 @@ fn parse_args() -> CliArgs {
         n_quenched_pretherm,
         n_meas,
         seed,
+        dt_override,
+        n_md_override,
         output,
         trajectory_log,
         bootstrap_from,
@@ -1033,8 +1043,11 @@ fn main() {
 
     let vol_f = vol as f64;
     let scale = (4096.0_f64 / vol_f).powf(0.25);
-    let dt = (0.05 * scale).max(0.001);
-    let n_md = ((0.5 / dt).round() as usize).max(20);
+    let mass_scale = (args.mass.max(0.01)).min(1.0);
+    let auto_dt = (0.01 * scale * mass_scale.sqrt()).max(0.001);
+    let auto_n_md = ((1.0 / auto_dt).round() as usize).max(20);
+    let dt = args.dt_override.unwrap_or(auto_dt);
+    let n_md = args.n_md_override.unwrap_or(auto_n_md);
     println!(
         "  HMC:      dt={dt:.4}, n_md={n_md}, traj_length={:.3}",
         dt * n_md as f64

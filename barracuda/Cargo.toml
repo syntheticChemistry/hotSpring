@@ -488,3 +488,8 @@ path = "src/bin/meta_table_scan.rs"
 [[bin]]
 name = "production_dynamical_mixed"
 path = "src/bin/production_dynamical_mixed.rs"
+
+# ── HMC parameter sweep — NPU training data (Exp 024) ──
+[[bin]]
+name = "production_dynamical_sweep"
+path = "src/bin/production_dynamical_sweep.rs"
