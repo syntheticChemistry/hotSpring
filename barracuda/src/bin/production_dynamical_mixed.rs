@@ -40,7 +40,7 @@ use hotspring_barracuda::lattice::gpu_hmc::{
 use hotspring_barracuda::lattice::hmc::{self, HmcConfig, IntegratorType};
 use hotspring_barracuda::lattice::wilson::Lattice;
 use hotspring_barracuda::md::reservoir::{
-    heads, EchoStateNetwork, EsnConfig, ExportedWeights, MultiHeadNpu, NpuSimulator,
+    heads, EchoStateNetwork, EsnConfig, ExportedWeights, MultiHeadNpu,
 };
 
 use std::io::Write as IoWrite;
@@ -202,10 +202,10 @@ enum NpuResponse {
     QuenchedLengthEstimate(usize),
     QuenchedThermConverged(bool),
     ThermConverged(bool),
-    RejectPrediction { likely_rejected: bool, confidence: f64 },
+    RejectPrediction { likely_rejected: bool, _confidence: f64 },
     PhaseLabel(&'static str),
     Quality(f64),
-    AnomalyFlag { is_anomaly: bool, score: f64 },
+    AnomalyFlag { is_anomaly: bool, _score: f64 },
     AdaptiveSteered(Option<f64>),
     NextRunPlan { betas: Vec<f64>, mass: f64, lattice: usize },
     Retrained { beta_c: f64 },
@@ -409,7 +409,7 @@ fn spawn_npu_worker() -> (mpsc::Sender<NpuRequest>, mpsc::Receiver<NpuResponse>)
                             predict_rejection_heuristic(delta_h, acceptance_rate)
                         };
                         resp_tx
-                            .send(NpuResponse::RejectPrediction { likely_rejected, confidence })
+                            .send(NpuResponse::RejectPrediction { likely_rejected, _confidence: confidence })
                             .ok();
                     }
 
@@ -481,7 +481,7 @@ fn spawn_npu_worker() -> (mpsc::Sender<NpuRequest>, mpsc::Receiver<NpuResponse>)
                             (anomaly, s)
                         };
                         resp_tx
-                            .send(NpuResponse::AnomalyFlag { is_anomaly, score })
+                            .send(NpuResponse::AnomalyFlag { is_anomaly, _score: score })
                             .ok();
                     }
 
@@ -1361,7 +1361,7 @@ fn main() {
             npu_stats.total_npu_calls += 1;
             reject_predictions += 1;
 
-            if let Ok(NpuResponse::RejectPrediction { likely_rejected, confidence: _ }) = npu_rx.recv() {
+            if let Ok(NpuResponse::RejectPrediction { likely_rejected, _confidence: _ }) = npu_rx.recv() {
                 if likely_rejected != r.accepted {
                     npu_stats.reject_correct += 1;
                     reject_correct += 1;
@@ -1381,7 +1381,7 @@ fn main() {
                 npu_stats.anomaly_checks += 1;
                 npu_stats.total_npu_calls += 1;
 
-                if let Ok(NpuResponse::AnomalyFlag { is_anomaly, score: _ }) = npu_rx.recv() {
+                if let Ok(NpuResponse::AnomalyFlag { is_anomaly, _score: _ }) = npu_rx.recv() {
                     if is_anomaly {
                         npu_stats.anomalies_found += 1;
                         anomalies += 1;
