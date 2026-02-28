@@ -75,7 +75,6 @@ enum TitanResponse {
         plaquette: f64,
         wall_ms: f64,
     },
-    Failed(String),
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -882,46 +881,16 @@ struct TitanWorkerHandles {
     titan_rx: mpsc::Receiver<TitanResponse>,
 }
 
-fn spawn_titan_worker() -> Option<TitanWorkerHandles> {
+/// Create the Titan V GPU on the *calling* thread, then move it into a
+/// worker. This avoids concurrent `wgpu::Instance` creation which can
+/// deadlock the NVK/nouveau kernel driver when two GPUs are opened from
+/// separate threads simultaneously.
+fn spawn_titan_worker(titan_gpu: GpuF64) -> TitanWorkerHandles {
     let (req_tx, req_rx) = mpsc::channel::<TitanRequest>();
     let (resp_tx, resp_rx) = mpsc::channel::<TitanResponse>();
 
     let builder = std::thread::Builder::new().name("titan-premotor".into());
-    match builder.spawn(move || {
-        let rt = match tokio::runtime::Runtime::new() {
-            Ok(rt) => rt,
-            Err(e) => {
-                eprintln!("  [Titan] Cannot create runtime: {e}");
-                resp_tx.send(TitanResponse::Failed("no runtime".into())).ok();
-                return;
-            }
-        };
-
-        let titan_gpu = rt.block_on(GpuF64::from_adapter_name("titan")).ok();
-
-        let titan_gpu = match titan_gpu {
-            Some(g) => {
-                eprintln!("  [Titan] GPU acquired: {}", g.adapter_name);
-                g
-            }
-            None => {
-                eprintln!("  [Titan] No secondary GPU found, pre-motor disabled");
-                resp_tx.send(TitanResponse::Failed("no titan GPU".into())).ok();
-                // Drain requests to avoid blocking main thread
-                for req in req_rx {
-                    match req {
-                        TitanRequest::Shutdown => break,
-                        TitanRequest::PreThermalize { beta, .. } => {
-                            resp_tx.send(TitanResponse::Failed(
-                                format!("no GPU for beta={beta:.4}"),
-                            )).ok();
-                        }
-                    }
-                }
-                return;
-            }
-        };
-
+    builder.spawn(move || {
         let quenched_pipelines = GpuHmcStreamingPipelines::new(&titan_gpu);
 
         for req in req_rx {
@@ -931,7 +900,6 @@ fn spawn_titan_worker() -> Option<TitanWorkerHandles> {
                     let dims = [lattice, lattice, lattice, lattice];
                     let mut lat = Lattice::hot_start(dims, beta, seed);
 
-                    // CPU warm-up (5 trajectories)
                     let mut cfg = HmcConfig {
                         n_md_steps: n_md,
                         dt,
@@ -952,7 +920,6 @@ fn spawn_titan_worker() -> Option<TitanWorkerHandles> {
                         );
                     }
 
-                    // Read back final gauge links
                     gpu_links_to_lattice(&titan_gpu, &state, &mut lat);
                     let plaq = lat.average_plaquette();
                     let links = hotspring_barracuda::lattice::gpu_hmc::flatten_links(&lat);
@@ -972,13 +939,9 @@ fn spawn_titan_worker() -> Option<TitanWorkerHandles> {
                 TitanRequest::Shutdown => break,
             }
         }
-    }) {
-        Ok(_) => Some(TitanWorkerHandles { titan_tx: req_tx, titan_rx: resp_rx }),
-        Err(e) => {
-            eprintln!("  [Titan] Cannot spawn thread: {e}");
-            None
-        }
-    }
+    }).expect("spawn titan-premotor thread");
+
+    TitanWorkerHandles { titan_tx: req_tx, titan_rx: resp_rx }
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1196,6 +1159,7 @@ struct CliArgs {
     trajectory_log: Option<String>,
     bootstrap_from: Option<String>,
     save_weights: Option<String>,
+    no_titan: bool,
 }
 
 fn parse_args() -> CliArgs {
@@ -1215,6 +1179,7 @@ fn parse_args() -> CliArgs {
     let mut trajectory_log = None;
     let mut bootstrap_from = None;
     let mut save_weights = None;
+    let mut no_titan = false;
 
     for arg in std::env::args().skip(1) {
         if let Some(val) = arg.strip_prefix("--lattice=") {
@@ -1249,6 +1214,8 @@ fn parse_args() -> CliArgs {
             dt_override = Some(val.parse().expect("--dt=F"));
         } else if let Some(val) = arg.strip_prefix("--n-md=") {
             n_md_override = Some(val.parse().expect("--n-md=N"));
+        } else if arg == "--no-titan" {
+            no_titan = true;
         }
     }
 
@@ -1269,6 +1236,7 @@ fn parse_args() -> CliArgs {
         trajectory_log,
         bootstrap_from,
         save_weights,
+        no_titan,
     }
 }
 
@@ -1368,7 +1336,22 @@ fn main() {
     println!("  NPU worker: spawned (15-head cerebellum: 4 pre-GPU, 5 during, 3 post, 3 proxy, 1 brain)");
 
     // Brain Layer 2: Titan V pre-motor
-    let titan_handles = spawn_titan_worker();
+    // Create GPU device on main thread to avoid NVK driver deadlock from
+    // concurrent wgpu::Instance creation across threads.
+    let titan_handles = if args.no_titan {
+        None
+    } else {
+        match rt.block_on(GpuF64::from_adapter_name("titan")) {
+            Ok(titan_gpu) => {
+                println!("  [Titan] GPU acquired: {}", titan_gpu.adapter_name);
+                Some(spawn_titan_worker(titan_gpu))
+            }
+            Err(_) => {
+                eprintln!("  [Titan] No secondary GPU found");
+                None
+            }
+        }
+    };
     let titan_available = titan_handles.is_some();
     println!(
         "  Titan V:    {}",
@@ -1520,9 +1503,6 @@ fn main() {
                     } else {
                         println!("  [Brain L2] Titan V config for β={wb:.4} (need {beta:.4}), discarding");
                     }
-                }
-                Ok(TitanResponse::Failed(msg)) => {
-                    eprintln!("  [Brain L2] Titan V: {msg}");
                 }
                 Err(mpsc::TryRecvError::Empty) => {}
                 Err(mpsc::TryRecvError::Disconnected) => {}
