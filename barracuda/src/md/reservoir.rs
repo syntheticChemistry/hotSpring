@@ -514,7 +514,7 @@ impl NpuSimulator {
 //  Multi-Head ESN — 9-head readout for dynamical fermion pipeline
 // ═══════════════════════════════════════════════════════════════════
 
-/// Head indices for the 9-output multi-head ESN.
+/// Head indices for the 14-output multi-head ESN.
 ///
 /// Akida's SkipDMA merges all FC layers into one hardware pass, so
 /// multi-output adds zero latency over single-output.
@@ -541,11 +541,19 @@ pub mod heads {
     pub const QUENCHED_LENGTH: usize = 9;
     /// During-quenched: thermalization detector for quenched phase early-exit.
     pub const QUENCHED_THERM: usize = 10;
+    /// Physics proxy: RMT spectral predictor (β, m, L → predicted λ_min, ⟨r⟩).
+    pub const RMT_SPECTRAL: usize = 11;
+    /// Physics proxy: Z(3) Potts phase classifier (β, L → phase label, β_c estimate).
+    pub const POTTS_PHASE: usize = 12;
+    /// Physics proxy: Anderson CG cost predictor (β, m, plaq_var → predicted CG iters).
+    pub const ANDERSON_CG: usize = 13;
+    /// Brain Layer 1: CG residual curve monitor (residual window → convergence ETA, anomaly score).
+    pub const CG_RESIDUAL_MONITOR: usize = 14;
     /// Total number of heads.
-    pub const NUM_HEADS: usize = 11;
+    pub const NUM_HEADS: usize = 15;
 }
 
-/// Multi-head NPU simulator wrapping a single reservoir with 9 readout heads.
+/// Multi-head NPU simulator wrapping a single reservoir with 15 readout heads.
 ///
 /// The reservoir state is computed once per input sequence; each head applies
 /// its own readout weights to produce independent outputs. Weight swapping

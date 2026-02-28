@@ -39,9 +39,11 @@ pub use dynamical::{
 };
 pub use observables::{BidirectionalStream, StreamObservables};
 pub use resident_cg::{
-    gpu_cg_solve_resident, gpu_cg_solve_resident_async, gpu_dynamical_hmc_trajectory_resident,
-    AsyncCgReadback, GpuResidentCgBuffers, GpuResidentCgPipelines, WGSL_CG_COMPUTE_ALPHA,
-    WGSL_CG_COMPUTE_BETA, WGSL_CG_UPDATE_P, WGSL_CG_UPDATE_XR, WGSL_SUM_REDUCE,
+    gpu_cg_solve_brain, gpu_cg_solve_resident, gpu_cg_solve_resident_async,
+    gpu_dynamical_hmc_trajectory_brain, gpu_dynamical_hmc_trajectory_resident, AsyncCgReadback,
+    BrainInterrupt, CgResidualUpdate, GpuResidentCgBuffers, GpuResidentCgPipelines,
+    WGSL_CG_COMPUTE_ALPHA, WGSL_CG_COMPUTE_BETA, WGSL_CG_UPDATE_P, WGSL_CG_UPDATE_XR,
+    WGSL_SUM_REDUCE,
 };
 pub use streaming::{
     gpu_dynamical_hmc_trajectory_streaming, gpu_hmc_trajectory_streaming,

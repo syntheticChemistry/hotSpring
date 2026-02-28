@@ -33,9 +33,9 @@
 
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::lattice::gpu_hmc::{
-    gpu_dynamical_hmc_trajectory_resident, gpu_hmc_trajectory_streaming, gpu_links_to_lattice,
-    GpuDynHmcState, GpuDynHmcStreamingPipelines, GpuHmcState, GpuHmcStreamingPipelines,
-    GpuResidentCgBuffers, GpuResidentCgPipelines,
+    gpu_dynamical_hmc_trajectory_brain, gpu_hmc_trajectory_streaming, gpu_links_to_lattice,
+    BrainInterrupt, CgResidualUpdate, GpuDynHmcState, GpuDynHmcStreamingPipelines, GpuHmcState,
+    GpuHmcStreamingPipelines, GpuResidentCgBuffers, GpuResidentCgPipelines,
 };
 use hotspring_barracuda::lattice::hmc::{self, HmcConfig, IntegratorType};
 use hotspring_barracuda::lattice::wilson::Lattice;
@@ -178,6 +178,18 @@ enum NpuRequest {
         meta_table: Vec<MetaRow>,
     },
 
+    // ─── Brain Layer 1: CG residual monitoring ───
+    CgResidual(CgResidualUpdate),
+
+    // ─── Brain Layer 3: Proxy features from CPU cortex ───
+    ProxyFeatures {
+        beta: f64,
+        level_spacing_ratio: f64,
+        lambda_min: f64,
+        ipr: f64,
+        tier: u8,
+    },
+
     // ─── Lifecycle ───
     Retrain {
         results: Vec<BetaResult>,
@@ -211,16 +223,36 @@ enum NpuResponse {
     Retrained { beta_c: f64 },
     Bootstrapped { n_points: usize },
     WeightsSaved { path: String },
+    ResidualAck,
+    ProxyFeaturesAck,
 }
 
-fn spawn_npu_worker() -> (mpsc::Sender<NpuRequest>, mpsc::Receiver<NpuResponse>) {
+/// Spawn result includes the interrupt channel for brain-mode CG monitoring.
+struct NpuWorkerHandles {
+    npu_tx: mpsc::Sender<NpuRequest>,
+    npu_rx: mpsc::Receiver<NpuResponse>,
+    interrupt_rx: mpsc::Receiver<BrainInterrupt>,
+}
+
+fn spawn_npu_worker() -> NpuWorkerHandles {
     let (req_tx, req_rx) = mpsc::channel::<NpuRequest>();
     let (resp_tx, resp_rx) = mpsc::channel::<NpuResponse>();
+    let (interrupt_tx_out, interrupt_rx_out) = mpsc::channel::<BrainInterrupt>();
 
     std::thread::Builder::new()
-        .name("npu-worker-023".into())
+        .name("npu-cerebellum".into())
         .spawn(move || {
             let mut multi_npu: Option<MultiHeadNpu> = None;
+            let interrupt_tx: Option<mpsc::Sender<BrainInterrupt>> = Some(interrupt_tx_out);
+
+            // Brain Layer 1 state
+            let mut residual_history: Vec<(usize, f64)> = Vec::new();
+            let mut attention_state: u8 = 0; // 0=GREEN, 1=YELLOW, 2=RED
+            let mut green_count: usize = 0;
+
+            // Brain Layer 3 state
+            #[allow(unused_assignments)]
+            let mut latest_proxy: Option<(f64, f64, f64, f64, u8)> = None;
 
             let make_multi_esn = |seed: u64, results: &[BetaResult]| -> Option<MultiHeadNpu> {
                 if results.is_empty() {
@@ -661,13 +693,80 @@ fn spawn_npu_worker() -> (mpsc::Sender<NpuRequest>, mpsc::Receiver<NpuResponse>)
                             .ok();
                     }
 
+                    // ─── Brain Layer 1: CG residual monitoring ───
+                    NpuRequest::CgResidual(update) => {
+                        residual_history.push((update.iteration, update.rz_new));
+                        if residual_history.len() > 50 {
+                            residual_history.drain(..residual_history.len() - 50);
+                        }
+
+                        if let Some(ref mut npu) = multi_npu {
+                            let window: Vec<f64> = residual_history
+                                .iter()
+                                .rev()
+                                .take(10)
+                                .map(|(_, rz)| rz.log10().max(-20.0) / 20.0)
+                                .collect();
+                            let input: Vec<f64> = window.iter().copied()
+                                .chain(std::iter::repeat(0.0))
+                                .take(5)
+                                .collect();
+                            let _ = npu.base_mut().predict_return_state(&[input]);
+                            let anomaly_score = npu.base_mut().readout_head(heads::CG_RESIDUAL_MONITOR);
+
+                            if anomaly_score > 0.7 && residual_history.len() >= 3 {
+                                let recent: Vec<f64> = residual_history
+                                    .iter()
+                                    .rev()
+                                    .take(3)
+                                    .map(|(_, rz)| *rz)
+                                    .collect();
+                                let diverging = recent.windows(2)
+                                    .all(|w| w[0] >= w[1]);
+                                if diverging {
+                                    if let Some(ref itx) = interrupt_tx {
+                                        let _ = itx.send(BrainInterrupt::KillCg);
+                                    }
+                                    attention_state = 2; // RED
+                                }
+                            } else if anomaly_score > 0.3 {
+                                if attention_state < 1 {
+                                    attention_state = 1; // YELLOW
+                                    if let Some(ref itx) = interrupt_tx {
+                                        let _ = itx.send(BrainInterrupt::AdjustCheckInterval(20));
+                                    }
+                                }
+                            } else if attention_state > 0 {
+                                green_count += 1;
+                                if green_count >= 3 {
+                                    attention_state = 0; // GREEN
+                                    green_count = 0;
+                                    if let Some(ref itx) = interrupt_tx {
+                                        let _ = itx.send(BrainInterrupt::AdjustCheckInterval(100));
+                                    }
+                                }
+                            }
+                        }
+                        resp_tx.send(NpuResponse::ResidualAck).ok();
+                    }
+
+                    // ─── Brain Layer 3: Proxy features from CPU cortex ───
+                    NpuRequest::ProxyFeatures { beta, level_spacing_ratio, lambda_min, ipr, tier } => {
+                        latest_proxy = Some((beta, level_spacing_ratio, lambda_min, ipr, tier));
+                        resp_tx.send(NpuResponse::ProxyFeaturesAck).ok();
+                    }
+
                     NpuRequest::Shutdown => break,
                 }
             }
         })
         .expect("spawn NPU worker thread");
 
-    (req_tx, resp_rx)
+    NpuWorkerHandles {
+        npu_tx: req_tx,
+        npu_rx: resp_rx,
+        interrupt_rx: interrupt_rx_out,
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1013,8 +1112,11 @@ fn main() {
         if npu_available { "AKD1000 (hardware)" } else { "MultiHeadNpu (ESN)" }
     );
 
-    let (npu_tx, npu_rx) = spawn_npu_worker();
-    println!("  NPU worker: spawned (11-head: 4 pre-GPU, 5 during, 3 post)");
+    let npu_handles = spawn_npu_worker();
+    let npu_tx = npu_handles.npu_tx;
+    let npu_rx = npu_handles.npu_rx;
+    let brain_interrupt_rx = npu_handles.interrupt_rx;
+    println!("  NPU worker: spawned (15-head cerebellum: 4 pre-GPU, 5 during, 3 post, 3 proxy, 1 brain)");
 
     // ═══ Bootstrap from meta table or weights ═══
     if let Some(ref path) = args.bootstrap_from {
@@ -1057,6 +1159,20 @@ fn main() {
     let quenched_pipelines = GpuHmcStreamingPipelines::new(&gpu);
     let dyn_streaming_pipelines = GpuDynHmcStreamingPipelines::new(&gpu);
     let resident_cg_pipelines = GpuResidentCgPipelines::new(&gpu);
+
+    // Brain Layer 1: residual channel from CG solver → NPU forwarder thread
+    let (brain_residual_tx, brain_residual_rx) = mpsc::channel::<CgResidualUpdate>();
+    {
+        let npu_fwd = npu_tx.clone();
+        std::thread::Builder::new()
+            .name("brain-residual-fwd".into())
+            .spawn(move || {
+                for update in brain_residual_rx {
+                    npu_fwd.send(NpuRequest::CgResidual(update)).ok();
+                }
+            })
+            .expect("spawn residual forwarder");
+    }
 
     let total_start = Instant::now();
     let mut results: Vec<BetaResult> = Vec::new();
@@ -1283,9 +1399,10 @@ fn main() {
         std::io::stdout().flush().ok();
         for i in 0..args.n_therm {
             let traj_idx = args.n_quenched_pretherm + i;
-            let r = gpu_dynamical_hmc_trajectory_resident(
+            let r = gpu_dynamical_hmc_trajectory_brain(
                 &gpu, &dyn_streaming_pipelines, &resident_cg_pipelines,
                 &dyn_state, &cg_bufs, n_md, dt, traj_idx as u32, &mut seed, adaptive_check_interval,
+                &brain_residual_tx, &brain_interrupt_rx,
             );
             plaq_history.push(r.plaquette);
             therm_used = i + 1;
@@ -1345,9 +1462,10 @@ fn main() {
         for i in 0..args.n_meas {
             let traj_idx = args.n_quenched_pretherm + args.n_therm + i;
             let traj_start = Instant::now();
-            let r = gpu_dynamical_hmc_trajectory_resident(
+            let r = gpu_dynamical_hmc_trajectory_brain(
                 &gpu, &dyn_streaming_pipelines, &resident_cg_pipelines,
                 &dyn_state, &cg_bufs, n_md, dt, traj_idx as u32, &mut seed, adaptive_check_interval,
+                &brain_residual_tx, &brain_interrupt_rx,
             );
             let wall_us = traj_start.elapsed().as_micros() as u64;
 

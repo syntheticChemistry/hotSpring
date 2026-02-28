@@ -37,6 +37,7 @@
 |------|--------|-------------|
 | [PAPER_REVIEW_QUEUE.md](PAPER_REVIEW_QUEUE.md) | Active | Papers to review/reproduce, prioritized by tier |
 | [BARRACUDA_REQUIREMENTS.md](BARRACUDA_REQUIREMENTS.md) | Active | GPU kernel requirements and gap analysis |
+| [ANDERSON_4D_WEGNER_PROXY.md](ANDERSON_4D_WEGNER_PROXY.md) | Draft | 4D Anderson & Wegner block proxy for CG prediction |
 
 ### Existing Documentation (in parent directories)
 

@@ -493,3 +493,8 @@ path = "src/bin/production_dynamical_mixed.rs"
 [[bin]]
 name = "production_dynamical_sweep"
 path = "src/bin/production_dynamical_sweep.rs"
+
+# ── Physics proxy pipeline — Anderson + Potts NPU training (Exp 025) ──
+[[bin]]
+name = "gpu_physics_proxy"
+path = "src/bin/gpu_physics_proxy.rs"
