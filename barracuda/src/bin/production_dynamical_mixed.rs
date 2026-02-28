@@ -42,10 +42,62 @@ use hotspring_barracuda::lattice::wilson::Lattice;
 use hotspring_barracuda::md::reservoir::{
     heads, EchoStateNetwork, EsnConfig, ExportedWeights, MultiHeadNpu,
 };
+use hotspring_barracuda::proxy::{self, CortexRequest, ProxyFeatures};
 
 use std::io::Write as IoWrite;
 use std::sync::mpsc;
 use std::time::Instant;
+
+// ═══════════════════════════════════════════════════════════════════
+//  Brain Layer 2: Titan V Pre-Motor Types
+// ═══════════════════════════════════════════════════════════════════
+
+/// Request sent to the Titan V pre-motor thread.
+enum TitanRequest {
+    PreThermalize {
+        beta: f64,
+        #[allow(dead_code)]
+        mass: f64,
+        lattice: usize,
+        n_quenched: usize,
+        seed: u64,
+        dt: f64,
+        n_md: usize,
+    },
+    Shutdown,
+}
+
+/// Response from the Titan V pre-motor thread.
+enum TitanResponse {
+    WarmConfig {
+        beta: f64,
+        gauge_links: Vec<f64>,
+        plaquette: f64,
+        wall_ms: f64,
+    },
+    Failed(String),
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  Brain Layer 4: Attention State Machine
+// ═══════════════════════════════════════════════════════════════════
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AttentionState {
+    Green,
+    Yellow,
+    Red,
+}
+
+impl std::fmt::Display for AttentionState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Green => write!(f, "GREEN"),
+            Self::Yellow => write!(f, "YELLOW"),
+            Self::Red => write!(f, "RED"),
+        }
+    }
+}
 
 // ═══════════════════════════════════════════════════════════════════
 //  Meta Table Row
@@ -245,14 +297,15 @@ fn spawn_npu_worker() -> NpuWorkerHandles {
             let mut multi_npu: Option<MultiHeadNpu> = None;
             let interrupt_tx: Option<mpsc::Sender<BrainInterrupt>> = Some(interrupt_tx_out);
 
-            // Brain Layer 1 state
+            // Brain Layer 1 + 4 state
             let mut residual_history: Vec<(usize, f64)> = Vec::new();
-            let mut attention_state: u8 = 0; // 0=GREEN, 1=YELLOW, 2=RED
+            let mut attention_state = AttentionState::Green;
             let mut green_count: usize = 0;
+            let mut yellow_count: usize = 0;
 
             // Brain Layer 3 state
             #[allow(unused_assignments)]
-            let mut latest_proxy: Option<(f64, f64, f64, f64, u8)> = None;
+            let mut latest_proxy: Option<ProxyFeatures> = None;
 
             let make_multi_esn = |seed: u64, results: &[BetaResult]| -> Option<MultiHeadNpu> {
                 if results.is_empty() {
@@ -693,14 +746,14 @@ fn spawn_npu_worker() -> NpuWorkerHandles {
                             .ok();
                     }
 
-                    // ─── Brain Layer 1: CG residual monitoring ───
+                    // ─── Brain Layer 1 + 4: CG residual monitoring + attention state machine ───
                     NpuRequest::CgResidual(update) => {
                         residual_history.push((update.iteration, update.rz_new));
                         if residual_history.len() > 50 {
                             residual_history.drain(..residual_history.len() - 50);
                         }
 
-                        if let Some(ref mut npu) = multi_npu {
+                        let anomaly_score = if let Some(ref mut npu) = multi_npu {
                             let window: Vec<f64> = residual_history
                                 .iter()
                                 .rev()
@@ -712,38 +765,86 @@ fn spawn_npu_worker() -> NpuWorkerHandles {
                                 .take(5)
                                 .collect();
                             let _ = npu.base_mut().predict_return_state(&[input]);
-                            let anomaly_score = npu.base_mut().readout_head(heads::CG_RESIDUAL_MONITOR);
+                            npu.base_mut().readout_head(heads::CG_RESIDUAL_MONITOR)
+                        } else {
+                            // Heuristic: check if residuals are increasing
+                            if residual_history.len() >= 3 {
+                                let recent: Vec<f64> = residual_history.iter().rev().take(3).map(|(_, rz)| *rz).collect();
+                                if recent.windows(2).all(|w| w[0] >= w[1]) { 0.8 } else { 0.1 }
+                            } else {
+                                0.0
+                            }
+                        };
 
-                            if anomaly_score > 0.7 && residual_history.len() >= 3 {
-                                let recent: Vec<f64> = residual_history
-                                    .iter()
-                                    .rev()
-                                    .take(3)
-                                    .map(|(_, rz)| *rz)
-                                    .collect();
-                                let diverging = recent.windows(2)
-                                    .all(|w| w[0] >= w[1]);
-                                if diverging {
-                                    if let Some(ref itx) = interrupt_tx {
-                                        let _ = itx.send(BrainInterrupt::KillCg);
+                        // Layer 4: Attention state transitions
+                        match attention_state {
+                            AttentionState::Green => {
+                                if anomaly_score > 0.7 {
+                                    attention_state = AttentionState::Red;
+                                    yellow_count = 0;
+                                    green_count = 0;
+                                    // Check for actual divergence before killing
+                                    if residual_history.len() >= 3 {
+                                        let recent: Vec<f64> = residual_history.iter().rev().take(3).map(|(_, rz)| *rz).collect();
+                                        if recent.windows(2).all(|w| w[0] >= w[1]) {
+                                            if let Some(ref itx) = interrupt_tx {
+                                                let _ = itx.send(BrainInterrupt::KillCg);
+                                            }
+                                        }
                                     }
-                                    attention_state = 2; // RED
-                                }
-                            } else if anomaly_score > 0.3 {
-                                if attention_state < 1 {
-                                    attention_state = 1; // YELLOW
+                                } else if anomaly_score > 0.3 {
+                                    attention_state = AttentionState::Yellow;
+                                    green_count = 0;
                                     if let Some(ref itx) = interrupt_tx {
                                         let _ = itx.send(BrainInterrupt::AdjustCheckInterval(20));
                                     }
                                 }
-                            } else if attention_state > 0 {
-                                green_count += 1;
-                                if green_count >= 3 {
-                                    attention_state = 0; // GREEN
-                                    green_count = 0;
-                                    if let Some(ref itx) = interrupt_tx {
-                                        let _ = itx.send(BrainInterrupt::AdjustCheckInterval(100));
+                            }
+                            AttentionState::Yellow => {
+                                if anomaly_score > 0.7 {
+                                    yellow_count += 1;
+                                    if yellow_count >= 2 {
+                                        attention_state = AttentionState::Red;
+                                        if let Some(ref itx) = interrupt_tx {
+                                            let _ = itx.send(BrainInterrupt::AdjustCheckInterval(5));
+                                        }
                                     }
+                                } else if anomaly_score < 0.3 {
+                                    green_count += 1;
+                                    if green_count >= 3 {
+                                        attention_state = AttentionState::Green;
+                                        green_count = 0;
+                                        yellow_count = 0;
+                                        if let Some(ref itx) = interrupt_tx {
+                                            let _ = itx.send(BrainInterrupt::AdjustCheckInterval(100));
+                                        }
+                                    }
+                                } else {
+                                    green_count = 0;
+                                }
+                            }
+                            AttentionState::Red => {
+                                if residual_history.len() >= 3 {
+                                    let recent: Vec<f64> = residual_history.iter().rev().take(3).map(|(_, rz)| *rz).collect();
+                                    let diverging = recent.windows(2).all(|w| w[0] >= w[1]);
+                                    if diverging {
+                                        if let Some(ref itx) = interrupt_tx {
+                                            let _ = itx.send(BrainInterrupt::KillCg);
+                                        }
+                                    }
+                                }
+                                if anomaly_score < 0.3 {
+                                    green_count += 1;
+                                    if green_count >= 3 {
+                                        attention_state = AttentionState::Yellow;
+                                        green_count = 0;
+                                        yellow_count = 0;
+                                        if let Some(ref itx) = interrupt_tx {
+                                            let _ = itx.send(BrainInterrupt::AdjustCheckInterval(20));
+                                        }
+                                    }
+                                } else {
+                                    green_count = 0;
                                 }
                             }
                         }
@@ -752,7 +853,10 @@ fn spawn_npu_worker() -> NpuWorkerHandles {
 
                     // ─── Brain Layer 3: Proxy features from CPU cortex ───
                     NpuRequest::ProxyFeatures { beta, level_spacing_ratio, lambda_min, ipr, tier } => {
-                        latest_proxy = Some((beta, level_spacing_ratio, lambda_min, ipr, tier));
+                        latest_proxy = Some(ProxyFeatures {
+                            beta, level_spacing_ratio, lambda_min, ipr,
+                            bandwidth: 0.0, phase: String::new(), tier, wall_ms: 0.0,
+                        });
                         resp_tx.send(NpuResponse::ProxyFeaturesAck).ok();
                     }
 
@@ -767,6 +871,147 @@ fn spawn_npu_worker() -> NpuWorkerHandles {
         npu_rx: resp_rx,
         interrupt_rx: interrupt_rx_out,
     }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  Brain Layer 2: Titan V Pre-Motor Worker
+// ═══════════════════════════════════════════════════════════════════
+
+struct TitanWorkerHandles {
+    titan_tx: mpsc::Sender<TitanRequest>,
+    titan_rx: mpsc::Receiver<TitanResponse>,
+}
+
+fn spawn_titan_worker() -> Option<TitanWorkerHandles> {
+    let (req_tx, req_rx) = mpsc::channel::<TitanRequest>();
+    let (resp_tx, resp_rx) = mpsc::channel::<TitanResponse>();
+
+    let builder = std::thread::Builder::new().name("titan-premotor".into());
+    match builder.spawn(move || {
+        let rt = match tokio::runtime::Runtime::new() {
+            Ok(rt) => rt,
+            Err(e) => {
+                eprintln!("  [Titan] Cannot create runtime: {e}");
+                resp_tx.send(TitanResponse::Failed("no runtime".into())).ok();
+                return;
+            }
+        };
+
+        let titan_gpu = rt.block_on(GpuF64::from_adapter_name("titan")).ok();
+
+        let titan_gpu = match titan_gpu {
+            Some(g) => {
+                eprintln!("  [Titan] GPU acquired: {}", g.adapter_name);
+                g
+            }
+            None => {
+                eprintln!("  [Titan] No secondary GPU found, pre-motor disabled");
+                resp_tx.send(TitanResponse::Failed("no titan GPU".into())).ok();
+                // Drain requests to avoid blocking main thread
+                for req in req_rx {
+                    match req {
+                        TitanRequest::Shutdown => break,
+                        TitanRequest::PreThermalize { beta, .. } => {
+                            resp_tx.send(TitanResponse::Failed(
+                                format!("no GPU for beta={beta:.4}"),
+                            )).ok();
+                        }
+                    }
+                }
+                return;
+            }
+        };
+
+        let quenched_pipelines = GpuHmcStreamingPipelines::new(&titan_gpu);
+
+        for req in req_rx {
+            match req {
+                TitanRequest::PreThermalize { beta, mass: _, lattice, n_quenched, seed, dt, n_md } => {
+                    let t0 = Instant::now();
+                    let dims = [lattice, lattice, lattice, lattice];
+                    let mut lat = Lattice::hot_start(dims, beta, seed);
+
+                    // CPU warm-up (5 trajectories)
+                    let mut cfg = HmcConfig {
+                        n_md_steps: n_md,
+                        dt,
+                        seed: seed * 100,
+                        integrator: IntegratorType::Omelyan,
+                    };
+                    for _ in 0..5 {
+                        hmc::hmc_trajectory(&mut lat, &mut cfg);
+                    }
+
+                    let state = GpuHmcState::from_lattice(&titan_gpu, &lat, beta);
+                    let mut titan_seed = seed * 200;
+
+                    for i in 0..n_quenched {
+                        let _ = gpu_hmc_trajectory_streaming(
+                            &titan_gpu, &quenched_pipelines, &state,
+                            n_md, dt, i as u32, &mut titan_seed,
+                        );
+                    }
+
+                    // Read back final gauge links
+                    gpu_links_to_lattice(&titan_gpu, &state, &mut lat);
+                    let plaq = lat.average_plaquette();
+                    let links = hotspring_barracuda::lattice::gpu_hmc::flatten_links(&lat);
+                    let wall_ms = t0.elapsed().as_secs_f64() * 1000.0;
+
+                    eprintln!(
+                        "  [Titan] Pre-therm β={beta:.4}: {n_quenched} quenched trajs, P={plaq:.6}, {wall_ms:.0}ms"
+                    );
+
+                    resp_tx.send(TitanResponse::WarmConfig {
+                        beta,
+                        gauge_links: links,
+                        plaquette: plaq,
+                        wall_ms,
+                    }).ok();
+                }
+                TitanRequest::Shutdown => break,
+            }
+        }
+    }) {
+        Ok(_) => Some(TitanWorkerHandles { titan_tx: req_tx, titan_rx: resp_rx }),
+        Err(e) => {
+            eprintln!("  [Titan] Cannot spawn thread: {e}");
+            None
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  Brain Layer 3: CPU Cortex Worker
+// ═══════════════════════════════════════════════════════════════════
+
+struct CortexWorkerHandles {
+    cortex_tx: mpsc::Sender<CortexRequest>,
+    proxy_rx: mpsc::Receiver<ProxyFeatures>,
+}
+
+fn spawn_cortex_worker() -> CortexWorkerHandles {
+    let (req_tx, req_rx) = mpsc::channel::<CortexRequest>();
+    let (feat_tx, feat_rx) = mpsc::channel::<ProxyFeatures>();
+
+    std::thread::Builder::new()
+        .name("cpu-cortex".into())
+        .spawn(move || {
+            let mut seed_counter = 42u64;
+            for req in req_rx {
+                seed_counter += 1;
+                let features = proxy::anderson_3d_proxy(&req, seed_counter);
+                eprintln!(
+                    "  [Cortex] β={:.4}: ⟨r⟩={:.3} |λ|_min={:.3} [{}] ({:.0}ms)",
+                    features.beta, features.level_spacing_ratio,
+                    features.lambda_min, features.phase, features.wall_ms,
+                );
+                feat_tx.send(features).ok();
+            }
+        })
+        .expect("spawn cortex worker");
+
+    CortexWorkerHandles { cortex_tx: req_tx, proxy_rx: feat_rx }
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -888,7 +1133,7 @@ fn build_training_data(results: &[BetaResult]) -> (Vec<Vec<Vec<f64>>>, Vec<Vec<f
         };
         let quenched_therm_target = if r.npu_quenched_early_exit { 1.0 } else { 0.0 };
 
-        // 11-head targets: one per head
+        // 15-head targets: one per head (matching heads::NUM_HEADS)
         targets.push(vec![
             proximity,                                     // head 0: beta priority
             0.01 + r.acceptance.abs() * 0.04,             // head 1: param suggest (dt proxy)
@@ -901,6 +1146,10 @@ fn build_training_data(results: &[BetaResult]) -> (Vec<Vec<Vec<f64>>>, Vec<Vec<f
             beta_norm,                                     // head 8: next-run recommend
             quenched_length_target,                        // head 9: quenched length
             quenched_therm_target,                         // head 10: quenched therm
+            0.0,                                           // head 11: RMT spectral (proxy)
+            phase_val,                                     // head 12: Potts phase (proxy)
+            r.mean_cg_iters / 500.0,                      // head 13: Anderson CG (proxy)
+            anomaly_val,                                   // head 14: CG residual monitor (brain)
         ]);
     }
 
@@ -1118,6 +1367,18 @@ fn main() {
     let brain_interrupt_rx = npu_handles.interrupt_rx;
     println!("  NPU worker: spawned (15-head cerebellum: 4 pre-GPU, 5 during, 3 post, 3 proxy, 1 brain)");
 
+    // Brain Layer 2: Titan V pre-motor
+    let titan_handles = spawn_titan_worker();
+    let titan_available = titan_handles.is_some();
+    println!(
+        "  Titan V:    {}",
+        if titan_available { "pre-motor thread spawned" } else { "not available (Layer 2 disabled)" },
+    );
+
+    // Brain Layer 3: CPU cortex (Anderson proxy)
+    let cortex_handles = spawn_cortex_worker();
+    println!("  CPU cortex: spawned (Anderson 3D proxy pipeline)");
+
     // ═══ Bootstrap from meta table or weights ═══
     if let Some(ref path) = args.bootstrap_from {
         let p = std::path::Path::new(path.as_str());
@@ -1247,7 +1508,28 @@ fn main() {
         let start = Instant::now();
         let mut lat = Lattice::hot_start(dims, beta, args.seed + bi as u64);
 
-        if vol <= 65536 {
+        // Brain Layer 2: Check if Titan V has a warm config ready for this beta
+        let mut titan_warm = false;
+        if let Some(ref handles) = titan_handles {
+            match handles.titan_rx.try_recv() {
+                Ok(TitanResponse::WarmConfig { beta: wb, gauge_links, plaquette, wall_ms }) => {
+                    if (wb - beta).abs() < 0.001 {
+                        hotspring_barracuda::lattice::gpu_hmc::unflatten_links_into(&mut lat, &gauge_links);
+                        println!("  [Brain L2] Using Titan V warm config: P={plaquette:.6} ({wall_ms:.0}ms)");
+                        titan_warm = true;
+                    } else {
+                        println!("  [Brain L2] Titan V config for β={wb:.4} (need {beta:.4}), discarding");
+                    }
+                }
+                Ok(TitanResponse::Failed(msg)) => {
+                    eprintln!("  [Brain L2] Titan V: {msg}");
+                }
+                Err(mpsc::TryRecvError::Empty) => {}
+                Err(mpsc::TryRecvError::Disconnected) => {}
+            }
+        }
+
+        if !titan_warm && vol <= 65536 {
             let mut cfg = HmcConfig {
                 n_md_steps: n_md,
                 dt,
@@ -1380,6 +1662,20 @@ fn main() {
             args.check_interval
         };
 
+        // Brain Layer 3: Send cortex request for Anderson proxy at this beta
+        let plaq_var_estimate = if !results.is_empty() {
+            let last = results.last().unwrap();
+            last.std_plaq * last.std_plaq
+        } else {
+            0.05
+        };
+        cortex_handles.cortex_tx.send(CortexRequest {
+            beta,
+            mass: args.mass,
+            lattice: args.lattice,
+            plaq_var: plaq_var_estimate,
+        }).ok();
+
         // Dynamical HMC setup
         let dyn_state = GpuDynHmcState::from_lattice(
             &gpu, &lat, beta, args.mass, args.cg_tol, args.cg_max_iter,
@@ -1496,6 +1792,24 @@ fn main() {
                 if likely_rejected != r.accepted {
                     npu_stats.reject_correct += 1;
                     reject_correct += 1;
+                }
+            }
+
+            // Brain Layer 3: Check for proxy features from CPU cortex
+            if i == 0 {
+                match cortex_handles.proxy_rx.try_recv() {
+                    Ok(features) => {
+                        npu_tx.send(NpuRequest::ProxyFeatures {
+                            beta: features.beta,
+                            level_spacing_ratio: features.level_spacing_ratio,
+                            lambda_min: features.lambda_min,
+                            ipr: features.ipr,
+                            tier: features.tier,
+                        }).ok();
+                        println!("  [Brain L3] Proxy features: ⟨r⟩={:.3} |λ|_min={:.3} [{}]",
+                            features.level_spacing_ratio, features.lambda_min, features.phase);
+                    }
+                    Err(_) => {}
                 }
             }
 
@@ -1671,6 +1985,23 @@ fn main() {
             }
         }
 
+        // Brain Layer 2: Kick off Titan V pre-therm for the NEXT beta point
+        if let Some(ref handles) = titan_handles {
+            if bi + 1 < beta_order.len() {
+                let next_beta = beta_order[bi + 1];
+                handles.titan_tx.send(TitanRequest::PreThermalize {
+                    beta: next_beta,
+                    mass: args.mass,
+                    lattice: args.lattice,
+                    n_quenched: args.n_quenched_pretherm,
+                    seed: args.seed + (bi as u64 + 1) * 1000 + 500,
+                    dt,
+                    n_md,
+                }).ok();
+                println!("  [Brain L2] Titan V pre-thermalizing β={next_beta:.4} in background");
+            }
+        }
+
         bi += 1;
     }
 
@@ -1711,6 +2042,11 @@ fn main() {
         }
     }
 
+    // Shutdown brain threads
+    if let Some(ref handles) = titan_handles {
+        handles.titan_tx.send(TitanRequest::Shutdown).ok();
+    }
+    drop(cortex_handles.cortex_tx);
     npu_tx.send(NpuRequest::Shutdown).ok();
 
     // ═══ Summary ═══

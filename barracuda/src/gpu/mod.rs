@@ -172,6 +172,90 @@ impl GpuF64 {
         })
     }
 
+    /// Create GPU device by matching an adapter name substring.
+    ///
+    /// Searches all available adapters for one whose name (case-insensitive)
+    /// contains `name_hint`. Useful for targeting a specific GPU (e.g., "titan")
+    /// from a thread without modifying environment variables.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::error::HotSpringError`] if no matching adapter is found.
+    pub async fn from_adapter_name(name_hint: &str) -> Result<Self, crate::error::HotSpringError> {
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::default());
+        let adapters: Vec<wgpu::Adapter> = instance.enumerate_adapters(wgpu::Backends::all());
+
+        let hint_lower = name_hint.to_lowercase();
+        let selected = adapters.into_iter().find(|a: &wgpu::Adapter| {
+            a.get_info().name.to_lowercase().contains(&hint_lower)
+        }).ok_or(crate::error::HotSpringError::NoAdapter)?;
+
+        Self::from_adapter(selected).await
+    }
+
+    /// Create GPU device from a pre-selected wgpu adapter.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::error::HotSpringError`] if device creation fails.
+    pub async fn from_adapter(selected: wgpu::Adapter) -> Result<Self, crate::error::HotSpringError> {
+        let adapter_info = selected.get_info();
+        let adapter_features = selected.features();
+
+        let mut required_features = wgpu::Features::empty();
+        if adapter_features.contains(wgpu::Features::SHADER_F64) {
+            required_features |= wgpu::Features::SHADER_F64;
+        }
+        if adapter_features.contains(wgpu::Features::SHADER_F16) {
+            required_features |= wgpu::Features::SHADER_F16;
+        }
+        if adapter_features.contains(wgpu::Features::TIMESTAMP_QUERY) {
+            required_features |= wgpu::Features::TIMESTAMP_QUERY;
+        }
+
+        let required_limits = wgpu::Limits {
+            max_storage_buffer_binding_size: 2 * 1024 * 1024 * 1024,
+            max_buffer_size: 4 * 1024 * 1024 * 1024,
+            max_storage_buffers_per_shader_stage: 12,
+            ..wgpu::Limits::default()
+        };
+
+        let device_result = selected
+            .request_device(
+                &wgpu::DeviceDescriptor {
+                    label: Some("hotSpring secondary device"),
+                    required_features,
+                    required_limits,
+                    memory_hints: wgpu::MemoryHints::default(),
+                },
+                None,
+            )
+            .await;
+        let (device, queue) = device_result
+            .map_err(|e| crate::error::HotSpringError::DeviceCreation(e.to_string()))?;
+
+        let adapter_name = adapter_info.name.clone();
+        let has_f64 = required_features.contains(wgpu::Features::SHADER_F64);
+        let has_timestamps = required_features.contains(wgpu::Features::TIMESTAMP_QUERY);
+
+        let wgpu_device = Arc::new(WgpuDevice::from_existing(
+            Arc::new(device),
+            Arc::new(queue),
+            adapter_info,
+        ));
+        let tensor_ctx = Arc::new(TensorContext::new(Arc::clone(&wgpu_device)));
+        let driver_profile = GpuDriverProfile::from_device(&wgpu_device);
+
+        Ok(Self {
+            adapter_name,
+            has_f64,
+            has_timestamps,
+            wgpu_device,
+            tensor_ctx,
+            driver_profile,
+        })
+    }
+
     /// Enumerate all available GPU adapters.
     #[must_use]
     pub fn enumerate_adapters() -> Vec<AdapterInfo> {

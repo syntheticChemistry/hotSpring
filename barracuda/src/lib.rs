@@ -63,6 +63,8 @@ pub mod physics;
 pub mod pipeline;
 /// NMP cascade filter for L2 heterogeneous pipeline.
 pub mod prescreen;
+/// Physics proxy pipeline (Anderson 3D, Z(3) Potts) for NPU training.
+pub mod proxy;
 /// Traces every hardcoded value to its Python origin (script, commit, date).
 pub mod provenance;
 /// Spectral theory re-exports from `barracuda::spectral`.
