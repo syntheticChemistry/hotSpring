@@ -7,6 +7,24 @@
 
 ---
 
+## Critical Bug Found: Fermion Force Sign + Factor
+
+Before the sweep could run, systematic debugging identified TWO bugs in
+the fermion force computation:
+
+1. **Wrong sign**: The force shader computes `+∂S_f/∂A` (ascending gradient)
+   but HMC needs `-∂S_f/∂A` (descending gradient).
+
+2. **Missing factor of 2**: The shader uses `η/2` from the Dirac hopping
+   term, but both `D` and `D†` contribute to the force, combining to give
+   a factor of `η` (not `η/2`). The shader's result is half the correct value.
+
+**Fix**: Momentum kick coefficient changed from `+dt` to `-2*dt` for the
+fermion force, giving the correct `F = -η TA[U M]`.
+
+**Validation**: After the fix, ΔH ≈ 0.0 for trajectories from 1 to 100 MD
+steps. The integrator properly conserves the Hamiltonian H = S_g + T + S_f.
+
 ## Motivation
 
 Exp 023 revealed that HMC step size (dt) tuning for dynamical fermions is

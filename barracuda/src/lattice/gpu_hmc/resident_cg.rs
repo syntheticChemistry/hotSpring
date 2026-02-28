@@ -530,7 +530,10 @@ fn gpu_total_force_dispatch_resident(
     gpu_dirac_dispatch(gpu, dyn_pipelines, state, &state.x_buf, &state.y_buf, 1.0);
     gpu_fermion_force_dispatch(gpu, dyn_pipelines, state);
 
-    let ferm_mom_params = make_link_mom_params(n_links, dt);
+    // The shader computes F = +(η/2) TA[U M]. The correct HMC force is
+    // F = -η TA[U M] (negative gradient, factor 2 from D + D† contributions).
+    // So momentum kick needs coefficient -2 × dt.
+    let ferm_mom_params = make_link_mom_params(n_links, -2.0 * dt);
     let ferm_mom_pbuf = gpu.create_uniform_buffer(&ferm_mom_params, "rcg_fmom_p");
     let ferm_mom_bg = gpu.create_bind_group(
         &dyn_pipelines.gauge.momentum_pipeline,
