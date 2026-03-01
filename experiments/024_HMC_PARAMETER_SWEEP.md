@@ -1,6 +1,6 @@
 # Experiment 024: HMC Parameter Sweep — NPU Training Data
 
-**Status:** IN PROGRESS
+**Status:** COMPLETE
 **Date:** February 27, 2026
 **Depends on:** Exp 023 (pseudofermion heatbath fix)
 **License:** AGPL-3.0-only

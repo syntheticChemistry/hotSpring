@@ -1,7 +1,7 @@
 # hotSpring Specifications
 
-**Last Updated**: February 25, 2026
-**Status**: Phase A-I complete — 664 tests (629 lib + 31 integration + 4 doc), 39/39 validation suites, crate v0.6.14
+**Last Updated**: March 1, 2026
+**Status**: Phase A-J complete — ~700 tests, 39/39 validation suites, crate v0.6.15, 84 binaries
 **Domain**: Computational plasma physics, nuclear structure, transport, lattice QCD, spectral theory, surrogate learning
 
 ---
@@ -38,6 +38,7 @@
 | [PAPER_REVIEW_QUEUE.md](PAPER_REVIEW_QUEUE.md) | Active | Papers to review/reproduce, prioritized by tier |
 | [BARRACUDA_REQUIREMENTS.md](BARRACUDA_REQUIREMENTS.md) | Active | GPU kernel requirements and gap analysis |
 | [ANDERSON_4D_WEGNER_PROXY.md](ANDERSON_4D_WEGNER_PROXY.md) | Draft | 4D Anderson & Wegner block proxy for CG prediction |
+| [BIOMEGATE_BRAIN_ARCHITECTURE.md](BIOMEGATE_BRAIN_ARCHITECTURE.md) | Active | 4-substrate brain architecture: NPU steering, Nautilus Shell, concept edges |
 
 ### Existing Documentation (in parent directories)
 

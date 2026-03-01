@@ -30,7 +30,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 
 ---
 
-## Current Status (2026-02-27)
+## Current Status (2026-03-01)
 
 | Study | Status | Quantitative Checks |
 |-------|--------|-------------------|
@@ -97,8 +97,14 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **NPU Characterization Campaign** (Exp 020) | ✅ Complete | 13/13: thermalization detector 87.5%, rejection predictor 96.2%, 6-output multi-model, 6 pipeline placements, Akida feedback report drafted |
 | **Cross-Substrate ESN Comparison** (Exp 021) | ✅ Complete | 35/35: First GPU ESN dispatch via WGSL. GPU crossover at RS≈512 (8.2× at RS=1024). NPU 1000× faster streaming (2.8μs/step). Capability envelope: threshold, streaming, multi-output, mutation, QCD screening all confirmed |
 | **NPU Offload Mixed Pipeline** (Exp 022) | ✅ Complete | 8⁴ validated (10 β pts, 60% therm early-exit, 86% reject accuracy). 32⁴ production on **live AKD1000 hardware NPU** via PCIe. NPU worker thread (therm+reject+classify+steer), cross-run ESN bootstrap, trajectory logging |
-| **NPU GPU-Prep + 11-Head** (Exp 023) | 🔄 Running | 11-head ESN (9→11: QUENCHED_LENGTH, QUENCHED_THERM). NPU-as-GPU-conductor: pipelined pre-GPU predictions, quenched phase monitoring + early-exit, adaptive CG check_interval, intra-scan β steering. 51 wgpu 22 compile fixes. Code complete — first production run pending |
-| **TOTAL** | **39/39 Rust validation suites** | ~700 tests, 80 binaries, 62 WGSL shaders, 34/35 NPU HW checks. Both GPUs validated, DF64 production, cross-substrate ESN characterized, **live AKD1000 PCIe NPU: 11-head GPU conductor** |
+| **NPU GPU-Prep + 11-Head** (Exp 023) | ✅ Complete | 11-head ESN (9→11: QUENCHED_LENGTH, QUENCHED_THERM). NPU-as-GPU-conductor: pipelined pre-GPU predictions, quenched phase monitoring + early-exit, adaptive CG check_interval, intra-scan β steering. 51 wgpu 22 compile fixes |
+| **HMC Parameter Sweep** (Exp 024) | ✅ Complete | Fermion force sign/factor fix (-2x). 160 configs, 2,400 trajectories. NPU training data: 25 β points (quenched+dynamical) |
+| **GPU Saturation Multi-Physics** (Exp 025) | ✅ Complete | 16⁴ validation, Titan V chains, Anderson 3D proxy for CG prediction |
+| **4D Anderson-Wegner Proxy** (Exp 026) | 📋 Planned | 4D Anderson + Wegner block proxy; three tiers (3D scalar, 4D scalar, 4D block) |
+| **Energy Thermal Tracking** (Exp 027) | 📋 Planned | RAPL + k10temp + nvidia-smi energy sidecar monitor, `EnergySnapshot` struct |
+| **Brain Concurrent Pipeline** (Exp 028) | ✅ Complete | 4-layer brain: RTX 3090 + Titan V + CPU + NPU. NVK dual-GPU deadlock fix. ESN bootstrap from Exp 024 |
+| **NPU Steering Production** (Exp 029) | 🔄 Running | NPU-steered dynamical HMC. Bootstrap from Exp 024+028 weights. Adaptive β insertion. Nautilus Shell integration planned |
+| **TOTAL** | **39/39 Rust validation suites** | ~700 tests, 84 binaries, 62 WGSL shaders, 34/35 NPU HW checks. Both GPUs validated, DF64 production, cross-substrate ESN characterized, **live AKD1000 PCIe NPU: 4-layer brain architecture** |
 
 Papers 5, 7, 8, and 10 from the review queue are complete. Paper 5 transport fits
 (Daligault 2012) were recalibrated against 12 Sarkas Green-Kubo D* values (Feb 2026)
@@ -359,7 +365,7 @@ makes the upstream library richer and hotSpring leaner.
 - HFB shader suite — potentials + density + BCS bisection (14+GPU+6 checks, Tier 2)
 - NPU substrate discovery — `metalForge/forge/src/probe.rs` (local evolution)
 
-**Already leaning on upstream** (v0.6.9, synced to toadStool S62):
+**Already leaning on upstream** (v0.6.15, synced to toadStool S68):
 
 | Module | Upstream | Status |
 |--------|----------|--------|
@@ -533,7 +539,7 @@ hotSpring/
 │       ├── cross_spring_evolution.md  # Cross-spring shader ecosystem (164+ shaders)
 │       └── neuromorphic_silicon.md    # AKD1000 NPU exploration — silicon behavior, cross-substrate ESN
 │
-├── barracuda/                          # BarraCuda Rust crate — v0.6.15 (~700 tests, 80 binaries, 62 WGSL shaders)
+├── barracuda/                          # BarraCuda Rust crate — v0.6.15 (~700 tests, 84 binaries, 62 WGSL shaders)
 │   ├── Cargo.toml                     # Dependencies (requires ecoPrimals/phase1/toadstool)
 │   ├── CHANGELOG.md                   # Version history — baselines, tolerances, evolution
 │   ├── EVOLUTION_READINESS.md         # Rust module → GPU promotion tier + absorption status
@@ -909,6 +915,13 @@ These are **silent failures** — wrong results, no error messages. This fragili
 | [`experiments/021_CROSS_SUBSTRATE_ESN_COMPARISON.md`](experiments/021_CROSS_SUBSTRATE_ESN_COMPARISON.md) | Cross-substrate ESN: GPU dispatch, scaling crossover RS≈512, NPU 1000× streaming, capability envelope |
 | [`experiments/022_NPU_OFFLOAD_MIXED_PIPELINE.md`](experiments/022_NPU_OFFLOAD_MIXED_PIPELINE.md) | NPU offload mixed pipeline: live AKD1000 hardware, cross-run ESN bootstrap, 4 NPU placements |
 | [`experiments/023_DYNAMICAL_NPU_GPU_PREP.md`](experiments/023_DYNAMICAL_NPU_GPU_PREP.md) | NPU GPU-prep: 11-head ESN, pipelined predictions, quenched monitoring, adaptive CG, intra-scan steering |
+| [`experiments/024_HMC_PARAMETER_SWEEP.md`](experiments/024_HMC_PARAMETER_SWEEP.md) | HMC parameter sweep: fermion force fix, 160 configs, 2,400 trajectories, NPU training data |
+| [`experiments/025_GPU_SATURATION_MULTI_PHYSICS.md`](experiments/025_GPU_SATURATION_MULTI_PHYSICS.md) | GPU saturation: 16⁴ validation, Titan V chains, Anderson 3D proxy |
+| [`experiments/026_4D_ANDERSON_WEGNER_PROXY.md`](experiments/026_4D_ANDERSON_WEGNER_PROXY.md) | 4D Anderson + Wegner block proxy for CG prediction (planned) |
+| [`experiments/027_ENERGY_THERMAL_TRACKING.md`](experiments/027_ENERGY_THERMAL_TRACKING.md) | Energy + thermal tracking sidecar monitor (planned) |
+| [`experiments/028_BRAIN_CONCURRENT_PIPELINE.md`](experiments/028_BRAIN_CONCURRENT_PIPELINE.md) | Brain concurrent pipeline: 4-layer (3090+Titan V+CPU+NPU), NVK deadlock fix |
+| [`experiments/029_NPU_STEERING_PRODUCTION.md`](experiments/029_NPU_STEERING_PRODUCTION.md) | NPU-steered production: adaptive β insertion, brain architecture, Nautilus Shell integration |
+| [`specs/BIOMEGATE_BRAIN_ARCHITECTURE.md`](specs/BIOMEGATE_BRAIN_ARCHITECTURE.md) | Brain architecture: 4-substrate concurrent pipeline, NPU steering, Nautilus Shell integration |
 | [`metalForge/README.md`](metalForge/README.md) | Hardware characterization — philosophy, inventory, directory |
 | [`metalForge/npu/akida/BEYOND_SDK.md`](metalForge/npu/akida/BEYOND_SDK.md) | **10 overturned SDK assumptions** — the discovery document |
 | [`metalForge/npu/akida/HARDWARE.md`](metalForge/npu/akida/HARDWARE.md) | AKD1000 deep-dive: architecture, compute model, PCIe BAR mapping |
@@ -955,8 +968,9 @@ substrate: GPU for physics + large reservoirs, NPU for streaming screening, CPU
 for precision. 62 WGSL shaders evolved across hotSpring's physics domains via
 toadStool's cross-spring absorption cycle. biomeGate (RTX 3090, 24GB) resolves
 the QCD deconfinement transition at 32⁴ (χ=40.1 at β=5.69, matching β_c=5.692)
-in 13.6 hours for $0.58. 23 experiments, 80 binaries, ~700 tests. Live AKD1000 NPU via PCIe —
+in 13.6 hours for $0.58. 29 experiments, 84 binaries, ~700 tests. Live AKD1000 NPU via PCIe —
 the first neuromorphic silicon in a lattice QCD production pipeline.
-11-head ESN orchestrates the GPU: pipelined predictions, quenched
-phase monitoring, adaptive CG tuning, and intra-scan β steering.
-The scarcity was artificial.*
+4-layer brain architecture (RTX 3090 + Titan V + CPU + NPU) steers dynamical
+HMC production. Evolutionary reservoir computing (Nautilus Shell) achieves 5.3%
+LOO generalization error on QCD observables with 540× cost reduction via
+quenched→dynamical transfer. The scarcity was artificial.*

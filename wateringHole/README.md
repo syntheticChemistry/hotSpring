@@ -1,7 +1,7 @@
 # wateringHole — Cross-Project Handoffs
 
 **Project:** hotSpring (ecoPrimals)
-**Last Updated:** February 26, 2026
+**Last Updated:** March 1, 2026
 
 ---
 
@@ -57,6 +57,10 @@ fossil record — never deleted, always available for provenance.
 
 | File | Date | Topic |
 |------|------|-------|
+| `HOTSPRING_NAUTILUS_BRAIN_TOADSTOOL_HANDOFF_MAR01_2026.md` | Mar 1 | Nautilus Shell + Brain Architecture: evolutionary reservoir, concept edges, toadStool absorption guide |
+| `HOTSPRING_TOADSTOOL_S68_BRAIN_SYNC_FEB28_2026.md` | Feb 28 | Brain architecture sync: 4-layer concurrent pipeline, NVK dual-GPU deadlock fix |
+| `HOTSPRING_TOADSTOOL_S68_SYNC_STATUS_FEB27_2026.md` | Feb 27 | S68 sync status: rewiring plan, validation gates |
+| `HOTSPRING_V0615_NPU_GPU_PREP_11HEAD_HANDOFF_FEB27_2026.md` | Feb 27 | v0.6.15: 11-head ESN, pipelined predictions, wgpu 22 fixes |
 | `HOTSPRING_V0614_NPU_HARDWARE_CROSS_RUN_LEARNING_HANDOFF_FEB26_2026.md` | Feb 26 | NPU hardware integration: live AKD1000, cross-run ESN learning, barracuda evolution review |
 | `HOTSPRING_V0614_CROSS_SUBSTRATE_ESN_TOADSTOOL_HANDOFF_FEB26_2026.md` | Feb 26 | Cross-substrate ESN: GPU dispatch, f32 buffers, NPU envelope, absorption guide |
 | `METALFORGE_STREAMING_PIPELINE_EVOLUTION_FEB26_2026.md` | Feb 26 | metalForge streaming pipeline: daisy-chain topology, NPU placement, substrate routing |
@@ -72,8 +76,8 @@ fossil record — never deleted, always available for provenance.
 
 ## Archive
 
-39 superseded handoffs in `handoffs/archive/`. These document the full
-evolution history from v0.4.x through v0.6.13:
+42 superseded handoffs in `handoffs/archive/`. These document the full
+evolution history from v0.4.x through v0.6.14:
 
 - Early toadStool rewire documents (v1-v4)
 - GPU primitive absorption records
