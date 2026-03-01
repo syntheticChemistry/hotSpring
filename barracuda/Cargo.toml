@@ -498,3 +498,18 @@ path = "src/bin/production_dynamical_sweep.rs"
 [[bin]]
 name = "gpu_physics_proxy"
 path = "src/bin/gpu_physics_proxy.rs"
+
+# ── NPU characterization campaign (Exp 020) ──
+[[bin]]
+name = "npu_experiment_campaign"
+path = "src/bin/npu_experiment_campaign.rs"
+
+# ── Cross-substrate ESN benchmark (Exp 021) ──
+[[bin]]
+name = "cross_substrate_esn_benchmark"
+path = "src/bin/cross_substrate_esn_benchmark.rs"
+
+# ── Gen 2 NPU validation: 36-head ESN, disagreement map, concept edges ──
+[[bin]]
+name = "validate_gen2_npu"
+path = "src/bin/validate_gen2_npu.rs"

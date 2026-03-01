@@ -514,50 +514,171 @@ impl NpuSimulator {
 //  Multi-Head ESN — 9-head readout for dynamical fermion pipeline
 // ═══════════════════════════════════════════════════════════════════
 
-/// Head indices for the 14-output multi-head ESN.
+/// Head indices for the multi-head ESN.
+///
+/// Gen 2 "Developed Organism" layout: 6 groups of 6 heads (36 total).
+/// Overlapping groups predict the same quantities from different physics
+/// models. Disagreement between groups = epistemic uncertainty signal.
 ///
 /// Akida's SkipDMA merges all FC layers into one hardware pass, so
-/// multi-output adds zero latency over single-output.
+/// 36 outputs adds negligible latency over 15 (~12 μs vs ~8 μs).
 pub mod heads {
-    /// Pre-scan: beta priority score from meta table context.
-    pub const BETA_PRIORITY: usize = 0;
-    /// Pre-scan: parameter suggestion (dt, n_md).
-    pub const PARAM_SUGGEST: usize = 1;
-    /// During: thermalization convergence detector.
-    pub const THERM_DETECT: usize = 2;
-    /// During: rejection likelihood predictor.
-    pub const REJECT_PREDICT: usize = 3;
-    /// During: phase classifier (confined/transition/deconfined).
-    pub const PHASE_CLASSIFY: usize = 4;
-    /// During: CG iteration count estimator.
-    pub const CG_ESTIMATE: usize = 5;
-    /// Post: quality score for a completed beta point.
-    pub const QUALITY_SCORE: usize = 6;
-    /// Post: anomaly flag for unexpected observables.
-    pub const ANOMALY_DETECT: usize = 7;
-    /// Post: next-run recommendation from full scan results.
-    pub const NEXT_RUN_RECOMMEND: usize = 8;
-    /// Pre-GPU: predicted optimal quenched pre-therm length (0–1 → 0–200 steps).
+    // ─── Gen 1 aliases (backward-compatible) ───
+    // These map to the equivalent Gen 2 heads so existing call sites
+    // compile without changes. New code should use group constants.
+    pub const BETA_PRIORITY: usize = D0_NEXT_BETA;
+    pub const PARAM_SUGGEST: usize = D1_OPTIMAL_DT;
+    pub const THERM_DETECT: usize = B4_QCD_THERM;
+    pub const REJECT_PREDICT: usize = B2_QCD_ACCEPTANCE;
+    pub const PHASE_CLASSIFY: usize = B1_QCD_PHASE;
+    pub const CG_ESTIMATE: usize = B0_QCD_CG_COST;
+    pub const QUALITY_SCORE: usize = E5_QUALITY_FORECAST;
+    pub const ANOMALY_DETECT: usize = B3_QCD_ANOMALY;
+    pub const NEXT_RUN_RECOMMEND: usize = D0_NEXT_BETA;
     pub const QUENCHED_LENGTH: usize = 9;
-    /// During-quenched: thermalization detector for quenched phase early-exit.
     pub const QUENCHED_THERM: usize = 10;
-    /// Physics proxy: RMT spectral predictor (β, m, L → predicted λ_min, ⟨r⟩).
     pub const RMT_SPECTRAL: usize = 11;
-    /// Physics proxy: Z(3) Potts phase classifier (β, L → phase label, β_c estimate).
-    pub const POTTS_PHASE: usize = 12;
-    /// Physics proxy: Anderson CG cost predictor (β, m, plaq_var → predicted CG iters).
-    pub const ANDERSON_CG: usize = 13;
-    /// Brain Layer 1: CG residual curve monitor (residual window → convergence ETA, anomaly score).
-    pub const CG_RESIDUAL_MONITOR: usize = 14;
-    /// Total number of heads.
-    pub const NUM_HEADS: usize = 15;
+    pub const POTTS_PHASE: usize = C1_POTTS_PHASE;
+    pub const ANDERSON_CG: usize = A0_ANDERSON_CG_COST;
+    pub const CG_RESIDUAL_MONITOR: usize = E0_RESIDUAL_ETA;
+
+    // ─── Group A: Anderson-informed (disorder → localization → spectral) ───
+    pub const A0_ANDERSON_CG_COST: usize = 0;
+    pub const A1_ANDERSON_PHASE: usize = 1;
+    pub const A2_ANDERSON_LAMBDA_MIN: usize = 2;
+    pub const A3_ANDERSON_ANOMALY: usize = 3;
+    pub const A4_ANDERSON_THERM: usize = 4;
+    pub const A5_ANDERSON_PRIORITY: usize = 5;
+
+    // ─── Group B: QCD-empirical (pure HMC observables, no proxy) ───
+    pub const B0_QCD_CG_COST: usize = 6;
+    pub const B1_QCD_PHASE: usize = 7;
+    pub const B2_QCD_ACCEPTANCE: usize = 8;
+    pub const B3_QCD_ANOMALY: usize = 9;
+    pub const B4_QCD_THERM: usize = 10;
+    pub const B5_QCD_PRIORITY: usize = 11;
+
+    // ─── Group C: Potts-informed (Svetitsky-Yaffe universality) ───
+    pub const C0_POTTS_CG_COST: usize = 12;
+    pub const C1_POTTS_PHASE: usize = 13;
+    pub const C2_POTTS_BETA_C: usize = 14;
+    pub const C3_POTTS_ANOMALY: usize = 15;
+    pub const C4_POTTS_ORDER: usize = 16;
+    pub const C5_POTTS_PRIORITY: usize = 17;
+
+    // ─── Group D: Steering/Control (action targets, not observable targets) ───
+    pub const D0_NEXT_BETA: usize = 18;
+    pub const D1_OPTIMAL_DT: usize = 19;
+    pub const D2_OPTIMAL_NMD: usize = 20;
+    pub const D3_CHECK_INTERVAL: usize = 21;
+    pub const D4_KILL_DECISION: usize = 22;
+    pub const D5_SKIP_DECISION: usize = 23;
+
+    // ─── Group E: Brain/Monitor (real-time CG residual stream) ───
+    pub const E0_RESIDUAL_ETA: usize = 24;
+    pub const E1_RESIDUAL_ANOMALY: usize = 25;
+    pub const E2_CONVERGENCE_RATE: usize = 26;
+    pub const E3_STALL_DETECTOR: usize = 27;
+    pub const E4_DIVERGENCE_DETECTOR: usize = 28;
+    pub const E5_QUALITY_FORECAST: usize = 29;
+
+    // ─── Group M: Meta-mixer (cross-group agreement, proxy trust) ───
+    pub const M0_CG_CONSENSUS: usize = 30;
+    pub const M1_PHASE_CONSENSUS: usize = 31;
+    pub const M2_CG_UNCERTAINTY: usize = 32;
+    pub const M3_PHASE_UNCERTAINTY: usize = 33;
+    pub const M4_PROXY_TRUST: usize = 34;
+    pub const M5_ATTENTION_LEVEL: usize = 35;
+
+    /// Total number of heads (Gen 2).
+    pub const NUM_HEADS: usize = 36;
+
+    /// Number of heads per group.
+    pub const GROUP_SIZE: usize = 6;
+
+    /// Group base indices for iteration.
+    pub const GROUP_A: usize = 0;
+    pub const GROUP_B: usize = 6;
+    pub const GROUP_C: usize = 12;
+    pub const GROUP_D: usize = 18;
+    pub const GROUP_E: usize = 24;
+    pub const GROUP_M: usize = 30;
+
+    /// CG cost heads across groups (for disagreement computation).
+    pub const CG_COST_HEADS: [usize; 3] = [A0_ANDERSON_CG_COST, B0_QCD_CG_COST, C0_POTTS_CG_COST];
+    /// Phase heads across groups.
+    pub const PHASE_HEADS: [usize; 3] = [A1_ANDERSON_PHASE, B1_QCD_PHASE, C1_POTTS_PHASE];
+    /// Anomaly heads across groups.
+    pub const ANOMALY_HEADS: [usize; 3] = [A3_ANDERSON_ANOMALY, B3_QCD_ANOMALY, C3_POTTS_ANOMALY];
+    /// Priority heads across groups.
+    pub const PRIORITY_HEADS: [usize; 3] = [A5_ANDERSON_PRIORITY, B5_QCD_PRIORITY, C5_POTTS_PRIORITY];
 }
 
-/// Multi-head NPU simulator wrapping a single reservoir with 15 readout heads.
+/// Cross-group disagreement signals (Gen 2 "Developed Organism").
+///
+/// Computed after each `predict_all_heads()` call by comparing overlapping
+/// heads across Groups A (Anderson), B (QCD), C (Potts). Large disagreement
+/// = high epistemic uncertainty = attention escalation.
+#[derive(Debug, Clone, Default)]
+pub struct HeadGroupDisagreement {
+    /// `max(A0,B0,C0) - min(A0,B0,C0)` — CG cost prediction spread.
+    pub delta_cg: f64,
+    /// Number of groups disagreeing on phase label (0, 1, 2, or 3).
+    pub delta_phase: f64,
+    /// `max(A3,B3,C3) - min(A3,B3,C3)` — anomaly score spread.
+    pub delta_anomaly: f64,
+    /// `max(A5,B5,C5) - min(A5,B5,C5)` — priority score spread.
+    pub delta_priority: f64,
+}
+
+impl HeadGroupDisagreement {
+    /// Compute disagreement from a full head output vector (length >= NUM_HEADS).
+    /// Returns default (all zeros) if the output is from a Gen 1 model (< 36 heads).
+    #[must_use]
+    pub fn from_outputs(outputs: &[f64]) -> Self {
+        if outputs.len() < heads::NUM_HEADS {
+            return Self::default();
+        }
+        let spread = |indices: &[usize]| -> f64 {
+            let vals: Vec<f64> = indices.iter().map(|&i| outputs[i]).collect();
+            let max = vals.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+            let min = vals.iter().copied().fold(f64::INFINITY, f64::min);
+            max - min
+        };
+        let phase_disagree = {
+            let labels: Vec<i32> = heads::PHASE_HEADS.iter().map(|&i| {
+                if outputs[i] > 0.6 { 2 } else if outputs[i] < 0.3 { 0 } else { 1 }
+            }).collect();
+            let distinct = labels.iter().collect::<std::collections::HashSet<_>>().len();
+            (distinct - 1) as f64
+        };
+        Self {
+            delta_cg: spread(&heads::CG_COST_HEADS),
+            delta_phase: phase_disagree,
+            delta_anomaly: spread(&heads::ANOMALY_HEADS),
+            delta_priority: spread(&heads::PRIORITY_HEADS),
+        }
+    }
+
+    /// Scalar urgency score for the attention state machine.
+    /// 0.0 = full agreement, 1.0 = maximum disagreement.
+    #[must_use]
+    pub fn urgency(&self) -> f64 {
+        (self.delta_cg * 0.4 + self.delta_phase * 0.3
+            + self.delta_anomaly * 0.2 + self.delta_priority * 0.1)
+            .clamp(0.0, 1.0)
+    }
+}
+
+/// Multi-head NPU simulator wrapping a single reservoir with N readout heads.
 ///
 /// The reservoir state is computed once per input sequence; each head applies
 /// its own readout weights to produce independent outputs. Weight swapping
 /// via `set_regime_weights()` takes ~14 ms on Akida hardware.
+///
+/// Gen 2: supports 36 overlapping heads with cross-group disagreement.
+/// Backward-compatible with Gen 1 (15-head) saved weights — missing
+/// heads are zero-padded on load.
 pub struct MultiHeadNpu {
     base: NpuSimulator,
     regime_weight_sets: Vec<ExportedWeights>,
@@ -597,9 +718,23 @@ impl MultiHeadNpu {
 
     /// Run the reservoir on an input sequence, then return all head outputs.
     ///
-    /// This is the primary inference path: one reservoir pass, 9 readout values.
+    /// One reservoir pass, N readout values. Gen 2: 36 heads. Gen 1: 15 heads.
     pub fn predict_all_heads(&mut self, input_sequence: &[Vec<f64>]) -> Vec<f64> {
         self.base.predict(input_sequence)
+    }
+
+    /// Run all heads and compute cross-group disagreement (Gen 2).
+    ///
+    /// Returns `(outputs, disagreement)`. The disagreement signal measures
+    /// epistemic uncertainty across physics-informed head groups.
+    /// For Gen 1 models (< 36 heads), disagreement is zero.
+    pub fn predict_with_disagreement(
+        &mut self,
+        input_sequence: &[Vec<f64>],
+    ) -> (Vec<f64>, HeadGroupDisagreement) {
+        let outputs = self.base.predict(input_sequence);
+        let disagreement = HeadGroupDisagreement::from_outputs(&outputs);
+        (outputs, disagreement)
     }
 
     /// Run reservoir and return a single head's output.

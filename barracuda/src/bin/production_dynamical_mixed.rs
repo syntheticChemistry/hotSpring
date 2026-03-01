@@ -40,7 +40,7 @@ use hotspring_barracuda::lattice::gpu_hmc::{
 use hotspring_barracuda::lattice::hmc::{self, HmcConfig, IntegratorType};
 use hotspring_barracuda::lattice::wilson::Lattice;
 use hotspring_barracuda::md::reservoir::{
-    heads, EchoStateNetwork, EsnConfig, ExportedWeights, MultiHeadNpu,
+    heads, EchoStateNetwork, EsnConfig, ExportedWeights, HeadGroupDisagreement, MultiHeadNpu,
 };
 use hotspring_barracuda::proxy::{self, CortexRequest, ProxyFeatures};
 
@@ -124,10 +124,112 @@ fn load_meta_table(path: &str) -> Vec<MetaRow> {
             return Vec::new();
         }
     };
-    content
+    // Try parsing as MetaRow first
+    let meta: Vec<MetaRow> = content
         .lines()
         .filter_map(|line| serde_json::from_str::<MetaRow>(line).ok())
-        .collect()
+        .collect();
+    if !meta.is_empty() {
+        return meta;
+    }
+    // Fall back to trajectory JSONL aggregation
+    load_trajectory_log_as_meta(path, &content)
+}
+
+/// Aggregate per-trajectory JSONL into per-beta MetaRows.
+/// This lets the NPU bootstrap from raw production logs (Exp 024, 028, etc).
+fn load_trajectory_log_as_meta(path: &str, content: &str) -> Vec<MetaRow> {
+    use std::collections::BTreeMap;
+
+    #[derive(serde::Deserialize)]
+    struct TrajRecord {
+        beta: f64,
+        #[serde(default)]
+        mass: f64,
+        plaquette: f64,
+        accepted: bool,
+        #[serde(default)]
+        cg_iters: usize,
+        #[serde(default)]
+        phase: String,
+    }
+
+    let records: Vec<TrajRecord> = content
+        .lines()
+        .filter_map(|line| serde_json::from_str::<TrajRecord>(line).ok())
+        .collect();
+
+    if records.is_empty() {
+        eprintln!("  Warning: no parseable records in {path}");
+        return Vec::new();
+    }
+
+    // Group by beta (rounded to 4 decimals to merge floating-point noise)
+    let mut by_beta: BTreeMap<i64, Vec<&TrajRecord>> = BTreeMap::new();
+    for r in &records {
+        let key = (r.beta * 10000.0).round() as i64;
+        by_beta.entry(key).or_default().push(r);
+    }
+
+    let mut rows = Vec::new();
+    for (_key, group) in &by_beta {
+        let meas: Vec<&&TrajRecord> = group
+            .iter()
+            .filter(|r| r.phase == "measurement")
+            .collect();
+        let effective = if meas.is_empty() { group.as_slice() } else {
+            // safe: meas borrows from group which lives long enough
+            &[]
+        };
+        // Use measurement-phase records if available, otherwise all records
+        let (plaqs, accepts, cgs): (Vec<f64>, Vec<bool>, Vec<usize>) = if !meas.is_empty() {
+            (
+                meas.iter().map(|r| r.plaquette).collect(),
+                meas.iter().map(|r| r.accepted).collect(),
+                meas.iter().map(|r| r.cg_iters).collect(),
+            )
+        } else {
+            (
+                group.iter().map(|r| r.plaquette).collect(),
+                group.iter().map(|r| r.accepted).collect(),
+                group.iter().map(|r| r.cg_iters).collect(),
+            )
+        };
+        let _ = effective; // suppress unused warning
+
+        if plaqs.is_empty() {
+            continue;
+        }
+
+        let n = plaqs.len();
+        let mean_plaq = plaqs.iter().sum::<f64>() / n as f64;
+        let variance = plaqs.iter().map(|p| (p - mean_plaq).powi(2)).sum::<f64>() / n as f64;
+        let chi = variance * (n as f64);
+        let acceptance = accepts.iter().filter(|&&a| a).count() as f64 / n as f64;
+        let mean_cg = if cgs.iter().any(|&c| c > 0) {
+            let nonzero: Vec<f64> = cgs.iter().filter(|&&c| c > 0).map(|&c| c as f64).collect();
+            nonzero.iter().sum::<f64>() / nonzero.len() as f64
+        } else {
+            0.0
+        };
+
+        rows.push(MetaRow {
+            lattice: 8,
+            beta: group[0].beta,
+            mass: Some(group[0].mass),
+            mode: "dynamical".into(),
+            mean_plaq,
+            chi,
+            acceptance,
+            mean_cg_iters: mean_cg,
+            wall_s_per_traj: 0.0,
+            n_meas: n,
+        });
+    }
+
+    println!("  Bootstrap: aggregated {path} → {} beta points from {} trajectories",
+        rows.len(), records.len());
+    rows
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -220,6 +322,7 @@ enum NpuRequest {
     },
     SteerAdaptive {
         measured_betas: Vec<f64>,
+        queued_betas: Vec<f64>,
         beta_min: f64,
         beta_max: f64,
         n_candidates: usize,
@@ -254,6 +357,13 @@ enum NpuRequest {
     ExportWeights {
         path: String,
     },
+    DisagreementQuery {
+        beta: f64,
+        plaq: f64,
+        mass: f64,
+        chi: f64,
+        acceptance: f64,
+    },
     Shutdown,
 }
 
@@ -276,6 +386,13 @@ enum NpuResponse {
     WeightsSaved { path: String },
     ResidualAck,
     ProxyFeaturesAck,
+    DisagreementSnapshot {
+        delta_cg: f64,
+        delta_phase: f64,
+        delta_anomaly: f64,
+        delta_priority: f64,
+        urgency: f64,
+    },
 }
 
 /// Spawn result includes the interrupt channel for brain-mode CG monitoring.
@@ -569,17 +686,21 @@ fn spawn_npu_worker() -> NpuWorkerHandles {
                             .ok();
                     }
 
-                    NpuRequest::SteerAdaptive { measured_betas, beta_min, beta_max, n_candidates } => {
+                    NpuRequest::SteerAdaptive { measured_betas, queued_betas, beta_min, beta_max, n_candidates } => {
                         let suggestion = if let Some(ref mut npu) = multi_npu {
                             let mut best_beta = None;
                             let mut best_score = f64::NEG_INFINITY;
                             let step = (beta_max - beta_min) / (n_candidates as f64 + 1.0);
+                            let exclusion = step * 0.3_f64.max(0.025);
                             for ci in 1..=n_candidates {
                                 let candidate = beta_min + ci as f64 * step;
-                                let too_close = measured_betas
+                                let too_close_measured = measured_betas
                                     .iter()
-                                    .any(|&m| (m - candidate).abs() < step * 0.3);
-                                if too_close {
+                                    .any(|&m| (m - candidate).abs() < exclusion);
+                                let too_close_queued = queued_betas
+                                    .iter()
+                                    .any(|&q| (q - candidate).abs() < exclusion);
+                                if too_close_measured || too_close_queued {
                                     continue;
                                 }
                                 let input = vec![
@@ -601,7 +722,11 @@ fn spawn_npu_worker() -> NpuWorkerHandles {
                             }
                             best_beta
                         } else {
-                            let gaps = find_largest_gaps(&measured_betas, beta_min, beta_max, 1);
+                            let all_known: Vec<f64> = measured_betas.iter()
+                                .chain(queued_betas.iter())
+                                .copied()
+                                .collect();
+                            let gaps = find_largest_gaps(&all_known, beta_min, beta_max, 1);
                             gaps.into_iter().next()
                         };
                         resp_tx.send(NpuResponse::AdaptiveSteered(suggestion)).ok();
@@ -859,6 +984,27 @@ fn spawn_npu_worker() -> NpuWorkerHandles {
                         resp_tx.send(NpuResponse::ProxyFeaturesAck).ok();
                     }
 
+                    NpuRequest::DisagreementQuery { beta, plaq, mass, chi, acceptance } => {
+                        let dis = if let Some(ref mut npu) = multi_npu {
+                            let beta_norm = (beta - 5.0) / 2.0;
+                            let input: Vec<Vec<f64>> = (0..10)
+                                .map(|_| vec![beta_norm, plaq, mass, chi / 1000.0, acceptance])
+                                .collect();
+                            let (outputs, d) = npu.predict_with_disagreement(&input);
+                            let _ = outputs;
+                            d
+                        } else {
+                            HeadGroupDisagreement::default()
+                        };
+                        resp_tx.send(NpuResponse::DisagreementSnapshot {
+                            delta_cg: dis.delta_cg,
+                            delta_phase: dis.delta_phase,
+                            delta_anomaly: dis.delta_anomaly,
+                            delta_priority: dis.delta_priority,
+                            urgency: dis.urgency(),
+                        }).ok();
+                    }
+
                     NpuRequest::Shutdown => break,
                 }
             }
@@ -1052,7 +1198,7 @@ fn plaquette_variance(history: &[f64]) -> f64 {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  Training data builder for 11-head ESN
+//  Training data builder — Gen 2 overlapping head groups (36 heads)
 // ═══════════════════════════════════════════════════════════════════
 
 fn build_training_data(results: &[BetaResult]) -> (Vec<Vec<Vec<f64>>>, Vec<Vec<f64>>) {
@@ -1073,7 +1219,25 @@ fn build_training_data(results: &[BetaResult]) -> (Vec<Vec<Vec<f64>>>, Vec<Vec<f
         } else {
             0.0
         };
-        let quality = (r.acceptance * 0.4 + (1.0 - r.std_plaq / r.mean_plaq.abs().max(1e-10)).clamp(0.0, 1.0) * 0.3 + (r.n_traj as f64 / 1000.0).min(1.0) * 0.3).clamp(0.0, 1.0);
+        let quality = (r.acceptance * 0.4
+            + (1.0 - r.std_plaq / r.mean_plaq.abs().max(1e-10)).clamp(0.0, 1.0) * 0.3
+            + (r.n_traj as f64 / 1000.0).min(1.0) * 0.3)
+            .clamp(0.0, 1.0);
+        let cg_norm = r.mean_cg_iters / 500.0;
+        let _quenched_length_target = if r.npu_quenched_budget > 0 {
+            r.npu_quenched_used as f64 / 200.0
+        } else {
+            proximity * 0.5
+        };
+        let quenched_therm_target = if r.npu_quenched_early_exit { 1.0 } else { 0.0 };
+
+        // Anderson-informed phase: ⟨r⟩ > 0.48 → extended → deconfined
+        let anderson_phase = if r.beta > 5.5 { 1.0 } else if r.beta < 5.0 { 0.0 } else { 0.5 };
+        // Potts-informed phase: β_Potts = (β_QCD - 4) / 3
+        let potts_phase = if r.beta > 5.8 { 1.0 } else if r.beta < 5.2 { 0.0 } else { 0.5 };
+        // Optimal dt from acceptance: target ~60-70% acceptance
+        let optimal_dt = 0.01 + r.acceptance.abs() * 0.04;
+        let optimal_nmd = ((1.0 / optimal_dt).round() / 200.0).clamp(0.0, 1.0);
 
         let seq: Vec<Vec<f64>> = (0..seq_len)
             .map(|j| {
@@ -1089,31 +1253,61 @@ fn build_training_data(results: &[BetaResult]) -> (Vec<Vec<Vec<f64>>>, Vec<Vec<f
             .collect();
         seqs.push(seq);
 
-        let quenched_length_target = if r.npu_quenched_budget > 0 {
-            r.npu_quenched_used as f64 / 200.0
-        } else {
-            proximity * 0.5
-        };
-        let quenched_therm_target = if r.npu_quenched_early_exit { 1.0 } else { 0.0 };
+        // 36-head targets organized by group (Gen 2)
+        let mut t = vec![0.0; heads::NUM_HEADS];
 
-        // 15-head targets: one per head (matching heads::NUM_HEADS)
-        targets.push(vec![
-            proximity,                                     // head 0: beta priority
-            0.01 + r.acceptance.abs() * 0.04,             // head 1: param suggest (dt proxy)
-            if r.acceptance > 0.3 { 1.0 } else { 0.0 },  // head 2: therm converged
-            1.0 - r.acceptance,                            // head 3: reject predict
-            phase_val,                                     // head 4: phase classify
-            r.mean_cg_iters / 500.0,                      // head 5: CG estimate
-            quality,                                       // head 6: quality score
-            anomaly_val,                                   // head 7: anomaly detect
-            beta_norm,                                     // head 8: next-run recommend
-            quenched_length_target,                        // head 9: quenched length
-            quenched_therm_target,                         // head 10: quenched therm
-            0.0,                                           // head 11: RMT spectral (proxy)
-            phase_val,                                     // head 12: Potts phase (proxy)
-            r.mean_cg_iters / 500.0,                      // head 13: Anderson CG (proxy)
-            anomaly_val,                                   // head 14: CG residual monitor (brain)
-        ]);
+        // Group A: Anderson-informed
+        t[heads::A0_ANDERSON_CG_COST] = cg_norm;
+        t[heads::A1_ANDERSON_PHASE] = anderson_phase;
+        t[heads::A2_ANDERSON_LAMBDA_MIN] = (1.0 / (cg_norm + 0.01)).clamp(0.0, 1.0);
+        t[heads::A3_ANDERSON_ANOMALY] = anomaly_val;
+        t[heads::A4_ANDERSON_THERM] = quenched_therm_target;
+        t[heads::A5_ANDERSON_PRIORITY] = proximity;
+
+        // Group B: QCD-empirical
+        t[heads::B0_QCD_CG_COST] = cg_norm;
+        t[heads::B1_QCD_PHASE] = phase_val;
+        t[heads::B2_QCD_ACCEPTANCE] = 1.0 - r.acceptance;
+        t[heads::B3_QCD_ANOMALY] = anomaly_val;
+        t[heads::B4_QCD_THERM] = if r.acceptance > 0.3 { 1.0 } else { 0.0 };
+        t[heads::B5_QCD_PRIORITY] = proximity;
+
+        // Group C: Potts-informed
+        t[heads::C0_POTTS_CG_COST] = cg_norm;
+        t[heads::C1_POTTS_PHASE] = potts_phase;
+        t[heads::C2_POTTS_BETA_C] = (r.beta - 5.69).abs().min(1.0);
+        t[heads::C3_POTTS_ANOMALY] = anomaly_val;
+        t[heads::C4_POTTS_ORDER] = r.polyakov.abs().clamp(0.0, 1.0);
+        t[heads::C5_POTTS_PRIORITY] = proximity;
+
+        // Group D: Steering/Control (action targets)
+        t[heads::D0_NEXT_BETA] = proximity;
+        t[heads::D1_OPTIMAL_DT] = optimal_dt;
+        t[heads::D2_OPTIMAL_NMD] = optimal_nmd;
+        t[heads::D3_CHECK_INTERVAL] = if cg_norm > 0.5 { 0.2 } else { 0.8 };
+        t[heads::D4_KILL_DECISION] = if r.mean_cg_iters > 400.0 { 0.8 } else { 0.1 };
+        t[heads::D5_SKIP_DECISION] = if quality < 0.2 { 0.8 } else { 0.1 };
+
+        // Group E: Brain/Monitor (trained from CG residual history)
+        t[heads::E0_RESIDUAL_ETA] = cg_norm;
+        t[heads::E1_RESIDUAL_ANOMALY] = anomaly_val;
+        t[heads::E2_CONVERGENCE_RATE] = (1.0 - cg_norm).clamp(0.0, 1.0);
+        t[heads::E3_STALL_DETECTOR] = if r.mean_cg_iters > 300.0 { 0.5 } else { 0.0 };
+        t[heads::E4_DIVERGENCE_DETECTOR] = if anomaly_val > 0.5 { 0.8 } else { 0.0 };
+        t[heads::E5_QUALITY_FORECAST] = quality;
+
+        // Group M: Meta-mixer (trained on cross-group agreement)
+        // During initial training, meta targets are derived from whether
+        // groups A, B, C agree. After the first run with disagreement data,
+        // these targets are replaced with actual hindsight scores.
+        t[heads::M0_CG_CONSENSUS] = cg_norm;
+        t[heads::M1_PHASE_CONSENSUS] = phase_val;
+        t[heads::M2_CG_UNCERTAINTY] = (anderson_phase - phase_val).abs();
+        t[heads::M3_PHASE_UNCERTAINTY] = (potts_phase - phase_val).abs();
+        t[heads::M4_PROXY_TRUST] = if (anderson_phase - phase_val).abs() < 0.3 { 0.8 } else { 0.3 };
+        t[heads::M5_ATTENTION_LEVEL] = if anomaly_val > 0.5 { 0.8 } else if cg_norm > 0.5 { 0.4 } else { 0.1 };
+
+        targets.push(t);
     }
 
     (seqs, targets)
@@ -1362,27 +1556,51 @@ fn main() {
     let cortex_handles = spawn_cortex_worker();
     println!("  CPU cortex: spawned (Anderson 3D proxy pipeline)");
 
-    // ═══ Bootstrap from meta table or weights ═══
-    if let Some(ref path) = args.bootstrap_from {
-        let p = std::path::Path::new(path.as_str());
-        let is_weights = p.extension().is_some_and(|ext| ext.eq_ignore_ascii_case("json"))
-            && !path.contains("jsonl");
+    // ═══ Bootstrap from meta table, trajectory logs, or saved weights ═══
+    // Supports comma-separated paths: weights first, then trajectory data for refinement.
+    if let Some(ref paths_str) = args.bootstrap_from {
+        let paths: Vec<&str> = paths_str.split(',').map(|s| s.trim()).collect();
+        let mut all_meta_rows: Vec<MetaRow> = Vec::new();
+        let mut weights_loaded = false;
 
-        if is_weights {
-            println!("  Bootstrap: loading ESN weights from {path}");
-            npu_tx
-                .send(NpuRequest::BootstrapFromWeights { path: path.clone() })
-                .ok();
-        } else {
-            println!("  Bootstrap: training ESN from meta table {path}");
-            let rows = load_meta_table(path);
-            npu_tx.send(NpuRequest::BootstrapFromMeta { rows }).ok();
-        }
-        match npu_rx.recv() {
-            Ok(NpuResponse::Bootstrapped { n_points }) => {
-                println!("  Bootstrap: loaded {n_points} data points");
+        for path in &paths {
+            let p = std::path::Path::new(path);
+            let is_weights = p.extension().is_some_and(|ext| ext.eq_ignore_ascii_case("json"))
+                && !path.contains("jsonl");
+
+            if is_weights && !weights_loaded {
+                println!("  Bootstrap: loading ESN weights from {path}");
+                npu_tx
+                    .send(NpuRequest::BootstrapFromWeights { path: path.to_string() })
+                    .ok();
+                match npu_rx.recv() {
+                    Ok(NpuResponse::Bootstrapped { .. }) => {
+                        println!("  Bootstrap: weights loaded");
+                        weights_loaded = true;
+                    }
+                    _ => println!("  Bootstrap: weights failed, continuing..."),
+                }
+            } else if !is_weights {
+                println!("  Bootstrap: loading data from {path}");
+                let rows = load_meta_table(path);
+                println!("  Bootstrap: got {} beta points", rows.len());
+                all_meta_rows.extend(rows);
             }
-            _ => println!("  Bootstrap: failed, starting cold"),
+        }
+
+        // If we have trajectory data, train (or retrain) the ESN on it
+        if !all_meta_rows.is_empty() {
+            let n = all_meta_rows.len();
+            println!("  Bootstrap: training ESN from {n} combined beta points");
+            npu_tx.send(NpuRequest::BootstrapFromMeta { rows: all_meta_rows }).ok();
+            match npu_rx.recv() {
+                Ok(NpuResponse::Bootstrapped { n_points }) => {
+                    println!("  Bootstrap: trained on {n_points} data points");
+                }
+                _ => println!("  Bootstrap: training failed, using weights only"),
+            }
+        } else if !weights_loaded {
+            println!("  Bootstrap: no data loaded, starting cold");
         }
     }
     println!();
@@ -1434,10 +1652,15 @@ fn main() {
 
     // ═══ Pre-computation: NPU screens β candidates ═══
     println!("═══ Pre-Computation: NPU β Screening ═══");
-    let meta_context = args
+    let meta_context: Vec<MetaRow> = args
         .bootstrap_from
         .as_ref()
-        .map(|p| load_meta_table(p))
+        .map(|paths_str| {
+            paths_str
+                .split(',')
+                .flat_map(|p| load_meta_table(p.trim()))
+                .collect()
+        })
         .unwrap_or_default();
 
     npu_tx
@@ -1936,6 +2159,31 @@ fn main() {
             println!("  ESN retrained → β_c ≈ {beta_c:.4}");
         }
 
+        // Gen 2: Query disagreement snapshot for concept edge detection
+        npu_tx
+            .send(NpuRequest::DisagreementQuery {
+                beta, plaq: mean_plaq, mass: args.mass,
+                chi: susceptibility, acceptance,
+            })
+            .ok();
+        npu_stats.total_npu_calls += 1;
+        if let Ok(NpuResponse::DisagreementSnapshot { delta_cg, delta_phase, delta_anomaly, delta_priority, urgency }) = npu_rx.recv() {
+            if urgency > 0.05 {
+                println!("  [Concept Edge] β={beta:.4}: Δ_cg={delta_cg:.3} Δ_phase={delta_phase:.1} Δ_anom={delta_anomaly:.3} urgency={urgency:.3}");
+            }
+            if let Some(ref mut w) = traj_writer {
+                let line = serde_json::json!({
+                    "beta": beta, "phase": "disagreement_snapshot",
+                    "delta_cg": delta_cg, "delta_phase": delta_phase,
+                    "delta_anomaly": delta_anomaly, "delta_priority": delta_priority,
+                    "urgency": urgency,
+                    "mean_plaq": mean_plaq, "acceptance": acceptance,
+                    "susceptibility": susceptibility,
+                });
+                writeln!(w, "{line}").ok();
+            }
+        }
+
         // Adaptive steering: after 3+ points, ask NPU to fill gaps
         if results.len() >= 3 && bi + 1 < beta_order.len() {
             let measured: Vec<f64> = results.iter().map(|r| r.beta).collect();
@@ -1945,23 +2193,20 @@ fn main() {
 
             npu_tx
                 .send(NpuRequest::SteerAdaptive {
-                    measured_betas: measured,
+                    measured_betas: measured.clone(),
+                    queued_betas: remaining.clone(),
                     beta_min,
                     beta_max,
-                    n_candidates: 40,
+                    n_candidates: 80,
                 })
                 .ok();
             npu_stats.total_npu_calls += 1;
 
             npu_stats.adaptive_steered += 1;
             if let Ok(NpuResponse::AdaptiveSteered(Some(new_beta))) = npu_rx.recv() {
-                let already_queued = remaining.iter().any(|&b| (b - new_beta).abs() < 0.02);
-                let already_measured = results.iter().any(|r| (r.beta - new_beta).abs() < 0.02);
-                if !already_queued && !already_measured {
-                    println!("  NPU adaptive steer: inserting β={new_beta:.4} into scan queue");
-                    beta_order.push(new_beta);
-                    npu_stats.adaptive_inserted += 1;
-                }
+                println!("  NPU adaptive steer: inserting β={new_beta:.4} into scan queue");
+                beta_order.push(new_beta);
+                npu_stats.adaptive_inserted += 1;
             }
         }
 

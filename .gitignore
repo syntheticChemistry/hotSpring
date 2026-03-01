@@ -64,6 +64,12 @@ nohup.out
 # ----- Experiment results (generated, regenerable) -----
 barracuda/results/
 
+# ----- Results debris: pilot runs, debug fixes, test artifacts -----
+results/pilot_*.jsonl
+results/*_force_fix*.jsonl
+results/*_test.jsonl
+results/*_test_*.jsonl
+
 # ----- Rust build artifacts -----
 barracuda/target/
 barracuda/Cargo.lock
