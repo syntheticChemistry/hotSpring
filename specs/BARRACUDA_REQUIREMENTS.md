@@ -2,7 +2,7 @@
 
 **Last Updated**: February 25, 2026
 **Purpose**: GPU kernel requirements, gap analysis, and evolution priorities
-**Crate**: hotspring-barracuda v0.6.14 — 664 tests, 76 binaries, 25 WGSL shaders
+**Crate**: hotspring-barracuda v0.6.15 — ~700 tests, 84 binaries, 62 WGSL shaders
 
 ---
 

@@ -1354,6 +1354,7 @@ struct CliArgs {
     bootstrap_from: Option<String>,
     save_weights: Option<String>,
     no_titan: bool,
+    max_adaptive: usize,
 }
 
 fn parse_args() -> CliArgs {
@@ -1374,6 +1375,7 @@ fn parse_args() -> CliArgs {
     let mut bootstrap_from = None;
     let mut save_weights = None;
     let mut no_titan = false;
+    let mut max_adaptive: usize = 12;
 
     for arg in std::env::args().skip(1) {
         if let Some(val) = arg.strip_prefix("--lattice=") {
@@ -1410,6 +1412,8 @@ fn parse_args() -> CliArgs {
             n_md_override = Some(val.parse().expect("--n-md=N"));
         } else if arg == "--no-titan" {
             no_titan = true;
+        } else if let Some(val) = arg.strip_prefix("--max-adaptive=") {
+            max_adaptive = val.parse().expect("--max-adaptive=N");
         }
     }
 
@@ -1431,6 +1435,7 @@ fn parse_args() -> CliArgs {
         bootstrap_from,
         save_weights,
         no_titan,
+        max_adaptive,
     }
 }
 
@@ -2185,11 +2190,15 @@ fn main() {
         }
 
         // Adaptive steering: after 3+ points, ask NPU to fill gaps
-        if results.len() >= 3 && bi + 1 < beta_order.len() {
+        if results.len() >= 3 && npu_stats.adaptive_inserted < args.max_adaptive {
             let measured: Vec<f64> = results.iter().map(|r| r.beta).collect();
-            let remaining: Vec<f64> = beta_order[bi + 1..].to_vec();
-            let beta_min = beta_order.iter().copied().fold(f64::INFINITY, f64::min) - 0.1;
-            let beta_max = beta_order.iter().copied().fold(f64::NEG_INFINITY, f64::max) + 0.1;
+            let remaining: Vec<f64> = if bi + 1 < beta_order.len() {
+                beta_order[bi + 1..].to_vec()
+            } else {
+                vec![]
+            };
+            let beta_min = results.iter().map(|r| r.beta).fold(f64::INFINITY, f64::min) - 0.1;
+            let beta_max = results.iter().map(|r| r.beta).fold(f64::NEG_INFINITY, f64::max) + 0.1;
 
             npu_tx
                 .send(NpuRequest::SteerAdaptive {
@@ -2204,10 +2213,13 @@ fn main() {
 
             npu_stats.adaptive_steered += 1;
             if let Ok(NpuResponse::AdaptiveSteered(Some(new_beta))) = npu_rx.recv() {
-                println!("  NPU adaptive steer: inserting β={new_beta:.4} into scan queue");
+                println!("  NPU adaptive steer: inserting β={new_beta:.4} into scan queue ({}/{} adaptive budget)",
+                    npu_stats.adaptive_inserted + 1, args.max_adaptive);
                 beta_order.push(new_beta);
                 npu_stats.adaptive_inserted += 1;
             }
+        } else if npu_stats.adaptive_inserted >= args.max_adaptive && results.len() >= 3 {
+            println!("  NPU adaptive budget exhausted ({}/{})", npu_stats.adaptive_inserted, args.max_adaptive);
         }
 
         // Brain Layer 2: Kick off Titan V pre-therm for the NEXT beta point

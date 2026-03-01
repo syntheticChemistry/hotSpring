@@ -1,6 +1,6 @@
 # Experiment 029: NPU-Steered Dynamical Production
 
-**Status:** IN PROGRESS (started 2026-03-01)
+**Status:** COMPLETE (4-seed baseline, 2026-03-01). Bug found: adaptive steering guard `bi + 1 < beta_order.len()` prevented NPU point insertion after last seed. Fixed in Exp 030.
 **Date:** March 1, 2026
 **Depends on:** Exp 024 (parameter sweep), Exp 028 (brain architecture)
 **License:** AGPL-3.0-only

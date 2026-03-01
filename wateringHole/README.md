@@ -77,7 +77,7 @@ fossil record — never deleted, always available for provenance.
 ## Archive
 
 42 superseded handoffs in `handoffs/archive/`. These document the full
-evolution history from v0.4.x through v0.6.14:
+evolution history from v0.4.x through v0.6.15:
 
 - Early toadStool rewire documents (v1-v4)
 - GPU primitive absorption records

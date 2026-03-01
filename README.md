@@ -420,7 +420,7 @@ environment, physics implementations, and GPU compute. Key architectural propert
   pipeline, NPU quantization, and NPU beyond-SDK hardware capabilities.
   Zero inline magic numbers — all validation binaries and solver loops wired to `tolerances::*`.
 - **ValidationHarness** — structured pass/fail tracking with exit code 0/1.
-  36 of 55 binaries use it (validation targets). Remaining 19 are optimization
+  55 of 84 binaries use it (validation targets). Remaining 29 are optimization
   explorers, benchmarks, and diagnostics.
 - **Shared data loading** — `data::EosContext` and `data::load_eos_context()`
   eliminate duplicated path construction across all nuclear EOS binaries.
@@ -522,7 +522,7 @@ hotSpring/
 ├── PHYSICS.md                          # Complete physics documentation (equations + references)
 ├── CONTROL_EXPERIMENT_STATUS.md        # Comprehensive status + results (197/197)
 ├── NUCLEAR_EOS_STRATEGY.md             # Nuclear EOS Phase A→B strategy
-├── wateringHole/handoffs/              # 8 active + 42 archived cross-project handoffs (fossil record)
+├── wateringHole/handoffs/              # 12 active + 42 archived cross-project handoffs (fossil record)
 ├── LICENSE                             # AGPL-3.0
 ├── .gitignore
 │
@@ -713,7 +713,7 @@ hotSpring/
 │       ├── Two-Temperature-Model/      # Cloned + patched via scripts/clone-repos.sh
 │       └── scripts/                    # Local + hydro model runners
 │
-├── experiments/                         # Experiment journals — 23 experiments (the "why" behind the data)
+├── experiments/                         # Experiment journals — 30 experiments (the "why" behind the data)
 │   ├── 001_N_SCALING_GPU.md            # N-scaling (500→20k) + native f64 builtins
 │   ├── 002_CELLLIST_FORCE_DIAGNOSTIC.md # Cell-list i32 modulo bug diagnosis + fix
 │   ├── 003_RTX4070_CAPABILITY_PROFILE.md # RTX 4070 capability profile (paper-parity COMPLETE)
@@ -737,7 +737,14 @@ hotSpring/
 │   ├── 020_NPU_CHARACTERIZATION_CAMPAIGN.md # NPU campaign: 6 placements, multi-model, Akida feedback
 │   ├── 021_CROSS_SUBSTRATE_ESN_COMPARISON.md # Cross-substrate ESN: GPU dispatch, scaling, NPU envelope
 │   ├── 022_NPU_OFFLOAD_MIXED_PIPELINE.md # NPU offload: live AKD1000, cross-run ESN, 4 placements
-│   └── 023_DYNAMICAL_NPU_GPU_PREP.md  # NPU GPU-prep: 11-head ESN, quenched monitoring, adaptive CG, intra-scan steering
+│   ├── 023_DYNAMICAL_NPU_GPU_PREP.md  # NPU GPU-prep: 11-head ESN, quenched monitoring, adaptive CG, intra-scan steering
+│   ├── 024_HMC_PARAMETER_SWEEP.md     # HMC parameter sweep: fermion force fix, 160 configs, NPU training data
+│   ├── 025_GPU_SATURATION_MULTI_PHYSICS.md # GPU saturation: 16⁴ validation, Titan V chains, Anderson 3D proxy
+│   ├── 026_4D_ANDERSON_WEGNER_PROXY.md # 4D Anderson + Wegner block proxy (planned)
+│   ├── 027_ENERGY_THERMAL_TRACKING.md  # Energy + thermal tracking sidecar (planned)
+│   ├── 028_BRAIN_CONCURRENT_PIPELINE.md # Brain: 4-layer (3090+Titan V+CPU+NPU), NVK deadlock fix
+│   ├── 029_NPU_STEERING_PRODUCTION.md  # NPU-steered production: adaptive β, brain architecture
+│   └── 030_ADAPTIVE_STEERING_PRODUCTION.md # Exp 030: fixed adaptive steering, --max-adaptive=12
 │
 ├── metalForge/                         # Hardware characterization & cross-substrate dispatch
 │   ├── README.md                      # Philosophy + hardware inventory + forge docs
@@ -771,7 +778,7 @@ hotSpring/
 │
 ├── wateringHole/                       # Cross-project handoffs
 │   ├── README.md                      # Handoff index, conventions, cross-spring docs
-│   └── handoffs/                       # 8 active + 42 archived unidirectional handoff documents
+│   └── handoffs/                       # 12 active + 42 archived unidirectional handoff documents
 │
 ├── benchmarks/
 │   ├── PROTOCOL.md                     # Cross-gate benchmark protocol (time + energy)
