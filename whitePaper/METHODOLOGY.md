@@ -81,7 +81,7 @@ over 52 nuclei from the AME2020 mass evaluation (IAEA Nuclear Data Services).
 |-------|---------|----------|--------------|---------|---------|
 | L1 | SEMF (analytic) | Low | ~microseconds | Python | BarraCuda |
 | L2 | Spherical HFB (SCF) | Medium | ~seconds | Python | BarraCuda |
-| L3 | Deformed HFB (SCF, 2D) | High | ~minutes | — | BarraCuda (in progress) |
+| L3 | Deformed HFB (SCF, 2D) | High | ~minutes | — | BarraCuda (complete) |
 
 #### Optimization Methods
 

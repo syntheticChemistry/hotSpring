@@ -57,6 +57,7 @@ fossil record — never deleted, always available for provenance.
 
 | File | Date | Topic |
 |------|------|-------|
+| `HOTSPRING_V0615_NPU_PARAM_CONTROL_TOADSTOOL_HANDOFF_MAR01_2026.md` | Mar 1 | NPU parameter controller + barracuda evolution review: dt/n_md control, mid-beta adaptation, Exp 029→031 lessons |
 | `HOTSPRING_NAUTILUS_BRAIN_TOADSTOOL_HANDOFF_MAR01_2026.md` | Mar 1 | Nautilus Shell + Brain Architecture: evolutionary reservoir, concept edges, toadStool absorption guide |
 | `HOTSPRING_TOADSTOOL_S68_BRAIN_SYNC_FEB28_2026.md` | Feb 28 | Brain architecture sync: 4-layer concurrent pipeline, NVK dual-GPU deadlock fix |
 | `HOTSPRING_TOADSTOOL_S68_SYNC_STATUS_FEB27_2026.md` | Feb 27 | S68 sync status: rewiring plan, validation gates |

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+#![recursion_limit = "256"]
 
 //! Production Dynamical + Multi-Head NPU Mixed Pipeline
 //!
@@ -252,6 +253,8 @@ struct BetaResult {
     phase: &'static str,
     therm_used: usize,
     therm_budget: usize,
+    dt_used: f64,
+    n_md_used: usize,
     npu_therm_early_exit: bool,
     npu_quenched_budget: usize,
     npu_quenched_used: usize,
@@ -799,6 +802,8 @@ fn spawn_npu_worker() -> NpuWorkerHandles {
                                 },
                                 therm_used: 0,
                                 therm_budget: 0,
+                                dt_used: 0.01,
+                                n_md_used: 100,
                                 npu_therm_early_exit: false,
                                 npu_quenched_budget: 0,
                                 npu_quenched_used: 0,
@@ -1235,8 +1240,10 @@ fn build_training_data(results: &[BetaResult]) -> (Vec<Vec<Vec<f64>>>, Vec<Vec<f
         let anderson_phase = if r.beta > 5.5 { 1.0 } else if r.beta < 5.0 { 0.0 } else { 0.5 };
         // Potts-informed phase: β_Potts = (β_QCD - 4) / 3
         let potts_phase = if r.beta > 5.8 { 1.0 } else if r.beta < 5.2 { 0.0 } else { 0.5 };
-        // Optimal dt from acceptance: target ~60-70% acceptance
-        let optimal_dt = 0.01 + r.acceptance.abs() * 0.04;
+        // Optimal dt: train ESN to predict the dt that would yield ~70% acceptance
+        let target_acc = 0.70;
+        let acc_error = r.acceptance - target_acc;
+        let optimal_dt = (r.dt_used * (1.0 - 0.5 * acc_error)).clamp(0.002, 0.02);
         let optimal_nmd = ((1.0 / optimal_dt).round() / 200.0).clamp(0.0, 1.0);
 
         let seq: Vec<Vec<f64>> = (0..seq_len)
@@ -1354,6 +1361,7 @@ struct CliArgs {
     bootstrap_from: Option<String>,
     save_weights: Option<String>,
     no_titan: bool,
+    no_npu_control: bool,
     max_adaptive: usize,
 }
 
@@ -1375,6 +1383,7 @@ fn parse_args() -> CliArgs {
     let mut bootstrap_from = None;
     let mut save_weights = None;
     let mut no_titan = false;
+    let mut no_npu_control = false;
     let mut max_adaptive: usize = 12;
 
     for arg in std::env::args().skip(1) {
@@ -1412,6 +1421,8 @@ fn parse_args() -> CliArgs {
             n_md_override = Some(val.parse().expect("--n-md=N"));
         } else if arg == "--no-titan" {
             no_titan = true;
+        } else if arg == "--no-npu-control" {
+            no_npu_control = true;
         } else if let Some(val) = arg.strip_prefix("--max-adaptive=") {
             max_adaptive = val.parse().expect("--max-adaptive=N");
         }
@@ -1435,6 +1446,7 @@ fn parse_args() -> CliArgs {
         bootstrap_from,
         save_weights,
         no_titan,
+        no_npu_control,
         max_adaptive,
     }
 }
@@ -1612,14 +1624,19 @@ fn main() {
 
     let vol_f = vol as f64;
     let scale = (4096.0_f64 / vol_f).powf(0.25);
-    let mass_scale = (args.mass.max(0.01)).min(1.0);
-    let auto_dt = (0.01 * scale * mass_scale.sqrt()).max(0.001);
+    let auto_dt = (0.01 * scale).max(0.002);
     let auto_n_md = ((1.0 / auto_dt).round() as usize).max(20);
-    let dt = args.dt_override.unwrap_or(auto_dt);
-    let n_md = args.n_md_override.unwrap_or(auto_n_md);
+    let mut dt = args.dt_override.unwrap_or(auto_dt);
+    let mut n_md = args.n_md_override.unwrap_or(auto_n_md);
+
+    const DT_MIN: f64 = 0.001;
+    const DT_MAX: f64 = 0.02;
+    const NMD_MIN: usize = 20;
+    const NMD_MAX: usize = 500;
+    let npu_controls_params = !args.no_npu_control;
     println!(
-        "  HMC:      dt={dt:.4}, n_md={n_md}, traj_length={:.3}",
-        dt * n_md as f64
+        "  HMC:      dt={dt:.4}, n_md={n_md}, traj_length={:.3}, npu_control={}",
+        dt * n_md as f64, npu_controls_params,
     );
     println!();
 
@@ -1852,7 +1869,15 @@ fn main() {
         let npu_cg_estimate = npu_rx.recv().ok();
 
         if let Some(NpuResponse::ParameterSuggestion { dt: sdt, n_md: snmd }) = npu_suggested_params {
-            println!("  NPU param suggestion: dt={sdt:.4}, n_md={snmd} (using default dt={dt:.4}, n_md={n_md})");
+            if npu_controls_params {
+                let new_dt = sdt.clamp(DT_MIN, DT_MAX);
+                let new_nmd = snmd.clamp(NMD_MIN, NMD_MAX);
+                println!("  NPU param control: dt {dt:.4} → {new_dt:.4}, n_md {n_md} → {new_nmd}");
+                dt = new_dt;
+                n_md = new_nmd;
+            } else {
+                println!("  NPU param suggestion: dt={sdt:.4}, n_md={snmd} (--no-npu-control, keeping dt={dt:.4}, n_md={n_md})");
+            }
         }
 
         // Use CG estimate to set adaptive check_interval
@@ -2040,6 +2065,20 @@ fn main() {
                         anomalies += 1;
                     }
                 }
+
+                if npu_controls_params && i > 0 {
+                    if running_acc > 0.85 {
+                        let bump = (dt * 1.15).min(DT_MAX);
+                        n_md = ((dt * n_md as f64 / bump).round() as usize).clamp(NMD_MIN, NMD_MAX);
+                        dt = bump;
+                        println!("  NPU mid-run: acc {running_acc:.0}% > 85%, dt → {dt:.4}, n_md → {n_md}");
+                    } else if running_acc < 0.50 {
+                        let drop = (dt * 0.85).max(DT_MIN);
+                        n_md = ((dt * n_md as f64 / drop).round() as usize).clamp(NMD_MIN, NMD_MAX);
+                        dt = drop;
+                        println!("  NPU mid-run: acc {running_acc:.0}% < 50%, dt → {dt:.4}, n_md → {n_md}");
+                    }
+                }
             }
 
             // Polyakov readback
@@ -2120,6 +2159,7 @@ fn main() {
             beta, mass: args.mass, mean_plaq, std_plaq, polyakov: mean_poly,
             susceptibility, action_density, acceptance, mean_cg_iters: mean_cg,
             n_traj: args.n_meas, wall_s, phase, therm_used, therm_budget: args.n_therm,
+            dt_used: dt, n_md_used: n_md,
             npu_therm_early_exit: early_exit,
             npu_quenched_budget: npu_quenched_budget,
             npu_quenched_used: quenched_used,
@@ -2147,7 +2187,7 @@ fn main() {
             format!("therm={therm_used}")
         };
         println!(
-            "  ⟨P⟩={:.6}±{:.6}  |L|={:.4}  χ={:.2}  acc={:.0}%  ⟨CG⟩={:.0}  Q={quality:.2}  {phase}  {therm_info}  ({wall_s:.1}s)",
+            "  ⟨P⟩={:.6}±{:.6}  |L|={:.4}  χ={:.2}  acc={:.0}%  ⟨CG⟩={:.0}  Q={quality:.2}  {phase}  {therm_info}  dt={dt:.4} n_md={n_md}  ({wall_s:.1}s)",
             mean_plaq, std_plaq, mean_poly, susceptibility, acceptance * 100.0, mean_cg,
         );
         if anomalies > 0 {
@@ -2415,6 +2455,8 @@ fn main() {
                 "phase": r.phase,
                 "therm_used": r.therm_used,
                 "therm_budget": r.therm_budget,
+                "dt_used": r.dt_used,
+                "n_md_used": r.n_md_used,
                 "npu_therm_early_exit": r.npu_therm_early_exit,
                 "npu_quenched_budget": r.npu_quenched_budget,
                 "npu_quenched_used": r.npu_quenched_used,

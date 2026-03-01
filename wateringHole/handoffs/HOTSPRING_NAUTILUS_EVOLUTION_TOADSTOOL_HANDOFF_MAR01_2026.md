@@ -126,4 +126,8 @@ bingocube-nautilus = { path = "../primalTools/bingoCube/nautilus" }
 - 31 unit tests pass (nautilus crate)
 - 5 examples run clean
 - Full brain rehearsal: save/restore/transfer/merge/AKD1000 all validated
-- Exp 030 running with fixed steering (NPU reprioritized scan order from bootstrap data)
+- Exp 030: Adaptive steering fix validated, but killed (dt too small, NPU suggestions ignored)
+- Exp 031: NPU controls dt/n_md per-beta + mid-beta adaptation. ESN trained to target
+  70% acceptance using `dt_used * (1 - 0.5 * (acc - 0.70))`. Safety clamps:
+  dt ∈ [0.001, 0.02], n_md ∈ [20, 500]. `--no-npu-control` flag for fallback.
+  Bootstrap from 30 β points (Exps 024-030). Running as of 2026-03-01.

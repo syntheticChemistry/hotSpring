@@ -103,8 +103,10 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **4D Anderson-Wegner Proxy** (Exp 026) | 📋 Planned | 4D Anderson + Wegner block proxy; three tiers (3D scalar, 4D scalar, 4D block) |
 | **Energy Thermal Tracking** (Exp 027) | 📋 Planned | RAPL + k10temp + nvidia-smi energy sidecar monitor, `EnergySnapshot` struct |
 | **Brain Concurrent Pipeline** (Exp 028) | ✅ Complete | 4-layer brain: RTX 3090 + Titan V + CPU + NPU. NVK dual-GPU deadlock fix. ESN bootstrap from Exp 024 |
-| **NPU Steering Production** (Exp 029) | 🔄 Running | NPU-steered dynamical HMC. Bootstrap from Exp 024+028 weights. Adaptive β insertion. Nautilus Shell integration planned |
-| **TOTAL** | **39/39 Rust validation suites** | ~700 tests, 84 binaries, 62 WGSL shaders, 34/35 NPU HW checks. Both GPUs validated, DF64 production, cross-substrate ESN characterized, **live AKD1000 PCIe NPU: 4-layer brain architecture** |
+| **NPU Steering Production** (Exp 029) | ✅ Complete | 4-seed baseline. Adaptive steering bug found and fixed. Brain architecture validated. |
+| **Adaptive Steering** (Exp 030) | ⏹ Superseded | Fixed adaptive steering, but auto_dt over-penalized mass (dt=0.0032, 97.5% acc). NPU suggestions ignored. Killed → Exp 031 |
+| **NPU-Controlled Parameters** (Exp 031) | 🔄 Running | NPU controls dt/n_md per-beta + mid-beta adaptation. ESN targets 70% acceptance. Bootstrap from 30 β points (Exps 024-030). |
+| **TOTAL** | **39/39 Rust validation suites** | ~700 tests, 84 binaries, 62 WGSL shaders, 34/35 NPU HW checks. Both GPUs validated, DF64 production, cross-substrate ESN characterized, **live AKD1000 PCIe NPU: 4-layer brain architecture, NPU parameter control** |
 
 Papers 5, 7, 8, and 10 from the review queue are complete. Paper 5 transport fits
 (Daligault 2012) were recalibrated against 12 Sarkas Green-Kubo D* values (Feb 2026)
@@ -713,7 +715,7 @@ hotSpring/
 │       ├── Two-Temperature-Model/      # Cloned + patched via scripts/clone-repos.sh
 │       └── scripts/                    # Local + hydro model runners
 │
-├── experiments/                         # Experiment journals — 30 experiments (the "why" behind the data)
+├── experiments/                         # Experiment journals — 31 experiments (the "why" behind the data)
 │   ├── 001_N_SCALING_GPU.md            # N-scaling (500→20k) + native f64 builtins
 │   ├── 002_CELLLIST_FORCE_DIAGNOSTIC.md # Cell-list i32 modulo bug diagnosis + fix
 │   ├── 003_RTX4070_CAPABILITY_PROFILE.md # RTX 4070 capability profile (paper-parity COMPLETE)
@@ -744,7 +746,8 @@ hotSpring/
 │   ├── 027_ENERGY_THERMAL_TRACKING.md  # Energy + thermal tracking sidecar (planned)
 │   ├── 028_BRAIN_CONCURRENT_PIPELINE.md # Brain: 4-layer (3090+Titan V+CPU+NPU), NVK deadlock fix
 │   ├── 029_NPU_STEERING_PRODUCTION.md  # NPU-steered production: adaptive β, brain architecture
-│   └── 030_ADAPTIVE_STEERING_PRODUCTION.md # Exp 030: fixed adaptive steering, --max-adaptive=12
+│   ├── 030_ADAPTIVE_STEERING_PRODUCTION.md # Exp 030: adaptive steering fix (superseded by 031)
+│   └── 031_NPU_CONTROLLED_PARAMETERS.md # Exp 031: NPU controls dt/n_md, mid-beta adaptation
 │
 ├── metalForge/                         # Hardware characterization & cross-substrate dispatch
 │   ├── README.md                      # Philosophy + hardware inventory + forge docs
@@ -927,7 +930,9 @@ These are **silent failures** — wrong results, no error messages. This fragili
 | [`experiments/026_4D_ANDERSON_WEGNER_PROXY.md`](experiments/026_4D_ANDERSON_WEGNER_PROXY.md) | 4D Anderson + Wegner block proxy for CG prediction (planned) |
 | [`experiments/027_ENERGY_THERMAL_TRACKING.md`](experiments/027_ENERGY_THERMAL_TRACKING.md) | Energy + thermal tracking sidecar monitor (planned) |
 | [`experiments/028_BRAIN_CONCURRENT_PIPELINE.md`](experiments/028_BRAIN_CONCURRENT_PIPELINE.md) | Brain concurrent pipeline: 4-layer (3090+Titan V+CPU+NPU), NVK deadlock fix |
-| [`experiments/029_NPU_STEERING_PRODUCTION.md`](experiments/029_NPU_STEERING_PRODUCTION.md) | NPU-steered production: adaptive β insertion, brain architecture, Nautilus Shell integration |
+| [`experiments/029_NPU_STEERING_PRODUCTION.md`](experiments/029_NPU_STEERING_PRODUCTION.md) | NPU-steered production: adaptive β insertion, brain architecture |
+| [`experiments/030_ADAPTIVE_STEERING_PRODUCTION.md`](experiments/030_ADAPTIVE_STEERING_PRODUCTION.md) | Adaptive steering fix — superseded by 031 (auto-dt bug, NPU suggestions ignored) |
+| [`experiments/031_NPU_CONTROLLED_PARAMETERS.md`](experiments/031_NPU_CONTROLLED_PARAMETERS.md) | NPU as parameter controller: dt/n_md per-beta + mid-beta adaptation |
 | [`specs/BIOMEGATE_BRAIN_ARCHITECTURE.md`](specs/BIOMEGATE_BRAIN_ARCHITECTURE.md) | Brain architecture: 4-substrate concurrent pipeline, NPU steering, Nautilus Shell integration |
 | [`metalForge/README.md`](metalForge/README.md) | Hardware characterization — philosophy, inventory, directory |
 | [`metalForge/npu/akida/BEYOND_SDK.md`](metalForge/npu/akida/BEYOND_SDK.md) | **10 overturned SDK assumptions** — the discovery document |
@@ -975,9 +980,11 @@ substrate: GPU for physics + large reservoirs, NPU for streaming screening, CPU
 for precision. 62 WGSL shaders evolved across hotSpring's physics domains via
 toadStool's cross-spring absorption cycle. biomeGate (RTX 3090, 24GB) resolves
 the QCD deconfinement transition at 32⁴ (χ=40.1 at β=5.69, matching β_c=5.692)
-in 13.6 hours for $0.58. 29 experiments, 84 binaries, ~700 tests. Live AKD1000 NPU via PCIe —
+in 13.6 hours for $0.58. 31 experiments, 84 binaries, ~700 tests. Live AKD1000 NPU via PCIe —
 the first neuromorphic silicon in a lattice QCD production pipeline.
 4-layer brain architecture (RTX 3090 + Titan V + CPU + NPU) steers dynamical
-HMC production. Evolutionary reservoir computing (Nautilus Shell) achieves 5.3%
-LOO generalization error on QCD observables with 540× cost reduction via
-quenched→dynamical transfer. The scarcity was artificial.*
+HMC production. The NPU now controls HMC parameters (dt, n_md) with safety
+clamps and mid-beta acceptance-driven adaptation — the ESN learns to target
+optimal acceptance in real time. Evolutionary reservoir computing (Nautilus
+Shell) achieves 5.3% LOO generalization error on QCD observables with 540×
+cost reduction via quenched→dynamical transfer. The scarcity was artificial.*

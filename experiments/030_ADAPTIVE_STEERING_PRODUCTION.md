@@ -1,8 +1,9 @@
 # Experiment 030: Adaptive Steering Production Run
 
-**Status:** IN PROGRESS (started 2026-03-01)
+**Status:** SUPERSEDED — killed 2026-03-01 after analysis showed dt=0.0032 (97.5% acceptance) wasted ~2x CG per useful trajectory. NPU parameter suggestions were printed but never applied. Findings incorporated into Exp 031.
 **Binary:** `production_dynamical_mixed`
 **Predecessor:** Exp 029 (4-seed baseline, steering bug identified)
+**Successor:** Exp 031 (NPU-controlled parameters, NPU suggestions applied)
 
 ## Motivation
 
@@ -70,9 +71,31 @@ With 4 seeds + up to 12 adaptive insertions, the NPU should map the full
 β=4.4..6.6 phase curve with ~16 points, concentrating density around the
 crossover region (β≈5.5-5.8) where prediction uncertainty is highest.
 
+## Post-Mortem (2026-03-01)
+
+Run killed after 1 beta point (β=5.25) completed and analysis revealed:
+
+| Metric | Exp 030 | Optimal Target |
+|--------|---------|----------------|
+| dt | 0.0032 (auto_dt over-penalized mass) | ~0.008-0.012 |
+| Acceptance | 97.5% | 60-80% |
+| CG iters/useful traj | ~2x Exp 029 | ≤1x |
+
+Root cause: `auto_dt = (0.01 * scale * mass_scale.sqrt()).max(0.001)` reduced
+dt by `sqrt(0.1) ≈ 0.316` for mass=0.1. The NPU's `ParameterSuggestion`
+response was received (dt=suggested, n_md=suggested) but line 1855 printed it
+and discarded it: `"using default dt={dt:.4}"`.
+
+The adaptive steering fix (the goal of this experiment) was validated — the NPU
+successfully requested `SteerAdaptive` after the last seed point. But the
+sub-optimal HMC parameters made the data collection inefficient.
+
+All findings were incorporated into Exp 031 (NPU-controlled parameters).
+
 ## Connections
 
 - **Exp 029:** 4-seed baseline (steering bug prevented adaptive insertions)
 - **Exp 024:** HMC parameter sweep (training data)
 - **Exp 028:** Brain concurrent pipeline (training data + weights)
+- **Exp 031:** Successor — NPU controls dt/n_md, fixed auto-dt, mid-beta adaptation
 - **Nautilus Shell:** `predict_live_exp029` example validated 2.6% blind CG error
