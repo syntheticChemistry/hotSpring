@@ -60,6 +60,30 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - 196 .rs files (112 lib + 84 bin), 62 WGSL shaders
 - Zero unsafe code, zero expect/unwrap in lib (deny enforced)
 
+### ToadStool S78 Sync (March 2, 2026)
+
+Pulled toadStool S68→S78 (18 commits). hotSpring compiles and passes all
+711 tests with zero clippy warnings against the new upstream.
+
+- **Breaking**: `Fp64Strategy::Concurrent` variant added to upstream enum.
+  hotSpring now handles it alongside `Hybrid` (DF64 shader path) in all 4
+  match sites in `gpu_hmc/mod.rs`.
+- **Upstream evolution reviewed**: S68+++ (chrono elimination, dead code,
+  unsafe evolved), S69++ (ComputeDispatch migration), S70 (deep debt,
+  concurrent Rust), S70+ (cross-spring absorption, DF64 ML), S71
+  (GPU dispatch wiring, sovereignty), S71+++ (DF64 gamma/erf,
+  ComputeDispatch batches), S78 (libc→rustix, AFIT).
+- **box_muller_cos fix**: Already applied in hotSpring's local shaders
+  (`cos_f64(theta)` in both `su3_random_momenta_f64.wgsl` and
+  `gaussian_fermion_f64.wgsl`). No action needed.
+- **Not rewired** (stable, deeply integrated, high-risk):
+  lattice QCD orchestration, MD observables, ESN reservoir (11-head),
+  GPU adapter discovery (primary/secondary), transport fits.
+  These remain local with upstream leaning where already established.
+- **New upstream noted for future**: `ComputeDispatch` builder pattern,
+  `ops::md::stress_virial`, `ops::md::vacf` batch GPU, DF64 gamma/erf
+  transcendentals, `ops::stats_f64::linear_regression`.
+
 ---
 
 ## v0.6.14 — Debt Reduction + Cross-Primal Discovery + NPU Offload (Feb 25-26, 2026)

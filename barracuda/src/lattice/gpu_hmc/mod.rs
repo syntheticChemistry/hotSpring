@@ -138,17 +138,23 @@ impl GpuHmcPipelines {
 
         let force_src = match strategy {
             Fp64Strategy::Native => WGSL_GAUGE_FORCE.to_string(),
-            Fp64Strategy::Hybrid => format!("{df64_preamble}\n{WGSL_GAUGE_FORCE_DF64}"),
+            Fp64Strategy::Hybrid | Fp64Strategy::Concurrent => {
+                format!("{df64_preamble}\n{WGSL_GAUGE_FORCE_DF64}")
+            }
         };
 
         let plaq_src = match strategy {
             Fp64Strategy::Native => WGSL_WILSON_PLAQUETTE.to_string(),
-            Fp64Strategy::Hybrid => format!("{df64_preamble}\n{WGSL_PLAQUETTE_DF64}"),
+            Fp64Strategy::Hybrid | Fp64Strategy::Concurrent => {
+                format!("{df64_preamble}\n{WGSL_PLAQUETTE_DF64}")
+            }
         };
 
         let ke_src = match strategy {
             Fp64Strategy::Native => WGSL_KINETIC_ENERGY.to_string(),
-            Fp64Strategy::Hybrid => format!("{df64_preamble}\n{WGSL_KINETIC_ENERGY_DF64}"),
+            Fp64Strategy::Hybrid | Fp64Strategy::Concurrent => {
+                format!("{df64_preamble}\n{WGSL_KINETIC_ENERGY_DF64}")
+            }
         };
 
         eprintln!(
@@ -156,7 +162,7 @@ impl GpuHmcPipelines {
             strategy,
             match strategy {
                 Fp64Strategy::Native => "native f64 on all cores",
-                Fp64Strategy::Hybrid =>
+                Fp64Strategy::Hybrid | Fp64Strategy::Concurrent =>
                     "DF64 on FP32 cores for force + plaquette + KE (~2.8× trajectory speedup)",
             }
         );

@@ -367,7 +367,7 @@ makes the upstream library richer and hotSpring leaner.
 - HFB shader suite — potentials + density + BCS bisection (14+GPU+6 checks, Tier 2)
 - NPU substrate discovery — `metalForge/forge/src/probe.rs` (local evolution)
 
-**Already leaning on upstream** (v0.6.15, synced to toadStool S68):
+**Already leaning on upstream** (v0.6.15, synced to toadStool S78):
 
 | Module | Upstream | Status |
 |--------|----------|--------|
