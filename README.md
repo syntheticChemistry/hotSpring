@@ -30,7 +30,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 
 ---
 
-## Current Status (2026-03-01)
+## Current Status (2026-03-02)
 
 | Study | Status | Quantitative Checks |
 |-------|--------|-------------------|
@@ -105,8 +105,9 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **Brain Concurrent Pipeline** (Exp 028) | ✅ Complete | 4-layer brain: RTX 3090 + Titan V + CPU + NPU. NVK dual-GPU deadlock fix. ESN bootstrap from Exp 024 |
 | **NPU Steering Production** (Exp 029) | ✅ Complete | 4-seed baseline. Adaptive steering bug found and fixed. Brain architecture validated. |
 | **Adaptive Steering** (Exp 030) | ⏹ Superseded | Fixed adaptive steering, but auto_dt over-penalized mass (dt=0.0032, 97.5% acc). NPU suggestions ignored. Killed → Exp 031 |
-| **NPU-Controlled Parameters** (Exp 031) | 🔄 Running | NPU controls dt/n_md per-beta + mid-beta adaptation. ESN targets 70% acceptance. Bootstrap from 30 β points (Exps 024-030). |
-| **TOTAL** | **39/39 Rust validation suites** | ~711 tests, 85 binaries, 62 WGSL shaders, 34/35 NPU HW checks. Both GPUs validated, DF64 production, cross-substrate ESN characterized, **live AKD1000 PCIe NPU: 4-layer brain architecture, NPU parameter control** |
+| **NPU-Controlled Parameters** (Exp 031) | ✅ Complete | NPU controls dt/n_md. Post-mortem: Titan V timing fix, NPU input alignment fix, therm early-exit fix. See `031_POST_MORTEM.md` |
+| **toadStool S80 Rewiring** | ✅ Complete | `spectral_bandwidth`, `spectral_condition_number`, `SpectralAnalysis` wired. `MultiHeadEsn` serde-compatible. `batched_nelder_mead_gpu` benchmarked. Cross-spring benchmark S80 |
+| **TOTAL** | **39/39 Rust validation suites** | **660 tests**, 85 binaries, 62 WGSL shaders, 34/35 NPU HW checks. Both GPUs validated, DF64 production, cross-substrate ESN characterized, **live AKD1000 PCIe NPU: 4-layer brain, toadStool S80 synced** |
 
 Papers 5, 7, 8, and 10 from the review queue are complete. Paper 5 transport fits
 (Daligault 2012) were recalibrated against 12 Sarkas Green-Kubo D* values (Feb 2026)
@@ -367,7 +368,7 @@ makes the upstream library richer and hotSpring leaner.
 - HFB shader suite — potentials + density + BCS bisection (14+GPU+6 checks, Tier 2)
 - NPU substrate discovery — `metalForge/forge/src/probe.rs` (local evolution)
 
-**Already leaning on upstream** (v0.6.16, synced to toadStool S78):
+**Already leaning on upstream** (v0.6.16, synced to toadStool S80):
 
 | Module | Upstream | Status |
 |--------|----------|--------|
@@ -387,12 +388,12 @@ makes the upstream library richer and hotSpring leaner.
 
 ---
 
-## BarraCuda Crate (v0.6.15)
+## BarraCuda Crate (v0.6.17)
 
 The `barracuda/` directory is a standalone Rust crate providing the validation
 environment, physics implementations, and GPU compute. Key architectural properties:
 
-- **~711 tests** (~658 lib + 53 integration + doc), **39 validation suites** (39/39 pass),
+- **~660 tests** (~658 lib + 53 integration + doc), **39 validation suites** (39/39 pass),
   **16 determinism tests** (rerun-identical for all stochastic algorithms). Includes
   lattice QCD (complex f64, SU(3), Wilson action, HMC, Dirac CG, pseudofermion HMC),
   Abelian Higgs (U(1) + Higgs, HMC), transport coefficients (Green-Kubo D*/η*/λ*,
@@ -457,7 +458,7 @@ environment, physics implementations, and GPU compute. Key architectural propert
 
 ```bash
 cd barracuda
-cargo test               # ~711 tests (~658 lib + 53 integration + doc), 6 GPU/heavy-ignored (~700s; spectral tests upstream)
+cargo test               # ~660 tests (~658 lib + 53 integration + doc), 6 GPU/heavy-ignored (~700s; spectral tests upstream)
 cargo clippy --all-targets  # Zero warnings (pedantic + nursery via Cargo.toml workspace lints)
 cargo doc --no-deps      # Full API documentation — 0 warnings
 cargo run --release --bin validate_all  # 39/39 suites pass
@@ -541,7 +542,7 @@ hotSpring/
 │       ├── cross_spring_evolution.md  # Cross-spring shader ecosystem (164+ shaders)
 │       └── neuromorphic_silicon.md    # AKD1000 NPU exploration — silicon behavior, cross-substrate ESN
 │
-├── barracuda/                          # BarraCuda Rust crate — v0.6.16 (~711 tests, 85 binaries, 62 WGSL shaders)
+├── barracuda/                          # BarraCuda Rust crate — v0.6.16 (~660 tests, 85 binaries, 62 WGSL shaders)
 │   ├── Cargo.toml                     # Dependencies (requires ecoPrimals/phase1/toadstool)
 │   ├── CHANGELOG.md                   # Version history — baselines, tolerances, evolution
 │   ├── EVOLUTION_READINESS.md         # Rust module → GPU promotion tier + absorption status
@@ -737,7 +738,7 @@ hotSpring/
 │       ├── Two-Temperature-Model/      # Cloned + patched via scripts/clone-repos.sh
 │       └── scripts/                    # Local + hydro model runners
 │
-├── experiments/                         # Experiment journals — 31 experiments (the "why" behind the data)
+├── experiments/                         # Experiment journals — 31 experiments + post-mortems (the "why" behind the data)
 │   ├── 001_N_SCALING_GPU.md            # N-scaling (500→20k) + native f64 builtins
 │   ├── 002_CELLLIST_FORCE_DIAGNOSTIC.md # Cell-list i32 modulo bug diagnosis + fix
 │   ├── 003_RTX4070_CAPABILITY_PROFILE.md # RTX 4070 capability profile (paper-parity COMPLETE)
@@ -803,7 +804,7 @@ hotSpring/
 │
 ├── wateringHole/                       # Cross-project handoffs
 │   ├── README.md                      # Handoff index, conventions, cross-spring docs
-│   └── handoffs/                       # 12 active + 42 archived unidirectional handoff documents
+│   └── handoffs/                       # 15 active + 42 archived unidirectional handoff documents
 │
 ├── benchmarks/
 │   ├── PROTOCOL.md                     # Cross-gate benchmark protocol (time + energy)
@@ -1002,7 +1003,7 @@ substrate: GPU for physics + large reservoirs, NPU for streaming screening, CPU
 for precision. 62 WGSL shaders evolved across hotSpring's physics domains via
 toadStool's cross-spring absorption cycle. biomeGate (RTX 3090, 24GB) resolves
 the QCD deconfinement transition at 32⁴ (χ=40.1 at β=5.69, matching β_c=5.692)
-in 13.6 hours for $0.58. 31 experiments, 85 binaries, ~711 tests. Live AKD1000 NPU via PCIe —
+in 13.6 hours for $0.58. 31 experiments, 85 binaries, ~660 tests, toadStool S80 synced. Live AKD1000 NPU via PCIe —
 the first neuromorphic silicon in a lattice QCD production pipeline.
 4-layer brain architecture (RTX 3090 + Titan V + CPU + NPU) steers dynamical
 HMC production. The NPU now controls HMC parameters (dt, n_md) with safety

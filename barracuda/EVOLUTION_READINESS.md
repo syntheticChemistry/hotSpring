@@ -18,7 +18,7 @@ Python baseline → Rust validation → WGSL template → GPU shader → ToadSto
 | **C** | New | No shader exists; must be written from scratch |
 | **✅** | Absorbed | ToadStool has absorbed this as a first-class barracuda primitive |
 
-## ToadStool Absorption Status (Mar 2, 2026 — v0.6.15 synced to toadStool S78)
+## ToadStool Absorption Status (Mar 2, 2026 — v0.6.16 synced to toadStool S80)
 
 | hotSpring Module | ToadStool Primitive | Commit | Status |
 |-----------------|--------------------| -------|--------|
@@ -135,6 +135,12 @@ Production equivalents live in `src/md/shaders/`.
 | `barracuda::ops::lattice::*` | Complex f64, SU(3), Wilson plaquette, HMC force, Abelian Higgs GPU shaders (toadstool `8fb5d5a0`) |
 | `barracuda::ops::fft::Fft1DF64` | GPU FFT f64 for momentum-space (toadstool `1ffe8b1a`) |
 | `barracuda::ops::fft::Fft3DF64` | GPU 3D FFT for lattice QCD / PPPM (toadstool `1ffe8b1a`) |
+| `barracuda::spectral::{spectral_bandwidth, spectral_condition_number}` | **NEW S80** — Proxy bandwidth and condition number |
+| `barracuda::spectral::{classify_spectral_phase, SpectralAnalysis}` | **NEW S80** — RMT-based Marchenko–Pastur phase classifier |
+| `barracuda::ops::lattice::NeighborMode` | **NEW S80** — 4D precomputed neighbor table (tested, different index convention) |
+| `barracuda::optimize::batched_nelder_mead_gpu` | **NEW S79** — Batched parallel Nelder-Mead on GPU |
+| `barracuda::esn_v2::{MultiHeadEsn, HeadGroup, HeadConfig}` | **NEW S78** — GPU ESN with per-head training (serde-compatible weights) |
+| `barracuda::device::BatchedEncoder` | **NEW S79** — Fuse multiple dispatches into single submission |
 | `barracuda::device::{WgpuDevice, TensorContext}` | GPU device bridge |
 
 No duplicate math — all mathematical operations use BarraCuda primitives.
@@ -530,6 +536,16 @@ the original sign and adjoint were both wrong, causing 0% HMC acceptance.
 - ✅ Nuclear EOS path duplication → Shared `data::load_eos_context()` replaces 9 inline path constructions
 - ✅ Inline tolerances → 30+ magic numbers replaced with `tolerances::` constants
 - ✅ Inline `sigma_theo` → 19 instances replaced with `tolerances::sigma_theo()`
+
+## S80 Sync Validation (March 2, 2026)
+
+- 660 tests passing (was 658 before S80 sync)
+- New test: `exported_weights_serde_compatible_with_toadstool` — bidirectional JSON round-trip
+- New test: `head_group_layout_matches_toadstool_head_group` — 6×6 head mapping confirmed
+- `spectral_bandwidth` and `spectral_condition_number` wired into `proxy.rs` Anderson proxy
+- `ProxyFeatures` now carries `condition_number` field (condition number κ = max|λ|/min|λ|)
+- Cross-spring benchmark updated to S80: spectral stats, neighbor precompute, Nelder-Mead GPU
+- NeighborMode 4D tested: hotSpring and toadStool both produce correct inverse-consistent tables
 
 ## Evolution v0.6.9 → v0.6.13 (Feb 24-25, 2026)
 

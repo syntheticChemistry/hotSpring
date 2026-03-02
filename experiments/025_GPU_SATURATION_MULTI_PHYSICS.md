@@ -1,6 +1,6 @@
 # Experiment 025: GPU Saturation & Multi-Physics Multi-GPU Strategy
 
-**Status:** IN PROGRESS
+**Status:** COMPLETE
 **Date:** February 28, 2026
 **Depends on:** Exp 024 (fermion force fix, production 8^4 run)
 **License:** AGPL-3.0-only

@@ -97,6 +97,9 @@ pub enum NpuRequest {
         level_spacing_ratio: f64,
         lambda_min: f64,
         ipr: f64,
+        bandwidth: f64,
+        condition_number: f64,
+        phase: String,
         tier: u8,
     },
 
@@ -260,7 +263,7 @@ pub fn spawn_npu_worker() -> NpuWorkerHandles {
                     } => {
                         let (dt, n_md) = if let Some(ref mut npu) = multi_npu {
                             let input =
-                                vec![(beta - 5.0) / 2.0, lattice as f64 / 32.0, mass, 0.5, 0.0];
+                                vec![(beta - 5.0) / 2.0, 0.5, mass, 0.0, 0.5];
                             let seq = vec![input; 10];
                             let raw = npu.predict_head(&seq, heads::PARAM_SUGGEST);
                             let dt_suggest = 0.001 + raw.abs() * 0.05;
@@ -285,7 +288,7 @@ pub fn spawn_npu_worker() -> NpuWorkerHandles {
                     } => {
                         let est = if let Some(ref mut npu) = multi_npu {
                             let input =
-                                vec![(beta - 5.0) / 2.0, mass, lattice as f64 / 32.0, 0.0, 0.0];
+                                vec![(beta - 5.0) / 2.0, 0.5, mass, 0.0, 0.5];
                             let seq = vec![input; 10];
                             let raw = npu.predict_head(&seq, heads::CG_ESTIMATE);
                             (raw.abs() * 500.0).round() as usize
@@ -307,12 +310,20 @@ pub fn spawn_npu_worker() -> NpuWorkerHandles {
                                 .iter()
                                 .find(|r| (r.beta - beta).abs() < 0.01)
                                 .map_or(0.5, |r| r.mean_plaq);
+                            let meta_acc = meta_context
+                                .iter()
+                                .find(|r| (r.beta - beta).abs() < 0.01)
+                                .map_or(0.5, |r| r.acceptance);
+                            let meta_chi = meta_context
+                                .iter()
+                                .find(|r| (r.beta - beta).abs() < 0.01)
+                                .map_or(0.0, |r| r.chi);
                             let input = vec![
                                 (beta - 5.0) / 2.0,
                                 meta_plaq,
                                 mass,
-                                lattice as f64 / 32.0,
-                                0.0,
+                                meta_chi / 1000.0,
+                                meta_acc,
                             ];
                             let seq = vec![input; 10];
                             let raw = npu.predict_head(&seq, heads::QUENCHED_LENGTH);
@@ -335,9 +346,9 @@ pub fn spawn_npu_worker() -> NpuWorkerHandles {
                             let input = vec![
                                 (beta - 5.0) / 2.0,
                                 mean,
-                                var.sqrt(),
-                                plaq_window.len() as f64 / 100.0,
-                                1.0,
+                                0.0,
+                                var / 1000.0,
+                                plaq_window.len() as f64 / 200.0,
                             ];
                             let seq = vec![input; 10];
                             let raw = npu.predict_head(&seq, heads::QUENCHED_THERM);
@@ -358,9 +369,9 @@ pub fn spawn_npu_worker() -> NpuWorkerHandles {
                             let input = vec![
                                 (beta - 5.0) / 2.0,
                                 mean,
-                                var.sqrt(),
-                                plaq_window.len() as f64 / 200.0,
                                 0.0,
+                                var / 1000.0,
+                                plaq_window.len() as f64 / 200.0,
                             ];
                             let seq = vec![input; 10];
                             let raw = npu.predict_head(&seq, heads::THERM_DETECT);
@@ -381,9 +392,9 @@ pub fn spawn_npu_worker() -> NpuWorkerHandles {
                             let input = vec![
                                 (beta - 5.0) / 2.0,
                                 plaquette,
-                                delta_h / 10.0,
-                                acceptance_rate,
                                 0.0,
+                                delta_h.abs() / 1000.0,
+                                acceptance_rate,
                             ];
                             let seq = vec![input; 10];
                             let raw = npu.predict_head(&seq, heads::REJECT_PREDICT);
@@ -409,9 +420,9 @@ pub fn spawn_npu_worker() -> NpuWorkerHandles {
                             let input = vec![
                                 (beta - 5.0) / 2.0,
                                 plaquette,
-                                polyakov,
-                                susceptibility / 1000.0,
                                 0.0,
+                                susceptibility / 1000.0,
+                                polyakov.abs().min(1.0),
                             ];
                             let seq = vec![input; 10];
                             let raw = npu.predict_head(&seq, heads::PHASE_CLASSIFY);
@@ -433,11 +444,11 @@ pub fn spawn_npu_worker() -> NpuWorkerHandles {
                     NpuRequest::QualityScore { result } => {
                         let score = if let Some(ref mut npu) = multi_npu {
                             let input = vec![
-                                result.n_traj as f64 / 1000.0,
-                                result.std_plaq / result.mean_plaq.abs().max(1e-10),
-                                result.acceptance,
+                                (result.beta - 5.0) / 2.0,
+                                result.mean_plaq,
+                                result.mass,
                                 result.susceptibility / 1000.0,
-                                result.mean_cg_iters / 500.0,
+                                result.acceptance,
                             ];
                             let seq = vec![input; 10];
                             npu.predict_head(&seq, heads::QUALITY_SCORE).clamp(0.0, 1.0)
@@ -462,11 +473,11 @@ pub fn spawn_npu_worker() -> NpuWorkerHandles {
                     } => {
                         let (is_anomaly, score) = if let Some(ref mut npu) = multi_npu {
                             let input = vec![
-                                plaq,
-                                delta_h / 10.0,
-                                cg_iters as f64 / 500.0,
-                                acceptance,
                                 0.0,
+                                plaq,
+                                0.0,
+                                delta_h.abs() / 1000.0,
+                                acceptance,
                             ];
                             let seq = vec![input; 10];
                             let raw = npu.predict_head(&seq, heads::ANOMALY_DETECT);
@@ -802,6 +813,9 @@ pub fn spawn_npu_worker() -> NpuWorkerHandles {
                         level_spacing_ratio,
                         lambda_min,
                         ipr,
+                        bandwidth,
+                        condition_number,
+                        phase,
                         tier,
                     } => {
                         latest_proxy = Some(ProxyFeatures {
@@ -809,8 +823,9 @@ pub fn spawn_npu_worker() -> NpuWorkerHandles {
                             level_spacing_ratio,
                             lambda_min,
                             ipr,
-                            bandwidth: 0.0,
-                            phase: String::new(),
+                            bandwidth,
+                            condition_number,
+                            phase,
                             tier,
                             wall_ms: 0.0,
                         });

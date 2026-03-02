@@ -13,6 +13,7 @@
 
 use crate::spectral::{
     anderson_3d, find_all_eigenvalues, lanczos, lanczos_eigenvalues, level_spacing_ratio,
+    spectral_bandwidth, spectral_condition_number,
 };
 
 /// Features extracted from a physics proxy model, sent to the NPU.
@@ -26,8 +27,10 @@ pub struct ProxyFeatures {
     pub lambda_min: f64,
     /// Inverse participation ratio — extended vs. localized.
     pub ipr: f64,
-    /// Spectral bandwidth.
+    /// Spectral bandwidth (upstream `spectral_bandwidth`).
     pub bandwidth: f64,
+    /// Spectral condition number κ = max|λ|/min|λ| (upstream `spectral_condition_number`).
+    pub condition_number: f64,
     /// Phase label: "extended", "localized", or "critical".
     pub phase: String,
     /// Proxy tier: 1=3D scalar, 2=4D scalar, 3=4D Wegner.
@@ -82,11 +85,8 @@ pub fn anderson_3d_proxy(req: &CortexRequest, seed: u64) -> ProxyFeatures {
     };
 
     let r = level_spacing_ratio(&eigenvalues);
-    let bandwidth = if eigenvalues.len() >= 2 {
-        eigenvalues.last().unwrap_or(&0.0) - eigenvalues.first().unwrap_or(&0.0)
-    } else {
-        0.0
-    };
+    let bandwidth = spectral_bandwidth(&eigenvalues);
+    let cond = spectral_condition_number(&eigenvalues);
     let lambda_min = eigenvalues.iter().map(|e| e.abs()).fold(f64::MAX, f64::min);
     let ipr = compute_ipr_from_stats(&eigenvalues);
     let wall_ms = t0.elapsed().as_secs_f64() * 1000.0;
@@ -105,6 +105,7 @@ pub fn anderson_3d_proxy(req: &CortexRequest, seed: u64) -> ProxyFeatures {
         lambda_min,
         ipr,
         bandwidth,
+        condition_number: cond,
         phase: phase.to_string(),
         tier: 1,
         wall_ms,
@@ -130,6 +131,7 @@ pub fn potts_z3_proxy(req: &CortexRequest, seed: u64) -> ProxyFeatures {
         lambda_min: chi,
         ipr: 0.0,
         bandwidth: 0.0,
+        condition_number: 0.0,
         phase: phase_label,
         tier: 1,
         wall_ms,

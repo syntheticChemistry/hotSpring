@@ -28,6 +28,7 @@
 
 use hotspring_barracuda::spectral::{
     anderson_3d, find_all_eigenvalues, lanczos_eigenvalues, level_spacing_ratio,
+    spectral_bandwidth, spectral_condition_number,
 };
 use std::io::Write;
 use std::time::Instant;
@@ -95,11 +96,8 @@ fn main() {
                 };
 
                 let r = level_spacing_ratio(&eigenvalues);
-                let bandwidth = if eigenvalues.len() >= 2 {
-                    eigenvalues.last().unwrap() - eigenvalues.first().unwrap()
-                } else {
-                    0.0
-                };
+                let bandwidth = spectral_bandwidth(&eigenvalues);
+                let cond = spectral_condition_number(&eigenvalues);
 
                 let lambda_min = eigenvalues.iter().map(|e| e.abs()).fold(f64::MAX, f64::min);
 
@@ -123,6 +121,7 @@ fn main() {
                     "seed": seed,
                     "level_spacing_ratio": r,
                     "bandwidth": bandwidth,
+                    "condition_number": cond,
                     "lambda_min_abs": lambda_min,
                     "ipr_estimate": ipr,
                     "phase": phase_label,

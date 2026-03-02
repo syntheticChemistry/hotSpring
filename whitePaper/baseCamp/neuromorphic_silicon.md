@@ -1,8 +1,8 @@
 # Neuromorphic Silicon Exploration — What the Metal Actually Does
 
 **Papers:** None (this is hardware exploration, not paper reproduction)
-**Updated:** February 27, 2026
-**Status:** Active exploration — AKD1000 characterized, Exp 020+021+022+023, **11-head NPU orchestrating GPU in production QCD pipeline**
+**Updated:** March 2, 2026
+**Status:** Active exploration — AKD1000 characterized, Exp 020–031 complete, **NPU controls HMC parameters (dt, n_md) with ESN targeting 70% acceptance. 4-layer brain architecture. toadStool S80 MultiHeadEsn serde-compatible.**
 **Hardware:** BrainChip AKD1000 (Akida 1.0) via PCIe Gen2 x1
 
 ---
@@ -605,6 +605,12 @@ the NPU inserts gap-filling points mid-run.
 ## References
 
 ### Our Experiments
+- Exp 031: NPU-Controlled Parameters — NPU controls dt/n_md per-beta, mid-beta acceptance adaptation, ESN targets 70%. Post-mortem: input alignment fix, therm early-exit fix, Titan V timing fix
+- Exp 030: Adaptive Steering — superseded by 031 (auto_dt over-penalized mass, NPU suggestions ignored)
+- Exp 029: NPU Steering Production — 4-seed baseline, adaptive steering bug found/fixed, brain architecture validated
+- Exp 028: Brain Concurrent Pipeline — 4-layer brain (3090+Titan V+CPU+NPU), NVK deadlock fix, ESN bootstrap
+- Exp 025: GPU Saturation — 16⁴ validation, Titan V chains, Anderson 3D proxy for CG prediction
+- Exp 024: HMC Parameter Sweep — fermion force sign/factor fix, 160 configs, 2400 trajectories, NPU training data
 - Exp 023: NPU GPU-Prep + 11-Head — NPU-as-GPU-conductor, pipelined predictions, quenched monitoring, adaptive CG, intra-scan steering
 - Exp 022: NPU Offload Mixed Pipeline — live AKD1000 hardware, cross-run ESN, 4 placements
 - Exp 021: Cross-Substrate ESN Comparison — GPU ESN dispatch, scaling crossover, capability envelope

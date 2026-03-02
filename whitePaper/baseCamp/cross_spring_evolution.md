@@ -1,8 +1,8 @@
 # Cross-Spring Shader Evolution
 
 **Domain:** ecoPrimals ecosystem — shader provenance and cross-pollination
-**Updated:** February 25, 2026
-**Status:** 164+ WGSL shaders tracked across 4 springs + toadStool core
+**Updated:** March 2, 2026
+**Status:** 164+ WGSL shaders tracked across 4 springs + toadStool core. Synced to toadStool S80.
 
 ---
 
@@ -19,7 +19,7 @@ hotSpring (nuclear/plasma physics)  ──→ toadStool ←── wetSpring (bio
                                     airSpring (atmospheric)
 ```
 
-## Shader Count by Domain (Feb 2026)
+## Shader Count by Domain (March 2026)
 
 | Domain | Spring | Count | Key Shaders |
 |--------|--------|-------|-------------|
@@ -50,6 +50,12 @@ hotSpring (nuclear/plasma physics)  ──→ toadStool ←── wetSpring (bio
 | Feb 25 | GPU Polyakov loop | toadStool → hotSpring → toadStool (bidirectional) |
 | Feb 25 | NVK allocation guard | toadStool → hotSpring |
 | Feb 25 | DF64 plaquette + KE | toadStool S60 → hotSpring v0.6.12 |
+| Mar 2 | Spectral stats (bandwidth, condition_number) | hotSpring proxy → toadStool S78 `spectral/stats.rs` |
+| Mar 2 | SpectralAnalysis (Marchenko-Pastur) | hotSpring → toadStool S78 → used by wetSpring bio spectral |
+| Mar 2 | `level_spacing_ratio` cross-spring | hotSpring (born) → toadStool S78 → wetSpring + neuralSpring |
+| Mar 2 | NeighborMode 4D precompute | hotSpring `build_neighbors` → toadStool S80 `precompute_periodic_4d` |
+| Mar 2 | MultiHeadEsn serde compat | hotSpring `ExportedWeights` ↔ toadStool `MultiHeadEsn` (bidirectional) |
+| Mar 2 | Batched Nelder-Mead GPU | neuralSpring → toadStool S79 → benchmarked in hotSpring (HMC tuning) |
 
 ## Detailed Experiment Journal
 
@@ -62,3 +68,22 @@ provenance graph, validation matrix, and absorption timeline.
 > code in `ecoPrimals/`, not by importing. toadStool is the only shared dependency.
 > This ensures each spring can evolve independently while benefiting from the
 > collective discoveries. The constraint is the driver of evolution.
+
+## S80 Cross-Spring Pathways
+
+The S78→S80 toadStool sync revealed three new cross-spring pathways:
+
+1. **Spectral statistics** (`level_spacing_ratio`, `spectral_bandwidth`, `spectral_condition_number`):
+   Born in hotSpring's Anderson localization work, absorbed into toadStool `spectral/stats.rs`,
+   now used by wetSpring for bio-molecular spectral analysis and neuralSpring for
+   RMT-based phase classification. hotSpring now leans on the upstream versions
+   in its Anderson 3D proxy.
+
+2. **GPU batch optimization** (`batched_nelder_mead_gpu`): Born in neuralSpring's
+   hyperparameter tuning, absorbed into toadStool S79 `optimize/`. hotSpring
+   benchmarks it for HMC parameter tuning (1000 parallel problems in 205ms).
+
+3. **MultiHeadEsn** (toadStool `esn_v2`): GPU-backed multi-head ESN. hotSpring
+   validated `ExportedWeights` serde compatibility and `HeadGroup` enum alignment.
+   Migration path from CPU `MultiHeadNpu` to GPU `MultiHeadEsn` is now clear —
+   the ESN becomes a first-class GPU citizen.

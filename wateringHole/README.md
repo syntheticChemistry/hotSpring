@@ -57,6 +57,7 @@ fossil record — never deleted, always available for provenance.
 
 | File | Date | Topic |
 |------|------|-------|
+| `HOTSPRING_V0617_TOADSTOOL_S80_ABSORPTION_HANDOFF_MAR02_2026.md` | Mar 2 | **toadStool S80 sync**: spectral stats wired, NeighborMode benchmarked, MultiHeadEsn serde-compatible, Nelder-Mead GPU, full absorption priorities, cross-spring learnings |
 | `HOTSPRING_V0615_TOADSTOOL_S78_SYNC_HANDOFF_MAR02_2026.md` | Mar 2 | toadStool S78 sync: Fp64Strategy::Concurrent fix, remaining absorption targets, lean inventory |
 | `HOTSPRING_V0615_DEEP_DEBT_TOADSTOOL_ABSORPTION_HANDOFF_MAR02_2026.md` | Mar 2 | Deep debt audit + absorption guide: 711 tests, capability-based GPU discovery, 6 binaries decomposed, production pipeline architecture, absorption priorities |
 | `HOTSPRING_V0615_NPU_PARAM_CONTROL_TOADSTOOL_HANDOFF_MAR01_2026.md` | Mar 1 | NPU parameter controller + barracuda evolution review: dt/n_md control, mid-beta adaptation, Exp 029→031 lessons |
@@ -80,7 +81,7 @@ fossil record — never deleted, always available for provenance.
 ## Archive
 
 42 superseded handoffs in `handoffs/archive/`. These document the full
-evolution history from v0.4.x through v0.6.15:
+evolution history from v0.4.x through v0.6.17:
 
 - Early toadStool rewire documents (v1-v4)
 - GPU primitive absorption records

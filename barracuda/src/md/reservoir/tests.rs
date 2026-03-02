@@ -357,3 +357,115 @@ fn esn_predict_determinism() {
         results[1][0]
     );
 }
+
+#[test]
+fn exported_weights_serde_compatible_with_toadstool() {
+    let config = EsnConfig {
+        input_size: 5,
+        reservoir_size: 20,
+        output_size: heads::NUM_HEADS,
+        spectral_radius: 0.9,
+        connectivity: 0.2,
+        leak_rate: 0.3,
+        regularization: 1e-3,
+        seed: 42,
+    };
+    let mut esn = EchoStateNetwork::new(config);
+    let seqs: Vec<Vec<Vec<f64>>> = (0..3)
+        .map(|i| {
+            (0..8)
+                .map(|t| {
+                    let x = (t + i) as f64 * 0.1;
+                    vec![x.sin(), x.cos(), 0.5, x * 0.3, 0.1]
+                })
+                .collect()
+        })
+        .collect();
+    let targets: Vec<Vec<f64>> = (0..3)
+        .map(|i| (0..heads::NUM_HEADS).map(|h| (i + h) as f64 * 0.05).collect())
+        .collect();
+    esn.train(&seqs, &targets);
+
+    let exported = esn.export_weights().expect("export weights");
+
+    // Serialize hotSpring format
+    let json = serde_json::to_string(&exported).expect("serialize");
+
+    // Deserialize with toadStool-compatible format (w_out: Option, head_labels: default)
+    #[derive(serde::Deserialize)]
+    struct ToadStoolWeights {
+        w_in: Vec<f32>,
+        w_res: Vec<f32>,
+        w_out: Option<Vec<f32>>,
+        #[serde(default)]
+        input_size: usize,
+        #[serde(default)]
+        reservoir_size: usize,
+        #[serde(default)]
+        output_size: usize,
+        #[serde(default)]
+        leak_rate: f32,
+        #[serde(default)]
+        head_labels: Vec<String>,
+    }
+
+    let ts: ToadStoolWeights = serde_json::from_str(&json).expect("deserialize as toadstool");
+    assert_eq!(ts.w_in.len(), exported.w_in.len());
+    assert_eq!(ts.w_res.len(), exported.w_res.len());
+    assert!(ts.w_out.is_some());
+    assert_eq!(ts.w_out.as_ref().unwrap().len(), exported.w_out.len());
+    assert_eq!(ts.input_size, 5);
+    assert_eq!(ts.reservoir_size, 20);
+    assert_eq!(ts.output_size, heads::NUM_HEADS);
+
+    // Reverse direction: toadStool → hotSpring
+    let ts_json = serde_json::json!({
+        "w_in": exported.w_in,
+        "w_res": exported.w_res,
+        "w_out": exported.w_out,
+        "input_size": exported.input_size,
+        "reservoir_size": exported.reservoir_size,
+        "output_size": exported.output_size,
+        "leak_rate": exported.leak_rate,
+        "head_labels": ["A0","A1","A2","A3","A4","A5",
+                         "B0","B1","B2","B3","B4","B5",
+                         "C0","C1","C2","C3","C4","C5",
+                         "D0","D1","D2","D3","D4","D5",
+                         "E0","E1","E2","E3","E4","E5",
+                         "M0","M1","M2","M3","M4","M5"]
+    });
+    let round_trip: crate::md::reservoir::ExportedWeights =
+        serde_json::from_value(ts_json).expect("toadstool → hotspring round-trip");
+    assert_eq!(round_trip.output_size, heads::NUM_HEADS);
+}
+
+#[test]
+fn head_group_layout_matches_toadstool_head_group() {
+    use barracuda::esn_v2::HeadGroup;
+
+    let groups = [
+        (HeadGroup::Anderson, heads::GROUP_A, "Anderson"),
+        (HeadGroup::Qcd, heads::GROUP_B, "QCD"),
+        (HeadGroup::Potts, heads::GROUP_C, "Potts"),
+        (HeadGroup::Steering, heads::GROUP_D, "Steering"),
+        (HeadGroup::Brain, heads::GROUP_E, "Brain/Monitor"),
+        (HeadGroup::Meta, heads::GROUP_M, "Meta"),
+    ];
+
+    for (ts_group, hs_base, label) in &groups {
+        let expected_base = match ts_group {
+            HeadGroup::Anderson => 0,
+            HeadGroup::Qcd => 6,
+            HeadGroup::Potts => 12,
+            HeadGroup::Steering => 18,
+            HeadGroup::Brain => 24,
+            HeadGroup::Meta => 30,
+        };
+        assert_eq!(
+            *hs_base, expected_base,
+            "Group {label} base index mismatch: hotSpring={hs_base} expected={expected_base}"
+        );
+    }
+    assert_eq!(heads::NUM_HEADS, 36, "Total head count must be 36");
+    assert_eq!(heads::GROUP_SIZE, 6, "Group size must be 6");
+}

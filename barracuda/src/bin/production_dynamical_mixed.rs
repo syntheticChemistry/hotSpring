@@ -43,7 +43,6 @@ use hotspring_barracuda::production::{
 use hotspring_barracuda::proxy::CortexRequest;
 
 use std::io::Write as IoWrite;
-use std::sync::mpsc;
 use std::time::Instant;
 
 // ═══════════════════════════════════════════════════════════════════
@@ -240,6 +239,26 @@ fn main() {
         &mut npu_stats,
     );
 
+    // ═══ Pre-pipeline Titan for first β[1] ═══
+    if let Some(ref handles) = titan_handles {
+        if beta_order.len() > 1 {
+            let first_next = beta_order[1];
+            handles
+                .titan_tx
+                .send(TitanRequest::PreThermalize {
+                    beta: first_next,
+                    mass: args.mass,
+                    lattice: args.lattice,
+                    n_quenched: args.n_quenched_pretherm,
+                    seed: args.seed + 1500,
+                    dt,
+                    n_md,
+                })
+                .ok();
+            println!("  [Brain L2] Titan V pre-thermalizing β={first_next:.4} for scan start");
+        }
+    }
+
     // ═══ Scan β points ═══
     println!(
         "═══ Dynamical β-Scan ({} points × {} meas) ═══",
@@ -261,28 +280,33 @@ fn main() {
         let start = Instant::now();
         let mut lat = Lattice::hot_start(dims, beta, args.seed + bi as u64);
 
-        // Brain Layer 2: Check if Titan V has a warm config ready for this beta
+        // Brain Layer 2: Wait for Titan V warm config (up to 120s for in-flight work)
         let mut titan_warm = false;
         if let Some(ref handles) = titan_handles {
-            match handles.titan_rx.try_recv() {
-                Ok(TitanResponse::WarmConfig {
-                    beta: wb,
-                    gauge_links,
-                    plaquette,
-                    wall_ms,
-                }) => {
-                    if (wb - beta).abs() < 0.001 {
-                        hotspring_barracuda::lattice::gpu_hmc::unflatten_links_into(
-                            &mut lat,
-                            &gauge_links,
-                        );
-                        println!("  [Brain L2] Using Titan V warm config: P={plaquette:.6} ({wall_ms:.0}ms)");
-                        titan_warm = true;
-                    } else {
-                        println!("  [Brain L2] Titan V config for β={wb:.4} (need {beta:.4}), discarding");
-                    }
+            let titan_timeout = std::time::Duration::from_secs(if bi > 0 { 120 } else { 0 });
+            let titan_result = if bi > 0 {
+                handles.titan_rx.recv_timeout(titan_timeout).ok()
+            } else {
+                handles.titan_rx.try_recv().ok()
+            };
+
+            if let Some(TitanResponse::WarmConfig {
+                beta: wb,
+                gauge_links,
+                plaquette,
+                wall_ms,
+            }) = titan_result
+            {
+                if (wb - beta).abs() < 0.001 {
+                    hotspring_barracuda::lattice::gpu_hmc::unflatten_links_into(
+                        &mut lat,
+                        &gauge_links,
+                    );
+                    println!("  [Brain L2] Using Titan V warm config: P={plaquette:.6} ({wall_ms:.0}ms)");
+                    titan_warm = true;
+                } else {
+                    println!("  [Brain L2] Titan V config for β={wb:.4} (need {beta:.4}), discarding");
                 }
-                Err(mpsc::TryRecvError::Empty | mpsc::TryRecvError::Disconnected) => {}
             }
         }
 
@@ -475,8 +499,8 @@ fn main() {
         );
 
         // ─── Thermalization with NPU early-exit (Head 3) ───
-        let min_therm = 20;
-        let therm_check_interval = 10;
+        let min_therm = 8;
+        let therm_check_interval = 5;
         let mut plaq_history: Vec<f64> = Vec::with_capacity(args.n_therm);
         let mut therm_used = 0;
         let mut early_exit = false;
@@ -622,6 +646,9 @@ fn main() {
                             level_spacing_ratio: features.level_spacing_ratio,
                             lambda_min: features.lambda_min,
                             ipr: features.ipr,
+                            bandwidth: features.bandwidth,
+                            condition_number: features.condition_number,
+                            phase: features.phase.clone(),
                             tier: features.tier,
                         })
                         .ok();
@@ -897,23 +924,23 @@ fn main() {
             );
         }
 
-        // Brain Layer 2: Kick off Titan V pre-therm for the NEXT beta point
+        // Brain Layer 2: Kick off Titan V pre-therm for β[bi+2] (bi+1 was sent at start of this β)
         if let Some(ref handles) = titan_handles {
-            if bi + 1 < beta_order.len() {
-                let next_beta = beta_order[bi + 1];
+            if bi + 2 < beta_order.len() {
+                let future_beta = beta_order[bi + 2];
                 handles
                     .titan_tx
                     .send(TitanRequest::PreThermalize {
-                        beta: next_beta,
+                        beta: future_beta,
                         mass: args.mass,
                         lattice: args.lattice,
                         n_quenched: args.n_quenched_pretherm,
-                        seed: args.seed + (bi as u64 + 1) * 1000 + 500,
+                        seed: args.seed + (bi as u64 + 2) * 1000 + 500,
                         dt,
                         n_md,
                     })
                     .ok();
-                println!("  [Brain L2] Titan V pre-thermalizing β={next_beta:.4} in background");
+                println!("  [Brain L2] Titan V pre-thermalizing β={future_beta:.4} in background");
             }
         }
 

@@ -1,6 +1,6 @@
 # Experiment 031: NPU-Controlled HMC Parameters
 
-**Status:** IN PROGRESS (started 2026-03-01)
+**Status:** COMPLETE (2026-03-01 to 2026-03-02). See `031_POST_MORTEM.md` for analysis.
 **Binary:** `production_dynamical_mixed`
 **Predecessor:** Exp 030 (brain architecture, but NPU param suggestions ignored)
 

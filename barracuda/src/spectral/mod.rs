@@ -21,10 +21,11 @@
 
 pub use barracuda::spectral::{
     almost_mathieu_hamiltonian, anderson_2d, anderson_3d, anderson_hamiltonian, anderson_potential,
-    clean_2d_lattice, clean_3d_lattice, detect_bands, find_all_eigenvalues, gcd,
-    hofstadter_butterfly, lanczos, lanczos_eigenvalues, level_spacing_ratio, sturm_count,
-    BatchIprGpu, LanczosTridiag, SpectralCsrMatrix, GOE_R, GOLDEN_RATIO, POISSON_R,
-    WGSL_SPMV_CSR_F64,
+    classify_spectral_phase, clean_2d_lattice, clean_3d_lattice, detect_bands,
+    find_all_eigenvalues, gcd, hofstadter_butterfly, lanczos, lanczos_eigenvalues,
+    level_spacing_ratio, spectral_bandwidth, spectral_condition_number, sturm_count, BatchIprGpu,
+    LanczosTridiag, SpectralAnalysis, SpectralCsrMatrix, SpectralPhase, GOE_R, GOLDEN_RATIO,
+    POISSON_R, WGSL_SPMV_CSR_F64,
 };
 pub use barracuda::spectral::{lyapunov_averaged, lyapunov_exponent};
 

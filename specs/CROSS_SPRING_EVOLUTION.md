@@ -3,7 +3,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 # Cross-Spring Shader Evolution — hotSpring's View
 
 **Date:** March 2, 2026
-**Synced to:** toadStool S78 (barracuda v0.2.0)
+**Synced to:** toadStool S80 (barracuda v0.2.0)
 **License:** AGPL-3.0-only
 
 ---
@@ -72,6 +72,25 @@ useful in another. The shared library benefits all springs simultaneously.
 | wetSpring → hotSpring | `log_f64` fix, constant patterns | Fixed precision bug in hotSpring's shaders |
 | neuralSpring → hotSpring | `rk4_parallel`, `eigh_f64` Householder+QR | ODE integration, eigensolve improvements |
 | airSpring → all | `moving_window`, `kriging`, FAO-56 ET₀ | Streaming stats, interpolation, evapotranspiration |
+| hotSpring → toadStool → all | `level_spacing_ratio`, Anderson proxy | Born in QCD, used by bio (wetSpring) and RMT (neuralSpring) |
+| neuralSpring → hotSpring | `batched_nelder_mead_gpu` | GPU batch optimization for HMC parameter tuning |
+| hotSpring → toadStool → all | ESN reservoir → `MultiHeadEsn` GPU | CPU sidecar → first-class GPU citizen with per-head training |
+
+### S78→S80 New Modules (March 2, 2026)
+
+| Module | Origin Spring | toadStool Session | Notes |
+|--------|---------------|-------------------|-------|
+| `spectral/stats.rs` | hotSpring→toadStool | S78 | `spectral_bandwidth`, `spectral_condition_number`, `classify_spectral_phase` |
+| `SpectralAnalysis` + Marchenko–Pastur | hotSpring→toadStool | S78 | RMT-based phase classifier (Bulk/EdgeOfChaos/Chaotic) |
+| `NeighborMode::precompute_periodic_4d` | hotSpring→toadStool | S80 | 4D precomputed neighbor table (note: index convention differs) |
+| `MultiHeadEsn` GPU | hotSpring→toadStool | S78 | Per-head training, replaces CPU ESN sidecar |
+| `NautilusBrain` | hotSpring+neuralSpring | S79 | Evolutionary reservoir for QCD steering |
+| `BatchedEncoder` | toadStool | S79 | Fuse multiple GPU dispatches into one submission |
+| `batched_nelder_mead_gpu` | neuralSpring | S79 | Parallel optimization on GPU |
+| `fused_mlp` | neuralSpring | S80 | Single-dispatch multi-layer perceptron |
+| `StatefulPipeline` | toadStool | S79 | CPU pipeline with mutable state between stages |
+| `driver_profile/` centralized | hotSpring→toadStool | S80 | Driver detection and workarounds |
+| `asin_df64` iterative | hotSpring+wetSpring | S80 | Taylor-series asin for DF64 |
 
 ---
 
@@ -112,6 +131,7 @@ MD simulations.
 | hotSpring Module | Upstream barracuda | Since |
 |------------------|--------------------|-------|
 | `spectral/` | `barracuda::spectral::*` | S25 (v0.6.4) |
+| `spectral/stats` (new S80) | `spectral_bandwidth`, `spectral_condition_number`, `classify_spectral_phase`, `SpectralAnalysis` | **S78→S80** |
 | `md/celllist.rs` | `barracuda::ops::md::CellListGpu` | S25 (v0.6.2) |
 | Complex64 WGSL | `barracuda::ops::lattice::complex_f64` | S25 |
 | SU(3) WGSL | `barracuda::ops::lattice::su3` | S25 |
@@ -123,9 +143,12 @@ MD simulations.
 | `GpuDriverProfile` | `barracuda::device::driver_profile` | S42 (v0.5.15) |
 | Special functions | `barracuda::special::*` | S25–S68 |
 | SSF GPU | `barracuda::ops::md::observables::SsfGpu` | S25 |
-| **VACF GPU** (new) | `barracuda::ops::md::compute_vacf_batch` | **S78 sync** |
-| **Stress virial GPU** (available) | `barracuda::ops::md::compute_stress_virial` | **S78 sync** |
-| **Matrix correlation GPU** (available) | `barracuda::ops::stats_f64::matrix_correlation` | **S78 sync** |
+| VACF GPU | `barracuda::ops::md::compute_vacf_batch` | S78 |
+| Stress virial GPU | `barracuda::ops::md::compute_stress_virial` | S78 |
+| Matrix correlation GPU | `barracuda::ops::stats_f64::matrix_correlation` | S78 |
+| **NeighborMode 4D** (tested) | `barracuda::ops::lattice::NeighborMode::precompute_periodic_4d` | **S80** |
+| **Nelder-Mead GPU** (benchmarked) | `barracuda::optimize::batched_nelder_mead_gpu` | **S79** |
+| **MultiHeadEsn** (serde-compatible) | `barracuda::esn_v2::MultiHeadEsn` | **S78** |
 
 ---
 
@@ -146,10 +169,26 @@ MD simulations.
 
 ## Summary
 
-844 WGSL shaders now live in barracuda (toadStool S78). hotSpring contributed
+844+ WGSL shaders now live in barracuda (toadStool S80). hotSpring contributed
 ~100 of those, primarily precision-critical lattice QCD, nuclear physics, and
 MD transport shaders. The cross-spring model works: hotSpring's `math_f64`
 preamble is used by wetSpring's bio shaders; neuralSpring's `rk4_parallel`
 improves hotSpring's ODE paths; airSpring's `moving_window` is available for
 streaming diagnostics. Every spring benefits from every other spring's work
 through the shared toadStool fungus.
+
+S80 sync adds three new cross-spring pathways:
+1. **Spectral stats** (`spectral_bandwidth`, `spectral_condition_number`,
+   `SpectralAnalysis`) — born in hotSpring's Anderson proxy, now available to
+   all springs for RMT-based diagnostics
+2. **MultiHeadEsn** — hotSpring's 36-head CPU ESN layout is serde-compatible
+   with toadStool's GPU `MultiHeadEsn`, enabling future migration to GPU-backed
+   per-head training
+3. **NeighborMode 4D** — toadStool's precomputed 4D neighbor table mirrors
+   hotSpring's `build_neighbors` design (same purpose, different index convention:
+   hotSpring uses z-fastest, toadStool uses x-fastest)
+
+Index convention note: hotSpring `site_index = t*Nx*Ny*Nz + x*Ny*Nz + y*Nz + z`
+(z fastest), toadStool `site_index = t*Nz*Ny*Nx + z*Ny*Nx + y*Nx + x` (x fastest).
+Both precompute 8 neighbors per site `[+x,-x,+y,-y,+z,-z,+t,-t]`. Unification
+is tracked as a future handoff — hotSpring's shaders assume z-fastest throughout.

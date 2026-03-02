@@ -5,6 +5,45 @@ All notable changes to the hotSpring BarraCuda validation crate.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.6.17 — toadStool S80 Sync + Exp 031 Post-Mortem (March 2, 2026)
+
+### toadStool S80 Rewiring
+
+- **Spectral stats wired into proxy**: `spectral_bandwidth()` and `spectral_condition_number()`
+  replace manual calculations in `proxy.rs` (Anderson 3D). `ProxyFeatures` gains
+  `condition_number: f64` field. `production_dynamical_mixed.rs` and `npu_worker.rs`
+  pass bandwidth, condition_number, and phase to the NPU worker.
+- **SpectralAnalysis**: Marchenko-Pastur phase classification (`from_eigenvalues()`)
+  benchmarked in `bench_cross_spring_evolution`. Correctly identifies extended/critical/localized
+  phases across disorder strengths.
+- **NeighborMode::precompute_periodic_4d**: Benchmarked against hotSpring's `build_neighbors`.
+  toadStool 3.6× faster at 16^4 but uses x-fastest site ordering (hotSpring uses z-fastest).
+  Index convention documented; no migration yet — correctness preserved.
+- **MultiHeadEsn compatibility**: `ExportedWeights` serde round-trip validated. `HeadGroup`
+  enum alignment confirmed. Migration path from CPU `MultiHeadNpu` to GPU `MultiHeadEsn` clear.
+- **batched_nelder_mead_gpu**: Benchmarked (10→1000 problems, 2-3 dims). 1000 problems
+  converge in ~205ms on RTX 3090. Relevant for HMC parameter tuning.
+
+### Cross-Spring Evolution Benchmark (S80 update)
+
+- `bench_cross_spring_evolution` extended with: spectral stats CPU phase, neighbor
+  table precompute comparison, Nelder-Mead GPU optimization, cross-spring provenance
+  annotations tracing shaders from hotSpring→toadStool→wetSpring/neuralSpring.
+
+### Exp 031 Post-Mortem
+
+- Three bugs found and documented: Titan V timing stall, NPU input alignment (11 features
+  expected, 36 sent), therm early-exit disabled. See `experiments/031_POST_MORTEM.md`.
+
+### Metrics
+
+- 660 tests (lib + integration), 0 failures
+- 0 clippy warnings (all targets, pedantic + nursery)
+- 85 binaries
+- Synced to toadStool S80
+
+---
+
 ## v0.6.16 — Cross-Spring Rewiring + toadStool S78 (March 2, 2026)
 
 ### Rewiring to upstream barracuda (toadStool S78)

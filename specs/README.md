@@ -1,7 +1,7 @@
 # hotSpring Specifications
 
-**Last Updated**: March 1, 2026
-**Status**: Phase A-J complete — ~700 tests, 39/39 validation suites, crate v0.6.15, 84 binaries
+**Last Updated**: March 2, 2026
+**Status**: Phase A-J complete — ~660 tests, 39/39 validation suites, crate v0.6.17, 85 binaries, toadStool S80 synced
 **Domain**: Computational plasma physics, nuclear structure, transport, lattice QCD, spectral theory, surrogate learning
 
 ---
