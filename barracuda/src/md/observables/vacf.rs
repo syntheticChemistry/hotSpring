@@ -2,7 +2,19 @@
 
 //! Velocity Autocorrelation Function (VACF) and Mean-Square Displacement (MSD).
 //!
-//! Computes C(t) and diffusion coefficient D* from velocity/position snapshots.
+//! Two VACF paths:
+//! - `compute_vacf` — CPU post-process from `Vec<f64>` snapshots
+//! - `compute_vacf_upstream_gpu` — GPU via barracuda's `compute_vacf_batch`
+//!   (cross-spring: shader evolved from hotSpring's batched VACF design,
+//!   absorbed into toadStool S70+ with wetSpring's ODE batch pattern)
+//!
+//! The upstream GPU path flattens hotSpring's `&[Vec<f64>]` into the
+//! frame-major `[n_frames × N × 3]` layout that barracuda expects, runs
+//! the GPU shader, then applies Green-Kubo integration + plateau detection.
+
+use std::sync::Arc;
+
+use barracuda::device::WgpuDevice;
 
 use crate::tolerances::DIVISION_GUARD;
 
@@ -95,6 +107,65 @@ pub fn compute_vacf(vel_snapshots: &[Vec<f64>], n: usize, dt_dump: f64, max_lag:
         c_values: c_normalized,
         diffusion_coeff,
     }
+}
+
+/// Compute VACF on GPU via barracuda's upstream `compute_vacf_batch`.
+///
+/// Flattens hotSpring's snapshot format (`&[Vec<f64>]`) into the frame-major
+/// `[n_frames × N × 3]` flat layout, dispatches one GPU kernel, then applies
+/// the same Green-Kubo plateau detection as the CPU path.
+///
+/// Returns `None` if the GPU op fails (caller should fall back to CPU).
+pub fn compute_vacf_upstream_gpu(
+    device: &Arc<WgpuDevice>,
+    vel_snapshots: &[Vec<f64>],
+    n: usize,
+    dt_dump: f64,
+    max_lag: usize,
+) -> Option<Vacf> {
+    let n_frames = vel_snapshots.len();
+    let n_lag = max_lag.min(n_frames);
+    if n_lag < 2 || n_frames < 2 {
+        return None;
+    }
+
+    let mut flat = Vec::with_capacity(n_frames * n * 3);
+    for snap in vel_snapshots {
+        flat.extend_from_slice(snap);
+    }
+
+    let raw_c = barracuda::ops::md::compute_vacf_batch(device, &flat, n, n_frames, n_lag).ok()?;
+
+    let c0 = raw_c[0].max(DIVISION_GUARD);
+    let c_normalized: Vec<f64> = raw_c.iter().map(|&c| c / c0).collect();
+
+    // Green-Kubo integration with plateau detection (same as CPU path)
+    let mut integral = 0.0;
+    let mut d_star_max = 0.0;
+    let mut plateau_count = 0;
+    let plateau_window = (PLATEAU_DETECTION_TIME / dt_dump).ceil() as usize;
+
+    for i in 1..n_lag {
+        integral += (0.5 * dt_dump).mul_add(raw_c[i - 1] + raw_c[i], 0.0);
+        let d_star_running = integral / 3.0;
+        if d_star_running > d_star_max {
+            d_star_max = d_star_running;
+            plateau_count = 0;
+        } else {
+            plateau_count += 1;
+            if plateau_count > plateau_window {
+                break;
+            }
+        }
+    }
+
+    let t_values: Vec<f64> = (0..n_lag).map(|i| i as f64 * dt_dump).collect();
+
+    Some(Vacf {
+        t_values,
+        c_values: c_normalized,
+        diffusion_coeff: d_star_max,
+    })
 }
 
 /// Compute D* from mean-square displacement (Einstein relation).

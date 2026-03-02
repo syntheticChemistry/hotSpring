@@ -15,7 +15,7 @@ use crate::tolerances::RDF_TAIL_TOLERANCE;
 use super::energy::validate_energy;
 use super::rdf::compute_rdf;
 use super::ssf::{compute_ssf, compute_ssf_gpu};
-use super::vacf::compute_vacf;
+use super::vacf::{compute_vacf, compute_vacf_upstream_gpu};
 
 /// Print summary of all observables.
 ///
@@ -82,18 +82,32 @@ pub fn print_observable_summary_with_gpu(
         println!("    RDF: tail asymptote={tail_mean:.4} (err={tail_err:.4}) [{rdf_icon}]");
     }
 
-    // VACF
+    // VACF — GPU (upstream barracuda) or CPU path
     if sim.velocity_snapshots.len() > 2 {
         let dt_dump = config.dt * config.dump_step as f64 * config.vel_snapshot_interval as f64;
         let max_lag = (sim.velocity_snapshots.len() / 2).max(10);
-        let vacf = compute_vacf(
-            &sim.velocity_snapshots,
-            config.n_particles,
-            dt_dump,
-            max_lag,
-        );
+        let (vacf, vacf_label) = gpu_device
+            .and_then(|dev| {
+                compute_vacf_upstream_gpu(
+                    dev,
+                    &sim.velocity_snapshots,
+                    config.n_particles,
+                    dt_dump,
+                    max_lag,
+                )
+                .map(|v| (v, "GPU barracuda"))
+            })
+            .unwrap_or_else(|| {
+                let v = compute_vacf(
+                    &sim.velocity_snapshots,
+                    config.n_particles,
+                    dt_dump,
+                    max_lag,
+                );
+                (v, "CPU")
+            });
         println!(
-            "    VACF: D*={:.4e} (from {} snapshots, {} lags)",
+            "    VACF [{vacf_label}]: D*={:.4e} (from {} snapshots, {} lags)",
             vacf.diffusion_coeff,
             sim.velocity_snapshots.len(),
             max_lag

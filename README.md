@@ -91,7 +91,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **toadStool S60 DF64 Expansion** | ✅ Complete | v0.6.12: FMA-optimized df64_core, transcendentals, DF64 plaquette + KE. 60% of HMC in DF64 (up from 40%). 8-12% additional speedup |
 | **Mixed Pipeline β-Scan** | ⏸️ Partial | v0.6.12: 3-substrate (3090+NPU+Titan V). DF64 2× confirmed at 32⁴. 8% power reduction. NPU adaptive steering Round 1 complete |
 | **Cross-Spring Rewiring** | ✅ Complete | v0.6.13: GPU Polyakov loop (72× less transfer), NVK alloc guard, PRNG fix. 164+ shaders across 4 springs. 13/13 checks |
-| **Debt Reduction Audit** | ✅ Complete | v0.6.15: 711 tests, 0 clippy warnings, 0 files >1000 lines, capability-based GPU discovery, streaming I/O, IoError/JsonError types, 40+ structs documented, 6 oversized binaries decomposed |
+| **Debt Reduction Audit** | ✅ Complete | v0.6.16: 711 tests, 0 clippy warnings, 85 binaries, synced to toadStool S78, upstream VACF GPU, cross-spring evolution benchmark, capability-based GPU discovery, streaming I/O, 6 binaries decomposed |
 | **DF64 Production Benchmark** (Exp 018) | ✅ Complete | 32⁴ at 7.1h mixed (vs 13.6h FP64-only). RTX 3090 + Titan V dual-GPU validated |
 | **Forge Evolution Validation** (Exp 019) | ✅ Complete | metalForge streaming pipeline: 9/9 domains, substrate routing, DAG topology validation |
 | **NPU Characterization Campaign** (Exp 020) | ✅ Complete | 13/13: thermalization detector 87.5%, rejection predictor 96.2%, 6-output multi-model, 6 pipeline placements, Akida feedback report drafted |
@@ -106,7 +106,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **NPU Steering Production** (Exp 029) | ✅ Complete | 4-seed baseline. Adaptive steering bug found and fixed. Brain architecture validated. |
 | **Adaptive Steering** (Exp 030) | ⏹ Superseded | Fixed adaptive steering, but auto_dt over-penalized mass (dt=0.0032, 97.5% acc). NPU suggestions ignored. Killed → Exp 031 |
 | **NPU-Controlled Parameters** (Exp 031) | 🔄 Running | NPU controls dt/n_md per-beta + mid-beta adaptation. ESN targets 70% acceptance. Bootstrap from 30 β points (Exps 024-030). |
-| **TOTAL** | **39/39 Rust validation suites** | ~711 tests, 84 binaries, 62 WGSL shaders, 34/35 NPU HW checks. Both GPUs validated, DF64 production, cross-substrate ESN characterized, **live AKD1000 PCIe NPU: 4-layer brain architecture, NPU parameter control** |
+| **TOTAL** | **39/39 Rust validation suites** | ~711 tests, 85 binaries, 62 WGSL shaders, 34/35 NPU HW checks. Both GPUs validated, DF64 production, cross-substrate ESN characterized, **live AKD1000 PCIe NPU: 4-layer brain architecture, NPU parameter control** |
 
 Papers 5, 7, 8, and 10 from the review queue are complete. Paper 5 transport fits
 (Daligault 2012) were recalibrated against 12 Sarkas Green-Kubo D* values (Feb 2026)
@@ -367,7 +367,7 @@ makes the upstream library richer and hotSpring leaner.
 - HFB shader suite — potentials + density + BCS bisection (14+GPU+6 checks, Tier 2)
 - NPU substrate discovery — `metalForge/forge/src/probe.rs` (local evolution)
 
-**Already leaning on upstream** (v0.6.15, synced to toadStool S78):
+**Already leaning on upstream** (v0.6.16, synced to toadStool S78):
 
 | Module | Upstream | Status |
 |--------|----------|--------|
@@ -422,7 +422,7 @@ environment, physics implementations, and GPU compute. Key architectural propert
   pipeline, NPU quantization, and NPU beyond-SDK hardware capabilities.
   Zero inline magic numbers — all validation binaries and solver loops wired to `tolerances::*`.
 - **ValidationHarness** — structured pass/fail tracking with exit code 0/1.
-  55 of 84 binaries use it (validation targets). Remaining 29 are optimization
+  55 of 85 binaries use it (validation targets). Remaining 30 are optimization
   explorers, benchmarks, and diagnostics.
 - **Shared data loading** — `data::EosContext` and `data::load_eos_context()`
   eliminate duplicated path construction across all nuclear EOS binaries.
@@ -541,7 +541,7 @@ hotSpring/
 │       ├── cross_spring_evolution.md  # Cross-spring shader ecosystem (164+ shaders)
 │       └── neuromorphic_silicon.md    # AKD1000 NPU exploration — silicon behavior, cross-substrate ESN
 │
-├── barracuda/                          # BarraCuda Rust crate — v0.6.15 (~700 tests, 84 binaries, 62 WGSL shaders)
+├── barracuda/                          # BarraCuda Rust crate — v0.6.16 (~711 tests, 85 binaries, 62 WGSL shaders)
 │   ├── Cargo.toml                     # Dependencies (requires ecoPrimals/phase1/toadstool)
 │   ├── CHANGELOG.md                   # Version history — baselines, tolerances, evolution
 │   ├── EVOLUTION_READINESS.md         # Rust module → GPU promotion tier + absorption status
@@ -641,7 +641,7 @@ hotSpring/
 │   │   ├── integration_pipeline.rs    # Nuclear EOS pipeline (4 tests)
 │   │   └── integration_proxy.rs       # Anderson/Potts proxy models (5 tests)
 │   │
-│       └── bin/                       # 84 binaries (exit 0 = pass, 1 = fail)
+│       └── bin/                       # 85 binaries (exit 0 = pass, 1 = fail)
 │           ├── validate_all.rs        # Meta-validator: runs all 39 validation suites
 │           ├── validate_nuclear_eos.rs # L1 SEMF + L2 HFB + NMP validation harness
 │           ├── validate_barracuda_pipeline.rs # Full MD pipeline (12/12 checks)
@@ -1002,7 +1002,7 @@ substrate: GPU for physics + large reservoirs, NPU for streaming screening, CPU
 for precision. 62 WGSL shaders evolved across hotSpring's physics domains via
 toadStool's cross-spring absorption cycle. biomeGate (RTX 3090, 24GB) resolves
 the QCD deconfinement transition at 32⁴ (χ=40.1 at β=5.69, matching β_c=5.692)
-in 13.6 hours for $0.58. 31 experiments, 84 binaries, ~700 tests. Live AKD1000 NPU via PCIe —
+in 13.6 hours for $0.58. 31 experiments, 85 binaries, ~711 tests. Live AKD1000 NPU via PCIe —
 the first neuromorphic silicon in a lattice QCD production pipeline.
 4-layer brain architecture (RTX 3090 + Titan V + CPU + NPU) steers dynamical
 HMC production. The NPU now controls HMC parameters (dt, n_md) with safety

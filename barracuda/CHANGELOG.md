@@ -5,6 +5,46 @@ All notable changes to the hotSpring BarraCuda validation crate.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.6.16 — Cross-Spring Rewiring + toadStool S78 (March 2, 2026)
+
+### Rewiring to upstream barracuda (toadStool S78)
+
+- **VACF upstream GPU path**: `compute_vacf_upstream_gpu()` wraps barracuda's
+  `ops::md::compute_vacf_batch` (GPU shader from hotSpring→S70+). Converts
+  hotSpring's `&[Vec<f64>]` snapshot format to frame-major flat layout.
+  Observable summary now uses GPU VACF when device available, CPU fallback.
+- **Fp64Strategy::Concurrent**: All 4 match sites in `gpu_hmc/mod.rs` updated
+  to handle new upstream variant (DF64 path, same as Hybrid).
+- **barracuda::ops::stats_f64::matrix_correlation**: Available and benchmarked.
+  neuralSpring→S25 shader works on NVK (9.7ms for 100×10, 18.6ms for 2000×50).
+- **barracuda::ops::md::compute_stress_virial**: Available and benchmarked.
+  hotSpring→S70+ ComputeDispatch op (7.3ms for 500 atoms, 13ms for 2000).
+- **barracuda::special**: Already fully leaning. Confirmed 39ns gamma, 16ns erf,
+  22ns bessel_j0, 11ns hermite, 18ns laguerre (100k evals, RTX 3090 NVK host).
+
+### Cross-Spring Evolution Benchmark
+
+New binary: `bench_cross_spring_evolution` — exercises GPU/CPU ops from all
+five springs with provenance annotations. Tests VACF, stress virial, matrix
+correlation, linear regression (SKIP on NVK naga), and special functions.
+
+### Documentation
+
+- `specs/CROSS_SPRING_EVOLUTION.md`: Full cross-spring shader provenance
+  tracing hotSpring's ~100 WGSL shaders through absorption, documenting
+  cross-pollination (hotSpring→wetSpring, neuralSpring→hotSpring, etc.)
+  and lean inventory.
+- Updated ABSORPTION_MANIFEST, EVOLUTION_READINESS, wateringHole handoffs.
+
+### Metrics
+
+- 711 tests (658 lib + 53 integration), 0 failures, 6 ignored
+- 0 clippy warnings (all targets, pedantic + nursery)
+- 85 binaries (was 84; new bench_cross_spring_evolution)
+- 197 .rs files (was 196; new bin)
+
+---
+
 ## v0.6.15 — Deep-Debt Audit Wave 1 + Wave 2 (March 1-2, 2026)
 
 ### Wave 1 (prior conversation)
