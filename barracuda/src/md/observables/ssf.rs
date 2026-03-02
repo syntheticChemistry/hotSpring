@@ -75,7 +75,10 @@ pub fn compute_ssf_gpu(
             Ok(sk_pairs) => {
                 // Grow accumulator on first snapshot
                 if accumulator.is_empty() {
-                    accumulator = sk_pairs.iter().map(|&(k, sk): &(f64, f64)| (k, sk, 1)).collect();
+                    accumulator = sk_pairs
+                        .iter()
+                        .map(|&(k, sk): &(f64, f64)| (k, sk, 1))
+                        .collect();
                 } else {
                     for (i, &(_k, sk)) in sk_pairs.iter().enumerate() {
                         if i < accumulator.len() {

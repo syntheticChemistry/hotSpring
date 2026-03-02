@@ -185,19 +185,28 @@ fn lambda_star_strong(gamma: f64, kappa: f64) -> f64 {
     a * gamma.powf(-alpha)
 }
 
-/// Transport validation result for a single (Gamma, kappa) point.
+/// Transport validation result for a single (Γ, κ) point.
 #[derive(Clone, Debug)]
-#[allow(missing_docs)]
 pub struct TransportResult {
+    /// Screening parameter κ.
     pub kappa: f64,
+    /// Coupling parameter Γ.
     pub gamma: f64,
+    /// Self-diffusion coefficient D* from MD (Green-Kubo VACF).
     pub d_star_md: f64,
+    /// Daligault fit prediction for D*.
     pub d_star_daligault: f64,
+    /// Sarkas reference D* (if available).
     pub d_star_sarkas: Option<f64>,
+    /// Relative error vs Daligault fit.
     pub rel_error_vs_daligault: f64,
+    /// Relative error vs Sarkas (if available).
     pub rel_error_vs_sarkas: Option<f64>,
+    /// Shear viscosity η* from stress ACF (if computed).
     pub viscosity: Option<f64>,
+    /// Thermal conductivity λ* from heat current ACF (if computed).
     pub thermal_conductivity: Option<f64>,
+    /// Whether validation passed tolerance.
     pub passed: bool,
 }
 

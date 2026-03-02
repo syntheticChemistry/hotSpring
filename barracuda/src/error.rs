@@ -32,6 +32,12 @@ pub enum HotSpringError {
 
     /// Propagated from barracuda primitives (`ReduceScalarPipeline`, etc.)
     Barracuda(barracuda::error::BarracudaError),
+
+    /// I/O error (file open, read, etc.).
+    IoError(std::io::Error),
+
+    /// JSON parse/serialize error.
+    JsonError(serde_json::Error),
 }
 
 impl fmt::Display for HotSpringError {
@@ -49,7 +55,21 @@ impl fmt::Display for HotSpringError {
             Self::GpuCompute(msg) => write!(f, "GPU compute failed: {msg}"),
             Self::InvalidOperation(msg) => write!(f, "Invalid operation: {msg}"),
             Self::Barracuda(e) => write!(f, "BarraCuda error: {e}"),
+            Self::IoError(e) => write!(f, "I/O error: {e}"),
+            Self::JsonError(e) => write!(f, "JSON error: {e}"),
         }
+    }
+}
+
+impl From<std::io::Error> for HotSpringError {
+    fn from(e: std::io::Error) -> Self {
+        Self::IoError(e)
+    }
+}
+
+impl From<serde_json::Error> for HotSpringError {
+    fn from(e: serde_json::Error) -> Self {
+        Self::JsonError(e)
     }
 }
 

@@ -136,16 +136,22 @@ pub struct DeformedHFB {
     pub(super) omega_blocks: HashMap<i32, Vec<usize>>,
 }
 
-/// Result from deformed HFB solve
+/// Result from deformed HFB solve.
 #[derive(Debug, Clone)]
-#[allow(missing_docs)]
 pub struct DeformedHFBResult {
+    /// Total binding energy (MeV).
     pub binding_energy_mev: f64,
+    /// Whether SCF converged.
     pub converged: bool,
+    /// Number of SCF iterations.
     pub iterations: usize,
+    /// Final energy change (MeV).
     pub delta_e: f64,
+    /// Quadrupole deformation β₂.
     pub beta2: f64,
+    /// Mass quadrupole moment Q₂₀ (fm²).
     pub q20_fm2: f64,
+    /// RMS matter radius (fm).
     pub rms_radius_fm: f64,
 }
 

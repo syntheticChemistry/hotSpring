@@ -1,21 +1,22 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-//! Three-Substrate Orchestration: RTX 3090 + AKD1000 NPU + Titan V
+//! Three-Substrate Orchestration: Primary GPU + AKD1000 NPU + Validation GPU
 //!
 //! Phase 0 of NPU Physics Maximization:
-//!   1. RTX 3090 produces quenched HMC trajectories (DF64 core streaming)
+//!   1. Primary GPU produces quenched HMC trajectories (DF64 core streaming)
 //!   2. NPU screens observables via ESN phase classifier (30mW)
-//!   3. Titan V validates flagged configurations at native f64 precision
+//!   3. Secondary GPU validates flagged configurations at native f64 precision
 //!
 //! The pipeline uses the GPU-resident Polyakov loop (v0.6.13) and wires
 //! all three substrates into a single orchestrated run.
 //!
 //! # Multi-GPU Pattern
 //!
-//! Each GPU gets its own `GpuF64` via the `HOTSPRING_GPU_ADAPTER` env var.
-//! The primary (3090) runs production; the secondary (Titan V) validates.
+//! GPUs are discovered by capability (memory/compute) or set via env vars.
+//! Primary runs production; secondary (if different) validates at f64.
 
-use hotspring_barracuda::gpu::GpuF64;
+use hotspring_barracuda::error::HotSpringError;
+use hotspring_barracuda::gpu::{discover_primary_and_secondary_adapters, GpuF64};
 use hotspring_barracuda::lattice::gpu_hmc::{
     gpu_hmc_trajectory_streaming, gpu_polyakov_loop, GpuHmcState, GpuHmcStreamingPipelines,
     StreamObservables,
@@ -31,7 +32,7 @@ const BETA_VALUES: [f64; 5] = [5.0, 5.5, 5.7, 6.0, 6.5];
 
 fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");
-    println!("║  Three-Substrate Orchestration: 3090 + NPU + Titan V       ║");
+    println!("║  Three-Substrate Orchestration: GPU + NPU + Validation      ║");
     println!("║  Phase 0: NPU Physics Maximization                         ║");
     println!("╚══════════════════════════════════════════════════════════════╝");
     println!();
@@ -42,7 +43,14 @@ fn main() {
     // ═══ Substrate Discovery ═══
     println!("═══ Substrate Discovery ═══");
 
-    // Primary GPU (RTX 3090 / default)
+    let (primary_id, secondary_id) = discover_primary_and_secondary_adapters();
+    let primary_id = std::env::var("HOTSPRING_GPU_ADAPTER")
+        .ok()
+        .or(primary_id)
+        .expect("no primary GPU with SHADER_F64 found");
+
+    #[allow(deprecated)]
+    std::env::set_var("HOTSPRING_GPU_ADAPTER", &primary_id);
     let gpu_primary = match rt.block_on(GpuF64::new()) {
         Ok(g) => {
             println!("  Primary GPU: {}", g.adapter_name);
@@ -54,28 +62,34 @@ fn main() {
         }
     };
 
-    // Secondary GPU (Titan V via NVK) — try to discover
     let gpu_titan = {
-        let prev = std::env::var("HOTSPRING_GPU_ADAPTER").ok();
-        std::env::set_var("HOTSPRING_GPU_ADAPTER", "titan");
-        let result = rt.block_on(GpuF64::new());
-        match &prev {
-            Some(v) => std::env::set_var("HOTSPRING_GPU_ADAPTER", v),
-            None => std::env::remove_var("HOTSPRING_GPU_ADAPTER"),
-        }
+        let result = if let Some(ref sid) = secondary_id.filter(|s| s != &primary_id) {
+            let prev = std::env::var("HOTSPRING_GPU_ADAPTER").ok();
+            #[allow(deprecated)]
+            std::env::set_var("HOTSPRING_GPU_ADAPTER", sid);
+            let r = rt.block_on(GpuF64::new());
+            #[allow(deprecated)]
+            match prev {
+                Some(v) => std::env::set_var("HOTSPRING_GPU_ADAPTER", v),
+                None => std::env::remove_var("HOTSPRING_GPU_ADAPTER"),
+            }
+            r
+        } else {
+            Err(HotSpringError::NoAdapter)
+        };
         if let Ok(g) = result {
             let is_different = gpu_primary
                 .as_ref()
                 .is_none_or(|p| p.adapter_name != g.adapter_name);
             if is_different {
-                println!("  Titan V (NVK): {}", g.adapter_name);
+                println!("  Validation:   {} (f64 oracle)", g.adapter_name);
                 Some(g)
             } else {
-                println!("  Titan V: same adapter as primary, skipping dual-GPU");
+                println!("  Validation:   same adapter as primary, skipping dual-GPU");
                 None
             }
         } else {
-            println!("  Titan V not available — validation oracle disabled");
+            println!("  Validation:   not available — oracle disabled");
             None
         }
     };

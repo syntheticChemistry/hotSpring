@@ -9,19 +9,30 @@ use std::process::Command;
 
 /// Complete hardware description captured once at the start of a run.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[allow(missing_docs)]
 pub struct HardwareInventory {
+    /// Gate/machine name.
     pub gate_name: String,
+    /// CPU model string.
     pub cpu_model: String,
+    /// Physical cores.
     pub cpu_cores: usize,
+    /// Logical threads.
     pub cpu_threads: usize,
+    /// L3 cache (KB).
     pub cpu_cache_kb: usize,
+    /// Total RAM (MB).
     pub ram_total_mb: usize,
+    /// GPU name.
     pub gpu_name: String,
+    /// GPU VRAM (MB).
     pub gpu_vram_mb: usize,
+    /// GPU driver version.
     pub gpu_driver: String,
+    /// Compute capability (e.g. "8.9").
     pub gpu_compute_cap: String,
+    /// OS kernel version.
     pub os_kernel: String,
+    /// Rust toolchain version.
     pub rust_version: String,
 }
 

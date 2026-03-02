@@ -93,7 +93,7 @@ fn main() {
     } else {
         println!("╔══════════════════════════════════════════════════════════════╗");
         println!("║  Nuclear EOS L2 — GPU-Batched HFB (BatchedEighGpu)         ║");
-        println!("║  toadstool BatchedEighGpu → O(1) dispatches per SCF iter   ║");
+        println!("║  BatchedEighGpu → O(1) dispatches per SCF iter             ║");
         println!("╚══════════════════════════════════════════════════════════════╝");
     }
     println!();

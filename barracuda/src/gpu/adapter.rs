@@ -21,6 +21,8 @@ pub struct AdapterInfo {
     pub has_timestamps: bool,
     /// Adapter device type (discrete, integrated, software, etc.).
     pub device_type: wgpu::DeviceType,
+    /// Maximum buffer size in bytes (from adapter limits; proxy for VRAM).
+    pub memory_bytes: u64,
 }
 
 impl std::fmt::Display for AdapterInfo {
@@ -70,6 +72,7 @@ pub fn enumerate_adapters() -> Vec<AdapterInfo> {
         .map(|(i, adapter): (usize, wgpu::Adapter)| {
             let info = adapter.get_info();
             let features = adapter.features();
+            let limits = adapter.limits();
             AdapterInfo {
                 index: i,
                 name: info.name.clone(),
@@ -77,9 +80,81 @@ pub fn enumerate_adapters() -> Vec<AdapterInfo> {
                 has_f64: features.contains(wgpu::Features::SHADER_F64),
                 has_timestamps: features.contains(wgpu::Features::TIMESTAMP_QUERY),
                 device_type: info.device_type,
+                memory_bytes: limits.max_buffer_size,
             }
         })
         .collect()
+}
+
+/// Discover the best available GPU adapter by memory/capability.
+///
+/// Enumerates all adapters, filters to those with `SHADER_F64`, and selects
+/// the one with the largest `max_buffer_size` (proxy for VRAM). Prefers
+/// discrete GPUs over integrated when memory is equal.
+///
+/// Returns the adapter identifier (index as string) suitable for
+/// `HOTSPRING_GPU_ADAPTER`, or `None` if no compatible adapter exists.
+#[must_use]
+pub fn discover_best_adapter() -> Option<String> {
+    let mut adapters = enumerate_adapters();
+    adapters.retain(|a| a.has_f64);
+    if adapters.is_empty() {
+        return None;
+    }
+    adapters.sort_by(|a, b| {
+        let mem_cmp = b.memory_bytes.cmp(&a.memory_bytes);
+        if mem_cmp != std::cmp::Ordering::Equal {
+            return mem_cmp;
+        }
+        // Prefer discrete over integrated when memory equal
+        let discrete = |x: &AdapterInfo| x.device_type == wgpu::DeviceType::DiscreteGpu;
+        discrete(b).cmp(&discrete(a))
+    });
+    Some(adapters[0].index.to_string())
+}
+
+/// Discover primary and secondary GPU adapters by memory/capability.
+///
+/// Returns (primary, secondary) identifiers for multi-GPU setups. Primary is
+/// the adapter with most memory; secondary is the next-best different adapter.
+/// Either may be `None` if not enough compatible adapters exist.
+///
+/// Env var override: if `HOTSPRING_GPU_PRIMARY` or `HOTSPRING_GPU_SECONDARY`
+/// are set, those values are used instead of discovery for that slot.
+#[must_use]
+pub fn discover_primary_and_secondary_adapters() -> (Option<String>, Option<String>) {
+    let primary_override = std::env::var("HOTSPRING_GPU_PRIMARY").ok();
+    let secondary_override = std::env::var("HOTSPRING_GPU_SECONDARY").ok();
+
+    if primary_override.is_some() && secondary_override.is_some() {
+        return (primary_override, secondary_override);
+    }
+
+    let mut adapters = enumerate_adapters();
+    adapters.retain(|a| a.has_f64);
+    adapters.sort_by(|a, b| {
+        let mem_cmp = b.memory_bytes.cmp(&a.memory_bytes);
+        if mem_cmp != std::cmp::Ordering::Equal {
+            return mem_cmp;
+        }
+        let discrete = |x: &AdapterInfo| x.device_type == wgpu::DeviceType::DiscreteGpu;
+        discrete(b).cmp(&discrete(a))
+    });
+
+    let primary = primary_override.or_else(|| adapters.first().map(|a| a.index.to_string()));
+    let secondary = secondary_override.or_else(|| {
+        adapters
+            .iter()
+            .skip(1)
+            .find(|a| {
+                primary
+                    .as_ref()
+                    .is_none_or(|p| p != &a.index.to_string() && p != &a.name)
+            })
+            .map(|a| a.index.to_string())
+    });
+
+    (primary, secondary)
 }
 
 /// Select an adapter based on the `HOTSPRING_GPU_ADAPTER` / `BARRACUDA_GPU_ADAPTER`
@@ -157,7 +232,7 @@ fn auto_select(
 ) -> Result<wgpu::Adapter, crate::error::HotSpringError> {
     let mut chosen: Option<wgpu::Adapter> = None;
     let mut fallback: Option<wgpu::Adapter> = None;
-    for a in adapters.into_iter() {
+    for a in adapters {
         let a: wgpu::Adapter = a;
         if a.features().contains(wgpu::Features::SHADER_F64) {
             if a.get_info().device_type == wgpu::DeviceType::DiscreteGpu && chosen.is_none() {

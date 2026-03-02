@@ -68,14 +68,16 @@ impl AbelianHiggsParams {
 ///
 /// Layout: `nt` temporal × `ns` spatial sites with periodic boundaries.
 /// Links: 2 per site (temporal μ=0, spatial μ=1).
-#[allow(missing_docs)]
 pub struct U1HiggsLattice {
+    /// Temporal extent.
     pub nt: usize,
+    /// Spatial extent.
     pub ns: usize,
+    /// Model parameters (β, λ, κ, μ).
     pub params: AbelianHiggsParams,
-    /// Link angles `θ_μ`(x) ∈ [−π, π). Layout: `links[site * 2 + mu]`.
+    /// Link angles θ_μ(x) ∈ [−π, π). Layout: links[site * 2 + μ].
     pub links: Vec<f64>,
-    /// Higgs field φ(x). Layout: `higgs[site]`.
+    /// Higgs field φ(x). Layout: higgs[site].
     pub higgs: Vec<Complex64>,
 }
 
@@ -525,24 +527,33 @@ fn kinetic_energy(pi_links: &[f64], pi_higgs: &[Complex64]) -> f64 {
 
 /// Result of a single HMC trajectory.
 #[derive(Clone, Debug)]
-#[allow(missing_docs)]
 pub struct HmcResult {
+    /// Metropolis accept/reject decision.
     pub accepted: bool,
+    /// Hamiltonian change ΔH.
     pub delta_h: f64,
+    /// Action before MD.
     pub action_before: f64,
+    /// Action after MD.
     pub action_after: f64,
+    /// Mean plaquette.
     pub plaquette: f64,
+    /// Mean |φ|².
     pub higgs_sq: f64,
 }
 
 /// Statistics from a sequence of HMC trajectories.
 #[derive(Clone, Debug)]
-#[allow(missing_docs)]
 pub struct HmcStatistics {
+    /// Metropolis acceptance rate.
     pub acceptance_rate: f64,
+    /// Mean plaquette.
     pub avg_plaquette: f64,
+    /// Mean |φ|².
     pub avg_higgs_sq: f64,
+    /// Mean |ΔH|.
     pub avg_abs_delta_h: f64,
+    /// Per-trajectory results.
     pub trajectories: Vec<HmcResult>,
 }
 

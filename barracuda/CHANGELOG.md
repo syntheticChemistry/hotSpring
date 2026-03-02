@@ -5,6 +5,63 @@ All notable changes to the hotSpring BarraCuda validation crate.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.6.15 — Deep-Debt Audit Wave 1 + Wave 2 (March 1-2, 2026)
+
+### Wave 1 (prior conversation)
+
+- **cargo fmt**: fixed 232 diffs
+- **cargo clippy pedantic/nursery**: fixed all warnings, zero remain
+- **Mutable borrow fix** in `validate_streaming_pipeline.rs`
+- **Tautological assertion removed** in `discovery.rs`
+- **Manual RangeInclusive::contains** → `.contains()` in `ttm.rs`
+- **Manual midpoint** → `f64::midpoint` in `ttm.rs`
+- **Identical match arms merged** in `production_dynamical_mixed.rs` and `resident_cg.rs`
+- **Struct update has no effect fix** in `hmc.rs` tests
+- **Variable assignment tracking fix** in `production_dynamical_mixed.rs`
+- **Loop variable indexing fix** in `validate_gen2_npu.rs`
+- **Smart refactoring**: `reservoir.rs` → `reservoir/` module (mod.rs + heads.rs + npu.rs + tests.rs)
+- **Smart refactoring**: `pseudofermion.rs` → `pseudofermion/` module (mod.rs + tests.rs)
+- **Smart refactoring**: `resident_cg.rs` → resident_cg.rs + 4 submodules (pipelines, buffers, brain, async)
+- **Production module**: new `src/production.rs` with MetaRow, BetaResult, AttentionState, shared helpers
+- **NPU worker extraction**: `src/production/npu_worker.rs` (1000 lines from production_dynamical_mixed)
+- **TTM provenance**: 3 new BaselineProvenance records
+- **Python deps pinned**: numpy==1.24.4, scipy==1.11.4, mystic==0.4.2, numba==0.60.0
+- **Hardcoded /tmp/ paths** → `std::env::temp_dir()`
+- **45 new tests** (unit + integration): ttm, prescreen, pipeline, proxy modules
+- **Dead code removed**: ClassifierResult::recall, SpeciesResult unused fields
+- **BarraCUDA reduce pipeline analysis** documented
+
+### Wave 2 (this conversation)
+
+- **Doc comments** added to 40+ structs/modules, removing all `#[allow(missing_docs)]`
+- **Sovereignty**: capability-based GPU discovery (`gpu/adapter.rs` with `discover_best_adapter`, `discover_primary_and_secondary_adapters`)
+- **Removed hardcoded GPU adapter names** ("titan", "4070") — env vars still work as overrides
+- **Removed hardcoded primal name references** ("toadstool", "hotSpring") from binary output
+- **Streaming I/O**: `production.rs` `load_meta_table()` and `bootstrap_esn()` use `BufReader::lines()`
+- **Error types**: added `IoError(std::io::Error)` and `JsonError(serde_json::Error)` to `HotSpringError`
+- **Smart binary decomposition**:
+  - `production_mixed_pipeline.rs`: 1434 → 537 lines (extracted beta_scan, titan_validation, mixed_summary)
+  - `production_dynamical_mixed.rs`: 1397 → 997 lines (extracted dynamical_summary, dynamical_bootstrap, cortex_worker, titan_worker)
+  - `npu_experiment_campaign.rs`: 1359 → 384 lines (extracted npu_experiments/ module)
+  - `cross_substrate_esn_benchmark.rs`: 1147 → 931 lines (extracted bench/esn_benchmark.rs)
+  - `nuclear_eos_l1_ref.rs`: 1027 → 769 lines (extracted nuclear_eos_helpers.rs)
+  - `npu_worker.rs`: 1005 → 1000 lines (condensed)
+- **New production submodules**: beta_scan.rs, titan_validation.rs, mixed_summary.rs, dynamical_summary.rs, dynamical_bootstrap.rs, cortex_worker.rs, titan_worker.rs
+- **New library modules**: npu_experiments/ (mod.rs + placements.rs), nuclear_eos_helpers.rs, bench/esn_benchmark.rs, gpu/adapter.rs
+- **complex_polyakov_average()** moved from 3 binary duplicates to Lattice method in wilson.rs
+- **All partial_cmp().unwrap()** → `total_cmp()`
+- **All serde_json::to_string_pretty().unwrap()** → `.unwrap_or_default()`
+
+### Metrics
+
+- 711 tests (658 lib + 53 integration), 0 failures, 6 ignored
+- 0 clippy warnings (all targets, pedantic + nursery)
+- 0 files over 1000 lines (was 6+ before)
+- 196 .rs files (112 lib + 84 bin), 62 WGSL shaders
+- Zero unsafe code, zero expect/unwrap in lib (deny enforced)
+
+---
+
 ## v0.6.14 — Debt Reduction + Cross-Primal Discovery + NPU Offload (Feb 25-26, 2026)
 
 ### NPU offload mixed pipeline (Exp 022)

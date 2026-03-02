@@ -45,17 +45,20 @@ pub const WGSL_STRESS_VIRIAL_F64: &str = include_str!("../shaders/stress_virial_
 ///
 /// GPU→GPU copy during production: `copy_buffer_to_buffer` from the live
 /// velocity buffer into the correct offset of this flat buffer.
-#[allow(missing_docs)]
 pub struct GpuVelocityRing {
     /// Single flat buffer: [`n_slots` × N × 3] f64 values.
     pub flat_buf: wgpu::Buffer,
     /// Individual slot buffers (for backward compat with single-origin API).
     pub slots: Vec<wgpu::Buffer>,
+    /// Ring buffer capacity (number of velocity snapshots).
     pub n_slots: usize,
+    /// Current write position (wraps modulo n_slots).
     pub write_idx: usize,
+    /// Total snapshots stored (may exceed n_slots for overwrite mode).
     pub total_stored: usize,
+    /// Number of particles.
     pub n_particles: usize,
-    /// Stride per snapshot in f64 elements: N * 3
+    /// Stride per snapshot in f64 elements: N × 3.
     pub stride: usize,
 }
 
@@ -139,10 +142,12 @@ impl GpuVelocityRing {
 
 /// GPU VACF result: C(lag) at discrete lag times + D*.
 #[derive(Clone, Debug)]
-#[allow(missing_docs)]
 pub struct GpuVacf {
+    /// Lag times (reduced units, ω_p⁻¹).
     pub t_values: Vec<f64>,
+    /// Velocity autocorrelation C(t) / C(0).
     pub c_values: Vec<f64>,
+    /// Self-diffusion coefficient D* from Green-Kubo integral.
     pub diffusion_coeff: f64,
 }
 

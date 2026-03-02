@@ -26,9 +26,10 @@ pub type ColorVector = [Complex64; 3];
 
 /// Staggered fermion field: one `ColorVector` per lattice site.
 #[must_use]
-#[allow(missing_docs)]
 pub struct FermionField {
+    /// Color vectors: data[site][color].
     pub data: Vec<ColorVector>,
+    /// Lattice volume (number of sites).
     pub volume: usize,
 }
 
@@ -178,11 +179,14 @@ pub const WGSL_DIRAC_STAGGERED_F64: &str = include_str!("shaders/dirac_staggered
 /// Pre-computed GPU layout for the Dirac operator.
 ///
 /// Flattens lattice topology and gauge field into GPU-friendly arrays.
-#[allow(missing_docs)]
 pub struct DiracGpuLayout {
+    /// Lattice volume.
     pub volume: usize,
+    /// Gauge links flattened (interleaved re/im).
     pub links_flat: Vec<f64>,
+    /// Neighbor indices (forward/backward per site, per direction).
     pub neighbors: Vec<u32>,
+    /// Staggered phases ±1.0.
     pub phases: Vec<f64>,
 }
 

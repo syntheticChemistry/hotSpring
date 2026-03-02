@@ -7,19 +7,22 @@
 //!   2. **Cooperative**: Split batches across both cards simultaneously
 //!   3. **Specialized**: Route workloads to the best card for each task type
 //!
-//! GPU selection via environment variables (node-agnostic):
-//!   - `HOTSPRING_GPU_PRIMARY`   — Card A name substring (default: `"4070"`)
-//!   - `HOTSPRING_GPU_SECONDARY` — Card B name substring (default: `"titan"`)
+//! GPU selection: capability-based discovery by memory/compute, with env override:
+//!   - `HOTSPRING_GPU_PRIMARY`   — Card A (index or name substring)
+//!   - `HOTSPRING_GPU_SECONDARY` — Card B (index or name substring)
 //!
-//! Example (biomeGate):
+//! When unset, adapters are discovered by SHADER_F64 + max memory; primary
+//! = best, secondary = second-best.
+//!
+//! Example (explicit override):
 //!   HOTSPRING_GPU_PRIMARY=3090 HOTSPRING_GPU_SECONDARY=titan \
 //!     cargo run --release --bin bench_multi_gpu
 //!
-//! Or source a node profile:
+//! Or by index:
 //!   HOTSPRING_GPU_PRIMARY=0 HOTSPRING_GPU_SECONDARY=1 cargo run --release --bin bench_multi_gpu
 
 use barracuda::ops::linalg::BatchedEighGpu;
-use hotspring_barracuda::gpu::GpuF64;
+use hotspring_barracuda::gpu::{discover_primary_and_secondary_adapters, GpuF64};
 use hotspring_barracuda::physics::bcs_gpu::BcsBisectionGpu;
 use std::sync::Arc;
 use std::time::Instant;
@@ -35,9 +38,10 @@ fn main() {
     println!("═══════════════════════════════════════════════════════════");
     println!();
 
-    let primary_name = std::env::var("HOTSPRING_GPU_PRIMARY").unwrap_or_else(|_| "4070".into());
-    let secondary_name =
-        std::env::var("HOTSPRING_GPU_SECONDARY").unwrap_or_else(|_| "titan".into());
+    // Discover by capability (memory/compute) or use env override
+    let (primary_name, secondary_name) = discover_primary_and_secondary_adapters();
+    let primary_name = primary_name.expect("no primary GPU with SHADER_F64 found");
+    let secondary_name = secondary_name.expect("no secondary GPU with SHADER_F64 found");
 
     println!("  Config: primary={primary_name:?}, secondary={secondary_name:?}");
     println!();

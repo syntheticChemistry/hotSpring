@@ -32,7 +32,7 @@ mod buffers;
 mod dispatch;
 mod telemetry;
 
-pub use adapter::AdapterInfo;
+pub use adapter::{discover_best_adapter, discover_primary_and_secondary_adapters, AdapterInfo};
 
 use barracuda::device::capabilities::GpuDriverProfile;
 use barracuda::device::{TensorContext, WgpuDevice};
@@ -44,10 +44,12 @@ use std::sync::Arc;
 /// Wraps wgpu device with `SHADER_F64` + `ToadStool`'s `TensorContext` for
 /// batched dispatch (`begin_batch`/`end_batch`) and `BufferPool` reuse.
 #[must_use]
-#[allow(missing_docs)]
 pub struct GpuF64 {
+    /// Human-readable adapter name (e.g. "NVIDIA GeForce RTX 4070").
     pub adapter_name: String,
+    /// Whether the device supports FP64 compute shaders.
     pub has_f64: bool,
+    /// Whether timestamp queries are available for profiling.
     pub has_timestamps: bool,
     wgpu_device: Arc<WgpuDevice>,
     tensor_ctx: Arc<TensorContext>,
@@ -135,18 +137,17 @@ impl GpuF64 {
             ..wgpu::Limits::default()
         };
 
-        let device_result: Result<(wgpu::Device, wgpu::Queue), wgpu::RequestDeviceError> =
-            selected
-                .request_device(
-                    &wgpu::DeviceDescriptor {
-                        label: Some("hotSpring science device"),
-                        required_features,
-                        required_limits,
-                        memory_hints: wgpu::MemoryHints::default(),
-                    },
-                    None,
-                )
-                .await;
+        let device_result: Result<(wgpu::Device, wgpu::Queue), wgpu::RequestDeviceError> = selected
+            .request_device(
+                &wgpu::DeviceDescriptor {
+                    label: Some("hotSpring science device"),
+                    required_features,
+                    required_limits,
+                    memory_hints: wgpu::MemoryHints::default(),
+                },
+                None,
+            )
+            .await;
         let (device, queue) = device_result
             .map_err(|e| crate::error::HotSpringError::DeviceCreation(e.to_string()))?;
 
@@ -186,9 +187,10 @@ impl GpuF64 {
         let adapters: Vec<wgpu::Adapter> = instance.enumerate_adapters(wgpu::Backends::all());
 
         let hint_lower = name_hint.to_lowercase();
-        let selected = adapters.into_iter().find(|a: &wgpu::Adapter| {
-            a.get_info().name.to_lowercase().contains(&hint_lower)
-        }).ok_or(crate::error::HotSpringError::NoAdapter)?;
+        let selected = adapters
+            .into_iter()
+            .find(|a: &wgpu::Adapter| a.get_info().name.to_lowercase().contains(&hint_lower))
+            .ok_or(crate::error::HotSpringError::NoAdapter)?;
 
         Self::from_adapter(selected).await
     }
@@ -198,7 +200,9 @@ impl GpuF64 {
     /// # Errors
     ///
     /// Returns [`crate::error::HotSpringError`] if device creation fails.
-    pub async fn from_adapter(selected: wgpu::Adapter) -> Result<Self, crate::error::HotSpringError> {
+    pub async fn from_adapter(
+        selected: wgpu::Adapter,
+    ) -> Result<Self, crate::error::HotSpringError> {
         let adapter_info = selected.get_info();
         let adapter_features = selected.features();
 
@@ -354,6 +358,7 @@ mod tests {
         data.iter().flat_map(|v| v.to_le_bytes()).collect()
     }
 
+    #[allow(clippy::expect_used)] // chunks_exact(8) guarantees 8-byte chunks; try_into cannot fail
     fn bytes_to_f64(data: &[u8]) -> Vec<f64> {
         data.chunks_exact(8)
             .map(|chunk| {

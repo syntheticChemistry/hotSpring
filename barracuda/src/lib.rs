@@ -55,6 +55,10 @@ pub mod gpu;
 pub mod lattice;
 /// GPU molecular dynamics (f64 WGSL Yukawa OCP, cell-list, transport).
 pub mod md;
+/// NPU experiment campaign.
+///
+/// Trajectory generation, dataset builders, evaluators, and placement strategies.
+pub mod npu_experiments;
 /// Shared helpers for nuclear EOS validation binaries (L1/L2).
 pub mod nuclear_eos_helpers;
 /// Nuclear structure: SEMF, nuclear matter, spherical/deformed HFB, BCS.
@@ -63,10 +67,12 @@ pub mod physics;
 pub mod pipeline;
 /// NMP cascade filter for L2 heterogeneous pipeline.
 pub mod prescreen;
-/// Physics proxy pipeline (Anderson 3D, Z(3) Potts) for NPU training.
-pub mod proxy;
+/// Shared types and infrastructure for production lattice QCD binaries.
+pub mod production;
 /// Traces every hardcoded value to its Python origin (script, commit, date).
 pub mod provenance;
+/// Physics proxy pipeline (Anderson 3D, Z(3) Potts) for NPU training.
+pub mod proxy;
 /// Spectral theory re-exports from `barracuda::spectral`.
 pub mod spectral;
 /// Centralized, justified validation thresholds (~170 constants).

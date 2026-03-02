@@ -393,9 +393,12 @@ fn read_f64(
 
     let slice = staging.slice(..);
     let (tx, rx) = std::sync::mpsc::channel();
-    slice.map_async(wgpu::MapMode::Read, move |r: Result<(), wgpu::BufferAsyncError>| {
-        let _ = tx.send(r);
-    });
+    slice.map_async(
+        wgpu::MapMode::Read,
+        move |r: Result<(), wgpu::BufferAsyncError>| {
+            let _ = tx.send(r);
+        },
+    );
     device.poll(wgpu::Maintain::Wait);
     rx.recv()
         .map_err(|e| format!("channel: {e}"))?
@@ -436,9 +439,12 @@ fn read_u32(
 
     let slice = staging.slice(..);
     let (tx, rx) = std::sync::mpsc::channel();
-    slice.map_async(wgpu::MapMode::Read, move |r: Result<(), wgpu::BufferAsyncError>| {
-        let _ = tx.send(r);
-    });
+    slice.map_async(
+        wgpu::MapMode::Read,
+        move |r: Result<(), wgpu::BufferAsyncError>| {
+            let _ = tx.send(r);
+        },
+    );
     device.poll(wgpu::Maintain::Wait);
     rx.recv()
         .map_err(|e| format!("channel: {e}"))?

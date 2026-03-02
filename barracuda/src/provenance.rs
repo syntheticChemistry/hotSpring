@@ -170,24 +170,31 @@ pub const NMP_TARGETS: NmpTargets = NmpTargets {
     },
 };
 
-/// A single NMP target with uncertainty and source
+/// A single NMP target with uncertainty and source.
 #[derive(Debug, Clone, Copy)]
-#[allow(missing_docs)]
 pub struct NmpTarget {
+    /// Target value.
     pub value: f64,
+    /// Uncertainty (1σ).
     pub sigma: f64,
+    /// Physical unit (e.g. "fm⁻³", "MeV").
     pub unit: &'static str,
+    /// Literature source.
     pub source: &'static str,
 }
 
-/// All five NMP targets
+/// All five NMP targets (ρ₀, E/A, K∞, m*/m, J).
 #[derive(Debug, Clone, Copy)]
-#[allow(missing_docs)]
 pub struct NmpTargets {
+    /// Saturation density ρ₀ (fm⁻³).
     pub rho0: NmpTarget,
+    /// Binding energy per nucleon E/A (MeV).
     pub e_a: NmpTarget,
+    /// Incompressibility K∞ (MeV).
     pub k_inf: NmpTarget,
+    /// Effective mass ratio m*/m.
     pub m_eff: NmpTarget,
+    /// Symmetry energy J (MeV).
     pub j: NmpTarget,
 }
 
@@ -422,6 +429,52 @@ pub const STANTON_MURILLO_DOI: &str = "10.1103/PhysRevE.93.043203";
 
 /// Publication: Daligault (2012) practical D* model.
 pub const DALIGAULT_DOI: &str = "10.1103/PhysRevE.86.047401";
+
+// ═══════════════════════════════════════════════════════════════════
+// TTM (Two-Temperature Model) baselines — validate_ttm.rs
+// ═══════════════════════════════════════════════════════════════════
+
+/// TTM local model equilibrium temperature — Argon (Te₀=15 000 K, Ti₀=300 K).
+///
+/// From `run_local_model.py` SMT transport model. CONTROL_EXPERIMENT_STATUS §3.
+pub const TTM_ARGON_EQUILIBRIUM_K: BaselineProvenance = BaselineProvenance {
+    label: "TTM Argon equilibrium T (Te₀=15 000 K, Ti₀=300 K)",
+    script: "ttm/scripts/run_local_model.py",
+    commit: "03c0403 (hotSpring control)",
+    date: "2026-02-26",
+    command: "python run_local_model.py --species argon,xenon,helium --model SMT",
+    environment: "conda activate ttm",
+    value: 8100.0,
+    unit: "K",
+};
+
+/// TTM local model equilibrium temperature — Xenon (Te₀=20 000 K, Ti₀=300 K).
+///
+/// From `run_local_model.py` SMT transport model. CONTROL_EXPERIMENT_STATUS §3.
+pub const TTM_XENON_EQUILIBRIUM_K: BaselineProvenance = BaselineProvenance {
+    label: "TTM Xenon equilibrium T (Te₀=20 000 K, Ti₀=300 K)",
+    script: "ttm/scripts/run_local_model.py",
+    commit: "03c0403 (hotSpring control)",
+    date: "2026-02-26",
+    command: "python run_local_model.py --species argon,xenon,helium --model SMT",
+    environment: "conda activate ttm",
+    value: 14_085.0,
+    unit: "K",
+};
+
+/// TTM local model equilibrium temperature — Helium (Te₀=30 000 K, Ti₀=300 K).
+///
+/// From `run_local_model.py` SMT transport model. CONTROL_EXPERIMENT_STATUS §3.
+pub const TTM_HELIUM_EQUILIBRIUM_K: BaselineProvenance = BaselineProvenance {
+    label: "TTM Helium equilibrium T (Te₀=30 000 K, Ti₀=300 K)",
+    script: "ttm/scripts/run_local_model.py",
+    commit: "03c0403 (hotSpring control)",
+    date: "2026-02-26",
+    command: "python run_local_model.py --species argon,xenon,helium --model SMT",
+    environment: "conda activate ttm",
+    value: 10_700.0,
+    unit: "K",
+};
 
 // ═══════════════════════════════════════════════════════════════════
 // HFB validation baselines — verify_hfb.rs
@@ -753,6 +806,9 @@ mod tests {
             &TRANSPORT_MD_BASELINE_PROVENANCE,
             &HFB_TEST_NUCLEI_PROVENANCE,
             &ABELIAN_HIGGS_PYTHON_TIMING_MS,
+            &TTM_ARGON_EQUILIBRIUM_K,
+            &TTM_XENON_EQUILIBRIUM_K,
+            &TTM_HELIUM_EQUILIBRIUM_K,
         ] {
             assert!(!p.label.is_empty(), "label empty: {}", p.label);
             assert!(!p.script.is_empty());

@@ -81,13 +81,16 @@ pub struct SphericalHFB {
     pub(super) lj_blocks: HashMap<(usize, u64), Vec<usize>>,
 }
 
-/// Result from HFB solve
+/// Result from HFB solve.
 #[derive(Debug, Clone)]
-#[allow(missing_docs)]
 pub struct HFBResult {
+    /// Total binding energy (MeV).
     pub binding_energy_mev: f64,
+    /// Whether SCF converged.
     pub converged: bool,
+    /// Number of SCF iterations.
     pub iterations: usize,
+    /// Final energy change (MeV).
     pub delta_e: f64,
 }
 
@@ -839,39 +842,27 @@ impl SphericalHFB {
 // ═══════════════════════════════════════════════════════════════════
 
 struct SpeciesResult {
-    #[allow(dead_code)]
-    _eigenvalues: Vec<f64>,
     eigvecs: Vec<f64>,
     n: usize,
     v2: Vec<f64>,
-    #[allow(dead_code)]
-    _lambda: f64,
 }
 
 impl SpeciesResult {
-    const fn new(
-        eigenvalues: Vec<f64>,
+    fn new(
+        _eigenvalues: Vec<f64>,
         eigvecs: Vec<f64>,
         n: usize,
         v2: Vec<f64>,
-        lambda: f64,
+        _lambda: f64,
     ) -> Self {
-        Self {
-            _eigenvalues: eigenvalues,
-            eigvecs,
-            n,
-            v2,
-            _lambda: lambda,
-        }
+        Self { eigvecs, n, v2 }
     }
 
     fn empty(n_states: usize) -> Self {
         Self {
-            _eigenvalues: vec![0.0; n_states],
             eigvecs: vec![0.0; n_states * n_states],
             n: n_states,
             v2: vec![0.0; n_states],
-            _lambda: 0.0,
         }
     }
 

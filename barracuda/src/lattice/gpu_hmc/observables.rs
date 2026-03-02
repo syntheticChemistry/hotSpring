@@ -12,9 +12,8 @@ use super::{
 /// Observable scalars for the readback stream.
 ///
 /// 8-feature vector for NPU multi-output ESN monitoring:
-///   \[plaquette, plaquette_var, polyakov_mag, polyakov_phase,
-///    action_density, acceptance_rate, delta_h_mag, cg_iterations\]
-#[allow(missing_docs)]
+/// [plaquette, plaquette_var, polyakov_mag, polyakov_phase,
+///  action_density, acceptance_rate, delta_h_mag, cg_iterations]
 #[derive(Clone, Debug)]
 pub struct StreamObservables {
     /// Mean plaquette ⟨P⟩ = Re Tr(U□) / (3·N_plaq).

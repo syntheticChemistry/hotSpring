@@ -11,14 +11,18 @@ use bytemuck::{Pod, Zeroable};
 use std::collections::HashMap;
 use std::f64::consts::PI;
 
-/// Result from GPU-resident L3 evaluation
+/// Result from GPU-resident L3 evaluation.
 #[derive(Debug)]
-#[allow(missing_docs)]
 pub struct GpuResidentL3Result {
+    /// Per-nucleus results: (Z, N, binding_MeV, converged, wall_s).
     pub results: Vec<(usize, usize, f64, bool, f64)>,
+    /// Total wall time (seconds).
     pub wall_time_s: f64,
+    /// Number of eigensolver dispatches.
     pub eigh_dispatches: usize,
+    /// Total GPU dispatches.
     pub total_gpu_dispatches: usize,
+    /// Number of nuclei evaluated.
     pub n_nuclei: usize,
 }
 

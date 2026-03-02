@@ -10,13 +10,15 @@ use crate::tolerances::DIVISION_GUARD;
 /// seconds of non-increasing integral (expressed as time / `dt_dump`).
 const PLATEAU_DETECTION_TIME: f64 = 20.0;
 
-/// VACF result: C(t) at discrete lag times
+/// Velocity autocorrelation function result.
 #[derive(Clone, Debug)]
-#[allow(missing_docs)]
 pub struct Vacf {
-    pub t_values: Vec<f64>,   // lag times in omega_p^-1
-    pub c_values: Vec<f64>,   // normalized C(t) / C(0)
-    pub diffusion_coeff: f64, // D* = (1/3) integral C(t) dt
+    /// Lag times in units of ω_p⁻¹.
+    pub t_values: Vec<f64>,
+    /// Normalized C(t) / C(0).
+    pub c_values: Vec<f64>,
+    /// Self-diffusion coefficient D* = (1/3) ∫ C(t) dt.
+    pub diffusion_coeff: f64,
 }
 
 /// Compute VACF from velocity snapshots (CPU post-process)

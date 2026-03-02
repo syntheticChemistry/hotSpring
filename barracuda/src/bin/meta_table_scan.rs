@@ -74,11 +74,20 @@ fn parse_args() -> CliArgs {
                 _ => ScanMode::Quenched,
             };
         } else if let Some(val) = arg.strip_prefix("--lattices=") {
-            lattices = val.split(',').map(|s| s.parse().expect("lattice int")).collect();
+            lattices = val
+                .split(',')
+                .map(|s| s.parse().expect("lattice int"))
+                .collect();
         } else if let Some(val) = arg.strip_prefix("--betas=") {
-            betas = val.split(',').map(|s| s.parse().expect("beta float")).collect();
+            betas = val
+                .split(',')
+                .map(|s| s.parse().expect("beta float"))
+                .collect();
         } else if let Some(val) = arg.strip_prefix("--masses=") {
-            masses = val.split(',').map(|s| s.parse().expect("mass float")).collect();
+            masses = val
+                .split(',')
+                .map(|s| s.parse().expect("mass float"))
+                .collect();
         } else if let Some(val) = arg.strip_prefix("--cg-tol=") {
             cg_tol = val.parse().expect("--cg-tol=F");
         } else if let Some(val) = arg.strip_prefix("--cg-max-iter=") {
@@ -124,7 +133,7 @@ fn main() {
     };
 
     println!("╔══════════════════════════════════════════════════════════════╗");
-    println!("║  Meta-Table Burst Scanner — {} mode                    ║", mode_str);
+    println!("║  Meta-Table Burst Scanner — {mode_str} mode                    ║");
     println!("╚══════════════════════════════════════════════════════════════╝");
     println!();
     println!("  Lattices: {:?}", args.lattices);
@@ -133,7 +142,7 @@ fn main() {
         println!("  Masses:   {:?}", args.masses);
     }
     println!("  Therm: {}, Meas: {}", args.n_therm, args.n_meas);
-    println!("  Combinations: {}", n_combos);
+    println!("  Combinations: {n_combos}");
     println!("  Output: {}", args.output);
     println!();
 
@@ -167,19 +176,22 @@ fn main() {
         let dt = (0.05 * scale).max(0.001);
         let n_md = ((0.5 / dt).round() as usize).max(10);
 
-        println!("── Lattice {}⁴ (dt={:.4}, n_md={}) ──", lattice_size, dt, n_md);
+        println!("── Lattice {lattice_size}⁴ (dt={dt:.4}, n_md={n_md}) ──");
 
         let quenched_pipelines = GpuHmcStreamingPipelines::new(&gpu);
         let dyn_streaming_pipelines;
         let resident_cg_pipelines;
 
-        if args.mode == ScanMode::Dynamical {
-            dyn_streaming_pipelines = Some(GpuDynHmcStreamingPipelines::new(&gpu));
-            resident_cg_pipelines = Some(GpuResidentCgPipelines::new(&gpu));
+        let (dyn_sp, res_cg) = if args.mode == ScanMode::Dynamical {
+            (
+                Some(GpuDynHmcStreamingPipelines::new(&gpu)),
+                Some(GpuResidentCgPipelines::new(&gpu)),
+            )
         } else {
-            dyn_streaming_pipelines = None;
-            resident_cg_pipelines = None;
-        }
+            (None, None)
+        };
+        dyn_streaming_pipelines = dyn_sp;
+        resident_cg_pipelines = res_cg;
 
         let mass_list: &[f64] = match args.mode {
             ScanMode::Quenched => &[0.0], // placeholder, not used
@@ -247,9 +259,7 @@ fn main() {
                 writeln!(out_file, "{row}").ok();
                 out_file.flush().ok();
 
-                let mass_str = mass_val
-                    .map(|m| format!(" m={m}"))
-                    .unwrap_or_default();
+                let mass_str = mass_val.map(|m| format!(" m={m}")).unwrap_or_default();
                 print!(
                     "  [{combo_idx}/{n_combos}] {}⁴ β={beta:.4}{mass_str}: ⟨P⟩={mean_plaq:.6} χ={chi:.2} acc={:.0}%",
                     lattice_size,
@@ -268,7 +278,9 @@ fn main() {
     println!("═══════════════════════════════════════════════════════════");
     println!(
         "  Meta-table complete: {} rows in {:.1}s ({:.1} min)",
-        combo_idx, total_wall, total_wall / 60.0,
+        combo_idx,
+        total_wall,
+        total_wall / 60.0,
     );
     println!("  Output: {}", args.output);
     println!("  GPU: {}", gpu.adapter_name);
@@ -322,7 +334,13 @@ fn run_quenched_point(
 
     for i in 0..n_meas {
         let r = gpu_hmc_trajectory_streaming(
-            gpu, pipelines, &state, n_md, dt, (n_therm + i) as u32, &mut s,
+            gpu,
+            pipelines,
+            &state,
+            n_md,
+            dt,
+            (n_therm + i) as u32,
+            &mut s,
         );
         plaq_vals.push(r.plaquette);
         if r.accepted {
@@ -386,23 +404,35 @@ fn run_dynamical_point(
     let mut s = seed * 100;
     for i in 0..quenched_pretherm {
         gpu_hmc_trajectory_streaming(
-            gpu, quenched_pipelines, &quenched_state, n_md, dt, i as u32, &mut s,
+            gpu,
+            quenched_pipelines,
+            &quenched_state,
+            n_md,
+            dt,
+            i as u32,
+            &mut s,
         );
     }
     gpu_links_to_lattice(gpu, &quenched_state, &mut lat);
 
     // Dynamical thermalization + measurement
     let dyn_state = GpuDynHmcState::from_lattice(gpu, &lat, beta, mass, cg_tol, cg_max_iter);
-    let cg_bufs = GpuResidentCgBuffers::new(
-        gpu, &dyn_pipelines.dyn_hmc, rcg_pipelines, &dyn_state,
-    );
+    let cg_bufs = GpuResidentCgBuffers::new(gpu, &dyn_pipelines.dyn_hmc, rcg_pipelines, &dyn_state);
 
     let dyn_therm = n_therm.saturating_sub(quenched_pretherm);
     for i in 0..dyn_therm {
         let traj_idx = quenched_pretherm + i;
         gpu_dynamical_hmc_trajectory_resident(
-            gpu, dyn_pipelines, rcg_pipelines, &dyn_state, &cg_bufs,
-            n_md, dt, traj_idx as u32, &mut s, check_interval,
+            gpu,
+            dyn_pipelines,
+            rcg_pipelines,
+            &dyn_state,
+            &cg_bufs,
+            n_md,
+            dt,
+            traj_idx as u32,
+            &mut s,
+            check_interval,
         );
     }
 
@@ -414,8 +444,16 @@ fn run_dynamical_point(
     for i in 0..n_meas {
         let traj_idx = n_therm + i;
         let r = gpu_dynamical_hmc_trajectory_resident(
-            gpu, dyn_pipelines, rcg_pipelines, &dyn_state, &cg_bufs,
-            n_md, dt, traj_idx as u32, &mut s, check_interval,
+            gpu,
+            dyn_pipelines,
+            rcg_pipelines,
+            &dyn_state,
+            &cg_bufs,
+            n_md,
+            dt,
+            traj_idx as u32,
+            &mut s,
+            check_interval,
         );
         plaq_vals.push(r.plaquette);
         if r.accepted {

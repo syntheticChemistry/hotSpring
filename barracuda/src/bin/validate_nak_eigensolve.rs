@@ -370,7 +370,7 @@ fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");
     println!("║  NAK-Optimized Eigensolve: Correctness + Performance       ║");
     println!("║  Workarounds: FMA, 4x unroll, branchless, register hints   ║");
-    println!("║  Delivers: shader + validation for toadstool absorption    ║");
+    println!("║  Delivers: shader + validation for GPU absorption           ║");
     println!("╚══════════════════════════════════════════════════════════════╝");
     println!();
     gpu.print_info();

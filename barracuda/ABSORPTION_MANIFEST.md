@@ -65,7 +65,7 @@ CPU reference implementations, and validation suites.
 |--------|----------|------|-------|--------------|
 | ~~Staggered Dirac~~ | ~~`lattice/dirac.rs`~~ | — | — | ✅ **Absorbed** (S31d) — `ops/lattice/dirac.rs` |
 | ~~CG Solver~~ | ~~`lattice/cg.rs`~~ | — | — | ✅ **Absorbed** (S31d) — `ops/lattice/cg.rs` |
-| ESN Reservoir | `md/reservoir.rs` | `esn_reservoir_update.wgsl`, `esn_readout.wgsl` | 16+ | Echo State Network for transport/phase prediction |
+| ESN Reservoir | `md/reservoir/` | `esn_reservoir_update.wgsl`, `esn_readout.wgsl` | 16+ | Echo State Network for transport/phase prediction |
 | GPU Polyakov loop | `lattice/shaders/polyakov_loop_f64.wgsl` | WGSL compute shader | 6/6 | GPU-resident Polyakov loop (v0.6.13, bidirectional with toadStool) |
 | Naga-safe SU(3) math | `lattice/shaders/su3_math_f64.wgsl` | WGSL pure math | 13/13 | Composition-safe SU(3) without ptr I/O (v0.6.13) |
 

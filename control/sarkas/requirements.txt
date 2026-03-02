@@ -8,17 +8,23 @@
 # IMPORTANT: After installing these, also install Sarkas itself:
 #   cd sarkas-upstream && pip install -e .
 #
-# These versions are known-good on Linux x86_64 as of 2026-02-08.
+# ENVIRONMENT SPLIT (per barracuda/src/provenance.rs):
+#   - This file: Sarkas MD core needs numpy<2.0 (upstream compatibility).
+#   - Transport scripts (daligault_fit.py, calibrate_daligault_fit.py,
+#     yukawa_md_baseline.py) are documented as Python 3.10, NumPy 2.2,
+#     numba 0.60. For transport validation baselines, use a separate env
+#     with numpy==2.2.x and numba==0.60.0, or run with caution here.
+#
 # NOTE: We patched sarkas-upstream for NumPy 2.x / pandas 2.x / Numba 0.60
 # compatibility. See hotSpring/CONTROL_EXPERIMENT_STATUS.md for details.
 
-# Core scientific stack (must pin NumPy < 2.0 for Sarkas compatibility)
-numpy>=1.24,<2.0
-scipy>=1.10,<2.0
+# Core scientific stack (numpy<2.0 required for Sarkas upstream)
+numpy==1.24.4
+scipy==1.11.4
 pandas>=2.0,<3.0
 
-# Numba for JIT-compiled force kernels
-numba>=0.58,<0.61
+# Numba for JIT-compiled force kernels (pinned per provenance)
+numba==0.60.0
 
 # HDF5 for simulation output
 h5py>=3.8

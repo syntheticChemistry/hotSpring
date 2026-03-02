@@ -21,6 +21,7 @@
 //! Data: `github.com/jnoronhahostler/Equation-of-State`
 
 use hotspring_barracuda::lattice::eos_tables::{computational_overlap_summary, HotQcdEos};
+use hotspring_barracuda::provenance::HOTQCD_EOS_PROVENANCE;
 use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
 
@@ -33,6 +34,8 @@ fn main() {
     println!();
 
     let mut harness = ValidationHarness::new("hotqcd_eos");
+
+    harness.print_provenance(&[&HOTQCD_EOS_PROVENANCE]);
 
     // Load reference table
     let eos = HotQcdEos::reference_table();

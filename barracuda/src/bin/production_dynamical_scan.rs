@@ -121,32 +121,7 @@ fn plaquette_variance(history: &[f64]) -> f64 {
         return 0.0;
     }
     let mean = history.iter().sum::<f64>() / history.len() as f64;
-    history
-        .iter()
-        .map(|p| (p - mean).powi(2))
-        .sum::<f64>()
-        / (history.len() - 1) as f64
-}
-
-fn complex_polyakov_average(lat: &Lattice) -> (f64, f64) {
-    let ns = [lat.dims[0], lat.dims[1], lat.dims[2]];
-    let spatial_vol = ns[0] * ns[1] * ns[2];
-    let mut sum_re = 0.0;
-    let mut sum_im = 0.0;
-    for ix in 0..ns[0] {
-        for iy in 0..ns[1] {
-            for iz in 0..ns[2] {
-                let c = lat.polyakov_loop([ix, iy, iz]);
-                sum_re += c.re;
-                sum_im += c.im;
-            }
-        }
-    }
-    let avg_re = sum_re / spatial_vol as f64;
-    let avg_im = sum_im / spatial_vol as f64;
-    let mag = (avg_re * avg_re + avg_im * avg_im).sqrt();
-    let phase = avg_im.atan2(avg_re);
-    (mag, phase)
+    history.iter().map(|p| (p - mean).powi(2)).sum::<f64>() / (history.len() - 1) as f64
 }
 
 fn main() {
@@ -165,8 +140,14 @@ fn main() {
     );
     println!("  β values: {:?}", args.betas);
     println!("  Mass:     {}", args.mass);
-    println!("  CG:       tol={:.0e}, max_iter={}, check_interval={}", args.cg_tol, args.cg_max_iter, args.check_interval);
-    println!("  Therm:    {} dynamical + {} quenched pre-therm", args.n_therm, args.n_quenched_pretherm);
+    println!(
+        "  CG:       tol={:.0e}, max_iter={}, check_interval={}",
+        args.cg_tol, args.cg_max_iter, args.check_interval
+    );
+    println!(
+        "  Therm:    {} dynamical + {} quenched pre-therm",
+        args.n_therm, args.n_quenched_pretherm
+    );
     println!("  Meas:     {}", args.n_meas);
     println!("  Seed:     {}", args.seed);
     if args.trajectory_log.is_some() {
@@ -181,7 +162,9 @@ fn main() {
     let n_md = ((0.5 / dt).round() as usize).max(20);
     println!(
         "  HMC:      dt={:.4}, n_md={}, traj_length={:.3}",
-        dt, n_md, dt * n_md as f64
+        dt,
+        n_md,
+        dt * n_md as f64
     );
     println!();
 
@@ -214,7 +197,13 @@ fn main() {
     let mut results = Vec::new();
 
     for (bi, &beta) in args.betas.iter().enumerate() {
-        println!("── β = {:.4}, m = {} ({}/{}) ──", beta, args.mass, bi + 1, args.betas.len());
+        println!(
+            "── β = {:.4}, m = {} ({}/{}) ──",
+            beta,
+            args.mass,
+            bi + 1,
+            args.betas.len()
+        );
 
         let start = Instant::now();
         let mut lat = Lattice::hot_start(dims, beta, args.seed + bi as u64);
@@ -237,11 +226,20 @@ fn main() {
         let mut seed = args.seed * 100 + bi as u64;
 
         if args.n_quenched_pretherm > 0 {
-            print!("  Quenched pre-therm ({} traj)...", args.n_quenched_pretherm);
+            print!(
+                "  Quenched pre-therm ({} traj)...",
+                args.n_quenched_pretherm
+            );
             std::io::stdout().flush().ok();
             for i in 0..args.n_quenched_pretherm {
                 let r = gpu_hmc_trajectory_streaming(
-                    &gpu, &quenched_pipelines, &quenched_state, n_md, dt, i as u32, &mut seed,
+                    &gpu,
+                    &quenched_pipelines,
+                    &quenched_state,
+                    n_md,
+                    dt,
+                    i as u32,
+                    &mut seed,
                 );
                 if let Some(ref mut w) = traj_writer {
                     let line = serde_json::json!({
@@ -269,7 +267,12 @@ fn main() {
 
         // Phase 2: Dynamical HMC with resident CG
         let dyn_state = GpuDynHmcState::from_lattice(
-            &gpu, &lat, beta, args.mass, args.cg_tol, args.cg_max_iter,
+            &gpu,
+            &lat,
+            beta,
+            args.mass,
+            args.cg_tol,
+            args.cg_max_iter,
         );
         let cg_bufs = GpuResidentCgBuffers::new(
             &gpu,
@@ -369,9 +372,9 @@ fn main() {
             let mut poly_phase = 0.0;
             if do_poly_readback {
                 gpu_links_to_lattice(&gpu, &dyn_state.gauge, &mut lat);
-                let (m, p) = complex_polyakov_average(&lat);
-                poly_mag = m;
-                poly_phase = p;
+                let (re, im) = lat.complex_polyakov_average();
+                poly_mag = (re * re + im * im).sqrt();
+                poly_phase = im.atan2(re);
                 if (i + 1) % 100 == 0 {
                     poly_vals.push(poly_mag);
                 }
@@ -446,8 +449,13 @@ fn main() {
 
         println!(
             "  ⟨P⟩ = {:.6} ± {:.6}  |L| = {:.4}  χ = {:.4}  acc = {:.0}%  ⟨CG⟩ = {:.0}  ({:.1}s)",
-            mean_plaq, std_plaq, mean_poly, susceptibility,
-            acceptance * 100.0, mean_cg, wall_s,
+            mean_plaq,
+            std_plaq,
+            mean_poly,
+            susceptibility,
+            acceptance * 100.0,
+            mean_cg,
+            wall_s,
         );
         println!();
     }
@@ -467,14 +475,21 @@ fn main() {
     for r in &results {
         println!(
             "  {:>6.4} {:>10.6} {:>10.6} {:>10.4} {:>10.4} {:>7.1}% {:>8.0} {:>7.1}s",
-            r.beta, r.mean_plaq, r.std_plaq, r.polyakov, r.susceptibility,
-            r.acceptance * 100.0, r.mean_cg_iters, r.wall_s
+            r.beta,
+            r.mean_plaq,
+            r.std_plaq,
+            r.polyakov,
+            r.susceptibility,
+            r.acceptance * 100.0,
+            r.mean_cg_iters,
+            r.wall_s
         );
     }
     println!();
     println!(
         "  Total wall time: {:.1}s ({:.1} min)",
-        total_wall, total_wall / 60.0
+        total_wall,
+        total_wall / 60.0
     );
     println!("  GPU: {}", gpu.adapter_name);
     println!();

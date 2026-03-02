@@ -15,6 +15,9 @@
 
 use std::time::Instant;
 
+use hotspring_barracuda::provenance::{
+    TTM_ARGON_EQUILIBRIUM_K, TTM_HELIUM_EQUILIBRIUM_K, TTM_XENON_EQUILIBRIUM_K,
+};
 use hotspring_barracuda::tolerances::{
     TTM_ENERGY_DRIFT_REL, TTM_EQUILIBRIUM_T_REL, TTM_HELIUM_EQUILIBRIUM_T_REL,
 };
@@ -32,6 +35,12 @@ fn main() {
     println!();
 
     let mut harness = ValidationHarness::new("ttm");
+
+    harness.print_provenance(&[
+        &TTM_ARGON_EQUILIBRIUM_K,
+        &TTM_XENON_EQUILIBRIUM_K,
+        &TTM_HELIUM_EQUILIBRIUM_K,
+    ]);
 
     // Species parameters from run_local_model.py (control/ttm/scripts/)
     // Densities ~25 bar Ar, ~5 bar Xe, ~74 bar He; Zbar from Thomas-Fermi ≈ 1 for Ar/He, ~2 for Xe
@@ -81,26 +90,35 @@ fn main() {
     let helium_teq = helium_result.te_history.last().copied().unwrap_or(0.0);
 
     println!("  ── Equilibrium temperatures ──");
-    println!("    Argon:  T_eq = {argon_teq:.1} K (expected 8100)");
-    println!("    Xenon:  T_eq = {xenon_teq:.1} K (expected 14085)");
-    println!("    Helium: T_eq = {helium_teq:.1} K (expected 10700)");
+    println!(
+        "    Argon:  T_eq = {argon_teq:.1} K (expected {})",
+        TTM_ARGON_EQUILIBRIUM_K.value
+    );
+    println!(
+        "    Xenon:  T_eq = {xenon_teq:.1} K (expected {})",
+        TTM_XENON_EQUILIBRIUM_K.value
+    );
+    println!(
+        "    Helium: T_eq = {helium_teq:.1} K (expected {})",
+        TTM_HELIUM_EQUILIBRIUM_K.value
+    );
 
     harness.check_rel(
-        "Argon T_eq vs 8100 K",
+        "Argon T_eq vs Python baseline",
         argon_teq,
-        8100.0,
+        TTM_ARGON_EQUILIBRIUM_K.value,
         TTM_EQUILIBRIUM_T_REL,
     );
     harness.check_rel(
-        "Xenon T_eq vs 14085 K",
+        "Xenon T_eq vs Python baseline",
         xenon_teq,
-        14_085.0,
+        TTM_XENON_EQUILIBRIUM_K.value,
         TTM_EQUILIBRIUM_T_REL,
     );
     harness.check_rel(
-        "Helium T_eq vs 10700 K",
+        "Helium T_eq vs Python baseline",
         helium_teq,
-        10_700.0,
+        TTM_HELIUM_EQUILIBRIUM_K.value,
         TTM_HELIUM_EQUILIBRIUM_T_REL,
     );
 

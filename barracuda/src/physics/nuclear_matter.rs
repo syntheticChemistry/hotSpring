@@ -20,13 +20,17 @@ use std::f64::consts::PI;
 ///
 /// All quantities evaluated at the saturation density ρ₀ where dE/dρ = 0.
 #[derive(Debug, Clone)]
-#[allow(missing_docs)]
 pub struct NuclearMatterProps {
-    pub rho0_fm3: f64,    // Saturation density (fm⁻³). Empirical: ~0.16
-    pub e_a_mev: f64,     // Energy per nucleon at saturation (MeV). Empirical: ~-16
-    pub k_inf_mev: f64,   // Incompressibility (MeV). Empirical: ~230
-    pub m_eff_ratio: f64, // Effective mass ratio m*/m. Empirical: ~0.7
-    pub j_mev: f64,       // Symmetry energy (MeV). Empirical: ~32
+    /// Saturation density ρ₀ (fm⁻³). Empirical: ~0.16.
+    pub rho0_fm3: f64,
+    /// Energy per nucleon at saturation E/A (MeV). Empirical: ~−16.
+    pub e_a_mev: f64,
+    /// Incompressibility K∞ (MeV). Empirical: ~230.
+    pub k_inf_mev: f64,
+    /// Effective mass ratio m*/m. Empirical: ~0.7.
+    pub m_eff_ratio: f64,
+    /// Symmetry energy J (MeV). Empirical: ~32.
+    pub j_mev: f64,
 }
 
 /// Energy per nucleon in symmetric nuclear matter.

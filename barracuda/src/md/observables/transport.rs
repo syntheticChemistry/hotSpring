@@ -10,12 +10,14 @@ use crate::tolerances::DIVISION_GUARD;
 /// many seconds of non-increasing running integral (in time units / `dt_snap`).
 const PLATEAU_DETECTION_TIME: f64 = 20.0;
 
-/// Stress tensor autocorrelation result for viscosity computation
+/// Stress tensor autocorrelation result for viscosity computation.
 #[derive(Clone, Debug)]
-#[allow(missing_docs)]
 pub struct StressAcf {
+    /// Lag times (reduced units).
     pub t_values: Vec<f64>,
+    /// ⟨σ_xy(0) σ_xy(t)⟩ autocorrelation.
     pub c_values: Vec<f64>,
+    /// Shear viscosity η* from Green-Kubo integral.
     pub viscosity: f64,
 }
 
@@ -153,12 +155,14 @@ pub fn compute_stress_acf(
     }
 }
 
-/// Heat current autocorrelation result for thermal conductivity computation
+/// Heat current autocorrelation result for thermal conductivity computation.
 #[derive(Clone, Debug)]
-#[allow(missing_docs)]
 pub struct HeatAcf {
+    /// Lag times (reduced units).
     pub t_values: Vec<f64>,
+    /// ⟨J_q(0) · J_q(t)⟩ autocorrelation.
     pub c_values: Vec<f64>,
+    /// Thermal conductivity λ* from Green-Kubo integral.
     pub thermal_conductivity: f64,
 }
 

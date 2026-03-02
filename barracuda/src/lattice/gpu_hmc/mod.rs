@@ -30,6 +30,10 @@
 pub mod dynamical;
 pub mod observables;
 pub mod resident_cg;
+mod resident_cg_async;
+mod resident_cg_brain;
+mod resident_cg_buffers;
+mod resident_cg_pipelines;
 pub mod streaming;
 
 pub use dynamical::gpu_dynamical_hmc_trajectory;

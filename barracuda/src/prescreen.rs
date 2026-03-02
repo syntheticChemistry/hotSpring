@@ -23,22 +23,32 @@ use std::sync::{Arc, Mutex};
 // ═══════════════════════════════════════════════════════════════════
 
 /// Physical constraints on nuclear matter properties.
+///
 /// Parameter sets producing NMP outside these bounds are rejected
 /// before any expensive calculation.
 #[derive(Debug, Clone)]
 #[must_use]
-#[allow(missing_docs)]
 pub struct NMPConstraints {
-    pub rho0_min: f64,  // Minimum saturation density (fm⁻³)
-    pub rho0_max: f64,  // Maximum saturation density
-    pub e_a_min: f64,   // Minimum binding energy (MeV), e.g. -20
-    pub e_a_max: f64,   // Maximum binding energy, e.g. -5
-    pub k_inf_min: f64, // Minimum incompressibility (MeV)
-    pub k_inf_max: f64, // Maximum incompressibility
-    pub m_eff_min: f64, // Minimum effective mass ratio
-    pub m_eff_max: f64, // Maximum effective mass ratio
-    pub j_min: f64,     // Minimum symmetry energy (MeV)
-    pub j_max: f64,     // Maximum symmetry energy
+    /// Minimum saturation density ρ₀ (fm⁻³).
+    pub rho0_min: f64,
+    /// Maximum saturation density ρ₀ (fm⁻³).
+    pub rho0_max: f64,
+    /// Minimum binding energy E/A (MeV).
+    pub e_a_min: f64,
+    /// Maximum binding energy E/A (MeV).
+    pub e_a_max: f64,
+    /// Minimum incompressibility K∞ (MeV).
+    pub k_inf_min: f64,
+    /// Maximum incompressibility K∞ (MeV).
+    pub k_inf_max: f64,
+    /// Minimum effective mass ratio m*/m.
+    pub m_eff_min: f64,
+    /// Maximum effective mass ratio m*/m.
+    pub m_eff_max: f64,
+    /// Minimum symmetry energy J (MeV).
+    pub j_min: f64,
+    /// Maximum symmetry energy J (MeV).
+    pub j_max: f64,
 }
 
 impl Default for NMPConstraints {
@@ -166,17 +176,16 @@ pub fn l1_proxy_prescreen<S: std::hash::BuildHasher>(
 /// Architecture: 10 inputs → normalize → linear(10→1) → sigmoid → P(promising)
 #[derive(Debug, Clone)]
 #[must_use]
-#[allow(missing_docs)]
 pub struct PreScreenClassifier {
-    /// Weights \[10\] — one per Skyrme parameter
+    /// Weights [10] — one per Skyrme parameter.
     pub weights: Vec<f64>,
-    /// Bias term
+    /// Bias term.
     pub bias: f64,
-    /// Normalization: (mean, std) per feature
+    /// Normalization: (mean, std) per feature.
     pub norm: Vec<(f64, f64)>,
-    /// Decision threshold
+    /// Decision threshold for P(promising).
     pub threshold: f64,
-    /// Training statistics
+    /// Number of training examples.
     pub n_train: usize,
     /// Number of positive (promising) training examples.
     pub n_positive: usize,
@@ -393,16 +402,20 @@ pub fn cascade_filter<S: std::hash::BuildHasher>(
     survivors
 }
 
-/// Pre-screening cascade statistics
+/// Pre-screening cascade statistics.
 #[derive(Debug, Default, Clone)]
 #[must_use]
-#[allow(missing_docs)]
 pub struct CascadeStats {
+    /// Total parameter sets considered.
     pub total_candidates: usize,
-    pub tier1_rejected: usize,  // NMP out of bounds
-    pub tier2_rejected: usize,  // L1 proxy too high
-    pub tier3_rejected: usize,  // Classifier says no
-    pub tier4_evaluated: usize, // Passed all screens, HFB evaluated
+    /// Rejected by Tier 1 (NMP out of bounds).
+    pub tier1_rejected: usize,
+    /// Rejected by Tier 2 (L1 proxy too high).
+    pub tier2_rejected: usize,
+    /// Rejected by Tier 3 (classifier says no).
+    pub tier3_rejected: usize,
+    /// Passed all screens, HFB evaluated.
+    pub tier4_evaluated: usize,
 }
 
 impl CascadeStats {
@@ -741,5 +754,113 @@ mod tests {
         assert_eq!(weights.len(), 10);
         assert_eq!(norm.len(), 10);
         assert!(bias.is_finite());
+    }
+
+    #[test]
+    fn cascade_filter_empty_candidates() {
+        let candidates: Vec<Vec<f64>> = vec![];
+        let constraints = NMPConstraints::default();
+        let exp_data: HashMap<(usize, usize), (f64, f64)> = HashMap::new();
+        let clf = PreScreenClassifier::train(&[SLY4_PARAMS.to_vec()], &[5.0], 10.0);
+        let stats = Arc::new(Mutex::new(CascadeStats::default()));
+
+        let survivors = cascade_filter(&candidates, &constraints, &exp_data, false, &clf, &stats);
+        assert!(survivors.is_empty());
+        let s = stats.lock().expect("lock");
+        assert_eq!(s.total_candidates, 0);
+    }
+
+    #[test]
+    fn cascade_filter_nmp_rejects_bad_params() {
+        let mut bad_params = SLY4_PARAMS;
+        bad_params[8] = 0.0; // alpha out of range
+        let candidates = vec![bad_params.to_vec()];
+        let constraints = NMPConstraints::default();
+        let mut exp_data = HashMap::new();
+        exp_data.insert((28, 28), (483.99, 1.0));
+        let clf = PreScreenClassifier::train(&[SLY4_PARAMS.to_vec()], &[5.0], 10.0);
+        let stats = Arc::new(Mutex::new(CascadeStats::default()));
+
+        let survivors = cascade_filter(&candidates, &constraints, &exp_data, false, &clf, &stats);
+        assert!(
+            survivors.is_empty(),
+            "bad alpha should be rejected at Tier 1"
+        );
+        let s = stats.lock().expect("lock");
+        assert_eq!(s.tier1_rejected, 1);
+    }
+
+    #[test]
+    fn cascade_filter_sly4_passes_without_classifier() {
+        let candidates = vec![SLY4_PARAMS.to_vec()];
+        let constraints = NMPConstraints::default();
+        let mut exp_data = HashMap::new();
+        exp_data.insert((28, 28), (483.99, 1.0));
+        exp_data.insert((82, 126), (1636.43, 1.0));
+        let clf = PreScreenClassifier::train(&[SLY4_PARAMS.to_vec()], &[5.0], 10.0);
+        let stats = Arc::new(Mutex::new(CascadeStats::default()));
+
+        let survivors = cascade_filter(&candidates, &constraints, &exp_data, false, &clf, &stats);
+        assert_eq!(
+            survivors.len(),
+            1,
+            "SLy4 should pass Tiers 1+2 when classifier disabled"
+        );
+        let s = stats.lock().expect("lock");
+        assert_eq!(s.tier4_evaluated, 1);
+    }
+
+    #[test]
+    fn cascade_filter_determinism() {
+        let candidates = vec![SLY4_PARAMS.to_vec(), SLY4_PARAMS.to_vec()];
+        let constraints = NMPConstraints::default();
+        let mut exp_data = HashMap::new();
+        exp_data.insert((28, 28), (483.99, 1.0));
+        exp_data.insert((82, 126), (1636.43, 1.0));
+        let clf = PreScreenClassifier::train(&[SLY4_PARAMS.to_vec()], &[5.0], 10.0);
+        let stats = Arc::new(Mutex::new(CascadeStats::default()));
+
+        let a = cascade_filter(&candidates, &constraints, &exp_data, false, &clf, &stats);
+        let stats2 = Arc::new(Mutex::new(CascadeStats::default()));
+        let b = cascade_filter(&candidates, &constraints, &exp_data, false, &clf, &stats2);
+        assert_eq!(a.len(), b.len());
+        for (va, vb) in a.iter().zip(b.iter()) {
+            for (pa, pb) in va.iter().zip(vb.iter()) {
+                assert_eq!(pa.to_bits(), pb.to_bits());
+            }
+        }
+    }
+
+    #[test]
+    fn nmp_objective_penalty_zero_for_good_nmp() {
+        if let NMPScreenResult::Pass(nmp) = nmp_prescreen(&SLY4_PARAMS, &NMPConstraints::default())
+        {
+            let penalty = nmp_objective_penalty(&nmp);
+            assert!(penalty >= 0.0, "penalty must be non-negative");
+        }
+    }
+
+    #[test]
+    fn perturb_params_determinism() {
+        let base = SLY4_PARAMS.to_vec();
+        let bounds: Vec<(f64, f64)> = vec![
+            (-3000.0, -1000.0),
+            (200.0, 600.0),
+            (-600.0, 0.0),
+            (10000.0, 18000.0),
+            (-1.0, 1.5),
+            (-2.0, 1.0),
+            (-2.0, 0.0),
+            (-1.0, 2.5),
+            (0.1, 0.5),
+            (50.0, 200.0),
+        ];
+        let mut rng1 = 42u64;
+        let mut rng2 = 42u64;
+        let a = perturb_params(&base, &bounds, &mut rng1, 0.1);
+        let b = perturb_params(&base, &bounds, &mut rng2, 0.1);
+        for (pa, pb) in a.iter().zip(b.iter()) {
+            assert_eq!(pa.to_bits(), pb.to_bits());
+        }
     }
 }

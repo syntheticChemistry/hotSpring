@@ -91,7 +91,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **toadStool S60 DF64 Expansion** | ✅ Complete | v0.6.12: FMA-optimized df64_core, transcendentals, DF64 plaquette + KE. 60% of HMC in DF64 (up from 40%). 8-12% additional speedup |
 | **Mixed Pipeline β-Scan** | ⏸️ Partial | v0.6.12: 3-substrate (3090+NPU+Titan V). DF64 2× confirmed at 32⁴. 8% power reduction. NPU adaptive steering Round 1 complete |
 | **Cross-Spring Rewiring** | ✅ Complete | v0.6.13: GPU Polyakov loop (72× less transfer), NVK alloc guard, PRNG fix. 164+ shaders across 4 springs. 13/13 checks |
-| **Debt Reduction Audit** | ✅ Complete | v0.6.14: 0 mocks, 0 TODOs, 0 clippy warnings (lib+bins), cross-primal discovery, β_c provenance, WGSL dedup, 150+ centralized tolerances |
+| **Debt Reduction Audit** | ✅ Complete | v0.6.15: 711 tests, 0 clippy warnings, 0 files >1000 lines, capability-based GPU discovery, streaming I/O, IoError/JsonError types, 40+ structs documented, 6 oversized binaries decomposed |
 | **DF64 Production Benchmark** (Exp 018) | ✅ Complete | 32⁴ at 7.1h mixed (vs 13.6h FP64-only). RTX 3090 + Titan V dual-GPU validated |
 | **Forge Evolution Validation** (Exp 019) | ✅ Complete | metalForge streaming pipeline: 9/9 domains, substrate routing, DAG topology validation |
 | **NPU Characterization Campaign** (Exp 020) | ✅ Complete | 13/13: thermalization detector 87.5%, rejection predictor 96.2%, 6-output multi-model, 6 pipeline placements, Akida feedback report drafted |
@@ -106,7 +106,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **NPU Steering Production** (Exp 029) | ✅ Complete | 4-seed baseline. Adaptive steering bug found and fixed. Brain architecture validated. |
 | **Adaptive Steering** (Exp 030) | ⏹ Superseded | Fixed adaptive steering, but auto_dt over-penalized mass (dt=0.0032, 97.5% acc). NPU suggestions ignored. Killed → Exp 031 |
 | **NPU-Controlled Parameters** (Exp 031) | 🔄 Running | NPU controls dt/n_md per-beta + mid-beta adaptation. ESN targets 70% acceptance. Bootstrap from 30 β points (Exps 024-030). |
-| **TOTAL** | **39/39 Rust validation suites** | ~700 tests, 84 binaries, 62 WGSL shaders, 34/35 NPU HW checks. Both GPUs validated, DF64 production, cross-substrate ESN characterized, **live AKD1000 PCIe NPU: 4-layer brain architecture, NPU parameter control** |
+| **TOTAL** | **39/39 Rust validation suites** | ~711 tests, 84 binaries, 62 WGSL shaders, 34/35 NPU HW checks. Both GPUs validated, DF64 production, cross-substrate ESN characterized, **live AKD1000 PCIe NPU: 4-layer brain architecture, NPU parameter control** |
 
 Papers 5, 7, 8, and 10 from the review queue are complete. Paper 5 transport fits
 (Daligault 2012) were recalibrated against 12 Sarkas Green-Kubo D* values (Feb 2026)
@@ -362,8 +362,8 @@ makes the upstream library richer and hotSpring leaner.
 **Next absorption targets** (see `barracuda/ABSORPTION_MANIFEST.md`):
 - Staggered Dirac shader — `lattice/dirac.rs` + `WGSL_DIRAC_STAGGERED_F64` (8/8 checks, Tier 1)
 - CG solver shaders — `lattice/cg.rs` + 3 WGSL shaders (9/9 checks, Tier 1)
-- Pseudofermion HMC — `lattice/pseudofermion.rs` (heat bath, force, combined leapfrog; 7/7 checks, Tier 1)
-- ESN reservoir + readout — `md/reservoir.rs` (GPU+NPU validated, Tier 1)
+- Pseudofermion HMC — `lattice/pseudofermion/` (heat bath, force, combined leapfrog; 7/7 checks, Tier 1)
+- ESN reservoir + readout — `md/reservoir/` (GPU+NPU validated, Tier 1)
 - HFB shader suite — potentials + density + BCS bisection (14+GPU+6 checks, Tier 2)
 - NPU substrate discovery — `metalForge/forge/src/probe.rs` (local evolution)
 
@@ -380,8 +380,8 @@ makes the upstream library richer and hotSpring leaner.
 |--------|------|------------|--------|
 | `lattice/dirac.rs` | Dirac SpMV | `WGSL_DIRAC_STAGGERED_F64` | (C) Ready — 8/8 checks |
 | `lattice/cg.rs` | CG solver | `WGSL_COMPLEX_DOT_RE_F64` + 2 more | (C) Ready — 9/9 checks |
-| `lattice/pseudofermion.rs` | Pseudofermion HMC | CPU (WGSL-ready pattern) | (C) Ready — 7/7 checks |
-| `md/reservoir.rs` | ESN | `esn_reservoir_update.wgsl` + readout | (C) Ready — NPU validated |
+| `lattice/pseudofermion/` | Pseudofermion HMC | CPU (WGSL-ready pattern) | (C) Ready — 7/7 checks |
+| `md/reservoir/` | ESN | `esn_reservoir_update.wgsl` + readout | (C) Ready — NPU validated |
 | `physics/screened_coulomb.rs` | Sturm eigensolve | CPU only | (C) Ready — 23/23 checks |
 | `physics/hfb_deformed_gpu/` | Deformed HFB | 5 WGSL shaders | (C) Ready — GPU-validated |
 
@@ -392,7 +392,7 @@ makes the upstream library richer and hotSpring leaner.
 The `barracuda/` directory is a standalone Rust crate providing the validation
 environment, physics implementations, and GPU compute. Key architectural properties:
 
-- **~697 tests** (~665 lib + 31 integration + doc), **39 validation suites** (39/39 pass),
+- **~711 tests** (~658 lib + 53 integration + doc), **39 validation suites** (39/39 pass),
   **16 determinism tests** (rerun-identical for all stochastic algorithms). Includes
   lattice QCD (complex f64, SU(3), Wilson action, HMC, Dirac CG, pseudofermion HMC),
   Abelian Higgs (U(1) + Higgs, HMC), transport coefficients (Green-Kubo D*/η*/λ*,
@@ -400,7 +400,7 @@ environment, physics implementations, and GPU compute. Key architectural propert
   and NPU beyond-SDK hardware capability validation. Test coverage: **74.9% region /
   83.8% function** (spectral tests upstream in barracuda; GPU modules require hardware
   for higher coverage). Measured with `cargo-llvm-cov`.
-- **AGPL-3.0 only** — all 135 active `.rs` files and all 43 `.wgsl` shaders have
+- **AGPL-3.0 only** — all 196 `.rs` files (112 lib + 84 bin) and all 62 `.wgsl` shaders have
   `SPDX-License-Identifier: AGPL-3.0-only` on line 1.
 - **Provenance** — centralized `BaselineProvenance` records trace hardcoded
   validation values to their Python origins (script path, git commit, date,
@@ -430,7 +430,7 @@ environment, physics implementations, and GPU compute. Key architectural propert
 - **Typed errors** — `HotSpringError` enum with full `Result` propagation
   across all GPU pipelines, HFB solvers, and ESN prediction. Variants:
   `NoAdapter`, `NoShaderF64`, `DeviceCreation`, `DataLoad`, `Barracuda`,
-  `GpuCompute`, `InvalidOperation`.   **Zero `.unwrap()` and zero `.expect()`
+  `GpuCompute`, `InvalidOperation`, `IoError`, `JsonError`.   **Zero `.unwrap()` and zero `.expect()`
   in library code** — `#![deny(clippy::expect_used, clippy::unwrap_used)]` enforced crate-wide;
   all fallible operations use `?` propagation. Provably
   unreachable byte-slice conversions annotated with SAFETY comments.
@@ -445,8 +445,8 @@ environment, physics implementations, and GPU compute. Key architectural propert
 - **Zero duplicate math** — all linear algebra, quadrature, optimization,
   sampling, special functions, statistics, and spin-orbit coupling use
   BarraCuda primitives (`SpinOrbitGpu`, `compute_ls_factor`).
-- **Capability-based discovery** — GPU adapter selection by name, index, or
-  auto-detect (first discrete with `SHADER_F64`). Supports nvidia proprietary,
+- **Capability-based discovery** — runtime adapter enumeration by memory/capability
+  (`discover_best_adapter`, `discover_primary_and_secondary_adapters`). Supports nvidia proprietary,
   NVK/nouveau, RADV, and any Vulkan driver. Buffer limits derived from
   `adapter.limits()`, not hardcoded. Data paths resolved via `HOTSPRING_DATA_ROOT`
   or directory discovery.
@@ -457,7 +457,7 @@ environment, physics implementations, and GPU compute. Key architectural propert
 
 ```bash
 cd barracuda
-cargo test               # ~697 tests (~665 lib + 31 integration + doc), 6 GPU/heavy-ignored (~700s; spectral tests upstream)
+cargo test               # ~711 tests (~658 lib + 53 integration + doc), 6 GPU/heavy-ignored (~700s; spectral tests upstream)
 cargo clippy --all-targets  # Zero warnings (pedantic + nursery via Cargo.toml workspace lints)
 cargo doc --no-deps      # Full API documentation — 0 warnings
 cargo run --release --bin validate_all  # 39/39 suites pass
@@ -557,8 +557,22 @@ hotSpring/
 │       ├── prescreen.rs               # NMP cascade filter (algebraic → L1 proxy → classifier)
 │       ├── spectral/                 # Spectral theory — re-exports from upstream barracuda::spectral
 │       │   └── mod.rs               # pub use barracuda::spectral::* + CsrMatrix alias (v0.6.9 lean)
-│       ├── bench/                      # Benchmark harness — mod, hardware, power, report (RAPL, nvidia-smi, JSON)
-│       ├── gpu/                       # GPU FP64 device wrapper (adapter, buffers, dispatch, telemetry)
+│       ├── production.rs              # Shared production types (MetaRow, BetaResult, AttentionState)
+│       ├── production/               # Production pipeline modules
+│       │   ├── npu_worker.rs         # 11-head dynamical NPU worker thread
+│       │   ├── beta_scan.rs          # Quenched NPU β-scan worker
+│       │   ├── titan_worker.rs       # Secondary GPU validation worker
+│       │   ├── cortex_worker.rs      # CPU cortex proxy worker
+│       │   ├── dynamical_bootstrap.rs # Multi-substrate worker acquisition
+│       │   ├── dynamical_summary.rs  # Dynamical pipeline summary/JSON
+│       │   ├── mixed_summary.rs      # Quenched mixed pipeline summary
+│       │   └── titan_validation.rs   # Titan V validation helper
+│       ├── npu_experiments/           # NPU experiment campaign infrastructure
+│       │   ├── mod.rs                # Types, trajectory generation, evaluators
+│       │   └── placements.rs         # 6 NPU placement strategies
+│       ├── nuclear_eos_helpers.rs    # Nuclear EOS shared helpers (NMP, residual analysis)
+│       ├── bench/                      # Benchmark harness — mod, hardware, power, report, esn_benchmark
+│       ├── gpu/                       # GPU FP64 device wrapper (adapter, buffers, dispatch, telemetry, discovery)
 │       │
 │       ├── physics/                   # Nuclear structure — L1/L2/L3 implementations
 │       │   ├── constants.rs           # CODATA 2018 physical constants
@@ -583,7 +597,7 @@ hotSpring/
 │       │   ├── shaders/               # f64 WGSL production kernels (11 files)
 │       │   ├── simulation.rs          # GPU MD loop (all-pairs + cell-list)
 │       │   ├── cpu_reference.rs       # CPU reference implementation (FCC, Verlet)
-│       │   ├── reservoir.rs           # Echo State Network (ESN) for transport prediction
+│       │   ├── reservoir/              # Echo State Network (ESN) — mod.rs + heads.rs + npu.rs + tests.rs
 │       │   ├── observables/           # Observable computation module
 │       │   │   ├── mod.rs           # Re-exports
 │       │   │   ├── rdf.rs           # Radial distribution function
@@ -599,7 +613,7 @@ hotSpring/
 │       │   ├── su3.rs                 # SU(3) 3×3 complex matrix algebra (Rust + WGSL template)
 │       │   ├── wilson.rs              # Wilson gauge action — plaquettes, staples, force
 │       │   ├── hmc.rs                 # Hybrid Monte Carlo — Cayley exp, leapfrog
-│       │   ├── pseudofermion.rs       # Pseudofermion HMC — heat bath, CG action, fermion force (Paper 10)
+│       │   ├── pseudofermion/          # Pseudofermion HMC — mod.rs + tests.rs (Paper 10)
 │       │   ├── abelian_higgs.rs       # U(1) + Higgs (1+1)D lattice HMC (Paper 13)
 │       │   ├── constants.rs           # Centralized LCG PRNG, SU(3) constants, guards
 │       │   ├── dirac.rs              # Staggered Dirac operator
@@ -608,18 +622,26 @@ hotSpring/
 │       │   │   ├── mod.rs            # Shared types, dispatch helpers, pure gauge trajectory
 │       │   │   ├── dynamical.rs      # Dynamical fermion HMC
 │       │   │   ├── streaming.rs      # Streaming variants (GPU PRNG, batched encoders)
-│       │   │   ├── resident_cg.rs    # GPU-resident CG solver (15,360× readback reduction)
+│       │   │   ├── resident_cg.rs    # GPU-resident CG solver orchestrator (15,360× readback reduction)
+│       │   │   ├── resident_cg_pipelines.rs # CG compute pipeline creation
+│       │   │   ├── resident_cg_buffers.rs   # GPU buffer management + reduction
+│       │   │   ├── resident_cg_brain.rs     # Brain integration for CG steering
+│       │   │   ├── resident_cg_async.rs     # Async readback management
 │       │   │   └── observables.rs    # Stream observables + bidirectional NPU screening
 │       │   ├── eos_tables.rs          # HotQCD EOS tables (Bazavov et al. 2014)
 │       │   ├── correlator.rs          # Plaquette/Polyakov susceptibility, HVP kernel
 │       │   └── multi_gpu.rs           # Temperature scan dispatcher
 │       │
-│   ├── tests/                         # Integration tests (24 tests, 3 suites)
+│   ├── tests/                         # Integration tests (53 tests, 7 suites)
 │   │   ├── integration_physics.rs     # HFB solver, binding energy, density round-trips (11 tests)
 │   │   ├── integration_data.rs        # AME2020 data loading + chi2 (8 tests)
-│   │   └── integration_transport.rs   # ESN + Daligault fits (5 tests)
+│   │   ├── integration_transport.rs   # ESN + Daligault fits (5 tests)
+│   │   ├── integration_ttm.rs         # TTM equilibrium temperatures (3 tests)
+│   │   ├── integration_prescreen.rs   # NMP cascade filter (4 tests)
+│   │   ├── integration_pipeline.rs    # Nuclear EOS pipeline (4 tests)
+│   │   └── integration_proxy.rs       # Anderson/Potts proxy models (5 tests)
 │   │
-│       └── bin/                       # 78 binaries (exit 0 = pass, 1 = fail)
+│       └── bin/                       # 84 binaries (exit 0 = pass, 1 = fail)
 │           ├── validate_all.rs        # Meta-validator: runs all 39 validation suites
 │           ├── validate_nuclear_eos.rs # L1 SEMF + L2 HFB + NMP validation harness
 │           ├── validate_barracuda_pipeline.rs # Full MD pipeline (12/12 checks)

@@ -8,15 +8,20 @@ use crate::md::config::MdConfig;
 use crate::md::simulation::EnergyRecord;
 use crate::tolerances::{DIVISION_GUARD, ENERGY_DRIFT_PCT};
 
-/// Energy validation result
+/// Energy validation result.
 #[derive(Clone, Debug)]
-#[allow(missing_docs)]
 pub struct EnergyValidation {
+    /// Mean total energy over production.
     pub mean_total: f64,
+    /// Standard deviation of total energy.
     pub std_total: f64,
+    /// Drift percentage: |E_final − E_initial| / |E_mean| × 100.
     pub drift_pct: f64,
+    /// Mean instantaneous temperature.
     pub mean_temperature: f64,
+    /// Standard deviation of temperature.
     pub std_temperature: f64,
+    /// Whether drift is within tolerance.
     pub passed: bool,
 }
 

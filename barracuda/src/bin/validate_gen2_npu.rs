@@ -22,6 +22,7 @@ use std::time::Instant;
 struct TrajRecord {
     beta: f64,
     #[serde(default)]
+    #[allow(dead_code)]
     mass: f64,
     plaquette: f64,
     accepted: bool,
@@ -59,7 +60,9 @@ fn load_and_aggregate(path: &str) -> Vec<BetaSummary> {
         .iter()
         .filter(|r| r.phase == "measurement")
         .collect();
-    let effective = if meas.is_empty() { &records } else {
+    let effective = if meas.is_empty() {
+        &records
+    } else {
         // Use measurement-phase records
         // Safety: meas borrows from records which is alive
         &records // fallback handled below
@@ -68,7 +71,7 @@ fn load_and_aggregate(path: &str) -> Vec<BetaSummary> {
 
     let mut by_beta: BTreeMap<i64, Vec<&TrajRecord>> = BTreeMap::new();
     let source = if use_meas {
-        meas.iter().map(|r| *r).collect::<Vec<_>>()
+        meas.clone()
     } else {
         records.iter().collect::<Vec<_>>()
     };
@@ -80,9 +83,11 @@ fn load_and_aggregate(path: &str) -> Vec<BetaSummary> {
 
     let _ = effective;
     let mut summaries = Vec::new();
-    for (_key, group) in &by_beta {
+    for group in by_beta.values() {
         let n = group.len();
-        if n == 0 { continue; }
+        if n == 0 {
+            continue;
+        }
 
         let plaqs: Vec<f64> = group.iter().map(|r| r.plaquette).collect();
         let mean_plaq = plaqs.iter().sum::<f64>() / n as f64;
@@ -93,8 +98,16 @@ fn load_and_aggregate(path: &str) -> Vec<BetaSummary> {
         };
         let std_plaq = variance.sqrt();
         let acceptance = group.iter().filter(|r| r.accepted).count() as f64 / n as f64;
-        let cgs: Vec<f64> = group.iter().filter(|r| r.cg_iters > 0).map(|r| r.cg_iters as f64).collect();
-        let mean_cg = if cgs.is_empty() { 0.0 } else { cgs.iter().sum::<f64>() / cgs.len() as f64 };
+        let cgs: Vec<f64> = group
+            .iter()
+            .filter(|r| r.cg_iters > 0)
+            .map(|r| r.cg_iters as f64)
+            .collect();
+        let mean_cg = if cgs.is_empty() {
+            0.0
+        } else {
+            cgs.iter().sum::<f64>() / cgs.len() as f64
+        };
 
         summaries.push(BetaSummary {
             beta: group[0].beta,
@@ -107,7 +120,11 @@ fn load_and_aggregate(path: &str) -> Vec<BetaSummary> {
         });
     }
 
-    println!("  {path}: {} beta points from {} records", summaries.len(), source.len());
+    println!(
+        "  {path}: {} beta points from {} records",
+        summaries.len(),
+        source.len()
+    );
     summaries
 }
 
@@ -117,24 +134,52 @@ fn build_gen2_training_data(summaries: &[BetaSummary]) -> (Vec<Vec<Vec<f64>>>, V
 
     for r in summaries {
         let beta_norm = (r.beta - 5.0) / 2.0;
-        let phase_val = if r.mean_plaq > 0.56 { 1.0 } else if r.mean_plaq < 0.40 { 0.0 } else { 0.5 };
+        let phase_val = if r.mean_plaq > 0.56 {
+            1.0
+        } else if r.mean_plaq < 0.40 {
+            0.0
+        } else {
+            0.5
+        };
         let proximity = (-(r.beta - 5.69_f64).powi(2) / 0.1).exp();
         let cg_norm = r.mean_cg / 500.0;
-        let anomaly_val = if r.acceptance < 0.05 || r.mean_cg > 3000.0 { 1.0 } else { 0.0 };
+        let anomaly_val = if r.acceptance < 0.05 || r.mean_cg > 3000.0 {
+            1.0
+        } else {
+            0.0
+        };
         let quality = (r.acceptance * 0.4
             + (1.0 - r.std_plaq / r.mean_plaq.abs().max(1e-10)).clamp(0.0, 1.0) * 0.3
             + (r.n_meas as f64 / 100.0).min(1.0) * 0.3)
             .clamp(0.0, 1.0);
 
-        let anderson_phase = if r.beta > 5.5 { 1.0 } else if r.beta < 5.0 { 0.0 } else { 0.5 };
-        let potts_phase = if r.beta > 5.8 { 1.0 } else if r.beta < 5.2 { 0.0 } else { 0.5 };
+        let anderson_phase = if r.beta > 5.5 {
+            1.0
+        } else if r.beta < 5.0 {
+            0.0
+        } else {
+            0.5
+        };
+        let potts_phase = if r.beta > 5.8 {
+            1.0
+        } else if r.beta < 5.2 {
+            0.0
+        } else {
+            0.5
+        };
         let optimal_dt = 0.01 + r.acceptance.abs() * 0.04;
         let optimal_nmd = ((1.0 / optimal_dt).round() / 200.0).clamp(0.0, 1.0);
 
         let seq: Vec<Vec<f64>> = (0..10)
             .map(|j| {
                 let noise = 0.005 * ((j as f64) * 0.7).sin();
-                vec![beta_norm, r.mean_plaq + noise * r.std_plaq, r.acceptance, r.susceptibility / 1000.0, r.acceptance]
+                vec![
+                    beta_norm,
+                    r.mean_plaq + noise * r.std_plaq,
+                    r.acceptance,
+                    r.susceptibility / 1000.0,
+                    r.acceptance,
+                ]
             })
             .collect();
         seqs.push(seq);
@@ -186,8 +231,18 @@ fn build_gen2_training_data(summaries: &[BetaSummary]) -> (Vec<Vec<Vec<f64>>>, V
         t[heads::M1_PHASE_CONSENSUS] = phase_val;
         t[heads::M2_CG_UNCERTAINTY] = (anderson_phase - phase_val).abs();
         t[heads::M3_PHASE_UNCERTAINTY] = (potts_phase - phase_val).abs();
-        t[heads::M4_PROXY_TRUST] = if (anderson_phase - phase_val).abs() < 0.3 { 0.8 } else { 0.3 };
-        t[heads::M5_ATTENTION_LEVEL] = if anomaly_val > 0.5 { 0.8 } else if cg_norm > 0.5 { 0.4 } else { 0.1 };
+        t[heads::M4_PROXY_TRUST] = if (anderson_phase - phase_val).abs() < 0.3 {
+            0.8
+        } else {
+            0.3
+        };
+        t[heads::M5_ATTENTION_LEVEL] = if anomaly_val > 0.5 {
+            0.8
+        } else if cg_norm > 0.5 {
+            0.4
+        } else {
+            0.1
+        };
 
         targets.push(t);
     }
@@ -219,8 +274,13 @@ fn main() {
     for s in all_summaries {
         let key = (s.beta * 1000.0).round() as i64;
         let entry = by_beta.entry(key).or_insert_with(|| BetaSummary {
-            beta: s.beta, mean_plaq: 0.0, std_plaq: 0.0, acceptance: 0.0,
-            mean_cg: 0.0, susceptibility: 0.0, n_meas: 0,
+            beta: s.beta,
+            mean_plaq: 0.0,
+            std_plaq: 0.0,
+            acceptance: 0.0,
+            mean_cg: 0.0,
+            susceptibility: 0.0,
+            n_meas: 0,
         });
         if s.n_meas > entry.n_meas {
             *entry = s;
@@ -251,8 +311,11 @@ fn main() {
 
     let train_ms = t0.elapsed().as_secs_f64() * 1000.0;
     println!("  Trained in {train_ms:.1}ms");
-    println!("  Readout weights: {} floats ({:.1} KB)",
-        weights.w_out.len(), weights.w_out.len() as f64 * 4.0 / 1024.0);
+    println!(
+        "  Readout weights: {} floats ({:.1} KB)",
+        weights.w_out.len(),
+        weights.w_out.len() as f64 * 4.0 / 1024.0
+    );
     println!();
 
     // ═══ Sweep β-space: fine grid for disagreement map ═══
@@ -266,7 +329,7 @@ fn main() {
 
     struct SweepPoint {
         beta: f64,
-        outputs: Vec<f64>,
+        _outputs: Vec<f64>,
         disagreement: HeadGroupDisagreement,
     }
 
@@ -274,11 +337,18 @@ fn main() {
     let measured_betas: Vec<f64> = summaries.iter().map(|s| s.beta).collect();
     let measured_plaqs: Vec<f64> = summaries.iter().map(|s| s.mean_plaq).collect();
     let measured_acc: Vec<f64> = summaries.iter().map(|s| s.acceptance).collect();
-    let measured_chi: Vec<f64> = summaries.iter().map(|s| s.susceptibility / 1000.0).collect();
+    let measured_chi: Vec<f64> = summaries
+        .iter()
+        .map(|s| s.susceptibility / 1000.0)
+        .collect();
 
     let interpolate = |beta: f64, xs: &[f64], ys: &[f64]| -> f64 {
-        if beta <= xs[0] { return ys[0]; }
-        if beta >= xs[xs.len() - 1] { return ys[ys.len() - 1]; }
+        if beta <= xs[0] {
+            return ys[0];
+        }
+        if beta >= xs[xs.len() - 1] {
+            return ys[ys.len() - 1];
+        }
         for i in 0..xs.len() - 1 {
             if beta >= xs[i] && beta <= xs[i + 1] {
                 let t = (beta - xs[i]) / (xs[i + 1] - xs[i]);
@@ -302,14 +372,22 @@ fn main() {
             .collect();
 
         let (outputs, disagreement) = npu.predict_with_disagreement(&input);
-        sweep.push(SweepPoint { beta, outputs, disagreement });
+        sweep.push(SweepPoint {
+            beta,
+            _outputs: outputs,
+            disagreement,
+        });
     }
 
     // Print the disagreement map
-    println!("  {:>6}  {:>8}  {:>8}  {:>8}  {:>8}  {:>8}  {:>7}",
-        "β", "Δ_cg", "Δ_phase", "Δ_anom", "Δ_prior", "urgency", "edge?");
-    println!("  {:─>6}  {:─>8}  {:─>8}  {:─>8}  {:─>8}  {:─>8}  {:─>7}",
-        "", "", "", "", "", "", "");
+    println!(
+        "  {:>6}  {:>8}  {:>8}  {:>8}  {:>8}  {:>8}  {:>7}",
+        "β", "Δ_cg", "Δ_phase", "Δ_anom", "Δ_prior", "urgency", "edge?"
+    );
+    println!(
+        "  {:─>6}  {:─>8}  {:─>8}  {:─>8}  {:─>8}  {:─>8}  {:─>7}",
+        "", "", "", "", "", "", ""
+    );
 
     let mut concept_edges: Vec<(f64, f64)> = Vec::new();
     let urgency_threshold = 0.15;
@@ -322,15 +400,17 @@ fn main() {
         }
         // Print every 5th point, or if it's an edge
         let idx = ((pt.beta - beta_min) / step).round() as usize;
-        if idx % 5 == 0 || is_edge {
-            println!("  {:6.3}  {:8.4}  {:8.4}  {:8.4}  {:8.4}  {:8.4}  {}",
+        if idx.is_multiple_of(5) || is_edge {
+            println!(
+                "  {:6.3}  {:8.4}  {:8.4}  {:8.4}  {:8.4}  {:8.4}  {}",
                 pt.beta,
                 pt.disagreement.delta_cg,
                 pt.disagreement.delta_phase,
                 pt.disagreement.delta_anomaly,
                 pt.disagreement.delta_priority,
                 u,
-                if is_edge { "  <<<" } else { "" });
+                if is_edge { "  <<<" } else { "" }
+            );
         }
     }
     println!();
@@ -363,8 +443,15 @@ fn main() {
         for (i, (start, end, peak)) in clusters.iter().enumerate() {
             let mid = (start + end) / 2.0;
             let width = end - start;
-            println!("  Edge {}: β ∈ [{:.3}, {:.3}]  midpoint={:.3}  width={:.3}  peak_urgency={:.4}",
-                i + 1, start, end, mid, width, peak);
+            println!(
+                "  Edge {}: β ∈ [{:.3}, {:.3}]  midpoint={:.3}  width={:.3}  peak_urgency={:.4}",
+                i + 1,
+                start,
+                end,
+                mid,
+                width,
+                peak
+            );
 
             // Interpret the edge
             if mid > 5.0 && mid < 5.8 {
@@ -384,18 +471,28 @@ fn main() {
         println!();
         let bar_width = 60;
         print!("  ");
-        for i in 0..=n_sweep {
-            let beta = beta_min + i as f64 * step;
-            let u = sweep[i].disagreement.urgency();
+        for (i, pt) in sweep.iter().enumerate() {
+            let u = pt.disagreement.urgency();
             let col = (i as f64 / n_sweep as f64 * bar_width as f64) as usize;
             if col != ((i.max(1) - 1) as f64 / n_sweep as f64 * bar_width as f64) as usize {
-                let ch = if u > 0.3 { '█' } else if u > 0.2 { '▓' } else if u > 0.1 { '▒' } else { '░' };
+                let ch = if u > 0.3 {
+                    '█'
+                } else if u > 0.2 {
+                    '▓'
+                } else if u > 0.1 {
+                    '▒'
+                } else {
+                    '░'
+                };
                 print!("{ch}");
             }
-            let _ = beta;
         }
         println!();
-        println!("  {:<30}{:>30}", format!("β={:.1}", beta_min), format!("β={:.1}", beta_max));
+        println!(
+            "  {:<30}{:>30}",
+            format!("β={:.1}", beta_min),
+            format!("β={:.1}", beta_max)
+        );
         println!("  Legend: ░ agreement  ▒ mild  ▓ moderate  █ strong disagreement");
     }
     println!();
@@ -403,43 +500,76 @@ fn main() {
     // ═══ Per-Group Head Comparison at Training Points ═══
     println!("═══ Per-Group Predictions at Measured β Points ═══");
     println!();
-    println!("  {:>6}  {:>7} {:>7} {:>7}  {:>7} {:>7} {:>7}  {:>7} {:>7} {:>7}  {:>8}",
-        "β", "A:CG", "B:CG", "C:CG", "A:φ", "B:φ", "C:φ", "A:anom", "B:anom", "C:anom", "urgency");
+    println!(
+        "  {:>6}  {:>7} {:>7} {:>7}  {:>7} {:>7} {:>7}  {:>7} {:>7} {:>7}  {:>8}",
+        "β", "A:CG", "B:CG", "C:CG", "A:φ", "B:φ", "C:φ", "A:anom", "B:anom", "C:anom", "urgency"
+    );
 
     for s in &summaries {
         let beta_norm = (s.beta - 5.0) / 2.0;
         let input: Vec<Vec<f64>> = (0..10)
-            .map(|_| vec![beta_norm, s.mean_plaq, s.acceptance, s.susceptibility / 1000.0, s.acceptance])
+            .map(|_| {
+                vec![
+                    beta_norm,
+                    s.mean_plaq,
+                    s.acceptance,
+                    s.susceptibility / 1000.0,
+                    s.acceptance,
+                ]
+            })
             .collect();
 
         let (out, dis) = npu.predict_with_disagreement(&input);
-        println!("  {:6.3}  {:7.3} {:7.3} {:7.3}  {:7.3} {:7.3} {:7.3}  {:7.3} {:7.3} {:7.3}  {:8.4}",
+        println!(
+            "  {:6.3}  {:7.3} {:7.3} {:7.3}  {:7.3} {:7.3} {:7.3}  {:7.3} {:7.3} {:7.3}  {:8.4}",
             s.beta,
-            out[heads::A0_ANDERSON_CG_COST], out[heads::B0_QCD_CG_COST], out[heads::C0_POTTS_CG_COST],
-            out[heads::A1_ANDERSON_PHASE], out[heads::B1_QCD_PHASE], out[heads::C1_POTTS_PHASE],
-            out[heads::A3_ANDERSON_ANOMALY], out[heads::B3_QCD_ANOMALY], out[heads::C3_POTTS_ANOMALY],
-            dis.urgency());
+            out[heads::A0_ANDERSON_CG_COST],
+            out[heads::B0_QCD_CG_COST],
+            out[heads::C0_POTTS_CG_COST],
+            out[heads::A1_ANDERSON_PHASE],
+            out[heads::B1_QCD_PHASE],
+            out[heads::C1_POTTS_PHASE],
+            out[heads::A3_ANDERSON_ANOMALY],
+            out[heads::B3_QCD_ANOMALY],
+            out[heads::C3_POTTS_ANOMALY],
+            dis.urgency()
+        );
     }
     println!();
 
     // ═══ Meta-head outputs ═══
     println!("═══ Meta-Mixer Head Outputs at Measured β Points ═══");
     println!();
-    println!("  {:>6}  {:>8} {:>8} {:>8} {:>8} {:>8} {:>8}",
-        "β", "M:CG_con", "M:φ_con", "M:CG_Δ", "M:φ_Δ", "M:trust", "M:attn");
+    println!(
+        "  {:>6}  {:>8} {:>8} {:>8} {:>8} {:>8} {:>8}",
+        "β", "M:CG_con", "M:φ_con", "M:CG_Δ", "M:φ_Δ", "M:trust", "M:attn"
+    );
 
     for s in &summaries {
         let beta_norm = (s.beta - 5.0) / 2.0;
         let input: Vec<Vec<f64>> = (0..10)
-            .map(|_| vec![beta_norm, s.mean_plaq, s.acceptance, s.susceptibility / 1000.0, s.acceptance])
+            .map(|_| {
+                vec![
+                    beta_norm,
+                    s.mean_plaq,
+                    s.acceptance,
+                    s.susceptibility / 1000.0,
+                    s.acceptance,
+                ]
+            })
             .collect();
 
         let out = npu.predict_all_heads(&input);
-        println!("  {:6.3}  {:8.4} {:8.4} {:8.4} {:8.4} {:8.4} {:8.4}",
+        println!(
+            "  {:6.3}  {:8.4} {:8.4} {:8.4} {:8.4} {:8.4} {:8.4}",
             s.beta,
-            out[heads::M0_CG_CONSENSUS], out[heads::M1_PHASE_CONSENSUS],
-            out[heads::M2_CG_UNCERTAINTY], out[heads::M3_PHASE_UNCERTAINTY],
-            out[heads::M4_PROXY_TRUST], out[heads::M5_ATTENTION_LEVEL]);
+            out[heads::M0_CG_CONSENSUS],
+            out[heads::M1_PHASE_CONSENSUS],
+            out[heads::M2_CG_UNCERTAINTY],
+            out[heads::M3_PHASE_UNCERTAINTY],
+            out[heads::M4_PROXY_TRUST],
+            out[heads::M5_ATTENTION_LEVEL]
+        );
     }
     println!();
 
@@ -449,16 +579,23 @@ fn main() {
     match std::fs::read_to_string(gen1_path) {
         Ok(json) => match serde_json::from_str::<ExportedWeights>(&json) {
             Ok(w) => {
-                println!("  Loaded Gen 1 weights: {} heads (output_size={})",
-                    w.output_size, w.output_size);
+                println!(
+                    "  Loaded Gen 1 weights: {} heads (output_size={})",
+                    w.output_size, w.output_size
+                );
                 let mut gen1_npu = MultiHeadNpu::from_exported(&w);
-                let test_input: Vec<Vec<f64>> = (0..10)
-                    .map(|_| vec![0.0, 0.5, 0.1, 0.01, 0.5])
-                    .collect();
+                let test_input: Vec<Vec<f64>> =
+                    (0..10).map(|_| vec![0.0, 0.5, 0.1, 0.01, 0.5]).collect();
                 let (out, dis) = gen1_npu.predict_with_disagreement(&test_input);
-                println!("  Gen 1 output length: {} (< {} = Gen 2)", out.len(), heads::NUM_HEADS);
-                println!("  Disagreement (should be zeros): Δ_cg={:.4} Δ_phase={:.4}",
-                    dis.delta_cg, dis.delta_phase);
+                println!(
+                    "  Gen 1 output length: {} (< {} = Gen 2)",
+                    out.len(),
+                    heads::NUM_HEADS
+                );
+                println!(
+                    "  Disagreement (should be zeros): Δ_cg={:.4} Δ_phase={:.4}",
+                    dis.delta_cg, dis.delta_phase
+                );
                 println!("  ✓ Gen 1 weights load safely in Gen 2 code");
             }
             Err(e) => println!("  Cannot parse {gen1_path}: {e}"),

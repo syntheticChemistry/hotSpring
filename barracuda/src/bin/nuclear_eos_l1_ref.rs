@@ -15,14 +15,11 @@
 use hotspring_barracuda::data;
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::nuclear_eos_helpers::{
-    build_residuals_semf, compute_be_chi2_only, compute_binding_energies, compute_mean_std,
-    compute_residual_metrics, per_nucleus_residuals_to_json, print_accuracy_by_region,
-    print_accuracy_distributions, print_accuracy_metrics_box, print_best_parameters,
-    print_semf_capability_analysis, print_top_nuclei,
+    compute_be_chi2_only, compute_binding_energies, compute_mean_std, make_l1_objective_nmp,
+    print_comparison_summary, print_reference_baselines, run_deep_residual_analysis,
 };
 use hotspring_barracuda::physics::{nuclear_matter_properties, semf_binding_energy};
 use hotspring_barracuda::provenance;
-use hotspring_barracuda::tolerances;
 
 // ALL from barracuda native — no hotspring_barracuda::surrogate or ::stats
 use barracuda::sample::direct::{direct_sampler, DirectSamplerConfig};
@@ -31,7 +28,6 @@ use barracuda::stats::{bootstrap_ci, chi2_decomposed_weighted};
 // loo_cv_optimal_smoothing and RBFKernel now used internally by SparsitySampler
 use barracuda::optimize::convergence_diagnostics;
 
-use std::sync::Arc;
 use std::time::Instant;
 
 // ═══════════════════════════════════════════════════════════════════
@@ -54,209 +50,6 @@ struct CliArgs {
 
 // EosContext and load_eos_context are now in data module
 use hotspring_barracuda::data::EosContext;
-
-fn make_l1_objective_nmp(
-    exp_data: &Arc<std::collections::HashMap<(usize, usize), (f64, f64)>>,
-    lambda: f64,
-) -> impl Fn(&[f64]) -> f64 {
-    let exp_data = exp_data.clone();
-    move |x: &[f64]| l1_objective_nmp(x, &exp_data, lambda)
-}
-
-fn print_comparison_summary(
-    chi2_1: f64,
-    approach1_evals: usize,
-    approach1_time: f64,
-    chi2_2: f64,
-    approach2_evals: usize,
-    approach2_time: f64,
-    better: f64,
-) {
-    println!(
-        "  {:40} {:>10} {:>8} {:>8}",
-        "Method", "χ²/datum", "Evals", "Time"
-    );
-    println!(
-        "  {:40} {:>10} {:>8} {:>8}",
-        "─".repeat(40),
-        "─".repeat(10),
-        "─".repeat(8),
-        "─".repeat(8)
-    );
-    println!(
-        "  {:40} {:>10.4} {:>8} {:>7.2}s",
-        "SparsitySampler + NativeAutoSmooth", chi2_1, approach1_evals, approach1_time
-    );
-    println!(
-        "  {:40} {:>10.4} {:>8} {:>7.2}s",
-        "Native DirectSampler", chi2_2, approach2_evals, approach2_time
-    );
-    println!(
-        "  {:40} {:>10.4} {:>8} {:>8}",
-        "Python/scipy control (reference)",
-        provenance::L1_PYTHON_CHI2.value,
-        provenance::L1_PYTHON_CANDIDATES.value,
-        "~180s"
-    );
-    println!(
-        "  {:40} {:>10.4} {:>8} {:>8}",
-        "Previous BarraCuda best (manual smooth)", 1.19, 164, "0.25s"
-    );
-    println!();
-
-    if better < provenance::L1_PYTHON_CHI2.value {
-        let fewer = provenance::L1_PYTHON_CANDIDATES.value
-            / (approach1_evals.min(approach2_evals).max(1) as f64);
-        println!(
-            "  ✅ BarraCuda BEATS Python by {:.1}%",
-            100.0 * (provenance::L1_PYTHON_CHI2.value - better) / provenance::L1_PYTHON_CHI2.value
-        );
-        if fewer > 1.0 {
-            println!("     with {fewer:.0}× fewer evaluations");
-        }
-    } else {
-        println!(
-            "  ⚠ BarraCuda behind Python by {:.1}% — needs more tuning",
-            100.0 * (better - provenance::L1_PYTHON_CHI2.value) / provenance::L1_PYTHON_CHI2.value
-        );
-    }
-}
-
-fn print_reference_baselines(
-    exp_data: &std::collections::HashMap<(usize, usize), (f64, f64)>,
-    lambda: f64,
-) {
-    for (name, params) in &[
-        ("SLy4", provenance::SLY4_PARAMS.as_slice()),
-        ("UNEDF0", UNEDF0_PARAMS.as_slice()),
-    ] {
-        let be_chi2 = compute_be_chi2_only(params, exp_data);
-        if let Some(nmp) = nuclear_matter_properties(params) {
-            let nmp_c2 = provenance::nmp_chi2_from_props(&nmp) / 5.0;
-            println!("  {name} (published):");
-            println!("    chi2_BE/datum:  {be_chi2:.4}");
-            println!("    chi2_NMP/datum: {nmp_c2:.4}");
-            println!(
-                "    chi2_total (lambda={}): {:.4}",
-                lambda,
-                lambda.mul_add(nmp_c2, be_chi2)
-            );
-            provenance::print_nmp_analysis(&nmp);
-            println!();
-        } else {
-            println!("  {name} — NMP computation failed (params outside bisection range)");
-            println!();
-        }
-    }
-}
-
-fn run_deep_residual_analysis(
-    base: &std::path::Path,
-    best_x: &[f64],
-    best_chi2: f64,
-    chi2_1: f64,
-    approach1_evals: usize,
-    approach1_time: f64,
-    approach1_f: f64,
-    chi2_2: f64,
-    approach2_evals: usize,
-    result2: &barracuda::sample::direct::DirectSamplerResult,
-    base_seed: u64,
-) {
-    let residuals = build_residuals_semf(base, best_x).expect("build_residuals_semf failed");
-    let n_nuclei = residuals.len();
-    println!("  Nuclei fitted: {n_nuclei}");
-    println!();
-
-    let metrics = compute_residual_metrics(&residuals);
-    print_accuracy_metrics_box(&metrics);
-    print_accuracy_distributions(&residuals, n_nuclei);
-    print_accuracy_by_region(&residuals);
-    print_top_nuclei(&residuals, 10);
-
-    println!();
-    println!("═══════════════════════════════════════════════════════════════");
-    println!("  SEMF MODEL CAPABILITY vs PAPER TARGET");
-    println!("═══════════════════════════════════════════════════════════════");
-    println!();
-    println!("  This analysis distinguishes OPTIMIZATION accuracy from MODEL accuracy.");
-    println!("  The SEMF (Bethe-Weizsäcker) is a 5-term mass formula.");
-    println!("  Published SEMF fits achieve RMS ~2-3 MeV.");
-    println!("  Paper-level (~10^-6 relative) requires HFB-level physics:");
-    println!("    - HFB mass tables (Goriely et al.): RMS ~0.5-0.7 MeV");
-    println!("    - DFT/Fayans: RMS ~0.3 MeV for select nuclei");
-    println!("    - For B~1000 MeV, 10^-6 = 0.001 MeV = 1 keV");
-    println!();
-    print_semf_capability_analysis(metrics.rms, best_chi2, metrics.mean_rel);
-
-    print_best_parameters(best_x);
-
-    let results_dir = base.join("results");
-    std::fs::create_dir_all(&results_dir).ok();
-
-    let per_nucleus_json = per_nucleus_residuals_to_json(&residuals);
-
-    let result_json = serde_json::json!({
-        "level": 1,
-        "engine": "barracuda::native_revalidation_v2",
-        "barracuda_version": "phase5_evolved",
-        "run_date": "2026-02-13",
-        "seed": base_seed,
-        "approach1_sparsity_native_autosmooth": {
-            "chi2_per_datum": chi2_1,
-            "log_chi2": approach1_f,
-            "total_evals": approach1_evals,
-            "time_seconds": approach1_time,
-            "auto_smoothing": true,
-            "penalty_filter": "AdaptiveMAD(5.0)",
-        },
-        "approach2_native_direct_sampler": {
-            "chi2_per_datum": chi2_2,
-            "log_chi2": result2.f_best,
-            "total_evals": approach2_evals,
-            "early_stopped": result2.early_stopped,
-            "n_rounds": result2.rounds.len(),
-        },
-        "accuracy_metrics": {
-            "rms_MeV": metrics.rms,
-            "mae_MeV": metrics.mae,
-            "max_error_MeV": metrics.max_err,
-            "mean_signed_error_MeV": metrics.mean_signed,
-            "mean_relative_accuracy": metrics.mean_rel,
-            "median_relative_accuracy": metrics.median_rel,
-            "max_relative_accuracy": metrics.max_rel,
-            "n_nuclei": n_nuclei,
-            "chi2_per_datum": best_chi2,
-        },
-        "paper_comparison": {
-            "paper_target_relative": 1.0e-6,
-            "our_mean_relative": metrics.mean_rel,
-            "gap_orders_of_magnitude": (metrics.mean_rel / 1.0e-6).log10(),
-            "semf_theoretical_limit_MeV": 2.0,
-            "hfb_theoretical_limit_MeV": 0.5,
-            "notes": "SEMF is a 5-term model; 10^-6 requires HFB+ physics"
-        },
-        "best_parameters": {
-            "names": data::PARAM_NAMES.to_vec(),
-            "values": best_x.to_vec(),
-        },
-        "per_nucleus": per_nucleus_json,
-        "references": {
-            "python_scipy": {
-                "chi2_per_datum": provenance::L1_PYTHON_CHI2.value,
-                "evals": provenance::L1_PYTHON_CANDIDATES.value,
-            },
-            "previous_barracuda_best": { "chi2_per_datum": 0.7971, "evals": 64 },
-        },
-    });
-    let path = results_dir.join("barracuda_l1_deep_analysis.json");
-    std::fs::write(
-        &path,
-        serde_json::to_string_pretty(&result_json).expect("JSON serialize"),
-    )
-    .ok();
-    println!("\n  Full results saved to: {}", path.display());
-}
 
 fn parse_args() -> CliArgs {
     let args: Vec<String> = std::env::args().collect();
@@ -545,7 +338,14 @@ fn main() {
     println!("  REFERENCE BASELINES — Published Parametrizations");
     println!("═══════════════════════════════════════════════════════════════");
     println!();
-    print_reference_baselines(&exp_data, lambda);
+    print_reference_baselines(
+        &exp_data,
+        lambda,
+        &[
+            ("SLy4", provenance::SLY4_PARAMS.as_slice()),
+            ("UNEDF0", UNEDF0_PARAMS.as_slice()),
+        ],
+    );
 
     println!();
     println!("═══════════════════════════════════════════════════════════════");
@@ -746,7 +546,7 @@ fn run_pareto_sweep(base_seed: u64) {
         bounds,
     } = data::load_eos_context().expect("Failed to load EOS context");
 
-    let lambdas = [0.0, 1.0, 5.0, 10.0, 25.0, 50.0, 100.0];
+    let lambdas: [f64; 7] = [0.0, 1.0, 5.0, 10.0, 25.0, 50.0, 100.0];
     let n_seeds_per_lambda = 5;
 
     println!("  Nuclei: {}, Dimensions: {}", exp_data.len(), bounds.len());
@@ -966,62 +766,4 @@ fn run_pareto_sweep(base_seed: u64) {
     )
     .ok();
     println!("\n  Full results saved to: {}", path.display());
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// L1 objective with NMP chi-squared constraint (UNEDF-style)
-//
-// chi2_total = chi2_BE/datum + lambda * chi2_NMP/datum
-//
-// lambda=0: binding energy only (original, overfits NMP)
-// lambda>0: includes NMP chi-squared (published targets)
-// ═══════════════════════════════════════════════════════════════════
-
-fn l1_objective_nmp(
-    x: &[f64],
-    exp_data: &std::collections::HashMap<(usize, usize), (f64, f64)>,
-    lambda: f64,
-) -> f64 {
-    if x[8] <= 0.01 || x[8] > 1.0 {
-        return (1e4_f64).ln_1p();
-    }
-
-    // NMP check
-    let Some(nmp) = nuclear_matter_properties(x) else {
-        return (1e4_f64).ln_1p();
-    };
-
-    // Hard rejection for grossly unphysical (keeps optimizer from wasting time)
-    if nmp.rho0_fm3 < 0.05 || nmp.rho0_fm3 > 0.30 {
-        return (1e4_f64).ln_1p();
-    }
-    if nmp.e_a_mev > 0.0 {
-        return (1e4_f64).ln_1p();
-    }
-
-    // Binding energy chi-squared
-    let mut chi2_be = 0.0;
-    let mut n = 0;
-    for (&(z, nn), &(b_exp, _sigma)) in exp_data {
-        let b_calc = semf_binding_energy(z, nn, x);
-        if b_calc > 0.0 {
-            let sigma_theo = tolerances::sigma_theo(b_exp);
-            chi2_be += ((b_calc - b_exp) / sigma_theo).powi(2);
-            n += 1;
-        }
-    }
-
-    if n == 0 {
-        return (1e4_f64).ln_1p();
-    }
-
-    let chi2_be_datum = chi2_be / f64::from(n);
-
-    // NMP chi-squared (5 published targets with uncertainties)
-    let chi2_nmp_datum = provenance::nmp_chi2_from_props(&nmp) / 5.0;
-
-    // Combined: chi2_BE/datum + lambda * chi2_NMP/datum
-    let chi2_total = lambda.mul_add(chi2_nmp_datum, chi2_be_datum);
-
-    chi2_total.ln_1p()
 }

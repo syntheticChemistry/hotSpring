@@ -395,7 +395,7 @@ mod tests {
         // On CI / dev machines without Akida hardware, expect false.
         // On machines with /dev/akida*, expect true.
         // Either way, the function must not panic.
-        assert!(result || !result, "probe_npu_available must return a bool");
+        let _ = result;
     }
 
     #[test]

@@ -25,7 +25,7 @@ use std::time::Instant;
 
 fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");
-    println!("║  PPPM Coulomb Validation — toadstool GPU Ewald Sum          ║");
+    println!("║  PPPM Coulomb Validation — GPU Ewald Sum                     ║");
     println!("║  kappa=0 pure Coulomb for MD and L3 nuclear physics         ║");
     println!("╚══════════════════════════════════════════════════════════════╝");
     println!();

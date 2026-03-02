@@ -13,19 +13,24 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-/// A single nucleus from AME2020
+/// A single nucleus from AME2020.
 #[derive(Debug, Clone, Deserialize)]
-#[allow(missing_docs)]
 pub struct Nucleus {
+    /// Proton number Z.
     #[serde(rename = "Z")]
     pub z: usize,
+    /// Neutron number N.
     #[serde(rename = "N")]
     pub n: usize,
+    /// Mass number A = Z + N.
     #[serde(rename = "A")]
     pub a: usize,
+    /// Element symbol.
     pub element: String,
+    /// Binding energy (MeV).
     #[serde(rename = "binding_energy_MeV")]
     pub binding_energy_mev: f64,
+    /// Experimental uncertainty (MeV).
     #[serde(rename = "uncertainty_MeV")]
     pub uncertainty_mev: f64,
 }

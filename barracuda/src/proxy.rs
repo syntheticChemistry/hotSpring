@@ -11,7 +11,9 @@
 //! The CPU cortex thread calls these functions and sends `ProxyFeatures` to
 //! the NPU worker via an `mpsc` channel.
 
-use crate::spectral::{anderson_3d, find_all_eigenvalues, lanczos, lanczos_eigenvalues, level_spacing_ratio};
+use crate::spectral::{
+    anderson_3d, find_all_eigenvalues, lanczos, lanczos_eigenvalues, level_spacing_ratio,
+};
 
 /// Features extracted from a physics proxy model, sent to the NPU.
 #[derive(Debug, Clone)]
@@ -171,9 +173,7 @@ fn potts_z3_monte_carlo(
         *s = (rng.next_u64() % 3) as u8;
     }
 
-    let idx = |x: usize, y: usize, z: usize| -> usize {
-        (x % l) + (y % l) * l + (z % l) * l * l
-    };
+    let idx = |x: usize, y: usize, z: usize| -> usize { (x % l) + (y % l) * l + (z % l) * l * l };
 
     let neighbors = |site: usize| -> [usize; 6] {
         let x = site % l;
@@ -245,7 +245,8 @@ fn potts_z3_monte_carlo(
     }
 
     let mean_mag = mag_samples.iter().sum::<f64>() / mag_samples.len().max(1) as f64;
-    let mean_mag2 = mag_samples.iter().map(|m| m * m).sum::<f64>() / mag_samples.len().max(1) as f64;
+    let mean_mag2 =
+        mag_samples.iter().map(|m| m * m).sum::<f64>() / mag_samples.len().max(1) as f64;
     let chi = (mean_mag2 - mean_mag * mean_mag) * n as f64;
     let mean_energy = energy_samples.iter().sum::<f64>() / energy_samples.len().max(1) as f64;
 
@@ -281,5 +282,101 @@ impl LcgRng {
 
     fn uniform(&mut self) -> f64 {
         (self.next_u64() >> 11) as f64 / (1u64 << 53) as f64
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::float_cmp)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn anderson_3d_proxy_returns_valid_features() {
+        let req = CortexRequest {
+            beta: 5.5,
+            mass: 0.1,
+            lattice: 4,
+            plaq_var: 0.05,
+        };
+        let features = anderson_3d_proxy(&req, 42);
+        assert!(features.beta > 0.0);
+        assert!(features.level_spacing_ratio.is_finite());
+        assert!(features.lambda_min.is_finite());
+        assert!(features.wall_ms >= 0.0);
+        assert!(features.tier == 1);
+        assert!(
+            features.phase == "extended"
+                || features.phase == "localized"
+                || features.phase == "critical"
+        );
+    }
+
+    #[test]
+    fn potts_z3_proxy_returns_valid_features() {
+        let req = CortexRequest {
+            beta: 5.0,
+            mass: 0.1,
+            lattice: 4,
+            plaq_var: 0.03,
+        };
+        let features = potts_z3_proxy(&req, 123);
+        assert!(features.beta > 0.0);
+        assert!(features.lambda_min.is_finite());
+        assert!(features.wall_ms >= 0.0);
+        assert!(features.tier == 1);
+        assert!(
+            features.phase == "ordered"
+                || features.phase == "disordered"
+                || features.phase == "transition"
+        );
+    }
+
+    #[test]
+    fn anderson_3d_proxy_determinism() {
+        let req = CortexRequest {
+            beta: 5.5,
+            mass: 0.1,
+            lattice: 4,
+            plaq_var: 0.05,
+        };
+        let a = anderson_3d_proxy(&req, 999);
+        let b = anderson_3d_proxy(&req, 999);
+        assert_eq!(
+            a.level_spacing_ratio.to_bits(),
+            b.level_spacing_ratio.to_bits()
+        );
+        assert_eq!(a.lambda_min.to_bits(), b.lambda_min.to_bits());
+        assert_eq!(a.phase, b.phase);
+    }
+
+    #[test]
+    fn potts_z3_proxy_determinism() {
+        let req = CortexRequest {
+            beta: 5.0,
+            mass: 0.1,
+            lattice: 4,
+            plaq_var: 0.03,
+        };
+        let a = potts_z3_proxy(&req, 777);
+        let b = potts_z3_proxy(&req, 777);
+        assert_eq!(
+            a.level_spacing_ratio.to_bits(),
+            b.level_spacing_ratio.to_bits()
+        );
+        assert_eq!(a.lambda_min.to_bits(), b.lambda_min.to_bits());
+        assert_eq!(a.phase, b.phase);
+    }
+
+    #[test]
+    fn cortex_request_small_lattice() {
+        let req = CortexRequest {
+            beta: 6.0,
+            mass: 0.05,
+            lattice: 2,
+            plaq_var: 0.02,
+        };
+        let features = anderson_3d_proxy(&req, 1);
+        assert!(features.wall_ms >= 0.0);
+        assert!(features.beta == 6.0);
     }
 }

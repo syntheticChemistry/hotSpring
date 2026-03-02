@@ -34,15 +34,22 @@ const DEFAULT_VELOCITY_SEED: u64 = 42;
 const PROGRESS_REPORT_INTERVAL: usize = 5000;
 
 /// Result of a GPU-only transport simulation.
-#[allow(missing_docs)]
 pub struct GpuTransportResult {
+    /// Energy records per dump step.
     pub energy_history: Vec<EnergyRecord>,
+    /// VACF and D* computed on GPU.
     pub gpu_vacf: GpuVacf,
+    /// Self-diffusion coefficient D* (reduced units).
     pub d_star: f64,
+    /// Total wall time (seconds).
     pub wall_time_s: f64,
+    /// Simulated time (reduced units).
     pub sim_time_s: f64,
+    /// VACF computation time (seconds).
     pub vacf_time_s: f64,
+    /// MD throughput (steps per second).
     pub steps_per_sec: f64,
+    /// Number of velocity snapshots used for VACF.
     pub n_snapshots: usize,
 }
 

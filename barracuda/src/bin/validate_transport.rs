@@ -30,6 +30,9 @@ use hotspring_barracuda::md::cpu_reference;
 use hotspring_barracuda::md::observables::{compute_vacf, validate_energy};
 use hotspring_barracuda::md::simulation;
 use hotspring_barracuda::md::transport::d_star_daligault;
+use hotspring_barracuda::provenance::{
+    DALIGAULT_CALIBRATION_PROVENANCE, DALIGAULT_FIT_PROVENANCE, TRANSPORT_MD_BASELINE_PROVENANCE,
+};
 use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
 
@@ -133,6 +136,13 @@ fn main() {
     println!();
 
     let mut harness = ValidationHarness::new("transport_cpu_gpu");
+
+    harness.print_provenance(&[
+        &DALIGAULT_FIT_PROVENANCE,
+        &DALIGAULT_CALIBRATION_PROVENANCE,
+        &TRANSPORT_MD_BASELINE_PROVENANCE,
+    ]);
+
     let mut summary = Vec::new();
 
     for cfg in &selected {

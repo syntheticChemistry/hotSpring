@@ -135,9 +135,11 @@ pub fn print_observable_summary_with_gpu(
             },
         );
 
-        if let (Some((k0, s0)), Some((k_max, s_max))) =
-            (ssf.first(), ssf.iter().max_by(|a: &&(f64, f64), b: &&(f64, f64)| a.1.total_cmp(&b.1)))
-        {
+        if let (Some((k0, s0)), Some((k_max, s_max))) = (
+            ssf.first(),
+            ssf.iter()
+                .max_by(|a: &&(f64, f64), b: &&(f64, f64)| a.1.total_cmp(&b.1)),
+        ) {
             println!("    SSF [{ssf_label}]: S(k->0)={s0:.4} at k={k0:.3}");
             println!("    SSF [{ssf_label}]: peak S(k)={s_max:.4} at k={k_max:.3} a_ws^-1");
         }

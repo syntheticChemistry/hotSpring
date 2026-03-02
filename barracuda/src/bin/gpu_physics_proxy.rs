@@ -71,8 +71,7 @@ fn main() {
     ];
     let anderson_seeds: Vec<u64> = vec![42, 137, 271];
 
-    let total_anderson =
-        anderson_lattices.len() * disorders.len() * anderson_seeds.len();
+    let total_anderson = anderson_lattices.len() * disorders.len() * anderson_seeds.len();
     let mut anderson_idx = 0;
 
     let phase1_start = Instant::now();
@@ -254,7 +253,10 @@ fn main() {
 
     println!();
     println!("═══════════════════════════════════════════════════════════");
-    println!("  Proxy pipeline complete: {total_wall:.1}s ({:.1} min)", total_wall / 60.0);
+    println!(
+        "  Proxy pipeline complete: {total_wall:.1}s ({:.1} min)",
+        total_wall / 60.0
+    );
     println!("  Anderson points: {anderson_idx}");
     println!("  Potts points:    {potts_idx}");
     println!("  Mapping entries: {}", mapping.len());
@@ -304,9 +306,7 @@ fn potts_z3_monte_carlo(
         *s = (rng.next_u64() % 3) as u8;
     }
 
-    let idx = |x: usize, y: usize, z: usize| -> usize {
-        (x % l) + (y % l) * l + (z % l) * l * l
-    };
+    let idx = |x: usize, y: usize, z: usize| -> usize { (x % l) + (y % l) * l + (z % l) * l * l };
 
     let neighbors = |site: usize| -> [usize; 6] {
         let x = site % l;
@@ -363,11 +363,7 @@ fn potts_z3_monte_carlo(
             // Measure magnetization (Z(3) order parameter)
             let mut m = [0.0f64; 2]; // real, imag of Z(3) magnetization
             let omega_re = [-0.5, -0.5, 1.0]; // Re(ω^q) for q=0,1,2
-            let omega_im = [
-                3.0_f64.sqrt() / 2.0,
-                -(3.0_f64.sqrt()) / 2.0,
-                0.0,
-            ];
+            let omega_im = [3.0_f64.sqrt() / 2.0, -(3.0_f64.sqrt()) / 2.0, 0.0];
             for &s in &spins {
                 m[0] += omega_re[s as usize];
                 m[1] += omega_im[s as usize];

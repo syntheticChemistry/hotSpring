@@ -22,7 +22,9 @@ use hotspring_barracuda::physics::screened_coulomb::{
     self, critical_screening, eigenvalues, screening_models, CRITICAL_SCREENING_REFERENCE,
     DEFAULT_N_GRID, DEFAULT_R_MAX, HYDROGEN_E2_EXACT, HYDROGEN_EXACT,
 };
-use hotspring_barracuda::provenance::PYTHON_SCREENED_COULOMB_EIGENVALUES;
+use hotspring_barracuda::provenance::{
+    PYTHON_SCREENED_COULOMB_EIGENVALUES, SCREENED_COULOMB_PROVENANCE,
+};
 use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
 
@@ -35,6 +37,8 @@ fn main() {
     println!();
 
     let mut harness = ValidationHarness::new("screened_coulomb");
+
+    harness.print_provenance(&[&SCREENED_COULOMB_PROVENANCE]);
 
     // ══════════════════════════════════════════════════════════════
     // 1. Hydrogen eigenvalues at κ=0 vs exact E_n = −1/(2n²)

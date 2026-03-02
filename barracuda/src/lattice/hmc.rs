@@ -61,12 +61,16 @@ impl Default for HmcConfig {
 
 /// HMC trajectory result.
 #[derive(Clone, Debug)]
-#[allow(missing_docs)]
 pub struct HmcResult {
+    /// Metropolis accept/reject decision.
     pub accepted: bool,
+    /// Hamiltonian change ΔH = H_new − H_old.
     pub delta_h: f64,
+    /// Wilson action before MD.
     pub action_before: f64,
+    /// Wilson action after MD.
     pub action_after: f64,
+    /// Mean plaquette ⟨Re Tr U□ / 3⟩.
     pub plaquette: f64,
 }
 
@@ -321,13 +325,18 @@ pub fn run_hmc(
 
 /// Statistics from an HMC run.
 #[derive(Clone, Debug)]
-#[allow(missing_docs)]
 pub struct HmcStatistics {
+    /// Mean plaquette over trajectories.
     pub mean_plaquette: f64,
+    /// Standard deviation of plaquette.
     pub std_plaquette: f64,
+    /// Metropolis acceptance rate.
     pub acceptance_rate: f64,
+    /// Mean |ΔH| over trajectories.
     pub mean_delta_h: f64,
+    /// Number of trajectories.
     pub n_trajectories: usize,
+    /// Plaquette per trajectory.
     pub plaquette_history: Vec<f64>,
 }
 
@@ -430,7 +439,6 @@ mod tests {
                 dt,
                 seed: 42,
                 integrator: IntegratorType::Leapfrog,
-                ..Default::default()
             };
             hmc_trajectory(&mut lat, &mut config)
         };
@@ -442,7 +450,6 @@ mod tests {
                 dt,
                 seed: 42,
                 integrator: IntegratorType::Omelyan,
-                ..Default::default()
             };
             hmc_trajectory(&mut lat, &mut config)
         };
@@ -531,7 +538,6 @@ mod tests {
             dt: 0.05,
             seed: 456,
             integrator: IntegratorType::Omelyan,
-            ..Default::default()
         };
 
         let mut accepted = 0usize;

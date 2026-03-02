@@ -71,21 +71,27 @@ impl Default for TemperatureScanConfig {
 
 /// Result for a single temperature point.
 #[derive(Clone, Debug)]
-#[allow(missing_docs)]
 pub struct TemperaturePoint {
+    /// Inverse coupling β = 6/g².
     pub beta: f64,
+    /// Mean plaquette.
     pub mean_plaquette: f64,
+    /// Standard deviation of plaquette.
     pub std_plaquette: f64,
+    /// Polyakov loop magnitude.
     pub polyakov_loop: f64,
+    /// HMC acceptance rate.
     pub acceptance_rate: f64,
+    /// Wall time (seconds).
     pub wall_time_s: f64,
 }
 
 /// Result of a full temperature scan.
 #[derive(Clone, Debug)]
-#[allow(missing_docs)]
 pub struct TemperatureScanResult {
+    /// Per-β results.
     pub points: Vec<TemperaturePoint>,
+    /// Total wall time (seconds).
     pub total_wall_time_s: f64,
 }
 

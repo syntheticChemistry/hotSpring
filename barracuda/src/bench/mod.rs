@@ -12,11 +12,15 @@
 //!
 //! License: AGPL-3.0
 
+mod esn_benchmark;
 mod hardware;
 mod power;
 mod report;
 
 // Public API — unchanged from original bench.rs
+pub use esn_benchmark::{
+    generate_test_sequence, generate_training_data, time_fn, GpuEsn, SubstrateResult,
+};
 pub use hardware::HardwareInventory;
 pub use power::{EnergyReport, PowerMonitor};
 pub use report::{peak_rss_mb, BenchReport, PhaseResult};

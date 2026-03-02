@@ -190,8 +190,8 @@ mod tests {
         assert!((k[0]).abs() < 1e-15, "K(0) should be 0");
         assert!(k[1] > 0.0, "K(1) should be positive");
         assert!(k[nt / 2 - 1] > 0.0, "K(T/2-1) should be positive");
-        for t in nt / 2..nt {
-            assert!((k[t]).abs() < 1e-15, "K(t >= T/2) should be 0");
+        for val in &k[nt / 2..nt] {
+            assert!(val.abs() < 1e-15, "K(t >= T/2) should be 0");
         }
     }
 

@@ -164,9 +164,12 @@ impl GpuF64 {
     ) -> Result<Vec<f64>, crate::error::HotSpringError> {
         let slice = staging.slice(..);
         let (sender, receiver) = std::sync::mpsc::channel();
-        slice.map_async(wgpu::MapMode::Read, move |result: Result<(), wgpu::BufferAsyncError>| {
-            let _ = sender.send(result);
-        });
+        slice.map_async(
+            wgpu::MapMode::Read,
+            move |result: Result<(), wgpu::BufferAsyncError>| {
+                let _ = sender.send(result);
+            },
+        );
         self.device().poll(wgpu::Maintain::Wait);
         receiver
             .recv()
@@ -261,9 +264,12 @@ impl GpuF64 {
 
         let slice = staging.slice(..);
         let (sender, receiver) = std::sync::mpsc::channel();
-        slice.map_async(wgpu::MapMode::Read, move |result: Result<(), wgpu::BufferAsyncError>| {
-            let _ = sender.send(result);
-        });
+        slice.map_async(
+            wgpu::MapMode::Read,
+            move |result: Result<(), wgpu::BufferAsyncError>| {
+                let _ = sender.send(result);
+            },
+        );
         self.device().poll(wgpu::Maintain::Wait);
         receiver
             .recv()

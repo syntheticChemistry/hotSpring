@@ -22,8 +22,8 @@ use super::complex_f64::Complex64;
 /// Row-major storage: `m[row][col]`.
 #[derive(Clone, Copy, Debug)]
 #[must_use]
-#[allow(missing_docs)]
 pub struct Su3Matrix {
+    /// Matrix elements m[row][col].
     pub m: [[Complex64; 3]; 3],
 }
 
@@ -70,8 +70,8 @@ impl Sub for Su3Matrix {
     }
 }
 
-#[allow(missing_docs)]
 impl Su3Matrix {
+    /// 3×3 identity matrix.
     pub const IDENTITY: Self = Self {
         m: [
             [Complex64::ONE, Complex64::ZERO, Complex64::ZERO],
@@ -80,6 +80,7 @@ impl Su3Matrix {
         ],
     };
 
+    /// Zero matrix (all elements 0).
     pub const ZERO: Self = Self {
         m: [[Complex64::ZERO; 3]; 3],
     };

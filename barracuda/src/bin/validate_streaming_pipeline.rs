@@ -333,7 +333,7 @@ fn main() {
     // ═══════════════════════════════════════════════════════════════
     //  Phase 4b: Real NPU Hardware (AKD1000 via akida-driver)
     // ═══════════════════════════════════════════════════════════════
-    run_npu_hardware_phase(&harness, &esn, &test_seqs, &test_targets);
+    run_npu_hardware_phase(&mut harness, &mut esn, &test_seqs, &test_targets);
 
     // ═══════════════════════════════════════════════════════════════
     //  Phase 5: CPU Final Verification
@@ -442,8 +442,8 @@ fn main() {
 /// Phase 4b: Probe real NPU hardware and compare with NpuSimulator.
 #[allow(unused_variables)]
 fn run_npu_hardware_phase(
-    harness: &ValidationHarness,
-    esn: &EchoStateNetwork,
+    harness: &mut ValidationHarness,
+    esn: &mut EchoStateNetwork,
     test_seqs: &[Vec<Vec<f64>>],
     test_targets: &[Vec<f64>],
 ) {
@@ -453,61 +453,58 @@ fn run_npu_hardware_phase(
     {
         use hotspring_barracuda::md::npu_hw::NpuHardware;
 
-        match NpuHardware::discover() {
-            Some(info) => {
-                println!(
-                    "  Device: {} @ PCIe {}",
-                    info.chip_version, info.pcie_address
-                );
-                println!(
-                    "  NPUs: {}, SRAM: {} MB, PCIe Gen{} x{}",
-                    info.npu_count, info.memory_mb, info.pcie_gen, info.pcie_lanes
-                );
+        if let Some(info) = NpuHardware::discover() {
+            println!(
+                "  Device: {} @ PCIe {}",
+                info.chip_version, info.pcie_address
+            );
+            println!(
+                "  NPUs: {}, SRAM: {} MB, PCIe Gen{} x{}",
+                info.npu_count, info.memory_mb, info.pcie_gen, info.pcie_lanes
+            );
 
-                harness.check_bool("AKD1000 discovered on PCIe bus", true);
+            harness.check_bool("AKD1000 discovered on PCIe bus", true);
 
-                let weights = esn.export_weights().expect("ESN trained");
-                let mut npu_hw = NpuHardware::from_exported(&weights, info);
+            let weights = esn.export_weights().expect("ESN trained");
+            let mut npu_hw = NpuHardware::from_exported(&weights, info);
 
-                let mut max_hw_err = 0.0f64;
-                let mut hw_agree = 0;
-                let total = test_seqs.len();
+            let mut max_hw_err = 0.0f64;
+            let mut hw_agree = 0;
+            let total = test_seqs.len();
 
-                for (seq, target) in test_seqs.iter().zip(test_targets.iter()) {
-                    let cpu_pred = esn.predict(seq).expect("ESN trained")[0];
-                    let hw_pred = npu_hw.predict(seq)[0];
-                    let err = (cpu_pred - hw_pred).abs();
-                    max_hw_err = max_hw_err.max(err);
+            for (seq, target) in test_seqs.iter().zip(test_targets.iter()) {
+                let cpu_pred = esn.predict(seq).expect("ESN trained")[0];
+                let hw_pred = npu_hw.predict(seq)[0];
+                let err = (cpu_pred - hw_pred).abs();
+                max_hw_err = max_hw_err.max(err);
 
-                    let cpu_class = i32::from(cpu_pred > 0.5);
-                    let hw_class = i32::from(hw_pred > 0.5);
-                    if cpu_class == hw_class {
-                        hw_agree += 1;
-                    }
+                let cpu_class = i32::from(cpu_pred > 0.5);
+                let hw_class = i32::from(hw_pred > 0.5);
+                if cpu_class == hw_class {
+                    hw_agree += 1;
                 }
-                let hw_agreement = f64::from(hw_agree) / total as f64;
-
-                println!("  NPU HW max error vs CPU: {max_hw_err:.6}");
-                println!(
-                    "  NPU HW classification agreement: {:.0}% ({hw_agree}/{total})",
-                    hw_agreement * 100.0
-                );
-
-                harness.check_upper(
-                    "NPU HW f32 error < tolerance",
-                    max_hw_err,
-                    hotspring_barracuda::tolerances::ESN_F32_LATTICE_LOOSE_PARITY,
-                );
-                harness.check_lower(
-                    "NPU HW classification agreement > 90%",
-                    hw_agreement,
-                    hotspring_barracuda::tolerances::ESN_F32_CLASSIFICATION_AGREEMENT,
-                );
             }
-            None => {
-                println!("  No Akida hardware detected — skipping HW checks");
-                println!("  (NpuSimulator validation above covers the math)");
-            }
+            let hw_agreement = f64::from(hw_agree) / total as f64;
+
+            println!("  NPU HW max error vs CPU: {max_hw_err:.6}");
+            println!(
+                "  NPU HW classification agreement: {:.0}% ({hw_agree}/{total})",
+                hw_agreement * 100.0
+            );
+
+            harness.check_upper(
+                "NPU HW f32 error < tolerance",
+                max_hw_err,
+                hotspring_barracuda::tolerances::ESN_F32_LATTICE_LOOSE_PARITY,
+            );
+            harness.check_lower(
+                "NPU HW classification agreement > 90%",
+                hw_agreement,
+                hotspring_barracuda::tolerances::ESN_F32_CLASSIFICATION_AGREEMENT,
+            );
+        } else {
+            println!("  No Akida hardware detected — skipping HW checks");
+            println!("  (NpuSimulator validation above covers the math)");
         }
     }
 

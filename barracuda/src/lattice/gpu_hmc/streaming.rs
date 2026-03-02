@@ -17,7 +17,6 @@ use super::{
 };
 
 /// Streaming HMC pipelines: quenched HMC + GPU PRNG.
-#[allow(missing_docs)]
 pub struct GpuHmcStreamingPipelines {
     /// Base quenched HMC pipeline set (force, link/momentum update, plaquette).
     pub hmc: GpuHmcPipelines,
@@ -28,7 +27,6 @@ pub struct GpuHmcStreamingPipelines {
 impl GpuHmcStreamingPipelines {
     /// Compile all streaming HMC pipelines including GPU PRNG.
     #[must_use]
-    #[allow(missing_docs)]
     pub fn new(gpu: &GpuF64) -> Self {
         Self {
             hmc: GpuHmcPipelines::new(gpu),
@@ -289,7 +287,6 @@ pub static WGSL_GAUSSIAN_FERMION: std::sync::LazyLock<String> = std::sync::LazyL
 /// heat bath. The CG solver still requires per-iteration readbacks, but all
 /// other operations (gauge force, link/momentum updates, PRNG generation)
 /// use batched encoders.
-#[allow(missing_docs)]
 pub struct GpuDynHmcStreamingPipelines {
     /// Base dynamical fermion HMC pipeline set.
     pub dyn_hmc: GpuDynHmcPipelines,
@@ -302,7 +299,6 @@ pub struct GpuDynHmcStreamingPipelines {
 impl GpuDynHmcStreamingPipelines {
     /// Compile all dynamical streaming HMC pipelines including GPU PRNG for momenta and pseudofermion.
     #[must_use]
-    #[allow(missing_docs)]
     pub fn new(gpu: &GpuF64) -> Self {
         Self {
             dyn_hmc: GpuDynHmcPipelines::new(gpu),

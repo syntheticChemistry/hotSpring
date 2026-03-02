@@ -96,11 +96,14 @@ pub const WGSL_CG_UPDATE_P_F64: &str = include_str!("shaders/cg_update_p_f64.wgs
 
 /// CG solver result.
 #[derive(Clone, Debug)]
-#[allow(missing_docs)]
 pub struct CgResult {
+    /// Whether convergence tolerance was met.
     pub converged: bool,
+    /// Number of CG iterations.
     pub iterations: usize,
+    /// Final relative residual ‖r‖ / ‖b‖.
     pub final_residual: f64,
+    /// Initial relative residual.
     pub initial_residual: f64,
 }
 

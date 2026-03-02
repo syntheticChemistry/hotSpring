@@ -23,14 +23,14 @@ use super::su3::Su3Matrix;
 
 /// 4D lattice of SU(3) link variables.
 ///
-/// Links are stored as `links[site_index][mu]` where mu ∈ {0,1,2,3}
+/// Links are stored as `links[site_index][mu]` where μ ∈ {0,1,2,3}
 /// represents the four spacetime directions.
-#[allow(missing_docs)]
 pub struct Lattice {
+    /// Lattice dimensions [Nx, Ny, Nz, Nt].
     pub dims: [usize; 4],
-    /// Link variables: links[site * 4 + mu]
+    /// Link variables: links[site * 4 + μ].
     pub links: Vec<Su3Matrix>,
-    /// Inverse bare coupling β = 6/g²
+    /// Inverse bare coupling β = 6/g².
     pub beta: f64,
 }
 
@@ -266,6 +266,30 @@ impl Lattice {
         }
 
         sum / spatial_vol as f64
+    }
+
+    /// Spatial average of Polyakov loops as complex (Re, Im).
+    ///
+    /// Returns `(Re, Im)` of the spatial average of Polyakov loops
+    /// ⟨L⟩ = (1/V_s) Σ_x L(x), where L(x) = (1/3) Tr ∏_t U_3(x,t).
+    #[must_use]
+    pub fn complex_polyakov_average(&self) -> (f64, f64) {
+        let ns = [self.dims[0], self.dims[1], self.dims[2]];
+        let spatial_vol = ns[0] * ns[1] * ns[2];
+        let mut sum_re = 0.0;
+        let mut sum_im = 0.0;
+        for ix in 0..ns[0] {
+            for iy in 0..ns[1] {
+                for iz in 0..ns[2] {
+                    let c = self.polyakov_loop([ix, iy, iz]);
+                    sum_re += c.re;
+                    sum_im += c.im;
+                }
+            }
+        }
+        let avg_re = sum_re / spatial_vol as f64;
+        let avg_im = sum_im / spatial_vol as f64;
+        (avg_re, avg_im)
     }
 }
 

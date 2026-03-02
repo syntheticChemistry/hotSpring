@@ -9,26 +9,37 @@ use super::power::EnergyReport;
 
 /// Result from a single benchmark phase.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[allow(missing_docs)]
 pub struct PhaseResult {
+    /// Phase name (e.g. "L1", "L2").
     pub phase: String,
+    /// Substrate (e.g. "CPU", "GPU", "NPU").
     pub substrate: String,
+    /// Wall time (seconds).
     pub wall_time_s: f64,
+    /// Time per evaluation (μs).
     pub per_eval_us: f64,
+    /// Number of evaluations.
     pub n_evals: usize,
+    /// Energy consumption report.
     pub energy: EnergyReport,
+    /// Peak RSS (MB).
     pub peak_rss_mb: f64,
+    /// χ² vs experimental data.
     pub chi2: f64,
+    /// Precision (MeV).
     pub precision_mev: f64,
+    /// Free-form notes.
     pub notes: String,
 }
 
 /// Full benchmark report for a validation run.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[allow(missing_docs)]
 pub struct BenchReport {
+    /// ISO8601 timestamp.
     pub timestamp: String,
+    /// Hardware inventory.
     pub hardware: HardwareInventory,
+    /// Per-phase results.
     pub phases: Vec<PhaseResult>,
 }
 

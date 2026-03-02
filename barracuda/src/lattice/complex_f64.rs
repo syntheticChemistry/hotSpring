@@ -17,23 +17,28 @@ use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign};
 /// Complex number with f64 real and imaginary parts.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[must_use]
-#[allow(missing_docs)]
 pub struct Complex64 {
+    /// Real part.
     pub re: f64,
+    /// Imaginary part.
     pub im: f64,
 }
 
-#[allow(missing_docs)]
 impl Complex64 {
+    /// Zero: 0 + 0i.
     pub const ZERO: Self = Self { re: 0.0, im: 0.0 };
+    /// One: 1 + 0i.
     pub const ONE: Self = Self { re: 1.0, im: 0.0 };
+    /// Imaginary unit: 0 + 1i.
     pub const I: Self = Self { re: 0.0, im: 1.0 };
 
+    /// Construct from real and imaginary parts.
     #[inline]
     pub const fn new(re: f64, im: f64) -> Self {
         Self { re, im }
     }
 
+    /// Complex conjugate z̄ = re − im·i.
     #[inline]
     pub fn conj(self) -> Self {
         Self {
@@ -42,18 +47,21 @@ impl Complex64 {
         }
     }
 
+    /// Squared magnitude |z|² = re² + im².
     #[inline]
     #[must_use]
     pub fn abs_sq(self) -> f64 {
         self.re.mul_add(self.re, self.im * self.im)
     }
 
+    /// Magnitude |z| = √(re² + im²).
     #[inline]
     #[must_use]
     pub fn abs(self) -> f64 {
         self.abs_sq().sqrt()
     }
 
+    /// Complex exponential e^z.
     #[inline]
     pub fn exp(self) -> Self {
         let r = self.re.exp();
@@ -72,6 +80,7 @@ impl Complex64 {
         }
     }
 
+    /// Scale by real factor s.
     #[inline]
     pub fn scale(self, s: f64) -> Self {
         Self {
@@ -80,6 +89,7 @@ impl Complex64 {
         }
     }
 
+    /// Multiplicative inverse 1/z.
     #[inline]
     pub fn inv(self) -> Self {
         let d = self.abs_sq();

@@ -40,6 +40,9 @@ fn main() {
     println!();
 
     let mut harness = ValidationHarness::new("abelian_higgs");
+
+    harness.print_provenance(&[&ABELIAN_HIGGS_PYTHON_TIMING_MS]);
+
     let t_start = Instant::now();
 
     // ═══ Test 1: Cold start identities ═══

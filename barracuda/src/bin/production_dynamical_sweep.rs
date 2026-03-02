@@ -10,13 +10,13 @@
 //!   --output=results/exp024_sweep.jsonl
 //! ```
 
+use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::lattice::gpu_hmc::dynamical::GpuDynHmcState;
 use hotspring_barracuda::lattice::gpu_hmc::resident_cg::{
     gpu_dynamical_hmc_trajectory_resident, GpuResidentCgBuffers, GpuResidentCgPipelines,
 };
 use hotspring_barracuda::lattice::gpu_hmc::streaming::GpuDynHmcStreamingPipelines;
 use hotspring_barracuda::lattice::wilson::Lattice;
-use hotspring_barracuda::gpu::GpuF64;
 use std::io::Write;
 use std::time::Instant;
 
@@ -61,9 +61,15 @@ fn main() {
     let base_seed = 42u64;
 
     let total = lattices.len() * betas.len() * masses.len() * dts.len();
-    println!("  Grid: {} lattices × {} betas × {} masses × {} dts = {} points",
-        lattices.len(), betas.len(), masses.len(), dts.len(), total);
-    println!("  Trajectories per point: {} therm + {} meas", n_therm, n_meas);
+    println!(
+        "  Grid: {} lattices × {} betas × {} masses × {} dts = {} points",
+        lattices.len(),
+        betas.len(),
+        masses.len(),
+        dts.len(),
+        total
+    );
+    println!("  Trajectories per point: {n_therm} therm + {n_meas} meas");
     println!();
 
     let sweep_start = Instant::now();
@@ -94,19 +100,24 @@ fn main() {
                     }
 
                     let streaming = GpuDynHmcStreamingPipelines::new(&gpu);
-                    let dyn_state = GpuDynHmcState::from_lattice(
-                        &gpu, &lat, beta, mass, cg_tol, cg_max_iter,
-                    );
+                    let dyn_state =
+                        GpuDynHmcState::from_lattice(&gpu, &lat, beta, mass, cg_tol, cg_max_iter);
                     let resident = GpuResidentCgPipelines::new(&gpu);
-                    let cg_bufs = GpuResidentCgBuffers::new(
-                        &gpu, &streaming.dyn_hmc, &resident, &dyn_state,
-                    );
+                    let cg_bufs =
+                        GpuResidentCgBuffers::new(&gpu, &streaming.dyn_hmc, &resident, &dyn_state);
 
                     // Thermalization
                     for i in 0..n_therm {
                         let _r = gpu_dynamical_hmc_trajectory_resident(
-                            &gpu, &streaming, &resident, &dyn_state,
-                            &cg_bufs, n_md, dt, i as u32, &mut seed,
+                            &gpu,
+                            &streaming,
+                            &resident,
+                            &dyn_state,
+                            &cg_bufs,
+                            n_md,
+                            dt,
+                            i as u32,
+                            &mut seed,
                             check_interval,
                         );
                     }
@@ -121,9 +132,15 @@ fn main() {
                     for i in 0..n_meas {
                         let traj_start = Instant::now();
                         let r = gpu_dynamical_hmc_trajectory_resident(
-                            &gpu, &streaming, &resident, &dyn_state,
-                            &cg_bufs, n_md, dt,
-                            (n_therm + i) as u32, &mut seed,
+                            &gpu,
+                            &streaming,
+                            &resident,
+                            &dyn_state,
+                            &cg_bufs,
+                            n_md,
+                            dt,
+                            (n_therm + i) as u32,
+                            &mut seed,
                             check_interval,
                         );
                         let traj_wall = traj_start.elapsed().as_secs_f64();
@@ -139,7 +156,8 @@ fn main() {
                     let n_acc = acceptances.iter().filter(|&&a| a).count();
                     let acc_rate = n_acc as f64 / n_meas as f64;
                     let mean_dh: f64 = delta_hs.iter().sum::<f64>() / n_meas as f64;
-                    let abs_mean_dh: f64 = delta_hs.iter().map(|d| d.abs()).sum::<f64>() / n_meas as f64;
+                    let abs_mean_dh: f64 =
+                        delta_hs.iter().map(|d| d.abs()).sum::<f64>() / n_meas as f64;
                     let std_dh = {
                         let var = delta_hs.iter().map(|d| (d - mean_dh).powi(2)).sum::<f64>()
                             / (n_meas as f64 - 1.0).max(1.0);
@@ -148,7 +166,11 @@ fn main() {
                     let mean_cg: f64 = cg_iters_list.iter().sum::<usize>() as f64 / n_meas as f64;
                     let mean_plaq: f64 = plaquettes.iter().sum::<f64>() / n_meas as f64;
                     let mean_traj_time: f64 = traj_times.iter().sum::<f64>() / n_meas as f64;
-                    let throughput = if mean_traj_time > 0.0 { 1.0 / mean_traj_time } else { 0.0 };
+                    let throughput = if mean_traj_time > 0.0 {
+                        1.0 / mean_traj_time
+                    } else {
+                        0.0
+                    };
                     let effective_throughput = acc_rate * throughput;
 
                     let result = serde_json::json!({
@@ -180,12 +202,18 @@ fn main() {
                     writeln!(out, "{}", serde_json::to_string(&result).unwrap()).ok();
                     out.flush().ok();
 
-                    let status = if acc_rate > 0.6 { "✓" }
-                        else if acc_rate > 0.0 { "~" }
-                        else { "✗" };
+                    let status = if acc_rate > 0.6 {
+                        "✓"
+                    } else if acc_rate > 0.0 {
+                        "~"
+                    } else {
+                        "✗"
+                    };
 
-                    println!(" {status} acc={:.0}% |ΔH|={abs_mean_dh:.1} CG={mean_cg:.0} ({wall_s:.1}s)",
-                        acc_rate * 100.0);
+                    println!(
+                        " {status} acc={:.0}% |ΔH|={abs_mean_dh:.1} CG={mean_cg:.0} ({wall_s:.1}s)",
+                        acc_rate * 100.0
+                    );
                 }
             }
         }
@@ -196,8 +224,11 @@ fn main() {
 
     println!();
     println!("═══════════════════════════════════════════════════════════");
-    println!("  Sweep complete: {point_idx} points in {:.0}s ({:.1} min)",
-        total_wall, total_wall / 60.0);
+    println!(
+        "  Sweep complete: {point_idx} points in {:.0}s ({:.1} min)",
+        total_wall,
+        total_wall / 60.0
+    );
     println!("  Output: {output_path}");
     println!("═══════════════════════════════════════════════════════════");
 }

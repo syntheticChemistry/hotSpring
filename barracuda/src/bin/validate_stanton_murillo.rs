@@ -31,6 +31,9 @@ use hotspring_barracuda::md::observables::{
 use hotspring_barracuda::md::transport::{
     d_star_daligault, eta_star_stanton_murillo, lambda_star_stanton_murillo, sarkas_d_star_lookup,
 };
+use hotspring_barracuda::provenance::{
+    DALIGAULT_CALIBRATION_PROVENANCE, DALIGAULT_FIT_PROVENANCE, TRANSPORT_MD_BASELINE_PROVENANCE,
+};
 use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
 
@@ -84,6 +87,13 @@ fn main() {
     println!();
 
     let mut harness = ValidationHarness::new("stanton_murillo_transport");
+
+    harness.print_provenance(&[
+        &DALIGAULT_FIT_PROVENANCE,
+        &DALIGAULT_CALIBRATION_PROVENANCE,
+        &TRANSPORT_MD_BASELINE_PROVENANCE,
+    ]);
+
     let mut results = Vec::new();
 
     for cfg in &selected {

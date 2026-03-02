@@ -96,28 +96,6 @@ fn plaquette_variance(history: &[f64]) -> f64 {
     history.iter().map(|p| (p - mean).powi(2)).sum::<f64>() / (history.len() - 1) as f64
 }
 
-/// Compute complex Polyakov loop average (returns (|L|, phase)).
-fn complex_polyakov_average(lat: &Lattice) -> (f64, f64) {
-    let ns = [lat.dims[0], lat.dims[1], lat.dims[2]];
-    let spatial_vol = ns[0] * ns[1] * ns[2];
-    let mut sum_re = 0.0;
-    let mut sum_im = 0.0;
-    for ix in 0..ns[0] {
-        for iy in 0..ns[1] {
-            for iz in 0..ns[2] {
-                let c = lat.polyakov_loop([ix, iy, iz]);
-                sum_re += c.re;
-                sum_im += c.im;
-            }
-        }
-    }
-    let avg_re = sum_re / spatial_vol as f64;
-    let avg_im = sum_im / spatial_vol as f64;
-    let mag = (avg_re * avg_re + avg_im * avg_im).sqrt();
-    let phase = avg_im.atan2(avg_re);
-    (mag, phase)
-}
-
 fn main() {
     let args = parse_args();
     let dims = [args.lattice, args.lattice, args.lattice, args.lattice];
@@ -213,7 +191,9 @@ fn main() {
 
             if let Some(ref mut w) = traj_writer {
                 gpu_links_to_lattice(&gpu, &state, &mut lat);
-                let (poly_mag, poly_phase) = complex_polyakov_average(&lat);
+                let (re, im) = lat.complex_polyakov_average();
+                let poly_mag = (re * re + im * im).sqrt();
+                let poly_phase = im.atan2(re);
                 let pvar = plaquette_variance(&plaq_history);
                 let line = serde_json::json!({
                     "beta": beta,
@@ -273,9 +253,9 @@ fn main() {
             let mut poly_phase = 0.0;
             if do_poly_readback {
                 gpu_links_to_lattice(&gpu, &state, &mut lat);
-                let (m, p) = complex_polyakov_average(&lat);
-                poly_mag = m;
-                poly_phase = p;
+                let (re, im) = lat.complex_polyakov_average();
+                poly_mag = (re * re + im * im).sqrt();
+                poly_phase = im.atan2(re);
                 if (i + 1) % 100 == 0 {
                     poly_vals.push(poly_mag);
                 }

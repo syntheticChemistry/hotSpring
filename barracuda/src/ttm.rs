@@ -263,8 +263,164 @@ impl std::fmt::Display for TtmError {
 impl std::error::Error for TtmError {}
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::float_cmp)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_collision_frequency_invalid_negative_te() {
+        let te = -100.0;
+        let ne = 2.5e25;
+        let z = 1.0;
+        let mi = 40.0 * AMU;
+        let result = collision_frequency(te, ne, z, mi);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), TtmError::InvalidArgument);
+    }
+
+    #[test]
+    fn test_collision_frequency_invalid_zero_ne() {
+        let te = 15_000.0;
+        let ne = 0.0;
+        let z = 1.0;
+        let mi = 40.0 * AMU;
+        let result = collision_frequency(te, ne, z, mi);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), TtmError::InvalidArgument);
+    }
+
+    #[test]
+    fn test_collision_frequency_invalid_zero_z() {
+        let te = 15_000.0;
+        let ne = 2.5e25;
+        let z = 0.0;
+        let mi = 40.0 * AMU;
+        let result = collision_frequency(te, ne, z, mi);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), TtmError::InvalidArgument);
+    }
+
+    #[test]
+    fn test_collision_frequency_invalid_zero_mi() {
+        let te = 15_000.0;
+        let ne = 2.5e25;
+        let z = 1.0;
+        let mi = 0.0;
+        let result = collision_frequency(te, ne, z, mi);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), TtmError::InvalidArgument);
+    }
+
+    #[test]
+    fn test_integrate_ttm_rk4_one_step() {
+        let species = TtmSpecies {
+            name: "Argon".to_string(),
+            atomic_mass_amu: 40.0,
+            z_ion: 1.0,
+            density_m3: 2.5e25,
+            te_initial_k: 15_000.0,
+            ti_initial_k: 300.0,
+        };
+        let dt = 1e-17;
+        let n_steps = 1;
+        let result = integrate_ttm_rk4(&species, dt, n_steps);
+        assert!(result.is_ok());
+        let res = result.unwrap();
+        assert_eq!(res.times.len(), 2, "1 step → 2 time points (t=0, t=dt)");
+        assert_eq!(res.te_history.len(), 2);
+        assert_eq!(res.ti_history.len(), 2);
+        assert!((res.times[1] - dt).abs() < 1e-25);
+    }
+
+    #[test]
+    fn test_integrate_ttm_rk4_invalid_dt_zero() {
+        let species = TtmSpecies {
+            name: "Argon".to_string(),
+            atomic_mass_amu: 40.0,
+            z_ion: 1.0,
+            density_m3: 2.5e25,
+            te_initial_k: 15_000.0,
+            ti_initial_k: 300.0,
+        };
+        let result = integrate_ttm_rk4(&species, 0.0, 100);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), TtmError::InvalidArgument);
+    }
+
+    #[test]
+    fn test_integrate_ttm_rk4_invalid_n_steps_zero() {
+        let species = TtmSpecies {
+            name: "Argon".to_string(),
+            atomic_mass_amu: 40.0,
+            z_ion: 1.0,
+            density_m3: 2.5e25,
+            te_initial_k: 15_000.0,
+            ti_initial_k: 300.0,
+        };
+        let result = integrate_ttm_rk4(&species, 1e-17, 0);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), TtmError::InvalidArgument);
+    }
+
+    #[test]
+    fn test_equilibrium_temperature_theory_known_case() {
+        // T_eq = (ne×Te0 + ni×Ti0) / (ne + ni). For Z=1: ne=ni, so T_eq = (Te0 + Ti0)/2.
+        let species = TtmSpecies {
+            name: "Test".to_string(),
+            atomic_mass_amu: 40.0,
+            z_ion: 1.0,
+            density_m3: 2.5e25,
+            te_initial_k: 10_000.0,
+            ti_initial_k: 2_000.0,
+        };
+        let t_eq = equilibrium_temperature_theory(&species);
+        let expected = f64::midpoint(10_000.0, 2_000.0);
+        assert!(
+            (t_eq - expected).abs() < 1e-10,
+            "Z=1: T_eq = (Te+Ti)/2 = {expected}, got {t_eq}"
+        );
+    }
+
+    #[test]
+    fn test_equilibrium_temperature_theory_already_equilibrated() {
+        // Te = Ti → T_eq = Te = Ti
+        let species = TtmSpecies {
+            name: "Test".to_string(),
+            atomic_mass_amu: 40.0,
+            z_ion: 1.0,
+            density_m3: 2.5e25,
+            te_initial_k: 5_000.0,
+            ti_initial_k: 5_000.0,
+        };
+        let t_eq = equilibrium_temperature_theory(&species);
+        assert!(
+            (t_eq - 5_000.0).abs() < 1e-10,
+            "Te=Ti: T_eq should equal both, got {t_eq}"
+        );
+    }
+
+    #[test]
+    fn test_ttm_determinism() {
+        let species = TtmSpecies {
+            name: "Argon".to_string(),
+            atomic_mass_amu: 40.0,
+            z_ion: 1.0,
+            density_m3: 2.5e25,
+            te_initial_k: 15_000.0,
+            ti_initial_k: 300.0,
+        };
+        let dt = 1e-17;
+        let n_steps = 100;
+        let a = integrate_ttm_rk4(&species, dt, n_steps).unwrap();
+        let b = integrate_ttm_rk4(&species, dt, n_steps).unwrap();
+        assert_eq!(a.times.len(), b.times.len());
+        for (ta, tb) in a.times.iter().zip(b.times.iter()) {
+            assert_eq!(ta.to_bits(), tb.to_bits());
+        }
+        let te_final_a = a.te_history.last().copied().unwrap();
+        let te_final_b = b.te_history.last().copied().unwrap();
+        assert_eq!(te_final_a.to_bits(), te_final_b.to_bits());
+    }
 
     #[test]
     fn test_collision_frequency_positive() {
@@ -286,7 +442,7 @@ mod tests {
             panic!("coulomb_log returned Err for valid inputs");
         };
         assert!(
-            ln_lambda >= 1.0 && ln_lambda <= 40.0,
+            (1.0..=40.0).contains(&ln_lambda),
             "ln(Λ) should be between 1 and 40 for typical plasmas, got {ln_lambda}"
         );
     }
@@ -338,7 +494,7 @@ mod tests {
         };
         let te_final = result.te_history.last().copied().unwrap_or(0.0);
         let ti_final = result.ti_history.last().copied().unwrap_or(0.0);
-        let t_eq_numerical = (te_final + ti_final) / 2.0;
+        let t_eq_numerical = f64::midpoint(te_final, ti_final);
 
         let rel_err = ((t_eq_numerical - t_eq_theory) / t_eq_theory).abs();
         assert!(rel_err < 0.05,

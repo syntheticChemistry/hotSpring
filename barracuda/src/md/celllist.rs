@@ -37,13 +37,18 @@ use crate::tolerances::{CELLLIST_REBUILD_INTERVAL, THERMOSTAT_INTERVAL};
 use std::time::Instant;
 
 /// CPU cell list for spatial decomposition (retained for tests and diagnostics).
-#[allow(missing_docs)]
 pub struct CellList {
+    /// Number of cells per dimension [nx, ny, nz].
     pub n_cells: [usize; 3],
+    /// Cell side length per dimension (reduced units).
     pub cell_size: [f64; 3],
+    /// Total number of cells (nx × ny × nz).
     pub n_cells_total: usize,
+    /// Exclusive prefix sum: cell_start[c] = index of first particle in cell c.
     pub cell_start: Vec<u32>,
+    /// Particle count per cell.
     pub cell_count: Vec<u32>,
+    /// Particle indices sorted by cell (for indirect force indexing).
     pub sorted_indices: Vec<usize>,
 }
 

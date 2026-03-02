@@ -1,7 +1,7 @@
 # wateringHole — Cross-Project Handoffs
 
 **Project:** hotSpring (ecoPrimals)
-**Last Updated:** March 1, 2026
+**Last Updated:** March 2, 2026
 
 ---
 
@@ -57,6 +57,7 @@ fossil record — never deleted, always available for provenance.
 
 | File | Date | Topic |
 |------|------|-------|
+| `HOTSPRING_V0615_DEEP_DEBT_TOADSTOOL_ABSORPTION_HANDOFF_MAR02_2026.md` | Mar 2 | Deep debt audit + absorption guide: 711 tests, capability-based GPU discovery, 6 binaries decomposed, production pipeline architecture, absorption priorities |
 | `HOTSPRING_V0615_NPU_PARAM_CONTROL_TOADSTOOL_HANDOFF_MAR01_2026.md` | Mar 1 | NPU parameter controller + barracuda evolution review: dt/n_md control, mid-beta adaptation, Exp 029→031 lessons |
 | `HOTSPRING_NAUTILUS_BRAIN_TOADSTOOL_HANDOFF_MAR01_2026.md` | Mar 1 | Nautilus Shell + Brain Architecture: evolutionary reservoir, concept edges, toadStool absorption guide |
 | `HOTSPRING_TOADSTOOL_S68_BRAIN_SYNC_FEB28_2026.md` | Feb 28 | Brain architecture sync: 4-layer concurrent pipeline, NVK dual-GPU deadlock fix |

@@ -8,13 +8,15 @@ use std::f64::consts::PI;
 
 use crate::tolerances::DIVISION_GUARD;
 
-/// RDF result: g(r) binned at discrete r values
+/// RDF result: g(r) binned at discrete r values.
 #[derive(Clone, Debug)]
-#[allow(missing_docs)]
 pub struct Rdf {
-    pub r_values: Vec<f64>, // bin centers in a_ws
-    pub g_values: Vec<f64>, // g(r)
-    pub dr: f64,            // bin width
+    /// Bin centers in units of a_ws.
+    pub r_values: Vec<f64>,
+    /// Radial distribution function g(r).
+    pub g_values: Vec<f64>,
+    /// Bin width (reduced units).
+    pub dr: f64,
 }
 
 /// Compute RDF from position snapshots (CPU post-process)
