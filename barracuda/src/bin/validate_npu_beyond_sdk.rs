@@ -73,6 +73,7 @@ fn check_arbitrary_input_dims(harness: &mut ValidationHarness) {
             leak_rate: 0.3,
             regularization: 1e-2,
             seed: 100 + input_size as u64,
+            ..Default::default()
         };
 
         let mut esn = EchoStateNetwork::new(config.clone());

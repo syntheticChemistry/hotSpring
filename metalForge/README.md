@@ -56,7 +56,7 @@ substrate ecoPrimals touches.
 metalForge/
 ├── README.md                  ← this file
 ├── forge/                     ← Rust crate: substrate discovery + dispatch (19 tests, v0.2.0)
-│   ├── Cargo.toml             ← deps: barracuda (toadstool), wgpu 22, tokio
+│   ├── Cargo.toml             ← deps: barracuda (barraCuda v0.3.1), wgpu 22, tokio
 │   ├── src/
 │   │   ├── lib.rs             ← crate root — biome-native discovery architecture
 │   │   ├── substrate.rs       ← Capability model (12 capability variants)

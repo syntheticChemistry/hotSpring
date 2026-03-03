@@ -98,6 +98,7 @@ fn main() {
         leak_rate: 0.3,
         regularization: 1e-2,
         seed: 42,
+        ..Default::default()
     };
 
     // Build sequences (sliding windows of 5 consecutive measurements)

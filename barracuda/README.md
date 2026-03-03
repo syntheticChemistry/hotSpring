@@ -2,7 +2,7 @@
 
 **Validation crate for hotSpring — computational physics reproduction on consumer hardware.**
 
-[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0--only-blue.svg)](../LICENSE)
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0--or--later-blue.svg)](../LICENSE)
 
 ---
 
@@ -10,14 +10,21 @@
 
 `hotspring-barracuda` is the Rust crate that drives all validation, physics
 computation, and GPU acceleration for the [hotSpring](../README.md) project.
-It leans on ToadStool's shared [BarraCUDA](../../phase1/toadstool/crates/barracuda/)
-library for scientific computing primitives (linear algebra, GPU dispatch, shaders)
-and adds domain-specific physics: nuclear structure, molecular dynamics, lattice
-QCD, spectral theory, and transport coefficients.
+
+**Dependency split:**
+
+| Primal | Provides | Path |
+|--------|----------|------|
+| [barraCuda](../../barraCuda/) | Math, shaders, compilation, ESN, NPU math | `../../barraCuda/crates/barracuda` |
+| [toadStool](../../phase1/toadStool/) | NPU hardware (akida-driver, akida-models) | `../../phase1/toadStool/crates/neuromorphic/` |
+
+barraCuda knows how to compile and execute. toadStool exposes what hardware exists.
+hotSpring consumes both for domain-specific physics: nuclear structure, molecular
+dynamics, lattice QCD, spectral theory, and transport coefficients.
 
 ```
 hotSpring (this repo)
-  └── barracuda/              ← you are here (hotspring-barracuda v0.6.14)
+  └── barracuda/              ← you are here (hotspring-barracuda v0.6.16)
        ├── src/lib.rs         ← crate root
        ├── src/physics/       ← nuclear structure (L1/L2/L3 HFB, SEMF)
        ├── src/md/            ← GPU molecular dynamics (Yukawa OCP)
@@ -37,15 +44,15 @@ hotSpring (this repo)
 ```bash
 cd barracuda
 
-cargo test --lib          # 629 library tests (~700s)
-cargo test                # 664 total (629 lib + 31 integration + 4 doc)
+cargo test --lib          # 663 library tests
+cargo test                # 688 total (663 lib + 25 metalForge)
 cargo clippy --all-targets  # 0 warnings (pedantic + nursery)
 cargo doc --no-deps       # Full API docs, 0 warnings
 
 cargo run --release --bin validate_all  # 39/39 validation suites
 ```
 
-Requires the shared BarraCUDA crate at `../../phase1/toadstool/crates/barracuda`.
+Requires the [barraCuda](../../barraCuda/) primal at `../../barraCuda/crates/barracuda`.
 
 ---
 
@@ -56,9 +63,9 @@ Requires the shared BarraCUDA crate at `../../phase1/toadstool/crates/barracuda`
 The entire crate has zero `unsafe` blocks. `#![deny(clippy::expect_used, clippy::unwrap_used)]`
 enforced crate-wide — all fallible operations use `?` propagation via `HotSpringError`.
 
-### Dependency on Shared BarraCUDA
+### Dependency on barraCuda
 
-hotspring-barracuda depends on the shared `barracuda` crate for:
+hotspring-barracuda depends on the standalone `barracuda` crate (v0.3.1) for:
 
 | Primitive | Usage |
 |-----------|-------|
@@ -73,8 +80,8 @@ hotspring-barracuda depends on the shared `barracuda` crate for:
 ```
 hotSpring implements physics locally (Rust + WGSL templates)
   → validates against Python baselines
-    → hands off to toadStool via wateringHole/handoffs/
-      → toadStool absorbs as shared GPU primitives
+    → hands off to toadStool/barraCuda via wateringHole/handoffs/
+      → barraCuda absorbs as shared GPU primitives
         → hotSpring rewires to lean on upstream, deletes local code
 ```
 
@@ -92,7 +99,7 @@ hotSpring implements physics locally (Rust + WGSL templates)
 
 ### Key Properties
 
-- **AGPL-3.0-only** on all 135 `.rs` files and 25 `.wgsl` shaders
+- **AGPL-3.0-or-later** on all `.rs` and `.wgsl` files
 - **Provenance**: all validation constants traced to Python origins or DOIs
 - **Tolerances**: ~150 centralized constants with physical justification
 - **ValidationHarness**: structured pass/fail with exit code 0/1
@@ -119,16 +126,17 @@ hotSpring implements physics locally (Rust + WGSL templates)
 
 See [CHANGELOG.md](CHANGELOG.md) for full version history.
 
-Current: **v0.6.14** (February 25, 2026)
-- 0 clippy warnings (library + 76 binaries, pedantic + nursery)
-- Cross-primal discovery (`probe_npu_available()`, no hardcoded paths)
-- β_c provenance (Bali, Engels, Creutz citations in `provenance.rs`)
-- WGSL PRNG deduplication (`prng_pcg_f64.wgsl` shared library)
-- 4 new GPU validation tolerances
-- `gpu_hmc.rs` refactored into `gpu_hmc/` module (5 files, all <1000 LOC)
+Current: **v0.6.16** (March 3, 2026)
+- Rewired from toadStool embedded barracuda to standalone barraCuda v0.3.1
+- 663 lib tests + 25 metalForge tests pass against barraCuda v0.3.1
+- License aligned to AGPL-3.0-or-later across all shaders
+- ReluTanhApprox activation for AKD1000 NPU deployment
+- 6D canonical input vector for cross-volume NPU generalization
+- HeadConfidence tracker for per-head trust/fallback
+- DP memoization overnight experiment (exp035)
 
 ---
 
 ## License
 
-AGPL-3.0-only. See [LICENSE](LICENSE).
+AGPL-3.0-or-later. See [LICENSE](LICENSE).

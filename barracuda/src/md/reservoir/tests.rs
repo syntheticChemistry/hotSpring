@@ -19,6 +19,7 @@ fn esn_trains_and_predicts() {
         leak_rate: 0.3,
         regularization: 1e-4,
         seed: 42,
+        ..Default::default()
     };
     let mut esn = EchoStateNetwork::new(config);
 
@@ -72,6 +73,7 @@ fn export_and_npu_parity() {
         leak_rate: 0.3,
         regularization: 1e-4,
         seed: 42,
+        ..Default::default()
     };
     let mut esn = EchoStateNetwork::new(config);
 
@@ -120,6 +122,7 @@ fn esn_benchmark_vs_python() {
         leak_rate: 0.3,
         regularization: 1e-2,
         seed: 42,
+        ..Default::default()
     };
 
     let mut rng = Xoshiro256pp::new(99);
@@ -214,6 +217,7 @@ fn npu_predict_return_state_consistent() {
         leak_rate: 0.3,
         regularization: 1e-2,
         seed: 77,
+        ..Default::default()
     };
     let seq: Vec<Vec<f64>> = (0..5)
         .map(|i| vec![f64::from(i) * 0.1, 0.5, -0.2])
@@ -257,6 +261,7 @@ fn multi_head_esn_nine_outputs() {
         leak_rate: 0.3,
         regularization: 1e-3,
         seed: 42,
+        ..Default::default()
     };
     let mut esn = EchoStateNetwork::new(config);
 
@@ -302,6 +307,7 @@ fn npu_readout_weight_swap() {
         leak_rate: 0.3,
         regularization: 1e-3,
         seed: 42,
+        ..Default::default()
     };
     let mut esn = EchoStateNetwork::new(config);
     let seq: Vec<Vec<f64>> = (0..10).map(|i| vec![i as f64 * 0.1, 0.5]).collect();
@@ -332,6 +338,7 @@ fn esn_predict_determinism() {
         leak_rate: 0.3,
         regularization: 1e-2,
         seed: 42,
+        ..Default::default()
     };
     let seqs: Vec<Vec<Vec<f64>>> = vec![
         (0..10)
@@ -369,6 +376,7 @@ fn exported_weights_serde_compatible_with_toadstool() {
         leak_rate: 0.3,
         regularization: 1e-3,
         seed: 42,
+        ..Default::default()
     };
     let mut esn = EchoStateNetwork::new(config);
     let seqs: Vec<Vec<Vec<f64>>> = (0..3)
@@ -460,6 +468,7 @@ fn head_group_layout_matches_toadstool_head_group() {
             HeadGroup::Steering => 18,
             HeadGroup::Brain => 24,
             HeadGroup::Meta => 30,
+            _ => unreachable!("test only covers hotSpring physics groups"),
         };
         assert_eq!(
             *hs_base, expected_base,

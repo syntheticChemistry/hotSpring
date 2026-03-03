@@ -57,6 +57,9 @@ fossil record — never deleted, always available for provenance.
 
 | File | Date | Topic |
 |------|------|-------|
+| `HOTSPRING_V0617_TOADSTOOL_S93_BARRACUDA_V031_REWIRE_HANDOFF_MAR03_2026.md` | Mar 3 | **barraCuda v0.3.1 + toadStool S93 rewire**: 688 tests pass, 25 shader audit (7 identical, 18 intentional divergence), metalForge rewired, 3 upstream bug reports, cross-spring evolution notes |
+| `HOTSPRING_BARRACUDA_BUDDING_VALIDATION_HANDOFF_MAR03_2026.md` | Mar 3 | First Spring validates barraCuda budding: 663/663 tests, bug reports (sin_f64_safe, tokio flavor) |
+| `HOTSPRING_V0617_REALITY_LADDER_HANDOFF_MAR03_2026.md` | Mar 3 | Reality Ladder Rung 0: volume×mass×beta scan, RHMC, Hasenbusch preconditioning |
 | `HOTSPRING_V0617_TOADSTOOL_S80_ABSORPTION_HANDOFF_MAR02_2026.md` | Mar 2 | **toadStool S80 sync**: spectral stats wired, NeighborMode benchmarked, MultiHeadEsn serde-compatible, Nelder-Mead GPU, full absorption priorities, cross-spring learnings |
 | `HOTSPRING_V0615_TOADSTOOL_S78_SYNC_HANDOFF_MAR02_2026.md` | Mar 2 | toadStool S78 sync: Fp64Strategy::Concurrent fix, remaining absorption targets, lean inventory |
 | `HOTSPRING_V0615_DEEP_DEBT_TOADSTOOL_ABSORPTION_HANDOFF_MAR02_2026.md` | Mar 2 | Deep debt audit + absorption guide: 711 tests, capability-based GPU discovery, 6 binaries decomposed, production pipeline architecture, absorption priorities |

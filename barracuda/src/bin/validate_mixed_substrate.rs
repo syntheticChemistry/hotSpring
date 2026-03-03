@@ -375,6 +375,7 @@ fn esn_config_3in() -> EsnConfig {
         leak_rate: 0.3,
         regularization: 1e-2,
         seed: 42,
+        ..Default::default()
     }
 }
 

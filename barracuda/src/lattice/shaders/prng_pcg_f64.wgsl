@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Shared PRNG core: PCG hash → uniform f64 on [0, 1).
 //
 // Requires a `Params` struct with fields { *, traj_id: u32, seed_lo: u32, seed_hi: u32 }
@@ -22,5 +22,6 @@ fn hash_u32(idx: u32, seq: u32) -> u32 {
 
 fn uniform_f64(idx: u32, seq: u32) -> f64 {
     let v = hash_u32(idx, seq);
-    return (f64(v) + f64(0.5)) / f64(4294967296.0);
+    let scale = f64(2.3283064365386963e-10);
+    return (f64(v) + f64(0.5)) * scale;
 }

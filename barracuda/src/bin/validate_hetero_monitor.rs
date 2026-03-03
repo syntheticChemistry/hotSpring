@@ -77,6 +77,7 @@ fn check_live_hmc_monitor(harness: &mut ValidationHarness) {
         leak_rate: 0.3,
         regularization: 1e-2,
         seed: 42,
+        ..Default::default()
     };
 
     // Phase 1: Train the ESN on known phase data
@@ -174,6 +175,7 @@ fn check_transport_predictor(harness: &mut ValidationHarness) {
         leak_rate: 0.3,
         regularization: 1e-2,
         seed: 42,
+        ..Default::default()
     };
 
     let mut rng = SimpleRng::new(42);
@@ -241,6 +243,7 @@ fn check_cross_substrate_parity(harness: &mut ValidationHarness) {
         leak_rate: 0.3,
         regularization: 1e-2,
         seed: 42,
+        ..Default::default()
     };
 
     let (train_seqs, train_targets) = generate_phase_training_data();
@@ -315,6 +318,7 @@ fn check_monitoring_overhead(harness: &mut ValidationHarness) {
         leak_rate: 0.3,
         regularization: 1e-2,
         seed: 42,
+        ..Default::default()
     };
 
     let (train_seqs, train_targets) = generate_phase_training_data();
@@ -388,6 +392,7 @@ fn check_predictive_steering(harness: &mut ValidationHarness) {
         leak_rate: 0.3,
         regularization: 1e-2,
         seed: 42,
+        ..Default::default()
     };
 
     let (train_seqs, train_targets) = generate_phase_training_data();

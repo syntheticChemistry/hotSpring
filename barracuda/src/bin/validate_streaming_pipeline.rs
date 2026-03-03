@@ -260,6 +260,7 @@ fn main() {
         leak_rate: 0.3,
         regularization: 1e-2,
         seed: 42,
+        ..Default::default()
     };
 
     // Generate training sequences from GPU observables at multiple β

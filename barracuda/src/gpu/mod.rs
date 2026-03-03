@@ -308,15 +308,35 @@ impl GpuF64 {
         self.build_pipeline(&optimized, label)
     }
 
-    /// Create a compute pipeline with driver-aware f64 patching + optimization.
+    /// Create a compute pipeline with driver-aware f64 patching + sovereign compilation.
     ///
-    /// Routes through `ShaderTemplate::for_driver_profile()` which applies:
-    /// 1. Fossil substitution (legacy `math_f64` → native builtins)
-    /// 2. exp/log workaround on NVK/nouveau
-    /// 3. Missing `math_f64` injection (only functions actually called)
-    /// 4. `WgslOptimizer` with hardware-accurate `LatencyModel`
+    /// Routes through toadStool's `WgpuDevice::compile_shader_f64()` which applies:
+    /// 1. `ShaderTemplate::for_driver_profile` — fossil substitution, exp/log/sin/cos
+    ///    polyfills, ILP optimization
+    /// 2. Sovereign compiler — naga IR → FMA fusion → SPIR-V emission via
+    ///    `SPIRV_SHADER_PASSTHROUGH` (bypasses naga WGSL f64 validation on NVK)
+    /// 3. WGSL text fallback when passthrough is unavailable
     #[must_use]
     pub fn create_pipeline_f64(&self, shader_source: &str, label: &str) -> wgpu::ComputePipeline {
+        let shader_module = self.wgpu_device.compile_shader_f64(shader_source, Some(label));
+        self.device()
+            .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                label: Some(label),
+                layout: None,
+                module: &shader_module,
+                entry_point: "main",
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+                cache: None,
+            })
+    }
+
+    /// WGSL-text f64 pipeline — skips sovereign SPIR-V compilation.
+    ///
+    /// Use for numerically sensitive kernels (CG solver) where FMA fusion
+    /// can change convergence behavior. Falls back to driver-patched WGSL
+    /// compiled through naga's WGSL frontend.
+    #[must_use]
+    pub fn create_pipeline_f64_precise(&self, shader_source: &str, label: &str) -> wgpu::ComputePipeline {
         let optimized = ShaderTemplate::for_driver_profile(
             shader_source,
             self.wgpu_device.needs_f64_exp_log_workaround(),

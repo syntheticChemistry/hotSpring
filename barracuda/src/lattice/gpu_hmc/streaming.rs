@@ -7,7 +7,7 @@
 //! heat bath, eliminating all CPU→GPU transfers.
 
 use super::dynamical::{
-    gpu_fermion_action, gpu_total_force_dispatch, GpuDynHmcPipelines, GpuDynHmcResult,
+    gpu_fermion_action_all, gpu_total_force_dispatch, GpuDynHmcPipelines, GpuDynHmcResult,
     GpuDynHmcState, WGSL_RANDOM_MOMENTA,
 };
 use super::{
@@ -349,19 +349,21 @@ pub fn gpu_dynamical_hmc_trajectory_streaming(
             gs.wg_links,
         );
 
-        let ferm_prng_params = make_ferm_prng_params(vol as u32, traj_id, seed);
-        let ferm_prng_pbuf = gpu.create_uniform_buffer(&ferm_prng_params, "sdyn_ferm_p");
-        let ferm_prng_bg = gpu.create_bind_group(
-            &pipelines.fermion_prng_pipeline,
-            &[&ferm_prng_pbuf, &state.phi_buf],
-        );
         let wg_vol = (vol as u32).div_ceil(64);
-        GpuF64::encode_pass(
-            &mut enc,
-            &pipelines.fermion_prng_pipeline,
-            &ferm_prng_bg,
-            wg_vol,
-        );
+        for (fi, phi_buf) in state.phi_bufs.iter().enumerate() {
+            let ferm_prng_params = make_ferm_prng_params(vol as u32, traj_id + fi as u32 * 1000, seed);
+            let ferm_prng_pbuf = gpu.create_uniform_buffer(&ferm_prng_params, &format!("sdyn_ferm_p_{fi}"));
+            let ferm_prng_bg = gpu.create_bind_group(
+                &pipelines.fermion_prng_pipeline,
+                &[&ferm_prng_pbuf, phi_buf],
+            );
+            GpuF64::encode_pass(
+                &mut enc,
+                &pipelines.fermion_prng_pipeline,
+                &ferm_prng_bg,
+                wg_vol,
+            );
+        }
 
         enc.copy_buffer_to_buffer(
             &gs.link_buf,
@@ -375,7 +377,7 @@ pub fn gpu_dynamical_hmc_trajectory_streaming(
 
     let s_gauge_old = gpu_wilson_action(gpu, &dp.gauge, gs);
     let t_old = gpu_kinetic_energy(gpu, &dp.gauge, gs);
-    let (s_ferm_old, cg_iters_old) = gpu_fermion_action(gpu, dp, state);
+    let (s_ferm_old, cg_iters_old) = gpu_fermion_action_all(gpu, dp, state);
     let h_old = s_gauge_old + t_old + s_ferm_old;
     let mut total_cg = cg_iters_old;
 
@@ -392,7 +394,7 @@ pub fn gpu_dynamical_hmc_trajectory_streaming(
 
     let s_gauge_new = gpu_wilson_action(gpu, &dp.gauge, gs);
     let t_new = gpu_kinetic_energy(gpu, &dp.gauge, gs);
-    let (s_ferm_new, cg_iters_new) = gpu_fermion_action(gpu, dp, state);
+    let (s_ferm_new, cg_iters_new) = gpu_fermion_action_all(gpu, dp, state);
     let h_new = s_gauge_new + t_new + s_ferm_new;
     total_cg += cg_iters_new;
 

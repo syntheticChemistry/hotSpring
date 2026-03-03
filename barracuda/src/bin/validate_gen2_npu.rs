@@ -304,6 +304,7 @@ fn main() {
         leak_rate: 0.3,
         regularization: 1e-3,
         seed: 42,
+        ..Default::default()
     });
     esn.train(&seqs, &targets);
     let weights = esn.export_weights().expect("ESN export failed");

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Complex f64 arithmetic for lattice field theory.
 //!
@@ -8,8 +8,10 @@
 //!
 //! # Provenance
 //!
-//! Original: `phase1/toadstool/crates/barracuda/src/ops/fft/fft_1d_f64.wgsl`
-//! lines 27-59. Extracted Feb 2026 for lattice QCD SU(3) matrix operations.
+//! Original: barraCuda `ops/fft/fft_1d_f64.wgsl` lines 27-59.
+//! Extracted Feb 2026 for lattice QCD SU(3) matrix operations.
+//! Note: hotSpring uses `struct Complex64 { re, im }` while barraCuda math/
+//! uses `vec2<f64>`. barraCuda lattice shaders still use the struct form.
 
 use std::fmt;
 use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign};

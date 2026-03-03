@@ -151,19 +151,19 @@ fn main() {
     let cpu_cg = cg::cg_solve(&lat, &mut x_cpu, &b_field, mass, cg_tol, cg_max_iter);
 
     // GPU CG solve
-    gpu.upload_f64(&state.phi_buf, &b_flat);
+    gpu.upload_f64(&state.phi_bufs[0], &b_flat);
     let zeros = vec![0.0_f64; vol * 6];
     gpu.upload_f64(&state.x_buf, &zeros);
 
     // Initialize r=b, p=b
     {
         let mut enc = gpu.begin_encoder("cg_test_r");
-        enc.copy_buffer_to_buffer(&state.phi_buf, 0, &state.r_buf, 0, (vol * 6 * 8) as u64);
+        enc.copy_buffer_to_buffer(&state.phi_bufs[0], 0, &state.r_buf, 0, (vol * 6 * 8) as u64);
         gpu.submit_encoder(enc);
     }
     {
         let mut enc = gpu.begin_encoder("cg_test_p");
-        enc.copy_buffer_to_buffer(&state.phi_buf, 0, &state.p_buf, 0, (vol * 6 * 8) as u64);
+        enc.copy_buffer_to_buffer(&state.phi_bufs[0], 0, &state.p_buf, 0, (vol * 6 * 8) as u64);
         gpu.submit_encoder(enc);
     }
 
@@ -331,12 +331,12 @@ fn gpu_fermion_action_test(
     // Copy phi → r, phi → p
     {
         let mut enc = gpu.begin_encoder("fa_init_r");
-        enc.copy_buffer_to_buffer(&state.phi_buf, 0, &state.r_buf, 0, (n_flat * 8) as u64);
+        enc.copy_buffer_to_buffer(&state.phi_bufs[0], 0, &state.r_buf, 0, (n_flat * 8) as u64);
         gpu.submit_encoder(enc);
     }
     {
         let mut enc = gpu.begin_encoder("fa_init_p");
-        enc.copy_buffer_to_buffer(&state.phi_buf, 0, &state.p_buf, 0, (n_flat * 8) as u64);
+        enc.copy_buffer_to_buffer(&state.phi_bufs[0], 0, &state.p_buf, 0, (n_flat * 8) as u64);
         gpu.submit_encoder(enc);
     }
 
@@ -380,7 +380,7 @@ fn gpu_fermion_action_test(
     }
 
     // S_f = phi† · x
-    let action = gpu_dot_test(gpu, pipelines, state, &state.phi_buf, &state.x_buf);
+    let action = gpu_dot_test(gpu, pipelines, state, &state.phi_bufs[0], &state.x_buf);
     (action, iterations)
 }
 

@@ -99,12 +99,13 @@ pub fn gpu_cg_solve_resident(
     total_iters
 }
 
-fn gpu_fermion_action_resident(
+fn gpu_fermion_action_resident_single(
     gpu: &GpuF64,
     dyn_pipelines: &GpuDynHmcPipelines,
     resident_pipelines: &GpuResidentCgPipelines,
     state: &GpuDynHmcState,
     cg_bufs: &GpuResidentCgBuffers,
+    phi_buf: &wgpu::Buffer,
     check_interval: usize,
 ) -> (f64, usize) {
     let iters = gpu_cg_solve_resident(
@@ -113,7 +114,7 @@ fn gpu_fermion_action_resident(
         resident_pipelines,
         state,
         cg_bufs,
-        &state.phi_buf,
+        phi_buf,
         check_interval,
     );
 
@@ -123,12 +124,32 @@ fn gpu_fermion_action_resident(
         gpu,
         &dyn_pipelines.dot_pipeline,
         &state.dot_buf,
-        &state.phi_buf,
+        phi_buf,
         &state.x_buf,
         n_pairs,
     );
 
     (dot_val, iters)
+}
+
+fn gpu_fermion_action_resident_all(
+    gpu: &GpuF64,
+    dyn_pipelines: &GpuDynHmcPipelines,
+    resident_pipelines: &GpuResidentCgPipelines,
+    state: &GpuDynHmcState,
+    cg_bufs: &GpuResidentCgBuffers,
+    check_interval: usize,
+) -> (f64, usize) {
+    let mut total_action = 0.0;
+    let mut total_iters = 0;
+    for phi_buf in &state.phi_bufs {
+        let (sf, iters) = gpu_fermion_action_resident_single(
+            gpu, dyn_pipelines, resident_pipelines, state, cg_bufs, phi_buf, check_interval,
+        );
+        total_action += sf;
+        total_iters += iters;
+    }
+    (total_action, total_iters)
 }
 
 fn gpu_total_force_dispatch_resident(
@@ -146,35 +167,36 @@ fn gpu_total_force_dispatch_resident(
     gpu_force_dispatch(gpu, &dyn_pipelines.gauge, gs);
     gpu_mom_update_dispatch(gpu, &dyn_pipelines.gauge, gs, dt);
 
-    let cg_iters = gpu_cg_solve_resident(
-        gpu,
-        dyn_pipelines,
-        resident_pipelines,
-        state,
-        cg_bufs,
-        &state.phi_buf,
-        check_interval,
-    );
+    let mut total_cg = 0;
+    for phi_buf in &state.phi_bufs {
+        let cg_iters = gpu_cg_solve_resident(
+            gpu,
+            dyn_pipelines,
+            resident_pipelines,
+            state,
+            cg_bufs,
+            phi_buf,
+            check_interval,
+        );
+        total_cg += cg_iters;
 
-    gpu_dirac_dispatch(gpu, dyn_pipelines, state, &state.x_buf, &state.y_buf, 1.0);
-    gpu_fermion_force_dispatch(gpu, dyn_pipelines, state);
+        gpu_dirac_dispatch(gpu, dyn_pipelines, state, &state.x_buf, &state.y_buf, 1.0);
+        gpu_fermion_force_dispatch(gpu, dyn_pipelines, state);
 
-    // The shader computes F = +(η/2) TA[U M]. The correct HMC force is
-    // F = -η TA[U M] (negative gradient, factor 2 from D + D† contributions).
-    // So momentum kick needs coefficient -2 × dt.
-    let ferm_mom_params = make_link_mom_params(n_links, -2.0 * dt);
-    let ferm_mom_pbuf = gpu.create_uniform_buffer(&ferm_mom_params, "rcg_fmom_p");
-    let ferm_mom_bg = gpu.create_bind_group(
-        &dyn_pipelines.gauge.momentum_pipeline,
-        &[&ferm_mom_pbuf, &state.ferm_force_buf, &gs.mom_buf],
-    );
-    gpu.dispatch(
-        &dyn_pipelines.gauge.momentum_pipeline,
-        &ferm_mom_bg,
-        gs.wg_links,
-    );
+        let ferm_mom_params = make_link_mom_params(n_links, -2.0 * dt);
+        let ferm_mom_pbuf = gpu.create_uniform_buffer(&ferm_mom_params, "rcg_fmom_p");
+        let ferm_mom_bg = gpu.create_bind_group(
+            &dyn_pipelines.gauge.momentum_pipeline,
+            &[&ferm_mom_pbuf, &state.ferm_force_buf, &gs.mom_buf],
+        );
+        gpu.dispatch(
+            &dyn_pipelines.gauge.momentum_pipeline,
+            &ferm_mom_bg,
+            gs.wg_links,
+        );
+    }
 
-    cg_iters
+    total_cg
 }
 
 /// Full dynamical fermion HMC trajectory with GPU-resident CG.
@@ -214,8 +236,13 @@ pub fn gpu_dynamical_hmc_trajectory_resident(
             gs.wg_links,
         );
 
-        let ferm_prng_params = make_ferm_prng_params(vol as u32, traj_id, seed);
-        let ferm_prng_pbuf = gpu.create_uniform_buffer(&ferm_prng_params, "rcg_ferm_p");
+        gpu.submit_encoder(enc);
+    }
+
+    for (fi, phi_buf) in state.phi_bufs.iter().enumerate() {
+        let mut enc = gpu.begin_encoder(&format!("rcg_ferm_prng_{fi}"));
+        let ferm_prng_params = make_ferm_prng_params(vol as u32, traj_id + fi as u32 * 1000, seed);
+        let ferm_prng_pbuf = gpu.create_uniform_buffer(&ferm_prng_params, &format!("rcg_ferm_p_{fi}"));
         let ferm_prng_bg = gpu.create_bind_group(
             &streaming_pipelines.fermion_prng_pipeline,
             &[&ferm_prng_pbuf, &state.temp_buf],
@@ -227,21 +254,17 @@ pub fn gpu_dynamical_hmc_trajectory_resident(
             &ferm_prng_bg,
             wg_vol,
         );
-
         gpu.submit_encoder(enc);
-    }
 
-    // Pseudofermion heatbath: φ = D† ξ (not raw Gaussian)
-    // This ensures S_ferm = φ†(D†D)⁻¹φ = ξ†ξ ~ χ²(N_dof),
-    // keeping the fermion force at the correct scale.
-    gpu_dirac_dispatch(
-        gpu,
-        &streaming_pipelines.dyn_hmc,
-        state,
-        &state.temp_buf,
-        &state.phi_buf,
-        -1.0,
-    );
+        gpu_dirac_dispatch(
+            gpu,
+            &streaming_pipelines.dyn_hmc,
+            state,
+            &state.temp_buf,
+            phi_buf,
+            -1.0,
+        );
+    }
 
     {
         let mut enc = gpu.begin_encoder("rcg_backup");
@@ -258,7 +281,7 @@ pub fn gpu_dynamical_hmc_trajectory_resident(
     let s_gauge_old = gpu_wilson_action(gpu, &dp.gauge, gs);
     let t_old = gpu_kinetic_energy(gpu, &dp.gauge, gs);
     let (s_ferm_old, cg_iters_old) =
-        gpu_fermion_action_resident(gpu, dp, resident_pipelines, state, cg_bufs, check_interval);
+        gpu_fermion_action_resident_all(gpu, dp, resident_pipelines, state, cg_bufs, check_interval);
     let h_old = s_gauge_old + t_old + s_ferm_old;
     let mut total_cg = cg_iters_old;
 
@@ -300,7 +323,7 @@ pub fn gpu_dynamical_hmc_trajectory_resident(
     let s_gauge_new = gpu_wilson_action(gpu, &dp.gauge, gs);
     let t_new = gpu_kinetic_energy(gpu, &dp.gauge, gs);
     let (s_ferm_new, cg_iters_new) =
-        gpu_fermion_action_resident(gpu, dp, resident_pipelines, state, cg_bufs, check_interval);
+        gpu_fermion_action_resident_all(gpu, dp, resident_pipelines, state, cg_bufs, check_interval);
     let h_new = s_gauge_new + t_new + s_ferm_new;
     total_cg += cg_iters_new;
 

@@ -81,8 +81,8 @@ gpu_energy = []
 npu-hw = ["dep:akida-driver", "dep:akida-models"]
 
 [dependencies]
-# BarraCuda: All scientific computing from the library
-barracuda = { path = "../../phase1/toadstool/crates/barracuda" }
+# BarraCuda (standalone primal): math, shaders, compilation, ESN, NPU math
+barracuda = { path = "../../barraCuda/crates/barracuda" }
 
 # Data loading
 serde = { version = "1.0", features = ["derive"] }
@@ -97,9 +97,10 @@ bytemuck = { version = "1.14", features = ["derive"] }
 # Async runtime for GPU validation (validate_md)
 tokio = { version = "1.35", features = ["rt-multi-thread", "macros"] }
 
-# NPU hardware: BrainChip Akida via toadStool's pure Rust driver (optional)
-akida-driver = { path = "../../phase1/toadstool/crates/neuromorphic/akida-driver", optional = true }
-akida-models = { path = "../../phase1/toadstool/crates/neuromorphic/akida-models", optional = true }
+# NPU hardware: toadStool exposes device capabilities (PCIe driver, model parsing)
+# Math/compilation lives in barraCuda (esn_v2, npu, npu_executor, snn)
+akida-driver = { path = "../../phase1/toadStool/crates/neuromorphic/akida-driver", optional = true }
+akida-models = { path = "../../phase1/toadStool/crates/neuromorphic/akida-models", optional = true }
 
 # GPU compute (wgpu for SHADER_F64 FP64 science compute)
 # Must match barracuda's wgpu version (22) to avoid type conflicts.
@@ -118,7 +119,7 @@ path = "src/bin/nuclear_eos_l1_ref.rs"
 name = "nuclear_eos_l2_ref"
 path = "src/bin/nuclear_eos_l2_ref.rs"
 
-# ── L2 GPU-batched HFB (BatchedEighGpu from toadstool) ─────────
+# ── L2 GPU-batched HFB (BatchedEighGpu from barraCuda) ─────────
 [[bin]]
 name = "nuclear_eos_l2_gpu"
 path = "src/bin/nuclear_eos_l2_gpu.rs"
@@ -165,7 +166,7 @@ path = "src/bin/sarkas_gpu.rs"
 name = "f64_builtin_test"
 path = "src/bin/f64_builtin_test.rs"
 
-# ── PPPM Coulomb validation (toadstool PppmGpu, kappa=0) ────
+# ── PPPM Coulomb validation (barraCuda PppmGpu, kappa=0) ────
 [[bin]]
 name = "validate_pppm"
 path = "src/bin/validate_pppm.rs"

@@ -123,6 +123,7 @@ fn main() {
         leak_rate: 0.3,
         regularization: 1e-2,
         seed: 42,
+        ..Default::default()
     };
 
     let (train_seqs, train_targets) = generate_phase_training_data();

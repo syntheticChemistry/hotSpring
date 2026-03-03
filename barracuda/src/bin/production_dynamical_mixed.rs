@@ -69,6 +69,7 @@ struct CliArgs {
     no_titan: bool,
     no_npu_control: bool,
     max_adaptive: usize,
+    n_fields: usize,
 }
 
 fn parse_args() -> CliArgs {
@@ -91,6 +92,7 @@ fn parse_args() -> CliArgs {
     let mut no_titan = false;
     let mut no_npu_control = false;
     let mut max_adaptive: usize = 12;
+    let mut n_fields: usize = 1;
 
     for arg in std::env::args().skip(1) {
         if let Some(val) = arg.strip_prefix("--lattice=") {
@@ -134,6 +136,8 @@ fn parse_args() -> CliArgs {
             no_npu_control = true;
         } else if let Some(val) = arg.strip_prefix("--max-adaptive=") {
             max_adaptive = val.parse().expect("--max-adaptive=N");
+        } else if let Some(val) = arg.strip_prefix("--n-fields=") {
+            n_fields = val.parse().expect("--n-fields=N (Nf = 4*N)");
         }
     }
 
@@ -157,6 +161,7 @@ fn parse_args() -> CliArgs {
         no_titan,
         no_npu_control,
         max_adaptive,
+        n_fields,
     }
 }
 
@@ -184,7 +189,7 @@ fn main() {
     });
 
     let rt = tokio::runtime::Runtime::new().unwrap_or_else(|e| panic!("runtime: {e}"));
-    let Ok(workers) = acquire_dynamical_workers(&rt, args.no_titan) else {
+    let Ok(workers) = acquire_dynamical_workers(&rt, args.no_titan, args.lattice) else {
         std::process::exit(1);
     };
     let DynamicalWorkers {
@@ -210,10 +215,13 @@ fn main() {
     const NMD_MIN: usize = 20;
     const NMD_MAX: usize = 500;
     let npu_controls_params = !args.no_npu_control;
+    let nf = args.n_fields * 4;
     println!(
-        "  HMC:      dt={dt:.4}, n_md={n_md}, traj_length={:.3}, npu_control={}",
+        "  HMC:      dt={dt:.4}, n_md={n_md}, traj_length={:.3}, npu_control={}, Nf={nf} ({} field{})",
         dt * n_md as f64,
         npu_controls_params,
+        args.n_fields,
+        if args.n_fields > 1 { "s" } else { "" },
     );
     println!();
 
@@ -281,13 +289,15 @@ fn main() {
         let mut lat = Lattice::hot_start(dims, beta, args.seed + bi as u64);
 
         // Brain Layer 2: Wait for Titan V warm config (up to 120s for in-flight work)
+        // bi=0: no pre-therm exists for β[0] — the pre-pipeline sent β[1].
+        // Consuming here would discard β[1]'s config, starving bi=1.
         let mut titan_warm = false;
         if let Some(ref handles) = titan_handles {
-            let titan_timeout = std::time::Duration::from_secs(if bi > 0 { 120 } else { 0 });
             let titan_result = if bi > 0 {
+                let titan_timeout = std::time::Duration::from_secs(120);
                 handles.titan_rx.recv_timeout(titan_timeout).ok()
             } else {
-                handles.titan_rx.try_recv().ok()
+                None
             };
 
             if let Some(TitanResponse::WarmConfig {
@@ -409,6 +419,7 @@ fn main() {
                         .send(NpuRequest::QuenchedThermCheck {
                             plaq_window: quenched_plaq_history[window_start..].to_vec(),
                             beta,
+                            mass: args.mass,
                         })
                         .ok();
                     npu_stats.total_npu_calls += 1;
@@ -483,13 +494,14 @@ fn main() {
             .ok();
 
         // Dynamical HMC setup
-        let dyn_state = GpuDynHmcState::from_lattice(
+        let dyn_state = GpuDynHmcState::from_lattice_multi(
             &gpu,
             &lat,
             beta,
             args.mass,
             args.cg_tol,
             args.cg_max_iter,
+            args.n_fields,
         );
         let cg_bufs = GpuResidentCgBuffers::new(
             &gpu,
@@ -542,6 +554,7 @@ fn main() {
                     .send(NpuRequest::ThermCheck {
                         plaq_window: plaq_history[window_start..].to_vec(),
                         beta,
+                        mass: args.mass,
                     })
                     .ok();
                 npu_stats.total_npu_calls += 1;
@@ -620,6 +633,7 @@ fn main() {
                     plaquette: r.plaquette,
                     delta_h: r.delta_h,
                     acceptance_rate: running_acc,
+                    mass: args.mass,
                 })
                 .ok();
             npu_stats.reject_predictions += 1;
@@ -663,10 +677,12 @@ fn main() {
             if (i + 1) % 10 == 0 {
                 npu_tx
                     .send(NpuRequest::AnomalyCheck {
+                        beta,
                         plaq: r.plaquette,
                         delta_h: r.delta_h,
                         cg_iters: r.cg_iterations,
                         acceptance: running_acc,
+                        mass: args.mass,
                     })
                     .ok();
                 npu_stats.anomaly_checks += 1;
@@ -715,7 +731,7 @@ fn main() {
             if let Some(ref mut w) = traj_writer {
                 let pvar = plaquette_variance(&plaq_history);
                 let line = serde_json::json!({
-                    "beta": beta, "mass": args.mass,
+                    "beta": beta, "mass": args.mass, "n_fields": args.n_fields,
                     "traj_idx": traj_idx, "phase": "measurement",
                     "accepted": r.accepted, "plaquette": r.plaquette,
                     "delta_h": r.delta_h, "cg_iters": r.cg_iterations,
@@ -764,6 +780,8 @@ fn main() {
                 plaquette: mean_plaq,
                 polyakov: mean_poly,
                 susceptibility,
+                mass: args.mass,
+                acceptance,
             })
             .ok();
         npu_stats.phase_classifications += 1;

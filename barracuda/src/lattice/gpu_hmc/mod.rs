@@ -28,6 +28,7 @@
 //! | `observables` | Three-substrate stream integration and NPU monitoring |
 
 pub mod dynamical;
+pub mod hasenbusch;
 pub mod observables;
 pub mod resident_cg;
 mod resident_cg_async;
@@ -40,6 +41,9 @@ pub use dynamical::gpu_dynamical_hmc_trajectory;
 pub use dynamical::{
     GpuDynHmcPipelines, GpuDynHmcResult, GpuDynHmcState, WGSL_AXPY, WGSL_COMPLEX_DOT_RE,
     WGSL_DIRAC_STAGGERED, WGSL_FERMION_FORCE, WGSL_RANDOM_MOMENTA, WGSL_XPAY,
+};
+pub use hasenbusch::{
+    gpu_hasenbusch_hmc_trajectory, GpuHasenbuschBuffers, GpuHasenbuschConfig,
 };
 pub use observables::{BidirectionalStream, StreamObservables};
 pub use resident_cg::{
@@ -167,7 +171,14 @@ impl GpuHmcPipelines {
             }
         );
 
-        let poly_src = format!("{WGSL_COMPLEX_F64}\n{WGSL_SU3_MATH_F64}\n{WGSL_POLYAKOV_LOOP}");
+        // Polyakov shader only needs c64 core ops (no c64_exp → no sin/cos → no
+        // sin_f64_safe polyfill that Naga chokes on for f64).
+        let complex_no_exp = WGSL_COMPLEX_F64
+            .lines()
+            .take_while(|l| !l.contains("fn c64_exp"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let poly_src = format!("{complex_no_exp}\n{WGSL_SU3_MATH_F64}\n{WGSL_POLYAKOV_LOOP}");
 
         Self {
             plaquette_pipeline: gpu.create_pipeline_f64(&plaq_src, "hmc_plaq"),

@@ -87,6 +87,7 @@ fn main() {
         leak_rate: 0.3,
         regularization: 1e-2,
         seed: 42,
+        ..Default::default()
     };
 
     // Initial training from 3090 production data

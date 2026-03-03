@@ -3,7 +3,7 @@
 //! NPU simulator and weight export for cross-substrate deployment.
 
 use super::heads::HeadGroupDisagreement;
-use super::EchoStateNetwork;
+use super::{Activation, EchoStateNetwork};
 
 /// Exported ESN weights for cross-substrate deployment (NPU, GPU).
 ///
@@ -25,6 +25,10 @@ pub struct ExportedWeights {
     pub output_size: usize,
     /// Leak rate for reservoir state update.
     pub leak_rate: f32,
+    /// Reservoir activation (needed for NPU deployment — tells the AKD1000
+    /// whether to insert the tanh-approximation FC chain).
+    #[serde(default)]
+    pub activation: Activation,
 }
 
 impl EchoStateNetwork {
@@ -65,6 +69,7 @@ impl EchoStateNetwork {
             reservoir_size: rs,
             output_size: os,
             leak_rate: self.config.leak_rate as f32,
+            activation: self.config.activation,
         })
     }
 }
@@ -81,6 +86,7 @@ pub struct NpuSimulator {
     state: Vec<f32>,
     reservoir_size: usize,
     leak_rate: f32,
+    activation: Activation,
 }
 
 impl NpuSimulator {
@@ -108,12 +114,18 @@ impl NpuSimulator {
             state: vec![0.0; rs],
             reservoir_size: rs,
             leak_rate: weights.leak_rate,
+            activation: weights.activation,
         }
     }
 
     /// Process an input sequence and return prediction (f32 arithmetic).
     pub fn predict(&mut self, input_sequence: &[Vec<f64>]) -> Vec<f64> {
         self.state.fill(0.0);
+
+        let activate: fn(f32) -> f32 = match self.activation {
+            Activation::Tanh => f32::tanh,
+            Activation::ReluTanhApprox => super::relu_tanh_approx_f32,
+        };
 
         for input in input_sequence {
             let mut pre = vec![0.0f32; self.reservoir_size];
@@ -128,7 +140,7 @@ impl NpuSimulator {
                 *pre_i = val;
             }
             for (i, s) in self.state.iter_mut().enumerate() {
-                *s = (1.0 - self.leak_rate).mul_add(*s, self.leak_rate * pre[i].tanh());
+                *s = (1.0 - self.leak_rate).mul_add(*s, self.leak_rate * activate(pre[i]));
             }
         }
 
@@ -199,6 +211,12 @@ impl NpuSimulator {
     /// Process input and return the raw reservoir state (before readout).
     pub fn predict_return_state(&mut self, input_sequence: &[Vec<f64>]) -> Vec<f32> {
         self.state.fill(0.0);
+
+        let activate: fn(f32) -> f32 = match self.activation {
+            Activation::Tanh => f32::tanh,
+            Activation::ReluTanhApprox => super::relu_tanh_approx_f32,
+        };
+
         for input in input_sequence {
             let mut pre = vec![0.0f32; self.reservoir_size];
             for (i, pre_i) in pre.iter_mut().enumerate() {
@@ -212,7 +230,7 @@ impl NpuSimulator {
                 *pre_i = val;
             }
             for (i, s) in self.state.iter_mut().enumerate() {
-                *s = (1.0 - self.leak_rate).mul_add(*s, self.leak_rate * pre[i].tanh());
+                *s = (1.0 - self.leak_rate).mul_add(*s, self.leak_rate * activate(pre[i]));
             }
         }
         self.state.clone()

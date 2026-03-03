@@ -146,6 +146,7 @@ fn check_esn_phase_classifier(harness: &mut ValidationHarness) {
         leak_rate: 0.3,
         regularization: 1e-2,
         seed: 42,
+        ..Default::default()
     };
 
     let mut esn = EchoStateNetwork::new(config);
@@ -188,6 +189,7 @@ fn check_npu_simulator_parity(harness: &mut ValidationHarness) {
         leak_rate: 0.3,
         regularization: 1e-2,
         seed: 42,
+        ..Default::default()
     };
 
     let mut esn = EchoStateNetwork::new(config);
@@ -247,6 +249,7 @@ fn check_phase_boundary_detection(harness: &mut ValidationHarness) {
         leak_rate: 0.3,
         regularization: 1e-2,
         seed: 42,
+        ..Default::default()
     };
 
     let mut esn = EchoStateNetwork::new(config);

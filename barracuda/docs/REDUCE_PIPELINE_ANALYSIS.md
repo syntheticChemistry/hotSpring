@@ -5,7 +5,7 @@
 
 ## Summary
 
-The local GPU-resident CG solver uses a **multi-pass tree reduction** (`sum_reduce_f64.wgsl`) for dot-product accumulation. The upstream barracuda crate provides `ReduceScalarPipeline` (in `phase1/toadStool/crates/barracuda/src/pipeline/reduce.rs`). **Direct replacement is not possible** due to API and capability mismatches.
+The local GPU-resident CG solver uses a **multi-pass tree reduction** (`sum_reduce_f64.wgsl`) for dot-product accumulation. The upstream barracuda crate provides `ReduceScalarPipeline` (in `barraCuda/crates/barracuda/src/pipeline/reduce.rs`). **Direct replacement is not possible** due to API and capability mismatches.
 
 ## Local Implementation
 

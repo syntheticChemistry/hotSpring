@@ -10,9 +10,9 @@ license = "AGPL-3.0-only"
 [workspace]
 
 [dependencies]
-# Toadstool barracuda — the fungus. GPU device management, shader dispatch,
-# buffer management. We lean on it, evolve locally, it absorbs.
-barracuda = { path = "../../../phase1/toadstool/crates/barracuda" }
+# BarraCuda — standalone compute primal (budded from toadStool S89).
+# GPU device management, shader dispatch, buffer management.
+barracuda = { path = "../../../barraCuda/crates/barracuda" }
 
 # GPU compute — must match barracuda's wgpu version (22)
 wgpu = { version = "22", default-features = false, features = [

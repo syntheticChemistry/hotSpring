@@ -9,7 +9,8 @@
 
 use crate::lattice::gpu_hmc::{BrainInterrupt, CgResidualUpdate};
 use crate::md::reservoir::{
-    heads, EchoStateNetwork, EsnConfig, ExportedWeights, HeadGroupDisagreement, MultiHeadNpu,
+    heads, Activation, EchoStateNetwork, EsnConfig, ExportedWeights, HeadGroupDisagreement,
+    MultiHeadNpu,
 };
 use crate::production::{
     check_thermalization, plaquette_variance, predict_rejection, AttentionState, BetaResult,
@@ -18,6 +19,121 @@ use crate::production::{
 use crate::provenance::KNOWN_BETA_C_SU3_NT4;
 use crate::proxy::ProxyFeatures;
 use std::sync::mpsc;
+
+/// Canonical 5-dimensional input vector shared by training and all inference heads.
+///
+/// Layout: `[beta_norm, plaquette, mass, chi/1000, acceptance]`
+///
+/// All heads MUST use this function (or a wrapper that fills in context-specific
+/// values for slots that are unknown) to avoid the P0 misalignment identified in
+/// the 031 post-mortem.
+fn canonical_input(beta: f64, plaq: f64, mass: f64, chi: f64, acceptance: f64, lattice: usize) -> Vec<f64> {
+    vec![
+        (beta - 5.0) / 2.0,
+        plaq,
+        mass,
+        chi / 1000.0,
+        acceptance,
+        lattice as f64 / 8.0,
+    ]
+}
+
+fn canonical_seq(beta: f64, plaq: f64, mass: f64, chi: f64, acceptance: f64, lattice: usize) -> Vec<Vec<f64>> {
+    vec![canonical_input(beta, plaq, mass, chi, acceptance, lattice); 10]
+}
+
+fn heuristic_phase(beta: f64) -> &'static str {
+    if beta > 5.79 { "deconfined" }
+    else if beta > 5.59 { "transition" }
+    else { "confined" }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  Head Confidence Tracker
+// ═══════════════════════════════════════════════════════════════════
+
+const HEAD_TRUST_THRESHOLD: f64 = 0.3;
+const HEAD_CONFIDENCE_WINDOW: usize = 20;
+
+/// Rolling per-head confidence tracker.
+///
+/// Tracks prediction-vs-outcome for each of the 36 heads. A head is "trusted"
+/// for steering only when its rolling R² exceeds `HEAD_TRUST_THRESHOLD`.
+/// Untrusted heads fall back to heuristics but continue receiving training data,
+/// so they can graduate to trusted status as the ESN learns.
+struct HeadConfidence {
+    predictions: Vec<Vec<f64>>,
+    actuals: Vec<Vec<f64>>,
+    trusted: Vec<bool>,
+    r2: Vec<f64>,
+}
+
+impl HeadConfidence {
+    fn new(n_heads: usize) -> Self {
+        Self {
+            predictions: vec![Vec::with_capacity(HEAD_CONFIDENCE_WINDOW); n_heads],
+            actuals: vec![Vec::with_capacity(HEAD_CONFIDENCE_WINDOW); n_heads],
+            trusted: vec![false; n_heads],
+            r2: vec![0.0; n_heads],
+        }
+    }
+
+    fn record_prediction(&mut self, head: usize, predicted: f64) {
+        if head < self.predictions.len() {
+            let buf = &mut self.predictions[head];
+            if buf.len() >= HEAD_CONFIDENCE_WINDOW {
+                buf.remove(0);
+            }
+            buf.push(predicted);
+        }
+    }
+
+    fn record_actual(&mut self, head: usize, actual: f64) {
+        if head < self.actuals.len() {
+            let buf = &mut self.actuals[head];
+            if buf.len() >= HEAD_CONFIDENCE_WINDOW {
+                buf.remove(0);
+            }
+            buf.push(actual);
+            self.recompute(head);
+        }
+    }
+
+    fn recompute(&mut self, head: usize) {
+        let pred = &self.predictions[head];
+        let actual = &self.actuals[head];
+        let n = pred.len().min(actual.len());
+        if n < 3 {
+            self.trusted[head] = false;
+            self.r2[head] = 0.0;
+            return;
+        }
+        let offset = pred.len().saturating_sub(n);
+        let a_offset = actual.len().saturating_sub(n);
+        let mean_a: f64 = actual[a_offset..].iter().sum::<f64>() / n as f64;
+        let ss_tot: f64 = actual[a_offset..].iter().map(|a| (a - mean_a).powi(2)).sum();
+        let ss_res: f64 = pred[offset..].iter().zip(&actual[a_offset..])
+            .map(|(p, a)| (a - p).powi(2)).sum();
+        let r2 = if ss_tot > 1e-15 { 1.0 - ss_res / ss_tot } else { 0.0 };
+        self.r2[head] = r2;
+        self.trusted[head] = r2 >= HEAD_TRUST_THRESHOLD;
+    }
+
+    fn is_trusted(&self, head: usize) -> bool {
+        head < self.trusted.len() && self.trusted[head]
+    }
+
+    fn status_line(&self) -> String {
+        let trusted_count = self.trusted.iter().filter(|&&t| t).count();
+        let total = self.trusted.len();
+        let best: Vec<String> = self.r2.iter().enumerate()
+            .filter(|(_, &r)| r > 0.1)
+            .map(|(i, r)| format!("H{i}={r:.2}"))
+            .collect();
+        format!("{trusted_count}/{total} trusted [{}]",
+            if best.is_empty() { "none above 0.1".into() } else { best.join(", ") })
+    }
+}
 
 /// Message sent from the GPU/main thread to the NPU worker.
 #[derive(Debug)]
@@ -48,24 +164,29 @@ pub enum NpuRequest {
     QuenchedThermCheck {
         plaq_window: Vec<f64>,
         beta: f64,
+        mass: f64,
     },
 
     // ─── During computation (dynamical phase) ───
     ThermCheck {
         plaq_window: Vec<f64>,
         beta: f64,
+        mass: f64,
     },
     RejectPredict {
         beta: f64,
         plaquette: f64,
         delta_h: f64,
         acceptance_rate: f64,
+        mass: f64,
     },
     PhaseClassify {
         beta: f64,
         plaquette: f64,
         polyakov: f64,
         susceptibility: f64,
+        mass: f64,
+        acceptance: f64,
     },
 
     // ─── Post-computation ───
@@ -73,10 +194,12 @@ pub enum NpuRequest {
         result: BetaResult,
     },
     AnomalyCheck {
+        beta: f64,
         plaq: f64,
         delta_h: f64,
         cg_iters: usize,
         acceptance: f64,
+        mass: f64,
     },
     SteerAdaptive {
         measured_betas: Vec<f64>,
@@ -183,7 +306,7 @@ pub struct NpuWorkerHandles {
 
 /// Spawn the NPU worker thread. Returns handles for request/response and brain interrupt.
 #[allow(clippy::expect_used)]
-pub fn spawn_npu_worker() -> NpuWorkerHandles {
+pub fn spawn_npu_worker(lattice: usize) -> NpuWorkerHandles {
     let (req_tx, req_rx) = mpsc::channel::<NpuRequest>();
     let (resp_tx, resp_rx) = mpsc::channel::<NpuResponse>();
     let (interrupt_tx_out, interrupt_rx_out) = mpsc::channel::<BrainInterrupt>();
@@ -203,16 +326,24 @@ pub fn spawn_npu_worker() -> NpuWorkerHandles {
             #[allow(unused_assignments)]
             let mut latest_proxy: Option<ProxyFeatures> = None;
 
+            // Last-known summary stats for input alignment (updated on Retrain/Quality)
+            let mut last_plaq: f64 = 0.5;
+            let mut last_chi: f64 = 0.0;
+            let mut last_acc: f64 = 0.5;
+
+            let mut head_confidence = HeadConfidence::new(heads::NUM_HEADS);
+
             let make_multi_esn = |seed: u64, results: &[BetaResult]| -> Option<MultiHeadNpu> {
                 if results.is_empty() {
                     return None;
                 }
-                let (seqs, tgts) = build_training_data(results);
+                let (seqs, tgts) = build_training_data(results, lattice);
                 let mut esn = EchoStateNetwork::new(EsnConfig {
-                    input_size: 5,
+                    input_size: 6,
                     output_size: heads::NUM_HEADS,
                     regularization: 1e-3,
                     seed,
+                    activation: Activation::ReluTanhApprox,
                     ..EsnConfig::default()
                 });
                 esn.train(&seqs, &tgts);
@@ -238,14 +369,15 @@ pub fn spawn_npu_worker() -> NpuWorkerHandles {
                                         .iter()
                                         .find(|r| (r.beta - beta).abs() < 0.01)
                                         .map_or(10.0, |r| r.chi);
-                                    let input = vec![
-                                        (beta - 5.0) / 2.0,
-                                        meta_plaq,
-                                        0.1,
-                                        meta_chi / 1000.0,
-                                        0.5,
-                                    ];
-                                    let seq = vec![input; 10];
+                                    let meta_acc = meta_context
+                                        .iter()
+                                        .find(|r| (r.beta - beta).abs() < 0.01)
+                                        .map_or(0.5, |r| r.acceptance);
+                                    let meta_mass = meta_context
+                                        .iter()
+                                        .find(|r| (r.beta - beta).abs() < 0.01)
+                                        .map_or(0.1, |r| r.mass.unwrap_or(0.1));
+                                    let seq = canonical_seq(beta, meta_plaq, meta_mass, meta_chi, meta_acc, lattice);
                                     npu.predict_head(&seq, heads::BETA_PRIORITY)
                                 } else {
                                     (-(beta - KNOWN_BETA_C_SU3_NT4).powi(2) / 0.3).exp()
@@ -261,20 +393,26 @@ pub fn spawn_npu_worker() -> NpuWorkerHandles {
                         beta,
                         mass,
                     } => {
-                        let (dt, n_md) = if let Some(ref mut npu) = multi_npu {
-                            let input =
-                                vec![(beta - 5.0) / 2.0, 0.5, mass, 0.0, 0.5];
-                            let seq = vec![input; 10];
-                            let raw = npu.predict_head(&seq, heads::PARAM_SUGGEST);
-                            let dt_suggest = 0.001 + raw.abs() * 0.05;
-                            let n_md_suggest = ((0.5 / dt_suggest).round() as usize).max(10);
-                            (dt_suggest, n_md_suggest)
-                        } else {
-                            let vol = (lattice as f64).powi(4);
+                        let heuristic_params = |lat: usize| -> (f64, usize) {
+                            let vol = (lat as f64).powi(4);
                             let scale = (4096.0 / vol).powf(0.25);
                             let dt = (0.05 * scale).max(0.001);
                             let n_md = ((0.5 / dt).round() as usize).max(20);
                             (dt, n_md)
+                        };
+                        let (dt, n_md) = if let Some(ref mut npu) = multi_npu {
+                            let seq = canonical_seq(beta, last_plaq, mass, last_chi, last_acc, lattice);
+                            let raw = npu.predict_head(&seq, heads::PARAM_SUGGEST);
+                            head_confidence.record_prediction(heads::PARAM_SUGGEST, raw.clamp(0.0, 0.05));
+                            if head_confidence.is_trusted(heads::PARAM_SUGGEST) {
+                                let dt_suggest = 0.001 + raw.abs() * 0.05;
+                                let n_md_suggest = ((0.5 / dt_suggest).round() as usize).max(10);
+                                (dt_suggest, n_md_suggest)
+                            } else {
+                                heuristic_params(lattice)
+                            }
+                        } else {
+                            heuristic_params(lattice)
                         };
                         resp_tx
                             .send(NpuResponse::ParameterSuggestion { dt, n_md })
@@ -286,15 +424,21 @@ pub fn spawn_npu_worker() -> NpuWorkerHandles {
                         mass,
                         lattice,
                     } => {
+                        let heuristic_cg = |lat: usize, m: f64| -> usize {
+                            let vol = (lat as f64).powi(4);
+                            (100.0 + vol.sqrt() / m.max(0.01)).round() as usize
+                        };
                         let est = if let Some(ref mut npu) = multi_npu {
-                            let input =
-                                vec![(beta - 5.0) / 2.0, 0.5, mass, 0.0, 0.5];
-                            let seq = vec![input; 10];
+                            let seq = canonical_seq(beta, last_plaq, mass, last_chi, last_acc, lattice);
                             let raw = npu.predict_head(&seq, heads::CG_ESTIMATE);
-                            (raw.abs() * 500.0).round() as usize
+                            head_confidence.record_prediction(heads::CG_ESTIMATE, raw.clamp(0.0, 5.0));
+                            if head_confidence.is_trusted(heads::CG_ESTIMATE) {
+                                (raw.abs() * 500.0).round() as usize
+                            } else {
+                                heuristic_cg(lattice, mass)
+                            }
                         } else {
-                            let vol = (lattice as f64).powi(4);
-                            (100.0 + vol.sqrt() / mass.max(0.01)).round() as usize
+                            heuristic_cg(lattice, mass)
                         };
                         resp_tx.send(NpuResponse::CgEstimate(est)).ok();
                     }
@@ -318,13 +462,14 @@ pub fn spawn_npu_worker() -> NpuWorkerHandles {
                                 .iter()
                                 .find(|r| (r.beta - beta).abs() < 0.01)
                                 .map_or(0.0, |r| r.chi);
-                            let input = vec![
-                                (beta - 5.0) / 2.0,
+                            let input = canonical_input(
+                                beta,
                                 meta_plaq,
                                 mass,
-                                meta_chi / 1000.0,
+                                meta_chi,
                                 meta_acc,
-                            ];
+                                lattice,
+                            );
                             let seq = vec![input; 10];
                             let raw = npu.predict_head(&seq, heads::QUENCHED_LENGTH);
                             (raw.abs() * 200.0).round().clamp(5.0, 200.0) as usize
@@ -338,18 +483,20 @@ pub fn spawn_npu_worker() -> NpuWorkerHandles {
                             .ok();
                     }
 
-                    NpuRequest::QuenchedThermCheck { plaq_window, beta } => {
+                    NpuRequest::QuenchedThermCheck { plaq_window, beta, mass } => {
                         let converged = if let Some(ref mut npu) = multi_npu {
                             let var = plaquette_variance(&plaq_window);
                             let mean =
                                 plaq_window.iter().sum::<f64>() / plaq_window.len().max(1) as f64;
-                            let input = vec![
-                                (beta - 5.0) / 2.0,
+                            let chi = var * (plaq_window.len() as f64);
+                            let input = canonical_input(
+                                beta,
                                 mean,
-                                0.0,
-                                var / 1000.0,
-                                plaq_window.len() as f64 / 200.0,
-                            ];
+                                mass,
+                                chi,
+                                last_acc,
+                                lattice,
+                            );
                             let seq = vec![input; 10];
                             let raw = npu.predict_head(&seq, heads::QUENCHED_THERM);
                             raw > 0.5
@@ -361,18 +508,20 @@ pub fn spawn_npu_worker() -> NpuWorkerHandles {
                             .ok();
                     }
 
-                    NpuRequest::ThermCheck { plaq_window, beta } => {
+                    NpuRequest::ThermCheck { plaq_window, beta, mass } => {
                         let converged = if let Some(ref mut npu) = multi_npu {
                             let var = plaquette_variance(&plaq_window);
                             let mean =
                                 plaq_window.iter().sum::<f64>() / plaq_window.len().max(1) as f64;
-                            let input = vec![
-                                (beta - 5.0) / 2.0,
+                            let chi = var * (plaq_window.len() as f64);
+                            let input = canonical_input(
+                                beta,
                                 mean,
-                                0.0,
-                                var / 1000.0,
-                                plaq_window.len() as f64 / 200.0,
-                            ];
+                                mass,
+                                chi,
+                                last_acc,
+                                lattice,
+                            );
                             let seq = vec![input; 10];
                             let raw = npu.predict_head(&seq, heads::THERM_DETECT);
                             raw > 0.5
@@ -387,18 +536,26 @@ pub fn spawn_npu_worker() -> NpuWorkerHandles {
                         plaquette,
                         delta_h,
                         acceptance_rate,
+                        mass,
                     } => {
                         let (likely_rejected, confidence) = if let Some(ref mut npu) = multi_npu {
-                            let input = vec![
-                                (beta - 5.0) / 2.0,
+                            let input = canonical_input(
+                                beta,
                                 plaquette,
-                                0.0,
-                                delta_h.abs() / 1000.0,
+                                mass,
+                                last_chi,
                                 acceptance_rate,
-                            ];
+                                lattice,
+                            );
                             let seq = vec![input; 10];
                             let raw = npu.predict_head(&seq, heads::REJECT_PREDICT);
-                            (raw > 0.5, raw.clamp(0.0, 1.0))
+                            head_confidence.record_prediction(heads::REJECT_PREDICT, raw.clamp(0.0, 1.0));
+                            if head_confidence.is_trusted(heads::REJECT_PREDICT) {
+                                (raw > 0.5, raw.clamp(0.0, 1.0))
+                            } else {
+                                let (lr, conf) = predict_rejection(0.0, 0.0, 0.0, delta_h, acceptance_rate);
+                                (lr, conf)
+                            }
                         } else {
                             predict_rejection(0.0, 0.0, 0.0, delta_h, acceptance_rate)
                         };
@@ -413,73 +570,86 @@ pub fn spawn_npu_worker() -> NpuWorkerHandles {
                     NpuRequest::PhaseClassify {
                         beta,
                         plaquette,
-                        polyakov,
+                        polyakov: _,
                         susceptibility,
+                        mass,
+                        acceptance,
                     } => {
                         let label = if let Some(ref mut npu) = multi_npu {
-                            let input = vec![
-                                (beta - 5.0) / 2.0,
-                                plaquette,
-                                0.0,
-                                susceptibility / 1000.0,
-                                polyakov.abs().min(1.0),
-                            ];
+                            let input = canonical_input(
+                                beta, plaquette, mass, susceptibility, acceptance, lattice,
+                            );
                             let seq = vec![input; 10];
                             let raw = npu.predict_head(&seq, heads::PHASE_CLASSIFY);
-                            match () {
-                                () if raw > 0.6 => "deconfined",
-                                () if raw > 0.3 => "transition",
-                                () => "confined",
+                            head_confidence.record_prediction(heads::PHASE_CLASSIFY, raw.clamp(0.0, 1.0));
+                            if head_confidence.is_trusted(heads::PHASE_CLASSIFY) {
+                                match () {
+                                    () if raw > 0.6 => "deconfined",
+                                    () if raw > 0.3 => "transition",
+                                    () => "confined",
+                                }
+                            } else {
+                                heuristic_phase(beta)
                             }
                         } else {
-                            match () {
-                                () if beta > 5.79 => "deconfined",
-                                () if beta > 5.59 => "transition",
-                                () => "confined",
-                            }
+                            heuristic_phase(beta)
                         };
                         resp_tx.send(NpuResponse::PhaseLabel(label)).ok();
                     }
 
                     NpuRequest::QualityScore { result } => {
+                        last_plaq = result.mean_plaq;
+                        last_chi = result.susceptibility;
+                        last_acc = result.acceptance;
+                        // Ground truth for heads that predicted before this beta completed
+                        head_confidence.record_actual(heads::REJECT_PREDICT, 1.0 - result.acceptance);
+                        let actual_phase = if result.beta > 5.79 { 1.0 } else if result.beta > 5.59 { 0.5 } else { 0.0 };
+                        head_confidence.record_actual(heads::PHASE_CLASSIFY, actual_phase);
+                        head_confidence.record_actual(heads::CG_ESTIMATE, result.mean_cg_iters / 100_000.0);
+                        let actual_quality = if result.mean_plaq > 1e-9 {
+                            1.0 - (result.std_plaq / result.mean_plaq).min(1.0)
+                        } else { 0.0 };
+                        head_confidence.record_actual(heads::QUALITY_SCORE, actual_quality);
+
                         let score = if let Some(ref mut npu) = multi_npu {
-                            let input = vec![
-                                (result.beta - 5.0) / 2.0,
+                            let input = canonical_input(
+                                result.beta,
                                 result.mean_plaq,
                                 result.mass,
-                                result.susceptibility / 1000.0,
+                                result.susceptibility,
                                 result.acceptance,
-                            ];
+                                lattice,
+                            );
                             let seq = vec![input; 10];
-                            npu.predict_head(&seq, heads::QUALITY_SCORE).clamp(0.0, 1.0)
+                            let raw = npu.predict_head(&seq, heads::QUALITY_SCORE).clamp(0.0, 1.0);
+                            head_confidence.record_prediction(heads::QUALITY_SCORE, raw);
+                            if head_confidence.is_trusted(heads::QUALITY_SCORE) {
+                                raw
+                            } else {
+                                let acc_ok = if result.acceptance > 0.3 { 0.4 } else { 0.1 };
+                                let stats_ok = if result.n_traj >= 100 { 0.3 } else { 0.1 };
+                                let cg_ok = if result.mean_cg_iters < 1000.0 { 0.3 } else { 0.1 };
+                                acc_ok + stats_ok + cg_ok
+                            }
                         } else {
                             let acc_ok = if result.acceptance > 0.3 { 0.4 } else { 0.1 };
                             let stats_ok = if result.n_traj >= 100 { 0.3 } else { 0.1 };
-                            let cg_ok = if result.mean_cg_iters < 1000.0 {
-                                0.3
-                            } else {
-                                0.1
-                            };
+                            let cg_ok = if result.mean_cg_iters < 1000.0 { 0.3 } else { 0.1 };
                             acc_ok + stats_ok + cg_ok
                         };
                         resp_tx.send(NpuResponse::Quality(score)).ok();
                     }
 
                     NpuRequest::AnomalyCheck {
+                        beta,
                         plaq,
                         delta_h,
                         cg_iters,
                         acceptance,
+                        mass,
                     } => {
                         let (is_anomaly, score) = if let Some(ref mut npu) = multi_npu {
-                            let input = vec![
-                                0.0,
-                                plaq,
-                                0.0,
-                                delta_h.abs() / 1000.0,
-                                acceptance,
-                            ];
-                            let seq = vec![input; 10];
+                            let seq = canonical_seq(beta, plaq, mass, last_chi, acceptance, lattice);
                             let raw = npu.predict_head(&seq, heads::ANOMALY_DETECT);
                             (raw > 0.7, raw.clamp(0.0, 1.0))
                         } else {
@@ -520,14 +690,7 @@ pub fn spawn_npu_worker() -> NpuWorkerHandles {
                                 if too_close_measured || too_close_queued {
                                     continue;
                                 }
-                                let input = vec![
-                                    (candidate - 5.0) / 2.0,
-                                    0.5,
-                                    0.0,
-                                    measured_betas.len() as f64 / 20.0,
-                                    0.0,
-                                ];
-                                let seq = vec![input; 10];
+                                let seq = canonical_seq(candidate, last_plaq, 0.1, last_chi, last_acc, lattice);
                                 let all = npu.predict_all_heads(&seq);
                                 let priority = all[heads::BETA_PRIORITY];
                                 let uncertainty = (all[heads::QUALITY_SCORE] - 0.5).abs();
@@ -552,18 +715,19 @@ pub fn spawn_npu_worker() -> NpuWorkerHandles {
 
                     NpuRequest::RecommendNextRun {
                         all_results,
-                        meta_table,
+                        meta_table: _,
                     } => {
                         let plan = if let Some(ref mut npu) = multi_npu {
                             let last = all_results.last();
-                            let input = vec![
-                                all_results.len() as f64 / 10.0,
+                            let last_beta = last.map_or(5.69, |r| r.beta);
+                            let seq = canonical_seq(
+                                last_beta,
                                 last.map_or(0.5, |r| r.mean_plaq),
-                                last.map_or(0.5, |r| r.acceptance),
-                                meta_table.len() as f64 / 100.0,
                                 last.map_or(0.1, |r| r.mass),
-                            ];
-                            let seq = vec![input; 10];
+                                last.map_or(0.0, |r| r.susceptibility),
+                                last.map_or(0.5, |r| r.acceptance),
+                                lattice,
+                            );
                             let raw = npu.predict_head(&seq, heads::NEXT_RUN_RECOMMEND);
                             let suggested_beta = 5.0 + raw.abs() * 2.0;
                             let mass = last.map_or(0.1, |r| r.mass);
@@ -585,6 +749,19 @@ pub fn spawn_npu_worker() -> NpuWorkerHandles {
                     }
 
                     NpuRequest::Retrain { results } => {
+                        // Feed ground truth from completed results to all trackable heads
+                        for r in &results {
+                            head_confidence.record_actual(heads::REJECT_PREDICT, 1.0 - r.acceptance);
+                            head_confidence.record_actual(heads::CG_ESTIMATE, r.mean_cg_iters / 100_000.0);
+                            let phase_val = if r.beta > 5.79 { 1.0 } else if r.beta > 5.59 { 0.5 } else { 0.0 };
+                            head_confidence.record_actual(heads::PHASE_CLASSIFY, phase_val);
+                            let quality = if r.mean_plaq > 1e-9 {
+                                1.0 - (r.std_plaq / r.mean_plaq).min(1.0)
+                            } else { 0.0 };
+                            head_confidence.record_actual(heads::QUALITY_SCORE, quality);
+                        }
+                        eprintln!("  [NPU] Head confidence: {}", head_confidence.status_line());
+
                         let seed = 99 + results.len() as u64;
                         if let Some(new_npu) = make_multi_esn(seed, &results) {
                             multi_npu = Some(new_npu);
@@ -666,6 +843,7 @@ pub fn spawn_npu_worker() -> NpuWorkerHandles {
                                 reservoir_size: base.reservoir_size(),
                                 output_size: base.output_size(),
                                 leak_rate: base.leak_rate(),
+                                activation: Default::default(),
                             };
                             if let Some(parent) = std::path::Path::new(&path).parent() {
                                 std::fs::create_dir_all(parent).ok();
@@ -835,7 +1013,7 @@ pub fn spawn_npu_worker() -> NpuWorkerHandles {
                                 proxy.beta, proxy.tier
                             );
                         }
-                        resp_tx.send(NpuResponse::ProxyFeaturesAck).ok();
+                        // No response — main thread fire-and-forgets ProxyFeatures.
                     }
 
                     NpuRequest::DisagreementQuery {
@@ -846,10 +1024,7 @@ pub fn spawn_npu_worker() -> NpuWorkerHandles {
                         acceptance,
                     } => {
                         let dis = if let Some(ref mut npu) = multi_npu {
-                            let beta_norm = (beta - 5.0) / 2.0;
-                            let input: Vec<Vec<f64>> = (0..10)
-                                .map(|_| vec![beta_norm, plaq, mass, chi / 1000.0, acceptance])
-                                .collect();
+                            let input = canonical_seq(beta, plaq, mass, chi, acceptance, lattice);
                             let (outputs, d) = npu.predict_with_disagreement(&input);
                             let _ = outputs;
                             d
@@ -905,13 +1080,12 @@ fn find_largest_gaps(measured: &[f64], min: f64, max: f64, n: usize) -> Vec<f64>
     gaps.iter().take(n).map(|g| g.1).collect()
 }
 
-fn build_training_data(results: &[BetaResult]) -> (Vec<Vec<Vec<f64>>>, Vec<Vec<f64>>) {
+fn build_training_data(results: &[BetaResult], lattice: usize) -> (Vec<Vec<Vec<f64>>>, Vec<Vec<f64>>) {
     let mut seqs = Vec::new();
     let mut targets = Vec::new();
     let seq_len = 10;
 
     for r in results {
-        let beta_norm = (r.beta - 5.0) / 2.0;
         let phase_val = match r.phase {
             "deconfined" => 1.0,
             "transition" => 0.5,
@@ -948,13 +1122,14 @@ fn build_training_data(results: &[BetaResult]) -> (Vec<Vec<Vec<f64>>>, Vec<Vec<f
         let seq: Vec<Vec<f64>> = (0..seq_len)
             .map(|j| {
                 let noise = 0.005 * ((j as f64) * 0.7).sin();
-                vec![
-                    beta_norm,
+                canonical_input(
+                    r.beta,
                     r.mean_plaq + noise * r.std_plaq,
                     r.mass,
-                    r.susceptibility / 1000.0,
+                    r.susceptibility,
                     r.acceptance,
-                ]
+                    lattice,
+                )
             })
             .collect();
         seqs.push(seq);

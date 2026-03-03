@@ -7,10 +7,23 @@ use super::resident_cg_buffers::{encode_cg_batch, encode_reduce_chain, GpuReside
 use super::resident_cg_pipelines::GpuResidentCgPipelines;
 use super::streaming::{make_ferm_prng_params, GpuDynHmcStreamingPipelines};
 use super::{
-    gpu_dirac_dispatch, gpu_dot_re, gpu_fermion_force_dispatch, gpu_force_dispatch,
-    gpu_kinetic_energy, gpu_link_update_dispatch, gpu_mom_update_dispatch, gpu_plaquette,
+    gpu_dirac_dispatch, gpu_dot_re, gpu_kinetic_energy, gpu_plaquette,
     gpu_wilson_action, make_link_mom_params, make_prng_params, GpuF64,
 };
+
+use super::GpuHmcPipelines;
+use super::GpuHmcState;
+
+/// Encoder-based link update: single pass via `begin_encoder` + `submit_encoder`.
+/// Avoids the per-call `gpu.dispatch()` overhead (separate vkQueueSubmit).
+fn encode_link_update(gpu: &GpuF64, p: &GpuHmcPipelines, s: &GpuHmcState, dt: f64) {
+    let params = make_link_mom_params(s.n_links, dt);
+    let pbuf = gpu.create_uniform_buffer(&params, "elink_p");
+    let bg = gpu.create_bind_group(&p.link_pipeline, &[&pbuf, &s.mom_buf, &s.link_buf]);
+    let mut enc = gpu.begin_encoder("coal_link");
+    GpuF64::encode_pass(&mut enc, &p.link_pipeline, &bg, s.wg_links);
+    gpu.submit_encoder(enc);
+}
 
 /// CG residual update sent to the NPU cerebellum during a brain-mode solve.
 #[derive(Debug, Clone)]
@@ -85,6 +98,14 @@ pub fn gpu_cg_solve_brain(
     let mut current_check_interval = check_interval.max(1);
     let mut total_iters = 0usize;
 
+    // Latency-adaptive dispatch: measure first readback to detect NVK/high-overhead
+    // drivers, then auto-scale check_interval to amortize readback cost.
+    // On proprietary NVIDIA: readback ≈ 0.1–1ms → keep original interval.
+    // On NVK/NAK: readback ≈ 10–100ms → scale up to keep overhead < 20% of compute.
+    let mut readback_latency_us: u64 = 0;
+    const READBACK_LATENCY_THRESHOLD_US: u64 = 5_000; // 5ms = NVK territory
+    const MIN_COMPUTE_RATIO: u64 = 5; // at least 5× more compute than readback
+
     loop {
         let batch = current_check_interval.min(state.cg_max_iter - total_iters);
         if batch == 0 {
@@ -99,12 +120,29 @@ pub fn gpu_cg_solve_brain(
         gpu.submit_encoder(enc);
         total_iters += batch;
 
+        let readback_start = std::time::Instant::now();
         let rz_new = match gpu.read_staging_f64(&cg_bufs.convergence_staging_a) {
             Ok(v) => v.first().copied().unwrap_or(f64::MAX),
             Err(_) => break,
         };
+        let this_readback_us = readback_start.elapsed().as_micros() as u64;
 
         let batch_wall_us = batch_start.elapsed().as_micros() as u64;
+        let compute_us = batch_wall_us.saturating_sub(this_readback_us);
+
+        // Adapt on first readback: if readback dominates, scale up interval.
+        if readback_latency_us == 0 && this_readback_us > READBACK_LATENCY_THRESHOLD_US {
+            readback_latency_us = this_readback_us;
+            let target_batch_us = this_readback_us * MIN_COMPUTE_RATIO;
+            let us_per_iter = compute_us.max(1) / batch as u64;
+            let target_interval = (target_batch_us / us_per_iter.max(1)) as usize;
+            let new_interval = target_interval.clamp(current_check_interval, 200);
+            if new_interval > current_check_interval {
+                current_check_interval = new_interval;
+            }
+        } else if readback_latency_us == 0 {
+            readback_latency_us = this_readback_us.max(1);
+        }
 
         let _ = residual_tx.send(CgResidualUpdate {
             iteration: total_iters,
@@ -128,12 +166,13 @@ pub fn gpu_cg_solve_brain(
     total_iters
 }
 
-fn gpu_fermion_action_brain(
+fn gpu_fermion_action_brain_single(
     gpu: &GpuF64,
     dyn_pipelines: &GpuDynHmcPipelines,
     resident_pipelines: &GpuResidentCgPipelines,
     state: &GpuDynHmcState,
     cg_bufs: &GpuResidentCgBuffers,
+    phi_buf: &wgpu::Buffer,
     check_interval: usize,
     residual_tx: &std::sync::mpsc::Sender<CgResidualUpdate>,
     interrupt_rx: &std::sync::mpsc::Receiver<BrainInterrupt>,
@@ -144,7 +183,7 @@ fn gpu_fermion_action_brain(
         resident_pipelines,
         state,
         cg_bufs,
-        &state.phi_buf,
+        phi_buf,
         check_interval,
         residual_tx,
         interrupt_rx,
@@ -156,7 +195,7 @@ fn gpu_fermion_action_brain(
         gpu,
         &dyn_pipelines.dot_pipeline,
         &state.dot_buf,
-        &state.phi_buf,
+        phi_buf,
         &state.x_buf,
         n_pairs,
     );
@@ -164,6 +203,37 @@ fn gpu_fermion_action_brain(
     (dot_val, iters)
 }
 
+fn gpu_fermion_action_brain_all(
+    gpu: &GpuF64,
+    dyn_pipelines: &GpuDynHmcPipelines,
+    resident_pipelines: &GpuResidentCgPipelines,
+    state: &GpuDynHmcState,
+    cg_bufs: &GpuResidentCgBuffers,
+    check_interval: usize,
+    residual_tx: &std::sync::mpsc::Sender<CgResidualUpdate>,
+    interrupt_rx: &std::sync::mpsc::Receiver<BrainInterrupt>,
+) -> (f64, usize) {
+    let mut total_action = 0.0;
+    let mut total_iters = 0;
+    for phi_buf in &state.phi_bufs {
+        let (sf, iters) = gpu_fermion_action_brain_single(
+            gpu, dyn_pipelines, resident_pipelines, state, cg_bufs,
+            phi_buf, check_interval, residual_tx, interrupt_rx,
+        );
+        total_action += sf;
+        total_iters += iters;
+    }
+    (total_action, total_iters)
+}
+
+/// Coalesced force dispatch: batches pre-CG and post-CG GPU work into single
+/// encoder submissions to minimize NVK vkQueueSubmit overhead.
+///
+/// Pre-CG: gauge force + momentum update (2 passes, 1 submit)
+/// CG: batched as usual
+/// Post-CG: Dirac + fermion force + fermion momentum (3 passes, 1 submit)
+///
+/// Saves 3 vkQueueSubmit calls per force evaluation vs the naive path.
 fn gpu_total_force_dispatch_brain(
     gpu: &GpuF64,
     dyn_pipelines: &GpuDynHmcPipelines,
@@ -178,37 +248,91 @@ fn gpu_total_force_dispatch_brain(
     let n_links = state.gauge.n_links;
     let gs = &state.gauge;
 
-    gpu_force_dispatch(gpu, &dyn_pipelines.gauge, gs);
-    gpu_mom_update_dispatch(gpu, &dyn_pipelines.gauge, gs, dt);
+    {
+        let force_params = super::make_force_params(gs.volume, gs.beta);
+        let force_pbuf = gpu.create_uniform_buffer(&force_params, "coal_force_p");
+        let force_bg = gpu.create_bind_group(
+            &dyn_pipelines.gauge.force_pipeline,
+            &[&force_pbuf, &gs.link_buf, &gs.nbr_buf, &gs.force_buf],
+        );
+        let mom_params = make_link_mom_params(n_links, dt);
+        let mom_pbuf = gpu.create_uniform_buffer(&mom_params, "coal_mom_p");
+        let mom_bg = gpu.create_bind_group(
+            &dyn_pipelines.gauge.momentum_pipeline,
+            &[&mom_pbuf, &gs.force_buf, &gs.mom_buf],
+        );
+        let mut enc = gpu.begin_encoder("coal_pre_cg");
+        GpuF64::encode_pass(&mut enc, &dyn_pipelines.gauge.force_pipeline, &force_bg, gs.wg_links);
+        GpuF64::encode_pass(&mut enc, &dyn_pipelines.gauge.momentum_pipeline, &mom_bg, gs.wg_links);
+        gpu.submit_encoder(enc);
+    }
 
-    let cg_iters = gpu_cg_solve_brain(
-        gpu,
-        dyn_pipelines,
-        resident_pipelines,
-        state,
-        cg_bufs,
-        &state.phi_buf,
-        check_interval,
-        residual_tx,
-        interrupt_rx,
-    );
+    let mut total_cg = 0;
+    for phi_buf in &state.phi_bufs {
+        let cg_iters = gpu_cg_solve_brain(
+            gpu,
+            dyn_pipelines,
+            resident_pipelines,
+            state,
+            cg_bufs,
+            phi_buf,
+            check_interval,
+            residual_tx,
+            interrupt_rx,
+        );
+        total_cg += cg_iters;
 
-    gpu_dirac_dispatch(gpu, dyn_pipelines, state, &state.x_buf, &state.y_buf, 1.0);
-    gpu_fermion_force_dispatch(gpu, dyn_pipelines, state);
+        let vol = gs.volume;
+        let wg_dirac = (vol as u32).div_ceil(64);
 
-    let ferm_mom_params = make_link_mom_params(n_links, -2.0 * dt);
-    let ferm_mom_pbuf = gpu.create_uniform_buffer(&ferm_mom_params, "rcg_fmom_p");
-    let ferm_mom_bg = gpu.create_bind_group(
-        &dyn_pipelines.gauge.momentum_pipeline,
-        &[&ferm_mom_pbuf, &state.ferm_force_buf, &gs.mom_buf],
-    );
-    gpu.dispatch(
-        &dyn_pipelines.gauge.momentum_pipeline,
-        &ferm_mom_bg,
-        gs.wg_links,
-    );
+        let mut dirac_params = Vec::with_capacity(24);
+        dirac_params.extend_from_slice(&(vol as u32).to_le_bytes());
+        dirac_params.extend_from_slice(&0u32.to_le_bytes());
+        dirac_params.extend_from_slice(&state.mass.to_le_bytes());
+        dirac_params.extend_from_slice(&1.0_f64.to_le_bytes());
+        let dirac_pbuf = gpu.create_uniform_buffer(&dirac_params, "coal_dirac_p");
+        let dirac_bg = gpu.create_bind_group(
+            &dyn_pipelines.dirac_pipeline,
+            &[
+                &dirac_pbuf,
+                &gs.link_buf,
+                &state.x_buf,
+                &state.y_buf,
+                &gs.nbr_buf,
+                &state.phases_buf,
+            ],
+        );
 
-    cg_iters
+        let ff_params = super::make_u32x4_params(vol as u32);
+        let ff_pbuf = gpu.create_uniform_buffer(&ff_params, "coal_ff_p");
+        let ff_bg = gpu.create_bind_group(
+            &dyn_pipelines.fermion_force_pipeline,
+            &[
+                &ff_pbuf,
+                &gs.link_buf,
+                &state.x_buf,
+                &state.y_buf,
+                &gs.nbr_buf,
+                &state.phases_buf,
+                &state.ferm_force_buf,
+            ],
+        );
+
+        let fmom_params = make_link_mom_params(n_links, -2.0 * dt);
+        let fmom_pbuf = gpu.create_uniform_buffer(&fmom_params, "coal_fmom_p");
+        let fmom_bg = gpu.create_bind_group(
+            &dyn_pipelines.gauge.momentum_pipeline,
+            &[&fmom_pbuf, &state.ferm_force_buf, &gs.mom_buf],
+        );
+
+        let mut enc = gpu.begin_encoder("coal_post_cg");
+        GpuF64::encode_pass(&mut enc, &dyn_pipelines.dirac_pipeline, &dirac_bg, wg_dirac);
+        GpuF64::encode_pass(&mut enc, &dyn_pipelines.fermion_force_pipeline, &ff_bg, wg_dirac);
+        GpuF64::encode_pass(&mut enc, &dyn_pipelines.gauge.momentum_pipeline, &fmom_bg, gs.wg_links);
+        gpu.submit_encoder(enc);
+    }
+
+    total_cg
 }
 
 /// Full dynamical fermion HMC trajectory with brain-mode CG.
@@ -251,8 +375,13 @@ pub fn gpu_dynamical_hmc_trajectory_brain(
             gs.wg_links,
         );
 
-        let ferm_prng_params = make_ferm_prng_params(vol as u32, traj_id, seed);
-        let ferm_prng_pbuf = gpu.create_uniform_buffer(&ferm_prng_params, "rcg_ferm_p");
+        gpu.submit_encoder(enc);
+    }
+
+    for (fi, phi_buf) in state.phi_bufs.iter().enumerate() {
+        let mut enc = gpu.begin_encoder(&format!("rcg_ferm_prng_{fi}"));
+        let ferm_prng_params = make_ferm_prng_params(vol as u32, traj_id + fi as u32 * 1000, seed);
+        let ferm_prng_pbuf = gpu.create_uniform_buffer(&ferm_prng_params, &format!("rcg_ferm_p_{fi}"));
         let ferm_prng_bg = gpu.create_bind_group(
             &streaming_pipelines.fermion_prng_pipeline,
             &[&ferm_prng_pbuf, &state.temp_buf],
@@ -264,18 +393,17 @@ pub fn gpu_dynamical_hmc_trajectory_brain(
             &ferm_prng_bg,
             wg_vol,
         );
-
         gpu.submit_encoder(enc);
-    }
 
-    gpu_dirac_dispatch(
-        gpu,
-        &streaming_pipelines.dyn_hmc,
-        state,
-        &state.temp_buf,
-        &state.phi_buf,
-        -1.0,
-    );
+        gpu_dirac_dispatch(
+            gpu,
+            &streaming_pipelines.dyn_hmc,
+            state,
+            &state.temp_buf,
+            phi_buf,
+            -1.0,
+        );
+    }
 
     {
         let mut enc = gpu.begin_encoder("rcg_backup");
@@ -291,7 +419,7 @@ pub fn gpu_dynamical_hmc_trajectory_brain(
 
     let s_gauge_old = gpu_wilson_action(gpu, &dp.gauge, gs);
     let t_old = gpu_kinetic_energy(gpu, &dp.gauge, gs);
-    let (s_ferm_old, cg_iters_old) = gpu_fermion_action_brain(
+    let (s_ferm_old, cg_iters_old) = gpu_fermion_action_brain_all(
         gpu,
         dp,
         resident_pipelines,
@@ -318,7 +446,7 @@ pub fn gpu_dynamical_hmc_trajectory_brain(
             residual_tx,
             interrupt_rx,
         );
-        gpu_link_update_dispatch(gpu, &dp.gauge, gs, 0.5 * dt);
+        encode_link_update(gpu, &dp.gauge, gs, 0.5 * dt);
         let cg2 = gpu_total_force_dispatch_brain(
             gpu,
             dp,
@@ -330,7 +458,7 @@ pub fn gpu_dynamical_hmc_trajectory_brain(
             residual_tx,
             interrupt_rx,
         );
-        gpu_link_update_dispatch(gpu, &dp.gauge, gs, 0.5 * dt);
+        encode_link_update(gpu, &dp.gauge, gs, 0.5 * dt);
         let cg3 = gpu_total_force_dispatch_brain(
             gpu,
             dp,
@@ -347,7 +475,7 @@ pub fn gpu_dynamical_hmc_trajectory_brain(
 
     let s_gauge_new = gpu_wilson_action(gpu, &dp.gauge, gs);
     let t_new = gpu_kinetic_energy(gpu, &dp.gauge, gs);
-    let (s_ferm_new, cg_iters_new) = gpu_fermion_action_brain(
+    let (s_ferm_new, cg_iters_new) = gpu_fermion_action_brain_all(
         gpu,
         dp,
         resident_pipelines,

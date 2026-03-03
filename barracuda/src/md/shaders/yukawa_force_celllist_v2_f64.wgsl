@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // DEPRECATED — Use barracuda::ops::md::forces::YukawaCelllistF64
 // Retained for fossil record. This was a flat-loop experiment to debug

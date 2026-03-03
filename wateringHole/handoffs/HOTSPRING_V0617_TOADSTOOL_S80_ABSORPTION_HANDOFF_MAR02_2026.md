@@ -176,11 +176,43 @@ Shaders born in other springs that hotSpring uses:
 
 ## Action Items for toadStool Team
 
-- [ ] Review `MultiHeadEsn` constructor API for `ExportedWeights` import
-- [ ] Document `NeighborMode` site-indexing convention
-- [ ] Schedule pseudofermion HMC shader extraction from hotSpring `lattice/pseudofermion/`
-- [ ] Consider `ProxyFeatures` as a generic adaptive-simulation primitive
-- [ ] Review resident CG pattern for generalization
+- [x] ~~Schedule pseudofermion HMC shader extraction~~ — **Already absorbed** (`ops/lattice/pseudofermion` + `gpu_pseudofermion`)
+- [x] ~~Dirac + CG absorption~~ — **Already absorbed** (`ops/lattice/dirac`, `gpu_cg_solver`, `gpu_cg_resident`)
+- [x] ~~GPU HMC trajectory~~ — **Already absorbed** (`ops/lattice/gpu_hmc_trajectory`)
+- [x] ~~Nautilus brain + shell~~ — **Already absorbed** (`nautilus::*`, S80)
+- [ ] **Make CPU lattice types public** (not `#[cfg(test)]`): `wilson::Lattice`, `cpu_su3::Su3Matrix`, `cpu_complex::Complex64`. This unblocks hotSpring's lean (re-export instead of duplicate)
+- [ ] Review `MultiHeadEsn::from_exported_weights()` constructor for hotSpring migration
+- [ ] Document `NeighborMode` site-indexing convention (x-fastest vs z-fastest)
+- [ ] Consider `ProxyFeatures` + `NpuRequest` as generic adaptive-simulation primitives
+- [ ] Review resident CG pattern for generalization beyond QCD
+
+---
+
+## Part 6: Acknowledgment of S80 Catch-Up
+
+After reviewing toadStool's commit log (S68→S80), hotSpring acknowledges that
+**nearly all Tier 1 absorption targets have been completed** by the toadStool team:
+
+| Target | Status |
+|--------|--------|
+| Pseudofermion HMC (CPU + GPU) | ✅ Absorbed (S46) |
+| Staggered Dirac (CPU + GPU) | ✅ Absorbed (S46-S52) |
+| CG solver (GPU, resident) | ✅ Absorbed (S51-S52) |
+| Full GPU HMC trajectory | ✅ Absorbed (S52) |
+| Wilson lattice (CPU ref) | ✅ Absorbed (S46, test-gated) |
+| SU(3) algebra (CPU + WGSL) | ✅ Absorbed (S25) |
+| Complex64 (CPU + WGSL) | ✅ Absorbed (S25) |
+| Abelian Higgs (GPU) | ✅ Absorbed (S25) |
+| ESN MultiHeadEsn | ✅ Absorbed (S79) |
+| Nautilus brain + shell | ✅ Absorbed (S80) |
+| BatchedEncoder | ✅ Absorbed (S80) |
+| NeighborMode 4D | ✅ Absorbed (S80) |
+| Nelder-Mead GPU | ✅ Absorbed (S80) |
+
+**The remaining lean blocker** is that toadStool's CPU lattice types (`Lattice`,
+`Su3Matrix`, `Complex64`) are `#[cfg(test)]` only. hotSpring uses them in production.
+Making them public is the one change needed for hotSpring to complete the
+Write→Absorb→Lean cycle for lattice QCD.
 
 ---
 

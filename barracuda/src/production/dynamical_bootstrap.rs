@@ -237,6 +237,7 @@ pub struct DynamicalWorkers {
 pub fn acquire_dynamical_workers(
     rt: &tokio::runtime::Runtime,
     no_titan: bool,
+    lattice: usize,
 ) -> Result<DynamicalWorkers, ExitCode> {
     let gpu = match rt.block_on(GpuF64::new()) {
         Ok(g) => g,
@@ -261,7 +262,7 @@ pub fn acquire_dynamical_workers(
         npu_tx,
         npu_rx,
         interrupt_rx: brain_interrupt_rx,
-    } = spawn_npu_worker();
+    } = spawn_npu_worker(lattice);
     println!(
         "  NPU worker: spawned (15-head cerebellum: 4 pre-GPU, 5 during, 3 post, 3 proxy, 1 brain)"
     );

@@ -44,6 +44,7 @@ fn main() {
         leak_rate: 0.3,
         regularization: 1e-2,
         seed: 42,
+        ..Default::default()
     };
 
     let sparse_betas = [4.5, 5.3, 6.0, 6.5];

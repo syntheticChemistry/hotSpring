@@ -54,6 +54,8 @@ pub mod hmc;
 pub mod multi_gpu;
 /// Pseudofermion action and dynamical fermion HMC.
 pub mod pseudofermion;
+/// Rational HMC for fractional determinant powers (Nf=2, 2+1).
+pub mod rhmc;
 /// SU(3) 3x3 complex matrix operations (group, algebra, Cayley).
 pub mod su3;
 /// Wilson gauge action: plaquettes, staples, gauge force.

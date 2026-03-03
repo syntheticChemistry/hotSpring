@@ -61,6 +61,7 @@ fn main() {
         leak_rate: 0.3,
         regularization: 1e-2,
         seed: 42,
+        ..Default::default()
     };
 
     let mut measured: Vec<(f64, f64, f64)> = Vec::new(); // (beta, plaq, poly)

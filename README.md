@@ -543,7 +543,7 @@ hotSpring/
 │       └── neuromorphic_silicon.md    # AKD1000 NPU exploration — silicon behavior, cross-substrate ESN
 │
 ├── barracuda/                          # BarraCuda Rust crate — v0.6.16 (~660 tests, 85 binaries, 62 WGSL shaders)
-│   ├── Cargo.toml                     # Dependencies (requires ecoPrimals/phase1/toadstool)
+│   ├── Cargo.toml                     # Dependencies (requires ecoPrimals/barraCuda)
 │   ├── CHANGELOG.md                   # Version history — baselines, tolerances, evolution
 │   ├── EVOLUTION_READINESS.md         # Rust module → GPU promotion tier + absorption status
 │   ├── clippy.toml                    # Clippy thresholds (physics-justified)
@@ -775,7 +775,7 @@ hotSpring/
 ├── metalForge/                         # Hardware characterization & cross-substrate dispatch
 │   ├── README.md                      # Philosophy + hardware inventory + forge docs
 │   ├── forge/                         # Rust crate — local hardware discovery (19 tests, v0.2.0)
-│   │   ├── Cargo.toml                # Deps: barracuda (toadstool), wgpu 22, tokio
+│   │   ├── Cargo.toml                # Deps: barracuda (barraCuda), wgpu 22, tokio
 │   │   ├── src/
 │   │   │   ├── lib.rs               # Crate root — biome-native discovery
 │   │   │   ├── substrate.rs         # Capability model (GPU, NPU, CPU)

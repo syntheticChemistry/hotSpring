@@ -145,6 +145,7 @@ pub fn spawn_quenched_npu_worker() -> (
                     leak_rate: 0.3,
                     regularization: 1e-3,
                     seed,
+                    ..Default::default()
                 });
                 esn.train(&seqs, &tgts);
                 esn.export_weights()
@@ -288,6 +289,7 @@ pub fn spawn_quenched_npu_worker() -> (
                                 reservoir_size: n.reservoir_size(),
                                 output_size: n.output_size(),
                                 leak_rate: n.leak_rate(),
+                                activation: Default::default(),
                             };
                             if let Some(parent) = std::path::Path::new(&path).parent() {
                                 std::fs::create_dir_all(parent).ok();

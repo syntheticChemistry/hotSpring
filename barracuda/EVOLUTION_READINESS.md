@@ -18,35 +18,56 @@ Python baseline → Rust validation → WGSL template → GPU shader → ToadSto
 | **C** | New | No shader exists; must be written from scratch |
 | **✅** | Absorbed | ToadStool has absorbed this as a first-class barracuda primitive |
 
-## ToadStool Absorption Status (Mar 2, 2026 — v0.6.16 synced to toadStool S80)
+## ToadStool Absorption Status (Mar 3, 2026 — v0.6.17+ synced to toadStool S80, 716 tests)
 
-| hotSpring Module | ToadStool Primitive | Commit | Status |
+| hotSpring Module | ToadStool Primitive | Absorbed At | Status |
 |-----------------|--------------------| -------|--------|
-| `lattice/complex_f64.rs` WGSL template | `shaders/math/complex_f64.wgsl` | `8fb5d5a0` | ✅ Absorbed |
-| `lattice/su3.rs` WGSL template | `shaders/math/su3.wgsl` | `8fb5d5a0` | ✅ Absorbed |
-| Wilson plaquette design | `shaders/lattice/wilson_plaquette_f64.wgsl` | `8fb5d5a0` | ✅ Absorbed |
-| HMC force design | `shaders/lattice/su3_hmc_force_f64.wgsl` | `8fb5d5a0` | ✅ Absorbed |
-| Abelian Higgs design | `shaders/lattice/higgs_u1_hmc_f64.wgsl` | `8fb5d5a0` | ✅ Absorbed |
-| Local `GpuCellList` | `CellListGpu` (BGL fixed) | `8fb5d5a0` | ✅ Absorbed (local deprecated) |
+| `lattice/complex_f64.rs` WGSL template | `shaders/math/complex_f64.wgsl` + `ops/lattice/complex_f64` | S25 | ✅ Absorbed |
+| `lattice/su3.rs` WGSL template | `shaders/math/su3.wgsl` + `ops/lattice/su3` + `cpu_su3` | S25 | ✅ Absorbed |
+| Wilson plaquette design | `ops/lattice/plaquette` + `gpu_wilson_action` | S25 | ✅ Absorbed |
+| HMC force design | `ops/lattice/hmc_force_su3` | S25 | ✅ Absorbed |
+| Abelian Higgs design | `ops/lattice/higgs_u1` | S25 | ✅ Absorbed |
+| `lattice/dirac.rs` (Dirac SpMV) | `ops/lattice/dirac` + `cpu_dirac` | S46-S52 | ✅ **Absorbed** (was Tier A) |
+| `lattice/cg.rs` (CG solver) | `ops/lattice/cg` + `gpu_cg_solver` + `gpu_cg_resident` | S51-S52 | ✅ **Absorbed** (was Tier A) |
+| `lattice/pseudofermion/` (pseudo HMC) | `ops/lattice/pseudofermion` + `gpu_pseudofermion` | S46 | ✅ **Absorbed** |
+| `lattice/wilson.rs` (CPU Lattice) | `ops/lattice/wilson` (test-gated) | S46 | ✅ Absorbed (CPU ref) |
+| `lattice/constants.rs` (LCG, PRNG) | `ops/lattice/constants` (test-gated) | S46 | ✅ Absorbed |
+| `lattice/hmc.rs` (CPU HMC) | `ops/lattice/gpu_hmc_leapfrog` + `gpu_hmc_trajectory` | S52 | ✅ Absorbed (GPU version) |
+| GPU HMC trajectory (full) | `ops/lattice/gpu_hmc_trajectory` | S52 | ✅ **Absorbed** — full dynamical HMC on GPU |
+| Local `GpuCellList` | `CellListGpu` (BGL fixed) | S25 | ✅ Absorbed (local deprecated) |
 | NAK eigensolve workarounds | `batched_eigh_nak_optimized_f64.wgsl` | `82f953c8` | ✅ Absorbed |
 | FFT need documented | `Fft1DF64` + `Fft3DF64` | `1ffe8b1a` | ✅ Absorbed |
 | `ReduceScalar` feedback | `ReduceScalarPipeline` (`scalar_buffer`, `max_f64`, `min_f64`) | v0.5.16 | ✅ Absorbed |
 | Driver profiling feedback | `GpuDriverProfile` + `WgslOptimizer` | v0.5.15 | ✅ Absorbed |
+| Spectral module (41 KB) | `barracuda::spectral::*` | S25-S31 | ✅ Absorbed (local deleted) |
+| ESN reservoir + readout | `esn_v2::MultiHeadEsn` + `ExportedWeights` | S79 | ✅ Absorbed |
+| Nautilus brain + shell | `nautilus::{NautilusBrain, Shell, Evolution, Board, Population}` | S80 | ✅ **Absorbed** |
+| `BatchedEncoder` pattern | `device::BatchedEncoder` | S80 | ✅ Absorbed |
 
-### Next Absorption Targets
+### Completed Absorption Targets (historical)
 
-| hotSpring Module | What Needs Writing | Priority | Absorption Value |
-|-----------------|-------------------|----------|-----------------|
-| `spectral/csr.rs::CsrMatrix::spmv()` | ~~GPU CSR SpMV WGSL shader~~ | ~~**P1**~~ | ✅ **Done** — `WGSL_SPMV_CSR_F64` validated 8/8 checks (machine-epsilon parity on RTX 4070) |
-| `spectral/lanczos.rs::lanczos()` | ~~GPU Lanczos eigensolve~~ | ~~**P1**~~ | ✅ **Done** — GPU SpMV inner loop + CPU control, 6/6 checks (eigenvalues match to 1e-15) |
-| `lattice/dirac.rs` | ~~GPU staggered Dirac SpMV~~ | ~~**P1**~~ | ✅ **Done** — `WGSL_DIRAC_STAGGERED_F64` validated 8/8 checks (max error 4.44e-16, cold+hot+asymmetric lattices) |
-| `md/celllist.rs` → upstream | ~~Migrate `run_simulation_celllist` to upstream API~~ | ~~**P1**~~ | ✅ **Done (v0.6.2)** — `CellListGpu` migrated, 282 lines + 3 shaders deleted |
-| `lattice/cg.rs` | ~~GPU CG solver~~ | ~~**P2**~~ | ✅ **Done** — GPU CG (D†D) validated 9/9 checks (machine-epsilon parity, identical iteration counts) |
-| `physics/hfb_gpu_resident.rs` energy | ~~Wire `batched_hfb_energy_f64.wgsl`~~ | ~~**P2**~~ | ✅ **Done (v0.6.2)** — GPU energy dispatch wired behind `gpu_energy` feature flag |
-| `lattice/gpu_hmc.rs` streaming | ~~GPU streaming HMC dispatch~~ | ~~**P1**~~ | ✅ **Done (v0.6.8)** — single-encoder batched dispatch, 67× CPU at 16⁴, 9/9 checks |
-| `lattice/gpu_hmc.rs` resident CG | ~~GPU-resident CG scalars~~ | ~~**P1**~~ | ✅ **Done (v0.6.8)** — α/β/rz on GPU, 10-iter batches, 15,360× readback reduction, 30.7× speedup |
-| `lattice/gpu_hmc.rs` bidirectional | ~~Async readback + NPU branch~~ | ~~**P1**~~ | ✅ **Done (v0.6.8)** — 90% to GPU, 10% readback, std::sync::mpsc NPU observation routing |
-| `md/reservoir/` CPU solver | ~~GPU-free ESN training~~ | ~~**P2**~~ | ✅ **Done (v0.6.8)** — local gauss_jordan_solve() for small ESN matrices (50-200 dim) |
+| hotSpring Module | Status | Notes |
+|-----------------|--------|-------|
+| `spectral/csr.rs::CsrMatrix::spmv()` | ✅ Done | `WGSL_SPMV_CSR_F64` validated 8/8 checks |
+| `spectral/lanczos.rs::lanczos()` | ✅ Done | GPU SpMV inner loop + CPU control, 6/6 checks |
+| `lattice/dirac.rs` | ✅ Done | `WGSL_DIRAC_STAGGERED_F64` validated 8/8 checks |
+| `lattice/cg.rs` | ✅ Done | GPU CG (D†D) validated 9/9 checks |
+| `lattice/pseudofermion/` | ✅ Done | Pseudofermion HMC: heat bath, CG action, fermion force |
+| GPU HMC trajectory (full) | ✅ Done | `gpu_hmc_trajectory` in toadStool S52 |
+| ESN reservoir + readout | ✅ Done | `esn_v2::MultiHeadEsn` in toadStool S79 |
+| Nautilus brain + shell | ✅ Done | toadStool S80 |
+| `BatchedEncoder` pattern | ✅ Done | toadStool S80 |
+
+### Active Absorption Targets (Mar 3, 2026)
+
+| hotSpring Module | Lines | Priority | Absorption Value |
+|-----------------|-------|----------|-----------------|
+| `lattice/rhmc.rs` | ~600 | **P0** | RHMC: Remez+pole-optimization rational approximation, multi-shift CG, `rhmc_heatbath`/`action`/`force` — unlocks Nf=2, 2+1 for all springs |
+| `lattice/gpu_hmc/hasenbusch.rs` | ~350 | **P1** | GPU Hasenbusch mass preconditioning — multi-scale leapfrog, unlocks light quarks (m < 0.05) |
+| Multi-field `Vec<phi_bufs>` pattern | Δ+300 | **P1** | `dynamical.rs`, `streaming.rs`, `resident_cg.rs`, `resident_cg_brain.rs` — arbitrary Nf via field loop |
+| `gpu_hmc/resident_cg_brain.rs` | ~400 | **P2** | NPU-interleaved CG with `BrainInterrupt` — neuromorphic steering during solve |
+| `gpu_hmc/resident_cg_async.rs` | ~300 | **P2** | Latency-adaptive CG check intervals, async GPU→CPU readback |
+| `production/npu_worker.rs` | ~1000 | **P3** | NPU parameter controller pattern: dt/n_md control, safety clamps, acceptance targeting |
 
 ## Physics Modules
 
@@ -453,9 +474,11 @@ driver profile (`DriverKind::Nvk`, `CompilerKind::Nak`, `GpuArch::Volta`).
 | `lattice/su3.rs` | 393 | `WGSL_SU3` → `shaders/su3_f64.wgsl` | **✅** | **Absorbed** — toadstool `8fb5d5a0`; extracted v0.6.3 |
 | `lattice/wilson.rs` | 338 | → `wilson_plaquette_f64.wgsl` | **✅** | **Absorbed** — GPU plaquette shader |
 | `lattice/hmc.rs` | 350 | → `su3_hmc_force_f64.wgsl` | **✅** | **Absorbed** — GPU HMC force shader |
-| `lattice/abelian_higgs.rs` | ~500 | → `higgs_u1_hmc_f64.wgsl` | **✅** | **Absorbed** — GPU U(1) Higgs HMC |
-| `lattice/dirac.rs` | 440+ | `WGSL_DIRAC_STAGGERED_F64` | **A** | ✅ GPU validated (8/8 checks, max error 4.44e-16); ready for toadstool absorption |
-| `lattice/cg.rs` | 320+ | `WGSL_COMPLEX_DOT_RE_F64` + `WGSL_AXPY_F64` + `WGSL_XPAY_F64` | **A** | ✅ GPU validated (9/9 checks, CG iterations match CPU exactly) |
+| `lattice/abelian_higgs.rs` | ~500 | → `higgs_u1_hmc_f64.wgsl` | **✅** | **Absorbed** — toadStool `ops/lattice/higgs_u1` |
+| `lattice/dirac.rs` | 440+ | `WGSL_DIRAC_STAGGERED_F64` | **✅** | **Absorbed** — toadStool `ops/lattice/dirac` + `cpu_dirac`. Local retained for hotSpring validation |
+| `lattice/cg.rs` | 320+ | `WGSL_COMPLEX_DOT_RE_F64` + `WGSL_AXPY_F64` + `WGSL_XPAY_F64` | **✅** | **Absorbed** — toadStool `ops/lattice/cg` + `gpu_cg_solver` + `gpu_cg_resident`. Local retained |
+| `lattice/pseudofermion/` | 812 | CPU pseudofermion HMC | **✅** | **Absorbed** — toadStool `ops/lattice/pseudofermion` + `gpu_pseudofermion`. Local retained |
+| `lattice/gpu_hmc/` | ~2800 | GPU streaming HMC + resident CG + brain | **✅** | **Absorbed** — toadStool `ops/lattice/gpu_hmc_trajectory`. hotSpring retains for brain/NPU integration |
 | `lattice/eos_tables.rs` | 307 | — | N/A | HotQCD reference data (CPU-only) |
 | `lattice/multi_gpu.rs` | 237 | — | **C** | CPU-threaded dispatcher; needs GPU dispatch |
 
@@ -536,6 +559,58 @@ the original sign and adjoint were both wrong, causing 0% HMC acceptance.
 - ✅ Nuclear EOS path duplication → Shared `data::load_eos_context()` replaces 9 inline path constructions
 - ✅ Inline tolerances → 30+ magic numbers replaced with `tolerances::` constants
 - ✅ Inline `sigma_theo` → 19 instances replaced with `tolerances::sigma_theo()`
+
+## Absorption Note: Why Local Code is Retained (March 2, 2026)
+
+As of toadStool S80, nearly ALL of hotSpring's lattice QCD stack has been absorbed:
+- CPU reference: wilson, su3, complex64, dirac, CG, pseudofermion, constants
+- GPU ops: plaquette, HMC force, CG solver, pseudofermion heatbath/force, full HMC trajectory
+- ESN: MultiHeadEsn + ExportedWeights
+- Nautilus: brain, shell, evolution, population, readout, board
+
+**hotSpring retains local copies** for two reasons:
+
+1. **toadStool's CPU lattice types are `#[cfg(test)]` only.** hotSpring uses `Lattice`,
+   `Su3Matrix`, `Complex64` in production binaries (cold_start, HMC config, validation).
+   Deleting them would require toadStool to make these public.
+
+2. **hotSpring's GPU HMC orchestration is spring-specific.** The `gpu_hmc/` module
+   integrates with brain architecture, NPU worker, streaming dispatch, and resident CG
+   in ways that are not captured by toadStool's generic `gpu_hmc_trajectory`. The
+   production binary `production_dynamical_mixed.rs` depends on ~15 hotSpring-specific
+   types (`GpuHmcState`, `GpuDynHmcStreamingPipelines`, `BrainInterrupt`, etc.).
+
+**Lean path**: When toadStool makes CPU lattice types public (not `#[cfg(test)]`),
+hotSpring can re-export them (like spectral did). When toadStool's GPU HMC trajectory
+gains brain/NPU hooks, hotSpring can migrate its orchestration.
+
+## Exp 032: NVK Dynamical HMC Validation (March 2, 2026)
+
+### RTX 3090 (NVK/NAK GA102) — Full Pipeline Validated
+
+1. **4^4 dynamical HMC**: 3 trajectories completed, 100% acceptance, ⟨P⟩=0.497
+2. **8^4 dynamical HMC**: Running (n_md=50, dt=0.01, trajectory length 0.5)
+3. **Sovereign compilation path**: f64 shaders via toadStool's naga→SPIR-V passthrough
+4. **CG-precise compilation**: Dirac/dot/axpy/xpay use WGSL-text path (no FMA fusion)
+
+### Latency-Adaptive CG (new)
+
+Brain-mode CG auto-detects NVK readback latency (>5ms threshold) and scales
+check_interval to maintain 5× compute-to-readback ratio. Reduces readback count
+from ~500 to ~3-5 per CG solve on NVK.
+
+### Dispatch Coalescing (new)
+
+Pre-CG (gauge force + mom_update) and post-CG (Dirac + fermion_force + fermion_mom)
+batched into single encoder submissions. Saves 180 vkQueueSubmit calls per trajectory.
+
+### NVK Performance (RTX 3090)
+
+- Readback: 10-50ms (50× slower than proprietary)
+- Submit overhead: ~2ms per vkQueueSubmit (20× slower)
+- 4^4 trajectory: ~42s (vs ~2s est. proprietary)
+- 8^4 trajectory: ~140s (dt=0.0125, n_md=40)
+- Full handoff: `experiments/NVK_F64_DISPATCH_HANDOFF.md`
 
 ## S80 Sync Validation (March 2, 2026)
 

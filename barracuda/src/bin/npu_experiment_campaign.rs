@@ -81,6 +81,7 @@ fn main() {
         leak_rate: 0.3,
         regularization: 1e-2,
         seed: 42,
+        ..Default::default()
     };
 
     let (train_split, test_split) = split_dataset(&therm_seqs, &therm_targets, 0.8);
@@ -125,6 +126,7 @@ fn main() {
         leak_rate: 0.3,
         regularization: 1e-2,
         seed: 77,
+        ..Default::default()
     };
 
     let (rtrain, rtest) = split_dataset(&reject_seqs, &reject_targets, 0.8);
@@ -165,6 +167,7 @@ fn main() {
         leak_rate: 0.3,
         regularization: 1e-2,
         seed: 99,
+        ..Default::default()
     };
 
     let (mtrain, mtest) = split_dataset(&multi_seqs, &multi_targets, 0.8);

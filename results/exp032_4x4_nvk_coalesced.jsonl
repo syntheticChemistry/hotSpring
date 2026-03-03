@@ -1,0 +1,4 @@
+{"accepted":true,"beta":5.69,"cg_iters":0,"delta_h":-0.009303852215452935,"mass":0.1,"npu_budget":1,"phase":"quenched_pretherm","plaquette":0.4634466991147852,"traj_idx":0}
+{"accepted":true,"beta":5.69,"cg_iters":13034,"delta_h":0.11792607526695065,"mass":0.1,"phase":"dynamical_therm","plaquette":0.5101503228223817,"traj_idx":1}
+{"accepted":true,"action_density":3.0152139639443085,"beta":5.69,"cg_iters":13020,"delta_h":0.10680737329857948,"mass":0.1,"phase":"measurement","plaquette":0.4974643393426153,"plaquette_var":0.0,"polyakov_phase":-2.962369283840283,"polyakov_re":0.06940191622279175,"traj_idx":2,"wall_us":39890766}
+{"accepted":true,"action_density":3.019638864842514,"beta":5.69,"cg_iters":13040,"delta_h":0.07565602143949945,"mass":0.1,"phase":"measurement","plaquette":0.49672685585958093,"plaquette_var":2.7194094387425555e-7,"polyakov_phase":-2.0674411555847834,"polyakov_re":0.14693806110764634,"traj_idx":3,"wall_us":39706921}

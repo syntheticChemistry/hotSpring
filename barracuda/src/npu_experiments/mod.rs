@@ -637,6 +637,7 @@ pub fn characterize_npu_behavior(
             leak_rate: 0.3,
             regularization: 1e-2,
             seed: 42,
+            ..Default::default()
         };
         let mut esn = EchoStateNetwork::new(cfg);
         esn.train(train_s, &train_t);

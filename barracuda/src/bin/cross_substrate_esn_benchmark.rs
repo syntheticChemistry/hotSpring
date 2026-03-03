@@ -90,6 +90,7 @@ fn main() {
             leak_rate: 0.3,
             regularization: 1e-4,
             seed: 42,
+            ..Default::default()
         };
 
         let (train_seqs, train_targets) = generate_training_data(8, SEQUENCE_LENGTH, INPUT_SIZE);
@@ -225,6 +226,7 @@ fn main() {
         leak_rate: 0.3,
         regularization: 1e-4,
         seed: 42,
+        ..Default::default()
     };
     let (train_seqs, train_targets) = generate_training_data(4, 10, INPUT_SIZE);
     let mut tiny_esn = EchoStateNetwork::new(tiny_config);
@@ -283,6 +285,7 @@ fn main() {
             leak_rate: 0.3,
             regularization: 1e-4,
             seed: 42,
+            ..Default::default()
         };
         let mut esn = EchoStateNetwork::new(config);
         let n_samples = 20;
@@ -341,6 +344,7 @@ fn main() {
             leak_rate: 0.3,
             regularization: 1e-4,
             seed: 42,
+            ..Default::default()
         };
         let (train_seqs, train_targets) = generate_training_data(4, SEQUENCE_LENGTH, INPUT_SIZE);
         let mut esn = EchoStateNetwork::new(config.clone());
@@ -420,6 +424,7 @@ fn main() {
                 leak_rate: 0.3,
                 regularization: 1e-4,
                 seed: 42,
+                ..Default::default()
             };
             let (train_seqs, train_targets_raw) =
                 generate_training_data(8, SEQUENCE_LENGTH, INPUT_SIZE);
@@ -468,6 +473,7 @@ fn main() {
             leak_rate: 0.3,
             regularization: 1e-4,
             seed: 42,
+            ..Default::default()
         };
         let (train_seqs, train_targets) = generate_training_data(8, SEQUENCE_LENGTH, INPUT_SIZE);
         let mut esn = EchoStateNetwork::new(config);
@@ -533,6 +539,7 @@ fn main() {
             leak_rate: 0.3,
             regularization: 1e-4,
             seed: 42,
+            ..Default::default()
         };
         let (train_seqs, train_targets) = generate_training_data(4, 20, INPUT_SIZE);
         let test_seq = generate_test_sequence(42, 20, INPUT_SIZE);
@@ -596,6 +603,7 @@ fn main() {
             leak_rate: 0.3,
             regularization: 1e-4,
             seed: 42,
+            ..Default::default()
         };
         let (train_seqs, train_targets_raw) = generate_training_data(8, long_seq, INPUT_SIZE);
         let train_targets: Vec<Vec<f64>> = train_targets_raw
@@ -685,6 +693,7 @@ fn main() {
             leak_rate: 0.3,
             regularization: 1e-4,
             seed: 42,
+            ..Default::default()
         };
         let window = 10;
         let mut train_seqs = Vec::new();
@@ -753,6 +762,7 @@ fn main() {
             leak_rate: 0.3,
             regularization: 1e-4,
             seed: 42,
+            ..Default::default()
         };
         let window = 5;
         let mut train_seqs = Vec::new();
@@ -908,6 +918,7 @@ fn run_cpu_only_experiments(harness: &mut ValidationHarness) {
             leak_rate: 0.3,
             regularization: 1e-4,
             seed: 42,
+            ..Default::default()
         };
         let (train_seqs, train_targets) = generate_training_data(8, SEQUENCE_LENGTH, INPUT_SIZE);
         let test_seq = generate_test_sequence(999, SEQUENCE_LENGTH, INPUT_SIZE);

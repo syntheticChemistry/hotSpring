@@ -58,25 +58,102 @@ pub struct MetaRow {
     pub n_meas: usize,
 }
 
-/// Load meta table from path. Tries MetaRow JSONL first, then aggregates
-/// per-trajectory JSONL into per-beta MetaRows. Streams line-by-line to avoid
-/// buffering entire files in memory.
+/// Load meta table from path. Tries three formats in order:
+/// 1. MetaRow JSONL (one MetaRow per line)
+/// 2. Summary JSON (single object with top-level `lattice`/`mass` and `points` array)
+/// 3. Per-trajectory JSONL (one trajectory record per line, aggregated into MetaRows)
 pub fn load_meta_table(path: &str) -> Result<Vec<MetaRow>, HotSpringError> {
-    let file = std::fs::File::open(path)?;
-    let reader = std::io::BufReader::new(file);
+    let contents = std::fs::read_to_string(path)?;
 
+    // Try 1: MetaRow JSONL (one per line)
     let mut meta: Vec<MetaRow> = Vec::new();
-    for line in reader.lines() {
-        let line = line?;
-        if let Ok(row) = serde_json::from_str::<MetaRow>(&line) {
+    for line in contents.lines() {
+        if let Ok(row) = serde_json::from_str::<MetaRow>(line) {
             meta.push(row);
         }
     }
-
     if !meta.is_empty() {
         return Ok(meta);
     }
+
+    // Try 2: Summary JSON with "points" array (production_dynamical_mixed output)
+    if let Ok(rows) = load_summary_json_as_meta(&contents, path) {
+        if !rows.is_empty() {
+            return Ok(rows);
+        }
+    }
+
+    // Try 3: Per-trajectory JSONL
     load_trajectory_log_as_meta(path)
+}
+
+/// Parse a summary JSON file (single object with `lattice`, `mass`, and `points` array)
+/// into MetaRows. This is the format produced by production_dynamical_mixed.
+fn load_summary_json_as_meta(contents: &str, path: &str) -> Result<Vec<MetaRow>, HotSpringError> {
+    #[derive(serde::Deserialize)]
+    #[allow(dead_code)]
+    struct SummaryPoint {
+        beta: f64,
+        #[serde(default)]
+        mass: f64,
+        #[serde(default)]
+        mean_plaquette: Option<f64>,
+        #[serde(default)]
+        std_plaquette: Option<f64>,
+        #[serde(default)]
+        acceptance: f64,
+        #[serde(default)]
+        mean_cg_iterations: Option<f64>,
+        #[serde(default)]
+        susceptibility: f64,
+        #[serde(default)]
+        n_trajectories: usize,
+        #[serde(default)]
+        wall_s: f64,
+        #[serde(default)]
+        phase: String,
+    }
+
+    #[derive(serde::Deserialize)]
+    struct SummaryJson {
+        #[serde(default)]
+        lattice: usize,
+        #[serde(default)]
+        points: Vec<SummaryPoint>,
+    }
+
+    let summary: SummaryJson = serde_json::from_str(contents).map_err(|e| {
+        HotSpringError::DataLoad(format!("not a summary JSON in {path}: {e}"))
+    })?;
+
+    if summary.points.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let rows = summary
+        .points
+        .iter()
+        .map(|p| {
+            let plaq = p.mean_plaquette.unwrap_or(0.0);
+            let std_p = p.std_plaquette.unwrap_or(0.0);
+            let cg = p.mean_cg_iterations.unwrap_or(0.0);
+            let n = p.n_trajectories.max(1);
+            MetaRow {
+                lattice: summary.lattice,
+                beta: p.beta,
+                mass: Some(p.mass),
+                mode: "dynamical".to_string(),
+                mean_plaq: plaq,
+                chi: std_p,
+                acceptance: p.acceptance,
+                mean_cg_iters: cg,
+                wall_s_per_traj: if n > 0 { p.wall_s / n as f64 } else { 0.0 },
+                n_meas: n,
+            }
+        })
+        .collect();
+
+    Ok(rows)
 }
 
 /// Aggregate per-trajectory JSONL into per-beta MetaRows.
