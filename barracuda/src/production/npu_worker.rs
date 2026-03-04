@@ -18,6 +18,7 @@ use crate::production::{
 };
 use crate::provenance::KNOWN_BETA_C_SU3_NT4;
 use crate::proxy::ProxyFeatures;
+use barracuda::nautilus::{BetaObservation, NautilusBrain, NautilusBrainConfig};
 use std::sync::mpsc;
 
 /// Canonical 5-dimensional input vector shared by training and all inference heads.
@@ -52,13 +53,26 @@ fn heuristic_phase(beta: f64) -> &'static str {
 //  Head Confidence Tracker
 // ═══════════════════════════════════════════════════════════════════
 
-const HEAD_TRUST_THRESHOLD: f64 = 0.3;
 const HEAD_CONFIDENCE_WINDOW: usize = 20;
+const REGRESSION_TRUST_THRESHOLD: f64 = 0.3;
+const CLASSIFICATION_TRUST_THRESHOLD: f64 = 0.6;
 
-/// Rolling per-head confidence tracker.
+/// Whether a head predicts a continuous value or a discrete class.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum HeadMetric {
+    /// R² for continuous targets (CG cost, delta_H, quality, etc.).
+    Regression,
+    /// Accuracy for binary/categorical targets (therm, anomaly, kill).
+    Classification,
+}
+
+/// Rolling per-head confidence tracker with per-head metric type.
 ///
 /// Tracks prediction-vs-outcome for each of the 36 heads. A head is "trusted"
-/// for steering only when its rolling R² exceeds `HEAD_TRUST_THRESHOLD`.
+/// for steering when its rolling metric exceeds the type-specific threshold:
+/// - Regression heads: R² >= 0.3
+/// - Classification heads: accuracy >= 0.6
+///
 /// Untrusted heads fall back to heuristics but continue receiving training data,
 /// so they can graduate to trusted status as the ESN learns.
 struct HeadConfidence {
@@ -66,15 +80,29 @@ struct HeadConfidence {
     actuals: Vec<Vec<f64>>,
     trusted: Vec<bool>,
     r2: Vec<f64>,
+    metrics: Vec<HeadMetric>,
 }
 
 impl HeadConfidence {
     fn new(n_heads: usize) -> Self {
+        let mut metrics = vec![HeadMetric::Regression; n_heads];
+        // Classification heads: therm, anomaly, kill/skip, quenched therm
+        for &h in &[
+            heads::A3_ANDERSON_ANOMALY, heads::A4_ANDERSON_THERM,
+            heads::B3_QCD_ANOMALY, heads::B4_QCD_THERM,
+            heads::C3_POTTS_ANOMALY,
+            heads::D4_KILL_DECISION, heads::D5_SKIP_DECISION,
+        ] {
+            if h < n_heads {
+                metrics[h] = HeadMetric::Classification;
+            }
+        }
         Self {
             predictions: vec![Vec::with_capacity(HEAD_CONFIDENCE_WINDOW); n_heads],
             actuals: vec![Vec::with_capacity(HEAD_CONFIDENCE_WINDOW); n_heads],
             trusted: vec![false; n_heads],
             r2: vec![0.0; n_heads],
+            metrics,
         }
     }
 
@@ -110,13 +138,26 @@ impl HeadConfidence {
         }
         let offset = pred.len().saturating_sub(n);
         let a_offset = actual.len().saturating_sub(n);
-        let mean_a: f64 = actual[a_offset..].iter().sum::<f64>() / n as f64;
-        let ss_tot: f64 = actual[a_offset..].iter().map(|a| (a - mean_a).powi(2)).sum();
-        let ss_res: f64 = pred[offset..].iter().zip(&actual[a_offset..])
-            .map(|(p, a)| (a - p).powi(2)).sum();
-        let r2 = if ss_tot > 1e-15 { 1.0 - ss_res / ss_tot } else { 0.0 };
-        self.r2[head] = r2;
-        self.trusted[head] = r2 >= HEAD_TRUST_THRESHOLD;
+
+        match self.metrics[head] {
+            HeadMetric::Regression => {
+                let mean_a: f64 = actual[a_offset..].iter().sum::<f64>() / n as f64;
+                let ss_tot: f64 = actual[a_offset..].iter().map(|a| (a - mean_a).powi(2)).sum();
+                let ss_res: f64 = pred[offset..].iter().zip(&actual[a_offset..])
+                    .map(|(p, a)| (a - p).powi(2)).sum();
+                let r2 = if ss_tot > 1e-15 { 1.0 - ss_res / ss_tot } else { 0.0 };
+                self.r2[head] = r2;
+                self.trusted[head] = r2 >= REGRESSION_TRUST_THRESHOLD;
+            }
+            HeadMetric::Classification => {
+                let correct = pred[offset..].iter().zip(&actual[a_offset..])
+                    .filter(|(&p, &a)| (p > 0.5) == (a > 0.5))
+                    .count();
+                let accuracy = correct as f64 / n as f64;
+                self.r2[head] = accuracy;
+                self.trusted[head] = accuracy >= CLASSIFICATION_TRUST_THRESHOLD;
+            }
+        }
     }
 
     fn is_trusted(&self, head: usize) -> bool {
@@ -128,7 +169,13 @@ impl HeadConfidence {
         let total = self.trusted.len();
         let best: Vec<String> = self.r2.iter().enumerate()
             .filter(|(_, &r)| r > 0.1)
-            .map(|(i, r)| format!("H{i}={r:.2}"))
+            .map(|(i, r)| {
+                let tag = match self.metrics.get(i) {
+                    Some(HeadMetric::Classification) => "acc",
+                    _ => "R²",
+                };
+                format!("H{i}={r:.2}{tag}")
+            })
             .collect();
         format!("{trusted_count}/{total} trusted [{}]",
             if best.is_empty() { "none above 0.1".into() } else { best.join(", ") })
@@ -239,6 +286,14 @@ pub enum NpuRequest {
     ExportWeights {
         path: String,
     },
+    /// Save the Nautilus shell alongside ESN weights.
+    ExportNautilusShell {
+        path: String,
+    },
+    /// Load a Nautilus shell from disk.
+    BootstrapNautilusShell {
+        path: String,
+    },
     DisagreementQuery {
         beta: f64,
         plaq: f64,
@@ -286,6 +341,13 @@ pub enum NpuResponse {
     WeightsSaved {
         path: String,
     },
+    NautilusShellSaved {
+        path: String,
+    },
+    NautilusShellLoaded {
+        n_observations: usize,
+        n_generations: usize,
+    },
     ResidualAck,
     ProxyFeaturesAck,
     DisagreementSnapshot {
@@ -332,6 +394,12 @@ pub fn spawn_npu_worker(lattice: usize) -> NpuWorkerHandles {
             let mut last_acc: f64 = 0.5;
 
             let mut head_confidence = HeadConfidence::new(heads::NUM_HEADS);
+
+            // Gen 2: Nautilus evolutionary reservoir (cross-run structural learning)
+            let mut nautilus_brain = NautilusBrain::new(
+                NautilusBrainConfig::default(),
+                &format!("hotspring-{lattice}"),
+            );
 
             let make_multi_esn = |seed: u64, results: &[BetaResult]| -> Option<MultiHeadNpu> {
                 if results.is_empty() {
@@ -548,10 +616,14 @@ pub fn spawn_npu_worker(lattice: usize) -> NpuWorkerHandles {
                                 lattice,
                             );
                             let seq = vec![input; 10];
+                            // Predict continuous delta_H; decision boundary at 0
                             let raw = npu.predict_head(&seq, heads::REJECT_PREDICT);
-                            head_confidence.record_prediction(heads::REJECT_PREDICT, raw.clamp(0.0, 1.0));
+                            let predicted_delta_h = raw * 10.0;
+                            head_confidence.record_prediction(heads::REJECT_PREDICT, predicted_delta_h);
                             if head_confidence.is_trusted(heads::REJECT_PREDICT) {
-                                (raw > 0.5, raw.clamp(0.0, 1.0))
+                                let rejected = predicted_delta_h > 0.0;
+                                let conf = 1.0 / (1.0 + (-predicted_delta_h.abs()).exp());
+                                (rejected, conf)
                             } else {
                                 let (lr, conf) = predict_rejection(0.0, 0.0, 0.0, delta_h, acceptance_rate);
                                 (lr, conf)
@@ -601,9 +673,12 @@ pub fn spawn_npu_worker(lattice: usize) -> NpuWorkerHandles {
                         last_plaq = result.mean_plaq;
                         last_chi = result.susceptibility;
                         last_acc = result.acceptance;
-                        // Ground truth for heads that predicted before this beta completed
-                        head_confidence.record_actual(heads::REJECT_PREDICT, 1.0 - result.acceptance);
-                        let actual_phase = if result.beta > 5.79 { 1.0 } else if result.beta > 5.59 { 0.5 } else { 0.0 };
+                        // Ground truth: continuous delta_H proxy from acceptance rate
+                        // High acceptance → negative delta_H (accepted), low → positive (rejected)
+                        let actual_delta_h = -(result.acceptance - 0.5) * 4.0;
+                        head_confidence.record_actual(heads::REJECT_PREDICT, actual_delta_h);
+                        // Continuous phase: use Polyakov loop magnitude as order parameter
+                        let actual_phase = result.polyakov.abs().clamp(0.0, 1.0);
                         head_confidence.record_actual(heads::PHASE_CLASSIFY, actual_phase);
                         head_confidence.record_actual(heads::CG_ESTIMATE, result.mean_cg_iters / 100_000.0);
                         let actual_quality = if result.mean_plaq > 1e-9 {
@@ -637,6 +712,19 @@ pub fn spawn_npu_worker(lattice: usize) -> NpuWorkerHandles {
                             let cg_ok = if result.mean_cg_iters < 1000.0 { 0.3 } else { 0.1 };
                             acc_ok + stats_ok + cg_ok
                         };
+                        // Feed observation to Nautilus brain for cross-run learning
+                        nautilus_brain.observe(BetaObservation {
+                            beta: result.beta,
+                            plaquette: result.mean_plaq,
+                            cg_iters: result.mean_cg_iters,
+                            acceptance: result.acceptance,
+                            delta_h_abs: (1.0 - result.acceptance).abs(),
+                            quenched_plaq: None,
+                            quenched_plaq_var: None,
+                            anderson_r: None,
+                            anderson_lambda_min: None,
+                        });
+
                         resp_tx.send(NpuResponse::Quality(score)).ok();
                     }
 
@@ -701,6 +789,28 @@ pub fn spawn_npu_worker(lattice: usize) -> NpuWorkerHandles {
                                 }
                             }
                             best_beta
+                        } else if nautilus_brain.trained {
+                            // Fall back to Nautilus concept edge detection
+                            let edges = nautilus_brain.detect_concept_edges();
+                            if let Some((edge_beta, _score)) = edges.iter()
+                                .filter(|(b, _)| *b >= beta_min && *b <= beta_max)
+                                .max_by(|a, b| a.1.total_cmp(&b.1))
+                            {
+                                let too_close = measured_betas.iter()
+                                    .chain(queued_betas.iter())
+                                    .any(|&m| (m - edge_beta).abs() < 0.05);
+                                if !too_close {
+                                    Some(*edge_beta)
+                                } else {
+                                    let all_known: Vec<f64> = measured_betas.iter()
+                                        .chain(queued_betas.iter()).copied().collect();
+                                    find_largest_gaps(&all_known, beta_min, beta_max, 1).into_iter().next()
+                                }
+                            } else {
+                                let all_known: Vec<f64> = measured_betas.iter()
+                                    .chain(queued_betas.iter()).copied().collect();
+                                find_largest_gaps(&all_known, beta_min, beta_max, 1).into_iter().next()
+                            }
                         } else {
                             let all_known: Vec<f64> = measured_betas
                                 .iter()
@@ -749,12 +859,12 @@ pub fn spawn_npu_worker(lattice: usize) -> NpuWorkerHandles {
                     }
 
                     NpuRequest::Retrain { results } => {
-                        // Feed ground truth from completed results to all trackable heads
                         for r in &results {
-                            head_confidence.record_actual(heads::REJECT_PREDICT, 1.0 - r.acceptance);
+                            let actual_delta_h = -(r.acceptance - 0.5) * 4.0;
+                            head_confidence.record_actual(heads::REJECT_PREDICT, actual_delta_h);
                             head_confidence.record_actual(heads::CG_ESTIMATE, r.mean_cg_iters / 100_000.0);
-                            let phase_val = if r.beta > 5.79 { 1.0 } else if r.beta > 5.59 { 0.5 } else { 0.0 };
-                            head_confidence.record_actual(heads::PHASE_CLASSIFY, phase_val);
+                            let actual_phase = r.polyakov.abs().clamp(0.0, 1.0);
+                            head_confidence.record_actual(heads::PHASE_CLASSIFY, actual_phase);
                             let quality = if r.mean_plaq > 1e-9 {
                                 1.0 - (r.std_plaq / r.mean_plaq).min(1.0)
                             } else { 0.0 };
@@ -765,6 +875,12 @@ pub fn spawn_npu_worker(lattice: usize) -> NpuWorkerHandles {
                         let seed = 99 + results.len() as u64;
                         if let Some(new_npu) = make_multi_esn(seed, &results) {
                             multi_npu = Some(new_npu);
+                        }
+                        // Evolve Nautilus shell on accumulated observations
+                        if let Some(mse) = nautilus_brain.train() {
+                            let n_obs = nautilus_brain.observations.len();
+                            let drifting = nautilus_brain.is_drifting();
+                            eprintln!("  [Nautilus] Trained: {n_obs} obs, MSE={mse:.6}, drift={drifting}");
                         }
                         let beta_c = estimate_beta_c(&results);
                         resp_tx.send(NpuResponse::Retrained { beta_c }).ok();
@@ -830,6 +946,17 @@ pub fn spawn_npu_worker(lattice: usize) -> NpuWorkerHandles {
                                 resp_tx.send(NpuResponse::Bootstrapped { n_points: 0 }).ok();
                             }
                         }
+                        // Auto-load sibling Nautilus shell if it exists
+                        let shell_path = path.replace(".bin", ".nautilus.json")
+                            .replace(".json", ".nautilus.json");
+                        if let Ok(json) = std::fs::read_to_string(&shell_path) {
+                            if let Ok(brain) = NautilusBrain::from_json(&json) {
+                                let n_obs = brain.observations.len();
+                                let n_gen = brain.shell.history.len();
+                                nautilus_brain = brain;
+                                eprintln!("  [Nautilus] Auto-loaded shell: {n_obs} obs, {n_gen} generations");
+                            }
+                        }
                     }
 
                     NpuRequest::ExportWeights { path } => {
@@ -856,6 +983,12 @@ pub fn spawn_npu_worker(lattice: usize) -> NpuWorkerHandles {
                         } else {
                             false
                         };
+                        // Auto-save Nautilus shell alongside ESN weights
+                        let shell_path = path.replace(".bin", ".nautilus.json")
+                            .replace(".json", ".nautilus.json");
+                        if let Ok(json) = nautilus_brain.to_json() {
+                            let _ = std::fs::write(&shell_path, json);
+                        }
                         resp_tx
                             .send(NpuResponse::WeightsSaved {
                                 path: if saved { path } else { String::new() },
@@ -1013,6 +1146,21 @@ pub fn spawn_npu_worker(lattice: usize) -> NpuWorkerHandles {
                                 proxy.beta, proxy.tier
                             );
                         }
+
+                        // Feed spectral features to Nautilus via spectral bridge
+                        let spectral_obs = BetaObservation {
+                            beta,
+                            plaquette: bandwidth,
+                            cg_iters: condition_number,
+                            acceptance: 1.0,
+                            delta_h_abs: 0.0,
+                            quenched_plaq: None,
+                            quenched_plaq_var: None,
+                            anderson_r: Some(level_spacing_ratio),
+                            anderson_lambda_min: Some(lambda_min),
+                        };
+                        nautilus_brain.observe(spectral_obs);
+
                         // No response — main thread fire-and-forgets ProxyFeatures.
                     }
 
@@ -1040,6 +1188,55 @@ pub fn spawn_npu_worker(lattice: usize) -> NpuWorkerHandles {
                                 urgency: dis.urgency(),
                             })
                             .ok();
+                    }
+
+                    NpuRequest::ExportNautilusShell { path } => {
+                        let saved = match nautilus_brain.to_json() {
+                            Ok(json) => {
+                                if let Some(parent) = std::path::Path::new(&path).parent() {
+                                    std::fs::create_dir_all(parent).ok();
+                                }
+                                std::fs::write(&path, json).is_ok()
+                            }
+                            Err(e) => {
+                                eprintln!("  [Nautilus] Failed to serialize shell: {e}");
+                                false
+                            }
+                        };
+                        resp_tx.send(NpuResponse::NautilusShellSaved {
+                            path: if saved { path } else { String::new() },
+                        }).ok();
+                    }
+
+                    NpuRequest::BootstrapNautilusShell { path } => {
+                        match std::fs::read_to_string(&path) {
+                            Ok(json) => match NautilusBrain::from_json(&json) {
+                                Ok(brain) => {
+                                    let n_obs = brain.observations.len();
+                                    let n_gen = brain.shell.history.len();
+                                    nautilus_brain = brain;
+                                    eprintln!("  [Nautilus] Loaded shell: {n_obs} obs, {n_gen} generations");
+                                    resp_tx.send(NpuResponse::NautilusShellLoaded {
+                                        n_observations: n_obs,
+                                        n_generations: n_gen,
+                                    }).ok();
+                                }
+                                Err(e) => {
+                                    eprintln!("  [Nautilus] Failed to parse shell {path}: {e}");
+                                    resp_tx.send(NpuResponse::NautilusShellLoaded {
+                                        n_observations: 0,
+                                        n_generations: 0,
+                                    }).ok();
+                                }
+                            },
+                            Err(e) => {
+                                eprintln!("  [Nautilus] Cannot read {path}: {e}");
+                                resp_tx.send(NpuResponse::NautilusShellLoaded {
+                                    n_observations: 0,
+                                    n_generations: 0,
+                                }).ok();
+                            }
+                        }
                     }
 
                     NpuRequest::Shutdown => break,
@@ -1086,11 +1283,11 @@ fn build_training_data(results: &[BetaResult], lattice: usize) -> (Vec<Vec<Vec<f
     let seq_len = 10;
 
     for r in results {
-        let phase_val = match r.phase {
-            "deconfined" => 1.0,
-            "transition" => 0.5,
-            _ => 0.0,
-        };
+        // Continuous phase: use Polyakov loop magnitude as order parameter
+        let phase_continuous = r.polyakov.abs().clamp(0.0, 1.0);
+        // Continuous delta_H proxy: negative = accepted, positive = rejected
+        let delta_h_continuous = (-(r.acceptance - 0.5) * 4.0) / 10.0;
+
         let proximity = (-(r.beta - KNOWN_BETA_C_SU3_NT4).powi(2) / 0.1).exp();
         let anomaly_val = f64::from(r.acceptance < 0.05 || r.mean_cg_iters > 3000.0);
         let quality = (r.acceptance * 0.4
@@ -1100,6 +1297,7 @@ fn build_training_data(results: &[BetaResult], lattice: usize) -> (Vec<Vec<Vec<f
         let cg_norm = r.mean_cg_iters / 500.0;
         let quenched_therm_target = f64::from(r.npu_quenched_early_exit);
 
+        // Anderson/Potts phases remain categorical for their respective proxy heads
         let anderson_phase = if r.beta > 5.5 {
             1.0
         } else if r.beta < 5.0 {
@@ -1144,8 +1342,8 @@ fn build_training_data(results: &[BetaResult], lattice: usize) -> (Vec<Vec<Vec<f
         t[heads::A5_ANDERSON_PRIORITY] = proximity;
 
         t[heads::B0_QCD_CG_COST] = cg_norm;
-        t[heads::B1_QCD_PHASE] = phase_val;
-        t[heads::B2_QCD_ACCEPTANCE] = 1.0 - r.acceptance;
+        t[heads::B1_QCD_PHASE] = phase_continuous;
+        t[heads::B2_QCD_ACCEPTANCE] = delta_h_continuous;
         t[heads::B3_QCD_ANOMALY] = anomaly_val;
         t[heads::B4_QCD_THERM] = if r.acceptance > 0.3 { 1.0 } else { 0.0 };
         t[heads::B5_QCD_PRIORITY] = proximity;
@@ -1172,10 +1370,10 @@ fn build_training_data(results: &[BetaResult], lattice: usize) -> (Vec<Vec<Vec<f
         t[heads::E5_QUALITY_FORECAST] = quality;
 
         t[heads::M0_CG_CONSENSUS] = cg_norm;
-        t[heads::M1_PHASE_CONSENSUS] = phase_val;
-        t[heads::M2_CG_UNCERTAINTY] = (anderson_phase - phase_val).abs();
-        t[heads::M3_PHASE_UNCERTAINTY] = (potts_phase - phase_val).abs();
-        let proxy_agrees = (anderson_phase - phase_val).abs() < 0.3;
+        t[heads::M1_PHASE_CONSENSUS] = phase_continuous;
+        t[heads::M2_CG_UNCERTAINTY] = (anderson_phase - phase_continuous).abs();
+        t[heads::M3_PHASE_UNCERTAINTY] = (potts_phase - phase_continuous).abs();
+        let proxy_agrees = (anderson_phase - phase_continuous).abs() < 0.3;
         t[heads::M4_PROXY_TRUST] = if proxy_agrees { 0.8 } else { 0.3 };
         t[heads::M5_ATTENTION_LEVEL] = match () {
             () if anomaly_val > 0.5 => 0.8,

@@ -291,6 +291,25 @@ impl EchoStateNetwork {
         self.w_out = Some(w_out);
     }
 
+    /// Incrementally retrain the readout by appending new data to a rolling buffer.
+    ///
+    /// Re-solves the ridge regression on the combined (old + new) dataset.
+    /// The buffer caps at `max_buffer` samples; oldest are evicted first.
+    pub fn train_incremental(
+        &mut self,
+        new_sequences: &[Vec<Vec<f64>>],
+        new_targets: &[Vec<f64>],
+        buffer: &mut IncrementalBuffer,
+    ) {
+        for (seq, tgt) in new_sequences.iter().zip(new_targets) {
+            buffer.push(seq.clone(), tgt.clone());
+        }
+        let (all_seqs, all_tgts) = buffer.as_training_pair();
+        if !all_seqs.is_empty() {
+            self.train(&all_seqs, &all_tgts);
+        }
+    }
+
     /// Predict transport coefficients from a velocity feature sequence.
     ///
     /// # Errors
@@ -311,6 +330,56 @@ impl EchoStateNetwork {
             .iter()
             .map(|row| row.iter().zip(final_state.iter()).map(|(w, s)| w * s).sum())
             .collect())
+    }
+}
+
+/// Rolling buffer for incremental ESN training.
+///
+/// Stores sequence/target pairs up to `max_size`, evicting the oldest when full.
+/// Shared across retrain cycles so the ESN sees accumulated experience.
+pub struct IncrementalBuffer {
+    sequences: Vec<Vec<Vec<f64>>>,
+    targets: Vec<Vec<f64>>,
+    max_size: usize,
+}
+
+impl IncrementalBuffer {
+    /// Create a new buffer with the given capacity.
+    #[must_use]
+    pub fn new(max_size: usize) -> Self {
+        Self {
+            sequences: Vec::with_capacity(max_size),
+            targets: Vec::with_capacity(max_size),
+            max_size,
+        }
+    }
+
+    /// Add a sample, evicting the oldest if at capacity.
+    pub fn push(&mut self, seq: Vec<Vec<f64>>, target: Vec<f64>) {
+        if self.sequences.len() >= self.max_size {
+            self.sequences.remove(0);
+            self.targets.remove(0);
+        }
+        self.sequences.push(seq);
+        self.targets.push(target);
+    }
+
+    /// Current number of buffered samples.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.sequences.len()
+    }
+
+    /// Whether the buffer is empty.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.sequences.is_empty()
+    }
+
+    /// Borrow the full dataset for training.
+    #[must_use]
+    pub fn as_training_pair(&self) -> (Vec<Vec<Vec<f64>>>, Vec<Vec<f64>>) {
+        (self.sequences.clone(), self.targets.clone())
     }
 }
 
