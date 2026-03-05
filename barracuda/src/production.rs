@@ -21,6 +21,7 @@ pub mod dynamical_bootstrap;
 pub mod dynamical_summary;
 pub mod mixed_summary;
 pub mod npu_worker;
+pub mod sub_models;
 pub mod titan_validation;
 pub mod titan_worker;
 
@@ -363,6 +364,58 @@ impl Default for BetaResult {
             npu_cg_check_interval: 0,
         }
     }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  Trajectory Event (per-trajectory stream to NPU)
+// ═══════════════════════════════════════════════════════════════════
+
+/// Which phase of the HMC pipeline produced this trajectory.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TrajectoryPhase {
+    /// Pure-gauge trajectory (no fermions).
+    Quenched,
+    /// Thermalization trajectory — equilibrating before measurement.
+    Therm,
+    /// Production measurement trajectory — data collected for observables.
+    Measurement,
+}
+
+/// Per-trajectory event streamed to the NPU for every single trajectory.
+/// Replaces the summary-only data flow (one BetaResult per beta) with
+/// fine-grained per-event observation (~60 events per beta point).
+#[derive(Clone, Debug)]
+pub struct TrajectoryEvent {
+    /// Inverse coupling β = 6/g².
+    pub beta: f64,
+    /// Fermion mass parameter.
+    pub mass: f64,
+    /// Spatial lattice extent.
+    pub lattice: usize,
+    /// HMC pipeline phase that produced this trajectory.
+    pub phase_tag: TrajectoryPhase,
+    /// Sequential trajectory index within this beta point.
+    pub traj_idx: usize,
+    /// Average plaquette for this trajectory.
+    pub plaquette: f64,
+    /// Hamiltonian violation δH = H_new - H_old.
+    pub delta_h: f64,
+    /// Whether the Metropolis accept/reject accepted this trajectory.
+    pub accepted: bool,
+    /// CG solver iterations used in the fermion force computation.
+    pub cg_iterations: usize,
+    /// Real part of the Polyakov loop.
+    pub polyakov_re: f64,
+    /// Phase angle of the Polyakov loop.
+    pub polyakov_phase: f64,
+    /// Gauge action density S_G / (6 * volume).
+    pub action_density: f64,
+    /// Plaquette variance across the lattice.
+    pub plaquette_var: f64,
+    /// Wall-clock time for this trajectory in microseconds.
+    pub wall_us: u64,
+    /// Running Metropolis acceptance rate.
+    pub running_acceptance: f64,
 }
 
 // ═══════════════════════════════════════════════════════════════════

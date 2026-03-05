@@ -31,13 +31,15 @@ pub fn spawn_cortex_worker() -> CortexWorkerHandles {
             let mut seed_counter = 42u64;
             for req in req_rx {
                 seed_counter += 1;
-                let features = proxy::anderson_3d_proxy(&req, seed_counter);
+                let features = proxy::combined_proxy(&req, seed_counter);
                 eprintln!(
-                    "  [Cortex] β={:.4}: ⟨r⟩={:.3} |λ|_min={:.3} [{}] ({:.0}ms)",
+                    "  [Cortex] β={:.4}: ⟨r⟩={:.3} |λ|_min={:.3} [{}] Potts={:.3} [{}] ({:.0}ms)",
                     features.beta,
                     features.level_spacing_ratio,
                     features.lambda_min,
                     features.phase,
+                    features.potts_magnetization,
+                    features.potts_phase,
                     features.wall_ms,
                 );
                 feat_tx.send(features).ok();

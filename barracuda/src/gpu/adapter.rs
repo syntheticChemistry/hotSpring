@@ -51,7 +51,7 @@ pub fn create_instance() -> wgpu::Instance {
         Ok("dx12") => wgpu::Backends::DX12,
         _ => wgpu::Backends::all(),
     };
-    wgpu::Instance::new(wgpu::InstanceDescriptor {
+    wgpu::Instance::new(&wgpu::InstanceDescriptor {
         backends,
         ..Default::default()
     })
@@ -65,8 +65,7 @@ pub fn create_instance() -> wgpu::Instance {
 #[must_use]
 pub fn enumerate_adapters() -> Vec<AdapterInfo> {
     let instance = create_instance();
-    instance
-        .enumerate_adapters(wgpu::Backends::all())
+    pollster::block_on(instance.enumerate_adapters(wgpu::Backends::all()))
         .into_iter()
         .enumerate()
         .map(|(i, adapter): (usize, wgpu::Adapter)| {
@@ -174,7 +173,7 @@ pub fn select_adapter() -> Result<wgpu::Adapter, crate::error::HotSpringError> {
         .unwrap_or_default();
 
     let instance = create_instance();
-    let adapters: Vec<wgpu::Adapter> = instance.enumerate_adapters(wgpu::Backends::all());
+    let adapters: Vec<wgpu::Adapter> = pollster::block_on(instance.enumerate_adapters(wgpu::Backends::all()));
     if adapters.is_empty() {
         return Err(crate::error::HotSpringError::NoAdapter);
     }
@@ -197,20 +196,20 @@ pub fn select_adapter() -> Result<wgpu::Adapter, crate::error::HotSpringError> {
             // Clone adapter vec for the fallback path — wgpu::Adapter is not Clone,
             // so re-enumerate. auto_select consumes the vec.
             let fresh: Vec<wgpu::Adapter> =
-                create_instance().enumerate_adapters(wgpu::Backends::all());
+                pollster::block_on(create_instance().enumerate_adapters(wgpu::Backends::all()));
             if let Ok(a) = auto_select(fresh) {
                 return Ok(a);
             }
         } else if let Ok(idx) = selector.parse::<usize>() {
             if let Ok(a) = select_by_index_or_name(
-                create_instance().enumerate_adapters(wgpu::Backends::all()),
+                pollster::block_on(create_instance().enumerate_adapters(wgpu::Backends::all())),
                 idx,
                 &selector,
             ) {
                 return Ok(a);
             }
         } else if let Ok(a) = select_by_name(
-            create_instance().enumerate_adapters(wgpu::Backends::all()),
+            pollster::block_on(create_instance().enumerate_adapters(wgpu::Backends::all())),
             &selector,
         ) {
             return Ok(a);

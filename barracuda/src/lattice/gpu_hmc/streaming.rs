@@ -187,7 +187,7 @@ fn gpu_streaming_md_encoder(
     let n_links = state.n_links;
     let lam = crate::tolerances::OMELYAN_LAMBDA;
 
-    let force_params = make_force_params(state.volume, state.beta);
+    let force_params = make_force_params(state.volume, state.beta, gpu.full_df64_mode);
     let force_pbuf = gpu.create_uniform_buffer(&force_params, "s_force_p");
     let force_bg = gpu.create_bind_group(
         &p.force_pipeline,
@@ -199,21 +199,21 @@ fn gpu_streaming_md_encoder(
         ],
     );
 
-    let mom_lam_params = make_link_mom_params(n_links, lam * dt);
+    let mom_lam_params = make_link_mom_params(n_links, lam * dt, gpu.full_df64_mode);
     let mom_lam_pbuf = gpu.create_uniform_buffer(&mom_lam_params, "s_mom_lam");
     let mom_lam_bg = gpu.create_bind_group(
         &p.momentum_pipeline,
         &[&mom_lam_pbuf, &state.force_buf, &state.mom_buf],
     );
 
-    let mom_mid_params = make_link_mom_params(n_links, (1.0 - 2.0 * lam) * dt);
+    let mom_mid_params = make_link_mom_params(n_links, (1.0 - 2.0 * lam) * dt, gpu.full_df64_mode);
     let mom_mid_pbuf = gpu.create_uniform_buffer(&mom_mid_params, "s_mom_mid");
     let mom_mid_bg = gpu.create_bind_group(
         &p.momentum_pipeline,
         &[&mom_mid_pbuf, &state.force_buf, &state.mom_buf],
     );
 
-    let link_params = make_link_mom_params(n_links, 0.5 * dt);
+    let link_params = make_link_mom_params(n_links, 0.5 * dt, gpu.full_df64_mode);
     let link_pbuf = gpu.create_uniform_buffer(&link_params, "s_link_p");
     let link_bg = gpu.create_bind_group(
         &p.link_pipeline,

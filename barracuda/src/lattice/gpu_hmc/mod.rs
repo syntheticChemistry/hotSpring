@@ -131,11 +131,18 @@ pub struct GpuHmcPipelines {
 impl GpuHmcPipelines {
     /// Compile all HMC shader pipelines.
     ///
-    /// Automatically selects DF64 (f32-pair) shaders for the gauge force
-    /// on consumer GPUs, routing staple SU(3) multiplications through
-    /// the FP32 core array for ~10× throughput.
+    /// Three modes:
+    /// - **Full DF64** (NVK f64 probe failed): all shaders go through
+    ///   `downcast_f64_to_df64` → pure f32 WGSL. No `SHADER_F64` needed.
+    /// - **Hybrid** (consumer GPUs, RTX 3090/4070): force, plaquette, KE
+    ///   use hand-written DF64 shaders; others use native f64.
+    /// - **Native** (Titan V, V100, A100): all native f64.
     #[must_use]
     pub fn new(gpu: &GpuF64) -> Self {
+        if gpu.full_df64_mode {
+            return Self::new_full_df64(gpu);
+        }
+
         let strategy = gpu.driver_profile().fp64_strategy();
 
         let df64_preamble = barracuda::ops::lattice::su3::su3_df64_preamble();
@@ -171,8 +178,6 @@ impl GpuHmcPipelines {
             }
         );
 
-        // Polyakov shader only needs c64 core ops (no c64_exp → no sin/cos → no
-        // sin_f64_safe polyfill that Naga chokes on for f64).
         let complex_no_exp = WGSL_COMPLEX_F64
             .lines()
             .take_while(|l| !l.contains("fn c64_exp"))
@@ -188,6 +193,32 @@ impl GpuHmcPipelines {
             kinetic_pipeline: gpu.create_pipeline_f64(&ke_src, "hmc_ke"),
             polyakov_pipeline: gpu.create_pipeline_f64(&poly_src, "hmc_polyakov"),
             fp64_strategy: strategy,
+        }
+    }
+
+    /// Full DF64 mode: pass all native-f64 shaders through the automatic
+    /// downcast pipeline. `create_pipeline_f64` detects `full_df64_mode`
+    /// and routes through `downcast_f64_to_df64` → stripped df64_core.
+    fn new_full_df64(gpu: &GpuF64) -> Self {
+        eprintln!(
+            "[HMC] FP64 strategy: Full DF64 — all shaders downcast to f32-pair (NVK safe)"
+        );
+
+        let complex_no_exp = WGSL_COMPLEX_F64
+            .lines()
+            .take_while(|l| !l.contains("fn c64_exp"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let poly_src = format!("{complex_no_exp}\n{WGSL_SU3_MATH_F64}\n{WGSL_POLYAKOV_LOOP}");
+
+        Self {
+            plaquette_pipeline: gpu.create_pipeline_f64(WGSL_WILSON_PLAQUETTE, "hmc_plaq"),
+            force_pipeline: gpu.create_pipeline_f64(WGSL_GAUGE_FORCE, "hmc_force"),
+            momentum_pipeline: gpu.create_pipeline_f64(WGSL_MOMENTUM_UPDATE, "hmc_mom_update"),
+            link_pipeline: gpu.create_pipeline_f64(WGSL_LINK_UPDATE, "hmc_link_update"),
+            kinetic_pipeline: gpu.create_pipeline_f64(WGSL_KINETIC_ENERGY, "hmc_ke"),
+            polyakov_pipeline: gpu.create_pipeline_f64(&poly_src, "hmc_polyakov"),
+            fp64_strategy: Fp64Strategy::Hybrid,
         }
     }
 }
@@ -504,19 +535,34 @@ pub fn gpu_hmc_trajectory(
 //  Shared dispatch helpers (used by all submodules)
 // ═══════════════════════════════════════════════════════════════════
 
-pub(super) fn make_force_params(vol: usize, beta: f64) -> Vec<u8> {
+/// Encode an f64 value for GPU uniform buffers.
+/// In full DF64 mode, encodes as Df64 (hi: f32, lo: f32) — 8 bytes.
+/// Otherwise encodes as native f64 — 8 bytes.
+fn encode_f64_param(val: f64, df64_mode: bool) -> [u8; 8] {
+    if df64_mode {
+        let [hi, lo] = crate::gpu::f64_to_df64(val);
+        let mut b = [0u8; 8];
+        b[..4].copy_from_slice(&hi.to_le_bytes());
+        b[4..].copy_from_slice(&lo.to_le_bytes());
+        b
+    } else {
+        val.to_le_bytes()
+    }
+}
+
+pub(super) fn make_force_params(vol: usize, beta: f64, df64_mode: bool) -> Vec<u8> {
     let mut v = Vec::with_capacity(16);
     v.extend_from_slice(&(vol as u32).to_le_bytes());
     v.extend_from_slice(&0u32.to_le_bytes());
-    v.extend_from_slice(&beta.to_le_bytes());
+    v.extend_from_slice(&encode_f64_param(beta, df64_mode));
     v
 }
 
-pub(super) fn make_link_mom_params(n_links: usize, dt: f64) -> Vec<u8> {
+pub(super) fn make_link_mom_params(n_links: usize, dt: f64, df64_mode: bool) -> Vec<u8> {
     let mut v = Vec::with_capacity(16);
     v.extend_from_slice(&(n_links as u32).to_le_bytes());
     v.extend_from_slice(&0u32.to_le_bytes());
-    v.extend_from_slice(&dt.to_le_bytes());
+    v.extend_from_slice(&encode_f64_param(dt, df64_mode));
     v
 }
 
@@ -541,7 +587,7 @@ pub(super) fn make_prng_params(n_links: u32, traj_id: u32, seed: &mut u64) -> Ve
 }
 
 pub(super) fn gpu_force_dispatch(gpu: &GpuF64, p: &GpuHmcPipelines, s: &GpuHmcState) {
-    let params = make_force_params(s.volume, s.beta);
+    let params = make_force_params(s.volume, s.beta, gpu.full_df64_mode);
     let param_buf = gpu.create_uniform_buffer(&params, "force_p");
     let bg = gpu.create_bind_group(
         &p.force_pipeline,
@@ -551,7 +597,7 @@ pub(super) fn gpu_force_dispatch(gpu: &GpuF64, p: &GpuHmcPipelines, s: &GpuHmcSt
 }
 
 pub(super) fn gpu_mom_update_dispatch(gpu: &GpuF64, p: &GpuHmcPipelines, s: &GpuHmcState, dt: f64) {
-    let params = make_link_mom_params(s.n_links, dt);
+    let params = make_link_mom_params(s.n_links, dt, gpu.full_df64_mode);
     let param_buf = gpu.create_uniform_buffer(&params, "mom_p");
     let bg = gpu.create_bind_group(
         &p.momentum_pipeline,
@@ -566,7 +612,7 @@ pub(super) fn gpu_link_update_dispatch(
     s: &GpuHmcState,
     dt: f64,
 ) {
-    let params = make_link_mom_params(s.n_links, dt);
+    let params = make_link_mom_params(s.n_links, dt, gpu.full_df64_mode);
     let param_buf = gpu.create_uniform_buffer(&params, "link_p");
     let bg = gpu.create_bind_group(&p.link_pipeline, &[&param_buf, &s.mom_buf, &s.link_buf]);
     gpu.dispatch(&p.link_pipeline, &bg, s.wg_links);

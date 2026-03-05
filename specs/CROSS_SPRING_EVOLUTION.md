@@ -2,8 +2,8 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 # Cross-Spring Shader Evolution — hotSpring's View
 
-**Date:** March 2, 2026
-**Synced to:** toadStool S80 (barracuda v0.2.0)
+**Date:** March 4, 2026
+**Synced to:** barraCuda v0.3.3 (standalone primal, wgpu 28, naga 28)
 **License:** AGPL-3.0-only
 
 ---
@@ -192,3 +192,115 @@ Index convention note: hotSpring `site_index = t*Nx*Ny*Nz + x*Ny*Nz + y*Nz + z`
 (z fastest), toadStool `site_index = t*Nz*Ny*Nx + z*Ny*Nx + y*Nx + x` (x fastest).
 Both precompute 8 neighbors per site `[+x,-x,+y,-y,+z,-z,+t,-t]`. Unification
 is tracked as a future handoff — hotSpring's shaders assume z-fastest throughout.
+
+---
+
+## barraCuda v0.3.3 Sync (March 4, 2026)
+
+### wgpu 22 → 28 Migration
+
+The full catch-up to barraCuda v0.3.3 required migrating hotSpring from wgpu 22
+to wgpu 28 — a breaking API change across ~12 files and ~40 call sites:
+
+| Change | Old (wgpu 22) | New (wgpu 28) | Files |
+|--------|---------------|---------------|-------|
+| Device/Queue wrapping | `Arc<wgpu::Device>`, `Arc<wgpu::Queue>` | `device.clone()`, `queue.clone()` (Device is Clone) | `gpu/mod.rs` |
+| `WgpuDevice::from_existing` | `from_existing(Arc::new(d), Arc::new(q), info)` | `from_existing(d, q, info)` | `gpu/mod.rs` (×2) |
+| Adapter enumeration | Sync `instance.enumerate_adapters()` | Async `pollster::block_on(instance.enumerate_adapters())` | `gpu/adapter.rs` (×5) |
+| Instance creation | `Instance::new(desc)` | `Instance::new(&desc)` | `gpu/mod.rs`, `adapter.rs`, `forge/probe.rs` |
+| Device polling | `device.poll(Maintain::Wait)` | `device.poll(PollType::Wait { submission_index: None, timeout: None })` | 9 files |
+| Error scopes | `device.push_error_scope(); device.pop_error_scope()` | `let scope = device.push_error_scope(); scope.pop()` | `gpu/mod.rs`, `f64_builtin_test.rs` |
+| Pipeline layout | `push_constant_ranges: &[]` | `immediate_size: 0` | 4 files |
+| Entry point | `entry_point: "main"` | `entry_point: Some("main")` | 6 files |
+| Device descriptor | 4 fields | +`experimental_features`, +`trace` | `gpu/mod.rs` (×2) |
+| `request_device` | 2 args (desc, trace) | 1 arg (desc only) | `gpu/mod.rs` (×2) |
+| Buffer limits | Hardcoded 2 GB | `adapter_limits.min(2 GB)` (wgpu 28 strict validation) | `gpu/mod.rs` (×2) |
+| SPIRV passthrough | `Features::SPIRV_SHADER_PASSTHROUGH` constant | Removed — `has_spirv_passthrough()` method | `gpu/mod.rs` |
+
+### NVK Sovereign SPIR-V Discovery
+
+**Cross-spring evolution from hotSpring → barraCuda**: hotSpring's NVK testing
+discovered that barraCuda v0.3.3's sovereign SPIR-V passthrough produces invalid
+shader modules on NVK. The fix was applied to barraCuda itself:
+
+```rust
+// barraCuda/src/device/wgpu_device/mod.rs — has_spirv_passthrough()
+// Now excludes NVK: NAK compiler produces invalid modules from sovereign SPIR-V.
+pub fn has_spirv_passthrough(&self) -> bool {
+    if self.adapter_info.backend != wgpu::Backend::Vulkan { return false; }
+    let d = self.adapter_info.driver.to_lowercase();
+    !(d.contains("nvk") || d.contains("nouveau"))
+}
+```
+
+Impact: Pipeline compilation 280× faster on NVK (664ms → 2.3ms for
+`hmc_link_update`) because sovereign is skipped entirely. CG alpha/beta shaders
+that previously failed validation now compile cleanly.
+
+### Volta/Datacenter Native f64 Path
+
+**Cross-spring evolution**: hotSpring's multi-GPU testing (RTX 3090 + Titan V,
+both on NVK) revealed that `use_df64_compute = is_nvk` was wrong for Volta GPUs.
+The Titan V has 1:2 f64 throughput — DF64-compute loses 5 bits of mantissa for
+no throughput benefit.
+
+Fix: hotSpring now classifies GPU f64 throughput and routes Volta/datacenter
+adapters (Titan V, V100, A100, H100) to native f64 even on NVK. Consumer GPUs
+(Ampere/Ada, 1:64 ratio) still use DF64-compute.
+
+Result: Titan V achieves 100% HMC acceptance, P=0.584 (physically correct) with
+native f64 on NVK.
+
+### New Shaders from barraCuda v0.3.3
+
+12 evolved lattice shaders copied from barraCuda to hotSpring:
+
+| Shader | Purpose | Evolution |
+|--------|---------|-----------|
+| `cg_kernels_f64.wgsl` | Unified CG solver kernels | barraCuda consolidated from hotSpring's split CG |
+| `hmc_leapfrog_f64.wgsl` | Leapfrog integrator (single-dispatch) | barraCuda fused from hotSpring's multi-pass |
+| `kinetic_energy_f64.wgsl` | Standard KE | barraCuda universal math |
+| `kinetic_energy_df64.wgsl` | DF64 KE | barraCuda precision specialization |
+| `lattice_init_f64.wgsl` | Hot/cold lattice initialization | New in barraCuda |
+| `pseudofermion_heatbath_f64.wgsl` | Gaussian pseudofermion heatbath | barraCuda absorbed from hotSpring |
+| `pseudofermion_force_f64.wgsl` | Pseudofermion force | barraCuda absorbed from hotSpring |
+| `su3_hmc_force_f64.wgsl` | SU(3) HMC force (native) | barraCuda refactored |
+| `su3_hmc_force_df64.wgsl` | SU(3) HMC force (DF64) | barraCuda precision specialization |
+| `wilson_action_f64.wgsl` | Wilson action | barraCuda universal math |
+| `wilson_action_df64.wgsl` | Wilson action (DF64) | barraCuda precision specialization |
+| `higgs_u1_hmc_f64.wgsl` | Abelian Higgs U(1) HMC | barraCuda absorbed from hotSpring Paper 13 |
+
+### PRNG Division → Multiplication Fix
+
+barraCuda v0.3.3 changed `/ f64(4294967296.0)` to `* f64(2.3283064365386963e-10)`
+in PRNG shaders. hotSpring already had this fix (cross-spring evolution
+propagated the optimization before barraCuda formalized it).
+
+### Cross-Spring Evolution Timeline (Feb–Mar 2026)
+
+| Date | Direction | What | Impact |
+|------|-----------|------|--------|
+| Feb 16 | hotSpring → toadStool | Lattice QCD shaders, complex_f64, su3 | Foundation for all lattice GPU ops |
+| Feb 21 | hotSpring → toadStool | ESN reservoir/readout shaders | GPU ESN available to wetSpring |
+| Feb 26 | hotSpring → toadStool | DF64 core streaming discovery | Universal precision for all springs |
+| Feb 28 | toadStool → barraCuda | Primal budding: barraCuda splits from toadStool | Math/shaders/compilation independent |
+| Mar 2 | hotSpring ← barraCuda | v0.2.0 sync, S80 modules | Spectral stats, MultiHeadEsn, 4D neighbors |
+| Mar 4 | hotSpring ← barraCuda | **v0.3.3 full sync: wgpu 28, naga 28** | 12 new shaders, 280× faster pipeline compilation |
+| Mar 4 | hotSpring → barraCuda | **NVK SPIR-V exclusion** | All NVK users benefit from the fix |
+| Mar 4 | hotSpring | **Volta native f64 on NVK** | Titan V: 100% acceptance with native f64 |
+
+### Remaining DF64 Precision Frontier
+
+The RTX 3090 (NVK, DF64-compute) achieves correct quenched thermalization
+(P=0.557 at β=6.0) but produces NaN ΔH in measurement trajectories. The 48-bit
+mantissa of DF64 (vs 53-bit for native f64) causes the Metropolis ΔH test to
+fail when comparing two large Hamiltonians that differ by O(1). This is a
+fundamental precision boundary: DF64 is sufficient for local observables
+(plaquette, force) but insufficient for global energy-difference tests.
+
+Paths forward:
+1. **Mixed-precision HMC**: Force/plaquette via DF64, kinetic energy + action
+   accumulation via native f64 (Titan V as oracle)
+2. **Stochastic ΔH**: Accept/reject based on estimated ΔH variance
+3. **Proprietary driver**: NVIDIA proprietary Vulkan driver supports full f64
+   on RTX 3090 (1:64 ratio but correct arithmetic)

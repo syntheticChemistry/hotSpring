@@ -264,7 +264,7 @@ fn run_gpu_eigh(
         .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: None,
             bind_group_layouts: &[&bgl],
-            push_constant_ranges: &[],
+            immediate_size: 0,
         });
 
     let pipeline = gpu
@@ -273,7 +273,7 @@ fn run_gpu_eigh(
             label: Some("eigh"),
             layout: Some(&pl),
             module: &shader,
-            entry_point,
+            entry_point: Some(entry_point),
             compilation_options: wgpu::PipelineCompilationOptions::default(),
             cache: None,
         });
@@ -318,7 +318,7 @@ fn run_gpu_eigh(
             pass.dispatch_workgroups(dispatch_wg, 1, 1);
         }
         gpu.queue().submit(Some(enc.finish()));
-        gpu.device().poll(wgpu::Maintain::Wait);
+        let _ = gpu.device().poll(wgpu::PollType::Wait { submission_index: None, timeout: None });
     }
 
     // Re-upload matrices (warmup may have modified A_batch in place)
@@ -345,7 +345,7 @@ fn run_gpu_eigh(
         }
         enc.copy_buffer_to_buffer(&eig_buf, 0, &staging, 0, (batch * dim * 8) as u64);
         gpu.queue().submit(Some(enc.finish()));
-        gpu.device().poll(wgpu::Maintain::Wait);
+        let _ = gpu.device().poll(wgpu::PollType::Wait { submission_index: None, timeout: None });
     }
     let elapsed_ms = t0.elapsed().as_secs_f64() * 1000.0 / f64::from(rounds);
 

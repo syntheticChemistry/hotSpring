@@ -106,14 +106,14 @@ impl<'a> BcsBisectionGpu<'a> {
         let pl = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("BCS PL"),
             bind_group_layouts: &[&bgl],
-            push_constant_ranges: &[],
+            immediate_size: 0,
         });
 
         let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
             label: Some("bcs_bisection"),
             layout: Some(&pl),
             module: &shader,
-            entry_point: "bcs_bisection",
+            entry_point: Some("bcs_bisection"),
             compilation_options: wgpu::PipelineCompilationOptions::default(),
             cache: None,
         });
@@ -399,7 +399,7 @@ fn read_f64(
             let _ = tx.send(r);
         },
     );
-    device.poll(wgpu::Maintain::Wait);
+    let _ = device.poll(wgpu::PollType::Wait { submission_index: None, timeout: None });
     rx.recv()
         .map_err(|e| format!("channel: {e}"))?
         .map_err(|e| format!("map: {e}"))?;
@@ -445,7 +445,7 @@ fn read_u32(
             let _ = tx.send(r);
         },
     );
-    device.poll(wgpu::Maintain::Wait);
+    let _ = device.poll(wgpu::PollType::Wait { submission_index: None, timeout: None });
     rx.recv()
         .map_err(|e| format!("channel: {e}"))?
         .map_err(|e| format!("map: {e}"))?;

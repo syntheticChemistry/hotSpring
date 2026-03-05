@@ -1,0 +1,14 @@
+{"results": [
+  {"label": "k1_G14", "kappa": 1.0, "gamma": 14.0, "wall_seconds": 722.762, "n_particles": 2048}
+,
+  {"label": "k1_G72", "kappa": 1.0, "gamma": 72.0, "wall_seconds": 700.846, "n_particles": 2048}
+,
+  {"label": "k1_G217", "kappa": 1.0, "gamma": 217.0, "wall_seconds": 698.182, "n_particles": 2048}
+,
+  {"label": "k2_G31", "kappa": 2.0, "gamma": 31.0, "wall_seconds": 713.143, "n_particles": 2048}
+,
+  {"label": "k2_G158", "kappa": 2.0, "gamma": 158.0, "wall_seconds": 697.367, "n_particles": 2048}
+,
+  {"label": "k2_G476", "kappa": 2.0, "gamma": 476.0, "wall_seconds": 703.839, "n_particles": 2048}
+,
+  {"label": "k3_G100", "kappa": 3.0, "gamma": 100.0, "wall_seconds": 785.835, "n_particles": 2048}

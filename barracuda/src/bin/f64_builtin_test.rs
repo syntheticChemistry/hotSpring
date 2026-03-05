@@ -54,14 +54,14 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {{
 "
         );
 
-        gpu.device().push_error_scope(wgpu::ErrorFilter::Validation);
+        let scope = gpu.device().push_error_scope(wgpu::ErrorFilter::Validation);
         let _module = gpu
             .device()
             .create_shader_module(wgpu::ShaderModuleDescriptor {
                 label: Some(name),
                 source: wgpu::ShaderSource::Wgsl(shader.into()),
             });
-        let err = gpu.device().pop_error_scope().await;
+        let err: Option<wgpu::Error> = scope.pop().await;
         let compiled = err.is_none();
         match err {
             Some(e) => println!("  {name:<15} FAILED — {e}"),
@@ -441,7 +441,7 @@ fn run_shader(
         .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: None,
             bind_group_layouts: &[&bind_group_layout],
-            push_constant_ranges: &[],
+            immediate_size: 0,
         });
 
     let pipeline = gpu
@@ -450,7 +450,7 @@ fn run_shader(
             label: None,
             layout: Some(&pipeline_layout),
             module: &module,
-            entry_point: "main",
+            entry_point: Some("main"),
             compilation_options: wgpu::PipelineCompilationOptions::default(),
             cache: None,
         });
@@ -493,7 +493,7 @@ fn run_shader(
             tx.send(r).ok();
         },
     );
-    gpu.device().poll(wgpu::Maintain::Wait);
+    let _ = gpu.device().poll(wgpu::PollType::Wait { submission_index: None, timeout: None });
     rx.recv()
         .expect("channel recv from map_async")
         .expect("wgpu buffer map_async succeeded");

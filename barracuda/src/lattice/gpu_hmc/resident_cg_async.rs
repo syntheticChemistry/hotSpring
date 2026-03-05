@@ -27,13 +27,13 @@ impl AsyncCgReadback {
             .map_async(wgpu::MapMode::Read, move |result| {
                 let _ = tx.send(result);
             });
-        gpu.device().poll(wgpu::Maintain::Poll);
+        let _ = gpu.device().poll(wgpu::PollType::Poll);
         Some(Self { receiver: rx })
     }
 
     /// Poll: check if the readback is ready without blocking.
     pub fn is_ready(&self, gpu: &GpuF64) -> bool {
-        gpu.device().poll(wgpu::Maintain::Poll);
+        let _ = gpu.device().poll(wgpu::PollType::Poll);
         matches!(
             self.receiver.try_recv(),
             Ok(Ok(())) | Err(std::sync::mpsc::TryRecvError::Empty)
@@ -42,7 +42,7 @@ impl AsyncCgReadback {
 
     /// Block until the readback is complete, then return the f64 value.
     pub fn wait(self, gpu: &GpuF64, staging: &wgpu::Buffer) -> f64 {
-        gpu.device().poll(wgpu::Maintain::Wait);
+        let _ = gpu.device().poll(wgpu::PollType::Wait { submission_index: None, timeout: None });
         let _ = self.receiver.recv();
         let slice = staging.slice(..);
         let data = slice.get_mapped_range();
@@ -149,7 +149,7 @@ pub fn gpu_cg_solve_resident_async(
             gpu.submit_encoder(spec_enc);
         }
 
-        gpu.device().poll(wgpu::Maintain::Wait);
+        let _ = gpu.device().poll(wgpu::PollType::Wait { submission_index: None, timeout: None });
         let map_result = rx.recv();
         let rz_new = if map_result.is_ok() {
             let slice = staging.slice(..);

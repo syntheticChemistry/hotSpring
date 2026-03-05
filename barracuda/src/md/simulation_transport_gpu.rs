@@ -16,6 +16,7 @@ use crate::md::config::MdConfig;
 use crate::md::observables::transport_gpu::{compute_vacf_gpu, GpuVacf, GpuVelocityRing};
 use crate::md::shaders;
 use crate::md::simulation::{init_fcc_lattice, init_velocities, EnergyRecord};
+use crate::tolerances;
 
 use barracuda::pipeline::ReduceScalarPipeline;
 
@@ -24,8 +25,8 @@ use std::time::Instant;
 /// Compute shader workgroup size (must match WGSL `@workgroup_size(N)`).
 const WORKGROUP_SIZE: usize = 64;
 
-/// Berendsen thermostat rescaling interval during equilibration (steps).
-const THERMOSTAT_INTERVAL: usize = 10;
+/// Berendsen thermostat rescaling interval — uses the centralized constant.
+const THERMOSTAT_INTERVAL: usize = tolerances::THERMOSTAT_INTERVAL;
 
 /// Default RNG seed for velocity initialization (reproducible baselines).
 const DEFAULT_VELOCITY_SEED: u64 = 42;

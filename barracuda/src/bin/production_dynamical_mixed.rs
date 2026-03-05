@@ -38,7 +38,7 @@ use hotspring_barracuda::production::{
     npu_worker::{NpuRequest, NpuResponse},
     plaquette_variance,
     titan_worker::{TitanRequest, TitanResponse},
-    BetaResult, MetaRow,
+    BetaResult, MetaRow, TrajectoryEvent, TrajectoryPhase,
 };
 use hotspring_barracuda::proxy::CortexRequest;
 
@@ -389,7 +389,9 @@ fn main() {
         if npu_quenched_budget > 0 {
             print!("  Quenched pre-therm ({npu_quenched_budget} NPU-predicted)...");
             std::io::stdout().flush().ok();
+            let mut quenched_accepted = 0usize;
             for i in 0..npu_quenched_budget {
+                let traj_start = Instant::now();
                 let r = gpu_hmc_trajectory_streaming(
                     &gpu,
                     &quenched_pipelines,
@@ -399,8 +401,35 @@ fn main() {
                     i as u32,
                     &mut seed,
                 );
+                let wall_us = traj_start.elapsed().as_micros() as u64;
                 quenched_plaq_history.push(r.plaquette);
                 quenched_used = i + 1;
+                if r.accepted {
+                    quenched_accepted += 1;
+                }
+                let quenched_running_acc = if i > 0 {
+                    quenched_accepted as f64 / (i + 1) as f64
+                } else {
+                    0.5
+                };
+
+                npu_tx.send(NpuRequest::TrajectoryEvent(TrajectoryEvent {
+                    beta,
+                    mass: args.mass,
+                    lattice: args.lattice,
+                    phase_tag: TrajectoryPhase::Quenched,
+                    traj_idx: i,
+                    plaquette: r.plaquette,
+                    delta_h: r.delta_h,
+                    accepted: r.accepted,
+                    cg_iterations: 0,
+                    polyakov_re: 0.0,
+                    polyakov_phase: 0.0,
+                    action_density: 6.0 * (1.0 - r.plaquette),
+                    plaquette_var: plaquette_variance(&quenched_plaq_history),
+                    wall_us,
+                    running_acceptance: quenched_running_acc,
+                })).ok();
 
                 if let Some(ref mut w) = traj_writer {
                     let line = serde_json::json!({
@@ -461,7 +490,7 @@ fn main() {
             }
         }
 
-        // Use CG estimate to set adaptive check_interval
+        // Use CG estimate to set adaptive check_interval and dynamic CG cap
         let adaptive_check_interval = if let Some(NpuResponse::CgEstimate(est)) = npu_cg_estimate {
             let interval = if est < 200 {
                 20
@@ -470,7 +499,16 @@ fn main() {
             } else {
                 5
             };
-            println!("  NPU CG estimate: ~{est} iters → check_interval={interval}");
+            // NPU decision: cap CG at 4× estimated to avoid wasting compute
+            // GPU override: never go below the CLI-specified max as a floor
+            let npu_cap = (est * 4).max(500);
+            let effective_cap = npu_cap.min(args.cg_max_iter);
+            if effective_cap < args.cg_max_iter {
+                println!("  NPU CG estimate: ~{est} iters → check_interval={interval}, \
+                    cg_cap={effective_cap} (was {})", args.cg_max_iter);
+            } else {
+                println!("  NPU CG estimate: ~{est} iters → check_interval={interval}");
+            }
             interval
         } else {
             args.check_interval
@@ -493,6 +531,17 @@ fn main() {
             })
             .ok();
 
+        // Dynamic CG cap: NPU predicts CG cost → set max_iter with 3× headroom
+        let dynamic_cg_max = if let Some(NpuResponse::CgEstimate(est)) = npu_cg_estimate.as_ref() {
+            let cap = (*est * 3).max(500).min(args.cg_max_iter);
+            if cap < args.cg_max_iter {
+                eprintln!("  [NPU] Dynamic CG cap: {cap} (predicted {est}, max {})", args.cg_max_iter);
+            }
+            cap
+        } else {
+            args.cg_max_iter
+        };
+
         // Dynamical HMC setup
         let dyn_state = GpuDynHmcState::from_lattice_multi(
             &gpu,
@@ -500,7 +549,7 @@ fn main() {
             beta,
             args.mass,
             args.cg_tol,
-            args.cg_max_iter,
+            dynamic_cg_max,
             args.n_fields,
         );
         let cg_bufs = GpuResidentCgBuffers::new(
@@ -519,8 +568,10 @@ fn main() {
 
         print!("  Dynamical therm ({} max)...", args.n_therm);
         std::io::stdout().flush().ok();
+        let mut therm_accepted = 0usize;
         for i in 0..args.n_therm {
             let traj_idx = args.n_quenched_pretherm + i;
+            let traj_start = Instant::now();
             let r = gpu_dynamical_hmc_trajectory_brain(
                 &gpu,
                 &dyn_streaming_pipelines,
@@ -535,8 +586,35 @@ fn main() {
                 &brain_residual_tx,
                 &brain_interrupt_rx,
             );
+            let therm_wall_us = traj_start.elapsed().as_micros() as u64;
             plaq_history.push(r.plaquette);
             therm_used = i + 1;
+            if r.accepted {
+                therm_accepted += 1;
+            }
+            let therm_running_acc = if i > 0 {
+                therm_accepted as f64 / (i + 1) as f64
+            } else {
+                0.5
+            };
+
+            npu_tx.send(NpuRequest::TrajectoryEvent(TrajectoryEvent {
+                beta,
+                mass: args.mass,
+                lattice: args.lattice,
+                phase_tag: TrajectoryPhase::Therm,
+                traj_idx,
+                plaquette: r.plaquette,
+                delta_h: r.delta_h,
+                accepted: r.accepted,
+                cg_iterations: r.cg_iterations,
+                polyakov_re: 0.0,
+                polyakov_phase: 0.0,
+                action_density: 6.0 * (1.0 - r.plaquette),
+                plaquette_var: plaquette_variance(&plaq_history),
+                wall_us: therm_wall_us,
+                running_acceptance: therm_running_acc,
+            })).ok();
 
             if let Some(ref mut w) = traj_writer {
                 let line = serde_json::json!({
@@ -626,6 +704,34 @@ fn main() {
                 0.5
             };
 
+            // Polyakov loop for this trajectory (measured if accepted, else 0)
+            let (traj_poly_re, traj_poly_phase) = if r.accepted {
+                let (re, im) = lat.complex_polyakov_average();
+                let mag = (re * re + im * im).sqrt();
+                let phase = im.atan2(re);
+                (mag, phase)
+            } else {
+                (0.0, 0.0)
+            };
+
+            npu_tx.send(NpuRequest::TrajectoryEvent(TrajectoryEvent {
+                beta,
+                mass: args.mass,
+                lattice: args.lattice,
+                phase_tag: TrajectoryPhase::Measurement,
+                traj_idx,
+                plaquette: r.plaquette,
+                delta_h: r.delta_h,
+                accepted: r.accepted,
+                cg_iterations: r.cg_iterations,
+                polyakov_re: traj_poly_re,
+                polyakov_phase: traj_poly_phase,
+                action_density: 6.0 * (1.0 - r.plaquette),
+                plaquette_var: plaquette_variance(&plaq_history),
+                wall_us,
+                running_acceptance: running_acc,
+            })).ok();
+
             // Head 4: Rejection prediction
             npu_tx
                 .send(NpuRequest::RejectPredict {
@@ -642,12 +748,31 @@ fn main() {
 
             if let Ok(NpuResponse::RejectPrediction {
                 likely_rejected,
-                _confidence: _,
+                _confidence,
             }) = npu_rx.recv()
             {
                 if likely_rejected != r.accepted {
                     npu_stats.reject_correct += 1;
                     reject_correct += 1;
+                }
+                // NPU steering: if NPU confidently predicts rejection and is
+                // trusted (>80% confidence, >3 correct predictions), and we
+                // have enough measurements, skip remaining low-quality trajectories
+                if likely_rejected
+                    && _confidence > 0.8
+                    && reject_correct > 3
+                    && i >= 2
+                    && n_accepted == 0
+                {
+                    eprintln!(
+                        "  [NPU] Reject streak: skipping remaining meas (conf={_confidence:.2}, \
+                         0/{} accepted) — GPU override if delta_H < 0.1",
+                        i + 1
+                    );
+                    // Safety: GPU override — if delta_H is small, don't trust the NPU
+                    if r.delta_h.abs() >= 0.1 {
+                        break;
+                    }
                 }
             }
 
@@ -664,11 +789,15 @@ fn main() {
                             condition_number: features.condition_number,
                             phase: features.phase.clone(),
                             tier: features.tier,
+                            potts_magnetization: features.potts_magnetization,
+                            potts_susceptibility: features.potts_susceptibility,
+                            potts_phase: features.potts_phase.clone(),
                         })
                         .ok();
                     println!(
-                        "  [Brain L3] Proxy features: ⟨r⟩={:.3} |λ|_min={:.3} [{}]",
-                        features.level_spacing_ratio, features.lambda_min, features.phase
+                        "  [Brain L3] Anderson: ⟨r⟩={:.3} |λ|_min={:.3} [{}] | Potts: mag={:.3} χ={:.1} [{}]",
+                        features.level_spacing_ratio, features.lambda_min, features.phase,
+                        features.potts_magnetization, features.potts_susceptibility, features.potts_phase
                     );
                 }
             }
@@ -710,6 +839,46 @@ fn main() {
                         n_md = ((dt * n_md as f64 / drop).round() as usize).clamp(NMD_MIN, NMD_MAX);
                         dt = drop;
                         println!("  NPU mid-run: acc {running_acc:.0}% < 50%, dt → {dt:.4}, n_md → {n_md}");
+                    }
+                }
+
+                // Gen 2: Sub-model steering predictions (every 10 meas traj)
+                if i > 0 && (i + 1) % 10 == 0 {
+                    let evt_for_predict = TrajectoryEvent {
+                        beta, mass: args.mass, lattice: args.lattice,
+                        phase_tag: TrajectoryPhase::Measurement, traj_idx,
+                        plaquette: r.plaquette, delta_h: r.delta_h,
+                        accepted: r.accepted, cg_iterations: r.cg_iterations,
+                        polyakov_re: traj_poly_re, polyakov_phase: traj_poly_phase,
+                        action_density: 6.0 * (1.0 - r.plaquette),
+                        plaquette_var: plaquette_variance(&plaq_history),
+                        wall_us, running_acceptance: running_acc,
+                    };
+                    npu_tx.send(NpuRequest::SubModelPredict(evt_for_predict)).ok();
+                    if let Ok(NpuResponse::SubModelPredictions { cg_cost, steering, phase: phase_pred, .. }) = npu_rx.recv() {
+                        // CG cost predictor: stall_probability > 0.7 → warn
+                        if let Some(ref cg) = cg_cost {
+                            if cg.len() >= 2 && cg[1] > 0.7 {
+                                eprintln!("  [Sub-model] CG stall warning: P(stall)={:.2} at β={beta:.4}", cg[1]);
+                            }
+                        }
+                        // Phase oracle: log continuous phase estimate
+                        if let Some(ref ph) = phase_pred {
+                            if ph.len() >= 1 && (ph[0] > 0.8 || ph[0] < 0.2) {
+                                eprintln!("  [Sub-model] Phase confidence: {:.2} at β={beta:.4}", ph[0]);
+                            }
+                        }
+                        // Steering brain: skip_decision > 0.8 → NPU recommends ending measurement
+                        // GPU override: only if we have enough data (i >= n_meas/2)
+                        if let Some(ref steer) = steering {
+                            if steer.len() >= 5 && steer[4] > 0.8 && i >= args.n_meas / 2 {
+                                eprintln!(
+                                    "  [Sub-model] Steering: skip_decision={:.2}, saturation={:.2} → early-term meas",
+                                    steer[4], steer[3]
+                                );
+                                break;
+                            }
+                        }
                     }
                 }
             }
@@ -856,6 +1025,15 @@ fn main() {
         }
         println!();
 
+        // Flush trajectory batch to ensure sub-models process all events from this beta
+        npu_tx.send(NpuRequest::FlushTrajectoryBatch).ok();
+        // Drain the batch-processed response (fire-and-forget)
+        if let Ok(NpuResponse::TrajectoryBatchProcessed { n_events }) = npu_rx.recv() {
+            if n_events > 0 {
+                println!("  [NPU] Sub-models: {n_events} buffered events flushed");
+            }
+        }
+
         // Retrain after each β point
         npu_tx
             .send(NpuRequest::Retrain {
@@ -865,6 +1043,18 @@ fn main() {
         npu_stats.total_npu_calls += 1;
         if let Ok(NpuResponse::Retrained { beta_c }) = npu_rx.recv() {
             println!("  ESN retrained → β_c ≈ {beta_c:.4}");
+        }
+
+        // Gen 2: Query sub-model metrics for experimentation logging
+        npu_tx.send(NpuRequest::SubModelMetrics).ok();
+        if let Ok(NpuResponse::SubModelMetricsSnapshot(metrics)) = npu_rx.recv() {
+            if let Some(ref mut w) = traj_writer {
+                let line = serde_json::json!({
+                    "beta": beta, "phase": "sub_model_metrics",
+                    "bi": bi, "sub_models": metrics,
+                });
+                writeln!(w, "{line}").ok();
+            }
         }
 
         // Gen 2: Query disagreement snapshot for concept edge detection
@@ -929,11 +1119,27 @@ fn main() {
             npu_stats.total_npu_calls += 1;
 
             npu_stats.adaptive_steered += 1;
-            if let Ok(NpuResponse::AdaptiveSteered(Some(new_beta))) = npu_rx.recv() {
-                println!("  NPU adaptive steer: inserting β={new_beta:.4} into scan queue ({}/{} adaptive budget)",
-                    npu_stats.adaptive_inserted + 1, args.max_adaptive);
-                beta_order.push(new_beta);
-                npu_stats.adaptive_inserted += 1;
+            match npu_rx.recv() {
+                Ok(NpuResponse::AdaptiveSteered { suggestion: Some(new_beta), saturated }) => {
+                    if saturated {
+                        println!("  [NPU] Parameter set saturated — accepting final point β={new_beta:.4} then moving on");
+                        beta_order.push(new_beta);
+                        npu_stats.adaptive_inserted += 1;
+                        npu_stats.adaptive_inserted = args.max_adaptive;
+                    } else {
+                        println!("  NPU adaptive steer: inserting β={new_beta:.4} into scan queue ({}/{} adaptive budget)",
+                            npu_stats.adaptive_inserted + 1, args.max_adaptive);
+                        beta_order.push(new_beta);
+                        npu_stats.adaptive_inserted += 1;
+                    }
+                }
+                Ok(NpuResponse::AdaptiveSteered { suggestion: None, saturated }) => {
+                    if saturated {
+                        println!("  [NPU] Parameter set saturated — no novel points remain, moving on");
+                        npu_stats.adaptive_inserted = args.max_adaptive;
+                    }
+                }
+                _ => {}
             }
         } else if npu_stats.adaptive_inserted >= args.max_adaptive && results.len() >= 3 {
             println!(
@@ -961,6 +1167,9 @@ fn main() {
                 println!("  [Brain L2] Titan V pre-thermalizing β={future_beta:.4} in background");
             }
         }
+
+        // Flush any buffered trajectory events at end of beta
+        npu_tx.send(NpuRequest::FlushTrajectoryBatch).ok();
 
         bi += 1;
     }

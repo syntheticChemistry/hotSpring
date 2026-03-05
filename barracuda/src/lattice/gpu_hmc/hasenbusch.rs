@@ -153,7 +153,7 @@ fn gpu_mom_kick(
 ) {
     let n_links = state.gauge.n_links;
     let gs = &state.gauge;
-    let params = make_link_mom_params(n_links, dt);
+    let params = make_link_mom_params(n_links, dt, gpu.full_df64_mode);
     let pbuf = gpu.create_uniform_buffer(&params, "has_mom_p");
     let bg = gpu.create_bind_group(
         &pipelines.gauge.momentum_pipeline,
@@ -479,7 +479,7 @@ fn gpu_ratio_force_kick(
 /// Link update (reuses encode_link_update from brain module).
 fn link_update(gpu: &GpuF64, pipelines: &GpuDynHmcPipelines, state: &GpuDynHmcState, dt: f64) {
     let gs = &state.gauge;
-    let params = make_link_mom_params(gs.n_links, dt);
+    let params = make_link_mom_params(gs.n_links, dt, gpu.full_df64_mode);
     let pbuf = gpu.create_uniform_buffer(&params, "has_link_p");
     let bg = gpu.create_bind_group(&pipelines.gauge.link_pipeline, &[&pbuf, &gs.mom_buf, &gs.link_buf]);
     gpu.dispatch(&pipelines.gauge.link_pipeline, &bg, gs.wg_links);

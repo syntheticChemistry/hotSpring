@@ -109,6 +109,10 @@ env/
 # CUDA compiled binaries
 barracuda/cuda/bench_fp64_ratio_cuda
 
+# Experiment outputs (regenerable via experiment scripts)
+results/*.jsonl
+results/weights/*.bin
+
 # ============================================================
 # NOTE: These ARE tracked (small, important for reproducibility):
 #   control/sarkas/simulations/dsf-study/results/*.json   (validation results)

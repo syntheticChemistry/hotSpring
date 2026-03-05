@@ -430,14 +430,14 @@ fn bench_shader(
     let pl = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         label: None,
         bind_group_layouts: &[&bgl],
-        push_constant_ranges: &[],
+        immediate_size: 0,
     });
 
     let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
         label: None,
         layout: Some(&pl),
         module: &shader,
-        entry_point: "main",
+        entry_point: Some("main"),
         compilation_options: wgpu::PipelineCompilationOptions::default(),
         cache: None,
     });
@@ -470,7 +470,7 @@ fn bench_shader(
             pass.dispatch_workgroups(batch, 1, 1);
         }
         queue.submit(Some(enc.finish()));
-        device.poll(wgpu::Maintain::Wait);
+        let _ = device.poll(wgpu::PollType::Wait { submission_index: None, timeout: None });
     };
 
     let _ = wg_size;

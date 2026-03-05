@@ -138,6 +138,36 @@ pub const SHADER_YUKAWA_FORCE_INDIRECT: &str =
     include_str!("shaders/yukawa_force_celllist_indirect_f64.wgsl");
 
 // ═══════════════════════════════════════════════════════════════════
+// Yukawa DF64 Force Kernels — FP32 Core Streaming
+// ═══════════════════════════════════════════════════════════════════
+//
+// DF64 (f32-pair) variants for Fp64Strategy::Hybrid — runs force math
+// on all FP32 cores (~10,496 on RTX 3090) instead of 1:64 throttled
+// FP64 units. PBC and I/O stay in native f64 for exact rounding.
+//
+// Requires df64_core.wgsl + df64_transcendentals.wgsl prepended
+// (handled by GpuF64::create_pipeline_df64).
+/// Yukawa all-pairs force (DF64) WGSL source.
+pub const SHADER_YUKAWA_FORCE_DF64: &str = include_str!("shaders/yukawa_force_df64.wgsl");
+/// Yukawa cell-list force with indirect indexing (DF64) WGSL source.
+pub const SHADER_YUKAWA_FORCE_INDIRECT_DF64: &str =
+    include_str!("shaders/yukawa_force_celllist_indirect_df64.wgsl");
+
+// ═══════════════════════════════════════════════════════════════════
+// Yukawa Verlet Neighbor List Force Kernels
+// ═══════════════════════════════════════════════════════════════════
+//
+// Compact neighbor loop: iterates only the pre-built per-particle
+// neighbor list instead of all particles (AllPairs) or the full
+// 27-cell stencil (CellList). Fewest interactions per thread.
+/// Yukawa Verlet force (f64) WGSL source.
+pub const SHADER_YUKAWA_FORCE_VERLET: &str =
+    include_str!("shaders/yukawa_force_verlet_f64.wgsl");
+/// Yukawa Verlet force (DF64) WGSL source.
+pub const SHADER_YUKAWA_FORCE_VERLET_DF64: &str =
+    include_str!("shaders/yukawa_force_verlet_df64.wgsl");
+
+// ═══════════════════════════════════════════════════════════════════
 // RDF Histogram Kernel (f64)
 // ═══════════════════════════════════════════════════════════════════
 /// RDF histogram binning WGSL source.
@@ -177,6 +207,16 @@ mod tests {
         ("SHADER_RDF_HISTOGRAM", SHADER_RDF_HISTOGRAM),
         ("SHADER_ESN_RESERVOIR_UPDATE", SHADER_ESN_RESERVOIR_UPDATE),
         ("SHADER_ESN_READOUT", SHADER_ESN_READOUT),
+        ("SHADER_YUKAWA_FORCE_DF64", SHADER_YUKAWA_FORCE_DF64),
+        (
+            "SHADER_YUKAWA_FORCE_INDIRECT_DF64",
+            SHADER_YUKAWA_FORCE_INDIRECT_DF64,
+        ),
+        ("SHADER_YUKAWA_FORCE_VERLET", SHADER_YUKAWA_FORCE_VERLET),
+        (
+            "SHADER_YUKAWA_FORCE_VERLET_DF64",
+            SHADER_YUKAWA_FORCE_VERLET_DF64,
+        ),
     ];
 
     #[test]

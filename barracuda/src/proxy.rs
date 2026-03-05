@@ -16,11 +16,16 @@ use crate::spectral::{
     spectral_bandwidth, spectral_condition_number,
 };
 
-/// Features extracted from a physics proxy model, sent to the NPU.
+/// Features extracted from physics proxy models, sent to the NPU.
+///
+/// Combines Anderson 3D spectral features and Z(3) Potts thermodynamic
+/// features into a single struct. Both models run concurrently per beta point.
 #[derive(Debug, Clone)]
 pub struct ProxyFeatures {
     /// QCD β this proxy was evaluated for.
     pub beta: f64,
+
+    // ─── Anderson 3D (spectral/CG difficulty) ───
     /// Level spacing ratio ⟨r⟩ (GOE ≈ 0.53, Poisson ≈ 0.39).
     pub level_spacing_ratio: f64,
     /// Smallest absolute eigenvalue — predicts CG condition number.
@@ -31,11 +36,20 @@ pub struct ProxyFeatures {
     pub bandwidth: f64,
     /// Spectral condition number κ = max|λ|/min|λ| (upstream `spectral_condition_number`).
     pub condition_number: f64,
-    /// Phase label: "extended", "localized", or "critical".
+    /// Anderson phase label: "extended", "localized", or "critical".
     pub phase: String,
     /// Proxy tier: 1=3D scalar, 2=4D scalar, 3=4D Wegner.
     pub tier: u8,
-    /// Wall time for this proxy evaluation in milliseconds.
+
+    // ─── Z(3) Potts (Svetitsky-Yaffe phase mapping) ───
+    /// Potts magnetization (order parameter, 0=disordered, 1=ordered).
+    pub potts_magnetization: f64,
+    /// Potts susceptibility.
+    pub potts_susceptibility: f64,
+    /// Potts phase label: "ordered", "disordered", or "transition".
+    pub potts_phase: String,
+
+    /// Total wall time for all proxy evaluations in milliseconds.
     pub wall_ms: f64,
 }
 
@@ -108,6 +122,9 @@ pub fn anderson_3d_proxy(req: &CortexRequest, seed: u64) -> ProxyFeatures {
         condition_number: cond,
         phase: phase.to_string(),
         tier: 1,
+        potts_magnetization: 0.0,
+        potts_susceptibility: 0.0,
+        potts_phase: String::new(),
         wall_ms,
     }
 }
@@ -116,26 +133,24 @@ pub fn anderson_3d_proxy(req: &CortexRequest, seed: u64) -> ProxyFeatures {
 ///
 /// Uses the Svetitsky-Yaffe mapping: β_QCD → β_Potts ≈ (β_QCD - 4.0) / 3.0.
 /// Returns phase label and susceptibility for NPU phase classification.
-pub fn potts_z3_proxy(req: &CortexRequest, seed: u64) -> ProxyFeatures {
+pub fn potts_z3_proxy(req: &CortexRequest, seed: u64) -> (f64, f64, String, f64) {
     let t0 = std::time::Instant::now();
-
     let beta_potts = ((req.beta - 4.0) / 3.0).clamp(0.1, 1.5);
     let l = req.lattice.min(16);
     let (mag, chi, _energy, phase_label) = potts_z3_monte_carlo(l, beta_potts, 200, 100, seed);
-
     let wall_ms = t0.elapsed().as_secs_f64() * 1000.0;
+    (mag, chi, phase_label, wall_ms)
+}
 
-    ProxyFeatures {
-        beta: req.beta,
-        level_spacing_ratio: mag,
-        lambda_min: chi,
-        ipr: 0.0,
-        bandwidth: 0.0,
-        condition_number: 0.0,
-        phase: phase_label,
-        tier: 1,
-        wall_ms,
-    }
+/// Run both Anderson 3D and Potts Z(3) proxies, returning combined features.
+pub fn combined_proxy(req: &CortexRequest, seed: u64) -> ProxyFeatures {
+    let mut features = anderson_3d_proxy(req, seed);
+    let (mag, chi, potts_phase, potts_wall_ms) = potts_z3_proxy(req, seed.wrapping_add(1000));
+    features.potts_magnetization = mag;
+    features.potts_susceptibility = chi;
+    features.potts_phase = potts_phase;
+    features.wall_ms += potts_wall_ms;
+    features
 }
 
 /// Estimate IPR from eigenvalue density.
@@ -321,15 +336,14 @@ mod tests {
             lattice: 4,
             plaq_var: 0.03,
         };
-        let features = potts_z3_proxy(&req, 123);
-        assert!(features.beta > 0.0);
-        assert!(features.lambda_min.is_finite());
-        assert!(features.wall_ms >= 0.0);
-        assert!(features.tier == 1);
+        let (mag, chi, phase_label, wall_ms) = potts_z3_proxy(&req, 123);
+        assert!(mag.is_finite());
+        assert!(chi.is_finite());
+        assert!(wall_ms >= 0.0);
         assert!(
-            features.phase == "ordered"
-                || features.phase == "disordered"
-                || features.phase == "transition"
+            phase_label == "ordered"
+                || phase_label == "disordered"
+                || phase_label == "transition"
         );
     }
 
@@ -361,12 +375,9 @@ mod tests {
         };
         let a = potts_z3_proxy(&req, 777);
         let b = potts_z3_proxy(&req, 777);
-        assert_eq!(
-            a.level_spacing_ratio.to_bits(),
-            b.level_spacing_ratio.to_bits()
-        );
-        assert_eq!(a.lambda_min.to_bits(), b.lambda_min.to_bits());
-        assert_eq!(a.phase, b.phase);
+        assert_eq!(a.0.to_bits(), b.0.to_bits());
+        assert_eq!(a.1.to_bits(), b.1.to_bits());
+        assert_eq!(a.2, b.2);
     }
 
     #[test]

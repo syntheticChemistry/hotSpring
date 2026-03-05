@@ -51,18 +51,17 @@ fn make_bench_config(n: usize, prod_steps: usize) -> MdConfig {
     }
 }
 
-fn use_celllist(cfg: &MdConfig) -> bool {
-    let cells_per_dim = (cfg.box_side() / cfg.rc).floor() as usize;
-    cells_per_dim >= 5
-}
-
 async fn run_gpu(
     cfg: &MdConfig,
 ) -> Result<MdSimulation, hotspring_barracuda::error::HotSpringError> {
-    if use_celllist(cfg) {
-        simulation::run_simulation_celllist(cfg).await
-    } else {
-        simulation::run_simulation(cfg).await
+    use hotspring_barracuda::md::neighbor::{AlgorithmSelector, ForceAlgorithm};
+    let algorithm = AlgorithmSelector::from_config(cfg).select();
+    match algorithm {
+        ForceAlgorithm::AllPairs => simulation::run_simulation(cfg).await,
+        ForceAlgorithm::CellList => simulation::run_simulation_celllist(cfg).await,
+        ForceAlgorithm::VerletList { skin } => {
+            simulation::run_simulation_verlet(cfg, skin).await
+        }
     }
 }
 
@@ -108,10 +107,13 @@ fn main() {
 
     for &(n, prod, run_cpu) in bench_points {
         let cfg = make_bench_config(n, prod);
-        let mode = if use_celllist(&cfg) {
-            "cell-list"
-        } else {
-            "all-pairs"
+        let mode = {
+            use hotspring_barracuda::md::neighbor::{AlgorithmSelector, ForceAlgorithm};
+            match AlgorithmSelector::from_config(&cfg).select() {
+                ForceAlgorithm::AllPairs => "all-pairs",
+                ForceAlgorithm::CellList => "cell-list",
+                ForceAlgorithm::VerletList { .. } => "verlet",
+            }
         };
 
         println!("━━━ N = {n:>6}  ({prod} steps, {mode}) ━━━━━━━━━━━━━━━━━━━━━━━━━");

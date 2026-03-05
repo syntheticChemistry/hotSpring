@@ -1,0 +1,32 @@
+# Yukawa OCP: k2_G476 (kappa=2.0, Gamma=476.0)
+# Kokkos-CUDA on Titan V — GPU vs GPU comparison with barraCuda
+
+package         kokkos
+units           lj
+atom_style      atomic
+boundary        p p p
+
+lattice         fcc 0.238732414637843
+region          box block 0 8 0 8 0 8
+create_box      1 box
+create_atoms    1 box
+mass            1 1.0
+
+pair_style      yukawa 2.0 6.5
+pair_coeff      1 1 1.0
+
+velocity        all create 0.0021008403361344537 42 dist gaussian
+
+fix             therm all nvt temp 0.0021008403361344537 0.0021008403361344537 1.0
+timestep        0.01
+thermo_style    custom step temp pe ke etotal press
+thermo          1000
+
+run             5000
+
+unfix           therm
+fix             nve all nve
+reset_timestep  0
+thermo          1000
+
+run             30000

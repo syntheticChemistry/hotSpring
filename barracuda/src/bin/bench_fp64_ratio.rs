@@ -223,7 +223,7 @@ fn bench_shader_inner(
         .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: None,
             bind_group_layouts: &[&bind_group_layout],
-            push_constant_ranges: &[],
+            immediate_size: 0,
         });
 
     let pipeline = gpu
@@ -232,7 +232,7 @@ fn bench_shader_inner(
             label: Some(label),
             layout: Some(&pipeline_layout),
             module: &module,
-            entry_point: "main",
+            entry_point: Some("main"),
             compilation_options: wgpu::PipelineCompilationOptions::default(),
             cache: None,
         });
@@ -271,7 +271,7 @@ fn bench_shader_inner(
             pass.dispatch_workgroups(workgroups, 1, 1);
         }
         gpu.queue().submit(Some(encoder.finish()));
-        gpu.device().poll(wgpu::Maintain::Wait);
+        let _ = gpu.device().poll(wgpu::PollType::Wait { submission_index: None, timeout: None });
     }
 
     // Measure
@@ -290,7 +290,7 @@ fn bench_shader_inner(
             pass.dispatch_workgroups(workgroups, 1, 1);
         }
         gpu.queue().submit(Some(encoder.finish()));
-        gpu.device().poll(wgpu::Maintain::Wait);
+        let _ = gpu.device().poll(wgpu::PollType::Wait { submission_index: None, timeout: None });
     }
 
     t0.elapsed().as_secs_f64() / MEASURE as f64

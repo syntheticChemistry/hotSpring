@@ -17,7 +17,7 @@ use super::GpuHmcState;
 /// Encoder-based link update: single pass via `begin_encoder` + `submit_encoder`.
 /// Avoids the per-call `gpu.dispatch()` overhead (separate vkQueueSubmit).
 fn encode_link_update(gpu: &GpuF64, p: &GpuHmcPipelines, s: &GpuHmcState, dt: f64) {
-    let params = make_link_mom_params(s.n_links, dt);
+    let params = make_link_mom_params(s.n_links, dt, gpu.full_df64_mode);
     let pbuf = gpu.create_uniform_buffer(&params, "elink_p");
     let bg = gpu.create_bind_group(&p.link_pipeline, &[&pbuf, &s.mom_buf, &s.link_buf]);
     let mut enc = gpu.begin_encoder("coal_link");
@@ -34,6 +34,12 @@ pub struct CgResidualUpdate {
     pub rz_new: f64,
     /// Wall time of this batch in microseconds.
     pub batch_wall_us: u64,
+    /// Coupling beta for this solve (trajectory context).
+    pub beta: f64,
+    /// Fermion mass for this solve (trajectory context).
+    pub mass: f64,
+    /// Trajectory index within the current beta scan (trajectory context).
+    pub traj_idx: usize,
 }
 
 /// Interrupt from the NPU cerebellum requesting corrective action.
@@ -63,6 +69,9 @@ pub fn gpu_cg_solve_brain(
     check_interval: usize,
     residual_tx: &std::sync::mpsc::Sender<CgResidualUpdate>,
     interrupt_rx: &std::sync::mpsc::Receiver<BrainInterrupt>,
+    cg_beta: f64,
+    cg_mass: f64,
+    cg_traj_idx: usize,
 ) -> usize {
     let vol = state.gauge.volume;
     let n_flat = vol * 6;
@@ -148,6 +157,9 @@ pub fn gpu_cg_solve_brain(
             iteration: total_iters,
             rz_new,
             batch_wall_us,
+            beta: cg_beta,
+            mass: cg_mass,
+            traj_idx: cg_traj_idx,
         });
 
         match interrupt_rx.try_recv() {
@@ -176,6 +188,9 @@ fn gpu_fermion_action_brain_single(
     check_interval: usize,
     residual_tx: &std::sync::mpsc::Sender<CgResidualUpdate>,
     interrupt_rx: &std::sync::mpsc::Receiver<BrainInterrupt>,
+    cg_beta: f64,
+    cg_mass: f64,
+    cg_traj_idx: usize,
 ) -> (f64, usize) {
     let iters = gpu_cg_solve_brain(
         gpu,
@@ -187,6 +202,9 @@ fn gpu_fermion_action_brain_single(
         check_interval,
         residual_tx,
         interrupt_rx,
+        cg_beta,
+        cg_mass,
+        cg_traj_idx,
     );
 
     let vol = state.gauge.volume;
@@ -212,6 +230,9 @@ fn gpu_fermion_action_brain_all(
     check_interval: usize,
     residual_tx: &std::sync::mpsc::Sender<CgResidualUpdate>,
     interrupt_rx: &std::sync::mpsc::Receiver<BrainInterrupt>,
+    cg_beta: f64,
+    cg_mass: f64,
+    cg_traj_idx: usize,
 ) -> (f64, usize) {
     let mut total_action = 0.0;
     let mut total_iters = 0;
@@ -219,6 +240,7 @@ fn gpu_fermion_action_brain_all(
         let (sf, iters) = gpu_fermion_action_brain_single(
             gpu, dyn_pipelines, resident_pipelines, state, cg_bufs,
             phi_buf, check_interval, residual_tx, interrupt_rx,
+            cg_beta, cg_mass, cg_traj_idx,
         );
         total_action += sf;
         total_iters += iters;
@@ -244,18 +266,21 @@ fn gpu_total_force_dispatch_brain(
     check_interval: usize,
     residual_tx: &std::sync::mpsc::Sender<CgResidualUpdate>,
     interrupt_rx: &std::sync::mpsc::Receiver<BrainInterrupt>,
+    cg_beta: f64,
+    cg_mass: f64,
+    cg_traj_idx: usize,
 ) -> usize {
     let n_links = state.gauge.n_links;
     let gs = &state.gauge;
 
     {
-        let force_params = super::make_force_params(gs.volume, gs.beta);
+        let force_params = super::make_force_params(gs.volume, gs.beta, gpu.full_df64_mode);
         let force_pbuf = gpu.create_uniform_buffer(&force_params, "coal_force_p");
         let force_bg = gpu.create_bind_group(
             &dyn_pipelines.gauge.force_pipeline,
             &[&force_pbuf, &gs.link_buf, &gs.nbr_buf, &gs.force_buf],
         );
-        let mom_params = make_link_mom_params(n_links, dt);
+        let mom_params = make_link_mom_params(n_links, dt, gpu.full_df64_mode);
         let mom_pbuf = gpu.create_uniform_buffer(&mom_params, "coal_mom_p");
         let mom_bg = gpu.create_bind_group(
             &dyn_pipelines.gauge.momentum_pipeline,
@@ -279,6 +304,9 @@ fn gpu_total_force_dispatch_brain(
             check_interval,
             residual_tx,
             interrupt_rx,
+            cg_beta,
+            cg_mass,
+            cg_traj_idx,
         );
         total_cg += cg_iters;
 
@@ -318,7 +346,7 @@ fn gpu_total_force_dispatch_brain(
             ],
         );
 
-        let fmom_params = make_link_mom_params(n_links, -2.0 * dt);
+        let fmom_params = make_link_mom_params(n_links, -2.0 * dt, gpu.full_df64_mode);
         let fmom_pbuf = gpu.create_uniform_buffer(&fmom_params, "coal_fmom_p");
         let fmom_bg = gpu.create_bind_group(
             &dyn_pipelines.gauge.momentum_pipeline,
@@ -419,6 +447,10 @@ pub fn gpu_dynamical_hmc_trajectory_brain(
 
     let s_gauge_old = gpu_wilson_action(gpu, &dp.gauge, gs);
     let t_old = gpu_kinetic_energy(gpu, &dp.gauge, gs);
+    let cg_beta = gs.beta;
+    let cg_mass = state.mass;
+    let cg_traj_idx = traj_id as usize;
+
     let (s_ferm_old, cg_iters_old) = gpu_fermion_action_brain_all(
         gpu,
         dp,
@@ -428,6 +460,9 @@ pub fn gpu_dynamical_hmc_trajectory_brain(
         check_interval,
         residual_tx,
         interrupt_rx,
+        cg_beta,
+        cg_mass,
+        cg_traj_idx,
     );
     let h_old = s_gauge_old + t_old + s_ferm_old;
     let mut total_cg = cg_iters_old;
@@ -445,6 +480,9 @@ pub fn gpu_dynamical_hmc_trajectory_brain(
             check_interval,
             residual_tx,
             interrupt_rx,
+            cg_beta,
+            cg_mass,
+            cg_traj_idx,
         );
         encode_link_update(gpu, &dp.gauge, gs, 0.5 * dt);
         let cg2 = gpu_total_force_dispatch_brain(
@@ -457,6 +495,9 @@ pub fn gpu_dynamical_hmc_trajectory_brain(
             check_interval,
             residual_tx,
             interrupt_rx,
+            cg_beta,
+            cg_mass,
+            cg_traj_idx,
         );
         encode_link_update(gpu, &dp.gauge, gs, 0.5 * dt);
         let cg3 = gpu_total_force_dispatch_brain(
@@ -469,6 +510,9 @@ pub fn gpu_dynamical_hmc_trajectory_brain(
             check_interval,
             residual_tx,
             interrupt_rx,
+            cg_beta,
+            cg_mass,
+            cg_traj_idx,
         );
         total_cg += cg1 + cg2 + cg3;
     }
@@ -484,6 +528,9 @@ pub fn gpu_dynamical_hmc_trajectory_brain(
         check_interval,
         residual_tx,
         interrupt_rx,
+        cg_beta,
+        cg_mass,
+        cg_traj_idx,
     );
     let h_new = s_gauge_new + t_new + s_ferm_new;
     total_cg += cg_iters_new;

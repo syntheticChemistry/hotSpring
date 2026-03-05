@@ -183,7 +183,7 @@ fn gpu_total_force_dispatch_resident(
         gpu_dirac_dispatch(gpu, dyn_pipelines, state, &state.x_buf, &state.y_buf, 1.0);
         gpu_fermion_force_dispatch(gpu, dyn_pipelines, state);
 
-        let ferm_mom_params = make_link_mom_params(n_links, -2.0 * dt);
+        let ferm_mom_params = make_link_mom_params(n_links, -2.0 * dt, gpu.full_df64_mode);
         let ferm_mom_pbuf = gpu.create_uniform_buffer(&ferm_mom_params, "rcg_fmom_p");
         let ferm_mom_bg = gpu.create_bind_group(
             &dyn_pipelines.gauge.momentum_pipeline,

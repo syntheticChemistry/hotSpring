@@ -407,6 +407,27 @@ only dimensionality with a genuine metal-insulator transition:
 - **Fully GPU-resident Lanczos** — GPU dot + axpy + scale for N > 100k systems (P2)
 - **Generalized matrix exponentiation** — beyond 3×3 anti-Hermitian (P3)
 
+### Tier 3b — Kokkos/LAMMPS Validation Baseline (Murillo → Chuna, March 2026)
+
+**Priority**: P0 for hotSpring — entry point for Chuna review
+**Source**: Murillo pointed us at Kokkos (Sandia). PhD student Thomas Chuna
+(co-authored Bazavov SU(3), Murillo DSF) is the reviewer.
+
+| # | Target | What | BarraCuda Equivalent | Status |
+|---|--------|------|---------------------|--------|
+| 43 | LAMMPS Yukawa OCP (Kokkos/CUDA) | 9 PP DSF cases via `pair_style yukawa` + `kspace_style pppm` | `sarkas_gpu` (9/9, 0.000% drift) | Queued |
+| 44 | LAMMPS PPPM (cuFFT via Kokkos) | Ewald sum, B-spline charge assignment | WGSL 3D FFT + PPPM shader | Queued |
+| 45 | Kokkos dispatch overhead | Compile-time CUDA template instantiation | Runtime WGSL JIT via wgpu | Queued |
+
+**Evolution path**: Python (Sarkas) → Kokkos (LAMMPS) → Rust (hotSpring) → GPU (BarraCuda) → sovereign
+
+**Chuna review package**: Sarkas reproduction + lattice QCD β-scan + PPPM +
+DF64 precision + performance data. Lead with physics. Let him discover the
+infrastructure. See `experiments/040_KOKKOS_LAMMPS_VALIDATION.md`.
+
+**References**: Kokkos (Edwards et al. 2014, Trott et al. 2022),
+Chuna & Bazavov (2021, arXiv:2101.05320), Chuna & Murillo (2024, arXiv:2405.07871)
+
 ### Tier 4 — Warm Dense Matter & Ignition (NIF/JLF Feb 2026, baseCamp Sub-thesis 07)
 
 Murillo co-authored the "Roadmap for warm dense matter physics" (arXiv:2505.02494,

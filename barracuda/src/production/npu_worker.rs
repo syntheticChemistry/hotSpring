@@ -14,20 +14,15 @@ use crate::md::reservoir::{
 };
 use crate::production::{
     check_thermalization, plaquette_variance, predict_rejection, AttentionState, BetaResult,
-    MetaRow,
+    MetaRow, TrajectoryEvent, TrajectoryPhase,
 };
+use crate::production::sub_models::SubModelRegistry;
 use crate::provenance::KNOWN_BETA_C_SU3_NT4;
 use crate::proxy::ProxyFeatures;
 use barracuda::nautilus::{BetaObservation, NautilusBrain, NautilusBrainConfig};
 use std::sync::mpsc;
 
-/// Canonical 5-dimensional input vector shared by training and all inference heads.
-///
-/// Layout: `[beta_norm, plaquette, mass, chi/1000, acceptance]`
-///
-/// All heads MUST use this function (or a wrapper that fills in context-specific
-/// values for slots that are unknown) to avoid the P0 misalignment identified in
-/// the 031 post-mortem.
+/// Gen 1 canonical 6D input vector (kept for backward compat with existing ESN).
 fn canonical_input(beta: f64, plaq: f64, mass: f64, chi: f64, acceptance: f64, lattice: usize) -> Vec<f64> {
     vec![
         (beta - 5.0) / 2.0,
@@ -42,6 +37,50 @@ fn canonical_input(beta: f64, plaq: f64, mass: f64, chi: f64, acceptance: f64, l
 fn canonical_seq(beta: f64, plaq: f64, mass: f64, chi: f64, acceptance: f64, lattice: usize) -> Vec<Vec<f64>> {
     vec![canonical_input(beta, plaq, mass, chi, acceptance, lattice); 10]
 }
+
+/// Gen 2 full-stream 21D input vector from a per-trajectory event + proxy context.
+///
+/// Dimensions 0-14: trajectory data (always available).
+/// Dimensions 15-20: proxy features (0.0 when no proxy has been evaluated yet).
+pub fn trajectory_input(evt: &TrajectoryEvent) -> Vec<f64> {
+    trajectory_input_with_proxy(evt, None)
+}
+
+/// Build the full input vector with optional proxy features appended.
+pub fn trajectory_input_with_proxy(evt: &TrajectoryEvent, proxy: Option<&ProxyFeatures>) -> Vec<f64> {
+    vec![
+        // 0-14: trajectory data
+        (evt.beta - 5.0) / 2.0,
+        evt.plaquette,
+        evt.mass,
+        evt.delta_h.clamp(-5.0, 5.0) / 5.0,
+        evt.cg_iterations as f64 / 100_000.0,
+        if evt.accepted { 1.0 } else { 0.0 },
+        evt.polyakov_re.clamp(-1.0, 1.0),
+        evt.polyakov_phase / std::f64::consts::PI,
+        evt.action_density / 6.0,
+        evt.plaquette_var.clamp(0.0, 0.1) * 10.0,
+        evt.running_acceptance,
+        evt.lattice as f64 / 12.0,
+        evt.traj_idx as f64 / 60.0,
+        evt.wall_us as f64 / 1_000_000.0,
+        match evt.phase_tag {
+            TrajectoryPhase::Quenched => 0.0,
+            TrajectoryPhase::Therm => 0.5,
+            TrajectoryPhase::Measurement => 1.0,
+        },
+        // 15-20: proxy features (Anderson + Potts)
+        proxy.map_or(0.0, |p| p.level_spacing_ratio),
+        proxy.map_or(0.0, |p| p.lambda_min.clamp(0.0, 1.0)),
+        proxy.map_or(0.0, |p| p.ipr),
+        proxy.map_or(0.0, |p| p.condition_number.clamp(0.0, 100.0) / 100.0),
+        proxy.map_or(0.0, |p| p.potts_magnetization),
+        proxy.map_or(0.0, |p| p.potts_susceptibility.clamp(0.0, 100.0) / 100.0),
+    ]
+}
+
+/// Number of dimensions in the Gen 2 trajectory input vector (15 traj + 6 proxy).
+pub const TRAJECTORY_INPUT_DIM: usize = 21;
 
 fn heuristic_phase(beta: f64) -> &'static str {
     if beta > 5.79 { "deconfined" }
@@ -271,6 +310,9 @@ pub enum NpuRequest {
         condition_number: f64,
         phase: String,
         tier: u8,
+        potts_magnetization: f64,
+        potts_susceptibility: f64,
+        potts_phase: String,
     },
 
     // ─── Lifecycle ───
@@ -301,6 +343,16 @@ pub enum NpuRequest {
         chi: f64,
         acceptance: f64,
     },
+
+    // ─── Full-stream trajectory events ───
+    TrajectoryEvent(crate::production::TrajectoryEvent),
+    /// Flush any buffered trajectory events (e.g. at end of beta scan).
+    FlushTrajectoryBatch,
+    /// Query structured metrics from all sub-models for logging.
+    SubModelMetrics,
+    /// Request predictions from sub-models for a given event (used for steering).
+    SubModelPredict(crate::production::TrajectoryEvent),
+
     Shutdown,
 }
 
@@ -326,7 +378,10 @@ pub enum NpuResponse {
         is_anomaly: bool,
         _score: f64,
     },
-    AdaptiveSteered(Option<f64>),
+    AdaptiveSteered {
+        suggestion: Option<f64>,
+        saturated: bool,
+    },
     NextRunPlan {
         betas: Vec<f64>,
         mass: f64,
@@ -356,6 +411,23 @@ pub enum NpuResponse {
         delta_anomaly: f64,
         delta_priority: f64,
         urgency: f64,
+    },
+    /// Ack for trajectory events (fire-and-forget, not recv'd by main thread).
+    TrajectoryBatchProcessed {
+        n_events: usize,
+    },
+    /// Structured sub-model metrics for experimentation logging.
+    SubModelMetricsSnapshot(serde_json::Value),
+    /// Sub-model predictions for steering decisions.
+    SubModelPredictions {
+        /// CG cost: (predicted_cg_iters_norm, stall_probability)
+        cg_cost: Option<Vec<f64>>,
+        /// Steering brain: (next_beta_priority, optimal_dt, optimal_n_md, saturation, skip)
+        steering: Option<Vec<f64>>,
+        /// Phase oracle: (phase_continuous, polyakov_mag, susceptibility)
+        phase: Option<Vec<f64>>,
+        /// Trajectory predictor: (next_delta_h, next_plaq, therm_progress)
+        trajectory: Option<Vec<f64>>,
     },
 }
 
@@ -400,6 +472,10 @@ pub fn spawn_npu_worker(lattice: usize) -> NpuWorkerHandles {
                 NautilusBrainConfig::default(),
                 &format!("hotspring-{lattice}"),
             );
+
+            // Gen 2: Sub-model registry (specialized ESNs on full trajectory stream)
+            let mut sub_models = SubModelRegistry::default_models();
+            let mut traj_batch: Vec<crate::production::TrajectoryEvent> = Vec::with_capacity(8);
 
             let make_multi_esn = |seed: u64, results: &[BetaResult]| -> Option<MultiHeadNpu> {
                 if results.is_empty() {
@@ -762,9 +838,16 @@ pub fn spawn_npu_worker(lattice: usize) -> NpuWorkerHandles {
                         beta_max,
                         n_candidates,
                     } => {
-                        let suggestion = if let Some(ref mut npu) = multi_npu {
+                        let all_known: Vec<f64> = measured_betas
+                            .iter()
+                            .chain(queued_betas.iter())
+                            .copied()
+                            .collect();
+                        let n_measured = measured_betas.len();
+
+                        let (suggestion, best_score) = if let Some(ref mut npu) = multi_npu {
                             let mut best_beta = None;
-                            let mut best_score = f64::NEG_INFINITY;
+                            let mut top_score = f64::NEG_INFINITY;
                             let step = (beta_max - beta_min) / (n_candidates as f64 + 1.0);
                             let exclusion = step * 0.3_f64.max(0.025);
                             for ci in 1..=n_candidates {
@@ -783,44 +866,60 @@ pub fn spawn_npu_worker(lattice: usize) -> NpuWorkerHandles {
                                 let priority = all[heads::BETA_PRIORITY];
                                 let uncertainty = (all[heads::QUALITY_SCORE] - 0.5).abs();
                                 let score = priority + uncertainty * 0.5;
-                                if score > best_score {
-                                    best_score = score;
+                                if score > top_score {
+                                    top_score = score;
                                     best_beta = Some(candidate);
                                 }
                             }
-                            best_beta
+                            (best_beta, top_score)
                         } else if nautilus_brain.trained {
-                            // Fall back to Nautilus concept edge detection
                             let edges = nautilus_brain.detect_concept_edges();
-                            if let Some((edge_beta, _score)) = edges.iter()
+                            if let Some((edge_beta, edge_score)) = edges.iter()
                                 .filter(|(b, _)| *b >= beta_min && *b <= beta_max)
                                 .max_by(|a, b| a.1.total_cmp(&b.1))
                             {
-                                let too_close = measured_betas.iter()
-                                    .chain(queued_betas.iter())
+                                let too_close = all_known.iter()
                                     .any(|&m| (m - edge_beta).abs() < 0.05);
                                 if !too_close {
-                                    Some(*edge_beta)
+                                    (Some(*edge_beta), *edge_score)
                                 } else {
-                                    let all_known: Vec<f64> = measured_betas.iter()
-                                        .chain(queued_betas.iter()).copied().collect();
-                                    find_largest_gaps(&all_known, beta_min, beta_max, 1).into_iter().next()
+                                    (find_largest_gaps(&all_known, beta_min, beta_max, 1).into_iter().next(), 0.0)
                                 }
                             } else {
-                                let all_known: Vec<f64> = measured_betas.iter()
-                                    .chain(queued_betas.iter()).copied().collect();
-                                find_largest_gaps(&all_known, beta_min, beta_max, 1).into_iter().next()
+                                (find_largest_gaps(&all_known, beta_min, beta_max, 1).into_iter().next(), 0.0)
                             }
                         } else {
-                            let all_known: Vec<f64> = measured_betas
-                                .iter()
-                                .chain(queued_betas.iter())
-                                .copied()
-                                .collect();
                             let gaps = find_largest_gaps(&all_known, beta_min, beta_max, 1);
-                            gaps.into_iter().next()
+                            (gaps.into_iter().next(), 0.0)
                         };
-                        resp_tx.send(NpuResponse::AdaptiveSteered(suggestion)).ok();
+
+                        // Saturation detection: the NPU believes this parameter
+                        // set has diminishing returns when:
+                        //  1. Dense coverage: largest remaining gap < 5% of range
+                        //  2. Low novelty: best candidate score below threshold
+                        //  3. Sufficient data: at least 5 measured points
+                        let range = beta_max - beta_min;
+                        let largest_gap = {
+                            let mut sorted = all_known.clone();
+                            sorted.push(beta_min);
+                            sorted.push(beta_max);
+                            sorted.sort_by(f64::total_cmp);
+                            sorted.dedup();
+                            sorted.windows(2)
+                                .map(|w| w[1] - w[0])
+                                .fold(0.0f64, f64::max)
+                        };
+                        let dense_enough = largest_gap < range * 0.05;
+                        let low_novelty = best_score < 0.15 && best_score > f64::NEG_INFINITY;
+                        let enough_points = n_measured >= 5;
+                        let saturated = enough_points && (dense_enough || low_novelty);
+
+                        if saturated {
+                            eprintln!("  [NPU] Saturation detected: gap={largest_gap:.3}/{range:.1} \
+                                score={best_score:.3} n={n_measured} — recommend moving on");
+                        }
+
+                        resp_tx.send(NpuResponse::AdaptiveSteered { suggestion, saturated }).ok();
                     }
 
                     NpuRequest::RecommendNextRun {
@@ -882,6 +981,9 @@ pub fn spawn_npu_worker(lattice: usize) -> NpuWorkerHandles {
                             let drifting = nautilus_brain.is_drifting();
                             eprintln!("  [Nautilus] Trained: {n_obs} obs, MSE={mse:.6}, drift={drifting}");
                         }
+                        // Gen 2: Sub-model status
+                        eprintln!("  [Sub-models] {}", sub_models.status_line());
+
                         let beta_c = estimate_beta_c(&results);
                         resp_tx.send(NpuResponse::Retrained { beta_c }).ok();
                     }
@@ -1002,6 +1104,11 @@ pub fn spawn_npu_worker(lattice: usize) -> NpuWorkerHandles {
                             residual_history.drain(..residual_history.len() - 50);
                         }
 
+                        // Regime-aware thresholds: near phase transition, CG is expected
+                        // to be harder so raise the anomaly bar.
+                        let transition_proximity = ((update.beta - KNOWN_BETA_C_SU3_NT4).abs() / 0.2).clamp(0.0, 1.0);
+                        let regime_scale = 1.0 + 0.5 * (1.0 - transition_proximity);
+
                         let anomaly_score = if let Some(ref mut npu) = multi_npu {
                             let window: Vec<f64> = residual_history
                                 .iter()
@@ -1033,9 +1140,14 @@ pub fn spawn_npu_worker(lattice: usize) -> NpuWorkerHandles {
                             0.0
                         };
 
+                        // regime_scale raises thresholds near the phase transition
+                        // where CG difficulty is physically expected
+                        let yellow_thresh = 0.3 * regime_scale;
+                        let red_thresh = 0.7 * regime_scale;
+
                         match attention_state {
                             AttentionState::Green => {
-                                if anomaly_score > 0.7 {
+                                if anomaly_score > red_thresh {
                                     attention_state = AttentionState::Red;
                                     yellow_count = 0;
                                     green_count = 0;
@@ -1052,7 +1164,7 @@ pub fn spawn_npu_worker(lattice: usize) -> NpuWorkerHandles {
                                             }
                                         }
                                     }
-                                } else if anomaly_score > 0.3 {
+                                } else if anomaly_score > yellow_thresh {
                                     attention_state = AttentionState::Yellow;
                                     green_count = 0;
                                     if let Some(ref itx) = interrupt_tx {
@@ -1061,7 +1173,7 @@ pub fn spawn_npu_worker(lattice: usize) -> NpuWorkerHandles {
                                 }
                             }
                             AttentionState::Yellow => {
-                                if anomaly_score > 0.7 {
+                                if anomaly_score > red_thresh {
                                     yellow_count += 1;
                                     if yellow_count >= 2 {
                                         attention_state = AttentionState::Red;
@@ -1070,7 +1182,7 @@ pub fn spawn_npu_worker(lattice: usize) -> NpuWorkerHandles {
                                                 itx.send(BrainInterrupt::AdjustCheckInterval(5));
                                         }
                                     }
-                                } else if anomaly_score < 0.3 {
+                                } else if anomaly_score < yellow_thresh {
                                     green_count += 1;
                                     if green_count >= 3 {
                                         attention_state = AttentionState::Green;
@@ -1128,6 +1240,9 @@ pub fn spawn_npu_worker(lattice: usize) -> NpuWorkerHandles {
                         condition_number,
                         phase,
                         tier,
+                        potts_magnetization,
+                        potts_susceptibility,
+                        potts_phase,
                     } => {
                         latest_proxy = Some(ProxyFeatures {
                             beta,
@@ -1138,16 +1253,13 @@ pub fn spawn_npu_worker(lattice: usize) -> NpuWorkerHandles {
                             condition_number,
                             phase,
                             tier,
+                            potts_magnetization,
+                            potts_susceptibility,
+                            potts_phase,
                             wall_ms: 0.0,
                         });
-                        if let Some(ref proxy) = latest_proxy {
-                            println!(
-                                "  [Brain L3] Proxy stored: β={:.4}, tier={}",
-                                proxy.beta, proxy.tier
-                            );
-                        }
 
-                        // Feed spectral features to Nautilus via spectral bridge
+                        // Feed spectral + Potts features to Nautilus
                         let spectral_obs = BetaObservation {
                             beta,
                             plaquette: bandwidth,
@@ -1160,8 +1272,6 @@ pub fn spawn_npu_worker(lattice: usize) -> NpuWorkerHandles {
                             anderson_lambda_min: Some(lambda_min),
                         };
                         nautilus_brain.observe(spectral_obs);
-
-                        // No response — main thread fire-and-forgets ProxyFeatures.
                     }
 
                     NpuRequest::DisagreementQuery {
@@ -1237,6 +1347,73 @@ pub fn spawn_npu_worker(lattice: usize) -> NpuWorkerHandles {
                                 }).ok();
                             }
                         }
+                    }
+
+                    // ─── Full-stream trajectory events ───
+                    NpuRequest::TrajectoryEvent(evt) => {
+                        traj_batch.push(evt);
+                        if traj_batch.len() >= 8 {
+                            let n = traj_batch.len();
+                            for evt in traj_batch.drain(..) {
+                                sub_models.observe_event(&evt, latest_proxy.as_ref());
+                            }
+                            resp_tx
+                                .send(NpuResponse::TrajectoryBatchProcessed { n_events: n })
+                                .ok();
+                        }
+                    }
+
+                    NpuRequest::FlushTrajectoryBatch => {
+                        if !traj_batch.is_empty() {
+                            let n = traj_batch.len();
+                            for evt in traj_batch.drain(..) {
+                                sub_models.observe_event(&evt, latest_proxy.as_ref());
+                            }
+                            eprintln!(
+                                "  [NPU] Sub-models: flushed {n} events — {}",
+                                sub_models.status_line()
+                            );
+                            resp_tx
+                                .send(NpuResponse::TrajectoryBatchProcessed { n_events: n })
+                                .ok();
+                        } else {
+                            resp_tx
+                                .send(NpuResponse::TrajectoryBatchProcessed { n_events: 0 })
+                                .ok();
+                        }
+                    }
+
+                    NpuRequest::SubModelMetrics => {
+                        resp_tx
+                            .send(NpuResponse::SubModelMetricsSnapshot(
+                                sub_models.metrics_json(),
+                            ))
+                            .ok();
+                    }
+
+                    NpuRequest::SubModelPredict(evt) => {
+                        let predictions = sub_models.predict_all(&evt, latest_proxy.as_ref());
+                        let mut cg_cost = None;
+                        let mut steering = None;
+                        let mut phase = None;
+                        let mut trajectory = None;
+                        for (name, pred) in predictions {
+                            match name {
+                                "cg_cost_predictor" => cg_cost = pred,
+                                "steering_brain" => steering = pred,
+                                "phase_oracle" => phase = pred,
+                                "trajectory_predictor" => trajectory = pred,
+                                _ => {}
+                            }
+                        }
+                        resp_tx
+                            .send(NpuResponse::SubModelPredictions {
+                                cg_cost,
+                                steering,
+                                phase,
+                                trajectory,
+                            })
+                            .ok();
                     }
 
                     NpuRequest::Shutdown => break,

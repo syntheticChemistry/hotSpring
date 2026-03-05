@@ -73,9 +73,17 @@ impl GpuF64 {
     }
 
     /// Upload f64 data to a GPU storage buffer (overwrites from offset 0).
+    ///
+    /// In full DF64 mode, converts each f64 to a (hi, lo) f32 pair before
+    /// upload — the GPU shader sees `array<vec2<f32>>` not `array<f64>`.
     pub fn upload_f64(&self, buffer: &wgpu::Buffer, data: &[f64]) {
-        let bytes: Vec<u8> = data.iter().flat_map(|v| v.to_le_bytes()).collect();
-        self.queue().write_buffer(buffer, 0, &bytes);
+        if self.full_df64_mode {
+            let bytes = super::f64_slice_to_df64_bytes(data);
+            self.queue().write_buffer(buffer, 0, &bytes);
+        } else {
+            let bytes: Vec<u8> = data.iter().flat_map(|v| v.to_le_bytes()).collect();
+            self.queue().write_buffer(buffer, 0, &bytes);
+        }
     }
 
     /// Read back f64 data from a GPU buffer via staging copy.
@@ -131,7 +139,7 @@ impl GpuF64 {
             .map_async(wgpu::MapMode::Read, move |result| {
                 let _ = tx.send(result);
             });
-        self.device().poll(wgpu::Maintain::Poll);
+        let _ = self.device().poll(wgpu::PollType::Poll);
         rx
     }
 
@@ -141,7 +149,7 @@ impl GpuF64 {
         staging: &wgpu::Buffer,
         rx: std::sync::mpsc::Receiver<Result<(), wgpu::BufferAsyncError>>,
     ) -> Result<Vec<f64>, crate::error::HotSpringError> {
-        self.device().poll(wgpu::Maintain::Wait);
+        let _ = self.device().poll(wgpu::PollType::Wait { submission_index: None, timeout: None });
         rx.recv()
             .map_err(|_| {
                 crate::error::HotSpringError::DeviceCreation(
@@ -152,7 +160,11 @@ impl GpuF64 {
                 crate::error::HotSpringError::DeviceCreation(format!("Async readback mapping: {e}"))
             })?;
         let data = staging.slice(..).get_mapped_range();
-        let result = mapped_bytes_to_f64(&data);
+        let result = if self.full_df64_mode {
+            super::df64_bytes_to_f64_slice(&data)
+        } else {
+            mapped_bytes_to_f64(&data)
+        };
         drop(data);
         staging.unmap();
         Ok(result)
@@ -170,7 +182,7 @@ impl GpuF64 {
                 let _ = sender.send(result);
             },
         );
-        self.device().poll(wgpu::Maintain::Wait);
+        let _ = self.device().poll(wgpu::PollType::Wait { submission_index: None, timeout: None });
         receiver
             .recv()
             .map_err(|_| {
@@ -183,7 +195,11 @@ impl GpuF64 {
             })?;
 
         let data = slice.get_mapped_range();
-        let result = mapped_bytes_to_f64(&data);
+        let result = if self.full_df64_mode {
+            super::df64_bytes_to_f64_slice(&data)
+        } else {
+            mapped_bytes_to_f64(&data)
+        };
         drop(data);
         staging.unmap();
         Ok(result)
@@ -270,7 +286,7 @@ impl GpuF64 {
                 let _ = sender.send(result);
             },
         );
-        self.device().poll(wgpu::Maintain::Wait);
+        let _ = self.device().poll(wgpu::PollType::Wait { submission_index: None, timeout: None });
         receiver
             .recv()
             .map_err(|_| {

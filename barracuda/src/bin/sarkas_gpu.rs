@@ -556,26 +556,33 @@ async fn run_single_case(config: &MdConfig, report: &mut BenchReport) -> bool {
     let monitor = PowerMonitor::start();
     let t0 = Instant::now();
 
-    // Cell-list mode activates when cells_per_dim >= 5 (enough cells for
-    // meaningful neighbor-list optimization). Below that, all-pairs is used.
-    // Bug fix (Feb 2026): cell_idx() modular wrapping used i32 % which produced
-    // wrong results for negative operands on NVIDIA/Naga; replaced with branches.
-    let box_side = config.box_side();
-    let cells_per_dim = (box_side / config.rc).floor() as usize;
-    let result = if cells_per_dim >= 5 {
-        println!(
-            "  Using cell-list mode ({} cells/dim, N={})",
-            cells_per_dim, config.n_particles
-        );
-        simulation::run_simulation_celllist(config).await
-    } else {
-        println!(
-            "  Using all-pairs mode (box/rc={:.1}, cells/dim={}, N={})",
-            box_side / config.rc,
-            cells_per_dim,
-            config.n_particles
-        );
-        simulation::run_simulation(config).await
+    use hotspring_barracuda::md::neighbor::{AlgorithmSelector, ForceAlgorithm};
+    let selector = AlgorithmSelector::from_config(config);
+    let algorithm = selector.select();
+    let result = match &algorithm {
+        ForceAlgorithm::AllPairs => {
+            println!(
+                "  Using all-pairs mode (N={})",
+                config.n_particles
+            );
+            simulation::run_simulation(config).await
+        }
+        ForceAlgorithm::CellList => {
+            let box_side = config.box_side();
+            let cells_per_dim = (box_side / config.rc).floor() as usize;
+            println!(
+                "  Using cell-list mode ({} cells/dim, N={})",
+                cells_per_dim, config.n_particles
+            );
+            simulation::run_simulation_celllist(config).await
+        }
+        ForceAlgorithm::VerletList { skin } => {
+            println!(
+                "  Using Verlet neighbor list mode (skin={:.3}, N={})",
+                skin, config.n_particles
+            );
+            simulation::run_simulation_verlet(config, *skin).await
+        }
     };
 
     let energy = monitor.stop();

@@ -1,6 +1,6 @@
 [package]
 name = "hotspring-barracuda"
-version = "0.6.16"
+version = "0.6.17"
 edition = "2021"
 description = "Nuclear EOS + GPU MD validation for BarraCuda — L1/L2/L3 physics, Yukawa OCP, lattice QCD, spectral theory, typed errors, full Result propagation, provenance, capability-based discovery"
 license = "AGPL-3.0-only"
@@ -103,11 +103,14 @@ akida-driver = { path = "../../phase1/toadStool/crates/neuromorphic/akida-driver
 akida-models = { path = "../../phase1/toadStool/crates/neuromorphic/akida-models", optional = true }
 
 # GPU compute (wgpu for SHADER_F64 FP64 science compute)
-# Must match barracuda's wgpu version (22) to avoid type conflicts.
-wgpu = { version = "22", default-features = false, features = [
+# Must match barracuda's wgpu version (28) to avoid type conflicts.
+wgpu = { version = "28", default-features = false, features = [
     "wgsl",
     "vulkan-portability",
 ] }
+
+# Blocking async operations (adapter enumeration is async in wgpu 28)
+pollster = "0.4"
 
 # ── L1 validation (NMP-constrained, Pareto sweep, multi-seed) ──────
 [[bin]]

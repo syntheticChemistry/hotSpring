@@ -35,6 +35,8 @@
 
 /// Cell-list neighbor search (GPU-resident via upstream `CellListGpu`).
 pub mod celllist;
+/// Neighbor search algorithm selection and Verlet list GPU implementation.
+pub mod neighbor;
 /// Sarkas-style MD configuration (kappa, Gamma, DSF parameters).
 pub mod config;
 /// CPU Yukawa force reference for GPU cross-validation.

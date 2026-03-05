@@ -14,11 +14,14 @@ license = "AGPL-3.0-only"
 # GPU device management, shader dispatch, buffer management.
 barracuda = { path = "../../../barraCuda/crates/barracuda" }
 
-# GPU compute — must match barracuda's wgpu version (22)
-wgpu = { version = "22", default-features = false, features = [
+# GPU compute — must match barracuda's wgpu version (28)
+wgpu = { version = "28", default-features = false, features = [
     "wgsl",
     "vulkan-portability",
 ] }
+
+# Blocking async operations (adapter enumeration is async in wgpu 28)
+pollster = "0.4"
 
 # Async runtime for GPU device creation
 tokio = { version = "1", features = ["rt"] }

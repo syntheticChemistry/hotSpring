@@ -24,9 +24,12 @@ struct Params {
 fn box_muller_cos(u1: f64, u2: f64) -> f64 {
     var safe = u1;
     if safe < f64(1e-20) { safe = f64(1e-20); }
-    let r = sqrt_f64(f64(-2.0) * log_f64(safe));
+    let log_safe = log_f64(safe);
+    let neg2_log = f64(-2.0) * log_safe;
+    let r = sqrt_f64(neg2_log);
     let theta = f64(6.283185307179586) * u2;
-    return r * cos_f64(theta);
+    let cos_theta = cos_f64(theta);
+    return r * cos_theta;
 }
 
 fn gaussian(site_idx: u32, pair: u32) -> f64 {

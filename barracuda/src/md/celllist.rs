@@ -26,6 +26,7 @@
 //! - Zero CPU readback for cell-list rebuild (was 720 KB round-trip at N=10000)
 //! - Preserves particle identity across snapshots (fixes VACF correctness)
 
+use barracuda::device::driver_profile::Fp64Strategy;
 use barracuda::ops::md::CellListGpu;
 use barracuda::pipeline::ReduceScalarPipeline;
 
@@ -179,11 +180,29 @@ pub async fn run_simulation_celllist(
     );
 
     // ── Compile shaders ──
-    println!("  ── Compiling f64 WGSL shaders (GPU cell-list, indirect) ──");
+    let strategy = gpu.driver_profile().fp64_strategy();
+    let strategy_label = match strategy {
+        Fp64Strategy::Native => "native f64",
+        Fp64Strategy::Hybrid => "DF64 (FP32 core streaming)",
+        Fp64Strategy::Concurrent => "concurrent f64 + DF64",
+    };
+    println!("  ── Compiling WGSL shaders (GPU cell-list, indirect, {strategy_label}) ──");
     let t_compile = Instant::now();
 
-    let force_pipeline =
-        gpu.create_pipeline_f64(shaders::SHADER_YUKAWA_FORCE_INDIRECT, "force_indirect_f64");
+    let force_pipeline = match strategy {
+        Fp64Strategy::Hybrid => {
+            gpu.create_pipeline_df64(
+                shaders::SHADER_YUKAWA_FORCE_INDIRECT_DF64,
+                "force_indirect_df64",
+            )
+        }
+        Fp64Strategy::Native | Fp64Strategy::Concurrent => {
+            gpu.create_pipeline_f64(
+                shaders::SHADER_YUKAWA_FORCE_INDIRECT,
+                "force_indirect_f64",
+            )
+        }
+    };
     let kick_drift_pipeline =
         gpu.create_pipeline(shaders::SHADER_VV_KICK_DRIFT, "vv_kick_drift_f64");
     let half_kick_pipeline = gpu.create_pipeline(shaders::SHADER_VV_HALF_KICK, "vv_half_kick_f64");
@@ -238,7 +257,8 @@ pub async fn run_simulation_celllist(
     let ke_params = vec![n as f64, mass, 0.0, 0.0];
     let ke_params_buf = gpu.create_f64_buffer(&ke_params, "ke_params");
 
-    let workgroups = n.div_ceil(64) as u32;
+    use crate::tolerances::MD_WORKGROUP_SIZE;
+    let workgroups = n.div_ceil(MD_WORKGROUP_SIZE) as u32;
 
     // ── Bind groups ──
     // Force shader: 7 bindings (indirect indexing via sorted_indices)

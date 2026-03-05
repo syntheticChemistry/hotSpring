@@ -289,6 +289,9 @@ pub const PPPM_MULTI_PARTICLE_NET_FORCE: f64 = 1.0;
 /// equilibration and production. 20 steps balances rebuild cost
 /// (~0.3ms per rebuild) against force accuracy. Particles moving
 /// further than `cell_size/2` between rebuilds can miss neighbors.
+///
+/// Future: replace with adaptive rebuild based on max particle
+/// displacement since last rebuild (Verlet skin method).
 pub const CELLLIST_REBUILD_INTERVAL: usize = 20;
 
 /// Thermostat application interval (MD steps).
@@ -297,6 +300,45 @@ pub const CELLLIST_REBUILD_INTERVAL: usize = 20;
 /// equilibration. 10 steps provides smooth temperature coupling
 /// without overdamping velocity correlations.
 pub const THERMOSTAT_INTERVAL: usize = 10;
+
+/// Minimum cells per dimension for cell-list activation.
+///
+/// Cell-list requires at least 3 cells/dim for correct PBC wrapping
+/// (the 27-neighbor stencil covers the full periodic domain).
+/// Below this, all-pairs O(N²) is used.
+pub const CELLLIST_MIN_CELLS_PER_DIM: usize = 3;
+
+/// MD shader workgroup size for 1D particle dispatch.
+///
+/// Must match `@workgroup_size(N)` in all MD WGSL shaders. 64 is the
+/// safe universal value (maps to a single warp on Volta/Turing, a
+/// single wavefront on RDNA2/3). Ampere/Ada can saturate with 256
+/// but 64 still fills all SMs at typical particle counts.
+///
+/// Future: use WGSL `override` constants to set at pipeline creation
+/// time, driven by `workgroup_size_for_arch()` from barraCuda.
+pub const MD_WORKGROUP_SIZE: usize = 64;
+
+/// Verlet skin radius as a fraction of the force cutoff `rc`.
+///
+/// Particles within `rc + skin` are stored in the neighbor list.
+/// The list is rebuilt when any particle has moved more than `skin / 2`
+/// from its reference position. Larger skin → fewer rebuilds but more
+/// neighbors per particle. 0.2 × rc is the standard MD default (LAMMPS).
+pub const VERLET_SKIN_FRACTION: f64 = 0.2;
+
+/// Maximum neighbors per particle for the Verlet list GPU buffer.
+///
+/// Flat neighbor array is `[N × max_neighbors]` u32. At typical OCP
+/// densities with rc ~ 6-8 a_ws, the actual count is ~200-600.
+/// 1024 provides headroom for high-density / large-cutoff cases.
+pub const VERLET_MAX_NEIGHBORS: u32 = 1024;
+
+/// Minimum particle count to prefer Verlet list over all-pairs.
+///
+/// Below this count, the overhead of cell-list build + Verlet
+/// construction exceeds the all-pairs O(N^2) cost.
+pub const VERLET_MIN_PARTICLES: usize = 500;
 
 // ═══════════════════════════════════════════════════════════════════
 // ESN reservoir tolerances (echo state network for MD transport)

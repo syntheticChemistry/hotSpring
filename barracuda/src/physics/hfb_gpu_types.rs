@@ -167,13 +167,13 @@ pub fn make_pipeline(
     let pl = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         label: Some(entry_point),
         bind_group_layouts: layouts,
-        push_constant_ranges: &[],
+        immediate_size: 0,
     });
     device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
         label: Some(entry_point),
         layout: Some(&pl),
         module,
-        entry_point,
+        entry_point: Some(entry_point),
         compilation_options: wgpu::PipelineCompilationOptions::default(),
         cache: None,
     })

@@ -21,12 +21,12 @@ use std::fs;
 /// feature flags (`SHADER_F64` → `F64Compute`, etc.).
 #[must_use]
 pub fn probe_gpus() -> Vec<Substrate> {
-    let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+    let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
         backends: wgpu::Backends::all(),
         ..Default::default()
     });
 
-    let adapters = instance.enumerate_adapters(wgpu::Backends::all());
+    let adapters = pollster::block_on(instance.enumerate_adapters(wgpu::Backends::all()));
     let mut gpus = Vec::new();
 
     for (idx, adapter) in adapters.into_iter().enumerate() {
