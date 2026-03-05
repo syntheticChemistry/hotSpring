@@ -2,8 +2,9 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 # Cross-Spring Shader Evolution — hotSpring's View
 
-**Date:** March 4, 2026
+**Date:** March 5, 2026
 **Synced to:** barraCuda v0.3.3 (standalone primal, wgpu 28, naga 28)
+**hotSpring:** v0.6.17 — 669 tests, 9/9 Yukawa validation, Nautilus unified brain
 **License:** AGPL-3.0-only
 
 ---
@@ -288,6 +289,43 @@ propagated the optimization before barraCuda formalized it).
 | Mar 4 | hotSpring ← barraCuda | **v0.3.3 full sync: wgpu 28, naga 28** | 12 new shaders, 280× faster pipeline compilation |
 | Mar 4 | hotSpring → barraCuda | **NVK SPIR-V exclusion** | All NVK users benefit from the fix |
 | Mar 4 | hotSpring | **Volta native f64 on NVK** | Titan V: 100% acceptance with native f64 |
+| Mar 5 | hotSpring | **Nautilus unification** | ESN readout merged into Nautilus evolutionary reservoir |
+| Mar 5 | hotSpring | **tol::/eps:: tolerance adoption** | All bare literals replaced with named constants |
+| Mar 5 | hotSpring | **9/9 validation sweep** | All PP Yukawa DSF cases pass (0.001% drift), Verlet + DF64 |
+| Mar 5 | hotSpring ← barraCuda | **DF64 naga rewriter fix** | Compound assignments + let bindings handled correctly |
+| Mar 5 | hotSpring ← barraCuda | **Fused stats ops** | Welford mean+variance, Pearson correlation (CPU post-proc too small to benefit now) |
+| Mar 5 | hotSpring ← toadStool S94b | **NpuDispatch + NpuParameterController** | Vendor-agnostic NPU interface (future wiring) |
+| Mar 5 | hotSpring | **coralNAK awareness** | Sovereign Rust shader compiler cloned, not yet integrated |
+
+### Current Benchmark Results (RTX 3090, DF64, N=2000, March 5 2026)
+
+#### Without brain (raw physics, from Verlet handoff)
+
+| Case | Algorithm | Steps/s | Gap vs Kokkos-CUDA |
+|------|-----------|---------|:---:|
+| k1_G14 | AllPairs | 181 | 4.0× |
+| k2_G31 | Verlet | 368 | 3.0× |
+| k2_G158 | Verlet | 846 | 3.6× |
+| k3_G100 | Verlet | 977 | 3.2× |
+| k3_G1510 | Verlet | 992 | 3.7× |
+
+#### With Nautilus brain (full 9-case sweep, March 5)
+
+| Case | Algorithm | Steps/s | Energy Drift | Brain Status |
+|------|-----------|---------|:---:|:---:|
+| k1_G14 | AllPairs | 292 | 0.001% | 12R, 0/12 trusted |
+| k1_G72 | AllPairs | 307 | 0.001% | learning |
+| k1_G217 | AllPairs | 329 | 0.001% | learning |
+| k2_G31 | Verlet | 306 | 0.001% | learning |
+| k2_G158 | Verlet | 303 | 0.001% | learning |
+| k2_G476 | Verlet | 303 | 0.001% | learning |
+| k3_G100 | Verlet | 314 | 0.001% | learning |
+| k3_G503 | Verlet | 313 | 0.001% | learning |
+| k3_G1510 | Verlet | 317 | 0.001% | learning |
+
+Brain overhead: ~3× (Nautilus observation + readout retraining + board evolution).
+This is a feature, not overhead — the brain is learning from physics data.
+Kokkos has no equivalent intelligence layer.
 
 ### Remaining DF64 Precision Frontier
 

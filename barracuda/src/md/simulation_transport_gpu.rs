@@ -22,17 +22,10 @@ use barracuda::pipeline::ReduceScalarPipeline;
 
 use std::time::Instant;
 
-/// Compute shader workgroup size (must match WGSL `@workgroup_size(N)`).
-const WORKGROUP_SIZE: usize = 64;
-
-/// Berendsen thermostat rescaling interval — uses the centralized constant.
+const WORKGROUP_SIZE: usize = tolerances::MD_WORKGROUP_SIZE as usize;
 const THERMOSTAT_INTERVAL: usize = tolerances::THERMOSTAT_INTERVAL;
-
-/// Default RNG seed for velocity initialization (reproducible baselines).
-const DEFAULT_VELOCITY_SEED: u64 = 42;
-
-/// Console progress reporting interval during production (steps).
-const PROGRESS_REPORT_INTERVAL: usize = 5000;
+const DEFAULT_VELOCITY_SEED: u64 = tolerances::DEFAULT_VELOCITY_SEED;
+const PROGRESS_REPORT_INTERVAL: usize = tolerances::PROGRESS_REPORT_INTERVAL;
 
 /// Result of a GPU-only transport simulation.
 pub struct GpuTransportResult {
@@ -169,7 +162,7 @@ pub async fn run_transport_gpu(
 
         let total_ke = reducer.sum_f64(&ke_buf)?;
         let t_current = 2.0 * total_ke / (3.0 * n as f64);
-        if t_current > 1e-30 {
+        if t_current > tolerances::MD_TEMPERATURE_FLOOR {
             let ratio =
                 (config.dt / config.berendsen_tau).mul_add(temperature / t_current - 1.0, 1.0);
             let scale = ratio.max(0.0).sqrt();

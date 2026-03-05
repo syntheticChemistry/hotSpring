@@ -21,14 +21,19 @@
 //!   cargo run --release --bin `sarkas_gpu` -- --paper-ext # Extended paper: N=10000, 100k steps
 //!   cargo run --release --bin `sarkas_gpu` -- --nscale  # N-scaling: 500→20000, GPU-only (~2-3h)
 //!   cargo run --release --bin `sarkas_gpu` -- --scale   # quick scaling test (N=500,2000, GPU+CPU)
+//!   cargo run --release --bin `sarkas_gpu` -- --brain-sweep  # persistent brain across 9 cases
+//!   cargo run --release --bin `sarkas_gpu` -- --brain-nscale # persistent brain across N sizes
+//!   cargo run --release --bin `sarkas_gpu` -- --brain-skin   # skin sweep to teach optimal skin
 
 use hotspring_barracuda::bench::{
     peak_rss_mb, BenchReport, HardwareInventory, PhaseResult, PowerMonitor,
 };
 use hotspring_barracuda::discovery;
+use hotspring_barracuda::md::brain::MD_NUM_HEADS;
 use hotspring_barracuda::md::config::{self, MdConfig};
+use hotspring_barracuda::md::neighbor::{AlgorithmSelector, ForceAlgorithm};
 use hotspring_barracuda::md::observables;
-use hotspring_barracuda::md::simulation;
+use hotspring_barracuda::md::simulation::{self, BrainSummary};
 use hotspring_barracuda::validation::ValidationHarness;
 
 use std::time::Instant;
@@ -49,6 +54,9 @@ async fn main() {
     let paper_ext = args.iter().any(|a| a == "--paper-ext");
     let scale_test = args.iter().any(|a| a == "--scale");
     let nscale = args.iter().any(|a| a == "--nscale");
+    let brain_sweep = args.iter().any(|a| a == "--brain-sweep");
+    let brain_nscale = args.iter().any(|a| a == "--brain-nscale");
+    let brain_skin = args.iter().any(|a| a == "--brain-skin");
 
     // ── Hardware inventory ──
     let hostname = std::env::var("HOSTNAME")
@@ -60,7 +68,13 @@ async fn main() {
 
     let mut report = BenchReport::new(hw);
 
-    if nscale {
+    if brain_sweep {
+        run_brain_sweep(&mut report, &mut harness).await;
+    } else if brain_nscale {
+        run_brain_nscale(&mut report, &mut harness).await;
+    } else if brain_skin {
+        run_brain_skin_sweep(&mut report, &mut harness).await;
+    } else if nscale {
         run_n_scaling(&mut report, &mut harness).await;
     } else if paper_parity {
         run_paper_parity(&mut report, &mut harness, false).await;
@@ -551,37 +565,38 @@ async fn run_scaling_test(report: &mut BenchReport, harness: &mut ValidationHarn
     }
 }
 
-/// Run a single simulation case, validate observables, return pass/fail
-async fn run_single_case(config: &MdConfig, report: &mut BenchReport) -> bool {
+/// Bundled brain state for cross-run transfer: Nautilus JSON only.
+struct BrainState {
+    nautilus_json: String,
+}
+
+/// Run a single case with optional brain state import/export for cross-run persistence.
+/// Returns (passed, brain_summary) so the caller can chain state.
+async fn run_single_case_with_brain(
+    config: &MdConfig,
+    report: &mut BenchReport,
+    brain_state: Option<&BrainState>,
+) -> (bool, Option<BrainSummary>) {
     let monitor = PowerMonitor::start();
     let t0 = Instant::now();
 
-    use hotspring_barracuda::md::neighbor::{AlgorithmSelector, ForceAlgorithm};
     let selector = AlgorithmSelector::from_config(config);
     let algorithm = selector.select();
     let result = match &algorithm {
         ForceAlgorithm::AllPairs => {
-            println!(
-                "  Using all-pairs mode (N={})",
-                config.n_particles
-            );
+            println!("  Using all-pairs mode (N={})", config.n_particles);
             simulation::run_simulation(config).await
         }
         ForceAlgorithm::CellList => {
             let box_side = config.box_side();
             let cells_per_dim = (box_side / config.rc).floor() as usize;
-            println!(
-                "  Using cell-list mode ({} cells/dim, N={})",
-                cells_per_dim, config.n_particles
-            );
+            println!("  Using cell-list mode ({} cells/dim, N={})", cells_per_dim, config.n_particles);
             simulation::run_simulation_celllist(config).await
         }
         ForceAlgorithm::VerletList { skin } => {
-            println!(
-                "  Using Verlet neighbor list mode (skin={:.3}, N={})",
-                skin, config.n_particles
-            );
-            simulation::run_simulation_verlet(config, *skin).await
+            println!("  Using Verlet neighbor list mode (skin={:.3}, N={})", skin, config.n_particles);
+            let nautilus_json = brain_state.map(|bs| bs.nautilus_json.as_str());
+            simulation::run_simulation_verlet_with_brain(config, *skin, nautilus_json).await
         }
     };
 
@@ -590,20 +605,32 @@ async fn run_single_case(config: &MdConfig, report: &mut BenchReport) -> bool {
 
     match result {
         Ok(sim) => {
-            // Validate energy
             let energy_val = observables::validate_energy(&sim.energy_history, config);
-
-            // Create GPU device for SsfGpu (toadstool)
             let ssf_device = match hotspring_barracuda::gpu::GpuF64::new().await {
                 Ok(gpu) if gpu.has_f64 => Some(gpu.to_wgpu_device()),
                 _ => None,
             };
-
-            // Print observable summary (with GPU SSF if available)
             observables::print_observable_summary_with_gpu(&sim, config, ssf_device.as_ref());
 
-            // Add to benchmark report
+            if let Some(ref bs) = sim.brain_summary {
+                if bs.retrain_count > 0 {
+                    let r2_strs: Vec<String> = bs.head_r2.iter()
+                        .enumerate()
+                        .filter(|(_, r)| **r > 0.1)
+                        .map(|(i, r)| format!("H{i}={r:.3}"))
+                        .collect();
+                    println!(
+                        "  Brain: {} retrains, {}/{} heads trusted, conf={:.2} [{}]",
+                        bs.retrain_count, bs.trusted_heads, MD_NUM_HEADS, bs.confidence,
+                        if r2_strs.is_empty() { "learning...".into() } else { r2_strs.join(", ") },
+                    );
+                }
+            }
+
             let total_steps = config.equil_steps + config.prod_steps;
+            let brain_note = sim.brain_summary.as_ref().map_or(String::new(), |bs| {
+                format!(", brain:{}/{}T conf={:.2}", bs.trusted_heads, MD_NUM_HEADS, bs.confidence)
+            });
             report.add_phase(PhaseResult {
                 phase: format!("Sarkas GPU {}", config.label),
                 substrate: "GPU f64 WGSL".into(),
@@ -612,23 +639,299 @@ async fn run_single_case(config: &MdConfig, report: &mut BenchReport) -> bool {
                 n_evals: total_steps,
                 energy,
                 peak_rss_mb: peak_rss_mb(),
-                chi2: energy_val.drift_pct, // using drift as "chi2" metric for MD
+                chi2: energy_val.drift_pct,
                 precision_mev: 0.0,
                 notes: format!(
-                    "N={}, κ={}, Γ={}, {:.1} steps/s, drift={:.3}%",
-                    config.n_particles,
-                    config.kappa,
-                    config.gamma,
-                    sim.steps_per_sec,
-                    energy_val.drift_pct,
+                    "N={}, κ={}, Γ={}, {:.1} steps/s, drift={:.3}%{}",
+                    config.n_particles, config.kappa, config.gamma,
+                    sim.steps_per_sec, energy_val.drift_pct, brain_note,
                 ),
             });
 
-            energy_val.passed
+            (energy_val.passed, sim.brain_summary)
         }
         Err(e) => {
             println!("  ERROR: {e}");
-            false
+            (false, None)
         }
     }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  Experiment: Cross-case persistent brain
+// ═══════════════════════════════════════════════════════════════════
+
+/// Run all 9 Yukawa cases with brain weight persistence across cases.
+/// The brain accumulates learning across different (kappa, gamma) regimes,
+/// teaching it to predict regime-dependent behavior (performance, equilibration rate).
+async fn run_brain_sweep(report: &mut BenchReport, harness: &mut ValidationHarness) {
+    println!("╔══════════════════════════════════════════════════════════════╗");
+    println!("║  Experiment: Cross-Case Persistent Brain                   ║");
+    println!("║  9 PP Yukawa cases, N=2000, brain weights carried forward  ║");
+    println!("║  Goal: teach brain to predict across (κ,Γ) regimes         ║");
+    println!("╚══════════════════════════════════════════════════════════════╝");
+    println!();
+
+    let cases = config::dsf_pp_cases(2000, true);
+    let mut brain_state: Option<BrainState> = None;
+    let mut passed = 0;
+    let total = cases.len();
+
+    let mut evolution: Vec<(String, usize, f64, Vec<f64>, usize, usize)> = Vec::new();
+
+    for (i, config) in cases.iter().enumerate() {
+        println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        println!("  Case {}/{}: {} [brain: {}]", i + 1, total, config.label,
+            if brain_state.is_some() { "inherited" } else { "fresh" });
+        println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        println!();
+
+        let (ok, summary) = run_single_case_with_brain(config, report, brain_state.as_ref()).await;
+        harness.check_bool(&format!("brain_sweep_{}", config.label), ok);
+        if ok { passed += 1; }
+
+        if let Some(bs) = summary {
+            evolution.push((config.label.clone(), bs.trusted_heads, bs.confidence, bs.head_r2.clone(),
+                bs.nautilus_observations, bs.nautilus_generations));
+            brain_state = bs.nautilus_json.map(|json| BrainState {
+                nautilus_json: json,
+            });
+        }
+        println!();
+    }
+
+    println!();
+    println!("╔══════════════════════════════════════════════════════════════╗");
+    println!("║  BRAIN EVOLUTION ACROSS CASES                              ║");
+    println!("╚══════════════════════════════════════════════════════════════╝");
+    println!();
+    println!("  {:>12} {:>8} {:>8} {:>8} {:>6}  Best heads", "Case", "Trusted", "Conf", "NautObs", "Gens");
+    println!("  {:>12} {:>8} {:>8} {:>8} {:>6}  ─────────", "────", "───────", "────", "───────", "────");
+    for (label, trusted, conf, r2s, n_obs, n_gens) in &evolution {
+        let best: Vec<String> = r2s.iter().enumerate()
+            .filter(|(_, r)| **r > 0.1)
+            .map(|(i, r)| format!("H{i}={r:.3}"))
+            .collect();
+        println!("  {:>12} {:>5}/{} {:>8.3} {:>8} {:>6}  [{}]",
+            label, trusted, MD_NUM_HEADS, conf, n_obs, n_gens,
+            if best.is_empty() { "learning...".into() } else { best.join(", ") });
+    }
+    println!();
+    println!("═══════════════════════════════════════════════════════════");
+    println!("  BRAIN SWEEP: {passed}/{total} cases passed");
+    println!("═══════════════════════════════════════════════════════════");
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  Experiment: N-scaling persistent brain
+// ═══════════════════════════════════════════════════════════════════
+
+/// Run k2_G158 at increasing N with brain weight persistence.
+/// Teaches the brain to predict throughput and rebuild frequency as a function of N.
+async fn run_brain_nscale(report: &mut BenchReport, harness: &mut ValidationHarness) {
+    println!("╔══════════════════════════════════════════════════════════════╗");
+    println!("║  Experiment: N-Scaling Persistent Brain                    ║");
+    println!("║  κ=2, Γ=158 at N=500→10000, brain weights carried forward ║");
+    println!("║  Goal: teach brain steps/s prediction and rebuild scaling  ║");
+    println!("╚══════════════════════════════════════════════════════════════╝");
+    println!();
+
+    let n_sizes = [500, 1000, 2000, 5000, 10_000];
+    let mut brain_state: Option<BrainState> = None;
+    let mut passed = 0;
+    let total = n_sizes.len();
+
+    let mut evolution: Vec<(usize, usize, f64, Vec<f64>, usize, usize)> = Vec::new();
+
+    for (i, &n) in n_sizes.iter().enumerate() {
+        let config = MdConfig {
+            label: format!("brain_nscale_N{n}"),
+            n_particles: n,
+            kappa: 2.0,
+            gamma: 158.0,
+            dt: 0.01,
+            rc: 6.5,
+            equil_steps: 5_000,
+            prod_steps: 30_000,
+            dump_step: 10,
+            berendsen_tau: 5.0,
+            rdf_bins: 500,
+            vel_snapshot_interval: 100,
+        };
+
+        println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        println!("  N = {} ({}/{}) [brain: {}]", n, i + 1, total,
+            if brain_state.is_some() { "inherited" } else { "fresh" });
+        println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        println!();
+
+        let (ok, summary) = run_single_case_with_brain(&config, report, brain_state.as_ref()).await;
+        harness.check_bool(&format!("brain_nscale_N{n}"), ok);
+        if ok { passed += 1; }
+
+        if let Some(bs) = summary {
+            evolution.push((n, bs.trusted_heads, bs.confidence, bs.head_r2.clone(),
+                bs.nautilus_observations, bs.nautilus_generations));
+            brain_state = bs.nautilus_json.map(|json| BrainState {
+                nautilus_json: json,
+            });
+        }
+        println!();
+    }
+
+    println!();
+    println!("╔══════════════════════════════════════════════════════════════╗");
+    println!("║  BRAIN EVOLUTION ACROSS N                                  ║");
+    println!("╚══════════════════════════════════════════════════════════════╝");
+    println!();
+    println!("  {:>8} {:>8} {:>8} {:>8} {:>6}  Best heads", "N", "Trusted", "Conf", "NautObs", "Gens");
+    println!("  {:>8} {:>8} {:>8} {:>8} {:>6}  ─────────", "──", "───────", "────", "───────", "────");
+    for (n, trusted, conf, r2s, n_obs, n_gens) in &evolution {
+        let best: Vec<String> = r2s.iter().enumerate()
+            .filter(|(_, r)| **r > 0.1)
+            .map(|(i, r)| format!("H{i}={r:.3}"))
+            .collect();
+        println!("  {:>8} {:>5}/{} {:>8.3} {:>8} {:>6}  [{}]",
+            n, trusted, MD_NUM_HEADS, conf, n_obs, n_gens,
+            if best.is_empty() { "learning...".into() } else { best.join(", ") });
+    }
+    println!();
+    println!("═══════════════════════════════════════════════════════════");
+    println!("  BRAIN N-SCALE: {passed}/{total} cases passed");
+    println!("═══════════════════════════════════════════════════════════");
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  Experiment: Skin fraction sweep
+// ═══════════════════════════════════════════════════════════════════
+
+/// Run k2_G158 N=2000 with varying Verlet skin fractions.
+/// Teaches the brain the relationship between skin, rebuilds, and throughput
+/// so it can learn to steer C0 (optimal skin) at runtime.
+async fn run_brain_skin_sweep(report: &mut BenchReport, harness: &mut ValidationHarness) {
+    println!("╔══════════════════════════════════════════════════════════════╗");
+    println!("║  Experiment: Skin Fraction Sweep with Persistent Brain     ║");
+    println!("║  κ=2, Γ=158, N=2000 — skin from 0.05 to 0.40             ║");
+    println!("║  Goal: teach brain optimal skin steering (C0)              ║");
+    println!("╚══════════════════════════════════════════════════════════════╝");
+    println!();
+
+    let skin_fractions = [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.40];
+    let mut brain_state: Option<BrainState> = None;
+    let mut passed = 0;
+    let total = skin_fractions.len();
+
+    let mut evolution: Vec<(f64, f64, usize, usize, f64, Vec<f64>, usize, usize)> = Vec::new();
+
+    for (i, &sf) in skin_fractions.iter().enumerate() {
+        let rc = 6.5;
+        let skin = sf * rc;
+        let config = MdConfig {
+            label: format!("brain_skin_{:.0}pct", sf * 100.0),
+            n_particles: 2000,
+            kappa: 2.0,
+            gamma: 158.0,
+            dt: 0.01,
+            rc,
+            equil_steps: 5_000,
+            prod_steps: 30_000,
+            dump_step: 10,
+            berendsen_tau: 5.0,
+            rdf_bins: 500,
+            vel_snapshot_interval: 100,
+        };
+
+        println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        println!("  skin_fraction={:.2} (skin={:.3} a_ws) [{}/{}] [brain: {}]",
+            sf, skin, i + 1, total,
+            if brain_state.is_some() { "inherited" } else { "fresh" });
+        println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        println!();
+
+        let monitor = PowerMonitor::start();
+        let t0 = Instant::now();
+        let nautilus_json = brain_state.as_ref().map(|bs| bs.nautilus_json.as_str());
+        let result = simulation::run_simulation_verlet_with_brain(&config, skin, nautilus_json).await;
+        let energy = monitor.stop();
+        let wall_time = t0.elapsed().as_secs_f64();
+
+        match result {
+            Ok(sim) => {
+                let energy_val = observables::validate_energy(&sim.energy_history, &config);
+                let ssf_device = match hotspring_barracuda::gpu::GpuF64::new().await {
+                    Ok(gpu) if gpu.has_f64 => Some(gpu.to_wgpu_device()),
+                    _ => None,
+                };
+                observables::print_observable_summary_with_gpu(&sim, &config, ssf_device.as_ref());
+
+                if let Some(ref bs) = sim.brain_summary {
+                    if bs.retrain_count > 0 {
+                        let r2_strs: Vec<String> = bs.head_r2.iter()
+                            .enumerate()
+                            .filter(|(_, r)| **r > 0.1)
+                            .map(|(i, r)| format!("H{i}={r:.3}"))
+                            .collect();
+                        println!(
+                            "  Brain: {} retrains, {}/{} heads trusted, conf={:.2} [{}]",
+                            bs.retrain_count, bs.trusted_heads, MD_NUM_HEADS, bs.confidence,
+                            if r2_strs.is_empty() { "learning...".into() } else { r2_strs.join(", ") },
+                        );
+                    }
+                    evolution.push((sf, sim.steps_per_sec, bs.retrain_count, bs.trusted_heads, bs.confidence, bs.head_r2.clone(),
+                        bs.nautilus_observations, bs.nautilus_generations));
+                    brain_state = bs.nautilus_json.clone().map(|json| BrainState {
+                        nautilus_json: json,
+                    });
+                }
+
+                let total_steps = config.equil_steps + config.prod_steps;
+                report.add_phase(PhaseResult {
+                    phase: format!("Sarkas GPU skin={:.0}%", sf * 100.0),
+                    substrate: "GPU f64 WGSL".into(),
+                    wall_time_s: wall_time,
+                    per_eval_us: wall_time * 1e6 / total_steps as f64,
+                    n_evals: total_steps,
+                    energy,
+                    peak_rss_mb: peak_rss_mb(),
+                    chi2: energy_val.drift_pct,
+                    precision_mev: 0.0,
+                    notes: format!("skin={:.2}, {:.1} steps/s, drift={:.3}%", sf, sim.steps_per_sec, energy_val.drift_pct),
+                });
+
+                harness.check_bool(&format!("brain_skin_{sf:.2}"), energy_val.passed);
+                if energy_val.passed { passed += 1; }
+            }
+            Err(e) => {
+                println!("  ERROR: {e}");
+                harness.check_bool(&format!("brain_skin_{sf:.2}"), false);
+            }
+        }
+        println!();
+    }
+
+    println!();
+    println!("╔══════════════════════════════════════════════════════════════╗");
+    println!("║  BRAIN EVOLUTION ACROSS SKIN FRACTIONS                     ║");
+    println!("╚══════════════════════════════════════════════════════════════╝");
+    println!();
+    println!("  {:>6} {:>10} {:>8} {:>8} {:>8} {:>6}  Best heads", "Skin%", "Steps/s", "Trusted", "Conf", "NautObs", "Gens");
+    println!("  {:>6} {:>10} {:>8} {:>8} {:>8} {:>6}  ─────────", "─────", "───────", "───────", "────", "───────", "────");
+    for (sf, sps, _retrains, trusted, conf, r2s, n_obs, n_gens) in &evolution {
+        let best: Vec<String> = r2s.iter().enumerate()
+            .filter(|(_, r)| **r > 0.1)
+            .map(|(i, r)| format!("H{i}={r:.3}"))
+            .collect();
+        println!("  {:>5.0}% {:>10.1} {:>5}/{} {:>8.3} {:>8} {:>6}  [{}]",
+            sf * 100.0, sps, trusted, MD_NUM_HEADS, conf, n_obs, n_gens,
+            if best.is_empty() { "learning...".into() } else { best.join(", ") });
+    }
+    println!();
+    println!("═══════════════════════════════════════════════════════════");
+    println!("  BRAIN SKIN SWEEP: {passed}/{total} cases passed");
+    println!("═══════════════════════════════════════════════════════════");
+}
+
+async fn run_single_case(config: &MdConfig, report: &mut BenchReport) -> bool {
+    let (passed, _) = run_single_case_with_brain(config, report, None).await;
+    passed
 }

@@ -97,11 +97,19 @@ const REGRESSION_TRUST_THRESHOLD: f64 = 0.3;
 const CLASSIFICATION_TRUST_THRESHOLD: f64 = 0.6;
 
 /// Whether a head predicts a continuous value or a discrete class.
+///
+/// Evolution note (v0.6.17): non-binary (Regression) heads learn better than
+/// Classification heads on the ESN. The ESN output is continuous — forcing it
+/// through a 0.5 threshold loses gradient signal and makes confidence opaque.
+/// Prefer `Regression` for all heads and use soft thresholds (e.g. > 0.7 for
+/// high-confidence decisions) on the steering side. Classification is kept for
+/// backward compat but new heads should use Regression.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum HeadMetric {
-    /// R² for continuous targets (CG cost, delta_H, quality, etc.).
+    /// R² for continuous targets — preferred for all heads (captures gradient).
     Regression,
-    /// Accuracy for binary/categorical targets (therm, anomaly, kill).
+    /// Accuracy for binary targets — kept for backward compatibility with saved weights.
+    #[allow(dead_code)]
     Classification,
 }
 
@@ -124,18 +132,11 @@ struct HeadConfidence {
 
 impl HeadConfidence {
     fn new(n_heads: usize) -> Self {
-        let mut metrics = vec![HeadMetric::Regression; n_heads];
-        // Classification heads: therm, anomaly, kill/skip, quenched therm
-        for &h in &[
-            heads::A3_ANDERSON_ANOMALY, heads::A4_ANDERSON_THERM,
-            heads::B3_QCD_ANOMALY, heads::B4_QCD_THERM,
-            heads::C3_POTTS_ANOMALY,
-            heads::D4_KILL_DECISION, heads::D5_SKIP_DECISION,
-        ] {
-            if h < n_heads {
-                metrics[h] = HeadMetric::Classification;
-            }
-        }
+        // All heads now use Regression (R² metric) — non-binary heads learn
+        // better than binary Classification on the ESN. Decision heads (kill,
+        // skip, therm, anomaly) use soft thresholds on the steering side
+        // (e.g. output > 0.7 = high confidence) rather than hard 0.5 cutoff.
+        let metrics = vec![HeadMetric::Regression; n_heads];
         Self {
             predictions: vec![Vec::with_capacity(HEAD_CONFIDENCE_WINDOW); n_heads],
             actuals: vec![Vec::with_capacity(HEAD_CONFIDENCE_WINDOW); n_heads],
@@ -643,7 +644,7 @@ pub fn spawn_npu_worker(lattice: usize) -> NpuWorkerHandles {
                             );
                             let seq = vec![input; 10];
                             let raw = npu.predict_head(&seq, heads::QUENCHED_THERM);
-                            raw > 0.5
+                            raw > 0.7
                         } else {
                             check_thermalization(&plaq_window, beta)
                         };
@@ -668,7 +669,7 @@ pub fn spawn_npu_worker(lattice: usize) -> NpuWorkerHandles {
                             );
                             let seq = vec![input; 10];
                             let raw = npu.predict_head(&seq, heads::THERM_DETECT);
-                            raw > 0.5
+                            raw > 0.7
                         } else {
                             check_thermalization(&plaq_window, beta)
                         };
@@ -1535,15 +1536,15 @@ fn build_training_data(results: &[BetaResult], lattice: usize) -> (Vec<Vec<Vec<f
         t[heads::D0_NEXT_BETA] = proximity;
         t[heads::D1_OPTIMAL_DT] = optimal_dt;
         t[heads::D2_OPTIMAL_NMD] = optimal_nmd;
-        t[heads::D3_CHECK_INTERVAL] = if cg_norm > 0.5 { 0.2 } else { 0.8 };
-        t[heads::D4_KILL_DECISION] = if r.mean_cg_iters > 400.0 { 0.8 } else { 0.1 };
-        t[heads::D5_SKIP_DECISION] = if quality < 0.2 { 0.8 } else { 0.1 };
+        t[heads::D3_CHECK_INTERVAL] = (1.0 - cg_norm).clamp(0.0, 1.0);
+        t[heads::D4_KILL_DECISION] = (r.mean_cg_iters / 500.0).clamp(0.0, 1.0);
+        t[heads::D5_SKIP_DECISION] = (1.0 - quality).clamp(0.0, 1.0);
 
         t[heads::E0_RESIDUAL_ETA] = cg_norm;
         t[heads::E1_RESIDUAL_ANOMALY] = anomaly_val;
         t[heads::E2_CONVERGENCE_RATE] = (1.0 - cg_norm).clamp(0.0, 1.0);
-        t[heads::E3_STALL_DETECTOR] = if r.mean_cg_iters > 300.0 { 0.5 } else { 0.0 };
-        t[heads::E4_DIVERGENCE_DETECTOR] = if anomaly_val > 0.5 { 0.8 } else { 0.0 };
+        t[heads::E3_STALL_DETECTOR] = (r.mean_cg_iters / 400.0).clamp(0.0, 1.0);
+        t[heads::E4_DIVERGENCE_DETECTOR] = anomaly_val.clamp(0.0, 1.0);
         t[heads::E5_QUALITY_FORECAST] = quality;
 
         t[heads::M0_CG_CONSENSUS] = cg_norm;
@@ -1552,11 +1553,7 @@ fn build_training_data(results: &[BetaResult], lattice: usize) -> (Vec<Vec<Vec<f
         t[heads::M3_PHASE_UNCERTAINTY] = (potts_phase - phase_continuous).abs();
         let proxy_agrees = (anderson_phase - phase_continuous).abs() < 0.3;
         t[heads::M4_PROXY_TRUST] = if proxy_agrees { 0.8 } else { 0.3 };
-        t[heads::M5_ATTENTION_LEVEL] = match () {
-            () if anomaly_val > 0.5 => 0.8,
-            () if cg_norm > 0.5 => 0.4,
-            () => 0.1,
-        };
+        t[heads::M5_ATTENTION_LEVEL] = (anomaly_val * 0.6 + cg_norm * 0.4).clamp(0.0, 1.0);
 
         targets.push(t);
     }

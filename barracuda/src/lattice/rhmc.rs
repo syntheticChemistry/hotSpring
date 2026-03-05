@@ -611,11 +611,14 @@ fn remez_for_poles(sigma: &[f64], power: f64, eval_grid: &[f64]) -> (Vec<f64>, f
             if selected.is_empty() {
                 selected.push((idx, e));
             } else {
-                let last_sign = selected.last().unwrap().1.signum();
+                let Some(last) = selected.last() else { continue };
+                let last_sign = last.1.signum();
                 if e.signum() != last_sign {
                     selected.push((idx, e));
-                } else if e.abs() > selected.last().unwrap().1.abs() {
-                    *selected.last_mut().unwrap() = (idx, e);
+                } else if selected.last().map_or(false, |l| e.abs() > l.1.abs()) {
+                    if let Some(slot) = selected.last_mut() {
+                        *slot = (idx, e);
+                    }
                 }
             }
         }
@@ -626,8 +629,10 @@ fn remez_for_poles(sigma: &[f64], power: f64, eval_grid: &[f64]) -> (Vec<f64>, f
             let (min_idx, _) = selected
                 .iter()
                 .enumerate()
-                .min_by(|(_, a), (_, b)| a.1.abs().partial_cmp(&b.1.abs()).unwrap())
-                .unwrap();
+                .min_by(|(_, a), (_, b)| {
+                    a.1.abs().partial_cmp(&b.1.abs()).unwrap_or(std::cmp::Ordering::Equal)
+                })
+                .expect("selected is non-empty when len > n_poles");
             selected.remove(min_idx);
         }
 

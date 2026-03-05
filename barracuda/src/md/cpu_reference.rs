@@ -11,6 +11,7 @@
 
 use crate::md::config::MdConfig;
 use crate::md::simulation::{init_fcc_lattice, init_velocities, EnergyRecord, MdSimulation};
+use crate::tolerances::MD_TEMPERATURE_FLOOR;
 
 use std::time::Instant;
 
@@ -169,7 +170,7 @@ pub fn run_simulation_cpu(config: &MdConfig) -> MdSimulation {
             }
             ke *= 0.5;
             let t_current = 2.0 * ke / (3.0 * n as f64);
-            if t_current > 1e-30 {
+            if t_current > MD_TEMPERATURE_FLOOR {
                 let ratio = (dt / config.berendsen_tau).mul_add(temperature / t_current - 1.0, 1.0);
                 let scale = ratio.max(0.0).sqrt();
                 for v in &mut velocities {
@@ -193,7 +194,7 @@ pub fn run_simulation_cpu(config: &MdConfig) -> MdSimulation {
         }
         ke *= 0.5;
         let t_current = 2.0 * ke / (3.0 * n as f64);
-        if t_current > 1e-30 {
+        if t_current > MD_TEMPERATURE_FLOOR {
             let scale = (temperature / t_current).sqrt();
             for v in &mut velocities {
                 *v *= scale;
@@ -300,6 +301,7 @@ pub fn run_simulation_cpu(config: &MdConfig) -> MdSimulation {
         rdf_histogram: Vec::new(),
         wall_time_s: total_time,
         steps_per_sec,
+        brain_summary: None,
     }
 }
 

@@ -341,6 +341,41 @@ pub const VERLET_MAX_NEIGHBORS: u32 = 1024;
 pub const VERLET_MIN_PARTICLES: usize = 500;
 
 // ═══════════════════════════════════════════════════════════════════
+// Division guards — prevent NaN/Inf from near-zero denominators
+// ═══════════════════════════════════════════════════════════════════
+
+/// Temperature floor for Berendsen thermostat division guard.
+///
+/// Before computing `temperature / t_current`, guard `t_current` against
+/// being effectively zero. Value 1e-30 is well below any physical
+/// temperature in reduced units while preventing division by zero.
+pub const MD_TEMPERATURE_FLOOR: f64 = 1e-30;
+
+/// Target temperature division guard for the brain's normalization.
+///
+/// Used in `(T - T_target) / T_target` computations. Guards against
+/// the edge case where `T_target` is zero (e.g., quenched simulations).
+pub const MD_TARGET_TEMPERATURE_GUARD: f64 = 1e-15;
+
+/// Box-Muller RNG floor for `ln(u1)` where `u1 ∈ (0, 1)`.
+///
+/// Prevents `ln(0)` = -∞ in velocity initialization.
+pub const MD_BOX_MULLER_FLOOR: f64 = 1e-15;
+
+/// Safe division guard for energy normalization.
+///
+/// When the first energy per particle is near zero, relative drift
+/// calculation would produce NaN. This guards the denominator.
+pub const MD_ENERGY_FLOOR: f64 = 1e-30;
+
+/// Safe division guard for force magnitude denominators.
+///
+/// Used when computing relative force errors (diff / |F|). When |F|
+/// is effectively zero, the relative error is meaningless and we
+/// fall back to the absolute difference.
+pub const MD_FORCE_MAGNITUDE_FLOOR: f64 = 1e-30;
+
+// ═══════════════════════════════════════════════════════════════════
 // ESN reservoir tolerances (echo state network for MD transport)
 // ═══════════════════════════════════════════════════════════════════
 
@@ -350,3 +385,44 @@ pub const VERLET_MIN_PARTICLES: usize = 500;
 /// it is effectively zero (e.g. connectivity=0 or all-zero draw). We skip
 /// rescaling to `spectral_radius` to avoid division by zero.
 pub const ESN_SPECTRAL_RADIUS_NEGLIGIBLE: f64 = 1e-10;
+
+// ═══════════════════════════════════════════════════════════════════
+// Simulation infrastructure constants
+// ═══════════════════════════════════════════════════════════════════
+
+/// Default RNG seed for velocity initialization.
+///
+/// Provides reproducible baselines across runs. Production sweeps
+/// should vary this for ensemble averaging.
+pub const DEFAULT_VELOCITY_SEED: u64 = 42;
+
+/// Console progress reporting interval during production (steps).
+///
+/// Controls how often `run_simulation` prints throughput updates.
+/// Higher values reduce I/O overhead but give less visibility.
+pub const PROGRESS_REPORT_INTERVAL: usize = 5000;
+
+/// Titan V worker receive timeout (seconds).
+///
+/// When waiting for quenched pre-thermalization results from the
+/// Titan V, give up after this many seconds and fall back to
+/// GPU-only thermalization.
+pub const TITAN_RECEIVE_TIMEOUT_SECS: u64 = 120;
+
+// ═══════════════════════════════════════════════════════════════════
+// MD Brain constants
+// ═══════════════════════════════════════════════════════════════════
+
+/// Rolling window size for the MD brain's energy statistics.
+pub const BRAIN_ENERGY_WINDOW: usize = 100;
+
+/// Rolling window size for the MD brain's throughput statistics.
+pub const BRAIN_THROUGHPUT_WINDOW: usize = 50;
+
+/// Minimum observations before the MD brain can train an ESN.
+pub const BRAIN_MIN_TRAINING_SAMPLES: usize = 20;
+
+/// Equilibrium detection threshold (relative variance of total energy).
+///
+/// Below this, the brain considers the system equilibrated.
+pub const BRAIN_EQUILIBRIUM_THRESHOLD: f64 = 0.01;

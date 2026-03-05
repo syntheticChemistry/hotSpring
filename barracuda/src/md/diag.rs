@@ -5,6 +5,8 @@
 //! Used by `celllist_diag` and other MD diagnostic binaries to compare
 //! all-pairs vs cell-list force results.
 
+use crate::tolerances::MD_FORCE_MAGNITUDE_FLOOR;
+
 /// Net force (sum over all particles) and magnitude.
 #[must_use]
 pub fn net_force(forces: &[f64], n: usize) -> (f64, f64, f64, f64) {
@@ -48,7 +50,7 @@ pub fn force_comparison_stats(
         total_force_mag_ap += mag_ap;
         rms_diff += diff * diff;
 
-        let rel = if mag_ap > 1e-30 { diff / mag_ap } else { diff };
+        let rel = if mag_ap > MD_FORCE_MAGNITUDE_FLOOR { diff / mag_ap } else { diff };
         if rel > threshold {
             n_mismatched += 1;
         }
@@ -60,12 +62,12 @@ pub fn force_comparison_stats(
 
     rms_diff = (rms_diff / n as f64).sqrt();
     let avg_force = total_force_mag_ap / n as f64;
-    let rms_rel = if avg_force > 1e-30 {
+    let rms_rel = if avg_force > MD_FORCE_MAGNITUDE_FLOOR {
         rms_diff / avg_force
     } else {
         rms_diff
     };
-    let max_rel = if avg_force > 1e-30 {
+    let max_rel = if avg_force > MD_FORCE_MAGNITUDE_FLOOR {
         max_force_diff / avg_force
     } else {
         max_force_diff
@@ -106,7 +108,7 @@ pub fn print_force_mismatches(
                     ),
                 )
                 .sqrt();
-            let rel = if mag_ap > 1e-30 { diff / mag_ap } else { diff };
+            let rel = if mag_ap > MD_FORCE_MAGNITUDE_FLOOR { diff / mag_ap } else { diff };
             rel > threshold
         })
         .count();
@@ -130,7 +132,7 @@ pub fn print_force_mismatches(
                     (fy_ap - fy_cl).mul_add(fy_ap - fy_cl, (fx_ap - fx_cl).powi(2)),
                 )
                 .sqrt();
-            let rel = if mag_ap > 1e-30 { diff / mag_ap } else { diff };
+            let rel = if mag_ap > MD_FORCE_MAGNITUDE_FLOOR { diff / mag_ap } else { diff };
             if rel > threshold {
                 println!(
                     "    particle {i:>5}: AP=({fx_ap:+.6e},{fy_ap:+.6e},{fz_ap:+.6e}) CL=({fx_cl:+.6e},{fy_cl:+.6e},{fz_cl:+.6e}) Δ={diff:.2e}"

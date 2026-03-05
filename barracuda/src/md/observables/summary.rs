@@ -195,6 +195,7 @@ mod tests {
             rdf_histogram: vec![],
             wall_time_s: 1.5,
             steps_per_sec: 5000.0,
+            brain_summary: None,
         };
         (sim, config)
     }
@@ -233,6 +234,7 @@ mod tests {
             rdf_histogram: vec![],
             wall_time_s: 2.0,
             steps_per_sec: 4000.0,
+            brain_summary: None,
         };
         (sim, config)
     }
@@ -303,6 +305,7 @@ mod tests {
             rdf_histogram: vec![],
             wall_time_s: 1.0,
             steps_per_sec: 5000.0,
+            brain_summary: None,
         };
         print_observable_summary(&sim, &config);
     }

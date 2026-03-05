@@ -34,7 +34,7 @@ use crate::gpu::GpuF64;
 use crate::md::config::MdConfig;
 use crate::md::shaders;
 use crate::md::simulation::{init_fcc_lattice, init_velocities, EnergyRecord, MdSimulation};
-use crate::tolerances::{CELLLIST_REBUILD_INTERVAL, THERMOSTAT_INTERVAL};
+use crate::tolerances::{CELLLIST_REBUILD_INTERVAL, MD_TEMPERATURE_FLOOR, THERMOSTAT_INTERVAL};
 use std::time::Instant;
 
 /// CPU cell list for spatial decomposition (retained for tests and diagnostics).
@@ -325,7 +325,7 @@ pub async fn run_simulation_celllist(
 
         let total_ke = reducer.sum_f64(&ke_buf)?;
         let t_current = 2.0 * total_ke / (3.0 * n as f64);
-        if t_current > 1e-30 {
+        if t_current > MD_TEMPERATURE_FLOOR {
             let ratio =
                 (config.dt / config.berendsen_tau).mul_add(temperature / t_current - 1.0, 1.0);
             let scale = ratio.max(0.0).sqrt();
@@ -461,6 +461,7 @@ pub async fn run_simulation_celllist(
         rdf_histogram: Vec::new(),
         wall_time_s: total_time,
         steps_per_sec,
+        brain_summary: None,
     })
 }
 

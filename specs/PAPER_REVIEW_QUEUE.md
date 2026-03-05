@@ -38,7 +38,7 @@ pipeline on harder physics — toadStool evolves the GPU acceleration in paralle
 | 22 | Ten Martini (Cantor) | ✅ (in spectral_control.py) | ✅ (in validate_hofstadter) | — (Sturm, CPU-natural) | — |
 | 23 | Sulfolobus meta-populations | — | — | — | — (wetSpring domain) |
 | 24 | Anderson subseafloor review | — (reference only) | — | — | — |
-| 43 | Chuna: SU(3) gradient flow integrators | — | — | — (Tier 2 QCD) | — |
+| 43 | Chuna: SU(3) gradient flow integrators | — | ✅ `gradient_flow` (3 integrators, t₀ scale, 6/6 tests) | — (Tier 2 QCD) | — |
 | 44 | Chuna: Conservative dielectric functions (BGK) | — | — | — (Tier 4 WDM) | — |
 | 45 | Chuna: Multi-species kinetic-fluid coupling | — | — | — (Tier 4 HED) | — |
 

@@ -33,6 +33,8 @@
 //! | `transport` | Daligault (2012) D* fit, Green-Kubo integration |
 //! | `cpu_reference` | CPU Yukawa force for cross-validation |
 
+/// MD brain module — NPU cerebellum for MD steering (energy, skin, equilibrium).
+pub mod brain;
 /// Cell-list neighbor search (GPU-resident via upstream `CellListGpu`).
 pub mod celllist;
 /// Neighbor search algorithm selection and Verlet list GPU implementation.

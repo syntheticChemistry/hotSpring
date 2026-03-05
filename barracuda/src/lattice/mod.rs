@@ -42,6 +42,8 @@ pub mod complex_f64;
 pub mod constants;
 /// Hadronic correlator and susceptibility measurements.
 pub mod correlator;
+/// Wilson gradient flow on SU(3) gauge fields (Lüscher 2010, Bazavov & Chuna 2021).
+pub mod gradient_flow;
 /// Staggered Dirac operator (GPU SpMV via WGSL).
 pub mod dirac;
 /// HotQCD EOS tables (Bazavov et al. PRD 90, 094503).

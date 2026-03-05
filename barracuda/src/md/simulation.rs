@@ -17,10 +17,14 @@ use barracuda::device::driver_profile::Fp64Strategy;
 use barracuda::pipeline::ReduceScalarPipeline;
 
 use crate::gpu::GpuF64;
+use crate::md::brain::{MdBrain, MdStepEvent};
 pub use crate::md::celllist::{run_simulation_celllist, CellList};
 use crate::md::config::MdConfig;
+use crate::md::neighbor::ForceAlgorithm;
 use crate::md::shaders;
-use crate::tolerances::THERMOSTAT_INTERVAL;
+use crate::tolerances::{
+    DEFAULT_VELOCITY_SEED, MD_BOX_MULLER_FLOOR, MD_TEMPERATURE_FLOOR, THERMOSTAT_INTERVAL,
+};
 
 use std::f64::consts::PI;
 use std::time::Instant;
@@ -40,6 +44,27 @@ pub struct EnergyRecord {
     pub temperature: f64,
 }
 
+/// Brain training summary from an MD run.
+#[derive(Clone, Debug, Default)]
+pub struct BrainSummary {
+    /// Number of readout retrains (adaptive interval) during the run.
+    pub retrain_count: usize,
+    /// Number of trusted heads at run end (out of 12 MD heads).
+    pub trusted_heads: usize,
+    /// Overall brain confidence at run end (0.0-1.0).
+    pub confidence: f64,
+    /// Per-head R² scores at run end.
+    pub head_r2: Vec<f64>,
+    /// Whether the brain detected any anomalies during the run.
+    pub anomaly_detected: bool,
+    /// Nautilus shell JSON for cross-run cumulative learning. `None` if never evolved.
+    pub nautilus_json: Option<String>,
+    /// Number of cumulative Nautilus observations.
+    pub nautilus_observations: usize,
+    /// Number of Nautilus generations evolved.
+    pub nautilus_generations: usize,
+}
+
 /// Simulation state and results.
 #[derive(Debug)]
 pub struct MdSimulation {
@@ -57,6 +82,8 @@ pub struct MdSimulation {
     pub wall_time_s: f64,
     /// Throughput (steps per second).
     pub steps_per_sec: f64,
+    /// Brain training summary (None if brain was not used).
+    pub brain_summary: Option<BrainSummary>,
 }
 
 /// Initialize particles on an FCC lattice, then add Maxwell-Boltzmann velocities
@@ -120,7 +147,7 @@ pub fn init_velocities(n: usize, temperature: f64, mass: f64, seed: u64) -> Vec<
     for _ in 0..n {
         for _ in 0..3 {
             // Box-Muller transform
-            let u1 = lcg_next(&mut rng_state).max(1e-15);
+            let u1 = lcg_next(&mut rng_state).max(MD_BOX_MULLER_FLOOR);
             let u2 = lcg_next(&mut rng_state);
             let z = (-2.0 * u1.ln()).sqrt() * (2.0 * PI * u2).cos();
             velocities.push(z * sigma);
@@ -191,7 +218,7 @@ pub async fn run_simulation(
     // Initialize particles
     let (positions, n_actual) = init_fcc_lattice(n, box_side);
     let n = n_actual.min(n); // might be slightly different due to FCC packing
-    let velocities = init_velocities(n, temperature, mass, 42);
+    let velocities = init_velocities(n, temperature, mass, DEFAULT_VELOCITY_SEED);
 
     println!("    Placed {n} particles on FCC lattice");
 
@@ -342,7 +369,7 @@ pub async fn run_simulation(
         let total_ke = reducer.sum_f64(&ke_buf)?;
         let t_current = 2.0 * total_ke / (3.0 * n as f64);
 
-        if t_current > 1e-30 {
+        if t_current > MD_TEMPERATURE_FLOOR {
             let ratio =
                 (config.dt / config.berendsen_tau).mul_add(temperature / t_current - 1.0, 1.0);
             let scale = ratio.max(0.0).sqrt();
@@ -491,6 +518,7 @@ pub async fn run_simulation(
         rdf_histogram: Vec::new(),
         wall_time_s: total_time,
         steps_per_sec,
+        brain_summary: None,
     })
 }
 
@@ -503,6 +531,18 @@ pub async fn run_simulation(
 pub async fn run_simulation_verlet(
     config: &MdConfig,
     skin: f64,
+) -> Result<MdSimulation, crate::error::HotSpringError> {
+    run_simulation_verlet_with_brain(config, skin, None).await
+}
+
+/// Verlet simulation with optional pre-trained brain state for cross-run persistence.
+///
+/// Pass `nautilus_json` as `Some(json_str)` to restore the Nautilus shell's
+/// cumulative evolution from a previous run.
+pub async fn run_simulation_verlet_with_brain(
+    config: &MdConfig,
+    skin: f64,
+    nautilus_json: Option<&str>,
 ) -> Result<MdSimulation, crate::error::HotSpringError> {
     let n = config.n_particles;
     let box_side = config.box_side();
@@ -521,7 +561,7 @@ pub async fn run_simulation_verlet(
 
     let (positions, n_actual) = init_fcc_lattice(n, box_side);
     let n = n_actual.min(n);
-    let velocities = init_velocities(n, temperature, mass, 42);
+    let velocities = init_velocities(n, temperature, mass, DEFAULT_VELOCITY_SEED);
     println!("    Placed {n} particles on FCC lattice");
 
     let gpu = GpuF64::new().await?;
@@ -708,7 +748,7 @@ pub async fn run_simulation_verlet(
         let total_ke = reducer.sum_f64(&ke_buf)?;
         let t_current = 2.0 * total_ke / (3.0 * n as f64);
 
-        if t_current > 1e-30 {
+        if t_current > MD_TEMPERATURE_FLOOR {
             let ratio =
                 (config.dt / config.berendsen_tau).mul_add(temperature / t_current - 1.0, 1.0);
             let scale = ratio.max(0.0).sqrt();
@@ -742,6 +782,20 @@ pub async fn run_simulation_verlet(
     let n_dumps = config.prod_steps / config.dump_step;
     let snap_every = config.vel_snapshot_interval;
     rebuild_count = 0;
+
+    let mut brain = MdBrain::new();
+    if let Some(json) = nautilus_json {
+        if brain.import_nautilus_json(json) {
+            println!(
+                "    Brain: imported Nautilus ({} obs, {} gens, {} retrains) from previous run",
+                brain.observation_count(),
+                brain.nautilus_generations(),
+                brain.readout_retrain_count(),
+            );
+        } else {
+            println!("    Brain: Nautilus import failed, starting fresh");
+        }
+    }
 
     for dump_idx in 0..n_dumps {
         let step_start = dump_idx * config.dump_step;
@@ -800,9 +854,41 @@ pub async fn run_simulation_verlet(
             velocity_snapshots.push(gpu.read_staging_f64(&vel_staging)?);
         }
 
+        let elapsed = t_prod.elapsed().as_secs_f64();
+        let current_sps = if elapsed > 0.0 { step_end as f64 / elapsed } else { 0.0 };
+        let _steering = brain.observe(&MdStepEvent {
+            step: step_end,
+            ke: total_ke,
+            pe: total_pe,
+            total_energy: total_e,
+            temperature: t_current,
+            target_temperature: temperature,
+            kappa: config.kappa,
+            gamma: config.gamma,
+            n_particles: n,
+            algorithm: ForceAlgorithm::VerletList { skin },
+            rebuild_count: rebuild_count as usize,
+            steps_per_sec: current_sps,
+            wall_time_s: elapsed,
+            skin_fraction: skin / config.rc,
+        });
+
         if step_end % 5000 < config.dump_step || step_end >= config.prod_steps {
+            let brain_info = if brain.readout_retrain_count() > 0 {
+                format!(
+                    " [brain: {}R/{}G, {}/{} heads trusted, conf={:.2}, {}obs]",
+                    brain.readout_retrain_count(),
+                    brain.nautilus_generations(),
+                    brain.head_trust().iter().filter(|&&t| t).count(),
+                    crate::md::brain::MD_NUM_HEADS,
+                    _steering.confidence,
+                    brain.observation_count(),
+                )
+            } else {
+                String::new()
+            };
             println!(
-                "    Step {}: T*={:.6}, KE={:.4}, PE={:.4}, E={:.4}",
+                "    Step {}: T*={:.6}, KE={:.4}, PE={:.4}, E={:.4}{brain_info}",
                 step_end - 1,
                 t_current,
                 total_ke,
@@ -817,8 +903,34 @@ pub async fn run_simulation_verlet(
     let total_steps = config.equil_steps + config.prod_steps;
     let steps_per_sec = total_steps as f64 / total_time;
 
+    let brain_summary = BrainSummary {
+        retrain_count: brain.readout_retrain_count(),
+        trusted_heads: brain.head_trust().iter().filter(|&&t| t).count(),
+        confidence: {
+            let r2s = brain.head_confidence();
+            let positive: Vec<f64> = r2s.iter().filter(|&&r| r > 0.0).copied().collect();
+            if positive.is_empty() { 0.0 } else { positive.iter().sum::<f64>() / r2s.len() as f64 }
+        },
+        head_r2: brain.head_confidence().to_vec(),
+        anomaly_detected: false,
+        nautilus_json: brain.export_nautilus_json(),
+        nautilus_observations: brain.observation_count(),
+        nautilus_generations: brain.nautilus_generations(),
+    };
+
     println!("    Production complete in {prod_time:.2}s ({rebuild_count} Verlet rebuilds)");
     println!("    Total: {total_time:.2}s ({steps_per_sec:.1} steps/s)");
+    if brain_summary.retrain_count > 0 {
+        println!(
+            "    Brain: {} readout retrains, {} board gens, {}/{} heads trusted, R²={:?}, {} obs",
+            brain_summary.retrain_count,
+            brain_summary.nautilus_generations,
+            brain_summary.trusted_heads,
+            crate::md::brain::MD_NUM_HEADS,
+            brain_summary.head_r2.iter().map(|r| format!("{r:.3}")).collect::<Vec<_>>(),
+            brain_summary.nautilus_observations,
+        );
+    }
 
     Ok(MdSimulation {
         config: config.clone(),
@@ -828,6 +940,7 @@ pub async fn run_simulation_verlet(
         rdf_histogram: Vec::new(),
         wall_time_s: total_time,
         steps_per_sec,
+        brain_summary: Some(brain_summary),
     })
 }
 

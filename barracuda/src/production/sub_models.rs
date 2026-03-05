@@ -13,11 +13,15 @@ use crate::production::npu_worker::trajectory_input_with_proxy;
 use crate::proxy::ProxyFeatures;
 
 /// Per-head metric type for confidence tracking.
+///
+/// Evolution note (v0.6.17): non-binary (Regression) heads learn better than
+/// Classification heads. Prefer Regression for all heads; use soft thresholds
+/// on the steering side for decision outputs.
 #[derive(Clone, Copy, Debug)]
 pub enum HeadMetric {
-    /// Continuous-valued output — trust threshold based on R².
+    /// Continuous-valued output — trust threshold based on R² (preferred for all heads).
     Regression,
-    /// Binary output — trust threshold based on classification accuracy.
+    /// Binary output — deprecated, prefer Regression with soft threshold.
     Classification,
 }
 
@@ -294,7 +298,7 @@ impl SubModelRegistry {
                     reservoir_size: 150,
                     connectivity: 0.25,
                     output_names: vec!["cg_iterations", "stall_probability"],
-                    head_metrics: vec![HeadMetric::Regression, HeadMetric::Classification],
+                    head_metrics: vec![HeadMetric::Regression, HeadMetric::Regression],
                     buffer_capacity: 1500,
                     min_samples_to_train: 20,
                     accepts_phase: |p| {
@@ -322,7 +326,7 @@ impl SubModelRegistry {
                         HeadMetric::Regression,
                         HeadMetric::Regression,
                         HeadMetric::Regression,
-                        HeadMetric::Classification,
+                        HeadMetric::Regression,
                     ],
                     buffer_capacity: 500,
                     min_samples_to_train: 10,
