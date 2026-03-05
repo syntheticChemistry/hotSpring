@@ -38,15 +38,18 @@ pipeline on harder physics — toadStool evolves the GPU acceleration in paralle
 | 22 | Ten Martini (Cantor) | ✅ (in spectral_control.py) | ✅ (in validate_hofstadter) | — (Sturm, CPU-natural) | — |
 | 23 | Sulfolobus meta-populations | — | — | — | — (wetSpring domain) |
 | 24 | Anderson subseafloor review | — (reference only) | — | — | — |
+| 43 | Chuna: SU(3) gradient flow integrators | — | — | — (Tier 2 QCD) | — |
+| 44 | Chuna: Conservative dielectric functions (BGK) | — | — | — (Tier 4 WDM) | — |
+| 45 | Chuna: Multi-species kinetic-fluid coupling | — | — | — (Tier 4 HED) | — |
 
 ### Totals
 
 | Substrate | Papers with validation | Coverage |
 |-----------|:---:|:---:|
-| **Python Control** | **18/22** | Papers 1-6, 8-10, 13-22 |
-| **BarraCuda CPU** | **22/22** | All except 23 (bioinformatics) — **COMPLETE** |
-| **BarraCuda GPU** | **20/22** | Papers 1, 3-5, 8-19 + pure GPU HMC + dynamical GPU + β-scan |
-| **metalForge (GPU+NPU)** | **9/22** | Papers 5, 8-10, 12-16 (transport + QCD + Higgs + spectral) |
+| **Python Control** | **18/25** | Papers 1-6, 8-10, 13-22 |
+| **BarraCuda CPU** | **22/25** | All except 23, 43-45 — **COMPLETE** for pre-Chuna papers |
+| **BarraCuda GPU** | **20/25** | Papers 1, 3-5, 8-19 + pure GPU HMC + dynamical GPU + β-scan |
+| **metalForge (GPU+NPU)** | **9/25** | Papers 5, 8-10, 12-16 (transport + QCD + Higgs + spectral) |
 
 ### Missing Controls (Action Items)
 
@@ -57,9 +60,13 @@ pipeline on harder physics — toadStool evolves the GPU acceleration in paralle
 | 12 (Freeze-out) | ✅ DONE — `validate_freeze_out` (8/8): susceptibility β-scan, β_c detected | — | — |
 | 20 (3D Anderson) | ✅ DONE — 3D Anderson added to spectral_control.py (Feb 22, 2026) | — | — |
 | 23 (Sulfolobus) | Bioinformatics pipeline (wetSpring domain) | Medium | P3 |
+| 43 (Chuna gradient flow) | SU(3) gradient flow on 4⁴/8⁴, compare RK coefficients vs Omelyan HMC | Medium | P2 — extends Papers 8-12 |
+| 44 (Chuna dielectric) | BGK dielectric response, f-sum rule, DSF comparison vs Sarkas | Medium | P2 — extends Papers 1/5 |
+| 45 (Chuna kinetic-fluid) | Hybrid kinetic-hydro coupling, conservation validation | High | P3 — new domain |
 
 **Total science cost**: ~$0.20 for 22 papers, 400+ validation checks.
 Papers 6, 7, 13-22 add checks at negligible cost (CPU-only, <15 seconds each).
+Papers 43-45 (Chuna) queued — estimated ~$0.05 additional (gradient flow reuses SU(3) infrastructure).
 
 ---
 
@@ -452,6 +459,46 @@ HPC. Each paper reproduced on consumer GPU strengthens the argument.
 **Connection to NIF/JLF meeting (Feb 10-12, 2026)**: Murillo attended this meeting.
 Papers 38-40 directly relate to NIF experimental diagnostics. Reproducing these
 computational methods on consumer hardware provides the field with accessible tools.
+
+### Chuna Extension — Murillo Group Integrators, Dielectric Theory & HED Coupling
+
+Thomas Chuna (PhD student, Murillo Group, MSU Physics & CMSE) — referred by
+Murillo (March 4, 2026). Published on lattice QCD integrators with Bazavov,
+plasma dielectric functions with Murillo, and kinetic-fluid HED coupling with
+Sagert/Haack/Murillo. Profile: `whitePaper/attsi/non-anon/contact/murillo/chuna_profile.md`
+
+#### Tier 2 — Lattice QCD (SU(3) Integrators)
+
+| # | Paper | Journal | Year | Faculty | What We Need | Status |
+|---|-------|---------|------|---------|-------------|--------|
+| 43 | Bazavov & Chuna "Efficient integration of gradient flow in lattice gauge theory and properties of low-storage commutator-free Lie group methods" | arXiv:2101.05320 [hep-lat] | 2021 | Bazavov, Chuna | Three-stage 3rd-order RK Lie group integrators for SU(3) gradient flow. Compare our Omelyan HMC integrator against optimized MILC coefficients. Needs `su3.rs` + gradient flow observable | Queue — reproduce gradient flow integration on 4⁴/8⁴, compare coefficients vs our HMC integrator (Paper 8) |
+
+**Why this matters**: Chuna co-authored the integrator optimizations used in
+production MILC code. Our Paper 8 HMC uses Omelyan (4th-order symplectic).
+Reproducing his gradient flow coefficients lets us benchmark our integrator
+precision against the state of the art. All SU(3) GPU primitives already validated.
+
+#### Tier 4 — Plasma DSF & Dielectric Theory
+
+| # | Paper | Journal | Year | Faculty | What We Need | Status |
+|---|-------|---------|------|---------|-------------|--------|
+| 44 | Chuna & Murillo "Conservative dielectric functions and electrical conductivities from the multicomponent BGK equation" | Phys Rev E 111, 035206 (arXiv:2405.07871) | 2024 | Chuna, Murillo | Completed Mermin susceptibility, f-sum rule validation, DSF shape under NIF hot-spot conditions, non-Drude conductivity. Extends Papers 1/5 (Sarkas Yukawa DSF, Stanton-Murillo transport) | Queue — reproduce dielectric response from BGK; validate f-sum rule; compare DSF shape vs Sarkas MD |
+| 45 | Haack, Murillo, Sagert & Chuna "Multi-species kinetic-fluid coupling for high-energy density simulations" | J Computational Physics | 2024 | Chuna, Murillo, Sagert, Haack | Hybrid kinetic-hydro coupling for HED. Multi-fidelity: kinetic (expensive) in one region, hydro (cheap) in another. DOE OSTI:2368912 | Queue — reproduce kinetic-fluid interface; validate conservation laws across coupling boundary |
+
+**Why Paper 44 matters**: The DSF is the central observable in our Sarkas
+reproduction (Paper 1). Chuna's paper derives a "completed Mermin"
+susceptibility that properly conserves number and momentum — the correct
+theory beyond what Sarkas computes. Reproducing it extends our DSF validation
+from simulation to analytic theory, and provides the theoretical framework
+for XRTS diagnostics (Tier 4c, Paper 38).
+
+**Why Paper 45 matters**: The kinetic-fluid coupling pattern — different
+fidelity levels in different spatial regions — is the same pattern as our
+brain architecture (CPU/GPU/NPU for different computational domains).
+Reproducing it validates multi-fidelity simulation, which is the next step
+beyond single-method MD.
+
+---
 
 ### R. Anderson Extension — Hot Spring Microbial Evolution (Taq Corollary)
 
