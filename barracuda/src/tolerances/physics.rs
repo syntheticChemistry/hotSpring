@@ -43,7 +43,7 @@ pub const SCREENED_ION_SPHERE_SQRT3_ABS: f64 = 1e-14;
 /// with increasing κ. 0.05 absolute tolerance on the normalized overlap.
 pub const SCREENED_SP_TO_IS_LIMIT: f64 = 0.05;
 
-/// Screened Coulomb: minimum |E_He+/E_H| for Z² scaling check.
+/// Screened Coulomb: minimum |`E_He+/E_H`| for Z² scaling check.
 ///
 /// At κ=0, E ∝ −Z² so He+ (Z=2) is 4× deeper than H (Z=1).
 /// Finite grid gives ratio ~3.9–4.0; 3.5 is conservative lower bound.
@@ -56,11 +56,16 @@ pub const SCREENED_Z2_SCALING_MIN_RATIO: f64 = 3.5;
 /// TTM equilibrium temperature vs Python control: relative tolerance.
 ///
 /// Spitzer-based 0D model vs SMT ( Stanton–Murillo) in Python.
-/// Different transport models → ~10–20% difference in T_eq. 20% accommodates.
+/// Different transport models → ~10–20% difference in `T_eq`. 20% accommodates.
 pub const TTM_EQUILIBRIUM_T_REL: f64 = 0.20;
 
-/// TTM Helium: Spitzer Z=1 gives T_eq=(Te0+Ti0)/2=15150 K; Python SMT gives 10700.
-/// 50% accommodates model difference for light species.
+/// TTM Helium: equilibrium temperature vs Python control — relative tolerance.
+///
+/// 50% tolerance accounts for fundamental model mismatch between Spitzer Z=1
+/// collision frequency (gives 15150 K) and SMT local-field model used in Python
+/// control (gives 10700 K). The light-species (Z=2, 4 amu) amplifies
+/// collision-frequency model sensitivity. See control/ttm/scripts/run_local_model.py
+/// for the Python baseline.
 pub const TTM_HELIUM_EQUILIBRIUM_T_REL: f64 = 0.50;
 
 /// TTM energy conservation: relative drift allowed.
@@ -109,7 +114,7 @@ pub const NMP_SIGMA_THRESHOLD: f64 = 2.0;
 /// physics (deformation, pairing fluctuations); the 2 `MeV` floor prevents
 /// division by zero for light nuclei.
 pub const SIGMA_THEO_FRACTION: f64 = 0.01;
-/// Minimum σ_theo in MeV to avoid division by zero for light nuclei.
+/// Minimum `σ_theo` in `MeV` to avoid division by zero for light nuclei.
 pub const SIGMA_THEO_FLOOR_MEV: f64 = 2.0;
 
 /// Compute theoretical uncertainty for a given experimental binding energy.

@@ -33,21 +33,21 @@ pub struct NMPConstraints {
     pub rho0_min: f64,
     /// Maximum saturation density ρ₀ (fm⁻³).
     pub rho0_max: f64,
-    /// Minimum binding energy E/A (MeV).
+    /// Minimum binding energy E/A (`MeV`).
     pub e_a_min: f64,
-    /// Maximum binding energy E/A (MeV).
+    /// Maximum binding energy E/A (`MeV`).
     pub e_a_max: f64,
-    /// Minimum incompressibility K∞ (MeV).
+    /// Minimum incompressibility K∞ (`MeV`).
     pub k_inf_min: f64,
-    /// Maximum incompressibility K∞ (MeV).
+    /// Maximum incompressibility K∞ (`MeV`).
     pub k_inf_max: f64,
     /// Minimum effective mass ratio m*/m.
     pub m_eff_min: f64,
     /// Maximum effective mass ratio m*/m.
     pub m_eff_max: f64,
-    /// Minimum symmetry energy J (MeV).
+    /// Minimum symmetry energy J (`MeV`).
     pub j_min: f64,
-    /// Maximum symmetry energy J (MeV).
+    /// Maximum symmetry energy J (`MeV`).
     pub j_max: f64,
 }
 
@@ -177,7 +177,7 @@ pub fn l1_proxy_prescreen<S: std::hash::BuildHasher>(
 #[derive(Debug, Clone)]
 #[must_use]
 pub struct PreScreenClassifier {
-    /// Weights [10] — one per Skyrme parameter.
+    /// Weights \[10\] — one per Skyrme parameter.
     pub weights: Vec<f64>,
     /// Bias term.
     pub bias: f64,
@@ -318,7 +318,7 @@ impl PreScreenClassifier {
 
 /// Soft penalty for NMP outside preferred ranges in L1/L2 objective functions.
 ///
-/// Uses looser bounds than [`NMPConstraints`]: ρ₀ ∈ [0.08, 0.25], E/A ≤ -5 MeV.
+/// Uses looser bounds than [`NMPConstraints`]: ρ₀ ∈ [0.08, 0.25], E/A ≤ -5 `MeV`.
 /// Returns a positive penalty to add to χ² before ln(1+χ²).
 #[must_use]
 pub fn nmp_objective_penalty(nmp: &NuclearMatterProps) -> f64 {

@@ -499,7 +499,10 @@ fn readback_mixed_densities(
             energy_receivers.push((gi, items_count, g.nr, rx_e, rx_pair));
         }
     }
-    let _ = raw_device.poll(wgpu::PollType::Wait { submission_index: None, timeout: None });
+    let _ = raw_device.poll(wgpu::PollType::Wait {
+        submission_index: None,
+        timeout: None,
+    });
 
     let mut mixed_densities: std::collections::HashMap<usize, (Vec<f64>, Vec<f64>)> =
         std::collections::HashMap::new();

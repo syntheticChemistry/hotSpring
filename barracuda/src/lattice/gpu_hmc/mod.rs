@@ -42,9 +42,7 @@ pub use dynamical::{
     GpuDynHmcPipelines, GpuDynHmcResult, GpuDynHmcState, WGSL_AXPY, WGSL_COMPLEX_DOT_RE,
     WGSL_DIRAC_STAGGERED, WGSL_FERMION_FORCE, WGSL_RANDOM_MOMENTA, WGSL_XPAY,
 };
-pub use hasenbusch::{
-    gpu_hasenbusch_hmc_trajectory, GpuHasenbuschBuffers, GpuHasenbuschConfig,
-};
+pub use hasenbusch::{gpu_hasenbusch_hmc_trajectory, GpuHasenbuschBuffers, GpuHasenbuschConfig};
 pub use observables::{BidirectionalStream, StreamObservables};
 pub use resident_cg::{
     gpu_cg_solve_brain, gpu_cg_solve_resident, gpu_cg_solve_resident_async,
@@ -95,7 +93,7 @@ pub const WGSL_KINETIC_ENERGY_DF64: &str = include_str!("../shaders/su3_kinetic_
 /// WGSL shader: GPU Polyakov loop — temporal Wilson line on GPU.
 pub const WGSL_POLYAKOV_LOOP: &str = include_str!("../shaders/polyakov_loop_f64.wgsl");
 
-/// WGSL shader preamble: complex_f64 + su3_math_f64 (safe for composition, no ptr I/O).
+/// WGSL shader preamble: `complex_f64` + `su3_math_f64` (safe for composition, no ptr I/O).
 const WGSL_COMPLEX_F64: &str = include_str!("../shaders/complex_f64.wgsl");
 const WGSL_SU3_MATH_F64: &str = include_str!("../shaders/su3_math_f64.wgsl");
 
@@ -198,11 +196,9 @@ impl GpuHmcPipelines {
 
     /// Full DF64 mode: pass all native-f64 shaders through the automatic
     /// downcast pipeline. `create_pipeline_f64` detects `full_df64_mode`
-    /// and routes through `downcast_f64_to_df64` → stripped df64_core.
+    /// and routes through `downcast_f64_to_df64` → stripped `df64_core`.
     fn new_full_df64(gpu: &GpuF64) -> Self {
-        eprintln!(
-            "[HMC] FP64 strategy: Full DF64 — all shaders downcast to f32-pair (NVK safe)"
-        );
+        eprintln!("[HMC] FP64 strategy: Full DF64 — all shaders downcast to f32-pair (NVK safe)");
 
         let complex_no_exp = WGSL_COMPLEX_F64
             .lines()
@@ -310,7 +306,7 @@ pub fn unflatten_links_into(lattice: &mut Lattice, flat: &[f64]) {
 pub struct GpuHmcResult {
     /// Whether the Metropolis test accepted this trajectory.
     pub accepted: bool,
-    /// ΔH = H_new - H_old
+    /// ΔH = `H_new` - `H_old`
     pub delta_h: f64,
     /// Average plaquette after trajectory (whether accepted or rejected).
     pub plaquette: f64,
@@ -318,11 +314,11 @@ pub struct GpuHmcResult {
 
 /// GPU-resident HMC state: buffers that persist across trajectories.
 pub struct GpuHmcState {
-    /// SU(3) link field U_μ(x), flattened to f64 (n_links × 18).
+    /// SU(3) link field `U_μ(x)`, flattened to f64 (`n_links` × 18).
     pub link_buf: wgpu::Buffer,
-    /// Backup copy of link_buf for Metropolis reject rollback.
+    /// Backup copy of `link_buf` for Metropolis reject rollback.
     pub link_backup: wgpu::Buffer,
-    /// Conjugate momenta P_μ(x), same layout as link_buf.
+    /// Conjugate momenta `P_μ(x)`, same layout as `link_buf`.
     pub mom_buf: wgpu::Buffer,
     /// Gauge force ∂S/∂U accumulated per link.
     pub force_buf: wgpu::Buffer,
@@ -340,9 +336,9 @@ pub struct GpuHmcState {
     pub dims: [usize; 4],
     /// Number of lattice sites (product of all dimensions).
     pub volume: usize,
-    /// Number of gauge links (volume × N_DIM).
+    /// Number of gauge links (volume × `N_DIM`).
     pub n_links: usize,
-    /// Gauge coupling β = 2N_c/g².
+    /// Gauge coupling β = `2N_c/g²`.
     pub beta: f64,
     /// Spatial volume Nx × Ny × Nz.
     pub spatial_vol: usize,
@@ -352,7 +348,7 @@ pub struct GpuHmcState {
     pub wg_vol: u32,
 }
 
-/// Polyakov loop shader uniform params — must match WGSL PolyParams layout.
+/// Polyakov loop shader uniform params — must match WGSL `PolyParams` layout.
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 struct PolyParams {
@@ -450,7 +446,7 @@ impl GpuHmcState {
 ///
 /// All gauge force, momentum update, link update, kinetic energy, and
 /// plaquette math happens on GPU. CPU only generates random momenta
-/// (uploaded once), reads back H_old/H_new (scalar sums), and makes
+/// (uploaded once), reads back `H_old/H_new` (scalar sums), and makes
 /// the Metropolis decision.
 pub fn gpu_hmc_trajectory(
     gpu: &GpuF64,
@@ -491,7 +487,7 @@ pub fn gpu_hmc_trajectory(
         gpu_mom_update_dispatch(gpu, pipelines, state, lam * dt);
         gpu_link_update_dispatch(gpu, pipelines, state, 0.5 * dt);
         gpu_force_dispatch(gpu, pipelines, state);
-        gpu_mom_update_dispatch(gpu, pipelines, state, (1.0 - 2.0 * lam) * dt);
+        gpu_mom_update_dispatch(gpu, pipelines, state, 2.0f64.mul_add(-lam, 1.0) * dt);
         gpu_link_update_dispatch(gpu, pipelines, state, 0.5 * dt);
         gpu_force_dispatch(gpu, pipelines, state);
         gpu_mom_update_dispatch(gpu, pipelines, state, lam * dt);
@@ -630,7 +626,7 @@ pub(super) fn gpu_wilson_action(gpu: &GpuF64, p: &GpuHmcPipelines, s: &GpuHmcSta
         return f64::NAN;
     };
     let plaq_sum: f64 = per_site.iter().sum();
-    s.beta * (6.0 * s.volume as f64 - plaq_sum)
+    s.beta * 6.0f64.mul_add(s.volume as f64, -plaq_sum)
 }
 
 pub(super) fn gpu_kinetic_energy(gpu: &GpuF64, p: &GpuHmcPipelines, s: &GpuHmcState) -> f64 {
@@ -752,10 +748,11 @@ pub fn gpu_links_to_lattice(gpu: &GpuF64, state: &GpuHmcState, lattice: &mut Lat
 
 /// Compute the average Polyakov loop on GPU (no CPU readback of full link buffer).
 ///
-/// Cross-spring evolution: toadStool GpuPolyakovLoop → hotSpring v0.6.13.
+/// Cross-spring evolution: toadStool `GpuPolyakovLoop` → hotSpring v0.6.13.
 /// Dispatches the Polyakov loop shader on GPU, then reads back only the
-/// spatial_vol × 2 output (Re, Im) instead of the full V × 4 × 18 link buffer.
+/// `spatial_vol` × 2 output (Re, Im) instead of the full V × 4 × 18 link buffer.
 /// Returns (magnitude, phase) averaged over spatial sites.
+#[must_use]
 pub fn gpu_polyakov_loop(
     gpu: &GpuF64,
     pipelines: &GpuHmcPipelines,
@@ -805,7 +802,7 @@ pub fn gpu_polyakov_loop(
     for i in 0..spatial_vol {
         let re = poly_data[i * 2];
         let im = poly_data[i * 2 + 1];
-        sum_re += (re * re + im * im).sqrt();
+        sum_re += re.hypot(im);
         sum_im += im.atan2(re);
     }
     (sum_re / spatial_vol as f64, sum_im / spatial_vol as f64)

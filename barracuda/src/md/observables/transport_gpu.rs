@@ -52,9 +52,9 @@ pub struct GpuVelocityRing {
     pub slots: Vec<wgpu::Buffer>,
     /// Ring buffer capacity (number of velocity snapshots).
     pub n_slots: usize,
-    /// Current write position (wraps modulo n_slots).
+    /// Current write position (wraps modulo `n_slots`).
     pub write_idx: usize,
-    /// Total snapshots stored (may exceed n_slots for overwrite mode).
+    /// Total snapshots stored (may exceed `n_slots` for overwrite mode).
     pub total_stored: usize,
     /// Number of particles.
     pub n_particles: usize,
@@ -143,7 +143,7 @@ impl GpuVelocityRing {
 /// GPU VACF result: C(lag) at discrete lag times + D*.
 #[derive(Clone, Debug)]
 pub struct GpuVacf {
-    /// Lag times (reduced units, ω_p⁻¹).
+    /// Lag times (reduced units, `ω_p⁻¹`).
     pub t_values: Vec<f64>,
     /// Velocity autocorrelation C(t) / C(0).
     pub c_values: Vec<f64>,

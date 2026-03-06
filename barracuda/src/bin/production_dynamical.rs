@@ -2,14 +2,14 @@
 
 //! Production dynamical fermion HMC — full QCD with staggered quarks.
 //!
-//! Generates dynamical gauge configurations with N_f staggered fermion
+//! Generates dynamical gauge configurations with `N_f` staggered fermion
 //! flavors via GPU HMC. Each staggered field contributes 4 tastes, so:
 //!
 //! | --nf flag | Pseudofermion fields | Physical flavors | Method |
 //! |-----------|---------------------|-----------------|--------|
-//! | 4         | 1                   | N_f=4           | Standard HMC |
-//! | 2         | 1 (rooted)          | N_f=2           | RHMC |
-//! | 2+1       | 2 (rooted)          | N_f=2+1         | RHMC |
+//! | 4         | 1                   | `N_f=4`           | Standard HMC |
+//! | 2         | 1 (rooted)          | `N_f=2`           | RHMC |
+//! | 2+1       | 2 (rooted)          | `N_f=2+1`         | RHMC |
 //!
 //! Measures plaquette, Polyakov loop, and CG iteration count per trajectory.
 //! With --flow, runs gradient flow on each measurement config for t₀ and w₀.
@@ -73,7 +73,10 @@ fn parse_args() -> CliArgs {
             let n: usize = val.parse().expect("bad --lattice");
             dims = [n, n, n, n];
         } else if let Some(val) = arg.strip_prefix("--dims=") {
-            let parts: Vec<usize> = val.split(',').map(|s| s.parse().expect("bad --dims")).collect();
+            let parts: Vec<usize> = val
+                .split(',')
+                .map(|s| s.parse().expect("bad --dims"))
+                .collect();
             assert_eq!(parts.len(), 4, "--dims expects 4 values");
             dims = [parts[0], parts[1], parts[2], parts[3]];
         } else if let Some(val) = arg.strip_prefix("--beta=") {
@@ -102,8 +105,18 @@ fn parse_args() -> CliArgs {
     }
 
     CliArgs {
-        dims, beta, mass, n_therm, n_meas, n_md, dt, seed,
-        measure_flow, flow_t_max, output, traj_log,
+        dims,
+        beta,
+        mass,
+        n_therm,
+        n_meas,
+        n_md,
+        dt,
+        seed,
+        measure_flow,
+        flow_t_max,
+        output,
+        traj_log,
     }
 }
 
@@ -123,11 +136,16 @@ fn main() {
     println!("║  GPU HMC with Staggered Dirac + CG Solver                  ║");
     println!("╚══════════════════════════════════════════════════════════════╝");
     println!();
-    println!("  Lattice:     {} ({} sites)", lat_label, vol);
+    println!("  Lattice:     {lat_label} ({vol} sites)");
     println!("  β:           {:.4}", args.beta);
     println!("  mass:        {:.4}", args.mass);
     println!("  N_f:         4 (1 staggered field × 4 tastes)");
-    println!("  HMC:         dt={:.4}, n_md={}, τ={:.3}", args.dt, args.n_md, args.dt * args.n_md as f64);
+    println!(
+        "  HMC:         dt={:.4}, n_md={}, τ={:.3}",
+        args.dt,
+        args.n_md,
+        args.dt * args.n_md as f64
+    );
     println!("  Therm:       {}", args.n_therm);
     println!("  Meas:        {}", args.n_meas);
     if args.measure_flow {
@@ -150,25 +168,25 @@ fn main() {
     println!("  GPU: {}", gpu.adapter_name);
 
     let pipelines = GpuDynHmcPipelines::new(&gpu);
-    let state = GpuDynHmcState::from_lattice(
-        &gpu, &lattice, args.beta, args.mass,
-        1e-8, 1000,
-    );
+    let state = GpuDynHmcState::from_lattice(&gpu, &lattice, args.beta, args.mass, 1e-8, 1000);
 
     let mut seed = args.seed;
-    let mut traj_file = args.traj_log.as_ref().map(|path| {
-        std::fs::File::create(path).expect("failed to create traj log")
-    });
+    let mut traj_file = args
+        .traj_log
+        .as_ref()
+        .map(|path| std::fs::File::create(path).expect("failed to create traj log"));
 
     println!();
-    println!("  Phase 1: Thermalization ({} trajectories)...", args.n_therm);
+    println!(
+        "  Phase 1: Thermalization ({} trajectories)...",
+        args.n_therm
+    );
     let therm_start = Instant::now();
 
     let mut accepted_therm = 0;
     for i in 0..args.n_therm {
-        let result = gpu_dynamical_hmc_trajectory(
-            &gpu, &pipelines, &state, args.n_md, args.dt, &mut seed,
-        );
+        let result =
+            gpu_dynamical_hmc_trajectory(&gpu, &pipelines, &state, args.n_md, args.dt, &mut seed);
         if result.accepted {
             accepted_therm += 1;
         }
@@ -187,7 +205,7 @@ fn main() {
     println!(
         "    Therm done: {:.1}s, acc={:.0}%",
         therm_start.elapsed().as_secs_f64(),
-        accepted_therm as f64 / args.n_therm as f64 * 100.0
+        f64::from(accepted_therm) / args.n_therm as f64 * 100.0
     );
 
     println!();
@@ -201,9 +219,8 @@ fn main() {
 
     for i in 0..args.n_meas {
         let traj_start = Instant::now();
-        let result = gpu_dynamical_hmc_trajectory(
-            &gpu, &pipelines, &state, args.n_md, args.dt, &mut seed,
-        );
+        let result =
+            gpu_dynamical_hmc_trajectory(&gpu, &pipelines, &state, args.n_md, args.dt, &mut seed);
         let wall_us = traj_start.elapsed().as_micros() as u64;
 
         if result.accepted {
@@ -222,7 +239,7 @@ fn main() {
                 "cg_iterations": result.cg_iterations,
                 "wall_us": wall_us,
             });
-            writeln!(f, "{}", json).ok();
+            writeln!(f, "{json}").ok();
         }
 
         if (i + 1) % 20 == 0 || i == args.n_meas - 1 {
@@ -235,7 +252,7 @@ fn main() {
                 mean_plaq,
                 result.delta_h,
                 mean_cg,
-                accepted_meas as f64 / (i + 1) as f64 * 100.0,
+                f64::from(accepted_meas) / (i + 1) as f64 * 100.0,
             );
         }
     }
@@ -245,20 +262,23 @@ fn main() {
 
     let mean_plaq = plaquettes.iter().sum::<f64>() / plaquettes.len() as f64;
     let std_plaq = std_dev(&plaquettes);
-    let acc_rate = accepted_meas as f64 / args.n_meas as f64;
+    let acc_rate = f64::from(accepted_meas) / args.n_meas as f64;
     let mean_cg = cg_iters_total.iter().sum::<usize>() as f64 / cg_iters_total.len() as f64;
     let ms_per_traj = meas_wall * 1000.0 / args.n_meas as f64;
 
     println!();
     println!("  ══════════════════════════════════════════════════");
-    println!("  {} N_f=4 Dynamical Summary (β={:.4}, m={:.4})", lat_label, args.beta, args.mass);
+    println!(
+        "  {} N_f=4 Dynamical Summary (β={:.4}, m={:.4})",
+        lat_label, args.beta, args.mass
+    );
     println!("  ══════════════════════════════════════════════════");
-    println!("  ⟨P⟩          = {:.6} ± {:.6}", mean_plaq, std_plaq);
+    println!("  ⟨P⟩          = {mean_plaq:.6} ± {std_plaq:.6}");
     println!("  Acceptance   = {:.1}%", acc_rate * 100.0);
-    println!("  ⟨CG iters⟩   = {:.1}", mean_cg);
-    println!("  ms/trajectory = {:.1}", ms_per_traj);
-    println!("  Meas wall    = {:.1}s", meas_wall);
-    println!("  Total wall   = {:.1}s", total_wall);
+    println!("  ⟨CG iters⟩   = {mean_cg:.1}");
+    println!("  ms/trajectory = {ms_per_traj:.1}");
+    println!("  Meas wall    = {meas_wall:.1}s");
+    println!("  Total wall   = {total_wall:.1}s");
 
     if let Some(path) = args.output {
         let json = serde_json::json!({
@@ -281,7 +301,7 @@ fn main() {
         });
         std::fs::write(&path, serde_json::to_string_pretty(&json).unwrap())
             .expect("failed to write output");
-        println!("  Results → {}", path);
+        println!("  Results → {path}");
     }
 }
 

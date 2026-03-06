@@ -3,9 +3,9 @@
 //! TTM (Two-Temperature Model) 0D ODE solver validation (Paper 2).
 //!
 //! Validates the Spitzer-based 0D TTM against Python control results from
-//! CONTROL_EXPERIMENT_STATUS.md (TTM Local Model — 0D Temperature Equilibration).
+//! `CONTROL_EXPERIMENT_STATUS.md` (TTM Local Model — 0D Temperature Equilibration).
 //!
-//! | Species | Te₀ (K) | Ti₀ (K) | T_eq (K) | τ_eq (ns) |
+//! | Species | Te₀ (K) | Ti₀ (K) | `T_eq` (K) | `τ_eq` (ns) |
 //! |---------|---------|---------|----------|-----------|
 //! | Argon   | 15,000  | 300     | 8,100    | 0.42      |
 //! | Xenon   | 20,000  | 300     | 14,085   | 1.56      |
@@ -171,10 +171,11 @@ fn main() {
         let ne = species.electron_density_m3();
         let ni = species.ion_density_m3();
 
-        let e0 = (3.0 / 2.0) * (ne * KB * species.te_initial_k + ni * KB * species.ti_initial_k);
+        let e0 =
+            (3.0 / 2.0) * (ne * KB).mul_add(species.te_initial_k, ni * KB * species.ti_initial_k);
         let te_f = result.te_history.last().copied().unwrap_or(0.0);
         let ti_f = result.ti_history.last().copied().unwrap_or(0.0);
-        let ef = (3.0 / 2.0) * (ne * KB * te_f + ni * KB * ti_f);
+        let ef = (3.0 / 2.0) * (ne * KB).mul_add(te_f, ni * KB * ti_f);
         let drift = ((ef - e0) / e0).abs();
         harness.check_rel(
             &format!("{name} energy conservation"),

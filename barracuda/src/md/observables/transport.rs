@@ -15,7 +15,7 @@ const PLATEAU_DETECTION_TIME: f64 = 20.0;
 pub struct StressAcf {
     /// Lag times (reduced units).
     pub t_values: Vec<f64>,
-    /// ⟨σ_xy(0) σ_xy(t)⟩ autocorrelation.
+    /// ⟨`σ_xy(0)` `σ_xy(t)`⟩ autocorrelation.
     pub c_values: Vec<f64>,
     /// Shear viscosity η* from Green-Kubo integral.
     pub viscosity: f64,
@@ -160,7 +160,7 @@ pub fn compute_stress_acf(
 pub struct HeatAcf {
     /// Lag times (reduced units).
     pub t_values: Vec<f64>,
-    /// ⟨J_q(0) · J_q(t)⟩ autocorrelation.
+    /// ⟨`J_q(0)` · `J_q(t)`⟩ autocorrelation.
     pub c_values: Vec<f64>,
     /// Thermal conductivity λ* from Green-Kubo integral.
     pub thermal_conductivity: f64,

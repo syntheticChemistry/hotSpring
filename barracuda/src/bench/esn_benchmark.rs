@@ -196,7 +196,7 @@ pub fn generate_test_sequence(seed: u64, length: usize, input_size: usize) -> Ve
                     state = state
                         .wrapping_mul(6_364_136_223_846_793_005)
                         .wrapping_add(1_442_695_040_888_963_407);
-                    ((state >> 33) as f64) / (u32::MAX as f64) - 0.5
+                    ((state >> 33) as f64) / f64::from(u32::MAX) - 0.5
                 })
                 .collect()
         })

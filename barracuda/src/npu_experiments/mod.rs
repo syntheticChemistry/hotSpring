@@ -74,7 +74,7 @@ pub struct PlacementResult {
 pub struct MultiOutputMetrics {
     /// Phase classification accuracy.
     pub phase_acc: f64,
-    /// Mean absolute error on β_c prediction.
+    /// Mean absolute error on `β_c` prediction.
     pub beta_c_err: f64,
     /// Thermalization classification accuracy.
     pub therm_acc: f64,
@@ -107,11 +107,12 @@ pub struct CharacterizationResults {
     pub drift_measurements: Vec<f64>,
     /// Maximum observed drift.
     pub max_drift: f64,
-    /// Accuracy vs training set size (n_train, accuracy %).
+    /// Accuracy vs training set size (`n_train`, accuracy %).
     pub accuracy_vs_training_size: Vec<(usize, f64)>,
 }
 
 /// Generate per-trajectory training data via CPU HMC on a 4⁴ lattice.
+#[must_use]
 pub fn generate_trajectory_data(betas: &[f64]) -> Vec<TrajectoryRecord> {
     let mut records = Vec::with_capacity(betas.len() * N_TOTAL);
 
@@ -139,7 +140,7 @@ pub fn generate_trajectory_data(betas: &[f64]) -> Vec<TrajectoryRecord> {
 
             let plaq_var = plaquette_variance(&plaq_history);
             let poly = lat.polyakov_loop([0, 0, 0]);
-            let poly_mag = (poly.re * poly.re + poly.im * poly.im).sqrt();
+            let poly_mag = poly.re.hypot(poly.im);
             let poly_phase = poly.im.atan2(poly.re);
 
             records.push(TrajectoryRecord {
@@ -163,6 +164,7 @@ pub fn generate_trajectory_data(betas: &[f64]) -> Vec<TrajectoryRecord> {
 }
 
 /// Build thermalization detector dataset from trajectory records.
+#[must_use]
 pub fn build_thermalization_dataset(
     records: &[TrajectoryRecord],
 ) -> (Vec<Vec<Vec<f64>>>, Vec<Vec<f64>>) {
@@ -223,6 +225,7 @@ pub fn build_thermalization_dataset(
 }
 
 /// Build rejection predictor dataset from trajectory records.
+#[must_use]
 pub fn build_rejection_dataset(
     records: &[TrajectoryRecord],
     betas: &[f64],
@@ -239,7 +242,7 @@ pub fn build_rejection_dataset(
             beta_norm,
             record.plaquette,
             record.action_density,
-            n_md as f64 / 50.0,
+            f64::from(n_md) / 50.0,
             dt * 10.0,
         ];
         seqs.push(vec![features]);
@@ -250,6 +253,7 @@ pub fn build_rejection_dataset(
 }
 
 /// Build 6-output multi-task dataset from trajectory records.
+#[must_use]
 pub fn build_multi_output_dataset(
     records: &[TrajectoryRecord],
 ) -> (Vec<Vec<Vec<f64>>>, Vec<Vec<f64>>) {
@@ -281,7 +285,7 @@ pub fn build_multi_output_dataset(
             if r.accepted {
                 running_acc += 1.0;
             }
-            let acc_rate = running_acc / acc_count as f64;
+            let acc_rate = running_acc / f64::from(acc_count);
 
             feature_seq.push(vec![
                 r.plaquette,
@@ -301,7 +305,7 @@ pub fn build_multi_output_dataset(
         } else {
             0.0
         };
-        let mean_acceptance = running_acc / acc_count.max(1) as f64;
+        let mean_acceptance = running_acc / f64::from(acc_count.max(1));
         let anomaly_score = if (beta - KNOWN_BETA_C).abs() < 0.2 {
             0.5
         } else {
@@ -325,7 +329,7 @@ pub fn build_multi_output_dataset(
 }
 
 /// Evaluate thermalization detector ESN on test data.
-/// Returns (accuracy, savings_fraction).
+/// Returns (accuracy, `savings_fraction`).
 pub fn evaluate_thermalization_detector(
     esn: &mut EchoStateNetwork,
     test_seqs: &[Vec<Vec<f64>>],
@@ -349,9 +353,9 @@ pub fn evaluate_thermalization_detector(
         }
     }
 
-    let accuracy = correct as f64 / test_seqs.len().max(1) as f64;
+    let accuracy = f64::from(correct) / test_seqs.len().max(1) as f64;
     let savings = if total_therm_windows > 0 {
-        early_therm_count as f64 / total_therm_windows as f64
+        f64::from(early_therm_count) / f64::from(total_therm_windows)
     } else {
         0.0
     };
@@ -360,7 +364,7 @@ pub fn evaluate_thermalization_detector(
 }
 
 /// Evaluate rejection predictor ESN on test data.
-/// Returns (accuracy, early_abort_rate).
+/// Returns (accuracy, `early_abort_rate`).
 pub fn evaluate_rejection_predictor(
     esn: &mut EchoStateNetwork,
     test_seqs: &[Vec<Vec<f64>>],
@@ -384,9 +388,9 @@ pub fn evaluate_rejection_predictor(
         }
     }
 
-    let accuracy = correct as f64 / test_seqs.len().max(1) as f64;
+    let accuracy = f64::from(correct) / test_seqs.len().max(1) as f64;
     let early_abort = if rejected_total > 0 {
-        rejected_predicted as f64 / rejected_total as f64
+        f64::from(rejected_predicted) / f64::from(rejected_total)
     } else {
         0.0
     };
@@ -450,9 +454,9 @@ pub fn evaluate_multi_output(
     };
 
     MultiOutputMetrics {
-        phase_acc: phase_correct as f64 / total.max(1) as f64,
+        phase_acc: f64::from(phase_correct) / total.max(1) as f64,
         beta_c_err: beta_c_errs.iter().sum::<f64>() / beta_c_errs.len().max(1) as f64,
-        therm_acc: therm_correct as f64 / total.max(1) as f64,
+        therm_acc: f64::from(therm_correct) / total.max(1) as f64,
         accept_err: accept_errs.iter().sum::<f64>() / accept_errs.len().max(1) as f64,
         anomaly_auc,
         cg_err: cg_errs.iter().sum::<f64>() / cg_errs.len().max(1) as f64,
@@ -460,6 +464,7 @@ pub fn evaluate_multi_output(
 }
 
 /// Count unique β values in trajectory records.
+#[must_use]
 pub fn count_unique_betas(records: &[TrajectoryRecord]) -> usize {
     let mut betas: Vec<u64> = records.iter().map(|r| r.beta.to_bits()).collect();
     betas.sort_unstable();
@@ -468,6 +473,7 @@ pub fn count_unique_betas(records: &[TrajectoryRecord]) -> usize {
 }
 
 /// Split sequences and targets into train/test by fraction.
+#[must_use]
 pub fn split_dataset(
     seqs: &[Vec<Vec<f64>>],
     targets: &[Vec<f64>],
@@ -580,7 +586,7 @@ pub fn characterize_npu_behavior(
     let mut accuracy_vs_size = Vec::new();
     let (full_seqs, full_targets) = {
         let mut all_records = Vec::new();
-        let beta_values: Vec<f64> = (0..12).map(|i| 5.0 + 1.5 * (i as f64) / 11.0).collect();
+        let beta_values: Vec<f64> = (0..12).map(|i| 5.0 + 1.5 * f64::from(i) / 11.0).collect();
         for (bi, &beta) in beta_values.iter().enumerate() {
             let mut lat = Lattice::hot_start([4, 4, 4, 4], beta, 42 + bi as u64);
             let mut config = HmcConfig {
@@ -603,10 +609,10 @@ pub fn characterize_npu_behavior(
                 meas_seq.push(vec![
                     r.plaquette,
                     0.001,
-                    (poly.re * poly.re + poly.im * poly.im).sqrt(),
+                    poly.re.hypot(poly.im),
                     poly.im.atan2(poly.re),
                     6.0 * (1.0 - r.plaquette),
-                    acc_count / (t + 1) as f64,
+                    acc_count / f64::from(t + 1),
                     r.delta_h.abs(),
                     0.0,
                 ]);
@@ -654,7 +660,7 @@ pub fn characterize_npu_behavior(
                 correct += 1;
             }
         }
-        let acc = correct as f64 / test_s.len().max(1) as f64 * 100.0;
+        let acc = f64::from(correct) / test_s.len().max(1) as f64 * 100.0;
         accuracy_vs_size.push((n_train, acc));
     }
 

@@ -399,7 +399,10 @@ fn read_f64(
             let _ = tx.send(r);
         },
     );
-    let _ = device.poll(wgpu::PollType::Wait { submission_index: None, timeout: None });
+    let _ = device.poll(wgpu::PollType::Wait {
+        submission_index: None,
+        timeout: None,
+    });
     rx.recv()
         .map_err(|e| format!("channel: {e}"))?
         .map_err(|e| format!("map: {e}"))?;
@@ -445,7 +448,10 @@ fn read_u32(
             let _ = tx.send(r);
         },
     );
-    let _ = device.poll(wgpu::PollType::Wait { submission_index: None, timeout: None });
+    let _ = device.poll(wgpu::PollType::Wait {
+        submission_index: None,
+        timeout: None,
+    });
     rx.recv()
         .map_err(|e| format!("channel: {e}"))?
         .map_err(|e| format!("map: {e}"))?;

@@ -13,8 +13,8 @@
 //! waiting for the 164 dedicated FP64 units.
 //!
 //! Run on each GPU:
-//!   HOTSPRING_GPU_ADAPTER=3090  cargo run --release --bin bench_fp64_ratio
-//!   HOTSPRING_GPU_ADAPTER=titan cargo run --release --bin bench_fp64_ratio
+//!   `HOTSPRING_GPU_ADAPTER=3090`  cargo run --release --bin `bench_fp64_ratio`
+//!   `HOTSPRING_GPU_ADAPTER=titan` cargo run --release --bin `bench_fp64_ratio`
 
 use hotspring_barracuda::gpu::GpuF64;
 use std::time::Instant;
@@ -271,7 +271,10 @@ fn bench_shader_inner(
             pass.dispatch_workgroups(workgroups, 1, 1);
         }
         gpu.queue().submit(Some(encoder.finish()));
-        let _ = gpu.device().poll(wgpu::PollType::Wait { submission_index: None, timeout: None });
+        let _ = gpu.device().poll(wgpu::PollType::Wait {
+            submission_index: None,
+            timeout: None,
+        });
     }
 
     // Measure
@@ -290,7 +293,10 @@ fn bench_shader_inner(
             pass.dispatch_workgroups(workgroups, 1, 1);
         }
         gpu.queue().submit(Some(encoder.finish()));
-        let _ = gpu.device().poll(wgpu::PollType::Wait { submission_index: None, timeout: None });
+        let _ = gpu.device().poll(wgpu::PollType::Wait {
+            submission_index: None,
+            timeout: None,
+        });
     }
 
     t0.elapsed().as_secs_f64() / MEASURE as f64

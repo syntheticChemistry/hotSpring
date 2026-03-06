@@ -175,8 +175,10 @@ fn main() {
     let mut cpu_action = 0.0;
     for i in 0..vol {
         for c in 0..3 {
-            cpu_action += b_field.data[i][c].re * x_cpu.data[i][c].re
-                + b_field.data[i][c].im * x_cpu.data[i][c].im;
+            cpu_action += b_field.data[i][c].re.mul_add(
+                x_cpu.data[i][c].re,
+                b_field.data[i][c].im * x_cpu.data[i][c].im,
+            );
         }
     }
 
@@ -223,8 +225,8 @@ fn main() {
         total_cg += r.cg_iterations;
     }
     let gpu_elapsed = start.elapsed().as_secs_f64();
-    let mean_plaq = plaq_sum / n_traj as f64;
-    let accept_rate = accepted as f64 / n_traj as f64;
+    let mean_plaq = plaq_sum / f64::from(n_traj);
+    let accept_rate = f64::from(accepted) / f64::from(n_traj);
 
     println!();
     println!(
@@ -235,7 +237,7 @@ fn main() {
     println!("  Total CG iters: {total_cg}");
     println!(
         "  GPU time: {gpu_elapsed:.2}s ({:.0} ms/traj)",
-        gpu_elapsed * 1000.0 / n_traj as f64
+        gpu_elapsed * 1000.0 / f64::from(n_traj)
     );
 
     harness.check_lower("Acceptance > 30%", accept_rate, 0.30);
@@ -284,12 +286,12 @@ fn main() {
         cpu_plaq_sum += r.plaquette;
     }
     let cpu_elapsed = start_cpu.elapsed().as_secs_f64();
-    let cpu_mean_plaq = cpu_plaq_sum / n_traj as f64;
+    let cpu_mean_plaq = cpu_plaq_sum / f64::from(n_traj);
 
     println!(
         "  CPU: {:.2}s ({:.0} ms/traj), plaq={:.6}, accept={}/{}",
         cpu_elapsed,
-        cpu_elapsed * 1000.0 / n_traj as f64,
+        cpu_elapsed * 1000.0 / f64::from(n_traj),
         cpu_mean_plaq,
         cpu_accepted,
         n_traj,
@@ -297,7 +299,7 @@ fn main() {
     println!(
         "  GPU: {:.2}s ({:.0} ms/traj), plaq={:.6}, accept={}/{}",
         gpu_elapsed,
-        gpu_elapsed * 1000.0 / n_traj as f64,
+        gpu_elapsed * 1000.0 / f64::from(n_traj),
         mean_plaq,
         accepted,
         n_traj,
@@ -316,7 +318,7 @@ fn main() {
     harness.finish();
 }
 
-/// Test wrapper: compute S_f = φ†(D†D)⁻¹φ on GPU.
+/// Test wrapper: compute `S_f` = φ†(D†D)⁻¹φ on GPU.
 fn gpu_fermion_action_test(
     gpu: &GpuF64,
     pipelines: &GpuDynHmcPipelines,

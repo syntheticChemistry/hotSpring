@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-//! Production finite-temperature β-scan with multiple N_t values.
+//! Production finite-temperature β-scan with multiple `N_t` values.
 //!
-//! Runs asymmetric N_s³ × N_t lattices at β values near the deconfinement
-//! transition β_c(N_t). Measures plaquette, Polyakov loop magnitude and phase,
+//! Runs asymmetric `N_s³` × `N_t` lattices at β values near the deconfinement
+//! transition `β_c(N_t)`. Measures plaquette, Polyakov loop magnitude and phase,
 //! susceptibility, and action density. Designed for overnight/weekend runs.
 //!
-//! Literature β_c values (quenched SU(3)):
-//!   N_t=4:  β_c ≈ 5.692
-//!   N_t=6:  β_c ≈ 5.894
-//!   N_t=8:  β_c ≈ 6.062
-//!   N_t=12: β_c ≈ 6.338
+//! Literature `β_c` values (quenched SU(3)):
+//!   `N_t=4`:  `β_c` ≈ 5.692
+//!   `N_t=6`:  `β_c` ≈ 5.894
+//!   `N_t=8`:  `β_c` ≈ 6.062
+//!   `N_t=12`: `β_c` ≈ 6.338
 //!
 //! # Usage
 //!
@@ -50,7 +50,7 @@ fn beta_c_approx(nt: usize) -> f64 {
         10 => 6.20,
         12 => 6.338,
         16 => 6.55,
-        _ => 5.692 + 0.95 * (nt as f64 / 4.0).ln(),
+        _ => 0.95f64.mul_add((nt as f64 / 4.0).ln(), 5.692),
     }
 }
 
@@ -116,7 +116,7 @@ fn main() {
     println!("╚══════════════════════════════════════════════════════════════════╝");
     println!();
     println!("  N_s = {ns}");
-    println!("  N_t values: {:?}", nts);
+    println!("  N_t values: {nts:?}");
     for &nt in &nts {
         let vol = ns * ns * ns * nt;
         println!(
@@ -162,7 +162,7 @@ fn main() {
             vram_estimate_gb(ns, nt),
             beta_c_approx(nt)
         );
-        println!("  β scan: {:?}", betas);
+        println!("  β scan: {betas:?}");
         println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
         // Omelyan HMC tuning: ΔH ∝ dt⁴ × V, target <|ΔH|> ≈ 0.5 → ~68% acceptance.
@@ -178,7 +178,7 @@ fn main() {
 
         let traj_log_path = output_dir
             .as_ref()
-            .map(|d| format!("{d}/traj_{}x{nt}_nt{nt}.jsonl", ns));
+            .map(|d| format!("{d}/traj_{ns}x{nt}_nt{nt}.jsonl"));
 
         let mut traj_writer: Option<std::io::BufWriter<std::fs::File>> =
             traj_log_path.as_ref().map(|path| {
@@ -191,12 +191,20 @@ fn main() {
 
         for (bi, &beta) in betas.iter().enumerate() {
             if bi < resume_from_beta_idx {
-                println!("  ── β = {beta:.4} ({}/{}) ── SKIPPED (resume) ──", bi + 1, betas.len());
+                println!(
+                    "  ── β = {beta:.4} ({}/{}) ── SKIPPED (resume) ──",
+                    bi + 1,
+                    betas.len()
+                );
                 continue;
             }
             let beta_start = Instant::now();
             println!();
-            println!("  ── β = {beta:.4} ({}/{}) ── dt={dt:.6} n_md={n_md} ──", bi + 1, betas.len());
+            println!(
+                "  ── β = {beta:.4} ({}/{}) ── dt={dt:.6} n_md={n_md} ──",
+                bi + 1,
+                betas.len()
+            );
 
             let mut lat = Lattice::hot_start(dims, beta, seed + bi as u64);
 
@@ -277,7 +285,7 @@ fn main() {
                 if do_poly {
                     gpu_links_to_lattice(&gpu, &state, &mut lat);
                     let (re, im) = lat.complex_polyakov_average();
-                    poly_mag = (re * re + im * im).sqrt();
+                    poly_mag = re.hypot(im);
                     poly_phase = im.atan2(re);
                     poly_vals.push(poly_mag);
                 }
@@ -319,7 +327,15 @@ fn main() {
             let acc_rate = accepted as f64 / n_meas as f64;
             let wall_s = beta_start.elapsed().as_secs_f64();
 
-            nt_results.push((beta, mean_plaq, var_plaq.sqrt(), mean_poly, susc, acc_rate, wall_s));
+            nt_results.push((
+                beta,
+                mean_plaq,
+                var_plaq.sqrt(),
+                mean_poly,
+                susc,
+                acc_rate,
+                wall_s,
+            ));
 
             println!(
                 "    ⟨P⟩={:.6}±{:.6} |L|={:.4} χ={:.4} acc={:.0}% ({:.1}s) dt={:.6}",
@@ -338,28 +354,43 @@ fn main() {
                     let old_dt = dt;
                     dt *= 0.75;
                     n_md = ((1.0 / dt).round() as usize).max(10);
-                    println!("    [adaptive] acc={:.0}% < 40% → dt {:.6} → {:.6}, n_md={}", acc_rate * 100.0, old_dt, dt, n_md);
+                    println!(
+                        "    [adaptive] acc={:.0}% < 40% → dt {:.6} → {:.6}, n_md={}",
+                        acc_rate * 100.0,
+                        old_dt,
+                        dt,
+                        n_md
+                    );
                 } else if acc_rate < 0.55 {
                     let old_dt = dt;
                     dt *= 0.88;
                     n_md = ((1.0 / dt).round() as usize).max(10);
-                    println!("    [adaptive] acc={:.0}% < 55% → dt {:.6} → {:.6}, n_md={}", acc_rate * 100.0, old_dt, dt, n_md);
+                    println!(
+                        "    [adaptive] acc={:.0}% < 55% → dt {:.6} → {:.6}, n_md={}",
+                        acc_rate * 100.0,
+                        old_dt,
+                        dt,
+                        n_md
+                    );
                 } else if acc_rate > 0.85 && dt < 0.02 {
                     let old_dt = dt;
                     dt *= 1.15;
                     dt = dt.min(0.02);
                     n_md = ((1.0 / dt).round() as usize).max(10);
-                    println!("    [adaptive] acc={:.0}% > 85% → dt {:.6} → {:.6}, n_md={}", acc_rate * 100.0, old_dt, dt, n_md);
+                    println!(
+                        "    [adaptive] acc={:.0}% > 85% → dt {:.6} → {:.6}, n_md={}",
+                        acc_rate * 100.0,
+                        old_dt,
+                        dt,
+                        n_md
+                    );
                 }
                 let _ = target_acc;
             }
         }
 
         println!();
-        println!(
-            "  ── {}³×{} Summary ──",
-            ns, nt
-        );
+        println!("  ── {ns}³×{nt} Summary ──");
         println!(
             "  {:>8} {:>10} {:>10} {:>10} {:>10} {:>8}",
             "β", "⟨P⟩", "σ(P)", "|L|", "χ", "acc%"
@@ -367,12 +398,17 @@ fn main() {
         for &(beta, mp, sp, poly, chi, acc, _) in &nt_results {
             println!(
                 "  {:>8.4} {:>10.6} {:>10.6} {:>10.4} {:>10.4} {:>7.1}%",
-                beta, mp, sp, poly, chi, acc * 100.0
+                beta,
+                mp,
+                sp,
+                poly,
+                chi,
+                acc * 100.0
             );
         }
 
         if let Some(ref dir) = output_dir {
-            let path = format!("{dir}/results_{}x{nt}.json", ns);
+            let path = format!("{dir}/results_{ns}x{nt}.json");
             let json = serde_json::json!({
                 "ns": ns, "nt": nt,
                 "dims": [ns, ns, ns, nt],

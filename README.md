@@ -95,7 +95,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **toadStool S60 DF64 Expansion** | ✅ Complete | v0.6.12: FMA-optimized df64_core, transcendentals, DF64 plaquette + KE. 60% of HMC in DF64 (up from 40%). 8-12% additional speedup |
 | **Mixed Pipeline β-Scan** | ⏸️ Partial | v0.6.12: 3-substrate (3090+NPU+Titan V). DF64 2× confirmed at 32⁴. 8% power reduction. NPU adaptive steering Round 1 complete |
 | **Cross-Spring Rewiring** | ✅ Complete | v0.6.13: GPU Polyakov loop (72× less transfer), NVK alloc guard, PRNG fix. 164+ shaders across 4 springs. 13/13 checks |
-| **Debt Reduction Audit** | ✅ Complete | v0.6.17: 669 tests, 0 clippy warnings, 85 binaries, synced to barraCuda v0.3.3 + toadStool S94b, DF64 delegation, Nautilus unified brain, capability-based GPU discovery, streaming I/O |
+| **Debt Reduction Audit** | ✅ Complete | v0.6.17: 685 tests (lib), 47 validation binaries, 85+ total binaries. brain.rs NautilusShell API sync, npu_worker→6 modules, simulation→4 modules, dynamical_mixed→library, zero clippy (lib), unwrap→Result, tolerance docs, provenance gaps closed, brain B2/D1 evolved. barraCuda v0.3.3 + toadStool S93+ synced (wgpu 28, pollster 0.3, bytemuck 1.25, tokio 1.50). |
 | **DF64 Production Benchmark** (Exp 018) | ✅ Complete | 32⁴ at 7.1h mixed (vs 13.6h FP64-only). RTX 3090 + Titan V dual-GPU validated |
 | **Forge Evolution Validation** (Exp 019) | ✅ Complete | metalForge streaming pipeline: 9/9 domains, substrate routing, DAG topology validation |
 | **NPU Characterization Campaign** (Exp 020) | ✅ Complete | 13/13: thermalization detector 87.5%, rejection predictor 96.2%, 6-output multi-model, 6 pipeline placements, Akida feedback report drafted |
@@ -116,7 +116,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **Flow Integrator Comparison** (Chuna) | ✅ Complete | 5 integrators validated. Convergence scaling matches arXiv:2101.05320. W7 ~2× more efficient for w₀. `compare_flow_integrators` binary |
 | **N_f=4 Staggered Dynamical GPU** | ✅ Infra Complete | GPU staggered Dirac + CG + pseudofermion + dynamical HMC trajectory. `production_dynamical` binary. Awaiting GPU for validation |
 | **RHMC Infrastructure** | ✅ Complete | `RationalApproximation` + `multi_shift_cg_solve` for fractional flavors (N_f=2, 2+1) |
-| **TOTAL** | **39/39 Rust validation suites** | **716 tests**, 92 binaries, 62 WGSL shaders, 34/35 NPU HW checks. Both GPUs validated, DF64 production, Nautilus unified brain, **live AKD1000 PCIe NPU: 12-head brain, barraCuda v0.3.3 + toadStool S94b synced**. Science ladder: Quenched ✅ → Gradient Flow ✅ → Integrators ✅ → N_f=4 Infra ✅ → N_f=2 (pending) → N_f=2+1 (pending) |
+| **TOTAL** | **39/39 Rust validation suites** | **685 tests (lib)**, 47 validation binaries, 85+ total binaries, 62 WGSL shaders, 34/35 NPU HW checks. Both GPUs validated, DF64 production, Nautilus unified brain, **live AKD1000 PCIe NPU: 12-head brain, barraCuda v0.3.3 + toadStool S93+ synced**. Science ladder: Quenched ✅ → Gradient Flow ✅ → Integrators ✅ → N_f=4 Infra ✅ → N_f=2 (pending) → N_f=2+1 (pending) |
 
 Papers 5, 7, 8, and 10 from the review queue are complete. Paper 5 transport fits
 (Daligault 2012) were recalibrated against 12 Sarkas Green-Kubo D* values (Feb 2026)
@@ -377,7 +377,7 @@ makes the upstream library richer and hotSpring leaner.
 - HFB shader suite — potentials + density + BCS bisection (14+GPU+6 checks, Tier 2)
 - NPU substrate discovery — `metalForge/forge/src/probe.rs` (local evolution)
 
-**Already leaning on upstream** (v0.6.17, synced to barraCuda v0.3.3 + toadStool S94b):
+**Already leaning on upstream** (v0.6.17, synced to barraCuda v0.3.3 + toadStool S93+, wgpu 28, pollster 0.3, bytemuck 1.25, tokio 1.50):
 
 | Module | Upstream | Status |
 |--------|----------|--------|
@@ -402,7 +402,7 @@ makes the upstream library richer and hotSpring leaner.
 The `barracuda/` directory is a standalone Rust crate providing the validation
 environment, physics implementations, and GPU compute. Key architectural properties:
 
-- **~669 tests** (~658 lib + 53 integration + doc), **39 validation suites** (39/39 pass),
+- **~685 tests** (lib), **47 validation binaries**, **85+ total binaries**, **39 validation suites** (39/39 pass),
   **16 determinism tests** (rerun-identical for all stochastic algorithms). Includes
   lattice QCD (complex f64, SU(3), Wilson action, HMC, Dirac CG, pseudofermion HMC),
   Abelian Higgs (U(1) + Higgs, HMC), transport coefficients (Green-Kubo D*/η*/λ*,
@@ -464,10 +464,11 @@ environment, physics implementations, and GPU compute. Key architectural propert
 - **Zero external commands** — pure-Rust ISO 8601 timestamps (Hinnant algorithm),
   no `date` shell-out. `nvidia-smi` calls degrade gracefully.
 - **No unsafe code** — zero `unsafe` blocks in the entire crate.
+- **Quality gates**: Zero clippy warnings (lib), zero unsafe blocks, zero TODO/FIXME, all files <1000 lines, AGPL-3.0-only consistent.
 
 ```bash
 cd barracuda
-cargo test               # ~669 tests (~658 lib + 53 integration + doc), 6 GPU/heavy-ignored (~700s; spectral tests upstream)
+cargo test               # ~685 tests (lib), 6 GPU/heavy-ignored (~700s; spectral tests upstream)
 cargo clippy --all-targets  # Zero warnings (pedantic + nursery via Cargo.toml workspace lints)
 cargo doc --no-deps      # Full API documentation — 0 warnings
 cargo run --release --bin validate_all  # 39/39 suites pass
@@ -534,7 +535,7 @@ hotSpring/
 ├── PHYSICS.md                          # Complete physics documentation (equations + references)
 ├── CONTROL_EXPERIMENT_STATUS.md        # Comprehensive status + results (197/197)
 ├── NUCLEAR_EOS_STRATEGY.md             # Nuclear EOS Phase A→B strategy
-├── wateringHole/handoffs/              # 12 active + 42 archived cross-project handoffs (fossil record)
+├── wateringHole/handoffs/              # 21 active + 39 archived cross-project handoffs (fossil record)
 ├── LICENSE                             # AGPL-3.0
 ├── .gitignore
 │
@@ -551,7 +552,7 @@ hotSpring/
 │       ├── cross_spring_evolution.md  # Cross-spring shader ecosystem (164+ shaders)
 │       └── neuromorphic_silicon.md    # AKD1000 NPU exploration — silicon behavior, cross-substrate ESN
 │
-├── barracuda/                          # BarraCuda Rust crate — v0.6.17 (~669 tests, 85 binaries, 62 WGSL shaders)
+├── barracuda/                          # BarraCuda Rust crate — v0.6.17 (~685 tests, 47 validation binaries, 85+ total, 62 WGSL shaders)
 │   ├── Cargo.toml                     # Dependencies (requires ecoPrimals/barraCuda)
 │   ├── CHANGELOG.md                   # Version history — baselines, tolerances, evolution
 │   ├── EVOLUTION_READINESS.md         # Rust module → GPU promotion tier + absorption status
@@ -813,7 +814,7 @@ hotSpring/
 │
 ├── wateringHole/                       # Cross-project handoffs
 │   ├── README.md                      # Handoff index, conventions, cross-spring docs
-│   └── handoffs/                       # 15 active + 42 archived unidirectional handoff documents
+│   └── handoffs/                       # 21 active + 39 archived unidirectional handoff documents
 │
 ├── benchmarks/
 │   ├── PROTOCOL.md                     # Cross-gate benchmark protocol (time + energy)
@@ -966,6 +967,8 @@ These are **silent failures** — wrong results, no error messages. This fragili
 | [`experiments/030_ADAPTIVE_STEERING_PRODUCTION.md`](experiments/030_ADAPTIVE_STEERING_PRODUCTION.md) | Adaptive steering fix — superseded by 031 (auto-dt bug, NPU suggestions ignored) |
 | [`experiments/031_NPU_CONTROLLED_PARAMETERS.md`](experiments/031_NPU_CONTROLLED_PARAMETERS.md) | NPU as parameter controller: dt/n_md per-beta + mid-beta adaptation |
 | [`experiments/exp032_finite_temp_deconfinement.md`](experiments/exp032_finite_temp_deconfinement.md) | Exp 032: Finite-temp deconfinement (32³×8, 64³×8 asymmetric lattices) |
+| [`experiments/033_REALITY_LADDER_RUNG0.md`](experiments/033_REALITY_LADDER_RUNG0.md) | Exp 033: Reality ladder rung 0 — mass scan (479 traj, 5 masses, 3 volumes) |
+| [`experiments/040_KOKKOS_LAMMPS_VALIDATION.md`](experiments/040_KOKKOS_LAMMPS_VALIDATION.md) | Exp 040: Kokkos/LAMMPS validation baseline (9 PP Yukawa DSF cases) |
 | [`specs/BIOMEGATE_BRAIN_ARCHITECTURE.md`](specs/BIOMEGATE_BRAIN_ARCHITECTURE.md) | Brain architecture: 4-substrate concurrent pipeline, NPU steering, Nautilus Shell integration |
 | [`metalForge/README.md`](metalForge/README.md) | Hardware characterization — philosophy, inventory, directory |
 | [`metalForge/npu/akida/BEYOND_SDK.md`](metalForge/npu/akida/BEYOND_SDK.md) | **10 overturned SDK assumptions** — the discovery document |
@@ -1013,7 +1016,7 @@ substrate: GPU for physics + large reservoirs, NPU for streaming screening, CPU
 for precision. 62 WGSL shaders evolved across hotSpring's physics domains via
 toadStool's cross-spring absorption cycle. biomeGate (RTX 3090, 24GB) resolves
 the QCD deconfinement transition at 32⁴ (χ=40.1 at β=5.69, matching β_c=5.692)
-in 13.6 hours for $0.58. 40+ experiments, 92 binaries, ~716 tests, barraCuda v0.3.3 + toadStool S94b synced. Live AKD1000 NPU via PCIe —
+in 13.6 hours for $0.58. 40+ experiments, 85+ binaries, ~685 tests, barraCuda v0.3.3 + toadStool S93+ synced (wgpu 28, pollster 0.3, bytemuck 1.25, tokio 1.50). Live AKD1000 NPU via PCIe —
 the first neuromorphic silicon in a lattice QCD production pipeline.
 4-layer brain architecture (RTX 3090 + Titan V + CPU + NPU) steers dynamical
 HMC production. The NPU now controls HMC parameters (dt, n_md) with safety

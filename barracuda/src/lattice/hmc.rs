@@ -64,7 +64,7 @@ impl Default for HmcConfig {
 pub struct HmcResult {
     /// Metropolis accept/reject decision.
     pub accepted: bool,
-    /// Hamiltonian change ΔH = H_new − H_old.
+    /// Hamiltonian change ΔH = `H_new` − `H_old`.
     pub delta_h: f64,
     /// Wilson action before MD.
     pub action_before: f64,
@@ -155,7 +155,7 @@ fn omelyan(lattice: &mut Lattice, momenta: &mut [Su3Matrix], n_steps: usize, dt:
         }
 
         // P -> P + (1-2λ)·dt·F(U)
-        update_momenta(lattice, momenta, (1.0 - 2.0 * lam) * dt);
+        update_momenta(lattice, momenta, 2.0f64.mul_add(-lam, 1.0) * dt);
 
         // U -> U + dt/2·P
         for idx in 0..vol {

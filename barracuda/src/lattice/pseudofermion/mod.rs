@@ -59,7 +59,7 @@ impl Default for PseudofermionConfig {
 
 /// Configuration for Hasenbusch mass preconditioning (Hasenbusch 2001, PLB 519, 177).
 ///
-/// Two-level split: det(D†D(m_light)) = det(D†D(m_heavy)) × det(D†D(m_light)/D†D(m_heavy)).
+/// Two-level split: `det(D†D(m_light))` = `det(D†D(m_heavy))` × `det(D†D(m_light)/D†D(m_heavy))`.
 /// Heavy sector is cheap (few CG iterations); ratio sector has smaller condition number than
 /// the full light-mass operator → faster CG and smaller forces.
 #[derive(Clone, Debug)]
@@ -267,7 +267,7 @@ fn staggered_phase_local(x: [usize; 4], mu: usize) -> f64 {
 //  Hasenbusch mass preconditioning (2-level split)
 // ═══════════════════════════════════════════════════════════════════
 
-/// Heatbath for the heavy sector: φ_H = D†(m_heavy) η.
+/// Heatbath for the heavy sector: `φ_H` = `D†(m_heavy)` η.
 pub fn hasenbusch_heavy_heatbath(
     lattice: &Lattice,
     heavy_mass: f64,
@@ -276,7 +276,7 @@ pub fn hasenbusch_heavy_heatbath(
     pseudofermion_heatbath(lattice, heavy_mass, seed)
 }
 
-/// Heatbath for the ratio sector: φ = D†(m_heavy) η.
+/// Heatbath for the ratio sector: φ = `D†(m_heavy)` η.
 ///
 /// Standard approximation (exact would use matrix square root).
 pub fn hasenbusch_ratio_heatbath(
@@ -287,7 +287,7 @@ pub fn hasenbusch_ratio_heatbath(
     pseudofermion_heatbath(lattice, heavy_mass, seed)
 }
 
-/// Action for the heavy sector: S_H = φ†(D†D(m_heavy))⁻¹φ.
+/// Action for the heavy sector: `S_H` = `φ†(D†D(m_heavy))⁻¹φ`.
 ///
 /// Returns (action, CG result, solution x).
 pub fn hasenbusch_heavy_action(
@@ -311,9 +311,9 @@ pub fn hasenbusch_heavy_action(
     (action, cg_result, x)
 }
 
-/// Action for the ratio sector: S_ratio = φ†(D†D(m_light))⁻¹ D†D(m_heavy) φ.
+/// Action for the ratio sector: `S_ratio` = `φ†(D†D(m_light))⁻¹` `D†D(m_heavy)` φ.
 ///
-/// Solve (D†D(m_light)) x = φ, then S = φ† D†D(m_heavy) x.
+/// Solve (`D†D(m_light)`) x = φ, then S = φ† `D†D(m_heavy)` x.
 /// Returns (action, CG result, x for force computation).
 pub fn hasenbusch_ratio_action(
     lattice: &Lattice,
@@ -341,7 +341,7 @@ pub fn hasenbusch_ratio_action(
 
 /// Force for the ratio sector.
 ///
-/// S_ratio = φ† A⁻¹ B φ with A = D†D(m_light), B = D†D(m_heavy).
+/// `S_ratio` = φ† A⁻¹ B φ with A = `D†D(m_light)`, B = `D†D(m_heavy)`.
 /// dS/dU = -y†(dA/dU)x + φ†A⁻¹(dB/dU)φ, where x = A⁻¹φ, y = A⁻¹Bφ.
 /// -dS/dU = +y†(dA/dU)x - x†(dB/dU)φ.
 #[must_use]
@@ -516,7 +516,7 @@ impl Default for HasenbuschHmcConfig {
 
 /// Multiple time-scale leapfrog: heavy sector (outer, fewer steps), ratio sector (inner, more steps).
 ///
-/// The ratio (expensive, larger forces) gets n_md_steps_light sub-steps per heavy step.
+/// The ratio (expensive, larger forces) gets `n_md_steps_light` sub-steps per heavy step.
 fn hasenbusch_leapfrog(
     lattice: &mut Lattice,
     momenta: &mut [Su3Matrix],
@@ -811,7 +811,7 @@ fn dynamical_omelyan(
             lattice,
             momenta,
             phi_fields,
-            (1.0 - 2.0 * lam) * dt,
+            2.0f64.mul_add(-lam, 1.0) * dt,
             fermion_config,
         );
 

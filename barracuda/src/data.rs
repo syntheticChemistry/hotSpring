@@ -27,10 +27,10 @@ pub struct Nucleus {
     pub a: usize,
     /// Element symbol.
     pub element: String,
-    /// Binding energy (MeV).
+    /// Binding energy (`MeV`).
     #[serde(rename = "binding_energy_MeV")]
     pub binding_energy_mev: f64,
-    /// Experimental uncertainty (MeV).
+    /// Experimental uncertainty (`MeV`).
     #[serde(rename = "uncertainty_MeV")]
     pub uncertainty_mev: f64,
 }

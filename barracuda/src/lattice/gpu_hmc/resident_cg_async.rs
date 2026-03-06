@@ -20,6 +20,7 @@ impl AsyncCgReadback {
     ///
     /// The caller must have already submitted an encoder that copies the
     /// source buffer to the staging buffer.
+    #[must_use]
     pub fn start(gpu: &GpuF64, staging: &wgpu::Buffer) -> Option<Self> {
         let (tx, rx) = std::sync::mpsc::sync_channel(1);
         staging
@@ -32,6 +33,7 @@ impl AsyncCgReadback {
     }
 
     /// Poll: check if the readback is ready without blocking.
+    #[must_use]
     pub fn is_ready(&self, gpu: &GpuF64) -> bool {
         let _ = gpu.device().poll(wgpu::PollType::Poll);
         matches!(
@@ -41,8 +43,12 @@ impl AsyncCgReadback {
     }
 
     /// Block until the readback is complete, then return the f64 value.
+    #[must_use]
     pub fn wait(self, gpu: &GpuF64, staging: &wgpu::Buffer) -> f64 {
-        let _ = gpu.device().poll(wgpu::PollType::Wait { submission_index: None, timeout: None });
+        let _ = gpu.device().poll(wgpu::PollType::Wait {
+            submission_index: None,
+            timeout: None,
+        });
         let _ = self.receiver.recv();
         let slice = staging.slice(..);
         let data = slice.get_mapped_range();
@@ -62,6 +68,7 @@ impl AsyncCgReadback {
 /// While waiting for convergence readback, speculatively submits the next
 /// batch of CG iterations. If convergence is detected, the speculative
 /// work is discarded (wasted compute but hidden latency).
+#[must_use]
 pub fn gpu_cg_solve_resident_async(
     gpu: &GpuF64,
     dyn_pipelines: &GpuDynHmcPipelines,
@@ -149,7 +156,10 @@ pub fn gpu_cg_solve_resident_async(
             gpu.submit_encoder(spec_enc);
         }
 
-        let _ = gpu.device().poll(wgpu::PollType::Wait { submission_index: None, timeout: None });
+        let _ = gpu.device().poll(wgpu::PollType::Wait {
+            submission_index: None,
+            timeout: None,
+        });
         let map_result = rx.recv();
         let rz_new = if map_result.is_ok() {
             let slice = staging.slice(..);

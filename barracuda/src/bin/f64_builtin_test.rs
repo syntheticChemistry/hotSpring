@@ -493,7 +493,10 @@ fn run_shader(
             tx.send(r).ok();
         },
     );
-    let _ = gpu.device().poll(wgpu::PollType::Wait { submission_index: None, timeout: None });
+    let _ = gpu.device().poll(wgpu::PollType::Wait {
+        submission_index: None,
+        timeout: None,
+    });
     rx.recv()
         .expect("channel recv from map_async")
         .expect("wgpu buffer map_async succeeded");

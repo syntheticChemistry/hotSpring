@@ -15,7 +15,7 @@
 //! GPU cell-list rebuild (every CELLLIST_REBUILD_INTERVAL steps):
 //!   Pass 1: cell_bin       — particle → cell assignment + atomic count
 //!   Pass 2: prefix_sum     — cell_counts → cell_start (exclusive scan)
-//!   Pass 3: cell_scatter   — write sorted_indices[cell_start[c] + k] = i
+//!   Pass 3: cell_scatter   — write sorted_indices\[cell_start\[c\] + k\] = i
 //!
 //! Force shader: indirect indexing via sorted_indices (no array sorting)
 //! VV/KE/Berendsen: operate on original-order arrays (unchanged)
@@ -45,7 +45,7 @@ pub struct CellList {
     pub cell_size: [f64; 3],
     /// Total number of cells (nx × ny × nz).
     pub n_cells_total: usize,
-    /// Exclusive prefix sum: cell_start[c] = index of first particle in cell c.
+    /// Exclusive prefix sum: `cell_start`\[c\] = index of first particle in cell c.
     pub cell_start: Vec<u32>,
     /// Particle count per cell.
     pub cell_count: Vec<u32>,
@@ -190,17 +190,12 @@ pub async fn run_simulation_celllist(
     let t_compile = Instant::now();
 
     let force_pipeline = match strategy {
-        Fp64Strategy::Hybrid => {
-            gpu.create_pipeline_df64(
-                shaders::SHADER_YUKAWA_FORCE_INDIRECT_DF64,
-                "force_indirect_df64",
-            )
-        }
+        Fp64Strategy::Hybrid => gpu.create_pipeline_df64(
+            shaders::SHADER_YUKAWA_FORCE_INDIRECT_DF64,
+            "force_indirect_df64",
+        ),
         Fp64Strategy::Native | Fp64Strategy::Concurrent => {
-            gpu.create_pipeline_f64(
-                shaders::SHADER_YUKAWA_FORCE_INDIRECT,
-                "force_indirect_f64",
-            )
+            gpu.create_pipeline_f64(shaders::SHADER_YUKAWA_FORCE_INDIRECT, "force_indirect_f64")
         }
     };
     let kick_drift_pipeline =

@@ -87,9 +87,9 @@ pub struct GpuDynHmcState {
     pub y_buf: wgpu::Buffer,
     /// Separate fermion force output buffer
     pub ferm_force_buf: wgpu::Buffer,
-    /// Pseudofermion fields φ_i (one per staggered "copy", each contributing Nf=4).
+    /// Pseudofermion fields `φ_i` (one per staggered "copy", each contributing Nf=4).
     pub phi_bufs: Vec<wgpu::Buffer>,
-    /// Number of pseudofermion fields (total Nf = 4 * n_fields).
+    /// Number of pseudofermion fields (total Nf = 4 * `n_fields`).
     pub n_fields: usize,
     /// Phase table for staggered fermions
     pub phases_buf: wgpu::Buffer,
@@ -116,7 +116,7 @@ impl GpuDynHmcState {
     }
 
     /// Upload lattice and fermion configuration to GPU with `n_fields`
-    /// pseudofermion fields (total Nf = 4 * n_fields).
+    /// pseudofermion fields (total Nf = 4 * `n_fields`).
     #[must_use]
     pub fn from_lattice_multi(
         gpu: &GpuF64,
@@ -180,7 +180,7 @@ impl GpuDynHmcState {
 pub struct GpuDynHmcResult {
     /// Whether Metropolis accepted.
     pub accepted: bool,
-    /// ΔH = H_new - H_old
+    /// ΔH = `H_new` - `H_old`
     pub delta_h: f64,
     /// Average plaquette after trajectory.
     pub plaquette: f64,
@@ -238,7 +238,7 @@ pub fn gpu_dynamical_hmc_trajectory(
     for step in 0..n_md_steps {
         gpu_total_force_dispatch(gpu, pipelines, state, lam * dt);
         gpu_link_update_dispatch(gpu, &pipelines.gauge, &state.gauge, 0.5 * dt);
-        gpu_total_force_dispatch(gpu, pipelines, state, (1.0 - 2.0 * lam) * dt);
+        gpu_total_force_dispatch(gpu, pipelines, state, 2.0f64.mul_add(-lam, 1.0) * dt);
         gpu_link_update_dispatch(gpu, &pipelines.gauge, &state.gauge, 0.5 * dt);
         let cg_step = gpu_total_force_dispatch(gpu, pipelines, state, lam * dt);
         total_cg += cg_step;
@@ -292,8 +292,8 @@ pub(super) fn gen_random_fermion(vol: usize, seed: &mut u64) -> Vec<f64> {
     flat
 }
 
-/// Compute S_f = φ†(D†D)⁻¹φ for a single pseudofermion field.
-/// Returns (S_f, cg_iterations).
+/// Compute `S_f` = φ†(D†D)⁻¹φ for a single pseudofermion field.
+/// Returns (`S_f`, `cg_iterations`).
 pub(super) fn gpu_fermion_action(
     gpu: &GpuF64,
     pipelines: &GpuDynHmcPipelines,
@@ -316,7 +316,7 @@ pub(super) fn gpu_fermion_action(
     (dot_val, iters)
 }
 
-/// Compute total S_f summed over all pseudofermion fields.
+/// Compute total `S_f` summed over all pseudofermion fields.
 pub(super) fn gpu_fermion_action_all(
     gpu: &GpuF64,
     pipelines: &GpuDynHmcPipelines,
@@ -370,7 +370,7 @@ pub(super) fn gpu_total_force_dispatch(
     total_cg
 }
 
-/// GPU CG solver: (D†D)x = b, solution in state.x_buf.
+/// GPU CG solver: (D†D)x = b, solution in `state.x_buf`.
 fn gpu_cg_solve_internal(
     gpu: &GpuF64,
     pipelines: &GpuDynHmcPipelines,

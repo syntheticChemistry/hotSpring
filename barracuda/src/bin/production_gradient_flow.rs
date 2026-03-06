@@ -66,7 +66,10 @@ fn parse_args() -> CliArgs {
             let n: usize = val.parse().expect("bad --lattice");
             dims = [n, n, n, n];
         } else if let Some(val) = arg.strip_prefix("--dims=") {
-            let parts: Vec<usize> = val.split(',').map(|s| s.parse().expect("bad --dims")).collect();
+            let parts: Vec<usize> = val
+                .split(',')
+                .map(|s| s.parse().expect("bad --dims"))
+                .collect();
             assert_eq!(parts.len(), 4, "--dims expects 4 values");
             dims = [parts[0], parts[1], parts[2], parts[3]];
         } else if let Some(val) = arg.strip_prefix("--beta=") {
@@ -97,7 +100,18 @@ fn parse_args() -> CliArgs {
         }
     }
 
-    CliArgs { dims, beta, n_therm, n_configs, n_skip, flow_t_max, flow_epsilon, integrator, seed, output }
+    CliArgs {
+        dims,
+        beta,
+        n_therm,
+        n_configs,
+        n_skip,
+        flow_t_max,
+        flow_epsilon,
+        integrator,
+        seed,
+        output,
+    }
 }
 
 fn label(dims: &[usize; 4]) -> String {
@@ -120,11 +134,14 @@ fn main() {
     println!("║  Wilson Flow + RK3 (Lüscher) → t₀, w₀                     ║");
     println!("╚══════════════════════════════════════════════════════════════╝");
     println!();
-    println!("  Lattice:     {} ({} sites)", lat_label, vol);
+    println!("  Lattice:     {lat_label} ({vol} sites)");
     println!("  β:           {:.4}", args.beta);
     println!("  Therm:       {} HMC trajectories", args.n_therm);
-    println!("  Configs:     {} (skip {} between)", args.n_configs, args.n_skip);
-    println!("  Total HMC:   {} trajectories", total_hmc_traj);
+    println!(
+        "  Configs:     {} (skip {} between)",
+        args.n_configs, args.n_skip
+    );
+    println!("  Total HMC:   {total_hmc_traj} trajectories");
     let integrator_name = match args.integrator {
         FlowIntegrator::Euler => "Euler (1st order)",
         FlowIntegrator::Rk2 => "RK2 (2nd order)",
@@ -132,7 +149,10 @@ fn main() {
         FlowIntegrator::Lscfrk3w7 => "LSCFRK3W7 / Chuna (3rd order, 3-stage, optimized)",
         FlowIntegrator::Lscfrk4ck => "LSCFRK4CK / Carpenter-Kennedy (4th order, 5-stage)",
     };
-    println!("  Flow:        {}, ε={}, t_max={}", integrator_name, args.flow_epsilon, args.flow_t_max);
+    println!(
+        "  Flow:        {}, ε={}, t_max={}",
+        integrator_name, args.flow_epsilon, args.flow_t_max
+    );
     println!();
 
     let total_t0 = Instant::now();
@@ -144,7 +164,10 @@ fn main() {
         integrator: IntegratorType::Omelyan,
     };
 
-    println!("  Phase 1: Thermalization ({} HMC trajectories)...", args.n_therm);
+    println!(
+        "  Phase 1: Thermalization ({} HMC trajectories)...",
+        args.n_therm
+    );
     let therm_start = Instant::now();
 
     let mut lattice = Lattice::hot_start(dims, args.beta, args.seed);
@@ -163,10 +186,16 @@ fn main() {
         }
     }
 
-    println!("    Thermalization: {:.1}s", therm_start.elapsed().as_secs_f64());
+    println!(
+        "    Thermalization: {:.1}s",
+        therm_start.elapsed().as_secs_f64()
+    );
     println!();
 
-    println!("  Phase 2: Gradient Flow Measurements ({} configs)", args.n_configs);
+    println!(
+        "  Phase 2: Gradient Flow Measurements ({} configs)",
+        args.n_configs
+    );
     println!("  ────────────────────────────────────────────────");
 
     let mut all_t0 = Vec::new();
@@ -207,7 +236,7 @@ fn main() {
             all_w0.push(w0);
         }
 
-        let e_final = measurements.last().map(|m| m.energy_density).unwrap_or(0.0);
+        let e_final = measurements.last().map_or(0.0, |m| m.energy_density);
 
         println!(
             "    cfg {:3}/{}: ⟨P⟩={:.6} t₀={} w₀={} E(t_max)={:.4} ({:.1}s)",
@@ -251,20 +280,32 @@ fn main() {
     let mean_plaq = all_plaq.iter().sum::<f64>() / all_plaq.len() as f64;
     println!("  ⟨P⟩ = {:.6} ± {:.6}", mean_plaq, std_dev(&all_plaq));
 
-    if !all_t0.is_empty() {
+    if all_t0.is_empty() {
+        println!("  t₀  = not found (increase --tmax)");
+    } else {
         let mean_t0 = all_t0.iter().sum::<f64>() / all_t0.len() as f64;
         let std_t0 = std_dev(&all_t0);
-        println!("  t₀  = {:.4} ± {:.4} ({}/{} configs)", mean_t0, std_t0, all_t0.len(), args.n_configs);
-    } else {
-        println!("  t₀  = not found (increase --tmax)");
+        println!(
+            "  t₀  = {:.4} ± {:.4} ({}/{} configs)",
+            mean_t0,
+            std_t0,
+            all_t0.len(),
+            args.n_configs
+        );
     }
 
-    if !all_w0.is_empty() {
+    if all_w0.is_empty() {
+        println!("  w₀  = not found (increase --tmax)");
+    } else {
         let mean_w0 = all_w0.iter().sum::<f64>() / all_w0.len() as f64;
         let std_w0 = std_dev(&all_w0);
-        println!("  w₀  = {:.4} ± {:.4} ({}/{} configs)", mean_w0, std_w0, all_w0.len(), args.n_configs);
-    } else {
-        println!("  w₀  = not found (increase --tmax)");
+        println!(
+            "  w₀  = {:.4} ± {:.4} ({}/{} configs)",
+            mean_w0,
+            std_w0,
+            all_w0.len(),
+            args.n_configs
+        );
     }
 
     let total_elapsed = total_t0.elapsed();
@@ -293,7 +334,7 @@ fn main() {
 
         std::fs::write(&path, serde_json::to_string_pretty(&json).unwrap())
             .expect("failed to write output");
-        println!("  Results → {}", path);
+        println!("  Results → {path}");
     }
 }
 

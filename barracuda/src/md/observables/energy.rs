@@ -15,7 +15,7 @@ pub struct EnergyValidation {
     pub mean_total: f64,
     /// Standard deviation of total energy.
     pub std_total: f64,
-    /// Drift percentage: |E_final − E_initial| / |E_mean| × 100.
+    /// Drift percentage: |`E_final` − `E_initial`| / |`E_mean`| × 100.
     pub drift_pct: f64,
     /// Mean instantaneous temperature.
     pub mean_temperature: f64,

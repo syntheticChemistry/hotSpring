@@ -19,8 +19,8 @@ mod power;
 mod report;
 
 pub use compute_backend::{
-    BackendKind, BarraCudaCpuBackend, BenchmarkResult, BenchmarkSpec, ComputeBackend,
-    PrecisionMode, compare_backends,
+    compare_backends, BackendKind, BarraCudaCpuBackend, BenchmarkResult, BenchmarkSpec,
+    ComputeBackend, PrecisionMode,
 };
 pub use esn_benchmark::{
     generate_test_sequence, generate_training_data, time_fn, GpuEsn, SubstrateResult,

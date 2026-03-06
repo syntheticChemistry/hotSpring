@@ -41,9 +41,9 @@ impl GpuHmcStreamingPipelines {
 /// encoder submission. Momenta are generated on GPU (no CPU→GPU upload).
 /// Only 3 GPU submissions per trajectory:
 ///
-/// 1. PRNG momenta + backup links + plaquette/KE for H_old
-/// 2. All N_md×5 MD dispatches (one encoder)
-/// 3. Plaquette/KE for H_new
+/// 1. PRNG momenta + backup links + plaquette/KE for `H_old`
+/// 2. All `N_md×5` MD dispatches (one encoder)
+/// 3. Plaquette/KE for `H_new`
 pub fn gpu_hmc_trajectory_streaming(
     gpu: &GpuF64,
     pipelines: &GpuHmcStreamingPipelines,
@@ -206,7 +206,8 @@ fn gpu_streaming_md_encoder(
         &[&mom_lam_pbuf, &state.force_buf, &state.mom_buf],
     );
 
-    let mom_mid_params = make_link_mom_params(n_links, (1.0 - 2.0 * lam) * dt, gpu.full_df64_mode);
+    let mom_mid_params =
+        make_link_mom_params(n_links, 2.0f64.mul_add(-lam, 1.0) * dt, gpu.full_df64_mode);
     let mom_mid_pbuf = gpu.create_uniform_buffer(&mom_mid_params, "s_mom_mid");
     let mom_mid_bg = gpu.create_bind_group(
         &p.momentum_pipeline,
@@ -252,7 +253,7 @@ fn gpu_wilson_action_streaming(gpu: &GpuF64, p: &GpuHmcPipelines, s: &GpuHmcStat
         return f64::NAN;
     };
     let plaq_sum: f64 = per_site.iter().sum();
-    s.beta * (6.0 * s.volume as f64 - plaq_sum)
+    s.beta * 6.0f64.mul_add(s.volume as f64, -plaq_sum)
 }
 
 fn gpu_kinetic_energy_streaming(gpu: &GpuF64, p: &GpuHmcPipelines, s: &GpuHmcState) -> f64 {
@@ -319,7 +320,7 @@ impl GpuDynHmcStreamingPipelines {
 ///
 /// Transfer budget per trajectory:
 ///   CPU→GPU: 0 bytes (GPU PRNG for momenta + pseudofermion)
-///   GPU→CPU: ~(8 × CG_iters) bytes for convergence scalars + 24 bytes for ΔH
+///   GPU→CPU: ~(8 × `CG_iters`) bytes for convergence scalars + 24 bytes for ΔH
 pub fn gpu_dynamical_hmc_trajectory_streaming(
     gpu: &GpuF64,
     pipelines: &GpuDynHmcStreamingPipelines,
@@ -351,8 +352,10 @@ pub fn gpu_dynamical_hmc_trajectory_streaming(
 
         let wg_vol = (vol as u32).div_ceil(64);
         for (fi, phi_buf) in state.phi_bufs.iter().enumerate() {
-            let ferm_prng_params = make_ferm_prng_params(vol as u32, traj_id + fi as u32 * 1000, seed);
-            let ferm_prng_pbuf = gpu.create_uniform_buffer(&ferm_prng_params, &format!("sdyn_ferm_p_{fi}"));
+            let ferm_prng_params =
+                make_ferm_prng_params(vol as u32, traj_id + fi as u32 * 1000, seed);
+            let ferm_prng_pbuf =
+                gpu.create_uniform_buffer(&ferm_prng_params, &format!("sdyn_ferm_p_{fi}"));
             let ferm_prng_bg = gpu.create_bind_group(
                 &pipelines.fermion_prng_pipeline,
                 &[&ferm_prng_pbuf, phi_buf],
@@ -386,7 +389,7 @@ pub fn gpu_dynamical_hmc_trajectory_streaming(
     for _step in 0..n_md_steps {
         let cg1 = gpu_total_force_dispatch(gpu, dp, state, lam * dt);
         gpu_link_update_dispatch(gpu, &dp.gauge, gs, 0.5 * dt);
-        let cg2 = gpu_total_force_dispatch(gpu, dp, state, (1.0 - 2.0 * lam) * dt);
+        let cg2 = gpu_total_force_dispatch(gpu, dp, state, 2.0f64.mul_add(-lam, 1.0) * dt);
         gpu_link_update_dispatch(gpu, &dp.gauge, gs, 0.5 * dt);
         let cg3 = gpu_total_force_dispatch(gpu, dp, state, lam * dt);
         total_cg += cg1 + cg2 + cg3;

@@ -5,25 +5,25 @@
 //! Determines the QCD deconfinement transition temperature via
 //! plaquette and Polyakov loop susceptibility peaks on pure gauge
 //! SU(3). This is the quenched approximation — the freeze-out
-//! curvature at finite μ_B requires dynamical fermions, but the
+//! curvature at finite `μ_B` requires dynamical fermions, but the
 //! method (susceptibility peak location) is identical.
 //!
 //! # Validation strategy
 //!
 //! 1. Fine β-scan (5.2–6.2) with Omelyan HMC on 4⁴
-//! 2. Measure plaquette susceptibility χ_P(β)
-//! 3. Measure Polyakov loop susceptibility χ_L(β)
-//! 4. Locate peaks → β_c
-//! 5. Compare with known SU(3) result: β_c ≈ 5.69 (4⁴ lattice)
+//! 2. Measure plaquette susceptibility `χ_P(β)`
+//! 3. Measure Polyakov loop susceptibility `χ_L(β)`
+//! 4. Locate peaks → `β_c`
+//! 5. Compare with known SU(3) result: `β_c` ≈ 5.69 (4⁴ lattice)
 //!
 //! # Validation checks
 //!
 //! | Check | Description |
 //! |-------|-------------|
-//! | χ_P peak exists | Susceptibility has a clear maximum |
-//! | χ_L peak exists | Polyakov susceptibility peaks |
-//! | β_c consistent | Plaquette and Polyakov give same β_c |
-//! | β_c near 5.69 | Within 5% of known value |
+//! | `χ_P` peak exists | Susceptibility has a clear maximum |
+//! | `χ_L` peak exists | Polyakov susceptibility peaks |
+//! | `β_c` consistent | Plaquette and Polyakov give same `β_c` |
+//! | `β_c` near 5.69 | Within 5% of known value |
 //! | Plaquette monotonic | ⟨P⟩ increases with β |
 //! | Polyakov transition | |L| jumps near β_c |
 //! | Acceptance reasonable | HMC acceptance > 30% everywhere |
@@ -31,7 +31,7 @@
 //! # References
 //!
 //! - Bazavov et al., PRD 93, 014512 (2016) — freeze-out curvature
-//! - Bali et al., PRD 62, 054503 (2000) — SU(3) β_c reference
+//! - Bali et al., PRD 62, 054503 (2000) — SU(3) `β_c` reference
 //! - Lucini, Teper, Wenger, JHEP 0401:061 (2004) — SU(3) deconfinement
 
 use hotspring_barracuda::lattice::correlator::{plaquette_susceptibility, polyakov_susceptibility};
@@ -71,7 +71,7 @@ fn main() {
     let n_therm = 50;
     let n_meas = 100;
 
-    let beta_values: Vec<f64> = (0..11).map(|i| 5.2 + 0.1 * i as f64).collect();
+    let beta_values: Vec<f64> = (0..11).map(|i| 0.1f64.mul_add(f64::from(i), 5.2)).collect();
     let mut points = Vec::new();
 
     println!(

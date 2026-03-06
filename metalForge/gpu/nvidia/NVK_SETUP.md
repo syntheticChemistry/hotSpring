@@ -172,10 +172,10 @@ All checks should pass with identical physics to the proprietary-driver GPU.
 - OS: Pop!_OS 22.04
 - Mesa: 25.1.5 (built from source)
 
-### biomeGate (pending first boot)
-- PCIe: RTX 3090 + Titan V — slot IDs TBD (Threadripper TRX40 topology)
-- OS: TBD
-- Same NVK build process applies; only PCIe slot IDs differ
+### biomeGate (validated)
+- PCIe: RTX 3090 at `21:00.0` (primary), Titan V at `4b:00.0` (secondary) — Threadripper TRX40 topology
+- OS: Pop!_OS / Ubuntu
+- Same NVK build process applies
 
 ---
 

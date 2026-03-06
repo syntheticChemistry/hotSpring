@@ -177,7 +177,7 @@ pub struct NmpTarget {
     pub value: f64,
     /// Uncertainty (1σ).
     pub sigma: f64,
-    /// Physical unit (e.g. "fm⁻³", "MeV").
+    /// Physical unit (e.g. "fm⁻³", "`MeV`").
     pub unit: &'static str,
     /// Literature source.
     pub source: &'static str,
@@ -188,13 +188,13 @@ pub struct NmpTarget {
 pub struct NmpTargets {
     /// Saturation density ρ₀ (fm⁻³).
     pub rho0: NmpTarget,
-    /// Binding energy per nucleon E/A (MeV).
+    /// Binding energy per nucleon E/A (`MeV`).
     pub e_a: NmpTarget,
-    /// Incompressibility K∞ (MeV).
+    /// Incompressibility K∞ (`MeV`).
     pub k_inf: NmpTarget,
     /// Effective mass ratio m*/m.
     pub m_eff: NmpTarget,
-    /// Symmetry energy J (MeV).
+    /// Symmetry energy J (`MeV`).
     pub j: NmpTarget,
 }
 
@@ -432,11 +432,15 @@ pub const DALIGAULT_DOI: &str = "10.1103/PhysRevE.86.047401";
 
 // ═══════════════════════════════════════════════════════════════════
 // TTM (Two-Temperature Model) baselines — validate_ttm.rs
+//
+// TTM library version: barracuda ttm.rs (Spitzer model, in-repo) +
+// control/ttm/scripts/run_local_model.py (SMT local-field model). Python
+// control pinned at hotSpring 03c0403. Rust implementation in src/ttm.rs.
 // ═══════════════════════════════════════════════════════════════════
 
 /// TTM local model equilibrium temperature — Argon (Te₀=15 000 K, Ti₀=300 K).
 ///
-/// From `run_local_model.py` SMT transport model. CONTROL_EXPERIMENT_STATUS §3.
+/// From `run_local_model.py` SMT transport model. `CONTROL_EXPERIMENT_STATUS` §3.
 pub const TTM_ARGON_EQUILIBRIUM_K: BaselineProvenance = BaselineProvenance {
     label: "TTM Argon equilibrium T (Te₀=15 000 K, Ti₀=300 K)",
     script: "ttm/scripts/run_local_model.py",
@@ -450,7 +454,7 @@ pub const TTM_ARGON_EQUILIBRIUM_K: BaselineProvenance = BaselineProvenance {
 
 /// TTM local model equilibrium temperature — Xenon (Te₀=20 000 K, Ti₀=300 K).
 ///
-/// From `run_local_model.py` SMT transport model. CONTROL_EXPERIMENT_STATUS §3.
+/// From `run_local_model.py` SMT transport model. `CONTROL_EXPERIMENT_STATUS` §3.
 pub const TTM_XENON_EQUILIBRIUM_K: BaselineProvenance = BaselineProvenance {
     label: "TTM Xenon equilibrium T (Te₀=20 000 K, Ti₀=300 K)",
     script: "ttm/scripts/run_local_model.py",
@@ -464,7 +468,7 @@ pub const TTM_XENON_EQUILIBRIUM_K: BaselineProvenance = BaselineProvenance {
 
 /// TTM local model equilibrium temperature — Helium (Te₀=30 000 K, Ti₀=300 K).
 ///
-/// From `run_local_model.py` SMT transport model. CONTROL_EXPERIMENT_STATUS §3.
+/// From `run_local_model.py` SMT transport model. `CONTROL_EXPERIMENT_STATUS` §3.
 pub const TTM_HELIUM_EQUILIBRIUM_K: BaselineProvenance = BaselineProvenance {
     label: "TTM Helium equilibrium T (Te₀=30 000 K, Ti₀=300 K)",
     script: "ttm/scripts/run_local_model.py",
@@ -541,6 +545,7 @@ pub const HFB_TEST_NUCLEI: &[(usize, usize, &str, f64, f64)] = &[
 /// Independent HMC at 9 β values on a 4^4 lattice, collecting plaquette,
 /// Polyakov loop, and acceptance rate. Algorithm-identical to Rust:
 /// same LCG PRNG, Cayley matrix exponential, leapfrog integrator.
+/// Python control run pending; Rust value used as reference until then.
 pub const QUENCHED_BETA_SCAN_PROVENANCE: BaselineProvenance = BaselineProvenance {
     label: "Quenched SU(3) β-scan on 4^4 (Paper 9)",
     script: "lattice_qcd/scripts/quenched_beta_scan.py",
@@ -549,7 +554,7 @@ pub const QUENCHED_BETA_SCAN_PROVENANCE: BaselineProvenance = BaselineProvenance
     command: "python3 -u quenched_beta_scan.py",
     environment: "Python 3.10, NumPy 2.2",
     value: 0.588,
-    unit: "<P> at β=6.0 on 4^4 (Rust reference; Python control TBD)",
+    unit: "<P> at β=6.0 on 4^4 (Rust reference; Python control pending)",
 };
 
 /// Python baseline for Abelian Higgs (1+1)D HMC timing.
@@ -597,16 +602,16 @@ pub const HOTQCD_EOS_PROVENANCE: BaselineProvenance = BaselineProvenance {
 /// - Plaquette at β=6.0 on 8^4 ≈ 0.594: Bali et al. (1993)
 pub const PURE_GAUGE_REFS: &str = "Creutz (1983), Wilson (1974), Bali et al. (1993)";
 
-/// Known critical coupling β_c for SU(3) deconfinement on N_t = 4.
+/// Known critical coupling `β_c` for SU(3) deconfinement on `N_t` = 4.
 ///
-/// β_c ≈ 5.6925 (Wilson plaquette action) from:
+/// `β_c` ≈ 5.6925 (Wilson plaquette action) from:
 /// - Bali et al., Phys. Rev. D 47, 3676 (1993)
 /// - Engels et al., Nucl. Phys. B 332, 737 (1990)
 /// - Creutz, Phys. Rev. D 21, 2308 (1980) (original SU(3) MC)
 ///
-/// On finite 4^4 lattices, the crossover is broad; effective β_c measured
+/// On finite 4^4 lattices, the crossover is broad; effective `β_c` measured
 /// from susceptibility peaks falls in 5.65–5.72 depending on observable.
-/// 5.6925 is the infinite-volume extrapolation for N_t = 4.
+/// 5.6925 is the infinite-volume extrapolation for `N_t` = 4.
 pub const KNOWN_BETA_C_SU3_NT4: f64 = 5.6925;
 
 /// Python baseline for screened Coulomb bound-state eigenvalues.
@@ -630,7 +635,7 @@ pub const SCREENED_COULOMB_PROVENANCE: BaselineProvenance = BaselineProvenance {
 /// Provenance: [`SCREENED_COULOMB_PROVENANCE`].
 /// Order: 1s κ=0, 2s κ=0, 2p κ=0, 1s κ=0.1, 1s κ=0.5, 1s κ=1.0, He⁺ 1s κ=0.
 /// Computed via `scipy.linalg.eigh_tridiagonal` in `yukawa_eigenvalues.py` with
-/// N=2000 grid, r_max=100.
+/// N=2000 grid, `r_max=100`.
 pub const PYTHON_SCREENED_COULOMB_EIGENVALUES: [f64; 7] = [
     -0.499_688_201_506_501_2,  // 1s κ=0 (H)
     -0.124_980_494_356_236_7,  // 2s κ=0 (H)

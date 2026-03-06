@@ -7,7 +7,7 @@
 //! β-space, and reports:
 //!
 //! 1. Per-head predictions across all groups
-//! 2. Cross-group disagreement (Δ_cg, Δ_phase, Δ_anomaly, Δ_priority)
+//! 2. Cross-group disagreement (`Δ_cg`, `Δ_phase`, `Δ_anomaly`, `Δ_priority`)
 //! 3. "Concept edge" map: where in β-space do physics models diverge?
 //!
 //! Run while production experiments are in progress — this is pure CPU.
@@ -148,9 +148,15 @@ fn build_gen2_training_data(summaries: &[BetaSummary]) -> (Vec<Vec<Vec<f64>>>, V
         } else {
             0.0
         };
-        let quality = (r.acceptance * 0.4
-            + (1.0 - r.std_plaq / r.mean_plaq.abs().max(1e-10)).clamp(0.0, 1.0) * 0.3
-            + (r.n_meas as f64 / 100.0).min(1.0) * 0.3)
+        let quality = (r.n_meas as f64 / 100.0)
+            .min(1.0)
+            .mul_add(
+                0.3,
+                r.acceptance.mul_add(
+                    0.4,
+                    (1.0 - r.std_plaq / r.mean_plaq.abs().max(1e-10)).clamp(0.0, 1.0) * 0.3,
+                ),
+            )
             .clamp(0.0, 1.0);
 
         let anderson_phase = if r.beta > 5.5 {
@@ -167,12 +173,12 @@ fn build_gen2_training_data(summaries: &[BetaSummary]) -> (Vec<Vec<Vec<f64>>>, V
         } else {
             0.5
         };
-        let optimal_dt = 0.01 + r.acceptance.abs() * 0.04;
+        let optimal_dt = r.acceptance.abs().mul_add(0.04, 0.01);
         let optimal_nmd = ((1.0 / optimal_dt).round() / 200.0).clamp(0.0, 1.0);
 
         let seq: Vec<Vec<f64>> = (0..10)
             .map(|j| {
-                let noise = 0.005 * ((j as f64) * 0.7).sin();
+                let noise = 0.005 * (f64::from(j) * 0.7).sin();
                 vec![
                     beta_norm,
                     r.mean_plaq + noise * r.std_plaq,
@@ -326,7 +332,7 @@ fn main() {
     let n_sweep = 100;
     let beta_min = 4.2;
     let beta_max = 6.6;
-    let step = (beta_max - beta_min) / n_sweep as f64;
+    let step = (beta_max - beta_min) / f64::from(n_sweep);
 
     struct SweepPoint {
         beta: f64,
@@ -353,7 +359,7 @@ fn main() {
         for i in 0..xs.len() - 1 {
             if beta >= xs[i] && beta <= xs[i + 1] {
                 let t = (beta - xs[i]) / (xs[i + 1] - xs[i]);
-                return ys[i] * (1.0 - t) + ys[i + 1] * t;
+                return ys[i].mul_add(1.0 - t, ys[i + 1] * t);
             }
         }
         ys[ys.len() / 2]
@@ -362,7 +368,7 @@ fn main() {
     let mut sweep: Vec<SweepPoint> = Vec::new();
 
     for i in 0..=n_sweep {
-        let beta = beta_min + i as f64 * step;
+        let beta = f64::from(i).mul_add(step, beta_min);
         let beta_norm = (beta - 5.0) / 2.0;
         let plaq = interpolate(beta, &measured_betas, &measured_plaqs);
         let acc = interpolate(beta, &measured_betas, &measured_acc);
@@ -474,8 +480,8 @@ fn main() {
         print!("  ");
         for (i, pt) in sweep.iter().enumerate() {
             let u = pt.disagreement.urgency();
-            let col = (i as f64 / n_sweep as f64 * bar_width as f64) as usize;
-            if col != ((i.max(1) - 1) as f64 / n_sweep as f64 * bar_width as f64) as usize {
+            let col = (i as f64 / f64::from(n_sweep) * f64::from(bar_width)) as usize;
+            if col != ((i.max(1) - 1) as f64 / f64::from(n_sweep) * f64::from(bar_width)) as usize {
                 let ch = if u > 0.3 {
                     '█'
                 } else if u > 0.2 {

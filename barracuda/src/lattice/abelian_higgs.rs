@@ -75,9 +75,9 @@ pub struct U1HiggsLattice {
     pub ns: usize,
     /// Model parameters (β, λ, κ, μ).
     pub params: AbelianHiggsParams,
-    /// Link angles θ_μ(x) ∈ [−π, π). Layout: links[site * 2 + μ].
+    /// Link angles `θ_μ(x)` ∈ [−π, π). Layout: links[site * 2 + μ].
     pub links: Vec<f64>,
-    /// Higgs field φ(x). Layout: higgs[site].
+    /// Higgs field φ(x). Layout: higgs\[site\].
     pub higgs: Vec<Complex64>,
 }
 

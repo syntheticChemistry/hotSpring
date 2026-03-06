@@ -5,29 +5,29 @@
 //! Demonstrates the full heterogeneous dispatch for four physics domains:
 //!
 //! 1. **Dynamical fermion QCD** (Paper 10): GPU dynamical HMC → ESN
-//!    phase classifier → NpuSimulator → detect deconfinement
+//!    phase classifier → `NpuSimulator` → detect deconfinement
 //! 2. **Freeze-out curvature** (Paper 12): GPU β-scan → ESN susceptibility
-//!    peak detector → NpuSimulator → find β_c
+//!    peak detector → `NpuSimulator` → find `β_c`
 //! 3. **Abelian Higgs** (Paper 13): GPU-ready HMC → ESN Higgs
-//!    condensation classifier → NpuSimulator → locate Higgs transition
-//! 4. **Anderson localization** (Papers 14-16): GPU SpMV → ESN localization
-//!    classifier → NpuSimulator → detect metal-insulator transition
+//!    condensation classifier → `NpuSimulator` → locate Higgs transition
+//! 4. **Anderson localization** (Papers 14-16): GPU `SpMV` → ESN localization
+//!    classifier → `NpuSimulator` → detect metal-insulator transition
 //!
 //! Each domain follows the same pattern:
-//!   GPU generates physics data → ESN trained on CPU f64 → NpuSimulator f32
+//!   GPU generates physics data → ESN trained on CPU f64 → `NpuSimulator` f32
 //!   validates substrate-independent deployment → classification accuracy checked
 //!
 //! # Validation checks
 //!
 //! 1. Dynamical QCD: ESN classifies confined/deconfined from plaquette+Polyakov (>80%)
-//! 2. Dynamical QCD: NpuSimulator agrees with CPU f64 (100% classification parity)
-//! 3. Freeze-out: ESN detects susceptibility peak near β_c (error < 0.5)
-//! 4. Freeze-out: NpuSimulator parity (max error < 0.01)
+//! 2. Dynamical QCD: `NpuSimulator` agrees with CPU f64 (100% classification parity)
+//! 3. Freeze-out: ESN detects susceptibility peak near `β_c` (error < 0.5)
+//! 4. Freeze-out: `NpuSimulator` parity (max error < 0.01)
 //! 5. Abelian Higgs: ESN classifies Higgs/confined phases (>80%)
-//! 6. Abelian Higgs: NpuSimulator parity (100% agreement)
+//! 6. Abelian Higgs: `NpuSimulator` parity (100% agreement)
 //! 7. Anderson: ESN classifies extended/localized from level statistics (>80%)
-//! 8. Anderson: NpuSimulator parity (100% agreement)
-//! 9. Cross-domain: all 4 ESNs deployable on same NpuSimulator substrate
+//! 8. Anderson: `NpuSimulator` parity (100% agreement)
+//! 9. Cross-domain: all 4 ESNs deployable on same `NpuSimulator` substrate
 
 use hotspring_barracuda::md::reservoir::{EchoStateNetwork, EsnConfig, NpuSimulator};
 use hotspring_barracuda::validation::ValidationHarness;
@@ -415,7 +415,7 @@ fn npu_parity(
             agree += 1;
         }
     }
-    (agree as f64 / total as f64, max_err)
+    (f64::from(agree) / total as f64, max_err)
 }
 
 // Synthetic observable generators
@@ -426,7 +426,7 @@ fn synthetic_plaquette(beta: f64, seed: u64) -> f64 {
     let strong = (beta / 18.0).mul_add(beta / 18.0, beta / 18.0);
     let weak = 1.0 - 3.0 / (4.0 * beta);
     let plaq = (1.0 - phase).mul_add(strong, phase * weak);
-    (plaq + lcg_noise(seed) * 0.005).clamp(0.0, 1.0)
+    lcg_noise(seed).mul_add(0.005, plaq).clamp(0.0, 1.0)
 }
 
 fn synthetic_dyn_plaquette(beta: f64, seed: u64) -> f64 {
@@ -450,13 +450,13 @@ fn synthetic_susceptibility(beta: f64, beta_c: f64) -> f64 {
 fn synthetic_higgs_plaquette(kappa: f64, seed: u64) -> f64 {
     // U(1) plaquette: ~0.9 at high β/κ, ~0.3 at low
     let val = 0.3 + 0.6 / (1.0 + (-3.0 * (kappa - 0.8)).exp());
-    (val + lcg_noise(seed) * 0.02).clamp(0.0, 1.0)
+    lcg_noise(seed).mul_add(0.02, val).clamp(0.0, 1.0)
 }
 
 fn synthetic_higgs_modulus(kappa: f64, seed: u64) -> f64 {
     // |φ|²: ~1 in Higgs phase (high κ), ~0.3 in confined
     let val = 0.3 + 0.7 / (1.0 + (-4.0 * (kappa - 0.8)).exp());
-    (val + lcg_noise(seed) * 0.02).clamp(0.0, 5.0)
+    lcg_noise(seed).mul_add(0.02, val).clamp(0.0, 5.0)
 }
 
 fn synthetic_r_ratio(w: f64, seed: u64) -> f64 {
@@ -465,7 +465,7 @@ fn synthetic_r_ratio(w: f64, seed: u64) -> f64 {
     let r_poisson = 0.39;
     let transition = 1.0 / (1.0 + ((w - 2.0) / 0.5).exp());
     let r = transition * r_goe + (1.0 - transition) * r_poisson;
-    (r + lcg_noise(seed) * 0.01).clamp(0.3, 0.6)
+    lcg_noise(seed).mul_add(0.01, r).clamp(0.3, 0.6)
 }
 
 fn synthetic_ipr(w: f64, seed: u64) -> f64 {
@@ -474,7 +474,7 @@ fn synthetic_ipr(w: f64, seed: u64) -> f64 {
     let localized = 0.5;
     let transition = 1.0 / (1.0 + ((w - 2.0) / 0.5).exp());
     let ipr = transition * extended + (1.0 - transition) * localized;
-    (ipr + lcg_noise(seed) * 0.01).clamp(0.0, 1.0)
+    lcg_noise(seed).mul_add(0.01, ipr).clamp(0.0, 1.0)
 }
 
 fn lcg_noise(seed: u64) -> f64 {

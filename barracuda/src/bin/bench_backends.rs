@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-//! ComputeBackend comparison benchmark — runs the same physics on all
+//! `ComputeBackend` comparison benchmark — runs the same physics on all
 //! available backends (CPU, GPU, external) and reports speedup ratios.
 //!
 //! # Usage
@@ -17,8 +17,8 @@
 //! ```
 
 use hotspring_barracuda::bench::compute_backend::{
-    BackendKind, BarraCudaCpuBackend, BenchmarkResult, BenchmarkSpec, ComputeBackend,
-    PrecisionMode, compare_backends,
+    compare_backends, BackendKind, BarraCudaCpuBackend, BenchmarkResult, BenchmarkSpec,
+    ComputeBackend, PrecisionMode,
 };
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::lattice::gpu_hmc::{gpu_hmc_trajectory, GpuHmcPipelines, GpuHmcState};
@@ -34,14 +34,16 @@ struct BarraCudaGpuBackend {
 impl BarraCudaGpuBackend {
     fn new() -> Result<Self, String> {
         let rt = tokio::runtime::Runtime::new().map_err(|e| format!("runtime: {e}"))?;
-        let gpu = rt.block_on(GpuF64::new()).map_err(|e| format!("GPU: {e}"))?;
+        let gpu = rt
+            .block_on(GpuF64::new())
+            .map_err(|e| format!("GPU: {e}"))?;
         let pipelines = GpuHmcPipelines::new(&gpu);
         Ok(Self { gpu, pipelines })
     }
 }
 
 impl ComputeBackend for BarraCudaGpuBackend {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "barraCuda-GPU"
     }
     fn kind(&self) -> BackendKind {
@@ -73,10 +75,24 @@ impl ComputeBackend for BarraCudaGpuBackend {
 
         let remaining_therm = spec.n_therm.saturating_sub(cpu_therm);
         for _ in 0..remaining_therm {
-            gpu_hmc_trajectory(&self.gpu, &self.pipelines, &state, spec.n_md_steps, spec.dt, &mut seed);
+            gpu_hmc_trajectory(
+                &self.gpu,
+                &self.pipelines,
+                &state,
+                spec.n_md_steps,
+                spec.dt,
+                &mut seed,
+            );
         }
 
-        gpu_hmc_trajectory(&self.gpu, &self.pipelines, &state, spec.n_md_steps, spec.dt, &mut seed);
+        gpu_hmc_trajectory(
+            &self.gpu,
+            &self.pipelines,
+            &state,
+            spec.n_md_steps,
+            spec.dt,
+            &mut seed,
+        );
 
         let start = Instant::now();
         let mut plaq_vals = Vec::with_capacity(spec.n_meas);
@@ -166,11 +182,51 @@ fn main() {
 
     let configs: Vec<BenchmarkSpec> = if sweep {
         vec![
-            BenchmarkSpec { dims: [4, 4, 4, 4], beta, n_therm: 50, n_meas: 100, n_md_steps: 10, dt: 0.05, seed: 42 },
-            BenchmarkSpec { dims: [8, 8, 8, 8], beta, n_therm: 50, n_meas: 50, n_md_steps: 10, dt: 0.05, seed: 42 },
-            BenchmarkSpec { dims: [8, 8, 8, 4], beta: 5.69, n_therm: 50, n_meas: 50, n_md_steps: 10, dt: 0.05, seed: 42 },
-            BenchmarkSpec { dims: [16, 16, 16, 4], beta: 5.69, n_therm: 20, n_meas: 20, n_md_steps: 10, dt: 0.03, seed: 42 },
-            BenchmarkSpec { dims: [16, 16, 16, 8], beta: 6.06, n_therm: 20, n_meas: 20, n_md_steps: 15, dt: 0.02, seed: 42 },
+            BenchmarkSpec {
+                dims: [4, 4, 4, 4],
+                beta,
+                n_therm: 50,
+                n_meas: 100,
+                n_md_steps: 10,
+                dt: 0.05,
+                seed: 42,
+            },
+            BenchmarkSpec {
+                dims: [8, 8, 8, 8],
+                beta,
+                n_therm: 50,
+                n_meas: 50,
+                n_md_steps: 10,
+                dt: 0.05,
+                seed: 42,
+            },
+            BenchmarkSpec {
+                dims: [8, 8, 8, 4],
+                beta: 5.69,
+                n_therm: 50,
+                n_meas: 50,
+                n_md_steps: 10,
+                dt: 0.05,
+                seed: 42,
+            },
+            BenchmarkSpec {
+                dims: [16, 16, 16, 4],
+                beta: 5.69,
+                n_therm: 20,
+                n_meas: 20,
+                n_md_steps: 10,
+                dt: 0.03,
+                seed: 42,
+            },
+            BenchmarkSpec {
+                dims: [16, 16, 16, 8],
+                beta: 6.06,
+                n_therm: 20,
+                n_meas: 20,
+                n_md_steps: 15,
+                dt: 0.02,
+                seed: 42,
+            },
         ]
     } else {
         let d = match (dims, lattice) {
@@ -185,7 +241,12 @@ fn main() {
 
     for spec in &configs {
         println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        println!("  {} β={:.4} (V={})", spec.label(), spec.beta, spec.volume());
+        println!(
+            "  {} β={:.4} (V={})",
+            spec.label(),
+            spec.beta,
+            spec.volume()
+        );
         println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
         let backends: Vec<&dyn ComputeBackend> = if let Some(ref g) = gpu {
@@ -208,27 +269,27 @@ fn main() {
     );
     for (label, results) in &all_results {
         let cpu_r = results.iter().find_map(|r| {
-            r.as_ref().ok().filter(|r| r.backend_kind == BackendKind::BarraCudaCpu)
+            r.as_ref()
+                .ok()
+                .filter(|r| r.backend_kind == BackendKind::BarraCudaCpu)
         });
         let gpu_r = results.iter().find_map(|r| {
-            r.as_ref().ok().filter(|r| r.backend_kind == BackendKind::BarraCudaGpu)
+            r.as_ref()
+                .ok()
+                .filter(|r| r.backend_kind == BackendKind::BarraCudaGpu)
         });
 
-        let cpu_ms = cpu_r.map(|r| r.ms_per_trajectory).unwrap_or(f64::NAN);
-        let gpu_ms = gpu_r.map(|r| r.ms_per_trajectory).unwrap_or(f64::NAN);
+        let cpu_ms = cpu_r.map_or(f64::NAN, |r| r.ms_per_trajectory);
+        let gpu_ms = gpu_r.map_or(f64::NAN, |r| r.ms_per_trajectory);
         let speedup = cpu_ms / gpu_ms;
         let delta_p = match (cpu_r, gpu_r) {
             (Some(c), Some(g)) => (c.mean_plaquette - g.mean_plaquette).abs(),
             _ => f64::NAN,
         };
-        let beta_val = cpu_r
-            .or(gpu_r)
-            .map(|r| r.spec.beta)
-            .unwrap_or(f64::NAN);
+        let beta_val = cpu_r.or(gpu_r).map_or(f64::NAN, |r| r.spec.beta);
 
         println!(
-            "  {:>10} {:>8.4} {:>12.1} {:>12.1} {:>9.1}× {:>10.6}",
-            label, beta_val, cpu_ms, gpu_ms, speedup, delta_p
+            "  {label:>10} {beta_val:>8.4} {cpu_ms:>12.1} {gpu_ms:>12.1} {speedup:>9.1}× {delta_p:>10.6}"
         );
     }
     println!();
@@ -258,8 +319,7 @@ fn main() {
             })
             .collect();
         let json = serde_json::to_string_pretty(&json_results).unwrap();
-        std::fs::write(&path, json)
-            .unwrap_or_else(|e| eprintln!("Failed to write {path}: {e}"));
+        std::fs::write(&path, json).unwrap_or_else(|e| eprintln!("Failed to write {path}: {e}"));
         println!("  Results saved to: {path}");
     }
 }

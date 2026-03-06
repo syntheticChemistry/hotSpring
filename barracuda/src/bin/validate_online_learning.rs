@@ -3,7 +3,7 @@
 //! STDP On-Chip Learning at Phase Boundary (Phase 4)
 //!
 //! The AKD1000 supports STDP-based on-chip learning on the last FC layer.
-//! As the GPU produces configurations near β_c, the NPU refines its boundary
+//! As the GPU produces configurations near `β_c`, the NPU refines its boundary
 //! estimate without host intervention. Combined with weight mutation
 //! (`set_variable` at ~14ms), this creates a self-improving classifier that
 //! gets sharper the longer the run continues.
@@ -12,7 +12,7 @@
 //!   1. Initial ESN trained on sparse data (4 β-points)
 //!   2. GPU produces configurations across β range
 //!   3. After each batch, the ESN is incrementally retrained
-//!   4. β_c estimate sharpens over time
+//!   4. `β_c` estimate sharpens over time
 //!   5. Compare convergence: online vs offline (full retrain)
 
 use hotspring_barracuda::lattice::hmc::{self, HmcConfig};
@@ -244,7 +244,7 @@ fn detect_beta_c_from_esn(esn: &EchoStateNetwork) -> f64 {
     let mut best_dist = f64::MAX;
 
     for i in 0..n_scan {
-        let beta = 4.5 + 2.5 * (i as f64) / (n_scan - 1) as f64;
+        let beta = 4.5 + 2.5 * f64::from(i) / f64::from(n_scan - 1);
         let beta_norm = (beta - 5.0) / 2.0;
         let plaq = synthetic_plaquette(beta);
         let poly = synthetic_polyakov(beta);

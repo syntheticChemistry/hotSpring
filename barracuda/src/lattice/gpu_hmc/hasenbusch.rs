@@ -2,7 +2,7 @@
 
 //! GPU Hasenbusch mass preconditioning for dynamical fermion HMC.
 //!
-//! Two-level split: det(D†D(m_l)) = det(D†D(m_h)) × det(D†D(m_l)/D†D(m_h))
+//! Two-level split: `det(D†D(m_l))` = `det(D†D(m_h))` × `det(D†D(m_l)/D†D(m_h))`
 //!
 //! Heavy sector is cheap (few CG iters), ratio sector has smaller condition
 //! number than the full light operator. Multi-scale leapfrog integrator
@@ -22,9 +22,9 @@ use super::{
 /// These supplement the standard `GpuDynHmcState` which provides the
 /// CG scratch space, gauge buffers, and the first pseudofermion field.
 pub struct GpuHasenbuschBuffers {
-    /// Second CG solution buffer (standard state has x_buf for the first).
+    /// Second CG solution buffer (standard state has `x_buf` for the first).
     pub x2_buf: wgpu::Buffer,
-    /// Buffer for D†D(m_heavy)·phi_ratio intermediate.
+    /// Buffer for `D†D(m_heavy)·phi_ratio` intermediate.
     pub ddh_buf: wgpu::Buffer,
     /// Extra scratch for Dirac intermediates in bilinear force.
     pub scratch_a: wgpu::Buffer,
@@ -117,7 +117,7 @@ fn gpu_dirac_dispatch_mass(
     gpu.dispatch(&pipelines.dirac_pipeline, &bg, wg);
 }
 
-/// Dispatch fermion force with explicit x_field and y_field buffers.
+/// Dispatch fermion force with explicit `x_field` and `y_field` buffers.
 fn gpu_fermion_force_dispatch_xy(
     gpu: &GpuF64,
     pipelines: &GpuDynHmcPipelines,
@@ -145,12 +145,7 @@ fn gpu_fermion_force_dispatch_xy(
 }
 
 /// Apply momentum kick: momenta += sign * dt * force.
-fn gpu_mom_kick(
-    gpu: &GpuF64,
-    pipelines: &GpuDynHmcPipelines,
-    state: &GpuDynHmcState,
-    dt: f64,
-) {
+fn gpu_mom_kick(gpu: &GpuF64, pipelines: &GpuDynHmcPipelines, state: &GpuDynHmcState, dt: f64) {
     let n_links = state.gauge.n_links;
     let gs = &state.gauge;
     let params = make_link_mom_params(n_links, dt, gpu.full_df64_mode);
@@ -203,8 +198,24 @@ fn gpu_cg_solve_mass(
     for iter in 0..state.cg_max_iter {
         iterations = iter + 1;
 
-        gpu_dirac_dispatch_mass(gpu, pipelines, state, &state.p_buf, &state.temp_buf, mass, 1.0);
-        gpu_dirac_dispatch_mass(gpu, pipelines, state, &state.temp_buf, &state.ap_buf, mass, -1.0);
+        gpu_dirac_dispatch_mass(
+            gpu,
+            pipelines,
+            state,
+            &state.p_buf,
+            &state.temp_buf,
+            mass,
+            1.0,
+        );
+        gpu_dirac_dispatch_mass(
+            gpu,
+            pipelines,
+            state,
+            &state.temp_buf,
+            &state.ap_buf,
+            mass,
+            -1.0,
+        );
 
         let p_ap = gpu_dot_re(
             gpu,
@@ -219,7 +230,14 @@ fn gpu_cg_solve_mass(
         }
         let alpha = r_norm_sq / p_ap;
 
-        super::dynamical::gpu_axpy(gpu, &pipelines.axpy_pipeline, alpha, &state.p_buf, x_out, n_flat);
+        super::dynamical::gpu_axpy(
+            gpu,
+            &pipelines.axpy_pipeline,
+            alpha,
+            &state.p_buf,
+            x_out,
+            n_flat,
+        );
         super::dynamical::gpu_axpy(
             gpu,
             &pipelines.axpy_pipeline,
@@ -255,14 +273,14 @@ fn gpu_cg_solve_mass(
     }
 
     // Copy solution to the target buffer if it's not x_buf (which gpu_axpy wrote to directly)
-    if !std::ptr::eq(x_out, &state.x_buf) {
+    if !std::ptr::eq(x_out, &raw const state.x_buf) {
         // x_out is a different buffer — gpu_axpy already wrote to it via the binding
     }
 
     iterations
 }
 
-/// Compute fermion action for the heavy sector: S_h = phi_h† (D†D(m_h))^{-1} phi_h.
+/// Compute fermion action for the heavy sector: `S_h` = `phi_h`† (D†D(m_h))^{-1} `phi_h`.
 fn gpu_heavy_action(
     gpu: &GpuF64,
     pipelines: &GpuDynHmcPipelines,
@@ -284,11 +302,11 @@ fn gpu_heavy_action(
     (dot, iters)
 }
 
-/// Compute ratio action: S_r = phi_r† D†D(m_h) (D†D(m_l))^{-1} phi_r.
+/// Compute ratio action: `S_r` = `phi_r`† `D†D(m_h)` (D†D(m_l))^{-1} `phi_r`.
 ///
-/// The ratio determinant det(D†D(m_l)/D†D(m_h)) is represented by the action
-/// S_r = phi_r† [D†D(m_h) · (D†D(m_l))^{-1}] phi_r.
-/// Steps: 1) CG solve (D†D(m_l)) x = phi_r, 2) compute D†D(m_h) x, 3) dot phi_r with result.
+/// The ratio determinant `det(D†D(m_l)/D†D(m_h))` is represented by the action
+/// `S_r` = `phi_r`† [`D†D(m_h)` · (D†D(m_l))^{-1}] `phi_r`.
+/// Steps: 1) CG solve (`D†D(m_l)`) x = `phi_r`, 2) compute `D†D(m_h)` x, 3) dot `phi_r` with result.
 fn gpu_ratio_action(
     gpu: &GpuF64,
     pipelines: &GpuDynHmcPipelines,
@@ -372,10 +390,10 @@ fn gpu_heavy_force_kick(
 
 /// Dispatch ratio sector force using bilinear decomposition.
 ///
-/// The ratio force = force_bilinear(y, x, m_l) - force_bilinear(x, phi_r, m_h),
-/// where x = (D†D(m_l))^{-1} phi_r and y = (D†D(m_l))^{-1} D†D(m_h) phi_r.
+/// The ratio force = `force_bilinear(y`, x, `m_l`) - `force_bilinear(x`, `phi_r`, `m_h`),
+/// where x = (D†D(m_l))^{-1} `phi_r` and y = (D†D(m_l))^{-1} `D†D(m_h)` `phi_r`.
 ///
-/// force_bilinear(a, b, m) = force_shader(a, Db) + force_shader(b, Da),
+/// `force_bilinear(a`, b, m) = `force_shader(a`, Db) + `force_shader(b`, Da),
 /// so we reuse the standard fermion force shader twice per bilinear term.
 fn gpu_ratio_force_kick(
     gpu: &GpuF64,
@@ -476,12 +494,15 @@ fn gpu_ratio_force_kick(
     cg1 + cg2
 }
 
-/// Link update (reuses encode_link_update from brain module).
+/// Link update (reuses `encode_link_update` from brain module).
 fn link_update(gpu: &GpuF64, pipelines: &GpuDynHmcPipelines, state: &GpuDynHmcState, dt: f64) {
     let gs = &state.gauge;
     let params = make_link_mom_params(gs.n_links, dt, gpu.full_df64_mode);
     let pbuf = gpu.create_uniform_buffer(&params, "has_link_p");
-    let bg = gpu.create_bind_group(&pipelines.gauge.link_pipeline, &[&pbuf, &gs.mom_buf, &gs.link_buf]);
+    let bg = gpu.create_bind_group(
+        &pipelines.gauge.link_pipeline,
+        &[&pbuf, &gs.mom_buf, &gs.link_buf],
+    );
     gpu.dispatch(&pipelines.gauge.link_pipeline, &bg, gs.wg_links);
 }
 
@@ -522,13 +543,20 @@ pub fn gpu_hasenbusch_hmc_trajectory(
 
     {
         let mut enc = gpu.begin_encoder("has_backup");
-        enc.copy_buffer_to_buffer(&gs.link_buf, 0, &gs.link_backup, 0, (n_links * 18 * 8) as u64);
+        enc.copy_buffer_to_buffer(
+            &gs.link_buf,
+            0,
+            &gs.link_backup,
+            0,
+            (n_links * 18 * 8) as u64,
+        );
         gpu.submit_encoder(enc);
     }
 
     let s_gauge_old = gpu_wilson_action(gpu, &pipelines.gauge, gs);
     let t_old = gpu_kinetic_energy(gpu, &pipelines.gauge, gs);
-    let (s_heavy_old, cg_h0) = gpu_heavy_action(gpu, pipelines, state, phi_heavy, config.heavy_mass);
+    let (s_heavy_old, cg_h0) =
+        gpu_heavy_action(gpu, pipelines, state, phi_heavy, config.heavy_mass);
     let (s_ratio_old, cg_r0) = gpu_ratio_action(gpu, pipelines, state, hbufs, phi_ratio, config);
     let h_old = s_gauge_old + t_old + s_heavy_old + s_ratio_old;
     let mut total_cg = cg_h0 + cg_r0;
@@ -541,11 +569,23 @@ pub fn gpu_hasenbusch_hmc_trajectory(
 
         for _ in 0..config.n_md_light {
             total_cg += gpu_ratio_force_kick(
-                gpu, pipelines, state, hbufs, phi_ratio, config, 0.5 * dt_light,
+                gpu,
+                pipelines,
+                state,
+                hbufs,
+                phi_ratio,
+                config,
+                0.5 * dt_light,
             );
             link_update(gpu, pipelines, state, dt_light);
             total_cg += gpu_ratio_force_kick(
-                gpu, pipelines, state, hbufs, phi_ratio, config, 0.5 * dt_light,
+                gpu,
+                pipelines,
+                state,
+                hbufs,
+                phi_ratio,
+                config,
+                0.5 * dt_light,
             );
         }
 
@@ -554,7 +594,8 @@ pub fn gpu_hasenbusch_hmc_trajectory(
 
     let s_gauge_new = gpu_wilson_action(gpu, &pipelines.gauge, gs);
     let t_new = gpu_kinetic_energy(gpu, &pipelines.gauge, gs);
-    let (s_heavy_new, cg_h1) = gpu_heavy_action(gpu, pipelines, state, phi_heavy, config.heavy_mass);
+    let (s_heavy_new, cg_h1) =
+        gpu_heavy_action(gpu, pipelines, state, phi_heavy, config.heavy_mass);
     let (s_ratio_new, cg_r1) = gpu_ratio_action(gpu, pipelines, state, hbufs, phi_ratio, config);
     let h_new = s_gauge_new + t_new + s_heavy_new + s_ratio_new;
     total_cg += cg_h1 + cg_r1;
@@ -565,7 +606,13 @@ pub fn gpu_hasenbusch_hmc_trajectory(
 
     if !accepted {
         let mut enc = gpu.begin_encoder("has_restore");
-        enc.copy_buffer_to_buffer(&gs.link_backup, 0, &gs.link_buf, 0, (n_links * 18 * 8) as u64);
+        enc.copy_buffer_to_buffer(
+            &gs.link_backup,
+            0,
+            &gs.link_buf,
+            0,
+            (n_links * 18 * 8) as u64,
+        );
         gpu.submit_encoder(enc);
     }
 

@@ -2,7 +2,7 @@
 
 //! Summary and JSON output for the quenched mixed pipeline (Exp 022).
 //!
-//! Extracted from production_mixed_pipeline to reduce binary size.
+//! Extracted from `production_mixed_pipeline` to reduce binary size.
 
 use crate::production::beta_scan::QuenchedNpuStats;
 use crate::production::BetaResult;
@@ -254,7 +254,7 @@ pub fn write_mixed_json(
             "exp018_wall_s": exp018_wall,
             "speedup_vs_013": exp013_wall / total_wall,
             "speedup_vs_018": exp018_wall / total_wall,
-            "trajectory_reduction_pct": (1.0 - total_trajectories as f64 / exp013_traj as f64) * 100.0,
+            "trajectory_reduction_pct": (1.0 - total_trajectories as f64 / f64::from(exp013_traj)) * 100.0,
             "energy_savings_vs_013_pct": (1.0 - mixed_energy_kwh / exp013_energy_kwh) * 100.0,
         },
         "points": results.iter().map(|r| serde_json::json!({

@@ -105,6 +105,7 @@ pub fn generate_l1_training_data<S: std::hash::BuildHasher>(
 /// Uses label threshold 7.0. If recall is poor, lowers the decision threshold
 /// until recall ≥ 50% (or gives up). Returns `ClassifierResult` with `usable`
 /// indicating whether Tier 3 should be used.
+#[must_use]
 pub fn train_classifier(xs: &[Vec<f64>], ys: &[f64]) -> ClassifierResult {
     println!("  Phase 2: Training pre-screening classifier...");
     let t0 = Instant::now();
@@ -211,10 +212,11 @@ pub fn train_classifier(xs: &[Vec<f64>], ys: &[f64]) -> ClassifierResult {
     ClassifierResult { classifier, usable }
 }
 
-/// L2 objective: log(1 + χ²/datum + NMP_penalty) from HFB binding energies.
+/// L2 objective: log(1 + χ²/datum + `NMP_penalty`) from HFB binding energies.
 ///
 /// Evaluates spherical HFB for each nucleus, computes χ² versus experiment,
 /// adds soft NMP penalty, returns ln(1+χ²+penalty).
+#[must_use]
 pub fn l2_objective(params: &[f64], nuclei: &[(usize, usize, f64)]) -> f64 {
     let Some(nmp) = nuclear_matter_properties(params) else {
         return (1e4_f64).ln_1p();
@@ -323,16 +325,15 @@ mod tests {
     }
 
     #[test]
-    fn generate_l1_training_data_small_run() {
+    fn generate_l1_training_data_small_run() -> Result<(), crate::error::HotSpringError> {
         let bounds = skyrm_bounds_10d();
         let exp_data = minimal_exp_data();
-        let result = generate_l1_training_data(&bounds, &exp_data, 10);
-        assert!(result.is_ok());
-        let (xs, ys) = result.unwrap();
+        let (xs, ys) = generate_l1_training_data(&bounds, &exp_data, 10)?;
         assert_eq!(xs.len(), 10);
         assert_eq!(ys.len(), 10);
         assert!(xs.iter().all(|x| x.len() == 10));
         assert!(ys.iter().all(|&y| y.is_finite()));
+        Ok(())
     }
 
     #[test]

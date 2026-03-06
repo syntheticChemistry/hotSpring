@@ -36,7 +36,7 @@ pub struct TtmSpecies {
     pub atomic_mass_amu: f64,
     /// Ionization state (effective Z)
     pub z_ion: f64,
-    /// Number density (1/m³). For ions: n_i; electrons n_e = z_ion × n_i (quasineutrality).
+    /// Number density (1/m³). For ions: `n_i`; electrons `n_e` = `z_ion` × `n_i` (quasineutrality).
     pub density_m3: f64,
     /// Initial electron temperature (K)
     pub te_initial_k: f64,
@@ -51,7 +51,7 @@ impl TtmSpecies {
         self.atomic_mass_amu * AMU
     }
 
-    /// Electron number density (quasineutrality: n_e = Z × n_i).
+    /// Electron number density (quasineutrality: `n_e` = Z × `n_i`).
     #[must_use]
     pub fn electron_density_m3(&self) -> f64 {
         self.z_ion * self.density_m3
@@ -59,7 +59,7 @@ impl TtmSpecies {
 
     /// Ion number density.
     #[must_use]
-    pub fn ion_density_m3(&self) -> f64 {
+    pub const fn ion_density_m3(&self) -> f64 {
         self.density_m3
     }
 }
@@ -81,7 +81,7 @@ pub struct TtmResult {
 
 /// Coulomb logarithm ln(Λ).
 ///
-/// Standard plasma parameter: Λ = b_max/b_min ≈ 4π n_e λD³ where
+/// Standard plasma parameter: Λ = `b_max/b_min` ≈ 4π `n_e` λD³ where
 /// λD = sqrt(ε₀ kB Te / (ne e²)) is the electron Debye length.
 /// So ln(Λ) = ln(4π ne λD³) with λD³ = (ε₀ kB Te / (ne e²))^(3/2).
 ///
@@ -97,10 +97,10 @@ pub fn coulomb_log(te: f64, ne: f64) -> Result<f64, TtmError> {
     Ok(ln_lambda)
 }
 
-/// Spitzer electron-ion collision frequency ν_ei (Hz).
+/// Spitzer electron-ion collision frequency `ν_ei` (Hz).
 ///
-/// ν_ei = (4√(2π) × n_i Z² × e⁴ × ln(Λ)) / (3 × (4πε₀)² × me^0.5 × (kB×Te)^1.5)
-/// In SI units. n_i = n_e/Z for quasineutrality.
+/// `ν_ei` = (4√(2π) × `n_i` Z² × e⁴ × ln(Λ)) / (3 × (4πε₀)² × me^0.5 × (kB×Te)^1.5)
+/// In SI units. `n_i` = `n_e/Z` for quasineutrality.
 ///
 /// # Errors
 /// Returns `Err` if any argument is invalid.
@@ -119,8 +119,8 @@ pub fn collision_frequency(te: f64, ne: f64, z: f64, mi: f64) -> Result<f64, Ttm
 
 /// RHS of the 0D TTM ODE: (dTe/dt, dTi/dt).
 ///
-/// dTe/dt = -ν_ei × (Te - Ti)
-/// dTi/dt = +ν_ei × (Te - Ti) × (ne/ni)
+/// dTe/dt = -`ν_ei` × (Te - Ti)
+/// dTi/dt = +`ν_ei` × (Te - Ti) × (ne/ni)
 ///
 /// Energy conservation: Ce dTe/dt + Ci dTi/dt = 0 with Ce = (3/2)ne kB, Ci = (3/2)ni kB
 /// requires dTi/dt = (ne/ni) × (-dTe/dt).
@@ -137,7 +137,7 @@ pub fn ttm_rhs(te: f64, ti: f64, species: &TtmSpecies) -> Result<(f64, f64), Ttm
 
 /// Fourth-order Runge-Kutta integration of the 0D TTM.
 ///
-/// Integrates from t=0 to t = dt × n_steps using fixed step size.
+/// Integrates from t=0 to t = dt × `n_steps` using fixed step size.
 ///
 /// # Errors
 /// Returns `Err` if integration fails (e.g. invalid temperatures).
@@ -164,18 +164,18 @@ pub fn integrate_ttm_rk4(
 
     for _ in 0..n_steps {
         let (k1e, k1i) = ttm_rhs(te, ti, species).map_err(|_| TtmError::IntegrationFailed)?;
-        let te_k2 = te + 0.5 * dt * k1e;
-        let ti_k2 = ti + 0.5 * dt * k1i;
+        let te_k2 = (0.5 * dt).mul_add(k1e, te);
+        let ti_k2 = (0.5 * dt).mul_add(k1i, ti);
         let (k2e, k2i) = ttm_rhs(te_k2, ti_k2, species).map_err(|_| TtmError::IntegrationFailed)?;
-        let te_k3 = te + 0.5 * dt * k2e;
-        let ti_k3 = ti + 0.5 * dt * k2i;
+        let te_k3 = (0.5 * dt).mul_add(k2e, te);
+        let ti_k3 = (0.5 * dt).mul_add(k2i, ti);
         let (k3e, k3i) = ttm_rhs(te_k3, ti_k3, species).map_err(|_| TtmError::IntegrationFailed)?;
-        let te_k4 = te + dt * k3e;
-        let ti_k4 = ti + dt * k3i;
+        let te_k4 = dt.mul_add(k3e, te);
+        let ti_k4 = dt.mul_add(k3i, ti);
         let (k4e, k4i) = ttm_rhs(te_k4, ti_k4, species).map_err(|_| TtmError::IntegrationFailed)?;
 
-        te += (dt / 6.0) * (k1e + 2.0 * k2e + 2.0 * k3e + k4e);
-        ti += (dt / 6.0) * (k1i + 2.0 * k2i + 2.0 * k3i + k4i);
+        te += (dt / 6.0) * (2.0f64.mul_add(k3e, 2.0f64.mul_add(k2e, k1e)) + k4e);
+        ti += (dt / 6.0) * (2.0f64.mul_add(k3i, 2.0f64.mul_add(k2i, k1i)) + k4i);
         t += dt;
 
         if !te.is_finite() || !ti.is_finite() || te < 0.0 || ti < 0.0 {
@@ -200,7 +200,7 @@ pub fn integrate_ttm_rk4(
     })
 }
 
-/// Find time when |Te - Ti| < threshold_k.
+/// Find time when |Te - Ti| < `threshold_k`.
 ///
 /// Returns the first time index where the condition is satisfied.
 #[must_use]
@@ -232,14 +232,14 @@ fn find_equilibration_time_internal(
 
 /// Theoretical equilibrium temperature from energy conservation.
 ///
-/// T_eq = (Ce×Te0 + Ci×Ti0) / (Ce + Ci) = (ne×Te0 + ni×Ti0) / (ne + ni)
+/// `T_eq` = (Ce×Te0 + Ci×Ti0) / (Ce + Ci) = (ne×Te0 + ni×Ti0) / (ne + ni)
 /// with Ce = (3/2) ne kB, Ci = (3/2) ni kB. For quasineutrality ne = Z×ni:
-/// T_eq = (Z×Te0 + Ti0) / (Z + 1)
+/// `T_eq` = (Z×Te0 + Ti0) / (Z + 1)
 #[must_use]
 pub fn equilibrium_temperature_theory(species: &TtmSpecies) -> f64 {
     let ne = species.electron_density_m3();
     let ni = species.ion_density_m3();
-    (ne * species.te_initial_k + ni * species.ti_initial_k) / (ne + ni)
+    ne.mul_add(species.te_initial_k, ni * species.ti_initial_k) / (ne + ni)
 }
 
 /// Error type for TTM operations.

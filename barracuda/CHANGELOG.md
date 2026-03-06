@@ -5,6 +5,36 @@ All notable changes to the hotSpring BarraCuda validation crate.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.6.18 — Deep Debt Resolution, Pedantic Compliance, API Sync (March 6, 2026)
+
+### Summary
+
+- **brain.rs NautilusShell API sync** — compatibility with upstream Nautilus brain/shell interfaces
+- **npu_worker → 6 modules** — refactored from monolithic to modular structure
+- **simulation → 4 modules** — decomposed into focused submodules
+- **dynamical_mixed → library module** — extracted to library for reuse
+- **esn_baseline → library module** — extracted to library (ready for absorption)
+- **sarkas → library module** — extracted to library for reuse
+- **Zero clippy (lib)** — all library code passes pedantic + nursery lints
+- **unwrap → Result** — 9 production sites converted to proper error propagation
+- **Error-swallowing fixed** — vacf, reservoir no longer swallow errors
+- **5 doc links fixed** — all rustdoc links resolve correctly
+- **SPDX consistency** — AGPL-3.0-only consistent across crate
+- **Tolerance docs** — 4 loose tolerances justified with physical rationale
+- **Provenance gaps closed** — TTM pinned, quenched beta noted
+- **load_meta_table stream-first** — uses BufReader for memory-efficient streaming
+- **Brain B2/D1 evolved** — from placeholder to real implementations
+- **Dependency alignment** — pollster 0.3, bytemuck 1.25, tokio 1.50
+- **_confidence → confidence** — field rename for consistency
+
+### Metrics
+
+- 685 tests (lib), 47 validation binaries, 85+ total binaries
+- 0 clippy warnings (lib + bins)
+- 0 unsafe blocks, 0 TODO/FIXME, all files <1000 lines, AGPL-3.0-only
+
+---
+
 ## v0.6.17 — toadStool S80 Sync + Exp 031 Post-Mortem (March 2, 2026)
 
 ### toadStool S80 Rewiring

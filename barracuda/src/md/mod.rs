@@ -37,14 +37,14 @@
 pub mod brain;
 /// Cell-list neighbor search (GPU-resident via upstream `CellListGpu`).
 pub mod celllist;
-/// Neighbor search algorithm selection and Verlet list GPU implementation.
-pub mod neighbor;
 /// Sarkas-style MD configuration (kappa, Gamma, DSF parameters).
 pub mod config;
 /// CPU Yukawa force reference for GPU cross-validation.
 pub mod cpu_reference;
 /// Diagnostic helpers for force comparison (celllist_diag).
 pub mod diag;
+/// Neighbor search algorithm selection and Verlet list GPU implementation.
+pub mod neighbor;
 /// Real NPU hardware adapter (BrainChip Akida AKD1000).
 #[cfg(feature = "npu-hw")]
 pub mod npu_hw;
@@ -52,6 +52,8 @@ pub mod npu_hw;
 pub mod observables;
 /// Echo State Network (ESN) reservoir for transport coefficient prediction.
 pub mod reservoir;
+/// Sarkas GPU validation harness (run case, brain persistence, N-scaling summary).
+pub mod sarkas_harness;
 /// WGSL shader sources loaded from `.wgsl` files (zero inline).
 pub mod shaders;
 /// GPU-resident MD simulation loop with cell-list support.

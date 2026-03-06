@@ -390,7 +390,11 @@ fn exported_weights_serde_compatible_with_toadstool() {
         })
         .collect();
     let targets: Vec<Vec<f64>> = (0..3)
-        .map(|i| (0..heads::NUM_HEADS).map(|h| (i + h) as f64 * 0.05).collect())
+        .map(|i| {
+            (0..heads::NUM_HEADS)
+                .map(|h| (i + h) as f64 * 0.05)
+                .collect()
+        })
         .collect();
     esn.train(&seqs, &targets);
 

@@ -6,7 +6,7 @@
 //! extraction, that's 0.25 TFLOPS — comparable to the 3090's native f64.
 //!
 //! Pipeline:
-//!   1. NPU flags "interesting" configurations (near β_c, anomalous ΔH)
+//!   1. NPU flags "interesting" configurations (near `β_c`, anomalous ΔH)
 //!   2. Titan V runs native f64 verification at same beta
 //!   3. Results feed back to NPU training data
 //!   4. The Titan V is the "teacher" — the NPU is the "student"
@@ -108,7 +108,7 @@ fn main() {
     let oracle_start = Instant::now();
 
     // NPU flags interesting betas (near the transition)
-    let flagged_betas: Vec<f64> = (0..20).map(|i| 5.4 + 0.6 * (i as f64) / 19.0).collect();
+    let flagged_betas: Vec<f64> = (0..20).map(|i| 5.4 + 0.6 * f64::from(i) / 19.0).collect();
 
     let mut oracle_data: Vec<(f64, f64, f64)> = Vec::new(); // (beta, plaq, poly)
 
@@ -154,7 +154,7 @@ fn main() {
         let beta_norm = (beta - 5.0) / 2.0;
         let seq: Vec<Vec<f64>> = (0..10)
             .map(|j| {
-                let noise = 0.005 * ((j as f64) * 0.7).sin();
+                let noise = 0.005 * (f64::from(j) * 0.7).sin();
                 vec![beta_norm, plaq + noise, poly + noise * 0.3]
             })
             .collect();
@@ -204,7 +204,7 @@ fn main() {
         }
     }
 
-    let accuracy_after = correct_after as f64 / total as f64;
+    let accuracy_after = f64::from(correct_after) / total as f64;
     println!("  Post-oracle accuracy: {:.0}%", accuracy_after * 100.0);
 
     harness.check_bool(
@@ -333,7 +333,7 @@ fn run_oracle_measurement(
         plaq_sum += r.plaquette;
     }
     let (poly, _) = gpu_polyakov_loop(gpu, &pipelines.hmc, &state);
-    (plaq_sum / n as f64, poly)
+    (plaq_sum / f64::from(n), poly)
 }
 
 fn run_cpu_oracle_measurement(beta: f64) -> (f64, f64) {
@@ -355,7 +355,7 @@ fn detect_beta_c_from_esn(esn: &mut EchoStateNetwork) -> f64 {
     let mut best_dist = f64::MAX;
 
     for i in 0..n_scan {
-        let beta = 4.5 + 2.5 * (i as f64) / (n_scan - 1) as f64;
+        let beta = 4.5 + 2.5 * f64::from(i) / f64::from(n_scan - 1);
         let beta_norm = (beta - 5.0) / 2.0;
         let plaq = 0.35 + 0.25 * (beta - 4.5) / 2.5;
         let poly = if beta > KNOWN_BETA_C {

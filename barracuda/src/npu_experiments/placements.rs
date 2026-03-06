@@ -67,7 +67,7 @@ pub(super) fn placement_a_pre_thermalization(
     PlacementResult {
         name: "A: Pre-thermalization".into(),
         wall_ms: start.elapsed().as_secs_f64() * 1000.0,
-        accuracy: correct_phases as f64 / total_tested.max(1) as f64,
+        accuracy: f64::from(correct_phases) / f64::from(total_tested.max(1)),
         traj_saved: saved,
     }
 }
@@ -93,7 +93,7 @@ pub(super) fn placement_b_mid_trajectory(
             beta_norm,
             r.plaquette,
             r.action_density,
-            n_md as f64 / 50.0,
+            f64::from(n_md) / 50.0,
             dt * 10.0,
         ];
         let pred = reject_esn
@@ -113,7 +113,7 @@ pub(super) fn placement_b_mid_trajectory(
     PlacementResult {
         name: "B: Mid-trajectory exit".into(),
         wall_ms: start.elapsed().as_secs_f64() * 1000.0,
-        accuracy: correct as f64 / total.max(1) as f64,
+        accuracy: f64::from(correct) / total.max(1) as f64,
         traj_saved: saved,
     }
 }
@@ -138,7 +138,7 @@ pub(super) fn placement_c_post_trajectory(
     PlacementResult {
         name: "C: Post-trajectory (baseline)".into(),
         wall_ms: start.elapsed().as_secs_f64() * 1000.0,
-        accuracy: correct as f64 / seqs.len().max(1) as f64,
+        accuracy: f64::from(correct) / seqs.len().max(1) as f64,
         traj_saved: 0,
     }
 }
@@ -182,7 +182,7 @@ pub(super) fn placement_d_inter_beta(
                 if r.accepted {
                     acc_count += 1.0;
                 }
-                let acc_rate = acc_count / acc_n as f64;
+                let acc_rate = acc_count / f64::from(acc_n);
                 vec![
                     r.plaquette,
                     r.plaquette_var,
@@ -213,7 +213,7 @@ pub(super) fn placement_d_inter_beta(
     PlacementResult {
         name: "D: Inter-beta steering".into(),
         wall_ms: start.elapsed().as_secs_f64() * 1000.0,
-        accuracy: steered_correctly as f64 / total_steered.max(1) as f64,
+        accuracy: f64::from(steered_correctly) / f64::from(total_steered.max(1)),
         traj_saved: 0,
     }
 }
@@ -260,7 +260,7 @@ pub(super) fn placement_e_pre_run(
     PlacementResult {
         name: "E: Pre-run bootstrap".into(),
         wall_ms: start.elapsed().as_secs_f64() * 1000.0,
-        accuracy: correct as f64 / total.max(1) as f64,
+        accuracy: f64::from(correct) / f64::from(total.max(1)),
         traj_saved: 0,
     }
 }

@@ -19,11 +19,11 @@ use super::complex_f64::Complex64;
 
 /// 3×3 complex matrix — SU(3) link variable.
 ///
-/// Row-major storage: `m[row][col]`.
+/// Row-major storage: `m\[row\]\[col\]`.
 #[derive(Clone, Copy, Debug)]
 #[must_use]
 pub struct Su3Matrix {
-    /// Matrix elements m[row][col].
+    /// Matrix elements m\[row\]\[col\].
     pub m: [[Complex64; 3]; 3],
 }
 

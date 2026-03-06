@@ -26,7 +26,7 @@ pub struct PhaseResult {
     pub peak_rss_mb: f64,
     /// χ² vs experimental data.
     pub chi2: f64,
-    /// Precision (MeV).
+    /// Precision (`MeV`).
     pub precision_mev: f64,
     /// Free-form notes.
     pub notes: String,

@@ -11,19 +11,22 @@
 //! - **BetaResult** — per-beta measurement result with NPU stats
 //! - **AttentionState** — NPU attention state machine (Green/Yellow/Red)
 //! - **npu_worker** — 11-head NPU worker thread (NpuRequest, NpuResponse, spawn_npu_worker)
-//! - **Helpers** — load_meta_table, load_trajectory_log_as_meta, plaquette_variance
+//! - **Helpers** — load_meta_table, load_trajectory_as_meta_from_contents, plaquette_variance
 //! - **ESN** — check_thermalization, predict_rejection, predict_beta_c,
 //!   find_max_uncertainty_beta, build_training_data, bootstrap_esn_from_trajectory_log
 
 pub mod beta_scan;
+pub mod checkpoint;
 pub mod cortex_worker;
 pub mod dynamical_bootstrap;
+pub mod dynamical_mixed_pipeline;
 pub mod dynamical_summary;
 pub mod mixed_summary;
 pub mod npu_worker;
 pub mod sub_models;
 pub mod titan_validation;
 pub mod titan_worker;
+pub mod trajectory_input;
 
 use crate::error::HotSpringError;
 use crate::md::reservoir::NpuSimulator;
@@ -60,22 +63,20 @@ pub struct MetaRow {
 }
 
 /// Load meta table from path. Tries three formats in order:
-/// 1. MetaRow JSONL (one MetaRow per line)
+/// 1. `MetaRow` JSONL (one `MetaRow` per line) — streamed, avoids loading large files
 /// 2. Summary JSON (single object with top-level `lattice`/`mass` and `points` array)
-/// 3. Per-trajectory JSONL (one trajectory record per line, aggregated into MetaRows)
+/// 3. Per-trajectory JSONL (one trajectory record per line, aggregated into `MetaRows`)
+///
+/// Streaming JSONL first avoids double-reading large trajectory logs when the
+/// file is already in MetaRow format.
 pub fn load_meta_table(path: &str) -> Result<Vec<MetaRow>, HotSpringError> {
-    let contents = std::fs::read_to_string(path)?;
-
-    // Try 1: MetaRow JSONL (one per line)
-    let mut meta: Vec<MetaRow> = Vec::new();
-    for line in contents.lines() {
-        if let Ok(row) = serde_json::from_str::<MetaRow>(line) {
-            meta.push(row);
-        }
-    }
-    if !meta.is_empty() {
+    // Try 1: Stream MetaRow JSONL (most common format; avoids read_to_string for large files)
+    if let Some(meta) = try_stream_meta_jsonl(path)? {
         return Ok(meta);
     }
+
+    // Try 2 & 3: Need full contents for summary JSON or trajectory aggregation
+    let contents = std::fs::read_to_string(path)?;
 
     // Try 2: Summary JSON with "points" array (production_dynamical_mixed output)
     if let Ok(rows) = load_summary_json_as_meta(&contents, path) {
@@ -84,12 +85,27 @@ pub fn load_meta_table(path: &str) -> Result<Vec<MetaRow>, HotSpringError> {
         }
     }
 
-    // Try 3: Per-trajectory JSONL
-    load_trajectory_log_as_meta(path)
+    // Try 3: Per-trajectory JSONL (parse from contents to avoid re-opening)
+    load_trajectory_as_meta_from_contents(&contents, path)
+}
+
+/// Stream MetaRow JSONL from file. Returns `Some(rows)` if any parseable rows found.
+fn try_stream_meta_jsonl(path: &str) -> Result<Option<Vec<MetaRow>>, HotSpringError> {
+    let file = std::fs::File::open(path)?;
+    let reader = std::io::BufReader::new(file);
+
+    let mut meta: Vec<MetaRow> = Vec::new();
+    for line in reader.lines() {
+        let line = line?;
+        if let Ok(row) = serde_json::from_str::<MetaRow>(&line) {
+            meta.push(row);
+        }
+    }
+    Ok(if meta.is_empty() { None } else { Some(meta) })
 }
 
 /// Parse a summary JSON file (single object with `lattice`, `mass`, and `points` array)
-/// into MetaRows. This is the format produced by production_dynamical_mixed.
+/// into `MetaRows`. This is the format produced by `production_dynamical_mixed`.
 fn load_summary_json_as_meta(contents: &str, path: &str) -> Result<Vec<MetaRow>, HotSpringError> {
     #[derive(serde::Deserialize)]
     #[allow(dead_code)]
@@ -123,9 +139,8 @@ fn load_summary_json_as_meta(contents: &str, path: &str) -> Result<Vec<MetaRow>,
         points: Vec<SummaryPoint>,
     }
 
-    let summary: SummaryJson = serde_json::from_str(contents).map_err(|e| {
-        HotSpringError::DataLoad(format!("not a summary JSON in {path}: {e}"))
-    })?;
+    let summary: SummaryJson = serde_json::from_str(contents)
+        .map_err(|e| HotSpringError::DataLoad(format!("not a summary JSON in {path}: {e}")))?;
 
     if summary.points.is_empty() {
         return Ok(Vec::new());
@@ -157,9 +172,13 @@ fn load_summary_json_as_meta(contents: &str, path: &str) -> Result<Vec<MetaRow>,
     Ok(rows)
 }
 
-/// Aggregate per-trajectory JSONL into per-beta MetaRows.
-/// Lets the NPU bootstrap from raw production logs. Streams line-by-line.
-fn load_trajectory_log_as_meta(path: &str) -> Result<Vec<MetaRow>, HotSpringError> {
+/// Aggregate per-trajectory JSONL into per-beta `MetaRows`.
+/// Lets the NPU bootstrap from raw production logs. Parses from string contents
+/// to avoid re-reading when called from `load_meta_table` after summary JSON fails.
+fn load_trajectory_as_meta_from_contents(
+    contents: &str,
+    path: &str,
+) -> Result<Vec<MetaRow>, HotSpringError> {
     use std::collections::BTreeMap;
 
     #[derive(serde::Deserialize)]
@@ -175,13 +194,9 @@ fn load_trajectory_log_as_meta(path: &str) -> Result<Vec<MetaRow>, HotSpringErro
         phase: String,
     }
 
-    let file = std::fs::File::open(path)?;
-    let reader = std::io::BufReader::new(file);
-
     let mut records: Vec<TrajRecord> = Vec::new();
-    for line in reader.lines() {
-        let line = line?;
-        if let Ok(rec) = serde_json::from_str::<TrajRecord>(&line) {
+    for line in contents.lines() {
+        if let Ok(rec) = serde_json::from_str::<TrajRecord>(line) {
             records.push(rec);
         }
     }
@@ -382,7 +397,8 @@ pub enum TrajectoryPhase {
 }
 
 /// Per-trajectory event streamed to the NPU for every single trajectory.
-/// Replaces the summary-only data flow (one BetaResult per beta) with
+///
+/// Replaces the summary-only data flow (one `BetaResult` per beta) with
 /// fine-grained per-event observation (~60 events per beta point).
 #[derive(Clone, Debug)]
 pub struct TrajectoryEvent {
@@ -398,7 +414,7 @@ pub struct TrajectoryEvent {
     pub traj_idx: usize,
     /// Average plaquette for this trajectory.
     pub plaquette: f64,
-    /// Hamiltonian violation δH = H_new - H_old.
+    /// Hamiltonian violation δH = `H_new` - `H_old`.
     pub delta_h: f64,
     /// Whether the Metropolis accept/reject accepted this trajectory.
     pub accepted: bool,
@@ -408,7 +424,7 @@ pub struct TrajectoryEvent {
     pub polyakov_re: f64,
     /// Phase angle of the Polyakov loop.
     pub polyakov_phase: f64,
-    /// Gauge action density S_G / (6 * volume).
+    /// Gauge action density `S_G` / (6 * volume).
     pub action_density: f64,
     /// Plaquette variance across the lattice.
     pub plaquette_var: f64,
@@ -423,6 +439,7 @@ pub struct TrajectoryEvent {
 // ═══════════════════════════════════════════════════════════════════
 
 /// Compute sample variance of plaquette history.
+#[must_use]
 pub fn plaquette_variance(history: &[f64]) -> f64 {
     if history.len() < 2 {
         return 0.0;
@@ -437,6 +454,7 @@ pub fn plaquette_variance(history: &[f64]) -> f64 {
 
 /// Statistical convergence check on plaquette window.
 /// Uses variance-ratio and drift tests — mimics what the ESN therm detector learned.
+#[must_use]
 pub fn check_thermalization(plaq_window: &[f64], _beta: f64) -> bool {
     if plaq_window.len() < 10 {
         return false;
@@ -465,6 +483,7 @@ pub fn check_thermalization(plaq_window: &[f64], _beta: f64) -> bool {
 
 /// Predict trajectory rejection from observables.
 /// Uses empirical heuristics: large |ΔH| and low acceptance rate predict rejection.
+#[must_use]
 pub fn predict_rejection(
     _beta: f64,
     _plaquette: f64,
@@ -498,8 +517,9 @@ pub fn predict_rejection(
 // ═══════════════════════════════════════════════════════════════════
 
 /// Build ESN training data from accumulated β-scan results.
-/// Features: [β_norm, plaquette, polyakov, susceptibility_norm]
-/// Targets: [phase (0=confined, 1=deconfined), beta_c_proximity]
+/// Features: [`β_norm`, plaquette, polyakov, `susceptibility_norm`]
+/// Targets: [phase (0=confined, 1=deconfined), `beta_c_proximity`]
+#[must_use]
 pub fn build_training_data(results: &[BetaResult]) -> (Vec<Vec<Vec<f64>>>, Vec<Vec<f64>>) {
     let mut seqs = Vec::new();
     let mut targets = Vec::new();
@@ -512,7 +532,7 @@ pub fn build_training_data(results: &[BetaResult]) -> (Vec<Vec<Vec<f64>>>, Vec<V
 
         let seq: Vec<Vec<f64>> = (0..seq_len)
             .map(|j| {
-                let noise = 0.005 * ((j as f64) * 0.7).sin();
+                let noise = 0.005 * (f64::from(j) * 0.7).sin();
                 vec![
                     beta_norm,
                     r.mean_plaq + noise * r.std_plaq,
@@ -532,14 +552,14 @@ pub fn build_training_data(results: &[BetaResult]) -> (Vec<Vec<Vec<f64>>>, Vec<V
 //  Beta_c Prediction
 // ═══════════════════════════════════════════════════════════════════
 
-/// Predict β_c by scanning NPU predictions and finding phase boundary.
+/// Predict `β_c` by scanning NPU predictions and finding phase boundary.
 pub fn predict_beta_c(npu: &mut NpuSimulator) -> f64 {
     let n_scan = 100;
     let mut best_beta = KNOWN_BETA_C;
     let mut best_uncertainty = 0.0_f64;
 
     for i in 0..n_scan {
-        let beta = 5.0 + 2.0 * (i as f64) / (n_scan as f64 - 1.0);
+        let beta = 5.0 + 2.0 * f64::from(i) / (f64::from(n_scan) - 1.0);
         let beta_norm = (beta - 5.0) / 2.0;
         let plaq_est = 0.35 + 0.25 * (beta - 4.5) / 2.5;
         let poly_est = if beta > 5.7 { 0.3 } else { 0.05 };
@@ -559,7 +579,7 @@ pub fn predict_beta_c(npu: &mut NpuSimulator) -> f64 {
             }
         } else if !pred.is_empty() {
             let phase_pred = pred[0];
-            let u = 1.0 - (phase_pred - 0.5).abs() * 2.0;
+            let u = (phase_pred - 0.5).abs().mul_add(-2.0, 1.0);
             if u > best_uncertainty {
                 best_uncertainty = u;
                 best_beta = beta;
@@ -603,7 +623,7 @@ pub fn find_max_uncertainty_beta(
         let uncertainty = if pred.len() >= 2 {
             pred[1]
         } else if !pred.is_empty() {
-            1.0 - (pred[0] - 0.5).abs() * 2.0
+            (pred[0] - 0.5).abs().mul_add(-2.0, 1.0)
         } else {
             0.0
         };

@@ -2,7 +2,7 @@
 
 //! Summary, NPU stats, and JSON output for the dynamical mixed pipeline (Exp 023).
 //!
-//! Extracted from production_dynamical_mixed to reduce binary size.
+//! Extracted from `production_dynamical_mixed` to reduce binary size.
 
 use crate::production::BetaResult;
 
@@ -49,7 +49,8 @@ pub struct DynamicalNpuStats {
 
 impl DynamicalNpuStats {
     /// Create a new stats tracker with all counters at zero.
-    pub fn new() -> Self {
+    #[must_use]
+    pub const fn new() -> Self {
         Self {
             pre_screen_calls: 0,
             param_suggests: 0,
@@ -107,6 +108,7 @@ pub struct DynamicalBannerConfig<'a> {
 }
 
 /// HMC auto step size and MD steps from volume.
+#[must_use]
 pub fn hmc_auto_params(vol: usize) -> (f64, usize) {
     let vol_f = vol as f64;
     let scale = (4096.0_f64 / vol_f).powf(0.25);
@@ -116,6 +118,7 @@ pub fn hmc_auto_params(vol: usize) -> (f64, usize) {
 }
 
 /// Create trajectory log writer if path is given.
+#[must_use]
 pub fn create_trajectory_log_writer(
     path: Option<&str>,
 ) -> Option<std::io::BufWriter<std::fs::File>> {

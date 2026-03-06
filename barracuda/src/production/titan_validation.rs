@@ -2,7 +2,7 @@
 
 //! Titan V (or CPU) validation oracle for critical configurations.
 //!
-//! Extracted from production_mixed_pipeline to reduce binary size.
+//! Extracted from `production_mixed_pipeline` to reduce binary size.
 //! Runs quenched HMC on a secondary GPU (Titan V) or CPU f64 to validate
 //! plaquette and Polyakov loop against primary GPU results.
 
@@ -78,7 +78,7 @@ pub fn run_titan_validation(
                 );
                 plaq_sum += tr.plaquette;
             }
-            let titan_plaq = plaq_sum / n_verify as f64;
+            let titan_plaq = plaq_sum / f64::from(n_verify);
             let (titan_poly, _) = gpu_polyakov_loop(titan, &titan_pipelines.hmc, &state);
 
             let plaq_diff = (titan_plaq - r.mean_plaq).abs();

@@ -293,7 +293,7 @@ fn chrono_timestamp() -> String {
     format!("{}s", dur.as_secs())
 }
 
-/// Run a single quenched parameter point. Returns (mean_plaq, chi, acceptance, 0.0, wall_per_traj).
+/// Run a single quenched parameter point. Returns (`mean_plaq`, chi, acceptance, 0.0, `wall_per_traj`).
 #[allow(clippy::too_many_arguments)]
 fn run_quenched_point(
     gpu: &GpuF64,
@@ -363,7 +363,7 @@ fn run_quenched_point(
     (mean_plaq, chi, acceptance, 0.0, wall_per_traj)
 }
 
-/// Run a single dynamical parameter point. Returns (mean_plaq, chi, acceptance, mean_cg, wall_per_traj).
+/// Run a single dynamical parameter point. Returns (`mean_plaq`, chi, acceptance, `mean_cg`, `wall_per_traj`).
 #[allow(clippy::too_many_arguments)]
 fn run_dynamical_point(
     gpu: &GpuF64,

@@ -30,13 +30,13 @@ pub struct NucleusResidual {
     pub a: usize,
     /// Element symbol
     pub element: String,
-    /// Experimental binding energy (MeV)
+    /// Experimental binding energy (`MeV`)
     pub b_exp: f64,
-    /// Calculated binding energy (MeV)
+    /// Calculated binding energy (`MeV`)
     pub b_calc: f64,
-    /// Signed residual (B_calc - B_exp)
+    /// Signed residual (`B_calc` - `B_exp`)
     pub delta_b: f64,
-    /// Absolute residual (MeV)
+    /// Absolute residual (`MeV`)
     pub abs_delta: f64,
     /// Relative accuracy |ΔB/B|
     pub rel_delta: f64,
@@ -47,11 +47,11 @@ pub struct NucleusResidual {
 /// Summary metrics from per-nucleus residuals.
 #[derive(Debug)]
 pub struct ResidualMetrics {
-    /// RMS of residuals (MeV)
+    /// RMS of residuals (`MeV`)
     pub rms: f64,
-    /// Mean absolute error (MeV)
+    /// Mean absolute error (`MeV`)
     pub mae: f64,
-    /// Max absolute error (MeV)
+    /// Max absolute error (`MeV`)
     pub max_err: f64,
     /// Mean relative |ΔB/B|
     pub mean_rel: f64,
@@ -152,7 +152,7 @@ pub fn print_semf_gpu_precision(
     }
 }
 
-/// Print pure-GPU (math_f64) precision vs CPU and precomputed-GPU.
+/// Print pure-GPU (`math_f64`) precision vs CPU and precomputed-GPU.
 pub fn print_pure_gpu_precision(
     pure_max_diff: f64,
     pure_mean_diff: f64,
@@ -506,7 +506,7 @@ pub fn print_semf_capability_analysis(rms: f64, best_chi2: f64, mean_rel: f64) {
     println!("      (e.g., Wigner, rotational, shape coexistence)");
 }
 
-/// Print comparison summary table (SparsitySampler vs DirectSampler vs Python baseline).
+/// Print comparison summary table (`SparsitySampler` vs `DirectSampler` vs Python baseline).
 pub fn print_comparison_summary(
     chi2_1: f64,
     approach1_evals: usize,
@@ -707,7 +707,7 @@ pub fn run_deep_residual_analysis(
 }
 
 /// L1 objective with NMP chi-squared constraint (UNEDF-style).
-/// chi2_total = chi2_BE/datum + lambda * chi2_NMP/datum.
+/// `chi2_total` = `chi2_BE/datum` + lambda * `chi2_NMP/datum`.
 #[must_use]
 pub fn l1_objective_nmp(
     x: &[f64],

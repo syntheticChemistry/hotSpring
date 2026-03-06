@@ -70,12 +70,12 @@ pub struct CortexRequest {
 ///
 /// Higher plaquette variance = more gauge fluctuation = more "disorder"
 /// in the Anderson analogy. The mapping is:
-///   W ≈ 4 + 200 * plaq_var  (calibrated from Exp 024 data)
+///   W ≈ 4 + 200 * `plaq_var`  (calibrated from Exp 024 data)
 ///
-/// At strong coupling (β ~ 4.3), plaq_var ~ 0.08 → W ~ 20 (localized).
-/// At weak coupling (β ~ 6.1), plaq_var ~ 0.02 → W ~ 8 (extended).
+/// At strong coupling (β ~ 4.3), `plaq_var` ~ 0.08 → W ~ 20 (localized).
+/// At weak coupling (β ~ 6.1), `plaq_var` ~ 0.02 → W ~ 8 (extended).
 fn qcd_to_anderson_disorder(plaq_var: f64) -> f64 {
-    (4.0 + 200.0 * plaq_var).clamp(1.0, 30.0)
+    200.0f64.mul_add(plaq_var, 4.0).clamp(1.0, 30.0)
 }
 
 /// Run 3D Anderson proxy for a given QCD configuration.
@@ -131,8 +131,9 @@ pub fn anderson_3d_proxy(req: &CortexRequest, seed: u64) -> ProxyFeatures {
 
 /// Run Z(3) Potts Monte Carlo proxy for a given QCD β.
 ///
-/// Uses the Svetitsky-Yaffe mapping: β_QCD → β_Potts ≈ (β_QCD - 4.0) / 3.0.
+/// Uses the Svetitsky-Yaffe mapping: `β_QCD` → `β_Potts` ≈ (`β_QCD` - 4.0) / 3.0.
 /// Returns phase label and susceptibility for NPU phase classification.
+#[must_use]
 pub fn potts_z3_proxy(req: &CortexRequest, seed: u64) -> (f64, f64, String, f64) {
     let t0 = std::time::Instant::now();
     let beta_potts = ((req.beta - 4.0) / 3.0).clamp(0.1, 1.5);
@@ -143,6 +144,7 @@ pub fn potts_z3_proxy(req: &CortexRequest, seed: u64) -> (f64, f64, String, f64)
 }
 
 /// Run both Anderson 3D and Potts Z(3) proxies, returning combined features.
+#[must_use]
 pub fn combined_proxy(req: &CortexRequest, seed: u64) -> ProxyFeatures {
     let mut features = anderson_3d_proxy(req, seed);
     let (mag, chi, potts_phase, potts_wall_ms) = potts_z3_proxy(req, seed.wrapping_add(1000));
@@ -212,7 +214,7 @@ fn potts_z3_monte_carlo(
     for sweep in 0..(n_therm + n_meas) {
         for site in 0..n {
             let old_spin = spins[site];
-            let new_spin = ((old_spin as u64 + 1 + rng.next_u64() % 2) % 3) as u8;
+            let new_spin = ((u64::from(old_spin) + 1 + rng.next_u64() % 2) % 3) as u8;
 
             let nbrs = neighbors(site);
             let mut delta_e: i32 = 0;
@@ -228,7 +230,7 @@ fn potts_z3_monte_carlo(
             let accept = if delta_e <= 0 {
                 true
             } else {
-                rng.uniform() < (-beta * delta_e as f64).exp()
+                rng.uniform() < (-beta * f64::from(delta_e)).exp()
             };
 
             if accept {
@@ -244,7 +246,7 @@ fn potts_z3_monte_carlo(
                 m[0] += omega_re[s as usize];
                 m[1] += omega_im[s as usize];
             }
-            let mag = (m[0] * m[0] + m[1] * m[1]).sqrt() / n as f64;
+            let mag = m[0].hypot(m[1]) / n as f64;
             mag_samples.push(mag);
 
             let mut energy = 0.0f64;
@@ -283,13 +285,13 @@ struct LcgRng {
 }
 
 impl LcgRng {
-    fn new(seed: u64) -> Self {
+    const fn new(seed: u64) -> Self {
         Self {
             state: seed.wrapping_mul(6364136223846793005).wrapping_add(1),
         }
     }
 
-    fn next_u64(&mut self) -> u64 {
+    const fn next_u64(&mut self) -> u64 {
         self.state = self
             .state
             .wrapping_mul(6364136223846793005)
@@ -341,9 +343,7 @@ mod tests {
         assert!(chi.is_finite());
         assert!(wall_ms >= 0.0);
         assert!(
-            phase_label == "ordered"
-                || phase_label == "disordered"
-                || phase_label == "transition"
+            phase_label == "ordered" || phase_label == "disordered" || phase_label == "transition"
         );
     }
 

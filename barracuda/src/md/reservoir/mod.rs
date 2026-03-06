@@ -21,6 +21,8 @@
 //! - Jaeger (2001) "The echo state approach to recurrent neural networks"
 //! - Stanton & Murillo, PRE 93, 043203 (2016) — transport coefficients
 
+/// ESN baseline validation helpers (JSONL loading, synthetic datasets, formatting).
+pub mod esn_baseline;
 /// Head indices for the multi-head ESN (Gen 2 "Developed Organism" layout).
 pub mod heads;
 /// NPU simulator and weight export for cross-substrate deployment.
@@ -36,30 +38,26 @@ pub use npu::{ExportedWeights, MultiHeadNpu, NpuSimulator};
 ///
 /// `Tanh` is the classic ESN activation — smooth, bounded [-1, 1].
 /// `ReluTanhApprox` is a 5-segment piecewise-linear approximation of tanh
-/// built entirely from ReLU operations. On the AKD1000 this compiles to a
-/// 2-layer FC chain (10 hidden ReLU neurons + linear output) that merges
+/// built entirely from `ReLU` operations. On the AKD1000 this compiles to a
+/// 2-layer FC chain (10 hidden `ReLU` neurons + linear output) that merges
 /// into the reservoir update pass at ~3 µs extra latency (Discovery 2).
 /// Same system, same weights — hardware maps the math.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, Default)]
 pub enum Activation {
     /// Classic smooth activation, bounded [-1, 1].
+    #[default]
     Tanh,
-    /// Piecewise-linear ReLU approximation of tanh — deployable on AKD1000.
+    /// Piecewise-linear `ReLU` approximation of tanh — deployable on AKD1000.
     ReluTanhApprox,
 }
 
-impl Default for Activation {
-    fn default() -> Self {
-        Self::Tanh
-    }
-}
-
-/// 5-segment piecewise-linear approximation of tanh using only ReLU-
+/// 5-segment piecewise-linear approximation of tanh using only `ReLU`-
 /// representable operations. Breakpoints match tanh to <0.5% max error.
 ///
 /// On the AKD1000, this is a 10-neuron bounded-ReLU hidden layer + linear
 /// output: the FC chain merges into one hardware pass.
 #[inline]
+#[must_use]
 pub fn relu_tanh_approx_f64(x: f64) -> f64 {
     let ax = x.abs();
     let y = if ax < 0.5 {
@@ -80,6 +78,7 @@ pub fn relu_tanh_approx_f64(x: f64) -> f64 {
 
 /// f32 variant for the NPU simulator path.
 #[inline]
+#[must_use]
 pub fn relu_tanh_approx_f32(x: f32) -> f32 {
     let ax = x.abs();
     let y = if ax < 0.5 {
@@ -366,13 +365,13 @@ impl IncrementalBuffer {
 
     /// Current number of buffered samples.
     #[must_use]
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         self.sequences.len()
     }
 
     /// Whether the buffer is empty.
     #[must_use]
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.sequences.is_empty()
     }
 
@@ -443,7 +442,7 @@ pub fn velocity_features(
 /// Solve AX = B for multiple right-hand sides via LU decomposition (partial pivoting, f64).
 ///
 /// Delegates to `barracuda::ops::linalg::lu_solve` — the shared primitive for dense
-/// linear solves. ESN ridge regression produces small systems (reservoir_size × reservoir_size,
+/// linear solves. ESN ridge regression produces small systems (`reservoir_size` × `reservoir_size`,
 /// typically 50–200); each column of B is solved independently.
 fn solve_linear_system(a: &[Vec<f64>], b: &[Vec<f64>]) -> Vec<Vec<f64>> {
     let n = a.len();
@@ -454,9 +453,14 @@ fn solve_linear_system(a: &[Vec<f64>], b: &[Vec<f64>]) -> Vec<Vec<f64>> {
     let mut x = vec![vec![0.0; m]; n];
     for col in 0..m {
         let b_col: Vec<f64> = (0..n).map(|row| b[row][col]).collect();
-        if let Ok(sol) = barracuda::ops::linalg::lu_solve(&a_flat, n, &b_col) {
-            for (row, val) in sol.iter().enumerate() {
-                x[row][col] = *val;
+        match barracuda::ops::linalg::lu_solve(&a_flat, n, &b_col) {
+            Ok(sol) => {
+                for (row, val) in sol.iter().enumerate() {
+                    x[row][col] = *val;
+                }
+            }
+            Err(e) => {
+                eprintln!("  ESN ridge regression: LU solve failed for column {col}/{m}: {e}");
             }
         }
     }

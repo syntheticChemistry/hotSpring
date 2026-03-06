@@ -22,7 +22,7 @@ use barracuda::pipeline::ReduceScalarPipeline;
 
 use std::time::Instant;
 
-const WORKGROUP_SIZE: usize = tolerances::MD_WORKGROUP_SIZE as usize;
+const WORKGROUP_SIZE: usize = tolerances::MD_WORKGROUP_SIZE;
 const THERMOSTAT_INTERVAL: usize = tolerances::THERMOSTAT_INTERVAL;
 const DEFAULT_VELOCITY_SEED: u64 = tolerances::DEFAULT_VELOCITY_SEED;
 const PROGRESS_REPORT_INTERVAL: usize = tolerances::PROGRESS_REPORT_INTERVAL;

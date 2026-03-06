@@ -84,13 +84,13 @@ pub struct SphericalHFB {
 /// Result from HFB solve.
 #[derive(Debug, Clone)]
 pub struct HFBResult {
-    /// Total binding energy (MeV).
+    /// Total binding energy (`MeV`).
     pub binding_energy_mev: f64,
     /// Whether SCF converged.
     pub converged: bool,
     /// Number of SCF iterations.
     pub iterations: usize,
-    /// Final energy change (MeV).
+    /// Final energy change (`MeV`).
     pub delta_e: f64,
 }
 
@@ -142,7 +142,7 @@ impl SphericalHFB {
     pub const fn dr(&self) -> f64 {
         self.dr
     }
-    /// Oscillator energy ℏω (MeV).
+    /// Oscillator energy ℏω (`MeV`).
     #[must_use]
     pub const fn hw(&self) -> f64 {
         self.hw

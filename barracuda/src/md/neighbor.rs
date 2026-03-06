@@ -24,7 +24,7 @@ use crate::tolerances::{
 pub enum ForceAlgorithm {
     /// O(N²) all-pairs: each particle loops over every other particle.
     AllPairs,
-    /// O(N) cell-list: 27-cell stencil via CellListGpu indirect indexing.
+    /// O(N) cell-list: 27-cell stencil via `CellListGpu` indirect indexing.
     CellList,
     /// O(N) Verlet neighbor list: compact per-particle neighbor arrays
     /// built from cell-list, rebuilt when max displacement exceeds skin/2.
@@ -95,7 +95,7 @@ pub struct VerletListGpu {
     pub rc: f64,
     /// Number of particles.
     n: usize,
-    /// Build pipeline (populates neighbor_list + neighbor_count from cell-list).
+    /// Build pipeline (populates `neighbor_list` + `neighbor_count` from cell-list).
     build_pipeline: wgpu::ComputePipeline,
     /// Displacement check pipeline.
     check_pipeline: wgpu::ComputePipeline,
@@ -119,7 +119,7 @@ impl VerletListGpu {
 
         let neighbor_list_buf = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("verlet_neighbor_list"),
-            size: (n as u64) * (max_neighbors as u64) * 4,
+            size: (n as u64) * u64::from(max_neighbors) * 4,
             usage: wgpu::BufferUsages::STORAGE,
             mapped_at_creation: false,
         });
@@ -152,12 +152,9 @@ impl VerletListGpu {
         // (rc+skin)² which is safe since skin < cell_size for valid configs.
         let cell_list = CellListGpu::new(gpu.to_wgpu_device(), n, box_dims, rc)?;
 
-        let build_pipeline =
-            gpu.create_pipeline(SHADER_VERLET_BUILD, "verlet_build");
-        let check_pipeline =
-            gpu.create_pipeline(SHADER_VERLET_CHECK_DISP, "verlet_check_disp");
-        let copy_ref_pipeline =
-            gpu.create_pipeline(SHADER_VERLET_COPY_REF, "verlet_copy_ref");
+        let build_pipeline = gpu.create_pipeline(SHADER_VERLET_BUILD, "verlet_build");
+        let check_pipeline = gpu.create_pipeline(SHADER_VERLET_CHECK_DISP, "verlet_check_disp");
+        let copy_ref_pipeline = gpu.create_pipeline(SHADER_VERLET_COPY_REF, "verlet_copy_ref");
 
         Ok(Self {
             neighbor_list_buf,
@@ -211,7 +208,8 @@ impl VerletListGpu {
     }
 
     /// Check maximum displacement since last rebuild.
-    /// Returns true if a rebuild is needed (max_disp > skin/2).
+    /// Returns true if a rebuild is needed (`max_disp` > skin/2).
+    #[must_use]
     pub fn needs_rebuild(
         &self,
         gpu: &GpuF64,
@@ -220,12 +218,18 @@ impl VerletListGpu {
     ) -> bool {
         let device = gpu.device();
 
-        gpu.queue().write_buffer(&self.max_disp_buf, 0, &0u32.to_le_bytes());
+        gpu.queue()
+            .write_buffer(&self.max_disp_buf, 0, &0u32.to_le_bytes());
 
         let workgroups = self.n.div_ceil(MD_WORKGROUP_SIZE) as u32;
         let check_bg = gpu.create_bind_group(
             &self.check_pipeline,
-            &[pos_buf, &self.ref_positions_buf, &self.max_disp_buf, params_buf],
+            &[
+                pos_buf,
+                &self.ref_positions_buf,
+                &self.max_disp_buf,
+                params_buf,
+            ],
         );
         gpu.dispatch(&self.check_pipeline, &check_bg, workgroups);
 
@@ -258,13 +262,13 @@ impl VerletListGpu {
 
     /// Access the neighbor list buffer for force shader binding.
     #[must_use]
-    pub fn neighbor_list(&self) -> &wgpu::Buffer {
+    pub const fn neighbor_list(&self) -> &wgpu::Buffer {
         &self.neighbor_list_buf
     }
 
     /// Access the neighbor count buffer for force shader binding.
     #[must_use]
-    pub fn neighbor_count(&self) -> &wgpu::Buffer {
+    pub const fn neighbor_count(&self) -> &wgpu::Buffer {
         &self.neighbor_count_buf
     }
 

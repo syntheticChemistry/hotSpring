@@ -35,7 +35,7 @@ use super::wilson::Lattice;
 /// Time-slice propagator correlator result.
 #[derive(Clone, Debug)]
 pub struct CorrelatorResult {
-    /// C(t) for t = 0..N_t
+    /// C(t) for t = `0..N_t`
     pub correlator: Vec<f64>,
     /// CG convergence info
     pub cg: CgResult,
@@ -46,7 +46,8 @@ pub struct CorrelatorResult {
 /// Places a delta-function source at the origin (color 0), solves
 /// (D†D)⁻¹ source, and sums |G|² over spatial slices.
 ///
-/// Returns C(t) = Σ_{x spatial} Σ_c |G_c(x,t)|²
+/// Returns C(t) = Σ_{x spatial} `Σ_c` |`G_c(x,t)|²`
+#[must_use]
 pub fn point_propagator_correlator(
     lattice: &Lattice,
     mass: f64,
@@ -78,6 +79,7 @@ pub fn point_propagator_correlator(
 ///
 /// Averages over `n_sources` random wall sources (different colors)
 /// to reduce statistical noise.
+#[must_use]
 pub fn averaged_correlator(
     lattice: &Lattice,
     mass: f64,
@@ -132,8 +134,9 @@ pub fn averaged_correlator(
 /// Based on the Bernecker-Meyer (2011) discretization.
 /// K(t) ∝ t²(T/2 - t)² / T⁴ for 0 < t < T/2, else 0.
 ///
-/// The proportionality constant absorbs α²_em and normalization
+/// The proportionality constant absorbs `α²_em` and normalization
 /// factors that are irrelevant for the relative shape validation.
+#[must_use]
 pub fn hvp_kernel(t: usize, nt: usize) -> f64 {
     let half = nt / 2;
     if t == 0 || t >= half {
@@ -147,9 +150,10 @@ pub fn hvp_kernel(t: usize, nt: usize) -> f64 {
 
 /// Compute the HVP integral from a time-slice correlator.
 ///
-/// a_μ^HVP ∝ Σ_t K(t) C(t)
+/// `a_μ^HVP` ∝ `Σ_t` K(t) C(t)
 ///
 /// Returns the lattice-units HVP integral (positive if C(t) > 0).
+#[must_use]
 pub fn hvp_integral(correlator: &[f64]) -> f64 {
     let nt = correlator.len();
     let mut sum = 0.0;
@@ -159,24 +163,26 @@ pub fn hvp_integral(correlator: &[f64]) -> f64 {
     sum
 }
 
-/// Plaquette susceptibility χ_P = V × (⟨P²⟩ - ⟨P⟩²).
+/// Plaquette susceptibility `χ_P` = V × (⟨P²⟩ - ⟨P⟩²).
 ///
 /// The susceptibility peaks at the deconfinement transition.
+#[must_use]
 pub fn plaquette_susceptibility(plaquettes: &[f64], volume: usize) -> f64 {
     let n = plaquettes.len() as f64;
     let mean = plaquettes.iter().sum::<f64>() / n;
     let mean_sq = plaquettes.iter().map(|p| p * p).sum::<f64>() / n;
-    volume as f64 * (mean_sq - mean * mean)
+    volume as f64 * mean.mul_add(-mean, mean_sq)
 }
 
-/// Polyakov loop susceptibility χ_L = V_s × (⟨|L|²⟩ - ⟨|L|⟩²).
+/// Polyakov loop susceptibility `χ_L` = `V_s` × (⟨|L|²⟩ - ⟨|L|⟩²).
 ///
 /// Also peaks at the deconfinement transition.
+#[must_use]
 pub fn polyakov_susceptibility(poly_abs: &[f64], spatial_vol: usize) -> f64 {
     let n = poly_abs.len() as f64;
     let mean_abs = poly_abs.iter().sum::<f64>() / n;
     let mean_sq = poly_abs.iter().map(|p| p * p).sum::<f64>() / n;
-    spatial_vol as f64 * (mean_sq - mean_abs * mean_abs)
+    spatial_vol as f64 * mean_abs.mul_add(-mean_abs, mean_sq)
 }
 
 #[cfg(test)]

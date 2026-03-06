@@ -2,7 +2,7 @@
 
 //! Bootstrap and pre-computation for the dynamical mixed pipeline.
 //!
-//! Extracted from production_dynamical_mixed to reduce binary size.
+//! Extracted from `production_dynamical_mixed` to reduce binary size.
 
 use crate::gpu::GpuF64;
 use crate::lattice::gpu_hmc::{BrainInterrupt, CgResidualUpdate};
@@ -19,7 +19,7 @@ use std::process::ExitCode;
 use std::sync::mpsc;
 
 /// Bootstrap ESN from comma-separated paths: weights (.json) first, then meta/trajectory data.
-/// Returns meta rows collected from non-weights paths (for use as meta_context).
+/// Returns meta rows collected from non-weights paths (for use as `meta_context`).
 pub fn run_bootstrap(
     paths_str: Option<&str>,
     npu_tx: &mpsc::Sender<NpuRequest>,
@@ -199,10 +199,12 @@ pub fn run_post_computation(
 }
 
 /// Spawn the brain residual forwarder thread (CG residuals → NPU).
-#[allow(clippy::expect_used)]
+///
+/// # Errors
+/// Returns `Err` if the thread fails to spawn (OOM, resource exhaustion).
 pub fn spawn_brain_residual_forwarder(
     npu_tx: mpsc::Sender<NpuRequest>,
-) -> mpsc::Sender<CgResidualUpdate> {
+) -> Result<mpsc::Sender<CgResidualUpdate>, std::io::Error> {
     let (tx, rx) = mpsc::channel::<CgResidualUpdate>();
     std::thread::Builder::new()
         .name("brain-residual-fwd".into())
@@ -210,9 +212,8 @@ pub fn spawn_brain_residual_forwarder(
             for update in rx {
                 npu_tx.send(NpuRequest::CgResidual(update)).ok();
             }
-        })
-        .expect("spawn residual forwarder");
-    tx
+        })?;
+    Ok(tx)
 }
 
 /// Acquired GPU, NPU, Titan, and cortex workers for the dynamical pipeline.
@@ -262,7 +263,10 @@ pub fn acquire_dynamical_workers(
         npu_tx,
         npu_rx,
         interrupt_rx: brain_interrupt_rx,
-    } = spawn_npu_worker(lattice);
+    } = spawn_npu_worker(lattice).map_err(|e| {
+        eprintln!("  NPU worker spawn failed: {e}");
+        ExitCode::from(1)
+    })?;
     println!(
         "  NPU worker: spawned (15-head cerebellum: 4 pre-GPU, 5 during, 3 post, 3 proxy, 1 brain)"
     );
@@ -271,7 +275,13 @@ pub fn acquire_dynamical_workers(
         None
     } else if let Ok(titan_gpu) = rt.block_on(GpuF64::from_adapter_name("titan")) {
         println!("  [Titan] GPU acquired: {}", titan_gpu.adapter_name);
-        Some(spawn_titan_worker(titan_gpu))
+        match spawn_titan_worker(titan_gpu) {
+            Ok(h) => Some(h),
+            Err(e) => {
+                eprintln!("  [Titan] Worker spawn failed: {e}");
+                None
+            }
+        }
     } else {
         eprintln!("  [Titan] No secondary GPU found");
         None
@@ -285,7 +295,10 @@ pub fn acquire_dynamical_workers(
         },
     );
 
-    let cortex_handles = spawn_cortex_worker();
+    let cortex_handles = spawn_cortex_worker().map_err(|e| {
+        eprintln!("  Cortex worker spawn failed: {e}");
+        ExitCode::from(1)
+    })?;
     println!("  CPU cortex: spawned (Anderson 3D proxy pipeline)");
 
     Ok(DynamicalWorkers {

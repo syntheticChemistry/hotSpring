@@ -192,19 +192,19 @@ impl NpuSimulator {
 
     /// Reservoir dimensionality.
     #[must_use]
-    pub fn reservoir_size(&self) -> usize {
+    pub const fn reservoir_size(&self) -> usize {
         self.reservoir_size
     }
 
     /// Output dimensionality.
     #[must_use]
-    pub fn output_size(&self) -> usize {
+    pub const fn output_size(&self) -> usize {
         self.w_out.len()
     }
 
     /// Leak rate.
     #[must_use]
-    pub fn leak_rate(&self) -> f32 {
+    pub const fn leak_rate(&self) -> f32 {
         self.leak_rate
     }
 
@@ -250,7 +250,7 @@ impl NpuSimulator {
 
     /// Apply a specific readout head to the current reservoir state.
     ///
-    /// Returns the scalar output for a single head (row index into w_out).
+    /// Returns the scalar output for a single head (row index into `w_out`).
     /// Useful for multi-head ESN where different heads serve different purposes.
     #[must_use]
     pub fn readout_head(&self, head_idx: usize) -> f64 {
@@ -295,7 +295,7 @@ impl MultiHeadNpu {
     /// Register a set of readout weights for a specific physics regime.
     ///
     /// Regime 0 = confined, 1 = transition, 2 = deconfined. Each set must
-    /// have the same reservoir_size but may have different output_size.
+    /// have the same `reservoir_size` but may have different `output_size`.
     pub fn register_regime_weights(&mut self, weights: ExportedWeights) {
         self.regime_weight_sets.push(weights);
     }
@@ -340,13 +340,13 @@ impl MultiHeadNpu {
     }
 
     /// Access the underlying single-output predictor.
-    pub fn base_mut(&mut self) -> &mut NpuSimulator {
+    pub const fn base_mut(&mut self) -> &mut NpuSimulator {
         &mut self.base
     }
 
     /// Current regime index.
     #[must_use]
-    pub fn current_regime(&self) -> usize {
+    pub const fn current_regime(&self) -> usize {
         self.current_regime
     }
 }

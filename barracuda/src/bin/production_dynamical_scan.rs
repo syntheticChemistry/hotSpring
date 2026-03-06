@@ -373,7 +373,7 @@ fn main() {
             if do_poly_readback {
                 gpu_links_to_lattice(&gpu, &dyn_state.gauge, &mut lat);
                 let (re, im) = lat.complex_polyakov_average();
-                poly_mag = (re * re + im * im).sqrt();
+                poly_mag = re.hypot(im);
                 poly_phase = im.atan2(re);
                 if (i + 1) % 100 == 0 {
                     poly_vals.push(poly_mag);

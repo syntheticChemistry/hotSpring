@@ -7,11 +7,9 @@
 //! the integrator comparison from arXiv:2101.05320, Tables and Figures 2-6.
 //!
 //! Usage:
-//!   cargo run --release --bin compare_flow_integrators
+//!   cargo run --release --bin `compare_flow_integrators`
 
-use hotspring_barracuda::lattice::gradient_flow::{
-    find_t0, find_w0, run_flow, FlowIntegrator,
-};
+use hotspring_barracuda::lattice::gradient_flow::{find_t0, find_w0, run_flow, FlowIntegrator};
 use hotspring_barracuda::lattice::hmc::{hmc_trajectory, HmcConfig, IntegratorType};
 use hotspring_barracuda::lattice::wilson::Lattice;
 use std::time::Instant;
@@ -41,7 +39,11 @@ fn main() {
     for _ in 0..100 {
         hmc_trajectory(&mut lattice, &mut hmc_cfg);
     }
-    println!("    Done: ⟨P⟩={:.6} ({:.1}s)", lattice.average_plaquette(), t0.elapsed().as_secs_f64());
+    println!(
+        "    Done: ⟨P⟩={:.6} ({:.1}s)",
+        lattice.average_plaquette(),
+        t0.elapsed().as_secs_f64()
+    );
 
     let integrators = [
         ("Euler", FlowIntegrator::Euler),
@@ -58,12 +60,20 @@ fn main() {
     println!("  ═══════════════════════════════════════════════════════");
 
     for &epsilon in &step_sizes {
-        println!("\n  ── Step size ε = {} ──", epsilon);
-        println!("  {:30} {:>10} {:>10} {:>10} {:>8} {:>8}",
-            "Integrator", "E(t=2)", "t₀", "w₀", "steps", "time(s)");
-        println!("  {:30} {:>10} {:>10} {:>10} {:>8} {:>8}",
-            "─".repeat(30), "─".repeat(10), "─".repeat(10), "─".repeat(10),
-            "─".repeat(8), "─".repeat(8));
+        println!("\n  ── Step size ε = {epsilon} ──");
+        println!(
+            "  {:30} {:>10} {:>10} {:>10} {:>8} {:>8}",
+            "Integrator", "E(t=2)", "t₀", "w₀", "steps", "time(s)"
+        );
+        println!(
+            "  {:30} {:>10} {:>10} {:>10} {:>8} {:>8}",
+            "─".repeat(30),
+            "─".repeat(10),
+            "─".repeat(10),
+            "─".repeat(10),
+            "─".repeat(8),
+            "─".repeat(8)
+        );
 
         for (name, integrator) in &integrators {
             let mut flow_lat = Lattice {
@@ -76,12 +86,13 @@ fn main() {
             let measurements = run_flow(&mut flow_lat, *integrator, epsilon, t_max, 1);
             let elapsed = start.elapsed().as_secs_f64();
 
-            let e_final = measurements.last().map(|m| m.energy_density).unwrap_or(f64::NAN);
+            let e_final = measurements.last().map_or(f64::NAN, |m| m.energy_density);
             let t0_val = find_t0(&measurements);
             let w0_val = find_w0(&measurements);
             let n_steps = (t_max / epsilon).round() as usize;
 
-            println!("  {:30} {:>10.6} {:>10} {:>10} {:>8} {:>8.3}",
+            println!(
+                "  {:30} {:>10.6} {:>10} {:>10} {:>8} {:>8.3}",
                 name,
                 e_final,
                 t0_val.map_or("N/A".to_string(), |v| format!("{v:.6}")),
@@ -107,14 +118,25 @@ fn main() {
     let e_ref = ref_result.last().unwrap().energy_density;
     println!("  Reference: LSCFRK4CK at ε=0.001 → E(1) = {e_ref:.10}");
 
-    println!("\n  {:>8} {:>15} {:>15} {:>15}",
-        "ε", "LSCFRK3W6", "LSCFRK3W7", "LSCFRK4CK");
-    println!("  {:>8} {:>15} {:>15} {:>15}",
-        "─".repeat(8), "─".repeat(15), "─".repeat(15), "─".repeat(15));
+    println!(
+        "\n  {:>8} {:>15} {:>15} {:>15}",
+        "ε", "LSCFRK3W6", "LSCFRK3W7", "LSCFRK4CK"
+    );
+    println!(
+        "  {:>8} {:>15} {:>15} {:>15}",
+        "─".repeat(8),
+        "─".repeat(15),
+        "─".repeat(15),
+        "─".repeat(15)
+    );
 
     for &eps in &eps_scan {
         let mut errors = Vec::new();
-        for integrator in [FlowIntegrator::Rk3Luscher, FlowIntegrator::Lscfrk3w7, FlowIntegrator::Lscfrk4ck] {
+        for integrator in [
+            FlowIntegrator::Rk3Luscher,
+            FlowIntegrator::Lscfrk3w7,
+            FlowIntegrator::Lscfrk4ck,
+        ] {
             let mut flow_lat = Lattice {
                 dims: lattice.dims,
                 links: lattice.links.clone(),
@@ -124,8 +146,10 @@ fn main() {
             let e = result.last().unwrap().energy_density;
             errors.push((e - e_ref).abs());
         }
-        println!("  {:>8.4} {:>15.2e} {:>15.2e} {:>15.2e}",
-            eps, errors[0], errors[1], errors[2]);
+        println!(
+            "  {:>8.4} {:>15.2e} {:>15.2e} {:>15.2e}",
+            eps, errors[0], errors[1], errors[2]
+        );
     }
 
     println!("\n  Expected scaling: 3rd order → error ∝ ε³, 4th order → error ∝ ε⁴");

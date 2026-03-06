@@ -7,8 +7,8 @@ use super::resident_cg_buffers::{encode_cg_batch, encode_reduce_chain, GpuReside
 use super::resident_cg_pipelines::GpuResidentCgPipelines;
 use super::streaming::{make_ferm_prng_params, GpuDynHmcStreamingPipelines};
 use super::{
-    gpu_dirac_dispatch, gpu_dot_re, gpu_kinetic_energy, gpu_plaquette,
-    gpu_wilson_action, make_link_mom_params, make_prng_params, GpuF64,
+    gpu_dirac_dispatch, gpu_dot_re, gpu_kinetic_energy, gpu_plaquette, gpu_wilson_action,
+    make_link_mom_params, make_prng_params, GpuF64,
 };
 
 use super::GpuHmcPipelines;
@@ -59,6 +59,7 @@ pub enum BrainInterrupt {
 /// values to the NPU at every batch boundary and checks for interrupt
 /// signals. This enables the NPU to monitor CG convergence in real time
 /// and abort or adjust the solve if anomalies are detected.
+#[must_use]
 pub fn gpu_cg_solve_brain(
     gpu: &GpuF64,
     dyn_pipelines: &GpuDynHmcPipelines,
@@ -238,9 +239,18 @@ fn gpu_fermion_action_brain_all(
     let mut total_iters = 0;
     for phi_buf in &state.phi_bufs {
         let (sf, iters) = gpu_fermion_action_brain_single(
-            gpu, dyn_pipelines, resident_pipelines, state, cg_bufs,
-            phi_buf, check_interval, residual_tx, interrupt_rx,
-            cg_beta, cg_mass, cg_traj_idx,
+            gpu,
+            dyn_pipelines,
+            resident_pipelines,
+            state,
+            cg_bufs,
+            phi_buf,
+            check_interval,
+            residual_tx,
+            interrupt_rx,
+            cg_beta,
+            cg_mass,
+            cg_traj_idx,
         );
         total_action += sf;
         total_iters += iters;
@@ -287,8 +297,18 @@ fn gpu_total_force_dispatch_brain(
             &[&mom_pbuf, &gs.force_buf, &gs.mom_buf],
         );
         let mut enc = gpu.begin_encoder("coal_pre_cg");
-        GpuF64::encode_pass(&mut enc, &dyn_pipelines.gauge.force_pipeline, &force_bg, gs.wg_links);
-        GpuF64::encode_pass(&mut enc, &dyn_pipelines.gauge.momentum_pipeline, &mom_bg, gs.wg_links);
+        GpuF64::encode_pass(
+            &mut enc,
+            &dyn_pipelines.gauge.force_pipeline,
+            &force_bg,
+            gs.wg_links,
+        );
+        GpuF64::encode_pass(
+            &mut enc,
+            &dyn_pipelines.gauge.momentum_pipeline,
+            &mom_bg,
+            gs.wg_links,
+        );
         gpu.submit_encoder(enc);
     }
 
@@ -355,8 +375,18 @@ fn gpu_total_force_dispatch_brain(
 
         let mut enc = gpu.begin_encoder("coal_post_cg");
         GpuF64::encode_pass(&mut enc, &dyn_pipelines.dirac_pipeline, &dirac_bg, wg_dirac);
-        GpuF64::encode_pass(&mut enc, &dyn_pipelines.fermion_force_pipeline, &ff_bg, wg_dirac);
-        GpuF64::encode_pass(&mut enc, &dyn_pipelines.gauge.momentum_pipeline, &fmom_bg, gs.wg_links);
+        GpuF64::encode_pass(
+            &mut enc,
+            &dyn_pipelines.fermion_force_pipeline,
+            &ff_bg,
+            wg_dirac,
+        );
+        GpuF64::encode_pass(
+            &mut enc,
+            &dyn_pipelines.gauge.momentum_pipeline,
+            &fmom_bg,
+            gs.wg_links,
+        );
         gpu.submit_encoder(enc);
     }
 
@@ -409,7 +439,8 @@ pub fn gpu_dynamical_hmc_trajectory_brain(
     for (fi, phi_buf) in state.phi_bufs.iter().enumerate() {
         let mut enc = gpu.begin_encoder(&format!("rcg_ferm_prng_{fi}"));
         let ferm_prng_params = make_ferm_prng_params(vol as u32, traj_id + fi as u32 * 1000, seed);
-        let ferm_prng_pbuf = gpu.create_uniform_buffer(&ferm_prng_params, &format!("rcg_ferm_p_{fi}"));
+        let ferm_prng_pbuf =
+            gpu.create_uniform_buffer(&ferm_prng_params, &format!("rcg_ferm_p_{fi}"));
         let ferm_prng_bg = gpu.create_bind_group(
             &streaming_pipelines.fermion_prng_pipeline,
             &[&ferm_prng_pbuf, &state.temp_buf],
@@ -491,7 +522,7 @@ pub fn gpu_dynamical_hmc_trajectory_brain(
             resident_pipelines,
             state,
             cg_bufs,
-            (1.0 - 2.0 * lam) * dt,
+            2.0f64.mul_add(-lam, 1.0) * dt,
             check_interval,
             residual_tx,
             interrupt_rx,

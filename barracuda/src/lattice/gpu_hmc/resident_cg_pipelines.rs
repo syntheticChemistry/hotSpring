@@ -2,11 +2,11 @@
 
 //! GPU-resident CG pipeline compilation.
 //!
-//! ## Reduce pipeline vs upstream ReduceScalarPipeline
+//! ## Reduce pipeline vs upstream `ReduceScalarPipeline`
 //!
 //! The upstream barracuda crate provides `barracuda::pipeline::ReduceScalarPipeline`
-//! (sum_reduce_f64.wgsl). We use a local multi-pass reduce because:
-//! - **GPU-resident:** CG needs encode-only, no readback; result feeds compute_alpha/compute_beta.
+//! (`sum_reduce_f64.wgsl`). We use a local multi-pass reduce because:
+//! - **GPU-resident:** CG needs encode-only, no readback; result feeds `compute_alpha/compute_beta`.
 //! - **Arbitrary N:** Upstream does 2 passes only (N ≤ 65,536); we need 3+ passes for 32⁴ lattices.
 //!
 //! See `docs/REDUCE_PIPELINE_ANALYSIS.md` for full analysis.
@@ -17,7 +17,7 @@ use super::GpuF64;
 pub const WGSL_SUM_REDUCE: &str = super::super::cg::WGSL_SUM_REDUCE_F64;
 /// CG α = ⟨r,r⟩ / ⟨p,Ap⟩ shader.
 pub const WGSL_CG_COMPUTE_ALPHA: &str = super::super::cg::WGSL_CG_COMPUTE_ALPHA_F64;
-/// CG β = ⟨r_new,r_new⟩ / ⟨r_old,r_old⟩ shader.
+/// CG β = ⟨`r_new,r_new`⟩ / ⟨`r_old,r_old`⟩ shader.
 pub const WGSL_CG_COMPUTE_BETA: &str = super::super::cg::WGSL_CG_COMPUTE_BETA_F64;
 /// CG x += α·p and r -= α·Ap update shader.
 pub const WGSL_CG_UPDATE_XR: &str = super::super::cg::WGSL_CG_UPDATE_XR_F64;
@@ -39,7 +39,7 @@ pub struct GpuResidentCgPipelines {
 }
 
 impl GpuResidentCgPipelines {
-    /// Compile all GPU-resident CG pipelines (reduce, alpha, beta, update_xr, update_p).
+    /// Compile all GPU-resident CG pipelines (reduce, alpha, beta, `update_xr`, `update_p`).
     #[must_use]
     pub fn new(gpu: &GpuF64) -> Self {
         Self {

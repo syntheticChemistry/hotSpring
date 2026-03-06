@@ -139,13 +139,13 @@ pub struct DeformedHFB {
 /// Result from deformed HFB solve.
 #[derive(Debug, Clone)]
 pub struct DeformedHFBResult {
-    /// Total binding energy (MeV).
+    /// Total binding energy (`MeV`).
     pub binding_energy_mev: f64,
     /// Whether SCF converged.
     pub converged: bool,
     /// Number of SCF iterations.
     pub iterations: usize,
-    /// Final energy change (MeV).
+    /// Final energy change (`MeV`).
     pub delta_e: f64,
     /// Quadrupole deformation β₂.
     pub beta2: f64,

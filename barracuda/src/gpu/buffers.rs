@@ -129,6 +129,7 @@ impl GpuF64 {
     /// Returns a channel receiver that signals when the map is complete.
     /// Call `device().poll(Maintain::Poll)` to drive progress without blocking,
     /// or `device().poll(Maintain::Wait)` to block.
+    #[must_use]
     pub fn start_async_readback(
         &self,
         staging: &wgpu::Buffer,
@@ -149,7 +150,10 @@ impl GpuF64 {
         staging: &wgpu::Buffer,
         rx: std::sync::mpsc::Receiver<Result<(), wgpu::BufferAsyncError>>,
     ) -> Result<Vec<f64>, crate::error::HotSpringError> {
-        let _ = self.device().poll(wgpu::PollType::Wait { submission_index: None, timeout: None });
+        let _ = self.device().poll(wgpu::PollType::Wait {
+            submission_index: None,
+            timeout: None,
+        });
         rx.recv()
             .map_err(|_| {
                 crate::error::HotSpringError::DeviceCreation(
@@ -182,7 +186,10 @@ impl GpuF64 {
                 let _ = sender.send(result);
             },
         );
-        let _ = self.device().poll(wgpu::PollType::Wait { submission_index: None, timeout: None });
+        let _ = self.device().poll(wgpu::PollType::Wait {
+            submission_index: None,
+            timeout: None,
+        });
         receiver
             .recv()
             .map_err(|_| {
@@ -286,7 +293,10 @@ impl GpuF64 {
                 let _ = sender.send(result);
             },
         );
-        let _ = self.device().poll(wgpu::PollType::Wait { submission_index: None, timeout: None });
+        let _ = self.device().poll(wgpu::PollType::Wait {
+            submission_index: None,
+            timeout: None,
+        });
         receiver
             .recv()
             .map_err(|_| {

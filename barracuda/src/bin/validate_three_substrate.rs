@@ -257,7 +257,7 @@ fn main() {
                 );
                 plaq_sum += r.plaquette;
             }
-            let titan_plaq = plaq_sum / n_verify as f64;
+            let titan_plaq = plaq_sum / f64::from(n_verify);
             let (titan_poly, _) = gpu_polyakov_loop(titan, &titan_pipelines.hmc, &state);
 
             println!(
@@ -383,19 +383,19 @@ fn generate_phase_training_data() -> (Vec<Vec<Vec<f64>>>, Vec<Vec<f64>>) {
     let seq_len = 10;
 
     for i in 0..40 {
-        let beta = 4.5 + 2.5 * (i as f64) / 39.0;
+        let beta = 4.5 + 2.5 * f64::from(i) / 39.0;
         let phase = if beta > KNOWN_BETA_C { 1.0 } else { 0.0 };
         let beta_norm = (beta - 5.0) / 2.0;
-        let plaq = 0.35 + 0.25 * (beta - 4.5) / 2.5 + 0.02 * ((i as f64) * 0.7).sin();
+        let plaq = 0.02f64.mul_add((f64::from(i) * 0.7).sin(), 0.35 + 0.25 * (beta - 4.5) / 2.5);
         let poly = if beta > KNOWN_BETA_C {
             0.3 + 0.4 * (beta - KNOWN_BETA_C) / 1.3
         } else {
-            0.05 + 0.05 * ((i as f64) * 1.3).sin().abs()
+            0.05f64.mul_add((f64::from(i) * 1.3).sin().abs(), 0.05)
         };
 
         let seq: Vec<Vec<f64>> = (0..seq_len)
             .map(|j| {
-                let noise = 0.01 * ((i * seq_len + j) as f64 * 0.31).sin();
+                let noise = 0.01 * (f64::from(i * seq_len + j) * 0.31).sin();
                 vec![beta_norm, plaq + noise, poly + noise * 0.5]
             })
             .collect();

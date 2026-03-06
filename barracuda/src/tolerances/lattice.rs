@@ -388,14 +388,14 @@ pub const HOFSTADTER_WIDE_BAND_MIN_WIDTH: f64 = 0.01;
 
 /// Plaquette physical lower bound.
 ///
-/// For any valid SU(3) or U(1) configuration, Re Tr U_p / Nc ∈ (0, 1).
+/// For any valid SU(3) or U(1) configuration, Re Tr `U_p` / Nc ∈ (0, 1).
 /// The lower bound 0 is strict; negative plaquettes indicate a bug.
 pub const LATTICE_PLAQUETTE_PHYSICAL_MIN: f64 = 0.0;
 
 /// Plaquette physical upper bound.
 ///
 /// Unit matrices give plaquette = 1. Thermalized configurations have
-/// ⟨P⟩ < 1. Used for check_upper and physical-range sanity.
+/// ⟨P⟩ < 1. Used for `check_upper` and physical-range sanity.
 pub const LATTICE_PLAQUETTE_PHYSICAL_MAX: f64 = 1.0;
 
 /// Evolution pure-gauge HMC: minimum accepted count for 20 trajectories.
@@ -408,14 +408,14 @@ pub const EVOLUTION_PURE_GAUGE_MIN_ACCEPTED: u32 = 6;
 /// CG solver convergence tolerance (strict, evolution Dirac check).
 ///
 /// The evolution binary uses 1e-10 for the Dirac CG solve. Stricter
-/// than LATTICE_CG_RESIDUAL because the cold/thermalized lattice
+/// than `LATTICE_CG_RESIDUAL` because the cold/thermalized lattice
 /// is well-conditioned and we want solution parity with reference.
 pub const LATTICE_CG_TOLERANCE_STRICT: f64 = 1e-10;
 
 /// CG residual upper bound (strict, evolution Dirac check).
 ///
 /// After CG solve, |Ax - b|/|b| must be < 1e-8. Stricter than
-/// LATTICE_CG_RESIDUAL (1e-6) for evolution correctness proof.
+/// `LATTICE_CG_RESIDUAL` (1e-6) for evolution correctness proof.
 pub const LATTICE_CG_RESIDUAL_STRICT: f64 = 1e-8;
 
 /// Dynamical HMC: CG convergence tolerance for pseudofermion action.
@@ -427,7 +427,7 @@ pub const DYNAMICAL_CG_TOLERANCE: f64 = 1e-8;
 /// CG solver tolerance on identity (cold) lattice.
 ///
 /// Cold lattice has condition number ~1; 1e-8 achieves near-machine
-/// precision for the identity-link case (validate_pure_gauge).
+/// precision for the identity-link case (`validate_pure_gauge`).
 pub const LATTICE_CG_TOLERANCE_IDENTITY: f64 = 1e-8;
 
 /// CG solver tolerance on thermalized lattice.
@@ -436,9 +436,9 @@ pub const LATTICE_CG_TOLERANCE_IDENTITY: f64 = 1e-8;
 /// within 2000 iterations. Used for thermalized-lattice sanity check.
 pub const LATTICE_CG_TOLERANCE_THERMALIZED: f64 = 1e-4;
 
-/// Anderson 1D: |⟨r⟩ - r_Poisson| deviation tolerance.
+/// Anderson 1D: |⟨r⟩ - `r_Poisson`| deviation tolerance.
 ///
-/// At N=500, W=4, the localized phase gives ⟨r⟩ ≈ r_Poisson with
+/// At N=500, W=4, the localized phase gives ⟨r⟩ ≈ `r_Poisson` with
 /// sample variance ~0.05–0.06. 0.06 accommodates evolution validation
 /// (Paper 17).
 pub const ANDERSON_1D_LEVEL_SPACING_DEVIATION: f64 = 0.06;
@@ -458,13 +458,13 @@ pub const ANDERSON_3D_GOE_POISSON_DELTA_R_MIN: f64 = 0.05;
 /// U(1) leapfrog reversibility: |ΔH| upper bound for small dt.
 ///
 /// With dt=0.01 and 100 steps, |ΔH| should be < 1.0. Verifies
-/// integrator reversibility as dt → 0 (validate_abelian_higgs).
+/// integrator reversibility as dt → 0 (`validate_abelian_higgs`).
 pub const U1_LEAPFROG_REVERSIBILITY_DELTA_H_MAX: f64 = 1.0;
 
 /// U(1) Abelian Higgs: minimum Rust-vs-Python speedup.
 ///
 /// Rust implementation must be faster than Python reference.
-/// Speedup = python_ms / rust_ms; must be > 1.0.
+/// Speedup = `python_ms` / `rust_ms`; must be > 1.0.
 pub const U1_SPEEDUP_MIN: f64 = 1.0;
 
 // ═══════════════════════════════════════════════════════════════════
@@ -488,7 +488,7 @@ pub const GPU_FERMION_FORCE_PARITY: f64 = 1e-12;
 /// GPU dynamical CG action: CPU-vs-GPU parity.
 ///
 /// After CG solve on both CPU and GPU with identical tolerance, the
-/// fermion action S_F = φ†(D†D)⁻¹φ agrees to ~1e-6 relative. The
+/// fermion action `S_F` = φ†(D†D)⁻¹φ agrees to ~1e-6 relative. The
 /// larger error (vs force parity) reflects CG iteration count differences.
 pub const GPU_CG_ACTION_PARITY: f64 = 1e-6;
 

@@ -11,7 +11,7 @@
 //!
 //! Transfer budget (streaming + GPU PRNG):
 //!   CPU→GPU: 0 (momenta generated on GPU)
-//!   GPU→CPU: H_old + H_new (2 scalar readbacks per trajectory)
+//!   GPU→CPU: `H_old` + `H_new` (2 scalar readbacks per trajectory)
 
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::lattice::gpu_hmc::{

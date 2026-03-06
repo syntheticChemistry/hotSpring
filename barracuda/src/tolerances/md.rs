@@ -191,10 +191,11 @@ pub const HFB_RUST_VS_PYTHON_REL: f64 = 0.12;
 
 /// D* CPU vs GPU parity: relative tolerance.
 ///
-/// At N=500 with 20k production steps, GPU tree-reduction vs CPU linear
-/// summation produce different FP ordering that compounds across the run.
-/// Both paths agree in physics (same order of magnitude D*); 65% captures
-/// the maximum observed divergence at small N.
+/// 65% tolerance reflects statistical noise and FP-ordering sensitivity at
+/// small N=500 particle counts, not a physics tolerance. With stochastic
+/// trajectory initialization and N-body chaotic divergence, CPU and GPU
+/// compute identical physics but accumulate FP rounding in different order.
+/// See experiments/016_TRANSPORT_*.md for measured distributions.
 ///
 /// Measurement: `validate_cpu_gpu_parity` on RTX 4070, Feb 19 2026.
 ///   N=108, seed=42, 5k equil + 5k prod. Worst case: κ=1 Γ=14 → 62%.
@@ -330,7 +331,7 @@ pub const VERLET_SKIN_FRACTION: f64 = 0.2;
 /// Maximum neighbors per particle for the Verlet list GPU buffer.
 ///
 /// Flat neighbor array is `[N × max_neighbors]` u32. At typical OCP
-/// densities with rc ~ 6-8 a_ws, the actual count is ~200-600.
+/// densities with rc ~ 6-8 `a_ws`, the actual count is ~200-600.
 /// 1024 provides headroom for high-density / large-cutoff cases.
 pub const VERLET_MAX_NEIGHBORS: u32 = 1024;
 

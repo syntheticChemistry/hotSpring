@@ -2,8 +2,8 @@
 
 //! GPU-resident CG buffers and reduction chain.
 //!
-//! The reduce chain uses a multi-pass tree reduction (sum_reduce_f64.wgsl) to
-//! accumulate dot products into rz, pap, rz_new. Unlike upstream
+//! The reduce chain uses a multi-pass tree reduction (`sum_reduce_f64.wgsl`) to
+//! accumulate dot products into rz, pap, `rz_new`. Unlike upstream
 //! `ReduceScalarPipeline`, this is encode-only (no readback) and supports
 //! arbitrary N via multiple passes. See `docs/REDUCE_PIPELINE_ANALYSIS.md`.
 
@@ -11,12 +11,12 @@ use super::dynamical::{GpuDynHmcPipelines, GpuDynHmcState};
 use super::resident_cg_pipelines::GpuResidentCgPipelines;
 use super::{make_u32x4_params, GpuF64};
 
-pub(crate) struct ReducePass {
+pub struct ReducePass {
     pub(crate) bg: wgpu::BindGroup,
     pub(crate) num_wg: u32,
 }
 
-pub(crate) struct ReduceChain {
+pub struct ReduceChain {
     pub(crate) passes: Vec<ReducePass>,
 }
 
@@ -28,7 +28,7 @@ pub struct GpuResidentCgBuffers {
     pub scratch_b: wgpu::Buffer,
     /// rz = <r|r> (1 f64, GPU-resident).
     pub rz_buf: wgpu::Buffer,
-    /// rz_new = <r_new|r_new> (1 f64, GPU-resident).
+    /// `rz_new` = <`r_new|r_new`> (1 f64, GPU-resident).
     pub rz_new_buf: wgpu::Buffer,
     /// pAp = <p|Ap> (1 f64, GPU-resident).
     pub pap_buf: wgpu::Buffer,
@@ -36,7 +36,7 @@ pub struct GpuResidentCgBuffers {
     pub alpha_buf: wgpu::Buffer,
     /// CG beta scalar (1 f64, GPU-resident).
     pub beta_buf: wgpu::Buffer,
-    /// Staging buffer for convergence readback (8 bytes, MAP_READ).
+    /// Staging buffer for convergence readback (8 bytes, `MAP_READ`).
     pub convergence_staging_a: wgpu::Buffer,
     /// Double-buffered staging for async readback (Level 4).
     pub convergence_staging_b: wgpu::Buffer,
@@ -282,7 +282,7 @@ fn make_reduce_params(size: u32) -> Vec<u8> {
 }
 
 /// Encode a reduction chain into a command encoder.
-pub(crate) fn encode_reduce_chain(
+pub fn encode_reduce_chain(
     enc: &mut wgpu::CommandEncoder,
     reduce_pl: &wgpu::ComputePipeline,
     chain: &ReduceChain,
@@ -293,7 +293,7 @@ pub(crate) fn encode_reduce_chain(
 }
 
 /// Encode one batch of CG iterations into a command encoder.
-pub(crate) fn encode_cg_batch(
+pub fn encode_cg_batch(
     enc: &mut wgpu::CommandEncoder,
     dyn_pipelines: &GpuDynHmcPipelines,
     resident_pipelines: &GpuResidentCgPipelines,

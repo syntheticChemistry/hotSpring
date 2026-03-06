@@ -1,11 +1,11 @@
 # hotSpring Control Experiment — Status Report
 
-**Date**: 2026-03-02 (L1+L2 complete, GPU MD Phase C+D+E+F complete — paper-parity long run 9/9, BarraCuda pipeline 39/39, crate v0.6.17, cross-substrate ESN, NPU characterization, DF64 production, toadStool S80 synced, Exp 031 complete)  
+**Date**: 2026-03-06 (L1+L2 complete, GPU MD Phase C+D+E+F complete — paper-parity long run 9/9, BarraCuda pipeline 39/39, crate v0.6.17, cross-substrate ESN, NPU characterization, DF64 production, toadStool S93+ synced, Exp 033 complete)  
 **Gates**: Eastgate (i9-12900K, RTX 4070 12GB) + biomeGate (Threadripper 3970X, RTX 3090 24GB + Titan V 12GB HBM2, Akida NPU, 256GB DDR4)  
 **Sarkas**: v1.0.0 (pinned — see §Roadblocks)  
 **Python**: 3.9 (sarkas), 3.10 (ttm, surrogate) via micromamba  
 **f64 Status**: Native WGSL builtins confirmed. Consumer Ampere/Ada: fp64:fp32 ~1:64 (both CUDA and Vulkan). Double-float (f32-pair) hybrid delivers 3.24 TFLOPS at 14 digits (9.9× native f64). Titan V: genuine 1:2 via NVK.  
-**toadStool**: Session 80 (synced). hotSpring 660 tests, 85 binaries, 39/39 validation suites. Cross-spring benchmark S80 validated.
+**toadStool**: Session 93+ (synced). hotSpring 685 lib tests, 47 validation binaries, 85+ total binaries, 39/39 validation suites. barraCuda v0.3.3. Quality gates: zero clippy (lib), zero unsafe, zero TODO/FIXME, all files <1000 lines.
 
 ---
 
@@ -937,7 +937,7 @@ electricity per experiment. The exploration space is now effectively unlimited.
 | **BarraCuda HFB pipeline (3 GPU ops)** | **16** | **16** | **✅ BCS GPU 6.2e-11, Eigh 2.4e-12, single-dispatch** |
 | **Pipeline Validation Total** | **26** | **26** | **✅ BARRACUDA OPS END-TO-END VALIDATED** |
 | | | | |
-| **Grand Total** | **197** | **197** | **✅ ALL PHASES + PIPELINE VALIDATION** |
+| **Grand Total** | **197** | **197** | **✅ ALL PHASES + PIPELINE VALIDATION** (verified 2026-03-06) |
 
 **Data archive**: `control/comprehensive_control_results.json`  
 **Nuclear EOS results**: `control/surrogate/nuclear-eos/results/nuclear_eos_surrogate_L{1,2}.json`  
@@ -1043,7 +1043,7 @@ surpassing it at larger basis sizes.
 - [`whitePaper/BARRACUDA_SCIENCE_VALIDATION.md`](whitePaper/BARRACUDA_SCIENCE_VALIDATION.md) — Phase B technical results
 - [`whitePaper/CONTROL_EXPERIMENT_SUMMARY.md`](whitePaper/CONTROL_EXPERIMENT_SUMMARY.md) — Phase A quick reference
 - [`benchmarks/PROTOCOL.md`](benchmarks/PROTOCOL.md) — Benchmark protocol (time + energy measurement)
-- [`barracuda/CHANGELOG.md`](barracuda/CHANGELOG.md) — Crate version history (v0.6.14)
+- [`barracuda/CHANGELOG.md`](barracuda/CHANGELOG.md) — Crate version history (v0.6.18)
 - [`barracuda/EVOLUTION_READINESS.md`](barracuda/EVOLUTION_READINESS.md) — Rust → GPU promotion tiers and blockers
 - [`experiments/001_N_SCALING_GPU.md`](experiments/001_N_SCALING_GPU.md) — N-scaling experiment journal (Phase D)
 - [`experiments/002_CELLLIST_FORCE_DIAGNOSTIC.md`](experiments/002_CELLLIST_FORCE_DIAGNOSTIC.md) — Cell-list bug diagnostic (Phase D)

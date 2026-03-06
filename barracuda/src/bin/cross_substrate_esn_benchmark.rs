@@ -296,7 +296,7 @@ fn main() {
             let base = if is_above { 0.5 } else { -0.5 };
             let seq: Vec<Vec<f64>> = (0..20)
                 .map(|t| {
-                    let x = base + (t as f64) * 0.01;
+                    let x = f64::from(t).mul_add(0.01, base);
                     vec![x, x * 0.5, x.sin(), x.cos(), x * x, x.abs(), 0.0, 0.0]
                 })
                 .collect();
@@ -316,7 +316,7 @@ fn main() {
                 correct += 1;
             }
         }
-        let accuracy = correct as f64 / n_samples as f64;
+        let accuracy = f64::from(correct) / n_samples as f64;
         println!(
             "    Accuracy: {correct}/{n_samples} = {:.1}%",
             accuracy * 100.0
@@ -430,7 +430,7 @@ fn main() {
                 generate_training_data(8, SEQUENCE_LENGTH, INPUT_SIZE);
             let train_targets: Vec<Vec<f64>> = train_targets_raw
                 .iter()
-                .map(|t| (0..os).map(|j| t[0] + (j as f64) * 0.1).collect())
+                .map(|t| (0..os).map(|j| (j as f64).mul_add(0.1, t[0])).collect())
                 .collect();
 
             let mut esn = EchoStateNetwork::new(config);
@@ -489,7 +489,7 @@ fn main() {
 
         for i in 0..n_mutations {
             let mut mutated = exported.clone();
-            let scale = 1.0 + (i as f32) * 0.001;
+            let scale = (i as f32).mul_add(0.001, 1.0);
             for w in &mut mutated.w_out {
                 *w *= scale;
             }
@@ -608,7 +608,7 @@ fn main() {
         let (train_seqs, train_targets_raw) = generate_training_data(8, long_seq, INPUT_SIZE);
         let train_targets: Vec<Vec<f64>> = train_targets_raw
             .iter()
-            .map(|t| (0..6).map(|j| t[0] + (j as f64) * 0.1).collect())
+            .map(|t| (0..6).map(|j| f64::from(j).mul_add(0.1, t[0])).collect())
             .collect();
 
         let mut esn = EchoStateNetwork::new(config);
@@ -661,14 +661,14 @@ fn main() {
         let t = i as f64 / n_traj as f64;
         let is_therm = i < 50;
         let plaq = if is_therm {
-            0.3 + 0.2 * (-(i as f64) * 0.1).exp()
+            0.2f64.mul_add((-(i as f64) * 0.1).exp(), 0.3)
         } else {
-            0.55 + 0.01 * ((i as f64) * 0.3).sin()
+            0.01f64.mul_add(((i as f64) * 0.3).sin(), 0.55)
         };
         let poly = if is_therm {
             0.01 * t
         } else {
-            0.3 + 0.05 * ((i as f64) * 0.2).cos()
+            0.05f64.mul_add(((i as f64) * 0.2).cos(), 0.3)
         };
         qcd_features.push(vec![
             plaq,
@@ -728,8 +728,8 @@ fn main() {
             }
         }
 
-        let npu_acc = npu_correct as f64 / n_test as f64;
-        let gpu_acc = gpu_correct as f64 / n_test as f64;
+        let npu_acc = f64::from(npu_correct) / n_test as f64;
+        let gpu_acc = f64::from(gpu_correct) / n_test as f64;
         println!("  Thermalization detection:");
         println!(
             "    NPU-sim: {npu_correct}/{n_test} = {:.1}%",

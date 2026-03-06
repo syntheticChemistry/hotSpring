@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-//! ComputeBackend trait — swappable backend interface for benchmark comparison.
+//! `ComputeBackend` trait — swappable backend interface for benchmark comparison.
 //!
 //! Allows the same benchmark specification to be run on multiple backends
 //! (barraCuda GPU, barraCuda CPU, Kokkos/LAMMPS, Python/Sarkas) with
@@ -32,17 +32,20 @@ pub struct BenchmarkSpec {
 
 impl BenchmarkSpec {
     /// Total lattice volume (product of dims).
+    #[must_use]
     pub fn volume(&self) -> usize {
         self.dims.iter().product()
     }
 
-    /// True if N_t differs from N_s (finite-temperature geometry).
-    pub fn is_asymmetric(&self) -> bool {
+    /// True if `N_t` differs from `N_s` (finite-temperature geometry).
+    #[must_use]
+    pub const fn is_asymmetric(&self) -> bool {
         let [nx, ny, nz, nt] = self.dims;
         nt != nx || ny != nx || nz != nx
     }
 
     /// Human-readable lattice label (e.g. "32³×8" or "16⁴").
+    #[must_use]
     pub fn label(&self) -> String {
         let [nx, _, _, nt] = self.dims;
         if self.is_asymmetric() {
@@ -53,6 +56,7 @@ impl BenchmarkSpec {
     }
 
     /// Construct a spec with auto-tuned HMC parameters for quenched runs.
+    #[must_use]
     pub fn quenched_default(dims: [usize; 4], beta: f64) -> Self {
         let vol: usize = dims.iter().product();
         let ref_vol = 4096.0_f64;
@@ -98,6 +102,7 @@ pub struct BenchmarkResult {
 
 impl BenchmarkResult {
     /// Throughput in trajectories per second.
+    #[must_use]
     pub fn trajectories_per_second(&self) -> f64 {
         if self.ms_per_trajectory > 0.0 {
             1000.0 / self.ms_per_trajectory
@@ -173,17 +178,13 @@ pub fn compare_backends(
 ) -> Vec<Result<BenchmarkResult, String>> {
     let mut results = Vec::with_capacity(backends.len());
 
-    println!(
-        "╔══════════════════════════════════════════════════════════════╗"
-    );
+    println!("╔══════════════════════════════════════════════════════════════╗");
     println!(
         "║  ComputeBackend Comparison — {} β={:.4}               ║",
         spec.label(),
         spec.beta
     );
-    println!(
-        "╚══════════════════════════════════════════════════════════════╝"
-    );
+    println!("╚══════════════════════════════════════════════════════════════╝");
     println!();
 
     for backend in backends {
@@ -209,7 +210,8 @@ pub fn compare_backends(
     if results.len() >= 2 {
         println!();
         println!("  ── Speedup Matrix ──");
-        let ok_results: Vec<&BenchmarkResult> = results.iter().filter_map(|r| r.as_ref().ok()).collect();
+        let ok_results: Vec<&BenchmarkResult> =
+            results.iter().filter_map(|r| r.as_ref().ok()).collect();
         if ok_results.len() >= 2 {
             let baseline = &ok_results[0];
             for r in &ok_results[1..] {
@@ -230,7 +232,7 @@ pub fn compare_backends(
 pub struct BarraCudaCpuBackend;
 
 impl ComputeBackend for BarraCudaCpuBackend {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "barraCuda-CPU"
     }
     fn kind(&self) -> BackendKind {

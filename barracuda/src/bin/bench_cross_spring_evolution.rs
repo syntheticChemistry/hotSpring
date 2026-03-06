@@ -60,18 +60,30 @@ fn main() {
         println!("  GPU: {} (f64 capable)", device.adapter_info().name);
         println!();
         bench_vacf_gpu_vs_cpu(&device);
-        run_guarded("Linear Regression GPU", panic::AssertUnwindSafe(|| {
-            bench_linear_regression_gpu(&device);
-        }));
-        run_guarded("Matrix Correlation GPU", panic::AssertUnwindSafe(|| {
-            bench_matrix_correlation_gpu(&device);
-        }));
-        run_guarded("Stress Virial GPU", panic::AssertUnwindSafe(|| {
-            bench_stress_virial_gpu(&device);
-        }));
-        run_guarded("Batched Nelder-Mead GPU", panic::AssertUnwindSafe(|| {
-            rt.block_on(bench_nelder_mead_gpu(&device));
-        }));
+        run_guarded(
+            "Linear Regression GPU",
+            panic::AssertUnwindSafe(|| {
+                bench_linear_regression_gpu(&device);
+            }),
+        );
+        run_guarded(
+            "Matrix Correlation GPU",
+            panic::AssertUnwindSafe(|| {
+                bench_matrix_correlation_gpu(&device);
+            }),
+        );
+        run_guarded(
+            "Stress Virial GPU",
+            panic::AssertUnwindSafe(|| {
+                bench_stress_virial_gpu(&device);
+            }),
+        );
+        run_guarded(
+            "Batched Nelder-Mead GPU",
+            panic::AssertUnwindSafe(|| {
+                rt.block_on(bench_nelder_mead_gpu(&device));
+            }),
+        );
     } else {
         println!("  GPU unavailable — skipping GPU benchmarks");
         println!();
@@ -101,12 +113,10 @@ async fn try_create_device() -> Option<Arc<WgpuDevice>> {
     println!("═══ Initializing GPU ═══");
     match WgpuDevice::new_f64_capable().await {
         Ok(dev) => Some(Arc::new(dev)),
-        Err(_) => {
-            match WgpuDevice::new().await {
-                Ok(dev) => Some(Arc::new(dev)),
-                Err(_) => None,
-            }
-        }
+        Err(_) => match WgpuDevice::new().await {
+            Ok(dev) => Some(Arc::new(dev)),
+            Err(_) => None,
+        },
     }
 }
 
@@ -123,65 +133,65 @@ fn bench_special_functions_cpu() {
     let t = Instant::now();
     let mut gamma_sum = 0.0f64;
     for i in 1..=n_evals {
-        let x = 0.5 + (i as f64 / n_evals as f64) * 10.0;
+        let x = (f64::from(i) / f64::from(n_evals)).mul_add(10.0, 0.5);
         gamma_sum += barracuda::special::gamma(x).unwrap_or(0.0);
     }
     let gamma_us = t.elapsed().as_micros();
     println!(
         "  gamma(x)     : {n_evals} evals in {gamma_us} µs ({:.1} ns/eval) — checksum={gamma_sum:.6e}",
-        gamma_us as f64 * 1000.0 / n_evals as f64
+        gamma_us as f64 * 1000.0 / f64::from(n_evals)
     );
 
     // Error function
     let t = Instant::now();
     let mut erf_sum = 0.0f64;
     for i in 0..n_evals {
-        let x = -3.0 + (i as f64 / n_evals as f64) * 6.0;
+        let x = (f64::from(i) / f64::from(n_evals)).mul_add(6.0, -3.0);
         erf_sum += barracuda::special::erf(x);
     }
     let erf_us = t.elapsed().as_micros();
     println!(
         "  erf(x)       : {n_evals} evals in {erf_us} µs ({:.1} ns/eval) — checksum={erf_sum:.6e}",
-        erf_us as f64 * 1000.0 / n_evals as f64
+        erf_us as f64 * 1000.0 / f64::from(n_evals)
     );
 
     // Bessel J0
     let t = Instant::now();
     let mut j0_sum = 0.0f64;
     for i in 0..n_evals {
-        let x = (i as f64 / n_evals as f64) * 20.0;
+        let x = (f64::from(i) / f64::from(n_evals)) * 20.0;
         j0_sum += barracuda::special::bessel_j0(x);
     }
     let j0_us = t.elapsed().as_micros();
     println!(
         "  bessel_j0(x) : {n_evals} evals in {j0_us} µs ({:.1} ns/eval) — checksum={j0_sum:.6e}",
-        j0_us as f64 * 1000.0 / n_evals as f64
+        j0_us as f64 * 1000.0 / f64::from(n_evals)
     );
 
     // Hermite polynomial H_10(x) — nuclear HFB wavefunctions
     let t = Instant::now();
     let mut herm_sum = 0.0f64;
     for i in 0..n_evals {
-        let x = -4.0 + (i as f64 / n_evals as f64) * 8.0;
+        let x = (f64::from(i) / f64::from(n_evals)).mul_add(8.0, -4.0);
         herm_sum += barracuda::special::hermite(10, x);
     }
     let herm_us = t.elapsed().as_micros();
     println!(
         "  hermite(10,x): {n_evals} evals in {herm_us} µs ({:.1} ns/eval) — checksum={herm_sum:.6e}",
-        herm_us as f64 * 1000.0 / n_evals as f64
+        herm_us as f64 * 1000.0 / f64::from(n_evals)
     );
 
     // Laguerre polynomial L_5^(0.5)(x) — nuclear deformed basis
     let t = Instant::now();
     let mut lag_sum = 0.0f64;
     for i in 0..n_evals {
-        let x = (i as f64 / n_evals as f64) * 10.0;
+        let x = (f64::from(i) / f64::from(n_evals)) * 10.0;
         lag_sum += barracuda::special::laguerre(5, 0.5, x);
     }
     let lag_us = t.elapsed().as_micros();
     println!(
         "  laguerre(5,x): {n_evals} evals in {lag_us} µs ({:.1} ns/eval) — checksum={lag_sum:.6e}",
-        lag_us as f64 * 1000.0 / n_evals as f64
+        lag_us as f64 * 1000.0 / f64::from(n_evals)
     );
 
     println!();
@@ -204,13 +214,8 @@ fn bench_vacf_gpu_vs_cpu(device: &Arc<WgpuDevice>) {
 
         // GPU path (upstream barracuda)
         let t = Instant::now();
-        let gpu_result = barracuda::ops::md::compute_vacf_batch(
-            device,
-            &velocities,
-            n_atoms,
-            n_frames,
-            n_lags,
-        );
+        let gpu_result =
+            barracuda::ops::md::compute_vacf_batch(device, &velocities, n_atoms, n_frames, n_lags);
         let gpu_ms = t.elapsed().as_secs_f64() * 1000.0;
 
         // CPU path (hotSpring local)
@@ -219,8 +224,12 @@ fn bench_vacf_gpu_vs_cpu(device: &Arc<WgpuDevice>) {
             .map(<[f64]>::to_vec)
             .collect();
         let t = Instant::now();
-        let cpu_result =
-            hotspring_barracuda::md::observables::compute_vacf(&vel_snapshots, n_atoms, 0.01, n_lags);
+        let cpu_result = hotspring_barracuda::md::observables::compute_vacf(
+            &vel_snapshots,
+            n_atoms,
+            0.01,
+            n_lags,
+        );
         let cpu_ms = t.elapsed().as_secs_f64() * 1000.0;
 
         let speedup = cpu_ms / gpu_ms.max(0.001);
@@ -248,20 +257,15 @@ fn bench_linear_regression_gpu(device: &Arc<WgpuDevice>) {
     for &(b, n, k) in &[(10, 100, 3), (100, 500, 5), (1000, 1000, 8)] {
         // Design matrix [b, n, k] and response [b, n]
         let x: Vec<f64> = (0..b * n * k)
-            .map(|i| (i as f64 * 0.3).sin() + 1.0)
+            .map(|i| (f64::from(i) * 0.3).sin() + 1.0)
             .collect();
         let y: Vec<f64> = (0..b * n)
-            .map(|i| (i as f64 * 0.5).cos() * 3.0)
+            .map(|i| (f64::from(i) * 0.5).cos() * 3.0)
             .collect();
 
         let t = Instant::now();
         let result = barracuda::ops::stats_f64::linear_regression(
-            device,
-            &x,
-            &y,
-            b as u32,
-            n as u32,
-            k as u32,
+            device, &x, &y, b as u32, n as u32, k as u32,
         );
         let ms = t.elapsed().as_secs_f64() * 1000.0;
 
@@ -284,16 +288,12 @@ fn bench_matrix_correlation_gpu(device: &Arc<WgpuDevice>) {
 
     for &(n, p) in &[(100, 10), (500, 20), (2000, 50)] {
         let data: Vec<f64> = (0..n * p)
-            .map(|i| (i as f64 * 0.13).sin() * 5.0)
+            .map(|i| (f64::from(i) * 0.13).sin() * 5.0)
             .collect();
 
         let t = Instant::now();
-        let result = barracuda::ops::stats_f64::matrix_correlation(
-            device,
-            &data,
-            n as u32,
-            p as u32,
-        );
+        let result =
+            barracuda::ops::stats_f64::matrix_correlation(device, &data, n as u32, p as u32);
         let ms = t.elapsed().as_secs_f64() * 1000.0;
 
         let status = match &result {
@@ -374,7 +374,12 @@ fn bench_neighbor_precompute() {
 
     use barracuda::ops::lattice::NeighborMode;
 
-    for &dims in &[[4u32, 4, 4, 4], [8, 8, 8, 8], [12, 12, 12, 12], [16, 16, 16, 16]] {
+    for &dims in &[
+        [4u32, 4, 4, 4],
+        [8, 8, 8, 8],
+        [12, 12, 12, 12],
+        [16, 16, 16, 16],
+    ] {
         let vol = dims.iter().product::<u32>() as usize;
         let t = Instant::now();
         let mode = NeighborMode::precompute_periodic_4d(dims);
@@ -387,7 +392,12 @@ fn bench_neighbor_precompute() {
 
         let t_hs = Instant::now();
         let lat = hotspring_barracuda::lattice::wilson::Lattice::cold_start(
-            [dims[0] as usize, dims[1] as usize, dims[2] as usize, dims[3] as usize],
+            [
+                dims[0] as usize,
+                dims[1] as usize,
+                dims[2] as usize,
+                dims[3] as usize,
+            ],
             6.0,
         );
         let hs_table = hotspring_barracuda::lattice::gpu_hmc::build_neighbors(&lat);
@@ -503,25 +513,19 @@ async fn bench_nelder_mead_gpu(device: &Arc<WgpuDevice>) {
             .collect();
 
         let t = Instant::now();
-        let result = batched_nelder_mead_gpu(
-            device,
-            &config,
-            n_problems,
-            &simplices,
-            |points| {
-                points
-                    .chunks(dims)
-                    .map(|p| p.iter().map(|x| x * x).sum::<f64>())
-                    .collect()
-            },
-        )
+        let result = batched_nelder_mead_gpu(device, &config, n_problems, &simplices, |points| {
+            points
+                .chunks(dims)
+                .map(|p| p.iter().map(|x| x * x).sum::<f64>())
+                .collect()
+        })
         .await;
         let ms = t.elapsed().as_secs_f64() * 1000.0;
 
         let status = match &result {
             Ok(results) => {
                 let converged = results.iter().filter(|r| r.converged).count();
-                let best = results.first().map(|r| r.best_value).unwrap_or(f64::NAN);
+                let best = results.first().map_or(f64::NAN, |r| r.best_value);
                 format!("{converged}/{n_problems} converged, best={best:.2e}")
             }
             Err(e) => format!("ERR: {e}"),

@@ -271,7 +271,7 @@ impl Lattice {
     /// Spatial average of Polyakov loops as complex (Re, Im).
     ///
     /// Returns `(Re, Im)` of the spatial average of Polyakov loops
-    /// ⟨L⟩ = (1/V_s) Σ_x L(x), where L(x) = (1/3) Tr ∏_t U_3(x,t).
+    /// ⟨L⟩ = (`1/V_s`) `Σ_x` L(x), where L(x) = (1/3) Tr ∏_t `U_3(x,t)`.
     #[must_use]
     pub fn complex_polyakov_average(&self) -> (f64, f64) {
         let ns = [self.dims[0], self.dims[1], self.dims[2]];

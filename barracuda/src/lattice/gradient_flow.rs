@@ -59,7 +59,7 @@ pub enum FlowIntegrator {
 pub struct FlowMeasurement {
     /// Flow time t.
     pub t: f64,
-    /// Gauge energy density E(t) = (1 - avg_plaquette) * 6/β × β.
+    /// Gauge energy density E(t) = (1 - `avg_plaquette`) * 6/β × β.
     pub energy_density: f64,
     /// t² E(t) — the dimensionless combination used to define t₀.
     pub t2_e: f64,
@@ -67,15 +67,15 @@ pub struct FlowMeasurement {
     pub plaquette: f64,
 }
 
-/// Compute the Lie-algebra driving term Z_μ(x) for gradient flow.
+/// Compute the Lie-algebra driving term `Z_μ(x)` for gradient flow.
 ///
-/// Z = -[∂S_W/∂U] projected to traceless anti-Hermitian su(3).
+/// Z = -[∂`S_W/∂U`] projected to traceless anti-Hermitian su(3).
 /// This is exactly `Lattice::gauge_force` which already does this projection.
 fn flow_force(lattice: &Lattice, x: [usize; 4], mu: usize) -> Su3Matrix {
     lattice.gauge_force(x, mu)
 }
 
-/// Apply one Euler step: U_μ(x) ← exp(ε · Z_μ(x)) · U_μ(x).
+/// Apply one Euler step: `U_μ(x)` ← exp(ε · `Z_μ(x)`) · `U_μ(x)`.
 fn euler_step(lattice: &mut Lattice, epsilon: f64) {
     let dims = lattice.dims;
     let v = dims[0] * dims[1] * dims[2] * dims[3];
@@ -225,7 +225,7 @@ const fn derive_lscfrk3(c2: f64, c3: f64) -> ([f64; 3], [f64; 3]) {
     //                 b₃ c₃(c₃ - c₂) = 1/3 - c₂/2
     let b3 = (1.0 / 3.0 - c2 / 2.0) / (c3 * (c3 - c2));
     let b2 = (0.5 - b3 * c3) / c2;
-    let _b1 = 1.0 - b2 - b3; // from condition (1) — used in Butcher form, not 2N-storage
+    // b1 = 1 - b2 - b3 from condition (1); used in Butcher form, not 2N-storage
 
     // Tree condition (4): a₃₂ = 1/(6 b₃ c₂)
     let a32 = 1.0 / (6.0 * b3 * c2);
@@ -233,10 +233,10 @@ const fn derive_lscfrk3(c2: f64, c3: f64) -> ([f64; 3], [f64; 3]) {
     let a21 = c2; // row-sum: a₂₁ = c₂
 
     // Convert Butcher tableau → 2N-storage (A, B):
-    let big_b1 = a21;       // B₁ = c₂
-    let big_b2 = a32;       // B₂ = a₃₂
-    let big_b3 = b3;        // B₃ = b₃
-    let big_a1 = 0.0;       // A₁ = 0 (explicit)
+    let big_b1 = a21; // B₁ = c₂
+    let big_b2 = a32; // B₂ = a₃₂
+    let big_b3 = b3; // B₃ = b₃
+    let big_a1 = 0.0; // A₁ = 0 (explicit)
     let big_a2 = (a31 - big_b1) / big_b2;
     let big_a3 = (b2 - big_b2) / big_b3;
 
@@ -244,10 +244,7 @@ const fn derive_lscfrk3(c2: f64, c3: f64) -> ([f64; 3], [f64; 3]) {
     // b₁ should equal B₁ + B₂A₂ + B₃A₃A₂
     // This is the Williamson consistency condition.
 
-    (
-        [big_a1, big_a2, big_a3],
-        [big_b1, big_b2, big_b3],
-    )
+    ([big_a1, big_a2, big_a3], [big_b1, big_b2, big_b3])
 }
 
 /// LSCFRK3W6: Lüscher's original. Free parameters: c₂ = 1/4, c₃ = 2/3.
@@ -256,19 +253,35 @@ const fn derive_lscfrk3(c2: f64, c3: f64) -> ([f64; 3], [f64; 3]) {
 /// All coefficients below are DERIVED from c₂ = 1/4, c₃ = 2/3.
 const LSCFRK3W6_DERIVED: ([f64; 3], [f64; 3]) = derive_lscfrk3(1.0 / 4.0, 2.0 / 3.0);
 const LSCFRK3W6: Lscfrk = Lscfrk {
-    a: &[LSCFRK3W6_DERIVED.0[0], LSCFRK3W6_DERIVED.0[1], LSCFRK3W6_DERIVED.0[2]],
-    b: &[LSCFRK3W6_DERIVED.1[0], LSCFRK3W6_DERIVED.1[1], LSCFRK3W6_DERIVED.1[2]],
+    a: &[
+        LSCFRK3W6_DERIVED.0[0],
+        LSCFRK3W6_DERIVED.0[1],
+        LSCFRK3W6_DERIVED.0[2],
+    ],
+    b: &[
+        LSCFRK3W6_DERIVED.1[0],
+        LSCFRK3W6_DERIVED.1[1],
+        LSCFRK3W6_DERIVED.1[2],
+    ],
 };
 
 /// LSCFRK3W7: Bazavov & Chuna recommended. Free parameters: c₂ = 1/3, c₃ = 3/4.
 ///
 /// Chosen because the leading-order error coefficient for action
-/// observables (D³_C) is close to zero — making it ~2× more efficient
+/// observables (`D³_C`) is close to zero — making it ~2× more efficient
 /// than W6 for w₀ scale setting. See Fig. 5 of arXiv:2101.05320.
 const LSCFRK3W7_DERIVED: ([f64; 3], [f64; 3]) = derive_lscfrk3(1.0 / 3.0, 3.0 / 4.0);
 const LSCFRK3W7: Lscfrk = Lscfrk {
-    a: &[LSCFRK3W7_DERIVED.0[0], LSCFRK3W7_DERIVED.0[1], LSCFRK3W7_DERIVED.0[2]],
-    b: &[LSCFRK3W7_DERIVED.1[0], LSCFRK3W7_DERIVED.1[1], LSCFRK3W7_DERIVED.1[2]],
+    a: &[
+        LSCFRK3W7_DERIVED.0[0],
+        LSCFRK3W7_DERIVED.0[1],
+        LSCFRK3W7_DERIVED.0[2],
+    ],
+    b: &[
+        LSCFRK3W7_DERIVED.1[0],
+        LSCFRK3W7_DERIVED.1[1],
+        LSCFRK3W7_DERIVED.1[2],
+    ],
 };
 
 /// LSCFRK4CK: Carpenter-Kennedy 4th order, 5-stage (NASA TM-109112, 1994).
@@ -336,13 +349,14 @@ fn lscfrk_step(lattice: &mut Lattice, epsilon: f64, scheme: &Lscfrk) {
 /// Compute gauge energy density E(t) from the lattice at flow time t.
 ///
 /// E = (β / 3V) Σ_{x, μ<ν} (1 - Re Tr P_{μν} / 3)
-/// which simplifies to (1 - ⟨P⟩) × 2 × N_c for SU(3).
+/// which simplifies to (1 - ⟨P⟩) × 2 × `N_c` for SU(3).
+#[must_use]
 pub fn energy_density(lattice: &Lattice) -> f64 {
     let plaq = lattice.average_plaquette();
     (1.0 - plaq) * 6.0
 }
 
-/// Run gradient flow from t=0 to t=t_max and collect measurements.
+/// Run gradient flow from t=0 to `t=t_max` and collect measurements.
 ///
 /// Returns measurements at each flow time step.
 pub fn run_flow(
@@ -389,13 +403,14 @@ pub fn run_flow(
 }
 
 /// Find t₀ such that t²⟨E(t)⟩ = 0.3 by linear interpolation.
+#[must_use]
 pub fn find_t0(measurements: &[FlowMeasurement]) -> Option<f64> {
     const TARGET: f64 = 0.3;
     for window in measurements.windows(2) {
         let (a, b) = (&window[0], &window[1]);
         if a.t2_e <= TARGET && b.t2_e >= TARGET && (b.t2_e - a.t2_e).abs() > 1e-15 {
             let frac = (TARGET - a.t2_e) / (b.t2_e - a.t2_e);
-            return Some(a.t + frac * (b.t - a.t));
+            return Some(frac.mul_add(b.t - a.t, a.t));
         }
     }
     None
@@ -406,6 +421,7 @@ pub fn find_t0(measurements: &[FlowMeasurement]) -> Option<f64> {
 /// The w₀ scale (BMW, arXiv:1203.4469) uses the *derivative* of t²E(t)
 /// and is less sensitive to short-distance lattice artifacts than t₀.
 /// This is the primary scale observable in Chuna's paper.
+#[must_use]
 pub fn find_w0(measurements: &[FlowMeasurement]) -> Option<f64> {
     const TARGET: f64 = 0.3;
     if measurements.len() < 3 {
@@ -430,7 +446,7 @@ pub fn find_w0(measurements: &[FlowMeasurement]) -> Option<f64> {
         let (t_b, w_b) = window[1];
         if w_a <= TARGET && w_b >= TARGET && (w_b - w_a).abs() > 1e-15 {
             let frac = (TARGET - w_a) / (w_b - w_a);
-            let t_cross = t_a + frac * (t_b - t_a);
+            let t_cross = frac.mul_add(t_b - t_a, t_a);
             return Some(t_cross.sqrt());
         }
     }
@@ -440,6 +456,7 @@ pub fn find_w0(measurements: &[FlowMeasurement]) -> Option<f64> {
 /// Compute W(t) = t d/dt [t² E(t)] for all measurement points.
 ///
 /// Returns (t, W(t)) pairs. Used for plotting the w₀ determination.
+#[must_use]
 pub fn compute_w_function(measurements: &[FlowMeasurement]) -> Vec<(f64, f64)> {
     let mut result = Vec::new();
     for window in measurements.windows(2) {
@@ -484,10 +501,8 @@ mod tests {
         let mut lattice_euler = Lattice::hot_start([4, 4, 4, 4], 6.0, 42);
         let mut lattice_rk3 = Lattice::hot_start([4, 4, 4, 4], 6.0, 42);
 
-        let results_euler =
-            run_flow(&mut lattice_euler, FlowIntegrator::Euler, 0.01, 0.5, 10);
-        let results_rk3 =
-            run_flow(&mut lattice_rk3, FlowIntegrator::Rk3Luscher, 0.01, 0.5, 10);
+        let results_euler = run_flow(&mut lattice_euler, FlowIntegrator::Euler, 0.01, 0.5, 10);
+        let results_rk3 = run_flow(&mut lattice_rk3, FlowIntegrator::Rk3Luscher, 0.01, 0.5, 10);
 
         let e_euler = results_euler.last().unwrap().energy_density;
         let e_rk3 = results_rk3.last().unwrap().energy_density;
@@ -516,13 +531,7 @@ mod tests {
     #[test]
     fn t2_e_increases_monotonically_for_hot_start() {
         let mut lattice = Lattice::hot_start([4, 4, 4, 4], 6.0, 42);
-        let results = run_flow(
-            &mut lattice,
-            FlowIntegrator::Rk3Luscher,
-            0.01,
-            0.5,
-            5,
-        );
+        let results = run_flow(&mut lattice, FlowIntegrator::Rk3Luscher, 0.01, 0.5, 5);
 
         for window in results.windows(2) {
             if window[0].t > 0.05 {
@@ -541,13 +550,7 @@ mod tests {
     #[test]
     fn find_t0_on_hot_start() {
         let mut lattice = Lattice::hot_start([4, 4, 4, 4], 6.0, 42);
-        let results = run_flow(
-            &mut lattice,
-            FlowIntegrator::Rk3Luscher,
-            0.01,
-            2.0,
-            1,
-        );
+        let results = run_flow(&mut lattice, FlowIntegrator::Rk3Luscher, 0.01, 2.0, 1);
         let t0 = find_t0(&results);
         if let Some(t0_val) = t0 {
             assert!(t0_val > 0.0, "t₀ should be positive: {t0_val}");
@@ -559,13 +562,7 @@ mod tests {
     #[test]
     fn find_w0_on_hot_start() {
         let mut lattice = Lattice::hot_start([4, 4, 4, 4], 6.0, 42);
-        let results = run_flow(
-            &mut lattice,
-            FlowIntegrator::Rk3Luscher,
-            0.01,
-            2.0,
-            1,
-        );
+        let results = run_flow(&mut lattice, FlowIntegrator::Rk3Luscher, 0.01, 2.0, 1);
         let w0 = find_w0(&results);
         if let Some(w0_val) = w0 {
             assert!(w0_val > 0.0, "w₀ should be positive: {w0_val}");
@@ -614,8 +611,16 @@ mod tests {
     fn derivation_produces_known_w6_coefficients() {
         let (a, b) = derive_lscfrk3(0.25, 2.0 / 3.0);
         assert!((a[0]).abs() < 1e-15, "A1 = 0");
-        assert!((a[1] - (-17.0 / 32.0)).abs() < 1e-14, "A2 = -17/32: got {}", a[1]);
-        assert!((a[2] - (-32.0 / 27.0)).abs() < 1e-14, "A3 = -32/27: got {}", a[2]);
+        assert!(
+            (a[1] - (-17.0 / 32.0)).abs() < 1e-14,
+            "A2 = -17/32: got {}",
+            a[1]
+        );
+        assert!(
+            (a[2] - (-32.0 / 27.0)).abs() < 1e-14,
+            "A3 = -32/27: got {}",
+            a[2]
+        );
         assert!((b[0] - 0.25).abs() < 1e-15, "B1 = 1/4: got {}", b[0]);
         assert!((b[1] - (8.0 / 9.0)).abs() < 1e-14, "B2 = 8/9: got {}", b[1]);
         assert!((b[2] - 0.75).abs() < 1e-14, "B3 = 3/4: got {}", b[2]);
@@ -624,11 +629,27 @@ mod tests {
     #[test]
     fn derivation_produces_known_w7_coefficients() {
         let (a, b) = derive_lscfrk3(1.0 / 3.0, 0.75);
-        assert!((a[1] - (-5.0 / 9.0)).abs() < 1e-14, "A2 = -5/9: got {}", a[1]);
-        assert!((a[2] - (-153.0 / 128.0)).abs() < 1e-13, "A3 = -153/128: got {}", a[2]);
+        assert!(
+            (a[1] - (-5.0 / 9.0)).abs() < 1e-14,
+            "A2 = -5/9: got {}",
+            a[1]
+        );
+        assert!(
+            (a[2] - (-153.0 / 128.0)).abs() < 1e-13,
+            "A3 = -153/128: got {}",
+            a[2]
+        );
         assert!((b[0] - (1.0 / 3.0)).abs() < 1e-15, "B1 = 1/3: got {}", b[0]);
-        assert!((b[1] - (15.0 / 16.0)).abs() < 1e-14, "B2 = 15/16: got {}", b[1]);
-        assert!((b[2] - (8.0 / 15.0)).abs() < 1e-14, "B3 = 8/15: got {}", b[2]);
+        assert!(
+            (b[1] - (15.0 / 16.0)).abs() < 1e-14,
+            "B2 = 15/16: got {}",
+            b[1]
+        );
+        assert!(
+            (b[2] - (8.0 / 15.0)).abs() < 1e-14,
+            "B3 = 8/15: got {}",
+            b[2]
+        );
     }
 
     #[test]
@@ -646,19 +667,36 @@ mod tests {
         let b3 = b[2]; // b3 = B3
 
         // Condition 1: b1 + b2 + b3 = 1
-        assert!((b1 + b2 + b3 - 1.0).abs() < 1e-14, "cond1: sum(b) = {}", b1 + b2 + b3);
+        assert!(
+            (b1 + b2 + b3 - 1.0).abs() < 1e-14,
+            "cond1: sum(b) = {}",
+            b1 + b2 + b3
+        );
         // Condition 2: b2*c2 + b3*c3 = 1/2
-        assert!((b2 * c2 + b3 * c3 - 0.5).abs() < 1e-14, "cond2: {}", b2 * c2 + b3 * c3);
+        assert!(
+            (b2 * c2 + b3 * c3 - 0.5).abs() < 1e-14,
+            "cond2: {}",
+            b2 * c2 + b3 * c3
+        );
         // Condition 3: b2*c2^2 + b3*c3^2 = 1/3
         assert!(
             (b2 * c2 * c2 + b3 * c3 * c3 - 1.0 / 3.0).abs() < 1e-14,
-            "cond3: {}", b2 * c2 * c2 + b3 * c3 * c3
+            "cond3: {}",
+            b2 * c2 * c2 + b3 * c3 * c3
         );
         // Condition 4 (tree): b3*a32*c2 = 1/6
-        assert!((b3 * a32 * c2 - 1.0 / 6.0).abs() < 1e-14, "cond4: {}", b3 * a32 * c2);
+        assert!(
+            (b3 * a32 * c2 - 1.0 / 6.0).abs() < 1e-14,
+            "cond4: {}",
+            b3 * a32 * c2
+        );
         // Row sums
         assert!((a21 - c2).abs() < 1e-15, "row2: a21={a21} c2={c2}");
-        assert!((a31 + a32 - c3).abs() < 1e-14, "row3: a31+a32={} c3={c3}", a31 + a32);
+        assert!(
+            (a31 + a32 - c3).abs() < 1e-14,
+            "row3: a31+a32={} c3={c3}",
+            a31 + a32
+        );
     }
 
     #[test]
@@ -681,13 +719,7 @@ mod tests {
     #[test]
     fn w_function_monotonic_increasing() {
         let mut lattice = Lattice::hot_start([4, 4, 4, 4], 6.0, 42);
-        let results = run_flow(
-            &mut lattice,
-            FlowIntegrator::Rk3Luscher,
-            0.01,
-            1.0,
-            1,
-        );
+        let results = run_flow(&mut lattice, FlowIntegrator::Rk3Luscher, 0.01, 1.0, 1);
         let w_vals = compute_w_function(&results);
         assert!(!w_vals.is_empty(), "W(t) should have values");
         for window in w_vals.windows(2) {
@@ -695,7 +727,10 @@ mod tests {
                 assert!(
                     window[1].1 >= window[0].1 - 0.01,
                     "W(t) should generally increase: t={}, W={} -> t={}, W={}",
-                    window[0].0, window[0].1, window[1].0, window[1].1
+                    window[0].0,
+                    window[0].1,
+                    window[1].0,
+                    window[1].1
                 );
             }
         }

@@ -11,15 +11,15 @@
 //!   - `HOTSPRING_GPU_PRIMARY`   — Card A (index or name substring)
 //!   - `HOTSPRING_GPU_SECONDARY` — Card B (index or name substring)
 //!
-//! When unset, adapters are discovered by SHADER_F64 + max memory; primary
+//! When unset, adapters are discovered by `SHADER_F64` + max memory; primary
 //! = best, secondary = second-best.
 //!
 //! Example (explicit override):
-//!   HOTSPRING_GPU_PRIMARY=3090 HOTSPRING_GPU_SECONDARY=titan \
-//!     cargo run --release --bin bench_multi_gpu
+//!   `HOTSPRING_GPU_PRIMARY=3090` `HOTSPRING_GPU_SECONDARY=titan` \
+//!     cargo run --release --bin `bench_multi_gpu`
 //!
 //! Or by index:
-//!   HOTSPRING_GPU_PRIMARY=0 HOTSPRING_GPU_SECONDARY=1 cargo run --release --bin bench_multi_gpu
+//!   `HOTSPRING_GPU_PRIMARY=0` `HOTSPRING_GPU_SECONDARY=1` cargo run --release --bin `bench_multi_gpu`
 
 use barracuda::ops::linalg::BatchedEighGpu;
 use hotspring_barracuda::gpu::{discover_primary_and_secondary_adapters, GpuF64};

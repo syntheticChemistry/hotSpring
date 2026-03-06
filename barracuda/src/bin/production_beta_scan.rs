@@ -39,7 +39,7 @@ struct CliArgs {
 }
 
 impl CliArgs {
-    fn is_asymmetric(&self) -> bool {
+    const fn is_asymmetric(&self) -> bool {
         let [nx, ny, nz, nt] = self.dims;
         nt != nx || ny != nx || nz != nx
     }
@@ -47,9 +47,9 @@ impl CliArgs {
     fn label(&self) -> String {
         let [nx, _, _, nt] = self.dims;
         if self.is_asymmetric() {
-            format!("{}³×{}", nx, nt)
+            format!("{nx}³×{nt}")
         } else {
-            format!("{}⁴", nx)
+            format!("{nx}⁴")
         }
     }
 }
@@ -145,13 +145,13 @@ fn main() {
     }
     println!("╚══════════════════════════════════════════════════════════════╝");
     println!();
-    println!("  Lattice:  {} ({} sites)", label, vol);
+    println!("  Lattice:  {label} ({vol} sites)");
     println!(
         "  Dims:     [{}, {}, {}, {}]",
         dims[0], dims[1], dims[2], dims[3]
     );
     if args.is_asymmetric() {
-        println!("  N_t = {} → T = 1/(a × {})", nt, nt);
+        println!("  N_t = {nt} → T = 1/(a × {nt})");
     }
     println!(
         "  VRAM est: {:.2} GB (quenched)",
@@ -240,7 +240,7 @@ fn main() {
             if let Some(ref mut w) = traj_writer {
                 gpu_links_to_lattice(&gpu, &state, &mut lat);
                 let (re, im) = lat.complex_polyakov_average();
-                let poly_mag = (re * re + im * im).sqrt();
+                let poly_mag = re.hypot(im);
                 let poly_phase = im.atan2(re);
                 let pvar = plaquette_variance(&plaq_history);
                 let line = serde_json::json!({
@@ -302,7 +302,7 @@ fn main() {
             if do_poly_readback {
                 gpu_links_to_lattice(&gpu, &state, &mut lat);
                 let (re, im) = lat.complex_polyakov_average();
-                poly_mag = (re * re + im * im).sqrt();
+                poly_mag = re.hypot(im);
                 poly_phase = im.atan2(re);
                 if (i + 1) % 100 == 0 {
                     poly_vals.push(poly_mag);
@@ -387,10 +387,7 @@ fn main() {
     let total_wall = total_start.elapsed().as_secs_f64();
 
     println!("═══════════════════════════════════════════════════════════");
-    println!(
-        "  Production β-Scan Summary: {} Quenched SU(3)",
-        &label
-    );
+    println!("  Production β-Scan Summary: {} Quenched SU(3)", &label);
     println!("═══════════════════════════════════════════════════════════");
     println!(
         "  {:>6} {:>10} {:>10} {:>10} {:>10} {:>8} {:>8}",

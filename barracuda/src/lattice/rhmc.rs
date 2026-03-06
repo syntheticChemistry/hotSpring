@@ -24,9 +24,9 @@ use super::dirac::{apply_dirac_sq, FermionField};
 use super::wilson::Lattice;
 
 /// Partial-fraction representation of a rational approximation:
-///   r(x) = alpha_0 + sum_{i=1}^{n} alpha_i / (x + sigma_i)
+///   r(x) = `alpha_0` + sum_{i=1}^{n} `alpha_i` / (x + `sigma_i`)
 ///
-/// Used to approximate x^{p/q} over [lambda_min, lambda_max].
+/// Used to approximate x^{p/q} over [`lambda_min`, `lambda_max`].
 #[derive(Clone, Debug)]
 pub struct RationalApproximation {
     /// Constant term.
@@ -47,11 +47,13 @@ pub struct RationalApproximation {
 
 impl RationalApproximation {
     /// Number of poles (shifts) in the approximation.
-    pub fn n_poles(&self) -> usize {
+    #[must_use]
+    pub const fn n_poles(&self) -> usize {
         self.alpha.len()
     }
 
     /// Evaluate the rational approximation at point x.
+    #[must_use]
     pub fn eval(&self, x: f64) -> f64 {
         let mut val = self.alpha_0;
         for (a, s) in self.alpha.iter().zip(self.sigma.iter()) {
@@ -60,7 +62,7 @@ impl RationalApproximation {
         val
     }
 
-    /// Generate an n-pole rational approximation to x^power on [lambda_min, lambda_max].
+    /// Generate an n-pole rational approximation to x^power on [`lambda_min`, `lambda_max`].
     ///
     /// Uses geometric pole initialization, Remez exchange for residue fitting,
     /// and coordinate descent for pole optimization.
@@ -80,7 +82,7 @@ impl RationalApproximation {
         let n_eval = 4000;
         let eval_grid: Vec<f64> = (0..n_eval)
             .map(|i| {
-                let t = i as f64 / (n_eval - 1) as f64;
+                let t = f64::from(i) / f64::from(n_eval - 1);
                 (log_min + t * (log_max - log_min)).exp()
             })
             .collect();
@@ -92,8 +94,11 @@ impl RationalApproximation {
             let mut improved = false;
             for i in 0..n_poles {
                 let log_s = sigma[i].ln();
-                let lower =
-                    if i > 0 { sigma[i - 1].ln() + 0.01 } else { log_min - 3.0 };
+                let lower = if i > 0 {
+                    sigma[i - 1].ln() + 0.01
+                } else {
+                    log_min - 3.0
+                };
                 let upper = if i + 1 < n_poles {
                     sigma[i + 1].ln() - 0.01
                 } else {
@@ -202,12 +207,13 @@ pub struct MultiShiftCgResult {
     pub converged: bool,
 }
 
-/// Multi-shift Conjugate Gradient: solve (D†D + σ_i)x_i = b for all shifts simultaneously.
+/// Multi-shift Conjugate Gradient: solve (D†D + `σ_i)x_i` = b for all shifts simultaneously.
 ///
 /// All shifted systems share the same Krylov space. Only one matrix-vector
 /// product (D†D·p) per iteration, regardless of the number of shifts.
 ///
-/// Returns solution vectors x_i (one per shift) and iteration count.
+/// Returns solution vectors `x_i` (one per shift) and iteration count.
+#[must_use]
 pub fn multi_shift_cg_solve(
     lattice: &Lattice,
     b: &FermionField,
@@ -221,9 +227,15 @@ pub fn multi_shift_cg_solve(
 
     let mut x: Vec<FermionField> = (0..n_shifts).map(|_| FermionField::zeros(vol)).collect();
     let mut p: Vec<FermionField> = (0..n_shifts)
-        .map(|_| FermionField { data: b.data.clone(), volume: vol })
+        .map(|_| FermionField {
+            data: b.data.clone(),
+            volume: vol,
+        })
         .collect();
-    let mut r = FermionField { data: b.data.clone(), volume: vol };
+    let mut r = FermionField {
+        data: b.data.clone(),
+        volume: vol,
+    };
 
     let b_norm_sq = b.dot(b).re;
     if b_norm_sq < 1e-30 {
@@ -279,7 +291,9 @@ pub fn multi_shift_cg_solve(
             }
 
             let ds = shifts[s] - shifts[0];
-            let denom = 1.0 + alpha * ds + alpha * alpha_prev * (1.0 - zeta_prev[s] / zeta_curr[s]) / beta_prev[s].max(1e-30);
+            let denom = alpha.mul_add(ds, 1.0)
+                + alpha * alpha_prev * (1.0 - zeta_prev[s] / zeta_curr[s])
+                    / beta_prev[s].max(1e-30);
             if denom.abs() < 1e-30 {
                 active[s] = false;
                 continue;
@@ -343,11 +357,11 @@ pub struct RhmcFermionConfig {
     pub mass: f64,
     /// Power of the determinant (e.g. 1/4 for one rooted staggered taste).
     pub det_power: f64,
-    /// Rational approximation for the action: x^{det_power}.
+    /// Rational approximation for the action: `x^{det_power`}.
     pub action_approx: RationalApproximation,
     /// Rational approximation for the heatbath: x^{-det_power/2}.
     pub heatbath_approx: RationalApproximation,
-    /// Rational approximation for the force: x^{det_power} (derivative form).
+    /// Rational approximation for the force: `x^{det_power`} (derivative form).
     pub force_approx: RationalApproximation,
 }
 
@@ -440,8 +454,14 @@ pub fn rhmc_heatbath(
     }
 
     // φ = r(-p/2)(D†D) η = α₀η + Σ αᵢ (D†D + σᵢ)⁻¹ η
-    let (solutions, result) =
-        multi_shift_cg_solve(lattice, &eta, config.mass, &approx.sigma, cg_tol, cg_max_iter);
+    let (solutions, result) = multi_shift_cg_solve(
+        lattice,
+        &eta,
+        config.mass,
+        &approx.sigma,
+        cg_tol,
+        cg_max_iter,
+    );
 
     let mut phi = FermionField::zeros(vol);
     for i in 0..vol {
@@ -457,9 +477,10 @@ pub fn rhmc_heatbath(
     (phi, result.iterations)
 }
 
-/// RHMC fermion action: S_f = φ† r(p)(D†D) φ.
+/// RHMC fermion action: `S_f` = φ† r(p)(D†D) φ.
 ///
 /// Uses the rational approximation for x^p and multi-shift CG.
+#[must_use]
 pub fn rhmc_fermion_action(
     lattice: &Lattice,
     phi: &FermionField,
@@ -469,8 +490,14 @@ pub fn rhmc_fermion_action(
 ) -> (f64, usize) {
     let approx = &config.action_approx;
 
-    let (solutions, result) =
-        multi_shift_cg_solve(lattice, phi, config.mass, &approx.sigma, cg_tol, cg_max_iter);
+    let (solutions, result) = multi_shift_cg_solve(
+        lattice,
+        phi,
+        config.mass,
+        &approx.sigma,
+        cg_tol,
+        cg_max_iter,
+    );
 
     let mut action = approx.alpha_0 * phi.dot(phi).re;
     for (s, x_s) in solutions.iter().enumerate() {
@@ -480,10 +507,11 @@ pub fn rhmc_fermion_action(
     (action, result.iterations)
 }
 
-/// RHMC fermion force: dS_f/dU = Σ αᵢ · d/dU [φ† (D†D + σᵢ)⁻¹ φ].
+/// RHMC fermion force: `dS_f/dU` = Σ αᵢ · d/dU [φ† (D†D + σᵢ)⁻¹ φ].
 ///
 /// Each term in the sum is a standard pseudofermion force evaluated at the
 /// shifted CG solution. Returns the total force summed over all poles.
+#[must_use]
 pub fn rhmc_fermion_force(
     lattice: &Lattice,
     phi: &FermionField,
@@ -494,8 +522,14 @@ pub fn rhmc_fermion_force(
     let vol = lattice.volume();
     let approx = &config.force_approx;
 
-    let (solutions, result) =
-        multi_shift_cg_solve(lattice, phi, config.mass, &approx.sigma, cg_tol, cg_max_iter);
+    let (solutions, result) = multi_shift_cg_solve(
+        lattice,
+        phi,
+        config.mass,
+        &approx.sigma,
+        cg_tol,
+        cg_max_iter,
+    );
 
     let mut total_force = vec![super::su3::Su3Matrix::ZERO; vol * 4];
 
@@ -511,7 +545,7 @@ pub fn rhmc_fermion_force(
 
 /// Remez exchange algorithm for fixed poles: finds residues that minimize max relative error.
 ///
-/// Returns (coefficients, max_relative_error).
+/// Returns (coefficients, `max_relative_error`).
 fn remez_for_poles(sigma: &[f64], power: f64, eval_grid: &[f64]) -> (Vec<f64>, f64) {
     let n_poles = sigma.len();
     let ncols = n_poles + 1;
@@ -527,13 +561,13 @@ fn remez_for_poles(sigma: &[f64], power: f64, eval_grid: &[f64]) -> (Vec<f64>, f
         })
         .collect();
     // Deduplicate
-    ref_indices.sort();
+    ref_indices.sort_unstable();
     ref_indices.dedup();
     while ref_indices.len() < n_sys {
         for idx in 0..n_eval {
             if !ref_indices.contains(&idx) {
                 ref_indices.push(idx);
-                ref_indices.sort();
+                ref_indices.sort_unstable();
                 break;
             }
         }
@@ -611,11 +645,13 @@ fn remez_for_poles(sigma: &[f64], power: f64, eval_grid: &[f64]) -> (Vec<f64>, f
             if selected.is_empty() {
                 selected.push((idx, e));
             } else {
-                let Some(last) = selected.last() else { continue };
+                let Some(last) = selected.last() else {
+                    continue;
+                };
                 let last_sign = last.1.signum();
-                if e.signum() != last_sign {
+                if (e.signum() - last_sign).abs() > f64::EPSILON {
                     selected.push((idx, e));
-                } else if selected.last().map_or(false, |l| e.abs() > l.1.abs()) {
+                } else if selected.last().is_some_and(|l| e.abs() > l.1.abs()) {
                     if let Some(slot) = selected.last_mut() {
                         *slot = (idx, e);
                     }

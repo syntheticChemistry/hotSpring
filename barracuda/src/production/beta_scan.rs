@@ -2,7 +2,7 @@
 
 //! Quenched β-scan with NPU offloading.
 //!
-//! Extracted from production_mixed_pipeline to reduce binary size.
+//! Extracted from `production_mixed_pipeline` to reduce binary size.
 //! Provides the quenched NPU worker (therm detect, reject predict, phase classify,
 //! adaptive steer) and `run_beta_points_npu` for running β points with NPU assistance.
 
@@ -13,7 +13,9 @@ use crate::lattice::gpu_hmc::{
 };
 use crate::lattice::hmc::{self, HmcConfig, IntegratorType};
 use crate::lattice::wilson::Lattice;
-use crate::md::reservoir::{EchoStateNetwork, EsnConfig, ExportedWeights, NpuSimulator};
+use crate::md::reservoir::{
+    Activation, EchoStateNetwork, EsnConfig, ExportedWeights, NpuSimulator,
+};
 use crate::production::{
     bootstrap_esn_from_trajectory_log, build_training_data, check_thermalization,
     find_max_uncertainty_beta, plaquette_variance, predict_beta_c, predict_rejection, BetaResult,
@@ -81,7 +83,7 @@ pub enum QuenchedNpuResponse {
     PhaseLabel(&'static str),
     /// Next β to measure (NaN if none found).
     NextBeta(f64),
-    /// Retrain complete, new β_c estimate.
+    /// Retrain complete, new `β_c` estimate.
     Retrained { beta_c: f64 },
     /// Bootstrap complete, how many data points loaded.
     Bootstrapped { n_points: usize, beta_c: f64 },
@@ -110,6 +112,7 @@ pub struct QuenchedNpuStats {
 
 impl QuenchedNpuStats {
     /// Create a new stats tracker with all counters at zero.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -117,12 +120,17 @@ impl QuenchedNpuStats {
 
 /// Spawn the quenched NPU worker thread.
 ///
-/// Returns (request_sender, response_receiver) for communication.
-#[allow(clippy::expect_used)] // thread spawn failure is fatal
-pub fn spawn_quenched_npu_worker() -> (
-    mpsc::Sender<QuenchedNpuRequest>,
-    mpsc::Receiver<QuenchedNpuResponse>,
-) {
+/// Returns (`request_sender`, `response_receiver`) for communication.
+///
+/// # Errors
+/// Returns `Err` if the thread fails to spawn (OOM, resource exhaustion).
+pub fn spawn_quenched_npu_worker() -> Result<
+    (
+        mpsc::Sender<QuenchedNpuRequest>,
+        mpsc::Receiver<QuenchedNpuResponse>,
+    ),
+    std::io::Error,
+> {
     let (req_tx, req_rx) = mpsc::channel::<QuenchedNpuRequest>();
     let (resp_tx, resp_rx) = mpsc::channel::<QuenchedNpuResponse>();
 
@@ -289,7 +297,7 @@ pub fn spawn_quenched_npu_worker() -> (
                                 reservoir_size: n.reservoir_size(),
                                 output_size: n.output_size(),
                                 leak_rate: n.leak_rate(),
-                                activation: Default::default(),
+                                activation: Activation::default(),
                             };
                             if let Some(parent) = std::path::Path::new(&path).parent() {
                                 std::fs::create_dir_all(parent).ok();
@@ -322,10 +330,9 @@ pub fn spawn_quenched_npu_worker() -> (
                     QuenchedNpuRequest::Shutdown => break,
                 }
             }
-        })
-        .expect("spawn NPU worker thread");
+        })?;
 
-    (req_tx, resp_rx)
+    Ok((req_tx, resp_rx))
 }
 
 /// Run a set of β points with NPU-assisted thermalization, rejection prediction,

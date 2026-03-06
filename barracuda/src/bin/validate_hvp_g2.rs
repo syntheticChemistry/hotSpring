@@ -6,7 +6,7 @@
 //! - Thermalize gauge configs with Omelyan HMC
 //! - Compute point-to-all staggered propagator via CG
 //! - Measure time-slice correlator C(t)
-//! - Apply HVP kernel to extract a_μ^HVP (lattice units)
+//! - Apply HVP kernel to extract `a_μ^HVP` (lattice units)
 //!
 //! This is a quenched approximation (no dynamical fermions) on 8⁴
 //! to validate the observable measurement infrastructure. Full
@@ -23,7 +23,7 @@
 //! | Config consistency | HVP stable across configs |
 //! | β dependence | Higher β → larger HVP (finer lattice) |
 //! | Mass dependence | Lighter quark → larger C(t) at fixed β |
-//! | Multi-config average | Variance decreases with N_cfg |
+//! | Multi-config average | Variance decreases with `N_cfg` |
 //!
 //! # References
 //!

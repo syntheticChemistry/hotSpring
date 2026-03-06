@@ -95,7 +95,7 @@ fn gpu_beta_scan(
             beta,
             mean_plaq: plaq_sum / n_meas as f64,
             polyakov: poly_sum / n_meas as f64,
-            acceptance: n_accepted as f64 / n_meas as f64,
+            acceptance: f64::from(n_accepted) / n_meas as f64,
             n_traj: n_meas,
             gpu_ms,
         });

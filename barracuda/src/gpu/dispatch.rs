@@ -16,7 +16,7 @@ use super::GpuF64;
 
 /// Split workgroup count into (x, y, 1) for 2D dispatch when x > 65535.
 /// Shaders must linearize via `gid.x + gid.y * num_workgroups.x * WG_SIZE`.
-pub fn split_workgroups(total: u32) -> (u32, u32, u32) {
+pub const fn split_workgroups(total: u32) -> (u32, u32, u32) {
     if total <= 65535 {
         (total, 1, 1)
     } else {
@@ -30,6 +30,7 @@ impl GpuF64 {
     /// Create a bind group from a pipeline and ordered buffer slice.
     ///
     /// Each buffer is bound at binding index 0, 1, 2, ... in order.
+    #[must_use]
     pub fn create_bind_group(
         &self,
         pipeline: &wgpu::ComputePipeline,

@@ -101,8 +101,8 @@ fn main() {
         plaq_sum += result.plaquette;
     }
 
-    let accept_rate = n_accepted as f64 / n_traj as f64;
-    let mean_plaq = plaq_sum / n_traj as f64;
+    let accept_rate = f64::from(n_accepted) / f64::from(n_traj);
+    let mean_plaq = plaq_sum / f64::from(n_traj);
     println!();
     println!(
         "  Acceptance: {n_accepted}/{n_traj} ({:.0}%)",

@@ -48,10 +48,10 @@ impl EosPoint {
     }
 }
 
-/// HotQCD equation of state table (Bazavov et al. 2014).
+/// `HotQCD` equation of state table (Bazavov et al. 2014).
 #[derive(Clone, Debug)]
 pub struct HotQcdEos {
-    /// (T/T_c, p/T⁴, ε/T⁴, s/T³, trace anomaly) points.
+    /// (`T/T_c`, p/T⁴, ε/T⁴, s/T³, trace anomaly) points.
     pub points: Vec<EosPoint>,
 }
 

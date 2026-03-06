@@ -11,7 +11,7 @@
 //! - Unitarity preservation
 //!
 //! Usage:
-//!   cargo run --release --bin validate_gradient_flow
+//!   cargo run --release --bin `validate_gradient_flow`
 
 use hotspring_barracuda::lattice::gradient_flow::{
     energy_density, find_t0, run_flow, FlowIntegrator, FlowMeasurement,
@@ -20,7 +20,10 @@ use hotspring_barracuda::lattice::wilson::Lattice;
 use std::time::Instant;
 
 fn print_flow_table(measurements: &[FlowMeasurement]) {
-    println!("    {:>8} {:>12} {:>12} {:>12}", "t", "E(t)", "t²E(t)", "⟨P⟩");
+    println!(
+        "    {:>8} {:>12} {:>12} {:>12}",
+        "t", "E(t)", "t²E(t)", "⟨P⟩"
+    );
     println!("    {:>8} {:>12} {:>12} {:>12}", "---", "---", "---", "---");
     for m in measurements {
         println!(
@@ -64,7 +67,10 @@ fn run_single(
 
     let elapsed = t0.elapsed();
     let p_final = lattice.average_plaquette();
-    println!("    Final: ⟨P⟩={p_final:.6}, E={:.6}", results.last().unwrap().energy_density);
+    println!(
+        "    Final: ⟨P⟩={p_final:.6}, E={:.6}",
+        results.last().unwrap().energy_density
+    );
     println!("    Wall time: {:.2}s", elapsed.as_secs_f64());
 
     let u = lattice.link([0, 0, 0, 0], 0);
@@ -99,9 +105,33 @@ fn main() {
     let eps = 0.01;
     let t_max = 1.0;
 
-    let results_euler = run_single("4⁴ β=6.0", [4, 4, 4, 4], 6.0, FlowIntegrator::Euler, eps, t_max, seed);
-    let results_rk2 = run_single("4⁴ β=6.0", [4, 4, 4, 4], 6.0, FlowIntegrator::Rk2, eps, t_max, seed);
-    let results_rk3 = run_single("4⁴ β=6.0", [4, 4, 4, 4], 6.0, FlowIntegrator::Rk3Luscher, eps, t_max, seed);
+    let results_euler = run_single(
+        "4⁴ β=6.0",
+        [4, 4, 4, 4],
+        6.0,
+        FlowIntegrator::Euler,
+        eps,
+        t_max,
+        seed,
+    );
+    let results_rk2 = run_single(
+        "4⁴ β=6.0",
+        [4, 4, 4, 4],
+        6.0,
+        FlowIntegrator::Rk2,
+        eps,
+        t_max,
+        seed,
+    );
+    let results_rk3 = run_single(
+        "4⁴ β=6.0",
+        [4, 4, 4, 4],
+        6.0,
+        FlowIntegrator::Rk3Luscher,
+        eps,
+        t_max,
+        seed,
+    );
 
     println!("\n  ── Integrator Convergence at t=1.0 ──");
     let e_euler = results_euler.last().unwrap().energy_density;

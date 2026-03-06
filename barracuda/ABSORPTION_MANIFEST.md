@@ -1,7 +1,7 @@
 # hotSpring → BarraCuda/ToadStool Absorption Manifest
 
-**Date:** March 2, 2026
-**Version:** v0.6.17 (synced to toadStool S80)
+**Date:** March 6, 2026
+**Version:** v0.6.18 (synced to toadStool S93+)
 **License:** AGPL-3.0-only
 
 ---
@@ -50,6 +50,7 @@ These were written by hotSpring and absorbed by toadstool/barracuda:
 | GpuDriverProfile | S15 | `barracuda::device::capabilities` | Leaning on upstream |
 | WgslOptimizer | S15 | `barracuda::shaders` | Leaning on upstream |
 | Staggered Dirac + CG | S31d | `ops/lattice/dirac.rs`, `ops/lattice/cg.rs` | **Fully absorbed upstream** — Dirac 8/8, CG 9/9 |
+| Brain B2/D1 | v0.6.18 | NautilusShell API | **Real implementations** (evolved from placeholder) |
 
 ---
 
@@ -66,6 +67,7 @@ CPU reference implementations, and validation suites.
 | ~~Staggered Dirac~~ | ~~`lattice/dirac.rs`~~ | — | — | ✅ **Absorbed** (S31d) — `ops/lattice/dirac.rs` |
 | ~~CG Solver~~ | ~~`lattice/cg.rs`~~ | — | — | ✅ **Absorbed** (S31d) — `ops/lattice/cg.rs` |
 | ESN Reservoir | `md/reservoir/` | `esn_reservoir_update.wgsl`, `esn_readout.wgsl` | 16+ | Echo State Network for transport/phase prediction |
+| esn_baseline | library module | — | — | **Extracted to library** (v0.6.18) — ready for absorption |
 | GPU Polyakov loop | `lattice/shaders/polyakov_loop_f64.wgsl` | WGSL compute shader | 6/6 | GPU-resident Polyakov loop (v0.6.13, bidirectional with toadStool) |
 | Naga-safe SU(3) math | `lattice/shaders/su3_math_f64.wgsl` | WGSL pure math | 13/13 | Composition-safe SU(3) without ptr I/O (v0.6.13) |
 

@@ -12,15 +12,15 @@ use super::{
 /// Observable scalars for the readback stream.
 ///
 /// 8-feature vector for NPU multi-output ESN monitoring:
-/// [plaquette, plaquette_var, polyakov_mag, polyakov_phase,
-///  action_density, acceptance_rate, delta_h_mag, cg_iterations]
+/// [plaquette, `plaquette_var`, `polyakov_mag`, `polyakov_phase`,
+///  `action_density`, `acceptance_rate`, `delta_h_mag`, `cg_iterations`]
 #[derive(Clone, Debug)]
 pub struct StreamObservables {
-    /// Mean plaquette ⟨P⟩ = Re Tr(U□) / (3·N_plaq).
+    /// Mean plaquette ⟨P⟩ = Re Tr(U□) / (`3·N_plaq`).
     pub plaquette: f64,
     /// Real part of the Polyakov loop (order parameter for deconfinement).
     pub polyakov_re: f64,
-    /// Hamiltonian change ΔH = H_new − H_old (Metropolis test input).
+    /// Hamiltonian change ΔH = `H_new` − `H_old` (Metropolis test input).
     pub delta_h: f64,
     /// Number of CG iterations taken this trajectory.
     pub cg_iterations: usize,
@@ -30,7 +30,7 @@ pub struct StreamObservables {
     pub plaquette_var: f64,
     /// Polyakov loop phase angle (atan2 of imaginary/real).
     pub polyakov_phase: f64,
-    /// Action density S / V_4.
+    /// Action density S / `V_4`.
     pub action_density: f64,
 }
 
@@ -191,6 +191,7 @@ impl BidirectionalStream {
     }
 
     /// Acceptance rate so far.
+    #[must_use]
     pub fn acceptance_rate(&self) -> f64 {
         if self.trajectories == 0 {
             0.0

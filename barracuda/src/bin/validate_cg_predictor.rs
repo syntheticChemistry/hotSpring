@@ -62,8 +62,10 @@ fn main() {
             // converge faster) and inversely with beta (stronger coupling = rougher).
             // This is a physically motivated model of CG behavior.
             let roughness = 1.0 - result.plaquette;
-            let simulated_cg_iters =
-                50.0 + 200.0 * roughness + 30.0 * (6.0 / beta) + 10.0 * ((i as f64) * 0.5).sin();
+            let simulated_cg_iters = 10.0f64.mul_add(
+                (f64::from(i) * 0.5).sin(),
+                30.0f64.mul_add(6.0 / beta, 200.0f64.mul_add(roughness, 50.0)),
+            );
 
             let features = vec![
                 (beta - 5.0) / 2.0,   // normalized beta
@@ -172,7 +174,7 @@ fn main() {
 
     let mean_err: f64 = errors.iter().sum::<f64>() / errors.len().max(1) as f64;
     let max_err: f64 = errors.iter().copied().fold(0.0, f64::max);
-    let cat_acc = correct_category as f64 / total.max(1) as f64;
+    let cat_acc = f64::from(correct_category) / total.max(1) as f64;
 
     println!("  Mean absolute error: {mean_err:.1} iterations");
     println!("  Max absolute error: {max_err:.1} iterations");
@@ -221,7 +223,7 @@ fn main() {
 
         // With predictor: allocate predicted iterations + 20% buffer
         let allocated = (pred * 300.0 * 1.2).min(300.0);
-        wasted_with += (allocated - actual * 300.0).max(0.0);
+        wasted_with += actual.mul_add(-300.0, allocated).max(0.0);
     }
 
     let savings_pct = if wasted_without > 0.0 {

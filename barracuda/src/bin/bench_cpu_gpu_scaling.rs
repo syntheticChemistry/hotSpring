@@ -11,7 +11,7 @@
 //! ## fp64 context
 //!
 //! Consumer Ampere/Ada GPUs have hardware fp64:fp32 ~1:64 (confirmed by
-//! bench_fp64_ratio). MD workloads are memory-bandwidth-bound (low arithmetic
+//! `bench_fp64_ratio`). MD workloads are memory-bandwidth-bound (low arithmetic
 //! intensity), so fp64 vs fp32 throughput difference is smaller than the raw
 //! instruction ratio suggests. Double-float (f32-pair) on FP32 cores delivers
 //! 9.9× native f64 throughput for compute-bound kernels. Titan V (Volta) has
@@ -59,9 +59,7 @@ async fn run_gpu(
     match algorithm {
         ForceAlgorithm::AllPairs => simulation::run_simulation(cfg).await,
         ForceAlgorithm::CellList => simulation::run_simulation_celllist(cfg).await,
-        ForceAlgorithm::VerletList { skin } => {
-            simulation::run_simulation_verlet(cfg, skin).await
-        }
+        ForceAlgorithm::VerletList { skin } => simulation::run_simulation_verlet(cfg, skin).await,
     }
 }
 

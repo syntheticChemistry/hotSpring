@@ -27,7 +27,7 @@ pub type ColorVector = [Complex64; 3];
 /// Staggered fermion field: one `ColorVector` per lattice site.
 #[must_use]
 pub struct FermionField {
-    /// Color vectors: data[site][color].
+    /// Color vectors: data\[site\]\[color\].
     pub data: Vec<ColorVector>,
     /// Lattice volume (number of sites).
     pub volume: usize,

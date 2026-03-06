@@ -39,7 +39,9 @@ pub fn force_comparison_stats(
         let fy_cl = forces_cl[i * 3 + 1];
         let fz_cl = forces_cl[i * 3 + 2];
 
-        let mag_ap = (fx_ap * fx_ap + fy_ap * fy_ap + fz_ap * fz_ap).sqrt();
+        let mag_ap = fz_ap
+            .mul_add(fz_ap, fx_ap.mul_add(fx_ap, fy_ap * fy_ap))
+            .sqrt();
         let diff = (fz_ap - fz_cl)
             .mul_add(
                 fz_ap - fz_cl,
@@ -50,7 +52,11 @@ pub fn force_comparison_stats(
         total_force_mag_ap += mag_ap;
         rms_diff += diff * diff;
 
-        let rel = if mag_ap > MD_FORCE_MAGNITUDE_FLOOR { diff / mag_ap } else { diff };
+        let rel = if mag_ap > MD_FORCE_MAGNITUDE_FLOOR {
+            diff / mag_ap
+        } else {
+            diff
+        };
         if rel > threshold {
             n_mismatched += 1;
         }
@@ -95,10 +101,12 @@ pub fn print_force_mismatches(
 ) {
     let n_mismatched = (0..n)
         .filter(|&i| {
-            let mag_ap = (forces_ap[i * 3].powi(2)
-                + forces_ap[i * 3 + 1].powi(2)
-                + forces_ap[i * 3 + 2].powi(2))
-            .sqrt();
+            let mag_ap = forces_ap[i * 3 + 2]
+                .mul_add(
+                    forces_ap[i * 3 + 2],
+                    forces_ap[i * 3 + 1].mul_add(forces_ap[i * 3 + 1], forces_ap[i * 3].powi(2)),
+                )
+                .sqrt();
             let diff = (forces_ap[i * 3 + 2] - forces_cl[i * 3 + 2])
                 .mul_add(
                     forces_ap[i * 3 + 2] - forces_cl[i * 3 + 2],
@@ -108,7 +116,11 @@ pub fn print_force_mismatches(
                     ),
                 )
                 .sqrt();
-            let rel = if mag_ap > MD_FORCE_MAGNITUDE_FLOOR { diff / mag_ap } else { diff };
+            let rel = if mag_ap > MD_FORCE_MAGNITUDE_FLOOR {
+                diff / mag_ap
+            } else {
+                diff
+            };
             rel > threshold
         })
         .count();
@@ -125,14 +137,20 @@ pub fn print_force_mismatches(
                 (forces_ap[i * 3], forces_ap[i * 3 + 1], forces_ap[i * 3 + 2]);
             let (fx_cl, fy_cl, fz_cl) =
                 (forces_cl[i * 3], forces_cl[i * 3 + 1], forces_cl[i * 3 + 2]);
-            let mag_ap = (fx_ap * fx_ap + fy_ap * fy_ap + fz_ap * fz_ap).sqrt();
+            let mag_ap = fz_ap
+                .mul_add(fz_ap, fx_ap.mul_add(fx_ap, fy_ap * fy_ap))
+                .sqrt();
             let diff = (fz_ap - fz_cl)
                 .mul_add(
                     fz_ap - fz_cl,
                     (fy_ap - fy_cl).mul_add(fy_ap - fy_cl, (fx_ap - fx_cl).powi(2)),
                 )
                 .sqrt();
-            let rel = if mag_ap > MD_FORCE_MAGNITUDE_FLOOR { diff / mag_ap } else { diff };
+            let rel = if mag_ap > MD_FORCE_MAGNITUDE_FLOOR {
+                diff / mag_ap
+            } else {
+                diff
+            };
             if rel > threshold {
                 println!(
                     "    particle {i:>5}: AP=({fx_ap:+.6e},{fy_ap:+.6e},{fz_ap:+.6e}) CL=({fx_cl:+.6e},{fy_cl:+.6e},{fz_cl:+.6e}) Δ={diff:.2e}"

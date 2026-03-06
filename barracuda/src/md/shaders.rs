@@ -161,8 +161,7 @@ pub const SHADER_YUKAWA_FORCE_INDIRECT_DF64: &str =
 // neighbor list instead of all particles (AllPairs) or the full
 // 27-cell stencil (CellList). Fewest interactions per thread.
 /// Yukawa Verlet force (f64) WGSL source.
-pub const SHADER_YUKAWA_FORCE_VERLET: &str =
-    include_str!("shaders/yukawa_force_verlet_f64.wgsl");
+pub const SHADER_YUKAWA_FORCE_VERLET: &str = include_str!("shaders/yukawa_force_verlet_f64.wgsl");
 /// Yukawa Verlet force (DF64) WGSL source.
 pub const SHADER_YUKAWA_FORCE_VERLET_DF64: &str =
     include_str!("shaders/yukawa_force_verlet_df64.wgsl");

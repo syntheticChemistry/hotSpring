@@ -69,7 +69,7 @@ pub const B5_QCD_PRIORITY: usize = 11;
 pub const C0_POTTS_CG_COST: usize = 12;
 /// Potts proxy: order/disorder phase.
 pub const C1_POTTS_PHASE: usize = 13;
-/// Potts proxy: estimated critical β_c.
+/// Potts proxy: estimated critical `β_c`.
 pub const C2_POTTS_BETA_C: usize = 14;
 /// Potts proxy: phase anomaly score.
 pub const C3_POTTS_ANOMALY: usize = 15;
@@ -169,7 +169,7 @@ pub struct HeadGroupDisagreement {
 }
 
 impl HeadGroupDisagreement {
-    /// Compute disagreement from a full head output vector (length >= NUM_HEADS).
+    /// Compute disagreement from a full head output vector (length >= `NUM_HEADS`).
     /// Returns default (all zeros) if the output is from a Gen 1 model (< 36 heads).
     #[must_use]
     pub fn from_outputs(outputs: &[f64]) -> Self {
@@ -211,10 +211,12 @@ impl HeadGroupDisagreement {
     /// 0.0 = full agreement, 1.0 = maximum disagreement.
     #[must_use]
     pub fn urgency(&self) -> f64 {
-        (self.delta_cg * 0.4
-            + self.delta_phase * 0.3
-            + self.delta_anomaly * 0.2
-            + self.delta_priority * 0.1)
+        self.delta_priority
+            .mul_add(
+                0.1,
+                self.delta_anomaly
+                    .mul_add(0.2, self.delta_cg.mul_add(0.4, self.delta_phase * 0.3)),
+            )
             .clamp(0.0, 1.0)
     }
 }

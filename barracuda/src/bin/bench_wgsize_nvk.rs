@@ -470,7 +470,10 @@ fn bench_shader(
             pass.dispatch_workgroups(batch, 1, 1);
         }
         queue.submit(Some(enc.finish()));
-        let _ = device.poll(wgpu::PollType::Wait { submission_index: None, timeout: None });
+        let _ = device.poll(wgpu::PollType::Wait {
+            submission_index: None,
+            timeout: None,
+        });
     };
 
     let _ = wg_size;

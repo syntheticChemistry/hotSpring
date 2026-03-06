@@ -24,9 +24,10 @@
 //! a slower cycle (every 500 observations) for structural adaptation.
 
 use crate::md::neighbor::ForceAlgorithm;
-use crate::tolerances::{MD_TARGET_TEMPERATURE_GUARD, MD_ENERGY_FLOOR,
-    VERLET_SKIN_FRACTION, BRAIN_EQUILIBRIUM_THRESHOLD};
-use barracuda::nautilus::{InstanceId, NautilusShell, ReservoirInput, ShellConfig};
+use crate::tolerances::{
+    BRAIN_EQUILIBRIUM_THRESHOLD, MD_ENERGY_FLOOR, MD_TARGET_TEMPERATURE_GUARD, VERLET_SKIN_FRACTION,
+};
+use barracuda::nautilus::{InstanceId, LinearReadout, NautilusShell, ReservoirInput, ShellConfig};
 
 // ═══════════════════════════════════════════════════════════════════
 //  MD Head Layout — 12 heads organized by domain
@@ -48,7 +49,7 @@ pub const B2_MEMORY_PRESSURE: usize = 5;
 pub const C0_OPTIMAL_SKIN: usize = 6;
 /// Optimal dump interval steering.
 pub const C1_OPTIMAL_DUMP_INTERVAL: usize = 7;
-/// Algorithm effectiveness score (AllPairs vs CellList vs Verlet).
+/// Algorithm effectiveness score (`AllPairs` vs `CellList` vs Verlet).
 pub const C2_ALGORITHM_SCORE: usize = 8;
 /// Energy anomaly detector (drift or explosion).
 pub const D0_ENERGY_ANOMALY: usize = 9;
@@ -175,8 +176,12 @@ const TRUST_THRESHOLD: f64 = 0.3;
 impl MdHeadConfidence {
     fn new() -> Self {
         Self {
-            predictions: vec![Vec::with_capacity(CONFIDENCE_WINDOW); MD_NUM_HEADS],
-            actuals: vec![Vec::with_capacity(CONFIDENCE_WINDOW); MD_NUM_HEADS],
+            predictions: (0..MD_NUM_HEADS)
+                .map(|_| Vec::with_capacity(CONFIDENCE_WINDOW))
+                .collect(),
+            actuals: (0..MD_NUM_HEADS)
+                .map(|_| Vec::with_capacity(CONFIDENCE_WINDOW))
+                .collect(),
             trusted: vec![false; MD_NUM_HEADS],
             r2: vec![0.0; MD_NUM_HEADS],
             window: CONFIDENCE_WINDOW,
@@ -214,7 +219,10 @@ impl MdHeadConfidence {
         let offset_p = pred.len().saturating_sub(n);
         let offset_a = actual.len().saturating_sub(n);
         let mean_a: f64 = actual[offset_a..].iter().sum::<f64>() / n as f64;
-        let ss_tot: f64 = actual[offset_a..].iter().map(|a| (a - mean_a).powi(2)).sum();
+        let ss_tot: f64 = actual[offset_a..]
+            .iter()
+            .map(|a| (a - mean_a).powi(2))
+            .sum();
         if ss_tot < MD_ENERGY_FLOOR {
             self.r2[head] = 0.0;
             self.trusted[head] = false;
@@ -251,8 +259,57 @@ fn md_event_to_reservoir_input(event: &MdStepEvent) -> ReservoirInput {
     ])
 }
 
-/// Build 12-dimensional target vector matching MD_NUM_HEADS for Nautilus readout.
-fn md_event_to_target(event: &MdStepEvent, first_energy_per_particle: Option<f64>) -> Vec<f64> {
+/// Reference memory for pressure scaling (4 GB).
+const REF_MEMORY_BYTES: f64 = 4.0 * 1024.0 * 1024.0 * 1024.0;
+
+/// Bytes per pair/neighbor (position + force components).
+const BYTES_PER_ENTRY: f64 = 24.0;
+
+/// Compute GPU memory pressure estimate from particle count and algorithm.
+#[must_use]
+fn memory_pressure(event: &MdStepEvent) -> f64 {
+    let n = event.n_particles as f64;
+    let bytes = match event.algorithm {
+        ForceAlgorithm::AllPairs => n * n * BYTES_PER_ENTRY,
+        ForceAlgorithm::CellList => n * 26.0 * BYTES_PER_ENTRY,
+        ForceAlgorithm::VerletList { .. } => {
+            let avg_neighbors = 26.0 * (1.0 + event.skin_fraction);
+            n * avg_neighbors * BYTES_PER_ENTRY
+        }
+    };
+    (bytes / REF_MEMORY_BYTES).clamp(0.0, 1.0)
+}
+
+/// Compute force anomaly from sudden energy jumps vs running stats over recent events.
+#[must_use]
+fn force_anomaly(event: &MdStepEvent, recent_energy_window: Option<&[f64]>) -> f64 {
+    let current_ep = event.total_energy / event.n_particles as f64;
+    let Some(window) = recent_energy_window else {
+        return 0.0;
+    };
+    let take = window.len().min(10);
+    if take < 3 {
+        return 0.0;
+    }
+    let start = window.len().saturating_sub(take);
+    let slice = &window[start..];
+    let mean: f64 = slice.iter().sum::<f64>() / slice.len() as f64;
+    let variance: f64 = slice.iter().map(|e| (e - mean).powi(2)).sum::<f64>() / slice.len() as f64;
+    let std = (variance + 1e-20).sqrt();
+    let deviation = (current_ep - mean).abs();
+    if deviation > 10.0 * std {
+        1.0
+    } else {
+        0.0
+    }
+}
+
+/// Build 12-dimensional target vector matching `MD_NUM_HEADS` for Nautilus readout.
+fn md_event_to_target(
+    event: &MdStepEvent,
+    first_energy_per_particle: Option<f64>,
+    recent_energy_window: Option<&[f64]>,
+) -> Vec<f64> {
     let energy_drift = if let Some(first_e) = first_energy_per_particle {
         if first_e.abs() > MD_ENERGY_FLOOR {
             (event.total_energy / event.n_particles as f64 - first_e).abs() / first_e.abs()
@@ -276,22 +333,23 @@ fn md_event_to_target(event: &MdStepEvent, first_energy_per_particle: Option<f64
     let sps_norm = event.steps_per_sec.ln().max(0.0) / 10.0;
 
     vec![
-        energy_drift.min(1.0),                          // A0: energy drift
-        temp_deviation.min(1.0),                         // A1: temp deviation
-        equil_progress,                                  // A2: equilibrium progress
-        sps_norm,                                        // B0: steps/s
-        rebuild_norm,                                    // B1: rebuild frequency
-        0.0,                                             // B2: memory pressure (placeholder)
-        event.skin_fraction / 0.5,                       // C0: current skin
-        (event.step as f64 / 100_000.0).min(1.0),        // C1: dump interval
-        match event.algorithm {                          // C2: algorithm effectiveness
+        energy_drift.min(1.0),                    // A0: energy drift
+        temp_deviation.min(1.0),                  // A1: temp deviation
+        equil_progress,                           // A2: equilibrium progress
+        sps_norm,                                 // B0: steps/s
+        rebuild_norm,                             // B1: rebuild frequency
+        memory_pressure(event),                   // B2: memory pressure
+        event.skin_fraction / 0.5,                // C0: current skin
+        (event.step as f64 / 100_000.0).min(1.0), // C1: dump interval
+        match event.algorithm {
+            // C2: algorithm effectiveness
             ForceAlgorithm::AllPairs => 0.0,
             ForceAlgorithm::CellList => 0.5,
             ForceAlgorithm::VerletList { .. } => 1.0,
         },
-        (energy_drift * 100.0).min(1.0),                 // D0: energy anomaly
-        0.0,                                             // D1: force anomaly (placeholder)
-        equil_progress,                                  // D2: convergence (mirrors A2)
+        (energy_drift * 100.0).min(1.0), // D0: energy anomaly
+        force_anomaly(event, recent_energy_window), // D1: force anomaly
+        equil_progress,                  // D2: convergence (mirrors A2)
     ]
 }
 
@@ -318,7 +376,11 @@ fn target_variance(observations: &[(ReservoirInput, Vec<f64>)], window: usize) -
     let mut total_var = 0.0;
     for d in 0..n_dims {
         let mean: f64 = slice.iter().map(|(_, t)| t[d]).sum::<f64>() / count;
-        let var: f64 = slice.iter().map(|(_, t)| (t[d] - mean).powi(2)).sum::<f64>() / count;
+        let var: f64 = slice
+            .iter()
+            .map(|(_, t)| (t[d] - mean).powi(2))
+            .sum::<f64>()
+            / count;
         total_var += var;
     }
     total_var / n_dims as f64
@@ -327,6 +389,11 @@ fn target_variance(observations: &[(ReservoirInput, Vec<f64>)], window: usize) -
 // ═══════════════════════════════════════════════════════════════════
 //  MD Brain — Nautilus-only reservoir for MD simulations
 // ═══════════════════════════════════════════════════════════════════
+
+/// MD Brain: unified Nautilus evolutionary reservoir for molecular dynamics.
+///
+/// Maximum entries in the recent energy window for D1 force anomaly detection.
+const RECENT_ENERGY_WINDOW_CAP: usize = 20;
 
 /// MD Brain: unified Nautilus evolutionary reservoir for molecular dynamics.
 ///
@@ -351,21 +418,26 @@ pub struct MdBrain {
     first_energy_per_particle: Option<f64>,
     /// Whether the readout has been trained at least once.
     readout_trained: bool,
+    /// Recent energy per particle (for D1 force anomaly: sudden jump detection).
+    recent_energy_window: Vec<f64>,
 }
 
 impl MdBrain {
     /// Create a new MD brain with Nautilus-only configuration.
     #[must_use]
     pub fn new() -> Self {
-        let nautilus = NautilusShell::from_seed(
-            ShellConfig {
-                pop_size: 16,
-                output_dim: MD_NUM_HEADS,
-                ..ShellConfig::default()
-            },
+        let config = ShellConfig {
+            pop_size: 16,
+            ..ShellConfig::default()
+        };
+        let mut nautilus = NautilusShell::from_seed(
+            config.clone(),
             InstanceId("md-brain".to_string()),
             0xbadd_cafe,
         );
+        let l2 = config.board_config.grid_size * config.board_config.grid_size;
+        let input_dim = config.pop_size * l2;
+        nautilus.readout = LinearReadout::new(input_dim, MD_NUM_HEADS, config.lambda);
         Self {
             confidence: MdHeadConfidence::new(),
             nautilus,
@@ -375,6 +447,7 @@ impl MdBrain {
             last_retrain_at: 0,
             first_energy_per_particle: None,
             readout_trained: false,
+            recent_energy_window: Vec::with_capacity(RECENT_ENERGY_WINDOW_CAP),
         }
     }
 
@@ -386,29 +459,41 @@ impl MdBrain {
     pub fn observe(&mut self, event: &MdStepEvent) -> MdSteering {
         // Track first energy for drift calculation
         if self.first_energy_per_particle.is_none() {
-            self.first_energy_per_particle =
-                Some(event.total_energy / event.n_particles as f64);
+            self.first_energy_per_particle = Some(event.total_energy / event.n_particles as f64);
         }
 
         let naut_input = md_event_to_reservoir_input(event);
-        let target = md_event_to_target(event, self.first_energy_per_particle);
+        let target = md_event_to_target(
+            event,
+            self.first_energy_per_particle,
+            Some(&self.recent_energy_window),
+        );
         self.observations.push((naut_input, target));
+
+        // Update energy window for D1 force anomaly (use window from before this event)
+        let current_ep = event.total_energy / event.n_particles as f64;
+        if self.recent_energy_window.len() >= RECENT_ENERGY_WINDOW_CAP {
+            self.recent_energy_window.remove(0);
+        }
+        self.recent_energy_window.push(current_ep);
 
         // Cap observations to prevent unbounded growth
         const MAX_OBS: usize = 2000;
         if self.observations.len() > MAX_OBS + 500 {
             let excess = self.observations.len() - MAX_OBS;
-            let mut thinned: Vec<_> = self.observations.drain(..excess)
+            let mut thinned: Vec<_> = self
+                .observations
+                .drain(..excess)
                 .enumerate()
                 .filter(|(i, _)| i % 3 == 0)
                 .map(|(_, v)| v)
                 .collect();
-            thinned.extend(self.observations.drain(..));
+            thinned.append(&mut self.observations);
             self.observations = thinned;
         }
 
         // Evolve Nautilus boards periodically (structural adaptation)
-        if self.observations.len() >= 20 && self.observations.len() % 500 == 0 {
+        if self.observations.len() >= 20 && self.observations.len().is_multiple_of(500) {
             self.evolve_boards();
         }
 
@@ -420,11 +505,14 @@ impl MdBrain {
         // Predict and steer
         if self.readout_trained {
             let outputs = self.predict(event);
-            self.update_confidence(event, &outputs);
+            let target = self.observations.last().map(|(_, t)| t.clone());
+            if let Some(ref t) = target {
+                self.update_confidence(t, &outputs);
+            }
             return self.steer_from_outputs(&outputs, event);
         }
 
-        self.heuristic_steering(event)
+        Self::heuristic_steering(event)
     }
 
     /// Determine whether the readout should be retrained based on data density.
@@ -444,11 +532,11 @@ impl MdBrain {
         let variance = target_variance(&self.observations, 50);
 
         let interval = if variance > 0.1 {
-            30   // dense/changing data: retrain often
+            30 // dense/changing data: retrain often
         } else if variance > 0.01 {
-            100  // moderate: standard pace
+            100 // moderate: standard pace
         } else {
-            300  // stable/equilibrated: slow pace
+            300 // stable/equilibrated: slow pace
         };
 
         since_last >= interval
@@ -459,10 +547,10 @@ impl MdBrain {
         let (inputs, targets): (Vec<_>, Vec<_>) = self.observations.iter().cloned().unzip();
         let responses: Vec<Vec<f64>> = inputs
             .iter()
-            .map(|inp| self.nautilus.population_respond(inp))
+            .map(|inp| self.nautilus.population.respond_all(inp))
             .collect();
 
-        if self.nautilus.retrain_readout(&responses, &targets).is_ok() {
+        if self.nautilus.readout.train(&responses, &targets).is_ok() {
             self.readout_retrains += 1;
             self.last_retrain_at = self.observations.len();
             self.readout_trained = true;
@@ -483,37 +571,34 @@ impl MdBrain {
     /// Predict via Nautilus shell for a given event.
     fn predict(&self, event: &MdStepEvent) -> Vec<f64> {
         let input = md_event_to_reservoir_input(event);
-        self.nautilus.predict(&input).unwrap_or_else(|| vec![0.0; MD_NUM_HEADS])
+        self.nautilus
+            .predict(&input)
+            .unwrap_or_else(|| vec![0.0; MD_NUM_HEADS])
     }
 
-    fn update_confidence(&mut self, event: &MdStepEvent, outputs: &[f64]) {
-        let target = md_event_to_target(event, self.first_energy_per_particle);
+    fn update_confidence(&mut self, target: &[f64], outputs: &[f64]) {
         for (h, (pred, actual)) in outputs.iter().zip(target.iter()).enumerate() {
             self.confidence.record(h, *pred, *actual);
         }
     }
 
     fn steer_from_outputs(&self, outputs: &[f64], event: &MdStepEvent) -> MdSteering {
-        let skin = if self.confidence.is_trusted(C0_OPTIMAL_SKIN)
-            && self.readout_retrains > 5
-        {
+        let skin = if self.confidence.is_trusted(C0_OPTIMAL_SKIN) && self.readout_retrains > 5 {
             (outputs[C0_OPTIMAL_SKIN] * 0.5).clamp(0.05, 0.5)
         } else {
             VERLET_SKIN_FRACTION
         };
 
-        let equilibrium = if self.confidence.is_trusted(A2_EQUILIBRIUM_PROGRESS)
-            && self.readout_retrains > 5
-        {
-            outputs[A2_EQUILIBRIUM_PROGRESS] > 0.95
-        } else {
-            let temp_dev = (event.temperature - event.target_temperature).abs()
-                / event.target_temperature.max(MD_TARGET_TEMPERATURE_GUARD);
-            temp_dev < BRAIN_EQUILIBRIUM_THRESHOLD
-        };
+        let equilibrium =
+            if self.confidence.is_trusted(A2_EQUILIBRIUM_PROGRESS) && self.readout_retrains > 5 {
+                outputs[A2_EQUILIBRIUM_PROGRESS] > 0.95
+            } else {
+                let temp_dev = (event.temperature - event.target_temperature).abs()
+                    / event.target_temperature.max(MD_TARGET_TEMPERATURE_GUARD);
+                temp_dev < BRAIN_EQUILIBRIUM_THRESHOLD
+            };
 
-        let anomaly = if self.confidence.is_trusted(D0_ENERGY_ANOMALY)
-            && self.readout_retrains > 5
+        let anomaly = if self.confidence.is_trusted(D0_ENERGY_ANOMALY) && self.readout_retrains > 5
         {
             outputs[D0_ENERGY_ANOMALY] > 0.7
         } else {
@@ -532,7 +617,7 @@ impl MdBrain {
         }
     }
 
-    fn heuristic_steering(&self, event: &MdStepEvent) -> MdSteering {
+    fn heuristic_steering(event: &MdStepEvent) -> MdSteering {
         let temp_dev = (event.temperature - event.target_temperature).abs()
             / event.target_temperature.max(MD_TARGET_TEMPERATURE_GUARD);
 
@@ -545,6 +630,7 @@ impl MdBrain {
     }
 
     /// Export the Nautilus shell + observations as JSON for cross-run persistence.
+    #[must_use]
     pub fn export_nautilus_json(&self) -> Option<String> {
         serde_json::to_string(&(
             &self.nautilus,
@@ -558,12 +644,10 @@ impl MdBrain {
     /// Import Nautilus shell from JSON, restoring cumulative state.
     pub fn import_nautilus_json(&mut self, json: &str) -> bool {
         // Try new format first (with readout_retrains)
-        if let Ok((shell, obs, gens, retrains)) = serde_json::from_str::<(
-            NautilusShell,
-            Vec<(ReservoirInput, Vec<f64>)>,
-            usize,
-            usize,
-        )>(json)
+        if let Ok((shell, obs, gens, retrains)) =
+            serde_json::from_str::<(NautilusShell, Vec<(ReservoirInput, Vec<f64>)>, usize, usize)>(
+                json,
+            )
         {
             self.nautilus = shell;
             self.observations = obs;
@@ -579,11 +663,8 @@ impl MdBrain {
             return true;
         }
         // Backward compat: old format (shell, obs, gens) without retrains
-        if let Ok((shell, obs, gens)) = serde_json::from_str::<(
-            NautilusShell,
-            Vec<(ReservoirInput, Vec<f64>)>,
-            usize,
-        )>(json)
+        if let Ok((shell, obs, gens)) =
+            serde_json::from_str::<(NautilusShell, Vec<(ReservoirInput, Vec<f64>)>, usize)>(json)
         {
             self.nautilus = shell;
             self.observations = obs;
@@ -598,19 +679,19 @@ impl MdBrain {
 
     /// Number of readout retrains completed (replaces old `trained_count`).
     #[must_use]
-    pub fn readout_retrain_count(&self) -> usize {
+    pub const fn readout_retrain_count(&self) -> usize {
         self.readout_retrains
     }
 
     /// Number of Nautilus generations evolved.
     #[must_use]
-    pub fn nautilus_generations(&self) -> usize {
+    pub const fn nautilus_generations(&self) -> usize {
         self.generations
     }
 
     /// Number of cumulative observations (persists across runs).
     #[must_use]
-    pub fn observation_count(&self) -> usize {
+    pub const fn observation_count(&self) -> usize {
         self.observations.len()
     }
 
@@ -636,10 +717,10 @@ impl Default for MdBrain {
 impl std::fmt::Debug for MdBrain {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("MdBrain")
-            .field("readout_retrains", &self.readout_retrains)
-            .field("nautilus_generations", &self.generations)
             .field("observations", &self.observations.len())
-            .finish()
+            .field("generations", &self.generations)
+            .field("readout_retrains", &self.readout_retrains)
+            .finish_non_exhaustive()
     }
 }
 
@@ -688,7 +769,7 @@ mod tests {
     fn heuristic_steering_converges() {
         let brain = MdBrain::new();
         let event = make_event(100, 1.0, -5.0, 0.01);
-        let steering = brain.heuristic_steering(&event);
+        let steering = MdBrain::heuristic_steering(&event);
         assert!(steering.equilibrium_converged);
         assert!(!steering.anomaly_detected);
         assert!((steering.skin_fraction - VERLET_SKIN_FRACTION).abs() < 1e-10);
@@ -707,7 +788,7 @@ mod tests {
     #[test]
     fn target_has_12_dimensions() {
         let event = make_event(100, 1.0, -5.0, 0.01);
-        let target = md_event_to_target(&event, Some(-4.0 / 2000.0));
+        let target = md_event_to_target(&event, Some(-4.0 / 2000.0), None);
         assert_eq!(target.len(), MD_NUM_HEADS);
     }
 

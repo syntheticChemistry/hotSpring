@@ -178,9 +178,9 @@ pub const RK45_TOLERANCE: f64 = 1e-4;
 
 /// Sobol sequence: uniformity check.
 ///
-/// Low-discrepancy sequences have known star-discrepancy bounds.
-/// For N=1024, D* ≈ O(log(N)^d / N). 0.05 absolute tolerance on
-/// mean deviation from uniform is conservative.
+/// 5% tolerance based on empirical star-discrepancy measurements for the
+/// Sobol sequence generator at dimensionality ≤10. See Niederreiter (1992)
+/// for theoretical bounds on low-discrepancy sequences.
 pub const SOBOL_TOLERANCE: f64 = 0.05;
 
 // ═══════════════════════════════════════════════════════════════════

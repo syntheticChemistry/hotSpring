@@ -25,7 +25,7 @@ const PLATEAU_DETECTION_TIME: f64 = 20.0;
 /// Velocity autocorrelation function result.
 #[derive(Clone, Debug)]
 pub struct Vacf {
-    /// Lag times in units of ω_p⁻¹.
+    /// Lag times in units of `ω_p⁻¹`.
     pub t_values: Vec<f64>,
     /// Normalized C(t) / C(0).
     pub c_values: Vec<f64>,
@@ -115,18 +115,22 @@ pub fn compute_vacf(vel_snapshots: &[Vec<f64>], n: usize, dt_dump: f64, max_lag:
 /// `[n_frames × N × 3]` flat layout, dispatches one GPU kernel, then applies
 /// the same Green-Kubo plateau detection as the CPU path.
 ///
-/// Returns `None` if the GPU op fails (caller should fall back to CPU).
+/// Returns `Ok(None)` when there are not enough frames; `Ok(Some(v))` on success;
+/// propagates GPU errors via `Err`.
+///
+/// # Errors
+/// Returns `Err` if the GPU compute fails.
 pub fn compute_vacf_upstream_gpu(
     device: &Arc<WgpuDevice>,
     vel_snapshots: &[Vec<f64>],
     n: usize,
     dt_dump: f64,
     max_lag: usize,
-) -> Option<Vacf> {
+) -> Result<Option<Vacf>, crate::error::HotSpringError> {
     let n_frames = vel_snapshots.len();
     let n_lag = max_lag.min(n_frames);
     if n_lag < 2 || n_frames < 2 {
-        return None;
+        return Ok(None);
     }
 
     let mut flat = Vec::with_capacity(n_frames * n * 3);
@@ -134,7 +138,7 @@ pub fn compute_vacf_upstream_gpu(
         flat.extend_from_slice(snap);
     }
 
-    let raw_c = barracuda::ops::md::compute_vacf_batch(device, &flat, n, n_frames, n_lag).ok()?;
+    let raw_c = barracuda::ops::md::compute_vacf_batch(device, &flat, n, n_frames, n_lag)?;
 
     let c0 = raw_c[0].max(DIVISION_GUARD);
     let c_normalized: Vec<f64> = raw_c.iter().map(|&c| c / c0).collect();
@@ -161,11 +165,11 @@ pub fn compute_vacf_upstream_gpu(
 
     let t_values: Vec<f64> = (0..n_lag).map(|i| i as f64 * dt_dump).collect();
 
-    Some(Vacf {
+    Ok(Some(Vacf {
         t_values,
         c_values: c_normalized,
         diffusion_coeff: d_star_max,
-    })
+    }))
 }
 
 /// Compute D* from mean-square displacement (Einstein relation).

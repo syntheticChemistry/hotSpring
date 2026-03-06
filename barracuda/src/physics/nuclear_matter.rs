@@ -23,13 +23,13 @@ use std::f64::consts::PI;
 pub struct NuclearMatterProps {
     /// Saturation density ρ₀ (fm⁻³). Empirical: ~0.16.
     pub rho0_fm3: f64,
-    /// Energy per nucleon at saturation E/A (MeV). Empirical: ~−16.
+    /// Energy per nucleon at saturation E/A (`MeV`). Empirical: ~−16.
     pub e_a_mev: f64,
-    /// Incompressibility K∞ (MeV). Empirical: ~230.
+    /// Incompressibility K∞ (`MeV`). Empirical: ~230.
     pub k_inf_mev: f64,
     /// Effective mass ratio m*/m. Empirical: ~0.7.
     pub m_eff_ratio: f64,
-    /// Symmetry energy J (MeV). Empirical: ~32.
+    /// Symmetry energy J (`MeV`). Empirical: ~32.
     pub j_mev: f64,
 }
 

@@ -85,7 +85,7 @@ pub const WGSL_SUM_REDUCE_F64: &str = include_str!("shaders/sum_reduce_f64.wgsl"
 /// WGSL shader: CG scalar alpha = rz / pAp (1-thread kernel).
 pub const WGSL_CG_COMPUTE_ALPHA_F64: &str = include_str!("shaders/cg_compute_alpha_f64.wgsl");
 
-/// WGSL shader: CG scalar beta = rz_new / rz_old + copy (1-thread kernel).
+/// WGSL shader: CG scalar beta = `rz_new` / `rz_old` + copy (1-thread kernel).
 pub const WGSL_CG_COMPUTE_BETA_F64: &str = include_str!("shaders/cg_compute_beta_f64.wgsl");
 
 /// WGSL shader: CG vector update x += alpha*p, r -= alpha*ap (reads alpha from GPU buffer).

@@ -113,7 +113,7 @@ fn main() {
     }
     let dispatch_time = t_dispatch.elapsed().as_secs_f64();
     let dispatch_mean_plaq: f64 = dispatch_plaqs.iter().sum::<f64>() / dispatch_plaqs.len() as f64;
-    let dispatch_acc_rate = dispatch_accepts as f64 / n_traj as f64;
+    let dispatch_acc_rate = f64::from(dispatch_accepts) / f64::from(n_traj);
     println!(
         "  Dispatch: ⟨P⟩={dispatch_mean_plaq:.6}, acc={:.0}%, {dispatch_time:.1}s",
         dispatch_acc_rate * 100.0
@@ -157,7 +157,7 @@ fn main() {
     }
     let streaming_time = t_streaming.elapsed().as_secs_f64();
     let stream_mean_plaq: f64 = stream_plaqs.iter().sum::<f64>() / stream_plaqs.len() as f64;
-    let stream_acc_rate = stream_accepts as f64 / n_traj as f64;
+    let stream_acc_rate = f64::from(stream_accepts) / f64::from(n_traj);
     println!(
         "  Streaming: ⟨P⟩={stream_mean_plaq:.6}, acc={:.0}%, {streaming_time:.1}s",
         stream_acc_rate * 100.0
@@ -306,8 +306,8 @@ fn main() {
     let mean_8: f64 = plaqs_8.iter().sum::<f64>() / plaqs_8.len() as f64;
     println!(
         "  8⁴: ⟨P⟩={mean_8:.6}, acc={:.0}%, {time_8:.1}s ({:.1}s/traj)",
-        acc_8 as f64 / n_traj_8 as f64 * 100.0,
-        time_8 / n_traj_8 as f64
+        f64::from(acc_8) / f64::from(n_traj_8) * 100.0,
+        time_8 / f64::from(n_traj_8)
     );
 
     harness.check_bool(
@@ -365,13 +365,13 @@ fn main() {
     }
     let resident_time = t_resident.elapsed().as_secs_f64();
     let resident_mean_plaq: f64 = resident_plaqs.iter().sum::<f64>() / resident_plaqs.len() as f64;
-    let resident_acc_rate = resident_accepts as f64 / n_traj as f64;
+    let resident_acc_rate = f64::from(resident_accepts) / f64::from(n_traj);
 
     let n_pairs_4 = 4usize.pow(4) * 3;
     let old_readback_bytes =
-        2.0 * (n_pairs_4 as f64) * 8.0 * (resident_cg_total as f64 / n_traj as f64);
+        2.0 * (n_pairs_4 as f64) * 8.0 * (resident_cg_total as f64 / f64::from(n_traj));
     let new_readback_bytes =
-        8.0 * (resident_cg_total as f64 / n_traj as f64) / (check_interval as f64);
+        8.0 * (resident_cg_total as f64 / f64::from(n_traj)) / (check_interval as f64);
     let reduction_factor = old_readback_bytes / new_readback_bytes.max(1.0);
 
     println!(
@@ -458,7 +458,7 @@ fn main() {
         resident_acc_rate * 100.0);
     println!(
         "║  8⁴ streaming: ⟨P⟩={mean_8:.4}, acc={:.0}%, {time_8:.1}s                       ║",
-        acc_8 as f64 / n_traj_8 as f64 * 100.0
+        f64::from(acc_8) / f64::from(n_traj_8) * 100.0
     );
     println!(
         "║  Bidirectional: {}/{} acc, {:.0} avg CG/traj                              ║",

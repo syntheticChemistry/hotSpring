@@ -4,10 +4,10 @@
 //!
 //! Expands the NPU screening pipeline from single-feature (plaquette) to an
 //! 8-feature observable vector. Trains a multi-output ESN that simultaneously
-//! produces: phase label, estimated β_c, thermalization flag, anomaly score.
+//! produces: phase label, estimated `β_c`, thermalization flag, anomaly score.
 //!
 //! The 8-feature vector fits within the AKD1000's validated 50-dim input path.
-//! All FC layers merge into a single HW pass (Discovery 2 from BEYOND_SDK).
+//! All FC layers merge into a single HW pass (Discovery 2 from `BEYOND_SDK`).
 //!
 //! Features:
 //!   0: plaquette (mean)
@@ -56,7 +56,7 @@ fn main() {
     let data_start = Instant::now();
 
     let pipelines = GpuHmcStreamingPipelines::new(&gpu);
-    let beta_values: Vec<f64> = (0..12).map(|i| 4.5 + 2.0 * (i as f64) / 11.0).collect();
+    let beta_values: Vec<f64> = (0..12).map(|i| 4.5 + 2.0 * f64::from(i) / 11.0).collect();
 
     let mut all_features: Vec<(f64, Vec<Vec<f64>>)> = Vec::new();
 
@@ -113,7 +113,7 @@ fn main() {
                 action_density: result.plaquette * 6.0,
             };
 
-            let acc_rate = accept_count as f64 / (t + 1) as f64;
+            let acc_rate = f64::from(accept_count) / f64::from(t + 1);
             feature_sequence.push(obs.to_feature_vec(acc_rate));
         }
 
@@ -218,14 +218,14 @@ fn main() {
             .0,
             pred[0],
             target[0],
-            pred[1] * 2.0 + 5.0,
+            pred[1].mul_add(2.0, 5.0),
             pred[2],
             pred[3]
         );
     }
 
-    let phase_acc = phase_correct as f64 / total as f64;
-    let therm_acc = therm_correct as f64 / total as f64;
+    let phase_acc = f64::from(phase_correct) / f64::from(total);
+    let therm_acc = f64::from(therm_correct) / f64::from(total);
     let mean_beta_c_err: f64 = beta_c_errors.iter().sum::<f64>() / beta_c_errors.len() as f64;
 
     println!();
@@ -273,7 +273,7 @@ fn main() {
         }
     }
 
-    let agreement = agree as f64 / test_seqs.len() as f64;
+    let agreement = f64::from(agree) / test_seqs.len() as f64;
     println!("  Max f32 error: {max_err:.6}");
     println!("  Phase agreement: {:.0}%", agreement * 100.0);
 

@@ -20,8 +20,10 @@ pub struct CortexWorkerHandles {
 ///
 /// The worker evaluates the Anderson 3D proxy for each request and
 /// sends `ProxyFeatures` back for NPU proxy-head training.
-#[allow(clippy::expect_used)] // thread spawn failure is fatal (OOM, resource exhaustion)
-pub fn spawn_cortex_worker() -> CortexWorkerHandles {
+///
+/// # Errors
+/// Returns `Err` if the thread fails to spawn (OOM, resource exhaustion).
+pub fn spawn_cortex_worker() -> Result<CortexWorkerHandles, std::io::Error> {
     let (req_tx, req_rx) = mpsc::channel::<CortexRequest>();
     let (feat_tx, feat_rx) = mpsc::channel::<ProxyFeatures>();
 
@@ -44,11 +46,10 @@ pub fn spawn_cortex_worker() -> CortexWorkerHandles {
                 );
                 feat_tx.send(features).ok();
             }
-        })
-        .expect("spawn cortex worker");
+        })?;
 
-    CortexWorkerHandles {
+    Ok(CortexWorkerHandles {
         cortex_tx: req_tx,
         proxy_rx: feat_rx,
-    }
+    })
 }

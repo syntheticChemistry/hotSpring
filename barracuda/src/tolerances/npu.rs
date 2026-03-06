@@ -106,10 +106,10 @@ pub const ESN_VACF_R2_MIN: f64 = 0.50;
 
 /// ESN D* prediction: relative error vs MD reference.
 ///
-/// The ESN-predicted D* (from integrating the predicted VACF) should
-/// agree with the MD-computed D* to within 80%. The ESN is a surrogate
-/// model, not a precise calculator — 80% captures the expected surrogate
-/// approximation error for short training sequences.
+/// 80% tolerance is a surrogate-quality gate, not a precision target. The ESN
+/// reservoir is a learned approximation of transport coefficients; this
+/// threshold validates that the surrogate captures the correct order of
+/// magnitude and trend, not that it matches MD-computed D* exactly.
 pub const ESN_D_STAR_REL: f64 = 0.80;
 
 /// ESN training loss convergence: minimum improvement.

@@ -190,7 +190,10 @@ fn main() {
     );
 
     // Spawn NPU worker
-    let (npu_tx, npu_rx) = spawn_quenched_npu_worker();
+    let (npu_tx, npu_rx) = spawn_quenched_npu_worker().unwrap_or_else(|e| {
+        eprintln!("  NPU worker spawn failed: {e}");
+        std::process::exit(1);
+    });
     println!("  NPU worker: spawned");
 
     // ═══ Placement E: Bootstrap from previous run ═══

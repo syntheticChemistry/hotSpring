@@ -318,7 +318,10 @@ fn run_gpu_eigh(
             pass.dispatch_workgroups(dispatch_wg, 1, 1);
         }
         gpu.queue().submit(Some(enc.finish()));
-        let _ = gpu.device().poll(wgpu::PollType::Wait { submission_index: None, timeout: None });
+        let _ = gpu.device().poll(wgpu::PollType::Wait {
+            submission_index: None,
+            timeout: None,
+        });
     }
 
     // Re-upload matrices (warmup may have modified A_batch in place)
@@ -345,7 +348,10 @@ fn run_gpu_eigh(
         }
         enc.copy_buffer_to_buffer(&eig_buf, 0, &staging, 0, (batch * dim * 8) as u64);
         gpu.queue().submit(Some(enc.finish()));
-        let _ = gpu.device().poll(wgpu::PollType::Wait { submission_index: None, timeout: None });
+        let _ = gpu.device().poll(wgpu::PollType::Wait {
+            submission_index: None,
+            timeout: None,
+        });
     }
     let elapsed_ms = t0.elapsed().as_secs_f64() * 1000.0 / f64::from(rounds);
 

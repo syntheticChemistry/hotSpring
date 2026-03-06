@@ -18,7 +18,7 @@ Python baseline → Rust validation → WGSL template → GPU shader → ToadSto
 | **C** | New | No shader exists; must be written from scratch |
 | **✅** | Absorbed | ToadStool has absorbed this as a first-class barracuda primitive |
 
-## ToadStool Absorption Status (Mar 3, 2026 — v0.6.17+ synced to toadStool S80, 716 tests)
+## ToadStool Absorption Status (Mar 6, 2026 — v0.6.18 synced to toadStool S93+, 685 tests)
 
 | hotSpring Module | ToadStool Primitive | Absorbed At | Status |
 |-----------------|--------------------| -------|--------|
@@ -58,7 +58,7 @@ Python baseline → Rust validation → WGSL template → GPU shader → ToadSto
 | Nautilus brain + shell | ✅ Done | toadStool S80 |
 | `BatchedEncoder` pattern | ✅ Done | toadStool S80 |
 
-### Active Absorption Targets (Mar 3, 2026)
+### Active Absorption Targets (Mar 6, 2026)
 
 | hotSpring Module | Lines | Priority | Absorption Value |
 |-----------------|-------|----------|-----------------|
@@ -615,6 +615,13 @@ batched into single encoder submissions. Saves 180 vkQueueSubmit calls per traje
 ## S80 Sync Validation (March 2, 2026)
 
 - 660 tests passing (was 658 before S80 sync)
+
+## v0.6.18 Refactoring (March 6, 2026)
+
+- 685 tests (lib), 47 validation binaries, 85+ total binaries
+- npu_worker → 6 modules, simulation → 4 modules, dynamical_mixed → library module
+- esn_baseline extracted to library (ready for absorption), sarkas → library module
+- brain B2/D1 evolved from placeholder to real implementations
 - New test: `exported_weights_serde_compatible_with_toadstool` — bidirectional JSON round-trip
 - New test: `head_group_layout_matches_toadstool_head_group` — 6×6 head mapping confirmed
 - `spectral_bandwidth` and `spectral_condition_number` wired into `proxy.rs` Anderson proxy

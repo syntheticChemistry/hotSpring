@@ -70,8 +70,10 @@ pub struct TitanWorkerHandles {
 /// This avoids concurrent `wgpu::Instance` creation which can deadlock
 /// the NVK/nouveau kernel driver when two GPUs are opened from separate
 /// threads simultaneously.
-#[allow(clippy::expect_used)] // thread spawn failure is fatal (OOM, resource exhaustion)
-pub fn spawn_titan_worker(titan_gpu: GpuF64) -> TitanWorkerHandles {
+///
+/// # Errors
+/// Returns `Err` if the thread fails to spawn (OOM, resource exhaustion).
+pub fn spawn_titan_worker(titan_gpu: GpuF64) -> Result<TitanWorkerHandles, std::io::Error> {
     let (req_tx, req_rx) = mpsc::channel::<TitanRequest>();
     let (resp_tx, resp_rx) = mpsc::channel::<TitanResponse>();
 
@@ -141,11 +143,10 @@ pub fn spawn_titan_worker(titan_gpu: GpuF64) -> TitanWorkerHandles {
                     TitanRequest::Shutdown => break,
                 }
             }
-        })
-        .expect("spawn titan-premotor thread");
+        })?;
 
-    TitanWorkerHandles {
+    Ok(TitanWorkerHandles {
         titan_tx: req_tx,
         titan_rx: resp_rx,
-    }
+    })
 }

@@ -41,7 +41,7 @@ fn main() {
     println!("═══ Step 1: Generate Per-Trajectory Training Data (CPU HMC 4⁴) ═══");
     let gen_start = Instant::now();
 
-    let beta_values: Vec<f64> = (0..12).map(|i| 5.0 + 1.5 * (i as f64) / 11.0).collect();
+    let beta_values: Vec<f64> = (0..12).map(|i| 5.0 + 1.5 * f64::from(i) / 11.0).collect();
     let all_records = generate_trajectory_data(&beta_values);
 
     let n_total_traj = all_records.len();
@@ -205,7 +205,7 @@ fn main() {
     println!(
         "  Sample prediction: phase={:.2}, β_c={:.3}, therm={:.2}, acc={:.2}, anom={:.3}, cg={:.1}",
         npu_pred[0],
-        npu_pred[1] * 1.5 + 5.0,
+        npu_pred[1].mul_add(1.5, 5.0),
         npu_pred[2],
         npu_pred[3],
         npu_pred[4],

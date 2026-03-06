@@ -173,7 +173,8 @@ pub fn select_adapter() -> Result<wgpu::Adapter, crate::error::HotSpringError> {
         .unwrap_or_default();
 
     let instance = create_instance();
-    let adapters: Vec<wgpu::Adapter> = pollster::block_on(instance.enumerate_adapters(wgpu::Backends::all()));
+    let adapters: Vec<wgpu::Adapter> =
+        pollster::block_on(instance.enumerate_adapters(wgpu::Backends::all()));
     if adapters.is_empty() {
         return Err(crate::error::HotSpringError::NoAdapter);
     }

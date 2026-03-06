@@ -3,7 +3,7 @@
 //! NPU-Driven Adaptive Beta Steering (Phase 2)
 //!
 //! Instead of scanning 12 fixed beta points uniformly, the NPU predicts
-//! where β_c is after each measurement and places the next beta where
+//! where `β_c` is after each measurement and places the next beta where
 //! information gain is maximized (near the phase transition).
 //!
 //! This is Bayesian optimization of the beta scan with the NPU ESN as
@@ -138,7 +138,7 @@ fn main() {
     let mut uniform_measured = Vec::new();
 
     for i in 0..n_uniform {
-        let beta = BETA_MIN + (BETA_MAX - BETA_MIN) * (i as f64) / (n_uniform - 1) as f64;
+        let beta = BETA_MIN + (BETA_MAX - BETA_MIN) * f64::from(i) / f64::from(n_uniform - 1);
         let (plaq, poly) = run_gpu_measurement(&gpu, &pipelines, beta);
         uniform_measured.push((beta, plaq, poly));
     }
@@ -177,7 +177,7 @@ fn main() {
         near_fraction * 100.0
     );
 
-    let savings = 1.0 - (total_points as f64 / n_uniform as f64);
+    let savings = 1.0 - (total_points as f64 / f64::from(n_uniform));
     println!("  Point savings: {:.0}% fewer points", savings * 100.0);
 
     harness.check_bool("Adaptive β_c within 0.5 of known", adaptive_err < 0.5);
@@ -238,7 +238,7 @@ fn run_gpu_measurement(
         plaq_sum += r.plaquette;
     }
 
-    let plaq = plaq_sum / n_traj as f64;
+    let plaq = plaq_sum / f64::from(n_traj);
     let (poly, _phase) = gpu_polyakov_loop(gpu, &pipelines.hmc, &state);
     (plaq, poly)
 }
@@ -247,7 +247,7 @@ fn build_feature_sequence(beta: f64, plaq: f64, poly: f64) -> Vec<Vec<f64>> {
     let beta_norm = (beta - 5.0) / 2.0;
     (0..10)
         .map(|i| {
-            let noise = 0.005 * ((i as f64) * 0.7).sin();
+            let noise = 0.005 * (f64::from(i) * 0.7).sin();
             vec![beta_norm, plaq + noise, poly + noise * 0.3]
         })
         .collect()
@@ -260,7 +260,7 @@ fn find_max_uncertainty(npu: &mut NpuSimulator, measured: &[(f64, f64, f64)]) ->
     let mut best_uncertainty = 0.0;
 
     for i in 0..n_candidates {
-        let beta = BETA_MIN + (BETA_MAX - BETA_MIN) * (i as f64) / (n_candidates - 1) as f64;
+        let beta = BETA_MIN + (BETA_MAX - BETA_MIN) * f64::from(i) / f64::from(n_candidates - 1);
 
         let min_dist = measured
             .iter()
@@ -272,7 +272,7 @@ fn find_max_uncertainty(npu: &mut NpuSimulator, measured: &[(f64, f64, f64)]) ->
 
         let seq = build_feature_sequence(beta, 0.5, 0.3);
         let pred = npu.predict(&seq)[0];
-        let uncertainty = 0.25 - (pred - 0.5).powi(2); // max at pred=0.5
+        let uncertainty = (pred - 0.5).mul_add(-(pred - 0.5), 0.25); // max at pred=0.5
 
         if uncertainty > best_uncertainty {
             best_uncertainty = uncertainty;
@@ -283,7 +283,7 @@ fn find_max_uncertainty(npu: &mut NpuSimulator, measured: &[(f64, f64, f64)]) ->
     best_beta
 }
 
-/// Detect β_c from NPU predictions on measured data.
+/// Detect `β_c` from NPU predictions on measured data.
 fn detect_beta_c(npu: &mut NpuSimulator, measured: &[(f64, f64, f64)]) -> f64 {
     let mut best_beta = KNOWN_BETA_C;
     let mut best_dist = f64::MAX;
@@ -301,7 +301,7 @@ fn detect_beta_c(npu: &mut NpuSimulator, measured: &[(f64, f64, f64)]) -> f64 {
     best_beta
 }
 
-/// Simple β_c detection from Polyakov loop jump (no NPU).
+/// Simple `β_c` detection from Polyakov loop jump (no NPU).
 fn detect_beta_c_simple(measured: &[(f64, f64, f64)]) -> f64 {
     let mut max_dpoly = 0.0;
     let mut beta_c = f64::midpoint(BETA_MIN, BETA_MAX);

@@ -7,7 +7,7 @@
 //!   2. GPU streaming HMC matches CPU baseline at same scale (parity)
 //!   3. GPU streaming HMC scales to 8⁴ — too expensive for CPU, trivial for GPU
 //!   4. NPU screens GPU observables in-flight (ESN phase classification)
-//!   5. CPU verifies NPU predictions against known physics (β_c ≈ 5.69)
+//!   5. CPU verifies NPU predictions against known physics (`β_c` ≈ 5.69)
 //!
 //! Transfer budget:
 //!   CPU→GPU: 0 (GPU PRNG generates momenta)
@@ -219,14 +219,14 @@ fn main() {
             }
         }
 
-        let mean_plaq = plaq_sum / n_traj_8 as f64;
+        let mean_plaq = plaq_sum / f64::from(n_traj_8);
 
         gpu_links_to_lattice(&gpu, &state, &mut lat);
         let poly = lat.average_polyakov_loop();
 
         println!(
             "  β={beta:.1}: ⟨P⟩={mean_plaq:.6}, ⟨|L|⟩={poly:.4}, acc={:.0}%",
-            f64::from(accept_count) / n_traj_8 as f64 * 100.0
+            f64::from(accept_count) / f64::from(n_traj_8) * 100.0
         );
 
         gpu_plaquettes_8.push(mean_plaq);
@@ -440,7 +440,7 @@ fn main() {
     harness.finish();
 }
 
-/// Phase 4b: Probe real NPU hardware and compare with NpuSimulator.
+/// Phase 4b: Probe real NPU hardware and compare with `NpuSimulator`.
 #[allow(unused_variables)]
 fn run_npu_hardware_phase(
     harness: &mut ValidationHarness,

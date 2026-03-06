@@ -42,14 +42,14 @@ pub mod complex_f64;
 pub mod constants;
 /// Hadronic correlator and susceptibility measurements.
 pub mod correlator;
-/// Wilson gradient flow on SU(3) gauge fields (Lüscher 2010, Bazavov & Chuna 2021).
-pub mod gradient_flow;
 /// Staggered Dirac operator (GPU SpMV via WGSL).
 pub mod dirac;
 /// HotQCD EOS tables (Bazavov et al. PRD 90, 094503).
 pub mod eos_tables;
 /// Pure GPU HMC: all math on GPU via fp64 WGSL shaders.
 pub mod gpu_hmc;
+/// Wilson gradient flow on SU(3) gauge fields (Lüscher 2010, Bazavov & Chuna 2021).
+pub mod gradient_flow;
 /// Hybrid Monte Carlo integrator (Cayley SU(3) exponential).
 pub mod hmc;
 /// Multi-GPU lattice dispatcher (CPU-threaded, evolution target).

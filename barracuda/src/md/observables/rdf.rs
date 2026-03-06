@@ -11,7 +11,7 @@ use crate::tolerances::DIVISION_GUARD;
 /// RDF result: g(r) binned at discrete r values.
 #[derive(Clone, Debug)]
 pub struct Rdf {
-    /// Bin centers in units of a_ws.
+    /// Bin centers in units of `a_ws`.
     pub r_values: Vec<f64>,
     /// Radial distribution function g(r).
     pub g_values: Vec<f64>,

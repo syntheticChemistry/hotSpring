@@ -12,7 +12,7 @@
 //! |-------|-------------|--------|
 //! | 1 | Omelyan vs Leapfrog comparison | \|ΔH\|, acceptance |
 //! | 2 | Omelyan 8⁴ scaling | Acceptance, plaquette range |
-//! | 3 | Dynamical fermion HMC with Omelyan | S_F, CG, acceptance |
+//! | 3 | Dynamical fermion HMC with Omelyan | `S_F`, CG, acceptance |
 //! | 4 | Hasenbusch mass preconditioning | Plaquette, heavy vs ratio CG |
 //! | 5 | Omelyan timing report | ms/trajectory sanity |
 //!
@@ -63,9 +63,9 @@ fn main() {
         .map(|_| hmc::hmc_trajectory(&mut lat_leap, &mut cfg_leap))
         .collect();
     let leap_mean_abs_dh =
-        leap_results.iter().map(|r| r.delta_h.abs()).sum::<f64>() / n_traj as f64;
+        leap_results.iter().map(|r| r.delta_h.abs()).sum::<f64>() / f64::from(n_traj);
     let leap_accept_rate =
-        leap_results.iter().filter(|r| r.accepted).count() as f64 / n_traj as f64;
+        leap_results.iter().filter(|r| r.accepted).count() as f64 / f64::from(n_traj);
 
     // Omelyan run (same initial conditions: fresh hot start)
     let mut lat_omel = Lattice::hot_start(dims, beta, seed);
@@ -79,9 +79,9 @@ fn main() {
         .map(|_| hmc::hmc_trajectory(&mut lat_omel, &mut cfg_omel))
         .collect();
     let omel_mean_abs_dh =
-        omel_results.iter().map(|r| r.delta_h.abs()).sum::<f64>() / n_traj as f64;
+        omel_results.iter().map(|r| r.delta_h.abs()).sum::<f64>() / f64::from(n_traj);
     let omel_accept_rate =
-        omel_results.iter().filter(|r| r.accepted).count() as f64 / n_traj as f64;
+        omel_results.iter().filter(|r| r.accepted).count() as f64 / f64::from(n_traj);
 
     println!(
         "  Leapfrog: mean |ΔH|={leap_mean_abs_dh:.4e}, acceptance={:.1}%",
@@ -120,8 +120,8 @@ fn main() {
         .map(|_| hmc::hmc_trajectory(&mut lat_8, &mut cfg_8))
         .collect();
     let accept_8 = results_8.iter().filter(|r| r.accepted).count();
-    let accept_rate_8 = accept_8 as f64 / n_meas_8 as f64;
-    let mean_plaq_8: f64 = results_8.iter().map(|r| r.plaquette).sum::<f64>() / n_meas_8 as f64;
+    let accept_rate_8 = accept_8 as f64 / f64::from(n_meas_8);
+    let mean_plaq_8: f64 = results_8.iter().map(|r| r.plaquette).sum::<f64>() / f64::from(n_meas_8);
 
     println!(
         "  Acceptance: {accept_8}/{n_meas_8} ({:.1}%)",

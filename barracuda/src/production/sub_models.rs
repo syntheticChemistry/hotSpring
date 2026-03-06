@@ -8,8 +8,8 @@
 //! buffer, and per-head confidence tracker.
 
 use crate::md::reservoir::{Activation, EchoStateNetwork, EsnConfig, IncrementalBuffer};
-use crate::production::{TrajectoryEvent, TrajectoryPhase};
 use crate::production::npu_worker::trajectory_input_with_proxy;
+use crate::production::{TrajectoryEvent, TrajectoryPhase};
 use crate::proxy::ProxyFeatures;
 
 /// Per-head metric type for confidence tracking.
@@ -41,6 +41,7 @@ const CLASSIFICATION_TRUST: f64 = 0.6;
 
 impl SubModelConfidence {
     /// Create a confidence tracker for `n_heads` output heads.
+    #[must_use]
     pub fn new(n_heads: usize, metrics: Vec<HeadMetric>) -> Self {
         Self {
             predictions: vec![Vec::with_capacity(DEFAULT_WINDOW); n_heads],
@@ -118,16 +119,19 @@ impl SubModelConfidence {
     }
 
     /// Whether the given head has crossed its trust threshold.
+    #[must_use]
     pub fn is_trusted(&self, head: usize) -> bool {
         head < self.trusted.len() && self.trusted[head]
     }
 
     /// Whether any head has crossed its trust threshold.
+    #[must_use]
     pub fn any_trusted(&self) -> bool {
         self.trusted.iter().any(|&t| t)
     }
 
     /// Human-readable trust status (e.g. "2/5 [0=0.85R², 3=0.72acc]").
+    #[must_use]
     pub fn status_line(&self) -> String {
         let trusted_count = self.trusted.iter().filter(|&&t| t).count();
         let total = self.trusted.len();
@@ -157,7 +161,7 @@ impl SubModelConfidence {
 
 /// Configuration for a single sub-model.
 pub struct SubModelConfig {
-    /// Human-readable model name (e.g. "acceptance_predictor").
+    /// Human-readable model name (e.g. "`acceptance_predictor`").
     pub name: &'static str,
     /// ESN reservoir dimensionality.
     pub reservoir_size: usize,
@@ -193,6 +197,7 @@ pub struct SubModel {
 
 impl SubModel {
     /// Create a sub-model from config with a deterministic PRNG seed.
+    #[must_use]
     pub fn new(config: SubModelConfig, seed: u64) -> Self {
         let n_outputs = config.output_names.len();
         let esn = EchoStateNetwork::new(EsnConfig {
@@ -206,8 +211,7 @@ impl SubModel {
             ..EsnConfig::default()
         });
         let buffer = IncrementalBuffer::new(config.buffer_capacity);
-        let confidence =
-            SubModelConfidence::new(n_outputs, config.head_metrics.clone());
+        let confidence = SubModelConfidence::new(n_outputs, config.head_metrics.clone());
         Self {
             config,
             esn,
@@ -219,6 +223,7 @@ impl SubModel {
     }
 
     /// Whether this model accepts events from the given trajectory phase.
+    #[must_use]
     pub fn accepts(&self, phase: TrajectoryPhase) -> bool {
         (self.config.accepts_phase)(phase)
     }
@@ -253,6 +258,7 @@ pub struct SubModelRegistry {
 
 impl SubModelRegistry {
     /// Create the default set of 4 sub-models.
+    #[must_use]
     pub fn default_models() -> Self {
         let models = vec![
             // Model A: Trajectory Predictor — fires every trajectory
@@ -358,7 +364,11 @@ impl SubModelRegistry {
     }
 
     /// Predict from all sub-models for a given event.
-    pub fn predict_all(&mut self, evt: &TrajectoryEvent, proxy: Option<&ProxyFeatures>) -> Vec<(&'static str, Option<Vec<f64>>)> {
+    pub fn predict_all(
+        &mut self,
+        evt: &TrajectoryEvent,
+        proxy: Option<&ProxyFeatures>,
+    ) -> Vec<(&'static str, Option<Vec<f64>>)> {
         let input = trajectory_input_with_proxy(evt, proxy);
         self.models
             .iter_mut()
@@ -367,6 +377,7 @@ impl SubModelRegistry {
     }
 
     /// Status line for all sub-models.
+    #[must_use]
     pub fn status_line(&self) -> String {
         self.models
             .iter()
@@ -383,7 +394,8 @@ impl SubModelRegistry {
     }
 
     /// Structured per-sub-model metrics for logging/experimentation.
-    /// Returns a JSON-serializable map of model_name → { n_trained, last_mse, heads: [...] }.
+    /// Returns a JSON-serializable map of `model_name` → { `n_trained`, `last_mse`, heads: [...] }.
+    #[must_use]
     pub fn metrics_json(&self) -> serde_json::Value {
         let models: serde_json::Map<String, serde_json::Value> = self
             .models

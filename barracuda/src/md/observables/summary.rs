@@ -21,16 +21,25 @@ use super::vacf::{compute_vacf, compute_vacf_upstream_gpu};
 ///
 /// If `gpu_device` is provided, SSF is computed on GPU via `SsfGpu::compute_axes`.
 /// Otherwise falls back to CPU `compute_ssf`.
-pub fn print_observable_summary(sim: &MdSimulation, config: &MdConfig) {
-    print_observable_summary_with_gpu(sim, config, None);
+///
+/// # Errors
+/// Returns `Err` if GPU VACF compute fails.
+pub fn print_observable_summary(
+    sim: &MdSimulation,
+    config: &MdConfig,
+) -> Result<(), crate::error::HotSpringError> {
+    print_observable_summary_with_gpu(sim, config, None)
 }
 
 /// Print observable summary with optional GPU device for SSF.
+///
+/// # Errors
+/// Returns `Err` if GPU VACF compute fails.
 pub fn print_observable_summary_with_gpu(
     sim: &MdSimulation,
     config: &MdConfig,
     gpu_device: Option<&Arc<WgpuDevice>>,
-) {
+) -> Result<(), crate::error::HotSpringError> {
     println!();
     println!("  ── Observable Summary: {} ──", config.label);
 
@@ -86,18 +95,16 @@ pub fn print_observable_summary_with_gpu(
     if sim.velocity_snapshots.len() > 2 {
         let dt_dump = config.dt * config.dump_step as f64 * config.vel_snapshot_interval as f64;
         let max_lag = (sim.velocity_snapshots.len() / 2).max(10);
-        let (vacf, vacf_label) = gpu_device
-            .and_then(|dev| {
-                compute_vacf_upstream_gpu(
-                    dev,
-                    &sim.velocity_snapshots,
-                    config.n_particles,
-                    dt_dump,
-                    max_lag,
-                )
-                .map(|v| (v, "GPU barracuda"))
-            })
-            .unwrap_or_else(|| {
+        let (vacf, vacf_label) = if let Some(dev) = gpu_device {
+            if let Some(v) = compute_vacf_upstream_gpu(
+                dev,
+                &sim.velocity_snapshots,
+                config.n_particles,
+                dt_dump,
+                max_lag,
+            )? {
+                (v, "GPU barracuda")
+            } else {
                 let v = compute_vacf(
                     &sim.velocity_snapshots,
                     config.n_particles,
@@ -105,7 +112,16 @@ pub fn print_observable_summary_with_gpu(
                     max_lag,
                 );
                 (v, "CPU")
-            });
+            }
+        } else {
+            let v = compute_vacf(
+                &sim.velocity_snapshots,
+                config.n_particles,
+                dt_dump,
+                max_lag,
+            );
+            (v, "CPU")
+        };
         println!(
             "    VACF [{vacf_label}]: D*={:.4e} (from {} snapshots, {} lags)",
             vacf.diffusion_coeff,
@@ -163,10 +179,10 @@ pub fn print_observable_summary_with_gpu(
         "    Performance: {:.1} steps/s, total {:.2}s",
         sim.steps_per_sec, sim.wall_time_s
     );
+    Ok(())
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::unwrap_used)]
 mod tests {
     use std::sync::Arc;
 
@@ -240,39 +256,40 @@ mod tests {
     }
 
     #[test]
-    fn summary_minimal_no_panic() {
+    fn summary_minimal_no_panic() -> Result<(), crate::error::HotSpringError> {
         let (sim, config) = make_minimal_sim();
-        print_observable_summary(&sim, &config);
+        print_observable_summary(&sim, &config)
     }
 
     #[test]
-    fn summary_full_all_branches_no_panic() {
+    fn summary_full_all_branches_no_panic() -> Result<(), crate::error::HotSpringError> {
         let (sim, config) = make_full_sim();
-        print_observable_summary(&sim, &config);
+        print_observable_summary(&sim, &config)
     }
 
     #[test]
-    fn summary_gpu_none_cpu_fallback_no_panic() {
+    fn summary_gpu_none_cpu_fallback_no_panic() -> Result<(), crate::error::HotSpringError> {
         let (sim, config) = make_full_sim();
         print_observable_summary_with_gpu(
             &sim,
             &config,
             None::<Arc<barracuda::device::WgpuDevice>>.as_ref(),
-        );
+        )
     }
 
     #[test]
-    fn summary_skips_vacf_when_too_few_velocity_snapshots() {
+    fn summary_skips_vacf_when_too_few_velocity_snapshots(
+    ) -> Result<(), crate::error::HotSpringError> {
         let (sim, config) = make_full_sim();
         let sim_with_two_vel = MdSimulation {
             velocity_snapshots: sim.velocity_snapshots[..2].to_vec(),
             ..sim
         };
-        print_observable_summary(&sim_with_two_vel, &config);
+        print_observable_summary(&sim_with_two_vel, &config)
     }
 
     #[test]
-    fn summary_energy_fail_icon_when_high_drift() {
+    fn summary_energy_fail_icon_when_high_drift() -> Result<(), crate::error::HotSpringError> {
         let config = quick_test_case(32);
         let t = config.temperature();
         let e_mean = 48.0 * t - 96.0;
@@ -307,6 +324,6 @@ mod tests {
             steps_per_sec: 5000.0,
             brain_summary: None,
         };
-        print_observable_summary(&sim, &config);
+        print_observable_summary(&sim, &config)
     }
 }

@@ -334,7 +334,7 @@ fn potts_z3_monte_carlo(
         // One Metropolis sweep
         for site in 0..n {
             let old_spin = spins[site];
-            let new_spin = ((old_spin as u64 + 1 + rng.next_u64() % 2) % 3) as u8;
+            let new_spin = ((u64::from(old_spin) + 1 + rng.next_u64() % 2) % 3) as u8;
 
             let nbrs = neighbors(site);
             let mut delta_e: i32 = 0;
@@ -350,7 +350,7 @@ fn potts_z3_monte_carlo(
             let accept = if delta_e <= 0 {
                 true
             } else {
-                rng.uniform() < (-beta * delta_e as f64).exp()
+                rng.uniform() < (-beta * f64::from(delta_e)).exp()
             };
 
             if accept {
@@ -367,7 +367,7 @@ fn potts_z3_monte_carlo(
                 m[0] += omega_re[s as usize];
                 m[1] += omega_im[s as usize];
             }
-            let mag = (m[0] * m[0] + m[1] * m[1]).sqrt() / n as f64;
+            let mag = m[0].hypot(m[1]) / n as f64;
             mag_samples.push(mag);
 
             // Measure energy
@@ -387,7 +387,7 @@ fn potts_z3_monte_carlo(
 
     let mean_mag = mag_samples.iter().sum::<f64>() / mag_samples.len() as f64;
     let mean_mag2 = mag_samples.iter().map(|m| m * m).sum::<f64>() / mag_samples.len() as f64;
-    let chi = (mean_mag2 - mean_mag * mean_mag) * n as f64;
+    let chi = mean_mag.mul_add(-mean_mag, mean_mag2) * n as f64;
     let mean_energy = energy_samples.iter().sum::<f64>() / energy_samples.len() as f64;
 
     let phase = if mean_mag > 0.5 {
@@ -406,13 +406,13 @@ struct LcgRng {
 }
 
 impl LcgRng {
-    fn new(seed: u64) -> Self {
+    const fn new(seed: u64) -> Self {
         Self {
             state: seed.wrapping_mul(6364136223846793005).wrapping_add(1),
         }
     }
 
-    fn next_u64(&mut self) -> u64 {
+    const fn next_u64(&mut self) -> u64 {
         self.state = self
             .state
             .wrapping_mul(6364136223846793005)
