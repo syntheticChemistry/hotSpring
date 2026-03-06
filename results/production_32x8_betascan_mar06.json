@@ -1,0 +1,85 @@
+{
+  "dims": [
+    32,
+    32,
+    32,
+    8
+  ],
+  "gpu": "NVIDIA GeForce RTX 3090",
+  "is_asymmetric": true,
+  "lattice": "32³×8",
+  "n_meas": 200,
+  "n_therm": 100,
+  "nt": 8,
+  "points": [
+    {
+      "acceptance": 0.35,
+      "action_density": 2.6821279511985434,
+      "beta": 5.8,
+      "mean_plaquette": 0.5529786748002428,
+      "n_trajectories": 200,
+      "polyakov": 0.0014096047501706884,
+      "std_plaquette": 0.0024506843253182626,
+      "susceptibility": 1.5743985024658642,
+      "wall_s": 2058.984955603
+    },
+    {
+      "acceptance": 0.36,
+      "action_density": 2.5776031551805483,
+      "beta": 5.9,
+      "mean_plaquette": 0.5703994741365753,
+      "n_trajectories": 200,
+      "polyakov": 0.0011746618673480588,
+      "std_plaquette": 0.0028140427960073647,
+      "susceptibility": 2.0758755692408855,
+      "wall_s": 2059.028231288
+    },
+    {
+      "acceptance": 0.285,
+      "action_density": 2.4913780545950086,
+      "beta": 6.0,
+      "mean_plaquette": 0.5847703242341652,
+      "n_trajectories": 200,
+      "polyakov": 0.003240192643051823,
+      "std_plaquette": 0.0018271669692039747,
+      "susceptibility": 0.8751780025729126,
+      "wall_s": 2090.142587956
+    },
+    {
+      "acceptance": 0.35,
+      "action_density": 2.444979604348271,
+      "beta": 6.06,
+      "mean_plaquette": 0.5925033992752882,
+      "n_trajectories": 200,
+      "polyakov": 0.001880500530307828,
+      "std_plaquette": 0.0018505877130017788,
+      "susceptibility": 0.8977579726636722,
+      "wall_s": 2101.148668257
+    },
+    {
+      "acceptance": 0.315,
+      "action_density": 2.4182810047285566,
+      "beta": 6.1,
+      "mean_plaquette": 0.5969531658785739,
+      "n_trajectories": 200,
+      "polyakov": 0.0021716272248994,
+      "std_plaquette": 0.0018619822090747838,
+      "susceptibility": 0.9088474144862403,
+      "wall_s": 2095.905094296
+    },
+    {
+      "acceptance": 0.33,
+      "action_density": 2.3564712529369825,
+      "beta": 6.2,
+      "mean_plaquette": 0.6072547911771696,
+      "n_trajectories": 200,
+      "polyakov": 0.002158120465448429,
+      "std_plaquette": 0.002160448289927599,
+      "susceptibility": 1.223566770425322,
+      "wall_s": 2102.737752085
+    }
+  ],
+  "seed": 42,
+  "total_wall_s": 12508.977816175,
+  "volume": 262144
+}

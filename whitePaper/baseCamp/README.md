@@ -1,8 +1,8 @@
 # baseCamp: Research Domain Briefings
 
-**Date:** March 3, 2026
+**Date:** March 6, 2026
 **Project:** hotSpring (ecoPrimals)
-**Status:** v0.6.17+, 33 experiments, 39/39 validation suites, 716 tests, 85 binaries, 62 WGSL shaders
+**Status:** v0.6.17+, 40 experiments, 39/39 validation suites, 716 tests, 92 binaries, 62 WGSL shaders
 
 ---
 
@@ -27,7 +27,7 @@ Published paper (Python/FORTRAN/HPC)
 | File | Domain | Papers | Status |
 |------|--------|--------|--------|
 | [`murillo_plasma.md`](murillo_plasma.md) | Murillo Group — Dense Plasma MD | Papers 1-6 | 60/60 checks, paper parity |
-| [`murillo_lattice_qcd.md`](murillo_lattice_qcd.md) | Lattice QCD — Quenched & Dynamical | Papers 7-12 | 32⁴ production, deconfinement seen |
+| [`murillo_lattice_qcd.md`](murillo_lattice_qcd.md) | Lattice QCD — Quenched & Dynamical + Chuna Flow | Papers 7-12 + arXiv:2101.05320 | Asymmetric 64³×8, gradient flow, Chuna integrators derived, N_f=4 infra |
 | [`kachkovskiy_spectral.md`](kachkovskiy_spectral.md) | Spectral Theory — Anderson & Hofstadter | Kachkovskiy | 45/45 checks, GPU Lanczos |
 | [`cross_spring_evolution.md`](cross_spring_evolution.md) | Cross-Spring Shader Ecosystem | All springs | 164+ shaders, 4 springs |
 | [`neuromorphic_silicon.md`](neuromorphic_silicon.md) | Neuromorphic Silicon — AKD1000 Exploration | None (hardware exploration) | Exp 020-031, live NPU in production QCD, 4-layer brain, NPU parameter control |

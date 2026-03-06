@@ -626,13 +626,13 @@ fn remez_for_poles(sigma: &[f64], power: f64, eval_grid: &[f64]) -> (Vec<f64>, f
         // Trim to n_sys points, keeping the ones with largest |error|
         while selected.len() > n_sys {
             // Remove the extremum with smallest |error|
-            let (min_idx, _) = selected
+            let Some((min_idx, _)) = selected
                 .iter()
                 .enumerate()
-                .min_by(|(_, a), (_, b)| {
-                    a.1.abs().partial_cmp(&b.1.abs()).unwrap_or(std::cmp::Ordering::Equal)
-                })
-                .expect("selected is non-empty when len > n_poles");
+                .min_by(|(_, a), (_, b)| a.1.abs().total_cmp(&b.1.abs()))
+            else {
+                break;
+            };
             selected.remove(min_idx);
         }
 

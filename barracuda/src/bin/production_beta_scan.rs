@@ -9,8 +9,13 @@
 //! # Usage
 //!
 //! ```bash
-//! HOTSPRING_GPU_ADAPTER=3090 cargo run --release --bin production_beta_scan -- \
+//! # Hypercubic (L⁴):
+//! cargo run --release --bin production_beta_scan -- \
 //!   --lattice=32 --betas=5.5,5.69,5.8,6.0 --therm=200 --meas=1000
+//!
+//! # Asymmetric (N_s³ × N_t) — finite-temperature:
+//! cargo run --release --bin production_beta_scan -- \
+//!   --dims=32,32,32,4 --betas=5.5,5.69,5.8,6.0 --therm=200 --meas=500
 //! ```
 
 use hotspring_barracuda::gpu::GpuF64;
@@ -24,7 +29,7 @@ use std::io::Write;
 use std::time::Instant;
 
 struct CliArgs {
-    lattice: usize,
+    dims: [usize; 4],
     betas: Vec<f64>,
     n_therm: usize,
     n_meas: usize,
@@ -33,8 +38,25 @@ struct CliArgs {
     trajectory_log: Option<String>,
 }
 
+impl CliArgs {
+    fn is_asymmetric(&self) -> bool {
+        let [nx, ny, nz, nt] = self.dims;
+        nt != nx || ny != nx || nz != nx
+    }
+
+    fn label(&self) -> String {
+        let [nx, _, _, nt] = self.dims;
+        if self.is_asymmetric() {
+            format!("{}³×{}", nx, nt)
+        } else {
+            format!("{}⁴", nx)
+        }
+    }
+}
+
 fn parse_args() -> CliArgs {
-    let mut lattice = 32;
+    let mut dims: Option<[usize; 4]> = None;
+    let mut lattice: Option<usize> = None;
     let mut betas = vec![5.5, 5.69, 5.8, 6.0, 6.5];
     let mut n_therm = 200;
     let mut n_meas = 1000;
@@ -44,7 +66,14 @@ fn parse_args() -> CliArgs {
 
     for arg in std::env::args().skip(1) {
         if let Some(val) = arg.strip_prefix("--lattice=") {
-            lattice = val.parse().expect("--lattice=N");
+            lattice = Some(val.parse().expect("--lattice=N"));
+        } else if let Some(val) = arg.strip_prefix("--dims=") {
+            let d: Vec<usize> = val
+                .split(',')
+                .map(|s| s.parse().expect("dims: Nx,Ny,Nz,Nt"))
+                .collect();
+            assert_eq!(d.len(), 4, "--dims requires exactly 4 values: Nx,Ny,Nz,Nt");
+            dims = Some([d[0], d[1], d[2], d[3]]);
         } else if let Some(val) = arg.strip_prefix("--betas=") {
             betas = val
                 .split(',')
@@ -63,8 +92,14 @@ fn parse_args() -> CliArgs {
         }
     }
 
+    let resolved_dims = match (dims, lattice) {
+        (Some(d), _) => d,
+        (None, Some(l)) => [l, l, l, l],
+        (None, None) => [32, 32, 32, 32],
+    };
+
     CliArgs {
-        lattice,
+        dims: resolved_dims,
         betas,
         n_therm,
         n_meas,
@@ -98,15 +133,28 @@ fn plaquette_variance(history: &[f64]) -> f64 {
 
 fn main() {
     let args = parse_args();
-    let dims = [args.lattice, args.lattice, args.lattice, args.lattice];
+    let dims = args.dims;
     let vol: usize = dims.iter().product();
+    let label = args.label();
+    let nt = dims[3];
     println!("╔══════════════════════════════════════════════════════════════╗");
-    println!("║  Production Quenched β-Scan — GPU Streaming HMC (fp64)     ║");
+    if args.is_asymmetric() {
+        println!("║  Production Finite-T β-Scan — GPU Streaming HMC (DF64)    ║");
+    } else {
+        println!("║  Production Quenched β-Scan — GPU Streaming HMC (fp64)     ║");
+    }
     println!("╚══════════════════════════════════════════════════════════════╝");
     println!();
-    println!("  Lattice:  {}⁴ ({} sites)", args.lattice, vol);
+    println!("  Lattice:  {} ({} sites)", label, vol);
     println!(
-        "  VRAM est: {:.1} GB (quenched)",
+        "  Dims:     [{}, {}, {}, {}]",
+        dims[0], dims[1], dims[2], dims[3]
+    );
+    if args.is_asymmetric() {
+        println!("  N_t = {} → T = 1/(a × {})", nt, nt);
+    }
+    println!(
+        "  VRAM est: {:.2} GB (quenched)",
         vol as f64 * 4.0 * 18.0 * 8.0 * 3.0 / 1e9
     );
     println!("  β values: {:?}", args.betas);
@@ -340,8 +388,8 @@ fn main() {
 
     println!("═══════════════════════════════════════════════════════════");
     println!(
-        "  Production β-Scan Summary: {}⁴ Quenched SU(3)",
-        args.lattice
+        "  Production β-Scan Summary: {} Quenched SU(3)",
+        &label
     );
     println!("═══════════════════════════════════════════════════════════");
     println!(
@@ -373,10 +421,13 @@ fn main() {
         println!("  Trajectory log: {path}");
     }
 
+    let is_asym = args.is_asymmetric();
     if let Some(path) = args.output {
         let json = serde_json::json!({
-            "lattice": args.lattice,
+            "lattice": label,
             "dims": dims,
+            "is_asymmetric": is_asym,
+            "nt": dims[3],
             "volume": vol,
             "gpu": gpu.adapter_name,
             "n_therm": args.n_therm,

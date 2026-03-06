@@ -47,7 +47,9 @@ fn run_single(
     let integrator_name = match integrator {
         FlowIntegrator::Euler => "Euler",
         FlowIntegrator::Rk2 => "RK2",
-        FlowIntegrator::Rk3Luscher => "RK3 (Lüscher)",
+        FlowIntegrator::Rk3Luscher => "LSCFRK3W6 (Lüscher)",
+        FlowIntegrator::Lscfrk3w7 => "LSCFRK3W7 (Chuna)",
+        FlowIntegrator::Lscfrk4ck => "LSCFRK4CK (Carpenter-Kennedy)",
     };
 
     println!("\n  ── {label}: {integrator_name} ──");

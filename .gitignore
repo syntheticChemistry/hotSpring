@@ -111,6 +111,7 @@ barracuda/cuda/bench_fp64_ratio_cuda
 
 # Experiment outputs (regenerable via experiment scripts)
 results/*.jsonl
+results/**/*.jsonl
 results/weights/*.bin
 
 # ============================================================

@@ -12,12 +12,16 @@
 //!
 //! License: AGPL-3.0
 
+pub mod compute_backend;
 mod esn_benchmark;
 mod hardware;
 mod power;
 mod report;
 
-// Public API — unchanged from original bench.rs
+pub use compute_backend::{
+    BackendKind, BarraCudaCpuBackend, BenchmarkResult, BenchmarkSpec, ComputeBackend,
+    PrecisionMode, compare_backends,
+};
 pub use esn_benchmark::{
     generate_test_sequence, generate_training_data, time_fn, GpuEsn, SubstrateResult,
 };

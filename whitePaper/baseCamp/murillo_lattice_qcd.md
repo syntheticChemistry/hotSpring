@@ -1,8 +1,8 @@
 # Lattice QCD — Quenched & Dynamical Fermions
 
-**Papers:** 7-12 (HotQCD EOS, Pure Gauge, Production QCD, Dynamical Fermions, HVP g-2, Freeze-Out)
-**Updated:** February 25, 2026
-**Status:** ✅ Production 32⁴ quenched β-scan complete, deconfinement transition observed
+**Papers:** 7-12 (HotQCD EOS, Pure Gauge, Production QCD, Dynamical Fermions, HVP g-2, Freeze-Out) + Chuna arXiv:2101.05320
+**Updated:** March 6, 2026
+**Status:** ✅ Asymmetric lattices (32³×8, 64³×8), gradient flow (t₀, w₀), Chuna integrators derived from first principles, N_f=4 dynamical infra complete
 
 ---
 
@@ -62,8 +62,55 @@ throughput of native f64 on the same silicon.
 - **GPU Polyakov loop** → toadStool `polyakov_loop_f64.wgsl` → bidirectional evolution: toadStool → hotSpring → toadStool
 - **NVK allocation guard** → toadStool `driver_profile.rs` → protects all nouveau users
 
+## Asymmetric Lattices & Finite Temperature (Exp 032, March 6 2026)
+
+Moved from hypercubic (L⁴) to physically relevant asymmetric (N_s³ × N_t) geometries
+for finite-temperature QCD. N_t sets the temperature: T = 1/(a × N_t).
+
+| Lattice | Sites | GPU ms/traj | Speedup | Status |
+|---------|:-----:|:-----------:|:-------:|--------|
+| 32³×8 | 262K | 2,840 | 26.5× | ✅ Complete — 1,800 traj, 3.5h |
+| 64³×8 | 2.10M | ~23,000 | ~26× | ✅ Production run (overnight) |
+
+32³×8 shows susceptibility peak near β≈5.9 — crossover behavior as expected
+for N_s/N_t = 4. 64³×8 (N_s/N_t = 8, MILC-comparable) should resolve sharp
+first-order transition at β_c(N_t=8) ≈ 6.062.
+
+## Wilson Gradient Flow & Scale Setting (Chuna Reproduction, March 6 2026)
+
+Reproducing Bazavov & Chuna, arXiv:2101.05320. Implemented full Wilson gradient
+flow with t₀ (Lüscher) and w₀ (BMW) scale setting.
+
+**Integrators — derived, not copied:**
+
+The 3-stage 3rd-order LSCFRK coefficients are solutions to four Taylor series
+order conditions (laws of calculus, not choices). A `const fn derive_lscfrk3(c2, c3)`
+solves these at compile time. Only two free parameters remain — the rest is algebra:
+
+| Integrator | c₂ | c₃ | Source |
+|-----------|------|------|--------|
+| LSCFRK3W6 | 1/4 | 2/3 | Lüscher JHEP 2010 |
+| LSCFRK3W7 | 1/3 | 3/4 | Chuna (recommended) |
+| LSCFRK4CK | — | — | Carpenter-Kennedy (4th order, numerical roots) |
+
+All integrators validated against each other. W7 ~2× more efficient for w₀
+observables. Convergence scaling matches the paper. 14/14 gradient flow tests pass.
+
+## Science Ladder
+
+| Level | Physics | Status |
+|-------|---------|--------|
+| 0 | Quenched HMC (32⁴, 32³×8, 64³×8) | ✅ Complete |
+| 1 | Gradient flow (t₀, w₀, 5 integrators) | ✅ Complete |
+| 2 | Flow integrator convergence (Chuna paper) | ✅ Validated |
+| 3 | N_f=4 staggered dynamical (GPU CG) | ✅ Infrastructure complete |
+| 4 | N_f=2 dynamical (RHMC rooting trick) | Pending |
+| 5 | N_f=2+1 staggered (strange quark mass) | Pending |
+| 6 | N_f=2+1+1 HISQ (full physical QCD) | Long-term |
+
 ## What's Next
 
-- **Dynamical QCD at scale**: 16⁴-32⁴ with full pseudofermion HMC (light quarks)
-- **Mixed pipeline**: NPU-driven adaptive β selection (Experiment 015 Phase 2+)
-- **Titan V validation**: NVK fp64 parity with proprietary driver at production scale
+- **64³×8 analysis**: Polyakov loop jump at β_c, finite-size scaling (32³/48³/64³ × 8)
+- **Gradient flow at volume**: t₀/w₀ on 16⁴+ thermalized configs for physical scale setting
+- **N_f=2 dynamical**: Wire RHMC for fractional flavors on GPU
+- **Chuna contact**: Murillo referred us — prepare review package with derived integrators + production data

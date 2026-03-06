@@ -517,3 +517,33 @@ path = "src/bin/cross_substrate_esn_benchmark.rs"
 [[bin]]
 name = "validate_gen2_npu"
 path = "src/bin/validate_gen2_npu.rs"
+
+# ── Exp 032: CPU vs GPU backend comparison with summary tables ──
+[[bin]]
+name = "bench_backends"
+path = "src/bin/bench_backends.rs"
+
+# ── Exp 032: Finite-temperature β-scan (asymmetric N_s³×N_t lattices) ──
+[[bin]]
+name = "production_finite_temp"
+path = "src/bin/production_finite_temp.rs"
+
+# ── Gradient flow: production measurement of t₀ and w₀ scales ──
+[[bin]]
+name = "production_gradient_flow"
+path = "src/bin/production_gradient_flow.rs"
+
+# ── Gradient flow integrator comparison (Euler/RK2/W6/W7/CK4 convergence) ──
+[[bin]]
+name = "compare_flow_integrators"
+path = "src/bin/compare_flow_integrators.rs"
+
+# ── Gradient flow validation (Euler/RK2/RK3 cross-check) ──
+[[bin]]
+name = "validate_gradient_flow"
+path = "src/bin/validate_gradient_flow.rs"
+
+# ── N_f=4 staggered dynamical fermion HMC on GPU ──
+[[bin]]
+name = "production_dynamical"
+path = "src/bin/production_dynamical.rs"
