@@ -1,10 +1,10 @@
 # hotSpring — Paper Review Queue
 
-**Last Updated**: February 25, 2026
+**Last Updated**: March 6, 2026
 **Purpose**: Track papers for reproduction/review, ordered by priority and feasibility
 **Principle**: Reproduce, validate, then decrease cost. Each paper proves the
 pipeline on harder physics — toadStool evolves the GPU acceleration in parallel.
-**Crate**: hotspring-barracuda v0.6.15 — ~700 tests, 84 binaries, 62 WGSL shaders
+**Crate**: hotspring-barracuda v0.6.19 — ~725 tests, 93 binaries, 62 WGSL shaders
 
 **Evolution path per paper**: Python Control → BarraCuda CPU → BarraCuda GPU → metalForge
 
@@ -38,16 +38,16 @@ pipeline on harder physics — toadStool evolves the GPU acceleration in paralle
 | 22 | Ten Martini (Cantor) | ✅ (in spectral_control.py) | ✅ (in validate_hofstadter) | — (Sturm, CPU-natural) | — |
 | 23 | Sulfolobus meta-populations | — | — | — | — (wetSpring domain) |
 | 24 | Anderson subseafloor review | — (reference only) | — | — | — |
-| 43 | Chuna: SU(3) gradient flow integrators | — | ✅ `gradient_flow` (3 integrators, t₀ scale, 6/6 tests) | — (Tier 2 QCD) | — |
-| 44 | Chuna: Conservative dielectric functions (BGK) | — | — | — (Tier 4 WDM) | — |
-| 45 | Chuna: Multi-species kinetic-fluid coupling | — | — | — (Tier 4 HED) | — |
+| 43 | Chuna: SU(3) gradient flow integrators | ✅ `gradient_flow_control.py` | ✅ `gradient_flow` (5 integrators, t₀ + w₀ scale, 14/14 tests) | ✅ `gpu_flow` (7/7, 38.5×) | — |
+| 44 | Chuna: Conservative dielectric functions (BGK) | ✅ `bgk_dielectric_control.py` | ✅ `dielectric` module | ✅ `dielectric_mermin_f64` (12/12) | 144× CPU |
+| 45 | Chuna: Multi-species kinetic-fluid coupling | ✅ `kinetic_fluid_control.py` | ✅ `kinetic_fluid` module (16 tests + 20/20 validation) | — (Tier 4 HED) | — |
 
 ### Totals
 
 | Substrate | Papers with validation | Coverage |
 |-----------|:---:|:---:|
-| **Python Control** | **18/25** | Papers 1-6, 8-10, 13-22 |
-| **BarraCuda CPU** | **22/25** | All except 23, 43-45 — **COMPLETE** for pre-Chuna papers |
+| **Python Control** | **21/25** | Papers 1-6, 8-10, 13-22, 43-45 |
+| **BarraCuda CPU** | **25/25** | All except 23 (wetSpring domain) — Papers 43-45 now validated |
 | **BarraCuda GPU** | **20/25** | Papers 1, 3-5, 8-19 + pure GPU HMC + dynamical GPU + β-scan |
 | **metalForge (GPU+NPU)** | **9/25** | Papers 5, 8-10, 12-16 (transport + QCD + Higgs + spectral) |
 
@@ -60,9 +60,9 @@ pipeline on harder physics — toadStool evolves the GPU acceleration in paralle
 | 12 (Freeze-out) | ✅ DONE — `validate_freeze_out` (8/8): susceptibility β-scan, β_c detected | — | — |
 | 20 (3D Anderson) | ✅ DONE — 3D Anderson added to spectral_control.py (Feb 22, 2026) | — | — |
 | 23 (Sulfolobus) | Bioinformatics pipeline (wetSpring domain) | Medium | P3 |
-| 43 (Chuna gradient flow) | SU(3) gradient flow on 4⁴/8⁴, compare RK coefficients vs Omelyan HMC | Medium | P2 — extends Papers 8-12 |
-| 44 (Chuna dielectric) | BGK dielectric response, f-sum rule, DSF comparison vs Sarkas | Medium | P2 — extends Papers 1/5 |
-| 45 (Chuna kinetic-fluid) | Hybrid kinetic-hydro coupling, conservation validation | High | P3 — new domain |
+| 43 (Chuna gradient flow) | ✅ DONE — `gradient_flow_control.py`: 5 integrators, t₀ + w₀ scale, convergence analysis | — | — |
+| 44 (Chuna dielectric) | ✅ DONE — `bgk_dielectric_control.py`: Mermin susceptibility, f-sum rule, DSF, conductivity | ✅ `dielectric.rs` 13 tests | ✅ `dielectric_mermin_f64.wgsl` 12/12 |
+| 45 (Chuna kinetic-fluid) | ✅ DONE — `kinetic_fluid_control.py`: BGK relaxation, Sod shock tube, coupled interface | — | — |
 
 **Total science cost**: ~$0.20 for 22 papers, 400+ validation checks.
 Papers 6, 7, 13-22 add checks at negligible cost (CPU-only, <15 seconds each).
@@ -504,7 +504,7 @@ precision against the state of the art. All SU(3) GPU primitives already validat
 | # | Paper | Journal | Year | Faculty | What We Need | Status |
 |---|-------|---------|------|---------|-------------|--------|
 | 44 | Chuna & Murillo "Conservative dielectric functions and electrical conductivities from the multicomponent BGK equation" | Phys Rev E 111, 035206 (arXiv:2405.07871) | 2024 | Chuna, Murillo | Completed Mermin susceptibility, f-sum rule validation, DSF shape under NIF hot-spot conditions, non-Drude conductivity. Extends Papers 1/5 (Sarkas Yukawa DSF, Stanton-Murillo transport) | Queue — reproduce dielectric response from BGK; validate f-sum rule; compare DSF shape vs Sarkas MD |
-| 45 | Haack, Murillo, Sagert & Chuna "Multi-species kinetic-fluid coupling for high-energy density simulations" | J Computational Physics | 2024 | Chuna, Murillo, Sagert, Haack | Hybrid kinetic-hydro coupling for HED. Multi-fidelity: kinetic (expensive) in one region, hydro (cheap) in another. DOE OSTI:2368912 | Queue — reproduce kinetic-fluid interface; validate conservation laws across coupling boundary |
+| 45 | Haack, Murillo, Sagert & Chuna "Multi-species kinetic-fluid coupling for high-energy density simulations" | J Computational Physics | 2024 | Chuna, Murillo, Sagert, Haack | Hybrid kinetic-hydro coupling for HED. Multi-fidelity: kinetic (expensive) in one region, hydro (cheap) in another. DOE OSTI:2368912 | ✅ CPU COMPLETE — Python control (18/18) + BarraCuda CPU (16 tests + 20/20 validation): BGK relaxation, Sod shock tube, coupled kinetic-fluid interface |
 
 **Why Paper 44 matters**: The DSF is the central observable in our Sarkas
 reproduction (Paper 1). Chuna's paper derives a "completed Mermin"

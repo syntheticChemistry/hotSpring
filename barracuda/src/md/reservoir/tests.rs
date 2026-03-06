@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-#![allow(clippy::expect_used)]
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 
 use crate::md::reservoir::heads;
 use crate::md::reservoir::{
@@ -429,6 +429,11 @@ fn exported_weights_serde_compatible_with_toadstool() {
     assert_eq!(ts.input_size, 5);
     assert_eq!(ts.reservoir_size, 20);
     assert_eq!(ts.output_size, heads::NUM_HEADS);
+    assert!((ts.leak_rate - exported.leak_rate).abs() < f32::EPSILON);
+    assert!(
+        ts.head_labels.is_empty(),
+        "hotSpring format omits head_labels; toadStool defaults"
+    );
 
     // Reverse direction: toadStool → hotSpring
     let ts_json = serde_json::json!({

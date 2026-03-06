@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 //
 // Copy current positions to reference buffer for Verlet displacement tracking.
 //

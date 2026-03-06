@@ -2,9 +2,9 @@
 
 **Date:** 2026-03-06
 **Project:** hotSpring (ecoPrimals)
-**Status:** v0.6.18, experiments 001-040, 685 lib tests, 39/39 validation suites, 92 binaries, 62 WGSL shaders
+**Status:** v0.6.19, experiments 001-046, 724 lib tests, 39/39 validation suites, 95 binaries, 71 WGSL shaders
 
-**Notes:** Deep debt resolution (v0.6.18): Clippy 0 warnings, file-size compliance, unwrap/expect removal. Brain B2 (memory pressure) and D1 (force anomaly) evolved from placeholder to real runtime estimates.
+**Notes:** Precision stability (v0.6.19): 9 cancellation families audited (f32/DF64/f64/CKKS FHE), stable BCS v² + W(z). Zero clippy (all targets), all AGPL-3.0-only. Papers 43-45 GPU promotion complete.
 
 ---
 
@@ -45,6 +45,6 @@ Published paper (Python/FORTRAN/HPC)
 - **wetSpring** (`../../../wetSpring/whitePaper/baseCamp/`): Per-faculty briefings for bio/phylogenetic domains. Shares DF64, ESN, and pairwise distance shaders via barraCuda.
 - **barraCuda** (`../../../barraCuda/`): Standalone compute primal (budded from toadStool S89). 767+ WGSL shaders, DF64, precision system, lattice QCD.
 - **toadStool** (`../../../phase1/toadStool/`): Shared compute ecosystem. barraCuda retains legacy copy; Springs migrating to standalone.
-- **Experiment journals**: `../../experiments/` (001-040)
+- **Experiment journals**: `../../experiments/` (001-046)
 - **Handoffs**: `../../wateringHole/handoffs/` (fossil record of all cross-project exchanges)
 - **Reality Ladder plan**: `../../.cursor/plans/reality_ladder_plan_3571df11.plan.md`

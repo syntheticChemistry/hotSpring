@@ -91,6 +91,9 @@ pub fn factorial_f64(n: usize) -> f64 {
 ///
 /// v²(ε, Δ) = ½ (1 − ε / `E_qp`), where `E_qp` = √(ε² + Δ²).
 ///
+/// Uses the numerically stable form `v² = Δ² / (2 E_qp (E_qp + |ε|))`
+/// when |ε| > |Δ| to avoid catastrophic cancellation in `1 − ε/E_qp`.
+///
 /// - `eps`: single-particle energy relative to chemical potential (ε = e − μ)
 /// - `delta`: pairing gap Δ (`MeV`)
 ///
@@ -99,8 +102,38 @@ pub fn factorial_f64(n: usize) -> f64 {
 #[must_use]
 pub fn bcs_v2(eps: f64, delta: f64) -> f64 {
     let e_qp = eps.hypot(delta);
-    // Physics: e_qp is always ≥ |Δ| > 0 when pairing is active
-    0.5 * (1.0 - eps / e_qp)
+    if e_qp < 1e-30 {
+        return 0.5;
+    }
+    if eps.abs() > delta.abs() {
+        bcs_v2_stable(eps, delta, e_qp)
+    } else {
+        0.5 * (1.0 - eps / e_qp)
+    }
+}
+
+/// Numerically stable BCS v² avoiding cancellation in `1 − ε/E_qp`.
+///
+/// Identity: v² = Δ²/(2·E_qp·(E_qp + |ε|)). No near-cancellation because
+/// Δ² is directly available and the denominator is always positive.
+///
+/// Derivation:
+/// ```text
+/// v² = ½(1 − ε/E_qp) = ½(E_qp − ε)/E_qp
+///    = ½(E_qp − ε)(E_qp + ε) / (E_qp(E_qp + ε))
+///    = ½(E_qp² − ε²) / (E_qp(E_qp + |ε|))
+///    = Δ² / (2·E_qp·(E_qp + |ε|))
+/// ```
+#[inline]
+#[must_use]
+pub fn bcs_v2_stable(eps: f64, delta: f64, e_qp: f64) -> f64 {
+    let d2 = delta * delta;
+    let v2 = d2 / (2.0 * e_qp * (e_qp + eps.abs()));
+    if eps > 0.0 {
+        v2
+    } else {
+        1.0 - v2
+    }
 }
 
 /// Coulomb exchange potential (Slater approximation) at a single point.
@@ -384,5 +417,131 @@ mod tests {
             eps.abs() < 1e-30,
             "negative density should be clamped to zero"
         );
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // BCS v² multi-precision stability tests
+    // ═══════════════════════════════════════════════════════════════
+
+    fn bcs_v2_naive(eps: f64, delta: f64) -> f64 {
+        let e_qp = eps.hypot(delta);
+        if e_qp < 1e-30 {
+            return 0.5;
+        }
+        0.5 * (1.0 - eps / e_qp)
+    }
+
+    fn bcs_v2_naive_f32(eps: f32, delta: f32) -> f32 {
+        let e_qp = eps.hypot(delta);
+        if e_qp < 1e-30 {
+            return 0.5;
+        }
+        0.5 * (1.0 - eps / e_qp)
+    }
+
+    fn bcs_v2_stable_f32(eps: f32, delta: f32) -> f32 {
+        let e_qp = eps.hypot(delta);
+        if e_qp < 1e-15 {
+            return 0.5;
+        }
+        if eps.abs() > delta.abs() {
+            let d2 = delta * delta;
+            let v2 = d2 / (2.0 * e_qp * (e_qp + eps.abs()));
+            if eps > 0.0 {
+                v2
+            } else {
+                1.0 - v2
+            }
+        } else {
+            0.5 * (1.0 - eps / e_qp)
+        }
+    }
+
+    #[test]
+    fn bcs_v2_stable_matches_naive_near_fermi_surface() {
+        // Near Fermi surface (eps ~ 0), both formulas agree
+        let delta = 1.0;
+        for eps in [-0.5, -0.1, 0.0, 0.1, 0.5] {
+            let naive = bcs_v2_naive(eps, delta);
+            let stable = bcs_v2(eps, delta);
+            assert!(
+                (naive - stable).abs() < 1e-14,
+                "eps={eps}: naive={naive}, stable={stable}"
+            );
+        }
+    }
+
+    #[test]
+    fn bcs_v2_naive_loses_precision_at_tails() {
+        // Far from Fermi surface: eps=100, delta=1
+        // v² ≈ Δ²/(2·E_qp·(E_qp+|ε|)) ≈ 1/(2·100·200) = 2.5e-5
+        let eps = 100.0_f64;
+        let delta = 1.0_f64;
+        let e_qp = eps.hypot(delta);
+        let exact = delta * delta / (2.0 * e_qp * (e_qp + eps));
+
+        let naive = bcs_v2_naive(eps, delta);
+        let stable = bcs_v2(eps, delta);
+
+        // Both should be close to exact in f64, but naive loses ~4 digits
+        let naive_err = (naive - exact).abs() / exact;
+        let stable_err = (stable - exact).abs() / exact;
+        assert!(
+            stable_err < naive_err || stable_err < 1e-14,
+            "stable should be at least as accurate: naive_err={naive_err:.2e}, stable_err={stable_err:.2e}"
+        );
+    }
+
+    #[test]
+    fn bcs_v2_f32_naive_garbage_at_tails() {
+        // f32 precision: eps=100, delta=1
+        // eps/e_qp in f32 ≈ 1.0 (rounded), so 1 - 1 = 0 → v²=0
+        let eps = 100.0_f32;
+        let delta = 1.0_f32;
+        let exact = 2.499_975e-5_f64;
+
+        let naive_f32 = bcs_v2_naive_f32(eps, delta);
+        let stable_f32 = bcs_v2_stable_f32(eps, delta);
+
+        let naive_err = (f64::from(naive_f32) - exact).abs() / exact;
+        let stable_err = (f64::from(stable_f32) - exact).abs() / exact;
+
+        assert!(
+            stable_err < 0.01,
+            "stable f32 should be within 1%: got {stable_err:.2e}"
+        );
+        assert!(
+            naive_err > stable_err,
+            "naive f32 should be worse: naive={naive_err:.2e}, stable={stable_err:.2e}"
+        );
+    }
+
+    #[test]
+    fn bcs_v2_stable_preserves_symmetry() {
+        // v²(+eps) + v²(-eps) = 1 for any eps (particle-hole symmetry)
+        let delta = 1.0;
+        for eps in [0.1, 1.0, 10.0, 100.0, 1000.0] {
+            let v2_plus = bcs_v2(eps, delta);
+            let v2_minus = bcs_v2(-eps, delta);
+            assert!(
+                (v2_plus + v2_minus - 1.0).abs() < 1e-14,
+                "eps={eps}: v²(+) + v²(-) = {} ≠ 1",
+                v2_plus + v2_minus
+            );
+        }
+    }
+
+    #[test]
+    fn bcs_v2_stable_range_extreme() {
+        // v² must be in [0, 1] even at extreme values
+        for eps in [-1e6, -1e3, -1.0, 0.0, 1.0, 1e3, 1e6] {
+            for delta in [1e-6, 0.01, 1.0, 10.0] {
+                let v2 = bcs_v2(eps, delta);
+                assert!(
+                    (0.0..=1.0).contains(&v2),
+                    "v²={v2} out of [0,1] for eps={eps}, delta={delta}"
+                );
+            }
+        }
     }
 }

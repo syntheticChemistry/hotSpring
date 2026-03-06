@@ -5,6 +5,28 @@ All notable changes to the hotSpring BarraCuda validation crate.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.6.19 — Precision Stability + Full Codebase Compliance (March 6, 2026)
+
+### Summary
+
+- **Experiment 046**: Full multi-tier precision stability analysis — 9 cancellation families
+  audited across f32, DF64, f64, and CKKS FHE tiers
+- **Stable BCS v²**: `bcs_v2_stable()` in `hfb_common.rs` + 3 WGSL shaders — eliminates
+  catastrophic cancellation in nuclear occupation numbers
+- **5 stability tests**: f32 naive vs stable, symmetry preservation, extreme-range
+- **Zero clippy (all targets)**: 2 warnings fixed (`cloned→copied`, `&mut→&`)
+- **59 WGSL license fixes**: `AGPL-3.0-or-later` → `AGPL-3.0-only` across all shaders
+- **toadStool S96+ synced**
+
+### Metrics
+
+- 724 tests (lib), 95 binaries, 71 WGSL shaders
+- 0 clippy warnings (lib + all 95 binaries)
+- 0 unsafe blocks, 0 TODO/FIXME, all files <1000 lines
+- All WGSL shaders AGPL-3.0-only
+
+---
+
 ## v0.6.18 — Deep Debt Resolution, Pedantic Compliance, API Sync (March 6, 2026)
 
 ### Summary

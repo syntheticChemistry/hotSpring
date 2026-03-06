@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Batched HFB Energy Functional (f64) — GPU Shader
 //
 // Computes the total energy E_total for each nucleus in the batch:

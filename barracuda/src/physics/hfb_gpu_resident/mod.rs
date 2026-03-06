@@ -35,7 +35,6 @@ use crate::error::HotSpringError;
 use crate::tolerances::GPU_JACOBI_CONVERGENCE;
 use barracuda::device::WgpuDevice;
 use barracuda::ops::linalg::BatchedEighGpu;
-use barracuda::shaders::precision::ShaderTemplate;
 use std::sync::Arc;
 
 pub use types::GpuResidentL2Result;
@@ -123,31 +122,15 @@ pub fn binding_energies_l2_gpu_resident(
     let raw_device = device.device();
     let raw_queue = device.queue();
 
-    let potentials_shader = ShaderTemplate::for_device_auto(POTENTIALS_SHADER_BODY, device);
-    let pot_module = raw_device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: Some("potentials"),
-        source: wgpu::ShaderSource::Wgsl(potentials_shader.into()),
-    });
-    let ham_module = raw_device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: Some("hamiltonian"),
-        source: wgpu::ShaderSource::Wgsl(HAMILTONIAN_SHADER.into()),
-    });
+    let pot_module = device.compile_shader_f64(POTENTIALS_SHADER_BODY, Some("potentials"));
+    let ham_module = device.compile_shader_f64(HAMILTONIAN_SHADER, Some("hamiltonian"));
 
     let mut states = build_initial_densities(&solvers);
 
     let ns_nr_groups: Vec<((usize, usize), Vec<usize>)> = groups_map.into_iter().collect();
-    let density_module = raw_device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: Some("density"),
-        source: wgpu::ShaderSource::Wgsl(DENSITY_SHADER.into()),
-    });
+    let density_module = device.compile_shader_f64(DENSITY_SHADER, Some("density"));
     #[cfg(feature = "gpu_energy")]
-    let energy_module = {
-        let energy_shader = ShaderTemplate::for_device_auto(ENERGY_SHADER_BODY, device);
-        raw_device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("energy"),
-            source: wgpu::ShaderSource::Wgsl(energy_shader.into()),
-        })
-    };
+    let energy_module = device.compile_shader_f64(ENERGY_SHADER_BODY, Some("energy"));
     let sky_data: [f64; 9] = [t0_p, t3, x0, x3, alpha_skyrme, 0.0, c0t, c1n, hbar2_2m];
 
     let mut all_groups: Vec<GroupResources> = Vec::new();
@@ -185,10 +168,7 @@ pub fn binding_energies_l2_gpu_resident(
         })?;
 
     // ═══ SPIN-ORBIT + PACK PIPELINE (GPU-RESIDENT H → EIGENSOLVE) ═══
-    let so_pack_module = raw_device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: Some("so_pack"),
-        source: wgpu::ShaderSource::Wgsl(SO_PACK_SHADER.into()),
-    });
+    let so_pack_module = device.compile_shader_f64(SO_PACK_SHADER, Some("so_pack"));
     let so_pack_layout = raw_device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         label: Some("so_pack_layout"),
         entries: &[

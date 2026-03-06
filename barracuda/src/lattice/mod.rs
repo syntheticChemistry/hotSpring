@@ -46,6 +46,8 @@ pub mod correlator;
 pub mod dirac;
 /// HotQCD EOS tables (Bazavov et al. PRD 90, 094503).
 pub mod eos_tables;
+/// GPU gradient flow — promotes CPU `gradient_flow` to GPU via HMC shader reuse.
+pub mod gpu_flow;
 /// Pure GPU HMC: all math on GPU via fp64 WGSL shaders.
 pub mod gpu_hmc;
 /// Wilson gradient flow on SU(3) gauge fields (Lüscher 2010, Bazavov & Chuna 2021).

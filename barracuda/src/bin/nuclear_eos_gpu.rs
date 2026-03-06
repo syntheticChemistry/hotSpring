@@ -19,7 +19,8 @@ use hotspring_barracuda::data;
 use hotspring_barracuda::discovery;
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::nuclear_eos_helpers::{
-    print_nmp_with_pulls, print_pure_gpu_precision, print_semf_gpu_precision,
+    l1_chi2_cpu_nuclei, l1_objective_nmp_nuclei, l2_objective_nmp_exp_data, print_nmp_with_pulls,
+    print_pure_gpu_precision, print_semf_gpu_precision,
 };
 use hotspring_barracuda::physics::{
     binding_energy_l2, nuclear_matter_properties, semf_binding_energy,
@@ -29,7 +30,6 @@ use hotspring_barracuda::tolerances;
 
 use barracuda::sample::latin_hypercube;
 
-use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
@@ -436,7 +436,7 @@ fn main() {
     let t_cpu_opt = Instant::now();
     let cpu_chi2s: Vec<f64> = samples
         .iter()
-        .map(|params| l1_chi2_cpu(params, &sorted_nuclei))
+        .map(|params| l1_chi2_cpu_nuclei(params, &sorted_nuclei))
         .collect();
     let cpu_opt_wall = t_cpu_opt.elapsed().as_secs_f64();
     let cpu_opt_ms = cpu_opt_wall * 1000.0;
@@ -539,7 +539,7 @@ fn main() {
     // CPU objective for comparison
     let sorted_nuclei_cpu = sorted_nuclei.clone();
     let cpu_objective =
-        move |x: &[f64]| -> f64 { l1_objective_with_nmp(x, &sorted_nuclei_cpu, lambda) };
+        move |x: &[f64]| -> f64 { l1_objective_nmp_nuclei(x, &sorted_nuclei_cpu, lambda) };
 
     let pmon_ds_cpu = PowerMonitor::start();
     let t_cpu_full = Instant::now();
@@ -582,7 +582,7 @@ fn main() {
     // For now, we run identical CPU physics to verify result parity.
     let sorted_for_obj = sorted_nuclei_arc;
     let gpu_objective =
-        move |x: &[f64]| -> f64 { l1_objective_with_nmp(x, &sorted_for_obj, lambda) };
+        move |x: &[f64]| -> f64 { l1_objective_nmp_nuclei(x, &sorted_for_obj, lambda) };
 
     let pmon_ds_gpu = PowerMonitor::start();
     let t_gpu_full = Instant::now();
@@ -691,7 +691,7 @@ fn main() {
     let exp_data_arc = ctx.exp_data.clone();
     let exp_data_l2 = exp_data_arc;
 
-    let l2_objective = move |x: &[f64]| -> f64 { l2_objective_fn(x, &exp_data_l2, 0.1) };
+    let l2_objective = move |x: &[f64]| -> f64 { l2_objective_nmp_exp_data(x, &exp_data_l2, 0.1) };
 
     let pmon_l2_opt = PowerMonitor::start();
     let t_l2_opt = Instant::now();
@@ -802,33 +802,8 @@ fn main() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// Helper functions
+// Helper functions (GPU-specific; uses expect() — binary-only)
 // ═══════════════════════════════════════════════════════════════════
-
-/// L1 chi2/datum for a parameter set (CPU)
-fn l1_chi2_cpu(params: &[f64], nuclei: &[((usize, usize), (f64, f64))]) -> f64 {
-    let Some(nmp) = nuclear_matter_properties(params) else {
-        return 1e10;
-    };
-    if nmp.rho0_fm3 < 0.05 || nmp.rho0_fm3 > 0.30 || nmp.e_a_mev > 0.0 {
-        return 1e10;
-    }
-
-    let mut chi2 = 0.0;
-    let mut count = 0;
-    for &((z, n), (b_exp, _)) in nuclei {
-        let b_calc = semf_binding_energy(z, n, params);
-        if b_calc > 0.0 {
-            let sigma = tolerances::sigma_theo(b_exp);
-            chi2 += ((b_calc - b_exp) / sigma).powi(2);
-            count += 1;
-        }
-    }
-    if count == 0 {
-        return 1e10;
-    }
-    chi2 / f64::from(count)
-}
 
 /// L1 chi2/datum via GPU dispatch
 fn l1_chi2_gpu(
@@ -906,89 +881,4 @@ fn l1_chi2_gpu(
         .dispatch_and_read(chi2_pipeline, &chi2_bg, wg, &chi2_buf, n_nuclei)
         .expect("GPU L2 chi2 dispatch");
     chi2_vals.iter().sum::<f64>() / n_nuclei as f64
-}
-
-/// L1 objective with NMP constraint (for `DirectSampler`)
-fn l1_objective_with_nmp(x: &[f64], nuclei: &[((usize, usize), (f64, f64))], lambda: f64) -> f64 {
-    if x[8] <= 0.01 || x[8] > 1.0 {
-        return (1e4_f64).ln_1p();
-    }
-
-    let Some(nmp) = nuclear_matter_properties(x) else {
-        return (1e4_f64).ln_1p();
-    };
-    if nmp.rho0_fm3 < 0.05 || nmp.rho0_fm3 > 0.30 {
-        return (1e4_f64).ln_1p();
-    }
-    if nmp.e_a_mev > 0.0 {
-        return (1e4_f64).ln_1p();
-    }
-
-    let mut chi2_be = 0.0;
-    let mut count = 0;
-    for &((z, n), (b_exp, _)) in nuclei {
-        let b_calc = semf_binding_energy(z, n, x);
-        if b_calc > 0.0 {
-            let sigma = tolerances::sigma_theo(b_exp);
-            chi2_be += ((b_calc - b_exp) / sigma).powi(2);
-            count += 1;
-        }
-    }
-    if count == 0 {
-        return (1e4_f64).ln_1p();
-    }
-
-    let chi2_be_datum = chi2_be / f64::from(count);
-    let chi2_nmp = provenance::nmp_chi2_from_props(&nmp) / 5.0;
-    let total = lambda.mul_add(chi2_nmp, chi2_be_datum);
-    total.ln_1p()
-}
-
-/// L2 objective function (HFB + NMP constraint)
-fn l2_objective_fn(x: &[f64], exp_data: &HashMap<(usize, usize), (f64, f64)>, lambda: f64) -> f64 {
-    use rayon::prelude::*;
-    if x[8] <= 0.01 || x[8] > 1.0 {
-        return (1e4_f64).ln_1p();
-    }
-
-    let Some(nmp) = nuclear_matter_properties(x) else {
-        return (1e4_f64).ln_1p();
-    };
-    if nmp.rho0_fm3 < 0.05 || nmp.rho0_fm3 > 0.30 {
-        return (1e4_f64).ln_1p();
-    }
-    if nmp.e_a_mev > 0.0 {
-        return (1e4_f64).ln_1p();
-    }
-
-    let mut chi2_be = 0.0;
-    let mut count = 0;
-
-    let results: Vec<(f64, f64, f64)> = exp_data
-        .par_iter()
-        .filter_map(|(&(z, n), &(b_exp, _))| {
-            let (b_calc, _converged) = binding_energy_l2(z, n, x).expect("HFB solve");
-            if b_calc > 0.0 {
-                let sigma = tolerances::sigma_theo(b_exp);
-                let chi2 = ((b_calc - b_exp) / sigma).powi(2);
-                Some((chi2, 1.0, 0.0))
-            } else {
-                None
-            }
-        })
-        .collect();
-
-    for (c, _, _) in &results {
-        chi2_be += c;
-        count += 1;
-    }
-
-    if count == 0 {
-        return (1e4_f64).ln_1p();
-    }
-
-    let chi2_be_datum = chi2_be / f64::from(count);
-    let chi2_nmp = provenance::nmp_chi2_from_props(&nmp) / 5.0;
-    let total = lambda.mul_add(chi2_nmp, chi2_be_datum);
-    total.ln_1p()
 }

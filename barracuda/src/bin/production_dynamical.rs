@@ -262,6 +262,7 @@ fn main() {
 
     let mean_plaq = plaquettes.iter().sum::<f64>() / plaquettes.len() as f64;
     let std_plaq = std_dev(&plaquettes);
+    let mean_delta_h = delta_hs.iter().sum::<f64>() / delta_hs.len() as f64;
     let acc_rate = f64::from(accepted_meas) / args.n_meas as f64;
     let mean_cg = cg_iters_total.iter().sum::<usize>() as f64 / cg_iters_total.len() as f64;
     let ms_per_traj = meas_wall * 1000.0 / args.n_meas as f64;
@@ -274,6 +275,7 @@ fn main() {
     );
     println!("  ══════════════════════════════════════════════════");
     println!("  ⟨P⟩          = {mean_plaq:.6} ± {std_plaq:.6}");
+    println!("  ⟨|ΔH|⟩       = {:.4}", mean_delta_h.abs());
     println!("  Acceptance   = {:.1}%", acc_rate * 100.0);
     println!("  ⟨CG iters⟩   = {mean_cg:.1}");
     println!("  ms/trajectory = {ms_per_traj:.1}");
@@ -294,6 +296,7 @@ fn main() {
             "dt": args.dt,
             "mean_plaquette": mean_plaq,
             "std_plaquette": std_plaq,
+            "mean_delta_h": mean_delta_h,
             "acceptance_rate": acc_rate,
             "mean_cg_iterations": mean_cg,
             "ms_per_trajectory": ms_per_traj,

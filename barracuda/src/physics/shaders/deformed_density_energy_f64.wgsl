@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Density Accumulation, BCS, Energy Functional, and Observables
 // for Deformed HFB on 2D Cylindrical Grid (f64)
 //
@@ -55,7 +55,14 @@ fn compute_bcs_occupations(@builtin(global_invocation_id) gid: vec3<u32>) {
     if (params.delta_pair > f64(1e-10)) {
         let eps = eigenvalues[idx] - params.fermi_energy;
         let e_qp = sqrt(eps * eps + params.delta_pair * params.delta_pair);
-        let v2 = f64(0.5) * (f64(1.0) - eps / e_qp);
+        var v2: f64;
+        if (abs(eps) > params.delta_pair) {
+            let d2 = params.delta_pair * params.delta_pair;
+            let v2_s = d2 / (f64(2.0) * e_qp * (e_qp + abs(eps)));
+            v2 = select(f64(1.0) - v2_s, v2_s, eps > f64(0.0));
+        } else {
+            v2 = f64(0.5) * (f64(1.0) - eps / e_qp);
+        }
         occupations[idx] = clamp(v2, f64(0.0), f64(1.0));
     } else {
         // Sharp Fermi surface: filled below μ

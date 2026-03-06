@@ -1,7 +1,7 @@
 # wateringHole — Cross-Project Handoffs
 
 **Project:** hotSpring (ecoPrimals)
-**Last Updated:** March 2, 2026
+**Last Updated:** March 6, 2026
 
 ---
 
@@ -57,34 +57,18 @@ fossil record — never deleted, always available for provenance.
 
 | File | Date | Topic |
 |------|------|-------|
-| `HOTSPRING_V0617_TOADSTOOL_S93_BARRACUDA_V031_REWIRE_HANDOFF_MAR03_2026.md` | Mar 3 | **barraCuda v0.3.1 + toadStool S93 rewire**: 688 tests pass, 25 shader audit (7 identical, 18 intentional divergence), metalForge rewired, 3 upstream bug reports, cross-spring evolution notes |
-| `HOTSPRING_BARRACUDA_BUDDING_VALIDATION_HANDOFF_MAR03_2026.md` | Mar 3 | First Spring validates barraCuda budding: 663/663 tests, bug reports (sin_f64_safe, tokio flavor) |
-| `HOTSPRING_V0617_REALITY_LADDER_HANDOFF_MAR03_2026.md` | Mar 3 | Reality Ladder Rung 0: volume×mass×beta scan, RHMC, Hasenbusch preconditioning |
-| `HOTSPRING_V0617_TOADSTOOL_S80_ABSORPTION_HANDOFF_MAR02_2026.md` | Mar 2 | **toadStool S80 sync**: spectral stats wired, NeighborMode benchmarked, MultiHeadEsn serde-compatible, Nelder-Mead GPU, full absorption priorities, cross-spring learnings |
-| `HOTSPRING_V0615_TOADSTOOL_S78_SYNC_HANDOFF_MAR02_2026.md` | Mar 2 | toadStool S78 sync: Fp64Strategy::Concurrent fix, remaining absorption targets, lean inventory |
-| `HOTSPRING_V0615_DEEP_DEBT_TOADSTOOL_ABSORPTION_HANDOFF_MAR02_2026.md` | Mar 2 | Deep debt audit + absorption guide: 711 tests, capability-based GPU discovery, 6 binaries decomposed, production pipeline architecture, absorption priorities |
-| `HOTSPRING_V0615_NPU_PARAM_CONTROL_TOADSTOOL_HANDOFF_MAR01_2026.md` | Mar 1 | NPU parameter controller + barracuda evolution review: dt/n_md control, mid-beta adaptation, Exp 029→031 lessons |
-| `HOTSPRING_NAUTILUS_BRAIN_TOADSTOOL_HANDOFF_MAR01_2026.md` | Mar 1 | Nautilus Shell + Brain Architecture: evolutionary reservoir, concept edges, toadStool absorption guide |
-| `HOTSPRING_TOADSTOOL_S68_BRAIN_SYNC_FEB28_2026.md` | Feb 28 | Brain architecture sync: 4-layer concurrent pipeline, NVK dual-GPU deadlock fix |
-| `HOTSPRING_TOADSTOOL_S68_SYNC_STATUS_FEB27_2026.md` | Feb 27 | S68 sync status: rewiring plan, validation gates |
-| `HOTSPRING_V0615_NPU_GPU_PREP_11HEAD_HANDOFF_FEB27_2026.md` | Feb 27 | v0.6.15: 11-head ESN, pipelined predictions, wgpu 22 fixes |
-| `HOTSPRING_V0614_NPU_HARDWARE_CROSS_RUN_LEARNING_HANDOFF_FEB26_2026.md` | Feb 26 | NPU hardware integration: live AKD1000, cross-run ESN learning, barracuda evolution review |
-| `HOTSPRING_V0614_CROSS_SUBSTRATE_ESN_TOADSTOOL_HANDOFF_FEB26_2026.md` | Feb 26 | Cross-substrate ESN: GPU dispatch, f32 buffers, NPU envelope, absorption guide |
-| `METALFORGE_STREAMING_PIPELINE_EVOLUTION_FEB26_2026.md` | Feb 26 | metalForge streaming pipeline: daisy-chain topology, NPU placement, substrate routing |
-| `AKIDA_BEHAVIOR_REPORT_FEB26_2026.md` | Feb 26 | Akida AKD1000 behavior report: capabilities beyond SDK, feedback for BrainChip |
-| `HOTSPRING_V0614_TOADSTOOL_BARRACUDA_EVOLUTION_HANDOFF_FEB25_2026.md` | Feb 25 | v0.6.14 barracuda evolution + absorption roadmap + paper controls |
-| `HOTSPRING_V0613_TOADSTOOL_ABSORPTION_HANDOFF_FEB25_2026.md` | Feb 25 | v0.6.10-14 comprehensive absorption manifest for toadStool |
-| `F64_TRANSCENDENTAL_INTERCONNECT_FEB25_2026.md` | Feb 25 | f64 transcendental sharing across springs |
-| `TOADSTOOL_SITE_INDEXING_NAK_SOLVER_HANDOFF_FEB25_2026.md` | Feb 25 | Site-indexing + NAK solver patterns |
-| `BIOMEGATE_NVK_PIPELINE_ISSUES_FEB24_2026.md` | Feb 24 | NVK driver pipeline issues on Titan V |
-| `BIOMEGATE_NVK_TITAN_V_SETUP_FEB23_2026.md` | Feb 23 | Titan V NVK setup guide |
+| `HOTSPRING_V0619_PRECISION_STABILITY_HANDOFF_MAR06_2026.md` | Mar 6 | **Precision stability**: 9 cancellation families, stable BCS v² + W(z), FHE depth analysis, full debt resolution (zero clippy, all AGPL-3.0-only) |
+| `HOTSPRING_V0619_CROSS_SPRING_EVOLUTION_HANDOFF_MAR06_2026.md` | Mar 6 | **Cross-spring evolution**: 724 tests, Chuna Papers 43-45, cross-spring shader provenance |
+| `HOTSPRING_V0619_BARRACUDA_REWIRE_TOADSTOOL_S96_HANDOFF_MAR06_2026.md` | Mar 6 | **barraCuda + toadStool S96 rewire**: GPU promotion (gradient flow 38.5×, dielectric 12/12), universal shader compilation |
+| `HOTSPRING_V0618_DEEP_DEBT_BARRACUDA_EVOLUTION_HANDOFF_MAR06_2026.md` | Mar 6 | **Deep debt**: Chuna paper GPU promotion, barracuda evolution priorities |
+| `HOTSPRING_V0617_GRADIENT_FLOW_SCIENCE_LADDER_HANDOFF_MAR06_2026.md` | Mar 6 | **Science ladder**: gradient flow + integrators, N_f=4 infra, RHMC |
 
 ---
 
 ## Archive
 
-42 superseded handoffs in `handoffs/archive/`. These document the full
-evolution history from v0.4.x through v0.6.17:
+63 superseded handoffs in `handoffs/archive/`. These document the full
+evolution history from v0.4.x through v0.6.19:
 
 - Early toadStool rewire documents (v1-v4)
 - GPU primitive absorption records

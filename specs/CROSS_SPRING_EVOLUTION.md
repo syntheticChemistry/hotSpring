@@ -4,7 +4,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 **Date:** March 5, 2026
 **Synced to:** barraCuda v0.3.3 (standalone primal, wgpu 28, naga 28)
-**hotSpring:** v0.6.17 — 669 tests, 9/9 Yukawa validation, Nautilus unified brain
+**hotSpring:** v0.6.19 — 724 tests, 95 binaries, 71 WGSL shaders, full precision stability (Exp 046)
 **License:** AGPL-3.0-only
 
 ---

@@ -6,29 +6,29 @@
 //! toadStool/barracuda, benchmarks modern vs legacy paths, and documents
 //! the provenance of each shader/primitive.
 //!
-//! # Cross-Spring Shader Provenance (synced to toadStool S80)
+//! # Cross-Spring Shader Provenance (synced to toadStool S96, barraCuda v0.3.3)
 //!
-//! | Op | Origin Spring | toadStool Session | Notes |
-//! |----|---------------|-------------------|-------|
+//! | Op | Origin Spring | Session | Notes |
+//! |----|---------------|---------|-------|
 //! | VACF batch GPU | hotSpring | S70+ | Batched ACF design from MD transport |
 //! | Stress virial GPU | hotSpring | S70+ | Green-Kubo viscosity building block |
-//! | SSF GPU | hotSpring | S25 | `SsfGpu::compute_axes` |
-//! | Linear regression GPU | neuralSpring | S25 baseCamp V18 | `stats/linear_regression_f64.wgsl` |
-//! | Matrix correlation GPU | neuralSpring | S25 baseCamp V18 | `stats/matrix_correlation_f64.wgsl` |
-//! | DF64 transcendentals | hotSpring+wetSpring | S71+ | gamma_f64, erf_f64, trig_f64 |
+//! | Autocorrelation GPU | hotSpring+wetSpring | S96 | General 1D ACF — single dispatch |
+//! | Mean+Variance GPU | Kokkos/hotSpring | S86+ | Welford single-pass fused shader |
+//! | Correlation GPU | Kokkos/wetSpring | S86+ | 5-accumulator Pearson single-pass |
+//! | Chi-squared GPU | groundSpring V74 | S93 | CDF + quantile via regularized gamma |
+//! | Linear regression GPU | neuralSpring | S25 | `stats/linear_regression_f64.wgsl` |
+//! | Matrix correlation GPU | neuralSpring | S25 | `stats/matrix_correlation_f64.wgsl` |
+//! | DF64 transcendentals | hotSpring+wetSpring | S71+ | gamma_f64, erf_f64, trig_f64, DF64 |
 //! | Special functions CPU | hotSpring | S25–S68 | gamma, erf, bessel, hermite, laguerre |
-//! | ESN reservoir GPU | hotSpring | S25 | WGSL reservoir update from MD transport |
-//! | Wilson plaquette GPU | hotSpring | S25 | Lattice QCD gauge observable |
-//! | Bray-Curtis GPU | wetSpring | S18 | Bio diversity metric |
-//! | HMM forward GPU | wetSpring+neuralSpring | S21–S25 | Genomic HMM → neural adaptation |
-//! | Spectral stats (⟨r⟩) | hotSpring→toadStool | S78 | level_spacing_ratio, bandwidth, κ |
-//! | SpectralAnalysis+RMT | hotSpring→toadStool | S78 | Marchenko–Pastur phase classifier |
+//! | Spectral stats (⟨r⟩) | hotSpring→barraCuda | S78 | level_spacing_ratio, bandwidth, κ |
+//! | SpectralAnalysis+RMT | hotSpring→barraCuda | S78 | Marchenko–Pastur phase classifier |
 //! | Anderson 3D proxy | hotSpring | S25–S78 | Lanczos + level statistics + CG predictor |
-//! | NeighborMode 4D | hotSpring→toadStool | S80 | Precomputed periodic neighbor table |
+//! | NeighborMode 4D | hotSpring→barraCuda | S80 | Precomputed periodic neighbor table |
 //! | Batched Nelder-Mead GPU | neuralSpring | S79 | Parallel optimization on GPU |
-//! | Fused MLP GPU | neuralSpring | S80 | Single-dispatch multi-layer perceptron |
 //! | Nautilus brain | hotSpring+neuralSpring | S79 | Evolutionary reservoir for QCD steering |
-//! | MultiHeadEsn GPU | hotSpring→toadStool | S78 | Per-head training replaces CPU sidecar |
+//! | Nuclear shaders (7) | hotSpring | S93+ | SEMF, chi2, deformed HFB, spin-orbit |
+//! | Bio HMM GPU | wetSpring+neuralSpring | S93 | Log-domain forward/backward |
+//! | FFT radix-2 GPU | groundSpring | S93 | Cooley-Tukey f64 butterfly |
 
 use std::panic;
 use std::sync::Arc;
@@ -38,8 +38,9 @@ use barracuda::device::WgpuDevice;
 
 fn main() {
     println!("╔══════════════════════════════════════════════════════════════════╗");
-    println!("║  Cross-Spring Evolution Benchmark — toadStool S80               ║");
-    println!("║  hotSpring × wetSpring × neuralSpring → barracuda              ║");
+    println!("║  Cross-Spring Evolution Benchmark — barraCuda v0.3.3 / S96     ║");
+    println!("║  hotSpring × wetSpring × neuralSpring × groundSpring           ║");
+    println!("║  → barraCuda (math is universal, precision is silicon)          ║");
     println!("╚══════════════════════════════════════════════════════════════════╝");
     println!();
 
@@ -60,6 +61,30 @@ fn main() {
         println!("  GPU: {} (f64 capable)", device.adapter_info().name);
         println!();
         bench_vacf_gpu_vs_cpu(&device);
+        run_guarded(
+            "Autocorrelation GPU",
+            panic::AssertUnwindSafe(|| {
+                bench_autocorrelation_gpu(&device);
+            }),
+        );
+        run_guarded(
+            "Mean+Variance GPU",
+            panic::AssertUnwindSafe(|| {
+                bench_mean_variance_gpu(&device);
+            }),
+        );
+        run_guarded(
+            "Correlation GPU",
+            panic::AssertUnwindSafe(|| {
+                bench_correlation_gpu(&device);
+            }),
+        );
+        run_guarded(
+            "Chi-squared GPU",
+            panic::AssertUnwindSafe(|| {
+                bench_chi_squared_gpu(&device);
+            }),
+        );
         run_guarded(
             "Linear Regression GPU",
             panic::AssertUnwindSafe(|| {
@@ -247,7 +272,178 @@ fn bench_vacf_gpu_vs_cpu(device: &Arc<WgpuDevice>) {
     println!();
 }
 
-// ── Phase 2b: Linear Regression GPU ─────────────────────────────────────────
+// ── Phase 2b: Autocorrelation GPU (hotSpring+wetSpring → barraCuda) ──────────
+
+fn bench_autocorrelation_gpu(device: &Arc<WgpuDevice>) {
+    println!("═══ Phase 2b: Autocorrelation GPU (barracuda::ops::autocorrelation_f64_wgsl) ═══");
+    println!("  Provenance: hotSpring batched VACF design + wetSpring time-series pattern");
+    println!("  Cross-spring: single-dispatch C(lag) used by all springs for spectral analysis");
+    println!();
+
+    use barracuda::ops::autocorrelation_f64_wgsl::AutocorrelationF64;
+
+    let acf_op =
+        AutocorrelationF64::new(Arc::clone(device)).unwrap_or_else(|e| panic!("acf init: {e}"));
+
+    for &(n, max_lag) in &[(1_000, 100), (10_000, 500), (100_000, 1_000)] {
+        let data: Vec<f64> = (0..n).map(|i| (i as f64 * 0.01).sin()).collect();
+
+        let t = Instant::now();
+        let result = acf_op.autocorrelation(&data, max_lag);
+        let ms = t.elapsed().as_secs_f64() * 1000.0;
+
+        let status = match &result {
+            Ok(c) => format!("C(0)={:.4e}, C(1)={:.4e}", c[0], c.get(1).unwrap_or(&0.0)),
+            Err(e) => format!("ERR: {e}"),
+        };
+
+        println!("  n={n:>7}, lags={max_lag:>5}: {ms:.2}ms [{status}]");
+    }
+    println!();
+}
+
+// ── Phase 2c: Mean+Variance GPU (Kokkos/hotSpring → barraCuda) ──────────────
+
+fn bench_mean_variance_gpu(device: &Arc<WgpuDevice>) {
+    println!("═══ Phase 2c: Mean+Variance GPU (barracuda::ops::variance_f64_wgsl) ═══");
+    println!("  Provenance: Kokkos parallel_reduce pattern, refined by hotSpring Welford");
+    println!("  Cross-spring: all springs use for observable statistics (plaquette, energy, etc.)");
+    println!();
+
+    use barracuda::ops::variance_f64_wgsl::VarianceF64;
+
+    let var_op = VarianceF64::new(Arc::clone(device)).unwrap_or_else(|e| panic!("var init: {e}"));
+
+    for &n in &[1_000, 10_000, 100_000, 1_000_000] {
+        let data: Vec<f64> = (0..n).map(|i| (i as f64 * 0.001).sin() * 10.0).collect();
+
+        // GPU
+        let t = Instant::now();
+        let gpu_result = var_op.mean_variance(&data, 1);
+        let gpu_ms = t.elapsed().as_secs_f64() * 1000.0;
+
+        // CPU reference
+        let t = Instant::now();
+        let mean_cpu: f64 = data.iter().sum::<f64>() / n as f64;
+        let var_cpu: f64 =
+            data.iter().map(|x| (x - mean_cpu).powi(2)).sum::<f64>() / (n - 1) as f64;
+        let cpu_ms = t.elapsed().as_secs_f64() * 1000.0;
+
+        let status = match &gpu_result {
+            Ok([mean, var]) => {
+                let mean_err = (mean - mean_cpu).abs();
+                let var_err = if var_cpu > 0.0 {
+                    ((var - var_cpu) / var_cpu).abs()
+                } else {
+                    0.0
+                };
+                format!(
+                    "GPU mean={mean:.6e} var={var:.6e} | Δmean={mean_err:.1e} Δvar={var_err:.1e}"
+                )
+            }
+            Err(e) => format!("ERR: {e}"),
+        };
+
+        let speedup = cpu_ms / gpu_ms.max(0.001);
+        println!("  n={n:>8}: GPU={gpu_ms:.2}ms CPU={cpu_ms:.2}ms (×{speedup:.1}) [{status}]");
+    }
+    println!();
+}
+
+// ── Phase 2d: Correlation GPU (Kokkos/wetSpring → barraCuda) ────────────────
+
+fn bench_correlation_gpu(device: &Arc<WgpuDevice>) {
+    println!("═══ Phase 2d: Correlation GPU (barracuda::ops::correlation_f64_wgsl) ═══");
+    println!("  Provenance: Kokkos 5-accumulator Pearson, refined by wetSpring bio-stats");
+    println!("  Cross-spring: groundSpring validation, neuralSpring model evaluation,");
+    println!("    hotSpring observable correlations (plaquette vs Polyakov, KE vs PE)");
+    println!();
+
+    use barracuda::ops::correlation_f64_wgsl::CorrelationF64;
+
+    let corr_op =
+        CorrelationF64::new(Arc::clone(device)).unwrap_or_else(|e| panic!("corr init: {e}"));
+
+    for &n in &[1_000, 10_000, 100_000] {
+        let x: Vec<f64> = (0..n).map(|i| (i as f64 * 0.01).sin()).collect();
+        let y: Vec<f64> = (0..n)
+            .map(|i| (i as f64 * 0.01).sin() * 0.9 + (i as f64 * 0.03).cos() * 0.1)
+            .collect();
+
+        let t = Instant::now();
+        let result = corr_op.correlation_full(&x, &y);
+        let ms = t.elapsed().as_secs_f64() * 1000.0;
+
+        let status = match &result {
+            Ok(cr) => format!(
+                "r={:.6}, r²={:.6}, cov={:.4e}",
+                cr.pearson_r,
+                cr.r_squared(),
+                cr.covariance()
+            ),
+            Err(e) => format!("ERR: {e}"),
+        };
+
+        println!("  n={n:>7}: {ms:.2}ms [{status}]");
+    }
+    println!();
+}
+
+// ── Phase 2e: Chi-squared GPU (groundSpring V74 → barraCuda) ────────────────
+
+fn bench_chi_squared_gpu(device: &Arc<WgpuDevice>) {
+    println!("═══ Phase 2e: Chi-squared GPU (barracuda::special::chi_squared) ═══");
+    println!("  Provenance: groundSpring V74 noise validation → barraCuda S93");
+    println!("  Cross-spring: hotSpring nuclear χ² fits, wetSpring enrichment,");
+    println!("    neuralSpring model goodness-of-fit");
+    println!();
+
+    use barracuda::special::{chi_squared_cdf, chi_squared_quantile, chi_squared_statistic};
+
+    // CPU path benchmarks
+    for &n in &[10, 100, 1000] {
+        let observed: Vec<f64> = (0..n)
+            .map(|i| 10.0 + (i as f64 * 0.1).sin() * 2.0)
+            .collect();
+        let expected: Vec<f64> = vec![10.0; n];
+
+        let t = Instant::now();
+        let chi2 = chi_squared_statistic(&observed, &expected);
+        let ms = t.elapsed().as_secs_f64() * 1000.0;
+
+        let status = match chi2 {
+            Ok(val) => {
+                let df = (n - 1) as f64;
+                let p = chi_squared_cdf(val, df).unwrap_or(f64::NAN);
+                let q95 = chi_squared_quantile(0.95, df).unwrap_or(f64::NAN);
+                format!("χ²={val:.2}, p={p:.4}, q95={q95:.2}, df={df}")
+            }
+            Err(e) => format!("ERR: {e}"),
+        };
+
+        println!("  n={n:>5}: {ms:.3}ms [{status}]");
+    }
+
+    // Fused GPU path (when available)
+    use barracuda::ops::fused_chi_squared_f64::FusedChiSquaredGpu;
+    let observed: Vec<f64> = (0..1000)
+        .map(|i| 10.0 + (i as f64 * 0.1).sin() * 2.0)
+        .collect();
+    let expected: Vec<f64> = vec![10.0; 1000];
+    let t = Instant::now();
+    let gpu_result = FusedChiSquaredGpu::execute(Arc::clone(device), &observed, &expected);
+    let ms = t.elapsed().as_secs_f64() * 1000.0;
+    match gpu_result {
+        Ok(r) => println!(
+            "  GPU fused (n=1000): {ms:.2}ms [χ²={:.2}, p={:.4}]",
+            r.statistic, r.p_value
+        ),
+        Err(e) => println!("  GPU fused: SKIP ({e})"),
+    }
+    println!();
+}
+
+// ── Phase 2f: Linear Regression GPU ─────────────────────────────────────────
 
 fn bench_linear_regression_gpu(device: &Arc<WgpuDevice>) {
     println!("═══ Phase 2b: Linear Regression GPU (barracuda::ops::stats_f64) ═══");

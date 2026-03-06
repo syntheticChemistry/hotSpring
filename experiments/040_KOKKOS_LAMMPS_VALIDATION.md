@@ -104,6 +104,19 @@ Deliverables for Thomas Chuna (profile in
 5. **Performance data** — wall times, speedups vs CPU, vs Python
 6. **Public repos**: hotSpring, barraCuda (AGPL-3.0)
 
+### Chuna Papers — CPU-Complete (March 6, 2026)
+
+All three Chuna papers now have Python controls + BarraCuda CPU validation:
+
+| Paper | Topic | Python | BarraCuda CPU | Rust vs Python |
+|-------|-------|:---:|:---:|:---:|
+| 43 | SU(3) gradient flow (arXiv:2101.05320) | 11/11 | 14/14 tests | (uses shared SU(3) infra) |
+| 44 | BGK dielectric (arXiv:2405.07871) | 19/19 | 13 tests + 21/21 validation | **144×** |
+| 45 | Kinetic-fluid coupling (DOI:10.1016/j.jcp.2024.112908) | 18/18 | 16 tests + 20/20 validation | **322×** |
+
+New modules: `physics/dielectric.rs`, `physics/kinetic_fluid.rs`
+New binaries: `validate_dielectric`, `validate_kinetic_fluid`
+
 Strategy: lead with physics, let him discover the infrastructure.
 
 ---
@@ -116,3 +129,4 @@ Strategy: lead with physics, let him discover the infrastructure.
 - LAMMPS Kokkos: https://docs.lammps.org/Speed_kokkos.html
 - Chuna & Bazavov (2021): arXiv:2101.05320
 - Chuna & Murillo (2024): arXiv:2405.07871
+- Haack, Murillo, Sagert & Chuna (2024): DOI:10.1016/j.jcp.2024.112908

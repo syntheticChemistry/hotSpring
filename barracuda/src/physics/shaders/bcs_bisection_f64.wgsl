@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // BCS Bisection Root-Finding (f64) — GPU-Parallel
 //
 // Solves batched BCS chemical-potential problems in parallel:
@@ -51,7 +51,14 @@ fn bcs_particle_number(mu: f64, problem_idx: u32) -> f64 {
         let eps_k = params[base + k];
         let diff = eps_k - mu;
         let e_k = sqrt(diff * diff + delta * delta);
-        let v2_k = f64(0.5) * (f64(1.0) - diff / e_k);
+        var v2_k: f64;
+        if (abs(diff) > abs(delta) && e_k > f64(1e-30)) {
+            let d2 = delta * delta;
+            let v2_s = d2 / (f64(2.0) * e_k * (e_k + abs(diff)));
+            v2_k = select(f64(1.0) - v2_s, v2_s, diff > f64(0.0));
+        } else {
+            v2_k = f64(0.5) * (f64(1.0) - diff / e_k);
+        }
 
         var deg_k = f64(1.0);
         if (use_deg == 1u) {

@@ -243,8 +243,8 @@ fn main() {
             cfg + 1,
             args.n_configs,
             plaq,
-            t0_val.map_or("N/A".to_string(), |v| format!("{v:.4}")),
-            w0_val.map_or("N/A".to_string(), |v| format!("{v:.4}")),
+            t0_val.map_or_else(|| "N/A".to_string(), |v| format!("{v:.4}")),
+            w0_val.map_or_else(|| "N/A".to_string(), |v| format!("{v:.4}")),
             e_final,
             flow_time,
         );

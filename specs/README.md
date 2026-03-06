@@ -1,7 +1,7 @@
 # hotSpring Specifications
 
-**Last Updated**: March 5, 2026
-**Status**: Phase A-J complete — 669 tests, 39/39 validation suites, crate v0.6.17, 85 binaries, barraCuda v0.3.3 (standalone primal), toadStool S94b, coralReef reviewed
+**Last Updated**: March 6, 2026
+**Status**: Phase A-J complete — 724 tests, 39/39 validation suites, crate v0.6.19, 95 binaries, barraCuda v0.3.3 (standalone primal), toadStool S94b, coralReef reviewed
 **Domain**: Computational plasma physics, nuclear structure, transport, lattice QCD, spectral theory, surrogate learning
 
 ---
@@ -39,6 +39,7 @@
 | [BARRACUDA_REQUIREMENTS.md](BARRACUDA_REQUIREMENTS.md) | Active | GPU kernel requirements and gap analysis |
 | [ANDERSON_4D_WEGNER_PROXY.md](ANDERSON_4D_WEGNER_PROXY.md) | Draft | 4D Anderson & Wegner block proxy for CG prediction |
 | [BIOMEGATE_BRAIN_ARCHITECTURE.md](BIOMEGATE_BRAIN_ARCHITECTURE.md) | Active | 4-substrate brain architecture: NPU steering, Nautilus Shell, concept edges |
+| [PRECISION_STABILITY_SPECIFICATION.md](PRECISION_STABILITY_SPECIFICATION.md) | Active | Numerical stability across f32/DF64/f64, GPU precision routing, cross-spring impact |
 
 ### Existing Documentation (in parent directories)
 

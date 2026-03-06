@@ -311,14 +311,10 @@ pub const CELLLIST_MIN_CELLS_PER_DIM: usize = 3;
 
 /// MD shader workgroup size for 1D particle dispatch.
 ///
-/// Must match `@workgroup_size(N)` in all MD WGSL shaders. 64 is the
-/// safe universal value (maps to a single warp on Volta/Turing, a
-/// single wavefront on RDNA2/3). Ampere/Ada can saturate with 256
-/// but 64 still fills all SMs at typical particle counts.
-///
-/// Future: use WGSL `override` constants to set at pipeline creation
-/// time, driven by `workgroup_size_for_arch()` from barraCuda.
-pub const MD_WORKGROUP_SIZE: usize = 64;
+/// Sourced from barraCuda's centralized constant for consistency.
+/// Must match `@workgroup_size(N)` in all MD WGSL shaders.
+pub const MD_WORKGROUP_SIZE: usize =
+    barracuda::device::capabilities::WORKGROUP_SIZE_COMPACT as usize;
 
 /// Verlet skin radius as a fraction of the force cutoff `rc`.
 ///

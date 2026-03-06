@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 //
 // Verlet Neighbor List Build — populates compact per-particle neighbor arrays
 //

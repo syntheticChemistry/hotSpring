@@ -334,7 +334,7 @@ fn main() {
     // ═══════════════════════════════════════════════════════════════
     //  Phase 4b: Real NPU Hardware (AKD1000 via akida-driver)
     // ═══════════════════════════════════════════════════════════════
-    run_npu_hardware_phase(&mut harness, &mut esn, &test_seqs, &test_targets);
+    run_npu_hardware_phase(&harness, &esn, &test_seqs, &test_targets);
 
     // ═══════════════════════════════════════════════════════════════
     //  Phase 5: CPU Final Verification
@@ -443,8 +443,8 @@ fn main() {
 /// Phase 4b: Probe real NPU hardware and compare with `NpuSimulator`.
 #[allow(unused_variables)]
 fn run_npu_hardware_phase(
-    harness: &mut ValidationHarness,
-    esn: &mut EchoStateNetwork,
+    harness: &ValidationHarness,
+    esn: &EchoStateNetwork,
     test_seqs: &[Vec<Vec<f64>>],
     test_targets: &[Vec<f64>],
 ) {

@@ -3,6 +3,16 @@
 //! Stress and heat current transport autocorrelations.
 //!
 //! Green-Kubo viscosity and thermal conductivity from MD snapshots.
+//!
+//! Two paths per observable:
+//! - CPU post-process: `compute_stress_acf` / `compute_heat_acf`
+//! - GPU via barraCuda: `compute_stress_acf_gpu` — uses `AutocorrelationF64`
+//!   (cross-spring: autocorrelation shader evolved from hotSpring's batched
+//!   VACF design, absorbed into barraCuda with wetSpring's time-series pattern)
+
+use std::sync::Arc;
+
+use barracuda::device::WgpuDevice;
 
 use crate::tolerances::DIVISION_GUARD;
 
@@ -153,6 +163,67 @@ pub fn compute_stress_acf(
         c_values,
         viscosity,
     }
+}
+
+/// Compute stress autocorrelation on GPU via barraCuda's `AutocorrelationF64`.
+///
+/// Single-dispatch GPU autocorrelation C(lag) for lags 0..max_lag, then
+/// Green-Kubo integration with plateau detection on the host.
+///
+/// # Errors
+/// Returns `Err` if GPU compute fails.
+pub fn compute_stress_acf_gpu(
+    device: &Arc<WgpuDevice>,
+    stress_series: &[f64],
+    dt_snap: f64,
+    volume: f64,
+    temperature: f64,
+    max_lag: usize,
+) -> Result<StressAcf, crate::error::HotSpringError> {
+    let n_lag = max_lag.min(stress_series.len());
+    if n_lag < 2 {
+        return Ok(StressAcf {
+            t_values: vec![0.0],
+            c_values: vec![if stress_series.is_empty() {
+                0.0
+            } else {
+                stress_series[0] * stress_series[0]
+            }],
+            viscosity: 0.0,
+        });
+    }
+
+    let acf_op =
+        barracuda::ops::autocorrelation_f64_wgsl::AutocorrelationF64::new(Arc::clone(device))?;
+    let c_values = acf_op.autocorrelation(stress_series, n_lag)?;
+
+    let prefactor = 1.0 / (volume * temperature.max(DIVISION_GUARD));
+    let mut integral = 0.0;
+    let mut eta_max = 0.0;
+    let mut plateau_count = 0;
+    let plateau_window = (PLATEAU_DETECTION_TIME / dt_snap).ceil() as usize;
+
+    for i in 1..n_lag {
+        integral += (0.5 * dt_snap).mul_add(c_values[i - 1] + c_values[i], 0.0);
+        let eta_running = prefactor * integral;
+        if eta_running > eta_max {
+            eta_max = eta_running;
+            plateau_count = 0;
+        } else {
+            plateau_count += 1;
+            if plateau_count > plateau_window {
+                break;
+            }
+        }
+    }
+
+    let t_values: Vec<f64> = (0..n_lag).map(|i| i as f64 * dt_snap).collect();
+
+    Ok(StressAcf {
+        t_values,
+        c_values,
+        viscosity: eta_max,
+    })
 }
 
 /// Heat current autocorrelation result for thermal conductivity computation.

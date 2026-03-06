@@ -20,10 +20,8 @@
 use crate::gpu::GpuF64;
 use crate::tolerances::DIVISION_GUARD;
 
+use barracuda::device::capabilities::WORKGROUP_SIZE_COMPACT;
 use barracuda::pipeline::ReduceScalarPipeline;
-
-/// Compute shader workgroup size (must match WGSL `@workgroup_size(N)`).
-const WORKGROUP_SIZE: u32 = 64;
 
 /// VACF plateau detection: D* considered converged after this many
 /// seconds of non-increasing integral (expressed as time / `dt_dump`).
@@ -176,7 +174,7 @@ pub fn compute_vacf_gpu(
 
     let reducer = ReduceScalarPipeline::new(gpu.to_wgpu_device(), n)?;
 
-    let workgroups = (n as u32).div_ceil(WORKGROUP_SIZE);
+    let workgroups = (n as u32).div_ceil(WORKGROUP_SIZE_COMPACT);
 
     let mut c_values = vec![0.0f64; n_lag];
 
@@ -271,7 +269,7 @@ pub fn compute_stress_xy_gpu(
     let params_buf = gpu.create_f64_buffer(&params_data, "stress_params");
 
     let bg = gpu.create_bind_group(&pipeline, &[pos_buf, vel_buf, &out_buf, &params_buf]);
-    let workgroups = (n as u32).div_ceil(WORKGROUP_SIZE);
+    let workgroups = (n as u32).div_ceil(WORKGROUP_SIZE_COMPACT);
     gpu.dispatch(&pipeline, &bg, workgroups);
 
     let reducer = ReduceScalarPipeline::new(gpu.to_wgpu_device(), n)?;

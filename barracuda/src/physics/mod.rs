@@ -14,6 +14,10 @@
 pub mod bcs_gpu;
 /// Physical constants (CODATA 2018, nuclear, Skyrme).
 pub mod constants;
+/// BGK dielectric functions (Chuna & Murillo 2024, arXiv:2405.07871).
+pub mod dielectric;
+/// GPU-accelerated BGK dielectric (batched Mermin on GPU).
+pub mod gpu_dielectric;
 /// Spherical Hartree-Fock-Bogoliubov (L2 nuclear EOS).
 pub mod hfb;
 /// Shared HFB utilities: Woods-Saxon radii, deformation estimation.
@@ -30,6 +34,8 @@ pub mod hfb_gpu;
 pub mod hfb_gpu_resident;
 /// GPU buffer types and bind-group layouts for HFB pipelines.
 pub(crate) mod hfb_gpu_types;
+/// Multi-species kinetic-fluid coupling (Haack, Murillo, Sagert & Chuna 2024).
+pub mod kinetic_fluid;
 /// Nuclear matter properties at saturation (NMP): E/A, K, S, L.
 pub mod nuclear_matter;
 /// Screened Coulomb bound states (Murillo & Weisheit 1998).

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 //
 // Yukawa All-Pairs Force (DF64) — Full FP32 Core Streaming with PBC
 //

@@ -18,7 +18,7 @@ Python baseline → Rust validation → WGSL template → GPU shader → ToadSto
 | **C** | New | No shader exists; must be written from scratch |
 | **✅** | Absorbed | ToadStool has absorbed this as a first-class barracuda primitive |
 
-## ToadStool Absorption Status (Mar 6, 2026 — v0.6.18 synced to toadStool S93+, 685 tests)
+## ToadStool Absorption Status (Mar 6, 2026 — v0.6.19 synced to toadStool S96+, 724 tests)
 
 | hotSpring Module | ToadStool Primitive | Absorbed At | Status |
 |-----------------|--------------------| -------|--------|
@@ -167,7 +167,7 @@ Production equivalents live in `src/md/shaders/`.
 No duplicate math — all mathematical operations use BarraCuda primitives.
 `hermite_value` now delegates to `barracuda::special::hermite` (v0.5.7).
 `factorial_f64` now delegates to `barracuda::special::factorial` (v0.5.10).
-`solve_linear_system` in `reservoir/` uses local `gauss_jordan_solve()` CPU fallback (v0.6.8; was `barracuda::linalg::solve_f64` in v0.6.2).
+`solve_linear_system` in `reservoir/` delegates to `barracuda::ops::linalg::lu_solve` for dense linear solves.
 WGSL `abs_f64` and `cbrt_f64` now injected via `ShaderTemplate::with_math_f64_auto()` (v0.5.8).
 Force shaders compiled via `GpuF64::create_pipeline_f64()` → barracuda driver-aware path **(v0.5.11)**.
 `GpuCellList` migrated to upstream `barracuda::ops::md::CellListGpu` (v0.6.2) — 3 local shaders deleted.
@@ -618,7 +618,7 @@ batched into single encoder submissions. Saves 180 vkQueueSubmit calls per traje
 
 ## v0.6.18 Refactoring (March 6, 2026)
 
-- 685 tests (lib), 47 validation binaries, 85+ total binaries
+- 724 tests (lib), 95 binaries, 71 WGSL shaders (all AGPL-3.0-only)
 - npu_worker → 6 modules, simulation → 4 modules, dynamical_mixed → library module
 - esn_baseline extracted to library (ready for absorption), sarkas → library module
 - brain B2/D1 evolved from placeholder to real implementations

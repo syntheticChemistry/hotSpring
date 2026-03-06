@@ -214,7 +214,7 @@ struct Lscfrk {
 ///
 /// This function IS the derivation — it solves the order conditions
 /// symbolically. Every coefficient follows from (c₂, c₃) by algebra.
-const fn derive_lscfrk3(c2: f64, c3: f64) -> ([f64; 3], [f64; 3]) {
+pub const fn derive_lscfrk3(c2: f64, c3: f64) -> ([f64; 3], [f64; 3]) {
     // Order condition (3): b₂c₂² + b₃c₃² = 1/3
     // Order condition (2): b₂c₂  + b₃c₃  = 1/2
     // Solve this 2×2 system for b₂, b₃:
@@ -474,6 +474,7 @@ pub fn compute_w_function(measurements: &[FlowMeasurement]) -> Vec<(f64, f64)> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 

@@ -1,6 +1,6 @@
 [package]
 name = "hotspring-barracuda"
-version = "0.6.17"
+version = "0.6.19"
 edition = "2021"
 description = "Nuclear EOS + GPU MD validation for BarraCuda — L1/L2/L3 physics, Yukawa OCP, lattice QCD, spectral theory, typed errors, full Result propagation, provenance, capability-based discovery"
 license = "AGPL-3.0-only"
@@ -543,7 +543,37 @@ path = "src/bin/compare_flow_integrators.rs"
 name = "validate_gradient_flow"
 path = "src/bin/validate_gradient_flow.rs"
 
+# ── GPU gradient flow validation (Paper 43 GPU promotion) ──
+[[bin]]
+name = "validate_gpu_gradient_flow"
+path = "src/bin/validate_gpu_gradient_flow.rs"
+
 # ── N_f=4 staggered dynamical fermion HMC on GPU ──
 [[bin]]
 name = "production_dynamical"
 path = "src/bin/production_dynamical.rs"
+
+# ── Cross-spring evolution benchmark (GPU ops from all springs) ──
+[[bin]]
+name = "bench_cross_spring_evolution"
+path = "src/bin/bench_cross_spring_evolution.rs"
+
+# ── ESN baseline validation ──
+[[bin]]
+name = "esn_baseline_validation"
+path = "src/bin/esn_baseline_validation.rs"
+
+# ── BGK dielectric validation (Chuna & Murillo 2024) ──
+[[bin]]
+name = "validate_dielectric"
+path = "src/bin/validate_dielectric.rs"
+
+# ── GPU dielectric validation (Paper 44 GPU promotion) ──
+[[bin]]
+name = "validate_gpu_dielectric"
+path = "src/bin/validate_gpu_dielectric.rs"
+
+# ── Multi-species kinetic-fluid coupling (Haack et al. 2024) ──
+[[bin]]
+name = "validate_kinetic_fluid"
+path = "src/bin/validate_kinetic_fluid.rs"

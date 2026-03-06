@@ -767,7 +767,7 @@ mod tests {
 
     #[test]
     fn heuristic_steering_converges() {
-        let brain = MdBrain::new();
+        let _brain = MdBrain::new();
         let event = make_event(100, 1.0, -5.0, 0.01);
         let steering = MdBrain::heuristic_steering(&event);
         assert!(steering.equilibrium_converged);

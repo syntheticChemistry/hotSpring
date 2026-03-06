@@ -95,8 +95,8 @@ fn main() {
                 "  {:30} {:>10.6} {:>10} {:>10} {:>8} {:>8.3}",
                 name,
                 e_final,
-                t0_val.map_or("N/A".to_string(), |v| format!("{v:.6}")),
-                w0_val.map_or("N/A".to_string(), |v| format!("{v:.6}")),
+                t0_val.map_or_else(|| "N/A".to_string(), |v| format!("{v:.6}")),
+                w0_val.map_or_else(|| "N/A".to_string(), |v| format!("{v:.6}")),
                 n_steps,
                 elapsed,
             );

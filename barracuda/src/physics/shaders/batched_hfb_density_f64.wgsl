@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // Batched HFB Density + BCS + Energy (f64) — GPU Shader
 //
 // Three kernels that complete the post-eigensolve SCF step:
@@ -53,6 +53,11 @@ fn compute_bcs_v2(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var v2: f64;
     if (big_ek < f64(1e-15)) {
         v2 = f64(0.5);
+    } else if (abs(ek) > abs(delta)) {
+        // Stable form: avoids cancellation in 1 - ek/big_ek when |ek| >> |Δ|
+        let d2 = delta * delta;
+        let v2_stable = d2 / (f64(2.0) * big_ek * (big_ek + abs(ek)));
+        v2 = select(f64(1.0) - v2_stable, v2_stable, ek > f64(0.0));
     } else {
         v2 = f64(0.5) * (f64(1.0) - ek / big_ek);
     }

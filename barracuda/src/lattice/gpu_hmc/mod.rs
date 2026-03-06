@@ -131,7 +131,7 @@ impl GpuHmcPipelines {
     ///
     /// Three modes:
     /// - **Full DF64** (NVK f64 probe failed): all shaders go through
-    ///   `downcast_f64_to_df64` → pure f32 WGSL. No `SHADER_F64` needed.
+    ///   `compile_shader_universal(Precision::Df64)` → pure f32 WGSL. No `SHADER_F64` needed.
     /// - **Hybrid** (consumer GPUs, RTX 3090/4070): force, plaquette, KE
     ///   use hand-written DF64 shaders; others use native f64.
     /// - **Native** (Titan V, V100, A100): all native f64.
@@ -196,7 +196,7 @@ impl GpuHmcPipelines {
 
     /// Full DF64 mode: pass all native-f64 shaders through the automatic
     /// downcast pipeline. `create_pipeline_f64` detects `full_df64_mode`
-    /// and routes through `downcast_f64_to_df64` → stripped `df64_core`.
+    /// and routes through `compile_shader_universal(Precision::Df64)`.
     fn new_full_df64(gpu: &GpuF64) -> Self {
         eprintln!("[HMC] FP64 strategy: Full DF64 — all shaders downcast to f32-pair (NVK safe)");
 

@@ -127,8 +127,8 @@ impl GpuF64 {
     /// Initiate a non-blocking readback from a staging buffer.
     ///
     /// Returns a channel receiver that signals when the map is complete.
-    /// Call `device().poll(Maintain::Poll)` to drive progress without blocking,
-    /// or `device().poll(Maintain::Wait)` to block.
+    /// Call `device().poll(PollType::Poll)` to drive progress without blocking,
+    /// or `device().poll(PollType::Wait { .. })` to block.
     #[must_use]
     pub fn start_async_readback(
         &self,

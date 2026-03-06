@@ -418,30 +418,6 @@ impl GpuF64 {
     }
 }
 
-// ── Full DF64 helpers ────────────────────────────────────────────────
-
-/// Strip `df64_from_f64` and `df64_to_f64` functions from `df64_core.wgsl`.
-/// These use native f64 types and fail on NVK. In full DF64 mode they're
-/// dead code (storage is vec2<f32>, not f64).
-fn strip_f64_from_df64_core(core: &str) -> String {
-    let mut result = String::with_capacity(core.len());
-    let mut skip = false;
-    for line in core.lines() {
-        let trimmed = line.trim();
-        if trimmed.starts_with("fn df64_from_f64(") || trimmed.starts_with("fn df64_to_f64(") {
-            skip = true;
-        }
-        if !skip {
-            result.push_str(line);
-            result.push('\n');
-        }
-        if skip && trimmed == "}" {
-            skip = false;
-        }
-    }
-    result
-}
-
 // ── Pipeline creation ────────────────────────────────────────────────
 
 impl GpuF64 {
@@ -475,20 +451,17 @@ impl GpuF64 {
         self.validate_pipeline(shader_module, label)
     }
 
-    /// DF64 pipeline: prepend `df64_core` + `df64_transcendentals`, compile with
-    /// barraCuda's `compile_shader_f64()` which injects `round_f64` and other
-    /// polyfills. The shader source must use DF64 arithmetic (Df64 struct,
-    /// `df64_add/mul/div`, `sqrt_df64`, `exp_df64`, etc.) and `round_f64` for PBC.
+    /// DF64 pipeline for hand-written DF64 shaders (Hybrid mode). Delegates
+    /// to barraCuda's `compile_shader_df64()` which prepends `df64_core` +
+    /// `df64_transcendentals` and applies driver-aware optimization.
     ///
     /// Used for `Fp64Strategy::Hybrid` — force math on FP32 cores, PBC/I/O
     /// in native f64.
     #[must_use]
     pub fn create_pipeline_df64(&self, shader_source: &str, label: &str) -> wgpu::ComputePipeline {
-        use barracuda::ops::lattice::su3::{WGSL_DF64_CORE, WGSL_DF64_TRANSCENDENTALS};
-
-        let combined =
-            format!("enable f64;\n{WGSL_DF64_CORE}\n{WGSL_DF64_TRANSCENDENTALS}\n{shader_source}");
-        let shader_module = self.wgpu_device.compile_shader_f64(&combined, Some(label));
+        let shader_module = self
+            .wgpu_device
+            .compile_shader_df64(shader_source, Some(label));
         self.validate_pipeline(shader_module, label)
     }
 
@@ -512,36 +485,23 @@ impl GpuF64 {
         self.build_pipeline(&optimized, label)
     }
 
-    /// Full DF64 pipeline: downcast f64 types → f32-pair, strip native f64
-    /// helpers from `df64_core`, compile as pure f32 WGSL. No `SHADER_F64` needed.
-    fn compile_full_df64_pipeline(
+    /// Full DF64 pipeline: delegates to barraCuda's `compile_shader_universal`
+    /// which handles the two-layer DF64 compilation (naga-guided infix rewrite
+    /// with text-based fallback). Precision is silicon — barraCuda owns it.
+    ///
+    /// Public so springs can explicitly test DF64 precision tier on hardware
+    /// that also supports native f64 (stability/throughput comparison).
+    pub fn compile_full_df64_pipeline(
         &self,
         shader_source: &str,
         label: &str,
     ) -> wgpu::ComputePipeline {
-        use barracuda::ops::lattice::su3::{WGSL_DF64_CORE, WGSL_DF64_TRANSCENDENTALS};
-        use barracuda::shaders::precision::downcast_f64_to_df64;
+        use barracuda::shaders::precision::Precision;
 
-        let df64_source = downcast_f64_to_df64(shader_source);
-        let core_stripped = strip_f64_from_df64_core(WGSL_DF64_CORE);
-
-        let combined = format!(
-            "{core_stripped}\n{}\n{WGSL_DF64_TRANSCENDENTALS}\n{df64_source}",
-            barracuda::shaders::precision::DF64_PACK_UNPACK,
-        );
-
-        if std::env::var("HOTSPRING_DUMP_DF64").is_ok() {
-            let dump_dir = std::env::var("HOTSPRING_DUMP_DIR")
-                .unwrap_or_else(|_| std::env::temp_dir().display().to_string());
-            let dump_path = format!("{dump_dir}/df64_{label}.wgsl");
-            let _ = std::fs::write(&dump_path, &combined);
-            eprintln!(
-                "[DF64 DUMP] {label} → {dump_path} ({} bytes)",
-                combined.len()
-            );
-        }
-
-        self.build_pipeline(&combined, label)
+        let shader_module =
+            self.wgpu_device
+                .compile_shader_universal(shader_source, Precision::Df64, Some(label));
+        self.validate_pipeline(shader_module, label)
     }
 
     /// Create a pipeline from a shader module with validation error checking.

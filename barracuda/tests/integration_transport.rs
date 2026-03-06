@@ -5,7 +5,7 @@
 //! Exercises the Daligault fit, ESN reservoir, and MD configuration pipeline
 //! end-to-end.
 
-use hotspring_barracuda::md::reservoir::{EchoStateNetwork, EsnConfig};
+use hotspring_barracuda::md::reservoir::{Activation, EchoStateNetwork, EsnConfig};
 use hotspring_barracuda::md::transport::d_star_daligault;
 use hotspring_barracuda::tolerances;
 
@@ -51,6 +51,7 @@ fn esn_train_and_predict_round_trip() {
         leak_rate: 0.3,
         regularization: tolerances::ESN_REGULARIZATION,
         seed: 42,
+        activation: Activation::Tanh,
     };
     let mut esn = EchoStateNetwork::new(config);
 

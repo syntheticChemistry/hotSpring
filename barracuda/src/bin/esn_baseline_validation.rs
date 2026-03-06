@@ -167,8 +167,8 @@ fn main() {
 
         let n_folds = all_cv_results.len() as f64;
         let mut mean_results = Vec::new();
-        for hi in 0..specs.len() {
-            let name = specs[hi].name.to_string();
+        for (hi, spec) in specs.iter().enumerate() {
+            let name = spec.name.to_string();
             let mae_avg: f64 = all_cv_results
                 .iter()
                 .filter_map(|r| r.get(hi).map(|x| x.1))

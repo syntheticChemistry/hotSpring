@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 // polyakov_loop_f64.wgsl — GPU Polyakov loop (temporal Wilson line)
 //
 // Prepend: complex_f64.wgsl + su3_f64.wgsl
