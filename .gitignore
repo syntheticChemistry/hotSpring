@@ -106,6 +106,9 @@ env/
 .idea/
 .cursor/
 
+# ----- Local cargo overrides (developer-specific path patches) -----
+**/.cargo/config.toml
+
 # CUDA compiled binaries
 barracuda/cuda/bench_fp64_ratio_cuda
 

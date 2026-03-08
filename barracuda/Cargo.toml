@@ -82,7 +82,9 @@ npu-hw = ["dep:akida-driver", "dep:akida-models"]
 
 [dependencies]
 # BarraCuda (standalone primal): math, shaders, compilation, ESN, NPU math
-barracuda = { path = "../../barraCuda/crates/barracuda" }
+# Public repo: https://github.com/ecoPrimals/barraCuda
+# Local dev override: .cargo/config.toml patches this to ../../barraCuda
+barracuda = { git = "https://github.com/ecoPrimals/barraCuda.git", rev = "cdd748d" }
 
 # Structured logging (transitive dep via wgpu; explicit for library diagnostics)
 log = "0.4"

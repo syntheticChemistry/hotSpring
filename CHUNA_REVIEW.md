@@ -23,6 +23,14 @@ Dynamical N_f=4 extension (our addition, beyond the papers): 1/3 pass, 2 in prog
 
 ---
 
+## Architecture
+
+hotSpring is the validation application. The compute engine is
+[**barraCuda**](https://github.com/ecoPrimals/barraCuda) — a standalone
+Rust crate providing SU(3) lattice math, WGSL shader compilation,
+dielectric functions, kinetic solvers, and GPU pipeline dispatch.
+barraCuda is pulled automatically via `Cargo.toml` (git dependency).
+
 ## Quick Start
 
 ```bash
@@ -42,6 +50,7 @@ cargo run --release --bin validate_dsf_vs_md
 ```
 
 Requirements: Rust (stable), any Vulkan GPU with `SHADER_F64` support.
+No manual dependency setup — `cargo build` fetches barraCuda from GitHub.
 
 ---
 
