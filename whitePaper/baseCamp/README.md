@@ -1,10 +1,10 @@
 # baseCamp: Research Domain Briefings
 
-**Date:** 2026-03-06
+**Date:** 2026-03-08
 **Project:** hotSpring (ecoPrimals)
-**Status:** v0.6.19, experiments 001-046, 724 lib tests, 39/39 validation suites, 95 binaries, 71 WGSL shaders
+**Status:** v0.6.23, experiments 001-048, 738 lib tests, 39/39 validation suites, 101 binaries, 84 WGSL shaders
 
-**Notes:** Precision stability (v0.6.19): 9 cancellation families audited (f32/DF64/f64/CKKS FHE), stable BCS v² + W(z). Zero clippy (all targets), all AGPL-3.0-only. Papers 43-45 GPU promotion complete.
+**Notes:** Chuna Papers 43-45: **41/41 overnight checks pass**. Deep debt resolved: zero clippy, zero library panics, structured logging, named constants. Precision stability (Exp 046): 9 cancellation families audited (f32/DF64/f64/CKKS FHE), stable BCS v² + W(z). Dynamical N_f=4 staggered gradient flow wired. All AGPL-3.0-only.
 
 ---
 

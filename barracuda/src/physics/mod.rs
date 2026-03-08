@@ -16,8 +16,18 @@ pub mod bcs_gpu;
 pub mod constants;
 /// BGK dielectric functions (Chuna & Murillo 2024, arXiv:2405.07871).
 pub mod dielectric;
+/// Multi-component Mermin dielectric for electron-ion plasmas (Paper 44 extension).
+pub mod dielectric_multicomponent;
+/// Full GPU coupled kinetic-fluid pipeline (Paper 45).
+pub mod gpu_coupled_kinetic_fluid;
 /// GPU-accelerated BGK dielectric (batched Mermin on GPU).
 pub mod gpu_dielectric;
+/// GPU-accelerated multi-component Mermin dielectric (Paper 44 extension).
+pub mod gpu_dielectric_multicomponent;
+/// GPU-accelerated 1D Euler with HLL Riemann solver (Paper 45).
+pub mod gpu_euler;
+/// GPU-accelerated BGK relaxation for multi-species kinetic plasma (Paper 45).
+pub mod gpu_kinetic_fluid;
 /// Spherical Hartree-Fock-Bogoliubov (L2 nuclear EOS).
 pub mod hfb;
 /// Shared HFB utilities: Woods-Saxon radii, deformation estimation.

@@ -2,7 +2,7 @@
 
 **Date**: March 6, 2026
 **Paper**: Chuna & Murillo, Phys. Rev. E 111, 035206 (2024), arXiv:2405.07871
-**Status**: ✅ GPU COMPLETE — Python → CPU → GPU (19/19 Py, 13 CPU tests, 12/12 GPU checks, **144× CPU vs Py**)
+**Status**: ✅ COMPLETED MERMIN — Python → CPU → GPU (19/19 Py, 25 CPU tests, GPU standard+completed, **144× CPU vs Py**)
 **Priority**: P2 — extends Papers 1/5 (Sarkas MD, transport)
 
 ---
@@ -90,12 +90,68 @@ vs 98% on CPU; 100% passive-medium compliance).
 | High-freq |loss| | 2.7e-7 | 2.7e-8 | 1.1e-7 |
 | Passive medium | 100% | 100% | 100% |
 
-## What's Next
+## Completed Mermin Implementation (March 6, 2026)
 
-1. **Completed Mermin (BGK conservation)**: Implement the full Eq. (26)
-   from Chuna & Murillo with momentum conservation correction
-2. **Compare DSF vs Sarkas MD**: Validate analytical S(k,ω) against
-   simulation-derived DSF from Papers 1/5
+The "completed" Mermin from Chuna & Murillo (2024, Eq. 26) adds momentum
+conservation to the standard Mermin via a denominator correction:
+
+```
+Standard:  D = 1 + (iν/ω) × R
+Completed: D = 1 + (iν/ω) × R × (1 - G_p)
+
+where R   = W(z_ν)/W(0) = (ε₀(k,ω+iν)-1)/(ε₀(k,0)-1)
+  and G_p = R × ω(ω+iν) / (k² v_th²)
+```
+
+### New Functions
+
+- `epsilon_completed_mermin(k, omega, nu, params)` — CPU
+- `dynamic_structure_factor_completed(k, omegas, nu, params)` — CPU
+- `f_sum_rule_integral_completed(k, nu, params, omega_max)` — CPU
+- `eps_completed_mermin(k, omega, nu)` — GPU (WGSL)
+- GPU shader now accepts `use_completed` flag to switch modes
+
+### Completed Mermin Test Results (7 new tests)
+
+| Test | Result |
+|------|--------|
+| Recovers standard at ν→0 | ✅ diff < 0.01 |
+| High-freq limit ε→1 | ✅ dev < 0.01 |
+| Static limit matches standard | ✅ diff < 1e-10 |
+| DSF ≥99% positive (Γ=1,10; κ=1,2) | ✅ all pass |
+| Differs from standard at finite ν | ✅ diff > 1e-6 |
+| Passive medium Im[ε] ≥ 0 | ✅ all ω/ωₚ |
+| f-sum improvement or <10% error | ✅ |
+
+### Python Control Updated
+
+`epsilon_completed_mermin()` in `bgk_dielectric_control.py` now uses the
+real momentum-conserving formula instead of the previous pass-through.
+
+## Experiment 047: DSF vs MD Validation
+
+**Status**: ✅ COMPLETE — 14/14 Rust checks passed
+
+The analytical Mermin DSF has been compared against MD reference data from
+the Dense Plasma Properties Database (MurilloGroupMSU):
+
+| κ | Γ | q=0.54 | q=1.09 | q=1.99 |
+|---|---|:------:|:------:|:------:|
+| 2 | 31 | **Δ=0.008** (0.8%) ✓ | Δ=0.141 ✓ | Δ=0.490 · |
+| 1 | 14 | Δ=0.312 ✓ | Δ=0.677 · | Δ=0.697 · |
+
+**Best result**: κ=2, q=0.54 — completed Mermin peak position matches MD
+within 0.8%. Mermin works best in the collective regime (small q, moderate κ).
+
+The susceptibility χ(k,ω) comparison confirms the complementary picture:
+Mermin overestimates χ amplitude but captures peak positions at small q.
+See `experiments/047_DSF_VS_MD_VALIDATION.md` for full analysis.
+
+## Remaining
+
+1. **Multi-component extension**: Electron-ion plasmas
+2. **Local field correction G(k)**: Would bring DSF and χ amplitudes
+   into better agreement (STLS or QLCA self-consistent theory)
 
 ## Connection to Other Papers
 

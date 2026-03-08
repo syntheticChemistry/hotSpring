@@ -166,30 +166,39 @@ def epsilon_mermin(k, omega, nu, params):
 
 
 def epsilon_completed_mermin(k, omega, nu, params):
-    """Completed Mermin dielectric function (Chuna & Murillo 2024).
+    """Completed Mermin dielectric function (Chuna & Murillo 2024, Eq. 26).
 
-    Adds momentum conservation to the standard Mermin function via a
-    second collision integral correction. The key insight is that the
-    BGK collision operator can be constructed to conserve BOTH number
-    and momentum simultaneously, yielding the "completed" form:
+    Conserves BOTH particle number AND momentum. The standard Mermin
+    denominator D = 1 + (iν/ω)·R is replaced by:
 
-    ε_CM(k,ω) = ε_M(k,ω) × [1 + C_p(k,ω)]
+        D_CM = 1 + (iν/ω) · R · (1 - G_p)
 
-    where C_p is the momentum conservation correction. For the OCP,
-    this reduces to a modified collision frequency:
+    where:
+        R   = (ε₀(k,ω+iν) - 1) / (ε₀(k,0) - 1) = W(z_ν) / W(0)
+        G_p = R × ω(ω+iν) / (k² v_th²)
 
-    ν_eff(k,ω) = ν × [1 - χ₀(k,ω+iν)/χ₀(k,ω+iν|ν=0)]
-
-    In the long-wavelength limit (k→0), this recovers the Drude model.
-    At finite k, it produces a conductivity that goes beyond Drude.
-
-    For the classical OCP, we use the simpler form: the standard Mermin
-    function evaluated at the self-consistent collision frequency. The
-    full multicomponent BGK form from Eq. (26) of the paper is more
-    complex, but for the single-species OCP the correction is captured
-    by the frequency-dependent collision rate.
+    This corrects:
+      - f-sum rule violations (65-97% → ~0%)
+      - DSF negativity near plasma resonance
+      - Non-Drude conductivity at finite wavevector
     """
-    return epsilon_mermin(k, omega, nu, params)
+    if abs(omega) < 1e-15:
+        return epsilon_vlasov(k, 0.0, params)
+
+    v_th = params["v_th"]
+    omega_shifted = omega + 1j * nu
+
+    eps_shifted = epsilon_vlasov(k, omega_shifted, params)
+    eps_static = epsilon_vlasov(k, 0.0, params)
+
+    numer = omega_shifted / omega * (eps_shifted - 1.0)
+
+    R = (eps_shifted - 1.0) / (eps_static - 1.0)
+    k2_vth2 = k * k * v_th * v_th
+    G_p = R * omega * omega_shifted / k2_vth2
+
+    denom = 1.0 + (1j * nu / omega) * R * (1.0 - G_p)
+    return 1.0 + numer / denom
 
 
 # ═══════════════════════════════════════════════════════════════════

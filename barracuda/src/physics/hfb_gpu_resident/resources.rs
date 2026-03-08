@@ -15,6 +15,9 @@ use super::super::hfb_gpu_types::{
 };
 use super::pipelines;
 
+/// Must match `@workgroup_size(256)` in HFB WGSL shaders.
+const WORKGROUP_SIZE: u32 = 256;
+
 /// Per-group SO-pack resources: bind groups referencing per-group H buffers
 /// + the shared eigensolve buffer.
 pub(super) struct PackGroupResources {
@@ -574,7 +577,7 @@ pub(super) fn allocate_group_resources(
         energy_staging,
         #[cfg(feature = "gpu_energy")]
         e_pair_staging,
-        nr_wg: (nr as u32).div_ceil(256),
+        nr_wg: (nr as u32).div_ceil(WORKGROUP_SIZE),
         ns_wg: (ns as u32).div_ceil(16),
     }
 }

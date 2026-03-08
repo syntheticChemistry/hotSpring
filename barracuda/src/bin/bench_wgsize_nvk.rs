@@ -7,6 +7,9 @@
 //! workgroup doing O(n³) serial work. NVK's shader compiler (NAK) handles
 //! this degenerate pattern poorly compared to nvidia proprietary.
 //!
+//! Uses raw `device.create_shader_module` intentionally — this benchmarks
+//! the driver's workgroup scheduling behavior at the hardware level.
+//!
 //! BCS bisection uses `@workgroup_size(64)` and is *faster* on the Titan V
 //! than the 4070, proving GV100 hardware is not the bottleneck.
 //!

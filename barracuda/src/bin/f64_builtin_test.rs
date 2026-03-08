@@ -6,6 +6,10 @@
 //! compile AND produce correct results when applied to f64 types.
 //! Also benchmarks native vs `math_f64` software implementations.
 //!
+//! Uses raw `create_shader_module` intentionally — this probes which
+//! f64 builtins the driver actually compiles, which would be masked
+//! by sovereign compiler polyfills.
+//!
 //! Usage:
 //!   cargo run --release --bin `f64_builtin_test`
 

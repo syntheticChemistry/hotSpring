@@ -4,7 +4,7 @@
 **Purpose**: Track papers for reproduction/review, ordered by priority and feasibility
 **Principle**: Reproduce, validate, then decrease cost. Each paper proves the
 pipeline on harder physics — toadStool evolves the GPU acceleration in parallel.
-**Crate**: hotspring-barracuda v0.6.19 — ~725 tests, 93 binaries, 62 WGSL shaders
+**Crate**: hotspring-barracuda v0.6.19 — 731 tests, 97 binaries, 72 WGSL shaders
 
 **Evolution path per paper**: Python Control → BarraCuda CPU → BarraCuda GPU → metalForge
 
@@ -38,9 +38,9 @@ pipeline on harder physics — toadStool evolves the GPU acceleration in paralle
 | 22 | Ten Martini (Cantor) | ✅ (in spectral_control.py) | ✅ (in validate_hofstadter) | — (Sturm, CPU-natural) | — |
 | 23 | Sulfolobus meta-populations | — | — | — | — (wetSpring domain) |
 | 24 | Anderson subseafloor review | — (reference only) | — | — | — |
-| 43 | Chuna: SU(3) gradient flow integrators | ✅ `gradient_flow_control.py` | ✅ `gradient_flow` (5 integrators, t₀ + w₀ scale, 14/14 tests) | ✅ `gpu_flow` (7/7, 38.5×) | — |
-| 44 | Chuna: Conservative dielectric functions (BGK) | ✅ `bgk_dielectric_control.py` | ✅ `dielectric` module | ✅ `dielectric_mermin_f64` (12/12) | 144× CPU |
-| 45 | Chuna: Multi-species kinetic-fluid coupling | ✅ `kinetic_fluid_control.py` | ✅ `kinetic_fluid` module (16 tests + 20/20 validation) | — (Tier 4 HED) | — |
+| 43 | Chuna: SU(3) gradient flow integrators | ✅ `gradient_flow_control.py` | ✅ `gradient_flow` (5 integrators, t₀ + w₀ scale, 14/14) | ✅ `gpu_flow` (7/7, 38.5×) | ✅ `gradient_flow_production` (HMC+flow) |
+| 44 | Chuna: Conservative dielectric functions (BGK) | ✅ `bgk_dielectric_control.py` | ✅ `dielectric` (25 tests, std+completed Mermin) | ✅ `dielectric_mermin_f64` (std+completed) | ✅ `validate_dsf_vs_md` (14/14, MD parity) |
+| 45 | Chuna: Multi-species kinetic-fluid coupling | ✅ `kinetic_fluid_control.py` | ✅ `kinetic_fluid` (16 tests + 20/20) | ✅ `bgk_relaxation_f64` (GPU BGK) | 322× CPU |
 
 ### Totals
 
@@ -61,8 +61,8 @@ pipeline on harder physics — toadStool evolves the GPU acceleration in paralle
 | 20 (3D Anderson) | ✅ DONE — 3D Anderson added to spectral_control.py (Feb 22, 2026) | — | — |
 | 23 (Sulfolobus) | Bioinformatics pipeline (wetSpring domain) | Medium | P3 |
 | 43 (Chuna gradient flow) | ✅ DONE — `gradient_flow_control.py`: 5 integrators, t₀ + w₀ scale, convergence analysis | — | — |
-| 44 (Chuna dielectric) | ✅ DONE — `bgk_dielectric_control.py`: Mermin susceptibility, f-sum rule, DSF, conductivity | ✅ `dielectric.rs` 13 tests | ✅ `dielectric_mermin_f64.wgsl` 12/12 |
-| 45 (Chuna kinetic-fluid) | ✅ DONE — `kinetic_fluid_control.py`: BGK relaxation, Sod shock tube, coupled interface | — | — |
+| 44 (Chuna dielectric) | ✅ DONE — `bgk_dielectric_control.py`: standard + completed Mermin, f-sum, DSF | ✅ `dielectric.rs` 25 tests | ✅ `dielectric_mermin_f64.wgsl` (std + completed) |
+| 45 (Chuna kinetic-fluid) | ✅ DONE — `kinetic_fluid_control.py`: BGK relaxation, Sod shock, coupled | ✅ `kinetic_fluid.rs` 16 tests | ✅ `bgk_relaxation_f64.wgsl` |
 
 **Total science cost**: ~$0.20 for 22 papers, 400+ validation checks.
 Papers 6, 7, 13-22 add checks at negligible cost (CPU-only, <15 seconds each).

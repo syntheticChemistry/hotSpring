@@ -1,11 +1,11 @@
 # hotSpring Control Experiment — Status Report
 
-**Date**: 2026-03-06 (L1+L2 complete, GPU MD Phase C+D+E+F complete — paper-parity long run 9/9, BarraCuda pipeline 39/39, crate v0.6.19, cross-substrate ESN, NPU characterization, DF64 production, toadStool S96+ synced, Exp 046 active)
+**Date**: 2026-03-08 (L1+L2 complete, GPU MD Phase C+D+E+F complete — paper-parity long run 9/9, BarraCuda pipeline 39/39, crate v0.6.23, cross-substrate ESN, NPU characterization, DF64 production, toadStool S96+ synced, Chuna 41/41 PASS, deep debt resolved)
 **Gates**: Eastgate (i9-12900K, RTX 4070 12GB) + biomeGate (Threadripper 3970X, RTX 3090 24GB + Titan V 12GB HBM2, Akida NPU, 256GB DDR4)
 **Sarkas**: v1.0.0 (pinned — see §Roadblocks)
 **Python**: 3.9 (sarkas), 3.10 (ttm, surrogate) via micromamba
 **f64 Status**: Native WGSL builtins confirmed. Consumer Ampere/Ada: fp64:fp32 ~1:64 (both CUDA and Vulkan). Double-float (f32-pair) hybrid delivers 3.24 TFLOPS at 14 digits (9.9× native f64). Titan V: genuine 1:2 via NVK.
-**toadStool**: Session 96+ (synced). hotSpring **724 lib tests**, 95 binaries, 39/39 validation suites. barraCuda v0.3.3. Quality gates: zero clippy (lib+bins), zero unsafe, zero TODO/FIXME, all files <1000 lines. All 71 WGSL shaders AGPL-3.0-only. Experiment 046: full multi-tier precision stability analysis (9 cancellation families, f32/DF64/f64/CKKS FHE).
+**toadStool**: Session 96+ (synced). hotSpring **731 lib tests**, 97 binaries, 39/39 validation suites. barraCuda v0.3.3. Quality gates: zero clippy (lib+bins), zero unsafe, zero TODO/FIXME, all files <1000 lines. All 72 WGSL shaders AGPL-3.0-only. Experiment 046: multi-tier precision stability. Experiment 047: DSF vs MD validation (14/14, MurilloGroupMSU Dense Plasma DB). Chuna papers 43-45: completed Mermin (P44) + GPU BGK (P45) + DSF comparison + production gradient flow.
 
 ---
 

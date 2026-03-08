@@ -8,6 +8,9 @@
 //! single result.  This saturates the ALU pipeline and gives the true compute
 //! ratio of each precision path.
 //!
+//! Uses raw `create_shader_module` intentionally — this benchmarks hardware
+//! ALU throughput, not the sovereign compiler pipeline.
+//!
 //! The df64 path demonstrates the "core streaming" strategy: using the 10,496
 //! FP32 CUDA cores for ~14-digit-precision f64-equivalent work instead of
 //! waiting for the 164 dedicated FP64 units.

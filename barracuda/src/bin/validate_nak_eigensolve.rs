@@ -6,6 +6,9 @@
 //! correct eigenvalues (vs CPU `eigh_f64`) and benchmarks it
 //! against the standard warp-packed shader.
 //!
+//! Uses raw `create_shader_module` intentionally — this validates
+//! NAK-specific shader behavior without sovereign compiler interference.
+//!
 //! Delivers a complete solution toadstool can absorb:
 //! - Shader: `batched_eigh_nak_optimized_f64.wgsl`
 //! - This binary: proves correctness and measures speedup

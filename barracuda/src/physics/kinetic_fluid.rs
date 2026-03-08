@@ -26,6 +26,19 @@
 
 use std::f64::consts::PI;
 
+/// Maximum sub-iterations for kinetic-fluid interface coupling (Haack et al. §3.2).
+pub(crate) const INTERFACE_MAX_SUB_ITERATIONS: usize = 3;
+
+/// Density mismatch tolerance for interface sub-iteration convergence.
+pub(crate) const INTERFACE_CONVERGENCE_TOL: f64 = 0.01;
+
+/// Upper fraction of the spatial domain searched for the contact discontinuity.
+/// The contact is expected between nx/2 and nx*CONTACT_SEARCH_UPPER_FRAC.
+const CONTACT_SEARCH_UPPER_FRAC: usize = 85;
+
+/// Denominator for contact search fraction (85/100 = 85%).
+const CONTACT_SEARCH_DENOM: usize = 100;
+
 /// Adiabatic index for monatomic ideal gas.
 const GAMMA: f64 = 5.0 / 3.0;
 
@@ -447,7 +460,7 @@ pub fn run_sod_shock_tube(nx: usize, t_final: f64) -> SodResult {
         .collect();
 
     let contact_lo = nx / 2;
-    let contact_hi = (nx * 85 / 100).min(drho_smooth.len());
+    let contact_hi = (nx * CONTACT_SEARCH_UPPER_FRAC / CONTACT_SEARCH_DENOM).min(drho_smooth.len());
     let i_contact = (contact_lo..contact_hi)
         .max_by(|&a, &b| {
             drho_smooth[a]
@@ -632,83 +645,110 @@ pub fn run_coupled_kinetic_fluid(
             }
         }
 
-        // Interface: kinetic → fluid
-        let (rho_int, rhou_int, e_int) = kinetic_to_fluid(&f_kin[nx_kin - 1], &v, dv, m);
-        let u_int = if rho_int > 1e-30 {
-            rhou_int / rho_int
-        } else {
-            0.0
-        };
-        let p_int = ((GAMMA - 1.0) * (e_int - 0.5 * rho_int * u_int * u_int)).max(1e-15);
+        // Interface sub-iteration: converges the kinetic-fluid boundary
+        // by repeating the interface exchange until density mismatch drops
+        // below tolerance or max iterations reached (Haack et al. §3.2).
+        let max_sub = INTERFACE_MAX_SUB_ITERATIONS;
+        let sub_tol = INTERFACE_CONVERGENCE_TOL;
+        let f_kin_boundary_save = f_kin[nx_kin - 1].clone();
+        let rho_fluid_save = rho_fluid.clone();
+        let u_fluid_save = u_fluid.clone();
+        let p_fluid_save = p_fluid.clone();
 
-        // Euler update
-        let mut rho_c: Vec<f64> = Vec::with_capacity(nx_fluid);
-        let mut rhou_c: Vec<f64> = Vec::with_capacity(nx_fluid);
-        let mut e_c: Vec<f64> = Vec::with_capacity(nx_fluid);
-        for i in 0..nx_fluid {
-            let (r, ru, e) = euler_prim_to_cons(rho_fluid[i], u_fluid[i], p_fluid[i]);
-            rho_c.push(r);
-            rhou_c.push(ru);
-            e_c.push(e);
-        }
+        for _sub in 0..max_sub {
+            // Interface: kinetic → fluid
+            let (rho_int, rhou_int, e_int) = kinetic_to_fluid(&f_kin[nx_kin - 1], &v, dv, m);
+            let u_int = if rho_int > 1e-30 {
+                rhou_int / rho_int
+            } else {
+                0.0
+            };
+            let p_int = ((GAMMA - 1.0) * (e_int - 0.5 * rho_int * u_int * u_int)).max(1e-15);
 
-        let mut flux_rho = vec![0.0; nx_fluid + 1];
-        let mut flux_mom = vec![0.0; nx_fluid + 1];
-        let mut flux_ene = vec![0.0; nx_fluid + 1];
+            // Euler update (from saved state each sub-iteration)
+            let mut rho_c: Vec<f64> = Vec::with_capacity(nx_fluid);
+            let mut rhou_c: Vec<f64> = Vec::with_capacity(nx_fluid);
+            let mut e_c: Vec<f64> = Vec::with_capacity(nx_fluid);
+            for i in 0..nx_fluid {
+                let (r, ru, e) =
+                    euler_prim_to_cons(rho_fluid_save[i], u_fluid_save[i], p_fluid_save[i]);
+                rho_c.push(r);
+                rhou_c.push(ru);
+                e_c.push(e);
+            }
 
-        let f_left = hll_flux(rho_int, u_int, p_int, rho_fluid[0], u_fluid[0], p_fluid[0]);
-        flux_rho[0] = f_left.0;
-        flux_mom[0] = f_left.1;
-        flux_ene[0] = f_left.2;
+            let mut flux_rho = vec![0.0; nx_fluid + 1];
+            let mut flux_mom = vec![0.0; nx_fluid + 1];
+            let mut flux_ene = vec![0.0; nx_fluid + 1];
 
-        for i in 1..nx_fluid {
-            let fi = hll_flux(
-                rho_fluid[i - 1],
-                u_fluid[i - 1],
-                p_fluid[i - 1],
-                rho_fluid[i],
-                u_fluid[i],
-                p_fluid[i],
+            let f_left = hll_flux(
+                rho_int,
+                u_int,
+                p_int,
+                rho_fluid_save[0],
+                u_fluid_save[0],
+                p_fluid_save[0],
             );
-            flux_rho[i] = fi.0;
-            flux_mom[i] = fi.1;
-            flux_ene[i] = fi.2;
-        }
+            flux_rho[0] = f_left.0;
+            flux_mom[0] = f_left.1;
+            flux_ene[0] = f_left.2;
 
-        let f_right = euler_flux(
-            rho_fluid[nx_fluid - 1],
-            u_fluid[nx_fluid - 1],
-            p_fluid[nx_fluid - 1],
-        );
-        flux_rho[nx_fluid] = f_right.0;
-        flux_mom[nx_fluid] = f_right.1;
-        flux_ene[nx_fluid] = f_right.2;
+            for i in 1..nx_fluid {
+                let fi = hll_flux(
+                    rho_fluid_save[i - 1],
+                    u_fluid_save[i - 1],
+                    p_fluid_save[i - 1],
+                    rho_fluid_save[i],
+                    u_fluid_save[i],
+                    p_fluid_save[i],
+                );
+                flux_rho[i] = fi.0;
+                flux_mom[i] = fi.1;
+                flux_ene[i] = fi.2;
+            }
 
-        for i in 0..nx_fluid {
-            rho_c[i] -= dt / dx * (flux_rho[i + 1] - flux_rho[i]);
-            rhou_c[i] -= dt / dx * (flux_mom[i + 1] - flux_mom[i]);
-            e_c[i] -= dt / dx * (flux_ene[i + 1] - flux_ene[i]);
-            rho_c[i] = rho_c[i].max(1e-10);
-        }
+            let f_right = euler_flux(
+                rho_fluid_save[nx_fluid - 1],
+                u_fluid_save[nx_fluid - 1],
+                p_fluid_save[nx_fluid - 1],
+            );
+            flux_rho[nx_fluid] = f_right.0;
+            flux_mom[nx_fluid] = f_right.1;
+            flux_ene[nx_fluid] = f_right.2;
 
-        for i in 0..nx_fluid {
-            let (r, ui, pi) = euler_cons_to_prim(rho_c[i], rhou_c[i], e_c[i]);
-            rho_fluid[i] = r;
-            u_fluid[i] = ui;
-            p_fluid[i] = pi;
-        }
+            for i in 0..nx_fluid {
+                rho_c[i] -= dt / dx * (flux_rho[i + 1] - flux_rho[i]);
+                rhou_c[i] -= dt / dx * (flux_mom[i + 1] - flux_mom[i]);
+                e_c[i] -= dt / dx * (flux_ene[i + 1] - flux_ene[i]);
+                rho_c[i] = rho_c[i].max(1e-10);
+            }
 
-        // Interface: fluid → kinetic (incoming distribution)
-        let m_boundary = maxwellian_1d(
-            &v,
-            rho_fluid[0] / m,
-            u_fluid[0],
-            p_fluid[0] / (rho_fluid[0] / m),
-            m,
-        );
-        for j in 0..nv {
-            if v[j] <= 0.0 {
-                f_kin[nx_kin - 1][j] = m_boundary[j];
+            for i in 0..nx_fluid {
+                let (r, ui, pi) = euler_cons_to_prim(rho_c[i], rhou_c[i], e_c[i]);
+                rho_fluid[i] = r;
+                u_fluid[i] = ui;
+                p_fluid[i] = pi;
+            }
+
+            // Interface: fluid → kinetic (incoming distribution)
+            let m_boundary = maxwellian_1d(
+                &v,
+                rho_fluid[0] / m,
+                u_fluid[0],
+                p_fluid[0] / (rho_fluid[0] / m),
+                m,
+            );
+            f_kin[nx_kin - 1].clone_from(&f_kin_boundary_save);
+            for j in 0..nv {
+                if v[j] <= 0.0 {
+                    f_kin[nx_kin - 1][j] = m_boundary[j];
+                }
+            }
+
+            let rho_kin_if = kinetic_to_fluid(&f_kin[nx_kin - 1], &v, dv, m).0;
+            let mismatch = (rho_kin_if - rho_fluid[0]).abs() / rho_init.max(1e-30);
+            if mismatch < sub_tol {
+                break;
             }
         }
 

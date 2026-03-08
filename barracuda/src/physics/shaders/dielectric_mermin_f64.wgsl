@@ -13,7 +13,7 @@
 
 struct DielectricParams {
     n_points: u32,
-    pad0: u32,
+    use_completed: u32,
     k: f64,
     nu: f64,
     k_debye: f64,
@@ -120,6 +120,18 @@ fn eps_vlasov(k_val: f64, omega: Complex64) -> Complex64 {
 }
 
 fn eps_mermin(k_val: f64, omega_val: f64, nu_val: f64) -> Complex64 {
+    return eps_mermin_core(k_val, omega_val, nu_val, false);
+}
+
+fn eps_completed_mermin(k_val: f64, omega_val: f64, nu_val: f64) -> Complex64 {
+    return eps_mermin_core(k_val, omega_val, nu_val, true);
+}
+
+// Shared core for standard and completed (momentum-conserving) Mermin.
+// When momentum_conserving is true, the denominator includes the Chuna &
+// Murillo (2024) correction: D = 1 + (iν/ω) × R × (1 - G_p)
+// where G_p = R × ω(ω+iν)/(k²v_th²).
+fn eps_mermin_core(k_val: f64, omega_val: f64, nu_val: f64, momentum_conserving: bool) -> Complex64 {
     let zero = k_val - k_val;
     if abs(omega_val) < zero + 1e-15 {
         return eps_vlasov(k_val, c64_zero());
@@ -130,16 +142,28 @@ fn eps_mermin(k_val: f64, omega_val: f64, nu_val: f64) -> Complex64 {
     let eps_shifted = eps_vlasov(k_val, omega_shifted);
     let eps_static = eps_vlasov(k_val, c64_zero());
 
-    let ratio = c64_mul(c64_mul(omega_shifted, c64_inv(omega_c)),
+    let numer = c64_mul(c64_mul(omega_shifted, c64_inv(omega_c)),
                         c64_sub(eps_shifted, c64_one()));
-    let nu_over_omega = c64_scale(c64_inv(omega_c), nu_val);
-    let denom = c64_add(c64_one(),
-                        c64_mul(c64_new(zero, zero + 1.0),
-                                c64_mul(nu_over_omega,
-                                        c64_mul(c64_sub(eps_shifted, c64_one()),
-                                                c64_inv(c64_sub(eps_static, c64_one()))))));
 
-    return c64_add(c64_one(), c64_mul(ratio, c64_inv(denom)));
+    // R = (ε_shifted - 1) / (ε_static - 1)
+    let r = c64_mul(c64_sub(eps_shifted, c64_one()),
+                    c64_inv(c64_sub(eps_static, c64_one())));
+
+    let i_nu_over_omega = c64_mul(c64_new(zero, zero + 1.0),
+                                  c64_scale(c64_inv(omega_c), nu_val));
+
+    var denom: Complex64;
+    if momentum_conserving {
+        let k2_vth2 = k_val * k_val * params.v_th * params.v_th;
+        let omega_product = c64_mul(omega_c, omega_shifted);
+        let g_p = c64_scale(c64_mul(r, omega_product), (zero + 1.0) / k2_vth2);
+        let correction = c64_sub(c64_one(), g_p);
+        denom = c64_add(c64_one(), c64_mul(i_nu_over_omega, c64_mul(r, correction)));
+    } else {
+        denom = c64_add(c64_one(), c64_mul(i_nu_over_omega, r));
+    }
+
+    return c64_add(c64_one(), c64_mul(numer, c64_inv(denom)));
 }
 
 @compute @workgroup_size(64)
@@ -149,7 +173,12 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgroups) 
 
     let zero = params.k - params.k;
     let omega = omegas[idx];
-    let eps = eps_mermin(params.k, omega, params.nu);
+    var eps: Complex64;
+    if params.use_completed != 0u {
+        eps = eps_completed_mermin(params.k, omega, params.nu);
+    } else {
+        eps = eps_mermin(params.k, omega, params.nu);
+    }
     let inv_eps = c64_inv(eps);
 
     loss_out[idx] = inv_eps.im;

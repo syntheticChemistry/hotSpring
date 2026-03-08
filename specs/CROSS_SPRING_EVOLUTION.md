@@ -2,9 +2,10 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 # Cross-Spring Shader Evolution — hotSpring's View
 
-**Date:** March 5, 2026
+**Date:** March 7, 2026
 **Synced to:** barraCuda v0.3.3 (standalone primal, wgpu 28, naga 28)
-**hotSpring:** v0.6.19 — 724 tests, 95 binaries, 71 WGSL shaders, full precision stability (Exp 046)
+**hotSpring:** v0.6.21 — 731 tests, 99 binaries, 75 WGSL shaders, full precision stability (Exp 046)
+**Rewired:** LSCFRK imports from `barracuda::numerical::lscfrk`, sovereign compiler validated (47 call sites, 498 FMA fusions)
 **License:** AGPL-3.0-only
 
 ---
@@ -342,3 +343,89 @@ Paths forward:
 2. **Stochastic ΔH**: Accept/reject based on estimated ΔH variance
 3. **Proprietary driver**: NVIDIA proprietary Vulkan driver supports full f64
    on RTX 3090 (1:64 ratio but correct arithmetic)
+
+---
+
+## v0.6.20 Rewire (March 7, 2026)
+
+### LSCFRK Rewire to barraCuda
+
+Local LSCFRK duplicates replaced with `barracuda::numerical::lscfrk` imports:
+- `derive_lscfrk3`, `FlowMeasurement`, `find_t0`, `find_w0`, `compute_w_function` — re-exported
+- `LscfrkCoefficients` replaces local `Lscfrk` struct
+- `LSCFRK3_W6`, `LSCFRK3_W7`, `LSCFRK4_CK` imported from shared crate
+- 278 lines of duplicate code removed across `gradient_flow.rs` and `gpu_flow.rs`
+- All 14 gradient flow tests pass through imported path (bit-identical results)
+
+### Raw Shader Compilation Audit
+
+5 `create_shader_module` call sites audited:
+- `gpu/mod.rs::build_pipeline` — correctly positioned as low-level helper after upstream optimization
+- 4 benchmark/test binaries intentionally bypass sovereign compiler (documented)
+- 47 production call sites use `compile_shader_f64` through barraCuda's sovereign compiler
+
+### Verlet Pipeline Validation
+
+- 136 MD tests pass (CellListGpu compatible with barraCuda HEAD)
+- 16 celllist tests pass (CPU neighbor search API unchanged)
+- GPU validation binaries compile against barraCuda v0.3.3
+- Energy conservation 0.001% across all 9 Sarkas cases (unchanged)
+
+### Sovereign Compiler Validation
+
+731 tests pass through barraCuda's sovereign compiler path (FMA fusion + dead expr elimination).
+47 `create_pipeline_f64` call sites across physics, lattice, and MD modules confirmed working.
+
+### Sovereign Compiler FMA Fusion Benchmark
+
+`bench_sovereign_fma` feeds all 74 hotSpring WGSL shaders through barraCuda's
+FMA fusion + dead-expression elimination passes. 46 standalone shaders parse
+directly; 28 require `ShaderTemplate` preprocessing (Complex64, transcendental
+polyfills) and are compiled at runtime through the full pipeline.
+
+| Category | Shaders | FMA Fusions | Avg FMA/shader | Key Winners |
+|----------|---------|-------------|----------------|-------------|
+| **lattice** | 10 | 252 | **25.2** | `su3_link_update` (73), `dirac_staggered` (54), `wilson_plaquette` (45), `staggered_fermion_force` (36) |
+| **nuclear** | 10 | 96 | **9.6** | `deformed_gradient` (23), `deformed_density_energy` (16), `deformed_potentials` (15), `batched_hfb_hamiltonian` (13) |
+| **md** | 16 | 129 | **8.1** | `vv_kick_drift` (16), `yukawa_force_celllist*` (12), `yukawa_force_verlet` (11), `yukawa_force` (10) |
+| **lattice-cg** | 7 | 12 | **1.7** | Simple BLAS-like ops (axpy, xpay, dot) |
+| **md-esn** | 2 | 7 | **3.5** | ESN reservoir update (5), readout (2) |
+| **TOTAL** | **46** | **498** | **10.8** | — |
+
+**Zero dead expressions eliminated** — hotSpring's shaders are well-maintained.
+
+Impact: Each FMA fusion saves one multiply instruction per GPU thread invocation.
+For lattice QCD with SU(3) matrix arithmetic (dense 3×3 complex multiply-add),
+the 73 FMA fusions in `su3_link_update` represent a meaningful reduction in
+instruction count on hardware with FMA units (all modern GPUs).
+
+### Cross-Spring Contribution Summary
+
+| Spring | ~Shaders Contributed | Primary Domains |
+|--------|---------------------|----------------|
+| **hotSpring** | ~100 | DF64 core-streaming, lattice QCD (SU(3), Wilson, CG), HFB nuclear, spectral (Lanczos, Anderson), ESN, precision infra, VACF, stress virial |
+| **wetSpring** | ~80 | HMM f64, Bray-Curtis, Shannon/Simpson, `FusedMapReduceF64`, bio ODEs, `log_f64` fix, correlation |
+| **neuralSpring** | ~34 | Pairwise ops, batch fitness, IPR, hill gate, matmul, eigh, linear/matrix regression, fused chi-squared |
+| **groundSpring** | ~5 | RAWR bootstrap, batched multinomial, MC ET₀, chi-squared CDF/quantile, Anderson Lyapunov, FFT radix-2, f64 shared-memory discovery |
+| **airSpring** | ~15 | Regression, hydrology (ET₀, FAO-56), `moving_window_f64`, `kriging_f64`, `batched_elementwise` |
+
+Notable cross-pollination chains:
+
+```
+hotSpring → df64_core.wgsl → neuralSpring (protein folding), wetSpring (variance, Shannon)
+wetSpring → HMM forward → neuralSpring (+ backward, viterbi) → shared hmm module
+wetSpring → FusedMapReduceF64 → airSpring (ET₀), groundSpring (diversity)
+neuralSpring → EA bio ops → wetSpring bio pipelines (pairwise_*, hill_gate)
+groundSpring → batched_multinomial → wetSpring (rarefaction GPU)
+hotSpring → spectral/stats → all springs (RMT-based phase classification)
+```
+
+### toadStool Pin Recommendation
+
+toadStool tracks hotSpring at v0.6.17. Recommend bump to v0.6.21:
+- Chuna papers: completed Mermin, GPU BGK, DSF vs MD validation, production gradient flow
+- Precision stability: Exp 046 (f32/DF64/f64/FHE analysis)
+- LSCFRK rewired to shared barraCuda (`barracuda::numerical::lscfrk`)
+- Sovereign compiler validated (47 call sites × 731 tests, 498 FMA fusions)
+- FMA fusion benchmark: `bench_sovereign_fma` binary
+- 75 WGSL shaders (up from 71), 99 binaries (up from 97)

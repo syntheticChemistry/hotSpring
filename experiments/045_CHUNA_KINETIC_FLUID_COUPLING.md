@@ -3,7 +3,7 @@
 **Date**: March 6, 2026
 **Paper**: Haack, Murillo, Sagert & Chuna, J. Comput. Phys. (2024), DOI:10.1016/j.jcp.2024.112908
 **Related**: Haack, Hauck, Murillo, J. Stat. Phys. 168:826 (2017) — conservative multi-species BGK model
-**Status**: ✅ CPU COMPLETE — Python control (18/18) + BarraCuda CPU (16 tests + 20/20 validation) — **Rust 322× faster than Python**
+**Status**: ✅ CPU + GPU — Python (18/18) + CPU (16 tests + 20/20) + GPU BGK pipeline — **322× CPU vs Py**
 **Priority**: P3 — new domain (kinetic-fluid coupling for HED)
 
 ---
@@ -107,13 +107,29 @@ Implicit-Explicit (IMEX) Runge-Kutta:
 - `barracuda/src/physics/kinetic_fluid.rs` — BarraCuda CPU module
 - `barracuda/src/bin/validate_kinetic_fluid.rs` — Validation binary
 
-## GPU Promotion Path
+## GPU Promotion (March 6, 2026)
 
-Phase 1 (BGK relaxation) and Phase 2 (Euler solver) are both compute-bound:
-- BGK: velocity-space integrals → parallel reduction (FusedMapReduceF64)
-- Euler: finite-volume update → embarrassingly parallel per cell
-- Coupling: interface flux exchange → small data transfer
+`physics/gpu_kinetic_fluid.rs` — GPU-accelerated BGK relaxation pipeline.
 
-The kinetic solver is the GPU promotion target: velocity-space discretization
-with Nv ~ 100–1000 points per cell, Nx ~ 100–10000 spatial cells, gives
-O(10⁵–10⁷) independent work items per time step.
+### Architecture
+
+Two-pass design via `bgk_relaxation_f64.wgsl`:
+- **Pass 1** (`compute_moments`): Each thread computes per-velocity-point
+  moment contributions (n·dv, n·v·dv, n·v²·dv). CPU reduces.
+- **Pass 2** (`bgk_relax`): Each thread evaluates target Maxwellian and
+  applies f → f + dt·ν·(f_target - f). GPU-parallel per (species, v-point).
+
+Target parameters (n*, u*, T*) computed on CPU from reduced moments
+via `bgk_target_params()` — O(N_species) work, not worth GPU dispatch.
+
+### Files
+
+| File | Purpose |
+|------|---------|
+| `physics/gpu_kinetic_fluid.rs` | Host pipeline, buffer management |
+| `physics/shaders/bgk_relaxation_f64.wgsl` | WGSL compute shader |
+
+### Remaining Extensions
+
+- [ ] GPU Euler update (spatial mesh — currently small N_x, CPU sufficient)
+- [ ] Full coupled kinetic-fluid on GPU with ToadStool streaming

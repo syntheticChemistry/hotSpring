@@ -31,7 +31,7 @@ const WGSL_MERMIN: &str = include_str!("shaders/dielectric_mermin_f64.wgsl");
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 struct DielectricParams {
     n_points: u32,
-    pad0: u32,
+    use_completed: u32,
     k: f64,
     nu: f64,
     k_debye: f64,
@@ -96,6 +96,35 @@ pub fn gpu_dielectric_batch(
     params: &PlasmaParams,
     omegas: &[f64],
 ) -> GpuDielectricResult {
+    gpu_dielectric_batch_core(gpu, pipeline, k, nu, params, omegas, false)
+}
+
+/// Evaluate completed (momentum-conserving) Mermin on GPU.
+///
+/// # Panics
+///
+/// Panics if `omegas` is empty.
+#[must_use]
+pub fn gpu_dielectric_batch_completed(
+    gpu: &GpuF64,
+    pipeline: &GpuDielectricPipeline,
+    k: f64,
+    nu: f64,
+    params: &PlasmaParams,
+    omegas: &[f64],
+) -> GpuDielectricResult {
+    gpu_dielectric_batch_core(gpu, pipeline, k, nu, params, omegas, true)
+}
+
+fn gpu_dielectric_batch_core(
+    gpu: &GpuF64,
+    pipeline: &GpuDielectricPipeline,
+    k: f64,
+    nu: f64,
+    params: &PlasmaParams,
+    omegas: &[f64],
+    completed: bool,
+) -> GpuDielectricResult {
     assert!(!omegas.is_empty(), "omegas must not be empty");
 
     let start = std::time::Instant::now();
@@ -103,7 +132,7 @@ pub fn gpu_dielectric_batch(
 
     let uniform = DielectricParams {
         n_points: n as u32,
-        pad0: 0,
+        use_completed: u32::from(completed),
         k,
         nu,
         k_debye: params.k_debye,
@@ -151,12 +180,39 @@ pub fn gpu_f_sum_integral(
     omega_max: f64,
     n_points: usize,
 ) -> f64 {
+    gpu_f_sum_integral_core(gpu, pipeline, k, nu, params, omega_max, n_points, false)
+}
+
+/// GPU f-sum integral using completed Mermin.
+#[must_use]
+pub fn gpu_f_sum_integral_completed(
+    gpu: &GpuF64,
+    pipeline: &GpuDielectricPipeline,
+    k: f64,
+    nu: f64,
+    params: &PlasmaParams,
+    omega_max: f64,
+    n_points: usize,
+) -> f64 {
+    gpu_f_sum_integral_core(gpu, pipeline, k, nu, params, omega_max, n_points, true)
+}
+
+fn gpu_f_sum_integral_core(
+    gpu: &GpuF64,
+    pipeline: &GpuDielectricPipeline,
+    k: f64,
+    nu: f64,
+    params: &PlasmaParams,
+    omega_max: f64,
+    n_points: usize,
+    completed: bool,
+) -> f64 {
     let d_omega = omega_max / n_points as f64;
     let omegas: Vec<f64> = (1..n_points)
         .map(|i| f64::from(i as i32) * d_omega)
         .collect();
 
-    let result = gpu_dielectric_batch(gpu, pipeline, k, nu, params, &omegas);
+    let result = gpu_dielectric_batch_core(gpu, pipeline, k, nu, params, &omegas, completed);
 
     let mut sum = 0.0;
     for (i, &loss_im) in result.loss.iter().enumerate() {
@@ -168,14 +224,20 @@ pub fn gpu_f_sum_integral(
 
 /// Run full GPU validation matching CPU `validate_dielectric`.
 pub struct GpuDielectricValidation {
-    /// f-sum integral (GPU).
+    /// f-sum integral (GPU, standard).
     pub f_sum_gpu: f64,
-    /// f-sum integral (CPU).
+    /// f-sum integral (CPU, standard).
     pub f_sum_cpu: f64,
-    /// DSF positivity fraction (GPU).
+    /// f-sum integral (GPU, completed Mermin).
+    pub f_sum_gpu_completed: f64,
+    /// f-sum integral (CPU, completed Mermin).
+    pub f_sum_cpu_completed: f64,
+    /// DSF positivity fraction (GPU, standard).
     pub dsf_pos_fraction_gpu: f64,
-    /// DSF positivity fraction (CPU).
+    /// DSF positivity fraction (CPU, standard).
     pub dsf_pos_fraction_cpu: f64,
+    /// DSF positivity fraction (GPU, completed).
+    pub dsf_pos_fraction_gpu_completed: f64,
     /// Max relative error in loss function (only where |loss| > 0.1% of peak).
     pub max_loss_rel_error: f64,
     /// L² relative error over all ω points.
@@ -256,11 +318,26 @@ pub fn validate_gpu_dielectric(
     let f_sum_gpu = gpu_f_sum_integral(gpu, pipeline, k, nu, &params, 200.0, 50_000);
     let f_sum_cpu = f_sum_rule_integral(k, nu, &params, 200.0);
 
+    let gpu_result_cm = gpu_dielectric_batch_completed(gpu, pipeline, k, nu, &params, &omegas);
+    let dsf_max_gpu_cm = gpu_result_cm.dsf.iter().copied().fold(0.0_f64, f64::max);
+    let n_pos_gpu_cm = gpu_result_cm
+        .dsf
+        .iter()
+        .filter(|&&s| s >= -1e-6 * dsf_max_gpu_cm.max(1e-10))
+        .count();
+    let dsf_pos_gpu_cm = n_pos_gpu_cm as f64 / gpu_result_cm.dsf.len() as f64;
+
+    let f_sum_gpu_cm = gpu_f_sum_integral_completed(gpu, pipeline, k, nu, &params, 200.0, 50_000);
+    let f_sum_cpu_cm = dielectric::f_sum_rule_integral_completed(k, nu, &params, 200.0);
+
     GpuDielectricValidation {
         f_sum_gpu,
         f_sum_cpu,
+        f_sum_gpu_completed: f_sum_gpu_cm,
+        f_sum_cpu_completed: f_sum_cpu_cm,
         dsf_pos_fraction_gpu: dsf_pos_gpu,
         dsf_pos_fraction_cpu: dsf_pos_cpu,
+        dsf_pos_fraction_gpu_completed: dsf_pos_gpu_cm,
         max_loss_rel_error: max_rel_err,
         l2_loss_rel_error: l2_rel,
         gpu_wall_seconds: gpu_wall,

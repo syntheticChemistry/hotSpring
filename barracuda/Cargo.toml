@@ -1,6 +1,6 @@
 [package]
 name = "hotspring-barracuda"
-version = "0.6.19"
+version = "0.6.23"
 edition = "2021"
 description = "Nuclear EOS + GPU MD validation for BarraCuda — L1/L2/L3 physics, Yukawa OCP, lattice QCD, spectral theory, typed errors, full Result propagation, provenance, capability-based discovery"
 license = "AGPL-3.0-only"
@@ -84,6 +84,9 @@ npu-hw = ["dep:akida-driver", "dep:akida-models"]
 # BarraCuda (standalone primal): math, shaders, compilation, ESN, NPU math
 barracuda = { path = "../../barraCuda/crates/barracuda" }
 
+# Structured logging (transitive dep via wgpu; explicit for library diagnostics)
+log = "0.4"
+
 # Data loading
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -108,6 +111,9 @@ wgpu = { version = "28", default-features = false, features = [
     "wgsl",
     "vulkan-portability",
 ] }
+
+# Naga (WGSL IR) — for sovereign compiler benchmark; already a transitive dep.
+naga = { version = "28", features = ["wgsl-in"] }
 
 # Blocking async operations (adapter enumeration is async in wgpu 28)
 pollster = "0.3"
@@ -577,3 +583,28 @@ path = "src/bin/validate_gpu_dielectric.rs"
 [[bin]]
 name = "validate_kinetic_fluid"
 path = "src/bin/validate_kinetic_fluid.rs"
+
+# ── DSF vs MD validation (Chuna Paper 44, Murillo DB) ──
+[[bin]]
+name = "validate_dsf_vs_md"
+path = "src/bin/validate_dsf_vs_md.rs"
+
+# ── Production gradient flow scale-setting (Chuna Paper 43) ──
+[[bin]]
+name = "gradient_flow_production"
+path = "src/bin/gradient_flow_production.rs"
+
+# ── Sovereign compiler FMA fusion benchmark (all WGSL shaders) ──
+[[bin]]
+name = "bench_sovereign_fma"
+path = "src/bin/bench_sovereign_fma.rs"
+
+# ── Gradient flow convergence benchmark (Paper 43 extension) ──
+[[bin]]
+name = "bench_flow_convergence"
+path = "src/bin/bench_flow_convergence.rs"
+
+# ── Chuna overnight: all Paper 43/44/45 validations in one run ──
+[[bin]]
+name = "validate_chuna_overnight"
+path = "src/bin/validate_chuna_overnight.rs"

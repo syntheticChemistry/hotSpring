@@ -1,8 +1,8 @@
 # Lattice QCD — Quenched & Dynamical Fermions
 
-**Papers:** 7-12 (HotQCD EOS, Pure Gauge, Production QCD, Dynamical Fermions, HVP g-2, Freeze-Out) + Chuna arXiv:2101.05320
-**Updated:** March 6, 2026
-**Status:** ✅ Asymmetric lattices (32³×8, 64³×8), gradient flow (t₀, w₀), Chuna integrators derived from first principles, N_f=4 dynamical infra complete
+**Papers:** 7-12 (HotQCD EOS, Pure Gauge, Production QCD, Dynamical Fermions, HVP g-2, Freeze-Out) + Chuna arXiv:2101.05320 + Chuna & Murillo 2024 + Haack et al. 2024
+**Updated:** March 8, 2026
+**Status:** ✅ Chuna Papers 43-45: **41/41 overnight checks pass**. Dynamical N_f=4 staggered gradient flow. Deep debt resolved. Multi-component Mermin + kinetic-fluid coupling GPU-validated.
 
 ---
 
@@ -96,6 +96,18 @@ solves these at compile time. Only two free parameters remain — the rest is al
 All integrators validated against each other. W7 ~2× more efficient for w₀
 observables. Convergence scaling matches the paper. 14/14 gradient flow tests pass.
 
+## Chuna Papers — Full Parity (March 8, 2026)
+
+All three Chuna papers now pass **41/41 automated validation checks** via `validate_chuna_overnight`.
+
+| Paper | Ref | Checks | Key Results |
+|-------|-----|:------:|-------------|
+| 43 | Bazavov & Chuna, arXiv:2101.05320 | 11/11 | W6/W7/CK4 convergence, 8⁴ + 16⁴ thermalization, monotonic flow. **Dynamical N_f=4 staggered flow** on 50-trajectory thermalized config. |
+| 44 | Chuna & Murillo, Phys. Rev. E 111, 035206 | 20/20 | f-sum, DSF positive, Debye exact (1e-12), GPU L²=5.5e-7, **multi-component GPU 100% agreement** (cscale fix). |
+| 45 | Haack, Murillo, Sagert & Chuna, J. Comput. Phys. | 10/10 | BGK mass=0, Euler mass=1.4e-15, shock resolved, coupled interface GPU-CPU parity 15%. |
+
+**Critical fix**: `cscale` shader correction in `dielectric_multicomponent_f64.wgsl` — 6 instances of element-wise complex×scalar were zeroing imaginary parts. Multi-component agreement went from 4% → 100%.
+
 ## Science Ladder
 
 | Level | Physics | Status |
@@ -103,7 +115,9 @@ observables. Convergence scaling matches the paper. 14/14 gradient flow tests pa
 | 0 | Quenched HMC (32⁴, 32³×8, 64³×8) | ✅ Complete |
 | 1 | Gradient flow (t₀, w₀, 5 integrators) | ✅ Complete |
 | 2 | Flow integrator convergence (Chuna paper) | ✅ Validated |
+| 2b | Dynamical N_f=4 staggered gradient flow | ✅ Complete (March 8, 2026) |
 | 3 | N_f=4 staggered dynamical (GPU CG) | ✅ Infrastructure complete |
+| 3b | Chuna Papers 43-45 full parity (41/41) | ✅ **Complete** |
 | 4 | N_f=2 dynamical (RHMC rooting trick) | Pending |
 | 5 | N_f=2+1 staggered (strange quark mass) | Pending |
 | 6 | N_f=2+1+1 HISQ (full physical QCD) | Long-term |
@@ -113,4 +127,4 @@ observables. Convergence scaling matches the paper. 14/14 gradient flow tests pa
 - **64³×8 analysis**: Polyakov loop jump at β_c, finite-size scaling (32³/48³/64³ × 8)
 - **Gradient flow at volume**: t₀/w₀ on 16⁴+ thermalized configs for physical scale setting
 - **N_f=2 dynamical**: Wire RHMC for fractional flavors on GPU
-- **Chuna contact**: Murillo referred us — prepare review package with derived integrators + production data
+- **Chuna review package**: 41/41 validation, derived integrators, production data, dynamical flow — ready for handoff

@@ -31,6 +31,8 @@
 use super::gpu_hmc::{
     gpu_force_dispatch, make_link_mom_params, make_u32x4_params, GpuHmcPipelines, GpuHmcState,
 };
+use barracuda::numerical::lscfrk::{self as lscfrk_lib, LscfrkCoefficients};
+
 use super::gradient_flow::{FlowIntegrator, FlowMeasurement};
 use super::wilson::Lattice;
 use crate::gpu::GpuF64;
@@ -74,58 +76,19 @@ impl GpuFlowState {
     }
 }
 
-/// LSCFRK coefficients matching the CPU `gradient_flow` module.
-struct FlowCoeffs {
-    a: &'static [f64],
-    b: &'static [f64],
-}
-
-const W6: ([f64; 3], [f64; 3]) = super::gradient_flow::derive_lscfrk3(1.0 / 4.0, 2.0 / 3.0);
-const W7: ([f64; 3], [f64; 3]) = super::gradient_flow::derive_lscfrk3(1.0 / 3.0, 3.0 / 4.0);
-
 /// Map integrator to 2N-storage (A, B) coefficients for GPU dispatch.
 ///
-/// # Panics
-///
-/// Panics if `FlowIntegrator::Rk2` is passed — the midpoint method uses
-/// a save/restore pattern that doesn't map to the 2N-storage framework.
-/// Use `Rk3Luscher` or higher for GPU flow.
-fn coeffs_for(integrator: FlowIntegrator) -> FlowCoeffs {
+/// Caller must validate that `integrator` is not `Rk2` before calling.
+fn coeffs_for(integrator: FlowIntegrator) -> LscfrkCoefficients {
     match integrator {
-        FlowIntegrator::Euler => FlowCoeffs {
+        FlowIntegrator::Euler => LscfrkCoefficients {
             a: &[0.0],
             b: &[1.0],
         },
-        FlowIntegrator::Rk2 => {
-            panic!(
-                "RK2 midpoint method is not a 2N-storage scheme and cannot run on GPU. \
-                 Use Rk3Luscher, Lscfrk3w7, or Lscfrk4ck instead."
-            )
-        }
-        FlowIntegrator::Rk3Luscher => FlowCoeffs {
-            a: &[W6.0[0], W6.0[1], W6.0[2]],
-            b: &[W6.1[0], W6.1[1], W6.1[2]],
-        },
-        FlowIntegrator::Lscfrk3w7 => FlowCoeffs {
-            a: &[W7.0[0], W7.0[1], W7.0[2]],
-            b: &[W7.1[0], W7.1[1], W7.1[2]],
-        },
-        FlowIntegrator::Lscfrk4ck => FlowCoeffs {
-            a: &[
-                0.0,
-                -567_301_805_773.0 / 1_357_537_059_087.0,
-                -2_404_267_990_393.0 / 2_016_746_695_238.0,
-                -3_550_918_686_646.0 / 2_091_501_179_385.0,
-                -1_275_806_237_668.0 / 842_570_457_699.0,
-            ],
-            b: &[
-                1_432_997_174_477.0 / 9_575_080_441_755.0,
-                5_161_836_677_717.0 / 13_612_068_292_357.0,
-                1_720_146_321_549.0 / 2_090_206_949_498.0,
-                3_134_564_353_537.0 / 4_481_467_310_338.0,
-                2_277_821_191_437.0 / 14_882_151_754_819.0,
-            ],
-        },
+        FlowIntegrator::Rk2 => unreachable!("RK2 rejected at gpu_gradient_flow entry"),
+        FlowIntegrator::Rk3Luscher => lscfrk_lib::LSCFRK3_W6.clone(),
+        FlowIntegrator::Lscfrk3w7 => lscfrk_lib::LSCFRK3_W7.clone(),
+        FlowIntegrator::Lscfrk4ck => lscfrk_lib::LSCFRK4_CK.clone(),
     }
 }
 
@@ -198,7 +161,9 @@ pub struct GpuFlowResult {
 ///
 /// # Panics
 ///
-/// Panics if `epsilon` is not positive or `t_max` is not positive.
+/// Panics if `epsilon` is not positive, `t_max` is not positive, or
+/// `integrator` is `Rk2` (the midpoint method is not a 2N-storage scheme
+/// and cannot run on GPU — use `Rk3Luscher`, `Lscfrk3w7`, or `Lscfrk4ck`).
 #[must_use]
 pub fn gpu_gradient_flow(
     gpu: &GpuF64,
@@ -209,6 +174,11 @@ pub fn gpu_gradient_flow(
     t_max: f64,
     measure_interval: usize,
 ) -> GpuFlowResult {
+    assert!(
+        !matches!(integrator, FlowIntegrator::Rk2),
+        "RK2 midpoint method is not a 2N-storage scheme and cannot run on GPU. \
+         Use Rk3Luscher, Lscfrk3w7, or Lscfrk4ck instead."
+    );
     assert!(epsilon > 0.0, "epsilon must be positive");
     assert!(t_max > 0.0, "t_max must be positive");
 

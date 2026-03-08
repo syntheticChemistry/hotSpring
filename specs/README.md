@@ -1,7 +1,7 @@
 # hotSpring Specifications
 
 **Last Updated**: March 6, 2026
-**Status**: Phase A-J complete — 724 tests, 39/39 validation suites, crate v0.6.19, 95 binaries, barraCuda v0.3.3 (standalone primal), toadStool S94b, coralReef reviewed
+**Status**: Phase A-J complete — 731 tests, 39/39 validation suites, crate v0.6.19, 95 binaries, barraCuda v0.3.3 (standalone primal), toadStool S94b, coralReef reviewed
 **Domain**: Computational plasma physics, nuclear structure, transport, lattice QCD, spectral theory, surrogate learning
 
 ---

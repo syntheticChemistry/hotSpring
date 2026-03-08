@@ -118,17 +118,21 @@ pub fn hmc_auto_params(vol: usize) -> (f64, usize) {
 }
 
 /// Create trajectory log writer if path is given.
-#[must_use]
+///
+/// Returns `None` if `path` is `None` or if the file cannot be created
+/// (parent directory creation failures are silently ignored, but the
+/// file creation error is propagated).
 pub fn create_trajectory_log_writer(
     path: Option<&str>,
-) -> Option<std::io::BufWriter<std::fs::File>> {
-    let path = path?;
+) -> Result<Option<std::io::BufWriter<std::fs::File>>, std::io::Error> {
+    let Some(path) = path else {
+        return Ok(None);
+    };
     if let Some(parent) = std::path::Path::new(path).parent() {
         std::fs::create_dir_all(parent).ok();
     }
-    let f = std::fs::File::create(path)
-        .unwrap_or_else(|e| panic!("Cannot create trajectory log {path}: {e}"));
-    Some(std::io::BufWriter::new(f))
+    let f = std::fs::File::create(path)?;
+    Ok(Some(std::io::BufWriter::new(f)))
 }
 
 /// Print the dynamical mixed pipeline startup banner.

@@ -30,9 +30,13 @@
 //! - Lüscher, JHEP 08 (2010) 071 — Wilson flow definition and t₀ scale
 //! - Bazavov & Chuna, arXiv:2101.05320 — optimized Lie group integrators
 
+use barracuda::numerical::lscfrk::{self as lscfrk_lib, LscfrkCoefficients};
+
 use super::hmc::exp_su3_cayley_pub;
 use super::su3::Su3Matrix;
 use super::wilson::Lattice;
+
+pub use lscfrk_lib::{compute_w_function, derive_lscfrk3, find_t0, find_w0, FlowMeasurement};
 
 /// Flow integrator type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -52,19 +56,6 @@ pub enum FlowIntegrator {
     /// Fourth-order accuracy with minimal stage count. Becomes more efficient
     /// than 3rd-order methods at step sizes below ~1/32.
     Lscfrk4ck,
-}
-
-/// Result of a gradient flow measurement at flow time t.
-#[derive(Debug, Clone)]
-pub struct FlowMeasurement {
-    /// Flow time t.
-    pub t: f64,
-    /// Gauge energy density E(t) = (1 - `avg_plaquette`) * 6/β × β.
-    pub energy_density: f64,
-    /// t² E(t) — the dimensionless combination used to define t₀.
-    pub t2_e: f64,
-    /// Average plaquette at flow time t.
-    pub plaquette: f64,
 }
 
 /// Compute the Lie-algebra driving term `Z_μ(x)` for gradient flow.
@@ -142,179 +133,11 @@ fn rk2_step(lattice: &mut Lattice, epsilon: f64) {
     }
 }
 
-// The original explicit rk3_luscher_step has been replaced by the
-// generic lscfrk_step with LSCFRK3W6 coefficients. The generic version
-// produces bit-identical results (verified by lscfrk3w6_matches_original_luscher
-// test) while supporting any 2N-storage scheme with the same code path.
-
-/// 2N-storage coefficients for low-storage commutator-free Lie group integrators.
-///
-/// Algorithm 6 from Bazavov & Chuna, arXiv:2101.05320:
-///   Y₀ = Yₜ; K = 0
-///   for i = 1,...,s:
-///     K = Aᵢ K + F(Yᵢ₋₁)
-///     Yᵢ = exp(ε Bᵢ K) Yᵢ₋₁
-///   Yₜ₊ₑ = Yₛ
-struct Lscfrk {
-    a: &'static [f64],
-    b: &'static [f64],
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// DERIVATION OF 3-STAGE 3RD-ORDER 2N-STORAGE RUNGE-KUTTA COEFFICIENTS
-//
-// Starting point: the ODE  dy/dt = f(y).
-//
-// A general s-stage explicit RK method has a Butcher tableau:
-//
-//   c₂ | a₂₁
-//   c₃ | a₃₁  a₃₂
-//   ---|----------
-//      | b₁   b₂   b₃
-//
-// For 3rd-order accuracy, the coefficients must satisfy four
-// constraints from Taylor-expanding y(t+h) and matching terms
-// through O(h³). These are laws of calculus, not choices:
-//
-//   (1)  b₁ + b₂ + b₃ = 1                    [consistency]
-//   (2)  b₂c₂ + b₃c₃ = 1/2                   [1st-order match]
-//   (3)  b₂c₂² + b₃c₃² = 1/3                 [2nd-order match]
-//   (4)  b₃ a₃₂ c₂ = 1/6                      [tree condition]
-//
-// With a₂₁ = c₂ (row-sum), that's 4 equations in 6 unknowns
-// (a₂₁, a₃₁, a₃₂, b₁, b₂, b₃), giving a 2-parameter family.
-// The free parameters are (c₂, c₃) — the stage evaluation points.
-//
-// For the 2N-STORAGE FORMAT (Williamson 1980), the algorithm becomes:
-//
-//   K = 0
-//   for i = 1..s:
-//     K = Aᵢ K + f(yᵢ₋₁)      ← accumulate into single register
-//     yᵢ = yᵢ₋₁ + h Bᵢ K      ← update solution
-//
-// This reuses a single K register across all stages. The
-// Butcher coefficients map to (A, B) via:
-//
-//   B₁ = a₂₁ = c₂             [stage 1 increment]
-//   B₂ = a₃₂                  [stage 2 contribution of new force]
-//   B₃ = b₃                   [stage 3 weight]
-//   A₂ = (a₃₁ − B₁) / B₂     [how much old K to keep]
-//   A₃ = (b₂ − B₂) / B₃      [how much old K to keep]
-//
-// Imposing this structure adds a 5th constraint (the "Williamson
-// condition"), reducing the family to 1 parameter. The set of
-// valid (c₂, c₃) pairs traces the "Williamson curve" in Fig. 1
-// of Bazavov & Chuna. The Lie group extension (exponential map
-// replacing addition) preserves order for 2N-storage schemes —
-// this is the deep result proven in Ref. [4] of the paper.
-// ═══════════════════════════════════════════════════════════════════
-
-/// Derive all 3-stage 3rd-order 2N-storage coefficients from the two
-/// free parameters (c₂, c₃). Returns (A, B) arrays.
-///
-/// This function IS the derivation — it solves the order conditions
-/// symbolically. Every coefficient follows from (c₂, c₃) by algebra.
-pub const fn derive_lscfrk3(c2: f64, c3: f64) -> ([f64; 3], [f64; 3]) {
-    // Order condition (3): b₂c₂² + b₃c₃² = 1/3
-    // Order condition (2): b₂c₂  + b₃c₃  = 1/2
-    // Solve this 2×2 system for b₂, b₃:
-    //
-    //   From (2): b₂ = (1/2 - b₃c₃) / c₂
-    //   Sub into (3): ((1/2 - b₃c₃)/c₂)c₂² + b₃c₃² = 1/3
-    //                 c₂/2 - b₃c₃c₂ + b₃c₃² = 1/3
-    //                 b₃ c₃(c₃ - c₂) = 1/3 - c₂/2
-    let b3 = (1.0 / 3.0 - c2 / 2.0) / (c3 * (c3 - c2));
-    let b2 = (0.5 - b3 * c3) / c2;
-    // b1 = 1 - b2 - b3 from condition (1); used in Butcher form, not 2N-storage
-
-    // Tree condition (4): a₃₂ = 1/(6 b₃ c₂)
-    let a32 = 1.0 / (6.0 * b3 * c2);
-    let a31 = c3 - a32; // row-sum: a₃₁ + a₃₂ = c₃
-    let a21 = c2; // row-sum: a₂₁ = c₂
-
-    // Convert Butcher tableau → 2N-storage (A, B):
-    let big_b1 = a21; // B₁ = c₂
-    let big_b2 = a32; // B₂ = a₃₂
-    let big_b3 = b3; // B₃ = b₃
-    let big_a1 = 0.0; // A₁ = 0 (explicit)
-    let big_a2 = (a31 - big_b1) / big_b2;
-    let big_a3 = (b2 - big_b2) / big_b3;
-
-    // Verification (computed at compile time via const fn):
-    // b₁ should equal B₁ + B₂A₂ + B₃A₃A₂
-    // This is the Williamson consistency condition.
-
-    ([big_a1, big_a2, big_a3], [big_b1, big_b2, big_b3])
-}
-
-/// LSCFRK3W6: Lüscher's original. Free parameters: c₂ = 1/4, c₃ = 2/3.
-///
-/// This is the standard lattice QCD gradient flow integrator (JHEP 2010).
-/// All coefficients below are DERIVED from c₂ = 1/4, c₃ = 2/3.
-const LSCFRK3W6_DERIVED: ([f64; 3], [f64; 3]) = derive_lscfrk3(1.0 / 4.0, 2.0 / 3.0);
-const LSCFRK3W6: Lscfrk = Lscfrk {
-    a: &[
-        LSCFRK3W6_DERIVED.0[0],
-        LSCFRK3W6_DERIVED.0[1],
-        LSCFRK3W6_DERIVED.0[2],
-    ],
-    b: &[
-        LSCFRK3W6_DERIVED.1[0],
-        LSCFRK3W6_DERIVED.1[1],
-        LSCFRK3W6_DERIVED.1[2],
-    ],
-};
-
-/// LSCFRK3W7: Bazavov & Chuna recommended. Free parameters: c₂ = 1/3, c₃ = 3/4.
-///
-/// Chosen because the leading-order error coefficient for action
-/// observables (`D³_C`) is close to zero — making it ~2× more efficient
-/// than W6 for w₀ scale setting. See Fig. 5 of arXiv:2101.05320.
-const LSCFRK3W7_DERIVED: ([f64; 3], [f64; 3]) = derive_lscfrk3(1.0 / 3.0, 3.0 / 4.0);
-const LSCFRK3W7: Lscfrk = Lscfrk {
-    a: &[
-        LSCFRK3W7_DERIVED.0[0],
-        LSCFRK3W7_DERIVED.0[1],
-        LSCFRK3W7_DERIVED.0[2],
-    ],
-    b: &[
-        LSCFRK3W7_DERIVED.1[0],
-        LSCFRK3W7_DERIVED.1[1],
-        LSCFRK3W7_DERIVED.1[2],
-    ],
-};
-
-/// LSCFRK4CK: Carpenter-Kennedy 4th order, 5-stage (NASA TM-109112, 1994).
-///
-/// At 4th order with 5 stages there are 8 order conditions and 9
-/// parameters (2×5 − 1), leaving a 1-parameter family. Unlike the
-/// 3rd-order case, no closed-form rational solution exists — the
-/// coefficients are found by numerical root-finding on the nonlinear
-/// order condition system. The integer ratios below are exact
-/// representations chosen by Carpenter & Kennedy to avoid floating
-/// point representation error.
-const LSCFRK4CK: Lscfrk = Lscfrk {
-    a: &[
-        0.0,
-        -567301805773.0 / 1357537059087.0,
-        -2404267990393.0 / 2016746695238.0,
-        -3550918686646.0 / 2091501179385.0,
-        -1275806237668.0 / 842570457699.0,
-    ],
-    b: &[
-        1432997174477.0 / 9575080441755.0,
-        5161836677717.0 / 13612068292357.0,
-        1720146321549.0 / 2090206949498.0,
-        3134564353537.0 / 4481467310338.0,
-        2277821191437.0 / 14882151754819.0,
-    ],
-};
-
 /// Apply one step of a generic 2N-storage LSCFRK Lie group integrator.
 ///
 /// This is Algorithm 6 from Bazavov & Chuna (2021). The same code runs
 /// any 2N-storage scheme — only the (A, B) coefficients differ.
-fn lscfrk_step(lattice: &mut Lattice, epsilon: f64, scheme: &Lscfrk) {
+fn lscfrk_step(lattice: &mut Lattice, epsilon: f64, scheme: &LscfrkCoefficients) {
     let dims = lattice.dims;
     let v = dims[0] * dims[1] * dims[2] * dims[3];
     let s = scheme.a.len();
@@ -382,9 +205,9 @@ pub fn run_flow(
         match integrator {
             FlowIntegrator::Euler => euler_step(lattice, epsilon),
             FlowIntegrator::Rk2 => rk2_step(lattice, epsilon),
-            FlowIntegrator::Rk3Luscher => lscfrk_step(lattice, epsilon, &LSCFRK3W6),
-            FlowIntegrator::Lscfrk3w7 => lscfrk_step(lattice, epsilon, &LSCFRK3W7),
-            FlowIntegrator::Lscfrk4ck => lscfrk_step(lattice, epsilon, &LSCFRK4CK),
+            FlowIntegrator::Rk3Luscher => lscfrk_step(lattice, epsilon, &lscfrk_lib::LSCFRK3_W6),
+            FlowIntegrator::Lscfrk3w7 => lscfrk_step(lattice, epsilon, &lscfrk_lib::LSCFRK3_W7),
+            FlowIntegrator::Lscfrk4ck => lscfrk_step(lattice, epsilon, &lscfrk_lib::LSCFRK4_CK),
         }
 
         if step % measure_interval == 0 || step == n_steps {
@@ -400,77 +223,6 @@ pub fn run_flow(
     }
 
     measurements
-}
-
-/// Find t₀ such that t²⟨E(t)⟩ = 0.3 by linear interpolation.
-#[must_use]
-pub fn find_t0(measurements: &[FlowMeasurement]) -> Option<f64> {
-    const TARGET: f64 = 0.3;
-    for window in measurements.windows(2) {
-        let (a, b) = (&window[0], &window[1]);
-        if a.t2_e <= TARGET && b.t2_e >= TARGET && (b.t2_e - a.t2_e).abs() > 1e-15 {
-            let frac = (TARGET - a.t2_e) / (b.t2_e - a.t2_e);
-            return Some(frac.mul_add(b.t - a.t, a.t));
-        }
-    }
-    None
-}
-
-/// Find w₀ such that t d/dt [t² E(t)] = 0.3 by linear interpolation.
-///
-/// The w₀ scale (BMW, arXiv:1203.4469) uses the *derivative* of t²E(t)
-/// and is less sensitive to short-distance lattice artifacts than t₀.
-/// This is the primary scale observable in Chuna's paper.
-#[must_use]
-pub fn find_w0(measurements: &[FlowMeasurement]) -> Option<f64> {
-    const TARGET: f64 = 0.3;
-    if measurements.len() < 3 {
-        return None;
-    }
-
-    let mut w_values: Vec<(f64, f64)> = Vec::new();
-    for window in measurements.windows(2) {
-        let (a, b) = (&window[0], &window[1]);
-        if b.t <= a.t || a.t < 1e-15 {
-            continue;
-        }
-        let dt_flow = b.t - a.t;
-        let d_t2e = b.t2_e - a.t2_e;
-        let t_mid = 0.5 * (a.t + b.t);
-        let w_val = t_mid * d_t2e / dt_flow;
-        w_values.push((t_mid, w_val));
-    }
-
-    for window in w_values.windows(2) {
-        let (t_a, w_a) = window[0];
-        let (t_b, w_b) = window[1];
-        if w_a <= TARGET && w_b >= TARGET && (w_b - w_a).abs() > 1e-15 {
-            let frac = (TARGET - w_a) / (w_b - w_a);
-            let t_cross = frac.mul_add(t_b - t_a, t_a);
-            return Some(t_cross.sqrt());
-        }
-    }
-    None
-}
-
-/// Compute W(t) = t d/dt [t² E(t)] for all measurement points.
-///
-/// Returns (t, W(t)) pairs. Used for plotting the w₀ determination.
-#[must_use]
-pub fn compute_w_function(measurements: &[FlowMeasurement]) -> Vec<(f64, f64)> {
-    let mut result = Vec::new();
-    for window in measurements.windows(2) {
-        let (a, b) = (&window[0], &window[1]);
-        if b.t <= a.t || a.t < 1e-15 {
-            continue;
-        }
-        let dt_flow = b.t - a.t;
-        let d_t2e = b.t2_e - a.t2_e;
-        let t_mid = 0.5 * (a.t + b.t);
-        let w_val = t_mid * d_t2e / dt_flow;
-        result.push((t_mid, w_val));
-    }
-    result
 }
 
 #[cfg(test)]
@@ -706,7 +458,7 @@ mod tests {
         let mut lat_w6 = Lattice::hot_start([4, 4, 4, 4], 6.0, 42);
 
         let res_luscher = run_flow(&mut lat_luscher, FlowIntegrator::Rk3Luscher, 0.01, 0.1, 1);
-        lscfrk_step(&mut lat_w6, 0.01, &LSCFRK3W6);
+        lscfrk_step(&mut lat_w6, 0.01, &lscfrk_lib::LSCFRK3_W6);
 
         let p_luscher = res_luscher[1].plaquette;
         let p_w6 = lat_w6.average_plaquette();

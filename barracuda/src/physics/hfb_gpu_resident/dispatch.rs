@@ -19,6 +19,9 @@ use super::types::{compute_spin_orbit_diagonal, EigenBcsResult, NucleusState};
 use crate::error::HotSpringError;
 use crate::tolerances::{DENSITY_FLOOR, RHO_POWF_GUARD};
 
+/// Must match `@workgroup_size(256)` in HFB WGSL shaders.
+const WORKGROUP_SIZE: u32 = 256;
+
 /// Upload densities, spin-orbit diagonals, and pack params to GPU.
 #[allow(clippy::cast_possible_truncation)]
 #[allow(clippy::too_many_arguments)]
@@ -337,7 +340,7 @@ fn dispatch_bcs_density_mix(encoder: &mut wgpu::CommandEncoder, g: &GroupResourc
             label: Some("bcs_v2"),
             timestamp_writes: None,
         });
-        let ns_wg_bcs = (g.ns as u32).div_ceil(256);
+        let ns_wg_bcs = (g.ns as u32).div_ceil(WORKGROUP_SIZE);
         pass.set_pipeline(&g.bcs_v2_pipe);
         pass.set_bind_group(0, &g.density_params_bg, &[]);
         pass.set_bind_group(1, &g.bcs_p_bg, &[]);
@@ -369,10 +372,10 @@ fn dispatch_bcs_density_mix(encoder: &mut wgpu::CommandEncoder, g: &GroupResourc
         pass.set_bind_group(1, &g.bcs_p_read_bg, &[]);
         pass.set_bind_group(2, &g.density_p_read_bg, &[]);
         pass.set_bind_group(3, &g.mix_p_bg, &[]);
-        pass.dispatch_workgroups((bn * g.nr as u32).div_ceil(256), 1, 1);
+        pass.dispatch_workgroups((bn * g.nr as u32).div_ceil(WORKGROUP_SIZE), 1, 1);
         pass.set_bind_group(2, &g.density_n_read_bg, &[]);
         pass.set_bind_group(3, &g.mix_n_bg, &[]);
-        pass.dispatch_workgroups((bn * g.nr as u32).div_ceil(256), 1, 1);
+        pass.dispatch_workgroups((bn * g.nr as u32).div_ceil(WORKGROUP_SIZE), 1, 1);
     }
 }
 
@@ -431,7 +434,7 @@ fn dispatch_energy_pass(
     pass.set_pipeline(&g.pairing_energy_pipe);
     pass.set_bind_group(0, &g.energy_integrands_bg, &[]);
     pass.set_bind_group(1, &g.energy_pair_bg, &[]);
-    pass.dispatch_workgroups(bn.div_ceil(256), 1, 1);
+    pass.dispatch_workgroups(bn.div_ceil(WORKGROUP_SIZE), 1, 1);
     *total_gpu_dispatches += 2;
 }
 

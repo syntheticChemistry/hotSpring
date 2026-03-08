@@ -226,7 +226,8 @@ fn main() {
     let mut results: Vec<BetaResult> = Vec::new();
     let mut npu_stats = DynamicalNpuStats::new();
 
-    let mut traj_writer = create_trajectory_log_writer(args.trajectory_log.as_deref());
+    let mut traj_writer = create_trajectory_log_writer(args.trajectory_log.as_deref())
+        .expect("failed to create trajectory log file");
 
     let mut beta_order = run_pre_computation(
         &args.betas,
