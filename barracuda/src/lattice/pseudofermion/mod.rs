@@ -34,7 +34,11 @@ use super::dirac::{apply_dirac, apply_dirac_adjoint, apply_dirac_sq, FermionFiel
 use super::hmc::{exp_su3_cayley_pub, IntegratorType};
 use super::su3::Su3Matrix;
 use super::wilson::Lattice;
-use crate::tolerances::OMELYAN_LAMBDA;
+use crate::tolerances::{
+    ADAPTIVE_DT_BUMP, ADAPTIVE_DT_DROP, ADAPTIVE_DT_MAX, ADAPTIVE_DT_MIN,
+    ADAPTIVE_HIGH_ACCEPTANCE, ADAPTIVE_LOW_ACCEPTANCE, ADAPTIVE_NMD_MAX, ADAPTIVE_NMD_MIN,
+    OMELYAN_LAMBDA,
+};
 
 /// Configuration for pseudofermion HMC.
 #[derive(Clone, Debug)]
@@ -910,4 +914,210 @@ fn kinetic_energy(momenta: &[Su3Matrix]) -> f64 {
         t -= 0.5 * p2.re_trace();
     }
     t
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  Adaptive step-size controller
+// ═══════════════════════════════════════════════════════════════════
+
+/// Acceptance-driven adaptive step-size controller for dynamical HMC.
+///
+/// Adjusts `dt` and `n_md_steps` to maintain target acceptance (~65%).
+/// Works standalone with heuristic adaptation; optionally accepts external
+/// parameter suggestions (e.g. from NPU `D1_OPTIMAL_DT` head).
+///
+/// The controller preserves trajectory length τ = dt × n_md when adjusting,
+/// so the autocorrelation properties of the Markov chain are roughly constant.
+///
+/// # Usage
+///
+/// ```ignore
+/// let mut ctrl = AdaptiveStepController::for_dynamical([8,8,8,8], 5.4, 0.1);
+/// for _ in 0..50 {
+///     ctrl.apply_to(&mut config);
+///     let result = dynamical_hmc_trajectory(&mut lattice, &mut config);
+///     ctrl.update(result.accepted, result.delta_h);
+/// }
+/// ```
+#[derive(Clone, Debug)]
+pub struct AdaptiveStepController {
+    /// Current MD step size.
+    pub dt: f64,
+    /// Current number of MD steps.
+    pub n_md_steps: usize,
+    accept_history: Vec<bool>,
+    delta_h_history: Vec<f64>,
+    window_size: usize,
+}
+
+impl AdaptiveStepController {
+    /// Create a controller with heuristic initial parameters for dynamical fermion HMC.
+    ///
+    /// The heuristic accounts for:
+    /// - Lattice volume (larger → smaller dt due to more DOF)
+    /// - Fermion mass (lighter → smaller dt due to stiffer force)
+    /// - Uses Omelyan-appropriate scaling (can tolerate ~2× larger dt than leapfrog)
+    #[must_use]
+    pub fn for_dynamical(dims: [usize; 4], _beta: f64, mass: f64) -> Self {
+        let vol: usize = dims.iter().product();
+        let scale = (4096.0 / vol as f64).powf(0.25);
+        // Dynamical fermions need much smaller dt than pure gauge.
+        // Pure gauge heuristic is dt = 0.05 * scale; fermion stiffness
+        // requires ~5× smaller starting point.
+        let mass_factor = (mass / 0.1).sqrt().min(1.0);
+        let dt = (0.01 * scale * mass_factor).clamp(ADAPTIVE_DT_MIN, ADAPTIVE_DT_MAX);
+        let n_md_steps = ((1.0 / dt).round() as usize).clamp(ADAPTIVE_NMD_MIN, ADAPTIVE_NMD_MAX);
+
+        Self {
+            dt,
+            n_md_steps,
+            accept_history: Vec::new(),
+            delta_h_history: Vec::new(),
+            window_size: 10,
+        }
+    }
+
+    /// Override parameters from an external source (e.g. NPU suggestion).
+    pub fn set_params(&mut self, dt: f64, n_md_steps: usize) {
+        self.dt = dt.clamp(ADAPTIVE_DT_MIN, ADAPTIVE_DT_MAX);
+        self.n_md_steps = n_md_steps.clamp(ADAPTIVE_NMD_MIN, ADAPTIVE_NMD_MAX);
+    }
+
+    /// Apply current parameters to a `DynamicalHmcConfig`.
+    pub fn apply_to(&self, config: &mut DynamicalHmcConfig) {
+        config.dt = self.dt;
+        config.n_md_steps = self.n_md_steps;
+    }
+
+    /// Record the result of a trajectory and adapt step size if needed.
+    pub fn update(&mut self, accepted: bool, delta_h: f64) {
+        self.accept_history.push(accepted);
+        self.delta_h_history.push(delta_h);
+
+        // Trim to window
+        if self.accept_history.len() > self.window_size {
+            self.accept_history.remove(0);
+        }
+        if self.delta_h_history.len() > self.window_size {
+            self.delta_h_history.remove(0);
+        }
+
+        // Need at least 5 samples before adapting
+        if self.accept_history.len() < 5 {
+            return;
+        }
+
+        let acc = self.acceptance_rate();
+        let traj_length = self.dt * self.n_md_steps as f64;
+
+        if acc > ADAPTIVE_HIGH_ACCEPTANCE {
+            let new_dt = (self.dt * ADAPTIVE_DT_BUMP).min(ADAPTIVE_DT_MAX);
+            self.n_md_steps =
+                ((traj_length / new_dt).round() as usize).clamp(ADAPTIVE_NMD_MIN, ADAPTIVE_NMD_MAX);
+            self.dt = new_dt;
+        } else if acc < ADAPTIVE_LOW_ACCEPTANCE {
+            let new_dt = (self.dt * ADAPTIVE_DT_DROP).max(ADAPTIVE_DT_MIN);
+            self.n_md_steps =
+                ((traj_length / new_dt).round() as usize).clamp(ADAPTIVE_NMD_MIN, ADAPTIVE_NMD_MAX);
+            self.dt = new_dt;
+        }
+    }
+
+    /// Current rolling acceptance rate (0.0–1.0).
+    #[must_use]
+    pub fn acceptance_rate(&self) -> f64 {
+        if self.accept_history.is_empty() {
+            return 0.0;
+        }
+        let n_accept = self.accept_history.iter().filter(|&&a| a).count();
+        n_accept as f64 / self.accept_history.len() as f64
+    }
+
+    /// Mean |ΔH| over the window.
+    #[must_use]
+    pub fn mean_delta_h(&self) -> f64 {
+        if self.delta_h_history.is_empty() {
+            return 0.0;
+        }
+        let sum: f64 = self.delta_h_history.iter().map(|dh| dh.abs()).sum();
+        sum / self.delta_h_history.len() as f64
+    }
+
+    /// Number of trajectories recorded.
+    #[must_use]
+    pub fn trajectory_count(&self) -> usize {
+        self.accept_history.len()
+    }
+}
+
+/// Result of adaptive thermalization.
+#[derive(Clone, Debug)]
+pub struct AdaptiveThermalizationResult {
+    /// Number of accepted trajectories.
+    pub n_accepted: usize,
+    /// Total trajectories attempted.
+    pub n_total: usize,
+    /// Final acceptance rate.
+    pub acceptance_rate: f64,
+    /// Final dt after adaptation.
+    pub final_dt: f64,
+    /// Final n_md after adaptation.
+    pub final_n_md: usize,
+    /// Total CG iterations.
+    pub total_cg_iterations: usize,
+    /// Mean |ΔH| over the last window.
+    pub mean_delta_h: f64,
+}
+
+/// Run adaptive dynamical thermalization.
+///
+/// Combines `dynamical_hmc_trajectory` with `AdaptiveStepController` to
+/// automatically tune dt and n_md for target acceptance. Uses Omelyan
+/// integrator by default (O(dt⁴) shadow Hamiltonian errors vs O(dt²) leapfrog).
+pub fn dynamical_thermalize_adaptive(
+    lattice: &mut Lattice,
+    config: &mut DynamicalHmcConfig,
+    n_trajectories: usize,
+    controller: &mut AdaptiveStepController,
+) -> AdaptiveThermalizationResult {
+    config.integrator = IntegratorType::Omelyan;
+
+    let mut n_accepted = 0;
+    let mut total_cg = 0;
+
+    for i in 0..n_trajectories {
+        controller.apply_to(config);
+        let result = dynamical_hmc_trajectory(lattice, config);
+
+        if result.accepted {
+            n_accepted += 1;
+        }
+        total_cg += result.cg_iterations;
+
+        controller.update(result.accepted, result.delta_h);
+
+        // Log adaptation events
+        if i > 0 && (i + 1) % 10 == 0 {
+            println!(
+                "    [{}/{}] acc={:.0}%, ⟨P⟩={:.6}, dt={:.4}, n_md={}, ⟨|ΔH|⟩={:.2}",
+                i + 1,
+                n_trajectories,
+                controller.acceptance_rate() * 100.0,
+                lattice.average_plaquette(),
+                controller.dt,
+                controller.n_md_steps,
+                controller.mean_delta_h(),
+            );
+        }
+    }
+
+    AdaptiveThermalizationResult {
+        n_accepted,
+        n_total: n_trajectories,
+        acceptance_rate: n_accepted as f64 / n_trajectories as f64,
+        final_dt: controller.dt,
+        final_n_md: controller.n_md_steps,
+        total_cg_iterations: total_cg,
+        mean_delta_h: controller.mean_delta_h(),
+    }
 }

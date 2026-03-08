@@ -3,7 +3,7 @@
 **Last Updated**: March 8, 2026
 **Crate**: hotspring-barracuda v0.6.23 (738 lib tests, 101 binaries)
 **Rewired to**: barraCuda v0.3.3 (LSCFRK, sovereign compiler, DF64, 498 FMA fusions)
-**Demo-ready**: **41/41 overnight checks pass**. Deep debt resolved. Dynamical N_f=4 flow wired.
+**Demo-ready**: **42/44 overnight checks pass** — core paper reproduction 41/41 (11 quenched flow + 20 dielectric + 10 kinetic-fluid). Dynamical N_f=4 extension: 1/3 pass (flow monotonic ✅; acceptance + plaquette in progress via adaptive Omelyan HMC).
 **Handoff**: `wateringHole/handoffs/HOTSPRING_V0623_CHUNA_41_41_DEEP_DEBT_HANDOFF_MAR08_2026.md`
 
 ---
@@ -26,9 +26,11 @@
 - [x] Production scale: 8⁴ HMC thermalization + gradient flow (Exp 048)
 - [x] Convergence benchmark: ε=0.02→0.001 for W6/W7/CK4 with order extraction
 - [x] Extend to 16⁴ lattices with 500-step thermalization
-- [x] **Dynamical N_f=4 staggered**: 8⁴ β=5.4, m=0.1, 50-trajectory thermalization
-      via `dynamical_hmc_trajectory` + W7 gradient flow — matches Bazavov & Chuna
-      2021 setup (LSCFRK on dynamical configs, not just quenched)
+- [ ] **Dynamical N_f=4 staggered** (extension, not paper requirement): 8⁴ β=5.4,
+      m=0.1, 50-trajectory adaptive Omelyan HMC + W7 gradient flow. Flow monotonicity ✅.
+      Acceptance + plaquette in progress (adaptive controller deployed v0.6.24).
+      Previous run: 0% acceptance with hardcoded dt=0.02/Leapfrog — too aggressive for
+      stiff pseudofermion force. Fix: `AdaptiveStepController` + Omelyan integrator.
 
 ---
 
@@ -115,7 +117,7 @@
 
 ---
 
-## Overnight Validation — 41/41 PASS
+## Overnight Validation — 42/44 (Core 41/41, Extension 1/3)
 
 ```bash
 cargo run --release --bin validate_chuna_overnight 2>&1 | tee chuna_overnight.log
@@ -126,7 +128,7 @@ Runs all Paper 43/44/45 systems in one binary:
 - P44: standard/completed Mermin (CPU+GPU) + multi-component (CPU+GPU)
 - P45: GPU BGK + GPU Euler/Sod + GPU coupled kinetic-fluid
 
-**Result (v0.6.23, March 8 2026)**: **41/41 checks pass**, exit code 0.
+**Result (v0.6.23, March 8 2026)**: **42/44 checks pass** (11+20+10 core + 1/3 dynamical ext), exit code 1. Two dynamical extension checks in progress (`p43_dyn_accept`, `p43_dyn_plaquette`) — adaptive Omelyan HMC controller deployed.
 
 ### Critical Fixes in v0.6.22→v0.6.23
 

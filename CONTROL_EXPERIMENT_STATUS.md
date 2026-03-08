@@ -1,6 +1,6 @@
 # hotSpring Control Experiment — Status Report
 
-**Date**: 2026-03-08 (L1+L2 complete, GPU MD Phase C+D+E+F complete — paper-parity long run 9/9, BarraCuda pipeline 39/39, crate v0.6.23, cross-substrate ESN, NPU characterization, DF64 production, toadStool S96+ synced, Chuna 41/41 PASS, deep debt resolved)
+**Date**: 2026-03-08 (L1+L2 complete, GPU MD Phase C+D+E+F complete — paper-parity long run 9/9, BarraCuda pipeline 39/39, crate v0.6.23, cross-substrate ESN, NPU characterization, DF64 production, toadStool S96+ synced, Chuna 42/44 (core 41/41, dynamical ext 1/3 in progress), deep debt resolved)
 **Gates**: Eastgate (i9-12900K, RTX 4070 12GB) + biomeGate (Threadripper 3970X, RTX 3090 24GB + Titan V 12GB HBM2, Akida NPU, 256GB DDR4)
 **Sarkas**: v1.0.0 (pinned — see §Roadblocks)
 **Python**: 3.9 (sarkas), 3.10 (ttm, surrogate) via micromamba

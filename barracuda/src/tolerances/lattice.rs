@@ -164,6 +164,61 @@ pub const BETA6_PLAQUETTE_TOLERANCE: f64 = 0.10;
 /// and Hasenbusch mass splitting (future optimization).
 pub const DYNAMICAL_HMC_ACCEPTANCE_MIN: f64 = 0.01;
 
+// ═══════════════════════════════════════════════════════════════════
+// Adaptive step-size controller bounds
+// ═══════════════════════════════════════════════════════════════════
+
+/// Minimum MD step size for dynamical HMC.
+///
+/// Below this, the integrator is too fine-grained to make progress
+/// in reasonable wall time. If acceptance is still low at DT_MIN,
+/// the issue is elsewhere (wrong β, mass too light, CG diverging).
+pub const ADAPTIVE_DT_MIN: f64 = 0.001;
+
+/// Maximum MD step size for dynamical HMC.
+///
+/// Above this, ΔH grows as dt² (leapfrog) or dt⁴ (Omelyan) and
+/// Metropolis rejection dominates. Pure gauge can tolerate dt=0.05,
+/// but dynamical fermions are stiff and need dt ≤ 0.02.
+pub const ADAPTIVE_DT_MAX: f64 = 0.02;
+
+/// Minimum MD steps per trajectory.
+///
+/// Trajectory length τ = dt × n_md should be ≥ 0.5 for ergodicity
+/// (traverses at least half a unit of "HMC time").
+pub const ADAPTIVE_NMD_MIN: usize = 20;
+
+/// Maximum MD steps per trajectory.
+///
+/// Cost is O(n_md × CG) per trajectory. Beyond 500 steps, reducing
+/// dt further yields diminishing acceptance improvements.
+pub const ADAPTIVE_NMD_MAX: usize = 500;
+
+/// Target acceptance rate for adaptive controller.
+///
+/// Creutz (1988) showed optimal HMC acceptance is 60–80% for typical
+/// lattice systems. 65% balances acceptance against trajectory length
+/// (shorter dt → better acceptance but more CG solves).
+pub const ADAPTIVE_TARGET_ACCEPTANCE: f64 = 0.65;
+
+/// Acceptance rate above which the controller increases dt.
+///
+/// If acceptance exceeds this, we're being too conservative and wasting
+/// compute on unnecessarily small steps.
+pub const ADAPTIVE_HIGH_ACCEPTANCE: f64 = 0.85;
+
+/// Acceptance rate below which the controller decreases dt.
+///
+/// If acceptance drops below this, ΔH is too large and most trajectories
+/// are rejected — wasting the CG cost.
+pub const ADAPTIVE_LOW_ACCEPTANCE: f64 = 0.40;
+
+/// Multiplicative factor for dt increase (acceptance too high).
+pub const ADAPTIVE_DT_BUMP: f64 = 1.15;
+
+/// Multiplicative factor for dt decrease (acceptance too low).
+pub const ADAPTIVE_DT_DROP: f64 = 0.70;
+
 /// Dynamical plaquette: must remain physical (0 < P < 1).
 ///
 /// Fermion backreaction modifies the plaquette relative to quenched,

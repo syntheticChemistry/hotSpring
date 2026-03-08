@@ -1,8 +1,13 @@
 # Lattice QCD — Quenched & Dynamical Fermions
 
-**Papers:** 7-12 (HotQCD EOS, Pure Gauge, Production QCD, Dynamical Fermions, HVP g-2, Freeze-Out) + Chuna arXiv:2101.05320 + Chuna & Murillo 2024 + Haack et al. 2024
+**Papers:** 7-12 (HotQCD EOS, Pure Gauge, Production QCD, Dynamical Fermions, HVP g-2, Freeze-Out)
 **Updated:** March 8, 2026
-**Status:** ✅ Chuna Papers 43-45: **41/41 overnight checks pass**. Dynamical N_f=4 staggered gradient flow. Deep debt resolved. Multi-component Mermin + kinetic-fluid coupling GPU-validated.
+**Status:** ✅ Production QCD on consumer GPU, deconfinement at β_c=5.69, asymmetric 64³×8, N_f=4 infrastructure complete
+
+**Chuna-specific papers** (43, 44, 45) have dedicated baseCamp documents:
+- [`chuna_gradient_flow.md`](chuna_gradient_flow.md) — Paper 43 (11/11 core; dynamical ext 1/3)
+- [`chuna_bgk_dielectric.md`](chuna_bgk_dielectric.md) — Paper 44 (20/20 checks)
+- [`chuna_kinetic_fluid.md`](chuna_kinetic_fluid.md) — Paper 45 (10/10 checks)
 
 ---
 
@@ -76,48 +81,28 @@ for finite-temperature QCD. N_t sets the temperature: T = 1/(a × N_t).
 for N_s/N_t = 4. 64³×8 (N_s/N_t = 8, MILC-comparable) should resolve sharp
 first-order transition at β_c(N_t=8) ≈ 6.062.
 
-## Wilson Gradient Flow & Scale Setting (Chuna Reproduction, March 6 2026)
+## Chuna Papers (43-45) — See Dedicated Documents
 
-Reproducing Bazavov & Chuna, arXiv:2101.05320. Implemented full Wilson gradient
-flow with t₀ (Lüscher) and w₀ (BMW) scale setting.
+The three Chuna/Murillo papers are now covered in their own baseCamp artifacts:
 
-**Integrators — derived, not copied:**
+| Paper | Document | Checks |
+|-------|----------|:------:|
+| 43 — Gradient Flow | [`chuna_gradient_flow.md`](chuna_gradient_flow.md) | 11/11 core (ext 1/3) |
+| 44 — BGK Dielectric | [`chuna_bgk_dielectric.md`](chuna_bgk_dielectric.md) | 20/20 |
+| 45 — Kinetic-Fluid | [`chuna_kinetic_fluid.md`](chuna_kinetic_fluid.md) | 10/10 |
 
-The 3-stage 3rd-order LSCFRK coefficients are solutions to four Taylor series
-order conditions (laws of calculus, not choices). A `const fn derive_lscfrk3(c2, c3)`
-solves these at compile time. Only two free parameters remain — the rest is algebra:
-
-| Integrator | c₂ | c₃ | Source |
-|-----------|------|------|--------|
-| LSCFRK3W6 | 1/4 | 2/3 | Lüscher JHEP 2010 |
-| LSCFRK3W7 | 1/3 | 3/4 | Chuna (recommended) |
-| LSCFRK4CK | — | — | Carpenter-Kennedy (4th order, numerical roots) |
-
-All integrators validated against each other. W7 ~2× more efficient for w₀
-observables. Convergence scaling matches the paper. 14/14 gradient flow tests pass.
-
-## Chuna Papers — Full Parity (March 8, 2026)
-
-All three Chuna papers now pass **41/41 automated validation checks** via `validate_chuna_overnight`.
-
-| Paper | Ref | Checks | Key Results |
-|-------|-----|:------:|-------------|
-| 43 | Bazavov & Chuna, arXiv:2101.05320 | 11/11 | W6/W7/CK4 convergence, 8⁴ + 16⁴ thermalization, monotonic flow. **Dynamical N_f=4 staggered flow** on 50-trajectory thermalized config. |
-| 44 | Chuna & Murillo, Phys. Rev. E 111, 035206 | 20/20 | f-sum, DSF positive, Debye exact (1e-12), GPU L²=5.5e-7, **multi-component GPU 100% agreement** (cscale fix). |
-| 45 | Haack, Murillo, Sagert & Chuna, J. Comput. Phys. | 10/10 | BGK mass=0, Euler mass=1.4e-15, shock resolved, coupled interface GPU-CPU parity 15%. |
-
-**Critical fix**: `cscale` shader correction in `dielectric_multicomponent_f64.wgsl` — 6 instances of element-wise complex×scalar were zeroing imaginary parts. Multi-component agreement went from 4% → 100%.
+Total: **42/44 checks pass** via `validate_chuna_overnight` (core 41/41; dynamical ext 1/3, 2 in progress).
 
 ## Science Ladder
 
 | Level | Physics | Status |
 |-------|---------|--------|
 | 0 | Quenched HMC (32⁴, 32³×8, 64³×8) | ✅ Complete |
-| 1 | Gradient flow (t₀, w₀, 5 integrators) | ✅ Complete |
+| 1 | Gradient flow (t₀, w₀, 5 integrators) | ✅ Complete — see [`chuna_gradient_flow.md`](chuna_gradient_flow.md) |
 | 2 | Flow integrator convergence (Chuna paper) | ✅ Validated |
-| 2b | Dynamical N_f=4 staggered gradient flow | ✅ Complete (March 8, 2026) |
+| 2b | Dynamical N_f=4 staggered gradient flow | ✅ Complete |
 | 3 | N_f=4 staggered dynamical (GPU CG) | ✅ Infrastructure complete |
-| 3b | Chuna Papers 43-45 full parity (41/41) | ✅ **Complete** |
+| 3b | Chuna Papers 43-45 core parity (41/41) | ✅ **Complete** (dynamical ext 1/3, in progress) |
 | 4 | N_f=2 dynamical (RHMC rooting trick) | Pending |
 | 5 | N_f=2+1 staggered (strange quark mass) | Pending |
 | 6 | N_f=2+1+1 HISQ (full physical QCD) | Long-term |
@@ -127,4 +112,3 @@ All three Chuna papers now pass **41/41 automated validation checks** via `valid
 - **64³×8 analysis**: Polyakov loop jump at β_c, finite-size scaling (32³/48³/64³ × 8)
 - **Gradient flow at volume**: t₀/w₀ on 16⁴+ thermalized configs for physical scale setting
 - **N_f=2 dynamical**: Wire RHMC for fractional flavors on GPU
-- **Chuna review package**: 41/41 validation, derived integrators, production data, dynamical flow — ready for handoff
