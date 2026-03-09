@@ -1,6 +1,6 @@
 [package]
 name = "hotspring-barracuda"
-version = "0.6.23"
+version = "0.6.24"
 edition = "2021"
 description = "Nuclear EOS + GPU MD validation for BarraCuda — L1/L2/L3 physics, Yukawa OCP, lattice QCD, spectral theory, typed errors, full Result propagation, provenance, capability-based discovery"
 license = "AGPL-3.0-only"
@@ -79,12 +79,13 @@ workspace = true
 [features]
 gpu_energy = []
 npu-hw = ["dep:akida-driver", "dep:akida-models"]
+sovereign-dispatch = ["barracuda/sovereign-dispatch"]
 
 [dependencies]
 # BarraCuda (standalone primal): math, shaders, compilation, ESN, NPU math
 # Public repo: https://github.com/ecoPrimals/barraCuda
 # Local dev override: .cargo/config.toml patches this to ../../barraCuda
-barracuda = { git = "https://github.com/ecoPrimals/barraCuda.git", rev = "cdd748d" }
+barracuda = { git = "https://github.com/ecoPrimals/barraCuda.git", rev = "27011af" }
 
 # Structured logging (transitive dep via wgpu; explicit for library diagnostics)
 log = "0.4"
@@ -610,3 +611,44 @@ path = "src/bin/bench_flow_convergence.rs"
 [[bin]]
 name = "validate_chuna_overnight"
 path = "src/bin/validate_chuna_overnight.rs"
+
+# ── Paper 32: Militzer FPEOS table validation ──
+[[bin]]
+name = "validate_fpeos"
+path = "src/bin/validate_fpeos.rs"
+
+# ── Paper 33: atoMEC average-atom validation ──
+[[bin]]
+name = "validate_atomec"
+path = "src/bin/validate_atomec.rs"
+
+# ── Paper 44 ext: PPPM dispatch overhead benchmark ──
+[[bin]]
+name = "bench_pppm_dispatch"
+path = "src/bin/bench_pppm_dispatch.rs"
+
+# ── Paper 45 ext: Dispatch overhead benchmark (Kokkos parity) ──
+[[bin]]
+name = "bench_dispatch_overhead"
+path = "src/bin/bench_dispatch_overhead.rs"
+
+# ── Phase 3: CPU vs GPU parity across all physics domains ──
+[[bin]]
+name = "validate_barracuda_cpu_gpu_parity"
+path = "src/bin/validate_barracuda_cpu_gpu_parity.rs"
+
+# ── Phase 3: Precision tier benchmark (f32/DF64/f64) ──
+[[bin]]
+name = "bench_precision_tiers"
+path = "src/bin/bench_precision_tiers.rs"
+
+# ── Live telemetry dashboard (petalTongue bridge) ──
+[[bin]]
+name = "live_telemetry_dashboard"
+path = "src/bin/live_telemetry_dashboard.rs"
+
+# ── coralReef sovereign dispatch proof-of-concept ──
+[[bin]]
+name = "validate_sovereign_compile"
+path = "src/bin/validate_sovereign_compile.rs"
+required-features = ["sovereign-dispatch"]

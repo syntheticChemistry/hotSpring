@@ -61,10 +61,14 @@ pub mod md;
 pub mod npu_experiments;
 /// Shared helpers for nuclear EOS validation binaries (L1/L2).
 pub mod nuclear_eos_helpers;
+/// Mixed-hardware pipeline infrastructure for metalForge integration.
+pub mod mixed_hardware;
 /// Nuclear structure: SEMF, nuclear matter, spherical/deformed HFB, BCS.
 pub mod physics;
 /// L2 heterogeneous pipeline: L1 data gen, classifier training, L2 objective.
 pub mod pipeline;
+/// Precision routing: capability-aware shader compilation (local toadStool evolution).
+pub mod precision_routing;
 /// NMP cascade filter for L2 heterogeneous pipeline.
 pub mod prescreen;
 /// Shared types and infrastructure for production lattice QCD binaries.
@@ -75,6 +79,10 @@ pub mod provenance;
 pub mod proxy;
 /// Spectral theory re-exports from `barracuda::spectral`.
 pub mod spectral;
+/// Streaming compute dispatch for GPU-resident physics (local toadStool evolution).
+pub mod streaming_dispatch;
+/// JSONL telemetry reader for petalTongue visualization integration.
+pub mod telemetry_reader;
 /// Centralized, justified validation thresholds (~170 constants).
 pub mod tolerances;
 /// Two-Temperature Model (laser-plasma 0D ODE solver).

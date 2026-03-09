@@ -36,7 +36,9 @@ use hotspring_barracuda::production::beta_scan::{
     run_beta_points_npu, spawn_quenched_npu_worker, QuenchedNpuRequest, QuenchedNpuResponse,
     QuenchedNpuStats,
 };
-use hotspring_barracuda::production::mixed_summary::{print_mixed_summary, write_mixed_json};
+use hotspring_barracuda::production::mixed_summary::{
+    print_mixed_summary, write_mixed_json, MixedJsonContext,
+};
 use hotspring_barracuda::production::titan_validation::run_titan_validation;
 use hotspring_barracuda::production::BetaResult;
 
@@ -520,27 +522,23 @@ fn main() {
     );
 
     if let Some(path) = args.output {
-        write_mixed_json(
-            &path,
-            &results,
-            args.lattice,
+        write_mixed_json(&MixedJsonContext {
+            path: &path,
+            results: &results,
+            lattice: args.lattice,
             dims,
             vol,
-            &gpu.adapter_name,
-            gpu_titan.as_ref().map(|g| g.adapter_name.as_str()),
-            if npu_available {
-                "AKD1000"
-            } else {
-                "NpuSimulator"
-            },
-            args.n_therm,
-            args.seed,
+            gpu_name: &gpu.adapter_name,
+            gpu_titan_name: gpu_titan.as_ref().map(|g| g.adapter_name.as_str()),
+            npu_name: if npu_available { "AKD1000" } else { "NpuSimulator" },
+            n_therm_max: args.n_therm,
+            seed: args.seed,
             total_wall,
             total_trajectories,
             total_meas,
             adaptive_count,
             final_beta_c,
-            &npu_stats,
-        );
+            npu_stats: &npu_stats,
+        });
     }
 }

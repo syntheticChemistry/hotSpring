@@ -329,7 +329,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::assertions_on_constants)]
+    #[allow(clippy::assertions_on_constants)] // constants sanity check
     fn solver_config_sensible() {
         assert!(
             HFB_MAX_ITER >= 100,
@@ -362,7 +362,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::assertions_on_constants)]
+    #[allow(clippy::assertions_on_constants)] // constants sanity check
     fn md_config_sensible() {
         assert!(
             CELLLIST_REBUILD_INTERVAL >= 5,

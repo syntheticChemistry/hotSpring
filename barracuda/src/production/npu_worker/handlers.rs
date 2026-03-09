@@ -698,6 +698,7 @@ fn handle_recommend_next_run(
     });
 }
 
+#[allow(clippy::too_many_arguments)] // mirrors the ProxyFeatures struct fields directly
 fn handle_proxy_features(
     state: &mut WorkerState,
     beta: f64,

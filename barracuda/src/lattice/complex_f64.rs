@@ -335,7 +335,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::float_cmp)]
+    #[allow(clippy::float_cmp)] // exact known values from identity (1+0i) and zero (0+0i)
     fn complex_constants() {
         assert_eq!(Complex64::ZERO.re, 0.0);
         assert_eq!(Complex64::ZERO.im, 0.0);

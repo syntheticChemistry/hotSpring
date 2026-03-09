@@ -281,27 +281,14 @@ fn memory_pressure(event: &MdStepEvent) -> f64 {
 }
 
 /// Compute force anomaly from sudden energy jumps vs running stats over recent events.
+/// Delegates to `barracuda::nautilus::brain::force_anomaly` (absorbed from hotSpring).
 #[must_use]
 fn force_anomaly(event: &MdStepEvent, recent_energy_window: Option<&[f64]>) -> f64 {
     let current_ep = event.total_energy / event.n_particles as f64;
     let Some(window) = recent_energy_window else {
         return 0.0;
     };
-    let take = window.len().min(10);
-    if take < 3 {
-        return 0.0;
-    }
-    let start = window.len().saturating_sub(take);
-    let slice = &window[start..];
-    let mean: f64 = slice.iter().sum::<f64>() / slice.len() as f64;
-    let variance: f64 = slice.iter().map(|e| (e - mean).powi(2)).sum::<f64>() / slice.len() as f64;
-    let std = (variance + 1e-20).sqrt();
-    let deviation = (current_ep - mean).abs();
-    if deviation > 10.0 * std {
-        1.0
-    } else {
-        0.0
-    }
+    barracuda::nautilus::brain::force_anomaly(current_ep, window)
 }
 
 /// Build 12-dimensional target vector matching `MD_NUM_HEADS` for Nautilus readout.

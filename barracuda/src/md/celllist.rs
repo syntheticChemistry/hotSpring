@@ -182,7 +182,7 @@ pub async fn run_simulation_celllist(
     // ── Compile shaders ──
     let strategy = gpu.driver_profile().fp64_strategy();
     let strategy_label = match strategy {
-        Fp64Strategy::Native => "native f64",
+        Fp64Strategy::Native | Fp64Strategy::Sovereign => "native f64",
         Fp64Strategy::Hybrid => "DF64 (FP32 core streaming)",
         Fp64Strategy::Concurrent => "concurrent f64 + DF64",
     };
@@ -194,7 +194,7 @@ pub async fn run_simulation_celllist(
             shaders::SHADER_YUKAWA_FORCE_INDIRECT_DF64,
             "force_indirect_df64",
         ),
-        Fp64Strategy::Native | Fp64Strategy::Concurrent => {
+        Fp64Strategy::Native | Fp64Strategy::Sovereign | Fp64Strategy::Concurrent => {
             gpu.create_pipeline_f64(shaders::SHADER_YUKAWA_FORCE_INDIRECT, "force_indirect_f64")
         }
     };

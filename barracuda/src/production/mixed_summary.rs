@@ -190,25 +190,49 @@ pub fn print_mixed_summary(
     println!();
 }
 
+/// Context for writing mixed pipeline JSON results.
+pub struct MixedJsonContext<'a> {
+    /// Output file path.
+    pub path: &'a str,
+    /// Per-beta results.
+    pub results: &'a [BetaResult],
+    /// Lattice side length.
+    pub lattice: usize,
+    /// Lattice dimensions.
+    pub dims: [usize; 4],
+    /// Lattice volume.
+    pub vol: usize,
+    /// Primary GPU name.
+    pub gpu_name: &'a str,
+    /// Optional Titan V name.
+    pub gpu_titan_name: Option<&'a str>,
+    /// NPU name.
+    pub npu_name: &'a str,
+    /// Maximum thermalization trajectories.
+    pub n_therm_max: usize,
+    /// RNG seed.
+    pub seed: u64,
+    /// Total wall-clock time (seconds).
+    pub total_wall: f64,
+    /// Total trajectories across all betas.
+    pub total_trajectories: usize,
+    /// Total measurements.
+    pub total_meas: usize,
+    /// Number of adaptive rounds.
+    pub adaptive_count: usize,
+    /// Final ESN β_c estimate.
+    pub final_beta_c: f64,
+    /// NPU statistics.
+    pub npu_stats: &'a QuenchedNpuStats,
+}
+
 /// Write mixed pipeline results to JSON.
-pub fn write_mixed_json(
-    path: &str,
-    results: &[BetaResult],
-    lattice: usize,
-    dims: [usize; 4],
-    vol: usize,
-    gpu_name: &str,
-    gpu_titan_name: Option<&str>,
-    npu_name: &str,
-    n_therm_max: usize,
-    seed: u64,
-    total_wall: f64,
-    total_trajectories: usize,
-    total_meas: usize,
-    adaptive_count: usize,
-    final_beta_c: f64,
-    npu_stats: &QuenchedNpuStats,
-) {
+pub fn write_mixed_json(ctx: &MixedJsonContext<'_>) {
+    let MixedJsonContext {
+        path, results, lattice, dims, vol, gpu_name, gpu_titan_name, npu_name,
+        n_therm_max, seed, total_wall, total_trajectories, total_meas,
+        adaptive_count, final_beta_c, npu_stats,
+    } = ctx;
     let total_therm_budget: usize = results.iter().map(|r| r.therm_budget).sum();
     let total_therm_used: usize = results.iter().map(|r| r.therm_used).sum();
     let therm_savings_pct = if total_therm_budget > 0 {
@@ -221,7 +245,7 @@ pub fn write_mixed_json(
     let exp013_wall = 48988.3;
     let exp018_wall = 25560.0;
     let exp013_energy_kwh = exp013_wall * 300.0 / 3_600_000.0;
-    let mixed_energy_kwh = total_wall * 300.0 / 3_600_000.0;
+    let mixed_energy_kwh = *total_wall * 300.0 / 3_600_000.0;
 
     let json = serde_json::json!({
         "experiment": "022_NPU_OFFLOAD_MIXED_PIPELINE",
@@ -252,9 +276,9 @@ pub fn write_mixed_json(
             "exp013_wall_s": exp013_wall,
             "exp013_trajectories": exp013_traj,
             "exp018_wall_s": exp018_wall,
-            "speedup_vs_013": exp013_wall / total_wall,
-            "speedup_vs_018": exp018_wall / total_wall,
-            "trajectory_reduction_pct": (1.0 - total_trajectories as f64 / f64::from(exp013_traj)) * 100.0,
+            "speedup_vs_013": exp013_wall / *total_wall,
+            "speedup_vs_018": exp018_wall / *total_wall,
+            "trajectory_reduction_pct": (1.0 - *total_trajectories as f64 / f64::from(exp013_traj)) * 100.0,
             "energy_savings_vs_013_pct": (1.0 - mixed_energy_kwh / exp013_energy_kwh) * 100.0,
         },
         "points": results.iter().map(|r| serde_json::json!({

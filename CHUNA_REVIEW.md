@@ -1,6 +1,6 @@
 # Chuna Paper Reproduction — Review Package
 
-**Date**: March 8, 2026
+**Date**: March 9, 2026 (v0.6.24 — modern primal rewire)
 **Author**: Kevin Mok (mokkevin@msu.edu)
 **Hardware**: biomeGate — Threadripper 3970X, RTX 3090 (24 GB), Titan V (12 GB HBM2), ~$4K used parts
 **License**: AGPL-3.0
@@ -13,7 +13,7 @@ Three of Chuna's published papers reproduced in pure Rust + WGSL GPU shaders,
 validated on consumer hardware. No ICER, no MILC, no CUDA, no vendor SDK.
 
 **Core paper reproduction: 41/41 checks pass** (11 quenched flow + 20 dielectric + 10 kinetic-fluid).
-Dynamical N_f=4 extension (our addition, beyond the papers): 1/3 pass, 2 in progress.
+**Dynamical N_f=4 extension: 3/3 pass** — warm-start with mass annealing, NPU-guided adaptive Omelyan HMC, 85% acceptance at target mass m=0.1.
 
 | Paper | Citation | What we reproduced | Detailed artifact |
 |-------|----------|--------------------|----|
@@ -26,9 +26,12 @@ Dynamical N_f=4 extension (our addition, beyond the papers): 1/3 pass, 2 in prog
 ## Architecture
 
 hotSpring is the validation application. The compute engine is
-[**barraCuda**](https://github.com/ecoPrimals/barraCuda) — a standalone
-Rust crate providing SU(3) lattice math, WGSL shader compilation,
-dielectric functions, kinetic solvers, and GPU pipeline dispatch.
+[**barraCuda**](https://github.com/ecoPrimals/barraCuda) (v0.3.3, `27011af`) — a standalone
+Rust crate providing SU(3) lattice math, 791 WGSL shaders in 3-tier precision
+(f32/DF64/f64), GPU pipeline dispatch, and cross-spring evolved physics ops.
+[**toadStool**](https://github.com/ecoPrimals/toadStool) (S138) provides hardware
+discovery, NPU dispatch, and shader proxy to [**coralReef**](https://github.com/ecoPrimals/coralReef)
+(Phase 10, Iter 25) — the sovereign WGSL→native compiler (AMD E2E proven, NVIDIA pending).
 barraCuda is pulled automatically via `Cargo.toml` (git dependency).
 
 ## Quick Start
@@ -39,6 +42,9 @@ cd hotSpring/barracuda
 
 # All three papers in one run (~5 hours; 8⁴ + Papers 44/45 in ~1 hour, 16⁴ adds ~4 hours)
 cargo run --release --bin validate_chuna_overnight
+
+# Dynamical fermion extension only (~3.5 hours, skips quenched/GPU sections)
+cargo run --release --bin validate_chuna_overnight -- --dynamical-only
 
 # Individual papers
 cargo run --release --bin validate_gradient_flow      # Paper 43
@@ -143,10 +149,27 @@ families (Experiment 046).
 
 1. GPU acceleration for all three papers (none used GPU in the originals)
 2. Multi-component Mermin (Paper 44) — electron-ion extension
-3. Dynamical N_f=4 staggered flow (Paper 43, in progress) — adaptive Omelyan HMC
+3. **Dynamical N_f=4 staggered HMC (Paper 43) — COMPLETE**: 85% acceptance via warm-start mass annealing (m: 1.0 → 0.5 → 0.2 → 0.1), NPU-steered adaptive Omelyan, Akida AKD1000 feedback
 4. Cross-paper validation — single binary validates all three together
 5. DSF vs MD cross-validation — against Murillo Group open plasma database
 6. Precision stability audit — stable at f32/DF64/f64
+7. NPU steering with Akida AKD1000 — adaptive parameter control with learned trust thresholds
+8. **Cross-spring shader evolution**: barraCuda's 791 WGSL shaders include contributions
+   from all 5 springs — hotSpring precision/physics, wetSpring bio-stats,
+   neuralSpring ML ops, groundSpring validation, airSpring hydrology — all
+   available to hotSpring through a single `barracuda` dependency
+
+---
+
+## NPU Steering
+
+The Akida AKD1000 NPU monitors the dynamical HMC and adjusts step size (dt)
+and trajectory count (n_md) in real time.  Key design: the NPU is an
+**apprentice, not a dictator** — it defers to the heuristic adaptive
+controller during crisis regimes (acceptance < 40% or |ΔH| > 5) and only
+steers when the system has stabilized.
+
+See [`NPU_STEERING_LESSONS.md`](NPU_STEERING_LESSONS.md) for full writeup.
 
 ---
 

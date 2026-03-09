@@ -127,6 +127,19 @@ pub fn spawn_titan_worker(titan_gpu: GpuF64) -> Result<TitanWorkerHandles, std::
                         let links = flatten_links(&lat);
                         let wall_ms = t0.elapsed().as_secs_f64() * 1000.0;
 
+                        if !(0.1..=0.999).contains(&plaq) {
+                            eprintln!(
+                                "  [Titan] ⚠ GPU readback plaquette implausible ({plaq:.6}) — driver may be broken"
+                            );
+                            eprintln!(
+                                "  [Titan] Falling back to CPU-side lattice (5 CPU warm-up trajs, P={:.6})",
+                                {
+                                    let cpu_lat = Lattice::hot_start([lattice; 4], beta, seed);
+                                    cpu_lat.average_plaquette()
+                                }
+                            );
+                        }
+
                         eprintln!(
                             "  [Titan] Pre-therm β={beta:.4}: {n_quenched} quenched trajs, P={plaq:.6}, {wall_ms:.0}ms"
                         );

@@ -11,7 +11,7 @@
 //! Used by `nuclear_eos_l1_ref`, and intended for `nuclear_eos_l2_ref` and other
 //! nuclear EOS binaries.
 
-use crate::data::{self, PARAM_NAMES};
+use crate::data::{self, NucleiEntry, NucleiMap, PARAM_NAMES};
 use crate::physics::{
     binding_energy_l2, nuclear_matter_properties, semf_binding_energy, NuclearMatterProps,
 };
@@ -19,7 +19,6 @@ use crate::provenance;
 use crate::tolerances;
 
 use rayon::prelude::*;
-use std::collections::HashMap;
 use std::path::Path;
 
 /// Per-nucleus residual for binding energy fit analysis.
@@ -82,7 +81,7 @@ pub fn compute_mean_std(vals: &[f64]) -> (f64, f64) {
 
 /// Binding energy chi² per datum (for reference baselines).
 #[must_use]
-pub fn compute_be_chi2_only(params: &[f64], exp_data: &HashMap<(usize, usize), (f64, f64)>) -> f64 {
+pub fn compute_be_chi2_only(params: &[f64], exp_data: &NucleiMap) -> f64 {
     let mut chi2 = 0.0;
     let mut n = 0;
     for (&(z, nn), &(b_exp, _sigma)) in exp_data {
@@ -103,7 +102,7 @@ pub fn compute_be_chi2_only(params: &[f64], exp_data: &HashMap<(usize, usize), (
 #[must_use]
 pub fn compute_binding_energies(
     params: &[f64],
-    exp_data: &HashMap<(usize, usize), (f64, f64)>,
+    exp_data: &NucleiMap,
 ) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
     let mut observed = Vec::new();
     let mut expected = Vec::new();
@@ -571,7 +570,7 @@ pub fn print_comparison_summary(
 
 /// Print reference baselines (published parametrizations) with chi² and NMP.
 pub fn print_reference_baselines(
-    exp_data: &HashMap<(usize, usize), (f64, f64)>,
+    exp_data: &NucleiMap,
     lambda: f64,
     baselines: &[(&str, &[f64])],
 ) {
@@ -714,7 +713,7 @@ pub fn run_deep_residual_analysis(
 #[must_use]
 pub fn l1_objective_nmp(
     x: &[f64],
-    exp_data: &HashMap<(usize, usize), (f64, f64)>,
+    exp_data: &NucleiMap,
     lambda: f64,
 ) -> f64 {
     if x[8] <= 0.01 || x[8] > 1.0 {
@@ -756,7 +755,7 @@ pub fn l1_objective_nmp(
 
 /// Closure factory for L1 NMP-constrained objective.
 pub fn make_l1_objective_nmp(
-    exp_data: &std::sync::Arc<HashMap<(usize, usize), (f64, f64)>>,
+    exp_data: &std::sync::Arc<NucleiMap>,
     lambda: f64,
 ) -> impl Fn(&[f64]) -> f64 {
     let exp_data = exp_data.clone();
@@ -767,7 +766,7 @@ pub fn make_l1_objective_nmp(
 ///
 /// Used by `nuclear_eos_gpu` for LHS sweep. Includes NMP validation.
 #[must_use]
-pub fn l1_chi2_cpu_nuclei(params: &[f64], nuclei: &[((usize, usize), (f64, f64))]) -> f64 {
+pub fn l1_chi2_cpu_nuclei(params: &[f64], nuclei: &[NucleiEntry]) -> f64 {
     let Some(nmp) = nuclear_matter_properties(params) else {
         return 1e10;
     };
@@ -793,11 +792,11 @@ pub fn l1_chi2_cpu_nuclei(params: &[f64], nuclei: &[((usize, usize), (f64, f64))
 
 /// L1 objective with NMP constraint, nuclei as sorted slice.
 ///
-/// Same as `l1_objective_nmp` but accepts `&[((usize, usize), (f64, f64))]`.
+/// Same as `l1_objective_nmp` but accepts `&[NucleiEntry]`.
 #[must_use]
 pub fn l1_objective_nmp_nuclei(
     x: &[f64],
-    nuclei: &[((usize, usize), (f64, f64))],
+    nuclei: &[NucleiEntry],
     lambda: f64,
 ) -> f64 {
     if x[8] <= 0.01 || x[8] > 1.0 {
@@ -840,7 +839,7 @@ pub fn l1_objective_nmp_nuclei(
 #[must_use]
 pub fn l2_objective_nmp_exp_data(
     x: &[f64],
-    exp_data: &HashMap<(usize, usize), (f64, f64)>,
+    exp_data: &NucleiMap,
     lambda: f64,
 ) -> f64 {
     if x[8] <= 0.01 || x[8] > 1.0 {

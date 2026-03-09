@@ -76,7 +76,7 @@ pub async fn run_simulation(
 
     let strategy = gpu.driver_profile().fp64_strategy();
     let strategy_label = match strategy {
-        Fp64Strategy::Native => "native f64",
+        Fp64Strategy::Native | Fp64Strategy::Sovereign => "native f64",
         Fp64Strategy::Hybrid => "DF64 (FP32 core streaming)",
         Fp64Strategy::Concurrent => "concurrent f64 + DF64",
     };
@@ -87,7 +87,7 @@ pub async fn run_simulation(
         Fp64Strategy::Hybrid => {
             gpu.create_pipeline_df64(shaders::SHADER_YUKAWA_FORCE_DF64, "yukawa_force_df64")
         }
-        Fp64Strategy::Native | Fp64Strategy::Concurrent => {
+        Fp64Strategy::Native | Fp64Strategy::Sovereign | Fp64Strategy::Concurrent => {
             gpu.create_pipeline_f64(shaders::SHADER_YUKAWA_FORCE, "yukawa_force_f64")
         }
     };
@@ -348,7 +348,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::float_cmp)]
+    #[allow(clippy::float_cmp)] // exact known constant (0.0) from energy initialization
     fn read_back_f64_byte_conversion_roundtrip() {
         let original: Vec<f64> = vec![0.0, 1.0, -1.0, std::f64::consts::PI];
         let bytes: Vec<u8> = original.iter().flat_map(|v| v.to_le_bytes()).collect();

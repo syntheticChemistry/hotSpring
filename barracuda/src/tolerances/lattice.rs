@@ -170,10 +170,13 @@ pub const DYNAMICAL_HMC_ACCEPTANCE_MIN: f64 = 0.01;
 
 /// Minimum MD step size for dynamical HMC.
 ///
-/// Below this, the integrator is too fine-grained to make progress
-/// in reasonable wall time. If acceptance is still low at DT_MIN,
-/// the issue is elsewhere (wrong β, mass too light, CG diverging).
-pub const ADAPTIVE_DT_MIN: f64 = 0.001;
+/// Dynamical staggered fermions at strong coupling (β ≤ 5.5) or light
+/// mass (m ≤ 0.2) require very small dt due to the stiffness of the
+/// fermion force.  The Omelyan integrator's ΔH ∝ dt², so reducing dt
+/// by √10 reduces ΔH by ~10×.  Allow dt down to 1e-6 so the adaptive
+/// controller can find a viable step size during mass annealing even
+/// for light-quark dynamical fermions at strong coupling.
+pub const ADAPTIVE_DT_MIN: f64 = 0.000001;
 
 /// Maximum MD step size for dynamical HMC.
 ///
@@ -190,9 +193,11 @@ pub const ADAPTIVE_NMD_MIN: usize = 20;
 
 /// Maximum MD steps per trajectory.
 ///
-/// Cost is O(n_md × CG) per trajectory. Beyond 500 steps, reducing
-/// dt further yields diminishing acceptance improvements.
-pub const ADAPTIVE_NMD_MAX: usize = 500;
+/// Cost is O(n_md × CG) per trajectory.  With DT_MIN=5e-5 and target
+/// τ≈0.5, we need up to 10,000 steps.  The adaptive controller clamps
+/// n_md to keep wall time bounded; long trajectories at tiny dt are
+/// still cheaper than rejecting every trajectory.
+pub const ADAPTIVE_NMD_MAX: usize = 10_000;
 
 /// Target acceptance rate for adaptive controller.
 ///
@@ -217,7 +222,10 @@ pub const ADAPTIVE_LOW_ACCEPTANCE: f64 = 0.40;
 pub const ADAPTIVE_DT_BUMP: f64 = 1.15;
 
 /// Multiplicative factor for dt decrease (acceptance too low).
-pub const ADAPTIVE_DT_DROP: f64 = 0.70;
+///
+/// At 0% acceptance the controller needs to halve dt quickly;
+/// with Omelyan (ΔH ∝ dt⁴) halving dt gives 16× smaller ΔH.
+pub const ADAPTIVE_DT_DROP: f64 = 0.50;
 
 /// Dynamical plaquette: must remain physical (0 < P < 1).
 ///

@@ -101,7 +101,7 @@ fn density_initialization_positive() {
 }
 
 #[test]
-#[allow(clippy::float_cmp)]
+#[allow(clippy::float_cmp)] // exact known values
 fn density_floor_applied() {
     let rho = -0.001_f64;
     let floored = rho.max(DENSITY_FLOOR);
@@ -110,7 +110,7 @@ fn density_floor_applied() {
 }
 
 #[test]
-#[allow(clippy::float_cmp)]
+#[allow(clippy::float_cmp)] // exact known values
 fn spin_orbit_r_min_guard() {
     use crate::tolerances::SPIN_ORBIT_R_MIN;
     let r = 0.001_f64;

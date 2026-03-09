@@ -1,7 +1,7 @@
 # hotSpring → BarraCuda/ToadStool Absorption Manifest
 
-**Date:** March 6, 2026
-**Version:** v0.6.18 (synced to toadStool S93+)
+**Date:** March 9, 2026
+**Version:** v0.6.24 (synced to barraCuda `27011af`, toadStool S138, coralReef Phase 10 Iter 25)
 **License:** AGPL-3.0-only
 
 ---
@@ -51,6 +51,117 @@ These were written by hotSpring and absorbed by toadstool/barracuda:
 | WgslOptimizer | S15 | `barracuda::shaders` | Leaning on upstream |
 | Staggered Dirac + CG | S31d | `ops/lattice/dirac.rs`, `ops/lattice/cg.rs` | **Fully absorbed upstream** — Dirac 8/8, CG 9/9 |
 | Brain B2/D1 | v0.6.18 | NautilusShell API | **Real implementations** (evolved from placeholder) |
+| `force_anomaly` | v0.6.24 | `barracuda::nautilus::brain::force_anomaly` | **Delegated** — local wrapper calls upstream |
+| `Fp64Strategy::Sovereign` | v0.6.24 | `barracuda::device::driver_profile` | **Wired** — routes like Native (coralReef path) |
+| `PrecisionRoutingAdvice` (hw) | v0.6.24 | `barracuda::device::driver_profile` | **Integrated** — hotSpring routing queries hw-level advice |
+
+---
+
+## v0.6.24 Rewiring (March 9, 2026)
+
+19 barraCuda commits absorbed (`cdd748d` → `27011af`):
+- `Fp64Strategy::Sovereign` — new coralReef sovereign path, 10 match arms updated
+- `compile_shader_universal()` removed — replaced with `compile_shader_df64()`
+- `force_anomaly` — local 15-line function now delegates to upstream
+- `PrecisionRoutingAdvice` — domain routing now queries barraCuda's hw-level advice
+- 769/769 tests pass, 0 clippy errors, all benchmarks green
+
+---
+
+## coralReef Integration Status (March 9, 2026)
+
+coralReef daemon running locally (Phase 10, Iter 25), discovered via
+`$XDG_RUNTIME_DIR/ecoPrimals/coralreef-core.json`. barraCuda's `CoralCompiler`
+IPC client connects via JSON-RPC on TCP. The `spawn_coral_compile()` fire-and-forget
+path compiles assembled WGSL to native SM70 SASS via coralReef and caches binaries
+in-memory.
+
+### Discovery Fix (local barraCuda evolution)
+
+barraCuda's `discovery.rs` was evolved to handle coralReef Phase 10 manifests:
+- `read_capability_transport()` now checks both `"provides"` and `"capabilities"` arrays
+- `read_jsonrpc_from_value()` now handles object-form `transports.jsonrpc` (extracts `tcp` field)
+- `test_reset_allows_rediscovery` assertion accepts both `"coralReef"` and `"coralreef-core"` names
+
+### Shader Compilation Coverage
+
+**Standalone-parseable (46/74 shaders)**: These parse as valid WGSL without template
+includes and successfully receive FMA fusion optimization (498 total FMA fusions).
+
+**Template-dependent (28/74 shaders)**: These use modular WGSL includes (`Complex64`,
+`Cdf64`, `c64_new`, `exp_f64`, `log_f64`, `cbrt_f64`, `round_f64`, `pow_f64`,
+`abs_f64`, `su3_identity`, `prng_gaussian`, `params`) that are resolved at runtime
+by `ShaderTemplate::for_driver_profile()`. They compile successfully through the
+normal pipeline (post-template-merge) and are sent to coralReef via `spawn_coral_compile()`.
+
+| Category | Standalone OK | Template-dependent | FMA fusions |
+|----------|--------------|-------------------|-------------|
+| nuclear | 10 | 4 | 96 |
+| plasma | 0 | 2 | — |
+| lattice | 10 | 10 | 252 |
+| lattice-cg | 7 | 0 | 12 |
+| lattice-df64 | 0 | 6 | — |
+| lattice-util | 1 | 3 | 2 |
+| md | 16 | 0 | 129 |
+| md-esn | 2 | 0 | 7 |
+| md-df64 | 0 | 3 | — |
+
+### Benchmark Results (with coralReef live)
+
+| Lattice | CPU ms/traj | GPU ms/traj | Speedup | ΔPlaq |
+|---------|------------|-------------|---------|-------|
+| 4^4 | 73.2 | 10.7 | 6.9× | 0.000991 |
+| 8^4 | 1213.0 | 33.3 | 36.5× | 0.000681 |
+
+Physics parity excellent (ΔP < 0.001). GPU path uses Hybrid Fp64Strategy
+(DF64 on FP32 cores). coralReef compiles and caches native SM70 binaries
+in background.
+
+### In-Process Compilation Validation (sovereign-dispatch PoC)
+
+With the `sovereign-dispatch` feature, barraCuda now has `coral-gpu` wired
+as a path dependency. `CoralReefDevice::compile_wgsl()` compiles hotSpring
+WGSL shaders to native SM70/SM86 SASS binaries in-process (no daemon needed).
+
+Validation results (43/46 standalone shaders compiled per target):
+
+| Shader | SM70 bytes | SM86 bytes | GPR | Instr | Status |
+|--------|-----------|-----------|-----|-------|--------|
+| su3_link_update_f64 | 26400 | 26400 | 62 | 1642 | OK |
+| su3_gauge_force_f64 | 20512 | 20512 | 54 | 1274 | OK |
+| dirac_staggered_f64 | 18800 | 18800 | 46 | 1167 | OK |
+| yukawa_force_celllist_v2_f64 | 14496 | 14496 | 78 | 898 | OK |
+| wilson_plaquette_f64 | 6256 | 6256 | 38 | 383 | OK |
+| batched_hfb_energy_f64 | — | — | — | — | PANIC (f64 log2 gap) |
+| deformed_potentials_f64 | — | — | — | — | PANIC (f64 log2 gap) |
+| complex_f64 | — | — | — | — | FAIL (utility include, not standalone) |
+
+Total native binary output: ~207 KB per target architecture.
+
+### coralReef Compilation Gaps (for upstream)
+
+1. **f64 `log2` lowering** — `lower_f64/poly/log2.rs:21` panics with
+   "f64 log2 src must have 2 components" on shaders using scalar `log2(f64)`.
+   Affects: `batched_hfb_energy_f64`, `deformed_potentials_f64`.
+2. **Template-dependent shaders** — shaders using `Complex64`, `Cdf64`, `c64_new`,
+   `exp_f64`, `log_f64`, etc. require template merging before standalone parsing.
+   These compile successfully through the IPC path (`spawn_coral_compile`)
+   since template expansion happens before coralReef receives the WGSL.
+
+### Remaining Gap: coralDriver Dispatch
+
+Native binaries are compiled and cached by `spawn_coral_compile()` but the
+GPU dispatch path always uses `wgpu::create_shader_module`. The coralDriver
+dispatch path (using cached native binaries directly) is scaffolded in
+barraCuda but blocked on coral-driver DRM maturity:
+
+- **amdgpu**: E2E dispatch verified in coralReef Phase 10
+- **nouveau**: codegen works, dispatch pending kernel ioctl support (EINVAL)
+- **nvidia-drm**: pending UVM integration for buffer allocation
+
+The `CoralReefDevice` struct and `GpuBackend` trait impl are scaffolded with
+clear error messages. The `GpuBackend` trait impl is deferred until
+`coral-gpu::ComputeDevice` is `Send + Sync`.
 
 ---
 

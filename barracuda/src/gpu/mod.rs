@@ -497,11 +497,7 @@ impl GpuF64 {
         shader_source: &str,
         label: &str,
     ) -> wgpu::ComputePipeline {
-        use barracuda::shaders::precision::Precision;
-
-        let shader_module =
-            self.wgpu_device
-                .compile_shader_universal(shader_source, Precision::Df64, Some(label));
+        let shader_module = self.wgpu_device.compile_shader_df64(shader_source, Some(label));
         self.validate_pipeline(shader_module, label)
     }
 
@@ -710,7 +706,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::float_cmp)]
+    #[allow(clippy::float_cmp)] // exact known test value
     fn f64_byte_roundtrip() {
         let original = vec![
             0.0,
@@ -734,7 +730,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::float_cmp)]
+    #[allow(clippy::float_cmp)] // exact known test value
     fn f64_byte_conversion_special_values() {
         let values = [std::f64::consts::PI, 1e-308, 1e308];
         let bytes = f64_to_bytes(&values);

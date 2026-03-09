@@ -56,7 +56,7 @@ const SO_PACK_SHADER: &str = include_str!("../shaders/spin_orbit_pack_f64.wgsl")
 ///
 /// Returns [`HotSpringError::GpuCompute`] if GPU buffer allocation, shader
 /// compilation, or eigensolve fails.
-#[allow(clippy::cast_possible_truncation, unused_assignments)]
+#[allow(clippy::cast_possible_truncation, unused_assignments)] // HFB shell dimensions fit u32; cfg-gated assignments
 pub fn binding_energies_l2_gpu_resident(
     device: &Arc<WgpuDevice>,
     nuclei: &[(usize, usize)],

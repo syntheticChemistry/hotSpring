@@ -272,7 +272,7 @@ pub fn print_dynamical_summary(
 }
 
 /// Write dynamical mixed pipeline results to JSON.
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments)] // summary writer collects all pipeline statistics
 pub fn write_dynamical_json(
     path: &str,
     results: &[BetaResult],

@@ -5,6 +5,46 @@ All notable changes to the hotSpring BarraCuda validation crate.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.6.24 — Modern Primal Rewire + coralReef Integration (March 9, 2026)
+
+### Summary
+
+- **Rewired to barraCuda v0.3.3** (`27011af`, 19 commits, +11,419/-6,729 lines) — handles
+  `Fp64Strategy::Sovereign`, `compile_shader_universal()` removal, `PrecisionRoutingAdvice`
+- **toadStool S138 synced** — latest shader proxy, NPU dispatch, hardware discovery
+- **coralReef Phase 10** integration — sovereign WGSL→native compilation pipeline:
+  43/46 standalone shaders compile to SM70/SM86 SASS. IPC discovery wired via JSON-RPC.
+  `sovereign-dispatch` feature gate for native GPU binary compilation
+- **Chuna Papers 44/44** — dynamical N_f=4 extension complete: 3/3 pass via warm-start
+  mass annealing (m: 1.0→0.5→0.2→0.1), NPU-steered adaptive Omelyan HMC, 85% acceptance
+- **NPU Steering Lessons** documented — apprentice pattern, crisis deference, trust thresholds
+- **New modules**: `mixed_hardware`, `precision_routing`, `streaming_dispatch`,
+  `telemetry_reader`, `physics::average_atom`, `physics::fpeos`,
+  `lattice::pseudofermion::{adaptive, npu_steering, run_history}`
+- **New binaries**: `bench_dispatch_overhead`, `bench_pppm_dispatch`, `bench_precision_tiers`,
+  `live_telemetry_dashboard`, `validate_atomec`, `validate_barracuda_cpu_gpu_parity`,
+  `validate_fpeos`, `validate_sovereign_compile`
+- **Deep debt**: zero clippy (lib+bins), zero unsafe, all AGPL-3.0-only
+
+### Metrics
+
+- 769 tests (lib), 101+ binaries, 84 WGSL shaders
+- 0 clippy warnings (lib + all binaries)
+- 0 unsafe blocks, 0 TODO/FIXME, all files <1000 lines
+- All WGSL shaders AGPL-3.0-only
+- Synced: barraCuda v0.3.3, toadStool S138, coralReef Phase 10 Iter 25
+
+### coralReef Integration Details
+
+- Discovery fix: `barraCuda/discovery.rs` updated to parse Phase 10 manifests
+  (`"provides"` array, object-form `transports.jsonrpc`)
+- `CoralReefDevice` proof-of-concept: in-process WGSL→SASS compilation via `coral-gpu`
+- Compilation coverage: 43/46 standalone shaders, 28 template-dependent (expected)
+- Gaps identified: f64 `log2` lowering panic (2 shaders), `ComputeDevice` `Send+Sync`
+- DRM dispatch: `nouveau` EINVAL, `nvidia-drm` pending UVM — documented for upstream
+
+---
+
 ## v0.6.19 — Precision Stability + Full Codebase Compliance (March 6, 2026)
 
 ### Summary

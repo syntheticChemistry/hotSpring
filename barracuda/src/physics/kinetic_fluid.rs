@@ -555,6 +555,7 @@ pub fn run_coupled_kinetic_fluid(
 
     let f_init = maxwellian_1d(&v, rho_init / m, u_init, t_init, m);
     let mut f_kin: Vec<Vec<f64>> = (0..nx_kin).map(|_| f_init.clone()).collect();
+    let mut f_buf: Vec<Vec<f64>> = f_kin.clone();
 
     let mut rho_fluid = vec![rho_init; nx_fluid];
     let mut u_fluid = vec![u_init; nx_fluid];
@@ -594,6 +595,10 @@ pub fn run_coupled_kinetic_fluid(
     let mut t = 0.0;
     let mut n_steps = 0;
     let max_steps = 5000;
+    let mut f_kin_boundary_save = vec![0.0; nv];
+    let mut rho_fluid_save = vec![0.0; nx_fluid];
+    let mut u_fluid_save = vec![0.0; nx_fluid];
+    let mut p_fluid_save = vec![0.0; nx_fluid];
 
     while t < t_final && n_steps < max_steps {
         let max_speed_fluid = rho_fluid
@@ -612,25 +617,27 @@ pub fn run_coupled_kinetic_fluid(
         let max_speed = max_speed_fluid.max(v_max);
         let dt = (0.3 * dx / max_speed.max(1e-30)).min(t_final - t);
 
-        // Kinetic advection (first-order upwind)
-        let mut f_new = f_kin.clone();
+        // Kinetic advection (first-order upwind) — double-buffer swap avoids allocation
+        for (src, dst) in f_kin.iter().zip(f_buf.iter_mut()) {
+            dst.copy_from_slice(src);
+        }
         for (j, &vj) in v.iter().enumerate() {
             if vj > 0.0 {
                 for i in 1..nx_kin {
-                    f_new[i][j] = f_kin[i][j] - dt * vj / dx * (f_kin[i][j] - f_kin[i - 1][j]);
+                    f_buf[i][j] = f_kin[i][j] - dt * vj / dx * (f_kin[i][j] - f_kin[i - 1][j]);
                 }
             } else {
                 for i in 0..nx_kin - 1 {
-                    f_new[i][j] = f_kin[i][j] - dt * vj / dx * (f_kin[i + 1][j] - f_kin[i][j]);
+                    f_buf[i][j] = f_kin[i][j] - dt * vj / dx * (f_kin[i + 1][j] - f_kin[i][j]);
                 }
             }
         }
-        for row in &mut f_new {
+        for row in &mut f_buf {
             for fi in row.iter_mut() {
                 *fi = fi.max(0.0);
             }
         }
-        f_kin = f_new;
+        std::mem::swap(&mut f_kin, &mut f_buf);
 
         // BGK collision (index needed for in-place mutation of nested Vec)
         #[allow(clippy::needless_range_loop)]
@@ -650,10 +657,10 @@ pub fn run_coupled_kinetic_fluid(
         // below tolerance or max iterations reached (Haack et al. §3.2).
         let max_sub = INTERFACE_MAX_SUB_ITERATIONS;
         let sub_tol = INTERFACE_CONVERGENCE_TOL;
-        let f_kin_boundary_save = f_kin[nx_kin - 1].clone();
-        let rho_fluid_save = rho_fluid.clone();
-        let u_fluid_save = u_fluid.clone();
-        let p_fluid_save = p_fluid.clone();
+        f_kin_boundary_save.copy_from_slice(&f_kin[nx_kin - 1]);
+        rho_fluid_save.copy_from_slice(&rho_fluid);
+        u_fluid_save.copy_from_slice(&u_fluid);
+        p_fluid_save.copy_from_slice(&p_fluid);
 
         for _sub in 0..max_sub {
             // Interface: kinetic → fluid

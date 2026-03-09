@@ -472,16 +472,16 @@ pub fn count_unique_betas(records: &[TrajectoryRecord]) -> usize {
     betas.len()
 }
 
+/// A (sequences, targets) pair for NPU training or evaluation.
+pub type SeqTargetPair = (Vec<Vec<Vec<f64>>>, Vec<Vec<f64>>);
+
 /// Split sequences and targets into train/test by fraction.
 #[must_use]
 pub fn split_dataset(
     seqs: &[Vec<Vec<f64>>],
     targets: &[Vec<f64>],
     train_frac: f64,
-) -> (
-    (Vec<Vec<Vec<f64>>>, Vec<Vec<f64>>),
-    (Vec<Vec<Vec<f64>>>, Vec<Vec<f64>>),
-) {
+) -> (SeqTargetPair, SeqTargetPair) {
     let n = seqs.len();
     let n_train = (n as f64 * train_frac) as usize;
 

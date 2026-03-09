@@ -13,6 +13,12 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+/// Map from (Z, N) → (binding energy MeV, uncertainty MeV).
+pub type NucleiMap = HashMap<(usize, usize), (f64, f64)>;
+
+/// Single nucleus entry as ((Z, N), (binding_energy_mev, uncertainty_mev)).
+pub type NucleiEntry = ((usize, usize), (f64, f64));
+
 /// A single nucleus from AME2020.
 #[derive(Debug, Clone, Deserialize)]
 pub struct Nucleus {
@@ -106,7 +112,7 @@ pub fn nuclei_data_path(base_dir: &Path, set: NucleiSet) -> PathBuf {
 /// Returns an error if the file cannot be opened or JSON deserialization fails.
 pub fn load_experimental_data(
     path: &Path,
-) -> Result<HashMap<(usize, usize), (f64, f64)>, Box<dyn std::error::Error>> {
+) -> Result<NucleiMap, HotSpringError> {
     let reader = std::io::BufReader::new(std::fs::File::open(path)?);
     let file: NucleiFile = serde_json::from_reader(reader)?;
     let mut map = HashMap::with_capacity(file.nuclei.len());
@@ -127,7 +133,7 @@ pub fn load_experimental_data(
 pub fn load_nuclei(
     base_dir: &Path,
     set: NucleiSet,
-) -> Result<HashMap<(usize, usize), (f64, f64)>, Box<dyn std::error::Error>> {
+) -> Result<NucleiMap, HotSpringError> {
     let path = nuclei_data_path(base_dir, set);
     println!("  Dataset: {} ({})", set.description(), path.display());
     load_experimental_data(&path)
@@ -157,7 +163,7 @@ pub use crate::provenance::PARAM_NAMES;
 ///
 /// Returns an error if the file cannot be opened, JSON deserialization fails,
 /// or a required parameter is missing from the bounds file.
-pub fn load_bounds(path: &Path) -> Result<Vec<(f64, f64)>, Box<dyn std::error::Error>> {
+pub fn load_bounds(path: &Path) -> Result<Vec<(f64, f64)>, HotSpringError> {
     let reader = std::io::BufReader::new(std::fs::File::open(path)?);
     let file: BoundsFile = serde_json::from_reader(reader)?;
     let mut bounds = Vec::with_capacity(10);
@@ -165,7 +171,7 @@ pub fn load_bounds(path: &Path) -> Result<Vec<(f64, f64)>, Box<dyn std::error::E
         let info = file
             .parameters
             .get(*name)
-            .ok_or_else(|| format!("Missing parameter: {name}"))?;
+            .ok_or_else(|| HotSpringError::DataLoad(format!("Missing parameter: {name}")))?;
         bounds.push((info.typical_range[0], info.typical_range[1]));
     }
     Ok(bounds)

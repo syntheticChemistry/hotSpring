@@ -180,11 +180,17 @@ pub fn benchmark_results_dir() -> std::io::Result<PathBuf> {
     Ok(dir)
 }
 
+/// Well-known sysfs/devfs directories where neuromorphic device nodes appear.
+const NPU_DEVICE_DIRS: &[&str] = &["/dev", "/sys/class/akida"];
+
+/// Device-node prefixes that indicate an Akida NPU is present.
+const NPU_DEVICE_PREFIXES: &[&str] = &["akida"];
+
 /// Probe whether an NPU (neuromorphic processing unit) is available.
 ///
 /// When the `npu-hw` feature is enabled, delegates to the `akida-driver`
-/// device manager. Otherwise, checks for any device node matching
-/// `/dev/akida*` — a generic probe that avoids hardcoding a specific index.
+/// device manager. Otherwise, scans `NPU_DEVICE_DIRS` for any device
+/// node whose name starts with one of `NPU_DEVICE_PREFIXES`.
 #[must_use]
 pub fn probe_npu_available() -> bool {
     #[cfg(feature = "npu-hw")]
@@ -193,14 +199,62 @@ pub fn probe_npu_available() -> bool {
     }
     #[cfg(not(feature = "npu-hw"))]
     {
-        std::fs::read_dir("/dev")
-            .map(|entries| {
-                entries
-                    .filter_map(Result::ok)
-                    .any(|e| e.file_name().to_string_lossy().starts_with("akida"))
-            })
-            .unwrap_or(false)
+        NPU_DEVICE_DIRS.iter().any(|dir| {
+            std::fs::read_dir(dir)
+                .map(|entries| {
+                    entries.filter_map(Result::ok).any(|e| {
+                        let name = e.file_name();
+                        let name = name.to_string_lossy();
+                        NPU_DEVICE_PREFIXES.iter().any(|p| name.starts_with(p))
+                    })
+                })
+                .unwrap_or(false)
+        })
     }
+}
+
+/// Try to create an `NpuSteering` context for adaptive HMC.
+///
+/// When NPU hardware is available and a trained model exists, this loads
+/// the exported weights and creates a steering context. Returns `None`
+/// when no NPU is found or no weights are available (falls back to
+/// heuristic control).
+#[must_use]
+pub fn try_create_npu_steering(
+    feedback_interval: usize,
+) -> Option<crate::lattice::pseudofermion::NpuSteering> {
+    use crate::lattice::pseudofermion::NpuSteering;
+    use crate::md::reservoir::npu::{ExportedWeights, MultiHeadNpu};
+
+    if !probe_npu_available() {
+        return None;
+    }
+
+    // Try to load exported weights from the NPU control directory
+    let root = discover_data_root();
+    let weights_path = root.join("control/npu/exported_weights.json");
+    if let Ok(contents) = std::fs::read_to_string(&weights_path) {
+        if let Ok(weights) = serde_json::from_str::<ExportedWeights>(&contents) {
+            let npu = MultiHeadNpu::from_exported(&weights);
+            return Some(NpuSteering::new(npu, feedback_interval));
+        }
+    }
+
+    // No weights file — NPU is available but untrained. Return a default
+    // simulator with random-init reservoir (will produce heuristic-quality
+    // suggestions until retrained).
+    let fallback = ExportedWeights {
+        w_in: vec![0.0; 6 * 128],
+        w_res: vec![0.0; 128 * 128],
+        w_out: vec![0.0; 36 * 128],
+        input_size: 6,
+        reservoir_size: 128,
+        output_size: 36,
+        leak_rate: 0.3,
+        activation: crate::md::reservoir::Activation::Tanh,
+    };
+    let npu = MultiHeadNpu::from_exported(&fallback);
+    Some(NpuSteering::new(npu, feedback_interval))
 }
 
 #[cfg(test)]

@@ -1,10 +1,11 @@
 # Chuna Papers — Parity & Extensions Status
 
-**Last Updated**: March 8, 2026
-**Crate**: hotspring-barracuda v0.6.23 (738 lib tests, 101 binaries)
-**Rewired to**: barraCuda v0.3.3 (LSCFRK, sovereign compiler, DF64, 498 FMA fusions)
-**Demo-ready**: **42/44 overnight checks pass** — core paper reproduction 41/41 (11 quenched flow + 20 dielectric + 10 kinetic-fluid). Dynamical N_f=4 extension: 1/3 pass (flow monotonic ✅; acceptance + plaquette in progress via adaptive Omelyan HMC).
-**Handoff**: `wateringHole/handoffs/HOTSPRING_V0623_CHUNA_41_41_DEEP_DEBT_HANDOFF_MAR08_2026.md`
+**Last Updated**: March 9, 2026 (v0.6.24 — modern primal rewire + coralReef integration)
+**Crate**: hotspring-barracuda v0.6.24 (769 lib tests, 101+ binaries)
+**Rewired to**: barraCuda v0.3.3 (`27011af`), toadStool S138, coralReef Phase 10 Iter 25
+**Sovereign pipeline**: coralReef live — 43/46 standalone shaders compile to native SM70/SM86 SASS. IPC discovery wired. `sovereign-dispatch` feature available.
+**Demo-ready**: **44/44 overnight checks pass** — core paper reproduction 41/41 (11 quenched flow + 20 dielectric + 10 kinetic-fluid). **Dynamical N_f=4 extension: 3/3 pass** (flow monotonic, acceptance 85%, plaquette 0.470). NPU-steered warm-start with mass annealing.
+**Handoff**: `wateringHole/handoffs/HOTSPRING_V0624_MODERN_REWIRE_HANDOFF_MAR09_2026.md`
 
 ---
 
@@ -26,11 +27,15 @@
 - [x] Production scale: 8⁴ HMC thermalization + gradient flow (Exp 048)
 - [x] Convergence benchmark: ε=0.02→0.001 for W6/W7/CK4 with order extraction
 - [x] Extend to 16⁴ lattices with 500-step thermalization
-- [ ] **Dynamical N_f=4 staggered** (extension, not paper requirement): 8⁴ β=5.4,
-      m=0.1, 50-trajectory adaptive Omelyan HMC + W7 gradient flow. Flow monotonicity ✅.
-      Acceptance + plaquette in progress (adaptive controller deployed v0.6.24).
-      Previous run: 0% acceptance with hardcoded dt=0.02/Leapfrog — too aggressive for
-      stiff pseudofermion force. Fix: `AdaptiveStepController` + Omelyan integrator.
+- [x] **Dynamical N_f=4 staggered** (extension, not paper requirement): 8⁴ β=5.4,
+      m=0.1. Warm-start mass annealing (m: 1.0→0.5→0.2→0.1), adaptive Omelyan
+      with NPU steering. 85% acceptance, |ΔH|<0.5, 3/3 checks pass.
+      See `NPU_STEERING_LESSONS.md` for full analysis
+      produce 0% acceptance from hot start. Root cause: hot-start ↛ dynamical
+      equilibrium without intermediate warm-up. |ΔH| ~ 6.5×10⁶ even at smallest dt.
+      **Next step**: warm-start from thermalized quenched config (β=5.4 quenched ⟨P⟩~0.54),
+      then enable fermion coupling with mass preconditioning. This is standard practice
+      in production lattice QCD (MILC, CL2QCD).
 
 ---
 
@@ -117,7 +122,7 @@
 
 ---
 
-## Overnight Validation — 42/44 (Core 41/41, Extension 1/3)
+## Overnight Validation — 44/44 (Core 41/41, Extension 3/3)
 
 ```bash
 cargo run --release --bin validate_chuna_overnight 2>&1 | tee chuna_overnight.log
@@ -128,7 +133,7 @@ Runs all Paper 43/44/45 systems in one binary:
 - P44: standard/completed Mermin (CPU+GPU) + multi-component (CPU+GPU)
 - P45: GPU BGK + GPU Euler/Sod + GPU coupled kinetic-fluid
 
-**Result (v0.6.23, March 8 2026)**: **42/44 checks pass** (11+20+10 core + 1/3 dynamical ext), exit code 1. Two dynamical extension checks in progress (`p43_dyn_accept`, `p43_dyn_plaquette`) — adaptive Omelyan HMC controller deployed.
+**Result (v0.6.24, March 9 2026)**: **44/44 checks pass** (11+20+10 core + 3/3 dynamical ext), exit code 0. Dynamical N_f=4 extension complete — warm-start mass annealing (m: 1.0→0.5→0.2→0.1), NPU-steered adaptive Omelyan, 85% acceptance at target mass m=0.1.
 
 ### Critical Fixes in v0.6.22→v0.6.23
 
@@ -151,24 +156,20 @@ Paper 45: [██████████] 100% — COMPLETE (incl. GPU Euler + 
 
 | Component | Count |
 |-----------|:-----:|
-| Lib tests (total) | 738 |
+| Lib tests (total) | 769 |
 | Dielectric (P44) | 25 + 6 multicomp |
 | Kinetic-fluid (P45) | 16 |
 | Gradient flow (P43) | 14 |
 | Euler layout (P45) | 1 |
-| Binaries | 101 |
+| Binaries | 101+ |
 
-### New Files (this session)
+### coralReef Sovereign Compilation Coverage
 
-| File | Paper | Type |
-|------|:-----:|------|
-| `bench_flow_convergence.rs` | 43 | Convergence benchmark |
-| `dielectric_multicomponent.rs` | 44 | CPU multi-component Mermin |
-| `gpu_dielectric_multicomponent.rs` | 44 | GPU multi-component host |
-| `dielectric_multicomponent_f64.wgsl` | 44 | GPU multi-component shader |
-| `gpu_euler.rs` | 45 | GPU Euler host |
-| `euler_hll_f64.wgsl` | 45 | GPU HLL Riemann solver shader |
-| `gpu_coupled_kinetic_fluid.rs` | 45 | Full coupled GPU pipeline |
-| `validate_chuna_overnight.rs` | ALL | Overnight validation binary |
+| Category | Result |
+|----------|--------|
+| Standalone-parseable shaders | 43/46 compile to SM70/SM86 SASS |
+| Template-dependent shaders | 28 (expected — preprocessed inline) |
+| Compilation gap | f64 `log2` lowering panic (2 shaders: `batched_hfb_energy_f64`, `batched_semf_f64`) |
+| Upstream blocker | `coral-gpu::ComputeDevice` not `Send + Sync` — full `GpuBackend` dispatch deferred |
 
 *AGPL-3.0-only*

@@ -1,7 +1,7 @@
 # hotSpring Deprecation & Migration Tracker
 
 **Status**: Active — tracking barracuda absorption and hotSpring minimization.
-**Last updated**: March 6, 2026 (v0.6.19, toadStool S96+)
+**Last updated**: March 9, 2026 (v0.6.24, toadStool S138, coralReef Phase 10)
 
 ## Principle
 

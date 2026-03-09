@@ -14,8 +14,12 @@
 pub mod bcs_gpu;
 /// Physical constants (CODATA 2018, nuclear, Skyrme).
 pub mod constants;
+/// Average-atom model for warm dense matter (Paper 33 — atoMEC).
+pub mod average_atom;
 /// BGK dielectric functions (Chuna & Murillo 2024, arXiv:2405.07871).
 pub mod dielectric;
+/// Militzer FPEOS database: first-principles EOS tables for WDM (Paper 32).
+pub mod fpeos;
 /// Multi-component Mermin dielectric for electron-ion plasmas (Paper 44 extension).
 pub mod dielectric_multicomponent;
 /// Full GPU coupled kinetic-fluid pipeline (Paper 45).

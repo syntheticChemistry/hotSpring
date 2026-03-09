@@ -22,9 +22,15 @@ use crate::tolerances::{DENSITY_FLOOR, RHO_POWF_GUARD};
 /// Must match `@workgroup_size(256)` in HFB WGSL shaders.
 const WORKGROUP_SIZE: u32 = 256;
 
+/// Per-group density result: Map from shell group → (proton densities, neutron densities).
+type DensityResult = std::collections::HashMap<usize, (Vec<f64>, Vec<f64>)>;
+
+/// Optional per-group energy densities for Skyrme energy functional.
+type EnergyDensityResult = Option<std::collections::HashMap<usize, Vec<f64>>>;
+
 /// Upload densities, spin-orbit diagonals, and pack params to GPU.
-#[allow(clippy::cast_possible_truncation)]
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::cast_possible_truncation)] // uniform dimensions: grid ≤ 256, n_groups ≤ 30
+#[allow(clippy::too_many_arguments)] // GPU upload requires all buffer handles
 pub(super) fn upload_densities(
     raw_queue: &wgpu::Queue,
     active_groups: &[(usize, Vec<usize>)],
@@ -142,7 +148,7 @@ pub(super) fn upload_densities(
 }
 
 /// Dispatch H-build and SO-pack GPU passes in a single encoder.
-#[allow(clippy::cast_possible_truncation)]
+#[allow(clippy::cast_possible_truncation)] // Hamiltonian grid: nmax ≤ 30, nr ≤ 200
 pub(super) fn dispatch_hbuild_and_pack(
     raw_device: &wgpu::Device,
     raw_queue: &wgpu::Queue,
@@ -206,8 +212,8 @@ pub(super) fn dispatch_hbuild_and_pack(
 
 /// Dispatch BCS v², density, mixing (and optional energy) passes, then
 /// readback mixed densities via staging buffers.
-#[allow(clippy::cast_possible_truncation)]
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::cast_possible_truncation)] // BCS density grid: nr ≤ 200
+#[allow(clippy::too_many_arguments)] // GPU dispatch gathers all resources for a single encoder submit
 pub(super) fn run_density_mixing_pass(
     raw_device: &wgpu::Device,
     raw_queue: &wgpu::Queue,
@@ -217,13 +223,7 @@ pub(super) fn run_density_mixing_pass(
     alpha_mix: f64,
     total_gpu_dispatches: &mut usize,
     #[cfg(feature = "gpu_energy")] sky_params: (f64, f64, f64, f64, f64),
-) -> Result<
-    (
-        std::collections::HashMap<usize, (Vec<f64>, Vec<f64>)>,
-        Option<std::collections::HashMap<usize, Vec<f64>>>,
-    ),
-    HotSpringError,
-> {
+) -> Result<(DensityResult, EnergyDensityResult), HotSpringError> {
     let mut density_encoder = raw_device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
         label: Some("bcs_density_all"),
     });
@@ -380,7 +380,7 @@ fn dispatch_bcs_density_mix(encoder: &mut wgpu::CommandEncoder, g: &GroupResourc
 }
 
 #[cfg(feature = "gpu_energy")]
-#[allow(clippy::cast_possible_truncation)]
+#[allow(clippy::cast_possible_truncation)] // energy density grid: nr ≤ 200
 fn dispatch_energy_pass(
     raw_queue: &wgpu::Queue,
     encoder: &mut wgpu::CommandEncoder,
@@ -443,18 +443,9 @@ fn readback_mixed_densities(
     all_groups: &[GroupResources],
     eigen_bcs: &[EigenBcsResult],
     density_active_groups: &[usize],
-) -> Result<
-    (
-        std::collections::HashMap<usize, (Vec<f64>, Vec<f64>)>,
-        Option<std::collections::HashMap<usize, Vec<f64>>>,
-    ),
-    HotSpringError,
-> {
-    let mut density_receivers: Vec<(
-        usize,
-        std::sync::mpsc::Receiver<Result<(), wgpu::BufferAsyncError>>,
-        std::sync::mpsc::Receiver<Result<(), wgpu::BufferAsyncError>>,
-    )> = Vec::new();
+) -> Result<(DensityResult, EnergyDensityResult), HotSpringError> {
+    type BufferMapRx = std::sync::mpsc::Receiver<Result<(), wgpu::BufferAsyncError>>;
+    let mut density_receivers: Vec<(usize, BufferMapRx, BufferMapRx)> = Vec::new();
     #[cfg(feature = "gpu_energy")]
     let mut energy_receivers = Vec::new();
 

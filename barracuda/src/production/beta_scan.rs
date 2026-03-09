@@ -337,7 +337,7 @@ pub fn spawn_quenched_npu_worker() -> Result<
 
 /// Run a set of β points with NPU-assisted thermalization, rejection prediction,
 /// phase classification, and per-trajectory logging.
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments)] // beta scan requires lattice, GPU, and NPU state
 pub fn run_beta_points_npu(
     gpu: &GpuF64,
     pipelines: &GpuHmcStreamingPipelines,
