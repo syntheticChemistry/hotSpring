@@ -1,10 +1,10 @@
 # baseCamp: Research Domain Briefings
 
-**Date:** 2026-03-08
+**Date:** 2026-03-09
 **Project:** hotSpring (ecoPrimals)
-**Status:** v0.6.23, experiments 001-048, 738 lib tests, 39/39 validation suites, 101 binaries, 84 WGSL shaders
+**Status:** v0.6.24, experiments 001-048, 769 lib tests, 39/39 validation suites, 101+ binaries, 84 WGSL shaders
 
-**Notes:** Chuna Papers 43-45: **42/44 overnight checks pass** — core paper reproduction 41/41 (11 quenched flow + 20 dielectric + 10 kinetic-fluid); dynamical N_f=4 extension 1/3 (flow monotonic ✅, acceptance + plaquette in progress via adaptive Omelyan HMC). Precision stability (Exp 046): 9 cancellation families audited (f32/DF64/f64/CKKS FHE), stable BCS v² + W(z). All AGPL-3.0-only.
+**Notes:** Chuna Papers 43-45: **44/44 overnight checks pass** — core paper reproduction 41/41 (11 quenched flow + 20 dielectric + 10 kinetic-fluid). Dynamical N_f=4 extension: 3/3 pass (flow monotonic, acceptance 85%, plaquette 0.470). Precision stability (Exp 046): 9 cancellation families audited (f32/DF64/f64/CKKS FHE), stable BCS v² + W(z). coralReef Phase 10 Iter 26: sovereign WGSL→native compilation 44/46 shaders, full `GpuBackend` impl via `Mutex<GpuContext>` (`ComputeDevice: Send+Sync` resolved). All AGPL-3.0-only.
 
 ---
 
@@ -30,7 +30,7 @@ Published paper (Python/FORTRAN/HPC)
 |------|--------|--------|--------|
 | [`murillo_plasma.md`](murillo_plasma.md) | Murillo Group — Dense Plasma MD | Papers 1-6 | 60/60 checks, paper parity |
 | [`murillo_lattice_qcd.md`](murillo_lattice_qcd.md) | Lattice QCD — Quenched & Dynamical | Papers 7-12 | Asymmetric 64³×8, N_f=4 infra, deconfinement at β_c=5.69 |
-| [`chuna_gradient_flow.md`](chuna_gradient_flow.md) | **Chuna Paper 43** — SU(3) Gradient Flow | arXiv:2101.05320 | **11/11 core** (LSCFRK derived, 38.5× GPU); dynamical N_f=4 ext 1/3 in progress |
+| [`chuna_gradient_flow.md`](chuna_gradient_flow.md) | **Chuna Paper 43** — SU(3) Gradient Flow | arXiv:2101.05320 | **11/11 core** (LSCFRK derived, 38.5× GPU); dynamical N_f=4 ext 3/3 complete |
 | [`chuna_bgk_dielectric.md`](chuna_bgk_dielectric.md) | **Chuna Paper 44** — Conservative BGK Dielectric | Phys. Rev. E 111, 035206 | **20/20**, standard+completed+multi-comp, DSF vs MD, 322× Rust/Py |
 | [`chuna_kinetic_fluid.md`](chuna_kinetic_fluid.md) | **Chuna Paper 45** — Multi-Species Kinetic-Fluid | J. Comput. Phys. (2024) | **10/10**, BGK+Euler+coupled GPU pipeline |
 | [`kachkovskiy_spectral.md`](kachkovskiy_spectral.md) | Spectral Theory — Anderson & Hofstadter | Kachkovskiy | 45/45 checks, GPU Lanczos |
@@ -47,7 +47,7 @@ Published paper (Python/FORTRAN/HPC)
 
 - **wetSpring** (`../../../wetSpring/whitePaper/baseCamp/`): Per-faculty briefings for bio/phylogenetic domains. Shares DF64, ESN, and pairwise distance shaders via barraCuda.
 - **barraCuda** (`../../../barraCuda/`): Standalone compute primal (budded from toadStool S89). 767+ WGSL shaders, DF64, precision system, lattice QCD.
+- **coralReef** (`../../../coralReef/`): Sovereign shader compiler primal (Phase 10, Iter 26). WGSL→native binary compilation. 44/46 hotSpring shaders compile.
 - **toadStool** (`../../../phase1/toadStool/`): Shared compute ecosystem. barraCuda retains legacy copy; Springs migrating to standalone.
-- **Experiment journals**: `../../experiments/` (001-046)
+- **Experiment journals**: `../../experiments/` (001-048)
 - **Handoffs**: `../../wateringHole/handoffs/` (fossil record of all cross-project exchanges)
-- **Reality Ladder plan**: `../../.cursor/plans/reality_ladder_plan_3571df11.plan.md`

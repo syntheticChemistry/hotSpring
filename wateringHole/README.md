@@ -1,7 +1,7 @@
 # wateringHole — Cross-Project Handoffs
 
 **Project:** hotSpring (ecoPrimals)
-**Last Updated:** March 6, 2026
+**Last Updated:** March 9, 2026
 
 ---
 
@@ -57,18 +57,16 @@ fossil record — never deleted, always available for provenance.
 
 | File | Date | Topic |
 |------|------|-------|
-| `HOTSPRING_V0619_PRECISION_STABILITY_HANDOFF_MAR06_2026.md` | Mar 6 | **Precision stability**: 9 cancellation families, stable BCS v² + W(z), FHE depth analysis, full debt resolution (zero clippy, all AGPL-3.0-only) |
-| `HOTSPRING_V0619_CROSS_SPRING_EVOLUTION_HANDOFF_MAR06_2026.md` | Mar 6 | **Cross-spring evolution**: 724 tests, Chuna Papers 43-45, cross-spring shader provenance |
-| `HOTSPRING_V0619_BARRACUDA_REWIRE_TOADSTOOL_S96_HANDOFF_MAR06_2026.md` | Mar 6 | **barraCuda + toadStool S96 rewire**: GPU promotion (gradient flow 38.5×, dielectric 12/12), universal shader compilation |
-| `HOTSPRING_V0618_DEEP_DEBT_BARRACUDA_EVOLUTION_HANDOFF_MAR06_2026.md` | Mar 6 | **Deep debt**: Chuna paper GPU promotion, barracuda evolution priorities |
-| `HOTSPRING_V0617_GRADIENT_FLOW_SCIENCE_LADDER_HANDOFF_MAR06_2026.md` | Mar 6 | **Science ladder**: gradient flow + integrators, N_f=4 infra, RHMC |
+| [`../../../wateringHole/handoffs/HOTSPRING_V0624_CORALREEF_ITER26_SOVEREIGN_PIPELINE_HANDOFF_MAR09_2026.md`] | Mar 9 | **coralReef sovereign pipeline**: 44/46 shaders compile to native SASS, full `GpuBackend` impl, DRM dispatch status, lessons learned |
+| [`../../../wateringHole/handoffs/HOTSPRING_V0624_MODERN_REWIRE_HANDOFF_MAR09_2026.md`] | Mar 9 | **Modern rewire**: v0.6.24, 769 tests, Chuna 44/44, coralReef Iter 26, barraCuda v0.3.3, toadStool S138 |
+| [`../../../wateringHole/handoffs/HOTSPRING_CORALREEF_INTEGRATION_HANDOFF.md`] | Mar 9 | **coralReef integration**: local development setup, discovery manifest, feature gates |
 
 ---
 
 ## Archive
 
-63 superseded handoffs in `handoffs/archive/`. These document the full
-evolution history from v0.4.x through v0.6.19:
+70+ superseded handoffs in `handoffs/archive/`. These document the full
+evolution history from v0.4.x through v0.6.23:
 
 - Early toadStool rewire documents (v1-v4)
 - GPU primitive absorption records
@@ -88,11 +86,13 @@ hotSpring (physics/precision)  ──→ barracuda ←── wetSpring (bio/geno
                                  neuralSpring (ML/eigen)
                                        ↑
                                   airSpring (weather/climate)
+                                       ↑
+                                  coralReef (sovereign shader compiler)
 ```
 
-Each spring evolves independently. ToadStool absorbs what works from each
-spring into the shared barracuda library. Springs discover each other's
-capabilities at runtime via `discovery.rs` probes — no direct imports.
+Each spring evolves independently. barraCuda absorbs shared math. toadStool
+manages hardware dispatch. coralReef compiles WGSL→native (SASS/GFX).
+Springs discover capabilities at runtime — no direct imports.
 
 ### Cross-spring documentation in other springs
 

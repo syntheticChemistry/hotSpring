@@ -118,7 +118,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **RHMC Infrastructure** | ✅ Complete | `RationalApproximation` + `multi_shift_cg_solve` for fractional flavors (N_f=2, 2+1) |
 | **Precision Stability** (Exp 046) | ✅ Complete | 9/9 cancellation families audited (f32/DF64/f64/CKKS FHE). Stable BCS v² + plasma W(z). 10 stability tests |
 | **Chuna Overnight** (Papers 43-45) | ✅ **44/44** | Core paper reproduction 41/41 (11 quenched flow + 20 dielectric + 10 kinetic-fluid). **Dynamical N_f=4 extension: 3/3 pass** — warm-start mass annealing, NPU-steered adaptive Omelyan HMC, 85% acceptance at m=0.1. `cscale` shader fix (multi-comp 4%→100%), precise pipeline routing. |
-| **coralReef Integration** | ✅ Complete | Sovereign WGSL→native compilation: 43/46 standalone shaders compile to SM70/SM86 SASS. IPC discovery wired. `sovereign-dispatch` feature gate. Upstream gaps: f64 `log2` lowering, `ComputeDevice` `Send+Sync`. |
+| **coralReef Integration** | ✅ Complete | Sovereign WGSL→native compilation: 44/46 standalone shaders compile to SM70/SM86 SASS (Iter 26). Full `GpuBackend` impl via `Mutex<GpuContext>` (`Send+Sync` unblocked). IPC discovery wired. `sovereign-dispatch` feature gate. Remaining gap: `deformed_potentials_f64` SSARef truncation. |
 | **TOTAL** | **39/39 Rust validation suites** | **769 tests (lib)**, 101+ binaries, 84 WGSL shaders, 34/35 NPU HW checks. Zero clippy (lib+bins), zero unsafe, all AGPL-3.0-only. Both GPUs validated, DF64 production, Nautilus unified brain, **live AKD1000 PCIe NPU: 12-head brain, barraCuda v0.3.3 + toadStool S138 + coralReef P10 synced**. Science ladder: Quenched ✅ → Gradient Flow ✅ → Integrators ✅ → N_f=4 Infra ✅ → **Chuna 44/44** (core 41/41, dynamical ext 3/3) → N_f=2 (pending) → N_f=2+1 (pending). Stability: Tier 1 COMPLETE (Exp 046). Deep debt: **zero**. |
 
 Papers 5, 7, 8, and 10 from the review queue are complete. Paper 5 transport fits
@@ -380,7 +380,7 @@ makes the upstream library richer and hotSpring leaner.
 - HFB shader suite — potentials + density + BCS bisection (14+GPU+6 checks, Tier 2)
 - NPU substrate discovery — `metalForge/forge/src/probe.rs` (local evolution)
 
-**Already leaning on upstream** (v0.6.24, synced to barraCuda v0.3.3 + toadStool S138 + coralReef Phase 10, wgpu 28, pollster 0.3, bytemuck 1.25, tokio 1.50):
+**Already leaning on upstream** (v0.6.24, synced to barraCuda v0.3.3 + toadStool S138 + coralReef Phase 10 Iter 26, wgpu 28, pollster 0.3, bytemuck 1.25, tokio 1.50):
 
 | Module | Upstream | Status |
 |--------|----------|--------|
@@ -1018,11 +1018,11 @@ The cross-substrate pipeline (GPU+NPU+CPU) assigns each workload to its optimal
 substrate: GPU for physics + large reservoirs, NPU for streaming screening, CPU
 for precision. 84 WGSL shaders evolved across hotSpring's physics domains via
 toadStool's cross-spring absorption cycle. coralReef sovereign compilation:
-43/46 standalone shaders compile to native SM70/SM86 SASS — the WGSL→native
+44/46 standalone shaders compile to native SM70/SM86 SASS (Iter 26) — the WGSL→native
 pipeline is live. biomeGate (RTX 3090, 24GB) resolves the QCD deconfinement
 transition at 32⁴ (χ=40.1 at β=5.69, matching β_c=5.692) in 13.6 hours for
 $0.58. 48+ experiments, 101+ binaries, 769 tests, barraCuda v0.3.3 + toadStool
-S138 + coralReef Phase 10 synced. Full multi-tier precision stability analysis
+S138 + coralReef Phase 10 Iter 26 synced. Full multi-tier precision stability analysis
 (Exp 046): 9 cancellation families audited across f32/DF64/f64/CKKS FHE —
 stable BCS v² and plasma W(z) algorithms enable safe DF64 throughput. Chuna
 Papers 43-45: **44/44 overnight checks pass** (41 core + 3 dynamical extension)

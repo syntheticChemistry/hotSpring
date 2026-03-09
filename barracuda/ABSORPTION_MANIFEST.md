@@ -1,7 +1,7 @@
 # hotSpring → BarraCuda/ToadStool Absorption Manifest
 
 **Date:** March 9, 2026
-**Version:** v0.6.24 (synced to barraCuda `27011af`, toadStool S138, coralReef Phase 10 Iter 25)
+**Version:** v0.6.24 (synced to barraCuda `27011af`, toadStool S138, coralReef Phase 10 Iter 26)
 **License:** AGPL-3.0-only
 
 ---
@@ -70,7 +70,7 @@ These were written by hotSpring and absorbed by toadstool/barracuda:
 
 ## coralReef Integration Status (March 9, 2026)
 
-coralReef daemon running locally (Phase 10, Iter 25), discovered via
+coralReef daemon running locally (Phase 10, Iter 26), discovered via
 `$XDG_RUNTIME_DIR/ecoPrimals/coralreef-core.json`. barraCuda's `CoralCompiler`
 IPC client connects via JSON-RPC on TCP. The `spawn_coral_compile()` fire-and-forget
 path compiles assembled WGSL to native SM70 SASS via coralReef and caches binaries
@@ -120,10 +120,12 @@ in background.
 ### In-Process Compilation Validation (sovereign-dispatch PoC)
 
 With the `sovereign-dispatch` feature, barraCuda now has `coral-gpu` wired
-as a path dependency. `CoralReefDevice::compile_wgsl()` compiles hotSpring
-WGSL shaders to native SM70/SM86 SASS binaries in-process (no daemon needed).
+as a path dependency. `CoralReefDevice` compiles hotSpring WGSL shaders to
+native SM70/SM86 SASS binaries in-process (no daemon needed). The full
+`GpuBackend` trait is implemented with `Mutex<GpuContext>` (unblocked by
+`ComputeDevice: Send + Sync` in Iter 26).
 
-Validation results (43/46 standalone shaders compiled per target):
+**Iter 26 results (44/46 standalone shaders compiled per target)**:
 
 | Shader | SM70 bytes | SM86 bytes | GPR | Instr | Status |
 |--------|-----------|-----------|-----|-------|--------|
@@ -131,37 +133,48 @@ Validation results (43/46 standalone shaders compiled per target):
 | su3_gauge_force_f64 | 20512 | 20512 | 54 | 1274 | OK |
 | dirac_staggered_f64 | 18800 | 18800 | 46 | 1167 | OK |
 | yukawa_force_celllist_v2_f64 | 14496 | 14496 | 78 | 898 | OK |
+| batched_hfb_energy_f64 | 6640 | 6640 | 38 | 407 | OK (fixed in Iter 26) |
 | wilson_plaquette_f64 | 6256 | 6256 | 38 | 383 | OK |
-| batched_hfb_energy_f64 | — | — | — | — | PANIC (f64 log2 gap) |
-| deformed_potentials_f64 | — | — | — | — | PANIC (f64 log2 gap) |
+| deformed_potentials_f64 | — | — | — | — | PANIC (f64 min/max SSARef truncation) |
 | complex_f64 | — | — | — | — | FAIL (utility include, not standalone) |
 
-Total native binary output: ~207 KB per target architecture.
+Total native binary output: ~213 KB per target architecture.
 
-### coralReef Compilation Gaps (for upstream)
+### Iter 26 Blockers Resolved
 
-1. **f64 `log2` lowering** — `lower_f64/poly/log2.rs:21` panics with
-   "f64 log2 src must have 2 components" on shaders using scalar `log2(f64)`.
-   Affects: `batched_hfb_energy_f64`, `deformed_potentials_f64`.
-2. **Template-dependent shaders** — shaders using `Complex64`, `Cdf64`, `c64_new`,
-   `exp_f64`, `log_f64`, etc. require template merging before standalone parsing.
-   These compile successfully through the IPC path (`spawn_coral_compile`)
-   since template expansion happens before coralReef receives the WGSL.
+1. **f64 Min/Max/Abs/Clamp** — Root cause of log2 panic. Fixed via `OpDSetP` +
+   per-component `OpSel` for f64 pairs. `batched_hfb_energy_f64` now compiles.
+2. **`ComputeDevice: Send + Sync`** — Trait bound added in coral-driver.
+   `CoralReefDevice` now implements full `GpuBackend` (alloc/upload/dispatch/download)
+   with `Mutex<GpuContext>`.
+3. **Nouveau compute subchannel** — `create_channel()` now binds compute engine
+   class based on SM version. Still EINVAL on Titan V (GV100) — kernel-side NVIF
+   compute object instantiation likely needs deeper setup.
 
-### Remaining Gap: coralDriver Dispatch
+### Remaining coralReef Compilation Gaps
 
-Native binaries are compiled and cached by `spawn_coral_compile()` but the
-GPU dispatch path always uses `wgpu::create_shader_module`. The coralDriver
-dispatch path (using cached native binaries directly) is scaffolded in
-barraCuda but blocked on coral-driver DRM maturity:
+1. **`deformed_potentials_f64`** — panics at `func_math_helpers.rs:143` with
+   "index out of bounds: len 1 but index 1". An f64 value flows through a
+   math function that produces a 1-component SSARef where 2 is expected.
+   Different code path from the Iter 26 fix.
+2. **`complex_f64`** — utility include shader, not a standalone entry point.
+   Compiles successfully through template merging path.
+
+### CoralReefDevice Evolution
+
+`CoralReefDevice` is now a full `GpuBackend` implementation:
+
+- `new(target)` — compile-only context (no hardware needed)
+- `with_auto_device()` — auto-detect DRM render node
+- `from_descriptor(vendor, arch, driver)` — toadStool discovery integration
+- `compile_wgsl(wgsl, target)` — standalone compilation
+- Full `GpuBackend` trait: `alloc_buffer`, `upload`, `dispatch_compute`, `download`
+
+Dispatch is gated on DRM backend maturity:
 
 - **amdgpu**: E2E dispatch verified in coralReef Phase 10
-- **nouveau**: codegen works, dispatch pending kernel ioctl support (EINVAL)
+- **nouveau**: compute subchannel bound (Iter 26), EINVAL on GV100 channel creation
 - **nvidia-drm**: pending UVM integration for buffer allocation
-
-The `CoralReefDevice` struct and `GpuBackend` trait impl are scaffolded with
-clear error messages. The `GpuBackend` trait impl is deferred until
-`coral-gpu::ComputeDevice` is `Send + Sync`.
 
 ---
 

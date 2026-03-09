@@ -18,6 +18,7 @@ use barracuda::device::CoralReefDevice;
 struct ShaderEntry {
     name: &'static str,
     source: &'static str,
+    #[expect(dead_code, reason = "used for categorization in output, may be used later")]
     category: &'static str,
 }
 
@@ -37,7 +38,8 @@ fn main() {
     println!("║  hotSpring WGSL → native SM70/SM86 via coral-gpu           ║");
     println!("╚══════════════════════════════════════════════════════════════╝\n");
 
-    let dev = CoralReefDevice::new().expect("CoralReefDevice should init");
+    let dev = CoralReefDevice::new(GpuTarget::Nvidia(NvArch::Sm70))
+        .expect("CoralReefDevice should init");
 
     let targets = [
         (GpuTarget::Nvidia(NvArch::Sm70), "sm_70"),

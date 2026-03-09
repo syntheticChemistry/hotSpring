@@ -5,7 +5,7 @@
 **Sarkas**: v1.0.0 (pinned — see §Roadblocks)
 **Python**: 3.9 (sarkas), 3.10 (ttm, surrogate) via micromamba
 **f64 Status**: Native WGSL builtins confirmed. Consumer Ampere/Ada: fp64:fp32 ~1:64 (both CUDA and Vulkan). Double-float (f32-pair) hybrid delivers 3.24 TFLOPS at 14 digits (9.9× native f64). Titan V: genuine 1:2 via NVK.
-**toadStool**: Session 138 (synced). **coralReef**: Phase 10 Iter 25 (sovereign compilation live). hotSpring **769 lib tests**, 101+ binaries, 39/39 validation suites. barraCuda v0.3.3. Quality gates: zero clippy (lib+bins), zero unsafe, zero TODO/FIXME, all files <1000 lines. All 84 WGSL shaders AGPL-3.0-only. Experiment 046: multi-tier precision stability. Experiment 047: DSF vs MD validation (14/14, MurilloGroupMSU Dense Plasma DB). Chuna papers 43-45: **44/44** — completed Mermin (P44) + GPU BGK (P45) + DSF comparison + production gradient flow + dynamical N_f=4 3/3.
+**toadStool**: Session 138 (synced). **coralReef**: Phase 10 Iter 26 (sovereign compilation 44/46, full GpuBackend impl). hotSpring **769 lib tests**, 101+ binaries, 39/39 validation suites. barraCuda v0.3.3. Quality gates: zero clippy (lib+bins), zero unsafe, zero TODO/FIXME, all files <1000 lines. All 84 WGSL shaders AGPL-3.0-only. Experiment 046: multi-tier precision stability. Experiment 047: DSF vs MD validation (14/14, MurilloGroupMSU Dense Plasma DB). Chuna papers 43-45: **44/44** — completed Mermin (P44) + GPU BGK (P45) + DSF comparison + production gradient flow + dynamical N_f=4 3/3.
 
 ---
 
@@ -1043,7 +1043,7 @@ surpassing it at larger basis sizes.
 - [`whitePaper/BARRACUDA_SCIENCE_VALIDATION.md`](whitePaper/BARRACUDA_SCIENCE_VALIDATION.md) — Phase B technical results
 - [`whitePaper/CONTROL_EXPERIMENT_SUMMARY.md`](whitePaper/CONTROL_EXPERIMENT_SUMMARY.md) — Phase A quick reference
 - [`benchmarks/PROTOCOL.md`](benchmarks/PROTOCOL.md) — Benchmark protocol (time + energy measurement)
-- [`barracuda/CHANGELOG.md`](barracuda/CHANGELOG.md) — Crate version history (v0.6.18)
+- [`barracuda/CHANGELOG.md`](barracuda/CHANGELOG.md) — Crate version history (v0.6.24)
 - [`barracuda/EVOLUTION_READINESS.md`](barracuda/EVOLUTION_READINESS.md) — Rust → GPU promotion tiers and blockers
 - [`experiments/001_N_SCALING_GPU.md`](experiments/001_N_SCALING_GPU.md) — N-scaling experiment journal (Phase D)
 - [`experiments/002_CELLLIST_FORCE_DIAGNOSTIC.md`](experiments/002_CELLLIST_FORCE_DIAGNOSTIC.md) — Cell-list bug diagnostic (Phase D)

@@ -13,8 +13,8 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `Fp64Strategy::Sovereign`, `compile_shader_universal()` removal, `PrecisionRoutingAdvice`
 - **toadStool S138 synced** — latest shader proxy, NPU dispatch, hardware discovery
 - **coralReef Phase 10** integration — sovereign WGSL→native compilation pipeline:
-  43/46 standalone shaders compile to SM70/SM86 SASS. IPC discovery wired via JSON-RPC.
-  `sovereign-dispatch` feature gate for native GPU binary compilation
+  44/46 standalone shaders compile to SM70/SM86 SASS (Iter 26). IPC discovery wired via JSON-RPC.
+  `sovereign-dispatch` feature gate for native GPU binary compilation. Full `GpuBackend` impl
 - **Chuna Papers 44/44** — dynamical N_f=4 extension complete: 3/3 pass via warm-start
   mass annealing (m: 1.0→0.5→0.2→0.1), NPU-steered adaptive Omelyan HMC, 85% acceptance
 - **NPU Steering Lessons** documented — apprentice pattern, crisis deference, trust thresholds
@@ -32,16 +32,19 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - 0 clippy warnings (lib + all binaries)
 - 0 unsafe blocks, 0 TODO/FIXME, all files <1000 lines
 - All WGSL shaders AGPL-3.0-only
-- Synced: barraCuda v0.3.3, toadStool S138, coralReef Phase 10 Iter 25
+- Synced: barraCuda v0.3.3, toadStool S138, coralReef Phase 10 Iter 26
 
 ### coralReef Integration Details
 
 - Discovery fix: `barraCuda/discovery.rs` updated to parse Phase 10 manifests
   (`"provides"` array, object-form `transports.jsonrpc`)
-- `CoralReefDevice` proof-of-concept: in-process WGSL→SASS compilation via `coral-gpu`
-- Compilation coverage: 43/46 standalone shaders, 28 template-dependent (expected)
-- Gaps identified: f64 `log2` lowering panic (2 shaders), `ComputeDevice` `Send+Sync`
-- DRM dispatch: `nouveau` EINVAL, `nvidia-drm` pending UVM — documented for upstream
+- `CoralReefDevice` full `GpuBackend` implementation: `Mutex<GpuContext>` for
+  thread-safe alloc/upload/dispatch/download (`Send+Sync` unblocked in Iter 26)
+- Compilation coverage: 44/46 standalone shaders (up from 43 — `batched_hfb_energy_f64`
+  fixed by f64 Min/Max/Abs/Clamp fix in Iter 26)
+- Remaining gap: `deformed_potentials_f64` SSARef truncation in `emit_f64_min_max`
+- DRM dispatch: `nouveau` EINVAL on GV100 (compute subchannel bound but channel
+  creation still rejected), `nvidia-drm` pending UVM — documented for upstream
 
 ---
 

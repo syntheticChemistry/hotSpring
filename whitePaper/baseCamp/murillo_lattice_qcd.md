@@ -87,11 +87,11 @@ The three Chuna/Murillo papers are now covered in their own baseCamp artifacts:
 
 | Paper | Document | Checks |
 |-------|----------|:------:|
-| 43 — Gradient Flow | [`chuna_gradient_flow.md`](chuna_gradient_flow.md) | 11/11 core (ext 1/3) |
+| 43 — Gradient Flow | [`chuna_gradient_flow.md`](chuna_gradient_flow.md) | 11/11 core (ext 3/3) |
 | 44 — BGK Dielectric | [`chuna_bgk_dielectric.md`](chuna_bgk_dielectric.md) | 20/20 |
 | 45 — Kinetic-Fluid | [`chuna_kinetic_fluid.md`](chuna_kinetic_fluid.md) | 10/10 |
 
-Total: **42/44 checks pass** via `validate_chuna_overnight` (core 41/41; dynamical ext 1/3, 2 in progress).
+Total: **44/44 checks pass** via `validate_chuna_overnight` (core 41/41; dynamical ext 3/3).
 
 ## Science Ladder
 

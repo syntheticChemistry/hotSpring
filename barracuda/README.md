@@ -17,15 +17,17 @@ computation, and GPU acceleration for the [hotSpring](../README.md) project.
 |--------|----------|------|
 | [barraCuda](../../barraCuda/) | Math, shaders, compilation, ESN, NPU math | `../../barraCuda/crates/barracuda` |
 | [toadStool](../../phase1/toadStool/) | NPU hardware (akida-driver, akida-models) | `../../phase1/toadStool/crates/neuromorphic/` |
+| [coralReef](../../coralReef/) | Sovereign shader compiler (WGSL→native SASS/GFX) | `../../coralReef/crates/coral-gpu` |
 
-barraCuda knows how to compile and execute. toadStool exposes what hardware exists.
-hotSpring consumes both for domain-specific physics: nuclear structure, molecular
+barraCuda knows WHAT to compute. toadStool exposes WHERE hardware exists.
+coralReef compiles HOW (WGSL→native, bypassing wgpu/Vulkan). hotSpring
+consumes all three for domain-specific physics: nuclear structure, molecular
 dynamics, lattice QCD, spectral theory, and transport coefficients.
 
 ```
 hotSpring (this repo)
-  └── barracuda/              ← you are here (hotspring-barracuda v0.6.16)
-       ├── src/lib.rs         ← crate root
+  └── barracuda/              ← you are here (hotspring-barracuda v0.6.24)
+       ├── src/lib.rs         ← crate root (v0.6.24)
        ├── src/physics/       ← nuclear structure (L1/L2/L3 HFB, SEMF)
        ├── src/md/            ← GPU molecular dynamics (Yukawa OCP)
        ├── src/lattice/       ← lattice QCD (SU(3), HMC, Dirac, CG, Abelian Higgs)
@@ -126,14 +128,13 @@ hotSpring implements physics locally (Rust + WGSL templates)
 
 See [CHANGELOG.md](CHANGELOG.md) for full version history.
 
-Current: **v0.6.16** (March 3, 2026)
-- Rewired from toadStool embedded barracuda to standalone barraCuda v0.3.1
-- 663 lib tests + 25 metalForge tests pass against barraCuda v0.3.1
-- License aligned to AGPL-3.0-or-later across all shaders
-- ReluTanhApprox activation for AKD1000 NPU deployment
-- 6D canonical input vector for cross-volume NPU generalization
-- HeadConfidence tracker for per-head trust/fallback
-- DP memoization overnight experiment (exp035)
+Current: **v0.6.24** (March 9, 2026)
+- 769 lib tests, 101+ binaries, 84 WGSL shaders, 0 clippy warnings
+- barraCuda v0.3.3, toadStool S138, coralReef Phase 10 Iter 26
+- Chuna Papers 43-45: 44/44 overnight checks pass
+- coralReef sovereign compile: 44/46 shaders to native SM70/SM86 SASS
+- Full `GpuBackend` impl via `CoralReefDevice` (`Mutex<GpuContext>`)
+- Deep technical debt resolution: zero files >1000 lines, zero unsafe
 
 ---
 

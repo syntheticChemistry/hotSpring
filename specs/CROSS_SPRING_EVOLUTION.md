@@ -2,10 +2,10 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 # Cross-Spring Shader Evolution — hotSpring's View
 
-**Date:** March 7, 2026
-**Synced to:** barraCuda v0.3.3 (standalone primal, wgpu 28, naga 28)
-**hotSpring:** v0.6.21 — 731 tests, 99 binaries, 75 WGSL shaders, full precision stability (Exp 046)
-**Rewired:** LSCFRK imports from `barracuda::numerical::lscfrk`, sovereign compiler validated (47 call sites, 498 FMA fusions)
+**Date:** March 9, 2026
+**Synced to:** barraCuda v0.3.3, toadStool S138, coralReef Phase 10 Iter 26
+**hotSpring:** v0.6.24 — 769 tests, 101+ binaries, 84 WGSL shaders, Chuna 44/44, coralReef sovereign compile 44/46
+**Rewired:** LSCFRK imports from `barracuda::numerical::lscfrk`, sovereign compiler validated (47 call sites, 498 FMA fusions). CoralReefDevice full GpuBackend impl
 **License:** AGPL-3.0-only
 
 ---
