@@ -1,11 +1,11 @@
 # hotSpring Control Experiment — Status Report
 
-**Date**: 2026-03-10 (L1+L2 complete, GPU MD Phase C+D+E+F complete — paper-parity long run 9/9, BarraCuda pipeline 39/39, crate v0.6.26, cross-substrate ESN, NPU characterization, DF64 production, toadStool S142 + coralReef Iter 29 synced, Chuna 44/44, Precision Brain + NVVM bypass, deep debt resolved)
+**Date**: 2026-03-10 (L1+L2 complete, GPU MD Phase C+D+E+F complete — paper-parity long run 9/9, BarraCuda pipeline 39/39, crate v0.6.28, cross-substrate ESN, NPU characterization, DF64 production, toadStool S142 + coralReef Iter 30 synced, Chuna 44/44, Precision Brain + NVVM bypass, deep debt resolved)
 **Gates**: Eastgate (i9-12900K, RTX 4070 12GB) + biomeGate (Threadripper 3970X, RTX 3090 24GB + Titan V 12GB HBM2, Akida NPU, 256GB DDR4)
 **Sarkas**: v1.0.0 (pinned — see §Roadblocks)
 **Python**: 3.9 (sarkas), 3.10 (ttm, surrogate) via micromamba
 **f64 Status**: Native WGSL builtins confirmed. Consumer Ampere/Ada: fp64:fp32 ~1:64 (both CUDA and Vulkan). Double-float (f32-pair) hybrid delivers 3.24 TFLOPS at 14 digits (9.9× native f64). Titan V: genuine 1:2 via NVK.
-**toadStool**: Session 144 (synced). **coralReef**: Phase 10 Iter 29 (sovereign compilation **45/46**, 12/12 NVVM bypass, full GpuBackend impl). hotSpring **842 lib tests**, 111+ binaries, 39/39 validation suites. barraCuda v0.3.4 (`59c8ec5`). Quality gates: zero clippy (lib+bins), zero unsafe, zero TODO/FIXME, all files <1000 lines. All 84 WGSL shaders AGPL-3.0-only. Experiment 049: Precision Brain (self-routing, NVVM poisoning gated). Experiment 050: coralReef Iter 29 sovereign validation (45/46, 12/12 bypass). Chuna papers 43-45: **44/44**.
+**toadStool**: Session 145 (synced). **coralReef**: Phase 10 Iter 30 (sovereign compilation **45/46**, 12/12 NVVM bypass, full GpuBackend impl). hotSpring **842 lib tests**, 111+ binaries, 39/39 validation suites. barraCuda v0.3.4 (`a012076`). Quality gates: zero clippy (lib+bins), zero unsafe, zero TODO/FIXME, all files <1000 lines. All 84 WGSL shaders AGPL-3.0-only. Experiment 049: Precision Brain (self-routing, NVVM poisoning gated). Experiment 050: coralReef Iter 30 sovereign validation (45/46, 12/12 bypass). Chuna papers 43-45: **44/44**.
 
 ---
 
@@ -1043,7 +1043,7 @@ surpassing it at larger basis sizes.
 - [`whitePaper/BARRACUDA_SCIENCE_VALIDATION.md`](whitePaper/BARRACUDA_SCIENCE_VALIDATION.md) — Phase B technical results
 - [`whitePaper/CONTROL_EXPERIMENT_SUMMARY.md`](whitePaper/CONTROL_EXPERIMENT_SUMMARY.md) — Phase A quick reference
 - [`benchmarks/PROTOCOL.md`](benchmarks/PROTOCOL.md) — Benchmark protocol (time + energy measurement)
-- [`barracuda/CHANGELOG.md`](barracuda/CHANGELOG.md) — Crate version history (v0.6.24)
+- [`barracuda/CHANGELOG.md`](barracuda/CHANGELOG.md) — Crate version history (v0.6.28)
 - [`barracuda/EVOLUTION_READINESS.md`](barracuda/EVOLUTION_READINESS.md) — Rust → GPU promotion tiers and blockers
 - [`experiments/001_N_SCALING_GPU.md`](experiments/001_N_SCALING_GPU.md) — N-scaling experiment journal (Phase D)
 - [`experiments/002_CELLLIST_FORCE_DIAGNOSTIC.md`](experiments/002_CELLLIST_FORCE_DIAGNOSTIC.md) — Cell-list bug diagnostic (Phase D)

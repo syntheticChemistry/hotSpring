@@ -23,6 +23,17 @@
 //!
 //! 4. **Portable**: Only depends on `GpuF64`, `PrecisionTier`, `PhysicsDomain`.
 //!    Works in any spring that can construct a `GpuF64`.
+//!
+//! ## Upstream absorption (barraCuda `a012076`, toadStool S145)
+//!
+//! barraCuda `a012076` now has `PrecisionBrain::from_device(&WgpuDevice)` with
+//! O(1) route table, 12 physics domains, and `HardwareCalibration::from_profile`.
+//! toadStool S145 has its own `PrecisionBrain` with `PrecisionHint` routing
+//! (Critical/Moderate/ThroughputBound/LowPrecision), `NvkZeroGuard` for
+//! zero-output detection, and `dispatch_latency_ratio` for F64 throttle
+//! detection. hotSpring's brain remains locally authoritative because it works
+//! with `GpuF64` (not `WgpuDevice`), includes sovereign detection, and does
+//! actual GPU dispatch probes rather than profile synthesis.
 
 use crate::gpu::GpuF64;
 use crate::hardware_calibration::HardwareCalibration;
@@ -33,11 +44,14 @@ pub use crate::precision_routing::HwPrecisionAdvice;
 ///
 /// Checks for the coralReef XDG manifest or well-known socket paths.
 /// When available, the sovereign path can bypass NVVM for shader
-/// compilation (coralReef Iteration 29 validated 45/46 shaders, 12/12
-/// NVVM bypass patterns).
+/// compilation (coralReef Iteration 30 validated 45/46 shaders, 12/12
+/// NVVM bypass patterns, plus FMA contraction enforcement via
+/// `FmaPolicy::Separate`).
 ///
-/// toadStool S144 added `compile_wgsl_multi` for multi-device sovereign
-/// compilation and `gpu_guards` for safe NVIDIA proprietary test skipping.
+/// toadStool S145 added `compile_wgsl_multi` for multi-device sovereign
+/// compilation, `gpu_guards` for safe NVIDIA proprietary test skipping,
+/// `NvkZeroGuard` for zero-output detection on NVK Volta, and
+/// `ProviderRegistry` for spring-as-provider socket resolution.
 /// When toadStool's runtime is integrated, sovereign detection should
 /// delegate to toadStool's `NvvmPoisoningRisk` assessment.
 fn detect_sovereign_available() -> bool {
@@ -73,8 +87,8 @@ fn detect_sovereign_available() -> bool {
 pub struct PrecisionBrain {
     /// The calibration data from probing.
     pub calibration: HardwareCalibration,
-    /// Pre-computed routing table: domain → tier.
-    route_table: [PrecisionTier; 7],
+    /// Pre-computed routing table: domain → tier (12 domains).
+    route_table: [PrecisionTier; 12],
 }
 
 impl PrecisionBrain {
@@ -180,7 +194,7 @@ impl std::fmt::Display for PrecisionBrain {
 
 // ── Routing table construction ──────────────────────────────────────
 
-const ALL_DOMAINS: [PhysicsDomain; 7] = [
+const ALL_DOMAINS: [PhysicsDomain; 12] = [
     PhysicsDomain::LatticeQcd,
     PhysicsDomain::GradientFlow,
     PhysicsDomain::Dielectric,
@@ -188,6 +202,11 @@ const ALL_DOMAINS: [PhysicsDomain; 7] = [
     PhysicsDomain::Eigensolve,
     PhysicsDomain::MolecularDynamics,
     PhysicsDomain::NuclearEos,
+    PhysicsDomain::PopulationPk,
+    PhysicsDomain::Bioinformatics,
+    PhysicsDomain::Hydrology,
+    PhysicsDomain::Statistics,
+    PhysicsDomain::General,
 ];
 
 const fn domain_index(domain: PhysicsDomain) -> usize {
@@ -199,10 +218,15 @@ const fn domain_index(domain: PhysicsDomain) -> usize {
         PhysicsDomain::Eigensolve => 4,
         PhysicsDomain::MolecularDynamics => 5,
         PhysicsDomain::NuclearEos => 6,
+        PhysicsDomain::PopulationPk => 7,
+        PhysicsDomain::Bioinformatics => 8,
+        PhysicsDomain::Hydrology => 9,
+        PhysicsDomain::Statistics => 10,
+        PhysicsDomain::General => 11,
     }
 }
 
-fn build_route_table(cal: &HardwareCalibration, gpu: &GpuF64) -> [PrecisionTier; 7] {
+fn build_route_table(cal: &HardwareCalibration, gpu: &GpuF64) -> [PrecisionTier; 12] {
     let hw_advice = gpu.driver_profile().precision_routing();
     let hw_native = matches!(
         hw_advice,
@@ -237,7 +261,10 @@ fn route_domain(
             }
         }
         // Moderate precision: prefer F64, fall back to DF64
-        PhysicsDomain::GradientFlow | PhysicsDomain::NuclearEos => {
+        PhysicsDomain::GradientFlow
+        | PhysicsDomain::NuclearEos
+        | PhysicsDomain::PopulationPk
+        | PhysicsDomain::Hydrology => {
             if safe(PrecisionTier::F64) {
                 PrecisionTier::F64
             } else if safe(PrecisionTier::DF64) {
@@ -249,7 +276,10 @@ fn route_domain(
         // Throughput-bound: prefer F64 if fast, else DF64 for throughput
         PhysicsDomain::LatticeQcd
         | PhysicsDomain::KineticFluid
-        | PhysicsDomain::MolecularDynamics => {
+        | PhysicsDomain::MolecularDynamics
+        | PhysicsDomain::Bioinformatics
+        | PhysicsDomain::Statistics
+        | PhysicsDomain::General => {
             if safe(PrecisionTier::F64) {
                 if safe(PrecisionTier::DF64) && is_f64_throttled(cal) {
                     PrecisionTier::DF64
@@ -289,14 +319,22 @@ fn domain_requirements(domain: PhysicsDomain, tier: PrecisionTier) -> (bool, &'s
             PrecisionTier::DF64 => (false, "DF64 emulation: ~14 digits, sufficient for most physics"),
             PrecisionTier::F32 => (true, "F32 fallback: reduced precision, validation recommended"),
         },
-        PhysicsDomain::GradientFlow | PhysicsDomain::NuclearEos => match tier {
+        PhysicsDomain::GradientFlow
+        | PhysicsDomain::NuclearEos
+        | PhysicsDomain::PopulationPk
+        | PhysicsDomain::Hydrology => match tier {
             PrecisionTier::F64 | PrecisionTier::F64Precise => {
                 (true, "Native f64 with FMA for moderate precision needs")
             }
-            PrecisionTier::DF64 => (true, "DF64 provides sufficient precision for flow/EOS"),
+            PrecisionTier::DF64 => (true, "DF64 provides sufficient precision for moderate domains"),
             PrecisionTier::F32 => (true, "F32 fallback: validate energy conservation"),
         },
-        _ => match tier {
+        PhysicsDomain::LatticeQcd
+        | PhysicsDomain::KineticFluid
+        | PhysicsDomain::MolecularDynamics
+        | PhysicsDomain::Bioinformatics
+        | PhysicsDomain::Statistics
+        | PhysicsDomain::General => match tier {
             PrecisionTier::F64 | PrecisionTier::F64Precise => {
                 (true, "Native f64 for compute-bound domains")
             }

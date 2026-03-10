@@ -1,7 +1,7 @@
 # hotSpring → BarraCuda/ToadStool Absorption Manifest
 
 **Date:** March 10, 2026
-**Version:** v0.6.27 (synced to barraCuda `59c8ec5`, toadStool S144, coralReef Phase 10 Iter 29)
+**Version:** v0.6.28 (synced to barraCuda `a012076`, toadStool S145, coralReef Phase 10 Iter 30)
 **License:** AGPL-3.0-only
 
 ---
@@ -57,6 +57,14 @@ These were written by hotSpring and absorbed by toadstool/barracuda:
 
 ---
 
+## v0.6.28 Rewiring (March 10, 2026)
+
+barraCuda pin updated (`59c8ec5` → `a012076`, v0.3.4 expanded):
+- PrecisionBrain, HardwareCalibration, PrecisionTier now upstream in barraCuda (absorbed from hotSpring v0.6.25)
+- toadStool S145 also absorbed PrecisionBrain with PrecisionHint routing
+- 5 new PhysicsDomain variants added for upstream parity
+- coralReef Iter 30 FMA lowering unlocks F64Precise via sovereign path
+
 ## v0.6.27 Rewiring (March 10, 2026)
 
 barraCuda pin updated (`83aa08a` → `59c8ec5`, v0.3.3 → v0.3.4):
@@ -89,7 +97,7 @@ barraCuda pin updated (`83aa08a` → `59c8ec5`, v0.3.3 → v0.3.4):
 
 ## coralReef Integration Status (March 10, 2026)
 
-coralReef daemon running locally (Phase 10, Iter 29), discovered via
+coralReef daemon running locally (Phase 10, Iter 30), discovered via
 `$XDG_RUNTIME_DIR/ecoPrimals/coralreef-core.json`. barraCuda's `CoralCompiler`
 IPC client connects via JSON-RPC on TCP. The `spawn_coral_compile()` fire-and-forget
 path compiles assembled WGSL to native SM70 SASS via coralReef and caches binaries
@@ -144,7 +152,7 @@ native SM70/SM86 SASS binaries in-process (no daemon needed). The full
 `GpuBackend` trait is implemented with `Mutex<GpuContext>` (unblocked by
 `ComputeDevice: Send + Sync` in Iter 26).
 
-**Iter 29 results (45/46 standalone shaders compiled per target)**:
+**Iter 30 results (45/46 standalone shaders compiled per target)**:
 
 `deformed_potentials_f64` SSARef truncation fixed in Iter 29 (was PANIC in Iter 26).
 12/12 NVVM bypass patterns compile across SM70/SM75/SM80/SM86/SM89/RDNA2.

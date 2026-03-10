@@ -7,13 +7,15 @@
 //! 2. **How** to split if both (ratio based on effective TFLOPS)
 //! 3. **Whether** PCIe transfer cost justifies the split
 //!
-//! ## Upstream evolution (toadStool S144)
+//! ## Upstream evolution (toadStool S145)
 //!
-//! toadStool S144 evolved topology into `PcieTopologyGraph` with
+//! toadStool S145 evolved topology into `PcieTopologyGraph` with
 //! `PciBridge`, `GpuPairTopology`, and sysfs-probed PCIe gen/lanes/NUMA.
 //! `WorkloadRouter::route_multi_gpu()` provides topology-aware placement
-//! via `MultiGpuPlacement`. `ResourceOrchestrator` now includes workload
-//! health tracking. Future versions should query toadStool's topology
+//! via `MultiGpuPlacement` with 8 new `WorkloadPatterns`. S145 added
+//! `ProviderRegistry` for spring-as-provider socket resolution and 5 new
+//! capability domains (biology, health, measurement, optimization,
+//! visualization). Future versions should query toadStool's topology
 //! graph for real PCIe measurements and use `WorkloadRouter` for
 //! placement decisions in multi-spring environments.
 
@@ -79,7 +81,12 @@ pub fn plan_workload(
         | PhysicsDomain::KineticFluid
         | PhysicsDomain::LatticeQcd
         | PhysicsDomain::GradientFlow
-        | PhysicsDomain::NuclearEos => {
+        | PhysicsDomain::NuclearEos
+        | PhysicsDomain::PopulationPk
+        | PhysicsDomain::Hydrology
+        | PhysicsDomain::Bioinformatics
+        | PhysicsDomain::Statistics
+        | PhysicsDomain::General => {
             plan_throughput_or_split(pair, data_bytes, compute_us_estimate)
         }
     }

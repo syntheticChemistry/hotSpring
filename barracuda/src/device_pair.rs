@@ -8,12 +8,15 @@
 //!
 //! The bridge models CPU-mediated PCIe transfer cost between the two cards.
 //!
-//! ## Upstream evolution (toadStool S144)
+//! ## Upstream evolution (toadStool S145)
 //!
-//! toadStool S144 evolved `PcieTransport` into full switch-level topology:
+//! toadStool S145 evolved `PcieTransport` into full switch-level topology:
 //! `PciBridge`, `GpuPairTopology`, `PcieTopologyGraph` (sysfs probed),
 //! and `WorkloadRouter::route_multi_gpu()` for topology-aware multi-GPU
-//! placement. `ResourceOrchestrator` added workload health monitoring.
+//! placement with 8 new `WorkloadPatterns` (Pairwise, BatchFitness,
+//! HmmBatch, SpatialPayoff, Stochastic, PopulationPk, DoseResponse,
+//! DiversityIndex). S145 added `ProviderRegistry` for spring-as-provider
+//! socket resolution and `NvkZeroGuard` for zero-output detection.
 //! When hotSpring integrates toadStool's orchestration layer, `DevicePair`
 //! should delegate topology discovery to `PcieTopologyGraph` and multi-GPU
 //! routing to `WorkloadRouter` instead of manual PCIe bandwidth estimation.

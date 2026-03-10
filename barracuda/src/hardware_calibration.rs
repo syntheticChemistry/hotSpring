@@ -20,6 +20,20 @@
 //!
 //! This module is designed to be portable across springs — it only depends on
 //! `GpuF64` and `PrecisionTier`, both of which are re-exported from barraCuda.
+//!
+//! ## Upstream absorption (barraCuda `a012076`, toadStool S145)
+//!
+//! barraCuda `a012076` now has its own lighter-weight
+//! `HardwareCalibration::from_profile()` which synthesizes tier safety from the
+//! driver profile without actual GPU dispatch probes. hotSpring's richer
+//! `probe()` (actual dispatch + readback + ULP measurement) remains the
+//! authoritative calibration source — upstream's is a safe approximation for
+//! springs that cannot afford dispatch-time probing.
+//!
+//! toadStool S145 added `dispatch_latency_ratio` on `TierCapability` for F64
+//! throttle detection and `NvkZeroGuard` for zero-output detection on NVK
+//! Volta (f64 + f32). When hotSpring integrates toadStool's runtime, the
+//! throttle heuristic in `is_f64_throttled()` can use toadStool's ratio field.
 
 use crate::gpu::GpuF64;
 use crate::precision_routing::PrecisionTier;
@@ -84,17 +98,21 @@ pub struct HardwareCalibration {
     /// can be compiled through coralReef's WGSL → native SASS pipeline,
     /// bypassing NVVM entirely.
     ///
-    /// coralReef Iteration 29 validated this bypass for all three
-    /// NVVM-poisoning shader patterns (45/46 shaders compile, 12/12 bypass).
+    /// coralReef Iteration 30 validated this bypass for all three
+    /// NVVM-poisoning shader patterns (45/46 shaders compile, 12/12 bypass)
+    /// and added FMA contraction enforcement (`FmaPolicy::Separate` splits
+    /// FFma→FMul+FAdd), enabling F64Precise through sovereign compilation.
     /// Dispatch requires coral-driver DRM maturation (AMD E2E ready,
     /// NVIDIA pending UVM).
     ///
-    /// toadStool S144 absorbed our NVVM poisoning work into `nvvm_safety.rs`
-    /// (`NvvmPoisoningRisk`, `PrecisionTier`, `TierCapability`). When
-    /// hotSpring integrates toadStool's runtime layer, `HardwareCalibration`
-    /// can delegate to upstream's native NVVM defense. S144 also added
-    /// `gpu_guards` module (`is_wgpu_safe()`, `detect_nvidia_proprietary()`)
-    /// for safe test skipping on proprietary NVIDIA drivers.
+    /// toadStool S145 absorbed our NVVM poisoning work into `nvvm_safety.rs`
+    /// (`NvvmPoisoningRisk`, `PrecisionTier`, `TierCapability`,
+    /// `dispatch_latency_ratio`). S145 also added `NvkZeroGuard` for
+    /// zero-output detection on NVK Volta and `gpu_guards` module
+    /// (`is_wgpu_safe()`, `detect_nvidia_proprietary()`) for safe test
+    /// skipping on proprietary NVIDIA drivers. When hotSpring integrates
+    /// toadStool's runtime layer, `HardwareCalibration` can delegate to
+    /// upstream's native NVVM defense.
     pub sovereign_compile_available: bool,
 }
 

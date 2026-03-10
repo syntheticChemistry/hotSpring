@@ -469,6 +469,14 @@ impl GpuF64 {
     /// WGSL-text f64 pipeline — skips sovereign SPIR-V compilation.
     ///
     /// In full DF64 mode, routes through the full DF64 pipeline.
+    ///
+    /// coralReef Iteration 30 added `FmaPolicy::Separate` which splits
+    /// FFma→FMul+FAdd in the sovereign compilation pipeline. This means
+    /// F64Precise can now go through sovereign WGSL→SASS compilation with
+    /// FMA-free guarantees. When `sovereign-dispatch` is integrated for
+    /// dispatch, this method should route through `compile_shader_f64()`
+    /// with `FmaPolicy::Separate` instead of the WGSL-text path, gaining
+    /// native SASS performance for precision-critical domains.
     #[must_use]
     pub fn create_pipeline_f64_precise(
         &self,

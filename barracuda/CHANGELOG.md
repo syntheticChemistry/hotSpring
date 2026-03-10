@@ -5,6 +5,27 @@ All notable changes to the hotSpring BarraCuda validation crate.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.6.28 — Upstream Primal Sync v3 (March 10, 2026)
+
+**barraCuda pin**: `59c8ec5` → `a012076` (v0.3.4 expanded — PrecisionBrain/HardwareCalibration/PrecisionTier absorption, `enable f64;` stripping fix, pharma/bio GPU ops)
+**toadStool**: S144 → S145 (PrecisionBrain absorption, NvkZeroGuard, 8 WorkloadPatterns, ProviderRegistry, dispatch_latency_ratio)
+**coralReef**: Iter 29 → Iter 30 (FMA contraction enforcement via `FmaPolicy::Separate`, multi-device compile API, NVVM bypass test hardening)
+
+### Changes
+- Add 5 new `PhysicsDomain` variants: `PopulationPk`, `Bioinformatics`, `Hydrology`, `Statistics`, `General` — matches upstream barraCuda's 12-domain set
+- Update routing rules in `precision_brain.rs` and `precision_routing.rs` for new domains
+- Acknowledge upstream PrecisionBrain/HardwareCalibration absorption in doc comments
+- Note coralReef Iter 30 FMA lowering enables F64Precise through sovereign compilation path
+- Document toadStool S145 NvkZeroGuard and ProviderRegistry integration seams
+
+### Validation
+- 842 lib tests passing (0 failures)
+- 0 clippy warnings (pedantic)
+- 45/46 sovereign compile (SM70 + SM86) — `complex_f64` gap unchanged
+- Handoff: `HOTSPRING_V0628_UPSTREAM_SYNC_HANDOFF_MAR10_2026.md`
+
+---
+
 ## v0.6.27 — Upstream Primal Sync v2: barraCuda v0.3.4 (59c8ec5) + toadStool S144 (March 10, 2026)
 
 ### Summary

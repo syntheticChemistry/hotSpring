@@ -13,6 +13,16 @@
 //! The routing decision respects hardware limits first, then applies domain
 //! requirements within those limits. `Fp64Strategy::Sovereign` (coralReef
 //! native compilation) routes like `Native` — it produces real f64 code.
+//!
+//! ## Upstream absorption (barraCuda `a012076`, toadStool S145)
+//!
+//! `PrecisionTier` and `PhysicsDomain` are now also upstream in
+//! `barracuda::device::precision_tier` (absorbed from hotSpring v0.6.25).
+//! barraCuda's version has 12 domains; hotSpring mirrors all 12 here.
+//! toadStool S145 absorbed `PrecisionBrain` with `PrecisionHint` enum
+//! (Critical/Moderate/ThroughputBound/LowPrecision) and cached O(1) route
+//! table. Future versions may re-export upstream enums once the API
+//! stabilizes across all springs.
 
 use crate::gpu::GpuF64;
 pub use barracuda::device::driver_profile::PrecisionRoutingAdvice as HwPrecisionAdvice;
@@ -31,6 +41,8 @@ pub enum PrecisionTier {
 }
 
 /// Physics domain classification for precision routing.
+///
+/// Mirrors `barracuda::device::precision_tier::PhysicsDomain` (12 variants).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PhysicsDomain {
     /// Lattice QCD: gauge force, plaquette, HMC (tolerant of FMA)
@@ -47,6 +59,16 @@ pub enum PhysicsDomain {
     MolecularDynamics,
     /// Nuclear EOS: BCS pairing, HFB (moderate)
     NuclearEos,
+    /// Population PK/PD: FOCE gradient, VPC Monte Carlo (moderate, from healthSpring)
+    PopulationPk,
+    /// Bioinformatics: bipartition encode, sequence alignment (throughput-bound)
+    Bioinformatics,
+    /// Hydrology: flow transport, dispersion (moderate)
+    Hydrology,
+    /// Statistics: bootstrap, chi-squared, regression (throughput-bound)
+    Statistics,
+    /// General-purpose: no domain-specific requirements (throughput-bound)
+    General,
 }
 
 /// Precision routing advice for a given domain and hardware.
@@ -95,7 +117,10 @@ pub fn route_precision(domain: PhysicsDomain, gpu: &GpuF64) -> PrecisionRoutingA
                 }
             }
         }
-        PhysicsDomain::GradientFlow | PhysicsDomain::NuclearEos => {
+        PhysicsDomain::GradientFlow
+        | PhysicsDomain::NuclearEos
+        | PhysicsDomain::PopulationPk
+        | PhysicsDomain::Hydrology => {
             if hw_supports_native && !is_df64_mode {
                 PrecisionRoutingAdvice {
                     tier: PrecisionTier::F64,
@@ -107,14 +132,17 @@ pub fn route_precision(domain: PhysicsDomain, gpu: &GpuF64) -> PrecisionRoutingA
                 PrecisionRoutingAdvice {
                     tier: PrecisionTier::DF64,
                     fma_safe: true,
-                    rationale: "DF64 provides sufficient precision for flow/EOS",
+                    rationale: "DF64 provides sufficient precision for moderate domains",
                     hw_advice,
                 }
             }
         }
         PhysicsDomain::LatticeQcd
         | PhysicsDomain::KineticFluid
-        | PhysicsDomain::MolecularDynamics => {
+        | PhysicsDomain::MolecularDynamics
+        | PhysicsDomain::Bioinformatics
+        | PhysicsDomain::Statistics
+        | PhysicsDomain::General => {
             if hw_supports_native && !is_df64_mode {
                 PrecisionRoutingAdvice {
                     tier: PrecisionTier::F64,
@@ -242,6 +270,11 @@ mod tests {
             PhysicsDomain::Eigensolve,
             PhysicsDomain::MolecularDynamics,
             PhysicsDomain::NuclearEos,
+            PhysicsDomain::PopulationPk,
+            PhysicsDomain::Bioinformatics,
+            PhysicsDomain::Hydrology,
+            PhysicsDomain::Statistics,
+            PhysicsDomain::General,
         ];
         for domain in domains {
             assert!(matches!(
@@ -253,6 +286,11 @@ mod tests {
                     | PhysicsDomain::Eigensolve
                     | PhysicsDomain::MolecularDynamics
                     | PhysicsDomain::NuclearEos
+                    | PhysicsDomain::PopulationPk
+                    | PhysicsDomain::Bioinformatics
+                    | PhysicsDomain::Hydrology
+                    | PhysicsDomain::Statistics
+                    | PhysicsDomain::General
             ));
         }
     }

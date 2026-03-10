@@ -1,11 +1,11 @@
 # Chuna Papers — Parity & Extensions Status
 
-**Last Updated**: March 10, 2026 (v0.6.27 — upstream primal sync + coralReef Iter 29 validation)
-**Crate**: hotspring-barracuda v0.6.27 (842 lib tests, 111+ binaries)
-**Rewired to**: barraCuda v0.3.4 (`59c8ec5`), toadStool S144, coralReef Phase 10 Iter 29
-**Sovereign pipeline**: coralReef live — **45/46** standalone shaders compile to native SM70/SM86 SASS (Iter 29). 12/12 NVVM bypass patterns. Full `GpuBackend` impl. IPC discovery wired. `sovereign-dispatch` feature available.
+**Last Updated**: March 10, 2026 (v0.6.28 — upstream primal sync + coralReef Iter 30 validation)
+**Crate**: hotspring-barracuda v0.6.28 (842 lib tests, 111+ binaries)
+**Rewired to**: barraCuda v0.3.4 (`a012076`), toadStool S145, coralReef Phase 10 Iter 30
+**Sovereign pipeline**: coralReef live — **45/46** standalone shaders compile to native SM70/SM86 SASS (Iter 30). 12/12 NVVM bypass patterns. Full `GpuBackend` impl. IPC discovery wired. `sovereign-dispatch` feature available.
 **Demo-ready**: **44/44 overnight checks pass** — core paper reproduction 41/41 (11 quenched flow + 20 dielectric + 10 kinetic-fluid). **Dynamical N_f=4 extension: 3/3 pass** (flow monotonic, acceptance 85%, plaquette 0.470). NPU-steered warm-start with mass annealing.
-**Handoff**: `wateringHole/handoffs/HOTSPRING_V0627_UPSTREAM_SYNC_HANDOFF_MAR10_2026.md`
+**Handoff**: `wateringHole/handoffs/HOTSPRING_V0628_UPSTREAM_SYNC_HANDOFF_MAR10_2026.md`
 
 ---
 
@@ -167,7 +167,7 @@ Paper 45: [██████████] 100% — COMPLETE (incl. GPU Euler + 
 
 | Category | Result |
 |----------|--------|
-| Standalone-parseable shaders | **45/46** compile to SM70/SM86 SASS (Iter 29) |
+| Standalone-parseable shaders | **45/46** compile to SM70/SM86 SASS (Iter 30) |
 | Template-dependent shaders | 28 (expected — preprocessed inline) |
 | Compilation gap | `complex_f64` CoralReefDevice compile failure (1 shader) |
 | NVVM bypass patterns | 12/12 pass (3 poisoning patterns × 6 GPU targets) |
