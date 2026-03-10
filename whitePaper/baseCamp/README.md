@@ -2,9 +2,9 @@
 
 **Date:** 2026-03-10
 **Project:** hotSpring (ecoPrimals)
-**Status:** v0.6.25, experiments 001-049, 840 lib tests, 39/39 validation suites, 111+ binaries, 84 WGSL shaders
+**Status:** v0.6.26, experiments 001-050, 842 lib tests, 39/39 validation suites, 111+ binaries, 84 WGSL shaders
 
-**Notes:** Self-routing precision brain (Exp 049): hardware calibration probes 4 tiers per GPU, NVVM device poisoning discovered and gated, dual-GPU cooperative patterns profiled. Chuna Papers 43-45: **44/44 overnight checks pass** — core paper reproduction 41/41 (11 quenched flow + 20 dielectric + 10 kinetic-fluid). Dynamical N_f=4 extension: 3/3 pass (flow monotonic, acceptance 85%, plaquette 0.470). Precision stability (Exp 046): 9 cancellation families audited (f32/DF64/f64/CKKS FHE), stable BCS v² + W(z). coralReef Phase 10 Iter 26: sovereign WGSL→native compilation 44/46 shaders, full `GpuBackend` impl via `Mutex<GpuContext>` (`ComputeDevice: Send+Sync` resolved). All AGPL-3.0-only.
+**Notes:** Upstream primal rewire: barraCuda `83aa08a` (eigensolver, activations, PRNG), coralReef Iter 29 NVVM bypass integrated (sovereign-safe tiers in PrecisionBrain), toadStool S142 PcieTransport + ResourceOrchestrator referenced. Self-routing precision brain (Exp 049): hardware calibration probes 4 tiers per GPU, NVVM device poisoning discovered and gated, coralReef sovereign bypass unlocks blocked tiers. coralReef Iter 29 sovereign validation (Exp 050): **45/46** shaders compile to native SM70/SM86 SASS, 12/12 NVVM bypass patterns, `deformed_potentials_f64` SSARef fix confirmed. Chuna Papers 43-45: **44/44 overnight checks pass**. All AGPL-3.0-only.
 
 ---
 
@@ -46,8 +46,8 @@ Published paper (Python/FORTRAN/HPC)
 ## Cross-References
 
 - **wetSpring** (`../../../wetSpring/whitePaper/baseCamp/`): Per-faculty briefings for bio/phylogenetic domains. Shares DF64, ESN, and pairwise distance shaders via barraCuda.
-- **barraCuda** (`../../../barraCuda/`): Standalone compute primal (budded from toadStool S89). 767+ WGSL shaders, DF64, precision system, lattice QCD.
-- **coralReef** (`../../../coralReef/`): Sovereign shader compiler primal (Phase 10, Iter 26). WGSL→native binary compilation. 44/46 hotSpring shaders compile.
-- **toadStool** (`../../../phase1/toadStool/`): Shared compute ecosystem. barraCuda retains legacy copy; Springs migrating to standalone.
-- **Experiment journals**: `../../experiments/` (001-048)
+- **barraCuda** (`../../../barraCuda/`): Standalone compute primal (budded from toadStool S89). 792+ WGSL shaders, DF64, precision system, lattice QCD, eigensolver, activations API.
+- **coralReef** (`../../../coralReef/`): Sovereign shader compiler primal (Phase 10, Iter 29). WGSL→native binary compilation. NVVM poisoning bypass validated (Iter 28). NVIDIA last-mile pipeline (Iter 29).
+- **toadStool** (`../../../phase1/toadStool/`): Hardware discovery and orchestration (S142). PcieTransport, ResourceOrchestrator, GPU sysmon telemetry.
+- **Experiment journals**: `../../experiments/` (001-050)
 - **Handoffs**: `../../wateringHole/handoffs/` (fossil record of all cross-project exchanges)

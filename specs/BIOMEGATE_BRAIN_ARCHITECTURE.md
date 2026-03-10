@@ -1,18 +1,18 @@
 # Spec: biomeGate Brain Architecture
 
-**Status:** DRAFT (updated March 10, 2026 — Precision Brain addition)
-**Date:** February 28, 2026 (original); March 10, 2026 (Precision Brain update)
+**Status:** DRAFT (updated March 10, 2026 — Precision Brain + coralReef Bypass)
+**Date:** February 28, 2026 (original); March 10, 2026 (Precision Brain + coralReef update)
 **License:** AGPL-3.0-only
 **Depends on:** Exp 024 (dynamical production), Exp 025 (multi-GPU), Exp 026 (4D proxy), Exp 049 (Precision Brain)
 
-> **March 10, 2026 Update:** v0.6.25 adds a hardware-layer **Precision Brain**
-> (`precision_brain.rs`) beneath this 4-layer architecture. The Precision Brain
-> handles per-GPU precision routing: it probes all 4 tiers (F32, F64, F64Precise,
-> DF64) at startup, discovers which tiers compile and dispatch correctly, and
-> routes physics domains to the best available tier. Critical finding: NVIDIA's
-> proprietary driver permanently poisons the wgpu device on failed DF64
-> transcendental compilation — the Precision Brain gates this. See Exp 049 and
-> `HOTSPRING_V0625_PRECISION_BRAIN_NVVM_POISONING_HANDOFF_MAR10_2026.md`.
+> **March 10, 2026 Update (v0.6.26):** The **Precision Brain** now integrates
+> coralReef's NVVM bypass (Iteration 28). `HardwareCalibration` tracks
+> `sovereign_compile_available` and `PrecisionBrain` auto-detects coralReef at
+> startup. When NVVM transcendental risk is present and coralReef is available,
+> NVVM-blocked tiers (DF64 transcendentals, F64Precise no-FMA) become
+> sovereign-safe — the brain routes through coralReef's WGSL→SASS pipeline.
+> toadStool S142 added `PcieTransport` and `ResourceOrchestrator` for future
+> orchestration integration. See `HOTSPRING_V0626_UPSTREAM_REWIRE_HANDOFF_MAR10_2026.md`.
 
 ---
 

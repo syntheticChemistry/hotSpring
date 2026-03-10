@@ -1,6 +1,6 @@
 # Chuna Paper Reproduction — Review Package
 
-**Date**: March 9, 2026 (v0.6.24 — modern primal rewire)
+**Date**: March 10, 2026 (v0.6.26 — upstream primal rewire + coralReef Iter 29)
 **Author**: Kevin Mok (mokkevin@msu.edu)
 **Hardware**: biomeGate — Threadripper 3970X, RTX 3090 (24 GB), Titan V (12 GB HBM2), ~$4K used parts
 **License**: AGPL-3.0

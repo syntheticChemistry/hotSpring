@@ -1,8 +1,8 @@
 # Paper 43: SU(3) Gradient Flow Integrators
 
 **Paper:** Bazavov, A. & Chuna, T. "Efficient integration of gradient flow in lattice gauge theory and properties of low-storage commutator-free Lie group methods." arXiv:2101.05320 (2021)
-**Updated:** March 8, 2026
-**Status:** ✅ **11/11 core checks pass** (quenched CPU + GPU); 3 dynamical extension checks (1 pass, 2 failing — requires warm-start thermalization strategy)
+**Updated:** March 10, 2026
+**Status:** ✅ **11/11 core checks pass** (quenched CPU + GPU); dynamical N_f=4 ext **3/3 pass** (warm-start mass annealing, NPU-steered adaptive Omelyan HMC, 85% acceptance at m=0.1)
 **Hardware:** biomeGate (RTX 3090 + Titan V)
 
 ---

@@ -118,9 +118,9 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **RHMC Infrastructure** | ✅ Complete | `RationalApproximation` + `multi_shift_cg_solve` for fractional flavors (N_f=2, 2+1) |
 | **Precision Stability** (Exp 046) | ✅ Complete | 9/9 cancellation families audited (f32/DF64/f64/CKKS FHE). Stable BCS v² + plasma W(z). 10 stability tests |
 | **Chuna Overnight** (Papers 43-45) | ✅ **44/44** | Core paper reproduction 41/41 (11 quenched flow + 20 dielectric + 10 kinetic-fluid). **Dynamical N_f=4 extension: 3/3 pass** — warm-start mass annealing, NPU-steered adaptive Omelyan HMC, 85% acceptance at m=0.1. `cscale` shader fix (multi-comp 4%→100%), precise pipeline routing. |
-| **coralReef Integration** | ✅ Complete | Sovereign WGSL→native compilation: 44/46 standalone shaders compile to SM70/SM86 SASS (Iter 26). Full `GpuBackend` impl via `Mutex<GpuContext>` (`Send+Sync` unblocked). IPC discovery wired. `sovereign-dispatch` feature gate. Remaining gap: `deformed_potentials_f64` SSARef truncation. |
-| **Precision Brain** (Exp 049) | ✅ Complete | Self-routing brain: safe hardware calibration (4 tiers probed per GPU), domain→tier routing table (7 domains), **NVVM device poisoning discovered and gated**. Titan V (NVK): full 4-tier. RTX 3090 (proprietary): F64+F32 full, DF64/F64Precise △arith only. Dual-GPU cooperative: Split BCS 2.2×, PCIe 1.2 GB/s. 840 lib tests. |
-| **TOTAL** | **39/39 Rust validation suites** | **840 tests (lib)**, 111+ binaries, 84 WGSL shaders, 34/35 NPU HW checks. Zero clippy (lib+bins), zero unsafe, all AGPL-3.0-only. Both GPUs validated, DF64 production, Nautilus unified brain, **live AKD1000 PCIe NPU: 12-head brain, barraCuda v0.3.3 + toadStool S138 + coralReef P10 synced**. **Precision brain: self-routing hardware calibration, NVVM poisoning discovered + gated.** Science ladder: Quenched ✅ → Gradient Flow ✅ → Integrators ✅ → N_f=4 Infra ✅ → **Chuna 44/44** (core 41/41, dynamical ext 3/3) → N_f=2 (pending) → N_f=2+1 (pending). Stability: Tier 1 COMPLETE (Exp 046). Deep debt: **zero**. |
+| **coralReef Integration** | ✅ Complete | Sovereign WGSL→native compilation: **45/46** shaders compile to SM70/SM86 SASS (Iter 29). 12/12 NVVM bypass patterns pass (all 3 poisoning patterns × 6 GPU targets). `deformed_potentials_f64` SSARef truncation **fixed** in Iter 29. Full `GpuBackend` impl via `Mutex<GpuContext>` (`Send+Sync` unblocked). IPC discovery wired. `sovereign-dispatch` feature gate. Remaining gap: NVIDIA DRM dispatch (compile-ready, dispatch-blocked). |
+| **Precision Brain** (Exp 049) | ✅ Complete | Self-routing brain: safe hardware calibration (4 tiers probed per GPU), domain→tier routing table (7 domains), **NVVM device poisoning discovered and gated**. coralReef sovereign bypass integrated (Iter 28): NVVM-blocked tiers unlockable via WGSL→SASS. Titan V (NVK): full 4-tier. RTX 3090 (proprietary): F64+F32 full, DF64/F64Precise △arith (✓sov with coralReef). Dual-GPU cooperative: Split BCS 2.2×, PCIe 1.2 GB/s. 842 lib tests. |
+| **TOTAL** | **39/39 Rust validation suites** | **842 tests (lib)**, 111+ binaries, 84 WGSL shaders, 34/35 NPU HW checks. Zero clippy (lib+bins), zero unsafe, all AGPL-3.0-only. Both GPUs validated, DF64 production, Nautilus unified brain, **live AKD1000 PCIe NPU: 12-head brain, barraCuda `83aa08a` + toadStool S142 + coralReef Iter 29 synced**. **Precision brain: self-routing hardware calibration, NVVM poisoning discovered + gated, coralReef sovereign bypass integrated.** Science ladder: Quenched ✅ → Gradient Flow ✅ → Integrators ✅ → N_f=4 Infra ✅ → **Chuna 44/44** (core 41/41, dynamical ext 3/3) → N_f=2 (pending) → N_f=2+1 (pending). Stability: Tier 1 COMPLETE (Exp 046). Deep debt: **zero**. |
 
 Papers 5, 7, 8, and 10 from the review queue are complete. Paper 5 transport fits
 (Daligault 2012) were recalibrated against 12 Sarkas Green-Kubo D* values (Feb 2026)
@@ -381,7 +381,7 @@ makes the upstream library richer and hotSpring leaner.
 - HFB shader suite — potentials + density + BCS bisection (14+GPU+6 checks, Tier 2)
 - NPU substrate discovery — `metalForge/forge/src/probe.rs` (local evolution)
 
-**Already leaning on upstream** (v0.6.25, synced to barraCuda v0.3.3 + toadStool S138 + coralReef Phase 10 Iter 26, wgpu 28, pollster 0.3, bytemuck 1.25, tokio 1.50):
+**Already leaning on upstream** (v0.6.26, synced to barraCuda `83aa08a` + toadStool S142 + coralReef Phase 10 Iter 29, wgpu 28, pollster 0.3, bytemuck 1.25, tokio 1.50):
 
 | Module | Upstream | Status |
 |--------|----------|--------|
@@ -406,7 +406,7 @@ makes the upstream library richer and hotSpring leaner.
 The `barracuda/` directory is a standalone Rust crate providing the validation
 environment, physics implementations, and GPU compute. Key architectural properties:
 
-- **840 tests** (lib), **111+ binaries**, **39 validation suites** (39/39 pass), **84 WGSL shaders** (all AGPL-3.0-only),
+- **842 tests** (lib), **111+ binaries**, **39 validation suites** (39/39 pass), **84 WGSL shaders** (all AGPL-3.0-only),
   **16 determinism tests** (rerun-identical for all stochastic algorithms). Includes
   lattice QCD (complex f64, SU(3), Wilson action, HMC, Dirac CG, pseudofermion HMC),
   Abelian Higgs (U(1) + Higgs, HMC), transport coefficients (Green-Kubo D*/η*/λ*,
@@ -556,7 +556,7 @@ hotSpring/
 │       ├── cross_spring_evolution.md  # Cross-spring shader ecosystem (164+ shaders)
 │       └── neuromorphic_silicon.md    # AKD1000 NPU exploration — silicon behavior, cross-substrate ESN
 │
-├── barracuda/                          # BarraCuda Rust crate — v0.6.25 (840 tests, 111+ binaries, 84 WGSL shaders)
+├── barracuda/                          # BarraCuda Rust crate — v0.6.26 (842 tests, 111+ binaries, 84 WGSL shaders)
 │   ├── Cargo.toml                     # Dependencies (requires ecoPrimals/barraCuda)
 │   ├── CHANGELOG.md                   # Version history — baselines, tolerances, evolution
 │   ├── EVOLUTION_READINESS.md         # Rust module → GPU promotion tier + absorption status
@@ -981,6 +981,7 @@ These are **silent failures** — wrong results, no error messages. This fragili
 | [`experiments/047_DSF_VS_MD_VALIDATION.md`](experiments/047_DSF_VS_MD_VALIDATION.md) | DSF vs MD spectral validation |
 | [`experiments/048_PRODUCTION_GRADIENT_FLOW.md`](experiments/048_PRODUCTION_GRADIENT_FLOW.md) | Production gradient flow runs |
 | [`experiments/049_PRECISION_BRAIN_HETEROGENEOUS_EVAL.md`](experiments/049_PRECISION_BRAIN_HETEROGENEOUS_EVAL.md) | **Precision brain + heterogeneous GPU eval**: 3-tier harness, NVVM poisoning, dual-card cooperative |
+| [`experiments/050_CORALREEF_ITER29_SOVEREIGN_VALIDATION.md`](experiments/050_CORALREEF_ITER29_SOVEREIGN_VALIDATION.md) | **coralReef Iter 29 sovereign validation**: 45/46 compile, 12/12 NVVM bypass, `deformed_potentials_f64` fixed, gap analysis for upstream |
 | [`experiments/032_FINITE_TEMP_DECONFINEMENT.md`](experiments/032_FINITE_TEMP_DECONFINEMENT.md) | Exp 032: Finite-temp deconfinement (32³×8, 64³×8 asymmetric lattices) |
 | [`experiments/033_REALITY_LADDER_RUNG0.md`](experiments/033_REALITY_LADDER_RUNG0.md) | Exp 033: Reality ladder rung 0 — mass scan (479 traj, 5 masses, 3 volumes) |
 | [`experiments/040_KOKKOS_LAMMPS_VALIDATION.md`](experiments/040_KOKKOS_LAMMPS_VALIDATION.md) | Exp 040: Kokkos/LAMMPS validation baseline (9 PP Yukawa DSF cases) |
@@ -1035,8 +1036,9 @@ pipeline is live. biomeGate (RTX 3090, 24GB) resolves the QCD deconfinement
 transition at 32⁴ (χ=40.1 at β=5.69, matching β_c=5.692) in 13.6 hours for
 $0.58. Self-routing precision brain: hardware calibration probes 4 tiers per GPU,
 NVVM device poisoning discovered and gated, dual-GPU cooperative patterns profiled
-(Split BCS 2.2×, PCIe 1.2 GB/s). 49+ experiments, 111+ binaries, 840 tests,
-barraCuda v0.3.3 + toadStool S138 + coralReef Phase 10 Iter 26 synced. Full multi-tier precision stability analysis
+(Split BCS 2.2×, PCIe 1.2 GB/s). coralReef sovereign bypass integrated (Iter 28).
+49+ experiments, 111+ binaries, 842 tests,
+barraCuda `83aa08a` + toadStool S142 + coralReef Phase 10 Iter 29 synced. Full multi-tier precision stability analysis
 (Exp 046): 9 cancellation families audited across f32/DF64/f64/CKKS FHE —
 stable BCS v² and plasma W(z) algorithms enable safe DF64 throughput. Chuna
 Papers 43-45: **44/44 overnight checks pass** (41 core + 3 dynamical extension)

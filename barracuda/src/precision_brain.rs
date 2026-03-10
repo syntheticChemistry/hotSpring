@@ -29,6 +29,38 @@ use crate::hardware_calibration::HardwareCalibration;
 use crate::precision_routing::{PhysicsDomain, PrecisionRoutingAdvice, PrecisionTier};
 pub use crate::precision_routing::HwPrecisionAdvice;
 
+/// Detect whether coralReef sovereign compilation is available.
+///
+/// Checks for the coralReef XDG manifest or well-known socket paths.
+/// When available, the sovereign path can bypass NVVM for shader
+/// compilation (coralReef Iteration 28 validated this for all three
+/// NVVM-poisoning patterns).
+fn detect_sovereign_available() -> bool {
+    // Check XDG_DATA_DIRS for coralReef manifest
+    let xdg_dirs = std::env::var("XDG_DATA_DIRS")
+        .unwrap_or_else(|_| "/usr/local/share:/usr/share".to_string());
+    for dir in xdg_dirs.split(':') {
+        let manifest = std::path::Path::new(dir).join("coralreef/manifest.json");
+        if manifest.exists() {
+            return true;
+        }
+    }
+    // Check XDG_RUNTIME_DIR for coralReef socket
+    if let Ok(runtime_dir) = std::env::var("XDG_RUNTIME_DIR") {
+        let sock = std::path::Path::new(&runtime_dir).join("coralreef/coralreef.sock");
+        if sock.exists() {
+            return true;
+        }
+    }
+    // Check well-known tmp socket
+    for e in std::fs::read_dir("/tmp").into_iter().flatten().flatten() {
+        if e.file_name().to_string_lossy().starts_with("coralreef-") {
+            return true;
+        }
+    }
+    false
+}
+
 /// Self-routing precision brain for a single GPU.
 ///
 /// Constructed once at startup via `PrecisionBrain::new()`, which runs a
@@ -45,8 +77,19 @@ impl PrecisionBrain {
     ///
     /// Runs 4 compilation probes (F32, F64, DF64, F64Precise) and uses
     /// the results to build a safe routing table for all physics domains.
+    /// Detects coralReef sovereign compilation availability and factors
+    /// it into routing when NVVM transcendental risk is present.
     pub fn new(gpu: &GpuF64) -> Self {
-        let calibration = HardwareCalibration::probe(gpu);
+        let mut calibration = HardwareCalibration::probe(gpu);
+
+        if calibration.nvvm_transcendental_risk && detect_sovereign_available() {
+            calibration.set_sovereign_available();
+            eprintln!(
+                "[Brain] coralReef sovereign bypass detected — \
+                 NVVM-blocked tiers unlockable via WGSL → SASS pipeline"
+            );
+        }
+
         eprintln!("[Brain] {calibration}");
 
         let route_table = build_route_table(&calibration, gpu);
@@ -169,14 +212,20 @@ fn route_domain(
     cal: &HardwareCalibration,
     hw_native: bool,
 ) -> PrecisionTier {
+    // Use sovereign-aware safety check when coralReef bypass is available.
+    // This upgrades tiers that dispatch but fail NVVM transcendentals
+    // (e.g. DF64 on proprietary NVIDIA) to fully safe via coralReef's
+    // WGSL → SASS pipeline (validated in coralReef Iteration 28).
+    let safe = |tier| cal.tier_safe_with_sovereign(tier);
+
     match domain {
         // Precision-critical: prefer F64Precise, fall back through tiers
         PhysicsDomain::Dielectric | PhysicsDomain::Eigensolve => {
-            if hw_native && cal.tier_safe(PrecisionTier::F64Precise) {
+            if hw_native && safe(PrecisionTier::F64Precise) {
                 PrecisionTier::F64Precise
-            } else if cal.tier_safe(PrecisionTier::F64) {
+            } else if safe(PrecisionTier::F64) {
                 PrecisionTier::F64
-            } else if cal.tier_safe(PrecisionTier::DF64) {
+            } else if safe(PrecisionTier::DF64) {
                 PrecisionTier::DF64
             } else {
                 PrecisionTier::F32
@@ -184,9 +233,9 @@ fn route_domain(
         }
         // Moderate precision: prefer F64, fall back to DF64
         PhysicsDomain::GradientFlow | PhysicsDomain::NuclearEos => {
-            if cal.tier_safe(PrecisionTier::F64) {
+            if safe(PrecisionTier::F64) {
                 PrecisionTier::F64
-            } else if cal.tier_safe(PrecisionTier::DF64) {
+            } else if safe(PrecisionTier::DF64) {
                 PrecisionTier::DF64
             } else {
                 PrecisionTier::F32
@@ -196,14 +245,13 @@ fn route_domain(
         PhysicsDomain::LatticeQcd
         | PhysicsDomain::KineticFluid
         | PhysicsDomain::MolecularDynamics => {
-            if cal.tier_safe(PrecisionTier::F64) {
-                // If DF64 is also available and F64 is throttled, prefer DF64
-                if cal.tier_safe(PrecisionTier::DF64) && is_f64_throttled(cal) {
+            if safe(PrecisionTier::F64) {
+                if safe(PrecisionTier::DF64) && is_f64_throttled(cal) {
                     PrecisionTier::DF64
                 } else {
                     PrecisionTier::F64
                 }
-            } else if cal.tier_safe(PrecisionTier::DF64) {
+            } else if safe(PrecisionTier::DF64) {
                 PrecisionTier::DF64
             } else {
                 PrecisionTier::F32
@@ -258,6 +306,7 @@ mod tests {
     use super::*;
     use crate::hardware_calibration::TierCapability;
 
+    #[allow(clippy::fn_params_excessive_bools)]
     fn make_cal(f32_ok: bool, f64_ok: bool, df64_ok: bool, precise_ok: bool) -> HardwareCalibration {
         let mk = |tier, ok: bool| TierCapability {
             tier,
@@ -279,6 +328,7 @@ mod tests {
             has_any_f64: f64_ok || precise_ok,
             df64_safe: df64_ok,
             nvvm_transcendental_risk: false,
+            sovereign_compile_available: false,
         }
     }
 
@@ -336,5 +386,74 @@ mod tests {
         for (i, &domain) in ALL_DOMAINS.iter().enumerate() {
             assert_eq!(domain_index(domain), i);
         }
+    }
+
+    #[test]
+    fn sovereign_bypass_unlocks_precise_on_nvvm_blocked_gpu() {
+        // Simulate RTX 3090: F64 works, but F64Precise/DF64 lack transcendentals
+        let mut cal = HardwareCalibration {
+            adapter_name: "NVIDIA GeForce RTX 3090".into(),
+            tiers: vec![
+                TierCapability {
+                    tier: PrecisionTier::F32,
+                    compiles: true,
+                    dispatches: true,
+                    transcendentals_safe: true,
+                    compile_us: 50.0,
+                    dispatch_us: 30.0,
+                    probe_ulp: 0.0,
+                },
+                TierCapability {
+                    tier: PrecisionTier::F64,
+                    compiles: true,
+                    dispatches: true,
+                    transcendentals_safe: true,
+                    compile_us: 200.0,
+                    dispatch_us: 500.0,
+                    probe_ulp: 0.0,
+                },
+                TierCapability {
+                    tier: PrecisionTier::DF64,
+                    compiles: true,
+                    dispatches: true,
+                    transcendentals_safe: false,
+                    compile_us: 150.0,
+                    dispatch_us: 60.0,
+                    probe_ulp: 2.0,
+                },
+                TierCapability {
+                    tier: PrecisionTier::F64Precise,
+                    compiles: true,
+                    dispatches: true,
+                    transcendentals_safe: false,
+                    compile_us: 200.0,
+                    dispatch_us: 80.0,
+                    probe_ulp: 0.0,
+                },
+            ],
+            has_any_f64: true,
+            df64_safe: true,
+            nvvm_transcendental_risk: true,
+            sovereign_compile_available: false,
+        };
+
+        // Without sovereign: DF64/F64Precise blocked, MD routes to F64 (throttled but safe)
+        let tier_no_sov = route_domain(PhysicsDomain::MolecularDynamics, &cal, true);
+        assert_eq!(tier_no_sov, PrecisionTier::F64);
+
+        // Dielectric: wants F64Precise, but it's blocked → falls to F64
+        let tier_no_sov_di = route_domain(PhysicsDomain::Dielectric, &cal, true);
+        assert_eq!(tier_no_sov_di, PrecisionTier::F64);
+
+        // Enable sovereign bypass (coralReef detected)
+        cal.set_sovereign_available();
+
+        // With sovereign: DF64 now safe via bypass, F64 is throttled → DF64
+        let tier_sov = route_domain(PhysicsDomain::MolecularDynamics, &cal, true);
+        assert_eq!(tier_sov, PrecisionTier::DF64);
+
+        // Dielectric: F64Precise now safe via bypass
+        let tier_sov_di = route_domain(PhysicsDomain::Dielectric, &cal, true);
+        assert_eq!(tier_sov_di, PrecisionTier::F64Precise);
     }
 }

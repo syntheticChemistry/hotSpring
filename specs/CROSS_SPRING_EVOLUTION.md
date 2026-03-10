@@ -2,10 +2,10 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 # Cross-Spring Shader Evolution — hotSpring's View
 
-**Date:** March 9, 2026
-**Synced to:** barraCuda v0.3.3, toadStool S138, coralReef Phase 10 Iter 26
-**hotSpring:** v0.6.24 — 769 tests, 101+ binaries, 84 WGSL shaders, Chuna 44/44, coralReef sovereign compile 44/46
-**Rewired:** LSCFRK imports from `barracuda::numerical::lscfrk`, sovereign compiler validated (47 call sites, 498 FMA fusions). CoralReefDevice full GpuBackend impl
+**Date:** March 10, 2026
+**Synced to:** barraCuda v0.3.3 (`83aa08a`), toadStool S142, coralReef Phase 10 Iter 29
+**hotSpring:** v0.6.26 — 842 tests, 111+ binaries, 84 WGSL shaders, Chuna 44/44, coralReef sovereign compile **45/46** (Iter 29), 12/12 NVVM bypass
+**Rewired:** LSCFRK imports from `barracuda::numerical::lscfrk`, sovereign compiler validated (47 call sites, 498 FMA fusions). CoralReefDevice full GpuBackend impl. PrecisionBrain self-routing with sovereign bypass.
 **License:** AGPL-3.0-only
 
 ---
@@ -422,8 +422,9 @@ hotSpring → spectral/stats → all springs (RMT-based phase classification)
 
 ### toadStool Pin Recommendation
 
-toadStool tracks hotSpring at v0.6.17. Recommend bump to v0.6.21:
-- Chuna papers: completed Mermin, GPU BGK, DSF vs MD validation, production gradient flow
+toadStool tracks hotSpring at v0.6.26 (synced S142). Current sync is up-to-date:
+- Chuna papers 43-45: 44/44 overnight checks pass
+- Precision brain: self-routing, NVVM poisoning gated, coralReef sovereign bypass (45/46, 12/12 NVVM bypass)
 - Precision stability: Exp 046 (f32/DF64/f64/FHE analysis)
 - LSCFRK rewired to shared barraCuda (`barracuda::numerical::lscfrk`)
 - Sovereign compiler validated (47 call sites × 731 tests, 498 FMA fusions)

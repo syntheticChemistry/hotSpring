@@ -5,6 +5,61 @@ All notable changes to the hotSpring BarraCuda validation crate.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.6.26 — Upstream Primal Rewire: coralReef NVVM Bypass + barraCuda 83aa08a + toadStool S142 (March 10, 2026)
+
+### Summary
+
+- **barraCuda pin updated** (`5c16458` → `83aa08a`, 5 commits): eigensolver
+  (`tridiagonal_ql`), LCG PRNG, activations API, Wright-Fisher popgen,
+  batched f32 logsumexp shader, 5,658 LOC dead code removed upstream
+- **coralReef NVVM bypass integrated**: `HardwareCalibration` now tracks
+  `sovereign_compile_available`. When coralReef is detected and NVVM
+  transcendental risk is present, the `PrecisionBrain` routes through
+  sovereign-safe tiers — unlocking DF64 transcendentals and F64Precise
+  (no-FMA) on proprietary NVIDIA via coralReef Iteration 28's
+  WGSL → SASS bypass pipeline
+- **toadStool S142 references**: `DevicePair` and `WorkloadPlanner` now
+  reference toadStool's `PcieTransport` (GPU-to-GPU topology) and
+  `ResourceOrchestrator` (multi-tenant allocation) for future integration
+- **coralReef Iter 29 validated** (Experiment 050): 45/46 shaders compile
+  to native SASS (up from 44/46). `deformed_potentials_f64` SSARef
+  truncation fixed. 12/12 NVVM bypass patterns pass. ~220 KB native
+  output per target arch
+
+### Metrics
+
+- 842 tests (lib), 111+ binaries, 84 WGSL shaders
+- 0 clippy warnings (lib + all binaries)
+- 0 unsafe blocks, 0 TODO/FIXME, all files <1000 lines
+- Synced: barraCuda `83aa08a`, toadStool S142, coralReef Phase 10 Iter 29
+- Sovereign compile: **45/46** SM70+SM86 (Iter 29), 12/12 NVVM bypass
+
+### New
+
+- `HardwareCalibration::sovereign_compile_available` — tracks coralReef
+  bypass availability for NVVM-blocked tiers
+- `HardwareCalibration::set_sovereign_available()` — marks sovereign path
+  as active after coralReef detection
+- `HardwareCalibration::tier_safe_with_sovereign()` — considers sovereign
+  bypass when evaluating tier safety
+- `PrecisionBrain::new()` auto-detects coralReef via XDG manifest / socket
+  and enables sovereign routing when NVVM risk is present
+- Display output: `✓sov` for sovereign-safe tiers, `[coralReef bypass]`
+  suffix when sovereign compilation is active
+
+### Changed
+
+- `build_route_table` uses `tier_safe_with_sovereign()` — routes that
+  previously fell back to F64 or F32 due to NVVM transcendental risk now
+  reach F64Precise and DF64 when coralReef is available
+- `DevicePair` module docs reference toadStool S142 `PcieTransport`
+- `WorkloadPlanner` module docs reference toadStool S142 `ResourceOrchestrator`
+
+### Handoff
+
+`HOTSPRING_V0626_UPSTREAM_REWIRE_HANDOFF_MAR10_2026.md` — upstream
+primal sync, coralReef NVVM bypass integration, toadStool S142 evolution.
+
 ## v0.6.25 — Precision Brain + NVVM Poisoning Discovery (March 10, 2026)
 
 ### Summary

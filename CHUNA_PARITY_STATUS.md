@@ -1,11 +1,11 @@
 # Chuna Papers — Parity & Extensions Status
 
-**Last Updated**: March 9, 2026 (v0.6.24 — modern primal rewire + coralReef integration)
-**Crate**: hotspring-barracuda v0.6.24 (769 lib tests, 101+ binaries)
-**Rewired to**: barraCuda v0.3.3 (`27011af`), toadStool S138, coralReef Phase 10 Iter 26
-**Sovereign pipeline**: coralReef live — 44/46 standalone shaders compile to native SM70/SM86 SASS (Iter 26). Full `GpuBackend` impl. IPC discovery wired. `sovereign-dispatch` feature available.
+**Last Updated**: March 10, 2026 (v0.6.26 — upstream primal rewire + coralReef Iter 29 validation)
+**Crate**: hotspring-barracuda v0.6.26 (842 lib tests, 111+ binaries)
+**Rewired to**: barraCuda v0.3.3 (`83aa08a`), toadStool S142, coralReef Phase 10 Iter 29
+**Sovereign pipeline**: coralReef live — **45/46** standalone shaders compile to native SM70/SM86 SASS (Iter 29). 12/12 NVVM bypass patterns. Full `GpuBackend` impl. IPC discovery wired. `sovereign-dispatch` feature available.
 **Demo-ready**: **44/44 overnight checks pass** — core paper reproduction 41/41 (11 quenched flow + 20 dielectric + 10 kinetic-fluid). **Dynamical N_f=4 extension: 3/3 pass** (flow monotonic, acceptance 85%, plaquette 0.470). NPU-steered warm-start with mass annealing.
-**Handoff**: `wateringHole/handoffs/HOTSPRING_V0624_MODERN_REWIRE_HANDOFF_MAR09_2026.md`
+**Handoff**: `wateringHole/handoffs/HOTSPRING_V0626_UPSTREAM_REWIRE_HANDOFF_MAR10_2026.md`
 
 ---
 

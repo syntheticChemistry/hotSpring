@@ -7,6 +7,14 @@
 //! - **Throughput**: DF64 on f32 cores for ~10x effective throughput (3090, 4070)
 //!
 //! The bridge models CPU-mediated PCIe transfer cost between the two cards.
+//!
+//! ## Upstream evolution (toadStool S142)
+//!
+//! toadStool S142 introduced `PcieTransport` (GPU-to-GPU topology discovery)
+//! and `ResourceOrchestrator` (multi-tenant GPU allocation). When hotSpring
+//! integrates toadStool's orchestration layer, `DevicePair` should delegate
+//! topology discovery to `PcieTransport` and allocation to
+//! `ResourceOrchestrator` instead of manual PCIe bandwidth estimation.
 
 use barracuda::device::driver_profile::Fp64Rate;
 use barracuda::unified_hardware::{BandwidthTier, PcieBridge, TransferCost};

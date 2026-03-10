@@ -26,17 +26,17 @@ dynamics, lattice QCD, spectral theory, and transport coefficients.
 
 ```
 hotSpring (this repo)
-  └── barracuda/              ← you are here (hotspring-barracuda v0.6.24)
-       ├── src/lib.rs         ← crate root (v0.6.24)
+  └── barracuda/              ← you are here (hotspring-barracuda v0.6.26)
+       ├── src/lib.rs         ← crate root (v0.6.26)
        ├── src/physics/       ← nuclear structure (L1/L2/L3 HFB, SEMF)
        ├── src/md/            ← GPU molecular dynamics (Yukawa OCP)
        ├── src/lattice/       ← lattice QCD (SU(3), HMC, Dirac, CG, Abelian Higgs)
        ├── src/spectral/      ← re-exports from upstream barracuda::spectral
        ├── src/gpu/           ← GPU FP64 device wrapper
-       ├── src/tolerances/    ← ~150 centralized validation thresholds
+       ├── src/tolerances/    ← ~170 centralized validation thresholds
        ├── src/provenance.rs  ← baseline + analytical provenance (DOIs, Python origins)
        ├── src/discovery.rs   ← capability-based data path + NPU discovery
-       └── src/bin/           ← 76 validation/benchmark binaries
+       └── src/bin/           ← 111+ validation/benchmark binaries
 ```
 
 ---
@@ -46,8 +46,7 @@ hotSpring (this repo)
 ```bash
 cd barracuda
 
-cargo test --lib          # 663 library tests
-cargo test                # 688 total (663 lib + 25 metalForge)
+cargo test --lib          # 842 library tests
 cargo clippy --all-targets  # 0 warnings (pedantic + nursery)
 cargo doc --no-deps       # Full API docs, 0 warnings
 
@@ -67,7 +66,7 @@ enforced crate-wide — all fallible operations use `?` propagation via `HotSpri
 
 ### Dependency on barraCuda
 
-hotspring-barracuda depends on the standalone `barracuda` crate (v0.3.1) for:
+hotspring-barracuda depends on the standalone `barracuda` crate (v0.3.3) for:
 
 | Primitive | Usage |
 |-----------|-------|
@@ -96,7 +95,7 @@ hotSpring implements physics locally (Rust + WGSL templates)
 | `lattice/` | Lattice QCD (SU(3), HMC, Dirac, CG) | ~200 | 7 |
 | `spectral/` | Re-exports from upstream barracuda | — | — |
 | `gpu/` | FP64 device wrapper, telemetry | ~30 | — |
-| `tolerances/` | ~150 centralized thresholds | ~20 | — |
+| `tolerances/` | ~170 centralized thresholds | ~20 | — |
 | `bench/` | Benchmark harness (RAPL, nvidia-smi) | ~10 | — |
 
 ### Key Properties
@@ -128,12 +127,13 @@ hotSpring implements physics locally (Rust + WGSL templates)
 
 See [CHANGELOG.md](CHANGELOG.md) for full version history.
 
-Current: **v0.6.24** (March 9, 2026)
-- 769 lib tests, 101+ binaries, 84 WGSL shaders, 0 clippy warnings
-- barraCuda v0.3.3, toadStool S138, coralReef Phase 10 Iter 26
+Current: **v0.6.26** (March 10, 2026)
+- 842 lib tests, 111+ binaries, 84 WGSL shaders, 0 clippy warnings
+- barraCuda v0.3.3 (`83aa08a`), toadStool S142, coralReef Phase 10 Iter 29
 - Chuna Papers 43-45: 44/44 overnight checks pass
-- coralReef sovereign compile: 44/46 shaders to native SM70/SM86 SASS
-- Full `GpuBackend` impl via `CoralReefDevice` (`Mutex<GpuContext>`)
+- coralReef sovereign compile: **45/46** shaders to native SM70/SM86 SASS
+- 12/12 NVVM bypass patterns compile (all 3 poisoning patterns × 6 targets)
+- Self-routing `PrecisionBrain`: hardware calibration, NVVM poisoning gated, sovereign bypass integrated
 - Deep technical debt resolution: zero files >1000 lines, zero unsafe
 
 ---

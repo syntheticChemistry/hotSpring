@@ -65,6 +65,7 @@ pub struct TierCapability {
 
 /// Complete hardware calibration for a single GPU.
 #[derive(Debug, Clone)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct HardwareCalibration {
     /// Adapter name.
     pub adapter_name: String,
@@ -78,6 +79,15 @@ pub struct HardwareCalibration {
     /// shaders containing f64 exp()/log() may NVVM-fail and poison
     /// the device, even if compiled at F32 tier.
     pub nvvm_transcendental_risk: bool,
+    /// Whether coralReef sovereign compilation is available. When true,
+    /// tiers that fail via NVVM (DF64 transcendentals, F64Precise no-FMA)
+    /// can be compiled through coralReef's WGSL → native SASS pipeline,
+    /// bypassing NVVM entirely.
+    ///
+    /// coralReef Iteration 28 proved this bypass works for all three
+    /// NVVM-poisoning shader patterns. Dispatch requires coral-driver
+    /// DRM maturation (AMD E2E ready, NVIDIA pending UVM).
+    pub sovereign_compile_available: bool,
 }
 
 impl HardwareCalibration {
@@ -146,7 +156,17 @@ impl HardwareCalibration {
             has_any_f64,
             df64_safe,
             nvvm_transcendental_risk,
+            sovereign_compile_available: false,
         }
+    }
+
+    /// Mark sovereign compilation as available (coralReef detected).
+    ///
+    /// Call after probe when coralReef is reachable. This unlocks
+    /// tiers that fail via NVVM but compile through coralReef's
+    /// WGSL → naga → codegen IR → native SASS pipeline.
+    pub fn set_sovereign_available(&mut self) {
+        self.sovereign_compile_available = true;
     }
 
     /// Look up a specific tier's capability.
@@ -162,6 +182,20 @@ impl HardwareCalibration {
     pub fn tier_safe(&self, tier: PrecisionTier) -> bool {
         self.tier_cap(tier)
             .is_some_and(|t| t.compiles && t.dispatches && t.transcendentals_safe)
+    }
+
+    /// Check whether a tier is safe when sovereign compilation is available.
+    ///
+    /// A tier is sovereign-safe if it dispatches AND either transcendentals
+    /// work natively or coralReef sovereign compilation can bypass NVVM.
+    /// coralReef Iteration 28 validated this bypass for all three
+    /// NVVM-poisoning patterns (DF64 pipeline, f64 transcendentals,
+    /// F64Precise no-FMA).
+    #[must_use]
+    pub fn tier_safe_with_sovereign(&self, tier: PrecisionTier) -> bool {
+        self.tier_safe(tier)
+            || (self.sovereign_compile_available
+                && self.tier_cap(tier).is_some_and(|t| t.compiles && t.dispatches))
     }
 
     /// Check whether a tier can dispatch arithmetic-only shaders
@@ -200,6 +234,8 @@ impl std::fmt::Display for HardwareCalibration {
         for t in &self.tiers {
             let mark = if t.dispatches && t.transcendentals_safe {
                 "✓"
+            } else if t.dispatches && self.sovereign_compile_available {
+                "✓sov"
             } else if t.dispatches {
                 "△arith"
             } else if t.compiles {
@@ -208,6 +244,9 @@ impl std::fmt::Display for HardwareCalibration {
                 "✗"
             };
             write!(f, " {:?}={mark}", t.tier)?;
+        }
+        if self.sovereign_compile_available {
+            write!(f, " [coralReef bypass]")?;
         }
         Ok(())
     }
@@ -403,6 +442,7 @@ mod tests {
             has_any_f64: true,
             df64_safe: true,
             nvvm_transcendental_risk: true,
+            sovereign_compile_available: false,
         };
         let s = cal.to_string();
         assert!(s.contains("F64=✓"), "F64 should show ✓, got: {s}");
@@ -411,6 +451,36 @@ mod tests {
             "DF64 should show △arith (dispatches but no transcendentals), got: {s}"
         );
         assert!(s.contains("F64Precise=✗"), "F64Precise should show ✗, got: {s}");
+    }
+
+    #[test]
+    fn sovereign_bypass_upgrades_arith_to_safe() {
+        let mut cal = HardwareCalibration {
+            adapter_name: "RTX 3090".into(),
+            tiers: vec![TierCapability {
+                tier: PrecisionTier::DF64,
+                compiles: true,
+                dispatches: true,
+                transcendentals_safe: false,
+                compile_us: 150.0,
+                dispatch_us: 60.0,
+                probe_ulp: 2.0,
+            }],
+            has_any_f64: false,
+            df64_safe: true,
+            nvvm_transcendental_risk: true,
+            sovereign_compile_available: false,
+        };
+        assert!(!cal.tier_safe(PrecisionTier::DF64));
+        assert!(!cal.tier_safe_with_sovereign(PrecisionTier::DF64));
+
+        cal.set_sovereign_available();
+        assert!(!cal.tier_safe(PrecisionTier::DF64));
+        assert!(cal.tier_safe_with_sovereign(PrecisionTier::DF64));
+
+        let s = cal.to_string();
+        assert!(s.contains("✓sov"), "Should show ✓sov with sovereign, got: {s}");
+        assert!(s.contains("[coralReef bypass]"), "Should note bypass, got: {s}");
     }
 
     #[test]
@@ -458,6 +528,7 @@ mod tests {
             ],
             has_any_f64: false,
             df64_safe: true,
+            sovereign_compile_available: false,
         };
         assert_eq!(cal.best_f64_tier(), Some(PrecisionTier::DF64));
         assert_eq!(cal.best_any_tier(), Some(PrecisionTier::DF64));
@@ -479,6 +550,7 @@ mod tests {
             }],
             has_any_f64: true,
             df64_safe: false,
+            sovereign_compile_available: false,
         };
         assert!(cal.tier_safe(PrecisionTier::F64));
         assert!(!cal.tier_safe(PrecisionTier::DF64));

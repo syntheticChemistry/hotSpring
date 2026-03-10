@@ -1,7 +1,7 @@
 # hotSpring → BarraCuda/ToadStool Absorption Manifest
 
-**Date:** March 9, 2026
-**Version:** v0.6.24 (synced to barraCuda `27011af`, toadStool S138, coralReef Phase 10 Iter 26)
+**Date:** March 10, 2026
+**Version:** v0.6.26 (synced to barraCuda `83aa08a`, toadStool S142, coralReef Phase 10 Iter 29)
 **License:** AGPL-3.0-only
 
 ---
@@ -57,6 +57,15 @@ These were written by hotSpring and absorbed by toadstool/barracuda:
 
 ---
 
+## v0.6.26 Rewiring (March 10, 2026)
+
+5 barraCuda commits absorbed (`5c16458` → `83aa08a`):
+- `tridiagonal_ql` eigensolver, LCG PRNG, activations API, Wright-Fisher popgen
+- Batched f32 logsumexp shader, 5,658 LOC dead code cleaned upstream
+- coralReef NVVM bypass: `sovereign_compile_available`, `tier_safe_with_sovereign()`
+- toadStool S142 references in `DevicePair` and `WorkloadPlanner`
+- 842/842 tests pass, 0 clippy errors, sovereign compile 45/46
+
 ## v0.6.24 Rewiring (March 9, 2026)
 
 19 barraCuda commits absorbed (`cdd748d` → `27011af`):
@@ -68,9 +77,9 @@ These were written by hotSpring and absorbed by toadstool/barracuda:
 
 ---
 
-## coralReef Integration Status (March 9, 2026)
+## coralReef Integration Status (March 10, 2026)
 
-coralReef daemon running locally (Phase 10, Iter 26), discovered via
+coralReef daemon running locally (Phase 10, Iter 29), discovered via
 `$XDG_RUNTIME_DIR/ecoPrimals/coralreef-core.json`. barraCuda's `CoralCompiler`
 IPC client connects via JSON-RPC on TCP. The `spawn_coral_compile()` fire-and-forget
 path compiles assembled WGSL to native SM70 SASS via coralReef and caches binaries
@@ -125,7 +134,13 @@ native SM70/SM86 SASS binaries in-process (no daemon needed). The full
 `GpuBackend` trait is implemented with `Mutex<GpuContext>` (unblocked by
 `ComputeDevice: Send + Sync` in Iter 26).
 
-**Iter 26 results (44/46 standalone shaders compiled per target)**:
+**Iter 29 results (45/46 standalone shaders compiled per target)**:
+
+`deformed_potentials_f64` SSARef truncation fixed in Iter 29 (was PANIC in Iter 26).
+12/12 NVVM bypass patterns compile across SM70/SM75/SM80/SM86/SM89/RDNA2.
+See `experiments/050_CORALREEF_ITER29_SOVEREIGN_VALIDATION.md`.
+
+**Previous Iter 26 results (44/46)**:
 
 | Shader | SM70 bytes | SM86 bytes | GPR | Instr | Status |
 |--------|-----------|-----------|-----|-------|--------|
