@@ -7,13 +7,15 @@
 //! 2. **How** to split if both (ratio based on effective TFLOPS)
 //! 3. **Whether** PCIe transfer cost justifies the split
 //!
-//! ## Upstream evolution (toadStool S142)
+//! ## Upstream evolution (toadStool S144)
 //!
-//! toadStool S142 added `PcieTransport` with measured topology bandwidth
-//! and `ResourceOrchestrator` for multi-tenant allocation. Future versions
-//! should query toadStool's transport layer for real PCIe measurements
-//! instead of estimating from spec sheets, and use `ResourceOrchestrator`
-//! for GPU reservation in multi-spring environments.
+//! toadStool S144 evolved topology into `PcieTopologyGraph` with
+//! `PciBridge`, `GpuPairTopology`, and sysfs-probed PCIe gen/lanes/NUMA.
+//! `WorkloadRouter::route_multi_gpu()` provides topology-aware placement
+//! via `MultiGpuPlacement`. `ResourceOrchestrator` now includes workload
+//! health tracking. Future versions should query toadStool's topology
+//! graph for real PCIe measurements and use `WorkloadRouter` for
+//! placement decisions in multi-spring environments.
 
 use crate::device_pair::DevicePair;
 use crate::precision_routing::PhysicsDomain;

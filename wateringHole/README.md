@@ -57,8 +57,8 @@ fossil record — never deleted, always available for provenance.
 
 | File | Date | Topic |
 |------|------|-------|
+| [`HOTSPRING_V0627_UPSTREAM_SYNC_HANDOFF_MAR10_2026.md`](handoffs/HOTSPRING_V0627_UPSTREAM_SYNC_HANDOFF_MAR10_2026.md) | Mar 10 | **Upstream sync v2**: barraCuda `59c8ec5` (v0.3.4, DF64 reduce fix, PCIe topology), toadStool S144 (absorbed NVVM poisoning → `nvvm_safety.rs`, `PcieTopologyGraph`, `gpu_guards`, `compile_wgsl_multi`) |
 | [`HOTSPRING_V0626_TOADSTOOL_BARRACUDA_ABSORPTION_HANDOFF_MAR10_2026.md`](handoffs/HOTSPRING_V0626_TOADSTOOL_BARRACUDA_ABSORPTION_HANDOFF_MAR10_2026.md) | Mar 10 | **Absorption handoff**: Precision system, NVVM poisoning knowledge, heterogeneous GPU patterns, tolerance framework, sovereign compile results — what toadStool/barraCuda should absorb from 50 experiments |
-| [`HOTSPRING_V0626_UPSTREAM_REWIRE_HANDOFF_MAR10_2026.md`](handoffs/HOTSPRING_V0626_UPSTREAM_REWIRE_HANDOFF_MAR10_2026.md) | Mar 10 | **Upstream primal rewire**: barraCuda `83aa08a` (eigensolver, activations, PRNG), coralReef Iter 29 NVVM bypass integration (sovereign-safe tiers), toadStool S142 PcieTransport + ResourceOrchestrator references |
 | [`HOTSPRING_V0625_PRECISION_BRAIN_NVVM_POISONING_HANDOFF_MAR10_2026.md`](handoffs/HOTSPRING_V0625_PRECISION_BRAIN_NVVM_POISONING_HANDOFF_MAR10_2026.md) | Mar 10 | **Precision brain + NVVM poisoning**: self-routing brain, hardware calibration, 3-tier eval harness, dual-GPU cooperative patterns, NVVM device poisoning discovery + workaround |
 
 ---

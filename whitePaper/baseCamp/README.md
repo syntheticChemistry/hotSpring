@@ -2,9 +2,9 @@
 
 **Date:** 2026-03-10
 **Project:** hotSpring (ecoPrimals)
-**Status:** v0.6.26, experiments 001-050, 842 lib tests, 39/39 validation suites, 111+ binaries, 84 WGSL shaders
+**Status:** v0.6.27, experiments 001-050, 842 lib tests, 39/39 validation suites, 111+ binaries, 84 WGSL shaders
 
-**Notes:** Upstream primal rewire: barraCuda `83aa08a` (eigensolver, activations, PRNG), coralReef Iter 29 NVVM bypass integrated (sovereign-safe tiers in PrecisionBrain), toadStool S142 PcieTransport + ResourceOrchestrator referenced. Self-routing precision brain (Exp 049): hardware calibration probes 4 tiers per GPU, NVVM device poisoning discovered and gated, coralReef sovereign bypass unlocks blocked tiers. coralReef Iter 29 sovereign validation (Exp 050): **45/46** shaders compile to native SM70/SM86 SASS, 12/12 NVVM bypass patterns, `deformed_potentials_f64` SSARef fix confirmed. Chuna Papers 43-45: **44/44 overnight checks pass**. All AGPL-3.0-only.
+**Notes:** Upstream primal sync: barraCuda `59c8ec5` (eigensolver, activations, PRNG), coralReef Iter 29 NVVM bypass integrated (sovereign-safe tiers in PrecisionBrain), toadStool S144 PcieTransport + ResourceOrchestrator referenced. Self-routing precision brain (Exp 049): hardware calibration probes 4 tiers per GPU, NVVM device poisoning discovered and gated, coralReef sovereign bypass unlocks blocked tiers. coralReef Iter 29 sovereign validation (Exp 050): **45/46** shaders compile to native SM70/SM86 SASS, 12/12 NVVM bypass patterns, `deformed_potentials_f64` SSARef fix confirmed. Chuna Papers 43-45: **44/44 overnight checks pass**. All AGPL-3.0-only.
 
 ---
 

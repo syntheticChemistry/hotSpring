@@ -5,6 +5,57 @@ All notable changes to the hotSpring BarraCuda validation crate.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.6.27 — Upstream Primal Sync v2: barraCuda v0.3.4 (59c8ec5) + toadStool S144 (March 10, 2026)
+
+### Summary
+
+- **barraCuda pin updated** (`83aa08a` → `59c8ec5`, v0.3.3 → v0.3.4): critical
+  Fp64Strategy routing fix — `SumReduceF64`, `VarianceReduceF64`,
+  `NormReduceF64`, `ProdReduceF64` now correctly call `.df64()` on Hybrid
+  devices instead of `.f64()`. PCIe topology via sysfs (`PcieBridge`,
+  `PcieLinkInfo`), VRAM quota enforcement (`QuotaTracker`), BglBuilder for
+  declarative bind group layout, sovereign validation parallelised via rayon,
+  test pipeline optimised (nautilus 14.3s → 0.01s)
+- **toadStool S144 absorption acknowledged**: toadStool absorbed our NVVM
+  poisoning work into `nvvm_safety.rs` (`NvvmPoisoningRisk`, `PrecisionTier`,
+  `TierCapability` — credited to "hotSpring v0.6.25 handoff"). New PCIe switch
+  topology (`PciBridge`, `GpuPairTopology`, `PcieTopologyGraph`,
+  `WorkloadRouter::route_multi_gpu()`). `gpu_guards` module for safe NVIDIA
+  proprietary test skipping. Multi-device coralReef compilation via
+  `compile_wgsl_multi` / `MultiDeviceCompileRequest`
+- **DevicePair/WorkloadPlanner** references updated S142 → S144: now point to
+  `PcieTopologyGraph` and `WorkloadRouter` for topology-aware multi-GPU routing
+- **HardwareCalibration/PrecisionBrain** references updated: note toadStool S144
+  `nvvm_safety.rs` absorption, `gpu_guards` for safe test skipping,
+  `compile_wgsl_multi` for multi-device sovereign compilation
+- **coralReef** Iteration 28 refs updated to Iteration 29 throughout
+
+### Metrics
+
+- 842 tests (lib), 111+ binaries, 84 WGSL shaders
+- 0 clippy warnings (lib + all binaries)
+- 0 unsafe blocks, 0 TODO/FIXME, all files <1000 lines
+- Synced: barraCuda `59c8ec5` (v0.3.4), toadStool S144, coralReef Phase 10 Iter 29
+- Sovereign compile: **45/46** SM70+SM86 (Iter 29), 12/12 NVVM bypass
+
+### Changed
+
+- `Cargo.toml`: barraCuda rev `83aa08a` → `59c8ec5`, version `0.6.26` → `0.6.27`
+- `DevicePair` module docs: toadStool S142 → S144, reference `PcieTopologyGraph`
+  and `WorkloadRouter::route_multi_gpu()`
+- `WorkloadPlanner` module docs: toadStool S142 → S144, reference
+  `MultiGpuPlacement` for topology-aware placement
+- `HardwareCalibration`: note toadStool S144 `nvvm_safety.rs` absorption and
+  `gpu_guards` module. coralReef Iteration 28 → 29 in doc comments
+- `PrecisionBrain`: note `compile_wgsl_multi` and `gpu_guards`. coralReef
+  Iteration 28 → 29 in doc comments and routing table builder
+
+### Handoff
+
+`HOTSPRING_V0627_UPSTREAM_SYNC_HANDOFF_MAR10_2026.md` — upstream teams
+
+---
+
 ## v0.6.26 — Upstream Primal Rewire: coralReef NVVM Bypass + barraCuda 83aa08a + toadStool S142 (March 10, 2026)
 
 ### Summary

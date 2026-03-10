@@ -5,13 +5,13 @@
 **License:** AGPL-3.0-only
 **Depends on:** Exp 024 (dynamical production), Exp 025 (multi-GPU), Exp 026 (4D proxy), Exp 049 (Precision Brain)
 
-> **March 10, 2026 Update (v0.6.26):** The **Precision Brain** now integrates
+> **March 10, 2026 Update (v0.6.27):** The **Precision Brain** now integrates
 > coralReef's NVVM bypass (Iteration 28). `HardwareCalibration` tracks
 > `sovereign_compile_available` and `PrecisionBrain` auto-detects coralReef at
 > startup. When NVVM transcendental risk is present and coralReef is available,
 > NVVM-blocked tiers (DF64 transcendentals, F64Precise no-FMA) become
 > sovereign-safe — the brain routes through coralReef's WGSL→SASS pipeline.
-> toadStool S142 added `PcieTransport` and `ResourceOrchestrator` for future
+> toadStool S144 added `PcieTransport` and `ResourceOrchestrator` for future
 > orchestration integration. See `HOTSPRING_V0626_UPSTREAM_REWIRE_HANDOFF_MAR10_2026.md`.
 
 ---

@@ -84,9 +84,17 @@ pub struct HardwareCalibration {
     /// can be compiled through coralReef's WGSL → native SASS pipeline,
     /// bypassing NVVM entirely.
     ///
-    /// coralReef Iteration 28 proved this bypass works for all three
-    /// NVVM-poisoning shader patterns. Dispatch requires coral-driver
-    /// DRM maturation (AMD E2E ready, NVIDIA pending UVM).
+    /// coralReef Iteration 29 validated this bypass for all three
+    /// NVVM-poisoning shader patterns (45/46 shaders compile, 12/12 bypass).
+    /// Dispatch requires coral-driver DRM maturation (AMD E2E ready,
+    /// NVIDIA pending UVM).
+    ///
+    /// toadStool S144 absorbed our NVVM poisoning work into `nvvm_safety.rs`
+    /// (`NvvmPoisoningRisk`, `PrecisionTier`, `TierCapability`). When
+    /// hotSpring integrates toadStool's runtime layer, `HardwareCalibration`
+    /// can delegate to upstream's native NVVM defense. S144 also added
+    /// `gpu_guards` module (`is_wgpu_safe()`, `detect_nvidia_proprietary()`)
+    /// for safe test skipping on proprietary NVIDIA drivers.
     pub sovereign_compile_available: bool,
 }
 
@@ -188,9 +196,9 @@ impl HardwareCalibration {
     ///
     /// A tier is sovereign-safe if it dispatches AND either transcendentals
     /// work natively or coralReef sovereign compilation can bypass NVVM.
-    /// coralReef Iteration 28 validated this bypass for all three
+    /// coralReef Iteration 29 validated this bypass for all three
     /// NVVM-poisoning patterns (DF64 pipeline, f64 transcendentals,
-    /// F64Precise no-FMA).
+    /// F64Precise no-FMA). 45/46 shaders compile, 12/12 bypass.
     #[must_use]
     pub fn tier_safe_with_sovereign(&self, tier: PrecisionTier) -> bool {
         self.tier_safe(tier)

@@ -1,7 +1,7 @@
 # hotSpring → BarraCuda/ToadStool Absorption Manifest
 
 **Date:** March 10, 2026
-**Version:** v0.6.26 (synced to barraCuda `83aa08a`, toadStool S142, coralReef Phase 10 Iter 29)
+**Version:** v0.6.27 (synced to barraCuda `59c8ec5`, toadStool S144, coralReef Phase 10 Iter 29)
 **License:** AGPL-3.0-only
 
 ---
@@ -56,6 +56,16 @@ These were written by hotSpring and absorbed by toadstool/barracuda:
 | `PrecisionRoutingAdvice` (hw) | v0.6.24 | `barracuda::device::driver_profile` | **Integrated** — hotSpring routing queries hw-level advice |
 
 ---
+
+## v0.6.27 Rewiring (March 10, 2026)
+
+barraCuda pin updated (`83aa08a` → `59c8ec5`, v0.3.3 → v0.3.4):
+- Critical Fp64Strategy routing fix: DF64 reduce ops now correctly call `.df64()` on Hybrid devices
+- PCIe topology via sysfs, VRAM quota enforcement, BglBuilder, sovereign validation via rayon
+- toadStool S144: absorbed NVVM poisoning into `nvvm_safety.rs`, PCIe switch topology, `gpu_guards`, `compile_wgsl_multi`
+- `DevicePair`/`WorkloadPlanner` refs updated S142 → S144
+- `HardwareCalibration`/`PrecisionBrain` refs updated: note `nvvm_safety.rs` absorption, `gpu_guards`, Iter 28 → 29
+- 842/842 tests pass, 0 clippy errors, sovereign compile 45/46
 
 ## v0.6.26 Rewiring (March 10, 2026)
 

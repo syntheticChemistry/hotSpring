@@ -33,8 +33,13 @@ pub use crate::precision_routing::HwPrecisionAdvice;
 ///
 /// Checks for the coralReef XDG manifest or well-known socket paths.
 /// When available, the sovereign path can bypass NVVM for shader
-/// compilation (coralReef Iteration 28 validated this for all three
-/// NVVM-poisoning patterns).
+/// compilation (coralReef Iteration 29 validated 45/46 shaders, 12/12
+/// NVVM bypass patterns).
+///
+/// toadStool S144 added `compile_wgsl_multi` for multi-device sovereign
+/// compilation and `gpu_guards` for safe NVIDIA proprietary test skipping.
+/// When toadStool's runtime is integrated, sovereign detection should
+/// delegate to toadStool's `NvvmPoisoningRisk` assessment.
 fn detect_sovereign_available() -> bool {
     // Check XDG_DATA_DIRS for coralReef manifest
     let xdg_dirs = std::env::var("XDG_DATA_DIRS")
@@ -215,7 +220,7 @@ fn route_domain(
     // Use sovereign-aware safety check when coralReef bypass is available.
     // This upgrades tiers that dispatch but fail NVVM transcendentals
     // (e.g. DF64 on proprietary NVIDIA) to fully safe via coralReef's
-    // WGSL → SASS pipeline (validated in coralReef Iteration 28).
+    // WGSL → SASS pipeline (validated in coralReef Iteration 29).
     let safe = |tier| cal.tier_safe_with_sovereign(tier);
 
     match domain {
