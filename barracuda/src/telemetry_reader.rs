@@ -25,6 +25,7 @@
 //! ```
 
 use std::collections::HashMap;
+use std::io::BufRead;
 
 /// A single telemetry event parsed from JSONL.
 #[derive(Clone, Debug)]
@@ -53,14 +54,29 @@ pub struct TelemetryReader {
 }
 
 impl TelemetryReader {
-    /// Load a telemetry file.
+    /// Load a telemetry file via streaming line-by-line parsing.
+    ///
+    /// Uses `BufReader` to avoid buffering the entire file in memory,
+    /// which matters for large overnight telemetry runs.
     ///
     /// # Errors
     ///
-    /// Returns `Err` if the file cannot be read.
+    /// Returns `Err` if the file cannot be opened or a line cannot be read.
     pub fn from_file(path: &str) -> Result<Self, String> {
-        let content = std::fs::read_to_string(path).map_err(|e| format!("read {path}: {e}"))?;
-        Ok(Self::parse_content(&content))
+        let file = std::fs::File::open(path).map_err(|e| format!("open {path}: {e}"))?;
+        let reader = std::io::BufReader::new(file);
+        let mut events = Vec::new();
+        for line in reader.lines() {
+            let line = line.map_err(|e| format!("read line in {path}: {e}"))?;
+            let trimmed = line.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+            if let Some(event) = parse_event(trimmed) {
+                events.push(event);
+            }
+        }
+        Ok(Self { events })
     }
 
     /// Parse JSONL from a string.
@@ -166,11 +182,7 @@ fn parse_event(line: &str) -> Option<TelemetryEvent> {
         return None;
     }
 
-    Some(TelemetryEvent {
-        t,
-        section,
-        fields,
-    })
+    Some(TelemetryEvent { t, section, fields })
 }
 
 fn split_json_pairs(s: &str) -> Vec<&str> {
@@ -202,6 +214,7 @@ fn split_kv(pair: &str) -> Option<(&str, &str)> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 

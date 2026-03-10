@@ -16,7 +16,7 @@ use hotspring_barracuda::validation::{TelemetryWriter, ValidationHarness};
 
 fn main() {
     let mut harness = ValidationHarness::new("fpeos_militzer");
-    let mut telem = TelemetryWriter::new("fpeos_telemetry.jsonl");
+    let mut telem = TelemetryWriter::discover("fpeos_telemetry.jsonl");
 
     println!("╔══════════════════════════════════════════════════════════════╗");
     println!("║  Paper 32: Militzer FPEOS — EOS Table Validation           ║");
@@ -47,24 +47,29 @@ fn main() {
         harness.check_upper(&label_e, e_err, 0.01);
         telem.log_map(
             "h_grid",
-            &[("log_rho", lr), ("log_T", lt), ("P", pt.pressure), ("E", pt.internal_energy)],
+            &[
+                ("log_rho", lr),
+                ("log_T", lt),
+                ("P", pt.pressure),
+                ("E", pt.internal_energy),
+            ],
         );
     }
 
     // Interpolation between grid points
     println!("  Bilinear interpolation checks...");
-    let interp_pts: &[(f64, f64)] = &[
-        (0.15, 5.5),
-        (0.5, 6.5),
-        (-0.15, 4.5),
-        (0.85, 7.5),
-    ];
+    let interp_pts: &[(f64, f64)] = &[(0.15, 5.5), (0.5, 6.5), (-0.15, 4.5), (0.85, 7.5)];
     for &(lr, lt) in interp_pts {
         let pt = h.interpolate_log(lr, lt).unwrap();
         harness.check_lower(&format!("h_interp_P_{lr}_{lt}"), pt.pressure, 0.0);
         telem.log_map(
             "h_interp",
-            &[("log_rho", lr), ("log_T", lt), ("P", pt.pressure), ("E", pt.internal_energy)],
+            &[
+                ("log_rho", lr),
+                ("log_T", lt),
+                ("P", pt.pressure),
+                ("E", pt.internal_energy),
+            ],
         );
     }
 

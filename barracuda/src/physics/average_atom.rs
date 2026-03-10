@@ -114,12 +114,7 @@ pub struct AverageAtomResult {
 ///
 /// Uses Numerov integration for -½u'' + V_eff(r)u = εu
 /// where u(r) = r × R(r) and V_eff includes the centrifugal term.
-fn solve_radial(
-    r: &[f64],
-    v_eff: &[f64],
-    l: usize,
-    energy_guess: f64,
-) -> (f64, Vec<f64>) {
+fn solve_radial(r: &[f64], v_eff: &[f64], l: usize, energy_guess: f64) -> (f64, Vec<f64>) {
     let n = r.len();
     let dr = r[1] - r[0];
     let h2 = dr * dr;
@@ -246,9 +241,9 @@ pub fn solve_average_atom(config: &AverageAtomConfig) -> AverageAtomResult {
     let mut e_total = 0.0;
     for i in 0..n {
         let shell_vol = 4.0 * PI * r[i] * r[i] * dr;
-        e_total += density_r[i] * (potential[i] + exc_lda(
-            (3.0 / (4.0 * PI * density_r[i].max(1e-30))).cbrt(),
-        )) * shell_vol;
+        e_total += density_r[i]
+            * (potential[i] + exc_lda((3.0 / (4.0 * PI * density_r[i].max(1e-30))).cbrt()))
+            * shell_vol;
     }
 
     // Mean ionization via Stewart-Pyatt / Thomas-Fermi estimate:
@@ -323,7 +318,41 @@ mod tests {
         };
         let result = solve_average_atom(&config);
         assert!(result.total_energy.is_finite());
-        assert!(result.mean_ionization >= 0.0, "Z*={}", result.mean_ionization);
+        assert!(
+            result.mean_ionization >= 0.0,
+            "Z*={}",
+            result.mean_ionization
+        );
         assert!(result.pressure >= 0.0);
+    }
+
+    #[test]
+    fn vxc_lda_positive_density() {
+        let v = vxc_lda(1.0);
+        assert!(v.is_finite(), "vxc should be finite, got {v}");
+        assert!(v < 0.0, "vxc should be negative for electron gas, got {v}");
+    }
+
+    #[test]
+    fn vxc_lda_vanishes_for_near_zero_density() {
+        let v = vxc_lda(1e-40);
+        assert!(
+            v.abs() < 1e-15,
+            "vxc should vanish for near-zero density, got {v}"
+        );
+    }
+
+    #[test]
+    fn vxc_lda_monotonic_in_density() {
+        let densities = [0.01, 0.1, 1.0, 10.0, 100.0];
+        let vxc_vals: Vec<f64> = densities.iter().map(|&d| vxc_lda(d)).collect();
+        for pair in vxc_vals.windows(2) {
+            assert!(
+                pair[0] > pair[1],
+                "vxc should become more negative with density: {:.6} vs {:.6}",
+                pair[0],
+                pair[1]
+            );
+        }
     }
 }

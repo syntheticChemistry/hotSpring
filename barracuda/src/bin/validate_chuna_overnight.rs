@@ -31,7 +31,7 @@ fn main() {
 
     let rt = tokio::runtime::Runtime::new().expect("tokio runtime");
     let mut harness = ValidationHarness::new("chuna_overnight");
-    let mut telem = TelemetryWriter::new("chuna_overnight_telemetry.jsonl");
+    let mut telem = TelemetryWriter::discover("chuna_overnight_telemetry.jsonl");
 
     println!("╔══════════════════════════════════════════════════════════════╗");
     println!("║  Chuna Overnight Validation — Papers 43 / 44 / 45         ║");
@@ -48,14 +48,16 @@ fn main() {
     // ═══════════════════════════════════════════════════════════════
     //  Titan V Pre-Motor: background quenched pre-thermalization
     // ═══════════════════════════════════════════════════════════════
-    let titan_handles = if !skip_to_dynamical {
+    let titan_handles = if skip_to_dynamical {
+        None
+    } else {
         let h = spawn_titan_pretherm_if_available(&rt);
         if h.is_some() {
-            println!("  [Brain] Titan V pre-motor spawned — quenched β=5.4 running in background\n");
+            println!(
+                "  [Brain] Titan V pre-motor spawned — quenched β=5.4 running in background\n"
+            );
         }
         h
-    } else {
-        None
     };
 
     if !skip_to_dynamical {
@@ -104,11 +106,7 @@ fn main() {
 
     let total = total_start.elapsed();
     telem.log("summary", "total_wall_seconds", total.as_secs_f64());
-    telem.log(
-        "summary",
-        "checks_passed",
-        harness.passed_count() as f64,
-    );
+    telem.log("summary", "checks_passed", harness.passed_count() as f64);
     telem.log("summary", "checks_total", harness.total_count() as f64);
     println!("\n  Total wall time: {:.1}s", total.as_secs_f64());
     harness.finish();
@@ -124,9 +122,7 @@ struct TitanPrethermHandles {
 /// Spawn Titan V background quenched pre-thermalization if a secondary GPU is available.
 ///
 /// Returns `None` if only one GPU is found or if the worker fails to spawn.
-fn spawn_titan_pretherm_if_available(
-    rt: &tokio::runtime::Runtime,
-) -> Option<TitanPrethermHandles> {
+fn spawn_titan_pretherm_if_available(rt: &tokio::runtime::Runtime) -> Option<TitanPrethermHandles> {
     use hotspring_barracuda::gpu::discover_primary_and_secondary_adapters;
     use hotspring_barracuda::production::titan_worker::{spawn_titan_worker, TitanRequest};
 
@@ -183,7 +179,11 @@ fn receive_titan_warm_config(
 ) -> Option<hotspring_barracuda::lattice::wilson::Lattice> {
     use hotspring_barracuda::production::titan_worker::{TitanRequest, TitanResponse};
 
-    match titan.handles.titan_rx.recv_timeout(std::time::Duration::from_secs(300)) {
+    match titan
+        .handles
+        .titan_rx
+        .recv_timeout(std::time::Duration::from_secs(300))
+    {
         Ok(TitanResponse::WarmConfig {
             beta: b,
             gauge_links,
@@ -193,12 +193,8 @@ fn receive_titan_warm_config(
             println!(
                 "    [Titan V] Warm config ready: β={b:.4}, ⟨P⟩={plaquette:.6}, {wall_ms:.0}ms"
             );
-            let mut lattice =
-                hotspring_barracuda::lattice::wilson::Lattice::cold_start(dims, beta);
-            hotspring_barracuda::lattice::gpu_hmc::unflatten_links_into(
-                &mut lattice,
-                &gauge_links,
-            );
+            let mut lattice = hotspring_barracuda::lattice::wilson::Lattice::cold_start(dims, beta);
+            hotspring_barracuda::lattice::gpu_hmc::unflatten_links_into(&mut lattice, &gauge_links);
             let _ = titan.handles.titan_tx.send(TitanRequest::Shutdown);
             Some(lattice)
         }
@@ -462,27 +458,26 @@ fn paper_43_dynamical(
     // Guard: reject Titan warm config if plaquette is physically implausible
     // (NVK driver can produce all-zero link buffers on Titan V/GV100).
     let mut lattice = if let Some(handles) = titan_handles {
-        match receive_titan_warm_config(handles, dims, beta) {
-            Some(lat) => {
-                let plaq = lat.average_plaquette();
-                telem.log("p43_dyn_titan", "plaquette", plaq);
-                if plaq > 0.1 && plaq < 0.999 {
-                    println!(
-                        "  Dynamical 8⁴ β={beta} (N_f=4, m={mass}) [Titan V warm config, ⟨P⟩={plaq:.6}]...",
-                    );
-                    lat
-                } else {
-                    println!(
-                        "  ⚠ Titan V warm config implausible (⟨P⟩={plaq:.6}) — GPU driver issue, falling back to CPU",
-                    );
-                    telem.log("p43_dyn_titan", "rejected_plaquette", plaq);
-                    cpu_quenched_pretherm(dims, beta, 100, telem, &start)
-                }
-            }
-            None => {
-                println!("  Dynamical 8⁴ β={beta} (N_f=4, m={mass}) [Titan V unavailable, CPU fallback]...");
+        if let Some(lat) = receive_titan_warm_config(handles, dims, beta) {
+            let plaq = lat.average_plaquette();
+            telem.log("p43_dyn_titan", "plaquette", plaq);
+            if plaq > 0.1 && plaq < 0.999 {
+                println!(
+                    "  Dynamical 8⁴ β={beta} (N_f=4, m={mass}) [Titan V warm config, ⟨P⟩={plaq:.6}]...",
+                );
+                lat
+            } else {
+                println!(
+                    "  ⚠ Titan V warm config implausible (⟨P⟩={plaq:.6}) — GPU driver issue, falling back to CPU",
+                );
+                telem.log("p43_dyn_titan", "rejected_plaquette", plaq);
                 cpu_quenched_pretherm(dims, beta, 100, telem, &start)
             }
+        } else {
+            println!(
+                "  Dynamical 8⁴ β={beta} (N_f=4, m={mass}) [Titan V unavailable, CPU fallback]..."
+            );
+            cpu_quenched_pretherm(dims, beta, 100, telem, &start)
         }
     } else {
         if npu_available {
@@ -509,7 +504,8 @@ fn paper_43_dynamical(
 
     let npu_active = npu_steering.is_some();
     let mut controller = if let Some(ref mut steering) = npu_steering {
-        let ctrl = AdaptiveStepController::for_dynamical_with_npu(dims, beta, 1.0, &mut steering.npu);
+        let ctrl =
+            AdaptiveStepController::for_dynamical_with_npu(dims, beta, 1.0, &mut steering.npu);
         println!(
             "    [NPU] Steering active — initial dt={:.5}, n_md={}, feedback every {} traj",
             ctrl.dt, ctrl.n_md_steps, steering.feedback_interval,
@@ -552,12 +548,7 @@ fn paper_43_dynamical(
             steering,
         )
     } else {
-        dynamical_thermalize_warm_start(
-            &mut lattice,
-            &mut config,
-            &schedule,
-            &mut controller,
-        )
+        dynamical_thermalize_warm_start(&mut lattice, &mut config, &schedule, &mut controller)
     };
 
     let plaq = lattice.average_plaquette();
@@ -827,7 +818,11 @@ fn paper_44_gpu(harness: &mut ValidationHarness, gpu: &GpuF64, telem: &mut Telem
     println!("    {:.1}s", start.elapsed().as_secs_f64());
 }
 
-fn paper_44_multicomponent_gpu(harness: &mut ValidationHarness, gpu: &GpuF64, telem: &mut TelemetryWriter) {
+fn paper_44_multicomponent_gpu(
+    harness: &mut ValidationHarness,
+    gpu: &GpuF64,
+    telem: &mut TelemetryWriter,
+) {
     use hotspring_barracuda::physics::gpu_dielectric_multicomponent::{
         validate_gpu_multicomponent, GpuMulticompPipeline,
     };
@@ -920,7 +915,11 @@ fn paper_45_gpu_euler(harness: &mut ValidationHarness, gpu: &GpuF64, telem: &mut
     println!("    {:.1}s", start.elapsed().as_secs_f64());
 }
 
-fn paper_45_gpu_coupled(harness: &mut ValidationHarness, gpu: &GpuF64, telem: &mut TelemetryWriter) {
+fn paper_45_gpu_coupled(
+    harness: &mut ValidationHarness,
+    gpu: &GpuF64,
+    telem: &mut TelemetryWriter,
+) {
     use hotspring_barracuda::physics::gpu_coupled_kinetic_fluid::{
         validate_gpu_coupled, GpuCoupledPipeline,
     };

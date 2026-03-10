@@ -219,6 +219,36 @@ impl GpuHmcPipelines {
     }
 }
 
+/// Heterogeneous dual-GPU HMC pipeline pair.
+///
+/// Force-path pipelines compiled on the throughput card (DF64 on f32 cores);
+/// validation pipelines compiled on the precise card (native f64).
+pub struct DualHmcPipelines {
+    /// Force/plaquette/KE on the throughput card.
+    pub throughput: GpuHmcPipelines,
+    /// Validation/reduction pipelines on the precise card.
+    pub precise: GpuHmcPipelines,
+}
+
+impl DualHmcPipelines {
+    /// Compile dual-pipeline set from a `DevicePair`.
+    ///
+    /// Each card gets pipelines compiled for its own precision tier:
+    /// - Throughput card: DF64 force/plaquette/KE (Hybrid strategy)
+    /// - Precise card: native f64 for all kernels (Native strategy)
+    #[must_use]
+    pub fn new(pair: &crate::device_pair::DevicePair) -> Self {
+        eprintln!(
+            "[HMC dual] Compiling pipelines: precise={}, throughput={}",
+            pair.precise.adapter_name, pair.throughput.adapter_name
+        );
+        Self {
+            precise: GpuHmcPipelines::new(&pair.precise),
+            throughput: GpuHmcPipelines::new(&pair.throughput),
+        }
+    }
+}
+
 // ═══════════════════════════════════════════════════════════════════
 //  Layout helpers (SU(3) ↔ flat f64 buffers)
 // ═══════════════════════════════════════════════════════════════════

@@ -131,7 +131,6 @@ fn species_vlasov_susceptibility(k: f64, omega: Complex, species: &SpeciesParams
 ///
 /// with ω̃ = ω + iνₛ, Rₛ = χ₀ₛ(k,ω̃)/χ₀ₛ(k,0),
 /// G_pₛ = Rₛ ω ω̃/(k² v_thₛ²).
-#[must_use]
 pub fn epsilon_multicomponent_mermin(
     k: f64,
     omega: f64,
@@ -141,7 +140,7 @@ pub fn epsilon_multicomponent_mermin(
     if omega.abs() < 1e-15 {
         let mut eps_static = Complex::ONE;
         for s in &plasma.species {
-            eps_static = eps_static + species_vlasov_susceptibility(k, Complex::ZERO, s);
+            eps_static += species_vlasov_susceptibility(k, Complex::ZERO, s);
         }
         return eps_static;
     }
@@ -174,7 +173,7 @@ pub fn epsilon_multicomponent_mermin(
             Complex::ONE + (Complex::I * nu * omega_c.inv()) * r
         };
 
-        total_chi = total_chi + numer * denom.inv();
+        total_chi += numer * denom.inv();
     }
 
     Complex::ONE + total_chi

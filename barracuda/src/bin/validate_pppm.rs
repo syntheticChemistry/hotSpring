@@ -75,7 +75,7 @@ fn main() {
         let pppm = match PppmGpu::from_device(&wgpu_dev, params).await {
             Ok(p) => p,
             Err(e) => {
-                println!("  PppmGpu::new failed: {e}");
+                println!("  PppmGpu::from_device failed: {e}");
                 return;
             }
         };

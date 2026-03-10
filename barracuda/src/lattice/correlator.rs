@@ -202,6 +202,57 @@ mod tests {
     }
 
     #[test]
+    fn hvp_kernel_symmetric_peak() {
+        let nt = 32;
+        let half = nt / 2;
+        let peak_t = half / 2;
+        let k_peak = hvp_kernel(peak_t, nt);
+        assert!(k_peak > hvp_kernel(1, nt), "kernel should peak near T/4");
+        assert!(
+            k_peak > hvp_kernel(half - 1, nt),
+            "kernel should peak near T/4"
+        );
+    }
+
+    #[test]
+    fn hvp_kernel_different_lattice_sizes() {
+        for nt in [8, 16, 32, 64] {
+            let k: Vec<f64> = (0..nt).map(|t| hvp_kernel(t, nt)).collect();
+            assert!(k[0].abs() < 1e-15);
+            let sum: f64 = k.iter().sum();
+            assert!(sum > 0.0, "kernel sum should be positive for nt={nt}");
+        }
+    }
+
+    #[test]
+    fn hvp_integral_positive_for_positive_correlator() {
+        let nt = 16;
+        let corr = vec![1.0; nt];
+        let integral = hvp_integral(&corr);
+        assert!(integral > 0.0, "HVP integral should be positive");
+    }
+
+    #[test]
+    fn hvp_integral_zero_for_empty_correlator() {
+        let corr = vec![0.0; 16];
+        let integral = hvp_integral(&corr);
+        assert!(integral.abs() < 1e-15, "zero correlator → zero integral");
+    }
+
+    #[test]
+    fn hvp_integral_proportional_to_amplitude() {
+        let nt = 16;
+        let corr_1 = vec![1.0; nt];
+        let corr_2: Vec<f64> = corr_1.iter().map(|&c| 2.0 * c).collect();
+        let i1 = hvp_integral(&corr_1);
+        let i2 = hvp_integral(&corr_2);
+        assert!(
+            (i2 - 2.0 * i1).abs() < 1e-14,
+            "integral should scale linearly"
+        );
+    }
+
+    #[test]
     fn susceptibility_zero_for_constant() {
         let plaq = vec![0.5; 100];
         let chi = plaquette_susceptibility(&plaq, 256);
@@ -209,6 +260,52 @@ mod tests {
             chi.abs() < 1e-10,
             "susceptibility of constant should be ~0, got {chi}"
         );
+    }
+
+    #[test]
+    fn susceptibility_positive_for_fluctuations() {
+        let plaq: Vec<f64> = (0..100).map(|i| 0.5 + 0.01 * (i as f64).sin()).collect();
+        let chi = plaquette_susceptibility(&plaq, 256);
+        assert!(
+            chi > 0.0,
+            "susceptibility should be positive for varying data"
+        );
+    }
+
+    #[test]
+    fn susceptibility_scales_with_volume() {
+        let plaq: Vec<f64> = (0..100).map(|i| 0.5 + 0.01 * (i as f64).sin()).collect();
+        let chi_small = plaquette_susceptibility(&plaq, 128);
+        let chi_large = plaquette_susceptibility(&plaq, 256);
+        assert!(
+            (chi_large - 2.0 * chi_small).abs() / chi_large < 1e-10,
+            "susceptibility should scale linearly with volume"
+        );
+    }
+
+    #[test]
+    fn polyakov_susceptibility_zero_for_constant() {
+        let poly = vec![0.3; 50];
+        let chi = polyakov_susceptibility(&poly, 64);
+        assert!(chi.abs() < 1e-10, "constant Polyakov → zero susceptibility");
+    }
+
+    #[test]
+    fn polyakov_susceptibility_positive_for_fluctuations() {
+        let poly: Vec<f64> = (0..50)
+            .map(|i| 0.3 + 0.05 * (i as f64 * 0.5).cos())
+            .collect();
+        let chi = polyakov_susceptibility(&poly, 64);
+        assert!(chi > 0.0, "varying Polyakov → positive susceptibility");
+    }
+
+    #[test]
+    fn averaged_correlator_on_cold_lattice() {
+        let lat = Lattice::cold_start([4, 4, 4, 4], 6.0);
+        let result = averaged_correlator(&lat, 0.5, 1e-6, 500, 3, 42);
+        assert!(result.cg.converged, "CG should converge");
+        let c0 = result.correlator[0];
+        assert!(c0 > 0.0, "C(0) should be positive: {c0}");
     }
 
     #[test]
@@ -221,5 +318,25 @@ mod tests {
             "C(0) should be positive: {}",
             result.correlator[0]
         );
+    }
+
+    #[test]
+    fn correlator_length_matches_nt() {
+        let lat = Lattice::cold_start([4, 4, 4, 4], 6.0);
+        let result = point_propagator_correlator(&lat, 0.5, 1e-6, 500);
+        assert_eq!(
+            result.correlator.len(),
+            4,
+            "correlator should have N_t entries"
+        );
+    }
+
+    #[test]
+    fn correlator_all_positive_on_cold() {
+        let lat = Lattice::cold_start([4, 4, 4, 4], 6.0);
+        let result = point_propagator_correlator(&lat, 0.5, 1e-6, 500);
+        for (t, &c) in result.correlator.iter().enumerate() {
+            assert!(c >= 0.0, "C({t}) = {c} should be non-negative");
+        }
     }
 }

@@ -15,9 +15,11 @@ use hotspring_barracuda::telemetry_reader::TelemetryReader;
 use std::collections::BTreeMap;
 
 fn main() {
-    let path = std::env::args()
-        .nth(1)
-        .unwrap_or_else(|| "chuna_overnight_telemetry.jsonl".to_string());
+    let path = std::env::args().nth(1).unwrap_or_else(|| {
+        hotspring_barracuda::discovery::telemetry_path("chuna_overnight_telemetry.jsonl")
+            .to_string_lossy()
+            .into_owned()
+    });
 
     let mut last_count = 0;
 
@@ -28,12 +30,9 @@ fn main() {
     println!("╚══════════════════════════════════════════════════════════════╝\n");
 
     loop {
-        let reader = match TelemetryReader::from_file(&path) {
-            Ok(r) => r,
-            Err(_) => {
-                std::thread::sleep(std::time::Duration::from_secs(2));
-                continue;
-            }
+        let Ok(reader) = TelemetryReader::from_file(&path) else {
+            std::thread::sleep(std::time::Duration::from_secs(2));
+            continue;
         };
         let n_events = reader.events.len();
 
@@ -49,9 +48,7 @@ fn main() {
             let mut summaries: BTreeMap<String, SectionSummary> = BTreeMap::new();
 
             for event in &reader.events {
-                let entry = summaries
-                    .entry(event.section.clone())
-                    .or_default();
+                let entry = summaries.entry(event.section.clone()).or_default();
 
                 entry.n_events += 1;
                 entry.last_t = event.t;
@@ -96,14 +93,22 @@ fn main() {
                     name.clone()
                 };
 
-                let plaq = s.final_plaquette.or(s.last_plaquette)
-                    .map_or("—".into(), |v| format!("{v:.6}"));
-                let acc = s.final_acceptance.or(s.last_acceptance)
-                    .map_or("—".into(), |v| format!("{:.0}%", v * 100.0));
-                let wall = s.wall_seconds
-                    .map_or("—".into(), |v| format!("{v:.0}s"));
+                let plaq = s
+                    .final_plaquette
+                    .or(s.last_plaquette)
+                    .map_or_else(|| "—".into(), |v| format!("{v:.6}"));
+                let acc = s
+                    .final_acceptance
+                    .or(s.last_acceptance)
+                    .map_or_else(|| "—".into(), |v| format!("{:.0}%", v * 100.0));
+                let wall = s
+                    .wall_seconds
+                    .map_or_else(|| "—".into(), |v| format!("{v:.0}s"));
 
-                println!("  {short:<32} {:<5} {plaq:>9} {acc:>8} {wall:>8}", s.n_events);
+                println!(
+                    "  {short:<32} {:<5} {plaq:>9} {acc:>8} {wall:>8}",
+                    s.n_events
+                );
             }
 
             // Sparklines for the most active section
@@ -129,7 +134,10 @@ fn main() {
                 println!("\n  Elapsed: {:.0}s ({:.1} min)", max_t, max_t / 60.0);
             }
 
-            let completed = summaries.values().filter(|s| s.wall_seconds.is_some()).count();
+            let completed = summaries
+                .values()
+                .filter(|s| s.wall_seconds.is_some())
+                .count();
             println!("  Completed sections: {completed} / {}", sections.len());
 
             println!("\n  ┌─ petalTongue ─────────────────────────────────────────────┐");
@@ -159,8 +167,8 @@ struct SectionSummary {
 
 fn print_sparkline(label: &str, series: &[(f64, f64)]) {
     let values: Vec<f64> = series.iter().map(|(_, v)| *v).collect();
-    let min = values.iter().cloned().reduce(f64::min).unwrap_or(0.0);
-    let max = values.iter().cloned().reduce(f64::max).unwrap_or(1.0);
+    let min = values.iter().copied().reduce(f64::min).unwrap_or(0.0);
+    let max = values.iter().copied().reduce(f64::max).unwrap_or(1.0);
     let range = (max - min).max(1e-10);
 
     let blocks = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];

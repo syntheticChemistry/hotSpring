@@ -33,9 +33,9 @@ pub mod run_history;
 mod tests;
 
 pub use adaptive::{
-    AdaptiveStepController, AdaptiveThermalizationResult, MassAnnealingSchedule,
-    StageResult, WarmStartResult, dynamical_thermalize_adaptive,
-    dynamical_thermalize_warm_start, dynamical_thermalize_warm_start_npu,
+    dynamical_thermalize_adaptive, dynamical_thermalize_warm_start,
+    dynamical_thermalize_warm_start_npu, AdaptiveStepController, AdaptiveThermalizationResult,
+    MassAnnealingSchedule, StageResult, WarmStartResult,
 };
 pub use npu_steering::{HmcForceAnomalyDetector, NpuSteering};
 
@@ -922,4 +922,3 @@ fn kinetic_energy(momenta: &[Su3Matrix]) -> f64 {
     }
     t
 }
-

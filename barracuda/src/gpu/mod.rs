@@ -497,7 +497,9 @@ impl GpuF64 {
         shader_source: &str,
         label: &str,
     ) -> wgpu::ComputePipeline {
-        let shader_module = self.wgpu_device.compile_shader_df64(shader_source, Some(label));
+        let shader_module = self
+            .wgpu_device
+            .compile_shader_df64(shader_source, Some(label));
         self.validate_pipeline(shader_module, label)
     }
 
@@ -535,10 +537,16 @@ impl GpuF64 {
                 error!("[pipeline:{gpu_tag}] {label}: PIPELINE ERROR: {e}");
             }
             std::task::Poll::Ready(None) => {
-                debug!("[pipeline:{gpu_tag}] {label}: pipeline valid ({:?})", t0.elapsed());
+                debug!(
+                    "[pipeline:{gpu_tag}] {label}: pipeline valid ({:?})",
+                    t0.elapsed()
+                );
             }
             std::task::Poll::Pending => {
-                warn!("[pipeline:{gpu_tag}] {label}: pipeline status pending ({:?})", t0.elapsed());
+                warn!(
+                    "[pipeline:{gpu_tag}] {label}: pipeline status pending ({:?})",
+                    t0.elapsed()
+                );
             }
         }
         pipeline
@@ -622,10 +630,16 @@ impl GpuF64 {
                 error!("[pipeline:{gpu_tag}] {label}: PIPELINE ERROR: {e}");
             }
             std::task::Poll::Ready(None) => {
-                debug!("[pipeline:{gpu_tag}] {label}: pipeline valid ({:?})", t0.elapsed());
+                debug!(
+                    "[pipeline:{gpu_tag}] {label}: pipeline valid ({:?})",
+                    t0.elapsed()
+                );
             }
             std::task::Poll::Pending => {
-                warn!("[pipeline:{gpu_tag}] {label}: pipeline status pending ({:?})", t0.elapsed());
+                warn!(
+                    "[pipeline:{gpu_tag}] {label}: pipeline status pending ({:?})",
+                    t0.elapsed()
+                );
             }
         }
         pipeline

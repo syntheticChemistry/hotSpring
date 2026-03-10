@@ -32,7 +32,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 
 ---
 
-## Current Status (2026-03-09)
+## Current Status (2026-03-10)
 
 | Study | Status | Quantitative Checks |
 |-------|--------|-------------------|
@@ -119,7 +119,8 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **Precision Stability** (Exp 046) | ✅ Complete | 9/9 cancellation families audited (f32/DF64/f64/CKKS FHE). Stable BCS v² + plasma W(z). 10 stability tests |
 | **Chuna Overnight** (Papers 43-45) | ✅ **44/44** | Core paper reproduction 41/41 (11 quenched flow + 20 dielectric + 10 kinetic-fluid). **Dynamical N_f=4 extension: 3/3 pass** — warm-start mass annealing, NPU-steered adaptive Omelyan HMC, 85% acceptance at m=0.1. `cscale` shader fix (multi-comp 4%→100%), precise pipeline routing. |
 | **coralReef Integration** | ✅ Complete | Sovereign WGSL→native compilation: 44/46 standalone shaders compile to SM70/SM86 SASS (Iter 26). Full `GpuBackend` impl via `Mutex<GpuContext>` (`Send+Sync` unblocked). IPC discovery wired. `sovereign-dispatch` feature gate. Remaining gap: `deformed_potentials_f64` SSARef truncation. |
-| **TOTAL** | **39/39 Rust validation suites** | **769 tests (lib)**, 101+ binaries, 84 WGSL shaders, 34/35 NPU HW checks. Zero clippy (lib+bins), zero unsafe, all AGPL-3.0-only. Both GPUs validated, DF64 production, Nautilus unified brain, **live AKD1000 PCIe NPU: 12-head brain, barraCuda v0.3.3 + toadStool S138 + coralReef P10 synced**. Science ladder: Quenched ✅ → Gradient Flow ✅ → Integrators ✅ → N_f=4 Infra ✅ → **Chuna 44/44** (core 41/41, dynamical ext 3/3) → N_f=2 (pending) → N_f=2+1 (pending). Stability: Tier 1 COMPLETE (Exp 046). Deep debt: **zero**. |
+| **Precision Brain** (Exp 049) | ✅ Complete | Self-routing brain: safe hardware calibration (4 tiers probed per GPU), domain→tier routing table (7 domains), **NVVM device poisoning discovered and gated**. Titan V (NVK): full 4-tier. RTX 3090 (proprietary): F64+F32 full, DF64/F64Precise △arith only. Dual-GPU cooperative: Split BCS 2.2×, PCIe 1.2 GB/s. 840 lib tests. |
+| **TOTAL** | **39/39 Rust validation suites** | **840 tests (lib)**, 111+ binaries, 84 WGSL shaders, 34/35 NPU HW checks. Zero clippy (lib+bins), zero unsafe, all AGPL-3.0-only. Both GPUs validated, DF64 production, Nautilus unified brain, **live AKD1000 PCIe NPU: 12-head brain, barraCuda v0.3.3 + toadStool S138 + coralReef P10 synced**. **Precision brain: self-routing hardware calibration, NVVM poisoning discovered + gated.** Science ladder: Quenched ✅ → Gradient Flow ✅ → Integrators ✅ → N_f=4 Infra ✅ → **Chuna 44/44** (core 41/41, dynamical ext 3/3) → N_f=2 (pending) → N_f=2+1 (pending). Stability: Tier 1 COMPLETE (Exp 046). Deep debt: **zero**. |
 
 Papers 5, 7, 8, and 10 from the review queue are complete. Paper 5 transport fits
 (Daligault 2012) were recalibrated against 12 Sarkas Green-Kubo D* values (Feb 2026)
@@ -380,7 +381,7 @@ makes the upstream library richer and hotSpring leaner.
 - HFB shader suite — potentials + density + BCS bisection (14+GPU+6 checks, Tier 2)
 - NPU substrate discovery — `metalForge/forge/src/probe.rs` (local evolution)
 
-**Already leaning on upstream** (v0.6.24, synced to barraCuda v0.3.3 + toadStool S138 + coralReef Phase 10 Iter 26, wgpu 28, pollster 0.3, bytemuck 1.25, tokio 1.50):
+**Already leaning on upstream** (v0.6.25, synced to barraCuda v0.3.3 + toadStool S138 + coralReef Phase 10 Iter 26, wgpu 28, pollster 0.3, bytemuck 1.25, tokio 1.50):
 
 | Module | Upstream | Status |
 |--------|----------|--------|
@@ -400,12 +401,12 @@ makes the upstream library richer and hotSpring leaner.
 
 ---
 
-## BarraCuda Crate (v0.6.24)
+## BarraCuda Crate (v0.6.25)
 
 The `barracuda/` directory is a standalone Rust crate providing the validation
 environment, physics implementations, and GPU compute. Key architectural properties:
 
-- **769 tests** (lib), **101+ binaries**, **39 validation suites** (39/39 pass), **84 WGSL shaders** (all AGPL-3.0-only),
+- **840 tests** (lib), **111+ binaries**, **39 validation suites** (39/39 pass), **84 WGSL shaders** (all AGPL-3.0-only),
   **16 determinism tests** (rerun-identical for all stochastic algorithms). Includes
   lattice QCD (complex f64, SU(3), Wilson action, HMC, Dirac CG, pseudofermion HMC),
   Abelian Higgs (U(1) + Higgs, HMC), transport coefficients (Green-Kubo D*/η*/λ*,
@@ -555,7 +556,7 @@ hotSpring/
 │       ├── cross_spring_evolution.md  # Cross-spring shader ecosystem (164+ shaders)
 │       └── neuromorphic_silicon.md    # AKD1000 NPU exploration — silicon behavior, cross-substrate ESN
 │
-├── barracuda/                          # BarraCuda Rust crate — v0.6.24 (769 tests, 101+ binaries, 84 WGSL shaders)
+├── barracuda/                          # BarraCuda Rust crate — v0.6.25 (840 tests, 111+ binaries, 84 WGSL shaders)
 │   ├── Cargo.toml                     # Dependencies (requires ecoPrimals/barraCuda)
 │   ├── CHANGELOG.md                   # Version history — baselines, tolerances, evolution
 │   ├── EVOLUTION_READINESS.md         # Rust module → GPU promotion tier + absorption status
@@ -969,6 +970,17 @@ These are **silent failures** — wrong results, no error messages. This fragili
 | [`experiments/029_NPU_STEERING_PRODUCTION.md`](experiments/029_NPU_STEERING_PRODUCTION.md) | NPU-steered production: adaptive β insertion, brain architecture |
 | [`experiments/030_ADAPTIVE_STEERING_PRODUCTION.md`](experiments/030_ADAPTIVE_STEERING_PRODUCTION.md) | Adaptive steering fix — superseded by 031 (auto-dt bug, NPU suggestions ignored) |
 | [`experiments/031_NPU_CONTROLLED_PARAMETERS.md`](experiments/031_NPU_CONTROLLED_PARAMETERS.md) | NPU as parameter controller: dt/n_md per-beta + mid-beta adaptation |
+| [`experiments/032_FINITE_TEMP_DECONFINEMENT.md`](experiments/032_FINITE_TEMP_DECONFINEMENT.md) | Finite-temp deconfinement on asymmetric lattices (32³×8, 64³×8, MILC-comparable) |
+| [`experiments/033_REALITY_LADDER_RUNG0.md`](experiments/033_REALITY_LADDER_RUNG0.md) | Reality ladder rung 0: mass × volume × beta scan (479 traj, N_f=4) |
+| [`experiments/040_KOKKOS_LAMMPS_VALIDATION.md`](experiments/040_KOKKOS_LAMMPS_VALIDATION.md) | Kokkos/LAMMPS parity: 9 PP Yukawa DSF cases, Verlet neighbor list |
+| [`experiments/041_DEEP_DEBT_RESOLUTION_AUDIT.md`](experiments/041_DEEP_DEBT_RESOLUTION_AUDIT.md) | Deep debt resolution: 0 clippy, discovery, provenance, WGSL dedup |
+| [`experiments/043_CHUNA_GRADIENT_FLOW_VALIDATION.md`](experiments/043_CHUNA_GRADIENT_FLOW_VALIDATION.md) | Chuna Paper 43: SU(3) gradient flow, LSCFRK derived, 11/11 |
+| [`experiments/044_CHUNA_BGK_DIELECTRIC.md`](experiments/044_CHUNA_BGK_DIELECTRIC.md) | Chuna Paper 44: Conservative BGK dielectric, 20/20 |
+| [`experiments/045_CHUNA_KINETIC_FLUID_COUPLING.md`](experiments/045_CHUNA_KINETIC_FLUID_COUPLING.md) | Chuna Paper 45: Multi-species kinetic-fluid coupling, 10/10 |
+| [`experiments/046_PRECISION_STABILITY_ANALYSIS.md`](experiments/046_PRECISION_STABILITY_ANALYSIS.md) | Multi-tier precision stability: 9 cancellation families, f32/DF64/f64/CKKS FHE |
+| [`experiments/047_DSF_VS_MD_VALIDATION.md`](experiments/047_DSF_VS_MD_VALIDATION.md) | DSF vs MD spectral validation |
+| [`experiments/048_PRODUCTION_GRADIENT_FLOW.md`](experiments/048_PRODUCTION_GRADIENT_FLOW.md) | Production gradient flow runs |
+| [`experiments/049_PRECISION_BRAIN_HETEROGENEOUS_EVAL.md`](experiments/049_PRECISION_BRAIN_HETEROGENEOUS_EVAL.md) | **Precision brain + heterogeneous GPU eval**: 3-tier harness, NVVM poisoning, dual-card cooperative |
 | [`experiments/032_FINITE_TEMP_DECONFINEMENT.md`](experiments/032_FINITE_TEMP_DECONFINEMENT.md) | Exp 032: Finite-temp deconfinement (32³×8, 64³×8 asymmetric lattices) |
 | [`experiments/033_REALITY_LADDER_RUNG0.md`](experiments/033_REALITY_LADDER_RUNG0.md) | Exp 033: Reality ladder rung 0 — mass scan (479 traj, 5 masses, 3 volumes) |
 | [`experiments/040_KOKKOS_LAMMPS_VALIDATION.md`](experiments/040_KOKKOS_LAMMPS_VALIDATION.md) | Exp 040: Kokkos/LAMMPS validation baseline (9 PP Yukawa DSF cases) |
@@ -1021,8 +1033,10 @@ toadStool's cross-spring absorption cycle. coralReef sovereign compilation:
 44/46 standalone shaders compile to native SM70/SM86 SASS (Iter 26) — the WGSL→native
 pipeline is live. biomeGate (RTX 3090, 24GB) resolves the QCD deconfinement
 transition at 32⁴ (χ=40.1 at β=5.69, matching β_c=5.692) in 13.6 hours for
-$0.58. 48+ experiments, 101+ binaries, 769 tests, barraCuda v0.3.3 + toadStool
-S138 + coralReef Phase 10 Iter 26 synced. Full multi-tier precision stability analysis
+$0.58. Self-routing precision brain: hardware calibration probes 4 tiers per GPU,
+NVVM device poisoning discovered and gated, dual-GPU cooperative patterns profiled
+(Split BCS 2.2×, PCIe 1.2 GB/s). 49+ experiments, 111+ binaries, 840 tests,
+barraCuda v0.3.3 + toadStool S138 + coralReef Phase 10 Iter 26 synced. Full multi-tier precision stability analysis
 (Exp 046): 9 cancellation families audited across f32/DF64/f64/CKKS FHE —
 stable BCS v² and plasma W(z) algorithms enable safe DF64 throughput. Chuna
 Papers 43-45: **44/44 overnight checks pass** (41 core + 3 dynamical extension)

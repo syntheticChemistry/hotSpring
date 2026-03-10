@@ -1,9 +1,18 @@
 # Spec: biomeGate Brain Architecture
 
-**Status:** DRAFT
-**Date:** February 28, 2026
+**Status:** DRAFT (updated March 10, 2026 — Precision Brain addition)
+**Date:** February 28, 2026 (original); March 10, 2026 (Precision Brain update)
 **License:** AGPL-3.0-only
-**Depends on:** Exp 024 (dynamical production), Exp 025 (multi-GPU), Exp 026 (4D proxy)
+**Depends on:** Exp 024 (dynamical production), Exp 025 (multi-GPU), Exp 026 (4D proxy), Exp 049 (Precision Brain)
+
+> **March 10, 2026 Update:** v0.6.25 adds a hardware-layer **Precision Brain**
+> (`precision_brain.rs`) beneath this 4-layer architecture. The Precision Brain
+> handles per-GPU precision routing: it probes all 4 tiers (F32, F64, F64Precise,
+> DF64) at startup, discovers which tiers compile and dispatch correctly, and
+> routes physics domains to the best available tier. Critical finding: NVIDIA's
+> proprietary driver permanently poisons the wgpu device on failed DF64
+> transcendental compilation — the Precision Brain gates this. See Exp 049 and
+> `HOTSPRING_V0625_PRECISION_BRAIN_NVVM_POISONING_HANDOFF_MAR10_2026.md`.
 
 ---
 

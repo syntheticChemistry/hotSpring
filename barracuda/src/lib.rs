@@ -45,26 +45,40 @@
 pub mod bench;
 /// AME2020 experimental data, Skyrme parameter bounds, and chi-squared.
 pub mod data;
+/// Heterogeneous dual-GPU device pair (precise + throughput brains).
+pub mod device_pair;
+/// Dual-card cooperative pipeline profiler (Split BCS, Split HMC, Redundant).
+pub mod dual_pipeline_eval;
 /// Capability-based data-path resolution (zero hardcoded absolute paths).
 pub mod discovery;
+/// Dual-dispatch executor for heterogeneous GPU workloads.
+pub mod dual_dispatch;
 /// Typed errors for GPU, simulation, and data-loading failure modes.
 pub mod error;
 /// GPU FP64 compute wrapper (`SHADER_F64` via wgpu/Vulkan).
 pub mod gpu;
+/// Hardware calibration: safe per-tier probe + capability mask.
+pub mod hardware_calibration;
 /// Lattice QCD: SU(3), Wilson action, HMC, Dirac, CG, Abelian Higgs.
 pub mod lattice;
 /// GPU molecular dynamics (f64 WGSL Yukawa OCP, cell-list, transport).
 pub mod md;
+/// Mixed-hardware pipeline infrastructure for metalForge integration.
+pub mod mixed_hardware;
 /// NPU experiment campaign.
 ///
 /// Trajectory generation, dataset builders, evaluators, and placement strategies.
 pub mod npu_experiments;
 /// Shared helpers for nuclear EOS validation binaries (L1/L2).
 pub mod nuclear_eos_helpers;
-/// Mixed-hardware pipeline infrastructure for metalForge integration.
-pub mod mixed_hardware;
 /// Nuclear structure: SEMF, nuclear matter, spherical/deformed HFB, BCS.
 pub mod physics;
+/// Full physics pipeline end-to-end profiler (MD, HMC, BCS, dielectric).
+pub mod pipeline_eval;
+/// Self-routing precision brain: data-driven tier selection from calibration.
+pub mod precision_brain;
+/// Per-shader precision/throughput profiler across all 3 tiers.
+pub mod precision_eval;
 /// L2 heterogeneous pipeline: L1 data gen, classifier training, L2 objective.
 pub mod pipeline;
 /// Precision routing: capability-aware shader compilation (local toadStool evolution).
@@ -85,7 +99,11 @@ pub mod streaming_dispatch;
 pub mod telemetry_reader;
 /// Centralized, justified validation thresholds (~170 constants).
 pub mod tolerances;
+/// PCIe transfer cost profiler per GPU card.
+pub mod transfer_eval;
 /// Two-Temperature Model (laser-plasma 0D ODE solver).
 pub mod ttm;
 /// Pass/fail harness for validation binaries (exit 0/1).
 pub mod validation;
+/// Workload planner for heterogeneous dual-GPU dispatch.
+pub mod workload_planner;

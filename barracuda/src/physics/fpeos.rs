@@ -11,8 +11,8 @@
 //! - Militzer, B. et al. "First-principles equation of state database for
 //!   warm dense matter computation." Phys. Rev. E 103, 013203 (2021)
 //! - Published tables at: <https://fpeos.de>
-//!   - Grid: (log10(ρ [g/cc]), log10(T [K]))
-//!   - Columns: pressure [GPa], internal energy [kJ/g]
+//!   - Grid: (log10(ρ \[g/cc\]), log10(T \[K\]))
+//!   - Columns: pressure \[GPa\], internal energy \[kJ/g\]
 //!
 //! # Provenance
 //!
@@ -85,6 +85,7 @@ impl FpeosTable {
     /// Bilinear interpolation in log10(ρ)-log10(T) space.
     ///
     /// Returns `None` if the table is empty or degenerate.
+    #[must_use]
     pub fn interpolate_log(&self, log_rho: f64, log_t: f64) -> Option<FpeosPoint> {
         if self.log_densities.len() < 2 || self.log_temperatures.len() < 2 {
             return None;
@@ -117,11 +118,13 @@ impl FpeosTable {
     }
 
     /// Convenience: interpolate from physical units (density in g/cc, T in K).
+    #[must_use]
     pub fn interpolate(&self, density_gcc: f64, temperature_k: f64) -> Option<FpeosPoint> {
         self.interpolate_log(density_gcc.log10(), temperature_k.log10())
     }
 
     /// Number of grid points.
+    #[must_use]
     pub fn grid_size(&self) -> (usize, usize) {
         (self.log_densities.len(), self.log_temperatures.len())
     }
@@ -129,6 +132,7 @@ impl FpeosTable {
     /// Thermodynamic consistency: verify P = ρ² ∂(E/ρ)/∂ρ at constant T.
     ///
     /// Returns the maximum relative inconsistency across interior grid points.
+    #[must_use]
     pub fn thermodynamic_consistency(&self) -> f64 {
         let n_rho = self.log_densities.len();
         let n_t = self.log_temperatures.len();
@@ -251,6 +255,7 @@ pub fn helium_reference() -> FpeosTable {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 
@@ -269,7 +274,11 @@ mod tests {
         let h = hydrogen_reference();
         let pt = h.interpolate_log(0.0, 5.0).unwrap();
         assert!((pt.pressure - 9.2).abs() < 0.01, "P={}", pt.pressure);
-        assert!((pt.internal_energy - 14.0).abs() < 0.1, "E={}", pt.internal_energy);
+        assert!(
+            (pt.internal_energy - 14.0).abs() < 0.1,
+            "E={}",
+            pt.internal_energy
+        );
     }
 
     #[test]
@@ -320,10 +329,7 @@ mod tests {
         let h = hydrogen_reference();
         let he = helium_reference();
         for i in 0..25 {
-            assert!(
-                he.pressure[i] <= h.pressure[i],
-                "He P > H P at index {i}"
-            );
+            assert!(he.pressure[i] <= h.pressure[i], "He P > H P at index {i}");
         }
     }
 

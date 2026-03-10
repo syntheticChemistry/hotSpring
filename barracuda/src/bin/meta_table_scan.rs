@@ -193,21 +193,15 @@ fn main() {
         dyn_streaming_pipelines = dyn_sp;
         resident_cg_pipelines = res_cg;
 
-        let mass_list: &[f64] = match args.mode {
-            ScanMode::Quenched => &[0.0], // placeholder, not used
-            ScanMode::Dynamical => &args.masses,
+        let mass_options: Vec<Option<f64>> = match args.mode {
+            ScanMode::Quenched => vec![None],
+            ScanMode::Dynamical => args.masses.iter().copied().map(Some).collect(),
         };
 
         for &beta in &args.betas {
-            for &mass in mass_list {
+            for &mass_val in &mass_options {
                 combo_idx += 1;
                 let point_start = Instant::now();
-
-                let mass_val = if args.mode == ScanMode::Dynamical {
-                    Some(mass)
-                } else {
-                    None
-                };
 
                 let (mean_plaq, chi, acceptance, mean_cg, wall_per_traj) = match args.mode {
                     ScanMode::Quenched => run_quenched_point(
@@ -228,7 +222,7 @@ fn main() {
                         &quenched_pipelines,
                         dims,
                         beta,
-                        mass,
+                        mass_val.expect("dynamical mode always has mass"),
                         args.cg_tol,
                         args.cg_max_iter,
                         args.check_interval,

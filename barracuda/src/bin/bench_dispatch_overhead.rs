@@ -22,7 +22,7 @@ use std::time::Instant;
 fn main() {
     let rt = tokio::runtime::Runtime::new().expect("tokio runtime");
     let mut harness = ValidationHarness::new("dispatch_overhead");
-    let mut telem = TelemetryWriter::new("dispatch_overhead_telemetry.jsonl");
+    let mut telem = TelemetryWriter::discover("dispatch_overhead_telemetry.jsonl");
 
     println!("╔══════════════════════════════════════════════════════════════╗");
     println!("║  Paper 45 Extension: Dispatch Overhead Benchmark           ║");
@@ -70,7 +70,11 @@ fn main() {
         println!("    {n_iterations} iterations: {cpu_ms:.3} ms ({cpu_per_iter:.4} ms/iter)");
         telem.log_map(
             "cpu_baseline",
-            &[("total_ms", cpu_ms), ("per_iter_ms", cpu_per_iter), ("grid_size", grid_size as f64)],
+            &[
+                ("total_ms", cpu_ms),
+                ("per_iter_ms", cpu_per_iter),
+                ("grid_size", grid_size as f64),
+            ],
         );
         // Prevent dead code elimination
         harness.check_bool("cpu_baseline_nonzero", f[grid_size / 2] > 0.0);
@@ -120,7 +124,10 @@ fn main() {
 
         // ─── Measure 4: Scaling test ───
         println!("\n  4. Grid scaling (CPU relaxation, measuring overhead fraction)");
-        println!("    {:>8} | {:>10} | {:>10}", "Grid", "Total ms", "Per-cell μs");
+        println!(
+            "    {:>8} | {:>10} | {:>10}",
+            "Grid", "Total ms", "Per-cell μs"
+        );
         println!("    ---------+------------+-----------");
 
         for &gs in &[256, 1024, 4096, 16384, 65536] {
@@ -134,10 +141,14 @@ fn main() {
             }
             let total_ms = t.elapsed().as_secs_f64() * 1000.0;
             let per_cell_us = total_ms * 1000.0 / (gs as f64 * n_iters as f64);
-            println!("    {:>8} | {:>10.3} | {:>10.4}", gs, total_ms, per_cell_us);
+            println!("    {gs:>8} | {total_ms:>10.3} | {per_cell_us:>10.4}");
             telem.log_map(
                 &format!("scaling_{gs}"),
-                &[("grid_size", gs as f64), ("total_ms", total_ms), ("per_cell_us", per_cell_us)],
+                &[
+                    ("grid_size", gs as f64),
+                    ("total_ms", total_ms),
+                    ("per_cell_us", per_cell_us),
+                ],
             );
             // Prevent DCE
             harness.check_bool(&format!("scaling_{gs}_ok"), data[gs / 2] > 0.0);

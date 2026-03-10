@@ -731,3 +731,129 @@ pub fn bootstrap_esn_from_trajectory_log(
 
     Ok((n_betas * n_lines / n_betas.max(1), beta_c))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn plaquette_variance_constant_is_zero() {
+        let history = vec![0.5; 100];
+        let v = plaquette_variance(&history);
+        assert!(v.abs() < 1e-15, "constant → zero variance, got {v}");
+    }
+
+    #[test]
+    fn plaquette_variance_known_values() {
+        let history = vec![1.0, 3.0];
+        let v = plaquette_variance(&history);
+        assert!((v - 2.0).abs() < 1e-14, "var([1,3]) = 2, got {v}");
+    }
+
+    #[test]
+    fn plaquette_variance_single_element_is_zero() {
+        assert!((plaquette_variance(&[1.0])).abs() < 1e-15);
+    }
+
+    #[test]
+    fn plaquette_variance_empty_is_zero() {
+        assert!((plaquette_variance(&[])).abs() < 1e-15);
+    }
+
+    #[test]
+    fn check_thermalization_too_short_returns_false() {
+        assert!(!check_thermalization(&[0.5; 5], 6.0));
+    }
+
+    #[test]
+    fn check_thermalization_stable_window_returns_true() {
+        let window: Vec<f64> = (0..100)
+            .map(|i| 0.5 + 0.0001 * (i as f64 * 0.1).sin())
+            .collect();
+        assert!(check_thermalization(&window, 6.0));
+    }
+
+    #[test]
+    fn check_thermalization_drifting_returns_false() {
+        let window: Vec<f64> = (0..100).map(|i| 0.3 + 0.3 * i as f64 / 100.0).collect();
+        assert!(!check_thermalization(&window, 6.0));
+    }
+
+    #[test]
+    fn predict_rejection_high_delta_h_low_acceptance() {
+        let (rejected, confidence) = predict_rejection(6.0, 0.5, 0.5, 5.0, 0.1);
+        assert!(rejected, "high |ΔH| + low acc → reject");
+        assert!(confidence > 0.8, "should have high confidence");
+    }
+
+    #[test]
+    fn predict_rejection_negative_delta_h() {
+        let (rejected, confidence) = predict_rejection(6.0, 0.5, 0.5, -1.0, 0.7);
+        assert!(!rejected, "negative ΔH → accept");
+        assert!(confidence < 0.5, "low confidence for negative ΔH");
+    }
+
+    #[test]
+    fn predict_rejection_zero_delta_h() {
+        let (_rejected, confidence) = predict_rejection(6.0, 0.5, 0.5, 0.0, 0.7);
+        assert!(confidence < 0.1, "zero ΔH → near-zero confidence");
+    }
+
+    fn make_beta_result(beta: f64) -> BetaResult {
+        BetaResult {
+            beta,
+            mean_plaq: 0.4 + 0.02 * beta,
+            std_plaq: 0.01,
+            polyakov: if beta > 5.7 { 0.3 } else { 0.05 },
+            susceptibility: 100.0,
+            acceptance: 0.7,
+            n_traj: 50,
+            wall_s: 10.0,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn build_training_data_shapes() {
+        let results = vec![make_beta_result(5.0), make_beta_result(6.5)];
+        let (seqs, targets) = build_training_data(&results);
+        assert_eq!(seqs.len(), 2, "one sequence per BetaResult");
+        assert_eq!(targets.len(), 2);
+        assert_eq!(seqs[0].len(), 10, "sequence length = 10");
+        assert_eq!(seqs[0][0].len(), 4, "4 features per frame");
+        assert_eq!(targets[0].len(), 2, "2 target values: phase + proximity");
+    }
+
+    #[test]
+    fn build_training_data_phase_labels() {
+        let confined = make_beta_result(5.0);
+        let deconfined = make_beta_result(6.5);
+        let (_, targets) = build_training_data(&[confined, deconfined]);
+        assert!((targets[0][0] - 0.0).abs() < 1e-10, "β=5.0 → confined");
+        assert!((targets[1][0] - 1.0).abs() < 1e-10, "β=6.5 → deconfined");
+    }
+
+    #[test]
+    fn attention_state_display() {
+        assert_eq!(format!("{}", AttentionState::Green), "GREEN");
+        assert_eq!(format!("{}", AttentionState::Yellow), "YELLOW");
+        assert_eq!(format!("{}", AttentionState::Red), "RED");
+    }
+
+    #[test]
+    fn load_meta_table_valid_jsonl() {
+        let jsonl = concat!(
+            r#"{"beta":5.0,"lattice":8,"mode":"quenched","mean_plaq":0.4,"chi":10.0,"acceptance":0.7,"mean_cg_iters":100.0,"wall_s_per_traj":0.1,"n_meas":50}"#,
+            "\n",
+            r#"{"beta":6.0,"lattice":8,"mode":"quenched","mean_plaq":0.6,"chi":5.0,"acceptance":0.8,"mean_cg_iters":50.0,"wall_s_per_traj":0.05,"n_meas":50}"#,
+        );
+        let cursor = std::io::Cursor::new(jsonl);
+        let rows: Vec<MetaRow> = cursor
+            .lines()
+            .filter_map(|l| serde_json::from_str(&l.ok()?).ok())
+            .collect();
+        assert_eq!(rows.len(), 2);
+        assert!((rows[0].beta - 5.0).abs() < 1e-10);
+        assert!((rows[1].beta - 6.0).abs() < 1e-10);
+    }
+}

@@ -24,7 +24,7 @@ use barracuda::ops::md::electrostatics::{PppmGpu, PppmParams};
 fn main() {
     let rt = tokio::runtime::Runtime::new().expect("tokio runtime");
     let mut harness = ValidationHarness::new("pppm_dispatch_benchmark");
-    let mut telem = TelemetryWriter::new("pppm_dispatch_telemetry.jsonl");
+    let mut telem = TelemetryWriter::discover("pppm_dispatch_telemetry.jsonl");
 
     println!("╔══════════════════════════════════════════════════════════════╗");
     println!("║  Paper 44 Extension: PPPM Dispatch Overhead                ║");
@@ -50,7 +50,10 @@ fn main() {
         let n_warmup = 3;
         let n_measure = 10;
 
-        println!("  {:>6} | {:>8} | {:>10} | {:>10} | {:>8}", "N", "Init ms", "Compute ms", "Per-step", "Status");
+        println!(
+            "  {:>6} | {:>8} | {:>10} | {:>10} | {:>8}",
+            "N", "Init ms", "Compute ms", "Per-step", "Status"
+        );
         println!("  -------+----------+------------+------------+---------");
 
         for &n in &system_sizes {
@@ -66,7 +69,13 @@ fn main() {
                 charges.push(if i % 2 == 0 { 1.0 } else { -1.0 });
             }
 
-            let mesh = if n <= 64 { 32 } else if n <= 256 { 64 } else { 128 };
+            let mesh = if n <= 64 {
+                32
+            } else if n <= 256 {
+                64
+            } else {
+                128
+            };
             let params = PppmParams::custom(
                 n,
                 [box_side, box_side, box_side],
@@ -80,7 +89,7 @@ fn main() {
             let pppm = match PppmGpu::from_device(&wgpu_dev, params).await {
                 Ok(p) => p,
                 Err(e) => {
-                    println!("  {:>6} | FAILED: {e}", n);
+                    println!("  {n:>6} | FAILED: {e}");
                     harness.check_bool(&format!("pppm_init_N{n}"), false);
                     continue;
                 }
@@ -97,14 +106,15 @@ fn main() {
             let mut last_energy = 0.0;
             for _ in 0..n_measure {
                 let t = Instant::now();
-                if let Ok((_forces, energy)) = pppm.compute_with_kspace(&positions, &charges).await {
+                if let Ok((_forces, energy)) = pppm.compute_with_kspace(&positions, &charges).await
+                {
                     compute_times.push(t.elapsed().as_secs_f64() * 1000.0);
                     last_energy = energy;
                 }
             }
 
             if compute_times.is_empty() {
-                println!("  {:>6} | {:>8.1} | FAILED", n, init_ms);
+                println!("  {n:>6} | {init_ms:>8.1} | FAILED");
                 harness.check_bool(&format!("pppm_compute_N{n}"), false);
                 continue;
             }
@@ -154,7 +164,13 @@ fn main() {
                 charges.push(if i % 2 == 0 { 1.0 } else { -1.0 });
             }
 
-            let mesh = if n <= 64 { 32 } else if n <= 256 { 64 } else { 128 };
+            let mesh = if n <= 64 {
+                32
+            } else if n <= 256 {
+                64
+            } else {
+                128
+            };
             let params = PppmParams::custom(
                 n,
                 [box_side, box_side, box_side],
@@ -176,7 +192,7 @@ fn main() {
                 let gpu_ms = t_gpu.elapsed().as_secs_f64() * 1000.0;
 
                 let status = if gpu_result.is_ok() { "OK" } else { "N/A" };
-                println!("  {:>6} | {:>10.3} | {:>10.3} [{}]", n, gpu_ms, cpu_ms, status);
+                println!("  {n:>6} | {gpu_ms:>10.3} | {cpu_ms:>10.3} [{status}]");
 
                 telem.log_map(
                     &format!("pppm_fft_N{n}"),
@@ -188,10 +204,8 @@ fn main() {
                 );
 
                 if let Ok((_, gpu_energy)) = gpu_result {
-                    harness.check_bool(
-                        &format!("pppm_gpu_fft_finite_N{n}"),
-                        gpu_energy.is_finite(),
-                    );
+                    harness
+                        .check_bool(&format!("pppm_gpu_fft_finite_N{n}"), gpu_energy.is_finite());
                 }
             }
         }

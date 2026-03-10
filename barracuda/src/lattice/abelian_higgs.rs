@@ -128,7 +128,7 @@ impl U1HiggsLattice {
     /// Access link `U_μ` = e^{iθ} at site (t, x).
     #[inline]
     pub fn link(&self, t: usize, x: usize, mu: usize) -> Complex64 {
-        Complex64::from_polar(self.link_angle(t, x, mu))
+        super::complex_f64::from_polar(self.link_angle(t, x, mu))
     }
 
     /// Cold start: all links θ=0 (ordered), all Higgs φ=1.

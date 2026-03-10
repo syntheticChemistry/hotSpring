@@ -18,7 +18,10 @@ use barracuda::device::CoralReefDevice;
 struct ShaderEntry {
     name: &'static str,
     source: &'static str,
-    #[expect(dead_code, reason = "used for categorization in output, may be used later")]
+    #[expect(
+        dead_code,
+        reason = "used for categorization in output, may be used later"
+    )]
     category: &'static str,
 }
 
@@ -38,8 +41,8 @@ fn main() {
     println!("║  hotSpring WGSL → native SM70/SM86 via coral-gpu           ║");
     println!("╚══════════════════════════════════════════════════════════════╝\n");
 
-    let dev = CoralReefDevice::new(GpuTarget::Nvidia(NvArch::Sm70))
-        .expect("CoralReefDevice should init");
+    let dev =
+        CoralReefDevice::new(GpuTarget::Nvidia(NvArch::Sm70)).expect("CoralReefDevice should init");
 
     let targets = [
         (GpuTarget::Nvidia(NvArch::Sm70), "sm_70"),
@@ -47,52 +50,208 @@ fn main() {
     ];
 
     let shaders = vec![
-        shader!("chi2_batch_f64", "../physics/shaders/chi2_batch_f64.wgsl", "nuclear"),
-        shader!("semf_batch_f64", "../physics/shaders/semf_batch_f64.wgsl", "nuclear"),
-        shader!("spin_orbit_pack_f64", "../physics/shaders/spin_orbit_pack_f64.wgsl", "nuclear"),
-        shader!("batched_hfb_density_f64", "../physics/shaders/batched_hfb_density_f64.wgsl", "nuclear"),
-        shader!("batched_hfb_energy_f64", "../physics/shaders/batched_hfb_energy_f64.wgsl", "nuclear"),
-        shader!("batched_hfb_hamiltonian_f64", "../physics/shaders/batched_hfb_hamiltonian_f64.wgsl", "nuclear"),
-        shader!("deformed_density_energy_f64", "../physics/shaders/deformed_density_energy_f64.wgsl", "nuclear"),
-        shader!("deformed_gradient_f64", "../physics/shaders/deformed_gradient_f64.wgsl", "nuclear"),
-        shader!("deformed_hamiltonian_f64", "../physics/shaders/deformed_hamiltonian_f64.wgsl", "nuclear"),
-        shader!("deformed_potentials_f64", "../physics/shaders/deformed_potentials_f64.wgsl", "nuclear"),
-        shader!("su3_gauge_force_f64", "../lattice/shaders/su3_gauge_force_f64.wgsl", "lattice"),
-        shader!("wilson_plaquette_f64", "../lattice/shaders/wilson_plaquette_f64.wgsl", "lattice"),
-        shader!("su3_link_update_f64", "../lattice/shaders/su3_link_update_f64.wgsl", "lattice"),
-        shader!("su3_flow_accumulate_f64", "../lattice/shaders/su3_flow_accumulate_f64.wgsl", "lattice"),
-        shader!("cg_kernels_f64", "../lattice/shaders/cg_kernels_f64.wgsl", "lattice"),
-        shader!("dirac_staggered_f64", "../lattice/shaders/dirac_staggered_f64.wgsl", "lattice"),
-        shader!("staggered_fermion_force_f64", "../lattice/shaders/staggered_fermion_force_f64.wgsl", "lattice"),
-        shader!("su3_kinetic_energy_f64", "../lattice/shaders/su3_kinetic_energy_f64.wgsl", "lattice"),
-        shader!("su3_momentum_update_f64", "../lattice/shaders/su3_momentum_update_f64.wgsl", "lattice"),
-        shader!("sum_reduce_f64", "../lattice/shaders/sum_reduce_f64.wgsl", "lattice"),
+        shader!(
+            "chi2_batch_f64",
+            "../physics/shaders/chi2_batch_f64.wgsl",
+            "nuclear"
+        ),
+        shader!(
+            "semf_batch_f64",
+            "../physics/shaders/semf_batch_f64.wgsl",
+            "nuclear"
+        ),
+        shader!(
+            "spin_orbit_pack_f64",
+            "../physics/shaders/spin_orbit_pack_f64.wgsl",
+            "nuclear"
+        ),
+        shader!(
+            "batched_hfb_density_f64",
+            "../physics/shaders/batched_hfb_density_f64.wgsl",
+            "nuclear"
+        ),
+        shader!(
+            "batched_hfb_energy_f64",
+            "../physics/shaders/batched_hfb_energy_f64.wgsl",
+            "nuclear"
+        ),
+        shader!(
+            "batched_hfb_hamiltonian_f64",
+            "../physics/shaders/batched_hfb_hamiltonian_f64.wgsl",
+            "nuclear"
+        ),
+        shader!(
+            "deformed_density_energy_f64",
+            "../physics/shaders/deformed_density_energy_f64.wgsl",
+            "nuclear"
+        ),
+        shader!(
+            "deformed_gradient_f64",
+            "../physics/shaders/deformed_gradient_f64.wgsl",
+            "nuclear"
+        ),
+        shader!(
+            "deformed_hamiltonian_f64",
+            "../physics/shaders/deformed_hamiltonian_f64.wgsl",
+            "nuclear"
+        ),
+        shader!(
+            "deformed_potentials_f64",
+            "../physics/shaders/deformed_potentials_f64.wgsl",
+            "nuclear"
+        ),
+        shader!(
+            "su3_gauge_force_f64",
+            "../lattice/shaders/su3_gauge_force_f64.wgsl",
+            "lattice"
+        ),
+        shader!(
+            "wilson_plaquette_f64",
+            "../lattice/shaders/wilson_plaquette_f64.wgsl",
+            "lattice"
+        ),
+        shader!(
+            "su3_link_update_f64",
+            "../lattice/shaders/su3_link_update_f64.wgsl",
+            "lattice"
+        ),
+        shader!(
+            "su3_flow_accumulate_f64",
+            "../lattice/shaders/su3_flow_accumulate_f64.wgsl",
+            "lattice"
+        ),
+        shader!(
+            "cg_kernels_f64",
+            "../lattice/shaders/cg_kernels_f64.wgsl",
+            "lattice"
+        ),
+        shader!(
+            "dirac_staggered_f64",
+            "../lattice/shaders/dirac_staggered_f64.wgsl",
+            "lattice"
+        ),
+        shader!(
+            "staggered_fermion_force_f64",
+            "../lattice/shaders/staggered_fermion_force_f64.wgsl",
+            "lattice"
+        ),
+        shader!(
+            "su3_kinetic_energy_f64",
+            "../lattice/shaders/su3_kinetic_energy_f64.wgsl",
+            "lattice"
+        ),
+        shader!(
+            "su3_momentum_update_f64",
+            "../lattice/shaders/su3_momentum_update_f64.wgsl",
+            "lattice"
+        ),
+        shader!(
+            "sum_reduce_f64",
+            "../lattice/shaders/sum_reduce_f64.wgsl",
+            "lattice"
+        ),
         shader!("axpy_f64", "../lattice/shaders/axpy_f64.wgsl", "lattice-cg"),
         shader!("xpay_f64", "../lattice/shaders/xpay_f64.wgsl", "lattice-cg"),
-        shader!("cg_update_p_f64", "../lattice/shaders/cg_update_p_f64.wgsl", "lattice-cg"),
-        shader!("cg_compute_beta_f64", "../lattice/shaders/cg_compute_beta_f64.wgsl", "lattice-cg"),
-        shader!("cg_update_xr_f64", "../lattice/shaders/cg_update_xr_f64.wgsl", "lattice-cg"),
-        shader!("cg_compute_alpha_f64", "../lattice/shaders/cg_compute_alpha_f64.wgsl", "lattice-cg"),
-        shader!("complex_dot_re_f64", "../lattice/shaders/complex_dot_re_f64.wgsl", "lattice-cg"),
-        shader!("complex_f64", "../lattice/shaders/complex_f64.wgsl", "lattice-util"),
-        shader!("yukawa_force_f64", "../md/shaders/yukawa_force_f64.wgsl", "md"),
-        shader!("yukawa_force_verlet_f64", "../md/shaders/yukawa_force_verlet_f64.wgsl", "md"),
-        shader!("yukawa_force_celllist_f64", "../md/shaders/yukawa_force_celllist_f64.wgsl", "md"),
-        shader!("yukawa_force_celllist_v2_f64", "../md/shaders/yukawa_force_celllist_v2_f64.wgsl", "md"),
-        shader!("yukawa_force_celllist_indirect_f64", "../md/shaders/yukawa_force_celllist_indirect_f64.wgsl", "md"),
-        shader!("vv_half_kick_f64", "../md/shaders/vv_half_kick_f64.wgsl", "md"),
-        shader!("vv_kick_drift_f64", "../md/shaders/vv_kick_drift_f64.wgsl", "md"),
-        shader!("kinetic_energy_f64", "../md/shaders/kinetic_energy_f64.wgsl", "md"),
+        shader!(
+            "cg_update_p_f64",
+            "../lattice/shaders/cg_update_p_f64.wgsl",
+            "lattice-cg"
+        ),
+        shader!(
+            "cg_compute_beta_f64",
+            "../lattice/shaders/cg_compute_beta_f64.wgsl",
+            "lattice-cg"
+        ),
+        shader!(
+            "cg_update_xr_f64",
+            "../lattice/shaders/cg_update_xr_f64.wgsl",
+            "lattice-cg"
+        ),
+        shader!(
+            "cg_compute_alpha_f64",
+            "../lattice/shaders/cg_compute_alpha_f64.wgsl",
+            "lattice-cg"
+        ),
+        shader!(
+            "complex_dot_re_f64",
+            "../lattice/shaders/complex_dot_re_f64.wgsl",
+            "lattice-cg"
+        ),
+        shader!(
+            "complex_f64",
+            "../lattice/shaders/complex_f64.wgsl",
+            "lattice-util"
+        ),
+        shader!(
+            "yukawa_force_f64",
+            "../md/shaders/yukawa_force_f64.wgsl",
+            "md"
+        ),
+        shader!(
+            "yukawa_force_verlet_f64",
+            "../md/shaders/yukawa_force_verlet_f64.wgsl",
+            "md"
+        ),
+        shader!(
+            "yukawa_force_celllist_f64",
+            "../md/shaders/yukawa_force_celllist_f64.wgsl",
+            "md"
+        ),
+        shader!(
+            "yukawa_force_celllist_v2_f64",
+            "../md/shaders/yukawa_force_celllist_v2_f64.wgsl",
+            "md"
+        ),
+        shader!(
+            "yukawa_force_celllist_indirect_f64",
+            "../md/shaders/yukawa_force_celllist_indirect_f64.wgsl",
+            "md"
+        ),
+        shader!(
+            "vv_half_kick_f64",
+            "../md/shaders/vv_half_kick_f64.wgsl",
+            "md"
+        ),
+        shader!(
+            "vv_kick_drift_f64",
+            "../md/shaders/vv_kick_drift_f64.wgsl",
+            "md"
+        ),
+        shader!(
+            "kinetic_energy_f64",
+            "../md/shaders/kinetic_energy_f64.wgsl",
+            "md"
+        ),
         shader!("berendsen_f64", "../md/shaders/berendsen_f64.wgsl", "md"),
-        shader!("rdf_histogram_f64", "../md/shaders/rdf_histogram_f64.wgsl", "md"),
+        shader!(
+            "rdf_histogram_f64",
+            "../md/shaders/rdf_histogram_f64.wgsl",
+            "md"
+        ),
         shader!("vacf_batch_f64", "../md/shaders/vacf_batch_f64.wgsl", "md"),
         shader!("vacf_dot_f64", "../md/shaders/vacf_dot_f64.wgsl", "md"),
-        shader!("stress_virial_f64", "../md/shaders/stress_virial_f64.wgsl", "md"),
+        shader!(
+            "stress_virial_f64",
+            "../md/shaders/stress_virial_f64.wgsl",
+            "md"
+        ),
         shader!("verlet_build", "../md/shaders/verlet_build.wgsl", "md"),
-        shader!("verlet_check_displacement", "../md/shaders/verlet_check_displacement.wgsl", "md"),
-        shader!("verlet_copy_ref", "../md/shaders/verlet_copy_ref.wgsl", "md"),
+        shader!(
+            "verlet_check_displacement",
+            "../md/shaders/verlet_check_displacement.wgsl",
+            "md"
+        ),
+        shader!(
+            "verlet_copy_ref",
+            "../md/shaders/verlet_copy_ref.wgsl",
+            "md"
+        ),
         shader!("esn_readout", "../md/shaders/esn_readout.wgsl", "md-esn"),
-        shader!("esn_reservoir_update", "../md/shaders/esn_reservoir_update.wgsl", "md-esn"),
+        shader!(
+            "esn_reservoir_update",
+            "../md/shaders/esn_reservoir_update.wgsl",
+            "md-esn"
+        ),
     ];
 
     for &(target, arch_name) in &targets {

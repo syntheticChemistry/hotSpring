@@ -5,6 +5,55 @@ All notable changes to the hotSpring BarraCuda validation crate.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.6.25 — Precision Brain + NVVM Poisoning Discovery (March 10, 2026)
+
+### Summary
+
+- **Self-routing precision brain** (`PrecisionBrain`) probes hardware at startup, builds
+  domain→tier routing table, O(1) lookups — no static heuristics, works on any GPU
+- **NVIDIA NVVM device poisoning discovered**: proprietary driver permanently invalidates
+  wgpu device on failed DF64/F64Precise transcendental compilation. Documented, gated,
+  and handed off to toadStool/barraCuda for upstream evolution
+- **Hardware calibration** (`HardwareCalibration`): safe per-tier probe (F32→F64→F64Precise→DF64),
+  transcendental safety inferred from driver identity, never poisons the device
+- **3-tier precision evaluation harness**: `bench_precision_eval` profiles both GPUs across
+  all precision tiers with full pipeline E2E and dual-card cooperative patterns
+- **Heterogeneous dual-GPU profiling**: transfer profiles, shader tier matrix, physics
+  pipelines, cooperative patterns (Split BCS, Split HMC, Redundant, PCIe roundtrip)
+- **New modules**: `hardware_calibration`, `precision_brain`, `precision_eval`,
+  `transfer_eval`, `pipeline_eval`, `dual_pipeline_eval`, `device_pair`,
+  `dual_dispatch`, `workload_planner`
+- **New binary**: `bench_precision_eval` (6-phase master benchmark)
+
+### Metrics
+
+- 840 tests (lib), 111+ binaries, 84 WGSL shaders
+- 0 clippy warnings (lib + all binaries)
+- 0 unsafe blocks, 0 TODO/FIXME, all files <1000 lines
+- All WGSL shaders AGPL-3.0-only
+- Synced: barraCuda v0.3.3, toadStool S138, coralReef Phase 10 Iter 26
+
+### Key Discovery: NVVM Poisoning
+
+On NVIDIA's proprietary driver, compiling a WGSL shader with f64 transcendentals
+(`exp`, `log`) at DF64 or F64Precise precision triggers `"NVVM compilation failed: 1"`.
+This permanently invalidates the wgpu device — all subsequent operations fail with
+`"Buffer is invalid"`. Recovery requires process restart.
+
+Affected: RTX 3090 (GA102, proprietary), any NVIDIA card using the proprietary driver.
+Not affected: Titan V (GV100, NVK/Mesa), any GPU using open-source drivers.
+
+The brain works around this by never probing transcendentals on proprietary NVIDIA —
+it infers safety from the adapter name and gates shader compilation accordingly.
+
+### Handoff
+
+`HOTSPRING_V0625_PRECISION_BRAIN_NVVM_POISONING_HANDOFF_MAR10_2026.md` — full NVVM
+poisoning analysis, calibration/brain architecture, benchmark data, and absorption
+candidates for toadStool/barraCuda.
+
+---
+
 ## v0.6.24 — Modern Primal Rewire + coralReef Integration (March 9, 2026)
 
 ### Summary

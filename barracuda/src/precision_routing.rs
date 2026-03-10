@@ -82,7 +82,8 @@ pub fn route_precision(domain: PhysicsDomain, gpu: &GpuF64) -> PrecisionRoutingA
                 PrecisionRoutingAdvice {
                     tier: PrecisionTier::F64Precise,
                     fma_safe: false,
-                    rationale: "Complex arithmetic requires FMA-free precision to avoid cancellation",
+                    rationale:
+                        "Complex arithmetic requires FMA-free precision to avoid cancellation",
                     hw_advice,
                 }
             } else {
@@ -144,12 +145,8 @@ pub fn create_routed_pipeline(
 ) -> wgpu::ComputePipeline {
     match advice.tier {
         PrecisionTier::F32 => gpu.create_pipeline(shader_source, label),
-        PrecisionTier::DF64 | PrecisionTier::F64 => {
-            gpu.create_pipeline_f64(shader_source, label)
-        }
-        PrecisionTier::F64Precise => {
-            gpu.create_pipeline_f64_precise(shader_source, label)
-        }
+        PrecisionTier::DF64 | PrecisionTier::F64 => gpu.create_pipeline_f64(shader_source, label),
+        PrecisionTier::F64Precise => gpu.create_pipeline_f64_precise(shader_source, label),
     }
 }
 
@@ -169,6 +166,42 @@ pub fn create_routed_pipeline_entry(
         PrecisionTier::F64Precise => {
             gpu.create_pipeline_f64_entry_precise(shader_source, entry_point, label)
         }
+    }
+}
+
+// ── Dual-device routing ──────────────────────────────────────────────
+
+/// Precision advice for a dual-GPU workload.
+///
+/// Contains per-device routing plus the workload assignment from the planner.
+#[derive(Debug, Clone)]
+pub struct DualPrecisionAdvice {
+    /// Routing advice for the precise card.
+    pub precise: PrecisionRoutingAdvice,
+    /// Routing advice for the throughput card.
+    pub throughput: PrecisionRoutingAdvice,
+    /// How the workload should be distributed.
+    pub assignment: crate::workload_planner::WorkloadAssignment,
+}
+
+/// Route a physics domain across a device pair.
+///
+/// Queries each device's hardware capability independently, then combines
+/// with the workload planner's transfer-gated assignment.
+#[must_use]
+pub fn route_precision_pair(
+    domain: PhysicsDomain,
+    pair: &crate::device_pair::DevicePair,
+    data_bytes: usize,
+    compute_us: f64,
+) -> DualPrecisionAdvice {
+    let precise = route_precision(domain, &pair.precise);
+    let throughput = route_precision(domain, &pair.throughput);
+    let assignment = crate::workload_planner::plan_workload(pair, domain, data_bytes, compute_us);
+    DualPrecisionAdvice {
+        precise,
+        throughput,
+        assignment,
     }
 }
 
@@ -211,12 +244,16 @@ mod tests {
             PhysicsDomain::NuclearEos,
         ];
         for domain in domains {
-            assert!(
-                matches!(domain, PhysicsDomain::LatticeQcd | PhysicsDomain::GradientFlow
-                    | PhysicsDomain::Dielectric | PhysicsDomain::KineticFluid
-                    | PhysicsDomain::Eigensolve | PhysicsDomain::MolecularDynamics
-                    | PhysicsDomain::NuclearEos)
-            );
+            assert!(matches!(
+                domain,
+                PhysicsDomain::LatticeQcd
+                    | PhysicsDomain::GradientFlow
+                    | PhysicsDomain::Dielectric
+                    | PhysicsDomain::KineticFluid
+                    | PhysicsDomain::Eigensolve
+                    | PhysicsDomain::MolecularDynamics
+                    | PhysicsDomain::NuclearEos
+            ));
         }
     }
 

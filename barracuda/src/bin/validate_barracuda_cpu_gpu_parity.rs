@@ -19,7 +19,7 @@ use std::time::Instant;
 fn main() {
     let rt = tokio::runtime::Runtime::new().expect("tokio runtime");
     let mut harness = ValidationHarness::new("cpu_gpu_parity");
-    let mut telem = TelemetryWriter::new("cpu_gpu_parity_telemetry.jsonl");
+    let mut telem = TelemetryWriter::discover("cpu_gpu_parity_telemetry.jsonl");
 
     println!("╔══════════════════════════════════════════════════════════════╗");
     println!("║  BarraCuda CPU vs GPU Parity — All Physics Domains         ║");
@@ -34,9 +34,7 @@ fn main() {
     // ─── GPU-dependent domains ───
     match rt.block_on(GpuF64::new()) {
         Ok(gpu) => {
-            if !gpu.has_f64 {
-                println!("  SHADER_F64 not supported — skipping GPU domains\n");
-            } else {
+            if gpu.has_f64 {
                 println!("\n━━━ Domain 2: Plasma Dielectric ━━━\n");
                 validate_dielectric(&mut harness, &gpu, &mut telem);
 
@@ -51,6 +49,8 @@ fn main() {
 
                 println!("\n━━━ Domain 6: Coupled Kinetic-Fluid ━━━\n");
                 validate_coupled(&mut harness, &gpu, &mut telem);
+            } else {
+                println!("  SHADER_F64 not supported — skipping GPU domains\n");
             }
         }
         Err(e) => {
@@ -124,8 +124,14 @@ fn validate_dielectric(harness: &mut ValidationHarness, gpu: &GpuF64, telem: &mu
 
     let l2 = v.l2_loss_rel_error;
     println!("    GPU-CPU L² (loss function): {l2:.4e}");
-    println!("    DSF positivity (GPU): {:.0}%", v.dsf_pos_fraction_gpu * 100.0);
-    println!("    GPU {:.2}s, CPU {:.2}s", v.gpu_wall_seconds, v.cpu_wall_seconds);
+    println!(
+        "    DSF positivity (GPU): {:.0}%",
+        v.dsf_pos_fraction_gpu * 100.0
+    );
+    println!(
+        "    GPU {:.2}s, CPU {:.2}s",
+        v.gpu_wall_seconds, v.cpu_wall_seconds
+    );
 
     harness.check_upper("dielectric_l2", l2, 0.01);
     harness.check_lower("dielectric_dsf_pos", v.dsf_pos_fraction_gpu, 0.95);
@@ -181,10 +187,14 @@ fn validate_bgk(harness: &mut ValidationHarness, gpu: &GpuF64, telem: &mut Telem
     let mass_diff = (gpu_r.result.mass_err_1 - cpu_r.mass_err_1).abs();
     let energy_diff = (gpu_r.result.energy_err - cpu_r.energy_err).abs();
 
-    println!("    GPU mass err: {:.4e}, CPU: {:.4e}, diff: {:.4e}",
-        gpu_r.result.mass_err_1, cpu_r.mass_err_1, mass_diff);
-    println!("    GPU energy err: {:.4e}, CPU: {:.4e}, diff: {:.4e}",
-        gpu_r.result.energy_err, cpu_r.energy_err, energy_diff);
+    println!(
+        "    GPU mass err: {:.4e}, CPU: {:.4e}, diff: {:.4e}",
+        gpu_r.result.mass_err_1, cpu_r.mass_err_1, mass_diff
+    );
+    println!(
+        "    GPU energy err: {:.4e}, CPU: {:.4e}, diff: {:.4e}",
+        gpu_r.result.energy_err, cpu_r.energy_err, energy_diff
+    );
 
     harness.check_upper("bgk_mass_diff", mass_diff, 1e-3);
     harness.check_upper("bgk_energy_diff", energy_diff, 0.1);
@@ -222,8 +232,14 @@ fn validate_euler(harness: &mut ValidationHarness, gpu: &GpuF64, telem: &mut Tel
     let mass_diff = (r.mass_err - r.cpu.mass_err).abs();
     let energy_diff = (r.energy_err - r.cpu.energy_err).abs();
 
-    println!("    GPU mass err: {:.4e}, CPU: {:.4e}", r.mass_err, r.cpu.mass_err);
-    println!("    GPU energy err: {:.4e}, CPU: {:.4e}", r.energy_err, r.cpu.energy_err);
+    println!(
+        "    GPU mass err: {:.4e}, CPU: {:.4e}",
+        r.mass_err, r.cpu.mass_err
+    );
+    println!(
+        "    GPU energy err: {:.4e}, CPU: {:.4e}",
+        r.energy_err, r.cpu.energy_err
+    );
 
     harness.check_upper("euler_mass_diff", mass_diff, 0.01);
     harness.check_upper("euler_energy_diff", energy_diff, 0.01);
@@ -268,10 +284,15 @@ fn validate_coupled(harness: &mut ValidationHarness, gpu: &GpuF64, telem: &mut T
         r.interface_density_match
     };
 
-    println!("    GPU mass err: {:.4e}, CPU: {:.4e}", r.mass_err, r.cpu.mass_err);
+    println!(
+        "    GPU mass err: {:.4e}, CPU: {:.4e}",
+        r.mass_err, r.cpu.mass_err
+    );
     println!("    Interface parity: {if_rel:.4e}");
-    println!("    {} steps, GPU {:.2}s, CPU {:.2}s",
-        r.n_steps, r.gpu_wall_seconds, r.cpu_wall_seconds);
+    println!(
+        "    {} steps, GPU {:.2}s, CPU {:.2}s",
+        r.n_steps, r.gpu_wall_seconds, r.cpu_wall_seconds
+    );
 
     harness.check_upper("coupled_mass_err", r.mass_err, 0.05);
     harness.check_upper("coupled_energy_err", r.energy_err, 0.1);

@@ -86,12 +86,11 @@ pub async fn run_simulation_verlet_with_brain(
             shaders::SHADER_YUKAWA_FORCE_VERLET_DF64,
             "yukawa_force_verlet_df64",
         ),
-        Fp64Strategy::Native | Fp64Strategy::Sovereign | Fp64Strategy::Concurrent => {
-            gpu.create_pipeline_f64(
+        Fp64Strategy::Native | Fp64Strategy::Sovereign | Fp64Strategy::Concurrent => gpu
+            .create_pipeline_f64(
                 shaders::SHADER_YUKAWA_FORCE_VERLET,
                 "yukawa_force_verlet_f64",
-            )
-        }
+            ),
     };
     let kick_drift_pipeline =
         gpu.create_pipeline(shaders::SHADER_VV_KICK_DRIFT, "vv_kick_drift_f64");

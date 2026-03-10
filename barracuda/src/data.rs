@@ -110,9 +110,7 @@ pub fn nuclei_data_path(base_dir: &Path, set: NucleiSet) -> PathBuf {
 /// # Errors
 ///
 /// Returns an error if the file cannot be opened or JSON deserialization fails.
-pub fn load_experimental_data(
-    path: &Path,
-) -> Result<NucleiMap, HotSpringError> {
+pub fn load_experimental_data(path: &Path) -> Result<NucleiMap, HotSpringError> {
     let reader = std::io::BufReader::new(std::fs::File::open(path)?);
     let file: NucleiFile = serde_json::from_reader(reader)?;
     let mut map = HashMap::with_capacity(file.nuclei.len());
@@ -130,10 +128,7 @@ pub fn load_experimental_data(
 /// # Errors
 ///
 /// Returns an error if the file cannot be opened or JSON deserialization fails.
-pub fn load_nuclei(
-    base_dir: &Path,
-    set: NucleiSet,
-) -> Result<NucleiMap, HotSpringError> {
+pub fn load_nuclei(base_dir: &Path, set: NucleiSet) -> Result<NucleiMap, HotSpringError> {
     let path = nuclei_data_path(base_dir, set);
     println!("  Dataset: {} ({})", set.description(), path.display());
     load_experimental_data(&path)

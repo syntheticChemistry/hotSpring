@@ -62,6 +62,7 @@ impl WorkerState {
     }
 
     /// Build a new MultiHeadNpu from accumulated BetaResults, or None if insufficient data.
+    #[must_use]
     pub fn make_multi_esn(&self, seed: u64, results: &[BetaResult]) -> Option<MultiHeadNpu> {
         if results.is_empty() {
             return None;

@@ -333,6 +333,24 @@ pub async fn run_simulation(
     })
 }
 
+/// Select the best GPU from a `DevicePair` for MD workloads.
+///
+/// For molecular dynamics (throughput-bound, FMA-tolerant), the throughput
+/// card (DF64 on f32 cores) is preferred unless the data is too small to
+/// benefit from the f32 core advantage.
+pub fn select_md_gpu(pair: &crate::device_pair::DevicePair) -> &GpuF64 {
+    let assignment = crate::workload_planner::plan_workload(
+        pair,
+        crate::precision_routing::PhysicsDomain::MolecularDynamics,
+        0,
+        1_000.0,
+    );
+    match assignment {
+        crate::workload_planner::WorkloadAssignment::PreciseOnly => &pair.precise,
+        _ => &pair.throughput,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

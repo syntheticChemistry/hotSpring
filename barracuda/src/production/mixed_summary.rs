@@ -229,9 +229,22 @@ pub struct MixedJsonContext<'a> {
 /// Write mixed pipeline results to JSON.
 pub fn write_mixed_json(ctx: &MixedJsonContext<'_>) {
     let MixedJsonContext {
-        path, results, lattice, dims, vol, gpu_name, gpu_titan_name, npu_name,
-        n_therm_max, seed, total_wall, total_trajectories, total_meas,
-        adaptive_count, final_beta_c, npu_stats,
+        path,
+        results,
+        lattice,
+        dims,
+        vol,
+        gpu_name,
+        gpu_titan_name,
+        npu_name,
+        n_therm_max,
+        seed,
+        total_wall,
+        total_trajectories,
+        total_meas,
+        adaptive_count,
+        final_beta_c,
+        npu_stats,
     } = ctx;
     let total_therm_budget: usize = results.iter().map(|r| r.therm_budget).sum();
     let total_therm_used: usize = results.iter().map(|r| r.therm_used).sum();

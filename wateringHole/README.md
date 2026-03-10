@@ -1,7 +1,7 @@
 # wateringHole — Cross-Project Handoffs
 
 **Project:** hotSpring (ecoPrimals)
-**Last Updated:** March 9, 2026
+**Last Updated:** March 10, 2026
 
 ---
 
@@ -57,16 +57,14 @@ fossil record — never deleted, always available for provenance.
 
 | File | Date | Topic |
 |------|------|-------|
-| [`../../../wateringHole/handoffs/HOTSPRING_V0624_CORALREEF_ITER26_SOVEREIGN_PIPELINE_HANDOFF_MAR09_2026.md`] | Mar 9 | **coralReef sovereign pipeline**: 44/46 shaders compile to native SASS, full `GpuBackend` impl, DRM dispatch status, lessons learned |
-| [`../../../wateringHole/handoffs/HOTSPRING_V0624_MODERN_REWIRE_HANDOFF_MAR09_2026.md`] | Mar 9 | **Modern rewire**: v0.6.24, 769 tests, Chuna 44/44, coralReef Iter 26, barraCuda v0.3.3, toadStool S138 |
-| [`../../../wateringHole/handoffs/HOTSPRING_CORALREEF_INTEGRATION_HANDOFF.md`] | Mar 9 | **coralReef integration**: local development setup, discovery manifest, feature gates |
+| [`HOTSPRING_V0625_PRECISION_BRAIN_NVVM_POISONING_HANDOFF_MAR10_2026.md`](handoffs/HOTSPRING_V0625_PRECISION_BRAIN_NVVM_POISONING_HANDOFF_MAR10_2026.md) | Mar 10 | **Precision brain + NVVM poisoning**: self-routing brain, hardware calibration, 3-tier eval harness, dual-GPU cooperative patterns, NVVM device poisoning discovery + workaround |
 
 ---
 
 ## Archive
 
 70+ superseded handoffs in `handoffs/archive/`. These document the full
-evolution history from v0.4.x through v0.6.23:
+evolution history from v0.4.x through v0.6.24:
 
 - Early toadStool rewire documents (v1-v4)
 - GPU primitive absorption records

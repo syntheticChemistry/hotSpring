@@ -97,9 +97,16 @@ impl RunHistoryWriter {
             "{{\"beta\":{},\"mass\":{},\"dt\":{},\"n_md\":{},\
               \"plaquette\":{},\"delta_h\":{},\"cg_iters\":{},\
               \"accepted\":{},\"wall_us\":{},\"stage\":\"{}\"}}\n",
-            rec.beta, rec.mass, rec.dt, rec.n_md,
-            rec.plaquette, rec.delta_h, rec.cg_iters,
-            rec.accepted, rec.wall_us, rec.stage,
+            rec.beta,
+            rec.mass,
+            rec.dt,
+            rec.n_md,
+            rec.plaquette,
+            rec.delta_h,
+            rec.cg_iters,
+            rec.accepted,
+            rec.wall_us,
+            rec.stage,
         );
         let _ = self.file.write_all(line.as_bytes());
     }
@@ -110,9 +117,13 @@ impl RunHistoryWriter {
             "{{\"type\":\"summary\",\"beta\":{},\"mass\":{},\
               \"final_acceptance\":{},\"final_plaquette\":{},\
               \"final_dt\":{},\"n_trajectories\":{},\"converged\":{}}}\n",
-            summary.beta, summary.mass,
-            summary.final_acceptance, summary.final_plaquette,
-            summary.final_dt, summary.n_trajectories, summary.converged,
+            summary.beta,
+            summary.mass,
+            summary.final_acceptance,
+            summary.final_plaquette,
+            summary.final_dt,
+            summary.n_trajectories,
+            summary.converged,
         );
         let _ = self.file.write_all(line.as_bytes());
     }
@@ -196,8 +207,7 @@ impl RunHistoryReader {
 
             // Target: parameter quality signal — high acceptance with small dt
             // is good (efficient exploration)
-            let quality = if t.accepted { 1.0 } else { 0.0 }
-                - t.delta_h.abs().min(100.0) / 100.0;
+            let quality = if t.accepted { 1.0 } else { 0.0 } - t.delta_h.abs().min(100.0) / 100.0;
 
             pairs.push((input, quality));
         }
@@ -282,10 +292,7 @@ fn parse_summary(line: &str) -> Option<RunSummary> {
 ///
 /// Extracts training pairs from the run history and uses the Nautilus
 /// evolutionary loop to improve the NPU's parameter suggestions.
-pub fn retrain_npu_from_history(
-    npu: &mut super::NpuSteering,
-    history: &RunHistoryReader,
-) {
+pub fn retrain_npu_from_history(npu: &mut super::NpuSteering, history: &RunHistoryReader) {
     let pairs = history.to_npu_training_pairs();
     if pairs.is_empty() {
         return;

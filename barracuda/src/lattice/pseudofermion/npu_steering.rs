@@ -107,8 +107,7 @@ impl NpuSteering {
 
         if (ADAPTIVE_DT_MIN..=ADAPTIVE_DT_MAX).contains(&dt_suggest) {
             let target_tau = 0.02;
-            let n_md = ((target_tau / dt_suggest).round() as usize)
-                .clamp(ADAPTIVE_NMD_MIN, 200);
+            let n_md = ((target_tau / dt_suggest).round() as usize).clamp(ADAPTIVE_NMD_MIN, 200);
             Some((dt_suggest, n_md))
         } else {
             None
@@ -117,12 +116,7 @@ impl NpuSteering {
 
     /// Query the NPU for a CG iteration estimate.
     #[must_use]
-    pub fn predict_cg_iters(
-        &mut self,
-        beta: f64,
-        mass: f64,
-        lattice_size: usize,
-    ) -> usize {
+    pub fn predict_cg_iters(&mut self, beta: f64, mass: f64, lattice_size: usize) -> usize {
         let seq = npu_canonical_seq(
             beta,
             self.last_plaquette,
@@ -140,12 +134,7 @@ impl NpuSteering {
     /// Returns `true` if the NPU's anomaly head fires (raw > 0.7),
     /// indicating the current trajectory has divergent forces and
     /// the controller should reduce dt aggressively.
-    pub fn detect_force_anomaly(
-        &mut self,
-        beta: f64,
-        mass: f64,
-        lattice_size: usize,
-    ) -> bool {
+    pub fn detect_force_anomaly(&mut self, beta: f64, mass: f64, lattice_size: usize) -> bool {
         let seq = npu_canonical_seq(
             beta,
             self.last_plaquette,

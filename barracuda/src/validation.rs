@@ -315,6 +315,26 @@ impl TelemetryWriter {
         }
     }
 
+    /// Create a telemetry writer using discovery-based path resolution.
+    ///
+    /// Resolves the output directory via `discovery::telemetry_path()`,
+    /// which checks `HOTSPRING_TELEMETRY_DIR`, then `<data_root>/telemetry/`,
+    /// then falls back to CWD.
+    pub fn discover(filename: &str) -> Self {
+        let path = crate::discovery::telemetry_path(filename);
+        let display = path.display().to_string();
+        let file = std::fs::File::create(&path)
+            .ok()
+            .map(std::io::BufWriter::new);
+        if file.is_some() {
+            log::info!("Telemetry → {display}");
+        }
+        Self {
+            file,
+            start: std::time::Instant::now(),
+        }
+    }
+
     /// Create a no-op writer (for when telemetry is disabled).
     #[must_use]
     pub fn disabled() -> Self {

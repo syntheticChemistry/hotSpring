@@ -14,8 +14,8 @@ use crate::lattice::wilson::Lattice;
 use crate::md::reservoir::heads;
 use crate::md::reservoir::npu::MultiHeadNpu;
 use crate::tolerances::{
-    ADAPTIVE_DT_BUMP, ADAPTIVE_DT_DROP, ADAPTIVE_DT_MAX, ADAPTIVE_DT_MIN,
-    ADAPTIVE_HIGH_ACCEPTANCE, ADAPTIVE_LOW_ACCEPTANCE, ADAPTIVE_NMD_MAX, ADAPTIVE_NMD_MIN,
+    ADAPTIVE_DT_BUMP, ADAPTIVE_DT_DROP, ADAPTIVE_DT_MAX, ADAPTIVE_DT_MIN, ADAPTIVE_HIGH_ACCEPTANCE,
+    ADAPTIVE_LOW_ACCEPTANCE, ADAPTIVE_NMD_MAX, ADAPTIVE_NMD_MIN,
 };
 
 /// Acceptance-driven adaptive step-size controller for dynamical HMC.
@@ -353,8 +353,10 @@ fn dynamical_thermalize_warm_start_inner(
             if i == 0 {
                 println!(
                     "      [diag] S_gauge={:.1}, S_ferm={:.1}, cg_iters={}, ΔH={:.1}",
-                    result.gauge_action, result.fermion_action,
-                    result.cg_iterations, result.delta_h,
+                    result.gauge_action,
+                    result.fermion_action,
+                    result.cg_iterations,
+                    result.delta_h,
                 );
             }
 

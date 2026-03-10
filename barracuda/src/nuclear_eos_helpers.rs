@@ -569,11 +569,7 @@ pub fn print_comparison_summary(
 }
 
 /// Print reference baselines (published parametrizations) with chi² and NMP.
-pub fn print_reference_baselines(
-    exp_data: &NucleiMap,
-    lambda: f64,
-    baselines: &[(&str, &[f64])],
-) {
+pub fn print_reference_baselines(exp_data: &NucleiMap, lambda: f64, baselines: &[(&str, &[f64])]) {
     for (name, params) in baselines {
         let be_chi2 = compute_be_chi2_only(params, exp_data);
         if let Some(nmp) = crate::physics::nuclear_matter_properties(params) {
@@ -711,11 +707,7 @@ pub fn run_deep_residual_analysis(
 /// L1 objective with NMP chi-squared constraint (UNEDF-style).
 /// `chi2_total` = `chi2_BE/datum` + lambda * `chi2_NMP/datum`.
 #[must_use]
-pub fn l1_objective_nmp(
-    x: &[f64],
-    exp_data: &NucleiMap,
-    lambda: f64,
-) -> f64 {
+pub fn l1_objective_nmp(x: &[f64], exp_data: &NucleiMap, lambda: f64) -> f64 {
     if x[8] <= 0.01 || x[8] > 1.0 {
         return (1e4_f64).ln_1p();
     }
@@ -794,11 +786,7 @@ pub fn l1_chi2_cpu_nuclei(params: &[f64], nuclei: &[NucleiEntry]) -> f64 {
 ///
 /// Same as `l1_objective_nmp` but accepts `&[NucleiEntry]`.
 #[must_use]
-pub fn l1_objective_nmp_nuclei(
-    x: &[f64],
-    nuclei: &[NucleiEntry],
-    lambda: f64,
-) -> f64 {
+pub fn l1_objective_nmp_nuclei(x: &[f64], nuclei: &[NucleiEntry], lambda: f64) -> f64 {
     if x[8] <= 0.01 || x[8] > 1.0 {
         return (1e4_f64).ln_1p();
     }
@@ -837,11 +825,7 @@ pub fn l1_objective_nmp_nuclei(
 ///
 /// Used by `nuclear_eos_gpu` for L2 DirectSampler. Uses `lambda * chi2_NMP/5`.
 #[must_use]
-pub fn l2_objective_nmp_exp_data(
-    x: &[f64],
-    exp_data: &NucleiMap,
-    lambda: f64,
-) -> f64 {
+pub fn l2_objective_nmp_exp_data(x: &[f64], exp_data: &NucleiMap, lambda: f64) -> f64 {
     if x[8] <= 0.01 || x[8] > 1.0 {
         return (1e4_f64).ln_1p();
     }
@@ -898,4 +882,97 @@ pub fn per_nucleus_residuals_to_json(residuals: &[NucleusResidual]) -> Vec<serde
             })
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn compute_mean_std_basic() {
+        let (mean, std) = compute_mean_std(&[1.0, 2.0, 3.0]);
+        assert!((mean - 2.0).abs() < 1e-14, "mean should be 2, got {mean}");
+        assert!((std - 1.0).abs() < 1e-14, "std should be 1, got {std}");
+    }
+
+    #[test]
+    fn compute_mean_std_constant() {
+        let (mean, std) = compute_mean_std(&[5.0, 5.0, 5.0]);
+        assert!((mean - 5.0).abs() < 1e-14);
+        assert!(std.abs() < 1e-14);
+    }
+
+    #[test]
+    fn compute_mean_std_empty() {
+        let (mean, std) = compute_mean_std(&[]);
+        assert!((mean).abs() < 1e-14);
+        assert!((std).abs() < 1e-14);
+    }
+
+    #[test]
+    fn compute_mean_std_single() {
+        let (mean, std) = compute_mean_std(&[42.0]);
+        assert!((mean - 42.0).abs() < 1e-14);
+        assert!(std.abs() < 1e-14);
+    }
+
+    #[test]
+    fn compute_residual_metrics_basic() {
+        let residuals = vec![
+            NucleusResidual {
+                z: 8,
+                n: 8,
+                a: 16,
+                element: "O".to_string(),
+                b_exp: 127.619,
+                b_calc: 127.0,
+                delta_b: -0.619,
+                abs_delta: 0.619,
+                rel_delta: 0.619 / 127.619,
+                chi2_i: 0.619_f64.powi(2) / 0.5_f64.powi(2),
+            },
+            NucleusResidual {
+                z: 20,
+                n: 20,
+                a: 40,
+                element: "Ca".to_string(),
+                b_exp: 342.052,
+                b_calc: 342.5,
+                delta_b: 0.448,
+                abs_delta: 0.448,
+                rel_delta: 0.448 / 342.052,
+                chi2_i: 0.448_f64.powi(2) / 0.5_f64.powi(2),
+            },
+        ];
+        let m = compute_residual_metrics(&residuals);
+        assert_eq!(m.n_nuclei, 2);
+        assert!(m.rms > 0.0, "RMS should be positive");
+        assert!(m.mae > 0.0, "MAE should be positive");
+        assert!(m.max_err > 0.0, "max error should be positive");
+        assert!(m.mean_rel > 0.0, "mean relative should be positive");
+    }
+
+    #[test]
+    fn compute_residual_metrics_empty() {
+        let m = compute_residual_metrics(&[]);
+        assert_eq!(m.n_nuclei, 0);
+        assert!(m.rms.abs() < 1e-15);
+    }
+
+    #[test]
+    fn compute_be_chi2_sly4_is_finite() {
+        use crate::data::load_experimental_data;
+        use crate::discovery::try_discover_data_root;
+
+        let Ok(root) = try_discover_data_root() else {
+            return;
+        };
+        let Ok(exp_data) = load_experimental_data(&root) else {
+            return;
+        };
+        let sly4_params = crate::provenance::SLY4_PARAMS;
+        let chi2 = compute_be_chi2_only(&sly4_params, &exp_data);
+        assert!(chi2.is_finite(), "chi2 should be finite");
+        assert!(chi2 > 0.0, "chi2 should be positive");
+    }
 }

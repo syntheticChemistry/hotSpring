@@ -18,7 +18,7 @@ use std::f64::consts::PI;
 
 fn main() {
     let mut harness = ValidationHarness::new("atomec_average_atom");
-    let mut telem = TelemetryWriter::new("atomec_telemetry.jsonl");
+    let mut telem = TelemetryWriter::discover("atomec_telemetry.jsonl");
 
     println!("╔══════════════════════════════════════════════════════════════╗");
     println!("║  Paper 33: atoMEC Average-Atom Model                       ║");
@@ -76,7 +76,7 @@ fn main() {
     println!("  Hydrogen (ρ=1 g/cc, T=50 eV)...");
     let h_hot = AverageAtomConfig {
         temperature_ev: 50.0,
-        ..h_config.clone()
+        ..h_config
     };
     let h_hot_result = solve_average_atom(&h_hot);
     println!(
@@ -127,7 +127,7 @@ fn main() {
     println!("  Aluminum (ρ=2.7 g/cc, T=100 eV)...");
     let al_hot = AverageAtomConfig {
         temperature_ev: 100.0,
-        ..al_config.clone()
+        ..al_config
     };
     let al_hot_result = solve_average_atom(&al_hot);
     println!(
@@ -153,8 +153,7 @@ fn main() {
         .take(h_cold_result.density.len() / 2)
         .filter(|w| w[0] >= w[1] - 1e-15)
         .count();
-    let mono_frac =
-        n_mono as f64 / (h_cold_result.density.len() / 2).max(1) as f64;
+    let mono_frac = n_mono as f64 / (h_cold_result.density.len() / 2).max(1) as f64;
     println!("    monotonic fraction (inner half): {mono_frac:.2}");
     harness.check_lower("h_cold_density_monotonic", mono_frac, 0.8);
 

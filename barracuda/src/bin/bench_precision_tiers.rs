@@ -15,7 +15,7 @@ use std::time::Instant;
 
 fn main() {
     let mut harness = ValidationHarness::new("precision_tiers");
-    let mut telem = TelemetryWriter::new("precision_tiers_telemetry.jsonl");
+    let mut telem = TelemetryWriter::discover("precision_tiers_telemetry.jsonl");
 
     println!("╔══════════════════════════════════════════════════════════════╗");
     println!("║  Precision Tier Benchmark: f32 vs DF64 vs f64              ║");

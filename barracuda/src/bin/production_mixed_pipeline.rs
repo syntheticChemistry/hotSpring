@@ -530,7 +530,11 @@ fn main() {
             vol,
             gpu_name: &gpu.adapter_name,
             gpu_titan_name: gpu_titan.as_ref().map(|g| g.adapter_name.as_str()),
-            npu_name: if npu_available { "AKD1000" } else { "NpuSimulator" },
+            npu_name: if npu_available {
+                "AKD1000"
+            } else {
+                "NpuSimulator"
+            },
             n_therm_max: args.n_therm,
             seed: args.seed,
             total_wall,

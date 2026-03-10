@@ -129,10 +129,7 @@ impl<'a> StreamingContext<'a> {
 ///
 /// Returns (single_stats, streaming_stats) for the caller to analyze.
 #[must_use]
-pub fn compare_dispatch_modes(
-    gpu: &GpuF64,
-    n_dispatches: usize,
-) -> (DispatchStats, DispatchStats) {
+pub fn compare_dispatch_modes(gpu: &GpuF64, n_dispatches: usize) -> (DispatchStats, DispatchStats) {
     let single = DispatchStats {
         n_dispatches,
         n_submissions: n_dispatches,

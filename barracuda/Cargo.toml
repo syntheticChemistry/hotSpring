@@ -1,6 +1,6 @@
 [package]
 name = "hotspring-barracuda"
-version = "0.6.24"
+version = "0.6.25"
 edition = "2021"
 description = "Nuclear EOS + GPU MD validation for BarraCuda — L1/L2/L3 physics, Yukawa OCP, lattice QCD, spectral theory, typed errors, full Result propagation, provenance, capability-based discovery"
 license = "AGPL-3.0-only"
@@ -85,7 +85,7 @@ sovereign-dispatch = ["barracuda/sovereign-dispatch"]
 # BarraCuda (standalone primal): math, shaders, compilation, ESN, NPU math
 # Public repo: https://github.com/ecoPrimals/barraCuda
 # Local dev override: .cargo/config.toml patches this to ../../barraCuda
-barracuda = { git = "https://github.com/ecoPrimals/barraCuda.git", rev = "27011af" }
+barracuda = { git = "https://github.com/ecoPrimals/barraCuda.git", rev = "5c16458" }
 
 # Structured logging (transitive dep via wgpu; explicit for library diagnostics)
 log = "0.4"
@@ -227,6 +227,11 @@ path = "src/bin/bench_wgsize_nvk.rs"
 [[bin]]
 name = "bench_multi_gpu"
 path = "src/bin/bench_multi_gpu.rs"
+
+# ── Heterogeneous dual-GPU device pair benchmark ─────────────────
+[[bin]]
+name = "bench_device_pair"
+path = "src/bin/bench_device_pair.rs"
 
 # ── GPU FP64 throughput benchmark ─────────────────────────────────
 [[bin]]
@@ -646,6 +651,11 @@ path = "src/bin/bench_precision_tiers.rs"
 [[bin]]
 name = "live_telemetry_dashboard"
 path = "src/bin/live_telemetry_dashboard.rs"
+
+# ── 3-tier precision evaluation harness ──
+[[bin]]
+name = "bench_precision_eval"
+path = "src/bin/bench_precision_eval.rs"
 
 # ── coralReef sovereign dispatch proof-of-concept ──
 [[bin]]

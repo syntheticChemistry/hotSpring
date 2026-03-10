@@ -2,201 +2,28 @@
 
 //! Complex f64 arithmetic for lattice field theory.
 //!
-//! Extracted from barracuda's `fft_1d_f64.wgsl` Complex64 struct and promoted
-//! to a standalone module. Both Rust-side reference implementation and WGSL
-//! shader source for GPU acceleration.
+//! Re-exports barraCuda's `Complex64` as the single source of truth,
+//! adding hotSpring-specific extensions (`from_polar`) and the WGSL
+//! shader constant for GPU lattice QCD shaders.
 //!
 //! # Provenance
 //!
-//! Original: barraCuda `ops/fft/fft_1d_f64.wgsl` lines 27-59.
-//! Extracted Feb 2026 for lattice QCD SU(3) matrix operations.
-//! Note: hotSpring uses `struct Complex64 { re, im }` while barraCuda math/
-//! uses `vec2<f64>`. barraCuda lattice shaders still use the struct form.
+//! Original: barraCuda `ops/lattice/cpu_complex.rs`.
+//! hotSpring extensions: `from_polar`, `WGSL_COMPLEX64`.
 
-use std::fmt;
-use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign};
-
-/// Complex number with f64 real and imaginary parts.
-#[derive(Clone, Copy, Debug, PartialEq)]
-#[must_use]
-pub struct Complex64 {
-    /// Real part.
-    pub re: f64,
-    /// Imaginary part.
-    pub im: f64,
-}
-
-impl Complex64 {
-    /// Zero: 0 + 0i.
-    pub const ZERO: Self = Self { re: 0.0, im: 0.0 };
-    /// One: 1 + 0i.
-    pub const ONE: Self = Self { re: 1.0, im: 0.0 };
-    /// Imaginary unit: 0 + 1i.
-    pub const I: Self = Self { re: 0.0, im: 1.0 };
-
-    /// Construct from real and imaginary parts.
-    #[inline]
-    pub const fn new(re: f64, im: f64) -> Self {
-        Self { re, im }
-    }
-
-    /// Complex conjugate z̄ = re − im·i.
-    #[inline]
-    pub fn conj(self) -> Self {
-        Self {
-            re: self.re,
-            im: -self.im,
-        }
-    }
-
-    /// Squared magnitude |z|² = re² + im².
-    #[inline]
-    #[must_use]
-    pub fn abs_sq(self) -> f64 {
-        self.re.mul_add(self.re, self.im * self.im)
-    }
-
-    /// Magnitude |z| = √(re² + im²).
-    #[inline]
-    #[must_use]
-    pub fn abs(self) -> f64 {
-        self.abs_sq().sqrt()
-    }
-
-    /// Complex exponential e^z.
-    #[inline]
-    pub fn exp(self) -> Self {
-        let r = self.re.exp();
-        Self {
-            re: r * self.im.cos(),
-            im: r * self.im.sin(),
-        }
-    }
-
-    /// e^{i theta}
-    #[inline]
-    pub fn from_polar(theta: f64) -> Self {
-        Self {
-            re: theta.cos(),
-            im: theta.sin(),
-        }
-    }
-
-    /// Scale by real factor s.
-    #[inline]
-    pub fn scale(self, s: f64) -> Self {
-        Self {
-            re: self.re * s,
-            im: self.im * s,
-        }
-    }
-
-    /// Multiplicative inverse 1/z.
-    #[inline]
-    pub fn inv(self) -> Self {
-        let d = self.abs_sq();
-        Self {
-            re: self.re / d,
-            im: -self.im / d,
-        }
-    }
-}
-
-impl Add for Complex64 {
-    type Output = Self;
-    #[inline]
-    fn add(self, rhs: Self) -> Self {
-        Self {
-            re: self.re + rhs.re,
-            im: self.im + rhs.im,
-        }
-    }
-}
-
-impl AddAssign for Complex64 {
-    #[inline]
-    fn add_assign(&mut self, rhs: Self) {
-        self.re += rhs.re;
-        self.im += rhs.im;
-    }
-}
-
-impl Sub for Complex64 {
-    type Output = Self;
-    #[inline]
-    fn sub(self, rhs: Self) -> Self {
-        Self {
-            re: self.re - rhs.re,
-            im: self.im - rhs.im,
-        }
-    }
-}
-
-impl SubAssign for Complex64 {
-    #[inline]
-    fn sub_assign(&mut self, rhs: Self) {
-        self.re -= rhs.re;
-        self.im -= rhs.im;
-    }
-}
-
-impl Mul for Complex64 {
-    type Output = Self;
-    #[inline]
-    fn mul(self, rhs: Self) -> Self {
-        Self {
-            re: self.re.mul_add(rhs.re, -(self.im * rhs.im)),
-            im: self.re.mul_add(rhs.im, self.im * rhs.re),
-        }
-    }
-}
-
-impl MulAssign for Complex64 {
-    #[inline]
-    fn mul_assign(&mut self, rhs: Self) {
-        *self = *self * rhs;
-    }
-}
-
-impl Div for Complex64 {
-    type Output = Self;
-    #[inline]
-    #[allow(clippy::suspicious_arithmetic_impl)] // complex division via (a+bi)/(c+di) = (ac+bd)/d² + i(bc-ad)/d²
-    fn div(self, rhs: Self) -> Self {
-        let d = rhs.abs_sq();
-        Self {
-            re: self.re.mul_add(rhs.re, self.im * rhs.im) / d,
-            im: self.im.mul_add(rhs.re, -(self.re * rhs.im)) / d,
-        }
-    }
-}
-
-impl Neg for Complex64 {
-    type Output = Self;
-    #[inline]
-    fn neg(self) -> Self {
-        Self {
-            re: -self.re,
-            im: -self.im,
-        }
-    }
-}
-
-impl fmt::Display for Complex64 {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.im >= 0.0 {
-            write!(f, "{:.6}+{:.6}i", self.re, self.im)
-        } else {
-            write!(f, "{:.6}{:.6}i", self.re, self.im)
-        }
-    }
-}
+pub use barracuda::ops::lattice::cpu_complex::Complex64;
 
 /// WGSL shader source for Complex64 operations.
 ///
 /// Matches the Rust-side implementation exactly. Can be prepended to any
 /// WGSL shader that needs complex arithmetic.
 pub const WGSL_COMPLEX64: &str = include_str!("shaders/complex_f64.wgsl");
+
+/// hotSpring extension: construct e^{iθ} from polar angle.
+#[inline]
+pub fn from_polar(theta: f64) -> Complex64 {
+    Complex64::new(theta.cos(), theta.sin())
+}
 
 #[cfg(test)]
 mod tests {
@@ -246,96 +73,24 @@ mod tests {
     }
 
     #[test]
-    fn complex_mul_conj_gives_abs_sq() {
-        let a = Complex64::new(3.0, 4.0);
-        let p = a * a.conj();
-        assert!((p.re - 25.0).abs() < 1e-14);
-        assert!(p.im.abs() < 1e-14);
-    }
-
-    #[test]
-    fn complex_div_inverse() {
-        let a = Complex64::new(1.0, 2.0);
-        let b = Complex64::new(3.0, 4.0);
-        let c = a / b;
-        let d = c * b;
-        assert!((d.re - a.re).abs() < 1e-14);
-        assert!((d.im - a.im).abs() < 1e-14);
-    }
-
-    #[test]
     fn complex_from_polar() {
-        let z = Complex64::from_polar(std::f64::consts::FRAC_PI_4);
+        let z = from_polar(std::f64::consts::FRAC_PI_4);
         let s2 = std::f64::consts::FRAC_1_SQRT_2;
         assert!((z.re - s2).abs() < 1e-15);
         assert!((z.im - s2).abs() < 1e-15);
     }
 
     #[test]
-    fn complex_add_assign() {
-        let mut a = Complex64::new(1.0, 2.0);
-        let b = Complex64::new(3.0, -1.0);
-        a += b;
-        assert!((a.re - 4.0).abs() < 1e-15);
-        assert!((a.im - 1.0).abs() < 1e-15);
+    fn complex_inv() {
+        let a = Complex64::new(1.0, 1.0);
+        let inv = a.inv();
+        let product = a * inv;
+        assert!((product.re - 1.0).abs() < 1e-14);
+        assert!(product.im.abs() < 1e-14);
     }
 
     #[test]
-    fn complex_sub_assign() {
-        let mut a = Complex64::new(5.0, 4.0);
-        let b = Complex64::new(3.0, 1.0);
-        a -= b;
-        assert!((a.re - 2.0).abs() < 1e-15);
-        assert!((a.im - 3.0).abs() < 1e-15);
-    }
-
-    #[test]
-    fn complex_mul_assign() {
-        let mut a = Complex64::new(1.0, 2.0);
-        let b = Complex64::new(3.0, 4.0);
-        a *= b;
-        assert!((a.re - (-5.0)).abs() < 1e-15);
-        assert!((a.im - 10.0).abs() < 1e-15);
-    }
-
-    #[test]
-    fn complex_neg() {
-        let a = Complex64::new(3.0, -4.0);
-        let n = -a;
-        assert!((n.re - (-3.0)).abs() < 1e-15);
-        assert!((n.im - 4.0).abs() < 1e-15);
-    }
-
-    #[test]
-    fn complex_display_positive_im() {
-        let z = Complex64::new(1.5, 2.5);
-        let s = format!("{z}");
-        assert!(s.contains("1.5"));
-        assert!(s.contains('+'));
-        assert!(s.contains("2.5"));
-        assert!(s.contains('i'));
-    }
-
-    #[test]
-    fn complex_display_negative_im() {
-        let z = Complex64::new(1.5, -2.5);
-        let s = format!("{z}");
-        assert!(s.contains("1.5"));
-        assert!(!s.contains("+-")); // format is "{:.6}{:.6}i" for negative
-        assert!(s.contains("-2.5") || s.contains("-2."));
-        assert!(s.contains('i'));
-    }
-
-    #[test]
-    fn complex_scale() {
-        let a = Complex64::new(3.0, 4.0);
-        let b = a.scale(2.0);
-        assert!((b.re - 6.0).abs() < 1e-15);
-        assert!((b.im - 8.0).abs() < 1e-15);
-    }
-
-    #[test]
-    #[allow(clippy::float_cmp)] // exact known values from identity (1+0i) and zero (0+0i)
+    #[allow(clippy::float_cmp)]
     fn complex_constants() {
         assert_eq!(Complex64::ZERO.re, 0.0);
         assert_eq!(Complex64::ZERO.im, 0.0);

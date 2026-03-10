@@ -180,6 +180,73 @@ pub fn benchmark_results_dir() -> std::io::Result<PathBuf> {
     Ok(dir)
 }
 
+/// Resolve the telemetry output directory.
+///
+/// Discovery order:
+/// 1. `HOTSPRING_TELEMETRY_DIR` environment variable
+/// 2. `<data_root>/telemetry/`
+/// 3. Current working directory (fallback)
+///
+/// Creates the directory if it doesn't exist.
+///
+/// # Errors
+///
+/// Returns an error if the directory cannot be created.
+pub fn telemetry_dir() -> std::io::Result<PathBuf> {
+    if let Ok(dir) = std::env::var("HOTSPRING_TELEMETRY_DIR") {
+        let p = PathBuf::from(dir);
+        std::fs::create_dir_all(&p)?;
+        return Ok(p);
+    }
+
+    if let Ok(root) = try_discover_data_root() {
+        let dir = root.join("telemetry");
+        std::fs::create_dir_all(&dir)?;
+        return Ok(dir);
+    }
+
+    Ok(std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")))
+}
+
+/// Resolve full path for a telemetry output file.
+///
+/// Combines `telemetry_dir()` with the given filename, creating the
+/// directory if needed. Falls back to CWD on any error.
+#[must_use]
+pub fn telemetry_path(filename: &str) -> PathBuf {
+    telemetry_dir().map_or_else(|_| PathBuf::from(filename), |dir| dir.join(filename))
+}
+
+/// Resolve the results output directory for a given domain.
+///
+/// Discovery order:
+/// 1. `HOTSPRING_RESULTS_DIR` environment variable
+/// 2. `<data_root>/results/<domain>/`
+/// 3. CWD/results/ (fallback)
+///
+/// Creates the directory if it doesn't exist.
+///
+/// # Errors
+///
+/// Returns an error if the directory cannot be created.
+pub fn results_dir(domain: &str) -> std::io::Result<PathBuf> {
+    if let Ok(dir) = std::env::var("HOTSPRING_RESULTS_DIR") {
+        let p = PathBuf::from(dir).join(domain);
+        std::fs::create_dir_all(&p)?;
+        return Ok(p);
+    }
+
+    if let Ok(root) = try_discover_data_root() {
+        let dir = root.join("results").join(domain);
+        std::fs::create_dir_all(&dir)?;
+        return Ok(dir);
+    }
+
+    let dir = PathBuf::from("results").join(domain);
+    std::fs::create_dir_all(&dir)?;
+    Ok(dir)
+}
+
 /// Well-known sysfs/devfs directories where neuromorphic device nodes appear.
 const NPU_DEVICE_DIRS: &[&str] = &["/dev", "/sys/class/akida"];
 
