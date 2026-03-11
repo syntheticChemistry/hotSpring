@@ -682,3 +682,4 @@ required-features = ["sovereign-dispatch"]
 [[bin]]
 name = "bench_sovereign_dispatch"
 path = "src/bin/bench_sovereign_dispatch.rs"
+

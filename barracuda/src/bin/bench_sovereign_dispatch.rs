@@ -142,22 +142,49 @@ fn try_sovereign(
     config: &MdConfig,
 ) -> Option<Result<hotspring_barracuda::md::simulation::MdSimulation, String>> {
     use barracuda::device::CoralReefDevice;
-    match CoralReefDevice::with_auto_device() {
-        Ok(dev) => {
-            if !dev.has_dispatch() {
-                println!("  CoralReefDevice: no dispatchable GPU found\n");
-                return None;
+
+    // Try multiple driver backends in priority order:
+    // 1. Auto-detect (prefers whatever coral-gpu finds first)
+    // 2. Nouveau on Titan V (SM70) — DRM dispatch implemented
+    // 3. nvidia-drm on RTX 3090 (SM86) — pending UVM integration
+    // 4. AMD (amdgpu) — E2E verified by coralReef
+    let strategies: &[(&str, Box<dyn Fn() -> barracuda::error::Result<CoralReefDevice>>)] = &[
+        ("auto", Box::new(|| CoralReefDevice::with_auto_device())),
+        ("nouveau (SM70/Titan V)", Box::new(|| {
+            CoralReefDevice::from_descriptor("nvidia", Some("sm70"), Some("nouveau"))
+        })),
+        ("nouveau (SM86/Ampere)", Box::new(|| {
+            CoralReefDevice::from_descriptor("nvidia", Some("sm86"), Some("nouveau"))
+        })),
+        ("nvidia-drm (SM86)", Box::new(|| {
+            CoralReefDevice::from_descriptor("nvidia", Some("sm86"), None)
+        })),
+        ("amdgpu", Box::new(|| {
+            CoralReefDevice::from_descriptor("amd", None, None)
+        })),
+    ];
+
+    for (label, init_fn) in strategies {
+        print!("  Trying {label}... ");
+        match init_fn() {
+            Ok(dev) => {
+                if !dev.has_dispatch() {
+                    println!("no dispatch capability");
+                    continue;
+                }
+                println!("OK");
+                println!("  Adapter: {}", GpuBackend::name(&dev));
+                println!("  f64 shaders: {}\n", GpuBackend::has_f64_shaders(&dev));
+                return Some(run_simulation_generic(&dev, config));
             }
-            println!("  Adapter: {}", dev.name());
-            println!("  f64 shaders: {} (sovereign always true)\n",
-                barracuda::device::backend::GpuBackend::has_f64_shaders(&dev));
-            Some(run_simulation_generic(&dev, config))
-        }
-        Err(e) => {
-            println!("  CoralReefDevice init failed: {e}\n");
-            None
+            Err(e) => {
+                println!("failed ({e})");
+            }
         }
     }
+
+    println!("  No sovereign dispatch backend available\n");
+    None
 }
 
 #[cfg(not(feature = "sovereign-dispatch"))]

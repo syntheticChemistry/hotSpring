@@ -24,8 +24,8 @@ pub use compute_backend::{
     ComputeBackend, PrecisionMode,
 };
 pub use md_backend::{
-    compare_md_backends, BarraCudaMdBackend, KokkosLammpsBackend, MdBenchmarkBackend,
-    MdBenchmarkResult, MdBenchmarkSpec,
+    compare_md_backends, BarraCudaMdBackend, GenericMdBackend, KokkosLammpsBackend,
+    MdBenchmarkBackend, MdBenchmarkResult, MdBenchmarkSpec,
 };
 pub use esn_benchmark::{
     generate_test_sequence, generate_training_data, time_fn, GpuEsn, SubstrateResult,

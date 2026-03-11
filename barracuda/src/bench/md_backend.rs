@@ -358,6 +358,128 @@ impl MdBenchmarkBackend for BarraCudaMdBackend {
     }
 }
 
+/// Backend-agnostic MD backend — sovereign engine with smart device selection.
+///
+/// Tries sovereign (coralReef → DRM) first, falls back to wgpu/Vulkan.
+/// Uses `run_simulation_generic<B>` from `md::sovereign_engine`.
+pub struct GenericMdBackend {
+    adapter_name: String,
+    driver_info: String,
+    dispatch_tier: &'static str,
+}
+
+impl GenericMdBackend {
+    /// Probe hardware and select the best available backend.
+    ///
+    /// Priority: sovereign (coralReef) → wgpu (Vulkan/Metal).
+    pub fn new() -> Result<Self, String> {
+        #[cfg(feature = "sovereign-dispatch")]
+        {
+            use barracuda::device::backend::GpuBackend;
+            use barracuda::device::CoralReefDevice;
+
+            let strategies: &[(&str, &str, Box<dyn Fn() -> barracuda::error::Result<CoralReefDevice>>)] = &[
+                ("nouveau", "SM70/Volta", Box::new(|| {
+                    CoralReefDevice::from_descriptor("nvidia", Some("sm70"), Some("nouveau"))
+                })),
+                ("amdgpu", "RDNA2", Box::new(|| {
+                    CoralReefDevice::from_descriptor("amd", None, None)
+                })),
+                ("auto", "sovereign", Box::new(CoralReefDevice::with_auto_device)),
+            ];
+
+            for (driver, desc, init_fn) in strategies {
+                if let Ok(dev) = init_fn() {
+                    if dev.has_dispatch() {
+                        let name = GpuBackend::name(&dev);
+                        return Ok(Self {
+                            adapter_name: name.to_string(),
+                            driver_info: format!("sovereign:{driver} ({desc})"),
+                            dispatch_tier: "Tier 2: Sovereign/DRM",
+                        });
+                    }
+                }
+            }
+        }
+
+        let rt = tokio::runtime::Runtime::new().map_err(|e| format!("runtime: {e}"))?;
+        let dev = rt.block_on(barracuda::device::WgpuDevice::new())
+            .map_err(|e| format!("no GPU available: {e}"))?;
+        let name = barracuda::device::backend::GpuBackend::name(&dev);
+        Ok(Self {
+            adapter_name: name.to_string(),
+            driver_info: "wgpu/Vulkan".to_string(),
+            dispatch_tier: "Tier 1: wgpu/Vulkan",
+        })
+    }
+
+    /// Which dispatch tier was selected.
+    #[must_use]
+    pub fn dispatch_tier(&self) -> &str {
+        self.dispatch_tier
+    }
+}
+
+impl MdBenchmarkBackend for GenericMdBackend {
+    fn name(&self) -> &'static str {
+        "generic-GPU"
+    }
+
+    fn kind(&self) -> BackendKind {
+        BackendKind::BarraCudaGpu
+    }
+
+    fn available(&self) -> bool {
+        true
+    }
+
+    fn run_yukawa_md(&self, spec: &MdBenchmarkSpec) -> Result<MdBenchmarkResult, String> {
+        let config = spec.to_md_config();
+        let adapter_name = self.adapter_name.clone();
+        let driver_info = self.driver_info.clone();
+
+        let t0 = std::time::Instant::now();
+
+        let sim = if self.dispatch_tier.contains("Sovereign") {
+            #[cfg(feature = "sovereign-dispatch")]
+            {
+                use barracuda::device::CoralReefDevice;
+                let dev = CoralReefDevice::with_auto_device()
+                    .map_err(|e| format!("sovereign device: {e}"))?;
+                crate::md::sovereign_engine::run_simulation_generic(&dev, &config)?
+            }
+            #[cfg(not(feature = "sovereign-dispatch"))]
+            {
+                return Err("sovereign-dispatch feature not enabled".to_string());
+            }
+        } else {
+            let rt = tokio::runtime::Runtime::new().map_err(|e| format!("runtime: {e}"))?;
+            let dev = rt.block_on(barracuda::device::WgpuDevice::new())
+                .map_err(|e| format!("wgpu device: {e}"))?;
+            crate::md::sovereign_engine::run_simulation_generic(&dev, &config)?
+        };
+
+        let wall_time = t0.elapsed();
+        let energy_val =
+            crate::md::observables::validate_energy(&sim.energy_history, &config);
+
+        Ok(MdBenchmarkResult {
+            backend_name: format!("generic-GPU ({adapter_name}, {})", self.dispatch_tier),
+            backend_kind: BackendKind::BarraCudaGpu,
+            label: spec.label.clone(),
+            n_particles: spec.n_particles,
+            kappa: spec.kappa,
+            gamma: spec.gamma,
+            steps_per_sec: sim.steps_per_sec,
+            energy_drift_pct: energy_val.drift_pct,
+            wall_time,
+            force_method: spec.force_method,
+            adapter_name,
+            driver_info,
+        })
+    }
+}
+
 /// Kokkos/LAMMPS backend — external process (Tier 3 reference).
 ///
 /// Spawns LAMMPS with Kokkos-CUDA backend, writes a temporary input file
