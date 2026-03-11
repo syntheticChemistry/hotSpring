@@ -5,6 +5,25 @@ All notable changes to the hotSpring BarraCuda validation crate.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.6.29 — Upstream Sync v4: barraCuda v0.3.5 + toadStool S146 + coralReef Iter 31 (March 11, 2026)
+
+**barraCuda pin**: `a012076` → `8d63c77` (v0.3.5 — health module, pharma ops, stable specials, FMA policy, 36 tolerances, tridiag eigensolver GPU, HMM batch shader, hydrology extensions, P0 fixes)
+**toadStool**: S145 → S146 (`751b3849` — `nvvm_transcendental_risk` in `gpu.info`, PrecisionBrain in `compile_wgsl_multi`, VRAM-aware routing, 19 SpringDomain variants, HealthSpring, PcieTopologyGraph stable)
+**coralReef**: Iter 30 → Iter 31 (`9d63b72` — all 9 cross-spring shader gaps resolved, FMA lowering, f64 log2 fix, vec3\<f64\> scalarization, SU3 preamble, Nouveau UAPI migration, UVM 0x1F fix, 1509 tests)
+
+### Changes
+- Rewire barraCuda dependency from `a012076` to `8d63c77` (v0.3.5)
+- Update precision_brain.rs, hardware_calibration.rs, precision_routing.rs doc comments to reference v0.3.5/S146/Iter 31
+- Acknowledge upstream absorption of: PrecisionBrain compile API, FmaPolicy with `domain_requires_separate_fma()`, 36 tolerances with introspection, GPU stable specials (log1p, expm1, erfc, bessel_j0_minus1), health/pharma modules, tridiag eigensolver
+- coralReef Iter 31 resolves all 9 remaining cross-spring shader compilation gaps; 84/84 corpus tests pass; sovereign compile now 46/46 (was 45/46)
+
+### Validation
+- 847 lib tests passing (0 failures)
+- 0 clippy warnings (pedantic)
+- Clean compile against barraCuda v0.3.5 (no API breaks)
+
+---
+
 ## v0.6.28 — Upstream Primal Sync v3 + Live Kokkos Parity (March 10-11, 2026)
 
 **barraCuda pin**: `59c8ec5` → `a012076` (v0.3.4 expanded — PrecisionBrain/HardwareCalibration/PrecisionTier absorption, `enable f64;` stripping fix, pharma/bio GPU ops)

@@ -1,7 +1,7 @@
 # hotSpring → BarraCuda/ToadStool Absorption Manifest
 
 **Date:** March 11, 2026
-**Version:** v0.6.28 (synced to barraCuda `a012076`, toadStool S145, coralReef Phase 10 Iter 30, Exp 053 live Kokkos parity)
+**Version:** v0.6.29 (synced to barraCuda v0.3.5 `8d63c77`, toadStool S146 `751b3849`, coralReef Phase 10 Iter 31 `9d63b72`)
 **License:** AGPL-3.0-only
 
 ---

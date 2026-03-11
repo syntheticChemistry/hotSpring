@@ -24,16 +24,16 @@
 //! 4. **Portable**: Only depends on `GpuF64`, `PrecisionTier`, `PhysicsDomain`.
 //!    Works in any spring that can construct a `GpuF64`.
 //!
-//! ## Upstream absorption (barraCuda `a012076`, toadStool S145)
+//! ## Upstream absorption (barraCuda v0.3.5 `8d63c77`, toadStool S146)
 //!
-//! barraCuda `a012076` now has `PrecisionBrain::from_device(&WgpuDevice)` with
-//! O(1) route table, 12 physics domains, and `HardwareCalibration::from_profile`.
-//! toadStool S145 has its own `PrecisionBrain` with `PrecisionHint` routing
-//! (Critical/Moderate/ThroughputBound/LowPrecision), `NvkZeroGuard` for
-//! zero-output detection, and `dispatch_latency_ratio` for F64 throttle
-//! detection. hotSpring's brain remains locally authoritative because it works
-//! with `GpuF64` (not `WgpuDevice`), includes sovereign detection, and does
-//! actual GPU dispatch probes rather than profile synthesis.
+//! barraCuda v0.3.5 now has `PrecisionBrain::from_device(&WgpuDevice)` with
+//! O(1) route table, 12 physics domains, `HardwareCalibration::from_device`,
+//! `FmaPolicy`, and `brain.compile()` API. toadStool S146 has `PrecisionBrain`
+//! wired into `compile_wgsl_multi`, `nvvm_transcendental_risk` in `gpu.info`,
+//! VRAM-aware routing, and 19 `SpringDomain` variants. hotSpring's brain
+//! remains locally authoritative because it works with `GpuF64` (not
+//! `WgpuDevice`), includes sovereign detection, and does actual GPU dispatch
+//! probes rather than profile synthesis.
 
 use crate::gpu::GpuF64;
 use crate::hardware_calibration::HardwareCalibration;

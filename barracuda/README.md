@@ -127,9 +127,9 @@ hotSpring implements physics locally (Rust + WGSL templates)
 
 See [CHANGELOG.md](CHANGELOG.md) for full version history.
 
-Current: **v0.6.28** (March 11, 2026)
+Current: **v0.6.29** (March 11, 2026)
 - 847 lib tests, 112+ binaries, 84 WGSL shaders, 0 clippy warnings
-- barraCuda v0.3.4 (`a012076`), toadStool S145, coralReef Phase 10 Iter 30
+- barraCuda v0.3.5 (`8d63c77`), toadStool S146, coralReef Phase 10 Iter 31
 - Chuna Papers 43-45: 44/44 overnight checks pass
 - coralReef sovereign compile: **45/46** shaders to native SM70/SM86 SASS
 - 12/12 NVVM bypass patterns compile (all 3 poisoning patterns × 6 targets)

@@ -57,14 +57,14 @@ fossil record — never deleted, always available for provenance.
 
 | File | Date | Topic |
 |------|------|-------|
-| [`HOTSPRING_V0628_KOKKOS_PARITY_DF64_FIX_HANDOFF_MAR11_2026.md`](handoffs/HOTSPRING_V0628_KOKKOS_PARITY_DF64_FIX_HANDOFF_MAR11_2026.md) | Mar 11 | **Live Kokkos parity + DF64 fix**: 9/9 Yukawa cases benchmarked (12.4× gap), DF64 transcendental poisoning root-caused and fixed (native f64 fallback), energy reducer bug filed, `MdBenchmarkBackend` trait + `bench_md_parity` binary. **toadStool action**: NVVM-safe DF64 exp (Taylor series), ReduceScalarPipeline f64 fix, shared-memory tiled force kernel. |
+| [`HOTSPRING_V0629_UPSTREAM_SYNC_V4_HANDOFF_MAR11_2026.md`](handoffs/HOTSPRING_V0629_UPSTREAM_SYNC_V4_HANDOFF_MAR11_2026.md) | Mar 11 | **Upstream sync v4**: barraCuda v0.3.5 (health, pharma, stable specials, FMA policy, 36 tolerances), toadStool S146 (nvvm_transcendental_risk, VRAM routing, 19 domains), coralReef Iter 31 (**46/46 sovereign compile**, all gaps resolved, Nouveau UAPI, UVM fix). Kokkos parity: 12.4× gap persists (DF64 exp P1 blocker). |
 
 ---
 
 ## Archive
 
-78+ superseded handoffs in `handoffs/archive/`. These document the full
-evolution history from v0.4.x through v0.6.28:
+79+ superseded handoffs in `handoffs/archive/`. These document the full
+evolution history from v0.4.x through v0.6.29:
 
 - Early toadStool rewire documents (v1-v4)
 - GPU primitive absorption records
