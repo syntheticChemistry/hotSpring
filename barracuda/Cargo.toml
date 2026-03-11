@@ -85,7 +85,7 @@ sovereign-dispatch = ["barracuda/sovereign-dispatch"]
 # BarraCuda (standalone primal): math, shaders, compilation, ESN, NPU math
 # Public repo: https://github.com/ecoPrimals/barraCuda
 # Local dev override: .cargo/config.toml patches this to ../../barraCuda
-barracuda = { git = "https://github.com/ecoPrimals/barraCuda.git", rev = "0ee46a1" }
+barracuda = { git = "https://github.com/ecoPrimals/barraCuda.git", rev = "875e116" }
 
 # Structured logging (transitive dep via wgpu; explicit for library diagnostics)
 log = "0.4"
