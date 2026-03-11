@@ -58,6 +58,11 @@ pub mod sarkas_harness;
 pub mod shaders;
 /// GPU-resident MD simulation loop with cell-list support.
 pub mod simulation;
+/// Backend-agnostic MD engine via `GpuBackend` + `ComputeDispatch<B>`.
+///
+/// Enables the same Yukawa OCP physics to run on both wgpu/Vulkan and
+/// sovereign (coralReef → DRM) backends from one generic codebase.
+pub mod sovereign_engine;
 /// GPU transport pipeline: batched VACF, Green-Kubo D*.
 pub mod simulation_transport_gpu;
 /// Daligault (2012) D* fit, Stanton-Murillo transport coefficients.

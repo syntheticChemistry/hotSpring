@@ -32,7 +32,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 
 ---
 
-## Current Status (2026-03-10)
+## Current Status (2026-03-09)
 
 | Study | Status | Quantitative Checks |
 |-------|--------|-------------------|
@@ -123,7 +123,10 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **coralReef Hardware Data** (Exp 051) | ✅ Complete | NVK/Mesa 25.1.5 **unlocks Titan V** for full 4-tier compute dispatch via wgpu/Vulkan. Root cause: coralReef uses legacy `DRM_NOUVEAU_CHANNEL_ALLOC` — kernel 6.17+ requires new UAPI (`VM_INIT`/`VM_BIND`/`EXEC`). UVM device alloc blocked (status 0x1F). Both GPUs dispatch through wgpu/Vulkan. |
 | **NVK/Kokkos Parity** (Exp 052) | 🔄 Active | Multi-backend dispatch strategy: Tier 1 (wgpu/Vulkan, production), Tier 2 (coralReef sovereign, long-term), Tier 3 (Kokkos/LAMMPS, reference target). `MdBenchmarkBackend` trait, `bench_md_parity` binary. |
 | **Live Kokkos Benchmark** (Exp 053) | ✅ Complete | 9/9 PP Yukawa DSF cases, N=2000. barraCuda avg 212.4 steps/s, Kokkos avg 2,630.2 steps/s. **12.4× gap** (native f64 fallback on Ampere; DF64 fix = primary optimization path). LAMMPS 22Jul2025+Kokkos 4.6.2 live. |
-| **TOTAL** | **39/39 Rust validation suites** | **847 tests (lib)**, 112+ binaries, 84 WGSL shaders, 34/35 NPU HW checks. Zero clippy (lib+bins), zero unsafe, all AGPL-3.0-only. Both GPUs validated, DF64 production, Nautilus unified brain, **live AKD1000 PCIe NPU: 12-head brain, barraCuda `a012076` + toadStool S145 + coralReef Iter 30 synced**. **Precision brain: self-routing hardware calibration, NVVM poisoning discovered + gated, coralReef sovereign bypass integrated. Multi-backend dispatch: wgpu/Vulkan + coralReef sovereign + Kokkos reference.** Science ladder: Quenched ✅ → Gradient Flow ✅ → Integrators ✅ → N_f=4 Infra ✅ → **Chuna 44/44** (core 41/41, dynamical ext 3/3) → N_f=2 (pending) → N_f=2+1 (pending). Stability: Tier 1 COMPLETE (Exp 046). Deep debt: **zero**. |
+| **Kokkos N-Scaling** (Exp 054) | ✅ Complete | N=500→50k complexity benchmark. barraCuda AllPairs α≈2.30 vs Kokkos α≈1.38. Bimodal gap: dispatch-bound at small N, arithmetic-bound at large N. |
+| **DF64 Naga Poisoning** (Exp 055) | ✅ Complete | DF64 transcendentals produce zero forces on ALL Vulkan backends (proprietary, NVK, llvmpipe). Root cause: naga WGSL→SPIR-V codegen bug, not driver JIT. coralReef Iter 33 sovereign bypass validated. |
+| **Sovereign Dispatch** (Exp 056) | ✅ Complete | Backend-agnostic `MdEngine<B: GpuBackend>` via `ComputeDispatch<B>`. wgpu validated (140.3 steps/s, correct energies). Sovereign DRM blocked (coral-driver ioctl gap). CPU-side energy sum bypasses ReduceScalarPipeline zero bug. Cross-spring shader evolution traced. |
+| **TOTAL** | **39/39 Rust validation suites** | **848 tests (lib)**, 115 binaries, 85 WGSL shaders, 34/35 NPU HW checks. Zero clippy (lib+bins), zero unsafe, all AGPL-3.0-only. Both GPUs validated, DF64 production, Nautilus unified brain, **live AKD1000 PCIe NPU: 12-head brain, barraCuda `875e116` + toadStool S145 + coralReef Iter 33 synced**. **Precision brain: self-routing hardware calibration, NVVM poisoning discovered + gated, coralReef sovereign bypass integrated. Backend-agnostic MD engine: `MdEngine<B: GpuBackend>` via `ComputeDispatch<B>` — same code on wgpu/Vulkan and sovereign/DRM. Multi-backend dispatch: wgpu/Vulkan + coralReef sovereign + Kokkos reference.** Science ladder: Quenched ✅ → Gradient Flow ✅ → Integrators ✅ → N_f=4 Infra ✅ → **Chuna 44/44** (core 41/41, dynamical ext 3/3) → N_f=2 (pending) → N_f=2+1 (pending). Stability: Tier 1 COMPLETE (Exp 046). Deep debt: **zero**. |
 
 Papers 5, 7, 8, and 10 from the review queue are complete. Paper 5 transport fits
 (Daligault 2012) were recalibrated against 12 Sarkas Green-Kubo D* values (Feb 2026)
@@ -384,7 +387,7 @@ makes the upstream library richer and hotSpring leaner.
 - HFB shader suite — potentials + density + BCS bisection (14+GPU+6 checks, Tier 2)
 - NPU substrate discovery — `metalForge/forge/src/probe.rs` (local evolution)
 
-**Already leaning on upstream** (v0.6.29, synced to barraCuda v0.3.5 `8d63c77` + toadStool S146 + coralReef Phase 10 Iter 31, wgpu 28, pollster 0.3, bytemuck 1.25, tokio 1.50):
+**Already leaning on upstream** (v0.6.29, synced to barraCuda v0.3.5 `875e116` + toadStool S146 + coralReef Phase 10 Iter 33, wgpu 28, pollster 0.3, bytemuck 1.25, tokio 1.50):
 
 | Module | Upstream | Status |
 |--------|----------|--------|
@@ -409,7 +412,7 @@ makes the upstream library richer and hotSpring leaner.
 The `barracuda/` directory is a standalone Rust crate providing the validation
 environment, physics implementations, and GPU compute. Key architectural properties:
 
-- **847 tests** (lib), **112+ binaries**, **39 validation suites** (39/39 pass), **84 WGSL shaders** (all AGPL-3.0-only),
+- **848 tests** (lib), **115 binaries**, **39 validation suites** (39/39 pass), **85 WGSL shaders** (all AGPL-3.0-only),
   **16 determinism tests** (rerun-identical for all stochastic algorithms). Includes
   lattice QCD (complex f64, SU(3), Wilson action, HMC, Dirac CG, pseudofermion HMC),
   Abelian Higgs (U(1) + Higgs, HMC), transport coefficients (Green-Kubo D*/η*/λ*,
@@ -417,7 +420,7 @@ environment, physics implementations, and GPU compute. Key architectural propert
   and NPU beyond-SDK hardware capability validation. Test coverage: **74.9% region /
   83.8% function** (spectral tests upstream in barracuda; GPU modules require hardware
   for higher coverage). Measured with `cargo-llvm-cov`.
-- **AGPL-3.0 only** — all 196 `.rs` files (112 lib + 84 bin) and all 62 `.wgsl` shaders have
+- **AGPL-3.0 only** — all 286 `.rs` files (171 lib + 115 bin) and all 85 `.wgsl` shaders have
   `SPDX-License-Identifier: AGPL-3.0-only` on line 1.
 - **Provenance** — centralized `BaselineProvenance` records trace hardcoded
   validation values to their Python origins (script path, git commit, date,
@@ -439,7 +442,7 @@ environment, physics implementations, and GPU compute. Key architectural propert
   pipeline, NPU quantization, and NPU beyond-SDK hardware capabilities.
   Zero inline magic numbers — all validation binaries and solver loops wired to `tolerances::*`.
 - **ValidationHarness** — structured pass/fail tracking with exit code 0/1.
-  55 of 85 binaries use it (validation targets). Remaining 30 are optimization
+  55 of 115 binaries use it (validation targets). Remaining binaries are optimization
   explorers, benchmarks, and diagnostics.
 - **Shared data loading** — `data::EosContext` and `data::load_eos_context()`
   eliminate duplicated path construction across all nuclear EOS binaries.
@@ -475,7 +478,7 @@ environment, physics implementations, and GPU compute. Key architectural propert
 
 ```bash
 cd barracuda
-cargo test               # ~769 tests (lib), 6 GPU/heavy-ignored (~700s; spectral tests upstream)
+cargo test               # 848 tests (lib), 6 GPU/heavy-ignored (~700s; spectral tests upstream)
 cargo clippy --all-targets  # Zero warnings (pedantic + nursery via Cargo.toml workspace lints)
 cargo doc --no-deps      # Full API documentation — 0 warnings
 cargo run --release --bin validate_all  # 39/39 suites pass
@@ -559,7 +562,7 @@ hotSpring/
 │       ├── cross_spring_evolution.md  # Cross-spring shader ecosystem (164+ shaders)
 │       └── neuromorphic_silicon.md    # AKD1000 NPU exploration — silicon behavior, cross-substrate ESN
 │
-├── barracuda/                          # BarraCuda Rust crate — v0.6.29 (847 tests, 112+ binaries, 84 WGSL shaders)
+├── barracuda/                          # BarraCuda Rust crate — v0.6.29 (848 tests, 115 binaries, 85 WGSL shaders)
 │   ├── Cargo.toml                     # Dependencies (requires ecoPrimals/barraCuda)
 │   ├── CHANGELOG.md                   # Version history — baselines, tolerances, evolution
 │   ├── EVOLUTION_READINESS.md         # Rust module → GPU promotion tier + absorption status
@@ -659,7 +662,7 @@ hotSpring/
 │   │   ├── integration_pipeline.rs    # Nuclear EOS pipeline (4 tests)
 │   │   └── integration_proxy.rs       # Anderson/Potts proxy models (5 tests)
 │   │
-│       └── bin/                       # 85 binaries (exit 0 = pass, 1 = fail)
+│       └── bin/                       # 115 binaries (exit 0 = pass, 1 = fail)
 │           ├── validate_all.rs        # Meta-validator: runs all 39 validation suites
 │           ├── validate_nuclear_eos.rs # L1 SEMF + L2 HFB + NMP validation harness
 │           ├── validate_barracuda_pipeline.rs # Full MD pipeline (12/12 checks)
@@ -1032,7 +1035,7 @@ at 14-digit precision on FP32 cores — 9.9× native f64 throughput. A GPU can
 run the ESN reservoir directly via WGSL — GPU wins at RS≥512 (8.2× at 1024).
 The cross-substrate pipeline (GPU+NPU+CPU) assigns each workload to its optimal
 substrate: GPU for physics + large reservoirs, NPU for streaming screening, CPU
-for precision. 84 WGSL shaders evolved across hotSpring's physics domains via
+for precision. 85 WGSL shaders evolved across hotSpring's physics domains via
 toadStool's cross-spring absorption cycle. coralReef sovereign compilation:
 44/46 standalone shaders compile to native SM70/SM86 SASS (Iter 26) — the WGSL→native
 pipeline is live. biomeGate (RTX 3090, 24GB) resolves the QCD deconfinement
@@ -1040,8 +1043,8 @@ transition at 32⁴ (χ=40.1 at β=5.69, matching β_c=5.692) in 13.6 hours for
 $0.58. Self-routing precision brain: hardware calibration probes 4 tiers per GPU,
 NVVM device poisoning discovered and gated, dual-GPU cooperative patterns profiled
 (Split BCS 2.2×, PCIe 1.2 GB/s). coralReef sovereign bypass integrated (Iter 28).
-53+ experiments, 112+ binaries, 847 tests,
-barraCuda `a012076` + toadStool S145 + coralReef Phase 10 Iter 30 synced. Full multi-tier precision stability analysis
+56 experiments, 115 binaries, 848 tests,
+barraCuda `875e116` + toadStool S145 + coralReef Phase 10 Iter 33 synced. Full multi-tier precision stability analysis
 (Exp 046): 9 cancellation families audited across f32/DF64/f64/CKKS FHE —
 stable BCS v² and plasma W(z) algorithms enable safe DF64 throughput. Chuna
 Papers 43-45: **44/44 overnight checks pass** (41 core + 3 dynamical extension)

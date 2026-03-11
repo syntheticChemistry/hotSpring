@@ -662,8 +662,23 @@ path = "src/bin/bench_precision_eval.rs"
 name = "bench_md_parity"
 path = "src/bin/bench_md_parity.rs"
 
+# ── N-scaling complexity benchmark: barraCuda vs Kokkos across sizes ──
+[[bin]]
+name = "bench_kokkos_complexity"
+path = "src/bin/bench_kokkos_complexity.rs"
+
+# ── DF64 transcendental poisoning diagnostic ──
+[[bin]]
+name = "test_df64_nvk_poison"
+path = "src/bin/test_df64_nvk_poison.rs"
+
 # ── coralReef sovereign dispatch proof-of-concept ──
 [[bin]]
 name = "validate_sovereign_compile"
 path = "src/bin/validate_sovereign_compile.rs"
 required-features = ["sovereign-dispatch"]
+
+# ── Sovereign dispatch benchmark (wgpu vs coralReef → DRM) ──
+[[bin]]
+name = "bench_sovereign_dispatch"
+path = "src/bin/bench_sovereign_dispatch.rs"
