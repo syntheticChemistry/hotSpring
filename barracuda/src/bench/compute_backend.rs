@@ -134,9 +134,11 @@ impl fmt::Display for BenchmarkResult {
 pub enum BackendKind {
     /// barraCuda Rust CPU path.
     BarraCudaCpu,
-    /// barraCuda GPU via wgpu/Vulkan.
+    /// barraCuda GPU via wgpu/Vulkan (Tier 1 dispatch).
     BarraCudaGpu,
-    /// Kokkos-CUDA via LAMMPS (external process).
+    /// coralReef sovereign dispatch via direct DRM ioctls (Tier 2 dispatch).
+    CoralReefSovereign,
+    /// Kokkos-CUDA via LAMMPS (Tier 3 reference target).
     KokkosCuda,
     /// Python/Sarkas reference (external process).
     PythonSarkas,

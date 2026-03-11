@@ -73,24 +73,30 @@ pub async fn run_simulation_verlet_with_brain(
     gpu.print_info();
 
     let strategy = gpu.driver_profile().fp64_strategy();
-    let strategy_label = match strategy {
-        Fp64Strategy::Native | Fp64Strategy::Sovereign => "native f64",
-        Fp64Strategy::Hybrid => "DF64 (FP32 core streaming)",
-        Fp64Strategy::Concurrent => "concurrent f64 + DF64",
+    let df64_transcendentals_unsafe = gpu.driver_profile().has_nvvm_df64_poisoning_risk();
+    let use_df64_force = matches!(strategy, Fp64Strategy::Hybrid) && !df64_transcendentals_unsafe;
+    let strategy_label = if use_df64_force {
+        "DF64 (FP32 core streaming)"
+    } else {
+        match strategy {
+            Fp64Strategy::Native | Fp64Strategy::Sovereign => "native f64",
+            Fp64Strategy::Hybrid => "native f64 (DF64 transcendentals unsafe)",
+            Fp64Strategy::Concurrent => "concurrent f64 + DF64",
+        }
     };
     println!("  ── Compiling WGSL shaders (Verlet, {strategy_label}) ──");
     let t_compile = Instant::now();
 
-    let force_pipeline = match strategy {
-        Fp64Strategy::Hybrid => gpu.create_pipeline_df64(
+    let force_pipeline = if use_df64_force {
+        gpu.create_pipeline_df64(
             shaders::SHADER_YUKAWA_FORCE_VERLET_DF64,
             "yukawa_force_verlet_df64",
-        ),
-        Fp64Strategy::Native | Fp64Strategy::Sovereign | Fp64Strategy::Concurrent => gpu
-            .create_pipeline_f64(
-                shaders::SHADER_YUKAWA_FORCE_VERLET,
-                "yukawa_force_verlet_f64",
-            ),
+        )
+    } else {
+        gpu.create_pipeline_f64(
+            shaders::SHADER_YUKAWA_FORCE_VERLET,
+            "yukawa_force_verlet_f64",
+        )
     };
     let kick_drift_pipeline =
         gpu.create_pipeline(shaders::SHADER_VV_KICK_DRIFT, "vv_kick_drift_f64");

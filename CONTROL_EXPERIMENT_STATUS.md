@@ -1,11 +1,11 @@
 # hotSpring Control Experiment — Status Report
 
-**Date**: 2026-03-10 (L1+L2 complete, GPU MD Phase C+D+E+F complete — paper-parity long run 9/9, BarraCuda pipeline 39/39, crate v0.6.28, cross-substrate ESN, NPU characterization, DF64 production, toadStool S142 + coralReef Iter 30 synced, Chuna 44/44, Precision Brain + NVVM bypass, deep debt resolved)
+**Date**: 2026-03-11 (L1+L2 complete, GPU MD Phase C+D+E+F complete — paper-parity long run 9/9, BarraCuda pipeline 39/39, crate v0.6.28, cross-substrate ESN, NPU characterization, DF64 production, toadStool S145 + coralReef Iter 30 synced, Chuna 44/44, Precision Brain + NVVM bypass, deep debt resolved, **live Kokkos parity: 12.4× gap measured**)
 **Gates**: Eastgate (i9-12900K, RTX 4070 12GB) + biomeGate (Threadripper 3970X, RTX 3090 24GB + Titan V 12GB HBM2, Akida NPU, 256GB DDR4)
 **Sarkas**: v1.0.0 (pinned — see §Roadblocks)
 **Python**: 3.9 (sarkas), 3.10 (ttm, surrogate) via micromamba
 **f64 Status**: Native WGSL builtins confirmed. Consumer Ampere/Ada: fp64:fp32 ~1:64 (both CUDA and Vulkan). Double-float (f32-pair) hybrid delivers 3.24 TFLOPS at 14 digits (9.9× native f64). Titan V: genuine 1:2 via NVK.
-**toadStool**: Session 145 (synced). **coralReef**: Phase 10 Iter 30 (sovereign compilation **45/46**, 12/12 NVVM bypass, full GpuBackend impl). hotSpring **842 lib tests**, 111+ binaries, 39/39 validation suites. barraCuda v0.3.4 (`a012076`). Quality gates: zero clippy (lib+bins), zero unsafe, zero TODO/FIXME, all files <1000 lines. All 84 WGSL shaders AGPL-3.0-only. Experiment 049: Precision Brain (self-routing, NVVM poisoning gated). Experiment 050: coralReef Iter 30 sovereign validation (45/46, 12/12 bypass). Chuna papers 43-45: **44/44**.
+**toadStool**: Session 145 (synced). **coralReef**: Phase 10 Iter 30 (sovereign compilation **45/46**, 12/12 NVVM bypass, full GpuBackend impl). hotSpring **847 lib tests**, 112+ binaries, 39/39 validation suites. barraCuda v0.3.4 (`a012076`). Quality gates: zero clippy (lib+bins), zero unsafe, zero TODO/FIXME, all files <1000 lines. All 84 WGSL shaders AGPL-3.0-only. Experiment 049: Precision Brain (self-routing, NVVM poisoning gated). Experiment 050: coralReef Iter 30 sovereign validation (45/46, 12/12 bypass). Experiment 051: coralReef hardware data capture (NVK discovery, nouveau UAPI root cause). Experiment 052: NVK/Kokkos parity benchmark (multi-backend dispatch strategy). Experiment 053: Live Kokkos parity benchmark (9/9 cases, 12.4× gap, LAMMPS Kokkos 4.6.2 live). Chuna papers 43-45: **44/44**.
 
 ---
 

@@ -119,8 +119,11 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **Precision Stability** (Exp 046) | ✅ Complete | 9/9 cancellation families audited (f32/DF64/f64/CKKS FHE). Stable BCS v² + plasma W(z). 10 stability tests |
 | **Chuna Overnight** (Papers 43-45) | ✅ **44/44** | Core paper reproduction 41/41 (11 quenched flow + 20 dielectric + 10 kinetic-fluid). **Dynamical N_f=4 extension: 3/3 pass** — warm-start mass annealing, NPU-steered adaptive Omelyan HMC, 85% acceptance at m=0.1. `cscale` shader fix (multi-comp 4%→100%), precise pipeline routing. |
 | **coralReef Integration** | ✅ Complete | Sovereign WGSL→native compilation: **45/46** shaders compile to SM70/SM86 SASS (Iter 30). 12/12 NVVM bypass patterns pass (all 3 poisoning patterns × 6 GPU targets). `deformed_potentials_f64` SSARef truncation **fixed** in Iter 30. Full `GpuBackend` impl via `Mutex<GpuContext>` (`Send+Sync` unblocked). IPC discovery wired. `sovereign-dispatch` feature gate. Remaining gap: NVIDIA DRM dispatch (compile-ready, dispatch-blocked). |
-| **Precision Brain** (Exp 049) | ✅ Complete | Self-routing brain: safe hardware calibration (4 tiers probed per GPU), domain→tier routing table (7 domains), **NVVM device poisoning discovered and gated**. coralReef sovereign bypass integrated (Iter 28): NVVM-blocked tiers unlockable via WGSL→SASS. Titan V (NVK): full 4-tier. RTX 3090 (proprietary): F64+F32 full, DF64/F64Precise △arith (✓sov with coralReef). Dual-GPU cooperative: Split BCS 2.2×, PCIe 1.2 GB/s. 842 lib tests. |
-| **TOTAL** | **39/39 Rust validation suites** | **842 tests (lib)**, 111+ binaries, 84 WGSL shaders, 34/35 NPU HW checks. Zero clippy (lib+bins), zero unsafe, all AGPL-3.0-only. Both GPUs validated, DF64 production, Nautilus unified brain, **live AKD1000 PCIe NPU: 12-head brain, barraCuda `a012076` + toadStool S145 + coralReef Iter 30 synced**. **Precision brain: self-routing hardware calibration, NVVM poisoning discovered + gated, coralReef sovereign bypass integrated.** Science ladder: Quenched ✅ → Gradient Flow ✅ → Integrators ✅ → N_f=4 Infra ✅ → **Chuna 44/44** (core 41/41, dynamical ext 3/3) → N_f=2 (pending) → N_f=2+1 (pending). Stability: Tier 1 COMPLETE (Exp 046). Deep debt: **zero**. |
+| **Precision Brain** (Exp 049) | ✅ Complete | Self-routing brain: safe hardware calibration (4 tiers probed per GPU), domain→tier routing table (7 domains), **NVVM device poisoning discovered and gated**. coralReef sovereign bypass integrated (Iter 28): NVVM-blocked tiers unlockable via WGSL→SASS. Titan V (NVK): full 4-tier. RTX 3090 (proprietary): F64+F32 full, DF64/F64Precise △arith (✓sov with coralReef). Dual-GPU cooperative: Split BCS 2.2×, PCIe 1.2 GB/s. |
+| **coralReef Hardware Data** (Exp 051) | ✅ Complete | NVK/Mesa 25.1.5 **unlocks Titan V** for full 4-tier compute dispatch via wgpu/Vulkan. Root cause: coralReef uses legacy `DRM_NOUVEAU_CHANNEL_ALLOC` — kernel 6.17+ requires new UAPI (`VM_INIT`/`VM_BIND`/`EXEC`). UVM device alloc blocked (status 0x1F). Both GPUs dispatch through wgpu/Vulkan. |
+| **NVK/Kokkos Parity** (Exp 052) | 🔄 Active | Multi-backend dispatch strategy: Tier 1 (wgpu/Vulkan, production), Tier 2 (coralReef sovereign, long-term), Tier 3 (Kokkos/LAMMPS, reference target). `MdBenchmarkBackend` trait, `bench_md_parity` binary. |
+| **Live Kokkos Benchmark** (Exp 053) | ✅ Complete | 9/9 PP Yukawa DSF cases, N=2000. barraCuda avg 212.4 steps/s, Kokkos avg 2,630.2 steps/s. **12.4× gap** (native f64 fallback on Ampere; DF64 fix = primary optimization path). LAMMPS 22Jul2025+Kokkos 4.6.2 live. |
+| **TOTAL** | **39/39 Rust validation suites** | **847 tests (lib)**, 112+ binaries, 84 WGSL shaders, 34/35 NPU HW checks. Zero clippy (lib+bins), zero unsafe, all AGPL-3.0-only. Both GPUs validated, DF64 production, Nautilus unified brain, **live AKD1000 PCIe NPU: 12-head brain, barraCuda `a012076` + toadStool S145 + coralReef Iter 30 synced**. **Precision brain: self-routing hardware calibration, NVVM poisoning discovered + gated, coralReef sovereign bypass integrated. Multi-backend dispatch: wgpu/Vulkan + coralReef sovereign + Kokkos reference.** Science ladder: Quenched ✅ → Gradient Flow ✅ → Integrators ✅ → N_f=4 Infra ✅ → **Chuna 44/44** (core 41/41, dynamical ext 3/3) → N_f=2 (pending) → N_f=2+1 (pending). Stability: Tier 1 COMPLETE (Exp 046). Deep debt: **zero**. |
 
 Papers 5, 7, 8, and 10 from the review queue are complete. Paper 5 transport fits
 (Daligault 2012) were recalibrated against 12 Sarkas Green-Kubo D* values (Feb 2026)
@@ -406,7 +409,7 @@ makes the upstream library richer and hotSpring leaner.
 The `barracuda/` directory is a standalone Rust crate providing the validation
 environment, physics implementations, and GPU compute. Key architectural properties:
 
-- **842 tests** (lib), **111+ binaries**, **39 validation suites** (39/39 pass), **84 WGSL shaders** (all AGPL-3.0-only),
+- **847 tests** (lib), **112+ binaries**, **39 validation suites** (39/39 pass), **84 WGSL shaders** (all AGPL-3.0-only),
   **16 determinism tests** (rerun-identical for all stochastic algorithms). Includes
   lattice QCD (complex f64, SU(3), Wilson action, HMC, Dirac CG, pseudofermion HMC),
   Abelian Higgs (U(1) + Higgs, HMC), transport coefficients (Green-Kubo D*/η*/λ*,
@@ -556,7 +559,7 @@ hotSpring/
 │       ├── cross_spring_evolution.md  # Cross-spring shader ecosystem (164+ shaders)
 │       └── neuromorphic_silicon.md    # AKD1000 NPU exploration — silicon behavior, cross-substrate ESN
 │
-├── barracuda/                          # BarraCuda Rust crate — v0.6.28 (842 tests, 111+ binaries, 84 WGSL shaders)
+├── barracuda/                          # BarraCuda Rust crate — v0.6.28 (847 tests, 112+ binaries, 84 WGSL shaders)
 │   ├── Cargo.toml                     # Dependencies (requires ecoPrimals/barraCuda)
 │   ├── CHANGELOG.md                   # Version history — baselines, tolerances, evolution
 │   ├── EVOLUTION_READINESS.md         # Rust module → GPU promotion tier + absorption status
@@ -1037,7 +1040,7 @@ transition at 32⁴ (χ=40.1 at β=5.69, matching β_c=5.692) in 13.6 hours for
 $0.58. Self-routing precision brain: hardware calibration probes 4 tiers per GPU,
 NVVM device poisoning discovered and gated, dual-GPU cooperative patterns profiled
 (Split BCS 2.2×, PCIe 1.2 GB/s). coralReef sovereign bypass integrated (Iter 28).
-49+ experiments, 111+ binaries, 842 tests,
+53+ experiments, 112+ binaries, 847 tests,
 barraCuda `a012076` + toadStool S145 + coralReef Phase 10 Iter 30 synced. Full multi-tier precision stability analysis
 (Exp 046): 9 cancellation families audited across f32/DF64/f64/CKKS FHE —
 stable BCS v² and plasma W(z) algorithms enable safe DF64 throughput. Chuna

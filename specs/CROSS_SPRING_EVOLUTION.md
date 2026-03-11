@@ -2,9 +2,9 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 # Cross-Spring Shader Evolution — hotSpring's View
 
-**Date:** March 10, 2026
+**Date:** March 11, 2026
 **Synced to:** barraCuda v0.3.4 (`a012076`), toadStool S145, coralReef Phase 10 Iter 30
-**hotSpring:** v0.6.28 — 842 tests, 111+ binaries, 84 WGSL shaders, Chuna 44/44, coralReef sovereign compile **45/46** (Iter 30), 12/12 NVVM bypass
+**hotSpring:** v0.6.28 — 847 tests, 112+ binaries, 84 WGSL shaders, Chuna 44/44, coralReef sovereign compile **45/46** (Iter 30), 12/12 NVVM bypass, live Kokkos parity (12.4× gap)
 **Rewired:** LSCFRK imports from `barracuda::numerical::lscfrk`, sovereign compiler validated (47 call sites, 498 FMA fusions). CoralReefDevice full GpuBackend impl. PrecisionBrain self-routing with sovereign bypass.
 **License:** AGPL-3.0-only
 
@@ -430,3 +430,51 @@ toadStool tracks hotSpring at v0.6.26 (synced S142). Current sync is up-to-date:
 - Sovereign compiler validated (47 call sites × 731 tests, 498 FMA fusions)
 - FMA fusion benchmark: `bench_sovereign_fma` binary
 - 75 WGSL shaders (up from 71), 99 binaries (up from 97)
+
+---
+
+## v0.6.28 Multi-Backend Dispatch Strategy (March 10, 2026)
+
+### Three-Tier Architecture
+
+Discovery: NVK/Mesa 25.1.5 provides full compute dispatch on the Titan V
+(GV100) through the `nouveau` kernel module. Both GPUs now dispatch through
+wgpu/Vulkan, independent of coralReef's sovereign pipeline.
+
+| Tier | Path | Status | Role |
+|------|------|--------|------|
+| **1: wgpu/Vulkan** | hotSpring → barraCuda → wgpu → Vulkan → driver | **Production** | All current runs |
+| **2: coralReef sovereign** | hotSpring → barraCuda → coralReef → WGSL → SASS → DRM | Blocked (UAPI) | Precision control, driver bypass |
+| **3: Kokkos/LAMMPS** | External LAMMPS → Kokkos → CUDA | Reference | Performance target |
+
+coralReef is not replacing wgpu — it provides sovereign bypass for precision-
+critical domains (FMA policy, NVVM poisoning), driver-buggy hardware, and
+deployments where no driver installation is acceptable.
+
+### Kokkos Parity Benchmarking
+
+New `MdBenchmarkBackend` trait (`barracuda/src/bench/md_backend.rs`) enables
+fair comparison across all three tiers on the 9 PP Yukawa DSF cases:
+
+- `BarraCudaMdBackend` — wgpu/Vulkan (Tier 1, works now)
+- `KokkosLammpsBackend` — external LAMMPS process (Tier 3, requires installation)
+- (Future) `CoralReefMdBackend` — sovereign dispatch (Tier 2, pending UAPI migration)
+
+Binary: `bench_md_parity` runs all 9 cases on available backends, produces gap
+analysis table and JSON output for tracking. Current gap: 3.0-4.0× vs Kokkos-CUDA
+(estimated). See `specs/MULTI_BACKEND_DISPATCH.md` and `experiments/052_NVK_KOKKOS_PARITY.md`.
+
+### New Infrastructure
+
+| Item | Path |
+|------|------|
+| Strategy spec | `specs/MULTI_BACKEND_DISPATCH.md` |
+| MD backend trait | `barracuda/src/bench/md_backend.rs` |
+| Parity binary | `barracuda/src/bin/bench_md_parity.rs` |
+| `BackendKind::CoralReefSovereign` | `barracuda/src/bench/compute_backend.rs` |
+| Experiment 052 | `experiments/052_NVK_KOKKOS_PARITY.md` |
+| Experiment 053 | `experiments/053_LIVE_KOKKOS_PARITY_BENCHMARK.md` — 9/9 cases, 12.4× gap |
+| Live results | `experiments/053_benchmark_results.json` (18 records) |
+| Bug fix | DF64 transcendental poisoning fallback (simulation/mod.rs, verlet.rs, celllist.rs) |
+| Bug filed | Energy reducer returns zero (upstream barraCuda ReduceScalarPipeline) |
+| 847 lib tests | +5 from md_backend (roundtrip, 9-case, display, ms_per_step, availability) |

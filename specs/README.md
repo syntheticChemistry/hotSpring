@@ -1,7 +1,7 @@
 # hotSpring Specifications
 
-**Last Updated**: March 10, 2026
-**Status**: Phase A-J complete — 842 tests, 39/39 validation suites, crate v0.6.28, 111+ binaries, barraCuda v0.3.4 (`a012076`), toadStool S145, coralReef Phase 10 Iter 30 (sovereign compile **45/46**, 12/12 NVVM bypass, full GpuBackend impl). Self-routing PrecisionBrain with sovereign bypass.
+**Last Updated**: March 11, 2026
+**Status**: Phase A-J complete — 847 tests, 39/39 validation suites, crate v0.6.28, 112+ binaries, barraCuda v0.3.4 (`a012076`), toadStool S145, coralReef Phase 10 Iter 30 (sovereign compile **45/46**, 12/12 NVVM bypass, full GpuBackend impl). Self-routing PrecisionBrain with sovereign bypass. Multi-backend dispatch strategy (wgpu/Vulkan + coralReef sovereign + Kokkos reference).
 **Domain**: Computational plasma physics, nuclear structure, transport, lattice QCD, spectral theory, surrogate learning
 
 ---
@@ -40,6 +40,7 @@
 | [ANDERSON_4D_WEGNER_PROXY.md](ANDERSON_4D_WEGNER_PROXY.md) | Draft | 4D Anderson & Wegner block proxy for CG prediction |
 | [BIOMEGATE_BRAIN_ARCHITECTURE.md](BIOMEGATE_BRAIN_ARCHITECTURE.md) | Active | 4-substrate brain architecture: NPU steering, Nautilus Shell, concept edges |
 | [PRECISION_STABILITY_SPECIFICATION.md](PRECISION_STABILITY_SPECIFICATION.md) | Active | Numerical stability across f32/DF64/f64, GPU precision routing, cross-spring impact |
+| [MULTI_BACKEND_DISPATCH.md](MULTI_BACKEND_DISPATCH.md) | Active | Three-tier dispatch: wgpu/Vulkan (production), coralReef sovereign (long-term), Kokkos/LAMMPS (reference target). NVK discovery, gap analysis |
 
 ### Existing Documentation (in parent directories)
 

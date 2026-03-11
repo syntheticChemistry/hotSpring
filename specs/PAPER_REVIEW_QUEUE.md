@@ -1,10 +1,10 @@
 # hotSpring — Paper Review Queue
 
-**Last Updated**: March 10, 2026
+**Last Updated**: March 11, 2026
 **Purpose**: Track papers for reproduction/review, ordered by priority and feasibility
 **Principle**: Reproduce, validate, then decrease cost. Each paper proves the
 pipeline on harder physics — toadStool evolves the GPU acceleration in parallel.
-**Crate**: hotspring-barracuda v0.6.28 — 842 tests, 111+ binaries, 84 WGSL shaders
+**Crate**: hotspring-barracuda v0.6.28 — 847 tests, 112+ binaries, 84 WGSL shaders
 
 **Evolution path per paper**: Python Control → BarraCuda CPU → BarraCuda GPU → metalForge
 

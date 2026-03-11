@@ -657,6 +657,11 @@ path = "src/bin/live_telemetry_dashboard.rs"
 name = "bench_precision_eval"
 path = "src/bin/bench_precision_eval.rs"
 
+# ── MD Kokkos parity benchmark (9 Yukawa cases × all backends) ──
+[[bin]]
+name = "bench_md_parity"
+path = "src/bin/bench_md_parity.rs"
+
 # ── coralReef sovereign dispatch proof-of-concept ──
 [[bin]]
 name = "validate_sovereign_compile"

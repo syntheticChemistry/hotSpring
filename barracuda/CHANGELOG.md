@@ -5,7 +5,7 @@ All notable changes to the hotSpring BarraCuda validation crate.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## v0.6.28 — Upstream Primal Sync v3 (March 10, 2026)
+## v0.6.28 — Upstream Primal Sync v3 + Live Kokkos Parity (March 10-11, 2026)
 
 **barraCuda pin**: `59c8ec5` → `a012076` (v0.3.4 expanded — PrecisionBrain/HardwareCalibration/PrecisionTier absorption, `enable f64;` stripping fix, pharma/bio GPU ops)
 **toadStool**: S144 → S145 (PrecisionBrain absorption, NvkZeroGuard, 8 WorkloadPatterns, ProviderRegistry, dispatch_latency_ratio)
@@ -17,11 +17,17 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Acknowledge upstream PrecisionBrain/HardwareCalibration absorption in doc comments
 - Note coralReef Iter 30 FMA lowering enables F64Precise through sovereign compilation path
 - Document toadStool S145 NvkZeroGuard and ProviderRegistry integration seams
+- **Fix DF64 transcendental poisoning**: simulation now falls back to native f64 when `has_nvvm_df64_poisoning_risk()` is true — prevents silent zero-force output from stripped `exp_df64()`/`sqrt_df64()` in `compile_shader_df64()` on NVIDIA proprietary (simulation/mod.rs, verlet.rs, celllist.rs)
+- **Multi-backend benchmark infrastructure**: `MdBenchmarkBackend` trait, `BarraCudaMdBackend`, `KokkosLammpsBackend`, `bench_md_parity` binary
+- **Live Kokkos parity**: 9/9 PP Yukawa DSF cases at N=2000, avg 212.4 steps/s (barraCuda) vs 2,630.2 steps/s (Kokkos-CUDA). **12.4× gap** — primary cause: native f64 fallback (1:32 rate on Ampere)
+- Fix LAMMPS input generation: lattice units for region dimensions, Kokkos device execution flags
+- **Energy reducer bug filed**: `ReduceScalarPipeline::sum_f64()` returns zero despite correct particle dynamics (upstream barraCuda)
 
 ### Validation
-- 842 lib tests passing (0 failures)
+- 847 lib tests passing (0 failures, +5 from md_backend)
 - 0 clippy warnings (pedantic)
 - 45/46 sovereign compile (SM70 + SM86) — `complex_f64` gap unchanged
+- Physics verified on both RTX 3090 (native f64 fallback) and Titan V (NVK native f64) via RDF, SSF, VACF
 - Handoff: `HOTSPRING_V0628_UPSTREAM_SYNC_HANDOFF_MAR10_2026.md`
 
 ---

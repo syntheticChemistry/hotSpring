@@ -127,13 +127,14 @@ hotSpring implements physics locally (Rust + WGSL templates)
 
 See [CHANGELOG.md](CHANGELOG.md) for full version history.
 
-Current: **v0.6.27** (March 10, 2026)
-- 842 lib tests, 111+ binaries, 84 WGSL shaders, 0 clippy warnings
-- barraCuda v0.3.4 (`59c8ec5`), toadStool S144, coralReef Phase 10 Iter 29
+Current: **v0.6.28** (March 11, 2026)
+- 847 lib tests, 112+ binaries, 84 WGSL shaders, 0 clippy warnings
+- barraCuda v0.3.4 (`a012076`), toadStool S145, coralReef Phase 10 Iter 30
 - Chuna Papers 43-45: 44/44 overnight checks pass
 - coralReef sovereign compile: **45/46** shaders to native SM70/SM86 SASS
 - 12/12 NVVM bypass patterns compile (all 3 poisoning patterns × 6 targets)
 - Self-routing `PrecisionBrain`: hardware calibration, NVVM poisoning gated, sovereign bypass integrated
+- Live Kokkos parity: 9/9 cases, 12.4× gap (DF64 transcendental fix applied)
 - Deep technical debt resolution: zero files >1000 lines, zero unsafe
 
 ---

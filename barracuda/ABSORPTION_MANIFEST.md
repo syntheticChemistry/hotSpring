@@ -1,7 +1,7 @@
 # hotSpring → BarraCuda/ToadStool Absorption Manifest
 
-**Date:** March 10, 2026
-**Version:** v0.6.28 (synced to barraCuda `a012076`, toadStool S145, coralReef Phase 10 Iter 30)
+**Date:** March 11, 2026
+**Version:** v0.6.28 (synced to barraCuda `a012076`, toadStool S145, coralReef Phase 10 Iter 30, Exp 053 live Kokkos parity)
 **License:** AGPL-3.0-only
 
 ---
@@ -73,7 +73,7 @@ barraCuda pin updated (`83aa08a` → `59c8ec5`, v0.3.3 → v0.3.4):
 - toadStool S144: absorbed NVVM poisoning into `nvvm_safety.rs`, PCIe switch topology, `gpu_guards`, `compile_wgsl_multi`
 - `DevicePair`/`WorkloadPlanner` refs updated S142 → S144
 - `HardwareCalibration`/`PrecisionBrain` refs updated: note `nvvm_safety.rs` absorption, `gpu_guards`, Iter 28 → 29
-- 842/842 tests pass, 0 clippy errors, sovereign compile 45/46
+- 847/847 tests pass, 0 clippy errors, sovereign compile 45/46
 
 ## v0.6.26 Rewiring (March 10, 2026)
 
@@ -82,7 +82,7 @@ barraCuda pin updated (`83aa08a` → `59c8ec5`, v0.3.3 → v0.3.4):
 - Batched f32 logsumexp shader, 5,658 LOC dead code cleaned upstream
 - coralReef NVVM bypass: `sovereign_compile_available`, `tier_safe_with_sovereign()`
 - toadStool S142 references in `DevicePair` and `WorkloadPlanner`
-- 842/842 tests pass, 0 clippy errors, sovereign compile 45/46
+- 847/847 tests pass, 0 clippy errors, sovereign compile 45/46
 
 ## v0.6.24 Rewiring (March 9, 2026)
 
