@@ -5,6 +5,27 @@ All notable changes to the hotSpring BarraCuda validation crate.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.6.30 — Upstream Sync v5: barraCuda d761c5d + coralReef Iter 35 (March 9, 2026)
+
+**barraCuda pin**: `0649cd0` → `d761c5d` (ReduceScalarPipeline f64 zeros fix, Df64SpirVPoisoning rename, BatchedComputeDispatch, double-allocation elimination)
+**coralReef**: Iter 33 → Iter 35 (`1dfbaff` — FirmwareInventory struct, drm_ioctl_named, 5 compile-time UAPI ABI guards, SM89 DF64 validation, 5 deformed HFB shaders absorbed from hotSpring, legalize refactor, 1616 tests)
+**toadStool**: S146 (unchanged — hw-learn crate stable)
+
+### Changes
+- Rewire barraCuda dependency from `0649cd0` to `d761c5d`
+- **API rename**: `has_nvvm_df64_poisoning_risk()` → `has_df64_spir_v_poisoning()` in 3 lib modules + 1 diagnostic binary — reflects root cause (naga codegen, not NVVM-specific). Detection now applies to ALL Vulkan backends unconditionally
+- **BatchedComputeDispatch**: sovereign engine `dispatch_md_step()` batches kick_drift + force + half_kick into a single GPU submission (~1.8x dispatch overhead reduction on Vulkan). Dead sequential dispatch helpers removed
+- **ReduceScalarPipeline f64 fix absorbed**: upstream now always uses DF64 (f32-pair) accumulation in workgroup shared memory, fixing the all-zeros bug on naga→SPIR-V (hotSpring Exp 055)
+- **Cross-spring evolution**: coralReef Iter 34 absorbed 5 deformed HFB shaders from hotSpring; coralReef Iter 35 absorbed FirmwareInventory pattern from toadStool hwLearn handoff
+- **Virtual GSP progress**: coralReef FirmwareInventory provides `compute_viable()` and `compute_blockers()` — parallel to toadStool sysmon's implementation, enabling both compile-time (coralReef) and runtime (toadStool) firmware probing
+
+### Validation
+- 848 lib tests passing (0 failures)
+- 0 clippy warnings (pedantic)
+- Clean compile against barraCuda d761c5d (API rename absorbed)
+
+---
+
 ## v0.6.29 — Upstream Sync v4: barraCuda v0.3.5 + toadStool S146 + coralReef Iter 31 (March 11, 2026)
 
 **barraCuda pin**: `a012076` → `8d63c77` (v0.3.5 — health module, pharma ops, stable specials, FMA policy, 36 tolerances, tridiag eigensolver GPU, HMM batch shader, hydrology extensions, P0 fixes)

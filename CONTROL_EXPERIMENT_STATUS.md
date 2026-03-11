@@ -1,11 +1,11 @@
 # hotSpring Control Experiment — Status Report
 
-**Date**: 2026-03-11 (L1+L2 complete, GPU MD Phase C+D+E+F complete — paper-parity long run 9/9, BarraCuda pipeline 39/39, crate v0.6.29, cross-substrate ESN, NPU characterization, DF64 production, toadStool S146 + coralReef Iter 31 synced, Chuna 44/44, Precision Brain + NVVM bypass, deep debt resolved, **live Kokkos parity: 12.4× gap measured**)
+**Date**: 2026-03-09 (L1+L2 complete, GPU MD Phase C+D+E+F complete — paper-parity long run 9/9, BarraCuda pipeline 39/39, crate v0.6.30, cross-substrate ESN, NPU characterization, DF64 production, toadStool S146 + coralReef Iter 35 synced, Chuna 44/44, Precision Brain + naga poisoning fix, deep debt resolved, **live Kokkos parity: 12.4× gap measured**, BatchedComputeDispatch wired)
 **Gates**: Eastgate (i9-12900K, RTX 4070 12GB) + biomeGate (Threadripper 3970X, RTX 3090 24GB + Titan V 12GB HBM2, Akida NPU, 256GB DDR4)
 **Sarkas**: v1.0.0 (pinned — see §Roadblocks)
 **Python**: 3.9 (sarkas), 3.10 (ttm, surrogate) via micromamba
 **f64 Status**: Native WGSL builtins confirmed. Consumer Ampere/Ada: fp64:fp32 ~1:64 (both CUDA and Vulkan). Double-float (f32-pair) hybrid delivers 3.24 TFLOPS at 14 digits (9.9× native f64). Titan V: genuine 1:2 via NVK.
-**toadStool**: Session 146 (synced) + **hw-learn** crate (vendor-neutral GPU hardware learning: observer, distiller, knowledge store, applicator, brain_ext — 46 tests). **coralReef**: Phase 10 Iter 33 (sovereign compilation **46/46**, all cross-spring gaps resolved, NVVM poisoning validated, DRM dispatch pending). hotSpring **848 lib tests**, 115 binaries, 39/39 validation suites. barraCuda v0.3.5 (`875e116`). **biomeOS**: `compute.hardware.*` capabilities registered (observe, distill, apply, share, status). Quality gates: zero clippy (lib+bins), zero unsafe, zero TODO/FIXME, all files <1000 lines. All 85 WGSL shaders AGPL-3.0-only. Experiment 054: Kokkos N-scaling complexity. Experiment 055: DF64 naga poisoning diagnostic (root cause: naga SPIR-V codegen). Experiment 056: Sovereign dispatch benchmark (backend-agnostic MdEngine, wgpu validated 140.3 steps/s, sovereign DRM blocked). Experiment 057: coralReef ioctl fix + sovereign validation. Chuna papers 43-45: **44/44**.
+**toadStool**: Session 146 (synced) + **hw-learn** crate (vendor-neutral GPU hardware learning: observer, distiller, knowledge store, applicator, brain_ext — 46 tests). **coralReef**: Phase 10 Iter 35 (`1dfbaff` — FirmwareInventory struct, `drm_ioctl_named`, 5 UAPI ABI guards, SM89 DF64 validation, 5 deformed HFB shaders absorbed from hotSpring, 1616 tests). hotSpring **848 lib tests**, 115 binaries, 39/39 validation suites. barraCuda `d761c5d` (ReduceScalarPipeline f64 fix, `Df64SpirVPoisoning` rename, `BatchedComputeDispatch`, double-alloc cleanup). **biomeOS**: `compute.hardware.*` capabilities registered (observe, distill, apply, share, status). Quality gates: zero clippy (lib+bins), zero unsafe, zero TODO/FIXME, all files <1000 lines. All 85 WGSL shaders AGPL-3.0-only. Experiment 054: Kokkos N-scaling complexity. Experiment 055: DF64 naga poisoning diagnostic (root cause: naga SPIR-V codegen — **now fixed upstream in barraCuda**). Experiment 056: Sovereign dispatch benchmark (backend-agnostic MdEngine, wgpu validated 140.3 steps/s, sovereign DRM blocked). Experiment 057: coralReef ioctl fix + sovereign validation. Chuna papers 43-45: **44/44**.
 
 ---
 
@@ -1043,7 +1043,7 @@ surpassing it at larger basis sizes.
 - [`whitePaper/BARRACUDA_SCIENCE_VALIDATION.md`](whitePaper/BARRACUDA_SCIENCE_VALIDATION.md) — Phase B technical results
 - [`whitePaper/CONTROL_EXPERIMENT_SUMMARY.md`](whitePaper/CONTROL_EXPERIMENT_SUMMARY.md) — Phase A quick reference
 - [`benchmarks/PROTOCOL.md`](benchmarks/PROTOCOL.md) — Benchmark protocol (time + energy measurement)
-- [`barracuda/CHANGELOG.md`](barracuda/CHANGELOG.md) — Crate version history (v0.6.29)
+- [`barracuda/CHANGELOG.md`](barracuda/CHANGELOG.md) — Crate version history (v0.6.30)
 - [`barracuda/EVOLUTION_READINESS.md`](barracuda/EVOLUTION_READINESS.md) — Rust → GPU promotion tiers and blockers
 - [`experiments/001_N_SCALING_GPU.md`](experiments/001_N_SCALING_GPU.md) — N-scaling experiment journal (Phase D)
 - [`experiments/002_CELLLIST_FORCE_DIAGNOSTIC.md`](experiments/002_CELLLIST_FORCE_DIAGNOSTIC.md) — Cell-list bug diagnostic (Phase D)

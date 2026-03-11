@@ -13,12 +13,14 @@
 //! coralReef Iter 33 validated that sovereign compilation of these shaders
 //! bypasses the naga SPIR-V codegen bug that poisons DF64 transcendentals.
 //!
-//! The `ComputeDispatch` builder (barraCuda `875e116`) enables this module
-//! to route the same WGSL shader source through either Vulkan (naga → SPIR-V)
-//! or sovereign (coralReef → native SASS/GFX) — the backend decides.
+//! `ComputeDispatch` (barraCuda `875e116`) routes the same WGSL source through
+//! either Vulkan (naga → SPIR-V) or sovereign (coralReef → native SASS/GFX).
+//! `BatchedComputeDispatch` (barraCuda `0649cd0`) batches the per-step
+//! kick_drift + force + half_kick dispatches into a single GPU submission,
+//! reducing host overhead from ~1.6ms to ~0.1ms amortized on Vulkan.
 
 use barracuda::device::backend::GpuBackend;
-use barracuda::device::compute_pipeline::ComputeDispatch;
+use barracuda::device::compute_pipeline::{BatchedComputeDispatch, ComputeDispatch};
 
 use crate::md::config::MdConfig;
 use crate::md::shaders;
@@ -92,9 +94,7 @@ pub fn run_simulation_generic<B: GpuBackend>(
         let batch_size = thermostat_interval.min(config.equil_steps - step);
 
         for _ in 0..batch_size {
-            dispatch_kick_drift(backend, &bufs, wg)?;
-            dispatch_force(backend, &bufs, wg)?;
-            dispatch_half_kick(backend, &bufs, wg)?;
+            dispatch_md_step(backend, &bufs, wg)?;
         }
 
         dispatch_ke(backend, &bufs, wg)?;
@@ -140,9 +140,7 @@ pub fn run_simulation_generic<B: GpuBackend>(
         let need_snapshot = dump_idx % snap_every == 0;
 
         for _ in step_start..step_end {
-            dispatch_kick_drift(backend, &bufs, wg)?;
-            dispatch_force(backend, &bufs, wg)?;
-            dispatch_half_kick(backend, &bufs, wg)?;
+            dispatch_md_step(backend, &bufs, wg)?;
         }
 
         dispatch_ke(backend, &bufs, wg)?;
@@ -191,9 +189,7 @@ pub fn run_simulation_generic<B: GpuBackend>(
     let remainder = config.prod_steps % config.dump_step;
     if remainder > 0 {
         for _ in 0..remainder {
-            dispatch_kick_drift(backend, &bufs, wg)?;
-            dispatch_force(backend, &bufs, wg)?;
-            dispatch_half_kick(backend, &bufs, wg)?;
+            dispatch_md_step(backend, &bufs, wg)?;
         }
     }
 
@@ -292,6 +288,53 @@ fn alloc_buffers<B: GpuBackend>(
 // Each maps to one WGSL compute shader. Binding indices match the
 // @group(0) @binding(N) declarations in the .wgsl files.
 
+/// One Velocity-Verlet MD step: kick_drift → force → half_kick in a single
+/// GPU submission via `BatchedComputeDispatch`. Amortizes per-dispatch
+/// host-side overhead (~1.6ms → ~0.1ms on Vulkan).
+fn dispatch_md_step<B: GpuBackend>(
+    backend: &B,
+    bufs: &MdBuffers<B>,
+    wg: u32,
+) -> Result<(), String> {
+    let mut batch = BatchedComputeDispatch::new(backend);
+    batch
+        .push(
+            ComputeDispatch::new(backend, "kick_drift")
+                .shader(shaders::SHADER_VV_KICK_DRIFT, "main")
+                .f64()
+                .storage_rw(0, &bufs.pos)
+                .storage_rw(1, &bufs.vel)
+                .storage_read(2, &bufs.force)
+                .storage_read(3, &bufs.vv_params)
+                .dispatch(wg, 1, 1),
+        )
+        .map_err(|e| format!("batch kick_drift: {e}"))?;
+    batch
+        .push(
+            ComputeDispatch::new(backend, "yukawa_force")
+                .shader(shaders::SHADER_YUKAWA_FORCE, "main")
+                .f64()
+                .storage_read(0, &bufs.pos)
+                .storage_rw(1, &bufs.force)
+                .storage_rw(2, &bufs.pe)
+                .storage_read(3, &bufs.force_params)
+                .dispatch(wg, 1, 1),
+        )
+        .map_err(|e| format!("batch force: {e}"))?;
+    batch
+        .push(
+            ComputeDispatch::new(backend, "half_kick")
+                .shader(shaders::SHADER_VV_HALF_KICK, "main")
+                .f64()
+                .storage_rw(0, &bufs.vel)
+                .storage_read(1, &bufs.force)
+                .storage_read(2, &bufs.hk_params)
+                .dispatch(wg, 1, 1),
+        )
+        .map_err(|e| format!("batch half_kick: {e}"))?;
+    batch.submit().map_err(|e| format!("md_step batch: {e}"))
+}
+
 fn dispatch_force<B: GpuBackend>(
     backend: &B,
     bufs: &MdBuffers<B>,
@@ -307,39 +350,6 @@ fn dispatch_force<B: GpuBackend>(
         .dispatch(wg, 1, 1)
         .submit()
         .map_err(|e| format!("force dispatch: {e}"))
-}
-
-fn dispatch_kick_drift<B: GpuBackend>(
-    backend: &B,
-    bufs: &MdBuffers<B>,
-    wg: u32,
-) -> Result<(), String> {
-    ComputeDispatch::new(backend, "kick_drift")
-        .shader(shaders::SHADER_VV_KICK_DRIFT, "main")
-        .f64()
-        .storage_rw(0, &bufs.pos)
-        .storage_rw(1, &bufs.vel)
-        .storage_read(2, &bufs.force)
-        .storage_read(3, &bufs.vv_params)
-        .dispatch(wg, 1, 1)
-        .submit()
-        .map_err(|e| format!("kick_drift dispatch: {e}"))
-}
-
-fn dispatch_half_kick<B: GpuBackend>(
-    backend: &B,
-    bufs: &MdBuffers<B>,
-    wg: u32,
-) -> Result<(), String> {
-    ComputeDispatch::new(backend, "half_kick")
-        .shader(shaders::SHADER_VV_HALF_KICK, "main")
-        .f64()
-        .storage_rw(0, &bufs.vel)
-        .storage_read(1, &bufs.force)
-        .storage_read(2, &bufs.hk_params)
-        .dispatch(wg, 1, 1)
-        .submit()
-        .map_err(|e| format!("half_kick dispatch: {e}"))
 }
 
 fn dispatch_ke<B: GpuBackend>(

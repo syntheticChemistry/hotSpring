@@ -3,7 +3,7 @@
 //! DF64 transcendental poisoning diagnostic: tests whether exp_df64/sqrt_df64
 //! produce correct (non-zero) forces on each available GPU/driver combination.
 //!
-//! Bypasses the has_nvvm_df64_poisoning_risk() safety fallback to test the
+//! Bypasses the has_df64_spir_v_poisoning() safety fallback to test the
 //! DF64 shader path directly. Compares DF64 vs native f64 forces to validate.
 //!
 //! Usage:
@@ -44,8 +44,8 @@ async fn run_test() {
 
     gpu.print_info();
     let profile = gpu.driver_profile();
-    let poisoning_risk = profile.has_nvvm_df64_poisoning_risk();
-    println!("  has_nvvm_df64_poisoning_risk(): {poisoning_risk}");
+    let poisoning_risk = profile.has_df64_spir_v_poisoning();
+    println!("  has_df64_spir_v_poisoning(): {poisoning_risk}");
     println!("  fp64_strategy(): {:?}", profile.fp64_strategy());
     println!();
 

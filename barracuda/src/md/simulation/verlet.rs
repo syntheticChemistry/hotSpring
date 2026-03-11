@@ -73,7 +73,7 @@ pub async fn run_simulation_verlet_with_brain(
     gpu.print_info();
 
     let strategy = gpu.driver_profile().fp64_strategy();
-    let df64_transcendentals_unsafe = gpu.driver_profile().has_nvvm_df64_poisoning_risk();
+    let df64_transcendentals_unsafe = gpu.driver_profile().has_df64_spir_v_poisoning();
     let use_df64_force = matches!(strategy, Fp64Strategy::Hybrid) && !df64_transcendentals_unsafe;
     let strategy_label = if use_df64_force {
         "DF64 (FP32 core streaming)"
