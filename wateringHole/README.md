@@ -1,7 +1,7 @@
 # wateringHole — Cross-Project Handoffs
 
 **Project:** hotSpring (ecoPrimals)
-**Last Updated:** March 11, 2026
+**Last Updated:** March 12, 2026
 
 ---
 
@@ -57,14 +57,15 @@ fossil record — never deleted, always available for provenance.
 
 | File | Date | Topic |
 |------|------|-------|
-| [`HOTSPRING_V0629_UPSTREAM_SYNC_V4_HANDOFF_MAR11_2026.md`](handoffs/HOTSPRING_V0629_UPSTREAM_SYNC_V4_HANDOFF_MAR11_2026.md) | Mar 11 | **Upstream sync v4**: barraCuda v0.3.5 (health, pharma, stable specials, FMA policy, 36 tolerances), toadStool S146 (nvvm_transcendental_risk, VRAM routing, 19 domains), coralReef Iter 31 (**46/46 sovereign compile**, all gaps resolved, Nouveau UAPI, UVM fix). Kokkos parity: 12.4× gap persists (DF64 exp P1 blocker). |
+| [`HOTSPRING_CORALREEF_DISPATCH_INVESTIGATION_HANDOFF_MAR12_2026.md`](handoffs/HOTSPRING_CORALREEF_DISPATCH_INVESTIGATION_HANDOFF_MAR12_2026.md) | Mar 12 | **Dispatch investigation**: 4 coralReef bugs fixed (QMD field layout, CBUF descriptors, QMD version, syncobj sync). CTXNOTVALID root cause: channel setup gap in nouveau 6.17 — both Ampere and Volta affected. NVK-style PGRAPH init needed. |
+| [`HOTSPRING_V0631_GAP_CLOSURE_REWIRE_HANDOFF_MAR12_2026.md`](handoffs/HOTSPRING_V0631_GAP_CLOSURE_REWIRE_HANDOFF_MAR12_2026.md) | Mar 12 | **Gap closure rewire**: hotSpring v0.6.31 absorbs toadStool S147, barraCuda 82ff983→7c1fd03a, coralReef Iter 37-39. Gap 1+4 CLOSED, Gap 3 WIRED. Sovereign routing with `sovereign_resolves_poisoning()`. |
 
 ---
 
 ## Archive
 
-79+ superseded handoffs in `handoffs/archive/`. These document the full
-evolution history from v0.4.x through v0.6.29:
+83+ superseded handoffs in `handoffs/archive/`. These document the full
+evolution history from v0.4.x through v0.6.31:
 
 - Early toadStool rewire documents (v1-v4)
 - GPU primitive absorption records
