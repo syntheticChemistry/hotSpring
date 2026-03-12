@@ -282,4 +282,58 @@ nouveau 0000:4b:00.0: fifo:000000:0002:0002:[...] errored - disabling channel
 
 ---
 
-*Updated by hotSpring dispatch investigation, March 12, 2026*
+## Sovereign BAR0 GR Init — Implementation (March 12, later)
+
+**Status**: IMPLEMENTED in coralReef, needs `sudo` for hardware validation.
+
+### Root Cause Resolution
+
+The CTXNOTVALID blocker was caused by PGRAPH register init data being
+misrouted to the FECS channel (push buffer) instead of BAR0 MMIO.
+The `sw_method_init.bin` entries have addresses >= 0x00400000 which exceed
+the push buffer's 13-bit method encoding limit (max 0x7FFC). These are
+BAR0 register addresses that must be written via MMIO.
+
+### Changes Made
+
+1. **`nv/bar0.rs` (NEW)**: Sovereign BAR0 access via sysfs `resource0` mmap.
+   Implements `RegisterAccess` trait with volatile read/write. Maps 16 MiB
+   BAR0 window per GPU.
+
+2. **`gsp/applicator.rs`**: Fixed `split_for_application()` — now address-aware.
+   Entries with `offset > 0x7FFC` route to BAR0 regardless of category.
+   Previously ALL `BundleInit`/`MethodInit` went to FECS (wrong).
+
+3. **`nv/mod.rs`**: Restructured device open into phases:
+   - Phase 0: `try_bar0_gr_init()` — BAR0 PGRAPH register writes (BEFORE channel)
+   - Phase 1: VM_INIT (new UAPI)
+   - Phase 2: CHANNEL_ALLOC (should find valid GR context from Phase 0)
+   - Phase 3: `try_fecs_channel_init()` — low-address FECS methods via channel
+
+### Firmware Split Results
+
+| GPU | BAR0 writes | FECS entries | Total |
+|-----|------------|-------------|-------|
+| RTX 3090 (GA102, SM86) | 2972 | 0 | 2972 |
+| Titan V (GV100, SM70) | 1570 | 927 | 2497 |
+
+### Validation
+
+Requires root for BAR0 access:
+```bash
+sudo chmod 666 /sys/class/drm/renderD*/device/resource0
+ARGV0=cargo cargo test --test hw_nv_nouveau --features nouveau -- --ignored --nocapture nouveau_sovereign_bar0_diagnostic
+ARGV0=cargo cargo test --test hw_nv_nouveau --features nouveau -- --ignored --nocapture nouveau_dispatch_diagnostic
+```
+
+### Three Dispatch Paths
+
+| Path | Kernel Driver | BAR0 | Status |
+|------|--------------|------|--------|
+| Sovereign (A) | nouveau + BAR0 MMIO | Yes (root) | **IMPLEMENTED** — needs validation |
+| UVM (B) | nvidia proprietary | No | **IMPLEMENTED** — needs nvidia module |
+| Nouveau only (C) | nouveau | No | Depends on kernel GR init (broken on 6.17) |
+
+---
+
+*Updated by hotSpring sovereign BAR0 investigation, March 12, 2026*
