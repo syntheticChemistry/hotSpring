@@ -24,11 +24,11 @@
 //! 4. **Portable**: Only depends on `GpuF64`, `PrecisionTier`, `PhysicsDomain`.
 //!    Works in any spring that can construct a `GpuF64`.
 //!
-//! ## Upstream absorption (barraCuda v0.3.5 `8d63c77`, toadStool S146)
+//! ## Upstream absorption (barraCuda v0.3.5 `82ff983`, toadStool S147)
 //!
 //! barraCuda v0.3.5 now has `PrecisionBrain::from_device(&WgpuDevice)` with
 //! O(1) route table, 12 physics domains, `HardwareCalibration::from_device`,
-//! `FmaPolicy`, and `brain.compile()` API. toadStool S146 has `PrecisionBrain`
+//! `FmaPolicy`, and `brain.compile()` API. toadStool S147 has `PrecisionBrain`
 //! wired into `compile_wgsl_multi`, `nvvm_transcendental_risk` in `gpu.info`,
 //! VRAM-aware routing, and 19 `SpringDomain` variants. hotSpring's brain
 //! remains locally authoritative because it works with `GpuF64` (not

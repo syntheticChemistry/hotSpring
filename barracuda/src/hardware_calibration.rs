@@ -21,7 +21,7 @@
 //! This module is designed to be portable across springs — it only depends on
 //! `GpuF64` and `PrecisionTier`, both of which are re-exported from barraCuda.
 //!
-//! ## Upstream absorption (barraCuda v0.3.5 `8d63c77`, toadStool S146)
+//! ## Upstream absorption (barraCuda v0.3.5 `82ff983`, toadStool S147)
 //!
 //! barraCuda v0.3.5 now has `HardwareCalibration::from_device(&WgpuDevice)`
 //! with `TierCapability` (compiles, dispatches, transcendentals_safe,
@@ -30,7 +30,7 @@
 //! remains the authoritative calibration source — upstream's is a safe
 //! approximation for springs that cannot afford dispatch-time probing.
 //!
-//! toadStool S146 has `nvvm_transcendental_risk` in `gpu.info` JSON-RPC,
+//! toadStool S147 has `nvvm_transcendental_risk` in `gpu.info` JSON-RPC,
 //! `NvkZeroGuard` for zero-output detection, and VRAM-aware routing via
 //! `route_with_vram`. When hotSpring integrates toadStool's runtime, the
 //! throttle heuristic in `is_f64_throttled()` can use toadStool's ratio field.

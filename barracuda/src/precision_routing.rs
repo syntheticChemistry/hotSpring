@@ -14,12 +14,12 @@
 //! requirements within those limits. `Fp64Strategy::Sovereign` (coralReef
 //! native compilation) routes like `Native` — it produces real f64 code.
 //!
-//! ## Upstream absorption (barraCuda v0.3.5 `8d63c77`, toadStool S146)
+//! ## Upstream absorption (barraCuda v0.3.5 `82ff983`, toadStool S147)
 //!
 //! `PrecisionTier` and `PhysicsDomain` are now upstream in
 //! `barracuda::device::precision_tier` (absorbed from hotSpring v0.6.25) with
 //! `fma_sensitive()`, `throughput_bound()`, and `minimum_tier()` methods.
-//! `FmaPolicy` is upstream in `barracuda::device::fma_policy`. toadStool S146
+//! `FmaPolicy` is upstream in `barracuda::device::fma_policy`. toadStool S147
 //! has `PrecisionBrain` wired into `compile_wgsl_multi` with per-device
 //! precision advice and `nvvm_transcendental_risk`. Future versions may
 //! re-export upstream enums once the API stabilizes across all springs.

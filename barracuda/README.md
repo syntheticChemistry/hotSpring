@@ -26,8 +26,8 @@ dynamics, lattice QCD, spectral theory, and transport coefficients.
 
 ```
 hotSpring (this repo)
-  └── barracuda/              ← you are here (hotspring-barracuda v0.6.26)
-       ├── src/lib.rs         ← crate root (v0.6.26)
+  └── barracuda/              ← you are here (hotspring-barracuda v0.6.31)
+       ├── src/lib.rs         ← crate root (v0.6.31)
        ├── src/physics/       ← nuclear structure (L1/L2/L3 HFB, SEMF)
        ├── src/md/            ← GPU molecular dynamics (Yukawa OCP)
        ├── src/lattice/       ← lattice QCD (SU(3), HMC, Dirac, CG, Abelian Higgs)
@@ -46,7 +46,7 @@ hotSpring (this repo)
 ```bash
 cd barracuda
 
-cargo test --lib          # 842 library tests
+cargo test --lib          # 848 library tests
 cargo clippy --all-targets  # 0 warnings (pedantic + nursery)
 cargo doc --no-deps       # Full API docs, 0 warnings
 

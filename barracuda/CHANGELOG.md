@@ -5,6 +5,30 @@ All notable changes to the hotSpring BarraCuda validation crate.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.6.31 — Gap Closure: barraCuda 82ff983 + coralReef Iter 37 + toadStool S147 (March 12, 2026)
+
+**barraCuda pin**: `d761c5d` → `82ff983` (dispatch_binary wired on CoralReefDevice, coral cache → dispatch, capability-based namespace, VoltaNoPmuFirmware workaround, sovereign_resolves_poisoning(), ODE solver refactor, Gap 1 CLOSED)
+**coralReef**: Iter 35 → Iter 37 (`fe9fae4` — sovereign GSP module: firmware parser + knowledge base + applicator + dispatch optimizer, UVM GPFIFO submission + USERD doorbell + completion polling, dispatch_precompiled + KernelCacheEntry + arch_name, NvDrmDevice evolved to UVM delegator, Gap 2 partially closed, 1635 tests)
+**toadStool**: S146 → S147 (`ac3ea6d6` — hw-learn pipeline wired as compute.hardware.* JSON-RPC, RegisterAccess bridge: nvPmu Bar0Access → hw-learn, spirv_codegen_safety rename, FirmwareInventory in gpu.info, 20,015 tests, Gap 4 CLOSED)
+
+### Changes
+- **Pin update**: barraCuda `d761c5d` → `82ff983` (3 commits absorbed)
+- **Sovereign routing evolution**: MD precision strategy (simulation/mod.rs, verlet.rs, celllist.rs) now detects `sovereign_resolves_poisoning()` — when sovereign dispatch can bypass DF64 SPIR-V poisoning, enables DF64 transcendentals that were previously blocked. Strategy label reflects this ("sovereign bypass — poisoning resolved")
+- **SM86/Ampere dispatch strategy**: md_backend sovereign dispatch probe now tries SM86/Ampere before SM70/Volta, matching our proven RTX 3090 hardware test results
+- **Gap status absorption**: Gap 1 (dispatch_binary) CLOSED by barraCuda 82ff983. Gap 4 (RegisterAccess bridge) CLOSED by toadStool S147. Gap 2 (GPFIFO) partially closed by coralReef Iter 37. Gap 3 (FECS) UNBLOCKED by DRM fix (eb4b4eb)
+
+### Validation
+- 848 lib tests passing (0 failures) — both default and sovereign-dispatch features
+- 0 clippy warnings (pedantic)
+- Clean compile against all three upstream primals at latest
+
+### Upstream Cross-Pollination
+- coralReef Iter 37 sovereign GSP firmware parser supports 22 NVIDIA chips (gv100 through ad102); knowledge base enables cross-architecture register transfer learning
+- barraCuda PRIMAL_NAMESPACE replaces hardcoded "barracuda" strings for capability-based discovery
+- toadStool S147 hw-learn observe/distill/apply/share_recipe/status wired as biomeOS v2.30 JSON-RPC
+
+---
+
 ## v0.6.30 — Upstream Sync v5: barraCuda d761c5d + coralReef Iter 35 (March 9, 2026)
 
 **barraCuda pin**: `0649cd0` → `d761c5d` (ReduceScalarPipeline f64 zeros fix, Df64SpirVPoisoning rename, BatchedComputeDispatch, double-allocation elimination)

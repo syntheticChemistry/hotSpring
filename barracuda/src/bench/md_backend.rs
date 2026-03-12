@@ -379,6 +379,9 @@ impl GenericMdBackend {
             use barracuda::device::CoralReefDevice;
 
             let strategies: &[(&str, &str, Box<dyn Fn() -> barracuda::error::Result<CoralReefDevice>>)] = &[
+                ("nouveau", "SM86/Ampere", Box::new(|| {
+                    CoralReefDevice::from_descriptor("nvidia", Some("sm86"), Some("nouveau"))
+                })),
                 ("nouveau", "SM70/Volta", Box::new(|| {
                     CoralReefDevice::from_descriptor("nvidia", Some("sm70"), Some("nouveau"))
                 })),
