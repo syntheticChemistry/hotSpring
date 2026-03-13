@@ -32,7 +32,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 
 ---
 
-## Current Status (2026-03-12)
+## Current Status (2026-03-09)
 
 | Study | Status | Quantitative Checks |
 |-------|--------|-------------------|

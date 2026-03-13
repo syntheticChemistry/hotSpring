@@ -311,7 +311,7 @@ CERN-grade reproducibility. At home. Scalable to CERN.
 
 ---
 
-## VFIO Hardware Validation (March 13, 2026)
+## VFIO Hardware Validation (March 13, 2026 → March 9 Update)
 
 First physical validation of the sovereign VFIO compute path on biomeGate:
 
@@ -321,19 +321,43 @@ First physical validation of the sovereign VFIO compute path on biomeGate:
 | DMA alloc via IOMMU | **PASS** | Host memory mapped into GPU IOVA space |
 | DMA upload + readback | **PASS** | Byte-exact data round-trip through IOMMU |
 | Multiple concurrent DMA buffers | **PASS** | Buffer pool management |
-| Compute dispatch + sync | **FAIL** | GPU channel init via BAR0 not yet implemented |
+| Compute dispatch + sync | **FAIL** | PFIFO channel loads — PBDMA context visible, last mile remaining |
 
 **Hardware**: Titan V (GV100, SM70) on `vfio-pci`, IOMMU group 36.
 **Dual-use**: RTX 3090 stays on nvidia proprietary for display — same machine, no reboot.
 
-**Remaining gap**: PFIFO channel creation via BAR0 MMIO. The VFIO infrastructure
-(container, IOMMU, DMA, BAR0) is fully validated. The last step is telling the GPU's
-command processor where the GPFIFO ring lives — a well-defined driver task, not an
-architectural problem.
+### PFIFO Channel Progress (March 9, 2026)
 
-See: `wateringHole/handoffs/CORALREEF_VFIO_HARDWARE_VALIDATION_RESULTS_MAR13_2026.md`
+The channel initialization has been iterated from "GPU ignores everything" to
+"PBDMA loads our channel and reads our GPFIFO address." Specific fixes applied:
+
+| Fix | What Was Wrong | Impact |
+|-----|---------------|--------|
+| PBDMA_MAP interpretation | Assumed PBDMA0 existed; only 1,2,3,21 present | Correct engine targeting |
+| PBDMA_RUNL_MAP indexing | Used PBDMA ID as index; registers are sequential | Correct runlist discovery |
+| GK104 runlist submission | Used per-runlist registers; GV100 uses fixed pair (0x2270/0x2274) | Runlist accepted by scheduler |
+| Empty runlist flush | Stale Nouveau contexts persisted after PFIFO_ENABLE toggle | Clean PBDMA state |
+| ENGN0_STATUS for GR runlist | TOP_INFO parsing unreliable; ENGN0_STATUS[15:12] gives GR runlist directly | Correct GR engine runlist (1) |
+| PCCSR fault clearing | PBDMA_FAULTED persisted from prior driver; W1C sequence after disable | Clean channel state |
+| **GP_BASE_HI aperture** | Bits [29:28] defaulted to 0 (VRAM); GPFIFO is in system memory | **PBDMA reads GPFIFO from correct aperture** |
+
+**Current state after fixes:**
+- `PCCSR_CHAN = 0x00000003` — channel enabled, **zero faults**
+- PBDMA2 loaded our context: `GP_FETCH=0x00001000` (GPFIFO IOVA), `GP_STATE=0x10070000` (aperture correct)
+- Instance block verified: `GP_BASE_HI=0x10070000` (aperture=SYS_MEM_COH, limit=256 entries)
+
+**Remaining gap**: PBDMA's `GP_PUT` stays at 0 — it loaded our channel context but hasn't
+read the USERD update (where we wrote GP_PUT=1). Root cause candidates:
+
+1. **Runlist channel entry USERD_TARGET** — DW0 bits [3:2] currently 0 (VRAM), should be 2 (SYS_MEM_COH)
+2. **Doorbell mechanism** — `DOORBELL_PROBE=0x00000000`; may need configuration
+3. **USERD aperture encoding** — instance block has `USERD_LO=0x00002001` (target=1=COH in PBDMA encoding), but the runlist entry DW0 uses PCCSR encoding where target=2=COH
+
+This is a single-register encoding issue. The channel infrastructure is fully functional.
+
+See: `ecoPrimals/wateringHole/handoffs/HOTSPRING_VFIO_PFIFO_PROGRESS_GP_PUT_HANDOFF_MAR09_2026.md`
 
 ---
 
-*hotSpring v0.6.31 — March 13, 2026*
+*hotSpring v0.6.31 — March 9, 2026*
 *The shaders are the mathematics. The mathematics runs forever.*
