@@ -2,9 +2,10 @@
 
 ## CERN-Grade Reproducible Physics at Home. Scalable to CERN.
 
-**Date**: March 12, 2026
+**Date**: March 13, 2026
 **Version**: v0.6.31
 **Status**: 848 tests, 115 binaries, 85 shaders, 44/44 Chuna overnight, 0.000% energy drift
+**VFIO Validation**: 6/7 coralReef tests pass on Titan V (GV100) via VFIO — BAR0, DMA, upload/readback all verified on real hardware
 
 ---
 
@@ -310,5 +311,29 @@ CERN-grade reproducibility. At home. Scalable to CERN.
 
 ---
 
-*hotSpring v0.6.31 — March 12, 2026*
+## VFIO Hardware Validation (March 13, 2026)
+
+First physical validation of the sovereign VFIO compute path on biomeGate:
+
+| Test | Result | What It Proves |
+|------|--------|----------------|
+| VFIO device open + BAR0 read | **PASS** | Userspace GPU access without kernel driver |
+| DMA alloc via IOMMU | **PASS** | Host memory mapped into GPU IOVA space |
+| DMA upload + readback | **PASS** | Byte-exact data round-trip through IOMMU |
+| Multiple concurrent DMA buffers | **PASS** | Buffer pool management |
+| Compute dispatch + sync | **FAIL** | GPU channel init via BAR0 not yet implemented |
+
+**Hardware**: Titan V (GV100, SM70) on `vfio-pci`, IOMMU group 36.
+**Dual-use**: RTX 3090 stays on nvidia proprietary for display — same machine, no reboot.
+
+**Remaining gap**: PFIFO channel creation via BAR0 MMIO. The VFIO infrastructure
+(container, IOMMU, DMA, BAR0) is fully validated. The last step is telling the GPU's
+command processor where the GPFIFO ring lives — a well-defined driver task, not an
+architectural problem.
+
+See: `wateringHole/handoffs/CORALREEF_VFIO_HARDWARE_VALIDATION_RESULTS_MAR13_2026.md`
+
+---
+
+*hotSpring v0.6.31 — March 13, 2026*
 *The shaders are the mathematics. The mathematics runs forever.*
