@@ -1,0 +1,42 @@
+# Nouveau reference BAR0 capture — Titan V (GV100) at 0000:4b:00.0
+# Captured: 2026-03-13 after binding to nouveau driver
+# Kernel: 6.17.9-76061709-generic, nouveau module
+
+╔══ DEEP BAR0 DUMP: 0000:4b:00.0 (BOOT0=0x140000a1) ══╗
+║ [0x000000] BOOT0                                      = 0x140000a1
+║ [0x000200] PMC_ENABLE                                 = 0x5fecdff1
+║ [0x000204] PMC_DEVICE_ENABLE                          = 0x00003fff
+║ [0x002004] PFIFO_PBDMA_MAP                            = 0x0020000e
+║ [0x002100] PFIFO_INTR                                 = 0x00000000
+║ [0x002140] PFIFO_INTR_EN                              = 0x61810101
+║ [0x002200] PFIFO_ENABLE                               = 0x00000000
+║ [0x002254] PFIFO_FB_TIMEOUT                           = 0x00000000
+║ [0x002270] RUNLIST_BASE                               = 0x002ffd40
+║ [0x002274] RUNLIST_SUBMIT                             = 0x00600002
+║ [0x002504] SCHED_EN (may not exist on Volta)          = 0xbad00200
+║ [0x002508] PFIFO_SCHED_STATUS                         = 0xbad00200
+║ [0x002510] PFIFO_SCHED_2510                           = 0xbad00200
+║ [0x00252c] BIND_ERROR                                 = 0x00000000
+║ [0x002630] SCHED_DISABLE                              = 0x00000000
+║ [0x002634] PREEMPT                                    = 0x01000001
+║ [0x002640] ENGN0_STATUS                               = 0x10021002
+║ [0x800000] PCCSR_INST[0]                              = 0x802ffe48  PTR=0x2ffe48 TARGET=VRAM BIND=1
+║ [0x800004] PCCSR_CHAN[0]                              = 0x00000003  EN=1 SCHED=1 NO FAULTS
+║ [0x100e24] MMU_FAULT_BUF0_LO (replayable)             = 0x00012000
+║ [0x100e28] MMU_FAULT_BUF0_HI                          = 0x00000000
+║ [0x100e2c] MMU_FAULT_BUF0_SIZE                        = 0x00000000
+║ [0x100e44] MMU_FAULT_BUF1_LO (non-replayable)         = 0x00000000
+║ [0x100e48] MMU_FAULT_BUF1_HI                          = 0x40001800
+╚═══════════════════════════════════════════════════════════════════════╝
+
+## CRITICAL FINDINGS:
+# 1. PFIFO_ENABLE = 0x00000000 — ZERO is NORMAL on GV100 with nouveau!
+#    Our code toggles 0→1 when it sees 0, which BREAKS the scheduler.
+# 2. PCCSR_INST[0] has BIND=1 (bit 31) — INST_BIND is REQUIRED.
+# 3. PCCSR_CHAN[0] = 0x00000003 — both ENABLE(bit0) and NEXT(bit1) set.
+#    This is a healthy scheduled channel. Ours only reaches 0x00000001.
+# 4. RUNLIST_BASE = 0x002ffd40 — target bits [31:28] = 0 (VRAM).
+#    Nouveau's runlist is in VRAM. Ours is in system memory (target=3).
+# 5. RUNLIST_SUBMIT = 0x00600002 — runlist_id=3, count=2.
+# 6. ENGN0_STATUS = 0x10021002 — GR engine active.
+# 7. MMU fault buffers are partially configured (buf0 LO set, sizes zero).

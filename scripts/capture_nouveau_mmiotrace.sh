@@ -1,63 +1,94 @@
 #!/bin/bash
-set -e
+# capture_nouveau_mmiotrace.sh — Capture nouveau's full PFIFO init sequence via mmiotrace
+#
+# Usage: sudo ./scripts/capture_nouveau_mmiotrace.sh [GPU_BDF]
+# Default GPU_BDF: 0000:4b:00.0
+#
+# Output: scripts/nouveau_mmiotrace_$(date +%Y%m%d_%H%M%S).txt
+#
+# This captures EVERY MMIO write nouveau makes during GPU initialization,
+# which we can then replay from Rust to properly warm the PFIFO scheduler.
 
-GPU="0000:4b:00.0"
-AUDIO="0000:4b:00.1"
-TRACE_OUT="/home/biomegate/Development/ecoPrimals/hotSpring/data/nouveau_mmiotrace.log"
+set -euo pipefail
 
-mkdir -p "$(dirname "$TRACE_OUT")"
+GPU="${1:-0000:4b:00.0}"
+AUD="${GPU%.*}.1"
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+OUTDIR="$(dirname "$0")"
+OUTFILE="$OUTDIR/nouveau_mmiotrace_${TIMESTAMP}.txt"
+PFIFO_FILTERED="$OUTDIR/nouveau_pfifo_init_${TIMESTAMP}.txt"
 
-echo "=== Nouveau MMIOTRACE Capture ==="
-echo "This captures EVERY BAR0 register write nouveau does to init the Titan V."
+echo "=== Nouveau mmiotrace capture ==="
+echo "GPU: $GPU"
+echo "Output: $OUTFILE"
+echo ""
 
-echo "Step 1: Unbind Titan V from vfio-pci..."
-echo $GPU > /sys/bus/pci/drivers/vfio-pci/unbind 2>/dev/null || echo "  GPU already unbound"
-echo $AUDIO > /sys/bus/pci/drivers/vfio-pci/unbind 2>/dev/null || echo "  Audio already unbound"
-echo "" > /sys/bus/pci/devices/$GPU/driver_override
-echo "" > /sys/bus/pci/devices/$AUDIO/driver_override
+# Step 0: Ensure GPU is unbound from any driver
+echo "[0] Unbinding GPU from current driver..."
+echo "" > "/sys/bus/pci/devices/$GPU/reset_method" 2>/dev/null || true
+echo "$GPU" > /sys/bus/pci/drivers/vfio-pci/unbind 2>/dev/null || true
+echo "$AUD" > /sys/bus/pci/drivers/vfio-pci/unbind 2>/dev/null || true
+echo "$GPU" > /sys/bus/pci/drivers/nouveau/unbind 2>/dev/null || true
+echo "" > "/sys/bus/pci/devices/$GPU/driver_override"
+sleep 1
 
-echo "Step 2: Unload nouveau if loaded..."
-modprobe -r nouveau 2>/dev/null || echo "  nouveau not loaded or can't unload"
+# Step 1: Mount debugfs if needed
+if ! mountpoint -q /sys/kernel/debug; then
+    echo "[1] Mounting debugfs..."
+    mount -t debugfs debugfs /sys/kernel/debug
+fi
 
-echo "Step 3: Enable mmiotrace..."
+# Step 2: Enable mmiotrace
+echo "[2] Enabling mmiotrace..."
 echo mmiotrace > /sys/kernel/debug/tracing/current_tracer
-echo "  mmiotrace enabled"
+echo 1 > /sys/kernel/debug/tracing/tracing_on
 
-echo "Step 4: Load nouveau and let it initialize Titan V..."
-modprobe nouveau 2>/dev/null || {
-    # Load dependencies first
-    modprobe gpu-sched 2>/dev/null || true
-    modprobe drm 2>/dev/null || true
-    modprobe drm_kms_helper 2>/dev/null || true
-    modprobe nouveau
-}
+# Step 3: Bind nouveau (this is what we're capturing)
+echo "[3] Binding nouveau (capturing MMIO writes)..."
+echo "$GPU" > /sys/bus/pci/drivers/nouveau/bind 2>&1
+BIND_RC=$?
+echo "    nouveau bind rc=$BIND_RC"
 
-echo "Step 5: Wait for nouveau init to complete..."
-sleep 5
+# Wait for init to complete
+echo "[4] Waiting 8s for full initialization..."
+sleep 8
 
-echo "Step 6: Verify Titan V is on nouveau..."
-DRIVER=$(readlink /sys/bus/pci/devices/$GPU/driver 2>/dev/null | xargs basename 2>/dev/null || echo "none")
-echo "  GPU driver: $DRIVER"
+# Step 4: Stop tracing
+echo "[5] Stopping mmiotrace..."
+echo 0 > /sys/kernel/debug/tracing/tracing_on
 
-echo "Step 7: Capture trace..."
-cat /sys/kernel/debug/tracing/trace > "$TRACE_OUT"
-LINES=$(wc -l < "$TRACE_OUT")
-echo "  Captured $LINES lines to $TRACE_OUT"
+# Step 5: Save full trace
+echo "[6] Saving trace to $OUTFILE..."
+cat /sys/kernel/debug/tracing/trace > "$OUTFILE"
 
-echo "Step 8: Stop mmiotrace..."
+# Step 6: Reset tracer to nop
 echo nop > /sys/kernel/debug/tracing/current_tracer
-echo "  mmiotrace stopped"
 
-echo "Step 9: Unbind nouveau and rebind vfio-pci..."
-echo $GPU > /sys/bus/pci/drivers/nouveau/unbind 2>/dev/null || echo "  unbind failed"
-echo $AUDIO > /sys/bus/pci/drivers/snd_hda_intel/unbind 2>/dev/null || true
-echo "vfio-pci" > /sys/bus/pci/devices/$GPU/driver_override
-echo "vfio-pci" > /sys/bus/pci/devices/$AUDIO/driver_override
-echo $GPU > /sys/bus/pci/drivers/vfio-pci/bind 2>/dev/null || echo 1 > /sys/bus/pci/rescan
-echo $AUDIO > /sys/bus/pci/drivers/vfio-pci/bind 2>/dev/null || true
+# Step 7: Extract PFIFO-relevant writes (0x002000-0x002FFF, 0x040000-0x04FFFF, 0x800000+)
+echo "[7] Filtering PFIFO register writes..."
+grep -E "^W " "$OUTFILE" | grep -iE " (0x0*2[0-9a-f]{3}|0x0*4[0-9a-f]{4}|0x0*8[0-9a-f]{5}|0x0*200) " > "$PFIFO_FILTERED" 2>/dev/null || true
 
-FINAL=$(readlink /sys/bus/pci/devices/$GPU/driver 2>/dev/null | xargs basename 2>/dev/null || echo "none")
-echo "  Final GPU driver: $FINAL"
+TOTAL=$(wc -l < "$OUTFILE")
+PFIFO_COUNT=$(wc -l < "$PFIFO_FILTERED" 2>/dev/null || echo 0)
+echo ""
+echo "=== Capture complete ==="
+echo "Total MMIO ops: $TOTAL"
+echo "PFIFO-related:  $PFIFO_COUNT"
+echo "Full trace:     $OUTFILE"
+echo "PFIFO filtered: $PFIFO_FILTERED"
 
-echo "=== Done ==="
-echo "Trace saved to: $TRACE_OUT"
+# Step 8: Unbind nouveau, rebind vfio-pci
+echo ""
+echo "[8] Rebinding to vfio-pci..."
+echo "$GPU" > /sys/bus/pci/drivers/nouveau/unbind 2>&1 || true
+sleep 2
+echo "vfio-pci" > "/sys/bus/pci/devices/$GPU/driver_override"
+echo "vfio-pci" > "/sys/bus/pci/devices/$AUD/driver_override"
+echo "$GPU" > /sys/bus/pci/drivers/vfio-pci/bind 2>&1
+echo "$AUD" > /sys/bus/pci/drivers/vfio-pci/bind 2>&1
+sleep 1
+chmod 666 /dev/vfio/36 2>/dev/null || true
+
+echo ""
+echo "GPU on vfio-pci. Ready for testing."
+echo "NOTE: GPU is WARM from nouveau init. Run diagnostic matrix now."

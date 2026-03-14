@@ -2,10 +2,11 @@
 
 ## CERN-Grade Reproducible Physics at Home. Scalable to CERN.
 
-**Date**: March 13, 2026
+**Date**: March 14, 2026
 **Version**: v0.6.31
 **Status**: 848 tests, 115 binaries, 85 shaders, 44/44 Chuna overnight, 0.000% energy drift
-**VFIO Validation**: 6/7 coralReef tests pass on Titan V (GV100) via VFIO — BAR0, DMA, upload/readback all verified on real hardware
+**VFIO Validation**: 6/7 coralReef tests pass on Titan V (GV100) via VFIO — BAR0, DMA, upload/readback all verified on real hardware. **PBDMA context load achieved** (March 14): scheduler dispatches channel, RAMFC loaded into PBDMA2 with zero errors. Remaining: USERD GP_PUT DMA read from system memory.
+**Hardware Plan**: GTX 1050 (headless) + 2x Titan V (VFIO target + nouveau oracle) — planned weekend swap
 
 ---
 
@@ -311,9 +312,9 @@ CERN-grade reproducibility. At home. Scalable to CERN.
 
 ---
 
-## VFIO Hardware Validation (March 13, 2026 → March 9 Update)
+## VFIO Hardware Validation (March 14, 2026)
 
-First physical validation of the sovereign VFIO compute path on biomeGate:
+Physical validation of the sovereign VFIO compute path on biomeGate:
 
 | Test | Result | What It Proves |
 |------|--------|----------------|
@@ -321,43 +322,49 @@ First physical validation of the sovereign VFIO compute path on biomeGate:
 | DMA alloc via IOMMU | **PASS** | Host memory mapped into GPU IOVA space |
 | DMA upload + readback | **PASS** | Byte-exact data round-trip through IOMMU |
 | Multiple concurrent DMA buffers | **PASS** | Buffer pool management |
-| Compute dispatch + sync | **FAIL** | PFIFO channel loads — PBDMA context visible, last mile remaining |
+| Compute dispatch + sync | **FAIL** | PFIFO scheduler dispatches, PBDMA loads channel context — USERD DMA read remaining |
 
 **Hardware**: Titan V (GV100, SM70) on `vfio-pci`, IOMMU group 36.
 **Dual-use**: RTX 3090 stays on nvidia proprietary for display — same machine, no reboot.
+**Planned**: GTX 1050 (headless) + 2x Titan V (VFIO + nouveau oracle).
 
-### PFIFO Channel Progress (March 9, 2026)
+### PFIFO Channel Progress (March 14, 2026)
 
-The channel initialization has been iterated from "GPU ignores everything" to
-"PBDMA loads our channel and reads our GPFIFO address." Specific fixes applied:
+The channel initialization has been iterated through 17 experiments (A-Q)
+from "GPU ignores everything" to "PBDMA2 has our full RAMFC context loaded
+with zero errors." Three critical discoveries (Experiment 058):
+
+| Discovery | Register | Impact |
+|-----------|----------|--------|
+| GV100 runlist preempt | `0x002638` | Write `BIT(runl_id)` to evict stale nouveau contexts |
+| Runlist completion ACK | `0x002A00` | **Must acknowledge** before scheduler dispatches to PBDMAs |
+| SIGNATURE validation | PBDMA INTR bit 31 | RAMFC SIGNATURE must be `0x0000FACE` |
+
+**Fixes applied (March 9-14):**
 
 | Fix | What Was Wrong | Impact |
 |-----|---------------|--------|
 | PBDMA_MAP interpretation | Assumed PBDMA0 existed; only 1,2,3,21 present | Correct engine targeting |
-| PBDMA_RUNL_MAP indexing | Used PBDMA ID as index; registers are sequential | Correct runlist discovery |
 | GK104 runlist submission | Used per-runlist registers; GV100 uses fixed pair (0x2270/0x2274) | Runlist accepted by scheduler |
-| Empty runlist flush | Stale Nouveau contexts persisted after PFIFO_ENABLE toggle | Clean PBDMA state |
-| ENGN0_STATUS for GR runlist | TOP_INFO parsing unreliable; ENGN0_STATUS[15:12] gives GR runlist directly | Correct GR engine runlist (1) |
-| PCCSR fault clearing | PBDMA_FAULTED persisted from prior driver; W1C sequence after disable | Clean channel state |
-| **GP_BASE_HI aperture** | Bits [29:28] defaulted to 0 (VRAM); GPFIFO is in system memory | **PBDMA reads GPFIFO from correct aperture** |
+| GP_BASE_HI aperture | Bits [29:28] defaulted to 0 (VRAM); GPFIFO is in system memory | PBDMA reads correct aperture |
+| **GV100 preempt (0x002638)** | Used 0x002634 (per-channel); Volta needs per-runlist preempt | **Stale PBDMA context evicted** |
+| **Runlist ACK (0x002A00)** | Scheduler waited for software ACK that never came | **Scheduler dispatches channels** |
+| **SIGNATURE = 0xFACE** | PBDMA validates RAMFC signature field | **Clean context load** |
+| **Engine context binding** | PBDMA needs GR ectx at inst[0x210/0x214], flag at inst[0x0AC] | **CTXNOTVALID cleared** |
 
-**Current state after fixes:**
-- `PCCSR_CHAN = 0x00000003` — channel enabled, **zero faults**
-- PBDMA2 loaded our context: `GP_FETCH=0x00001000` (GPFIFO IOVA), `GP_STATE=0x10070000` (aperture correct)
-- Instance block verified: `GP_BASE_HI=0x10070000` (aperture=SYS_MEM_COH, limit=256 entries)
+**Current state:**
+- `PCCSR_CHAN = 0x00000003` — channel enabled + scheduled, zero faults
+- PBDMA2 loaded our full RAMFC context (USERD, GP_BASE, SIGNATURE, CHID all match)
+- PBDMA2 INTR = 0x00000000, PFIFO_INTR = 0x00000000 (all clean after ACK)
 
-**Remaining gap**: PBDMA's `GP_PUT` stays at 0 — it loaded our channel context but hasn't
-read the USERD update (where we wrote GP_PUT=1). Root cause candidates:
+**Remaining gap**: PBDMA's `GP_PUT` stays at 0 — PBDMA has context but does not read
+GP_PUT from USERD in system memory. Hypothesis: IOMMU DMA path issue for PBDMA polling.
+Testing VRAM USERD via PRAMIN. Dual Titan V mmiotrace planned after hardware swap.
 
-1. **Runlist channel entry USERD_TARGET** — DW0 bits [3:2] currently 0 (VRAM), should be 2 (SYS_MEM_COH)
-2. **Doorbell mechanism** — `DOORBELL_PROBE=0x00000000`; may need configuration
-3. **USERD aperture encoding** — instance block has `USERD_LO=0x00002001` (target=1=COH in PBDMA encoding), but the runlist entry DW0 uses PCCSR encoding where target=2=COH
-
-This is a single-register encoding issue. The channel infrastructure is fully functional.
-
-See: `ecoPrimals/wateringHole/handoffs/HOTSPRING_VFIO_PFIFO_PROGRESS_GP_PUT_HANDOFF_MAR09_2026.md`
+See: `hotSpring/experiments/058_VFIO_PBDMA_CONTEXT_LOAD.md`
+See: `wateringHole/handoffs/HOTSPRING_VFIO_PBDMA_CONTEXT_LOAD_BREAKTHROUGH_HANDOFF_MAR14_2026.md`
 
 ---
 
-*hotSpring v0.6.31 — March 9, 2026*
+*hotSpring v0.6.31 — March 14, 2026*
 *The shaders are the mathematics. The mathematics runs forever.*
