@@ -224,14 +224,66 @@ If the PBDMA reads GP_PUT from VRAM, this confirms the IOMMU hypothesis.
 
 ---
 
-## Forward Plan
+## BREAKTHROUGH: RUNLIST_SUBMIT Register Fix (March 15, 2026)
 
-1. Complete VRAM USERD test (Experiment Q modification)
-2. Hardware swap: GTX 1050 + 2x Titan V
-3. mmiotrace nouveau on oracle Titan V to capture full PBDMA sequence
-4. Replicate on VFIO Titan V
-5. Close GP_PUT gap → 7/7 `vfio_dispatch_nop_shader`
+### Root Cause Found
+
+GV100 uses `gk104_runl_commit()`, which has a **two-register** global format:
+
+```c
+nvkm_wr32(device, 0x002270, (target << 28) | (addr >> 12));  // RUNLIST_BASE
+nvkm_wr32(device, 0x002274, (runl->id << 20) | count);       // RUNLIST_SUBMIT trigger
+```
+
+We were treating `0x002274` as `RUNLIST_BASE_HI` (writing 0) and writing
+count to a non-existent register at `0x002278`. The write of 0 to `0x002274`
+accidentally triggered an empty submission (count=0), and **the actual count=2
+submission never reached the hardware**.
+
+### Additional Fix: Channel Entry Encoding
+
+`inst_target` was placed in DW0[5:4] (reserved bits) instead of DW2[21:20]:
+```
+DW0: [31:8] USERD_ADDR, [7:6] USERD_TARGET, [1] RUNQ  ← removed inst_target from [5:4]
+DW2: [31:12] INST_ADDR, [21:20] INST_TARGET, [11:0] CHID  ← added inst_target here
+```
+
+### Results After Fix
+
+| Metric | Before | After |
+|--------|--------|-------|
+| Scheduled experiments | 0 | **8** |
+| PBDMA context loaded from RAMFC | No | **Yes** |
+| PBDMA fetches GPFIFO | No | **Yes** (GP_FETCH=0x1000) |
+| PCCSR BUSY bit | Never set | **Set** (0x15000003) |
+
+Scheduled experiments: `I_activate_sched_{coh,ncoh}`, `T_sched_doorbell_{coh,ncoh}`,
+`R_ramfc_sched_{coh,ncoh}`, `S_both_sched_{coh,ncoh}`.
+
+The R experiment proves end-to-end RAMFC loading:
+```
+CTX: USERD=0x00002001 SIG=0x0000FACE GP_PUT=1
+DIRECT: GP_FETCH=4096 (0x1000 = GPFIFO_IOVA)
+```
+
+### Remaining Issue
+
+All 8 scheduled experiments fault (PBDMA_FAULTED | ENG_FAULTED in PCCSR).
+PBDMA attempts GPFIFO fetch but faults, likely because:
+- GPFIFO buffer has no valid push buffer entries (GP_PUT=1 but no commands)
+- MMU page tables may need verification for PBDMA virtual address translation
+- PBDMA CONFIG/CHANNEL_INFO may need additional fields set
 
 ---
 
-*The scheduler dispatches. The PBDMA loads our context. The last mile is DMA.*
+## Forward Plan
+
+1. Investigate PBDMA fault type: read detailed interrupt/fault registers
+2. Populate valid GPFIFO entries (NOP command) to prevent invalid command faults
+3. Verify MMU page table setup for GPU virtual → IOVA translation
+4. Achieve clean scheduling (SCHED + no fault) → 7/7 dispatch
+5. Cross-test on RTX 5060 to validate portability of diagnostic matrix
+
+---
+
+*The scheduler dispatches. The PBDMA loads our context and fetches our GPFIFO. The last mile is valid commands.*
