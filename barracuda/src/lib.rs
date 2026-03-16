@@ -47,12 +47,12 @@ pub mod bench;
 pub mod data;
 /// Heterogeneous dual-GPU device pair (precise + throughput brains).
 pub mod device_pair;
-/// Dual-card cooperative pipeline profiler (Split BCS, Split HMC, Redundant).
-pub mod dual_pipeline_eval;
 /// Capability-based data-path resolution (zero hardcoded absolute paths).
 pub mod discovery;
 /// Dual-dispatch executor for heterogeneous GPU workloads.
 pub mod dual_dispatch;
+/// Dual-card cooperative pipeline profiler (Split BCS, Split HMC, Redundant).
+pub mod dual_pipeline_eval;
 /// Typed errors for GPU, simulation, and data-loading failure modes.
 pub mod error;
 /// GPU FP64 compute wrapper (`SHADER_F64` via wgpu/Vulkan).
@@ -73,14 +73,14 @@ pub mod npu_experiments;
 pub mod nuclear_eos_helpers;
 /// Nuclear structure: SEMF, nuclear matter, spherical/deformed HFB, BCS.
 pub mod physics;
+/// L2 heterogeneous pipeline: L1 data gen, classifier training, L2 objective.
+pub mod pipeline;
 /// Full physics pipeline end-to-end profiler (MD, HMC, BCS, dielectric).
 pub mod pipeline_eval;
 /// Self-routing precision brain: data-driven tier selection from calibration.
 pub mod precision_brain;
 /// Per-shader precision/throughput profiler across all 3 tiers.
 pub mod precision_eval;
-/// L2 heterogeneous pipeline: L1 data gen, classifier training, L2 objective.
-pub mod pipeline;
 /// Precision routing: capability-aware shader compilation (local toadStool evolution).
 pub mod precision_routing;
 /// NMP cascade filter for L2 heterogeneous pipeline.

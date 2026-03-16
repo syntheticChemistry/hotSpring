@@ -37,8 +37,8 @@
 
 use crate::gpu::GpuF64;
 use crate::hardware_calibration::HardwareCalibration;
-use crate::precision_routing::{PhysicsDomain, PrecisionRoutingAdvice, PrecisionTier};
 pub use crate::precision_routing::HwPrecisionAdvice;
+use crate::precision_routing::{PhysicsDomain, PrecisionRoutingAdvice, PrecisionTier};
 
 /// Detect whether coralReef sovereign compilation is available.
 ///
@@ -119,10 +119,7 @@ impl PrecisionBrain {
         };
 
         for (i, domain) in ALL_DOMAINS.iter().enumerate() {
-            eprintln!(
-                "[Brain] {:?} → {:?}",
-                domain, brain.route_table[i]
-            );
+            eprintln!("[Brain] {:?} → {:?}", domain, brain.route_table[i]);
         }
 
         brain
@@ -314,10 +311,22 @@ fn is_f64_throttled(cal: &HardwareCalibration) -> bool {
 fn domain_requirements(domain: PhysicsDomain, tier: PrecisionTier) -> (bool, &'static str) {
     match domain {
         PhysicsDomain::Dielectric | PhysicsDomain::Eigensolve => match tier {
-            PrecisionTier::F64Precise => (false, "FMA-free f64: cancellation-safe for complex arithmetic"),
-            PrecisionTier::F64 => (true, "Native f64 (FMA-free unavailable, acceptable precision)"),
-            PrecisionTier::DF64 => (false, "DF64 emulation: ~14 digits, sufficient for most physics"),
-            PrecisionTier::F32 => (true, "F32 fallback: reduced precision, validation recommended"),
+            PrecisionTier::F64Precise => (
+                false,
+                "FMA-free f64: cancellation-safe for complex arithmetic",
+            ),
+            PrecisionTier::F64 => (
+                true,
+                "Native f64 (FMA-free unavailable, acceptable precision)",
+            ),
+            PrecisionTier::DF64 => (
+                false,
+                "DF64 emulation: ~14 digits, sufficient for most physics",
+            ),
+            PrecisionTier::F32 => (
+                true,
+                "F32 fallback: reduced precision, validation recommended",
+            ),
         },
         PhysicsDomain::GradientFlow
         | PhysicsDomain::NuclearEos
@@ -326,7 +335,10 @@ fn domain_requirements(domain: PhysicsDomain, tier: PrecisionTier) -> (bool, &'s
             PrecisionTier::F64 | PrecisionTier::F64Precise => {
                 (true, "Native f64 with FMA for moderate precision needs")
             }
-            PrecisionTier::DF64 => (true, "DF64 provides sufficient precision for moderate domains"),
+            PrecisionTier::DF64 => (
+                true,
+                "DF64 provides sufficient precision for moderate domains",
+            ),
             PrecisionTier::F32 => (true, "F32 fallback: validate energy conservation"),
         },
         PhysicsDomain::LatticeQcd
@@ -338,7 +350,10 @@ fn domain_requirements(domain: PhysicsDomain, tier: PrecisionTier) -> (bool, &'s
             PrecisionTier::F64 | PrecisionTier::F64Precise => {
                 (true, "Native f64 for compute-bound domains")
             }
-            PrecisionTier::DF64 => (true, "DF64 throughput mode: f32 cores for max dispatch rate"),
+            PrecisionTier::DF64 => (
+                true,
+                "DF64 throughput mode: f32 cores for max dispatch rate",
+            ),
             PrecisionTier::F32 => (true, "F32 screening/preview mode"),
         },
     }
@@ -350,7 +365,12 @@ mod tests {
     use crate::hardware_calibration::TierCapability;
 
     #[allow(clippy::fn_params_excessive_bools)]
-    fn make_cal(f32_ok: bool, f64_ok: bool, df64_ok: bool, precise_ok: bool) -> HardwareCalibration {
+    fn make_cal(
+        f32_ok: bool,
+        f64_ok: bool,
+        df64_ok: bool,
+        precise_ok: bool,
+    ) -> HardwareCalibration {
         let mk = |tier, ok: bool| TierCapability {
             tier,
             compiles: ok,

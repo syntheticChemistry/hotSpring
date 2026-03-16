@@ -119,7 +119,9 @@ impl<'a> PrecisionEval<'a> {
             }
             let ref_slice = reference.as_deref();
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                self.eval_tier(name, f64_source, input, n_elements, workgroups, tier, ref_slice)
+                self.eval_tier(
+                    name, f64_source, input, n_elements, workgroups, tier, ref_slice,
+                )
             }))
             .unwrap_or(TierResult {
                 tier,

@@ -5,6 +5,27 @@ All notable changes to the hotSpring BarraCuda validation crate.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.6.32 — Trio Rewire: barraCuda b95e9c59 + coralReef Iter 47 + toadStool S156 (March 13, 2026)
+
+**barraCuda pin**: `82ff983` → `b95e9c59` (deep debt audit, DRY device-lost, expanded test coverage, zero-copy BytesMut tensors, CoralReefDevice auto-discovery replaces from_descriptor, RwLock tensor store, fire-and-forget submit_commands, pedantic deny)
+**coralReef**: Iter 37 → Iter 47 (`ff54331` — GlowPlug graceful shutdown, SIGTERM handler, state snapshot, boot-persistent PCIe broker, DRM render node fencing)
+**toadStool**: S147 → S156 (`ebe6a7cc` — specialty resurrection, standards compliance, full codebase audit)
+
+### Changes
+- **Stale API cleanup**: Removed all `CoralReefDevice::from_descriptor()` calls — API was removed upstream in favor of auto-discovery via `with_auto_device()`. Simplified sovereign dispatch probe in `md_backend.rs` and `bench_sovereign_dispatch.rs`
+- **Sovereign compile binary rewrite**: `validate_sovereign_compile` now uses `CoralCompiler` IPC client (`GLOBAL_CORAL.compile_wgsl_direct`) instead of the removed `CoralReefDevice::compile_wgsl` direct API
+- **Dead code gating**: `NPU_DEVICE_DIRS`/`NPU_DEVICE_PREFIXES` constants gated behind `#[cfg(not(feature = "npu-hw"))]` — only used in sysfs probe fallback
+- **Stale patch removal**: Removed unused `coral-gpu`, `coral-reef`, `coral-driver` path patches from `.cargo/config.toml` — compilation is now IPC-only via `CoralCompiler`
+- **Formatting**: `cargo fmt` applied across all bins
+
+### Validation
+- 848 lib tests passing (0 failures)
+- 0 clippy warnings (lib, --all-features)
+- All bins compile clean with sovereign-dispatch feature
+- metalForge/forge: 25 tests passing
+
+---
+
 ## v0.6.31 — Gap Closure: barraCuda 82ff983 + coralReef Iter 37 + toadStool S147 (March 12, 2026)
 
 **barraCuda pin**: `d761c5d` → `82ff983` (dispatch_binary wired on CoralReefDevice, coral cache → dispatch, capability-based namespace, VoltaNoPmuFirmware workaround, sovereign_resolves_poisoning(), ODE solver refactor, Gap 1 CLOSED)

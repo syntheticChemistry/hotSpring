@@ -53,7 +53,6 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 }
 ";
 
-
 const PROBE_N: usize = 256;
 const PROBE_WORKGROUPS: u32 = 4;
 
@@ -166,9 +165,9 @@ impl HardwareCalibration {
             tiers.push(cap);
         }
 
-        let has_any_f64 = tiers
-            .iter()
-            .any(|t| t.dispatches && matches!(t.tier, PrecisionTier::F64 | PrecisionTier::F64Precise));
+        let has_any_f64 = tiers.iter().any(|t| {
+            t.dispatches && matches!(t.tier, PrecisionTier::F64 | PrecisionTier::F64Precise)
+        });
         let df64_safe = tiers
             .iter()
             .any(|t| t.dispatches && t.tier == PrecisionTier::DF64);
@@ -221,7 +220,9 @@ impl HardwareCalibration {
     pub fn tier_safe_with_sovereign(&self, tier: PrecisionTier) -> bool {
         self.tier_safe(tier)
             || (self.sovereign_compile_available
-                && self.tier_cap(tier).is_some_and(|t| t.compiles && t.dispatches))
+                && self
+                    .tier_cap(tier)
+                    .is_some_and(|t| t.compiles && t.dispatches))
     }
 
     /// Check whether a tier can dispatch arithmetic-only shaders
@@ -237,7 +238,11 @@ impl HardwareCalibration {
     /// Prefers F64 native, falls back to F64Precise, then DF64.
     #[must_use]
     pub fn best_f64_tier(&self) -> Option<PrecisionTier> {
-        let preference = [PrecisionTier::F64, PrecisionTier::F64Precise, PrecisionTier::DF64];
+        let preference = [
+            PrecisionTier::F64,
+            PrecisionTier::F64Precise,
+            PrecisionTier::DF64,
+        ];
         preference.iter().copied().find(|&t| self.tier_safe(t))
     }
 
@@ -317,10 +322,8 @@ fn probe_tier(
     // NVK (Mesa open source) handles all modes correctly.
     // F32 and native F64 (with FMA) always work.
     let is_nvk = gpu.adapter_name.contains("NVK") || gpu.adapter_name.contains("llvmpipe");
-    let transcendentals_safe = dispatches
-        && (tier == PrecisionTier::F32
-            || tier == PrecisionTier::F64
-            || is_nvk);
+    let transcendentals_safe =
+        dispatches && (tier == PrecisionTier::F32 || tier == PrecisionTier::F64 || is_nvk);
 
     TierCapability {
         tier,
@@ -476,7 +479,10 @@ mod tests {
             s.contains("DF64=△arith"),
             "DF64 should show △arith (dispatches but no transcendentals), got: {s}"
         );
-        assert!(s.contains("F64Precise=✗"), "F64Precise should show ✗, got: {s}");
+        assert!(
+            s.contains("F64Precise=✗"),
+            "F64Precise should show ✗, got: {s}"
+        );
     }
 
     #[test]
@@ -505,8 +511,14 @@ mod tests {
         assert!(cal.tier_safe_with_sovereign(PrecisionTier::DF64));
 
         let s = cal.to_string();
-        assert!(s.contains("✓sov"), "Should show ✓sov with sovereign, got: {s}");
-        assert!(s.contains("[coralReef bypass]"), "Should note bypass, got: {s}");
+        assert!(
+            s.contains("✓sov"),
+            "Should show ✓sov with sovereign, got: {s}"
+        );
+        assert!(
+            s.contains("[coralReef bypass]"),
+            "Should note bypass, got: {s}"
+        );
     }
 
     #[test]

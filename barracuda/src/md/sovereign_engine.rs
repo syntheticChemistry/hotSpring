@@ -61,8 +61,14 @@ pub fn run_simulation_generic<B: GpuBackend>(
     let temperature = config.temperature();
     let mass = config.reduced_mass();
 
-    println!("  ── MdEngine<{}> initializing {n} particles ──", backend.name());
-    println!("    κ = {}, Γ = {}, T* = {temperature:.6}", config.kappa, config.gamma);
+    println!(
+        "  ── MdEngine<{}> initializing {n} particles ──",
+        backend.name()
+    );
+    println!(
+        "    κ = {}, Γ = {}, T* = {temperature:.6}",
+        config.kappa, config.gamma
+    );
 
     let (positions, n_actual) = init_fcc_lattice(n, box_side);
     let n: usize = n_actual.min(n);
@@ -256,7 +262,9 @@ fn alloc_buffers<B: GpuBackend>(
         .map_err(|err| e("force_params", err))?;
 
     let mass = config.reduced_mass();
-    let vv_params_data = [n as f64, config.dt, mass, 0.0, box_side, box_side, box_side, 0.0];
+    let vv_params_data = [
+        n as f64, config.dt, mass, 0.0, box_side, box_side, box_side, 0.0,
+    ];
     let vv_params = backend
         .alloc_buffer_f64_init("vv_params", &vv_params_data)
         .map_err(|err| e("vv_params", err))?;
@@ -335,11 +343,7 @@ fn dispatch_md_step<B: GpuBackend>(
     batch.submit().map_err(|e| format!("md_step batch: {e}"))
 }
 
-fn dispatch_force<B: GpuBackend>(
-    backend: &B,
-    bufs: &MdBuffers<B>,
-    wg: u32,
-) -> Result<(), String> {
+fn dispatch_force<B: GpuBackend>(backend: &B, bufs: &MdBuffers<B>, wg: u32) -> Result<(), String> {
     ComputeDispatch::new(backend, "yukawa_force")
         .shader(shaders::SHADER_YUKAWA_FORCE, "main")
         .f64()
@@ -352,11 +356,7 @@ fn dispatch_force<B: GpuBackend>(
         .map_err(|e| format!("force dispatch: {e}"))
 }
 
-fn dispatch_ke<B: GpuBackend>(
-    backend: &B,
-    bufs: &MdBuffers<B>,
-    wg: u32,
-) -> Result<(), String> {
+fn dispatch_ke<B: GpuBackend>(backend: &B, bufs: &MdBuffers<B>, wg: u32) -> Result<(), String> {
     ComputeDispatch::new(backend, "kinetic_energy")
         .shader(shaders::SHADER_KINETIC_ENERGY, "main")
         .f64()

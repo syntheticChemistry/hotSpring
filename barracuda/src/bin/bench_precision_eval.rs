@@ -120,11 +120,15 @@ async fn run() {
         for &(name, source) in &test_shaders {
             if name == "exp_log" && brain.calibration.nvvm_transcendental_risk {
                 print!("  {:<24} {:<28}", name, gpu.adapter_name);
-                print!(" {:>10} {:>10} {:>10} {:>10}", "NVVM⚠", "NVVM⚠", "NVVM⚠", "NVVM⚠");
+                print!(
+                    " {:>10} {:>10} {:>10} {:>10}",
+                    "NVVM⚠", "NVVM⚠", "NVVM⚠", "NVVM⚠"
+                );
                 println!();
                 continue;
             }
-            let result = p_eval.eval_shader_tiers(name, source, &input, n_elements, workgroups, &safe);
+            let result =
+                p_eval.eval_shader_tiers(name, source, &input, n_elements, workgroups, &safe);
             print!("  {:<24} {:<28}", result.shader_name, gpu.adapter_name);
             for tier in &result.tiers {
                 if tier.compiled {
@@ -166,13 +170,11 @@ async fn run() {
                 );
                 continue;
             }
-            let result = p_eval.eval_shader_tiers(name, source, &input, n_elements, workgroups, &safe);
-            let format_ulp = |tier: hotspring_barracuda::precision_routing::PrecisionTier| -> String {
-                result
-                    .tiers
-                    .iter()
-                    .find(|t| t.tier == tier)
-                    .map_or_else(
+            let result =
+                p_eval.eval_shader_tiers(name, source, &input, n_elements, workgroups, &safe);
+            let format_ulp =
+                |tier: hotspring_barracuda::precision_routing::PrecisionTier| -> String {
+                    result.tiers.iter().find(|t| t.tier == tier).map_or_else(
                         || "—".to_string(),
                         |t| {
                             if t.compiled {
@@ -182,7 +184,7 @@ async fn run() {
                             }
                         },
                     )
-            };
+                };
             let df64_ulp = format_ulp(hotspring_barracuda::precision_routing::PrecisionTier::DF64);
             let f32_ulp = format_ulp(hotspring_barracuda::precision_routing::PrecisionTier::F32);
             println!(

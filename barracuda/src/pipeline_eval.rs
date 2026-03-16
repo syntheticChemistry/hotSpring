@@ -213,9 +213,8 @@ impl<'a> PipelineEval<'a> {
         tiers
             .iter()
             .map(|&tier| {
-                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    run_dielectric()
-                }));
+                let result =
+                    std::panic::catch_unwind(std::panic::AssertUnwindSafe(run_dielectric));
                 match result {
                     Ok((wall_ms, f_sum_error)) => PipelineResult {
                         pipeline_name: "Dielectric (Mermin)".into(),

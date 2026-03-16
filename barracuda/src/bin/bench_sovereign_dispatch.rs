@@ -40,9 +40,10 @@ fn main() {
         rdf_bins: 200,
     };
 
-    println!("  Config: N={}, κ={}, Γ={}, equil={}, prod={}\n",
-        config.n_particles, config.kappa, config.gamma,
-        config.equil_steps, config.prod_steps);
+    println!(
+        "  Config: N={}, κ={}, Γ={}, equil={}, prod={}\n",
+        config.n_particles, config.kappa, config.gamma, config.equil_steps, config.prod_steps
+    );
 
     // ── Tier 1: wgpu/Vulkan backend ──
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -79,16 +80,20 @@ fn main() {
     println!("║  Results Comparison                                        ║");
     println!("╚══════════════════════════════════════════════════════════════╝\n");
 
-    println!("  {:<20} {:>12} {:>12} {:>12} {:>12}",
-        "Backend", "Wall (s)", "Steps/s", "Final KE", "Final PE");
+    println!(
+        "  {:<20} {:>12} {:>12} {:>12} {:>12}",
+        "Backend", "Wall (s)", "Steps/s", "Final KE", "Final PE"
+    );
     println!("  {}", "-".repeat(72));
 
     if let Some(ref r) = wgpu_result {
         match r {
             Ok(sim) => {
                 let (ke, pe) = last_energy(sim);
-                println!("  {:<20} {:>12.2} {:>12.1} {:>12.4} {:>12.4}",
-                    "wgpu/Vulkan", sim.wall_time_s, sim.steps_per_sec, ke, pe);
+                println!(
+                    "  {:<20} {:>12.2} {:>12.1} {:>12.4} {:>12.4}",
+                    "wgpu/Vulkan", sim.wall_time_s, sim.steps_per_sec, ke, pe
+                );
             }
             Err(e) => println!("  {:<20} FAILED: {e}", "wgpu/Vulkan"),
         }
@@ -100,8 +105,10 @@ fn main() {
         match r {
             Ok(sim) => {
                 let (ke, pe) = last_energy(sim);
-                println!("  {:<20} {:>12.2} {:>12.1} {:>12.4} {:>12.4}",
-                    "Sovereign/DRM", sim.wall_time_s, sim.steps_per_sec, ke, pe);
+                println!(
+                    "  {:<20} {:>12.2} {:>12.1} {:>12.4} {:>12.4}",
+                    "Sovereign/DRM", sim.wall_time_s, sim.steps_per_sec, ke, pe
+                );
             }
             Err(e) => println!("  {:<20} FAILED: {e}", "Sovereign/DRM"),
         }
@@ -143,48 +150,25 @@ fn try_sovereign(
 ) -> Option<Result<hotspring_barracuda::md::simulation::MdSimulation, String>> {
     use barracuda::device::CoralReefDevice;
 
-    // Try multiple driver backends in priority order:
-    // 1. Auto-detect (prefers whatever coral-gpu finds first)
-    // 2. Nouveau on Titan V (SM70) — DRM dispatch implemented
-    // 3. nvidia-drm on RTX 3090 (SM86) — pending UVM integration
-    // 4. AMD (amdgpu) — E2E verified by coralReef
-    let strategies: &[(&str, Box<dyn Fn() -> barracuda::error::Result<CoralReefDevice>>)] = &[
-        ("auto", Box::new(|| CoralReefDevice::with_auto_device())),
-        ("nouveau (SM70/Titan V)", Box::new(|| {
-            CoralReefDevice::from_descriptor("nvidia", Some("sm70"), Some("nouveau"))
-        })),
-        ("nouveau (SM86/Ampere)", Box::new(|| {
-            CoralReefDevice::from_descriptor("nvidia", Some("sm86"), Some("nouveau"))
-        })),
-        ("nvidia-drm (SM86)", Box::new(|| {
-            CoralReefDevice::from_descriptor("nvidia", Some("sm86"), None)
-        })),
-        ("amdgpu", Box::new(|| {
-            CoralReefDevice::from_descriptor("amd", None, None)
-        })),
-    ];
-
-    for (label, init_fn) in strategies {
-        print!("  Trying {label}... ");
-        match init_fn() {
-            Ok(dev) => {
-                if !dev.has_dispatch() {
-                    println!("no dispatch capability");
-                    continue;
-                }
-                println!("OK");
-                println!("  Adapter: {}", GpuBackend::name(&dev));
-                println!("  f64 shaders: {}\n", GpuBackend::has_f64_shaders(&dev));
-                return Some(run_simulation_generic(&dev, config));
+    print!("  Trying auto-discovery... ");
+    match CoralReefDevice::with_auto_device() {
+        Ok(dev) => {
+            if !dev.has_dispatch() {
+                println!("no dispatch capability");
+                println!("  No sovereign dispatch backend available\n");
+                return None;
             }
-            Err(e) => {
-                println!("failed ({e})");
-            }
+            println!("OK");
+            println!("  Adapter: {}", GpuBackend::name(&dev));
+            println!("  f64 shaders: {}\n", GpuBackend::has_f64_shaders(&dev));
+            Some(run_simulation_generic(&dev, config))
+        }
+        Err(e) => {
+            println!("failed ({e})");
+            println!("  No sovereign dispatch backend available\n");
+            None
         }
     }
-
-    println!("  No sovereign dispatch backend available\n");
-    None
 }
 
 #[cfg(not(feature = "sovereign-dispatch"))]
@@ -203,24 +187,42 @@ fn print_cross_spring_evolution() {
     println!("  Shader provenance across the ecoPrimals ecosystem:\n");
     println!("  {:<35} {:<15} {:<20}", "Shader", "Origin", "Absorbed by");
     println!("  {}", "-".repeat(72));
-    println!("  {:<35} {:<15} {:<20}",
-        "df64_core.wgsl", "hotSpring", "barraCuda → all springs");
-    println!("  {:<35} {:<15} {:<20}",
-        "df64_transcendentals.wgsl", "hotSpring", "barraCuda, coralReef");
-    println!("  {:<35} {:<15} {:<20}",
-        "yukawa_force_f64.wgsl", "hotSpring", "barraCuda md/");
-    println!("  {:<35} {:<15} {:<20}",
-        "smith_waterman_f64.wgsl", "wetSpring", "barraCuda bio/");
-    println!("  {:<35} {:<15} {:<20}",
-        "hmm_viterbi_f64.wgsl", "neuralSpring", "barraCuda bio/");
-    println!("  {:<35} {:<15} {:<20}",
-        "matrix_correlation_f64.wgsl", "neuralSpring", "barraCuda stats/");
-    println!("  {:<35} {:<15} {:<20}",
-        "perlin_2d_f64.wgsl", "ludoSpring", "barraCuda procedural/");
-    println!("  {:<35} {:<15} {:<20}",
-        "PrecisionBrain", "hotSpring", "barraCuda a012076");
-    println!("  {:<35} {:<15} {:<20}",
-        "HardwareCalibration", "hotSpring", "barraCuda a012076");
+    println!(
+        "  {:<35} {:<15} {:<20}",
+        "df64_core.wgsl", "hotSpring", "barraCuda → all springs"
+    );
+    println!(
+        "  {:<35} {:<15} {:<20}",
+        "df64_transcendentals.wgsl", "hotSpring", "barraCuda, coralReef"
+    );
+    println!(
+        "  {:<35} {:<15} {:<20}",
+        "yukawa_force_f64.wgsl", "hotSpring", "barraCuda md/"
+    );
+    println!(
+        "  {:<35} {:<15} {:<20}",
+        "smith_waterman_f64.wgsl", "wetSpring", "barraCuda bio/"
+    );
+    println!(
+        "  {:<35} {:<15} {:<20}",
+        "hmm_viterbi_f64.wgsl", "neuralSpring", "barraCuda bio/"
+    );
+    println!(
+        "  {:<35} {:<15} {:<20}",
+        "matrix_correlation_f64.wgsl", "neuralSpring", "barraCuda stats/"
+    );
+    println!(
+        "  {:<35} {:<15} {:<20}",
+        "perlin_2d_f64.wgsl", "ludoSpring", "barraCuda procedural/"
+    );
+    println!(
+        "  {:<35} {:<15} {:<20}",
+        "PrecisionBrain", "hotSpring", "barraCuda a012076"
+    );
+    println!(
+        "  {:<35} {:<15} {:<20}",
+        "HardwareCalibration", "hotSpring", "barraCuda a012076"
+    );
     println!("\n  Pipeline: hotSpring precision shaders validated sovereign");
     println!("  compilation via coralReef Iter 33 (WGSL → SASS, no naga).");
     println!("  wetSpring bio shaders + neuralSpring stats shaders benefit");

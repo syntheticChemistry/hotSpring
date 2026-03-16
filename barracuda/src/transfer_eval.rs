@@ -14,13 +14,7 @@ const MEASURE_REPS: usize = 10;
 
 /// Buffer sizes to probe (bytes): 1KB → 16MB.
 const PROBE_SIZES: &[usize] = &[
-    1_024,
-    8_192,
-    65_536,
-    262_144,
-    1_048_576,
-    4_194_304,
-    16_777_216,
+    1_024, 8_192, 65_536, 262_144, 1_048_576, 4_194_304, 16_777_216,
 ];
 
 /// Measured transfer rates for a single GPU adapter.
@@ -85,9 +79,7 @@ impl<'a> TransferEval<'a> {
             .map(|&size| {
                 let n_f64 = size / 8;
                 let data: Vec<f64> = (0..n_f64).map(|i| i as f64 * 0.001).collect();
-                let buf = self
-                    .gpu
-                    .create_f64_output_buffer(n_f64, "transfer_probe");
+                let buf = self.gpu.create_f64_output_buffer(n_f64, "transfer_probe");
 
                 for _ in 0..WARMUP_REPS {
                     self.gpu.upload_f64(&buf, &data);

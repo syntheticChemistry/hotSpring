@@ -86,9 +86,7 @@ pub fn plan_workload(
         | PhysicsDomain::Hydrology
         | PhysicsDomain::Bioinformatics
         | PhysicsDomain::Statistics
-        | PhysicsDomain::General => {
-            plan_throughput_or_split(pair, data_bytes, compute_us_estimate)
-        }
+        | PhysicsDomain::General => plan_throughput_or_split(pair, data_bytes, compute_us_estimate),
     }
 }
 

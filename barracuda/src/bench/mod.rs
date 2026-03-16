@@ -13,9 +13,9 @@
 //! License: AGPL-3.0
 
 pub mod compute_backend;
-pub mod md_backend;
 mod esn_benchmark;
 mod hardware;
+pub mod md_backend;
 mod power;
 mod report;
 
@@ -23,14 +23,14 @@ pub use compute_backend::{
     compare_backends, BackendKind, BarraCudaCpuBackend, BenchmarkResult, BenchmarkSpec,
     ComputeBackend, PrecisionMode,
 };
-pub use md_backend::{
-    compare_md_backends, BarraCudaMdBackend, GenericMdBackend, KokkosLammpsBackend,
-    MdBenchmarkBackend, MdBenchmarkResult, MdBenchmarkSpec,
-};
 pub use esn_benchmark::{
     generate_test_sequence, generate_training_data, time_fn, GpuEsn, SubstrateResult,
 };
 pub use hardware::HardwareInventory;
+pub use md_backend::{
+    compare_md_backends, BarraCudaMdBackend, GenericMdBackend, KokkosLammpsBackend,
+    MdBenchmarkBackend, MdBenchmarkResult, MdBenchmarkSpec,
+};
 pub use power::{EnergyReport, PowerMonitor};
 pub use report::{peak_rss_mb, BenchReport, PhaseResult};
 

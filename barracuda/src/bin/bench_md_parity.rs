@@ -174,10 +174,7 @@ fn main() {
             bc_results.iter().map(|r| r.steps_per_sec).sum::<f64>() / bc_results.len() as f64;
         let kk_avg =
             kk_results.iter().map(|r| r.steps_per_sec).sum::<f64>() / kk_results.len() as f64;
-        println!(
-            "  Average gap: {:.1}× (target: 1.0×)",
-            kk_avg / bc_avg
-        );
+        println!("  Average gap: {:.1}× (target: 1.0×)", kk_avg / bc_avg);
     } else if kk_results.is_empty() {
         println!();
         println!("  Note: Kokkos/LAMMPS not installed — gap analysis unavailable.");

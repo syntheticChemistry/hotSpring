@@ -69,14 +69,21 @@ async fn run_test() {
     let prefactor = config.force_prefactor();
     let (positions, n_actual) = init_fcc_lattice(n, box_side);
     let n = n_actual.min(n);
-    let _velocities = init_velocities(n, config.temperature(), config.reduced_mass(), DEFAULT_VELOCITY_SEED);
+    let _velocities = init_velocities(
+        n,
+        config.temperature(),
+        config.reduced_mass(),
+        DEFAULT_VELOCITY_SEED,
+    );
 
     let force_params: Vec<f64> = vec![
         n as f64,
         config.kappa,
         prefactor,
         config.rc * config.rc,
-        box_side, box_side, box_side,
+        box_side,
+        box_side,
+        box_side,
         0.0,
     ];
 
@@ -91,20 +98,31 @@ async fn run_test() {
     // ── Test 1: Native f64 force shader ──
     println!("  ── Test 1: Native f64 (SHADER_YUKAWA_FORCE) ──");
     let f64_pipeline = gpu.create_pipeline_f64(shaders::SHADER_YUKAWA_FORCE, "yukawa_f64");
-    let f64_bg = gpu.create_bind_group(&f64_pipeline, &[&pos_buf, &force_buf, &pe_buf, &params_buf]);
+    let f64_bg =
+        gpu.create_bind_group(&f64_pipeline, &[&pos_buf, &force_buf, &pe_buf, &params_buf]);
     gpu.dispatch(&f64_pipeline, &f64_bg, workgroups);
 
-    let forces_f64 = gpu.read_back_f64(&force_buf, n * 3)
-        .expect("read_back_f64");
+    let forces_f64 = gpu.read_back_f64(&force_buf, n * 3).expect("read_back_f64");
     let f64_nonzero = forces_f64.iter().filter(|f| f.abs() > 1e-30).count();
-    let f64_max = forces_f64.iter().copied().map(f64::abs).fold(0.0_f64, f64::max);
+    let f64_max = forces_f64
+        .iter()
+        .copied()
+        .map(f64::abs)
+        .fold(0.0_f64, f64::max);
     let f64_sum: f64 = forces_f64.iter().copied().map(f64::abs).sum();
 
     println!("    Non-zero components: {f64_nonzero} / {}", n * 3);
     println!("    Max |force|: {f64_max:.6e}");
     println!("    Sum |force|: {f64_sum:.6e}");
     let f64_ok = f64_nonzero > n;
-    println!("    Status: {}", if f64_ok { "PASS" } else { "FAIL — forces are zero" });
+    println!(
+        "    Status: {}",
+        if f64_ok {
+            "PASS"
+        } else {
+            "FAIL — forces are zero"
+        }
+    );
     println!();
 
     // ── Test 2: DF64 force shader (bypass safety) ──
@@ -113,24 +131,36 @@ async fn run_test() {
     let zeros = vec![0.0f64; n * 3];
     gpu.upload_f64(&force_buf, &zeros);
 
-    let df64_pipeline = gpu.create_pipeline_df64(
-        shaders::SHADER_YUKAWA_FORCE_DF64,
-        "yukawa_df64",
+    let df64_pipeline = gpu.create_pipeline_df64(shaders::SHADER_YUKAWA_FORCE_DF64, "yukawa_df64");
+    let df64_bg = gpu.create_bind_group(
+        &df64_pipeline,
+        &[&pos_buf, &force_buf, &pe_buf, &params_buf],
     );
-    let df64_bg = gpu.create_bind_group(&df64_pipeline, &[&pos_buf, &force_buf, &pe_buf, &params_buf]);
     gpu.dispatch(&df64_pipeline, &df64_bg, workgroups);
 
-    let forces_df64 = gpu.read_back_f64(&force_buf, n * 3)
+    let forces_df64 = gpu
+        .read_back_f64(&force_buf, n * 3)
         .expect("read_back_f64 df64");
     let df64_nonzero = forces_df64.iter().filter(|f| f.abs() > 1e-30).count();
-    let df64_max = forces_df64.iter().copied().map(f64::abs).fold(0.0_f64, f64::max);
+    let df64_max = forces_df64
+        .iter()
+        .copied()
+        .map(f64::abs)
+        .fold(0.0_f64, f64::max);
     let df64_sum: f64 = forces_df64.iter().copied().map(f64::abs).sum();
 
     println!("    Non-zero components: {df64_nonzero} / {}", n * 3);
     println!("    Max |force|: {df64_max:.6e}");
     println!("    Sum |force|: {df64_sum:.6e}");
     let df64_ok = df64_nonzero > n;
-    println!("    Status: {}", if df64_ok { "PASS" } else { "FAIL — DF64 transcendentals POISONED" });
+    println!(
+        "    Status: {}",
+        if df64_ok {
+            "PASS"
+        } else {
+            "FAIL — DF64 transcendentals POISONED"
+        }
+    );
     println!();
 
     // ── Comparison ──
@@ -148,13 +178,24 @@ async fn run_test() {
                 count += 1;
             }
         }
-        let avg_reldiff = if count > 0 { sum_reldiff / count as f64 } else { 0.0 };
+        let avg_reldiff = if count > 0 {
+            sum_reldiff / count as f64
+        } else {
+            0.0
+        };
         println!("  ── Force Comparison: f64 vs DF64 ──");
         println!("    Max relative diff: {max_reldiff:.6e}");
         println!("    Avg relative diff: {avg_reldiff:.6e}");
         println!("    Components compared: {count}");
         let precision_ok = max_reldiff < 1e-6;
-        println!("    Precision: {}", if precision_ok { "GOOD (< 1e-6)" } else { "DEGRADED (> 1e-6, expected for DF64)" });
+        println!(
+            "    Precision: {}",
+            if precision_ok {
+                "GOOD (< 1e-6)"
+            } else {
+                "DEGRADED (> 1e-6, expected for DF64)"
+            }
+        );
     } else if f64_ok && !df64_ok {
         println!("  ── DF64 POISONED: exp_df64/sqrt_df64 produce zero on this driver ──");
         println!("  Root cause: NVVM JIT corrupts f32-pair transcendentals in SPIR-V path");
@@ -170,7 +211,10 @@ async fn run_test() {
     println!("  Driver:      {:?} / {:?}", profile.driver, profile.arch);
     println!("  NVVM risk:   {poisoning_risk}");
     println!("  f64 force:   {}", if f64_ok { "PASS" } else { "FAIL" });
-    println!("  DF64 force:  {}", if df64_ok { "PASS" } else { "POISONED" });
+    println!(
+        "  DF64 force:  {}",
+        if df64_ok { "PASS" } else { "POISONED" }
+    );
     if f64_ok && df64_ok {
         println!("  Conclusion:  DF64 transcendentals SAFE on this driver — can use DF64 Yukawa");
     } else if !df64_ok {

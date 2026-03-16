@@ -112,7 +112,11 @@ impl<'a> DualPipelineEval<'a> {
         };
 
         DualPatternResult {
-            pattern_name: format!("Split BCS ({:.0}/{:.0})", precise_frac * 100.0, (1.0 - precise_frac) * 100.0),
+            pattern_name: format!(
+                "Split BCS ({:.0}/{:.0})",
+                precise_frac * 100.0,
+                (1.0 - precise_frac) * 100.0
+            ),
             wall_ms: split_ms,
             speedup_vs_single: speedup,
             accuracy_label: "convergence".into(),
@@ -141,14 +145,7 @@ impl<'a> DualPipelineEval<'a> {
 
         let t_single = Instant::now();
         for _ in 0..n_traj {
-            gpu_hmc_trajectory(
-                &self.pair.throughput,
-                &p_t,
-                &s_t,
-                n_md,
-                dt,
-                &mut seed_t,
-            );
+            gpu_hmc_trajectory(&self.pair.throughput, &p_t, &s_t, n_md, dt, &mut seed_t);
         }
         let single_ms = t_single.elapsed().as_secs_f64() * 1e3;
 
@@ -159,22 +156,9 @@ impl<'a> DualPipelineEval<'a> {
         let mut seed_t2 = 42_u64;
 
         let t_split = Instant::now();
-        let r_precise = gpu_hmc_trajectory(
-            &self.pair.precise,
-            &p_p,
-            &s_p,
-            n_md,
-            dt,
-            &mut seed_p,
-        );
-        let r_throughput = gpu_hmc_trajectory(
-            &self.pair.throughput,
-            &p_t,
-            &s_t,
-            n_md,
-            dt,
-            &mut seed_t2,
-        );
+        let r_precise = gpu_hmc_trajectory(&self.pair.precise, &p_p, &s_p, n_md, dt, &mut seed_p);
+        let r_throughput =
+            gpu_hmc_trajectory(&self.pair.throughput, &p_t, &s_t, n_md, dt, &mut seed_t2);
         let split_ms = t_split.elapsed().as_secs_f64() * 1e3;
 
         let plaq_diff = (r_precise.plaquette - r_throughput.plaquette).abs();

@@ -248,9 +248,11 @@ pub fn results_dir(domain: &str) -> std::io::Result<PathBuf> {
 }
 
 /// Well-known sysfs/devfs directories where neuromorphic device nodes appear.
+#[cfg(not(feature = "npu-hw"))]
 const NPU_DEVICE_DIRS: &[&str] = &["/dev", "/sys/class/akida"];
 
 /// Device-node prefixes that indicate an Akida NPU is present.
+#[cfg(not(feature = "npu-hw"))]
 const NPU_DEVICE_PREFIXES: &[&str] = &["akida"];
 
 /// Probe whether an NPU (neuromorphic processing unit) is available.

@@ -2,9 +2,9 @@
 
 //! Sovereign Compile Validation — coralReef native binary proof of concept.
 //!
-//! Compiles hotSpring physics WGSL shaders through coralReef's in-process
-//! compiler (`coral-gpu::GpuContext::compile_wgsl`) and validates that native
-//! GPU binaries are produced for SM70 (Volta/Titan V) and SM86 (Ampere/RTX 3090).
+//! Compiles hotSpring physics WGSL shaders through coralReef's IPC compiler
+//! (`CoralCompiler::compile_wgsl_direct`) and validates that native GPU
+//! binaries are produced for SM70 (Volta/Titan V) and SM86 (Ampere/RTX 3090).
 //!
 //! This validates the compilation stage of the sovereign pipeline. GPU dispatch
 //! validation will follow when coral-driver DRM backends mature.
@@ -12,8 +12,7 @@
 //! Usage:
 //!   cargo run --release --features sovereign-dispatch --bin validate_sovereign_compile
 
-use barracuda::device::coral_gpu::{GpuTarget, NvArch};
-use barracuda::device::CoralReefDevice;
+use barracuda::device::coral_compiler::GLOBAL_CORAL;
 
 struct ShaderEntry {
     name: &'static str,
@@ -35,19 +34,14 @@ macro_rules! shader {
     };
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");
     println!("║  Sovereign Compile Validation — coralReef PoC              ║");
-    println!("║  hotSpring WGSL → native SM70/SM86 via coral-gpu           ║");
+    println!("║  hotSpring WGSL → native SM70/SM86 via coral-compiler IPC  ║");
     println!("╚══════════════════════════════════════════════════════════════╝\n");
 
-    let dev =
-        CoralReefDevice::new(GpuTarget::Nvidia(NvArch::Sm70)).expect("CoralReefDevice should init");
-
-    let targets = [
-        (GpuTarget::Nvidia(NvArch::Sm70), "sm_70"),
-        (GpuTarget::Nvidia(NvArch::Sm86), "sm_86"),
-    ];
+    let targets = [("sm_70", true), ("sm_86", true)];
 
     let shaders = vec![
         shader!(
@@ -254,58 +248,41 @@ fn main() {
         ),
     ];
 
-    for &(target, arch_name) in &targets {
+    for &(arch_name, fp64_software) in &targets {
         println!("  ═══ Target: {arch_name} ═══\n");
-        println!(
-            "  {:<40} {:>8} {:>6} {:>6} {:>8}",
-            "Shader", "Binary", "GPR", "Instr", "Status"
-        );
-        println!("  {}", "-".repeat(74));
+        println!("  {:<40} {:>8} {:>6}", "Shader", "Binary", "Status");
+        println!("  {}", "-".repeat(60));
 
         let mut ok = 0usize;
         let mut fail = 0usize;
         let mut total_bytes = 0usize;
 
         for entry in &shaders {
-            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                dev.compile_wgsl(entry.source, target)
-            }));
-            match result {
-                Ok(Ok(kernel)) => {
+            match GLOBAL_CORAL
+                .compile_wgsl_direct(entry.source, arch_name, fp64_software)
+                .await
+            {
+                Some(binary) => {
                     ok += 1;
-                    total_bytes += kernel.binary.len();
+                    total_bytes += binary.binary.len();
                     println!(
-                        "  {:<40} {:>6}B {:>6} {:>6} {:>8}",
+                        "  {:<40} {:>6}B {:>6}",
                         entry.name,
-                        kernel.binary.len(),
-                        kernel.gpr_count,
-                        kernel.instr_count,
+                        binary.binary.len(),
                         "OK"
                     );
                 }
-                Ok(Err(e)) => {
+                None => {
                     fail += 1;
-                    let msg = format!("{e}");
-                    let short = if msg.len() > 50 { &msg[..50] } else { &msg };
-                    println!(
-                        "  {:<40} {:>8} {:>6} {:>6} {:>8}",
-                        entry.name, "-", "-", "-", "FAIL"
-                    );
-                    eprintln!("    {short}");
-                }
-                Err(_panic) => {
-                    fail += 1;
-                    println!(
-                        "  {:<40} {:>8} {:>6} {:>6} {:>8}",
-                        entry.name, "-", "-", "-", "PANIC"
-                    );
-                    eprintln!("    compiler panicked (coralReef gap)");
+                    println!("  {:<40} {:>8} {:>6}", entry.name, "-", "FAIL");
                 }
             }
         }
 
-        println!("\n  Summary ({arch_name}): {ok}/{} compiled, {fail} failed, {total_bytes} total bytes\n",
-            ok + fail);
+        println!(
+            "\n  Summary ({arch_name}): {ok}/{} compiled, {fail} failed, {total_bytes} total bytes\n",
+            ok + fail
+        );
     }
 
     println!("  GPU dispatch validation pending coral-driver DRM backend maturity:");

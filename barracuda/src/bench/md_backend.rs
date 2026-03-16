@@ -206,7 +206,10 @@ pub fn compare_md_backends(
         print!("    {} ... ", backend.name());
         match backend.run_yukawa_md(spec) {
             Ok(r) => {
-                println!("{:.1} steps/s, drift={:.3}%", r.steps_per_sec, r.energy_drift_pct);
+                println!(
+                    "{:.1} steps/s, drift={:.3}%",
+                    r.steps_per_sec, r.energy_drift_pct
+                );
                 results.push(Ok(r));
             }
             Err(e) => {
@@ -378,35 +381,21 @@ impl GenericMdBackend {
             use barracuda::device::backend::GpuBackend;
             use barracuda::device::CoralReefDevice;
 
-            let strategies: &[(&str, &str, Box<dyn Fn() -> barracuda::error::Result<CoralReefDevice>>)] = &[
-                ("nouveau", "SM86/Ampere", Box::new(|| {
-                    CoralReefDevice::from_descriptor("nvidia", Some("sm86"), Some("nouveau"))
-                })),
-                ("nouveau", "SM70/Volta", Box::new(|| {
-                    CoralReefDevice::from_descriptor("nvidia", Some("sm70"), Some("nouveau"))
-                })),
-                ("amdgpu", "RDNA2", Box::new(|| {
-                    CoralReefDevice::from_descriptor("amd", None, None)
-                })),
-                ("auto", "sovereign", Box::new(CoralReefDevice::with_auto_device)),
-            ];
-
-            for (driver, desc, init_fn) in strategies {
-                if let Ok(dev) = init_fn() {
-                    if dev.has_dispatch() {
-                        let name = GpuBackend::name(&dev);
-                        return Ok(Self {
-                            adapter_name: name.to_string(),
-                            driver_info: format!("sovereign:{driver} ({desc})"),
-                            dispatch_tier: "Tier 2: Sovereign/DRM",
-                        });
-                    }
+            if let Ok(dev) = CoralReefDevice::with_auto_device() {
+                if dev.has_dispatch() {
+                    let name = GpuBackend::name(&dev);
+                    return Ok(Self {
+                        adapter_name: name.to_string(),
+                        driver_info: "sovereign (auto-discovered)".to_string(),
+                        dispatch_tier: "Tier 2: Sovereign/DRM",
+                    });
                 }
             }
         }
 
         let rt = tokio::runtime::Runtime::new().map_err(|e| format!("runtime: {e}"))?;
-        let dev = rt.block_on(barracuda::device::WgpuDevice::new())
+        let dev = rt
+            .block_on(barracuda::device::WgpuDevice::new())
             .map_err(|e| format!("no GPU available: {e}"))?;
         let name = barracuda::device::backend::GpuBackend::name(&dev);
         Ok(Self {
@@ -457,14 +446,14 @@ impl MdBenchmarkBackend for GenericMdBackend {
             }
         } else {
             let rt = tokio::runtime::Runtime::new().map_err(|e| format!("runtime: {e}"))?;
-            let dev = rt.block_on(barracuda::device::WgpuDevice::new())
+            let dev = rt
+                .block_on(barracuda::device::WgpuDevice::new())
                 .map_err(|e| format!("wgpu device: {e}"))?;
             crate::md::sovereign_engine::run_simulation_generic(&dev, &config)?
         };
 
         let wall_time = t0.elapsed();
-        let energy_val =
-            crate::md::observables::validate_energy(&sim.energy_history, &config);
+        let energy_val = crate::md::observables::validate_energy(&sim.energy_history, &config);
 
         Ok(MdBenchmarkResult {
             backend_name: format!("generic-GPU ({adapter_name}, {})", self.dispatch_tier),
@@ -525,10 +514,7 @@ impl KokkosLammpsBackend {
     /// FCC lattice in LAMMPS: `region` dimensions are in lattice units.
     /// For N particles in FCC (4 atoms/cell): L = ceil((N/4)^{1/3}).
     /// Actual atom count = 4 * L^3 (may differ slightly from spec.n_particles).
-    fn write_lammps_input(
-        spec: &MdBenchmarkSpec,
-        path: &std::path::Path,
-    ) -> Result<(), String> {
+    fn write_lammps_input(spec: &MdBenchmarkSpec, path: &std::path::Path) -> Result<(), String> {
         let density = 3.0 / (4.0 * std::f64::consts::PI);
         let n_cells = ((spec.n_particles as f64 / 4.0).cbrt()).round() as usize;
         let n_actual = 4 * n_cells * n_cells * n_cells;
@@ -655,10 +641,8 @@ impl MdBenchmarkBackend for KokkosLammpsBackend {
             .as_ref()
             .ok_or_else(|| "LAMMPS not installed".to_string())?;
 
-        let tmp_dir =
-            std::env::temp_dir().join(format!("hotspring_kokkos_{}", spec.label));
-        std::fs::create_dir_all(&tmp_dir)
-            .map_err(|e| format!("Failed to create temp dir: {e}"))?;
+        let tmp_dir = std::env::temp_dir().join(format!("hotspring_kokkos_{}", spec.label));
+        std::fs::create_dir_all(&tmp_dir).map_err(|e| format!("Failed to create temp dir: {e}"))?;
 
         let input_path = tmp_dir.join("input.lammps");
         Self::write_lammps_input(spec, &input_path)?;

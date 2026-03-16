@@ -281,8 +281,8 @@ fn main() {
     println!();
 
     if let Some(path) = output_path {
-        let json = serde_json::to_string_pretty(&results)
-            .unwrap_or_else(|e| format!("JSON error: {e}"));
+        let json =
+            serde_json::to_string_pretty(&results).unwrap_or_else(|e| format!("JSON error: {e}"));
         if let Err(e) = std::fs::write(&path, &json) {
             eprintln!("  Failed to write {path}: {e}");
         } else {
