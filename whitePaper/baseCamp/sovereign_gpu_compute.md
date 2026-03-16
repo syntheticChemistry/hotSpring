@@ -2,7 +2,7 @@
 
 **Date:** 2026-03-16  
 **Domain:** Hardware — PCIe GPU lifecycle, falcon microcontrollers, HBM2 management  
-**Experiments:** 060-068  
+**Experiments:** 060-069  
 **Hardware:** 2× NVIDIA Titan V (GV100, 12GB HBM2), RTX 5060 (display), Radeon MI50 (incoming)
 
 ---
@@ -81,6 +81,25 @@ Two falcon states discovered:
 
 **This bypasses the entire SEC2→ACR→FECS chain.**
 
+### Phase 6: Boot Persistence + Shutdown Safety (Exp 069)
+
+coral-glowplug upgraded to production-grade system daemon:
+
+- **Systemd service**: `coral-glowplug.service` starts at boot, binds GPUs before display manager
+- **IOMMU group handling**: Auto-binds companion audio devices to vfio-pci
+- **Graceful shutdown**: Disables PCI reset_method, pins D0, snapshots registers, then drops VFIO fds
+
+**Critical lesson — DRM render node fencing:**
+
+When the oracle card booted on nouveau, desktop apps (Cursor, Xorg) opened `/dev/dri/renderD129`.
+Unbinding nouveau during shutdown yanked the DRM device from under Cursor's GPU thread,
+causing a kernel oops (`do_task_dead` / `rcu_note_context_switch`). Three consecutive reboots
+produced the same panic.
+
+**Fix**: Boot ALL non-display GPUs on vfio-pci. No nouveau render node = no desktop apps
+grabbing it = clean shutdown. The `resurrect_hbm2()` function handles temporary nouveau
+binding only when no DRM consumers exist.
+
 ## Remaining Blockers
 
 1. **GPCCS address unknown** on GV100 (not at legacy 0x41A000)
@@ -88,6 +107,9 @@ Two falcon states discovered:
 3. **DMA requires instance block** (SEC2+0x480) which is not host-writable in clean state
 4. **PMC toggle of GR (bit 12) causes fatal unrecoverable PRIVRING fault** on GV100
 5. **HBM2 not trained** on the VFIO card after D3hot (only ~76KB VRAM accessible)
+6. **DRM consumer fencing** — `resurrect_hbm2()` must verify no open `/dev/dri/renderD*` before nouveau bind
+7. **AMD Vega metal stub** — `amd_metal.rs` has 6 TODOs; MI50 needs full implementation
+8. **SCM_RIGHTS fd passing** — socket returns JSON only; toadStool needs VFIO fds for dispatch
 
 ## Architecture Implications for coralReef
 
@@ -116,3 +138,18 @@ with GlowPlug maintaining the state.
 
 The diagnostic matrix and GlowPlug should be vendor-agnostic. Per-vendor
 knowledge lives in `coral-driver/src/nv/` and `coral-driver/src/amd/`.
+
+## Reproducibility for Next GPU
+
+| Step | Command / Action | Validates |
+|------|-----------------|-----------|
+| 1 | `cargo build --release -p coral-glowplug` | Binary compiles |
+| 2 | Add BDF to `/etc/coralreef/glowplug.toml` with `boot_personality = "vfio"` | Config ready |
+| 3 | `sudo systemctl restart coral-glowplug` | Device binds to vfio-pci, VRAM alive |
+| 4 | `lsof /dev/dri/*` — no entries for new GPU | DRM consumer isolation |
+| 5 | `lspci -ks {BDF}` — shows `vfio-pci` | Driver binding |
+| 6 | Reboot → `systemctl status coral-glowplug` | Boot persistence |
+| 7 | Shutdown → clean, no kernel oops | Graceful shutdown |
+
+For AMD cards: `amd_metal.rs` stub must be implemented before VFIO BAR0
+diagnostics work. The PCIe lifecycle (bind, health, shutdown) is vendor-agnostic.

@@ -1,7 +1,7 @@
 # Experiment 063: Sovereign Boot Driver Architecture
 
 **Date**: March 16, 2026
-**Status**: PLANNING — design sketch for persistent sovereign GPU driver
+**Status**: REALIZED — design evolved into coral-glowplug daemon (Exp 064-065, 069). Boot persistence, hot-swap, and graceful shutdown all implemented.
 **Hardware**: 2× Titan V (GV100), 2× Radeon MI50 (Vega 20) incoming
 **Context**: Experiment 062 proved VRAM access works via VFIO D3hot→D0,
 but VFIO close destroys HBM2 training. We need persistent GPU ownership.

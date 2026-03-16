@@ -1,7 +1,7 @@
 # Experiment 064: GlowPlug as PCIe Device Lifecycle Broker
 
 **Date**: March 16, 2026
-**Status**: PLANNING — architecture for driver hot-swap and persistent device management
+**Status**: REALIZED — architecture implemented in coral-glowplug v0.1.0 (Exp 065, 069). This document is the design spec; see Exp 065 for daemon success and Exp 069 for boot persistence + shutdown safety.
 **Context**: Evolved from experiment 063. GlowPlug grows from "GPU warm-up" to
 "sovereign hardware broker" that owns devices from boot, hot-swaps drivers on
 demand, and presents a stable interface to toadStool.

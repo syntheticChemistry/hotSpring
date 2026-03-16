@@ -32,7 +32,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 
 ---
 
-## Current Status (2026-03-16)
+## Current Status (2026-03-16, post-Exp 069)
 
 | Study | Status | Quantitative Checks |
 |-------|--------|-------------------|
@@ -128,7 +128,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **Sovereign Dispatch** (Exp 056) | ✅ Complete | Backend-agnostic `MdEngine<B: GpuBackend>` via `ComputeDispatch<B>`. wgpu validated (140.3 steps/s, correct energies). Sovereign DRM blocked (coral-driver ioctl gap). CPU-side energy sum bypasses ReduceScalarPipeline zero bug. Cross-spring shader evolution traced. |
 | **coralReef Ioctl Fix** (Exp 057) | ✅ Complete | 4 DRM ioctl struct ABI mismatches fixed (NouveauVmInit 32→16B, NouveauExec/VmBind field order, Channel pad). VM_INIT succeeds. CHANNEL_ALLOC blocked by missing Volta PMU firmware. GenericMdBackend: sovereign→wgpu auto-fallback. |
 | **hwLearn Integration** | ✅ Complete | toadStool `hw-learn` crate: vendor-neutral GPU learning (46 tests). sysmon `FirmwareInventory` probe. PrecisionBrain `fleet` module. biomeOS `compute.hardware.*` capabilities. AMD GFX10 gold-standard baseline. Fleet observer: Titan V blocked (PMU+GSP missing), RTX 3090 teacher (GSP), 40% learning confidence. |
-| **TOTAL** | **39/39 Rust validation suites** | **848 tests (lib)**, 115 binaries, 85 WGSL shaders, 34/35 NPU HW checks. Zero clippy (lib+bins), zero unsafe, all AGPL-3.0-only. Both GPUs validated, DF64 production, Nautilus unified brain, **live AKD1000 PCIe NPU: 12-head brain, barraCuda `d761c5d` + toadStool S146 + hw-learn (46 tests) + coralReef Iter 35 synced**. **Precision brain: self-routing hardware calibration, NVVM poisoning discovered + gated, coralReef sovereign bypass integrated. Backend-agnostic MD engine: `MdEngine<B: GpuBackend>` via `ComputeDispatch<B>` — same code on wgpu/Vulkan and sovereign/DRM. Multi-backend dispatch: wgpu/Vulkan + coralReef sovereign + Kokkos reference. Hardware learning: `hw-learn` crate (observe→distill→apply), FirmwareInventory, LearningAdvisor, biomeOS `compute.hardware.*` routing.** Science ladder: Quenched ✅ → Gradient Flow ✅ → Integrators ✅ → N_f=4 Infra ✅ → **Chuna 44/44** (core 41/41, dynamical ext 3/3) → N_f=2 (pending) → N_f=2+1 (pending). Stability: Tier 1 COMPLETE (Exp 046). Deep debt: **zero**. |
+| **TOTAL** | **39/39 Rust validation suites** | **848 tests (lib)**, 115 binaries, 85 WGSL shaders, 34/35 NPU HW checks. Zero clippy (lib+bins), zero unsafe, all AGPL-3.0-only. Both GPUs validated, DF64 production, Nautilus unified brain, **live AKD1000 PCIe NPU: 12-head brain, barraCuda `d761c5d` + toadStool S146 + hw-learn (46 tests) + coralReef Iter 47 synced**. **Precision brain: self-routing hardware calibration, NVVM poisoning discovered + gated, coralReef sovereign bypass integrated. Backend-agnostic MD engine: `MdEngine<B: GpuBackend>` via `ComputeDispatch<B>` — same code on wgpu/Vulkan and sovereign/DRM. Multi-backend dispatch: wgpu/Vulkan + coralReef sovereign + Kokkos reference. Hardware learning: `hw-learn` crate (observe→distill→apply), FirmwareInventory, LearningAdvisor, biomeOS `compute.hardware.*` routing. Sovereign GPU lifecycle: coral-glowplug boot-persistent PCIe daemon, VFIO-first boot, graceful shutdown (Exp 069).** Science ladder: Quenched ✅ → Gradient Flow ✅ → Integrators ✅ → N_f=4 Infra ✅ → **Chuna 44/44** (core 41/41, dynamical ext 3/3) → N_f=2 (pending) → N_f=2+1 (pending). Stability: Tier 1 COMPLETE (Exp 046). Deep debt: **zero**. |
 
 Papers 5, 7, 8, and 10 from the review queue are complete. Paper 5 transport fits
 (Daligault 2012) were recalibrated against 12 Sarkas Green-Kubo D* values (Feb 2026)
@@ -760,7 +760,7 @@ hotSpring/
 │       ├── Two-Temperature-Model/      # Cloned + patched via scripts/clone-repos.sh
 │       └── scripts/                    # Local + hydro model runners
 │
-├── experiments/                         # Experiment journals — 68 experiments + post-mortems (the "why" behind the data)
+├── experiments/                         # Experiment journals — 69 experiments + post-mortems (the "why" behind the data)
 │   ├── 001_N_SCALING_GPU.md            # N-scaling (500→20k) + native f64 builtins
 │   ├── 002_CELLLIST_FORCE_DIAGNOSTIC.md # Cell-list i32 modulo bug diagnosis + fix
 │   ├── 003_RTX4070_CAPABILITY_PROFILE.md # RTX 4070 capability profile (paper-parity COMPLETE)
@@ -993,12 +993,13 @@ These are **silent failures** — wrong results, no error messages. This fragili
 | [`experiments/060_BAR2_SELF_WARM_GLOW_PLUG.md`](experiments/060_BAR2_SELF_WARM_GLOW_PLUG.md) | BAR2 page table built in Rust; full nouveau parity from cold GPU |
 | [`experiments/061_MMIOTRACE_SOVEREIGN_DEVINIT_INVESTIGATION.md`](experiments/061_MMIOTRACE_SOVEREIGN_DEVINIT_INVESTIGATION.md) | VBIOS init scripts plaintext; D3hot→D0 via PMCSR restores VRAM |
 | [`experiments/062_VFIO_D3HOT_VRAM_BREAKTHROUGH.md`](experiments/062_VFIO_D3HOT_VRAM_BREAKTHROUGH.md) | **D3hot preserves HBM2**; 24/26 tests pass; sovereign VRAM access |
-| [`experiments/063_SOVEREIGN_BOOT_DRIVER_ARCHITECTURE.md`](experiments/063_SOVEREIGN_BOOT_DRIVER_ARCHITECTURE.md) | GlowPlug daemon → kernel module → sovereign HBM2 training |
-| [`experiments/064_GLOWPLUG_DEVICE_BROKER_ARCHITECTURE.md`](experiments/064_GLOWPLUG_DEVICE_BROKER_ARCHITECTURE.md) | GlowPlug as PCIe lifecycle broker; hot-swap personalities; state vault |
-| [`experiments/065_GLOWPLUG_DAEMON_SUCCESS_AND_HBM2_LIFECYCLE.md`](experiments/065_GLOWPLUG_DAEMON_SUCCESS_AND_HBM2_LIFECYCLE.md) | coral-glowplug daemon; 24/26 tests; HBM2 resurrection via nouveau warm cycle |
+| [`experiments/063_SOVEREIGN_BOOT_DRIVER_ARCHITECTURE.md`](experiments/063_SOVEREIGN_BOOT_DRIVER_ARCHITECTURE.md) | ✅ REALIZED — design evolved into coral-glowplug (Exp 064-065, 069) |
+| [`experiments/064_GLOWPLUG_DEVICE_BROKER_ARCHITECTURE.md`](experiments/064_GLOWPLUG_DEVICE_BROKER_ARCHITECTURE.md) | ✅ REALIZED — architecture spec; implemented in coral-glowplug v0.1.0 |
+| [`experiments/065_GLOWPLUG_DAEMON_SUCCESS_AND_HBM2_LIFECYCLE.md`](experiments/065_GLOWPLUG_DAEMON_SUCCESS_AND_HBM2_LIFECYCLE.md) | ✅ coral-glowplug daemon; 24/26 tests; HBM2 resurrection via nouveau warm cycle |
 | [`experiments/066_SEC2_ACR_FALCON_BOOT_CHAIN_ANALYSIS.md`](experiments/066_SEC2_ACR_FALCON_BOOT_CHAIN_ANALYSIS.md) | **SEC2 at 0x087000**; PRIVRING fault; three attack vectors for sovereign compute |
 | [`experiments/067_SEC2_EMEM_BREAKTHROUGH_AND_FALCON_RESET.md`](experiments/067_SEC2_EMEM_BREAKTHROUGH_AND_FALCON_RESET.md) | **SEC2 EMEM writable**; ACR runs from host IMEM; two falcon states |
 | [`experiments/068_FECS_DIRECT_EXECUTION_AND_PRIVRING_RECOVERY.md`](experiments/068_FECS_DIRECT_EXECUTION_AND_PRIVRING_RECOVERY.md) | **FECS executes from host-loaded IMEM** (PC=0x63EE/25KB); LS bypass on clean falcon; PRIVRING lesson |
+| [`experiments/069_GLOWPLUG_BOOT_PERSISTENCE_AND_SHUTDOWN_SAFETY.md`](experiments/069_GLOWPLUG_BOOT_PERSISTENCE_AND_SHUTDOWN_SAFETY.md) | **GlowPlug boot persistence + shutdown safety**: systemd service, IOMMU group binding, DRM render node oops (Cursor held nouveau fd), VFIO-first boot fix, graceful shutdown protocol |
 | [`specs/BIOMEGATE_BRAIN_ARCHITECTURE.md`](specs/BIOMEGATE_BRAIN_ARCHITECTURE.md) | Brain architecture: 4-substrate concurrent pipeline, NPU steering, Nautilus Shell integration |
 | [`metalForge/README.md`](metalForge/README.md) | Hardware characterization — philosophy, inventory, directory |
 | [`metalForge/npu/akida/BEYOND_SDK.md`](metalForge/npu/akida/BEYOND_SDK.md) | **10 overturned SDK assumptions** — the discovery document |
@@ -1051,7 +1052,7 @@ transition at 32⁴ (χ=40.1 at β=5.69, matching β_c=5.692) in 13.6 hours for
 $0.58. Self-routing precision brain: hardware calibration probes 4 tiers per GPU,
 NVVM device poisoning discovered and gated, dual-GPU cooperative patterns profiled
 (Split BCS 2.2×, PCIe 1.2 GB/s). coralReef sovereign bypass integrated (Iter 28).
-56 experiments, 115 binaries, 848 tests,
+69 experiments, 115 binaries, 848 tests,
 barraCuda `d761c5d` + toadStool S146 + coralReef Iter 35 synced. Full multi-tier precision stability analysis
 (Exp 046): 9 cancellation families audited across f32/DF64/f64/CKKS FHE —
 stable BCS v² and plasma W(z) algorithms enable safe DF64 throughput. Chuna

@@ -130,6 +130,9 @@ results/*.jsonl
 results/**/*.jsonl
 results/weights/*.bin
 
+# Generated metal map captures (regenerable via coral-glowplug oracle dump)
+data/metal_maps/*.json
+
 # ============================================================
 # NOTE: These ARE tracked (small, important for reproducibility):
 #   control/sarkas/simulations/dsf-study/results/*.json   (validation results)
