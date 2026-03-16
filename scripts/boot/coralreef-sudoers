@@ -1,0 +1,28 @@
+# coralReef passwordless sudo rules
+# Install to /etc/sudoers.d/coralreef
+#
+# Allows biomegate to perform GPU device management without password:
+# - PCI driver bind/unbind (hot-swap)
+# - Power state control
+# - VFIO module loading
+# - Setup script execution
+
+# Driver bind/unbind via tee (sysfs writes)
+biomegate ALL=(root) NOPASSWD: /usr/bin/tee /sys/bus/pci/devices/*/driver/unbind
+biomegate ALL=(root) NOPASSWD: /usr/bin/tee /sys/bus/pci/drivers/*/bind
+biomegate ALL=(root) NOPASSWD: /usr/bin/tee /sys/bus/pci/devices/*/driver_override
+biomegate ALL=(root) NOPASSWD: /usr/bin/tee /sys/bus/pci/devices/*/power/control
+biomegate ALL=(root) NOPASSWD: /usr/bin/tee /sys/bus/pci/devices/*/d3cold_allowed
+biomegate ALL=(root) NOPASSWD: /usr/bin/tee /sys/module/vfio_pci/parameters/*
+
+# Module loading
+biomegate ALL=(root) NOPASSWD: /usr/sbin/modprobe vfio-pci
+biomegate ALL=(root) NOPASSWD: /usr/sbin/modprobe nouveau
+
+# Setup script
+biomegate ALL=(root) NOPASSWD: /home/biomegate/Development/ecoPrimals/hotSpring/scripts/setup_dual_titanv.sh
+biomegate ALL=(root) NOPASSWD: /home/biomegate/Development/ecoPrimals/hotSpring/scripts/boot/install-boot-config.sh
+
+# GlowPlug daemon (will run as root via systemd, but allow manual start)
+biomegate ALL=(root) NOPASSWD: /home/biomegate/Development/ecoPrimals/coralReef/target/release/coral-glowplug
+biomegate ALL=(root) NOPASSWD: /home/biomegate/Development/ecoPrimals/coralReef/target/debug/coral-glowplug

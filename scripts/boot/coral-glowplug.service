@@ -1,0 +1,26 @@
+[Unit]
+Description=coralReef GlowPlug — Sovereign PCIe Device Lifecycle Broker
+After=vfio-pci.target systemd-modules-load.service
+Wants=vfio-pci.target
+
+[Service]
+Type=notify
+NotifyAccess=all
+ExecStart=/home/biomegate/Development/ecoPrimals/coralReef/target/release/coral-glowplug --config /etc/coralreef/glowplug.toml
+RuntimeDirectory=coralreef
+RuntimeDirectoryMode=0755
+Environment=RUST_LOG=info
+
+# Hardening
+ProtectHome=read-only
+ProtectSystem=strict
+ReadWritePaths=/sys/bus/pci /run/coralreef /dev/vfio
+PrivateTmp=yes
+NoNewPrivileges=no
+
+# Restart on failure
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

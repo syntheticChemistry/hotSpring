@@ -1,0 +1,24 @@
+# coralReef udev rules for per-device VFIO binding
+#
+# Binds ONLY 4a:00.0 and 4a:00.1 (Titan V #2) to vfio-pci at boot.
+# 03:00.0 (Titan V #1 = oracle) is left for nouveau.
+# 21:00.0 (RTX 5060 = display) is left for nvidia.
+#
+# Install:
+#   sudo cp scripts/boot/99-coralreef-vfio.rules /etc/udev/rules.d/
+#   sudo udevadm control --reload-rules
+
+# Titan V #2 GPU → vfio-pci (sovereign target)
+ACTION=="add", KERNEL=="0000:4a:00.0", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{device}=="0x1d81", RUN+="/bin/sh -c 'echo vfio-pci > /sys/bus/pci/devices/0000:4a:00.0/driver_override'"
+
+# Titan V #2 audio → vfio-pci (must be in same IOMMU group)
+ACTION=="add", KERNEL=="0000:4a:00.1", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", RUN+="/bin/sh -c 'echo vfio-pci > /sys/bus/pci/devices/0000:4a:00.1/driver_override'"
+
+# Keep VFIO target in D0 (prevent runtime PM from putting it in D3hot)
+ACTION=="add", KERNEL=="0000:4a:00.0", SUBSYSTEM=="pci", ATTR{power/control}="on"
+
+# Disable destructive bus reset on VFIO target (preserves HBM2 state across rebind)
+ACTION=="add", KERNEL=="0000:4a:00.0", SUBSYSTEM=="pci", RUN+="/bin/sh -c 'echo > /sys/bus/pci/devices/0000:4a:00.0/reset_method 2>/dev/null || true'"
+
+# Make VFIO group 34 accessible to biomegate (after vfio-pci binds)
+ACTION=="bind", KERNEL=="0000:4a:00.0", SUBSYSTEM=="pci", RUN+="/bin/sh -c 'sleep 1 && chmod 666 /dev/vfio/34 2>/dev/null || true'"
