@@ -1,7 +1,7 @@
 # Experiment 065: GlowPlug Daemon Success & HBM2 Lifecycle Management
 
 **Date**: 2026-03-16  
-**Status**: Active  
+**Status**: COMPLETE — daemon proven, boot persistence and shutdown safety added in Exp 069  
 **Cards**: 2× Titan V (GV100, 0x1d81), 1× RTX 5060 (GB206, 0x2d05)  
 **Setup**: Oracle (0000:03:00.0, nouveau) · Target (0000:4a:00.0, vfio-pci) · Display (0000:21:00.0, nvidia)
 

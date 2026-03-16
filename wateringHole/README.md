@@ -57,6 +57,7 @@ fossil record — never deleted, always available for provenance.
 
 | File | Date | Topic |
 |------|------|-------|
+| [`HOTSPRING_PIN_PRIMAL_EVOLUTION_HANDOFF_MAR16_2026.md`](handoffs/HOTSPRING_PIN_PRIMAL_EVOLUTION_HANDOFF_MAR16_2026.md) | Mar 16 | **PIN handoff**: hotSpring pausing for primal evolution sprint. Per-primal engineering backlog (7 coralReef tasks, 3 toadStool tasks), stability invariants, revalidation plan, open research questions |
 | [`HOTSPRING_GLOWPLUG_BOOT_PERSISTENCE_SOVEREIGN_PIPELINE_HANDOFF_MAR16_2026.md`](handoffs/HOTSPRING_GLOWPLUG_BOOT_PERSISTENCE_SOVEREIGN_PIPELINE_HANDOFF_MAR16_2026.md) | Mar 16 | **GlowPlug boot persistence + sovereign pipeline status**: systemd daemon, VFIO-first boot, DRM render node fencing (kernel oops fix), graceful shutdown, unsolved blockers, per-primal action items, reproducibility checklist |
 | [`HOTSPRING_SOVEREIGN_FALCON_DIRECT_LOAD_HANDOFF_MAR16_2026.md`](handoffs/HOTSPRING_SOVEREIGN_FALCON_DIRECT_LOAD_HANDOFF_MAR16_2026.md) | Mar 16 | **FECS direct execution**: LS security bypass on clean falcon. FECS runs from host-loaded IMEM (PC=0x63EE of 25KB). ACR BL/firmware execute. D3hot→D0 produces clean state. GlowPlug daemon ready. PRIVRING fault lesson. |
 | [`HOTSPRING_VFIO_D3HOT_VRAM_BREAKTHROUGH_MAR16_2026.md`](handoffs/HOTSPRING_VFIO_D3HOT_VRAM_BREAKTHROUGH_MAR16_2026.md) | Mar 16 | **D3hot→D0 VRAM recovery**: BIOS trains HBM2, survives D3hot. 24/26 tests pass. Digital PMU. GlowPlug warm detection. |
