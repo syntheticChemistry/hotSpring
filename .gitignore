@@ -85,6 +85,14 @@ metalForge/benchmarks/
 # ----- Experiment profiling data (generated, regenerable) -----
 experiments/data/
 
+# ----- GPU oracle/mmiotrace capture data (regenerable via scripts) -----
+scripts/data/
+data/nouveau_mmiotrace*.log
+data/nouveau_mmiotrace_*.log
+data/mmiotrace_*.txt
+data/oracle_*.txt
+data/target_*.txt
+
 # ----- Benchmark results (generated) -----
 benchmarks/*/results/
 

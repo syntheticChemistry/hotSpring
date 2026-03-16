@@ -1,10 +1,10 @@
 # baseCamp: Research Domain Briefings
 
-**Date:** 2026-03-10
+**Date:** 2026-03-16
 **Project:** hotSpring (ecoPrimals)
-**Status:** v0.6.27, experiments 001-050, 842 lib tests, 39/39 validation suites, 111+ binaries, 84 WGSL shaders
+**Status:** v0.6.31, experiments 001-068, 848 lib tests, 39/39 validation suites, 115 binaries, 85 WGSL shaders
 
-**Notes:** Upstream primal sync: barraCuda `59c8ec5` (eigensolver, activations, PRNG), coralReef Iter 29 NVVM bypass integrated (sovereign-safe tiers in PrecisionBrain), toadStool S144 PcieTransport + ResourceOrchestrator referenced. Self-routing precision brain (Exp 049): hardware calibration probes 4 tiers per GPU, NVVM device poisoning discovered and gated, coralReef sovereign bypass unlocks blocked tiers. coralReef Iter 29 sovereign validation (Exp 050): **45/46** shaders compile to native SM70/SM86 SASS, 12/12 NVVM bypass patterns, `deformed_potentials_f64` SSARef fix confirmed. Chuna Papers 43-45: **44/44 overnight checks pass**. All AGPL-3.0-only.
+**Notes:** Upstream primal sync: barraCuda `7c1fd03a` (eigensolver, activations, PRNG), coralReef Iter 44+ VFIO dispatch + coral-glowplug daemon, toadStool S147 PcieTransport + ResourceOrchestrator. Sovereign GPU compute: **FECS firmware executes from host-loaded IMEM** on clean falcon (Exp 068), SEC2 EMEM writable (Exp 067), ACR bootloader executes (Exp 067-068), D3hot→D0 produces exploitable clean state. coral-glowplug persistent PCIe broker: personality hot-swap, health monitor, auto-D0 recovery (Exp 065). PRIVRING fault lesson: never PMC-toggle GR bit 12 on GV100 (Exp 068). Gap 1+4 CLOSED, sovereign routing with `sovereign_resolves_poisoning()`. Chuna Papers 43-45: **44/44 overnight checks pass**. All AGPL-3.0-only.
 
 ---
 
@@ -40,6 +40,7 @@ Published paper (Python/FORTRAN/HPC)
 | [`esn_baseline_validation.md`](esn_baseline_validation.md) | ESN Baseline — CPU Training & Capability Map | None (NPU engineering) | 116 pts, 5 synthetic probes, 3 heads EXCELLENT, HeadConfidence tracker live |
 | [`npu_dynamic_programming.md`](npu_dynamic_programming.md) | NPU as DP — Activation Parity & Subproblem Memoization | None (architecture insight) | tanh≈ReLU validated, NPU-as-memoization-table architecture for multigrid HMC |
 | [`neuromorphic_native_field_theory.md`](neuromorphic_native_field_theory.md) | Neuromorphic-Native Field Theory — Lattice Physics on Spiking Hardware | None (long-term hardware architecture) | 5-level path from NPU steering → NPU IS the simulation, coralForge isomorphism |
+| [`sovereign_gpu_compute.md`](sovereign_gpu_compute.md) | Sovereign GPU Compute — GlowPlug & Falcon Boot Chain | None (hardware exploration) | Exp 060-068, FECS direct execution, SEC2 EMEM, D3hot recovery, GlowPlug daemon |
 
 ---
 
@@ -47,7 +48,7 @@ Published paper (Python/FORTRAN/HPC)
 
 - **wetSpring** (`../../../wetSpring/whitePaper/baseCamp/`): Per-faculty briefings for bio/phylogenetic domains. Shares DF64, ESN, and pairwise distance shaders via barraCuda.
 - **barraCuda** (`../../../barraCuda/`): Standalone compute primal (budded from toadStool S89). 792+ WGSL shaders, DF64, precision system, lattice QCD, eigensolver, activations API.
-- **coralReef** (`../../../coralReef/`): Sovereign shader compiler primal (Phase 10, Iter 29). WGSL→native binary compilation. NVVM poisoning bypass validated (Iter 28). NVIDIA last-mile pipeline (Iter 29).
-- **toadStool** (`../../../phase1/toadStool/`): Hardware discovery and orchestration (S142). PcieTransport, ResourceOrchestrator, GPU sysmon telemetry.
-- **Experiment journals**: `../../experiments/` (001-050)
+- **coralReef** (`../../../coralReef/`): Sovereign shader compiler primal (Phase 10, Iter 44+). WGSL→native binary compilation. VFIO dispatch pipeline (PFIFO + MMU + DMA). coral-glowplug persistent PCIe broker daemon. coral-driver pure Rust GPU backends (AMD DRM, NVIDIA nouveau, NVIDIA VFIO). SEC2/FECS falcon direct loading proven (Exp 067-068).
+- **toadStool** (`../../../phase1/toadStool/`): Hardware discovery and orchestration (S147). PcieTransport, ResourceOrchestrator, GPU sysmon telemetry.
+- **Experiment journals**: `../../experiments/` (001-068)
 - **Handoffs**: `../../wateringHole/handoffs/` (fossil record of all cross-project exchanges)

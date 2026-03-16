@@ -32,7 +32,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 
 ---
 
-## Current Status (2026-03-09)
+## Current Status (2026-03-16)
 
 | Study | Status | Quantitative Checks |
 |-------|--------|-------------------|
@@ -760,7 +760,7 @@ hotSpring/
 │       ├── Two-Temperature-Model/      # Cloned + patched via scripts/clone-repos.sh
 │       └── scripts/                    # Local + hydro model runners
 │
-├── experiments/                         # Experiment journals — 40+ experiments + post-mortems (the "why" behind the data)
+├── experiments/                         # Experiment journals — 68 experiments + post-mortems (the "why" behind the data)
 │   ├── 001_N_SCALING_GPU.md            # N-scaling (500→20k) + native f64 builtins
 │   ├── 002_CELLLIST_FORCE_DIAGNOSTIC.md # Cell-list i32 modulo bug diagnosis + fix
 │   ├── 003_RTX4070_CAPABILITY_PROFILE.md # RTX 4070 capability profile (paper-parity COMPLETE)
@@ -990,9 +990,15 @@ These are **silent failures** — wrong results, no error messages. This fragili
 | [`experiments/048_PRODUCTION_GRADIENT_FLOW.md`](experiments/048_PRODUCTION_GRADIENT_FLOW.md) | Production gradient flow runs |
 | [`experiments/049_PRECISION_BRAIN_HETEROGENEOUS_EVAL.md`](experiments/049_PRECISION_BRAIN_HETEROGENEOUS_EVAL.md) | **Precision brain + heterogeneous GPU eval**: 3-tier harness, NVVM poisoning, dual-card cooperative |
 | [`experiments/050_CORALREEF_ITER29_SOVEREIGN_VALIDATION.md`](experiments/050_CORALREEF_ITER29_SOVEREIGN_VALIDATION.md) | **coralReef Iter 30 sovereign validation**: 45/46 compile, 12/12 NVVM bypass, `deformed_potentials_f64` fixed, gap analysis for upstream |
-| [`experiments/032_FINITE_TEMP_DECONFINEMENT.md`](experiments/032_FINITE_TEMP_DECONFINEMENT.md) | Exp 032: Finite-temp deconfinement (32³×8, 64³×8 asymmetric lattices) |
-| [`experiments/033_REALITY_LADDER_RUNG0.md`](experiments/033_REALITY_LADDER_RUNG0.md) | Exp 033: Reality ladder rung 0 — mass scan (479 traj, 5 masses, 3 volumes) |
-| [`experiments/040_KOKKOS_LAMMPS_VALIDATION.md`](experiments/040_KOKKOS_LAMMPS_VALIDATION.md) | Exp 040: Kokkos/LAMMPS validation baseline (9 PP Yukawa DSF cases) |
+| [`experiments/060_BAR2_SELF_WARM_GLOW_PLUG.md`](experiments/060_BAR2_SELF_WARM_GLOW_PLUG.md) | BAR2 page table built in Rust; full nouveau parity from cold GPU |
+| [`experiments/061_MMIOTRACE_SOVEREIGN_DEVINIT_INVESTIGATION.md`](experiments/061_MMIOTRACE_SOVEREIGN_DEVINIT_INVESTIGATION.md) | VBIOS init scripts plaintext; D3hot→D0 via PMCSR restores VRAM |
+| [`experiments/062_VFIO_D3HOT_VRAM_BREAKTHROUGH.md`](experiments/062_VFIO_D3HOT_VRAM_BREAKTHROUGH.md) | **D3hot preserves HBM2**; 24/26 tests pass; sovereign VRAM access |
+| [`experiments/063_SOVEREIGN_BOOT_DRIVER_ARCHITECTURE.md`](experiments/063_SOVEREIGN_BOOT_DRIVER_ARCHITECTURE.md) | GlowPlug daemon → kernel module → sovereign HBM2 training |
+| [`experiments/064_GLOWPLUG_DEVICE_BROKER_ARCHITECTURE.md`](experiments/064_GLOWPLUG_DEVICE_BROKER_ARCHITECTURE.md) | GlowPlug as PCIe lifecycle broker; hot-swap personalities; state vault |
+| [`experiments/065_GLOWPLUG_DAEMON_SUCCESS_AND_HBM2_LIFECYCLE.md`](experiments/065_GLOWPLUG_DAEMON_SUCCESS_AND_HBM2_LIFECYCLE.md) | coral-glowplug daemon; 24/26 tests; HBM2 resurrection via nouveau warm cycle |
+| [`experiments/066_SEC2_ACR_FALCON_BOOT_CHAIN_ANALYSIS.md`](experiments/066_SEC2_ACR_FALCON_BOOT_CHAIN_ANALYSIS.md) | **SEC2 at 0x087000**; PRIVRING fault; three attack vectors for sovereign compute |
+| [`experiments/067_SEC2_EMEM_BREAKTHROUGH_AND_FALCON_RESET.md`](experiments/067_SEC2_EMEM_BREAKTHROUGH_AND_FALCON_RESET.md) | **SEC2 EMEM writable**; ACR runs from host IMEM; two falcon states |
+| [`experiments/068_FECS_DIRECT_EXECUTION_AND_PRIVRING_RECOVERY.md`](experiments/068_FECS_DIRECT_EXECUTION_AND_PRIVRING_RECOVERY.md) | **FECS executes from host-loaded IMEM** (PC=0x63EE/25KB); LS bypass on clean falcon; PRIVRING lesson |
 | [`specs/BIOMEGATE_BRAIN_ARCHITECTURE.md`](specs/BIOMEGATE_BRAIN_ARCHITECTURE.md) | Brain architecture: 4-substrate concurrent pipeline, NPU steering, Nautilus Shell integration |
 | [`metalForge/README.md`](metalForge/README.md) | Hardware characterization — philosophy, inventory, directory |
 | [`metalForge/npu/akida/BEYOND_SDK.md`](metalForge/npu/akida/BEYOND_SDK.md) | **10 overturned SDK assumptions** — the discovery document |

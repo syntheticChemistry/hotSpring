@@ -1,7 +1,7 @@
 # wateringHole — Cross-Project Handoffs
 
 **Project:** hotSpring (ecoPrimals)
-**Last Updated:** March 12, 2026
+**Last Updated:** March 16, 2026
 
 ---
 
@@ -57,6 +57,8 @@ fossil record — never deleted, always available for provenance.
 
 | File | Date | Topic |
 |------|------|-------|
+| [`HOTSPRING_SOVEREIGN_FALCON_DIRECT_LOAD_HANDOFF_MAR16_2026.md`](handoffs/HOTSPRING_SOVEREIGN_FALCON_DIRECT_LOAD_HANDOFF_MAR16_2026.md) | Mar 16 | **FECS direct execution**: LS security bypass on clean falcon. FECS runs from host-loaded IMEM (PC=0x63EE of 25KB). ACR BL/firmware execute. D3hot→D0 produces clean state. GlowPlug daemon ready. PRIVRING fault lesson. |
+| [`HOTSPRING_VFIO_D3HOT_VRAM_BREAKTHROUGH_MAR16_2026.md`](handoffs/HOTSPRING_VFIO_D3HOT_VRAM_BREAKTHROUGH_MAR16_2026.md) | Mar 16 | **D3hot→D0 VRAM recovery**: BIOS trains HBM2, survives D3hot. 24/26 tests pass. Digital PMU. GlowPlug warm detection. |
 | [`HOTSPRING_CORALREEF_DISPATCH_INVESTIGATION_HANDOFF_MAR12_2026.md`](handoffs/HOTSPRING_CORALREEF_DISPATCH_INVESTIGATION_HANDOFF_MAR12_2026.md) | Mar 12 | **Dispatch investigation**: 4 coralReef bugs fixed (QMD field layout, CBUF descriptors, QMD version, syncobj sync). CTXNOTVALID root cause: channel setup gap in nouveau 6.17 — both Ampere and Volta affected. NVK-style PGRAPH init needed. |
 | [`HOTSPRING_V0631_GAP_CLOSURE_REWIRE_HANDOFF_MAR12_2026.md`](handoffs/HOTSPRING_V0631_GAP_CLOSURE_REWIRE_HANDOFF_MAR12_2026.md) | Mar 12 | **Gap closure rewire**: hotSpring v0.6.31 absorbs toadStool S147, barraCuda 82ff983→7c1fd03a, coralReef Iter 37-39. Gap 1+4 CLOSED, Gap 3 WIRED. Sovereign routing with `sovereign_resolves_poisoning()`. |
 
