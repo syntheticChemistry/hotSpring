@@ -14,7 +14,7 @@ use std::time::Instant;
 /// Result of running a single physics pipeline at one precision tier.
 #[derive(Debug, Clone)]
 pub struct PipelineResult {
-    /// Pipeline label (e.g. "HMC [4,4,4,4]", "BCS 4096x20").
+    /// Pipeline label (e.g. "HMC \[4,4,4,4\]", "BCS 4096x20").
     pub pipeline_name: String,
     /// GPU adapter name.
     pub adapter_name: String,
@@ -213,8 +213,7 @@ impl<'a> PipelineEval<'a> {
         tiers
             .iter()
             .map(|&tier| {
-                let result =
-                    std::panic::catch_unwind(std::panic::AssertUnwindSafe(run_dielectric));
+                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(run_dielectric));
                 match result {
                     Ok((wall_ms, f_sum_error)) => PipelineResult {
                         pipeline_name: "Dielectric (Mermin)".into(),

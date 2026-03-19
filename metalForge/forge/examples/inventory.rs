@@ -23,7 +23,7 @@ fn main() {
             let rate = s
                 .properties
                 .fp64_rate
-                .map_or("unknown".to_string(), |r| format!("{r:?}"));
+                .map_or_else(|| "unknown".to_string(), |r| format!("{r:?}"));
             println!(
                 "  {} — rate: {}, df64: {}, strategy: {:?}",
                 s.identity.name, rate, s.properties.has_df64, strategy

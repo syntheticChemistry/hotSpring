@@ -89,21 +89,20 @@ fn main() {
         .find(|w| w[0] == "--output")
         .map(|w| w[1].clone());
 
-    let sizes: Vec<usize> = args
-        .windows(2)
-        .find(|w| w[0] == "--sizes")
-        .map(|w| {
-            w[1].split(',')
-                .filter_map(|s| s.trim().parse().ok())
-                .collect()
-        })
-        .unwrap_or_else(|| {
+    let sizes: Vec<usize> = args.windows(2).find(|w| w[0] == "--sizes").map_or_else(
+        || {
             if quick {
                 vec![500, 2000]
             } else {
                 vec![500, 2000, 10_000, 50_000]
             }
-        });
+        },
+        |w| {
+            w[1].split(',')
+                .filter_map(|s| s.trim().parse().ok())
+                .collect()
+        },
+    );
 
     println!("╔══════════════════════════════════════════════════════════════════╗");
     println!("║  N-Scaling Complexity Benchmark                                ║");
@@ -131,7 +130,7 @@ fn main() {
         println!("  Tier 3 (Kokkos-CUDA): NOT FOUND (install lmp with Kokkos-CUDA)");
     }
 
-    println!("  Sizes: {:?}", sizes);
+    println!("  Sizes: {sizes:?}");
     println!(
         "  Cases: {}",
         CASES.iter().map(|c| c.label).collect::<Vec<_>>().join(", ")
@@ -200,14 +199,13 @@ fn main() {
                 Some(Err(e)) => format!("ERR:{}", &e[..e.len().min(20)]),
                 None => "—".to_string(),
             };
-            let kk_str = kk_sps.map_or("—".to_string(), |s| format!("{s:.1}"));
-            let gap_str = gap.map_or("—".to_string(), |g| format!("{g:.1}×"));
-            let bcw_str = bc_wall.map_or("—".to_string(), |w| format!("{w:.1}"));
-            let kkw_str = kk_wall.map_or("—".to_string(), |w| format!("{w:.1}"));
+            let kk_str = kk_sps.map_or_else(|| "—".to_string(), |s| format!("{s:.1}"));
+            let gap_str = gap.map_or_else(|| "—".to_string(), |g| format!("{g:.1}×"));
+            let bcw_str = bc_wall.map_or_else(|| "—".to_string(), |w| format!("{w:.1}"));
+            let kkw_str = kk_wall.map_or_else(|| "—".to_string(), |w| format!("{w:.1}"));
 
             println!(
-                "  {:>8}  {:>12}  {:>12}  {:>8}  {:>8}  {:>8}",
-                n, bc_str, kk_str, gap_str, bcw_str, kkw_str
+                "  {n:>8}  {bc_str:>12}  {kk_str:>12}  {gap_str:>8}  {bcw_str:>8}  {kkw_str:>8}"
             );
 
             results.push(ScalingResult {
@@ -233,6 +231,7 @@ fn main() {
     println!();
 
     for case in CASES {
+        #[allow(clippy::float_cmp)] // exact kappa match from const table
         let case_results: Vec<&ScalingResult> = results
             .iter()
             .filter(|r| r.method == format!("{}", case.expected_method) && r.kappa == case.kappa)

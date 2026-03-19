@@ -9,6 +9,61 @@ tracks what toadstool has absorbed, and identifies next absorption targets.
 Python baseline → Rust validation → WGSL template → GPU shader → ToadStool absorption → Lean on upstream
 ```
 
+## v0.6.32 Evolution Sprint (Mar 17, 2026)
+
+### Rewired to modern barraCuda v0.3.5 (was b95e9c59 → now f82d60c6)
+
+| New Primitive | Origin | Cross-Spring Value |
+|---------------|--------|-------------------|
+| `FmaPolicy` (Contract/Separate/Default) | hotSpring precision brain + coralReef Iter 30 | All springs: FMA contraction control for bit-exact QCD, gradient flow, nuclear EOS |
+| `PrecisionTier` (F32/DF64/F64/F64Precise) | hotSpring v0.6.25 → barraCuda Sprint 2 | All springs: domain-aware shader compilation routing |
+| `PhysicsDomain` (LatticeQcd, GradientFlow, ...) | hotSpring v0.6.25 → barraCuda Sprint 2 | Maps physics domains to precision requirements |
+| `domain_requires_separate_fma()` | hotSpring + coralReef | Returns true for LatticeQcd, GradientFlow, NuclearEos |
+| `special::stable_gpu::{log1p_f64, expm1_f64, erfc_f64, bessel_j0_minus1_f64}` | wetSpring + hotSpring → Sprint 2 | Cancellation-safe specials: hotSpring screened Coulomb (erfc), BCS (expm1); wetSpring HMM (log1p) |
+| `GemmF64::execute_gemm_ex(trans_a, trans_b)` | neuralSpring → Sprint 6 | A^T*B without transpose materialization: Gram matrices, normal equations, covariance |
+| `WGSL_MEAN_REDUCE_F64` | neuralSpring re-export → Sprint 6 | Custom mean reduction pipelines |
+
+### Cross-Spring Shader Evolution Map
+
+```
+hotSpring (precision, lattice, MD, HFB, spectral)
+  ├─ DF64 core streaming ────────→ wetSpring bio spectral, neuralSpring RMT
+  ├─ ReduceScalarPipeline ───────→ wetSpring, all springs GPU reductions
+  ├─ ESN reservoir/readout ──────→ neuralSpring GPU ESN, wetSpring bio ESN
+  ├─ NeighborMode 4D ────────────→ neuralSpring graph lattices
+  ├─ SpectralAnalysis+RMT ───────→ neuralSpring classifier, wetSpring bio spectral
+  ├─ HFB/SEMF/chi2 shaders ─────→ (nuclear-specific, not yet cross-spring)
+  └─ Precision brain architecture → ALL springs via PrecisionTier + FmaPolicy
+
+wetSpring (bio, diversity, HMM, alignment)
+  ├─ log_f64/pow_f64 fixes ──────→ hotSpring BCS gap equations
+  ├─ Shannon/Simpson/Bray-Curtis → neuralSpring eco-diversity metrics
+  ├─ HMM forward GPU ────────────→ neuralSpring sequence models
+  ├─ Stable specials (log1p etc) → hotSpring screened Coulomb, dielectric
+  └─ Gillespie SSA ──────────────→ (bio-specific, potential hotSpring kinetics)
+
+neuralSpring (ML, pairwise, spectral, optimization)
+  ├─ Batched Nelder-Mead GPU ────→ hotSpring HMC parameter tuning
+  ├─ GemmF64 transpose ──────────→ hotSpring surrogate fitting, groundSpring least-squares
+  ├─ Pairwise metrics ───────────→ wetSpring similarity, hotSpring MD clustering
+  ├─ Linear regression GPU ──────→ hotSpring observable fits, groundSpring calibration
+  └─ Matrix correlation GPU ─────→ hotSpring obs correlations (plaquette vs Polyakov)
+
+groundSpring (noise, stats, hydrology)
+  ├─ Chi-squared GPU ────────────→ hotSpring nuclear χ² fits, wetSpring enrichment
+  ├─ FFT radix-2 GPU ────────────→ all springs Fourier analysis
+  └─ Jackknife resampling ───────→ hotSpring bootstrap CI, wetSpring population stats
+```
+
+### Code Quality Improvements
+
+- `#![forbid(unsafe_code)]` added to lib.rs (compiler-enforced zero-unsafe)
+- License: `AGPL-3.0-only` → `AGPL-3.0-or-later` (scyBorg trio alignment)
+- Zero clippy pedantic+nursery warnings across all targets (was 8)
+- barraCuda pin: `b95e9c59` → `f82d60c6` (4 commits, Sprint 5-7)
+- Cross-spring benchmark: 4 new phases (FMA routing, stable specials, GemmF64 transpose, precision tiers)
+- 848 tests, 0 failures, 6 GPU-ignored
+
 ## Tier Definitions
 
 | Tier | Label | Meaning |
@@ -18,7 +73,7 @@ Python baseline → Rust validation → WGSL template → GPU shader → ToadSto
 | **C** | New | No shader exists; must be written from scratch |
 | **✅** | Absorbed | ToadStool has absorbed this as a first-class barracuda primitive |
 
-## ToadStool Absorption Status (Mar 12, 2026 — v0.6.31 synced to toadStool S147 + coralReef Iter 37 + barraCuda 82ff983, 848 tests)
+## ToadStool Absorption Status (Mar 17, 2026 — v0.6.32 synced to toadStool S158 + coralReef Iter 54 + barraCuda v0.3.5 f82d60c6, 848 tests)
 
 | hotSpring Module | ToadStool Primitive | Absorbed At | Status |
 |-----------------|--------------------| -------|--------|

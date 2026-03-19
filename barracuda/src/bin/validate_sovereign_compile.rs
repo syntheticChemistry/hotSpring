@@ -258,24 +258,21 @@ async fn main() {
         let mut total_bytes = 0usize;
 
         for entry in &shaders {
-            match GLOBAL_CORAL
+            if let Some(binary) = GLOBAL_CORAL
                 .compile_wgsl_direct(entry.source, arch_name, fp64_software)
                 .await
             {
-                Some(binary) => {
-                    ok += 1;
-                    total_bytes += binary.binary.len();
-                    println!(
-                        "  {:<40} {:>6}B {:>6}",
-                        entry.name,
-                        binary.binary.len(),
-                        "OK"
-                    );
-                }
-                None => {
-                    fail += 1;
-                    println!("  {:<40} {:>8} {:>6}", entry.name, "-", "FAIL");
-                }
+                ok += 1;
+                total_bytes += binary.binary.len();
+                println!(
+                    "  {:<40} {:>6}B {:>6}",
+                    entry.name,
+                    binary.binary.len(),
+                    "OK"
+                );
+            } else {
+                fail += 1;
+                println!("  {:<40} {:>8} {:>6}", entry.name, "-", "FAIL");
             }
         }
 

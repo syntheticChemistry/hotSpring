@@ -3,7 +3,7 @@ name = "hotspring-barracuda"
 version = "0.6.32"
 edition = "2021"
 description = "Nuclear EOS + GPU MD validation for BarraCuda — L1/L2/L3 physics, Yukawa OCP, lattice QCD, spectral theory, typed errors, full Result propagation, provenance, capability-based discovery"
-license = "AGPL-3.0-only"
+license = "AGPL-3.0-or-later"
 repository = "https://github.com/biomegate/ecoPrimals"
 readme = "README.md"
 keywords = ["nuclear-physics", "gpu-compute", "validation", "molecular-dynamics", "lattice-qcd"]
@@ -85,7 +85,7 @@ sovereign-dispatch = ["barracuda/sovereign-dispatch"]
 # BarraCuda (standalone primal): math, shaders, compilation, ESN, NPU math
 # Public repo: https://github.com/ecoPrimals/barraCuda
 # Local dev override: .cargo/config.toml patches this to ../../barraCuda
-barracuda = { git = "https://github.com/ecoPrimals/barraCuda.git", rev = "b95e9c59" }
+barracuda = { git = "https://github.com/ecoPrimals/barraCuda.git", rev = "f82d60c6" }
 
 # Structured logging (transitive dep via wgpu; explicit for library diagnostics)
 log = "0.4"
@@ -120,6 +120,9 @@ naga = { version = "28", features = ["wgsl-in"] }
 
 # Blocking async operations (adapter enumeration is async in wgpu 28)
 pollster = "0.3"
+
+# Low-level syscalls (mmap for BAR0 register reading in Exp 070 binaries)
+libc = "0.2"
 
 # ── L1 validation (NMP-constrained, Pareto sweep, multi-seed) ──────
 [[bin]]
@@ -682,4 +685,14 @@ required-features = ["sovereign-dispatch"]
 [[bin]]
 name = "bench_sovereign_dispatch"
 path = "src/bin/bench_sovereign_dispatch.rs"
+
+# ── Exp 070: BAR0 register dump (JSON output for backend matrix) ──
+[[bin]]
+name = "exp070_register_dump"
+path = "src/bin/exp070_register_dump.rs"
+
+# ── Exp 070: Register diff analysis (cold vs warm backend comparison) ──
+[[bin]]
+name = "exp070_register_diff"
+path = "src/bin/exp070_register_diff.rs"
 

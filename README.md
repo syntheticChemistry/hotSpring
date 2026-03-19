@@ -32,7 +32,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 
 ---
 
-## Current Status (2026-03-16, post-Exp 069)
+## Current Status (2026-03-19, post-Exp 070)
 
 | Study | Status | Quantitative Checks |
 |-------|--------|-------------------|
@@ -83,6 +83,9 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **NPU HW Quantization** | ✅ Complete | 4/4 on AKD1000: f32/int8/int4/act4 cascade, 685μs/inference |
 | **NPU Lattice Phase** | ✅ 7/8 | β_c=5.715 on AKD1000, ESN 100% CPU, int4 NPU 60% (marginal as expected) |
 | **Titan V NVK** | ✅ Complete | NVK built from Mesa 25.1.5. `cpu_gpu_parity` 6/6, `stanton_murillo` 40/40, `bench_gpu_fp64` pass |
+| **Ember Architecture** | ✅ Complete | Immortal VFIO fd holder (`coral-ember`): `SCM_RIGHTS` fd passing, atomic `swap_device` RPC, DRM isolation preflight, external fd holder detection. Zero-crash driver hot-swap on live system |
+| **DRM Isolation** | ✅ Complete | Xorg `AutoAddGPU=false` + udev seat tag removal (61-prefix) prevents compositor crash during driver swaps. Compute GPUs fully invisible to display manager |
+| **Dual Titan Backend Matrix** (Exp 070) | 🔄 Active | Both Titans on GlowPlug/Ember. vfio↔nouveau swap validated (oracle). Full backend matrix: vfio, nouveau, nvidia × 2 cards. Register diff infrastructure ready |
 | **GPU Streaming HMC** | ✅ Complete | 9/9 pass (4⁴→16⁴, streaming 67× CPU, dispatch parity, GPU PRNG) |
 | **GPU Streaming Dynamical** | ✅ Complete | 13/13 pass (dynamical fermion streaming, GPU-resident CG, bidirectional stream) |
 | **GPU-Resident CG** | ✅ Complete | 15,360× readback reduction, 30.7× speedup, α/β/rz GPU-resident |
@@ -128,7 +131,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **Sovereign Dispatch** (Exp 056) | ✅ Complete | Backend-agnostic `MdEngine<B: GpuBackend>` via `ComputeDispatch<B>`. wgpu validated (140.3 steps/s, correct energies). Sovereign DRM blocked (coral-driver ioctl gap). CPU-side energy sum bypasses ReduceScalarPipeline zero bug. Cross-spring shader evolution traced. |
 | **coralReef Ioctl Fix** (Exp 057) | ✅ Complete | 4 DRM ioctl struct ABI mismatches fixed (NouveauVmInit 32→16B, NouveauExec/VmBind field order, Channel pad). VM_INIT succeeds. CHANNEL_ALLOC blocked by missing Volta PMU firmware. GenericMdBackend: sovereign→wgpu auto-fallback. |
 | **hwLearn Integration** | ✅ Complete | toadStool `hw-learn` crate: vendor-neutral GPU learning (46 tests). sysmon `FirmwareInventory` probe. PrecisionBrain `fleet` module. biomeOS `compute.hardware.*` capabilities. AMD GFX10 gold-standard baseline. Fleet observer: Titan V blocked (PMU+GSP missing), RTX 3090 teacher (GSP), 40% learning confidence. |
-| **TOTAL** | **39/39 Rust validation suites** | **848 tests (lib)**, 115 binaries, 85 WGSL shaders, 34/35 NPU HW checks. Zero clippy (lib+bins), zero unsafe, all AGPL-3.0-only. Both GPUs validated, DF64 production, Nautilus unified brain, **live AKD1000 PCIe NPU: 12-head brain, barraCuda `7c1fd03a` v0.3.5 + toadStool S155b + hw-learn (46 tests) + coralReef Iter 47 synced**. **Precision brain: self-routing hardware calibration, NVVM poisoning discovered + gated, coralReef sovereign bypass integrated. Backend-agnostic MD engine: `MdEngine<B: GpuBackend>` via `ComputeDispatch<B>` — same code on wgpu/Vulkan and sovereign/DRM. Multi-backend dispatch: wgpu/Vulkan + coralReef sovereign + Kokkos reference. Hardware learning: `hw-learn` crate (observe→distill→apply), FirmwareInventory, LearningAdvisor, biomeOS `compute.hardware.*` routing. Sovereign GPU lifecycle: coral-glowplug boot-persistent PCIe daemon, VFIO-first boot, graceful shutdown (Exp 069).** Science ladder: Quenched ✅ → Gradient Flow ✅ → Integrators ✅ → N_f=4 Infra ✅ → **Chuna 44/44** (core 41/41, dynamical ext 3/3) → N_f=2 (pending) → N_f=2+1 (pending). Stability: Tier 1 COMPLETE (Exp 046). Deep debt: **zero**. |
+| **TOTAL** | **39/39 Rust validation suites** | **848 tests (lib)**, 115 binaries, 85 WGSL shaders, 34/35 NPU HW checks. Zero clippy (lib+bins), zero unsafe, all AGPL-3.0-only. Both GPUs validated, DF64 production, Nautilus unified brain, **live AKD1000 PCIe NPU: 12-head brain, barraCuda `7c1fd03a` v0.3.5 + toadStool S155b + hw-learn (46 tests) + coralReef Iter 47 synced**. **Precision brain: self-routing hardware calibration, NVVM poisoning discovered + gated, coralReef sovereign bypass integrated. Backend-agnostic MD engine: `MdEngine<B: GpuBackend>` via `ComputeDispatch<B>` — same code on wgpu/Vulkan and sovereign/DRM. Multi-backend dispatch: wgpu/Vulkan + coralReef sovereign + Kokkos reference. Hardware learning: `hw-learn` crate (observe→distill→apply), FirmwareInventory, LearningAdvisor, biomeOS `compute.hardware.*` routing. Sovereign GPU lifecycle: coral-glowplug boot-persistent PCIe daemon + coral-ember immortal VFIO fd holder, VFIO-first boot, graceful shutdown, DRM-isolated driver hot-swap (Exp 069-070).** Science ladder: Quenched ✅ → Gradient Flow ✅ → Integrators ✅ → N_f=4 Infra ✅ → **Chuna 44/44** (core 41/41, dynamical ext 3/3) → N_f=2 (pending) → N_f=2+1 (pending). Stability: Tier 1 COMPLETE (Exp 046). Deep debt: **zero**. |
 
 Papers 5, 7, 8, and 10 from the review queue are complete. Paper 5 transport fits
 (Daligault 2012) were recalibrated against 12 Sarkas Green-Kubo D* values (Feb 2026)
@@ -921,10 +924,11 @@ These are **silent failures** — wrong results, no error messages. This fragili
   - **Numerical parity**: identical physics to 1e-15 across both GPUs and both drivers. NPU int4 quantization error bounded at <30%.
   - VRAM headroom: <600 MB used at N=20,000 — estimated N≈400,000 before VRAM limits.
   - Adapter selection: `HOTSPRING_GPU_ADAPTER=titan` or `=4070` or `=0`/`=1` (see `gpu/` module docs).
-- **biomeGate (semi-mobile mini HPC)**: Threadripper 3970X (32c/64t), RTX 3090 (24GB) + Titan V (12GB HBM2), Akida NPU, 256 GB DDR4, 5TB NVMe.
-  - RTX 3090 (Ampere GA102): 24 GB enables 48⁴ dynamical fermion lattices GPU-resident (2× the 4070's 40⁴ max).
+- **biomeGate (semi-mobile mini HPC)**: Threadripper 3970X (32c/64t), RTX 5060 (16GB, display) + 2× Titan V (12GB HBM2 each), Akida NPU, 256 GB DDR4, 5TB NVMe.
+  - RTX 5060 (Blackwell): nvidia proprietary, display-only — **never managed by GlowPlug**.
+  - 2× Titan V (GV100): Both on `vfio-pci` at boot, managed by `coral-ember` (immortal VFIO fd holder) + `coral-glowplug` (PCIe lifecycle broker). Oracle (`0000:03:00.0`, IOMMU group 69) + Target (`0000:4a:00.0`, IOMMU group 34). Hot-swap between vfio/nouveau/nvidia via `device.swap` RPC.
+  - DRM isolation: Xorg `AutoAddGPU=false` + udev 61-prefix rules prevent display manager disruption during driver swaps.
   - Lab-deployable for extended compute runs. Node profile: `source metalForge/nodes/biomegate.env`.
-  - Same NVK setup for Titan V validated on Eastgate, documented in `metalForge/gpu/nvidia/NVK_SETUP.md`.
 - **Strandgate**: 64-core EPYC, 256 GB ECC. Full-scale DSF (N=10,000) CPU runs. RTX 3090 + RX 6950 XT (dual-vendor GPU).
 - **Northgate**: i9-14900K, RTX 5090. Single-thread comparison + AI/LLM compute.
 - **Southgate**: 5800X3D, RTX 3090. V-Cache neighbor list performance.
@@ -1000,6 +1004,7 @@ These are **silent failures** — wrong results, no error messages. This fragili
 | [`experiments/067_SEC2_EMEM_BREAKTHROUGH_AND_FALCON_RESET.md`](experiments/067_SEC2_EMEM_BREAKTHROUGH_AND_FALCON_RESET.md) | **SEC2 EMEM writable**; ACR runs from host IMEM; two falcon states |
 | [`experiments/068_FECS_DIRECT_EXECUTION_AND_PRIVRING_RECOVERY.md`](experiments/068_FECS_DIRECT_EXECUTION_AND_PRIVRING_RECOVERY.md) | **FECS executes from host-loaded IMEM** (PC=0x63EE/25KB); LS bypass on clean falcon; PRIVRING lesson |
 | [`experiments/069_GLOWPLUG_BOOT_PERSISTENCE_AND_SHUTDOWN_SAFETY.md`](experiments/069_GLOWPLUG_BOOT_PERSISTENCE_AND_SHUTDOWN_SAFETY.md) | **GlowPlug boot persistence + shutdown safety**: systemd service, IOMMU group binding, DRM render node oops (Cursor held nouveau fd), VFIO-first boot fix, graceful shutdown protocol |
+| [`experiments/070_DUAL_TITAN_BACKEND_MATRIX_REVERSE_ENGINEERING.md`](experiments/070_DUAL_TITAN_BACKEND_MATRIX_REVERSE_ENGINEERING.md) | **Dual Titan backend matrix**: 2×GV100 under GlowPlug/Ember, 8 backend configurations (vfio×nouveau×nvidia), register diff infrastructure, coral-ember immortal fd holder, DRM isolation, fail-safe swap architecture |
 | [`specs/BIOMEGATE_BRAIN_ARCHITECTURE.md`](specs/BIOMEGATE_BRAIN_ARCHITECTURE.md) | Brain architecture: 4-substrate concurrent pipeline, NPU steering, Nautilus Shell integration |
 | [`metalForge/README.md`](metalForge/README.md) | Hardware characterization — philosophy, inventory, directory |
 | [`metalForge/npu/akida/BEYOND_SDK.md`](metalForge/npu/akida/BEYOND_SDK.md) | **10 overturned SDK assumptions** — the discovery document |
@@ -1052,7 +1057,7 @@ transition at 32⁴ (χ=40.1 at β=5.69, matching β_c=5.692) in 13.6 hours for
 $0.58. Self-routing precision brain: hardware calibration probes 4 tiers per GPU,
 NVVM device poisoning discovered and gated, dual-GPU cooperative patterns profiled
 (Split BCS 2.2×, PCIe 1.2 GB/s). coralReef sovereign bypass integrated (Iter 28).
-69 experiments, 115 binaries, 848 tests,
+70 experiments, 115 binaries, 848 tests,
 barraCuda `7c1fd03a` v0.3.5 + toadStool S155b + coralReef Iter 47 synced. Full multi-tier precision stability analysis
 (Exp 046): 9 cancellation families audited across f32/DF64/f64/CKKS FHE —
 stable BCS v² and plasma W(z) algorithms enable safe DF64 throughput. Chuna

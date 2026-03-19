@@ -246,7 +246,7 @@ fn ulp_distance(a: f64, b: f64) -> f64 {
     (a_bits - b_bits).unsigned_abs() as f64
 }
 
-/// Simple element-wise test shader: output[i] = input[i] * input[i] + 1.0.
+/// Simple element-wise test shader: output\[i\] = input\[i\] * input\[i\] + 1.0.
 ///
 /// Useful for quick precision evaluation — the FMA pattern exercises
 /// precision differences between tiers.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Cross-Spring Evolution Benchmark
 //!
@@ -6,7 +6,7 @@
 //! toadStool/barracuda, benchmarks modern vs legacy paths, and documents
 //! the provenance of each shader/primitive.
 //!
-//! # Cross-Spring Shader Provenance (synced to toadStool S96, barraCuda v0.3.3)
+//! # Cross-Spring Shader Provenance (synced to barraCuda v0.3.5, coralReef Iter 54)
 //!
 //! | Op | Origin Spring | Session | Notes |
 //! |----|---------------|---------|-------|
@@ -29,6 +29,10 @@
 //! | Nuclear shaders (7) | hotSpring | S93+ | SEMF, chi2, deformed HFB, spin-orbit |
 //! | Bio HMM GPU | wetSpring+neuralSpring | S93 | Log-domain forward/backward |
 //! | FFT radix-2 GPU | groundSpring | S93 | Cooley-Tukey f64 butterfly |
+//! | **FmaPolicy** | hotSpring+coralReef | Iter30 | FMA contraction control for precision |
+//! | **Stable GPU specials** | wetSpring+hotSpring | Sprint2 | log1p, expm1, erfc, bessel_j0-1 |
+//! | **GemmF64 transpose** | neuralSpring | Sprint6 | A^T*B without materializing transpose |
+//! | **PrecisionTier+Domain** | hotSpring v0.6.25 | Sprint2 | F32/DF64/F64/F64Precise routing |
 
 use std::panic;
 use std::sync::Arc;
@@ -38,8 +42,9 @@ use barracuda::device::WgpuDevice;
 
 fn main() {
     println!("╔══════════════════════════════════════════════════════════════════╗");
-    println!("║  Cross-Spring Evolution Benchmark — barraCuda v0.3.3 / S96     ║");
+    println!("║  Cross-Spring Evolution Benchmark — barraCuda v0.3.5           ║");
     println!("║  hotSpring × wetSpring × neuralSpring × groundSpring           ║");
+    println!("║  + coralReef FMA policy + stable GPU specials + precision tiers ║");
     println!("║  → barraCuda (math is universal, precision is silicon)          ║");
     println!("╚══════════════════════════════════════════════════════════════════╝");
     println!();
@@ -54,6 +59,12 @@ fn main() {
 
     // Phase 1c: Neighbor table precompute (CPU)
     bench_neighbor_precompute();
+
+    // Phase 1d: FMA policy + precision tier routing (coralReef Iter 30)
+    bench_fma_precision_routing();
+
+    // Phase 1e: Stable GPU special functions (wetSpring+hotSpring)
+    bench_stable_specials_cpu();
 
     // Phase 2: GPU ops (if available)
     let gpu_device = rt.block_on(try_create_device());
@@ -107,6 +118,12 @@ fn main() {
             "Batched Nelder-Mead GPU",
             panic::AssertUnwindSafe(|| {
                 rt.block_on(bench_nelder_mead_gpu(&device));
+            }),
+        );
+        run_guarded(
+            "GemmF64 Transpose",
+            panic::AssertUnwindSafe(|| {
+                bench_gemm_transpose_gpu(&device);
             }),
         );
     } else {
@@ -630,6 +647,128 @@ fn bench_neighbor_precompute() {
     println!();
 }
 
+// ── Phase 1d: FMA Policy + Precision Tier Routing ──────────────────────────
+
+fn bench_fma_precision_routing() {
+    println!("═══ Phase 1d: FMA Policy + Precision Tier Routing ═══");
+    println!("  Provenance: hotSpring v0.6.25 precision brain → barraCuda Sprint 2");
+    println!("  coralReef Iter 30: FmaPolicy::Separate splits fma→mul+add for bit-exact QCD");
+    println!("  Cross-spring: all springs benefit from domain-aware precision routing");
+    println!();
+
+    use barracuda::device::fma_policy::{domain_requires_separate_fma, FmaPolicy};
+    use barracuda::device::precision_tier::{PhysicsDomain, PrecisionTier};
+
+    let domains = [
+        (PhysicsDomain::LatticeQcd, "LatticeQcd"),
+        (PhysicsDomain::GradientFlow, "GradientFlow"),
+        (PhysicsDomain::NuclearEos, "NuclearEOS"),
+        (PhysicsDomain::MolecularDynamics, "MolecularDynamics"),
+        (PhysicsDomain::Dielectric, "Dielectric"),
+        (PhysicsDomain::KineticFluid, "KineticFluid"),
+        (PhysicsDomain::Statistics, "Statistics"),
+        (PhysicsDomain::Bioinformatics, "Bioinformatics"),
+    ];
+
+    for (domain, label) in &domains {
+        let needs_separate = domain_requires_separate_fma(domain);
+        let policy = if needs_separate {
+            FmaPolicy::Separate
+        } else {
+            FmaPolicy::Contract
+        };
+        println!("  {label:20} → FMA={policy}, separate_required={needs_separate}");
+    }
+
+    println!();
+
+    let tiers = [
+        PrecisionTier::F32,
+        PrecisionTier::DF64,
+        PrecisionTier::F64,
+        PrecisionTier::F64Precise,
+    ];
+
+    for tier in &tiers {
+        println!(
+            "  {tier:12} → {bits} mantissa bits",
+            bits = tier.mantissa_bits()
+        );
+    }
+
+    println!();
+}
+
+// ── Phase 1e: Stable GPU Special Functions ─────────────────────────────────
+
+fn bench_stable_specials_cpu() {
+    println!("═══ Phase 1e: Stable GPU Special Functions (CPU reference) ═══");
+    println!("  Provenance: wetSpring+hotSpring → barraCuda Sprint 2");
+    println!("  Cross-spring: log1p/expm1/erfc/J₀-1 avoid catastrophic cancellation");
+    println!("  hotSpring uses: screened Coulomb (erfc), dielectric (log1p), BCS (expm1)");
+    println!("  wetSpring uses: HMM log-domain (log1p), diversity (erfc)");
+    println!();
+
+    use barracuda::special::stable_gpu::{bessel_j0_minus1_f64, erfc_f64, expm1_f64, log1p_f64};
+
+    let n = 100_000;
+
+    let t = Instant::now();
+    let mut sum = 0.0_f64;
+    for i in 0..n {
+        sum += log1p_f64(f64::from(i) * 1e-10);
+    }
+    let us = t.elapsed().as_micros();
+    println!("  log1p(x)      : {n} evals in {us}µs — checksum={sum:.6e}");
+
+    let t = Instant::now();
+    sum = 0.0;
+    for i in 0..n {
+        sum += expm1_f64(f64::from(i) * 1e-10);
+    }
+    let us = t.elapsed().as_micros();
+    println!("  expm1(x)      : {n} evals in {us}µs — checksum={sum:.6e}");
+
+    let t = Instant::now();
+    sum = 0.0;
+    for i in 0..n {
+        let x = f64::from(i) / f64::from(n) * 6.0;
+        sum += erfc_f64(x);
+    }
+    let us = t.elapsed().as_micros();
+    println!("  erfc(x)       : {n} evals in {us}µs — checksum={sum:.6e}");
+
+    let t = Instant::now();
+    sum = 0.0;
+    for i in 0..n {
+        let x = f64::from(i) / f64::from(n) * 0.1;
+        sum += bessel_j0_minus1_f64(x);
+    }
+    let us = t.elapsed().as_micros();
+    println!("  J₀(x)-1       : {n} evals in {us}µs — checksum={sum:.6e}");
+
+    // Validate stable vs naive near cancellation
+    let x_small = 1e-14;
+    let stable = log1p_f64(x_small);
+    let naive = (1.0 + x_small).ln();
+    let rel_err = if stable.abs() > 0.0 {
+        ((stable - naive) / stable).abs()
+    } else {
+        0.0
+    };
+    println!();
+    println!("  Cancellation test: log1p(1e-14)={stable:.6e}, ln(1+1e-14)={naive:.6e}, rel_err={rel_err:.2e}");
+    println!(
+        "  → stable wins: {}",
+        if rel_err < 1e-10 {
+            "both accurate at this level"
+        } else {
+            "stable avoids cancellation"
+        }
+    );
+    println!();
+}
+
 // ── Phase 2d: Stress Virial GPU ─────────────────────────────────────────────
 
 fn bench_stress_virial_gpu(device: &Arc<WgpuDevice>) {
@@ -728,6 +867,58 @@ async fn bench_nelder_mead_gpu(device: &Arc<WgpuDevice>) {
         };
 
         println!("  n={n_problems:>5}, dims={dims}: {ms:.1}ms [{status}]");
+    }
+    println!();
+}
+
+// ── Phase 2f: GemmF64 Transpose (neuralSpring → barraCuda Sprint 6) ─────────
+
+fn bench_gemm_transpose_gpu(device: &Arc<WgpuDevice>) {
+    println!("═══ Phase 2f: GemmF64 Transpose (barracuda::ops::linalg::GemmF64) ═══");
+    println!("  Provenance: neuralSpring Tikhonov/least-squares → barraCuda Sprint 6");
+    println!("  Cross-spring: A^T*B without materializing transpose — Gram matrices,");
+    println!("    normal equations, covariance. Used by neuralSpring regression,");
+    println!("    hotSpring surrogate fitting, groundSpring least-squares");
+    println!();
+
+    use barracuda::ops::linalg::gemm_f64::GemmF64;
+
+    for &(m, k, n) in &[(64_usize, 128, 32), (256, 512, 64), (512, 1024, 128)] {
+        let a: Vec<f64> = (0..m * k).map(|i| (i as f64 * 0.01).sin()).collect();
+        let b: Vec<f64> = (0..k * n).map(|i| (i as f64 * 0.02).cos()).collect();
+
+        // Standard A*B
+        let t = Instant::now();
+        let result_ab = GemmF64::execute(Arc::clone(device), &a, &b, m, k, n, 1);
+        let ms_ab = t.elapsed().as_secs_f64() * 1000.0;
+
+        // A^T*B (storage: k×m, logically transposed to m×k, then multiplied by k×n)
+        let a_for_trans: Vec<f64> = (0..k * m).map(|i| (i as f64 * 0.01).sin()).collect();
+        let t = Instant::now();
+        let result_atb = GemmF64::execute_gemm_ex(
+            Arc::clone(device),
+            &a_for_trans,
+            &b,
+            m,
+            k,
+            n,
+            1,
+            1.0,
+            0.0,
+            true,
+            false,
+        );
+        let ms_atb = t.elapsed().as_secs_f64() * 1000.0;
+
+        let ab_ok = result_ab
+            .as_ref()
+            .map_or_else(|e| format!("ERR: {e}"), |v| format!("ok, len={}", v.len()));
+        let atb_ok = result_atb
+            .as_ref()
+            .map_or_else(|e| format!("ERR: {e}"), |v| format!("ok, len={}", v.len()));
+        println!(
+            "  {m}×{k} * {k}×{n}: A*B={ms_ab:.1}ms [{ab_ok}] | A^T*B={ms_atb:.1}ms [{atb_ok}]"
+        );
     }
     println!();
 }
