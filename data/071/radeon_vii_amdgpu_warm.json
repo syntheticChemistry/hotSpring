@@ -1,0 +1,241 @@
+{
+  "vendor": "amd",
+  "arch": "GFX906",
+  "pci_id": "0x1002:0x66af",
+  "bdf": "0000:4c:00.0",
+  "timestamp": "2026-03-19T20:24:42Z",
+  "registers": [
+    {
+      "offset": "0x0001ac",
+      "name": "SMC_IND_INDEX_11",
+      "group": "SMC",
+      "value": "0x5d66c863",
+      "raw_offset": 428,
+      "raw_value": 1567017059
+    },
+    {
+      "offset": "0x0001b0",
+      "name": "SMC_IND_DATA_11",
+      "group": "SMC",
+      "value": "0x72a67b6d",
+      "raw_offset": 432,
+      "raw_value": 1923513197
+    },
+    {
+      "offset": "0x000394",
+      "name": "SRBM_SOFT_RESET",
+      "group": "SRBM",
+      "value": "0xc22962ad",
+      "raw_offset": 916,
+      "raw_value": 3257492141
+    },
+    {
+      "offset": "0x000600",
+      "name": "MMHUB_VM_BASE",
+      "group": "MMHUB",
+      "value": "0xcc73d5ab",
+      "raw_offset": 1536,
+      "raw_value": 3430143403
+    },
+    {
+      "offset": "0x0006a0",
+      "name": "MMMC_VM_FB_OFFSET",
+      "group": "MMHUB",
+      "value": "0x6a965a47",
+      "raw_offset": 1696,
+      "raw_value": 1788238407
+    },
+    {
+      "offset": "0x000e50",
+      "name": "SRBM_STATUS",
+      "group": "SRBM",
+      "value": "0xec0b3060",
+      "raw_offset": 3664,
+      "raw_value": 3960156256
+    },
+    {
+      "offset": "0x000e54",
+      "name": "SRBM_STATUS2",
+      "group": "SRBM",
+      "value": "0xe64f716c",
+      "raw_offset": 3668,
+      "raw_value": 3863966060
+    },
+    {
+      "offset": "0x002023",
+      "name": "MC_VM_FB_LOCATION_BASE",
+      "group": "MC",
+      "value": "0x748d3d2f",
+      "raw_offset": 8227,
+      "raw_value": 1955413295
+    },
+    {
+      "offset": "0x002024",
+      "name": "MC_VM_FB_LOCATION_TOP",
+      "group": "MC",
+      "value": "0x2b748d3d",
+      "raw_offset": 8228,
+      "raw_value": 729058621
+    },
+    {
+      "offset": "0x002025",
+      "name": "MC_VM_AGP_TOP",
+      "group": "MC",
+      "value": "0x912b748d",
+      "raw_offset": 8229,
+      "raw_value": 2435544205
+    },
+    {
+      "offset": "0x002026",
+      "name": "MC_VM_AGP_BOT",
+      "group": "MC",
+      "value": "0x13912b74",
+      "raw_offset": 8230,
+      "raw_value": 328280948
+    },
+    {
+      "offset": "0x002027",
+      "name": "MC_VM_AGP_BASE",
+      "group": "MC",
+      "value": "0x1413912b",
+      "raw_offset": 8231,
+      "raw_value": 336826667
+    },
+    {
+      "offset": "0x00263e",
+      "name": "GB_ADDR_CONFIG",
+      "group": "GC",
+      "value": "0x8c9d286c",
+      "raw_offset": 9790,
+      "raw_value": 2359109740
+    },
+    {
+      "offset": "0x002640",
+      "name": "GB_BACKEND_MAP",
+      "group": "GC",
+      "value": "0xa3238c9d",
+      "raw_offset": 9792,
+      "raw_value": 2737015965
+    },
+    {
+      "offset": "0x004d00",
+      "name": "SDMA0_STATUS_REG",
+      "group": "SDMA0",
+      "value": "0x46814519",
+      "raw_offset": 19712,
+      "raw_value": 1182876953
+    },
+    {
+      "offset": "0x005900",
+      "name": "SDMA1_STATUS_REG",
+      "group": "SDMA1",
+      "value": "0x0c84c51a",
+      "raw_offset": 22784,
+      "raw_value": 210027802
+    },
+    {
+      "offset": "0x008008",
+      "name": "GRBM_STATUS2",
+      "group": "GRBM",
+      "value": "0xba5d3959",
+      "raw_offset": 32776,
+      "raw_value": 3126671705
+    },
+    {
+      "offset": "0x008010",
+      "name": "GRBM_STATUS",
+      "group": "GRBM",
+      "value": "0xf95d157b",
+      "raw_offset": 32784,
+      "raw_value": 4183627131
+    },
+    {
+      "offset": "0x008020",
+      "name": "GRBM_SOFT_RESET",
+      "group": "GRBM",
+      "value": "0x4f602515",
+      "raw_offset": 32800,
+      "raw_value": 1331701013
+    },
+    {
+      "offset": "0x008090",
+      "name": "GRBM_STATUS_SE0",
+      "group": "GRBM",
+      "value": "0x83fd1ffe",
+      "raw_offset": 32912,
+      "raw_value": 2214404094
+    },
+    {
+      "offset": "0x008094",
+      "name": "GRBM_STATUS_SE1",
+      "group": "GRBM",
+      "value": "0x8fbd1fff",
+      "raw_offset": 32916,
+      "raw_value": 2411536383
+    },
+    {
+      "offset": "0x008098",
+      "name": "GRBM_STATUS_SE2",
+      "group": "GRBM",
+      "value": "0xb8cd8f5a",
+      "raw_offset": 32920,
+      "raw_value": 3100479322
+    },
+    {
+      "offset": "0x00809c",
+      "name": "GRBM_STATUS_SE3",
+      "group": "GRBM",
+      "value": "0xb58c8d5f",
+      "raw_offset": 32924,
+      "raw_value": 3045887327
+    },
+    {
+      "offset": "0x008680",
+      "name": "CP_STAT",
+      "group": "CP",
+      "value": "0xbbc5ba78",
+      "raw_offset": 34432,
+      "raw_value": 3150297720
+    },
+    {
+      "offset": "0x008684",
+      "name": "CP_ME_CNTL",
+      "group": "CP",
+      "value": "0xb7a13a7d",
+      "raw_offset": 34436,
+      "raw_value": 3080796797
+    },
+    {
+      "offset": "0x0086c4",
+      "name": "CP_RB_BUFSZ",
+      "group": "CP",
+      "value": "0xaf853a3c",
+      "raw_offset": 34500,
+      "raw_value": 2944743996
+    },
+    {
+      "offset": "0x00ec10",
+      "name": "RLC_CNTL",
+      "group": "RLC",
+      "value": "0x0efdd4bc",
+      "raw_offset": 60432,
+      "raw_value": 251516092
+    },
+    {
+      "offset": "0x00ec14",
+      "name": "RLC_STAT",
+      "group": "RLC",
+      "value": "0x02bd94b8",
+      "raw_offset": 60436,
+      "raw_value": 45978808
+    },
+    {
+      "offset": "0x00ec18",
+      "name": "RLC_GPM_STAT",
+      "group": "RLC",
+      "value": "0x3dc44618",
+      "raw_offset": 60440,
+      "raw_value": 1036273176
+    }
+  ]
+}
