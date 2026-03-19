@@ -1,12 +1,12 @@
 # coralReef GlowPlug daemon configuration
-# Dual Titan V setup: one VFIO target, one nouveau oracle
+# Dual Titan V setup: BOTH on GlowPlug, BOTH vfio at boot (stability invariant)
 
 [daemon]
 socket = "/run/coralreef/glowplug.sock"
 log_level = "info"
 health_interval_ms = 5000
 
-# VFIO target — sovereign compute card
+# Titan V target — sovereign compute card (4a:00.0)
 [[device]]
 bdf = "0000:4a:00.0"
 name = "titan-v-target"
@@ -14,12 +14,12 @@ boot_personality = "vfio"
 power_policy = "always_on"
 role = "compute"
 
-# Nouveau oracle — warm reference card
-# Uncomment to manage both cards:
-# [[device]]
-# bdf = "0000:03:00.0"
-# name = "titan-v-oracle"
-# boot_personality = "nouveau"
-# power_policy = "always_on"
-# role = "oracle"
-# oracle_dump = "/home/biomegate/Development/ecoPrimals/hotSpring/data/oracle_nouveau_warm.txt"
+# Titan V oracle — warm reference when swapped to nouveau (03:00.0)
+# Both stay vfio at boot — DRM kernel oops if nouveau boots on non-display GPU
+[[device]]
+bdf = "0000:03:00.0"
+name = "titan-v-oracle"
+boot_personality = "vfio"
+power_policy = "always_on"
+role = "oracle"
+oracle_dump = "/home/biomegate/Development/ecoPrimals/hotSpring/data/oracle_nouveau_warm.txt"
