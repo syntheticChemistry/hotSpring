@@ -108,3 +108,6 @@ pub mod ttm;
 pub mod validation;
 /// Workload planner for heterogeneous dual-GPU dispatch.
 pub mod workload_planner;
+
+/// Vendor-agnostic register maps for GPU reverse engineering.
+pub mod register_maps;

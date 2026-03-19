@@ -55,6 +55,20 @@ groundSpring (noise, stats, hydrology)
   └─ Jackknife resampling ───────→ hotSpring bootstrap CI, wetSpring population stats
 ```
 
+### Vendor-Agnostic Register Maps (Mar 18, 2026)
+
+New `src/register_maps/` module with `RegisterMap` trait for GPU introspection:
+
+| Component | Description |
+|-----------|-------------|
+| `RegisterMap` trait | `vendor()`, `arch()`, `registers()`, `decode_temp_c()`, `decode_boot_id()`, `thermal_offset()` |
+| `NvGv100Map` | 127 NVIDIA GV100 BAR0 registers (PMC, PBUS, PFIFO, PBDMA, PFB, FBHUB, PMU, PCLOCK, GR, FECS, GPCCS, LTC, FBPA, PRAMIN, THERM) |
+| `AmdGfx906Map` | AMD Vega 20 / MI50 registers (SRBM, GRBM, MMHUB, GFX, SDMA, IH, THM, SMN, HDP) |
+| `detect_register_map(vendor_id)` | Runtime vendor selection → `Box<dyn RegisterMap>` |
+| `RegisterDump` / `RegisterEntry` | Unified JSON output types with vendor field |
+
+**Absorption target**: This module belongs in barraCuda long-term. hotSpring will lean on upstream after absorption.
+
 ### Code Quality Improvements
 
 - `#![forbid(unsafe_code)]` added to lib.rs (compiler-enforced zero-unsafe)

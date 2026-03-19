@@ -1,7 +1,7 @@
 # Experiment 070: Dual-Titan Full Backend Matrix for Sovereign Reverse Engineering
 
-**Date**: March 18, 2026 (revised March 19, 2026)
-**Status**: PLANNED — Ready to execute with both Titans on GlowPlug
+**Date**: March 18, 2026 (executed March 19, 2026)
+**Status**: EXECUTED — Phases 1–4 complete, pipeline gap identified
 **Hardware**: 2x Titan V (GV100, SM70) — `0000:03:00.0` (oracle), `0000:4a:00.0` (target)
 **Prerequisite**: GlowPlug config updated (both on vfio at boot), Experiment 069
 **Desktop GPU**: RTX 5060 on nvidia — never managed by GlowPlug, always bound
@@ -313,6 +313,113 @@ still provide the complete register write list for this.
 
 In all cases, the experiment produces actionable data for closing the sovereign
 dispatch path.
+
+---
+
+## Execution Results (March 19, 2026)
+
+### Infrastructure Achieved
+
+- **DRM Isolation**: Xorg `AutoAddGPU=false` + udev rules (61-priority) prevent
+  compositor crashes during driver swaps. **Zero relogs** across all swaps.
+- **Ember Architecture**: All swaps via `device.swap` JSON-RPC through
+  `coral-glowplug` → `coral-ember` → sysfs. Atomic, deadlock-guarded.
+- **nvidia Personality**: Added to glowplug registry during execution (was missing).
+- **Ember fd Test Harness**: VFIO hardware tests updated to receive fds from ember
+  via SCM_RIGHTS (`NvVfioComputeDevice::open_from_fds`), fixing test/ember
+  coexistence. Stale IOVA recovery added to `DmaBuffer::new`.
+
+### Phase 1: Cold Baseline (Config A) — COMPLETE
+
+Both Titans cold on vfio after boot.
+
+| Register | Oracle (03:00.0) | Target (4a:00.0) | Notes |
+|----------|----------------:|----------------:|-------|
+| PMC_ENABLE | 0x5fecdff1 | 0x40000121 | Oracle pre-warmed by isolation test |
+| FECS_CPUCTL | 0x00000010 | 0xbadf1201 | Target truly cold: PRIV ring fault |
+| GPCCS GPC0 | 0x8780029f | 0xbadf1201 | Target: GR engine off |
+| PMU_CPUCTL | 0x00000010 | 0x00000020 | Different halt states |
+
+### Phase 2: nouveau Warm (Config B) — COMPLETE
+
+Cold → nouveau → vfio produces **33 register changes** (target):
+
+| Group | Changes | Key Finding |
+|-------|--------:|-------------|
+| PMC | 1 | `PMC_ENABLE` 0x40000121 → 0x5fecdff1 (all engines on) |
+| BAR | 2 | BAR1/BAR2 instance blocks programmed |
+| PFIFO | 3 | Interrupts enabled, PBDMA intr enabled |
+| PBDMA0 | 9 | GP_BASE, CHANNEL_STATE, SIGNATURE configured |
+| FECS | 4 | 0xbadf1201 → 0x00000010 (halted but accessible) |
+| GPCCS | 5 | GPC0 alive: BOOT0=0x8780029f, GR=0x32080a00 |
+| PMU | 3 | Boot vector set to 0x00010000 |
+| MMU | 4 | Fault buffers allocated, TLB programmed |
+
+### Phase 3: nvidia Warm (Config C) — COMPLETE
+
+**nvidia leaves GPU in SUB-COLD state on teardown**:
+
+| Group | Changes (vs nouveau-warm) | Key Finding |
+|-------|--------:|-------------|
+| PMC | 1 | 0x5fecdff1 → 0x40000020 (fewer engines than cold boot!) |
+| PFIFO | 23 | ALL registers → 0xbad0da00 (engine powered down) |
+| PBDMA | 29 | ALL → 0xbad0da00 (completely inaccessible) |
+| FECS | 4 | 0x00000010 → 0xbadf1201 (back to PRIV fault) |
+| GPCCS | 5 | 0x8780029f → 0xbadf3000 (powered off, different fault code) |
+| USERMODE | 5 | ALL → 0xbad00100 (engine off) |
+| PCCSR | 4 | ALL → 0xbad0da00 |
+
+**Conclusion**: nvidia proprietary is UNSUITABLE for warm-up. It aggressively
+powers down all engines on unbind, leaving a worse state than cold boot.
+**nouveau is the ONLY viable warm-up path.**
+
+### Phase 4: Warm → Rebind → Dispatch — COMPLETE
+
+After nouveau warm → vfio rebind, **FECS state survives** (0x00000010, accessible).
+All engine enables survive. VFIO hardware tests on warmed silicon:
+
+| Test | Result | Notes |
+|------|--------|-------|
+| vfio_open_and_bar0_read | ✅ PASS | Ember fd delivery works |
+| vfio_alloc_and_free | ✅ PASS | DMA allocation + IOMMU mapping |
+| vfio_upload_and_readback | ✅ PASS | Data round-trip through DMA |
+| vfio_multiple_buffers | ✅ PASS | Multiple concurrent DMA allocs |
+| vfio_free_invalid_handle | ✅ PASS | Error handling |
+| vfio_readback_invalid_handle | ✅ PASS | Error handling |
+| **vfio_dispatch_nop_shader** | ❌ **FENCE TIMEOUT** | FECS not consuming GPFIFO commands |
+
+Pre-dispatch GR status shows `fecs_halted=false, gr_en=true` — the GR engine
+is enabled and FECS is accessible, but the FECS falcon isn't running firmware
+(no instruction fetch = won't consume channel methods). This is the **MIDDLE CASE**.
+
+### Remaining Sovereign Pipeline Gap
+
+The register diffs and dispatch test conclusively identify **one remaining blocker**:
+
+**FECS/GPCCS Falcon Firmware**: nouveau loads signed firmware via SEC2/ACR
+and starts the falcons. When nouveau unbinds, the falcon hardware is accessible
+(registers read real values, not 0xbadf) but the microcode isn't executing
+(halted at PC=0x00000000). The GPFIFO is configured correctly (PFIFO/PBDMA/
+runlist/instance block all populated), but method packets require a running
+FECS to dispatch.
+
+**Options for Exp 071**:
+1. **ACR replay from VFIO**: Load ACR payloads into SEC2 EMEM, boot SEC2 → FECS
+   (builds on Exp 066/067/068)
+2. **Direct FECS IMEM load**: Write falcon microcode to FECS IMEM/DMEM and start
+   (requires HS-locked bypass or unsigned test firmware)
+3. **Pragmatic hybrid**: Keep nouveau warm-up as permanent first step, accept
+   that sovereign dispatch = `ember warm cycle → vfio rebind → dispatch`
+
+### wgpu/Vulkan Benchmark (RTX 5060)
+
+Yukawa OCP MD: 2000 particles, κ=2, Γ=160, 7000 total steps
+
+| Backend | Wall (s) | Steps/s | Final KE | Final PE |
+|---------|-------:|-------:|-------:|-------:|
+| wgpu/Vulkan (RTX 5060) | 46.77 | 149.7 | 14.3381 | 230.2525 |
+
+Physics validated. f64 shaders operational on RTX 5060 via wgpu.
 
 ---
 

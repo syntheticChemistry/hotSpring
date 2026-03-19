@@ -86,6 +86,8 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **Ember Architecture** | ✅ Complete | Immortal VFIO fd holder (`coral-ember`): `SCM_RIGHTS` fd passing, atomic `swap_device` RPC, DRM isolation preflight, external fd holder detection. Zero-crash driver hot-swap on live system |
 | **DRM Isolation** | ✅ Complete | Xorg `AutoAddGPU=false` + udev seat tag removal (61-prefix) prevents compositor crash during driver swaps. Compute GPUs fully invisible to display manager |
 | **Dual Titan Backend Matrix** (Exp 070) | 🔄 Active | Both Titans on GlowPlug/Ember. vfio↔nouveau swap validated (oracle). Full backend matrix: vfio, nouveau, nvidia × 2 cards. Register diff infrastructure ready |
+| **Vendor-Agnostic GlowPlug** | ✅ Complete | coral-ember standalone crate. RegisterMap trait (GV100 + GFX906/MI50). AMD MI50 HBM2 swap path. Typed EmberError. Legacy sysfs gated behind `no-ember` feature. coralctl CLI |
+| **Privilege Hardening** | ✅ Complete | Capabilities + seccomp + namespaces. `ProtectSystem=strict`, `SystemCallFilter`, `MemoryDenyWriteExecute`, `NoNewPrivileges`. coralctl deploy-udev generates rules from config |
 | **GPU Streaming HMC** | ✅ Complete | 9/9 pass (4⁴→16⁴, streaming 67× CPU, dispatch parity, GPU PRNG) |
 | **GPU Streaming Dynamical** | ✅ Complete | 13/13 pass (dynamical fermion streaming, GPU-resident CG, bidirectional stream) |
 | **GPU-Resident CG** | ✅ Complete | 15,360× readback reduction, 30.7× speedup, α/β/rz GPU-resident |

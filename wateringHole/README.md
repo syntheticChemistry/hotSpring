@@ -2,7 +2,7 @@
 
 **Project:** hotSpring (ecoPrimals)
 **Last Updated:** March 19, 2026
-**Status:** ACTIVE — Ember architecture live, DRM isolation implemented, Exp 070 in progress
+**Status:** ACTIVE — Vendor-agnostic hardened GlowPlug, coral-ember crate extraction, AMD MI50 support, privilege hardening complete
 
 ---
 
@@ -48,7 +48,7 @@ caused the display manager (GDM/Mutter) to restart the session. Fixed with:
 
 Boot scripts in `coralReef/scripts/boot/` for version control.
 
-### coralReef Delivery Status (3 remaining of original 7)
+### coralReef Delivery Status (1 remaining of original 7)
 
 | Task | Priority | Status |
 |------|----------|--------|
@@ -56,9 +56,9 @@ Boot scripts in `coralReef/scripts/boot/` for version control.
 | ~~Trait-based personality system~~ | ~~P3~~ | **DELIVERED** (Iter 52, `GpuPersonality`) |
 | ~~SCM_RIGHTS fd passing~~ | ~~P2~~ | **DELIVERED** (Ember architecture, Mar 19) |
 | ~~DRM consumer fence~~ | ~~P4~~ | **DELIVERED** (DRM isolation + Ember preflight, Mar 19) |
-| AMD Vega metal (MI50/GFX906) | P1 | **IN PROGRESS** (registers defined, Iter 52-57) |
+| ~~AMD Vega metal (MI50/GFX906)~~ | ~~P1~~ | **DELIVERED** (registers defined, personality fixed, swap path works, Mar 18) |
 | GP_PUT DMA read (Exp 058) | P2 | Pending (cache flush experiment in Iter 57) |
-| Privilege model (CAP_SYS_ADMIN) | P3 | Pending |
+| ~~Privilege model (CAP_SYS_ADMIN)~~ | ~~P3~~ | **DELIVERED** (capabilities + seccomp + namespaces, Mar 18) |
 
 ### toadStool Delivery Status (3 remaining, now UNBLOCKED)
 
@@ -87,7 +87,9 @@ IPC-first design works cleanly. hotSpring's 848 tests confirm stability at `b95e
 
 | File | Date | Audience | What To Do |
 |------|------|----------|------------|
-| [`HOTSPRING_EMBER_DRM_ISOLATION_HANDOFF_MAR19_2026.md`](handoffs/HOTSPRING_EMBER_DRM_ISOLATION_HANDOFF_MAR19_2026.md) | Mar 19 | coralReef, toadStool | **START HERE.** Ember architecture, DRM isolation, fail-safe swap protocol, boot scripts. Supersedes SCM_RIGHTS and DRM fence items from PIN handoff. |
+| [`HOTSPRING_VENDOR_AGNOSTIC_HARDENED_GLOWPLUG_HANDOFF_MAR18_2026.md`](handoffs/HOTSPRING_VENDOR_AGNOSTIC_HARDENED_GLOWPLUG_HANDOFF_MAR18_2026.md) | Mar 18 | coralReef, toadStool, barraCuda | **START HERE.** Vendor-agnostic RegisterMap, AMD MI50 support, coral-ember crate split, typed EmberError, privilege hardening (caps+seccomp), coralctl deploy-udev. Supersedes Ember+DRM and privilege items from PIN handoff. |
+| [`HOTSPRING_REGISTER_MAPS_ABSORPTION_HANDOFF_MAR18_2026.md`](handoffs/HOTSPRING_REGISTER_MAPS_ABSORPTION_HANDOFF_MAR18_2026.md) | Mar 18 | barraCuda, toadStool | RegisterMap trait absorption path, GlowPlug register RPCs for hw-learn, sovereign dispatch blockers, AMD vs NVIDIA VFIO lessons. |
+| [`HOTSPRING_EMBER_DRM_ISOLATION_HANDOFF_MAR19_2026.md`](handoffs/HOTSPRING_EMBER_DRM_ISOLATION_HANDOFF_MAR19_2026.md) | Mar 19 | coralReef, toadStool | Ember architecture, DRM isolation, fail-safe swap protocol, boot scripts. |
 | [`HOTSPRING_PIN_PRIMAL_EVOLUTION_HANDOFF_MAR16_2026.md`](handoffs/HOTSPRING_PIN_PRIMAL_EVOLUTION_HANDOFF_MAR16_2026.md) | Mar 16 | coralReef, toadStool | Per-primal task list. SCM_RIGHTS and DRM fence now DELIVERED via Ember. Remaining: AMD Vega metal, GP_PUT, privilege model. |
 | [`HOTSPRING_V0632_TRIO_REWIRE_HANDOFF_MAR13_2026.md`](handoffs/HOTSPRING_V0632_TRIO_REWIRE_HANDOFF_MAR13_2026.md) | Mar 13 | All | Trio pins: barraCuda `b95e9c59`, coralReef Iter 47→52, toadStool S147→S156. Stale API cleanup documented. |
 
@@ -117,12 +119,12 @@ IPC-first design works cleanly. hotSpring's 848 tests confirm stability at `b95e
 
 | # | Gap | Owner | Reference |
 |---|-----|-------|-----------|
-| 5 | AMD Vega metal (MI50) | coralReef (in progress) | PIN handoff, P1, Iter 57 |
+| ~~5~~ | ~~AMD Vega metal (MI50)~~ | ~~coralReef~~ | **DELIVERED** — registers, personality, swap path (Mar 18) |
 | ~~6~~ | ~~SCM_RIGHTS fd passing~~ | ~~coralReef~~ | **DELIVERED** — Ember architecture (Mar 19) |
 | ~~7~~ | ~~DRM consumer fence~~ | ~~coralReef~~ | **DELIVERED** — DRM isolation + preflight (Mar 19) |
 | 8 | GlowPlug socket client | toadStool (unblocked) | PIN handoff |
 | 9 | VFIO device in sysmon | toadStool (partial) | PIN handoff |
-| 10 | Privilege model (CAP_SYS_ADMIN) | coralReef | PIN handoff, P5 |
+| ~~10~~ | ~~Privilege model (CAP_SYS_ADMIN)~~ | ~~coralReef~~ | **DELIVERED** — caps + seccomp + namespaces (Mar 18) |
 
 ### Research (long-horizon)
 
@@ -175,15 +177,17 @@ GlowPlug client wiring is the main remaining integration.
 
 ### For coralReef
 
-SCM_RIGHTS and DRM fencing are now **DELIVERED** via the Ember architecture.
-Top priority: finish AMD Vega metal and GP_PUT DMA read.
+SCM_RIGHTS, DRM fencing, AMD Vega metal, and privilege model are all **DELIVERED**.
+Top remaining priority: GP_PUT DMA read (Exp 058, cache flush experiment).
 
 **Ember architecture** (`coral-ember` + `coral-glowplug`):
-- `coral-ember` holds original VFIO fds forever, passes duplicates via `SCM_RIGHTS`
-- `coral-glowplug` manages device lifecycle, delegates all sysfs unbind/bind to Ember
+- `coral-ember` is now a **standalone workspace crate** (`crates/coral-ember/`) with modular `sysfs`, `swap`, `hold`, `ipc` modules
+- `coral-glowplug` has a **library surface** (`src/lib.rs`) with typed `EmberError` — importable by toadStool
 - `swap_device` RPC is the single atomic orchestrator — no external sysfs writes
-- DRM isolation preflight blocks swaps if Xorg/udev configs are missing
-- Boot scripts: `scripts/boot/11-coralreef-gpu-isolation.conf`, `61-coralreef-drm-ignore.rules`
+- **Vendor-agnostic**: AMD MI50 swap path works identically to NVIDIA (amdgpu↔vfio, nouveau↔vfio)
+- **Hardened**: capabilities + seccomp + namespaces + `NoNewPrivileges`
+- **coralctl**: `deploy-udev` generates `/dev/vfio/*` rules from config — zero hardcoded BDFs
+- Legacy sysfs fallbacks gated behind `#[cfg(feature = "no-ember")]` — default build requires ember
 
 Register references are in the falcon and PFIFO handoffs. Do NOT PMC-toggle
 GR bit 12 on GV100. Do NOT change `boot_personality = "vfio"` in glowplug.toml.

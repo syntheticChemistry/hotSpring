@@ -40,7 +40,7 @@ clients (socat, toadStool, experiments)
 
 | File | Purpose |
 |------|---------|
-| `coralReef/crates/coral-glowplug/src/bin/coral_ember.rs` | Ember daemon — fd holder + swap orchestrator |
+| `coralReef/crates/coral-ember/src/main.rs` | Ember daemon — fd holder + swap orchestrator (extracted to standalone crate Mar 18) |
 | `coralReef/crates/coral-glowplug/src/ember.rs` | EmberClient — glowplug's connection to Ember |
 | `coralReef/crates/coral-glowplug/src/device.rs` | DeviceSlot::swap() — delegates to Ember |
 | `coralReef/scripts/boot/11-coralreef-gpu-isolation.conf` | Xorg isolation config |

@@ -1,24 +1,30 @@
 [Unit]
 Description=coralReef GlowPlug — Sovereign PCIe Device Lifecycle Broker
-After=vfio-pci.target systemd-modules-load.service
-Wants=vfio-pci.target
+After=coral-ember.service
+Wants=coral-ember.service
 
 [Service]
 Type=notify
 NotifyAccess=all
-ExecStart=/home/biomegate/Development/ecoPrimals/coralReef/target/release/coral-glowplug --config /etc/coralreef/glowplug.toml
+ExecStart=/usr/local/bin/coral-glowplug --config /etc/coralreef/glowplug.toml
 RuntimeDirectory=coralreef
 RuntimeDirectoryMode=0755
 Environment=RUST_LOG=info
 
-# Hardening
-ProtectHome=read-only
-ProtectSystem=strict
-ReadWritePaths=/sys/bus/pci /run/coralreef /dev/vfio
-PrivateTmp=yes
-NoNewPrivileges=no
+CapabilityBoundingSet=CAP_SYS_ADMIN CAP_SYS_RAWIO CAP_DAC_OVERRIDE
+AmbientCapabilities=CAP_SYS_ADMIN CAP_SYS_RAWIO CAP_DAC_OVERRIDE
+NoNewPrivileges=true
 
-# Restart on failure
+ProtectSystem=strict
+ReadWritePaths=/sys/bus/pci /run/coralreef /proc
+ReadOnlyPaths=/etc/coralreef /sys/kernel/iommu_groups
+PrivateTmp=true
+ProtectHome=true
+
+SystemCallFilter=@system-service ioctl recvmsg
+SystemCallErrorNumber=EPERM
+MemoryDenyWriteExecute=true
+
 Restart=on-failure
 RestartSec=3
 
