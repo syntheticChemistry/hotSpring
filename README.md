@@ -32,7 +32,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 
 ---
 
-## Current Status (2026-03-19, post-Exp 070)
+## Current Status (2026-03-20, post-Exp 070)
 
 | Study | Status | Quantitative Checks |
 |-------|--------|-------------------|
@@ -88,6 +88,10 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **Dual Titan Backend Matrix** (Exp 070) | 🔄 Active | Both Titans on GlowPlug/Ember. vfio↔nouveau swap validated (oracle). Full backend matrix: vfio, nouveau, nvidia × 2 cards. Register diff infrastructure ready |
 | **Vendor-Agnostic GlowPlug** | ✅ Complete | coral-ember standalone crate. RegisterMap trait (GV100 + GFX906/MI50). AMD MI50 HBM2 swap path. Typed EmberError. Legacy sysfs gated behind `no-ember` feature. coralctl CLI |
 | **Privilege Hardening** | ✅ Complete | Capabilities + seccomp + namespaces. `ProtectSystem=strict`, `SystemCallFilter`, `MemoryDenyWriteExecute`, `NoNewPrivileges`. coralctl deploy-udev generates rules from config |
+| **VendorLifecycle Trait** | ✅ Complete | Vendor-specific swap hooks (NVIDIA, AMD Vega 20, AMD RDNA, Intel Xe, BrainChip, Generic). AMD D3cold fully characterized — 1 round-trip/boot hardware limit (Vega 20 SMU). PmResetAndBind + stabilize_after_bind. Intel Xe/i915 stubs. 157 tests pass |
+| **AMD D3cold Resolution** | ✅ Characterized | 4 strategies tested across 4 boot cycles. Vega 20 SMU firmware limitation: one vfio→amdgpu cycle per boot. `amdgpu.runpm=0` kernel param, `stabilize_after_bind()` hook, PM power cycle strategy deployed. Clean shutdowns achieved |
+| **BrainChip Akida NPU** | ✅ Complete | AKD1000 (0x1e7c:0xbca1) fully integrated. `BrainChipLifecycle`, `AkidaPersonality`, `akida-pcie` driver swap. Unlimited round-trips, SimpleBind, no DRM. Proves GlowPlug works for any PCIe device |
+| **Zero-Sudo coralctl** | ✅ Complete | `coralreef` unix group, socket permissions (root:coralreef 0660). Users join group for full RPC access — no sudo/pkexec for any coralctl operation |
 | **GPU Streaming HMC** | ✅ Complete | 9/9 pass (4⁴→16⁴, streaming 67× CPU, dispatch parity, GPU PRNG) |
 | **GPU Streaming Dynamical** | ✅ Complete | 13/13 pass (dynamical fermion streaming, GPU-resident CG, bidirectional stream) |
 | **GPU-Resident CG** | ✅ Complete | 15,360× readback reduction, 30.7× speedup, α/β/rz GPU-resident |

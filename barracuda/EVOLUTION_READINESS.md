@@ -69,6 +69,36 @@ New `src/register_maps/` module with `RegisterMap` trait for GPU introspection:
 
 **Absorption target**: This module belongs in barraCuda long-term. hotSpring will lean on upstream after absorption.
 
+### Triangle Architecture + VendorProfile Convergence (Mar 20, 2026)
+
+The compute trio now operates as a triangle (coralReef ↔ toadStool ↔ barraCuda).
+barraCuda's `RegisterMap` trait and coralReef's `VendorLifecycle` trait both dispatch
+from PCI vendor IDs — these should converge into a unified `VendorProfile`:
+
+```
+VendorProfile
+  ├── RegisterMap      (hardware introspection: registers, temp decode, boot ID)
+  ├── VendorLifecycle  (swap orchestration: rebind strategy, settle times, health)
+  └── ShaderISA        (compilation hints: wave size, subgroup ops, FMA policy)
+```
+
+This convergence is the trio's next evolution priority. barraCuda owns the math,
+but it needs to know what hardware is available (via toadStool, which queries
+coralReef GlowPlug). The triangle data flow:
+
+```
+barraCuda: "I need DF64 matrix multiply on 16GB HBM2"
+  → toadStool: "Radeon VII available, compiling shader..."
+    → coralReef: WGSL → SPIR-V, vendor-optimized
+  → toadStool: submit to hardware
+  → barraCuda: receives results, validates physics
+```
+
+**BrainChip Akida NPU** (0x1e7c:0xbca1) is now integrated into GlowPlug with
+`BrainChipLifecycle` and `AkidaPersonality`. This proves the lifecycle system
+handles any PCIe device, not just GPUs. The `RegisterMap` trait could be
+extended to cover NPU register spaces for hardware telemetry.
+
 ### Code Quality Improvements
 
 - `#![forbid(unsafe_code)]` added to lib.rs (compiler-enforced zero-unsafe)
