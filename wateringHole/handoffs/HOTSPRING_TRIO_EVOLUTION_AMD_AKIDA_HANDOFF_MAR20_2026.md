@@ -51,12 +51,30 @@ The `trn=2 ACK should not assert` kernel error is the SMU's training mailbox fai
 | `reset_method=""` in `prepare_for_unbind()` | coral-ember | Prevents vfio-pci bus reset on fd close |
 | `pin_bridge_power()` | coral-ember | Prevents upstream PCIe bridges from power-gating |
 | `PmResetAndBind` strategy | coral-ember | PM power cycle before native driver rebind |
+| `coralreef-amd-shutdown.service` | Systemd | Shutdown guard: unbinds AMD from amdgpu, parks on vfio-pci before kernel shutdown hooks |
+| `/usr/local/bin/coralreef-amd-shutdown-guard` | Shutdown | Timeout-wrapped unbind + vfio-pci park for each AMD device |
+
+### Shutdown Guard (Critical)
+
+The amdgpu driver's `.shutdown()` callback tries to send SMU power-down messages. If
+the SMU is in ANY degraded state (including after a round-trip, or even during normal
+shutdown on some firmware versions), these messages loop forever — `trn=2 ACK should not
+assert` repeated thousands of times, blocking kernel shutdown.
+
+**Fix: `coralreef-amd-shutdown.service`** — a systemd oneshot that runs `Before=shutdown.target`.
+On ExecStop, it:
+1. Checks each AMD device's `power_state`
+2. If D0 (healthy): unbinds from amdgpu (timeout 8s), parks on vfio-pci
+3. If D3cold (dead): skips (nothing userspace can do)
+4. Service has `TimeoutStopSec=15` — systemd proceeds regardless after 15s
+
+vfio-pci's shutdown path is silent — no SMU communication, no hang.
 
 ### Practical Guidance
 
 - **AMD Vega 20**: One vfio round-trip per boot is reliable. Plan workloads accordingly.
 - **AMD RDNA** (untested): Uses same conservative strategy. May behave differently — needs empirical validation.
-- **Clean shutdown**: With `amdgpu.runpm=0`, system shuts down cleanly (no SMU retry loop).
+- **Clean shutdown**: Shutdown guard parks AMD on vfio-pci automatically. `amdgpu.runpm=0` prevents runtime PM drift.
 
 ---
 
@@ -239,6 +257,8 @@ barraCuda: receives results, validates physics
 | `coralReef/crates/coral-glowplug/src/personality.rs` | `AkidaPersonality`, `Personality::Akida` |
 | `coralReef/crates/coral-glowplug/src/device.rs` | `akida-pcie` match arms |
 | `/etc/modprobe.d/coralreef-amd.conf` | `options amdgpu runpm=0` |
+| `/etc/systemd/system/coralreef-amd-shutdown.service` | Shutdown guard: parks AMD on vfio-pci before kernel shutdown |
+| `/usr/local/bin/coralreef-amd-shutdown-guard` | Timeout-wrapped AMD unbind + vfio-pci park script |
 | `/boot/efi/loader/entries/Pop_OS-current.conf` | `amdgpu.runpm=0` on kernel cmdline |
 | `/etc/coralreef/glowplug.toml` | 3 devices: titan-v, radeon-vii (4d:00.0), akida-npu |
 
