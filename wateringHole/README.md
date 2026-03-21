@@ -2,7 +2,7 @@
 
 **Project:** hotSpring (ecoPrimals)
 **Last Updated:** March 21, 2026
-**Status:** ACTIVE — Dual-track dispatch: sovereign VFIO (6/10 layers, MMU blocker) + DRM dispatch (**AMD GCN5 E2E PASSED** — WGSL → coral-reef → MI50 → 64/64 verified). NVIDIA EXEC coded/PMU-blocked, K80 incoming. 72 experiments. Naga DF64 poisoning bypass **validated end-to-end**. AMD D3cold characterized (1/boot Vega 20 limit), BrainChip Akida NPU integrated, zero-sudo coralctl
+**Status:** ACTIVE — Dual-track dispatch: sovereign VFIO (6/10 layers, MMU blocker) + DRM dispatch (**AMD GCN5 preswap: A/B/C PASS, D/E/F blocked by GLOBAL_LOAD GPU hang**). 12 coral-reef bugs fixed. NVIDIA EXEC coded/PMU-blocked, K80 incoming. 72 experiments. Naga DF64 poisoning bypass **validated end-to-end**. AMD D3cold characterized (1/boot Vega 20 limit), BrainChip Akida NPU integrated, zero-sudo coralctl
 
 ---
 
@@ -27,10 +27,15 @@ hotSpring is **active at v0.6.32** (848 tests, 0 clippy warnings, 72 experiments
 The sovereign GPU lifecycle is production-grade across 3 vendors + 1 NPU.
 **DRM dispatch achieved full E2E success on AMD GCN5** — WGSL → coral-reef compiler
 → coral-driver PM4 → MI50 GPU execution → readback verified (64/64 elements correct).
-The **Naga DF64 bypass is validated end-to-end**. 7 GCN5 encoding bugs found and
-fixed during the process (VOP3 opcode translation, wave64 dispatch, GLOBAL segment,
-SGPR mapping). **Sovereign command submission** is 6/10 layers deep (MMU page table
-translation blocker) — the DRM work feeds information back to the sovereign path.
+The **Naga DF64 bypass is validated end-to-end**. **12 GCN5 bugs found and fixed**
+(VOP3 opcode translation, wave64 dispatch, GLOBAL segment, SGPR mapping, flat_offset
+GFX9 clamping, OpF2F encoding, f64 literal VGPR pair materialization, S_WAITCNT after
+GLOBAL_LOAD, L1+L2 cache invalidation before dispatch). **Preswap validation status:
+Phases A/B/C PASS (f64 write, f64 arithmetic, multi-workgroup), Phases D/E/F blocked
+by GLOBAL_LOAD GPU hang** — all variants exhausted (GLC, FLAT, SADDR, load-only,
+GTT/VRAM memory domains, cache invalidation). The hang is likely a missing PM4 register
+configuration that Mesa/RADV sets but coral-driver doesn't. **Sovereign command
+submission** is 6/10 layers deep (MMU page table translation blocker).
 
 ### Hardware (biomeGate, March 20, 2026)
 
@@ -96,9 +101,11 @@ for unified `VendorProfile` in the trio triangle architecture.
 1. ~~**AMD NOP dispatch**~~ — **PASSED** (March 21)
 2. ~~**GCN5 backend in coral-reef**~~ — **COMPLETE** — `Gcn5` arch, `ShaderModelRdna2` parameterized by GFX version, VOP3 opcode translation table (LLVM-validated), wave64 dispatch, GLOBAL segment, ACQUIRE_MEM L2 flush
 3. ~~**GCN5 E2E compute dispatch**~~ — **PASSED** (March 21) — WGSL → coral-reef → coral-driver PM4 → MI50 → 64/64 readback verified. Naga bypass validated.
-4. **DF64 Lennard-Jones via DRM** — next milestone. Compile and dispatch f64 force kernel through coral-reef → coral-driver
-5. **K80 NVIDIA DRM** — legacy nouveau `CHANNEL_ALLOC` → `GEM_PUSHBUF` (no PMU needed)
-6. **Titan V PMU investigation** — FECS-only channel? Compute-only type? K80 reference data
+4. ~~**Preswap Phase A/B/C**~~ — **PASSED** — f64 write (42.0 verified), f64 arithmetic (6.0×7.0=42.0 verified), multi-workgroup dispatch. 5 additional coral-reef bugs fixed (flat_offset, OpF2F, f64 literal pair, S_WAITCNT, cache invalidation).
+5. **GLOBAL_LOAD investigation** — 🔴 **BLOCKED** — every `GLOBAL_LOAD` variant hangs the GPU (GLC, FLAT, SADDR, load-only, GTT/VRAM, cache invalidation all tried). Root cause: likely missing PM4 register configuration for VMEM reads. Next: reference Mesa/RADV radeonsi compute dispatch path for missing register writes.
+6. **DF64 Lennard-Jones via DRM** — blocked on GLOBAL_LOAD (LJ kernel reads input positions)
+7. **K80 NVIDIA DRM** — legacy nouveau `CHANNEL_ALLOC` → `GEM_PUSHBUF` (no PMU needed)
+8. **Titan V PMU investigation** — FECS-only channel? Compute-only type? K80 reference data
 
 **Sovereign VFIO (ongoing — Exp 071):**
 6. **MMU page table fix** — debug PDE/PTE encoding, verify IOMMU mapping, try BAR2-resident tables
@@ -119,7 +126,8 @@ for unified `VendorProfile` in the trio triangle architecture.
 
 | File | Date | Audience | What To Do |
 |------|------|----------|------------|
-| [`HOTSPRING_GCN5_E2E_BREAKTHROUGH_HANDOFF_MAR21_2026.md`](handoffs/HOTSPRING_GCN5_E2E_BREAKTHROUGH_HANDOFF_MAR21_2026.md) | Mar 21 | coralReef, toadStool, barraCuda | **START HERE.** GCN5 E2E compute dispatch achieved — WGSL → coral-reef → MI50 → 64/64 verified. 7 bugs fixed. VOP3 opcode translation table. Naga bypass validated. Per-primal action items. DF64 Lennard-Jones next. |
+| [`HOTSPRING_PRESWAP_GLOBAL_LOAD_HANDOFF_MAR21_2026.md`](handoffs/HOTSPRING_PRESWAP_GLOBAL_LOAD_HANDOFF_MAR21_2026.md) | Mar 21 | coralReef, toadStool, barraCuda | **START HERE.** Preswap A/B/C PASS (f64 write, f64 arith, multi-workgroup). 12 coral-reef bugs fixed. GLOBAL_LOAD exhaustive investigation — all variants hang. Root cause: missing PM4 register config (ref Mesa radeonsi). Per-primal action items. |
+| [`HOTSPRING_GCN5_E2E_BREAKTHROUGH_HANDOFF_MAR21_2026.md`](handoffs/HOTSPRING_GCN5_E2E_BREAKTHROUGH_HANDOFF_MAR21_2026.md) | Mar 21 | coralReef, toadStool, barraCuda | GCN5 E2E compute dispatch achieved — WGSL → coral-reef → MI50 → 64/64 verified. 7 bugs fixed. VOP3 opcode translation table. Naga bypass validated. Per-primal action items. DF64 Lennard-Jones next (blocked by GLOBAL_LOAD). |
 | [`HOTSPRING_DRM_SOVEREIGN_DUAL_TRACK_HANDOFF_MAR21_2026.md`](handoffs/HOTSPRING_DRM_SOVEREIGN_DUAL_TRACK_HANDOFF_MAR21_2026.md) | Mar 21 | coralReef, toadStool, barraCuda | Dual-track strategy: DRM dispatch (AMD PM4 + NVIDIA EXEC) in parallel with sovereign VFIO. GCN5 backend **COMPLETE** (see GCN5 E2E handoff above). K80 incoming. Naga DF64 bypass validated. |
 | [`HOTSPRING_PFIFO_MMU_SOVEREIGN_DISPATCH_HANDOFF_MAR21_2026.md`](handoffs/HOTSPRING_PFIFO_MMU_SOVEREIGN_DISPATCH_HANDOFF_MAR21_2026.md) | Mar 21 | coralReef, toadStool, barraCuda | 54-config PFIFO diagnostic matrix, PFIFO re-init sequence (PMC+preempt+clear), root cause analysis (MMU 0xbad00200), 6/10 sovereign pipeline layers proven. Register reference. Per-primal action items. |
 | [`HOTSPRING_TRIO_EVOLUTION_AMD_AKIDA_HANDOFF_MAR20_2026.md`](handoffs/HOTSPRING_TRIO_EVOLUTION_AMD_AKIDA_HANDOFF_MAR20_2026.md) | Mar 20 | coralReef, toadStool, barraCuda | Triangle architecture, AMD D3cold definitive resolution (4 strategies, 1 round-trip/boot limit), BrainChip AKD1000 NPU integration, zero-sudo coralctl, per-primal evolution priorities. |
@@ -296,8 +304,9 @@ fossil record — never deleted, always available for provenance.
 V0632 Mar 13, Backend Analysis Mar 17, Comprehensive Audit Mar 17 — all
 superseded by the Mar 20 trio handoff or absorbed into README; plus Mar 09
 PFIFO GP_PUT and Mar 16 D3hot VRAM, superseded by Mar 21 PFIFO MMU handoff).
-11 active handoffs at `handoffs/` root (including Mar 21 GCN5 E2E breakthrough, dual-track, and PFIFO MMU handoffs). These document the full evolution history
-from v0.4.x through v0.6.32.
+12 active handoffs at `handoffs/` root (including Mar 21 GCN5 E2E breakthrough,
+dual-track, PFIFO MMU, and preswap/GLOBAL_LOAD handoffs). These document the full
+evolution history from v0.4.x through v0.6.32.
 
 ---
 

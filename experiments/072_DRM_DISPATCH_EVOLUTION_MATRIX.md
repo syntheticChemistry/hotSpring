@@ -188,6 +188,51 @@ ranges despite sharing the same 10-bit OP field layout. Group A (MAD/FMA/BFE/BFI
 RDNA2 320-351) shifts by +128. Group B (F64/MUL_HI) has per-instruction mapping.
 Every entry was validated against `llvm-mc --mcpu=gfx906 --show-encoding`.
 
+### Phase 3 Results: GCN5 Preswap Validation (March 2026)
+
+Six-phase preswap experiment targeting comprehensive validation before hardware swap:
+
+| Phase | Test | Status | Details |
+|-------|------|--------|---------|
+| A | f64 write (42.0 to each thread) | **PASS** | Fixed `flat_offset` GFX9 clamping — GLOBAL offset was forced to 0, causing DWORDX2 halves to overwrite each other |
+| B | f64 arithmetic (6.0 × 7.0 = 42.0) | **PASS** | Fixed 3 bugs: `OpF2F` encoding (`V_MOV_B32` → `V_CVT_F64_F32`), `var`→`let` literal lowering, f64 literal VGPR pair materialization (`materialize_f64_if_literal`) |
+| C | Multi-workgroup dispatch (4 groups × 64) | **PASS** | Store-only, workgroup ID routing correct |
+| D | Multi-buffer read+write | **FAIL** | `GLOBAL_LOAD` GPU hang — every variant tested |
+| E | f64 Lennard-Jones pair force | **FAIL** | Blocked by `GLOBAL_LOAD` (needs input reads) |
+| F | HBM2 bandwidth streaming | **FAIL** | Blocked by `GLOBAL_LOAD` |
+
+**Additional coral-reef bugs found and fixed (5 new, 12 total):**
+
+| Bug | Root Cause | Fix | File |
+|-----|------------|-----|------|
+| f64 store halves swapped (Phase A) | `flat_offset` clamped all GFX9 offsets to 0, even for GLOBAL segment which supports 13-bit offset | Pass offset through unconditionally | `codegen/ops/mod.rs` |
+| No f64 conversion instructions (Phase B) | `OpF2F` always encoded as `V_MOV_B32` regardless of type widths | Dispatch to `V_CVT_F64_F32` / `V_CVT_F32_F64` | `codegen/ops/convert.rs` |
+| GPU hang with `var` f64 literals (Phase B) | `var` lowered to scratch memory (unmapped), causing reads from invalid addresses | Use `let` bindings (SSA, register-based) | Shader WGSL |
+| f64 literal VGPR pair corruption (Phase B) | Optimizer collapsed `{r0, literal}` pairs; `materialize_if_literal` only emitted one `V_MOV_B32` for 64-bit values | Created `materialize_f64_if_literal`: two `V_MOV_B32` for lo/hi VGPRs. New `encode_vop3_f64_from_srcs` helper | `codegen/ops/mod.rs`, `codegen/ops/alu_float.rs` |
+| WAW hazard after GLOBAL_LOAD | GCN5 has no hardware interlock between VMEM loads and ALU | Insert `S_WAITCNT vmcnt(0)` after every `OpLd` | `codegen/ops/memory.rs` |
+
+**Infrastructure added:**
+- `CORAL_DEBUG_IR` env var: dumps IR at 3 compilation stages (after naga_translate, after opts, after RA)
+- `emit_cache_invalidate` in PM4 builder: L1+L2 invalidation before dispatch
+
+**GLOBAL_LOAD exhaustive investigation:**
+
+Every `GLOBAL_LOAD` variant causes GPU hang (fence timeout or DRM ioctl error 61):
+
+| Variant | Encoding | Result |
+|---------|----------|--------|
+| `GLOBAL_LOAD_DWORD` off, GLC=0 | 0xdc308000 | fence timeout |
+| `GLOBAL_LOAD_DWORD` off, GLC=1 | 0xdc328000 | fence timeout |
+| `FLAT_LOAD_DWORD` (SEG=00) | 0xdc300000 | fence timeout |
+| `GLOBAL_LOAD_DWORD` SADDR=s0 | 0xdc308000 + saddr=0 | fence timeout |
+| Minimal load-only + S_WAITCNT | 3 instructions total | fence timeout |
+| Load-only, no S_WAITCNT | 2 instructions total | fence timeout |
+| GTT (system memory) buffer | — | fence timeout |
+| VRAM buffer | — | fence timeout |
+| L1+L2 cache invalidation pre-dispatch | PM4 ACQUIRE_MEM | fence timeout |
+
+**Root cause hypothesis:** The existing `amd_gcn5_e2e.rs` (64/64 pass) uses only `GLOBAL_STORE` — never `GLOBAL_LOAD`. This is the first attempt to execute `GLOBAL_LOAD` through coral-driver. The hang is likely caused by a missing PM4 register configuration that Mesa/RADV's `radeonsi` compute dispatch path sets but coral-driver does not. Next step: reference the Mesa `si_emit_compute_shader` path for required register writes (e.g., `COMPUTE_STATIC_THREAD_MGMT_SE0/1`, `SPI_TMPRING_SIZE`, shader resource descriptors, or cache configuration registers).
+
 ## Expected Outcomes
 
 | Milestone | Status | Dependencies |
@@ -196,7 +241,11 @@ Every entry was validated against `llvm-mc --mcpu=gfx906 --show-encoding`.
 | AMD buffer-write dispatch | **PASSED** (64/64) | NOP success |
 | GCN5 arch in coral-reef | **COMPLETE** | — |
 | GCN5 E2E compute dispatch | **PASSED** | GCN5 arch + NOP success |
-| GCN5 DF64 Lennard-Jones | Next | GCN5 E2E success |
+| GCN5 preswap Phase A (f64 write) | **PASSED** | E2E success |
+| GCN5 preswap Phase B (f64 arith) | **PASSED** | E2E success + 3 compiler fixes |
+| GCN5 preswap Phase C (multi-workgroup) | **PASSED** | E2E success |
+| GCN5 preswap Phase D (GLOBAL_LOAD) | **BLOCKED** | Missing PM4 register config |
+| GCN5 DF64 Lennard-Jones | Blocked | GLOBAL_LOAD fix |
 | K80 channel creation | Pending | K80 hardware arrival |
 | K80 NOP pushbuf dispatch | Pending | K80 channel |
 | Titan V PMU workaround | Research | K80 reference data |

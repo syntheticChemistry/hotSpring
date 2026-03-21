@@ -180,12 +180,21 @@ The sovereign VFIO path has 6/10 layers working but is blocked at MMU page table
 translation (`0xbad00200`). In parallel, coralReef has **fully coded DRM dispatch
 paths** for both vendors, with **AMD GCN5 now fully validated end-to-end**.
 
-### GCN5 E2E Breakthrough (March 21, 2026)
+### GCN5 E2E Breakthrough + Preswap Validation (March 2026)
 
 **Full WGSL → coral-reef → coral-driver PM4 → MI50 → readback pipeline verified.**
 
-The test shader writes `42.0f` to each thread's output slot. All 64 elements read
-back correctly. 7 GCN5 encoding bugs were found and fixed during bring-up:
+Initial E2E: test shader writes `42.0f` to each thread's output slot, all 64 elements
+correct. Extended preswap validation: **f64 write PASS, f64 arithmetic (6.0×7.0=42.0)
+PASS, multi-workgroup dispatch PASS**. 12 GCN5 encoding bugs found and fixed total.
+
+**GLOBAL_LOAD blocker:** Every `GLOBAL_LOAD` variant (GLC, FLAT, SADDR, load-only,
+GTT/VRAM, cache invalidation) causes GPU hang. The existing E2E test uses only
+`GLOBAL_STORE` — this is the first `GLOBAL_LOAD` attempt through coral-driver.
+Root cause likely: missing PM4 register configuration (Mesa/RADV sets registers
+that coral-driver doesn't). Blocks: multi-buffer, LJ force dispatch, HBM2 bandwidth.
+
+Original 7 GCN5 bugs from initial bring-up:
 
 1. PM4 wave size / VGPR granularity (GCN5=wave64, granularity 4)
 2. VOP3 instruction prefix (110101→110100)
@@ -212,14 +221,17 @@ Broken:  WGSL → naga → SPIR-V → Vulkan driver → GPU  (all zeros)
 Bypass:  WGSL → coral-reef → native ISA → coral-driver DRM → GPU  (64/64 correct ✓)
 ```
 
-Next milestone: dispatch the DF64 Lennard-Jones force kernel — the exact kernel
-that returns zeros through Vulkan — and verify correct forces via DRM.
+Next milestone: fix `GLOBAL_LOAD` (reference Mesa radeonsi compute dispatch path),
+then dispatch the DF64 Lennard-Jones force kernel — the exact kernel that returns
+zeros through Vulkan — and verify correct forces via DRM.
 
 ### Vendor Status
 
 - **AMD** (`coral-driver::amd`): `AmdDevice` implements `ComputeDevice` with GEM
   buffer management, PM4 command construction, `DRM_AMDGPU_CS` submission, and
-  fence sync. **E2E verified on MI50** — GCN5 compute dispatch works.
+  fence sync. **Store-only dispatch verified on MI50** — GLOBAL_STORE works (f64
+  write, f64 arithmetic, multi-workgroup). **GLOBAL_LOAD blocked** — all variants
+  hang. 12 compiler/driver bugs fixed total.
 - **NVIDIA** (`coral-driver::nv`): `NvDevice` implements new UAPI (`VM_INIT` →
   `VM_BIND` → `EXEC` + syncobj). Blocked on Titan V by missing PMU firmware for
   `CHANNEL_ALLOC`. K80 (Kepler, incoming) has no PMU requirement.
@@ -237,7 +249,8 @@ that returns zeros through Vulkan — and verify correct forces via DRM.
 | 7 | **MMU page table translation** | **BLOCKED** | Kernel handles this |
 | 8 | NOP GPFIFO fetch | Pending | **AMD: PASSED** |
 | 9 | FECS/GPCCS firmware load | Pending | N/A (kernel) |
-| 10 | Shader dispatch | Pending | **AMD: E2E PASSED** (64/64), NVIDIA: PMU-blocked |
+| 10 | Shader dispatch | Pending | **AMD: store-only PASSED** (64/64), GLOBAL_LOAD blocked. NVIDIA: PMU-blocked |
 
-The DRM path offloads layers 1-7 and 9 to the kernel driver. AMD DRM dispatch is
-now fully validated. NVIDIA awaits K80 hardware (no PMU needed for Kepler).
+The DRM path offloads layers 1-7 and 9 to the kernel driver. AMD DRM dispatch
+validated for store-only shaders (f64 write, f64 arith, multi-workgroup). GLOBAL_LOAD
+hangs — likely missing PM4 register config. NVIDIA awaits K80 (no PMU needed).

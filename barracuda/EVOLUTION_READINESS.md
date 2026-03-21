@@ -114,13 +114,15 @@ can route through a `SovereignBackend` that uses coral-driver for GPFIFO submiss
 The `RegisterMap` module's GV100 register definitions should incorporate the PBDMA
 operational register corrections (CTX_GP_FETCH_BYTE at 0x050).
 
-### DRM Dispatch Dual-Track (Mar 21, 2026 — Exp 072)
+### DRM Dispatch Dual-Track (Mar 21, 2026 — Exp 072, Phase 3 Preswap)
 
 In parallel with sovereign VFIO, coral-driver has **fully coded DRM dispatch**:
 
 - **AMD** (`AmdDevice`): `ComputeDevice` impl with GEM buffers, PM4 command
   construction (`build_compute_dispatch`), `DRM_AMDGPU_CS` submission, fence sync.
-  Ready to test on MI50 (GFX906/GCN5) via `amdgpu` kernel driver.
+  **Store-only dispatch verified** on MI50 (GFX906/GCN5): f64 write, f64 arithmetic,
+  multi-workgroup all PASS. **GLOBAL_LOAD blocked** — all variants hang (GLC, FLAT,
+  SADDR, GTT/VRAM, cache invalidation). Root cause: missing PM4 register config.
 - **NVIDIA** (`NvDevice`): new UAPI (`VM_INIT`/`VM_BIND`/`EXEC`) + syncobj.
   Blocked on Titan V (missing PMU firmware for `CHANNEL_ALLOC`). K80 (Kepler,
   incoming) has no PMU requirement.
@@ -132,13 +134,13 @@ compute** — it bypasses the Naga WGSL→SPIR-V poisoning (Exp 055) entirely:
 WGSL → coral-reef AmdBackend → native GCN ISA → coral-driver AmdDevice → GPU
 ```
 
-coral-reef now has a `Gcn5` variant in `AmdArch` — **GCN5 E2E dispatch PASSED**
-(March 21, 2026): WGSL → coral-reef → coral-driver PM4 → MI50 → 64/64 readback
-verified. The MI50's 1/4 rate f64 (3.5 TFLOPS) is **4× faster than RDNA2** for
-DF64 — making it the best available f64 hardware for validation. DF64 Lennard-Jones
-dispatch is the next milestone.
+coral-reef now has a `Gcn5` variant in `AmdArch` — **GCN5 preswap validation**
+(March 2026): WGSL → coral-reef → coral-driver PM4 → MI50. Phases A/B/C PASS
+(f64 write 42.0, f64 arith 6.0×7.0=42.0, multi-workgroup). 12 coral-reef bugs
+fixed total. The MI50's 1/4 rate f64 (3.5 TFLOPS) is **4× faster than RDNA2** for
+DF64. DF64 Lennard-Jones dispatch is **blocked by GLOBAL_LOAD** (needs input reads).
 
-**DF64 kernel candidates for first DRM dispatch**:
+**DF64 kernel candidates (blocked by GLOBAL_LOAD)**:
 - `SHADER_YUKAWA_FORCE` — Lennard-Jones (the Naga-poisoned kernel)
 - `wilson_plaquette_df64.wgsl` — lattice QCD gauge action
 - `su3_gauge_force_df64.wgsl` — HMC gauge force
