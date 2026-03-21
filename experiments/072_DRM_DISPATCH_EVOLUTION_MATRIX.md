@@ -37,7 +37,7 @@ coralReef already has **fully coded DRM dispatch paths** for both vendors:
 
 | GPU | Arch | DRM Path | Blocker | Workaround |
 |-----|------|----------|---------|------------|
-| MI50 (Radeon VII) | GCN5 / GFX906 | `amdgpu` | coral-reef only targets RDNA2+ | Add GCN5 arch; `s_endpgm` encoding identical across GCN/RDNA |
+| MI50 (Radeon VII) | GCN5 / GFX906 | `amdgpu` | ~~coral-reef only targets RDNA2+~~ **RESOLVED** | GCN5 arch added; E2E PASSED (Phase 2) |
 | Titan V | Volta / SM70 | `nouveau` new UAPI | `CHANNEL_ALLOC` fails: PMU firmware missing | K80 for reference; investigate FECS-only channel |
 | K80 (incoming) | Kepler / SM35 | `nouveau` legacy UAPI | None expected (no PMU/GSP needed) | — |
 
@@ -135,14 +135,68 @@ Options:
 - GPU executed the instruction and signaled fence completion
 - The `s_endpgm` encoding (0xBF810000) is confirmed identical on GCN5 and RDNA2
 
+### Phase 2 Results: GCN5 E2E Compute Dispatch — PASSED (March 21, 2026)
+
+Full compiler pipeline WGSL → coral-reef (GCN5/GFX906) → coral-driver (PM4) → MI50 → readback:
+
+```
+╔═══════════════════════════════════════════════════╗
+║  GCN5 E2E: coral-reef → coral-driver → MI50     ║
+╚═══════════════════════════════════════════════════╝
+
+  Phase 1: Compile WGSL → GCN5 (gfx906)... OK ✓ (68 bytes, 26 GPRs, 12 instrs)
+  Phase 2: AmdDevice::open()... OK ✓
+  Phase 3: Alloc output buffer (256 bytes)... OK ✓
+  Phase 4: Dispatch (1 workgroup × 64 threads)... OK ✓
+  Phase 5: Sync... OK ✓
+  Phase 6: Readback and verify... OK ✓ (64/64 elements = 42.0)
+
+  ✓ GCN5 E2E DISPATCH: ALL PHASES PASSED
+```
+
+**What this proves:**
+- coral-reef compiles WGSL to correct GCN5 native ISA (VOP3 opcode translation, wave64)
+- coral-driver PM4 dispatch handles GCN5 (VGPR granularity 4, wave64, ACQUIRE_MEM L2 flush)
+- Per-thread global memory stores work correctly across all 64 lanes
+- The Naga bypass path is **validated end-to-end**: WGSL → native ISA → DRM → correct output
+
+**Bugs found and fixed during Phase 2:**
+
+| Bug | Root Cause | Fix |
+|-----|------------|-----|
+| GPU hang (fence timeout) | PM4 VGPR granularity hardcoded for RDNA2 (8); GCN5 needs 4. `CS_W32_EN` set for wave32; GCN5 is wave64 | Added `wave_size` to `ShaderInfo`, dynamic VGPR granularity and DISPATCH_INITIATOR |
+| GPU hang (fence timeout #2) | VOP3 prefix `110101` (RDNA2) causes illegal instruction on GFX9 (`110100`) | `patch_vop3_prefix_for_gfx9()` in encoder |
+| 63/64 elements wrong (only out[0]) | Missing `s_waitcnt vmcnt(0)` before `s_endpgm` | Added to `encode_rdna2_shader` |
+| 63/64 elements wrong | FLAT addressing (SEG=00) relies on aperture; compute uses GLOBAL (SEG=10) | Changed `encode_flat_load/store/atomic` to set SEG=10 |
+| 63/64 elements wrong | `SR_CTAID_X` (workgroup_id) mapped to VGPR instead of SGPR | Refactored to `amd_sys_reg_src`, added `user_sgpr_count` tracking |
+| GPU hang (ACQUIRE_MEM) | PM4 packet header declared 6 dwords but only pushed 5 (missing POLL_INTERVAL) | Added 7th push for POLL_INTERVAL |
+| VOP3 MAD produces zeros | GFX9 VOP3-only opcodes differ from RDNA2 (V_MAD_U32_U24: 323→451). `patch_vop3_prefix_for_gfx9` only changed prefix, not opcode | Added `vop3_only_opcode_for_gfx9()` translation table (LLVM-validated) |
+
+**Diagnostic methodology:**
+
+7 handcrafted binary tests isolated the root cause systematically:
+- Test A (fixed addr): Basic GLOBAL store works ✓
+- Test B (per-thread VOP2): `V_LSHLREV_B32` + `V_ADD_CO_U32` → 64/64 ✓
+- Test C (dump v0): Confirmed v0 = thread_id_x ✓
+- Test D (compiler binary, gpr=5): Ruled out ShaderInfo as cause ✗ (1/64)
+- Test E (VOP3 MAD per-thread): Failed → isolated VOP3 MAD as broken ✗
+- Test F (VOP3 MAD dump): MAD produced all zeros → opcode wrong ✗
+- Test G (VOP2 MUL per-thread): 64/64 ✓ → confirmed VOP2 works, VOP3-only broken
+
+This led to the discovery that GFX9 and RDNA2 VOP3-only opcodes occupy different
+ranges despite sharing the same 10-bit OP field layout. Group A (MAD/FMA/BFE/BFI,
+RDNA2 320-351) shifts by +128. Group B (F64/MUL_HI) has per-instruction mapping.
+Every entry was validated against `llvm-mc --mcpu=gfx906 --show-encoding`.
+
 ## Expected Outcomes
 
 | Milestone | Status | Dependencies |
 |-----------|--------|--------------|
 | AMD NOP dispatch (PM4 → fence) | **PASSED** | MI50 on `amdgpu` |
-| AMD buffer-write dispatch | Pending | NOP success |
-| GCN5 arch in coral-reef | Pending | — |
-| GCN5 DF64 Lennard-Jones | Pending | GCN5 arch + NOP success |
+| AMD buffer-write dispatch | **PASSED** (64/64) | NOP success |
+| GCN5 arch in coral-reef | **COMPLETE** | — |
+| GCN5 E2E compute dispatch | **PASSED** | GCN5 arch + NOP success |
+| GCN5 DF64 Lennard-Jones | Next | GCN5 E2E success |
 | K80 channel creation | Pending | K80 hardware arrival |
 | K80 NOP pushbuf dispatch | Pending | K80 channel |
 | Titan V PMU workaround | Research | K80 reference data |
@@ -178,5 +232,5 @@ DRM dispatch does NOT replace the sovereign VFIO work — it complements it:
 - Exp 071: PFIFO Diagnostic Matrix — sovereign pipeline 6/10 layers, MMU blocker
 - `coralReef/crates/coral-driver/src/amd/` — full AMD DRM backend
 - `coralReef/crates/coral-driver/src/nv/ioctl/new_uapi.rs` — nouveau new UAPI
-- `coralReef/crates/coral-reef/src/codegen/amd/` — AMD ISA encoder (RDNA2)
-- `coralReef/crates/coral-reef/src/gpu_arch.rs` — architecture enum (needs GCN5)
+- `coralReef/crates/coral-reef/src/codegen/amd/` — AMD ISA encoder (RDNA2 + GCN5)
+- `coralReef/crates/coral-reef/src/gpu_arch.rs` — architecture enum (includes GCN5)

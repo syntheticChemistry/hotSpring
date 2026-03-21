@@ -17,7 +17,7 @@
   `CHANNEL_ALLOC` on Titan V. K80 (Kepler, no PMU needed) incoming
 - **Naga DF64 poisoning bypass**: WGSL → coral-reef → native ISA → DRM dispatch avoids
   the naga codegen bug entirely
-- **GCN5 backend needed**: coral-reef targets RDNA2+ only; MI50 (GFX906) needs `Gcn5` arch
+- **GCN5 backend COMPLETE**: coral-reef compiles and dispatches GCN5 (GFX906) — 64/64 E2E verified on MI50. See updated Mar 21 GCN5 E2E handoff
 
 ---
 

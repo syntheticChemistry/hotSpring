@@ -178,29 +178,53 @@ diagnostics work. The PCIe lifecycle (bind, health, shutdown) is vendor-agnostic
 
 The sovereign VFIO path has 6/10 layers working but is blocked at MMU page table
 translation (`0xbad00200`). In parallel, coralReef has **fully coded DRM dispatch
-paths** for both vendors:
+paths** for both vendors, with **AMD GCN5 now fully validated end-to-end**.
 
-- **AMD** (`coral-driver::amd`): `AmdDevice` implements `ComputeDevice` with GEM
-  buffer management, PM4 command construction, `DRM_AMDGPU_CS` submission, and
-  fence sync. This path works end-to-end on MI50 via `amdgpu` kernel driver.
-- **NVIDIA** (`coral-driver::nv`): `NvDevice` implements new UAPI (`VM_INIT` →
-  `VM_BIND` → `EXEC` + syncobj). Blocked on Titan V by missing PMU firmware for
-  `CHANNEL_ALLOC`. K80 (Kepler, incoming) has no PMU requirement.
+### GCN5 E2E Breakthrough (March 21, 2026)
 
-### DRM as Naga Bypass
+**Full WGSL → coral-reef → coral-driver PM4 → MI50 → readback pipeline verified.**
+
+The test shader writes `42.0f` to each thread's output slot. All 64 elements read
+back correctly. 7 GCN5 encoding bugs were found and fixed during bring-up:
+
+1. PM4 wave size / VGPR granularity (GCN5=wave64, granularity 4)
+2. VOP3 instruction prefix (110101→110100)
+3. Missing `s_waitcnt vmcnt(0)` before `s_endpgm`
+4. FLAT vs GLOBAL segment addressing (SEG=10 for compute)
+5. Workgroup ID register file (SGPR, not VGPR)
+6. Malformed ACQUIRE_MEM PM4 packet (missing POLL_INTERVAL dword)
+7. VOP3-only opcode translation — GFX9 and RDNA2 use different values despite
+   identical field layout. `vop3_only_opcode_for_gfx9()` provides LLVM-validated
+   translation table
+
+The key architectural discovery: VOP3a word-0 layout is identical on GFX9 and RDNA2
+([31:26]=prefix, [25:16]=OP(10), [15]=CLAMP, [10:8]=ABS, [7:0]=VDST) but the opcode
+VALUES differ. Group A (MAD/FMA/BFE/BFI, RDNA2 320-351) shifts by +128. Group B
+(F64/MUL_HI, RDNA2 352+) has per-instruction mapping.
+
+### Naga Bypass — Validated End-to-End
 
 The DF64 Naga poisoning (Exp 055) breaks WGSL → SPIR-V → Vulkan dispatch for
 double-precision transcendentals. DRM dispatch bypasses this entirely:
 
 ```
-WGSL → coral-reef → native ISA (SASS/GCN) → coral-driver DRM → GPU
+Broken:  WGSL → naga → SPIR-V → Vulkan driver → GPU  (all zeros)
+Bypass:  WGSL → coral-reef → native ISA → coral-driver DRM → GPU  (64/64 correct ✓)
 ```
 
-coral-reef already has AMD RDNA2 instruction encoding (`Rdna2Encoder`). Adding
-GCN5 support for the MI50 (`Gcn5` variant in `AmdArch`) enables native dispatch
-of the exact kernels that fail through Naga/Vulkan.
+Next milestone: dispatch the DF64 Lennard-Jones force kernel — the exact kernel
+that returns zeros through Vulkan — and verify correct forces via DRM.
 
-### Sovereign Pipeline Layer Status (updated)
+### Vendor Status
+
+- **AMD** (`coral-driver::amd`): `AmdDevice` implements `ComputeDevice` with GEM
+  buffer management, PM4 command construction, `DRM_AMDGPU_CS` submission, and
+  fence sync. **E2E verified on MI50** — GCN5 compute dispatch works.
+- **NVIDIA** (`coral-driver::nv`): `NvDevice` implements new UAPI (`VM_INIT` →
+  `VM_BIND` → `EXEC` + syncobj). Blocked on Titan V by missing PMU firmware for
+  `CHANNEL_ALLOC`. K80 (Kepler, incoming) has no PMU requirement.
+
+### Sovereign + DRM Pipeline Layer Status (updated)
 
 | # | Layer | Sovereign VFIO | DRM Dispatch |
 |---|-------|----------------|--------------|
@@ -211,9 +235,9 @@ of the exact kernels that fail through Naga/Vulkan.
 | 5 | Channel context binding | Done | N/A (kernel) |
 | 6 | PBDMA context load | Done | N/A (kernel) |
 | 7 | **MMU page table translation** | **BLOCKED** | Kernel handles this |
-| 8 | NOP GPFIFO fetch | Pending | AMD: ready to test, NVIDIA: PMU-blocked |
+| 8 | NOP GPFIFO fetch | Pending | **AMD: PASSED** |
 | 9 | FECS/GPCCS firmware load | Pending | N/A (kernel) |
-| 10 | Shader dispatch | Pending | AMD: ready (PM4), NVIDIA: pending channel |
+| 10 | Shader dispatch | Pending | **AMD: E2E PASSED** (64/64), NVIDIA: PMU-blocked |
 
-The DRM path offloads layers 1-7 and 9 to the kernel driver. Layers 8 and 10
-are what we can validate immediately on AMD hardware.
+The DRM path offloads layers 1-7 and 9 to the kernel driver. AMD DRM dispatch is
+now fully validated. NVIDIA awaits K80 hardware (no PMU needed for Kepler).

@@ -132,9 +132,11 @@ compute** — it bypasses the Naga WGSL→SPIR-V poisoning (Exp 055) entirely:
 WGSL → coral-reef AmdBackend → native GCN ISA → coral-driver AmdDevice → GPU
 ```
 
-coral-reef needs a `Gcn5` variant in `AmdArch` (MI50 is GFX906, not RDNA2).
-The MI50's 1/4 rate f64 (3.5 TFLOPS) is **4× faster than RDNA2** for DF64 —
-making it the best available f64 hardware for validation.
+coral-reef now has a `Gcn5` variant in `AmdArch` — **GCN5 E2E dispatch PASSED**
+(March 21, 2026): WGSL → coral-reef → coral-driver PM4 → MI50 → 64/64 readback
+verified. The MI50's 1/4 rate f64 (3.5 TFLOPS) is **4× faster than RDNA2** for
+DF64 — making it the best available f64 hardware for validation. DF64 Lennard-Jones
+dispatch is the next milestone.
 
 **DF64 kernel candidates for first DRM dispatch**:
 - `SHADER_YUKAWA_FORCE` — Lennard-Jones (the Naga-poisoned kernel)
