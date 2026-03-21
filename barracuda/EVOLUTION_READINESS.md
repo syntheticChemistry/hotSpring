@@ -114,6 +114,37 @@ can route through a `SovereignBackend` that uses coral-driver for GPFIFO submiss
 The `RegisterMap` module's GV100 register definitions should incorporate the PBDMA
 operational register corrections (CTX_GP_FETCH_BYTE at 0x050).
 
+### DRM Dispatch Dual-Track (Mar 21, 2026 — Exp 072)
+
+In parallel with sovereign VFIO, coral-driver has **fully coded DRM dispatch**:
+
+- **AMD** (`AmdDevice`): `ComputeDevice` impl with GEM buffers, PM4 command
+  construction (`build_compute_dispatch`), `DRM_AMDGPU_CS` submission, fence sync.
+  Ready to test on MI50 (GFX906/GCN5) via `amdgpu` kernel driver.
+- **NVIDIA** (`NvDevice`): new UAPI (`VM_INIT`/`VM_BIND`/`EXEC`) + syncobj.
+  Blocked on Titan V (missing PMU firmware for `CHANNEL_ALLOC`). K80 (Kepler,
+  incoming) has no PMU requirement.
+
+**Relevance to barraCuda**: DRM dispatch is the **fastest path to working DF64
+compute** — it bypasses the Naga WGSL→SPIR-V poisoning (Exp 055) entirely:
+
+```
+WGSL → coral-reef AmdBackend → native GCN ISA → coral-driver AmdDevice → GPU
+```
+
+coral-reef needs a `Gcn5` variant in `AmdArch` (MI50 is GFX906, not RDNA2).
+The MI50's 1/4 rate f64 (3.5 TFLOPS) is **4× faster than RDNA2** for DF64 —
+making it the best available f64 hardware for validation.
+
+**DF64 kernel candidates for first DRM dispatch**:
+- `SHADER_YUKAWA_FORCE` — Lennard-Jones (the Naga-poisoned kernel)
+- `wilson_plaquette_df64.wgsl` — lattice QCD gauge action
+- `su3_gauge_force_df64.wgsl` — HMC gauge force
+
+**`RegisterMap` evolution**: when DRM dispatch works on MI50, the GFX906
+register map becomes testable against real hardware via `AmdDevice::dispatch()`.
+This validates `RegisterMap` encodings that were previously theoretical.
+
 ### Code Quality Improvements
 
 - `#![forbid(unsafe_code)]` added to lib.rs (compiler-enforced zero-unsafe)

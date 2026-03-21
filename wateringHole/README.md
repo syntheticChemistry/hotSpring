@@ -2,7 +2,7 @@
 
 **Project:** hotSpring (ecoPrimals)
 **Last Updated:** March 21, 2026
-**Status:** ACTIVE — Sovereign PFIFO pipeline 6/10 layers proven. MMU page table translation is the single remaining blocker for PBDMA command fetch. 54-config diagnostic matrix: 12 winning configs, 0 faults. AMD D3cold characterized (1/boot Vega 20 limit), BrainChip Akida NPU integrated, zero-sudo coralctl
+**Status:** ACTIVE — Dual-track dispatch: sovereign VFIO (6/10 layers, MMU blocker) + DRM dispatch (AMD PM4 coded, NVIDIA EXEC coded/PMU-blocked, K80 incoming). 72 experiments. Naga DF64 poisoning bypass via coral-reef → native ISA → DRM. AMD D3cold characterized (1/boot Vega 20 limit), BrainChip Akida NPU integrated, zero-sudo coralctl
 
 ---
 
@@ -23,10 +23,12 @@ hotSpring → wateringHole/handoffs/ → coralReef reads and evolves
 
 ## Current State: Sovereign PFIFO Sprint (March 21, 2026)
 
-hotSpring is **active at v0.6.32** (848 tests, 0 clippy warnings, 71 experiments).
+hotSpring is **active at v0.6.32** (848 tests, 0 clippy warnings, 72 experiments).
 The sovereign GPU lifecycle is production-grade across 3 vendors + 1 NPU.
-**Sovereign command submission** is 6/10 layers deep — MMU page table translation
-is the single remaining blocker before PBDMA fetches host-written GPFIFO commands.
+**Sovereign command submission** is 6/10 layers deep (MMU page table translation
+blocker). **DRM dispatch** now pursued in parallel — coral-driver has full AMD
+`AmdDevice` and NVIDIA `NvDevice` backends coded. The DRM path bypasses Naga
+poisoning by going WGSL → coral-reef → native ISA → kernel DRM dispatch.
 
 ### Hardware (biomeGate, March 20, 2026)
 
@@ -88,12 +90,23 @@ for unified `VendorProfile` in the trio triangle architecture.
 
 ### Next Milestones
 
-1. **MMU page table fix** — debug PDE/PTE encoding, verify IOMMU mapping, try BAR2-resident tables (Exp 071)
-2. **NOP GPFIFO fetch** — once MMU works, verify PBDMA fetches and executes NOP entries
-3. **FECS/GPCCS firmware load** — after clean PBDMA dispatch, load compute engine firmware
-4. **Ember per-device isolation**: One D3cold device must not freeze all operations
-5. toadStool GlowPlug socket client wiring (triangle architecture)
-6. RDNA validation (RX 5000/6000/7000 series)
+**DRM dispatch (parallel fast track — Exp 072):**
+1. **AMD NOP dispatch** — MI50 on `amdgpu`, `AmdDevice::open()` → PM4 `s_endpgm` → fence
+2. **GCN5 backend in coral-reef** — add `Gcn5` arch, validate VOP3 f64 encoding on GFX906
+3. **DF64 Lennard-Jones via DRM** — compile and dispatch through coral-reef → coral-driver (bypasses Naga)
+4. **K80 NVIDIA DRM** — legacy nouveau `CHANNEL_ALLOC` → `GEM_PUSHBUF` (no PMU needed)
+5. **Titan V PMU investigation** — FECS-only channel? Compute-only type? K80 reference data
+
+**Sovereign VFIO (ongoing — Exp 071):**
+6. **MMU page table fix** — debug PDE/PTE encoding, verify IOMMU mapping, try BAR2-resident tables
+7. **NOP GPFIFO fetch** — once MMU works, verify PBDMA fetches and executes NOP entries
+8. **FECS/GPCCS firmware load** — after clean PBDMA dispatch, load compute engine firmware
+9. **K80 sovereign** — no firmware signing, full 10-layer pipeline on unlocked hardware
+
+**Infrastructure:**
+10. **Ember per-device isolation**: One D3cold device must not freeze all operations
+11. toadStool GlowPlug socket client wiring (triangle architecture)
+12. RDNA validation (RX 5000/6000/7000 series)
 
 ---
 
@@ -103,7 +116,8 @@ for unified `VendorProfile` in the trio triangle architecture.
 
 | File | Date | Audience | What To Do |
 |------|------|----------|------------|
-| [`HOTSPRING_PFIFO_MMU_SOVEREIGN_DISPATCH_HANDOFF_MAR21_2026.md`](handoffs/HOTSPRING_PFIFO_MMU_SOVEREIGN_DISPATCH_HANDOFF_MAR21_2026.md) | Mar 21 | coralReef, toadStool, barraCuda | **START HERE.** 54-config PFIFO diagnostic matrix, PFIFO re-init sequence (PMC+preempt+clear), root cause analysis (MMU 0xbad00200), 6/10 sovereign pipeline layers proven. Register reference. Per-primal action items. |
+| [`HOTSPRING_DRM_SOVEREIGN_DUAL_TRACK_HANDOFF_MAR21_2026.md`](handoffs/HOTSPRING_DRM_SOVEREIGN_DUAL_TRACK_HANDOFF_MAR21_2026.md) | Mar 21 | coralReef, toadStool, barraCuda | **START HERE.** Dual-track strategy: DRM dispatch (AMD PM4 + NVIDIA EXEC) in parallel with sovereign VFIO. GCN5 backend for MI50 planned. K80 incoming. Naga DF64 bypass. Per-primal action items. |
+| [`HOTSPRING_PFIFO_MMU_SOVEREIGN_DISPATCH_HANDOFF_MAR21_2026.md`](handoffs/HOTSPRING_PFIFO_MMU_SOVEREIGN_DISPATCH_HANDOFF_MAR21_2026.md) | Mar 21 | coralReef, toadStool, barraCuda | 54-config PFIFO diagnostic matrix, PFIFO re-init sequence (PMC+preempt+clear), root cause analysis (MMU 0xbad00200), 6/10 sovereign pipeline layers proven. Register reference. Per-primal action items. |
 | [`HOTSPRING_TRIO_EVOLUTION_AMD_AKIDA_HANDOFF_MAR20_2026.md`](handoffs/HOTSPRING_TRIO_EVOLUTION_AMD_AKIDA_HANDOFF_MAR20_2026.md) | Mar 20 | coralReef, toadStool, barraCuda | Triangle architecture, AMD D3cold definitive resolution (4 strategies, 1 round-trip/boot limit), BrainChip AKD1000 NPU integration, zero-sudo coralctl, per-primal evolution priorities. |
 | [`HOTSPRING_VENDOR_LIFECYCLE_AMD_D3COLD_HANDOFF_MAR19_2026.md`](handoffs/HOTSPRING_VENDOR_LIFECYCLE_AMD_D3COLD_HANDOFF_MAR19_2026.md) | Mar 19 | coralReef, toadStool, barraCuda | VendorLifecycle trait, initial AMD D3cold analysis. **Superseded by Mar 20 trio handoff** for strategy conclusions. |
 | [`HOTSPRING_VENDOR_AGNOSTIC_HARDENED_GLOWPLUG_HANDOFF_MAR18_2026.md`](handoffs/HOTSPRING_VENDOR_AGNOSTIC_HARDENED_GLOWPLUG_HANDOFF_MAR18_2026.md) | Mar 18 | coralReef, toadStool, barraCuda | Vendor-agnostic RegisterMap, AMD MI50 support, coral-ember crate split, typed EmberError, privilege hardening (caps+seccomp), coralctl deploy-udev. |
@@ -278,7 +292,7 @@ fossil record — never deleted, always available for provenance.
 V0632 Mar 13, Backend Analysis Mar 17, Comprehensive Audit Mar 17 — all
 superseded by the Mar 20 trio handoff or absorbed into README; plus Mar 09
 PFIFO GP_PUT and Mar 16 D3hot VRAM, superseded by Mar 21 PFIFO MMU handoff).
-9 active handoffs at `handoffs/` root (including Mar 21 PFIFO MMU handoff). These document the full evolution history
+10 active handoffs at `handoffs/` root (including Mar 21 dual-track and PFIFO MMU handoffs). These document the full evolution history
 from v0.4.x through v0.6.32.
 
 ---

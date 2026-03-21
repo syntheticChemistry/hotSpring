@@ -173,3 +173,47 @@ knowledge lives in `coral-driver/src/nv/` and `coral-driver/src/amd/`.
 
 For AMD cards: `amd_metal.rs` stub must be implemented before VFIO BAR0
 diagnostics work. The PCIe lifecycle (bind, health, shutdown) is vendor-agnostic.
+
+## DRM Dispatch: The Parallel Track (Exp 072, March 21, 2026)
+
+The sovereign VFIO path has 6/10 layers working but is blocked at MMU page table
+translation (`0xbad00200`). In parallel, coralReef has **fully coded DRM dispatch
+paths** for both vendors:
+
+- **AMD** (`coral-driver::amd`): `AmdDevice` implements `ComputeDevice` with GEM
+  buffer management, PM4 command construction, `DRM_AMDGPU_CS` submission, and
+  fence sync. This path works end-to-end on MI50 via `amdgpu` kernel driver.
+- **NVIDIA** (`coral-driver::nv`): `NvDevice` implements new UAPI (`VM_INIT` →
+  `VM_BIND` → `EXEC` + syncobj). Blocked on Titan V by missing PMU firmware for
+  `CHANNEL_ALLOC`. K80 (Kepler, incoming) has no PMU requirement.
+
+### DRM as Naga Bypass
+
+The DF64 Naga poisoning (Exp 055) breaks WGSL → SPIR-V → Vulkan dispatch for
+double-precision transcendentals. DRM dispatch bypasses this entirely:
+
+```
+WGSL → coral-reef → native ISA (SASS/GCN) → coral-driver DRM → GPU
+```
+
+coral-reef already has AMD RDNA2 instruction encoding (`Rdna2Encoder`). Adding
+GCN5 support for the MI50 (`Gcn5` variant in `AmdArch`) enables native dispatch
+of the exact kernels that fail through Naga/Vulkan.
+
+### Sovereign Pipeline Layer Status (updated)
+
+| # | Layer | Sovereign VFIO | DRM Dispatch |
+|---|-------|----------------|--------------|
+| 1 | PCIe / VFIO binding | Done | N/A (kernel) |
+| 2 | PFB / MMU warm state | Done | N/A (kernel) |
+| 3 | PFIFO engine enable | Done | N/A (kernel) |
+| 4 | Scheduler: runlist load | Done | N/A (kernel) |
+| 5 | Channel context binding | Done | N/A (kernel) |
+| 6 | PBDMA context load | Done | N/A (kernel) |
+| 7 | **MMU page table translation** | **BLOCKED** | Kernel handles this |
+| 8 | NOP GPFIFO fetch | Pending | AMD: ready to test, NVIDIA: PMU-blocked |
+| 9 | FECS/GPCCS firmware load | Pending | N/A (kernel) |
+| 10 | Shader dispatch | Pending | AMD: ready (PM4), NVIDIA: pending channel |
+
+The DRM path offloads layers 1-7 and 9 to the kernel driver. Layers 8 and 10
+are what we can validate immediately on AMD hardware.

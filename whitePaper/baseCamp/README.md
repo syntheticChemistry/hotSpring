@@ -1,8 +1,8 @@
 # baseCamp: Research Domain Briefings
 
-**Date:** 2026-03-16
+**Date:** 2026-03-21
 **Project:** hotSpring (ecoPrimals)
-**Status:** v0.6.31, experiments 001-069, 848 lib tests, 39/39 validation suites, 115 binaries, 85 WGSL shaders
+**Status:** v0.6.32, experiments 001-072, 848 lib tests, 39/39 validation suites, 115 binaries, 85 WGSL shaders
 
 **Notes:** Upstream primal sync: barraCuda `7c1fd03a` (eigensolver, activations, PRNG), coralReef Iter 47 VFIO dispatch + coral-glowplug daemon, toadStool S155b PcieTransport + ResourceOrchestrator. Sovereign GPU compute: **FECS firmware executes from host-loaded IMEM** on clean falcon (Exp 068), SEC2 EMEM writable (Exp 067), ACR bootloader executes (Exp 067-068), D3hot→D0 produces exploitable clean state. coral-glowplug production-grade boot-persistent PCIe broker: personality hot-swap, health monitor, auto-D0 recovery, VFIO-first boot, graceful shutdown, DRM render node fencing (Exp 065+069). PRIVRING fault lesson: never PMC-toggle GR bit 12 on GV100 (Exp 068). Gap 1+4 CLOSED, sovereign routing with `sovereign_resolves_poisoning()`. Chuna Papers 43-45: **44/44 overnight checks pass**. All AGPL-3.0-only.
 
@@ -40,7 +40,7 @@ Published paper (Python/FORTRAN/HPC)
 | [`esn_baseline_validation.md`](esn_baseline_validation.md) | ESN Baseline — CPU Training & Capability Map | None (NPU engineering) | 116 pts, 5 synthetic probes, 3 heads EXCELLENT, HeadConfidence tracker live |
 | [`npu_dynamic_programming.md`](npu_dynamic_programming.md) | NPU as DP — Activation Parity & Subproblem Memoization | None (architecture insight) | tanh≈ReLU validated, NPU-as-memoization-table architecture for multigrid HMC |
 | [`neuromorphic_native_field_theory.md`](neuromorphic_native_field_theory.md) | Neuromorphic-Native Field Theory — Lattice Physics on Spiking Hardware | None (long-term hardware architecture) | 5-level path from NPU steering → NPU IS the simulation, coralForge isomorphism |
-| [`sovereign_gpu_compute.md`](sovereign_gpu_compute.md) | Sovereign GPU Compute — GlowPlug & Falcon Boot Chain | None (hardware exploration) | Exp 060-069, FECS direct execution, SEC2 EMEM, D3hot recovery, GlowPlug daemon, boot persistence, DRM fencing, graceful shutdown |
+| [`sovereign_gpu_compute.md`](sovereign_gpu_compute.md) | Sovereign GPU Compute — GlowPlug, Falcon, PFIFO, DRM Dispatch | None (hardware exploration) | Exp 060-072: FECS direct execution, SEC2 EMEM, D3hot recovery, GlowPlug daemon, PFIFO re-init, MMU cracking, **DRM dual-track** (AMD PM4 + NVIDIA EXEC), vendor lifecycle (3 vendors + NPU) |
 
 ---
 
@@ -50,5 +50,5 @@ Published paper (Python/FORTRAN/HPC)
 - **barraCuda** (`../../../barraCuda/`): Standalone compute primal (budded from toadStool S89). 792+ WGSL shaders, DF64, precision system, lattice QCD, eigensolver, activations API.
 - **coralReef** (`../../../coralReef/`): Sovereign shader compiler primal (Phase 10, Iter 44+). WGSL→native binary compilation. VFIO dispatch pipeline (PFIFO + MMU + DMA). coral-glowplug persistent PCIe broker daemon. coral-driver pure Rust GPU backends (AMD DRM, NVIDIA nouveau, NVIDIA VFIO). SEC2/FECS falcon direct loading proven (Exp 067-068).
 - **toadStool** (`../../../phase1/toadStool/`): Hardware discovery and orchestration (S147). PcieTransport, ResourceOrchestrator, GPU sysmon telemetry.
-- **Experiment journals**: `../../experiments/` (001-068)
+- **Experiment journals**: `../../experiments/` (001-072)
 - **Handoffs**: `../../wateringHole/handoffs/` (fossil record of all cross-project exchanges)

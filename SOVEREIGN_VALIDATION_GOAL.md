@@ -279,11 +279,16 @@ statistical ensemble.
 - [x] BAR0 GR context init (PGRAPH registers from firmware)
 
 ### In Progress 🔄
-- [ ] Sovereign VFIO dispatch (validate BAR0 path with sudo)
+- [ ] Sovereign VFIO dispatch — MMU page table translation blocker (Exp 071, `0xbad00200`)
+- [ ] **DRM dispatch evolution** — dual-track: AMD PM4 (GCN5) + NVIDIA nouveau EXEC (Exp 072)
+- [ ] **GCN5 backend in coral-reef** — native AMD ISA codegen for MI50 (bypasses Naga poisoning)
 - [ ] Kokkos parity via sovereign bypass (DF64 + direct GPFIFO)
 - [ ] N_f=2+1 RHMC (infrastructure ready, needs validation run)
 
 ### Planned 📋
+- [ ] K80 sovereign validation — no firmware signing, full 10-layer stack (when hardware arrives)
+- [ ] K80 DRM reference — legacy nouveau, trace MMU setup for sovereign debugging
+- [ ] Titan V DRM — investigate PMU workaround (FECS-only channel, compute-only channel type)
 - [ ] VFIO GPU backend (extend toadStool Akida pattern)
 - [ ] Direct WGSL parser (replace naga dependency)
 - [ ] Multi-node scaling (toadStool tree + inter-node comms)
