@@ -107,11 +107,39 @@ Options:
 4. **DRM dispatch on K80 reference** — use K80's working DRM to understand what
    CHANNEL_ALLOC actually needs, then replicate on Titan V
 
+## Results
+
+### Phase 1 Results: AMD NOP Dispatch — PASSED (March 21, 2026)
+
+```
+╔═══════════════════════════════════════════════╗
+║  AMD DRM NOP Dispatch Test (Exp 072)         ║
+╚═══════════════════════════════════════════════╝
+
+  Phase 1: AmdDevice::open()... OK ✓       (amdgpu context created on renderD129)
+  Phase 2: Alloc shader buffer (256B GTT).. OK ✓  (GEM create + VA map)
+  Phase 3: Upload s_endpgm (0xBF810000)... OK ✓   (mmap write)
+  Phase 4: Dispatch (1×1×1 workgroups).... OK ✓    (PM4 DISPATCH_DIRECT → DRM_AMDGPU_CS)
+  Phase 5: Sync (fence wait).............. OK ✓    (DRM_AMDGPU_WAIT_CS completed)
+
+  ✓ AMD DRM NOP DISPATCH: ALL PHASES PASSED
+```
+
+**Hardware:** Radeon VII (Vega 20 / GFX906), BDF `0000:4d:00.0`, `amdgpu` driver,
+`renderD129`, kernel 6.17.9.
+
+**What this proves:**
+- coral-driver `AmdDevice` `ComputeDevice` trait implementation is functional E2E
+- amdgpu DRM ioctl wrappers (context create, GEM alloc, VA map, CS submit, wait) all correct
+- PM4 `DISPATCH_DIRECT` packet format accepted by GCN5 hardware
+- GPU executed the instruction and signaled fence completion
+- The `s_endpgm` encoding (0xBF810000) is confirmed identical on GCN5 and RDNA2
+
 ## Expected Outcomes
 
 | Milestone | Status | Dependencies |
 |-----------|--------|--------------|
-| AMD NOP dispatch (PM4 → fence) | Pending | MI50 on `amdgpu` |
+| AMD NOP dispatch (PM4 → fence) | **PASSED** | MI50 on `amdgpu` |
 | AMD buffer-write dispatch | Pending | NOP success |
 | GCN5 arch in coral-reef | Pending | — |
 | GCN5 DF64 Lennard-Jones | Pending | GCN5 arch + NOP success |
