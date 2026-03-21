@@ -1,5 +1,7 @@
 # hotSpring — Sovereign Validation Goal
 
+> **Note (March 21, 2026):** For current sovereign pipeline status, see [`experiments/071_PFIFO_DIAGNOSTIC_MATRIX_MMU_CRACKING.md`](experiments/071_PFIFO_DIAGNOSTIC_MATRIX_MMU_CRACKING.md) and [`wateringHole/handoffs/HOTSPRING_PFIFO_MMU_SOVEREIGN_DISPATCH_HANDOFF_MAR21_2026.md`](wateringHole/handoffs/HOTSPRING_PFIFO_MMU_SOVEREIGN_DISPATCH_HANDOFF_MAR21_2026.md). 6/10 sovereign pipeline layers proven working.
+
 ## CERN-Grade Reproducible Physics at Home. Scalable to CERN.
 
 **Date**: March 14, 2026

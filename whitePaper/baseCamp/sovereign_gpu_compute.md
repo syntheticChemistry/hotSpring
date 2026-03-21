@@ -1,9 +1,9 @@
 # baseCamp: Sovereign GPU Compute — GlowPlug & Falcon Boot Chain
 
-**Date:** 2026-03-16  
-**Domain:** Hardware — PCIe GPU lifecycle, falcon microcontrollers, HBM2 management  
-**Experiments:** 060-069  
-**Hardware:** 2× NVIDIA Titan V (GV100, 12GB HBM2), RTX 5060 (display), Radeon MI50 (incoming)
+**Date:** 2026-03-21 (updated from 2026-03-16)  
+**Domain:** Hardware — PCIe GPU lifecycle, falcon microcontrollers, HBM2 management, PFIFO command submission  
+**Experiments:** 060-071  
+**Hardware:** 2× NVIDIA Titan V (GV100, 12GB HBM2), RTX 5060 (display), Radeon VII (MI50/GFX906), BrainChip Akida AKD1000 NPU
 
 ---
 
@@ -100,16 +100,36 @@ produced the same panic.
 grabbing it = clean shutdown. The `resurrect_hbm2()` function handles temporary nouveau
 binding only when no DRM consumers exist.
 
+## Sovereign Pipeline Layer Status (March 21, 2026 — Exp 071)
+
+| Layer | Component | Status |
+|-------|-----------|--------|
+| 0 | PCIe / VFIO | ✅ BAR0 MMIO, DMA buffers, IOMMU |
+| 1 | PFB / MMU | ✅ Alive via warm-state transfer from nouveau |
+| 2 | PFIFO Engine | ✅ Re-initialized (PMC reset + soft enable + preempt) |
+| 3 | Scheduler | ✅ Processes runlists, BIT30 acknowledged |
+| 4 | Channel | ✅ Accepted by scheduler (STATUS=PENDING) |
+| 5 | PBDMA Context | ✅ GP_BASE, USERD, SIG loaded correctly |
+| 6 | MMU Translation | ❌ **BLOCKING** — 0xbad00200 PBUS timeout |
+| 7-10 | GPFIFO→Commands→FECS→Shader | Blocked by Layer 6 |
+
+**6 of 10 layers proven working** via 54-configuration diagnostic matrix.
+
 ## Remaining Blockers
 
-1. **GPCCS address unknown** on GV100 (not at legacy 0x41A000)
-2. **FECS halts at PC=0x2835** — likely waiting for GPCCS or a channel context
-3. **DMA requires instance block** (SEC2+0x480) which is not host-writable in clean state
-4. **PMC toggle of GR (bit 12) causes fatal unrecoverable PRIVRING fault** on GV100
-5. **HBM2 not trained** on the VFIO card after D3hot (only ~76KB VRAM accessible)
-6. **DRM consumer fencing** — `resurrect_hbm2()` must verify no open `/dev/dri/renderD*` before nouveau bind
-7. **AMD Vega metal stub** — `amd_metal.rs` has 6 TODOs; MI50 needs full implementation
-8. **SCM_RIGHTS fd passing** — socket returns JSON only; toadStool needs VFIO fds for dispatch
+1. **MMU page table translation** (PBDMA 0xbad00200 fetching GPU VA 0x1000) — the single remaining command submission blocker
+2. **GPCCS address unknown** on GV100 (not at legacy 0x41A000)
+3. **FECS halts at PC=0x2835** — likely waiting for GPCCS or a channel context
+4. **DMA requires instance block** (SEC2+0x480) which is not host-writable in clean state
+5. **PMC toggle of GR (bit 12) causes fatal unrecoverable PRIVRING fault** on GV100
+
+### Resolved Since Last Update
+
+- ~~HBM2 not trained~~ — warm-state transfer from nouveau solves this
+- ~~DRM consumer fencing~~ — VFIO-first boot + Xorg AutoAddGPU=false
+- ~~AMD Vega metal stub~~ — AMD VendorLifecycle fully implemented (D3cold characterized)
+- ~~SCM_RIGHTS fd passing~~ — Ember architecture delivers this
+- ~~PFIFO disabled after nouveau unbind~~ — PMC reset + soft enable + preempt sequence
 
 ## Architecture Implications for coralReef
 

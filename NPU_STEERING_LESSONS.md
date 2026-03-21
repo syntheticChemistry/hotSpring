@@ -1,5 +1,7 @@
 # NPU Steering — Lessons Learned
 
+> **Note (March 21, 2026):** Point-in-time lessons from the dynamical-only NPU steering run. For current NPU integration status, see [root README](README.md) and [`wateringHole/handoffs/HOTSPRING_TRIO_EVOLUTION_AMD_AKIDA_HANDOFF_MAR20_2026.md`](wateringHole/handoffs/HOTSPRING_TRIO_EVOLUTION_AMD_AKIDA_HANDOFF_MAR20_2026.md).
+
 **Date**: March 9, 2026
 **Run**: `validate_chuna_overnight --dynamical-only`
 **Hardware**: biomeGate — Akida AKD1000 NPU, Threadripper 3970X, Titan V, RTX 3090

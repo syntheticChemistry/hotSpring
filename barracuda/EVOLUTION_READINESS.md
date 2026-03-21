@@ -99,6 +99,21 @@ barraCuda: "I need DF64 matrix multiply on 16GB HBM2"
 handles any PCIe device, not just GPUs. The `RegisterMap` trait could be
 extended to cover NPU register spaces for hardware telemetry.
 
+### Sovereign Command Submission Pipeline (Mar 21, 2026 — Exp 071)
+
+The PFIFO diagnostic matrix in coralReef's `coral-driver` crate proved 6/10
+sovereign pipeline layers working on GV100 via VFIO. Key discoveries:
+
+- **PFIFO re-init sequence**: PMC reset (bit 8) → soft enable → preempt all → clear PBDMAs
+- **GP_FETCH register at 0x050** (not 0x048 as documented — 0x048 is GP_STATE)
+- **PBDMA context loading works**: GP_BASE, USERD, SIG, GP_PUT all loaded correctly
+- **MMU translation is the blocker**: 0xbad00200 PBUS timeout fetching GPU VA 0x1000
+
+**Relevance to barraCuda**: Once sovereign dispatch works, `MdEngine<B: GpuBackend>`
+can route through a `SovereignBackend` that uses coral-driver for GPFIFO submission.
+The `RegisterMap` module's GV100 register definitions should incorporate the PBDMA
+operational register corrections (CTX_GP_FETCH_BYTE at 0x050).
+
 ### Code Quality Improvements
 
 - `#![forbid(unsafe_code)]` added to lib.rs (compiler-enforced zero-unsafe)

@@ -1,5 +1,7 @@
 # Chuna Papers — Parity & Extensions Status
 
+> **Note (March 21, 2026):** This document captures the Chuna parity status as of v0.6.29. For current overall status, see the [root README](README.md). Chuna 44/44 checks remain passing.
+
 **Last Updated**: March 11, 2026 (v0.6.29 — upstream sync v4: barraCuda v0.3.5 + toadStool S146 + coralReef Iter 31)
 **Crate**: hotspring-barracuda v0.6.29 (847 lib tests, 112+ binaries)
 **Rewired to**: barraCuda v0.3.5 (`8d63c77`), toadStool S146, coralReef Phase 10 Iter 31

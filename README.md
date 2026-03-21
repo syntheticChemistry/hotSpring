@@ -32,7 +32,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 
 ---
 
-## Current Status (2026-03-20, post-Exp 070)
+## Current Status (2026-03-21, post-Exp 071)
 
 | Study | Status | Quantitative Checks |
 |-------|--------|-------------------|
@@ -85,7 +85,8 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **Titan V NVK** | ✅ Complete | NVK built from Mesa 25.1.5. `cpu_gpu_parity` 6/6, `stanton_murillo` 40/40, `bench_gpu_fp64` pass |
 | **Ember Architecture** | ✅ Complete | Immortal VFIO fd holder (`coral-ember`): `SCM_RIGHTS` fd passing, atomic `swap_device` RPC, DRM isolation preflight, external fd holder detection. Zero-crash driver hot-swap on live system |
 | **DRM Isolation** | ✅ Complete | Xorg `AutoAddGPU=false` + udev seat tag removal (61-prefix) prevents compositor crash during driver swaps. Compute GPUs fully invisible to display manager |
-| **Dual Titan Backend Matrix** (Exp 070) | 🔄 Active | Both Titans on GlowPlug/Ember. vfio↔nouveau swap validated (oracle). Full backend matrix: vfio, nouveau, nvidia × 2 cards. Register diff infrastructure ready |
+| **Dual Titan Backend Matrix** (Exp 070) | ✅ Complete | Both Titans on GlowPlug/Ember. vfio↔nouveau swap validated (oracle). Full backend matrix: vfio, nouveau, nvidia × 2 cards. Register diff infrastructure ready |
+| **PFIFO Diagnostic Matrix** (Exp 071) | 🔄 Active | 54-config matrix: 12 winning configs, 0 faults, scheduler-accepted. PFIFO re-init solved (PMC+preempt+clear). **Root cause: PBDMA 0xbad00200 (PBUS timeout) fetching GPFIFO — MMU page table translation is the single remaining blocker.** 6/10 sovereign pipeline layers proven. |
 | **Vendor-Agnostic GlowPlug** | ✅ Complete | coral-ember standalone crate. RegisterMap trait (GV100 + GFX906/MI50). AMD MI50 HBM2 swap path. Typed EmberError. Legacy sysfs gated behind `no-ember` feature. coralctl CLI |
 | **Privilege Hardening** | ✅ Complete | Capabilities + seccomp + namespaces. `ProtectSystem=strict`, `SystemCallFilter`, `MemoryDenyWriteExecute`, `NoNewPrivileges`. coralctl deploy-udev generates rules from config |
 | **VendorLifecycle Trait** | ✅ Complete | Vendor-specific swap hooks (NVIDIA, AMD Vega 20, AMD RDNA, Intel Xe, BrainChip, Generic). AMD D3cold fully characterized — 1 round-trip/boot hardware limit (Vega 20 SMU). PmResetAndBind + stabilize_after_bind. Intel Xe/i915 stubs. 157 tests pass |
@@ -769,7 +770,7 @@ hotSpring/
 │       ├── Two-Temperature-Model/      # Cloned + patched via scripts/clone-repos.sh
 │       └── scripts/                    # Local + hydro model runners
 │
-├── experiments/                         # Experiment journals — 69 experiments + post-mortems (the "why" behind the data)
+├── experiments/                         # Experiment journals — 71 experiments + post-mortems (the "why" behind the data)
 │   ├── 001_N_SCALING_GPU.md            # N-scaling (500→20k) + native f64 builtins
 │   ├── 002_CELLLIST_FORCE_DIAGNOSTIC.md # Cell-list i32 modulo bug diagnosis + fix
 │   ├── 003_RTX4070_CAPABILITY_PROFILE.md # RTX 4070 capability profile (paper-parity COMPLETE)
@@ -1011,6 +1012,7 @@ These are **silent failures** — wrong results, no error messages. This fragili
 | [`experiments/068_FECS_DIRECT_EXECUTION_AND_PRIVRING_RECOVERY.md`](experiments/068_FECS_DIRECT_EXECUTION_AND_PRIVRING_RECOVERY.md) | **FECS executes from host-loaded IMEM** (PC=0x63EE/25KB); LS bypass on clean falcon; PRIVRING lesson |
 | [`experiments/069_GLOWPLUG_BOOT_PERSISTENCE_AND_SHUTDOWN_SAFETY.md`](experiments/069_GLOWPLUG_BOOT_PERSISTENCE_AND_SHUTDOWN_SAFETY.md) | **GlowPlug boot persistence + shutdown safety**: systemd service, IOMMU group binding, DRM render node oops (Cursor held nouveau fd), VFIO-first boot fix, graceful shutdown protocol |
 | [`experiments/070_DUAL_TITAN_BACKEND_MATRIX_REVERSE_ENGINEERING.md`](experiments/070_DUAL_TITAN_BACKEND_MATRIX_REVERSE_ENGINEERING.md) | **Dual Titan backend matrix**: 2×GV100 under GlowPlug/Ember, 8 backend configurations (vfio×nouveau×nvidia), register diff infrastructure, coral-ember immortal fd holder, DRM isolation, fail-safe swap architecture |
+| [`experiments/071_PFIFO_DIAGNOSTIC_MATRIX_MMU_CRACKING.md`](experiments/071_PFIFO_DIAGNOSTIC_MATRIX_MMU_CRACKING.md) | **PFIFO diagnostic matrix + MMU cracking**: 54-config matrix, PFIFO re-init (PMC+preempt+clear), 12 winning scheduler-accepted configs, root cause: PBDMA 0xbad00200 PBUS timeout — MMU page table translation is the single remaining blocker for sovereign command submission. 6/10 pipeline layers proven. |
 | [`specs/BIOMEGATE_BRAIN_ARCHITECTURE.md`](specs/BIOMEGATE_BRAIN_ARCHITECTURE.md) | Brain architecture: 4-substrate concurrent pipeline, NPU steering, Nautilus Shell integration |
 | [`metalForge/README.md`](metalForge/README.md) | Hardware characterization — philosophy, inventory, directory |
 | [`metalForge/npu/akida/BEYOND_SDK.md`](metalForge/npu/akida/BEYOND_SDK.md) | **10 overturned SDK assumptions** — the discovery document |
@@ -1063,7 +1065,7 @@ transition at 32⁴ (χ=40.1 at β=5.69, matching β_c=5.692) in 13.6 hours for
 $0.58. Self-routing precision brain: hardware calibration probes 4 tiers per GPU,
 NVVM device poisoning discovered and gated, dual-GPU cooperative patterns profiled
 (Split BCS 2.2×, PCIe 1.2 GB/s). coralReef sovereign bypass integrated (Iter 28).
-70 experiments, 115 binaries, 848 tests,
+71 experiments, 115 binaries, 848 tests,
 barraCuda `7c1fd03a` v0.3.5 + toadStool S155b + coralReef Iter 47 synced. Full multi-tier precision stability analysis
 (Exp 046): 9 cancellation families audited across f32/DF64/f64/CKKS FHE —
 stable BCS v² and plasma W(z) algorithms enable safe DF64 throughput. Chuna
