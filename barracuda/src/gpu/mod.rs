@@ -34,7 +34,7 @@ mod telemetry;
 
 pub use adapter::{discover_best_adapter, discover_primary_and_secondary_adapters, AdapterInfo};
 
-use barracuda::device::capabilities::GpuDriverProfile;
+use barracuda::device::driver_profile::GpuDriverProfile;
 use barracuda::device::{TensorContext, WgpuDevice};
 use barracuda::shaders::precision::ShaderTemplate;
 use log::{debug, error, info, warn};
@@ -422,21 +422,20 @@ impl GpuF64 {
 // ── Pipeline creation ────────────────────────────────────────────────
 
 impl GpuF64 {
-    /// Create a compute pipeline with `WgslOptimizer` + `GpuDriverProfile`.
+    /// Create a compute pipeline with `WgslOptimizer` + driver-aware patching.
     ///
     /// Does NOT apply exp/log workarounds — use [`Self::create_pipeline_f64`]
     /// for shaders that call `exp()` or `log()` on f64 values.
     #[must_use]
     pub fn create_pipeline(&self, shader_source: &str, label: &str) -> wgpu::ComputePipeline {
-        let optimized =
-            ShaderTemplate::for_driver_profile(shader_source, false, &self.driver_profile);
+        let optimized = ShaderTemplate::for_driver_auto(shader_source, false);
         self.build_pipeline(&optimized, label)
     }
 
     /// Create a compute pipeline with driver-aware f64 patching + sovereign compilation.
     ///
     /// Routes through barraCuda's `WgpuDevice::compile_shader_f64()` which applies:
-    /// 1. `ShaderTemplate::for_driver_profile` — fossil substitution, polyfills
+    /// 1. `ShaderTemplate::for_driver_auto` — fossil substitution, polyfills
     /// 2. Sovereign compiler — naga IR → FMA fusion → SPIR-V (when available)
     /// 3. WGSL text fallback when passthrough is unavailable
     ///
@@ -486,10 +485,9 @@ impl GpuF64 {
         if self.full_df64_mode {
             return self.compile_full_df64_pipeline(shader_source, label);
         }
-        let optimized = ShaderTemplate::for_driver_profile(
+        let optimized = ShaderTemplate::for_driver_auto(
             shader_source,
             self.wgpu_device.needs_f64_exp_log_workaround(),
-            &self.driver_profile,
         );
         self.build_pipeline(&optimized, label)
     }
@@ -576,10 +574,9 @@ impl GpuF64 {
         if self.full_df64_mode {
             return self.compile_full_df64_pipeline(shader_source, label);
         }
-        let optimized = ShaderTemplate::for_driver_profile(
+        let optimized = ShaderTemplate::for_driver_auto(
             shader_source,
             self.wgpu_device.needs_f64_exp_log_workaround(),
-            &self.driver_profile,
         );
         self.build_pipeline_entry(&optimized, entry_point, label)
     }

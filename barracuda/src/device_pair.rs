@@ -312,7 +312,7 @@ mod tests {
             BandwidthTier::PciE3x16
         );
         assert_eq!(
-            slower_tier(BandwidthTier::NvLink, BandwidthTier::PciE4x16),
+            slower_tier(BandwidthTier::HighBandwidthInterconnect, BandwidthTier::PciE4x16),
             BandwidthTier::PciE4x16
         );
     }

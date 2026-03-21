@@ -11,7 +11,7 @@ Python baseline → Rust validation → WGSL template → GPU shader → ToadSto
 
 ## v0.6.32 Evolution Sprint (Mar 17, 2026)
 
-### Rewired to modern barraCuda v0.3.5 (was b95e9c59 → now f82d60c6)
+### Rewired to modern barraCuda v0.3.6 (was f82d60c6 → now 32554b0a)
 
 | New Primitive | Origin | Cross-Spring Value |
 |---------------|--------|-------------------|
@@ -104,7 +104,7 @@ extended to cover NPU register spaces for hardware telemetry.
 - `#![forbid(unsafe_code)]` added to lib.rs (compiler-enforced zero-unsafe)
 - License: `AGPL-3.0-only` → `AGPL-3.0-or-later` (scyBorg trio alignment)
 - Zero clippy pedantic+nursery warnings across all targets (was 8)
-- barraCuda pin: `b95e9c59` → `f82d60c6` (4 commits, Sprint 5-7)
+- barraCuda pin: `f82d60c6` → `32554b0a` (4 commits, Sprint 12-14, v0.3.6)
 - Cross-spring benchmark: 4 new phases (FMA routing, stable specials, GemmF64 transpose, precision tiers)
 - 848 tests, 0 failures, 6 GPU-ignored
 

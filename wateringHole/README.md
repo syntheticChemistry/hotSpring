@@ -78,7 +78,9 @@ cmdline, pre-boot `reset_method` clearing, bridge power pinning.
 
 ### barraCuda — RegisterMap convergence candidate
 
-IPC-first design works cleanly. hotSpring's 848 tests confirm stability at `f82d60c6` (v0.3.5).
+IPC-first design works cleanly. hotSpring's 848 tests confirm stability at `32554b0a` (v0.3.6).
+`GpuDriverProfile` deprecated → `DeviceCapabilities`. `ShaderTemplate::for_driver_auto` replaces
+`for_driver_profile`. `BandwidthTier::NvLink` → `HighBandwidthInterconnect`.
 RegisterMap trait and VendorLifecycle trait both dispatch from PCI vendor IDs — candidate
 for unified `VendorProfile` in the trio triangle architecture.
 
