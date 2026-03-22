@@ -1,0 +1,40 @@
+# Build artifacts
+barracuda/target/
+metalForge/forge/target/
+
+# Large data (oracle captures, mmiotraces)
+data/plasma-properties-db/
+data/nouveau_mmiotrace*.log
+data/mmiotrace_*.txt
+data/*.bin
+
+# Python environments and caches
+envs/
+__pycache__/
+.ipynb_checkpoints/
+venv/
+.venv/
+
+# Simulation output
+control/sarkas/simulations/*/Simulations/
+control/ttm/reproduction/
+control/surrogate/reproduction/
+
+# Generated results
+barracuda/results/
+results/*.jsonl
+telemetry/
+overnight_logs/
+benchmarks/*/results/
+
+# Cloned upstream repos
+control/sarkas/sarkas-upstream/
+control/ttm/Two-Temperature-Model/
+control/surrogate/code-ocean-capsule/
+
+# Kernel module build artifacts
+control/akida_dw_edma/*.o
+control/akida_dw_edma/*.ko
+
+# Closed-source references
+wateringHole/nvidia-closed-volta-580/
