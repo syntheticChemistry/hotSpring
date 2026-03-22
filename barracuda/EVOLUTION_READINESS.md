@@ -11,7 +11,7 @@ Python baseline → Rust validation → WGSL template → GPU shader → ToadSto
 
 ## v0.6.32 Evolution Sprint (Mar 17, 2026)
 
-### Rewired to modern barraCuda v0.3.6 (was f82d60c6 → now 32554b0a)
+### Rewired to modern barraCuda v0.3.7 (was f82d60c6 → now 32554b0a)
 
 | New Primitive | Origin | Cross-Spring Value |
 |---------------|--------|-------------------|
@@ -156,7 +156,7 @@ validates `RegisterMap` encodings that were previously theoretical.
 - `#![forbid(unsafe_code)]` added to lib.rs (compiler-enforced zero-unsafe)
 - License: `AGPL-3.0-only` → `AGPL-3.0-or-later` (scyBorg trio alignment)
 - Zero clippy pedantic+nursery warnings across all targets (was 8)
-- barraCuda pin: `f82d60c6` → `32554b0a` (4 commits, Sprint 12-14, v0.3.6)
+- barraCuda pin: `f82d60c6` → `32554b0a` (4 commits, Sprint 12-14, v0.3.7)
 - Cross-spring benchmark: 4 new phases (FMA routing, stable specials, GemmF64 transpose, precision tiers)
 - 848 tests, 0 failures, 6 GPU-ignored
 
@@ -169,7 +169,7 @@ validates `RegisterMap` encodings that were previously theoretical.
 | **C** | New | No shader exists; must be written from scratch |
 | **✅** | Absorbed | ToadStool has absorbed this as a first-class barracuda primitive |
 
-## ToadStool Absorption Status (Mar 17, 2026 — v0.6.32 synced to toadStool S158 + coralReef Iter 54 + barraCuda v0.3.5 f82d60c6, 848 tests)
+## ToadStool Absorption Status (Mar 17, 2026 — v0.6.32 synced to toadStool S158 + coralReef Iter 54 + barraCuda v0.3.7, 848 tests)
 
 | hotSpring Module | ToadStool Primitive | Absorbed At | Status |
 |-----------------|--------------------| -------|--------|
