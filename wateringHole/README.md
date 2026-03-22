@@ -2,7 +2,7 @@
 
 **Project:** hotSpring (ecoPrimals)
 **Last Updated:** March 22, 2026
-**Status:** ACTIVE — Dual-track dispatch: sovereign VFIO (6/10 layers, MMU blocker) + DRM dispatch (**AMD GCN5 preswap: 6/6 PASS — f64 Lennard-Jones force verified, Newton's 3rd law confirmed**). **iommufd/cdev VFIO backend** (kernel 6.2+) — kernel-agnostic VFIO, resolves EBUSY on 6.17. **RTX 5060 Blackwell DRM cracked** (SM120, per-buffer fd, single mmap context). 18 coral-reef bugs fixed. NVIDIA EXEC coded/PMU-blocked, K80 incoming. 73 experiments. Naga DF64 poisoning bypass **validated end-to-end on real physics (LJ force)**. AMD D3cold characterized (1/boot Vega 20 limit), BrainChip Akida NPU integrated, zero-sudo coralctl
+**Status:** ACTIVE — Dual-track dispatch: sovereign VFIO (6/10 layers, MMU blocker) + DRM dispatch (**AMD GCN5 preswap: 6/6 PASS — f64 Lennard-Jones force verified, Newton's 3rd law confirmed**). **iommufd/cdev VFIO backend** (kernel 6.2+) — kernel-agnostic VFIO, resolves EBUSY on 6.17. **RTX 5060 Blackwell DRM cracked** (SM120, per-buffer fd, single mmap context). **Kepler (SM35) + Blackwell (SM120) ISA arches** in coral-reef — full propagation through coral-gpu (PCI device IDs, wave_size metadata, sm_to_nvarch). **coral-ember per-client threading** — `Arc<RwLock<HashMap>>` with D3cold pre-checks, prevents cascade failures. **toadStool GlowPlug client stub** shipped — runtime-discoverable ember IPC. 18 coral-reef bugs fixed. NVIDIA EXEC coded/PMU-blocked, K80 incoming. 73 experiments. Naga DF64 poisoning bypass **validated end-to-end on real physics (LJ force)**. AMD D3cold characterized (1/boot Vega 20 limit), BrainChip Akida NPU integrated, zero-sudo coralctl
 
 ---
 
@@ -21,7 +21,7 @@ hotSpring → wateringHole/handoffs/ → coralReef reads and evolves
 
 ---
 
-## Current State: iommufd/cdev + Blackwell DRM + GCN5 Preswap (March 2026)
+## Current State: Full Sweep Evolution — ISA Arches + Ember Threading + GlowPlug Client (March 2026)
 
 hotSpring is **active at v0.6.32** (848 tests, 0 clippy warnings, 73 experiments).
 The sovereign GPU lifecycle is production-grade across 3 vendors + 1 NPU.
@@ -87,17 +87,17 @@ cmdline, pre-boot `reset_method` clearing, bridge power pinning.
 | GP_PUT DMA read (Exp 058) | P2 | **Superseded** by Exp 071 — PFIFO re-init + diagnostic matrix. Root cause: MMU translation, not USERD DMA |
 | ~~Privilege model (CAP_SYS_ADMIN)~~ | ~~P3~~ | **DELIVERED** — caps + seccomp + zero-sudo coralctl (Mar 20) |
 
-### toadStool Delivery Status (3 remaining, now UNBLOCKED)
+### toadStool Delivery Status (2 remaining)
 
 | Task | Priority | Status |
 |------|----------|--------|
-| GlowPlug socket client | P1 | **UNBLOCKED** — JSON-RPC + Ember + triangle handoff ready |
+| ~~GlowPlug socket client~~ | ~~P1~~ | **DELIVERED** — `glowplug_client.rs` in toadStool server crate. Runtime-discoverable (env/XDG/default), `ember.list`/`ember.status`/`ember.swap`/`ember.reacquire` RPCs, `SharedGlowPlugClient` via `Arc`. Follows `CoralReefClient` pattern. (Mar 22) |
 | VFIO device in sysmon | P2 | Partially done (S150-S152 built VFIO infra) |
 | hw-learn GlowPlug health feed | P3 | Pending |
 
 ### barraCuda — RegisterMap convergence candidate
 
-IPC-first design works cleanly. hotSpring's 848 tests confirm stability at `32554b0a` (v0.3.6).
+IPC-first design works cleanly. hotSpring's 848 tests confirm stability at v0.3.7.
 `GpuDriverProfile` deprecated → `DeviceCapabilities`. `ShaderTemplate::for_driver_auto` replaces
 `for_driver_profile`. `BandwidthTier::NvLink` → `HighBandwidthInterconnect`.
 RegisterMap trait and VendorLifecycle trait both dispatch from PCI vendor IDs — candidate
@@ -124,8 +124,8 @@ for unified `VendorProfile` in the trio triangle architecture.
 9. **K80 sovereign** — no firmware signing, full 10-layer pipeline on unlocked hardware
 
 **Infrastructure:**
-10. **Ember per-device isolation**: One D3cold device must not freeze all operations
-11. toadStool GlowPlug socket client wiring (triangle architecture)
+10. ~~**Ember per-device isolation**~~: **DELIVERED** — `Arc<RwLock<HashMap>>` per-client threading, D3cold pre-checks in `reacquire`/`swap` (Mar 22)
+11. ~~toadStool GlowPlug socket client~~ — **DELIVERED** — `glowplug_client.rs` with runtime discovery (Mar 22)
 12. RDNA validation (RX 5000/6000/7000 series)
 
 ---
@@ -179,11 +179,12 @@ for unified `VendorProfile` in the trio triangle architecture.
 | ~~5~~ | ~~AMD Vega metal (MI50)~~ | ~~coralReef~~ | **DELIVERED** + D3cold characterized (1/boot limit, Mar 20) |
 | ~~6~~ | ~~SCM_RIGHTS fd passing~~ | ~~coralReef~~ | **DELIVERED** — Ember architecture (Mar 19) |
 | ~~7~~ | ~~DRM consumer fence~~ | ~~coralReef~~ | **DELIVERED** — DRM isolation + preflight (Mar 19) |
-| 8 | GlowPlug socket client | toadStool (unblocked) | Trio handoff Mar 20, triangle architecture |
+| ~~8~~ | ~~GlowPlug socket client~~ | ~~toadStool~~ | **DELIVERED** — `glowplug_client.rs` runtime-discoverable client (Mar 22) |
 | 9 | VFIO device in sysmon | toadStool (partial) | PIN handoff |
 | ~~10~~ | ~~Privilege model (CAP_SYS_ADMIN)~~ | ~~coralReef~~ | **DELIVERED** — zero-sudo coralctl (Mar 20) |
-| 11 | Ember per-device isolation | coralReef | Single-threaded ember blocks all devices on D3cold hang |
+| ~~11~~ | ~~Ember per-device isolation~~ | ~~coralReef~~ | **DELIVERED** — `Arc<RwLock<HashMap>>` per-client threading + D3cold guards (Mar 22) |
 | 12 | RDNA validation | coralReef | AmdRdnaLifecycle untested on actual RDNA hardware |
+| 13 | SM32 encoder `frnd.f32` | coralReef | Kepler codegen ICE on float rounding — add to instruction table |
 
 ### Research (long-horizon)
 
@@ -226,7 +227,10 @@ trait-based personalities (8 including Akida), VendorLifecycle dispatch.
 Ember provides fail-safe driver hot-swap for GPUs and non-GPU accelerators.
 **iommufd/cdev backend**: VfioDevice dual-path (iommufd first, legacy fallback),
 backend-agnostic Ember→GlowPlug IPC (2-fd iommufd or 3-fd legacy + JSON metadata).
-607 tests pass. Next: per-device thread isolation in ember, RDNA validation.
+**Per-client threading**: `Arc<RwLock<HashMap>>` with D3cold pre-checks (Mar 22).
+**ISA arches**: `NvArch::Sm35` (Kepler) + `NvArch::Sm120` (Blackwell) with full
+`wave_size` propagation through `CompiledKernel`/`KernelCacheEntry`/`ShaderInfo`.
+607+ tests pass. Next: RDNA validation, SM32 encoder `frnd.f32` gap, VendorProfile convergence.
 
 ### hotSpring → toadStool (partial)
 
@@ -243,20 +247,20 @@ GlowPlug client wiring is the main remaining integration.
 
 ### For coralReef
 
-All original 7 deliverables complete except GP_PUT DMA read. **iommufd/cdev evolution shipped (Mar 22).** **Immediate priorities:**
+All original 7 deliverables complete except GP_PUT DMA read. **iommufd/cdev evolution shipped (Mar 22). Kepler/Blackwell ISA + ember threading shipped (Mar 22).** **Immediate priorities:**
 
-1. **SM120 ISA arch**: Add `NvArch::Sm120` to coral-reef to enable RTX 5060 Blackwell dispatch. QMD v3.0 builder already works (SM80+ catch-all). All RM/UVM plumbing operational — dispatch is ISA-gated only.
-2. **Ember per-device isolation**: The single-threaded ember daemon hangs entirely when one
-   device enters D3cold. Move sysfs operations to per-device threads with D3cold pre-check
-   (read `power_state` before any write — if D3cold, return error instead of blocking).
+1. ~~**SM120 ISA arch**~~: **DELIVERED** — `NvArch::Sm120` (Blackwell) and `NvArch::Sm35` (Kepler) added to coral-reef. Full propagation through coral-gpu: `sm_to_nvarch()`, `vfio_sm_from_device_id()`, PCI device ID ranges (GK110/GK210 for Kepler, GB20x for Blackwell). `wave_size` field propagated through `CompiledKernel`, `KernelCacheEntry`, `ShaderInfo`. SM32 encoder has `frnd.f32` gap for Kepler — codegen evolution needed.
+2. ~~**Ember per-device isolation**~~: **DELIVERED** — `Arc<RwLock<HashMap>>` with `std::thread::spawn` per client. `sysfs::is_d3cold()` pre-check in `reacquire`/`swap` prevents operations on powered-off devices. Granular read/write locks per RPC method. 14 tests pass.
 3. **RDNA validation**: `AmdRdnaLifecycle` uses conservative Vega 20 defaults — test on actual
    RX 5000/6000/7000 hardware to determine if RDNA's FLR support changes the picture.
 4. **VendorProfile convergence**: RegisterMap (barraCuda) and VendorLifecycle (coral-ember)
    both dispatch from PCI vendor IDs. Unify into a single `VendorProfile` trait.
+5. **SM32 encoder `frnd.f32`**: Kepler codegen triggers ICE on float rounding instructions. Add `FRND` to SM32 encoder instruction table.
 
 **Architecture facts:**
-- `coral-ember`: standalone crate, modular `sysfs`, `swap`, `hold`, `ipc`, `vendor_lifecycle`
+- `coral-ember`: standalone crate, modular `sysfs`, `swap`, `hold`, `ipc`, `vendor_lifecycle`. **Per-client threaded** (`std::thread::spawn` per connection, `Arc<RwLock<HashMap>>` shared state)
 - `coral-glowplug`: library surface with typed `EmberError` — importable by toadStool
+- `coral-reef`: `NvArch` enum covers SM35 (Kepler) → SM120 (Blackwell). `wave_size` metadata flows through compilation pipeline
 - `VfioDevice`: dual-path iommufd/cdev (kernel 6.2+) + legacy container/group (older kernels)
 - IPC: `SCM_RIGHTS` sends 2 fds (iommufd) or 3 fds (legacy) + JSON `backend`/`ioas_id`
 - `swap_device` RPC: single atomic orchestrator with `VendorLifecycle` hooks
@@ -271,12 +275,13 @@ GR bit 12 on GV100. Do NOT change `boot_personality = "vfio"` in glowplug.toml.
 
 **Triangle architecture** — toadStool is the hub between coralReef and barraCuda:
 
-1. **GlowPlug socket client**: Connect to `/run/coralreef/glowplug.sock` (no sudo needed if
-   user is in `coralreef` group). Methods: `device.list`, `device.swap`, `device.health`,
-   `health.check`, `daemon.status`, `daemon.shutdown`.
+1. ~~**GlowPlug socket client**~~: **DELIVERED** — `glowplug_client.rs` in `toadstool-server` crate.
+   Runtime discovery: `CORALREEF_EMBER_SOCKET` env → `$XDG_RUNTIME_DIR/coralreef/ember.sock` → `/run/coralreef/ember.sock`.
+   RPCs: `ember.list`, `ember.status`, `ember.swap`, `ember.reacquire`. `SharedGlowPlugClient` via `Arc<GlowPlugClient>`.
+   **Next**: Wire into sysmon for hardware census, connect to hw-learn for health feed.
 2. **Lifecycle-aware dispatch**: AMD round-trips are expensive (1/boot for Vega 20).
    Prefer keeping AMD on one personality per session. NVIDIA and Akida are unlimited.
-3. **Hardware census via GlowPlug**: Replace manual BDF enumeration with RPC-based discovery.
+3. **Hardware census via GlowPlug**: Wire `GlowPlugClient::list_devices()` into sysmon substrate discovery.
 4. **hw-learn health feed**: Feed GlowPlug health data (VRAM alive/dead, power state,
    domain faults, D3cold detection) into hw-learn for pattern learning.
 
