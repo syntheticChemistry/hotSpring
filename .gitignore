@@ -133,6 +133,9 @@ results/weights/*.bin
 # Generated metal map captures (regenerable via coral-glowplug oracle dump)
 data/metal_maps/*.json
 
+# GPU register snapshots (machine-local, regenerable via coralctl snapshot)
+data/snapshots/*.json
+
 # Closed-source driver references (captured for reverse engineering, not distributable)
 wateringHole/nvidia-closed-volta-580/
 

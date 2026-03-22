@@ -2,7 +2,7 @@
 
 **Project:** hotSpring (ecoPrimals)
 **Last Updated:** March 22, 2026
-**Status:** ACTIVE — Dual-track dispatch: sovereign VFIO (6/10 layers, MMU blocker) + DRM dispatch (**AMD GCN5 preswap: 6/6 PASS — f64 Lennard-Jones force verified, Newton's 3rd law confirmed**). **iommufd/cdev VFIO backend** (kernel 6.2+) — kernel-agnostic VFIO, resolves EBUSY on 6.17. **RTX 5060 Blackwell DRM cracked** (SM120, per-buffer fd, single mmap context). **Kepler (SM35) + Blackwell (SM120) ISA arches** in coral-reef. **Ember swap pipeline proven** — D-state resilient sysfs (process-isolated watchdog), IOMMU group peer release, EmberClient retry, DRM isolation auto-generation. **nouveau ↔ vfio round-trip proven** on Titan V. **2× Titan V + RTX 5060** fleet. 74 experiments. AMD D3cold characterized (1/boot Vega 20 limit), BrainChip Akida NPU integrated, zero-sudo coralctl
+**Status:** ACTIVE — Dual-track dispatch: sovereign VFIO (6/10 layers, MMU blocker) + DRM dispatch (**AMD GCN5 preswap: 6/6 PASS — f64 Lennard-Jones force verified, Newton's 3rd law confirmed**). **iommufd/cdev VFIO backend** (kernel 6.2+) — kernel-agnostic VFIO, resolves EBUSY on 6.17. **RTX 5060 Blackwell DRM cracked** (SM120, per-buffer fd, single mmap context). **Kepler (SM35) + Blackwell (SM120) ISA arches** in coral-reef. **Ember swap pipeline proven + hardened** — D-state resilient sysfs (process-isolated watchdog), IOMMU group peer release, EmberClient retry, DRM isolation auto-generation. **VRAM write-readback health check** (eliminates cold-boot false positives). **BDF allowlist** (ember rejects RPCs for unmanaged devices). **Pre-flight device checks** (D3cold/D3hot/0xFFFF config space guard before unbind). **nouveau ↔ vfio round-trip proven** on Titan V (both cards warm-swapped, HBM2 alive). **2× Titan V + RTX 5060** fleet. 74 experiments. 86 ember + 178 glowplug + 848 hotSpring tests. AMD D3cold characterized (1/boot Vega 20 limit), BrainChip Akida NPU integrated, zero-sudo coralctl
 
 ---
 
@@ -141,16 +141,13 @@ for unified `VendorProfile` in the trio triangle architecture.
 
 | File | Date | Audience | What To Do |
 |------|------|----------|------------|
-| [`HOTSPRING_EMBER_WATCHDOG_SWAP_PIPELINE_HANDOFF_MAR22_2026.md`](handoffs/HOTSPRING_EMBER_WATCHDOG_SWAP_PIPELINE_HANDOFF_MAR22_2026.md) | Mar 22 | coralReef, toadStool, barraCuda | **START HERE.** D-state resilient ember, IOMMU peer swap, DRM isolation auto-gen, EmberClient retry. nouveau ↔ vfio round-trip proven. 2× Titan V + RTX 5060 fleet. |
-| [`HOTSPRING_IOMMUFD_EMBER_EVOLUTION_HANDOFF_MAR22_2026.md`](handoffs/HOTSPRING_IOMMUFD_EMBER_EVOLUTION_HANDOFF_MAR22_2026.md) | Mar 22 | coralReef, toadStool, barraCuda | Kernel-agnostic VFIO backend: iommufd/cdev on 6.2+, legacy fallback. Ember/GlowPlug/Driver all evolved. 607 tests, HW validated. Per-primal evolution items. |
+| [`HOTSPRING_EMBER_HARDENING_HANDOFF_MAR22_2026.md`](handoffs/HOTSPRING_EMBER_HARDENING_HANDOFF_MAR22_2026.md) | Mar 22 | coralReef, toadStool, barraCuda | **START HERE.** VRAM write-readback health check, BDF allowlist (ember rejects unmanaged devices), pre-flight device state validation (D3cold/0xFFFF guard). 264 tests. Both Titans warm-swapped, HBM2 alive. Ember FD sharing validated. |
+| [`HOTSPRING_EMBER_WATCHDOG_SWAP_PIPELINE_HANDOFF_MAR22_2026.md`](handoffs/HOTSPRING_EMBER_WATCHDOG_SWAP_PIPELINE_HANDOFF_MAR22_2026.md) | Mar 22 | coralReef, toadStool, barraCuda | D-state resilient ember, IOMMU peer swap, DRM isolation auto-gen, EmberClient retry. nouveau ↔ vfio round-trip proven. 2× Titan V + RTX 5060 fleet. |
+| [`HOTSPRING_IOMMUFD_EMBER_EVOLUTION_HANDOFF_MAR22_2026.md`](handoffs/HOTSPRING_IOMMUFD_EMBER_EVOLUTION_HANDOFF_MAR22_2026.md) | Mar 22 | coralReef, toadStool, barraCuda | Kernel-agnostic VFIO backend: iommufd/cdev on 6.2+, legacy fallback. Ember/GlowPlug/Driver all evolved. Per-primal evolution items. |
 | [`HOTSPRING_DRM_TRIO_PIPELINE_HANDOFF_MAR22_2026.md`](handoffs/HOTSPRING_DRM_TRIO_PIPELINE_HANDOFF_MAR22_2026.md) | Mar 22 | coralReef, toadStool, barraCuda | Three-GPU DRM pipeline: MI50 E2E (historical — MI50 since removed), RTX 5060 Blackwell DRM cracked, Titan V VFIO staged. iommufd Part 4 appended. |
-| [`HOTSPRING_PRESWAP_GLOBAL_LOAD_HANDOFF_MAR21_2026.md`](handoffs/HOTSPRING_PRESWAP_GLOBAL_LOAD_HANDOFF_MAR21_2026.md) | Mar 21 | coralReef, toadStool, barraCuda | **SUPERSEDED** — GLOBAL_LOAD resolved. See `HOTSPRING_GCN5_COMPLETE_PRESWAP_HANDOFF_MAR2026.md` for final 6/6 results. |
-| [`HOTSPRING_GCN5_COMPLETE_PRESWAP_HANDOFF_MAR2026.md`](handoffs/HOTSPRING_GCN5_COMPLETE_PRESWAP_HANDOFF_MAR2026.md) | Mar 2026 | coralReef, toadStool, barraCuda | **START HERE.** GCN5 preswap 6/6 PASS — f64 write, f64 arith, multi-workgroup, multi-buffer, HBM2 bandwidth, **f64 LJ force (Newton's 3rd law verified)**. 18 bugs fixed. 85 coral-reef tests. Per-primal action items. |
-| [`HOTSPRING_GCN5_E2E_BREAKTHROUGH_HANDOFF_MAR21_2026.md`](handoffs/HOTSPRING_GCN5_E2E_BREAKTHROUGH_HANDOFF_MAR21_2026.md) | Mar 21 | coralReef, toadStool, barraCuda | **Superseded by Complete Preswap handoff.** GCN5 E2E compute dispatch achieved — WGSL → coral-reef → MI50 → 64/64 verified. 7 bugs fixed. VOP3 opcode translation table. Naga bypass validated. |
-| [`HOTSPRING_DRM_SOVEREIGN_DUAL_TRACK_HANDOFF_MAR21_2026.md`](handoffs/HOTSPRING_DRM_SOVEREIGN_DUAL_TRACK_HANDOFF_MAR21_2026.md) | Mar 21 | coralReef, toadStool, barraCuda | Dual-track strategy: DRM dispatch (AMD PM4 + NVIDIA EXEC) in parallel with sovereign VFIO. GCN5 backend **COMPLETE** (see GCN5 E2E handoff above). K80 incoming. Naga DF64 bypass validated. |
+| [`HOTSPRING_GCN5_COMPLETE_PRESWAP_HANDOFF_MAR2026.md`](handoffs/HOTSPRING_GCN5_COMPLETE_PRESWAP_HANDOFF_MAR2026.md) | Mar 2026 | coralReef, toadStool, barraCuda | GCN5 preswap 6/6 PASS — f64 write, f64 arith, multi-workgroup, multi-buffer, HBM2 bandwidth, **f64 LJ force (Newton's 3rd law verified)**. 18 bugs fixed. 85 coral-reef tests. Per-primal action items. |
 | [`HOTSPRING_PFIFO_MMU_SOVEREIGN_DISPATCH_HANDOFF_MAR21_2026.md`](handoffs/HOTSPRING_PFIFO_MMU_SOVEREIGN_DISPATCH_HANDOFF_MAR21_2026.md) | Mar 21 | coralReef, toadStool, barraCuda | 54-config PFIFO diagnostic matrix, PFIFO re-init sequence (PMC+preempt+clear), root cause analysis (MMU 0xbad00200), 6/10 sovereign pipeline layers proven. Register reference. Per-primal action items. |
 | [`HOTSPRING_TRIO_EVOLUTION_AMD_AKIDA_HANDOFF_MAR20_2026.md`](handoffs/HOTSPRING_TRIO_EVOLUTION_AMD_AKIDA_HANDOFF_MAR20_2026.md) | Mar 20 | coralReef, toadStool, barraCuda | Triangle architecture, AMD D3cold definitive resolution (4 strategies, 1 round-trip/boot limit), BrainChip AKD1000 NPU integration, zero-sudo coralctl, per-primal evolution priorities. |
-| [`HOTSPRING_VENDOR_LIFECYCLE_AMD_D3COLD_HANDOFF_MAR19_2026.md`](handoffs/HOTSPRING_VENDOR_LIFECYCLE_AMD_D3COLD_HANDOFF_MAR19_2026.md) | Mar 19 | coralReef, toadStool, barraCuda | VendorLifecycle trait, initial AMD D3cold analysis. **Superseded by Mar 20 trio handoff** for strategy conclusions. |
 | [`HOTSPRING_VENDOR_AGNOSTIC_HARDENED_GLOWPLUG_HANDOFF_MAR18_2026.md`](handoffs/HOTSPRING_VENDOR_AGNOSTIC_HARDENED_GLOWPLUG_HANDOFF_MAR18_2026.md) | Mar 18 | coralReef, toadStool, barraCuda | Vendor-agnostic RegisterMap, AMD MI50 support, coral-ember crate split, typed EmberError, privilege hardening (caps+seccomp), coralctl deploy-udev. |
 | [`HOTSPRING_REGISTER_MAPS_ABSORPTION_HANDOFF_MAR18_2026.md`](handoffs/HOTSPRING_REGISTER_MAPS_ABSORPTION_HANDOFF_MAR18_2026.md) | Mar 18 | barraCuda, toadStool | RegisterMap trait absorption path, GlowPlug register RPCs for hw-learn, sovereign dispatch blockers, AMD vs NVIDIA VFIO lessons. |
 | [`HOTSPRING_EMBER_DRM_ISOLATION_HANDOFF_MAR19_2026.md`](handoffs/HOTSPRING_EMBER_DRM_ISOLATION_HANDOFF_MAR19_2026.md) | Mar 19 | coralReef, toadStool | Ember architecture, DRM isolation, fail-safe swap protocol, boot scripts |
@@ -234,9 +231,13 @@ Ember provides fail-safe driver hot-swap for GPUs and non-GPU accelerators.
 **iommufd/cdev backend**: VfioDevice dual-path (iommufd first, legacy fallback),
 backend-agnostic Ember→GlowPlug IPC (2-fd iommufd or 3-fd legacy + JSON metadata).
 **Per-client threading**: `Arc<RwLock<HashMap>>` with D3cold pre-checks (Mar 22).
+**Ember hardened (Mar 22)**: VRAM write-readback canary replaces read-nonzero check,
+BDF allowlist rejects RPCs for unmanaged devices, pre-flight device checks
+(sysfs existence, D0 power state, config space 0xFFFF guard). Display GPU safety
+guard prevents unbind of active display devices. 86 ember + 178 glowplug tests pass.
 **ISA arches**: `NvArch::Sm35` (Kepler) + `NvArch::Sm120` (Blackwell) with full
 `wave_size` propagation through `CompiledKernel`/`KernelCacheEntry`/`ShaderInfo`.
-607+ tests pass. Next: RDNA validation, SM32 encoder `frnd.f32` gap, VendorProfile convergence.
+Next: RDNA validation, SM32 encoder `frnd.f32` gap, VendorProfile convergence.
 
 ### hotSpring → toadStool (partial)
 
@@ -329,14 +330,18 @@ Every handoff follows this pattern:
 Superseded handoffs move to `handoffs/archive/`. The archive is the
 fossil record — never deleted, always available for provenance.
 
-90 superseded handoffs in `handoffs/archive/` (including PIN Mar 16,
+94 superseded handoffs in `handoffs/archive/` (including PIN Mar 16,
 V0632 Mar 13, Backend Analysis Mar 17, Comprehensive Audit Mar 17 — all
 superseded by the Mar 20 trio handoff or absorbed into README; plus Mar 09
-PFIFO GP_PUT and Mar 16 D3hot VRAM, superseded by Mar 21 PFIFO MMU handoff).
-14 active handoffs at `handoffs/` root (including Mar 22 iommufd evolution,
-Mar 22 DRM trio pipeline, Mar 21 GCN5 E2E breakthrough, dual-track, PFIFO MMU,
-and preswap/GLOBAL_LOAD handoffs). These document the full evolution history
-from v0.4.x through v0.6.32.
+PFIFO GP_PUT and Mar 16 D3hot VRAM, superseded by Mar 21 PFIFO MMU handoff;
+plus Mar 19 Vendor Lifecycle AMD D3cold, Mar 21 GCN5 E2E Breakthrough,
+Mar 21 DRM Sovereign Dual-Track, Mar 21 Preswap Global Load — all superseded
+by later handoffs).
+10 active handoffs at `handoffs/` root (including Mar 22 ember hardening,
+iommufd evolution, DRM trio pipeline, ember watchdog swap; plus GCN5 complete
+preswap, PFIFO MMU, trio evolution, vendor-agnostic hardened glowplug,
+register maps absorption, and ember DRM isolation). These document the full
+evolution history from v0.4.x through v0.6.32.
 
 ---
 

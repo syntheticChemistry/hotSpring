@@ -9,9 +9,10 @@ tracks what toadstool has absorbed, and identifies next absorption targets.
 Python baseline → Rust validation → WGSL template → GPU shader → ToadStool absorption → Lean on upstream
 ```
 
-## v0.6.32 Evolution Sprint (Mar 17, 2026)
+## v0.6.32 Evolution Sprint (Mar 17-22, 2026)
 
 ### Rewired to modern barraCuda v0.3.7 (was f82d60c6 → now 32554b0a)
+### coralReef synced to ce66de4 (BDF allowlist, preflight device checks, VRAM write-readback)
 
 | New Primitive | Origin | Cross-Spring Value |
 |---------------|--------|-------------------|
@@ -99,6 +100,25 @@ barraCuda: "I need DF64 matrix multiply on 16GB HBM2"
 handles any PCIe device, not just GPUs. The `RegisterMap` trait could be
 extended to cover NPU register spaces for hardware telemetry.
 
+### Ember/GlowPlug Hardening (Mar 22, 2026 — coralReef ce66de4)
+
+Three deep debts resolved in the sovereign GPU lifecycle layer:
+
+| Debt | Resolution | coralReef Location |
+|------|-----------|-------------------|
+| VRAM health false positives | Write-readback canary (`0xC0A1_BEEF`) replaces read-nonzero | `coral-glowplug/src/device/health.rs` |
+| Unmanaged BDF operations | `HashSet<String>` allowlist in ember, JSON-RPC `-32001` error | `coral-ember/src/{lib,ipc}.rs` |
+| D-state kernel hangs | Pre-flight: sysfs existence, D0 power state, config space 0xFFFF guard | `coral-ember/src/swap.rs` |
+
+Additional hardening:
+- Display GPU safety guard prevents unbind of active display devices
+- Test isolation via `EmberClient::disable_for_test()` thread-local RAII guard
+- 86 ember + 178 glowplug tests pass (264 total)
+
+**Relevance to barraCuda**: The `RegisterMap` module's health-check patterns should adopt
+the write-readback canary approach rather than simple register reads. The BDF allowlist
+pattern (config-driven device scope) is a model for any multi-device management.
+
 ### Sovereign Command Submission Pipeline (Mar 21, 2026 — Exp 071)
 
 The PFIFO diagnostic matrix in coralReef's `coral-driver` crate proved 6/10
@@ -169,7 +189,7 @@ validates `RegisterMap` encodings that were previously theoretical.
 | **C** | New | No shader exists; must be written from scratch |
 | **✅** | Absorbed | ToadStool has absorbed this as a first-class barracuda primitive |
 
-## ToadStool Absorption Status (Mar 17, 2026 — v0.6.32 synced to toadStool S158 + coralReef Iter 54 + barraCuda v0.3.7, 848 tests)
+## ToadStool Absorption Status (Mar 22, 2026 — v0.6.32 synced to toadStool S158 + coralReef ce66de4 + barraCuda v0.3.7, 848 tests)
 
 | hotSpring Module | ToadStool Primitive | Absorbed At | Status |
 |-----------------|--------------------| -------|--------|
