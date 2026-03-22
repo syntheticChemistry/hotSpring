@@ -1,9 +1,9 @@
 # baseCamp: Sovereign GPU Compute — GlowPlug & Falcon Boot Chain
 
-**Date:** 2026-03-21 (updated from 2026-03-16)  
-**Domain:** Hardware — PCIe GPU lifecycle, falcon microcontrollers, HBM2 management, PFIFO command submission  
-**Experiments:** 060-071  
-**Hardware:** 2× NVIDIA Titan V (GV100, 12GB HBM2), RTX 5060 (display), Radeon VII (MI50/GFX906), BrainChip Akida AKD1000 NPU
+**Date:** 2026-03-22 (updated from 2026-03-21)  
+**Domain:** Hardware — PCIe GPU lifecycle, falcon microcontrollers, HBM2 management, PFIFO command submission, daemon resilience  
+**Experiments:** 060-074  
+**Hardware:** 2× NVIDIA Titan V (GV100, 12GB HBM2), RTX 5060 (display/validator)
 
 ---
 
@@ -115,6 +115,47 @@ binding only when no DRM consumers exist.
 
 **6 of 10 layers proven working** via 54-configuration diagnostic matrix.
 
+## Phase 7: D-State Resilient Ember + Swap Pipeline (Exp 074)
+
+After MI50 was swapped for a second Titan V, the swap pipeline needed hardening.
+Ember/glowplug had three failure modes:
+
+1. **D-state sysfs writes**: `echo nouveau > driver_override` (or unbind/bind/remove/rescan)
+   can enter uninterruptible kernel sleep. If the daemon's main thread does this, the
+   entire IPC socket becomes unresponsive and the process cannot be killed.
+
+2. **IOMMU group peers**: Audio devices (e.g. `03:00.1`) share the IOMMU group with
+   the GPU. When swapping to nouveau, the audio peer must leave `vfio-pci` first, or
+   nouveau cannot claim the group.
+
+3. **Client socket errors**: EmberClient got `EAGAIN` from a single read and treated
+   it as fatal, even though the swap might still be in progress.
+
+**Solutions delivered:**
+
+- **Process-isolated sysfs watchdog** (`guarded_sysfs_write`): Spawns `/bin/sh` child
+  for each risky write. Parent polls with `try_wait()` + 10s timeout. D-state child
+  is killed without blocking the daemon. Config-space writes (power/control,
+  reset_method) use direct `std::fs::write` — no fork overhead.
+
+- **Symmetric IOMMU peer handling**: `release_iommu_group_from_vfio()` unbinds peers
+  and clears their `driver_override` before native swap. `bind_iommu_group_to_vfio()`
+  re-binds peers when returning to vfio.
+
+- **EmberClient retry**: 3 retries with 500ms×attempt backoff for `EAGAIN`/`EINTR`.
+  `read_full_response()` loops until complete JSON line (newline delimiter).
+
+- **DRM isolation auto-generation**: `drm_isolation.rs` generates udev rules and Xorg
+  config from the device list at ember startup. Runs `udevadm control --reload-rules`
+  when content changes.
+
+- **MMU fault diagnostics**: `mmu_fault.rs` provides structured decoding of Volta+
+  MMU fault registers. PRIV_RING 0xbad00100 identified as the actual sovereign
+  pipeline blocker (not just MMU page tables).
+
+**Validation**: nouveau ↔ vfio round-trip on Titan V #1 in 6s each direction. Both
+Titans opened via iommufd/cdev at boot. Ember stayed in S-state (sleeping) throughout.
+
 ## Remaining Blockers
 
 1. **MMU page table translation** (PBDMA 0xbad00200 fetching GPU VA 0x1000) — the single remaining command submission blocker
@@ -125,6 +166,10 @@ binding only when no DRM consumers exist.
 
 ### Resolved Since Last Update
 
+- ~~Ember D-state hangs~~ — process-isolated sysfs watchdog (Exp 074)
+- ~~IOMMU group peer blocking~~ — symmetric bind/release for multi-device groups (Exp 074)
+- ~~EmberClient EAGAIN fatal~~ — retry loop with backoff + full-response reader (Exp 074)
+- ~~Manual DRM isolation rules~~ — auto-generated from device config at startup (Exp 074)
 - ~~HBM2 not trained~~ — warm-state transfer from nouveau solves this
 - ~~DRM consumer fencing~~ — VFIO-first boot + Xorg AutoAddGPU=false
 - ~~AMD Vega metal stub~~ — AMD VendorLifecycle fully implemented (D3cold characterized)

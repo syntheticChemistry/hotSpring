@@ -1,26 +1,27 @@
 # coralReef GlowPlug daemon configuration
-# biomeGate: Titan V + Radeon VII + RTX 5060 (display head)
+# biomeGate: 2× Titan V + RTX 5060 (display head)
+# Fleet updated Mar 22, 2026 — MI50 swapped for second Titan V
 
 [daemon]
 socket = "/run/coralreef/glowplug.sock"
 log_level = "info"
 health_interval_ms = 5000
 
-# Titan V — NVIDIA GV100, 12 GB HBM2, VFIO at boot
-# Both DRM kernel oops if nouveau boots on non-display GPU
+# Titan V #1 — NVIDIA GV100, 12 GB HBM2, VFIO at boot
+# IOMMU group 71 (shared with audio 03:00.1)
 [[device]]
 bdf = "0000:03:00.0"
-name = "titan-v"
+name = "titan-v-1"
 boot_personality = "vfio"
 power_policy = "always_on"
 role = "oracle"
 oracle_dump = "/home/biomegate/Development/ecoPrimals/hotSpring/data/oracle_nouveau_warm.txt"
 
-# Radeon VII — AMD Vega 20 (GFX906), 16 GB HBM2
-# Solo IOMMU group. Boots on amdgpu — switch to vfio for sovereign experiments.
+# Titan V #2 — NVIDIA GV100, 12 GB HBM2, VFIO at boot
+# IOMMU group 87 (shared with audio 4b:00.1)
 [[device]]
-bdf = "0000:4c:00.0"
-name = "radeon-vii"
-boot_personality = "amdgpu"
+bdf = "0000:4b:00.0"
+name = "titan-v-2"
+boot_personality = "vfio"
 power_policy = "always_on"
 role = "compute"

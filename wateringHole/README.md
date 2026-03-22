@@ -2,7 +2,7 @@
 
 **Project:** hotSpring (ecoPrimals)
 **Last Updated:** March 22, 2026
-**Status:** ACTIVE — Dual-track dispatch: sovereign VFIO (6/10 layers, MMU blocker) + DRM dispatch (**AMD GCN5 preswap: 6/6 PASS — f64 Lennard-Jones force verified, Newton's 3rd law confirmed**). **iommufd/cdev VFIO backend** (kernel 6.2+) — kernel-agnostic VFIO, resolves EBUSY on 6.17. **RTX 5060 Blackwell DRM cracked** (SM120, per-buffer fd, single mmap context). **Kepler (SM35) + Blackwell (SM120) ISA arches** in coral-reef — full propagation through coral-gpu (PCI device IDs, wave_size metadata, sm_to_nvarch). **coral-ember per-client threading** — `Arc<RwLock<HashMap>>` with D3cold pre-checks, prevents cascade failures. **toadStool GlowPlug client stub** shipped — runtime-discoverable ember IPC. 18 coral-reef bugs fixed. NVIDIA EXEC coded/PMU-blocked, K80 incoming. 73 experiments. Naga DF64 poisoning bypass **validated end-to-end on real physics (LJ force)**. AMD D3cold characterized (1/boot Vega 20 limit), BrainChip Akida NPU integrated, zero-sudo coralctl
+**Status:** ACTIVE — Dual-track dispatch: sovereign VFIO (6/10 layers, MMU blocker) + DRM dispatch (**AMD GCN5 preswap: 6/6 PASS — f64 Lennard-Jones force verified, Newton's 3rd law confirmed**). **iommufd/cdev VFIO backend** (kernel 6.2+) — kernel-agnostic VFIO, resolves EBUSY on 6.17. **RTX 5060 Blackwell DRM cracked** (SM120, per-buffer fd, single mmap context). **Kepler (SM35) + Blackwell (SM120) ISA arches** in coral-reef. **Ember swap pipeline proven** — D-state resilient sysfs (process-isolated watchdog), IOMMU group peer release, EmberClient retry, DRM isolation auto-generation. **nouveau ↔ vfio round-trip proven** on Titan V. **2× Titan V + RTX 5060** fleet. 74 experiments. AMD D3cold characterized (1/boot Vega 20 limit), BrainChip Akida NPU integrated, zero-sudo coralctl
 
 ---
 
@@ -21,48 +21,52 @@ hotSpring → wateringHole/handoffs/ → coralReef reads and evolves
 
 ---
 
-## Current State: Full Sweep Evolution — ISA Arches + Ember Threading + GlowPlug Client (March 2026)
+## Current State: Sovereign MMU Sprint — Ember Swap Pipeline Proven (March 2026)
 
-hotSpring is **active at v0.6.32** (848 tests, 0 clippy warnings, 73 experiments).
-The sovereign GPU lifecycle is production-grade across 3 vendors + 1 NPU.
-**DRM dispatch achieved full GCN5 preswap validation: 6/6 phases PASS** — WGSL →
-coral-reef compiler → coral-driver PM4 → MI50 GPU execution → readback verified.
-The **Naga DF64 bypass is validated end-to-end on real physics** (f64 Lennard-Jones
-force calculation with Newton's 3rd law verified). **18 GCN5 bugs found and fixed**
-across the full bring-up: VOP1/VOP3/VOPC opcode translation tables, wave64 dispatch,
-GLOBAL segment, SGPR mapping, flat_offset GFX9, OpF2F/OpI2F encoding, f64 literal
-VGPR pair materialization, VOP3 fneg/fabs modifier encoding, integer negation in
-IAdd3, is_f64_expr type resolution, S_WAITCNT, L1+L2 cache invalidation. 85 coral-reef
-tests pass, 0 failures. **Sovereign command submission** is 6/10 layers deep (MMU
-page table translation blocker).
+hotSpring is **active at v0.6.32** (848 tests, 0 clippy warnings, 74 experiments).
+The sovereign GPU lifecycle is production-grade across 2 vendors + 1 NPU.
+**DRM dispatch achieved full GCN5 preswap validation: 6/6 phases PASS** (prior to MI50
+removal) — WGSL → coral-reef → coral-driver PM4 → MI50 → readback verified.
+**Ember swap pipeline fully operational**: D-state resilient sysfs (process-isolated
+watchdog, 10s timeout), IOMMU group peer release for native driver swaps, EmberClient
+retry with exponential backoff, DRM isolation auto-generated from device config at
+startup. **nouveau ↔ vfio round-trip proven** on Titan V. **Sovereign command
+submission** is 6/10 layers deep (MMU page table translation blocker).
 
 ### Hardware (biomeGate, March 22, 2026)
 
 | Device | BDF | Role | Boot Driver | Round-trips |
 |--------|-----|------|-------------|-------------|
-| RTX 5060 (GB206) | varies | Display head | nvidia | — |
-| Titan V (GV100) | 0000:03:00.0 | VFIO oracle | vfio-pci | Unlimited |
-| Radeon VII (Vega 20) | 0000:4d:00.0 | AMD compute | amdgpu | 1/boot (HW limit) |
-| BrainChip AKD1000 | 0000:45:00.0 | NPU inference | akida-pcie | Unlimited |
+| RTX 5060 (GB206) | varies | Display head + modern/vendor validator | nvidia | — |
+| Titan V #1 (GV100) | 0000:03:00.0 | VFIO sovereign + swap oracle | vfio-pci | Unlimited |
+| Titan V #2 (GV100) | 0000:4b:00.0 | VFIO sovereign + MMU diagnostics | vfio-pci | Unlimited |
 
-### Ember Architecture (iommufd/cdev — kernel-agnostic)
+### Ember Architecture (iommufd/cdev — kernel-agnostic, D-state resilient)
 
 `coral-ember` is an immortal systemd service holding VFIO fds. `coral-glowplug`
 connects via Unix socket, receives duplicated fds via `SCM_RIGHTS`.
 
-**iommufd/cdev backend (March 22, 2026):** On kernel 6.2+ the legacy VFIO
-container/group API is deprecated in favor of `iommufd`/`cdev`. `VfioDevice::open()`
-now tries iommufd first, falls back to legacy. The entire Ember→GlowPlug pipeline
-is backend-agnostic: `VfioBackendKind` enum, `ReceivedVfioFds` enum, `sendable_fds()`,
-`from_received()`. IPC sends 2 fds (iommufd) or 3 fds (legacy) plus JSON metadata
-(`backend`, `ioas_id`). Hardware validated on Titan V: ember acquire → SCM_RIGHTS →
-client reconstruct → BAR0 read + DMA. 607 tests pass across coral-driver/ember/glowplug.
+**iommufd/cdev backend:** On kernel 6.2+ the legacy VFIO container/group API is
+deprecated in favor of `iommufd`/`cdev`. `VfioDevice::open()` tries iommufd first,
+falls back to legacy. Backend-agnostic: `VfioBackendKind`, `ReceivedVfioFds`,
+`sendable_fds()`, `from_received()`. IPC sends 2 fds (iommufd) or 3 fds (legacy)
+plus JSON metadata.
 
-- **Zero-sudo**: Users join `coralreef` group → full `coralctl` access via socket (root:coralreef 0660)
+**D-state resilient sysfs (March 22, 2026):** Risky sysfs writes (driver/unbind,
+bind, remove, rescan) spawn a child process via `/bin/sh`. Parent polls with
+`try_wait()` and 10s timeout. If child enters D-state, parent kills it. Daemon stays
+responsive. Safe config-space attributes (power/control, reset_method) use direct
+writes with no fork overhead.
+
+**IOMMU group peer handling:** Symmetric bind/release for multi-device IOMMU groups.
+`release_iommu_group_from_vfio()` unbinds audio peers before native driver swap.
+`bind_iommu_group_to_vfio()` reacquires peers on vfio swap.
+
+- **Zero-sudo**: Users join `coralreef` group → full `coralctl` access (root:coralreef 0660)
 - **Driver swaps are atomic**: ember drops fds → unbinds → binds target → reacquires
 - **VendorLifecycle trait**: Vendor-specific hooks for each swap stage
-- **stabilize_after_bind()**: Post-bind power pinning prevents AMD D3cold drift
-- **DRM isolation**: Xorg `AutoAddGPU=false` + udev seat tag removal (61-prefix)
+- **DRM isolation auto-generated**: udev rules + Xorg config from device list at startup
+- **EmberClient retry**: 3× backoff for EAGAIN/EINTR, `read_full_response()` for complete JSON
 - **Backend-agnostic**: iommufd/cdev (modern) or container/group (legacy) — auto-detected
 
 ### AMD D3cold — Definitive Analysis (4 boot cycles)
@@ -114,8 +118,9 @@ for unified `VendorProfile` in the trio triangle architecture.
 6. ~~**DF64 Lennard-Jones via DRM**~~ — **PASSED** — f64 LJ force matches CPU reference (tol=1e-8). Newton's 3rd law verified.
 7. ~~**RTX 5060 Blackwell DRM**~~ — **PIPELINE CRACKED** — NvUvmComputeDevice operational. SM120 class IDs, single-mmap fix, per-buffer-fd fix. 4/4 HW tests pass. ISA compilation pending (SM120 arch enum).
 8. ~~**iommufd/cdev VFIO backend**~~ — **COMPLETE** — kernel-agnostic VFIO on 6.2+. Resolves persistent EBUSY on 6.17. Dual-path (iommufd + legacy) across ember/glowplug/driver. 607 tests pass. HW validated on Titan V.
-9. **K80 NVIDIA DRM** — legacy nouveau `CHANNEL_ALLOC` → `GEM_PUSHBUF` (no PMU needed)
-10. **Titan V PMU investigation** — FECS-only channel? Compute-only type? K80 reference data
+9. ~~**Ember swap pipeline**~~ — **COMPLETE** — D-state resilient sysfs, IOMMU peer release, EmberClient retry, DRM isolation auto-gen. nouveau ↔ vfio round-trip proven on Titan V (Exp 074).
+10. **K80 NVIDIA DRM** — legacy nouveau `CHANNEL_ALLOC` → `GEM_PUSHBUF` (no PMU needed)
+11. **Titan V PMU investigation** — FECS-only channel? Compute-only type? K80 reference data
 
 **Sovereign VFIO (ongoing — Exp 071):**
 6. **MMU page table fix** — debug PDE/PTE encoding, verify IOMMU mapping, try BAR2-resident tables
@@ -136,11 +141,12 @@ for unified `VendorProfile` in the trio triangle architecture.
 
 | File | Date | Audience | What To Do |
 |------|------|----------|------------|
-| [`HOTSPRING_IOMMUFD_EMBER_EVOLUTION_HANDOFF_MAR22_2026.md`](handoffs/HOTSPRING_IOMMUFD_EMBER_EVOLUTION_HANDOFF_MAR22_2026.md) | Mar 22 | coralReef, toadStool, barraCuda | **START HERE for iommufd.** Kernel-agnostic VFIO backend: iommufd/cdev on 6.2+, legacy fallback. Ember/GlowPlug/Driver all evolved. 607 tests, HW validated. Per-primal evolution items. |
-| [`HOTSPRING_DRM_TRIO_PIPELINE_HANDOFF_MAR22_2026.md`](handoffs/HOTSPRING_DRM_TRIO_PIPELINE_HANDOFF_MAR22_2026.md) | Mar 22 | coralReef, toadStool, barraCuda | Three-GPU DRM pipeline: MI50 E2E, RTX 5060 Blackwell DRM cracked, Titan V VFIO staged. iommufd Part 4 appended. |
+| [`HOTSPRING_EMBER_WATCHDOG_SWAP_PIPELINE_HANDOFF_MAR22_2026.md`](handoffs/HOTSPRING_EMBER_WATCHDOG_SWAP_PIPELINE_HANDOFF_MAR22_2026.md) | Mar 22 | coralReef, toadStool, barraCuda | **START HERE.** D-state resilient ember, IOMMU peer swap, DRM isolation auto-gen, EmberClient retry. nouveau ↔ vfio round-trip proven. 2× Titan V + RTX 5060 fleet. |
+| [`HOTSPRING_IOMMUFD_EMBER_EVOLUTION_HANDOFF_MAR22_2026.md`](handoffs/HOTSPRING_IOMMUFD_EMBER_EVOLUTION_HANDOFF_MAR22_2026.md) | Mar 22 | coralReef, toadStool, barraCuda | Kernel-agnostic VFIO backend: iommufd/cdev on 6.2+, legacy fallback. Ember/GlowPlug/Driver all evolved. 607 tests, HW validated. Per-primal evolution items. |
+| [`HOTSPRING_DRM_TRIO_PIPELINE_HANDOFF_MAR22_2026.md`](handoffs/HOTSPRING_DRM_TRIO_PIPELINE_HANDOFF_MAR22_2026.md) | Mar 22 | coralReef, toadStool, barraCuda | Three-GPU DRM pipeline: MI50 E2E (historical — MI50 since removed), RTX 5060 Blackwell DRM cracked, Titan V VFIO staged. iommufd Part 4 appended. |
 | [`HOTSPRING_PRESWAP_GLOBAL_LOAD_HANDOFF_MAR21_2026.md`](handoffs/HOTSPRING_PRESWAP_GLOBAL_LOAD_HANDOFF_MAR21_2026.md) | Mar 21 | coralReef, toadStool, barraCuda | **SUPERSEDED** — GLOBAL_LOAD resolved. See `HOTSPRING_GCN5_COMPLETE_PRESWAP_HANDOFF_MAR2026.md` for final 6/6 results. |
 | [`HOTSPRING_GCN5_COMPLETE_PRESWAP_HANDOFF_MAR2026.md`](handoffs/HOTSPRING_GCN5_COMPLETE_PRESWAP_HANDOFF_MAR2026.md) | Mar 2026 | coralReef, toadStool, barraCuda | **START HERE.** GCN5 preswap 6/6 PASS — f64 write, f64 arith, multi-workgroup, multi-buffer, HBM2 bandwidth, **f64 LJ force (Newton's 3rd law verified)**. 18 bugs fixed. 85 coral-reef tests. Per-primal action items. |
-| [`HOTSPRING_GCN5_E2E_BREAKTHROUGH_HANDOFF_MAR21_2026.md`](handoffs/HOTSPRING_GCN5_E2E_BREAKTHROUGH_HANDOFF_MAR21_2026.md) | Mar 21 | coralReef, toadStool, barraCuda | GCN5 E2E compute dispatch achieved — WGSL → coral-reef → MI50 → 64/64 verified. 7 bugs fixed. VOP3 opcode translation table. Naga bypass validated. Per-primal action items. DF64 Lennard-Jones next (blocked by GLOBAL_LOAD). |
+| [`HOTSPRING_GCN5_E2E_BREAKTHROUGH_HANDOFF_MAR21_2026.md`](handoffs/HOTSPRING_GCN5_E2E_BREAKTHROUGH_HANDOFF_MAR21_2026.md) | Mar 21 | coralReef, toadStool, barraCuda | **Superseded by Complete Preswap handoff.** GCN5 E2E compute dispatch achieved — WGSL → coral-reef → MI50 → 64/64 verified. 7 bugs fixed. VOP3 opcode translation table. Naga bypass validated. |
 | [`HOTSPRING_DRM_SOVEREIGN_DUAL_TRACK_HANDOFF_MAR21_2026.md`](handoffs/HOTSPRING_DRM_SOVEREIGN_DUAL_TRACK_HANDOFF_MAR21_2026.md) | Mar 21 | coralReef, toadStool, barraCuda | Dual-track strategy: DRM dispatch (AMD PM4 + NVIDIA EXEC) in parallel with sovereign VFIO. GCN5 backend **COMPLETE** (see GCN5 E2E handoff above). K80 incoming. Naga DF64 bypass validated. |
 | [`HOTSPRING_PFIFO_MMU_SOVEREIGN_DISPATCH_HANDOFF_MAR21_2026.md`](handoffs/HOTSPRING_PFIFO_MMU_SOVEREIGN_DISPATCH_HANDOFF_MAR21_2026.md) | Mar 21 | coralReef, toadStool, barraCuda | 54-config PFIFO diagnostic matrix, PFIFO re-init sequence (PMC+preempt+clear), root cause analysis (MMU 0xbad00200), 6/10 sovereign pipeline layers proven. Register reference. Per-primal action items. |
 | [`HOTSPRING_TRIO_EVOLUTION_AMD_AKIDA_HANDOFF_MAR20_2026.md`](handoffs/HOTSPRING_TRIO_EVOLUTION_AMD_AKIDA_HANDOFF_MAR20_2026.md) | Mar 20 | coralReef, toadStool, barraCuda | Triangle architecture, AMD D3cold definitive resolution (4 strategies, 1 round-trip/boot limit), BrainChip AKD1000 NPU integration, zero-sudo coralctl, per-primal evolution priorities. |
