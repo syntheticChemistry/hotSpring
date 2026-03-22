@@ -133,6 +133,9 @@ results/weights/*.bin
 # Generated metal map captures (regenerable via coral-glowplug oracle dump)
 data/metal_maps/*.json
 
+# Closed-source driver references (captured for reverse engineering, not distributable)
+wateringHole/nvidia-closed-volta-580/
+
 # ============================================================
 # NOTE: These ARE tracked (small, important for reproducibility):
 #   control/sarkas/simulations/dsf-study/results/*.json   (validation results)
