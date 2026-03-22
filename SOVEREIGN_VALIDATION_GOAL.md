@@ -280,8 +280,8 @@ statistical ensemble.
 
 ### In Progress 🔄
 - [ ] Sovereign VFIO dispatch — MMU page table translation blocker (Exp 071, `0xbad00200`)
-- [x] **DRM dispatch evolution** — **AMD GCN5 E2E PASSED** (March 21): WGSL → coral-reef → MI50 → 64/64 verified. NVIDIA PMU-blocked, K80 incoming (Exp 072)
-- [x] **GCN5 backend in coral-reef** — **COMPLETE**: native AMD ISA codegen for MI50, VOP3 opcode translation, wave64, Naga bypass validated E2E
+- [x] **DRM dispatch evolution** — **AMD GCN5 preswap 6/6 PASS** (March 2026): f64 write, f64 arith, multi-workgroup, multi-buffer, HBM2 bandwidth, **f64 Lennard-Jones force (Newton's 3rd law verified)**. 18 bugs fixed. NVIDIA PMU-blocked, K80 incoming (Exp 072)
+- [x] **GCN5 backend in coral-reef** — **COMPLETE**: native AMD ISA codegen for MI50, VOP1/VOP3/VOPC opcode translation, wave64, f64 materialization, VOP3 modifier encoding, integer negation, Naga bypass validated E2E. 85 tests pass.
 - [ ] Kokkos parity via sovereign bypass (DF64 + direct GPFIFO)
 - [ ] N_f=2+1 RHMC (infrastructure ready, needs validation run)
 

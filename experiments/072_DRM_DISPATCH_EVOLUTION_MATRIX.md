@@ -188,50 +188,76 @@ ranges despite sharing the same 10-bit OP field layout. Group A (MAD/FMA/BFE/BFI
 RDNA2 320-351) shifts by +128. Group B (F64/MUL_HI) has per-instruction mapping.
 Every entry was validated against `llvm-mc --mcpu=gfx906 --show-encoding`.
 
-### Phase 3 Results: GCN5 Preswap Validation (March 2026)
+### Phase 3 Results: GCN5 Preswap Validation — 6/6 PASS (March 2026)
 
-Six-phase preswap experiment targeting comprehensive validation before hardware swap:
+Six-phase preswap experiment with comprehensive validation before hardware swap.
+**All phases pass** after extensive compiler debugging:
 
 | Phase | Test | Status | Details |
 |-------|------|--------|---------|
 | A | f64 write (42.0 to each thread) | **PASS** | Fixed `flat_offset` GFX9 clamping — GLOBAL offset was forced to 0, causing DWORDX2 halves to overwrite each other |
 | B | f64 arithmetic (6.0 × 7.0 = 42.0) | **PASS** | Fixed 3 bugs: `OpF2F` encoding (`V_MOV_B32` → `V_CVT_F64_F32`), `var`→`let` literal lowering, f64 literal VGPR pair materialization (`materialize_f64_if_literal`) |
 | C | Multi-workgroup dispatch (4 groups × 64) | **PASS** | Store-only, workgroup ID routing correct |
-| D | Multi-buffer read+write | **FAIL** | `GLOBAL_LOAD` GPU hang — every variant tested |
-| E | f64 Lennard-Jones pair force | **FAIL** | Blocked by `GLOBAL_LOAD` (needs input reads) |
-| F | HBM2 bandwidth streaming | **FAIL** | Blocked by `GLOBAL_LOAD` |
+| D | Multi-buffer read+write | **PASS** | Initially blocked by GLOBAL_LOAD GPU hang; resolved by fixing PM4 register setup (COMPUTE_STATIC_THREAD_MGMT_SE*, COMPUTE_TMPRING_SIZE, SH_MEM_CONFIG, FLOAT_MODE, etc.) |
+| E | f64 Lennard-Jones pair force | **PASS** | CPU ref: f_x[0]=-1.158028831046, GPU: (-1.158028827421). **Newton's 3rd law VERIFIED** (equal and opposite forces). Required 6 additional compiler fixes (VOP1 opcodes, f64 materialization, OpI2F, is_f64_expr, VOP3 modifiers, integer negation) |
+| F | HBM2 bandwidth streaming | **PASS** | Multi-workgroup bandwidth test |
 
-**Additional coral-reef bugs found and fixed (5 new, 12 total):**
+**Final test output:**
+```
+╔═══════════════════════════════════════════════════╗
+║  RESULTS                                         ║
+╠═══════════════════════════════════════════════════╣
+║  [PASS] A: f64 Write                               ║
+║  [PASS] B: f64 Arithmetic                          ║
+║  [PASS] C: Multi-Workgroup                         ║
+║  [PASS] D: Multi-Buffer                            ║
+║  [PASS] F: HBM2 Bandwidth                          ║
+║  [PASS] E: f64 LJ Force                            ║
+╠═══════════════════════════════════════════════════╣
+║  6/6 phases passed                    ALL PASSED║
+╚═══════════════════════════════════════════════════╝
+```
+
+**Coral-reef bugs found and fixed (18 total across GCN5 bring-up):**
+
+Original 7 (Phase 1-2 bring-up):
+
+| Bug | Root Cause | Fix |
+|-----|------------|-----|
+| PM4 wave size / VGPR granularity | GCN5=wave64, granularity 4 (not RDNA2 8) | Dynamic `wave_size` in `ShaderInfo` |
+| VOP3 instruction prefix | 110101 (RDNA2) → 110100 (GFX9) | `patch_vop3_prefix_for_gfx9()` |
+| Missing `s_waitcnt vmcnt(0)` | No interlock before `s_endpgm` | Added to `encode_rdna2_shader` |
+| FLAT vs GLOBAL segment | SEG=00 (FLAT) needs aperture; compute uses SEG=10 (GLOBAL) | Fixed segment bits |
+| Workgroup ID register file | `SR_CTAID_X` mapped to VGPR; should be SGPR | Refactored to `amd_sys_reg_src` |
+| Malformed ACQUIRE_MEM | Missing POLL_INTERVAL dword | Added 7th push |
+| VOP3-only opcode translation | GFX9 and RDNA2 use different values | `vop3_only_opcode_for_gfx9()` |
+
+Preswap Phase A/B/C fixes (5):
 
 | Bug | Root Cause | Fix | File |
 |-----|------------|-----|------|
-| f64 store halves swapped (Phase A) | `flat_offset` clamped all GFX9 offsets to 0, even for GLOBAL segment which supports 13-bit offset | Pass offset through unconditionally | `codegen/ops/mod.rs` |
-| No f64 conversion instructions (Phase B) | `OpF2F` always encoded as `V_MOV_B32` regardless of type widths | Dispatch to `V_CVT_F64_F32` / `V_CVT_F32_F64` | `codegen/ops/convert.rs` |
-| GPU hang with `var` f64 literals (Phase B) | `var` lowered to scratch memory (unmapped), causing reads from invalid addresses | Use `let` bindings (SSA, register-based) | Shader WGSL |
-| f64 literal VGPR pair corruption (Phase B) | Optimizer collapsed `{r0, literal}` pairs; `materialize_if_literal` only emitted one `V_MOV_B32` for 64-bit values | Created `materialize_f64_if_literal`: two `V_MOV_B32` for lo/hi VGPRs. New `encode_vop3_f64_from_srcs` helper | `codegen/ops/mod.rs`, `codegen/ops/alu_float.rs` |
-| WAW hazard after GLOBAL_LOAD | GCN5 has no hardware interlock between VMEM loads and ALU | Insert `S_WAITCNT vmcnt(0)` after every `OpLd` | `codegen/ops/memory.rs` |
+| f64 store halves swapped (Phase A) | `flat_offset` clamped all GFX9 offsets to 0 for GLOBAL | Pass offset through unconditionally | `codegen/ops/mod.rs` |
+| No f64 conversion instructions (Phase B) | `OpF2F` always encoded as `V_MOV_B32` | Dispatch to `V_CVT_F64_F32` / `V_CVT_F32_F64` | `codegen/ops/convert.rs` |
+| GPU hang with `var` f64 literals (Phase B) | `var` lowered to scratch memory (unmapped) | Use `let` bindings (SSA, register-based) | Shader WGSL |
+| f64 literal VGPR pair corruption (Phase B) | `materialize_if_literal` only emitted one `V_MOV_B32` for 64-bit | Created `materialize_f64_if_literal`: two `V_MOV_B32` for lo/hi | `codegen/ops/mod.rs`, `alu_float.rs` |
+| WAW hazard after GLOBAL_LOAD | No hardware interlock VMEM→ALU on GCN5 | Insert `S_WAITCNT vmcnt(0)` after `OpLd` | `codegen/ops/memory.rs` |
+
+Phase D/E/F fixes (6 — resolved GLOBAL_LOAD and f64 computation bugs):
+
+| Bug | Root Cause | Fix | File |
+|-----|------------|-----|------|
+| VOP1 opcode table wrong for GFX9 | V_RCP_F64=37 (not 47), V_RSQ_F64=38 (not 49), V_SQRT_F64=40 (not 52), etc. V_PIPEFLUSH (RDNA2-specific) conflicted with GFX9 V_FRACT_F32 | Corrected all VOP1 constants from V_FRACT_F32 onward; removed V_PIPEFLUSH | `isa_generated/vop1.rs` |
+| f64 reciprocal returns `inf` | `TranscendentalOp::Rcp64H` used `materialize_if_literal` (32-bit) instead of `materialize_f64_if_literal` (64-bit) for f64 operands — only high word set, low word zero → denormal → flush to zero → div by zero | Switched to `materialize_f64_if_literal` for all f64 transcendentals | `codegen/ops/alu_float.rs` |
+| `u32 → f64` conversion miscompiled | `OpI2F` always emitted `V_CVT_F32_I32` regardless of f64 destination | Added f64 branch: emit `V_CVT_F64_U32` / `V_CVT_F64_I32` with `vgpr_pair` dest | `codegen/ops/convert.rs` |
+| `is_f64_expr` returned wrong type for `gid.x` | `scalar_type_handle` fell back to first type in module arena (which was f64), causing u32 operations to be mistyped as f64 | Added `element_scalar()` helper; `is_f64_expr`/`is_float_expr` use direct element inspection | `naga_translate/expr.rs` |
+| VOP3 fneg/fabs modifiers silently dropped | `encode_vop3_from_srcs_inner` called `encode_vop3` which ignores modifier bits | Extract neg/abs from `Src` operands, pass to `encode_vop3_mod` | `codegen/ops/mod.rs` |
+| Integer negation (INeg) dropped in IAdd3 | `OpIAdd3` always emitted `V_ADD_NC_U32` even when a source had `SrcMod::INeg` (e.g., `1u - gid.x` compiled as `1u + gid.x`) | Detect INeg → emit `V_SUB_NC_U32`/`V_SUBREV_NC_U32`; added V_SUBREV mapping for GFX9 | `codegen/ops/alu_int.rs`, `codegen/ops/mod.rs` |
 
 **Infrastructure added:**
 - `CORAL_DEBUG_IR` env var: dumps IR at 3 compilation stages (after naga_translate, after opts, after RA)
 - `emit_cache_invalidate` in PM4 builder: L1+L2 invalidation before dispatch
-
-**GLOBAL_LOAD exhaustive investigation:**
-
-Every `GLOBAL_LOAD` variant causes GPU hang (fence timeout or DRM ioctl error 61):
-
-| Variant | Encoding | Result |
-|---------|----------|--------|
-| `GLOBAL_LOAD_DWORD` off, GLC=0 | 0xdc308000 | fence timeout |
-| `GLOBAL_LOAD_DWORD` off, GLC=1 | 0xdc328000 | fence timeout |
-| `FLAT_LOAD_DWORD` (SEG=00) | 0xdc300000 | fence timeout |
-| `GLOBAL_LOAD_DWORD` SADDR=s0 | 0xdc308000 + saddr=0 | fence timeout |
-| Minimal load-only + S_WAITCNT | 3 instructions total | fence timeout |
-| Load-only, no S_WAITCNT | 2 instructions total | fence timeout |
-| GTT (system memory) buffer | — | fence timeout |
-| VRAM buffer | — | fence timeout |
-| L1+L2 cache invalidation pre-dispatch | PM4 ACQUIRE_MEM | fence timeout |
-
-**Root cause hypothesis:** The existing `amd_gcn5_e2e.rs` (64/64 pass) uses only `GLOBAL_STORE` — never `GLOBAL_LOAD`. This is the first attempt to execute `GLOBAL_LOAD` through coral-driver. The hang is likely caused by a missing PM4 register configuration that Mesa/RADV's `radeonsi` compute dispatch path sets but coral-driver does not. Next step: reference the Mesa `si_emit_compute_shader` path for required register writes (e.g., `COMPUTE_STATIC_THREAD_MGMT_SE0/1`, `SPI_TMPRING_SIZE`, shader resource descriptors, or cache configuration registers).
+- VOPC opcode remapping for GFX9 (`patch_vopc_for_gfx9`)
+- VOP1-promoted VOP3 opcode remapping in `patch_vop3_prefix_for_gfx9`
 
 ## Expected Outcomes
 
@@ -244,8 +270,11 @@ Every `GLOBAL_LOAD` variant causes GPU hang (fence timeout or DRM ioctl error 61
 | GCN5 preswap Phase A (f64 write) | **PASSED** | E2E success |
 | GCN5 preswap Phase B (f64 arith) | **PASSED** | E2E success + 3 compiler fixes |
 | GCN5 preswap Phase C (multi-workgroup) | **PASSED** | E2E success |
-| GCN5 preswap Phase D (GLOBAL_LOAD) | **BLOCKED** | Missing PM4 register config |
-| GCN5 DF64 Lennard-Jones | Blocked | GLOBAL_LOAD fix |
+| GCN5 preswap Phase D (multi-buffer) | **PASSED** | PM4 register fixes + GLOBAL_LOAD resolved |
+| GCN5 preswap Phase E (f64 LJ force) | **PASSED** | 6 compiler fixes: VOP1 opcodes, f64 materialization, OpI2F, is_f64_expr, VOP3 modifiers, integer negation. Newton's 3rd law verified |
+| GCN5 preswap Phase F (HBM2 bandwidth) | **PASSED** | GLOBAL_LOAD resolved |
+| GCN5 DF64 Lennard-Jones | **PASSED** | f64 LJ force: CPU ref matches GPU to tol=1e-8 |
+| **GCN5 preswap COMPLETE** | **6/6 PASS** | 18 bugs fixed, 85 coral-reef tests pass |
 | K80 channel creation | Pending | K80 hardware arrival |
 | K80 NOP pushbuf dispatch | Pending | K80 channel |
 | Titan V PMU workaround | Research | K80 reference data |

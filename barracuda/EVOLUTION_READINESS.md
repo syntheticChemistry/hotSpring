@@ -120,9 +120,9 @@ In parallel with sovereign VFIO, coral-driver has **fully coded DRM dispatch**:
 
 - **AMD** (`AmdDevice`): `ComputeDevice` impl with GEM buffers, PM4 command
   construction (`build_compute_dispatch`), `DRM_AMDGPU_CS` submission, fence sync.
-  **Store-only dispatch verified** on MI50 (GFX906/GCN5): f64 write, f64 arithmetic,
-  multi-workgroup all PASS. **GLOBAL_LOAD blocked** — all variants hang (GLC, FLAT,
-  SADDR, GTT/VRAM, cache invalidation). Root cause: missing PM4 register config.
+  **Full preswap 6/6 PASS** on MI50 (GFX906/GCN5): f64 write, f64 arithmetic,
+  multi-workgroup, multi-buffer read/write, HBM2 bandwidth, **f64 Lennard-Jones
+  force (Newton's 3rd law verified)**. 18 GCN5 bugs fixed. 85 coral-reef tests pass.
 - **NVIDIA** (`NvDevice`): new UAPI (`VM_INIT`/`VM_BIND`/`EXEC`) + syncobj.
   Blocked on Titan V (missing PMU firmware for `CHANNEL_ALLOC`). K80 (Kepler,
   incoming) has no PMU requirement.
@@ -134,20 +134,22 @@ compute** — it bypasses the Naga WGSL→SPIR-V poisoning (Exp 055) entirely:
 WGSL → coral-reef AmdBackend → native GCN ISA → coral-driver AmdDevice → GPU
 ```
 
-coral-reef now has a `Gcn5` variant in `AmdArch` — **GCN5 preswap validation**
-(March 2026): WGSL → coral-reef → coral-driver PM4 → MI50. Phases A/B/C PASS
-(f64 write 42.0, f64 arith 6.0×7.0=42.0, multi-workgroup). 12 coral-reef bugs
-fixed total. The MI50's 1/4 rate f64 (3.5 TFLOPS) is **4× faster than RDNA2** for
-DF64. DF64 Lennard-Jones dispatch is **blocked by GLOBAL_LOAD** (needs input reads).
+coral-reef now has a `Gcn5` variant in `AmdArch` — **GCN5 preswap complete**
+(March 2026): WGSL → coral-reef → coral-driver PM4 → MI50. **6/6 phases PASS**
+(f64 write, f64 arith, multi-workgroup, multi-buffer, HBM2 bandwidth, f64 LJ force).
+18 coral-reef bugs fixed. The MI50's 1/4 rate f64 (3.5 TFLOPS) is **4× faster
+than RDNA2** for DF64. **DF64 Lennard-Jones verified via DRM** — the Naga-poisoned
+kernel produces correct forces through the sovereign bypass path. Newton's 3rd
+law confirmed (equal and opposite forces, CPU ref match to tol=1e-8).
 
-**DF64 kernel candidates (blocked by GLOBAL_LOAD)**:
-- `SHADER_YUKAWA_FORCE` — Lennard-Jones (the Naga-poisoned kernel)
-- `wilson_plaquette_df64.wgsl` — lattice QCD gauge action
-- `su3_gauge_force_df64.wgsl` — HMC gauge force
+**DF64 kernel candidates (ready for DRM dispatch)**:
+- `SHADER_YUKAWA_FORCE` — Lennard-Jones (**VALIDATED** — the Naga-poisoned kernel works via DRM)
+- `wilson_plaquette_df64.wgsl` — lattice QCD gauge action (ready)
+- `su3_gauge_force_df64.wgsl` — HMC gauge force (ready)
 
-**`RegisterMap` evolution**: when DRM dispatch works on MI50, the GFX906
-register map becomes testable against real hardware via `AmdDevice::dispatch()`.
-This validates `RegisterMap` encodings that were previously theoretical.
+**`RegisterMap` evolution**: DRM dispatch works on MI50 — the GFX906 register
+map is now testable against real hardware via `AmdDevice::dispatch()`. This
+validates `RegisterMap` encodings that were previously theoretical.
 
 ### Code Quality Improvements
 

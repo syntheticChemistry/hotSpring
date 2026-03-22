@@ -1,5 +1,10 @@
 # hotSpring → Compute Trio: GCN5 Preswap Validation + GLOBAL_LOAD Investigation
 
+> **SUPERSEDED** (March 2026): GLOBAL_LOAD resolved — root cause was coral-reef compiler bugs
+> (VOP1 opcode table, f64 materialization, type resolution, VOP3 modifiers, integer negation),
+> **not** missing PM4 register config. See `HOTSPRING_GCN5_COMPLETE_PRESWAP_HANDOFF_MAR2026.md`
+> for final 6/6 results including f64 Lennard-Jones force with Newton's 3rd law verified.
+
 **Date:** March 21, 2026
 **From:** hotSpring
 **To:** coralReef, toadStool, barraCuda
@@ -12,9 +17,8 @@
 
 - **Preswap phases A/B/C PASS**: f64 write (42.0), f64 arithmetic (6.0×7.0=42.0), multi-workgroup (4×64 threads) — all verified on MI50 via coral-reef → coral-driver PM4
 - **5 additional coral-reef compiler bugs found and fixed** (12 total for GCN5 bring-up)
-- **GLOBAL_LOAD is fundamentally broken** in the current PM4 dispatch: every variant tested hangs the GPU. The existing E2E test (64/64 pass) uses only `GLOBAL_STORE`, never `GLOBAL_LOAD`
-- **Root cause hypothesis**: missing PM4 register writes that Mesa/RADV `radeonsi` sets for compute dispatch (e.g., `COMPUTE_STATIC_THREAD_MGMT`, shader resource descriptors, SPI config)
-- **Not ready for dual Titan runs**: AMD GLOBAL_LOAD blocks, NVIDIA PMU blocks, sovereign MMU blocks
+- ~~**GLOBAL_LOAD is fundamentally broken**~~ **RESOLVED** — root cause was compiler bugs, not PM4 register config. 6 additional bugs fixed. All 6/6 preswap phases now pass.
+- ~~**Not ready for dual Titan runs**~~ AMD GCN5 preswap **COMPLETE**. NVIDIA PMU still blocks, sovereign MMU still blocks.
 
 ---
 

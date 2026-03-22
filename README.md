@@ -32,7 +32,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 
 ---
 
-## Current Status (2026-03-21, post-Exp 072)
+## Current Status (2026-03-18, post-Exp 072 GCN5 complete)
 
 | Study | Status | Quantitative Checks |
 |-------|--------|-------------------|
@@ -87,7 +87,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **DRM Isolation** | ✅ Complete | Xorg `AutoAddGPU=false` + udev seat tag removal (61-prefix) prevents compositor crash during driver swaps. Compute GPUs fully invisible to display manager |
 | **Dual Titan Backend Matrix** (Exp 070) | ✅ Complete | Both Titans on GlowPlug/Ember. vfio↔nouveau swap validated (oracle). Full backend matrix: vfio, nouveau, nvidia × 2 cards. Register diff infrastructure ready |
 | **PFIFO Diagnostic Matrix** (Exp 071) | 🔄 Active | 54-config matrix: 12 winning configs, 0 faults, scheduler-accepted. PFIFO re-init solved (PMC+preempt+clear). **Root cause: PBDMA 0xbad00200 (PBUS timeout) fetching GPFIFO — MMU page table translation is the single remaining blocker.** 6/10 sovereign pipeline layers proven. |
-| **DRM Dispatch Evolution** (Exp 072) | 🔄 Phase 3 | Dual-track: DRM + sovereign VFIO. **AMD GCN5 E2E PASSED** — WGSL → coral-reef → coral-driver PM4 → MI50 → 64/64 readback verified. **12 bugs found/fixed** (VOP3 opcode, wave64, GLOBAL segment, SGPR, ACQUIRE_MEM, s_waitcnt, flat_offset GFX9, OpF2F encoding, f64 literal VGPR pair, S_WAITCNT, L1+L2 invalidation). Preswap: **A/B/C PASS** (f64 write, f64 arith, multi-workgroup), D/E/F blocked by `GLOBAL_LOAD` GPU hang (all variants exhausted — GLC, FLAT, SADDR, GTT/VRAM). NVIDIA PMU-blocked on Titan V. K80 incoming. |
+| **DRM Dispatch Evolution** (Exp 072) | ✅ GCN5 Complete | Dual-track: DRM + sovereign VFIO. **AMD GCN5 preswap 6/6 PASS** — f64 write, f64 arithmetic, multi-workgroup, multi-buffer read/write, HBM2 bandwidth, **f64 Lennard-Jones force (Newton's 3rd law verified)**. WGSL → coral-reef → coral-driver PM4 → MI50. **18 bugs found/fixed** across GCN5 bring-up. 85 coral-reef tests pass. NVIDIA PMU-blocked on Titan V. K80 incoming. |
 | **Vendor-Agnostic GlowPlug** | ✅ Complete | coral-ember standalone crate. RegisterMap trait (GV100 + GFX906/MI50). AMD MI50 HBM2 swap path. Typed EmberError. Legacy sysfs gated behind `no-ember` feature. coralctl CLI |
 | **Privilege Hardening** | ✅ Complete | Capabilities + seccomp + namespaces. `ProtectSystem=strict`, `SystemCallFilter`, `MemoryDenyWriteExecute`, `NoNewPrivileges`. coralctl deploy-udev generates rules from config |
 | **VendorLifecycle Trait** | ✅ Complete | Vendor-specific swap hooks (NVIDIA, AMD Vega 20, AMD RDNA, Intel Xe, BrainChip, Generic). AMD D3cold fully characterized — 1 round-trip/boot hardware limit (Vega 20 SMU). PmResetAndBind + stabilize_after_bind. Intel Xe/i915 stubs. 157 tests pass |
