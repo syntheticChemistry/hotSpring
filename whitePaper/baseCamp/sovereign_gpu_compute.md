@@ -1,8 +1,8 @@
 # baseCamp: Sovereign GPU Compute — GlowPlug & Falcon Boot Chain
 
-**Date:** 2026-03-22 (updated from 2026-03-21)  
-**Domain:** Hardware — PCIe GPU lifecycle, falcon microcontrollers, HBM2 management, PFIFO command submission, daemon resilience  
-**Experiments:** 060-074  
+**Date:** 2026-03-23 (updated from 2026-03-22)  
+**Domain:** Hardware — PCIe GPU lifecycle, falcon microcontrollers, HBM2 management, PFIFO command submission, daemon resilience, BOOT0 auto-detection, PCIe FLR  
+**Experiments:** 060-077  
 **Hardware:** 2× NVIDIA Titan V (GV100, 12GB HBM2), RTX 5060 (display/validator)
 
 ---
@@ -100,20 +100,65 @@ produced the same panic.
 grabbing it = clean shutdown. The `resurrect_hbm2()` function handles temporary nouveau
 binding only when no DRM consumers exist.
 
-## Sovereign Pipeline Layer Status (March 21, 2026 — Exp 071)
+## Sovereign Pipeline Layer Status (March 23, 2026 — Exp 076-077)
 
 | Layer | Component | Status |
 |-------|-----------|--------|
-| 0 | PCIe / VFIO | ✅ BAR0 MMIO, DMA buffers, IOMMU |
+| 0 | PCIe / VFIO | ✅ BAR0 MMIO, DMA buffers, IOMMU (iommufd/cdev) |
 | 1 | PFB / MMU | ✅ Alive via warm-state transfer from nouveau |
-| 2 | PFIFO Engine | ✅ Re-initialized (PMC reset + soft enable + preempt) |
+| 2 | PFIFO Engine | ✅ Re-initialized (PMC bit 8 reset + soft enable + preempt) |
 | 3 | Scheduler | ✅ Processes runlists, BIT30 acknowledged |
 | 4 | Channel | ✅ Accepted by scheduler (STATUS=PENDING) |
 | 5 | PBDMA Context | ✅ GP_BASE, USERD, SIG loaded correctly |
-| 6 | MMU Translation | ❌ **BLOCKING** — 0xbad00200 PBUS timeout |
-| 7-10 | GPFIFO→Commands→FECS→Shader | Blocked by Layer 6 |
+| 6 | MMU Translation | ✅ **RESOLVED** (Exp 076) — Volta FBHUB fault buffer config |
+| 7 | GPFIFO→Commands | ❌ **BLOCKING** — GR/FECS context (Layer 7) |
+| 8-10 | FECS→GPCCS→Shader | Blocked by Layer 7 (PMU firmware) |
 
-**6 of 10 layers proven working** via 54-configuration diagnostic matrix.
+**7 of 10 layers proven working.** Layer 6 was resolved by configuring
+Volta's non-replayable MMU fault buffers (FAULT_BUF0/1) in VfioChannel::create.
+Without fault buffer config, FBHUB stalled on any MMU page table walk, causing
+the 0xbad00200 PBUS timeout that blocked all GPFIFO fetches.
+
+## Phase 8: Pre-PMU Hardening (Exp 077, March 23, 2026)
+
+The "Sovereign Pipeline Debt Burndown" sprint resolved five failure modes
+discovered during the PFIFO dispatch debugging sessions (Exp 071-076):
+
+### 1. SM Mismatch — BOOT0 Auto-Detection
+
+**Problem:** Tests defaulted to SM 86, writing GA102 firmware to GV100 and
+irreversibly corrupting the GPU until reboot. **Fix:** `boot0_to_sm()` decodes
+BOOT0 register to SM version. `open()`/`open_from_fds()` auto-detect (sm=0)
+or validate against hardware. Mismatch → `DriverError::OpenFailed` before any
+writes touch the GPU.
+
+### 2. PFIFO Init Unification
+
+**Problem:** Two divergent init paths (production vs diagnostic) with different
+scheduler enable, PMC gating, PBDMA clearing, and settle times. **Fix:**
+`PfifoInitConfig` struct parameterizes the init sequence. Both paths call
+`init_pfifo_engine_with()` with different configs. Code drift eliminated.
+
+### 3. Architecture-Aware Diagnostic Matrix
+
+**Problem:** Diagnostic matrix was GV100-hardcoded. **Fix:** `GpuCapabilities`
+(from BOOT0) added to `ExperimentContext`. `ExperimentConfig::requires_sm`
+gates experiments to specific architectures. `ExperimentResult::detected_sm`
+records the SM for cross-run comparison.
+
+### 4. PFIFO Liveness Probe
+
+**Problem:** `PFIFO_ENABLE` (0x2200) reads 0 on GV100 even when functional,
+flooding logs with 12+ false warnings per channel create. **Fix:** Single
+post-init liveness probe (runlist preempt ACK). Legacy readback downgraded to
+debug. One warning only if the probe itself fails.
+
+### 5. PCIe Function Level Reset
+
+**Problem:** Corrupted GPU requires reboot. **Fix:** `VfioDevice::reset()` →
+`VFIO_DEVICE_RESET` ioctl. `DeviceSlot::reset_device()` in glowplug.
+`coralctl reset <BDF>` CLI + `device.reset` RPC handler. Recovers from
+firmware mismatch or init failure without reboot.
 
 ## Phase 7: D-State Resilient Ember + Swap Pipeline (Exp 074)
 
@@ -158,14 +203,22 @@ Titans opened via iommufd/cdev at boot. Ember stayed in S-state (sleeping) throu
 
 ## Remaining Blockers
 
-1. **MMU page table translation** (PBDMA 0xbad00200 fetching GPU VA 0x1000) — the single remaining command submission blocker
-2. **GPCCS address unknown** on GV100 (not at legacy 0x41A000)
-3. **FECS halts at PC=0x2835** — likely waiting for GPCCS or a channel context
-4. **DMA requires instance block** (SEC2+0x480) which is not host-writable in clean state
-5. **PMC toggle of GR (bit 12) causes fatal unrecoverable PRIVRING fault** on GV100
+1. ~~MMU page table translation~~ — **RESOLVED** (Exp 076, fault buffer config)
+2. **GR/FECS context loading** (Layer 7) — PMU firmware required for FECS microcontroller boot
+3. **GPCCS address unknown** on GV100 (not at legacy 0x41A000)
+4. **FECS halts at PC=0x2835** — likely waiting for GPCCS or a channel context
+5. **DMA requires instance block** (SEC2+0x480) which is not host-writable in clean state
+6. **PMC toggle of GR (bit 12) causes fatal unrecoverable PRIVRING fault** on GV100
 
 ### Resolved Since Last Update
 
+- ~~MMU page table translation (0xbad00200)~~ — Volta FBHUB fault buffer config (Exp 076)
+- ~~SM mismatch corrupts GPU~~ — BOOT0 auto-detect + validation (Exp 077)
+- ~~Divergent PFIFO init paths~~ — `PfifoInitConfig` unification (Exp 077)
+- ~~PFIFO_ENABLE false warnings~~ — runlist preempt ACK liveness probe (Exp 077)
+- ~~RAMFC GP_PUT=1 race~~ — empty ring init + post-submit doorbell (Exp 077)
+- ~~False-positive MMU fault~~ — enable bit masking on fault buffer pointers (Exp 077)
+- ~~No GPU reset without reboot~~ — `coralctl reset` PCIe FLR (Exp 077)
 - ~~Ember D-state hangs~~ — process-isolated sysfs watchdog (Exp 074)
 - ~~IOMMU group peer blocking~~ — symmetric bind/release for multi-device groups (Exp 074)
 - ~~EmberClient EAGAIN fatal~~ — retry loop with backoff + full-response reader (Exp 074)
@@ -277,7 +330,7 @@ forces via DRM. Next: K80 NVIDIA DRM, Titan V PMU investigation.
   `VM_BIND` → `EXEC` + syncobj). Blocked on Titan V by missing PMU firmware for
   `CHANNEL_ALLOC`. K80 (Kepler, incoming) has no PMU requirement.
 
-### Sovereign + DRM Pipeline Layer Status (updated)
+### Sovereign + DRM Pipeline Layer Status (updated March 23, 2026)
 
 | # | Layer | Sovereign VFIO | DRM Dispatch |
 |---|-------|----------------|--------------|
@@ -287,11 +340,15 @@ forces via DRM. Next: K80 NVIDIA DRM, Titan V PMU investigation.
 | 4 | Scheduler: runlist load | Done | N/A (kernel) |
 | 5 | Channel context binding | Done | N/A (kernel) |
 | 6 | PBDMA context load | Done | N/A (kernel) |
-| 7 | **MMU page table translation** | **BLOCKED** | Kernel handles this |
-| 8 | NOP GPFIFO fetch | Pending | **AMD: PASSED** |
+| 7 | MMU page table translation | **Done** (Exp 076) | Kernel handles this |
+| 8 | **GR/FECS context** | **BLOCKED** (PMU) | N/A (kernel) |
 | 9 | FECS/GPCCS firmware load | Pending | N/A (kernel) |
 | 10 | Shader dispatch | Pending | **AMD: 6/6 preswap PASSED** (f64 LJ force verified). NVIDIA: PMU-blocked |
 
 The DRM path offloads layers 1-7 and 9 to the kernel driver. AMD DRM dispatch
 fully validated: 6/6 preswap phases pass including f64 Lennard-Jones force
 (Newton's 3rd law verified). 18 bugs fixed. NVIDIA awaits K80 (no PMU needed).
+
+Sovereign VFIO advanced from 6/10 to 7/10 layers with the MMU fault buffer
+breakthrough (Exp 076). The remaining sovereign blocker is GR engine context
+loading, which requires PMU firmware — the next cracking target.

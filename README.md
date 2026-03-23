@@ -32,7 +32,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 
 ---
 
-## Current Status (2026-03-22, Sovereign MMU Evolution Sprint + Deep Debt Burndown)
+## Current Status (2026-03-23, Pre-PMU Hardening Complete + MMU Layer 6 Breakthrough)
 
 | Study | Status | Quantitative Checks |
 |-------|--------|-------------------|
@@ -86,7 +86,9 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **Ember Architecture** | ✅ Complete | Immortal VFIO fd holder (`coral-ember`): `SCM_RIGHTS` fd passing, atomic `swap_device` RPC, DRM isolation preflight, external fd holder detection. Zero-crash driver hot-swap on live system |
 | **DRM Isolation** | ✅ Complete | Xorg `AutoAddGPU=false` + udev seat tag removal (61-prefix) prevents compositor crash during driver swaps. Compute GPUs fully invisible to display manager |
 | **Dual Titan Backend Matrix** (Exp 070) | ✅ Complete | Both Titans on GlowPlug/Ember. vfio↔nouveau swap validated (oracle). Full backend matrix: vfio, nouveau, nvidia × 2 cards. Register diff infrastructure ready |
-| **PFIFO Diagnostic Matrix** (Exp 071) | 🔄 Active | 54-config matrix: 12 winning configs, 0 faults, scheduler-accepted. PFIFO re-init solved (PMC+preempt+clear). **Root cause: PBDMA 0xbad00200 (PBUS timeout) fetching GPFIFO — MMU page table translation is the single remaining blocker.** 6/10 sovereign pipeline layers proven. |
+| **PFIFO Diagnostic Matrix** (Exp 071) | ✅ Complete | 54-config matrix: 12 winning configs, 0 faults, scheduler-accepted. PFIFO re-init solved (PMC+preempt+clear). Root cause identified (PBDMA 0xbad00200 PBUS timeout) — resolved in Exp 076 (MMU fault buffer) + Exp 077 (init hardening). 6/10 sovereign pipeline layers proven. |
+| **MMU Fault Buffer Breakthrough** (Exp 076) | ✅ Complete | **Layer 6 resolved.** Volta FBHUB requires configured non-replayable fault buffers before any MMU page table walk completes. Without them, PBUS returns 0xbad00200 and PBDMA stalls forever. Fix: FAULT_BUF0/1 configured in VfioChannel::create. Channel creation + DMA roundtrip + MMU translation all pass. Shader dispatch blocked at Layer 7 (GR/FECS context). |
+| **PFIFO Init Hardening** (Exp 077) | ✅ Complete | Five failure modes documented and fixed: (1) SM mismatch corrupts GPU without recovery — BOOT0 auto-detect added; (2) PMC bit 8 vs bit 1 for PFIFO on GV100; (3) PFIFO_ENABLE reads 0 but engine functional — liveness probe replaces false warnings; (4) RAMFC GP_PUT=1 race causing empty GPFIFO fetch; (5) false-positive MMU fault from fault buffer enable bit. `PfifoInitConfig` unifies init paths, `GpuCapabilities` makes matrix arch-aware, `coralctl reset` provides PCIe FLR recovery. |
 | **DRM Dispatch Evolution** (Exp 072) | ✅ GCN5 Complete | Dual-track: DRM + sovereign VFIO. **AMD GCN5 preswap 6/6 PASS** — f64 write, f64 arithmetic, multi-workgroup, multi-buffer read/write, HBM2 bandwidth, **f64 Lennard-Jones force (Newton's 3rd law verified)**. WGSL → coral-reef → coral-driver PM4 → MI50. **18 bugs found/fixed** across GCN5 bring-up. 85 coral-reef tests pass. **RTX 5060 Blackwell DRM cracked**: SM120 class IDs, single-mmap fix, per-buffer-fd fix, 4/4 HW tests pass. NVIDIA PMU-blocked on Titan V. K80 incoming. |
 | **iommufd/cdev VFIO Evolution** (Exp 073) | ✅ Complete | **Kernel-agnostic VFIO** on Linux 6.2+ (resolves persistent EBUSY on 6.17). Dual-path: iommufd/cdev first, legacy fallback. `VfioBackendKind`, `ReceivedVfioFds`, backend-agnostic Ember→GlowPlug IPC (2-fd iommufd or 3-fd legacy + JSON metadata). 38 files changed across coral-driver/ember/glowplug. **607 tests pass.** Hardware validated on Titan V: ember acquire → SCM_RIGHTS → client reconstruct → BAR0 + DMA. |
 | **Ember Swap Pipeline Evolution** (Exp 074) | ✅ Complete | **D-state resilient sysfs** — process-isolated watchdog (10s timeout, child-process fork for risky kernel writes). **IOMMU group peer release** for native driver swap (audio device unbind). **EmberClient retry** (3× backoff for EAGAIN/EINTR). **DRM isolation auto-generation** from config at startup. **iommufd loaded at boot**. **nouveau ↔ vfio round-trip proven** on Titan V (both cards, HBM2 alive). **Ember hardened**: VRAM write-readback canary, BDF allowlist, pre-flight device checks (D3hot/D0/0xFFFF), display GPU safety guard. **86 ember + 178 glowplug tests pass.** Hardware: **2× Titan V + RTX 5060** (MI50 swapped out for second Titan). 74 experiments. |
@@ -142,7 +144,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **Sovereign Dispatch** (Exp 056) | ✅ Complete | Backend-agnostic `MdEngine<B: GpuBackend>` via `ComputeDispatch<B>`. wgpu validated (140.3 steps/s, correct energies). Sovereign DRM blocked (coral-driver ioctl gap). CPU-side energy sum bypasses ReduceScalarPipeline zero bug. Cross-spring shader evolution traced. |
 | **coralReef Ioctl Fix** (Exp 057) | ✅ Complete | 4 DRM ioctl struct ABI mismatches fixed (NouveauVmInit 32→16B, NouveauExec/VmBind field order, Channel pad). VM_INIT succeeds. CHANNEL_ALLOC blocked by missing Volta PMU firmware. GenericMdBackend: sovereign→wgpu auto-fallback. |
 | **hwLearn Integration** | ✅ Complete | toadStool `hw-learn` crate: vendor-neutral GPU learning (46 tests). sysmon `FirmwareInventory` probe. PrecisionBrain `fleet` module. biomeOS `compute.hardware.*` capabilities. AMD GFX10 gold-standard baseline. Fleet observer: Titan V blocked (PMU+GSP missing), RTX 3090 teacher (GSP), 40% learning confidence. |
-| **TOTAL** | **39/39 Rust validation suites** | **848 tests (lib)**, 115 binaries, 85 WGSL shaders, 34/35 NPU HW checks. Zero clippy (lib+bins), zero unsafe, all AGPL-3.0-only. Both GPUs validated, DF64 production, Nautilus unified brain, **live AKD1000 PCIe NPU: 12-head brain, barraCuda v0.3.7 + toadStool S163 + hw-learn (46 tests) + coralReef Phase 10+ synced**. **Precision brain: self-routing hardware calibration, NVVM poisoning discovered + gated, coralReef sovereign bypass integrated. Backend-agnostic MD engine: `MdEngine<B: GpuBackend>` via `ComputeDispatch<B>` — same code on wgpu/Vulkan and sovereign/DRM. Multi-backend dispatch: wgpu/Vulkan + coralReef sovereign + Kokkos reference. Hardware learning: `hw-learn` crate (observe→distill→apply), FirmwareInventory, LearningAdvisor, biomeOS `compute.hardware.*` routing. Sovereign GPU lifecycle: coral-glowplug boot-persistent PCIe daemon + coral-ember immortal VFIO fd holder, VFIO-first boot, graceful shutdown, DRM-isolated driver hot-swap (Exp 069-070). iommufd/cdev kernel-agnostic VFIO: dual-path (iommufd first, legacy fallback), backend-agnostic Ember→GlowPlug IPC, 607 coralReef tests pass, HW validated on Titan V (Exp 073). RTX 5060 Blackwell DRM cracked: SM120, per-buffer fd, 4/4 tests (Exp 072).** Science ladder: Quenched ✅ → Gradient Flow ✅ → Integrators ✅ → N_f=4 Infra ✅ → **Chuna 44/44** (core 41/41, dynamical ext 3/3) → N_f=2 (pending) → N_f=2+1 (pending). Stability: Tier 1 COMPLETE (Exp 046). Deep debt: **zero**. |
+| **TOTAL** | **39/39 Rust validation suites** | **848 tests (lib)**, 115 binaries, 85 WGSL shaders, 34/35 NPU HW checks. Zero clippy (lib+bins), zero unsafe, all AGPL-3.0-only. Both GPUs validated, DF64 production, Nautilus unified brain, **live AKD1000 PCIe NPU: 12-head brain, barraCuda v0.3.7 + toadStool S163 + hw-learn (46 tests) + coralReef Phase 10+ synced**. **Precision brain: self-routing hardware calibration, NVVM poisoning discovered + gated, coralReef sovereign bypass integrated. Backend-agnostic MD engine: `MdEngine<B: GpuBackend>` via `ComputeDispatch<B>` — same code on wgpu/Vulkan and sovereign/DRM. Multi-backend dispatch: wgpu/Vulkan + coralReef sovereign + Kokkos reference. Hardware learning: `hw-learn` crate (observe→distill→apply), FirmwareInventory, LearningAdvisor, biomeOS `compute.hardware.*` routing. Sovereign GPU lifecycle: coral-glowplug boot-persistent PCIe daemon + coral-ember immortal VFIO fd holder, VFIO-first boot, graceful shutdown, DRM-isolated driver hot-swap (Exp 069-070). iommufd/cdev kernel-agnostic VFIO: dual-path (iommufd first, legacy fallback), backend-agnostic Ember→GlowPlug IPC, 607 coralReef tests pass, HW validated on Titan V (Exp 073). RTX 5060 Blackwell DRM cracked: SM120, per-buffer fd, 4/4 tests (Exp 072). MMU fault buffer breakthrough (Exp 076): Layer 6 resolved — FBHUB fault buffer config unlocks MMU page table walks. Pre-PMU hardening (Exp 077): BOOT0 auto-detect, PfifoInitConfig unification, arch-aware diagnostic matrix, PCIe FLR via coralctl.** Science ladder: Quenched ✅ → Gradient Flow ✅ → Integrators ✅ → N_f=4 Infra ✅ → **Chuna 44/44** (core 41/41, dynamical ext 3/3) → N_f=2 (pending) → N_f=2+1 (pending). Stability: Tier 1 COMPLETE (Exp 046). Deep debt: **zero**. |
 
 Papers 5, 7, 8, and 10 from the review queue are complete. Paper 5 transport fits
 (Daligault 2012) were recalibrated against 12 Sarkas Green-Kubo D* values (Feb 2026)
@@ -561,7 +563,7 @@ hotSpring/
 ├── PHYSICS.md                          # Complete physics documentation (equations + references)
 ├── CONTROL_EXPERIMENT_STATUS.md        # Comprehensive status + results (197/197)
 ├── NUCLEAR_EOS_STRATEGY.md             # Nuclear EOS Phase A→B strategy
-├── wateringHole/handoffs/              # 21 active + 39 archived cross-project handoffs (fossil record)
+├── wateringHole/handoffs/              # 13 active + 94 archived cross-project handoffs (fossil record)
 ├── LICENSE                             # AGPL-3.0
 ├── .gitignore
 │
@@ -774,7 +776,7 @@ hotSpring/
 │       ├── Two-Temperature-Model/      # Cloned + patched via scripts/clone-repos.sh
 │       └── scripts/                    # Local + hydro model runners
 │
-├── experiments/                         # Experiment journals — 75 experiments + post-mortems (the "why" behind the data)
+├── experiments/                         # Experiment journals — 77 experiments + post-mortems (the "why" behind the data)
 │   ├── 001_N_SCALING_GPU.md            # N-scaling (500→20k) + native f64 builtins
 │   ├── 002_CELLLIST_FORCE_DIAGNOSTIC.md # Cell-list i32 modulo bug diagnosis + fix
 │   ├── 003_RTX4070_CAPABILITY_PROFILE.md # RTX 4070 capability profile (paper-parity COMPLETE)
@@ -840,7 +842,7 @@ hotSpring/
 │
 ├── wateringHole/                       # Cross-project handoffs
 │   ├── README.md                      # Handoff index, conventions, cross-spring docs
-│   └── handoffs/                       # 10 active + 94 archived unidirectional handoff documents
+│   └── handoffs/                       # 14 active + 94 archived unidirectional handoff documents
 │
 ├── benchmarks/
 │   ├── PROTOCOL.md                     # Cross-gate benchmark protocol (time + energy)
@@ -1071,7 +1073,7 @@ transition at 32⁴ (χ=40.1 at β=5.69, matching β_c=5.692) in 13.6 hours for
 $0.58. Self-routing precision brain: hardware calibration probes 4 tiers per GPU,
 NVVM device poisoning discovered and gated, dual-GPU cooperative patterns profiled
 (Split BCS 2.2×, PCIe 1.2 GB/s). coralReef sovereign bypass integrated (Iter 28).
-75 experiments, 119 binaries, 848 tests,
+77 experiments, 119 binaries, 848 tests,
 barraCuda v0.3.7 + toadStool S163 + coralReef Phase 10+ synced. Full multi-tier precision stability analysis
 (Exp 046): 9 cancellation families audited across f32/DF64/f64/CKKS FHE —
 stable BCS v² and plasma W(z) algorithms enable safe DF64 throughput. Chuna
