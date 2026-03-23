@@ -1,13 +1,13 @@
 # hotSpring — Sovereign Validation Goal
 
-> **Note (March 23, 2026):** For current sovereign pipeline status, see [`experiments/071_PFIFO_DIAGNOSTIC_MATRIX_MMU_CRACKING.md`](experiments/071_PFIFO_DIAGNOSTIC_MATRIX_MMU_CRACKING.md) and [`wateringHole/handoffs/SOVEREIGN_COMPUTE_TRIO_IOMMUFD_EVOLUTION_HANDOFF_MAR22_2026.md`](wateringHole/handoffs/SOVEREIGN_COMPUTE_TRIO_IOMMUFD_EVOLUTION_HANDOFF_MAR22_2026.md). 6/10 sovereign pipeline layers proven working. **Deep-debt burndown (Exp 075):** `Bar0Rw::try_read_u32`/`try_write_u32` for safe PMU register probing, `DriverError::OracleError` for clean oracle error propagation, `BusyGuard` for concurrent dual-Titan captures. RTX 5060 dual-use validated as page table oracle. See [`experiments/075_DEEP_DEBT_CROSS_VENDOR_DISPATCH.md`](experiments/075_DEEP_DEBT_CROSS_VENDOR_DISPATCH.md).
+> **Note (March 23, 2026):** **Layer 6 (MMU page table translation) PROVEN** — see [`experiments/076_MMU_FAULT_BUFFER_LAYER6_BREAKTHROUGH.md`](experiments/076_MMU_FAULT_BUFFER_LAYER6_BREAKTHROUGH.md). 7/10 sovereign pipeline layers proven. Root cause: missing Volta non-replayable fault buffer in `VfioChannel::create`; FBHUB stalled on undrained fault entries. Fix: allocate `FAULT_BUF0/1` at `FAULT_BUF_IOVA` before page table population. Validated on Titan V via ember `SCM_RIGHTS`. DMA alloc, upload, readback all pass. Next target: Layer 7 (GR/FECS compute context). See also: [`experiments/071_PFIFO_DIAGNOSTIC_MATRIX_MMU_CRACKING.md`](experiments/071_PFIFO_DIAGNOSTIC_MATRIX_MMU_CRACKING.md).
 
 ## CERN-Grade Reproducible Physics at Home. Scalable to CERN.
 
 **Date**: March 14, 2026
 **Version**: v0.6.31
-**Status**: 848 tests, 115 binaries, 85 shaders, 44/44 Chuna overnight, 0.000% energy drift
-**VFIO Validation**: 6/7 coralReef tests pass on Titan V (GV100) via VFIO — BAR0, DMA, upload/readback all verified on real hardware. **PBDMA context load achieved** (March 14): scheduler dispatches channel, RAMFC loaded into PBDMA2 with zero errors. Remaining: USERD GP_PUT DMA read from system memory.
+**Status**: 848 tests, 119 binaries, 85 shaders, 44/44 Chuna overnight, 0.000% energy drift
+**VFIO Validation**: 7/10 sovereign pipeline layers proven on Titan V (GV100) via VFIO — BAR0, IOMMU, HBM2, clock, PFIFO, **MMU page tables** all verified on real hardware. **Layer 6 MMU PROVEN** (March 23): fault buffer fix unblocked FBHUB, DMA alloc+upload+readback pass. Remaining: Layer 7 GR/FECS compute context init.
 **Hardware Plan**: GTX 1050 (headless) + 2x Titan V (VFIO target + nouveau oracle) — planned weekend swap
 
 ---
@@ -279,7 +279,8 @@ statistical ensemble.
 - [x] BAR0 GR context init (PGRAPH registers from firmware)
 
 ### In Progress 🔄
-- [ ] Sovereign VFIO dispatch — MMU page table translation blocker (Exp 071, `0xbad00200`)
+- [x] **Sovereign VFIO MMU** — **PROVEN** (Exp 076): fault buffer fix, 7/10 layers, DMA roundtrip verified on Titan V
+- [ ] Sovereign VFIO dispatch — GR/FECS context init (Layer 7, fence timeout)
 - [x] **DRM dispatch evolution** — **AMD GCN5 preswap 6/6 PASS** (March 2026): f64 write, f64 arith, multi-workgroup, multi-buffer, HBM2 bandwidth, **f64 Lennard-Jones force (Newton's 3rd law verified)**. 18 bugs fixed. NVIDIA PMU-blocked, K80 incoming (Exp 072)
 - [x] **GCN5 backend in coral-reef** — **COMPLETE**: native AMD ISA codegen for MI50, VOP1/VOP3/VOPC opcode translation, wave64, f64 materialization, VOP3 modifier encoding, integer negation, Naga bypass validated E2E. 85 tests pass.
 - [ ] Kokkos parity via sovereign bypass (DF64 + direct GPFIFO)
