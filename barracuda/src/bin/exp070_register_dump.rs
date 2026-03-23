@@ -1,18 +1,18 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 //
 // Hardware-touching binary: reads GPU BAR0 registers via sysfs mmap.
 #![allow(unsafe_code)]
 
 //! Experiment 070: BAR0 register dump for sovereign reverse engineering.
 //!
-//! Reads named GPU registers from `/sys/bus/pci/devices/{bdf}/resource0` and
+//! Reads named GPU registers from `/sys/bus/pci/devices/<bdf>/resource0` and
 //! outputs structured JSON for automated diffing across backends.
 //!
 //! **Vendor-agnostic**: auto-detects NVIDIA vs AMD via PCI vendor ID and
-//! uses the appropriate register map from `register_maps`.
+//! uses the appropriate register map from [`register_maps`](hotspring_barracuda::register_maps).
 //!
 //! Usage:
-//!   sudo cargo run --release --bin exp070_register_dump -- <bdf> [output.json]
+//!   sudo cargo run --release --bin exp070_register_dump -- `<bdf>` \[output.json\]
 //!
 //! Examples:
 //!   sudo cargo run --release --bin exp070_register_dump -- 0000:03:00.0 data/070/titan_v_warm.json
@@ -61,13 +61,10 @@ fn main() {
     let vendor_id = read_vendor_id(bdf);
     let device_id = read_device_id(bdf);
 
-    let reg_map = match detect_register_map(vendor_id) {
-        Some(m) => m,
-        None => {
-            eprintln!("ERROR: unknown vendor {vendor_id:#06x} for {bdf} — no register map available");
-            eprintln!("  Supported: NVIDIA (0x10de), AMD (0x1002)");
-            std::process::exit(1);
-        }
+    let Some(reg_map) = detect_register_map(vendor_id) else {
+        eprintln!("ERROR: unknown vendor {vendor_id:#06x} for {bdf} — no register map available");
+        eprintln!("  Supported: NVIDIA (0x10de), AMD (0x1002)");
+        std::process::exit(1);
     };
 
     eprintln!(

@@ -4,7 +4,7 @@
 //!
 //! Combines two axes of precision decision-making:
 //!
-//! 1. **Hardware capability** (from barraCuda's `GpuDriverProfile::precision_routing()`):
+//! 1. **Hardware capability** (from barraCuda's `DeviceCapabilities::precision_routing()`):
 //!    What f64 paths actually work on this GPU? (native, no-shared-mem, DF64-only, f32-only)
 //!
 //! 2. **Physics domain** (hotSpring-specific): What precision does this physics need?
@@ -25,7 +25,7 @@
 //! re-export upstream enums once the API stabilizes across all springs.
 
 use crate::gpu::GpuF64;
-pub use barracuda::device::driver_profile::PrecisionRoutingAdvice as HwPrecisionAdvice;
+pub use barracuda::device::PrecisionRoutingAdvice as HwPrecisionAdvice;
 
 /// Precision tier for shader compilation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -86,11 +86,11 @@ pub struct PrecisionRoutingAdvice {
 
 /// Route a physics domain to the appropriate precision tier given hardware caps.
 ///
-/// Queries barraCuda's `GpuDriverProfile::precision_routing()` for hardware
+/// Queries barraCuda's `DeviceCapabilities::precision_routing()` for hardware
 /// capability, then intersects with domain requirements.
 #[must_use]
 pub fn route_precision(domain: PhysicsDomain, gpu: &GpuF64) -> PrecisionRoutingAdvice {
-    let hw_advice = gpu.driver_profile().precision_routing();
+    let hw_advice = gpu.capabilities().precision_routing();
     let is_df64_mode = gpu.full_df64_mode;
 
     let hw_supports_native = matches!(

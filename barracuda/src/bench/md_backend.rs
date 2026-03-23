@@ -291,6 +291,7 @@ impl BarraCudaMdBackend {
         let gpu = rt
             .block_on(crate::gpu::GpuF64::new())
             .map_err(|e| format!("GPU: {e}"))?;
+        #[allow(deprecated)]
         let profile = gpu.driver_profile();
         let driver = format!("{:?}/{:?}", profile.driver, profile.arch);
         Ok(Self {

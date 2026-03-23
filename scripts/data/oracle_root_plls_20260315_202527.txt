@@ -1,4 +1,7 @@
 # Oracle root PLL dump: 0000:03:00.0 at 20260315_202527
+# Captured via: scripts/boot/post-boot-oracle-capture.sh (nouveau warm state)
+# Commit: 08590e2 (feat: glowplug boot infra, passwordless GPU access, experiment logs)
+# Hardware: Titan V (GV100), IOMMU group 69, biomeGate node
 # Format: offset value
 0x136258 0x00000001
 0x136400 0x00010001

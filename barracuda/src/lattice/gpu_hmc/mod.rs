@@ -141,7 +141,7 @@ impl GpuHmcPipelines {
             return Self::new_full_df64(gpu);
         }
 
-        let strategy = gpu.driver_profile().fp64_strategy();
+        let strategy = gpu.capabilities().fp64_strategy();
 
         let df64_preamble = barracuda::ops::lattice::su3::su3_df64_preamble();
 
@@ -410,8 +410,7 @@ impl GpuHmcState {
             + (n_links as u64 * 8)
             + (spatial_vol as u64 * 2 * 8)
             + (vol as u64 * 8 * 4);
-        let profile = gpu.driver_profile();
-        if let Err(e) = profile.check_allocation_safe(total_estimate) {
+        if let Err(e) = gpu.capabilities().check_allocation_safe(total_estimate) {
             eprintln!("[HMC] NVK allocation guard: {e}");
             eprintln!(
                 "[HMC] Total estimated: {:.1} MB",

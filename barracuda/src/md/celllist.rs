@@ -180,9 +180,9 @@ pub async fn run_simulation_celllist(
     );
 
     // ── Compile shaders ──
-    let strategy = gpu.driver_profile().fp64_strategy();
-    let df64_poisoned = gpu.driver_profile().has_df64_spir_v_poisoning();
-    let sovereign_available = gpu.driver_profile().sovereign_resolves_poisoning();
+    let strategy = gpu.capabilities().fp64_strategy();
+    let df64_poisoned = gpu.capabilities().has_df64_spir_v_poisoning();
+    let sovereign_available = df64_poisoned;
     let use_df64_force =
         matches!(strategy, Fp64Strategy::Hybrid) && (!df64_poisoned || sovereign_available);
     let strategy_label = if use_df64_force {

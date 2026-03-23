@@ -1,26 +1,33 @@
 # coralReef GlowPlug daemon configuration
-# biomeGate: 2× Titan V + RTX 5060 (display head)
-# Fleet updated Mar 22, 2026 — MI50 swapped for second Titan V
+# biomeGate: 2x Titan V + RTX 5060 (display head)
 
 [daemon]
 socket = "/run/coralreef/glowplug.sock"
 log_level = "info"
 health_interval_ms = 5000
 
+# RTX 5060 — Blackwell display GPU, LOCKED to nvidia
+# PROTECTED: ember will not hold VFIO fds, swaps are forbidden
+[[device]]
+bdf = "0000:21:00.0"
+name = "rtx-5060-display"
+boot_personality = "nvidia"
+power_policy = "always_on"
+role = "display"
+
 # Titan V #1 — NVIDIA GV100, 12 GB HBM2, VFIO at boot
-# IOMMU group 71 (shared with audio 03:00.1)
+# IOMMU group 69, with 0000:03:00.1 (HDMI audio)
 [[device]]
 bdf = "0000:03:00.0"
 name = "titan-v-1"
 boot_personality = "vfio"
 power_policy = "always_on"
 role = "oracle"
-oracle_dump = "/home/biomegate/Development/ecoPrimals/hotSpring/data/oracle_nouveau_warm.txt"
 
 # Titan V #2 — NVIDIA GV100, 12 GB HBM2, VFIO at boot
-# IOMMU group 87 (shared with audio 4b:00.1)
+# IOMMU group 34, with 0000:4a:00.1 (HDMI audio)
 [[device]]
-bdf = "0000:4b:00.0"
+bdf = "0000:4a:00.0"
 name = "titan-v-2"
 boot_personality = "vfio"
 power_policy = "always_on"

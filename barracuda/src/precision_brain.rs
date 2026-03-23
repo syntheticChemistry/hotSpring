@@ -137,7 +137,7 @@ impl PrecisionBrain {
     #[must_use]
     pub fn route_advice(&self, domain: PhysicsDomain, gpu: &GpuF64) -> PrecisionRoutingAdvice {
         let tier = self.route(domain);
-        let hw_advice = gpu.driver_profile().precision_routing();
+        let hw_advice = gpu.capabilities().precision_routing();
         let (fma_safe, rationale) = domain_requirements(domain, tier);
 
         PrecisionRoutingAdvice {
@@ -224,7 +224,7 @@ const fn domain_index(domain: PhysicsDomain) -> usize {
 }
 
 fn build_route_table(cal: &HardwareCalibration, gpu: &GpuF64) -> [PrecisionTier; 12] {
-    let hw_advice = gpu.driver_profile().precision_routing();
+    let hw_advice = gpu.capabilities().precision_routing();
     let hw_native = matches!(
         hw_advice,
         HwPrecisionAdvice::F64Native | HwPrecisionAdvice::F64NativeNoSharedMem

@@ -7,7 +7,8 @@
 //! binaries are produced for SM70 (Volta/Titan V) and SM86 (Ampere/RTX 3090).
 //!
 //! This validates the compilation stage of the sovereign pipeline. GPU dispatch
-//! validation will follow when coral-driver DRM backends mature.
+//! is operational for AMD GCN5 (E2E) and RTX 5060 (DRM cracked, SM120 ISA pending).
+//! Sovereign VFIO dispatch for Titan V is in progress (MMU layer).
 //!
 //! Usage:
 //!   cargo run --release --features sovereign-dispatch --bin validate_sovereign_compile
@@ -282,9 +283,10 @@ async fn main() {
         );
     }
 
-    println!("  GPU dispatch validation pending coral-driver DRM backend maturity:");
-    println!("    - amdgpu: E2E ready");
-    println!("    - nouveau: codegen OK, dispatch pending kernel ioctl support");
-    println!("    - nvidia-drm: pending UVM integration");
+    println!("  GPU dispatch status:");
+    println!("    - amdgpu: E2E PASSED (GCN5 preswap 6/6, f64 LJ force verified)");
+    println!("    - nouveau: codegen OK, sovereign VFIO dispatch in progress (MMU layer)");
+    println!("    - nvidia-drm: RTX 5060 Blackwell DRM cracked (4/4 HW tests). SM120 ISA pending.");
+    println!("    - iommufd: kernel-agnostic VFIO on 6.2+, dual-path (iommufd + legacy)");
     println!("\n  No Vulkan. No vendor SDK. Pure Rust → native binary compilation.");
 }

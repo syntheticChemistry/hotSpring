@@ -1,8 +1,8 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 #![allow(missing_docs)]
 //! Vendor-agnostic register map abstraction for GPU reverse engineering.
 //!
-//! Each GPU architecture provides a [`RegisterMap`] implementation that
+//! Each GPU architecture provides a `RegisterMap` implementation that
 //! describes its BAR0 MMIO register layout. The dump/diff binaries use
 //! this trait to work across NVIDIA, AMD, and future vendors without
 //! code duplication.

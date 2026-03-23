@@ -43,6 +43,7 @@ async fn run_test() {
     }
 
     gpu.print_info();
+    #[allow(deprecated)]
     let profile = gpu.driver_profile();
     let poisoning_risk = profile.has_df64_spir_v_poisoning();
     println!("  has_df64_spir_v_poisoning(): {poisoning_risk}");

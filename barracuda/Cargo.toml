@@ -3,7 +3,7 @@ name = "hotspring-barracuda"
 version = "0.6.32"
 edition = "2021"
 description = "Nuclear EOS + GPU MD validation for BarraCuda — L1/L2/L3 physics, Yukawa OCP, lattice QCD, spectral theory, typed errors, full Result propagation, provenance, capability-based discovery"
-license = "AGPL-3.0-or-later"
+license = "AGPL-3.0-only"
 repository = "https://github.com/biomegate/ecoPrimals"
 readme = "README.md"
 keywords = ["nuclear-physics", "gpu-compute", "validation", "molecular-dynamics", "lattice-qcd"]
@@ -80,6 +80,7 @@ workspace = true
 gpu_energy = []
 npu-hw = ["dep:akida-driver", "dep:akida-models"]
 sovereign-dispatch = ["barracuda/sovereign-dispatch"]
+cuda-validation = ["dep:cudarc", "dep:base64"]
 
 [dependencies]
 # BarraCuda (standalone primal): math, shaders, compilation, ESN, NPU math
@@ -119,10 +120,12 @@ wgpu = { version = "28", default-features = false, features = [
 naga = { version = "28", features = ["wgsl-in"] }
 
 # Blocking async operations (adapter enumeration is async in wgpu 28)
-pollster = "0.3"
+pollster = "0.4"
 
 # Low-level syscalls (mmap for BAR0 register reading in Exp 070 binaries)
 libc = "0.2"
+base64 = { version = "0.22", optional = true }
+cudarc = { version = "0.19.3", features = ["driver", "cuda-12060", "nvrtc"], optional = true }
 
 # ── L1 validation (NMP-constrained, Pareto sweep, multi-seed) ──────
 [[bin]]
@@ -695,4 +698,16 @@ path = "src/bin/exp070_register_dump.rs"
 [[bin]]
 name = "exp070_register_diff"
 path = "src/bin/exp070_register_diff.rs"
+
+# ── RTX 5060 dual-use validation: CUDA compute alongside display ──
+[[bin]]
+name = "validate_5060_dual_use"
+path = "src/bin/validate_5060_dual_use.rs"
+required-features = ["cuda-validation"]
+
+# ── Cross-vendor dispatch validation: same kernel on all GPUs via coralReef RPC ──
+[[bin]]
+name = "validate_cross_vendor_dispatch"
+path = "src/bin/validate_cross_vendor_dispatch.rs"
+required-features = ["cuda-validation"]
 

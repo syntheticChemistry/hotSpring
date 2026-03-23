@@ -32,7 +32,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 
 ---
 
-## Current Status (2026-03-22, Sovereign MMU Evolution Sprint)
+## Current Status (2026-03-22, Sovereign MMU Evolution Sprint + Deep Debt Burndown)
 
 | Study | Status | Quantitative Checks |
 |-------|--------|-------------------|
@@ -90,6 +90,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **DRM Dispatch Evolution** (Exp 072) | ✅ GCN5 Complete | Dual-track: DRM + sovereign VFIO. **AMD GCN5 preswap 6/6 PASS** — f64 write, f64 arithmetic, multi-workgroup, multi-buffer read/write, HBM2 bandwidth, **f64 Lennard-Jones force (Newton's 3rd law verified)**. WGSL → coral-reef → coral-driver PM4 → MI50. **18 bugs found/fixed** across GCN5 bring-up. 85 coral-reef tests pass. **RTX 5060 Blackwell DRM cracked**: SM120 class IDs, single-mmap fix, per-buffer-fd fix, 4/4 HW tests pass. NVIDIA PMU-blocked on Titan V. K80 incoming. |
 | **iommufd/cdev VFIO Evolution** (Exp 073) | ✅ Complete | **Kernel-agnostic VFIO** on Linux 6.2+ (resolves persistent EBUSY on 6.17). Dual-path: iommufd/cdev first, legacy fallback. `VfioBackendKind`, `ReceivedVfioFds`, backend-agnostic Ember→GlowPlug IPC (2-fd iommufd or 3-fd legacy + JSON metadata). 38 files changed across coral-driver/ember/glowplug. **607 tests pass.** Hardware validated on Titan V: ember acquire → SCM_RIGHTS → client reconstruct → BAR0 + DMA. |
 | **Ember Swap Pipeline Evolution** (Exp 074) | ✅ Complete | **D-state resilient sysfs** — process-isolated watchdog (10s timeout, child-process fork for risky kernel writes). **IOMMU group peer release** for native driver swap (audio device unbind). **EmberClient retry** (3× backoff for EAGAIN/EINTR). **DRM isolation auto-generation** from config at startup. **iommufd loaded at boot**. **nouveau ↔ vfio round-trip proven** on Titan V (both cards, HBM2 alive). **Ember hardened**: VRAM write-readback canary, BDF allowlist, pre-flight device checks (D3hot/D0/0xFFFF), display GPU safety guard. **86 ember + 178 glowplug tests pass.** Hardware: **2× Titan V + RTX 5060** (MI50 swapped out for second Titan). 74 experiments. |
+| **Deep Debt + Cross-Vendor Dispatch** (Exp 075) | ✅ Complete | **13 deep-debt items resolved** (P0: TOCTOU BusyGuard, buffer handle drop, BDF fallback; P1: coralctl health, nvidia-smi mutex, Bar0Rw try_read_u32, OracleError; P2: Debug derives, dead code, doc drift, optional deps, saxpy.ptx sm_70, BufReader sizing). **Cross-vendor CUDA dispatch** via glowplug daemon RPC — zero pkexec. **RTX 5060 dual-use** (display + CUDA compute). **pkexec-free pipeline** validated end-to-end. PMU cracking tooling hardened for Layer 6 MMU attack. 75 experiments. |
 | **Vendor-Agnostic GlowPlug** | ✅ Complete | coral-ember standalone crate. RegisterMap trait (GV100 + GFX906/MI50). AMD MI50 HBM2 swap path. Typed EmberError. Legacy sysfs gated behind `no-ember` feature. coralctl CLI |
 | **Privilege Hardening** | ✅ Complete | Capabilities + seccomp + namespaces. `ProtectSystem=strict`, `SystemCallFilter`, `MemoryDenyWriteExecute`, `NoNewPrivileges`. coralctl deploy-udev generates rules from config |
 | **VendorLifecycle Trait** | ✅ Complete | Vendor-specific swap hooks (NVIDIA, AMD Vega 20, AMD RDNA, Intel Xe, BrainChip, Generic). AMD D3cold fully characterized — 1 round-trip/boot hardware limit (Vega 20 SMU). PmResetAndBind + stabilize_after_bind. Intel Xe/i915 stubs. 157 tests pass |
@@ -773,7 +774,7 @@ hotSpring/
 │       ├── Two-Temperature-Model/      # Cloned + patched via scripts/clone-repos.sh
 │       └── scripts/                    # Local + hydro model runners
 │
-├── experiments/                         # Experiment journals — 73 experiments + post-mortems (the "why" behind the data)
+├── experiments/                         # Experiment journals — 75 experiments + post-mortems (the "why" behind the data)
 │   ├── 001_N_SCALING_GPU.md            # N-scaling (500→20k) + native f64 builtins
 │   ├── 002_CELLLIST_FORCE_DIAGNOSTIC.md # Cell-list i32 modulo bug diagnosis + fix
 │   ├── 003_RTX4070_CAPABILITY_PROFILE.md # RTX 4070 capability profile (paper-parity COMPLETE)
@@ -1070,7 +1071,7 @@ transition at 32⁴ (χ=40.1 at β=5.69, matching β_c=5.692) in 13.6 hours for
 $0.58. Self-routing precision brain: hardware calibration probes 4 tiers per GPU,
 NVVM device poisoning discovered and gated, dual-GPU cooperative patterns profiled
 (Split BCS 2.2×, PCIe 1.2 GB/s). coralReef sovereign bypass integrated (Iter 28).
-73 experiments, 115 binaries, 848 tests,
+75 experiments, 119 binaries, 848 tests,
 barraCuda v0.3.7 + toadStool S163 + coralReef Phase 10+ synced. Full multi-tier precision stability analysis
 (Exp 046): 9 cancellation families audited across f32/DF64/f64/CKKS FHE —
 stable BCS v² and plasma W(z) algorithms enable safe DF64 throughput. Chuna

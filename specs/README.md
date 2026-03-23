@@ -1,7 +1,7 @@
 # hotSpring Specifications
 
-**Last Updated**: March 11, 2026
-**Status**: Phase A-J complete — 847 tests, 39/39 validation suites, crate v0.6.29, 112+ binaries, barraCuda v0.3.5 (`8d63c77`), toadStool S146, coralReef Phase 10 Iter 31 (sovereign compile **46/46**, all cross-spring gaps resolved, Nouveau UAPI migration, 1509 tests). Self-routing PrecisionBrain with sovereign bypass. Multi-backend dispatch strategy (wgpu/Vulkan + coralReef sovereign + Kokkos reference).
+**Last Updated**: March 23, 2026
+**Status**: Phase A-J complete — 848 tests, 68 validation binaries, crate v0.6.32, 119 binaries, barraCuda v0.3.7 (`32554b0a`), toadStool S163, coralReef Phase 10 Iter 57+. Self-routing PrecisionBrain with sovereign bypass. Multi-backend dispatch strategy (wgpu/Vulkan + coralReef sovereign + Kokkos reference). 75 experiments, 85+ WGSL shaders, 6/10 sovereign pipeline layers proven. Deep-debt burndown (Exp 075) complete.
 **Domain**: Computational plasma physics, nuclear structure, transport, lattice QCD, spectral theory, surrogate learning
 
 ---

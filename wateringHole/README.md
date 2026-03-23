@@ -2,7 +2,7 @@
 
 **Project:** hotSpring (ecoPrimals)
 **Last Updated:** March 22, 2026
-**Status:** ACTIVE — Dual-track dispatch: sovereign VFIO (6/10 layers, MMU blocker) + DRM dispatch (**AMD GCN5 preswap: 6/6 PASS — f64 Lennard-Jones force verified, Newton's 3rd law confirmed**). **iommufd/cdev VFIO backend** (kernel 6.2+) — kernel-agnostic VFIO, resolves EBUSY on 6.17. **RTX 5060 Blackwell DRM cracked** (SM120, per-buffer fd, single mmap context). **Kepler (SM35) + Blackwell (SM120) ISA arches** in coral-reef. **Ember swap pipeline proven + hardened** — D-state resilient sysfs (process-isolated watchdog), IOMMU group peer release, EmberClient retry, DRM isolation auto-generation. **VRAM write-readback health check** (eliminates cold-boot false positives). **BDF allowlist** (ember rejects RPCs for unmanaged devices). **Pre-flight device checks** (D3cold/D3hot/0xFFFF config space guard before unbind). **nouveau ↔ vfio round-trip proven** on Titan V (both cards warm-swapped, HBM2 alive). **2× Titan V + RTX 5060** fleet. 74 experiments. 86 ember + 178 glowplug + 848 hotSpring tests. AMD D3cold characterized (1/boot Vega 20 limit), BrainChip Akida NPU integrated, zero-sudo coralctl
+**Status:** ACTIVE — Dual-track dispatch: sovereign VFIO (6/10 layers, MMU blocker) + DRM dispatch (**AMD GCN5 preswap: 6/6 PASS — f64 Lennard-Jones force verified, Newton's 3rd law confirmed**). **iommufd/cdev VFIO backend** (kernel 6.2+) — kernel-agnostic VFIO, resolves EBUSY on 6.17. **RTX 5060 Blackwell DRM cracked** (SM120, per-buffer fd, single mmap context). **Kepler (SM35) + Blackwell (SM120) ISA arches** in coral-reef. **Ember swap pipeline proven + hardened** — D-state resilient sysfs (process-isolated watchdog), IOMMU group peer release, EmberClient retry, DRM isolation auto-generation. **VRAM write-readback health check** (eliminates cold-boot false positives). **BDF allowlist** (ember rejects RPCs for unmanaged devices). **Pre-flight device checks** (D3cold/D3hot/0xFFFF config space guard before unbind). **nouveau ↔ vfio round-trip proven** on Titan V (both cards warm-swapped, HBM2 alive). **2× Titan V + RTX 5060** fleet. **Deep-debt burndown: 13 P0/P1/P2 items resolved** (TOCTOU BusyGuard, buffer handle validation, BDF-specific dispatch, coralctl health, async nvidia-smi, try_read_u32/try_write_u32, OracleError, optional deps, sm_70 PTX). **Cross-vendor CUDA dispatch** via daemon RPC — zero pkexec. **RTX 5060 dual-use** (display + CUDA compute, page table oracle). **pkexec-free pipeline** validated end-to-end. 75 experiments. 86 ember + 178 glowplug + 848 hotSpring tests. AMD D3cold characterized (1/boot Vega 20 limit), BrainChip Akida NPU integrated, zero-sudo coralctl
 
 ---
 
@@ -21,9 +21,9 @@ hotSpring → wateringHole/handoffs/ → coralReef reads and evolves
 
 ---
 
-## Current State: Sovereign MMU Sprint — Ember Swap Pipeline Proven (March 2026)
+## Current State: Sovereign MMU Sprint — Deep Debt Burndown + Cross-Vendor Dispatch (March 2026)
 
-hotSpring is **active at v0.6.32** (848 tests, 0 clippy warnings, 74 experiments).
+hotSpring is **active at v0.6.32** (848 tests, 0 clippy warnings, 75 experiments).
 The sovereign GPU lifecycle is production-grade across 2 vendors + 1 NPU.
 **DRM dispatch achieved full GCN5 preswap validation: 6/6 phases PASS** (prior to MI50
 removal) — WGSL → coral-reef → coral-driver PM4 → MI50 → readback verified.
@@ -32,6 +32,16 @@ watchdog, 10s timeout), IOMMU group peer release for native driver swaps, EmberC
 retry with exponential backoff, DRM isolation auto-generated from device config at
 startup. **nouveau ↔ vfio round-trip proven** on Titan V. **Sovereign command
 submission** is 6/10 layers deep (MMU page table translation blocker).
+
+**Deep debt burndown (Exp 075):** 13 items resolved across P0/P1/P2 — TOCTOU
+`BusyGuard` for concurrent oracle captures, `try_read_u32`/`try_write_u32` for safe
+BAR0 access, `OracleError` for clean error propagation, buffer handle validation,
+BDF-specific dispatch, async `nvidia-smi`, `coralctl health` fix. **Cross-vendor CUDA
+dispatch** via daemon RPC — same kernel runs on any CUDA GPU through the glowplug
+pipeline, zero pkexec. **RTX 5060 dual-use** proven (display + CUDA compute without
+driver displacement — serves as page table oracle for PMU cracking). **pkexec-free
+pipeline** validated end-to-end: enumerate, swap, capture, dispatch, health all flow
+through Unix socket RPC to systemd services.
 
 ### Hardware (biomeGate, March 22, 2026)
 
@@ -141,7 +151,8 @@ for unified `VendorProfile` in the trio triangle architecture.
 
 | File | Date | Audience | What To Do |
 |------|------|----------|------------|
-| [`HOTSPRING_EMBER_HARDENING_HANDOFF_MAR22_2026.md`](handoffs/HOTSPRING_EMBER_HARDENING_HANDOFF_MAR22_2026.md) | Mar 22 | coralReef, toadStool, barraCuda | **START HERE.** VRAM write-readback health check, BDF allowlist (ember rejects unmanaged devices), pre-flight device state validation (D3cold/0xFFFF guard). 264 tests. Both Titans warm-swapped, HBM2 alive. Ember FD sharing validated. |
+| [`HOTSPRING_DEEP_DEBT_CROSS_VENDOR_HANDOFF_MAR2026.md`](handoffs/HOTSPRING_DEEP_DEBT_CROSS_VENDOR_HANDOFF_MAR2026.md) | Mar 22 | coralReef, toadStool, barraCuda | **START HERE.** 13 deep-debt fixes (TOCTOU BusyGuard, buffer handle, BDF fallback, coralctl health, async nvidia-smi, try_read_u32, OracleError, optional deps, sm_70 PTX). Cross-vendor CUDA dispatch via RPC. RTX 5060 dual-use. pkexec-free pipeline. PMU cracking readiness + Layer 6 attack matrix. |
+| [`HOTSPRING_EMBER_HARDENING_HANDOFF_MAR22_2026.md`](handoffs/HOTSPRING_EMBER_HARDENING_HANDOFF_MAR22_2026.md) | Mar 22 | coralReef, toadStool, barraCuda | VRAM write-readback health check, BDF allowlist (ember rejects unmanaged devices), pre-flight device state validation (D3cold/0xFFFF guard). 264 tests. Both Titans warm-swapped, HBM2 alive. Ember FD sharing validated. |
 | [`HOTSPRING_EMBER_WATCHDOG_SWAP_PIPELINE_HANDOFF_MAR22_2026.md`](handoffs/HOTSPRING_EMBER_WATCHDOG_SWAP_PIPELINE_HANDOFF_MAR22_2026.md) | Mar 22 | coralReef, toadStool, barraCuda | D-state resilient ember, IOMMU peer swap, DRM isolation auto-gen, EmberClient retry. nouveau ↔ vfio round-trip proven. 2× Titan V + RTX 5060 fleet. |
 | [`HOTSPRING_IOMMUFD_EMBER_EVOLUTION_HANDOFF_MAR22_2026.md`](handoffs/HOTSPRING_IOMMUFD_EMBER_EVOLUTION_HANDOFF_MAR22_2026.md) | Mar 22 | coralReef, toadStool, barraCuda | Kernel-agnostic VFIO backend: iommufd/cdev on 6.2+, legacy fallback. Ember/GlowPlug/Driver all evolved. Per-primal evolution items. |
 | [`HOTSPRING_DRM_TRIO_PIPELINE_HANDOFF_MAR22_2026.md`](handoffs/HOTSPRING_DRM_TRIO_PIPELINE_HANDOFF_MAR22_2026.md) | Mar 22 | coralReef, toadStool, barraCuda | Three-GPU DRM pipeline: MI50 E2E (historical — MI50 since removed), RTX 5060 Blackwell DRM cracked, Titan V VFIO staged. iommufd Part 4 appended. |

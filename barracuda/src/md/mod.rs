@@ -9,7 +9,7 @@
 //!
 //! Production simulation runs GPU-resident: particle data stays on GPU between
 //! substeps, CPU reads back only at dump intervals for observables. All shader
-//! compilation routes through `ToadStool`'s `WgslOptimizer` + `GpuDriverProfile`
+//! compilation routes through `ToadStool`'s `WgslOptimizer` + `DeviceCapabilities`
 //! for hardware-accurate ILP scheduling, fossil substitution, and driver-aware
 //! exp/log patching (NVK workaround via barracuda).
 //!
@@ -19,7 +19,7 @@
 //! |---|---|---|
 //! | `ReduceScalarPipeline` | `barracuda::pipeline` | Wired (KE/PE reduction) |
 //! | `WgslOptimizer` | `barracuda::shaders::optimizer` | Wired (all shaders via `ShaderTemplate`) |
-//! | `GpuDriverProfile` | `barracuda::device::capabilities` | Wired (shader compile) |
+//! | `DeviceCapabilities` | `barracuda::device::capabilities` | Wired (shader compile) |
 //! | `StatefulPipeline` | `barracuda::staging` | Available — `run_iterations()` / `run_until_converged()` |
 //! | `CellListGpu` | `barracuda::ops::md::neighbor` | **Migrated** (v0.6.2) — local `GpuCellList` deleted, using upstream |
 //! | NAK eigensolve shader | `shaders/linalg/batched_eigh_nak_optimized_f64.wgsl` | Absorbed from hotSpring |

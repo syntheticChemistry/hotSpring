@@ -1,6 +1,6 @@
 # hotSpring — Sovereign Validation Goal
 
-> **Note (March 21, 2026):** For current sovereign pipeline status, see [`experiments/071_PFIFO_DIAGNOSTIC_MATRIX_MMU_CRACKING.md`](experiments/071_PFIFO_DIAGNOSTIC_MATRIX_MMU_CRACKING.md) and [`wateringHole/handoffs/HOTSPRING_PFIFO_MMU_SOVEREIGN_DISPATCH_HANDOFF_MAR21_2026.md`](wateringHole/handoffs/HOTSPRING_PFIFO_MMU_SOVEREIGN_DISPATCH_HANDOFF_MAR21_2026.md). 6/10 sovereign pipeline layers proven working.
+> **Note (March 23, 2026):** For current sovereign pipeline status, see [`experiments/071_PFIFO_DIAGNOSTIC_MATRIX_MMU_CRACKING.md`](experiments/071_PFIFO_DIAGNOSTIC_MATRIX_MMU_CRACKING.md) and [`wateringHole/handoffs/SOVEREIGN_COMPUTE_TRIO_IOMMUFD_EVOLUTION_HANDOFF_MAR22_2026.md`](wateringHole/handoffs/SOVEREIGN_COMPUTE_TRIO_IOMMUFD_EVOLUTION_HANDOFF_MAR22_2026.md). 6/10 sovereign pipeline layers proven working. **Deep-debt burndown (Exp 075):** `Bar0Rw::try_read_u32`/`try_write_u32` for safe PMU register probing, `DriverError::OracleError` for clean oracle error propagation, `BusyGuard` for concurrent dual-Titan captures. RTX 5060 dual-use validated as page table oracle. See [`experiments/075_DEEP_DEBT_CROSS_VENDOR_DISPATCH.md`](experiments/075_DEEP_DEBT_CROSS_VENDOR_DISPATCH.md).
 
 ## CERN-Grade Reproducible Physics at Home. Scalable to CERN.
 

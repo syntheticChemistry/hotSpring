@@ -56,6 +56,29 @@ groundSpring (noise, stats, hydrology)
   └─ Jackknife resampling ───────→ hotSpring bootstrap CI, wetSpring population stats
 ```
 
+### Deep Debt Burndown + Cross-Vendor Dispatch (Mar 22, 2026, Exp 075)
+
+13 deep-debt items resolved across coralReef + hotspring-barracuda:
+
+| Item | Category | Impact |
+|------|----------|--------|
+| TOCTOU BusyGuard | P0 | Safe concurrent oracle captures on dual Titans |
+| Buffer handle validation | P0 | Explicit error on invalid dispatch handles |
+| BDF-specific dispatch | P0 | No silent fallback to wrong GPU |
+| coralctl health fix | P1 | Accurate HEALTHY/DEGRADED/DOWN reporting |
+| Async nvidia-smi | P1 | RPC responsiveness under load |
+| `try_read_u32`/`try_write_u32` | P1 | Safe BAR0 access for PMU debugging |
+| `OracleError` variant | P1 | Clean oracle error propagation |
+| Optional deps (`cuda-validation` feature) | P2 | `cudarc`/`base64` gated — `cargo check` fast on non-CUDA |
+| saxpy.ptx sm_70 | P2 | Volta+ compatible PTX (was sm_90 Hopper-only) |
+| BufReader 64KB | P2 | Reduced per-connection memory footprint |
+
+**New validation binaries:**
+- `validate_5060_dual_use` — RTX 5060 display + CUDA compute proof-of-concept
+- `validate_cross_vendor_dispatch` — CUDA dispatch via glowplug daemon RPC (zero pkexec)
+
+**pkexec-free pipeline:** Entire compute lifecycle (enumerate, swap, capture, dispatch, health) operates through Unix socket RPC. No pkexec, no sudo, no SUID.
+
 ### Vendor-Agnostic Register Maps (Mar 18, 2026)
 
 New `src/register_maps/` module with `RegisterMap` trait for GPU introspection:

@@ -34,8 +34,7 @@ mod telemetry;
 
 pub use adapter::{discover_best_adapter, discover_primary_and_secondary_adapters, AdapterInfo};
 
-use barracuda::device::driver_profile::GpuDriverProfile;
-use barracuda::device::{TensorContext, WgpuDevice};
+use barracuda::device::{DeviceCapabilities, TensorContext, WgpuDevice};
 use barracuda::shaders::precision::ShaderTemplate;
 use log::{debug, error, info, warn};
 use std::sync::Arc;
@@ -62,7 +61,7 @@ pub struct GpuF64 {
     pub full_df64_mode: bool,
     wgpu_device: Arc<WgpuDevice>,
     tensor_ctx: Arc<TensorContext>,
-    driver_profile: GpuDriverProfile,
+    capabilities: DeviceCapabilities,
 }
 
 // ── DF64 wire-format conversion (CPU side) ───────────────────────────
@@ -155,10 +154,23 @@ impl GpuF64 {
         &self.tensor_ctx
     }
 
-    /// Access the runtime-detected driver profile for shader specialization.
+    /// Access the runtime-detected device capabilities for shader specialization.
     #[must_use]
-    pub const fn driver_profile(&self) -> &GpuDriverProfile {
-        &self.driver_profile
+    pub const fn capabilities(&self) -> &DeviceCapabilities {
+        &self.capabilities
+    }
+
+    /// Legacy accessor — constructs a `GpuDriverProfile` on demand.
+    ///
+    /// Callers should migrate to [`capabilities()`](Self::capabilities) which
+    /// provides the same `precision_routing()`, `fp64_strategy()`, and
+    /// `has_df64_spir_v_poisoning()` methods without the deprecated type.
+    /// Retained for callers that need `fp64_rate` or
+    /// `sovereign_resolves_poisoning()` until those move to `DeviceCapabilities`.
+    #[must_use]
+    #[allow(deprecated)]
+    pub fn driver_profile(&self) -> barracuda::device::driver_profile::GpuDriverProfile {
+        barracuda::device::driver_profile::GpuDriverProfile::from_device(&self.wgpu_device)
     }
 }
 
@@ -209,7 +221,7 @@ async fn finalize_device(
     wgpu_device: Arc<WgpuDevice>,
 ) -> GpuF64 {
     let tensor_ctx = Arc::new(TensorContext::new(Arc::clone(&wgpu_device)));
-    let driver_profile = GpuDriverProfile::from_device(&wgpu_device);
+    let capabilities = DeviceCapabilities::from_device(&wgpu_device);
 
     let (has_f64, full_df64_mode) = if advertised_f64 {
         let caps = barracuda::device::probe::probe_f64_builtins(&wgpu_device).await;
@@ -245,7 +257,7 @@ async fn finalize_device(
         full_df64_mode,
         wgpu_device,
         tensor_ctx,
-        driver_profile,
+        capabilities,
     }
 }
 
@@ -400,8 +412,8 @@ impl GpuF64 {
             if self.has_timestamps { "YES" } else { "NO" }
         );
         println!(
-            "  Driver: {:?}, Compiler: {:?}, Arch: {:?}",
-            self.driver_profile.driver, self.driver_profile.compiler, self.driver_profile.arch
+            "  Backend: {:?}, Vendor: {:#06x}, Type: {:?}",
+            self.capabilities.backend, self.capabilities.vendor, self.capabilities.device_type
         );
     }
 

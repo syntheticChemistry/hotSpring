@@ -130,6 +130,7 @@ impl DevicePair {
     /// Automatically assigns roles: the card with `Fp64Rate::Full` becomes
     /// `precise`; the other becomes `throughput`. If both have the same rate,
     /// the card with more VRAM becomes `throughput` (larger batch capacity).
+    #[allow(deprecated)]
     pub fn from_gpus(gpu_a: GpuF64, gpu_b: GpuF64) -> Self {
         let rate_a = gpu_a.driver_profile().fp64_rate;
         let rate_b = gpu_b.driver_profile().fp64_rate;
@@ -160,6 +161,7 @@ impl DevicePair {
             tier: bridge_tier,
         };
 
+        #[allow(deprecated)]
         let precise_tflops_f64 =
             estimate_f64_tflops(&precise.adapter_name, precise.driver_profile().fp64_rate);
         let throughput_tflops_f32 = estimate_f32_tflops(&throughput.adapter_name);
@@ -312,7 +314,10 @@ mod tests {
             BandwidthTier::PciE3x16
         );
         assert_eq!(
-            slower_tier(BandwidthTier::HighBandwidthInterconnect, BandwidthTier::PciE4x16),
+            slower_tier(
+                BandwidthTier::HighBandwidthInterconnect,
+                BandwidthTier::PciE4x16
+            ),
             BandwidthTier::PciE4x16
         );
     }

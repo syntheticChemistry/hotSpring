@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 
 // Clippy pedantic/nursery + physics-specific allows are in [workspace.lints.clippy]
 // in Cargo.toml. Library code must propagate errors, not panic:
