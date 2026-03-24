@@ -1,8 +1,8 @@
 # baseCamp: Sovereign GPU Compute — GlowPlug & Falcon Boot Chain
 
-**Date:** 2026-03-23 (updated from 2026-03-22)  
-**Domain:** Hardware — PCIe GPU lifecycle, falcon microcontrollers, HBM2 management, PFIFO command submission, daemon resilience, BOOT0 auto-detection, PCIe FLR  
-**Experiments:** 060-077  
+**Date:** 2026-03-23  
+**Domain:** Hardware — PCIe GPU lifecycle, falcon microcontrollers, HBM2 management, PFIFO command submission, ACR secure boot, daemon resilience, BOOT0 auto-detection, PCIe FLR  
+**Experiments:** 060-081  
 **Hardware:** 2× NVIDIA Titan V (GV100, 12GB HBM2), RTX 5060 (display/validator)
 
 ---
@@ -341,8 +341,8 @@ forces via DRM. Next: K80 NVIDIA DRM, Titan V PMU investigation.
 | 5 | Channel context binding | Done | N/A (kernel) |
 | 6 | PBDMA context load | Done | N/A (kernel) |
 | 7 | MMU page table translation | **Done** (Exp 076) | Kernel handles this |
-| 8 | **GR/FECS context** | **BLOCKED** (PMU) | N/A (kernel) |
-| 9 | FECS/GPCCS firmware load | Pending | N/A (kernel) |
+| 8 | **GR/FECS context** | **ACTIVE** (Exp 078-081) | N/A (kernel) |
+| 9 | FECS/GPCCS firmware load | Pending (depends on 8) | N/A (kernel) |
 | 10 | Shader dispatch | Pending | **AMD: 6/6 preswap PASSED** (f64 LJ force verified). NVIDIA: PMU-blocked |
 
 The DRM path offloads layers 1-7 and 9 to the kernel driver. AMD DRM dispatch
@@ -350,5 +350,22 @@ fully validated: 6/6 preswap phases pass including f64 Lennard-Jones force
 (Newton's 3rd law verified). 18 bugs fixed. NVIDIA awaits K80 (no PMU needed).
 
 Sovereign VFIO advanced from 6/10 to 7/10 layers with the MMU fault buffer
-breakthrough (Exp 076). The remaining sovereign blocker is GR engine context
-loading, which requires PMU firmware — the next cracking target.
+breakthrough (Exp 076). Layer 8 (GR/FECS) is the active frontier.
+
+### Phase 7: Layer 7 Assault — Falcon Diagnostics + ACR Boot Solver (Exp 078-081)
+
+**Exp 078 (Diagnostic Matrix):** Comprehensive falcon state capture confirmed
+FECS/GPCCS in HRESET — sole Layer 7 blocker. FECS `HWCFG.SECURITY_MODE = 0`.
+
+**Exp 079 (Warm Handoff):** nouveau teardown halts falcons before unbind —
+FECS IMEM does not survive swap. Infrastructure verified but approach failed.
+
+**Exp 080 (Direct FECS Boot):** Direct IMEM upload succeeds but HS ROM shadows
+IMEM and validates before releasing HRESET. ACR-managed boot required.
+
+**Exp 081 (Falcon Boot Solver):** Multi-strategy SEC2→ACR→FECS boot chain.
+SEC2 base corrected (`0x87000`), EMEM PIO verified, `nvfw_bin_hdr` decoded,
+CPUCTL v4+ bits fixed, DMA context index corrected (PC advancing through HS ROM).
+Full Nouveau-style PMC reset cycle implemented. Instance block bind is the
+immediate blocker. Three parallel paths: system-memory WPR, hybrid WPR,
+Nouveau warm handoff.

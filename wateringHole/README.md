@@ -1,8 +1,8 @@
 # wateringHole — Cross-Project Handoffs
 
 **Project:** hotSpring (ecoPrimals)
-**Last Updated:** March 22, 2026
-**Status:** ACTIVE — Dual-track dispatch: sovereign VFIO (6/10 layers, MMU blocker) + DRM dispatch (**AMD GCN5 preswap: 6/6 PASS — f64 Lennard-Jones force verified, Newton's 3rd law confirmed**). **iommufd/cdev VFIO backend** (kernel 6.2+) — kernel-agnostic VFIO, resolves EBUSY on 6.17. **RTX 5060 Blackwell DRM cracked** (SM120, per-buffer fd, single mmap context). **Kepler (SM35) + Blackwell (SM120) ISA arches** in coral-reef. **Ember swap pipeline proven + hardened** — D-state resilient sysfs (process-isolated watchdog), IOMMU group peer release, EmberClient retry, DRM isolation auto-generation. **VRAM write-readback health check** (eliminates cold-boot false positives). **BDF allowlist** (ember rejects RPCs for unmanaged devices). **Pre-flight device checks** (D3cold/D3hot/0xFFFF config space guard before unbind). **nouveau ↔ vfio round-trip proven** on Titan V (both cards warm-swapped, HBM2 alive). **2× Titan V + RTX 5060** fleet. **Deep-debt burndown: 13 P0/P1/P2 items resolved** (TOCTOU BusyGuard, buffer handle validation, BDF-specific dispatch, coralctl health, async nvidia-smi, try_read_u32/try_write_u32, OracleError, optional deps, sm_70 PTX). **Cross-vendor CUDA dispatch** via daemon RPC — zero pkexec. **RTX 5060 dual-use** (display + CUDA compute, page table oracle). **pkexec-free pipeline** validated end-to-end. 75 experiments. 86 ember + 178 glowplug + 848 hotSpring tests. AMD D3cold characterized (1/boot Vega 20 limit), BrainChip Akida NPU integrated, zero-sudo coralctl
+**Last Updated:** March 23, 2026
+**Status:** ACTIVE — Dual-track dispatch: sovereign VFIO (6/10 layers, MMU blocker) + DRM dispatch (**AMD GCN5 preswap: 6/6 PASS — f64 Lennard-Jones force verified, Newton's 3rd law confirmed**). **iommufd/cdev VFIO backend** (kernel 6.2+) — kernel-agnostic VFIO, resolves EBUSY on 6.17. **RTX 5060 Blackwell DRM cracked** (SM120, per-buffer fd, single mmap context). **Kepler (SM35) + Blackwell (SM120) ISA arches** in coral-reef. **Ember swap pipeline proven + hardened** — D-state resilient sysfs (process-isolated watchdog), IOMMU group peer release, EmberClient retry, DRM isolation auto-generation. **VRAM write-readback health check** (eliminates cold-boot false positives). **BDF allowlist** (ember rejects RPCs for unmanaged devices). **Pre-flight device checks** (D3cold/D3hot/0xFFFF config space guard before unbind). **nouveau ↔ vfio round-trip proven** on Titan V (both cards warm-swapped, HBM2 alive). **2× Titan V + RTX 5060** fleet. **Deep-debt burndown: 13 P0/P1/P2 items resolved** (TOCTOU BusyGuard, buffer handle validation, BDF-specific dispatch, coralctl health, async nvidia-smi, try_read_u32/try_write_u32, OracleError, optional deps, sm_70 PTX). **Cross-vendor CUDA dispatch** via daemon RPC — zero pkexec. **RTX 5060 dual-use** (display + CUDA compute, page table oracle). **pkexec-free pipeline** validated end-to-end. 81 experiments. **Layer 7 ACR Boot Solver** (Exp 078-081): 7/10 sovereign layers proven, Layer 8 (GR/FECS) under active assault — Falcon Boot Solver built, SEC2 probed, ACR firmware parsed, HS ROM PC advancing. 86 ember + 178 glowplug + 848 hotSpring tests. AMD D3cold characterized (1/boot Vega 20 limit), BrainChip Akida NPU integrated, zero-sudo coralctl
 
 ---
 
@@ -21,9 +21,9 @@ hotSpring → wateringHole/handoffs/ → coralReef reads and evolves
 
 ---
 
-## Current State: Sovereign MMU Sprint — Deep Debt Burndown + Cross-Vendor Dispatch (March 2026)
+## Current State: Layer 7 ACR Boot Solver — Sovereign Pipeline 7/10 (March 2026)
 
-hotSpring is **active at v0.6.32** (848 tests, 0 clippy warnings, 75 experiments).
+hotSpring is **active at v0.6.32** (848 tests, 0 clippy warnings, 81 experiments).
 The sovereign GPU lifecycle is production-grade across 2 vendors + 1 NPU.
 **DRM dispatch achieved full GCN5 preswap validation: 6/6 phases PASS** (prior to MI50
 removal) — WGSL → coral-reef → coral-driver PM4 → MI50 → readback verified.
