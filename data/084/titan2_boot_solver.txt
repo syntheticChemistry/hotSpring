@@ -1,0 +1,339 @@
+   Compiling coral-reef-stubs v0.1.0 (/home/biomegate/Development/ecoPrimals/coralReef/crates/coral-reef-stubs)
+   Compiling coral-driver v0.1.0 (/home/biomegate/Development/ecoPrimals/coralReef/crates/coral-driver)
+   Compiling coral-reef v0.1.0 (/home/biomegate/Development/ecoPrimals/coralReef/crates/coral-reef)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.91s
+     Running tests/hw_nv_vfio.rs (target/debug/deps/hw_nv_vfio-0396b742630cfb85)
+
+running 1 test
+ember: received VFIO fds for 0000:4a:00.0
+[2m2026-03-24T17:16:53.251058Z[0m [31mERROR[0m [2mcoral_driver::nv::vfio_compute::submission[0m[2m:[0m Fence timeout: GPFIFO completion stalled — see MMU fault above [3mgp_get[0m[2m=[0m0 [3mgp_put[0m[2m=[0m1 [3mexpected[0m[2m=[0m1 [3mchannel_id[0m[2m=[0m0 [3mpfifo_intr[0m[2m=[0m"0x40000000" [3mpccsr_chan[0m[2m=[0m"0x11000001" [3mpriv_ring_intr[0m[2m=[0m"0xbad00100" [3mpbdma_0_intr[0m[2m=[0m"0x00000000" [3mpbdma_0_state[0m[2m=[0m"0xd44c2320" [3mpbdma_1_intr[0m[2m=[0m"0x00000000" [3mpbdma_1_state[0m[2m=[0m"0x00000000"
+
+=== Exp 081: Falcon Boot Solver (all strategies) ===
+
+Solver returned 10 result(s):
+
+── Strategy 1 ──
+╔══ ACR Boot: nouveau-style IMEM+EMEM SEC2 boot ═══════════════════════════════════╗
+  success: false
+  SEC2 before: SEC2 @ 0x00087000: CleanReset cpuctl=0x00000010 sctl=0x00003000 bootvec=0x00000000 hwcfg=0x20420100 mb0=0x00000000 mb1=0x00000000
+  SEC2 after:  SEC2 @ 0x00087000: Running cpuctl=0x00000010 sctl=0x00003000 bootvec=0x0000fd00 hwcfg=0x20420100 mb0=0xcafebeef mb1=0x00000000
+  FECS after:  cpuctl=0x00000010 mailbox0=0x00000000
+  GPCCS after: cpuctl=0x00000010
+  note: SEC2 state: CleanReset
+  note: After engine reset: cpuctl=0x00000010 sctl=0x00003000
+  note: BL desc: start_tag=0xfd boot_addr=0xfd00 code=[0x0+0x200] data=[0x200+0x100]
+  note: Loading BL code: 512 bytes to IMEM@0xfe00 tag=0xfd (code_limit=0x10000)
+  note: Loading BL data: 256 bytes to EMEM@0
+  note: BOOTVEC=0xfd00 mailbox0=0xcafebeef cpuctl=0x00000010 alias_en=false, issuing STARTCPU
+  note: SEC2 timeout: cpuctl=0x00000010 mb0=0xcafebeef mb1=0x00000000
+  note: EXCI=0x091f0000 TRACEPC(31): ["0x00000000", "0x0000fe57", "0x0000fe4b", "0x0000fe30", "0x0000fe0e", "0x0000fd7a", "0x0000fd62", "0x0000fd0a"]
+╚═══════════════════════════════════════════════════════╝
+
+── Strategy 2 ──
+╔══ ACR Boot: VRAM-based ACR boot (PRAMIN DMA) ═══════════════════════════════════╗
+  success: false
+  SEC2 before: SEC2 @ 0x00087000: Running cpuctl=0x00000010 sctl=0x00003000 bootvec=0x0000fd00 hwcfg=0x20420100 mb0=0xcafebeef mb1=0x00000000
+  SEC2 after:  SEC2 @ 0x00087000: CleanReset cpuctl=0x00000012 sctl=0x00003000 bootvec=0x0000fd00 hwcfg=0x20420100 mb0=0x00000000 mb1=0x00000000
+  FECS after:  cpuctl=0x00000010 mailbox0=0x00000000
+  GPCCS after: cpuctl=0x00000010
+  note: SEC2 state: Running
+  note: ACR payload: 18176B non_sec=[0x0+0x100] data=[0x2f00+0x1000]
+  note: VRAM@0x50000 sentinel: wrote=0xacb00700 read=0xacb00700 ok=true
+  note: WPR: 52480B at VRAM@0x70000..0x7cd00
+  note: ACR desc patched: wpr_start=0x70000 wpr_end=0x7cd00 at data_off=0x2f00
+  note: ACR payload: 18176B → VRAM@0x50000
+  note: WPR: 52480B → VRAM@0x70000
+  note: VRAM ACR verify: [0x004000d0] expected [0x004000d0] ok=true
+  note: VRAM inst: built=true PDB@0x200=0x00011c00:0x00000000 PT[112]=0x00007001:0x00000000
+  note: bind_inst race: A(reset)=0xbadf1002/sctl=0xbadf1002 B(clear)=0x40000010/sctl=0x3000 C(pmc)=0x40000010/sctl=0x3000/dma=0x1 D(scrub)=0x40000010/sctl=0x3000
+  note: bind_inst ACCEPTED at one of the race windows!
+  note: 0x624: was=0x00000110 wrote=0x190 now=0x00000190
+  note: DMACTL: wrote=0x07 after=0x00000001
+  note: BL code: 512B → IMEM@0xfe00 tag=0xfd boot_addr=0xfd00
+  note: ACR data pre-loaded: 6144B → DMEM@0 (includes patched desc at 0x210+)
+  note: BL desc overlay: 76B → DMEM@0 (code=0x50000 data=0x52f00)
+  note: BOOTVEC=0xfd00 cpuctl=0x00000010, issuing STARTCPU
+  note: Post-boot DMACTL race: best=0x00000001 bind_best=0x40000010
+  note: SEC2 response: cpuctl=0x00000012 mb0=0x00000000 mb1=0x00000000 pc=0x00000072 (56ms)
+  note: Fast PC trace (100μs): [0x0072]
+  note: PC progression: [0x0072@56ms]
+  note: DMEM[0..0x100]: [0x020]=0x00000004 [0x024]=0x00050000 [0x030]=0x00000100 [0x034]=0x00000100 [0x038]=0x00002e00 [0x040]=0x00052f00 [0x048]=0x00001000
+  note: DMEM[0x200..0x270]: [0x210]=0x00000001 [0x21c]=0x00000002 [0x220]=0x00000700 [0x224]=0x000007cd [0x228]=0x00000001 [0x22c]=0x0000000f [0x230]=0x0000000c [0x234]=0x00000002 [0x238]=0x00000700 [0x258]=0x0000cd00 [0x260]=0x00070000
+  note: DMA: 0x624=0x00000190 DMACTL=0x00000001 bind_inst=0x40000010
+  note: DMA xfer: base=0x00000000 moffs=0x00000000 cmd=0x00000002 fboffs=0x00000000
+  note: Diag: EXCI=0x001f0000 TRACEPC[0..3]=[0x0072, 0x0000, 0x0000, 0x0000]
+  note: WPR hdrs: FECS(id=2) status=1(COPY), GPCCS(id=3) status=1(COPY), sentinel=0xffffffff
+  note: DMEM[0xB00..0xB20]: [0xb00]=0xe931c2b6 [0xb04]=0xd777b203 [0xb08]=0x69a0320e [0xb0c]=0x62804e8f [0xb10]=0x00000000 [0xb14]=0x00000000 [0xb18]=0x00000000 [0xb1c]=0x00000000
+  note: ACR not in code range (pc=0x72), skipping bootstrap commands
+  note: Final: FECS cpuctl=0x00000010 mb0=0x00000000 GPCCS cpuctl=0x00000010
+╚═══════════════════════════════════════════════════════╝
+
+── Strategy 3 ──
+╔══ ACR Boot: System-memory ACR boot (IOMMU DMA) ═══════════════════════════════════╗
+  success: false
+  SEC2 before: SEC2 @ 0x00087000: CleanReset cpuctl=0x00000012 sctl=0x00003000 bootvec=0x0000fd00 hwcfg=0x20420100 mb0=0x00000000 mb1=0x00000000
+  SEC2 after:  SEC2 @ 0x00087000: Running cpuctl=0x00000012 sctl=0x00003000 bootvec=0x0000fd00 hwcfg=0x20420100 mb0=0xcafebeef mb1=0x00000000
+  FECS after:  cpuctl=0x00000010 mailbox0=0x00000000
+  GPCCS after: cpuctl=0x00000010
+  note: SEC2 state: CleanReset
+  note: ACR payload: 18176B non_sec=[0x0+0x100] data=[0x2f00+0x1000]
+  note: DMA buffers: inst=0x40000 PD3=0x41000 ACR=0x46000(0x5000) WPR=0x4e000(0xd000)
+  note: WPR: 52480B at IOVA 0x4e000..0x5ad00
+  note: ACR desc patched: wpr=[0x4e000..0x5ad00] data_off=0x2f00
+  note: Page tables: identity-mapped VA 0..2MiB → IOVA (SYS_MEM_COH)
+  note: Instance block: PDB_LO=0x00041c06 PDB_HI=0x00000000 at IOVA 0x40000
+  note: Post-reset: cpuctl=0x00000010 sctl=0x00003000
+  note: ITFEN: 0x00000004 → 0x00000005
+  note: bind_inst: wrote=0x60000040 (SYS_MEM_COH, bit30)
+  note: bind_stat→5: TIMEOUT (0x0dc=0x000e003f)
+  note: bind_stat→0: OK (0x0dc=0x000e003f)
+  note: BL code: 512B → IMEM@0xfe00 tag=0xfd boot=0xfd00
+  note: ACR data pre-loaded: 6144B → DMEM@0
+  note: BL desc: code=0x46000 data=0x48f00
+  note: BOOTVEC=0xfd00 mb0=0xcafebeef, issuing STARTCPU
+  note: SEC2 response: cpuctl=0x00000012 mb0=0xcafebeef mb1=0x00000000 pc=0x00000072 (56ms)
+  note: Fast PC trace: [0x0072]
+  note: PC progression: [0x0072@56ms]
+  note: Diag: EXCI=0x001f0000 TRACEPC=[0x0072, 0x0000, 0x0000, 0x0000]
+  note: DMA: 0x624=0x00000110 DMACTL=0x00000001 bind_inst=0x60000040
+  note: DMA xfer: base=0x00000000 moffs=0x00000000 cmd=0x00000002 fboffs=0x00000000
+  note: DMEM[0x200..0x270]: [0x210]=0x00000001 [0x21c]=0x00000002 [0x220]=0x000004e0 [0x224]=0x000005ad [0x228]=0x00000001 [0x22c]=0x0000000f [0x230]=0x0000000c [0x234]=0x00000002 [0x238]=0x000004e0 [0x258]=0x0000cd00 [0x260]=0x0004e000
+  note: WPR headers: FECS status=1 GPCCS status=1 (0=none, 1=copy, 0xFF=done)
+  note: Final: FECS cpuctl=0x00000010 GPCCS cpuctl=0x00000010
+╚═══════════════════════════════════════════════════════╝
+
+── Strategy 4 ──
+╔══ ACR Boot: Hybrid ACR boot (VRAM pages + sysmem data) ═══════════════════════════════════╗
+  success: false
+  SEC2 before: SEC2 @ 0x00087000: Running cpuctl=0x00000012 sctl=0x00003000 bootvec=0x0000fd00 hwcfg=0x20420100 mb0=0xcafebeef mb1=0x00000000
+  SEC2 after:  SEC2 @ 0x00087000: Running cpuctl=0x00000012 sctl=0x00003000 bootvec=0x0000fd00 hwcfg=0x20420100 mb0=0xcafebeef mb1=0x00000000
+  FECS after:  cpuctl=0x00000010 mailbox0=0x00000000
+  GPCCS after: cpuctl=0x00000010
+  note: SEC2 state: Running
+  note: ACR payload: 18176B data_off=0x2f00
+  note: DMA: ACR@0x46000(0x5000) WPR@0x4e000(0xd000)
+  note: WPR: 52480B [0x4e000..0x5ad00] desc patched
+  note: VRAM page tables: PD chain in VRAM, PT0 sysmem pages 70..91
+  note: Instance block: VRAM@0x10000 PDB_LO=0x00011c00 (VRAM aperture)
+  note: Post-reset: cpuctl=0x00000010 sctl=0x00003000
+  note: ITFEN: 0x00000004 → 0x00000005
+  note: bind_inst: wrote=0x40000010 (VRAM target, bit30)
+  note: bind_stat→5: TIMEOUT (0x0dc=0x000e003f)
+  note: bind_stat→0: OK (0x0dc=0x000e003f)
+  note: BL code: 512B → IMEM@0xfe00 boot=0xfd00
+  note: BL desc: code=0x46000 data=0x48f00
+  note: BOOTVEC=0xfd00 mb0=0xcafebeef, issuing STARTCPU
+  note: SEC2 response: cpuctl=0x00000012 mb0=0xcafebeef mb1=0x00000000 pc=0x00000072 (56ms)
+  note: Fast PC trace: [0x0072]
+  note: PC progression: [0x0072@56ms]
+  note: Diag: EXCI=0x001f0000 TRACEPC=[0x0072, 0x0000, 0x0000, 0x0000]
+  note: DMA: 0x624=0x00000110 DMACTL=0x00000001 dma_cmd=0x00000002
+  note: MMU fault: none pending
+  note: DMEM[0..0x100]: [0x020]=0x00000004 [0x024]=0x00046000 [0x030]=0x00000100 [0x034]=0x00000100 [0x038]=0x00002e00 [0x040]=0x00048f00 [0x048]=0x00001000
+  note: DMEM[0x200..0x270]: [0x210]=0x00000001 [0x21c]=0x00000002 [0x220]=0x000004e0 [0x224]=0x000005ad [0x228]=0x00000001 [0x22c]=0x0000000f [0x230]=0x0000000c [0x234]=0x00000002 [0x238]=0x000004e0 [0x258]=0x0000cd00 [0x260]=0x0004e000
+  note: WPR: FECS status=1 GPCCS status=1 (1=copy, 0xFF=done)
+  note: Final: FECS cpuctl=0x00000010 GPCCS cpuctl=0x00000010
+╚═══════════════════════════════════════════════════════╝
+
+── Strategy 5 ──
+╔══ ACR Boot: Direct FECS boot (bypass ACR) ═══════════════════════════════════╗
+  success: false
+  SEC2 before: SEC2 @ 0x00087000: Running cpuctl=0x00000012 sctl=0x00003000 bootvec=0x0000fd00 hwcfg=0x20420100 mb0=0xcafebeef mb1=0x00000000
+  SEC2 after:  SEC2 @ 0x00087000: Running cpuctl=0x00000012 sctl=0x00003000 bootvec=0x0000fd00 hwcfg=0x20420100 mb0=0xcafebeef mb1=0x00000000
+  FECS after:  cpuctl=0x00000012 mailbox0=0x00000000
+  GPCCS after: cpuctl=0x00000012
+  note: FECS: cpuctl=0x00000010 hwcfg=0x20204080 imem=32768B dmem=8192B
+  note: GPCCS: cpuctl=0x00000010 hwcfg=0x20102840
+  note: Uploading fecs_inst (25632 bytes) to FECS IMEM@0
+  note: FECS IMEM verify: match=true read=[d0, 00, 20, 00, 00, fe, 04, 00, bd, a4, 7e, 8f, 60, 00, f8, 02]
+  note: Uploading fecs_data (4788 bytes) to FECS DMEM@0
+  note: Uploading gpccs_inst (12643 bytes) to GPCCS IMEM@0
+  note: Uploading gpccs_data (2128 bytes) to GPCCS DMEM@0
+  note: GPCCS after STARTCPU: cpuctl=0x00000012 mb0=0x00000000
+  note: FECS: BOOTVEC=0, issuing STARTCPU
+  note: FECS timeout: cpuctl=0x00000012 mb0=0x00000000 mb1=0x00000000
+╚═══════════════════════════════════════════════════════╝
+
+── Strategy 6 ──
+╔══ ACR Boot: ACR mailbox command (live SEC2) ═══════════════════════════════════╗
+  success: false
+  SEC2 before: SEC2 @ 0x00087000: Running cpuctl=0x00000012 sctl=0x00003000 bootvec=0x0000fd00 hwcfg=0x20420100 mb0=0xcafebeef mb1=0x00000000
+  SEC2 after:  SEC2 @ 0x00087000: Running cpuctl=0x00000012 sctl=0x00003000 bootvec=0x0000fd00 hwcfg=0x20420100 mb0=0x00000001 mb1=0x00000003
+  FECS after:  cpuctl=0x00000012 mailbox0=0x00000000
+  GPCCS after: cpuctl=0x00000012
+  note: SEC2 pre-command: cpuctl=0x00000012 mb0=0xcafebeef mb1=0x00000000
+  note: After BOOTSTRAP_FALCON(FECS): mb0=0x00000001 mb1=0x00000002
+  note: SEC2 DMEM size=65536B, non-zero ranges: [0x020..0x028], [0x030..0x03c], [0x040..0x044], [0x048..0x04c], [0x210..0x214], [0x21c..0x23c], [0x258..0x25c], [0x260..0x264], [0xb00..0xb10], [0xf20..0xf30]
+  note: SEC2 DMEM[0..128]: [0x020]=0x00000004 [0x024]=0x00046000 [0x030]=0x00000100 [0x034]=0x00000100 [0x038]=0x00002e00 [0x040]=0x00048f00 [0x048]=0x00001000
+  note: After BOOTSTRAP_FALCON(GPCCS): mb0=0x00000001
+  note: FECS: cpuctl=0x00000012 mb0=0x00000000
+  note: GPCCS: cpuctl=0x00000012
+╚═══════════════════════════════════════════════════════╝
+
+── Strategy 7 ──
+╔══ ACR Boot: 081a: direct HRESET experiments ═══════════════════════════════════╗
+  success: false
+  SEC2 before: SEC2 @ 0x00087000: Running cpuctl=0x00000012 sctl=0x00003000 bootvec=0x0000fd00 hwcfg=0x20420100 mb0=0x00000001 mb1=0x00000003
+  SEC2 after:  SEC2 @ 0x00087000: Running cpuctl=0x00000012 sctl=0x00003000 bootvec=0x0000fd00 hwcfg=0x20420100 mb0=0x00000001 mb1=0x00000003
+  FECS after:  cpuctl=0x00000010 mailbox0=0x00000000
+  GPCCS after: cpuctl=0x00000010
+  note: SEC2 initial state: Running
+  note: FECS cpuctl before: 0x00000012
+  note: FECS cpuctl after direct clear: 0x00000010
+  note: Direct HRESET clear failed (expected — ACR-managed)
+  note: PMC before GR toggle: 0x5fecdff1
+  note: FECS cpuctl after PMC GR toggle: 0x00000010
+  note: SEC2 EMEM write/read: wrote=0xefbeadde read=0xefbeadde match=true
+╚═══════════════════════════════════════════════════════╝
+
+── Strategy 8 ──
+╔══ ACR Boot: Direct ACR IMEM load (no BL DMA) ═══════════════════════════════════╗
+  success: false
+  SEC2 before: SEC2 @ 0x00087000: Running cpuctl=0x00000012 sctl=0x00003000 bootvec=0x0000fd00 hwcfg=0x20420100 mb0=0x00000001 mb1=0x00000003
+  SEC2 after:  SEC2 @ 0x00087000: Running cpuctl=0x00000010 sctl=0x00003000 bootvec=0x00000000 hwcfg=0x20420100 mb0=0x00000036 mb1=0x00000000
+  FECS after:  cpuctl=0x00000010 mailbox0=0x00000000
+  GPCCS after: cpuctl=0x00000010
+  note: CANARY v5_16bit: pre_cpuctl=0x00000010 post=0x00000012 pc_pre=0x00000073 pc_post=0x00000073 mb0=0x00000000 ok=false
+  note: CANARY v5_32bit: pre_cpuctl=0x00000010 post=0x00000012 pc_pre=0x00000073 pc_post=0x00000073 mb0=0x00000000 ok=false
+  note: CANARY original: pre_cpuctl=0x00000010 post=0x00000012 pc_pre=0x00000073 pc_post=0x00000073 mb0=0x00000000 ok=false
+  note: CANARY B: halt attempt: cpuctl=0x00000010 (bit5=false)
+  note: CANARY B: alias halt: alias=0x00000000 cpuctl=0x00000010
+  note: SEC2 SCTL: 0x00003000
+  note: SEC2 SCTL after clear: 0x00003000
+  note: SEC2 EXCI=0x00000000 TRACEPC[0]=0x00000073 TRACEPC[1]=0x00000000
+  note: IMEM: non_sec [0x0..0x100] → IMEM@0 tag=0
+  note: IMEM: sec [0x100..0x2f00] → IMEM@0x100 tag=0x1
+  note: IMEM verify: read=[d0, 00, 40, 00, 00, fe, 04, 00, bd, a4, 7e, 10, 00, 00, f8, 02] expected=[d0, 00, 40, 00, 00, fe, 04, 00, bd, a4, 7e, 10, 00, 00, f8, 02] match=true
+  note: DMEM: data [0x2f00..0x3f00] → DMEM@0
+  note: Pre-start cpuctl=0x00000010 alias_en=false, BOOTVEC=0x0, issuing STARTCPU
+  note: PC samples (1ms intervals): ["cpuctl=0x00000010 mb0=0x00000036", "cpuctl=0x00000010 mb0=0x00000036", "cpuctl=0x00000010 mb0=0x00000036", "cpuctl=0x00000010 mb0=0x00000036", "cpuctl=0x00000010 mb0=0x00000036"]
+  note: SEC2 stopped: cpuctl=0x00000010 mb0=0x00000036 mb1=0x00000000 (10ms)
+  note: EXCI=0x201f0000 TRACEPC(31): ["0x00002a10", "0x00002d8d", "0x00002d87", "0x00002a0c", "0x0000015e", "0x00001a4a", "0x00001a45", "0x00002de8"]
+╚═══════════════════════════════════════════════════════╝
+
+── Strategy 9 ──
+╔══ ACR Boot: ACR chain: DMA-backed SEC2 boot ═══════════════════════════════════╗
+  success: false
+  SEC2 before: SEC2 @ 0x00087000: Running cpuctl=0x00000010 sctl=0x00003000 bootvec=0x00000000 hwcfg=0x20420100 mb0=0x00000036 mb1=0x00000000
+  SEC2 after:  SEC2 @ 0x00087000: CleanReset cpuctl=0x00000000 sctl=0x00003000 bootvec=0x0000fd00 hwcfg=0x20420100 mb0=0x00000000 mb1=0x00000000
+  FECS after:  cpuctl=0x00000010 mailbox0=0x00000000
+  GPCCS after: cpuctl=0x00000010
+  note: SEC2 state: Running
+  note: BL: tag=0xfd dmem_off=0x0 code=[0x0+0x200] desc_sz=0x200 data=[0x100+0x0]
+  note: ACR ucode: 18176B, non_sec=[0x0+0x100] sec=[0x100+0x2e00] data=[0x2f00+0x1000]
+  note: ACR payload DMA: iova=0x180000 size=0x4700
+  note: ACR desc at data_off=0x2f00 (placeholder WPR)
+  note: DMA addrs: code=0x180000 data=0x182f00
+  note: Post-reset cpuctl=0x00000010
+  note: DMA config: bind_inst=0x60000005 DMACTL=0x00000000 (wrote 0x60000005)
+  note: Physical DMA fallback: 0x624=0x00000190
+  note: IMEM: code_limit=0x10000 boot_size=0x200 addr=0xfe00 tag=0xfd boot_addr=0xfd00
+  note: BL DMEM desc: 76 bytes → DMEM@0 (ctx_dma=UCODE via instance block)
+  note: BOOTVEC=0xfd00, issuing STARTCPU
+  note: SEC2 timeout: cpuctl=0x00000000 mb0=0x00000000 mb1=0x00000000
+  note: EXCI=0x041f0000 TRACEPC(31): ["0x0000fd75", "0x0000fd62", "0x0000fd0a", "0x00000000", "0x00002d78", "0x00002d3a", "0x00002de4", "0x00002da7"]
+╚═══════════════════════════════════════════════════════╝
+
+── Strategy 10 ──
+╔══ ACR Boot: EMEM-based SEC2 boot ═══════════════════════════════════╗
+  success: false
+  SEC2 before: SEC2 @ 0x00087000: CleanReset cpuctl=0x00000000 sctl=0x00003000 bootvec=0x0000fd00 hwcfg=0x20420100 mb0=0x00000000 mb1=0x00000000
+  SEC2 after:  SEC2 @ 0x00087000: Running cpuctl=0x00000010 sctl=0x00003000 bootvec=0x00000000 hwcfg=0x20420100 mb0=0x00000001 mb1=0x00000000
+  FECS after:  cpuctl=0x00000010 mailbox0=0x00000000
+  GPCCS after: cpuctl=0x00000010
+  note: SEC2 state: CleanReset
+  note: ACR BL: total=1280B payload=768B data_off=0x200
+  note: ROM idle PC: 0x00000074
+  note: DMEM after ROM: all zeros
+  note: EMEM after ROM: [0x000]=0xefbeadde
+  note: A (full@0): cpuctl=0x00000010 mb0=0x00000000 pc=0x00000074
+  note: B (payload@0): cpuctl=0x00000010 pc=0x00000074
+  note: C (full@0x200): cpuctl=0x00000010 pc=0x00000074
+  note: D (mailbox signal): mb0=0x00000001 pc=0x00000075 (changed=false)
+  note: FECS: cpuctl=0x00000010 mb0=0x00000000
+╚═══════════════════════════════════════════════════════╝
+
+── Post-solver falcon state ──
+Falcon Probe:
+  FECS: InHreset cpuctl=0x00000010 mb0=0x00000000 hwcfg=0x20204080
+  GPCCS: cpuctl=0x00000010
+  SEC2 @ 0x00087000: Running cpuctl=0x00000010 sctl=0x00003000 bootvec=0x00000000 hwcfg=0x20420100 mb0=0x00000001 mb1=0x00000000
+
+No strategy achieved FECS boot.
+Full ACR WPR chain (080b-d) needed for sovereign boot.
+
+╔══ Layer 7 Diagnostics: POST-SOLVER ══════════════════════════════╗
+  pmc_enable=0x5fecdff1 pgraph_status=0x00000000
+  GR engine enabled in PMC: true
+
+── Falcon States ──
+  FECS @ 0x00409000: HRESET
+    cpuctl=0x00000010 bootvec=0x00000000 hwcfg=0x20204080
+    imem=32768B dmem=8192B secure=false
+    irqstat=0x00000000 dmactl=0x00000001 debug1=0x00000040
+    mailbox0=0x00000000 mailbox1=0x00000000
+    os=0x00000000 curctx=0x00000002 nxtctx=0x00000000
+  GPCCS @ 0x0041a000: HRESET
+    cpuctl=0x00000010 bootvec=0x00000000 hwcfg=0x20102840
+    imem=16384B dmem=5120B secure=false
+    irqstat=0x00000000 dmactl=0x00000001 debug1=0x00000040
+    mailbox0=0x00000000 mailbox1=0x00000000
+    os=0x00000000 curctx=0x00000002 nxtctx=0x00000000
+  PMU @ 0x0010a000: HALTED
+    cpuctl=0x00000020 bootvec=0x00000000 hwcfg=0x400e0100
+    imem=65536B dmem=65536B secure=true
+    irqstat=0x00000000 dmactl=0x00000080 debug1=0x00000040
+    mailbox0=0x00000300 mailbox1=0x00000000
+    os=0x00000000 curctx=0x00000002 nxtctx=0x00000000
+  SEC2 @ 0x00087000: HRESET
+    cpuctl=0x00000010 bootvec=0x00000000 hwcfg=0x20420100
+    imem=65536B dmem=65536B secure=true
+    irqstat=0x00000000 dmactl=0x00000001 debug1=0x00000040
+    mailbox0=0x00000001 mailbox1=0x00000000
+    os=0x00000000 curctx=0x00000002 nxtctx=0x00000000
+
+── Engine Topology (ENGN_TABLE) ──
+  ENGN[ 0]: 0x8006183e type=65535 (UNKNOWN) runlist=65535 (FINAL)
+  ENGN[ 1]: 0x80000003 type=65535 (UNKNOWN) runlist=0 (FINAL)
+  ENGN[ 3]: 0xb4028c3e type=1 (CE) runlist=0 (FINAL)
+  ENGN[ 4]: 0x8000004f type=1 (CE) runlist=0 (FINAL)
+  ENGN[ 6]: 0xb8030e3e type=31 (UNKNOWN) runlist=0 (FINAL)
+  ENGN[ 7]: 0x8000004f type=31 (UNKNOWN) runlist=0 (FINAL)
+  ENGN[ 9]: 0x98c3aa3e type=33 (UNKNOWN) runlist=0 (FINAL)
+  ENGN[10]: 0x8000004f type=33 (UNKNOWN) runlist=0 (FINAL)
+  ENGN[12]: 0x84289e3e type=35 (UNKNOWN) runlist=0 (FINAL)
+  ENGN[13]: 0x80000043 type=35 (UNKNOWN) runlist=0 (FINAL)
+── Engine Status (ENGN_STATUS) ──
+  ENGN[0]: 0x110d1086 runlist_bits=1
+  ENGN[1]: 0x00000001 runlist_bits=0
+  ENGN[2]: 0x10081a22 runlist_bits=1
+  ENGN[3]: 0x00000001 runlist_bits=0
+  ENGN[4]: 0x1c031128 runlist_bits=1
+  ENGN[5]: 0x00000001 runlist_bits=0
+  ENGN[6]: 0x1a221200 runlist_bits=1
+  ENGN[7]: 0x00000001 runlist_bits=0
+
+── PCCSR Channel ──
+  PCCSR[0]: inst=0xa0000003 chan=0x11000001 status=PENDING en=true busy=true pbdma_fault=false eng_fault=false
+
+  PFIFO:
+    intr=0x40000000 (rl_complete=true chsw_err=false pbdma_agg=false)
+    intr_en=0x61810101 sched_disable=0x00000000 chsw_error=0x00000000
+    pbdma_map=0x0020000e (active PBDMAs: [1, 2, 3, 21])
+
+── PBDMA Snapshots (GR runlist) ──
+  PBDMA[1] @ t=103us:
+    gp_base=0x00000000:0x00000000 gp_put=0x00000000 gp_fetch=0x00000000 gp_state=0x00000000
+    userd=0x00000000:0x00000000 chan_state=0x00000000 chan_info=0x00000000
+    method0=0xbad00200 data0=0xbad00200 intr=0x2040c028 sig=0x00000000
+  PBDMA[2] @ t=116us:
+    gp_base=0x00000000:0x00000000 gp_put=0x00000000 gp_fetch=0x00000000 gp_state=0x00000000
+    userd=0x00000000:0x00000000 chan_state=0x00000000 chan_info=0x00000000
+    method0=0xbad00200 data0=0xbad00200 intr=0x00000000 sig=0x00000000
+╚═══════════════════════════════════════════════════════════╝
+
+=== End Falcon Boot Solver ===
+test tests::vfio_falcon_boot_solver ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 20.86s
+

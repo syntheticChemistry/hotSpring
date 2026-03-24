@@ -1,8 +1,8 @@
 # baseCamp: Sovereign GPU Compute — GlowPlug & Falcon Boot Chain
 
-**Date:** 2026-03-23  
-**Domain:** Hardware — PCIe GPU lifecycle, falcon microcontrollers, HBM2 management, PFIFO command submission, ACR secure boot, daemon resilience, BOOT0 auto-detection, PCIe FLR  
-**Experiments:** 060-081  
+**Date:** 2026-03-24  
+**Domain:** Hardware — PCIe GPU lifecycle, falcon microcontrollers, HBM2 management, PFIFO command submission, ACR secure boot, WPR construction, cross-driver profiling, daemon resilience, BOOT0 auto-detection, PCIe FLR  
+**Experiments:** 060-087  
 **Hardware:** 2× NVIDIA Titan V (GV100, 12GB HBM2), RTX 5060 (display/validator)
 
 ---
@@ -100,7 +100,7 @@ produced the same panic.
 grabbing it = clean shutdown. The `resurrect_hbm2()` function handles temporary nouveau
 binding only when no DRM consumers exist.
 
-## Sovereign Pipeline Layer Status (March 23, 2026 — Exp 076-077)
+## Sovereign Pipeline Layer Status (March 24, 2026 — Exp 087)
 
 | Layer | Component | Status |
 |-------|-----------|--------|
@@ -111,13 +111,15 @@ binding only when no DRM consumers exist.
 | 4 | Channel | ✅ Accepted by scheduler (STATUS=PENDING) |
 | 5 | PBDMA Context | ✅ GP_BASE, USERD, SIG loaded correctly |
 | 6 | MMU Translation | ✅ **RESOLVED** (Exp 076) — Volta FBHUB fault buffer config |
-| 7 | GPFIFO→Commands | ❌ **BLOCKING** — GR/FECS context (Layer 7) |
-| 8-10 | FECS→GPCCS→Shader | Blocked by Layer 7 (PMU firmware) |
+| 7 | SEC2 Falcon Binding + DMA | ✅ **SOLVED** (Exp 085) — B1-B7 all fixed, bind_stat=5 |
+| 8 | WPR/ACR Payload + FECS/GPCCS Boot | ✅ **SOLVED** (Exp 087) — W1-W7 fixed, ACR bootstraps falcons |
+| 9 | FECS/GPCCS Full Boot (HS Mode Release) | ❌ **BLOCKED** — cpuctl=0x12 (HALTED+ALIAS_EN), not RUNNING |
+| 10 | Shader Dispatch | Pending (depends on Layer 9) |
 
-**7 of 10 layers proven working.** Layer 6 was resolved by configuring
-Volta's non-replayable MMU fault buffers (FAULT_BUF0/1) in VfioChannel::create.
-Without fault buffer config, FBHUB stalled on any MMU page table walk, causing
-the 0xbad00200 PBUS timeout that blocked all GPFIFO fetches.
+**8 of 10 layers proven working.** Layer 7 was resolved via nouveau source
+analysis revealing 7 binding bugs (B1-B7), validated on both Titans. Layer 8
+was resolved via byte-level WPR format analysis discovering 7 construction bugs
+(W1-W7), validated on Titan #1 post-nouveau. Layer 9 is the active frontier.
 
 ## Phase 8: Pre-PMU Hardening (Exp 077, March 23, 2026)
 
@@ -203,14 +205,17 @@ Titans opened via iommufd/cdev at boot. Ember stayed in S-state (sleeping) throu
 
 ## Remaining Blockers
 
-1. ~~MMU page table translation~~ — **RESOLVED** (Exp 076, fault buffer config)
-2. **GR/FECS context loading** (Layer 7) — PMU firmware required for FECS microcontroller boot
-3. **GPCCS address unknown** on GV100 (not at legacy 0x41A000)
-4. **FECS halts at PC=0x2835** — likely waiting for GPCCS or a channel context
-5. **DMA requires instance block** (SEC2+0x480) which is not host-writable in clean state
-6. **PMC toggle of GR (bit 12) causes fatal unrecoverable PRIVRING fault** on GV100
+1. **Layer 9: FECS/GPCCS HALTED instead of RUNNING** — ACR bootstraps both falcons to cpuctl=0x12 (HALTED+ALIAS_EN) but they don't reach RUNNING (0x00). mb0=1 return code needs protocol research. Possible causes: missing FECS start command, HS mode page tables, BL halt-and-wait protocol.
 
-### Resolved Since Last Update
+### Resolved (Exp 082-087 — March 24, 2026)
+
+- ~~GR/FECS context loading (Layer 7)~~ — SEC2 falcon binding: 7 bugs (B1-B7) found via nouveau source analysis, bind_stat=5 on both Titans (Exp 083-085)
+- ~~GPCCS address~~ — confirmed at 0x41A000 via register profiling (Exp 086)
+- ~~DMA requires instance block~~ — `falcon_bind_context()` implements full 8-step nouveau bind sequence (Exp 085)
+- ~~WPR/ACR payload (Layer 8)~~ — 7 WPR construction bugs (W1-W7) found and fixed. Critical: BL headers in WPR image (W1) + bl_imem_off=0 (W2). ACR now processes WPR and bootstraps FECS/GPCCS (Exp 087)
+- ~~Cross-driver profiling~~ — Exp 086: both Titans profiled across vfio/nouveau/nvidia. Verdict: WPR is interface problem, not key+lock. Post-nouveau is optimal starting state.
+
+### Resolved (Exp 060-081 — through March 23, 2026)
 
 - ~~MMU page table translation (0xbad00200)~~ — Volta FBHUB fault buffer config (Exp 076)
 - ~~SM mismatch corrupts GPU~~ — BOOT0 auto-detect + validation (Exp 077)
@@ -330,7 +335,7 @@ forces via DRM. Next: K80 NVIDIA DRM, Titan V PMU investigation.
   `VM_BIND` → `EXEC` + syncobj). Blocked on Titan V by missing PMU firmware for
   `CHANNEL_ALLOC`. K80 (Kepler, incoming) has no PMU requirement.
 
-### Sovereign + DRM Pipeline Layer Status (updated March 23, 2026)
+### Sovereign + DRM Pipeline Layer Status (updated March 24, 2026)
 
 | # | Layer | Sovereign VFIO | DRM Dispatch |
 |---|-------|----------------|--------------|
@@ -340,17 +345,18 @@ forces via DRM. Next: K80 NVIDIA DRM, Titan V PMU investigation.
 | 4 | Scheduler: runlist load | Done | N/A (kernel) |
 | 5 | Channel context binding | Done | N/A (kernel) |
 | 6 | PBDMA context load | Done | N/A (kernel) |
-| 7 | MMU page table translation | **Done** (Exp 076) | Kernel handles this |
-| 8 | **GR/FECS context** | **ACTIVE** (Exp 078-081) | N/A (kernel) |
-| 9 | FECS/GPCCS firmware load | Pending (depends on 8) | N/A (kernel) |
+| 7 | SEC2 falcon binding + DMA | **Done** (Exp 085) | Kernel handles this |
+| 8 | WPR/ACR payload + FECS/GPCCS boot | **Done** (Exp 087) | N/A (kernel) |
+| 9 | FECS/GPCCS full boot (HS mode release) | **BLOCKED** — HALTED (0x12) | N/A (kernel) |
 | 10 | Shader dispatch | Pending | **AMD: 6/6 preswap PASSED** (f64 LJ force verified). NVIDIA: PMU-blocked |
 
-The DRM path offloads layers 1-7 and 9 to the kernel driver. AMD DRM dispatch
+The DRM path offloads layers 1-9 to the kernel driver. AMD DRM dispatch
 fully validated: 6/6 preswap phases pass including f64 Lennard-Jones force
 (Newton's 3rd law verified). 18 bugs fixed. NVIDIA awaits K80 (no PMU needed).
 
-Sovereign VFIO advanced from 6/10 to 7/10 layers with the MMU fault buffer
-breakthrough (Exp 076). Layer 8 (GR/FECS) is the active frontier.
+Sovereign VFIO advanced from 7/10 to **8/10 layers** with the Layer 7 falcon
+binding breakthrough (Exp 085, B1-B7) and Layer 8 WPR construction fix (Exp 087,
+W1-W7). Layer 9 (falcon halt release) is the active frontier.
 
 ### Phase 7: Layer 7 Assault — Falcon Diagnostics + ACR Boot Solver (Exp 078-081)
 
@@ -366,6 +372,67 @@ IMEM and validates before releasing HRESET. ACR-managed boot required.
 **Exp 081 (Falcon Boot Solver):** Multi-strategy SEC2→ACR→FECS boot chain.
 SEC2 base corrected (`0x87000`), EMEM PIO verified, `nvfw_bin_hdr` decoded,
 CPUCTL v4+ bits fixed, DMA context index corrected (PC advancing through HS ROM).
-Full Nouveau-style PMC reset cycle implemented. Instance block bind is the
-immediate blocker. Three parallel paths: system-memory WPR, hybrid WPR,
-Nouveau warm handoff.
+Full Nouveau-style PMC reset cycle implemented.
+
+### Phase 9: Layer 7+8 Breakthrough — Falcon Binding + WPR Fix (Exp 082-087)
+
+**Exp 082 (Multi-Backend Oracle Campaign):** Cross-card register profiling
+infrastructure and oracle domain diff tooling built. Legacy NVIDIA closed-source
+headers harvested for reverse engineering reference.
+
+**Exp 083 (Nouveau Source Analysis):** Deep dive into upstream
+`nvkm/falcon/gm200.c` revealed 4 bugs in coralReef's falcon binding:
+
+| Bug | Description |
+|-----|-------------|
+| B1 | Wrong register offset: 0x668 → 0x054 |
+| B2 | Missing bit 30 (enable flag) in bind_inst write |
+| B3 | Wrong SYS_MEM_COH_TARGET: 3 (non-coherent) → 2 (coherent) |
+| B4 | Missing DMAIDX clear before bind |
+
+**Exp 084 (B1-B4 Hardware Validation):** All four bugs fixed. Register writes
+accepted and read back correctly. But bind_stat at 0x0dc stays at 0 — binding
+mechanism doesn't activate. Reveals missing trigger writes.
+
+**Exp 085 (B5-B7 Bind Trigger Breakthrough — Layer 7 SOLVED):** Cross-driver
+source analysis (nouveau, nvidia-open, Mesa) revealed three additional missing
+steps in the falcon bind sequence:
+
+| Bug | Register | Description |
+|-----|----------|-------------|
+| B5 | UNK090 (0x090) | Bit 16 — required post-bind trigger |
+| B6 | ENG_CONTROL (0x0a4) | Bit 3 — engine activation |
+| B7 | CHANNEL_TRIGGER (0x058) | Bit 1 (LOAD) — channel activation + INTR_ACK bit 3 clear |
+
+New `falcon_bind_context()` helper encapsulates full 8-step nouveau bind
+sequence. **bind_stat reaches 5 on both Titans.** SEC2 DMA active.
+
+**Exp 086 (Cross-Driver Falcon Profile):** BAR0 sysfs mmap profiler captured
+falcon register state across 12 configurations (vfio-cold, nouveau-warm,
+nvidia-warm, post-warmup × 2 Titans). Key findings:
+
+- **WPR is an INTERFACE problem**, not a key+lock hardware security gate
+- **nvidia is destructive** — teardown powers down most engines
+- **nouveau is the Rosetta Stone** — reveals correct SEC2 configuration
+- **Both Titans are functionally identical** — only 4 registers differ
+- **Post-nouveau is optimal starting state** for sovereign boot
+
+**Exp 087 (WPR Format Analysis — Layer 8 SOLVED):** Byte-level comparison
+of `build_wpr()` against nouveau's `gp102_acr_wpr_build` revealed 7 WPR
+construction bugs:
+
+| Bug | Severity | Description |
+|-----|----------|-------------|
+| W1 | **CRITICAL** | BL file headers (64B) included in WPR image — shifts all offsets |
+| W2 | **CRITICAL** | bl_imem_off=0 — should be start_tag<<8 (FECS=0x7E00, GPCCS=0x3400) |
+| W3 | MEDIUM | bl_code_size includes headers (576 vs 512) |
+| W4 | MEDIUM | BLD DMA offset uses wrong BL size |
+| W5 | MINOR | bl_data_size=256 instead of 84 (sizeof flcn_bl_dmem_desc_v2) |
+| W6 | MINOR | bin_version=0 instead of reading from sig file (version=2) |
+| W7 | MINOR | Depmap area corruption in signature |
+
+All 7 fixes applied to `firmware.rs` + `wpr.rs`. Hardware validated on
+Titan #1 post-nouveau: ACR now processes WPR, acknowledges BOOTSTRAP_FALCON
+commands, and bootstraps FECS/GPCCS to cpuctl=0x12 (HALTED+ALIAS_EN).
+
+**Layer 9 is the new frontier:** FECS/GPCCS reach HALTED but not RUNNING.

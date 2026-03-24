@@ -32,7 +32,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 
 ---
 
-## Current Status (2026-03-23, Layer 7 ACR Boot Solver — 7/10 Sovereign Layers)
+## Current Status (2026-03-24, Layer 8 SOLVED — 8/10 Sovereign Layers)
 
 | Study | Status | Quantitative Checks |
 |-------|--------|-------------------|
@@ -92,7 +92,13 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **Layer 7 Diagnostic Matrix** (Exp 078) | ✅ Complete | FECS/GPCCS confirmed in HRESET — sole Layer 7 blocker. FECS `secure=false` (HWCFG). PMU halted with residual state. SEC2 inaccessible on cold VFIO (clock-gated). PBDMA stalled waiting for GR context. |
 | **Warm Handoff via Ember** (Exp 079) | ❌ Failed | nouveau teardown halts falcons before unbind. FECS IMEM does not survive swap regardless of `reset_method` state. Infrastructure verified (Ember swap, DRM isolation), but nouveau shutdown hooks are comprehensive. |
 | **Sovereign FECS Boot** (Exp 080) | ❌ Blocked | Direct IMEM upload succeeds but falcon remains in HRESET. ACR-managed boot required — HS ROM shadows IMEM and validates before releasing HRESET. |
-| **Falcon Boot Solver** (Exp 081) | 🔬 Active | SEC2 base fix (`0x87000`), EMEM PIO verified, CPUCTL v4+ bits corrected, `nvfw_bin_hdr` decoded. Three strategies tested (direct HRESET, EMEM BL, IMEM BL). ACR boot solver built: `FalconProbe`, `AcrFirmwareSet`, DMA index fix (PC advanced 0x14b9→0x1505), PMC full reset cycle. Instance block bind is immediate blocker. |
+| **Falcon Boot Solver** (Exp 081) | ✅ Complete | SEC2 base fix (`0x87000`), EMEM PIO verified, CPUCTL v4+ bits corrected, `nvfw_bin_hdr` decoded. ACR boot solver built: `FalconProbe`, `AcrFirmwareSet`, DMA index fix, PMC full reset cycle. Instance block bind resolved (Exp 083-085). |
+| **Multi-Backend Oracle Campaign** (Exp 082) | ✅ Complete | Cross-card register profiling infrastructure. Oracle domain diff tooling. Legacy NVIDIA closed-source headers harvested for reverse engineering. |
+| **Nouveau Source Analysis** (Exp 083) | ✅ Complete | Root cause analysis of `bind_stat` failure. **4 bugs found (B1-B4):** wrong register offset (0x668→0x054), missing bit 30, wrong SYS_MEM_COH_TARGET (3→2), missing DMAIDX clear. Source: upstream `nvkm/falcon/gm200.c`. |
+| **B1-B4 Hardware Validation** (Exp 084) | ✅ Complete | All four bugs fixed. bind_inst at 0x054 accepts writes (readback verified). bind_stat stays at 0 — binding mechanism doesn't activate. Reveals missing trigger writes (B5-B7). |
+| **B5-B7 Bind Trigger Validation** (Exp 085) | ✅ Complete | **Layer 7 SOLVED.** Three missing trigger writes discovered from nouveau: UNK090 bit 16, ENG_CONTROL bit 3, CHANNEL_TRIGGER LOAD. `falcon_bind_context()` helper encapsulates full 8-step bind. **bind_stat reaches 5 on both Titans.** SEC2 DMA active. |
+| **Cross-Driver Falcon Profile** (Exp 086) | ✅ Complete | BAR0 sysfs mmap profiler across vfio-cold, nouveau-warm, nvidia-warm, post-warmup for both Titans. **VERDICT: WPR is an INTERFACE problem, not key+lock.** nvidia is destructive. nouveau is Rosetta Stone. Both Titans identical. Post-nouveau optimal starting state. |
+| **WPR Format Analysis** (Exp 087) | ✅ Complete | **Layer 8 SOLVED.** B8-B11 from Exp 086 all false positives. Real root cause: 7 WPR construction bugs (W1-W7). W1 (CRITICAL): BL file headers in WPR image. W2 (CRITICAL): bl_imem_off hardcoded to 0 (should be start_tag<<8). Fixes applied + hardware validated: ACR bootstraps FECS/GPCCS to cpuctl=0x12 (HALTED+ALIAS_EN). **Layer 9 blocker: falcon halt release.** |
 | **DRM Dispatch Evolution** (Exp 072) | ✅ GCN5 Complete | Dual-track: DRM + sovereign VFIO. **AMD GCN5 preswap 6/6 PASS** — f64 write, f64 arithmetic, multi-workgroup, multi-buffer read/write, HBM2 bandwidth, **f64 Lennard-Jones force (Newton's 3rd law verified)**. WGSL → coral-reef → coral-driver PM4 → MI50. **18 bugs found/fixed** across GCN5 bring-up. 85 coral-reef tests pass. **RTX 5060 Blackwell DRM cracked**: SM120 class IDs, single-mmap fix, per-buffer-fd fix, 4/4 HW tests pass. NVIDIA PMU-blocked on Titan V. K80 incoming. |
 | **iommufd/cdev VFIO Evolution** (Exp 073) | ✅ Complete | **Kernel-agnostic VFIO** on Linux 6.2+ (resolves persistent EBUSY on 6.17). Dual-path: iommufd/cdev first, legacy fallback. `VfioBackendKind`, `ReceivedVfioFds`, backend-agnostic Ember→GlowPlug IPC (2-fd iommufd or 3-fd legacy + JSON metadata). 38 files changed across coral-driver/ember/glowplug. **607 tests pass.** Hardware validated on Titan V: ember acquire → SCM_RIGHTS → client reconstruct → BAR0 + DMA. |
 | **Ember Swap Pipeline Evolution** (Exp 074) | ✅ Complete | **D-state resilient sysfs** — process-isolated watchdog (10s timeout, child-process fork for risky kernel writes). **IOMMU group peer release** for native driver swap (audio device unbind). **EmberClient retry** (3× backoff for EAGAIN/EINTR). **DRM isolation auto-generation** from config at startup. **iommufd loaded at boot**. **nouveau ↔ vfio round-trip proven** on Titan V (both cards, HBM2 alive). **Ember hardened**: VRAM write-readback canary, BDF allowlist, pre-flight device checks (D3hot/D0/0xFFFF), display GPU safety guard. **86 ember + 178 glowplug tests pass.** Hardware: **2× Titan V + RTX 5060** (MI50 swapped out for second Titan). 74 experiments. |
@@ -148,7 +154,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **Sovereign Dispatch** (Exp 056) | ✅ Complete | Backend-agnostic `MdEngine<B: GpuBackend>` via `ComputeDispatch<B>`. wgpu validated (140.3 steps/s, correct energies). Sovereign DRM blocked (coral-driver ioctl gap). CPU-side energy sum bypasses ReduceScalarPipeline zero bug. Cross-spring shader evolution traced. |
 | **coralReef Ioctl Fix** (Exp 057) | ✅ Complete | 4 DRM ioctl struct ABI mismatches fixed (NouveauVmInit 32→16B, NouveauExec/VmBind field order, Channel pad). VM_INIT succeeds. CHANNEL_ALLOC blocked by missing Volta PMU firmware. GenericMdBackend: sovereign→wgpu auto-fallback. |
 | **hwLearn Integration** | ✅ Complete | toadStool `hw-learn` crate: vendor-neutral GPU learning (46 tests). sysmon `FirmwareInventory` probe. PrecisionBrain `fleet` module. biomeOS `compute.hardware.*` capabilities. AMD GFX10 gold-standard baseline. Fleet observer: Titan V blocked (PMU+GSP missing), RTX 3090 teacher (GSP), 40% learning confidence. |
-| **TOTAL** | **39/39 Rust validation suites** | **848 tests (lib)**, 115 binaries, 85 WGSL shaders, 34/35 NPU HW checks. Zero clippy (lib+bins), zero unsafe, all AGPL-3.0-only. Both GPUs validated, DF64 production, Nautilus unified brain, **live AKD1000 PCIe NPU: 12-head brain, barraCuda v0.3.7 + toadStool S163 + hw-learn (46 tests) + coralReef Phase 10+ synced**. **Precision brain: self-routing hardware calibration, NVVM poisoning discovered + gated, coralReef sovereign bypass integrated. Backend-agnostic MD engine: `MdEngine<B: GpuBackend>` via `ComputeDispatch<B>` — same code on wgpu/Vulkan and sovereign/DRM. Multi-backend dispatch: wgpu/Vulkan + coralReef sovereign + Kokkos reference. Hardware learning: `hw-learn` crate (observe→distill→apply), FirmwareInventory, LearningAdvisor, biomeOS `compute.hardware.*` routing. Sovereign GPU lifecycle: coral-glowplug boot-persistent PCIe daemon + coral-ember immortal VFIO fd holder, VFIO-first boot, graceful shutdown, DRM-isolated driver hot-swap (Exp 069-070). iommufd/cdev kernel-agnostic VFIO: dual-path (iommufd first, legacy fallback), backend-agnostic Ember→GlowPlug IPC, 607 coralReef tests pass, HW validated on Titan V (Exp 073). RTX 5060 Blackwell DRM cracked: SM120, per-buffer fd, 4/4 tests (Exp 072). MMU fault buffer breakthrough (Exp 076): Layer 6 resolved — FBHUB fault buffer config unlocks MMU page table walks. Pre-PMU hardening (Exp 077): BOOT0 auto-detect, PfifoInitConfig unification, arch-aware diagnostic matrix, PCIe FLR via coralctl.** Science ladder: Quenched ✅ → Gradient Flow ✅ → Integrators ✅ → N_f=4 Infra ✅ → **Chuna 44/44** (core 41/41, dynamical ext 3/3) → N_f=2 (pending) → N_f=2+1 (pending). Stability: Tier 1 COMPLETE (Exp 046). Deep debt: **zero**. |
+| **TOTAL** | **39/39 Rust validation suites** | **848 tests (lib)**, 115 binaries, 85 WGSL shaders, 34/35 NPU HW checks. Zero clippy (lib+bins), zero unsafe, all AGPL-3.0-only. Both GPUs validated, DF64 production, Nautilus unified brain, **live AKD1000 PCIe NPU: 12-head brain, barraCuda v0.3.7 + toadStool S163 + hw-learn (46 tests) + coralReef Iter 65 synced**. **Sovereign GPU pipeline: 8/10 layers SOLVED (Exp 082-087).** Layer 7 (SEC2 falcon binding): B1-B7 bugs found and fixed, bind_stat=5 on both Titans (Exp 085). Layer 8 (WPR/ACR payload): 7 WPR construction bugs (W1-W7) found and fixed, ACR bootstraps FECS/GPCCS (Exp 087). Cross-driver profiling (Exp 086): WPR is interface problem not key+lock, nouveau is Rosetta Stone, post-nouveau optimal. **Layer 9 blocker: FECS/GPCCS HALTED+ALIAS_EN (0x12), not RUNNING.** Precision brain: self-routing hardware calibration, NVVM poisoning discovered + gated, coralReef sovereign bypass integrated. Backend-agnostic MD engine: `MdEngine<B: GpuBackend>` via `ComputeDispatch<B>`. iommufd/cdev kernel-agnostic VFIO (Exp 073). RTX 5060 Blackwell DRM cracked: SM120, 4/4 tests (Exp 072). MMU fault buffer breakthrough (Exp 076). Pre-PMU hardening (Exp 077). Science ladder: Quenched ✅ → Gradient Flow ✅ → Integrators ✅ → N_f=4 Infra ✅ → **Chuna 44/44** → N_f=2 (pending) → N_f=2+1 (pending). Stability: Tier 1 COMPLETE. Deep debt: **zero**. |
 
 Papers 5, 7, 8, and 10 from the review queue are complete. Paper 5 transport fits
 (Daligault 2012) were recalibrated against 12 Sarkas Green-Kubo D* values (Feb 2026)
@@ -389,7 +395,7 @@ Driver profiling feedback    → GpuDriverProfile      → Rewired in v0.5.15
 
 **The cycle**: hotSpring implements physics on CPU with WGSL templates embedded
 in the Rust source. Once validated, designs are handed to toadstool via
-`wateringHole/handoffs/`. Toadstool absorbs them as GPU shaders. hotSpring
+`ecoPrimals/wateringHole/handoffs/`. Toadstool absorbs them as GPU shaders. hotSpring
 then rewires to use the upstream primitives and deletes local code. Each cycle
 makes the upstream library richer and hotSpring leaner.
 
@@ -567,7 +573,6 @@ hotSpring/
 ├── PHYSICS.md                          # Complete physics documentation (equations + references)
 ├── CONTROL_EXPERIMENT_STATUS.md        # Comprehensive status + results (197/197)
 ├── NUCLEAR_EOS_STRATEGY.md             # Nuclear EOS Phase A→B strategy
-├── wateringHole/handoffs/              # 13 active + 94 archived cross-project handoffs (fossil record)
 ├── LICENSE                             # AGPL-3.0
 ├── .gitignore
 │
@@ -842,11 +847,11 @@ hotSpring/
 ├── specs/                              # Specifications and requirements
 │   ├── README.md                      # Spec index + scope definition
 │   ├── PAPER_REVIEW_QUEUE.md          # Papers to review/reproduce, prioritized by tier
-│   └── BARRACUDA_REQUIREMENTS.md      # GPU kernel requirements and gap analysis
-│
-├── wateringHole/                       # Cross-project handoffs
-│   ├── README.md                      # Handoff index, conventions, cross-spring docs
-│   └── handoffs/                       # 14 active + 94 archived unidirectional handoff documents
+│   ├── BARRACUDA_REQUIREMENTS.md      # GPU kernel requirements and gap analysis
+│   ├── GPU_CRACKING_GAP_TRACKER.md    # Sovereign pipeline gap tracker (L1-L9)
+│   ├── DRIVER_AS_SOFTWARE.md          # Swap-capture-return driver reagent pattern
+│   ├── UNIVERSAL_DRIVER_REAGENT_ARCHITECTURE.md  # Open targets, reagent safety, trace
+│   └── NATIVE_COMPUTE_ROADMAP.md      # Late-stage borrow compute from gaming GPUs
 │
 ├── benchmarks/
 │   ├── PROTOCOL.md                     # Cross-gate benchmark protocol (time + energy)
@@ -1030,7 +1035,7 @@ These are **silent failures** — wrong results, no error messages. This fragili
 | [`metalForge/npu/akida/BEYOND_SDK.md`](metalForge/npu/akida/BEYOND_SDK.md) | **10 overturned SDK assumptions** — the discovery document |
 | [`metalForge/npu/akida/HARDWARE.md`](metalForge/npu/akida/HARDWARE.md) | AKD1000 deep-dive: architecture, compute model, PCIe BAR mapping |
 | [`metalForge/npu/akida/EXPLORATION.md`](metalForge/npu/akida/EXPLORATION.md) | Novel NPU applications for computational physics |
-| [`wateringHole/handoffs/`](wateringHole/handoffs/) | Cross-project handoffs to ToadStool/BarraCuda team |
+| `ecoPrimals/wateringHole/handoffs/` | Cross-project handoffs to ToadStool/BarraCuda/coralReef teams (parent repo) |
 | [`control/surrogate/REPRODUCE.md`](control/surrogate/REPRODUCE.md) | Step-by-step reproduction guide for surrogate learning |
 
 ### External References

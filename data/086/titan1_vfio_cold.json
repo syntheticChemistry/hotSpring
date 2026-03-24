@@ -1,0 +1,810 @@
+{
+  "meta": {
+    "bdf": "0000:03:00.0",
+    "driver": "vfio-pci",
+    "timestamp": "20260324_140216",
+    "experiment": "086_cross_driver_falcon_profile"
+  },
+  "pmc": {
+    "BOOT0": {
+      "addr": "0x000000",
+      "raw": 335544481,
+      "hex": "0x140000a1"
+    },
+    "PMC_ENABLE": {
+      "addr": "0x000200",
+      "raw": 1609359345,
+      "hex": "0x5fecdff1"
+    },
+    "PMC_DEV_ENABLE": {
+      "addr": "0x000204",
+      "raw": 16383,
+      "hex": "0x00003fff"
+    },
+    "decoded": {
+      "sec2_enabled": true,
+      "fecs_gr_enabled": true,
+      "pmu_enabled": false
+    }
+  },
+  "pfb_wpr": {
+    "PFB_PRI_MMU_CTRL": {
+      "addr": "0x100c80",
+      "raw": 2129921,
+      "hex": "0x00208001"
+    },
+    "PFB_PRI_MMU_PHYS_CTRL": {
+      "addr": "0x100c94",
+      "raw": 0,
+      "hex": "0x00000000"
+    },
+    "WPR1_BEG": {
+      "addr": "0x100ce4",
+      "raw": 4294967295,
+      "hex": "0xffffffff"
+    },
+    "WPR1_END": {
+      "addr": "0x100ce8",
+      "raw": 0,
+      "hex": "0x00000000"
+    },
+    "WPR2_BEG": {
+      "addr": "0x100cec",
+      "raw": 0,
+      "hex": "0x00000000"
+    },
+    "WPR2_END": {
+      "addr": "0x100cf0",
+      "raw": 0,
+      "hex": "0x00000000"
+    },
+    "decoded": {
+      "wpr1_active": false,
+      "wpr1_range": "inactive",
+      "wpr2_active": false,
+      "wpr2_range": "inactive"
+    }
+  },
+  "gr": {
+    "GR_FECS_CG": {
+      "addr": "0x4098c8",
+      "raw": 0,
+      "hex": "0x00000000"
+    },
+    "GR_FECS_CG2": {
+      "addr": "0x4098cc",
+      "raw": 0,
+      "hex": "0x00000000"
+    }
+  },
+  "falcons": {
+    "SEC2": {
+      "engine": "SEC2",
+      "base": "0x087000",
+      "registers": {
+        "IRQSSET": {
+          "offset": "0x000",
+          "addr": "0x087000",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "IRQSCLR": {
+          "offset": "0x004",
+          "addr": "0x087004",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "IRQSTAT": {
+          "offset": "0x008",
+          "addr": "0x087008",
+          "raw": 8,
+          "hex": "0x00000008"
+        },
+        "IRQMSET": {
+          "offset": "0x010",
+          "addr": "0x087010",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "IRQMCLR": {
+          "offset": "0x014",
+          "addr": "0x087014",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "TRACEPC": {
+          "offset": "0x030",
+          "addr": "0x087030",
+          "raw": 747,
+          "hex": "0x000002eb"
+        },
+        "MAILBOX0": {
+          "offset": "0x040",
+          "addr": "0x087040",
+          "raw": 1,
+          "hex": "0x00000001"
+        },
+        "MAILBOX1": {
+          "offset": "0x044",
+          "addr": "0x087044",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "BIND_INST": {
+          "offset": "0x054",
+          "addr": "0x087054",
+          "raw": 1073741840,
+          "hex": "0x40000010"
+        },
+        "CHAN_TRIG": {
+          "offset": "0x058",
+          "addr": "0x087058",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "OS": {
+          "offset": "0x080",
+          "addr": "0x087080",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "UNK090": {
+          "offset": "0x090",
+          "addr": "0x087090",
+          "raw": 65600,
+          "hex": "0x00010040"
+        },
+        "ENG_CTRL": {
+          "offset": "0x0a4",
+          "addr": "0x0870a4",
+          "raw": 8,
+          "hex": "0x00000008"
+        },
+        "BIND_STAT": {
+          "offset": "0x0dc",
+          "addr": "0x0870dc",
+          "raw": 9359421,
+          "hex": "0x008ed03d"
+        },
+        "CPUCTL": {
+          "offset": "0x100",
+          "addr": "0x087100",
+          "raw": 16,
+          "hex": "0x00000010"
+        },
+        "BOOTVEC": {
+          "offset": "0x104",
+          "addr": "0x087104",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "HWCFG": {
+          "offset": "0x108",
+          "addr": "0x087108",
+          "raw": 541196544,
+          "hex": "0x20420100"
+        },
+        "DMACTL": {
+          "offset": "0x10c",
+          "addr": "0x08710c",
+          "raw": 1,
+          "hex": "0x00000001"
+        },
+        "DMA_BASE": {
+          "offset": "0x110",
+          "addr": "0x087110",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "DMA_MOFFS": {
+          "offset": "0x114",
+          "addr": "0x087114",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "DMA_CMD": {
+          "offset": "0x118",
+          "addr": "0x087118",
+          "raw": 2,
+          "hex": "0x00000002"
+        },
+        "DMA_FBOFFS": {
+          "offset": "0x11c",
+          "addr": "0x08711c",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "EXCI": {
+          "offset": "0x148",
+          "addr": "0x087148",
+          "raw": 2031616,
+          "hex": "0x001f0000"
+        },
+        "IMEMC": {
+          "offset": "0x180",
+          "addr": "0x087180",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "SCTL": {
+          "offset": "0x240",
+          "addr": "0x087240",
+          "raw": 12288,
+          "hex": "0x00003000"
+        },
+        "DMAIDX": {
+          "offset": "0x604",
+          "addr": "0x087604",
+          "raw": 272,
+          "hex": "0x00000110"
+        },
+        "FBIF_624": {
+          "offset": "0x624",
+          "addr": "0x087624",
+          "raw": 272,
+          "hex": "0x00000110"
+        },
+        "FBIF_BIND": {
+          "offset": "0x668",
+          "addr": "0x087668",
+          "raw": 0,
+          "hex": "0x00000000"
+        }
+      },
+      "decoded": {
+        "halted": false,
+        "hreset": true,
+        "startcpu_pending": false,
+        "hs_mode": true,
+        "bind_stat_field": 5,
+        "bind_stat_raw": "0x008ed03d"
+      }
+    },
+    "FECS": {
+      "engine": "FECS",
+      "base": "0x409000",
+      "registers": {
+        "IRQSSET": {
+          "offset": "0x000",
+          "addr": "0x409000",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "IRQSCLR": {
+          "offset": "0x004",
+          "addr": "0x409004",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "IRQSTAT": {
+          "offset": "0x008",
+          "addr": "0x409008",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "IRQMSET": {
+          "offset": "0x010",
+          "addr": "0x409010",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "IRQMCLR": {
+          "offset": "0x014",
+          "addr": "0x409014",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "TRACEPC": {
+          "offset": "0x030",
+          "addr": "0x409030",
+          "raw": 747,
+          "hex": "0x000002eb"
+        },
+        "MAILBOX0": {
+          "offset": "0x040",
+          "addr": "0x409040",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "MAILBOX1": {
+          "offset": "0x044",
+          "addr": "0x409044",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "BIND_INST": {
+          "offset": "0x054",
+          "addr": "0x409054",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "CHAN_TRIG": {
+          "offset": "0x058",
+          "addr": "0x409058",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "OS": {
+          "offset": "0x080",
+          "addr": "0x409080",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "UNK090": {
+          "offset": "0x090",
+          "addr": "0x409090",
+          "raw": 64,
+          "hex": "0x00000040"
+        },
+        "ENG_CTRL": {
+          "offset": "0x0a4",
+          "addr": "0x4090a4",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "BIND_STAT": {
+          "offset": "0x0dc",
+          "addr": "0x4090dc",
+          "raw": 917567,
+          "hex": "0x000e003f"
+        },
+        "CPUCTL": {
+          "offset": "0x100",
+          "addr": "0x409100",
+          "raw": 16,
+          "hex": "0x00000010"
+        },
+        "BOOTVEC": {
+          "offset": "0x104",
+          "addr": "0x409104",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "HWCFG": {
+          "offset": "0x108",
+          "addr": "0x409108",
+          "raw": 538984576,
+          "hex": "0x20204080"
+        },
+        "DMACTL": {
+          "offset": "0x10c",
+          "addr": "0x40910c",
+          "raw": 1,
+          "hex": "0x00000001"
+        },
+        "DMA_BASE": {
+          "offset": "0x110",
+          "addr": "0x409110",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "DMA_MOFFS": {
+          "offset": "0x114",
+          "addr": "0x409114",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "DMA_CMD": {
+          "offset": "0x118",
+          "addr": "0x409118",
+          "raw": 2,
+          "hex": "0x00000002"
+        },
+        "DMA_FBOFFS": {
+          "offset": "0x11c",
+          "addr": "0x40911c",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "EXCI": {
+          "offset": "0x148",
+          "addr": "0x409148",
+          "raw": 458752,
+          "hex": "0x00070000"
+        },
+        "IMEMC": {
+          "offset": "0x180",
+          "addr": "0x409180",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "SCTL": {
+          "offset": "0x240",
+          "addr": "0x409240",
+          "raw": 12288,
+          "hex": "0x00003000"
+        },
+        "DMAIDX": {
+          "offset": "0x604",
+          "addr": "0x409604",
+          "raw": 201719814,
+          "hex": "0x0c060006"
+        },
+        "FBIF_624": {
+          "offset": "0x624",
+          "addr": "0x409624",
+          "raw": 3135197248,
+          "hex": "0xbadf5040"
+        },
+        "FBIF_BIND": {
+          "offset": "0x668",
+          "addr": "0x409668",
+          "raw": 3135197248,
+          "hex": "0xbadf5040"
+        }
+      },
+      "decoded": {
+        "halted": false,
+        "hreset": true,
+        "startcpu_pending": false,
+        "hs_mode": true,
+        "bind_stat_field": 0,
+        "bind_stat_raw": "0x000e003f"
+      }
+    },
+    "GPCCS": {
+      "engine": "GPCCS",
+      "base": "0x41a000",
+      "registers": {
+        "IRQSSET": {
+          "offset": "0x000",
+          "addr": "0x41a000",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "IRQSCLR": {
+          "offset": "0x004",
+          "addr": "0x41a004",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "IRQSTAT": {
+          "offset": "0x008",
+          "addr": "0x41a008",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "IRQMSET": {
+          "offset": "0x010",
+          "addr": "0x41a010",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "IRQMCLR": {
+          "offset": "0x014",
+          "addr": "0x41a014",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "TRACEPC": {
+          "offset": "0x030",
+          "addr": "0x41a030",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "MAILBOX0": {
+          "offset": "0x040",
+          "addr": "0x41a040",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "MAILBOX1": {
+          "offset": "0x044",
+          "addr": "0x41a044",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "BIND_INST": {
+          "offset": "0x054",
+          "addr": "0x41a054",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "CHAN_TRIG": {
+          "offset": "0x058",
+          "addr": "0x41a058",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "OS": {
+          "offset": "0x080",
+          "addr": "0x41a080",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "UNK090": {
+          "offset": "0x090",
+          "addr": "0x41a090",
+          "raw": 64,
+          "hex": "0x00000040"
+        },
+        "ENG_CTRL": {
+          "offset": "0x0a4",
+          "addr": "0x41a0a4",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "BIND_STAT": {
+          "offset": "0x0dc",
+          "addr": "0x41a0dc",
+          "raw": 917567,
+          "hex": "0x000e003f"
+        },
+        "CPUCTL": {
+          "offset": "0x100",
+          "addr": "0x41a100",
+          "raw": 16,
+          "hex": "0x00000010"
+        },
+        "BOOTVEC": {
+          "offset": "0x104",
+          "addr": "0x41a104",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "HWCFG": {
+          "offset": "0x108",
+          "addr": "0x41a108",
+          "raw": 537929792,
+          "hex": "0x20102840"
+        },
+        "DMACTL": {
+          "offset": "0x10c",
+          "addr": "0x41a10c",
+          "raw": 1,
+          "hex": "0x00000001"
+        },
+        "DMA_BASE": {
+          "offset": "0x110",
+          "addr": "0x41a110",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "DMA_MOFFS": {
+          "offset": "0x114",
+          "addr": "0x41a114",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "DMA_CMD": {
+          "offset": "0x118",
+          "addr": "0x41a118",
+          "raw": 2,
+          "hex": "0x00000002"
+        },
+        "DMA_FBOFFS": {
+          "offset": "0x11c",
+          "addr": "0x41a11c",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "EXCI": {
+          "offset": "0x148",
+          "addr": "0x41a148",
+          "raw": 458752,
+          "hex": "0x00070000"
+        },
+        "IMEMC": {
+          "offset": "0x180",
+          "addr": "0x41a180",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "SCTL": {
+          "offset": "0x240",
+          "addr": "0x41a240",
+          "raw": 12288,
+          "hex": "0x00003000"
+        },
+        "DMAIDX": {
+          "offset": "0x604",
+          "addr": "0x41a604",
+          "raw": 201719814,
+          "hex": "0x0c060006"
+        },
+        "FBIF_624": {
+          "offset": "0x624",
+          "addr": "0x41a624",
+          "raw": 3135197248,
+          "hex": "0xbadf5040"
+        },
+        "FBIF_BIND": {
+          "offset": "0x668",
+          "addr": "0x41a668",
+          "raw": 3135197248,
+          "hex": "0xbadf5040"
+        }
+      },
+      "decoded": {
+        "halted": false,
+        "hreset": true,
+        "startcpu_pending": false,
+        "hs_mode": true,
+        "bind_stat_field": 0,
+        "bind_stat_raw": "0x000e003f"
+      }
+    },
+    "PMU": {
+      "engine": "PMU",
+      "base": "0x10a000",
+      "registers": {
+        "IRQSSET": {
+          "offset": "0x000",
+          "addr": "0x10a000",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "IRQSCLR": {
+          "offset": "0x004",
+          "addr": "0x10a004",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "IRQSTAT": {
+          "offset": "0x008",
+          "addr": "0x10a008",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "IRQMSET": {
+          "offset": "0x010",
+          "addr": "0x10a010",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "IRQMCLR": {
+          "offset": "0x014",
+          "addr": "0x10a014",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "TRACEPC": {
+          "offset": "0x030",
+          "addr": "0x10a030",
+          "raw": 747,
+          "hex": "0x000002eb"
+        },
+        "MAILBOX0": {
+          "offset": "0x040",
+          "addr": "0x10a040",
+          "raw": 768,
+          "hex": "0x00000300"
+        },
+        "MAILBOX1": {
+          "offset": "0x044",
+          "addr": "0x10a044",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "BIND_INST": {
+          "offset": "0x054",
+          "addr": "0x10a054",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "CHAN_TRIG": {
+          "offset": "0x058",
+          "addr": "0x10a058",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "OS": {
+          "offset": "0x080",
+          "addr": "0x10a080",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "UNK090": {
+          "offset": "0x090",
+          "addr": "0x10a090",
+          "raw": 64,
+          "hex": "0x00000040"
+        },
+        "ENG_CTRL": {
+          "offset": "0x0a4",
+          "addr": "0x10a0a4",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "BIND_STAT": {
+          "offset": "0x0dc",
+          "addr": "0x10a0dc",
+          "raw": 917631,
+          "hex": "0x000e007f"
+        },
+        "CPUCTL": {
+          "offset": "0x100",
+          "addr": "0x10a100",
+          "raw": 32,
+          "hex": "0x00000020"
+        },
+        "BOOTVEC": {
+          "offset": "0x104",
+          "addr": "0x10a104",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "HWCFG": {
+          "offset": "0x108",
+          "addr": "0x10a108",
+          "raw": 1074659584,
+          "hex": "0x400e0100"
+        },
+        "DMACTL": {
+          "offset": "0x10c",
+          "addr": "0x10a10c",
+          "raw": 128,
+          "hex": "0x00000080"
+        },
+        "DMA_BASE": {
+          "offset": "0x110",
+          "addr": "0x10a110",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "DMA_MOFFS": {
+          "offset": "0x114",
+          "addr": "0x10a114",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "DMA_CMD": {
+          "offset": "0x118",
+          "addr": "0x10a118",
+          "raw": 2,
+          "hex": "0x00000002"
+        },
+        "DMA_FBOFFS": {
+          "offset": "0x11c",
+          "addr": "0x10a11c",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "EXCI": {
+          "offset": "0x148",
+          "addr": "0x10a148",
+          "raw": 538902528,
+          "hex": "0x201f0000"
+        },
+        "IMEMC": {
+          "offset": "0x180",
+          "addr": "0x10a180",
+          "raw": 2432716544,
+          "hex": "0x91004f00"
+        },
+        "SCTL": {
+          "offset": "0x240",
+          "addr": "0x10a240",
+          "raw": 12290,
+          "hex": "0x00003002"
+        },
+        "DMAIDX": {
+          "offset": "0x604",
+          "addr": "0x10a604",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "FBIF_624": {
+          "offset": "0x624",
+          "addr": "0x10a624",
+          "raw": 0,
+          "hex": "0x00000000"
+        },
+        "FBIF_BIND": {
+          "offset": "0x668",
+          "addr": "0x10a668",
+          "raw": 4111,
+          "hex": "0x0000100f"
+        }
+      },
+      "decoded": {
+        "halted": true,
+        "hreset": false,
+        "startcpu_pending": false,
+        "hs_mode": true,
+        "bind_stat_field": 0,
+        "bind_stat_raw": "0x000e007f"
+      }
+    }
+  }
+}
