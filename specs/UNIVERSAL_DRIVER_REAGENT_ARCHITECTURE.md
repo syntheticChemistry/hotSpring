@@ -247,6 +247,181 @@ hardware generation.
    - Household GPU pool management
    - barraCuda as portable compute runtime
 
+## Ember Ring Architecture — Multi-Track Command Transport
+
+### Problem
+
+GPU hardware uses multiple independent command interfaces, each with its own wire format:
+
+| Interface | Location | Format | Purpose |
+|-----------|----------|--------|---------|
+| SEC2 CMDQ/MSGQ | DMEM ring buffer | Structured queue entries with head/tail | ACR falcon bootstrap |
+| FECS MTHD | BAR0 `0x409500-0x409804` | Register write/poll | GR context management |
+| GPFIFO | DMA ring buffer | GP entries → PB segments | Compute dispatch |
+| MAILBOX | Falcon `MAILBOX0`/`MAILBOX1` | Raw u32 read/write | Simple status exchange |
+
+Our Layer 10 failure demonstrates the consequence of not respecting these boundaries:
+writing `BOOTSTRAP_FALCON` to SEC2's `MAILBOX0`/`MAILBOX1` partially bootstraps FECS
+but fails for GPCCS because the GV100 ACR firmware reads from its DMEM **command queue**,
+not the mailbox registers. FECS then gets stuck (PC=0x0307) waiting for GPCCS
+(PC=0x0000) which was never properly loaded.
+
+### Architecture
+
+**GlowPlug is the Mailbox. Ember is the Ring.**
+
+```
+                  ┌─────────────────────────────────┐
+                  │         GlowPlug (Mailbox)       │
+                  │  High-level commands:             │
+                  │  "swap to nouveau"                │
+                  │  "bootstrap FECS+GPCCS"           │
+                  │  "dispatch shader X"              │
+                  └──────────┬──────────────────────┘
+                             │ JSON-RPC / SCM_RIGHTS
+                  ┌──────────▼──────────────────────┐
+                  │       Ember (Ring Manager)        │
+                  │                                   │
+                  │  ┌─────────┐ ┌─────────┐         │
+                  │  │ SEC2    │ │ FECS    │         │
+                  │  │ CMDQ    │ │ MTHD    │  ...    │
+                  │  │ Ring    │ │ Ring    │         │
+                  │  └────┬────┘ └────┬────┘         │
+                  │       │           │               │
+                  │  ┌────┴────┐ ┌────┴────┐         │
+                  │  │ GPFIFO  │ │ Trace   │         │
+                  │  │ Ring    │ │ Ring    │         │
+                  │  └────┬────┘ └────┬────┘         │
+                  └───────┼───────────┼──────────────┘
+                          │           │
+                  ┌───────▼───────────▼──────────────┐
+                  │    coral-driver (BAR0 transport)   │
+                  └──────────────────────────────────┘
+```
+
+Each **Ring** is a typed, observable command channel:
+
+```rust
+pub trait EmberRing {
+    type Command;
+    type Response;
+
+    fn submit(&mut self, cmd: Self::Command) -> RingTicket;
+    fn poll(&mut self, ticket: RingTicket) -> RingStatus<Self::Response>;
+    fn drain_log(&mut self) -> Vec<RingEvent>;
+}
+```
+
+### Ring Types
+
+**SEC2 CMDQ Ring** — the immediate blocker for Layer 10:
+- Writes properly formatted command entries to the SEC2 DMEM ring buffer
+- Tracks CMDQ head/tail pointers (found at known DMEM offsets after ACR init)
+- Handles MSGQ responses (ACR writes completion to a separate DMEM queue)
+- Wire format: `{ cmd_type: u32, flags: u32, falcon_id: u32, ... }`
+- This is what nouveau's `nvkm_falcon_cmdq_send` / `nvkm_falcon_msgq_recv` implement
+
+**FECS MTHD Ring** — already partially implemented in `fecs_method.rs`:
+- Submit: write `MTHD_DATA` then `MTHD_CMD`
+- Poll: spin on `MTHD_STATUS2` for completion
+- Commands: `DISCOVER_IMAGE_SIZE`, `SET_WATCHDOG`, `BIND_POINTER`, `WFI_GOLDEN_SAVE`
+
+**GPFIFO Ring** — the endpoint for compute dispatch:
+- Submit: write GP entries to the GPFIFO ring buffer
+- Signal: write `GPPUT` doorbell to kick PBDMA
+- Response: fence semaphore release
+
+**Trace Ring** — read-only, captures hardware events:
+- mmiotrace events from kernel
+- BAR0 register snapshots at swap boundaries
+- Falcon PC traces, mailbox transitions
+- Timestamped for post-hoc analysis
+
+### Multi-Track Switching
+
+Ember can maintain **multiple rings simultaneously** and switch tracks during swaps:
+
+```
+Swap to nouveau:
+  1. Activate SEC2_CMDQ ring (bootstrap FECS+GPCCS)
+  2. Activate FECS_MTHD ring (golden context, discover sizes)
+  3. Activate GPFIFO ring (compute dispatch)
+  4. Trace ring captures all 3
+
+Swap to nvidia_oracle:
+  1. Load custom kernel module
+  2. Different SEC2 command protocol (version-indexed)
+  3. Same FECS/GPFIFO rings (firmware is compatible)
+
+Swap to amdgpu (failure test):
+  1. Only trace ring active
+  2. Captures probe failure path
+  3. No falcon rings (wrong vendor)
+```
+
+### Observability
+
+Each ring maintains a timestamped event log:
+
+```rust
+pub struct RingEvent {
+    pub timestamp: Instant,
+    pub ring_id: &'static str,
+    pub direction: Direction, // Submit | Response | Timeout | Error
+    pub payload: Vec<u8>,
+    pub latency_us: Option<u64>,
+}
+```
+
+This gives us:
+- **Separate timing analysis** per ring (SEC2 latency vs FECS latency vs GPFIFO latency)
+- **Message replay** for debugging (feed captured SEC2 commands to a mock)
+- **Cross-ring correlation** (FECS stuck → check if SEC2 CMDQ completion arrived)
+- **Smaller test surface** — test SEC2 ring format without touching FECS
+
+### Implementation Path
+
+1. **Immediate (Layer 10 unblock):** Implement SEC2 CMDQ ring in coral-driver
+   - Reverse-engineer DMEM queue layout from nouveau `nvkm_falcon_cmdq`
+   - Send properly formatted `BOOTSTRAP_FALCON(GPCCS)` via the ring
+   - Verify GPCCS starts (PC advances from 0x0000)
+
+2. **Near-term:** Extract ring abstraction into coral-ember
+   - `EmberRing` trait in coral-ember
+   - SEC2, FECS, GPFIFO implementations in coral-driver
+   - Ring event logging to trace directory
+
+3. **Evolution:** Multi-ring orchestration in Ember daemon
+   - GlowPlug swap triggers ring activation sequence
+   - Ember manages ring lifecycle across driver swaps
+   - Ring events feed into hw-learn distiller
+
+### Relationship to SEC2 CMDQ (Layer 10 Technical Detail)
+
+The SEC2 ACR firmware on GV100 (Volta) initializes a **CMDQ** (command queue) and
+**MSGQ** (message queue) in its DMEM during boot. The host communicates by:
+
+1. Writing a command structure at the CMDQ tail pointer in DMEM
+2. Advancing the tail pointer (also in DMEM)
+3. Optionally poking an IRQ to wake SEC2
+4. SEC2 reads the command, processes it, writes response to MSGQ
+5. Host reads MSGQ head for completion
+
+Our current `strategy_mailbox.rs` writes directly to `MAILBOX0`/`MAILBOX1`, which
+the firmware may check as a legacy fallback but does NOT use as its primary command
+interface. This is why FECS partially bootstraps (MAILBOX might trigger a
+one-time bootstrap on first write) but GPCCS fails (subsequent MAILBOX writes
+are not processed as ring commands).
+
+The DMEM layout from our diagnostic dumps shows non-zero ranges at:
+- `0x020-0x04c`: BL descriptor / ACR metadata
+- `0x210-0x264`: ACR descriptor (WPR addresses, falcon counts)
+- `0xB00-0xB10`: Possible queue headers or crypto state
+- `0xF20-0xF30`: Possible MSGQ region
+
+These offsets need correlation with nouveau's `nvkm_falcon_cmdq` / `nvkm_falcon_msgq`
+structures to identify head/tail pointers and command entry format.
+
 ## Relationship to Other Specs
 
 - **[DRIVER_AS_SOFTWARE.md](DRIVER_AS_SOFTWARE.md):** Established the swap-capture-return

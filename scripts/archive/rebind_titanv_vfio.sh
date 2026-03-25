@@ -1,4 +1,5 @@
 #!/bin/bash
+# DEPRECATED: Use `coralctl swap <BDF> vfio` instead. Raw sysfs writes risk D-state hangs.
 set -e
 GPU="0000:4b:00.0"
 AUDIO="0000:4b:00.1"

@@ -1,4 +1,6 @@
 #!/bin/bash
+# DEPRECATED: This script uses raw sysfs writes (driver_override, bind, unbind).
+# Use `coralctl swap <BDF> nvidia` instead. Archived 2026-03-25 (Gap 13 safety).
 set -e
 GPU="0000:4b:00.0"
 AUDIO="0000:4b:00.1"

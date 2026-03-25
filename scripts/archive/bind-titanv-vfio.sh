@@ -1,4 +1,5 @@
 #!/bin/bash
+# DEPRECATED: Use `coralctl swap <BDF> vfio` instead. Raw sysfs writes risk D-state hangs.
 # Bind Titan V (0000:4b:00.0) to vfio-pci for sovereign compute validation.
 #
 # Run with: sudo ./scripts/bind-titanv-vfio.sh

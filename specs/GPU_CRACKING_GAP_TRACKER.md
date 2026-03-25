@@ -1,6 +1,6 @@
 # GPU Cracking Gap Tracker
 
-**Updated:** 2026-03-24 (Exp 087 — WPR root cause found)
+**Updated:** 2026-03-25 (Exp 091e — DMA fault root cause chain: PMC-locked SEC2 + FBIF circular dependency)
 **Goal:** Sovereign compute on Titan V (GV100) — FECS/GPCCS running without proprietary ACR chain
 
 ## Layer Model
@@ -13,9 +13,11 @@
 | L4 | PFIFO init + PBDMA discovery | SOLVED | — |
 | L5 | MMU/FBHUB fault buffer setup | PROVEN (Exp 076) | — |
 | L6 | PBDMA context load + channel submit | PARTIAL (Exp 058) | GP_PUT DMA read fails |
-| L7 | SEC2 falcon binding + DMA | **SOLVED** (Exp 085) | — (B1-B7 all fixed) |
+| L7 | SEC2 falcon binding + DMA | **REGRESSION** (Exp 091e) | PMC bit 22 locked + FBIF circular dep → DMA fault. See Gap 14 |
 | L8 | WPR/ACR payload + FECS/GPCCS boot | **SOLVED** (Exp 087) | W1-W7 fixed. ACR processes WPR, bootstraps FECS+GPCCS. |
-| L9 | FECS/GPCCS full boot (HS mode release) | **BLOCKED** | Falcons reach HALTED+ALIAS_EN (0x12), not RUNNING. mb0=1 return code. |
+| L9 | FECS boot + GR register init | **PARTIAL** (Exp 089b) | FECS halted at PC~0x058f, wakes on GR init. GPCCS stuck. |
+| L10 | GPCCS bootstrap via ACR | **ROOT CAUSE FOUND** (Exp 091) | **BOOTVEC=0** — ACR loads BL to IMEM[0x3400] but mailbox path doesn't set BOOTVEC. GPCCS starts at IMEM[0] → fault. Fix: set BOOTVEC=0x3400 + ITFEN + INTR_ENABLE before STARTCPU. |
+| L11 | GR context init + shader dispatch | **BLOCKED** by L10 | FECS stuck at idle loop (PC=0x023c), methods timeout. Needs GPCCS alive. |
 
 ## Active Gaps
 
@@ -216,48 +218,200 @@ acceptance + validation, adds `Personality::Custom`, inverts trace to default-on
 
 **Architecture:** `specs/UNIVERSAL_DRIVER_REAGENT_ARCHITECTURE.md`
 
-### Gap 10: Layer 9 — FECS/GPCCS Halt Release (NEW)
+### Gap 10: Layer 9 — FECS/GPCCS Halt Release — ROOT CAUSE FOUND (Exp 091)
 
 **Layer:** L9
-**Exp:** 087 (discovered)
-**Status:** NEW — active frontier
+**Exp:** 087 (discovered), **088 (partial)**, **090 (cpuctl misleading)**, **091 (BOOTVEC root cause)**
+**Status:** **ROOT CAUSE FOUND** — three missing prerequisites identified
 
 After W1-W7 fixes, ACR successfully processes the WPR and bootstraps FECS/GPCCS.
-Both falcons reach `cpuctl=0x12` (HALTED + ALIAS_EN) but do not transition to
-RUNNING (0x00). SEC2 mailbox `mb0=1` after BOOTSTRAP_FALCON command.
+Both falcons reached `cpuctl=0x12` (HRESET + STARTCPU sticky) — ACR loaded them
+but left them in HRESET for the host to start.
 
-**Observations:**
-- `ALIAS_EN` (bit 1) confirms ACR set HS mode alias — the falcon is in secure mode
-- `HALTED` (bit 4) means the falcon stopped execution — BL may have completed
-  and is waiting for a host signal, or the BL hit an error
-- `mb0=1` could mean "command complete" or "error code 1" — protocol research needed
+**Exp 091 Discovery — BOOTVEC is zero:**
 
-**Research leads:**
-1. nouveau `gm200_gr_init_400()` — post-ACR falcon start sequence
-2. `FECS_CTXSW_MAILBOX` registers — how nouveau signals FECS to begin
-3. `GR_INIT` boot commands — GR engine initialization after falcon boot
-4. nouveau `gv100_gr_init()` → `nvkm_falcon_start()` — the HRESET release sequence
-5. Check if GPCCS needs to start before FECS (dependency ordering)
+The EXCI register format is `[31:16]=cause, [15:0]=PC_at_fault`:
+- `exci=0x00070000` → cause=0x0007, faultPC=0x0000
+- `exci=0x08070000` → cause=0x0807, faultPC=0x0000
 
-**Solve strategies:**
-1. **Nouveau source trace of post-ACR boot** — find what nouveau does between
-   ACR bootstrap completion and GR engine ready
-2. **Register profiling during nouveau GR init** — extend Exp 086 profiler to
-   capture FECS/GPCCS state during nouveau's init window
-3. **FECS mailbox protocol** — determine the BL→host handshake from firmware analysis
-4. **HRESET release experiment** — try clearing HALTED bit after ACR bootstrap
+GPCCS faults at PC=0x0000 because **BOOTVEC=0x00000000**. The ACR loaded the
+GPCCS bootloader to IMEM[0x3400] (start_tag=0x34), but the mailbox-based
+BOOTSTRAP_FALCON command does NOT set BOOTVEC. GPCCS starts executing at
+IMEM[0] where there is no valid bootloader → immediate exception.
+
+**Three missing prerequisites (all now fixed in coralReef):**
+
+| # | Missing | Value | Status |
+|---|---------|-------|--------|
+| 1 | **BOOTVEC** | GPCCS=0x3400, FECS=0x7E00 | Fixed (Exp 091) |
+| 2 | **ITFEN** (interface enable) | 0x04 | Fixed (Iter 66) |
+| 3 | **INTR_ENABLE** | 0xfc24 | Fixed (Iter 66) |
+
+**Evidence chain:**
+- 089b: `GPCCS bootvec=0x00000000` observed before any of our code
+- 089b: GPCCS IMEM[0..32] has real code but may be at wrong offset
+- 087 W2: GPCCS bl_imem_off=0x3400 from start_tag=0x34
+- `falcon_start_cpu()` reads BOOTVEC but never writes it
+- `strategy_mailbox.rs` now sets BOOTVEC before STARTCPU
+
+**Diagnostic standard (post-Exp 090):** Always verify PC and EXCI alongside
+cpuctl. `FalconProbe` and `AcrBootResult` now include these fields. Success
+requires `gpccs_exci == 0 && gpccs_pc != 0`, not just `cpuctl & HRESET == 0`.
+
+### Gap 11: Layer 10 — GPCCS LS-Mode Lock + CPUCTL Blocked (Exp 089b)
+
+**Layer:** L10
+**Exp:** 088 (discovered), 089 (initial analysis), **089b (deep root cause)**
+**Status:** ROOT CAUSE IDENTIFIED — GPCCS trapped in LS mode with locked CPUCTL
+
+**Exp 089b Deep Findings (register forensics):**
+
+1. **Raw VFIO state** (before ANY init code runs):
+   - FECS: `cpuctl=0x10` (STOPPED), PC=0x058f — halted mid-execution, wakes when GR init writes arrive
+   - GPCCS: `cpuctl=0x12` (STOPPED + STARTCPU), PC=0x000, `exci=0x00070000` — ACR issued STARTCPU but GPCCS faulted at PC=0
+   - SEC2: `cpuctl=0x00` (RUNNING), PC=0x058f — ACR bootloader in idle loop
+
+2. **GPCCS CPUCTL is ACR-LOCKED** — writes to 0x41A100 are silently dropped. FECS CPUCTL is also partially locked. Both are in LS (Light Secure) mode (`sctl=0x3000`). Only the HS falcon (SEC2) can modify CPUCTL in LS mode.
+
+3. **GPCCS has valid firmware** — IMEM reads return real code (`0x001400d0 0x0004fe00...`), DMEM starts with firmware build date "Aug 8 2017 20:06:36". Hardware is fully present: hwcfg=0x20102840 (16KB IMEM, 5KB DMEM).
+
+4. **SEC2 CMDQ is NOT initialized** — CMDQ head/tail registers (0x087a00/a04) are zero. MSGQ (0x087a30/a34) also zero. Full 64KB DMEM scan found NO init message. SEC2 never completed CMDQ setup after FLR/rebind.
+
+5. **PMC GR reset breaks CPUCTL lock** — after resetting GR via PMC bit 12, GPCCS CPUCTL becomes writable (HRESET accepted). But LS mode (`sctl=0x3000`) persists, and STARTCPU still faults at PC=0.
+
+6. **apply_gr_bar0_init wakes FECS** — FECS transitions from STOPPED to RUNNING after GR register writes (sw_nonctx.bin + dynamic init). GPCCS does NOT wake up because it faulted at PC=0 and can't process register changes.
+
+7. **HWCFG is at offset +0x108** (not +0x008 as previously assumed). Previous "hwcfg=0x00000000" for GPCCS was reading the wrong register.
+
+**Root Cause Analysis:**
+
+The GPCCS execution failure is NOT a CMDQ problem — it's an **HS authentication problem**:
+- SEC2 ACR loaded firmware into GPCCS IMEM and issued STARTCPU (cpuctl bit 1 set)
+- GPCCS tried to execute but hit `exci=0x00070000` immediately at PC=0
+- This exception likely means the HS authentication context is invalid or lost
+- LS mode prevents the host from bypassing this authentication
+- The CMDQ registers being zero is a secondary issue — SEC2 never completed full init
+
+**Paths evaluated:**
+
+**Path A: Preserve GPCCS across nouveau→VFIO transition — CLOSED (Exp 089c)**
+- nouveau teardown halts all falcons. FLR was never the cause.
+
+**Path B: Proper SEC2 full boot (fix bind_stat for strategies 1-4) — DEFERRED**
+- Unnecessary if BOOTVEC fix resolves GPCCS start on mailbox path.
+
+**Path C: Capture and replay nouveau state — CANCELLED**
+- Exp 079/089c prove teardown destroys state.
+
+**Path D: BOOTVEC + ITFEN + INTR_ENABLE fix — ACTIVE (Exp 091)**
+- Root cause: mailbox BOOTSTRAP_FALCON loads firmware but doesn't set BOOTVEC
+- Fix applied to `strategy_mailbox.rs`: set GPCCS BOOTVEC=0x3400 before STARTCPU
+- Combined with Iter 66's ITFEN (0x04) and INTR_ENABLE (0xfc24)
+- **Next:** Hardware validation on post-nouveau warm state
+
+**Architectural alignment:** GlowPlug ring/mailbox system (Iter 66) provides
+timestamped command tracking for the full boot chain. If BOOTVEC fix works,
+L11 methods are already implemented in `fecs_method.rs`.
+
+### Gap 14: Layer 7 Regression — SEC2 DMA Fault Chain (Exp 091d-091e)
+
+**Layer:** L7 (SEC2 binding + DMA)
+**Exp:** 091d (DualPDE fix), **091e (hardware validation + root cause chain)**
+**Status:** ROOT CAUSE CHAIN IDENTIFIED — three-layer hardware lock prevents DMA
+
+Despite L7 being "SOLVED" in Exp 085 (bind_stat=5), hardware validation in Exp 091d/e
+reveals the SEC2 bind succeeds only from a nouveau warm state. From cold VFIO state,
+three hardware constraints compound to prevent SEC2 DMA:
+
+**Root Cause Chain:**
+
+| # | Issue | Evidence | Impact |
+|---|-------|----------|--------|
+| R1 | **PMC SEC2 bit (22) is hardware-locked** | `pmc_enable=0x5fecdff1` unchanged after disable write | SEC2 cannot be PMC-reset. Always-on engine. |
+| R2 | **FLR not supported** | VFIO_DEVICE_RESET returns EINVAL on GV100 Titan V | No PCI-level device reset available. |
+| R3 | **FBIF VIRT mode circular dependency** | bind_stat stuck at state 2 (walk in progress) | MMU walker uses FBIF to read page tables from VRAM, but FBIF is set to VIRT mode which requires the bind it's trying to complete. |
+
+**Exp 091e per-GPU findings (both GV100 Titan V):**
+
+| Diagnostic | GPU1 (03:00.0) | GPU2 (4a:00.0) |
+|------------|---------------|----------------|
+| cpuctl | 0x10 (halted) | 0x00 (running) |
+| sctl | 0x3000 (POR) | 0x3000 (POR) |
+| bind_stat | 0x008e043f (state 0 = idle) | 0x0026a43d (state 2 = walk stalled) |
+| FBIF 0x624 | 0x190 (won't accept PHYS_VID) | 0x91 (accepts PHYS_VID) |
+| exci after DMA | 0x201f0007 (VIRT fault) | 0x051f0007 (PHYS fault) |
+| DMA result | ACR mb0=0x1a (error) | ACR mb0=0x00 (no response) |
+| 0x3C0 local reset | No effect (cpuctl stays 0x10) | No effect (cpuctl stays 0x00) |
+| IMEM/DMEM PIO | Works (IMEM verify passes) | Works |
+| Mailbox commands | Partially works | Fully works |
+
+**Code changes applied (Exp 091e):**
+- `instance_block.rs`: DualPDE placement fix (offset 8 for 16-byte entries)
+- `instance_block.rs`: Zero ALL page table pages before writing entries
+- `sec2_hal.rs`: Added PMC reset to `sec2_prepare_direct_boot` (ineffective on GV100)
+- `sec2_hal.rs`: FBIF→PHYS_VID before bind (breaks VIRT circular dep on GPU2)
+- `falcon.rs` test: FLR attempt, page table explicit build, physical DMA fallback
+- `mod.rs`: Added `vfio_device_reset()` method to NvVfioComputeDevice
+
+**Remaining paths:**
+
+| Path | Approach | Status |
+|------|----------|--------|
+| **E** | PCI SBR via `coralctl reset --method sbr` (Ember sysfs) | **READY** — Ember IPC + sysfs integrated |
+| **F** | Warm handoff from nouveau (boot SEC2 via nouveau, swap to VFIO) | VIABLE — `coralctl swap BDF nouveau --trace` captures register sequence |
+| **G** | Direct FECS/GPCCS IMEM load (bypass ACR entirely) | PARTIAL — requires unsigned firmware support (hwcfg bit 7 = 1 → signed required) |
+| **H** | FBIF PHYS_VID on ALL DMA ports + correct DMA index in firmware | PARTIAL — GPU2 gets PHYS fault (0x05) instead of VIRT fault (0x20) but still faults |
+| **I** | Physical-first SEC2 boot (no instance block) | **NEW** — `sec2_prepare_physical_first` + solver Strategy 1b |
+
+**Solution matrix (enabled by Phases 1-4):**
+
+```
+coralctl reset 0000:03:00.0 --method sbr    # SBR reset (was Path E)
+coralctl swap  0000:03:00.0 nouveau --trace  # capture nouveau register sequence
+coralctl swap  0000:03:00.0 vfio             # swap back to VFIO
+# run test with Strategy 1b (physical-first) — no instance block deadlock
+```
+
+Cross-driver matrix: repeat with `nvidia`, `nvidia-open`, `nouveau` on both GPUs.
+mmiotrace data saved to `/var/lib/coralreef/traces/` for timing analysis.
+
+**Next step:** Run SBR + physical-first boot on both GPUs. Compare register sequences
+from mmiotrace (nouveau warm boot vs sovereign cold boot) to validate the timing hypothesis.
+
+### Gap 12: Layer 11 — GR Context Init + Shader Dispatch
+
+**Layer:** L11
+**Exp:** 088 (discovered)
+**Status:** BLOCKED by Gap 11 — requires FECS+GPCCS cooperation
+
+Once GPCCS is running, the GR context init path opens:
+1. FECS method interface (`0x409500-0x409804`) responds to commands
+2. `DISCOVER_IMAGE_SIZE` returns context buffer size
+3. Golden context generation via `WFI_GOLDEN_SAVE`
+4. Channel context binding via `BIND_POINTER`
+5. GPFIFO dispatch becomes possible
+
+**Research leads (for after Gap 11 is solved):**
+1. nouveau `gf100_gr_init()` → golden context image generation
+2. `GR_FECS_METHOD` commands → how nouveau sends init commands to FECS
+3. nouveau `gf100_grctx_generate()` → how the golden context is built
+4. Channel context binding → how a channel's GR context is loaded via FECS
 
 ## Priority Order
 
-1. **Gap 9** (L8 WPR construction W1-W7) — **SOLVED** (Exp 087). ACR processes WPR, FECS/GPCCS reach cpuctl=0x12 (HALTED+ALIAS_EN). New L9 blocker: falcon boot completion.
-2. **Gap 1** (bind_stat) — **SOLVED** (Exp 085). B1-B7 all fixed. bind_stat=5 on both Titans.
-3. **Gap 5** (cross-driver profile) — **COMPLETE** (Exp 086). Interface problem confirmed, 4 new bug candidates.
-4. **Gap 3** (mmiotrace corpus) — still useful for WPR layout, but Exp 086 data may be sufficient
-5. **Gap 2** ~~(SYS_MEM_COH_TARGET)~~ — **RESOLVED** (Exp 083). Answer: 2 = coherent.
-6. **Gap 4** (ACR/WPR format) — now tractable: interface problem, not key problem (Exp 086)
-7. **Gap 8** (open targets) — handoff delivered, unblocks novel driver experiments
-8. **Gap 6** (nvidia_oracle) — lower priority now that Exp 086 showed nvidia is destructive
-9. **Gap 7** (distillation) — depends on toadStool, lowest priority
+1. **Gap 14** (L7 regression — SEC2 DMA fault chain) — **CRITICAL BLOCKER**. SBR now integrated via `coralctl reset --method sbr`. Physical-first boot (Strategy 1b) eliminates instance block deadlock. mmiotrace capture ready for nouveau timing study.
+2. **Gap 10/11** (L9-L10 falcon start) — BOOTVEC=0 fix applied, blocked by Gap 14.
+3. **Gap 12** (L11 GR context + shader dispatch) — blocked by Gap 14 → Gap 10/11.
+4. **L6** (GP_PUT DMA) — may self-resolve when GR engine is alive (GPCCS running).
+4. **Gap 9** (L8 WPR W1-W7) — **SOLVED** (Exp 087).
+5. **Gap 1** (bind_stat B1-B7) — **SOLVED** (Exp 085).
+6. **Gap 5** (cross-driver profile) — **COMPLETE** (Exp 086).
+7. **Gap 2** (SYS_MEM_COH_TARGET) — **RESOLVED** (Exp 083).
+8. **Gap 4** (ACR/WPR format) — **SOLVED** (Exp 087).
+9. **Gap 8** (open targets) — handoff delivered, unblocks novel driver experiments
+10. **Gap 3** (mmiotrace corpus) — critical for SEC2 CMDQ ring reverse-engineering
+11. **Gap 6** (nvidia_oracle) — lower priority now that Exp 086 showed nvidia is destructive
+12. **Gap 7** (distillation) — depends on toadStool, lowest priority
 
 ## What hotSpring Can Do Now (No coralReef Dependency)
 
@@ -270,9 +424,33 @@ RUNNING (0x00). SEC2 mailbox `mb0=1` after BOOTSTRAP_FALCON command.
 7. ~~Exp 087 WPR format analysis~~ — **DONE**: root cause = W1 (headers in image) + W2 (bl_imem_off=0)
 8. ~~Apply W1-W7 fixes to coralReef~~ — **DONE**: `firmware.rs` + `wpr.rs` (2026-03-24)
 9. ~~Validate ACR boot~~ — **DONE** (Exp 087): FECS/GPCCS reach 0x12 (HALTED+ALIAS_EN). L8 SOLVED.
-10. **Investigate L9** — why do FECS/GPCCS halt instead of running? mb0=1 return code research.
-10. Build nvidia_oracle.ko (Gap 6)
-11. Document findings in experiment journals
+10. ~~Investigate L9~~ — **DONE** (Exp 088): post-ACR STARTCPU transitions falcons to RUNNING.
+11. **Investigate L10** — SEC2 CMDQ ring protocol for GPCCS bootstrap.
+12. **Implement Ember Ring** — `EmberRing` trait + SEC2 CMDQ implementation.
+13. Build nvidia_oracle.ko (Gap 6)
+14. Document findings in experiment journals
+
+### Gap 13: Swap Safety — D-State Hang on Incomplete Bind (Exp 089c)
+
+**Layer:** Infrastructure / GlowPlug safety
+**Exp:** 089c
+**Status:** CRITICAL DEBT — caused forced power-off
+
+During Exp 089c, a manual swap script unbound Titan #2 from vfio-pci, attempted
+to bind to nouveau (which may have failed), and left the device unbound with
+`driver_override` sysfs in a hung state. Subsequent BAR0 access or kernel
+shutdown attempts caused a PCI D-state hang requiring forced power-off.
+
+**Root cause:** No atomic rollback on failed bind. Device left in limbo.
+
+**Required fix (GlowPlug/Ember):**
+1. **Atomic swap:** If target driver bind fails, immediately rebind to previous driver
+2. **Timeout watchdog:** If bind doesn't complete within N seconds, rollback
+3. **Pre-swap validation:** Check if target module is loaded before attempting bind
+4. **sysfs lock guard:** Never leave `driver_override` set without completing the bind
+5. **D-state detection:** Monitor `power/runtime_status` during swap, abort if transitioning to D3
+
+**Handoff:** Add to coralReef GlowPlug evolution — this is a safety-critical path.
 
 ## Handoffs Delivered to coralReef
 
@@ -286,5 +464,5 @@ RUNNING (0x00). SEC2 mailbox `mb0=1` after BOOTSTRAP_FALCON command.
 | Spec | Scope |
 |------|-------|
 | `DRIVER_AS_SOFTWARE.md` | Swap-capture-return cycle, recipe distillation |
-| `UNIVERSAL_DRIVER_REAGENT_ARCHITECTURE.md` | Open targets, reagent safety, trace foundation |
+| `UNIVERSAL_DRIVER_REAGENT_ARCHITECTURE.md` | Open targets, reagent safety, trace foundation, **Ember Ring Architecture** |
 | `NATIVE_COMPUTE_ROADMAP.md` | Late-stage: borrow compute from gaming GPUs |

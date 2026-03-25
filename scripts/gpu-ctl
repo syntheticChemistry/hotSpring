@@ -1,15 +1,15 @@
 #!/bin/bash
-# gpu-ctl — passwordless GPU device control for coralReef
+# gpu-ctl — GPU device control wrapper for coralReef
 #
-# Uses sudo with tee (allowed via coralreef-sudoers) to write to sysfs.
-# No interactive password prompt needed.
+# Driver operations (swap, bind, unbind, setup) delegate to coralctl for
+# safe lifecycle management with rollback, watchdog, and driver_override cleanup.
+# Direct sysfs writes are only used for read-only status and power pinning.
 #
 # Usage:
-#   gpu-ctl bind   BDF vfio-pci    # Bind device to driver
-#   gpu-ctl unbind BDF              # Unbind device from current driver
-#   gpu-ctl d0     BDF              # Force D0 + pin power=on
-#   gpu-ctl status                   # Show all GPU states
-#   gpu-ctl setup                    # Full dual Titan V setup
+#   gpu-ctl swap   BDF DRIVER        # Hot-swap to new driver (via coralctl)
+#   gpu-ctl d0     BDF               # Force D0 + pin power=on
+#   gpu-ctl status                    # Show all GPU states
+#   gpu-ctl setup                     # Full dual Titan V setup (via coralctl)
 
 set -euo pipefail
 
@@ -17,24 +17,19 @@ sysfs_write() {
     echo "$2" | sudo -n tee "$1" > /dev/null 2>&1
 }
 
-cmd_bind() {
-    local bdf="$1" driver="$2"
-    sysfs_write "/sys/bus/pci/devices/$bdf/driver_override" "$driver"
-    sysfs_write "/sys/bus/pci/drivers/$driver/bind" "$bdf" || true
-    sysfs_write "/sys/bus/pci/devices/$bdf/power/control" "on"
-    echo "$bdf → $driver (power=on)"
+require_coralctl() {
+    if ! command -v coralctl &>/dev/null; then
+        echo "ERROR: coralctl not found. Build with: cargo build --release -p coral-glowplug"
+        echo "       Driver operations require GlowPlug/Ember for safe swap lifecycle."
+        exit 1
+    fi
 }
 
-cmd_unbind() {
-    local bdf="$1"
-    local drv_path="/sys/bus/pci/devices/$bdf/driver"
-    if [ -L "$drv_path" ]; then
-        local drv=$(basename "$(readlink "$drv_path")")
-        sysfs_write "/sys/bus/pci/devices/$bdf/driver/unbind" "$bdf"
-        echo "$bdf: unbound from $drv"
-    else
-        echo "$bdf: already unbound"
-    fi
+cmd_swap() {
+    require_coralctl
+    local bdf="$1" target="$2"
+    echo "Swapping $bdf → $target (via coralctl)"
+    coralctl swap "$bdf" "$target"
 }
 
 cmd_d0() {
@@ -45,23 +40,11 @@ cmd_d0() {
     echo "$bdf: power=$pwr (pinned D0)"
 }
 
-cmd_swap() {
-    local bdf="$1" target="$2"
-    echo "Swapping $bdf → $target"
-    cmd_unbind "$bdf"
-    sleep 0.5
-    sysfs_write "/sys/bus/pci/devices/$bdf/power/control" "on"
-    cmd_bind "$bdf" "$target"
-    sleep 1
-    cmd_d0 "$bdf"
-}
-
 cmd_status() {
     echo "╔══ GPU Status ══════════════════════════════════════════╗"
     for dev in $(find /sys/bus/pci/devices/ -maxdepth 1 -name "0000:*" | sort); do
         local bdf=$(basename "$dev")
         local class=$(cat "$dev/class" 2>/dev/null || echo "?")
-        # Only show VGA (0x0300) and 3D (0x0302) controllers
         case "$class" in
             0x030000|0x030200)
                 local vendor=$(cat "$dev/vendor" 2>/dev/null)
@@ -82,35 +65,15 @@ cmd_status() {
 }
 
 cmd_setup() {
+    require_coralctl
     echo ">>> Setting up dual Titan V (oracle + VFIO target)..."
 
     local ORACLE="0000:03:00.0"
     local TARGET="0000:4a:00.0"
-    local TARGET_AUD="0000:4a:00.1"
 
-    # Ensure vfio-pci is loaded
-    sudo -n modprobe vfio-pci 2>/dev/null || true
-
-    # Unbind target from whatever has it
-    cmd_unbind "$TARGET" 2>/dev/null || true
-    cmd_unbind "$TARGET_AUD" 2>/dev/null || true
-    sleep 0.5
-
-    # Bind target to vfio-pci
-    cmd_bind "$TARGET" "vfio-pci"
-    cmd_bind "$TARGET_AUD" "vfio-pci" 2>/dev/null || true
-
-    # Pin D0
+    coralctl swap "$TARGET" vfio
     cmd_d0 "$TARGET"
 
-    # Set VFIO group permissions
-    local group=$(basename "$(readlink "/sys/bus/pci/devices/$TARGET/iommu_group")" 2>/dev/null || echo "?")
-    if [ -e "/dev/vfio/$group" ]; then
-        sudo -n chmod 666 "/dev/vfio/$group" 2>/dev/null || true
-        echo "VFIO group $group: permissions set"
-    fi
-
-    # Oracle should be on nouveau already
     local oracle_drv=$(basename "$(readlink "/sys/bus/pci/devices/$ORACLE/driver" 2>/dev/null)" 2>/dev/null || echo "none")
     echo "Oracle ($ORACLE): $oracle_drv"
 
@@ -121,12 +84,9 @@ cmd_setup() {
     echo "  CORALREEF_VFIO_BDF=$TARGET cargo test --test hw_nv_vfio --features vfio -- --ignored --test-threads=1"
 }
 
-# Dispatch
 case "${1:-help}" in
-    bind)   cmd_bind "$2" "$3" ;;
-    unbind) cmd_unbind "$2" ;;
-    d0)     cmd_d0 "$2" ;;
     swap)   cmd_swap "$2" "$3" ;;
+    d0)     cmd_d0 "$2" ;;
     status) cmd_status ;;
     setup)  cmd_setup ;;
     *)
@@ -135,9 +95,10 @@ case "${1:-help}" in
         echo "Usage:"
         echo "  gpu-ctl status                 Show all GPUs"
         echo "  gpu-ctl setup                  Configure dual Titan V"
-        echo "  gpu-ctl bind BDF DRIVER        Bind device to driver"
-        echo "  gpu-ctl unbind BDF             Unbind device"
         echo "  gpu-ctl swap BDF DRIVER        Hot-swap to new driver"
         echo "  gpu-ctl d0 BDF                 Force D0 power state"
+        echo ""
+        echo "Driver operations delegate to coralctl (GlowPlug/Ember) for safe"
+        echo "swap lifecycle with rollback, watchdog, and driver_override cleanup."
         ;;
 esac

@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# DEPRECATED: This script uses raw sysfs writes (new_id, bind, unbind).
+# Use `coralctl swap` for driver transitions. Archived 2026-03-25 (Gap 13 safety).
 # Exp 084: Hardware validation of B1-B4 bind_inst fixes
 # Run post-reboot: sudo ./scripts/exp084_b1b4_test.sh
 #

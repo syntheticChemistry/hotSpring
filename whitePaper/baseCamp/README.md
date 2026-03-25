@@ -1,10 +1,10 @@
 # baseCamp: Research Domain Briefings
 
-**Date:** 2026-03-22
+**Date:** 2026-03-25
 **Project:** hotSpring (ecoPrimals)
-**Status:** v0.6.32, experiments 001-073, 848 lib tests, 39/39 validation suites, 115 binaries, 85 WGSL shaders
+**Status:** v0.6.32, experiments 001-092, 4,065 tests pass, 39/39 validation suites, 115+ binaries, 85+ WGSL shaders
 
-**Notes:** Upstream primal sync: barraCuda `7c1fd03a` (eigensolver, activations, PRNG), coralReef Iter 47 VFIO dispatch + coral-glowplug daemon, toadStool S155b PcieTransport + ResourceOrchestrator. Sovereign GPU compute: **FECS firmware executes from host-loaded IMEM** on clean falcon (Exp 068), SEC2 EMEM writable (Exp 067), ACR bootloader executes (Exp 067-068), D3hot→D0 produces exploitable clean state. coral-glowplug production-grade boot-persistent PCIe broker: personality hot-swap, health monitor, auto-D0 recovery, VFIO-first boot, graceful shutdown, DRM render node fencing (Exp 065+069). PRIVRING fault lesson: never PMC-toggle GR bit 12 on GV100 (Exp 068). Gap 1+4 CLOSED, sovereign routing with `sovereign_resolves_poisoning()`. Chuna Papers 43-45: **44/44 overnight checks pass**. All AGPL-3.0-only.
+**Notes:** Upstream primal sync: barraCuda `7c1fd03a` (eigensolver, activations, PRNG), coralReef Iter 66+ (ring/mailbox/journal/observers/adaptive), toadStool S155b+ PcieTransport + ResourceOrchestrator. Sovereign GPU compute: **10/11 layers solved** — BOOTVEC fix applied (Exp 091), adaptive experiment loop live (Exp 092). `coralctl experiment sweep` on both Titan Vs: nouveau 21.9s/nvidia-open 26.8s bind, sub-1% cross-card variance. Journal + AdaptiveLifecycle + DriverObserver wired end-to-end. HBM2 alive on both cards. Chuna Papers 43-45: **44/44 overnight checks pass**. All AGPL-3.0-only.
 
 ---
 

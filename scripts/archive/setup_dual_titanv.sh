@@ -1,4 +1,6 @@
 #!/bin/bash
+# DEPRECATED: This script uses raw sysfs writes (driver_override, bind, unbind, reset_method).
+# Use `coralctl swap` for driver transitions. Archived 2026-03-25 (Gap 13 safety).
 # setup_dual_titanv.sh — Configure dual Titan V for cross-testing
 #
 # Layout after this script:

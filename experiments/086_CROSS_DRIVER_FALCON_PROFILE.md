@@ -4,7 +4,7 @@
 **Type:** Profiling campaign (both Titan V GPUs × 3 drivers)
 **Goal:** Profile falcon register state across all available drivers to determine
 if WPR/ACR is a key+lock or a mis-used interface before attacking Layer 8.
-**Status:** READY TO RUN
+**Status:** COMPLETE — critical insights delivered (see Gap 5 in gap tracker)
 
 ---
 

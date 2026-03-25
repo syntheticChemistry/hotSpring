@@ -1,4 +1,5 @@
 #!/bin/bash
+# DEPRECATED: Use `coralctl swap <BDF> nouveau` instead. Raw sysfs writes risk D-state hangs.
 # Unbind Titan V from vfio-pci and return to nouveau.
 #
 # Run with: sudo ./scripts/unbind-titanv-vfio.sh

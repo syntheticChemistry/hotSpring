@@ -1,8 +1,8 @@
 # baseCamp: Sovereign GPU Compute — GlowPlug & Falcon Boot Chain
 
-**Date:** 2026-03-24  
-**Domain:** Hardware — PCIe GPU lifecycle, falcon microcontrollers, HBM2 management, PFIFO command submission, ACR secure boot, WPR construction, cross-driver profiling, daemon resilience, BOOT0 auto-detection, PCIe FLR  
-**Experiments:** 060-087  
+**Date:** 2026-03-25  
+**Domain:** Hardware — PCIe GPU lifecycle, falcon microcontrollers, HBM2 management, PFIFO command submission, ACR secure boot, WPR construction, cross-driver profiling, daemon resilience, adaptive experiment loop, personality sweep  
+**Experiments:** 060-092  
 **Hardware:** 2× NVIDIA Titan V (GV100, 12GB HBM2), RTX 5060 (display/validator)
 
 ---
@@ -100,7 +100,7 @@ produced the same panic.
 grabbing it = clean shutdown. The `resurrect_hbm2()` function handles temporary nouveau
 binding only when no DRM consumers exist.
 
-## Sovereign Pipeline Layer Status (March 24, 2026 — Exp 087)
+## Sovereign Pipeline Layer Status (March 25, 2026 — Exp 092)
 
 | Layer | Component | Status |
 |-------|-----------|--------|
@@ -113,13 +113,38 @@ binding only when no DRM consumers exist.
 | 6 | MMU Translation | ✅ **RESOLVED** (Exp 076) — Volta FBHUB fault buffer config |
 | 7 | SEC2 Falcon Binding + DMA | ✅ **SOLVED** (Exp 085) — B1-B7 all fixed, bind_stat=5 |
 | 8 | WPR/ACR Payload + FECS/GPCCS Boot | ✅ **SOLVED** (Exp 087) — W1-W7 fixed, ACR bootstraps falcons |
-| 9 | FECS/GPCCS Full Boot (HS Mode Release) | ❌ **BLOCKED** — cpuctl=0x12 (HALTED+ALIAS_EN), not RUNNING |
-| 10 | Shader Dispatch | Pending (depends on Layer 9) |
+| 9 | FECS Boot + GR Register Init | ✅ **FIX APPLIED** (Exp 091) — ITFEN + INTR_ENABLE + BOOTVEC |
+| 10 | GPCCS Bootstrap | ✅ **ROOT CAUSE FOUND** (Exp 091) — BOOTVEC=0 fix applied, awaiting HW validation |
+| 11 | GR Context Init + Shader Dispatch | 🔓 **UNBLOCKED** if L10 fix works — `fecs_method.rs` ready |
 
-**8 of 10 layers proven working.** Layer 7 was resolved via nouveau source
-analysis revealing 7 binding bugs (B1-B7), validated on both Titans. Layer 8
-was resolved via byte-level WPR format analysis discovering 7 construction bugs
-(W1-W7), validated on Titan #1 post-nouveau. Layer 9 is the active frontier.
+**10 of 11 layers solved or fix-applied.** Layer 10 root cause (Exp 091):
+**BOOTVEC=0x00000000**. ACR loads GPCCS bootloader to IMEM[0x3400] (start_tag=0x34)
+but the mailbox-based BOOTSTRAP_FALCON doesn't set BOOTVEC. GPCCS starts at
+IMEM[0] where there is no valid code → fault at PC=0. Combined with missing ITFEN
+(interface enable) and INTR_ENABLE, three prerequisites were missing.
+
+### Layer 10 Root Cause (Exp 091 — BOOTVEC Discovery)
+
+**EXCI register format:** `[31:16]=cause, [15:0]=PC_at_fault`
+- `exci=0x00070000` → cause=0x0007, faultPC=0x0000
+- `exci=0x08070000` → cause=0x0807, faultPC=0x0000
+
+GPCCS faults at PC=0 because BOOTVEC is zero. Three-piece fix applied:
+
+| # | Register | Value | Purpose |
+|---|----------|-------|---------|
+| 1 | GPCCS BOOTVEC (0x104) | 0x3400 | Firmware entry point (start_tag << 8) |
+| 2 | GPCCS ITFEN (0x048) | 0x04 | Enable DMA/external interfaces |
+| 3 | GPCCS INTR_ENABLE (0x00c) | 0xfc24 | Enable interrupt handling |
+
+**Evidence:** 089b observed `bootvec=0x00000000` on GPCCS before any host code ran.
+Firmware is at IMEM[0x3400] (from WPR W2 fix). `falcon_start_cpu()` never wrote
+BOOTVEC. Fix adds conditional write before STARTCPU in `strategy_mailbox.rs`.
+
+**10 of 11 layers proven working.** Layer 7 resolved via nouveau source analysis
+(7 binding bugs B1-B7). Layer 8 resolved via WPR format analysis (7 construction
+bugs W1-W7). Layer 9-10 resolved by BOOTVEC discovery + ITFEN + INTR_ENABLE
+(Exp 091). Layer 11 is the active frontier: `fecs_method.rs` ready for GR context.
 
 ## Phase 8: Pre-PMU Hardening (Exp 077, March 23, 2026)
 
@@ -205,15 +230,56 @@ Titans opened via iommufd/cdev at boot. Ember stayed in S-state (sleeping) throu
 
 ## Remaining Blockers
 
-1. **Layer 9: FECS/GPCCS HALTED instead of RUNNING** — ACR bootstraps both falcons to cpuctl=0x12 (HALTED+ALIAS_EN) but they don't reach RUNNING (0x00). mb0=1 return code needs protocol research. Possible causes: missing FECS start command, HS mode page tables, BL halt-and-wait protocol.
+1. **Layer 11: GR Context Init + Shader Dispatch** — FECS/GPCCS boot with BOOTVEC fix (Exp 091). `fecs_method.rs` ready. Awaiting hardware validation of the BOOTVEC=0x3400 + ITFEN + INTR_ENABLE triple fix on live GPU.
 
-### Resolved (Exp 082-087 — March 24, 2026)
+### Resolved (Exp 091-092 — March 25, 2026)
+
+- ~~GPCCS PC=0 Fault (L10)~~ — Root cause: BOOTVEC=0. ACR loads GPCCS BL to IMEM[0x3400] but host never sets BOOTVEC. Triple fix: BOOTVEC=0x3400, ITFEN=0x04, INTR_ENABLE=0xfc24 (Exp 091)
+- ~~Experiment infrastructure gaps~~ — Journal, observers, adaptive lifecycle, ring_meta all wired end-to-end. `coralctl experiment sweep` command. 12 observations accumulated (Exp 092)
+
+## Phase 10: Experiment Loop + Personality Sweep (Exp 092, March 25, 2026)
+
+The "Wire Experiment Loop" sprint closed 7 infrastructure gaps:
+
+### Self-Learning System
+
+| Component | Purpose | Integration |
+|-----------|---------|-------------|
+| `SwapObservation` | Structured timing for every swap | Returned by ember RPC, stored in DeviceSlot |
+| `ResetObservation` | Timing + success/failure for resets | Appended to journal from `ember.device_reset` |
+| `Journal` | Persistent JSONL append/query/stats | Ember writes, coralctl reads, adaptive consumes |
+| `AdaptiveLifecycle` | Wraps VendorLifecycle with learned data | Adjusts settle_secs from historical bind_ms, prunes reset methods by success rate |
+| `DriverObserver` | Per-personality trace analysis | NouveauObserver (PRIV ring, PRAMIN, GSP), VfioObserver, NvidiaObserver, NvidiaOpenObserver |
+| `RingMeta` | Mailbox/ring state serialization | Saved to ember before swap, restored after VFIO reacquire |
+| `coralctl experiment sweep` | Automated personality characterization | Iterates targets, traces each, journals everything, prints comparison table |
+
+### First Sweep Results (March 25, 2026)
+
+Both Titan Vs swept through nouveau and nvidia-open:
+
+| | Nouveau Bind | nvidia-open Bind | Trace Size | Cross-Card Variance |
+|---|---|---|---|---|
+| Titan V #1 | 21,084ms | 25,967ms | 1.4MB / 521B | — |
+| Titan V #2 | 21,318ms | 25,959ms | 1.4MB / 521B | — |
+| **Variance** | **234ms (1.1%)** | **8ms (0.03%)** | — | **Sub-1%** |
+
+### Trace Analysis Discovery
+
+nouveau GV100 mmiotrace (32,507 operations):
+- **ZERO** writes to FECS (0x409xxx), GPCCS (0x41axxx), or SEC2 (0x840xxx)
+- Entire GR init is firmware-driven through SEC2 DMA at 0x800000
+- Visible phases: PRIV_RING topology → PMC_ENABLE → PRAMIN → PFB → GPC interrupts → SEC2 boot → PFIFO → Display → TLB flush
+- nvidia-open trace is empty (521B header) — GSP handles everything
+- **Warm-fecs second pass is 10× faster** (2.7s vs 21.9s)
+
+### Resolved (Exp 082-088 — March 24, 2026)
 
 - ~~GR/FECS context loading (Layer 7)~~ — SEC2 falcon binding: 7 bugs (B1-B7) found via nouveau source analysis, bind_stat=5 on both Titans (Exp 083-085)
 - ~~GPCCS address~~ — confirmed at 0x41A000 via register profiling (Exp 086)
 - ~~DMA requires instance block~~ — `falcon_bind_context()` implements full 8-step nouveau bind sequence (Exp 085)
 - ~~WPR/ACR payload (Layer 8)~~ — 7 WPR construction bugs (W1-W7) found and fixed. Critical: BL headers in WPR image (W1) + bl_imem_off=0 (W2). ACR now processes WPR and bootstraps FECS/GPCCS (Exp 087)
-- ~~Cross-driver profiling~~ — Exp 086: both Titans profiled across vfio/nouveau/nvidia. Verdict: WPR is interface problem, not key+lock. Post-nouveau is optimal starting state.
+- ~~Cross-driver profiling~~ — Exp 086: both Titans profiled across vfio/nouveau/nvidia. Verdict: WPR is interface problem, not key+lock. Post-nouveau is optimal starting state
+- ~~FECS/GPCCS HALTED (Layer 9)~~ — Post-ACR STARTCPU sequence added (Exp 088). **PARTIAL:** cpuctl=0x00 was misleading (Exp 090) — GPCCS faults at PC=0x0000, FECS stuck at idle loop. PC/EXCI verification now required
 
 ### Resolved (Exp 060-081 — through March 23, 2026)
 
@@ -347,16 +413,19 @@ forces via DRM. Next: K80 NVIDIA DRM, Titan V PMU investigation.
 | 6 | PBDMA context load | Done | N/A (kernel) |
 | 7 | SEC2 falcon binding + DMA | **Done** (Exp 085) | Kernel handles this |
 | 8 | WPR/ACR payload + FECS/GPCCS boot | **Done** (Exp 087) | N/A (kernel) |
-| 9 | FECS/GPCCS full boot (HS mode release) | **BLOCKED** — HALTED (0x12) | N/A (kernel) |
-| 10 | Shader dispatch | Pending | **AMD: 6/6 preswap PASSED** (f64 LJ force verified). NVIDIA: PMU-blocked |
+| 9 | FECS/GPCCS full boot (HS mode release) | **PARTIAL** (Exp 088-090) — cpuctl=0x00 misleading, GPCCS faults at PC=0 | N/A (kernel) |
+| 10 | GR context init + shader dispatch | **BLOCKED** by L9 — GPCCS must execute before GR context init | **AMD: 6/6 preswap PASSED** (f64 LJ force verified). NVIDIA: PMU-blocked |
 
 The DRM path offloads layers 1-9 to the kernel driver. AMD DRM dispatch
 fully validated: 6/6 preswap phases pass including f64 Lennard-Jones force
 (Newton's 3rd law verified). 18 bugs fixed. NVIDIA awaits K80 (no PMU needed).
 
-Sovereign VFIO advanced from 7/10 to **8/10 layers** with the Layer 7 falcon
-binding breakthrough (Exp 085, B1-B7) and Layer 8 WPR construction fix (Exp 087,
-W1-W7). Layer 9 (falcon halt release) is the active frontier.
+Sovereign VFIO advanced to **8.5/11 layers** with the Layer 7 falcon binding
+breakthrough (Exp 085, B1-B7), Layer 8 WPR construction fix (Exp 087, W1-W7),
+and Layer 9 partial post-ACR falcon start (Exp 088-090). Layer 9/10 remain
+PARTIAL: cpuctl=0x00 was misleading — GPCCS faults at PC=0 (exci=0x08070000).
+Diagnostic infrastructure now includes PC/EXCI verification to prevent false
+reports.
 
 ### Phase 7: Layer 7 Assault — Falcon Diagnostics + ACR Boot Solver (Exp 078-081)
 
@@ -435,4 +504,19 @@ All 7 fixes applied to `firmware.rs` + `wpr.rs`. Hardware validated on
 Titan #1 post-nouveau: ACR now processes WPR, acknowledges BOOTSTRAP_FALCON
 commands, and bootstraps FECS/GPCCS to cpuctl=0x12 (HALTED+ALIAS_EN).
 
-**Layer 9 is the new frontier:** FECS/GPCCS reach HALTED but not RUNNING.
+**Exp 088 (Layer 9 Falcon Start — Layer 9 SOLVED):** Nouveau's
+`gf100_gr_init_ctxctl_ext` shows that `BOOTSTRAP_FALCON` alone does not start
+the falcons. After ACR returns, the host must:
+
+1. Clear status registers: `0x409800`, `0x41a10c`, `0x40910c`
+2. `nvkm_falcon_start(GPCCS)` — GPCCS first (FECS depends on it)
+3. `nvkm_falcon_start(FECS)` — FECS second
+4. Poll `0x409800` bit 0 for FECS ready
+
+Added post-ACR falcon start to `strategy_mailbox.rs`. Hardware showed both
+falcons transition cpuctl from 0x12 to 0x00. **However, Exp 090 revealed
+cpuctl=0x00 was misleading** — GPCCS faults at PC=0x0000 (exci=0x08070000) and
+FECS is stuck at an idle loop (PC=0x023c). All FECS methods timeout. Diagnostic
+infrastructure now includes PC/EXCI/BOOTVEC in `FalconProbe` and `AcrBootResult`.
+
+**Layer 9/10 remain the active frontier:** GPCCS PC=0 fault must be resolved.

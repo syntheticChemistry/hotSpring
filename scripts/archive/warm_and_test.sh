@@ -1,4 +1,6 @@
 #!/bin/bash
+# DEPRECATED: This script uses raw sysfs writes (driver_override, bind, unbind).
+# Use `coralctl swap` for driver transitions. Archived 2026-03-25 (Gap 13 safety).
 # warm_and_test.sh — Warm GPU via nouveau, rebind to vfio-pci, run diagnostic matrix
 #
 # Usage: sudo ./scripts/warm_and_test.sh [GPU_BDF] [WAIT_SECS]

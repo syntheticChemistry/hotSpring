@@ -1,4 +1,5 @@
 #!/bin/bash
+# DEPRECATED: Use `coralctl swap <BDF> vfio` instead. Raw sysfs writes risk D-state hangs.
 echo "10de 1d81" > /sys/bus/pci/drivers/vfio-pci/new_id 2>/dev/null || true
 echo "0000:4b:00.0" > /sys/bus/pci/drivers/vfio-pci/bind 2>/dev/null || true
 echo "0000:4b:00.1" > /sys/bus/pci/devices/0000:4b:00.1/driver/unbind 2>/dev/null || true
