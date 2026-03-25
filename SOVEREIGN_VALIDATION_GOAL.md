@@ -1,13 +1,13 @@
 # hotSpring — Sovereign Validation Goal
 
-> **Note (March 23, 2026):** **Layer 6 (MMU page table translation) PROVEN** — see [`experiments/076_MMU_FAULT_BUFFER_LAYER6_BREAKTHROUGH.md`](experiments/076_MMU_FAULT_BUFFER_LAYER6_BREAKTHROUGH.md). 7/10 sovereign pipeline layers proven. Root cause: missing Volta non-replayable fault buffer in `VfioChannel::create`; FBHUB stalled on undrained fault entries. Fix: allocate `FAULT_BUF0/1` at `FAULT_BUF_IOVA` before page table population. Validated on Titan V via ember `SCM_RIGHTS`. DMA alloc, upload, readback all pass. Next target: Layer 7 (GR/FECS compute context). See also: [`experiments/071_PFIFO_DIAGNOSTIC_MATRIX_MMU_CRACKING.md`](experiments/071_PFIFO_DIAGNOSTIC_MATRIX_MMU_CRACKING.md).
+> **Note (March 25, 2026):** **9/10 sovereign pipeline layers SOLVED.** Layer 7 (falcon binding: B1-B7, Exp 085), Layer 8 (WPR: W1-W7, Exp 087), Layer 9 (falcon start, Exp 088) all solved. SCTL myth busted — PIO works regardless of security mode (Exp 091). FalconCapabilityProbe runtime bit solver added. Layer 10 root cause found: BOOTVEC=0 for GPCCS (Exp 091). Deep code quality sprint: 60+ hardcoded offsets → constants, 4 unsafe blocks eliminated, NonNull DMA. See [`specs/GPU_CRACKING_GAP_TRACKER.md`](specs/GPU_CRACKING_GAP_TRACKER.md) and [`experiments/091_LAYER_REVISIT_BOOTVEC_DISCOVERY.md`](experiments/091_LAYER_REVISIT_BOOTVEC_DISCOVERY.md).
 
 ## CERN-Grade Reproducible Physics at Home. Scalable to CERN.
 
 **Date**: March 14, 2026
 **Version**: v0.6.31
 **Status**: 848 tests, 119 binaries, 85 shaders, 44/44 Chuna overnight, 0.000% energy drift
-**VFIO Validation**: 7/10 sovereign pipeline layers proven on Titan V (GV100) via VFIO — BAR0, IOMMU, HBM2, clock, PFIFO, **MMU page tables** all verified on real hardware. **Layer 6 MMU PROVEN** (March 23): fault buffer fix unblocked FBHUB, DMA alloc+upload+readback pass. Remaining: Layer 7 GR/FECS compute context init.
+**VFIO Validation**: **9/10 sovereign pipeline layers SOLVED** on Titan V (GV100) via VFIO. Layers 1-9 proven on real hardware. Layer 10 root cause found (BOOTVEC). Layer 11 (shader dispatch) blocked by L10. See `specs/GPU_CRACKING_GAP_TRACKER.md`.
 **Hardware Plan**: GTX 1050 (headless) + 2x Titan V (VFIO target + nouveau oracle) — planned weekend swap
 
 ---

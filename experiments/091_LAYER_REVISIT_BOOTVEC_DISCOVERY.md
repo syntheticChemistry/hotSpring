@@ -1,9 +1,14 @@
-# Exp 091: Full Layer Revisit — BOOTVEC Discovery
+# Exp 091: Full Layer Revisit — BOOTVEC Discovery + SCTL Myth Busted
 
 **Date:** 2026-03-23
 **Status:** ACTIVE
 **Depends:** Exp 085-090, coralReef Iter 66 (ring/mailbox/ITFEN)
 **Goal:** Systematically revisit all layers, identify hidden timing/ordering bugs, test GPCCS BOOTVEC hypothesis
+
+**CRITICAL UPDATE (SCTL Debt Sprint):** IMEMC format uses BIT(24) for auto-increment,
+not BIT(6). SCTL=0x3000 does NOT block PIO. All previous "SCTL blocks PIO" conclusions
+were caused by wrong IMEMC control word in manual `coralctl` commands. The Rust code
+was always correct. `FalconCapabilityProbe` added to discover PIO format at runtime.
 
 ## Layer-by-Layer Audit
 
@@ -225,3 +230,49 @@ coralctl ring.create --bdf 0000:65:00.0 --name gpfifo --capacity 64
 ```
 
 This provides timestamped command/response tracking across the full boot chain.
+
+## Exp 091 Addendum: SCTL Debt Sprint Results (2026-03-23)
+
+### Direct PIO Boot (Path B — bypass ACR)
+
+**Test:** `vfio_sovereign_gr_boot` with BOOTVEC=0 + ITFEN=0x04 + INTR_ENABLE=0xfc24
+
+**Results (GPU1 0000:03:00.0):**
+- PIO upload: **SUCCESS** (SCTL=0x3000 does not block PIO)
+- STARTCPU: **EXECUTES** (FECS reached PC=0x02b6 before fault)
+- FECS exci=0x03070000 (cause=0x0307 at PC=0x02b6)
+- GPCCS exci=0x03070000 (cause=0x0307 at PC=0x0000)
+
+**Diagnosis:** Exception 0x0307 is likely caused by W1 header bytes in IMEM — raw
+`fecs_bl.bin` includes 64B nvfw_bin_hdr + nvfw_hs_bl_desc before actual code. The
+direct upload path uploads the entire file including headers. The ACR path (Exp 087)
+strips these headers. **Next step: strip headers in direct upload path.**
+
+### FBIF Characterization (Cold VFIO State)
+
+**Both GPUs identical in cold VFIO state:**
+
+| Register | GPU1 (03:00.0) | GPU2 (4a:00.0) | Meaning |
+|----------|----------------|----------------|---------|
+| SEC2 FBIF 0x624 | 0x110 | 0x110 | May need PHYS_VID mode for DMA |
+| SEC2 DMACTL | 0x01 | 0x01 | DMEM scrub done |
+| SEC2 ITFEN | 0x04 | 0x04 | ACCESS_EN set |
+| SEC2 CPUCTL | 0x10 | 0x10 | HRESET/halted |
+| SEC2 SCTL | 0x3000 | 0x3000 | LS mode (fuse-enforced) |
+| PBUS BAR1_BLOCK | 0x002fff00 | 0x002fff00 | Has pointer |
+| PBUS BAR2_BLOCK | 0x20000000 | 0x20000000 | Target=VRAM |
+| PMC_ENABLE | 0x5fecdff1 | 0x5fecdff1 | Bit 22 (SEC2) locked on |
+| NV_PFB 0x100c2c | 0xbadf5040 | 0xbadf5040 | PRI error — FBHUB not accessible |
+
+**Key finding:** SEC2 FBIF=0x110 in cold state. Previous Exp 091e showed:
+- GPU1 FBIF=0x190 → won't accept PHYS_VID writes, DMA fault 0x201f0007 (VIRT)
+- GPU2 FBIF=0x91 → accepts PHYS_VID, DMA fault 0x051f0007 (PHYS)
+
+**FBHUB PRI errors** (0xbadf5040) in PFB registers suggest the FBHUB MMU is
+not initialized in cold VFIO state. This is the likely root cause of DMA failures:
+SEC2 cannot DMA from VRAM because FBHUB doesn't have valid page tables.
+
+**Next steps:**
+1. Strip W1 headers from direct PIO upload (enables Path B)
+2. Capture nouveau warm FBIF values for comparison (mmiotrace or warm handoff)
+3. Try FBIF mode override to PHYS_VID before SEC2 DMA bind

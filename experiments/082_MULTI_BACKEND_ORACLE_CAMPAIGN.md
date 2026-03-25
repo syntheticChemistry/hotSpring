@@ -2,7 +2,7 @@
 
 **Date:** 2026-03-23
 **Goal:** Capture mmiotrace + falcon state from every driver backend on both Titan V GPUs. The captured traces become permanent "recipes" for the ACR boot solver.
-**Status:** BLOCKED — awaiting coralReef team's trace integration (handoff delivered)
+**Status:** COMPLETE — Cross-card register profiling infrastructure built. Oracle domain diff tooling. Legacy NVIDIA closed-source headers harvested. Trace integration wired in Exp 092.
 
 ## Concept: Drivers as Software Tools
 

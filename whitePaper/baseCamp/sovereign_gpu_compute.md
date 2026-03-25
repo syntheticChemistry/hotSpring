@@ -520,3 +520,36 @@ FECS is stuck at an idle loop (PC=0x023c). All FECS methods timeout. Diagnostic
 infrastructure now includes PC/EXCI/BOOTVEC in `FalconProbe` and `AcrBootResult`.
 
 **Layer 9/10 remain the active frontier:** GPCCS PC=0 fault must be resolved.
+
+### Phase 10: SCTL Myth Busted + FalconCapabilityProbe + Deep Code Evolution (Exp 091+)
+
+**SCTL Myth Busted:** The IMEMC register on GM200+ falcons uses **BIT(24)**
+(`0x0100_0000`) for write auto-increment, not BIT(6). All previous manual PIO
+tests used the wrong format, creating a false impression that SCTL blocks PIO.
+PIO works regardless of security mode. This invalidated FLR attempts, SBR for
+SCTL clearing, and warm handoff as PIO-motivated strategies.
+
+**FalconCapabilityProbe:** Runtime bit solver in `falcon_capability.rs` that
+discovers register layouts on actual hardware. Probes `IMEMC`/`DMEMC`/`EMEMC`
+format, falcon version, security mode, CPUCTL layout. Makes PIO interface
+portable across GPU generations. Pattern: probe → `FalconCapabilities` struct
+→ `FalconPio` safe API.
+
+**Deep Code Quality Sprint:**
+- 60+ hardcoded BAR0 hex offsets → named constants in `registers.rs`
+- 4 `unsafe` blocks eliminated via safe `DmaBuffer::volatile_write_u32/u64`
+- `*mut u8` → `NonNull<u8>` in DMA buffers
+- Shared boot helpers extracted: `poll_falcon_boot`, `dmem_nonzero_summary`
+- Mock/placeholder language cleaned across 4 production files
+- 511 lib tests pass, zero new unsafe
+
+**Updated Layer Model:**
+
+| Layer | Status | Discovery |
+|-------|--------|-----------|
+| L7 | **REGRESSION** (Exp 091e) | DMA fault (not SCTL). FBIF circular dep. PIO works |
+| L10 | **ROOT CAUSE FOUND** | BOOTVEC=0 — GPCCS starts at IMEM[0] instead of [0x3400] |
+| L11 | BLOCKED by L10 | FECS at idle loop (PC=0x023c), methods timeout |
+
+**Remaining blocker:** DMA configuration (FBIF mode, FBHUB MMU) for SEC2, plus
+BOOTVEC fix for GPCCS. Not security mode.

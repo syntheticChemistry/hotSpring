@@ -1,7 +1,30 @@
 # GPU Cracking Gap Tracker
 
-**Updated:** 2026-03-25 (Exp 091e — DMA fault root cause chain: PMC-locked SEC2 + FBIF circular dependency)
+**Updated:** 2026-03-25 (SCTL Debt Evolution Sprint — IMEMC BIT(24) discovery + FalconCapabilityProbe + Deep Code Quality Sprint)
 **Goal:** Sovereign compute on Titan V (GV100) — FECS/GPCCS running without proprietary ACR chain
+
+## MYTH BUSTED: SCTL Does NOT Block PIO (Exp 091+)
+
+**Discovery:** The IMEMC register on GM200+ falcons uses **BIT(24)** (`0x0100_0000`)
+for write auto-increment, not BIT(6) (`0x40`). All previous manual `coralctl` PIO
+tests used the wrong control word format, creating the false impression that
+SCTL=0x3000 blocks PIO access. **PIO to IMEM/DMEM/EMEM works regardless of
+security mode** when the correct format is used.
+
+**Evidence chain:**
+1. nouveau `nvkm_falcon_v1_load_imem()` in `nvkm/falcon/v1.c` uses `start_addr | BIT(24)`
+2. All Rust upload functions (`falcon_upload_imem`, `falcon_imem_upload_nouveau`) already
+   used the correct BIT(24) format — the bug was only in manual `coralctl` commands
+3. Hardware-validated: SEC2 IMEM write of `0xDEADBEEF` + readback confirmed on both Titan V cards
+4. SCTL=0x3000 is fuse-enforced LS mode on GV100 — informational, not a PIO gate
+
+**Impact:** Many experiment decisions driven by "must clear SCTL" were unnecessary:
+FLR attempts (Titan V has no FLR), SBR for SCTL clearing, warm handoff to preserve
+firmware. The actual remaining blocker is **DMA configuration** (FBIF mode, page tables),
+not security mode.
+
+**Code changes:** `FalconCapabilityProbe` in `falcon_capability.rs` now discovers PIO
+format at runtime via bit-solving, preventing future IMEMC-class bugs on any GPU generation.
 
 ## Layer Model
 
@@ -13,7 +36,7 @@
 | L4 | PFIFO init + PBDMA discovery | SOLVED | — |
 | L5 | MMU/FBHUB fault buffer setup | PROVEN (Exp 076) | — |
 | L6 | PBDMA context load + channel submit | PARTIAL (Exp 058) | GP_PUT DMA read fails |
-| L7 | SEC2 falcon binding + DMA | **REGRESSION** (Exp 091e) | PMC bit 22 locked + FBIF circular dep → DMA fault. See Gap 14 |
+| L7 | SEC2 falcon binding + DMA | **REGRESSION** (Exp 091e) | **DMA fault** (not SCTL). PMC bit 22 locked + FBIF circular dep. PIO works. See Gap 14 |
 | L8 | WPR/ACR payload + FECS/GPCCS boot | **SOLVED** (Exp 087) | W1-W7 fixed. ACR processes WPR, bootstraps FECS+GPCCS. |
 | L9 | FECS boot + GR register init | **PARTIAL** (Exp 089b) | FECS halted at PC~0x058f, wakes on GR init. GPCCS stuck. |
 | L10 | GPCCS bootstrap via ACR | **ROOT CAUSE FOUND** (Exp 091) | **BOOTVEC=0** — ACR loads BL to IMEM[0x3400] but mailbox path doesn't set BOOTVEC. GPCCS starts at IMEM[0] → fault. Fix: set BOOTVEC=0x3400 + ITFEN + INTR_ENABLE before STARTCPU. |
@@ -258,11 +281,15 @@ IMEM[0] where there is no valid bootloader → immediate exception.
 cpuctl. `FalconProbe` and `AcrBootResult` now include these fields. Success
 requires `gpccs_exci == 0 && gpccs_pc != 0`, not just `cpuctl & HRESET == 0`.
 
-### Gap 11: Layer 10 — GPCCS LS-Mode Lock + CPUCTL Blocked (Exp 089b)
+### Gap 11: Layer 10 — GPCCS BOOTVEC=0 + CPUCTL Locked (Exp 089b, 091)
 
 **Layer:** L10
-**Exp:** 088 (discovered), 089 (initial analysis), **089b (deep root cause)**
-**Status:** ROOT CAUSE IDENTIFIED — GPCCS trapped in LS mode with locked CPUCTL
+**Exp:** 088 (discovered), 089 (initial analysis), **089b (deep root cause)**, **091 (BOOTVEC fix)**
+**Status:** ROOT CAUSE IDENTIFIED — BOOTVEC=0 (primary) + CPUCTL write-lock (secondary)
+
+**NOTE (SCTL Myth Busted):** SCTL=0x3000 does NOT block PIO to IMEM/DMEM.
+The IMEMC format discovery (Exp 091+) proved PIO works with correct BIT(24)
+format regardless of security mode. CPUCTL write-lock is a separate ACR mechanism.
 
 **Exp 089b Deep Findings (register forensics):**
 
@@ -271,7 +298,7 @@ requires `gpccs_exci == 0 && gpccs_pc != 0`, not just `cpuctl & HRESET == 0`.
    - GPCCS: `cpuctl=0x12` (STOPPED + STARTCPU), PC=0x000, `exci=0x00070000` — ACR issued STARTCPU but GPCCS faulted at PC=0
    - SEC2: `cpuctl=0x00` (RUNNING), PC=0x058f — ACR bootloader in idle loop
 
-2. **GPCCS CPUCTL is ACR-LOCKED** — writes to 0x41A100 are silently dropped. FECS CPUCTL is also partially locked. Both are in LS (Light Secure) mode (`sctl=0x3000`). Only the HS falcon (SEC2) can modify CPUCTL in LS mode.
+2. **GPCCS CPUCTL is ACR-LOCKED** — writes to 0x41A100 are silently dropped. This is an ACR-enforced lock, separate from SCTL. SCTL=0x3000 (LS mode) is fuse-enforced but does not cause CPUCTL lock — the lock comes from ACR's ownership state after BOOTSTRAP_FALCON.
 
 3. **GPCCS has valid firmware** — IMEM reads return real code (`0x001400d0 0x0004fe00...`), DMEM starts with firmware build date "Aug 8 2017 20:06:36". Hardware is fully present: hwcfg=0x20102840 (16KB IMEM, 5KB DMEM).
 
@@ -313,11 +340,15 @@ The GPCCS execution failure is NOT a CMDQ problem — it's an **HS authenticatio
 timestamped command tracking for the full boot chain. If BOOTVEC fix works,
 L11 methods are already implemented in `fecs_method.rs`.
 
-### Gap 14: Layer 7 Regression — SEC2 DMA Fault Chain (Exp 091d-091e)
+### Gap 14: Layer 7 — SEC2 DMA Fault Chain (Exp 091d-091e) — THE REAL BLOCKER
 
 **Layer:** L7 (SEC2 binding + DMA)
 **Exp:** 091d (DualPDE fix), **091e (hardware validation + root cause chain)**
-**Status:** ROOT CAUSE CHAIN IDENTIFIED — three-layer hardware lock prevents DMA
+**Status:** ROOT CAUSE CHAIN IDENTIFIED — DMA configuration prevents SEC2 from loading ACR
+
+**NOTE (SCTL Myth Busted):** This gap was previously conflated with SCTL blocking.
+SCTL=0x3000 does NOT prevent DMA or PIO. The actual blockers are FBIF mode,
+page table configuration, and PMC lock — purely DMA/MMU issues.
 
 Despite L7 being "SOLVED" in Exp 085 (bind_stat=5), hardware validation in Exp 091d/e
 reveals the SEC2 bind succeeds only from a nouveau warm state. From cold VFIO state,
@@ -397,21 +428,32 @@ Once GPCCS is running, the GR context init path opens:
 3. nouveau `gf100_grctx_generate()` → how the golden context is built
 4. Channel context binding → how a channel's GR context is loaded via FECS
 
-## Priority Order
+## Priority Order (Post-SCTL Discovery)
 
-1. **Gap 14** (L7 regression — SEC2 DMA fault chain) — **CRITICAL BLOCKER**. SBR now integrated via `coralctl reset --method sbr`. Physical-first boot (Strategy 1b) eliminates instance block deadlock. mmiotrace capture ready for nouveau timing study.
-2. **Gap 10/11** (L9-L10 falcon start) — BOOTVEC=0 fix applied, blocked by Gap 14.
-3. **Gap 12** (L11 GR context + shader dispatch) — blocked by Gap 14 → Gap 10/11.
-4. **L6** (GP_PUT DMA) — may self-resolve when GR engine is alive (GPCCS running).
-4. **Gap 9** (L8 WPR W1-W7) — **SOLVED** (Exp 087).
-5. **Gap 1** (bind_stat B1-B7) — **SOLVED** (Exp 085).
-6. **Gap 5** (cross-driver profile) — **COMPLETE** (Exp 086).
-7. **Gap 2** (SYS_MEM_COH_TARGET) — **RESOLVED** (Exp 083).
-8. **Gap 4** (ACR/WPR format) — **SOLVED** (Exp 087).
-9. **Gap 8** (open targets) — handoff delivered, unblocks novel driver experiments
-10. **Gap 3** (mmiotrace corpus) — critical for SEC2 CMDQ ring reverse-engineering
-11. **Gap 6** (nvidia_oracle) — lower priority now that Exp 086 showed nvidia is destructive
-12. **Gap 7** (distillation) — depends on toadStool, lowest priority
+Two parallel paths now available — SCTL is not a blocker for either:
+
+**Path B (Direct PIO — bypass ACR entirely):**
+1. **Direct PIO boot with BOOTVEC fix** — Upload FECS/GPCCS firmware via PIO (proven working), set BOOTVEC=0x3400/0x7E00 + ITFEN + INTR_ENABLE, STARTCPU. If this works, ACR and DMA are unnecessary for GV100.
+2. **Gap 10/11** (L9-L10 falcon start) — BOOTVEC=0 fix applied, ready for hardware validation.
+3. **Gap 12** (L11 GR context + shader dispatch) — blocked by Gap 10/11.
+
+**Path A (ACR — fix DMA):**
+1. **Gap 14** (L7 — SEC2 DMA fault chain) — FBIF characterization needed. Compare cold/warm FBIF registers to find DMA-enabling config.
+2. **L6** (GP_PUT DMA) — may share root cause with Gap 14 (FBIF mode). May self-resolve when GR engine alive.
+
+**Resolved:**
+- **Gap 9** (L8 WPR W1-W7) — **SOLVED** (Exp 087).
+- **Gap 1** (bind_stat B1-B7) — **SOLVED** (Exp 085).
+- **Gap 5** (cross-driver profile) — **COMPLETE** (Exp 086).
+- **Gap 2** (SYS_MEM_COH_TARGET) — **RESOLVED** (Exp 083).
+- **Gap 4** (ACR/WPR format) — **SOLVED** (Exp 087).
+- **Gap 8** (open targets) — handoff delivered.
+- **SCTL blocks PIO** — **MYTH BUSTED** (Exp 091+). FalconCapabilityProbe added.
+
+**Lower priority:**
+- **Gap 3** (mmiotrace corpus) — useful for DMA timing, not critical
+- **Gap 6** (nvidia_oracle) — nvidia is destructive (Exp 086)
+- **Gap 7** (distillation) — depends on toadStool
 
 ## What hotSpring Can Do Now (No coralReef Dependency)
 
