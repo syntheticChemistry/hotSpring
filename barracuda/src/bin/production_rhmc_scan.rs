@@ -108,6 +108,7 @@ fn parse_args() -> CliArgs {
     args
 }
 
+#[allow(clippy::suspicious_operation_groupings)]
 fn main() {
     let args = parse_args();
     let l = args.lattice;
@@ -200,10 +201,8 @@ fn main() {
             }
         }
 
-        // GPU dynamical state built from the pre-thermalized gauge config.
-        // GpuDynHmcState wraps the quenched state's link buffer (already warm).
-        // For RHMC, we use from_lattice which re-uploads; we could optimize
-        // to reuse the buffer later.
+        // Build dynamical state from lattice (for phases, neighbor table, etc.)
+        // then copy thermalized links from quenched pre-therm.
         let dyn_state = GpuDynHmcState::from_lattice(
             &gpu,
             &lattice,
@@ -213,6 +212,19 @@ fn main() {
             args.cg_max_iter,
         );
         let rhmc_state = GpuRhmcState::new(&gpu, &rhmc_config, dyn_state);
+
+        if args.n_quenched_pretherm > 0 {
+            let n_bytes = (quenched_state.n_links * 18 * 8) as u64;
+            let mut enc = gpu.begin_encoder("copy_therm_links");
+            enc.copy_buffer_to_buffer(
+                &quenched_state.link_buf,
+                0,
+                &rhmc_state.gauge.gauge.link_buf,
+                0,
+                n_bytes,
+            );
+            gpu.submit_encoder(enc);
+        }
 
         // Compile pipelines
         let dyn_pipelines = GpuDynHmcPipelines::new(&gpu);

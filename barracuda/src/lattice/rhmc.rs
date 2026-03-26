@@ -383,16 +383,28 @@ pub struct RhmcConfig {
 }
 
 impl RhmcConfig {
-    /// Nf=2 configuration: one rooted staggered field with det(D†D)^{1/2}.
+    /// Nf=2 configuration: one rooted staggered field with det(D†D)^{1/4}.
+    ///
+    /// Staggered fermions produce 4 tastes, so Nf physical flavors needs
+    /// det(D†D)^{Nf/8}. For Nf=2: α = 1/4.
+    ///
+    /// Pseudofermion setup (Clark & Kennedy, NPB 552):
+    /// - Action:   S_f = φ† (D†D)^{-α} φ  →  r_act(x) ≈ x^{-1/4}
+    /// - Heatbath: φ = (D†D)^{α/2} η       →  r_hb(x)  ≈ x^{+1/8}
+    /// - Force:    dS_f/dU uses r_act
+    ///
+    /// Consistency: r_hb(x)² · r_act(x) = x^{1/4} · x^{-1/4} = 1.
     #[must_use]
     pub fn nf2(mass: f64, beta: f64) -> Self {
+        let det_power = 0.25; // Nf/8 = 2/8
+        let action_force = RationalApproximation::generate(-det_power, 8, 0.01, 64.0);
         Self {
             sectors: vec![RhmcFermionConfig {
                 mass,
-                det_power: 0.5,
-                action_approx: RationalApproximation::sqrt_8pole(),
-                heatbath_approx: RationalApproximation::inv_sqrt_8pole(),
-                force_approx: RationalApproximation::sqrt_8pole(),
+                det_power,
+                action_approx: action_force.clone(),
+                heatbath_approx: RationalApproximation::generate(det_power / 2.0, 8, 0.01, 64.0),
+                force_approx: action_force,
             }],
             beta,
             dt: 0.01,
@@ -402,24 +414,41 @@ impl RhmcConfig {
         }
     }
 
-    /// Nf=2+1 configuration: light (u,d) with det^{1/2} + strange with det^{1/4}.
+    /// Nf=2+1 configuration: light (u,d) det^{1/4} + strange det^{1/8}.
+    ///
+    /// Light sector: α = 1/4 (two degenerate flavors from 4-taste staggered)
+    /// Strange sector: α = 1/8 (one flavor from 4-taste staggered)
     #[must_use]
     pub fn nf2p1(light_mass: f64, strange_mass: f64, beta: f64) -> Self {
+        let light_power = 0.25;  // 2/8
+        let strange_power = 0.125; // 1/8
+        let light_af = RationalApproximation::generate(-light_power, 8, 0.01, 64.0);
+        let strange_af = RationalApproximation::generate(-strange_power, 8, 0.01, 64.0);
         Self {
             sectors: vec![
                 RhmcFermionConfig {
                     mass: light_mass,
-                    det_power: 0.5,
-                    action_approx: RationalApproximation::sqrt_8pole(),
-                    heatbath_approx: RationalApproximation::inv_sqrt_8pole(),
-                    force_approx: RationalApproximation::sqrt_8pole(),
+                    det_power: light_power,
+                    action_approx: light_af.clone(),
+                    heatbath_approx: RationalApproximation::generate(
+                        light_power / 2.0,
+                        8,
+                        0.01,
+                        64.0,
+                    ),
+                    force_approx: light_af,
                 },
                 RhmcFermionConfig {
                     mass: strange_mass,
-                    det_power: 0.25,
-                    action_approx: RationalApproximation::fourth_root_8pole(),
-                    heatbath_approx: RationalApproximation::inv_fourth_root_8pole(),
-                    force_approx: RationalApproximation::fourth_root_8pole(),
+                    det_power: strange_power,
+                    action_approx: strange_af.clone(),
+                    heatbath_approx: RationalApproximation::generate(
+                        strange_power / 2.0,
+                        8,
+                        0.01,
+                        64.0,
+                    ),
+                    force_approx: strange_af,
                 },
             ],
             beta,

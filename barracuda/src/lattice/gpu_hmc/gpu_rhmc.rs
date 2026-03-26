@@ -3,19 +3,19 @@
 //! GPU Rational HMC — multi-shift CG for fractional determinant powers.
 //!
 //! Enables GPU-accelerated simulation of Nf=2, 2+1 via the rooting trick:
-//! `det(D†D)^{Nf/8}` ≈ product of rational functions.
+//! `det(D†D)^{Nf/8}` via rational approximation of `(D†D)^{-α}`.
 //!
-//! The multi-shift CG shares a single Krylov space across all shifts — only
-//! ONE `D†D·p` per iteration regardless of pole count. This makes GPU RHMC
-//! efficient: the expensive Dirac dispatch happens once, then cheap BLAS-1
-//! updates run per shift.
+//! Pseudofermion setup (Clark & Kennedy, NPB 552):
+//!   - Action: `S_f = φ† (D†D)^{-α} φ` where α = Nf/8
+//!   - Heatbath: `φ = (D†D)^{α/2} η` (consistency: `r_hb² · r_act = 1`)
+//!
+//! Uses independent per-shift CG solves for numerical stability.
 //!
 //! ## Shader pipeline
 //!
 //! - `multi_shift_zeta_f64.wgsl` — scalar zeta recurrence (1 workgroup)
-//! - `shift_update_p_f64.wgsl` — fused `p = ζ·r + β·p` per shift
-//! - Reuses existing `axpy_f64.wgsl` for shifted x updates
-//! - Reuses `dirac_staggered_f64.wgsl` for the shared matrix-vector product
+//! - Reuses existing `axpy_f64.wgsl`, `xpay_f64.wgsl` for CG vector updates
+//! - Reuses `dirac_staggered_f64.wgsl` for the matrix-vector product
 //! - Reuses `complex_dot_re_f64.wgsl` + `sum_reduce_f64.wgsl` for scalar products
 //!
 //! ## References
@@ -34,10 +34,6 @@ use super::{
 /// WGSL source for the multi-shift zeta recurrence kernel.
 pub const WGSL_MULTI_SHIFT_ZETA: &str =
     include_str!("../shaders/multi_shift_zeta_f64.wgsl");
-
-/// WGSL source for the shifted search direction update: p = ζ·r + β·p.
-pub const WGSL_SHIFT_UPDATE_P: &str =
-    include_str!("../shaders/shift_update_p_f64.wgsl");
 
 /// Maximum number of rational approximation poles supported.
 ///
@@ -187,8 +183,6 @@ impl GpuRhmcSectorBuffers {
 pub struct GpuRhmcPipelines {
     /// Zeta recurrence kernel (scalar, 1 workgroup per shift).
     pub zeta_pipeline: wgpu::ComputePipeline,
-    /// Shifted search direction update: p = ζ·r + β·p.
-    pub shift_update_p_pipeline: wgpu::ComputePipeline,
 }
 
 impl GpuRhmcPipelines {
@@ -197,10 +191,6 @@ impl GpuRhmcPipelines {
     pub fn new(gpu: &GpuF64) -> Self {
         Self {
             zeta_pipeline: gpu.create_pipeline_f64(WGSL_MULTI_SHIFT_ZETA, "rhmc_zeta"),
-            shift_update_p_pipeline: gpu.create_pipeline_f64_precise(
-                WGSL_SHIFT_UPDATE_P,
-                "rhmc_shift_p",
-            ),
         }
     }
 }
@@ -288,46 +278,21 @@ fn fermion_force_dispatch(
     gpu.dispatch(&pipelines.fermion_force_pipeline, &bg, wg);
 }
 
-fn gpu_shift_update_p(
-    gpu: &GpuF64,
-    pipeline: &wgpu::ComputePipeline,
-    r: &wgpu::Buffer,
-    p: &wgpu::Buffer,
-    zeta: f64,
-    beta: f64,
-    n: usize,
-) {
-    let wg = (n as u32).div_ceil(64);
-    let mut params = Vec::with_capacity(24);
-    params.extend_from_slice(&(n as u32).to_le_bytes());
-    params.extend_from_slice(&0u32.to_le_bytes());
-    params.extend_from_slice(&zeta.to_le_bytes());
-    params.extend_from_slice(&beta.to_le_bytes());
-    let pbuf = gpu.create_uniform_buffer(&params, "sup_p");
-    let bg = gpu.create_bind_group(pipeline, &[&pbuf, r, p]);
-    gpu.dispatch(pipeline, &bg, wg);
-}
-
 // ═══════════════════════════════════════════════════════════════════
 //  GPU Multi-Shift CG Solver
 // ═══════════════════════════════════════════════════════════════════
 
-/// GPU multi-shift CG: solve (D†D + σ_s) x_s = b for all shifts simultaneously.
+/// GPU multi-shift CG: solve (D†D + σ_s) x_s = b for all shifts.
 ///
-/// All shifted systems share the same Krylov space. Only one D†D·p per
-/// iteration regardless of shift count. The CPU handles the lightweight
-/// zeta recurrence (~20 FLOPs per shift per iteration) while the GPU
-/// does all vector operations.
+/// Uses independent per-shift CG solves for numerical stability. Each
+/// shifted system converges faster (lower condition number) than the
+/// unshifted system, so the total cost is typically 2-3× a single solve.
 ///
-/// Uses `state.r_buf`, `state.p_buf`, `state.ap_buf`, `state.temp_buf` as
-/// shared workspace. Per-shift solutions go into `sector.x_bufs[s]` and
-/// per-shift search directions into `sector.p_bufs[s]`.
-///
-/// Returns total CG iterations.
+/// Returns total CG iterations across all shifts.
 pub fn gpu_multi_shift_cg_solve(
     gpu: &GpuF64,
     dyn_pipelines: &GpuDynHmcPipelines,
-    rhmc_pipelines: &GpuRhmcPipelines,
+    _rhmc_pipelines: &GpuRhmcPipelines,
     state: &GpuDynHmcState,
     sector: &GpuRhmcSectorBuffers,
     b_buf: &wgpu::Buffer,
@@ -336,31 +301,61 @@ pub fn gpu_multi_shift_cg_solve(
     tol: f64,
     max_iter: usize,
 ) -> usize {
+    let mut total_iters = 0;
+
+    for (s, &sigma) in shifts.iter().enumerate() {
+        let iters = gpu_shifted_cg_solve(
+            gpu,
+            dyn_pipelines,
+            state,
+            &sector.x_bufs[s],
+            b_buf,
+            mass,
+            sigma,
+            tol,
+            max_iter,
+        );
+        total_iters += iters;
+    }
+
+    total_iters
+}
+
+/// Single shifted CG: solve (D†D + σ) x = b.
+///
+/// Standard CG with the shift incorporated as an extra `σ·p` term in
+/// the matrix-vector product. Uses `state.r_buf`, `state.p_buf`,
+/// `state.ap_buf`, `state.temp_buf`, `state.dot_buf` as workspace.
+fn gpu_shifted_cg_solve(
+    gpu: &GpuF64,
+    pipelines: &GpuDynHmcPipelines,
+    state: &GpuDynHmcState,
+    x_buf: &wgpu::Buffer,
+    b_buf: &wgpu::Buffer,
+    mass: f64,
+    sigma: f64,
+    tol: f64,
+    max_iter: usize,
+) -> usize {
     let vol = state.gauge.volume;
     let n_flat = vol * 6;
     let n_pairs = vol * 3;
-    let n_shifts = shifts.len();
+    let gauge = &state.gauge;
+    let phases = &state.phases_buf;
 
-    // Initialize: all x_s = 0
+    // x = 0, r = b, p = b
     let zeros = vec![0.0_f64; n_flat];
-    for x_buf in &sector.x_bufs {
-        gpu.upload_f64(x_buf, &zeros);
-    }
-
-    // r = b, p_0 = b, all p_s = b
+    gpu.upload_f64(x_buf, &zeros);
     {
-        let mut enc = gpu.begin_encoder("mcg_init");
+        let mut enc = gpu.begin_encoder("scg_init");
         enc.copy_buffer_to_buffer(b_buf, 0, &state.r_buf, 0, (n_flat * 8) as u64);
         enc.copy_buffer_to_buffer(b_buf, 0, &state.p_buf, 0, (n_flat * 8) as u64);
-        for p_buf in &sector.p_bufs {
-            enc.copy_buffer_to_buffer(b_buf, 0, p_buf, 0, (n_flat * 8) as u64);
-        }
         gpu.submit_encoder(enc);
     }
 
     let b_norm_sq = gpu_dot_re(
         gpu,
-        &dyn_pipelines.dot_pipeline,
+        &pipelines.dot_pipeline,
         &state.dot_buf,
         &state.r_buf,
         &state.r_buf,
@@ -372,44 +367,34 @@ pub fn gpu_multi_shift_cg_solve(
 
     let tol_sq = tol * tol * b_norm_sq;
     let mut rz = b_norm_sq;
-
-    // CPU-side zeta recurrence state (cheap: ~20 FLOPs per shift per iteration)
-    let mut zeta_prev = vec![1.0_f64; n_shifts];
-    let mut zeta_curr = vec![1.0_f64; n_shifts];
-    let mut beta_shift_prev = vec![0.0_f64; n_shifts];
-    let mut alpha_prev = 0.0_f64;
-    let mut active = vec![true; n_shifts];
-
     let mut iterations = 0;
-    let gauge = &state.gauge;
-    let phases = &state.phases_buf;
 
     for _iter in 0..max_iter {
         iterations += 1;
 
-        // D†D·p_0 → ap_buf (the expensive part, shared across all shifts)
-        dirac_dispatch(gpu, dyn_pipelines, gauge, phases, &state.p_buf, &state.temp_buf, mass, 1.0);
-        dirac_dispatch(gpu, dyn_pipelines, gauge, phases, &state.temp_buf, &state.ap_buf, mass, -1.0);
+        // ap = D†D·p
+        dirac_dispatch(gpu, pipelines, gauge, phases, &state.p_buf, &state.temp_buf, mass, 1.0);
+        dirac_dispatch(gpu, pipelines, gauge, phases, &state.temp_buf, &state.ap_buf, mass, -1.0);
 
-        // pAp = ⟨p_0 | D†D·p_0 + σ_0·p_0⟩ = ⟨p_0|ap⟩ + σ_0·⟨p_0|p_0⟩
+        // pAp = ⟨p|D†D·p⟩ + σ·⟨p|p⟩
         let mut p_ap = gpu_dot_re(
             gpu,
-            &dyn_pipelines.dot_pipeline,
+            &pipelines.dot_pipeline,
             &state.dot_buf,
             &state.p_buf,
             &state.ap_buf,
             n_pairs,
         );
-        if shifts[0].abs() > 1e-30 {
+        if sigma.abs() > 1e-30 {
             let p_p = gpu_dot_re(
                 gpu,
-                &dyn_pipelines.dot_pipeline,
+                &pipelines.dot_pipeline,
                 &state.dot_buf,
                 &state.p_buf,
                 &state.p_buf,
                 n_pairs,
             );
-            p_ap += shifts[0] * p_p;
+            p_ap += sigma * p_p;
         }
 
         if p_ap.abs() < 1e-30 {
@@ -417,30 +402,16 @@ pub fn gpu_multi_shift_cg_solve(
         }
         let alpha = rz / p_ap;
 
-        // Reference shift (s=0): x_0 += α·p_0
-        gpu_axpy(
-            gpu,
-            &dyn_pipelines.axpy_pipeline,
-            alpha,
-            &state.p_buf,
-            &sector.x_bufs[0],
-            n_flat,
-        );
+        // x += α·p
+        gpu_axpy(gpu, &pipelines.axpy_pipeline, alpha, &state.p_buf, x_buf, n_flat);
 
-        // r -= α·(D†D·p_0 + σ_0·p_0)
-        gpu_axpy(
-            gpu,
-            &dyn_pipelines.axpy_pipeline,
-            -alpha,
-            &state.ap_buf,
-            &state.r_buf,
-            n_flat,
-        );
-        if shifts[0].abs() > 1e-30 {
+        // r -= α·(D†D·p + σ·p)
+        gpu_axpy(gpu, &pipelines.axpy_pipeline, -alpha, &state.ap_buf, &state.r_buf, n_flat);
+        if sigma.abs() > 1e-30 {
             gpu_axpy(
                 gpu,
-                &dyn_pipelines.axpy_pipeline,
-                -alpha * shifts[0],
+                &pipelines.axpy_pipeline,
+                -alpha * sigma,
                 &state.p_buf,
                 &state.r_buf,
                 n_flat,
@@ -449,83 +420,28 @@ pub fn gpu_multi_shift_cg_solve(
 
         let rz_new = gpu_dot_re(
             gpu,
-            &dyn_pipelines.dot_pipeline,
+            &pipelines.dot_pipeline,
             &state.dot_buf,
             &state.r_buf,
             &state.r_buf,
             n_pairs,
         );
 
-        // CPU-side zeta recurrence + GPU per-shift vector updates
-        for s in 1..n_shifts {
-            if !active[s] {
-                continue;
-            }
-
-            let ds = shifts[s] - shifts[0];
-            let bp = beta_shift_prev[s];
-            let mut denom = 1.0 + alpha * ds;
-            if bp.abs() > 1e-30 {
-                denom += alpha * alpha_prev * (1.0 - zeta_prev[s] / zeta_curr[s]) / bp;
-            }
-
-            if denom.abs() < 1e-30 {
-                active[s] = false;
-                continue;
-            }
-
-            let zeta_next = zeta_curr[s] / denom;
-            let alpha_s = alpha * zeta_next / zeta_curr[s];
-
-            // x_s += α_s · p_s
-            gpu_axpy(
-                gpu,
-                &dyn_pipelines.axpy_pipeline,
-                alpha_s,
-                &sector.p_bufs[s],
-                &sector.x_bufs[s],
-                n_flat,
-            );
-
-            let beta_s = if rz.abs() > 1e-30 {
-                (zeta_next / zeta_curr[s]).powi(2) * (rz_new / rz)
-            } else {
-                0.0
-            };
-
-            // p_s = ζ_next · r + β_s · p_s
-            gpu_shift_update_p(
-                gpu,
-                &rhmc_pipelines.shift_update_p_pipeline,
-                &state.r_buf,
-                &sector.p_bufs[s],
-                zeta_next,
-                beta_s,
-                n_flat,
-            );
-
-            zeta_prev[s] = zeta_curr[s];
-            zeta_curr[s] = zeta_next;
-            beta_shift_prev[s] = beta_s;
+        if rz_new < tol_sq {
+            break;
         }
 
-        // Reference search direction update: p_0 = r + β·p_0
-        let beta_cg = if rz.abs() > 1e-30 { rz_new / rz } else { 0.0 };
+        let beta_cg = rz_new / rz;
+        rz = rz_new;
+
         super::dynamical::gpu_xpay(
             gpu,
-            &dyn_pipelines.xpay_pipeline,
+            &pipelines.xpay_pipeline,
             &state.r_buf,
             beta_cg,
             &state.p_buf,
             n_flat,
         );
-
-        alpha_prev = alpha;
-        rz = rz_new;
-
-        if rz < tol_sq {
-            break;
-        }
     }
 
     iterations
@@ -576,6 +492,15 @@ fn gpu_rhmc_heatbath_sector(
     );
 
     // Accumulate φ = α₀·η + Σ αₛ·x_s using state.x_buf as temporary
+    let verbose = std::env::var("RHMC_CG_VERBOSE").is_ok();
+    if verbose {
+        eprintln!(
+            "[heatbath] alpha_0={:.6e} residues={:?}",
+            approx.alpha_0,
+            approx.alpha
+        );
+    }
+
     let zeros = vec![0.0_f64; n_flat];
     gpu.upload_f64(&state.x_buf, &zeros);
 
@@ -589,6 +514,19 @@ fn gpu_rhmc_heatbath_sector(
         n_flat,
     );
 
+    if verbose {
+        let n_pairs = vol * 3;
+        let check = gpu_dot_re(
+            gpu,
+            &dyn_pipelines.dot_pipeline,
+            &state.dot_buf,
+            &state.x_buf,
+            &state.x_buf,
+            n_pairs,
+        );
+        eprintln!("[heatbath] after alpha_0 term: ||acc||²={check:.6e}");
+    }
+
     // state.x_buf += αₛ · x_bufs[s] for each shift
     for (s, a_s) in approx.alpha.iter().enumerate() {
         gpu_axpy(
@@ -599,6 +537,19 @@ fn gpu_rhmc_heatbath_sector(
             &state.x_buf,
             n_flat,
         );
+
+        if verbose {
+            let n_pairs = vol * 3;
+            let check = gpu_dot_re(
+                gpu,
+                &dyn_pipelines.dot_pipeline,
+                &state.dot_buf,
+                &state.x_buf,
+                &state.x_buf,
+                n_pairs,
+            );
+            eprintln!("[heatbath] after shift {s} (a_s={a_s:.6e}): ||acc||²={check:.6e}");
+        }
     }
 
     // Copy result to phi_buf: φ = accumulated sum
@@ -852,6 +803,13 @@ pub fn gpu_rhmc_trajectory(
     }
     let h_old = s_gauge_old + t_old + s_ferm_old;
 
+    let verbose = std::env::var("RHMC_CG_VERBOSE").is_ok();
+    if verbose {
+        eprintln!(
+            "[rhmc] H_old = {h_old:.6e}  (S_g={s_gauge_old:.6e}  T={t_old:.6e}  S_f={s_ferm_old:.6e})"
+        );
+    }
+
     // 4. Omelyan MD integration
     let lam = crate::tolerances::OMELYAN_LAMBDA;
 
@@ -919,6 +877,18 @@ pub fn gpu_rhmc_trajectory(
         total_cg += cg;
     }
     let h_new = s_gauge_new + t_new + s_ferm_new;
+
+    if verbose {
+        eprintln!(
+            "[rhmc] H_new = {h_new:.6e}  (S_g={s_gauge_new:.6e}  T={t_new:.6e}  S_f={s_ferm_new:.6e})"
+        );
+        eprintln!(
+            "[rhmc] ΔS_g={:.6e}  ΔT={:.6e}  ΔS_f={:.6e}",
+            s_gauge_new - s_gauge_old,
+            t_new - t_old,
+            s_ferm_new - s_ferm_old
+        );
+    }
 
     // 6. Metropolis accept/reject
     let delta_h = h_new - h_old;

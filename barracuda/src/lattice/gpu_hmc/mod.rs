@@ -54,7 +54,7 @@ pub use resident_cg::{
 };
 pub use gpu_rhmc::{
     gpu_multi_shift_cg_solve, gpu_rhmc_trajectory, GpuRhmcPipelines, GpuRhmcResult,
-    GpuRhmcSectorBuffers, GpuRhmcState, MAX_POLES, WGSL_MULTI_SHIFT_ZETA, WGSL_SHIFT_UPDATE_P,
+    GpuRhmcSectorBuffers, GpuRhmcState, MAX_POLES, WGSL_MULTI_SHIFT_ZETA,
 };
 pub use streaming::{
     gpu_dynamical_hmc_trajectory_streaming, gpu_hmc_trajectory_streaming,
