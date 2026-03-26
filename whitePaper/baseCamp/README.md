@@ -1,10 +1,10 @@
 # baseCamp: Research Domain Briefings
 
-**Date:** 2026-03-26
+**Date:** 2026-03-25 (updated)
 **Project:** hotSpring (ecoPrimals)
-**Status:** v0.6.32, experiments 001-096, 4,065 tests pass, 39/39 validation suites, 116+ binaries, 85+ WGSL shaders
+**Status:** v0.6.32, experiments 001-104, 4,065+ tests pass, 39/39 validation suites, 116+ binaries, 85+ WGSL shaders
 
-**Notes:** Upstream primal sync: barraCuda `7c1fd03a` (eigensolver, activations, PRNG), coralReef Iter 67+ (falcon boot solver, sysmem DMA, blob_size=0), toadStool S155b+ PcieTransport + ResourceOrchestrator. Sovereign GPU compute: **10/11 layers — L7 BREAKTHROUGH (Exp 095).** SEC2 enters HS mode via sysmem DMA. FBHUB PRI-dead after VFIO takeover — VRAM DMA corrupts data, sysmem bypasses FBHUB. Path B dead (Exp 094: LS auth blocks PIO). W1 header + BOOTVEC wired (Exp 093). blob_size=0 patch applied — next pkexec run expected to bootstrap FECS/GPCCS. Chuna Papers 43-45: **44/44 overnight checks pass**. All AGPL-3.0-only.
+**Notes:** Upstream primal sync: barraCuda `7c1fd03a` (eigensolver, activations, PRNG), coralReef Iter 67+ (falcon boot solver, sysmem DMA, PDE fix, ACR alive). toadStool S155b+ PcieTransport + ResourceOrchestrator. Sovereign GPU compute: **10.5/11 layers — PDE BREAKTHROUGH (Exp 104).** ACR firmware alive and running on GV100 (31 trace PCs, EMEM queues, DMEM intact). HS authentication is the final gate. Root cause of DMA trap: PDE slot position in GV100 MMU v2. Exp 099-103 eliminated all other hypotheses. Silicon science (Exp 096): TMU lookup 1.89x, toadStool integration. Strandgate: `validate_silicon_capabilities`, `validate_precision_matrix`, `validate_sovereign_roundtrip` binaries + toadstool_report module. Chuna Papers 43-45: **44/44 overnight checks pass**. All AGPL-3.0-only.
 
 ---
 
@@ -40,7 +40,7 @@ Published paper (Python/FORTRAN/HPC)
 | [`esn_baseline_validation.md`](esn_baseline_validation.md) | ESN Baseline — CPU Training & Capability Map | None (NPU engineering) | 116 pts, 5 synthetic probes, 3 heads EXCELLENT, HeadConfidence tracker live |
 | [`npu_dynamic_programming.md`](npu_dynamic_programming.md) | NPU as DP — Activation Parity & Subproblem Memoization | None (architecture insight) | tanh≈ReLU validated, NPU-as-memoization-table architecture for multigrid HMC |
 | [`neuromorphic_native_field_theory.md`](neuromorphic_native_field_theory.md) | Neuromorphic-Native Field Theory — Lattice Physics on Spiking Hardware | None (long-term hardware architecture) | 5-level path from NPU steering → NPU IS the simulation, coralForge isomorphism |
-| [`sovereign_gpu_compute.md`](sovereign_gpu_compute.md) | Sovereign GPU Compute — GlowPlug, Falcon, PFIFO, DRM Dispatch | None (hardware exploration) | Exp 060-095: **L7 BREAKTHROUGH** — SEC2 HS mode via sysmem DMA (Exp 095). Path B dead (Exp 094). W1 header + BOOTVEC wired (Exp 093). SCTL myth busted (Exp 091). Adaptive experiment loop (Exp 092). WPR W1-W7 solved (Exp 087). **DRM dual-track** (AMD PM4 + NVIDIA EXEC), **iommufd/cdev** kernel-agnostic VFIO (607 tests), **RTX 5060 Blackwell DRM cracked** (SM120, 4/4 tests) |
+| [`sovereign_gpu_compute.md`](sovereign_gpu_compute.md) | Sovereign GPU Compute — GlowPlug, Falcon, PFIFO, DRM Dispatch | None (hardware exploration) | Exp 060-104: **PDE BREAKTHROUGH** — ACR firmware alive (Exp 104). 31 trace PCs, EMEM queues, DMEM intact. HS authentication pending. PDE slot fix + IOMMU coverage + diagnostic sweep (Exp 099-103). DRM dual-track (AMD PM4 + NVIDIA EXEC), iommufd/cdev VFIO (607 tests), **RTX 5060 Blackwell DRM cracked** (SM120, 4/4 tests) |
 | [`silicon_science.md`](silicon_science.md) | Silicon Science — All-Silicon GPU Experiments | None (hardware exploration) | Exp 096: **TMU table lookup 1.89x** (RTX 3090), **AMD DF64 38% faster** than NVIDIA. 11 QCD ops mapped to 9 silicon units. `validate_silicon_science` binary. toadStool performance surface integration |
 
 ---
@@ -51,5 +51,5 @@ Published paper (Python/FORTRAN/HPC)
 - **barraCuda** (`../../../barraCuda/`): Standalone compute primal (budded from toadStool S89). 792+ WGSL shaders, DF64, precision system, lattice QCD, eigensolver, activations API.
 - **coralReef** (`../../../coralReef/`): Sovereign shader compiler primal (Phase 10, Iter 67+). WGSL→native binary compilation. VFIO dispatch pipeline (PFIFO + MMU + DMA). coral-glowplug persistent PCIe broker daemon. coral-driver pure Rust GPU backends (AMD DRM, NVIDIA nouveau, NVIDIA VFIO). **iommufd/cdev** kernel-agnostic VFIO (607 tests). **RTX 5060 Blackwell DRM** (SM120, 4/4 tests). SEC2 HS mode via sysmem DMA (Exp 095). Falcon boot solver with strategy pattern (VRAM/hybrid/sysmem).
 - **toadStool** (`../../../phase1/toadStool/`): Hardware discovery and orchestration (S155b+). PcieTransport, ResourceOrchestrator, GPU sysmon telemetry.
-- **Experiment journals**: `../../experiments/` (001-095)
+- **Experiment journals**: `../../experiments/` (001-104)
 - **Handoffs**: `../../wateringHole/handoffs/` (fossil record of all cross-project exchanges)

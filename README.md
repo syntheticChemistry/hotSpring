@@ -32,9 +32,13 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 
 ---
 
-## Current Status (2026-03-26, Silicon Science Sprint + Layer 7 Breakthrough)
+## Current Status (2026-03-25, PDE Slot Breakthrough + ACR Firmware Alive)
 
-> **New (Exp 096):** **First non-shader-core silicon experiment.** TMU table lookup delivers **1.89x throughput** on RTX 3090 (328 TMUs) and **1.24x** on RX 6950 XT (96 TMUs) for exp() evaluation via `textureLoad`. AMD outperforms NVIDIA on DF64 arithmetic by **38%** (23.4M vs 16.9M ops/s). 11 QCD operations mapped to 9 silicon unit types. `validate_silicon_science` binary. toadStool performance surface integration with `math.*` operation IDs. naga WGSL roundtrip bug found and bypassed (SovereignCompiler Tier 2 silently breaks DF64 Dekker arithmetic). `barracuda-spirv` bridge crate enables Tier 1 sovereign SPIR-V compilation. 96 experiments. 4,065+ tests pass.
+> **New (Exp 104):** **ACR firmware alive and running on GV100.** Critical PDE slot position bug found and fixed — GV100 MMU v2 uses 16-byte PDE entries with directory pointer in UPPER 8 bytes. After fix: 31 unique trace PCs, EMEM queues initialized, DMEM intact, CPU at idle loop. HS authentication is the final gate. 104 experiments. 10.5/11 sovereign pipeline layers solved.
+>
+> **Exp 100-103:** Systematic DMA trap elimination — IOMMU coverage (Exp 100), VRAM page tables (Exp 101), DMEM data loading (Exp 102), memory controller + FLR state (Exp 103). Root cause: PDE slot position (Exp 104).
+>
+> **Exp 096 (Strandgate):** **First non-shader-core silicon experiment.** TMU table lookup delivers **1.89x throughput** on RTX 3090 (328 TMUs) and **1.24x** on RX 6950 XT (96 TMUs). `validate_silicon_science` + `validate_silicon_capabilities` + `validate_sovereign_roundtrip` + `validate_precision_matrix` binaries. toadStool performance surface integration.
 >
 > **Exp 095:** **SEC2 enters Heavy Secure mode (SCTL=0x3002) via system memory DMA** — first sovereign HS mode entry on GV100. `blob_size=0` patch applied. Path B dead (Exp 094). W1 header + BOOTVEC wired (Exp 093). coralReef Iter 67+.
 
