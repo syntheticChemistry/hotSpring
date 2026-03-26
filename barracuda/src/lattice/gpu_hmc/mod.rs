@@ -28,6 +28,7 @@
 //! | `observables` | Three-substrate stream integration and NPU monitoring |
 
 pub mod dynamical;
+pub mod gpu_rhmc;
 pub mod hasenbusch;
 pub mod observables;
 pub mod resident_cg;
@@ -50,6 +51,10 @@ pub use resident_cg::{
     BrainInterrupt, CgResidualUpdate, GpuResidentCgBuffers, GpuResidentCgPipelines,
     WGSL_CG_COMPUTE_ALPHA, WGSL_CG_COMPUTE_BETA, WGSL_CG_UPDATE_P, WGSL_CG_UPDATE_XR,
     WGSL_SUM_REDUCE,
+};
+pub use gpu_rhmc::{
+    GpuRhmcPipelines, GpuRhmcResult, GpuRhmcSectorBuffers, GpuRhmcState, MAX_POLES,
+    WGSL_MULTI_SHIFT_ZETA,
 };
 pub use streaming::{
     gpu_dynamical_hmc_trajectory_streaming, gpu_hmc_trajectory_streaming,

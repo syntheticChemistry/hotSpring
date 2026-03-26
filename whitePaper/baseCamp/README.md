@@ -2,7 +2,7 @@
 
 **Date:** 2026-03-26
 **Project:** hotSpring (ecoPrimals)
-**Status:** v0.6.32, experiments 001-096, 4,065 tests pass, 39/39 validation suites, 116+ binaries, 85+ WGSL shaders
+**Status:** v0.6.32, experiments 001-099, 4,065 tests pass, 39/39 validation suites, 120+ binaries, 86+ WGSL shaders
 
 **Notes:** Upstream primal sync: barraCuda `7c1fd03a` (eigensolver, activations, PRNG), coralReef Iter 67+ (falcon boot solver, sysmem DMA, blob_size=0), toadStool S155b+ PcieTransport + ResourceOrchestrator. Sovereign GPU compute: **10/11 layers — L7 BREAKTHROUGH (Exp 095).** SEC2 enters HS mode via sysmem DMA. FBHUB PRI-dead after VFIO takeover — VRAM DMA corrupts data, sysmem bypasses FBHUB. Path B dead (Exp 094: LS auth blocks PIO). W1 header + BOOTVEC wired (Exp 093). blob_size=0 patch applied — next pkexec run expected to bootstrap FECS/GPCCS. Chuna Papers 43-45: **44/44 overnight checks pass**. All AGPL-3.0-only.
 

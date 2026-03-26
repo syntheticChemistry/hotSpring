@@ -681,11 +681,11 @@ const REGISTERS: &[RegDef] = &[
 ];
 
 impl RegisterMap for NvGv100Map {
-    fn vendor(&self) -> &str {
+    fn vendor(&self) -> &'static str {
         "nvidia"
     }
 
-    fn arch(&self) -> &str {
+    fn arch(&self) -> &'static str {
         "GV100"
     }
 

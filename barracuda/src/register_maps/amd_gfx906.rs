@@ -162,11 +162,11 @@ const REGISTERS: &[RegDef] = &[
 ];
 
 impl RegisterMap for AmdGfx906Map {
-    fn vendor(&self) -> &str {
+    fn vendor(&self) -> &'static str {
         "amd"
     }
 
-    fn arch(&self) -> &str {
+    fn arch(&self) -> &'static str {
         "GFX906"
     }
 

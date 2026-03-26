@@ -32,9 +32,11 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 
 ---
 
-## Current Status (2026-03-26, Silicon Science Sprint + Layer 7 Breakthrough)
+## Current Status (2026-03-26, All-Silicon Evolution + GPU RHMC)
 
-> **New (Exp 096):** **First non-shader-core silicon experiment.** TMU table lookup delivers **1.89x throughput** on RTX 3090 (328 TMUs) and **1.24x** on RX 6950 XT (96 TMUs) for exp() evaluation via `textureLoad`. AMD outperforms NVIDIA on DF64 arithmetic by **38%** (23.4M vs 16.9M ops/s). 11 QCD operations mapped to 9 silicon unit types. `validate_silicon_science` binary. toadStool performance surface integration with `math.*` operation IDs. naga WGSL roundtrip bug found and bypassed (SovereignCompiler Tier 2 silently breaks DF64 Dekker arithmetic). `barracuda-spirv` bridge crate enables Tier 1 sovereign SPIR-V compilation. 96 experiments. 4,065+ tests pass.
+> **New (Exp 097-099):** **Full silicon characterization pipeline.** Four new benchmark binaries: `bench_silicon_budget` (theoretical peak per GPU per unit), `bench_silicon_saturation` (actual peak: FMA, bandwidth, cache hierarchy, TMU, LDS, atomics), `bench_silicon_composition` (compound multi-unit throughput), and evolved `bench_qcd_silicon` v2 (14 kernels: quenched + dynamical + observables, FP32 + DF64, 4^4 → 32^4 production scale). **GPU RHMC infrastructure:** `multi_shift_zeta_f64.wgsl` shader + `gpu_rhmc.rs` module with `GpuRhmcSectorBuffers`, `GpuRhmcPipelines`, `GpuRhmcState` — multi-shift CG for Nf=2, 2+1 via rooting trick. 99 experiments. 4,065+ tests pass.
+>
+> **Exp 096:** First non-shader-core silicon experiment. TMU table lookup delivers **1.89x throughput** on RTX 3090 and **1.24x** on RX 6950 XT. AMD outperforms NVIDIA on DF64 by **38%**. naga WGSL roundtrip bug found and bypassed.
 >
 > **Exp 095:** **SEC2 enters Heavy Secure mode (SCTL=0x3002) via system memory DMA** — first sovereign HS mode entry on GV100. `blob_size=0` patch applied. Path B dead (Exp 094). W1 header + BOOTVEC wired (Exp 093). coralReef Iter 67+.
 

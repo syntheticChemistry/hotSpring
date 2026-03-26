@@ -736,3 +736,18 @@ path = "src/bin/validate_silicon_science.rs"
 name = "bench_qcd_silicon"
 path = "src/bin/bench_qcd_silicon.rs"
 
+# ── Silicon budget: theoretical peak per GPU per silicon unit ──
+[[bin]]
+name = "bench_silicon_budget"
+path = "src/bin/bench_silicon_budget.rs"
+
+# ── Silicon saturation: per-unit micro-experiments (ALU, BW, cache, TMU) ──
+[[bin]]
+name = "bench_silicon_saturation"
+path = "src/bin/bench_silicon_saturation.rs"
+
+# ── Silicon composition: multi-unit parallel experiments ──
+[[bin]]
+name = "bench_silicon_composition"
+path = "src/bin/bench_silicon_composition.rs"
+

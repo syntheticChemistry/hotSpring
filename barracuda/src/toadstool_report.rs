@@ -151,18 +151,15 @@ fn send_jsonrpc(
 /// `compute.performance_surface.report`. If toadStool is not running, logs
 /// a message and returns silently.
 pub fn report_to_toadstool(measurements: &[PerformanceMeasurement]) {
-    let socket = match discover_socket() {
-        Some(s) => s,
-        None => {
-            println!("  toadStool socket not found — measurements logged locally only");
-            for m in measurements {
-                println!(
-                    "    {}: {} / {} / {} → tol={:.2e}",
-                    m.gpu_model, m.operation, m.silicon_unit, m.precision_mode, m.tolerance_achieved
-                );
-            }
-            return;
+    let socket = if let Some(s) = discover_socket() { s } else {
+        println!("  toadStool socket not found — measurements logged locally only");
+        for m in measurements {
+            println!(
+                "    {}: {} / {} / {} → tol={:.2e}",
+                m.gpu_model, m.operation, m.silicon_unit, m.precision_mode, m.tolerance_achieved
+            );
         }
+        return;
     };
 
     println!(
