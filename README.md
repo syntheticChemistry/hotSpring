@@ -32,9 +32,11 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 
 ---
 
-## Current Status (2026-03-26, Layer 7 Breakthrough — HS Mode Achieved)
+## Current Status (2026-03-26, Silicon Science Sprint + Layer 7 Breakthrough)
 
-> **New (Exp 095):** **SEC2 enters Heavy Secure mode (SCTL=0x3002) via system memory DMA** — first sovereign HS mode entry on GV100. FBHUB is PRI-dead after VFIO takeover; VRAM DMA reads corrupt data, preventing HS signature verification. System memory DMA bypasses FBHUB entirely. Three ACR boot paths tested: VRAM (LS mode only), hybrid (LS), sysmem (**HS mode**). `blob_size=0` patch applied to skip trap-causing internal blob DMA. Next: pkexec run of sysmem ACR + blob_size=0 — expected to bootstrap FECS/GPCCS. Path B (direct PIO) confirmed dead on GV100 (Exp 094: LS mode authentication blocks PIO-loaded code). W1 header bug + BOOTVEC metadata wiring fixed (Exp 093). coralReef Iter 67+, 30+ files changed for falcon boot solver. 95 experiments. 4,065 tests pass.
+> **New (Exp 096):** **First non-shader-core silicon experiment.** TMU table lookup delivers **1.89x throughput** on RTX 3090 (328 TMUs) and **1.24x** on RX 6950 XT (96 TMUs) for exp() evaluation via `textureLoad`. AMD outperforms NVIDIA on DF64 arithmetic by **38%** (23.4M vs 16.9M ops/s). 11 QCD operations mapped to 9 silicon unit types. `validate_silicon_science` binary. toadStool performance surface integration with `math.*` operation IDs. naga WGSL roundtrip bug found and bypassed (SovereignCompiler Tier 2 silently breaks DF64 Dekker arithmetic). `barracuda-spirv` bridge crate enables Tier 1 sovereign SPIR-V compilation. 96 experiments. 4,065+ tests pass.
+>
+> **Exp 095:** **SEC2 enters Heavy Secure mode (SCTL=0x3002) via system memory DMA** — first sovereign HS mode entry on GV100. `blob_size=0` patch applied. Path B dead (Exp 094). W1 header + BOOTVEC wired (Exp 093). coralReef Iter 67+.
 
 | Study | Status | Quantitative Checks |
 |-------|--------|-------------------|

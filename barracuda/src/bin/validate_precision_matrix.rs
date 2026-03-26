@@ -20,6 +20,7 @@
 //! error, and ULP error where applicable.
 
 use hotspring_barracuda::gpu::GpuF64;
+use hotspring_barracuda::toadstool_report::{self, PerformanceMeasurement};
 
 // ── Test infrastructure ─────────────────────────────────────────────────────
 
@@ -799,8 +800,55 @@ async fn main() {
         total_pass, total_fail
     );
 
+    // ── Report to toadStool performance surface ─────────────────────────────
+    println!("\n── Reporting to toadStool ──\n");
+    let ts = toadstool_report::epoch_now();
+    let measurements: Vec<PerformanceMeasurement> = all_results
+        .iter()
+        .filter(|r| r.value != "SKIP")
+        .map(|r| {
+            let operation = match r.name {
+                n if n.contains("wg reduce") || n.contains("Kahan sum") => {
+                    format!("math.reduce.sum.{}", r.tier)
+                }
+                n if n.contains("mul") || n.contains("pi*pi") => {
+                    format!("math.arith.mul.{}", r.tier)
+                }
+                n if n.contains("add") || n.contains("signed arith") => {
+                    format!("math.arith.add.{}", r.tier)
+                }
+                n if n.contains("fma") => format!("math.arith.fma.{}", r.tier),
+                n if n.contains("bit") || n.contains("pack") => {
+                    format!("math.bitwise.{}", r.tier)
+                }
+                _ => format!("math.unknown.{}", r.tier),
+            };
+
+            let tolerance_achieved = r
+                .error
+                .strip_prefix("abs=")
+                .and_then(|s| s.split_whitespace().next())
+                .and_then(|s| s.parse::<f64>().ok())
+                .unwrap_or(if r.pass { 0.0 } else { f64::MAX });
+
+            PerformanceMeasurement {
+                operation,
+                silicon_unit: "shader_core".into(),
+                precision_mode: r.tier.into(),
+                throughput_gflops: 0.0,
+                tolerance_achieved,
+                gpu_model: r.gpu.clone(),
+                measured_by: "hotSpring/validate_precision_matrix".into(),
+                timestamp: ts,
+            }
+        })
+        .collect();
+
+    toadstool_report::report_to_toadstool(&measurements);
+    println!();
+
     if total_fail > 0 {
-        println!("\n  FAILURES:");
+        println!("  FAILURES:");
         for r in all_results.iter().filter(|r| !r.pass) {
             println!(
                 "    {} | [{:<5}] {}: got={}, expected={}, error={}",

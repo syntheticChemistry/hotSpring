@@ -726,3 +726,8 @@ path = "src/bin/validate_sovereign_roundtrip.rs"
 name = "validate_precision_matrix"
 path = "src/bin/validate_precision_matrix.rs"
 
+# ── Silicon science experiments: QCD ops × GPU silicon units × precision ──
+[[bin]]
+name = "validate_silicon_science"
+path = "src/bin/validate_silicon_science.rs"
+

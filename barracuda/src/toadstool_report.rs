@@ -48,7 +48,8 @@ pub fn epoch_now() -> u64 {
 /// Discover toadStool's JSON-RPC Unix socket path.
 ///
 /// Checks `TOADSTOOL_SOCKET` (with `.jsonrpc.sock` extension),
-/// `XDG_RUNTIME_DIR/toadstool.jsonrpc.sock`, and `/tmp/toadstool.jsonrpc.sock`.
+/// `XDG_RUNTIME_DIR/biomeos/toadstool.jsonrpc.sock` (toadStool's default),
+/// `XDG_RUNTIME_DIR/toadstool.jsonrpc.sock` (flat layout), and `/tmp/toadstool.jsonrpc.sock`.
 fn discover_socket() -> Option<PathBuf> {
     for var in &["TOADSTOOL_SOCKET", "PRIMAL_SOCKET"] {
         if let Ok(p) = std::env::var(var) {
@@ -64,9 +65,15 @@ fn discover_socket() -> Option<PathBuf> {
     }
 
     if let Ok(xdg) = std::env::var("XDG_RUNTIME_DIR") {
-        let sock = PathBuf::from(xdg).join("toadstool.jsonrpc.sock");
-        if sock.exists() {
-            return Some(sock);
+        let xdg = PathBuf::from(xdg);
+        // toadStool serves under biomeos/ subdirectory
+        let biomeos = xdg.join("biomeos/toadstool.jsonrpc.sock");
+        if biomeos.exists() {
+            return Some(biomeos);
+        }
+        let flat = xdg.join("toadstool.jsonrpc.sock");
+        if flat.exists() {
+            return Some(flat);
         }
     }
 

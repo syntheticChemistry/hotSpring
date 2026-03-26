@@ -5,6 +5,25 @@ All notable changes to the hotSpring BarraCuda validation crate.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased — Silicon Science Sprint (March 26, 2026)
+
+### Added
+- **`validate_silicon_science` binary** (Exp 096): First non-shader-core silicon experiment. Tests TMU table lookup vs compute shader exp() across RTX 3090, RX 6950 XT, and llvmpipe. Maps 11 QCD operations to 9 silicon unit types. 12/12 pass
+- **TMU texture lookup experiment**: `textureLoad` on R32Float 2D texture (1024×1) for exp() table. RTX 3090: 1.89x throughput over compute. AMD: 1.24x. Validates TMU as science-accessible silicon unit
+- **QCD-to-silicon mapping**: Wilson plaquette, gauge force, CG solver, dot product, neighbor search, EOS lookup, scatter-add, binning, distance fields, AMR, trajectory compression — each mapped to optimal hardware unit with LIVE/PLAN status
+- **toadStool performance surface integration**: All measurements structured as `PerformanceMeasurement` with `math.*` operation IDs, `silicon_unit` field, and `tolerance_achieved`
+
+### Changed
+- **toadStool socket discovery** (`toadstool_report.rs`): Checks `$XDG_RUNTIME_DIR/biomeos/toadstool.jsonrpc.sock` first (matches toadStool default)
+- **Silicon unit wire format**: Fixed `silicon_unit` from `"shader"` to `"shader_core"` to match toadStool `SiliconUnit` enum
+- **`validate_precision_matrix`**: Now reports to toadStool performance surface with granular `math.*` operation IDs
+
+### Found
+- **AMD DF64 advantage**: RX 6950 XT delivers 38% better DF64 throughput than RTX 3090 (23.4M vs 16.9M ops/s). Combined with higher fidelity, AMD RDNA2 is preferred for double-float science
+- **naga WGSL roundtrip bug**: SovereignCompiler Tier 2 (naga parse → optimize → WGSL re-emit) silently breaks DF64 Dekker arithmetic. Tier 2 disabled for DF64 shaders. Raw WGSL (Tier 3) and SPIR-V (Tier 1) paths work correctly
+
+---
+
 ## v0.6.32 — Trio Rewire: barraCuda b95e9c59 + coralReef Iter 47 + toadStool S156 (March 13, 2026)
 
 **barraCuda pin**: `82ff983` → `b95e9c59` (deep debt audit, DRY device-lost, expanded test coverage, zero-copy BytesMut tensors, CoralReefDevice auto-discovery replaces from_descriptor, RwLock tensor store, fire-and-forget submit_commands, pedantic deny)

@@ -975,7 +975,7 @@ async fn main() {
 
         measurements.push(PerformanceMeasurement {
             operation,
-            silicon_unit: "shader".into(),
+            silicon_unit: "shader_core".into(),
             precision_mode: precision_mode.into(),
             throughput_gflops: 0.0,
             tolerance_achieved: (check.observed - check.expected).abs(),

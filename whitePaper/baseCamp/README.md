@@ -2,7 +2,7 @@
 
 **Date:** 2026-03-26
 **Project:** hotSpring (ecoPrimals)
-**Status:** v0.6.32, experiments 001-095, 4,065 tests pass, 39/39 validation suites, 115+ binaries, 85+ WGSL shaders
+**Status:** v0.6.32, experiments 001-096, 4,065 tests pass, 39/39 validation suites, 116+ binaries, 85+ WGSL shaders
 
 **Notes:** Upstream primal sync: barraCuda `7c1fd03a` (eigensolver, activations, PRNG), coralReef Iter 67+ (falcon boot solver, sysmem DMA, blob_size=0), toadStool S155b+ PcieTransport + ResourceOrchestrator. Sovereign GPU compute: **10/11 layers — L7 BREAKTHROUGH (Exp 095).** SEC2 enters HS mode via sysmem DMA. FBHUB PRI-dead after VFIO takeover — VRAM DMA corrupts data, sysmem bypasses FBHUB. Path B dead (Exp 094: LS auth blocks PIO). W1 header + BOOTVEC wired (Exp 093). blob_size=0 patch applied — next pkexec run expected to bootstrap FECS/GPCCS. Chuna Papers 43-45: **44/44 overnight checks pass**. All AGPL-3.0-only.
 
@@ -41,6 +41,7 @@ Published paper (Python/FORTRAN/HPC)
 | [`npu_dynamic_programming.md`](npu_dynamic_programming.md) | NPU as DP — Activation Parity & Subproblem Memoization | None (architecture insight) | tanh≈ReLU validated, NPU-as-memoization-table architecture for multigrid HMC |
 | [`neuromorphic_native_field_theory.md`](neuromorphic_native_field_theory.md) | Neuromorphic-Native Field Theory — Lattice Physics on Spiking Hardware | None (long-term hardware architecture) | 5-level path from NPU steering → NPU IS the simulation, coralForge isomorphism |
 | [`sovereign_gpu_compute.md`](sovereign_gpu_compute.md) | Sovereign GPU Compute — GlowPlug, Falcon, PFIFO, DRM Dispatch | None (hardware exploration) | Exp 060-095: **L7 BREAKTHROUGH** — SEC2 HS mode via sysmem DMA (Exp 095). Path B dead (Exp 094). W1 header + BOOTVEC wired (Exp 093). SCTL myth busted (Exp 091). Adaptive experiment loop (Exp 092). WPR W1-W7 solved (Exp 087). **DRM dual-track** (AMD PM4 + NVIDIA EXEC), **iommufd/cdev** kernel-agnostic VFIO (607 tests), **RTX 5060 Blackwell DRM cracked** (SM120, 4/4 tests) |
+| [`silicon_science.md`](silicon_science.md) | Silicon Science — All-Silicon GPU Experiments | None (hardware exploration) | Exp 096: **TMU table lookup 1.89x** (RTX 3090), **AMD DF64 38% faster** than NVIDIA. 11 QCD ops mapped to 9 silicon units. `validate_silicon_science` binary. toadStool performance surface integration |
 
 ---
 
