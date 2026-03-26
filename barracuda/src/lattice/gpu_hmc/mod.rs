@@ -53,8 +53,8 @@ pub use resident_cg::{
     WGSL_SUM_REDUCE,
 };
 pub use gpu_rhmc::{
-    GpuRhmcPipelines, GpuRhmcResult, GpuRhmcSectorBuffers, GpuRhmcState, MAX_POLES,
-    WGSL_MULTI_SHIFT_ZETA,
+    gpu_multi_shift_cg_solve, gpu_rhmc_trajectory, GpuRhmcPipelines, GpuRhmcResult,
+    GpuRhmcSectorBuffers, GpuRhmcState, MAX_POLES, WGSL_MULTI_SHIFT_ZETA, WGSL_SHIFT_UPDATE_P,
 };
 pub use streaming::{
     gpu_dynamical_hmc_trajectory_streaming, gpu_hmc_trajectory_streaming,

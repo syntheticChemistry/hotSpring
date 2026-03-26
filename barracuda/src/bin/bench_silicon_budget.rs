@@ -285,6 +285,52 @@ fn lookup_silicon_specs(name: &str, vendor: GpuVendor) -> GpuSiliconBudget {
         };
     }
 
+    // Tesla P80 / P100 (GP100, Pascal)
+    if name_lower.contains("p80") || name_lower.contains("p100") || name_lower.contains("gp100") {
+        return GpuSiliconBudget {
+            name: name.to_string(),
+            vendor,
+            vram_bytes: 16 * 1024 * 1024 * 1024, // 16 GB HBM2
+            fp32_tflops: 9.3,
+            fp64_ratio: 1.0 / 2.0,
+            fp64_tflops: 4.7, // GP100 has 1:2 FP64
+            df64_tflops: 2.3,
+            memory_bw_gbs: 732.0, // HBM2
+            l2_bytes: 4 * 1024 * 1024,
+            infinity_cache_bytes: 0,
+            tmu_count: 224,
+            rop_count: 96,
+            boost_ghz: 1.33,
+            tmu_gtexels: 224.0 * 1.33,
+            rop_gpixels: 96.0 * 1.33,
+            tensor_fp16_tflops: 0.0, // Pascal predates tensor cores
+            tensor_tf32_tflops: 0.0,
+        };
+    }
+
+    // V100 / Tesla V100 (GV100, Volta — data center variant)
+    if name_lower.contains("v100") && !name_lower.contains("titan v") {
+        return GpuSiliconBudget {
+            name: name.to_string(),
+            vendor,
+            vram_bytes: 32 * 1024 * 1024 * 1024, // 32 GB HBM2 (SXM2)
+            fp32_tflops: 15.7,
+            fp64_ratio: 1.0 / 2.0,
+            fp64_tflops: 7.8,
+            df64_tflops: 3.9,
+            memory_bw_gbs: 900.0, // HBM2, SXM2
+            l2_bytes: 6 * 1024 * 1024,
+            infinity_cache_bytes: 0,
+            tmu_count: 320,
+            rop_count: 128,
+            boost_ghz: 1.53,
+            tmu_gtexels: 320.0 * 1.53,
+            rop_gpixels: 128.0 * 1.53,
+            tensor_fp16_tflops: 125.0,
+            tensor_tf32_tflops: 0.0, // Volta predates TF32
+        };
+    }
+
     // Titan V (GV100, Volta)
     if name_lower.contains("titan v") {
         return GpuSiliconBudget {
@@ -305,6 +351,77 @@ fn lookup_silicon_specs(name: &str, vendor: GpuVendor) -> GpuSiliconBudget {
             rop_gpixels: 96.0 * 1.46,
             tensor_fp16_tflops: 110.0,
             tensor_tf32_tflops: 0.0, // Volta predates TF32
+        };
+    }
+
+    // === HPC Reference Cards (not local — for comparison tables) ===
+
+    // A100 SXM (GA100, Ampere — CERN/USQCD reference)
+    if name_lower.contains("a100") {
+        return GpuSiliconBudget {
+            name: name.to_string(),
+            vendor,
+            vram_bytes: 80 * 1024 * 1024 * 1024, // 80 GB HBM2e
+            fp32_tflops: 19.5,
+            fp64_ratio: 1.0 / 2.0,
+            fp64_tflops: 9.7, // GA100: 1:2 FP64
+            df64_tflops: 4.9,
+            memory_bw_gbs: 2039.0, // HBM2e SXM
+            l2_bytes: 40 * 1024 * 1024, // 40 MB
+            infinity_cache_bytes: 0,
+            tmu_count: 432,
+            rop_count: 160,
+            boost_ghz: 1.41,
+            tmu_gtexels: 432.0 * 1.41,
+            rop_gpixels: 160.0 * 1.41,
+            tensor_fp16_tflops: 312.0,
+            tensor_tf32_tflops: 156.0,
+        };
+    }
+
+    // H100 SXM (GH100, Hopper — current HPC flagship)
+    if name_lower.contains("h100") {
+        return GpuSiliconBudget {
+            name: name.to_string(),
+            vendor,
+            vram_bytes: 80 * 1024 * 1024 * 1024, // 80 GB HBM3
+            fp32_tflops: 67.0,
+            fp64_ratio: 1.0 / 2.0,
+            fp64_tflops: 34.0,
+            df64_tflops: 17.0,
+            memory_bw_gbs: 3350.0, // HBM3 SXM
+            l2_bytes: 50 * 1024 * 1024, // 50 MB
+            infinity_cache_bytes: 0,
+            tmu_count: 528,
+            rop_count: 176,
+            boost_ghz: 1.83,
+            tmu_gtexels: 528.0 * 1.83,
+            rop_gpixels: 176.0 * 1.83,
+            tensor_fp16_tflops: 990.0,
+            tensor_tf32_tflops: 495.0,
+        };
+    }
+
+    // MI250X (CDNA2, Aldebaran — AMD HPC flagship)
+    if name_lower.contains("mi250") || name_lower.contains("aldebaran") {
+        return GpuSiliconBudget {
+            name: name.to_string(),
+            vendor,
+            vram_bytes: 128 * 1024 * 1024 * 1024, // 128 GB HBM2e
+            fp32_tflops: 47.9,
+            fp64_ratio: 1.0, // CDNA2: full-rate 1:1 FP64
+            fp64_tflops: 47.9,
+            df64_tflops: 12.0,
+            memory_bw_gbs: 3277.0, // HBM2e (dual GCD)
+            l2_bytes: 16 * 1024 * 1024, // 8 MB per GCD × 2
+            infinity_cache_bytes: 0,
+            tmu_count: 0, // CDNA has no TMUs (compute-only die)
+            rop_count: 0,
+            boost_ghz: 1.7,
+            tmu_gtexels: 0.0,
+            rop_gpixels: 0.0,
+            tensor_fp16_tflops: 383.0, // Matrix cores
+            tensor_tf32_tflops: 95.7,  // FP64 matrix = 95.7 TFLOPS
         };
     }
 

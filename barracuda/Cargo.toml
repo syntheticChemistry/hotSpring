@@ -751,3 +751,8 @@ path = "src/bin/bench_silicon_saturation.rs"
 name = "bench_silicon_composition"
 path = "src/bin/bench_silicon_composition.rs"
 
+# ── Production RHMC: all-flavors dynamical QCD (Nf=2, 2+1) ──
+[[bin]]
+name = "production_rhmc_scan"
+path = "src/bin/production_rhmc_scan.rs"
+
