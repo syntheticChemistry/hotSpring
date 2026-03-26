@@ -21,7 +21,7 @@
 //! should delegate topology discovery to `PcieTopologyGraph` and multi-GPU
 //! routing to `WorkloadRouter` instead of manual PCIe bandwidth estimation.
 
-use barracuda::device::driver_profile::Fp64Rate;
+use barracuda::device::driver_profile::{Fp64Rate, Fp64Strategy};
 use barracuda::unified_hardware::{BandwidthTier, PcieBridge, TransferCost};
 
 use crate::error::HotSpringError;
@@ -130,14 +130,13 @@ impl DevicePair {
     /// Automatically assigns roles: the card with `Fp64Rate::Full` becomes
     /// `precise`; the other becomes `throughput`. If both have the same rate,
     /// the card with more VRAM becomes `throughput` (larger batch capacity).
-    #[allow(deprecated)]
     pub fn from_gpus(gpu_a: GpuF64, gpu_b: GpuF64) -> Self {
-        let rate_a = gpu_a.driver_profile().fp64_rate;
-        let rate_b = gpu_b.driver_profile().fp64_rate;
+        let is_full_a = gpu_a.fp64_strategy() == Fp64Strategy::Native;
+        let is_full_b = gpu_b.fp64_strategy() == Fp64Strategy::Native;
 
-        let (precise, throughput) = if rate_a == Fp64Rate::Full && rate_b != Fp64Rate::Full {
+        let (precise, throughput) = if is_full_a && !is_full_b {
             (gpu_a, gpu_b)
-        } else if rate_b == Fp64Rate::Full && rate_a != Fp64Rate::Full {
+        } else if is_full_b && !is_full_a {
             (gpu_b, gpu_a)
         } else {
             // Same rate: card with less memory is precise (more memory → bigger batches → throughput)
@@ -161,9 +160,13 @@ impl DevicePair {
             tier: bridge_tier,
         };
 
-        #[allow(deprecated)]
+        let precise_fp64_rate = if precise.fp64_strategy() == Fp64Strategy::Native {
+            Fp64Rate::Full
+        } else {
+            Fp64Rate::Minimal
+        };
         let precise_tflops_f64 =
-            estimate_f64_tflops(&precise.adapter_name, precise.driver_profile().fp64_rate);
+            estimate_f64_tflops(&precise.adapter_name, precise_fp64_rate);
         let throughput_tflops_f32 = estimate_f32_tflops(&throughput.adapter_name);
         let throughput_tflops_df64 = throughput_tflops_f32 * 0.5;
 

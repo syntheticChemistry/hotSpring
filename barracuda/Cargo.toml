@@ -711,3 +711,18 @@ name = "validate_cross_vendor_dispatch"
 path = "src/bin/validate_cross_vendor_dispatch.rs"
 required-features = ["cuda-validation"]
 
+# ── Silicon capability diagnostic: precision tier characterization per GPU ──
+[[bin]]
+name = "validate_silicon_capabilities"
+path = "src/bin/validate_silicon_capabilities.rs"
+
+# ── Sovereign round-trip: raw WGSL vs naga re-emit GPU output comparison ──
+[[bin]]
+name = "validate_sovereign_roundtrip"
+path = "src/bin/validate_sovereign_roundtrip.rs"
+
+# ── Precision tier matrix: int2→df128 silicon characterization per GPU ──
+[[bin]]
+name = "validate_precision_matrix"
+path = "src/bin/validate_precision_matrix.rs"
+

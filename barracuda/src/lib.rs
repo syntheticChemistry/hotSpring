@@ -98,6 +98,8 @@ pub mod spectral;
 pub mod streaming_dispatch;
 /// JSONL telemetry reader for petalTongue visualization integration.
 pub mod telemetry_reader;
+/// Minimal toadStool performance surface reporter (JSON-RPC over Unix socket).
+pub mod toadstool_report;
 /// Centralized, justified validation thresholds (~170 constants).
 pub mod tolerances;
 /// PCIe transfer cost profiler per GPU card.

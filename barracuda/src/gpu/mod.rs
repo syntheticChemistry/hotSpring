@@ -160,17 +160,16 @@ impl GpuF64 {
         &self.capabilities
     }
 
-    /// Legacy accessor — constructs a `GpuDriverProfile` on demand.
-    ///
-    /// Callers should migrate to [`capabilities()`](Self::capabilities) which
-    /// provides the same `precision_routing()`, `fp64_strategy()`, and
-    /// `has_df64_spir_v_poisoning()` methods without the deprecated type.
-    /// Retained for callers that need `fp64_rate` or
-    /// `sovereign_resolves_poisoning()` until those move to `DeviceCapabilities`.
+    /// FP64 execution strategy for this device.
     #[must_use]
-    #[allow(deprecated)]
-    pub fn driver_profile(&self) -> barracuda::device::driver_profile::GpuDriverProfile {
-        barracuda::device::driver_profile::GpuDriverProfile::from_device(&self.wgpu_device)
+    pub fn fp64_strategy(&self) -> barracuda::device::driver_profile::Fp64Strategy {
+        self.capabilities.fp64_strategy()
+    }
+
+    /// Precision routing advice for this device.
+    #[must_use]
+    pub fn precision_routing(&self) -> barracuda::device::driver_profile::PrecisionRoutingAdvice {
+        self.capabilities.precision_routing()
     }
 }
 

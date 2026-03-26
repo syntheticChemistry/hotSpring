@@ -43,11 +43,10 @@ async fn run_test() {
     }
 
     gpu.print_info();
-    #[allow(deprecated)]
-    let profile = gpu.driver_profile();
-    let poisoning_risk = profile.has_df64_spir_v_poisoning();
+    let caps = gpu.capabilities();
+    let poisoning_risk = caps.has_df64_spir_v_poisoning();
     println!("  has_df64_spir_v_poisoning(): {poisoning_risk}");
-    println!("  fp64_strategy(): {:?}", profile.fp64_strategy());
+    println!("  fp64_strategy(): {:?}", caps.fp64_strategy());
     println!();
 
     let n: usize = 500;
@@ -209,7 +208,7 @@ async fn run_test() {
     println!("  SUMMARY");
     println!("═══════════════════════════════════════════════════════════════");
     println!("  GPU:         {}", gpu.adapter_name);
-    println!("  Driver:      {:?} / {:?}", profile.driver, profile.arch);
+    println!("  Strategy:    {:?}", caps.fp64_strategy());
     println!("  NVVM risk:   {poisoning_risk}");
     println!("  f64 force:   {}", if f64_ok { "PASS" } else { "FAIL" });
     println!(

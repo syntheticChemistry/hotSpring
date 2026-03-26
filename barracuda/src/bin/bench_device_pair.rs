@@ -184,13 +184,10 @@ fn main() {
     println!("  BCS advantage:    {ratio}");
 }
 
-#[allow(deprecated)]
 fn print_card_profile(role: &str, gpu: &GpuF64) {
-    let strategy = gpu.driver_profile().fp64_strategy();
-    let rate = gpu.driver_profile().fp64_rate;
-    let routing = gpu.driver_profile().precision_routing();
+    let strategy = gpu.fp64_strategy();
+    let routing = gpu.precision_routing();
     println!("  {role}: {}", gpu.adapter_name);
-    println!("    FP64 rate:     {rate:?}");
     println!("    Strategy:      {strategy:?}");
     println!("    Precision:     {routing:?}");
     println!(
