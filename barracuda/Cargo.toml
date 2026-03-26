@@ -731,3 +731,8 @@ path = "src/bin/validate_precision_matrix.rs"
 name = "validate_silicon_science"
 path = "src/bin/validate_silicon_science.rs"
 
+# ── QCD silicon benchmark: per-kernel profiling × lattice size × GPU vendor ──
+[[bin]]
+name = "bench_qcd_silicon"
+path = "src/bin/bench_qcd_silicon.rs"
+
