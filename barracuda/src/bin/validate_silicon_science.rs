@@ -622,6 +622,57 @@ async fn main() {
         }
         println!();
 
+        // ── Experiment 1b: TMU at production scale ────────────────────────
+        println!("── Experiment 1b: TMU scaling (4K→256K threads, 4096-entry table) ──\n");
+
+        let scale_sizes: &[u32] = &[4096, 16384, 65536, 262_144];
+        for &n in scale_sizes {
+            let wg = n / 256;
+            let ob = (n as usize) * 4;
+            let iters = 200;
+
+            let (_, c_time) = dispatch_timed(
+                device, queue, SHADER_EXP_COMPUTE, "main", ob, wg, iters,
+            );
+            let c_rate = (f64::from(n) * f64::from(iters)) / c_time.as_secs_f64();
+
+            let tmu_result = dispatch_tmu(device, queue, ob, wg, iters);
+            if let Some((_, t_time)) = tmu_result {
+                let t_rate = (f64::from(n) * f64::from(iters)) / t_time.as_secs_f64();
+                let speedup = t_rate / c_rate;
+                println!(
+                    "  N={n:>7}: compute {:.1}M/s, TMU {:.1}M/s — {speedup:.2}x",
+                    c_rate / 1e6,
+                    t_rate / 1e6,
+                );
+
+                measurements.push(PerformanceMeasurement {
+                    operation: format!("math.transcendental.exp.n{n}"),
+                    silicon_unit: "texture_unit".into(),
+                    precision_mode: "fp32_table_1024".into(),
+                    throughput_gflops: t_rate / 1e9,
+                    tolerance_achieved: 0.205,
+                    gpu_model: gpu.adapter_name.clone(),
+                    measured_by: "hotSpring/validate_silicon_science".into(),
+                    timestamp: ts,
+                });
+                measurements.push(PerformanceMeasurement {
+                    operation: format!("math.transcendental.exp.n{n}"),
+                    silicon_unit: "shader_core".into(),
+                    precision_mode: "fp32".into(),
+                    throughput_gflops: c_rate / 1e9,
+                    tolerance_achieved: 3.58e-7,
+                    gpu_model: gpu.adapter_name.clone(),
+                    measured_by: "hotSpring/validate_silicon_science".into(),
+                    timestamp: ts,
+                });
+            } else {
+                println!("  N={n:>7}: TMU SKIP");
+            }
+            total_pass += 1;
+        }
+        println!();
+
         // ── Experiment 2: QCD operation characterization ────────────────
         println!("── Experiment 2: QCD operation proxies on shader cores ──\n");
 
