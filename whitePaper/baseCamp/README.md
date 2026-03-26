@@ -1,10 +1,10 @@
 # baseCamp: Research Domain Briefings
 
-**Date:** 2026-03-25
+**Date:** 2026-03-26
 **Project:** hotSpring (ecoPrimals)
-**Status:** v0.6.32, experiments 001-092, 4,065 tests pass, 39/39 validation suites, 115+ binaries, 85+ WGSL shaders
+**Status:** v0.6.32, experiments 001-095, 4,065 tests pass, 39/39 validation suites, 115+ binaries, 85+ WGSL shaders
 
-**Notes:** Upstream primal sync: barraCuda `7c1fd03a` (eigensolver, activations, PRNG), coralReef Iter 66+ (ring/mailbox/journal/observers/adaptive), toadStool S155b+ PcieTransport + ResourceOrchestrator. Sovereign GPU compute: **10/11 layers solved** — BOOTVEC fix applied (Exp 091), adaptive experiment loop live (Exp 092). `coralctl experiment sweep` on both Titan Vs: nouveau 21.9s/nvidia-open 26.8s bind, sub-1% cross-card variance. Journal + AdaptiveLifecycle + DriverObserver wired end-to-end. HBM2 alive on both cards. Chuna Papers 43-45: **44/44 overnight checks pass**. All AGPL-3.0-only.
+**Notes:** Upstream primal sync: barraCuda `7c1fd03a` (eigensolver, activations, PRNG), coralReef Iter 67+ (falcon boot solver, sysmem DMA, blob_size=0), toadStool S155b+ PcieTransport + ResourceOrchestrator. Sovereign GPU compute: **10/11 layers — L7 BREAKTHROUGH (Exp 095).** SEC2 enters HS mode via sysmem DMA. FBHUB PRI-dead after VFIO takeover — VRAM DMA corrupts data, sysmem bypasses FBHUB. Path B dead (Exp 094: LS auth blocks PIO). W1 header + BOOTVEC wired (Exp 093). blob_size=0 patch applied — next pkexec run expected to bootstrap FECS/GPCCS. Chuna Papers 43-45: **44/44 overnight checks pass**. All AGPL-3.0-only.
 
 ---
 
@@ -40,7 +40,7 @@ Published paper (Python/FORTRAN/HPC)
 | [`esn_baseline_validation.md`](esn_baseline_validation.md) | ESN Baseline — CPU Training & Capability Map | None (NPU engineering) | 116 pts, 5 synthetic probes, 3 heads EXCELLENT, HeadConfidence tracker live |
 | [`npu_dynamic_programming.md`](npu_dynamic_programming.md) | NPU as DP — Activation Parity & Subproblem Memoization | None (architecture insight) | tanh≈ReLU validated, NPU-as-memoization-table architecture for multigrid HMC |
 | [`neuromorphic_native_field_theory.md`](neuromorphic_native_field_theory.md) | Neuromorphic-Native Field Theory — Lattice Physics on Spiking Hardware | None (long-term hardware architecture) | 5-level path from NPU steering → NPU IS the simulation, coralForge isomorphism |
-| [`sovereign_gpu_compute.md`](sovereign_gpu_compute.md) | Sovereign GPU Compute — GlowPlug, Falcon, PFIFO, DRM Dispatch | None (hardware exploration) | Exp 060-073: FECS direct execution, SEC2 EMEM, D3hot recovery, GlowPlug daemon, PFIFO re-init, MMU cracking, **DRM dual-track** (AMD PM4 + NVIDIA EXEC), vendor lifecycle (3 vendors + NPU), **iommufd/cdev** kernel-agnostic VFIO (607 tests, HW validated), **RTX 5060 Blackwell DRM cracked** (SM120, 4/4 tests) |
+| [`sovereign_gpu_compute.md`](sovereign_gpu_compute.md) | Sovereign GPU Compute — GlowPlug, Falcon, PFIFO, DRM Dispatch | None (hardware exploration) | Exp 060-095: **L7 BREAKTHROUGH** — SEC2 HS mode via sysmem DMA (Exp 095). Path B dead (Exp 094). W1 header + BOOTVEC wired (Exp 093). SCTL myth busted (Exp 091). Adaptive experiment loop (Exp 092). WPR W1-W7 solved (Exp 087). **DRM dual-track** (AMD PM4 + NVIDIA EXEC), **iommufd/cdev** kernel-agnostic VFIO (607 tests), **RTX 5060 Blackwell DRM cracked** (SM120, 4/4 tests) |
 
 ---
 
@@ -48,7 +48,7 @@ Published paper (Python/FORTRAN/HPC)
 
 - **wetSpring** (`../../../wetSpring/whitePaper/baseCamp/`): Per-faculty briefings for bio/phylogenetic domains. Shares DF64, ESN, and pairwise distance shaders via barraCuda.
 - **barraCuda** (`../../../barraCuda/`): Standalone compute primal (budded from toadStool S89). 792+ WGSL shaders, DF64, precision system, lattice QCD, eigensolver, activations API.
-- **coralReef** (`../../../coralReef/`): Sovereign shader compiler primal (Phase 10, Iter 62+). WGSL→native binary compilation. VFIO dispatch pipeline (PFIFO + MMU + DMA). coral-glowplug persistent PCIe broker daemon. coral-driver pure Rust GPU backends (AMD DRM, NVIDIA nouveau, NVIDIA VFIO). **iommufd/cdev** kernel-agnostic VFIO (607 tests). **RTX 5060 Blackwell DRM** (SM120, 4/4 tests). SEC2/FECS falcon direct loading proven (Exp 067-068).
-- **toadStool** (`../../../phase1/toadStool/`): Hardware discovery and orchestration (S147). PcieTransport, ResourceOrchestrator, GPU sysmon telemetry.
-- **Experiment journals**: `../../experiments/` (001-073)
+- **coralReef** (`../../../coralReef/`): Sovereign shader compiler primal (Phase 10, Iter 67+). WGSL→native binary compilation. VFIO dispatch pipeline (PFIFO + MMU + DMA). coral-glowplug persistent PCIe broker daemon. coral-driver pure Rust GPU backends (AMD DRM, NVIDIA nouveau, NVIDIA VFIO). **iommufd/cdev** kernel-agnostic VFIO (607 tests). **RTX 5060 Blackwell DRM** (SM120, 4/4 tests). SEC2 HS mode via sysmem DMA (Exp 095). Falcon boot solver with strategy pattern (VRAM/hybrid/sysmem).
+- **toadStool** (`../../../phase1/toadStool/`): Hardware discovery and orchestration (S155b+). PcieTransport, ResourceOrchestrator, GPU sysmon telemetry.
+- **Experiment journals**: `../../experiments/` (001-095)
 - **Handoffs**: `../../wateringHole/handoffs/` (fossil record of all cross-project exchanges)

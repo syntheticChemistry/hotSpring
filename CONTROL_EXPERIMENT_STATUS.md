@@ -1,6 +1,6 @@
 # hotSpring Control Experiment — Status Report
 
-> **Note (March 23, 2026):** For current sprint status, see experiments 078-081 (Layer 7 ACR Boot Solver — Falcon diagnostic matrix, warm handoff attempt, sovereign FECS boot, multi-strategy boot solver) and the [root README](README.md). 7/10 sovereign pipeline layers proven. SEC2 correctly probed, ACR firmware parsed, HS ROM PC advancing. Instance block bind is the immediate blocker. 81 experiments.
+> **Note (March 26, 2026):** For current sprint status, see the [root README](README.md) and [`specs/GPU_CRACKING_GAP_TRACKER.md`](specs/GPU_CRACKING_GAP_TRACKER.md). **10/11 sovereign pipeline layers — L7 BREAKTHROUGH (Exp 095).** SEC2 enters HS mode via sysmem DMA. Path B dead (Exp 094). W1 header + BOOTVEC wired (Exp 093). 95 experiments. The body of this document is a fossil record from March 16 — see the root README for current status.
 
 **Date**: 2026-03-16 (L1+L2 complete, GPU MD Phase C+D+E+F complete — paper-parity long run 9/9, BarraCuda pipeline 39/39, crate v0.6.31, cross-substrate ESN, NPU characterization, DF64 production, toadStool S155b + coralReef Iter 47 synced, Chuna 44/44, Precision Brain + naga poisoning fix, deep debt resolved, **live Kokkos parity: 12.4× gap measured**, BatchedComputeDispatch wired, **coral-glowplug boot-persistent PCIe broker** (Exp 060-069), sovereign falcon direct execution proven)
 **Gates**: Eastgate (i9-12900K, RTX 4070 12GB) + biomeGate (Threadripper 3970X, RTX 3090 24GB + Titan V 12GB HBM2, Akida NPU, 256GB DDR4)

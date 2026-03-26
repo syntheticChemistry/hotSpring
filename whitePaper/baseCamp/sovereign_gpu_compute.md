@@ -1,8 +1,8 @@
 # baseCamp: Sovereign GPU Compute — GlowPlug & Falcon Boot Chain
 
-**Date:** 2026-03-25  
-**Domain:** Hardware — PCIe GPU lifecycle, falcon microcontrollers, HBM2 management, PFIFO command submission, ACR secure boot, WPR construction, cross-driver profiling, daemon resilience, adaptive experiment loop, personality sweep  
-**Experiments:** 060-092  
+**Date:** 2026-03-26  
+**Domain:** Hardware — PCIe GPU lifecycle, falcon microcontrollers, HBM2 management, PFIFO command submission, ACR secure boot, WPR construction, cross-driver profiling, daemon resilience, adaptive experiment loop, sysmem DMA  
+**Experiments:** 060-095  
 **Hardware:** 2× NVIDIA Titan V (GV100, 12GB HBM2), RTX 5060 (display/validator)
 
 ---
@@ -553,3 +553,74 @@ portable across GPU generations. Pattern: probe → `FalconCapabilities` struct
 
 **Remaining blocker:** DMA configuration (FBIF mode, FBHUB MMU) for SEC2, plus
 BOOTVEC fix for GPCCS. Not security mode.
+
+### Phase 11: W1 Header Fix + Path B Dead + Sysmem HS Breakthrough (Exp 093-095)
+
+**Exp 093 — W1 Header Fix + BOOTVEC Metadata Wiring:**
+
+Three interrelated bugs fixed in `coral-driver`:
+
+1. **W1 Header Bug** — `fecs_boot.rs` loaded raw `*_bl.bin` files including
+   `nvfw_bin_hdr` + `nvfw_hs_bl_desc` headers. BL now parsed through
+   `GrBlFirmware::parse()` — extracts code section only.
+2. **Wrong IMEM Layout** — Fixed to: inst at IMEM[0], BL at IMEM[bl_imem_off],
+   BOOTVEC=bl_imem_off.
+3. **Hardcoded BOOTVEC** — Replaced local constants with firmware-derived
+   `GrBlFirmware::bl_imem_off()` via `FalconBootvecOffsets`.
+
+Hardware validation confirmed the fix is mechanically correct (IMEM readback
+verified), but FECS/GPCCS still fault at PC=0x0000 with exception 0x02070000.
+
+**Exp 094 — Path B Dead (LS Mode Authentication):**
+
+GV100 FECS/GPCCS are fuse-enforced LS mode (SCTL=0x3000). In LS mode, the
+falcon's secure boot hardware rejects PIO-uploaded code at execution time —
+exception 0x02 (instruction authentication failure). PIO writes produce valid
+IMEM content (verified via readback) but are NOT authenticated. The only route
+to sovereign compute on Volta is Path A: SEC2 ACR boot via DMA.
+
+**Exp 095 — Sysmem HS Mode Breakthrough:**
+
+After a nouveau cycle (VRAM recovery via DEVINIT), three ACR boot strategies
+were tested. The critical discovery: **FBHUB is PRI-dead after VFIO takeover**.
+
+```
+FBHUB diagnostic: 0x100C2C = 0xbadf5040 (PRI error)
+PRAMIN sentinel:  wrote=0xcafedead read=0xcafedead ok=true
+```
+
+PRAMIN writes to VRAM survive, but DMA reads through FBHUB are corrupted.
+The BL cannot verify the HS signature from corrupted data → falls through to
+LS mode. System memory DMA through the IOMMU is clean → HS mode achieved.
+
+| Path | DMA Source | SCTL | HS Mode | Outcome |
+|------|-----------|------|---------|---------|
+| VRAM | VRAM via FBHUB | 0x3000 | NO | LS mode, deaf to commands |
+| Hybrid | Sysmem PTEs for code, VRAM for WPR | 0x3000 | NO | Different trace, still LS |
+| **Sysmem** | **System memory via IOMMU** | **0x3002** | **YES** | **HS mode**, then trapped on blob DMA |
+
+**Fix:** `blob_size=0` in ACR descriptor skips the internal blob DMA that caused
+the trap (EXCI=0x201f0000). WPR is pre-populated in the sysmem DMA buffer.
+
+**Code infrastructure built:**
+- `strategy_sysmem.rs`: blob_size=0 patch after `patch_acr_desc`
+- `sysmem_iova.rs`: separated SHADOW (0x60000) from WPR (0x70000)
+- `instance_block.rs`: `FALCON_PT0_VRAM` + `encode_sysmem_pte` public
+- `dma.rs`: `DmaBuffer::new` public for test-level DMA allocation
+- `mod.rs`: `dma_backend()` accessor on `NvVfioComputeDevice`
+
+**Updated Layer Model (Exp 095):**
+
+| Layer | Status | Discovery |
+|-------|--------|-----------|
+| L7 | **BREAKTHROUGH** | HS mode via sysmem DMA. FBHUB PRI-dead corrupts VRAM DMA |
+| L10 | **CLOSE** | Sysmem ACR + blob_size=0 should bootstrap FECS/GPCCS |
+| L11 | BLOCKED by L10 | FECS methods already implemented in `fecs_method.rs` |
+
+**Architectural conclusion:** On GV100 after VFIO takeover, all DMA must route
+through system memory. VRAM can be pre-populated via PRAMIN for WPR hardware
+protection, but the ACR's DMA engine must read from system memory.
+
+**Next step:** pkexec run of sysmem ACR boot with blob_size=0. Expected:
+HS mode (SCTL=0x3002) without trap → ACR reads WPR headers → bootstraps
+FECS/GPCCS → L10 solved → proceed to L11 shader dispatch.

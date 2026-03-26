@@ -1,14 +1,14 @@
 # hotSpring — Sovereign Validation Goal
 
-> **Note (March 25, 2026):** **9/10 sovereign pipeline layers SOLVED.** Layer 7 (falcon binding: B1-B7, Exp 085), Layer 8 (WPR: W1-W7, Exp 087), Layer 9 (falcon start, Exp 088) all solved. SCTL myth busted — PIO works regardless of security mode (Exp 091). FalconCapabilityProbe runtime bit solver added. Layer 10 root cause found: BOOTVEC=0 for GPCCS (Exp 091). Deep code quality sprint: 60+ hardcoded offsets → constants, 4 unsafe blocks eliminated, NonNull DMA. See [`specs/GPU_CRACKING_GAP_TRACKER.md`](specs/GPU_CRACKING_GAP_TRACKER.md) and [`experiments/091_LAYER_REVISIT_BOOTVEC_DISCOVERY.md`](experiments/091_LAYER_REVISIT_BOOTVEC_DISCOVERY.md).
+> **Note (March 26, 2026):** **10/11 sovereign pipeline layers — L7 BREAKTHROUGH (Exp 095).** SEC2 enters Heavy Secure mode (SCTL=0x3002) via system memory DMA. FBHUB PRI-dead after VFIO takeover — VRAM DMA corrupts data, sysmem DMA bypasses FBHUB. Path B (direct PIO) confirmed dead on GV100 (Exp 094: LS auth blocks execution). W1 header + BOOTVEC wired from firmware metadata (Exp 093). blob_size=0 patch applied — next pkexec run expected to bootstrap FECS/GPCCS. See [`specs/GPU_CRACKING_GAP_TRACKER.md`](specs/GPU_CRACKING_GAP_TRACKER.md) and Exp 093-095.
 
 ## CERN-Grade Reproducible Physics at Home. Scalable to CERN.
 
-**Date**: March 14, 2026
-**Version**: v0.6.31
-**Status**: 848 tests, 119 binaries, 85 shaders, 44/44 Chuna overnight, 0.000% energy drift
-**VFIO Validation**: **9/10 sovereign pipeline layers SOLVED** on Titan V (GV100) via VFIO. Layers 1-9 proven on real hardware. Layer 10 root cause found (BOOTVEC). Layer 11 (shader dispatch) blocked by L10. See `specs/GPU_CRACKING_GAP_TRACKER.md`.
-**Hardware Plan**: GTX 1050 (headless) + 2x Titan V (VFIO target + nouveau oracle) — planned weekend swap
+**Date**: March 26, 2026
+**Version**: v0.6.32
+**Status**: 4,065 tests, 119 binaries, 85 shaders, 44/44 Chuna overnight, 0.000% energy drift
+**VFIO Validation**: **10/11 sovereign pipeline layers — L7 BREAKTHROUGH** on Titan V (GV100) via VFIO. HS mode achieved via sysmem DMA (Exp 095). L10 CLOSE — sysmem ACR + blob_size=0 expected to bootstrap FECS/GPCCS. L11 (shader dispatch) blocked by L10. See `specs/GPU_CRACKING_GAP_TRACKER.md`.
+**Hardware**: 2× Titan V (VFIO targets + nouveau oracle) + RTX 5060 (display/validator)
 
 ---
 

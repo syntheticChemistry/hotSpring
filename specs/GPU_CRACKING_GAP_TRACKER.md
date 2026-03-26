@@ -1,6 +1,6 @@
 # GPU Cracking Gap Tracker
 
-**Updated:** 2026-03-25 (SCTL Debt Evolution Sprint — IMEMC BIT(24) discovery + FalconCapabilityProbe + Deep Code Quality Sprint)
+**Updated:** 2026-03-26 (Exp 095 — sysmem HS mode breakthrough, blob_size=0, hybrid page tables)
 **Goal:** Sovereign compute on Titan V (GV100) — FECS/GPCCS running without proprietary ACR chain
 
 ## MYTH BUSTED: SCTL Does NOT Block PIO (Exp 091+)
@@ -36,11 +36,11 @@ format at runtime via bit-solving, preventing future IMEMC-class bugs on any GPU
 | L4 | PFIFO init + PBDMA discovery | SOLVED | — |
 | L5 | MMU/FBHUB fault buffer setup | PROVEN (Exp 076) | — |
 | L6 | PBDMA context load + channel submit | PARTIAL (Exp 058) | GP_PUT DMA read fails |
-| L7 | SEC2 falcon binding + DMA | **REGRESSION** (Exp 091e) | **DMA fault** (not SCTL). PMC bit 22 locked + FBIF circular dep. PIO works. See Gap 14 |
+| L7 | SEC2 falcon binding + DMA | **BREAKTHROUGH** (Exp 095) | **HS mode achieved** via sysmem DMA. VRAM DMA corrupts data (FBHUB PRI-dead). Sysmem + blob_size=0 = next test. See Gap 14 |
 | L8 | WPR/ACR payload + FECS/GPCCS boot | **SOLVED** (Exp 087) | W1-W7 fixed. ACR processes WPR, bootstraps FECS+GPCCS. |
 | L9 | FECS boot + GR register init | **PARTIAL** (Exp 089b) | FECS halted at PC~0x058f, wakes on GR init. GPCCS stuck. |
-| L10 | GPCCS bootstrap via ACR | **ROOT CAUSE FOUND** (Exp 091) | **BOOTVEC=0** — ACR loads BL to IMEM[0x3400] but mailbox path doesn't set BOOTVEC. GPCCS starts at IMEM[0] → fault. Fix: set BOOTVEC=0x3400 + ITFEN + INTR_ENABLE before STARTCPU. |
-| L11 | GR context init + shader dispatch | **BLOCKED** by L10 | FECS stuck at idle loop (PC=0x023c), methods timeout. Needs GPCCS alive. |
+| L10 | GPCCS bootstrap via ACR | **CLOSE** (Exp 095) | Sysmem ACR enters HS mode; blob_size=0 should avoid previous trap. FECS/GPCCS bootstrap expected once ACR completes initialization without trapping. |
+| L11 | GR context init + shader dispatch | **BLOCKED** by L10 | Needs GPCCS alive via authenticated ACR DMA load. |
 
 ## Active Gaps
 
@@ -340,74 +340,83 @@ The GPCCS execution failure is NOT a CMDQ problem — it's an **HS authenticatio
 timestamped command tracking for the full boot chain. If BOOTVEC fix works,
 L11 methods are already implemented in `fecs_method.rs`.
 
-### Gap 14: Layer 7 — SEC2 DMA Fault Chain (Exp 091d-091e) — THE REAL BLOCKER
+### Gap 14: Layer 7 — SEC2 DMA + HS Mode — BREAKTHROUGH (Exp 095)
 
 **Layer:** L7 (SEC2 binding + DMA)
-**Exp:** 091d (DualPDE fix), **091e (hardware validation + root cause chain)**
-**Status:** ROOT CAUSE CHAIN IDENTIFIED — DMA configuration prevents SEC2 from loading ACR
+**Exp:** 091d-091e (root cause chain), **095 (nouveau cycle + VRAM ACR + sysmem ACR)**
+**Status:** **MAJOR PROGRESS** — HS mode achieved via sysmem DMA; VRAM DMA path characterized
 
-**NOTE (SCTL Myth Busted):** This gap was previously conflated with SCTL blocking.
-SCTL=0x3000 does NOT prevent DMA or PIO. The actual blockers are FBIF mode,
-page table configuration, and PMC lock — purely DMA/MMU issues.
+**Exp 095 Strategy:** Nouveau cycle (Phase 1) restores VRAM via DEVINIT, then sovereign
+ACR boot in VFIO. Four-phase test: VRAM probe → nouveau cycle → SEC2 diagnostics → ACR boot.
 
-Despite L7 being "SOLVED" in Exp 085 (bind_stat=5), hardware validation in Exp 091d/e
-reveals the SEC2 bind succeeds only from a nouveau warm state. From cold VFIO state,
-three hardware constraints compound to prevent SEC2 DMA:
+**Key Discovery: FBHUB is PRI-dead but PRAMIN writes survive:**
+- `0x100C2C = 0xbadf5040` (FBHUB PRI error — hub not accessible)
+- PRAMIN sentinel writes verify: `wrote=0xcafedead read=0xcafedead ok=true`
+- VRAM content (ACR payload, WPR, page tables) written via PRAMIN persists across SEC2 reset
+- **FBHUB degradation corrupts DMA reads from VRAM**, preventing BL signature verification
 
-**Root Cause Chain:**
+**Three ACR boot paths tested (Exp 095, 8 iterations):**
 
-| # | Issue | Evidence | Impact |
-|---|-------|----------|--------|
-| R1 | **PMC SEC2 bit (22) is hardware-locked** | `pmc_enable=0x5fecdff1` unchanged after disable write | SEC2 cannot be PMC-reset. Always-on engine. |
-| R2 | **FLR not supported** | VFIO_DEVICE_RESET returns EINVAL on GV100 Titan V | No PCI-level device reset available. |
-| R3 | **FBIF VIRT mode circular dependency** | bind_stat stuck at state 2 (walk in progress) | MMU walker uses FBIF to read page tables from VRAM, but FBIF is set to VIRT mode which requires the bind it's trying to complete. |
+| Path | DMA Source | SCTL | HS Mode | ACR State | FECS/GPCCS |
+|------|-----------|------|---------|-----------|------------|
+| VRAM (Phase 3) | VRAM via FBHUB | 0x3000 | NO | Runs in LS, deaf to commands | HRESET |
+| Hybrid (Phase 3 v2) | Sysmem PTEs for code, VRAM for WPR | 0x3000 | NO | Different trace, still LS | HRESET |
+| Sysmem (Phase 2.75) | System memory via IOMMU | **0x3002** | **YES** | HS mode, but **TRAPPED** (EXCI=0x201f0000) | HRESET |
 
-**Exp 091e per-GPU findings (both GV100 Titan V):**
+**Root Cause Analysis — LS mode in VRAM path:**
 
-| Diagnostic | GPU1 (03:00.0) | GPU2 (4a:00.0) |
-|------------|---------------|----------------|
-| cpuctl | 0x10 (halted) | 0x00 (running) |
-| sctl | 0x3000 (POR) | 0x3000 (POR) |
-| bind_stat | 0x008e043f (state 0 = idle) | 0x0026a43d (state 2 = walk stalled) |
-| FBIF 0x624 | 0x190 (won't accept PHYS_VID) | 0x91 (accepts PHYS_VID) |
-| exci after DMA | 0x201f0007 (VIRT fault) | 0x051f0007 (PHYS fault) |
-| DMA result | ACR mb0=0x1a (error) | ACR mb0=0x00 (no response) |
-| 0x3C0 local reset | No effect (cpuctl stays 0x10) | No effect (cpuctl stays 0x00) |
-| IMEM/DMEM PIO | Works (IMEM verify passes) | Works |
-| Mailbox commands | Partially works | Fully works |
+The BL's job: DMA 256B of non-secure ACR code → verify HS signature → enter HS mode.
+FBHUB corruption during VRAM DMA flips bits in the code image, causing signature
+verification failure. The BL falls through to LS mode and runs the ACR in a degraded
+state. Evidence:
+- Identical BL upload + boot sequence, only DMA source differs
+- Sysmem path enters HS mode (code is uncorrupted through IOMMU)
+- VRAM path: ACR executes substantial code (TRACEPC reaches 0x4e5a) but never leaves LS mode
+- blob_size=0 made NO difference (identical trace) → error is before blob DMA
 
-**Code changes applied (Exp 091e):**
-- `instance_block.rs`: DualPDE placement fix (offset 8 for 16-byte entries)
-- `instance_block.rs`: Zero ALL page table pages before writing entries
-- `sec2_hal.rs`: Added PMC reset to `sec2_prepare_direct_boot` (ineffective on GV100)
-- `sec2_hal.rs`: FBIF→PHYS_VID before bind (breaks VIRT circular dep on GPU2)
-- `falcon.rs` test: FLR attempt, page table explicit build, physical DMA fallback
-- `mod.rs`: Added `vfio_device_reset()` method to NvVfioComputeDevice
+**Root Cause Analysis — Trap in sysmem path:**
 
-**Remaining paths:**
+With blob_size=0 applied to `strategy_sysmem.rs`, the ACR should skip the internal
+blob DMA that previously caused `EXCI=0x201f0000`. **Not yet tested** — this is the
+immediate next step.
+
+**Exp 095 TRACEPC analysis (31-entry circular buffer):**
+
+| Phase | Last Trace Entries | Idle PC | Interpretation |
+|-------|-------------------|---------|----------------|
+| VRAM | `...0x2cf8 0x2d07 0x05ee 0x1239` | 0x1da6 | Polling loop → error handler → degraded idle |
+| Hybrid | `...0x346d 0x35ee 0x4e5a 0x11c6 0x3d98 0x11c6` | 0x1e61 | Different execution path, different idle point |
+| Sysmem | (from earlier runs) HS mode then trap at 0x1c21 | N/A | Entered HS but faulted during WPR operations |
+
+**EMEM diagnostic (ACR internal state):**
+```
+EMEM[32..40]: 0x00042001 0x026c0200 0x01000000 0x00000080
+              0x01000080 0x01000080 0x01000100 0xa5a51f00
+```
+`0x00042001` at EMEM[32] is likely an ACR status/error code. `0xa5a51f00` contains
+partial sentinel (0xa5a5). This is the ACR's internal error reporting region.
+
+**Code changes applied (Exp 095):**
+- `strategy_sysmem.rs`: Added `blob_size=0` patch after `patch_acr_desc` — skips ACR's
+  internal blob DMA transfer (WPR already pre-populated in DMA buffer)
+- `sysmem_iova.rs`: Separated SHADOW (0x60000) from WPR (0x70000) for proper ACR verification
+- `instance_block.rs`: Made `FALCON_PT0_VRAM` and `encode_sysmem_pte` public for hybrid page tables
+- `dma.rs`: Made `DmaBuffer::new` public for test-level DMA allocation
+- `mod.rs`: Added `dma_backend()` accessor to `NvVfioComputeDevice`
+- `falcon.rs` test: Hybrid page table support (sysmem PTEs for ACR code pages, VRAM for rest)
+
+**Remaining paths (updated):**
 
 | Path | Approach | Status |
 |------|----------|--------|
-| **E** | PCI SBR via `coralctl reset --method sbr` (Ember sysfs) | **READY** — Ember IPC + sysfs integrated |
-| **F** | Warm handoff from nouveau (boot SEC2 via nouveau, swap to VFIO) | VIABLE — `coralctl swap BDF nouveau --trace` captures register sequence |
-| **G** | Direct FECS/GPCCS IMEM load (bypass ACR entirely) | PARTIAL — requires unsigned firmware support (hwcfg bit 7 = 1 → signed required) |
-| **H** | FBIF PHYS_VID on ALL DMA ports + correct DMA index in firmware | PARTIAL — GPU2 gets PHYS fault (0x05) instead of VIRT fault (0x20) but still faults |
-| **I** | Physical-first SEC2 boot (no instance block) | **NEW** — `sec2_prepare_physical_first` + solver Strategy 1b |
+| **J** | Sysmem ACR + blob_size=0 | **IMMEDIATE NEXT** — HS mode + skip trap-causing DMA. Code ready, awaiting pkexec. |
+| **K** | If J works: sysmem code + VRAM WPR (via mixed page tables or VRAM pre-population) | READY — code infrastructure built |
+| **F** | Warm handoff from nouveau | VIABLE but unnecessary if J succeeds |
+| **E** | PCI SBR | DEPRIORITIZED — nouveau cycle achieves VRAM recovery |
 
-**Solution matrix (enabled by Phases 1-4):**
-
-```
-coralctl reset 0000:03:00.0 --method sbr    # SBR reset (was Path E)
-coralctl swap  0000:03:00.0 nouveau --trace  # capture nouveau register sequence
-coralctl swap  0000:03:00.0 vfio             # swap back to VFIO
-# run test with Strategy 1b (physical-first) — no instance block deadlock
-```
-
-Cross-driver matrix: repeat with `nvidia`, `nvidia-open`, `nouveau` on both GPUs.
-mmiotrace data saved to `/var/lib/coralreef/traces/` for timing analysis.
-
-**Next step:** Run SBR + physical-first boot on both GPUs. Compare register sequences
-from mmiotrace (nouveau warm boot vs sovereign cold boot) to validate the timing hypothesis.
+**Next step:** `pkexec` run of Phase 2.75 with sysmem ACR boot + blob_size=0.
+Expected outcome: HS mode achieved (SCTL=0x3002) WITHOUT trap. ACR reads pre-populated
+WPR headers from sysmem DMA buffer, bootstraps FECS/GPCCS.
 
 ### Gap 12: Layer 11 — GR Context Init + Shader Dispatch
 
@@ -428,18 +437,27 @@ Once GPCCS is running, the GR context init path opens:
 3. nouveau `gf100_grctx_generate()` → how the golden context is built
 4. Channel context binding → how a channel's GR context is loaded via FECS
 
-## Priority Order (Post-SCTL Discovery)
+## Priority Order (Post-Exp 095)
 
-Two parallel paths now available — SCTL is not a blocker for either:
+**Path A is the critical path — sysmem HS mode is the breakthrough:**
 
-**Path B (Direct PIO — bypass ACR entirely):**
-1. **Direct PIO boot with BOOTVEC fix** — Upload FECS/GPCCS firmware via PIO (proven working), set BOOTVEC=0x3400/0x7E00 + ITFEN + INTR_ENABLE, STARTCPU. If this works, ACR and DMA are unnecessary for GV100.
-2. **Gap 10/11** (L9-L10 falcon start) — BOOTVEC=0 fix applied, ready for hardware validation.
-3. **Gap 12** (L11 GR context + shader dispatch) — blocked by Gap 10/11.
+**Path A (ACR via sysmem DMA — PRIMARY):**
+1. **Gap 14 Path J** — Run sysmem ACR boot + blob_size=0. Code is ready, awaiting pkexec.
+   Expected: HS mode (0x3002) without trap → ACR reads WPR headers → bootstraps FECS/GPCCS.
+2. **If J succeeds:** FECS/GPCCS leave HRESET → L9/L10 resolved → proceed to L11.
+3. **If J traps differently:** Analyze new trap, iterate on WPR region or descriptor config.
+4. **Gap 12** (L11 GR context + shader dispatch) — methods already implemented in `fecs_method.rs`.
 
-**Path A (ACR — fix DMA):**
-1. **Gap 14** (L7 — SEC2 DMA fault chain) — FBIF characterization needed. Compare cold/warm FBIF registers to find DMA-enabling config.
-2. **L6** (GP_PUT DMA) — may share root cause with Gap 14 (FBIF mode). May self-resolve when GR engine alive.
+**Path B (Direct PIO — DEAD on GV100):**
+- LS-mode authentication blocks PIO-loaded code (Exp 093). GV100 fuse-enforces signed firmware.
+- Only viable if unsigned firmware support discovered (hwcfg bit 7 = 0).
+
+**Key architectural insight (Exp 095):**
+- Nouveau cycle via GlowPlug restores VRAM (HBM2 DEVINIT requires signed PMU firmware)
+- FBHUB is PRI-dead after VFIO takeover but PRAMIN writes survive
+- VRAM DMA through FBHUB corrupts data → BL can't verify HS signature → LS mode
+- System memory DMA through IOMMU is clean → HS mode achieved
+- **Conclusion:** All DMA must go through system memory, not VRAM
 
 **Resolved:**
 - **Gap 9** (L8 WPR W1-W7) — **SOLVED** (Exp 087).

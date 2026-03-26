@@ -1,8 +1,8 @@
 # Cross-Spring Shader Evolution
 
 **Domain:** ecoPrimals ecosystem — shader provenance and cross-pollination
-**Updated:** March 2, 2026
-**Status:** 164+ WGSL shaders tracked across 4 springs + toadStool core. Synced to toadStool S80.
+**Updated:** March 26, 2026
+**Status:** 164+ WGSL shaders tracked across 4 springs + toadStool core. Synced to toadStool S155b+. coralReef Iter 67+ (falcon boot solver, sysmem DMA, 30+ files changed for sovereign GPU pipeline).
 
 ---
 
@@ -69,7 +69,16 @@ provenance graph, validation matrix, and absorption timeline.
 > This ensures each spring can evolve independently while benefiting from the
 > collective discoveries. The constraint is the driver of evolution.
 
-## S80 Cross-Spring Pathways
+## S155b+ Cross-Spring Pathways (March 2026)
+
+toadStool has advanced to S155b+ with PcieTransport, ResourceOrchestrator, and
+GPU sysmon telemetry. barraCuda stabilized at `7c1fd03a` with 806+ WGSL shaders.
+coralReef (Iter 67+) evolved the falcon boot solver with strategy pattern
+(VRAM/hybrid/sysmem), experiment loop infrastructure, and DMA backend exposure.
+Shader counts are stable — the active frontier is hardware (SEC2 DMA, FBHUB
+bypass) rather than new shader development.
+
+## S80 Cross-Spring Pathways (Historical)
 
 The S78→S80 toadStool sync revealed three new cross-spring pathways:
 
