@@ -1,5 +1,7 @@
 # NPU Steering — Lessons Learned
 
+> **Fossil Record (March 27, 2026):** This document captures state as of March 21, 2026. For current status, see the [root README](README.md) and [`EXPERIMENT_INDEX.md`](EXPERIMENT_INDEX.md). Body below is preserved as historical record.
+
 > **Note (March 21, 2026):** Point-in-time lessons from the dynamical-only NPU steering run. For current NPU integration status, see [root README](README.md) and [`wateringHole/handoffs/HOTSPRING_TRIO_EVOLUTION_AMD_AKIDA_HANDOFF_MAR20_2026.md`](wateringHole/handoffs/HOTSPRING_TRIO_EVOLUTION_AMD_AKIDA_HANDOFF_MAR20_2026.md).
 
 **Date**: March 9, 2026

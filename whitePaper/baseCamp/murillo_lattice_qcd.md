@@ -106,7 +106,7 @@ Total: **44/44 checks pass** via `validate_chuna_overnight` (core 41/41; dynamic
 | 4 | N_f=2 dynamical (RHMC rooting trick) | ✅ **Production complete** — Exp 101: 4^4 (78% accept) + 8^4 (50% accept) |
 | 5 | N_f=2+1 staggered (strange quark mass) | ✅ **Production complete** — Exp 101: 4^4, 2-sector, correct ordering Q < 2+1 < 2 |
 | 5b | Gradient flow convergence at volume | 🔄 Exp 102: CK4 stability confirmed, 16^4 t₀/w₀ in progress |
-| 5c | Gradient flow on dynamical (Nf=2+1) configs | Next — Exp 103 |
+| 5c | Gradient flow on dynamical (Nf=2+1) configs | ✅ **Exp 103** — `production_rhmc_flow` binary, E(t) measured on 8^4 RHMC configs |
 | 6 | N_f=2+1+1 HISQ (full physical QCD) | Long-term |
 
 ## What's Next (March 26, 2026)
@@ -114,7 +114,7 @@ Total: **44/44 checks pass** via `validate_chuna_overnight` (core 41/41; dynamic
 - ✅ **GPU RHMC production**: Nf=2 at 4^4 and 8^4, Nf=2+1 at 4^4 — Exp 101 complete
 - 🔄 **Gradient flow at volume**: t₀/w₀ on 16⁴ — Exp 102 in progress (16^4 quenched flow running)
 - 🔄 **Flow convergence**: CK4 stability at ε=0.1 confirmed (error 2.3e-6 vs 1.6 for W6/W7)
-- **Gradient flow on RHMC configs**: Chuna W7 integrator on Nf=2+1 thermalized configs → Exp 103
+- ✅ **Gradient flow on RHMC configs** (Exp 103): W7 on Nf=2 and Nf=2+1 at 8^4, E(t) measured
 - **Scale to 32⁴**: RHMC + flow overnight runs for production physics
 - **64³×8 analysis**: Polyakov loop jump at β_c, finite-size scaling (32³/48³/64³ × 8)
 - **Silicon characterization on HBM2 fleet**: Titan V, MI50, Tesla P80 (Exp 100)

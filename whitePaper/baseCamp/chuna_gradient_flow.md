@@ -247,6 +247,35 @@ Requirements: Rust (stable), a Vulkan GPU with `SHADER_F64` support.
 
 ---
 
+## Experiment 102: Convergence at Volume (8^4, March 2026)
+
+All 5 integrators benchmarked on thermalized 8^4 lattice (β=6.0):
+
+| Integrator | Measured Order | Expected | E(t=1) Agreement |
+|-----------|---------------|----------|-------------------|
+| Euler | 1.23 | 1 | Baseline |
+| RK2 (Heun) | 1.97 | 2 | 6 digits |
+| W6 (Luscher) | 2.06 | 3 | 6 digits |
+| W7 (Chuna) | 2.08 | 3 | 6 digits |
+| CK4 | 2.11 | 4 | 6 digits |
+
+Finite-size effects on 8^4 suppress measured orders to ~2 regardless of
+theoretical order. CK4 stability at large epsilon (0.1) confirmed — error
+2.3e-6 vs reference, 6 orders of magnitude better than W6/W7 at the same step.
+
+t0/w0 unmeasurable on 8^4 (requires 16^4+). 16^4 quenched flow production running.
+
+## Experiment 103: Flow on Dynamical RHMC Configs (8^4, March 2026)
+
+`production_rhmc_flow` binary: GPU RHMC thermalization + CPU gradient flow (W7).
+
+- **Nf=2** (8^4, β=6.0, m=0.1): E(t=3) = 0.0062, plaq = 0.591
+- **Nf=2+1** (8^4, β=6.0, m_l=0.05, m_s=0.5): E(t=3) = 0.0061, plaq = 0.590
+- t0/w0 require 16^4. Short RHMC trajectories at 8^4 limit thermalization quality.
+- 16^4 Nf=2+1 RHMC + flow running overnight.
+
+---
+
 ## References
 
 - Bazavov, A. & Chuna, T. arXiv:2101.05320 (2021) — LSCFRK integrators

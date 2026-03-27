@@ -1,7 +1,9 @@
 # Nuclear EOS Strategy: From Python Control to BarraCuda Proof
 
+> **Fossil Record (March 27, 2026):** This document captures state as of February 21, 2026. For current status, see the [root README](README.md) and [`EXPERIMENT_INDEX.md`](EXPERIMENT_INDEX.md). Body below is preserved as historical record.
+
 > **FULLY EXECUTED** (Feb 21, 2026) — All phases A–F complete. 195/195 quantitative
-> checks pass. This document is retained as fossil record. See `CONTROL_EXPERIMENT_STATUS.md`
+> checks pass. See `CONTROL_EXPERIMENT_STATUS.md`
 > for current results and `barracuda/CHANGELOG.md` for the ongoing crate evolution.
 
 **Date**: 2026-02-08 (initial), 2026-02-11 (L1+L2), 2026-02-15 (Phase E), 2026-02-17 (GPU density pipeline)  

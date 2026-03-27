@@ -1,9 +1,6 @@
 # Chuna Paper Reproduction — Review Package
 
-> **Note (2026-03-27):** This review package body is a fossil record from March 11, 2026.
-> Version pins below (barraCuda v0.3.5, toadStool S146, coralReef Iter 31) are superseded
-> by current README.md pins. Chuna 44/44 parity checks remain stable. For current status
-> see `README.md` and `CHUNA_PARITY_STATUS.md`.
+> **Fossil Record (March 27, 2026):** This document captures state as of March 11, 2026. For current status, see the [root README](README.md) and [`EXPERIMENT_INDEX.md`](EXPERIMENT_INDEX.md). Body below is preserved as historical record. Version pins below (barraCuda v0.3.5, toadStool S146, coralReef Iter 31) are superseded by current README.md pins. Chuna 44/44 parity checks remain stable; for Chuna-specific status see [`CHUNA_PARITY_STATUS.md`](CHUNA_PARITY_STATUS.md).
 
 **Date**: March 11, 2026 (v0.6.29 — upstream sync v4: barraCuda v0.3.5, toadStool S146, coralReef Iter 31)
 **Author**: Kevin Mok (mokkevin@msu.edu)
