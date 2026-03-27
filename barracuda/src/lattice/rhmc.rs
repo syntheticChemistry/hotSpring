@@ -383,6 +383,46 @@ pub struct RhmcConfig {
 }
 
 impl RhmcConfig {
+    /// Calibrated Nf=2 configuration using discovered spectral range.
+    ///
+    /// All parameters derived from measurements — no hardcoded spectral
+    /// bounds. The spectral range comes from `SpectralInfo` (measured via
+    /// GPU power iteration), and n_poles/dt/n_md are set by the calibrator.
+    #[must_use]
+    pub fn calibrated_nf2(
+        mass: f64,
+        beta: f64,
+        n_poles: usize,
+        range_min: f64,
+        range_max: f64,
+        dt: f64,
+        n_md_steps: usize,
+        cg_tol: f64,
+        cg_max_iter: usize,
+    ) -> Self {
+        let det_power = 0.25; // Nf/8 = 2/8
+        let action_force = RationalApproximation::generate(-det_power, n_poles, range_min, range_max);
+        Self {
+            sectors: vec![RhmcFermionConfig {
+                mass,
+                det_power,
+                action_approx: action_force.clone(),
+                heatbath_approx: RationalApproximation::generate(
+                    det_power / 2.0,
+                    n_poles,
+                    range_min,
+                    range_max,
+                ),
+                force_approx: action_force,
+            }],
+            beta,
+            dt,
+            n_md_steps,
+            cg_tol,
+            cg_max_iter,
+        }
+    }
+
     /// Nf=2 configuration: one rooted staggered field with det(D†D)^{1/4}.
     ///
     /// Staggered fermions produce 4 tastes, so Nf physical flavors needs

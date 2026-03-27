@@ -162,6 +162,77 @@ the table by FP64-only codes.
 
 ---
 
+## Scaling Path: Meeting & Exceeding Chuna's MILC-Scale Work
+
+### Chuna's Reference Scale
+
+Bazavov & Chuna validated LSCFRK integrators on MILC collaboration configs:
+
+| Parameter | MILC/Chuna scale | Our current scale | Gap |
+|-----------|-----------------|-------------------|-----|
+| Lattice | 16³×48 to 64³×128 | 4⁴ to 16⁴ | 4-500x volume |
+| Fermion content | Nf=2+1+1 HISQ | Nf=2+1 staggered | Action improvement |
+| Quark masses | Physical (m_π ≈ 135 MeV) | m=0.05-0.5 (unphysical) | Tuning |
+| Flow observables | t₀, w₀ (continuum extrapolation) | t₀, w₀ (single lattice spacing) | Multi-β |
+| Hardware | USQCD clusters (100s of A100-hours) | RTX 3090 (minutes-hours) | 1000x raw FLOPS |
+
+### How We Close the Gap
+
+The gap is NOT primarily in algorithm quality — our integrators, RHMC,
+CG solvers, and gradient flow are the same mathematics. The gap is in
+volume and action sophistication. Our silicon utilization advantage
+shrinks the effective hardware gap significantly:
+
+| Strategy | Volume gain | When |
+|----------|-----------|------|
+| **GPU-accelerated HMC** (existing) | 16⁴ feasible now | Exp 102 (this week) |
+| **Overnight 32⁴ runs** (existing infrastructure) | 1M sites, production quality | Next week |
+| **Multi-GPU via toadStool brain** | 2-4x per card pair | HBM2 fleet arrival (weeks) |
+| **HBM2 fleet (6 cards, ~37 TFLOPS FP64)** | 3.8x single A100 in FP64 | Fleet assembly (weeks) |
+| **Full silicon routing** (TMU+Tensor+ALU) | 4-10x effective throughput | Ongoing evolution |
+| **coralReef SASS emission** (FP64 tensor cores) | 2x force on Titan V | Medium-term |
+| **Collaborator runs on HPC** (same binary) | 100x+ raw compute | Chuna meeting (late April) |
+
+### Volume Roadmap
+
+| Target | Sites | GPU-hours (estimated) | Physics deliverable |
+|--------|:-----:|:---------------------:|---------------------|
+| ✅ 8⁴ Nf=2+1 RHMC | 4K | 0.3h | Fermion content validation |
+| ✅ 8⁴ flow convergence | 4K | 0.5h | CK4 stability proof |
+| 🔄 16⁴ quenched flow | 65K | ~2h | t₀/w₀ scale setting |
+| 16⁴ Nf=2+1 RHMC + flow | 65K | ~6h | Dynamical t₀/w₀ |
+| 32⁴ quenched flow (multi-β) | 1M | ~24h | Continuum approach |
+| 32⁴ Nf=2+1 RHMC | 1M | ~48h | Production physics |
+| 32³×8 finite-T Nf=2+1 | 262K | ~12h | Crossover temperature |
+| Multi-GPU 48⁴ | 5.3M | days (fleet) | Approaching MILC volumes |
+| HPC run 64³×128 | 33M | collaborator allocation | MILC-equivalent physics |
+
+### What "Exceeding" Chuna's Scale Means
+
+We don't need to run bigger lattices than MILC to exceed the scientific
+contribution. The leverage is:
+
+1. **Same physics, 100-1000x less hardware cost**: Demonstrating that a
+   $1,500 consumer GPU (or a $1,000 decommissioned HBM2 fleet) produces
+   publication-quality flow scales changes who can do lattice QCD.
+
+2. **Full silicon utilization measurement**: No HPC code has measured
+   compound silicon composition. Our pipeline quantifies the gap between
+   what hardware provides and what codes use. Running bench_silicon_budget
+   on an A100/H100 produces data that doesn't exist in the literature.
+
+3. **Novel precision routing**: Mixed-precision HMC (TF32 inner steps,
+   DF64 accumulation, FP64 Metropolis) is not implemented in MILC or
+   QUDA. Our PrecisionBrain architecture can route sub-problems to their
+   optimal silicon unit — something HPC codes cannot do because they
+   target one precision tier.
+
+4. **Portable sovereign stack**: The same `cargo run` works on consumer
+   GPUs, HBM2 fleet, and HPC nodes. No CUDA lock-in, no MPI
+   configuration hell, no institutional software dependencies.
+
+---
+
 ## Cross-References
 
 - **Experiments:** 096-100

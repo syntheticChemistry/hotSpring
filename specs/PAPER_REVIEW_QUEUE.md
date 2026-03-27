@@ -1,10 +1,11 @@
 # hotSpring — Paper Review Queue
 
-**Last Updated**: March 11, 2026
+**Last Updated**: March 26, 2026
 **Purpose**: Track papers for reproduction/review, ordered by priority and feasibility
 **Principle**: Reproduce, validate, then decrease cost. Each paper proves the
 pipeline on harder physics — toadStool evolves the GPU acceleration in parallel.
 **Crate**: hotspring-barracuda v0.6.29 — 847 tests, 112+ binaries, 84 WGSL shaders
+**Current Goal**: GPU RHMC (Nf=2, 2+1) → gradient flow on RHMC configs → Chuna validation meeting (late April)
 
 **Evolution path per paper**: Python Control → BarraCuda CPU → BarraCuda GPU → metalForge
 
@@ -64,9 +65,12 @@ pipeline on harder physics — toadStool evolves the GPU acceleration in paralle
 | 44 (Chuna dielectric) | ✅ DONE — `bgk_dielectric_control.py`: standard + completed Mermin, f-sum, DSF | ✅ `dielectric.rs` 25 tests | ✅ `dielectric_mermin_f64.wgsl` (std + completed) |
 | 45 (Chuna kinetic-fluid) | ✅ DONE — `kinetic_fluid_control.py`: BGK relaxation, Sod shock, coupled | ✅ `kinetic_fluid.rs` 16 tests | ✅ `bgk_relaxation_f64.wgsl` |
 
-**Total science cost**: ~$0.20 for 22 papers, 400+ validation checks.
+**Total science cost**: ~$0.30 for 25 papers, 500+ validation checks, 102 experiments.
 Papers 6, 7, 13-22 add checks at negligible cost (CPU-only, <15 seconds each).
-Papers 43-45 (Chuna) queued — estimated ~$0.05 additional (gradient flow reuses SU(3) infrastructure).
+Papers 43-45 (Chuna) complete — ~$0.05 additional (gradient flow reuses SU(3) infrastructure).
+Experiments 096-100 (silicon characterization): ~$0.10 (budget, saturation, composition, QCD profiling).
+GPU RHMC production (Exp 101): ~$0.02 (Nf=2 + Nf=2+1, 640 trajectories).
+Gradient flow at volume (Exp 102): ~$0.03 (convergence + 16^4 scale setting, in progress).
 
 ---
 
@@ -488,36 +492,74 @@ Murillo (March 4, 2026). Published on lattice QCD integrators with Bazavov,
 plasma dielectric functions with Murillo, and kinetic-fluid HED coupling with
 Sagert/Haack/Murillo. Profile: `whitePaper/attsi/non-anon/contact/murillo/chuna_profile.md`
 
-#### Tier 2 — Lattice QCD (SU(3) Integrators)
+**Contact status (March 26, 2026)**: Chuna wants to meet. He's in Germany (UTC+1),
+prefers mornings ET. Meeting deferred to late April — build RHMC data first.
+Bazavov access is via Chuna (co-author on Paper 43) and Murillo (conduit).
+See `whitePaper/attsi/non-anon/contact/chuna/`.
 
-| # | Paper | Journal | Year | Faculty | What We Need | Status |
-|---|-------|---------|------|---------|-------------|--------|
-| 43 | Bazavov & Chuna "Efficient integration of gradient flow in lattice gauge theory and properties of low-storage commutator-free Lie group methods" | arXiv:2101.05320 [hep-lat] | 2021 | Bazavov, Chuna | Three-stage 3rd-order RK Lie group integrators for SU(3) gradient flow. Compare our Omelyan HMC integrator against optimized MILC coefficients. Needs `su3.rs` + gradient flow observable | Queue — reproduce gradient flow integration on 4⁴/8⁴, compare coefficients vs our HMC integrator (Paper 8) |
+#### All Three Papers — COMPLETE
 
-**Why this matters**: Chuna co-authored the integrator optimizations used in
-production MILC code. Our Paper 8 HMC uses Omelyan (4th-order symplectic).
-Reproducing his gradient flow coefficients lets us benchmark our integrator
-precision against the state of the art. All SU(3) GPU primitives already validated.
+| # | Paper | Core Checks | GPU | Extension | Status |
+|---|-------|:-----------:|:---:|:---------:|--------|
+| 43 | Bazavov & Chuna — gradient flow integrators (arXiv:2101.05320) | 11/11 | ✅ 38.5× | Dynamical Nf=4 3/3 | **✅ COMPLETE** — 5 integrators, coefficients derived independently at compile time |
+| 44 | Chuna & Murillo — conservative BGK dielectric (PRE 111, 035206) | 20/20 | ✅ GPU Mermin | DSF vs MD 14/14 | **✅ COMPLETE** — std + completed + multi-component Mermin, 322× faster |
+| 45 | Haack et al. — kinetic-fluid coupling (JCP 2024) | 10/10 | ✅ GPU BGK | Coupled pipeline | **✅ COMPLETE** — Python 18/18, CPU 16+20/20, GPU BGK + Sod |
 
-#### Tier 4 — Plasma DSF & Dielectric Theory
+Total: **44/44 core checks + 3/3 dynamical extension** via `validate_chuna_overnight`.
 
-| # | Paper | Journal | Year | Faculty | What We Need | Status |
-|---|-------|---------|------|---------|-------------|--------|
-| 44 | Chuna & Murillo "Conservative dielectric functions and electrical conductivities from the multicomponent BGK equation" | Phys Rev E 111, 035206 (arXiv:2405.07871) | 2024 | Chuna, Murillo | Completed Mermin susceptibility, f-sum rule validation, DSF shape under NIF hot-spot conditions, non-Drude conductivity. Extends Papers 1/5 (Sarkas Yukawa DSF, Stanton-Murillo transport) | Queue — reproduce dielectric response from BGK; validate f-sum rule; compare DSF shape vs Sarkas MD |
-| 45 | Haack, Murillo, Sagert & Chuna "Multi-species kinetic-fluid coupling for high-energy density simulations" | J Computational Physics | 2024 | Chuna, Murillo, Sagert, Haack | Hybrid kinetic-hydro coupling for HED. Multi-fidelity: kinetic (expensive) in one region, hydro (cheap) in another. DOE OSTI:2368912 | ✅ CPU COMPLETE — Python control (18/18) + BarraCuda CPU (16 tests + 20/20 validation): BGK relaxation, Sod shock tube, coupled kinetic-fluid interface |
+#### Active — GPU RHMC (Nf=2, 2+1): Continuing Chuna's Physics at Consumer Scale
 
-**Why Paper 44 matters**: The DSF is the central observable in our Sarkas
-reproduction (Paper 1). Chuna's paper derives a "completed Mermin"
-susceptibility that properly conserves number and momentum — the correct
-theory beyond what Sarkas computes. Reproducing it extends our DSF validation
-from simulation to analytic theory, and provides the theoretical framework
-for XRTS diagnostics (Tier 4c, Paper 38).
+The next step beyond Paper 43 is running gradient flow on **Nf=2+1 RHMC configs** —
+the same fermion content Chuna validates against in MILC. This requires the rooting
+trick: `det(D†D)^{Nf/8}` via rational approximation.
 
-**Why Paper 45 matters**: The kinetic-fluid coupling pattern — different
-fidelity levels in different spatial regions — is the same pattern as our
-brain architecture (CPU/GPU/NPU for different computational domains).
-Reproducing it validates multi-fidelity simulation, which is the next step
-beyond single-method MD.
+**GPU RHMC infrastructure (Exp 099, March 26 2026): COMPLETE**
+
+| Component | File | Status |
+|-----------|------|--------|
+| `RationalApproximation` (Remez + partial fractions) | `rhmc.rs` | ✅ CPU reference |
+| `RhmcConfig::nf2()`, `RhmcConfig::nf2p1()` | `rhmc.rs` | ✅ Pre-configured |
+| `GpuRhmcSectorBuffers` (per-flavor-sector GPU buffers) | `gpu_rhmc.rs` | ✅ |
+| `gpu_multi_shift_cg_solve` (independent per-shift CG) | `gpu_rhmc.rs` | ✅ |
+| `gpu_rhmc_heatbath_sector` (φ = r_hb(D†D) η) | `gpu_rhmc.rs` | ✅ |
+| `gpu_rhmc_fermion_action_sector` (S_f = φ† r(D†D) φ) | `gpu_rhmc.rs` | ✅ |
+| `gpu_rhmc_total_force_dispatch` (gauge + Σ fermion) | `gpu_rhmc.rs` | ✅ |
+| `gpu_rhmc_trajectory` (full Omelyan MD) | `gpu_rhmc.rs` | ✅ |
+| `production_rhmc_scan` (CLI production binary) | `bin/production_rhmc_scan.rs` | ✅ |
+| `multi_shift_zeta_f64.wgsl` (zeta recurrence shader) | `shaders/` | ✅ |
+
+**RHMC production (Exp 101, March 26): COMPLETE**
+- Nf=2 validated at 4^4 (78% acc) and 8^4 (50% acc)
+- Nf=2+1 validated at 4^4 (68-78% acc, correct ordering Q < 2+1 < 2)
+- All 640 trajectories, ~$0.02 compute cost
+
+**Gradient flow at volume (Exp 102, March 26-27): IN PROGRESS**
+- CK4 stability confirmed: error 2.3e-6 at ε=0.1 (W6/W7 diverge at 1.6)
+- Convergence orders: Euler 1.23✓, RK2 1.97✓, W6/W7/CK4 ~2.0-2.3 (8^4 finite-size suppressed)
+- 16^4 quenched flow running (t₀/w₀ scale setting)
+
+| Target | Lattice | Goal | Status |
+|--------|---------|------|--------|
+| Nf=2 validation (4^4) | 4^4 | Plaquette, acceptance, ΔH scaling | **✅ DONE** — Exp 101, ⟨P⟩=0.534/0.601, 74-78% acc |
+| Nf=2 production (8^4) | 8^4 | β-scan across transition | **✅ DONE** — Exp 101, ⟨P⟩=0.498/0.542/0.600, 50% acc |
+| Nf=2+1 validation (4^4) | 4^4 | 2-sector: light + strange | **✅ DONE** — Exp 101, ⟨P⟩=0.531/0.561/0.593, 68-78% acc |
+| Flow convergence (8^4) | 8^4 | CK4 stability + order measurement | **✅ DONE** — Exp 102, CK4 error 2.3e-6 at ε=0.1 |
+| Flow t₀/w₀ (16^4) | 16^4 | Clean scale setting (W7 integrator) | 🔄 **Running** — Exp 102 |
+| Nf=2+1 production (8^4→16^4) | 8-16^4 | Scale 2-sector to volume | Next |
+| Flow on Nf=2+1 configs | 16^4 | Chuna W7 integrator on RHMC configs | Exp 103 |
+| Nf=2+1 production (32^4) | 32^4 | Weekend run — MILC-comparable physics | Near-term |
+| Multi-GPU scaling | 32-48^4 | toadStool brain + HBM2 fleet | Medium-term |
+| MILC-comparable | 64³×128 | Requires collaborator HPC allocation | Long-term |
+
+**Why this matters for Chuna**: His Paper 43 integrators were validated on **MILC
+Nf=2+1 configs**. Showing flow on Nf=2+1 RHMC configs generated on consumer GPU
+means his integrators run on his physics, at home, for cents.
+
+**Scaling to meet/exceed Chuna's MILC-scale work**: Detailed volume roadmap in
+`whitePaper/baseCamp/silicon_characterization_at_scale.md`. The strategy is
+threefold: (1) prove same physics at 100-1000x less hardware cost, (2) quantify
+silicon waste in HPC codes via characterization pipeline, (3) provide portable
+sovereign binary that runs identically on consumer and HPC hardware.
 
 ---
 
@@ -576,7 +618,7 @@ momentum-space propagator computation. **Full pipeline COMPLETE**: Dirac 8/8 + C
 | # | Paper | Journal | Year | Faculty | What We Need | Status |
 |---|-------|---------|------|---------|-------------|--------|
 | 9 | Bazavov [HotQCD] (2014) "The QCD equation of state" | Nucl Phys A 931, 867 | 2014 | Bazavov | ~~FFT~~, ~~complex f64~~, ~~SU(3)~~, ~~HMC~~, ~~GPU Dirac~~, ~~GPU CG~~ | **Quenched β-scan 10/10** — 4^4+8^4 validated, production runs next |
-| 10 | Bazavov et al. (2016) "Polyakov loop in 2+1 flavor QCD" | Phys Rev D 93, 114502 | 2016 | Bazavov | Same as #9 + Polyakov loop | **GPU pipeline COMPLETE** — Polyakov loop + GPU CG done |
+| 10 | Bazavov et al. (2016) "Polyakov loop in 2+1 flavor QCD" | Phys Rev D 93, 114502 | 2016 | Bazavov | Same as #9 + Polyakov loop | **GPU RHMC** — Nf=2 (8^4) + Nf=2+1 (4^4) validated, Exp 101 |
 | 11 | Bazavov et al. (2025) "Hadronic vacuum polarization for the muon g-2" | Phys Rev D 111, 094508 | 2025 | Bazavov | Same as #9 + subpercent precision | **CPU COMPLETE** — `validate_hvp_g2` (10/10), GPU pipeline ready |
 | 12 | Bazavov et al. (2016) "Curvature of the freeze-out line" | Phys Rev D 93, 014512 | 2016 | Bazavov | Same as #9 + inverse problem | **CPU COMPLETE** — `validate_freeze_out` (8/8), β_c within 10% of known |
 

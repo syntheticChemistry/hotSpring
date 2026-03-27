@@ -36,6 +36,8 @@ mod resident_cg_async;
 mod resident_cg_brain;
 mod resident_cg_buffers;
 mod resident_cg_pipelines;
+pub mod rhmc_calibrator;
+pub mod spectral_probe;
 pub mod streaming;
 
 pub use dynamical::gpu_dynamical_hmc_trajectory;
@@ -56,6 +58,8 @@ pub use gpu_rhmc::{
     gpu_multi_shift_cg_solve, gpu_rhmc_trajectory, GpuRhmcPipelines, GpuRhmcResult,
     GpuRhmcSectorBuffers, GpuRhmcState, MAX_POLES, WGSL_MULTI_SHIFT_ZETA,
 };
+pub use rhmc_calibrator::RhmcCalibrator;
+pub use spectral_probe::SpectralInfo;
 pub use streaming::{
     gpu_dynamical_hmc_trajectory_streaming, gpu_hmc_trajectory_streaming,
     gpu_hmc_trajectory_streaming_cpu_mom, GpuDynHmcStreamingPipelines, GpuHmcStreamingPipelines,

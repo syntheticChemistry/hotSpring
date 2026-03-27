@@ -561,3 +561,78 @@ pub const GPU_CG_ACTION_PARITY: f64 = 1e-6;
 /// should agree with the dispatch variant to 10% relative (the CG
 /// convergence path may differ due to streaming encoder boundaries).
 pub const GPU_DYN_STREAMING_PLAQUETTE_PARITY: f64 = 0.10;
+
+// ═══════════════════════════════════════════════════════════════════
+// RHMC self-tuning calibrator constants
+// ═══════════════════════════════════════════════════════════════════
+
+/// Rational approximation max relative error threshold.
+///
+/// If the rational approximation's max relative error exceeds this value,
+/// the calibrator regenerates with additional poles. For 8-pole approx
+/// of x^{-1/4} on typical spectral ranges, error is O(1e-5). Threshold
+/// at 1e-3 triggers only when approximation is genuinely insufficient.
+pub const RHMC_APPROX_ERROR_THRESHOLD: f64 = 1e-3;
+
+/// Spectral safety factor: lower bound multiplier.
+///
+/// The spectral probe measures lambda_min; the rational approximation
+/// range is set to `RHMC_SPECTRAL_SAFETY_LOW * lambda_min_est`. The
+/// factor 0.5 provides a 2x margin below the estimated minimum eigenvalue
+/// of D†D, accommodating fluctuations as the gauge field evolves.
+pub const RHMC_SPECTRAL_SAFETY_LOW: f64 = 0.5;
+
+/// Spectral safety factor: upper bound multiplier.
+///
+/// The rational approximation range upper bound is set to
+/// `RHMC_SPECTRAL_SAFETY_HIGH * lambda_max_est`. Factor 1.5 provides
+/// a 50% margin above the estimated maximum eigenvalue.
+pub const RHMC_SPECTRAL_SAFETY_HIGH: f64 = 1.5;
+
+/// Power iteration count for lambda_max estimation.
+///
+/// 20 iterations of v → D†D v / ||D†D v|| converges the largest
+/// eigenvalue to ~1e-6 relative accuracy on typical gauge configurations.
+/// Cost: 20 Dirac applications (cheap vs one full CG solve).
+pub const RHMC_POWER_ITERATION_COUNT: usize = 20;
+
+/// Spectral re-probe interval (in trajectories).
+///
+/// How often the calibrator re-estimates eigenvalue bounds to detect
+/// spectral drift as the gauge field evolves. 50 trajectories balances
+/// the probe cost (~20 Dirac applications) against timely detection.
+pub const RHMC_SPECTRAL_REPROBE_INTERVAL: usize = 50;
+
+/// CG tolerance for force evaluation (loose, during MD integration).
+///
+/// During MD integration, CG errors contribute O(dt²) to ΔH through
+/// the integrator's symplectic error. Using tight tolerance here wastes
+/// iterations since the integrator already introduces comparable error.
+pub const RHMC_CG_TOL_FORCE: f64 = 1e-6;
+
+/// CG tolerance for Metropolis action evaluation (tight).
+///
+/// The Metropolis accept/reject requires accurate Hamiltonian evaluation
+/// to maintain detailed balance. 100x tighter than force tolerance.
+pub const RHMC_CG_TOL_METROPOLIS: f64 = 1e-8;
+
+/// Heatbath-action consistency threshold.
+///
+/// After heatbath generation with φ = r_hb(D†D)η, the fermion action
+/// S_f(old) = φ† r_act(D†D) φ should equal η†η by the consistency
+/// relation r_hb² · r_act = 1. Deviation beyond this threshold (as a
+/// fraction of η†η) signals approximation quality degradation.
+pub const RHMC_CONSISTENCY_THRESHOLD: f64 = 0.05;
+
+/// Pole count increment when approximation quality is insufficient.
+///
+/// When max_relative_error exceeds RHMC_APPROX_ERROR_THRESHOLD, the
+/// calibrator adds this many poles and regenerates. 2 poles typically
+/// improves error by ~10x for well-conditioned spectral ranges.
+pub const RHMC_POLE_INCREMENT: usize = 2;
+
+/// Maximum pole count for rational approximation.
+///
+/// Upper bound on auto-increased pole count. Beyond 24 poles, the
+/// marginal error reduction is negligible and CG cost per pole dominates.
+pub const RHMC_MAX_POLES: usize = 24;

@@ -1,5 +1,10 @@
 # Chuna Paper Reproduction — Review Package
 
+> **Note (2026-03-27):** This review package body is a fossil record from March 11, 2026.
+> Version pins below (barraCuda v0.3.5, toadStool S146, coralReef Iter 31) are superseded
+> by current README.md pins. Chuna 44/44 parity checks remain stable. For current status
+> see `README.md` and `CHUNA_PARITY_STATUS.md`.
+
 **Date**: March 11, 2026 (v0.6.29 — upstream sync v4: barraCuda v0.3.5, toadStool S146, coralReef Iter 31)
 **Author**: Kevin Mok (mokkevin@msu.edu)
 **Hardware**: biomeGate — Threadripper 3970X, RTX 3090 (24 GB), Titan V (12 GB HBM2), ~$4K used parts

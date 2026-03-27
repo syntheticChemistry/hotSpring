@@ -27,7 +27,7 @@
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::lattice::gpu_hmc::{
     gpu_hmc_trajectory_streaming, gpu_rhmc_trajectory, GpuDynHmcPipelines, GpuDynHmcState,
-    GpuHmcState, GpuHmcStreamingPipelines, GpuRhmcPipelines, GpuRhmcState,
+    GpuHmcState, GpuHmcStreamingPipelines, GpuRhmcPipelines, GpuRhmcState, RhmcCalibrator,
 };
 use hotspring_barracuda::lattice::rhmc::RhmcConfig;
 use hotspring_barracuda::lattice::wilson::Lattice;
@@ -50,6 +50,7 @@ struct CliArgs {
     cg_max_iter: usize,
     seed: u64,
     output: Option<String>,
+    adaptive: bool,
 }
 
 fn parse_args() -> CliArgs {
@@ -68,6 +69,7 @@ fn parse_args() -> CliArgs {
         cg_max_iter: 5000,
         seed: 42,
         output: None,
+        adaptive: false,
     };
 
     for arg in std::env::args().skip(1) {
@@ -102,6 +104,8 @@ fn parse_args() -> CliArgs {
             args.seed = val.parse().expect("--seed=N");
         } else if let Some(val) = arg.strip_prefix("--output=") {
             args.output = Some(val.to_string());
+        } else if arg == "--adaptive" {
+            args.adaptive = true;
         }
     }
 
@@ -118,7 +122,11 @@ fn main() {
     eprintln!("  Production RHMC β-scan");
     eprintln!("  Lattice: {l}^4 ({} sites)", l * l * l * l);
     eprintln!("  Nf: {}  mass: {}  strange: {}", args.nf, args.mass, args.strange_mass);
-    eprintln!("  MD: {} steps × dt={}", args.n_md_steps, args.dt);
+    if args.adaptive {
+        eprintln!("  Mode: ADAPTIVE (self-tuning dt, n_md, spectral range)");
+    } else {
+        eprintln!("  MD: {} steps × dt={}", args.n_md_steps, args.dt);
+    }
     eprintln!("  β points: {:?}", args.betas);
     eprintln!("  Therm: {} (+ {} quenched pre-therm)", args.n_therm, args.n_quenched_pretherm);
     eprintln!("  Meas: {} per β", args.n_meas);
@@ -160,20 +168,6 @@ fn main() {
         // Create lattice with hot start
         let lattice = Lattice::hot_start(dims, beta, seed);
 
-        // Build RHMC config
-        let mut rhmc_config = match args.nf.as_str() {
-            "2" => RhmcConfig::nf2(args.mass, beta),
-            "2+1" | "3" => RhmcConfig::nf2p1(args.mass, args.strange_mass, beta),
-            _ => {
-                eprintln!("Unknown --nf={}, defaulting to Nf=2", args.nf);
-                RhmcConfig::nf2(args.mass, beta)
-            }
-        };
-        rhmc_config.dt = args.dt;
-        rhmc_config.n_md_steps = args.n_md_steps;
-        rhmc_config.cg_tol = args.cg_tol;
-        rhmc_config.cg_max_iter = args.cg_max_iter;
-
         // Quenched pre-thermalization on a separate state (fast, warms gauge field)
         let quenched_state = GpuHmcState::from_lattice(&gpu, &lattice, beta);
         if args.n_quenched_pretherm > 0 {
@@ -201,17 +195,51 @@ fn main() {
             }
         }
 
+        // Build RHMC config: adaptive mode uses calibrator, fixed mode uses CLI args
+        let mut calibrator = if args.adaptive {
+            let cal = match args.nf.as_str() {
+                "2+1" | "3" => RhmcCalibrator::new_nf2p1(
+                    args.mass,
+                    args.strange_mass,
+                    beta,
+                    dims,
+                ),
+                _ => RhmcCalibrator::new(2, args.mass, beta, dims),
+            };
+            Some(cal)
+        } else {
+            None
+        };
+
+        let initial_config = if let Some(ref cal) = calibrator {
+            cal.produce_config()
+        } else {
+            let mut cfg = match args.nf.as_str() {
+                "2" => RhmcConfig::nf2(args.mass, beta),
+                "2+1" | "3" => RhmcConfig::nf2p1(args.mass, args.strange_mass, beta),
+                _ => {
+                    eprintln!("Unknown --nf={}, defaulting to Nf=2", args.nf);
+                    RhmcConfig::nf2(args.mass, beta)
+                }
+            };
+            cfg.dt = args.dt;
+            cfg.n_md_steps = args.n_md_steps;
+            cfg.cg_tol = args.cg_tol;
+            cfg.cg_max_iter = args.cg_max_iter;
+            cfg
+        };
+
         // Build dynamical state from lattice (for phases, neighbor table, etc.)
         // then copy thermalized links from quenched pre-therm.
         let dyn_state = GpuDynHmcState::from_lattice(
             &gpu,
             &lattice,
             beta,
-            rhmc_config.sectors[0].mass,
+            initial_config.sectors[0].mass,
             args.cg_tol,
             args.cg_max_iter,
         );
-        let rhmc_state = GpuRhmcState::new(&gpu, &rhmc_config, dyn_state);
+        let rhmc_state = GpuRhmcState::new(&gpu, &initial_config, dyn_state);
 
         if args.n_quenched_pretherm > 0 {
             let n_bytes = (quenched_state.n_links * 18 * 8) as u64;
@@ -230,9 +258,20 @@ fn main() {
         let dyn_pipelines = GpuDynHmcPipelines::new(&gpu);
         let rhmc_pipelines = GpuRhmcPipelines::new(&gpu);
 
+        // Run spectral probe in adaptive mode (after quenched pre-therm)
+        if let Some(ref mut cal) = calibrator {
+            cal.calibrate_spectral(&gpu, &dyn_pipelines, &rhmc_state.gauge);
+        }
+
         // RHMC thermalization
         let mut therm_accepted = 0;
         for i in 0..args.n_therm {
+            let rhmc_config = if let Some(ref cal) = calibrator {
+                cal.produce_config()
+            } else {
+                initial_config.clone()
+            };
+
             let t0 = Instant::now();
             let r = gpu_rhmc_trajectory(
                 &gpu,
@@ -247,18 +286,37 @@ fn main() {
                 therm_accepted += 1;
             }
 
+            if let Some(ref mut cal) = calibrator {
+                cal.observe(&r);
+            }
+
             if (i + 1) % 10 == 0 || i == 0 {
                 let rate = therm_accepted as f64 / (i + 1) as f64 * 100.0;
-                eprintln!(
-                    "  therm {}/{}: P={:.6} ΔH={:.4e} CG={} {:.0}ms acc={:.0}%",
-                    i + 1,
-                    args.n_therm,
-                    r.plaquette,
-                    r.delta_h,
-                    r.total_cg_iterations,
-                    ms,
-                    rate
-                );
+                if let Some(ref cal) = calibrator {
+                    eprintln!(
+                        "  therm {}/{}: P={:.6} ΔH={:.4e} CG={} {:.0}ms acc={:.0}% [dt={:.5} n_md={}]",
+                        i + 1,
+                        args.n_therm,
+                        r.plaquette,
+                        r.delta_h,
+                        r.total_cg_iterations,
+                        ms,
+                        rate,
+                        cal.dt(),
+                        cal.n_md_steps()
+                    );
+                } else {
+                    eprintln!(
+                        "  therm {}/{}: P={:.6} ΔH={:.4e} CG={} {:.0}ms acc={:.0}%",
+                        i + 1,
+                        args.n_therm,
+                        r.plaquette,
+                        r.delta_h,
+                        r.total_cg_iterations,
+                        ms,
+                        rate
+                    );
+                }
             }
         }
 
@@ -268,6 +326,19 @@ fn main() {
         let mut plaq_sq_sum = 0.0;
 
         for i in 0..args.n_meas {
+            // In adaptive mode, re-probe spectral range periodically
+            if let Some(ref mut cal) = calibrator {
+                if cal.needs_spectral_reprobe() {
+                    cal.reprobe_spectral(&gpu, &dyn_pipelines, &rhmc_state.gauge);
+                }
+            }
+
+            let rhmc_config = if let Some(ref cal) = calibrator {
+                cal.produce_config()
+            } else {
+                initial_config.clone()
+            };
+
             let t0 = Instant::now();
             let r = gpu_rhmc_trajectory(
                 &gpu,
@@ -278,6 +349,10 @@ fn main() {
                 &mut seed,
             );
             let ms = t0.elapsed().as_secs_f64() * 1000.0;
+
+            if let Some(ref mut cal) = calibrator {
+                cal.observe(&r);
+            }
 
             if r.accepted {
                 meas_accepted += 1;
@@ -305,15 +380,30 @@ fn main() {
                 let mean_p = plaq_sum / n;
                 let var_p = plaq_sq_sum / n - mean_p * mean_p;
                 let rate = meas_accepted as f64 / n * 100.0;
-                eprintln!(
-                    "  meas {}/{}: ⟨P⟩={:.6} σ(P)={:.2e} acc={:.0}% {:.0}ms/traj",
-                    i + 1,
-                    args.n_meas,
-                    mean_p,
-                    var_p.max(0.0).sqrt(),
-                    rate,
-                    ms
-                );
+                if let Some(ref cal) = calibrator {
+                    eprintln!(
+                        "  meas {}/{}: ⟨P⟩={:.6} σ(P)={:.2e} acc={:.0}% {:.0}ms/traj [dt={:.5} n_md={} poles={}]",
+                        i + 1,
+                        args.n_meas,
+                        mean_p,
+                        var_p.max(0.0).sqrt(),
+                        rate,
+                        ms,
+                        cal.dt(),
+                        cal.n_md_steps(),
+                        cal.n_poles()
+                    );
+                } else {
+                    eprintln!(
+                        "  meas {}/{}: ⟨P⟩={:.6} σ(P)={:.2e} acc={:.0}% {:.0}ms/traj",
+                        i + 1,
+                        args.n_meas,
+                        mean_p,
+                        var_p.max(0.0).sqrt(),
+                        rate,
+                        ms
+                    );
+                }
             }
         }
 
@@ -328,6 +418,20 @@ fn main() {
         eprintln!("    ⟨P⟩ = {mean_p:.6} ± {:.2e}", var_p.sqrt());
         eprintln!("    χ   = {chi:.2}");
         eprintln!("    acc = {rate:.1}% ({meas_accepted}/{} trajectories)", args.n_meas);
+        if let Some(ref cal) = calibrator {
+            eprintln!(
+                "    [calibrator] final dt={:.6} n_md={} poles={}",
+                cal.dt(),
+                cal.n_md_steps(),
+                cal.n_poles()
+            );
+            if let Some(spectral) = cal.spectral_info() {
+                eprintln!(
+                    "    [calibrator] spectral range [{:.4e}, {:.2}]",
+                    spectral.range_min, spectral.range_max
+                );
+            }
+        }
     }
 
     let total_time = run_start.elapsed();

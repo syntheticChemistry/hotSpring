@@ -227,13 +227,25 @@ pub struct GpuRhmcResult {
     pub plaquette: f64,
     /// Total CG iterations across all sectors and force evaluations.
     pub total_cg_iterations: usize,
+    /// Gauge action at start of trajectory.
+    pub s_gauge_old: f64,
+    /// Gauge action at end of trajectory.
+    pub s_gauge_new: f64,
+    /// Kinetic energy at start.
+    pub t_old: f64,
+    /// Kinetic energy at end.
+    pub t_new: f64,
+    /// Fermion action at start (sum over sectors).
+    pub s_ferm_old: f64,
+    /// Fermion action at end (sum over sectors).
+    pub s_ferm_new: f64,
 }
 
 // ═══════════════════════════════════════════════════════════════════
 //  Decoupled dispatch helpers (mass and buffers taken explicitly)
 // ═══════════════════════════════════════════════════════════════════
 
-fn dirac_dispatch(
+pub(super) fn dirac_dispatch(
     gpu: &GpuF64,
     pipelines: &GpuDynHmcPipelines,
     gauge: &GpuHmcState,
@@ -914,5 +926,11 @@ pub fn gpu_rhmc_trajectory(
         delta_h,
         plaquette,
         total_cg_iterations: total_cg,
+        s_gauge_old,
+        s_gauge_new,
+        t_old,
+        t_new,
+        s_ferm_old,
+        s_ferm_new,
     }
 }
