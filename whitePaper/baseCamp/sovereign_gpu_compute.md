@@ -1,8 +1,8 @@
 # baseCamp: Sovereign GPU Compute — GlowPlug & Falcon Boot Chain
 
-**Date:** 2026-03-26  
-**Domain:** Hardware — PCIe GPU lifecycle, falcon microcontrollers, HBM2 management, PFIFO command submission, ACR secure boot, WPR construction, cross-driver profiling, daemon resilience, adaptive experiment loop, sysmem DMA  
-**Experiments:** 060-095  
+**Date:** 2026-03-25 (updated)  
+**Domain:** Hardware — PCIe GPU lifecycle, falcon microcontrollers, HBM2 management, PFIFO command submission, ACR secure boot, WPR construction, cross-driver profiling, daemon resilience, adaptive experiment loop, sysmem DMA, GV100 MMU v2 page table construction  
+**Experiments:** 060-104  
 **Hardware:** 2× NVIDIA Titan V (GV100, 12GB HBM2), RTX 5060 (display/validator)
 
 ---
@@ -100,7 +100,7 @@ produced the same panic.
 grabbing it = clean shutdown. The `resurrect_hbm2()` function handles temporary nouveau
 binding only when no DRM consumers exist.
 
-## Sovereign Pipeline Layer Status (March 25, 2026 — Exp 092)
+## Sovereign Pipeline Layer Status (March 25, 2026 — Exp 104)
 
 | Layer | Component | Status |
 |-------|-----------|--------|
@@ -114,14 +114,15 @@ binding only when no DRM consumers exist.
 | 7 | SEC2 Falcon Binding + DMA | ✅ **SOLVED** (Exp 085) — B1-B7 all fixed, bind_stat=5 |
 | 8 | WPR/ACR Payload + FECS/GPCCS Boot | ✅ **SOLVED** (Exp 087) — W1-W7 fixed, ACR bootstraps falcons |
 | 9 | FECS Boot + GR Register Init | ✅ **FIX APPLIED** (Exp 091) — ITFEN + INTR_ENABLE + BOOTVEC |
-| 10 | GPCCS Bootstrap | ✅ **ROOT CAUSE FOUND** (Exp 091) — BOOTVEC=0 fix applied, awaiting HW validation |
-| 11 | GR Context Init + Shader Dispatch | 🔓 **UNBLOCKED** if L10 fix works — `fecs_method.rs` ready |
+| 9.5 | ACR DMA + Page Table Format | ✅ **PDE FIX** (Exp 104) — GV100 MMU v2 16-byte PDE upper slot. ACR firmware alive |
+| 10 | HS Authentication + FECS/GPCCS Bootstrap | 🔶 **CLOSE** — firmware runs fully in LS mode, HS transition pending |
+| 11 | GR Context Init + Shader Dispatch | 🔓 **UNBLOCKED** when L10 HS authentication achieved — `fecs_method.rs` ready |
 
-**10 of 11 layers solved or fix-applied.** Layer 10 root cause (Exp 091):
-**BOOTVEC=0x00000000**. ACR loads GPCCS bootloader to IMEM[0x3400] (start_tag=0x34)
-but the mailbox-based BOOTSTRAP_FALCON doesn't set BOOTVEC. GPCCS starts at
-IMEM[0] where there is no valid code → fault at PC=0. Combined with missing ITFEN
-(interface enable) and INTR_ENABLE, three prerequisites were missing.
+**10.5 of 11 layers solved or fix-applied.** ACR firmware is alive and running
+after the Exp 104 PDE slot fix — 31 unique PCs, EMEM queues initialized, DMEM
+intact. The remaining gate is HS authentication: the firmware runs in LS mode
+(SCTL=0x3000) and needs to transition to HS (SCTL=0x3002) before it can
+authenticate and bootstrap FECS/GPCCS.
 
 ### Layer 10 Root Cause (Exp 091 — BOOTVEC Discovery)
 
@@ -228,14 +229,54 @@ Ember/glowplug had three failure modes:
 **Validation**: nouveau ↔ vfio round-trip on Titan V #1 in 6s each direction. Both
 Titans opened via iommufd/cdev at boot. Ember stayed in S-state (sleeping) throughout.
 
-## Remaining Blockers
+## Current Status (Exp 104 — March 25, 2026)
 
-1. **Layer 11: GR Context Init + Shader Dispatch** — FECS/GPCCS boot with BOOTVEC fix (Exp 091). `fecs_method.rs` ready. Awaiting hardware validation of the BOOTVEC=0x3400 + ITFEN + INTR_ENABLE triple fix on live GPU.
+### Phase 12: ACR DMA Deep Dive (Exp 099-104)
 
-### Resolved (Exp 091-092 — March 25, 2026)
+After achieving HS mode in Exp 095, a persistent DMA trap at TRACEPC=0x0500
+blocked ACR firmware from completing. Six experiments progressively eliminated
+hypotheses:
 
-- ~~GPCCS PC=0 Fault (L10)~~ — Root cause: BOOTVEC=0. ACR loads GPCCS BL to IMEM[0x3400] but host never sets BOOTVEC. Triple fix: BOOTVEC=0x3400, ITFEN=0x04, INTR_ENABLE=0xfc24 (Exp 091)
-- ~~Experiment infrastructure gaps~~ — Journal, observers, adaptive lifecycle, ring_meta all wired end-to-end. `coralctl experiment sweep` command. 12 observations accumulated (Exp 092)
+| Exp | Hypothesis | Finding |
+|-----|-----------|---------|
+| 099 | Inherit nouveau firmware (skip ACR) | **Dead** — FLR wipes all falcon memory |
+| 100 | IOMMU faults cause DMA trap | **Eliminated** — full IOVA coverage, trap persists |
+| 101 | Page table location (VRAM vs sysmem) | VRAM PTs enable execution but prevent HS authentication |
+| 102 | DMEM data loading, FBIF config, ctx_dma | DMA trap **invariant** to all five configurations |
+| 103 | GPU memory controller, FLR state, IRQ | **Not FLR** — same trap with/without FLR. Halt is intentional. |
+| **104** | **PDE slot position** | **ROOT CAUSE FOUND** — PDEs written to wrong 8-byte slot |
+
+**Exp 104 Breakthrough:** GV100 MMU v2 uses 16-byte PDE entries. The directory
+pointer goes in the UPPER 8 bytes (offset 8..16), lower 8 bytes zeroed. Our
+`strategy_sysmem.rs` was writing all four PDE levels (PD3/PD2/PD1/PD0) to offset
+0..8 — the wrong slot. After the fix:
+
+- **31 unique trace PCs** (vs 2 before) — firmware runs through BL and ACR init
+- **DMEM fully readable and correct** — ACR descriptor intact, BL descriptor valid
+- **EMEM queues initialized** — firmware set up CMDQ/MSGQ
+- **CPU alive at idle loop** (cpuctl=0x00000000, not halted)
+
+### Remaining Blocker
+
+**HS authentication not achieved** (SCTL=0x3000). The firmware runs extensively in
+LS mode but never transitions to HS. With the old (wrong) PDEs, HS mode was
+achieved but DMA trapped — the old PDEs created a "valid-looking" entry that
+fooled the authenticator but broke the MMU walker. With correct PDEs, the MMU
+walker works but authentication may be checking something different.
+
+**Active investigation paths:**
+1. WPR2 indexed register (0x100CD4) — firmware may validate WPR boundaries via this register, which doesn't reflect our direct writes
+2. HS code authentication — the NS→HS transition may require specific WPR hardware state that only PMU or BIOS can configure
+
+### Resolved (Exp 091-104 — March 25, 2026)
+
+- ~~GPCCS PC=0 Fault (L10)~~ — Root cause: BOOTVEC=0. Triple fix: BOOTVEC=0x3400, ITFEN=0x04, INTR_ENABLE=0xfc24 (Exp 091)
+- ~~Experiment infrastructure gaps~~ — Journal, observers, adaptive lifecycle, ring_meta (Exp 092)
+- ~~DMA trap at TRACEPC=0x0500~~ — Root cause: PDE slot position in GV100 MMU v2 (Exp 104)
+- ~~IOMMU fault coverage~~ — LOW_CATCH/HIGH_CATCH/mid-gap buffers (Exp 100)
+- ~~FLR hypothesis~~ — Same crash with and without FLR (Exp 103)
+- ~~FBHUB state~~ — No GPU MMU faults, FBHUB clean (Exp 103)
+- ~~DMEM wipe mystery~~ — `0xDEAD5EC2` is HS read protection, not a wipe (Exp 102)
 
 ## Phase 10: Experiment Loop + Personality Sweep (Exp 092, March 25, 2026)
 
@@ -401,7 +442,7 @@ forces via DRM. Next: K80 NVIDIA DRM, Titan V PMU investigation.
   `VM_BIND` → `EXEC` + syncobj). Blocked on Titan V by missing PMU firmware for
   `CHANNEL_ALLOC`. K80 (Kepler, incoming) has no PMU requirement.
 
-### Sovereign + DRM Pipeline Layer Status (updated March 24, 2026)
+### Sovereign + DRM Pipeline Layer Status (updated March 25, 2026)
 
 | # | Layer | Sovereign VFIO | DRM Dispatch |
 |---|-------|----------------|--------------|
@@ -413,19 +454,18 @@ forces via DRM. Next: K80 NVIDIA DRM, Titan V PMU investigation.
 | 6 | PBDMA context load | Done | N/A (kernel) |
 | 7 | SEC2 falcon binding + DMA | **Done** (Exp 085) | Kernel handles this |
 | 8 | WPR/ACR payload + FECS/GPCCS boot | **Done** (Exp 087) | N/A (kernel) |
-| 9 | FECS/GPCCS full boot (HS mode release) | **PARTIAL** (Exp 088-090) — cpuctl=0x00 misleading, GPCCS faults at PC=0 | N/A (kernel) |
-| 10 | GR context init + shader dispatch | **BLOCKED** by L9 — GPCCS must execute before GR context init | **AMD: 6/6 preswap PASSED** (f64 LJ force verified). NVIDIA: PMU-blocked |
+| 9 | Page table format + ACR DMA | **Done** (Exp 104) — PDE slot fix, firmware alive | N/A (kernel) |
+| 9.5 | HS authentication | **CLOSE** — firmware runs in LS mode, HS transition pending | N/A (kernel) |
+| 10 | GR context init + shader dispatch | Awaiting HS authentication | **AMD: 6/6 preswap PASSED** (f64 LJ force verified). NVIDIA: PMU-blocked |
 
 The DRM path offloads layers 1-9 to the kernel driver. AMD DRM dispatch
 fully validated: 6/6 preswap phases pass including f64 Lennard-Jones force
 (Newton's 3rd law verified). 18 bugs fixed. NVIDIA awaits K80 (no PMU needed).
 
-Sovereign VFIO advanced to **8.5/11 layers** with the Layer 7 falcon binding
-breakthrough (Exp 085, B1-B7), Layer 8 WPR construction fix (Exp 087, W1-W7),
-and Layer 9 partial post-ACR falcon start (Exp 088-090). Layer 9/10 remain
-PARTIAL: cpuctl=0x00 was misleading — GPCCS faults at PC=0 (exci=0x08070000).
-Diagnostic infrastructure now includes PC/EXCI verification to prevent false
-reports.
+Sovereign VFIO advanced to **10.5/11 layers** with the critical Exp 104 PDE
+slot fix. ACR firmware is alive and running (31 trace PCs, EMEM queues
+initialized). The sole remaining gate is HS authentication — the NS→HS
+transition that unlocks FECS/GPCCS bootstrap.
 
 ### Phase 7: Layer 7 Assault — Falcon Diagnostics + ACR Boot Solver (Exp 078-081)
 

@@ -1,6 +1,6 @@
 # GPU Cracking Gap Tracker
 
-**Updated:** 2026-03-26 (Exp 095 — sysmem HS mode breakthrough, blob_size=0, hybrid page tables)
+**Updated:** 2026-03-26 (Exp 098 — clean-boot DMA trap identified, WPR copy partial, blob_base/size decoded)
 **Goal:** Sovereign compute on Titan V (GV100) — FECS/GPCCS running without proprietary ACR chain
 
 ## MYTH BUSTED: SCTL Does NOT Block PIO (Exp 091+)
@@ -36,10 +36,10 @@ format at runtime via bit-solving, preventing future IMEMC-class bugs on any GPU
 | L4 | PFIFO init + PBDMA discovery | SOLVED | — |
 | L5 | MMU/FBHUB fault buffer setup | PROVEN (Exp 076) | — |
 | L6 | PBDMA context load + channel submit | PARTIAL (Exp 058) | GP_PUT DMA read fails |
-| L7 | SEC2 falcon binding + DMA | **BREAKTHROUGH** (Exp 095) | **HS mode achieved** via sysmem DMA. VRAM DMA corrupts data (FBHUB PRI-dead). Sysmem + blob_size=0 = next test. See Gap 14 |
+| L7 | SEC2 falcon binding + DMA | **CONFIRMED** (Exp 096) | **HS mode (0x3002) reproducible** via sysmem DMA + blob_size=0. Both sysmem and physical-sysmem paths achieve HS. VRAM DMA still corrupts (FBHUB PRI-dead). See Gap 14. |
 | L8 | WPR/ACR payload + FECS/GPCCS boot | **SOLVED** (Exp 087) | W1-W7 fixed. ACR processes WPR, bootstraps FECS+GPCCS. |
 | L9 | FECS boot + GR register init | **PARTIAL** (Exp 089b) | FECS halted at PC~0x058f, wakes on GR init. GPCCS stuck. |
-| L10 | GPCCS bootstrap via ACR | **CLOSE** (Exp 095) | Sysmem ACR enters HS mode; blob_size=0 should avoid previous trap. FECS/GPCCS bootstrap expected once ACR completes initialization without trapping. |
+| L10 | GPCCS bootstrap via ACR | **DMA TRAP** (Exp 098) | Volta SEC2 = one-shot ACR loader. WPR copy initiated (FECS=1 GPCCS=1) but DMA traps (EXCI=0x201F). Init msg in EMEM[0x80]. Next: check post-nouveau FECS/GPCCS state (Path R) or fix DMA mapping (Path Q). |
 | L11 | GR context init + shader dispatch | **BLOCKED** by L10 | Needs GPCCS alive via authenticated ACR DMA load. |
 
 ## Active Gaps
@@ -405,18 +405,57 @@ partial sentinel (0xa5a5). This is the ACR's internal error reporting region.
 - `mod.rs`: Added `dma_backend()` accessor to `NvVfioComputeDevice`
 - `falcon.rs` test: Hybrid page table support (sysmem PTEs for ACR code pages, VRAM for rest)
 
-**Remaining paths (updated):**
+**Exp 096 Results (unified diagnostics rerun):**
+
+**Path J CONFIRMED — HS mode reproducible (no trap with blob_size=0):**
+
+| Run | Strategy | SCTL | HS | TRACEPC | CMDQ | DMEM | EMEM |
+|-----|----------|------|----|---------|------|------|------|
+| 1 (cold) | All 12 strategies | 0x3000 | NO | BL traces (0xfd75...) | h=0 t=0x30 PENDING | readable | minimal |
+| 2 (nouveau+sysmem) | sysmem ACR | **0x3002** | **YES** | all 0x0500 (HS loop) | h=0 t=0 EMPTY | **0xDEAD5EC2 (LOCKED)** | 0x00230406 + structure |
+| 2 (nouveau+physical) | phys sysmem | **0x3002** | **YES** | all 0x0500 | h=0 t=0 EMPTY | LOCKED | same |
+| 3 (conversation) | All 12 | 0x3000 | NO | BL traces | EMPTY | readable | minimal |
+
+**Critical Exp 096 discoveries:**
+
+1. **DMEM is completely locked in HS mode** — returns `0xDEAD5EC2` for every address. This is why
+   `Sec2Queues::discover()` always fails: the init message (CMDQ/MSGQ layout) is in DMEM but inaccessible.
+2. **EMEM remains readable in HS mode** — EMEM[0x000]=0x00230406, structured data at offsets 0x080-0x0A0.
+   This is the only diagnostic window into ACR's internal state after HS. EMEM may contain queue addresses.
+3. **SEC2 is STOPPED after HS boot** — cpuctl=0x00000010 (STOPPED flag set). Mailbox writes, IRQ signals,
+   and SWGEN triggers all fail to move PC. The ACR completed initialization and halted, waiting for the
+   host to initiate conversation through a mechanism we haven't discovered yet.
+4. **Nouveau cycle is mandatory** — without it, SEC2 never enters HS (always 0x3000). Nouveau's DEVINIT
+   loads the signed firmware that our BL chain uses.
+5. **CMDQ state differs with nouveau** — cold boot shows CMDQ tail=0x30 PENDING (stale from ROM);
+   after nouveau+HS boot, CMDQ is 0/0 EMPTY.
+6. **VFIO IRQ capability**: INTX=1(flags=0x7), MSI=1(flags=0x9), MSI-X=0(flags=0x9).
+   MSI available but not yet wired — may be needed to wake SEC2 from STOPPED state.
+
+**EMEM diagnostic structure (ACR internal state after HS):**
+```
+EMEM[0x000]: 0x00230406          — ACR status/version?
+EMEM[0x080]: 0x00042001          — ACR config word
+EMEM[0x084]: 0x026c0200          — size/offset?
+EMEM[0x088]: 0x01000000          — flag/count
+EMEM[0x08c]: 0x00000080          — alignment/size
+EMEM[0x090]: 0x01000080          — region descriptor?
+EMEM[0x094]: 0x01000080          — region descriptor?
+EMEM[0x098]: 0x01000100          — region descriptor?
+EMEM[0x09c]: 0xa5a51f00          — partial sentinel (0xa5a5)
+EMEM[0x0a0]: 0x00000406          — matches low bytes of EMEM[0]
+```
+
+**Remaining paths (updated post-Exp 096):**
 
 | Path | Approach | Status |
 |------|----------|--------|
-| **J** | Sysmem ACR + blob_size=0 | **IMMEDIATE NEXT** — HS mode + skip trap-causing DMA. Code ready, awaiting pkexec. |
-| **K** | If J works: sysmem code + VRAM WPR (via mixed page tables or VRAM pre-population) | READY — code infrastructure built |
-| **F** | Warm handoff from nouveau | VIABLE but unnecessary if J succeeds |
-| **E** | PCI SBR | DEPRIORITIZED — nouveau cycle achieves VRAM recovery |
-
-**Next step:** `pkexec` run of Phase 2.75 with sysmem ACR boot + blob_size=0.
-Expected outcome: HS mode achieved (SCTL=0x3002) WITHOUT trap. ACR reads pre-populated
-WPR headers from sysmem DMA buffer, bootstraps FECS/GPCCS.
+| **J** | Sysmem ACR + blob_size=0 | **CONFIRMED** — HS mode reproducible. ACR runs, halts. |
+| **L** | EMEM-based queue discovery (scan EMEM for CMDQ/MSGQ layout) | **NEW — IMMEDIATE NEXT** |
+| **M** | MSI IRQ wiring (eventfd → SEC2 interrupt → wake from STOPPED) | **NEW — HIGH PRIORITY** |
+| **N** | Pre-populate CMDQ/MSGQ in EMEM before boot (known layout from nouveau source) | NEW — fallback |
+| **K** | Sysmem code + VRAM WPR | DEFERRED — HS works without VRAM |
+| **F** | Warm handoff from nouveau | VIABLE but unnecessary |
 
 ### Gap 12: Layer 11 — GR Context Init + Shader Dispatch
 
@@ -437,29 +476,111 @@ Once GPCCS is running, the GR context init path opens:
 3. nouveau `gf100_grctx_generate()` → how the golden context is built
 4. Channel context binding → how a channel's GR context is loaded via FECS
 
-## Priority Order (Post-Exp 095)
+### Gap 15: Layer 10 — SEC2 Conversation After HS (Exp 096→097)
 
-**Path A is the critical path — sysmem HS mode is the breakthrough:**
+**Layer:** L10
+**Exp:** 095 (HS achieved), 096 (conversation characterization), **097 (EMEM discovery)**
+**Status:** **ACTIVE** — Init message found, SEC2 HRESET is the blocker
 
-**Path A (ACR via sysmem DMA — PRIMARY):**
-1. **Gap 14 Path J** — Run sysmem ACR boot + blob_size=0. Code is ready, awaiting pkexec.
-   Expected: HS mode (0x3002) without trap → ACR reads WPR headers → bootstraps FECS/GPCCS.
-2. **If J succeeds:** FECS/GPCCS leave HRESET → L9/L10 resolved → proceed to L11.
-3. **If J traps differently:** Analyze new trap, iterate on WPR region or descriptor config.
-4. **Gap 12** (L11 GR context + shader dispatch) — methods already implemented in `fecs_method.rs`.
+#### Exp 097 BREAKTHROUGH: Init Message Found in EMEM
 
-**Path B (Direct PIO — DEAD on GV100):**
-- LS-mode authentication blocks PIO-loaded code (Exp 093). GV100 fuse-enforces signed firmware.
-- Only viable if unsigned firmware support discovered (hwcfg bit 7 = 0).
+Full EMEM scan discovered the SEC2 init message at **EMEM offset 0x0080**:
 
-**Key architectural insight (Exp 095):**
-- Nouveau cycle via GlowPlug restores VRAM (HBM2 DEVINIT requires signed PMU firmware)
-- FBHUB is PRI-dead after VFIO takeover but PRAMIN writes survive
-- VRAM DMA through FBHUB corrupts data → BL can't verify HS signature → LS mode
-- System memory DMA through IOMMU is clean → HS mode achieved
-- **Conclusion:** All DMA must go through system memory, not VRAM
+```
+w0=0x00042001  unit_id=0x01 size=32
+w1=0x026c0200  msg_type=0x00 num_queues=2 os_debug=0x026c
+queue0 (CMDQ): offset=0x01000000 size=128  id=0
+queue1 (MSGQ): offset=0x01000080 size=128  id=1
+```
+
+Queue offsets are **falcon virtual addresses** (DMEM mapped at VA 0x01000000):
+- **CMDQ ring** → DMEM offset 0x0000, 128 bytes
+- **MSGQ ring** → DMEM offset 0x0080, 128 bytes
+
+#### What Exp 097 Ruled Out
+
+| Test | Result | Implication |
+|------|--------|-------------|
+| STARTCPU on HRESET SEC2 | cpuctl stays 0x10 | HS security blocks host CPUCTL writes |
+| CPUCTL_ALIAS | Same — no effect | Both paths locked |
+| MSI arm + 100ms wait | 0 fires | No spontaneous IRQs from HS SEC2 |
+| IRQSSET=0x40 poke | IRQSTAT unchanged (0x10) | Host can't set falcon IRQ bits in HS |
+| IRQMSET=0x40 | IRQMASK unchanged (0x00) | Host can't modify IRQ mask in HS |
+| CMDQ head write + poke | Head writable (readback=0x10) but no response | Ring registers writable but SEC2 CPU dead |
+
+EMEM lockdown sentinel: **0xDEAD5ED0** (distinct from DMEM's 0xDEAD5EC2). Starts at ~0x2000.
+
+#### Root Cause: `blob_size=0` Causes Early Exit
+
+The `blob_size=0` optimization (Exp 095) tells the ACR firmware to skip blob DMA.
+Without a blob to process, the firmware completes its WPR setup, writes the init
+message, and then **exits/halts** instead of entering the CMDQ idle loop. Normal flow:
+
+```
+1. Enter HS   2. Write init message to DMEM   3. DMA ACR blob
+4. Bootstrap FECS/GPCCS   5. Initialize CMDQ/MSGQ rings   6. Enter idle loop (RUNNING)
+```
+
+With blob_size=0, firmware exits after step 2, skipping 3-6. SEC2 enters HRESET.
+
+#### Data Resolved (from Exp 097)
+- [x] EMEM contains init message at offset 0x80 — queue layout known
+- [x] CMDQ at DMEM[0x0000], MSGQ at DMEM[0x0080], both 128 bytes
+- [x] CPUCTL STARTCPU does NOT resume HRESET falcon in HS mode — blocked by security
+- [x] EMEM[0x080-0x0A0] IS the nv_sec2_init_msg format
+- [x] MSI/IRQ subsystem locked in HS mode — host has no IRQ control
+
+#### Exp 098: Full Init (Path O) — DMA Trap During WPR→Falcon Copy
+
+Clean boot (nouveau cycle → fresh LS → full-init) achieved:
+- **bind_stat→5 OK** (66µs) — binding works from clean LS state
+- **HS mode** — SCTL=0x3002
+- **WPR copy started** — FECS=1, GPCCS=1 (1=initiated, not 0xFF=done)
+- **DMA TRAP** — EXCI=0x201F0000 during falcon image copy
+
+Volta SEC2 is a **one-shot ACR loader** (not a CMDQ daemon). It processes WPR
+and exits. The CMDQ idle loop exists in Turing+ but NOT on GV100.
+
+`patch_acr_desc` sets blob_base=0x70000 (WPR IOVA), blob_size=0xCD00. The blob
+DMA itself succeeds (firmware reads WPR). The failure is during the subsequent
+write of authenticated images to FECS/GPCCS.
+
+**Investigation paths:**
+
+| Path | Approach | Rationale |
+|------|----------|-----------|
+| **Q** | Investigate SEC2→FECS/GPCCS DMA fault | Check IOMMU fault log, extend page tables, verify target falcon IMEM accessibility |
+| **R** | Use nouveau's post-ACR state directly | Nouveau runs full ACR during bind. After swap back, FECS/GPCCS IMEM may already contain authenticated firmware — skip our ACR |
+| **S** | Map larger VA space in falcon page tables | PT covers 0..2MiB. ACR may need higher addresses for scratch/FECS/GPCCS writes |
+
+## Priority Order (Post-Exp 104)
+
+**Critical breakthrough: PDE slot fix (Exp 104) unlocked full ACR firmware execution. Firmware is alive and running in its idle loop. HS authentication is the final gate.**
+
+**Path A (Fix HS Authentication — PRIMARY):**
+1. **Gap 15 Path T** — Investigate why HS authentication fails with correct page tables.
+   VRAM PTEs may cause the BL to load code from VRAM mirror instead of sysmem original.
+   Test with all SYS_MEM PTEs (no VRAM aperture). If HS succeeds, the issue is
+   VRAM mirror data fidelity.
+2. **Gap 15 Path U** — WPR2 indexed register mismatch. Firmware reads WPR boundaries
+   from 0x100CD4 (indexed), but our writes to 0x100CEC/CF0 are invisible there.
+   May need to set WPR2 via the indexed register or accept that WPR2 HW check
+   is unavoidable without PMU.
+3. **If HS achieved:** ACR should complete blob DMA → bootstrap FECS/GPCCS → L10-L11.
+
+**Key findings (Exp 099-104):**
+- **FLR wipes all falcon memory** — Path R dead, ACR boot is necessary (Exp 099)
+- **IOMMU coverage complete** — LOW/HIGH/MID catch-all buffers eliminate all IO_PAGE_FAULT (Exp 100)
+- **PDE slot position is the root cause** — GV100 MMU v2 16-byte PDEs use UPPER 8 bytes for directory pointer. Sysmem strategy was writing to LOWER 8 bytes (Exp 104)
+- **With correct PDEs: firmware alive** — 31 unique PCs, EMEM queues initialized, DMEM intact, CPU in idle loop (Exp 104)
+- **0xDEAD5EC2 is HS read protection** — not a DMEM wipe. BAR0 returns this sentinel for DMEM in HS mode
+- **FBIF/DMA config invariant** — HS transition does NOT modify FBIF, ITFEN, or DMACTL (Exp 102)
+- **No GPU MMU faults** — FBHUB clean throughout all experiments (Exp 103)
 
 **Resolved:**
+- **Gap 15 Path R** (post-nouveau state) — **DEAD** (Exp 099). FLR wipes all falcon memory.
+- **Gap 15 Path Q** (DMA fault) — **ROOT CAUSE FOUND** (Exp 104). PDE slot position.
+- **Gap 14 Path J** (HS mode via sysmem) — **CONFIRMED** (Exp 096). Reproducible HS mode.
 - **Gap 9** (L8 WPR W1-W7) — **SOLVED** (Exp 087).
 - **Gap 1** (bind_stat B1-B7) — **SOLVED** (Exp 085).
 - **Gap 5** (cross-driver profile) — **COMPLETE** (Exp 086).
@@ -467,6 +588,7 @@ Once GPCCS is running, the GR context init path opens:
 - **Gap 4** (ACR/WPR format) — **SOLVED** (Exp 087).
 - **Gap 8** (open targets) — handoff delivered.
 - **SCTL blocks PIO** — **MYTH BUSTED** (Exp 091+). FalconCapabilityProbe added.
+- **PDE format** — **FIXED** (Exp 104). Upper 8 bytes of 16-byte entry for all directory levels.
 
 **Lower priority:**
 - **Gap 3** (mmiotrace corpus) — useful for DMA timing, not critical
@@ -485,10 +607,19 @@ Once GPCCS is running, the GR context init path opens:
 8. ~~Apply W1-W7 fixes to coralReef~~ — **DONE**: `firmware.rs` + `wpr.rs` (2026-03-24)
 9. ~~Validate ACR boot~~ — **DONE** (Exp 087): FECS/GPCCS reach 0x12 (HALTED+ALIAS_EN). L8 SOLVED.
 10. ~~Investigate L9~~ — **DONE** (Exp 088): post-ACR STARTCPU transitions falcons to RUNNING.
-11. **Investigate L10** — SEC2 CMDQ ring protocol for GPCCS bootstrap.
-12. **Implement Ember Ring** — `EmberRing` trait + SEC2 CMDQ implementation.
-13. Build nvidia_oracle.ko (Gap 6)
-14. Document findings in experiment journals
+11. ~~Investigate L10 queue protocol~~ — **DONE** (Exp 095+096): `Sec2Queues`, `probe_and_bootstrap` implemented. DMEM locked in HS.
+12. ~~Unified diagnostics~~ — **DONE** (Exp 096): `sec2_exit_diagnostics()` + `sec2_tracepc_dump()` across all 13 exits.
+13. ~~Gap 15 Path L~~ — **DONE** (Exp 097): Init message at EMEM[0x80]. CMDQ=DMEM[0x0000]/128B, MSGQ=DMEM[0x0080]/128B.
+14. ~~Gap 15 Path M~~ — **DONE** (Exp 097): MSI zero fires. STARTCPU blocked by HS. IRQSSET/IRQMSET locked.
+15. ~~Gap 15 Path O~~ — **DONE** (Exp 098): Full init works, DMA traps on WPR→falcon copy. Volta SEC2 = one-shot loader.
+16. ~~Gap 15 Path R~~ — **DEAD** (Exp 099): FLR wipes all falcon memory. ACR boot required.
+17. ~~Gap 15 Path Q~~ — **ROOT CAUSE FOUND** (Exp 104): PDE slot position (upper 8 bytes of 16-byte entry). Fixed in `strategy_sysmem.rs`.
+18. ~~Exp 100-103~~ — **DONE**: IOMMU coverage, VRAM page tables, DMEM data loading, memory controller diagnostics. All ruled out as root cause.
+19. ~~Exp 104 PDE fix~~ — **BREAKTHROUGH** (2026-03-25): Firmware alive. 31 trace PCs, EMEM queues initialized, CPU at idle loop. HS authentication pending.
+20. **Gap 15 Path T** — Test HS authentication with all SYS_MEM PTEs (no VRAM aperture). Determine if VRAM mirror causes signature mismatch.
+21. **Gap 15 Path U** — WPR2 indexed register (0x100CD4) mismatch. Firmware may check different register than we write.
+22. **Implement Ember Ring** — `EmberRing` trait + SEC2 CMDQ implementation (queue layout known, but Volta has no CMDQ daemon).
+23. Build nvidia_oracle.ko (Gap 6) — low priority
 
 ### Gap 13: Swap Safety — D-State Hang on Incomplete Bind (Exp 089c)
 

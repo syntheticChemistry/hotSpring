@@ -32,13 +32,11 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 
 ---
 
-## Current Status (2026-03-27, Self-Tuning RHMC + Gradient Flow at Volume)
+## Current Status (2026-03-27, Self-Tuning RHMC + PDE Slot Breakthrough)
 
-> **New (Exp 097-103):** **Self-tuning RHMC calibrator** (Exp 103): `RhmcCalibrator` eliminates all hand-tuned magic numbers — spectral discovery via GPU power iteration, acceptance-driven step adaptation, auto pole-count from physics consistency. **Gradient flow at volume** (Exp 102): 16⁴ CK4 convergence, t₀/w₀ scale setting. **GPU RHMC production** (Exp 101): Nf=2 and Nf=2+1 validated. **Full silicon characterization pipeline** (Exp 097-100). 103 experiments. 4,065+ tests pass.
+> **New (Strandgate Exp 097-103):** **Self-tuning RHMC calibrator** (Exp 103): `RhmcCalibrator` eliminates all hand-tuned magic numbers — spectral discovery via GPU power iteration, acceptance-driven step adaptation, auto pole-count from physics consistency. **Gradient flow at volume** (Exp 102): 16⁴ CK4 convergence, t₀/w₀ scale setting. **GPU RHMC production** (Exp 101): Nf=2 and Nf=2+1 validated. **Full silicon characterization pipeline** (Exp 097-100). 4,065+ tests pass.
 >
-> **Exp 103:** Self-tuning RHMC calibrator — `SpectralProbe` (GPU power iteration for λ_max, analytical m² for λ_min), `RhmcCalibrator` (acceptance-driven dt/n_md, consistency-driven pole count, CG tolerance split force/Metropolis). All thresholds in `tolerances/lattice.rs`. `--adaptive` flag on `production_rhmc_scan`. Physics is the only validator.
->
-> **Exp 102:** Gradient flow at volume — CK4 convergence orders verified on 8⁴, t₀/w₀ extraction on 16⁴ (65K sites). Five LSCFRK integrators compared. Connects RHMC configs (Exp 101) to physical scale setting.
+> **New (Sovereign Exp 100-104):** **ACR firmware alive and running on GV100** (Exp 104). Critical PDE slot position bug found and fixed — GV100 MMU v2 uses 16-byte PDE entries with directory pointer in UPPER 8 bytes. 31 unique trace PCs, EMEM queues initialized, DMEM intact, CPU at idle loop. HS authentication is the final gate. 10.5/11 sovereign pipeline layers solved. DMA trap elimination (Exp 100-103).
 >
 > **Exp 096:** First non-shader-core silicon experiment. TMU table lookup delivers **1.89x throughput** on RTX 3090 and **1.24x** on RX 6950 XT. AMD outperforms NVIDIA on DF64 by **38%**. naga WGSL roundtrip bug found and bypassed.
 >
