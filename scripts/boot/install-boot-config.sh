@@ -4,7 +4,7 @@
 # This installs modprobe.d + udev rules so that on every boot:
 #   03:00.0 Titan V → nouveau (oracle, warm)
 #   4a:00.0 Titan V → vfio-pci (sovereign target, cold)
-#   21:00.0 RTX 5060 → nvidia (display)
+#   21:00.0 RTX 5070 → nvidia (display)
 #
 # Usage: sudo ./scripts/boot/install-boot-config.sh
 

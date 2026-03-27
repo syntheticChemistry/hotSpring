@@ -123,12 +123,12 @@ After HS boot, step (2) fails because DMEM is HS-locked. The init message
 exists but is inaccessible. SEC2 is STOPPED (not RUNNING), so it cannot process
 commands even if we found the queue addresses.
 
-### Next Steps → Gap 15
+### Next Steps → Completed via Exp 097, 098, 110
 
-Three investigation paths identified (see gap tracker):
-- **Path L:** EMEM-based queue discovery (EMEM is readable in HS)
-- **Path M:** MSI IRQ wiring + STARTCPU on STOPPED falcon
-- **Path N:** Pre-seed known queue layout before boot
+- ~~**Path L:** EMEM queue discovery~~ — **DONE** (Exp 097). Init message at EMEM[0x80].
+- ~~**Path M:** MSI IRQ wiring~~ — **DONE** (Exp 097). MSI locked in HS. Moot for Volta one-shot loader.
+- ~~**Path N:** Pre-seed queue layout~~ — Unnecessary. Volta SEC2 is one-shot (Exp 098).
+- **Consolidation:** Exp 110 matrix proved PDE slot is sole HS determinant. See `110_CONSOLIDATION_MATRIX.md`.
 
 ## Files Changed
 

@@ -1,16 +1,16 @@
 # coralReef GlowPlug daemon configuration
-# biomeGate: 2x Titan V + RTX 5060 (display head)
+# biomeGate: 2x Titan V + RTX 5070 (display head)
 
 [daemon]
 socket = "/run/coralreef/glowplug.sock"
 log_level = "info"
 health_interval_ms = 5000
 
-# RTX 5060 — Blackwell display GPU, LOCKED to nvidia
+# RTX 5070 (GB206) — Blackwell display GPU, LOCKED to nvidia
 # PROTECTED: ember will not hold VFIO fds, swaps are forbidden
 [[device]]
 bdf = "0000:21:00.0"
-name = "rtx-5060-display"
+name = "rtx-5070-display"
 boot_personality = "nvidia"
 power_policy = "always_on"
 role = "display"

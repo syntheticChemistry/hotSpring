@@ -1,9 +1,9 @@
 # baseCamp: Sovereign GPU Compute — GlowPlug & Falcon Boot Chain
 
-**Date:** 2026-03-25 (updated)  
-**Domain:** Hardware — PCIe GPU lifecycle, falcon microcontrollers, HBM2 management, PFIFO command submission, ACR secure boot, WPR construction, cross-driver profiling, daemon resilience, adaptive experiment loop, sysmem DMA, GV100 MMU v2 page table construction  
-**Experiments:** 060-104  
-**Hardware:** 2× NVIDIA Titan V (GV100, 12GB HBM2), RTX 5060 (display/validator)
+**Date:** 2026-03-25 (updated — Exp 122 definitive root cause, K80 strategy)  
+**Domain:** Hardware — PCIe GPU lifecycle, falcon microcontrollers, HBM2 management, PFIFO command submission, ACR secure boot, WPR construction, cross-driver profiling, daemon resilience, adaptive experiment loop, sysmem DMA, GV100 MMU v2 page tables, WPR2 hardware protection, Kepler PIO falcon loading  
+**Experiments:** 060-123  
+**Hardware:** 2× NVIDIA Titan V (GV100, 12GB HBM2), RTX 5070 (GB206, Blackwell, display/validator), Tesla K80 (GK210, Kepler, incoming 2026-03-26)
 
 ---
 
@@ -661,6 +661,60 @@ the trap (EXCI=0x201f0000). WPR is pre-populated in the sysmem DMA buffer.
 through system memory. VRAM can be pre-populated via PRAMIN for WPR hardware
 protection, but the ACR's DMA engine must read from system memory.
 
-**Next step:** pkexec run of sysmem ACR boot with blob_size=0. Expected:
-HS mode (SCTL=0x3002) without trap → ACR reads WPR headers → bootstraps
-FECS/GPCCS → L10 solved → proceed to L11 shader dispatch.
+---
+
+## Phase 8: Consolidation Matrix Through Definitive Root Cause (Exp 110-122)
+
+**Exp 110 (Consolidation Matrix):** 12-combination sweep of 6 ACR boot variables.
+PDE slot position is the **SOLE determinant** of HS mode. All other variables zero effect.
+
+**Exp 112 (Dual-Phase Boot):** HS mode achieved (SCTL=0x3002) via legacy PDE → HS auth
+→ immediate PDE hot-swap. Zero MMU faults. Firmware TRAPs on DMA (cause=0x20).
+
+**Exp 113 (TRAP Analysis):** All 5 variants trap identically. PMU dependency confirmed.
+BL's authenticated code path requires PMU-initialized WPR2.
+
+**Exp 114-121 (WPR Copy Stall Arc):** Seven experiments probing the persistent WPR copy
+stall. LS mailbox (114), direct PIO (115, HW-blocked), blob_size (116), WPR2 tracking
+(117: valid at 12GB during nouveau), WPR2 preservation (118: impossible), cold boot
+(119: invalid), sovereign DEVINIT (120: not needed), minimal ACR (121: same stall).
+
+**Exp 122 (WPR2 Resolution — Definitive Root Cause):**
+- **122A:** ALL WPR2 registers hardware-locked. Host cannot write.
+- **122B:** WPR2 at ~12GB VRAM. FBPA partitions offline. FECS/GPCCS HRESET even under nouveau.
+- **122C:** FWSEC not in accessible VBIOS PROM. Loaded by GPU internal ROM.
+
+Root cause chain: FWSEC (inaccessible) → WPR2 (12GB, HW-locked) → driver swap (destroys) → FBPA (offline) → ACR firmware cannot write to WPR2 → persistent copy stall.
+
+---
+
+## Phase 9: K80 Strategy — Kepler Bypasses Security Entirely (Exp 123)
+
+Tesla K80 (GK210, Kepler, PCI 10de:102d) arriving 2026-03-26.
+**Zero firmware security** — no FWSEC, no WPR2, no ACR, no signed firmware.
+
+- FECS at 0x409000, GPCCS at 0x41A000 — same base addresses as Volta
+- Direct PIO IMEM/DMEM upload with tag alignment (Falcon v1 protocol)
+- Compute class: KEPLER_COMPUTE_B = 0xA1C0
+- GF100-style 2-level page tables (40-bit DMA)
+- Dual-GPU: two independent PCI devices per card
+
+**Code built:**
+- `nv::kepler_falcon` — PIO upload (IMEM/DMEM/start) with mock tests
+- `nv::identity` — SM 35-37, BOOT0 0x0F0-0xFF, PCI 0x102D
+- `exp123t_parasitic_probe` — sysfs BAR0 probe for any driver binding
+
+**Parasitic probe results (2026-03-25):** Titan V #1 PMU in HS (0x3002, FWSEC-loaded)
+but HRESET. FECS/GPCCS HALTED under vfio-pci. RTX 5070 confirmed as GB206 (BOOT0=0x1b6000a1).
+
+**Updated Layer Model (Exp 122/123):**
+
+| Layer | Titan V (GV100) | K80 (GK210) |
+|-------|----------------|-------------|
+| L1-L9 | ✅ SOLVED | ✅ Expected (no security barriers) |
+| L10 | 🔴 ROOT CAUSE DEFINITIVE: WPR2 HW-locked, FWSEC inaccessible | ✅ N/A (no firmware security) |
+| L11 | 🔓 Blocked by L10 | 🔓 **PRIORITY** — PIO boot → PFIFO → dispatch |
+
+**If K80 sovereign compute works:** validates entire pipeline except security layer.
+Titan V problem is precisely L10 only. Parasitic compute (sysfs BAR0 while nouveau
+active) becomes the Titan V path after K80 validates the dispatch infrastructure.

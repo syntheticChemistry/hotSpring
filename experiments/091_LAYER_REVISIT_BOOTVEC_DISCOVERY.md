@@ -1,7 +1,7 @@
 # Exp 091: Full Layer Revisit — BOOTVEC Discovery + SCTL Myth Busted
 
 **Date:** 2026-03-23
-**Status:** ACTIVE
+**Status:** COMPLETE — BOOTVEC fix validated. HS+MMU paradox now the gate (see Exp 110).
 **Depends:** Exp 085-090, coralReef Iter 66 (ring/mailbox/ITFEN)
 **Goal:** Systematically revisit all layers, identify hidden timing/ordering bugs, test GPCCS BOOTVEC hypothesis
 

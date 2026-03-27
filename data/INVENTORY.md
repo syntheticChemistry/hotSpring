@@ -1,7 +1,7 @@
 # Data Inventory — hotSpring GPU Cracking Corpus
 
 **Last Updated:** 2026-03-24
-**Hardware:** Titan V #1 (0000:03:00.0), Titan V #2 (0000:4a:00.0), RTX 5060 (0000:21:00.0)
+**Hardware:** Titan V #1 (0000:03:00.0), Titan V #2 (0000:4a:00.0), RTX 5070 (GB206) (0000:21:00.0)
 
 ## Capture Matrix
 

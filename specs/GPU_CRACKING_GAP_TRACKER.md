@@ -1,7 +1,7 @@
 # GPU Cracking Gap Tracker
 
-**Updated:** 2026-03-26 (Exp 098 — clean-boot DMA trap identified, WPR copy partial, blob_base/size decoded)
-**Goal:** Sovereign compute on Titan V (GV100) — FECS/GPCCS running without proprietary ACR chain
+**Updated:** 2026-03-25 (K80 strategy + FBPA research. FBPA init NOT the issue. K80 arriving 2026-03-26 — validates full pipeline without security)
+**Goal:** Sovereign compute — K80 (GK210, no security) first, then Titan V (GV100) with validated stack
 
 ## MYTH BUSTED: SCTL Does NOT Block PIO (Exp 091+)
 
@@ -36,15 +36,15 @@ format at runtime via bit-solving, preventing future IMEMC-class bugs on any GPU
 | L4 | PFIFO init + PBDMA discovery | SOLVED | — |
 | L5 | MMU/FBHUB fault buffer setup | PROVEN (Exp 076) | — |
 | L6 | PBDMA context load + channel submit | PARTIAL (Exp 058) | GP_PUT DMA read fails |
-| L7 | SEC2 falcon binding + DMA | **CONFIRMED** (Exp 096) | **HS mode (0x3002) reproducible** via sysmem DMA + blob_size=0. Both sysmem and physical-sysmem paths achieve HS. VRAM DMA still corrupts (FBHUB PRI-dead). See Gap 14. |
+| L7 | SEC2 falcon binding + DMA | **FULLY CHARACTERIZED** (Exp 110) | **HS mode (0x3002) achieved** — Exp 110 matrix proved PDE slot position is the SOLE determinant. Legacy lower-8 PDEs → HS (5/5). Correct upper-8 PDEs → no HS (7/7). All other variables irrelevant. See Gap 14. |
 | L8 | WPR/ACR payload + FECS/GPCCS boot | **SOLVED** (Exp 087) | W1-W7 fixed. ACR processes WPR, bootstraps FECS+GPCCS. |
 | L9 | FECS boot + GR register init | **PARTIAL** (Exp 089b) | FECS halted at PC~0x058f, wakes on GR init. GPCCS stuck. |
-| L10 | GPCCS bootstrap via ACR | **DMA TRAP** (Exp 098) | Volta SEC2 = one-shot ACR loader. WPR copy initiated (FECS=1 GPCCS=1) but DMA traps (EXCI=0x201F). Init msg in EMEM[0x80]. Next: check post-nouveau FECS/GPCCS state (Path R) or fix DMA mapping (Path Q). |
+| L10 | GPCCS bootstrap via ACR | **ROOT CAUSE DEFINITIVE** (Exp 122) | WPR2 at 12GB VRAM, registers HW-locked, FBPA offline, FWSEC inaccessible. ACR firmware cannot write to WPR2 region. **Three remaining paths**: (1) FBPA init, (2) Parasitic sysfs compute, (3) Pre-GV100 GPU. |
 | L11 | GR context init + shader dispatch | **BLOCKED** by L10 | Needs GPCCS alive via authenticated ACR DMA load. |
 
-## Active Gaps
+## Gaps (Active + Fossil Record)
 
-### Gap 1: ACR Boot Chain — `bind_stat` Never Reaches 5
+### Gap 1: ACR Boot Chain — `bind_stat` Never Reaches 5 — SOLVED
 
 **Layer:** L7
 **Exp:** 081, **083 (source analysis)**, 084, **085 (SOLVED)**
@@ -213,7 +213,7 @@ IMEM[0x7E00], and the BL code is interleaved with header bytes.
 
 The build script exists (`scripts/build_nvidia_oracle.sh`) and the design is sound. Building and testing it would:
 1. Prove the renamed module loads alongside system nvidia
-2. Enable nvidia mmiotrace captures without affecting the RTX 5060
+2. Enable nvidia mmiotrace captures without affecting the RTX 5070
 3. Open the path to version-indexed recipe collection
 
 **Action:** `sudo ./scripts/build_nvidia_oracle.sh 580.126.18` — requires NVIDIA open kernel source installed.
@@ -330,80 +330,124 @@ The GPCCS execution failure is NOT a CMDQ problem — it's an **HS authenticatio
 **Path C: Capture and replay nouveau state — CANCELLED**
 - Exp 079/089c prove teardown destroys state.
 
-**Path D: BOOTVEC + ITFEN + INTR_ENABLE fix — ACTIVE (Exp 091)**
+**Path D: BOOTVEC + ITFEN + INTR_ENABLE fix — APPLIED (Exp 091)**
 - Root cause: mailbox BOOTSTRAP_FALCON loads firmware but doesn't set BOOTVEC
 - Fix applied to `strategy_mailbox.rs`: set GPCCS BOOTVEC=0x3400 before STARTCPU
 - Combined with Iter 66's ITFEN (0x04) and INTR_ENABLE (0xfc24)
-- **Next:** Hardware validation on post-nouveau warm state
+- Superseded by Exp 110 finding: HS+DMA paradox is the real gate, not BOOTVEC alone
 
 **Architectural alignment:** GlowPlug ring/mailbox system (Iter 66) provides
 timestamped command tracking for the full boot chain. If BOOTVEC fix works,
 L11 methods are already implemented in `fecs_method.rs`.
 
-### Gap 14: Layer 7 — SEC2 DMA + HS Mode — BREAKTHROUGH (Exp 095)
+### Gap 14: Layer 7 — SEC2 DMA + HS Mode — FULLY CHARACTERIZED (Exp 110)
 
 **Layer:** L7 (SEC2 binding + DMA)
-**Exp:** 091d-091e (root cause chain), **095 (nouveau cycle + VRAM ACR + sysmem ACR)**
-**Status:** **MAJOR PROGRESS** — HS mode achieved via sysmem DMA; VRAM DMA path characterized
+**Exp:** 095 (breakthrough), 096 (conversation), 104 (PDE fix), **110 (consolidation matrix)**
+**Status:** **FULLY CHARACTERIZED** — PDE slot position is the SOLE determinant of HS mode
 
-**Exp 095 Strategy:** Nouveau cycle (Phase 1) restores VRAM via DEVINIT, then sovereign
-ACR boot in VFIO. Four-phase test: VRAM probe → nouveau cycle → SEC2 diagnostics → ACR boot.
+#### Exp 110 Consolidation Matrix (Definitive Truth Table)
 
-**Key Discovery: FBHUB is PRI-dead but PRAMIN writes survive:**
-- `0x100C2C = 0xbadf5040` (FBHUB PRI error — hub not accessible)
-- PRAMIN sentinel writes verify: `wrote=0xcafedead read=0xcafedead ok=true`
-- VRAM content (ACR payload, WPR, page tables) written via PRAMIN persists across SEC2 reset
-- **FBHUB degradation corrupts DMA reads from VRAM**, preventing BL signature verification
+12-combination sweep of 6 ACR boot variables on Titan V hardware:
 
-**Three ACR boot paths tested (Exp 095, 8 iterations):**
+| # | pde   | vram_pte | blob0 | bind | imem  | tlb   | HS  | Why                           |
+|---|-------|----------|-------|------|-------|-------|-----|-------------------------------|
+| 1 | lower | false    | true  | SYS  | false | false | YES | Exp 095 baseline              |
+| 2 | lower | false    | true  | SYS  | false | true  | YES | + TLB                         |
+| 3 | upper | false    | true  | SYS  | false | true  | no  | Correct PDEs, skip blob       |
+| 5 | lower | false    | false | SYS  | false | false | YES | Old PDEs, full init           |
+| 6 | lower | false    | false | SYS  | false | true  | YES | + TLB                         |
+| 7 | upper | false    | false | SYS  | false | true  | no  | Correct PDEs, full init       |
+| 9 | upper | true     | false | VRAM | false | true  | no  | All-VRAM path                 |
+|11 | lower | false    | true  | SYS  | true  | false | YES | Pre-load + old PDEs           |
 
-| Path | DMA Source | SCTL | HS Mode | ACR State | FECS/GPCCS |
-|------|-----------|------|---------|-----------|------------|
-| VRAM (Phase 3) | VRAM via FBHUB | 0x3000 | NO | Runs in LS, deaf to commands | HRESET |
-| Hybrid (Phase 3 v2) | Sysmem PTEs for code, VRAM for WPR | 0x3000 | NO | Different trace, still LS | HRESET |
-| Sysmem (Phase 2.75) | System memory via IOMMU | **0x3002** | **YES** | HS mode, but **TRAPPED** (EXCI=0x201f0000) | HRESET |
+**Result: `pde_upper` is the ONLY variable that determines HS.** All other variables
+(VRAM PTEs, bind target, blob_size, IMEM preload, TLB flush) have zero effect.
 
-**Root Cause Analysis — LS mode in VRAM path:**
+#### Mechanism: MMU Walker Fallback
 
-The BL's job: DMA 256B of non-secure ACR code → verify HS signature → enter HS mode.
-FBHUB corruption during VRAM DMA flips bits in the code image, causing signature
-verification failure. The BL falls through to LS mode and runs the ACR in a degraded
-state. Evidence:
-- Identical BL upload + boot sequence, only DMA source differs
-- Sysmem path enters HS mode (code is uncorrupted through IOMMU)
-- VRAM path: ACR executes substantial code (TRACEPC reaches 0x4e5a) but never leaves LS mode
-- blob_size=0 made NO difference (identical trace) → error is before blob DMA
+When PDEs go in the **wrong (lower-8-byte) slot**:
+1. MMU walker reads upper 8 bytes → finds zeros → **invalid PDE**
+2. Hardware falls back to **physical VRAM addressing** for DMA
+3. BL code DMA resolves through VRAM → **HS authentication succeeds**
+4. But subsequent firmware DMA also uses VRAM physical → crashes (broken page tables)
 
-**Root Cause Analysis — Trap in sysmem path:**
+When PDEs go in the **correct (upper-8-byte) slot**:
+1. MMU walker follows PDE chain → resolves to **system memory PTEs**
+2. BL code DMA reads from system memory → **HS authentication fails**
+3. Firmware runs in LS mode but has working page tables
 
-With blob_size=0 applied to `strategy_sysmem.rs`, the ACR should skip the internal
-blob DMA that previously caused `EXCI=0x201f0000`. **Not yet tested** — this is the
-immediate next step.
+#### The HS + MMU Paradox
 
-**Exp 095 TRACEPC analysis (31-entry circular buffer):**
+Legacy PDEs give HS but break DMA. Correct PDEs give working DMA but block HS.
+The ACR bootloader's HS authentication requires code sourced from VRAM (or VRAM-equivalent).
 
-| Phase | Last Trace Entries | Idle PC | Interpretation |
-|-------|-------------------|---------|----------------|
-| VRAM | `...0x2cf8 0x2d07 0x05ee 0x1239` | 0x1da6 | Polling loop → error handler → degraded idle |
-| Hybrid | `...0x346d 0x35ee 0x4e5a 0x11c6 0x3d98 0x11c6` | 0x1e61 | Different execution path, different idle point |
-| Sysmem | (from earlier runs) HS mode then trap at 0x1c21 | N/A | Entered HS but faulted during WPR operations |
+#### Exp 111: VRAM-Native Page Tables — HS Auth Is DMA-Path-Type Dependent
 
-**EMEM diagnostic (ACR internal state):**
+Exp 111 built the entire PT chain in VRAM with correct upper PDEs and all VRAM PTEs.
+Result: firmware runs correctly (31 trace PCs, DMEM readable, WPR copy initiated)
+but **no HS mode**. This proves HS auth depends on the physical fallback DMA PATH,
+not on whether code physically resides in VRAM.
+
+| DMA Path              | Result | Evidence                          |
+|-----------------------|--------|-----------------------------------|
+| Physical fallback     | **HS** | Exp 110: legacy PDEs → MMU fails → physical |
+| Virtual → sysmem PTEs | no HS  | Exp 110: correct PDEs → sysmem resolve |
+| Virtual → VRAM PTEs   | no HS  | Exp 111: correct PDEs → VRAM resolve |
+
+**WPR hypothesis:** The BL likely checks WPR2 boundaries during HS auth. Without
+correct WPR2 set by PMU, virtual DMA always fails the check. Physical fallback
+bypasses or auto-passes this check.
+
+#### Exp 112: Dual-Phase Boot — HS ACHIEVED
+
+**Strategy:** Legacy PDEs (lower slot) → start falcon → HS auth via physical fallback → immediately hot-swap PDEs to correct (upper slot) via PRAMIN + TLB invalidate.
+
+**Result:**
 ```
-EMEM[32..40]: 0x00042001 0x026c0200 0x01000000 0x00000080
-              0x01000080 0x01000080 0x01000100 0xa5a51f00
+HS=true  SCTL=0x3002  EXCI=0x201f0000  PC=0x6392  MB0=0xdeada5a5
+FAULT_STATUS=0x00000000  (No MMU faults!)
+TRACEPC: 31x 0x0600  (BL error loop after trap)
+DMEM: all 0xDEAD5EC2  IMEM: all 0xbadf5447
 ```
-`0x00042001` at EMEM[32] is likely an ACR status/error code. `0xa5a51f00` contains
-partial sentinel (0xa5a5). This is the ACR's internal error reporting region.
 
-**Code changes applied (Exp 095):**
-- `strategy_sysmem.rs`: Added `blob_size=0` patch after `patch_acr_desc` — skips ACR's
-  internal blob DMA transfer (WPR already pre-populated in DMA buffer)
-- `sysmem_iova.rs`: Separated SHADOW (0x60000) from WPR (0x70000) for proper ACR verification
-- `instance_block.rs`: Made `FALCON_PT0_VRAM` and `encode_sysmem_pte` public for hybrid page tables
-- `dma.rs`: Made `DmaBuffer::new` public for test-level DMA allocation
-- `mod.rs`: Added `dma_backend()` accessor to `NvVfioComputeDevice`
-- `falcon.rs` test: Hybrid page table support (sysmem PTEs for ACR code pages, VRAM for rest)
+| Finding | Detail |
+|---------|--------|
+| **HS mode confirmed** | SCTL=0x3002 via dual-phase boot |
+| **No MMU faults** | Hot-swap + TLB invalidate structurally correct |
+| **Firmware TRAP** | EXCI cause=0x20 (software trap), PC=0x6392 |
+| **DMA not completed** | DMEM/IMEM show sentinel patterns (unpopulated) |
+| **Error loop** | TRACEPC all at 0x0600 (BL error handler) |
+
+**Trap Analysis:**
+- The BL enters HS, but traps during DMA setup
+- DMEM/IMEM never populated → BL descriptor/ACR data never DMA'd
+- Theory A: Hot-swap timing — BL attempted DMA with legacy PDEs before hot-swap completed
+- Theory B: WPR2 boundary check fails even after PDE fix
+- Theory C: BL cached stale TLB entries from pre-swap physical fallback
+
+**Next: Exp 113 — Resolve the TRAP**
+- 113A: Pre-load BL desc + ACR data into DMEM/EMEM before start; timing variants
+- 113B: FBIF physical override (register-level DMA target, bypass MMU)
+- 113C: WPR2 boundary read + analysis
+
+#### Prior Experiments (Fossil Record)
+
+- **Exp 095**: Original HS breakthrough — sysmem DMA + legacy PDEs
+- **Exp 096**: HS characterization — DMEM locked (0xDEAD5EC2), EMEM readable
+- **Exp 097**: Init message at EMEM[0x80], MSI locked in HS
+- **Exp 098**: Full-init DMA trap during WPR→falcon copy
+- **Exp 104**: PDE slot fix — firmware alive with correct PDEs but no HS
+- **Exp 106-109**: Explored VRAM PTEs, bind targets, IMEM preload — all irrelevant per Exp 110
+- **Exp 110**: Consolidation matrix — definitive proof that PDE slot is sole HS variable
+
+#### Code Refactoring (Exp 110)
+
+- Added `BootConfig` struct parameterizing all 6 variables
+- Deleted `attempt_hybrid_sysmem_vram_boot` (382 dead lines, zero callers)
+- Deprecated `attempt_sysmem_physical_boot`
+- Extracted diagnostics to `boot_diagnostics.rs`
+- `strategy_sysmem.rs`: 1766 → 1310 lines (−26%)
 
 **Exp 096 Results (unified diagnostics rerun):**
 
@@ -446,16 +490,20 @@ EMEM[0x09c]: 0xa5a51f00          — partial sentinel (0xa5a5)
 EMEM[0x0a0]: 0x00000406          — matches low bytes of EMEM[0]
 ```
 
-**Remaining paths (updated post-Exp 096):**
+**Remaining paths (updated post-Exp 110):**
 
 | Path | Approach | Status |
 |------|----------|--------|
-| **J** | Sysmem ACR + blob_size=0 | **CONFIRMED** — HS mode reproducible. ACR runs, halts. |
-| **L** | EMEM-based queue discovery (scan EMEM for CMDQ/MSGQ layout) | **NEW — IMMEDIATE NEXT** |
-| **M** | MSI IRQ wiring (eventfd → SEC2 interrupt → wake from STOPPED) | **NEW — HIGH PRIORITY** |
-| **N** | Pre-populate CMDQ/MSGQ in EMEM before boot (known layout from nouveau source) | NEW — fallback |
-| **K** | Sysmem code + VRAM WPR | DEFERRED — HS works without VRAM |
-| **F** | Warm handoff from nouveau | VIABLE but unnecessary |
+| **J** | Sysmem ACR + blob_size=0 | **CONFIRMED** (Exp 096). HS reproducible. Mechanism: legacy PDEs → VRAM fallback. |
+| **L** | EMEM queue discovery | **DONE** (Exp 097). Init msg at EMEM[0x80]. CMDQ=DMEM[0]/128B, MSGQ=DMEM[0x80]/128B. |
+| **M** | MSI IRQ wiring | **DONE** (Exp 097). MSI locked in HS. Host has no IRQ control. Moot for Volta one-shot loader. |
+| **O** | Full init (blob_size>0) | **DONE** (Exp 098). DMA traps on WPR→falcon copy. |
+| **Q** | DMA fault root cause | **SOLVED** (Exp 104/110). PDE slot position. |
+| **R** | Post-nouveau state reuse | **DEAD** (Exp 099). FLR wipes all. |
+| **T** | VRAM PTE effect on HS | **ANSWERED** (Exp 110). Zero effect. |
+| **V** | VRAM-native page tables (Exp 111) | **DONE** — no HS. Virtual DMA (even to VRAM) fails auth. |
+| **W** | **Dual-phase boot (Exp 112)** | **HS ACHIEVED** — SCTL=0x3002, but TRAP (cause=0x20) during DMA. No MMU faults. |
+| **X** | WPR2 boundary investigation | May explain TRAP — BL validates WPR2 in HS mode |
 
 ### Gap 12: Layer 11 — GR Context Init + Shader Dispatch
 
@@ -476,11 +524,11 @@ Once GPCCS is running, the GR context init path opens:
 3. nouveau `gf100_grctx_generate()` → how the golden context is built
 4. Channel context binding → how a channel's GR context is loaded via FECS
 
-### Gap 15: Layer 10 — SEC2 Conversation After HS (Exp 096→097)
+### Gap 15: Layer 10 — SEC2 Conversation After HS (Exp 096→110)
 
 **Layer:** L10
-**Exp:** 095 (HS achieved), 096 (conversation characterization), **097 (EMEM discovery)**
-**Status:** **ACTIVE** — Init message found, SEC2 HRESET is the blocker
+**Exp:** 095 (HS achieved), 096 (conversation), 097 (EMEM discovery), 098 (full init), **110 (consolidation)**
+**Status:** **SUBSUMED by HS+MMU paradox** — HS mode achievable but with broken DMA. Exp 111 addresses the root.
 
 #### Exp 097 BREAKTHROUGH: Init Message Found in EMEM
 
@@ -547,48 +595,171 @@ write of authenticated images to FECS/GPCCS.
 
 **Investigation paths:**
 
-| Path | Approach | Rationale |
-|------|----------|-----------|
-| **Q** | Investigate SEC2→FECS/GPCCS DMA fault | Check IOMMU fault log, extend page tables, verify target falcon IMEM accessibility |
-| **R** | Use nouveau's post-ACR state directly | Nouveau runs full ACR during bind. After swap back, FECS/GPCCS IMEM may already contain authenticated firmware — skip our ACR |
-| **S** | Map larger VA space in falcon page tables | PT covers 0..2MiB. ACR may need higher addresses for scratch/FECS/GPCCS writes |
+| Path | Approach | Status |
+|------|----------|--------|
+| **Q** | PDE slot position root cause | **SOLVED** (Exp 104/110) — upper 8 bytes, 16-byte entries |
+| **R** | Post-nouveau state reuse | **DEAD** (Exp 099) — FLR wipes falcon memory |
+| **S** | Extended VA space | Subsumed by Exp 111 VRAM-native approach |
+| **V** | VRAM-native page tables (Exp 111) | **DONE** — no HS. HS requires physical fallback DMA path. |
+| **W** | Dual-phase boot (Exp 112) | **HS ACHIEVED** — SCTL=0x3002, TRAP cause=0x20 during DMA phase |
+| **X** | WPR2 boundary investigation | May explain TRAP — next investigation target |
 
-## Priority Order (Post-Exp 104)
+## Priority Order (Post-Exp 110)
 
-**Critical breakthrough: PDE slot fix (Exp 104) unlocked full ACR firmware execution. Firmware is alive and running in its idle loop. HS authentication is the final gate.**
+**Exp 110 consolidated Exp 095-109 into a definitive truth table. The HS+MMU paradox is the sole remaining gate to sovereign compute.**
 
-**Path A (Fix HS Authentication — PRIMARY):**
-1. **Gap 15 Path T** — Investigate why HS authentication fails with correct page tables.
-   VRAM PTEs may cause the BL to load code from VRAM mirror instead of sysmem original.
-   Test with all SYS_MEM PTEs (no VRAM aperture). If HS succeeds, the issue is
-   VRAM mirror data fidelity.
-2. **Gap 15 Path U** — WPR2 indexed register mismatch. Firmware reads WPR boundaries
-   from 0x100CD4 (indexed), but our writes to 0x100CEC/CF0 are invisible there.
-   May need to set WPR2 via the indexed register or accept that WPR2 HW check
-   is unavoidable without PMU.
-3. **If HS achieved:** ACR should complete blob DMA → bootstrap FECS/GPCCS → L10-L11.
+**Path W (Dual-Phase Boot — Exp 112/113): HS ACHIEVED, PMU-BLOCKED**
 
-**Key findings (Exp 099-104):**
-- **FLR wipes all falcon memory** — Path R dead, ACR boot is necessary (Exp 099)
-- **IOMMU coverage complete** — LOW/HIGH/MID catch-all buffers eliminate all IO_PAGE_FAULT (Exp 100)
-- **PDE slot position is the root cause** — GV100 MMU v2 16-byte PDEs use UPPER 8 bytes for directory pointer. Sysmem strategy was writing to LOWER 8 bytes (Exp 104)
-- **With correct PDEs: firmware alive** — 31 unique PCs, EMEM queues initialized, DMEM intact, CPU in idle loop (Exp 104)
-- **0xDEAD5EC2 is HS read protection** — not a DMEM wipe. BAR0 returns this sentinel for DMEM in HS mode
-- **FBIF/DMA config invariant** — HS transition does NOT modify FBIF, ITFEN, or DMACTL (Exp 102)
-- **No GPU MMU faults** — FBHUB clean throughout all experiments (Exp 103)
+Exp 112 validated dual-phase: HS mode confirmed (SCTL=0x3002) + zero MMU faults.
+Exp 113 tested 5 variants (no-swap, blob=0, WPR2, delay, combined) — ALL trap
+identically. The TRAP is a **PMU dependency**, not a timing/configuration issue.
+
+**Root cause:** The BL's fully-authenticated code path requires PMU-initialized
+WPR2 boundaries. Exp 095's "success" was actually a BL code-verification FAILURE
+(sysmem DMA resolved to garbage via physical fallback) that led to a graceful exit.
+When DMA resolves correctly (VRAM path), the BL enters the full auth path → traps.
+
+**Implication:** The HS ACR chain is fundamentally blocked without PMU initialization.
+PMU init is itself a chicken-and-egg firmware authentication problem.
+
+**PATH Y (LS-Mode FECS/GPCCS Activation — PRIMARY):**
+
+The LS-mode mailbox path ALREADY loads FECS/GPCCS firmware:
+- Exp 087: ACR processes WPR, bootstraps FECS/GPCCS → cpuctl=0x12
+- Exp 091: BOOTVEC fix → GPCCS=0x3400, FECS=0x7E00
+- Exp 089b: FECS reaches idle at PC~0x058f, wakes on GR init writes
+
+**Next experiment:** Re-run mailbox path with correct PDEs + BOOTVEC fix, then:
+1. Verify FECS enters idle loop
+2. Send GR init writes to wake FECS
+3. Check if GPCCS starts from 0x3400
+4. If FECS/GPCCS respond → L11 (GR context init + shader dispatch) opens
+
+**If LS-mode works:** Sovereign compute possible WITHOUT HS. The entire HS chain
+(Exp 095-113) becomes optimization, not prerequisite.
+
+**PATH Y STATUS (LS-Mode FECS/GPCCS — BLOCKED):**
+
+Exp 114: LS ACR boot succeeded, BOOTSTRAP_FALCON acknowledged, but FECS/GPCCS stuck
+in HRESET. WPR copy status=1 (initiated, never completed).
+Exp 115E: acr_vram_pte=false had zero effect. Same stall.
+
+**PATH X (Direct PIO Upload — BLOCKED):**
+
+Exp 115A-D: PMC GR reset makes CPUCTL writable, but STARTCPU is silently rejected.
+HRESET never clears. GV100 FECS/GPCCS enforce hardware-level code authentication.
+PIO-loaded firmware (lacking ACR security context) cannot execute.
+
+**PATH Z (PMU Research — Fallback):**
+
+If LS-mode FECS/GPCCS can't function (need HS for security reasons):
+1. Research PMU firmware boot requirements on GV100
+2. Check if PMU has simpler auth than SEC2 (might be loadable from LS)
+3. PMU → WPR2 → SEC2 HS → full ACR → FECS/GPCCS
+
+**CURRENT PRIORITY: FBPA initialization / parasitic compute (Exp 123+)**
+
+**DEFINITIVE ROOT CAUSE (Exp 122 — three-pronged attack):**
+
+Exp 122A: **WPR2 registers are HARDWARE-LOCKED.** All indexed, direct, and FBPA
+WPR2 registers are read-only from the host. Writing test values has zero effect.
+FBPA partitions 0-2 are PRI FAULT (offline). Only FWSEC firmware (running in
+secure mode on SEC2 at boot) can set WPR2 boundaries. Host path **CLOSED.**
+
+Exp 122B: **WPR2 is at high VRAM (~12GB).** During nouveau, WPR2 = 0x2FFE00000..
+0x2FFE40000 (256 KiB at top of 12GB VRAM). After driver swap, boundaries become
+garbage (0x1FFFFE0000 = 137GB = invalid). FECS/GPCCS are in HRESET even under
+nouveau on Titan #2 — nouveau's ACR also failed (PMU trapped, SEC2 halted in FW mode).
+FBPA partitions still PRI FAULT even under nouveau.
+
+Exp 122C: **FWSEC is NOT in accessible VBIOS PROM.** Scanned 126 KiB PROM for WPR
+register addresses — NONE found. FWSEC is loaded by GPU internal boot ROM from a
+separate flash region, not from the PROM. Cannot extract or replay FWSEC. Path **CLOSED.**
+
+**Multi-layer root cause chain:**
+1. WPR2 at top of VRAM (12GB) — set by FWSEC at hardware boot
+2. WPR2 registers hardware-locked — cannot be changed by host
+3. Driver swap destroys WPR2 (PCI reset clears secure registers)
+4. FWSEC inaccessible — cannot re-run to restore WPR2
+5. FBPA partitions offline — memory controller not serving full VRAM
+6. Our VRAM mirrors in low VRAM (0x70000) — 12GB away from WPR2 target
+
+**Previous paradigm shift (Exp 119-121) corrected:** WPR2 IS the root cause after all.
+The identical stall on cold boot was because WPR2 is ALWAYS invalid without FWSEC
+completing (cold boot has garbage boundaries, post-nouveau has cleared boundaries).
+The copy stall is the ACR firmware hanging while trying to write to the invalid WPR2
+VRAM region via an offline FBPA.
+
+**Exp 118 FINDINGS (closed approaches):**
+- **No-reset swap IMPOSSIBLE** — falcon death is from nouveau's kernel unbind handler
+  writing register-level resets, NOT from PCI FLR/SBR. Disabling `reset_method`
+  has zero effect. Ember already disables PCI reset for NVIDIA GPUs.
+- **WPR2 content is UNREADABLE** — PRAMIN reads return `0xBAD0ACxx` poison values.
+  Hardware physically blocks all host reads/writes to the write-protected region.
+- **remove-rescan is DESTRUCTIVE** — can change BDF assignment, disrupt GlowPlug/
+  Ember device management, and leave the system in a mixed state.
+
+**Remaining approaches (priority order — updated Exp 122 + K80):**
+1. **K80 Sovereign Compute** (Exp 123-K) — Tesla K80 (GK210, Kepler) arriving 2026-03-26.
+   NO firmware security, NO WPR2, NO ACR. Direct PIO FECS/GPCCS boot. Validates the
+   entire sovereign compute stack (PFIFO, PBDMA, GR, FECS, GPCCS, shader dispatch)
+   without hitting any Volta security walls. If this works, Titan V problem is purely
+   L10 (authenticated boot). Identity module + Falcon PIO loader already built.
+2. **Parasitic compute via sysfs** — Piggyback on nouveau's working GPU state through
+   sysfs BAR0. No driver swap. FECS/GPCCS may be alive on Titan #1 (Titan #2 shows
+   them in HRESET). Set up PFIFO channel via register writes while nouveau is bound.
+3. ~~FBPA initialization~~ — **NOT THE ISSUE** (2026-03-25). Nouveau's GV100 FB hook is
+   `gm200_fb_init` (MMU buffer setup only). No "enable FBPA" sequence exists in nouveau.
+   FBPA registers at 0x1FA824/828 are GSP/Turing+ paths, not used on GV100.
+4. ~~FWSEC re-trigger~~ — **CLOSED** (Exp 122C). FWSEC not in accessible PROM.
+5. ~~Cold vfio-pci boot~~ — **CLOSED** (Exp 119). WPR2 invalid without full FWSEC chain.
+6. ~~WPR2 register writes~~ — **CLOSED** (Exp 122A). All registers hardware-locked.
+
+**Key findings (full experiment arc):**
+- **PDE slot position is the SOLE HS determinant** — Exp 110 matrix, 12 combos, 100% correlation
+- **Legacy PDEs give HS via MMU fallback to VRAM physical** — Exp 108/110
+- **Correct PDEs route DMA to sysmem, which fails HS auth** — Exp 104/110
+- **Other variables (VRAM PTEs, bind, blob_size, IMEM, TLB) have zero effect** — Exp 110
+- **FLR wipes all falcon memory** — Path R dead (Exp 099)
+- **IOMMU coverage complete** — catch-all buffers eliminate IO_PAGE_FAULT (Exp 100)
+- **0xDEAD5EC2 is HS read protection** — BAR0 sentinel for DMEM in HS mode
+- **Volta SEC2 is a one-shot ACR loader** — no CMDQ daemon (Exp 098)
 
 **Resolved:**
-- **Gap 15 Path R** (post-nouveau state) — **DEAD** (Exp 099). FLR wipes all falcon memory.
-- **Gap 15 Path Q** (DMA fault) — **ROOT CAUSE FOUND** (Exp 104). PDE slot position.
-- **Gap 14 Path J** (HS mode via sysmem) — **CONFIRMED** (Exp 096). Reproducible HS mode.
+- **Gap 14** (HS mode) — **FULLY CHARACTERIZED** (Exp 110). PDE-only determinant.
+- **Gap 15 Path Q** (DMA fault) — **ROOT CAUSE FOUND** (Exp 104/110). PDE slot position.
+- **Gap 15 Path R** (post-nouveau state) — **DEAD** (Exp 099).
+- **Gap 15 Path T** (VRAM PTE effect on HS) — **ANSWERED** (Exp 110). No effect.
+- **Gap 14 Path J** (HS via sysmem) — **CONFIRMED** (Exp 096). Reproducible.
 - **Gap 9** (L8 WPR W1-W7) — **SOLVED** (Exp 087).
 - **Gap 1** (bind_stat B1-B7) — **SOLVED** (Exp 085).
 - **Gap 5** (cross-driver profile) — **COMPLETE** (Exp 086).
 - **Gap 2** (SYS_MEM_COH_TARGET) — **RESOLVED** (Exp 083).
 - **Gap 4** (ACR/WPR format) — **SOLVED** (Exp 087).
 - **Gap 8** (open targets) — handoff delivered.
-- **SCTL blocks PIO** — **MYTH BUSTED** (Exp 091+). FalconCapabilityProbe added.
-- **PDE format** — **FIXED** (Exp 104). Upper 8 bytes of 16-byte entry for all directory levels.
+- **SCTL blocks PIO** — **MYTH BUSTED** (Exp 091+).
+- **PDE format** — **FULLY UNDERSTOOD** (Exp 104+110).
+- **pkexec bottleneck** — **ELIMINATED** (Exp 110 Phase 1). udev + coralreef group.
+- **acr_vram_pte effect on WPR copy** — **ZERO** (Exp 115E). Not the WPR stall cause.
+- **Direct PIO falcon boot** — **IMPOSSIBLE on GV100** (Exp 115A-D). HW security enforcement.
+- **LS-mode BOOTSTRAP_FALCON** — **ACKNOWLEDGED but incomplete** (Exp 114/115E/116B). WPR never processed.
+- **Firmware binary blob_size** — **IS 0** (Exp 116). Our patch_acr_desc was WRONG to set it non-zero. Fixed.
+- **WPR2 HW boundaries** — **INVALID after swap** (Exp 116A). 0x100CD4: start=0xFFFE0000 end=0x20000.
+- **blob_size=0 doesn't fix WPR** — **CONFIRMED** (Exp 116B). ACR runs but doesn't process WPR.
+- **WPR2 valid during nouveau** — **0x2FFE00000..0x2FFE40000** (Exp 117A). 256 KiB at top of VRAM.
+- **SCTL=0x7021 during nouveau** — **FWSEC-authenticated mode** (Exp 117). All falcons. Different from LS(0x3000)/HS(0x3002).
+- **Driver swap kills GPU state** — **CONFIRMED** (Exp 117B). Falcons reset, WPR2 cleared, no full power cycle.
+- **ACR requires valid WPR2 HW boundaries** — **CONFIRMED** (Exp 117D). WPR at correct VRAM addr still not processed.
+- **No-reset swap** — **IMPOSSIBLE** (Exp 118A). Falcon death is driver-level register writes, not PCI reset. Ember already disables PCI reset.
+- **WPR2 host reads** — **BLOCKED BY HW** (Exp 118D). PRAMIN returns `0xBAD0ACxx` poison. WPR2 is physically read-protected.
+- **remove-rescan** — **DESTRUCTIVE** (Exp 118C). Changes BDF, disrupts device management. Avoid.
+- **Cold vfio-pci boot** — **DEVINIT runs at power-on** (Exp 119). PMU enters HS(0x3002) but TRAPs. WPR2 not carved.
+- **WPR2 as copy stall cause** — **CONFIRMED ROOT CAUSE** (Exp 122). WPR2 registers HW-locked, at 12GB VRAM, FBPA offline. Previous "red herring" assessment (Exp 120) was incorrect.
+- **Sovereign DEVINIT** — **NOT NEEDED** (Exp 120). VBIOS ROM already does it at power-on. devinit_reg=0x2.
+- **WPR2 register writability** — **HARDWARE LOCKED** (Exp 122A). All indexed/direct/FBPA registers read-only from host. Only FWSEC can set.
+- **WPR2 VRAM location** — **0x2FFE00000 (12GB)** (Exp 122B). Top of VRAM. Beyond 32-bit PRAMIN window when truncated to u32.
+- **FWSEC in VBIOS PROM** — **NOT PRESENT** (Exp 122C). No WPR register addresses in 126KB PROM. FWSEC loaded by GPU internal ROM.
+- **FBPA partitions** — **OFFLINE** (Exp 122A/B). Partitions 0-2 PRI FAULT. Memory controller not fully initialized.
 
 **Lower priority:**
 - **Gap 3** (mmiotrace corpus) — useful for DMA timing, not critical
@@ -616,10 +787,27 @@ write of authenticated images to FECS/GPCCS.
 17. ~~Gap 15 Path Q~~ — **ROOT CAUSE FOUND** (Exp 104): PDE slot position (upper 8 bytes of 16-byte entry). Fixed in `strategy_sysmem.rs`.
 18. ~~Exp 100-103~~ — **DONE**: IOMMU coverage, VRAM page tables, DMEM data loading, memory controller diagnostics. All ruled out as root cause.
 19. ~~Exp 104 PDE fix~~ — **BREAKTHROUGH** (2026-03-25): Firmware alive. 31 trace PCs, EMEM queues initialized, CPU at idle loop. HS authentication pending.
-20. **Gap 15 Path T** — Test HS authentication with all SYS_MEM PTEs (no VRAM aperture). Determine if VRAM mirror causes signature mismatch.
-21. **Gap 15 Path U** — WPR2 indexed register (0x100CD4) mismatch. Firmware may check different register than we write.
-22. **Implement Ember Ring** — `EmberRing` trait + SEC2 CMDQ implementation (queue layout known, but Volta has no CMDQ daemon).
-23. Build nvidia_oracle.ko (Gap 6) — low priority
+20. ~~Exp 110 Consolidation Matrix~~ — **DEFINITIVE** (2026-03-25): PDE slot is SOLE HS determinant. 12-combo matrix. All Exp 095-109 findings consolidated. Code debt eliminated (−26% in strategy_sysmem.rs).
+21. ~~Gap 15 Path T~~ — **ANSWERED** (Exp 110): VRAM PTEs have zero effect on HS mode. Not the mechanism.
+22. ~~pkexec elimination~~ — **DONE** (Exp 110): udev rules + coralreef group. Fully agentic dev flow.
+23. ~~Exp 111: VRAM-native page tables~~ — **DONE** (2026-03-26). Virtual DMA to VRAM PTEs still fails HS. HS auth is DMA-path-type dependent: only physical fallback gives HS.
+24. ~~Exp 112: Dual-phase boot (Path W)~~ — **HS ACHIEVED** (2026-03-26). SCTL=0x3002, no MMU faults. Firmware TRAPs (cause=0x20).
+25. ~~Exp 113: TRAP analysis~~ — **PMU DEPENDENCY** (2026-03-26). All 5 variants trap identically. Full auth path needs PMU. Sysmem "success" was code-verification failure.
+26. ~~Path Y: LS-mode FECS/GPCCS activation~~ — **WPR COPY STALLS** (Exp 114/115E). ACR acknowledged but copy never completes.
+27. ~~Path X: Direct PIO falcon upload~~ — **HW SECURITY BLOCK** (Exp 115A-D). GV100 enforces code auth at hardware level.
+28. ~~Exp 116: blob_size=0 + WPR reuse~~ — **WPR NOT PROCESSED** (2026-03-26). Firmware binary has blob_size=0. Even corrected, ACR doesn't process WPR. WPR2 HW invalid after swap.
+29. ~~Exp 117: WPR2 State Tracking~~ — **BREAKTHROUGH** (2026-03-26). WPR2 VALID at 0x2FFE00000..0x2FFE40000 during nouveau. SCTL=0x7021 = FWSEC auth mode. Swap KILLS all state.
+30. ~~Exp 118: WPR2 Preservation~~ — **CLOSED** (2026-03-26). No-reset swap impossible (driver-level reset). WPR2 HW-read-protected (BAD0AC). remove-rescan destructive.
+31. ~~Exp 119: Cold boot WPR2~~ — **CLOSED** (2026-03-27). PMU HS but TRAPPED, WPR2 invalid. DEVINIT runs at power-on.
+32. ~~Exp 120: Sovereign DEVINIT~~ — **NOT NEEDED** (2026-03-27). Same WPR stall. DEVINIT already done by VBIOS.
+33. ~~Exp 121: Minimal ACR~~ — **CLOSED** (2026-03-27). PRI faults not the cause. Same stall with clean PRI ring.
+34. ~~Exp 122A: WPR2 register writes~~ — **HARDWARE LOCKED** (2026-03-27). All registers read-only from host.
+35. ~~Exp 122B: Parasitic nouveau~~ — **WPR2 at 12GB, FBPA offline** (2026-03-27). Nouveau also fails ACR on Titan #2.
+36. ~~Exp 122C: FWSEC extraction~~ — **NOT IN PROM** (2026-03-27). FWSEC loaded by GPU internal ROM.
+37. ~~Exp 123 FBPA init~~ — **NOT THE ISSUE** (2026-03-25). Nouveau's `gv100_fb` hook is `gm200_fb_init` (MMU debug buffers only). No "enable FBPA" sequence exists. FBPA registers at 0x1FA824/828 are GSP/FWSEC (Turing+), not GV100. FBPA PRI FAULTs may be normal for GV100.
+38. **Exp 123-K: K80 Sovereign Compute** — Tesla K80 (GK210, Kepler). NO firmware security. Direct PIO FECS/GPCCS boot. Validates entire compute pipeline (L1-L9, L11) without security layer. K80 arriving 2026-03-26. Identity module updated (SM 35-37, PCI 0x102D). Kepler falcon PIO loader built.
+39. **Parasitic compute** — sysfs BAR0 compute while nouveau is active on Titan V.
+40. Build nvidia_oracle.ko (Gap 6) — low priority
 
 ### Gap 13: Swap Safety — D-State Hang on Incomplete Bind (Exp 089c)
 

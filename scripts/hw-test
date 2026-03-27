@@ -1,0 +1,102 @@
+#!/bin/bash
+# SPDX-License-Identifier: AGPL-3.0-only
+#
+# hw-test — run hardware VFIO tests with auto-discovery
+#
+# Usage:
+#   ./scripts/hw-test                      # run all ignored tests
+#   ./scripts/hw-test exp110               # filter by test name
+#   ./scripts/hw-test exp110 0000:4a:00.0  # explicit BDF
+
+set -euo pipefail
+
+FILTER="${1:-}"
+EXPLICIT_BDF="${2:-}"
+SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+CORALREEF_DIR="$(cd "$SCRIPT_DIR/../../coralReef" && pwd)"
+
+# ── Auto-discover VFIO GPU ──
+discover_bdf() {
+    if [[ -n "$EXPLICIT_BDF" ]]; then
+        echo "$EXPLICIT_BDF"
+        return
+    fi
+    if [[ -n "${CORALREEF_VFIO_BDF:-}" ]]; then
+        echo "$CORALREEF_VFIO_BDF"
+        return
+    fi
+    local driver_path="/sys/bus/pci/drivers/vfio-pci"
+    for dev in "$driver_path"/????:??:??.?; do
+        [[ -d "$dev" ]] || continue
+        local vendor
+        vendor=$(cat "$dev/vendor" 2>/dev/null)
+        if [[ "$vendor" == "0x10de" ]]; then
+            basename "$dev"
+            return
+        fi
+    done
+    echo >&2 "ERROR: No NVIDIA GPU bound to vfio-pci."
+    echo >&2 "  Set CORALREEF_VFIO_BDF or pass BDF as second argument."
+    exit 1
+}
+
+# ── Permission checks ──
+check_permissions() {
+    local ok=true
+    if [[ ! -r /dev/vfio/vfio ]]; then
+        echo >&2 "WARN: /dev/vfio/vfio not readable"
+        ok=false
+    fi
+    for gdev in /dev/vfio/[0-9]*; do
+        [[ -e "$gdev" ]] || continue
+        if [[ ! -w "$gdev" ]]; then
+            echo >&2 "WARN: $gdev not writable — check udev rules"
+            ok=false
+        fi
+    done
+    if ! id -nG | grep -qw coralreef; then
+        echo >&2 "WARN: user not in coralreef group"
+        ok=false
+    fi
+    if [[ "$ok" == "false" ]]; then
+        echo >&2 "  Some permission checks failed. Tests may need pkexec."
+    fi
+}
+
+# ── GlowPlug status ──
+check_glowplug() {
+    if systemctl is-active --quiet coral-glowplug 2>/dev/null; then
+        echo "  GlowPlug: active"
+    else
+        echo >&2 "WARN: coral-glowplug not running — nouveau cycling will fail"
+    fi
+    if systemctl is-active --quiet coral-ember 2>/dev/null; then
+        echo "  Ember:    active"
+    else
+        echo >&2 "WARN: coral-ember not running — VFIO fd acquisition will fail"
+    fi
+}
+
+BDF=$(discover_bdf)
+echo "=== hw-test ==="
+echo "  BDF:      $BDF"
+echo "  coralReef: $CORALREEF_DIR"
+check_permissions
+check_glowplug
+
+export CORALREEF_VFIO_BDF="$BDF"
+
+CARGO_ARGS=(
+    test -p coral-driver --features vfio --test hw_nv_vfio
+)
+if [[ -n "$FILTER" ]]; then
+    CARGO_ARGS+=("$FILTER")
+fi
+CARGO_ARGS+=(-- --ignored --nocapture --test-threads=1)
+
+echo ""
+echo "  Running: cargo ${CARGO_ARGS[*]}"
+echo ""
+
+cd "$CORALREEF_DIR"
+exec cargo "${CARGO_ARGS[@]}"

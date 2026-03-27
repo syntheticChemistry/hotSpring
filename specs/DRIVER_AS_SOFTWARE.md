@@ -90,7 +90,7 @@ Each swap-capture cycle produces:
 
 ## Driver Coexistence: nvidia_oracle
 
-The protected display GPU (RTX 5060) owns `nvidia.ko`. To bind a Titan to an nvidia
+The protected display GPU (RTX 5070) owns `nvidia.ko`. To bind a Titan to an nvidia
 driver without conflict, we build a **renamed module**:
 
 - `MODULE_BASE_NAME` patched from `"nvidia"` to `"nvidia_oracle"`

@@ -83,20 +83,14 @@ need to DMA to addresses outside this range:
 - The ACR might use a higher VA for scratch space
 - The WPR copy might go through a VRAM path that our FBHUB-dead setup can't serve
 
-## Next Steps → Path Q
+## Next Steps → Answered by Exp 104, 110
 
-**Path Q: Investigate the DMA path from SEC2 → FECS/GPCCS.**
+~~Path Q: Root cause found (Exp 104) — PDE slot position.~~
+~~Path R (post-nouveau state): Dead (Exp 099) — FLR wipes all falcon memory.~~
 
-1. Check IOMMU fault log after boot to see what VA/IOVA the DMA tried to access
-2. Extend page tables beyond 2 MiB to cover potential DMA targets
-3. Check if ACR uses PRI (BAR0 registers) to write FECS/GPCCS IMEM, or DMA
-4. If PRI: ensure FECS/GPCCS are in a state that accepts IMEM writes
-5. If DMA: map the target falcon IMEM addresses in our page tables
-
-**Alternative: Let nouveau handle the full ACR bootstrap, then just use the
-post-ACR state.** Nouveau's 3-second bind window already runs the full ACR.
-After swap back, FECS/GPCCS might already be loaded. Check their IMEM content
-after the nouveau cycle.
+Exp 110 consolidated the variable space. The DMA trap is caused by the HS+MMU paradox:
+legacy PDEs give HS but break DMA routing. See `experiments/110_CONSOLIDATION_MATRIX.md`
+→ Next Steps (VRAM-native page tables, Exp 111).
 
 ## Files Changed
 

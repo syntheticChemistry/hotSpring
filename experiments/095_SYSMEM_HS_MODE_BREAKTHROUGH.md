@@ -1,9 +1,16 @@
 # Exp 095: Sysmem HS Mode Breakthrough — SEC2 Enters Heavy Secure via System Memory DMA
 
 **Date:** 2026-03-26
-**Status:** BREAKTHROUGH — HS mode achieved (SCTL=0x3002). blob_size=0 patch applied, awaiting next pkexec run.
+**Status:** FULLY CHARACTERIZED (see Exp 110 Consolidation Matrix)
 **Depends:** Exp 093 (W1 fix), Exp 094 (Path B dead), coralReef Iter 67
 **Goal:** Achieve SEC2 HS mode entry and ACR initialization via sovereign DMA configuration
+
+> **Exp 110 Cross-Reference:** The HS mode achieved here was fully explained by
+> Exp 110's consolidation matrix. The mechanism was **not** sysmem vs VRAM DMA per se,
+> but rather the PDE slot position. This experiment's `strategy_sysmem.rs` used
+> legacy lower-8-byte PDE entries, causing MMU walker fallback to physical VRAM
+> addressing, which satisfied HS authentication. See `experiments/110_CONSOLIDATION_MATRIX.md`
+> for the definitive truth table and `specs/GPU_CRACKING_GAP_TRACKER.md` Gap 14.
 
 ## Summary
 
@@ -111,12 +118,11 @@ All three strategies use the same ACR firmware payload, same WPR construction, s
 
 TRACEPC dump (31-entry circular buffer), EMEM read (ACR internal state), SCTL/CPUCTL/PC/EXCI for SEC2/FECS/GPCCS.
 
-## Next Step (Path J)
+## Next Step → Exp 111 (VRAM-Native Page Tables)
 
-Run the sysmem ACR boot with `blob_size=0` applied:
+~~Path J was confirmed in Exp 096 and the full variable space mapped in Exp 110.~~
 
-```bash
-pkexec cargo test vfio_clean_vram_acr_boot --features vfio -p coral-driver -- --nocapture --ignored
-```
-
-**Expected outcome:** SEC2 enters HS mode (SCTL=0x3002), ACR reads pre-populated WPR headers from sysmem DMA buffer without trapping, bootstraps FECS/GPCCS via authenticated DMA load. If successful, FECS/GPCCS leave HRESET → L10 solved → proceed to L11.
+The HS+MMU paradox identified by Exp 110 requires VRAM-native page tables:
+build the entire PDE/PTE chain in VRAM with correct upper-8-byte slots so the MMU
+walks correctly AND code DMA resolves to VRAM (satisfying HS auth). See
+`experiments/110_CONSOLIDATION_MATRIX.md` → Next Steps.

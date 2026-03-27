@@ -11,7 +11,7 @@
 
 A GPU is not a single device. It is an ecosystem of microcontrollers (falcons),
 memory subsystems, DMA engines, and firmware payloads that interact through
-multiple information substrates. The sovereign pipeline crisis (104 experiments,
+multiple information substrates. The sovereign pipeline crisis (123 experiments,
 6 systematic dead ends before finding the PDE slot bug) revealed that we are
 treating this ecosystem as a monolithic system when it is not.
 

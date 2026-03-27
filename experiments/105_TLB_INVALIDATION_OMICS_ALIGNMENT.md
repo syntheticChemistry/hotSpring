@@ -1,7 +1,7 @@
 # Experiment 105: TLB Invalidation Fix — First -omics Alignment Result
 
 **Date:** 2026-03-25
-**Status:** CODE READY — awaiting hardware run
+**Status:** COMPLETE — TLB invalidation added. Exp 110 matrix confirmed it has zero effect on HS mode.
 **Method:** Register trace alignment (COMPUTATIONAL_OMICS.md Phase 1)
 
 ## Discovery

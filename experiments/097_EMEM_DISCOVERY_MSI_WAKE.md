@@ -1,9 +1,9 @@
 # Exp 097: EMEM Discovery + MSI Wake
 
 **Date:** 2026-03-26
-**Status:** COMPLETE — major discovery
+**Status:** COMPLETE — major discovery. MSI/IRQ findings moot for Volta (SEC2 is one-shot loader per Exp 098).
 **Depends on:** Exp 096 (unified diagnostics), Exp 095 (HS mode)
-**Unlocks:** Path O (remove blob_size=0 to keep SEC2 running)
+**Unlocks:** Path O (Exp 098), then consolidated by Exp 110
 
 ## Objective
 
@@ -107,23 +107,14 @@ The firmware may have already completed steps 3-5 BEFORE the trap. If we
 catch the state at the right moment, DMEM might contain the initialized
 queues and SEC2 might still be RUNNING.
 
-## Next Steps → Path O
+## Next Steps → Completed via Exp 098, 110
 
-**Path O: Remove blob_size=0, catch SEC2 between init message and blob DMA trap.**
+~~Path O tested in Exp 098: full init achieves HS but DMA traps during WPR→falcon copy.~~
+~~Path P subsumed: blob is pre-populated but falcon DMA target is the issue.~~
 
-The hypothesis: With proper blob_size, the firmware will:
-1. Enter HS
-2. Write init message to DMEM (now readable because it's a normal DMEM write)
-3. Initialize CMDQ/MSGQ
-4. Attempt blob DMA (may trap)
-
-If we can discover queues BEFORE the trap, or if the firmware recovers from
-the trap and enters the idle loop, we have conversation.
-
-**Alternative Path P: Pre-populate a valid ACR blob in the DMA buffer.**
-
-If we provide a properly formatted ACR blob at the expected DMA address, the
-firmware may complete step 2 successfully and proceed to the idle loop.
+Exp 110 consolidated the full variable space. The HS+MMU paradox (legacy PDEs → HS but
+broken DMA; correct PDEs → working DMA but no HS) is the sole remaining gate.
+See `experiments/110_CONSOLIDATION_MATRIX.md` → Next Steps (VRAM-native page tables).
 
 ## Files Changed
 

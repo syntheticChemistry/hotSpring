@@ -7,11 +7,11 @@
 ## Problem Statement
 
 Today, GlowPlug only manages GPUs that boot to VFIO. This is the right model for a
-dedicated compute lab (biomeGate: 2x Titan V on VFIO, RTX 5060 on display). But it
+dedicated compute lab (biomeGate: 2x Titan V on VFIO, RTX 5070 on display). But it
 does not address the broader deployment scenario: a family gaming PC where you want to
 borrow spare GPU compute without breaking the game.
 
-The previous attempt to use a Titan's nvidia driver alongside the 5060's nvidia driver
+The previous attempt to use a Titan's nvidia driver alongside the 5070's nvidia driver
 failed because we tried to swap the system driver — treating it as infrastructure. The
 native-compute model avoids this entirely: the GPU stays on its kernel driver, and
 GlowPlug borrows compute capacity through the driver's own API.
@@ -49,7 +49,7 @@ GlowPlug borrows compute capacity through the driver's own API.
 ```toml
 [[device]]
 bdf = "0000:21:00.0"
-role = "display"           # RTX 5060 — protected
+role = "display"           # RTX 5070 — protected
 
 [[device]]
 bdf = "0000:03:00.0"
@@ -218,7 +218,7 @@ The long-term vision: GlowPlug instances across multiple machines form a compute
 ┌──────────────────┐     ┌──────────────────┐     ┌──────────────────┐
 │ biomeGate Lab    │     │ Gaming PC #1     │     │ Gaming PC #2     │
 │ 2x Titan V (VFIO)│    │ RTX 4070 (native)│     │ RTX 3080 (native)│
-│ RTX 5060 (display)│    │ Gaming + Science │     │ Gaming + Science │
+│ RTX 5070 (display)│    │ Gaming + Science │     │ Gaming + Science │
 │                  │     │                  │     │                  │
 │ GlowPlug Master │◄───►│ GlowPlug Agent  │◄───►│ GlowPlug Agent  │
 └──────────────────┘     └──────────────────┘     └──────────────────┘

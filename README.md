@@ -32,15 +32,17 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 
 ---
 
-## Current Status (2026-03-27, Self-Tuning RHMC + PDE Slot Breakthrough)
+## Current Status (2026-03-27, K80 Strategy + Self-Tuning RHMC + Definitive WPR2 Root Cause)
 
-> **New (Strandgate Exp 097-103):** **Self-tuning RHMC calibrator** (Exp 103): `RhmcCalibrator` eliminates all hand-tuned magic numbers — spectral discovery via GPU power iteration, acceptance-driven step adaptation, auto pole-count from physics consistency. **Gradient flow at volume** (Exp 102): 16⁴ CK4 convergence, t₀/w₀ scale setting. **GPU RHMC production** (Exp 101): Nf=2 and Nf=2+1 validated. **Full silicon characterization pipeline** (Exp 097-100). 4,065+ tests pass.
+> **K80 Sovereign Compute (Exp 123-K):** Tesla K80 (GK210, Kepler) arriving 2026-03-26. **Zero firmware security** — no FWSEC, no WPR2, no ACR. Direct PIO FECS/GPCCS boot. Validates entire sovereign compute stack without security barriers. Identity module + Falcon PIO loader built and tested. 123 experiments across 2 GPU architectures.
 >
-> **New (Sovereign Exp 100-104):** **ACR firmware alive and running on GV100** (Exp 104). Critical PDE slot position bug found and fixed — GV100 MMU v2 uses 16-byte PDE entries with directory pointer in UPPER 8 bytes. 31 unique trace PCs, EMEM queues initialized, DMEM intact, CPU at idle loop. HS authentication is the final gate. 10.5/11 sovereign pipeline layers solved. DMA trap elimination (Exp 100-103).
+> **Strandgate Physics (Exp 097-103):** **Self-tuning RHMC calibrator** (Exp 103): `RhmcCalibrator` eliminates all hand-tuned magic numbers. **Gradient flow at volume** (Exp 102): 16⁴ CK4 convergence, t₀/w₀ scale setting. **GPU RHMC production** (Exp 101): Nf=2 and Nf=2+1 validated. **Full silicon characterization pipeline** (Exp 097-100). 4,065+ tests pass.
 >
-> **Exp 096:** First non-shader-core silicon experiment. TMU table lookup delivers **1.89x throughput** on RTX 3090 and **1.24x** on RX 6950 XT. AMD outperforms NVIDIA on DF64 by **38%**. naga WGSL roundtrip bug found and bypassed.
+> **Definitive Root Cause (Exp 122):** WPR2 registers are **hardware-locked** — only FWSEC (inaccessible GPU boot ROM firmware) can set them. WPR2 at 12GB VRAM, destroyed by driver swap, FBPA partitions offline. This definitively explains the persistent ACR WPR copy stall across Exp 114-121. Three approaches closed (WPR2 writes, FWSEC extraction, cold boot). K80 now priority #1.
 >
-> **Exp 095:** **SEC2 enters Heavy Secure mode (SCTL=0x3002) via system memory DMA** — first sovereign HS mode entry on GV100. `blob_size=0` patch applied. Path B dead (Exp 094). W1 header + BOOTVEC wired (Exp 093). coralReef Iter 67+.
+> **Exp 110-121 arc:** HS mode achieved via dual-phase boot (Exp 112, SCTL=0x3002). PMU dependency confirmed (Exp 113). LS-mode WPR copy stalls (Exp 114-116). WPR2 valid at 12GB during nouveau, destroyed on swap (Exp 117-118). Cold boot WPR2 invalid (Exp 119). Sovereign DEVINIT not needed (Exp 120). Minimal ACR same stall (Exp 121).
+>
+> **Fleet:** 2x Titan V (GV100) + RTX 5070 (GB206, Blackwell) + K80 (GK210, Kepler, incoming)
 
 | Study | Status | Quantitative Checks |
 |-------|--------|-------------------|

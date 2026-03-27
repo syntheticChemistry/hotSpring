@@ -1,14 +1,14 @@
 # hotSpring — Sovereign Validation Goal
 
-> **Note (March 26, 2026):** **10/11 sovereign pipeline layers — L7 BREAKTHROUGH (Exp 095).** SEC2 enters Heavy Secure mode (SCTL=0x3002) via system memory DMA. FBHUB PRI-dead after VFIO takeover — VRAM DMA corrupts data, sysmem DMA bypasses FBHUB. Path B (direct PIO) confirmed dead on GV100 (Exp 094: LS auth blocks execution). W1 header + BOOTVEC wired from firmware metadata (Exp 093). blob_size=0 patch applied — next pkexec run expected to bootstrap FECS/GPCCS. See [`specs/GPU_CRACKING_GAP_TRACKER.md`](specs/GPU_CRACKING_GAP_TRACKER.md) and Exp 093-095.
+> **Note (March 25, 2026):** **Definitive root cause found (Exp 122). K80 strategy initiated (Exp 123).** WPR2 registers hardware-locked, FWSEC inaccessible, FBPA offline — explains all WPR copy stalls (Exp 114-121). HS mode achieved (Exp 112, SCTL=0x3002) but PMU-dependent (Exp 113). Tesla K80 (Kepler, zero firmware security) arriving 2026-03-26 — validates entire pipeline without security barriers. Identity module + Falcon PIO loader built. 123 experiments. See [`specs/GPU_CRACKING_GAP_TRACKER.md`](specs/GPU_CRACKING_GAP_TRACKER.md).
 
 ## CERN-Grade Reproducible Physics at Home. Scalable to CERN.
 
-**Date**: March 26, 2026
+**Date**: March 25, 2026
 **Version**: v0.6.32
 **Status**: 4,065 tests, 119 binaries, 85 shaders, 44/44 Chuna overnight, 0.000% energy drift
-**VFIO Validation**: **10/11 sovereign pipeline layers — L7 BREAKTHROUGH** on Titan V (GV100) via VFIO. HS mode achieved via sysmem DMA (Exp 095). L10 CLOSE — sysmem ACR + blob_size=0 expected to bootstrap FECS/GPCCS. L11 (shader dispatch) blocked by L10. See `specs/GPU_CRACKING_GAP_TRACKER.md`.
-**Hardware**: 2× Titan V (VFIO targets + nouveau oracle) + RTX 5060 (display/validator)
+**VFIO Validation**: **L10 root cause definitive** (Exp 122) on Titan V. HS mode achieved (Exp 112). WPR2 hardware-locked — K80 (no security) validates full stack. See `specs/GPU_CRACKING_GAP_TRACKER.md`.
+**Hardware**: 2× Titan V (GV100) + RTX 5070 (GB206, Blackwell) + Tesla K80 (GK210, Kepler, incoming)
 
 ---
 
@@ -281,15 +281,15 @@ statistical ensemble.
 ### In Progress 🔄
 - [x] **Sovereign VFIO MMU** — **PROVEN** (Exp 076): fault buffer fix, 7/10 layers, DMA roundtrip verified on Titan V
 - [ ] Sovereign VFIO dispatch — GR/FECS context init (Layer 7, fence timeout)
-- [x] **DRM dispatch evolution** — **AMD GCN5 preswap 6/6 PASS** (March 2026): f64 write, f64 arith, multi-workgroup, multi-buffer, HBM2 bandwidth, **f64 Lennard-Jones force (Newton's 3rd law verified)**. 18 bugs fixed. NVIDIA PMU-blocked, K80 incoming (Exp 072)
+- [x] **DRM dispatch evolution** — **AMD GCN5 preswap 6/6 PASS** (March 2026): f64 write, f64 arith, multi-workgroup, multi-buffer, HBM2 bandwidth, **f64 Lennard-Jones force (Newton's 3rd law verified)**. 18 bugs fixed. NVIDIA PMU-blocked. **K80 (Kepler) arriving** — no firmware security, direct PIO FECS/GPCCS boot. Exp 123-K designed.
 - [x] **GCN5 backend in coral-reef** — **COMPLETE**: native AMD ISA codegen for MI50, VOP1/VOP3/VOPC opcode translation, wave64, f64 materialization, VOP3 modifier encoding, integer negation, Naga bypass validated E2E. 85 tests pass.
 - [ ] Kokkos parity via sovereign bypass (DF64 + direct GPFIFO)
 - [ ] N_f=2+1 RHMC (infrastructure ready, needs validation run)
 
 ### Planned 📋
-- [ ] K80 sovereign validation — no firmware signing, full 10-layer stack (when hardware arrives)
+- [ ] **K80 sovereign compute (Exp 123-K)** — Identity probe, PIO FECS/GPCCS boot, PFIFO channel, shader dispatch. Arriving 2026-03-26. Kepler falcon PIO loader + identity module ready in coral-driver.
+- [ ] Titan V parasitic compute (Exp 123-T) — sysfs BAR0 while nouveau active. Probe complete: FECS/GPCCS HALTED under vfio-pci. Deferred to after K80.
 - [ ] K80 DRM reference — legacy nouveau, trace MMU setup for sovereign debugging
-- [ ] Titan V DRM — investigate PMU workaround (FECS-only channel, compute-only channel type)
 - [ ] VFIO GPU backend (extend toadStool Akida pattern)
 - [ ] Direct WGSL parser (replace naga dependency)
 - [ ] Multi-node scaling (toadStool tree + inter-node comms)
@@ -334,7 +334,7 @@ Physical validation of the sovereign VFIO compute path on biomeGate:
 
 **Hardware**: Titan V (GV100, SM70) on `vfio-pci`, IOMMU group 36.
 **Dual-use**: RTX 3090 stays on nvidia proprietary for display — same machine, no reboot.
-**Planned**: GTX 1050 (headless) + 2x Titan V (VFIO + nouveau oracle).
+- [ ] K80 sovereign validation — Kepler PIO FECS/GPCCS boot, arriving 2026-03-26. Identity + PIO loader ready.
 
 ### PFIFO Channel Progress (March 14, 2026)
 

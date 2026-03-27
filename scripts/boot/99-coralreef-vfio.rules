@@ -2,7 +2,7 @@
 #
 # Binds ONLY 4a:00.0 and 4a:00.1 (Titan V #2) to vfio-pci at boot.
 # 03:00.0 (Titan V #1 = oracle) is left for nouveau.
-# 21:00.0 (RTX 5060 = display) is left for nvidia.
+# 21:00.0 (RTX 5070 = display) is left for nvidia.
 #
 # Install:
 #   sudo cp scripts/boot/99-coralreef-vfio.rules /etc/udev/rules.d/

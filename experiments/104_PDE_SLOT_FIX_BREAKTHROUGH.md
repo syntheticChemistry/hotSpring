@@ -1,7 +1,7 @@
 # Experiment 104: PDE Slot Fix — Page Table Format Breakthrough
 
 **Date:** 2026-03-25
-**Status:** IN PROGRESS — Firmware alive and running, HS mode not yet achieved
+**Status:** FULLY EXPLAINED by Exp 110 — PDE slot is sole HS determinant. Correct PDEs → working MMU but no HS.
 
 ## Root Cause Found
 
@@ -80,8 +80,10 @@ The PDE fix fundamentally changed the DMA behavior:
 4. But HS authentication may be failing due to VRAM PTEs loading code
    from VRAM mirror instead of sysmem original
 
-## Next Steps
+## Next Steps → Answered by Exp 110
 
-1. Test with all SYS_MEM PTEs (no VRAM aperture) — isolate VRAM mirror issue
-2. Investigate WPR2 indexed register mismatch (firmware may check 0x100CD4)
-3. If HS achieved with sysmem PTEs, investigate HS-mode DMA for blob loading
+1. ~~Test with all SYS_MEM PTEs~~ — **ANSWERED** (Exp 110): VRAM PTEs have zero effect on HS.
+2. ~~WPR2 indexed register~~ — Deferred, may revisit in Exp 111 if VRAM-native PTs alone don't work.
+3. **Exp 111: VRAM-native page tables** — Build entire PT chain in VRAM with correct
+   upper PDEs + VRAM PTEs + VRAM instance block. Theory: correct MMU walk + VRAM code
+   source → HS auth + working DMA.
