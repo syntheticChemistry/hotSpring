@@ -18,6 +18,8 @@ mod hardware;
 pub mod md_backend;
 mod power;
 mod report;
+pub mod silicon_profile;
+pub mod telemetry;
 
 pub use compute_backend::{
     compare_backends, BackendKind, BarraCudaCpuBackend, BenchmarkResult, BenchmarkSpec,
@@ -33,6 +35,11 @@ pub use md_backend::{
 };
 pub use power::{EnergyReport, PowerMonitor};
 pub use report::{peak_rss_mb, BenchReport, PhaseResult};
+pub use silicon_profile::{
+    classify_vendor, from_spec_sheet, CompositionEntry, GpuVendorTag, QcdKernel, SiliconProfile,
+    SiliconUnit, TierRoute, UnitThroughput,
+};
+pub use telemetry::{GpuSnapshot, GpuTelemetry, TelemetryBackend};
 
 #[cfg(test)]
 mod tests {

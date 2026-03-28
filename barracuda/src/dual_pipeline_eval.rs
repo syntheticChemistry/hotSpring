@@ -126,6 +126,7 @@ impl<'a> DualPipelineEval<'a> {
     }
 
     /// Split HMC: throughput computes trajectories, precise validates.
+    #[allow(deprecated)]
     fn eval_split_hmc(&self) -> Vec<DualPatternResult> {
         use crate::lattice::gpu_hmc::{gpu_hmc_trajectory, GpuHmcPipelines, GpuHmcState};
         use crate::lattice::wilson::Lattice;
@@ -182,6 +183,7 @@ impl<'a> DualPipelineEval<'a> {
     }
 
     /// Redundant HMC: same lattice on both cards, compare plaquette.
+    #[allow(deprecated)]
     fn eval_redundant_hmc(&self) -> DualPatternResult {
         use crate::lattice::gpu_hmc::{gpu_hmc_trajectory, GpuHmcPipelines, GpuHmcState};
         use crate::lattice::wilson::Lattice;

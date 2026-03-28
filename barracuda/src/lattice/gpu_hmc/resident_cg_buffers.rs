@@ -230,6 +230,19 @@ fn make_dirac_bg(
     )
 }
 
+/// Build a multi-pass reduce chain (public for reuse in shifted CG).
+pub fn build_reduce_chain_pub(
+    gpu: &GpuF64,
+    reduce_pl: &wgpu::ComputePipeline,
+    input: &wgpu::Buffer,
+    scratch_a: &wgpu::Buffer,
+    scratch_b: &wgpu::Buffer,
+    target: &wgpu::Buffer,
+    n: usize,
+) -> ReduceChain {
+    build_reduce_chain(gpu, reduce_pl, input, scratch_a, scratch_b, target, n)
+}
+
 fn build_reduce_chain(
     gpu: &GpuF64,
     reduce_pl: &wgpu::ComputePipeline,

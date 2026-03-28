@@ -10,6 +10,7 @@ use super::dynamical::{
     gpu_fermion_action_all, gpu_total_force_dispatch, GpuDynHmcPipelines, GpuDynHmcResult,
     GpuDynHmcState, WGSL_RANDOM_MOMENTA,
 };
+#[allow(deprecated)]
 use super::{
     gpu_kinetic_energy, gpu_link_update_dispatch, gpu_plaquette, gpu_wilson_action,
     make_force_params, make_link_mom_params, make_prng_params, make_u32x4_params, GpuF64,
@@ -99,6 +100,8 @@ pub fn gpu_hmc_trajectory_streaming(
         gpu.submit_encoder(enc);
     }
 
+    // TODO(B2): replace with GPU-resident observable once plaquette_resident exists
+    #[allow(deprecated)]
     let plaquette = gpu_plaquette(gpu, p, state);
 
     GpuHmcResult {
@@ -168,6 +171,8 @@ pub fn gpu_hmc_trajectory_streaming_cpu_mom(
         gpu.submit_encoder(enc);
     }
 
+    // TODO(B2): replace with GPU-resident observable
+    #[allow(deprecated)]
     let plaquette = gpu_plaquette(gpu, p, state);
 
     GpuHmcResult {
@@ -378,6 +383,8 @@ pub fn gpu_dynamical_hmc_trajectory_streaming(
         gpu.submit_encoder(enc);
     }
 
+    // TODO(B2): replace with GPU-resident Hamiltonian assembly
+    #[allow(deprecated)]
     let s_gauge_old = gpu_wilson_action(gpu, &dp.gauge, gs);
     let t_old = gpu_kinetic_energy(gpu, &dp.gauge, gs);
     let (s_ferm_old, cg_iters_old) = gpu_fermion_action_all(gpu, dp, state);
@@ -395,6 +402,7 @@ pub fn gpu_dynamical_hmc_trajectory_streaming(
         total_cg += cg1 + cg2 + cg3;
     }
 
+    #[allow(deprecated)]
     let s_gauge_new = gpu_wilson_action(gpu, &dp.gauge, gs);
     let t_new = gpu_kinetic_energy(gpu, &dp.gauge, gs);
     let (s_ferm_new, cg_iters_new) = gpu_fermion_action_all(gpu, dp, state);
@@ -417,6 +425,7 @@ pub fn gpu_dynamical_hmc_trajectory_streaming(
         gpu.submit_encoder(enc);
     }
 
+    #[allow(deprecated)]
     let plaquette = gpu_plaquette(gpu, &dp.gauge, gs);
 
     GpuDynHmcResult {

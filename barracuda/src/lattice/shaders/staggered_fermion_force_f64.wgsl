@@ -38,14 +38,18 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgroups) 
     for (var mu: u32 = 0u; mu < 4u; mu = mu + 1u) {
         let link_idx = site * 4u + mu;
         let eta = phases[site * 4u + mu];
-        let half_eta = f64(0.5) * eta;
 
         let fwd = nbr[site * 8u + mu * 2u];
         let fp = fwd * 6u;
 
         // Build 3×3 outer-product matrix M[a][b]:
-        //   M[a][b] = half_eta * (x_fwd[a] * conj(y_here[b]) - y_fwd[a] * conj(x_here[b]))
-        // We store M as 18 f64 (re/im interleaved, row-major).
+        //   M[a][b] = −η (x_fwd[a]·conj(y_here[b]) − y_fwd[a]·conj(x_here[b]))
+        //
+        // Sign convention: the gauge force shader outputs ∂S_G/∂U (positive gradient)
+        // and momentum update does P += dt × F.  For the fermion sector the per-pole
+        // contribution to ∂S_ferm/∂U is −α_s·d(x†D†Dx)/dU, applied as P += α_s·dt·F.
+        // So F must equal −d(x†D†Dx)/dU = −η·TA[U(x_fwd⊗y†−y_fwd⊗x†)], hence −η.
+        let neg_eta = f64(0.0) - eta;
         var m: array<f64, 18>;
         for (var a = 0u; a < 3u; a++) {
             let xa_fwd_re = x_field[fp + a*2u];
@@ -68,8 +72,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgroups) 
                 let t2_im = ya_fwd_im * xb_here_re - ya_fwd_re * xb_here_im;
 
                 let moff = (a * 3u + b) * 2u;
-                m[moff]     = half_eta * (t1_re - t2_re);
-                m[moff + 1u] = half_eta * (t1_im - t2_im);
+                m[moff]     = neg_eta * (t1_re - t2_re);
+                m[moff + 1u] = neg_eta * (t1_im - t2_im);
             }
         }
 

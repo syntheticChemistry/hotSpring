@@ -124,6 +124,48 @@ retained only as fossil record.
 | `md/observables/` | Active — energy validation, SSF via barracuda |
 | `md/simulation.rs` | Active — should migrate to barracuda ops |
 
+### Lattice QCD Legacy Paths (sync-heavy GPU HMC)
+
+These functions in `lattice/gpu_hmc/` use per-iteration GPU→CPU readback in
+the CG solver hot loop. The modern replacements keep scalars GPU-resident and
+batch convergence checks every 50 iterations (~50x fewer sync points).
+
+| Legacy Function | File | Replacement | Sync Points (8^4) | Status |
+|----------------|------|-------------|-------------------|--------|
+| `gpu_rhmc_trajectory` | `gpu_rhmc.rs` | `gpu_rhmc_trajectory_unidirectional` | ~20,000 → ~400 | **`#[deprecated]`** |
+| `gpu_shifted_cg_solve` | `gpu_rhmc.rs` | `gpu_shifted_cg_solve_resident` | ~7,200/shift → ~144 | **`#[deprecated]`** |
+| `gpu_multi_shift_cg_solve` | `gpu_rhmc.rs` | `gpu_multi_shift_cg_solve_resident` | sum of shifts | **`#[deprecated]`** |
+| `gpu_dot_re` | `mod.rs` | Resident CG scalar buffers | 1 per call | **`#[deprecated]`** |
+| `gpu_hmc_trajectory` | `mod.rs` | `gpu_hmc_trajectory_streaming` | ~hundreds | **`#[deprecated]`** |
+| `gpu_wilson_action` | `mod.rs` | `compute_gauge_ke_resident` | O(V) readback → 16 B | **`#[deprecated]`** |
+| `gpu_plaquette` | `mod.rs` | `compute_gauge_ke_resident` | O(V) readback → 8 B | **`#[deprecated]`** |
+| `gpu_links_to_lattice` | `mod.rs` | GPU gradient flow (future) | 37 MB @ 8^4 | Active — needed until GPU flow port |
+
+#### Production binaries still on legacy paths
+
+| Binary | Legacy Call | Migration |
+|--------|-----------|-----------|
+| `production_rhmc_flow.rs` | `gpu_rhmc_trajectory` (therm + skip) | Rewire to unidirectional |
+| `production_rhmc_scan.rs` | `gpu_rhmc_trajectory` (therm + meas) | Rewire to unidirectional |
+
+#### Tooling binaries (legacy for probe/discovery only)
+
+| Binary | Usage | Action |
+|--------|-------|--------|
+| `gpu_rhmc_brain.rs` | dt discovery (few probes) | `#[allow(deprecated)]` with comment |
+| `gpu_rhmc_selftuning.rs` | Main path (all trajectories) | Rewire when possible |
+| `gpu_rhmc_unidirectional.rs` | dt discovery only | `#[allow(deprecated)]` with comment |
+
+#### Library modules using `gpu_dot_re`
+
+| File | Sites | Pattern | Action |
+|------|-------|---------|--------|
+| `dynamical.rs` | 4 | Per-iteration CG readback | Legacy — use `gpu_dynamical_hmc_trajectory_resident` |
+| `hasenbusch.rs` | 5 | Per-iteration CG readback | Legacy — no resident equivalent yet |
+| `spectral_probe.rs` | 3 | Power iteration (few calls) | Keep — low call count, not hot path |
+| `resident_cg.rs` | 1 | Final fermion action dot | Keep — single scalar, intentional |
+| `resident_cg_brain.rs` | 1 | Final action dot (brain mode) | Keep — single scalar, intentional |
+
 ## Upstream Fixes Needed (toadstool/barracuda)
 
 These fixes discovered in hotSpring should be upstreamed to barracuda:

@@ -81,8 +81,7 @@ pub fn gpu_cg_solve_resident_async(
     let vol = state.gauge.volume;
     let n_flat = vol * 6;
 
-    let zeros = vec![0.0_f64; n_flat];
-    gpu.upload_f64(&state.x_buf, &zeros);
+    gpu.zero_buffer(&state.x_buf, (n_flat * 8) as u64);
     {
         let mut enc = gpu.begin_encoder("rcg_async_init");
         enc.copy_buffer_to_buffer(b_buf, 0, &state.r_buf, 0, (n_flat * 8) as u64);

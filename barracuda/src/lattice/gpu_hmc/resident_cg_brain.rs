@@ -6,6 +6,7 @@ use super::dynamical::{GpuDynHmcPipelines, GpuDynHmcResult, GpuDynHmcState};
 use super::resident_cg_buffers::{encode_cg_batch, encode_reduce_chain, GpuResidentCgBuffers};
 use super::resident_cg_pipelines::GpuResidentCgPipelines;
 use super::streaming::{make_ferm_prng_params, GpuDynHmcStreamingPipelines};
+#[allow(deprecated)]
 use super::{
     gpu_dirac_dispatch, gpu_dot_re, gpu_kinetic_energy, gpu_plaquette, gpu_wilson_action,
     make_link_mom_params, make_prng_params, GpuF64,
@@ -77,8 +78,7 @@ pub fn gpu_cg_solve_brain(
     let vol = state.gauge.volume;
     let n_flat = vol * 6;
 
-    let zeros = vec![0.0_f64; n_flat];
-    gpu.upload_f64(&state.x_buf, &zeros);
+    gpu.zero_buffer(&state.x_buf, (n_flat * 8) as u64);
     {
         let mut enc = gpu.begin_encoder("rcg_brain_init");
         enc.copy_buffer_to_buffer(b_buf, 0, &state.r_buf, 0, (n_flat * 8) as u64);
@@ -179,6 +179,8 @@ pub fn gpu_cg_solve_brain(
     total_iters
 }
 
+/// Single `gpu_dot_re` for final S_f = φ†x — intentional, not per-iteration.
+#[allow(deprecated)]
 fn gpu_fermion_action_brain_single(
     gpu: &GpuF64,
     dyn_pipelines: &GpuDynHmcPipelines,
@@ -476,6 +478,8 @@ pub fn gpu_dynamical_hmc_trajectory_brain(
         gpu.submit_encoder(enc);
     }
 
+    // TODO(B2): replace with GPU-resident Hamiltonian assembly
+    #[allow(deprecated)]
     let s_gauge_old = gpu_wilson_action(gpu, &dp.gauge, gs);
     let t_old = gpu_kinetic_energy(gpu, &dp.gauge, gs);
     let cg_beta = gs.beta;
@@ -548,6 +552,7 @@ pub fn gpu_dynamical_hmc_trajectory_brain(
         total_cg += cg1 + cg2 + cg3;
     }
 
+    #[allow(deprecated)]
     let s_gauge_new = gpu_wilson_action(gpu, &dp.gauge, gs);
     let t_new = gpu_kinetic_energy(gpu, &dp.gauge, gs);
     let (s_ferm_new, cg_iters_new) = gpu_fermion_action_brain_all(
@@ -583,6 +588,7 @@ pub fn gpu_dynamical_hmc_trajectory_brain(
         gpu.submit_encoder(enc);
     }
 
+    #[allow(deprecated)]
     let plaquette = gpu_plaquette(gpu, &dp.gauge, gs);
 
     GpuDynHmcResult {

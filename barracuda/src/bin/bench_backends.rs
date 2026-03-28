@@ -56,6 +56,7 @@ impl ComputeBackend for BarraCudaGpuBackend {
         true
     }
 
+    #[allow(deprecated)]
     fn run_quenched_hmc(&self, spec: &BenchmarkSpec) -> Result<BenchmarkResult, String> {
         let mut lat = Lattice::hot_start(spec.dims, spec.beta, spec.seed);
         let mut cfg = HmcConfig {
@@ -136,6 +137,7 @@ impl ComputeBackend for BarraCudaGpuBackend {
     }
 }
 
+#[allow(deprecated)]
 fn main() {
     let mut dims: Option<[usize; 4]> = None;
     let mut lattice: Option<usize> = None;

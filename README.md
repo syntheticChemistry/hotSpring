@@ -32,9 +32,9 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 
 ---
 
-## Current Status (2026-03-27)
+## Current Status (2026-03-28)
 
-> **123 experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **848 lib tests, 129 binaries, 85 WGSL shaders**
+> **123+ experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **848 lib tests, 129 binaries, 93 WGSL shaders** | **True multi-shift CG (shared Krylov, N_shifts reduction)** | **Fermion force sign fix (−η convention)** | **All diagnostics removed, 37% production speedup**
 >
 > **Science (Exp 096-103):** Full silicon characterization pipeline — TMU 1.89x (RTX 3090), AMD DF64 38% advantage, hardware personalities mapped (Exp 096-100). **GPU RHMC production** — Nf=2 at 4⁴/8⁴, Nf=2+1 at 4⁴, first all-flavors dynamical QCD on consumer GPU (Exp 101). **Gradient flow at volume** — 5 LSCFRK integrators, CK4 6-orders-of-magnitude stability, 16⁴ running (Exp 102). **RHMC + gradient flow** on dynamical configs (Exp 103). **Self-tuning RHMC** — spectral discovery + acceptance-driven adaptation, zero hand-tuned magic numbers.
 >
@@ -48,7 +48,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **Surrogate + Nuclear EOS** | ✅ 39/39 | BarraCuda 478× faster (χ²=2.27), HFB GPU, AME2020 |
 | **Transport** (Stanton-Murillo) | ✅ 13/13 | GPU-only Green-Kubo D*/η*/λ* |
 | **Lattice QCD** (quenched + dynamical) | ✅ 46/46 | HMC, Dirac CG, plaquette, SU(3) + U(1) Higgs |
-| **GPU RHMC** (Nf=2, Nf=2+1) | ✅ Complete | First all-flavors dynamical QCD on consumer GPU |
+| **GPU RHMC** (Nf=2, Nf=2+1) | ✅ Complete | True multi-shift CG, fermion force validated, ΔH=O(1), 8.5 GFLOP/s |
 | **Gradient Flow** (Chuna 43) | ✅ Complete | 5 LSCFRK integrators, CK4 stability, t₀/w₀ |
 | **Self-Tuning RHMC** | ✅ Complete | Zero hand-tuned parameters — spectral + acceptance-driven |
 | **Spectral Theory** (Kachkovskiy) | ✅ 45/45 | Anderson 1D/2D/3D, Hofstadter, GPU Lanczos |
@@ -61,7 +61,7 @@ Full validation table (130+ rows) with per-experiment details: [`EXPERIMENT_INDE
 
 ### Science Ladder
 
-Quenched SU(3) ✅ → Gradient Flow ✅ → LSCFRK Integrators ✅ → N_f=4 Infra ✅ → Chuna 44/44 ✅ → **N_f=2 ✅** → **N_f=2+1 ✅** → **Self-tuning ✅** → 16⁴ dynamical flow (running)
+Quenched SU(3) ✅ → Gradient Flow ✅ → LSCFRK Integrators ✅ → N_f=4 Infra ✅ → Chuna 44/44 ✅ → **N_f=2 ✅** → **N_f=2+1 ✅** → **Self-tuning ✅** → 16⁴ dynamical flow (running) → **True multi-shift CG ✅** → **Fermion force validated ✅**
 ## Evolution Architecture: Write → Absorb → Lean
 
 hotSpring is a biome. ToadStool (barracuda) is the fungus — it lives in
@@ -126,12 +126,12 @@ makes the upstream library richer and hotSpring leaner.
 
 ---
 
-## BarraCuda Crate (v0.6.31)
+## BarraCuda Crate (v0.6.32)
 
 The `barracuda/` directory is a standalone Rust crate providing the validation
 environment, physics implementations, and GPU compute. Key architectural properties:
 
-- **848 tests** (lib), **115 binaries**, **39 validation suites** (39/39 pass), **85 WGSL shaders** (all AGPL-3.0-only),
+- **848 tests** (lib), **115 binaries**, **39 validation suites** (39/39 pass), **93 WGSL shaders** (all AGPL-3.0-only),
   **16 determinism tests** (rerun-identical for all stochastic algorithms). Includes
   lattice QCD (complex f64, SU(3), Wilson action, HMC, Dirac CG, pseudofermion HMC),
   Abelian Higgs (U(1) + Higgs, HMC), transport coefficients (Green-Kubo D*/η*/λ*,
@@ -139,7 +139,7 @@ environment, physics implementations, and GPU compute. Key architectural propert
   and NPU beyond-SDK hardware capability validation. Test coverage: **74.9% region /
   83.8% function** (spectral tests upstream in barracuda; GPU modules require hardware
   for higher coverage). Measured with `cargo-llvm-cov`.
-- **AGPL-3.0 only** — all 286 `.rs` files (171 lib + 115 bin) and all 85 `.wgsl` shaders have
+- **AGPL-3.0 only** — all 286 `.rs` files (171 lib + 115 bin) and all 93 `.wgsl` shaders have
   `SPDX-License-Identifier: AGPL-3.0-only` on line 1.
 - **Provenance** — centralized `BaselineProvenance` records trace hardcoded
   validation values to their Python origins (script path, git commit, date,
@@ -193,7 +193,7 @@ environment, physics implementations, and GPU compute. Key architectural propert
 - **Zero external commands** — pure-Rust ISO 8601 timestamps (Hinnant algorithm),
   no `date` shell-out. `nvidia-smi` calls degrade gracefully.
 - **No unsafe code** — zero `unsafe` blocks in the entire crate.
-- **Quality gates**: Zero clippy warnings (lib), zero unsafe blocks, zero TODO/FIXME, all files <1000 lines, AGPL-3.0-only consistent.
+- **Quality gates**: Zero clippy warnings (lib), zero unsafe blocks, 8 scoped TODO(B2) markers (GPU-resident migration), all files <1000 lines, AGPL-3.0-only consistent.
 
 ```bash
 cd barracuda
@@ -324,7 +324,7 @@ a network service, you must make your source available under the same terms.
 
 ---
 
-*123 experiments, 848 tests, 129 binaries, 85 WGSL shaders, ~$0.30 total science cost.
+*123 experiments, 848 tests, 129 binaries, 93 WGSL shaders, ~$0.30 total science cost.
 Consumer GPUs reproduce HPC physics at paper parity. DF64 delivers 3.24 TFLOPS at
 14-digit precision. GPU RHMC runs all-flavors dynamical QCD (Nf=2+1). Self-tuning
 RHMC eliminates hand-tuned parameters. Chuna 44/44 checks pass. K80 validates the

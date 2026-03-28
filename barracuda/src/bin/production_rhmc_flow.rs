@@ -23,11 +23,15 @@
 
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::lattice::gpu_hmc::{
-    gpu_hmc_trajectory_streaming, gpu_links_to_lattice, gpu_rhmc_trajectory,
+    gpu_hmc_trajectory_streaming, gpu_rhmc_trajectory_unidirectional,
     GpuDynHmcPipelines, GpuDynHmcState, GpuHmcState, GpuHmcStreamingPipelines,
-    GpuRhmcPipelines, GpuRhmcState,
+    GpuRhmcPipelines, GpuRhmcState, UniHamiltonianBuffers, UniPipelines,
 };
-use hotspring_barracuda::lattice::gradient_flow::{find_t0, find_w0, run_flow, FlowIntegrator};
+use hotspring_barracuda::lattice::gpu_hmc::resident_shifted_cg::GpuResidentShiftedCgBuffers;
+use hotspring_barracuda::lattice::gradient_flow::{find_t0, find_w0, FlowIntegrator};
+use hotspring_barracuda::lattice::gpu_flow::{
+    GpuFlowPipelines, GpuFlowState, FlowReduceBuffers, gpu_gradient_flow_resident,
+};
 use hotspring_barracuda::lattice::rhmc::RhmcConfig;
 use hotspring_barracuda::lattice::wilson::Lattice;
 
@@ -219,6 +223,14 @@ fn main() {
 
     let dyn_pipelines = GpuDynHmcPipelines::new(&gpu);
     let rhmc_pipelines = GpuRhmcPipelines::new(&gpu);
+    let uni_pipelines = UniPipelines::new(&gpu);
+    let scg_bufs = GpuResidentShiftedCgBuffers::new(
+        &gpu, &dyn_pipelines, &uni_pipelines.shifted_cg, &rhmc_state.gauge,
+    );
+    let ham_bufs = UniHamiltonianBuffers::new(
+        &gpu, &uni_pipelines.shifted_cg.base.reduce_pipeline,
+        &rhmc_state.gauge.gauge, &rhmc_state.gauge,
+    );
 
     // Phase 1: RHMC thermalization
     eprintln!("\n  Phase 1: RHMC thermalization ({} trajectories)...", args.n_therm);
@@ -226,9 +238,9 @@ fn main() {
     let mut therm_accepted = 0;
 
     for i in 0..args.n_therm {
-        let r = gpu_rhmc_trajectory(
-            &gpu, &dyn_pipelines, &rhmc_pipelines,
-            &rhmc_state, &rhmc_config, &mut seed,
+        let r = gpu_rhmc_trajectory_unidirectional(
+            &gpu, &dyn_pipelines, &rhmc_pipelines, &uni_pipelines,
+            &rhmc_state, &scg_bufs, None, &ham_bufs, &rhmc_config, &mut seed,
         );
         if r.accepted { therm_accepted += 1; }
         if (i + 1) % 10 == 0 || i == 0 {
@@ -245,6 +257,7 @@ fn main() {
     eprintln!("\n  Phase 2: RHMC → Gradient Flow ({} configs, skip {})", args.n_configs, args.n_skip);
     eprintln!("  ────────────────────────────────────────────────────────");
 
+    let flow_pipelines = GpuFlowPipelines::new(&gpu);
     let mut all_plaq = Vec::new();
     let mut all_t0 = Vec::new();
     let mut all_w0 = Vec::new();
@@ -252,42 +265,41 @@ fn main() {
     for cfg_idx in 0..args.n_configs {
         // Skip trajectories for decorrelation
         for _ in 0..args.n_skip {
-            gpu_rhmc_trajectory(
-                &gpu, &dyn_pipelines, &rhmc_pipelines,
-                &rhmc_state, &rhmc_config, &mut seed,
+            gpu_rhmc_trajectory_unidirectional(
+                &gpu, &dyn_pipelines, &rhmc_pipelines, &uni_pipelines,
+                &rhmc_state, &scg_bufs, None, &ham_bufs, &rhmc_config, &mut seed,
             );
         }
 
-        // Read current config back to CPU
-        let mut flow_lattice = Lattice::cold_start(dims, args.beta);
-        gpu_links_to_lattice(&gpu, &rhmc_state.gauge.gauge, &mut flow_lattice);
-        let plaq = flow_lattice.average_plaquette();
-        all_plaq.push(plaq);
+        // GPU-resident gradient flow: B4+B5 fully eliminated
+        let flow_state = GpuFlowState::from_gpu_gauge(&gpu, &rhmc_state.gauge.gauge);
+        let flow_reduce = FlowReduceBuffers::new(&gpu, &flow_pipelines.reduce_pipeline, &flow_state);
 
-        // Run gradient flow on this dynamical config
-        let flow_start = Instant::now();
-        let measurements = run_flow(
-            &mut flow_lattice,
+        let flow_result = gpu_gradient_flow_resident(
+            &gpu, &flow_pipelines, &flow_state, &flow_reduce,
             args.flow_integrator,
             args.flow_epsilon,
             args.flow_t_max,
             1,
         );
-        let flow_time = flow_start.elapsed().as_secs_f64();
 
-        let t0_val = find_t0(&measurements);
-        let w0_val = find_w0(&measurements);
+        // Pre-flow plaquette from the t=0 measurement (first entry)
+        let plaq = flow_result.measurements.first().map_or(f64::NAN, |m| m.plaquette);
+        all_plaq.push(plaq);
+
+        let t0_val = find_t0(&flow_result.measurements);
+        let w0_val = find_w0(&flow_result.measurements);
 
         if let Some(t0) = t0_val { all_t0.push(t0); }
         if let Some(w0) = w0_val { all_w0.push(w0); }
 
-        let e_final = measurements.last().map_or(f64::NAN, |m| m.energy_density);
+        let e_final = flow_result.measurements.last().map_or(f64::NAN, |m| m.energy_density);
 
-        eprintln!("    cfg {:>3}/{}: ⟨P⟩={:.6} t₀={} w₀={} E(t_max)={:.4} ({:.1}s)",
+        eprintln!("    cfg {:>3}/{}: ⟨P⟩={:.6} t₀={} w₀={} E(t_max)={:.4} ({:.1}s GPU flow)",
             cfg_idx + 1, args.n_configs, plaq,
             t0_val.map_or("N/A".to_string(), |v| format!("{v:.4}")),
             w0_val.map_or("N/A".to_string(), |v| format!("{v:.4}")),
-            e_final, flow_time);
+            e_final, flow_result.wall_seconds);
     }
 
     // Summary

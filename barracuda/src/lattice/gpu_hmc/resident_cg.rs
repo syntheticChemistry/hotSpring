@@ -20,18 +20,24 @@ pub use super::resident_cg_pipelines::{
 use super::dynamical::{GpuDynHmcPipelines, GpuDynHmcResult, GpuDynHmcState};
 use super::resident_cg_buffers::{encode_cg_batch, encode_reduce_chain};
 use super::streaming::{make_ferm_prng_params, GpuDynHmcStreamingPipelines};
+#[allow(deprecated)]
 use super::{
     gpu_dirac_dispatch, gpu_dot_re, gpu_fermion_force_dispatch, gpu_force_dispatch,
     gpu_kinetic_energy, gpu_link_update_dispatch, gpu_mom_update_dispatch, gpu_plaquette,
     gpu_wilson_action, make_link_mom_params, make_prng_params, GpuF64,
 };
 
+/// Maximum batch size for exponential back-off convergence checking.
+const CG_BACKOFF_CAP: usize = 2000;
+
 /// GPU-resident CG solver: (D†D)x = b with minimal readback.
 ///
-/// All scalars (alpha, beta, rz, pAp) stay on GPU. Convergence is checked
-/// every `check_interval` iterations by reading back 8 bytes (one f64).
+/// Uses exponential back-off: the first convergence check happens after
+/// `check_interval` iterations, then the interval doubles each time until
+/// convergence or `cg_max_iter`. This reduces GPU→CPU sync points from
+/// O(I/C) to O(log(I/C)) while keeping the GPU pipeline saturated.
 ///
-/// Returns (iterations, `final_rz_new` / `b_norm_sq`).
+/// Returns total CG iterations.
 #[must_use]
 pub fn gpu_cg_solve_resident(
     gpu: &GpuF64,
@@ -45,8 +51,7 @@ pub fn gpu_cg_solve_resident(
     let vol = state.gauge.volume;
     let n_flat = vol * 6;
 
-    let zeros = vec![0.0_f64; n_flat];
-    gpu.upload_f64(&state.x_buf, &zeros);
+    gpu.zero_buffer(&state.x_buf, (n_flat * 8) as u64);
     {
         let mut enc = gpu.begin_encoder("rcg_init");
         enc.copy_buffer_to_buffer(b_buf, 0, &state.r_buf, 0, (n_flat * 8) as u64);
@@ -73,11 +78,11 @@ pub fn gpu_cg_solve_resident(
         return 0;
     }
     let tol_sq = state.cg_tol * state.cg_tol * b_norm_sq;
-    let check_interval = check_interval.max(1);
+    let mut current_interval = check_interval.max(1);
     let mut total_iters = 0usize;
 
     loop {
-        let batch = check_interval.min(state.cg_max_iter - total_iters);
+        let batch = current_interval.min(state.cg_max_iter - total_iters);
         if batch == 0 {
             break;
         }
@@ -95,11 +100,16 @@ pub fn gpu_cg_solve_resident(
         if rz_new < tol_sq || total_iters >= state.cg_max_iter {
             break;
         }
+
+        // Exponential back-off: double interval, keep GPU pipeline saturated
+        current_interval = (current_interval * 2).min(CG_BACKOFF_CAP);
     }
 
     total_iters
 }
 
+/// Single `gpu_dot_re` for final S_f = φ†x — intentional, not per-iteration.
+#[allow(deprecated)]
 fn gpu_fermion_action_resident_single(
     gpu: &GpuF64,
     dyn_pipelines: &GpuDynHmcPipelines,
@@ -286,6 +296,8 @@ pub fn gpu_dynamical_hmc_trajectory_resident(
         gpu.submit_encoder(enc);
     }
 
+    // TODO(B2): replace with GPU-resident Hamiltonian assembly
+    #[allow(deprecated)]
     let s_gauge_old = gpu_wilson_action(gpu, &dp.gauge, gs);
     let t_old = gpu_kinetic_energy(gpu, &dp.gauge, gs);
     let (s_ferm_old, cg_iters_old) = gpu_fermion_action_resident_all(
@@ -334,6 +346,7 @@ pub fn gpu_dynamical_hmc_trajectory_resident(
         total_cg += cg1 + cg2 + cg3;
     }
 
+    #[allow(deprecated)]
     let s_gauge_new = gpu_wilson_action(gpu, &dp.gauge, gs);
     let t_new = gpu_kinetic_energy(gpu, &dp.gauge, gs);
     let (s_ferm_new, cg_iters_new) = gpu_fermion_action_resident_all(
@@ -364,6 +377,7 @@ pub fn gpu_dynamical_hmc_trajectory_resident(
         gpu.submit_encoder(enc);
     }
 
+    #[allow(deprecated)]
     let plaquette = gpu_plaquette(gpu, &dp.gauge, gs);
 
     GpuDynHmcResult {

@@ -1,8 +1,8 @@
 # baseCamp: Research Domain Briefings
 
-**Date:** 2026-03-27
+**Date:** 2026-03-28
 **Project:** hotSpring (ecoPrimals)
-**Status:** v0.6.32+, experiments 001-123, 4,065+ tests pass, 39/39 validation suites, 120+ binaries, 86+ WGSL shaders
+**Status:** v0.6.33+, experiments 001-123, 4,065+ tests pass, 39/39 validation suites, 120+ binaries, 93+ WGSL shaders
 
 **Notes:** Upstream primal sync: barraCuda `7c1fd03a`, coralReef Iter 67+ (Kepler PIO loader, GK210 identity, parasitic probe). toadStool S155b+. **Sovereign GPU compute: L10 ROOT CAUSE DEFINITIVE (Exp 122).** WPR2 hardware-locked, FWSEC inaccessible, FBPA offline — explains all WPR copy stalls. HS mode achieved (Exp 112, SCTL=0x3002) but PMU-dependent (Exp 113). **K80 (GK210, Kepler) arriving 2026-03-26** — zero firmware security, direct PIO FECS/GPCCS boot, validates full pipeline. Exp 110-122: consolidation matrix, dual-phase boot, WPR2 tracking/preservation/resolution. **Fleet: 2x Titan V + RTX 5070 (GB206) + K80 (incoming).** Chuna Papers 43-45: **44/44 overnight checks pass**. All AGPL-3.0-only.
 
@@ -44,6 +44,7 @@ Published paper (Python/FORTRAN/HPC)
 | [`silicon_science.md`](silicon_science.md) | Silicon Science — All-Silicon GPU Experiments | None (hardware exploration) | Exp 096: **TMU table lookup 1.89x** (RTX 3090), **AMD DF64 38% faster** than NVIDIA. 11 QCD ops mapped to 9 silicon units. `validate_silicon_science` binary. toadStool performance surface integration |
 | [`silicon_characterization_at_scale.md`](silicon_characterization_at_scale.md) | Silicon Characterization at Scale — Consumer to CERN | None (hardware exploration + HPC analysis) | Exp 097-100: **4-phase silicon pipeline** (budget/saturation/composition/QCD). AMD 6x atomics, 2.26x Dirac, 202% CG efficiency. HPC silicon waste: A100 0.6%, H100 0.4% utilization. Decommissioned HBM2 fleet strategy |
 | [`self_tuning_rhmc.md`](self_tuning_rhmc.md) | Self-Tuning RHMC — Physics-Validated Parameter Discovery | None (methodology evolution) | Exp 103: `RhmcCalibrator` eliminates hand-tuned magic numbers. GPU spectral probe (power iteration λ_max, m² λ_min), acceptance-driven dt/n_md, consistency-driven pole count. 12 tolerance constants. NPU bridge pending |
+| [`true_multishift_cg_validated.md`](true_multishift_cg_validated.md) | True Multi-Shift CG + Fermion Force — Validated RHMC Production | None (algorithmic evolution) | Exp 105: True multi-shift CG (shared Krylov), fermion force sign fix (−η convention), ΔH=O(1), 8.5 GFLOP/s, `std::hint::black_box` optimizer fix |
 
 ---
 

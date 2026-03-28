@@ -138,6 +138,8 @@
 | **Path B LS Mode Blocked** (Exp 094) | ❌ Dead | GV100 fuse-enforced LS mode authentication. Path B dead for Volta. |
 | **Sysmem HS Mode Breakthrough** (Exp 095) | ✅ **BREAKTHROUGH** | **SEC2 enters Heavy Secure mode via system memory DMA.** |
 | **Silicon Characterization** (Exp 096-100) | ✅ Complete | TMU 1.89x RTX 3090, AMD DF64 38% advantage, 4-phase pipeline, hardware personalities |
+| **Silicon Routed QCD Revalidation** (Exp 105) | ✅ Complete | Revalidated quenched + Nf=2 + Nf=2+1 QCD with silicon routing. Unidirectional RHMC: 3.79x speedup (3090), 2.06x (6950 XT). **True multi-shift CG** (shared Krylov, 37% speedup). **Fermion force sign fix** (−η convention, ΔH: 1500→O(1)). `std::hint::black_box` for release-mode convergence |
+| **Silicon Tier Routing + Legacy Cleanup** (Exp 106) | 🔄 Active | 7-tier routing spec, SiliconProfile system, GpuTelemetry, deprecated 6 sync-heavy functions, production binary migration |
 | **Consolidation Matrix** (Exp 110) | ✅ Complete | biomeGate: sovereign pipeline consolidation and gap analysis |
 | **VRAM Native Page Tables** (Exp 111) | ✅ Complete | biomeGate: native VRAM page table construction |
 | **Dual Phase Boot** (Exp 112) | ✅ Complete | biomeGate: HS mode via dual-phase boot (SCTL=0x3002) |

@@ -14,7 +14,7 @@ use crate::tolerances::{ADAPTIVE_DT_MAX, ADAPTIVE_DT_MIN, ADAPTIVE_NMD_MIN};
 /// Build canonical 6D input for the NPU (Gen 1 format).
 ///
 /// Matches the format in `production::trajectory_input::canonical_input`.
-pub(super) fn npu_canonical_input(
+pub fn npu_canonical_input(
     beta: f64,
     plaq: f64,
     mass: f64,
@@ -33,7 +33,7 @@ pub(super) fn npu_canonical_input(
 }
 
 /// Build canonical sequence (10 repeated frames) for the NPU.
-pub(super) fn npu_canonical_seq(
+pub fn npu_canonical_seq(
     beta: f64,
     plaq: f64,
     mass: f64,

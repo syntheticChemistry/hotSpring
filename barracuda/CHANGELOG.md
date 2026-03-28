@@ -5,7 +5,71 @@ All notable changes to the hotSpring BarraCuda validation crate.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased — Silicon Science Sprint (March 26, 2026)
+## Unreleased — Silicon Tier Routing Sprint (March 28, 2026)
+
+### Added
+- **True multi-shift CG** (`true_multishift_cg.rs`): Shared Krylov subspace across all shifts — single D†D per iteration instead of N_shifts. Exponential back-off convergence with `std::hint::black_box` to prevent optimizer interference. Pre-created bind groups for zero allocation in hot loop. 3 new WGSL shaders: `ms_zeta_update_f64.wgsl`, `ms_x_update_f64.wgsl`, `ms_p_update_f64.wgsl`. 3 unit tests
+- **Shifted-base CG** (`cg_compute_alpha_shifted_f64.wgsl`, `cg_update_xr_shifted_f64.wgsl`): Base system uses smallest shift σ_min for faster convergence
+- **Resident shifted CG** (`resident_shifted_cg.rs`): Sequential multi-shift CG with GPU-resident scalars, exponential back-off, zero CPU sync in hot loop
+- **GPU-resident Hamiltonian + Metropolis (B2+B3)**: Eliminates all CPU-side Hamiltonian assembly and Metropolis readbacks from the RHMC hot path. Three new WGSL kernels:
+  - `hamiltonian_assembly_f64.wgsl` — assembles H = β(6V - plaq) + T + S_f from GPU-resident scalars
+  - `fermion_action_sum_f64.wgsl` — computes weighted dot-product sum S_f = α₀⟨φ|φ⟩ + Σαₛ⟨φ|xₛ⟩ on GPU, accumulates across sectors
+  - `metropolis_f64.wgsl` — accept/reject + diagnostics in one 56-byte readback
+  - `UniHamiltonianBuffers` extended with `h_old_buf`, `h_new_buf`, `s_ferm_buf`, `dots_buf`, `diag_old_buf`, `diag_new_buf`, `metropolis_staging`
+  - `UniPipelines` extended with `hamiltonian_assembly_pipeline`, `fermion_action_sum_pipeline`, `metropolis_pipeline`
+  - `compute_h_gpu()` orchestrates GPU-only H computation (zero readback)
+  - `gpu_metropolis()` runs accept/reject + link-restore on GPU with single readback
+  - `gpu_rhmc_trajectory_unidirectional` rewired to use fully GPU-resident path
+  - 5 new unit tests: `f64_pipeline_basic_sanity`, `f64_pipeline_passthrough`, `hamiltonian_assembly_kernel_roundtrip`, `fermion_action_sum_kernel_roundtrip`, `metropolis_kernel_roundtrip`
+  - Readback budget reduced from ~(2×(1+n_sectors)+1) sync points to 1 Metropolis readback
+- **`GpuF64::zero_buffer`** and **`GpuF64::create_storage_buffer_init`**: Buffer utilities for GPU-resident scalar workflows
+- **`SiliconProfile`** (`bench/silicon_profile.rs`): Persistent per-GPU personality with theoretical + measured throughput for 9 silicon units, composition multipliers, QCD kernel → tier routing table, serde serialization to `profiles/silicon/*.json`. 8 unit tests
+- **`bench_silicon_profile` binary**: Characterizes all GPUs (FP32, DF64, TMU, ROP, shared memory, ALU+TMU composition), saves profiles to disk
+- **`GpuTelemetry`** (`bench/telemetry.rs`): Non-blocking background poller for GPU util%, power, temperature, VRAM. Supports NVIDIA (nvidia-smi) and AMD (sysfs). Lock-free snapshots
+- **`specs/SILICON_TIER_ROUTING.md`**: Full tier routing architecture spec — 7-tier philosophy, per-kernel routing table, measured data, coralReef integration points, bottleneck roadmap (B1-B5)
+- **Silicon Energy Efficiency Map**: Per-unit energy characterization via differential power measurement. `UnitThroughput` now carries `idle_watts`, `loaded_watts`, `delta_watts`, `ops_per_watt` (all `#[serde(default)]` for backward compat with existing JSON). `CompositionEntry` carries `idle_watts`, `compound_watts`, `delta_watts` for compound energy analysis. `SiliconProfile::set_measured_energy()` computes marginal cost and ops/watt. `bench_silicon_profile` wraps each micro-benchmark with `GpuTelemetry` idle/loaded power snapshots. `print_summary` conditionally shows energy columns (ΔW, Ops/W). 3 new tests: backward compat, ops/watt computation, negative delta clamping
+
+- **GPU-resident Gradient Flow (B4+B5)**: Eliminates the `gpu_links_to_lattice` readback (37+ MB at 8^4) and CPU-side `run_flow`. All flow physics now runs on GPU:
+  - `GpuFlowState::from_gpu_gauge()` — GPU-GPU link copy, no PCI-e round-trip
+  - `FlowReduceBuffers` — reduce chain for O(1) plaquette readback (8 bytes per measurement vs O(V))
+  - `gpu_gradient_flow_resident()` — full LSCFRK 2N-storage flow on GPU with `zero_buffer()` optimization
+  - `GpuFlowPipelines` extended with `reduce_pipeline` for sum-reduce chain
+  - Plaquette measurement via `gpu_flow_plaquette_reduced()` replaces O(V) readback with single scalar
+  - `find_t0`/`find_w0` remain on CPU (trivial post-processing on small measurement vec)
+- **Metropolis s_ferm diagnostics**: `metropolis_f64.wgsl` now exports 9 f64s (was 7): adds `s_ferm_old` and `s_ferm_new` from GPU diag buffers. Readback: 72 bytes (was 56)
+- **CG exponential back-off convergence (B6)**: Both `gpu_cg_solve_resident` and `gpu_shifted_cg_solve_resident` now use exponential back-off — check interval starts at configured value, doubles after each non-converged check, caps at 2000. Reduces sync points from O(I/C) to O(log(I/C)): ~820 → ~25 for typical RHMC trajectories
+- **Zero-fill optimization**: Replaced CPU `Vec<0.0>` allocation + `upload_f64` with `GpuF64::zero_buffer()` in 7 CG init paths: `resident_cg`, `resident_shifted_cg`, `resident_cg_async`, `resident_cg_brain`, `unidirectional_rhmc`, `gpu_rhmc` (2 sites), `dynamical`. Eliminates per-solve CPU heap allocation
+
+### Changed
+- **Fermion force sign convention** (`staggered_fermion_force_f64.wgsl`, `pseudofermion_force_f64.wgsl`, `pseudofermion/mod.rs`): Fixed overall sign from +η/2 to −η. The gauge force convention outputs ∂S/∂U (positive gradient), requiring the fermion per-pole force F = −η·TA[U·(x⊗y†−y⊗x†)]. Original +η/2 caused ΔH~1500; fix produces ΔH=O(1) with all trajectories accepted. Both GPU shaders and CPU reference corrected
+- **CG convergence optimizer fix** (`true_multishift_cg.rs`): `std::hint::black_box(rz_new)` prevents release-mode optimizer from eliminating convergence check comparison. Without this, the GPU staging buffer readback value was optimized away, causing infinite CG loops
+- **`production_silicon_qcd.rs`**: Both `run_gradient_flow_uni` and `run_quenched_gradient_flow` now use `gpu_gradient_flow_resident` instead of `gpu_links_to_lattice + run_flow`. Rewired from `gpu_rhmc_trajectory` (sync-heavy) to `gpu_rhmc_trajectory_unidirectional` (GPU-resident CG). Integrated `GpuTelemetry` for live hardware signals. Performance: RTX 3090 **3.79x speedup** (7997ms → 2111ms), RX 6950 XT **2.06x speedup** (4790ms → 2322ms)
+- **`production_rhmc_flow.rs`**: Flow path rewired from CPU `run_flow` to `gpu_gradient_flow_resident`. Pre-flow plaquette extracted from GPU flow t=0 measurement. The B4/B5 TODO is resolved
+- **`gpu_flow.rs`**: `zero_k_buffer` now uses `GpuF64::zero_buffer()` (queue write) instead of allocating + uploading a zero Vec
+- **CG solvers**: `resident_cg.rs` and `resident_shifted_cg.rs` use exponential back-off internally. The `check_interval` parameter becomes the initial interval; it doubles until convergence or `CG_BACKOFF_CAP` (2000)
+- **CG zero-fill**: All CG init paths use `zero_buffer()` instead of `Vec::new()` + `upload_f64()`
+
+### Deprecated
+- **`gpu_rhmc_trajectory`** — use `gpu_rhmc_trajectory_unidirectional` (~50x fewer sync points)
+- **`gpu_shifted_cg_solve`** — use `gpu_shifted_cg_solve_resident`
+- **`gpu_multi_shift_cg_solve`** — use `gpu_multi_shift_cg_solve_resident`
+- **`gpu_dot_re`** — per-call GPU→CPU readback; modern paths use resident scalars
+- **`gpu_hmc_trajectory`** — use `gpu_hmc_trajectory_streaming`
+- **`gpu_wilson_action`** / **`gpu_plaquette`** — use `compute_gauge_ke_resident` (O(1) readback)
+
+### Found
+- RTX 3090 GPU utilization jumped from <1% to ~43% by removing CPU sync stalls
+- ALU + TMU composition multiplier: 2.80x (NVIDIA), 1.95x (AMD)
+- AMD ROP atomics 7.4x faster than NVIDIA (117.7 vs 16.0 Gatom/s)
+- AMD shared memory 2.5x faster (594.7 vs 240.9 GB/s)
+- Fermion force sign bug: original code used +η/2 (wrong sign AND half magnitude vs gauge convention). Traced by: quenched ΔH≈0 → fermion sector isolated → dt-invariance test → force re-derivation → gauge force convention comparison
+- Compiler optimizer eliminates GPU staging buffer convergence check in release mode without `black_box` or side-effecting use of the value
+- Removing diagnostic readbacks from RHMC hot path: **37% wall-time speedup** (26s → 16.5s per trajectory)
+- True multi-shift CG: N_shifts×I → I D†D applications, validated against sequential CG (identical ΔH, plaquettes)
+
+---
+
+## Silicon Science Sprint (March 26, 2026)
 
 ### Added
 - **`validate_silicon_science` binary** (Exp 096): First non-shader-core silicon experiment. Tests TMU table lookup vs compute shader exp() across RTX 3090, RX 6950 XT, and llvmpipe. Maps 11 QCD operations to 9 silicon unit types. 12/12 pass

@@ -26,9 +26,11 @@
 
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::lattice::gpu_hmc::{
-    gpu_hmc_trajectory_streaming, gpu_rhmc_trajectory, GpuDynHmcPipelines, GpuDynHmcState,
-    GpuHmcState, GpuHmcStreamingPipelines, GpuRhmcPipelines, GpuRhmcState, RhmcCalibrator,
+    gpu_hmc_trajectory_streaming, gpu_rhmc_trajectory_unidirectional, GpuDynHmcPipelines,
+    GpuDynHmcState, GpuHmcState, GpuHmcStreamingPipelines, GpuRhmcPipelines, GpuRhmcState,
+    RhmcCalibrator, UniHamiltonianBuffers, UniPipelines,
 };
+use hotspring_barracuda::lattice::gpu_hmc::resident_shifted_cg::GpuResidentShiftedCgBuffers;
 use hotspring_barracuda::lattice::rhmc::RhmcConfig;
 use hotspring_barracuda::lattice::wilson::Lattice;
 
@@ -254,9 +256,17 @@ fn main() {
             gpu.submit_encoder(enc);
         }
 
-        // Compile pipelines
+        // Compile pipelines + unidirectional buffers
         let dyn_pipelines = GpuDynHmcPipelines::new(&gpu);
         let rhmc_pipelines = GpuRhmcPipelines::new(&gpu);
+        let uni_pipelines = UniPipelines::new(&gpu);
+        let scg_bufs = GpuResidentShiftedCgBuffers::new(
+            &gpu, &dyn_pipelines, &uni_pipelines.shifted_cg, &rhmc_state.gauge,
+        );
+        let ham_bufs = UniHamiltonianBuffers::new(
+            &gpu, &uni_pipelines.shifted_cg.base.reduce_pipeline,
+            &rhmc_state.gauge.gauge, &rhmc_state.gauge,
+        );
 
         // Run spectral probe in adaptive mode (after quenched pre-therm)
         if let Some(ref mut cal) = calibrator {
@@ -273,11 +283,15 @@ fn main() {
             };
 
             let t0 = Instant::now();
-            let r = gpu_rhmc_trajectory(
+            let r = gpu_rhmc_trajectory_unidirectional(
                 &gpu,
                 &dyn_pipelines,
                 &rhmc_pipelines,
+                &uni_pipelines,
                 &rhmc_state,
+                &scg_bufs,
+                None,
+                &ham_bufs,
                 &rhmc_config,
                 &mut seed,
             );
@@ -340,11 +354,15 @@ fn main() {
             };
 
             let t0 = Instant::now();
-            let r = gpu_rhmc_trajectory(
+            let r = gpu_rhmc_trajectory_unidirectional(
                 &gpu,
                 &dyn_pipelines,
                 &rhmc_pipelines,
+                &uni_pipelines,
                 &rhmc_state,
+                &scg_bufs,
+                None,
+                &ham_bufs,
                 &rhmc_config,
                 &mut seed,
             );

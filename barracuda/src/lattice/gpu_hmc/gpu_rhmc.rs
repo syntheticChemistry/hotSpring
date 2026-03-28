@@ -25,6 +25,7 @@
 
 use super::super::rhmc::{RhmcConfig, RhmcFermionConfig};
 use super::dynamical::{gen_random_fermion, gpu_axpy, GpuDynHmcPipelines, GpuDynHmcState};
+#[allow(deprecated)]
 use super::{
     flatten_momenta, gpu_dot_re, gpu_force_dispatch, gpu_kinetic_energy, gpu_link_update_dispatch,
     gpu_mom_update_dispatch, gpu_plaquette, gpu_wilson_action, make_link_mom_params,
@@ -270,7 +271,7 @@ pub(super) fn dirac_dispatch(
     gpu.dispatch(&pipelines.dirac_pipeline, &bg, wg);
 }
 
-fn fermion_force_dispatch(
+pub(super) fn fermion_force_dispatch(
     gpu: &GpuF64,
     pipelines: &GpuDynHmcPipelines,
     gauge: &GpuHmcState,
@@ -296,11 +297,16 @@ fn fermion_force_dispatch(
 
 /// GPU multi-shift CG: solve (D†D + σ_s) x_s = b for all shifts.
 ///
-/// Uses independent per-shift CG solves for numerical stability. Each
-/// shifted system converges faster (lower condition number) than the
-/// unshifted system, so the total cost is typically 2-3× a single solve.
+/// # Deprecated — use `gpu_multi_shift_cg_solve_resident` instead
+///
+/// Wrapper around `gpu_shifted_cg_solve` which reads back dot products to
+/// CPU every CG iteration. The resident version in `resident_shifted_cg.rs`
+/// keeps scalars on GPU and checks convergence every ~50 iterations.
 ///
 /// Returns total CG iterations across all shifts.
+#[deprecated(
+    note = "use gpu_multi_shift_cg_solve_resident from resident_shifted_cg.rs (~50x fewer sync points)"
+)]
 pub fn gpu_multi_shift_cg_solve(
     gpu: &GpuF64,
     dyn_pipelines: &GpuDynHmcPipelines,
@@ -316,6 +322,7 @@ pub fn gpu_multi_shift_cg_solve(
     let mut total_iters = 0;
 
     for (s, &sigma) in shifts.iter().enumerate() {
+        #[allow(deprecated)]
         let iters = gpu_shifted_cg_solve(
             gpu,
             dyn_pipelines,
@@ -335,9 +342,14 @@ pub fn gpu_multi_shift_cg_solve(
 
 /// Single shifted CG: solve (D†D + σ) x = b.
 ///
-/// Standard CG with the shift incorporated as an extra `σ·p` term in
-/// the matrix-vector product. Uses `state.r_buf`, `state.p_buf`,
-/// `state.ap_buf`, `state.temp_buf`, `state.dot_buf` as workspace.
+/// # Deprecated — use `gpu_shifted_cg_solve_resident` instead
+///
+/// **Legacy path** — reads back dot products to CPU every iteration
+/// via `gpu_dot_re`. For 7200 CG iters this means ~20,000 GPU→CPU
+/// sync points. Use `gpu_shifted_cg_solve_resident` from
+/// `resident_shifted_cg.rs` which keeps all scalars on GPU.
+#[deprecated(note = "use gpu_shifted_cg_solve_resident from resident_shifted_cg.rs")]
+#[allow(deprecated)]
 fn gpu_shifted_cg_solve(
     gpu: &GpuF64,
     pipelines: &GpuDynHmcPipelines,
@@ -356,8 +368,7 @@ fn gpu_shifted_cg_solve(
     let phases = &state.phases_buf;
 
     // x = 0, r = b, p = b
-    let zeros = vec![0.0_f64; n_flat];
-    gpu.upload_f64(x_buf, &zeros);
+    gpu.zero_buffer(x_buf, (n_flat * 8) as u64);
     {
         let mut enc = gpu.begin_encoder("scg_init");
         enc.copy_buffer_to_buffer(b_buf, 0, &state.r_buf, 0, (n_flat * 8) as u64);
@@ -470,6 +481,7 @@ fn gpu_shifted_cg_solve(
 /// then φ = α₀·η + Σ αₛ·x_s.
 ///
 /// Returns CG iteration count.
+#[allow(deprecated)]
 fn gpu_rhmc_heatbath_sector(
     gpu: &GpuF64,
     dyn_pipelines: &GpuDynHmcPipelines,
@@ -513,8 +525,7 @@ fn gpu_rhmc_heatbath_sector(
         );
     }
 
-    let zeros = vec![0.0_f64; n_flat];
-    gpu.upload_f64(&state.x_buf, &zeros);
+    gpu.zero_buffer(&state.x_buf, (n_flat * 8) as u64);
 
     // state.x_buf += α₀ · phi_buf (phi_buf still holds η)
     gpu_axpy(
@@ -580,6 +591,7 @@ fn gpu_rhmc_heatbath_sector(
 /// After multi-shift CG: S_f = α₀·⟨φ|φ⟩ + Σ αₛ·⟨φ|x_s⟩.
 ///
 /// Returns (action, cg_iterations).
+#[allow(deprecated)]
 fn gpu_rhmc_fermion_action_sector(
     gpu: &GpuF64,
     dyn_pipelines: &GpuDynHmcPipelines,
@@ -639,6 +651,7 @@ fn gpu_rhmc_fermion_action_sector(
 /// fermion force from the shifted solution and accumulates into momenta.
 ///
 /// Returns total CG iterations.
+#[allow(deprecated)]
 fn gpu_rhmc_total_force_dispatch(
     gpu: &GpuF64,
     dyn_pipelines: &GpuDynHmcPipelines,
@@ -741,10 +754,18 @@ fn gpu_rhmc_total_force_dispatch(
 
 /// Run one GPU RHMC trajectory with Omelyan integrator.
 ///
-/// Supports Nf=2 (one sector, det^{1/2}) and Nf=2+1 (two sectors,
-/// det^{1/2} + det^{1/4}) via rational approximation of fractional
-/// determinant powers. All heavy compute (Dirac, CG, force) runs on GPU;
-/// CPU handles momenta generation, zeta recurrence, and Metropolis decision.
+/// # Deprecated — use `gpu_rhmc_trajectory_unidirectional` instead
+///
+/// This path uses per-iteration GPU→CPU readback in the CG solver
+/// (~20,000 sync points per trajectory at 8^4). The unidirectional
+/// path in `unidirectional_rhmc.rs` reduces this to ~400 readbacks
+/// via GPU-resident scalars with batched convergence checks.
+///
+/// Kept for reference and bit-exact parity testing against the
+/// unidirectional path. New code should use `UnidirectionalRhmc`
+/// or `gpu_rhmc_trajectory_unidirectional`.
+#[deprecated(note = "use gpu_rhmc_trajectory_unidirectional for ~50x fewer GPU-CPU sync points")]
+#[allow(deprecated)]
 pub fn gpu_rhmc_trajectory(
     gpu: &GpuF64,
     dyn_pipelines: &GpuDynHmcPipelines,

@@ -109,6 +109,11 @@ tokio = { version = "1.50", features = ["rt-multi-thread", "macros"] }
 akida-driver = { path = "../../phase1/toadStool/crates/neuromorphic/akida-driver", optional = true }
 akida-models = { path = "../../phase1/toadStool/crates/neuromorphic/akida-models", optional = true }
 
+# metalForge: substrate discovery + capability-based precision routing.
+# Bridges hardware detection (fp64_rate, df64 support, TMU, etc.) into the
+# QCD pipeline so we route kernels to the right silicon unit.
+hotspring-forge = { path = "../metalForge/forge" }
+
 # GPU compute (wgpu for SHADER_F64 FP64 science compute)
 # Must match barracuda's wgpu version (28) to avoid type conflicts.
 wgpu = { version = "28", default-features = false, features = [
@@ -765,4 +770,44 @@ path = "src/bin/production_rhmc_flow.rs"
 [[bin]]
 name = "validate_dual_gpu_qcd"
 path = "src/bin/validate_dual_gpu_qcd.rs"
+
+# ── GPU-only self-tuning RHMC: zero magic numbers ──
+[[bin]]
+name = "gpu_rhmc_selftuning"
+path = "src/bin/gpu_rhmc_selftuning.rs"
+
+# ── Unidirectional GPU RHMC: zero per-iteration readback ──
+[[bin]]
+name = "gpu_rhmc_unidirectional"
+path = "src/bin/gpu_rhmc_unidirectional.rs"
+
+# ── primalSpring-compatible server for biomeOS graph deploy ──
+[[bin]]
+name = "hotspring_primal"
+path = "src/bin/hotspring_primal.rs"
+
+# ── Node Atomic GPU Comparison: primalSpring composition + NVIDIA vs AMD ──
+[[bin]]
+name = "node_atomic_gpu_comparison"
+path = "src/bin/node_atomic_gpu_comparison.rs"
+
+# ── Brain-steered dual-GPU RHMC: NPU cortex drives physics parameters ──
+[[bin]]
+name = "gpu_rhmc_brain"
+path = "src/bin/gpu_rhmc_brain.rs"
+
+# ── Silicon routing: route QCD workloads across GPU silicon units ──
+[[bin]]
+name = "bench_qcd_silicon_routing"
+path = "src/bin/bench_qcd_silicon_routing.rs"
+
+# ── Silicon profile: characterize all units on each GPU, save to disk ──
+[[bin]]
+name = "bench_silicon_profile"
+path = "src/bin/bench_silicon_profile.rs"
+
+# ── Exp 105: Production silicon-instrumented QCD (full revalidation) ──
+[[bin]]
+name = "production_silicon_qcd"
+path = "src/bin/production_silicon_qcd.rs"
 

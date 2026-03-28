@@ -19,14 +19,43 @@
 //!
 //! # Module structure
 //!
+//! ## Modern (GPU-resident CG, minimal readbacks)
+//!
+//! | Module | Responsibility |
+//! |--------|---------------|
+//! | `unidirectional_rhmc` | RHMC with GPU-resident shifted CG (~50x fewer syncs) |
+//! | `resident_cg` | GPU-resident CG solve (convergence check every ~50 iters) |
+//! | `resident_cg_brain` | Resident CG with NpuCortex adaptive feedback |
+//! | `resident_cg_async` | Async variant with non-blocking convergence reads |
+//! | `resident_shifted_cg` | Multi-shift CG with GPU-resident scalars |
+//! | `brain_rhmc` | RHMC with dual-GPU brain routing |
+//! | `streaming` | Zero-dispatch-overhead batched encoder pipelines |
+//!
+//! ## Legacy (per-iteration GPU→CPU readback — deprecated)
+//!
+//! | Module | Responsibility |
+//! |--------|---------------|
+//! | `dynamical` | Dynamical fermion HMC (`gpu_cg_solve_internal`: per-iter readback) |
+//! | `gpu_rhmc` | RHMC with `gpu_shifted_cg_solve` (per-iter readback) |
+//! | `hasenbusch` | Hasenbusch 2-mass splitting (`gpu_cg_solve_mass`: per-iter readback) |
+//!
+//! ## Shared infrastructure
+//!
 //! | Module | Responsibility |
 //! |--------|---------------|
 //! | root (this file) | Shader constants, shared types, dispatch helpers |
-//! | `dynamical` | Dynamical fermion HMC (full QCD with staggered quarks) |
-//! | `streaming` | Zero-dispatch-overhead streaming via batched encoders |
-//! | `resident_cg` | GPU-resident CG with minimal scalar readback |
+//! | `resident_cg_buffers` | GPU buffer allocation for resident CG |
+//! | `resident_cg_pipelines` | Pipeline compilation for resident CG |
+//!
+//! ## Utility
+//!
+//! | Module | Responsibility |
+//! |--------|---------------|
+//! | `spectral_probe` | Power iteration for λ_max(D†D) eigenvalue bounds |
+//! | `rhmc_calibrator` | Self-tuning dt/n_md/spectral range for RHMC |
 //! | `observables` | Three-substrate stream integration and NPU monitoring |
 
+pub mod brain_rhmc;
 pub mod dynamical;
 pub mod gpu_rhmc;
 pub mod hasenbusch;
@@ -34,9 +63,12 @@ pub mod observables;
 pub mod resident_cg;
 mod resident_cg_async;
 mod resident_cg_brain;
-mod resident_cg_buffers;
+pub(crate) mod resident_cg_buffers;
 mod resident_cg_pipelines;
+pub mod resident_shifted_cg;
+pub mod true_multishift_cg;
 pub mod rhmc_calibrator;
+pub mod unidirectional_rhmc;
 pub mod spectral_probe;
 pub mod streaming;
 
@@ -54,6 +86,7 @@ pub use resident_cg::{
     WGSL_CG_COMPUTE_ALPHA, WGSL_CG_COMPUTE_BETA, WGSL_CG_UPDATE_P, WGSL_CG_UPDATE_XR,
     WGSL_SUM_REDUCE,
 };
+#[allow(deprecated)]
 pub use gpu_rhmc::{
     gpu_multi_shift_cg_solve, gpu_rhmc_trajectory, GpuRhmcPipelines, GpuRhmcResult,
     GpuRhmcSectorBuffers, GpuRhmcState, MAX_POLES, WGSL_MULTI_SHIFT_ZETA,
@@ -65,6 +98,10 @@ pub use streaming::{
     gpu_hmc_trajectory_streaming_cpu_mom, GpuDynHmcStreamingPipelines, GpuHmcStreamingPipelines,
     WGSL_GAUSSIAN_FERMION,
 };
+pub use unidirectional_rhmc::{
+    dual_gpu_trajectories, gpu_rhmc_trajectory_unidirectional, DualGpuResult, TrajectoryResult,
+    UniHamiltonianBuffers, UniPipelines, UnidirectionalRhmc,
+};
 
 use super::wilson::Lattice;
 use crate::gpu::GpuF64;
@@ -74,6 +111,56 @@ use crate::gpu::GpuF64;
 //   - Titan V, V100, A100, MI250 → native f64 (1:2 FP64:FP32)
 //   - RTX 3090, 4070, consumer → DF64 on FP32 cores (force + plaquette + KE)
 use barracuda::device::driver_profile::Fp64Strategy;
+
+/// Substrate-aware FP64 strategy using metalForge's hardware classification.
+///
+/// barraCuda's `DeviceCapabilities::fp64_strategy()` only distinguishes Native
+/// vs Hybrid based on f64 probe results. It never returns Concurrent because
+/// it doesn't know the FP64:FP32 hardware ratio. metalForge's substrate probe
+/// classifies this from the adapter name and `SHADER_F16` presence (df64 proxy).
+///
+/// On narrow-rate GPUs (RTX 3090 1:64, RX 6950 XT 1:16), this returns
+/// `Concurrent`: saturate native f64 AND use DF64 on FP32 cores for bulk
+/// computation. This activates the hand-written df64 force/plaquette/KE shaders,
+/// unlocking 4-6x more effective f64 TFLOPS from the FP32 silicon.
+pub fn substrate_fp64_strategy(gpu: &GpuF64) -> Fp64Strategy {
+    if gpu.full_df64_mode {
+        return Fp64Strategy::Hybrid;
+    }
+
+    let forge_rate = hotspring_forge::substrate::Fp64Strategy::for_properties(
+        &hotspring_forge::substrate::Properties {
+            has_f64: gpu.has_f64,
+            has_df64: true,
+            fp64_rate: Some(classify_fp64_rate_from_adapter(&gpu.adapter_name)),
+            ..hotspring_forge::substrate::Properties::default()
+        },
+    );
+
+    match forge_rate {
+        hotspring_forge::substrate::Fp64Strategy::Native => Fp64Strategy::Native,
+        hotspring_forge::substrate::Fp64Strategy::Hybrid => Fp64Strategy::Hybrid,
+        hotspring_forge::substrate::Fp64Strategy::Concurrent => Fp64Strategy::Concurrent,
+    }
+}
+
+/// Classify FP64:FP32 rate from adapter name (mirrors metalForge probe logic).
+fn classify_fp64_rate_from_adapter(name: &str) -> hotspring_forge::substrate::Fp64Rate {
+    let name_lower = name.to_lowercase();
+    if name_lower.contains("a100") || name_lower.contains("h100") {
+        hotspring_forge::substrate::Fp64Rate::Full
+    } else if name_lower.contains("titan v")
+        || name_lower.contains("v100")
+        || name_lower.contains("gv100")
+        || name_lower.contains("mi50")
+        || name_lower.contains("mi100")
+        || name_lower.contains("mi250")
+    {
+        hotspring_forge::substrate::Fp64Rate::Half
+    } else {
+        hotspring_forge::substrate::Fp64Rate::Narrow
+    }
+}
 
 /// WGSL shader: Wilson plaquette per site (6 planes, Re Tr P/3).
 pub const WGSL_WILSON_PLAQUETTE: &str = include_str!("../shaders/wilson_plaquette_f64.wgsl");
@@ -150,7 +237,7 @@ impl GpuHmcPipelines {
             return Self::new_full_df64(gpu);
         }
 
-        let strategy = gpu.capabilities().fp64_strategy();
+        let strategy = substrate_fp64_strategy(gpu);
 
         let df64_preamble = barracuda::ops::lattice::su3::su3_df64_preamble();
 
@@ -176,13 +263,16 @@ impl GpuHmcPipelines {
         };
 
         eprintln!(
-            "[HMC] FP64 strategy: {:?} — {}",
+            "[HMC] FP64 strategy: {:?} — {} [metalForge substrate: {:?}]",
             strategy,
             match strategy {
                 Fp64Strategy::Native | Fp64Strategy::Sovereign => "native f64 on all cores",
-                Fp64Strategy::Hybrid | Fp64Strategy::Concurrent =>
-                    "DF64 on FP32 cores for force + plaquette + KE (~2.8× trajectory speedup)",
-            }
+                Fp64Strategy::Hybrid =>
+                    "DF64 on FP32 cores for force + plaquette + KE (fallback)",
+                Fp64Strategy::Concurrent =>
+                    "DF64 on FP32 cores for force + plaquette + KE — FP32 silicon activated",
+            },
+            classify_fp64_rate_from_adapter(&gpu.adapter_name),
         );
 
         let complex_no_exp = WGSL_COMPLEX_F64
@@ -482,10 +572,13 @@ impl GpuHmcState {
 
 /// Run one pure-GPU Omelyan HMC trajectory.
 ///
-/// All gauge force, momentum update, link update, kinetic energy, and
-/// plaquette math happens on GPU. CPU only generates random momenta
-/// (uploaded once), reads back `H_old/H_new` (scalar sums), and makes
-/// the Metropolis decision.
+/// # Deprecated — use `gpu_hmc_trajectory_streaming` instead
+///
+/// This path reads back O(V) plaquette and kinetic energy values per
+/// trajectory via `gpu_wilson_action` / `gpu_kinetic_energy`, then sums
+/// on CPU. The streaming path keeps all scalars GPU-resident.
+#[deprecated(note = "use gpu_hmc_trajectory_streaming for GPU-resident observables")]
+#[allow(deprecated)]
 pub fn gpu_hmc_trajectory(
     gpu: &GpuF64,
     pipelines: &GpuHmcPipelines,
@@ -652,6 +745,11 @@ pub(super) fn gpu_link_update_dispatch(
     gpu.dispatch(&p.link_pipeline, &bg, s.wg_links);
 }
 
+/// # Deprecated — use `compute_gauge_ke_resident` (16-byte readback)
+///
+/// Reads back O(V) per-site plaquette values and sums on CPU.
+/// The unidirectional path reduces on GPU and reads back 1 scalar.
+#[deprecated(note = "use compute_gauge_ke_resident for O(1) readback instead of O(V)")]
 pub(super) fn gpu_wilson_action(gpu: &GpuF64, p: &GpuHmcPipelines, s: &GpuHmcState) -> f64 {
     let params = make_u32x4_params(s.volume as u32);
     let param_buf = gpu.create_uniform_buffer(&params, "plaq_p");
@@ -681,6 +779,11 @@ pub(super) fn gpu_kinetic_energy(gpu: &GpuF64, p: &GpuHmcPipelines, s: &GpuHmcSt
     per_link.iter().sum()
 }
 
+/// # Deprecated — use `compute_gauge_ke_resident` (8-byte readback)
+///
+/// Reads back O(V) per-site plaquette values and sums on CPU.
+/// The unidirectional path reduces on GPU and reads back 1 scalar.
+#[deprecated(note = "use compute_gauge_ke_resident for O(1) readback instead of O(V)")]
 pub(super) fn gpu_plaquette(gpu: &GpuF64, p: &GpuHmcPipelines, s: &GpuHmcState) -> f64 {
     let params = make_u32x4_params(s.volume as u32);
     let param_buf = gpu.create_uniform_buffer(&params, "plaq_obs");
@@ -754,6 +857,16 @@ pub(super) fn gpu_fermion_force_dispatch(
     gpu.dispatch(&pipelines.fermion_force_pipeline, &bg, wg);
 }
 
+/// GPU dot product with **full readback to CPU** — causes a pipeline stall.
+///
+/// # Deprecated — use GPU-resident scalar buffers instead
+///
+/// Each call: dispatch → fence → PCIe map → CPU sum → unmap.
+/// In the legacy CG path this is called ~3× per iteration ×7200 iters
+/// = ~20,000 stalls per trajectory. The GPU-resident CG path in
+/// `resident_cg.rs` / `resident_shifted_cg.rs` keeps all scalars
+/// on-device and only reads back every `check_interval` iterations.
+#[deprecated(note = "use GPU-resident CG scalar buffers (resident_cg.rs / resident_shifted_cg.rs)")]
 pub(super) fn gpu_dot_re(
     gpu: &GpuF64,
     dot_pl: &wgpu::ComputePipeline,

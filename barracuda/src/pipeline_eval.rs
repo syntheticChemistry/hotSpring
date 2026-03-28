@@ -92,6 +92,7 @@ impl<'a> PipelineEval<'a> {
             .collect()
     }
 
+    #[allow(deprecated)]
     fn run_hmc(
         &self,
         dims: [usize; 4],

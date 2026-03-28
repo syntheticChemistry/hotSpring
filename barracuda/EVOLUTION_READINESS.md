@@ -556,7 +556,7 @@ Paper-parity run (N=10k, 80k steps): 9.8 min, $0.0012. 98 runs/day idle.
   `BESSEL_NEAR_ZERO_ABS`, `RHO_POWF_GUARD`, `GPU_JACOBI_CONVERGENCE`)
 - ✅ **Core physics tolerance wiring**: `hfb.rs`, `hfb_gpu.rs`, `hfb_gpu_resident.rs` — all
   inline density floors, powf guards, GPU eigensolve thresholds → named constants
-- ✅ **Comprehensive audit**: zero unsafe, zero TODO/FIXME, zero mocks, zero hardcoded paths,
+- ✅ **Comprehensive audit**: zero unsafe, 8 scoped TODO(B2) markers (GPU-resident migration), zero mocks, zero hardcoded paths,
   all AGPL-3.0 licensed, all validation binaries follow hotSpring pattern
 
 ## Completed (v0.5.7)

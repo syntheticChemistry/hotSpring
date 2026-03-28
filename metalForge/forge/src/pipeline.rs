@@ -371,6 +371,190 @@ pub mod topologies {
     }
 }
 
+// ═══════════════════════════════════════════════════════════════════
+//  Pipeline executor — lightweight DAG runner
+// ═══════════════════════════════════════════════════════════════════
+
+/// Handler for a single pipeline stage.
+///
+/// Implementors process a `WorkUnit` and return zero or more output units.
+/// The executor calls handlers in topological order.
+pub trait StageHandler: Send {
+    /// Process one work unit and return output units for downstream stages.
+    fn process(&mut self, input: &WorkUnit) -> Vec<WorkUnit>;
+
+    /// Human-readable name for diagnostics.
+    fn name(&self) -> &str;
+}
+
+/// Timing data for one stage execution within a cycle.
+#[derive(Debug, Clone)]
+pub struct StageTiming {
+    /// Stage that was executed.
+    pub stage_id: StageId,
+    /// Wall-clock time in microseconds.
+    pub wall_us: u64,
+    /// Number of work units produced.
+    pub units_produced: usize,
+}
+
+/// Result of one full pipeline cycle.
+#[derive(Debug)]
+pub struct CycleResult {
+    /// Per-stage timing.
+    pub stage_timings: Vec<StageTiming>,
+    /// Total wall time for the cycle in microseconds.
+    pub total_wall_us: u64,
+    /// Final work units emitted by sink stages (no outgoing edges).
+    pub sink_outputs: Vec<WorkUnit>,
+}
+
+/// Lightweight executor that runs a `Pipeline` DAG by dispatching
+/// `WorkUnit`s through registered `StageHandler`s in topological order.
+pub struct PipelineExecutor {
+    pipeline: Pipeline,
+    handlers: HashMap<StageId, Box<dyn StageHandler>>,
+    cycle_count: u64,
+}
+
+impl PipelineExecutor {
+    /// Create an executor for a pipeline.
+    #[must_use]
+    pub fn new(pipeline: Pipeline) -> Self {
+        Self {
+            pipeline,
+            handlers: HashMap::new(),
+            cycle_count: 0,
+        }
+    }
+
+    /// Register a handler for a stage.
+    pub fn register_handler(&mut self, stage_id: StageId, handler: Box<dyn StageHandler>) {
+        self.handlers.insert(stage_id, handler);
+    }
+
+    /// Run one cycle of the pipeline with an initial seed work unit.
+    ///
+    /// The seed is delivered to all root stages (in-degree 0). Work units
+    /// flow through the DAG in topological order. Each stage receives all
+    /// units produced by its predecessors.
+    pub fn run_cycle(&mut self, seed: WorkUnit) -> CycleResult {
+        use std::time::Instant;
+
+        let cycle_start = Instant::now();
+        let ordered = self.pipeline.ordered_stages();
+        let mut stage_timings = Vec::new();
+
+        let sink_ids: std::collections::HashSet<StageId> = {
+            let has_outgoing: std::collections::HashSet<StageId> =
+                self.pipeline.edges().iter().map(|e| e.from).collect();
+            ordered
+                .iter()
+                .filter(|s| !has_outgoing.contains(&s.id))
+                .map(|s| s.id)
+                .collect()
+        };
+
+        let root_ids: std::collections::HashSet<StageId> = {
+            let has_incoming: std::collections::HashSet<StageId> =
+                self.pipeline.edges().iter().map(|e| e.to).collect();
+            ordered
+                .iter()
+                .filter(|s| !has_incoming.contains(&s.id))
+                .map(|s| s.id)
+                .collect()
+        };
+
+        let mut buffers: HashMap<StageId, Vec<WorkUnit>> = HashMap::new();
+        for stage in &ordered {
+            if root_ids.contains(&stage.id) {
+                buffers
+                    .entry(stage.id)
+                    .or_default()
+                    .push(seed.clone());
+            }
+        }
+
+        let mut sink_outputs = Vec::new();
+
+        for stage in &ordered {
+            let inputs = buffers.remove(&stage.id).unwrap_or_default();
+            if inputs.is_empty() {
+                continue;
+            }
+
+            let handler = match self.handlers.get_mut(&stage.id) {
+                Some(h) => h,
+                None => continue,
+            };
+
+            let stage_start = Instant::now();
+            let mut all_outputs = Vec::new();
+            for input in &inputs {
+                let outputs = handler.process(input);
+                all_outputs.extend(outputs);
+            }
+            let wall_us = stage_start.elapsed().as_micros() as u64;
+
+            stage_timings.push(StageTiming {
+                stage_id: stage.id,
+                wall_us,
+                units_produced: all_outputs.len(),
+            });
+
+            if sink_ids.contains(&stage.id) {
+                sink_outputs.extend(all_outputs.clone());
+            }
+
+            for edge in self.pipeline.edges() {
+                if edge.from == stage.id {
+                    buffers
+                        .entry(edge.to)
+                        .or_default()
+                        .extend(all_outputs.iter().cloned());
+                }
+            }
+        }
+
+        let total_wall_us = cycle_start.elapsed().as_micros() as u64;
+        self.cycle_count += 1;
+
+        CycleResult {
+            stage_timings,
+            total_wall_us,
+            sink_outputs,
+        }
+    }
+
+    /// Number of cycles executed.
+    #[must_use]
+    pub const fn cycle_count(&self) -> u64 {
+        self.cycle_count
+    }
+
+    /// Access the underlying pipeline.
+    #[must_use]
+    pub const fn pipeline(&self) -> &Pipeline {
+        &self.pipeline
+    }
+}
+
+impl fmt::Display for CycleResult {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "Pipeline cycle: {:.1} ms total", self.total_wall_us as f64 / 1000.0)?;
+        for st in &self.stage_timings {
+            writeln!(
+                f,
+                "  Stage {:2}: {:.1} ms ({} units)",
+                st.stage_id.0,
+                st.wall_us as f64 / 1000.0,
+                st.units_produced
+            )?;
+        }
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod tests {
@@ -423,5 +607,43 @@ mod tests {
         assert!(s.contains("HMC Compute"));
         assert!(s.contains("Phase Screen"));
         assert!(s.contains("Validation"));
+    }
+
+    #[test]
+    fn executor_runs_cycle() {
+        use super::{PipelineExecutor, StageHandler, WorkUnit};
+
+        struct EchoHandler {
+            label: String,
+        }
+        impl StageHandler for EchoHandler {
+            fn process(&mut self, input: &WorkUnit) -> Vec<WorkUnit> {
+                let mut out = input.clone();
+                out.set(&self.label, 1.0);
+                vec![out]
+            }
+            fn name(&self) -> &str {
+                &self.label
+            }
+        }
+
+        let p = topologies::qcd_cpu_baseline();
+        let stages: Vec<StageId> = p.stages().iter().map(|s| s.id).collect();
+        let mut exec = PipelineExecutor::new(p);
+        exec.register_handler(
+            stages[0],
+            Box::new(EchoHandler { label: "compute".into() }),
+        );
+        exec.register_handler(
+            stages[1],
+            Box::new(EchoHandler { label: "reduce".into() }),
+        );
+
+        let seed = WorkUnit::new(0, stages[0]);
+        let result = exec.run_cycle(seed);
+        assert_eq!(result.stage_timings.len(), 2);
+        assert_eq!(result.sink_outputs.len(), 1);
+        assert!(result.sink_outputs[0].get("reduce").is_some());
+        assert_eq!(exec.cycle_count(), 1);
     }
 }

@@ -74,6 +74,24 @@ impl GpuF64 {
 
     /// Upload f64 data to a GPU storage buffer (overwrites from offset 0).
     ///
+    /// Zero-fill a GPU buffer.
+    pub fn zero_buffer(&self, buffer: &wgpu::Buffer, size: u64) {
+        let zeros = vec![0u8; size as usize];
+        self.queue().write_buffer(buffer, 0, &zeros);
+    }
+
+    /// Create a writable storage buffer initialized with raw bytes.
+    #[must_use]
+    pub fn create_storage_buffer_init(&self, data: &[u8], label: &str) -> wgpu::Buffer {
+        use wgpu::util::DeviceExt;
+        self.device()
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some(label),
+                contents: data,
+                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            })
+    }
+
     /// In full DF64 mode, converts each f64 to a (hi, lo) f32 pair before
     /// upload — the GPU shader sees `array<vec2<f32>>` not `array<f64>`.
     pub fn upload_f64(&self, buffer: &wgpu::Buffer, data: &[f64]) {
@@ -172,6 +190,17 @@ impl GpuF64 {
         drop(data);
         staging.unmap();
         Ok(result)
+    }
+
+    /// Read exactly `n` f64 values from the beginning of a staging buffer.
+    pub fn read_staging_f64_n(
+        &self,
+        staging: &wgpu::Buffer,
+        n: usize,
+    ) -> Result<Vec<f64>, crate::error::HotSpringError> {
+        let mut data = self.read_staging_f64_inner(staging)?;
+        data.truncate(n);
+        Ok(data)
     }
 
     fn read_staging_f64_inner(

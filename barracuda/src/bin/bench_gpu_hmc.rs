@@ -60,6 +60,7 @@ fn bench_cpu(dims: [usize; 4], beta: f64, n_traj: usize) -> (f64, usize, f64) {
     (elapsed / n_traj as f64, accepted, plaq_sum / n_traj as f64)
 }
 
+#[allow(deprecated)]
 fn bench_gpu(
     gpu: &GpuF64,
     pipelines: &GpuHmcPipelines,
@@ -104,6 +105,7 @@ fn bench_gpu(
     (elapsed / n_traj as f64, accepted, plaq_sum / n_traj as f64)
 }
 
+#[allow(deprecated)]
 fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");
     println!("║  GPU HMC Scaling Benchmark — CPU vs Pure GPU (fp64)        ║");

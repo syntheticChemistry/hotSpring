@@ -2,6 +2,7 @@
 
 //! Dynamical fermion GPU HMC — full QCD with staggered quarks.
 
+#[allow(deprecated)]
 use super::{
     flatten_momenta, gpu_dirac_dispatch, gpu_dot_re, gpu_fermion_force_dispatch,
     gpu_force_dispatch, gpu_kinetic_energy, gpu_link_update_dispatch, gpu_mom_update_dispatch,
@@ -226,6 +227,8 @@ pub fn gpu_dynamical_hmc_trajectory(
         gpu.submit_encoder(enc);
     }
 
+    // TODO(B2): replace with GPU-resident Hamiltonian assembly
+    #[allow(deprecated)]
     let s_gauge_old = gpu_wilson_action(gpu, &pipelines.gauge, &state.gauge);
     let t_old = gpu_kinetic_energy(gpu, &pipelines.gauge, &state.gauge);
     let (s_ferm_old, cg_iters_old) = gpu_fermion_action_all(gpu, pipelines, state);
@@ -248,6 +251,7 @@ pub fn gpu_dynamical_hmc_trajectory(
         }
     }
 
+    #[allow(deprecated)]
     let s_gauge_new = gpu_wilson_action(gpu, &pipelines.gauge, &state.gauge);
     let t_new = gpu_kinetic_energy(gpu, &pipelines.gauge, &state.gauge);
     let (s_ferm_new, cg_iters_new) = gpu_fermion_action_all(gpu, pipelines, state);
@@ -271,6 +275,7 @@ pub fn gpu_dynamical_hmc_trajectory(
         gpu.submit_encoder(enc);
     }
 
+    #[allow(deprecated)]
     let plaquette = gpu_plaquette(gpu, &pipelines.gauge, &state.gauge);
 
     GpuDynHmcResult {
@@ -294,6 +299,10 @@ pub(super) fn gen_random_fermion(vol: usize, seed: &mut u64) -> Vec<f64> {
 
 /// Compute `S_f` = φ†(D†D)⁻¹φ for a single pseudofermion field.
 /// Returns (`S_f`, `cg_iterations`).
+///
+/// **Legacy** — uses `gpu_cg_solve_internal` (per-iteration readback) +
+/// single `gpu_dot_re` for final action. Modern: `gpu_dynamical_hmc_trajectory_resident`.
+#[allow(deprecated)]
 pub(super) fn gpu_fermion_action(
     gpu: &GpuF64,
     pipelines: &GpuDynHmcPipelines,
@@ -371,6 +380,9 @@ pub(super) fn gpu_total_force_dispatch(
 }
 
 /// GPU CG solver: (D†D)x = b, solution in `state.x_buf`.
+///
+/// **Legacy** — per-iteration `gpu_dot_re` readback. Use `gpu_cg_solve_resident` instead.
+#[allow(deprecated)]
 fn gpu_cg_solve_internal(
     gpu: &GpuF64,
     pipelines: &GpuDynHmcPipelines,
@@ -381,8 +393,7 @@ fn gpu_cg_solve_internal(
     let n_flat = vol * 6;
     let n_pairs = vol * 3;
 
-    let zeros = vec![0.0_f64; n_flat];
-    gpu.upload_f64(&state.x_buf, &zeros);
+    gpu.zero_buffer(&state.x_buf, (n_flat * 8) as u64);
     {
         let mut enc = gpu.begin_encoder("cg_init_r");
         enc.copy_buffer_to_buffer(b_buf, 0, &state.r_buf, 0, (n_flat * 8) as u64);

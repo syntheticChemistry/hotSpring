@@ -34,6 +34,7 @@ struct BetaPoint {
     gpu_ms: f64,
 }
 
+#[allow(deprecated)]
 fn gpu_beta_scan(
     gpu: &GpuF64,
     pipelines: &GpuHmcPipelines,
@@ -104,6 +105,7 @@ fn gpu_beta_scan(
     results
 }
 
+#[allow(deprecated)]
 fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");
     println!("║  Pure GPU β-Scan — Full Temperature Sweep on GPU (fp64)    ║");

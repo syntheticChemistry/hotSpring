@@ -32,6 +32,7 @@ struct GpuResult {
     wall_secs: f64,
 }
 
+#[allow(deprecated)]
 fn run_on_gpu(name_hint: &str, dims: [usize; 4], beta: f64, seed: u64) -> GpuResult {
     let rt = tokio::runtime::Runtime::new().expect("tokio runtime");
     let gpu = rt
@@ -82,6 +83,7 @@ fn run_on_gpu(name_hint: &str, dims: [usize; 4], beta: f64, seed: u64) -> GpuRes
     }
 }
 
+#[allow(deprecated)]
 fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");
     println!("║  Dual-GPU Parallel QCD Validation                          ║");

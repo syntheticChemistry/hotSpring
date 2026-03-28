@@ -21,6 +21,7 @@ use hotspring_barracuda::lattice::wilson::Lattice;
 use hotspring_barracuda::validation::ValidationHarness;
 use std::time::Instant;
 
+#[allow(deprecated)]
 fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");
     println!("║  Pure GPU HMC Validation — All Math on GPU (fp64 WGSL)     ║");

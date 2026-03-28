@@ -94,6 +94,14 @@ pub const WGSL_CG_UPDATE_XR_F64: &str = include_str!("shaders/cg_update_xr_f64.w
 /// WGSL shader: CG vector update p = r + beta*p (reads beta from GPU buffer).
 pub const WGSL_CG_UPDATE_P_F64: &str = include_str!("shaders/cg_update_p_f64.wgsl");
 
+/// WGSL shader: shifted CG alpha = rz / (pAp + sigma * pp) (1-thread kernel).
+pub const WGSL_CG_COMPUTE_ALPHA_SHIFTED_F64: &str =
+    include_str!("shaders/cg_compute_alpha_shifted_f64.wgsl");
+
+/// WGSL shader: shifted CG vector update x += alpha*p, r -= alpha*(ap + sigma*p).
+pub const WGSL_CG_UPDATE_XR_SHIFTED_F64: &str =
+    include_str!("shaders/cg_update_xr_shifted_f64.wgsl");
+
 /// CG solver result.
 #[derive(Clone, Debug)]
 pub struct CgResult {

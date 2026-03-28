@@ -174,13 +174,19 @@ pub fn pseudofermion_force(lattice: &Lattice, x_field: &FermionField, mass: f64)
             let u = lattice.link(site, mu);
 
             // Build the outer-product matrix M from fermion fields:
-            //   M = η_μ(x)/2 × [X(x+μ) ⊗ Y†(x) − Y(x+μ) ⊗ X†(x)]
+            //   M = −η_μ(x) × [X(x+μ) ⊗ Y†(x) − Y(x+μ) ⊗ X†(x)]
+            //
+            // Sign: matches gauge force convention where shader outputs ∂S/∂U
+            // (positive gradient). The per-pole fermion contribution is
+            // ∂S_ferm/∂U|_s = −α_s·d(x†D†Dx)/dU, applied as P += α_s·dt·F,
+            // so F = −η·TA[U(x⊗y†−y⊗x†)].
+            let neg_eta = -eta;
             let mut m_mat = Su3Matrix::ZERO;
             for a in 0..3 {
                 for b in 0..3 {
                     let contrib = x_field.data[fwd_idx][a] * y_field.data[idx][b].conj()
                         - y_field.data[fwd_idx][a] * x_field.data[idx][b].conj();
-                    m_mat.m[a][b] += contrib.scale(eta * 0.5);
+                    m_mat.m[a][b] += contrib.scale(neg_eta);
                 }
             }
 

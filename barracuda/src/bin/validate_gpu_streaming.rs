@@ -23,6 +23,7 @@ use hotspring_barracuda::lattice::wilson::Lattice;
 use hotspring_barracuda::validation::ValidationHarness;
 use std::time::Instant;
 
+#[allow(deprecated)]
 fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");
     println!("║  GPU Streaming HMC — Parity & Dispatch Elimination         ║");
@@ -265,6 +266,7 @@ fn bench_cpu(dims: [usize; 4], beta: f64, n_traj: usize) -> f64 {
     start.elapsed().as_secs_f64() * 1000.0 / n_traj as f64
 }
 
+#[allow(deprecated)]
 fn bench_dispatch(
     gpu: &GpuF64,
     pipelines: &GpuHmcPipelines,
