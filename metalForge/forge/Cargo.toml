@@ -12,7 +12,7 @@ license = "AGPL-3.0-or-later"
 [dependencies]
 # BarraCuda — standalone compute primal (budded from toadStool S89).
 # GPU device management, shader dispatch, buffer management.
-barracuda = { path = "../../../barraCuda/crates/barracuda" }
+barracuda = { path = "../../../../primals/barraCuda/crates/barracuda" }
 
 # GPU compute — must match barracuda's wgpu version (28)
 wgpu = { version = "28", default-features = false, features = [

@@ -106,8 +106,8 @@ tokio = { version = "1.50", features = ["rt-multi-thread", "macros"] }
 
 # NPU hardware: toadStool exposes device capabilities (PCIe driver, model parsing)
 # Math/compilation lives in barraCuda (esn_v2, npu, npu_executor, snn)
-akida-driver = { path = "../../phase1/toadStool/crates/neuromorphic/akida-driver", optional = true }
-akida-models = { path = "../../phase1/toadStool/crates/neuromorphic/akida-models", optional = true }
+akida-driver = { path = "../../../primals/toadStool/crates/neuromorphic/akida-driver", optional = true }
+akida-models = { path = "../../../primals/toadStool/crates/neuromorphic/akida-models", optional = true }
 
 # metalForge: substrate discovery + capability-based precision routing.
 # Bridges hardware detection (fp64_rate, df64 support, TMU, etc.) into the
