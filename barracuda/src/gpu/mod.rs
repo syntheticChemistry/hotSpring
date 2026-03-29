@@ -56,8 +56,13 @@ pub struct GpuF64 {
     pub has_f64: bool,
     /// Whether timestamp queries are available for profiling.
     pub has_timestamps: bool,
-    /// Whether WGSL `enable subgroups;` / `subgroupAdd` are available.
+    /// Whether WGSL subgroup intrinsics (`subgroupAdd`, etc.) are available.
+    /// Note: do NOT use `enable subgroups;` directive — naga 28 emits broken
+    /// SPIR-V. Rely on `SUBGROUP` device feature instead.
     pub has_subgroups: bool,
+    /// Whether SHADER_F16 (half-precision compute) is available.
+    /// Enables tensor core proxy path on NVIDIA Ampere+.
+    pub has_f16: bool,
     /// True when native f64 shaders are broken and all GPU work must use
     /// full DF64 (f32-pair) data plane — storage as `vec2<f32>`, not `f64`.
     pub full_df64_mode: bool,
@@ -220,6 +225,7 @@ async fn finalize_device(
     advertised_f64: bool,
     has_timestamps: bool,
     has_subgroups: bool,
+    has_f16: bool,
     is_nvk: bool,
     wgpu_device: Arc<WgpuDevice>,
 ) -> GpuF64 {
@@ -258,6 +264,7 @@ async fn finalize_device(
         has_f64,
         has_timestamps,
         has_subgroups,
+        has_f16,
         full_df64_mode,
         wgpu_device,
         tensor_ctx,
@@ -314,6 +321,7 @@ impl GpuF64 {
         let advertised_f64 = required_features.contains(wgpu::Features::SHADER_F64);
         let has_timestamps = required_features.contains(wgpu::Features::TIMESTAMP_QUERY);
         let has_subgroups = required_features.contains(wgpu::Features::SUBGROUP);
+        let has_f16 = required_features.contains(wgpu::Features::SHADER_F16);
 
         let wgpu_device = Arc::new(WgpuDevice::from_existing(device, queue, adapter_info));
 
@@ -322,6 +330,7 @@ impl GpuF64 {
             advertised_f64,
             has_timestamps,
             has_subgroups,
+            has_f16,
             is_nvk,
             wgpu_device,
         )
@@ -391,6 +400,7 @@ impl GpuF64 {
         let advertised_f64 = required_features.contains(wgpu::Features::SHADER_F64);
         let has_timestamps = required_features.contains(wgpu::Features::TIMESTAMP_QUERY);
         let has_subgroups = required_features.contains(wgpu::Features::SUBGROUP);
+        let has_f16 = required_features.contains(wgpu::Features::SHADER_F16);
 
         let wgpu_device = Arc::new(WgpuDevice::from_existing(device, queue, adapter_info));
 
@@ -399,6 +409,7 @@ impl GpuF64 {
             advertised_f64,
             has_timestamps,
             has_subgroups,
+            has_f16,
             is_nvk,
             wgpu_device,
         )

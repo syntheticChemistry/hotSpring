@@ -21,7 +21,10 @@
 //! This eliminates B2 (CPU Hamiltonian assembly) and B3 (CPU Metropolis)
 //! bottlenecks from `SILICON_TIER_ROUTING.md`.
 
-use super::dynamical::{gpu_axpy, GpuDynHmcPipelines, GpuDynHmcState, WGSL_RANDOM_MOMENTA};
+use super::dynamical::{
+    gpu_axpy, GpuDynHmcPipelines, GpuDynHmcState, WGSL_RANDOM_MOMENTA, WGSL_RANDOM_MOMENTA_TMU,
+};
+use super::tmu_tables::TmuLookupTables;
 use super::gpu_rhmc::{
     dirac_dispatch, fermion_force_dispatch, GpuRhmcPipelines, GpuRhmcResult, GpuRhmcSectorBuffers,
     GpuRhmcState,
@@ -60,8 +63,12 @@ pub struct UniPipelines {
     pub shifted_cg: GpuResidentShiftedCgPipelines,
     /// True multi-shift CG pipelines (shared Krylov, N_shifts fewer D†D ops).
     pub true_ms_cg: TrueMultiShiftPipelines,
-    /// GPU PRNG for SU(3) algebra momenta.
+    /// GPU PRNG for SU(3) algebra momenta (ALU path).
     pub momenta_prng_pipeline: wgpu::ComputePipeline,
+    /// TMU-accelerated PRNG pipeline (Tier 0). `None` if TMU unavailable.
+    pub tmu_prng_pipeline: Option<wgpu::ComputePipeline>,
+    /// TMU lookup tables for Box-Muller (log, trig). `None` if TMU path not compiled.
+    pub tmu_tables: Option<TmuLookupTables>,
     /// GPU Gaussian sampler for pseudofermion heat-bath η.
     pub fermion_prng_pipeline: wgpu::ComputePipeline,
     /// H = beta*(6V - plaq) + T + S_f  (single-thread GPU kernel).
@@ -76,13 +83,15 @@ pub struct UniPipelines {
 }
 
 impl UniPipelines {
-    /// Compile all unidirectional RHMC pipelines.
+    /// Compile all unidirectional RHMC pipelines (ALU PRNG, no ROP).
     #[must_use]
     pub fn new(gpu: &GpuF64) -> Self {
         Self {
             shifted_cg: GpuResidentShiftedCgPipelines::new(gpu),
             true_ms_cg: TrueMultiShiftPipelines::new(gpu),
             momenta_prng_pipeline: gpu.create_pipeline_f64(&WGSL_RANDOM_MOMENTA, "uni_mom_prng"),
+            tmu_prng_pipeline: None,
+            tmu_tables: None,
             fermion_prng_pipeline: gpu.create_pipeline_f64(&WGSL_GAUSSIAN_FERMION, "uni_ferm_prng"),
             hamiltonian_assembly_pipeline: gpu
                 .create_pipeline_f64(WGSL_HAMILTONIAN_ASSEMBLY, "uni_h_asm"),
@@ -99,6 +108,33 @@ impl UniPipelines {
     #[must_use]
     pub fn new_with_rop(gpu: &GpuF64, volume: usize) -> Self {
         let mut pipelines = Self::new(gpu);
+        eprintln!("[ROP] Fermion force accumulation: ENABLED (atomicAdd i32, Tier 3)");
+        pipelines.rop_accum = Some(RopForceAccumulator::new(gpu, volume));
+        pipelines
+    }
+
+    /// Compile with full silicon saturation: TMU PRNG (Tier 0) + ROP atomics (Tier 3).
+    ///
+    /// `volume` is the lattice volume for ROP buffer sizing.
+    #[must_use]
+    pub fn new_saturated(gpu: &GpuF64, volume: usize) -> Self {
+        let tables = TmuLookupTables::new(gpu);
+        let tmu_pl = gpu.create_pipeline_f64(&WGSL_RANDOM_MOMENTA_TMU, "uni_mom_prng_tmu");
+        eprintln!("[TMU] Momenta PRNG: ENABLED (Box-Muller via texture lookup, Tier 0)");
+        let mut pipelines = Self {
+            shifted_cg: GpuResidentShiftedCgPipelines::new(gpu),
+            true_ms_cg: TrueMultiShiftPipelines::new(gpu),
+            momenta_prng_pipeline: gpu.create_pipeline_f64(&WGSL_RANDOM_MOMENTA, "uni_mom_prng"),
+            tmu_prng_pipeline: Some(tmu_pl),
+            tmu_tables: Some(tables),
+            fermion_prng_pipeline: gpu.create_pipeline_f64(&WGSL_GAUSSIAN_FERMION, "uni_ferm_prng"),
+            hamiltonian_assembly_pipeline: gpu
+                .create_pipeline_f64(WGSL_HAMILTONIAN_ASSEMBLY, "uni_h_asm"),
+            fermion_action_sum_pipeline: gpu
+                .create_pipeline_f64(WGSL_FERMION_ACTION_SUM, "uni_sf_sum"),
+            metropolis_pipeline: gpu.create_pipeline_f64(WGSL_METROPOLIS, "uni_metropolis"),
+            rop_accum: None,
+        };
         eprintln!("[ROP] Fermion force accumulation: ENABLED (atomicAdd i32, Tier 3)");
         pipelines.rop_accum = Some(RopForceAccumulator::new(gpu, volume));
         pipelines
@@ -534,6 +570,50 @@ fn compute_h_gpu(
     total_cg
 }
 
+/// Dispatch momenta PRNG via TMU path if available, else ALU fallback.
+fn encode_uni_prng_dispatch(
+    enc: &mut wgpu::CommandEncoder,
+    gpu: &GpuF64,
+    uni_pipelines: &UniPipelines,
+    params_buf: &wgpu::Buffer,
+    mom_buf: &wgpu::Buffer,
+    wg_links: u32,
+) {
+    if let (Some(tmu_pl), Some(tables)) =
+        (&uni_pipelines.tmu_prng_pipeline, &uni_pipelines.tmu_tables)
+    {
+        let bg = gpu.device().create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("uni_prng_tmu_bg"),
+            layout: &tmu_pl.get_bind_group_layout(0),
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: params_buf.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: mom_buf.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::TextureView(&tables.log_table),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: wgpu::BindingResource::TextureView(&tables.trig_table),
+                },
+            ],
+        });
+        GpuF64::encode_pass(enc, tmu_pl, &bg, wg_links);
+    } else {
+        let bg = gpu.create_bind_group(
+            &uni_pipelines.momenta_prng_pipeline,
+            &[params_buf, mom_buf],
+        );
+        GpuF64::encode_pass(enc, &uni_pipelines.momenta_prng_pipeline, &bg, wg_links);
+    }
+}
+
 /// Build params for the Metropolis kernel: [rand, six_v] as raw f64.
 fn make_metropolis_params(seed: &mut u64, six_v: f64) -> Vec<u8> {
     let r: f64 = crate::lattice::constants::lcg_uniform_f64(seed);
@@ -614,8 +694,12 @@ fn gpu_metropolis(
 
 // ── Full unidirectional RHMC trajectory (Phase 4) ────────────────
 
-/// CG check interval — iterations per batch before convergence readback.
-const CG_CHECK_INTERVAL: usize = 50;
+/// CG check interval — iterations per initial batch before first convergence readback.
+///
+/// Exponential back-off doubles this after each check (capped at 2000).
+/// At 200, a typical solve (~200 iters) needs only 2 readbacks: initial ‖b‖² + one check.
+/// This keeps GPU pipeline saturated — readback overhead < 0.1% of batch compute.
+const CG_CHECK_INTERVAL: usize = 200;
 
 /// Run one RHMC trajectory using the fully GPU-resident pipeline (B2+B3).
 ///
@@ -650,14 +734,12 @@ pub fn gpu_rhmc_trajectory_unidirectional(
 
         let mom_prng_params = make_prng_params(n_links as u32, 0, seed);
         let mom_prng_pbuf = gpu.create_uniform_buffer(&mom_prng_params, "uni_mom_p");
-        let mom_prng_bg = gpu.create_bind_group(
-            &uni_pipelines.momenta_prng_pipeline,
-            &[&mom_prng_pbuf, &gauge.mom_buf],
-        );
-        GpuF64::encode_pass(
+        encode_uni_prng_dispatch(
             &mut enc,
-            &uni_pipelines.momenta_prng_pipeline,
-            &mom_prng_bg,
+            gpu,
+            uni_pipelines,
+            &mom_prng_pbuf,
+            &gauge.mom_buf,
             gauge.wg_links,
         );
 

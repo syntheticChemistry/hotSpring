@@ -124,7 +124,7 @@ fn main() {
     let t0 = Instant::now();
     let dyn_pipelines = GpuDynHmcPipelines::new(&gpu);
     let rhmc_pipelines = GpuRhmcPipelines::new(&gpu);
-    let uni_pipelines = UniPipelines::new(&gpu);
+    let uni_pipelines = UniPipelines::new_saturated(&gpu, vol);
     let flow_pipelines = GpuFlowPipelines::new(&gpu);
     println!(
         "  Pipelines: {:.1}s (includes shifted CG + reduce)",

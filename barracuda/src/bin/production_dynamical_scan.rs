@@ -179,7 +179,7 @@ fn main() {
     println!("  GPU: {}", gpu.adapter_name);
     println!();
 
-    let quenched_pipelines = GpuHmcStreamingPipelines::new(&gpu);
+    let quenched_pipelines = GpuHmcStreamingPipelines::new_with_tmu(&gpu);
     let dyn_streaming_pipelines = GpuDynHmcStreamingPipelines::new(&gpu);
     let resident_cg_pipelines = GpuResidentCgPipelines::new(&gpu);
 

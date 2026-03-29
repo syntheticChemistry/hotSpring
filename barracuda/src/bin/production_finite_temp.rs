@@ -146,7 +146,7 @@ fn main() {
     println!();
 
     let total_start = Instant::now();
-    let pipelines = GpuHmcStreamingPipelines::new(&gpu);
+    let pipelines = GpuHmcStreamingPipelines::new_with_tmu(&gpu);
 
     for &nt in &nts {
         let dims = [ns, ns, ns, nt];

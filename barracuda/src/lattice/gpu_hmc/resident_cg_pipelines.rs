@@ -50,7 +50,7 @@ impl GpuResidentCgPipelines {
     #[must_use]
     pub fn new(gpu: &GpuF64) -> Self {
         let reduce_pipeline = if gpu.has_subgroups {
-            eprintln!("[CG] Subgroup reduce: ENABLED (subgroupAdd, Tier 4)");
+            eprintln!("[CG] Subgroup reduce: ENABLED (subgroupAdd f64, Tier 4)");
             gpu.create_pipeline_f64(WGSL_SUM_REDUCE_SUBGROUP, "cg_reduce_sg")
         } else {
             eprintln!("[CG] Subgroup reduce: unavailable, using shared memory fallback");

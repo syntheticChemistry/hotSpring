@@ -2,7 +2,7 @@
 
 //! Production silicon-instrumented QCD runner.
 //!
-//! Runs the full QCD flavor ladder (quenched, Nf=2, Nf=2+1) at specified
+//! Runs the full QCD flavor ladder (quenched, Nf=1,2,2+1,3,4,2+1+1) at specified
 //! lattice sizes with per-trajectory timing, FLOP counting, energy
 //! accounting (RAPL + nvidia-smi/amdgpu), and QUDA comparison columns.
 //!
@@ -255,6 +255,7 @@ struct CliArgs {
     betas: Vec<f64>,
     mass: f64,
     strange_mass: f64,
+    charm_mass: f64,
     n_therm: usize,
     n_quenched_pretherm: usize,
     n_meas: usize,
@@ -278,6 +279,7 @@ fn parse_args() -> CliArgs {
         betas: vec![5.5, 5.69, 6.0, 6.2],
         mass: 0.1,
         strange_mass: 0.5,
+        charm_mass: 1.5,
         n_therm: 200,
         n_quenched_pretherm: 50,
         n_meas: 100,
@@ -305,6 +307,8 @@ fn parse_args() -> CliArgs {
             args.mass = val.parse().expect("--mass=F");
         } else if let Some(val) = arg.strip_prefix("--strange-mass=") {
             args.strange_mass = val.parse().expect("--strange-mass=F");
+        } else if let Some(val) = arg.strip_prefix("--charm-mass=") {
+            args.charm_mass = val.parse().expect("--charm-mass=F");
         } else if let Some(val) = arg.strip_prefix("--therm=") {
             args.n_therm = val.parse().expect("--therm=N");
         } else if let Some(val) = arg.strip_prefix("--quenched-pretherm=") {
@@ -347,14 +351,24 @@ fn parse_args() -> CliArgs {
 fn mode_label(args: &CliArgs) -> String {
     match args.mode.as_str() {
         "quenched" => "Quenched (pure gauge)".to_string(),
+        "nf1" | "1" => format!("Nf=1 (m={})", args.mass),
         "nf2" | "2" => format!("Nf=2 (m={})", args.mass),
-        "nf2+1" | "2+1" | "3" => format!("Nf=2+1 (m_l={}, m_s={})", args.mass, args.strange_mass),
+        "nf2+1" | "2+1" => format!("Nf=2+1 (m_l={}, m_s={})", args.mass, args.strange_mass),
+        "nf3" | "3" => format!("Nf=3 (m={})", args.mass),
+        "nf4" | "4" => format!("Nf=4 (m={})", args.mass),
+        "nf2+1+1" => format!(
+            "Nf=2+1+1 (m_l={}, m_s={}, m_c={})",
+            args.mass, args.strange_mass, args.charm_mass
+        ),
         other => format!("Unknown mode: {other}"),
     }
 }
 
 fn is_dynamical(mode: &str) -> bool {
-    matches!(mode, "nf2" | "2" | "nf2+1" | "2+1" | "3")
+    matches!(
+        mode,
+        "nf1" | "1" | "nf2" | "2" | "nf2+1" | "2+1" | "nf3" | "3" | "nf4" | "4" | "nf2+1+1"
+    )
 }
 
 // ── Main ──
@@ -614,7 +628,7 @@ fn run_beta_point(
     // Quenched pre-thermalization (streaming path — already zero-sync)
     let quenched_state = GpuHmcState::from_lattice(gpu, &lattice, beta);
     if args.n_quenched_pretherm > 0 {
-        let quenched_pipelines = GpuHmcStreamingPipelines::new(gpu);
+        let quenched_pipelines = GpuHmcStreamingPipelines::new_with_tmu(gpu);
         for i in 0..args.n_quenched_pretherm {
             let r = gpu_hmc_trajectory_streaming(
                 gpu,
@@ -658,7 +672,11 @@ fn run_beta_point(
 
     // ── Dynamical: UNIDIRECTIONAL RHMC (GPU-resident CG, minimal readback) ──
     let mut rhmc_config = match args.mode.as_str() {
-        "nf2+1" | "2+1" | "3" => RhmcConfig::nf2p1(args.mass, args.strange_mass, beta),
+        "nf1" | "1" => RhmcConfig::nf1(args.mass, beta),
+        "nf2+1" | "2+1" => RhmcConfig::nf2p1(args.mass, args.strange_mass, beta),
+        "nf3" | "3" => RhmcConfig::nf3(args.mass, beta),
+        "nf4" | "4" => RhmcConfig::nf4(args.mass, beta),
+        "nf2+1+1" => RhmcConfig::nf2p1p1(args.mass, args.strange_mass, args.charm_mass, beta),
         _ => RhmcConfig::nf2(args.mass, beta),
     };
     rhmc_config.dt = args.dt;
@@ -693,7 +711,7 @@ fn run_beta_point(
     let rhmc_pipelines = GpuRhmcPipelines::new(gpu);
 
     // Build unidirectional buffers for GPU-resident CG (~50x fewer sync points)
-    let uni_pipelines = UniPipelines::new(gpu);
+    let uni_pipelines = UniPipelines::new_saturated(gpu, vol);
     let scg_bufs = GpuResidentShiftedCgBuffers::new(
         gpu,
         &dyn_pipelines,
@@ -903,7 +921,7 @@ fn run_quenched_beta(
     quenched_state: &GpuHmcState,
 ) -> BetaSummary {
     let l = args.lattice;
-    let quenched_pipelines = GpuHmcStreamingPipelines::new(gpu);
+    let quenched_pipelines = GpuHmcStreamingPipelines::new_with_tmu(gpu);
 
     eprintln!(
         "  Thermalizing: {} quenched HMC trajectories (streaming)...",
@@ -1104,9 +1122,10 @@ fn run_gradient_flow_uni(
         args.flow_configs, args.flow_skip
     );
 
+    let vol: usize = dims.iter().product();
     let dyn_pipelines = GpuDynHmcPipelines::new(gpu);
     let rhmc_pipelines = GpuRhmcPipelines::new(gpu);
-    let uni_pipelines = UniPipelines::new(gpu);
+    let uni_pipelines = UniPipelines::new_saturated(gpu, vol);
     let scg_bufs = GpuResidentShiftedCgBuffers::new(
         gpu,
         &dyn_pipelines,
@@ -1213,7 +1232,7 @@ fn run_quenched_gradient_flow(
         args.flow_configs, args.flow_skip
     );
 
-    let pipelines = GpuHmcStreamingPipelines::new(gpu);
+    let pipelines = GpuHmcStreamingPipelines::new_with_tmu(gpu);
     let mut all_t0 = Vec::new();
     let mut all_w0 = Vec::new();
 

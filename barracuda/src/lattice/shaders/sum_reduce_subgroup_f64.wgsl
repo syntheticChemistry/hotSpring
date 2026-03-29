@@ -6,8 +6,11 @@
 // RTX 3090: subgroup_size=32 → 8 subgroups per WG, 3 barrier steps
 // RX 6950 XT: subgroup_size=64 → 4 subgroups per WG, 2 barrier steps
 // vs 8 barrier steps in the shared-memory-only version.
-
-enable subgroups;
+//
+// NOTE: Do NOT add `enable subgroups;` — naga 28 generates broken SPIR-V
+// when the enable directive is present, causing all subgroup ops to return 0.
+// wgpu's SUBGROUP device feature is sufficient; the directive is redundant.
+// Diagnosed via diagnose_subgroup_f64 on NVIDIA RTX 3090 + AMD RX 6950 XT.
 
 struct ReduceParams {
     size: u32,

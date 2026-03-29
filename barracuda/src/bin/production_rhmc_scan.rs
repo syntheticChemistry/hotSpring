@@ -179,7 +179,7 @@ fn main() {
         // Quenched pre-thermalization on a separate state (fast, warms gauge field)
         let quenched_state = GpuHmcState::from_lattice(&gpu, &lattice, beta);
         if args.n_quenched_pretherm > 0 {
-            let quenched_pipelines = GpuHmcStreamingPipelines::new(&gpu);
+            let quenched_pipelines = GpuHmcStreamingPipelines::new_with_tmu(&gpu);
             for i in 0..args.n_quenched_pretherm {
                 let r = gpu_hmc_trajectory_streaming(
                     &gpu,
@@ -257,10 +257,11 @@ fn main() {
             gpu.submit_encoder(enc);
         }
 
-        // Compile pipelines + unidirectional buffers
+        // Compile pipelines + unidirectional buffers (silicon-saturated: TMU + ROP)
+        let vol: usize = dims.iter().product();
         let dyn_pipelines = GpuDynHmcPipelines::new(&gpu);
         let rhmc_pipelines = GpuRhmcPipelines::new(&gpu);
-        let uni_pipelines = UniPipelines::new(&gpu);
+        let uni_pipelines = UniPipelines::new_saturated(&gpu, vol);
         let scg_bufs = GpuResidentShiftedCgBuffers::new(
             &gpu,
             &dyn_pipelines,

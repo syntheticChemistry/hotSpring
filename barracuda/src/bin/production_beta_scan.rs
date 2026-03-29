@@ -199,7 +199,7 @@ fn main() {
     let total_start = Instant::now();
     let mut results = Vec::new();
 
-    let pipelines = GpuHmcStreamingPipelines::new(&gpu);
+    let pipelines = GpuHmcStreamingPipelines::new_with_tmu(&gpu);
 
     for (bi, &beta) in args.betas.iter().enumerate() {
         println!("── β = {:.4} ({}/{}) ──", beta, bi + 1, args.betas.len());

@@ -237,7 +237,7 @@ fn main() {
     );
     println!();
 
-    let pipelines = GpuHmcStreamingPipelines::new(&gpu);
+    let pipelines = GpuHmcStreamingPipelines::new_with_tmu(&gpu);
     let total_start = Instant::now();
     let mut results: Vec<BetaResult> = Vec::new();
     let mut total_trajectories = 0usize;

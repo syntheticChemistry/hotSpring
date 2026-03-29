@@ -1,6 +1,6 @@
 # Silicon Tier Routing Architecture
 
-**Status**: Active — Exp 106
+**Status**: Active — Exp 107 (silicon-saturated production)
 **Version**: hotSpring v0.6.32+
 **License**: AGPL-3.0-only
 
@@ -103,14 +103,14 @@ Composition: ALU + TMU = **1.95x** multiplier (16.9ms serial → 8.7ms compound)
 
 | Tier | Silicon Unit | Production Shader Path | Status |
 |------|-------------|----------------------|--------|
-| 0 | TMU | `bench_qcd_silicon_routing.rs` PRNG kernel | **BENCH ONLY** — not wired into RHMC |
-| 0 | TMU stencil | `bench_qcd_silicon_routing.rs` stencil kernel | **BENCH ONLY** |
+| 0 | TMU PRNG | `su3_random_momenta_tmu_f64.wgsl` via `new_with_tmu` / `new_saturated` | **LIVE** — all production binaries (streaming + unidirectional) |
+| 0 | TMU stencil | `bench_qcd_silicon_routing.rs` stencil kernel | **BENCH ONLY** — Dirac stencil TMU cache TBD |
 | 1 | Tensor Cores | — | **PLAN** — requires coralReef SASS MMA emission |
 | 2 | FP32 ALU (DF64) | All production RHMC shaders | **LIVE** — default path |
-| 3 | ROP atomics | — | **PLAN** — scatter-add force accumulation |
-| 4 | Subgroup | — | **PLAN** — shuffle-reduce for CG dots |
-| 5 | Shared Memory | CG tree reduction (existing) | **LIVE** — in resident CG reduce chain |
-| 6 | FP64 ALU | — | **PLAN** — Metropolis/observable via native f64 |
+| 3 | ROP atomics | `su3_fermion_force_accumulate_rop_f64.wgsl` via `new_saturated` | **LIVE** — production RHMC (`UniPipelines::new_saturated`) |
+| 4 | Subgroup | `sum_reduce_subgroup_f64.wgsl` via `GpuResidentCgPipelines::new` | **LIVE** — root cause found: naga 28 `enable subgroups;` directive emits broken SPIR-V. Fix: strip directive, rely on `SUBGROUP` device feature. `subgroupAdd(f64)` confirmed on NVIDIA + AMD. |
+| 5 | Shared Memory | CG tree reduction (fallback) | **LIVE** — fallback when subgroup unavailable |
+| 6 | FP64 ALU | Adaptive via `Fp64Strategy` (native/hybrid/concurrent/sovereign) | **LIVE** — Metropolis, observable, CG precision on capable cards |
 
 ## coralReef Integration Points
 
@@ -194,6 +194,11 @@ Sync count drops from O(I/C) to O(log(I/C)) — roughly 820 → 25 for typical
 41000-iteration solves. Zero-fill optimization: replaced CPU `Vec` allocation
 + `upload_f64` with `zero_buffer()` in all CG init paths (resident, shifted,
 async, brain, RHMC, dynamical).
+
+**March 2026 update**: `CG_CHECK_INTERVAL` increased 50 → 200 in the
+unidirectional RHMC path. A typical ~200-iteration solve now needs only 2
+readbacks (initial ‖b‖² + 1 convergence check). The initial batch is large
+enough to amortize sync overhead to < 0.1% of compute time on both cards.
 
 ### Priority Order
 
@@ -281,12 +286,46 @@ The `bench_silicon_profile` binary wraps each saturation experiment with
 4. After: compute loaded average, call `profile.set_measured_energy(unit, idle, loaded)`
 5. Composition benchmark: same pattern, stored in `CompositionEntry` energy fields
 
+### B7: Subgroup Reduce Bug — ✅ RESOLVED (Exp 108)
+
+**Root cause**: naga 28 (wgpu 28.0.0) generates broken SPIR-V when the WGSL
+`enable subgroups;` directive is present. All subgroup operations (`subgroupAdd`,
+`subgroupShuffleXor`, etc.) silently return zero — on BOTH NVIDIA and AMD.
+
+**Diagnosis**: `diagnose_subgroup_f64` binary tested 7 shader variants:
+- With `enable subgroups;`: ALL subgroup ops return 0 (f32 and f64)
+- Without `enable subgroups;`: ALL subgroup ops produce correct results
+
+**Fix**: Strip `enable subgroups;` from all shaders. The `SUBGROUP` device
+feature (negotiated at device creation) is sufficient — the directive is
+redundant and harmful. Also patched `compile_shader_f64` in barraCuda to strip
+the directive automatically (same pattern as `enable f64;` stripping).
+
+**Impact**: CG dot-product reduction now uses `subgroupAdd(f64)` (Tier 4),
+eliminating shared memory traffic for intra-warp/wavefront reduction.
+RTX 3090: 8 subgroups/WG, 3 barrier steps saved per reduce pass.
+RX 6950 XT: 4 subgroups/WG, 2 barrier steps saved per reduce pass.
+
+**Files modified**:
+- `barracuda/src/lattice/shaders/sum_reduce_subgroup_f64.wgsl` — removed directive
+- `barracuda/src/lattice/gpu_hmc/resident_cg_pipelines.rs` — re-enabled subgroup path
+- `barraCuda compilation.rs` — strip `enable subgroups;` in `compile_shader_f64`
+- `barracuda/src/bin/diagnose_subgroup_f64.rs` — diagnostic binary (kept for regression)
+
 ## Related Documents
 
 - Exp 096-100: `experiments/100_SILICON_CHARACTERIZATION_AT_SCALE.md`
 - Exp 105: `experiments/105_SILICON_ROUTED_QCD_REVALIDATION.md`
+- Exp 107: `experiments/107_SILICON_SATURATION_PROFILING.md`
 - Silicon profile data: `profiles/silicon/*.json`
 - Silicon profile code: `barracuda/src/bench/silicon_profile.rs`
 - Telemetry: `barracuda/src/bench/telemetry.rs`
 - Precision routing: `barracuda/src/precision_routing.rs`
+- TMU PRNG: `barracuda/src/lattice/shaders/su3_random_momenta_tmu_f64.wgsl`
+- TMU tables: `barracuda/src/lattice/gpu_hmc/tmu_tables.rs`
+- Subgroup reduce: `barracuda/src/lattice/shaders/sum_reduce_subgroup_f64.wgsl`
+- ROP force accum: `barracuda/src/lattice/gpu_hmc/rop_force_accum.rs`
+- ROP shader: `barracuda/src/lattice/shaders/su3_fermion_force_accumulate_rop_f64.wgsl`
+- Silicon inventory: `specs/SILICON_INVENTORY.md` — per-card, per-unit utilization matrix
+- Subgroup diagnostic: `barracuda/src/bin/diagnose_subgroup_f64.rs`
 - Legacy deprecation: `barracuda/DEPRECATION_MIGRATION.md` (Lattice QCD section)

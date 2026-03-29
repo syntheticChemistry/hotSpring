@@ -455,6 +455,30 @@ impl RhmcConfig {
         }
     }
 
+    /// Nf=1 configuration: one physical flavor from 4-taste staggered.
+    ///
+    /// det(D†D)^{1/8}. Useful for exploring the Nf dependence of the
+    /// deconfinement transition and as the simplest dynamical benchmark.
+    #[must_use]
+    pub fn nf1(mass: f64, beta: f64) -> Self {
+        let det_power = 0.125; // 1/8
+        let af = RationalApproximation::generate(-det_power, 8, 0.01, 64.0);
+        Self {
+            sectors: vec![RhmcFermionConfig {
+                mass,
+                det_power,
+                action_approx: af.clone(),
+                heatbath_approx: RationalApproximation::generate(det_power / 2.0, 8, 0.01, 64.0),
+                force_approx: af,
+            }],
+            beta,
+            dt: 0.01,
+            n_md_steps: 50,
+            cg_tol: 1e-8,
+            cg_max_iter: 5000,
+        }
+    }
+
     /// Nf=2+1 configuration: light (u,d) det^{1/4} + strange det^{1/8}.
     ///
     /// Light sector: α = 1/4 (two degenerate flavors from 4-taste staggered)
@@ -495,6 +519,103 @@ impl RhmcConfig {
             beta,
             dt: 0.01,
             n_md_steps: 50,
+            cg_tol: 1e-8,
+            cg_max_iter: 5000,
+        }
+    }
+
+    /// Nf=3 configuration: three degenerate flavors → det(D†D)^{3/8}.
+    ///
+    /// Single sector with α = 3/8. More poles needed for higher fractional
+    /// powers to maintain rational approximation accuracy.
+    #[must_use]
+    pub fn nf3(mass: f64, beta: f64) -> Self {
+        let det_power = 0.375; // 3/8
+        let af = RationalApproximation::generate(-det_power, 12, 0.01, 64.0);
+        Self {
+            sectors: vec![RhmcFermionConfig {
+                mass,
+                det_power,
+                action_approx: af.clone(),
+                heatbath_approx: RationalApproximation::generate(det_power / 2.0, 12, 0.01, 64.0),
+                force_approx: af,
+            }],
+            beta,
+            dt: 0.01,
+            n_md_steps: 50,
+            cg_tol: 1e-8,
+            cg_max_iter: 5000,
+        }
+    }
+
+    /// Nf=4 configuration: four degenerate flavors → det(D†D)^{1/2}.
+    ///
+    /// α = 4/8 = 1/2. The simplest even case — no rooting needed for
+    /// 4-taste staggered. Equivalent to HMC with one unrooted field.
+    #[must_use]
+    pub fn nf4(mass: f64, beta: f64) -> Self {
+        let det_power = 0.5; // 4/8
+        let af = RationalApproximation::generate(-det_power, 8, 0.01, 64.0);
+        Self {
+            sectors: vec![RhmcFermionConfig {
+                mass,
+                det_power,
+                action_approx: af.clone(),
+                heatbath_approx: RationalApproximation::generate(det_power / 2.0, 8, 0.01, 64.0),
+                force_approx: af,
+            }],
+            beta,
+            dt: 0.01,
+            n_md_steps: 50,
+            cg_tol: 1e-8,
+            cg_max_iter: 5000,
+        }
+    }
+
+    /// Nf=2+1+1 configuration: light (u,d) + strange + charm.
+    ///
+    /// Physical QCD: u,d at light mass, s at intermediate, c at heavy.
+    /// Three fermion sectors with appropriate rooting powers.
+    #[must_use]
+    pub fn nf2p1p1(light_mass: f64, strange_mass: f64, charm_mass: f64, beta: f64) -> Self {
+        let light_power = 0.25; // 2/8
+        let single_power = 0.125; // 1/8
+        let light_af = RationalApproximation::generate(-light_power, 8, 0.01, 64.0);
+        let strange_af = RationalApproximation::generate(-single_power, 8, 0.01, 64.0);
+        let charm_af = RationalApproximation::generate(-single_power, 8, 0.01, 64.0);
+        Self {
+            sectors: vec![
+                RhmcFermionConfig {
+                    mass: light_mass,
+                    det_power: light_power,
+                    action_approx: light_af.clone(),
+                    heatbath_approx: RationalApproximation::generate(
+                        light_power / 2.0, 8, 0.01, 64.0,
+                    ),
+                    force_approx: light_af,
+                },
+                RhmcFermionConfig {
+                    mass: strange_mass,
+                    det_power: single_power,
+                    action_approx: strange_af.clone(),
+                    heatbath_approx: RationalApproximation::generate(
+                        single_power / 2.0, 8, 0.01, 64.0,
+                    ),
+                    force_approx: strange_af,
+                },
+                RhmcFermionConfig {
+                    mass: charm_mass,
+                    det_power: single_power,
+                    action_approx: charm_af.clone(),
+                    heatbath_approx: RationalApproximation::generate(
+                        single_power / 2.0, 8, 0.01, 64.0,
+                    ),
+                    force_approx: charm_af,
+                },
+            ],
+            beta,
+            dt: 0.008,
+            n_md_steps: 60,
             cg_tol: 1e-8,
             cg_max_iter: 5000,
         }

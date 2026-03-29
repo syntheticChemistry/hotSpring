@@ -195,7 +195,7 @@ fn main() {
             "\n  Phase 0: Quenched pre-thermalization ({} HMC)...",
             args.n_quenched_pretherm
         );
-        let quenched_pipelines = GpuHmcStreamingPipelines::new(&gpu);
+        let quenched_pipelines = GpuHmcStreamingPipelines::new_with_tmu(&gpu);
         for i in 0..args.n_quenched_pretherm {
             let r = gpu_hmc_trajectory_streaming(
                 &gpu,
@@ -255,7 +255,7 @@ fn main() {
 
     let dyn_pipelines = GpuDynHmcPipelines::new(&gpu);
     let rhmc_pipelines = GpuRhmcPipelines::new(&gpu);
-    let uni_pipelines = UniPipelines::new(&gpu);
+    let uni_pipelines = UniPipelines::new_saturated(&gpu, vol);
     let scg_bufs = GpuResidentShiftedCgBuffers::new(
         &gpu,
         &dyn_pipelines,

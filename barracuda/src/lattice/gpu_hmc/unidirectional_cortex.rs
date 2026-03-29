@@ -63,7 +63,8 @@ impl UnidirectionalRhmc {
         rhmc_pipelines: GpuRhmcPipelines,
         state: GpuRhmcState,
     ) -> Self {
-        let uni_pipelines = UniPipelines::new(&gpu);
+        let vol = state.gauge.gauge.volume;
+        let uni_pipelines = UniPipelines::new_saturated(&gpu, vol);
         let scg_bufs = GpuResidentShiftedCgBuffers::new(
             &gpu,
             &dyn_pipelines,

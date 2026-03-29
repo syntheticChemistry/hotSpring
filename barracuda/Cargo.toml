@@ -81,6 +81,7 @@ gpu_energy = []
 npu-hw = ["dep:akida-driver", "dep:akida-models"]
 sovereign-dispatch = ["barracuda/sovereign-dispatch"]
 cuda-validation = ["dep:cudarc", "dep:base64"]
+coral-sovereign = ["dep:coral-gpu"]
 
 [dependencies]
 # BarraCuda (standalone primal): math, shaders, compilation, ESN, NPU math
@@ -126,6 +127,9 @@ naga = { version = "28", features = ["wgsl-in"] }
 
 # Blocking async operations (adapter enumeration is async in wgpu 28)
 pollster = "0.4"
+
+# Sovereign GPU dispatch: coralReef compiler + DRM driver (no wgpu/naga)
+coral-gpu = { path = "../../../primals/coralReef/crates/coral-gpu", optional = true }
 
 # Low-level syscalls (mmap for BAR0 register reading in Exp 070 binaries)
 libc = "0.2"
@@ -810,4 +814,10 @@ path = "src/bin/bench_silicon_profile.rs"
 [[bin]]
 name = "production_silicon_qcd"
 path = "src/bin/production_silicon_qcd.rs"
+
+# ── Sovereign pipeline: coralReef compiler + DRM dispatch (no wgpu/naga) ──
+[[bin]]
+name = "validate_coral_sovereign"
+path = "src/bin/validate_coral_sovereign.rs"
+required-features = ["coral-sovereign"]
 
