@@ -11,7 +11,7 @@
 # Run: pkexec /path/to/deploy_glowplug.sh
 set -euo pipefail
 
-CORALREEF="/home/biomegate/Development/ecoPrimals/coralReef"
+CORALREEF="${CORALREEF:-${HOME}/Development/ecoPrimals/coralReef}"
 TARGET="${CORALREEF}/target/release"
 
 echo "═══ coral-glowplug + coral-ember deployment ═══"

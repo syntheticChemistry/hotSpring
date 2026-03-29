@@ -22,9 +22,7 @@
 //! condition number, not the integrator.
 
 use hotspring_barracuda::gpu::GpuF64;
-use hotspring_barracuda::lattice::gpu_flow::{
-    gpu_gradient_flow, GpuFlowPipelines, GpuFlowState,
-};
+use hotspring_barracuda::lattice::gpu_flow::{gpu_gradient_flow, GpuFlowPipelines, GpuFlowState};
 use hotspring_barracuda::lattice::gpu_hmc::dynamical::{GpuDynHmcPipelines, GpuDynHmcState};
 #[allow(deprecated)]
 use hotspring_barracuda::lattice::gpu_hmc::gpu_rhmc::{
@@ -45,7 +43,11 @@ struct DtAdapter {
 
 impl DtAdapter {
     fn new(dt: f64) -> Self {
-        Self { dt, accept_history: Vec::new(), delta_h_history: Vec::new() }
+        Self {
+            dt,
+            accept_history: Vec::new(),
+            delta_h_history: Vec::new(),
+        }
     }
 
     fn observe(&mut self, accepted: bool, delta_h: f64) {
@@ -58,19 +60,24 @@ impl DtAdapter {
     }
 
     fn acceptance_rate(&self) -> f64 {
-        if self.accept_history.is_empty() { return 0.5; }
-        self.accept_history.iter().filter(|&&a| a).count() as f64
-            / self.accept_history.len() as f64
+        if self.accept_history.is_empty() {
+            return 0.5;
+        }
+        self.accept_history.iter().filter(|&&a| a).count() as f64 / self.accept_history.len() as f64
     }
 
     fn mean_abs_delta_h(&self) -> f64 {
-        if self.delta_h_history.is_empty() { return 0.0; }
+        if self.delta_h_history.is_empty() {
+            return 0.0;
+        }
         self.delta_h_history.iter().sum::<f64>() / self.delta_h_history.len() as f64
     }
 
     /// Nudge dt toward ~60% acceptance. Called periodically.
     fn adapt(&mut self) {
-        if self.accept_history.len() < 5 { return; }
+        if self.accept_history.len() < 5 {
+            return;
+        }
         let acc = self.acceptance_rate();
         let mean_dh = self.mean_abs_delta_h();
 
@@ -107,7 +114,12 @@ fn main() {
     println!("═══════════════════════════════════════════════════════════════");
     println!("  GPU Self-Tuning RHMC — Zero Magic Numbers");
     println!("═══════════════════════════════════════════════════════════════");
-    println!("  Lattice: {}⁴ ({} sites)  β={beta:.4}  Nf={}", lattice_size, vol, nf_label(nf, mass, strange_mass));
+    println!(
+        "  Lattice: {}⁴ ({} sites)  β={beta:.4}  Nf={}",
+        lattice_size,
+        vol,
+        nf_label(nf, mass, strange_mass)
+    );
     println!("  Configs: {n_configs}  |  Everything else discovered.");
     println!();
 
@@ -137,15 +149,23 @@ fn main() {
 
     loop {
         let r = hotspring_barracuda::lattice::gpu_hmc::gpu_hmc_trajectory(
-            &gpu, &hmc_pipelines, &hmc_state, 10, 0.1, &mut rng_seed,
+            &gpu,
+            &hmc_pipelines,
+            &hmc_state,
+            10,
+            0.1,
+            &mut rng_seed,
         );
         pretherm_count += 1;
         plaq_window.push(r.plaquette);
-        if plaq_window.len() > 10 { plaq_window.remove(0); }
+        if plaq_window.len() > 10 {
+            plaq_window.remove(0);
+        }
 
         if pretherm_count % 20 == 0 {
             let mean = plaq_window.iter().sum::<f64>() / plaq_window.len() as f64;
-            let var = plaq_window.iter().map(|p| (p - mean).powi(2)).sum::<f64>() / plaq_window.len() as f64;
+            let var = plaq_window.iter().map(|p| (p - mean).powi(2)).sum::<f64>()
+                / plaq_window.len() as f64;
             let rv = var.sqrt() / mean.max(1e-10);
             println!("  pretherm {pretherm_count}: ⟨P⟩={mean:.6} σ/⟨P⟩={rv:.2e}");
             if plaq_window.len() >= 10 && rv < 1e-3 {
@@ -153,9 +173,16 @@ fn main() {
                 break;
             }
         }
-        if pretherm_count >= 200 { println!("  → Max reached."); break; }
+        if pretherm_count >= 200 {
+            println!("  → Max reached.");
+            break;
+        }
     }
-    println!("  {} traj in {:.1}s", pretherm_count, t1.elapsed().as_secs_f64());
+    println!(
+        "  {} traj in {:.1}s",
+        pretherm_count,
+        t1.elapsed().as_secs_f64()
+    );
 
     let mut lat_cpu = Lattice::hot_start(dims, beta, seed + 1);
     hotspring_barracuda::lattice::gpu_hmc::gpu_links_to_lattice(&gpu, &hmc_state, &mut lat_cpu);
@@ -170,12 +197,20 @@ fn main() {
 
     let base_config = calibrator.produce_config();
     let dyn_state = GpuDynHmcState::from_lattice(
-        &gpu, &lat_cpu, beta, mass, base_config.cg_tol, base_config.cg_max_iter,
+        &gpu,
+        &lat_cpu,
+        beta,
+        mass,
+        base_config.cg_tol,
+        base_config.cg_max_iter,
     );
     let rhmc_state = GpuRhmcState::new(&gpu, &base_config, dyn_state);
 
     let spectral = calibrator.calibrate_spectral(&gpu, &dyn_pipelines, &rhmc_state.gauge);
-    println!("  Spectral: λ_min≥{:.4e} λ_max≈{:.2}", spectral.lambda_min, spectral.lambda_max);
+    println!(
+        "  Spectral: λ_min≥{:.4e} λ_max≈{:.2}",
+        spectral.lambda_min, spectral.lambda_max
+    );
     println!("  Poles: {} per sector", calibrator.n_poles());
 
     // ═══ Phase 2b: dt discovery (binary search, n_md=1) ═════════
@@ -187,14 +222,30 @@ fn main() {
         config.dt = probe_dt;
         config.n_md_steps = 1;
         let r = gpu_rhmc_trajectory(
-            &gpu, &dyn_pipelines, &rhmc_pipelines, &rhmc_state, &config, &mut rng_seed,
+            &gpu,
+            &dyn_pipelines,
+            &rhmc_pipelines,
+            &rhmc_state,
+            &config,
+            &mut rng_seed,
         );
         let dh = r.delta_h.abs();
-        println!("  probe {:>2}: dt={:.2e} |ΔH|={:.2e} {} cg={}", round + 1, probe_dt, dh,
-            if r.accepted { "✓" } else { "✗" }, r.total_cg_iterations);
+        println!(
+            "  probe {:>2}: dt={:.2e} |ΔH|={:.2e} {} cg={}",
+            round + 1,
+            probe_dt,
+            dh,
+            if r.accepted { "✓" } else { "✗" },
+            r.total_cg_iterations
+        );
 
-        if dh < 1.5 { println!("  → dt={probe_dt:.2e} viable"); break; }
-        if probe_dt < 1e-6 { break; }
+        if dh < 1.5 {
+            println!("  → dt={probe_dt:.2e} viable");
+            break;
+        }
+        if probe_dt < 1e-6 {
+            break;
+        }
         probe_dt *= 0.5;
     }
 
@@ -210,29 +261,49 @@ fn main() {
         config.dt = ctrl.dt;
         config.n_md_steps = n_md;
         let r = gpu_rhmc_trajectory(
-            &gpu, &dyn_pipelines, &rhmc_pipelines, &rhmc_state, &config, &mut rng_seed,
+            &gpu,
+            &dyn_pipelines,
+            &rhmc_pipelines,
+            &rhmc_state,
+            &config,
+            &mut rng_seed,
         );
         ctrl.observe(r.accepted, r.delta_h);
 
-        if i % 5 == 0 { ctrl.adapt(); }
+        if i % 5 == 0 {
+            ctrl.adapt();
+        }
         if i % 10 == 0 || i <= 3 {
             println!(
                 "  therm {:>3}: P={:.6} ΔH={:>8.3} {} acc={:.0}% dt={:.2e} cg={}",
-                i, r.plaquette, r.delta_h, if r.accepted { "✓" } else { "✗" },
-                ctrl.acceptance_rate() * 100.0, ctrl.dt, r.total_cg_iterations,
+                i,
+                r.plaquette,
+                r.delta_h,
+                if r.accepted { "✓" } else { "✗" },
+                ctrl.acceptance_rate() * 100.0,
+                ctrl.dt,
+                r.total_cg_iterations,
             );
         }
 
         if i >= 30 && ctrl.accept_history.len() >= 20 {
             let acc = ctrl.acceptance_rate();
             if acc >= 0.45 && acc <= 0.80 && ctrl.mean_abs_delta_h() < 2.0 {
-                println!("  → Converged: acc={:.0}% ⟨|ΔH|⟩={:.2}", acc * 100.0, ctrl.mean_abs_delta_h());
+                println!(
+                    "  → Converged: acc={:.0}% ⟨|ΔH|⟩={:.2}",
+                    acc * 100.0,
+                    ctrl.mean_abs_delta_h()
+                );
                 break;
             }
         }
     }
-    println!("  Thermalization: {:.1}s, dt={:.2e}, acc={:.0}%",
-        t3.elapsed().as_secs_f64(), ctrl.dt, ctrl.acceptance_rate() * 100.0);
+    println!(
+        "  Thermalization: {:.1}s, dt={:.2e}, acc={:.0}%",
+        t3.elapsed().as_secs_f64(),
+        ctrl.dt,
+        ctrl.acceptance_rate() * 100.0
+    );
 
     // ═══ Phase 4: Production RHMC + GPU gradient flow ════════════
     // With n_md=1, decorrelation needs many trajectories.
@@ -254,7 +325,12 @@ fn main() {
             config.dt = ctrl.dt;
             config.n_md_steps = n_md;
             let r = gpu_rhmc_trajectory(
-                &gpu, &dyn_pipelines, &rhmc_pipelines, &rhmc_state, &config, &mut rng_seed,
+                &gpu,
+                &dyn_pipelines,
+                &rhmc_pipelines,
+                &rhmc_state,
+                &config,
+                &mut rng_seed,
             );
             ctrl.observe(r.accepted, r.delta_h);
         }
@@ -266,7 +342,12 @@ fn main() {
         config.dt = ctrl.dt;
         config.n_md_steps = n_md;
         let meas = gpu_rhmc_trajectory(
-            &gpu, &dyn_pipelines, &rhmc_pipelines, &rhmc_state, &config, &mut rng_seed,
+            &gpu,
+            &dyn_pipelines,
+            &rhmc_pipelines,
+            &rhmc_state,
+            &config,
+            &mut rng_seed,
         );
         ctrl.observe(meas.accepted, meas.delta_h);
         plaquettes.push(meas.plaquette);
@@ -274,15 +355,24 @@ fn main() {
         // GPU gradient flow
         let mut flow_lat = Lattice::hot_start(dims, beta, seed + 100 + cfg_idx as u64);
         hotspring_barracuda::lattice::gpu_hmc::gpu_links_to_lattice(
-            &gpu, &rhmc_state.gauge.gauge, &mut flow_lat,
+            &gpu,
+            &rhmc_state.gauge.gauge,
+            &mut flow_lat,
         );
-        let (t0_val, w0_val) = run_adaptive_flow(&gpu, &flow_pipelines, &flow_lat, beta, flow_epsilon);
-        if let Some(v) = t0_val { t0_values.push(v); }
-        if let Some(v) = w0_val { w0_values.push(v); }
+        let (t0_val, w0_val) =
+            run_adaptive_flow(&gpu, &flow_pipelines, &flow_lat, beta, flow_epsilon);
+        if let Some(v) = t0_val {
+            t0_values.push(v);
+        }
+        if let Some(v) = w0_val {
+            w0_values.push(v);
+        }
 
         println!(
             "  cfg {:>2}/{}: P={:.6} t₀={} w₀={} ({:.1}s) acc={:.0}%",
-            cfg_idx + 1, n_configs, meas.plaquette,
+            cfg_idx + 1,
+            n_configs,
+            meas.plaquette,
             t0_val.map_or("N/A".into(), |v| format!("{v:.4}")),
             w0_val.map_or("N/A".into(), |v| format!("{v:.4}")),
             cfg_start.elapsed().as_secs_f64(),
@@ -293,31 +383,48 @@ fn main() {
     // ═══ Summary ══════════════════════════════════════════════════
     let total_secs = t_total.elapsed().as_secs_f64();
     println!("\n══════════════════════════════════════════════════════════");
-    println!("  {}⁴ Nf={} Self-Tuning RHMC + GPU Flow", lattice_size, nf_label(nf, mass, strange_mass));
+    println!(
+        "  {}⁴ Nf={} Self-Tuning RHMC + GPU Flow",
+        lattice_size,
+        nf_label(nf, mass, strange_mass)
+    );
     println!("══════════════════════════════════════════════════════════");
 
     let n = plaquettes.len().max(1) as f64;
     let mean_plaq = plaquettes.iter().sum::<f64>() / n;
     let plaq_err = if plaquettes.len() > 1 {
-        let var: f64 = plaquettes.iter().map(|p| (p - mean_plaq).powi(2)).sum::<f64>() / (plaquettes.len() - 1) as f64;
+        let var: f64 = plaquettes
+            .iter()
+            .map(|p| (p - mean_plaq).powi(2))
+            .sum::<f64>()
+            / (plaquettes.len() - 1) as f64;
         var.sqrt() / n.sqrt()
-    } else { 0.0 };
+    } else {
+        0.0
+    };
     println!("  ⟨P⟩       = {mean_plaq:.6} ± {plaq_err:.6}");
 
     if !t0_values.is_empty() {
         let m = t0_values.iter().sum::<f64>() / t0_values.len() as f64;
         println!("  t₀        = {m:.4} ({}/{})", t0_values.len(), n_configs);
-    } else { println!("  t₀        = not found"); }
+    } else {
+        println!("  t₀        = not found");
+    }
     if !w0_values.is_empty() {
         let m = w0_values.iter().sum::<f64>() / w0_values.len() as f64;
         println!("  w₀        = {m:.4} ({}/{})", w0_values.len(), n_configs);
-    } else { println!("  w₀        = not found"); }
+    } else {
+        println!("  w₀        = not found");
+    }
 
     println!("  dt        = {:.2e} (self-tuned)", ctrl.dt);
     println!("  n_md      = {n_md}");
     println!("  acceptance= {:.1}%", ctrl.acceptance_rate() * 100.0);
     println!("  ⟨|ΔH|⟩   = {:.3}", ctrl.mean_abs_delta_h());
-    println!("  wall      = {total_secs:.1}s ({:.2}h)", total_secs / 3600.0);
+    println!(
+        "  wall      = {total_secs:.1}s ({:.2}h)",
+        total_secs / 3600.0
+    );
 
     println!("\ncfg,plaquette,t0,w0");
     for (i, &p) in plaquettes.iter().enumerate() {
@@ -328,14 +435,28 @@ fn main() {
 }
 
 fn run_adaptive_flow(
-    gpu: &GpuF64, pipelines: &GpuFlowPipelines, lattice: &Lattice, beta: f64, epsilon: f64,
+    gpu: &GpuF64,
+    pipelines: &GpuFlowPipelines,
+    lattice: &Lattice,
+    beta: f64,
+    epsilon: f64,
 ) -> (Option<f64>, Option<f64>) {
     let mut t_max = 4.0;
     while t_max <= 32.0 {
         let state = GpuFlowState::from_lattice(gpu, lattice, beta);
-        let fr = gpu_gradient_flow(gpu, pipelines, &state, FlowIntegrator::Lscfrk3w7, epsilon, t_max, 10);
+        let fr = gpu_gradient_flow(
+            gpu,
+            pipelines,
+            &state,
+            FlowIntegrator::Lscfrk3w7,
+            epsilon,
+            t_max,
+            10,
+        );
         let (t0, w0) = extract_t0_w0(&fr.measurements);
-        if t0.is_some() { return (t0, w0); }
+        if t0.is_some() {
+            return (t0, w0);
+        }
         t_max *= 2.0;
     }
     (None, None)
@@ -381,7 +502,11 @@ fn parse_nf(args: &[String]) -> usize {
     for (i, a) in args.iter().enumerate() {
         if a == "--nf" {
             if let Some(v) = args.get(i + 1) {
-                return match v.as_str() { "2+1" | "3" => 3, "2" => 2, o => o.parse().unwrap_or(2) };
+                return match v.as_str() {
+                    "2+1" | "3" => 3,
+                    "2" => 2,
+                    o => o.parse().unwrap_or(2),
+                };
             }
         }
     }
@@ -390,16 +515,28 @@ fn parse_nf(args: &[String]) -> usize {
 
 fn parse_arg(args: &[String], name: &str, default: usize) -> usize {
     for (i, a) in args.iter().enumerate() {
-        if a.starts_with(&format!("{name}=")) { return a.split('=').nth(1).unwrap().parse().unwrap_or(default); }
-        if a == name { if let Some(v) = args.get(i + 1) { return v.parse().unwrap_or(default); } }
+        if a.starts_with(&format!("{name}=")) {
+            return a.split('=').nth(1).unwrap().parse().unwrap_or(default);
+        }
+        if a == name {
+            if let Some(v) = args.get(i + 1) {
+                return v.parse().unwrap_or(default);
+            }
+        }
     }
     default
 }
 
 fn parse_arg_f64(args: &[String], name: &str, default: f64) -> f64 {
     for (i, a) in args.iter().enumerate() {
-        if a.starts_with(&format!("{name}=")) { return a.split('=').nth(1).unwrap().parse().unwrap_or(default); }
-        if a == name { if let Some(v) = args.get(i + 1) { return v.parse().unwrap_or(default); } }
+        if a.starts_with(&format!("{name}=")) {
+            return a.split('=').nth(1).unwrap().parse().unwrap_or(default);
+        }
+        if a == name {
+            if let Some(v) = args.get(i + 1) {
+                return v.parse().unwrap_or(default);
+            }
+        }
     }
     default
 }

@@ -92,16 +92,14 @@ impl SharedState {
             .store(snap.mem_util_pct.to_bits(), Ordering::Relaxed);
         self.power_w
             .store(snap.power_w.to_bits(), Ordering::Relaxed);
-        self.temp_c
-            .store(snap.temp_c.to_bits(), Ordering::Relaxed);
+        self.temp_c.store(snap.temp_c.to_bits(), Ordering::Relaxed);
         self.vram_used_mib
             .store(snap.vram_used_mib.to_bits(), Ordering::Relaxed);
         self.vram_total_mib
             .store(snap.vram_total_mib.to_bits(), Ordering::Relaxed);
         self.fan_pct
             .store(snap.fan_pct.to_bits(), Ordering::Relaxed);
-        self.sample_id
-            .store(snap.sample_id, Ordering::Release);
+        self.sample_id.store(snap.sample_id, Ordering::Release);
     }
 
     fn load_snapshot(&self) -> GpuSnapshot {
@@ -156,7 +154,9 @@ impl GpuTelemetry {
 
         if name_lower.contains("nvidia") || name_lower.contains("geforce") {
             Self::start_nvidia(state, adapter_name)
-        } else if name_lower.contains("amd") || name_lower.contains("radeon") || name_lower.contains("radv")
+        } else if name_lower.contains("amd")
+            || name_lower.contains("radeon")
+            || name_lower.contains("radv")
         {
             Self::start_amd(state)
         } else {
@@ -217,7 +217,10 @@ impl GpuTelemetry {
                                     temp_c: parts[3].parse().unwrap_or(0.0),
                                     vram_used_mib: parts[4].parse().unwrap_or(0.0),
                                     vram_total_mib: parts[5].parse().unwrap_or(0.0),
-                                    fan_pct: parts.get(6).and_then(|s| s.parse().ok()).unwrap_or(0.0),
+                                    fan_pct: parts
+                                        .get(6)
+                                        .and_then(|s| s.parse().ok())
+                                        .unwrap_or(0.0),
                                     sample_id,
                                 };
                                 poll_state.store_snapshot(&snap);

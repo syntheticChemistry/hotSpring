@@ -33,8 +33,7 @@ use super::{
 };
 
 /// WGSL source for the multi-shift zeta recurrence kernel.
-pub const WGSL_MULTI_SHIFT_ZETA: &str =
-    include_str!("../shaders/multi_shift_zeta_f64.wgsl");
+pub const WGSL_MULTI_SHIFT_ZETA: &str = include_str!("../shaders/multi_shift_zeta_f64.wgsl");
 
 /// Maximum number of rational approximation poles supported.
 ///
@@ -266,7 +265,14 @@ pub(super) fn dirac_dispatch(
     let pbuf = gpu.create_uniform_buffer(&params, "dirac_p");
     let bg = gpu.create_bind_group(
         &pipelines.dirac_pipeline,
-        &[&pbuf, &gauge.link_buf, input, output, &gauge.nbr_buf, phases_buf],
+        &[
+            &pbuf,
+            &gauge.link_buf,
+            input,
+            output,
+            &gauge.nbr_buf,
+            phases_buf,
+        ],
     );
     gpu.dispatch(&pipelines.dirac_pipeline, &bg, wg);
 }
@@ -286,7 +292,15 @@ pub(super) fn fermion_force_dispatch(
     let pbuf = gpu.create_uniform_buffer(&params, "fforce_p");
     let bg = gpu.create_bind_group(
         &pipelines.fermion_force_pipeline,
-        &[&pbuf, &gauge.link_buf, x_buf, y_buf, &gauge.nbr_buf, phases_buf, ferm_force_buf],
+        &[
+            &pbuf,
+            &gauge.link_buf,
+            x_buf,
+            y_buf,
+            &gauge.nbr_buf,
+            phases_buf,
+            ferm_force_buf,
+        ],
     );
     gpu.dispatch(&pipelines.fermion_force_pipeline, &bg, wg);
 }
@@ -396,8 +410,26 @@ fn gpu_shifted_cg_solve(
         iterations += 1;
 
         // ap = D†D·p
-        dirac_dispatch(gpu, pipelines, gauge, phases, &state.p_buf, &state.temp_buf, mass, 1.0);
-        dirac_dispatch(gpu, pipelines, gauge, phases, &state.temp_buf, &state.ap_buf, mass, -1.0);
+        dirac_dispatch(
+            gpu,
+            pipelines,
+            gauge,
+            phases,
+            &state.p_buf,
+            &state.temp_buf,
+            mass,
+            1.0,
+        );
+        dirac_dispatch(
+            gpu,
+            pipelines,
+            gauge,
+            phases,
+            &state.temp_buf,
+            &state.ap_buf,
+            mass,
+            -1.0,
+        );
 
         // pAp = ⟨p|D†D·p⟩ + σ·⟨p|p⟩
         let mut p_ap = gpu_dot_re(
@@ -426,10 +458,24 @@ fn gpu_shifted_cg_solve(
         let alpha = rz / p_ap;
 
         // x += α·p
-        gpu_axpy(gpu, &pipelines.axpy_pipeline, alpha, &state.p_buf, x_buf, n_flat);
+        gpu_axpy(
+            gpu,
+            &pipelines.axpy_pipeline,
+            alpha,
+            &state.p_buf,
+            x_buf,
+            n_flat,
+        );
 
         // r -= α·(D†D·p + σ·p)
-        gpu_axpy(gpu, &pipelines.axpy_pipeline, -alpha, &state.ap_buf, &state.r_buf, n_flat);
+        gpu_axpy(
+            gpu,
+            &pipelines.axpy_pipeline,
+            -alpha,
+            &state.ap_buf,
+            &state.r_buf,
+            n_flat,
+        );
         if sigma.abs() > 1e-30 {
             gpu_axpy(
                 gpu,
@@ -520,8 +566,7 @@ fn gpu_rhmc_heatbath_sector(
     if verbose {
         eprintln!(
             "[heatbath] alpha_0={:.6e} residues={:?}",
-            approx.alpha_0,
-            approx.alpha
+            approx.alpha_0, approx.alpha
         );
     }
 
@@ -730,8 +775,7 @@ fn gpu_rhmc_total_force_dispatch(
             );
 
             // P += αₛ · dt · F_ferm
-            let ferm_mom_params =
-                make_link_mom_params(n_links, *a_s * dt, gpu.full_df64_mode);
+            let ferm_mom_params = make_link_mom_params(n_links, *a_s * dt, gpu.full_df64_mode);
             let ferm_mom_pbuf = gpu.create_uniform_buffer(&ferm_mom_params, "fmom_p");
             let ferm_mom_bg = gpu.create_bind_group(
                 &dyn_pipelines.gauge.momentum_pipeline,

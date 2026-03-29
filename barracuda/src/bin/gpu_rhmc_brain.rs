@@ -24,11 +24,11 @@ use hotspring_barracuda::lattice::gpu_hmc::gpu_rhmc::{
     gpu_rhmc_trajectory, GpuRhmcPipelines, GpuRhmcState,
 };
 use hotspring_barracuda::lattice::gpu_hmc::rhmc_calibrator::RhmcCalibrator;
-use hotspring_barracuda::lattice::gpu_hmc::unidirectional_rhmc::UnidirectionalRhmc;
+use hotspring_barracuda::lattice::gpu_hmc::unidirectional_cortex::UnidirectionalRhmc;
 use hotspring_barracuda::lattice::gpu_hmc::{GpuHmcPipelines, GpuHmcState};
 use hotspring_barracuda::lattice::wilson::Lattice;
-use hotspring_barracuda::md::reservoir::npu::ExportedWeights;
 use hotspring_barracuda::md::reservoir::heads;
+use hotspring_barracuda::md::reservoir::npu::ExportedWeights;
 
 use hotspring_forge::pipeline::topologies;
 
@@ -57,7 +57,8 @@ fn main() {
     println!("═══════════════════════════════════════════════════════════════");
     println!(
         "  Lattice: {}^4 ({} sites)  beta={beta:.4}  Nf={}",
-        lattice_size, vol,
+        lattice_size,
+        vol,
         nf_label(nf, mass, strange_mass)
     );
     println!("  Trajectories: {n_trajs}  |  Report interval: {report_interval}");
@@ -76,9 +77,11 @@ fn main() {
     println!();
 
     let (gpu_a, gpu_b) = if f64_adapters.len() >= 2 {
-        let a = rt.block_on(GpuF64::from_adapter_name(&f64_adapters[0].name))
+        let a = rt
+            .block_on(GpuF64::from_adapter_name(&f64_adapters[0].name))
             .expect("GPU A");
-        let b = rt.block_on(GpuF64::from_adapter_name(&f64_adapters[1].name))
+        let b = rt
+            .block_on(GpuF64::from_adapter_name(&f64_adapters[1].name))
             .expect("GPU B");
         println!("  GPU A: {}", a.adapter_name);
         println!("  GPU B: {}", b.adapter_name);
@@ -106,7 +109,12 @@ fn main() {
     let substrates = hotspring_forge::inventory::discover();
     println!("\n  Substrate census ({} devices):", substrates.len());
     for (i, s) in substrates.iter().enumerate() {
-        println!("    {i}: {} [{:?}] — {:?}", s.identity.name, s.kind, s.capabilities.len());
+        println!(
+            "    {i}: {} [{:?}] — {:?}",
+            s.identity.name,
+            s.kind,
+            s.capabilities.len()
+        );
     }
 
     let t_total = Instant::now();
@@ -120,7 +128,10 @@ fn main() {
     let dyn_pl_b = GpuDynHmcPipelines::new(&gpu_b);
     let rhmc_pl_b = GpuRhmcPipelines::new(&gpu_b);
 
-    println!("  Compiled on both GPUs: {:.1}s", t0.elapsed().as_secs_f64());
+    println!(
+        "  Compiled on both GPUs: {:.1}s",
+        t0.elapsed().as_secs_f64()
+    );
 
     // ═══ Quenched pre-thermalization (GPU A only) ═══════════════════
     println!("\n--- Quenched pre-therm (GPU A) ---");
@@ -135,7 +146,12 @@ fn main() {
 
     loop {
         let r = hotspring_barracuda::lattice::gpu_hmc::gpu_hmc_trajectory(
-            &gpu_a, &hmc_pipelines, &hmc_state, 10, 0.1, &mut rng_seed,
+            &gpu_a,
+            &hmc_pipelines,
+            &hmc_state,
+            10,
+            0.1,
+            &mut rng_seed,
         );
         pretherm_count += 1;
         plaq_window.push(r.plaquette);
@@ -158,7 +174,11 @@ fn main() {
             break;
         }
     }
-    println!("  {} traj in {:.1}s", pretherm_count, t1.elapsed().as_secs_f64());
+    println!(
+        "  {} traj in {:.1}s",
+        pretherm_count,
+        t1.elapsed().as_secs_f64()
+    );
 
     let mut lat_cpu = Lattice::hot_start(dims, beta, seed + 1);
     hotspring_barracuda::lattice::gpu_hmc::gpu_links_to_lattice(&gpu_a, &hmc_state, &mut lat_cpu);
@@ -175,12 +195,22 @@ fn main() {
 
     // ═══ Initialize RHMC state on both GPUs ═════════════════════════
     let dyn_state_a = GpuDynHmcState::from_lattice(
-        &gpu_a, &lat_cpu, beta, mass, base_config.cg_tol, base_config.cg_max_iter,
+        &gpu_a,
+        &lat_cpu,
+        beta,
+        mass,
+        base_config.cg_tol,
+        base_config.cg_max_iter,
     );
     let rhmc_state_a = GpuRhmcState::new(&gpu_a, &base_config, dyn_state_a);
 
     let dyn_state_b = GpuDynHmcState::from_lattice(
-        &gpu_b, &lat_cpu, beta, mass, base_config.cg_tol, base_config.cg_max_iter,
+        &gpu_b,
+        &lat_cpu,
+        beta,
+        mass,
+        base_config.cg_tol,
+        base_config.cg_max_iter,
     );
     let rhmc_state_b = GpuRhmcState::new(&gpu_b, &base_config, dyn_state_b);
 
@@ -198,12 +228,19 @@ fn main() {
         config.dt = probe_dt;
         config.n_md_steps = 1;
         let r = gpu_rhmc_trajectory(
-            &gpu_a, &dyn_pl_a, &rhmc_pl_a, &rhmc_state_a, &config, &mut rng_seed,
+            &gpu_a,
+            &dyn_pl_a,
+            &rhmc_pl_a,
+            &rhmc_state_a,
+            &config,
+            &mut rng_seed,
         );
         let dh = r.delta_h.abs();
         println!(
             "  probe {:>2}: dt={:.2e} |dH|={:.2e} {} cg={}",
-            round + 1, probe_dt, dh,
+            round + 1,
+            probe_dt,
+            dh,
             if r.accepted { "Y" } else { "N" },
             r.total_cg_iterations
         );
@@ -211,7 +248,9 @@ fn main() {
             println!("  -> dt={probe_dt:.2e} viable");
             break;
         }
-        if probe_dt < 1e-6 { break; }
+        if probe_dt < 1e-6 {
+            break;
+        }
         probe_dt *= 0.5;
     }
 
@@ -246,7 +285,11 @@ fn main() {
     let cortex_weights = esn_weights.clone();
     let cortex_handle = std::thread::spawn(move || {
         let mut cortex = NpuCortex::new(
-            &cortex_weights, obs_rx, sug_tx, report_interval, checkpoint_interval,
+            &cortex_weights,
+            obs_rx,
+            sug_tx,
+            report_interval,
+            checkpoint_interval,
         );
         cortex.run();
         cortex.stats().clone()
@@ -269,8 +312,12 @@ fn main() {
 
         all_plaq_a.push(result.gpu_a.plaquette);
         all_plaq_b.push(result.gpu_b.plaquette);
-        if result.gpu_a.accepted { accept_a += 1; }
-        if result.gpu_b.accepted { accept_b += 1; }
+        if result.gpu_a.accepted {
+            accept_a += 1;
+        }
+        if result.gpu_b.accepted {
+            accept_b += 1;
+        }
 
         if (i + 1) % 5 == 0 || i == 0 || i + 1 == n_trajs {
             println!(
@@ -306,12 +353,21 @@ fn main() {
     println!("\n══════════════════════════════════════════════════════════");
     println!("  Brain-Steered Dual-GPU RHMC Summary");
     println!("══════════════════════════════════════════════════════════");
-    println!("  GPU A ({}): <P>={mean_plaq_a:.6}  acc={:.0}%",
-        uni_a.adapter_name(), accept_a as f64 / n_a * 100.0);
-    println!("  GPU B ({}): <P>={mean_plaq_b:.6}  acc={:.0}%",
-        uni_b.adapter_name(), accept_b as f64 / n_b * 100.0);
+    println!(
+        "  GPU A ({}): <P>={mean_plaq_a:.6}  acc={:.0}%",
+        uni_a.adapter_name(),
+        accept_a as f64 / n_a * 100.0
+    );
+    println!(
+        "  GPU B ({}): <P>={mean_plaq_b:.6}  acc={:.0}%",
+        uni_b.adapter_name(),
+        accept_b as f64 / n_b * 100.0
+    );
     println!("  Trajectories: {n_trajs} pairs");
-    println!("  Wall time: {total_secs:.1}s ({:.2}h)", total_secs / 3600.0);
+    println!(
+        "  Wall time: {total_secs:.1}s ({:.2}h)",
+        total_secs / 3600.0
+    );
 
     if let Some(ref stats) = cortex_summary {
         let range = format!("all {} observations", stats.total_observations);
@@ -336,14 +392,22 @@ fn build_default_esn_weights() -> ExportedWeights {
         (seed as f32 / u64::MAX as f32) * 2.0 - 1.0
     };
 
-    let w_in: Vec<f32> = (0..reservoir_size * input_size).map(|_| rng() * 0.1).collect();
+    let w_in: Vec<f32> = (0..reservoir_size * input_size)
+        .map(|_| rng() * 0.1)
+        .collect();
     let w_res: Vec<f32> = (0..reservoir_size * reservoir_size)
         .map(|_| {
             let v = rng();
-            if v.abs() > 0.8 { v * 0.5 } else { 0.0 }
+            if v.abs() > 0.8 {
+                v * 0.5
+            } else {
+                0.0
+            }
         })
         .collect();
-    let w_out: Vec<f32> = (0..output_size * reservoir_size).map(|_| rng() * 0.01).collect();
+    let w_out: Vec<f32> = (0..output_size * reservoir_size)
+        .map(|_| rng() * 0.01)
+        .collect();
 
     ExportedWeights {
         w_in,

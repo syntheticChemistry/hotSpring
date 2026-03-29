@@ -51,7 +51,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let y: f32 = x * 2.0 + 1.0;
     out[gid.x] = y;
 }
-".into(),
+"
+        .into(),
         entry_point: "main",
         output_count: 1,
         workgroups: 1,
@@ -89,7 +90,8 @@ fn main(
         out[wid.x] = wg_data[0];
     }
 }
-".into(),
+"
+        .into(),
         entry_point: "main",
         output_count: 1,
         workgroups: 1,
@@ -111,7 +113,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let y: f64 = x * f64(2.0) + f64(1.0);
     out[gid.x] = y;
 }
-".into(),
+"
+        .into(),
         entry_point: "main",
         output_count: 1,
         workgroups: 1,
@@ -140,7 +143,8 @@ fn main(
         out[0] = wg_data[0] + wg_data[1] + wg_data[2] + wg_data[3];
     }
 }
-".into(),
+"
+        .into(),
         entry_point: "main",
         output_count: 1,
         workgroups: 1,
@@ -182,7 +186,8 @@ fn main(@builtin(global_invocation_id) _id: vec3<u32>) {
     let two = df64_add(one, one);
     out[0] = df64_to_f64(two);
 }
-".into(),
+"
+        .into(),
         entry_point: "main",
         output_count: 1,
         workgroups: 1,
@@ -270,7 +275,8 @@ fn sum_reduce_f64(
         output[workgroup_id.x] = df64_to_f64(Df64(shared_hi[0], shared_lo[0]));
     }
 }
-".into(),
+"
+        .into(),
         entry_point: "sum_reduce_f64",
         output_count: 1,
         workgroups: 1,
@@ -345,11 +351,13 @@ fn dispatch_shader(
 
         let data: Vec<f64> = vec![1.0; 256];
         let bytes: Vec<u8> = data.iter().flat_map(|v| v.to_le_bytes()).collect();
-        input_buf = Some(device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("roundtrip_input"),
-            contents: &bytes,
-            usage: wgpu::BufferUsages::STORAGE,
-        }));
+        input_buf = Some(
+            device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("roundtrip_input"),
+                contents: &bytes,
+                usage: wgpu::BufferUsages::STORAGE,
+            }),
+        );
     } else {
         input_buf = None;
     }
@@ -368,11 +376,13 @@ fn dispatch_shader(
 
         let params_data: [u32; 4] = [256, 0, 0, 0];
         let params_bytes: &[u8] = bytemuck::cast_slice(&params_data);
-        params_buf = Some(device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("roundtrip_params"),
-            contents: params_bytes,
-            usage: wgpu::BufferUsages::UNIFORM,
-        }));
+        params_buf = Some(
+            device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("roundtrip_params"),
+                contents: params_bytes,
+                usage: wgpu::BufferUsages::UNIFORM,
+            }),
+        );
     } else {
         params_buf = None;
     }
@@ -495,11 +505,10 @@ fn run_tests_on_gpu(
         let sovereign_result = compiler.compile_to_wgsl(&test.wgsl);
         match sovereign_result {
             Ok((sovereign_wgsl, stats)) => {
-                let sovereign_module =
-                    device.create_shader_module(wgpu::ShaderModuleDescriptor {
-                        label: Some("sovereign"),
-                        source: wgpu::ShaderSource::Wgsl(sovereign_wgsl.as_str().into()),
-                    });
+                let sovereign_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+                    label: Some("sovereign"),
+                    source: wgpu::ShaderSource::Wgsl(sovereign_wgsl.as_str().into()),
+                });
                 let sovereign_output = dispatch_shader(device, queue, &sovereign_module, test);
 
                 if raw_output == sovereign_output {
@@ -538,8 +547,7 @@ fn run_tests_on_gpu(
 
                     fail += 1;
                     if first_failure.is_none() {
-                        first_failure =
-                            Some(format!("{}: {}", gpu.adapter_name, test.name));
+                        first_failure = Some(format!("{}: {}", gpu.adapter_name, test.name));
                     }
 
                     println!("\n    -- Sovereign WGSL (full) --");

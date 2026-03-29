@@ -32,6 +32,34 @@ pub fn npu_canonical_input(
     ]
 }
 
+/// Build canonical 11D input for the NPU (Gen 2 format with silicon routing).
+///
+/// Extends Gen 1 with 5 silicon routing features so the ESN can learn
+/// performance correlations between hardware decisions and physics outcomes.
+pub fn npu_canonical_input_v2(
+    beta: f64,
+    plaq: f64,
+    mass: f64,
+    chi: f64,
+    acceptance: f64,
+    lattice: usize,
+    silicon: &crate::lattice::gpu_hmc::brain_rhmc::SiliconRoutingTags,
+) -> Vec<f64> {
+    vec![
+        (beta - 5.0) / 2.0,
+        plaq,
+        mass,
+        chi / 1000.0,
+        acceptance,
+        lattice as f64 / 8.0,
+        if silicon.tmu_prng { 1.0 } else { 0.0 },
+        if silicon.subgroup_reduce { 1.0 } else { 0.0 },
+        if silicon.rop_force_accum { 1.0 } else { 0.0 },
+        f64::from(silicon.fp64_strategy_id) / 3.0,
+        if silicon.has_native_f64 { 1.0 } else { 0.0 },
+    ]
+}
+
 /// Build canonical sequence (10 repeated frames) for the NPU.
 pub fn npu_canonical_seq(
     beta: f64,

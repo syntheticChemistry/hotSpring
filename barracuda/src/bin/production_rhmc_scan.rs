@@ -25,12 +25,12 @@
 //! ```
 
 use hotspring_barracuda::gpu::GpuF64;
+use hotspring_barracuda::lattice::gpu_hmc::resident_shifted_cg::GpuResidentShiftedCgBuffers;
 use hotspring_barracuda::lattice::gpu_hmc::{
     gpu_hmc_trajectory_streaming, gpu_rhmc_trajectory_unidirectional, GpuDynHmcPipelines,
     GpuDynHmcState, GpuHmcState, GpuHmcStreamingPipelines, GpuRhmcPipelines, GpuRhmcState,
     RhmcCalibrator, UniHamiltonianBuffers, UniPipelines,
 };
-use hotspring_barracuda::lattice::gpu_hmc::resident_shifted_cg::GpuResidentShiftedCgBuffers;
 use hotspring_barracuda::lattice::rhmc::RhmcConfig;
 use hotspring_barracuda::lattice::wilson::Lattice;
 
@@ -123,14 +123,20 @@ fn main() {
     eprintln!("═══════════════════════════════════════════════════════════");
     eprintln!("  Production RHMC β-scan");
     eprintln!("  Lattice: {l}^4 ({} sites)", l * l * l * l);
-    eprintln!("  Nf: {}  mass: {}  strange: {}", args.nf, args.mass, args.strange_mass);
+    eprintln!(
+        "  Nf: {}  mass: {}  strange: {}",
+        args.nf, args.mass, args.strange_mass
+    );
     if args.adaptive {
         eprintln!("  Mode: ADAPTIVE (self-tuning dt, n_md, spectral range)");
     } else {
         eprintln!("  MD: {} steps × dt={}", args.n_md_steps, args.dt);
     }
     eprintln!("  β points: {:?}", args.betas);
-    eprintln!("  Therm: {} (+ {} quenched pre-therm)", args.n_therm, args.n_quenched_pretherm);
+    eprintln!(
+        "  Therm: {} (+ {} quenched pre-therm)",
+        args.n_therm, args.n_quenched_pretherm
+    );
     eprintln!("  Meas: {} per β", args.n_meas);
     eprintln!("═══════════════════════════════════════════════════════════");
 
@@ -200,12 +206,7 @@ fn main() {
         // Build RHMC config: adaptive mode uses calibrator, fixed mode uses CLI args
         let mut calibrator = if args.adaptive {
             let cal = match args.nf.as_str() {
-                "2+1" | "3" => RhmcCalibrator::new_nf2p1(
-                    args.mass,
-                    args.strange_mass,
-                    beta,
-                    dims,
-                ),
+                "2+1" | "3" => RhmcCalibrator::new_nf2p1(args.mass, args.strange_mass, beta, dims),
                 _ => RhmcCalibrator::new(2, args.mass, beta, dims),
             };
             Some(cal)
@@ -261,11 +262,16 @@ fn main() {
         let rhmc_pipelines = GpuRhmcPipelines::new(&gpu);
         let uni_pipelines = UniPipelines::new(&gpu);
         let scg_bufs = GpuResidentShiftedCgBuffers::new(
-            &gpu, &dyn_pipelines, &uni_pipelines.shifted_cg, &rhmc_state.gauge,
+            &gpu,
+            &dyn_pipelines,
+            &uni_pipelines.shifted_cg,
+            &rhmc_state.gauge,
         );
         let ham_bufs = UniHamiltonianBuffers::new(
-            &gpu, &uni_pipelines.shifted_cg.base.reduce_pipeline,
-            &rhmc_state.gauge.gauge, &rhmc_state.gauge,
+            &gpu,
+            &uni_pipelines.shifted_cg.base.reduce_pipeline,
+            &rhmc_state.gauge.gauge,
+            &rhmc_state.gauge,
         );
 
         // Run spectral probe in adaptive mode (after quenched pre-therm)
@@ -435,7 +441,10 @@ fn main() {
         eprintln!("\n  β={beta:.4} summary:");
         eprintln!("    ⟨P⟩ = {mean_p:.6} ± {:.2e}", var_p.sqrt());
         eprintln!("    χ   = {chi:.2}");
-        eprintln!("    acc = {rate:.1}% ({meas_accepted}/{} trajectories)", args.n_meas);
+        eprintln!(
+            "    acc = {rate:.1}% ({meas_accepted}/{} trajectories)",
+            args.n_meas
+        );
         if let Some(ref cal) = calibrator {
             eprintln!(
                 "    [calibrator] final dt={:.6} n_md={} poles={}",
@@ -455,6 +464,10 @@ fn main() {
     let total_time = run_start.elapsed();
     eprintln!("\n═══════════════════════════════════════════════════════════");
     eprintln!("  Production RHMC Complete");
-    eprintln!("  Total time: {:.1}s ({:.1}h)", total_time.as_secs_f64(), total_time.as_secs_f64() / 3600.0);
+    eprintln!(
+        "  Total time: {:.1}s ({:.1}h)",
+        total_time.as_secs_f64(),
+        total_time.as_secs_f64() / 3600.0
+    );
     eprintln!("═══════════════════════════════════════════════════════════");
 }

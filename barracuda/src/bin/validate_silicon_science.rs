@@ -274,10 +274,7 @@ fn dispatch_tmu(
             x.exp() as f32
         })
         .collect();
-    let table_bytes: Vec<u8> = table_data
-        .iter()
-        .flat_map(|v| v.to_le_bytes())
-        .collect();
+    let table_bytes: Vec<u8> = table_data.iter().flat_map(|v| v.to_le_bytes()).collect();
 
     let texture = device.create_texture(&wgpu::TextureDescriptor {
         label: Some("exp_table"),
@@ -545,9 +542,7 @@ async fn main() {
         // Reference: exp(0) = 1.0 at index 500 (x=0.0 when idx=500)
         let exp_0_compute = f32_from_bytes(&compute_data, 500);
         let exp_0_err = (f64::from(exp_0_compute) - 1.0).abs();
-        println!(
-            "    exp(0.0) = {exp_0_compute:.8} (err={exp_0_err:.2e})"
-        );
+        println!("    exp(0.0) = {exp_0_compute:.8} (err={exp_0_err:.2e})");
 
         measurements.push(PerformanceMeasurement {
             operation: "math.transcendental.exp".into(),
@@ -598,7 +593,11 @@ async fn main() {
                 // max ~20% relative error expected at the steep end (exp(5)≈148).
                 // This tests TMU data path, not interpolation quality.
                 let pass = max_rel < 0.30;
-                if pass { total_pass += 1; } else { total_fail += 1; }
+                if pass {
+                    total_pass += 1;
+                } else {
+                    total_fail += 1;
+                }
                 println!(
                     "    {} TMU silicon path functional (nearest-neighbor, 1024 entries, {max_rel:.1}% max err)",
                     if pass { "PASS" } else { "FAIL" },
@@ -631,9 +630,8 @@ async fn main() {
             let ob = (n as usize) * 4;
             let iters = 200;
 
-            let (_, c_time) = dispatch_timed(
-                device, queue, SHADER_EXP_COMPUTE, "main", ob, wg, iters,
-            );
+            let (_, c_time) =
+                dispatch_timed(device, queue, SHADER_EXP_COMPUTE, "main", ob, wg, iters);
             let c_rate = (f64::from(n) * f64::from(iters)) / c_time.as_secs_f64();
 
             let tmu_result = dispatch_tmu(device, queue, ob, wg, iters);
@@ -706,16 +704,9 @@ async fn main() {
 
         for test in &qcd_tests {
             let (_, elapsed) = dispatch_timed(
-                device,
-                queue,
-                test.wgsl,
-                "main",
-                out_bytes,
-                workgroups,
-                iterations,
+                device, queue, test.wgsl, "main", out_bytes, workgroups, iterations,
             );
-            let ops_per_sec =
-                (n_threads as f64 * iterations as f64) / elapsed.as_secs_f64();
+            let ops_per_sec = (n_threads as f64 * iterations as f64) / elapsed.as_secs_f64();
             println!(
                 "  [shader_core] {:<42} {:.1}M ops/s ({:.2}ms)",
                 test.name,
@@ -827,7 +818,10 @@ async fn main() {
     }
 
     // ── Report to toadStool ──────────────────────────────────────────────────
-    println!("── Reporting {} measurements to toadStool ──\n", measurements.len());
+    println!(
+        "── Reporting {} measurements to toadStool ──\n",
+        measurements.len()
+    );
     toadstool_report::report_to_toadstool(&measurements);
     println!();
 

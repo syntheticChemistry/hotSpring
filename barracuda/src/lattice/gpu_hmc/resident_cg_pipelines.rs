@@ -15,6 +15,9 @@ use super::GpuF64;
 
 /// Shader constants for GPU-resident CG.
 pub const WGSL_SUM_REDUCE: &str = super::super::cg::WGSL_SUM_REDUCE_F64;
+/// Subgroup-accelerated reduce (Tier 4): uses `subgroupAdd` for warp/wavefront reduction.
+pub const WGSL_SUM_REDUCE_SUBGROUP: &str =
+    include_str!("../shaders/sum_reduce_subgroup_f64.wgsl");
 /// CG α = ⟨r,r⟩ / ⟨p,Ap⟩ shader.
 pub const WGSL_CG_COMPUTE_ALPHA: &str = super::super::cg::WGSL_CG_COMPUTE_ALPHA_F64;
 /// CG β = ⟨`r_new,r_new`⟩ / ⟨`r_old,r_old`⟩ shader.
@@ -40,10 +43,21 @@ pub struct GpuResidentCgPipelines {
 
 impl GpuResidentCgPipelines {
     /// Compile all GPU-resident CG pipelines (reduce, alpha, beta, `update_xr`, `update_p`).
+    ///
+    /// When `gpu.has_subgroups` is true, the reduce pipeline uses `subgroupAdd`
+    /// (Tier 4 silicon routing) — eliminating shared memory traffic for
+    /// intra-warp/wavefront reduction. Falls back to shared-memory tree reduce.
     #[must_use]
     pub fn new(gpu: &GpuF64) -> Self {
+        let reduce_pipeline = if gpu.has_subgroups {
+            eprintln!("[CG] Subgroup reduce: ENABLED (subgroupAdd, Tier 4)");
+            gpu.create_pipeline_f64(WGSL_SUM_REDUCE_SUBGROUP, "cg_reduce_sg")
+        } else {
+            eprintln!("[CG] Subgroup reduce: unavailable, using shared memory fallback");
+            gpu.create_pipeline_f64(WGSL_SUM_REDUCE, "cg_reduce")
+        };
         Self {
-            reduce_pipeline: gpu.create_pipeline_f64(WGSL_SUM_REDUCE, "cg_reduce"),
+            reduce_pipeline,
             compute_alpha_pipeline: gpu.create_pipeline_f64(WGSL_CG_COMPUTE_ALPHA, "cg_alpha"),
             compute_beta_pipeline: gpu.create_pipeline_f64(WGSL_CG_COMPUTE_BETA, "cg_beta"),
             update_xr_pipeline: gpu.create_pipeline_f64(WGSL_CG_UPDATE_XR, "cg_update_xr"),

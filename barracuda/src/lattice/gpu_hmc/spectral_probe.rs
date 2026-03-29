@@ -117,11 +117,25 @@ pub fn gpu_power_iteration_lambda_max(
     for _ in 0..n_iter {
         // w = D · v  (stored in temp_buf)
         super::gpu_rhmc::dirac_dispatch(
-            gpu, pipelines, gauge, phases, &state.p_buf, &state.temp_buf, mass, 1.0,
+            gpu,
+            pipelines,
+            gauge,
+            phases,
+            &state.p_buf,
+            &state.temp_buf,
+            mass,
+            1.0,
         );
         // w = D† · (D · v)  (stored in ap_buf)
         super::gpu_rhmc::dirac_dispatch(
-            gpu, pipelines, gauge, phases, &state.temp_buf, &state.ap_buf, mass, -1.0,
+            gpu,
+            pipelines,
+            gauge,
+            phases,
+            &state.temp_buf,
+            &state.ap_buf,
+            mass,
+            -1.0,
         );
 
         // Rayleigh quotient: λ ≈ ⟨v|D†D·v⟩ / ⟨v|v⟩
@@ -189,13 +203,8 @@ pub fn probe_spectral_range(
     state: &GpuDynHmcState,
     mass: f64,
 ) -> SpectralInfo {
-    let lambda_max = gpu_power_iteration_lambda_max(
-        gpu,
-        pipelines,
-        state,
-        mass,
-        RHMC_POWER_ITERATION_COUNT,
-    );
+    let lambda_max =
+        gpu_power_iteration_lambda_max(gpu, pipelines, state, mass, RHMC_POWER_ITERATION_COUNT);
 
     // Analytical lower bound: λ_min(D†D) ≥ m² for staggered fermions
     let lambda_min = mass * mass;

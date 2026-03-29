@@ -22,9 +22,7 @@
 //! - Pretty-printed profile with tier routing table to stdout
 //! - JSON saved to `profiles/silicon/<adapter_name>.json`
 
-use hotspring_barracuda::bench::silicon_profile::{
-    from_spec_sheet, SiliconProfile, SiliconUnit,
-};
+use hotspring_barracuda::bench::silicon_profile::{from_spec_sheet, SiliconProfile, SiliconUnit};
 use hotspring_barracuda::bench::telemetry::GpuTelemetry;
 use hotspring_barracuda::gpu::GpuF64;
 
@@ -215,19 +213,24 @@ fn timed_dispatch(
     iterations: u32,
 ) -> std::time::Duration {
     {
-        let mut enc = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+        let mut enc =
+            device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
         let mut pass = enc.begin_compute_pass(&wgpu::ComputePassDescriptor::default());
         pass.set_pipeline(pipeline);
         pass.set_bind_group(0, Some(bg), &[]);
         pass.dispatch_workgroups(workgroups, 1, 1);
         drop(pass);
         queue.submit(Some(enc.finish()));
-        let _ = device.poll(wgpu::PollType::Wait { submission_index: None, timeout: None });
+        let _ = device.poll(wgpu::PollType::Wait {
+            submission_index: None,
+            timeout: None,
+        });
     }
 
     let start = Instant::now();
     for _ in 0..iterations {
-        let mut enc = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+        let mut enc =
+            device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
         {
             let mut pass = enc.begin_compute_pass(&wgpu::ComputePassDescriptor::default());
             pass.set_pipeline(pipeline);
@@ -236,7 +239,10 @@ fn timed_dispatch(
         }
         queue.submit(Some(enc.finish()));
     }
-    let _ = device.poll(wgpu::PollType::Wait { submission_index: None, timeout: None });
+    let _ = device.poll(wgpu::PollType::Wait {
+        submission_index: None,
+        timeout: None,
+    });
     start.elapsed()
 }
 
@@ -282,7 +288,11 @@ fn bgle_texture(binding: u32) -> wgpu::BindGroupLayoutEntry {
 fn create_1k_texture(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::TextureView {
     let tex = device.create_texture(&wgpu::TextureDescriptor {
         label: Some("profile_tex"),
-        size: wgpu::Extent3d { width: 1024, height: 1024, depth_or_array_layers: 1 },
+        size: wgpu::Extent3d {
+            width: 1024,
+            height: 1024,
+            depth_or_array_layers: 1,
+        },
         mip_level_count: 1,
         sample_count: 1,
         dimension: wgpu::TextureDimension::D2,
@@ -292,10 +302,23 @@ fn create_1k_texture(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::Textur
     });
     let data: Vec<f32> = (0..1024 * 1024).map(|i| (i as f32) * 0.001).collect();
     queue.write_texture(
-        wgpu::TexelCopyTextureInfo { texture: &tex, mip_level: 0, origin: wgpu::Origin3d::ZERO, aspect: wgpu::TextureAspect::All },
+        wgpu::TexelCopyTextureInfo {
+            texture: &tex,
+            mip_level: 0,
+            origin: wgpu::Origin3d::ZERO,
+            aspect: wgpu::TextureAspect::All,
+        },
         bytemuck::cast_slice(&data),
-        wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(1024 * 4), rows_per_image: Some(1024) },
-        wgpu::Extent3d { width: 1024, height: 1024, depth_or_array_layers: 1 },
+        wgpu::TexelCopyBufferLayout {
+            offset: 0,
+            bytes_per_row: Some(1024 * 4),
+            rows_per_image: Some(1024),
+        },
+        wgpu::Extent3d {
+            width: 1024,
+            height: 1024,
+            depth_or_array_layers: 1,
+        },
     );
     tex.create_view(&wgpu::TextureViewDescriptor::default())
 }
@@ -398,21 +421,31 @@ fn measure_fp32_alu(device: &wgpu::Device, queue: &wgpu::Queue) -> f64 {
     let flops_per_thread: u64 = 512 * 4 * 2;
 
     let buf = device.create_buffer(&wgpu::BufferDescriptor {
-        label: None, size: n as u64 * 4,
-        usage: wgpu::BufferUsages::STORAGE, mapped_at_creation: false,
+        label: None,
+        size: n as u64 * 4,
+        usage: wgpu::BufferUsages::STORAGE,
+        mapped_at_creation: false,
     });
     let bgl = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        label: None, entries: &[bgle_storage_rw(0)],
+        label: None,
+        entries: &[bgle_storage_rw(0)],
     });
     let pl = make_pipeline(device, SHADER_FMA_FP32, &bgl, "fp32_fma");
     let bg = device.create_bind_group(&wgpu::BindGroupDescriptor {
-        label: None, layout: &bgl,
-        entries: &[wgpu::BindGroupEntry { binding: 0, resource: buf.as_entire_binding() }],
+        label: None,
+        layout: &bgl,
+        entries: &[wgpu::BindGroupEntry {
+            binding: 0,
+            resource: buf.as_entire_binding(),
+        }],
     });
     let elapsed = timed_dispatch(device, queue, &pl, &bg, n / 256, iters);
     let total = flops_per_thread * n as u64 * iters as u64;
     let tflops = total as f64 / elapsed.as_secs_f64() / 1e12;
-    println!("    FP32 ALU:   {tflops:>8.2} TFLOPS  ({:.1} ms)", elapsed.as_secs_f64() * 1000.0);
+    println!(
+        "    FP32 ALU:   {tflops:>8.2} TFLOPS  ({:.1} ms)",
+        elapsed.as_secs_f64() * 1000.0
+    );
     tflops
 }
 
@@ -422,21 +455,31 @@ fn measure_df64_alu(device: &wgpu::Device, queue: &wgpu::Queue) -> f64 {
     let flops_per_thread: u64 = 256 * 10 * 2;
 
     let buf = device.create_buffer(&wgpu::BufferDescriptor {
-        label: None, size: n as u64 * 8,
-        usage: wgpu::BufferUsages::STORAGE, mapped_at_creation: false,
+        label: None,
+        size: n as u64 * 8,
+        usage: wgpu::BufferUsages::STORAGE,
+        mapped_at_creation: false,
     });
     let bgl = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        label: None, entries: &[bgle_storage_rw(0)],
+        label: None,
+        entries: &[bgle_storage_rw(0)],
     });
     let pl = make_pipeline(device, SHADER_FMA_DF64, &bgl, "df64_fma");
     let bg = device.create_bind_group(&wgpu::BindGroupDescriptor {
-        label: None, layout: &bgl,
-        entries: &[wgpu::BindGroupEntry { binding: 0, resource: buf.as_entire_binding() }],
+        label: None,
+        layout: &bgl,
+        entries: &[wgpu::BindGroupEntry {
+            binding: 0,
+            resource: buf.as_entire_binding(),
+        }],
     });
     let elapsed = timed_dispatch(device, queue, &pl, &bg, n / 256, iters);
     let total = flops_per_thread * n as u64 * iters as u64;
     let tflops = total as f64 / elapsed.as_secs_f64() / 1e12;
-    println!("    DF64 ALU:   {tflops:>8.2} TFLOPS  ({:.1} ms)", elapsed.as_secs_f64() * 1000.0);
+    println!(
+        "    DF64 ALU:   {tflops:>8.2} TFLOPS  ({:.1} ms)",
+        elapsed.as_secs_f64() * 1000.0
+    );
     tflops
 }
 
@@ -447,28 +490,42 @@ fn measure_memory_bw(device: &wgpu::Device, queue: &wgpu::Queue) -> f64 {
     let n_vec4 = (bytes / 16) as u32;
 
     let in_buf = device.create_buffer(&wgpu::BufferDescriptor {
-        label: None, size: bytes,
+        label: None,
+        size: bytes,
         usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
     let out_buf = device.create_buffer(&wgpu::BufferDescriptor {
-        label: None, size: n_vec4 as u64 * 4,
-        usage: wgpu::BufferUsages::STORAGE, mapped_at_creation: false,
+        label: None,
+        size: n_vec4 as u64 * 4,
+        usage: wgpu::BufferUsages::STORAGE,
+        mapped_at_creation: false,
     });
     let bgl = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        label: None, entries: &[bgle_storage_ro(0), bgle_storage_rw(1)],
+        label: None,
+        entries: &[bgle_storage_ro(0), bgle_storage_rw(1)],
     });
     let pl = make_pipeline(device, SHADER_BW_SEQ, &bgl, "bw_seq");
     let bg = device.create_bind_group(&wgpu::BindGroupDescriptor {
-        label: None, layout: &bgl,
+        label: None,
+        layout: &bgl,
         entries: &[
-            wgpu::BindGroupEntry { binding: 0, resource: in_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 1, resource: out_buf.as_entire_binding() },
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: in_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: out_buf.as_entire_binding(),
+            },
         ],
     });
     let elapsed = timed_dispatch(device, queue, &pl, &bg, n_vec4.div_ceil(256), iters);
     let gbs = (bytes * iters as u64) as f64 / elapsed.as_secs_f64() / 1e9;
-    println!("    Mem BW:     {gbs:>8.1} GB/s    ({:.1} ms, {size_mb} MB)", elapsed.as_secs_f64() * 1000.0);
+    println!(
+        "    Mem BW:     {gbs:>8.1} GB/s    ({:.1} ms, {size_mb} MB)",
+        elapsed.as_secs_f64() * 1000.0
+    );
     gbs
 }
 
@@ -477,24 +534,37 @@ fn measure_tmu(device: &wgpu::Device, queue: &wgpu::Queue, tex_view: &wgpu::Text
     let iters: u32 = 200;
 
     let buf = device.create_buffer(&wgpu::BufferDescriptor {
-        label: None, size: n as u64 * 4,
-        usage: wgpu::BufferUsages::STORAGE, mapped_at_creation: false,
+        label: None,
+        size: n as u64 * 4,
+        usage: wgpu::BufferUsages::STORAGE,
+        mapped_at_creation: false,
     });
     let bgl = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        label: None, entries: &[bgle_storage_rw(0), bgle_texture(1)],
+        label: None,
+        entries: &[bgle_storage_rw(0), bgle_texture(1)],
     });
     let pl = make_pipeline(device, SHADER_TMU_FLOOD, &bgl, "tmu_flood");
     let bg = device.create_bind_group(&wgpu::BindGroupDescriptor {
-        label: None, layout: &bgl,
+        label: None,
+        layout: &bgl,
         entries: &[
-            wgpu::BindGroupEntry { binding: 0, resource: buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(tex_view) },
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: wgpu::BindingResource::TextureView(tex_view),
+            },
         ],
     });
     let elapsed = timed_dispatch(device, queue, &pl, &bg, n / 256, iters);
     let total_texels = 64u64 * n as u64 * iters as u64;
     let gtexels = total_texels as f64 / elapsed.as_secs_f64() / 1e9;
-    println!("    TMU:        {gtexels:>8.1} GT/s    ({:.1} ms)", elapsed.as_secs_f64() * 1000.0);
+    println!(
+        "    TMU:        {gtexels:>8.1} GT/s    ({:.1} ms)",
+        elapsed.as_secs_f64() * 1000.0
+    );
     gtexels
 }
 
@@ -503,21 +573,31 @@ fn measure_rop(device: &wgpu::Device, queue: &wgpu::Queue) -> f64 {
     let iters: u32 = 200;
 
     let buf = device.create_buffer(&wgpu::BufferDescriptor {
-        label: None, size: 256 * 4,
-        usage: wgpu::BufferUsages::STORAGE, mapped_at_creation: false,
+        label: None,
+        size: 256 * 4,
+        usage: wgpu::BufferUsages::STORAGE,
+        mapped_at_creation: false,
     });
     let bgl = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        label: None, entries: &[bgle_storage_rw(0)],
+        label: None,
+        entries: &[bgle_storage_rw(0)],
     });
     let pl = make_pipeline(device, SHADER_ATOMIC_FLOOD, &bgl, "atomic_flood");
     let bg = device.create_bind_group(&wgpu::BindGroupDescriptor {
-        label: None, layout: &bgl,
-        entries: &[wgpu::BindGroupEntry { binding: 0, resource: buf.as_entire_binding() }],
+        label: None,
+        layout: &bgl,
+        entries: &[wgpu::BindGroupEntry {
+            binding: 0,
+            resource: buf.as_entire_binding(),
+        }],
     });
     let elapsed = timed_dispatch(device, queue, &pl, &bg, n / 256, iters);
     let total = 64u64 * n as u64 * iters as u64;
     let gatom = total as f64 / elapsed.as_secs_f64() / 1e9;
-    println!("    ROP/Atom:   {gatom:>8.1} Gatom/s ({:.1} ms)", elapsed.as_secs_f64() * 1000.0);
+    println!(
+        "    ROP/Atom:   {gatom:>8.1} Gatom/s ({:.1} ms)",
+        elapsed.as_secs_f64() * 1000.0
+    );
     gatom
 }
 
@@ -528,21 +608,31 @@ fn measure_shared_mem(device: &wgpu::Device, queue: &wgpu::Queue) -> f64 {
     let wg = n / wg_size;
 
     let buf = device.create_buffer(&wgpu::BufferDescriptor {
-        label: None, size: wg as u64 * 4,
-        usage: wgpu::BufferUsages::STORAGE, mapped_at_creation: false,
+        label: None,
+        size: wg as u64 * 4,
+        usage: wgpu::BufferUsages::STORAGE,
+        mapped_at_creation: false,
     });
     let bgl = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        label: None, entries: &[bgle_storage_rw(0)],
+        label: None,
+        entries: &[bgle_storage_rw(0)],
     });
     let pl = make_pipeline(device, SHADER_REDUCE, &bgl, "reduce");
     let bg = device.create_bind_group(&wgpu::BindGroupDescriptor {
-        label: None, layout: &bgl,
-        entries: &[wgpu::BindGroupEntry { binding: 0, resource: buf.as_entire_binding() }],
+        label: None,
+        layout: &bgl,
+        entries: &[wgpu::BindGroupEntry {
+            binding: 0,
+            resource: buf.as_entire_binding(),
+        }],
     });
     let elapsed = timed_dispatch(device, queue, &pl, &bg, wg, iters);
     let total_lds_bytes = 1023u64 * 2 * 4 * wg as u64 * iters as u64;
     let gbs = total_lds_bytes as f64 / elapsed.as_secs_f64() / 1e9;
-    println!("    LDS/Shared: {gbs:>8.1} GB/s    ({:.1} ms)", elapsed.as_secs_f64() * 1000.0);
+    println!(
+        "    LDS/Shared: {gbs:>8.1} GB/s    ({:.1} ms)",
+        elapsed.as_secs_f64() * 1000.0
+    );
     gbs
 }
 
@@ -557,31 +647,46 @@ fn measure_composition(
     let wg = n / 256;
 
     let buf = device.create_buffer(&wgpu::BufferDescriptor {
-        label: None, size: n as u64 * 4,
-        usage: wgpu::BufferUsages::STORAGE, mapped_at_creation: false,
+        label: None,
+        size: n as u64 * 4,
+        usage: wgpu::BufferUsages::STORAGE,
+        mapped_at_creation: false,
     });
 
     // ALU only
     let bgl_alu = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        label: None, entries: &[bgle_storage_rw(0)],
+        label: None,
+        entries: &[bgle_storage_rw(0)],
     });
     let pl_alu = make_pipeline(device, SHADER_ALU_ONLY, &bgl_alu, "alu_only");
     let bg_alu = device.create_bind_group(&wgpu::BindGroupDescriptor {
-        label: None, layout: &bgl_alu,
-        entries: &[wgpu::BindGroupEntry { binding: 0, resource: buf.as_entire_binding() }],
+        label: None,
+        layout: &bgl_alu,
+        entries: &[wgpu::BindGroupEntry {
+            binding: 0,
+            resource: buf.as_entire_binding(),
+        }],
     });
     let t_alu = timed_dispatch(device, queue, &pl_alu, &bg_alu, wg, iters);
 
     // TMU only
     let bgl_tex = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        label: None, entries: &[bgle_storage_rw(0), bgle_texture(1)],
+        label: None,
+        entries: &[bgle_storage_rw(0), bgle_texture(1)],
     });
     let pl_tmu = make_pipeline(device, SHADER_TMU_ONLY, &bgl_tex, "tmu_only");
     let bg_tmu = device.create_bind_group(&wgpu::BindGroupDescriptor {
-        label: None, layout: &bgl_tex,
+        label: None,
+        layout: &bgl_tex,
         entries: &[
-            wgpu::BindGroupEntry { binding: 0, resource: buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(tex_view) },
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: wgpu::BindingResource::TextureView(tex_view),
+            },
         ],
     });
     let t_tmu = timed_dispatch(device, queue, &pl_tmu, &bg_tmu, wg, iters);
@@ -589,10 +694,17 @@ fn measure_composition(
     // ALU + TMU compound
     let pl_both = make_pipeline(device, SHADER_ALU_PLUS_TMU, &bgl_tex, "alu_tmu");
     let bg_both = device.create_bind_group(&wgpu::BindGroupDescriptor {
-        label: None, layout: &bgl_tex,
+        label: None,
+        layout: &bgl_tex,
         entries: &[
-            wgpu::BindGroupEntry { binding: 0, resource: buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(tex_view) },
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: wgpu::BindingResource::TextureView(tex_view),
+            },
         ],
     });
     let t_both = timed_dispatch(device, queue, &pl_both, &bg_both, wg, iters);
@@ -603,7 +715,10 @@ fn measure_composition(
     println!("    ALU+TMU composition:");
     println!("      ALU only:  {:.1} ms", t_alu.as_secs_f64() * 1000.0);
     println!("      TMU only:  {:.1} ms", t_tmu.as_secs_f64() * 1000.0);
-    println!("      Compound:  {:.1} ms  → {mult:.2}x multiplier", t_both.as_secs_f64() * 1000.0);
+    println!(
+        "      Compound:  {:.1} ms  → {mult:.2}x multiplier",
+        t_both.as_secs_f64() * 1000.0
+    );
 
     (
         t_alu.as_secs_f64() * 1000.0,
@@ -630,45 +745,87 @@ fn characterize_gpu(gpu: &GpuF64, info: &wgpu::AdapterInfo) -> SiliconProfile {
     println!("  ── Saturation experiments (with energy) ──\n");
 
     // FP32 ALU
-    let (fp32, idle, loaded) = bench_with_energy(&telem, |d, q| measure_fp32_alu(d, q), device, queue);
+    let (fp32, idle, loaded) =
+        bench_with_energy(&telem, |d, q| measure_fp32_alu(d, q), device, queue);
     profile.set_measured(SiliconUnit::Fp32Alu, fp32);
     profile.set_measured_energy(SiliconUnit::Fp32Alu, idle, loaded);
-    println!("      Energy: idle={:.1}W loaded={:.1}W Δ={:.1}W", idle, loaded, (loaded - idle).max(0.0));
+    println!(
+        "      Energy: idle={:.1}W loaded={:.1}W Δ={:.1}W",
+        idle,
+        loaded,
+        (loaded - idle).max(0.0)
+    );
 
     // DF64 ALU (not a separate unit entry but captures df64_tflops)
-    let (df64, idle, loaded) = bench_with_energy(&telem, |d, q| measure_df64_alu(d, q), device, queue);
+    let (df64, idle, loaded) =
+        bench_with_energy(&telem, |d, q| measure_df64_alu(d, q), device, queue);
     profile.df64_tflops = df64;
-    println!("      Energy: idle={:.1}W loaded={:.1}W Δ={:.1}W", idle, loaded, (loaded - idle).max(0.0));
+    println!(
+        "      Energy: idle={:.1}W loaded={:.1}W Δ={:.1}W",
+        idle,
+        loaded,
+        (loaded - idle).max(0.0)
+    );
 
     // Memory Bandwidth
-    let (bw, idle, loaded) = bench_with_energy(&telem, |d, q| measure_memory_bw(d, q), device, queue);
+    let (bw, idle, loaded) =
+        bench_with_energy(&telem, |d, q| measure_memory_bw(d, q), device, queue);
     profile.set_measured(SiliconUnit::MemoryBandwidth, bw);
     profile.set_measured_energy(SiliconUnit::MemoryBandwidth, idle, loaded);
-    println!("      Energy: idle={:.1}W loaded={:.1}W Δ={:.1}W", idle, loaded, (loaded - idle).max(0.0));
+    println!(
+        "      Energy: idle={:.1}W loaded={:.1}W Δ={:.1}W",
+        idle,
+        loaded,
+        (loaded - idle).max(0.0)
+    );
 
     // TMU
-    let (tmu, idle, loaded) = bench_with_energy_tex(&telem, |d, q, tv| measure_tmu(d, q, tv), device, queue, &tex_view);
+    let (tmu, idle, loaded) = bench_with_energy_tex(
+        &telem,
+        |d, q, tv| measure_tmu(d, q, tv),
+        device,
+        queue,
+        &tex_view,
+    );
     profile.set_measured(SiliconUnit::Tmu, tmu);
     profile.set_measured_energy(SiliconUnit::Tmu, idle, loaded);
-    println!("      Energy: idle={:.1}W loaded={:.1}W Δ={:.1}W", idle, loaded, (loaded - idle).max(0.0));
+    println!(
+        "      Energy: idle={:.1}W loaded={:.1}W Δ={:.1}W",
+        idle,
+        loaded,
+        (loaded - idle).max(0.0)
+    );
 
     // ROP / Atomics
     let (rop, idle, loaded) = bench_with_energy(&telem, |d, q| measure_rop(d, q), device, queue);
     profile.set_measured(SiliconUnit::Rop, rop);
     profile.set_measured_energy(SiliconUnit::Rop, idle, loaded);
-    println!("      Energy: idle={:.1}W loaded={:.1}W Δ={:.1}W", idle, loaded, (loaded - idle).max(0.0));
+    println!(
+        "      Energy: idle={:.1}W loaded={:.1}W Δ={:.1}W",
+        idle,
+        loaded,
+        (loaded - idle).max(0.0)
+    );
 
     // Shared Memory / LDS
-    let (lds, idle, loaded) = bench_with_energy(&telem, |d, q| measure_shared_mem(d, q), device, queue);
+    let (lds, idle, loaded) =
+        bench_with_energy(&telem, |d, q| measure_shared_mem(d, q), device, queue);
     profile.set_measured(SiliconUnit::SharedMemory, lds);
     profile.set_measured_energy(SiliconUnit::SharedMemory, idle, loaded);
-    println!("      Energy: idle={:.1}W loaded={:.1}W Δ={:.1}W", idle, loaded, (loaded - idle).max(0.0));
+    println!(
+        "      Energy: idle={:.1}W loaded={:.1}W Δ={:.1}W",
+        idle,
+        loaded,
+        (loaded - idle).max(0.0)
+    );
 
     println!("\n  ── Composition experiments (with energy) ──\n");
 
     let idle = snapshot_idle_watts(&telem);
     let ((alu_ms, tmu_ms, compound_ms, _mult), comp_loaded) = {
-        let d = device; let q = queue; let tv = &tex_view;
+        let d = device;
+        let q = queue;
+        let tv = &tex_view;
         let mut result = (0.0, 0.0, 0.0, 0.0);
         let watts = measure_loaded_watts(&telem, || {
             result = measure_composition(d, q, tv);
@@ -676,12 +833,19 @@ fn characterize_gpu(gpu: &GpuF64, info: &wgpu::AdapterInfo) -> SiliconProfile {
         (result, watts)
     };
     profile.add_composition_with_energy(
-        SiliconUnit::Fp32Alu, SiliconUnit::Tmu,
-        alu_ms + tmu_ms, compound_ms,
-        idle, comp_loaded,
+        SiliconUnit::Fp32Alu,
+        SiliconUnit::Tmu,
+        alu_ms + tmu_ms,
+        compound_ms,
+        idle,
+        comp_loaded,
     );
-    println!("      Energy: idle={:.1}W compound={:.1}W Δ={:.1}W",
-        idle, comp_loaded, (comp_loaded - idle).max(0.0));
+    println!(
+        "      Energy: idle={:.1}W compound={:.1}W Δ={:.1}W",
+        idle,
+        comp_loaded,
+        (comp_loaded - idle).max(0.0)
+    );
 
     profile.stamp_now();
     profile
@@ -703,10 +867,10 @@ async fn main() {
         std::process::exit(1);
     }
 
-    let save_dir = PathBuf::from(
-        std::env::var("HOTSPRING_ROOT")
-            .unwrap_or_else(|_| ".".to_string())
-    ).join("profiles").join("silicon");
+    let save_dir =
+        PathBuf::from(std::env::var("HOTSPRING_ROOT").unwrap_or_else(|_| ".".to_string()))
+            .join("profiles")
+            .join("silicon");
 
     let mut profiles: Vec<SiliconProfile> = Vec::new();
 
@@ -747,14 +911,22 @@ async fn main() {
         let a = &profiles[0];
         let b = &profiles[1];
 
-        println!("  {:<14} {:>14} {:>14}  {:>8}",
-            "Unit", &a.adapter_name[..a.adapter_name.len().min(14)],
-            &b.adapter_name[..b.adapter_name.len().min(14)], "Ratio");
+        println!(
+            "  {:<14} {:>14} {:>14}  {:>8}",
+            "Unit",
+            &a.adapter_name[..a.adapter_name.len().min(14)],
+            &b.adapter_name[..b.adapter_name.len().min(14)],
+            "Ratio"
+        );
         println!("  {}", "─".repeat(56));
 
         let units = [
-            SiliconUnit::Fp32Alu, SiliconUnit::Fp64Alu, SiliconUnit::Tmu,
-            SiliconUnit::Rop, SiliconUnit::MemoryBandwidth, SiliconUnit::SharedMemory,
+            SiliconUnit::Fp32Alu,
+            SiliconUnit::Fp64Alu,
+            SiliconUnit::Tmu,
+            SiliconUnit::Rop,
+            SiliconUnit::MemoryBandwidth,
+            SiliconUnit::SharedMemory,
             SiliconUnit::TensorCore,
         ];
         for unit in units {
@@ -768,7 +940,10 @@ async fn main() {
     }
 
     println!("\n═══════════════════════════════════════════════════════════════");
-    println!("  Silicon Profile Builder Complete — {} GPUs characterized", profiles.len());
+    println!(
+        "  Silicon Profile Builder Complete — {} GPUs characterized",
+        profiles.len()
+    );
     println!("  Profiles saved to: {}", save_dir.display());
     println!("═══════════════════════════════════════════════════════════════");
 }

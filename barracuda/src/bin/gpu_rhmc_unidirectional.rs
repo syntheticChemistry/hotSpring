@@ -12,9 +12,7 @@
 //!     --lattice 8 --beta 6.0 --nf 2+1 --mass 0.05 --configs 10
 
 use hotspring_barracuda::gpu::GpuF64;
-use hotspring_barracuda::lattice::gpu_flow::{
-    gpu_gradient_flow, GpuFlowPipelines, GpuFlowState,
-};
+use hotspring_barracuda::lattice::gpu_flow::{gpu_gradient_flow, GpuFlowPipelines, GpuFlowState};
 use hotspring_barracuda::lattice::gpu_hmc::dynamical::{GpuDynHmcPipelines, GpuDynHmcState};
 #[allow(deprecated)]
 use hotspring_barracuda::lattice::gpu_hmc::gpu_rhmc::{
@@ -57,8 +55,7 @@ impl DtAdapter {
         if self.accept_history.is_empty() {
             return 0.5;
         }
-        self.accept_history.iter().filter(|&&a| a).count() as f64
-            / self.accept_history.len() as f64
+        self.accept_history.iter().filter(|&&a| a).count() as f64 / self.accept_history.len() as f64
     }
 
     fn mean_abs_delta_h(&self) -> f64 {
@@ -129,7 +126,10 @@ fn main() {
     let rhmc_pipelines = GpuRhmcPipelines::new(&gpu);
     let uni_pipelines = UniPipelines::new(&gpu);
     let flow_pipelines = GpuFlowPipelines::new(&gpu);
-    println!("  Pipelines: {:.1}s (includes shifted CG + reduce)", t0.elapsed().as_secs_f64());
+    println!(
+        "  Pipelines: {:.1}s (includes shifted CG + reduce)",
+        t0.elapsed().as_secs_f64()
+    );
 
     // ═══ Quenched pre-thermalization ════════════════════════════════
     println!("\n─── Quenched pre-therm (stability-detected) ───");
@@ -158,10 +158,7 @@ fn main() {
 
         if pretherm_count % 20 == 0 {
             let mean = plaq_window.iter().sum::<f64>() / plaq_window.len() as f64;
-            let var = plaq_window
-                .iter()
-                .map(|p| (p - mean).powi(2))
-                .sum::<f64>()
+            let var = plaq_window.iter().map(|p| (p - mean).powi(2)).sum::<f64>()
                 / plaq_window.len() as f64;
             let rv = var.sqrt() / mean.max(1e-10);
             println!("  pretherm {pretherm_count}: ⟨P⟩={mean:.6} σ/⟨P⟩={rv:.2e}");

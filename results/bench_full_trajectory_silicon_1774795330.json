@@ -1,0 +1,225 @@
+{
+  "benchmark": "bench_full_trajectory_silicon",
+  "beta": 6.0,
+  "dt": 0.05,
+  "n_md": 10,
+  "results": [
+    {
+      "acceptance_rate": 1.0,
+      "adapter": "NVIDIA GeForce RTX 3090",
+      "dims": [
+        4,
+        4,
+        4,
+        4
+      ],
+      "max_buffer_bytes": 4503599627370496,
+      "max_traj_ms": 12.376015,
+      "mean_plaquette": 0.5069411016515408,
+      "mean_traj_ms": 11.2066692,
+      "min_traj_ms": 9.841325999999999,
+      "n_traj": 20,
+      "volume": 256,
+      "vram_estimate_mb": 4.865234375
+    },
+    {
+      "acceptance_rate": 0.95,
+      "adapter": "NVIDIA GeForce RTX 3090",
+      "dims": [
+        8,
+        8,
+        8,
+        8
+      ],
+      "max_buffer_bytes": 4503599627370496,
+      "max_traj_ms": 32.045007,
+      "mean_plaquette": 0.5050027447931079,
+      "mean_traj_ms": 30.659731300000004,
+      "min_traj_ms": 27.351128,
+      "n_traj": 20,
+      "volume": 4096,
+      "vram_estimate_mb": 17.84375
+    },
+    {
+      "acceptance_rate": 1.0,
+      "adapter": "NVIDIA GeForce RTX 3090",
+      "dims": [
+        12,
+        12,
+        12,
+        12
+      ],
+      "max_buffer_bytes": 4503599627370496,
+      "max_traj_ms": 207.237348,
+      "mean_plaquette": 0.47902197118342055,
+      "mean_traj_ms": 203.62869700000002,
+      "min_traj_ms": 199.544323,
+      "n_traj": 10,
+      "volume": 20736,
+      "vram_estimate_mb": 74.083984375
+    },
+    {
+      "acceptance_rate": 1.0,
+      "adapter": "NVIDIA GeForce RTX 3090",
+      "dims": [
+        16,
+        16,
+        16,
+        16
+      ],
+      "max_buffer_bytes": 4503599627370496,
+      "max_traj_ms": 629.444596,
+      "mean_plaquette": 0.4787217765101168,
+      "mean_traj_ms": 627.0065068,
+      "min_traj_ms": 623.725244,
+      "n_traj": 10,
+      "volume": 65536,
+      "vram_estimate_mb": 225.5
+    },
+    {
+      "acceptance_rate": 1.0,
+      "adapter": "NVIDIA GeForce RTX 3090",
+      "dims": [
+        20,
+        20,
+        20,
+        20
+      ],
+      "max_buffer_bytes": 4503599627370496,
+      "max_traj_ms": 1525.5098440000002,
+      "mean_plaquette": 0.45723907114436824,
+      "mean_traj_ms": 1524.2882824,
+      "min_traj_ms": 1521.20015,
+      "n_traj": 5,
+      "volume": 160000,
+      "vram_estimate_mb": 544.771484375
+    },
+    {
+      "acceptance_rate": 1.0,
+      "adapter": "NVIDIA GeForce RTX 3090",
+      "dims": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "max_buffer_bytes": 4503599627370496,
+      "max_traj_ms": 3160.387118,
+      "mean_plaquette": 0.4577392719948422,
+      "mean_traj_ms": 3155.3488506000003,
+      "min_traj_ms": 3152.4099149999997,
+      "n_traj": 5,
+      "volume": 331776,
+      "vram_estimate_mb": 1125.34375
+    },
+    {
+      "acceptance_rate": 1.0,
+      "adapter": "AMD Radeon RX 6950 XT (RADV NAVI21)",
+      "dims": [
+        4,
+        4,
+        4,
+        4
+      ],
+      "max_buffer_bytes": 2147483647,
+      "max_traj_ms": 3.946927,
+      "mean_plaquette": 0.5069410987035452,
+      "mean_traj_ms": 3.8028690999999997,
+      "min_traj_ms": 3.768048,
+      "n_traj": 20,
+      "volume": 256,
+      "vram_estimate_mb": 4.865234375
+    },
+    {
+      "acceptance_rate": 0.95,
+      "adapter": "AMD Radeon RX 6950 XT (RADV NAVI21)",
+      "dims": [
+        8,
+        8,
+        8,
+        8
+      ],
+      "max_buffer_bytes": 2147483647,
+      "max_traj_ms": 22.260500999999998,
+      "mean_plaquette": 0.5050027443596565,
+      "mean_traj_ms": 6.253291850000001,
+      "min_traj_ms": 5.239425,
+      "n_traj": 20,
+      "volume": 4096,
+      "vram_estimate_mb": 17.84375
+    },
+    {
+      "acceptance_rate": 1.0,
+      "adapter": "AMD Radeon RX 6950 XT (RADV NAVI21)",
+      "dims": [
+        12,
+        12,
+        12,
+        12
+      ],
+      "max_buffer_bytes": 2147483647,
+      "max_traj_ms": 12.009108,
+      "mean_plaquette": 0.47902197131706314,
+      "mean_traj_ms": 11.247409300000001,
+      "min_traj_ms": 10.903087000000001,
+      "n_traj": 10,
+      "volume": 20736,
+      "vram_estimate_mb": 74.083984375
+    },
+    {
+      "acceptance_rate": 1.0,
+      "adapter": "AMD Radeon RX 6950 XT (RADV NAVI21)",
+      "dims": [
+        16,
+        16,
+        16,
+        16
+      ],
+      "max_buffer_bytes": 2147483647,
+      "max_traj_ms": 31.501582,
+      "mean_plaquette": 0.47872177651593917,
+      "mean_traj_ms": 30.923247800000002,
+      "min_traj_ms": 29.358530000000002,
+      "n_traj": 10,
+      "volume": 65536,
+      "vram_estimate_mb": 225.5
+    },
+    {
+      "acceptance_rate": 1.0,
+      "adapter": "AMD Radeon RX 6950 XT (RADV NAVI21)",
+      "dims": [
+        20,
+        20,
+        20,
+        20
+      ],
+      "max_buffer_bytes": 2147483647,
+      "max_traj_ms": 82.94792500000001,
+      "mean_plaquette": 0.45723907109120293,
+      "mean_traj_ms": 82.73590440000001,
+      "min_traj_ms": 82.509448,
+      "n_traj": 5,
+      "volume": 160000,
+      "vram_estimate_mb": 544.771484375
+    },
+    {
+      "acceptance_rate": 1.0,
+      "adapter": "AMD Radeon RX 6950 XT (RADV NAVI21)",
+      "dims": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "max_buffer_bytes": 2147483647,
+      "max_traj_ms": 167.61789399999998,
+      "mean_plaquette": 0.45773927198444975,
+      "mean_traj_ms": 167.4811992,
+      "min_traj_ms": 167.268207,
+      "n_traj": 5,
+      "volume": 331776,
+      "vram_estimate_mb": 1125.34375
+    }
+  ],
+  "timestamp": 1774795330
+}

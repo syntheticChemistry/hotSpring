@@ -10,7 +10,7 @@ set -euo pipefail
 
 TRACE="${1:?Usage: $0 <mmiotrace_file> [output.json]}"
 OUTPUT="${2:-$(dirname "$TRACE")/oracle_recipe_$(date +%Y%m%d_%H%M%S).json}"
-TOADSTOOL_DIR="/home/biomegate/Development/ecoPrimals/phase1/toadStool"
+TOADSTOOL_DIR="${TOADSTOOL_DIR:-${HOME}/Development/ecoPrimals/phase1/toadStool}"
 HW_LEARN_BIN="$TOADSTOOL_DIR/target/release/hw_learn_distill"
 
 echo "=== Oracle Recipe Distillation ==="
@@ -21,7 +21,7 @@ echo ""
 # Step 1: Build hw-learn distiller if needed
 if [ ! -x "$HW_LEARN_BIN" ]; then
     echo ">>> Building hw-learn distiller..."
-    env -i HOME=$HOME PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/biomegate/.cargo/bin \
+    env -i HOME=$HOME PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${HOME}/.cargo/bin \
         cargo build --release -p hw-learn --bin hw_learn_distill \
         --manifest-path "$TOADSTOOL_DIR/Cargo.toml" 2>&1 | tail -5
 fi

@@ -19,9 +19,7 @@
 //! ```
 
 use hotspring_barracuda::gpu::{discover_primary_and_secondary_adapters, GpuF64};
-use hotspring_barracuda::lattice::gpu_hmc::{
-    gpu_hmc_trajectory, GpuHmcPipelines, GpuHmcState,
-};
+use hotspring_barracuda::lattice::gpu_hmc::{gpu_hmc_trajectory, GpuHmcPipelines, GpuHmcState};
 use hotspring_barracuda::lattice::wilson::Lattice;
 use hotspring_barracuda::validation::ValidationHarness;
 use std::time::Instant;
@@ -60,7 +58,11 @@ fn run_on_gpu(name_hint: &str, dims: [usize; 4], beta: f64, seed: u64) -> GpuRes
     for i in 0..n_therm {
         let result = gpu_hmc_trajectory(&gpu, &pipelines, &hmc_state, n_md, dt, &mut rng_seed);
         if (i + 1) % 10 == 0 {
-            println!("  [{adapter_name}] therm {}/{n_therm}: P={:.6}", i + 1, result.plaquette);
+            println!(
+                "  [{adapter_name}] therm {}/{n_therm}: P={:.6}",
+                i + 1,
+                result.plaquette
+            );
         }
     }
 
@@ -133,7 +135,9 @@ fn main() {
     let handle_secondary = std::thread::spawn(move || run_on_gpu(&s_name, dims, beta, seed));
 
     let r1 = handle_primary.join().expect("primary GPU thread panicked");
-    let r2 = handle_secondary.join().expect("secondary GPU thread panicked");
+    let r2 = handle_secondary
+        .join()
+        .expect("secondary GPU thread panicked");
 
     println!();
     println!("═══ Results ═══");
@@ -185,8 +189,10 @@ fn main() {
     // Per-measurement comparison
     for (i, (p1, p2)) in r1.plaquettes.iter().zip(r2.plaquettes.iter()).enumerate() {
         let d = (p1 - p2).abs();
-        println!("  meas {}: {} P={p1:.6}, {} P={p2:.6}, |Δ|={d:.2e}",
-            i, r1.adapter_name, r2.adapter_name);
+        println!(
+            "  meas {}: {} P={p1:.6}, {} P={p2:.6}, |Δ|={d:.2e}",
+            i, r1.adapter_name, r2.adapter_name
+        );
     }
 
     println!();

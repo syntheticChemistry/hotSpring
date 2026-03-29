@@ -95,8 +95,7 @@ fn send_jsonrpc(
     use std::io::{Read, Write};
     use std::os::unix::net::UnixStream;
 
-    let mut stream =
-        UnixStream::connect(socket_path).map_err(|e| format!("connect: {e}"))?;
+    let mut stream = UnixStream::connect(socket_path).map_err(|e| format!("connect: {e}"))?;
 
     stream
         .set_read_timeout(Some(std::time::Duration::from_secs(5)))
@@ -151,7 +150,9 @@ fn send_jsonrpc(
 /// `compute.performance_surface.report`. If toadStool is not running, logs
 /// a message and returns silently.
 pub fn report_to_toadstool(measurements: &[PerformanceMeasurement]) {
-    let socket = if let Some(s) = discover_socket() { s } else {
+    let socket = if let Some(s) = discover_socket() {
+        s
+    } else {
         println!("  toadStool socket not found — measurements logged locally only");
         for m in measurements {
             println!(
@@ -189,10 +190,7 @@ pub fn report_to_toadstool(measurements: &[PerformanceMeasurement]) {
                 );
             }
             Err(e) => {
-                println!(
-                    "    {} / {} → report failed: {e}",
-                    m.operation, m.gpu_model
-                );
+                println!("    {} / {} → report failed: {e}", m.operation, m.gpu_model);
             }
         }
     }

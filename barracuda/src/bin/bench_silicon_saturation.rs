@@ -282,10 +282,8 @@ fn run_fma_experiment(
     });
 
     let elapsed_fp32 = timed_dispatch(device, queue, &pipeline_fp32, &bg, workgroups, iterations);
-    let total_fp32_flops =
-        fp32_flops_per_thread * n_threads as u64 * iterations as u64;
-    let fp32_tflops =
-        total_fp32_flops as f64 / elapsed_fp32.as_secs_f64() / 1e12;
+    let total_fp32_flops = fp32_flops_per_thread * n_threads as u64 * iterations as u64;
+    let fp32_tflops = total_fp32_flops as f64 / elapsed_fp32.as_secs_f64() / 1e12;
 
     println!(
         "  FP32 FMA chain:  {:.2} TFLOPS  ({:.1} ms, {} GFLOP)",
@@ -324,11 +322,16 @@ fn run_fma_experiment(
     });
 
     let pipeline_df64 = create_compute_pipeline(device, SHADER_FMA_CHAIN_DF64, &bgl, "fma_df64");
-    let elapsed_df64 = timed_dispatch(device, queue, &pipeline_df64, &bg_df64, workgroups, iterations);
-    let total_df64_flops =
-        df64_flops_per_thread * n_threads as u64 * iterations as u64;
-    let df64_tflops =
-        total_df64_flops as f64 / elapsed_df64.as_secs_f64() / 1e12;
+    let elapsed_df64 = timed_dispatch(
+        device,
+        queue,
+        &pipeline_df64,
+        &bg_df64,
+        workgroups,
+        iterations,
+    );
+    let total_df64_flops = df64_flops_per_thread * n_threads as u64 * iterations as u64;
+    let df64_tflops = total_df64_flops as f64 / elapsed_df64.as_secs_f64() / 1e12;
 
     println!(
         "  DF64 Dekker chain: {:.2} TFLOPS  ({:.1} ms, {} GFLOP)",
@@ -391,10 +394,7 @@ fn run_bandwidth_experiment(
 
     let pipeline = create_compute_pipeline(device, SHADER_BANDWIDTH_SEQ, &bgl, "bw_seq");
 
-    println!(
-        "  {:<12} {:>10} {:>10}",
-        "Size (MB)", "GB/s", "Efficiency"
-    );
+    println!("  {:<12} {:>10} {:>10}", "Size (MB)", "GB/s", "Efficiency");
     println!("  {}", "─".repeat(36));
 
     for size_mb in sizes_mb {
@@ -531,10 +531,7 @@ fn run_cache_experiment(
 
     let pipeline = create_compute_pipeline(device, SHADER_CACHE_PROBE, &bgl, "cache_probe");
 
-    println!(
-        "  {:<12} {:>10} {:>10}",
-        "Working set", "GB/s", "Note"
-    );
+    println!("  {:<12} {:>10} {:>10}", "Working set", "GB/s", "Note");
     println!("  {}", "─".repeat(36));
 
     let mut prev_gbs = 0.0f64;

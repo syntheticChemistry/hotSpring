@@ -29,19 +29,19 @@
 
 use hotspring_barracuda::bench::{EnergyReport, GpuTelemetry, PowerMonitor};
 use hotspring_barracuda::gpu::GpuF64;
-use hotspring_barracuda::lattice::gpu_hmc::{
-    gpu_hmc_trajectory_streaming, gpu_links_to_lattice, gpu_rhmc_trajectory_unidirectional,
-    GpuDynHmcPipelines, GpuDynHmcState, GpuHmcState, GpuHmcStreamingPipelines, GpuRhmcPipelines,
-    GpuRhmcState, TrajectoryResult, UniHamiltonianBuffers, UniPipelines,
+use hotspring_barracuda::lattice::gpu_flow::{
+    gpu_gradient_flow_resident, FlowReduceBuffers, GpuFlowPipelines, GpuFlowState,
 };
 use hotspring_barracuda::lattice::gpu_hmc::resident_shifted_cg::GpuResidentShiftedCgBuffers;
 use hotspring_barracuda::lattice::gpu_hmc::true_multishift_cg::{
     TrueMultiShiftBuffers, TrueMultiShiftPipelines,
 };
-use hotspring_barracuda::lattice::gradient_flow::{find_t0, find_w0, run_flow, FlowIntegrator};
-use hotspring_barracuda::lattice::gpu_flow::{
-    GpuFlowPipelines, GpuFlowState, FlowReduceBuffers, gpu_gradient_flow_resident,
+use hotspring_barracuda::lattice::gpu_hmc::{
+    gpu_hmc_trajectory_streaming, gpu_links_to_lattice, gpu_rhmc_trajectory_unidirectional,
+    GpuDynHmcPipelines, GpuDynHmcState, GpuHmcState, GpuHmcStreamingPipelines, GpuRhmcPipelines,
+    GpuRhmcState, TrajectoryResult, UniHamiltonianBuffers, UniPipelines,
 };
+use hotspring_barracuda::lattice::gradient_flow::{find_t0, find_w0, run_flow, FlowIntegrator};
 use hotspring_barracuda::lattice::rhmc::RhmcConfig;
 use hotspring_barracuda::lattice::wilson::Lattice;
 
@@ -375,10 +375,16 @@ fn main() {
     eprintln!("  Lattice:     {l}^4 ({vol} sites)");
     eprintln!("  β points:    {:?}", args.betas);
     eprintln!("  MD:          {} steps × dt={}", args.n_md_steps, args.dt);
-    eprintln!("  Therm:       {} (+ {} quenched pre-therm)", args.n_therm, args.n_quenched_pretherm);
+    eprintln!(
+        "  Therm:       {} (+ {} quenched pre-therm)",
+        args.n_therm, args.n_quenched_pretherm
+    );
     eprintln!("  Meas:        {} per β", args.n_meas);
     if args.flow {
-        eprintln!("  Flow:        {} configs, skip={}, ε={}, t_max={}", args.flow_configs, args.flow_skip, args.flow_epsilon, args.flow_t_max);
+        eprintln!(
+            "  Flow:        {} configs, skip={}, ε={}, t_max={}",
+            args.flow_configs, args.flow_skip, args.flow_epsilon, args.flow_t_max
+        );
     }
     eprintln!();
 
@@ -399,12 +405,29 @@ fn main() {
     eprintln!("  GPU:         {}", gpu.adapter_name);
     eprintln!("  DF64:        {:.2} TFLOPS", budget.df64_tflops);
     eprintln!("  Mem BW:      {:.0} GB/s", budget.memory_bw_gbs);
-    eprintln!("  TMU:         {} units × {:.2} GHz = {:.0} GTexels/s",
-        budget.tmu_count, budget.boost_ghz, budget.tmu_count as f64 * budget.boost_ghz);
-    eprintln!("  VRAM:        {:.1} GB", budget.vram_bytes as f64 / (1024.0 * 1024.0 * 1024.0));
-    eprintln!("  QUDA ref:    {:.1} TFLOPS (FP64 ALU only)", budget.quda_style_tflops);
-    eprintln!("  Total cap:   {:.0} TFLOPS (all silicon)", budget.total_tflops);
-    eprintln!("  Telemetry:   {} ({})", telemetry.backend, if has_amd { "AMD sysfs" } else { "nvidia-smi" });
+    eprintln!(
+        "  TMU:         {} units × {:.2} GHz = {:.0} GTexels/s",
+        budget.tmu_count,
+        budget.boost_ghz,
+        budget.tmu_count as f64 * budget.boost_ghz
+    );
+    eprintln!(
+        "  VRAM:        {:.1} GB",
+        budget.vram_bytes as f64 / (1024.0 * 1024.0 * 1024.0)
+    );
+    eprintln!(
+        "  QUDA ref:    {:.1} TFLOPS (FP64 ALU only)",
+        budget.quda_style_tflops
+    );
+    eprintln!(
+        "  Total cap:   {:.0} TFLOPS (all silicon)",
+        budget.total_tflops
+    );
+    eprintln!(
+        "  Telemetry:   {} ({})",
+        telemetry.backend,
+        if has_amd { "AMD sysfs" } else { "nvidia-smi" }
+    );
     eprintln!();
 
     let mut out_file = args.output.as_ref().map(|path| {
@@ -424,8 +447,18 @@ fn main() {
     let mut seed = args.seed;
 
     for &beta in &args.betas {
-        let summary = run_beta_point(&gpu, &budget, &amd_power, &telemetry, &args, beta, dims, vol,
-                                      &mut seed, &mut out_file);
+        let summary = run_beta_point(
+            &gpu,
+            &budget,
+            &amd_power,
+            &telemetry,
+            &args,
+            beta,
+            dims,
+            vol,
+            &mut seed,
+            &mut out_file,
+        );
         all_summaries.push(summary);
     }
 
@@ -437,15 +470,24 @@ fn main() {
     eprintln!("║  SILICON UTILIZATION SUMMARY                               ║");
     eprintln!("╚══════════════════════════════════════════════════════════════╝");
     eprintln!();
-    eprintln!("  {:<8} {:<6} {:<10} {:<10} {:<10} {:<10} {:<10} {:<10} {:<10}",
-        "β", "acc%", "ms/traj", "GFLOP/s", "eco%", "QUDA%", "J/traj", "⟨P⟩", "σ(P)");
+    eprintln!(
+        "  {:<8} {:<6} {:<10} {:<10} {:<10} {:<10} {:<10} {:<10} {:<10}",
+        "β", "acc%", "ms/traj", "GFLOP/s", "eco%", "QUDA%", "J/traj", "⟨P⟩", "σ(P)"
+    );
     eprintln!("  {}", "─".repeat(88));
 
     for s in &all_summaries {
         eprintln!(
             "  {:<8.4} {:<6.1} {:<10.1} {:<10.1} {:<10.2} {:<10.2} {:<10.2} {:<10.6} {:<10.2e}",
-            s.beta, s.acceptance_pct, s.mean_ms_per_traj, s.mean_gflop_per_s * 1000.0,
-            s.silicon_util_pct, s.quda_util_pct, s.joules_per_traj, s.mean_plaq, s.std_plaq
+            s.beta,
+            s.acceptance_pct,
+            s.mean_ms_per_traj,
+            s.mean_gflop_per_s * 1000.0,
+            s.silicon_util_pct,
+            s.quda_util_pct,
+            s.joules_per_traj,
+            s.mean_plaq,
+            s.std_plaq
         );
     }
 
@@ -459,18 +501,38 @@ fn main() {
     eprintln!("  │  QUDA vs ecoPrimals Comparison                             │");
     eprintln!("  ├──────────────────────────────────────────────────────────────┤");
 
-    let mean_eco_tflops = if all_summaries.is_empty() { 0.0 } else {
+    let mean_eco_tflops = if all_summaries.is_empty() {
+        0.0
+    } else {
         all_summaries.iter().map(|s| s.eco_tflops).sum::<f64>() / all_summaries.len() as f64
     };
 
     eprintln!("  │  GPU:            {:<43}│", budget.name);
-    eprintln!("  │  Total silicon:  {:<6.0} TFLOPS{:>31}│", budget.total_tflops, "");
-    eprintln!("  │  QUDA sustained: {:<6.2} TFLOPS ({:.2}% util){:>19}│",
-        budget.quda_style_tflops, budget.quda_style_tflops / budget.total_tflops * 100.0, "");
-    eprintln!("  │  ecoPrimals:     {:<6.4} TFLOPS ({:.2}% util){:>19}│",
-        mean_eco_tflops, mean_eco_tflops / budget.total_tflops * 100.0, "");
-    eprintln!("  │  Speedup:        {:<6.2}x vs QUDA-style{:>23}│",
-        if budget.quda_style_tflops > 0.0 { mean_eco_tflops / budget.quda_style_tflops } else { 0.0 }, "");
+    eprintln!(
+        "  │  Total silicon:  {:<6.0} TFLOPS{:>31}│",
+        budget.total_tflops, ""
+    );
+    eprintln!(
+        "  │  QUDA sustained: {:<6.2} TFLOPS ({:.2}% util){:>19}│",
+        budget.quda_style_tflops,
+        budget.quda_style_tflops / budget.total_tflops * 100.0,
+        ""
+    );
+    eprintln!(
+        "  │  ecoPrimals:     {:<6.4} TFLOPS ({:.2}% util){:>19}│",
+        mean_eco_tflops,
+        mean_eco_tflops / budget.total_tflops * 100.0,
+        ""
+    );
+    eprintln!(
+        "  │  Speedup:        {:<6.2}x vs QUDA-style{:>23}│",
+        if budget.quda_style_tflops > 0.0 {
+            mean_eco_tflops / budget.quda_style_tflops
+        } else {
+            0.0
+        },
+        ""
+    );
     eprintln!("  └──────────────────────────────────────────────────────────────┘");
 
     // Flow results if any
@@ -482,11 +544,16 @@ fn main() {
         eprintln!("  ├──────────────────────────────────────────────────────────────┤");
         for s in &all_summaries {
             if let Some(ref f) = s.flow_results {
-                let t0_str = f.mean_t0.map_or("N/A".to_string(),
-                    |v| format!("{:.4} ± {:.4}", v, f.std_t0.unwrap_or(0.0)));
-                let w0_str = f.mean_w0.map_or("N/A".to_string(),
-                    |v| format!("{:.4} ± {:.4}", v, f.std_w0.unwrap_or(0.0)));
-                eprintln!("  │  β={:.4}: t₀ = {:<20} w₀ = {:<18}│", s.beta, t0_str, w0_str);
+                let t0_str = f.mean_t0.map_or("N/A".to_string(), |v| {
+                    format!("{:.4} ± {:.4}", v, f.std_t0.unwrap_or(0.0))
+                });
+                let w0_str = f.mean_w0.map_or("N/A".to_string(), |v| {
+                    format!("{:.4} ± {:.4}", v, f.std_w0.unwrap_or(0.0))
+                });
+                eprintln!(
+                    "  │  β={:.4}: t₀ = {:<20} w₀ = {:<18}│",
+                    s.beta, t0_str, w0_str
+                );
             }
         }
         eprintln!("  └──────────────────────────────────────────────────────────────┘");
@@ -498,12 +565,24 @@ fn main() {
     let total_traj: usize = all_summaries.iter().map(|s| s.n_meas).sum();
 
     eprintln!();
-    eprintln!("  Energy: GPU {:.1} J + CPU {:.1} J = {:.1} J total ({} measurement trajectories)",
-        total_gpu_j, total_cpu_j, total_gpu_j + total_cpu_j, total_traj);
+    eprintln!(
+        "  Energy: GPU {:.1} J + CPU {:.1} J = {:.1} J total ({} measurement trajectories)",
+        total_gpu_j,
+        total_cpu_j,
+        total_gpu_j + total_cpu_j,
+        total_traj
+    );
     if total_traj > 0 {
-        eprintln!("  Average: {:.2} J/trajectory", (total_gpu_j + total_cpu_j) / total_traj as f64);
+        eprintln!(
+            "  Average: {:.2} J/trajectory",
+            (total_gpu_j + total_cpu_j) / total_traj as f64
+        );
     }
-    eprintln!("  Total wall: {:.1}s ({:.2}h)", total_time.as_secs_f64(), total_time.as_secs_f64() / 3600.0);
+    eprintln!(
+        "  Total wall: {:.1}s ({:.2}h)",
+        total_time.as_secs_f64(),
+        total_time.as_secs_f64() / 3600.0
+    );
     eprintln!();
 }
 
@@ -523,7 +602,11 @@ fn run_beta_point(
     let dynamical = is_dynamical(&args.mode);
 
     let hw = telemetry.snapshot();
-    eprintln!("━━━ β = {beta:.4} ({}) ━━━  [{}]", mode_label(args), hw.status_line());
+    eprintln!(
+        "━━━ β = {beta:.4} ({}) ━━━  [{}]",
+        mode_label(args),
+        hw.status_line()
+    );
 
     // Hot start
     let lattice = Lattice::hot_start(dims, beta, *seed);
@@ -534,21 +617,43 @@ fn run_beta_point(
         let quenched_pipelines = GpuHmcStreamingPipelines::new(gpu);
         for i in 0..args.n_quenched_pretherm {
             let r = gpu_hmc_trajectory_streaming(
-                gpu, &quenched_pipelines, &quenched_state,
-                20, 0.1, i as u32, seed,
+                gpu,
+                &quenched_pipelines,
+                &quenched_state,
+                20,
+                0.1,
+                i as u32,
+                seed,
             );
             if (i + 1) % 10 == 0 {
                 let hw = telemetry.snapshot();
-                eprintln!("  pretherm {}/{}: P={:.6} ΔH={:.4} {}  [{}]",
-                    i + 1, args.n_quenched_pretherm, r.plaquette, r.delta_h,
-                    if r.accepted { "Y" } else { "N" }, hw.status_line());
+                eprintln!(
+                    "  pretherm {}/{}: P={:.6} ΔH={:.4} {}  [{}]",
+                    i + 1,
+                    args.n_quenched_pretherm,
+                    r.plaquette,
+                    r.delta_h,
+                    if r.accepted { "Y" } else { "N" },
+                    hw.status_line()
+                );
             }
         }
     }
 
     if !dynamical {
-        return run_quenched_beta(gpu, budget, amd_power, telemetry, args, beta, dims, vol,
-                                  seed, out_file, &quenched_state);
+        return run_quenched_beta(
+            gpu,
+            budget,
+            amd_power,
+            telemetry,
+            args,
+            beta,
+            dims,
+            vol,
+            seed,
+            out_file,
+            &quenched_state,
+        );
     }
 
     // ── Dynamical: UNIDIRECTIONAL RHMC (GPU-resident CG, minimal readback) ──
@@ -562,7 +667,12 @@ fn run_beta_point(
     rhmc_config.cg_max_iter = args.cg_max_iter;
 
     let dyn_state = GpuDynHmcState::from_lattice(
-        gpu, &lattice, beta, rhmc_config.sectors[0].mass, args.cg_tol, args.cg_max_iter,
+        gpu,
+        &lattice,
+        beta,
+        rhmc_config.sectors[0].mass,
+        args.cg_tol,
+        args.cg_max_iter,
     );
     let rhmc_state = GpuRhmcState::new(gpu, &rhmc_config, dyn_state);
 
@@ -570,8 +680,10 @@ fn run_beta_point(
         let n_bytes = (quenched_state.n_links * 18 * 8) as u64;
         let mut enc = gpu.begin_encoder("copy_therm_links");
         enc.copy_buffer_to_buffer(
-            &quenched_state.link_buf, 0,
-            &rhmc_state.gauge.gauge.link_buf, 0,
+            &quenched_state.link_buf,
+            0,
+            &rhmc_state.gauge.gauge.link_buf,
+            0,
             n_bytes,
         );
         gpu.submit_encoder(enc);
@@ -583,38 +695,74 @@ fn run_beta_point(
     // Build unidirectional buffers for GPU-resident CG (~50x fewer sync points)
     let uni_pipelines = UniPipelines::new(gpu);
     let scg_bufs = GpuResidentShiftedCgBuffers::new(
-        gpu, &dyn_pipelines, &uni_pipelines.shifted_cg, &rhmc_state.gauge,
+        gpu,
+        &dyn_pipelines,
+        &uni_pipelines.shifted_cg,
+        &rhmc_state.gauge,
     );
     let ham_bufs = UniHamiltonianBuffers::new(
-        gpu, &uni_pipelines.shifted_cg.base.reduce_pipeline,
-        &rhmc_state.gauge.gauge, &rhmc_state.gauge,
+        gpu,
+        &uni_pipelines.shifted_cg.base.reduce_pipeline,
+        &rhmc_state.gauge.gauge,
+        &rhmc_state.gauge,
     );
 
     // True multi-shift CG: shared Krylov, N_shifts fewer D†D ops per iteration
-    let max_shifts = rhmc_config.sectors.iter().map(|s| {
-        s.action_approx.sigma.len().max(s.force_approx.sigma.len())
-    }).max().unwrap_or(0);
+    let max_shifts = rhmc_config
+        .sectors
+        .iter()
+        .map(|s| s.action_approx.sigma.len().max(s.force_approx.sigma.len()))
+        .max()
+        .unwrap_or(0);
     let ms_bufs = if max_shifts > 0 {
         Some(TrueMultiShiftBuffers::new(
-            gpu, &dyn_pipelines, &uni_pipelines.true_ms_cg,
-            &rhmc_state.gauge, max_shifts,
+            gpu,
+            &dyn_pipelines,
+            &uni_pipelines.true_ms_cg,
+            &rhmc_state.gauge,
+            max_shifts,
         ))
     } else {
         None
     };
-    eprintln!("  True multi-shift CG: {} shifts, shared Krylov basis", max_shifts);
+    eprintln!(
+        "  True multi-shift CG: {} shifts, shared Krylov basis",
+        max_shifts
+    );
 
-    eprintln!("  Thermalizing: {} RHMC trajectories (unidirectional)...", args.n_therm);
+    eprintln!(
+        "  Thermalizing: {} RHMC trajectories (unidirectional)...",
+        args.n_therm
+    );
     let mut therm_accepted = 0;
     for i in 0..args.n_therm {
-        let r = run_uni_traj(gpu, &dyn_pipelines, &rhmc_pipelines, &uni_pipelines,
-                             &rhmc_state, &scg_bufs, ms_bufs.as_ref(), &ham_bufs, &rhmc_config, seed);
-        if r.accepted { therm_accepted += 1; }
+        let r = run_uni_traj(
+            gpu,
+            &dyn_pipelines,
+            &rhmc_pipelines,
+            &uni_pipelines,
+            &rhmc_state,
+            &scg_bufs,
+            ms_bufs.as_ref(),
+            &ham_bufs,
+            &rhmc_config,
+            seed,
+        );
+        if r.accepted {
+            therm_accepted += 1;
+        }
         if (i + 1) % 20 == 0 || i == 0 {
             let hw = telemetry.snapshot();
-            eprintln!("    therm {}/{}: P={:.6} ΔH={:.4e} CG={} acc={:.0}%  [{}]",
-                i + 1, args.n_therm, r.plaquette, r.delta_h, r.total_cg_iterations,
-                therm_accepted as f64 / (i + 1) as f64 * 100.0, hw.status_line());
+            eprintln!(
+                "    therm {}/{}: P={:.6} ΔH={:.4e} CG={} acc={:.0}%  [{}]",
+                i + 1,
+                args.n_therm,
+                r.plaquette,
+                r.delta_h,
+                r.total_cg_iterations,
+                therm_accepted as f64 / (i + 1) as f64 * 100.0,
+                hw.status_line()
+            );
         }
     }
 
@@ -634,8 +782,18 @@ fn run_beta_point(
         }
 
         let t0 = Instant::now();
-        let r = run_uni_traj(gpu, &dyn_pipelines, &rhmc_pipelines, &uni_pipelines,
-                             &rhmc_state, &scg_bufs, ms_bufs.as_ref(), &ham_bufs, &rhmc_config, seed);
+        let r = run_uni_traj(
+            gpu,
+            &dyn_pipelines,
+            &rhmc_pipelines,
+            &uni_pipelines,
+            &rhmc_state,
+            &scg_bufs,
+            ms_bufs.as_ref(),
+            &ham_bufs,
+            &rhmc_config,
+            seed,
+        );
         let wall_ms = t0.elapsed().as_secs_f64() * 1000.0;
 
         let est_flops = estimate_traj_flops(vol, args.n_md_steps, r.total_cg_iterations, false);
@@ -644,7 +802,9 @@ fn run_beta_point(
         let est_bytes = estimate_traj_bytes(vol, args.n_md_steps, r.total_cg_iterations, false);
         let est_gb_s = (est_bytes / 1e9) / (wall_ms / 1000.0);
 
-        if r.accepted { meas_accepted += 1; }
+        if r.accepted {
+            meas_accepted += 1;
+        }
         plaq_sum += r.plaquette;
         plaq_sq_sum += r.plaquette * r.plaquette;
 
@@ -664,9 +824,17 @@ fn run_beta_point(
         let hw = telemetry.snapshot();
         let line = format!(
             "{},{beta:.4},{l},{},{},{},{:.6e},{:.8},{},{:.1},{:.3},{:.1},{:.1},meas",
-            args.mode, budget.name, i, i32::from(ir.accepted), ir.delta_h,
-            ir.plaquette, ir.cg_iters, ir.wall_ms, ir.est_gflops,
-            ir.est_gflop_per_s, ir.est_gb_s
+            args.mode,
+            budget.name,
+            i,
+            i32::from(ir.accepted),
+            ir.delta_h,
+            ir.plaquette,
+            ir.cg_iters,
+            ir.wall_ms,
+            ir.est_gflops,
+            ir.est_gflop_per_s,
+            ir.est_gb_s
         );
         println!("{line}");
         if let Some(ref mut f) = out_file {
@@ -680,8 +848,16 @@ fn run_beta_point(
             let n = (i + 1) as f64;
             let mean_p = plaq_sum / n;
             let rate = meas_accepted as f64 / n * 100.0;
-            eprintln!("    meas {}/{}: ⟨P⟩={:.6} acc={:.0}% {:.0}ms/traj {:.0}GFLOP/s  [{}]",
-                i + 1, args.n_meas, mean_p, rate, wall_ms, est_gflop_per_s, hw.status_line());
+            eprintln!(
+                "    meas {}/{}: ⟨P⟩={:.6} acc={:.0}% {:.0}ms/traj {:.0}GFLOP/s  [{}]",
+                i + 1,
+                args.n_meas,
+                mean_p,
+                rate,
+                wall_ms,
+                est_gflop_per_s,
+                hw.status_line()
+            );
         }
     }
 
@@ -697,7 +873,15 @@ fn run_beta_point(
     }
 
     let flow_results = if args.flow {
-        Some(run_gradient_flow_uni(&(), gpu, args, &rhmc_state, &rhmc_config, dims, seed))
+        Some(run_gradient_flow_uni(
+            &(),
+            gpu,
+            args,
+            &rhmc_state,
+            &rhmc_config,
+            dims,
+            seed,
+        ))
     } else {
         None
     };
@@ -721,19 +905,35 @@ fn run_quenched_beta(
     let l = args.lattice;
     let quenched_pipelines = GpuHmcStreamingPipelines::new(gpu);
 
-    eprintln!("  Thermalizing: {} quenched HMC trajectories (streaming)...", args.n_therm);
+    eprintln!(
+        "  Thermalizing: {} quenched HMC trajectories (streaming)...",
+        args.n_therm
+    );
     let mut therm_accepted = 0;
     for i in 0..args.n_therm {
         let r = gpu_hmc_trajectory_streaming(
-            gpu, &quenched_pipelines, quenched_state,
-            args.n_md_steps, args.dt, (args.n_quenched_pretherm + i) as u32, seed,
+            gpu,
+            &quenched_pipelines,
+            quenched_state,
+            args.n_md_steps,
+            args.dt,
+            (args.n_quenched_pretherm + i) as u32,
+            seed,
         );
-        if r.accepted { therm_accepted += 1; }
+        if r.accepted {
+            therm_accepted += 1;
+        }
         if (i + 1) % 20 == 0 || i == 0 {
             let hw = telemetry.snapshot();
-            eprintln!("    therm {}/{}: P={:.6} ΔH={:.4} acc={:.0}%  [{}]",
-                i + 1, args.n_therm, r.plaquette, r.delta_h,
-                therm_accepted as f64 / (i + 1) as f64 * 100.0, hw.status_line());
+            eprintln!(
+                "    therm {}/{}: P={:.6} ΔH={:.4} acc={:.0}%  [{}]",
+                i + 1,
+                args.n_therm,
+                r.plaquette,
+                r.delta_h,
+                therm_accepted as f64 / (i + 1) as f64 * 100.0,
+                hw.status_line()
+            );
         }
     }
 
@@ -754,8 +954,13 @@ fn run_quenched_beta(
         let traj_id = (args.n_quenched_pretherm + args.n_therm + i) as u32;
         let t0 = Instant::now();
         let r = gpu_hmc_trajectory_streaming(
-            gpu, &quenched_pipelines, quenched_state,
-            args.n_md_steps, args.dt, traj_id, seed,
+            gpu,
+            &quenched_pipelines,
+            quenched_state,
+            args.n_md_steps,
+            args.dt,
+            traj_id,
+            seed,
         );
         let wall_ms = t0.elapsed().as_secs_f64() * 1000.0;
 
@@ -765,7 +970,9 @@ fn run_quenched_beta(
         let est_bytes = estimate_traj_bytes(vol, args.n_md_steps, 0, true);
         let est_gb_s = (est_bytes / 1e9) / (wall_ms / 1000.0);
 
-        if r.accepted { meas_accepted += 1; }
+        if r.accepted {
+            meas_accepted += 1;
+        }
         plaq_sum += r.plaquette;
         plaq_sq_sum += r.plaquette * r.plaquette;
 
@@ -783,9 +990,17 @@ fn run_quenched_beta(
 
         let line = format!(
             "{},{beta:.4},{l},{},{},{},{:.6e},{:.8},{},{:.1},{:.3},{:.1},{:.1},meas",
-            args.mode, budget.name, i, i32::from(ir.accepted), ir.delta_h,
-            ir.plaquette, ir.cg_iters, ir.wall_ms, ir.est_gflops,
-            ir.est_gflop_per_s, ir.est_gb_s
+            args.mode,
+            budget.name,
+            i,
+            i32::from(ir.accepted),
+            ir.delta_h,
+            ir.plaquette,
+            ir.cg_iters,
+            ir.wall_ms,
+            ir.est_gflops,
+            ir.est_gflop_per_s,
+            ir.est_gb_s
         );
         println!("{line}");
         if let Some(ref mut f) = out_file {
@@ -800,8 +1015,16 @@ fn run_quenched_beta(
             let mean_p = plaq_sum / n;
             let rate = meas_accepted as f64 / n * 100.0;
             let hw = telemetry.snapshot();
-            eprintln!("    meas {}/{}: ⟨P⟩={:.6} acc={:.0}% {:.0}ms/traj {:.0}GFLOP/s  [{}]",
-                i + 1, args.n_meas, mean_p, rate, wall_ms, est_gflop_per_s, hw.status_line());
+            eprintln!(
+                "    meas {}/{}: ⟨P⟩={:.6} acc={:.0}% {:.0}ms/traj {:.0}GFLOP/s  [{}]",
+                i + 1,
+                args.n_meas,
+                mean_p,
+                rate,
+                wall_ms,
+                est_gflop_per_s,
+                hw.status_line()
+            );
         }
     }
 
@@ -817,7 +1040,13 @@ fn run_quenched_beta(
     }
 
     let flow_results = if args.flow {
-        Some(run_quenched_gradient_flow(gpu, args, quenched_state, dims, seed))
+        Some(run_quenched_gradient_flow(
+            gpu,
+            args,
+            quenched_state,
+            dims,
+            seed,
+        ))
     } else {
         None
     };
@@ -840,8 +1069,16 @@ fn run_uni_traj(
 ) -> TrajectoryResult {
     let t0 = Instant::now();
     let r = gpu_rhmc_trajectory_unidirectional(
-        gpu, dyn_pipelines, rhmc_pipelines, uni_pipelines,
-        rhmc_state, scg_bufs, ms_bufs, ham_bufs, config, seed,
+        gpu,
+        dyn_pipelines,
+        rhmc_pipelines,
+        uni_pipelines,
+        rhmc_state,
+        scg_bufs,
+        ms_bufs,
+        ham_bufs,
+        config,
+        seed,
     );
     TrajectoryResult {
         accepted: r.accepted,
@@ -862,18 +1099,25 @@ fn run_gradient_flow_uni(
     dims: [usize; 4],
     seed: &mut u64,
 ) -> FlowSummary {
-    eprintln!("  Running gradient flow on {} configs (skip={}, unidirectional)...",
-        args.flow_configs, args.flow_skip);
+    eprintln!(
+        "  Running gradient flow on {} configs (skip={}, unidirectional)...",
+        args.flow_configs, args.flow_skip
+    );
 
     let dyn_pipelines = GpuDynHmcPipelines::new(gpu);
     let rhmc_pipelines = GpuRhmcPipelines::new(gpu);
     let uni_pipelines = UniPipelines::new(gpu);
     let scg_bufs = GpuResidentShiftedCgBuffers::new(
-        gpu, &dyn_pipelines, &uni_pipelines.shifted_cg, &rhmc_state.gauge,
+        gpu,
+        &dyn_pipelines,
+        &uni_pipelines.shifted_cg,
+        &rhmc_state.gauge,
     );
     let ham_bufs = UniHamiltonianBuffers::new(
-        gpu, &uni_pipelines.shifted_cg.base.reduce_pipeline,
-        &rhmc_state.gauge.gauge, &rhmc_state.gauge,
+        gpu,
+        &uni_pipelines.shifted_cg.base.reduce_pipeline,
+        &rhmc_state.gauge.gauge,
+        &rhmc_state.gauge,
     );
 
     // GPU-resident flow: eliminates B4 (gpu_links_to_lattice) transfer
@@ -885,8 +1129,16 @@ fn run_gradient_flow_uni(
     for cfg_idx in 0..args.flow_configs {
         for _ in 0..args.flow_skip {
             gpu_rhmc_trajectory_unidirectional(
-                gpu, &dyn_pipelines, &rhmc_pipelines, &uni_pipelines,
-                rhmc_state, &scg_bufs, None, &ham_bufs, rhmc_config, seed,
+                gpu,
+                &dyn_pipelines,
+                &rhmc_pipelines,
+                &uni_pipelines,
+                rhmc_state,
+                &scg_bufs,
+                None,
+                &ham_bufs,
+                rhmc_config,
+                seed,
             );
         }
 
@@ -895,29 +1147,57 @@ fn run_gradient_flow_uni(
         let flow_reduce = FlowReduceBuffers::new(gpu, &flow_pipelines.reduce_pipeline, &flow_state);
 
         let flow_result = gpu_gradient_flow_resident(
-            gpu, &flow_pipelines, &flow_state, &flow_reduce,
+            gpu,
+            &flow_pipelines,
+            &flow_state,
+            &flow_reduce,
             FlowIntegrator::Lscfrk3w7,
-            args.flow_epsilon, args.flow_t_max, 1,
+            args.flow_epsilon,
+            args.flow_t_max,
+            1,
         );
 
         let t0_val = find_t0(&flow_result.measurements);
         let w0_val = find_w0(&flow_result.measurements);
-        if let Some(t) = t0_val { all_t0.push(t); }
-        if let Some(w) = w0_val { all_w0.push(w); }
+        if let Some(t) = t0_val {
+            all_t0.push(t);
+        }
+        if let Some(w) = w0_val {
+            all_w0.push(w);
+        }
 
-        eprintln!("    flow cfg {}/{}: t0={} w0={} ({:.1}s GPU flow)",
-            cfg_idx + 1, args.flow_configs,
+        eprintln!(
+            "    flow cfg {}/{}: t0={} w0={} ({:.1}s GPU flow)",
+            cfg_idx + 1,
+            args.flow_configs,
             t0_val.map_or("N/A".to_string(), |v| format!("{v:.4}")),
             w0_val.map_or("N/A".to_string(), |v| format!("{v:.4}")),
-            flow_result.wall_seconds);
+            flow_result.wall_seconds
+        );
     }
 
     FlowSummary {
         n_configs: args.flow_configs,
-        mean_t0: if all_t0.is_empty() { None } else { Some(mean(&all_t0)) },
-        std_t0: if all_t0.len() < 2 { None } else { Some(std_dev(&all_t0)) },
-        mean_w0: if all_w0.is_empty() { None } else { Some(mean(&all_w0)) },
-        std_w0: if all_w0.len() < 2 { None } else { Some(std_dev(&all_w0)) },
+        mean_t0: if all_t0.is_empty() {
+            None
+        } else {
+            Some(mean(&all_t0))
+        },
+        std_t0: if all_t0.len() < 2 {
+            None
+        } else {
+            Some(std_dev(&all_t0))
+        },
+        mean_w0: if all_w0.is_empty() {
+            None
+        } else {
+            Some(mean(&all_w0))
+        },
+        std_w0: if all_w0.len() < 2 {
+            None
+        } else {
+            Some(std_dev(&all_w0))
+        },
     }
 }
 
@@ -928,7 +1208,10 @@ fn run_quenched_gradient_flow(
     dims: [usize; 4],
     seed: &mut u64,
 ) -> FlowSummary {
-    eprintln!("  Running gradient flow on {} quenched configs (skip={})...", args.flow_configs, args.flow_skip);
+    eprintln!(
+        "  Running gradient flow on {} quenched configs (skip={})...",
+        args.flow_configs, args.flow_skip
+    );
 
     let pipelines = GpuHmcStreamingPipelines::new(gpu);
     let mut all_t0 = Vec::new();
@@ -942,7 +1225,13 @@ fn run_quenched_gradient_flow(
         for s in 0..args.flow_skip {
             let traj_id = (1000 + cfg_idx * args.flow_skip + s) as u32;
             gpu_hmc_trajectory_streaming(
-                gpu, &pipelines, state, args.n_md_steps, args.dt, traj_id, seed,
+                gpu,
+                &pipelines,
+                state,
+                args.n_md_steps,
+                args.dt,
+                traj_id,
+                seed,
             );
         }
 
@@ -951,29 +1240,57 @@ fn run_quenched_gradient_flow(
         let flow_reduce = FlowReduceBuffers::new(gpu, &flow_pipelines.reduce_pipeline, &flow_state);
 
         let flow_result = gpu_gradient_flow_resident(
-            gpu, &flow_pipelines, &flow_state, &flow_reduce,
+            gpu,
+            &flow_pipelines,
+            &flow_state,
+            &flow_reduce,
             FlowIntegrator::Lscfrk3w7,
-            args.flow_epsilon, args.flow_t_max, 1,
+            args.flow_epsilon,
+            args.flow_t_max,
+            1,
         );
 
         let t0_val = find_t0(&flow_result.measurements);
         let w0_val = find_w0(&flow_result.measurements);
-        if let Some(t) = t0_val { all_t0.push(t); }
-        if let Some(w) = w0_val { all_w0.push(w); }
+        if let Some(t) = t0_val {
+            all_t0.push(t);
+        }
+        if let Some(w) = w0_val {
+            all_w0.push(w);
+        }
 
-        eprintln!("    flow cfg {}/{}: t0={} w0={} ({:.1}s GPU flow)",
-            cfg_idx + 1, args.flow_configs,
+        eprintln!(
+            "    flow cfg {}/{}: t0={} w0={} ({:.1}s GPU flow)",
+            cfg_idx + 1,
+            args.flow_configs,
             t0_val.map_or("N/A".to_string(), |v| format!("{v:.4}")),
             w0_val.map_or("N/A".to_string(), |v| format!("{v:.4}")),
-            flow_result.wall_seconds);
+            flow_result.wall_seconds
+        );
     }
 
     FlowSummary {
         n_configs: args.flow_configs,
-        mean_t0: if all_t0.is_empty() { None } else { Some(mean(&all_t0)) },
-        std_t0: if all_t0.len() < 2 { None } else { Some(std_dev(&all_t0)) },
-        mean_w0: if all_w0.is_empty() { None } else { Some(mean(&all_w0)) },
-        std_w0: if all_w0.len() < 2 { None } else { Some(std_dev(&all_w0)) },
+        mean_t0: if all_t0.is_empty() {
+            None
+        } else {
+            Some(mean(&all_t0))
+        },
+        std_t0: if all_t0.len() < 2 {
+            None
+        } else {
+            Some(std_dev(&all_t0))
+        },
+        mean_w0: if all_w0.is_empty() {
+            None
+        } else {
+            Some(mean(&all_w0))
+        },
+        std_w0: if all_w0.len() < 2 {
+            None
+        } else {
+            Some(std_dev(&all_w0))
+        },
     }
 }
 
@@ -1035,9 +1352,13 @@ fn build_summary(
     eprintln!("  β={beta:.4} summary: ⟨P⟩={:.6}±{:.2e} acc={:.0}% {:.0}ms/traj {:.2}TFLOP/s ({:.2}% silicon)",
         mean_plaq, std_plaq, acceptance_pct, mean_ms, eco_tflops, silicon_util);
     if summary.energy.gpu_joules > 0.0 {
-        eprintln!("  Energy: {:.1}J GPU + {:.1}J CPU = {:.2}J/traj (avg {:.0}W GPU)",
-            summary.energy.gpu_joules, summary.energy.cpu_joules,
-            joules_per_traj, summary.energy.gpu_watts_avg);
+        eprintln!(
+            "  Energy: {:.1}J GPU + {:.1}J CPU = {:.2}J/traj (avg {:.0}W GPU)",
+            summary.energy.gpu_joules,
+            summary.energy.cpu_joules,
+            joules_per_traj,
+            summary.energy.gpu_watts_avg
+        );
     }
     eprintln!();
 
@@ -1045,12 +1366,16 @@ fn build_summary(
 }
 
 fn mean(v: &[f64]) -> f64 {
-    if v.is_empty() { return 0.0; }
+    if v.is_empty() {
+        return 0.0;
+    }
     v.iter().sum::<f64>() / v.len() as f64
 }
 
 fn std_dev(v: &[f64]) -> f64 {
-    if v.len() < 2 { return 0.0; }
+    if v.len() < 2 {
+        return 0.0;
+    }
     let m = mean(v);
     let var = v.iter().map(|x| (x - m).powi(2)).sum::<f64>() / (v.len() - 1) as f64;
     var.sqrt()

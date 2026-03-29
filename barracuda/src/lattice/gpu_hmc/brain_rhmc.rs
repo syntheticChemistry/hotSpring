@@ -32,7 +32,7 @@ use crate::md::reservoir::heads;
 use crate::md::reservoir::npu::{ExportedWeights, MultiHeadNpu};
 use crate::tolerances::{ADAPTIVE_DT_MAX, ADAPTIVE_DT_MIN, ADAPTIVE_NMD_MAX, ADAPTIVE_NMD_MIN};
 
-use super::unidirectional_rhmc::{TrajectoryResult, UnidirectionalRhmc};
+use super::unidirectional_cortex::{TrajectoryResult, UnidirectionalRhmc};
 
 use std::collections::VecDeque;
 use std::path::PathBuf;
@@ -58,6 +58,26 @@ pub struct TrajectoryObservation {
     pub dt: f64,
     pub n_md_steps: usize,
     pub lattice_size: usize,
+    /// Silicon routing state active during this trajectory.
+    pub silicon_tags: SiliconRoutingTags,
+}
+
+/// Which silicon units were active for each trajectory phase.
+///
+/// Fed to the ESN so the NPU can learn performance correlations
+/// between hardware routing decisions and physics outcomes.
+#[derive(Debug, Clone, Default)]
+pub struct SiliconRoutingTags {
+    /// TMU-accelerated PRNG (Tier 0) was used for momentum generation.
+    pub tmu_prng: bool,
+    /// Subgroup reduce (Tier 4) was used for CG dot products.
+    pub subgroup_reduce: bool,
+    /// ROP atomic force accumulation (Tier 3) was active.
+    pub rop_force_accum: bool,
+    /// FP64 strategy: 0=native, 1=DF64, 2=hybrid, 3=concurrent.
+    pub fp64_strategy_id: u8,
+    /// Whether native SHADER_F64 was available.
+    pub has_native_f64: bool,
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -397,7 +417,10 @@ impl NpuCortex {
             if self.stats.total_observations % self.report_interval == 0 {
                 let range = format!(
                     "obs {}-{}",
-                    self.stats.total_observations.saturating_sub(self.report_interval) + 1,
+                    self.stats
+                        .total_observations
+                        .saturating_sub(self.report_interval)
+                        + 1,
                     self.stats.total_observations
                 );
                 eprintln!("{}", self.stats.display_table(&range));
@@ -450,9 +473,8 @@ impl NpuCortex {
         }
 
         // Physics-level acceptance rate (across all GPUs at this physics point)
-        let acceptance_rate =
-            self.unified_history.iter().filter(|o| o.accepted).count() as f64
-                / self.unified_history.len() as f64;
+        let acceptance_rate = self.unified_history.iter().filter(|o| o.accepted).count() as f64
+            / self.unified_history.len() as f64;
 
         if acceptance_rate < 0.3 || obs.delta_h.abs() > 10.0 {
             return None;
@@ -569,13 +591,14 @@ fn build_esn_input_sequence(history: &VecDeque<TrajectoryObservation>) -> Vec<Ve
         .iter()
         .skip(start)
         .map(|obs| {
-            crate::lattice::pseudofermion::npu_steering::npu_canonical_input(
+            crate::lattice::pseudofermion::npu_steering::npu_canonical_input_v2(
                 obs.beta,
                 obs.plaquette,
                 obs.mass,
                 obs.delta_h.abs().min(1000.0),
                 if obs.accepted { 1.0 } else { 0.0 },
                 obs.lattice_size,
+                &obs.silicon_tags,
             )
         })
         .collect()
@@ -742,6 +765,7 @@ impl BrainRhmcRunner {
     }
 
     /// Run one iteration: dual-GPU trajectories + observation streaming.
+    #[allow(clippy::expect_used)] // JoinHandle::join() only fails on thread panic
     pub fn run_iteration(
         &mut self,
         gpu_a: &mut UnidirectionalRhmc,
@@ -798,6 +822,7 @@ impl BrainRhmcRunner {
             dt: obs_dt_a,
             n_md_steps: obs_nmd_a,
             lattice_size,
+            silicon_tags: gpu_a.silicon_routing_tags(),
         };
         let obs_b = TrajectoryObservation {
             gpu_name: gpu_b.adapter_name().to_string(),
@@ -812,6 +837,7 @@ impl BrainRhmcRunner {
             dt: obs_dt_b,
             n_md_steps: obs_nmd_b,
             lattice_size,
+            silicon_tags: gpu_b.silicon_routing_tags(),
         };
 
         let _ = self.observation_tx.send(obs_a);
@@ -898,7 +924,13 @@ fn dirs_fallback() -> PathBuf {
 /// Sanitize GPU name for use as a filename.
 fn sanitize_gpu_name(name: &str) -> String {
     name.chars()
-        .map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect::<String>()
         .to_lowercase()
 }
@@ -911,7 +943,11 @@ pub fn save_brain_state(state: &BrainState) -> std::io::Result<()> {
     let json = serde_json::to_string_pretty(state)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
     std::fs::write(&path, json)?;
-    eprintln!("[brain] Saved state for {} → {}", state.gpu_name, path.display());
+    eprintln!(
+        "[brain] Saved state for {} → {}",
+        state.gpu_name,
+        path.display()
+    );
     Ok(())
 }
 

@@ -230,9 +230,7 @@ fn make_pipeline(
 }
 
 fn create_texture_1024(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::TextureView {
-    let tex_data: Vec<f32> = (0..1024 * 1024)
-        .map(|i| (i as f32 * 0.001).sin())
-        .collect();
+    let tex_data: Vec<f32> = (0..1024 * 1024).map(|i| (i as f32 * 0.001).sin()).collect();
     let tex_bytes: Vec<u8> = tex_data.iter().flat_map(|f| f.to_le_bytes()).collect();
     let texture = device.create_texture(&wgpu::TextureDescriptor {
         label: Some("composition_tex"),
@@ -306,7 +304,12 @@ fn run_alu_tmu_composition(
         }],
     });
     let elapsed_alu = timed_dispatch_single_bgl(
-        device, queue, &pipeline_alu, &bg_alu, workgroups, iterations,
+        device,
+        queue,
+        &pipeline_alu,
+        &bg_alu,
+        workgroups,
+        iterations,
     );
     let alu_ops = 256u64 * 2 * n_threads as u64 * iterations as u64; // 256 iters × 2 FLOP per FMA
     let alu_tflops = alu_ops as f64 / elapsed_alu.as_secs_f64() / 1e12;
@@ -329,7 +332,12 @@ fn run_alu_tmu_composition(
         ],
     });
     let elapsed_tmu = timed_dispatch_single_bgl(
-        device, queue, &pipeline_tmu, &bg_tmu, workgroups, iterations,
+        device,
+        queue,
+        &pipeline_tmu,
+        &bg_tmu,
+        workgroups,
+        iterations,
     );
     let tmu_fetches = 32u64 * n_threads as u64 * iterations as u64;
     let tmu_gtexels = tmu_fetches as f64 / elapsed_tmu.as_secs_f64() / 1e9;
@@ -351,7 +359,12 @@ fn run_alu_tmu_composition(
         ],
     });
     let elapsed_combined = timed_dispatch_single_bgl(
-        device, queue, &pipeline_combined, &bg_combined, workgroups, iterations,
+        device,
+        queue,
+        &pipeline_combined,
+        &bg_combined,
+        workgroups,
+        iterations,
     );
     let combined_alu_ops = 32u64 * 8 * 2 * n_threads as u64 * iterations as u64;
     let combined_tmu_fetches = 32u64 * n_threads as u64 * iterations as u64;
@@ -365,10 +378,25 @@ fn run_alu_tmu_composition(
     let sequential_time = alu_alone_time + tmu_alone_time;
     let composition_ratio = sequential_time / combined_time;
 
-    println!("  ALU only:     {:.2} TFLOPS  ({:.1} ms)", alu_tflops, alu_alone_time * 1000.0);
-    println!("  TMU only:     {:.1} GT/s  ({:.1} ms)", tmu_gtexels, tmu_alone_time * 1000.0);
-    println!("  Combined:     {:.2} TFLOPS + {:.1} GT/s  ({:.1} ms)", combined_alu_tflops, combined_tmu_gtexels, combined_time * 1000.0);
-    println!("  Composition:  {composition_ratio:.2}x (1.0 = fully sequential, 2.0 = fully parallel)");
+    println!(
+        "  ALU only:     {:.2} TFLOPS  ({:.1} ms)",
+        alu_tflops,
+        alu_alone_time * 1000.0
+    );
+    println!(
+        "  TMU only:     {:.1} GT/s  ({:.1} ms)",
+        tmu_gtexels,
+        tmu_alone_time * 1000.0
+    );
+    println!(
+        "  Combined:     {:.2} TFLOPS + {:.1} GT/s  ({:.1} ms)",
+        combined_alu_tflops,
+        combined_tmu_gtexels,
+        combined_time * 1000.0
+    );
+    println!(
+        "  Composition:  {composition_ratio:.2}x (1.0 = fully sequential, 2.0 = fully parallel)"
+    );
     println!();
 
     measurements.push(PerformanceMeasurement {
@@ -415,7 +443,12 @@ fn run_alu_bw_composition(
         }],
     });
     let elapsed_alu = timed_dispatch_single_bgl(
-        device, queue, &pipeline_alu, &bg_alu, workgroups, iterations,
+        device,
+        queue,
+        &pipeline_alu,
+        &bg_alu,
+        workgroups,
+        iterations,
     );
 
     // BW only
@@ -465,9 +498,8 @@ fn run_alu_bw_composition(
             },
         ],
     });
-    let elapsed_bw = timed_dispatch_single_bgl(
-        device, queue, &pipeline_bw, &bg_bw, workgroups, iterations,
-    );
+    let elapsed_bw =
+        timed_dispatch_single_bgl(device, queue, &pipeline_bw, &bg_bw, workgroups, iterations);
 
     // Interleaved: ALU then BW in same encoder (tests pipeline switching overhead)
     let start = Instant::now();
@@ -502,7 +534,10 @@ fn run_alu_bw_composition(
 
     println!("  ALU only:       {:.1} ms", alu_time * 1000.0);
     println!("  BW only:        {:.1} ms", bw_time * 1000.0);
-    println!("  Interleaved:    {:.1} ms (both in same encoder)", interleaved_time * 1000.0);
+    println!(
+        "  Interleaved:    {:.1} ms (both in same encoder)",
+        interleaved_time * 1000.0
+    );
     println!("  Overlap ratio:  {overlap_ratio:.2}x (1.0 = no overlap, 2.0 = full overlap)");
     println!();
 
@@ -567,13 +602,17 @@ fn run_alu_reduce_composition(
     });
 
     // ALU only
-    let elapsed_alu = timed_dispatch_single_bgl(
-        device, queue, &pipeline_alu, &bg_alu, wg_alu, iterations,
-    );
+    let elapsed_alu =
+        timed_dispatch_single_bgl(device, queue, &pipeline_alu, &bg_alu, wg_alu, iterations);
 
     // Reduce only
     let elapsed_reduce = timed_dispatch_single_bgl(
-        device, queue, &pipeline_reduce, &bg_reduce, wg_reduce, iterations,
+        device,
+        queue,
+        &pipeline_reduce,
+        &bg_reduce,
+        wg_reduce,
+        iterations,
     );
 
     // CG pattern: ALU dispatch → reduce dispatch (sequential dependency)
@@ -611,8 +650,14 @@ fn run_alu_reduce_composition(
 
     println!("  ALU (Dirac):    {:.1} ms", alu_time * 1000.0);
     println!("  Reduce (dot):   {:.1} ms", reduce_time * 1000.0);
-    println!("  CG pattern:     {:.1} ms (ALU → reduce per iter)", cg_time * 1000.0);
-    println!("  CG efficiency:  {:.0}% (100% = zero pipeline switch overhead)", 100.0 / cg_overhead);
+    println!(
+        "  CG pattern:     {:.1} ms (ALU → reduce per iter)",
+        cg_time * 1000.0
+    );
+    println!(
+        "  CG efficiency:  {:.0}% (100% = zero pipeline switch overhead)",
+        100.0 / cg_overhead
+    );
     println!();
 
     measurements.push(PerformanceMeasurement {

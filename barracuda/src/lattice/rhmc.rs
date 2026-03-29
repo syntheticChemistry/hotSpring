@@ -401,7 +401,8 @@ impl RhmcConfig {
         cg_max_iter: usize,
     ) -> Self {
         let det_power = 0.25; // Nf/8 = 2/8
-        let action_force = RationalApproximation::generate(-det_power, n_poles, range_min, range_max);
+        let action_force =
+            RationalApproximation::generate(-det_power, n_poles, range_min, range_max);
         Self {
             sectors: vec![RhmcFermionConfig {
                 mass,
@@ -460,7 +461,7 @@ impl RhmcConfig {
     /// Strange sector: α = 1/8 (one flavor from 4-taste staggered)
     #[must_use]
     pub fn nf2p1(light_mass: f64, strange_mass: f64, beta: f64) -> Self {
-        let light_power = 0.25;  // 2/8
+        let light_power = 0.25; // 2/8
         let strange_power = 0.125; // 1/8
         let light_af = RationalApproximation::generate(-light_power, 8, 0.01, 64.0);
         let strange_af = RationalApproximation::generate(-strange_power, 8, 0.01, 64.0);

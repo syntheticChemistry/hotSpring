@@ -232,10 +232,7 @@ impl SiliconProfile {
         vec![
             TierRoute {
                 kernel: QcdKernel::Prng,
-                preferred_units: vec![
-                    SiliconUnit::Tmu,
-                    SiliconUnit::Fp32Alu,
-                ],
+                preferred_units: vec![SiliconUnit::Tmu, SiliconUnit::Fp32Alu],
                 rationale: "exp()/cos()/sin() → TMU lookup tables free ALU for physics".into(),
             },
             TierRoute {
@@ -249,12 +246,10 @@ impl SiliconProfile {
             },
             TierRoute {
                 kernel: QcdKernel::DiracOperator,
-                preferred_units: vec![
-                    SiliconUnit::Tmu,
-                    SiliconUnit::Fp32Alu,
-                    SiliconUnit::Fp64Alu,
-                ],
-                rationale: "8-neighbor stencil → TMU texture cache for link loads, ALU for spinor math".into(),
+                preferred_units: vec![SiliconUnit::Tmu, SiliconUnit::Fp32Alu, SiliconUnit::Fp64Alu],
+                rationale:
+                    "8-neighbor stencil → TMU texture cache for link loads, ALU for spinor math"
+                        .into(),
             },
             TierRoute {
                 kernel: QcdKernel::CgDotProduct,
@@ -263,15 +258,14 @@ impl SiliconProfile {
                     SiliconUnit::SharedMemory,
                     SiliconUnit::Fp32Alu,
                 ],
-                rationale: "Global reduction → shuffle-reduce (no shared mem), then tree-reduce".into(),
+                rationale: "Global reduction → shuffle-reduce (no shared mem), then tree-reduce"
+                    .into(),
             },
             TierRoute {
                 kernel: QcdKernel::CgAxpy,
-                preferred_units: vec![
-                    SiliconUnit::MemoryBandwidth,
-                    SiliconUnit::Fp32Alu,
-                ],
-                rationale: "Stream a*x+y is pure bandwidth — limited by VRAM controller, not ALU".into(),
+                preferred_units: vec![SiliconUnit::MemoryBandwidth, SiliconUnit::Fp32Alu],
+                rationale: "Stream a*x+y is pure bandwidth — limited by VRAM controller, not ALU"
+                    .into(),
             },
             TierRoute {
                 kernel: QcdKernel::ForceAccumulation,
@@ -284,36 +278,26 @@ impl SiliconProfile {
             },
             TierRoute {
                 kernel: QcdKernel::MetropolisTest,
-                preferred_units: vec![
-                    SiliconUnit::Fp64Alu,
-                    SiliconUnit::Fp32Alu,
-                ],
-                rationale: "Single scalar ΔH comparison — needs full precision, trivial cost".into(),
+                preferred_units: vec![SiliconUnit::Fp64Alu, SiliconUnit::Fp32Alu],
+                rationale: "Single scalar ΔH comparison — needs full precision, trivial cost"
+                    .into(),
             },
             TierRoute {
                 kernel: QcdKernel::ObservableAccumulation,
-                preferred_units: vec![
-                    SiliconUnit::Fp64Alu,
-                    SiliconUnit::Fp32Alu,
-                ],
+                preferred_units: vec![SiliconUnit::Fp64Alu, SiliconUnit::Fp32Alu],
                 rationale: "Plaquette/Polyakov accumulation — precision-critical, low FLOP".into(),
             },
             TierRoute {
                 kernel: QcdKernel::LinkUpdate,
-                preferred_units: vec![
-                    SiliconUnit::Fp32Alu,
-                    SiliconUnit::TensorCore,
-                ],
-                rationale: "SU(3) exp(iH·dt) via Cayley-Hamilton — FMA-heavy, DF64 is natural".into(),
+                preferred_units: vec![SiliconUnit::Fp32Alu, SiliconUnit::TensorCore],
+                rationale: "SU(3) exp(iH·dt) via Cayley-Hamilton — FMA-heavy, DF64 is natural"
+                    .into(),
             },
             TierRoute {
                 kernel: QcdKernel::GradientFlow,
-                preferred_units: vec![
-                    SiliconUnit::Fp32Alu,
-                    SiliconUnit::Tmu,
-                    SiliconUnit::Fp64Alu,
-                ],
-                rationale: "Link smearing with stencil access — same pattern as force + stencil".into(),
+                preferred_units: vec![SiliconUnit::Fp32Alu, SiliconUnit::Tmu, SiliconUnit::Fp64Alu],
+                rationale: "Link smearing with stencil access — same pattern as force + stencil"
+                    .into(),
             },
         ]
     }
@@ -342,7 +326,11 @@ impl SiliconProfile {
         self.compositions
             .iter()
             .filter(|c| c.unit_a == unit || c.unit_b == unit)
-            .max_by(|a, b| a.multiplier.partial_cmp(&b.multiplier).unwrap_or(std::cmp::Ordering::Equal))
+            .max_by(|a, b| {
+                a.multiplier
+                    .partial_cmp(&b.multiplier)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
     }
 
     /// Total compound throughput estimate: sum of all measured peaks weighted
@@ -379,35 +367,54 @@ impl SiliconProfile {
     pub fn print_summary(&self) {
         let has_energy = self.units.values().any(|u| u.delta_watts > 0.1);
 
-        println!("╔════════════════════════════════════════════════════════════════════════════════╗");
+        println!(
+            "╔════════════════════════════════════════════════════════════════════════════════╗"
+        );
         println!("║  Silicon Profile: {:<60} ║", self.adapter_name);
-        println!("║  Vendor: {:<6}  VRAM: {:>5} MB  Clock: {:.2} GHz{:<30} ║",
+        println!(
+            "║  Vendor: {:<6}  VRAM: {:>5} MB  Clock: {:.2} GHz{:<30} ║",
             self.vendor,
             self.vram_bytes / (1024 * 1024),
             self.boost_ghz,
             "",
         );
-        println!("╠════════════════════════════════════════════════════════════════════════════════╣");
+        println!(
+            "╠════════════════════════════════════════════════════════════════════════════════╣"
+        );
 
         if has_energy {
-            println!("║  {:<14} {:>10} {:>10} {:>7}  {:<10} {:>7} {:>12}      ║",
-                "Unit", "Theoretic", "Measured", "Eff%", "Units", "ΔW", "Ops/W");
+            println!(
+                "║  {:<14} {:>10} {:>10} {:>7}  {:<10} {:>7} {:>12}      ║",
+                "Unit", "Theoretic", "Measured", "Eff%", "Units", "ΔW", "Ops/W"
+            );
             println!("╠════════════════════════════════════════════════════════════════════════════════╣");
             for (unit, t) in &self.units {
                 let eff_pct = t.efficiency * 100.0;
-                let dw = if t.delta_watts > 0.1 { format!("{:.0}W", t.delta_watts) } else { "—".into() };
-                let opw = if t.ops_per_watt > 0.0 { format!("{:.1}", t.ops_per_watt) } else { "—".into() };
-                println!("║  {:<14} {:>10.2} {:>10.2} {:>6.1}%  {:<10} {:>7} {:>12}      ║",
+                let dw = if t.delta_watts > 0.1 {
+                    format!("{:.0}W", t.delta_watts)
+                } else {
+                    "—".into()
+                };
+                let opw = if t.ops_per_watt > 0.0 {
+                    format!("{:.1}", t.ops_per_watt)
+                } else {
+                    "—".into()
+                };
+                println!(
+                    "║  {:<14} {:>10.2} {:>10.2} {:>6.1}%  {:<10} {:>7} {:>12}      ║",
                     unit, t.theoretical_peak, t.measured_peak, eff_pct, t.unit, dw, opw,
                 );
             }
         } else {
-            println!("║  {:<14} {:>10} {:>10} {:>7}  {:<10}                          ║",
-                "Unit", "Theoretic", "Measured", "Eff%", "Units");
+            println!(
+                "║  {:<14} {:>10} {:>10} {:>7}  {:<10}                          ║",
+                "Unit", "Theoretic", "Measured", "Eff%", "Units"
+            );
             println!("╠════════════════════════════════════════════════════════════════════════════════╣");
             for (unit, t) in &self.units {
                 let eff_pct = t.efficiency * 100.0;
-                println!("║  {:<14} {:>10.2} {:>10.2} {:>6.1}%  {:<10}                          ║",
+                println!(
+                    "║  {:<14} {:>10.2} {:>10.2} {:>6.1}%  {:<10}                          ║",
                     unit, t.theoretical_peak, t.measured_peak, eff_pct, t.unit,
                 );
             }
@@ -415,39 +422,60 @@ impl SiliconProfile {
 
         if !self.compositions.is_empty() {
             println!("╠════════════════════════════════════════════════════════════════════════════════╣");
-            println!("║  Composition Multipliers                                                     ║");
+            println!(
+                "║  Composition Multipliers                                                     ║"
+            );
             for c in &self.compositions {
                 let energy_note = if c.delta_watts > 0.1 {
                     format!("  ΔW={:.0}W", c.delta_watts)
                 } else {
                     String::new()
                 };
-                println!("║    {} + {} → {:.2}x  ({:.1}ms serial, {:.1}ms compound){:<18} ║",
+                println!(
+                    "║    {} + {} → {:.2}x  ({:.1}ms serial, {:.1}ms compound){:<18} ║",
                     c.unit_a, c.unit_b, c.multiplier, c.serial_ms, c.compound_ms, energy_note,
                 );
             }
         }
 
-        println!("╠════════════════════════════════════════════════════════════════════════════════╣");
-        println!("║  Tier Routing Table                                                          ║");
+        println!(
+            "╠════════════════════════════════════════════════════════════════════════════════╣"
+        );
+        println!(
+            "║  Tier Routing Table                                                          ║"
+        );
         for route in self.qcd_tier_routes() {
             let chosen = self.route_kernel(route.kernel);
-            let units_str: Vec<String> = route.preferred_units.iter()
+            let units_str: Vec<String> = route
+                .preferred_units
+                .iter()
                 .map(|u| {
-                    if *u == chosen { format!("[{}]", u) } else { format!("{}", u) }
+                    if *u == chosen {
+                        format!("[{}]", u)
+                    } else {
+                        format!("{}", u)
+                    }
                 })
                 .collect();
-            println!("║  {:<22} → {:<53} ║",
+            println!(
+                "║  {:<22} → {:<53} ║",
                 format!("{}", route.kernel),
                 units_str.join(" → "),
             );
         }
 
-        println!("╠════════════════════════════════════════════════════════════════════════════════╣");
-        println!("║  Compound ceiling: {:.2} TFLOPS (all measured units parallel){:<18} ║",
-            self.compound_ceiling_tflops(), "");
+        println!(
+            "╠════════════════════════════════════════════════════════════════════════════════╣"
+        );
+        println!(
+            "║  Compound ceiling: {:.2} TFLOPS (all measured units parallel){:<18} ║",
+            self.compound_ceiling_tflops(),
+            ""
+        );
         println!("║  Measured at: {:<64} ║", self.measured_at);
-        println!("╚════════════════════════════════════════════════════════════════════════════════╝");
+        println!(
+            "╚════════════════════════════════════════════════════════════════════════════════╝"
+        );
     }
 }
 
@@ -718,31 +746,39 @@ pub fn from_spec_sheet(name: &str, vendor_id: u32) -> SiliconProfile {
 }
 
 fn insert_unit(profile: &mut SiliconProfile, unit: SiliconUnit, peak: f64, unit_name: &str) {
-    profile.units.insert(unit, UnitThroughput {
-        theoretical_peak: peak,
-        measured_peak: 0.0,
-        efficiency: 0.0,
-        unit: unit_name.to_string(),
-        idle_watts: 0.0,
-        loaded_watts: 0.0,
-        delta_watts: 0.0,
-        ops_per_watt: 0.0,
-    });
+    profile.units.insert(
+        unit,
+        UnitThroughput {
+            theoretical_peak: peak,
+            measured_peak: 0.0,
+            efficiency: 0.0,
+            unit: unit_name.to_string(),
+            idle_watts: 0.0,
+            loaded_watts: 0.0,
+            delta_watts: 0.0,
+            ops_per_watt: 0.0,
+        },
+    );
 }
 
 // ── Persistence ─────────────────────────────────────────────────────
 
 /// Default directory for saved profiles: `$WORKSPACE/profiles/silicon/`
 fn default_profile_dir() -> PathBuf {
-    let workspace = std::env::var("HOTSPRING_ROOT")
-        .unwrap_or_else(|_| ".".to_string());
+    let workspace = std::env::var("HOTSPRING_ROOT").unwrap_or_else(|_| ".".to_string());
     PathBuf::from(workspace).join("profiles").join("silicon")
 }
 
 /// Sanitize adapter name into a filesystem-safe filename.
 fn sanitize_name(name: &str) -> String {
     name.chars()
-        .map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect::<String>()
         .to_lowercase()
 }
@@ -769,8 +805,7 @@ impl SiliconProfile {
     /// Returns IO error if the file cannot be read or parsed.
     pub fn load(path: &Path) -> std::io::Result<Self> {
         let json = std::fs::read_to_string(path)?;
-        serde_json::from_str(&json)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
+        serde_json::from_str(&json).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
     }
 
     /// Try to find a saved profile for this adapter name.
@@ -779,7 +814,11 @@ impl SiliconProfile {
         let dir = dir.map_or_else(default_profile_dir, Path::to_path_buf);
         let filename = format!("{}.json", sanitize_name(adapter_name));
         let path = dir.join(filename);
-        if path.exists() { Some(path) } else { None }
+        if path.exists() {
+            Some(path)
+        } else {
+            None
+        }
     }
 
     /// Update the measured throughput for a unit and recompute efficiency.
@@ -821,7 +860,11 @@ impl SiliconProfile {
         serial_ms: f64,
         compound_ms: f64,
     ) {
-        let multiplier = if compound_ms > 0.0 { serial_ms / compound_ms } else { 0.0 };
+        let multiplier = if compound_ms > 0.0 {
+            serial_ms / compound_ms
+        } else {
+            0.0
+        };
         self.compositions.push(CompositionEntry {
             unit_a,
             unit_b,
@@ -844,7 +887,11 @@ impl SiliconProfile {
         idle_w: f64,
         compound_w: f64,
     ) {
-        let multiplier = if compound_ms > 0.0 { serial_ms / compound_ms } else { 0.0 };
+        let multiplier = if compound_ms > 0.0 {
+            serial_ms / compound_ms
+        } else {
+            0.0
+        };
         let delta = (compound_w - idle_w).max(0.0);
         self.compositions.push(CompositionEntry {
             unit_a,
@@ -971,8 +1018,14 @@ mod tests {
 
     #[test]
     fn sanitize_name_safe() {
-        assert_eq!(sanitize_name("NVIDIA GeForce RTX 3090"), "nvidia_geforce_rtx_3090");
-        assert_eq!(sanitize_name("AMD Radeon RX 6950 XT"), "amd_radeon_rx_6950_xt");
+        assert_eq!(
+            sanitize_name("NVIDIA GeForce RTX 3090"),
+            "nvidia_geforce_rtx_3090"
+        );
+        assert_eq!(
+            sanitize_name("AMD Radeon RX 6950 XT"),
+            "amd_radeon_rx_6950_xt"
+        );
     }
 
     #[test]

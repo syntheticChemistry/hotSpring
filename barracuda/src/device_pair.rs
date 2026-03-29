@@ -165,8 +165,7 @@ impl DevicePair {
         } else {
             Fp64Rate::Minimal
         };
-        let precise_tflops_f64 =
-            estimate_f64_tflops(&precise.adapter_name, precise_fp64_rate);
+        let precise_tflops_f64 = estimate_f64_tflops(&precise.adapter_name, precise_fp64_rate);
         let throughput_tflops_f32 = estimate_f32_tflops(&throughput.adapter_name);
         let throughput_tflops_df64 = throughput_tflops_f32 * 0.5;
 

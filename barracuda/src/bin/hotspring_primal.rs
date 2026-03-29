@@ -122,7 +122,11 @@ fn discover_capabilities() -> (Vec<String>, Vec<GpuSummary>) {
         caps.push("compute.npu".into());
     }
 
-    if cpu.capabilities.iter().any(|c| matches!(c, Capability::SimdVector)) {
+    if cpu
+        .capabilities
+        .iter()
+        .any(|c| matches!(c, Capability::SimdVector))
+    {
         caps.push("compute.cpu.avx2".into());
     }
 
@@ -151,14 +155,20 @@ fn handle_request(state: &HotSpringState, method: &str, _params: &Value) -> Valu
             "capabilities": state.capabilities,
         }),
         "compute.status" => {
-            let gpus: Vec<Value> = state.gpu_info.iter().map(|g| json!({
-                "name": g.name,
-                "fp64_rate": g.fp64_rate,
-                "strategy": g.strategy,
-                "has_f64": g.has_f64,
-                "has_df64": g.has_df64,
-                "vram_bytes": g.vram_bytes,
-            })).collect();
+            let gpus: Vec<Value> = state
+                .gpu_info
+                .iter()
+                .map(|g| {
+                    json!({
+                        "name": g.name,
+                        "fp64_rate": g.fp64_rate,
+                        "strategy": g.strategy,
+                        "has_f64": g.has_f64,
+                        "has_df64": g.has_df64,
+                        "vram_bytes": g.vram_bytes,
+                    })
+                })
+                .collect();
             json!({ "gpus": gpus, "status": "ok" })
         }
         _ => json!({
@@ -194,7 +204,10 @@ fn run_server(state: Arc<HotSpringState>) {
     };
 
     eprintln!("[hotspring_primal] listening on {}", sock.display());
-    eprintln!("[hotspring_primal] capabilities: {}", state.capabilities.len());
+    eprintln!(
+        "[hotspring_primal] capabilities: {}",
+        state.capabilities.len()
+    );
     for g in &state.gpu_info {
         eprintln!("  GPU: {} | {} | {}", g.name, g.fp64_rate, g.strategy);
     }
@@ -266,9 +279,13 @@ fn main() {
             }
             println!("\nGPU substrates:");
             for g in &state.gpu_info {
-                println!("  {} | {} | {} | VRAM: {} MB",
-                    g.name, g.fp64_rate, g.strategy,
-                    g.vram_bytes / (1024 * 1024));
+                println!(
+                    "  {} | {} | {} | VRAM: {} MB",
+                    g.name,
+                    g.fp64_rate,
+                    g.strategy,
+                    g.vram_bytes / (1024 * 1024)
+                );
             }
         }
         _ => {

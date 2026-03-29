@@ -65,17 +65,26 @@ mod resident_cg_async;
 mod resident_cg_brain;
 pub(crate) mod resident_cg_buffers;
 mod resident_cg_pipelines;
+pub mod resident_observables;
 pub mod resident_shifted_cg;
-pub mod true_multishift_cg;
+pub mod rop_force_accum;
 pub mod rhmc_calibrator;
-pub mod unidirectional_rhmc;
 pub mod spectral_probe;
 pub mod streaming;
+pub mod tmu_tables;
+pub mod true_multishift_cg;
+pub mod unidirectional_cortex;
+pub mod unidirectional_rhmc;
 
 pub use dynamical::gpu_dynamical_hmc_trajectory;
 pub use dynamical::{
     GpuDynHmcPipelines, GpuDynHmcResult, GpuDynHmcState, WGSL_AXPY, WGSL_COMPLEX_DOT_RE,
     WGSL_DIRAC_STAGGERED, WGSL_FERMION_FORCE, WGSL_RANDOM_MOMENTA, WGSL_XPAY,
+};
+#[allow(deprecated)]
+pub use gpu_rhmc::{
+    gpu_multi_shift_cg_solve, gpu_rhmc_trajectory, GpuRhmcPipelines, GpuRhmcResult,
+    GpuRhmcSectorBuffers, GpuRhmcState, MAX_POLES, WGSL_MULTI_SHIFT_ZETA,
 };
 pub use hasenbusch::{gpu_hasenbusch_hmc_trajectory, GpuHasenbuschBuffers, GpuHasenbuschConfig};
 pub use observables::{BidirectionalStream, StreamObservables};
@@ -86,10 +95,9 @@ pub use resident_cg::{
     WGSL_CG_COMPUTE_ALPHA, WGSL_CG_COMPUTE_BETA, WGSL_CG_UPDATE_P, WGSL_CG_UPDATE_XR,
     WGSL_SUM_REDUCE,
 };
-#[allow(deprecated)]
-pub use gpu_rhmc::{
-    gpu_multi_shift_cg_solve, gpu_rhmc_trajectory, GpuRhmcPipelines, GpuRhmcResult,
-    GpuRhmcSectorBuffers, GpuRhmcState, MAX_POLES, WGSL_MULTI_SHIFT_ZETA,
+pub use resident_observables::{
+    encode_ke_reduce, encode_plaquette_reduce, gauge_ke_resident, plaquette_resident,
+    wilson_action_resident, ResidentObservableBuffers,
 };
 pub use rhmc_calibrator::RhmcCalibrator;
 pub use spectral_probe::SpectralInfo;
@@ -98,9 +106,12 @@ pub use streaming::{
     gpu_hmc_trajectory_streaming_cpu_mom, GpuDynHmcStreamingPipelines, GpuHmcStreamingPipelines,
     WGSL_GAUSSIAN_FERMION,
 };
+pub use unidirectional_cortex::{
+    dual_gpu_trajectories, DualGpuResult, TrajectoryResult, UnidirectionalRhmc,
+};
+pub use rop_force_accum::RopForceAccumulator;
 pub use unidirectional_rhmc::{
-    dual_gpu_trajectories, gpu_rhmc_trajectory_unidirectional, DualGpuResult, TrajectoryResult,
-    UniHamiltonianBuffers, UniPipelines, UnidirectionalRhmc,
+    gpu_rhmc_trajectory_unidirectional, UniHamiltonianBuffers, UniPipelines,
 };
 
 use super::wilson::Lattice;
@@ -267,8 +278,7 @@ impl GpuHmcPipelines {
             strategy,
             match strategy {
                 Fp64Strategy::Native | Fp64Strategy::Sovereign => "native f64 on all cores",
-                Fp64Strategy::Hybrid =>
-                    "DF64 on FP32 cores for force + plaquette + KE (fallback)",
+                Fp64Strategy::Hybrid => "DF64 on FP32 cores for force + plaquette + KE (fallback)",
                 Fp64Strategy::Concurrent =>
                     "DF64 on FP32 cores for force + plaquette + KE — FP32 silicon activated",
             },

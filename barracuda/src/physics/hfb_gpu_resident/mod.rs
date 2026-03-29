@@ -191,13 +191,28 @@ pub fn binding_energies_l2_gpu_resident(
         .collect();
 
     // ═══ UNIFIED SCF LOOP ═══
-    #[allow(unused_variables, unused_mut, reason = "only read in debug_assertions profile block")]
+    #[allow(
+        unused_variables,
+        unused_mut,
+        reason = "only read in debug_assertions profile block"
+    )]
     let mut t_gpu_total = 0.0f64;
-    #[allow(unused_variables, reason = "only read in debug_assertions profile block")]
+    #[allow(
+        unused_variables,
+        reason = "only read in debug_assertions profile block"
+    )]
     let t_poll_total = 0.0f64;
-    #[allow(unused_variables, unused_mut, reason = "only read in debug_assertions profile block")]
+    #[allow(
+        unused_variables,
+        unused_mut,
+        reason = "only read in debug_assertions profile block"
+    )]
     let mut t_cpu_total = 0.0f64;
-    #[allow(unused_variables, unused_mut, reason = "only read in debug_assertions profile block")]
+    #[allow(
+        unused_variables,
+        unused_mut,
+        reason = "only read in debug_assertions profile block"
+    )]
     let mut t_upload_total = 0.0f64;
 
     for iter in 0..max_iter {

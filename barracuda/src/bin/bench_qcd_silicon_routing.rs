@@ -358,20 +358,18 @@ struct GpuCtx {
 }
 
 fn init_gpu(adapter: &wgpu::Adapter) -> GpuCtx {
-    let (device, queue) = pollster::block_on(adapter.request_device(
-        &wgpu::DeviceDescriptor {
-            label: None,
-            required_features: wgpu::Features::SHADER_F16,
-            required_limits: wgpu::Limits {
-                max_storage_buffer_binding_size: 1 << 30,
-                max_buffer_size: 1 << 30,
-                ..wgpu::Limits::default()
-            },
-            memory_hints: wgpu::MemoryHints::Performance,
-            experimental_features: wgpu::ExperimentalFeatures::default(),
-            trace: wgpu::Trace::default(),
+    let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+        label: None,
+        required_features: wgpu::Features::SHADER_F16,
+        required_limits: wgpu::Limits {
+            max_storage_buffer_binding_size: 1 << 30,
+            max_buffer_size: 1 << 30,
+            ..wgpu::Limits::default()
         },
-    ))
+        memory_hints: wgpu::MemoryHints::Performance,
+        experimental_features: wgpu::ExperimentalFeatures::default(),
+        trace: wgpu::Trace::default(),
+    }))
     .expect("request device");
     let info = adapter.get_info();
     GpuCtx {
@@ -640,32 +638,41 @@ fn run_prng_experiment(gpu: &GpuCtx, volume: u32, iterations: u32) {
         usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
-    gpu.queue.write_buffer(
-        &params_buf,
-        0,
-        bytemuck::cast_slice(&params_data),
-    );
+    gpu.queue
+        .write_buffer(&params_buf, 0, bytemuck::cast_slice(&params_data));
 
     let wg = ((volume + 255) / 256, 1u32);
 
     // ALU path
-    let bgl_alu = gpu.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        label: None,
-        entries: &[
-            bgle_storage_rw(0),
-            bgle_uniform(1),
-        ],
-    });
+    let bgl_alu = gpu
+        .device
+        .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: None,
+            entries: &[bgle_storage_rw(0), bgle_uniform(1)],
+        });
     let pipeline_alu = make_pipeline(&gpu.device, PRNG_ALU, &bgl_alu, "prng_alu");
     let bg_alu = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: None,
         layout: &bgl_alu,
         entries: &[
-            wgpu::BindGroupEntry { binding: 0, resource: out_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 1, resource: params_buf.as_entire_binding() },
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: out_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: params_buf.as_entire_binding(),
+            },
         ],
     });
-    let elapsed_alu = timed_dispatch(&gpu.device, &gpu.queue, &pipeline_alu, &bg_alu, wg, iterations);
+    let elapsed_alu = timed_dispatch(
+        &gpu.device,
+        &gpu.queue,
+        &pipeline_alu,
+        &bg_alu,
+        wg,
+        iterations,
+    );
     let alu_sites_per_sec = volume as f64 * iterations as f64 / elapsed_alu.as_secs_f64();
     let alu_flops = alu_sites_per_sec * 30.0; // ~30 FLOP per site (3 pairs × log + sqrt + cos + mul + add)
 
@@ -673,22 +680,30 @@ fn run_prng_experiment(gpu: &GpuCtx, volume: u32, iterations: u32) {
     let log_view = create_log_table(&gpu.device, &gpu.queue);
     let trig_view = create_trig_table(&gpu.device, &gpu.queue);
 
-    let bgl_tmu = gpu.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        label: None,
-        entries: &[
-            bgle_storage_rw(0),
-            bgle_uniform(1),
-            bgle_texture(2),
-            bgle_texture(3),
-        ],
-    });
+    let bgl_tmu = gpu
+        .device
+        .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: None,
+            entries: &[
+                bgle_storage_rw(0),
+                bgle_uniform(1),
+                bgle_texture(2),
+                bgle_texture(3),
+            ],
+        });
     let pipeline_tmu = make_pipeline(&gpu.device, PRNG_TMU, &bgl_tmu, "prng_tmu");
     let bg_tmu = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: None,
         layout: &bgl_tmu,
         entries: &[
-            wgpu::BindGroupEntry { binding: 0, resource: out_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 1, resource: params_buf.as_entire_binding() },
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: out_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: params_buf.as_entire_binding(),
+            },
             wgpu::BindGroupEntry {
                 binding: 2,
                 resource: wgpu::BindingResource::TextureView(&log_view),
@@ -699,7 +714,14 @@ fn run_prng_experiment(gpu: &GpuCtx, volume: u32, iterations: u32) {
             },
         ],
     });
-    let elapsed_tmu = timed_dispatch(&gpu.device, &gpu.queue, &pipeline_tmu, &bg_tmu, wg, iterations);
+    let elapsed_tmu = timed_dispatch(
+        &gpu.device,
+        &gpu.queue,
+        &pipeline_tmu,
+        &bg_tmu,
+        wg,
+        iterations,
+    );
     let tmu_sites_per_sec = volume as f64 * iterations as f64 / elapsed_tmu.as_secs_f64();
     let tmu_flops = tmu_sites_per_sec * 18.0; // fewer ALU ops; TMU handles transcendentals
 
@@ -717,8 +739,10 @@ fn run_prng_experiment(gpu: &GpuCtx, volume: u32, iterations: u32) {
         tmu_flops / 1e9,
         elapsed_tmu.as_secs_f64() * 1000.0
     );
-    println!("  TMU speedup: {speedup:.2}x  (TMU freed {:.0} MFLOP/s of ALU capacity)",
-        (alu_flops - tmu_flops).max(0.0) / 1e6);
+    println!(
+        "  TMU speedup: {speedup:.2}x  (TMU freed {:.0} MFLOP/s of ALU capacity)",
+        (alu_flops - tmu_flops).max(0.0) / 1e6
+    );
 }
 
 fn run_stencil_experiment(gpu: &GpuCtx, volume: u32, iterations: u32) {
@@ -754,45 +778,69 @@ fn run_stencil_experiment(gpu: &GpuCtx, volume: u32, iterations: u32) {
         usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
-    gpu.queue.write_buffer(&params_buf, 0, bytemuck::cast_slice(&params_data));
+    gpu.queue
+        .write_buffer(&params_buf, 0, bytemuck::cast_slice(&params_data));
 
     let wg = ((volume + 63) / 64, 1u32);
 
     // ALU storage buffer path
-    let bgl_alu = gpu.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        label: None,
-        entries: &[
-            bgle_storage_ro(0),
-            bgle_storage_ro(1),
-            bgle_storage_rw(2),
-            bgle_uniform(3),
-        ],
-    });
+    let bgl_alu = gpu
+        .device
+        .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: None,
+            entries: &[
+                bgle_storage_ro(0),
+                bgle_storage_ro(1),
+                bgle_storage_rw(2),
+                bgle_uniform(3),
+            ],
+        });
     let pipeline_alu = make_pipeline(&gpu.device, STENCIL_ALU, &bgl_alu, "stencil_alu");
     let bg_alu = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: None,
         layout: &bgl_alu,
         entries: &[
-            wgpu::BindGroupEntry { binding: 0, resource: link_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 1, resource: psi_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 2, resource: out_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 3, resource: params_buf.as_entire_binding() },
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: link_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: psi_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: out_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 3,
+                resource: params_buf.as_entire_binding(),
+            },
         ],
     });
-    let elapsed_alu = timed_dispatch(&gpu.device, &gpu.queue, &pipeline_alu, &bg_alu, wg, iterations);
+    let elapsed_alu = timed_dispatch(
+        &gpu.device,
+        &gpu.queue,
+        &pipeline_alu,
+        &bg_alu,
+        wg,
+        iterations,
+    );
     let alu_flops = volume as f64 * iterations as f64 * 8.0 * 36.0 / elapsed_alu.as_secs_f64();
 
     // TMU textureLoad path
     let link_tex_view = create_link_texture(&gpu.device, &gpu.queue, n_links);
-    let bgl_tmu = gpu.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        label: None,
-        entries: &[
-            bgle_texture(0),
-            bgle_storage_ro(1),
-            bgle_storage_rw(2),
-            bgle_uniform(3),
-        ],
-    });
+    let bgl_tmu = gpu
+        .device
+        .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: None,
+            entries: &[
+                bgle_texture(0),
+                bgle_storage_ro(1),
+                bgle_storage_rw(2),
+                bgle_uniform(3),
+            ],
+        });
     let pipeline_tmu = make_pipeline(&gpu.device, STENCIL_TMU, &bgl_tmu, "stencil_tmu");
     let bg_tmu = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: None,
@@ -802,12 +850,28 @@ fn run_stencil_experiment(gpu: &GpuCtx, volume: u32, iterations: u32) {
                 binding: 0,
                 resource: wgpu::BindingResource::TextureView(&link_tex_view),
             },
-            wgpu::BindGroupEntry { binding: 1, resource: psi_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 2, resource: out_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 3, resource: params_buf.as_entire_binding() },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: psi_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: out_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 3,
+                resource: params_buf.as_entire_binding(),
+            },
         ],
     });
-    let elapsed_tmu = timed_dispatch(&gpu.device, &gpu.queue, &pipeline_tmu, &bg_tmu, wg, iterations);
+    let elapsed_tmu = timed_dispatch(
+        &gpu.device,
+        &gpu.queue,
+        &pipeline_tmu,
+        &bg_tmu,
+        wg,
+        iterations,
+    );
     let tmu_flops = volume as f64 * iterations as f64 * 8.0 * 36.0 / elapsed_tmu.as_secs_f64();
 
     let speedup = elapsed_alu.as_secs_f64() / elapsed_tmu.as_secs_f64();
@@ -852,20 +916,32 @@ fn run_reduce_experiment(gpu: &GpuCtx, size: u32, iterations: u32) {
         usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
-    gpu.queue.write_buffer(&params_buf, 0, bytemuck::cast_slice(&params_data));
+    gpu.queue
+        .write_buffer(&params_buf, 0, bytemuck::cast_slice(&params_data));
 
-    let bgl = gpu.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        label: None,
-        entries: &[bgle_storage_ro(0), bgle_storage_rw(1), bgle_uniform(2)],
-    });
+    let bgl = gpu
+        .device
+        .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: None,
+            entries: &[bgle_storage_ro(0), bgle_storage_rw(1), bgle_uniform(2)],
+        });
     let pipeline = make_pipeline(&gpu.device, REDUCE_SHARED, &bgl, "reduce_shared");
     let bg = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: None,
         layout: &bgl,
         entries: &[
-            wgpu::BindGroupEntry { binding: 0, resource: input_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 1, resource: output_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 2, resource: params_buf.as_entire_binding() },
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: input_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: output_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: params_buf.as_entire_binding(),
+            },
         ],
     });
     let wg = (n_wg, 1u32);
@@ -900,7 +976,8 @@ fn run_compound_experiment(gpu: &GpuCtx, volume: u32, iterations: u32) {
         usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
-    gpu.queue.write_buffer(&params_buf, 0, bytemuck::cast_slice(&params_data));
+    gpu.queue
+        .write_buffer(&params_buf, 0, bytemuck::cast_slice(&params_data));
 
     let log_view = create_log_table(&gpu.device, &gpu.queue);
     let trig_view = create_trig_table(&gpu.device, &gpu.queue);
@@ -908,40 +985,63 @@ fn run_compound_experiment(gpu: &GpuCtx, volume: u32, iterations: u32) {
     let wg = ((volume + 255) / 256, 1u32);
 
     // Force-only (ALU baseline)
-    let bgl_force = gpu.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        label: None,
-        entries: &[bgle_storage_rw(0), bgle_uniform(1)],
-    });
+    let bgl_force = gpu
+        .device
+        .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: None,
+            entries: &[bgle_storage_rw(0), bgle_uniform(1)],
+        });
     let pipeline_force = make_pipeline(&gpu.device, FORCE_ALU, &bgl_force, "force_alu");
     let bg_force = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: None,
         layout: &bgl_force,
         entries: &[
-            wgpu::BindGroupEntry { binding: 0, resource: out_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 1, resource: params_buf.as_entire_binding() },
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: out_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: params_buf.as_entire_binding(),
+            },
         ],
     });
-    let elapsed_force = timed_dispatch(&gpu.device, &gpu.queue, &pipeline_force, &bg_force, wg, iterations);
+    let elapsed_force = timed_dispatch(
+        &gpu.device,
+        &gpu.queue,
+        &pipeline_force,
+        &bg_force,
+        wg,
+        iterations,
+    );
     let force_fma = volume as f64 * iterations as f64 * 6.0 * 3.0 * 9.0 * 2.0;
     let force_tflops = force_fma / elapsed_force.as_secs_f64() / 1e12;
 
     // PRNG TMU-only
-    let bgl_tmu = gpu.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        label: None,
-        entries: &[
-            bgle_storage_rw(0),
-            bgle_uniform(1),
-            bgle_texture(2),
-            bgle_texture(3),
-        ],
-    });
+    let bgl_tmu = gpu
+        .device
+        .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: None,
+            entries: &[
+                bgle_storage_rw(0),
+                bgle_uniform(1),
+                bgle_texture(2),
+                bgle_texture(3),
+            ],
+        });
     let pipeline_prng = make_pipeline(&gpu.device, PRNG_TMU, &bgl_tmu, "prng_tmu_only");
     let bg_prng = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: None,
         layout: &bgl_tmu,
         entries: &[
-            wgpu::BindGroupEntry { binding: 0, resource: out_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 1, resource: params_buf.as_entire_binding() },
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: out_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: params_buf.as_entire_binding(),
+            },
             wgpu::BindGroupEntry {
                 binding: 2,
                 resource: wgpu::BindingResource::TextureView(&log_view),
@@ -952,7 +1052,14 @@ fn run_compound_experiment(gpu: &GpuCtx, volume: u32, iterations: u32) {
             },
         ],
     });
-    let elapsed_prng = timed_dispatch(&gpu.device, &gpu.queue, &pipeline_prng, &bg_prng, wg, iterations);
+    let elapsed_prng = timed_dispatch(
+        &gpu.device,
+        &gpu.queue,
+        &pipeline_prng,
+        &bg_prng,
+        wg,
+        iterations,
+    );
 
     // Compound: force (ALU) + PRNG (TMU) in same kernel
     let pipeline_compound = make_pipeline(&gpu.device, COMPOUND_ALU_TMU, &bgl_tmu, "compound");
@@ -960,8 +1067,14 @@ fn run_compound_experiment(gpu: &GpuCtx, volume: u32, iterations: u32) {
         label: None,
         layout: &bgl_tmu,
         entries: &[
-            wgpu::BindGroupEntry { binding: 0, resource: out_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 1, resource: params_buf.as_entire_binding() },
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: out_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: params_buf.as_entire_binding(),
+            },
             wgpu::BindGroupEntry {
                 binding: 2,
                 resource: wgpu::BindingResource::TextureView(&log_view),
@@ -972,7 +1085,14 @@ fn run_compound_experiment(gpu: &GpuCtx, volume: u32, iterations: u32) {
             },
         ],
     });
-    let elapsed_compound = timed_dispatch(&gpu.device, &gpu.queue, &pipeline_compound, &bg_compound, wg, iterations);
+    let elapsed_compound = timed_dispatch(
+        &gpu.device,
+        &gpu.queue,
+        &pipeline_compound,
+        &bg_compound,
+        wg,
+        iterations,
+    );
 
     let serial_estimate = elapsed_force + elapsed_prng;
     let composition_multiplier = serial_estimate.as_secs_f64() / elapsed_compound.as_secs_f64();
@@ -994,7 +1114,9 @@ fn run_compound_experiment(gpu: &GpuCtx, volume: u32, iterations: u32) {
         "  Serial est:   [{:.1} ms]  (force + PRNG if sequential)",
         serial_estimate.as_secs_f64() * 1000.0,
     );
-    println!("  Composition multiplier: {composition_multiplier:.2}x  (>1.0 = ALU+TMU run in parallel)");
+    println!(
+        "  Composition multiplier: {composition_multiplier:.2}x  (>1.0 = ALU+TMU run in parallel)"
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════════

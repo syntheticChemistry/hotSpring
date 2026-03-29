@@ -402,7 +402,14 @@ async fn probe_f32_fma(gpu: &GpuF64, tag: &str, harness: &mut ValidationHarness)
     let vals = bytes_to_f32(&bytes);
 
     check_print(tag, "fma(2,3,1)", f64::from(vals[0]), 7.0, 1e-6, harness);
-    check_print(tag, "fma(2,3,-6) [exact product]", f64::from(vals[1]), 0.0, 1e-10, harness);
+    check_print(
+        tag,
+        "fma(2,3,-6) [exact product]",
+        f64::from(vals[1]),
+        0.0,
+        1e-10,
+        harness,
+    );
 
     let c = 1234567.0_f32;
     let d = 7654321.0_f32;
@@ -480,9 +487,18 @@ async fn probe_f32_workgroup_reduce(gpu: &GpuF64, tag: &str, harness: &mut Valid
         label: None,
         layout: &bgl,
         entries: &[
-            wgpu::BindGroupEntry { binding: 0, resource: input_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 1, resource: out_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 2, resource: params_buf.as_entire_binding() },
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: input_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: out_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: params_buf.as_entire_binding(),
+            },
         ],
     });
 
@@ -505,7 +521,14 @@ async fn probe_f32_workgroup_reduce(gpu: &GpuF64, tag: &str, harness: &mut Valid
     };
     let vals = bytes_to_f32(&bytes);
 
-    check_print(tag, "f32 workgroup sum(256x1.0)", f64::from(vals[0]), 256.0, 0.01, harness);
+    check_print(
+        tag,
+        "f32 workgroup sum(256x1.0)",
+        f64::from(vals[0]),
+        256.0,
+        0.01,
+        harness,
+    );
     println!();
 }
 
@@ -588,17 +611,20 @@ async fn probe_df64_storage_arith(gpu: &GpuF64, tag: &str, harness: &mut Validat
 
     let pi_sq = f64::from(vals[4]) + f64::from(vals[5]);
     let pi_sq_ref = std::f64::consts::PI * std::f64::consts::PI;
-    check_print(tag, "df64_mul(pi,pi) ~ 9.8696", pi_sq, pi_sq_ref, 1e-6, harness);
+    check_print(
+        tag,
+        "df64_mul(pi,pi) ~ 9.8696",
+        pi_sq,
+        pi_sq_ref,
+        1e-6,
+        harness,
+    );
     println!();
 }
 
 // ── Probe 4: DF64 workgroup reduce (f32 storage) ────────────────────────────
 
-async fn probe_df64_workgroup_reduce_f32(
-    gpu: &GpuF64,
-    tag: &str,
-    harness: &mut ValidationHarness,
-) {
+async fn probe_df64_workgroup_reduce_f32(gpu: &GpuF64, tag: &str, harness: &mut ValidationHarness) {
     println!("── DF64 workgroup reduce (f32 storage, no f64 needed) ──");
     let device = gpu.device();
     let queue = gpu.queue();
@@ -657,9 +683,18 @@ async fn probe_df64_workgroup_reduce_f32(
         label: None,
         layout: &bgl,
         entries: &[
-            wgpu::BindGroupEntry { binding: 0, resource: input_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 1, resource: out_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 2, resource: params_buf.as_entire_binding() },
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: input_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: out_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: params_buf.as_entire_binding(),
+            },
         ],
     });
 
@@ -696,19 +731,14 @@ async fn probe_df64_workgroup_reduce_f32(
 
 // ── Probe 5: DF64 workgroup reduce (f64 storage — production pattern) ───────
 
-async fn probe_df64_workgroup_reduce_f64(
-    gpu: &GpuF64,
-    tag: &str,
-    harness: &mut ValidationHarness,
-) {
+async fn probe_df64_workgroup_reduce_f64(gpu: &GpuF64, tag: &str, harness: &mut ValidationHarness) {
     println!("── DF64 workgroup reduce (f64 storage — production pattern) ──");
     let device = gpu.device();
     let queue = gpu.queue();
     let n: u32 = 256;
 
-    let source = format!(
-        "{DF64_ARITH_PREAMBLE}\n{DF64_F64_BRIDGE}\n{PROBE_DF64_WORKGROUP_REDUCE_F64_BODY}"
-    );
+    let source =
+        format!("{DF64_ARITH_PREAMBLE}\n{DF64_F64_BRIDGE}\n{PROBE_DF64_WORKGROUP_REDUCE_F64_BODY}");
 
     let scope = device.push_error_scope(wgpu::ErrorFilter::Validation);
     let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -762,9 +792,18 @@ async fn probe_df64_workgroup_reduce_f64(
         label: None,
         layout: &bgl,
         entries: &[
-            wgpu::BindGroupEntry { binding: 0, resource: input_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 1, resource: out_buf.as_entire_binding() },
-            wgpu::BindGroupEntry { binding: 2, resource: params_buf.as_entire_binding() },
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: input_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: out_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: params_buf.as_entire_binding(),
+            },
         ],
     });
 

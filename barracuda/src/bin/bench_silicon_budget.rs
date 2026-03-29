@@ -366,7 +366,7 @@ fn lookup_silicon_specs(name: &str, vendor: GpuVendor) -> GpuSiliconBudget {
             fp64_ratio: 1.0 / 2.0,
             fp64_tflops: 9.7, // GA100: 1:2 FP64
             df64_tflops: 4.9,
-            memory_bw_gbs: 2039.0, // HBM2e SXM
+            memory_bw_gbs: 2039.0,      // HBM2e SXM
             l2_bytes: 40 * 1024 * 1024, // 40 MB
             infinity_cache_bytes: 0,
             tmu_count: 432,
@@ -389,7 +389,7 @@ fn lookup_silicon_specs(name: &str, vendor: GpuVendor) -> GpuSiliconBudget {
             fp64_ratio: 1.0 / 2.0,
             fp64_tflops: 34.0,
             df64_tflops: 17.0,
-            memory_bw_gbs: 3350.0, // HBM3 SXM
+            memory_bw_gbs: 3350.0,      // HBM3 SXM
             l2_bytes: 50 * 1024 * 1024, // 50 MB
             infinity_cache_bytes: 0,
             tmu_count: 528,
@@ -412,7 +412,7 @@ fn lookup_silicon_specs(name: &str, vendor: GpuVendor) -> GpuSiliconBudget {
             fp64_ratio: 1.0, // CDNA2: full-rate 1:1 FP64
             fp64_tflops: 47.9,
             df64_tflops: 12.0,
-            memory_bw_gbs: 3277.0, // HBM2e (dual GCD)
+            memory_bw_gbs: 3277.0,      // HBM2e (dual GCD)
             l2_bytes: 16 * 1024 * 1024, // 8 MB per GCD × 2
             infinity_cache_bytes: 0,
             tmu_count: 0, // CDNA has no TMUs (compute-only die)
@@ -489,7 +489,10 @@ fn qcd_working_set(n_sites: u64) -> (u64, u64) {
 
 fn print_budget(budget: &GpuSiliconBudget) {
     println!("  ┌─────────────────────────────────────────────────────────┐");
-    println!("  │ {} ({})                          ", budget.name, budget.vendor);
+    println!(
+        "  │ {} ({})                          ",
+        budget.name, budget.vendor
+    );
     println!("  ├─────────────────────────────────────────────────────────┤");
     println!("  │ SHADER CORES                                           │");
     println!(
@@ -565,15 +568,13 @@ fn print_compound_budget(budget: &GpuSiliconBudget) {
     };
     // TMU: each texel fetch is ~2 FMA equivalent (interpolation + lookup)
     let tmu_equiv = budget.tmu_gtexels * 2.0 / 1000.0; // GT/s × 2 FLOP → TFLOPS
-    // ROP: each atomic blend is ~1 FMA equivalent
+                                                       // ROP: each atomic blend is ~1 FMA equivalent
     let rop_equiv = budget.rop_gpixels / 1000.0;
 
     let compound_low = shader_equiv + tmu_equiv;
     let compound_high = shader_equiv + tensor_equiv + tmu_equiv + rop_equiv;
 
-    println!(
-        "  Shader cores alone:         {shader_equiv:>8.2} TFLOPS (FP32)"
-    );
+    println!("  Shader cores alone:         {shader_equiv:>8.2} TFLOPS (FP32)");
     println!(
         "  + TMU table lookups:        {:>8.2} TFLOPS equiv ({:.1} GT/s × 2 FLOP/texel)",
         tmu_equiv, budget.tmu_gtexels
@@ -589,12 +590,8 @@ fn print_compound_budget(budget: &GpuSiliconBudget) {
         rop_equiv, budget.rop_gpixels
     );
     println!();
-    println!(
-        "  Conservative compound:      {compound_low:>8.2} TFLOPS (shader + TMU)"
-    );
-    println!(
-        "  Optimistic compound:        {compound_high:>8.2} TFLOPS (all units parallel)"
-    );
+    println!("  Conservative compound:      {compound_low:>8.2} TFLOPS (shader + TMU)");
+    println!("  Optimistic compound:        {compound_high:>8.2} TFLOPS (all units parallel)");
     println!(
         "  Multiplier over shader:     {:.2}x – {:.2}x",
         compound_low / shader_equiv.max(0.001),
@@ -640,9 +637,7 @@ fn print_working_set_analysis(budget: &GpuSiliconBudget) {
             "EXCEEDS VRAM"
         };
 
-        println!(
-            "  {label:<10} {link_mb:>10.2} {total_mb:>12.2}  {vram_pct:>8.1}%  {cache_fit}"
-        );
+        println!("  {label:<10} {link_mb:>10.2} {total_mb:>12.2}  {vram_pct:>8.1}%  {cache_fit}");
     }
 
     println!();
@@ -689,10 +684,7 @@ fn print_precision_tier_analysis(budget: &GpuSiliconBudget) {
         ),
     ];
 
-    println!(
-        "  {:<8} {:>10}  Implementation",
-        "Tier", "TFLOPS"
-    );
+    println!("  {:<8} {:>10}  Implementation", "Tier", "TFLOPS");
     println!("  {}", "─".repeat(60));
 
     for (tier, tflops, desc) in tiers {
@@ -750,11 +742,7 @@ async fn main() {
             if *value > 0.0 {
                 measurements.push(PerformanceMeasurement {
                     operation: (*op).to_string(),
-                    silicon_unit: op
-                        .split('.')
-                        .nth(1)
-                        .unwrap_or("unknown")
-                        .to_string(),
+                    silicon_unit: op.split('.').nth(1).unwrap_or("unknown").to_string(),
                     precision_mode: "theoretical_peak".into(),
                     throughput_gflops: *value * 1000.0, // TFLOPS → GFLOPS
                     tolerance_achieved: 0.0,
@@ -786,17 +774,35 @@ async fn main() {
         if budgets.len() >= 2 {
             println!(
                 "  {:<28} {:>10} {:>10} {:>10} {:>10}",
-                "Metric", &budgets[0].name[..budgets[0].name.len().min(10)],
+                "Metric",
+                &budgets[0].name[..budgets[0].name.len().min(10)],
                 &budgets[1].name[..budgets[1].name.len().min(10)],
-                "Ratio", "Advantage"
+                "Ratio",
+                "Advantage"
             );
             println!("  {}", "─".repeat(72));
 
             let comparisons: &[(&str, f64, f64)] = &[
-                ("FP32 TFLOPS", budgets[0].fp32_tflops, budgets[1].fp32_tflops),
-                ("DF64 TFLOPS", budgets[0].df64_tflops, budgets[1].df64_tflops),
-                ("FP64 TFLOPS", budgets[0].fp64_tflops, budgets[1].fp64_tflops),
-                ("Memory GB/s", budgets[0].memory_bw_gbs, budgets[1].memory_bw_gbs),
+                (
+                    "FP32 TFLOPS",
+                    budgets[0].fp32_tflops,
+                    budgets[1].fp32_tflops,
+                ),
+                (
+                    "DF64 TFLOPS",
+                    budgets[0].df64_tflops,
+                    budgets[1].df64_tflops,
+                ),
+                (
+                    "FP64 TFLOPS",
+                    budgets[0].fp64_tflops,
+                    budgets[1].fp64_tflops,
+                ),
+                (
+                    "Memory GB/s",
+                    budgets[0].memory_bw_gbs,
+                    budgets[1].memory_bw_gbs,
+                ),
                 ("TMU GT/s", budgets[0].tmu_gtexels, budgets[1].tmu_gtexels),
                 ("ROP GP/s", budgets[0].rop_gpixels, budgets[1].rop_gpixels),
                 (
@@ -804,7 +810,11 @@ async fn main() {
                     (budgets[0].l2_bytes + budgets[0].infinity_cache_bytes) as f64 / 1_048_576.0,
                     (budgets[1].l2_bytes + budgets[1].infinity_cache_bytes) as f64 / 1_048_576.0,
                 ),
-                ("VRAM (GB)", budgets[0].vram_bytes as f64 / 1e9, budgets[1].vram_bytes as f64 / 1e9),
+                (
+                    "VRAM (GB)",
+                    budgets[0].vram_bytes as f64 / 1e9,
+                    budgets[1].vram_bytes as f64 / 1e9,
+                ),
             ];
 
             for (metric, a, b) in comparisons {
@@ -817,15 +827,16 @@ async fn main() {
                     } else {
                         "~parity"
                     };
-                    println!(
-                        "  {metric:<28} {a:>10.2} {b:>10.2} {ratio:>10.2}x  {advantage}"
-                    );
+                    println!("  {metric:<28} {a:>10.2} {b:>10.2} {ratio:>10.2}x  {advantage}");
                 }
             }
         }
     }
 
-    println!("\n── Reporting {} measurements to toadStool ──\n", measurements.len());
+    println!(
+        "\n── Reporting {} measurements to toadStool ──\n",
+        measurements.len()
+    );
     toadstool_report::report_to_toadstool(&measurements);
 
     println!("\n═══════════════════════════════════════════════════════════");

@@ -32,9 +32,11 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 
 ---
 
-## Current Status (2026-03-28)
+## Current Status (2026-03-29)
 
-> **123+ experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **848 lib tests, 129 binaries, 93 WGSL shaders** | **True multi-shift CG (shared Krylov, N_shifts reduction)** | **Fermion force sign fix (−η convention)** | **All diagnostics removed, 37% production speedup**
+> **123+ experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **870 lib tests, 139 binaries, 99 WGSL shaders** | **Silicon saturation profiling: 7-tier routing, TMU PRNG, subgroup reduce, ROP atomics** | **True multi-shift CG (shared Krylov, N_shifts reduction)** | **Fermion force sign fix (−η convention)** | **All diagnostics removed, 37% production speedup**
+>
+> **Silicon Saturation (Exp 105-106):** Full 7-phase silicon saturation profiling on strandgate (RTX 3090 + RX 6950 XT). **TMU PRNG** wired into production RHMC — Box-Muller via texture lookup offloads transcendentals (Tier 0). **Subgroup reduce** for CG dot products via `subgroupAdd()` — eliminates shared memory traffic (Tier 4). **ROP atomic scatter-add** for fermion force accumulation — fixed-point i32 `atomicAdd`, all poles parallel (Tier 3). **NPU observation vector** extended from 6D to 11D with silicon routing tags. **Capacity analysis:** RTX 3090 max L=46⁴ dynamical (23.6 GB), RX 6950 XT max L=40⁴ (13.5 GB). Unidirectional RHMC: 3.79x speedup (3090), 2.06x (6950 XT).
 >
 > **Science (Exp 096-103):** Full silicon characterization pipeline — TMU 1.89x (RTX 3090), AMD DF64 38% advantage, hardware personalities mapped (Exp 096-100). **GPU RHMC production** — Nf=2 at 4⁴/8⁴, Nf=2+1 at 4⁴, first all-flavors dynamical QCD on consumer GPU (Exp 101). **Gradient flow at volume** — 5 LSCFRK integrators, CK4 6-orders-of-magnitude stability, 16⁴ running (Exp 102). **RHMC + gradient flow** on dynamical configs (Exp 103). **Self-tuning RHMC** — spectral discovery + acceptance-driven adaptation, zero hand-tuned magic numbers.
 >
@@ -55,13 +57,14 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **NPU** (AKD1000 hardware) | ✅ 34/35 | 10 SDK assumptions overturned, physics pipeline, phase detection |
 | **Sovereign GPU** (coralReef) | ✅ 10.5/11 layers | SEC2 HS mode, K80 direct boot, WPR2 root cause |
 | **Silicon Characterization** | ✅ Complete | TMU, ROP, L2, shader cores — AMD vs NVIDIA personalities |
+| **Silicon Saturation Profiling** | ✅ Complete | TMU PRNG, subgroup reduce, ROP atomics, capacity analysis |
 | **Chuna Papers 43-45** | ✅ **44/44** | Gradient flow + BGK dielectric + kinetic-fluid coupling |
 
 Full validation table (130+ rows) with per-experiment details: [`EXPERIMENT_INDEX.md`](EXPERIMENT_INDEX.md)
 
 ### Science Ladder
 
-Quenched SU(3) ✅ → Gradient Flow ✅ → LSCFRK Integrators ✅ → N_f=4 Infra ✅ → Chuna 44/44 ✅ → **N_f=2 ✅** → **N_f=2+1 ✅** → **Self-tuning ✅** → 16⁴ dynamical flow (running) → **True multi-shift CG ✅** → **Fermion force validated ✅**
+Quenched SU(3) ✅ → Gradient Flow ✅ → LSCFRK Integrators ✅ → N_f=4 Infra ✅ → Chuna 44/44 ✅ → **N_f=2 ✅** → **N_f=2+1 ✅** → **Self-tuning ✅** → **True multi-shift CG ✅** → **Fermion force validated ✅** → **Silicon saturation profiling ✅** → 16⁴+ dynamical production (next)
 ## Evolution Architecture: Write → Absorb → Lean
 
 hotSpring is a biome. ToadStool (barracuda) is the fungus — it lives in
@@ -106,7 +109,7 @@ makes the upstream library richer and hotSpring leaner.
 - HFB shader suite — potentials + density + BCS bisection (14+GPU+6 checks, Tier 2)
 - NPU substrate discovery — `metalForge/forge/src/probe.rs` (local evolution)
 
-**Already leaning on upstream** (v0.6.31, synced to barraCuda v0.3.7 + toadStool S163 + coralReef Phase 10+, wgpu 28, pollster 0.3, bytemuck 1.25, tokio 1.50):
+**Already leaning on upstream** (v0.6.32, synced to barraCuda v0.3.7 + toadStool S163 + coralReef Phase 10+, wgpu 28, pollster 0.3, bytemuck 1.25, tokio 1.50):
 
 | Module | Upstream | Status |
 |--------|----------|--------|
@@ -131,7 +134,7 @@ makes the upstream library richer and hotSpring leaner.
 The `barracuda/` directory is a standalone Rust crate providing the validation
 environment, physics implementations, and GPU compute. Key architectural properties:
 
-- **848 tests** (lib), **115 binaries**, **39 validation suites** (39/39 pass), **93 WGSL shaders** (all AGPL-3.0-only),
+- **870 tests** (lib), **139 binaries**, **39 validation suites** (39/39 pass), **99 WGSL shaders** (all AGPL-3.0-only),
   **16 determinism tests** (rerun-identical for all stochastic algorithms). Includes
   lattice QCD (complex f64, SU(3), Wilson action, HMC, Dirac CG, pseudofermion HMC),
   Abelian Higgs (U(1) + Higgs, HMC), transport coefficients (Green-Kubo D*/η*/λ*,
@@ -139,7 +142,7 @@ environment, physics implementations, and GPU compute. Key architectural propert
   and NPU beyond-SDK hardware capability validation. Test coverage: **74.9% region /
   83.8% function** (spectral tests upstream in barracuda; GPU modules require hardware
   for higher coverage). Measured with `cargo-llvm-cov`.
-- **AGPL-3.0 only** — all 286 `.rs` files (171 lib + 115 bin) and all 93 `.wgsl` shaders have
+- **AGPL-3.0 only** — all `.rs` files and all 99 `.wgsl` shaders have
   `SPDX-License-Identifier: AGPL-3.0-only` on line 1.
 - **Provenance** — centralized `BaselineProvenance` records trace hardcoded
   validation values to their Python origins (script path, git commit, date,
@@ -197,7 +200,7 @@ environment, physics implementations, and GPU compute. Key architectural propert
 
 ```bash
 cd barracuda
-cargo test               # 848 tests (lib), 6 GPU/heavy-ignored (~700s; spectral tests upstream)
+cargo test               # 870 tests (lib), 6 GPU/heavy-ignored (~700s; spectral tests upstream)
 cargo clippy --all-targets  # Zero warnings (pedantic + nursery via Cargo.toml workspace lints)
 cargo doc --no-deps      # Full API documentation — 0 warnings
 cargo run --release --bin validate_all  # 39/39 suites pass
@@ -280,7 +283,7 @@ hotSpring/
 │       ├── cross_spring_evolution.md  # Cross-spring shader ecosystem (164+ shaders)
 │       └── neuromorphic_silicon.md    # AKD1000 NPU exploration — silicon behavior, cross-substrate ESN
 │
-├── barracuda/                          # BarraCuda Rust crate (848 tests, 129 binaries, 85 WGSL shaders)
+├── barracuda/                          # BarraCuda Rust crate (870 tests, 139 binaries, 99 WGSL shaders)
 │   ├── Cargo.toml                     # Dependencies (requires ecoPrimals/barraCuda)
 │   ├── CHANGELOG.md                   # Version history
 │   └── src/bin/                       # 129 binaries (validation, production, benchmarks)
@@ -324,7 +327,7 @@ a network service, you must make your source available under the same terms.
 
 ---
 
-*123 experiments, 848 tests, 129 binaries, 93 WGSL shaders, ~$0.30 total science cost.
+*123 experiments, 870 tests, 139 binaries, 99 WGSL shaders, ~$0.30 total science cost.
 Consumer GPUs reproduce HPC physics at paper parity. DF64 delivers 3.24 TFLOPS at
 14-digit precision. GPU RHMC runs all-flavors dynamical QCD (Nf=2+1). Self-tuning
 RHMC eliminates hand-tuned parameters. Chuna 44/44 checks pass. K80 validates the

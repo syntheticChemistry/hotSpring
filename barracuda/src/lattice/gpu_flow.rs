@@ -28,11 +28,13 @@
 #![allow(clippy::cast_sign_loss)]
 #![allow(clippy::cast_precision_loss)]
 
+use super::cg::WGSL_SUM_REDUCE_F64;
+use super::gpu_hmc::resident_cg_buffers::{
+    build_reduce_chain_pub, encode_reduce_chain, ReduceChain,
+};
 use super::gpu_hmc::{
     gpu_force_dispatch, make_link_mom_params, make_u32x4_params, GpuHmcPipelines, GpuHmcState,
 };
-use super::gpu_hmc::resident_cg_buffers::{build_reduce_chain_pub, encode_reduce_chain, ReduceChain};
-use super::cg::WGSL_SUM_REDUCE_F64;
 use barracuda::numerical::lscfrk::{self as lscfrk_lib, LscfrkCoefficients};
 
 use super::gradient_flow::{FlowIntegrator, FlowMeasurement};
@@ -163,12 +165,21 @@ impl FlowReduceBuffers {
         let staging = gpu.create_staging_buffer(8, "flow_staging");
 
         let reduce_plaq = build_reduce_chain_pub(
-            gpu, reduce_pl,
+            gpu,
+            reduce_pl,
             &state.hmc.plaq_out_buf,
-            &scratch_a, &scratch_b,
-            &plaq_sum_buf, vol,
+            &scratch_a,
+            &scratch_b,
+            &plaq_sum_buf,
+            vol,
         );
-        Self { reduce_plaq, plaq_sum_buf, scratch_a, scratch_b, staging }
+        Self {
+            reduce_plaq,
+            plaq_sum_buf,
+            scratch_a,
+            scratch_b,
+            staging,
+        }
     }
 }
 
@@ -330,11 +341,21 @@ fn gpu_flow_plaquette_reduced(
     let param_buf = gpu.create_uniform_buffer(&params, "flow_plaq_p");
     let bg = gpu.create_bind_group(
         &pipelines.hmc.plaquette_pipeline,
-        &[&param_buf, &state.hmc.link_buf, &state.hmc.nbr_buf, &state.hmc.plaq_out_buf],
+        &[
+            &param_buf,
+            &state.hmc.link_buf,
+            &state.hmc.nbr_buf,
+            &state.hmc.plaq_out_buf,
+        ],
     );
 
     let mut enc = gpu.begin_encoder("flow_plaq_reduce");
-    GpuF64::encode_pass(&mut enc, &pipelines.hmc.plaquette_pipeline, &bg, state.hmc.wg_vol);
+    GpuF64::encode_pass(
+        &mut enc,
+        &pipelines.hmc.plaquette_pipeline,
+        &bg,
+        state.hmc.wg_vol,
+    );
     encode_reduce_chain(&mut enc, &pipelines.reduce_pipeline, &reduce.reduce_plaq);
     enc.copy_buffer_to_buffer(&reduce.plaq_sum_buf, 0, &reduce.staging, 0, 8);
     gpu.submit_encoder(enc);

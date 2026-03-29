@@ -793,7 +793,8 @@ async fn main() {
         );
         println!("  {}", "─".repeat(80));
 
-        let all_kernels: Vec<&KernelSpec> = fp32_kernels.iter().chain(df64_kernels.iter()).collect();
+        let all_kernels: Vec<&KernelSpec> =
+            fp32_kernels.iter().chain(df64_kernels.iter()).collect();
         for k in &all_kernels {
             let intensity = f64::from(k.flops_per_site) / f64::from(k.bytes_per_site);
             let (bottleneck, target, opportunity) = classify_silicon_opportunity(k, intensity);
@@ -840,11 +841,7 @@ fn classify_silicon_opportunity(
         );
     }
     if k.name.contains("CG dot") {
-        return (
-            "reduce",
-            "shader LDS",
-            "Workgroup shared memory throughput",
-        );
+        return ("reduce", "shader LDS", "Workgroup shared memory throughput");
     }
     if k.name.contains("SU3 matmul") {
         return (
@@ -864,11 +861,7 @@ fn classify_silicon_opportunity(
             ("compute", "shader_core", "Peak ALU utilization")
         }
     } else {
-        (
-            "memory",
-            "cache/BW",
-            "Infinity Cache advantage at ≤16^4",
-        )
+        ("memory", "cache/BW", "Infinity Cache advantage at ≤16^4")
     }
 }
 
@@ -903,5 +896,9 @@ fn print_trajectory_cost_model(gpu_name: &str) {
 
     println!("  Quenched:  {quenched_tflops:.2} TFLOP/traj → ~{quenched_time:.1}s at 30% efficiency on {gpu_name}");
     println!("  Dynamical: {dynamical_tflops:.2} TFLOP/traj → ~{dynamical_time:.1}s at 30% efficiency (Nf=4, ~100 CG iters)");
-    println!("  Overnight (500 traj): ~{:.1}h quenched, ~{:.1}h dynamical", quenched_time * 500.0 / 3600.0, dynamical_time * 500.0 / 3600.0);
+    println!(
+        "  Overnight (500 traj): ~{:.1}h quenched, ~{:.1}h dynamical",
+        quenched_time * 500.0 / 3600.0,
+        dynamical_time * 500.0 / 3600.0
+    );
 }

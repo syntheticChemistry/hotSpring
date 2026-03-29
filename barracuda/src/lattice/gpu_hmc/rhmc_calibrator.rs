@@ -37,11 +37,10 @@ use super::spectral_probe::{probe_spectral_range, SpectralInfo};
 use super::{GpuDynHmcState, GpuF64};
 use crate::lattice::rhmc::{RationalApproximation, RhmcConfig, RhmcFermionConfig};
 use crate::tolerances::{
-    ADAPTIVE_DT_BUMP, ADAPTIVE_DT_DROP, ADAPTIVE_DT_MAX, ADAPTIVE_DT_MIN,
-    ADAPTIVE_HIGH_ACCEPTANCE, ADAPTIVE_LOW_ACCEPTANCE, ADAPTIVE_NMD_MAX, ADAPTIVE_NMD_MIN,
-    RHMC_APPROX_ERROR_THRESHOLD, RHMC_CG_TOL_FORCE, RHMC_CG_TOL_METROPOLIS,
-    RHMC_CONSISTENCY_THRESHOLD, RHMC_MAX_POLES, RHMC_POLE_INCREMENT,
-    RHMC_SPECTRAL_REPROBE_INTERVAL,
+    ADAPTIVE_DT_BUMP, ADAPTIVE_DT_DROP, ADAPTIVE_DT_MAX, ADAPTIVE_DT_MIN, ADAPTIVE_HIGH_ACCEPTANCE,
+    ADAPTIVE_LOW_ACCEPTANCE, ADAPTIVE_NMD_MAX, ADAPTIVE_NMD_MIN, RHMC_APPROX_ERROR_THRESHOLD,
+    RHMC_CG_TOL_FORCE, RHMC_CG_TOL_METROPOLIS, RHMC_CONSISTENCY_THRESHOLD, RHMC_MAX_POLES,
+    RHMC_POLE_INCREMENT, RHMC_SPECTRAL_REPROBE_INTERVAL,
 };
 
 /// Central self-tuning calibrator for GPU RHMC simulations.
@@ -94,8 +93,8 @@ impl RhmcCalibrator {
         let mass_factor = (mass * 0.5).min(1.0);
         let initial_dt = (0.001 * scale * mass_factor).clamp(ADAPTIVE_DT_MIN, ADAPTIVE_DT_MAX);
         let target_tau = 0.05;
-        let initial_n_md = ((target_tau / initial_dt).round() as usize)
-            .clamp(ADAPTIVE_NMD_MIN, ADAPTIVE_NMD_MAX);
+        let initial_n_md =
+            ((target_tau / initial_dt).round() as usize).clamp(ADAPTIVE_NMD_MIN, ADAPTIVE_NMD_MAX);
 
         Self {
             nf,
@@ -190,7 +189,7 @@ impl RhmcCalibrator {
             }
             3 => {
                 let strange = self.strange_mass.unwrap_or(0.5);
-                let light_power = 0.25;  // 2/8
+                let light_power = 0.25; // 2/8
                 let strange_power = 0.125; // 1/8
                 let light_af = RationalApproximation::generate(
                     -light_power,
@@ -256,7 +255,10 @@ impl RhmcCalibrator {
         self.adapt_step(result.accepted, result.delta_h);
 
         // Check if spectral re-probe is due
-        if self.trajectory_count.is_multiple_of(RHMC_SPECTRAL_REPROBE_INTERVAL) {
+        if self
+            .trajectory_count
+            .is_multiple_of(RHMC_SPECTRAL_REPROBE_INTERVAL)
+        {
             eprintln!(
                 "[calibrator] spectral re-probe due (trajectory {})",
                 self.trajectory_count
@@ -342,13 +344,13 @@ impl RhmcCalibrator {
 
         if acc > ADAPTIVE_HIGH_ACCEPTANCE {
             let new_dt = (self.dt * ADAPTIVE_DT_BUMP).min(ADAPTIVE_DT_MAX);
-            self.n_md_steps = ((traj_length / new_dt).round() as usize)
-                .clamp(ADAPTIVE_NMD_MIN, ADAPTIVE_NMD_MAX);
+            self.n_md_steps =
+                ((traj_length / new_dt).round() as usize).clamp(ADAPTIVE_NMD_MIN, ADAPTIVE_NMD_MAX);
             self.dt = new_dt;
         } else if acc < ADAPTIVE_LOW_ACCEPTANCE {
             let new_dt = (self.dt * ADAPTIVE_DT_DROP).max(ADAPTIVE_DT_MIN);
-            self.n_md_steps = ((traj_length / new_dt).round() as usize)
-                .clamp(ADAPTIVE_NMD_MIN, ADAPTIVE_NMD_MAX);
+            self.n_md_steps =
+                ((traj_length / new_dt).round() as usize).clamp(ADAPTIVE_NMD_MIN, ADAPTIVE_NMD_MAX);
             self.dt = new_dt;
         }
     }
@@ -407,7 +409,9 @@ impl RhmcCalibrator {
     #[must_use]
     pub fn needs_spectral_reprobe(&self) -> bool {
         self.trajectory_count > 0
-            && self.trajectory_count.is_multiple_of(RHMC_SPECTRAL_REPROBE_INTERVAL)
+            && self
+                .trajectory_count
+                .is_multiple_of(RHMC_SPECTRAL_REPROBE_INTERVAL)
     }
 
     /// Re-probe spectral range on the current gauge field.

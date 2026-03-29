@@ -23,39 +23,36 @@
 
 use super::dynamical::{gpu_axpy, GpuDynHmcPipelines, GpuDynHmcState, WGSL_RANDOM_MOMENTA};
 use super::gpu_rhmc::{
-    dirac_dispatch, fermion_force_dispatch, GpuRhmcPipelines, GpuRhmcResult,
-    GpuRhmcSectorBuffers, GpuRhmcState,
+    dirac_dispatch, fermion_force_dispatch, GpuRhmcPipelines, GpuRhmcResult, GpuRhmcSectorBuffers,
+    GpuRhmcState,
 };
 use super::resident_cg_buffers::{build_reduce_chain_pub, encode_reduce_chain, ReduceChain};
 use super::resident_shifted_cg::{
-    gpu_multi_shift_cg_solve_resident, GpuResidentShiftedCgBuffers,
-    GpuResidentShiftedCgPipelines,
+    gpu_multi_shift_cg_solve_resident, GpuResidentShiftedCgBuffers, GpuResidentShiftedCgPipelines,
 };
+use super::streaming::{make_ferm_prng_params, WGSL_GAUSSIAN_FERMION};
 use super::true_multishift_cg::{
     gpu_true_multi_shift_cg_solve, TrueMultiShiftBuffers, TrueMultiShiftPipelines,
 };
-use super::streaming::{make_ferm_prng_params, WGSL_GAUSSIAN_FERMION};
 use super::{
     gpu_force_dispatch, gpu_link_update_dispatch, gpu_mom_update_dispatch, make_link_mom_params,
     make_prng_params, make_u32x4_params, GpuF64, GpuHmcState,
 };
 
+use super::rop_force_accum::RopForceAccumulator;
 use crate::lattice::rhmc::{RhmcConfig, RhmcFermionConfig};
 
 // ── WGSL shaders for GPU-resident Hamiltonian + Metropolis (B2+B3) ──
-const WGSL_HAMILTONIAN_ASSEMBLY: &str =
+pub(super) const WGSL_HAMILTONIAN_ASSEMBLY: &str =
     include_str!("../shaders/hamiltonian_assembly_f64.wgsl");
-const WGSL_FERMION_ACTION_SUM: &str =
+pub(super) const WGSL_FERMION_ACTION_SUM: &str =
     include_str!("../shaders/fermion_action_sum_f64.wgsl");
-const WGSL_METROPOLIS: &str =
-    include_str!("../shaders/metropolis_f64.wgsl");
+pub(super) const WGSL_METROPOLIS: &str = include_str!("../shaders/metropolis_f64.wgsl");
 
 /// Maximum rational approximation poles per sector (dots buffer sizing).
 const MAX_RATIONAL_POLES: usize = 32;
 
-// ═══════════════════════════════════════════════════════════════════
-//  Pipelines (compiled once per GPU)
-// ═══════════════════════════════════════════════════════════════════
+// ── Pipelines (compiled once per GPU) ────────────────────────────
 
 /// All pipelines for unidirectional RHMC.
 pub struct UniPipelines {
@@ -73,6 +70,9 @@ pub struct UniPipelines {
     pub fermion_action_sum_pipeline: wgpu::ComputePipeline,
     /// Metropolis accept/reject + diagnostics (single-thread GPU kernel).
     pub metropolis_pipeline: wgpu::ComputePipeline,
+    /// ROP-accelerated fermion force accumulation (Tier 3).
+    /// When `Some`, fuses force+momentum per pole via fixed-point `atomicAdd`.
+    pub rop_accum: Option<RopForceAccumulator>,
 }
 
 impl UniPipelines {
@@ -83,21 +83,29 @@ impl UniPipelines {
             shifted_cg: GpuResidentShiftedCgPipelines::new(gpu),
             true_ms_cg: TrueMultiShiftPipelines::new(gpu),
             momenta_prng_pipeline: gpu.create_pipeline_f64(&WGSL_RANDOM_MOMENTA, "uni_mom_prng"),
-            fermion_prng_pipeline: gpu
-                .create_pipeline_f64(&WGSL_GAUSSIAN_FERMION, "uni_ferm_prng"),
+            fermion_prng_pipeline: gpu.create_pipeline_f64(&WGSL_GAUSSIAN_FERMION, "uni_ferm_prng"),
             hamiltonian_assembly_pipeline: gpu
                 .create_pipeline_f64(WGSL_HAMILTONIAN_ASSEMBLY, "uni_h_asm"),
             fermion_action_sum_pipeline: gpu
                 .create_pipeline_f64(WGSL_FERMION_ACTION_SUM, "uni_sf_sum"),
-            metropolis_pipeline: gpu
-                .create_pipeline_f64(WGSL_METROPOLIS, "uni_metropolis"),
+            metropolis_pipeline: gpu.create_pipeline_f64(WGSL_METROPOLIS, "uni_metropolis"),
+            rop_accum: None,
         }
+    }
+
+    /// Compile all unidirectional RHMC pipelines with ROP force accumulation.
+    ///
+    /// `volume` is the lattice volume, used to size the atomic accumulation buffer.
+    #[must_use]
+    pub fn new_with_rop(gpu: &GpuF64, volume: usize) -> Self {
+        let mut pipelines = Self::new(gpu);
+        eprintln!("[ROP] Fermion force accumulation: ENABLED (atomicAdd i32, Tier 3)");
+        pipelines.rop_accum = Some(RopForceAccumulator::new(gpu, volume));
+        pipelines
     }
 }
 
-// ═══════════════════════════════════════════════════════════════════
-//  GPU-resident Hamiltonian buffers + reduce chains (Phase 2)
-// ═══════════════════════════════════════════════════════════════════
+// ── GPU-resident Hamiltonian buffers + reduce chains (Phase 2) ───
 
 /// Persistent buffers for GPU-side Hamiltonian reduction.
 ///
@@ -243,7 +251,12 @@ fn encode_wilson_plaquette_reduce(
         &dyn_pipelines.gauge.plaquette_pipeline,
         &[&pbuf, &gauge.link_buf, &gauge.nbr_buf, &gauge.plaq_out_buf],
     );
-    GpuF64::encode_pass(enc, &dyn_pipelines.gauge.plaquette_pipeline, &bg, gauge.wg_vol);
+    GpuF64::encode_pass(
+        enc,
+        &dyn_pipelines.gauge.plaquette_pipeline,
+        &bg,
+        gauge.wg_vol,
+    );
     encode_reduce_chain(enc, reduce_pl, &ham.reduce_plaq);
 }
 
@@ -262,7 +275,12 @@ fn encode_kinetic_energy_reduce(
         &dyn_pipelines.gauge.kinetic_pipeline,
         &[&pbuf, &gauge.mom_buf, &gauge.ke_out_buf],
     );
-    GpuF64::encode_pass(enc, &dyn_pipelines.gauge.kinetic_pipeline, &bg, gauge.wg_links);
+    GpuF64::encode_pass(
+        enc,
+        &dyn_pipelines.gauge.kinetic_pipeline,
+        &bg,
+        gauge.wg_links,
+    );
     encode_reduce_chain(enc, reduce_pl, &ham.reduce_ke);
 }
 
@@ -289,9 +307,7 @@ fn encode_dot_reduce(
     encode_reduce_chain(enc, reduce_pl, &ham.reduce_dot);
 }
 
-// ═══════════════════════════════════════════════════════════════════
-//  B2+B3: GPU-resident Hamiltonian assembly + Metropolis
-// ═══════════════════════════════════════════════════════════════════
+// ── B2+B3: GPU-resident Hamiltonian assembly + Metropolis ────────
 
 /// Encode fermion dot products for one sector → dots_buf (GPU-only, no readback).
 ///
@@ -308,20 +324,36 @@ fn encode_fermion_dots_to_gpu(
     ham: &UniHamiltonianBuffers,
 ) {
     // ⟨φ|φ⟩ → reduce → temp_dot → dots_buf[0]
-    encode_dot_reduce(enc, gpu, dyn_pipelines, dyn_state, reduce_pl, ham,
-        &sector.phi_buf, &sector.phi_buf);
+    encode_dot_reduce(
+        enc,
+        gpu,
+        dyn_pipelines,
+        dyn_state,
+        reduce_pl,
+        ham,
+        &sector.phi_buf,
+        &sector.phi_buf,
+    );
     enc.copy_buffer_to_buffer(&ham.temp_dot_buf, 0, &ham.dots_buf, 0, 8);
 
     // ⟨φ|x_s⟩ → reduce → temp_dot → dots_buf[s+1]
     for (s, _) in approx.alpha.iter().enumerate() {
-        encode_dot_reduce(enc, gpu, dyn_pipelines, dyn_state, reduce_pl, ham,
-            &sector.phi_buf, &sector.x_bufs[s]);
+        encode_dot_reduce(
+            enc,
+            gpu,
+            dyn_pipelines,
+            dyn_state,
+            reduce_pl,
+            ham,
+            &sector.phi_buf,
+            &sector.x_bufs[s],
+        );
         enc.copy_buffer_to_buffer(&ham.temp_dot_buf, 0, &ham.dots_buf, (8 * (s + 1)) as u64, 8);
     }
 }
 
 /// Build params for the fermion action sum kernel: [n_dots_as_f64, alpha_0] as raw f64.
-fn make_fermion_action_sum_params(n_dots: u32, alpha_0: f64) -> Vec<u8> {
+pub(super) fn make_fermion_action_sum_params(n_dots: u32, alpha_0: f64) -> Vec<u8> {
     let mut v = Vec::with_capacity(16);
     v.extend_from_slice(&(n_dots as f64).to_le_bytes());
     v.extend_from_slice(&alpha_0.to_le_bytes());
@@ -342,9 +374,7 @@ fn encode_fermion_action_sum(
     let params = make_fermion_action_sum_params(n_dots, approx.alpha_0);
     let pbuf = gpu.create_storage_buffer_init(&params, "uni_sf_sum_p");
 
-    let alpha_data: Vec<u8> = approx.alpha.iter()
-        .flat_map(|a| a.to_le_bytes())
-        .collect();
+    let alpha_data: Vec<u8> = approx.alpha.iter().flat_map(|a| a.to_le_bytes()).collect();
     let alpha_buf = gpu.create_storage_buffer_init(&alpha_data, "uni_sf_alphas");
 
     let bg = gpu.create_bind_group(
@@ -355,7 +385,7 @@ fn encode_fermion_action_sum(
 }
 
 /// Build params buffer for the Hamiltonian assembly kernel: [beta, 6V] as f64.
-fn make_h_assembly_params(beta: f64, six_v: f64) -> Vec<u8> {
+pub(super) fn make_h_assembly_params(beta: f64, six_v: f64) -> Vec<u8> {
     let mut v = Vec::with_capacity(16);
     v.extend_from_slice(&beta.to_le_bytes());
     v.extend_from_slice(&six_v.to_le_bytes());
@@ -377,7 +407,14 @@ fn encode_hamiltonian_assembly(
     let pbuf = gpu.create_storage_buffer_init(&params, "uni_h_asm_p");
     let bg = gpu.create_bind_group(
         &uni_pipelines.hamiltonian_assembly_pipeline,
-        &[&pbuf, &ham.plaq_sum_buf, &ham.t_buf, &ham.s_ferm_buf, h_buf, diag_buf],
+        &[
+            &pbuf,
+            &ham.plaq_sum_buf,
+            &ham.t_buf,
+            &ham.s_ferm_buf,
+            h_buf,
+            diag_buf,
+        ],
     );
     GpuF64::encode_pass(enc, &uni_pipelines.hamiltonian_assembly_pipeline, &bg, 1);
 }
@@ -419,37 +456,62 @@ fn compute_h_gpu(
         let cg = if let Some(ms) = ms_bufs {
             if fconfig.action_approx.sigma.len() <= ms.n_shifts {
                 gpu_true_multi_shift_cg_solve(
-                    gpu, dyn_pipelines, &uni_pipelines.true_ms_cg,
-                    &state.gauge, ms, &sector.x_bufs, &sector.phi_buf,
-                    &fconfig.action_approx.sigma, config.cg_tol,
-                    config.cg_max_iter, CG_CHECK_INTERVAL,
+                    gpu,
+                    dyn_pipelines,
+                    &uni_pipelines.true_ms_cg,
+                    &state.gauge,
+                    ms,
+                    &sector.x_bufs,
+                    &sector.phi_buf,
+                    &fconfig.action_approx.sigma,
+                    config.cg_tol,
+                    config.cg_max_iter,
+                    CG_CHECK_INTERVAL,
                 )
             } else {
                 gpu_multi_shift_cg_solve_resident(
-                    gpu, dyn_pipelines, &uni_pipelines.shifted_cg,
-                    &state.gauge, scg_bufs, &sector.x_bufs, &sector.phi_buf,
-                    &fconfig.action_approx.sigma, config.cg_tol,
-                    config.cg_max_iter, CG_CHECK_INTERVAL,
+                    gpu,
+                    dyn_pipelines,
+                    &uni_pipelines.shifted_cg,
+                    &state.gauge,
+                    scg_bufs,
+                    &sector.x_bufs,
+                    &sector.phi_buf,
+                    &fconfig.action_approx.sigma,
+                    config.cg_tol,
+                    config.cg_max_iter,
+                    CG_CHECK_INTERVAL,
                 )
             }
         } else {
             gpu_multi_shift_cg_solve_resident(
-                gpu, dyn_pipelines, &uni_pipelines.shifted_cg,
-                &state.gauge, scg_bufs, &sector.x_bufs, &sector.phi_buf,
-                &fconfig.action_approx.sigma, config.cg_tol,
-                config.cg_max_iter, CG_CHECK_INTERVAL,
+                gpu,
+                dyn_pipelines,
+                &uni_pipelines.shifted_cg,
+                &state.gauge,
+                scg_bufs,
+                &sector.x_bufs,
+                &sector.phi_buf,
+                &fconfig.action_approx.sigma,
+                config.cg_tol,
+                config.cg_max_iter,
+                CG_CHECK_INTERVAL,
             )
         };
         total_cg += cg;
 
         let mut enc = gpu.begin_encoder("b2_sf_dots");
         encode_fermion_dots_to_gpu(
-            &mut enc, gpu, dyn_pipelines, &state.gauge, sector,
-            &fconfig.action_approx, reduce_pl, ham,
+            &mut enc,
+            gpu,
+            dyn_pipelines,
+            &state.gauge,
+            sector,
+            &fconfig.action_approx,
+            reduce_pl,
+            ham,
         );
-        encode_fermion_action_sum(
-            &mut enc, gpu, uni_pipelines, ham, &fconfig.action_approx,
-        );
+        encode_fermion_action_sum(&mut enc, gpu, uni_pipelines, ham, &fconfig.action_approx);
         gpu.submit_encoder(enc);
     }
 
@@ -457,8 +519,14 @@ fn compute_h_gpu(
     {
         let mut enc = gpu.begin_encoder("b2_h_asm");
         encode_hamiltonian_assembly(
-            &mut enc, gpu, uni_pipelines, ham,
-            h_buf, diag_buf, gauge.beta, gauge.volume,
+            &mut enc,
+            gpu,
+            uni_pipelines,
+            ham,
+            h_buf,
+            diag_buf,
+            gauge.beta,
+            gauge.volume,
         );
         gpu.submit_encoder(enc);
     }
@@ -496,8 +564,15 @@ fn gpu_metropolis(
 
     let bg = gpu.create_bind_group(
         &uni_pipelines.metropolis_pipeline,
-        &[&pbuf, &ham.h_old_buf, &ham.h_new_buf, &ham.plaq_sum_buf,
-          &ham.diag_old_buf, &ham.diag_new_buf, &result_buf],
+        &[
+            &pbuf,
+            &ham.h_old_buf,
+            &ham.h_new_buf,
+            &ham.plaq_sum_buf,
+            &ham.diag_old_buf,
+            &ham.diag_new_buf,
+            &result_buf,
+        ],
     );
     GpuF64::encode_pass(&mut enc, &uni_pipelines.metropolis_pipeline, &bg, 1);
     enc.copy_buffer_to_buffer(&result_buf, 0, &ham.metropolis_staging, 0, 9 * 8);
@@ -506,7 +581,7 @@ fn gpu_metropolis(
     // Single readback: 72 bytes (9 f64s)
     let data = gpu
         .read_staging_f64_n(&ham.metropolis_staging, 9)
-        .unwrap_or_else(|_| vec![0.0; 9]);
+        .unwrap_or_else(|e| panic!("Metropolis readback failed (GPU lost?): {e}"));
 
     let accepted = data[0] > 0.5;
 
@@ -514,8 +589,10 @@ fn gpu_metropolis(
         let n_links = gauge.n_links;
         let mut enc = gpu.begin_encoder("uni_restore");
         enc.copy_buffer_to_buffer(
-            &gauge.link_backup, 0,
-            &gauge.link_buf, 0,
+            &gauge.link_backup,
+            0,
+            &gauge.link_buf,
+            0,
             (n_links * 18 * 8) as u64,
         );
         gpu.submit_encoder(enc);
@@ -535,106 +612,7 @@ fn gpu_metropolis(
     }
 }
 
-// ═══════════════════════════════════════════════════════════════════
-//  Legacy CPU-side Hamiltonian helpers (kept for validation tooling)
-// ═══════════════════════════════════════════════════════════════════
-
-/// Compute gauge action + KE via GPU reduce, read back 16 bytes.
-///
-/// Returns `(plaq_sum, kinetic_energy)`. Caller computes
-/// `S_gauge = beta * (6*V - plaq_sum)`.
-///
-/// Superseded by `compute_h_gpu` which avoids these scalar readbacks.
-#[allow(dead_code)]
-fn compute_gauge_ke_resident(
-    gpu: &GpuF64,
-    dyn_pipelines: &GpuDynHmcPipelines,
-    gauge: &GpuHmcState,
-    reduce_pl: &wgpu::ComputePipeline,
-    ham: &UniHamiltonianBuffers,
-) -> (f64, f64) {
-    let mut enc = gpu.begin_encoder("uni_gauge_ke");
-    encode_wilson_plaquette_reduce(&mut enc, gpu, dyn_pipelines, gauge, reduce_pl, ham);
-    encode_kinetic_energy_reduce(&mut enc, gpu, dyn_pipelines, gauge, reduce_pl, ham);
-    enc.copy_buffer_to_buffer(&ham.plaq_sum_buf, 0, &ham.staging_buf, 0, 8);
-    enc.copy_buffer_to_buffer(&ham.t_buf, 0, &ham.staging_buf, 8, 8);
-    gpu.submit_encoder(enc);
-
-    let data = gpu.read_staging_f64_n(&ham.staging_buf, 2).unwrap_or_else(|_| vec![0.0; 2]);
-    (data[0], data[1])
-}
-
-/// Compute fermion action for one sector: `S_f = α₀·⟨φ|φ⟩ + Σ αₛ·⟨φ|x_s⟩`.
-///
-/// All dot products encode in one encoder. Single readback of (1+n_shifts) f64s.
-///
-/// Superseded by `encode_fermion_dots_to_gpu` + `encode_fermion_action_sum` which
-/// keep the result on GPU without readback.
-#[allow(dead_code)]
-fn compute_fermion_action_resident(
-    gpu: &GpuF64,
-    dyn_pipelines: &GpuDynHmcPipelines,
-    dyn_state: &GpuDynHmcState,
-    sector: &GpuRhmcSectorBuffers,
-    approx: &crate::lattice::rhmc::RationalApproximation,
-    reduce_pl: &wgpu::ComputePipeline,
-    ham: &UniHamiltonianBuffers,
-) -> f64 {
-    let n_dots = 1 + approx.alpha.len();
-    let mut enc = gpu.begin_encoder("uni_sf_dots");
-
-    // ⟨φ|φ⟩ → reduce → temp_dot → staging[0]
-    encode_dot_reduce(
-        &mut enc,
-        gpu,
-        dyn_pipelines,
-        dyn_state,
-        reduce_pl,
-        ham,
-        &sector.phi_buf,
-        &sector.phi_buf,
-    );
-    enc.copy_buffer_to_buffer(&ham.temp_dot_buf, 0, &ham.staging_buf, 0, 8);
-
-    // ⟨φ|x_s⟩ → reduce → temp_dot → staging[8*(s+1)]
-    for (s, _) in approx.alpha.iter().enumerate() {
-        encode_dot_reduce(
-            &mut enc,
-            gpu,
-            dyn_pipelines,
-            dyn_state,
-            reduce_pl,
-            ham,
-            &sector.phi_buf,
-            &sector.x_bufs[s],
-        );
-        enc.copy_buffer_to_buffer(
-            &ham.temp_dot_buf,
-            0,
-            &ham.staging_buf,
-            (8 * (s + 1)) as u64,
-            8,
-        );
-    }
-
-    gpu.submit_encoder(enc);
-
-    let data = gpu
-        .read_staging_f64_n(&ham.staging_buf, n_dots)
-        .unwrap_or_else(|_| vec![0.0; n_dots]);
-
-    let phi_phi = data[0];
-    let mut action = approx.alpha_0 * phi_phi;
-    for (s, a_s) in approx.alpha.iter().enumerate() {
-        action += a_s * data[s + 1];
-    }
-
-    action
-}
-
-// ═══════════════════════════════════════════════════════════════════
-//  Full unidirectional RHMC trajectory (Phase 4)
-// ═══════════════════════════════════════════════════════════════════
+// ── Full unidirectional RHMC trajectory (Phase 4) ────────────────
 
 /// CG check interval — iterations per batch before convergence readback.
 const CG_CHECK_INTERVAL: usize = 50;
@@ -684,8 +662,10 @@ pub fn gpu_rhmc_trajectory_unidirectional(
         );
 
         enc.copy_buffer_to_buffer(
-            &gauge.link_buf, 0,
-            &gauge.link_backup, 0,
+            &gauge.link_buf,
+            0,
+            &gauge.link_backup,
+            0,
             (n_links * 18 * 8) as u64,
         );
 
@@ -696,17 +676,34 @@ pub fn gpu_rhmc_trajectory_unidirectional(
     let mut total_cg: usize = 0;
     for (si, (sector, fconfig)) in state.sectors.iter().zip(config.sectors.iter()).enumerate() {
         let cg = uni_heatbath_sector(
-            gpu, dyn_pipelines, uni_pipelines, &state.gauge,
-            sector, fconfig, scg_bufs, ms_bufs,
-            config.cg_tol, config.cg_max_iter, seed, si,
+            gpu,
+            dyn_pipelines,
+            uni_pipelines,
+            &state.gauge,
+            sector,
+            fconfig,
+            scg_bufs,
+            ms_bufs,
+            config.cg_tol,
+            config.cg_max_iter,
+            seed,
+            si,
         );
         total_cg += cg;
     }
 
     // ── 3. H_old (GPU-resident, zero readback) ──────────────────
     total_cg += compute_h_gpu(
-        gpu, dyn_pipelines, uni_pipelines, state, scg_bufs, ms_bufs,
-        ham_bufs, config, &ham_bufs.h_old_buf, &ham_bufs.diag_old_buf,
+        gpu,
+        dyn_pipelines,
+        uni_pipelines,
+        state,
+        scg_bufs,
+        ms_bufs,
+        ham_bufs,
+        config,
+        &ham_bufs.h_old_buf,
+        &ham_bufs.diag_old_buf,
     );
 
     // ── 4. Omelyan MD integration ────────────────────────────────
@@ -714,43 +711,72 @@ pub fn gpu_rhmc_trajectory_unidirectional(
 
     for _step in 0..n_md_steps {
         let cg = uni_total_force_dispatch(
-            gpu, dyn_pipelines, uni_pipelines,
-            &state.gauge, &state.sectors, &config.sectors,
-            scg_bufs, ms_bufs, lam * dt, config.cg_tol, config.cg_max_iter,
+            gpu,
+            dyn_pipelines,
+            uni_pipelines,
+            &state.gauge,
+            &state.sectors,
+            &config.sectors,
+            scg_bufs,
+            ms_bufs,
+            lam * dt,
+            config.cg_tol,
+            config.cg_max_iter,
         );
         total_cg += cg;
         gpu_link_update_dispatch(gpu, &dyn_pipelines.gauge, gauge, 0.5 * dt);
 
         let cg = uni_total_force_dispatch(
-            gpu, dyn_pipelines, uni_pipelines,
-            &state.gauge, &state.sectors, &config.sectors,
-            scg_bufs, ms_bufs, 2.0f64.mul_add(-lam, 1.0) * dt,
-            config.cg_tol, config.cg_max_iter,
+            gpu,
+            dyn_pipelines,
+            uni_pipelines,
+            &state.gauge,
+            &state.sectors,
+            &config.sectors,
+            scg_bufs,
+            ms_bufs,
+            2.0f64.mul_add(-lam, 1.0) * dt,
+            config.cg_tol,
+            config.cg_max_iter,
         );
         total_cg += cg;
         gpu_link_update_dispatch(gpu, &dyn_pipelines.gauge, gauge, 0.5 * dt);
 
         let cg = uni_total_force_dispatch(
-            gpu, dyn_pipelines, uni_pipelines,
-            &state.gauge, &state.sectors, &config.sectors,
-            scg_bufs, ms_bufs, lam * dt, config.cg_tol, config.cg_max_iter,
+            gpu,
+            dyn_pipelines,
+            uni_pipelines,
+            &state.gauge,
+            &state.sectors,
+            &config.sectors,
+            scg_bufs,
+            ms_bufs,
+            lam * dt,
+            config.cg_tol,
+            config.cg_max_iter,
         );
         total_cg += cg;
     }
 
     // ── 5. H_new (GPU-resident, zero readback) ──────────────────
     total_cg += compute_h_gpu(
-        gpu, dyn_pipelines, uni_pipelines, state, scg_bufs, ms_bufs,
-        ham_bufs, config, &ham_bufs.h_new_buf, &ham_bufs.diag_new_buf,
+        gpu,
+        dyn_pipelines,
+        uni_pipelines,
+        state,
+        scg_bufs,
+        ms_bufs,
+        ham_bufs,
+        config,
+        &ham_bufs.h_new_buf,
+        &ham_bufs.diag_new_buf,
     );
 
     // ── 6. GPU Metropolis + single 56-byte readback ─────────────
     gpu_metropolis(gpu, uni_pipelines, ham_bufs, gauge, total_cg, seed)
 }
 
-// ═══════════════════════════════════════════════════════════════════
-//  Heatbath + force helpers (internal)
-// ═══════════════════════════════════════════════════════════════════
+// ── Heatbath + force helpers (internal) ──────────────────────────
 
 /// RHMC heatbath for one sector using GPU PRNG + multi-shift CG.
 #[allow(clippy::too_many_arguments)]
@@ -788,22 +814,46 @@ fn uni_heatbath_sector(
     let cg_iters = if let Some(ms) = ms_bufs {
         if approx.sigma.len() <= ms.n_shifts {
             gpu_true_multi_shift_cg_solve(
-                gpu, dyn_pipelines, &uni_pipelines.true_ms_cg,
-                state, ms, &sector.x_bufs, &sector.phi_buf,
-                &approx.sigma, cg_tol, cg_max_iter, CG_CHECK_INTERVAL,
+                gpu,
+                dyn_pipelines,
+                &uni_pipelines.true_ms_cg,
+                state,
+                ms,
+                &sector.x_bufs,
+                &sector.phi_buf,
+                &approx.sigma,
+                cg_tol,
+                cg_max_iter,
+                CG_CHECK_INTERVAL,
             )
         } else {
             gpu_multi_shift_cg_solve_resident(
-                gpu, dyn_pipelines, &uni_pipelines.shifted_cg,
-                state, scg_bufs, &sector.x_bufs, &sector.phi_buf,
-                &approx.sigma, cg_tol, cg_max_iter, CG_CHECK_INTERVAL,
+                gpu,
+                dyn_pipelines,
+                &uni_pipelines.shifted_cg,
+                state,
+                scg_bufs,
+                &sector.x_bufs,
+                &sector.phi_buf,
+                &approx.sigma,
+                cg_tol,
+                cg_max_iter,
+                CG_CHECK_INTERVAL,
             )
         }
     } else {
         gpu_multi_shift_cg_solve_resident(
-            gpu, dyn_pipelines, &uni_pipelines.shifted_cg,
-            state, scg_bufs, &sector.x_bufs, &sector.phi_buf,
-            &approx.sigma, cg_tol, cg_max_iter, CG_CHECK_INTERVAL,
+            gpu,
+            dyn_pipelines,
+            &uni_pipelines.shifted_cg,
+            state,
+            scg_bufs,
+            &sector.x_bufs,
+            &sector.phi_buf,
+            &approx.sigma,
+            cg_tol,
+            cg_max_iter,
+            CG_CHECK_INTERVAL,
         )
     };
 
@@ -869,451 +919,153 @@ fn uni_total_force_dispatch(
         let cg = if let Some(ms) = ms_bufs {
             if approx.sigma.len() <= ms.n_shifts {
                 gpu_true_multi_shift_cg_solve(
-                    gpu, dyn_pipelines, &uni_pipelines.true_ms_cg,
-                    state, ms, &sector.x_bufs, &sector.phi_buf,
-                    &approx.sigma, cg_tol, cg_max_iter, CG_CHECK_INTERVAL,
+                    gpu,
+                    dyn_pipelines,
+                    &uni_pipelines.true_ms_cg,
+                    state,
+                    ms,
+                    &sector.x_bufs,
+                    &sector.phi_buf,
+                    &approx.sigma,
+                    cg_tol,
+                    cg_max_iter,
+                    CG_CHECK_INTERVAL,
                 )
             } else {
                 gpu_multi_shift_cg_solve_resident(
-                    gpu, dyn_pipelines, &uni_pipelines.shifted_cg,
-                    state, scg_bufs, &sector.x_bufs, &sector.phi_buf,
-                    &approx.sigma, cg_tol, cg_max_iter, CG_CHECK_INTERVAL,
+                    gpu,
+                    dyn_pipelines,
+                    &uni_pipelines.shifted_cg,
+                    state,
+                    scg_bufs,
+                    &sector.x_bufs,
+                    &sector.phi_buf,
+                    &approx.sigma,
+                    cg_tol,
+                    cg_max_iter,
+                    CG_CHECK_INTERVAL,
                 )
             }
         } else {
             gpu_multi_shift_cg_solve_resident(
-                gpu, dyn_pipelines, &uni_pipelines.shifted_cg,
-                state, scg_bufs, &sector.x_bufs, &sector.phi_buf,
-                &approx.sigma, cg_tol, cg_max_iter, CG_CHECK_INTERVAL,
+                gpu,
+                dyn_pipelines,
+                &uni_pipelines.shifted_cg,
+                state,
+                scg_bufs,
+                &sector.x_bufs,
+                &sector.phi_buf,
+                &approx.sigma,
+                cg_tol,
+                cg_max_iter,
+                CG_CHECK_INTERVAL,
             )
         };
         total_cg += cg;
 
         // Per-pole: fermion force from x_s
-        for (s, a_s) in approx.alpha.iter().enumerate() {
-            {
-                let n_flat = gauge.volume * 6;
-                let mut enc = gpu.begin_encoder("uni_xcopy");
-                enc.copy_buffer_to_buffer(
-                    &sector.x_bufs[s],
-                    0,
+        if let Some(rop) = &uni_pipelines.rop_accum {
+            // ROP path (Tier 3): fuse force+momentum via atomicAdd(i32)
+            let mut enc = gpu.begin_encoder("rop_zero_accum");
+            rop.zero_accum(&mut enc);
+            gpu.submit_encoder(enc);
+
+            for (s, a_s) in approx.alpha.iter().enumerate() {
+                {
+                    let n_flat = gauge.volume * 6;
+                    let mut enc = gpu.begin_encoder("rop_xcopy");
+                    enc.copy_buffer_to_buffer(
+                        &sector.x_bufs[s],
+                        0,
+                        &state.x_buf,
+                        0,
+                        (n_flat * 8) as u64,
+                    );
+                    gpu.submit_encoder(enc);
+                }
+
+                dirac_dispatch(
+                    gpu,
+                    dyn_pipelines,
+                    gauge,
+                    &state.phases_buf,
                     &state.x_buf,
-                    0,
-                    (n_flat * 8) as u64,
+                    &state.y_buf,
+                    fconfig.mass,
+                    1.0,
+                );
+
+                let mut enc = gpu.begin_encoder("rop_force_pole");
+                rop.encode_pole_dispatch(
+                    gpu,
+                    &mut enc,
+                    &gauge.link_buf,
+                    &state.x_buf,
+                    &state.y_buf,
+                    &gauge.nbr_buf,
+                    &state.phases_buf,
+                    gauge.volume as u32,
+                    *a_s * dt,
                 );
                 gpu.submit_encoder(enc);
             }
 
-            dirac_dispatch(
-                gpu,
-                dyn_pipelines,
-                gauge,
-                &state.phases_buf,
-                &state.x_buf,
-                &state.y_buf,
-                fconfig.mass,
-                1.0,
-            );
-            fermion_force_dispatch(
-                gpu,
-                dyn_pipelines,
-                gauge,
-                &state.phases_buf,
-                &state.x_buf,
-                &state.y_buf,
-                &state.ferm_force_buf,
-            );
+            // Single conversion: momentum += f64(accum) / scale
+            let mut enc = gpu.begin_encoder("rop_convert");
+            rop.encode_convert_to_momentum(gpu, &mut enc, &gauge.mom_buf);
+            gpu.submit_encoder(enc);
+        } else {
+            // Standard path: separate force + momentum_update per pole
+            for (s, a_s) in approx.alpha.iter().enumerate() {
+                {
+                    let n_flat = gauge.volume * 6;
+                    let mut enc = gpu.begin_encoder("uni_xcopy");
+                    enc.copy_buffer_to_buffer(
+                        &sector.x_bufs[s],
+                        0,
+                        &state.x_buf,
+                        0,
+                        (n_flat * 8) as u64,
+                    );
+                    gpu.submit_encoder(enc);
+                }
 
-            let ferm_mom_params =
-                make_link_mom_params(n_links, *a_s * dt, gpu.full_df64_mode);
-            let ferm_mom_pbuf = gpu.create_uniform_buffer(&ferm_mom_params, "uni_fmom_p");
-            let ferm_mom_bg = gpu.create_bind_group(
-                &dyn_pipelines.gauge.momentum_pipeline,
-                &[&ferm_mom_pbuf, &state.ferm_force_buf, &gauge.mom_buf],
-            );
-            gpu.dispatch(
-                &dyn_pipelines.gauge.momentum_pipeline,
-                &ferm_mom_bg,
-                gauge.wg_links,
-            );
+                dirac_dispatch(
+                    gpu,
+                    dyn_pipelines,
+                    gauge,
+                    &state.phases_buf,
+                    &state.x_buf,
+                    &state.y_buf,
+                    fconfig.mass,
+                    1.0,
+                );
+                fermion_force_dispatch(
+                    gpu,
+                    dyn_pipelines,
+                    gauge,
+                    &state.phases_buf,
+                    &state.x_buf,
+                    &state.y_buf,
+                    &state.ferm_force_buf,
+                );
+
+                let ferm_mom_params =
+                    make_link_mom_params(n_links, *a_s * dt, gpu.full_df64_mode);
+                let ferm_mom_pbuf =
+                    gpu.create_uniform_buffer(&ferm_mom_params, "uni_fmom_p");
+                let ferm_mom_bg = gpu.create_bind_group(
+                    &dyn_pipelines.gauge.momentum_pipeline,
+                    &[&ferm_mom_pbuf, &state.ferm_force_buf, &gauge.mom_buf],
+                );
+                gpu.dispatch(
+                    &dyn_pipelines.gauge.momentum_pipeline,
+                    &ferm_mom_bg,
+                    gauge.wg_links,
+                );
+            }
         }
     }
 
     total_cg
-}
-
-// ═══════════════════════════════════════════════════════════════════
-//  Async CPU cortex (Phase 5)
-// ═══════════════════════════════════════════════════════════════════
-
-/// Result from one trajectory — the only data CPU needs from the GPU.
-#[derive(Debug, Clone)]
-pub struct TrajectoryResult {
-    /// Metropolis accept/reject.
-    pub accepted: bool,
-    /// ΔH = H_new - H_old.
-    pub delta_h: f64,
-    /// Mean plaquette (post-trajectory).
-    pub plaquette: f64,
-    /// Total CG iterations across all CG solves in the trajectory.
-    pub total_cg_iterations: usize,
-    /// Wall-clock time for this trajectory.
-    pub elapsed_secs: f64,
-}
-
-/// Unidirectional RHMC handle for one GPU.
-///
-/// Owns the GPU, pipelines, state, and buffers. Provides `fire`/`poll`
-/// for async trajectory dispatch, enabling dual-GPU cortex patterns.
-pub struct UnidirectionalRhmc {
-    gpu: GpuF64,
-    dyn_pipelines: GpuDynHmcPipelines,
-    rhmc_pipelines: GpuRhmcPipelines,
-    uni_pipelines: UniPipelines,
-    state: GpuRhmcState,
-    scg_bufs: GpuResidentShiftedCgBuffers,
-    ham_bufs: UniHamiltonianBuffers,
-    /// True multi-shift CG buffers (allocated on first trajectory).
-    ms_bufs: Option<TrueMultiShiftBuffers>,
-}
-
-impl UnidirectionalRhmc {
-    /// Initialize a unidirectional RHMC instance on a GPU.
-    #[must_use]
-    pub fn new(
-        gpu: GpuF64,
-        dyn_pipelines: GpuDynHmcPipelines,
-        rhmc_pipelines: GpuRhmcPipelines,
-        state: GpuRhmcState,
-    ) -> Self {
-        let uni_pipelines = UniPipelines::new(&gpu);
-        let scg_bufs = GpuResidentShiftedCgBuffers::new(
-            &gpu,
-            &dyn_pipelines,
-            &uni_pipelines.shifted_cg,
-            &state.gauge,
-        );
-        let ham_bufs = UniHamiltonianBuffers::new(
-            &gpu,
-            &uni_pipelines.shifted_cg.base.reduce_pipeline,
-            &state.gauge.gauge,
-            &state.gauge,
-        );
-        Self {
-            gpu,
-            dyn_pipelines,
-            rhmc_pipelines,
-            uni_pipelines,
-            state,
-            scg_bufs,
-            ham_bufs,
-            ms_bufs: None,
-        }
-    }
-
-    /// Run one trajectory synchronously (blocking). Fast (~1-2s for 8^4).
-    pub fn run_trajectory(&mut self, config: &RhmcConfig, seed: &mut u64) -> TrajectoryResult {
-        // Lazy-allocate true multi-shift CG buffers on first call
-        if self.ms_bufs.is_none() {
-            let max_shifts = config.sectors.iter().map(|s| {
-                s.action_approx.sigma.len()
-                    .max(s.force_approx.sigma.len())
-            }).max().unwrap_or(0);
-            if max_shifts > 0 {
-                self.ms_bufs = Some(TrueMultiShiftBuffers::new(
-                    &self.gpu,
-                    &self.dyn_pipelines,
-                    &self.uni_pipelines.true_ms_cg,
-                    &self.state.gauge,
-                    max_shifts,
-                ));
-            }
-        }
-        let t0 = std::time::Instant::now();
-        let result = gpu_rhmc_trajectory_unidirectional(
-            &self.gpu,
-            &self.dyn_pipelines,
-            &self.rhmc_pipelines,
-            &self.uni_pipelines,
-            &self.state,
-            &self.scg_bufs,
-            self.ms_bufs.as_ref(),
-            &self.ham_bufs,
-            config,
-            seed,
-        );
-        TrajectoryResult {
-            accepted: result.accepted,
-            delta_h: result.delta_h,
-            plaquette: result.plaquette,
-            total_cg_iterations: result.total_cg_iterations,
-            elapsed_secs: t0.elapsed().as_secs_f64(),
-        }
-    }
-
-    /// Name of the GPU adapter backing this instance.
-    pub fn adapter_name(&self) -> &str {
-        &self.gpu.adapter_name
-    }
-
-    /// Access the underlying GPU state for diagnostics.
-    pub fn state(&self) -> &GpuRhmcState {
-        &self.state
-    }
-
-    /// Access the GPU handle.
-    pub fn gpu(&self) -> &GpuF64 {
-        &self.gpu
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════════
-//  Dual-GPU dispatch (Phase 6)
-// ═══════════════════════════════════════════════════════════════════
-
-/// Result from a dual-GPU trajectory pair.
-#[derive(Debug)]
-pub struct DualGpuResult {
-    /// Result from GPU A.
-    pub a: TrajectoryResult,
-    /// Result from GPU B.
-    pub b: TrajectoryResult,
-}
-
-/// Run one trajectory on each GPU in parallel (thread-based).
-///
-/// Each GPU gets an independent `UnidirectionalRhmc`. CPU dispatches
-/// both, polls both, returns whichever finishes first (or both).
-/// Cross-GPU parity checking happens at the caller level.
-pub fn dual_gpu_trajectories(
-    gpu_a: &mut UnidirectionalRhmc,
-    gpu_b: &mut UnidirectionalRhmc,
-    config: &RhmcConfig,
-    seed_a: &mut u64,
-    seed_b: &mut u64,
-) -> DualGpuResult {
-    let config_a = config.clone();
-    let config_b = config.clone();
-    let mut sa = *seed_a;
-    let mut sb = *seed_b;
-
-    // Both GPUs run trajectories via scoped threads sharing the borrows
-    let (result_a, result_b) = std::thread::scope(|scope| {
-        let handle_a = scope.spawn(|| {
-            let r = gpu_a.run_trajectory(&config_a, &mut sa);
-            (r, sa)
-        });
-        let handle_b = scope.spawn(|| {
-            let r = gpu_b.run_trajectory(&config_b, &mut sb);
-            (r, sb)
-        });
-        let (ra, new_sa) = handle_a.join().expect("GPU A thread");
-        let (rb, new_sb) = handle_b.join().expect("GPU B thread");
-        *seed_a = new_sa;
-        *seed_b = new_sb;
-        (ra, rb)
-    });
-
-    DualGpuResult {
-        a: result_a,
-        b: result_b,
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn make_gpu() -> GpuF64 {
-        let rt = tokio::runtime::Runtime::new().expect("tokio");
-        rt.block_on(GpuF64::new()).expect("GPU required for test")
-    }
-
-    /// Minimal shader: writes f64 constant to verify pipeline plumbing.
-    const WGSL_CONSTANT_WRITE: &str = r#"
-@group(0) @binding(0) var<storage, read_write> out: array<f64>;
-@compute @workgroup_size(1)
-fn main() {
-    out[0] = f64(42.5);
-}
-"#;
-
-    #[test]
-    fn f64_pipeline_basic_sanity() {
-        let gpu = make_gpu();
-        eprintln!("  full_df64_mode={}", gpu.full_df64_mode);
-
-        let out = gpu.create_f64_output_buffer(1, "sanity_out");
-        let pl = gpu.create_pipeline_f64(WGSL_CONSTANT_WRITE, "sanity");
-        let bg = gpu.create_bind_group(&pl, &[&out]);
-
-        let mut enc = gpu.begin_encoder("sanity");
-        GpuF64::encode_pass(&mut enc, &pl, &bg, 1);
-        gpu.submit_encoder(enc);
-
-        let val = gpu.read_back_f64(&out, 1).unwrap();
-        eprintln!("  constant-write: out[0]={}", val[0]);
-        assert!((val[0] - 42.5).abs() < 1e-6, "got {}", val[0]);
-    }
-
-    /// Reads from input buffer → writes to output.
-    const WGSL_PASSTHROUGH: &str = r#"
-@group(0) @binding(0) var<storage, read> inp: array<f64>;
-@group(0) @binding(1) var<storage, read_write> out: array<f64>;
-@compute @workgroup_size(1)
-fn main() {
-    out[0] = inp[0];
-    out[1] = inp[0] + f64(1.0);
-}
-"#;
-
-    #[test]
-    fn f64_pipeline_passthrough() {
-        let gpu = make_gpu();
-        let inp = gpu.create_f64_output_buffer(1, "pt_in");
-        let out = gpu.create_f64_output_buffer(2, "pt_out");
-        gpu.upload_f64(&inp, &[7.0]);
-
-        let pl = gpu.create_pipeline_f64(WGSL_PASSTHROUGH, "pt");
-        let bg = gpu.create_bind_group(&pl, &[&inp, &out]);
-
-        let mut enc = gpu.begin_encoder("pt");
-        GpuF64::encode_pass(&mut enc, &pl, &bg, 1);
-        gpu.submit_encoder(enc);
-
-        let val = gpu.read_back_f64(&out, 2).unwrap();
-        eprintln!("  passthrough: out[0]={} out[1]={}", val[0], val[1]);
-        assert!((val[0] - 7.0).abs() < 1e-6, "pass got {}", val[0]);
-        assert!((val[1] - 8.0).abs() < 1e-6, "add got {}", val[1]);
-    }
-
-    /// Full H assembly kernel test with known scalar inputs.
-    #[test]
-    fn hamiltonian_assembly_kernel_roundtrip() {
-        let gpu = make_gpu();
-
-        let plaq_buf = gpu.create_f64_output_buffer(1, "test_plaq");
-        let t_buf = gpu.create_f64_output_buffer(1, "test_t");
-        let sf_buf = gpu.create_f64_output_buffer(1, "test_sf");
-        let h_buf = gpu.create_f64_output_buffer(1, "test_h");
-        let diag_buf = gpu.create_f64_output_buffer(3, "test_diag");
-
-        gpu.upload_f64(&plaq_buf, &[100.0]);
-        gpu.upload_f64(&t_buf, &[5.0]);
-        gpu.upload_f64(&sf_buf, &[3.0]);
-
-        let pl = gpu.create_pipeline_f64(WGSL_HAMILTONIAN_ASSEMBLY, "test_h_asm");
-
-        let beta = 5.5;
-        let volume = 4096usize;
-        let six_v = 6.0 * volume as f64;
-        let params = make_h_assembly_params(beta, six_v);
-        let pbuf = gpu.create_storage_buffer_init(&params, "test_h_p");
-        let bg = gpu.create_bind_group(&pl, &[&pbuf, &plaq_buf, &t_buf, &sf_buf, &h_buf, &diag_buf]);
-
-        let mut enc = gpu.begin_encoder("test_h_asm");
-        GpuF64::encode_pass(&mut enc, &pl, &bg, 1);
-        gpu.submit_encoder(enc);
-
-        let h_val = gpu.read_back_f64(&h_buf, 1).unwrap();
-        let diag = gpu.read_back_f64(&diag_buf, 3).unwrap();
-
-        let expected_sg = beta * (six_v - 100.0);
-        let expected_h = expected_sg + 5.0 + 3.0;
-
-        eprintln!("H assembly test: h={}, expected={}", h_val[0], expected_h);
-        eprintln!("  diag: sg={} t={} sf={}", diag[0], diag[1], diag[2]);
-
-        assert!((h_val[0] - expected_h).abs() < 1e-6,
-            "H mismatch: got {} expected {}", h_val[0], expected_h);
-        assert!((diag[0] - expected_sg).abs() < 1e-6);
-        assert!((diag[1] - 5.0).abs() < 1e-6);
-        assert!((diag[2] - 3.0).abs() < 1e-6);
-    }
-
-    /// Smoke-test: fermion action weighted sum kernel.
-    #[test]
-    fn fermion_action_sum_kernel_roundtrip() {
-        let gpu = make_gpu();
-
-        let dots_buf = gpu.create_f64_output_buffer(4, "test_dots");
-        let sf_buf = gpu.create_f64_output_buffer(1, "test_sf");
-
-        // dots = [10.0, 20.0, 30.0, 40.0]
-        // alpha_0 = 0.5, alphas = [1.0, 2.0, 3.0]
-        // expected: 0.5*10 + 1.0*20 + 2.0*30 + 3.0*40 = 5+20+60+120 = 205
-        gpu.upload_f64(&dots_buf, &[10.0, 20.0, 30.0, 40.0]);
-        gpu.zero_buffer(&sf_buf, 8);
-
-        let pl = gpu.create_pipeline_f64(WGSL_FERMION_ACTION_SUM, "test_sf_sum");
-
-        let n_dots = 4u32;
-        let alpha_0 = 0.5f64;
-        let params = make_fermion_action_sum_params(n_dots, alpha_0);
-        let pbuf = gpu.create_storage_buffer_init(&params, "test_sf_p");
-
-        let alphas: Vec<u8> = [1.0f64, 2.0, 3.0].iter()
-            .flat_map(|a| a.to_le_bytes())
-            .collect();
-        let alpha_buf = gpu.create_storage_buffer_init(&alphas, "test_alphas");
-
-        let bg = gpu.create_bind_group(&pl, &[&pbuf, &dots_buf, &alpha_buf, &sf_buf]);
-
-        let mut enc = gpu.begin_encoder("test_sf_sum");
-        GpuF64::encode_pass(&mut enc, &pl, &bg, 1);
-        gpu.submit_encoder(enc);
-
-        let sf = gpu.read_back_f64(&sf_buf, 1).unwrap();
-        eprintln!("S_f sum test: sf={}, expected=205.0", sf[0]);
-        assert!((sf[0] - 205.0).abs() < 1e-6,
-            "S_f mismatch: got {} expected 205.0", sf[0]);
-    }
-
-    /// Smoke-test: Metropolis kernel with known H values.
-    #[test]
-    fn metropolis_kernel_roundtrip() {
-        let gpu = make_gpu();
-
-        let h_old = gpu.create_f64_output_buffer(1, "test_h_old");
-        let h_new = gpu.create_f64_output_buffer(1, "test_h_new");
-        let plaq = gpu.create_f64_output_buffer(1, "test_plaq");
-        let diag_old = gpu.create_f64_output_buffer(3, "test_do");
-        let diag_new = gpu.create_f64_output_buffer(3, "test_dn");
-        let result = gpu.create_f64_output_buffer(9, "test_res");
-        let staging = gpu.create_staging_buffer(9 * 8, "test_stg");
-
-        // H_new < H_old → delta_h < 0 → always accept
-        gpu.upload_f64(&h_old, &[100.0]);
-        gpu.upload_f64(&h_new, &[99.0]);
-        gpu.upload_f64(&plaq, &[12000.0]);
-        gpu.upload_f64(&diag_old, &[90.0, 5.0, 5.0]);
-        gpu.upload_f64(&diag_new, &[89.0, 5.0, 5.0]);
-
-        let pl = gpu.create_pipeline_f64(WGSL_METROPOLIS, "test_metro");
-
-        let r_val: f64 = 0.5;
-        let six_v: f64 = 24576.0;
-        let mut params = Vec::with_capacity(16);
-        params.extend_from_slice(&r_val.to_le_bytes());
-        params.extend_from_slice(&six_v.to_le_bytes());
-        let pbuf = gpu.create_storage_buffer_init(&params, "test_mp");
-
-        let bg = gpu.create_bind_group(&pl, &[&pbuf, &h_old, &h_new, &plaq, &diag_old, &diag_new, &result]);
-
-        let mut enc = gpu.begin_encoder("test_metro");
-        GpuF64::encode_pass(&mut enc, &pl, &bg, 1);
-        enc.copy_buffer_to_buffer(&result, 0, &staging, 0, 9 * 8);
-        gpu.submit_encoder(enc);
-
-        let data = gpu.read_staging_f64_n(&staging, 9).unwrap();
-        eprintln!("Metropolis test: accepted={} dH={} plaq={}", data[0], data[1], data[2]);
-        eprintln!("  sg_old={} sg_new={} t_old={} t_new={}", data[3], data[4], data[5], data[6]);
-        eprintln!("  sf_old={} sf_new={}", data[7], data[8]);
-
-        assert!(data[0] > 0.5, "Should accept: delta_h=-1.0");
-        assert!((data[1] - (-1.0)).abs() < 1e-6, "delta_h wrong: {}", data[1]);
-        assert!((data[2] - 12000.0 / 24576.0).abs() < 1e-6, "plaq wrong: {}", data[2]);
-        assert!((data[7] - 5.0).abs() < 1e-6, "s_ferm_old wrong: {}", data[7]);
-        assert!((data[8] - 5.0).abs() < 1e-6, "s_ferm_new wrong: {}", data[8]);
-    }
 }

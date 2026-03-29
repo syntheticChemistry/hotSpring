@@ -3,7 +3,7 @@
 > Extracted from README.md (March 27, 2026). This is the authoritative ledger of all
 > experiments, validation suites, and benchmark data. For project overview, see [README.md](README.md).
 
-**123 experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **AGPL-3.0-only**
+**123+ experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **AGPL-3.0-only**
 
 ---
 
@@ -139,7 +139,8 @@
 | **Sysmem HS Mode Breakthrough** (Exp 095) | ✅ **BREAKTHROUGH** | **SEC2 enters Heavy Secure mode via system memory DMA.** |
 | **Silicon Characterization** (Exp 096-100) | ✅ Complete | TMU 1.89x RTX 3090, AMD DF64 38% advantage, 4-phase pipeline, hardware personalities |
 | **Silicon Routed QCD Revalidation** (Exp 105) | ✅ Complete | Revalidated quenched + Nf=2 + Nf=2+1 QCD with silicon routing. Unidirectional RHMC: 3.79x speedup (3090), 2.06x (6950 XT). **True multi-shift CG** (shared Krylov, 37% speedup). **Fermion force sign fix** (−η convention, ΔH: 1500→O(1)). `std::hint::black_box` for release-mode convergence |
-| **Silicon Tier Routing + Legacy Cleanup** (Exp 106) | 🔄 Active | 7-tier routing spec, SiliconProfile system, GpuTelemetry, deprecated 6 sync-heavy functions, production binary migration |
+| **Silicon Tier Routing + Legacy Cleanup** (Exp 106) | ✅ Complete | 7-tier routing spec, SiliconProfile system, GpuTelemetry, deprecated 6 sync-heavy functions, production binary migration |
+| **Silicon Saturation Profiling** (Exp 107) | ✅ Complete | 7-phase full-card profiling on strandgate (RTX 3090 + RX 6950 XT). TMU PRNG (Box-Muller via textureLoad, Tier 0). Subgroup reduce (`subgroupAdd()` for CG dot products, Tier 4). ROP atomic scatter-add (fixed-point i32 `atomicAdd` for fermion force, Tier 3). NPU observation 11D (6D physics + 5D silicon tags). Capacity: RTX 3090 L=46⁴ dynamical (23.6 GB), RX 6950 XT L=40⁴ (13.5 GB). 6 new WGSL shaders, 10 new binaries |
 | **Consolidation Matrix** (Exp 110) | ✅ Complete | biomeGate: sovereign pipeline consolidation and gap analysis |
 | **VRAM Native Page Tables** (Exp 111) | ✅ Complete | biomeGate: native VRAM page table construction |
 | **Dual Phase Boot** (Exp 112) | ✅ Complete | biomeGate: HS mode via dual-phase boot (SCTL=0x3002) |
@@ -154,7 +155,7 @@
 | **WPR2 Resolution** (Exp 122) | ✅ Complete | biomeGate: **definitive root cause** — WPR2 registers hardware-locked by FWSEC |
 | **Parasitic Compute** (Exp 123T) | ✅ Complete | biomeGate: parasitic compute probe |
 | **K80 Sovereign Compute** (Exp 123) | 🔄 Active | biomeGate: Tesla K80 (GK210) — zero firmware security, direct PIO boot |
-| **TOTAL** | **39/39 Rust validation suites** | **848 tests (lib)**, 129 binaries, 85+ WGSL shaders. Zero clippy, zero unsafe, AGPL-3.0-only. **Science ladder:** Quenched → Gradient Flow → Integrators → N_f=4 Infra → Chuna 44/44 → N_f=2 → N_f=2+1 → Self-tuning. 123 experiments. |
+| **TOTAL** | **39/39 Rust validation suites** | **870 tests (lib)**, 139 binaries, 99 WGSL shaders. Zero clippy, zero unsafe, AGPL-3.0-only. **Science ladder:** Quenched → Gradient Flow → Integrators → N_f=4 Infra → Chuna 44/44 → N_f=2 → N_f=2+1 → Self-tuning → Silicon saturation → 16⁴+ production. 123+ experiments. |
 
 ---
 

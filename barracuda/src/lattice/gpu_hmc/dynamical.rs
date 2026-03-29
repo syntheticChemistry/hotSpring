@@ -26,9 +26,14 @@ pub const WGSL_XPAY: &str = super::super::cg::WGSL_XPAY_F64;
 
 /// WGSL shared PRNG core (PCG hash → uniform f64).
 const WGSL_PRNG_CORE: &str = include_str!("../shaders/prng_pcg_f64.wgsl");
-/// WGSL shader: GPU-resident PRNG for SU(3) algebra momenta.
+/// WGSL shader: GPU-resident PRNG for SU(3) algebra momenta (ALU path).
 pub static WGSL_RANDOM_MOMENTA: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
     let body = include_str!("../shaders/su3_random_momenta_f64.wgsl");
+    format!("{WGSL_PRNG_CORE}\n{body}")
+});
+/// WGSL shader: TMU-accelerated PRNG for SU(3) momenta (Tier 0 silicon routing).
+pub static WGSL_RANDOM_MOMENTA_TMU: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
+    let body = include_str!("../shaders/su3_random_momenta_tmu_f64.wgsl");
     format!("{WGSL_PRNG_CORE}\n{body}")
 });
 

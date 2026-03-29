@@ -158,7 +158,8 @@ fn tests_u32() -> Vec<PrecisionTest> {
 fn main(@builtin(global_invocation_id) _id: vec3<u32>) {
     out[0] = 2147483647u + 1u;
 }
-".into(),
+"
+            .into(),
             entry_point: "main",
             output_bytes: 4,
             workgroups: 1,
@@ -178,7 +179,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let b: u32 = 6789u;
     out[0] = a * b;
 }
-".into(),
+"
+            .into(),
             entry_point: "main",
             output_bytes: 4,
             workgroups: 1,
@@ -199,7 +201,8 @@ fn main(@builtin(global_invocation_id) _id: vec3<u32>) {
     let c: i32 = a + b;
     out[0] = bitcast<u32>(c);
 }
-".into(),
+"
+            .into(),
             entry_point: "main",
             output_bytes: 4,
             workgroups: 1,
@@ -224,7 +227,8 @@ fn main(@builtin(global_invocation_id) _id: vec3<u32>) {
     let unpacked_d = (packed >> 24u) & 0xFFu;
     out[0] = unpacked_a + (unpacked_d << 8u);
 }
-".into(),
+"
+            .into(),
             entry_point: "main",
             output_bytes: 4,
             workgroups: 1,
@@ -248,7 +252,8 @@ fn main(@builtin(global_invocation_id) _id: vec3<u32>) {
     let int4_at_4  = (packed >> 4u) & 15u;
     out[0] = int2_at_0 + int2_at_2 + int2_at_4 + int4_at_0 + int4_at_4;
 }
-".into(),
+"
+            .into(),
             entry_point: "main",
             output_bytes: 4,
             workgroups: 1,
@@ -279,7 +284,8 @@ fn tests_fp32() -> Vec<PrecisionTest> {
 fn main(@builtin(global_invocation_id) _id: vec3<u32>) {
     out[0] = fma(3.0, 2.0, 1.0);
 }
-".into(),
+"
+            .into(),
             entry_point: "main",
             output_bytes: 4,
             workgroups: 1,
@@ -298,7 +304,8 @@ fn main(@builtin(global_invocation_id) _id: vec3<u32>) {
     let pi: f32 = 3.14159274;
     out[0] = pi * pi;
 }
-".into(),
+"
+            .into(),
             entry_point: "main",
             output_bytes: 4,
             workgroups: 1,
@@ -324,7 +331,8 @@ fn main(@builtin(global_invocation_id) _id: vec3<u32>) {
     }
     out[0] = sum;
 }
-".into(),
+"
+            .into(),
             entry_point: "main",
             output_bytes: 4,
             workgroups: 1,
@@ -349,7 +357,8 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>, @builtin(workgroup_id) wid
     }
     if lid.x == 0u { out[wid.x] = wg_data[0]; }
 }
-".into(),
+"
+            .into(),
             entry_point: "main",
             output_bytes: 4,
             workgroups: 1,
@@ -390,13 +399,15 @@ fn df64_to_f64(v: Df64) -> f64 { return f64(v.hi) + f64(v.lo); }
         PrecisionTest {
             name: "df64 add(1,1)",
             tier: "df64",
-            wgsl: format!("{df64_preamble}
+            wgsl: format!(
+                "{df64_preamble}
 @group(0) @binding(0) var<storage, read_write> out: array<f64>;
 @compute @workgroup_size(1)
 fn main(@builtin(global_invocation_id) _id: vec3<u32>) {{
     out[0] = df64_to_f64(df64_add(Df64(1.0, 0.0), Df64(1.0, 0.0)));
 }}
-"),
+"
+            ),
             entry_point: "main",
             output_bytes: 8,
             workgroups: 1,
@@ -408,14 +419,16 @@ fn main(@builtin(global_invocation_id) _id: vec3<u32>) {{
         PrecisionTest {
             name: "df64 pi*pi",
             tier: "df64",
-            wgsl: format!("{df64_preamble}
+            wgsl: format!(
+                "{df64_preamble}
 @group(0) @binding(0) var<storage, read_write> out: array<f64>;
 @compute @workgroup_size(1)
 fn main(@builtin(global_invocation_id) _id: vec3<u32>) {{
     let pi = Df64(3.14159274, -8.74227766e-8);
     out[0] = df64_to_f64(df64_mul(pi, pi));
 }}
-"),
+"
+            ),
             entry_point: "main",
             output_bytes: 8,
             workgroups: 1,
@@ -427,7 +440,8 @@ fn main(@builtin(global_invocation_id) _id: vec3<u32>) {{
         PrecisionTest {
             name: "df64 wg reduce 256",
             tier: "df64",
-            wgsl: format!("{df64_preamble}
+            wgsl: format!(
+                "{df64_preamble}
 @group(0) @binding(0) var<storage, read_write> out: array<f64>;
 var<workgroup> wg_hi: array<f32, 256>;
 var<workgroup> wg_lo: array<f32, 256>;
@@ -446,7 +460,8 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>) {{
     }}
     if lid.x == 0u {{ out[0] = df64_to_f64(Df64(wg_hi[0], wg_lo[0])); }}
 }}
-"),
+"
+            ),
             entry_point: "main",
             output_bytes: 8,
             workgroups: 1,
@@ -470,7 +485,8 @@ fn main(@builtin(global_invocation_id) _id: vec3<u32>) {
     let pi: f64 = 3.14159265358979323846lf;
     out[0] = pi * pi;
 }
-".into(),
+"
+            .into(),
             entry_point: "main",
             output_bytes: 8,
             workgroups: 1,
@@ -496,7 +512,8 @@ fn main(@builtin(global_invocation_id) _id: vec3<u32>) {
     }
     out[0] = sum;
 }
-".into(),
+"
+            .into(),
             entry_point: "main",
             output_bytes: 8,
             workgroups: 1,
@@ -519,7 +536,8 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>) {
         out[0] = wg_data[0] + wg_data[1] + wg_data[2] + wg_data[3];
     }
 }
-".into(),
+"
+            .into(),
             entry_point: "main",
             output_bytes: 8,
             workgroups: 1,
@@ -556,7 +574,8 @@ fn main(@builtin(global_invocation_id) _id: vec3<u32>) {
     out[0] = two.hi;
     out[1] = two.lo;
 }
-".into(),
+"
+            .into(),
             entry_point: "main",
             output_bytes: 16,
             workgroups: 1,
@@ -593,7 +612,8 @@ fn main(@builtin(global_invocation_id) _id: vec3<u32>) {
     out[0] = r.hi;
     out[1] = r.lo;
 }
-".into(),
+"
+            .into(),
             entry_point: "main",
             output_bytes: 16,
             workgroups: 1,
@@ -641,9 +661,7 @@ async fn main() {
         let device = gpu.device();
         let queue = gpu.queue();
         let has_f64 = gpu.has_f64;
-        let has_f16 = device
-            .features()
-            .contains(wgpu::Features::SHADER_F16);
+        let has_f16 = device.features().contains(wgpu::Features::SHADER_F16);
 
         println!("━━━ {} ━━━", gpu.adapter_name);
         println!(
@@ -771,7 +789,9 @@ async fn main() {
         .into_iter()
         .collect();
 
-    let tiers = ["int2", "int8", "i32", "u32", "fp32", "df64", "fp64", "df128"];
+    let tiers = [
+        "int2", "int8", "i32", "u32", "fp32", "df64", "fp64", "df128",
+    ];
     for tier in &tiers {
         let tier_results: Vec<&MatrixResult> =
             all_results.iter().filter(|r| r.tier == *tier).collect();
@@ -795,10 +815,7 @@ async fn main() {
 
     let total_pass = all_results.iter().filter(|r| r.pass).count();
     let total_fail = all_results.iter().filter(|r| !r.pass).count();
-    println!(
-        "\n  TOTAL: {} pass, {} fail",
-        total_pass, total_fail
-    );
+    println!("\n  TOTAL: {} pass, {} fail", total_pass, total_fail);
 
     // ── Report to toadStool performance surface ─────────────────────────────
     println!("\n── Reporting to toadStool ──\n");

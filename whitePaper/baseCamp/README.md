@@ -1,8 +1,8 @@
 # baseCamp: Research Domain Briefings
 
-**Date:** 2026-03-28
+**Date:** 2026-03-29
 **Project:** hotSpring (ecoPrimals)
-**Status:** v0.6.33+, experiments 001-123, 4,065+ tests pass, 39/39 validation suites, 120+ binaries, 93+ WGSL shaders
+**Status:** v0.6.32, experiments 001-123+, 4,065+ tests pass, 39/39 validation suites, 139 binaries, 99 WGSL shaders. Silicon saturation profiling complete: TMU PRNG, subgroup reduce, ROP atomics live in production RHMC
 
 **Notes:** Upstream primal sync: barraCuda `7c1fd03a`, coralReef Iter 67+ (Kepler PIO loader, GK210 identity, parasitic probe). toadStool S155b+. **Sovereign GPU compute: L10 ROOT CAUSE DEFINITIVE (Exp 122).** WPR2 hardware-locked, FWSEC inaccessible, FBPA offline — explains all WPR copy stalls. HS mode achieved (Exp 112, SCTL=0x3002) but PMU-dependent (Exp 113). **K80 (GK210, Kepler) arriving 2026-03-26** — zero firmware security, direct PIO FECS/GPCCS boot, validates full pipeline. Exp 110-122: consolidation matrix, dual-phase boot, WPR2 tracking/preservation/resolution. **Fleet: 2x Titan V + RTX 5070 (GB206) + K80 (incoming).** Chuna Papers 43-45: **44/44 overnight checks pass**. All AGPL-3.0-only.
 
@@ -41,8 +41,8 @@ Published paper (Python/FORTRAN/HPC)
 | [`npu_dynamic_programming.md`](npu_dynamic_programming.md) | NPU as DP — Activation Parity & Subproblem Memoization | None (architecture insight) | tanh≈ReLU validated, NPU-as-memoization-table architecture for multigrid HMC |
 | [`neuromorphic_native_field_theory.md`](neuromorphic_native_field_theory.md) | Neuromorphic-Native Field Theory — Lattice Physics on Spiking Hardware | None (long-term hardware architecture) | 5-level path from NPU steering → NPU IS the simulation, coralForge isomorphism |
 | [`sovereign_gpu_compute.md`](sovereign_gpu_compute.md) | Sovereign GPU Compute — GlowPlug, Falcon, PFIFO, DRM Dispatch | None (hardware exploration) | Exp 060-123: **L10 ROOT CAUSE DEFINITIVE** (Exp 122). WPR2 HW-locked, FWSEC inaccessible. HS achieved (Exp 112). K80 (Kepler, no security) arriving — validates full stack. 123 experiments, 2 GPU architectures. DRM dual-track (AMD PM4 + NVIDIA EXEC), iommufd/cdev VFIO (607 tests), **RTX 5070 Blackwell DRM** (SM120) |
-| [`silicon_science.md`](silicon_science.md) | Silicon Science — All-Silicon GPU Experiments | None (hardware exploration) | Exp 096: **TMU table lookup 1.89x** (RTX 3090), **AMD DF64 38% faster** than NVIDIA. 11 QCD ops mapped to 9 silicon units. `validate_silicon_science` binary. toadStool performance surface integration |
-| [`silicon_characterization_at_scale.md`](silicon_characterization_at_scale.md) | Silicon Characterization at Scale — Consumer to CERN | None (hardware exploration + HPC analysis) | Exp 097-100: **4-phase silicon pipeline** (budget/saturation/composition/QCD). AMD 6x atomics, 2.26x Dirac, 202% CG efficiency. HPC silicon waste: A100 0.6%, H100 0.4% utilization. Decommissioned HBM2 fleet strategy |
+| [`silicon_science.md`](silicon_science.md) | Silicon Science — All-Silicon GPU Experiments | None (hardware exploration) | Exp 096 + **Silicon Saturation**: TMU PRNG, subgroup reduce, ROP atomics **LIVE** in production RHMC. 7-tier routing operational. NPU 11D observation vector |
+| [`silicon_characterization_at_scale.md`](silicon_characterization_at_scale.md) | Silicon Characterization at Scale — Consumer to CERN | None (hardware exploration + HPC analysis) | Exp 097-100 + **Saturation Profiling**: 4-phase pipeline + 7-phase saturation. RTX 3090 L=46⁴ max dynamical (23.6 GB), RX 6950 XT L=40⁴ (13.5 GB). HPC silicon waste: A100 0.6%, H100 0.4% |
 | [`self_tuning_rhmc.md`](self_tuning_rhmc.md) | Self-Tuning RHMC — Physics-Validated Parameter Discovery | None (methodology evolution) | Exp 103: `RhmcCalibrator` eliminates hand-tuned magic numbers. GPU spectral probe (power iteration λ_max, m² λ_min), acceptance-driven dt/n_md, consistency-driven pole count. 12 tolerance constants. NPU bridge pending |
 | [`true_multishift_cg_validated.md`](true_multishift_cg_validated.md) | True Multi-Shift CG + Fermion Force — Validated RHMC Production | None (algorithmic evolution) | Exp 105: True multi-shift CG (shared Krylov), fermion force sign fix (−η convention), ΔH=O(1), 8.5 GFLOP/s, `std::hint::black_box` optimizer fix |
 

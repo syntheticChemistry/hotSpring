@@ -419,8 +419,12 @@ pub fn gpu_shifted_cg_solve_resident(
 
     bufs.set_sigma(gpu, sigma);
 
-    let xr_bg =
-        bufs.make_xr_bg(gpu, &shifted_pipelines.update_xr_shifted_pipeline, state, x_buf);
+    let xr_bg = bufs.make_xr_bg(
+        gpu,
+        &shifted_pipelines.update_xr_shifted_pipeline,
+        state,
+        x_buf,
+    );
 
     // x = 0, r = b, p = b, compute initial ||b||² → rz
     gpu.zero_buffer(x_buf, (n_flat * 8) as u64);

@@ -33,10 +33,8 @@ use super::{make_u32x4_params, GpuF64};
 const WGSL_MS_ZETA: &str = include_str!("../shaders/ms_zeta_update_f64.wgsl");
 const WGSL_MS_X_UPDATE: &str = include_str!("../shaders/ms_x_update_f64.wgsl");
 const WGSL_MS_P_UPDATE: &str = include_str!("../shaders/ms_p_update_f64.wgsl");
-const WGSL_CG_ALPHA_SHIFTED: &str =
-    include_str!("../shaders/cg_compute_alpha_shifted_f64.wgsl");
-const WGSL_CG_XR_SHIFTED: &str =
-    include_str!("../shaders/cg_update_xr_shifted_f64.wgsl");
+const WGSL_CG_ALPHA_SHIFTED: &str = include_str!("../shaders/cg_compute_alpha_shifted_f64.wgsl");
+const WGSL_CG_XR_SHIFTED: &str = include_str!("../shaders/cg_update_xr_shifted_f64.wgsl");
 
 const CG_BACKOFF_CAP: usize = 2000;
 
@@ -63,8 +61,7 @@ impl TrueMultiShiftPipelines {
             base: GpuResidentCgPipelines::new(gpu),
             shifted_alpha_pipeline: gpu
                 .create_pipeline_f64(WGSL_CG_ALPHA_SHIFTED, "ms_alpha_shifted"),
-            shifted_xr_pipeline: gpu
-                .create_pipeline_f64(WGSL_CG_XR_SHIFTED, "ms_xr_shifted"),
+            shifted_xr_pipeline: gpu.create_pipeline_f64(WGSL_CG_XR_SHIFTED, "ms_xr_shifted"),
             zeta_pipeline: gpu.create_pipeline_f64(WGSL_MS_ZETA, "ms_zeta"),
             ms_x_pipeline: gpu.create_pipeline_f64(WGSL_MS_X_UPDATE, "ms_x_update"),
             ms_p_pipeline: gpu.create_pipeline_f64(WGSL_MS_P_UPDATE, "ms_p_update"),
@@ -189,30 +186,58 @@ impl TrueMultiShiftBuffers {
 
         // Reduce chains for dot products → scalar accumulators
         let reduce_to_pap = build_reduce_chain_pub(
-            gpu, &ms_pipelines.base.reduce_pipeline,
-            &state.dot_buf, &scratch_a, &scratch_b, &pap_buf, n_pairs,
+            gpu,
+            &ms_pipelines.base.reduce_pipeline,
+            &state.dot_buf,
+            &scratch_a,
+            &scratch_b,
+            &pap_buf,
+            n_pairs,
         );
         let reduce_to_pp = build_reduce_chain_pub(
-            gpu, &ms_pipelines.base.reduce_pipeline,
-            &state.dot_buf, &scratch_a, &scratch_b, &pp_buf, n_pairs,
+            gpu,
+            &ms_pipelines.base.reduce_pipeline,
+            &state.dot_buf,
+            &scratch_a,
+            &scratch_b,
+            &pp_buf,
+            n_pairs,
         );
         let reduce_to_rz = build_reduce_chain_pub(
-            gpu, &ms_pipelines.base.reduce_pipeline,
-            &state.dot_buf, &scratch_a, &scratch_b, &rz_buf, n_pairs,
+            gpu,
+            &ms_pipelines.base.reduce_pipeline,
+            &state.dot_buf,
+            &scratch_a,
+            &scratch_b,
+            &rz_buf,
+            n_pairs,
         );
         let reduce_to_rz_new = build_reduce_chain_pub(
-            gpu, &ms_pipelines.base.reduce_pipeline,
-            &state.dot_buf, &scratch_a, &scratch_b, &rz_new_buf, n_pairs,
+            gpu,
+            &ms_pipelines.base.reduce_pipeline,
+            &state.dot_buf,
+            &scratch_a,
+            &scratch_b,
+            &rz_new_buf,
+            n_pairs,
         );
 
         // Dirac: D·p → temp, D†·temp → ap
         let dirac_d_bg = make_dirac_bg(
-            gpu, &dyn_pipelines.dirac_pipeline, state,
-            &state.p_buf, &state.temp_buf, 1.0,
+            gpu,
+            &dyn_pipelines.dirac_pipeline,
+            state,
+            &state.p_buf,
+            &state.temp_buf,
+            1.0,
         );
         let dirac_ddag_bg = make_dirac_bg(
-            gpu, &dyn_pipelines.dirac_pipeline, state,
-            &state.temp_buf, &state.ap_buf, -1.0,
+            gpu,
+            &dyn_pipelines.dirac_pipeline,
+            state,
+            &state.temp_buf,
+            &state.ap_buf,
+            -1.0,
         );
 
         // Dot products: <p|ap>, <p|p>, <r|r>
@@ -248,8 +273,15 @@ impl TrueMultiShiftBuffers {
         let xr_params_buf = gpu.create_uniform_buffer(&xr_params, "ms_xr_p");
         let update_xr_bg = gpu.create_bind_group(
             &ms_pipelines.shifted_xr_pipeline,
-            &[&xr_params_buf, &state.x_buf, &state.r_buf,
-              &state.p_buf, &state.ap_buf, &alpha_buf, &sigma_min_buf],
+            &[
+                &xr_params_buf,
+                &state.x_buf,
+                &state.r_buf,
+                &state.p_buf,
+                &state.ap_buf,
+                &alpha_buf,
+                &sigma_min_buf,
+            ],
         );
         let p_params = make_u32x4_params(n_flat as u32);
         let p_params_buf = gpu.create_uniform_buffer(&p_params, "ms_p_p");
@@ -278,39 +310,69 @@ impl TrueMultiShiftBuffers {
             ],
         );
 
-        let ms_p_bgs: Vec<_> = (0..n_shifts).map(|s| {
-            let mut params = [0u32; 4];
-            params[0] = n_flat as u32;
-            params[1] = s as u32;
-            let pbuf = gpu.create_uniform_buffer(bytemuck::cast_slice(&params), &format!("ms_pu_{s}"));
-            gpu.create_bind_group(
-                &ms_pipelines.ms_p_pipeline,
-                &[
-                    &pbuf,
-                    &p_shift_bufs[s],
-                    &state.r_buf,
-                    &zeta_curr_buf,
-                    &beta_ratio_buf,
-                    &beta_buf,
-                ],
-            )
-        }).collect();
+        let ms_p_bgs: Vec<_> = (0..n_shifts)
+            .map(|s| {
+                let mut params = [0u32; 4];
+                params[0] = n_flat as u32;
+                params[1] = s as u32;
+                let pbuf =
+                    gpu.create_uniform_buffer(bytemuck::cast_slice(&params), &format!("ms_pu_{s}"));
+                gpu.create_bind_group(
+                    &ms_pipelines.ms_p_pipeline,
+                    &[
+                        &pbuf,
+                        &p_shift_bufs[s],
+                        &state.r_buf,
+                        &zeta_curr_buf,
+                        &beta_ratio_buf,
+                        &beta_buf,
+                    ],
+                )
+            })
+            .collect();
 
         Self {
             p_shift_bufs,
-            zeta_curr_buf, zeta_prev_buf, alpha_s_buf, beta_ratio_buf,
-            sigma_buf, zeta_params_buf,
-            rz_buf, rz_new_buf, pap_buf, pp_buf, sigma_min_buf,
-            alpha_buf, beta_buf, alpha_prev_buf, beta_prev_buf,
-            scratch_a, scratch_b,
-            reduce_to_pap, reduce_to_pp, reduce_to_rz, reduce_to_rz_new,
+            zeta_curr_buf,
+            zeta_prev_buf,
+            alpha_s_buf,
+            beta_ratio_buf,
+            sigma_buf,
+            zeta_params_buf,
+            rz_buf,
+            rz_new_buf,
+            pap_buf,
+            pp_buf,
+            sigma_min_buf,
+            alpha_buf,
+            beta_buf,
+            alpha_prev_buf,
+            beta_prev_buf,
+            scratch_a,
+            scratch_b,
+            reduce_to_pap,
+            reduce_to_pp,
+            reduce_to_rz,
+            reduce_to_rz_new,
             convergence_staging,
-            dirac_d_bg, dirac_ddag_bg, dot_pap_bg, dot_pp_bg, dot_rr_bg,
-            compute_alpha_bg, compute_beta_bg, update_xr_bg, update_p_bg,
-            zeta_bg, ms_p_bgs,
-            xr_params_buf, p_params_buf,
-            wg_dirac, wg_dot, wg_vec,
-            n_shifts, n_flat,
+            dirac_d_bg,
+            dirac_ddag_bg,
+            dot_pap_bg,
+            dot_pp_bg,
+            dot_rr_bg,
+            compute_alpha_bg,
+            compute_beta_bg,
+            update_xr_bg,
+            update_p_bg,
+            zeta_bg,
+            ms_p_bgs,
+            xr_params_buf,
+            p_params_buf,
+            wg_dirac,
+            wg_dot,
+            wg_vec,
+            n_shifts,
+            n_flat,
         }
     }
 }
@@ -329,14 +391,39 @@ fn encode_ms_cg_batch(
     batch: usize,
 ) {
     for _ in 0..batch {
-        GpuF64::encode_pass(enc, &dyn_pipelines.dirac_pipeline, &bufs.dirac_d_bg, bufs.wg_dirac);
-        GpuF64::encode_pass(enc, &dyn_pipelines.dirac_pipeline, &bufs.dirac_ddag_bg, bufs.wg_dirac);
+        GpuF64::encode_pass(
+            enc,
+            &dyn_pipelines.dirac_pipeline,
+            &bufs.dirac_d_bg,
+            bufs.wg_dirac,
+        );
+        GpuF64::encode_pass(
+            enc,
+            &dyn_pipelines.dirac_pipeline,
+            &bufs.dirac_ddag_bg,
+            bufs.wg_dirac,
+        );
 
-        GpuF64::encode_pass(enc, &dyn_pipelines.dot_pipeline, &bufs.dot_pap_bg, bufs.wg_dot);
+        GpuF64::encode_pass(
+            enc,
+            &dyn_pipelines.dot_pipeline,
+            &bufs.dot_pap_bg,
+            bufs.wg_dot,
+        );
         encode_reduce_chain(enc, &ms_pipelines.base.reduce_pipeline, &bufs.reduce_to_pap);
-        GpuF64::encode_pass(enc, &dyn_pipelines.dot_pipeline, &bufs.dot_pp_bg, bufs.wg_dot);
+        GpuF64::encode_pass(
+            enc,
+            &dyn_pipelines.dot_pipeline,
+            &bufs.dot_pp_bg,
+            bufs.wg_dot,
+        );
         encode_reduce_chain(enc, &ms_pipelines.base.reduce_pipeline, &bufs.reduce_to_pp);
-        GpuF64::encode_pass(enc, &ms_pipelines.shifted_alpha_pipeline, &bufs.compute_alpha_bg, 1);
+        GpuF64::encode_pass(
+            enc,
+            &ms_pipelines.shifted_alpha_pipeline,
+            &bufs.compute_alpha_bg,
+            1,
+        );
 
         GpuF64::encode_pass(enc, &ms_pipelines.zeta_pipeline, &bufs.zeta_bg, 1);
 
@@ -344,17 +431,46 @@ fn encode_ms_cg_batch(
             GpuF64::encode_pass(enc, &ms_pipelines.ms_x_pipeline, &ms_x_bgs[s], bufs.wg_vec);
         }
 
-        GpuF64::encode_pass(enc, &ms_pipelines.shifted_xr_pipeline, &bufs.update_xr_bg, bufs.wg_vec);
+        GpuF64::encode_pass(
+            enc,
+            &ms_pipelines.shifted_xr_pipeline,
+            &bufs.update_xr_bg,
+            bufs.wg_vec,
+        );
 
-        GpuF64::encode_pass(enc, &dyn_pipelines.dot_pipeline, &bufs.dot_rr_bg, bufs.wg_dot);
-        encode_reduce_chain(enc, &ms_pipelines.base.reduce_pipeline, &bufs.reduce_to_rz_new);
+        GpuF64::encode_pass(
+            enc,
+            &dyn_pipelines.dot_pipeline,
+            &bufs.dot_rr_bg,
+            bufs.wg_dot,
+        );
+        encode_reduce_chain(
+            enc,
+            &ms_pipelines.base.reduce_pipeline,
+            &bufs.reduce_to_rz_new,
+        );
 
-        GpuF64::encode_pass(enc, &ms_pipelines.base.compute_beta_pipeline, &bufs.compute_beta_bg, 1);
+        GpuF64::encode_pass(
+            enc,
+            &ms_pipelines.base.compute_beta_pipeline,
+            &bufs.compute_beta_bg,
+            1,
+        );
 
-        GpuF64::encode_pass(enc, &ms_pipelines.base.update_p_pipeline, &bufs.update_p_bg, bufs.wg_vec);
+        GpuF64::encode_pass(
+            enc,
+            &ms_pipelines.base.update_p_pipeline,
+            &bufs.update_p_bg,
+            bufs.wg_vec,
+        );
 
         for s in 0..bufs.n_shifts {
-            GpuF64::encode_pass(enc, &ms_pipelines.ms_p_pipeline, &bufs.ms_p_bgs[s], bufs.wg_vec);
+            GpuF64::encode_pass(
+                enc,
+                &ms_pipelines.ms_p_pipeline,
+                &bufs.ms_p_bgs[s],
+                bufs.wg_vec,
+            );
         }
 
         enc.copy_buffer_to_buffer(&bufs.alpha_buf, 0, &bufs.alpha_prev_buf, 0, 8);
@@ -410,8 +526,17 @@ pub fn gpu_true_multi_shift_cg_solve(
         }
 
         // ⟨b|b⟩ → rz
-        GpuF64::encode_pass(&mut enc, &dyn_pipelines.dot_pipeline, &bufs.dot_rr_bg, bufs.wg_dot);
-        encode_reduce_chain(&mut enc, &ms_pipelines.base.reduce_pipeline, &bufs.reduce_to_rz);
+        GpuF64::encode_pass(
+            &mut enc,
+            &dyn_pipelines.dot_pipeline,
+            &bufs.dot_rr_bg,
+            bufs.wg_dot,
+        );
+        encode_reduce_chain(
+            &mut enc,
+            &ms_pipelines.base.reduce_pipeline,
+            &bufs.reduce_to_rz,
+        );
         enc.copy_buffer_to_buffer(&bufs.rz_buf, 0, &bufs.convergence_staging, 0, 8);
         gpu.submit_encoder(enc);
     }
@@ -433,16 +558,19 @@ pub fn gpu_true_multi_shift_cg_solve(
     gpu.upload_f64(&bufs.beta_prev_buf, &[0.0_f64]);
 
     // Pre-create per-shift x-update bind groups (depend on caller's x_bufs)
-    let ms_x_bgs: Vec<_> = (0..n_shifts).map(|s| {
-        let mut params = [0u32; 4];
-        params[0] = n_flat as u32;
-        params[1] = s as u32;
-        let pbuf = gpu.create_uniform_buffer(bytemuck::cast_slice(&params), &format!("ms_xu_{s}"));
-        gpu.create_bind_group(
-            &ms_pipelines.ms_x_pipeline,
-            &[&pbuf, &x_bufs[s], &bufs.p_shift_bufs[s], &bufs.alpha_s_buf],
-        )
-    }).collect();
+    let ms_x_bgs: Vec<_> = (0..n_shifts)
+        .map(|s| {
+            let mut params = [0u32; 4];
+            params[0] = n_flat as u32;
+            params[1] = s as u32;
+            let pbuf =
+                gpu.create_uniform_buffer(bytemuck::cast_slice(&params), &format!("ms_xu_{s}"));
+            gpu.create_bind_group(
+                &ms_pipelines.ms_x_pipeline,
+                &[&pbuf, &x_bufs[s], &bufs.p_shift_bufs[s], &bufs.alpha_s_buf],
+            )
+        })
+        .collect();
 
     let mut current_interval = check_interval.max(1);
     let mut total_iters = 0;
@@ -455,7 +583,12 @@ pub fn gpu_true_multi_shift_cg_solve(
 
         let mut enc = gpu.begin_encoder("ms_batch");
         encode_ms_cg_batch(
-            &mut enc, dyn_pipelines, ms_pipelines, bufs, &ms_x_bgs, batch,
+            &mut enc,
+            dyn_pipelines,
+            ms_pipelines,
+            bufs,
+            &ms_x_bgs,
+            batch,
         );
         enc.copy_buffer_to_buffer(&bufs.rz_new_buf, 0, &bufs.convergence_staging, 0, 8);
         gpu.submit_encoder(enc);
@@ -472,15 +605,10 @@ pub fn gpu_true_multi_shift_cg_solve(
         current_interval = (current_interval * 2).min(CG_BACKOFF_CAP);
     }
 
-
     // Base solution x_buf corresponds to σ_min → copy to x_bufs[i_min]
     {
         let mut enc = gpu.begin_encoder("ms_base_copy");
-        enc.copy_buffer_to_buffer(
-            &state.x_buf, 0,
-            &x_bufs[i_min], 0,
-            (n_flat * 8) as u64,
-        );
+        enc.copy_buffer_to_buffer(&state.x_buf, 0, &x_bufs[i_min], 0, (n_flat * 8) as u64);
         gpu.submit_encoder(enc);
     }
 
@@ -518,14 +646,23 @@ mod tests {
         gpu.upload_f64(&sigma_buf, &sigma);
         gpu.upload_f64(&zeta_curr_buf, &[1.0, 1.0, 1.0]);
         gpu.upload_f64(&zeta_prev_buf, &[1.0, 1.0, 1.0]);
-        gpu.upload_f64(&alpha_buf, &[0.3]);  // α₀ for this iteration
-        gpu.upload_f64(&beta_prev_buf, &[0.0]);  // β_{-1} = 0
+        gpu.upload_f64(&alpha_buf, &[0.3]); // α₀ for this iteration
+        gpu.upload_f64(&beta_prev_buf, &[0.0]); // β_{-1} = 0
         gpu.upload_f64(&alpha_prev_buf, &[1.0]); // α_{-1} = 1
 
         let bg = gpu.create_bind_group(
             &pl,
-            &[&params_buf, &sigma_buf, &zeta_curr_buf, &zeta_prev_buf,
-              &alpha_s_buf, &beta_ratio_buf, &alpha_buf, &beta_prev_buf, &alpha_prev_buf],
+            &[
+                &params_buf,
+                &sigma_buf,
+                &zeta_curr_buf,
+                &zeta_prev_buf,
+                &alpha_s_buf,
+                &beta_ratio_buf,
+                &alpha_buf,
+                &beta_prev_buf,
+                &alpha_prev_buf,
+            ],
         );
 
         let mut enc = gpu.begin_encoder("test_zeta");
@@ -543,11 +680,13 @@ mod tests {
             let expected_a = 0.3 * expected_z; // α_s = α₀ · ζ_new / ζ_old = 0.3 · ζ_new / 1
             assert!(
                 (zeta[s] - expected_z).abs() < 1e-10,
-                "shift {s}: ζ expected {expected_z}, got {}", zeta[s]
+                "shift {s}: ζ expected {expected_z}, got {}",
+                zeta[s]
             );
             assert!(
                 (alpha_s[s] - expected_a).abs() < 1e-10,
-                "shift {s}: α_s expected {expected_a}, got {}", alpha_s[s]
+                "shift {s}: α_s expected {expected_a}, got {}",
+                alpha_s[s]
             );
         }
         eprintln!("  zeta recurrence passed: ζ={zeta:?}");
@@ -585,7 +724,10 @@ mod tests {
         let x_out = gpu.read_back_f64(&x_buf, n).unwrap();
         for (i, &val) in x_out.iter().enumerate() {
             let expected = i as f64 + 0.5 * 2.0; // x + α_1 · p
-            assert!((val - expected).abs() < 1e-10, "x[{i}] = {val}, expected {expected}");
+            assert!(
+                (val - expected).abs() < 1e-10,
+                "x[{i}] = {val}, expected {expected}"
+            );
         }
         eprintln!("  ms_x_update passed");
     }
@@ -613,13 +755,20 @@ mod tests {
         let r_init: Vec<f64> = (0..n).map(|_| 1.0).collect();
         gpu.upload_f64(&p_buf, &p_init);
         gpu.upload_f64(&r_buf, &r_init);
-        gpu.upload_f64(&zeta_buf, &[0.8, 0.6]);  // ζ₀ = 0.8
-        gpu.upload_f64(&beta_ratio_buf, &[0.9, 0.7]);  // ratio₀ = 0.9
-        gpu.upload_f64(&beta_base_buf, &[0.4]);  // β_base = 0.4
+        gpu.upload_f64(&zeta_buf, &[0.8, 0.6]); // ζ₀ = 0.8
+        gpu.upload_f64(&beta_ratio_buf, &[0.9, 0.7]); // ratio₀ = 0.9
+        gpu.upload_f64(&beta_base_buf, &[0.4]); // β_base = 0.4
 
         let bg = gpu.create_bind_group(
             &pl,
-            &[&pbuf, &p_buf, &r_buf, &zeta_buf, &beta_ratio_buf, &beta_base_buf],
+            &[
+                &pbuf,
+                &p_buf,
+                &r_buf,
+                &zeta_buf,
+                &beta_ratio_buf,
+                &beta_base_buf,
+            ],
         );
         let wg = (n as u32).div_ceil(64);
         let mut enc = gpu.begin_encoder("test_mp");

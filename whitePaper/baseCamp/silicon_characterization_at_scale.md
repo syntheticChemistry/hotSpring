@@ -1,9 +1,9 @@
 # Silicon Characterization at Scale — From Consumer to CERN
 
 **Domain:** GPU silicon utilization for computational physics
-**Updated:** March 26, 2026
-**Status:** Exp 097-100 complete — full 4-phase characterization on 2 consumer GPUs
-**Hardware:** RTX 3090 (Ampere), RX 6950 XT (RDNA2); incoming: 2x Titan V, 2x MI50, Tesla P80
+**Updated:** March 29, 2026
+**Status:** Exp 097-100 + Silicon Saturation Profiling complete. 4-phase characterization + 7-phase saturation. TMU PRNG, subgroup reduce, ROP atomics all live in production RHMC
+**Hardware:** RTX 3090 (Ampere), RX 6950 XT (RDNA2) — strandgate. Fleet: 2x Titan V, 2x MI50, Tesla P80
 **Protocol:** `wateringHole/GPU_FIXED_FUNCTION_SCIENCE_REPURPOSING.md`
 
 ---
@@ -233,9 +233,49 @@ contribution. The leverage is:
 
 ---
 
+## Silicon Saturation Results (March 29, 2026)
+
+The 4-phase silicon characterization pipeline identified which silicon units could
+contribute to RHMC physics. The 7-phase silicon saturation profiling WIRED them
+into the production pipeline:
+
+| Silicon Unit | Routing | Shader | Status |
+|-------------|---------|--------|--------|
+| TMU (Tier 0) | PRNG momentum generation | `su3_random_momenta_tmu_f64.wgsl` | **LIVE** — Box-Muller via `textureLoad` |
+| Subgroup (Tier 4) | CG dot product reduction | `sum_reduce_subgroup_f64.wgsl` | **LIVE** — `subgroupAdd()`, fallback to shared memory |
+| ROP Atomics (Tier 3) | Fermion force accumulation | `su3_fermion_force_accumulate_rop_f64.wgsl` | **LIVE** — i32 fixed-point, parallel poles |
+| FP64 ALU | All force/action computation | existing shaders | **LIVE** — Fp64Strategy routing |
+| FP32 ALU (DF64) | Force computation on consumer GPUs | existing DF64 shaders | **LIVE** — 3.24 TFLOPS at 14-digit precision |
+| L2 Cache | Working set amplifier | implicit via tiling | **LIVE** — AMD Infinity Cache advantage |
+
+### Capacity Analysis
+
+Max isotropic lattice (L^4) under both per-allocation and total VRAM constraints:
+
+| Card | VRAM | Max L (dynamical) | Memory Used | Max L (quenched) |
+|------|------|-------------------|-------------|------------------|
+| RTX 3090 | 24 GB | 46⁴ (4.5M sites) | 23.6 GB | 56⁴ |
+| RX 6950 XT | 16 GB | 40⁴ (2.6M sites) | 13.5 GB | 42⁴ |
+
+Both cards fit 32⁴ (5.5 GB). Neither fits 48⁴ (28 GB).
+
+### NPU Pre-Training Data
+
+`TrajectoryObservation` now includes `SiliconRoutingTags`:
+- `tmu_prng: bool` — was TMU used for PRNG?
+- `subgroup_reduce: bool` — was subgroup reduce active?
+- `rop_force_accum: bool` — was ROP atomic path used?
+- `fp64_strategy_id: u8` — which Fp64Strategy (Sovereign=0, Native=1, Hybrid=2, Concurrent=3)?
+- `has_native_f64: bool` — does hardware support native f64?
+
+NPU canonical input expanded from 6D to 11D via `npu_canonical_input_v2`.
+ESN can now learn optimal routing decisions from observed performance data.
+
+---
+
 ## Cross-References
 
-- **Experiments:** 096-100
+- **Experiments:** 096-100, 105-107 (silicon saturation profiling)
 - **Binaries:** `bench_silicon_budget`, `bench_silicon_saturation`, `bench_qcd_silicon`, `bench_silicon_composition`
 - **BaseCamp (prior):** `silicon_science.md` (Exp 096, TMU/DF64 initial characterization)
 - **toadStool surface:** `compute.performance_surface.report`, `compute.route.multi_unit`

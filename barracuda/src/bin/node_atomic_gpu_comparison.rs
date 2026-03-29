@@ -49,7 +49,10 @@ fn start_primal_server() -> Option<Child> {
     let sock = primal_socket_path();
     let _ = std::fs::remove_file(&sock);
 
-    eprintln!("[node_atomic] starting hotspring_primal at {}", sock.display());
+    eprintln!(
+        "[node_atomic] starting hotspring_primal at {}",
+        sock.display()
+    );
     let child = Command::new(&binary)
         .arg("server")
         .arg("--socket")
@@ -104,8 +107,7 @@ fn rpc_call(sock: &std::path::Path, method: &str) -> Result<serde_json::Value, S
         .ok_or("no response")?
         .map_err(|e| format!("read: {e}"))?;
 
-    let resp: serde_json::Value =
-        serde_json::from_str(&line).map_err(|e| format!("parse: {e}"))?;
+    let resp: serde_json::Value = serde_json::from_str(&line).map_err(|e| format!("parse: {e}"))?;
 
     if let Some(err) = resp.get("error") {
         return Err(format!("RPC error: {err}"));
@@ -209,14 +211,8 @@ fn validate_compute_status(harness: &mut ValidationHarness, sock: &std::path::Pa
         harness.check_bool("compute.status has GPU entries", !gpu_arr.is_empty());
         for gpu in gpu_arr {
             let name = gpu.get("name").and_then(|n| n.as_str()).unwrap_or("?");
-            let rate = gpu
-                .get("fp64_rate")
-                .and_then(|r| r.as_str())
-                .unwrap_or("?");
-            let strat = gpu
-                .get("strategy")
-                .and_then(|s| s.as_str())
-                .unwrap_or("?");
+            let rate = gpu.get("fp64_rate").and_then(|r| r.as_str()).unwrap_or("?");
+            let strat = gpu.get("strategy").and_then(|s| s.as_str()).unwrap_or("?");
             let has_df64 = gpu
                 .get("has_df64")
                 .and_then(|d| d.as_bool())
@@ -273,13 +269,25 @@ fn bench_eigensolve_single(gpu: &GpuF64, batch: usize, dim: usize) -> f64 {
     }
 
     for _ in 0..WARMUP {
-        let _ =
-            BatchedEighGpu::execute_single_dispatch(device.clone(), &symmetrized, dim, batch, 200, 1e-12);
+        let _ = BatchedEighGpu::execute_single_dispatch(
+            device.clone(),
+            &symmetrized,
+            dim,
+            batch,
+            200,
+            1e-12,
+        );
     }
     let t0 = Instant::now();
     for _ in 0..MEASURE {
-        let _ =
-            BatchedEighGpu::execute_single_dispatch(device.clone(), &symmetrized, dim, batch, 200, 1e-12);
+        let _ = BatchedEighGpu::execute_single_dispatch(
+            device.clone(),
+            &symmetrized,
+            dim,
+            batch,
+            200,
+            1e-12,
+        );
     }
     t0.elapsed().as_secs_f64() / MEASURE as f64
 }

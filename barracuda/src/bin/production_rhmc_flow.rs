@@ -22,16 +22,16 @@
 //! ```
 
 use hotspring_barracuda::gpu::GpuF64;
-use hotspring_barracuda::lattice::gpu_hmc::{
-    gpu_hmc_trajectory_streaming, gpu_rhmc_trajectory_unidirectional,
-    GpuDynHmcPipelines, GpuDynHmcState, GpuHmcState, GpuHmcStreamingPipelines,
-    GpuRhmcPipelines, GpuRhmcState, UniHamiltonianBuffers, UniPipelines,
+use hotspring_barracuda::lattice::gpu_flow::{
+    gpu_gradient_flow_resident, FlowReduceBuffers, GpuFlowPipelines, GpuFlowState,
 };
 use hotspring_barracuda::lattice::gpu_hmc::resident_shifted_cg::GpuResidentShiftedCgBuffers;
-use hotspring_barracuda::lattice::gradient_flow::{find_t0, find_w0, FlowIntegrator};
-use hotspring_barracuda::lattice::gpu_flow::{
-    GpuFlowPipelines, GpuFlowState, FlowReduceBuffers, gpu_gradient_flow_resident,
+use hotspring_barracuda::lattice::gpu_hmc::{
+    gpu_hmc_trajectory_streaming, gpu_rhmc_trajectory_unidirectional, GpuDynHmcPipelines,
+    GpuDynHmcState, GpuHmcState, GpuHmcStreamingPipelines, GpuRhmcPipelines, GpuRhmcState,
+    UniHamiltonianBuffers, UniPipelines,
 };
+use hotspring_barracuda::lattice::gradient_flow::{find_t0, find_w0, FlowIntegrator};
 use hotspring_barracuda::lattice::rhmc::RhmcConfig;
 use hotspring_barracuda::lattice::wilson::Lattice;
 
@@ -152,11 +152,24 @@ fn main() {
     eprintln!("  Lattice:     {l}⁴ ({vol} sites)");
     eprintln!("  β:           {:.4}", args.beta);
     eprintln!("  Fermions:    {nf_label}");
-    eprintln!("  RHMC:        dt={}, n_md={}, τ={:.4}", args.dt, args.n_md_steps, args.dt * args.n_md_steps as f64);
+    eprintln!(
+        "  RHMC:        dt={}, n_md={}, τ={:.4}",
+        args.dt,
+        args.n_md_steps,
+        args.dt * args.n_md_steps as f64
+    );
     eprintln!("  Pre-therm:   {} quenched HMC", args.n_quenched_pretherm);
     eprintln!("  Therm:       {} RHMC trajectories", args.n_therm);
-    eprintln!("  Configs:     {} (skip {} RHMC between)", args.n_configs, args.n_skip);
-    eprintln!("  Flow:        {} ε={} t_max={}", integrator_name(args.flow_integrator), args.flow_epsilon, args.flow_t_max);
+    eprintln!(
+        "  Configs:     {} (skip {} RHMC between)",
+        args.n_configs, args.n_skip
+    );
+    eprintln!(
+        "  Flow:        {} ε={} t_max={}",
+        integrator_name(args.flow_integrator),
+        args.flow_epsilon,
+        args.flow_t_max
+    );
     eprintln!();
 
     let total_start = Instant::now();
@@ -178,17 +191,30 @@ fn main() {
     let quenched_state = GpuHmcState::from_lattice(&gpu, &lattice, args.beta);
 
     if args.n_quenched_pretherm > 0 {
-        eprintln!("\n  Phase 0: Quenched pre-thermalization ({} HMC)...", args.n_quenched_pretherm);
+        eprintln!(
+            "\n  Phase 0: Quenched pre-thermalization ({} HMC)...",
+            args.n_quenched_pretherm
+        );
         let quenched_pipelines = GpuHmcStreamingPipelines::new(&gpu);
         for i in 0..args.n_quenched_pretherm {
             let r = gpu_hmc_trajectory_streaming(
-                &gpu, &quenched_pipelines, &quenched_state,
-                20, 0.1, i as u32, &mut seed,
+                &gpu,
+                &quenched_pipelines,
+                &quenched_state,
+                20,
+                0.1,
+                i as u32,
+                &mut seed,
             );
             if (i + 1) % 10 == 0 {
-                eprintln!("    pretherm {}/{}: P={:.6} ΔH={:.4} {}",
-                    i + 1, args.n_quenched_pretherm, r.plaquette, r.delta_h,
-                    if r.accepted { "✓" } else { "✗" });
+                eprintln!(
+                    "    pretherm {}/{}: P={:.6} ΔH={:.4} {}",
+                    i + 1,
+                    args.n_quenched_pretherm,
+                    r.plaquette,
+                    r.delta_h,
+                    if r.accepted { "✓" } else { "✗" }
+                );
             }
         }
     }
@@ -205,8 +231,12 @@ fn main() {
 
     // Build RHMC state from lattice, copy pre-thermalized links
     let dyn_state = GpuDynHmcState::from_lattice(
-        &gpu, &lattice, args.beta,
-        rhmc_config.sectors[0].mass, args.cg_tol, args.cg_max_iter,
+        &gpu,
+        &lattice,
+        args.beta,
+        rhmc_config.sectors[0].mass,
+        args.cg_tol,
+        args.cg_max_iter,
     );
     let rhmc_state = GpuRhmcState::new(&gpu, &rhmc_config, dyn_state);
 
@@ -214,8 +244,10 @@ fn main() {
         let n_bytes = (quenched_state.n_links * 18 * 8) as u64;
         let mut enc = gpu.begin_encoder("copy_therm_links");
         enc.copy_buffer_to_buffer(
-            &quenched_state.link_buf, 0,
-            &rhmc_state.gauge.gauge.link_buf, 0,
+            &quenched_state.link_buf,
+            0,
+            &rhmc_state.gauge.gauge.link_buf,
+            0,
             n_bytes,
         );
         gpu.submit_encoder(enc);
@@ -225,36 +257,64 @@ fn main() {
     let rhmc_pipelines = GpuRhmcPipelines::new(&gpu);
     let uni_pipelines = UniPipelines::new(&gpu);
     let scg_bufs = GpuResidentShiftedCgBuffers::new(
-        &gpu, &dyn_pipelines, &uni_pipelines.shifted_cg, &rhmc_state.gauge,
+        &gpu,
+        &dyn_pipelines,
+        &uni_pipelines.shifted_cg,
+        &rhmc_state.gauge,
     );
     let ham_bufs = UniHamiltonianBuffers::new(
-        &gpu, &uni_pipelines.shifted_cg.base.reduce_pipeline,
-        &rhmc_state.gauge.gauge, &rhmc_state.gauge,
+        &gpu,
+        &uni_pipelines.shifted_cg.base.reduce_pipeline,
+        &rhmc_state.gauge.gauge,
+        &rhmc_state.gauge,
     );
 
     // Phase 1: RHMC thermalization
-    eprintln!("\n  Phase 1: RHMC thermalization ({} trajectories)...", args.n_therm);
+    eprintln!(
+        "\n  Phase 1: RHMC thermalization ({} trajectories)...",
+        args.n_therm
+    );
     let therm_start = Instant::now();
     let mut therm_accepted = 0;
 
     for i in 0..args.n_therm {
         let r = gpu_rhmc_trajectory_unidirectional(
-            &gpu, &dyn_pipelines, &rhmc_pipelines, &uni_pipelines,
-            &rhmc_state, &scg_bufs, None, &ham_bufs, &rhmc_config, &mut seed,
+            &gpu,
+            &dyn_pipelines,
+            &rhmc_pipelines,
+            &uni_pipelines,
+            &rhmc_state,
+            &scg_bufs,
+            None,
+            &ham_bufs,
+            &rhmc_config,
+            &mut seed,
         );
-        if r.accepted { therm_accepted += 1; }
+        if r.accepted {
+            therm_accepted += 1;
+        }
         if (i + 1) % 10 == 0 || i == 0 {
-            eprintln!("    therm {}/{}: P={:.6} ΔH={:.4e} acc={:.0}%",
-                i + 1, args.n_therm, r.plaquette, r.delta_h,
-                therm_accepted as f64 / (i + 1) as f64 * 100.0);
+            eprintln!(
+                "    therm {}/{}: P={:.6} ΔH={:.4e} acc={:.0}%",
+                i + 1,
+                args.n_therm,
+                r.plaquette,
+                r.delta_h,
+                therm_accepted as f64 / (i + 1) as f64 * 100.0
+            );
         }
     }
     let therm_time = therm_start.elapsed().as_secs_f64();
-    eprintln!("    Thermalization: {therm_time:.1}s ({:.0}% acceptance)",
-        therm_accepted as f64 / args.n_therm as f64 * 100.0);
+    eprintln!(
+        "    Thermalization: {therm_time:.1}s ({:.0}% acceptance)",
+        therm_accepted as f64 / args.n_therm as f64 * 100.0
+    );
 
     // Phase 2: RHMC measurement configs + gradient flow
-    eprintln!("\n  Phase 2: RHMC → Gradient Flow ({} configs, skip {})", args.n_configs, args.n_skip);
+    eprintln!(
+        "\n  Phase 2: RHMC → Gradient Flow ({} configs, skip {})",
+        args.n_configs, args.n_skip
+    );
     eprintln!("  ────────────────────────────────────────────────────────");
 
     let flow_pipelines = GpuFlowPipelines::new(&gpu);
@@ -266,17 +326,29 @@ fn main() {
         // Skip trajectories for decorrelation
         for _ in 0..args.n_skip {
             gpu_rhmc_trajectory_unidirectional(
-                &gpu, &dyn_pipelines, &rhmc_pipelines, &uni_pipelines,
-                &rhmc_state, &scg_bufs, None, &ham_bufs, &rhmc_config, &mut seed,
+                &gpu,
+                &dyn_pipelines,
+                &rhmc_pipelines,
+                &uni_pipelines,
+                &rhmc_state,
+                &scg_bufs,
+                None,
+                &ham_bufs,
+                &rhmc_config,
+                &mut seed,
             );
         }
 
         // GPU-resident gradient flow: B4+B5 fully eliminated
         let flow_state = GpuFlowState::from_gpu_gauge(&gpu, &rhmc_state.gauge.gauge);
-        let flow_reduce = FlowReduceBuffers::new(&gpu, &flow_pipelines.reduce_pipeline, &flow_state);
+        let flow_reduce =
+            FlowReduceBuffers::new(&gpu, &flow_pipelines.reduce_pipeline, &flow_state);
 
         let flow_result = gpu_gradient_flow_resident(
-            &gpu, &flow_pipelines, &flow_state, &flow_reduce,
+            &gpu,
+            &flow_pipelines,
+            &flow_state,
+            &flow_reduce,
             args.flow_integrator,
             args.flow_epsilon,
             args.flow_t_max,
@@ -284,22 +356,37 @@ fn main() {
         );
 
         // Pre-flow plaquette from the t=0 measurement (first entry)
-        let plaq = flow_result.measurements.first().map_or(f64::NAN, |m| m.plaquette);
+        let plaq = flow_result
+            .measurements
+            .first()
+            .map_or(f64::NAN, |m| m.plaquette);
         all_plaq.push(plaq);
 
         let t0_val = find_t0(&flow_result.measurements);
         let w0_val = find_w0(&flow_result.measurements);
 
-        if let Some(t0) = t0_val { all_t0.push(t0); }
-        if let Some(w0) = w0_val { all_w0.push(w0); }
+        if let Some(t0) = t0_val {
+            all_t0.push(t0);
+        }
+        if let Some(w0) = w0_val {
+            all_w0.push(w0);
+        }
 
-        let e_final = flow_result.measurements.last().map_or(f64::NAN, |m| m.energy_density);
+        let e_final = flow_result
+            .measurements
+            .last()
+            .map_or(f64::NAN, |m| m.energy_density);
 
-        eprintln!("    cfg {:>3}/{}: ⟨P⟩={:.6} t₀={} w₀={} E(t_max)={:.4} ({:.1}s GPU flow)",
-            cfg_idx + 1, args.n_configs, plaq,
+        eprintln!(
+            "    cfg {:>3}/{}: ⟨P⟩={:.6} t₀={} w₀={} E(t_max)={:.4} ({:.1}s GPU flow)",
+            cfg_idx + 1,
+            args.n_configs,
+            plaq,
             t0_val.map_or("N/A".to_string(), |v| format!("{v:.4}")),
             w0_val.map_or("N/A".to_string(), |v| format!("{v:.4}")),
-            e_final, flow_result.wall_seconds);
+            e_final,
+            flow_result.wall_seconds
+        );
     }
 
     // Summary
@@ -309,14 +396,21 @@ fn main() {
 
     eprintln!();
     eprintln!("  ══════════════════════════════════════════════════════════");
-    eprintln!("  {l}⁴ {} RHMC + Flow Summary (β={:.4})", args.nf, args.beta);
+    eprintln!(
+        "  {l}⁴ {} RHMC + Flow Summary (β={:.4})",
+        args.nf, args.beta
+    );
     eprintln!("  ══════════════════════════════════════════════════════════");
     eprintln!("  ⟨P⟩          = {mean_plaq:.6} ± {std_plaq:.6}");
 
     if !all_t0.is_empty() {
         let mean_t0 = all_t0.iter().sum::<f64>() / all_t0.len() as f64;
         let std_t0 = std_dev(&all_t0);
-        eprintln!("  t₀           = {mean_t0:.4} ± {std_t0:.4} ({}/{} configs)", all_t0.len(), args.n_configs);
+        eprintln!(
+            "  t₀           = {mean_t0:.4} ± {std_t0:.4} ({}/{} configs)",
+            all_t0.len(),
+            args.n_configs
+        );
     } else {
         eprintln!("  t₀           = not found (increase --flow-tmax or lattice size)");
     }
@@ -324,12 +418,19 @@ fn main() {
     if !all_w0.is_empty() {
         let mean_w0 = all_w0.iter().sum::<f64>() / all_w0.len() as f64;
         let std_w0 = std_dev(&all_w0);
-        eprintln!("  w₀           = {mean_w0:.4} ± {std_w0:.4} ({}/{} configs)", all_w0.len(), args.n_configs);
+        eprintln!(
+            "  w₀           = {mean_w0:.4} ± {std_w0:.4} ({}/{} configs)",
+            all_w0.len(),
+            args.n_configs
+        );
     } else {
         eprintln!("  w₀           = not found (increase --flow-tmax or lattice size)");
     }
 
-    eprintln!("  Total wall   = {total_time:.1}s ({:.2}h)", total_time / 3600.0);
+    eprintln!(
+        "  Total wall   = {total_time:.1}s ({:.2}h)",
+        total_time / 3600.0
+    );
     eprintln!();
 
     // CSV output to stdout
@@ -342,7 +443,9 @@ fn main() {
 }
 
 fn std_dev(values: &[f64]) -> f64 {
-    if values.len() < 2 { return 0.0; }
+    if values.len() < 2 {
+        return 0.0;
+    }
     let mean = values.iter().sum::<f64>() / values.len() as f64;
     let var = values.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / (values.len() - 1) as f64;
     var.sqrt()
