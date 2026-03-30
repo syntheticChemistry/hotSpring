@@ -32,15 +32,19 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 
 ---
 
-## Current Status (2026-03-29)
+## Current Status (2026-03-30)
 
-> **123+ experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **870 lib tests, 139 binaries, 99 WGSL shaders** | **Silicon saturation profiling: 7-tier routing, TMU PRNG, subgroup reduce, ROP atomics** | **True multi-shift CG (shared Krylov, N_shifts reduction)** | **Fermion force sign fix (−η convention)** | **All diagnostics removed, 37% production speedup**
+> **123+ experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **870 lib tests, 139 binaries, 99 WGSL shaders** | **NVIDIA GPFIFO pipeline OPERATIONAL on RTX 3090** | **AMD sovereign compiler: 24/24 QCD shaders compile to native GFX ISA** | **Silicon saturation profiling: 7-tier routing, TMU PRNG, subgroup reduce, ROP atomics**
 >
-> **Silicon Saturation (Exp 105-106):** Full 7-phase silicon saturation profiling on strandgate (RTX 3090 + RX 6950 XT). **TMU PRNG** wired into production RHMC — Box-Muller via texture lookup offloads transcendentals (Tier 0). **Subgroup reduce** for CG dot products via `subgroupAdd()` — eliminates shared memory traffic (Tier 4). **ROP atomic scatter-add** for fermion force accumulation — fixed-point i32 `atomicAdd`, all poles parallel (Tier 3). **NPU observation vector** extended from 6D to 11D with silicon routing tags. **Capacity analysis:** RTX 3090 max L=46⁴ dynamical (23.6 GB), RX 6950 XT max L=40⁴ (13.5 GB). Unidirectional RHMC: 3.79x speedup (3090), 2.06x (6950 XT).
+> **NVIDIA Sovereign Compute Breakthrough (2026-03-30):** The RTX 3090 GPFIFO command submission pipeline is now **fully operational** through coralReef's sovereign driver. Key fixes discovered via `ioctl` interception of CUDA's proprietary driver: (1) `NV906F_CTRL_CMD_BIND` binds compute engine to channel subchannel — without this, GPU ignores all push buffer work; (2) TSG scheduling via `NVA06C_CTRL_CMD_GPFIFO_SCHEDULE` on the channel group, not individual channels; (3) `GET_WORK_SUBMIT_TOKEN` via Volta class (0xC36F), not Kepler/Ampere; (4) VRAM USERD with CUDA-matching flags (2 MiB, GPU_CACHEABLE, PAGE_SIZE_HUGE); (5) Error notifier with owner=device, type=NOTIFIER(13); (6) 48-byte NVOS64_PARAMETERS for RM_ALLOC on 580.x GSP-RM; (7) FERMI_CONTEXT_SHARE_A under TSG. NOP smoke test passes, 350 unit tests pass, alloc/free/sync all operational. **This unblocks the biomeGate team's Titan V/Tesla K80 HMB2 work** — the channel initialization sequence is now correct for all Turing+ architectures.
 >
-> **Science (Exp 096-103):** Full silicon characterization pipeline — TMU 1.89x (RTX 3090), AMD DF64 38% advantage, hardware personalities mapped (Exp 096-100). **GPU RHMC production** — Nf=2 at 4⁴/8⁴, Nf=2+1 at 4⁴, first all-flavors dynamical QCD on consumer GPU (Exp 101). **Gradient flow at volume** — 5 LSCFRK integrators, CK4 6-orders-of-magnitude stability, 16⁴ running (Exp 102). **RHMC + gradient flow** on dynamical configs (Exp 103). **Self-tuning RHMC** — spectral discovery + acceptance-driven adaptation, zero hand-tuned magic numbers.
+> **AMD Sovereign Compiler:** coralReef compiles all 24 QCD production shaders (WGSL → native AMD GFX10.3 ISA) in 102ms total. 38/39 dispatch tests pass. Remaining frontier: EXEC masking for divergent wavefront control flow.
 >
-> **Sovereign (Exp 110-123):** K80 (GK210, Kepler) sovereign compute — zero firmware security, direct PIO boot (Exp 123). WPR2 definitive root cause: hardware-locked by FWSEC (Exp 122). Dual-phase HS boot (Exp 112). 10.5/11 sovereign layers on Volta. **Fleet:** 2x Titan V (GV100) + RTX 5070 (GB206) + K80 (GK210). coralReef: `sec2_queue`, `falcon_capability`, `gr_context`, IRQ support, Kepler falcon PIO.
+> **Silicon Saturation (Exp 105-106):** Full 7-phase silicon saturation profiling on strandgate (RTX 3090 + RX 6950 XT). **TMU PRNG**, **subgroup reduce**, **ROP atomic scatter-add** live in production RHMC. **Capacity analysis:** RTX 3090 max L=46⁴ dynamical (23.6 GB), RX 6950 XT max L=40⁴ (13.5 GB).
+>
+> **Science (Exp 096-103):** GPU RHMC production (Nf=2, Nf=2+1), gradient flow at volume (5 LSCFRK integrators), self-tuning RHMC (zero hand-tuned parameters).
+>
+> **Sovereign (Exp 110-123):** K80 direct PIO boot (Exp 123). WPR2 root cause definitive (Exp 122). 10.5/11 sovereign layers on Volta. **Fleet:** 2x Titan V + RTX 5070 + K80. biomeGate team cracking HMB2/Volta firmware layers with shared coralReef driver code.
 >
 > See [`EXPERIMENT_INDEX.md`](EXPERIMENT_INDEX.md) for the full validation table and benchmark data.
 
@@ -55,7 +59,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **Self-Tuning RHMC** | ✅ Complete | Zero hand-tuned parameters — spectral + acceptance-driven |
 | **Spectral Theory** (Kachkovskiy) | ✅ 45/45 | Anderson 1D/2D/3D, Hofstadter, GPU Lanczos |
 | **NPU** (AKD1000 hardware) | ✅ 34/35 | 10 SDK assumptions overturned, physics pipeline, phase detection |
-| **Sovereign GPU** (coralReef) | ✅ 10.5/11 layers | SEC2 HS mode, K80 direct boot, WPR2 root cause |
+| **Sovereign GPU** (coralReef) | ✅ GPFIFO operational | RTX 3090 command pipeline working, AMD 24/24 QCD compiled, K80 direct boot |
 | **Silicon Characterization** | ✅ Complete | TMU, ROP, L2, shader cores — AMD vs NVIDIA personalities |
 | **Silicon Saturation Profiling** | ✅ Complete | TMU PRNG, subgroup reduce, ROP atomics, capacity analysis |
 | **Chuna Papers 43-45** | ✅ **44/44** | Gradient flow + BGK dielectric + kinetic-fluid coupling |
@@ -64,7 +68,7 @@ Full validation table (130+ rows) with per-experiment details: [`EXPERIMENT_INDE
 
 ### Science Ladder
 
-Quenched SU(3) ✅ → Gradient Flow ✅ → LSCFRK Integrators ✅ → N_f=4 Infra ✅ → Chuna 44/44 ✅ → **N_f=2 ✅** → **N_f=2+1 ✅** → **Self-tuning ✅** → **True multi-shift CG ✅** → **Fermion force validated ✅** → **Silicon saturation profiling ✅** → 16⁴+ dynamical production (next)
+Quenched SU(3) ✅ → Gradient Flow ✅ → LSCFRK Integrators ✅ → N_f=4 Infra ✅ → Chuna 44/44 ✅ → **N_f=2 ✅** → **N_f=2+1 ✅** → **Self-tuning ✅** → **True multi-shift CG ✅** → **Fermion force validated ✅** → **Silicon saturation profiling ✅** → **Sovereign NVIDIA GPFIFO ✅** → **AMD sovereign compiler 24/24 ✅** → 16⁴+ dynamical production on sovereign pipeline (next)
 ## Evolution Architecture: Write → Absorb → Lean
 
 hotSpring is a biome. ToadStool (barracuda) is the fungus — it lives in

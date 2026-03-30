@@ -1,10 +1,10 @@
 # baseCamp: Research Domain Briefings
 
-**Date:** 2026-03-29
+**Date:** 2026-03-30
 **Project:** hotSpring (ecoPrimals)
-**Status:** v0.6.32, experiments 001-123+, 4,065+ tests pass, 39/39 validation suites, 139 binaries, 99 WGSL shaders. Silicon saturation profiling complete: TMU PRNG, subgroup reduce, ROP atomics live in production RHMC
+**Status:** v0.6.32, experiments 001-123+, 4,065+ tests pass, 39/39 validation suites, 139 binaries, 99 WGSL shaders. **NVIDIA GPFIFO pipeline OPERATIONAL on RTX 3090.** AMD sovereign compiler: 24/24 QCD shaders → native GFX ISA. Silicon saturation profiling complete.
 
-**Notes:** Upstream primal sync: barraCuda `7c1fd03a`, coralReef Iter 67+ (Kepler PIO loader, GK210 identity, parasitic probe). toadStool S155b+. **Sovereign GPU compute: L10 ROOT CAUSE DEFINITIVE (Exp 122).** WPR2 hardware-locked, FWSEC inaccessible, FBPA offline — explains all WPR copy stalls. HS mode achieved (Exp 112, SCTL=0x3002) but PMU-dependent (Exp 113). **K80 (GK210, Kepler) arriving 2026-03-26** — zero firmware security, direct PIO FECS/GPCCS boot, validates full pipeline. Exp 110-122: consolidation matrix, dual-phase boot, WPR2 tracking/preservation/resolution. **Fleet: 2x Titan V + RTX 5070 (GB206) + K80 (incoming).** Chuna Papers 43-45: **44/44 overnight checks pass**. All AGPL-3.0-only.
+**Notes:** Upstream primal sync: barraCuda `7c1fd03a`, coralReef `648e042` (NVIDIA GPFIFO operational, AMD compiler fixes). toadStool S155b+. **Sovereign GPU compute: NVIDIA channel init sequence reverse-engineered** via ioctl interception of CUDA driver. BIND + TSG scheduling + Volta WST + VRAM USERD + FERMI_CONTEXT_SHARE_A = complete channel pipeline. **AMD:** 38/39 dispatch tests pass, EXEC masking frontier. **biomeGate:** shared coralReef driver code unblocks Titan V/K80 HMB2 cracking. **Fleet: 2x Titan V + RTX 5070 (GB206) + K80 + RTX 3090 + RX 6950 XT.** Chuna Papers 43-45: **44/44 overnight checks pass**. All AGPL-3.0-only.
 
 ---
 
@@ -40,7 +40,7 @@ Published paper (Python/FORTRAN/HPC)
 | [`esn_baseline_validation.md`](esn_baseline_validation.md) | ESN Baseline — CPU Training & Capability Map | None (NPU engineering) | 116 pts, 5 synthetic probes, 3 heads EXCELLENT, HeadConfidence tracker live |
 | [`npu_dynamic_programming.md`](npu_dynamic_programming.md) | NPU as DP — Activation Parity & Subproblem Memoization | None (architecture insight) | tanh≈ReLU validated, NPU-as-memoization-table architecture for multigrid HMC |
 | [`neuromorphic_native_field_theory.md`](neuromorphic_native_field_theory.md) | Neuromorphic-Native Field Theory — Lattice Physics on Spiking Hardware | None (long-term hardware architecture) | 5-level path from NPU steering → NPU IS the simulation, coralForge isomorphism |
-| [`sovereign_gpu_compute.md`](sovereign_gpu_compute.md) | Sovereign GPU Compute — GlowPlug, Falcon, PFIFO, DRM Dispatch | None (hardware exploration) | Exp 060-123: **L10 ROOT CAUSE DEFINITIVE** (Exp 122). WPR2 HW-locked, FWSEC inaccessible. HS achieved (Exp 112). K80 (Kepler, no security) arriving — validates full stack. 123 experiments, 2 GPU architectures. DRM dual-track (AMD PM4 + NVIDIA EXEC), iommufd/cdev VFIO (607 tests), **RTX 5070 Blackwell DRM** (SM120) |
+| [`sovereign_gpu_compute.md`](sovereign_gpu_compute.md) | Sovereign GPU Compute — GlowPlug, Falcon, PFIFO, DRM Dispatch | None (hardware exploration) | Exp 060-123+: **NVIDIA GPFIFO OPERATIONAL** on RTX 3090 (2026-03-30). Channel init reverse-engineered via ioctl interception. AMD sovereign compiler: 24/24 QCD → native GFX ISA. L10 ROOT CAUSE DEFINITIVE (Exp 122). 350+ tests, DRM dual-track (AMD PM4 + NVIDIA GPFIFO) |
 | [`silicon_science.md`](silicon_science.md) | Silicon Science — All-Silicon GPU Experiments | None (hardware exploration) | Exp 096 + **Silicon Saturation**: TMU PRNG, subgroup reduce, ROP atomics **LIVE** in production RHMC. 7-tier routing operational. NPU 11D observation vector |
 | [`silicon_characterization_at_scale.md`](silicon_characterization_at_scale.md) | Silicon Characterization at Scale — Consumer to CERN | None (hardware exploration + HPC analysis) | Exp 097-100 + **Saturation Profiling**: 4-phase pipeline + 7-phase saturation. RTX 3090 L=46⁴ max dynamical (23.6 GB), RX 6950 XT L=40⁴ (13.5 GB). HPC silicon waste: A100 0.6%, H100 0.4% |
 | [`self_tuning_rhmc.md`](self_tuning_rhmc.md) | Self-Tuning RHMC — Physics-Validated Parameter Discovery | None (methodology evolution) | Exp 103: `RhmcCalibrator` eliminates hand-tuned magic numbers. GPU spectral probe (power iteration λ_max, m² λ_min), acceptance-driven dt/n_md, consistency-driven pole count. 12 tolerance constants. NPU bridge pending |
@@ -52,7 +52,7 @@ Published paper (Python/FORTRAN/HPC)
 
 - **wetSpring** (`../../../wetSpring/whitePaper/baseCamp/`): Per-faculty briefings for bio/phylogenetic domains. Shares DF64, ESN, and pairwise distance shaders via barraCuda.
 - **barraCuda** (`../../../barraCuda/`): Standalone compute primal (budded from toadStool S89). 792+ WGSL shaders, DF64, precision system, lattice QCD, eigensolver, activations API.
-- **coralReef** (`../../../coralReef/`): Sovereign shader compiler primal (Phase 10, Iter 67+). WGSL→native binary compilation. VFIO dispatch pipeline (PFIFO + MMU + DMA). coral-glowplug persistent PCIe broker daemon. coral-driver pure Rust GPU backends (AMD DRM, NVIDIA nouveau, NVIDIA VFIO). **iommufd/cdev** kernel-agnostic VFIO (607 tests). **RTX 5060 Blackwell DRM** (SM120, 4/4 tests). SEC2 HS mode via sysmem DMA (Exp 095). Falcon boot solver with strategy pattern (VRAM/hybrid/sysmem).
+- **coralReef** (`../../../coralReef/`): Sovereign shader compiler primal (Phase 10, Iter 70). WGSL→native binary compilation for AMD GFX10.3 and NVIDIA SM86. **NVIDIA GPFIFO pipeline operational** on RTX 3090 (BIND + TSG schedule + Volta WST). **AMD sovereign compiler:** 24/24 QCD shaders → native ISA, 38/39 dispatch tests pass. coral-driver pure Rust GPU backends (AMD DRM, NVIDIA UVM). 350+ unit tests. coral-glowplug persistent PCIe broker. iommufd/cdev VFIO (607 tests).
 - **toadStool** (`../../../phase1/toadStool/`): Hardware discovery and orchestration (S155b+). PcieTransport, ResourceOrchestrator, GPU sysmon telemetry.
 - **Experiment journals**: `../../experiments/` (001-123)
 - **Handoffs**: `../../wateringHole/handoffs/` (fossil record of all cross-project exchanges)

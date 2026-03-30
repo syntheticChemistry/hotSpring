@@ -1,7 +1,8 @@
 # Data Inventory — hotSpring GPU Cracking Corpus
 
-**Last Updated:** 2026-03-24
-**Hardware:** Titan V #1 (0000:03:00.0), Titan V #2 (0000:4a:00.0), RTX 5070 (GB206) (0000:21:00.0)
+**Last Updated:** 2026-03-30
+**Hardware (biomeGate):** Titan V #1 (0000:03:00.0), Titan V #2 (0000:4a:00.0), RTX 5070 (GB206) (0000:21:00.0), Tesla K80 (GK210)
+**Hardware (strandgate):** RTX 3090 (SM86, **GPFIFO operational**), RX 6950 XT (GFX10.3, **24/24 QCD compiled**)
 
 ## Capture Matrix
 

@@ -27,7 +27,7 @@ RESULTS="results"
 ADAPTER="3090"
 BASE_SEED=20260304
 
-export PATH="/home/biomegate/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin:/usr/local/bin:/usr/bin:/bin"
+export PATH="$HOME/.cargo/bin:$HOME/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin:/usr/local/bin:/usr/bin:/bin"
 export HOTSPRING_GPU_ADAPTER="$ADAPTER"
 
 mkdir -p "$RESULTS"
