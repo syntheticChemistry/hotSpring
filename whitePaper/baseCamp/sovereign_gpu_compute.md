@@ -776,25 +776,59 @@ This breakthrough directly benefits biomeGate's GPU cracking work:
 - **Error notifier configuration** (type=13, owner=device) is a universal requirement discovered here
 - **The remaining Titan V blocker is solely L10** (WPR2/FWSEC) — the dispatch infrastructure above L10 is now proven working
 
+### AMD Sovereign Compute — Scratch/Local Memory Breakthrough (Exp 124, 2026-03-30)
+
+Three-layer fix unlocks per-thread scratch memory on RDNA2 (RX 6950 XT, GFX10.3):
+
+| Layer | Problem | Fix |
+|-------|---------|-----|
+| **Compiler** | `MemSpace::Local` emitted `SEG=GLOBAL` (2) | `encode_scratch_load/store` in `Rdna2Encoder` — `SEG=SCRATCH` (1) |
+| **Driver** | No scratch buffer, no PM4 registers | GEM alloc + `COMPUTE_TMPRING_SIZE` + `COMPUTE_PGM_RSRC2.SCRATCH_EN` + `COMPUTE_DISPATCH_SCRATCH_BASE_LO/HI` |
+| **Hardware init** | amdgpu DRM CP does **not** auto-init `FLAT_SCRATCH` for compute IBs | Shader prolog: `S_MOV_B32 s11, va_lo` + `S_SETREG_B32 hwreg(FLAT_SCR_LO), s11` × 2 |
+
+**Key discovery:** Unlike HSA/KFD (ROCm/HIP), the amdgpu DRM Command Processor
+does not initialize `FLAT_SCRATCH_LO/HI` from `COMPUTE_DISPATCH_SCRATCH_BASE`.
+The shader must set `HW_REG_FLAT_SCR_LO` (ID 20) and `HW_REG_FLAT_SCR_HI` (ID 21)
+explicitly via a 24-byte prolog patched at dispatch time. Matches open ROCm #6030.
+
+**Result:** `parity_hw_local_memory_f64` passes — `array<f64, 18>`, sum = 6.0.
+**7/8 hardware parity tests pass.** 1672 unit tests pass (coral-driver 358 + coral-reef 1314).
+
+This pattern is architecture-generic for GFX10+ and likely applies to GFX9 (MI50)
+with adjusted HW_REG IDs — directly helps the biomeGate team's MI50/Vega work.
+
 ### AMD Sovereign Compiler Status
 
-coralReef also compiles all 24 QCD production shaders to native AMD GFX10.3 ISA:
+coralReef compiles all 24 QCD production shaders to native AMD GFX10.3 ISA:
 - 19 standalone + 5 composite shaders → 59,992 bytes of native GPU machine code in 102ms
 - 38/39 dispatch tests pass on AMD RDNA2
-- Remaining frontier: EXEC masking for divergent wavefront control flow
+- 7/8 hardware parity tests pass (local memory now working)
+- Remaining frontiers: EXEC masking for divergent wavefront control flow, Wilson plaquette QCD
 
 ### Test Results
 
-- 350 coral-driver unit tests pass (0 failures)
+- 358 coral-driver unit tests pass (0 failures)
+- 1314 coral-reef unit tests pass (0 failures)
 - 4/4 NVIDIA E2E tests pass (device open, alloc/free, sync, SM86 compilation)
+- 7/8 coral-gpu hardware parity tests pass (Wilson plaquette: NVIDIA needs GR context, AMD needs EXEC mask)
 - NOP smoke test confirms GPFIFO operational — GP_GET advances after doorbell ring
-- All 14 hardware-requiring tests pass (was 12 failing before this session)
+
+
+### Remaining Sovereign Pipeline Frontiers
+
+| Frontier | Vendor | Blocker |
+|----------|--------|---------|
+| Wilson plaquette QCD dispatch | NVIDIA | GR context allocation via RM (SKEDCHECK05_LOCAL_MEMORY_TOTAL_SIZE) |
+| Wilson plaquette QCD dispatch | AMD | EXEC masking for divergent wavefront control flow |
+| Euler HLL f64 compilation | Both | SSARef LARGE_SIZE panic (allocator limit) |
+| QMD v2.2 layout | NVIDIA | build_qmd_v21 uses Kepler-era positions — fix for Titan V/K80 |
+| Full silicon saturation | Both | Tensor cores, RT cores, additional fixed-function units |
 
 ---
 
 ## Phase 11: VM-Based BAR0 Capture — K80 + Titan V (2026-03-29 → 03-30)
 
-**Experiment 124** — VFIO passthrough VM captures yield complete VBIOS register recipes.
+**Experiment 124 (biomeGate)** — VFIO passthrough VM captures yield complete VBIOS register recipes.
 
 ### Method
 
@@ -833,37 +867,12 @@ IOMMU interception.
 - **K80**: PGRAPH fully initialized by VBIOS (2,048 regs) — no falcon gates
 - **Titan V**: PGRAPH entirely zero/BADF — requires FECS/GPCCS falcon authentication
 
-### Cross-GPU: 6,119 Shared Offsets, 98.5% Different Values
-
-Expected for Kepler vs Volta. PPCI region has 60% identical values (shared PCI
-config space). Everything else is architecture-specific.
-
 ### VM Configuration Lessons
 
 - Titan V requires **UEFI without Secure Boot** (kernel lockdown blocks BAR mmap)
 - Both IOMMU group functions (VGA + audio) must be passed through
 - BIOS boot with VGA passthrough hangs (stuck in display init)
 - In-guest `mmiotrace` is ineffective with VFIO (QEMU direct-maps BARs)
-
-### Updated Layer Model (Exp 124)
-
-| Layer | Titan V (GV100) | K80 (GK210) |
-|-------|----------------|-------------|
-| L1-L9 | ✅ SOLVED | ✅ Expected |
-| L10 | 🔴 SEC2/ACR falcon DMA — invisible from BAR0, needs PRAMIN | ✅ N/A |
-| L11 | 🔓 Blocked by L10 | 🟢 **READY** — 10,283 reg recipe + GPFIFO pipeline proven |
-
-### Parallel Work Absorbed (strandgate, 3090 + 6950 XT)
-
-barraCuda, toadStool, and coralReef all pulled with significant evolution from
-parallel dev on a 3090/6950 XT system:
-
-| Repo | Key Changes |
-|------|------------|
-| **coralReef** | Full GPFIFO pipeline (TSG → channel → bind → schedule → doorbell), Blackwell support, Newton-Raphson f64 sqrt/rcp, AMD PM4 GFX9/10 dispatch, register replay engine |
-| **barraCuda** | `SovereignDevice` (renamed from coral_reef_device), `SiliconProfile` per-GPU personality, `barracuda-spirv` crate, multi-shift CG solver, GPU-resident observables, capability discovery |
-| **toadStool** | 309 files changed: 7 monolith→module splits, dispatch handler architecture, encryption decomposition, GPU engine refactor, delegation permissions, 21,700+ tests |
-| **wateringHole** | toadStool S166 fossil records, GPFIFO sovereign pipeline handoff, cross-spring absorption tracker |
 
 ### Remaining Deep Debt
 
@@ -897,16 +906,14 @@ The warm handoff from nouveau to vfio-pci now uses a kernel livepatch module tha
 
 The livepatch is dynamically controlled: disabled during nouveau init (all functions run normally), then enabled before teardown (all NOPs active). This prevents FECS from entering an unrecoverable HRESET state during channel teardown.
 
-Additional fixes: `reset_method` sysfs race (write `\n` not empty string to clear PCI bus reset), PBDMA stale interrupt clearing in warm mode, and conditional skip of empty runlist flush and runlist preempt during warm PFIFO init.
-
 ### Upstream Pipeline Complete
 
-- **toadStool S168** landed `shader.dispatch` — the orchestration layer that delegates to coralReef's `compute.dispatch.execute`. Pipeline: compile (coralReef) -> dispatch facade (toadStool) -> execute (coralReef) -> GPU. Thermal gating, job tracking, and base64/compile_result input flexibility.
-- **barraCuda Sprint 23** fixed the f64 precision pipeline — systematic correction across Bessel, Legendre, Hermite, Laguerre, PPPM. The old path silently downcast f64 to f32. Now uses capability-aware routing (Native/Sovereign vs Hybrid/DF64).
+- **toadStool S168** landed `shader.dispatch` — the orchestration layer that delegates to coralReef's `compute.dispatch.execute`.
+- **barraCuda Sprint 23** fixed the f64 precision pipeline — systematic correction across Bessel, Legendre, Hermite, Laguerre, PPPM.
 
 ### Validation Matrix
 
-A new `specs/SOVEREIGN_VALIDATION_MATRIX.md` maps every pipeline layer (L1-L11) against dispatch paths (VFIO cold/warm, nouveau DRM, nvidia+UVM, NVK/wgpu, AMD DRM) and hardware substrates (Titan V, K80, RTX 5060, RX 6950 XT). This is the "solve the maze from both sides" artifact.
+A new `specs/SOVEREIGN_VALIDATION_MATRIX.md` maps every pipeline layer (L1-L11) against dispatch paths (VFIO cold/warm, nouveau DRM, nvidia+UVM, NVK/wgpu, AMD DRM) and hardware substrates (Titan V, K80, RTX 5060, RX 6950 XT).
 
 ### DRM from Both Sides (Exp 126)
 

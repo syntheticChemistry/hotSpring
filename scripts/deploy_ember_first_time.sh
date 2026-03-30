@@ -15,7 +15,7 @@
 # Run: pkexec bash /path/to/deploy_ember_first_time.sh
 set -euo pipefail
 
-CORALREEF="${CORALREEF:-${HOME}/Development/ecoPrimals/coralReef}"
+CORALREEF="${CORALREEF:-${HOME}/Development/ecoPrimals/primals/coralReef}"
 TARGET="${CORALREEF}/target/release"
 
 echo "═══ First-time ember deployment (install only, no restart) ═══"

@@ -13,7 +13,7 @@ set -euo pipefail
 FILTER="${1:-}"
 EXPLICIT_BDF="${2:-}"
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
-CORALREEF_DIR="$(cd "$SCRIPT_DIR/../../coralReef" && pwd)"
+CORALREEF_DIR="$(cd "$SCRIPT_DIR/../../../primals/coralReef" && pwd)"
 
 # ── Auto-discover VFIO GPU ──
 discover_bdf() {

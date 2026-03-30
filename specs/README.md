@@ -1,7 +1,7 @@
 # hotSpring Specifications
 
 **Last Updated**: March 30, 2026
-**Status**: Phase A-J complete — 4,065+ tests, 120+ binaries, crate v0.6.32+, barraCuda v0.3.10, toadStool S163+, coralReef Phase 10 Iter 67+. Self-routing PrecisionBrain with sovereign bypass. Multi-backend dispatch strategy (wgpu/Vulkan + coralReef sovereign + Kokkos reference). 123 experiments, 86+ WGSL shaders, L10 root cause definitive (Exp 122), K80 strategy (Exp 123). Silicon science: budget + saturation + composition + QCD v2 (Exp 096-100). GPU RHMC production Nf=2, 2+1 (Exp 099-101). Gradient flow at volume (Exp 102). Self-tuning RHMC calibrator (Exp 103). Deep-debt burndown (Exp 075) complete.
+**Status**: Phase A-J complete — 4,065+ tests, 139 binaries, crate v0.6.32+, barraCuda v0.3.11, toadStool S168+, coralReef Phase 10 Iter 70c. **NVIDIA GPFIFO pipeline OPERATIONAL on RTX 3090.** **AMD scratch/local memory OPERATIONAL on RX 6950 XT** (Exp 124). 7/8 HW parity tests, 1672 coral unit tests. 125+ experiments, 99 WGSL shaders. Silicon saturation: TMU PRNG, subgroup reduce, ROP atomics. Self-routing PrecisionBrain (15-tier). Multi-backend dispatch (wgpu/Vulkan + coralReef sovereign + Kokkos reference).
 **Domain**: Computational plasma physics, nuclear structure, transport, lattice QCD, spectral theory, surrogate learning
 
 ---

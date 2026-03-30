@@ -10,7 +10,7 @@ set -euo pipefail
 
 TRACE="${1:?Usage: $0 <mmiotrace_file> [output.json]}"
 OUTPUT="${2:-$(dirname "$TRACE")/oracle_recipe_$(date +%Y%m%d_%H%M%S).json}"
-TOADSTOOL_DIR="${TOADSTOOL_DIR:-${HOME}/Development/ecoPrimals/phase1/toadStool}"
+TOADSTOOL_DIR="${TOADSTOOL_DIR:-${HOME}/Development/ecoPrimals/primals/toadStool}"
 HW_LEARN_BIN="$TOADSTOOL_DIR/target/release/hw_learn_distill"
 
 echo "=== Oracle Recipe Distillation ==="

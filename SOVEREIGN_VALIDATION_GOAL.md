@@ -1,6 +1,6 @@
 # hotSpring — Sovereign Validation Goal
 
-> **Fossil Record (March 27, 2026):** This document captures state as of March 25, 2026. For current status, see the [root README](README.md) and [`EXPERIMENT_INDEX.md`](EXPERIMENT_INDEX.md). Body below is preserved as historical record.
+> **Fossil Record (March 30, 2026):** This document captures state as of March 25, 2026. For current status, see the [root README](README.md) and [`EXPERIMENT_INDEX.md`](EXPERIMENT_INDEX.md). Body below is preserved as historical record. **Since this snapshot: NVIDIA GPFIFO pipeline is OPERATIONAL on RTX 3090 (Exp 124). AMD scratch/local memory is OPERATIONAL on RX 6950 XT (FLAT_SCRATCH prolog fix). 7/8 hardware parity tests pass. 1672 coral unit tests pass. 124 experiments total.**
 
 > **Note (March 25, 2026):** **Definitive root cause found (Exp 122). K80 strategy initiated (Exp 123).** WPR2 registers hardware-locked, FWSEC inaccessible, FBPA offline — explains all WPR copy stalls (Exp 114-121). HS mode achieved (Exp 112, SCTL=0x3002) but PMU-dependent (Exp 113). Tesla K80 (Kepler, zero firmware security) arriving 2026-03-26 — validates entire pipeline without security barriers. Identity module + Falcon PIO loader built. 123 experiments. See [`specs/GPU_CRACKING_GAP_TRACKER.md`](specs/GPU_CRACKING_GAP_TRACKER.md).
 

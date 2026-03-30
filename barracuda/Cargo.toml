@@ -79,7 +79,7 @@ workspace = true
 [features]
 gpu_energy = []
 npu-hw = ["dep:akida-driver", "dep:akida-models"]
-sovereign-dispatch = ["barracuda/sovereign-dispatch"]
+sovereign-dispatch = ["barracuda/sovereign-dispatch", "dep:coral-gpu"]
 cuda-validation = ["dep:cudarc", "dep:base64"]
 
 [dependencies]
@@ -121,6 +121,9 @@ naga = { version = "28", features = ["wgsl-in"] }
 
 # Blocking async operations (adapter enumeration is async in wgpu 28)
 pollster = "0.4"
+
+# Sovereign GPU pipeline (coralReef compiler + DRM dispatch, no wgpu)
+coral-gpu = { path = "../../../primals/coralReef/crates/coral-gpu", optional = true }
 
 # Low-level syscalls (mmap for BAR0 register reading in Exp 070 binaries)
 libc = "0.2"
@@ -682,6 +685,12 @@ path = "src/bin/test_df64_nvk_poison.rs"
 [[bin]]
 name = "validate_sovereign_compile"
 path = "src/bin/validate_sovereign_compile.rs"
+required-features = ["sovereign-dispatch"]
+
+# ── Sovereign pipeline E2E: WGSL → coralReef → DRM dispatch → readback ──
+[[bin]]
+name = "validate_coral_sovereign"
+path = "src/bin/validate_coral_sovereign.rs"
 required-features = ["sovereign-dispatch"]
 
 # ── Sovereign dispatch benchmark (wgpu vs coralReef → DRM) ──

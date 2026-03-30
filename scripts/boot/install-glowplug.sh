@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-CORALREEF_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)/coralReef"
+CORALREEF_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)/primals/coralReef"
 
 echo ">>> Building coral-ember + coral-glowplug (release)..."
 cd "$CORALREEF_ROOT"
