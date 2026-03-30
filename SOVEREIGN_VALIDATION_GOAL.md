@@ -282,10 +282,12 @@ statistical ensemble.
 
 ### In Progress 🔄
 - [x] **Sovereign VFIO MMU** — **PROVEN** (Exp 076): fault buffer fix, 7/10 layers, DMA roundtrip verified on Titan V
-- [ ] Sovereign VFIO dispatch — GR/FECS context init (Layer 7, fence timeout)
+- [ ] Sovereign VFIO dispatch — **Livepatch 4-NOP strategy (Exp 125)**: mc_reset+gr_fini+falcon_fini+runl_commit NOPed during nouveau teardown. reset_method sysfs fix prevents PCI bus reset. PBDMA warm mode preserves channel state. Ready to test.
 - [x] **DRM dispatch evolution** — **AMD GCN5 preswap 6/6 PASS** (March 2026): f64 write, f64 arith, multi-workgroup, multi-buffer, HBM2 bandwidth, **f64 Lennard-Jones force (Newton's 3rd law verified)**. 18 bugs fixed. NVIDIA PMU-blocked. **K80 (Kepler) arriving** — no firmware security, direct PIO FECS/GPCCS boot. Exp 123-K designed.
 - [x] **GCN5 backend in coral-reef** — **COMPLETE**: native AMD ISA codegen for MI50, VOP1/VOP3/VOPC opcode translation, wave64, f64 materialization, VOP3 modifier encoding, integer negation, Naga bypass validated E2E. 85 tests pass.
 - [ ] Kokkos parity via sovereign bypass (DF64 + direct GPFIFO)
+- [x] **toadStool S168 shader.dispatch** — orchestration layer complete. Pipeline: coralReef (compile) → toadStool (dispatch facade) → coralReef (compute.dispatch.execute) → GPU
+- [x] **barraCuda Sprint 23 f64 precision** — systematic f64 pipeline fix across Bessel, Legendre, Hermite, PPPM. Silent f32 downcast eliminated.
 - [ ] N_f=2+1 RHMC (infrastructure ready, needs validation run)
 
 ### Planned 📋
@@ -297,6 +299,8 @@ statistical ensemble.
 - [ ] Multi-node scaling (toadStool tree + inter-node comms)
 - [ ] Continuum extrapolation (32⁴ → 48⁴ → 64⁴ at physical pion mass)
 - [ ] Comparison with MILC/HotQCD published results at matching parameters
+- [ ] nvidia-drm + UVM dispatch validation (Exp 126) — NvUvmComputeDevice code-complete, needs on-site Titan V validation with proprietary driver
+- [ ] Validation matrix (specs/SOVEREIGN_VALIDATION_MATRIX.md) — solve maze from both sides
 
 ---
 

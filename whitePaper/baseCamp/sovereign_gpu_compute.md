@@ -1,8 +1,8 @@
 # baseCamp: Sovereign GPU Compute — GlowPlug & Falcon Boot Chain
 
-**Date:** 2026-03-25 (updated — Exp 122 definitive root cause, K80 strategy)  
+**Date:** 2026-03-25 (updated 2026-03-30 — Exp 125–126 livepatch/upstream wiring, validation matrix)  
 **Domain:** Hardware — PCIe GPU lifecycle, falcon microcontrollers, HBM2 management, PFIFO command submission, ACR secure boot, WPR construction, cross-driver profiling, daemon resilience, adaptive experiment loop, sysmem DMA, GV100 MMU v2 page tables, WPR2 hardware protection, Kepler PIO falcon loading  
-**Experiments:** 060-123  
+**Experiments:** 060-126  
 **Hardware:** 2× NVIDIA Titan V (GV100, 12GB HBM2), RTX 5070 (GB206, Blackwell, display/validator), Tesla K80 (GK210, Kepler, incoming 2026-03-26)
 
 ---
@@ -789,3 +789,132 @@ coralReef also compiles all 24 QCD production shaders to native AMD GFX10.3 ISA:
 - 4/4 NVIDIA E2E tests pass (device open, alloc/free, sync, SM86 compilation)
 - NOP smoke test confirms GPFIFO operational — GP_GET advances after doorbell ring
 - All 14 hardware-requiring tests pass (was 12 failing before this session)
+
+---
+
+## Phase 11: VM-Based BAR0 Capture — K80 + Titan V (2026-03-29 → 03-30)
+
+**Experiment 124** — VFIO passthrough VM captures yield complete VBIOS register recipes.
+
+### Method
+
+Pass GPUs into Ubuntu 24.04 VMs via VFIO, capture BAR0 at two points:
+1. **Cold** (post-VBIOS, pre-driver) — reveals what BIOS POST programs
+2. **Warm** (post-nvidia driver) — reveals what the driver adds
+
+Using ember/glowplug IPC: `device.lend` → VM passthrough → capture → `device.reclaim`.
+
+### Results
+
+| Metric | K80 (GK210, nvidia-470) | Titan V (GV100, nvidia-535) |
+|--------|------------------------|---------------------------|
+| Cold BAR0 regs | 10,283 | 6,468 (15,363 raw, 8,895 BADF) |
+| Driver delta | N/A | 255 regs |
+| PCLOCK (PLL) | 64 | 99 |
+| PGRAPH | 2,048 (full) | 0 (all falcon-gated) |
+| SEC2/ACR visible | N/A | 5 ACR (rest BADF — falcon DMA) |
+| Sovereign readiness | **HIGH** | **MEDIUM** |
+
+### Key Finding: VBIOS Does 98%+ of GPU Init
+
+The nvidia-535 driver changes only **255 registers** on top of the VBIOS recipe.
+The VBIOS/BIOS POST sequence is the real initialization. For sovereign compute,
+the VBIOS recipe IS the init sequence.
+
+### Key Finding: Titan V Falcons Are Invisible Through BAR0
+
+SEC2 and ACR registers return `0xBADF1100` (QEMU unmapped MMIO) in both cold
+and warm snapshots. These falcon engines use **PRAMIN/falcon DMA windows**, not
+direct BAR0 MMIO. To access them requires PRAMIN window mapping or host-level
+IOMMU interception.
+
+### Key Finding: PGRAPH Is the Architecture Divide
+
+- **K80**: PGRAPH fully initialized by VBIOS (2,048 regs) — no falcon gates
+- **Titan V**: PGRAPH entirely zero/BADF — requires FECS/GPCCS falcon authentication
+
+### Cross-GPU: 6,119 Shared Offsets, 98.5% Different Values
+
+Expected for Kepler vs Volta. PPCI region has 60% identical values (shared PCI
+config space). Everything else is architecture-specific.
+
+### VM Configuration Lessons
+
+- Titan V requires **UEFI without Secure Boot** (kernel lockdown blocks BAR mmap)
+- Both IOMMU group functions (VGA + audio) must be passed through
+- BIOS boot with VGA passthrough hangs (stuck in display init)
+- In-guest `mmiotrace` is ineffective with VFIO (QEMU direct-maps BARs)
+
+### Updated Layer Model (Exp 124)
+
+| Layer | Titan V (GV100) | K80 (GK210) |
+|-------|----------------|-------------|
+| L1-L9 | ✅ SOLVED | ✅ Expected |
+| L10 | 🔴 SEC2/ACR falcon DMA — invisible from BAR0, needs PRAMIN | ✅ N/A |
+| L11 | 🔓 Blocked by L10 | 🟢 **READY** — 10,283 reg recipe + GPFIFO pipeline proven |
+
+### Parallel Work Absorbed (strandgate, 3090 + 6950 XT)
+
+barraCuda, toadStool, and coralReef all pulled with significant evolution from
+parallel dev on a 3090/6950 XT system:
+
+| Repo | Key Changes |
+|------|------------|
+| **coralReef** | Full GPFIFO pipeline (TSG → channel → bind → schedule → doorbell), Blackwell support, Newton-Raphson f64 sqrt/rcp, AMD PM4 GFX9/10 dispatch, register replay engine |
+| **barraCuda** | `SovereignDevice` (renamed from coral_reef_device), `SiliconProfile` per-GPU personality, `barracuda-spirv` crate, multi-shift CG solver, GPU-resident observables, capability discovery |
+| **toadStool** | 309 files changed: 7 monolith→module splits, dispatch handler architecture, encryption decomposition, GPU engine refactor, delegation permissions, 21,700+ tests |
+| **wateringHole** | toadStool S166 fossil records, GPFIFO sovereign pipeline handoff, cross-spring absorption tracker |
+
+### Remaining Deep Debt
+
+**Tier 1 — K80 Sovereign Cold Boot (ready now):**
+- Build register replay in coral-driver
+- Replay 10,283-reg GK210 recipe on cold K80
+- FECS/GPCCS PIO upload → PFIFO → dispatch
+
+**Tier 2 — Titan V Falcon Extraction:**
+- Extract SEC2/ACR microcode from nvidia-535 package
+- Map PRAMIN window for falcon DMEM/IMEM
+- Resolve WPR copy stall (Exp 120 root cause)
+
+**Tier 3 — Pipeline Integration:**
+- Merge strandgate GPFIFO breakthrough with biomeGate's VFIO path
+- AMD PM4 dispatch validation on 6950 XT (GFX10.3 codegen proven)
+- Register replay as ember "personality"
+
+---
+
+## March 30, 2026 — Livepatch Strategy and Upstream Wiring
+
+### Kernel Livepatch for Warm Handoff (Exp 125)
+
+The warm handoff from nouveau to vfio-pci now uses a kernel livepatch module that NOPs four nouveau functions during teardown:
+
+1. `nvkm_mc_reset` — prevents PMC engine-level reset (preserves IMEM/DMEM)
+2. `gf100_gr_fini` — prevents GR engine teardown (FECS/GPCCS stay running)
+3. `nvkm_falcon_fini` — prevents falcon CPU halt
+4. `gk104_runl_commit` — prevents empty runlist submission (FECS self-reset)
+
+The livepatch is dynamically controlled: disabled during nouveau init (all functions run normally), then enabled before teardown (all NOPs active). This prevents FECS from entering an unrecoverable HRESET state during channel teardown.
+
+Additional fixes: `reset_method` sysfs race (write `\n` not empty string to clear PCI bus reset), PBDMA stale interrupt clearing in warm mode, and conditional skip of empty runlist flush and runlist preempt during warm PFIFO init.
+
+### Upstream Pipeline Complete
+
+- **toadStool S168** landed `shader.dispatch` — the orchestration layer that delegates to coralReef's `compute.dispatch.execute`. Pipeline: compile (coralReef) -> dispatch facade (toadStool) -> execute (coralReef) -> GPU. Thermal gating, job tracking, and base64/compile_result input flexibility.
+- **barraCuda Sprint 23** fixed the f64 precision pipeline — systematic correction across Bessel, Legendre, Hermite, Laguerre, PPPM. The old path silently downcast f64 to f32. Now uses capability-aware routing (Native/Sovereign vs Hybrid/DF64).
+
+### Validation Matrix
+
+A new `specs/SOVEREIGN_VALIDATION_MATRIX.md` maps every pipeline layer (L1-L11) against dispatch paths (VFIO cold/warm, nouveau DRM, nvidia+UVM, NVK/wgpu, AMD DRM) and hardware substrates (Titan V, K80, RTX 5060, RX 6950 XT). This is the "solve the maze from both sides" artifact.
+
+### DRM from Both Sides (Exp 126)
+
+Four dispatch paths to Titan V compute:
+
+- **VFIO warm handoff** — livepatch ready to test (our frontier)
+- **nvidia-drm + UVM** — code-complete, pending on-site validation
+- **nouveau DRM** — blocked by missing PMU firmware
+- **NVK/wgpu** — proven for physics (4-tier QCD validated)
+
+The nvidia+UVM path is valuable even if not sovereign: it reveals exactly how RM initializes FECS/GPCCS on Volta, informing our sovereign boot strategy.

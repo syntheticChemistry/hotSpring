@@ -1,6 +1,6 @@
 # hotSpring Specifications
 
-**Last Updated**: March 27, 2026
+**Last Updated**: March 30, 2026
 **Status**: Phase A-J complete — 4,065+ tests, 120+ binaries, crate v0.6.32+, barraCuda v0.3.10, toadStool S163+, coralReef Phase 10 Iter 67+. Self-routing PrecisionBrain with sovereign bypass. Multi-backend dispatch strategy (wgpu/Vulkan + coralReef sovereign + Kokkos reference). 123 experiments, 86+ WGSL shaders, L10 root cause definitive (Exp 122), K80 strategy (Exp 123). Silicon science: budget + saturation + composition + QCD v2 (Exp 096-100). GPU RHMC production Nf=2, 2+1 (Exp 099-101). Gradient flow at volume (Exp 102). Self-tuning RHMC calibrator (Exp 103). Deep-debt burndown (Exp 075) complete.
 **Domain**: Computational plasma physics, nuclear structure, transport, lattice QCD, spectral theory, surrogate learning
 
@@ -41,6 +41,7 @@
 | [BIOMEGATE_BRAIN_ARCHITECTURE.md](BIOMEGATE_BRAIN_ARCHITECTURE.md) | Active | 4-substrate brain architecture: NPU steering, Nautilus Shell, concept edges |
 | [PRECISION_STABILITY_SPECIFICATION.md](PRECISION_STABILITY_SPECIFICATION.md) | Active | Numerical stability across f32/DF64/f64, GPU precision routing, cross-spring impact |
 | [MULTI_BACKEND_DISPATCH.md](MULTI_BACKEND_DISPATCH.md) | Active | Three-tier dispatch: wgpu/Vulkan (production), coralReef sovereign (long-term), Kokkos/LAMMPS (reference target). NVK discovery, gap analysis |
+| [SOVEREIGN_VALIDATION_MATRIX.md](SOVEREIGN_VALIDATION_MATRIX.md) | Active | Pipeline layer x dispatch path x hardware substrate validation matrix. Consolidates gap tracker, experiments 058-125, and DRM-from-both-sides strategy. |
 | [COMPUTATIONAL_OMICS.md](COMPUTATIONAL_OMICS.md) | Active | Environmental genomics for sovereign hardware — register trace alignment, firmware motif search, subsystem phylogeny. Long-term compute trio evolution |
 
 ### Existing Documentation (in parent directories)

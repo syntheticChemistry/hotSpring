@@ -34,7 +34,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 
 ## Current Status (2026-03-30)
 
-> **123+ experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **870 lib tests, 139 binaries, 99 WGSL shaders** | **NVIDIA GPFIFO pipeline OPERATIONAL on RTX 3090** | **AMD sovereign compiler: 24/24 QCD shaders compile to native GFX ISA** | **Silicon saturation profiling: 7-tier routing, TMU PRNG, subgroup reduce, ROP atomics**
+> **125+ experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **870 lib tests, 139 binaries, 99 WGSL shaders** | **NVIDIA GPFIFO pipeline OPERATIONAL on RTX 3090** | **AMD sovereign compiler: 24/24 QCD shaders compile to native GFX ISA** | **Silicon saturation profiling: 7-tier routing, TMU PRNG, subgroup reduce, ROP atomics**
 >
 > **NVIDIA Sovereign Compute Breakthrough (2026-03-30):** The RTX 3090 GPFIFO command submission pipeline is now **fully operational** through coralReef's sovereign driver. Key fixes discovered via `ioctl` interception of CUDA's proprietary driver: (1) `NV906F_CTRL_CMD_BIND` binds compute engine to channel subchannel — without this, GPU ignores all push buffer work; (2) TSG scheduling via `NVA06C_CTRL_CMD_GPFIFO_SCHEDULE` on the channel group, not individual channels; (3) `GET_WORK_SUBMIT_TOKEN` via Volta class (0xC36F), not Kepler/Ampere; (4) VRAM USERD with CUDA-matching flags (2 MiB, GPU_CACHEABLE, PAGE_SIZE_HUGE); (5) Error notifier with owner=device, type=NOTIFIER(13); (6) 48-byte NVOS64_PARAMETERS for RM_ALLOC on 580.x GSP-RM; (7) FERMI_CONTEXT_SHARE_A under TSG. NOP smoke test passes, 350 unit tests pass, alloc/free/sync all operational. **This unblocks the biomeGate team's Titan V/Tesla K80 HMB2 work** — the channel initialization sequence is now correct for all Turing+ architectures.
 >
@@ -44,7 +44,13 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 >
 > **Science (Exp 096-103):** GPU RHMC production (Nf=2, Nf=2+1), gradient flow at volume (5 LSCFRK integrators), self-tuning RHMC (zero hand-tuned parameters).
 >
-> **Sovereign (Exp 110-123):** K80 direct PIO boot (Exp 123). WPR2 root cause definitive (Exp 122). 10.5/11 sovereign layers on Volta. **Fleet:** 2x Titan V + RTX 5070 + K80. biomeGate team cracking HMB2/Volta firmware layers with shared coralReef driver code.
+> **Sovereign (Exp 110-126):** K80 direct PIO boot (Exp 123). WPR2 root cause definitive (Exp 122). 10.5/11 sovereign layers on Volta. **Fleet:** 2x Titan V + RTX 5070 + K80. biomeGate team cracking HMB2/Volta firmware layers with shared coralReef driver code.
+>
+> **Exp 124:** VM Capture K80/Titan V Cross-Analysis — nvidia-470/535 VM captures analyzed.
+>
+> **Exp 125:** Warm Handoff Livepatch Breakthrough — kernel livepatch NOP (4 functions), dynamic enable/disable, reset_method fix.
+>
+> **Exp 126:** DRM Proprietary Tracing Matrix — solve maze from both sides.
 >
 > See [`EXPERIMENT_INDEX.md`](EXPERIMENT_INDEX.md) for the full validation table and benchmark data.
 
@@ -68,7 +74,8 @@ Full validation table (130+ rows) with per-experiment details: [`EXPERIMENT_INDE
 
 ### Science Ladder
 
-Quenched SU(3) ✅ → Gradient Flow ✅ → LSCFRK Integrators ✅ → N_f=4 Infra ✅ → Chuna 44/44 ✅ → **N_f=2 ✅** → **N_f=2+1 ✅** → **Self-tuning ✅** → **True multi-shift CG ✅** → **Fermion force validated ✅** → **Silicon saturation profiling ✅** → **Sovereign NVIDIA GPFIFO ✅** → **AMD sovereign compiler 24/24 ✅** → 16⁴+ dynamical production on sovereign pipeline (next)
+Quenched SU(3) ✅ → Gradient Flow ✅ → LSCFRK Integrators ✅ → N_f=4 Infra ✅ → Chuna 44/44 ✅ → **N_f=2 ✅** → **N_f=2+1 ✅** → **Self-tuning ✅** → **True multi-shift CG ✅** → **Fermion force validated ✅** → **Silicon saturation profiling ✅** → **Sovereign NVIDIA GPFIFO ✅** → **AMD sovereign compiler 24/24 ✅** → 16⁴+ dynamical production on sovereign pipeline (next). Cross-cutting sovereign validation matrix: [`specs/SOVEREIGN_VALIDATION_MATRIX.md`](specs/SOVEREIGN_VALIDATION_MATRIX.md).
+
 ## Evolution Architecture: Write → Absorb → Lean
 
 hotSpring is a biome. ToadStool (barracuda) is the fungus — it lives in
@@ -113,7 +120,9 @@ makes the upstream library richer and hotSpring leaner.
 - HFB shader suite — potentials + density + BCS bisection (14+GPU+6 checks, Tier 2)
 - NPU substrate discovery — `metalForge/forge/src/probe.rs` (local evolution)
 
-**Already leaning on upstream** (v0.6.32, synced to barraCuda v0.3.7 + toadStool S163 + coralReef Phase 10+, wgpu 28, pollster 0.3, bytemuck 1.25, tokio 1.50):
+**Already leaning on upstream** (v0.6.32, synced to barraCuda v0.3.7 + toadStool S168 + coralReef Phase 10+, wgpu 28, pollster 0.3, bytemuck 1.25, tokio 1.50):
+
+ToadStool **S168** adds `shader.dispatch` completing the orchestration layer for GPU shader pipelines. **barraCuda Sprint 23** landed the f64 precision fix (production numerical parity on mixed pipelines).
 
 | Module | Upstream | Status |
 |--------|----------|--------|
@@ -292,12 +301,12 @@ hotSpring/
 │   ├── CHANGELOG.md                   # Version history
 │   └── src/bin/                       # 129 binaries (validation, production, benchmarks)
 │
-├── experiments/                        # 123 experiment journals (fossil record)
-│   ├── 001-045: MD, nuclear EOS, Chuna reproduction, sovereign pipeline
-│   ├── 046-069: Precision, sovereign GPU cracking, GlowPlug, falcon boot
+├── experiments/                        # 125+ experiment journals (fossil record); 001-057 archived under experiments/archive/
+│   ├── archive/                        # experiments 001-057 (archived journals)
+│   ├── 058-069: Precision, sovereign GPU cracking, GlowPlug, falcon boot
 │   ├── 070-095: Backend matrix, MMU, WPR, sysmem HS mode breakthrough
 │   ├── 096-103: Silicon characterization, GPU RHMC, gradient flow, self-tuning
-│   └── 110-123: Consolidation, WPR2, K80 sovereign compute (biomeGate)
+│   └── 110-126: Consolidation, WPR2, K80 sovereign compute, VM capture, livepatch, DRM tracing (biomeGate)
 │
 ├── specs/                              # Specifications, requirements, gap trackers
 ├── control/                            # Python control scripts (by domain)
@@ -316,6 +325,7 @@ hotSpring/
 | [`EXPERIMENT_INDEX.md`](EXPERIMENT_INDEX.md) | Full validation table, benchmark data, studies, document index |
 | [`PHYSICS.md`](PHYSICS.md) | Complete physics documentation — every equation, constant, approximation |
 | [`specs/PAPER_REVIEW_QUEUE.md`](specs/PAPER_REVIEW_QUEUE.md) | Papers to review/reproduce, prioritized by tier |
+| [`specs/SOVEREIGN_VALIDATION_MATRIX.md`](specs/SOVEREIGN_VALIDATION_MATRIX.md) | Sovereign validation ladder / cross-cutting matrix (DRM, drivers, hardware) |
 | [`whitePaper/baseCamp/`](whitePaper/baseCamp/) | Per-domain research briefings (17 docs) |
 
 ---
@@ -331,7 +341,7 @@ a network service, you must make your source available under the same terms.
 
 ---
 
-*123 experiments, 870 tests, 139 binaries, 99 WGSL shaders, ~$0.30 total science cost.
+*125+ experiments, 870 tests, 139 binaries, 99 WGSL shaders, ~$0.30 total science cost.
 Consumer GPUs reproduce HPC physics at paper parity. DF64 delivers 3.24 TFLOPS at
 14-digit precision. GPU RHMC runs all-flavors dynamical QCD (Nf=2+1). Self-tuning
 RHMC eliminates hand-tuned parameters. Chuna 44/44 checks pass. K80 validates the
