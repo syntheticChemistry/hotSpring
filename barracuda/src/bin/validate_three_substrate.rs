@@ -16,10 +16,10 @@
 //! Primary runs production; secondary (if different) validates at f64.
 
 use hotspring_barracuda::error::HotSpringError;
-use hotspring_barracuda::gpu::{discover_primary_and_secondary_adapters, GpuF64};
+use hotspring_barracuda::gpu::{GpuF64, discover_primary_and_secondary_adapters};
 use hotspring_barracuda::lattice::gpu_hmc::{
-    gpu_hmc_trajectory_streaming, gpu_polyakov_loop, GpuHmcState, GpuHmcStreamingPipelines,
-    StreamObservables,
+    GpuHmcState, GpuHmcStreamingPipelines, StreamObservables, gpu_hmc_trajectory_streaming,
+    gpu_polyakov_loop,
 };
 use hotspring_barracuda::lattice::hmc::{self, HmcConfig};
 use hotspring_barracuda::lattice::wilson::Lattice;
@@ -49,8 +49,8 @@ fn main() {
         .or(primary_id)
         .expect("no primary GPU with SHADER_F64 found");
 
-    #[allow(deprecated)]
-    std::env::set_var("HOTSPRING_GPU_ADAPTER", &primary_id);
+    // SAFETY: single-threaded main before tokio runtime; no concurrent env readers.
+    unsafe { std::env::set_var("HOTSPRING_GPU_ADAPTER", &primary_id) };
     let gpu_primary = match rt.block_on(GpuF64::new()) {
         Ok(g) => {
             println!("  Primary GPU: {}", g.adapter_name);
@@ -63,15 +63,14 @@ fn main() {
     };
 
     let gpu_titan = {
-        let result = if let Some(ref sid) = secondary_id.filter(|s| s != &primary_id) {
+        let result = if let Some(sid) = secondary_id.as_ref().filter(|s| *s != &primary_id) {
             let prev = std::env::var("HOTSPRING_GPU_ADAPTER").ok();
-            #[allow(deprecated)]
-            std::env::set_var("HOTSPRING_GPU_ADAPTER", sid);
+            // SAFETY: single-threaded main before tokio runtime; no concurrent env readers.
+            unsafe { std::env::set_var("HOTSPRING_GPU_ADAPTER", sid) };
             let r = rt.block_on(GpuF64::new());
-            #[allow(deprecated)]
             match prev {
-                Some(v) => std::env::set_var("HOTSPRING_GPU_ADAPTER", v),
-                None => std::env::remove_var("HOTSPRING_GPU_ADAPTER"),
+                Some(v) => unsafe { std::env::set_var("HOTSPRING_GPU_ADAPTER", v) },
+                None => unsafe { std::env::remove_var("HOTSPRING_GPU_ADAPTER") },
             }
             r
         } else {

@@ -65,8 +65,8 @@ fn main() {
 }
 
 fn validate_lattice_qcd(harness: &mut ValidationHarness, telem: &mut TelemetryWriter) {
-    use hotspring_barracuda::lattice::gradient_flow::{run_flow, FlowIntegrator};
-    use hotspring_barracuda::lattice::hmc::{hmc_trajectory, HmcConfig};
+    use hotspring_barracuda::lattice::gradient_flow::{FlowIntegrator, run_flow};
+    use hotspring_barracuda::lattice::hmc::{HmcConfig, hmc_trajectory};
     use hotspring_barracuda::lattice::wilson::Lattice;
 
     let start = Instant::now();
@@ -113,7 +113,7 @@ fn validate_lattice_qcd(harness: &mut ValidationHarness, telem: &mut TelemetryWr
 
 fn validate_dielectric(harness: &mut ValidationHarness, gpu: &GpuF64, telem: &mut TelemetryWriter) {
     use hotspring_barracuda::physics::gpu_dielectric::{
-        validate_gpu_dielectric, GpuDielectricPipeline,
+        GpuDielectricPipeline, validate_gpu_dielectric,
     };
 
     let start = Instant::now();
@@ -150,7 +150,7 @@ fn validate_dielectric(harness: &mut ValidationHarness, gpu: &GpuF64, telem: &mu
 
 fn validate_multicomp(harness: &mut ValidationHarness, gpu: &GpuF64, telem: &mut TelemetryWriter) {
     use hotspring_barracuda::physics::gpu_dielectric_multicomponent::{
-        validate_gpu_multicomponent, GpuMulticompPipeline,
+        GpuMulticompPipeline, validate_gpu_multicomponent,
     };
 
     let start = Instant::now();
@@ -162,7 +162,7 @@ fn validate_multicomp(harness: &mut ValidationHarness, gpu: &GpuF64, telem: &mut
     let n_close = gpu_loss
         .iter()
         .zip(cpu_loss.iter())
-        .filter(|(&g, &c)| {
+        .filter(|&(&g, &c)| {
             let denom = c.abs().max(1e-15);
             (g - c).abs() / denom < 0.5
         })
@@ -176,7 +176,7 @@ fn validate_multicomp(harness: &mut ValidationHarness, gpu: &GpuF64, telem: &mut
 }
 
 fn validate_bgk(harness: &mut ValidationHarness, gpu: &GpuF64, telem: &mut TelemetryWriter) {
-    use hotspring_barracuda::physics::gpu_kinetic_fluid::{validate_gpu_bgk, GpuBgkPipeline};
+    use hotspring_barracuda::physics::gpu_kinetic_fluid::{GpuBgkPipeline, validate_gpu_bgk};
 
     let start = Instant::now();
     println!("  BGK relaxation (GPU vs CPU)...");
@@ -221,7 +221,7 @@ fn validate_bgk(harness: &mut ValidationHarness, gpu: &GpuF64, telem: &mut Telem
 }
 
 fn validate_euler(harness: &mut ValidationHarness, gpu: &GpuF64, telem: &mut TelemetryWriter) {
-    use hotspring_barracuda::physics::gpu_euler::{validate_gpu_euler, GpuEulerPipeline};
+    use hotspring_barracuda::physics::gpu_euler::{GpuEulerPipeline, validate_gpu_euler};
 
     let start = Instant::now();
     println!("  Euler/Sod shock tube (GPU vs CPU)...");
@@ -268,7 +268,7 @@ fn validate_euler(harness: &mut ValidationHarness, gpu: &GpuF64, telem: &mut Tel
 
 fn validate_coupled(harness: &mut ValidationHarness, gpu: &GpuF64, telem: &mut TelemetryWriter) {
     use hotspring_barracuda::physics::gpu_coupled_kinetic_fluid::{
-        validate_gpu_coupled, GpuCoupledPipeline,
+        GpuCoupledPipeline, validate_gpu_coupled,
     };
 
     let start = Instant::now();

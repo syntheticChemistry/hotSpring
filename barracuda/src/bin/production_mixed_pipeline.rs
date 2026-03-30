@@ -30,17 +30,17 @@
 //! ```
 
 use hotspring_barracuda::error::HotSpringError;
-use hotspring_barracuda::gpu::{discover_primary_and_secondary_adapters, GpuF64};
+use hotspring_barracuda::gpu::{GpuF64, discover_primary_and_secondary_adapters};
 use hotspring_barracuda::lattice::gpu_hmc::GpuHmcStreamingPipelines;
+use hotspring_barracuda::production::BetaResult;
 use hotspring_barracuda::production::beta_scan::{
-    run_beta_points_npu, spawn_quenched_npu_worker, QuenchedNpuRequest, QuenchedNpuResponse,
-    QuenchedNpuStats,
+    QuenchedNpuRequest, QuenchedNpuResponse, QuenchedNpuStats, run_beta_points_npu,
+    spawn_quenched_npu_worker,
 };
 use hotspring_barracuda::production::mixed_summary::{
-    print_mixed_summary, write_mixed_json, MixedJsonContext,
+    MixedJsonContext, print_mixed_summary, write_mixed_json,
 };
 use hotspring_barracuda::production::titan_validation::run_titan_validation;
-use hotspring_barracuda::production::BetaResult;
 
 use std::io::Write;
 use std::time::Instant;
@@ -141,8 +141,8 @@ fn main() {
         .or(primary_id)
         .expect("no primary GPU with SHADER_F64 found");
 
-    #[allow(deprecated)]
-    std::env::set_var("HOTSPRING_GPU_ADAPTER", &primary_id);
+    // SAFETY: single-threaded main before tokio runtime; no concurrent env readers.
+    unsafe { std::env::set_var("HOTSPRING_GPU_ADAPTER", &primary_id) };
     let gpu = match rt.block_on(GpuF64::new()) {
         Ok(g) => {
             println!("  Primary GPU: {}", g.adapter_name);
@@ -155,15 +155,14 @@ fn main() {
     };
 
     let gpu_titan = {
-        let result = if let Some(ref sid) = secondary_id.filter(|s| s != &primary_id) {
+        let result = if let Some(sid) = secondary_id.as_ref().filter(|s| *s != &primary_id) {
             let prev = std::env::var("HOTSPRING_GPU_ADAPTER").ok();
-            #[allow(deprecated)]
-            std::env::set_var("HOTSPRING_GPU_ADAPTER", sid);
+            // SAFETY: single-threaded main before tokio runtime; no concurrent env readers.
+            unsafe { std::env::set_var("HOTSPRING_GPU_ADAPTER", sid) };
             let r = rt.block_on(GpuF64::new());
-            #[allow(deprecated)]
             match prev {
-                Some(v) => std::env::set_var("HOTSPRING_GPU_ADAPTER", v),
-                None => std::env::remove_var("HOTSPRING_GPU_ADAPTER"),
+                Some(v) => unsafe { std::env::set_var("HOTSPRING_GPU_ADAPTER", v) },
+                None => unsafe { std::env::remove_var("HOTSPRING_GPU_ADAPTER") },
             }
             r
         } else {
@@ -237,7 +236,7 @@ fn main() {
     );
     println!();
 
-    let pipelines = GpuHmcStreamingPipelines::new_with_tmu(&gpu);
+    let pipelines = GpuHmcStreamingPipelines::new(&gpu);
     let total_start = Instant::now();
     let mut results: Vec<BetaResult> = Vec::new();
     let mut total_trajectories = 0usize;

@@ -125,20 +125,19 @@ pub fn probe_cpu() -> Substrate {
 
 /// Probe for NPU devices.
 ///
-/// Two-tier discovery:
-///   1. `/dev/akida*` device nodes (kernel module loaded, full dispatch ready)
-///   2. PCIe sysfs scan for BrainChip vendor `0x1e7c` (hardware present, driver may be absent)
-///
-/// Tier 2 catches cards where the `akida-pcie` kernel module isn't loaded but
-/// the PCIe device is physically present. This lets glowplug and the capability
-/// surface report the NPU even before driver binding.
+/// Discovers `BrainChip` AKD1000 via `/dev/akida0` and enriches properties
+/// from PCIe sysfs (SRAM, vendor ID). This is local evolution — toadstool
+/// doesn't have NPU substrate support yet, so we probe directly. Once
+/// toadstool absorbs NPU dispatch, we lean on that.
 ///
 /// # Absorption target: `toadstool::device::npu`
+///
+/// This probe should become `barracuda::device::npu::detect_akida_boards()`
+/// once toadstool adds NPU substrate support.
 #[must_use]
 pub fn probe_npus() -> Vec<Substrate> {
     let mut npus = Vec::new();
 
-    // Tier 1: /dev/akida* device nodes (driver loaded)
     for idx in 0..4 {
         let dev_path = format!("/dev/akida{idx}");
         let path = std::path::Path::new(&dev_path);
@@ -160,81 +159,38 @@ pub fn probe_npus() -> Vec<Substrate> {
                 memory_bytes: Some(AKIDA_SRAM_BYTES),
                 ..Properties::default()
             },
-            capabilities: akida_capabilities(true),
+            capabilities: vec![
+                Capability::F32Compute,
+                Capability::QuantizedInference { bits: 8 },
+                Capability::QuantizedInference { bits: 4 },
+                Capability::BatchInference { max_batch: 8 },
+                Capability::WeightMutation,
+                Capability::PcieTransfer,
+                Capability::StreamingStage,
+            ],
         });
-    }
-
-    // Tier 2: PCIe sysfs scan (hardware present, driver may be absent)
-    if npus.is_empty() {
-        for (bdf, pci_id, enabled) in scan_akida_pci_all() {
-            npus.push(Substrate {
-                kind: SubstrateKind::Npu,
-                identity: Identity {
-                    name: String::from("BrainChip AKD1000"),
-                    device_node: None,
-                    pci_id: Some(pci_id),
-                    ..Identity::named("BrainChip AKD1000")
-                },
-                properties: Properties {
-                    memory_bytes: Some(AKIDA_SRAM_BYTES),
-                    ..Properties::default()
-                },
-                capabilities: akida_capabilities(enabled),
-            });
-            let driver_status = if enabled { "PCIe enabled" } else { "PCIe disabled" };
-            eprintln!("[metalForge] NPU detected via sysfs: AKD1000 at {bdf} ({driver_status}, no /dev/akida* — kernel module not loaded)");
-        }
     }
 
     npus
 }
 
-fn akida_capabilities(dispatch_ready: bool) -> Vec<Capability> {
-    let mut caps = vec![
-        Capability::F32Compute,
-        Capability::QuantizedInference { bits: 8 },
-        Capability::QuantizedInference { bits: 4 },
-        Capability::BatchInference { max_batch: 8 },
-        Capability::WeightMutation,
-        Capability::PcieTransfer,
-    ];
-    if dispatch_ready {
-        caps.push(Capability::StreamingStage);
-    }
-    caps
-}
-
-/// Scan PCIe bus for first Akida vendor:device ID via sysfs.
+/// Scan PCIe bus for Akida vendor:device ID via sysfs.
 fn scan_akida_pci() -> Option<String> {
-    scan_akida_pci_all()
-        .into_iter()
-        .next()
-        .map(|(_, pci_id, _)| pci_id)
-}
-
-/// Scan PCIe bus for all BrainChip devices, returning (BDF, "vendor:device", enabled).
-fn scan_akida_pci_all() -> Vec<(String, String, bool)> {
     const BRAINCHIP_VENDOR: &str = "0x1e7c";
     let Ok(entries) = fs::read_dir("/sys/bus/pci/devices") else {
-        return Vec::new();
+        return None;
     };
-    let mut results = Vec::new();
     for entry in entries.flatten() {
         let vendor_path = entry.path().join("vendor");
-        if let Ok(vendor) = fs::read_to_string(&vendor_path) {
-            if vendor.trim() == BRAINCHIP_VENDOR {
-                let bdf = entry.file_name().to_string_lossy().to_string();
-                let device = fs::read_to_string(entry.path().join("device"))
-                    .unwrap_or_default();
-                let enabled = fs::read_to_string(entry.path().join("enable"))
-                    .map(|s| s.trim() == "1")
-                    .unwrap_or(false);
-                let pci_id = format!("{}:{}", BRAINCHIP_VENDOR, device.trim());
-                results.push((bdf, pci_id, enabled));
-            }
+        if let Ok(vendor) = fs::read_to_string(&vendor_path)
+            && vendor.trim() == BRAINCHIP_VENDOR
+        {
+            let device_path = entry.path().join("device");
+            let device = fs::read_to_string(device_path).unwrap_or_default();
+            return Some(format!("{}:{}", BRAINCHIP_VENDOR, device.trim()));
         }
     }
-    results
+    None
 }
 
 /// AKD1000 has 8 MB SRAM (fixed architecture).

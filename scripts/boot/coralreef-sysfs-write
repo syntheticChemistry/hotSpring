@@ -1,0 +1,43 @@
+#!/bin/sh
+# SPDX-License-Identifier: AGPL-3.0-only
+# coralReef sysfs write helper — D-state-safe replacement for tee
+#
+# Unlike `echo VALUE | sudo tee PATH`, this script:
+#   1. Opens the file, writes the value, closes the file, exits.
+#   2. Never reads stdin (tee blocks on stdin EOF, holding the fd open).
+#   3. Can be wrapped in `timeout(1)` to detect D-state kernel hangs.
+#
+# Usage:
+#   sudo coralreef-sysfs-write /sys/bus/pci/devices/0000:4c:00.0/driver_override vfio-pci
+#   timeout 10 sudo -n coralreef-sysfs-write /sys/.../driver/unbind 0000:4c:00.0
+#
+# Install:
+#   sudo cp scripts/boot/coralreef-sysfs-write /usr/local/bin/
+#   sudo chmod 755 /usr/local/bin/coralreef-sysfs-write
+
+set -eu
+
+if [ $# -lt 2 ]; then
+    echo "usage: coralreef-sysfs-write SYSFS_PATH VALUE" >&2
+    exit 1
+fi
+
+TARGET="$1"
+VALUE="$2"
+
+# Path validation: only allow writes under /sys/ to prevent misuse
+case "$TARGET" in
+    /sys/bus/pci/*|/sys/module/*|/sys/devices/*)
+        ;;
+    *)
+        echo "coralreef-sysfs-write: refused path outside /sys/{bus/pci,module,devices}: $TARGET" >&2
+        exit 2
+        ;;
+esac
+
+if [ ! -e "$TARGET" ]; then
+    echo "coralreef-sysfs-write: path does not exist: $TARGET" >&2
+    exit 3
+fi
+
+printf '%s' "$VALUE" > "$TARGET"

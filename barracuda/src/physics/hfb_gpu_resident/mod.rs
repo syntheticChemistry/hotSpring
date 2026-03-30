@@ -29,7 +29,7 @@ mod resources;
 mod tests;
 
 use super::hfb::SphericalHFB;
-use super::hfb_gpu_types::{make_pipeline, GroupResources, PackParams};
+use super::hfb_gpu_types::{GroupResources, PackParams, make_pipeline};
 use super::semf::semf_binding_energy;
 use crate::error::HotSpringError;
 use crate::tolerances::GPU_JACOBI_CONVERGENCE;
@@ -39,8 +39,8 @@ use std::sync::Arc;
 
 pub use types::GpuResidentL2Result;
 use types::{
-    build_initial_densities, check_convergence_and_update_state, compute_binding_energy,
-    extract_bcs_results, WorkItem,
+    WorkItem, build_initial_densities, check_convergence_and_update_state, compute_binding_energy,
+    extract_bcs_results,
 };
 
 const POTENTIALS_SHADER_BODY: &str = include_str!("../shaders/batched_hfb_potentials_f64.wgsl");
@@ -372,7 +372,7 @@ pub fn binding_energies_l2_gpu_resident(
             };
 
             let (rho_p_mixed, rho_n_mixed) =
-                if let Some((ref rho_p_all, ref rho_n_all)) = mixed_densities.get(&gi) {
+                if let Some((rho_p_all, rho_n_all)) = mixed_densities.get(&gi) {
                     (
                         rho_p_all[bi * nr..(bi + 1) * nr].to_vec(),
                         rho_n_all[bi * nr..(bi + 1) * nr].to_vec(),

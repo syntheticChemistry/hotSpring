@@ -2,30 +2,70 @@
 #
 # Sets permissions so all VFIO and GPU sysfs operations work
 # without sudo/pkexec. Install to /etc/udev/rules.d/
+#
+# driver_override, config, resource0, remove: set on add/change
+# driver/unbind: set on bind (only exists when a driver is bound)
+# power/control, reset_method, power_state: always present once added
 
-# VFIO devices: world read/write (container + group fds)
+# ── VFIO devices: world read/write (container + group fds) ──
 SUBSYSTEM=="vfio", MODE="0666"
 
-# PCI sysfs attributes for coralReef-managed Titan V cards:
-# Allow biomegate to write driver_override, power/control, config
-# Target: 0000:4a:00.0 (VFIO target) and 0000:03:00.0 (oracle)
+# ── PCI bus-level files for ember's remove+rescan flow ──
+# drivers_autoprobe: ember disables during rescan to prevent vfio-pci.ids reclaim
+# drivers_probe: ember triggers manual probe after setting driver_override
+# rescan: ember triggers bus rescan after PCI remove
+ACTION=="add", SUBSYSTEM=="pci_bus", KERNEL=="0000:*", \
+  RUN+="/bin/sh -c 'chmod 0666 /sys/bus/pci/drivers_autoprobe /sys/bus/pci/drivers_probe /sys/bus/pci/rescan 2>/dev/null || true'"
 
-# GPU function 0 - driver override (for hot-swap)
-ACTION=="add|change", SUBSYSTEM=="pci", KERNEL=="0000:4a:00.0", \
-  ATTR{vendor}=="0x10de", ATTR{device}=="0x1d81", \
-  RUN+="/bin/chmod 0666 /sys/bus/pci/devices/0000:4a:00.0/driver_override", \
-  RUN+="/bin/chmod 0666 /sys/bus/pci/devices/0000:4a:00.0/config", \
-  RUN+="/bin/chmod 0666 /sys/bus/pci/devices/0000:4a:00.0/resource0"
+# ── Per-driver bind/unbind files ──
+# Allow biomegate to trigger driver binding/unbinding for managed drivers
+ACTION=="add", SUBSYSTEM=="drivers", KERNEL=="vfio-pci", \
+  RUN+="/bin/chmod 0222 /sys/bus/pci/drivers/vfio-pci/bind", \
+  RUN+="/bin/chmod 0222 /sys/bus/pci/drivers/vfio-pci/unbind"
+ACTION=="add", SUBSYSTEM=="drivers", KERNEL=="nouveau", \
+  RUN+="/bin/chmod 0222 /sys/bus/pci/drivers/nouveau/bind", \
+  RUN+="/bin/chmod 0222 /sys/bus/pci/drivers/nouveau/unbind"
+ACTION=="add", SUBSYSTEM=="drivers", KERNEL=="vfio-pci", \
+  RUN+="/bin/sh -c 'chmod 0222 /sys/bus/pci/drivers/vfio-pci/remove_id /sys/bus/pci/drivers/vfio-pci/new_id 2>/dev/null || true'"
 
+# ── Titan V #1 (03:00.0) — oracle ──
 ACTION=="add|change", SUBSYSTEM=="pci", KERNEL=="0000:03:00.0", \
   ATTR{vendor}=="0x10de", ATTR{device}=="0x1d81", \
   RUN+="/bin/chmod 0666 /sys/bus/pci/devices/0000:03:00.0/driver_override", \
   RUN+="/bin/chmod 0666 /sys/bus/pci/devices/0000:03:00.0/config", \
-  RUN+="/bin/chmod 0666 /sys/bus/pci/devices/0000:03:00.0/resource0"
+  RUN+="/bin/chmod 0666 /sys/bus/pci/devices/0000:03:00.0/resource0", \
+  RUN+="/bin/sh -c 'chmod 0666 /sys/bus/pci/devices/0000:03:00.0/remove /sys/bus/pci/devices/0000:03:00.0/reset_method /sys/bus/pci/devices/0000:03:00.0/power_state 2>/dev/null || true'"
+ACTION=="add|change", SUBSYSTEM=="pci", KERNEL=="0000:03:00.0", \
+  RUN+="/bin/sh -c 'chmod 0666 /sys/bus/pci/devices/0000:03:00.0/power/control /sys/bus/pci/devices/0000:03:00.0/d3cold_allowed 2>/dev/null || true'"
+ACTION=="bind", SUBSYSTEM=="pci", KERNEL=="0000:03:00.0", \
+  RUN+="/bin/chmod 0222 /sys/bus/pci/devices/0000:03:00.0/driver/unbind"
 
-# Audio function - driver override
-ACTION=="add|change", SUBSYSTEM=="pci", KERNEL=="0000:4a:00.1", \
-  RUN+="/bin/chmod 0666 /sys/bus/pci/devices/0000:4a:00.1/driver_override"
-
+# Titan V #1 audio (03:00.1) — same IOMMU group
 ACTION=="add|change", SUBSYSTEM=="pci", KERNEL=="0000:03:00.1", \
   RUN+="/bin/chmod 0666 /sys/bus/pci/devices/0000:03:00.1/driver_override"
+ACTION=="bind", SUBSYSTEM=="pci", KERNEL=="0000:03:00.1", \
+  RUN+="/bin/chmod 0222 /sys/bus/pci/devices/0000:03:00.1/driver/unbind"
+
+# ── Tesla K80 die #1 (4c:00.0) — sovereign target ──
+ACTION=="add|change", SUBSYSTEM=="pci", KERNEL=="0000:4c:00.0", \
+  ATTR{vendor}=="0x10de", ATTR{device}=="0x102d", \
+  RUN+="/bin/chmod 0666 /sys/bus/pci/devices/0000:4c:00.0/driver_override", \
+  RUN+="/bin/chmod 0666 /sys/bus/pci/devices/0000:4c:00.0/config", \
+  RUN+="/bin/chmod 0666 /sys/bus/pci/devices/0000:4c:00.0/resource0", \
+  RUN+="/bin/sh -c 'chmod 0666 /sys/bus/pci/devices/0000:4c:00.0/remove /sys/bus/pci/devices/0000:4c:00.0/reset_method /sys/bus/pci/devices/0000:4c:00.0/power_state 2>/dev/null || true'"
+ACTION=="add|change", SUBSYSTEM=="pci", KERNEL=="0000:4c:00.0", \
+  RUN+="/bin/sh -c 'chmod 0666 /sys/bus/pci/devices/0000:4c:00.0/power/control /sys/bus/pci/devices/0000:4c:00.0/d3cold_allowed 2>/dev/null || true'"
+ACTION=="bind", SUBSYSTEM=="pci", KERNEL=="0000:4c:00.0", \
+  RUN+="/bin/chmod 0222 /sys/bus/pci/devices/0000:4c:00.0/driver/unbind"
+
+# ── Tesla K80 die #2 (4d:00.0) — reagent target ──
+ACTION=="add|change", SUBSYSTEM=="pci", KERNEL=="0000:4d:00.0", \
+  ATTR{vendor}=="0x10de", ATTR{device}=="0x102d", \
+  RUN+="/bin/chmod 0666 /sys/bus/pci/devices/0000:4d:00.0/driver_override", \
+  RUN+="/bin/chmod 0666 /sys/bus/pci/devices/0000:4d:00.0/config", \
+  RUN+="/bin/chmod 0666 /sys/bus/pci/devices/0000:4d:00.0/resource0", \
+  RUN+="/bin/sh -c 'chmod 0666 /sys/bus/pci/devices/0000:4d:00.0/remove /sys/bus/pci/devices/0000:4d:00.0/reset_method /sys/bus/pci/devices/0000:4d:00.0/power_state 2>/dev/null || true'"
+ACTION=="add|change", SUBSYSTEM=="pci", KERNEL=="0000:4d:00.0", \
+  RUN+="/bin/sh -c 'chmod 0666 /sys/bus/pci/devices/0000:4d:00.0/power/control /sys/bus/pci/devices/0000:4d:00.0/d3cold_allowed 2>/dev/null || true'"
+ACTION=="bind", SUBSYSTEM=="pci", KERNEL=="0000:4d:00.0", \
+  RUN+="/bin/chmod 0222 /sys/bus/pci/devices/0000:4d:00.0/driver/unbind"

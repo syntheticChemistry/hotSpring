@@ -16,7 +16,7 @@
 
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::lattice::gpu_hmc::{
-    gpu_hmc_trajectory_streaming, gpu_polyakov_loop, GpuHmcState, GpuHmcStreamingPipelines,
+    GpuHmcState, GpuHmcStreamingPipelines, gpu_hmc_trajectory_streaming, gpu_polyakov_loop,
 };
 use hotspring_barracuda::lattice::hmc::{self, HmcConfig};
 use hotspring_barracuda::lattice::wilson::Lattice;
@@ -53,11 +53,12 @@ fn main() {
     // Try to get a second GPU (Titan V)
     let gpu_oracle = {
         let prev = std::env::var("HOTSPRING_GPU_ADAPTER").ok();
-        std::env::set_var("HOTSPRING_GPU_ADAPTER", "titan");
+        // SAFETY: single-threaded main before tokio runtime; no concurrent env readers.
+        unsafe { std::env::set_var("HOTSPRING_GPU_ADAPTER", "titan") };
         let result = rt.block_on(GpuF64::new());
         match &prev {
-            Some(v) => std::env::set_var("HOTSPRING_GPU_ADAPTER", v),
-            None => std::env::remove_var("HOTSPRING_GPU_ADAPTER"),
+            Some(v) => unsafe { std::env::set_var("HOTSPRING_GPU_ADAPTER", v) },
+            None => unsafe { std::env::remove_var("HOTSPRING_GPU_ADAPTER") },
         }
         match result {
             Ok(g) if g.adapter_name != gpu_primary.adapter_name => {
@@ -113,15 +114,14 @@ fn main() {
     let mut oracle_data: Vec<(f64, f64, f64)> = Vec::new(); // (beta, plaq, poly)
 
     for &beta in &flagged_betas {
-        let (plaq, poly) = if let (Some(ref oracle_gpu), Some(ref oracle_pipes)) =
-            (&gpu_oracle, &oracle_pipelines)
-        {
-            // Titan V native f64 measurement
-            run_oracle_measurement(oracle_gpu, oracle_pipes, beta)
-        } else {
-            // CPU f64 fallback
-            run_cpu_oracle_measurement(beta)
-        };
+        let (plaq, poly) =
+            if let (Some(oracle_gpu), Some(oracle_pipes)) = (&gpu_oracle, &oracle_pipelines) {
+                // Titan V native f64 measurement
+                run_oracle_measurement(oracle_gpu, oracle_pipes, beta)
+            } else {
+                // CPU f64 fallback
+                run_cpu_oracle_measurement(beta)
+            };
 
         oracle_data.push((beta, plaq, poly));
     }

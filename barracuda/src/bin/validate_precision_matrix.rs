@@ -101,7 +101,7 @@ fn dispatch_simple(
         layout: Some(&pl),
         module: &module,
         entry_point: Some(entry_point),
-        compilation_options: Default::default(),
+        compilation_options: wgpu::PipelineCompilationOptions::default(),
         cache: None,
     });
 
@@ -815,7 +815,7 @@ async fn main() {
 
     let total_pass = all_results.iter().filter(|r| r.pass).count();
     let total_fail = all_results.iter().filter(|r| !r.pass).count();
-    println!("\n  TOTAL: {} pass, {} fail", total_pass, total_fail);
+    println!("\n  TOTAL: {total_pass} pass, {total_fail} fail");
 
     // ── Report to toadStool performance surface ─────────────────────────────
     println!("\n── Reporting to toadStool ──\n");

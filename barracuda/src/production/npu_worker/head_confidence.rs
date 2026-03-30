@@ -111,7 +111,7 @@ impl HeadConfidence {
                 let correct = pred[offset..]
                     .iter()
                     .zip(&actual[a_offset..])
-                    .filter(|(&p, &a)| (p > 0.5) == (a > 0.5))
+                    .filter(|&(&p, &a)| (p > 0.5) == (a > 0.5))
                     .count();
                 let accuracy = correct as f64 / n as f64;
                 self.r2[head] = accuracy;
@@ -131,7 +131,7 @@ impl HeadConfidence {
             .r2
             .iter()
             .enumerate()
-            .filter(|(_, &r)| r > 0.1)
+            .filter(|&(_, &r)| r > 0.1)
             .map(|(i, r)| {
                 let tag = match self.metrics.get(i) {
                     Some(HeadMetric::Classification) => "acc",

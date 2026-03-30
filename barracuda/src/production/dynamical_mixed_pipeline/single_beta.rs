@@ -3,17 +3,17 @@
 //! Per-β execution for dynamical mixed scan: quenched pre-therm, dynamical HMC, measurement, NPU steering.
 
 use crate::lattice::gpu_hmc::{
-    gpu_dynamical_hmc_trajectory_brain, gpu_hmc_trajectory_streaming, gpu_links_to_lattice,
-    unflatten_links_into, GpuDynHmcState, GpuHmcState, GpuResidentCgBuffers,
+    GpuDynHmcState, GpuHmcState, GpuResidentCgBuffers, gpu_dynamical_hmc_trajectory_brain,
+    gpu_hmc_trajectory_streaming, gpu_links_to_lattice, unflatten_links_into,
 };
 use crate::lattice::hmc::{self, HmcConfig, IntegratorType};
 use crate::lattice::wilson::Lattice;
 use crate::production::{
+    BetaResult, MetaRow, TrajectoryEvent, TrajectoryPhase,
     dynamical_summary::DynamicalNpuStats,
     npu_worker::{NpuRequest, NpuResponse},
     plaquette_variance,
     titan_worker::{TitanRequest, TitanResponse},
-    BetaResult, MetaRow, TrajectoryEvent, TrajectoryPhase,
 };
 use crate::proxy::CortexRequest;
 use std::io::Write;
@@ -193,7 +193,7 @@ pub(super) fn run_single_beta(
                 }))
                 .ok();
 
-            if let Some(ref mut w) = traj_writer {
+            if let Some(w) = traj_writer.as_mut() {
                 writeln!(w, "{}", serde_json::json!({
                     "beta": beta, "mass": config.mass, "traj_idx": i, "phase": "quenched_pretherm",
                     "accepted": r.accepted, "plaquette": r.plaquette, "delta_h": r.delta_h,
@@ -211,11 +211,11 @@ pub(super) fn run_single_beta(
                     })
                     .ok();
                 npu_stats.total_npu_calls += 1;
-                if let Ok(NpuResponse::QuenchedThermConverged(converged)) = ctx.npu_rx.recv() {
-                    if converged {
-                        quenched_early_exit = true;
-                        break;
-                    }
+                if let Ok(NpuResponse::QuenchedThermConverged(converged)) = ctx.npu_rx.recv()
+                    && converged
+                {
+                    quenched_early_exit = true;
+                    break;
                 }
             }
         }
@@ -246,7 +246,10 @@ pub(super) fn run_single_beta(
             *dt = new_dt;
             *n_md = new_nmd;
         } else {
-            println!("  NPU param suggestion: dt={:.4}, n_md={} (--no-npu-control, keeping dt={:.4}, n_md={})", sdt, snmd, *dt, *n_md);
+            println!(
+                "  NPU param suggestion: dt={:.4}, n_md={} (--no-npu-control, keeping dt={:.4}, n_md={})",
+                sdt, snmd, *dt, *n_md
+            );
         }
     }
 
@@ -261,7 +264,10 @@ pub(super) fn run_single_beta(
         let npu_cap = (est * 4).max(500);
         let effective_cap = npu_cap.min(config.cg_max_iter);
         if effective_cap < config.cg_max_iter {
-            println!("  NPU CG estimate: ~{est} iters → check_interval={interval}, cg_cap={effective_cap} (was {})", config.cg_max_iter);
+            println!(
+                "  NPU CG estimate: ~{est} iters → check_interval={interval}, cg_cap={effective_cap} (was {})",
+                config.cg_max_iter
+            );
         } else {
             println!("  NPU CG estimate: ~{est} iters → check_interval={interval}");
         }
@@ -370,7 +376,7 @@ pub(super) fn run_single_beta(
             }))
             .ok();
 
-        if let Some(ref mut w) = traj_writer {
+        if let Some(w) = traj_writer.as_mut() {
             writeln!(w, "{}", serde_json::json!({
                 "beta": beta, "mass": config.mass, "traj_idx": traj_idx, "phase": "dynamical_therm",
                 "accepted": r.accepted, "plaquette": r.plaquette, "delta_h": r.delta_h,
@@ -388,11 +394,11 @@ pub(super) fn run_single_beta(
                 })
                 .ok();
             npu_stats.total_npu_calls += 1;
-            if let Ok(NpuResponse::ThermConverged(converged)) = ctx.npu_rx.recv() {
-                if converged {
-                    early_exit = true;
-                    break;
-                }
+            if let Ok(NpuResponse::ThermConverged(converged)) = ctx.npu_rx.recv()
+                && converged
+            {
+                early_exit = true;
+                break;
             }
         }
 
@@ -519,27 +525,33 @@ pub(super) fn run_single_beta(
             }
         }
 
-        if i == 0 {
-            if let Ok(features) = ctx.cortex_handles.proxy_rx.try_recv() {
-                ctx.npu_tx
-                    .send(NpuRequest::ProxyFeatures {
-                        beta: features.beta,
-                        level_spacing_ratio: features.level_spacing_ratio,
-                        lambda_min: features.lambda_min,
-                        ipr: features.ipr,
-                        bandwidth: features.bandwidth,
-                        condition_number: features.condition_number,
-                        phase: features.phase.clone(),
-                        tier: features.tier,
-                        potts_magnetization: features.potts_magnetization,
-                        potts_susceptibility: features.potts_susceptibility,
-                        potts_phase: features.potts_phase.clone(),
-                    })
-                    .ok();
-                println!("  [Brain L3] Anderson: ⟨r⟩={:.3} |λ|_min={:.3} [{}] | Potts: mag={:.3} χ={:.1} [{}]",
-                    features.level_spacing_ratio, features.lambda_min, features.phase,
-                    features.potts_magnetization, features.potts_susceptibility, features.potts_phase);
-            }
+        if i == 0
+            && let Ok(features) = ctx.cortex_handles.proxy_rx.try_recv()
+        {
+            ctx.npu_tx
+                .send(NpuRequest::ProxyFeatures {
+                    beta: features.beta,
+                    level_spacing_ratio: features.level_spacing_ratio,
+                    lambda_min: features.lambda_min,
+                    ipr: features.ipr,
+                    bandwidth: features.bandwidth,
+                    condition_number: features.condition_number,
+                    phase: features.phase.clone(),
+                    tier: features.tier,
+                    potts_magnetization: features.potts_magnetization,
+                    potts_susceptibility: features.potts_susceptibility,
+                    potts_phase: features.potts_phase.clone(),
+                })
+                .ok();
+            println!(
+                "  [Brain L3] Anderson: ⟨r⟩={:.3} |λ|_min={:.3} [{}] | Potts: mag={:.3} χ={:.1} [{}]",
+                features.level_spacing_ratio,
+                features.lambda_min,
+                features.phase,
+                features.potts_magnetization,
+                features.potts_susceptibility,
+                features.potts_phase
+            );
         }
 
         if (i + 1) % 10 == 0 {
@@ -555,11 +567,11 @@ pub(super) fn run_single_beta(
                 .ok();
             npu_stats.anomaly_checks += 1;
             npu_stats.total_npu_calls += 1;
-            if let Ok(NpuResponse::AnomalyFlag { is_anomaly, .. }) = ctx.npu_rx.recv() {
-                if is_anomaly {
-                    npu_stats.anomalies_found += 1;
-                    anomalies += 1;
-                }
+            if let Ok(NpuResponse::AnomalyFlag { is_anomaly, .. }) = ctx.npu_rx.recv()
+                && is_anomaly
+            {
+                npu_stats.anomalies_found += 1;
+                anomalies += 1;
             }
             if npu_controls_params && i > 0 {
                 if running_acc > 0.85 {
@@ -606,27 +618,34 @@ pub(super) fn run_single_beta(
                     ..
                 }) = ctx.npu_rx.recv()
                 {
-                    if let Some(ref cg) = cg_cost {
-                        if cg.len() >= 2 && cg[1] > 0.7 {
-                            eprintln!(
-                                "  [Sub-model] CG stall warning: P(stall)={:.2} at β={:.4}",
-                                cg[1], beta
-                            );
-                        }
+                    if let Some(ref cg) = cg_cost
+                        && cg.len() >= 2
+                        && cg[1] > 0.7
+                    {
+                        eprintln!(
+                            "  [Sub-model] CG stall warning: P(stall)={:.2} at β={:.4}",
+                            cg[1], beta
+                        );
                     }
-                    if let Some(ref ph) = phase_pred {
-                        if !ph.is_empty() && (ph[0] > 0.8 || ph[0] < 0.2) {
-                            eprintln!(
-                                "  [Sub-model] Phase confidence: {:.2} at β={:.4}",
-                                ph[0], beta
-                            );
-                        }
+                    if let Some(ref ph) = phase_pred
+                        && !ph.is_empty()
+                        && (ph[0] > 0.8 || ph[0] < 0.2)
+                    {
+                        eprintln!(
+                            "  [Sub-model] Phase confidence: {:.2} at β={:.4}",
+                            ph[0], beta
+                        );
                     }
-                    if let Some(ref steer) = steering {
-                        if steer.len() >= 5 && steer[4] > 0.8 && i >= config.n_meas / 2 {
-                            eprintln!("  [Sub-model] Steering: skip_decision={:.2}, saturation={:.2} → early-term meas", steer[4], steer[3]);
-                            break;
-                        }
+                    if let Some(ref steer) = steering
+                        && steer.len() >= 5
+                        && steer[4] > 0.8
+                        && i >= config.n_meas / 2
+                    {
+                        eprintln!(
+                            "  [Sub-model] Steering: skip_decision={:.2}, saturation={:.2} → early-term meas",
+                            steer[4], steer[3]
+                        );
+                        break;
                     }
                 }
             }
@@ -645,7 +664,7 @@ pub(super) fn run_single_beta(
             }
         }
 
-        if let Some(ref mut w) = traj_writer {
+        if let Some(w) = traj_writer.as_mut() {
             let pvar = plaquette_variance(&plaq_history);
             writeln!(
                 w,
@@ -670,7 +689,7 @@ pub(super) fn run_single_beta(
     }
     println!(" done");
 
-    if let Some(ref mut w) = traj_writer {
+    if let Some(w) = traj_writer.as_mut() {
         w.flush().ok();
     }
 
@@ -765,18 +784,27 @@ pub(super) fn run_single_beta(
     } else {
         format!("therm={therm_used}")
     };
-    println!("  ⟨P⟩={:.6}±{:.6}  |L|={:.4}  χ={:.2}  acc={:.0}%  ⟨CG⟩={:.0}  Q={quality:.2}  {phase}  {therm_info}  dt={:.4} n_md={}  ({wall_s:.1}s)",
-        mean_plaq, std_plaq, mean_poly, susceptibility, acceptance * 100.0, mean_cg, *dt, *n_md);
+    println!(
+        "  ⟨P⟩={:.6}±{:.6}  |L|={:.4}  χ={:.2}  acc={:.0}%  ⟨CG⟩={:.0}  Q={quality:.2}  {phase}  {therm_info}  dt={:.4} n_md={}  ({wall_s:.1}s)",
+        mean_plaq,
+        std_plaq,
+        mean_poly,
+        susceptibility,
+        acceptance * 100.0,
+        mean_cg,
+        *dt,
+        *n_md
+    );
     if anomalies > 0 {
         println!("  ⚠ {anomalies} anomalies detected by NPU");
     }
     println!();
 
     ctx.npu_tx.send(NpuRequest::FlushTrajectoryBatch).ok();
-    if let Ok(NpuResponse::TrajectoryBatchProcessed { n_events }) = ctx.npu_rx.recv() {
-        if n_events > 0 {
-            println!("  [NPU] Sub-models: {n_events} buffered events flushed");
-        }
+    if let Ok(NpuResponse::TrajectoryBatchProcessed { n_events }) = ctx.npu_rx.recv()
+        && n_events > 0
+    {
+        println!("  [NPU] Sub-models: {n_events} buffered events flushed");
     }
 
     ctx.npu_tx
@@ -790,10 +818,10 @@ pub(super) fn run_single_beta(
     }
 
     ctx.npu_tx.send(NpuRequest::SubModelMetrics).ok();
-    if let Ok(NpuResponse::SubModelMetricsSnapshot(metrics)) = ctx.npu_rx.recv() {
-        if let Some(ref mut w) = traj_writer {
-            writeln!(w, "{}", serde_json::json!({"beta": beta, "phase": "sub_model_metrics", "bi": bi, "sub_models": metrics})).ok();
-        }
+    if let Ok(NpuResponse::SubModelMetricsSnapshot(metrics)) = ctx.npu_rx.recv()
+        && let Some(w) = traj_writer.as_mut()
+    {
+        writeln!(w, "{}", serde_json::json!({"beta": beta, "phase": "sub_model_metrics", "bi": bi, "sub_models": metrics})).ok();
     }
 
     ctx.npu_tx
@@ -819,7 +847,7 @@ pub(super) fn run_single_beta(
                 "  [Concept Edge] β={beta:.4}: Δ_cg={delta_cg:.3} Δ_phase={delta_phase:.1} Δ_anom={delta_anomaly:.3} urgency={urgency:.3}"
             );
         }
-        if let Some(ref mut w) = traj_writer {
+        if let Some(w) = traj_writer.as_mut() {
             writeln!(
                 w,
                 "{}",
@@ -865,11 +893,18 @@ pub(super) fn run_single_beta(
                 saturated,
             }) => {
                 if saturated {
-                    println!("  [NPU] Parameter set saturated — accepting final point β={new_beta:.4} then moving on");
+                    println!(
+                        "  [NPU] Parameter set saturated — accepting final point β={new_beta:.4} then moving on"
+                    );
                     beta_order.push(new_beta);
                     npu_stats.adaptive_inserted = config.max_adaptive;
                 } else {
-                    println!("  NPU adaptive steer: inserting β={:.4} into scan queue ({}/{} adaptive budget)", new_beta, npu_stats.adaptive_inserted + 1, config.max_adaptive);
+                    println!(
+                        "  NPU adaptive steer: inserting β={:.4} into scan queue ({}/{} adaptive budget)",
+                        new_beta,
+                        npu_stats.adaptive_inserted + 1,
+                        config.max_adaptive
+                    );
                     beta_order.push(new_beta);
                     npu_stats.adaptive_inserted += 1;
                 }
@@ -892,23 +927,23 @@ pub(super) fn run_single_beta(
         );
     }
 
-    if let Some(handles) = ctx.titan_handles {
-        if bi + 2 < beta_order.len() {
-            let future_beta = beta_order[bi + 2];
-            handles
-                .titan_tx
-                .send(TitanRequest::PreThermalize {
-                    beta: future_beta,
-                    mass: config.mass,
-                    lattice: config.lattice,
-                    n_quenched: config.n_quenched_pretherm,
-                    seed: config.seed + (bi as u64 + 2) * 1000 + 500,
-                    dt: *dt,
-                    n_md: *n_md,
-                })
-                .ok();
-            println!("  [Brain L2] Titan V pre-thermalizing β={future_beta:.4} in background");
-        }
+    if let Some(handles) = ctx.titan_handles
+        && bi + 2 < beta_order.len()
+    {
+        let future_beta = beta_order[bi + 2];
+        handles
+            .titan_tx
+            .send(TitanRequest::PreThermalize {
+                beta: future_beta,
+                mass: config.mass,
+                lattice: config.lattice,
+                n_quenched: config.n_quenched_pretherm,
+                seed: config.seed + (bi as u64 + 2) * 1000 + 500,
+                dt: *dt,
+                n_md: *n_md,
+            })
+            .ok();
+        println!("  [Brain L2] Titan V pre-thermalizing β={future_beta:.4} in background");
     }
 
     ctx.npu_tx.send(NpuRequest::FlushTrajectoryBatch).ok();

@@ -1,0 +1,103 @@
+{
+  "total_ops": 21929,
+  "total_reads": 14586,
+  "total_writes": 7343,
+  "regions": {
+    "PDISP": {
+      "write_count": 170,
+      "unique_registers": 120,
+      "first_write_offset": "0x610078",
+      "last_write_offset": "0x6107a8"
+    },
+    "PFB": {
+      "write_count": 162,
+      "unique_registers": 3,
+      "first_write_offset": "0x100cb8",
+      "last_write_offset": "0x100cbc"
+    },
+    "PFIFO": {
+      "write_count": 10,
+      "unique_registers": 7,
+      "first_write_offset": "0x002a04",
+      "last_write_offset": "0x002630"
+    },
+    "PMC": {
+      "write_count": 3800,
+      "unique_registers": 5,
+      "first_write_offset": "0x000160",
+      "last_write_offset": "0x000164"
+    },
+    "PPCI": {
+      "write_count": 949,
+      "unique_registers": 1,
+      "first_write_offset": "0x088704",
+      "last_write_offset": "0x088704"
+    },
+    "PRIV_RING": {
+      "write_count": 945,
+      "unique_registers": 1,
+      "first_write_offset": "0x12004c",
+      "last_write_offset": "0x12004c"
+    },
+    "PTIMER": {
+      "write_count": 9,
+      "unique_registers": 3,
+      "first_write_offset": "0x009420",
+      "last_write_offset": "0x009140"
+    },
+    "UNK_00xxxx": {
+      "write_count": 957,
+      "unique_registers": 4,
+      "first_write_offset": "0x00d054",
+      "last_write_offset": "0x00dc68"
+    },
+    "UNK_04xxxx": {
+      "write_count": 48,
+      "unique_registers": 48,
+      "first_write_offset": "0x04013c",
+      "last_write_offset": "0x04e12c"
+    },
+    "UNK_05xxxx": {
+      "write_count": 36,
+      "unique_registers": 36,
+      "first_write_offset": "0x05013c",
+      "last_write_offset": "0x05a12c"
+    },
+    "UNK_07xxxx": {
+      "write_count": 137,
+      "unique_registers": 1,
+      "first_write_offset": "0x070000",
+      "last_write_offset": "0x070000"
+    },
+    "UNK_64xxxx": {
+      "write_count": 97,
+      "unique_registers": 87,
+      "first_write_offset": "0x640008",
+      "last_write_offset": "0x64001c"
+    },
+    "UNK_68xxxx": {
+      "write_count": 3,
+      "unique_registers": 1,
+      "first_write_offset": "0x680000",
+      "last_write_offset": "0x680000"
+    },
+    "UNK_69xxxx": {
+      "write_count": 8,
+      "unique_registers": 8,
+      "first_write_offset": "0x690000",
+      "last_write_offset": "0x697000"
+    },
+    "UNK_6bxxxx": {
+      "write_count": 8,
+      "unique_registers": 8,
+      "first_write_offset": "0x6b0000",
+      "last_write_offset": "0x6b7000"
+    },
+    "UNK_80xxxx": {
+      "write_count": 4,
+      "unique_registers": 4,
+      "first_write_offset": "0x800000",
+      "last_write_offset": "0x80000c"
+    }
+  }
+}

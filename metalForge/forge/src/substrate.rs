@@ -14,15 +14,20 @@ use std::fmt;
 /// A compute substrate discovered at runtime.
 #[derive(Debug, Clone)]
 pub struct Substrate {
+    /// GPU, NPU, or CPU.
     pub kind: SubstrateKind,
+    /// How we found this device and what to call it.
     pub identity: Identity,
+    /// Measured hardware properties (memory, cores, f64 support).
     pub properties: Properties,
+    /// Runtime-discovered capabilities for dispatch routing.
     pub capabilities: Vec<Capability>,
 }
 
 /// How we found this device and what to call it.
 #[derive(Debug, Clone)]
 pub struct Identity {
+    /// Human-readable device name, e.g. "NVIDIA TITAN V".
     pub name: String,
     /// GPU driver string from wgpu, e.g. "NVIDIA (580.82.09)".
     pub driver: Option<String>,
@@ -105,8 +110,11 @@ impl Fp64Strategy {
 /// The kind of compute device.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SubstrateKind {
+    /// Graphics processing unit (wgpu/Vulkan compute).
     Gpu,
+    /// Neural processing unit (e.g. Akida, on-chip inference).
     Npu,
+    /// Host CPU (SIMD, multi-core).
     Cpu,
 }
 
@@ -121,9 +129,15 @@ pub enum Capability {
     /// f32 compute.
     F32Compute,
     /// Integer quantized inference at a given bit width.
-    QuantizedInference { bits: u8 },
+    QuantizedInference {
+        /// Quantization bit width (e.g. 4, 8).
+        bits: u8,
+    },
     /// Batch inference with amortized dispatch.
-    BatchInference { max_batch: usize },
+    BatchInference {
+        /// Maximum batch size for amortized dispatch.
+        max_batch: usize,
+    },
     /// Weight mutation without full reprogramming.
     WeightMutation,
     /// Scalar reduction (e.g. GPU reduce pipeline).

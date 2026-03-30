@@ -329,10 +329,7 @@ fn dispatch_shader(
         count: None,
     }];
 
-    let input_buf;
-    let params_buf;
-
-    if needs_input {
+    let input_buf = if needs_input {
         entries[0].ty = wgpu::BindingType::Buffer {
             ty: wgpu::BufferBindingType::Storage { read_only: true },
             has_dynamic_offset: false,
@@ -351,18 +348,18 @@ fn dispatch_shader(
 
         let data: Vec<f64> = vec![1.0; 256];
         let bytes: Vec<u8> = data.iter().flat_map(|v| v.to_le_bytes()).collect();
-        input_buf = Some(
+        Some(
             device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("roundtrip_input"),
                 contents: &bytes,
                 usage: wgpu::BufferUsages::STORAGE,
             }),
-        );
+        )
     } else {
-        input_buf = None;
-    }
+        None
+    };
 
-    if needs_params {
+    let params_buf = if needs_params {
         entries.push(wgpu::BindGroupLayoutEntry {
             binding: if needs_input { 2 } else { 1 },
             visibility: wgpu::ShaderStages::COMPUTE,
@@ -376,16 +373,16 @@ fn dispatch_shader(
 
         let params_data: [u32; 4] = [256, 0, 0, 0];
         let params_bytes: &[u8] = bytemuck::cast_slice(&params_data);
-        params_buf = Some(
+        Some(
             device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("roundtrip_params"),
                 contents: params_bytes,
                 usage: wgpu::BufferUsages::UNIFORM,
             }),
-        );
+        )
     } else {
-        params_buf = None;
-    }
+        None
+    };
 
     let bgl = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         label: None,
@@ -403,7 +400,7 @@ fn dispatch_shader(
         layout: Some(&pl),
         module,
         entry_point: Some(test.entry_point),
-        compilation_options: Default::default(),
+        compilation_options: wgpu::PipelineCompilationOptions::default(),
         cache: None,
     });
 
@@ -643,10 +640,7 @@ async fn main() {
     }
 
     println!("═══════════════════════════════════════════════════════════");
-    println!(
-        "  TOTAL: {} pass, {} fail, {} skip",
-        total_pass, total_fail, total_skip
-    );
+    println!("  TOTAL: {total_pass} pass, {total_fail} fail, {total_skip} skip");
     println!("═══════════════════════════════════════════════════════════");
 
     if !all_failures.is_empty() {

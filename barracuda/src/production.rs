@@ -79,10 +79,10 @@ pub fn load_meta_table(path: &str) -> Result<Vec<MetaRow>, HotSpringError> {
     let contents = std::fs::read_to_string(path)?;
 
     // Try 2: Summary JSON with "points" array (production_dynamical_mixed output)
-    if let Ok(rows) = load_summary_json_as_meta(&contents, path) {
-        if !rows.is_empty() {
-            return Ok(rows);
-        }
+    if let Ok(rows) = load_summary_json_as_meta(&contents, path)
+        && !rows.is_empty()
+    {
+        return Ok(rows);
     }
 
     // Try 3: Per-trajectory JSONL (parse from contents to avoid re-opening)
@@ -723,7 +723,7 @@ pub fn bootstrap_esn_from_trajectory_log(
         *npu = Some(new_npu);
     }
 
-    let beta_c = if let Some(ref mut n) = npu {
+    let beta_c = if let Some(n) = npu.as_mut() {
         predict_beta_c(n)
     } else {
         KNOWN_BETA_C

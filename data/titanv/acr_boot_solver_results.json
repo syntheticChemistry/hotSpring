@@ -1,0 +1,141 @@
+{
+  "experiment": "Phase 4: Titan V ACR Boot Resolution",
+  "date": "2026-03-29",
+  "target": "Titan V GV100 (0000:03:00.0)",
+  "chip": "GV100 (Volta, SM 7.0)",
+  "solver_results": {
+    "strategies_attempted": 12,
+    "strategies_succeeded": 0,
+    "strategy_details": [
+      {
+        "id": 1,
+        "name": "nouveau-style IMEM+EMEM SEC2 boot",
+        "result": "FAILED",
+        "notes": "SEC2 Running but queue discovery failed. mb0=0xcafebeef"
+      },
+      {
+        "id": 2,
+        "name": "Physical-first SEC2 boot (no instance block)",
+        "result": "FAILED",
+        "notes": "SEC2 still running after PMC reset"
+      },
+      {
+        "id": 3,
+        "name": "VRAM-based ACR boot (PRAMIN DMA)",
+        "result": "FAILED",
+        "notes": "PRAMIN DMA path"
+      },
+      {
+        "id": 4,
+        "name": "System-memory ACR boot (IOMMU DMA)",
+        "result": "CLOSEST",
+        "notes": "ACR result: mb0=0xdeada5a5 (ACR failed sentinel). SEC2 executed ACR payload but authentication/WPR2 failed."
+      },
+      {
+        "id": 5,
+        "name": "Hybrid ACR boot (VRAM pages + sysmem data)",
+        "result": "FAILED"
+      },
+      {
+        "id": 6,
+        "name": "Direct FECS boot (bypass ACR)",
+        "result": "FAILED",
+        "notes": "Cannot bypass ACR on secure Volta"
+      },
+      {
+        "id": 7,
+        "name": "ACR mailbox command (live SEC2)",
+        "result": "INTERESTING",
+        "notes": "FECS RUNNING momentarily but no ready signal"
+      },
+      {
+        "id": 8,
+        "name": "Direct HRESET experiments",
+        "result": "FAILED"
+      },
+      {
+        "id": 9,
+        "name": "Direct ACR IMEM load (no BL DMA)",
+        "result": "FAILED"
+      },
+      {
+        "id": 10,
+        "name": "ACR chain: DMA-backed SEC2 boot",
+        "result": "FAILED"
+      },
+      {
+        "id": 11,
+        "name": "EMEM-based SEC2 boot",
+        "result": "FAILED"
+      },
+      {
+        "id": 12,
+        "name": "Direct host IMEM/DMEM upload (bypass ACR DMA)",
+        "result": "FAILED",
+        "notes": "FECS HRESET, hardware auth blocks unsigned code"
+      }
+    ]
+  },
+  "falcon_state": {
+    "sec2": {
+      "cpuctl": "0x00000010",
+      "sctl": "0x00003000",
+      "secure_mode": true,
+      "state": "HRESET",
+      "imem_populated": false,
+      "dmem_populated": false,
+      "notes": "Hardware-enforced signed execution only. sctl=0x3000 = ACR/HS mode."
+    },
+    "fecs": {
+      "cpuctl": "0x00000010",
+      "sctl": "0x00003000",
+      "secure_mode": true,
+      "state": "HRESET",
+      "imem_populated": false,
+      "notes": "Cannot load unsigned firmware. Must be loaded by ACR via SEC2."
+    },
+    "gpccs": {
+      "cpuctl": "0x00000010",
+      "sctl": "0x00003000",
+      "secure_mode": true,
+      "state": "HRESET",
+      "imem_populated": false,
+      "notes": "Same auth barrier as FECS."
+    }
+  },
+  "nouveau_traces": {
+    "captures": 3,
+    "total_writes": 7346,
+    "unique_registers": 337,
+    "acr_related_writes": 0,
+    "diagnosis": "Nouveau on Volta does basic device init (PMC, PRIV_RING, PDISP) but CANNOT do authenticated falcon boot. Zero SEC2/ACR/FECS/GPCCS/PMU writes.",
+    "post_unbind_state": "All falcon IMEM/DMEM zeroed. Nouveau cleans up on unbind — parasitic state borrowing impossible."
+  },
+  "blockers": {
+    "primary": "SEC2 hardware security (sctl=0x3000) prevents unsigned code execution. ACR payload must be correctly signed and loaded through proper DMA chain.",
+    "secondary": [
+      "WPR2 region setup — unknown correct programming sequence from VFIO host",
+      "ACR descriptor patching — mb0=0xdeada5a5 sentinel from strategy 4 suggests ACR desc or WPR layout error",
+      "PMU dependency — ACR may need PMU behavior not replicated in VFIO",
+      "Memory controller init — FBPA/PFB writes needed for VRAM+WPR access"
+    ]
+  },
+  "path_forward": {
+    "immediate": [
+      "Run VM-based reagent captures with nvidia-418/470/535 to get complete SEC2/ACR init sequences",
+      "Focus on SEC2 IMEM/DMEM content, WPR2 register programming, DMA descriptor layout",
+      "Compare across driver versions to find the 'experienced traveling salesman' common path"
+    ],
+    "strategy_4_refinement": [
+      "Sysmem ACR is closest to success (SEC2 ran, ACR attempted)",
+      "Feed closed-source mmiotrace WPR2 writes into strategy_sysmem",
+      "Verify ACR descriptor patch addresses match driver's layout",
+      "Check IOMMU DMA mapping aligns with BL DMEM descriptor"
+    ],
+    "k80_validation": [
+      "K80 sovereign compute validates the full pipeline L1-L9, L11",
+      "Once K80 DEVINIT gaps are filled (from reagent traces), compute dispatch will work",
+      "K80 success = proof that the pipeline works, minus auth"
+    ]
+  }
+}

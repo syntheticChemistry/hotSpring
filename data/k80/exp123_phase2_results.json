@@ -1,0 +1,55 @@
+{
+  "experiment": "123-K Phase 2",
+  "date": "2026-03-29",
+  "target": "Tesla K80 die1 (0000:4c:00.0)",
+  "chip": "GK210 (Kepler, SM 3.7)",
+  "boot0": "0x0f22d0a1",
+  "results": {
+    "identity_probe": {
+      "status": "PASS",
+      "sm_version": 37,
+      "variant": "gk210",
+      "pmu_sctl": "0x00000000",
+      "security": "NONE (unsigned firmware OK)"
+    },
+    "gr_enable": {
+      "status": "PASS",
+      "fecs_woke": true,
+      "gpccs_woke": false,
+      "gpccs_state": "PRI_FAULT (GPC register space inaccessible)",
+      "pmc_enable_after": "0xe011316c",
+      "fecs_hwcfg": "0x20402050"
+    },
+    "fecs_pio_upload": {
+      "status": "PASS",
+      "firmware": "gk110-native",
+      "fecs_inst_bytes": 3344,
+      "fecs_data_bytes": 816,
+      "imem_readback": "8/8 words match"
+    },
+    "fecs_execution": {
+      "status": "BLOCKED",
+      "cpuctl": "0x00000012 (HALTED)",
+      "pc": "0x00000000",
+      "exci": "0x00000000",
+      "tracepc": "all zeros",
+      "diagnosis": "Falcon halts at PC=0 — clocks/PLLs not configured"
+    },
+    "devinit": {
+      "status": "PARTIAL",
+      "vbios_size": 133008,
+      "scripts_executed": 6,
+      "total_ops": 70,
+      "register_writes": 40,
+      "unimplemented_opcodes": ["0x00", "0x04", "0x0d"],
+      "pll_configured": false,
+      "clocks_configured": false
+    }
+  },
+  "blockers": [
+    "DEVINIT interpreter missing PLL/clock opcodes (0x00, 0x04, 0x0d)",
+    "GPCCS PRI_FAULT — needs full devinit before GPC enable",
+    "Falcon cannot execute without clock domain configured"
+  ],
+  "next_step": "Phase 3: Capture mmiotrace from real NVIDIA drivers to complete init sequence"
+}

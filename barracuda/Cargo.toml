@@ -1,7 +1,7 @@
 [package]
 name = "hotspring-barracuda"
 version = "0.6.32"
-edition = "2021"
+edition = "2024"
 description = "Nuclear EOS + GPU MD validation for BarraCuda — L1/L2/L3 physics, Yukawa OCP, lattice QCD, spectral theory, typed errors, full Result propagation, provenance, capability-based discovery"
 license = "AGPL-3.0-only"
 repository = "https://github.com/biomegate/ecoPrimals"
@@ -81,7 +81,6 @@ gpu_energy = []
 npu-hw = ["dep:akida-driver", "dep:akida-models"]
 sovereign-dispatch = ["barracuda/sovereign-dispatch"]
 cuda-validation = ["dep:cudarc", "dep:base64"]
-coral-sovereign = ["dep:coral-gpu"]
 
 [dependencies]
 # BarraCuda (standalone primal): math, shaders, compilation, ESN, NPU math
@@ -110,11 +109,6 @@ tokio = { version = "1.50", features = ["rt-multi-thread", "macros"] }
 akida-driver = { path = "../../../primals/toadStool/crates/neuromorphic/akida-driver", optional = true }
 akida-models = { path = "../../../primals/toadStool/crates/neuromorphic/akida-models", optional = true }
 
-# metalForge: substrate discovery + capability-based precision routing.
-# Bridges hardware detection (fp64_rate, df64 support, TMU, etc.) into the
-# QCD pipeline so we route kernels to the right silicon unit.
-hotspring-forge = { path = "../metalForge/forge" }
-
 # GPU compute (wgpu for SHADER_F64 FP64 science compute)
 # Must match barracuda's wgpu version (28) to avoid type conflicts.
 wgpu = { version = "28", default-features = false, features = [
@@ -127,9 +121,6 @@ naga = { version = "28", features = ["wgsl-in"] }
 
 # Blocking async operations (adapter enumeration is async in wgpu 28)
 pollster = "0.4"
-
-# Sovereign GPU dispatch: coralReef compiler + DRM driver (no wgpu/naga)
-coral-gpu = { path = "../../../primals/coralReef/crates/coral-gpu", optional = true }
 
 # Low-level syscalls (mmap for BAR0 register reading in Exp 070 binaries)
 libc = "0.2"
@@ -764,60 +755,4 @@ path = "src/bin/bench_silicon_composition.rs"
 [[bin]]
 name = "production_rhmc_scan"
 path = "src/bin/production_rhmc_scan.rs"
-
-# ── Production RHMC + gradient flow: Chuna Paper 43 continuation ──
-[[bin]]
-name = "production_rhmc_flow"
-path = "src/bin/production_rhmc_flow.rs"
-
-# ── Dual-GPU parallel QCD validation: cross-vendor parity ──
-[[bin]]
-name = "validate_dual_gpu_qcd"
-path = "src/bin/validate_dual_gpu_qcd.rs"
-
-# ── GPU-only self-tuning RHMC: zero magic numbers ──
-[[bin]]
-name = "gpu_rhmc_selftuning"
-path = "src/bin/gpu_rhmc_selftuning.rs"
-
-# ── Unidirectional GPU RHMC: zero per-iteration readback ──
-[[bin]]
-name = "gpu_rhmc_unidirectional"
-path = "src/bin/gpu_rhmc_unidirectional.rs"
-
-# ── primalSpring-compatible server for biomeOS graph deploy ──
-[[bin]]
-name = "hotspring_primal"
-path = "src/bin/hotspring_primal.rs"
-
-# ── Node Atomic GPU Comparison: primalSpring composition + NVIDIA vs AMD ──
-[[bin]]
-name = "node_atomic_gpu_comparison"
-path = "src/bin/node_atomic_gpu_comparison.rs"
-
-# ── Brain-steered dual-GPU RHMC: NPU cortex drives physics parameters ──
-[[bin]]
-name = "gpu_rhmc_brain"
-path = "src/bin/gpu_rhmc_brain.rs"
-
-# ── Silicon routing: route QCD workloads across GPU silicon units ──
-[[bin]]
-name = "bench_qcd_silicon_routing"
-path = "src/bin/bench_qcd_silicon_routing.rs"
-
-# ── Silicon profile: characterize all units on each GPU, save to disk ──
-[[bin]]
-name = "bench_silicon_profile"
-path = "src/bin/bench_silicon_profile.rs"
-
-# ── Exp 105: Production silicon-instrumented QCD (full revalidation) ──
-[[bin]]
-name = "production_silicon_qcd"
-path = "src/bin/production_silicon_qcd.rs"
-
-# ── Sovereign pipeline: coralReef compiler + DRM dispatch (no wgpu/naga) ──
-[[bin]]
-name = "validate_coral_sovereign"
-path = "src/bin/validate_coral_sovereign.rs"
-required-features = ["coral-sovereign"]
 

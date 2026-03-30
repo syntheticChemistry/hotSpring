@@ -11,15 +11,20 @@ use crate::substrate::{Capability, Substrate, SubstrateKind};
 /// A workload that needs to be dispatched to a substrate.
 #[derive(Debug)]
 pub struct Workload {
+    /// Human-readable workload name for logging.
     pub name: String,
+    /// Capabilities the target substrate must have.
     pub required: Vec<Capability>,
+    /// Preferred substrate kind (used as tie-breaker).
     pub preferred_substrate: Option<SubstrateKind>,
 }
 
 /// Dispatch decision — which substrate was chosen and why.
 #[derive(Debug)]
 pub struct Decision<'a> {
+    /// The chosen substrate.
     pub substrate: &'a Substrate,
+    /// Why this substrate was selected.
     pub reason: Reason,
 }
 
@@ -69,13 +74,13 @@ pub fn route<'a>(workload: &Workload, substrates: &'a [Substrate]) -> Option<Dec
         return None;
     }
 
-    if let Some(pref) = workload.preferred_substrate {
-        if let Some(s) = capable.iter().find(|s| s.kind == pref) {
-            return Some(Decision {
-                substrate: s,
-                reason: Reason::Preferred,
-            });
-        }
+    if let Some(pref) = workload.preferred_substrate
+        && let Some(s) = capable.iter().find(|s| s.kind == pref)
+    {
+        return Some(Decision {
+            substrate: s,
+            reason: Reason::Preferred,
+        });
     }
 
     let best = capable

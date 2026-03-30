@@ -2,27 +2,106 @@
 # Install to /etc/sudoers.d/coralreef
 #
 # Allows biomegate to perform GPU device management without password:
-# - PCI driver bind/unbind (hot-swap)
+# - PCI driver bind/unbind (hot-swap) via coralreef-sysfs-write
 # - Power state control
 # - VFIO module loading
-# - Setup script execution
+# - systemd service management for coral-ember/coral-glowplug
+# - Cargo test execution (VFIO BAR0 access requires root)
+# - mmiotrace capture via debugfs
+# - Trace file and runtime directory management
+#
+# IMPORTANT: Uses coralreef-sysfs-write instead of tee. tee blocks on
+# stdin EOF after writing, holding sysfs file descriptors open. When
+# the kernel's device_lock mutex is contended (driver transitions, udev
+# events), tee's lingering fd causes D-state process chains that lock
+# the entire PCI device and require a reboot to clear.
 
-# Driver bind/unbind via tee (sysfs writes)
-biomegate ALL=(root) NOPASSWD: /usr/bin/tee /sys/bus/pci/devices/*/driver/unbind
-biomegate ALL=(root) NOPASSWD: /usr/bin/tee /sys/bus/pci/drivers/*/bind
-biomegate ALL=(root) NOPASSWD: /usr/bin/tee /sys/bus/pci/devices/*/driver_override
-biomegate ALL=(root) NOPASSWD: /usr/bin/tee /sys/bus/pci/devices/*/power/control
-biomegate ALL=(root) NOPASSWD: /usr/bin/tee /sys/bus/pci/devices/*/d3cold_allowed
-biomegate ALL=(root) NOPASSWD: /usr/bin/tee /sys/module/vfio_pci/parameters/*
+# PCI sysfs writes via coralreef-sysfs-write (write-and-exit, no stdin)
+biomegate ALL=(root) NOPASSWD: /usr/local/bin/coralreef-sysfs-write /sys/bus/pci/devices/*/driver/unbind *
+biomegate ALL=(root) NOPASSWD: /usr/local/bin/coralreef-sysfs-write /sys/bus/pci/drivers/*/bind *
+biomegate ALL=(root) NOPASSWD: /usr/local/bin/coralreef-sysfs-write /sys/bus/pci/devices/*/driver_override *
+biomegate ALL=(root) NOPASSWD: /usr/local/bin/coralreef-sysfs-write /sys/bus/pci/devices/*/power/control *
+biomegate ALL=(root) NOPASSWD: /usr/local/bin/coralreef-sysfs-write /sys/bus/pci/devices/*/d3cold_allowed *
+biomegate ALL=(root) NOPASSWD: /usr/local/bin/coralreef-sysfs-write /sys/bus/pci/devices/*/reset_method *
+biomegate ALL=(root) NOPASSWD: /usr/local/bin/coralreef-sysfs-write /sys/bus/pci/devices/*/reset *
+biomegate ALL=(root) NOPASSWD: /usr/local/bin/coralreef-sysfs-write /sys/bus/pci/devices/*/remove *
+biomegate ALL=(root) NOPASSWD: /usr/local/bin/coralreef-sysfs-write /sys/bus/pci/rescan *
+biomegate ALL=(root) NOPASSWD: /usr/local/bin/coralreef-sysfs-write /sys/module/vfio_pci/parameters/* *
 
 # Module loading
 biomegate ALL=(root) NOPASSWD: /usr/sbin/modprobe vfio-pci
 biomegate ALL=(root) NOPASSWD: /usr/sbin/modprobe nouveau
+biomegate ALL=(root) NOPASSWD: /usr/sbin/modprobe nvidia
 
-# Setup script
-biomegate ALL=(root) NOPASSWD: /home/biomegate/Development/ecoPrimals/hotSpring/scripts/setup_dual_titanv.sh
-biomegate ALL=(root) NOPASSWD: /home/biomegate/Development/ecoPrimals/hotSpring/scripts/boot/install-boot-config.sh
+# systemd service management for coral daemons
+biomegate ALL=(root) NOPASSWD: /usr/bin/systemctl start coral-ember
+biomegate ALL=(root) NOPASSWD: /usr/bin/systemctl stop coral-ember
+biomegate ALL=(root) NOPASSWD: /usr/bin/systemctl restart coral-ember
+biomegate ALL=(root) NOPASSWD: /usr/bin/systemctl status coral-ember
+biomegate ALL=(root) NOPASSWD: /usr/bin/systemctl start coral-glowplug
+biomegate ALL=(root) NOPASSWD: /usr/bin/systemctl stop coral-glowplug
+biomegate ALL=(root) NOPASSWD: /usr/bin/systemctl restart coral-glowplug
+biomegate ALL=(root) NOPASSWD: /usr/bin/systemctl status coral-glowplug
+biomegate ALL=(root) NOPASSWD: /usr/bin/systemctl daemon-reload
 
-# GlowPlug daemon (will run as root via systemd, but allow manual start)
-biomegate ALL=(root) NOPASSWD: /home/biomegate/Development/ecoPrimals/coralReef/target/release/coral-glowplug
-biomegate ALL=(root) NOPASSWD: /home/biomegate/Development/ecoPrimals/coralReef/target/debug/coral-glowplug
+# Cargo test execution (VFIO BAR0 access requires root for /dev/vfio/*)
+# Uses wrapper script to preserve user's Rust toolchain in root context.
+# SETENV allows CORALREEF_VFIO_BDF, RUST_LOG to pass through.
+biomegate ALL=(root) NOPASSWD: SETENV: /home/biomegate/Development/ecoPrimals/springs/hotSpring/scripts/sudo-cargo-test.sh *
+
+# coralReef binaries (daemon and CLI)
+biomegate ALL=(root) NOPASSWD: /home/biomegate/Development/ecoPrimals/primals/coralReef/target/release/coral-glowplug *
+biomegate ALL=(root) NOPASSWD: /home/biomegate/Development/ecoPrimals/primals/coralReef/target/debug/coral-glowplug *
+biomegate ALL=(root) NOPASSWD: /home/biomegate/Development/ecoPrimals/primals/coralReef/target/release/coral-ember *
+biomegate ALL=(root) NOPASSWD: /home/biomegate/Development/ecoPrimals/primals/coralReef/target/debug/coral-ember *
+
+# Runtime directory management
+biomegate ALL=(root) NOPASSWD: /usr/bin/mkdir -p /run/coralreef
+biomegate ALL=(root) NOPASSWD: /usr/bin/chown biomegate\:biomegate /run/coralreef
+biomegate ALL=(root) NOPASSWD: /usr/bin/chmod 755 /run/coralreef
+
+# Trace file access (mmiotrace captures)
+biomegate ALL=(root) NOPASSWD: /usr/bin/cp /var/lib/coralreef/traces/* *
+biomegate ALL=(root) NOPASSWD: /usr/bin/chown biomegate\:biomegate *
+
+# mmiotrace control (debugfs)
+biomegate ALL=(root) NOPASSWD: /usr/local/bin/coralreef-sysfs-write /sys/kernel/debug/tracing/current_tracer *
+biomegate ALL=(root) NOPASSWD: /usr/local/bin/coralreef-sysfs-write /sys/kernel/debug/tracing/tracing_on *
+
+# Process management for stale daemons
+biomegate ALL=(root) NOPASSWD: /usr/bin/kill *
+biomegate ALL=(root) NOPASSWD: /usr/bin/pkill -f coral-ember
+biomegate ALL=(root) NOPASSWD: /usr/bin/pkill -f coral-glowplug
+biomegate ALL=(root) NOPASSWD: /usr/bin/pkill -9 -f coral-ember
+biomegate ALL=(root) NOPASSWD: /usr/bin/pkill -9 -f coral-glowplug
+
+# Binary deployment (cp release binaries to /usr/local/bin)
+biomegate ALL=(root) NOPASSWD: /usr/bin/cp /home/biomegate/Development/ecoPrimals/primals/coralReef/target/release/coral-ember /usr/local/bin/coral-ember
+biomegate ALL=(root) NOPASSWD: /usr/bin/cp /home/biomegate/Development/ecoPrimals/primals/coralReef/target/release/coral-glowplug /usr/local/bin/coral-glowplug
+biomegate ALL=(root) NOPASSWD: /usr/bin/cp /home/biomegate/Development/ecoPrimals/primals/coralReef/target/release/coralctl /usr/local/bin/coralctl
+
+# Setup and deploy scripts
+biomegate ALL=(root) NOPASSWD: /home/biomegate/Development/ecoPrimals/springs/hotSpring/scripts/setup_dual_titanv.sh
+biomegate ALL=(root) NOPASSWD: /home/biomegate/Development/ecoPrimals/springs/hotSpring/scripts/boot/install-boot-config.sh
+biomegate ALL=(root) NOPASSWD: /home/biomegate/Development/ecoPrimals/springs/hotSpring/scripts/deploy_glowplug.sh
+
+# lspci with verbose output
+biomegate ALL=(root) NOPASSWD: /usr/bin/lspci *
+
+# Kernel log access (dmesg)
+biomegate ALL=(root) NOPASSWD: /usr/bin/dmesg *
+
+# libvirt image management (reagent VM provisioning)
+biomegate ALL=(root) NOPASSWD: /usr/bin/cp /home/biomegate/Development/ecoPrimals/infra/agentReagents/images/* /var/lib/libvirt/images/*
+biomegate ALL=(root) NOPASSWD: /usr/bin/qemu-img *
+biomegate ALL=(root) NOPASSWD: /usr/bin/virsh *
+biomegate ALL=(root) NOPASSWD: /usr/bin/chgrp libvirt /var/lib/libvirt/images
+biomegate ALL=(root) NOPASSWD: /usr/bin/chmod 775 /var/lib/libvirt/images
+
+# Shell wrapper for compound operations (PCIe rescan, file ops)
+biomegate ALL=(root) NOPASSWD: /usr/bin/sh -c echo 1 > /sys/bus/pci/devices/*/rescan*
+biomegate ALL=(root) NOPASSWD: /usr/bin/sh -c echo 1 > /sys/bus/pci/rescan*
+biomegate ALL=(root) NOPASSWD: /usr/bin/sh -c cat /var/lib/coralreef/traces/*
+biomegate ALL=(root) NOPASSWD: /usr/bin/sh -c ls *coralreef*
+biomegate ALL=(root) NOPASSWD: /usr/bin/sh -c wc *coralreef*
+biomegate ALL=(root) NOPASSWD: /usr/bin/sh -c head *coralreef*

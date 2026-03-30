@@ -277,6 +277,7 @@ fn bgl_uniform(binding: u32) -> wgpu::BindGroupLayoutEntry {
     }
 }
 
+#[allow(clippy::unused_async)]
 async fn readback_bytes(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
@@ -358,7 +359,7 @@ async fn probe_f32_fma(gpu: &GpuF64, tag: &str, harness: &mut ValidationHarness)
         layout: Some(&pl),
         module: &shader,
         entry_point: Some("main"),
-        compilation_options: Default::default(),
+        compilation_options: wgpu::PipelineCompilationOptions::default(),
         cache: None,
     });
     if scope.pop().await.is_some() {
@@ -454,7 +455,7 @@ async fn probe_f32_workgroup_reduce(gpu: &GpuF64, tag: &str, harness: &mut Valid
         layout: Some(&pl),
         module: &shader,
         entry_point: Some("main"),
-        compilation_options: Default::default(),
+        compilation_options: wgpu::PipelineCompilationOptions::default(),
         cache: None,
     });
     if let Some(err) = scope.pop().await {
@@ -560,7 +561,7 @@ async fn probe_df64_storage_arith(gpu: &GpuF64, tag: &str, harness: &mut Validat
         layout: Some(&pl),
         module: &shader,
         entry_point: Some("main"),
-        compilation_options: Default::default(),
+        compilation_options: wgpu::PipelineCompilationOptions::default(),
         cache: None,
     });
     if scope.pop().await.is_some() {
@@ -651,7 +652,7 @@ async fn probe_df64_workgroup_reduce_f32(gpu: &GpuF64, tag: &str, harness: &mut 
         layout: Some(&pl),
         module: &shader,
         entry_point: Some("main"),
-        compilation_options: Default::default(),
+        compilation_options: wgpu::PipelineCompilationOptions::default(),
         cache: None,
     });
     if scope.pop().await.is_some() {
@@ -759,7 +760,7 @@ async fn probe_df64_workgroup_reduce_f64(gpu: &GpuF64, tag: &str, harness: &mut 
         layout: Some(&pl),
         module: &shader,
         entry_point: Some("main"),
-        compilation_options: Default::default(),
+        compilation_options: wgpu::PipelineCompilationOptions::default(),
         cache: None,
     });
     if let Some(err) = scope.pop().await {
@@ -839,6 +840,7 @@ async fn probe_df64_workgroup_reduce_f64(gpu: &GpuF64, tag: &str, harness: &mut 
 
 // ── Probe 6: ReduceScalarPipeline end-to-end ────────────────────────────────
 
+#[allow(clippy::unused_async)]
 async fn probe_reduce_pipeline(gpu: &GpuF64, tag: &str, harness: &mut ValidationHarness) {
     println!("── ReduceScalarPipeline end-to-end (production path) ──");
 

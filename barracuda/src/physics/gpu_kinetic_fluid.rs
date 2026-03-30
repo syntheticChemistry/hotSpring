@@ -15,7 +15,7 @@
 #![allow(clippy::suboptimal_flops)]
 
 use super::kinetic_fluid::{
-    bgk_target_params, compute_moments, maxwellian_1d, BgkRelaxationResult, BgkSpecies,
+    BgkRelaxationResult, BgkSpecies, bgk_target_params, compute_moments, maxwellian_1d,
 };
 use crate::gpu::GpuF64;
 
@@ -201,11 +201,11 @@ pub fn gpu_bgk_relaxation(
             };
 
             // Build a BgkSpecies with f data for bgk_target_params
-            let f_dummy = vec![0.0; nv];
+            let f_zero = vec![0.0; nv];
             species_cpu.push(BgkSpecies {
                 m: mass,
                 nu: nu_sp,
-                f: f_dummy,
+                f: f_zero,
             });
             // Overwrite the f data from the reduced moments for target_params
             species_cpu[sp].f = {

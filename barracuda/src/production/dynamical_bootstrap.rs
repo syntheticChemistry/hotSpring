@@ -7,12 +7,12 @@
 use crate::gpu::GpuF64;
 use crate::lattice::gpu_hmc::{BrainInterrupt, CgResidualUpdate};
 use crate::production::{
-    cortex_worker::{spawn_cortex_worker, CortexWorkerHandles},
+    BetaResult, MetaRow,
+    cortex_worker::{CortexWorkerHandles, spawn_cortex_worker},
     dynamical_summary::DynamicalNpuStats,
     load_meta_table,
-    npu_worker::{spawn_npu_worker, NpuRequest, NpuResponse, NpuWorkerHandles},
-    titan_worker::{spawn_titan_worker, TitanRequest, TitanWorkerHandles},
-    BetaResult, MetaRow,
+    npu_worker::{NpuRequest, NpuResponse, NpuWorkerHandles, spawn_npu_worker},
+    titan_worker::{TitanRequest, TitanWorkerHandles, spawn_titan_worker},
 };
 use std::io::Write;
 use std::process::ExitCode;
@@ -174,7 +174,7 @@ pub fn run_post_computation(
         println!("    β values: {betas:?}");
     }
 
-    if let Some(ref mut w) = traj_writer {
+    if let Some(w) = traj_writer.as_mut() {
         w.flush().ok();
     }
 

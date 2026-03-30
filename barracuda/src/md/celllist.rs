@@ -33,7 +33,7 @@ use barracuda::pipeline::ReduceScalarPipeline;
 use crate::gpu::GpuF64;
 use crate::md::config::MdConfig;
 use crate::md::shaders;
-use crate::md::simulation::{init_fcc_lattice, init_velocities, EnergyRecord, MdSimulation};
+use crate::md::simulation::{EnergyRecord, MdSimulation, init_fcc_lattice, init_velocities};
 use crate::tolerances::{CELLLIST_REBUILD_INTERVAL, MD_TEMPERATURE_FLOOR, THERMOSTAT_INTERVAL};
 use std::time::Instant;
 
@@ -437,17 +437,17 @@ pub async fn run_simulation_celllist(
             gpu_cl.build(&pos_buf)?;
         }
 
-        if step_end % 5000 < stream_batch || step_end >= config.prod_steps {
-            if let Some(last) = energy_history.last() {
-                println!(
-                    "    Step {}: T*={:.6}, KE={:.4}, PE={:.4}, E={:.4}",
-                    step_end - 1,
-                    last.temperature,
-                    last.ke,
-                    last.pe,
-                    last.total
-                );
-            }
+        if (step_end % 5000 < stream_batch || step_end >= config.prod_steps)
+            && let Some(last) = energy_history.last()
+        {
+            println!(
+                "    Step {}: T*={:.6}, KE={:.4}, PE={:.4}, E={:.4}",
+                step_end - 1,
+                last.temperature,
+                last.ke,
+                last.pe,
+                last.total
+            );
         }
     }
 
@@ -698,7 +698,7 @@ mod tests {
             .cell_count
             .iter()
             .enumerate()
-            .filter(|(_, &c)| c > 0)
+            .filter(|&(_, &c)| c > 0)
             .count();
         assert_eq!(
             nonzero_count, 2,

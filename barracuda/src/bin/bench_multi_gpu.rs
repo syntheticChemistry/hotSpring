@@ -22,7 +22,7 @@
 //!   `HOTSPRING_GPU_PRIMARY=0` `HOTSPRING_GPU_SECONDARY=1` cargo run --release --bin `bench_multi_gpu`
 
 use barracuda::ops::linalg::BatchedEighGpu;
-use hotspring_barracuda::gpu::{discover_primary_and_secondary_adapters, GpuF64};
+use hotspring_barracuda::gpu::{GpuF64, discover_primary_and_secondary_adapters};
 use hotspring_barracuda::physics::bcs_gpu::BcsBisectionGpu;
 use std::sync::Arc;
 use std::time::Instant;
@@ -47,13 +47,13 @@ fn main() {
     println!();
 
     // Initialize both GPUs
-    #[allow(deprecated)] // set_var deprecated in edition 2024; safe here (single-threaded init)
     let gpu_primary = rt.block_on(async {
-        std::env::set_var("HOTSPRING_GPU_ADAPTER", &primary_name);
+        // SAFETY: single-threaded main; no concurrent env readers.
+        unsafe { std::env::set_var("HOTSPRING_GPU_ADAPTER", &primary_name) };
         GpuF64::new().await
     });
-    #[allow(deprecated)]
-    std::env::set_var("HOTSPRING_GPU_ADAPTER", &secondary_name);
+    // SAFETY: single-threaded main; no concurrent env readers.
+    unsafe { std::env::set_var("HOTSPRING_GPU_ADAPTER", &secondary_name) };
     let gpu_secondary = rt.block_on(GpuF64::new());
 
     let gpu_primary = match gpu_primary {

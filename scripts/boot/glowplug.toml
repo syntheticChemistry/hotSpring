@@ -1,5 +1,11 @@
 # coralReef GlowPlug daemon configuration
-# biomeGate: 2x Titan V + RTX 5070 (display head)
+# biomeGate: Titan V + RTX 5070 (display) + Tesla K80 (dual-GPU)
+#
+# health_policy: "passive" (default) = sysfs-only, no BAR0 reads
+#                "active" = full BAR0 register probing each tick
+# SAFETY: K80 shares PCIe root complex 0000:40 with the USB controller.
+# BAR0 reads on uninitialized K80 hardware cause PCIe completion timeouts
+# that cascade to USB, freezing mouse/keyboard. Keep K80 passive.
 
 [daemon]
 socket = "/run/coralreef/glowplug.sock"
@@ -16,19 +22,36 @@ power_policy = "always_on"
 role = "display"
 
 # Titan V #1 — NVIDIA GV100, 12 GB HBM2, VFIO at boot
-# IOMMU group 69, with 0000:03:00.1 (HDMI audio)
+# IOMMU group 69 (root complex 0000:00) — isolated from USB
 [[device]]
 bdf = "0000:03:00.0"
 name = "titan-v-1"
 boot_personality = "vfio"
 power_policy = "always_on"
+health_policy = "active"
 role = "oracle"
 
-# Titan V #2 — NVIDIA GV100, 12 GB HBM2, VFIO at boot
-# IOMMU group 34, with 0000:4a:00.1 (HDMI audio)
+# Tesla K80 GPU #1 — GK210 (Kepler), 12 GB GDDR5, VFIO at boot
+# IOMMU group 37, root complex 0000:40 (SHARED with USB at 47:00.3)
+# health_policy = "passive" (default) — no BAR0 reads until initialized
 [[device]]
-bdf = "0000:4a:00.0"
-name = "titan-v-2"
+bdf = "0000:4c:00.0"
+name = "k80-gpu-1"
+boot_personality = "vfio"
+power_policy = "always_on"
+role = "compute"
+
+# Tesla K80 GPU #2 — GK210 (Kepler), 12 GB GDDR5, vfio at boot (cold)
+# IOMMU group 38, root complex 0000:40 (SHARED with USB at 47:00.3)
+# Boots cold on vfio-pci (UEFI does not POST secondary GPUs).
+# BOOT0 returns 0x0f22d0a1 (cold GK210 default, not a valid chipset).
+# nouveau cannot probe cold GK210 — it fails with "unknown chipset".
+# Initialization: agentReagents VM with nvidia-470 POSTs the device,
+# then ember reclaims it for sovereign compute.
+# Kepler has no FLR — vfio-pci unbind on cold hardware D-states.
+[[device]]
+bdf = "0000:4d:00.0"
+name = "k80-gpu-2"
 boot_personality = "vfio"
 power_policy = "always_on"
 role = "compute"

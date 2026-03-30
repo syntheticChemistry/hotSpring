@@ -8,8 +8,8 @@
 
 use crate::gpu::GpuF64;
 use crate::lattice::gpu_hmc::{
-    gpu_hmc_trajectory_streaming, gpu_links_to_lattice, gpu_polyakov_loop, GpuHmcState,
-    GpuHmcStreamingPipelines,
+    GpuHmcState, GpuHmcStreamingPipelines, gpu_hmc_trajectory_streaming, gpu_links_to_lattice,
+    gpu_polyakov_loop,
 };
 use crate::lattice::hmc::{self, HmcConfig, IntegratorType};
 use crate::lattice::wilson::Lattice;
@@ -17,8 +17,8 @@ use crate::md::reservoir::{
     Activation, EchoStateNetwork, EsnConfig, ExportedWeights, NpuSimulator,
 };
 use crate::production::{
-    bootstrap_esn_from_trajectory_log, build_training_data, check_thermalization,
-    find_max_uncertainty_beta, plaquette_variance, predict_beta_c, predict_rejection, BetaResult,
+    BetaResult, bootstrap_esn_from_trajectory_log, build_training_data, check_thermalization,
+    find_max_uncertainty_beta, plaquette_variance, predict_beta_c, predict_rejection,
 };
 use crate::provenance::KNOWN_BETA_C_SU3_NT4 as KNOWN_BETA_C;
 use std::io::Write as IoWrite;
@@ -390,7 +390,7 @@ pub fn run_beta_points_npu(
             therm_used = i + 1;
 
             // Log thermalization trajectory
-            if let Some(ref mut w) = traj_writer {
+            if let Some(w) = traj_writer.as_mut() {
                 let line = serde_json::json!({
                     "beta": beta,
                     "traj_idx": i,
@@ -417,11 +417,11 @@ pub fn run_beta_points_npu(
                     .ok();
                 npu_stats.total_npu_calls += 1;
 
-                if let Ok(QuenchedNpuResponse::ThermConverged(converged)) = npu_rx.recv() {
-                    if converged {
-                        early_exit = true;
-                        break;
-                    }
+                if let Ok(QuenchedNpuResponse::ThermConverged(converged)) = npu_rx.recv()
+                    && converged
+                {
+                    early_exit = true;
+                    break;
                 }
             }
         }
@@ -491,7 +491,7 @@ pub fn run_beta_points_npu(
                     reject_correct += 1;
                 }
                 // Log rejection prediction alongside trajectory data
-                if let Some(ref mut w) = traj_writer {
+                if let Some(w) = traj_writer.as_mut() {
                     let line = serde_json::json!({
                         "beta": beta,
                         "traj_idx": therm_used + i,
@@ -517,7 +517,7 @@ pub fn run_beta_points_npu(
             }
 
             // Log measurement trajectory
-            if let Some(ref mut w) = traj_writer {
+            if let Some(w) = traj_writer.as_mut() {
                 let pvar = plaquette_variance(&plaq_history);
                 let line = serde_json::json!({
                     "beta": beta,
@@ -607,7 +607,7 @@ pub fn run_beta_points_npu(
             ..Default::default()
         });
 
-        if let Some(ref mut w) = traj_writer {
+        if let Some(w) = traj_writer.as_mut() {
             w.flush().ok();
         }
     }

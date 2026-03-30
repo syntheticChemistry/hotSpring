@@ -36,14 +36,15 @@ fn rpc_call(method: &str, params: serde_json::Value) -> serde_json::Value {
     serde_json::from_str(&line).expect("rpc parse")
 }
 
-/// Build PTX for SAXPY: out[i] = alpha*x[i] + y[i]
+/// Build PTX for SAXPY: `out[i] = alpha*x[i] + y[i]`
 ///
 /// Three buffer params: param_x (input), param_y (input), param_out (output).
 /// Alpha and N are baked into the PTX as immediate values.
 /// Targets sm_70 for Volta compatibility (JIT-compiles to higher SM at runtime).
 fn build_saxpy_ptx() -> String {
+    let alpha_hex = format!("{:08X}", ALPHA.to_bits());
     format!(
-        r#"
+        r"
 .version 7.0
 .target sm_70
 .address_size 64
@@ -83,9 +84,7 @@ fn build_saxpy_ptx() -> String {
 $done:
     ret;
 }}
-"#,
-        N = N,
-        alpha_hex = format!("{:08X}", ALPHA.to_bits()),
+",
     )
 }
 
@@ -145,7 +144,7 @@ fn main() {
             .unwrap_or("?");
         let protected = dev
             .get("protected")
-            .and_then(|v| v.as_bool())
+            .and_then(serde_json::Value::as_bool)
             .unwrap_or(false);
 
         if !personality.contains("nvidia") && !personality.contains("cuda") {
@@ -157,7 +156,7 @@ fn main() {
         print!("{bdf}  {name:<30} ");
 
         let block = 256u32;
-        let grid = ((N as u32) + block - 1) / block;
+        let grid = (N as u32).div_ceil(block);
 
         let params = serde_json::json!({
             "bdf": bdf,
@@ -179,12 +178,9 @@ fn main() {
             continue;
         }
 
-        let result = match resp.get("result") {
-            Some(r) => r,
-            None => {
-                println!("FAIL (no result in response)");
-                continue;
-            }
+        let Some(result) = resp.get("result") else {
+            println!("FAIL (no result in response)");
+            continue;
         };
 
         let outputs = match result.get("outputs").and_then(|v| v.as_array()) {
@@ -236,7 +232,7 @@ fn main() {
             println!(
                 "FAIL  max_err={:.2e} (threshold 1e-2)  first_bad={}",
                 max_err,
-                first_bad.map_or("?".to_string(), |i| format!("[{i}]")),
+                first_bad.map_or_else(|| "?".to_string(), |i| format!("[{i}]")),
             );
         }
     }

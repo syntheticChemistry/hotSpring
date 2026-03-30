@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
+#![forbid(unsafe_code)]
 #![deny(clippy::expect_used, clippy::unwrap_used)]
+#![warn(missing_docs)]
 
 //! hotSpring Forge — local hardware discovery and cross-substrate dispatch.
 //!

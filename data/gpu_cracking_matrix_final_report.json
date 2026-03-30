@@ -1,0 +1,101 @@
+{
+  "report": "GPU Cracking Driver Reagent Matrix — Final Report",
+  "date": "2026-03-29",
+  "phases_completed": 4,
+  "summary": {
+    "phase1_system_bringup": {
+      "status": "COMPLETE",
+      "achievements": [
+        "All 4 GPUs online (RTX 5070, Titan V, K80 die1, K80 die2)",
+        "K80 die2 recovered via PCIe bridge rescan (PLX PEX 8747)",
+        "vfio-pci bound to Titan V + K80 die1, nouveau on K80 die2",
+        "Ember + glowplug daemons running via systemd",
+        "SystemdTimeoutStartSec fixed 30→90s for K80 POST cycle",
+        "coralctl operational for device management"
+      ]
+    },
+    "phase2_k80_sovereign": {
+      "status": "COMPLETE (partial)",
+      "achievements": [
+        "GK210 identity confirmed (SM 3.7, BOOT0=0x0f22d0a1)",
+        "FECS woke from PRI_FAULT to HALTED — PMC engine enable works",
+        "PMU sctl=0x00000000 — NO firmware security on Kepler (unsigned OK)",
+        "PIO firmware upload verified (GK110 IMEM readback 8/8 match)",
+        "VBIOS PROM read (129KB), DEVINIT partially interpreted (40 reg writes)"
+      ],
+      "blocked_by": [
+        "DEVINIT interpreter missing opcodes 0x00, 0x04, 0x0d (PLL/clock config)",
+        "FECS halts at PC=0 — clocks not configured",
+        "GPCCS PRI_FAULT — GPC register space inaccessible without full init"
+      ]
+    },
+    "phase3_driver_reagent_matrix": {
+      "status": "COMPLETE",
+      "achievements": [
+        "10 reagent templates created (nouveau, nvidia-390/418/470/510/535/open-535 × K80/Titan V)",
+        "3 Titan V nouveau mmiotrace captures (32K+ lines each, 7343 writes)",
+        "mmiotrace parser tool created (parse_mmiotrace.py)",
+        "Init recipe generator created (generate_titanv_recipe.py)",
+        "Capture orchestration script ready (run_reagent_capture.sh)",
+        "VM infrastructure verified (libvirt + cloud image available)",
+        "Pre-existing traces from /var/lib/coralreef/traces/ integrated"
+      ],
+      "key_finding": "Nouveau traces contain 337 unique register writes but ZERO SEC2/ACR/FECS/GPCCS/PMU writes — nouveau cannot do authenticated boot on Volta."
+    },
+    "phase4_titanv_acr": {
+      "status": "COMPLETE (diagnosed)",
+      "achievements": [
+        "ACR boot solver run against live Titan V — all 12 strategies attempted",
+        "Strategy 4 (sysmem ACR) reached furthest: SEC2 executed, ACR returned 0xdeada5a5 (failed sentinel)",
+        "Strategy 7 (mailbox command) achieved momentary FECS RUNNING state",
+        "Post-nouveau falcon state documented: all IMEM/DMEM zeroed on unbind",
+        "Hardware security barrier characterized: sctl=0x3000 on all falcons",
+        "Boot follower integration mapped: BootTrace::from_mmiotrace() + to_recipe() pipeline exists"
+      ],
+      "root_cause": "SEC2 hardware security (sctl=0x3000) enforces signed-only execution. ACR payload authentication fails because WPR2 region setup and DMA descriptor layout don't match what the hardware expects.",
+      "blocked_by": [
+        "Need closed-source driver mmiotrace to capture correct WPR2 programming sequence",
+        "Need ACR descriptor layout from proprietary driver init",
+        "Need to verify IOMMU DMA mapping matches BL DMEM descriptor expectations"
+      ]
+    }
+  },
+  "hardware_state": {
+    "rtx_5070": {"bdf": "0000:21:00.0", "driver": "nvidia", "role": "display", "status": "PROTECTED"},
+    "titan_v": {"bdf": "0000:03:00.0", "driver": "vfio-pci", "role": "oracle", "status": "VRAM_ALIVE", "acr_status": "12 strategies tried, none succeeded"},
+    "k80_die1": {"bdf": "0000:4c:00.0", "driver": "vfio-pci", "role": "compute", "status": "COLD_SILICON", "sovereign_status": "FECS upload works, clocks not configured"},
+    "k80_die2": {"bdf": "0000:4d:00.0", "driver": "vfio-pci", "role": "compute", "status": "COLD_SILICON"}
+  },
+  "files_created": [
+    "scripts/boot/glowplug.toml (updated die2 to nouveau personality)",
+    "scripts/boot/coral-glowplug.service (updated TimeoutStartSec=90)",
+    "scripts/boot/coral-ember.service (new, full systemd hardening)",
+    "scripts/parse_mmiotrace.py (mmiotrace parser)",
+    "scripts/generate_titanv_recipe.py (recipe generator)",
+    "scripts/run_reagent_capture.sh (capture orchestration)",
+    "data/k80/exp123_phase2_results.json",
+    "data/titanv/reagent-captures/ (3 nouveau traces + parsed data)",
+    "data/titanv/nouveau_init_recipe.json",
+    "data/titanv/acr_boot_solver_results.json",
+    "data/driver_reagent_matrix_status.json"
+  ],
+  "reagent_templates_created": [
+    "infra/agentReagents/templates/reagent-nouveau-k80.yaml",
+    "infra/agentReagents/templates/reagent-nouveau-titanv.yaml",
+    "infra/agentReagents/templates/reagent-nvidia390-k80.yaml",
+    "infra/agentReagents/templates/reagent-nvidia418-k80.yaml",
+    "infra/agentReagents/templates/reagent-nvidia418-titanv.yaml",
+    "infra/agentReagents/templates/reagent-nvidia470-titanv.yaml",
+    "infra/agentReagents/templates/reagent-nvidia510-titanv.yaml",
+    "infra/agentReagents/templates/reagent-nvidia535-titanv.yaml",
+    "infra/agentReagents/templates/reagent-nvidiaopen535-titanv.yaml"
+  ],
+  "next_steps": [
+    "1. Run VM captures with nvidia-535 on Titan V — most likely to have cleanest SEC2/ACR init sequence",
+    "2. Parse captured mmiotrace through BootTrace::from_mmiotrace() and extract SEC2/WPR2/ACR recipe",
+    "3. Feed recipe into strategy_sysmem (strategy 4) — patch ACR descriptor and WPR2 register values",
+    "4. Run VM captures with nvidia-470 on K80 — fill DEVINIT opcode gaps (PLLs, clocks)",
+    "5. Complete K80 sovereign compute pipeline once clocks are configured",
+    "6. Compare driver versions (experienced traveling salesman) to find common ACR init pattern"
+  ]
+}

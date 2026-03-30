@@ -153,8 +153,10 @@ impl<'a> TransferEval<'a> {
 fn main() { }
 ";
         let pipeline = self.gpu.create_pipeline(empty_shader, "empty_dispatch");
-        let dummy_buf = self.gpu.create_f64_output_buffer(1, "dummy");
-        let bind_group = self.gpu.create_bind_group(&pipeline, &[&dummy_buf]);
+        let noop_buf = self
+            .gpu
+            .create_f64_output_buffer(1, "dispatch_overhead_noop");
+        let bind_group = self.gpu.create_bind_group(&pipeline, &[&noop_buf]);
 
         for _ in 0..WARMUP_REPS {
             self.gpu.dispatch(&pipeline, &bind_group, 1);

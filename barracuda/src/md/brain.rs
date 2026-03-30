@@ -642,10 +642,10 @@ impl MdBrain {
             self.readout_retrains = retrains;
             self.last_retrain_at = self.observations.len();
             self.readout_trained = retrains > 0;
-            if let Some((_, ref t)) = self.observations.first() {
-                if !t.is_empty() {
-                    self.first_energy_per_particle = Some(t[A0_ENERGY_DRIFT]);
-                }
+            if let Some((_, t)) = self.observations.first()
+                && !t.is_empty()
+            {
+                self.first_energy_per_particle = Some(t[A0_ENERGY_DRIFT]);
             }
             return true;
         }
