@@ -497,7 +497,9 @@ mod tests {
         let t_eq_numerical = f64::midpoint(te_final, ti_final);
 
         let rel_err = ((t_eq_numerical - t_eq_theory) / t_eq_theory).abs();
-        assert!(rel_err < 0.05,
-            "Equilibrium T: theory={t_eq_theory:.1}, numerical={t_eq_numerical:.1}, rel_err={rel_err:.6}");
+        assert!(
+            rel_err < 0.05,
+            "Equilibrium T: theory={t_eq_theory:.1}, numerical={t_eq_numerical:.1}, rel_err={rel_err:.6}"
+        );
     }
 }

@@ -5,8 +5,8 @@
 use super::dynamical::GpuDynHmcResult;
 use super::resident_cg::gpu_dynamical_hmc_trajectory_resident;
 use super::{
-    gpu_polyakov_loop, GpuDynHmcState, GpuDynHmcStreamingPipelines, GpuF64, GpuResidentCgBuffers,
-    GpuResidentCgPipelines,
+    GpuDynHmcState, GpuDynHmcStreamingPipelines, GpuF64, GpuResidentCgBuffers,
+    GpuResidentCgPipelines, gpu_polyakov_loop,
 };
 
 /// Observable scalars for the readback stream.
@@ -181,10 +181,10 @@ impl BidirectionalStream {
             let _ = tx.send(obs);
         }
 
-        if let Some(ref rx) = self.npu_rx {
-            if let Ok(_skip) = rx.try_recv() {
-                // NPU screening can influence future trajectory scheduling
-            }
+        if let Some(ref rx) = self.npu_rx
+            && let Ok(_skip) = rx.try_recv()
+        {
+            // NPU screening can influence future trajectory scheduling
         }
 
         result

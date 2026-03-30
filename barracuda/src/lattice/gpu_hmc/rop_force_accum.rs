@@ -63,8 +63,7 @@ impl RopForceAccumulator {
         let wg_convert = n_values.div_ceil(256);
 
         eprintln!(
-            "[ROP] Force accumulator: {} links, {} atomic i32 entries, scale=2^20",
-            n_links, n_values
+            "[ROP] Force accumulator: {n_links} links, {n_values} atomic i32 entries, scale=2^20"
         );
 
         Self {

@@ -17,7 +17,7 @@
 
 use hotspring_forge::probe;
 use hotspring_forge::substrate::{Capability, Fp64Rate, Fp64Strategy, SubstrateKind};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::io::{BufRead, BufReader, Write};
 use std::os::unix::net::UnixListener;
 use std::path::PathBuf;
@@ -244,7 +244,7 @@ fn run_server(state: Arc<HotSpringState>) {
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    let cmd = args.get(1).map(String::as_str).unwrap_or("server");
+    let cmd = args.get(1).map_or("server", String::as_str);
 
     let mut socket_override = None;
     let mut i = 1;

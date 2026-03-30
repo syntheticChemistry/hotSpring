@@ -20,7 +20,7 @@
 //! - Remez algorithm for optimal rational approximation
 
 use super::complex_f64::Complex64;
-use super::dirac::{apply_dirac_sq, FermionField};
+use super::dirac::{FermionField, apply_dirac_sq};
 use super::wilson::Lattice;
 
 /// Partial-fraction representation of a rational approximation:
@@ -590,7 +590,10 @@ impl RhmcConfig {
                     det_power: light_power,
                     action_approx: light_af.clone(),
                     heatbath_approx: RationalApproximation::generate(
-                        light_power / 2.0, 8, 0.01, 64.0,
+                        light_power / 2.0,
+                        8,
+                        0.01,
+                        64.0,
                     ),
                     force_approx: light_af,
                 },
@@ -599,7 +602,10 @@ impl RhmcConfig {
                     det_power: single_power,
                     action_approx: strange_af.clone(),
                     heatbath_approx: RationalApproximation::generate(
-                        single_power / 2.0, 8, 0.01, 64.0,
+                        single_power / 2.0,
+                        8,
+                        0.01,
+                        64.0,
                     ),
                     force_approx: strange_af,
                 },
@@ -608,7 +614,10 @@ impl RhmcConfig {
                     det_power: single_power,
                     action_approx: charm_af.clone(),
                     heatbath_approx: RationalApproximation::generate(
-                        single_power / 2.0, 8, 0.01, 64.0,
+                        single_power / 2.0,
+                        8,
+                        0.01,
+                        64.0,
                     ),
                     force_approx: charm_af,
                 },
@@ -842,10 +851,10 @@ fn remez_for_poles(sigma: &[f64], power: f64, eval_grid: &[f64]) -> (Vec<f64>, f
                 let last_sign = last.1.signum();
                 if (e.signum() - last_sign).abs() > f64::EPSILON {
                     selected.push((idx, e));
-                } else if selected.last().is_some_and(|l| e.abs() > l.1.abs()) {
-                    if let Some(slot) = selected.last_mut() {
-                        *slot = (idx, e);
-                    }
+                } else if selected.last().is_some_and(|l| e.abs() > l.1.abs())
+                    && let Some(slot) = selected.last_mut()
+                {
+                    *slot = (idx, e);
                 }
             }
         }

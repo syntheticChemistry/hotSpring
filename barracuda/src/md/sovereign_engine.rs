@@ -24,7 +24,7 @@ use barracuda::device::compute_pipeline::{BatchedComputeDispatch, ComputeDispatc
 
 use crate::md::config::MdConfig;
 use crate::md::shaders;
-use crate::md::simulation::{init_fcc_lattice, init_velocities, EnergyRecord, MdSimulation};
+use crate::md::simulation::{EnergyRecord, MdSimulation, init_fcc_lattice, init_velocities};
 use crate::tolerances::{DEFAULT_VELOCITY_SEED, MD_TEMPERATURE_FLOOR, MD_WORKGROUP_SIZE};
 
 use std::time::Instant;

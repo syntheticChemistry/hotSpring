@@ -19,26 +19,28 @@ pub mod md_backend;
 mod power;
 mod report;
 pub mod silicon_profile;
+mod silicon_spec_sheets;
 pub mod telemetry;
 
 pub use compute_backend::{
-    compare_backends, BackendKind, BarraCudaCpuBackend, BenchmarkResult, BenchmarkSpec,
-    ComputeBackend, PrecisionMode,
+    BackendKind, BarraCudaCpuBackend, BenchmarkResult, BenchmarkSpec, ComputeBackend,
+    PrecisionMode, compare_backends,
 };
 pub use esn_benchmark::{
-    generate_test_sequence, generate_training_data, time_fn, GpuEsn, SubstrateResult,
+    GpuEsn, SubstrateResult, generate_test_sequence, generate_training_data, time_fn,
 };
 pub use hardware::HardwareInventory;
 pub use md_backend::{
-    compare_md_backends, BarraCudaMdBackend, GenericMdBackend, KokkosLammpsBackend,
-    MdBenchmarkBackend, MdBenchmarkResult, MdBenchmarkSpec,
+    BarraCudaMdBackend, GenericMdBackend, KokkosLammpsBackend, MdBenchmarkBackend,
+    MdBenchmarkResult, MdBenchmarkSpec, compare_md_backends,
 };
 pub use power::{EnergyReport, PowerMonitor};
-pub use report::{peak_rss_mb, BenchReport, PhaseResult};
+pub use report::{BenchReport, PhaseResult, peak_rss_mb};
 pub use silicon_profile::{
-    classify_vendor, from_spec_sheet, CompositionEntry, GpuVendorTag, QcdKernel, SiliconProfile,
-    SiliconUnit, TierRoute, UnitThroughput,
+    CompositionEntry, GpuVendorTag, QcdKernel, SiliconProfile, SiliconUnit, TierRoute,
+    UnitThroughput,
 };
+pub use silicon_spec_sheets::{classify_vendor, from_spec_sheet};
 pub use telemetry::{GpuSnapshot, GpuTelemetry, TelemetryBackend};
 
 #[cfg(test)]

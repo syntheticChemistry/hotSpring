@@ -24,7 +24,7 @@ use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::md::config;
 use hotspring_barracuda::md::cpu_reference;
 use hotspring_barracuda::md::observables::transport_gpu::compute_vacf_gpu;
-use hotspring_barracuda::md::observables::{compute_vacf, validate_energy, GpuVelocityRing};
+use hotspring_barracuda::md::observables::{GpuVelocityRing, compute_vacf, validate_energy};
 use hotspring_barracuda::md::transport::d_star_daligault;
 use hotspring_barracuda::validation::ValidationHarness;
 

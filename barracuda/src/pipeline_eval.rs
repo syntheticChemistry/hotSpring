@@ -92,7 +92,6 @@ impl<'a> PipelineEval<'a> {
             .collect()
     }
 
-    #[allow(deprecated)]
     fn run_hmc(
         &self,
         dims: [usize; 4],
@@ -101,18 +100,22 @@ impl<'a> PipelineEval<'a> {
         n_md_steps: usize,
         dt: f64,
     ) -> (f64, f64, f64) {
-        use crate::lattice::gpu_hmc::{gpu_hmc_trajectory, GpuHmcPipelines, GpuHmcState};
+        use crate::lattice::gpu_hmc::{
+            GpuHmcState, GpuHmcStreamingPipelines, gpu_hmc_trajectory_streaming,
+        };
         use crate::lattice::wilson::Lattice;
 
         let lattice = Lattice::hot_start(dims, beta, 42);
-        let pipelines = GpuHmcPipelines::new(self.gpu);
+        let pipelines = GpuHmcStreamingPipelines::new(self.gpu);
         let state = GpuHmcState::from_lattice(self.gpu, &lattice, beta);
         let mut seed = 42_u64;
 
         let t0 = Instant::now();
         let mut plaqs = Vec::with_capacity(n_traj);
-        for _ in 0..n_traj {
-            let r = gpu_hmc_trajectory(self.gpu, &pipelines, &state, n_md_steps, dt, &mut seed);
+        for i in 0..n_traj {
+            let r = gpu_hmc_trajectory_streaming(
+                self.gpu, &pipelines, &state, n_md_steps, dt, i as u32, &mut seed,
+            );
             plaqs.push(r.plaquette);
         }
         let wall_ms = t0.elapsed().as_secs_f64() * 1e3;

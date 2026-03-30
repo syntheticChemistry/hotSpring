@@ -415,8 +415,8 @@ fn test_coulomb(device: &Arc<WgpuDevice>) -> Vec<TestResult> {
                 TestResult::fail(
                     "Coulomb: inverse-square law",
                     format!(
-                    "|F(r1)/F(r2)|={ratio:.4}, expected={expected_ratio:.4}, err={ratio_err:.4}"
-                ),
+                        "|F(r1)/F(r2)|={ratio:.4}, expected={expected_ratio:.4}, err={ratio_err:.4}"
+                    ),
                 )
             },
         );

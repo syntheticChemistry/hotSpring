@@ -16,8 +16,8 @@
 
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::lattice::dirac::{
-    apply_dirac, flatten_fermion, unflatten_fermion, DiracGpuLayout, FermionField,
-    WGSL_DIRAC_STAGGERED_F64,
+    DiracGpuLayout, FermionField, WGSL_DIRAC_STAGGERED_F64, apply_dirac, flatten_fermion,
+    unflatten_fermion,
 };
 use hotspring_barracuda::lattice::wilson::Lattice;
 use hotspring_barracuda::tolerances;

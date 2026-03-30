@@ -13,6 +13,10 @@ categories = ["science", "simulation"]
 
 # ── Lint configuration (applies to all targets: lib + bins) ──
 # Physics code justifies certain clippy patterns. Each allow is annotated.
+# Public API still prefers doc comments; internal physics/bench types are dense.
+[workspace.lints.rust]
+missing_docs = "allow"
+
 [workspace.lints.clippy]
 pedantic = { level = "warn", priority = -1 }
 nursery = { level = "warn", priority = -1 }
@@ -43,6 +47,10 @@ imprecise_flops = "allow"
 too_many_arguments = "allow"
 too_many_lines = "allow"
 cognitive_complexity = "allow"
+
+# GPU capability structs and init paths use many independent bool flags by design.
+struct_excessive_bools = "allow"
+fn_params_excessive_bools = "allow"
 
 # Ergonomic allows for physics library API style.
 module_name_repetitions = "allow"
@@ -124,6 +132,9 @@ pollster = "0.4"
 
 # Sovereign GPU pipeline (coralReef compiler + DRM dispatch, no wgpu)
 coral-gpu = { path = "../../../primals/coralReef/crates/coral-gpu", optional = true }
+
+# metalForge substrate probe (hardware FP64-rate classification, dispatch profiles)
+hotspring-forge = { path = "../metalForge/forge" }
 
 # Low-level syscalls (mmap for BAR0 register reading in Exp 070 binaries)
 libc = "0.2"

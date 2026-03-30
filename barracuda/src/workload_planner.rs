@@ -214,11 +214,13 @@ mod tests {
             WorkloadAssignment::ThroughputOnly.to_string(),
             "ThroughputOnly"
         );
-        assert!(WorkloadAssignment::Split {
-            precise_fraction: 0.3
-        }
-        .to_string()
-        .contains("30%"));
+        assert!(
+            WorkloadAssignment::Split {
+                precise_fraction: 0.3
+            }
+            .to_string()
+            .contains("30%")
+        );
         assert_eq!(WorkloadAssignment::Redundant.to_string(), "Redundant");
     }
 

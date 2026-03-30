@@ -42,11 +42,11 @@ const GAMMA: f64 = 5.0 / 3.0;
 
 // Re-export public API to preserve backwards compatibility.
 pub use bgk::{
-    bgk_relaxation_step, bgk_target_params, entropy_h, run_bgk_relaxation, BgkRelaxationResult,
-    BgkSpecies,
+    BgkRelaxationResult, BgkSpecies, bgk_relaxation_step, bgk_target_params, entropy_h,
+    run_bgk_relaxation,
 };
-pub use coupling::{run_coupled_kinetic_fluid, CoupledResult};
-pub use euler::{run_sod_shock_tube, SodResult};
+pub use coupling::{CoupledResult, run_coupled_kinetic_fluid};
+pub use euler::{SodResult, run_sod_shock_tube};
 pub use maxwellian::{compute_moments, maxwellian_1d};
 
 /// Full validation result for Paper 45.

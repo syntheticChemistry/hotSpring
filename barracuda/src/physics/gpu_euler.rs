@@ -13,7 +13,7 @@
 #![allow(clippy::cast_possible_truncation)]
 #![allow(clippy::cast_precision_loss)]
 
-use super::kinetic_fluid::{run_sod_shock_tube, SodResult};
+use super::kinetic_fluid::{SodResult, run_sod_shock_tube};
 use crate::gpu::GpuF64;
 
 use barracuda::shaders::precision::ShaderTemplate;

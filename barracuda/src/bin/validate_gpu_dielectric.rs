@@ -17,7 +17,7 @@
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::physics::dielectric::{self, PlasmaParams};
 use hotspring_barracuda::physics::gpu_dielectric::{
-    gpu_dielectric_batch, gpu_f_sum_integral, GpuDielectricPipeline,
+    GpuDielectricPipeline, gpu_dielectric_batch, gpu_f_sum_integral,
 };
 use hotspring_barracuda::validation::ValidationHarness;
 

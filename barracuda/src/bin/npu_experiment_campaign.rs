@@ -18,10 +18,10 @@
 
 use hotspring_barracuda::md::reservoir::{EchoStateNetwork, EsnConfig, NpuSimulator};
 use hotspring_barracuda::npu_experiments::{
-    build_multi_output_dataset, build_rejection_dataset, build_thermalization_dataset,
-    characterize_npu_behavior, evaluate_multi_output, evaluate_rejection_predictor,
-    evaluate_thermalization_detector, generate_trajectory_data, run_placement_experiments,
-    split_dataset, write_jsonl_summary, N_TOTAL, WINDOW_SIZE,
+    N_TOTAL, WINDOW_SIZE, build_multi_output_dataset, build_rejection_dataset,
+    build_thermalization_dataset, characterize_npu_behavior, evaluate_multi_output,
+    evaluate_rejection_predictor, evaluate_thermalization_detector, generate_trajectory_data,
+    run_placement_experiments, split_dataset, write_jsonl_summary,
 };
 use hotspring_barracuda::validation::ValidationHarness;
 use std::time::Instant;
@@ -104,7 +104,9 @@ fn main() {
     );
 
     let projected_hours_saved = therm_savings * 5.1;
-    println!("  Projected time savings at production scale: {projected_hours_saved:.1}h of 5.1h therm budget");
+    println!(
+        "  Projected time savings at production scale: {projected_hours_saved:.1}h of 5.1h therm budget"
+    );
     println!();
 
     harness.check_bool("Therm detector accuracy > 60%", therm_accuracy > 0.60);

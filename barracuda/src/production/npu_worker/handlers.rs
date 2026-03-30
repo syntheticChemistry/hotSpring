@@ -6,7 +6,7 @@
 
 use crate::md::reservoir::heads;
 use crate::production::trajectory_input::{canonical_input, canonical_seq, heuristic_phase};
-use crate::production::{check_thermalization, plaquette_variance, predict_rejection, BetaResult};
+use crate::production::{BetaResult, check_thermalization, plaquette_variance, predict_rejection};
 use crate::production::{MetaRow, TrajectoryEvent};
 use barracuda::nautilus::BetaObservation;
 use std::sync::mpsc;

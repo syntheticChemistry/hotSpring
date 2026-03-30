@@ -9,8 +9,8 @@
 //! Usage:
 //!   cargo run --release --bin `compare_flow_integrators`
 
-use hotspring_barracuda::lattice::gradient_flow::{find_t0, find_w0, run_flow, FlowIntegrator};
-use hotspring_barracuda::lattice::hmc::{hmc_trajectory, HmcConfig, IntegratorType};
+use hotspring_barracuda::lattice::gradient_flow::{FlowIntegrator, find_t0, find_w0, run_flow};
+use hotspring_barracuda::lattice::hmc::{HmcConfig, IntegratorType, hmc_trajectory};
 use hotspring_barracuda::lattice::wilson::Lattice;
 use std::time::Instant;
 

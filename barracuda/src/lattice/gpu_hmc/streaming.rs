@@ -10,17 +10,17 @@
 //! `resident_observables` — no per-site/per-link readback to CPU.
 
 use super::dynamical::{
-    gpu_fermion_action_all, gpu_total_force_dispatch, GpuDynHmcPipelines, GpuDynHmcResult,
-    GpuDynHmcState, WGSL_RANDOM_MOMENTA, WGSL_RANDOM_MOMENTA_TMU,
+    GpuDynHmcPipelines, GpuDynHmcResult, GpuDynHmcState, WGSL_RANDOM_MOMENTA,
+    WGSL_RANDOM_MOMENTA_TMU, gpu_fermion_action_all, gpu_total_force_dispatch,
 };
 use super::resident_cg::WGSL_SUM_REDUCE;
 use super::resident_observables::{
-    gauge_ke_resident, plaquette_resident, ResidentObservableBuffers,
+    ResidentObservableBuffers, gauge_ke_resident, plaquette_resident,
 };
 use super::tmu_tables::TmuLookupTables;
 use super::{
-    gpu_link_update_dispatch, make_force_params, make_link_mom_params, make_prng_params, GpuF64,
-    GpuHmcPipelines, GpuHmcResult, GpuHmcState,
+    GpuF64, GpuHmcPipelines, GpuHmcResult, GpuHmcState, gpu_link_update_dispatch,
+    make_force_params, make_link_mom_params, make_prng_params,
 };
 
 /// Streaming HMC pipelines: quenched HMC + GPU PRNG + GPU reduce for observables.
@@ -97,7 +97,14 @@ pub fn gpu_hmc_trajectory_streaming(
         let mut enc = gpu.begin_encoder("stream_init");
         let prng_params = make_prng_params(n_links as u32, traj_id, seed);
         let prng_pbuf = gpu.create_uniform_buffer(&prng_params, "prng_p");
-        encode_prng_dispatch(&mut enc, gpu, pipelines, &prng_pbuf, &state.mom_buf, state.wg_links);
+        encode_prng_dispatch(
+            &mut enc,
+            gpu,
+            pipelines,
+            &prng_pbuf,
+            &state.mom_buf,
+            state.wg_links,
+        );
         enc.copy_buffer_to_buffer(
             &state.link_buf,
             0,
@@ -219,9 +226,7 @@ fn encode_prng_dispatch(
     mom_buf: &wgpu::Buffer,
     wg_links: u32,
 ) {
-    if let (Some(tmu_pl), Some(tables)) =
-        (&pipelines.tmu_prng_pipeline, &pipelines.tmu_tables)
-    {
+    if let (Some(tmu_pl), Some(tables)) = (&pipelines.tmu_prng_pipeline, &pipelines.tmu_tables) {
         let bg = gpu.device().create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("prng_tmu_bg"),
             layout: &tmu_pl.get_bind_group_layout(0),

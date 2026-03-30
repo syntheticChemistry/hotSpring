@@ -8,11 +8,11 @@ mod single_beta;
 
 use crate::lattice::gpu_hmc::{GpuDynHmcStreamingPipelines, GpuHmcStreamingPipelines};
 use crate::production::{
+    BetaResult, MetaRow,
     cortex_worker::CortexWorkerHandles,
     dynamical_summary::DynamicalNpuStats,
     npu_worker::{NpuRequest, NpuResponse},
     titan_worker::{TitanRequest, TitanWorkerHandles},
-    BetaResult, MetaRow,
 };
 
 /// Configuration for a dynamical mixed β-scan (quenched+dynamical+NPU pipeline).
@@ -82,23 +82,23 @@ pub fn run_dynamical_mixed_scan(
     npu_stats: &mut DynamicalNpuStats,
     traj_writer: &mut Option<std::io::BufWriter<std::fs::File>>,
 ) {
-    if let Some(handles) = ctx.titan_handles {
-        if beta_order.len() > 1 {
-            let first_next = beta_order[1];
-            handles
-                .titan_tx
-                .send(TitanRequest::PreThermalize {
-                    beta: first_next,
-                    mass: config.mass,
-                    lattice: config.lattice,
-                    n_quenched: config.n_quenched_pretherm,
-                    seed: config.seed + 1500,
-                    dt: *dt,
-                    n_md: *n_md,
-                })
-                .ok();
-            println!("  [Brain L2] Titan V pre-thermalizing β={first_next:.4} for scan start");
-        }
+    if let Some(handles) = ctx.titan_handles
+        && beta_order.len() > 1
+    {
+        let first_next = beta_order[1];
+        handles
+            .titan_tx
+            .send(TitanRequest::PreThermalize {
+                beta: first_next,
+                mass: config.mass,
+                lattice: config.lattice,
+                n_quenched: config.n_quenched_pretherm,
+                seed: config.seed + 1500,
+                dt: *dt,
+                n_md: *n_md,
+            })
+            .ok();
+        println!("  [Brain L2] Titan V pre-thermalizing β={first_next:.4} for scan start");
     }
 
     println!(

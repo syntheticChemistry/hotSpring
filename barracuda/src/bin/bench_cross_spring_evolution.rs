@@ -464,7 +464,9 @@ fn bench_chi_squared_gpu(device: &Arc<WgpuDevice>) {
 
 fn bench_linear_regression_gpu(device: &Arc<WgpuDevice>) {
     println!("═══ Phase 2b: Linear Regression GPU (barracuda::ops::stats_f64) ═══");
-    println!("  Provenance: neuralSpring baseCamp V18 → toadStool S25 (stats/linear_regression_f64.wgsl)");
+    println!(
+        "  Provenance: neuralSpring baseCamp V18 → toadStool S25 (stats/linear_regression_f64.wgsl)"
+    );
     println!();
 
     for &(b, n, k) in &[(10, 100, 3), (100, 500, 5), (1000, 1000, 8)] {
@@ -496,7 +498,9 @@ fn bench_linear_regression_gpu(device: &Arc<WgpuDevice>) {
 
 fn bench_matrix_correlation_gpu(device: &Arc<WgpuDevice>) {
     println!("═══ Phase 2c: Matrix Correlation GPU (barracuda::ops::stats_f64) ═══");
-    println!("  Provenance: neuralSpring baseCamp V18 → toadStool S25 (stats/matrix_correlation_f64.wgsl)");
+    println!(
+        "  Provenance: neuralSpring baseCamp V18 → toadStool S25 (stats/matrix_correlation_f64.wgsl)"
+    );
     println!();
 
     for &(n, p) in &[(100, 10), (500, 20), (2000, 50)] {
@@ -529,8 +533,8 @@ fn bench_spectral_stats_cpu() {
     println!();
 
     use barracuda::spectral::{
-        anderson_3d, find_all_eigenvalues, lanczos, level_spacing_ratio, spectral_bandwidth,
-        spectral_condition_number, SpectralAnalysis, GOE_R, POISSON_R,
+        GOE_R, POISSON_R, SpectralAnalysis, anderson_3d, find_all_eigenvalues, lanczos,
+        level_spacing_ratio, spectral_bandwidth, spectral_condition_number,
     };
 
     for &(l, w, label) in &[
@@ -580,7 +584,9 @@ fn bench_spectral_stats_cpu() {
 
 fn bench_neighbor_precompute() {
     println!("═══ Phase 1c: Neighbor Table Precompute ═══");
-    println!("  Provenance: hotSpring build_neighbors (HMC) -> toadStool S80 NeighborMode::precompute_periodic_4d");
+    println!(
+        "  Provenance: hotSpring build_neighbors (HMC) -> toadStool S80 NeighborMode::precompute_periodic_4d"
+    );
     println!("  Note: hotSpring idx = t*V3 + x*V2 + y*Nz + z (z fastest)");
     println!("        toadStool idx = t*V3 + z*V2 + y*Nx + x (x fastest)");
     println!();
@@ -656,7 +662,7 @@ fn bench_fma_precision_routing() {
     println!("  Cross-spring: all springs benefit from domain-aware precision routing");
     println!();
 
-    use barracuda::device::fma_policy::{domain_requires_separate_fma, FmaPolicy};
+    use barracuda::device::fma_policy::{FmaPolicy, domain_requires_separate_fma};
     use barracuda::device::precision_tier::{PhysicsDomain, PrecisionTier};
 
     let domains = [
@@ -757,7 +763,9 @@ fn bench_stable_specials_cpu() {
         0.0
     };
     println!();
-    println!("  Cancellation test: log1p(1e-14)={stable:.6e}, ln(1+1e-14)={naive:.6e}, rel_err={rel_err:.2e}");
+    println!(
+        "  Cancellation test: log1p(1e-14)={stable:.6e}, ln(1+1e-14)={naive:.6e}, rel_err={rel_err:.2e}"
+    );
     println!(
         "  → stable wins: {}",
         if rel_err < 1e-10 {
@@ -818,7 +826,7 @@ async fn bench_nelder_mead_gpu(device: &Arc<WgpuDevice>) {
     println!("  Cross-spring: hotSpring HMC parameter tuning benefits from GPU batch optimizer");
     println!();
 
-    use barracuda::optimize::{batched_nelder_mead_gpu, BatchNelderMeadConfig};
+    use barracuda::optimize::{BatchNelderMeadConfig, batched_nelder_mead_gpu};
 
     for &(n_problems, dims) in &[(10_usize, 2_usize), (100, 3), (1000, 2)] {
         let config = BatchNelderMeadConfig {

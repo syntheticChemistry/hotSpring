@@ -19,8 +19,8 @@
 
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::spectral::{
-    self, anderson_2d, anderson_3d, find_all_eigenvalues, lanczos, lanczos_eigenvalues,
-    level_spacing_ratio, CsrMatrix, WGSL_SPMV_CSR_F64,
+    self, CsrMatrix, WGSL_SPMV_CSR_F64, anderson_2d, anderson_3d, find_all_eigenvalues, lanczos,
+    lanczos_eigenvalues, level_spacing_ratio,
 };
 use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;

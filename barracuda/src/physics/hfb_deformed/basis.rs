@@ -8,7 +8,7 @@
 
 use super::{DeformedHFB, DeformedState};
 use crate::error::HotSpringError;
-use crate::physics::hfb_common::{factorial_f64, hermite_value, Mat};
+use crate::physics::hfb_common::{Mat, factorial_f64, hermite_value};
 use crate::tolerances::{DENSITY_FLOOR, DIVISION_GUARD, PAIRING_GAP_THRESHOLD};
 use barracuda::linalg::eigh_f64;
 use barracuda::special::{gamma, laguerre};

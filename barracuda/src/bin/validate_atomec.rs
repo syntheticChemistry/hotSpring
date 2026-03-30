@@ -12,7 +12,7 @@
 //!
 //! Provenance: Callow et al. SciPy Proceedings 2023, atoMEC GitHub
 
-use hotspring_barracuda::physics::average_atom::{solve_average_atom, AverageAtomConfig};
+use hotspring_barracuda::physics::average_atom::{AverageAtomConfig, solve_average_atom};
 use hotspring_barracuda::validation::{TelemetryWriter, ValidationHarness};
 use std::f64::consts::PI;
 

@@ -27,29 +27,33 @@
 //!   --mode=quenched --lattice=32 --betas=5.5,6.0 --therm=200 --meas=100
 //! ```
 
+#[path = "../production_support.rs"]
+mod production_support;
+
 use hotspring_barracuda::bench::{EnergyReport, GpuTelemetry, PowerMonitor};
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::lattice::gpu_flow::{
-    gpu_gradient_flow_resident, FlowReduceBuffers, GpuFlowPipelines, GpuFlowState,
+    FlowReduceBuffers, GpuFlowPipelines, GpuFlowState, gpu_gradient_flow_resident,
 };
 use hotspring_barracuda::lattice::gpu_hmc::resident_shifted_cg::GpuResidentShiftedCgBuffers;
-use hotspring_barracuda::lattice::gpu_hmc::true_multishift_cg::{
-    TrueMultiShiftBuffers, TrueMultiShiftPipelines,
-};
+use hotspring_barracuda::lattice::gpu_hmc::true_multishift_cg::TrueMultiShiftBuffers;
 use hotspring_barracuda::lattice::gpu_hmc::{
-    gpu_hmc_trajectory_streaming, gpu_links_to_lattice, gpu_rhmc_trajectory_unidirectional,
     GpuDynHmcPipelines, GpuDynHmcState, GpuHmcState, GpuHmcStreamingPipelines, GpuRhmcPipelines,
     GpuRhmcState, TrajectoryResult, UniHamiltonianBuffers, UniPipelines,
+    gpu_hmc_trajectory_streaming, gpu_rhmc_trajectory_unidirectional,
 };
-use hotspring_barracuda::lattice::gradient_flow::{find_t0, find_w0, run_flow, FlowIntegrator};
+use hotspring_barracuda::lattice::gradient_flow::{FlowIntegrator, find_t0, find_w0};
 use hotspring_barracuda::lattice::rhmc::RhmcConfig;
 use hotspring_barracuda::lattice::wilson::Lattice;
+
+use production_support::{mean, std_dev};
 
 use std::io::Write;
 use std::time::Instant;
 
 // ── Silicon budget (reused from bench_silicon_budget) ──
 
+#[allow(dead_code)] // Fields used for future reporting / CSV parity with bench_silicon_budget
 struct SiliconBudget {
     name: String,
     fp32_tflops: f64,
@@ -177,16 +181,18 @@ struct AmdGpuPower {
 
 impl AmdGpuPower {
     fn detect() -> Self {
-        for entry in std::fs::read_dir("/sys/class/hwmon").into_iter().flatten() {
-            if let Ok(entry) = entry {
-                let name_path = entry.path().join("name");
-                if let Ok(name) = std::fs::read_to_string(&name_path) {
-                    if name.trim() == "amdgpu" {
-                        return Self {
-                            hwmon_path: Some(entry.path().to_string_lossy().to_string()),
-                        };
-                    }
-                }
+        for entry in std::fs::read_dir("/sys/class/hwmon")
+            .into_iter()
+            .flatten()
+            .flatten()
+        {
+            let name_path = entry.path().join("name");
+            if let Ok(name) = std::fs::read_to_string(&name_path)
+                && name.trim() == "amdgpu"
+            {
+                return Self {
+                    hwmon_path: Some(entry.path().to_string_lossy().to_string()),
+                };
             }
         }
         Self { hwmon_path: None }
@@ -202,6 +208,7 @@ impl AmdGpuPower {
 
 // ── Trajectory result with silicon metrics ──
 
+#[allow(dead_code)] // traj_idx and other fields align with CSV columns / tooling
 struct InstrumentedResult {
     traj_idx: usize,
     accepted: bool,
@@ -216,6 +223,7 @@ struct InstrumentedResult {
 
 // ── Run summary per beta ──
 
+#[allow(dead_code)] // Summary struct consumed by downstream tooling / eprintln
 struct BetaSummary {
     beta: f64,
     mode: String,
@@ -238,6 +246,7 @@ struct BetaSummary {
     flow_results: Option<FlowSummary>,
 }
 
+#[allow(dead_code)]
 struct FlowSummary {
     n_configs: usize,
     mean_t0: Option<f64>,
@@ -451,7 +460,7 @@ fn main() {
 
     let csv_header = "mode,beta,lattice,gpu,traj,accepted,delta_h,plaquette,cg_iters,\
                       wall_ms,est_gflops,est_gflop_per_s,est_gb_s,phase";
-    if let Some(ref mut f) = out_file {
+    if let Some(f) = &mut out_file {
         writeln!(f, "{csv_header}").ok();
     }
     println!("{csv_header}");
@@ -558,12 +567,14 @@ fn main() {
         eprintln!("  ├──────────────────────────────────────────────────────────────┤");
         for s in &all_summaries {
             if let Some(ref f) = s.flow_results {
-                let t0_str = f.mean_t0.map_or("N/A".to_string(), |v| {
-                    format!("{:.4} ± {:.4}", v, f.std_t0.unwrap_or(0.0))
-                });
-                let w0_str = f.mean_w0.map_or("N/A".to_string(), |v| {
-                    format!("{:.4} ± {:.4}", v, f.std_w0.unwrap_or(0.0))
-                });
+                let t0_str = f.mean_t0.map_or_else(
+                    || "N/A".to_string(),
+                    |v| format!("{:.4} ± {:.4}", v, f.std_t0.unwrap_or(0.0)),
+                );
+                let w0_str = f.mean_w0.map_or_else(
+                    || "N/A".to_string(),
+                    |v| format!("{:.4} ± {:.4}", v, f.std_w0.unwrap_or(0.0)),
+                );
                 eprintln!(
                     "  │  β={:.4}: t₀ = {:<20} w₀ = {:<18}│",
                     s.beta, t0_str, w0_str
@@ -743,10 +754,7 @@ fn run_beta_point(
     } else {
         None
     };
-    eprintln!(
-        "  True multi-shift CG: {} shifts, shared Krylov basis",
-        max_shifts
-    );
+    eprintln!("  True multi-shift CG: {max_shifts} shifts, shared Krylov basis");
 
     eprintln!(
         "  Thermalizing: {} RHMC trajectories (unidirectional)...",
@@ -792,7 +800,6 @@ fn run_beta_point(
     let mut results: Vec<InstrumentedResult> = Vec::new();
     let mut meas_accepted = 0;
     let mut plaq_sum = 0.0;
-    let mut plaq_sq_sum = 0.0;
 
     for i in 0..args.n_meas {
         if let Some(w) = amd_power.read_watts() {
@@ -824,7 +831,6 @@ fn run_beta_point(
             meas_accepted += 1;
         }
         plaq_sum += r.plaquette;
-        plaq_sq_sum += r.plaquette * r.plaquette;
 
         let ir = InstrumentedResult {
             traj_idx: i,
@@ -855,7 +861,7 @@ fn run_beta_point(
             ir.est_gb_s
         );
         println!("{line}");
-        if let Some(ref mut f) = out_file {
+        if let Some(f) = out_file.as_mut() {
             writeln!(f, "{line}").ok();
             f.flush().ok();
         }
@@ -886,13 +892,13 @@ fn run_beta_point(
         let avg_w = amd_power_samples.iter().sum::<f64>() / amd_power_samples.len() as f64;
         energy.gpu_joules = avg_w * meas_wall_s;
         energy.gpu_watts_avg = avg_w;
-        energy.gpu_watts_peak = amd_power_samples.iter().cloned().fold(0.0f64, f64::max);
+        energy.gpu_watts_peak = amd_power_samples.iter().copied().fold(0.0f64, f64::max);
         energy.gpu_samples = amd_power_samples.len();
     }
 
     let flow_results = if args.flow {
         Some(run_gradient_flow_uni(
-            &(),
+            (),
             gpu,
             args,
             &rhmc_state,
@@ -962,7 +968,6 @@ fn run_quenched_beta(
     let mut results: Vec<InstrumentedResult> = Vec::new();
     let mut meas_accepted = 0;
     let mut plaq_sum = 0.0;
-    let mut plaq_sq_sum = 0.0;
 
     for i in 0..args.n_meas {
         if let Some(w) = amd_power.read_watts() {
@@ -992,7 +997,6 @@ fn run_quenched_beta(
             meas_accepted += 1;
         }
         plaq_sum += r.plaquette;
-        plaq_sq_sum += r.plaquette * r.plaquette;
 
         let ir = InstrumentedResult {
             traj_idx: i,
@@ -1021,7 +1025,7 @@ fn run_quenched_beta(
             ir.est_gb_s
         );
         println!("{line}");
-        if let Some(ref mut f) = out_file {
+        if let Some(f) = out_file.as_mut() {
             writeln!(f, "{line}").ok();
             f.flush().ok();
         }
@@ -1053,7 +1057,7 @@ fn run_quenched_beta(
         let avg_w = amd_power_samples.iter().sum::<f64>() / amd_power_samples.len() as f64;
         energy.gpu_joules = avg_w * meas_wall_s;
         energy.gpu_watts_avg = avg_w;
-        energy.gpu_watts_peak = amd_power_samples.iter().cloned().fold(0.0f64, f64::max);
+        energy.gpu_watts_peak = amd_power_samples.iter().copied().fold(0.0f64, f64::max);
         energy.gpu_samples = amd_power_samples.len();
     }
 
@@ -1109,7 +1113,7 @@ fn run_uni_traj(
 
 /// Gradient flow with unidirectional skip trajectories (no per-iteration sync).
 fn run_gradient_flow_uni(
-    _uni: &(), // placeholder — we use free function directly
+    _uni: (), // placeholder — we use free function directly
     gpu: &GpuF64,
     args: &CliArgs,
     rhmc_state: &GpuRhmcState,
@@ -1189,8 +1193,8 @@ fn run_gradient_flow_uni(
             "    flow cfg {}/{}: t0={} w0={} ({:.1}s GPU flow)",
             cfg_idx + 1,
             args.flow_configs,
-            t0_val.map_or("N/A".to_string(), |v| format!("{v:.4}")),
-            w0_val.map_or("N/A".to_string(), |v| format!("{v:.4}")),
+            t0_val.map_or_else(|| "N/A".to_string(), |v| format!("{v:.4}")),
+            w0_val.map_or_else(|| "N/A".to_string(), |v| format!("{v:.4}")),
             flow_result.wall_seconds
         );
     }
@@ -1224,7 +1228,7 @@ fn run_quenched_gradient_flow(
     gpu: &GpuF64,
     args: &CliArgs,
     state: &GpuHmcState,
-    dims: [usize; 4],
+    _dims: [usize; 4],
     seed: &mut u64,
 ) -> FlowSummary {
     eprintln!(
@@ -1282,8 +1286,8 @@ fn run_quenched_gradient_flow(
             "    flow cfg {}/{}: t0={} w0={} ({:.1}s GPU flow)",
             cfg_idx + 1,
             args.flow_configs,
-            t0_val.map_or("N/A".to_string(), |v| format!("{v:.4}")),
-            w0_val.map_or("N/A".to_string(), |v| format!("{v:.4}")),
+            t0_val.map_or_else(|| "N/A".to_string(), |v| format!("{v:.4}")),
+            w0_val.map_or_else(|| "N/A".to_string(), |v| format!("{v:.4}")),
             flow_result.wall_seconds
         );
     }
@@ -1325,7 +1329,7 @@ fn build_summary(
     let plaq_sum: f64 = results.iter().map(|r| r.plaquette).sum();
     let plaq_sq_sum: f64 = results.iter().map(|r| r.plaquette * r.plaquette).sum();
     let mean_plaq = plaq_sum / n;
-    let var_plaq = (plaq_sq_sum / n - mean_plaq * mean_plaq).max(0.0);
+    let var_plaq = ((plaq_sq_sum / n) - mean_plaq.powi(2)).max(0.0);
     let std_plaq = var_plaq.sqrt();
 
     let accepted = results.iter().filter(|r| r.accepted).count();
@@ -1368,8 +1372,9 @@ fn build_summary(
     };
 
     eprintln!();
-    eprintln!("  β={beta:.4} summary: ⟨P⟩={:.6}±{:.2e} acc={:.0}% {:.0}ms/traj {:.2}TFLOP/s ({:.2}% silicon)",
-        mean_plaq, std_plaq, acceptance_pct, mean_ms, eco_tflops, silicon_util);
+    eprintln!(
+        "  β={beta:.4} summary: ⟨P⟩={mean_plaq:.6}±{std_plaq:.2e} acc={acceptance_pct:.0}% {mean_ms:.0}ms/traj {eco_tflops:.2}TFLOP/s ({silicon_util:.2}% silicon)"
+    );
     if summary.energy.gpu_joules > 0.0 {
         eprintln!(
             "  Energy: {:.1}J GPU + {:.1}J CPU = {:.2}J/traj (avg {:.0}W GPU)",
@@ -1382,20 +1387,4 @@ fn build_summary(
     eprintln!();
 
     summary
-}
-
-fn mean(v: &[f64]) -> f64 {
-    if v.is_empty() {
-        return 0.0;
-    }
-    v.iter().sum::<f64>() / v.len() as f64
-}
-
-fn std_dev(v: &[f64]) -> f64 {
-    if v.len() < 2 {
-        return 0.0;
-    }
-    let m = mean(v);
-    let var = v.iter().map(|x| (x - m).powi(2)).sum::<f64>() / (v.len() - 1) as f64;
-    var.sqrt()
 }

@@ -21,6 +21,11 @@ use crate::md::config::MdConfig;
 use std::fmt;
 use std::time::Duration;
 
+/// Local crate name for benchmark tables (not other primals).
+const BENCH_LOCAL_PRIMAL: &str = env!("CARGO_PKG_NAME");
+/// GPU tier label for this crate’s MD backend (e.g. `barracuda-GPU`).
+const BENCH_GPU_BACKEND_LABEL: &str = concat!(env!("CARGO_PKG_NAME"), "-GPU");
+
 /// Force calculation method for MD benchmarks.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ForceMethod {
@@ -226,11 +231,11 @@ pub fn compare_md_backends(
 pub fn print_gap_analysis(all_results: &[(String, Vec<Result<MdBenchmarkResult, String>>)]) {
     println!();
     println!(
-        "  {:>12} {:>12} {:>12} {:>8} {:>8}",
-        "Case", "barraCuda", "Kokkos", "Gap", "Method"
+        "  {:>12} {:>20} {:>12} {:>8} {:>8}",
+        "Case", BENCH_LOCAL_PRIMAL, "Kokkos", "Gap", "Method"
     );
     println!(
-        "  {:>12} {:>12} {:>12} {:>8} {:>8}",
+        "  {:>12} {:>20} {:>12} {:>8} {:>8}",
         "────", "steps/s", "steps/s", "────", "──────"
     );
 
@@ -256,7 +261,7 @@ pub fn print_gap_analysis(all_results: &[(String, Vec<Result<MdBenchmarkResult, 
         let method = bc.map_or_else(|| "—".to_string(), |r| r.force_method.to_string());
 
         println!(
-            "  {:>12} {:>12} {:>12} {:>8} {:>8}",
+            "  {:>12} {:>20} {:>12} {:>8} {:>8}",
             label,
             if bc_sps.is_finite() {
                 format!("{bc_sps:.1}")
@@ -341,7 +346,7 @@ impl MdBenchmarkBackend for BarraCudaMdBackend {
                     let energy_val =
                         crate::md::observables::validate_energy(&sim.energy_history, &config);
                     Ok(MdBenchmarkResult {
-                        backend_name: format!("barraCuda-GPU ({adapter_name})"),
+                        backend_name: format!("{BENCH_GPU_BACKEND_LABEL} ({adapter_name})"),
                         backend_kind: BackendKind::BarraCudaGpu,
                         label: spec.label.clone(),
                         n_particles: spec.n_particles,
@@ -378,8 +383,8 @@ impl GenericMdBackend {
     pub fn new() -> Result<Self, String> {
         #[cfg(feature = "sovereign-dispatch")]
         {
-            use barracuda::device::backend::GpuBackend;
             use barracuda::device::CoralReefDevice;
+            use barracuda::device::backend::GpuBackend;
 
             if let Ok(dev) = CoralReefDevice::with_auto_device() {
                 if dev.has_dispatch() {

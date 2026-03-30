@@ -50,16 +50,9 @@ fn main() {
         }
     };
 
-    // Try to get a second GPU (Titan V)
+    // Try to get a second GPU (Titan V) without mutating the process environment.
     let gpu_oracle = {
-        let prev = std::env::var("HOTSPRING_GPU_ADAPTER").ok();
-        // SAFETY: single-threaded main before tokio runtime; no concurrent env readers.
-        unsafe { std::env::set_var("HOTSPRING_GPU_ADAPTER", "titan") };
-        let result = rt.block_on(GpuF64::new());
-        match &prev {
-            Some(v) => unsafe { std::env::set_var("HOTSPRING_GPU_ADAPTER", v) },
-            None => unsafe { std::env::remove_var("HOTSPRING_GPU_ADAPTER") },
-        }
+        let result = rt.block_on(GpuF64::with_adapter("titan"));
         match result {
             Ok(g) if g.adapter_name != gpu_primary.adapter_name => {
                 println!("  Oracle GPU (Titan V): {}", g.adapter_name);

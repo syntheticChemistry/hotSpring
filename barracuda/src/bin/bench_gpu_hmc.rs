@@ -13,7 +13,9 @@
 //! | 16⁴ | — | — | — |
 
 use hotspring_barracuda::gpu::GpuF64;
-use hotspring_barracuda::lattice::gpu_hmc::{gpu_hmc_trajectory, GpuHmcPipelines, GpuHmcState};
+use hotspring_barracuda::lattice::gpu_hmc::{
+    GpuHmcState, GpuHmcStreamingPipelines, gpu_hmc_trajectory_streaming,
+};
 use hotspring_barracuda::lattice::hmc::{self, HmcConfig, IntegratorType};
 use hotspring_barracuda::lattice::wilson::Lattice;
 use std::time::Instant;
@@ -60,10 +62,9 @@ fn bench_cpu(dims: [usize; 4], beta: f64, n_traj: usize) -> (f64, usize, f64) {
     (elapsed / n_traj as f64, accepted, plaq_sum / n_traj as f64)
 }
 
-#[allow(deprecated)]
 fn bench_gpu(
     gpu: &GpuF64,
-    pipelines: &GpuHmcPipelines,
+    pipelines: &GpuHmcStreamingPipelines,
     dims: [usize; 4],
     beta: f64,
     n_traj: usize,
@@ -88,14 +89,14 @@ fn bench_gpu(
 
     // Warmup (1 trajectory)
     let mut seed = 1000u64;
-    gpu_hmc_trajectory(gpu, pipelines, &state, n_md, dt, &mut seed);
+    gpu_hmc_trajectory_streaming(gpu, pipelines, &state, n_md, dt, 0, &mut seed);
 
     // Benchmark
     let start = Instant::now();
     let mut accepted = 0;
     let mut plaq_sum = 0.0;
-    for _ in 0..n_traj {
-        let r = gpu_hmc_trajectory(gpu, pipelines, &state, n_md, dt, &mut seed);
+    for i in 0..n_traj {
+        let r = gpu_hmc_trajectory_streaming(gpu, pipelines, &state, n_md, dt, i as u32, &mut seed);
         if r.accepted {
             accepted += 1;
         }
@@ -105,7 +106,6 @@ fn bench_gpu(
     (elapsed / n_traj as f64, accepted, plaq_sum / n_traj as f64)
 }
 
-#[allow(deprecated)]
 fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");
     println!("║  GPU HMC Scaling Benchmark — CPU vs Pure GPU (fp64)        ║");
@@ -138,7 +138,7 @@ fn main() {
     let beta = 6.0;
     let mut results = Vec::new();
 
-    let pipelines = GpuHmcPipelines::new(&gpu);
+    let pipelines = GpuHmcStreamingPipelines::new(&gpu);
 
     for (label, dims) in &configs {
         let vol: usize = dims.iter().product();

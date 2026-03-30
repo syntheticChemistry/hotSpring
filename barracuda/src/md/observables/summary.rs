@@ -187,7 +187,7 @@ mod tests {
     use std::sync::Arc;
 
     use crate::md::config::quick_test_case;
-    use crate::md::simulation::{init_fcc_lattice, init_velocities, EnergyRecord, MdSimulation};
+    use crate::md::simulation::{EnergyRecord, MdSimulation, init_fcc_lattice, init_velocities};
 
     use super::{print_observable_summary, print_observable_summary_with_gpu};
 
@@ -278,8 +278,8 @@ mod tests {
     }
 
     #[test]
-    fn summary_skips_vacf_when_too_few_velocity_snapshots(
-    ) -> Result<(), crate::error::HotSpringError> {
+    fn summary_skips_vacf_when_too_few_velocity_snapshots()
+    -> Result<(), crate::error::HotSpringError> {
         let (sim, config) = make_full_sim();
         let sim_with_two_vel = MdSimulation {
             velocity_snapshots: sim.velocity_snapshots[..2].to_vec(),

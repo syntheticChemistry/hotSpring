@@ -33,16 +33,16 @@ pub mod run_history;
 mod tests;
 
 pub use adaptive::{
-    dynamical_thermalize_adaptive, dynamical_thermalize_warm_start,
-    dynamical_thermalize_warm_start_npu, AdaptiveStepController, AdaptiveThermalizationResult,
-    MassAnnealingSchedule, StageResult, WarmStartResult,
+    AdaptiveStepController, AdaptiveThermalizationResult, MassAnnealingSchedule, StageResult,
+    WarmStartResult, dynamical_thermalize_adaptive, dynamical_thermalize_warm_start,
+    dynamical_thermalize_warm_start_npu,
 };
 pub use npu_steering::{HmcForceAnomalyDetector, NpuSteering};
 
-use super::cg::{cg_solve, CgResult};
+use super::cg::{CgResult, cg_solve};
 use super::complex_f64::Complex64;
-use super::dirac::{apply_dirac, apply_dirac_adjoint, apply_dirac_sq, FermionField};
-use super::hmc::{exp_su3_cayley_pub, IntegratorType};
+use super::dirac::{FermionField, apply_dirac, apply_dirac_adjoint, apply_dirac_sq};
+use super::hmc::{IntegratorType, exp_su3_cayley_pub};
 use super::su3::Su3Matrix;
 use super::wilson::Lattice;
 use crate::tolerances::OMELYAN_LAMBDA;
@@ -273,11 +273,7 @@ fn force_bilinear_ab(
 /// Staggered phase `η_μ(x)` = (−`1)^{x_0` + ... + x_{μ−1}}
 fn staggered_phase_local(x: [usize; 4], mu: usize) -> f64 {
     let sum: usize = x.iter().take(mu).sum();
-    if sum.is_multiple_of(2) {
-        1.0
-    } else {
-        -1.0
-    }
+    if sum.is_multiple_of(2) { 1.0 } else { -1.0 }
 }
 
 // ═══════════════════════════════════════════════════════════════════

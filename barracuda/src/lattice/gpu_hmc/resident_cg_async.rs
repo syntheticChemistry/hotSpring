@@ -2,10 +2,10 @@
 
 //! GPU-resident CG with async readback and speculative batches.
 
-use super::dynamical::{GpuDynHmcPipelines, GpuDynHmcState};
-use super::resident_cg_buffers::{encode_cg_batch, encode_reduce_chain, GpuResidentCgBuffers};
-use super::resident_cg_pipelines::GpuResidentCgPipelines;
 use super::GpuF64;
+use super::dynamical::{GpuDynHmcPipelines, GpuDynHmcState};
+use super::resident_cg_buffers::{GpuResidentCgBuffers, encode_cg_batch, encode_reduce_chain};
+use super::resident_cg_pipelines::GpuResidentCgPipelines;
 
 /// Non-blocking readback handle for CG convergence scalars.
 ///

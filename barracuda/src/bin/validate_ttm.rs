@@ -21,7 +21,7 @@ use hotspring_barracuda::provenance::{
 use hotspring_barracuda::tolerances::{
     TTM_ENERGY_DRIFT_REL, TTM_EQUILIBRIUM_T_REL, TTM_HELIUM_EQUILIBRIUM_T_REL,
 };
-use hotspring_barracuda::ttm::{integrate_ttm_rk4, TtmSpecies};
+use hotspring_barracuda::ttm::{TtmSpecies, integrate_ttm_rk4};
 use hotspring_barracuda::validation::ValidationHarness;
 
 /// Boltzmann constant (J/K)

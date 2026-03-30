@@ -9,14 +9,14 @@
 //!
 //! Split from `unidirectional_rhmc.rs` for the <1000 LOC rule.
 
+use super::GpuF64;
 use super::dynamical::GpuDynHmcPipelines;
 use super::gpu_rhmc::{GpuRhmcPipelines, GpuRhmcState};
 use super::resident_shifted_cg::GpuResidentShiftedCgBuffers;
 use super::true_multishift_cg::TrueMultiShiftBuffers;
-use super::unidirectional_rhmc::{
-    gpu_rhmc_trajectory_unidirectional, UniHamiltonianBuffers, UniPipelines,
-};
-use super::GpuF64;
+use super::uni_hamiltonian::{UniHamiltonianBuffers, UniPipelines};
+use super::unidirectional_rhmc::gpu_rhmc_trajectory_unidirectional;
+use crate::error::HotSpringError;
 use crate::lattice::rhmc::RhmcConfig;
 
 // ═══════════════════════════════════════════════════════════════════
@@ -181,14 +181,17 @@ pub struct DualGpuResult {
 /// Each GPU gets an independent `UnidirectionalRhmc`. CPU dispatches
 /// both, polls both, returns whichever finishes first (or both).
 /// Cross-GPU parity checking happens at the caller level.
-#[allow(clippy::expect_used)] // JoinHandle::join() only fails on thread panic — no better API
+///
+/// # Errors
+///
+/// Returns [`HotSpringError::ThreadPanicked`] if a worker thread panicked.
 pub fn dual_gpu_trajectories(
     gpu_a: &mut UnidirectionalRhmc,
     gpu_b: &mut UnidirectionalRhmc,
     config: &RhmcConfig,
     seed_a: &mut u64,
     seed_b: &mut u64,
-) -> DualGpuResult {
+) -> Result<DualGpuResult, HotSpringError> {
     let config_a = config.clone();
     let config_b = config.clone();
     let mut sa = *seed_a;
@@ -203,25 +206,29 @@ pub fn dual_gpu_trajectories(
             let r = gpu_b.run_trajectory(&config_b, &mut sb);
             (r, sb)
         });
-        let (ra, new_sa) = handle_a.join().expect("GPU A thread");
-        let (rb, new_sb) = handle_b.join().expect("GPU B thread");
+        let (ra, new_sa) = handle_a
+            .join()
+            .map_err(|_| HotSpringError::ThreadPanicked("GPU A trajectory thread panicked"))?;
+        let (rb, new_sb) = handle_b
+            .join()
+            .map_err(|_| HotSpringError::ThreadPanicked("GPU B trajectory thread panicked"))?;
         *seed_a = new_sa;
         *seed_b = new_sb;
-        (ra, rb)
-    });
+        Ok::<(TrajectoryResult, TrajectoryResult), HotSpringError>((ra, rb))
+    })?;
 
-    DualGpuResult {
+    Ok(DualGpuResult {
         a: result_a,
         b: result_b,
-    }
+    })
 }
 
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
-    use super::super::unidirectional_rhmc::{
-        make_fermion_action_sum_params, make_h_assembly_params, WGSL_FERMION_ACTION_SUM,
-        WGSL_HAMILTONIAN_ASSEMBLY, WGSL_METROPOLIS,
+    use super::super::uni_hamiltonian::{
+        WGSL_FERMION_ACTION_SUM, WGSL_HAMILTONIAN_ASSEMBLY, WGSL_METROPOLIS,
+        make_fermion_action_sum_params, make_h_assembly_params,
     };
     use super::*;
 
@@ -230,13 +237,13 @@ mod tests {
         rt.block_on(GpuF64::new()).expect("GPU required for test")
     }
 
-    const WGSL_CONSTANT_WRITE: &str = r#"
+    const WGSL_CONSTANT_WRITE: &str = r"
 @group(0) @binding(0) var<storage, read_write> out: array<f64>;
 @compute @workgroup_size(1)
 fn main() {
     out[0] = f64(42.5);
 }
-"#;
+";
 
     #[test]
     fn f64_pipeline_basic_sanity() {
@@ -256,7 +263,7 @@ fn main() {
         assert!((val[0] - 42.5).abs() < 1e-6, "got {}", val[0]);
     }
 
-    const WGSL_PASSTHROUGH: &str = r#"
+    const WGSL_PASSTHROUGH: &str = r"
 @group(0) @binding(0) var<storage, read> inp: array<f64>;
 @group(0) @binding(1) var<storage, read_write> out: array<f64>;
 @compute @workgroup_size(1)
@@ -264,7 +271,7 @@ fn main() {
     out[0] = inp[0];
     out[1] = inp[0] + f64(1.0);
 }
-"#;
+";
 
     #[test]
     fn f64_pipeline_passthrough() {

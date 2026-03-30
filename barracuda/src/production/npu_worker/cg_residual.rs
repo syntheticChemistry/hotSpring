@@ -84,10 +84,10 @@ pub(super) fn handle_cg_residual(
                         .take(3)
                         .map(|(_, rz)| *rz)
                         .collect();
-                    if recent.windows(2).all(|w| w[0] >= w[1]) {
-                        if let Some(ref itx) = state.interrupt_tx {
-                            let _ = itx.send(BrainInterrupt::KillCg);
-                        }
+                    if recent.windows(2).all(|w| w[0] >= w[1])
+                        && let Some(ref itx) = state.interrupt_tx
+                    {
+                        let _ = itx.send(BrainInterrupt::KillCg);
                     }
                 }
             } else if anomaly_score > yellow_thresh {
@@ -131,10 +131,8 @@ pub(super) fn handle_cg_residual(
                     .map(|(_, rz)| *rz)
                     .collect();
                 let diverging = recent.windows(2).all(|w| w[0] >= w[1]);
-                if diverging {
-                    if let Some(ref itx) = state.interrupt_tx {
-                        let _ = itx.send(BrainInterrupt::KillCg);
-                    }
+                if diverging && let Some(ref itx) = state.interrupt_tx {
+                    let _ = itx.send(BrainInterrupt::KillCg);
                 }
             }
             if anomaly_score < 0.3 {

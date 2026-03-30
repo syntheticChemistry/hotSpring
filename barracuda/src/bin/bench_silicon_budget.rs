@@ -568,7 +568,7 @@ fn print_compound_budget(budget: &GpuSiliconBudget) {
     };
     // TMU: each texel fetch is ~2 FMA equivalent (interpolation + lookup)
     let tmu_equiv = budget.tmu_gtexels * 2.0 / 1000.0; // GT/s × 2 FLOP → TFLOPS
-                                                       // ROP: each atomic blend is ~1 FMA equivalent
+    // ROP: each atomic blend is ~1 FMA equivalent
     let rop_equiv = budget.rop_gpixels / 1000.0;
 
     let compound_low = shader_equiv + tmu_equiv;

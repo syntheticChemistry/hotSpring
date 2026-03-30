@@ -25,7 +25,7 @@
 //! 6. QCD-specific workload comparison across substrates
 
 use hotspring_barracuda::bench::{
-    generate_test_sequence, generate_training_data, time_fn, GpuEsn, SubstrateResult,
+    GpuEsn, SubstrateResult, generate_test_sequence, generate_training_data, time_fn,
 };
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::md::reservoir::{EchoStateNetwork, EsnConfig, NpuSimulator};

@@ -4,8 +4,8 @@
 //!
 //! Extracted from `production_mixed_pipeline` to reduce binary size.
 
-use crate::production::beta_scan::QuenchedNpuStats;
 use crate::production::BetaResult;
+use crate::production::beta_scan::QuenchedNpuStats;
 use crate::provenance::KNOWN_BETA_C_SU3_NT4 as KNOWN_BETA_C;
 
 /// Print the mixed pipeline summary table, NPU stats, comparison, and physics quality.

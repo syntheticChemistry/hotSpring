@@ -15,13 +15,14 @@
 //! Links and momenta are GPU-resident. Only scalars stream back.
 
 use hotspring_barracuda::gpu::GpuF64;
-use hotspring_barracuda::lattice::gpu_hmc::{gpu_hmc_trajectory, GpuHmcPipelines, GpuHmcState};
+use hotspring_barracuda::lattice::gpu_hmc::{
+    GpuHmcState, GpuHmcStreamingPipelines, gpu_hmc_trajectory_streaming,
+};
 use hotspring_barracuda::lattice::hmc::{self, HmcConfig, IntegratorType};
 use hotspring_barracuda::lattice::wilson::Lattice;
 use hotspring_barracuda::validation::ValidationHarness;
 use std::time::Instant;
 
-#[allow(deprecated)]
 fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");
     println!("║  Pure GPU HMC Validation — All Math on GPU (fp64 WGSL)     ║");
@@ -48,7 +49,7 @@ fn main() {
     println!("  GPU: {}", gpu.adapter_name);
     println!();
 
-    let pipelines = GpuHmcPipelines::new(&gpu);
+    let pipelines = GpuHmcStreamingPipelines::new(&gpu);
     println!("  All 5 HMC shader pipelines compiled successfully");
     harness.check_bool("All shader pipelines compile", true);
     println!();
@@ -87,7 +88,9 @@ fn main() {
     let mut plaq_sum = 0.0;
 
     for i in 0..n_traj {
-        let result = gpu_hmc_trajectory(&gpu, &pipelines, &gpu_state, 15, 0.05, &mut seed);
+        let result = gpu_hmc_trajectory_streaming(
+            &gpu, &pipelines, &gpu_state, 15, 0.05, i as u32, &mut seed,
+        );
         let tag = if result.accepted { "✓" } else { "✗" };
         println!(
             "  traj {}: {} ΔH={:+.4e}  plaq={:.6}",

@@ -58,10 +58,10 @@ pub mod screened_coulomb;
 pub mod semf;
 
 pub use constants::*;
-pub use hfb::{binding_energy_l2, SphericalHFB};
+pub use hfb::{SphericalHFB, binding_energy_l2};
 pub use hfb_deformed::DeformedHFB;
 pub use hfb_deformed_gpu::binding_energies_l3_gpu_auto;
 pub use hfb_gpu::binding_energies_l2_gpu;
 pub use hfb_gpu_resident::binding_energies_l2_gpu_resident;
-pub use nuclear_matter::{nuclear_matter_properties, NuclearMatterProps};
+pub use nuclear_matter::{NuclearMatterProps, nuclear_matter_properties};
 pub use semf::semf_binding_energy;

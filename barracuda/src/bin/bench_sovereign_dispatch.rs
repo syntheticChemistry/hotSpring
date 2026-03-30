@@ -1,28 +1,37 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-//! Sovereign Dispatch Benchmark — wgpu/Vulkan vs coralReef → DRM
+//! Sovereign Dispatch Benchmark — wgpu/Vulkan vs peer sovereign DRM
 //!
 //! Runs the same Yukawa OCP simulation through both dispatch backends and
 //! compares wall time, steps/s, and energy conservation.
 //!
 //! Also reports cross-spring shader evolution: which precision shaders
 //! originated in which spring, and how they've propagated through the
-//! barraCuda ecosystem (hotSpring → barraCuda ← wetSpring ← neuralSpring).
+//! ecosystem (`print_cross_spring_evolution` uses provenance constants).
 //!
 //! Usage:
 //!   cargo run --release --bin bench_sovereign_dispatch
 //!   cargo run --release --features sovereign-dispatch --bin bench_sovereign_dispatch
 
-use barracuda::device::backend::GpuBackend;
 use barracuda::device::WgpuDevice;
+use barracuda::device::backend::GpuBackend;
 use hotspring_barracuda::md::config::MdConfig;
 use hotspring_barracuda::md::sovereign_engine::run_simulation_generic;
 use std::sync::Arc;
 
+/// This crate’s package name (local primal); do not hardcode peer primal names.
+const LOCAL_PRIMAL_NAME: &str = env!("CARGO_PKG_NAME");
+/// Peer primal display labels for ecosystem provenance tables only.
+const PROVENANCE_BARRACUDA: &str = "barraCuda";
+const PROVENANCE_CORALREEF: &str = "coralReef";
+const PROVENANCE_WETSPRING: &str = "wetSpring";
+const PROVENANCE_NEURALSPRING: &str = "neuralSpring";
+const PROVENANCE_LUDOSPRING: &str = "ludoSpring";
+
 fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");
     println!("║  Sovereign Dispatch Benchmark — Yukawa OCP MD              ║");
-    println!("║  wgpu/Vulkan vs coralReef → DRM (backend-agnostic engine)  ║");
+    println!("║  wgpu/Vulkan vs {PROVENANCE_CORALREEF} → DRM (backend-agnostic engine)        ║");
     println!("╚══════════════════════════════════════════════════════════════╝\n");
 
     let config = MdConfig {
@@ -176,7 +185,9 @@ fn try_sovereign(
     _config: &MdConfig,
 ) -> Option<Result<hotspring_barracuda::md::simulation::MdSimulation, String>> {
     println!("  sovereign-dispatch feature not enabled");
-    println!("  Re-run with: cargo run --release --features sovereign-dispatch --bin bench_sovereign_dispatch\n");
+    println!(
+        "  Re-run with: cargo run --release --features sovereign-dispatch --bin bench_sovereign_dispatch\n"
+    );
     None
 }
 
@@ -189,42 +200,62 @@ fn print_cross_spring_evolution() {
     println!("  {}", "-".repeat(72));
     println!(
         "  {:<35} {:<15} {:<20}",
-        "df64_core.wgsl", "hotSpring", "barraCuda → all springs"
+        "df64_core.wgsl",
+        LOCAL_PRIMAL_NAME,
+        format!("{PROVENANCE_BARRACUDA} → all springs")
     );
     println!(
         "  {:<35} {:<15} {:<20}",
-        "df64_transcendentals.wgsl", "hotSpring", "barraCuda, coralReef"
+        "df64_transcendentals.wgsl",
+        LOCAL_PRIMAL_NAME,
+        format!("{PROVENANCE_BARRACUDA}, {PROVENANCE_CORALREEF}")
     );
     println!(
         "  {:<35} {:<15} {:<20}",
-        "yukawa_force_f64.wgsl", "hotSpring", "barraCuda md/"
+        "yukawa_force_f64.wgsl",
+        LOCAL_PRIMAL_NAME,
+        format!("{PROVENANCE_BARRACUDA} md/")
     );
     println!(
         "  {:<35} {:<15} {:<20}",
-        "smith_waterman_f64.wgsl", "wetSpring", "barraCuda bio/"
+        "smith_waterman_f64.wgsl",
+        PROVENANCE_WETSPRING,
+        format!("{PROVENANCE_BARRACUDA} bio/")
     );
     println!(
         "  {:<35} {:<15} {:<20}",
-        "hmm_viterbi_f64.wgsl", "neuralSpring", "barraCuda bio/"
+        "hmm_viterbi_f64.wgsl",
+        PROVENANCE_NEURALSPRING,
+        format!("{PROVENANCE_BARRACUDA} bio/")
     );
     println!(
         "  {:<35} {:<15} {:<20}",
-        "matrix_correlation_f64.wgsl", "neuralSpring", "barraCuda stats/"
+        "matrix_correlation_f64.wgsl",
+        PROVENANCE_NEURALSPRING,
+        format!("{PROVENANCE_BARRACUDA} stats/")
     );
     println!(
         "  {:<35} {:<15} {:<20}",
-        "perlin_2d_f64.wgsl", "ludoSpring", "barraCuda procedural/"
+        "perlin_2d_f64.wgsl",
+        PROVENANCE_LUDOSPRING,
+        format!("{PROVENANCE_BARRACUDA} procedural/")
     );
     println!(
         "  {:<35} {:<15} {:<20}",
-        "PrecisionBrain", "hotSpring", "barraCuda a012076"
+        "PrecisionBrain",
+        LOCAL_PRIMAL_NAME,
+        format!("{PROVENANCE_BARRACUDA} a012076")
     );
     println!(
         "  {:<35} {:<15} {:<20}",
-        "HardwareCalibration", "hotSpring", "barraCuda a012076"
+        "HardwareCalibration",
+        LOCAL_PRIMAL_NAME,
+        format!("{PROVENANCE_BARRACUDA} a012076")
     );
-    println!("\n  Pipeline: hotSpring precision shaders validated sovereign");
-    println!("  compilation via coralReef Iter 33 (WGSL → SASS, no naga).");
-    println!("  wetSpring bio shaders + neuralSpring stats shaders benefit");
+    println!("\n  Pipeline: {LOCAL_PRIMAL_NAME} precision shaders validated sovereign");
+    println!("  compilation via {PROVENANCE_CORALREEF} Iter 33 (WGSL → SASS, no naga).");
+    println!(
+        "  {PROVENANCE_WETSPRING} bio shaders + {PROVENANCE_NEURALSPRING} stats shaders benefit"
+    );
     println!("  from the same sovereign bypass for DF64 transcendentals.");
 }

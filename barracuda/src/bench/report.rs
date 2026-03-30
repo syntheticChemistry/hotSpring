@@ -82,12 +82,16 @@ impl BenchReport {
     /// Print summary table to stdout.
     pub fn print_summary(&self) {
         println!();
-        println!("══════════════════════════════════════════════════════════════════════════════════════════");
+        println!(
+            "══════════════════════════════════════════════════════════════════════════════════════════"
+        );
         println!(
             "  SUBSTRATE BENCHMARK REPORT — {} ({} / {})",
             self.hardware.gate_name, self.hardware.cpu_model, self.hardware.gpu_name
         );
-        println!("══════════════════════════════════════════════════════════════════════════════════════════");
+        println!(
+            "══════════════════════════════════════════════════════════════════════════════════════════"
+        );
         println!();
 
         // Table header
@@ -311,10 +315,10 @@ pub fn peak_rss_mb() -> f64 {
     for line in status.lines() {
         if line.starts_with("VmHWM:") {
             let parts: Vec<&str> = line.split_whitespace().collect();
-            if parts.len() >= 2 {
-                if let Ok(kb) = parts[1].parse::<f64>() {
-                    return kb / 1024.0;
-                }
+            if parts.len() >= 2
+                && let Ok(kb) = parts[1].parse::<f64>()
+            {
+                return kb / 1024.0;
             }
         }
     }

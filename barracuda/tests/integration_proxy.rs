@@ -6,7 +6,7 @@
 //! valid features and are deterministic. Uses `combined_proxy` for Potts
 //! tests since it returns the full `ProxyFeatures` struct.
 
-use hotspring_barracuda::proxy::{anderson_3d_proxy, combined_proxy, CortexRequest};
+use hotspring_barracuda::proxy::{CortexRequest, anderson_3d_proxy, combined_proxy};
 
 #[test]
 fn proxy_anderson_3d_returns_features() {

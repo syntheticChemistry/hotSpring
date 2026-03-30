@@ -23,15 +23,15 @@
 
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::lattice::gpu_flow::{
-    gpu_gradient_flow_resident, FlowReduceBuffers, GpuFlowPipelines, GpuFlowState,
+    FlowReduceBuffers, GpuFlowPipelines, GpuFlowState, gpu_gradient_flow_resident,
 };
 use hotspring_barracuda::lattice::gpu_hmc::resident_shifted_cg::GpuResidentShiftedCgBuffers;
 use hotspring_barracuda::lattice::gpu_hmc::{
-    gpu_hmc_trajectory_streaming, gpu_rhmc_trajectory_unidirectional, GpuDynHmcPipelines,
-    GpuDynHmcState, GpuHmcState, GpuHmcStreamingPipelines, GpuRhmcPipelines, GpuRhmcState,
-    UniHamiltonianBuffers, UniPipelines,
+    GpuDynHmcPipelines, GpuDynHmcState, GpuHmcState, GpuHmcStreamingPipelines, GpuRhmcPipelines,
+    GpuRhmcState, UniHamiltonianBuffers, UniPipelines, gpu_hmc_trajectory_streaming,
+    gpu_rhmc_trajectory_unidirectional,
 };
-use hotspring_barracuda::lattice::gradient_flow::{find_t0, find_w0, FlowIntegrator};
+use hotspring_barracuda::lattice::gradient_flow::{FlowIntegrator, find_t0, find_w0};
 use hotspring_barracuda::lattice::rhmc::RhmcConfig;
 use hotspring_barracuda::lattice::wilson::Lattice;
 
@@ -382,8 +382,8 @@ fn main() {
             cfg_idx + 1,
             args.n_configs,
             plaq,
-            t0_val.map_or("N/A".to_string(), |v| format!("{v:.4}")),
-            w0_val.map_or("N/A".to_string(), |v| format!("{v:.4}")),
+            t0_val.map_or_else(|| "N/A".to_string(), |v| format!("{v:.4}")),
+            w0_val.map_or_else(|| "N/A".to_string(), |v| format!("{v:.4}")),
             e_final,
             flow_result.wall_seconds
         );
@@ -403,7 +403,9 @@ fn main() {
     eprintln!("  ══════════════════════════════════════════════════════════");
     eprintln!("  ⟨P⟩          = {mean_plaq:.6} ± {std_plaq:.6}");
 
-    if !all_t0.is_empty() {
+    if all_t0.is_empty() {
+        eprintln!("  t₀           = not found (increase --flow-tmax or lattice size)");
+    } else {
         let mean_t0 = all_t0.iter().sum::<f64>() / all_t0.len() as f64;
         let std_t0 = std_dev(&all_t0);
         eprintln!(
@@ -411,11 +413,11 @@ fn main() {
             all_t0.len(),
             args.n_configs
         );
-    } else {
-        eprintln!("  t₀           = not found (increase --flow-tmax or lattice size)");
     }
 
-    if !all_w0.is_empty() {
+    if all_w0.is_empty() {
+        eprintln!("  w₀           = not found (increase --flow-tmax or lattice size)");
+    } else {
         let mean_w0 = all_w0.iter().sum::<f64>() / all_w0.len() as f64;
         let std_w0 = std_dev(&all_w0);
         eprintln!(
@@ -423,8 +425,6 @@ fn main() {
             all_w0.len(),
             args.n_configs
         );
-    } else {
-        eprintln!("  w₀           = not found (increase --flow-tmax or lattice size)");
     }
 
     eprintln!(

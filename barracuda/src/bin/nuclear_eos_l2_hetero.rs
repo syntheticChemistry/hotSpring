@@ -21,17 +21,17 @@
 use hotspring_barracuda::data;
 use hotspring_barracuda::physics::nuclear_matter_properties;
 use hotspring_barracuda::pipeline::{
-    generate_l1_training_data, l2_objective, train_classifier, ClassifierResult,
+    ClassifierResult, generate_l1_training_data, l2_objective, train_classifier,
 };
 use hotspring_barracuda::prescreen::{
-    cascade_filter, l1_proxy_prescreen, nmp_prescreen, perturb_params, CascadeStats,
-    NMPConstraints, NMPScreenResult,
+    CascadeStats, NMPConstraints, NMPScreenResult, cascade_filter, l1_proxy_prescreen,
+    nmp_prescreen, perturb_params,
 };
 use hotspring_barracuda::provenance;
 
-use barracuda::optimize::{multi_start_nelder_mead, EvaluationCache};
+use barracuda::optimize::{EvaluationCache, multi_start_nelder_mead};
 use barracuda::sample::latin_hypercube;
-use barracuda::sample::sparsity::{sparsity_sampler, SparsitySamplerConfig};
+use barracuda::sample::sparsity::{SparsitySamplerConfig, sparsity_sampler};
 use barracuda::surrogate::{RBFKernel, RBFSurrogate};
 
 use rayon::prelude::*;
@@ -311,10 +311,16 @@ fn run_heterogeneous_l2(
         let n_new = cache.len() - n_before;
         let best_f = cache.best_f().unwrap_or(f64::INFINITY);
 
-        println!("      Round {:2}: +{} HFB evals (total {}), best={:.4}, cascade survived {}/{}, {:.1}s",
-            round + 1, n_new, cache.len(), best_f,
-            round_survivors.len(), round_candidates.len(),
-            round_t0.elapsed().as_secs_f64());
+        println!(
+            "      Round {:2}: +{} HFB evals (total {}), best={:.4}, cascade survived {}/{}, {:.1}s",
+            round + 1,
+            n_new,
+            cache.len(),
+            best_f,
+            round_survivors.len(),
+            round_candidates.len(),
+            round_t0.elapsed().as_secs_f64()
+        );
     }
 
     // ── Final results ──

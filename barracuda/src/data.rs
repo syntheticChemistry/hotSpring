@@ -387,10 +387,12 @@ mod tests {
 
     #[test]
     fn nuclei_set_filenames() {
-        assert!(NucleiSet::Selected
-            .filename()
-            .to_lowercase()
-            .ends_with(".json"));
+        assert!(
+            NucleiSet::Selected
+                .filename()
+                .to_lowercase()
+                .ends_with(".json")
+        );
         assert!(NucleiSet::Full.filename().to_lowercase().ends_with(".json"));
         assert!(NucleiSet::Selected.filename().contains("selected"));
         assert!(NucleiSet::Full.filename().contains("full"));
@@ -416,14 +418,16 @@ mod tests {
     fn nuclei_data_path_construction() {
         let base = Path::new("/test/base");
         let path = nuclei_data_path(base, NucleiSet::Selected);
-        assert!(path
-            .to_str()
-            .expect("path is valid UTF-8")
-            .contains("exp_data"));
-        assert!(path
-            .to_str()
-            .expect("path is valid UTF-8")
-            .contains("ame2020_selected"));
+        assert!(
+            path.to_str()
+                .expect("path is valid UTF-8")
+                .contains("exp_data")
+        );
+        assert!(
+            path.to_str()
+                .expect("path is valid UTF-8")
+                .contains("ame2020_selected")
+        );
     }
 
     #[test]

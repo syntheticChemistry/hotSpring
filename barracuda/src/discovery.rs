@@ -70,10 +70,10 @@ pub fn try_discover_with_override(
     override_root: Option<&Path>,
 ) -> Result<PathBuf, crate::error::HotSpringError> {
     // 0. Injected override (capability-based, no global state)
-    if let Some(root) = override_root {
-        if is_valid_root(root) {
-            return Ok(root.to_path_buf());
-        }
+    if let Some(root) = override_root
+        && is_valid_root(root)
+    {
+        return Ok(root.to_path_buf());
     }
 
     // 1. Explicit environment override
@@ -86,17 +86,17 @@ pub fn try_discover_with_override(
 
     // 2. CARGO_MANIFEST_DIR parent
     let manifest_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    if let Some(parent) = manifest_root.parent() {
-        if is_valid_root(parent) {
-            return Ok(parent.to_path_buf());
-        }
+    if let Some(parent) = manifest_root.parent()
+        && is_valid_root(parent)
+    {
+        return Ok(parent.to_path_buf());
     }
 
     // 3. CWD
-    if let Ok(cwd) = std::env::current_dir() {
-        if is_valid_root(&cwd) {
-            return Ok(cwd);
-        }
+    if let Ok(cwd) = std::env::current_dir()
+        && is_valid_root(&cwd)
+    {
+        return Ok(cwd);
     }
 
     Err(crate::error::HotSpringError::DataLoad(
@@ -302,11 +302,11 @@ pub fn try_create_npu_steering(
     // Try to load exported weights from the NPU control directory
     let root = discover_data_root();
     let weights_path = root.join("control/npu/exported_weights.json");
-    if let Ok(contents) = std::fs::read_to_string(&weights_path) {
-        if let Ok(weights) = serde_json::from_str::<ExportedWeights>(&contents) {
-            let npu = MultiHeadNpu::from_exported(&weights);
-            return Some(NpuSteering::new(npu, feedback_interval));
-        }
+    if let Ok(contents) = std::fs::read_to_string(&weights_path)
+        && let Ok(weights) = serde_json::from_str::<ExportedWeights>(&contents)
+    {
+        let npu = MultiHeadNpu::from_exported(&weights);
+        return Some(NpuSteering::new(npu, feedback_interval));
     }
 
     // No weights file — NPU is available but untrained. Return a default

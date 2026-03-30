@@ -141,9 +141,7 @@ fn main() {
         .or(primary_id)
         .expect("no primary GPU with SHADER_F64 found");
 
-    // SAFETY: single-threaded main before tokio runtime; no concurrent env readers.
-    unsafe { std::env::set_var("HOTSPRING_GPU_ADAPTER", &primary_id) };
-    let gpu = match rt.block_on(GpuF64::new()) {
+    let gpu = match rt.block_on(GpuF64::with_adapter(&primary_id)) {
         Ok(g) => {
             println!("  Primary GPU: {}", g.adapter_name);
             g
@@ -156,15 +154,7 @@ fn main() {
 
     let gpu_titan = {
         let result = if let Some(sid) = secondary_id.as_ref().filter(|s| *s != &primary_id) {
-            let prev = std::env::var("HOTSPRING_GPU_ADAPTER").ok();
-            // SAFETY: single-threaded main before tokio runtime; no concurrent env readers.
-            unsafe { std::env::set_var("HOTSPRING_GPU_ADAPTER", sid) };
-            let r = rt.block_on(GpuF64::new());
-            match prev {
-                Some(v) => unsafe { std::env::set_var("HOTSPRING_GPU_ADAPTER", v) },
-                None => unsafe { std::env::remove_var("HOTSPRING_GPU_ADAPTER") },
-            }
-            r
+            rt.block_on(GpuF64::with_adapter(sid.as_str()))
         } else {
             Err(HotSpringError::NoAdapter)
         };

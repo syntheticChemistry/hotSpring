@@ -16,8 +16,7 @@ use super::GpuF64;
 /// Shader constants for GPU-resident CG.
 pub const WGSL_SUM_REDUCE: &str = super::super::cg::WGSL_SUM_REDUCE_F64;
 /// Subgroup-accelerated reduce (Tier 4): uses `subgroupAdd` for warp/wavefront reduction.
-pub const WGSL_SUM_REDUCE_SUBGROUP: &str =
-    include_str!("../shaders/sum_reduce_subgroup_f64.wgsl");
+pub const WGSL_SUM_REDUCE_SUBGROUP: &str = include_str!("../shaders/sum_reduce_subgroup_f64.wgsl");
 /// CG α = ⟨r,r⟩ / ⟨p,Ap⟩ shader.
 pub const WGSL_CG_COMPUTE_ALPHA: &str = super::super::cg::WGSL_CG_COMPUTE_ALPHA_F64;
 /// CG β = ⟨`r_new,r_new`⟩ / ⟨`r_old,r_old`⟩ shader.

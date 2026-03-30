@@ -11,6 +11,7 @@
 //! Each test sums 256 copies of 1.0 → expected result is 256.0.
 
 use hotspring_barracuda::gpu::GpuF64;
+use wgpu::PipelineCompilationOptions;
 use wgpu::util::DeviceExt;
 
 const N: usize = 256;
@@ -331,25 +332,54 @@ fn main() {
     }
 
     // Test 4 first (shared memory reference — no subgroups needed)
-    run_f64_test(&gpu, "Test 4: shared-memory f64 reduce (reference)", SHADER_SHARED_MEM_F64, false);
+    run_f64_test(
+        &gpu,
+        "Test 4: shared-memory f64 reduce (reference)",
+        SHADER_SHARED_MEM_F64,
+        false,
+    );
 
     // Test 1: f32 subgroup
     run_f32_test(&gpu, "Test 1: subgroupAdd(f32)", SHADER_SUBGROUP_F32);
 
     // Test 2: f64 subgroup (the suspect)
-    run_f64_test(&gpu, "Test 2: subgroupAdd(f64) — THE SUSPECT", SHADER_SUBGROUP_F64, true);
+    run_f64_test(
+        &gpu,
+        "Test 2: subgroupAdd(f64) — THE SUSPECT",
+        SHADER_SUBGROUP_F64,
+        true,
+    );
 
     // Test 3: f64 via u32 bitcast shuffle
-    run_f64_test(&gpu, "Test 3: f64 via subgroupShuffleXor(u32) bitcast", SHADER_SUBGROUP_F64_SHUFFLE, true);
+    run_f64_test(
+        &gpu,
+        "Test 3: f64 via subgroupShuffleXor(u32) bitcast",
+        SHADER_SUBGROUP_F64_SHUFFLE,
+        true,
+    );
 
     // Test 5: f64 via f32 Dekker split
-    run_f64_test(&gpu, "Test 5: f64 via subgroupAdd(f32) Dekker split", SHADER_SUBGROUP_F64_VIA_F32, true);
+    run_f64_test(
+        &gpu,
+        "Test 5: f64 via subgroupAdd(f32) Dekker split",
+        SHADER_SUBGROUP_F64_VIA_F32,
+        true,
+    );
 
     // Test 6: f32 subgroup WITHOUT enable subgroups;
-    run_f32_test(&gpu, "Test 6: subgroupAdd(f32) NO 'enable subgroups;'", SHADER_SUBGROUP_F32_NO_ENABLE);
+    run_f32_test(
+        &gpu,
+        "Test 6: subgroupAdd(f32) NO 'enable subgroups;'",
+        SHADER_SUBGROUP_F32_NO_ENABLE,
+    );
 
     // Test 7: f64 subgroup WITHOUT enable subgroups;
-    run_f64_test(&gpu, "Test 7: subgroupAdd(f64) NO 'enable subgroups;'", SHADER_SUBGROUP_F64_NO_ENABLE, true);
+    run_f64_test(
+        &gpu,
+        "Test 7: subgroupAdd(f64) NO 'enable subgroups;'",
+        SHADER_SUBGROUP_F64_NO_ENABLE,
+        true,
+    );
 
     eprintln!("\n=== Diagnostic Complete ===");
 }
@@ -359,11 +389,13 @@ fn run_f32_test(gpu: &GpuF64, label: &str, shader: &str) {
 
     let input_data: Vec<f32> = vec![1.0_f32; N];
 
-    let input_buf = gpu.device().create_buffer_init(&wgpu::util::BufferInitDescriptor {
-        label: Some("input"),
-        contents: bytemuck::cast_slice(&input_data),
-        usage: wgpu::BufferUsages::STORAGE,
-    });
+    let input_buf = gpu
+        .device()
+        .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("input"),
+            contents: bytemuck::cast_slice(&input_data),
+            usage: wgpu::BufferUsages::STORAGE,
+        });
     let output_buf = gpu.device().create_buffer(&wgpu::BufferDescriptor {
         label: Some("output"),
         size: 4,
@@ -372,18 +404,22 @@ fn run_f32_test(gpu: &GpuF64, label: &str, shader: &str) {
     });
     let staging = gpu.create_staging_buffer(4, "staging_f32");
 
-    let module = gpu.device().create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: Some(label),
-        source: wgpu::ShaderSource::Wgsl(shader.into()),
-    });
-    let pipeline = gpu.device().create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-        label: Some(label),
-        layout: None,
-        module: &module,
-        entry_point: Some("main"),
-        compilation_options: Default::default(),
-        cache: None,
-    });
+    let module = gpu
+        .device()
+        .create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some(label),
+            source: wgpu::ShaderSource::Wgsl(shader.into()),
+        });
+    let pipeline = gpu
+        .device()
+        .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: Some(label),
+            layout: None,
+            module: &module,
+            entry_point: Some("main"),
+            compilation_options: PipelineCompilationOptions::default(),
+            cache: None,
+        });
 
     let bg = gpu.create_bind_group(&pipeline, &[&input_buf, &output_buf]);
 
@@ -395,8 +431,13 @@ fn run_f32_test(gpu: &GpuF64, label: &str, shader: &str) {
     let result = {
         let slice = staging.slice(..);
         let (tx, rx) = std::sync::mpsc::channel();
-        slice.map_async(wgpu::MapMode::Read, move |r| { tx.send(r).ok(); });
-        let _ = gpu.device().poll(wgpu::PollType::Wait { submission_index: None, timeout: None });
+        slice.map_async(wgpu::MapMode::Read, move |r| {
+            tx.send(r).ok();
+        });
+        let _ = gpu.device().poll(wgpu::PollType::Wait {
+            submission_index: None,
+            timeout: None,
+        });
         rx.recv().unwrap().unwrap();
         let data = slice.get_mapped_range();
         let vals: &[f32] = bytemuck::cast_slice(&data);
@@ -407,7 +448,10 @@ fn run_f32_test(gpu: &GpuF64, label: &str, shader: &str) {
     let pass = (result - expected).abs() < 0.01;
     eprintln!("  Result:   {result}");
     eprintln!("  Expected: {expected}");
-    eprintln!("  Status:   {}\n", if pass { "PASS" } else { "*** FAIL ***" });
+    eprintln!(
+        "  Status:   {}\n",
+        if pass { "PASS" } else { "*** FAIL ***" }
+    );
 }
 
 fn run_f64_test(gpu: &GpuF64, label: &str, shader: &str, needs_subgroups: bool) {
@@ -420,11 +464,13 @@ fn run_f64_test(gpu: &GpuF64, label: &str, shader: &str, needs_subgroups: bool) 
 
     let input_data: Vec<f64> = vec![1.0_f64; N];
 
-    let input_buf = gpu.device().create_buffer_init(&wgpu::util::BufferInitDescriptor {
-        label: Some("input"),
-        contents: bytemuck::cast_slice(&input_data),
-        usage: wgpu::BufferUsages::STORAGE,
-    });
+    let input_buf = gpu
+        .device()
+        .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("input"),
+            contents: bytemuck::cast_slice(&input_data),
+            usage: wgpu::BufferUsages::STORAGE,
+        });
     let output_buf = gpu.device().create_buffer(&wgpu::BufferDescriptor {
         label: Some("output"),
         size: 8,
@@ -437,18 +483,21 @@ fn run_f64_test(gpu: &GpuF64, label: &str, shader: &str, needs_subgroups: bool) 
         // Subgroup shaders: compile raw (enable subgroups; already in source)
         // but strip enable f64; same as create_pipeline_f64 does
         let patched = shader.replace("enable f64;", "");
-        let module = gpu.device().create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some(label),
-            source: wgpu::ShaderSource::Wgsl(patched.into()),
-        });
-        gpu.device().create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some(label),
-            layout: None,
-            module: &module,
-            entry_point: Some("main"),
-            compilation_options: Default::default(),
-            cache: None,
-        })
+        let module = gpu
+            .device()
+            .create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: Some(label),
+                source: wgpu::ShaderSource::Wgsl(patched.into()),
+            });
+        gpu.device()
+            .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                label: Some(label),
+                layout: None,
+                module: &module,
+                entry_point: Some("main"),
+                compilation_options: PipelineCompilationOptions::default(),
+                cache: None,
+            })
     } else {
         // Non-subgroup: use standard f64 pipeline
         gpu.create_pipeline_f64(shader, label)
@@ -469,7 +518,10 @@ fn run_f64_test(gpu: &GpuF64, label: &str, shader: &str, needs_subgroups: bool) 
             let pass = (val - expected).abs() < 0.01;
             eprintln!("  Result:   {val}");
             eprintln!("  Expected: {expected}");
-            eprintln!("  Status:   {}\n", if pass { "PASS" } else { "*** FAIL ***" });
+            eprintln!(
+                "  Status:   {}\n",
+                if pass { "PASS" } else { "*** FAIL ***" }
+            );
         }
         Ok(_) => eprintln!("  Status:   *** FAIL *** (empty result)\n"),
         Err(e) => eprintln!("  Status:   *** FAIL *** (readback error: {e})\n"),

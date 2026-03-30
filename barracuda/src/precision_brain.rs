@@ -55,23 +55,34 @@ use crate::precision_routing::{PhysicsDomain, PrecisionRoutingAdvice, PrecisionT
 /// When toadStool's runtime is integrated, sovereign detection should
 /// delegate to toadStool's `NvvmPoisoningRisk` assessment.
 fn detect_sovereign_available() -> bool {
-    // Check XDG_DATA_DIRS for coralReef manifest
+    if let Ok(p) = std::env::var("CORALREEF_MANIFEST")
+        && std::path::Path::new(&p).exists()
+    {
+        return true;
+    }
     let xdg_dirs = std::env::var("XDG_DATA_DIRS")
         .unwrap_or_else(|_| "/usr/local/share:/usr/share".to_string());
     for dir in xdg_dirs.split(':') {
-        let manifest = std::path::Path::new(dir).join("coralreef/manifest.json");
+        let manifest = std::path::Path::new(dir).join("biomeos/coralreef/manifest.json");
         if manifest.exists() {
             return true;
         }
     }
-    // Check XDG_RUNTIME_DIR for coralReef socket
-    if let Ok(runtime_dir) = std::env::var("XDG_RUNTIME_DIR") {
-        let sock = std::path::Path::new(&runtime_dir).join("coralreef/coralreef.sock");
-        if sock.exists() {
-            return true;
-        }
+    if let Ok(p) = std::env::var("CORALREEF_SOCKET")
+        && std::path::Path::new(&p).exists()
+    {
+        return true;
     }
-    // Check well-known tmp socket
+    let family = std::env::var("CORALREEF_FAMILY_ID")
+        .or_else(|_| std::env::var("FAMILY_ID"))
+        .unwrap_or_else(|_| "default".into());
+    let runtime_dir = std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".into());
+    let sock = std::path::Path::new(&runtime_dir).join(format!("biomeos/coralreef-{family}.sock"));
+    if sock.exists() {
+        return true;
+    }
+    // Last resort: scan `/tmp` for legacy flat socket names (pre–wateringHole IPC v3.1).
+    // Prefer `$XDG_RUNTIME_DIR/biomeos/coralreef-<family>.sock` or `CORALREEF_SOCKET`.
     for e in std::fs::read_dir("/tmp").into_iter().flatten().flatten() {
         if e.file_name().to_string_lossy().starts_with("coralreef-") {
             return true;

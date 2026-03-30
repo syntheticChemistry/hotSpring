@@ -17,7 +17,7 @@
 
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::lattice::gpu_hmc::{
-    gpu_hmc_trajectory_streaming, gpu_links_to_lattice, GpuHmcState, GpuHmcStreamingPipelines,
+    GpuHmcState, GpuHmcStreamingPipelines, gpu_hmc_trajectory_streaming, gpu_links_to_lattice,
 };
 use hotspring_barracuda::lattice::hmc::{self, HmcConfig};
 use hotspring_barracuda::lattice::wilson::Lattice;
@@ -373,7 +373,9 @@ fn main() {
 
     let detected_beta_c = scan_betas[best_idx];
     let beta_c_error = (detected_beta_c - known_beta_c).abs();
-    println!("  NPU-detected β_c: {detected_beta_c:.3} (known: {known_beta_c:.3}, error: {beta_c_error:.3})");
+    println!(
+        "  NPU-detected β_c: {detected_beta_c:.3} (known: {known_beta_c:.3}, error: {beta_c_error:.3})"
+    );
 
     harness.check_upper(
         "β_c error < known tolerance (CPU verifies NPU)",

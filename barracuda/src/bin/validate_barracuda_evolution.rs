@@ -22,10 +22,10 @@
 
 use hotspring_barracuda::lattice::abelian_higgs::{AbelianHiggsParams, U1HiggsLattice};
 use hotspring_barracuda::lattice::cg;
-use hotspring_barracuda::lattice::dirac::{apply_dirac, FermionField};
+use hotspring_barracuda::lattice::dirac::{FermionField, apply_dirac};
 use hotspring_barracuda::lattice::hmc::{self, HmcConfig};
 use hotspring_barracuda::lattice::pseudofermion::{
-    dynamical_hmc_trajectory, DynamicalHmcConfig, PseudofermionConfig,
+    DynamicalHmcConfig, PseudofermionConfig, dynamical_hmc_trajectory,
 };
 use hotspring_barracuda::lattice::wilson::Lattice;
 use hotspring_barracuda::spectral;

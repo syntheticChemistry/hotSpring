@@ -28,7 +28,7 @@
 
 use hotspring_barracuda::lattice::hmc::{self, HmcConfig};
 use hotspring_barracuda::lattice::pseudofermion::{
-    dynamical_hmc_trajectory, DynamicalHmcConfig, DynamicalHmcResult, PseudofermionConfig,
+    DynamicalHmcConfig, DynamicalHmcResult, PseudofermionConfig, dynamical_hmc_trajectory,
 };
 use hotspring_barracuda::lattice::wilson::Lattice;
 use hotspring_barracuda::tolerances;

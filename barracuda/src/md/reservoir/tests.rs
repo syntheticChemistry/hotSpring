@@ -4,8 +4,8 @@
 
 use crate::md::reservoir::heads;
 use crate::md::reservoir::{
-    spectral_radius_estimate, velocity_features, EchoStateNetwork, EsnConfig, MultiHeadNpu,
-    NpuSimulator, Xoshiro256pp,
+    EchoStateNetwork, EsnConfig, MultiHeadNpu, NpuSimulator, Xoshiro256pp,
+    spectral_radius_estimate, velocity_features,
 };
 
 #[test]

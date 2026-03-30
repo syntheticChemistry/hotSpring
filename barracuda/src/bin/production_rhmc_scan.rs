@@ -27,9 +27,9 @@
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::lattice::gpu_hmc::resident_shifted_cg::GpuResidentShiftedCgBuffers;
 use hotspring_barracuda::lattice::gpu_hmc::{
-    gpu_hmc_trajectory_streaming, gpu_rhmc_trajectory_unidirectional, GpuDynHmcPipelines,
-    GpuDynHmcState, GpuHmcState, GpuHmcStreamingPipelines, GpuRhmcPipelines, GpuRhmcState,
-    RhmcCalibrator, UniHamiltonianBuffers, UniPipelines,
+    GpuDynHmcPipelines, GpuDynHmcState, GpuHmcState, GpuHmcStreamingPipelines, GpuRhmcPipelines,
+    GpuRhmcState, RhmcCalibrator, UniHamiltonianBuffers, UniPipelines,
+    gpu_hmc_trajectory_streaming, gpu_rhmc_trajectory_unidirectional,
 };
 use hotspring_barracuda::lattice::rhmc::RhmcConfig;
 use hotspring_barracuda::lattice::wilson::Lattice;
@@ -348,10 +348,10 @@ fn main() {
 
         for i in 0..args.n_meas {
             // In adaptive mode, re-probe spectral range periodically
-            if let Some(ref mut cal) = calibrator {
-                if cal.needs_spectral_reprobe() {
-                    cal.reprobe_spectral(&gpu, &dyn_pipelines, &rhmc_state.gauge);
-                }
+            if let Some(ref mut cal) = calibrator
+                && cal.needs_spectral_reprobe()
+            {
+                cal.reprobe_spectral(&gpu, &dyn_pipelines, &rhmc_state.gauge);
             }
 
             let rhmc_config = if let Some(ref cal) = calibrator {

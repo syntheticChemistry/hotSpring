@@ -7,9 +7,9 @@
 //! for convergence testing. This eliminates 245,000× of readback
 //! volume compared to the per-iteration approach.
 
-pub use super::resident_cg_async::{gpu_cg_solve_resident_async, AsyncCgReadback};
+pub use super::resident_cg_async::{AsyncCgReadback, gpu_cg_solve_resident_async};
 pub use super::resident_cg_brain::{
-    gpu_cg_solve_brain, gpu_dynamical_hmc_trajectory_brain, BrainInterrupt, CgResidualUpdate,
+    BrainInterrupt, CgResidualUpdate, gpu_cg_solve_brain, gpu_dynamical_hmc_trajectory_brain,
 };
 pub use super::resident_cg_buffers::GpuResidentCgBuffers;
 pub use super::resident_cg_pipelines::{
@@ -19,12 +19,12 @@ pub use super::resident_cg_pipelines::{
 
 use super::dynamical::{GpuDynHmcPipelines, GpuDynHmcResult, GpuDynHmcState};
 use super::resident_cg_buffers::{encode_cg_batch, encode_reduce_chain};
-use super::streaming::{make_ferm_prng_params, GpuDynHmcStreamingPipelines};
+use super::streaming::{GpuDynHmcStreamingPipelines, make_ferm_prng_params};
 #[allow(deprecated)]
 use super::{
-    gpu_dirac_dispatch, gpu_dot_re, gpu_fermion_force_dispatch, gpu_force_dispatch,
+    GpuF64, gpu_dirac_dispatch, gpu_dot_re, gpu_fermion_force_dispatch, gpu_force_dispatch,
     gpu_kinetic_energy, gpu_link_update_dispatch, gpu_mom_update_dispatch, gpu_plaquette,
-    gpu_wilson_action, make_link_mom_params, make_prng_params, GpuF64,
+    gpu_wilson_action, make_link_mom_params, make_prng_params,
 };
 
 /// Maximum batch size for exponential back-off convergence checking.

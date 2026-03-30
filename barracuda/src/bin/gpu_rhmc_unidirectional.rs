@@ -12,17 +12,19 @@
 //!     --lattice 8 --beta 6.0 --nf 2+1 --mass 0.05 --configs 10
 
 use hotspring_barracuda::gpu::GpuF64;
-use hotspring_barracuda::lattice::gpu_flow::{gpu_gradient_flow, GpuFlowPipelines, GpuFlowState};
+use hotspring_barracuda::lattice::gpu_flow::{GpuFlowPipelines, GpuFlowState, gpu_gradient_flow};
 use hotspring_barracuda::lattice::gpu_hmc::dynamical::{GpuDynHmcPipelines, GpuDynHmcState};
 #[allow(deprecated)]
 use hotspring_barracuda::lattice::gpu_hmc::gpu_rhmc::{
-    gpu_rhmc_trajectory, GpuRhmcPipelines, GpuRhmcState,
+    GpuRhmcPipelines, GpuRhmcState, gpu_rhmc_trajectory,
 };
 use hotspring_barracuda::lattice::gpu_hmc::rhmc_calibrator::RhmcCalibrator;
 use hotspring_barracuda::lattice::gpu_hmc::unidirectional_rhmc::{
-    gpu_rhmc_trajectory_unidirectional, UniHamiltonianBuffers, UniPipelines,
+    UniHamiltonianBuffers, UniPipelines, gpu_rhmc_trajectory_unidirectional,
 };
-use hotspring_barracuda::lattice::gpu_hmc::{GpuHmcPipelines, GpuHmcState};
+use hotspring_barracuda::lattice::gpu_hmc::{
+    GpuHmcState, GpuHmcStreamingPipelines, gpu_hmc_trajectory_streaming,
+};
 use hotspring_barracuda::lattice::gradient_flow::FlowIntegrator;
 use hotspring_barracuda::lattice::wilson::Lattice;
 use std::time::Instant;
@@ -134,7 +136,7 @@ fn main() {
     // ═══ Quenched pre-thermalization ════════════════════════════════
     println!("\n─── Quenched pre-therm (stability-detected) ───");
     let lat = Lattice::hot_start(dims, beta, seed);
-    let hmc_pipelines = GpuHmcPipelines::new(&gpu);
+    let hmc_pipelines = GpuHmcStreamingPipelines::new(&gpu);
     let hmc_state = GpuHmcState::from_lattice(&gpu, &lat, beta);
 
     let t1 = Instant::now();
@@ -142,12 +144,13 @@ fn main() {
     let mut pretherm_count = 0;
 
     loop {
-        let r = hotspring_barracuda::lattice::gpu_hmc::gpu_hmc_trajectory(
+        let r = gpu_hmc_trajectory_streaming(
             &gpu,
             &hmc_pipelines,
             &hmc_state,
             10,
             0.1,
+            pretherm_count as u32,
             &mut rng_seed,
         );
         pretherm_count += 1;
@@ -304,7 +307,7 @@ fn main() {
 
         if i >= 30 && ctrl.accept_history.len() >= 20 {
             let acc = ctrl.acceptance_rate();
-            if acc >= 0.45 && acc <= 0.80 && ctrl.mean_abs_delta_h() < 2.0 {
+            if (0.45..=0.80).contains(&acc) && ctrl.mean_abs_delta_h() < 2.0 {
                 println!(
                     "  → Converged: acc={:.0}% ⟨|ΔH|⟩={:.2}",
                     acc * 100.0,
@@ -322,7 +325,7 @@ fn main() {
     );
 
     // ═══ Production RHMC + GPU gradient flow ════════════════════════
-    let skip = ((5.0 / ctrl.dt).ceil() as usize).max(20).min(500);
+    let skip = ((5.0 / ctrl.dt).ceil() as usize).clamp(20, 500);
     println!("\n─── Production ({n_configs} configs, skip={skip}) ───");
 
     let mut plaquettes: Vec<f64> = Vec::new();
@@ -393,8 +396,8 @@ fn main() {
             cfg_idx + 1,
             n_configs,
             meas.plaquette,
-            t0_val.map_or("N/A".into(), |v| format!("{v:.4}")),
-            w0_val.map_or("N/A".into(), |v| format!("{v:.4}")),
+            t0_val.map_or_else(|| "N/A".into(), |v| format!("{v:.4}")),
+            w0_val.map_or_else(|| "N/A".into(), |v| format!("{v:.4}")),
             cfg_start.elapsed().as_secs_f64(),
             ctrl.acceptance_rate() * 100.0,
         );
@@ -424,17 +427,17 @@ fn main() {
     };
     println!("  ⟨P⟩       = {mean_plaq:.6} ± {plaq_err:.6}");
 
-    if !t0_values.is_empty() {
+    if t0_values.is_empty() {
+        println!("  t₀        = not found");
+    } else {
         let m = t0_values.iter().sum::<f64>() / t0_values.len() as f64;
         println!("  t₀        = {m:.4} ({}/{})", t0_values.len(), n_configs);
-    } else {
-        println!("  t₀        = not found");
     }
-    if !w0_values.is_empty() {
+    if w0_values.is_empty() {
+        println!("  w₀        = not found");
+    } else {
         let m = w0_values.iter().sum::<f64>() / w0_values.len() as f64;
         println!("  w₀        = {m:.4} ({}/{})", w0_values.len(), n_configs);
-    } else {
-        println!("  w₀        = not found");
     }
 
     println!("  dt        = {:.2e} (self-tuned)", ctrl.dt);
@@ -463,6 +466,7 @@ fn run_adaptive_flow(
     epsilon: f64,
 ) -> (Option<f64>, Option<f64>) {
     let mut t_max = 4.0;
+    #[allow(clippy::while_float)]
     while t_max <= 32.0 {
         let state = GpuFlowState::from_lattice(gpu, lattice, beta);
         let fr = gpu_gradient_flow(
@@ -521,14 +525,14 @@ fn nf_label(nf: usize, mass: f64, strange_mass: f64) -> String {
 
 fn parse_nf(args: &[String]) -> usize {
     for (i, a) in args.iter().enumerate() {
-        if a == "--nf" {
-            if let Some(v) = args.get(i + 1) {
-                return match v.as_str() {
-                    "2+1" | "3" => 3,
-                    "2" => 2,
-                    o => o.parse().unwrap_or(2),
-                };
-            }
+        if a == "--nf"
+            && let Some(v) = args.get(i + 1)
+        {
+            return match v.as_str() {
+                "2+1" | "3" => 3,
+                "2" => 2,
+                o => o.parse().unwrap_or(2),
+            };
         }
     }
     2
@@ -539,10 +543,10 @@ fn parse_arg(args: &[String], name: &str, default: usize) -> usize {
         if a.starts_with(&format!("{name}=")) {
             return a.split('=').nth(1).unwrap().parse().unwrap_or(default);
         }
-        if a == name {
-            if let Some(v) = args.get(i + 1) {
-                return v.parse().unwrap_or(default);
-            }
+        if a == name
+            && let Some(v) = args.get(i + 1)
+        {
+            return v.parse().unwrap_or(default);
         }
     }
     default
@@ -553,10 +557,10 @@ fn parse_arg_f64(args: &[String], name: &str, default: f64) -> f64 {
         if a.starts_with(&format!("{name}=")) {
             return a.split('=').nth(1).unwrap().parse().unwrap_or(default);
         }
-        if a == name {
-            if let Some(v) = args.get(i + 1) {
-                return v.parse().unwrap_or(default);
-            }
+        if a == name
+            && let Some(v) = args.get(i + 1)
+        {
+            return v.parse().unwrap_or(default);
         }
     }
     default

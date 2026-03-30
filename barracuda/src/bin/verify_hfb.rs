@@ -6,7 +6,7 @@
 //! Expected values trace to `control/surrogate/nuclear-eos/wrapper/skyrme_hf.py`,
 //! commit `fd908c41`.
 
-use hotspring_barracuda::physics::hfb::{binding_energy_l2, SphericalHFB};
+use hotspring_barracuda::physics::hfb::{SphericalHFB, binding_energy_l2};
 use hotspring_barracuda::provenance::{HFB_TEST_NUCLEI, SLY4_PARAMS};
 use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;

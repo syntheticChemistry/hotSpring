@@ -16,8 +16,8 @@
 use hotspring_barracuda::data;
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::physics::{
-    binding_energies_l2_gpu, binding_energies_l2_gpu_resident, binding_energy_l2,
-    nuclear_matter_properties, NuclearMatterProps,
+    NuclearMatterProps, binding_energies_l2_gpu, binding_energies_l2_gpu_resident,
+    binding_energy_l2, nuclear_matter_properties,
 };
 use hotspring_barracuda::provenance;
 use hotspring_barracuda::tolerances;
@@ -127,14 +127,14 @@ fn main() {
             if (56..=132).contains(&a) {
                 n_hfb += 1;
             }
-            if b_calc > 0.0 {
-                if let Some(&b_exp) = b_exp_map.get(&(z, n)) {
-                    let sigma = tolerances::sigma_theo(b_exp);
-                    chi2_sum += ((b_calc - b_exp) / sigma).powi(2);
-                    n_valid += 1;
-                    if conv {
-                        n_conv += 1;
-                    }
+            if b_calc > 0.0
+                && let Some(&b_exp) = b_exp_map.get(&(z, n))
+            {
+                let sigma = tolerances::sigma_theo(b_exp);
+                chi2_sum += ((b_calc - b_exp) / sigma).powi(2);
+                n_valid += 1;
+                if conv {
+                    n_conv += 1;
                 }
             }
         }
@@ -263,14 +263,14 @@ fn main() {
     let mut n_converged = 0usize;
 
     for &(z, n, b_calc, converged) in &gpu_results_vec {
-        if b_calc > 0.0 {
-            if let Some(&b_exp) = b_exp_map.get(&(z, n)) {
-                let sigma = tolerances::sigma_theo(b_exp);
-                chi2_sum += ((b_calc - b_exp) / sigma).powi(2);
-                n_valid += 1;
-                if converged {
-                    n_converged += 1;
-                }
+        if b_calc > 0.0
+            && let Some(&b_exp) = b_exp_map.get(&(z, n))
+        {
+            let sigma = tolerances::sigma_theo(b_exp);
+            chi2_sum += ((b_calc - b_exp) / sigma).powi(2);
+            n_valid += 1;
+            if converged {
+                n_converged += 1;
             }
         }
     }
@@ -412,12 +412,12 @@ fn main() {
         let mut chi2 = 0.0;
         let mut cnt = 0;
         for &(z, n, b_calc, _) in &result.results {
-            if b_calc > 0.0 {
-                if let Some(&b_exp) = b_exp_map.get(&(z, n)) {
-                    let sigma = tolerances::sigma_theo(b_exp);
-                    chi2 += ((b_calc - b_exp) / sigma).powi(2);
-                    cnt += 1;
-                }
+            if b_calc > 0.0
+                && let Some(&b_exp) = b_exp_map.get(&(z, n))
+            {
+                let sigma = tolerances::sigma_theo(b_exp);
+                chi2 += ((b_calc - b_exp) / sigma).powi(2);
+                cnt += 1;
             }
         }
         if cnt > 0 {

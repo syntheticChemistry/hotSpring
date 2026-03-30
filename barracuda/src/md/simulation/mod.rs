@@ -21,7 +21,7 @@ use barracuda::device::driver_profile::Fp64Strategy;
 use barracuda::pipeline::ReduceScalarPipeline;
 
 use crate::gpu::GpuF64;
-pub use crate::md::celllist::{run_simulation_celllist, CellList};
+pub use crate::md::celllist::{CellList, run_simulation_celllist};
 use crate::md::config::MdConfig;
 use crate::md::shaders;
 use crate::tolerances::{DEFAULT_VELOCITY_SEED, MD_TEMPERATURE_FLOOR, THERMOSTAT_INTERVAL};

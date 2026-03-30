@@ -7,8 +7,8 @@
 //! and classifier across module boundaries.
 
 use hotspring_barracuda::prescreen::{
-    cascade_filter, l1_proxy_prescreen, nmp_prescreen, CascadeStats, NMPConstraints,
-    NMPScreenResult, PreScreenClassifier,
+    CascadeStats, NMPConstraints, NMPScreenResult, PreScreenClassifier, cascade_filter,
+    l1_proxy_prescreen, nmp_prescreen,
 };
 use hotspring_barracuda::provenance::SLY4_PARAMS;
 use std::collections::HashMap;

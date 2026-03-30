@@ -129,11 +129,11 @@ fn read_cpuinfo() -> (String, usize, usize, usize) {
             }
         } else if line.starts_with("processor") {
             thread_count += 1;
-        } else if line.starts_with("cache size") {
-            if let Some(v) = line.split(':').nth(1) {
-                let v = v.trim().replace(" KB", "");
-                cache_kb = v.parse().unwrap_or(0);
-            }
+        } else if line.starts_with("cache size")
+            && let Some(v) = line.split(':').nth(1)
+        {
+            let v = v.trim().replace(" KB", "");
+            cache_kb = v.parse().unwrap_or(0);
         }
     }
 
@@ -146,10 +146,10 @@ fn read_meminfo() -> usize {
     for line in content.lines() {
         if line.starts_with("MemTotal:") {
             let parts: Vec<&str> = line.split_whitespace().collect();
-            if parts.len() >= 2 {
-                if let Ok(kb) = parts[1].parse::<usize>() {
-                    return kb / 1024;
-                }
+            if parts.len() >= 2
+                && let Ok(kb) = parts[1].parse::<usize>()
+            {
+                return kb / 1024;
             }
         }
     }

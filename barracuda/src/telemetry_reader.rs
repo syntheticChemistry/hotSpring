@@ -159,14 +159,14 @@ fn parse_event(line: &str) -> Option<TelemetryEvent> {
             "val" => {
                 // Find the corresponding "obs" key
                 for pair2 in split_json_pairs(inner) {
-                    if let Some((k2, v2)) = split_kv(pair2) {
-                        if k2 == "obs" {
-                            let obs_name = v2.trim_matches('"').to_string();
-                            if let Ok(val) = value.parse::<f64>() {
-                                fields.insert(obs_name, val);
-                            }
-                            break;
+                    if let Some((k2, v2)) = split_kv(pair2)
+                        && k2 == "obs"
+                    {
+                        let obs_name = v2.trim_matches('"').to_string();
+                        if let Ok(val) = value.parse::<f64>() {
+                            fields.insert(obs_name, val);
                         }
+                        break;
                     }
                 }
             }

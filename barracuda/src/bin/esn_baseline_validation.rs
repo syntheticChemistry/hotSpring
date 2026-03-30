@@ -6,8 +6,8 @@
 //! volume), runs synthetic dataset probes, and sweeps reservoir hyperparameters.
 
 use hotspring_barracuda::md::reservoir::esn_baseline::{
-    self, head_specs_v2, load_jsonl_files, print_results_table, run_activation_comparison,
-    run_synthetic_test, train_and_evaluate, AggPoint, HeadSpec,
+    self, AggPoint, HeadSpec, head_specs_v2, load_jsonl_files, print_results_table,
+    run_activation_comparison, run_synthetic_test, train_and_evaluate,
 };
 use std::path::PathBuf;
 

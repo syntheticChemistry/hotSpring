@@ -133,21 +133,17 @@ fn spawn_titan_pretherm_if_available(rt: &tokio::runtime::Runtime) -> Option<Tit
         "  [Brain] Secondary GPU discovered (adapter {secondary_idx}), spawning Titan V pre-motor..."
     );
 
-    // Create the GPU on the main thread to avoid wgpu deadlocks
-    // SAFETY: single-threaded context; no concurrent env readers.
-    unsafe { std::env::set_var("HOTSPRING_GPU_ADAPTER", &secondary_idx) };
-    let titan_gpu = match rt.block_on(GpuF64::new()) {
+    // Create the GPU on the main thread to avoid wgpu deadlocks (explicit hint, no env mutation).
+    let titan_gpu = match rt.block_on(GpuF64::with_adapter(&secondary_idx)) {
         Ok(gpu) => {
             println!("    Titan V: {} (f64={})", gpu.adapter_name, gpu.has_f64);
             gpu
         }
         Err(e) => {
             println!("    Titan V init failed: {e}");
-            unsafe { std::env::remove_var("HOTSPRING_GPU_ADAPTER") };
             return None;
         }
     };
-    unsafe { std::env::remove_var("HOTSPRING_GPU_ADAPTER") };
 
     let handles = match spawn_titan_worker(titan_gpu) {
         Ok(h) => h,

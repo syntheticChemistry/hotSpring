@@ -152,56 +152,134 @@ fn main() {
     println!("\n━━━ Phase 5: QCD Kernel Dispatch (f64 physics on sovereign pipeline) ━━━\n");
 
     match test_f64_literal_write(&mut ctx) {
-        Ok(()) => { println!("  [PASS] f64 literal write (3.14 → buffer)"); pass += 1; }
-        Err(e) => { println!("  [FAIL] f64 literal write: {e}"); fail += 1; }
+        Ok(()) => {
+            println!("  [PASS] f64 literal write (3.14 → buffer)");
+            pass += 1;
+        }
+        Err(e) => {
+            println!("  [FAIL] f64 literal write: {e}");
+            fail += 1;
+        }
     }
     match test_f64_copy(&mut ctx) {
-        Ok(()) => { println!("  [PASS] f64 copy (load → store, 2 buffers)"); pass += 1; }
-        Err(e) => { println!("  [FAIL] f64 copy: {e}"); fail += 1; }
+        Ok(()) => {
+            println!("  [PASS] f64 copy (load → store, 2 buffers)");
+            pass += 1;
+        }
+        Err(e) => {
+            println!("  [FAIL] f64 copy: {e}");
+            fail += 1;
+        }
     }
     match test_f64_add_3buf(&mut ctx) {
-        Ok(()) => { println!("  [PASS] f64 add: a + b → c (3 buffers, V_ADD_F64)"); pass += 1; }
-        Err(e) => { println!("  [FAIL] f64 add: {e}"); fail += 1; }
+        Ok(()) => {
+            println!("  [PASS] f64 add: a + b → c (3 buffers, V_ADD_F64)");
+            pass += 1;
+        }
+        Err(e) => {
+            println!("  [FAIL] f64 add: {e}");
+            fail += 1;
+        }
     }
     match test_f64_div_3buf(&mut ctx) {
-        Ok(()) => { println!("  [PASS] f64 div: a / b → c (3 buffers, V_DIV_F64)"); pass += 1; }
-        Err(e) => { println!("  [FAIL] f64 div: {e}"); fail += 1; }
+        Ok(()) => {
+            println!("  [PASS] f64 div: a / b → c (3 buffers, V_DIV_F64)");
+            pass += 1;
+        }
+        Err(e) => {
+            println!("  [FAIL] f64 div: {e}");
+            fail += 1;
+        }
     }
     match test_f64_cmp_branch(&mut ctx) {
-        Ok(()) => { println!("  [PASS] f64 cmp+branch: if abs(x) > ε → 1.0 else 0.0"); pass += 1; }
-        Err(e) => { println!("  [FAIL] f64 cmp+branch: {e}"); fail += 1; }
+        Ok(()) => {
+            println!("  [PASS] f64 cmp+branch: if abs(x) > ε → 1.0 else 0.0");
+            pass += 1;
+        }
+        Err(e) => {
+            println!("  [FAIL] f64 cmp+branch: {e}");
+            fail += 1;
+        }
     }
     match test_cg_compute_alpha(&mut ctx) {
-        Ok(()) => { println!("  [PASS] CG alpha: rz/pAp scalar division (f64)"); pass += 1; }
-        Err(e) => { println!("  [FAIL] CG alpha: {e}"); fail += 1; }
+        Ok(()) => {
+            println!("  [PASS] CG alpha: rz/pAp scalar division (f64)");
+            pass += 1;
+        }
+        Err(e) => {
+            println!("  [FAIL] CG alpha: {e}");
+            fail += 1;
+        }
     }
     match test_uniform_read(&mut ctx) {
-        Ok(()) => { println!("  [PASS] Uniform buffer read (params.n + params.alpha)"); pass += 1; }
-        Err(e) => { println!("  [FAIL] Uniform read: {e}"); fail += 1; }
+        Ok(()) => {
+            println!("  [PASS] Uniform buffer read (params.n + params.alpha)");
+            pass += 1;
+        }
+        Err(e) => {
+            println!("  [FAIL] Uniform read: {e}");
+            fail += 1;
+        }
     }
     match test_axpy_minimal(&mut ctx) {
-        Ok(()) => { println!("  [PASS] AXPY minimal: y[0]=y[0]+α*x[0] (3 bufs, uniform+storage)"); pass += 1; }
-        Err(e) => { println!("  [FAIL] AXPY minimal: {e}"); fail += 1; }
+        Ok(()) => {
+            println!("  [PASS] AXPY minimal: y[0]=y[0]+α*x[0] (3 bufs, uniform+storage)");
+            pass += 1;
+        }
+        Err(e) => {
+            println!("  [FAIL] AXPY minimal: {e}");
+            fail += 1;
+        }
     }
     match test_axpy_f64(&mut ctx) {
-        Ok(()) => { println!("  [PASS] AXPY: y = y + α·x vector operation (f64)"); pass += 1; }
-        Err(e) => { println!("  [FAIL] AXPY: {e}"); fail += 1; }
+        Ok(()) => {
+            println!("  [PASS] AXPY: y = y + α·x vector operation (f64)");
+            pass += 1;
+        }
+        Err(e) => {
+            println!("  [FAIL] AXPY: {e}");
+            fail += 1;
+        }
     }
     match test_num_workgroups(&mut ctx) {
-        Ok(()) => { println!("  [PASS] @builtin(num_workgroups) reads dispatch dims"); pass += 1; }
-        Err(e) => { println!("  [FAIL] num_workgroups: {e}"); fail += 1; }
+        Ok(()) => {
+            println!("  [PASS] @builtin(num_workgroups) reads dispatch dims");
+            pass += 1;
+        }
+        Err(e) => {
+            println!("  [FAIL] num_workgroups: {e}");
+            fail += 1;
+        }
     }
     match test_nwg_idx_debug(&mut ctx) {
-        Ok(()) => { println!("  [PASS] num_workgroups idx calculation debug trace"); pass += 1; }
-        Err(e) => { println!("  [FAIL] nwg_idx_debug: {e}"); fail += 1; }
+        Ok(()) => {
+            println!("  [PASS] num_workgroups idx calculation debug trace");
+            pass += 1;
+        }
+        Err(e) => {
+            println!("  [FAIL] nwg_idx_debug: {e}");
+            fail += 1;
+        }
     }
     match test_axpy_with_num_workgroups(&mut ctx) {
-        Ok(()) => { println!("  [PASS] AXPY with num_workgroups builtin (original shader)"); pass += 1; }
-        Err(e) => { println!("  [FAIL] AXPY+num_workgroups: {e}"); fail += 1; }
+        Ok(()) => {
+            println!("  [PASS] AXPY with num_workgroups builtin (original shader)");
+            pass += 1;
+        }
+        Err(e) => {
+            println!("  [FAIL] AXPY+num_workgroups: {e}");
+            fail += 1;
+        }
     }
     match test_complex_dot_re(&mut ctx) {
-        Ok(()) => { println!("  [PASS] Complex dot-product Re⟨a,b⟩ (f64, multi-thread)"); pass += 1; }
-        Err(e) => { println!("  [FAIL] Complex dot-product: {e}"); fail += 1; }
+        Ok(()) => {
+            println!("  [PASS] Complex dot-product Re⟨a,b⟩ (f64, multi-thread)");
+            pass += 1;
+        }
+        Err(e) => {
+            println!("  [FAIL] Complex dot-product: {e}");
+            fail += 1;
+        }
     }
 
     // ── Summary ──
@@ -215,9 +293,11 @@ fn main() {
     println!("    WGSL → native compilation:   LIVE ({compiled} QCD shaders)");
     println!("    Basic dispatch (u32 stores):  LIVE (AMD RDNA2 sovereign pipeline)");
     println!("    Buffer read (GLOBAL_LOAD):    LIVE (multi-buffer read+write)");
-    println!("    f64 QCD dispatch:             {} ({} kernels tested)",
+    println!(
+        "    f64 QCD dispatch:             {} ({} kernels tested)",
         if fail == 0 { "LIVE" } else { "PARTIAL" },
-        3);
+        3
+    );
     println!("    NVIDIA dispatch:              FRONTIER (UVM init needed)");
     if fail == 0 {
         println!("\n  Sovereign pipeline: FULLY VALIDATED (QCD f64 dispatch)");
@@ -235,27 +315,28 @@ fn test_write_constant(ctx: &mut GpuContext) -> Result<(), String> {
 }
 
 fn test_write_constant_inner(ctx: &mut GpuContext, verbose: bool) -> Result<(), String> {
-    const WGSL: &str = r#"
-@group(0) @binding(0)
-var<storage, read_write> out: array<u32>;
-
-@compute @workgroup_size(1)
-fn main() {
-    out[0] = 42u;
-}
-"#;
+    const WGSL: &str = include_str!("shaders/coral_sovereign/write_constant.wgsl");
 
     let t0 = Instant::now();
-    let kernel = ctx.compile_wgsl(WGSL).map_err(|e| format!("compile: {e}"))?;
+    let kernel = ctx
+        .compile_wgsl(WGSL)
+        .map_err(|e| format!("compile: {e}"))?;
     let compile_us = t0.elapsed().as_micros();
 
     if verbose {
-        println!("\n    ISA binary ({} bytes, {} GPRs, wg={:?}, wave={}):",
-            kernel.binary.len(), kernel.gpr_count, kernel.workgroup, kernel.wave_size);
+        println!(
+            "\n    ISA binary ({} bytes, {} GPRs, wg={:?}, wave={}):",
+            kernel.binary.len(),
+            kernel.gpr_count,
+            kernel.workgroup,
+            kernel.wave_size
+        );
         let words: &[u32] = bytemuck::cast_slice(&kernel.binary);
         for (i, w) in words.iter().enumerate() {
             print!("      [{i:3}] 0x{w:08X}");
-            if *w == 0xBF81_0000 { print!("  ← S_ENDPGM"); }
+            if *w == 0xBF81_0000 {
+                print!("  ← S_ENDPGM");
+            }
             println!();
         }
     }
@@ -268,11 +349,14 @@ fn main() {
     for chunk in init_data[..16].chunks_exact_mut(4) {
         chunk.copy_from_slice(&sentinel.to_le_bytes());
     }
-    ctx.upload(buf, &init_data).map_err(|e| format!("upload: {e}"))?;
+    ctx.upload(buf, &init_data)
+        .map_err(|e| format!("upload: {e}"))?;
 
     if verbose {
         // Verify upload: read back before dispatch
-        let pre = ctx.readback(buf, 16).map_err(|e| format!("pre-readback: {e}"))?;
+        let pre = ctx
+            .readback(buf, 16)
+            .map_err(|e| format!("pre-readback: {e}"))?;
         let pre_vals: &[u32] = bytemuck::cast_slice(&pre);
         println!("    Pre-dispatch readback (sentinel 0x{sentinel:08X}): {pre_vals:?}");
     }
@@ -283,14 +367,18 @@ fn main() {
     ctx.sync().map_err(|e| format!("sync: {e}"))?;
     let dispatch_us = t1.elapsed().as_micros();
 
-    let readback = ctx.readback(buf, 16).map_err(|e| format!("readback: {e}"))?;
+    let readback = ctx
+        .readback(buf, 16)
+        .map_err(|e| format!("readback: {e}"))?;
     let values: &[u32] = bytemuck::cast_slice(&readback);
     let value = values[0];
 
     if verbose {
         println!("    Post-dispatch readback: {:?}", values);
         if values[1] == sentinel {
-            println!("    → Sentinel intact at [1]: upload+readback works, dispatch didn't modify [0]");
+            println!(
+                "    → Sentinel intact at [1]: upload+readback works, dispatch didn't modify [0]"
+            );
         } else if values.iter().all(|&v| v == 0) {
             println!("    → All zeros: upload may not persist (mmap/domain issue)");
         }
@@ -302,31 +390,24 @@ fn main() {
         return Err(format!("expected 42, got {value}"));
     }
 
-    print!(
-        "(compile {compile_us}us, dispatch {dispatch_us}us, value={value}) ",
-    );
+    print!("(compile {compile_us}us, dispatch {dispatch_us}us, value={value}) ",);
     Ok(())
 }
 
 /// Test 2: Write thread IDs to buffer (multi-thread dispatch, no buffer reads).
 fn test_write_thread_id(ctx: &mut GpuContext) -> Result<(), String> {
-    const WGSL: &str = r#"
-@group(0) @binding(0)
-var<storage, read_write> out: array<u32>;
+    const WGSL: &str = include_str!("shaders/coral_sovereign/write_thread_id.wgsl");
 
-@compute @workgroup_size(64)
-fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
-    if gid.x < 64u {
-        out[gid.x] = gid.x * 3u + 7u;
-    }
-}
-"#;
-
-    let kernel = ctx.compile_wgsl(WGSL).map_err(|e| format!("compile: {e}"))?;
+    let kernel = ctx
+        .compile_wgsl(WGSL)
+        .map_err(|e| format!("compile: {e}"))?;
 
     let buf_size = 64 * 4;
-    let buf = ctx.alloc(buf_size as u64).map_err(|e| format!("alloc: {e}"))?;
-    ctx.upload(buf, &vec![0u8; buf_size]).map_err(|e| format!("upload: {e}"))?;
+    let buf = ctx
+        .alloc(buf_size as u64)
+        .map_err(|e| format!("alloc: {e}"))?;
+    ctx.upload(buf, &vec![0u8; buf_size])
+        .map_err(|e| format!("upload: {e}"))?;
 
     let t0 = Instant::now();
     ctx.dispatch(&kernel, &[buf], [1, 1, 1])
@@ -334,7 +415,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     ctx.sync().map_err(|e| format!("sync: {e}"))?;
     let dispatch_us = t0.elapsed().as_micros();
 
-    let readback = ctx.readback(buf, buf_size).map_err(|e| format!("readback: {e}"))?;
+    let readback = ctx
+        .readback(buf, buf_size)
+        .map_err(|e| format!("readback: {e}"))?;
     let values: &[u32] = bytemuck::cast_slice(&readback);
 
     ctx.free(buf).ok();
@@ -361,30 +444,28 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 /// Test 3: Probe buffer-read capability (known frontier on RDNA2).
 /// Reads from an input buffer, adds 1, writes to output.
 fn test_buffer_read_probe(ctx: &mut GpuContext) -> Result<(), String> {
-    const WGSL: &str = r#"
-@group(0) @binding(0) var<storage> input: array<u32>;
-@group(0) @binding(1) var<storage, read_write> output: array<u32>;
+    const WGSL: &str = include_str!("shaders/coral_sovereign/buffer_read_probe.wgsl");
 
-@compute @workgroup_size(1)
-fn main() {
-    output[0] = input[0] + 1u;
-}
-"#;
-
-    let kernel = ctx.compile_wgsl(WGSL).map_err(|e| format!("compile: {e}"))?;
+    let kernel = ctx
+        .compile_wgsl(WGSL)
+        .map_err(|e| format!("compile: {e}"))?;
 
     let buf_in = ctx.alloc(4096).map_err(|e| format!("alloc in: {e}"))?;
     let buf_out = ctx.alloc(4096).map_err(|e| format!("alloc out: {e}"))?;
 
     let input_val: u32 = 100;
-    ctx.upload(buf_in, &input_val.to_le_bytes()).map_err(|e| format!("upload in: {e}"))?;
-    ctx.upload(buf_out, &[0u8; 4]).map_err(|e| format!("upload out: {e}"))?;
+    ctx.upload(buf_in, &input_val.to_le_bytes())
+        .map_err(|e| format!("upload in: {e}"))?;
+    ctx.upload(buf_out, &[0u8; 4])
+        .map_err(|e| format!("upload out: {e}"))?;
 
     ctx.dispatch(&kernel, &[buf_in, buf_out], [1, 1, 1])
         .map_err(|e| format!("dispatch: {e}"))?;
     ctx.sync().map_err(|e| format!("sync: {e}"))?;
 
-    let readback = ctx.readback(buf_out, 4).map_err(|e| format!("readback: {e}"))?;
+    let readback = ctx
+        .readback(buf_out, 4)
+        .map_err(|e| format!("readback: {e}"))?;
     let value = u32::from_le_bytes(readback[..4].try_into().map_err(|_| "readback too short")?);
 
     ctx.free(buf_in).ok();
@@ -400,10 +481,16 @@ fn main() {
 
 /// Library sources for shader concatenation.
 /// Composite shaders use barraCuda's vec2<f64> representation (not hotSpring's Complex64 struct).
-const LIB_COMPLEX_VEC2: &str = include_str!("../../../../../primals/barraCuda/crates/barracuda/src/shaders/math/complex_f64.wgsl");
-const LIB_SU3_VEC2: &str = include_str!("../../../../../primals/barraCuda/crates/barracuda/src/shaders/math/su3.wgsl");
-const LIB_LCG_F64: &str = include_str!("../../../../../primals/barraCuda/crates/barracuda/src/shaders/math/lcg_f64.wgsl");
-const LIB_SU3_EXTENDED: &str = include_str!("../../../../../primals/barraCuda/crates/barracuda/src/shaders/math/su3_extended_f64.wgsl");
+const LIB_COMPLEX_VEC2: &str = include_str!(
+    "../../../../../primals/barraCuda/crates/barracuda/src/shaders/math/complex_f64.wgsl"
+);
+const LIB_SU3_VEC2: &str =
+    include_str!("../../../../../primals/barraCuda/crates/barracuda/src/shaders/math/su3.wgsl");
+const LIB_LCG_F64: &str =
+    include_str!("../../../../../primals/barraCuda/crates/barracuda/src/shaders/math/lcg_f64.wgsl");
+const LIB_SU3_EXTENDED: &str = include_str!(
+    "../../../../../primals/barraCuda/crates/barracuda/src/shaders/math/su3_extended_f64.wgsl"
+);
 
 /// Strip c64_exp/c64_phase (use exp_f64/sin_f64/cos_f64 polyfills not available standalone).
 fn complex_no_transcendentals() -> String {
@@ -421,7 +508,9 @@ fn vec2_preamble_with_su3() -> String {
     let c = complex_no_transcendentals();
     // "struct Complex64" in this comment suppresses coral-reef's Complex64 auto-prepend.
     // "fn xorshift32" guard not needed — consumer shaders don't use PRNG directly.
-    format!("// [guard] struct Complex64 — suppressed, using vec2<f64> convention\n{c}\n{LIB_SU3_VEC2}")
+    format!(
+        "// [guard] struct Complex64 — suppressed, using vec2<f64> convention\n{c}\n{LIB_SU3_VEC2}"
+    )
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -431,32 +520,35 @@ fn vec2_preamble_with_su3() -> String {
 /// Test: write a literal f64 value to a buffer.
 /// Isolates whether f64 stores (GLOBAL_STORE_DWORDX2) work.
 fn test_f64_literal_write(ctx: &mut GpuContext) -> Result<(), String> {
-    const WGSL: &str = r#"
-@group(0) @binding(0) var<storage, read_write> out: array<f64>;
-
-@compute @workgroup_size(1)
-fn main() {
-    out[0] = f64(3.14);
-}
-"#;
-    let kernel = ctx.compile_wgsl(WGSL).map_err(|e| format!("compile: {e}"))?;
+    const WGSL: &str = include_str!("shaders/coral_sovereign/f64_literal_write.wgsl");
+    let kernel = ctx
+        .compile_wgsl(WGSL)
+        .map_err(|e| format!("compile: {e}"))?;
 
     eprintln!("[QCD] f64 literal ISA ({} bytes):", kernel.binary.len());
     let isa_words: &[u32] = bytemuck::cast_slice(&kernel.binary);
     for (i, w) in isa_words.iter().enumerate() {
         eprint!("  [{i:3}] 0x{w:08X}");
-        if *w == 0xBF81_0000 { eprint!("  ← S_ENDPGM"); }
-        if *w & 0xFC00_0000 == 0xDC00_0000 { eprint!("  ← FLAT/GLOBAL"); }
+        if *w == 0xBF81_0000 {
+            eprint!("  ← S_ENDPGM");
+        }
+        if *w & 0xFC00_0000 == 0xDC00_0000 {
+            eprint!("  ← FLAT/GLOBAL");
+        }
         eprintln!();
     }
 
     let buf = ctx.alloc(4096).map_err(|e| format!("alloc: {e}"))?;
-    ctx.upload(buf, &[0u8; 16]).map_err(|e| format!("upload: {e}"))?;
+    ctx.upload(buf, &[0u8; 16])
+        .map_err(|e| format!("upload: {e}"))?;
 
-    ctx.dispatch(&kernel, &[buf], [1, 1, 1]).map_err(|e| format!("dispatch: {e}"))?;
+    ctx.dispatch(&kernel, &[buf], [1, 1, 1])
+        .map_err(|e| format!("dispatch: {e}"))?;
     ctx.sync().map_err(|e| format!("sync: {e}"))?;
 
-    let rb = ctx.readback(buf, 16).map_err(|e| format!("readback: {e}"))?;
+    let rb = ctx
+        .readback(buf, 16)
+        .map_err(|e| format!("readback: {e}"))?;
     let val: f64 = *bytemuck::from_bytes(&rb[..8]);
     ctx.free(buf).ok();
 
@@ -471,23 +563,21 @@ fn main() {
 /// Test: copy f64 from input buffer to output buffer.
 /// Isolates whether f64 loads (GLOBAL_LOAD_DWORDX2) work.
 fn test_f64_copy(ctx: &mut GpuContext) -> Result<(), String> {
-    const WGSL: &str = r#"
-@group(0) @binding(0) var<storage> input: array<f64>;
-@group(0) @binding(1) var<storage, read_write> output: array<f64>;
-
-@compute @workgroup_size(1)
-fn main() {
-    output[0] = input[0];
-}
-"#;
-    let kernel = ctx.compile_wgsl(WGSL).map_err(|e| format!("compile: {e}"))?;
+    const WGSL: &str = include_str!("shaders/coral_sovereign/f64_copy.wgsl");
+    let kernel = ctx
+        .compile_wgsl(WGSL)
+        .map_err(|e| format!("compile: {e}"))?;
 
     eprintln!("[QCD] f64 copy ISA ({} bytes):", kernel.binary.len());
     let isa_words: &[u32] = bytemuck::cast_slice(&kernel.binary);
     for (i, w) in isa_words.iter().enumerate() {
         eprint!("  [{i:3}] 0x{w:08X}");
-        if *w == 0xBF81_0000 { eprint!("  ← S_ENDPGM"); }
-        if *w & 0xFC00_0000 == 0xDC00_0000 { eprint!("  ← FLAT/GLOBAL"); }
+        if *w == 0xBF81_0000 {
+            eprint!("  ← S_ENDPGM");
+        }
+        if *w & 0xFC00_0000 == 0xDC00_0000 {
+            eprint!("  ← FLAT/GLOBAL");
+        }
         eprintln!();
     }
 
@@ -495,13 +585,18 @@ fn main() {
     let buf_out = ctx.alloc(4096).map_err(|e| format!("alloc out: {e}"))?;
 
     let input_val: f64 = 2.718281828;
-    ctx.upload(buf_in, bytemuck::bytes_of(&input_val)).map_err(|e| format!("upload: {e}"))?;
-    ctx.upload(buf_out, &[0u8; 8]).map_err(|e| format!("upload out: {e}"))?;
+    ctx.upload(buf_in, bytemuck::bytes_of(&input_val))
+        .map_err(|e| format!("upload: {e}"))?;
+    ctx.upload(buf_out, &[0u8; 8])
+        .map_err(|e| format!("upload out: {e}"))?;
 
-    ctx.dispatch(&kernel, &[buf_in, buf_out], [1, 1, 1]).map_err(|e| format!("dispatch: {e}"))?;
+    ctx.dispatch(&kernel, &[buf_in, buf_out], [1, 1, 1])
+        .map_err(|e| format!("dispatch: {e}"))?;
     ctx.sync().map_err(|e| format!("sync: {e}"))?;
 
-    let rb = ctx.readback(buf_out, 16).map_err(|e| format!("readback: {e}"))?;
+    let rb = ctx
+        .readback(buf_out, 16)
+        .map_err(|e| format!("readback: {e}"))?;
     let val: f64 = *bytemuck::from_bytes(&rb[..8]);
 
     let input_hex = u64::from_le_bytes(bytemuck::bytes_of(&input_val).try_into().unwrap());
@@ -525,17 +620,10 @@ fn main() {
 /// Test: f64 addition across 3 buffers (a + b → c).
 /// Isolates whether 3 buffer bindings + V_ADD_F64 work.
 fn test_f64_add_3buf(ctx: &mut GpuContext) -> Result<(), String> {
-    const WGSL: &str = r#"
-@group(0) @binding(0) var<storage> a: array<f64>;
-@group(0) @binding(1) var<storage> b: array<f64>;
-@group(0) @binding(2) var<storage, read_write> out: array<f64>;
-
-@compute @workgroup_size(1)
-fn main() {
-    out[0] = a[0] + b[0];
-}
-"#;
-    let kernel = ctx.compile_wgsl(WGSL).map_err(|e| format!("compile: {e}"))?;
+    const WGSL: &str = include_str!("shaders/coral_sovereign/f64_add_3buf.wgsl");
+    let kernel = ctx
+        .compile_wgsl(WGSL)
+        .map_err(|e| format!("compile: {e}"))?;
 
     let buf_a = ctx.alloc(4096).map_err(|e| format!("alloc a: {e}"))?;
     let buf_b = ctx.alloc(4096).map_err(|e| format!("alloc b: {e}"))?;
@@ -543,9 +631,12 @@ fn main() {
 
     let a_val: f64 = 1.5;
     let b_val: f64 = 2.5;
-    ctx.upload(buf_a, bytemuck::bytes_of(&a_val)).map_err(|e| format!("upload a: {e}"))?;
-    ctx.upload(buf_b, bytemuck::bytes_of(&b_val)).map_err(|e| format!("upload b: {e}"))?;
-    ctx.upload(buf_out, &[0u8; 8]).map_err(|e| format!("upload out: {e}"))?;
+    ctx.upload(buf_a, bytemuck::bytes_of(&a_val))
+        .map_err(|e| format!("upload a: {e}"))?;
+    ctx.upload(buf_b, bytemuck::bytes_of(&b_val))
+        .map_err(|e| format!("upload b: {e}"))?;
+    ctx.upload(buf_out, &[0u8; 8])
+        .map_err(|e| format!("upload out: {e}"))?;
 
     let t0 = Instant::now();
     ctx.dispatch(&kernel, &[buf_a, buf_b, buf_out], [1, 1, 1])
@@ -553,7 +644,9 @@ fn main() {
     ctx.sync().map_err(|e| format!("sync: {e}"))?;
     let us = t0.elapsed().as_micros();
 
-    let rb = ctx.readback(buf_out, 8).map_err(|e| format!("readback: {e}"))?;
+    let rb = ctx
+        .readback(buf_out, 8)
+        .map_err(|e| format!("readback: {e}"))?;
     let result: f64 = *bytemuck::from_bytes(&rb[..8]);
 
     ctx.free(buf_a).ok();
@@ -562,7 +655,9 @@ fn main() {
 
     let expected = 4.0_f64;
     if (result - expected).abs() > 1e-12 {
-        return Err(format!("expected {expected}, got {result} (a={a_val}, b={b_val})"));
+        return Err(format!(
+            "expected {expected}, got {result} (a={a_val}, b={b_val})"
+        ));
     }
     print!("({a_val}+{b_val}={result}, {us}us) ");
     Ok(())
@@ -570,17 +665,10 @@ fn main() {
 
 /// Test: pure f64 division across 3 buffers (a / b → c).
 fn test_f64_div_3buf(ctx: &mut GpuContext) -> Result<(), String> {
-    const WGSL: &str = r#"
-@group(0) @binding(0) var<storage> a: array<f64>;
-@group(0) @binding(1) var<storage> b: array<f64>;
-@group(0) @binding(2) var<storage, read_write> out: array<f64>;
-
-@compute @workgroup_size(1)
-fn main() {
-    out[0] = a[0] / b[0];
-}
-"#;
-    let kernel = ctx.compile_wgsl(WGSL).map_err(|e| format!("compile: {e}"))?;
+    const WGSL: &str = include_str!("shaders/coral_sovereign/f64_div_3buf.wgsl");
+    let kernel = ctx
+        .compile_wgsl(WGSL)
+        .map_err(|e| format!("compile: {e}"))?;
 
     let buf_a = ctx.alloc(4096).map_err(|e| format!("alloc a: {e}"))?;
     let buf_b = ctx.alloc(4096).map_err(|e| format!("alloc b: {e}"))?;
@@ -588,9 +676,12 @@ fn main() {
 
     let a_val: f64 = 6.0;
     let b_val: f64 = 3.0;
-    ctx.upload(buf_a, bytemuck::bytes_of(&a_val)).map_err(|e| format!("upload a: {e}"))?;
-    ctx.upload(buf_b, bytemuck::bytes_of(&b_val)).map_err(|e| format!("upload b: {e}"))?;
-    ctx.upload(buf_out, &[0u8; 8]).map_err(|e| format!("upload out: {e}"))?;
+    ctx.upload(buf_a, bytemuck::bytes_of(&a_val))
+        .map_err(|e| format!("upload a: {e}"))?;
+    ctx.upload(buf_b, bytemuck::bytes_of(&b_val))
+        .map_err(|e| format!("upload b: {e}"))?;
+    ctx.upload(buf_out, &[0u8; 8])
+        .map_err(|e| format!("upload out: {e}"))?;
 
     let t0 = Instant::now();
     ctx.dispatch(&kernel, &[buf_a, buf_b, buf_out], [1, 1, 1])
@@ -598,7 +689,9 @@ fn main() {
     ctx.sync().map_err(|e| format!("sync: {e}"))?;
     let us = t0.elapsed().as_micros();
 
-    let rb = ctx.readback(buf_out, 8).map_err(|e| format!("readback: {e}"))?;
+    let rb = ctx
+        .readback(buf_out, 8)
+        .map_err(|e| format!("readback: {e}"))?;
     let result: f64 = *bytemuck::from_bytes(&rb[..8]);
     ctx.free(buf_a).ok();
     ctx.free(buf_b).ok();
@@ -606,7 +699,9 @@ fn main() {
 
     let expected = 2.0_f64;
     if (result - expected).abs() > 1e-12 {
-        return Err(format!("expected {expected}, got {result} ({a_val}/{b_val})"));
+        return Err(format!(
+            "expected {expected}, got {result} ({a_val}/{b_val})"
+        ));
     }
     print!("({a_val}/{b_val}={result}, {us}us) ");
     Ok(())
@@ -614,27 +709,17 @@ fn main() {
 
 /// Test: f64 comparison + branch (if abs(x) > 1e-30 → 1.0 else 0.0).
 fn test_f64_cmp_branch(ctx: &mut GpuContext) -> Result<(), String> {
-    const WGSL: &str = r#"
-@group(0) @binding(0) var<storage> input: array<f64>;
-@group(0) @binding(1) var<storage, read_write> output: array<f64>;
-
-@compute @workgroup_size(1)
-fn main() {
-    let val = input[0];
-    if (abs(val) > f64(1e-30)) {
-        output[0] = f64(1.0);
-    } else {
-        output[0] = f64(0.0);
-    }
-}
-"#;
-    let kernel = ctx.compile_wgsl(WGSL).map_err(|e| format!("compile: {e}"))?;
+    const WGSL: &str = include_str!("shaders/coral_sovereign/f64_cmp_branch.wgsl");
+    let kernel = ctx
+        .compile_wgsl(WGSL)
+        .map_err(|e| format!("compile: {e}"))?;
 
     let buf_in = ctx.alloc(4096).map_err(|e| format!("alloc in: {e}"))?;
     let buf_out = ctx.alloc(4096).map_err(|e| format!("alloc out: {e}"))?;
 
     let input_val: f64 = 3.0;
-    ctx.upload(buf_in, bytemuck::bytes_of(&input_val)).map_err(|e| format!("upload: {e}"))?;
+    ctx.upload(buf_in, bytemuck::bytes_of(&input_val))
+        .map_err(|e| format!("upload: {e}"))?;
     ctx.upload(buf_out, &0xDEAD_BEEF_DEAD_BEEFu64.to_le_bytes())
         .map_err(|e| format!("upload out: {e}"))?;
 
@@ -642,13 +727,17 @@ fn main() {
         .map_err(|e| format!("dispatch: {e}"))?;
     ctx.sync().map_err(|e| format!("sync: {e}"))?;
 
-    let rb = ctx.readback(buf_out, 8).map_err(|e| format!("readback: {e}"))?;
+    let rb = ctx
+        .readback(buf_out, 8)
+        .map_err(|e| format!("readback: {e}"))?;
     let result: f64 = *bytemuck::from_bytes(&rb[..8]);
     ctx.free(buf_in).ok();
     ctx.free(buf_out).ok();
 
     if (result - 1.0).abs() > 1e-12 {
-        return Err(format!("expected 1.0, got {result} (input {input_val}, abs > 1e-30 should be true)"));
+        return Err(format!(
+            "expected 1.0, got {result} (input {input_val}, abs > 1e-30 should be true)"
+        ));
     }
     print!("(abs({input_val})>1e-30 → {result}) ");
     Ok(())
@@ -661,13 +750,22 @@ fn test_cg_compute_alpha(ctx: &mut GpuContext) -> Result<(), String> {
         .compile_wgsl(include_str!("../lattice/shaders/cg_compute_alpha_f64.wgsl"))
         .map_err(|e| format!("compile: {e}"))?;
 
-    eprintln!("[QCD] CG alpha ISA ({} bytes, {} GPRs, wg={:?}, wave={}):",
-        kernel.binary.len(), kernel.gpr_count, kernel.workgroup, kernel.wave_size);
+    eprintln!(
+        "[QCD] CG alpha ISA ({} bytes, {} GPRs, wg={:?}, wave={}):",
+        kernel.binary.len(),
+        kernel.gpr_count,
+        kernel.workgroup,
+        kernel.wave_size
+    );
     let isa_words: &[u32] = bytemuck::cast_slice(&kernel.binary);
     for (i, w) in isa_words.iter().enumerate() {
         eprint!("  [{i:3}] 0x{w:08X}");
-        if *w == 0xBF81_0000 { eprint!("  ← S_ENDPGM"); }
-        if *w & 0xFC00_0000 == 0xDC00_0000 { eprint!("  ← FLAT/GLOBAL"); }
+        if *w == 0xBF81_0000 {
+            eprint!("  ← S_ENDPGM");
+        }
+        if *w & 0xFC00_0000 == 0xDC00_0000 {
+            eprint!("  ← FLAT/GLOBAL");
+        }
         eprintln!();
     }
 
@@ -685,10 +783,14 @@ fn test_cg_compute_alpha(ctx: &mut GpuContext) -> Result<(), String> {
         .map_err(|e| format!("upload alpha: {e}"))?;
 
     // Verify upload path for f64
-    let pre_rz = ctx.readback(buf_rz, 8).map_err(|e| format!("pre-readback rz: {e}"))?;
+    let pre_rz = ctx
+        .readback(buf_rz, 8)
+        .map_err(|e| format!("pre-readback rz: {e}"))?;
     let pre_rz_val: f64 = *bytemuck::from_bytes(&pre_rz[..8]);
     eprintln!("[QCD] Pre-dispatch: rz={pre_rz_val} (expected {rz_val})");
-    let pre_pap = ctx.readback(buf_pap, 8).map_err(|e| format!("pre-readback pap: {e}"))?;
+    let pre_pap = ctx
+        .readback(buf_pap, 8)
+        .map_err(|e| format!("pre-readback pap: {e}"))?;
     let pre_pap_val: f64 = *bytemuck::from_bytes(&pre_pap[..8]);
     eprintln!("[QCD] Pre-dispatch: pap={pre_pap_val} (expected {pap_val})");
 
@@ -698,12 +800,16 @@ fn test_cg_compute_alpha(ctx: &mut GpuContext) -> Result<(), String> {
     ctx.sync().map_err(|e| format!("sync: {e}"))?;
     let us = t0.elapsed().as_micros();
 
-    let rb = ctx.readback(buf_alpha, 8).map_err(|e| format!("readback: {e}"))?;
+    let rb = ctx
+        .readback(buf_alpha, 8)
+        .map_err(|e| format!("readback: {e}"))?;
     let result: f64 = *bytemuck::from_bytes(&rb[..8]);
     eprintln!("[QCD] Post-dispatch: alpha={result} (expected 2.0)");
 
     // Also read back rz and pap to see if they were modified
-    let post_rz = ctx.readback(buf_rz, 8).map_err(|e| format!("post-readback rz: {e}"))?;
+    let post_rz = ctx
+        .readback(buf_rz, 8)
+        .map_err(|e| format!("post-readback rz: {e}"))?;
     let post_rz_val: f64 = *bytemuck::from_bytes(&post_rz[..8]);
     eprintln!("[QCD] Post-dispatch: rz={post_rz_val} (should still be {rz_val})");
 
@@ -713,7 +819,9 @@ fn test_cg_compute_alpha(ctx: &mut GpuContext) -> Result<(), String> {
 
     let expected = 2.0_f64;
     if (result - expected).abs() > 1e-12 {
-        return Err(format!("expected {expected}, got {result} (rz={rz_val}, pAp={pap_val})"));
+        return Err(format!(
+            "expected {expected}, got {result} (rz={rz_val}, pAp={pap_val})"
+        ));
     }
     print!("(rz/pAp = {result}, {us}us) ");
     Ok(())
@@ -724,52 +832,42 @@ fn test_cg_compute_alpha(ctx: &mut GpuContext) -> Result<(), String> {
 /// Diagnostic: read uniform struct members via sovereign pipeline.
 fn test_uniform_read(ctx: &mut GpuContext) -> Result<(), String> {
     // Test A: single f64 in uniform struct (offset 0) — eliminates offset issues
-    const WGSL_A: &str = r#"
-struct P { val: f64, }
-@group(0) @binding(0) var<uniform> p: P;
-@group(0) @binding(1) var<storage, read_write> out: array<f64>;
-
-@compute @workgroup_size(1)
-fn main() {
-    out[0] = p.val;
-}
-"#;
-    let kernel_a = ctx.compile_wgsl(WGSL_A).map_err(|e| format!("compile A: {e}"))?;
+    const WGSL_A: &str = include_str!("shaders/coral_sovereign/uniform_single_f64.wgsl");
+    let kernel_a = ctx
+        .compile_wgsl(WGSL_A)
+        .map_err(|e| format!("compile A: {e}"))?;
 
     let val = 3.14_f64;
     let buf_p = ctx.alloc(4096).map_err(|e| format!("alloc p: {e}"))?;
     let buf_out = ctx.alloc(4096).map_err(|e| format!("alloc out: {e}"))?;
-    ctx.upload(buf_p, &val.to_le_bytes()).map_err(|e| format!("upload: {e}"))?;
-    ctx.upload(buf_out, &[0u8; 8]).map_err(|e| format!("upload out: {e}"))?;
-
+    ctx.upload(buf_p, &val.to_le_bytes())
+        .map_err(|e| format!("upload: {e}"))?;
+    ctx.upload(buf_out, &[0u8; 8])
+        .map_err(|e| format!("upload out: {e}"))?;
 
     ctx.dispatch(&kernel_a, &[buf_p, buf_out], [1, 1, 1])
         .map_err(|e| format!("dispatch A: {e}"))?;
     ctx.sync().map_err(|e| format!("sync A: {e}"))?;
 
-    let rb = ctx.readback(buf_out, 8).map_err(|e| format!("readback A: {e}"))?;
+    let rb = ctx
+        .readback(buf_out, 8)
+        .map_err(|e| format!("readback A: {e}"))?;
     let got_a: f64 = f64::from_le_bytes(rb[..8].try_into().unwrap());
 
     ctx.free(buf_p).ok();
     ctx.free(buf_out).ok();
 
     if (got_a - 3.14).abs() > 1e-12 {
-        return Err(format!("test A: single f64 uniform: expected 3.14, got {got_a}"));
+        return Err(format!(
+            "test A: single f64 uniform: expected 3.14, got {got_a}"
+        ));
     }
 
     // Test B: u32 then f64 in uniform struct (alpha at offset 8)
-    const WGSL_B: &str = r#"
-struct Params { n: u32, pad0: u32, alpha: f64, }
-@group(0) @binding(0) var<uniform> params: Params;
-@group(0) @binding(1) var<storage, read_write> out: array<f64>;
-
-@compute @workgroup_size(1)
-fn main() {
-    out[0] = f64(params.n);
-    out[1] = params.alpha;
-}
-"#;
-    let kernel_b = ctx.compile_wgsl(WGSL_B).map_err(|e| format!("compile B: {e}"))?;
+    const WGSL_B: &str = include_str!("shaders/coral_sovereign/uniform_params_n_alpha.wgsl");
+    let kernel_b = ctx
+        .compile_wgsl(WGSL_B)
+        .map_err(|e| format!("compile B: {e}"))?;
 
     let n = 42_u32;
     let alpha = 2.0_f64;
@@ -780,15 +878,18 @@ fn main() {
 
     let buf_params = ctx.alloc(4096).map_err(|e| format!("alloc params: {e}"))?;
     let buf_out2 = ctx.alloc(4096).map_err(|e| format!("alloc out: {e}"))?;
-    ctx.upload(buf_params, &params_bytes).map_err(|e| format!("upload: {e}"))?;
-    ctx.upload(buf_out2, &[0u8; 16]).map_err(|e| format!("upload out: {e}"))?;
-
+    ctx.upload(buf_params, &params_bytes)
+        .map_err(|e| format!("upload: {e}"))?;
+    ctx.upload(buf_out2, &[0u8; 16])
+        .map_err(|e| format!("upload out: {e}"))?;
 
     ctx.dispatch(&kernel_b, &[buf_params, buf_out2], [1, 1, 1])
         .map_err(|e| format!("dispatch B: {e}"))?;
     ctx.sync().map_err(|e| format!("sync B: {e}"))?;
 
-    let rb2 = ctx.readback(buf_out2, 16).map_err(|e| format!("readback B: {e}"))?;
+    let rb2 = ctx
+        .readback(buf_out2, 16)
+        .map_err(|e| format!("readback B: {e}"))?;
     let vals: &[f64] = bytemuck::cast_slice(&rb2);
 
     ctx.free(buf_params).ok();
@@ -802,25 +903,19 @@ fn main() {
         return Err(format!("test B: params.n: expected 42, got {got_n}"));
     }
     if (got_alpha - 2.0).abs() > 1e-12 {
-        return Err(format!("test B: params.alpha: expected 2.0, got {got_alpha}"));
+        return Err(format!(
+            "test B: params.alpha: expected 2.0, got {got_alpha}"
+        ));
     }
     Ok(())
 }
 
 /// Minimal AXPY: no builtins, no branching, just y[0] = y[0] + alpha * x[0]
 fn test_axpy_minimal(ctx: &mut GpuContext) -> Result<(), String> {
-    const WGSL: &str = r#"
-struct Params { n: u32, pad0: u32, alpha: f64, }
-@group(0) @binding(0) var<uniform> params: Params;
-@group(0) @binding(1) var<storage, read> x: array<f64>;
-@group(0) @binding(2) var<storage, read_write> y: array<f64>;
-
-@compute @workgroup_size(1)
-fn main() {
-    y[0] = y[0] + params.alpha * x[0];
-}
-"#;
-    let kernel = ctx.compile_wgsl(WGSL).map_err(|e| format!("compile: {e}"))?;
+    const WGSL: &str = include_str!("shaders/coral_sovereign/axpy_minimal.wgsl");
+    let kernel = ctx
+        .compile_wgsl(WGSL)
+        .map_err(|e| format!("compile: {e}"))?;
 
     let alpha = 2.0_f64;
     let mut params_bytes = Vec::with_capacity(16);
@@ -834,15 +929,20 @@ fn main() {
     let buf_p = ctx.alloc(4096).map_err(|e| format!("alloc p: {e}"))?;
     let buf_x = ctx.alloc(4096).map_err(|e| format!("alloc x: {e}"))?;
     let buf_y = ctx.alloc(4096).map_err(|e| format!("alloc y: {e}"))?;
-    ctx.upload(buf_p, &params_bytes).map_err(|e| format!("upload p: {e}"))?;
-    ctx.upload(buf_x, &x_val.to_le_bytes()).map_err(|e| format!("upload x: {e}"))?;
-    ctx.upload(buf_y, &y_val.to_le_bytes()).map_err(|e| format!("upload y: {e}"))?;
+    ctx.upload(buf_p, &params_bytes)
+        .map_err(|e| format!("upload p: {e}"))?;
+    ctx.upload(buf_x, &x_val.to_le_bytes())
+        .map_err(|e| format!("upload x: {e}"))?;
+    ctx.upload(buf_y, &y_val.to_le_bytes())
+        .map_err(|e| format!("upload y: {e}"))?;
 
     ctx.dispatch(&kernel, &[buf_p, buf_x, buf_y], [1, 1, 1])
         .map_err(|e| format!("dispatch: {e}"))?;
     ctx.sync().map_err(|e| format!("sync: {e}"))?;
 
-    let rb = ctx.readback(buf_y, 8).map_err(|e| format!("readback: {e}"))?;
+    let rb = ctx
+        .readback(buf_y, 8)
+        .map_err(|e| format!("readback: {e}"))?;
     let got = f64::from_le_bytes(rb[..8].try_into().unwrap());
     let expected = y_val + alpha * x_val; // 10 + 2*3 = 16
 
@@ -859,19 +959,7 @@ fn main() {
 
 fn test_axpy_f64(ctx: &mut GpuContext) -> Result<(), String> {
     // Simplified AXPY: use gid.x directly, no num_workgroups
-    const WGSL: &str = r#"
-struct Params { n: u32, pad0: u32, alpha: f64, }
-@group(0) @binding(0) var<uniform> params: Params;
-@group(0) @binding(1) var<storage, read> x: array<f64>;
-@group(0) @binding(2) var<storage, read_write> y: array<f64>;
-
-@compute @workgroup_size(64)
-fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
-    let i = gid.x;
-    if i >= params.n { return; }
-    y[i] = y[i] + params.alpha * x[i];
-}
-"#;
+    const WGSL: &str = include_str!("shaders/coral_sovereign/axpy_f64.wgsl");
     let kernel = ctx
         .compile_wgsl(WGSL)
         .map_err(|e| format!("compile: {e}"))?;
@@ -898,7 +986,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let buf_x = ctx.alloc(4096).map_err(|e| format!("alloc x: {e}"))?;
     let buf_y = ctx.alloc(4096).map_err(|e| format!("alloc y: {e}"))?;
 
-    ctx.upload(buf_params, &params_buf).map_err(|e| format!("upload params: {e}"))?;
+    ctx.upload(buf_params, &params_buf)
+        .map_err(|e| format!("upload params: {e}"))?;
     ctx.upload(buf_x, bytemuck::cast_slice(&x_vals))
         .map_err(|e| format!("upload x: {e}"))?;
     ctx.upload(buf_y, bytemuck::cast_slice(&y_vals))
@@ -910,11 +999,17 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     ctx.sync().map_err(|e| format!("sync: {e}"))?;
     let us = t0.elapsed().as_micros();
 
-    let rb = ctx.readback(buf_y, 64 * 8).map_err(|e| format!("readback: {e}"))?;
+    let rb = ctx
+        .readback(buf_y, 64 * 8)
+        .map_err(|e| format!("readback: {e}"))?;
     let result: &[f64] = bytemuck::cast_slice(&rb);
-    println!("[AXPY] y[0..4] = {:?}, expected = {:?}",
+    println!(
+        "[AXPY] y[0..4] = {:?}, expected = {:?}",
         &result[..4],
-        (0..4).map(|i| y_vals[i] + alpha * x_vals[i]).collect::<Vec<_>>());
+        (0..4)
+            .map(|i| y_vals[i] + alpha * x_vals[i])
+            .collect::<Vec<_>>()
+    );
 
     ctx.free(buf_params).ok();
     ctx.free(buf_x).ok();
@@ -933,103 +1028,95 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     if errors > 0 {
         return Err(format!(
             "y[0]: expected {}, got {} (y + α·x = {} + {}·{})",
-            y_vals[0] + alpha * x_vals[0], result[0], y_vals[0], alpha, x_vals[0]
+            y_vals[0] + alpha * x_vals[0],
+            result[0],
+            y_vals[0],
+            alpha,
+            x_vals[0]
         ));
     }
-    print!("(y=[{:.0},{:.0},{:.0},{:.0}], {us}us) ", result[0], result[1], result[2], result[3]);
+    print!(
+        "(y=[{:.0},{:.0},{:.0},{:.0}], {us}us) ",
+        result[0], result[1], result[2], result[3]
+    );
     Ok(())
 }
 
 /// Diagnostic: verify @builtin(num_workgroups) reads the correct dispatch dimensions.
 fn test_num_workgroups(ctx: &mut GpuContext) -> Result<(), String> {
-    const WGSL: &str = r#"
-@group(0) @binding(0) var<storage, read_write> out: array<u32>;
-
-@compute @workgroup_size(1)
-fn main(@builtin(num_workgroups) nwg: vec3<u32>) {
-    out[0] = nwg.x;
-    out[1] = nwg.y;
-    out[2] = nwg.z;
-}
-"#;
-    let kernel = ctx.compile_wgsl(WGSL).map_err(|e| format!("compile: {e}"))?;
+    const WGSL: &str = include_str!("shaders/coral_sovereign/num_workgroups_builtin.wgsl");
+    let kernel = ctx
+        .compile_wgsl(WGSL)
+        .map_err(|e| format!("compile: {e}"))?;
     let buf = ctx.alloc(4096).map_err(|e| format!("alloc: {e}"))?;
-    ctx.upload(buf, &[0u8; 12]).map_err(|e| format!("upload: {e}"))?;
+    ctx.upload(buf, &[0u8; 12])
+        .map_err(|e| format!("upload: {e}"))?;
 
     ctx.dispatch(&kernel, &[buf], [7, 3, 2])
         .map_err(|e| format!("dispatch: {e}"))?;
     ctx.sync().map_err(|e| format!("sync: {e}"))?;
 
-    let rb = ctx.readback(buf, 12).map_err(|e| format!("readback: {e}"))?;
+    let rb = ctx
+        .readback(buf, 12)
+        .map_err(|e| format!("readback: {e}"))?;
     let vals: &[u32] = bytemuck::cast_slice(&rb);
     ctx.free(buf).ok();
 
     print!("(nwg=[{},{},{}]) ", vals[0], vals[1], vals[2]);
     if vals[0] != 7 || vals[1] != 3 || vals[2] != 2 {
-        return Err(format!("expected [7,3,2], got [{},{},{}]", vals[0], vals[1], vals[2]));
+        return Err(format!(
+            "expected [7,3,2], got [{},{},{}]",
+            vals[0], vals[1], vals[2]
+        ));
     }
     Ok(())
 }
 
 /// Diagnostic: trace gid + nwg values from a single thread to check register mapping.
 fn test_nwg_idx_debug(ctx: &mut GpuContext) -> Result<(), String> {
-    const WGSL: &str = r#"
-@group(0) @binding(0) var<storage, read_write> out: array<u32>;
-
-@compute @workgroup_size(1)
-fn main(
-    @builtin(global_invocation_id) gid: vec3<u32>,
-    @builtin(num_workgroups) nwg: vec3<u32>,
-    @builtin(workgroup_id) wid: vec3<u32>,
-    @builtin(local_invocation_id) lid: vec3<u32>,
-) {
-    out[0] = gid.x;
-    out[1] = gid.y;
-    out[2] = nwg.x;
-    out[3] = nwg.y;
-    out[4] = wid.x;
-    out[5] = lid.x;
-}
-"#;
-    let kernel = ctx.compile_wgsl(WGSL).map_err(|e| format!("compile: {e}"))?;
+    const WGSL: &str = include_str!("shaders/coral_sovereign/nwg_idx_debug.wgsl");
+    let kernel = ctx
+        .compile_wgsl(WGSL)
+        .map_err(|e| format!("compile: {e}"))?;
     let buf = ctx.alloc(4096).map_err(|e| format!("alloc: {e}"))?;
-    ctx.upload(buf, &[0xFFu8; 24]).map_err(|e| format!("upload: {e}"))?;
+    ctx.upload(buf, &[0xFFu8; 24])
+        .map_err(|e| format!("upload: {e}"))?;
 
     ctx.dispatch(&kernel, &[buf], [1, 1, 1])
         .map_err(|e| format!("dispatch: {e}"))?;
     ctx.sync().map_err(|e| format!("sync: {e}"))?;
 
-    let rb = ctx.readback(buf, 24).map_err(|e| format!("readback: {e}"))?;
+    let rb = ctx
+        .readback(buf, 24)
+        .map_err(|e| format!("readback: {e}"))?;
     let vals: &[u32] = bytemuck::cast_slice(&rb);
     ctx.free(buf).ok();
 
-    print!("(gid=[{},{}] nwg=[{},{}] wid={} lid={}) ",
-        vals[0], vals[1], vals[2], vals[3], vals[4], vals[5]);
+    print!(
+        "(gid=[{},{}] nwg=[{},{}] wid={} lid={}) ",
+        vals[0], vals[1], vals[2], vals[3], vals[4], vals[5]
+    );
     if vals[0] != 0 {
-        return Err(format!("gid.x: expected 0, got {} (0x{:08X})", vals[0], vals[0]));
+        return Err(format!(
+            "gid.x: expected 0, got {} (0x{:08X})",
+            vals[0], vals[0]
+        ));
     }
     if vals[2] != 1 {
-        return Err(format!("nwg.x: expected 1, got {} (0x{:08X})", vals[2], vals[2]));
+        return Err(format!(
+            "nwg.x: expected 1, got {} (0x{:08X})",
+            vals[2], vals[2]
+        ));
     }
     Ok(())
 }
 
 /// Test full AXPY with num_workgroups builtin (original shader from barracuda).
 fn test_axpy_with_num_workgroups(ctx: &mut GpuContext) -> Result<(), String> {
-    const WGSL: &str = r#"
-struct Params { n: u32, pad0: u32, alpha: f64, }
-@group(0) @binding(0) var<uniform> params: Params;
-@group(0) @binding(1) var<storage, read> x: array<f64>;
-@group(0) @binding(2) var<storage, read_write> y: array<f64>;
-
-@compute @workgroup_size(64)
-fn main(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgroups) nwg: vec3<u32>) {
-    let idx = gid.x + gid.y * nwg.x * 64u;
-    if idx >= params.n { return; }
-    y[idx] = y[idx] + params.alpha * x[idx];
-}
-"#;
-    let kernel = ctx.compile_wgsl(WGSL).map_err(|e| format!("compile: {e}"))?;
+    const WGSL: &str = include_str!("shaders/coral_sovereign/axpy_num_workgroups.wgsl");
+    let kernel = ctx
+        .compile_wgsl(WGSL)
+        .map_err(|e| format!("compile: {e}"))?;
 
     let n = 64_u32;
     let alpha = 2.0_f64;
@@ -1048,15 +1135,20 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgroups) 
     let buf_params = ctx.alloc(4096).map_err(|e| format!("alloc p: {e}"))?;
     let buf_x = ctx.alloc(4096).map_err(|e| format!("alloc x: {e}"))?;
     let buf_y = ctx.alloc(4096).map_err(|e| format!("alloc y: {e}"))?;
-    ctx.upload(buf_params, &params_buf).map_err(|e| format!("upload p: {e}"))?;
-    ctx.upload(buf_x, bytemuck::cast_slice(&x_vals)).map_err(|e| format!("upload x: {e}"))?;
-    ctx.upload(buf_y, bytemuck::cast_slice(&y_vals)).map_err(|e| format!("upload y: {e}"))?;
+    ctx.upload(buf_params, &params_buf)
+        .map_err(|e| format!("upload p: {e}"))?;
+    ctx.upload(buf_x, bytemuck::cast_slice(&x_vals))
+        .map_err(|e| format!("upload x: {e}"))?;
+    ctx.upload(buf_y, bytemuck::cast_slice(&y_vals))
+        .map_err(|e| format!("upload y: {e}"))?;
 
     ctx.dispatch(&kernel, &[buf_params, buf_x, buf_y], [1, 1, 1])
         .map_err(|e| format!("dispatch: {e}"))?;
     ctx.sync().map_err(|e| format!("sync: {e}"))?;
 
-    let rb = ctx.readback(buf_y, 64 * 8).map_err(|e| format!("readback: {e}"))?;
+    let rb = ctx
+        .readback(buf_y, 64 * 8)
+        .map_err(|e| format!("readback: {e}"))?;
     let result: &[f64] = bytemuck::cast_slice(&rb);
 
     ctx.free(buf_params).ok();
@@ -1074,10 +1166,15 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgroups) 
         return Err(format!(
             "y[0..4]={:?}, expected {:?}",
             &result[..4],
-            (0..4).map(|i| y_vals[i] + alpha * x_vals[i]).collect::<Vec<_>>()
+            (0..4)
+                .map(|i| y_vals[i] + alpha * x_vals[i])
+                .collect::<Vec<_>>()
         ));
     }
-    print!("(y=[{:.0},{:.0},{:.0},{:.0}]) ", result[0], result[1], result[2], result[3]);
+    print!(
+        "(y=[{:.0},{:.0},{:.0},{:.0}]) ",
+        result[0], result[1], result[2], result[3]
+    );
     Ok(())
 }
 
@@ -1088,7 +1185,11 @@ fn test_complex_dot_re(ctx: &mut GpuContext) -> Result<(), String> {
         .compile_wgsl(include_str!("../lattice/shaders/complex_dot_re_f64.wgsl"))
         .map_err(|e| format!("compile: {e}"))?;
 
-    print!("(compiled {} bytes, {} GPRs) ", kernel.binary.len(), kernel.gpr_count);
+    print!(
+        "(compiled {} bytes, {} GPRs) ",
+        kernel.binary.len(),
+        kernel.gpr_count
+    );
     Ok(())
 }
 
@@ -1104,25 +1205,82 @@ fn test_qcd_shader_compilation(ctx: &GpuContext) -> (u32, Vec<(String, String)>)
 
     let shaders: Vec<(&str, String)> = vec![
         // Standalone shaders (no library deps)
-        ("axpy_f64", include_str!("../lattice/shaders/axpy_f64.wgsl").to_string()),
-        ("xpay_f64", include_str!("../lattice/shaders/xpay_f64.wgsl").to_string()),
-        ("sum_reduce_f64", include_str!("../lattice/shaders/sum_reduce_f64.wgsl").to_string()),
-        ("wilson_plaquette_f64", include_str!("../lattice/shaders/wilson_plaquette_f64.wgsl").to_string()),
-        ("su3_gauge_force_f64", include_str!("../lattice/shaders/su3_gauge_force_f64.wgsl").to_string()),
-        ("su3_link_update_f64", include_str!("../lattice/shaders/su3_link_update_f64.wgsl").to_string()),
-        ("su3_momentum_update_f64", include_str!("../lattice/shaders/su3_momentum_update_f64.wgsl").to_string()),
-        ("su3_kinetic_energy_f64", include_str!("../lattice/shaders/su3_kinetic_energy_f64.wgsl").to_string()),
-        ("dirac_staggered_f64", include_str!("../lattice/shaders/dirac_staggered_f64.wgsl").to_string()),
-        ("cg_compute_alpha_f64", include_str!("../lattice/shaders/cg_compute_alpha_f64.wgsl").to_string()),
-        ("cg_compute_beta_f64", include_str!("../lattice/shaders/cg_compute_beta_f64.wgsl").to_string()),
-        ("cg_update_xr_f64", include_str!("../lattice/shaders/cg_update_xr_f64.wgsl").to_string()),
-        ("cg_update_p_f64", include_str!("../lattice/shaders/cg_update_p_f64.wgsl").to_string()),
-        ("complex_dot_re_f64", include_str!("../lattice/shaders/complex_dot_re_f64.wgsl").to_string()),
-        ("staggered_fermion_force_f64", include_str!("../lattice/shaders/staggered_fermion_force_f64.wgsl").to_string()),
-        ("polyakov_loop_f64", include_str!("../lattice/shaders/polyakov_loop_f64.wgsl").to_string()),
-        ("metropolis_f64", include_str!("../lattice/shaders/metropolis_f64.wgsl").to_string()),
-        ("fermion_action_sum_f64", include_str!("../lattice/shaders/fermion_action_sum_f64.wgsl").to_string()),
-        ("hamiltonian_assembly_f64", include_str!("../lattice/shaders/hamiltonian_assembly_f64.wgsl").to_string()),
+        (
+            "axpy_f64",
+            include_str!("../lattice/shaders/axpy_f64.wgsl").to_string(),
+        ),
+        (
+            "xpay_f64",
+            include_str!("../lattice/shaders/xpay_f64.wgsl").to_string(),
+        ),
+        (
+            "sum_reduce_f64",
+            include_str!("../lattice/shaders/sum_reduce_f64.wgsl").to_string(),
+        ),
+        (
+            "wilson_plaquette_f64",
+            include_str!("../lattice/shaders/wilson_plaquette_f64.wgsl").to_string(),
+        ),
+        (
+            "su3_gauge_force_f64",
+            include_str!("../lattice/shaders/su3_gauge_force_f64.wgsl").to_string(),
+        ),
+        (
+            "su3_link_update_f64",
+            include_str!("../lattice/shaders/su3_link_update_f64.wgsl").to_string(),
+        ),
+        (
+            "su3_momentum_update_f64",
+            include_str!("../lattice/shaders/su3_momentum_update_f64.wgsl").to_string(),
+        ),
+        (
+            "su3_kinetic_energy_f64",
+            include_str!("../lattice/shaders/su3_kinetic_energy_f64.wgsl").to_string(),
+        ),
+        (
+            "dirac_staggered_f64",
+            include_str!("../lattice/shaders/dirac_staggered_f64.wgsl").to_string(),
+        ),
+        (
+            "cg_compute_alpha_f64",
+            include_str!("../lattice/shaders/cg_compute_alpha_f64.wgsl").to_string(),
+        ),
+        (
+            "cg_compute_beta_f64",
+            include_str!("../lattice/shaders/cg_compute_beta_f64.wgsl").to_string(),
+        ),
+        (
+            "cg_update_xr_f64",
+            include_str!("../lattice/shaders/cg_update_xr_f64.wgsl").to_string(),
+        ),
+        (
+            "cg_update_p_f64",
+            include_str!("../lattice/shaders/cg_update_p_f64.wgsl").to_string(),
+        ),
+        (
+            "complex_dot_re_f64",
+            include_str!("../lattice/shaders/complex_dot_re_f64.wgsl").to_string(),
+        ),
+        (
+            "staggered_fermion_force_f64",
+            include_str!("../lattice/shaders/staggered_fermion_force_f64.wgsl").to_string(),
+        ),
+        (
+            "polyakov_loop_f64",
+            include_str!("../lattice/shaders/polyakov_loop_f64.wgsl").to_string(),
+        ),
+        (
+            "metropolis_f64",
+            include_str!("../lattice/shaders/metropolis_f64.wgsl").to_string(),
+        ),
+        (
+            "fermion_action_sum_f64",
+            include_str!("../lattice/shaders/fermion_action_sum_f64.wgsl").to_string(),
+        ),
+        (
+            "hamiltonian_assembly_f64",
+            include_str!("../lattice/shaders/hamiltonian_assembly_f64.wgsl").to_string(),
+        ),
         // Composite shaders: need Complex64/SU3 preamble + WGSL auto-conversion preprocessing.
         // These compile in the wgpu path because barraCuda's ShaderTemplate handles type conversions.
         // Marked separately so they don't inflate the failure count for standalone shader compilation.
@@ -1133,11 +1291,41 @@ fn test_qcd_shader_compilation(ctx: &GpuContext) -> (u32, Vec<(String, String)>)
 
     // Composite shaders: all need barraCuda's vec2<f64> complex + SU3 preamble.
     let composite_shaders: Vec<(&str, String)> = vec![
-        ("wilson_action_f64 (+ c64+su3)", format!("{su3_preamble}\n{}", include_str!("../lattice/shaders/wilson_action_f64.wgsl"))),
-        ("su3_hmc_force_f64 (+ c64+su3)", format!("{su3_preamble}\n{}", include_str!("../lattice/shaders/su3_hmc_force_f64.wgsl"))),
-        ("pseudofermion_force_f64 (+ c64+su3)", format!("{su3_preamble}\n{}", include_str!("../lattice/shaders/pseudofermion_force_f64.wgsl"))),
-        ("hmc_leapfrog_f64 (+ full chain)", format!("{hmc_preamble}\n{}", include_str!("../lattice/shaders/hmc_leapfrog_f64.wgsl"))),
-        ("kinetic_energy_f64 (+ c64+su3)", format!("{su3_preamble}\n{}", include_str!("../lattice/shaders/kinetic_energy_f64.wgsl"))),
+        (
+            "wilson_action_f64 (+ c64+su3)",
+            format!(
+                "{su3_preamble}\n{}",
+                include_str!("../lattice/shaders/wilson_action_f64.wgsl")
+            ),
+        ),
+        (
+            "su3_hmc_force_f64 (+ c64+su3)",
+            format!(
+                "{su3_preamble}\n{}",
+                include_str!("../lattice/shaders/su3_hmc_force_f64.wgsl")
+            ),
+        ),
+        (
+            "pseudofermion_force_f64 (+ c64+su3)",
+            format!(
+                "{su3_preamble}\n{}",
+                include_str!("../lattice/shaders/pseudofermion_force_f64.wgsl")
+            ),
+        ),
+        (
+            "hmc_leapfrog_f64 (+ full chain)",
+            format!(
+                "{hmc_preamble}\n{}",
+                include_str!("../lattice/shaders/hmc_leapfrog_f64.wgsl")
+            ),
+        ),
+        (
+            "kinetic_energy_f64 (+ c64+su3)",
+            format!(
+                "{su3_preamble}\n{}",
+                include_str!("../lattice/shaders/kinetic_energy_f64.wgsl")
+            ),
+        ),
     ];
 
     let mut compiled = 0u32;
@@ -1196,9 +1384,19 @@ fn test_qcd_shader_compilation(ctx: &GpuContext) -> (u32, Vec<(String, String)>)
     let total_ms = total_t0.elapsed().as_millis();
     let total_shaders = shaders.len() + composite_shaders.len();
 
-    println!("\n  Standalone: {compiled}/{} compiled in {standalone_ms}ms", shaders.len());
-    println!("  Composite:  {composite_compiled}/{} compiled ({composite_frontier} need preprocessing)", composite_shaders.len());
-    println!("  Total:      {} native binaries, {} bytes, {total_ms}ms", compiled + composite_compiled, total_bytes);
+    println!(
+        "\n  Standalone: {compiled}/{} compiled in {standalone_ms}ms",
+        shaders.len()
+    );
+    println!(
+        "  Composite:  {composite_compiled}/{} compiled ({composite_frontier} need preprocessing)",
+        composite_shaders.len()
+    );
+    println!(
+        "  Total:      {} native binaries, {} bytes, {total_ms}ms",
+        compiled + composite_compiled,
+        total_bytes
+    );
 
     (compiled + composite_compiled, failures)
 }

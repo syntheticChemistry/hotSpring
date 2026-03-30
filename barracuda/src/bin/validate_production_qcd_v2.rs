@@ -23,8 +23,8 @@
 
 use hotspring_barracuda::lattice::hmc::{self, HmcConfig, IntegratorType};
 use hotspring_barracuda::lattice::pseudofermion::{
-    dynamical_hmc_trajectory, hasenbusch_hmc_trajectory, DynamicalHmcConfig, DynamicalHmcResult,
-    HasenbuschConfig, HasenbuschHmcConfig, HasenbuschHmcResult, PseudofermionConfig,
+    DynamicalHmcConfig, DynamicalHmcResult, HasenbuschConfig, HasenbuschHmcConfig,
+    HasenbuschHmcResult, PseudofermionConfig, dynamical_hmc_trajectory, hasenbusch_hmc_trajectory,
 };
 use hotspring_barracuda::lattice::wilson::Lattice;
 use hotspring_barracuda::tolerances;

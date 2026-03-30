@@ -20,7 +20,7 @@
 //! Bazavov et al., PRD 90, 094503 (2014) — `HotQCD` continuum EOS
 //! Data: `github.com/jnoronhahostler/Equation-of-State`
 
-use hotspring_barracuda::lattice::eos_tables::{computational_overlap_summary, HotQcdEos};
+use hotspring_barracuda::lattice::eos_tables::{HotQcdEos, computational_overlap_summary};
 use hotspring_barracuda::provenance::HOTQCD_EOS_PROVENANCE;
 use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;

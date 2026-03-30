@@ -14,9 +14,9 @@
 //!   cargo run --release --bin gradient_flow_production
 
 use hotspring_barracuda::lattice::gradient_flow::{
-    find_t0, find_w0, run_flow, FlowIntegrator, FlowMeasurement,
+    FlowIntegrator, FlowMeasurement, find_t0, find_w0, run_flow,
 };
-use hotspring_barracuda::lattice::hmc::{hmc_trajectory, HmcConfig, HmcResult};
+use hotspring_barracuda::lattice::hmc::{HmcConfig, HmcResult, hmc_trajectory};
 use hotspring_barracuda::lattice::wilson::Lattice;
 use hotspring_barracuda::validation::ValidationHarness;
 use std::time::Instant;

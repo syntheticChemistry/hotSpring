@@ -29,9 +29,9 @@
 //! ```
 
 use hotspring_barracuda::lattice::gradient_flow::{
-    compute_w_function, find_t0, find_w0, run_flow, FlowIntegrator,
+    FlowIntegrator, compute_w_function, find_t0, find_w0, run_flow,
 };
-use hotspring_barracuda::lattice::hmc::{hmc_trajectory, HmcConfig, IntegratorType};
+use hotspring_barracuda::lattice::hmc::{HmcConfig, IntegratorType, hmc_trajectory};
 use hotspring_barracuda::lattice::wilson::Lattice;
 use std::time::Instant;
 

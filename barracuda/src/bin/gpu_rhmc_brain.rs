@@ -16,17 +16,20 @@
 
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::lattice::gpu_hmc::brain_rhmc::{
-    load_brain_state, BrainRhmcRunner, NpuCortex,
+    BrainRhmcRunner, NpuCortex, load_brain_state,
 };
 use hotspring_barracuda::lattice::gpu_hmc::dynamical::{GpuDynHmcPipelines, GpuDynHmcState};
 #[allow(deprecated)]
 use hotspring_barracuda::lattice::gpu_hmc::gpu_rhmc::{
-    gpu_rhmc_trajectory, GpuRhmcPipelines, GpuRhmcState,
+    GpuRhmcPipelines, GpuRhmcState, gpu_rhmc_trajectory,
 };
 use hotspring_barracuda::lattice::gpu_hmc::rhmc_calibrator::RhmcCalibrator;
 use hotspring_barracuda::lattice::gpu_hmc::unidirectional_cortex::UnidirectionalRhmc;
-use hotspring_barracuda::lattice::gpu_hmc::{GpuHmcPipelines, GpuHmcState};
+use hotspring_barracuda::lattice::gpu_hmc::{
+    GpuHmcState, GpuHmcStreamingPipelines, gpu_hmc_trajectory_streaming,
+};
 use hotspring_barracuda::lattice::wilson::Lattice;
+use hotspring_barracuda::md::reservoir::Activation;
 use hotspring_barracuda::md::reservoir::heads;
 use hotspring_barracuda::md::reservoir::npu::ExportedWeights;
 
@@ -34,7 +37,7 @@ use hotspring_forge::pipeline::topologies;
 
 use std::time::Instant;
 
-// Legacy trajectory calls used for pre-therm and dt-discovery probes only;
+// Legacy RHMC trajectory calls used for dt-discovery probes only;
 // the main brain trajectory uses the unidirectional path.
 #[allow(deprecated)]
 fn main() {
@@ -136,7 +139,7 @@ fn main() {
     // ═══ Quenched pre-thermalization (GPU A only) ═══════════════════
     println!("\n--- Quenched pre-therm (GPU A) ---");
     let lat = Lattice::hot_start(dims, beta, seed);
-    let hmc_pipelines = GpuHmcPipelines::new(&gpu_a);
+    let hmc_pipelines = GpuHmcStreamingPipelines::new(&gpu_a);
     let hmc_state = GpuHmcState::from_lattice(&gpu_a, &lat, beta);
 
     let t1 = Instant::now();
@@ -145,12 +148,13 @@ fn main() {
     let mut rng_seed = seed;
 
     loop {
-        let r = hotspring_barracuda::lattice::gpu_hmc::gpu_hmc_trajectory(
+        let r = gpu_hmc_trajectory_streaming(
             &gpu_a,
             &hmc_pipelines,
             &hmc_state,
             10,
             0.1,
+            pretherm_count as u32,
             &mut rng_seed,
         );
         pretherm_count += 1;
@@ -276,13 +280,10 @@ fn main() {
     }
 
     // ═══ Brain channels + cortex thread ═════════════════════════════
-    let (mut runner, obs_rx, sug_tx) = BrainRhmcRunner::new(
-        config.clone(),
-        rng_seed,
-        rng_seed.wrapping_add(0x5DEE_CE66_D),
-    );
+    let (mut runner, obs_rx, sug_tx) =
+        BrainRhmcRunner::new(config, rng_seed, rng_seed.wrapping_add(0x0005_DEEC_E66D));
 
-    let cortex_weights = esn_weights.clone();
+    let cortex_weights = esn_weights;
     let cortex_handle = std::thread::spawn(move || {
         let mut cortex = NpuCortex::new(
             &cortex_weights,
@@ -308,7 +309,13 @@ fn main() {
     let mut accept_b = 0usize;
 
     for i in 0..n_trajs {
-        let result = runner.run_iteration(&mut uni_a, &mut uni_b);
+        let result = match runner.run_iteration(&mut uni_a, &mut uni_b) {
+            Ok(r) => r,
+            Err(e) => {
+                eprintln!("ERROR: {e}");
+                std::process::exit(1);
+            }
+        };
 
         all_plaq_a.push(result.gpu_a.plaquette);
         all_plaq_b.push(result.gpu_b.plaquette);
@@ -398,11 +405,7 @@ fn build_default_esn_weights() -> ExportedWeights {
     let w_res: Vec<f32> = (0..reservoir_size * reservoir_size)
         .map(|_| {
             let v = rng();
-            if v.abs() > 0.8 {
-                v * 0.5
-            } else {
-                0.0
-            }
+            if v.abs() > 0.8 { v * 0.5 } else { 0.0 }
         })
         .collect();
     let w_out: Vec<f32> = (0..output_size * reservoir_size)
@@ -417,7 +420,7 @@ fn build_default_esn_weights() -> ExportedWeights {
         reservoir_size,
         output_size,
         leak_rate: 0.3,
-        activation: Default::default(),
+        activation: Activation::default(),
     }
 }
 
@@ -431,14 +434,14 @@ fn nf_label(nf: usize, mass: f64, strange_mass: f64) -> String {
 
 fn parse_nf(args: &[String]) -> usize {
     for (i, a) in args.iter().enumerate() {
-        if a == "--nf" {
-            if let Some(v) = args.get(i + 1) {
-                return match v.as_str() {
-                    "2+1" | "3" => 3,
-                    "2" => 2,
-                    o => o.parse().unwrap_or(2),
-                };
-            }
+        if a == "--nf"
+            && let Some(v) = args.get(i + 1)
+        {
+            return match v.as_str() {
+                "2+1" | "3" => 3,
+                "2" => 2,
+                o => o.parse().unwrap_or(2),
+            };
         }
     }
     2
@@ -449,10 +452,10 @@ fn parse_arg(args: &[String], name: &str, default: usize) -> usize {
         if a.starts_with(&format!("{name}=")) {
             return a.split('=').nth(1).unwrap().parse().unwrap_or(default);
         }
-        if a == name {
-            if let Some(v) = args.get(i + 1) {
-                return v.parse().unwrap_or(default);
-            }
+        if a == name
+            && let Some(v) = args.get(i + 1)
+        {
+            return v.parse().unwrap_or(default);
         }
     }
     default
@@ -463,10 +466,10 @@ fn parse_arg_f64(args: &[String], name: &str, default: f64) -> f64 {
         if a.starts_with(&format!("{name}=")) {
             return a.split('=').nth(1).unwrap().parse().unwrap_or(default);
         }
-        if a == name {
-            if let Some(v) = args.get(i + 1) {
-                return v.parse().unwrap_or(default);
-            }
+        if a == name
+            && let Some(v) = args.get(i + 1)
+        {
+            return v.parse().unwrap_or(default);
         }
     }
     default

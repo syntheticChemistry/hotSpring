@@ -13,7 +13,7 @@
 
 use crate::data::{self, NucleiEntry, NucleiMap, PARAM_NAMES};
 use crate::physics::{
-    binding_energy_l2, nuclear_matter_properties, semf_binding_energy, NuclearMatterProps,
+    NuclearMatterProps, binding_energy_l2, nuclear_matter_properties, semf_binding_energy,
 };
 use crate::provenance;
 use crate::tolerances;

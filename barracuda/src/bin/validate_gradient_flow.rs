@@ -14,7 +14,7 @@
 //!   cargo run --release --bin `validate_gradient_flow`
 
 use hotspring_barracuda::lattice::gradient_flow::{
-    energy_density, find_t0, run_flow, FlowIntegrator, FlowMeasurement,
+    FlowIntegrator, FlowMeasurement, energy_density, find_t0, run_flow,
 };
 use hotspring_barracuda::lattice::wilson::Lattice;
 use std::time::Instant;

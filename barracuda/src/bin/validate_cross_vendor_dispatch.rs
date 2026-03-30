@@ -11,13 +11,24 @@ use std::io::{BufRead, Write};
 use std::os::unix::net::UnixStream;
 use std::time::Instant;
 
-const SOCKET: &str = "/run/coralreef/glowplug.sock";
 const N: usize = 1 << 12; // 4K f32 elements — fits RPC line limit comfortably
 const ALPHA: f32 = 2.5;
 
+fn glowplug_socket() -> String {
+    if let Ok(p) = std::env::var("CORALREEF_GLOWPLUG_SOCKET") {
+        return p;
+    }
+    let runtime_dir = std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".into());
+    let family = std::env::var("CORALREEF_FAMILY_ID")
+        .or_else(|_| std::env::var("FAMILY_ID"))
+        .unwrap_or_else(|_| "default".into());
+    format!("{runtime_dir}/biomeos/coral-glowplug-{family}.sock")
+}
+
 fn rpc_call(method: &str, params: serde_json::Value) -> serde_json::Value {
-    let mut stream = UnixStream::connect(SOCKET).unwrap_or_else(|e| {
-        eprintln!("Cannot connect to glowplug at {SOCKET}: {e}");
+    let socket = glowplug_socket();
+    let mut stream = UnixStream::connect(&socket).unwrap_or_else(|e| {
+        eprintln!("Cannot connect to glowplug at {socket}: {e}");
         eprintln!("Is coral-glowplug running?  systemctl status coral-glowplug");
         std::process::exit(1);
     });

@@ -13,8 +13,8 @@
 //! Usage:
 //!   cargo run --release --bin bench_flow_convergence
 
-use hotspring_barracuda::lattice::gradient_flow::{run_flow, FlowIntegrator};
-use hotspring_barracuda::lattice::hmc::{hmc_trajectory, HmcConfig};
+use hotspring_barracuda::lattice::gradient_flow::{FlowIntegrator, run_flow};
+use hotspring_barracuda::lattice::hmc::{HmcConfig, hmc_trajectory};
 use hotspring_barracuda::lattice::wilson::Lattice;
 use std::time::Instant;
 

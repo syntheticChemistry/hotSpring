@@ -24,7 +24,7 @@
 //! Literature targets: AME2020, Chabanat 1998, Bender 2003, Lattimer & Prakash 2016.
 
 use hotspring_barracuda::physics::{
-    binding_energy_l2, nuclear_matter_properties, semf_binding_energy, NuclearMatterProps,
+    NuclearMatterProps, binding_energy_l2, nuclear_matter_properties, semf_binding_energy,
 };
 use hotspring_barracuda::provenance::{
     self, HFB_TEST_NUCLEI, NMP_TARGETS, SLY4_PARAMS, UNEDF0_PARAMS,
@@ -68,7 +68,9 @@ fn phase1_l1_semf(harness: &mut ValidationHarness) {
         let error = (b_semf - b_exp).abs();
         let pull = error / sigma;
 
-        println!("  {name:>8}: B_SEMF={b_semf:8.2} B_exp={b_exp:8.2} |Δ|={error:6.2} σ={sigma:5.2} pull={pull:.2}σ");
+        println!(
+            "  {name:>8}: B_SEMF={b_semf:8.2} B_exp={b_exp:8.2} |Δ|={error:6.2} σ={sigma:5.2} pull={pull:.2}σ"
+        );
 
         harness.check_upper(
             &format!("L1 SEMF {name}: B within 5σ of AME2020"),

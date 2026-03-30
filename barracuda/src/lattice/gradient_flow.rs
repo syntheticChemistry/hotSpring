@@ -36,7 +36,7 @@ use super::hmc::exp_su3_cayley_pub;
 use super::su3::Su3Matrix;
 use super::wilson::Lattice;
 
-pub use lscfrk_lib::{compute_w_function, derive_lscfrk3, find_t0, find_w0, FlowMeasurement};
+pub use lscfrk_lib::{FlowMeasurement, compute_w_function, derive_lscfrk3, find_t0, find_w0};
 
 /// Flow integrator type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

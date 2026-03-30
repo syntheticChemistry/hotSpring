@@ -12,7 +12,7 @@
 //! Uses: `barracuda::optimize::bisect` for saturation density.
 //! See PHYSICS.md §3 for complete equation documentation.
 
-use super::constants::{HBAR2_2M, HBAR_C, M_NUCLEON};
+use super::constants::{HBAR_C, HBAR2_2M, M_NUCLEON};
 use barracuda::optimize::bisect;
 use std::f64::consts::PI;
 

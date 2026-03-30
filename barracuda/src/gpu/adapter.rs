@@ -156,6 +156,41 @@ pub fn discover_primary_and_secondary_adapters() -> (Option<String>, Option<Stri
     (primary, secondary)
 }
 
+/// Select an adapter from a single hint string (same rules as one token in
+/// `HOTSPRING_GPU_ADAPTER`: `"auto"`, a numeric index, or a case-insensitive name substring).
+///
+/// Does not read the environment — use [`select_adapter`] for env-based selection.
+///
+/// # Errors
+///
+/// Returns [`crate::error::HotSpringError`] if the hint is empty or no adapter matches.
+pub fn select_adapter_hint(hint: &str) -> Result<wgpu::Adapter, crate::error::HotSpringError> {
+    let token = hint.trim();
+    if token.is_empty() {
+        return Err(crate::error::HotSpringError::DeviceCreation(
+            "empty GPU adapter hint".into(),
+        ));
+    }
+
+    let selector = token.to_lowercase();
+    if selector == "auto" {
+        let fresh: Vec<wgpu::Adapter> =
+            pollster::block_on(create_instance().enumerate_adapters(wgpu::Backends::all()));
+        auto_select(fresh)
+    } else if let Ok(idx) = selector.parse::<usize>() {
+        select_by_index_or_name(
+            pollster::block_on(create_instance().enumerate_adapters(wgpu::Backends::all())),
+            idx,
+            &selector,
+        )
+    } else {
+        select_by_name(
+            pollster::block_on(create_instance().enumerate_adapters(wgpu::Backends::all())),
+            &selector,
+        )
+    }
+}
+
 /// Select an adapter based on the `HOTSPRING_GPU_ADAPTER` / `BARRACUDA_GPU_ADAPTER`
 /// environment variables. Falls back to auto-detection (discrete + `SHADER_F64` first).
 ///
@@ -192,27 +227,7 @@ pub fn select_adapter() -> Result<wgpu::Adapter, crate::error::HotSpringError> {
     };
 
     for token in &tokens {
-        let selector = token.to_lowercase();
-        if selector == "auto" {
-            // Clone adapter vec for the fallback path — wgpu::Adapter is not Clone,
-            // so re-enumerate. auto_select consumes the vec.
-            let fresh: Vec<wgpu::Adapter> =
-                pollster::block_on(create_instance().enumerate_adapters(wgpu::Backends::all()));
-            if let Ok(a) = auto_select(fresh) {
-                return Ok(a);
-            }
-        } else if let Ok(idx) = selector.parse::<usize>() {
-            if let Ok(a) = select_by_index_or_name(
-                pollster::block_on(create_instance().enumerate_adapters(wgpu::Backends::all())),
-                idx,
-                &selector,
-            ) {
-                return Ok(a);
-            }
-        } else if let Ok(a) = select_by_name(
-            pollster::block_on(create_instance().enumerate_adapters(wgpu::Backends::all())),
-            &selector,
-        ) {
+        if let Ok(a) = select_adapter_hint(token) {
             return Ok(a);
         }
     }

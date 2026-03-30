@@ -894,8 +894,12 @@ fn print_trajectory_cost_model(gpu_name: &str) {
     let quenched_time = quenched_tflops / (peak_tflops * efficiency);
     let dynamical_time = dynamical_tflops / (peak_tflops * efficiency);
 
-    println!("  Quenched:  {quenched_tflops:.2} TFLOP/traj → ~{quenched_time:.1}s at 30% efficiency on {gpu_name}");
-    println!("  Dynamical: {dynamical_tflops:.2} TFLOP/traj → ~{dynamical_time:.1}s at 30% efficiency (Nf=4, ~100 CG iters)");
+    println!(
+        "  Quenched:  {quenched_tflops:.2} TFLOP/traj → ~{quenched_time:.1}s at 30% efficiency on {gpu_name}"
+    );
+    println!(
+        "  Dynamical: {dynamical_tflops:.2} TFLOP/traj → ~{dynamical_time:.1}s at 30% efficiency (Nf=4, ~100 CG iters)"
+    );
     println!(
         "  Overnight (500 traj): ~{:.1}h quenched, ~{:.1}h dynamical",
         quenched_time * 500.0 / 3600.0,

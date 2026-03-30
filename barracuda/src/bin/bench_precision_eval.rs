@@ -16,7 +16,7 @@ use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::pipeline_eval::PipelineEval;
 use hotspring_barracuda::precision_brain::PrecisionBrain;
 use hotspring_barracuda::precision_eval::{
-    PrecisionEval, EVAL_SHADER_EXP_LOG, EVAL_SHADER_KAHAN_SUM, EVAL_SHADER_SQUARE_PLUS_ONE,
+    EVAL_SHADER_EXP_LOG, EVAL_SHADER_KAHAN_SUM, EVAL_SHADER_SQUARE_PLUS_ONE, PrecisionEval,
 };
 use hotspring_barracuda::transfer_eval::TransferEval;
 use std::time::Instant;

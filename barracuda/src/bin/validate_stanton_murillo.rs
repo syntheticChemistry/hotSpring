@@ -105,7 +105,9 @@ fn main() {
             "═══ κ={}, Γ={} ═══════════════════════════════════════════",
             cfg.kappa, cfg.gamma
         );
-        println!("  Analytical fits (informational): D*={d_fit:.4e}, η*={eta_fit:.4e}, λ*={lambda_fit:.4e}");
+        println!(
+            "  Analytical fits (informational): D*={d_fit:.4e}, η*={eta_fit:.4e}, λ*={lambda_fit:.4e}"
+        );
 
         let sim = cpu_reference::run_simulation_cpu(cfg);
         let ev = validate_energy(&sim.energy_history, cfg);

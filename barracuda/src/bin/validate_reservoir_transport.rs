@@ -25,7 +25,7 @@ use hotspring_barracuda::md::config::MdConfig;
 use hotspring_barracuda::md::cpu_reference::run_simulation_cpu;
 use hotspring_barracuda::md::observables::compute_vacf;
 use hotspring_barracuda::md::reservoir::{
-    velocity_features, EchoStateNetwork, EsnConfig, NpuSimulator,
+    EchoStateNetwork, EsnConfig, NpuSimulator, velocity_features,
 };
 use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;

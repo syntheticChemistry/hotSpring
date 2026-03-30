@@ -8,7 +8,7 @@
 
 use crate::gpu::GpuF64;
 use crate::lattice::gpu_hmc::{
-    gpu_hmc_trajectory_streaming, gpu_polyakov_loop, GpuHmcState, GpuHmcStreamingPipelines,
+    GpuHmcState, GpuHmcStreamingPipelines, gpu_hmc_trajectory_streaming, gpu_polyakov_loop,
 };
 use crate::lattice::hmc::{self, HmcConfig, IntegratorType};
 use crate::lattice::wilson::Lattice;

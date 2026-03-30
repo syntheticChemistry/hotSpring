@@ -14,7 +14,7 @@
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::md::diag::{force_comparison_stats, net_force, print_force_mismatches};
 use hotspring_barracuda::md::shaders;
-use hotspring_barracuda::md::simulation::{init_fcc_lattice, CellList};
+use hotspring_barracuda::md::simulation::{CellList, init_fcc_lattice};
 use hotspring_barracuda::validation::ValidationHarness;
 
 use barracuda::shaders::precision::ShaderTemplate;
@@ -390,7 +390,9 @@ fn compare_forces(gpu: &GpuF64, n: usize, harness: &mut ValidationHarness) {
     } else {
         pe_diff_v4
     };
-    println!("  Cell-list v4 (f64 cell data): PE = {total_pe_v4:.6}, net force = {net_f_v4:.2e}, PE diff = {pe_diff_v4:.2e} (rel {pe_rel_v4:.2e})");
+    println!(
+        "  Cell-list v4 (f64 cell data): PE = {total_pe_v4:.6}, net force = {net_f_v4:.2e}, PE diff = {pe_diff_v4:.2e} (rel {pe_rel_v4:.2e})"
+    );
     harness.check_upper(&format!("N{n}_V4_PE_rel_diff"), pe_rel_v4, 1e-6);
     if pe_rel_v4 < 1e-6 {
         println!("  ✓ V4 PASS: f64 cell data fixes the bug! array<u32> was the problem.");
@@ -743,7 +745,9 @@ fn run_phase1c_pair_count(gpu: &GpuF64, harness: &mut ValidationHarness) {
         } else {
             "✗ DIFF"
         };
-        println!("    particle {i:>3}: AP pairs={ap_pc:.0}, CL pairs={cl_pc:.0} {m}  AP_PE={ap_pe:.6}, CL_PE=?");
+        println!(
+            "    particle {i:>3}: AP pairs={ap_pc:.0}, CL pairs={cl_pc:.0} {m}  AP_PE={ap_pe:.6}, CL_PE=?"
+        );
     }
     for i in 10..n_test {
         total_ap_pairs += ap_count_data[i * 2];

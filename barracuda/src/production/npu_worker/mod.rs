@@ -19,7 +19,7 @@ use crate::lattice::gpu_hmc::BrainInterrupt;
 use std::sync::mpsc;
 
 pub use crate::production::trajectory_input::{
-    trajectory_input, trajectory_input_with_proxy, TRAJECTORY_INPUT_DIM,
+    TRAJECTORY_INPUT_DIM, trajectory_input, trajectory_input_with_proxy,
 };
 pub use messages::{NpuRequest, NpuResponse, NpuWorkerHandles};
 

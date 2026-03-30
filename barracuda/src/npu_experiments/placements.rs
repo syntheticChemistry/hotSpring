@@ -6,7 +6,7 @@ use crate::md::reservoir::EchoStateNetwork;
 use crate::provenance::KNOWN_BETA_C_SU3_NT4 as KNOWN_BETA_C;
 use std::time::Instant;
 
-use super::{build_multi_output_dataset, PlacementResult, TrajectoryRecord, N_THERM, WINDOW_SIZE};
+use super::{N_THERM, PlacementResult, TrajectoryRecord, WINDOW_SIZE, build_multi_output_dataset};
 
 /// Placement A: Pre-thermalization early exit.
 pub(super) fn placement_a_pre_thermalization(

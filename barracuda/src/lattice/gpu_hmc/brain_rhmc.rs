@@ -27,6 +27,7 @@
 //! stream observations to the cortex, apply parameter suggestions with
 //! safety clamps, and persist state for cross-hardware learning.
 
+use crate::error::HotSpringError;
 use crate::lattice::rhmc::RhmcConfig;
 use crate::md::reservoir::heads;
 use crate::md::reservoir::npu::{ExportedWeights, MultiHeadNpu};
@@ -371,13 +372,10 @@ impl NpuCortex {
         );
 
         loop {
-            let obs = match self.observation_rx.recv() {
-                Ok(o) => o,
-                Err(_) => {
-                    eprintln!("[brain] Observation channel closed — shutting down");
-                    self.checkpoint_all();
-                    break;
-                }
+            let Ok(obs) = self.observation_rx.recv() else {
+                eprintln!("[brain] Observation channel closed — shutting down");
+                self.checkpoint_all();
+                break;
             };
 
             self.stats.total_observations += 1;
@@ -414,7 +412,11 @@ impl NpuCortex {
             }
 
             // Periodic reporting
-            if self.stats.total_observations % self.report_interval == 0 {
+            if self
+                .stats
+                .total_observations
+                .is_multiple_of(self.report_interval)
+            {
                 let range = format!(
                     "obs {}-{}",
                     self.stats
@@ -428,7 +430,10 @@ impl NpuCortex {
 
             // Periodic checkpoint
             if self.checkpoint_interval > 0
-                && self.stats.total_observations % self.checkpoint_interval == 0
+                && self
+                    .stats
+                    .total_observations
+                    .is_multiple_of(self.checkpoint_interval)
             {
                 self.checkpoint_all();
             }
@@ -436,24 +441,25 @@ impl NpuCortex {
     }
 
     fn check_cross_gpu_agreement(&mut self, obs: &TrajectoryObservation) {
-        if let Some(ref pending) = self.pending_pair {
-            if pending.traj_idx == obs.traj_idx && pending.gpu_name != obs.gpu_name {
-                let agreement = CrossGpuAgreement {
-                    traj_idx: obs.traj_idx,
-                    both_accepted: pending.accepted && obs.accepted,
-                    both_rejected: !pending.accepted && !obs.accepted,
-                    delta_h_spread: (pending.delta_h - obs.delta_h).abs(),
-                    plaquette_spread: (pending.plaquette - obs.plaquette).abs(),
-                };
-                if agreement.acceptance_agrees() {
-                    self.stats.cross_gpu_agreements += 1;
-                } else {
-                    self.stats.cross_gpu_disagreements += 1;
-                }
-                self.agreement_log.push(agreement);
-                self.pending_pair = None;
-                return;
+        if let Some(ref pending) = self.pending_pair
+            && pending.traj_idx == obs.traj_idx
+            && pending.gpu_name != obs.gpu_name
+        {
+            let agreement = CrossGpuAgreement {
+                traj_idx: obs.traj_idx,
+                both_accepted: pending.accepted && obs.accepted,
+                both_rejected: !pending.accepted && !obs.accepted,
+                delta_h_spread: (pending.delta_h - obs.delta_h).abs(),
+                plaquette_spread: (pending.plaquette - obs.plaquette).abs(),
+            };
+            if agreement.acceptance_agrees() {
+                self.stats.cross_gpu_agreements += 1;
+            } else {
+                self.stats.cross_gpu_disagreements += 1;
             }
+            self.agreement_log.push(agreement);
+            self.pending_pair = None;
+            return;
         }
         self.pending_pair = Some(obs.clone());
     }
@@ -765,12 +771,15 @@ impl BrainRhmcRunner {
     }
 
     /// Run one iteration: dual-GPU trajectories + observation streaming.
-    #[allow(clippy::expect_used)] // JoinHandle::join() only fails on thread panic
+    ///
+    /// # Errors
+    ///
+    /// Returns [`HotSpringError::ThreadPanicked`] if a worker thread panicked.
     pub fn run_iteration(
         &mut self,
         gpu_a: &mut UnidirectionalRhmc,
         gpu_b: &mut UnidirectionalRhmc,
-    ) -> BrainIterationResult {
+    ) -> Result<BrainIterationResult, HotSpringError> {
         self.config_live.apply_pending(self.traj_count);
 
         let config_a = self.config_live.config_for_gpu(gpu_a.adapter_name());
@@ -800,12 +809,16 @@ impl BrainRhmcRunner {
                 (r, sb)
             });
 
-            let (ra, new_sa) = handle_a.join().expect("GPU A thread");
-            let (rb, new_sb) = handle_b.join().expect("GPU B thread");
+            let (ra, new_sa) = handle_a
+                .join()
+                .map_err(|_| HotSpringError::ThreadPanicked("GPU A trajectory thread panicked"))?;
+            let (rb, new_sb) = handle_b
+                .join()
+                .map_err(|_| HotSpringError::ThreadPanicked("GPU B trajectory thread panicked"))?;
             self.seed_a = new_sa;
             self.seed_b = new_sb;
-            (ra, rb)
-        });
+            Ok::<(TrajectoryResult, TrajectoryResult), HotSpringError>((ra, rb))
+        })?;
 
         let lattice_size = gpu_a.state().gauge.gauge.dims[0];
 
@@ -846,11 +859,11 @@ impl BrainRhmcRunner {
         let idx = self.traj_count;
         self.traj_count += 1;
 
-        BrainIterationResult {
+        Ok(BrainIterationResult {
             gpu_a: result_a,
             gpu_b: result_b,
             traj_idx: idx,
-        }
+        })
     }
 
     pub fn traj_count(&self) -> usize {
@@ -913,12 +926,13 @@ pub fn brain_state_dir() -> PathBuf {
 }
 
 fn dirs_fallback() -> PathBuf {
-    std::env::var("XDG_DATA_HOME")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| {
+    std::env::var("XDG_DATA_HOME").map_or_else(
+        |_| {
             let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
             PathBuf::from(home).join(".local").join("share")
-        })
+        },
+        PathBuf::from,
+    )
 }
 
 /// Sanitize GPU name for use as a filename.
@@ -940,8 +954,7 @@ pub fn save_brain_state(state: &BrainState) -> std::io::Result<()> {
     let dir = brain_state_dir();
     let filename = format!("{}_rhmc_brain.json", sanitize_gpu_name(&state.gpu_name));
     let path = dir.join(filename);
-    let json = serde_json::to_string_pretty(state)
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+    let json = serde_json::to_string_pretty(state).map_err(std::io::Error::other)?;
     std::fs::write(&path, json)?;
     eprintln!(
         "[brain] Saved state for {} → {}",

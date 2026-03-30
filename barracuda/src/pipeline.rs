@@ -7,7 +7,7 @@
 
 use crate::physics::hfb::binding_energy_l2;
 use crate::physics::{nuclear_matter_properties, semf_binding_energy};
-use crate::prescreen::{nmp_objective_penalty, PreScreenClassifier};
+use crate::prescreen::{PreScreenClassifier, nmp_objective_penalty};
 use crate::tolerances;
 use barracuda::sample::latin_hypercube;
 use std::collections::HashMap;

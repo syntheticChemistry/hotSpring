@@ -63,7 +63,7 @@ pub fn validate_energy(history: &[EnergyRecord], _config: &MdConfig) -> EnergyVa
                 mean_temperature: 0.0,
                 std_temperature: 0.0,
                 passed: false,
-            }
+            };
         }
     };
     let drift_pct = if mean_e.abs() > DIVISION_GUARD {

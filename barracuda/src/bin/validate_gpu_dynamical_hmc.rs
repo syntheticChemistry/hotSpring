@@ -17,13 +17,13 @@
 
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::lattice::cg;
-use hotspring_barracuda::lattice::dirac::{apply_dirac, flatten_fermion, FermionField};
+use hotspring_barracuda::lattice::dirac::{FermionField, apply_dirac, flatten_fermion};
 use hotspring_barracuda::lattice::gpu_hmc::{
-    gpu_dynamical_hmc_trajectory, GpuDynHmcPipelines, GpuDynHmcState,
+    GpuDynHmcPipelines, GpuDynHmcState, gpu_dynamical_hmc_trajectory,
 };
 use hotspring_barracuda::lattice::hmc::{self, HmcConfig, IntegratorType};
 use hotspring_barracuda::lattice::pseudofermion::{
-    dynamical_hmc_trajectory, pseudofermion_force, DynamicalHmcConfig, PseudofermionConfig,
+    DynamicalHmcConfig, PseudofermionConfig, dynamical_hmc_trajectory, pseudofermion_force,
 };
 use hotspring_barracuda::lattice::wilson::Lattice;
 use hotspring_barracuda::validation::ValidationHarness;

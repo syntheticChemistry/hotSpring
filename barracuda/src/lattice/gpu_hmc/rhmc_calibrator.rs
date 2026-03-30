@@ -33,7 +33,7 @@
 
 use super::dynamical::GpuDynHmcPipelines;
 use super::gpu_rhmc::GpuRhmcResult;
-use super::spectral_probe::{probe_spectral_range, SpectralInfo};
+use super::spectral_probe::{SpectralInfo, probe_spectral_range};
 use super::{GpuDynHmcState, GpuF64};
 use crate::lattice::rhmc::{RationalApproximation, RhmcConfig, RhmcFermionConfig};
 use crate::tolerances::{

@@ -5,7 +5,7 @@
 //! Shared logic for the `sarkas_gpu` binary: run single case with optional
 //! brain state persistence, N-scaling summary printing.
 
-use crate::bench::{peak_rss_mb, BenchReport, PhaseResult, PowerMonitor};
+use crate::bench::{BenchReport, PhaseResult, PowerMonitor, peak_rss_mb};
 use crate::md::brain::MD_NUM_HEADS;
 use crate::md::config::MdConfig;
 use crate::md::neighbor::{AlgorithmSelector, ForceAlgorithm};
@@ -69,28 +69,28 @@ pub async fn run_single_case_with_brain(
             observables::print_observable_summary_with_gpu(&sim, config, ssf_device.as_ref())
                 .unwrap_or_else(|e| eprintln!("  VACF GPU failed: {e}"));
 
-            if let Some(ref bs) = sim.brain_summary {
-                if bs.retrain_count > 0 {
-                    let r2_strs: Vec<String> = bs
-                        .head_r2
-                        .iter()
-                        .enumerate()
-                        .filter(|(_, r)| **r > 0.1)
-                        .map(|(i, r)| format!("H{i}={r:.3}"))
-                        .collect();
-                    println!(
-                        "  Brain: {} retrains, {}/{} heads trusted, conf={:.2} [{}]",
-                        bs.retrain_count,
-                        bs.trusted_heads,
-                        MD_NUM_HEADS,
-                        bs.confidence,
-                        if r2_strs.is_empty() {
-                            "learning...".into()
-                        } else {
-                            r2_strs.join(", ")
-                        },
-                    );
-                }
+            if let Some(ref bs) = sim.brain_summary
+                && bs.retrain_count > 0
+            {
+                let r2_strs: Vec<String> = bs
+                    .head_r2
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, r)| **r > 0.1)
+                    .map(|(i, r)| format!("H{i}={r:.3}"))
+                    .collect();
+                println!(
+                    "  Brain: {} retrains, {}/{} heads trusted, conf={:.2} [{}]",
+                    bs.retrain_count,
+                    bs.trusted_heads,
+                    MD_NUM_HEADS,
+                    bs.confidence,
+                    if r2_strs.is_empty() {
+                        "learning...".into()
+                    } else {
+                        r2_strs.join(", ")
+                    },
+                );
             }
 
             let total_steps = config.equil_steps + config.prod_steps;

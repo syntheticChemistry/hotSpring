@@ -18,7 +18,7 @@
 #![allow(clippy::similar_names)]
 #![allow(clippy::suboptimal_flops)]
 
-use super::dielectric::{self, f_sum_rule_integral, PlasmaParams};
+use super::dielectric::{self, PlasmaParams, f_sum_rule_integral};
 use crate::gpu::GpuF64;
 
 use barracuda::shaders::precision::ShaderTemplate;

@@ -10,8 +10,8 @@
 //! The `unidirectional_rhmc` module extends this with GPU-resident Hamiltonian assembly
 //! (B2) and Metropolis (B3) for zero-readback trajectories.
 
-use super::resident_cg_buffers::{build_reduce_chain_pub, encode_reduce_chain, ReduceChain};
-use super::{make_u32x4_params, GpuF64, GpuHmcPipelines, GpuHmcState};
+use super::resident_cg_buffers::{ReduceChain, build_reduce_chain_pub, encode_reduce_chain};
+use super::{GpuF64, GpuHmcPipelines, GpuHmcState, make_u32x4_params};
 
 /// Persistent GPU buffers for O(1)-readback scalar observables.
 ///

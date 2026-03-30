@@ -8,8 +8,8 @@
 
 use std::io::{BufRead, BufReader};
 use std::process::{Command, Stdio};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::Instant;
 
 /// Point-in-time GPU hardware snapshot.
@@ -255,8 +255,7 @@ impl GpuTelemetry {
         let vram_total = drm_card
             .as_ref()
             .and_then(|p| read_sysfs_u64(&format!("{p}/device/mem_info_vram_total")))
-            .map(|b| b as f64 / (1024.0 * 1024.0))
-            .unwrap_or(0.0);
+            .map_or(0.0, |b| b as f64 / (1024.0 * 1024.0));
 
         let poll_state = Arc::clone(&state);
         let handle = std::thread::Builder::new()
@@ -273,14 +272,11 @@ impl GpuTelemetry {
 
                     if let Some(ref path) = hwmon {
                         snap.power_w = read_sysfs_f64(&format!("{path}/power1_average"))
-                            .map(|uw| uw / 1_000_000.0)
-                            .unwrap_or(0.0);
+                            .map_or(0.0, |uw| uw / 1_000_000.0);
                         snap.temp_c = read_sysfs_f64(&format!("{path}/temp1_input"))
-                            .map(|mc| mc / 1000.0)
-                            .unwrap_or(0.0);
+                            .map_or(0.0, |mc| mc / 1000.0);
                         snap.fan_pct = read_sysfs_f64(&format!("{path}/pwm1"))
-                            .map(|v| v / 255.0 * 100.0)
-                            .unwrap_or(0.0);
+                            .map_or(0.0, |v| v / 255.0 * 100.0);
                     }
 
                     if let Some(ref path) = drm_card {
@@ -289,8 +285,7 @@ impl GpuTelemetry {
                                 .unwrap_or(0.0);
                         snap.vram_used_mib =
                             read_sysfs_u64(&format!("{path}/device/mem_info_vram_used"))
-                                .map(|b| b as f64 / (1024.0 * 1024.0))
-                                .unwrap_or(0.0);
+                                .map_or(0.0, |b| b as f64 / (1024.0 * 1024.0));
                     }
 
                     poll_state.store_snapshot(&snap);
@@ -329,10 +324,10 @@ fn find_amdgpu_hwmon() -> Option<String> {
     for entry in std::fs::read_dir("/sys/class/hwmon").ok()? {
         let entry = entry.ok()?;
         let name_path = entry.path().join("name");
-        if let Ok(name) = std::fs::read_to_string(&name_path) {
-            if name.trim() == "amdgpu" {
-                return Some(entry.path().to_string_lossy().to_string());
-            }
+        if let Ok(name) = std::fs::read_to_string(&name_path)
+            && name.trim() == "amdgpu"
+        {
+            return Some(entry.path().to_string_lossy().to_string());
         }
     }
     None
@@ -370,6 +365,8 @@ fn read_sysfs_u64(path: &str) -> Option<u64> {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::float_cmp)]
+
     use super::*;
 
     #[test]

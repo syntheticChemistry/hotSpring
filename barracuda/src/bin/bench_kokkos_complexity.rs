@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-//! N-scaling complexity benchmark: barraCuda vs Kokkos-CUDA head-to-head.
+//! N-scaling complexity benchmark: local crate vs Kokkos-CUDA head-to-head.
 //!
 //! Profiles both stacks across problem sizes (N=500..50k), force algorithms
 //! (AllPairs, Verlet), and hardware to produce scaling curves and identify
-//! the complexity crossover points where barraCuda catches or loses to Kokkos.
+//! the complexity crossover points where the local crate catches or loses to Kokkos.
 //!
 //! Output: table + optional JSON for plotting.
 //!
@@ -18,6 +18,9 @@ use hotspring_barracuda::bench::md_backend::{
     BarraCudaMdBackend, ForceMethod, KokkosLammpsBackend, MdBenchmarkBackend, MdBenchmarkResult,
     MdBenchmarkSpec,
 };
+
+/// Local crate name for benchmark banners/tables (not other primals).
+const LOCAL_PRIMAL_NAME: &str = env!("CARGO_PKG_NAME");
 
 /// Physics case template (algorithm + plasma parameters).
 struct ScalingCase {
@@ -106,7 +109,7 @@ fn main() {
 
     println!("╔══════════════════════════════════════════════════════════════════╗");
     println!("║  N-Scaling Complexity Benchmark                                ║");
-    println!("║  barraCuda wgpu/Vulkan  vs  Kokkos-CUDA (LAMMPS)              ║");
+    println!("║  {LOCAL_PRIMAL_NAME} wgpu/Vulkan  vs  Kokkos-CUDA (LAMMPS)              ║");
     println!("║  Profile: throughput vs N, per-algorithm, per-hardware         ║");
     println!("╚══════════════════════════════════════════════════════════════════╝");
     println!();
@@ -154,11 +157,11 @@ fn main() {
         );
         println!();
         println!(
-            "  {:>8}  {:>12}  {:>12}  {:>8}  {:>8}  {:>8}",
-            "N", "barraCuda", "Kokkos", "Gap", "bc(s)", "kk(s)"
+            "  {:>8}  {:>20}  {:>12}  {:>8}  {:>8}  {:>8}",
+            "N", LOCAL_PRIMAL_NAME, "Kokkos", "Gap", "bc(s)", "kk(s)"
         );
         println!(
-            "  {:>8}  {:>12}  {:>12}  {:>8}  {:>8}  {:>8}",
+            "  {:>8}  {:>20}  {:>12}  {:>8}  {:>8}  {:>8}",
             "────", "steps/s", "steps/s", "────", "────", "────"
         );
 
@@ -243,7 +246,9 @@ fn main() {
 
         println!("  {} ({}):", case.label, case.expected_method);
 
-        print_scaling_exponent("barraCuda", &case_results, |r| r.barracuda_steps_per_sec);
+        print_scaling_exponent(LOCAL_PRIMAL_NAME, &case_results, |r| {
+            r.barracuda_steps_per_sec
+        });
         print_scaling_exponent("Kokkos", &case_results, |r| r.kokkos_steps_per_sec);
 
         // Gap trend
@@ -259,7 +264,7 @@ fn main() {
             } else if g2 > g1 {
                 "widening (Kokkos scales better)"
             } else {
-                "narrowing (barraCuda scales better)"
+                "narrowing (local primal scales better)"
             };
             println!("    Gap trend: {g1:.1}× at N={n1:.0} → {g2:.1}× at N={n2:.0} ({trend})");
         }
@@ -271,7 +276,7 @@ fn main() {
     println!("  ABSORPTION TARGETS");
     println!("═══════════════════════════════════════════════════════════════════");
     println!();
-    println!("  Use these results to identify where barraCuda loses ground:");
+    println!("  Use these results to identify where {LOCAL_PRIMAL_NAME} loses ground:");
     println!("  • If gap WIDENS with N → memory access / neighbor-list build overhead");
     println!("  • If gap is STABLE → arithmetic throughput (f64 penalty)");
     println!("  • If gap NARROWS with N → dispatch/launch overhead amortized at scale");

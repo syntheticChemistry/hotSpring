@@ -13,9 +13,9 @@
 
 use crate::gpu::GpuF64;
 use crate::md::config::MdConfig;
-use crate::md::observables::transport_gpu::{compute_vacf_gpu, GpuVacf, GpuVelocityRing};
+use crate::md::observables::transport_gpu::{GpuVacf, GpuVelocityRing, compute_vacf_gpu};
 use crate::md::shaders;
-use crate::md::simulation::{init_fcc_lattice, init_velocities, EnergyRecord};
+use crate::md::simulation::{EnergyRecord, init_fcc_lattice, init_velocities};
 use crate::tolerances;
 
 use barracuda::pipeline::ReduceScalarPipeline;

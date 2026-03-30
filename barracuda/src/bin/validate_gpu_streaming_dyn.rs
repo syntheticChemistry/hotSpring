@@ -19,10 +19,10 @@
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::lattice::gpu_hmc::gpu_hmc_trajectory_streaming;
 use hotspring_barracuda::lattice::gpu_hmc::{
+    BidirectionalStream, GpuDynHmcPipelines, GpuDynHmcState, GpuDynHmcStreamingPipelines,
+    GpuHmcState, GpuHmcStreamingPipelines, GpuResidentCgBuffers, GpuResidentCgPipelines,
     gpu_dynamical_hmc_trajectory, gpu_dynamical_hmc_trajectory_resident,
-    gpu_dynamical_hmc_trajectory_streaming, BidirectionalStream, GpuDynHmcPipelines,
-    GpuDynHmcState, GpuDynHmcStreamingPipelines, GpuHmcState, GpuHmcStreamingPipelines,
-    GpuResidentCgBuffers, GpuResidentCgPipelines,
+    gpu_dynamical_hmc_trajectory_streaming,
 };
 use hotspring_barracuda::lattice::hmc::{self, HmcConfig, IntegratorType};
 use hotspring_barracuda::lattice::wilson::Lattice;
@@ -378,7 +378,9 @@ fn main() {
         "  Resident CG: ⟨P⟩={resident_mean_plaq:.6}, acc={:.0}%, {resident_time:.1}s",
         resident_acc_rate * 100.0
     );
-    println!("  Readback reduction: {old_readback_bytes:.0} → {new_readback_bytes:.0} bytes/traj ({reduction_factor:.0}× less)");
+    println!(
+        "  Readback reduction: {old_readback_bytes:.0} → {new_readback_bytes:.0} bytes/traj ({reduction_factor:.0}× less)"
+    );
 
     harness.check_bool("Resident CG acceptance > 20%", resident_acc_rate > 0.20);
     harness.check_bool(
@@ -448,14 +450,24 @@ fn main() {
     println!("║  Streaming Dynamical Fermion HMC Summary                                   ║");
     println!("╠══════════════════════════════════════════════════════════════════════════════╣");
     println!("║  GPU PRNG: momenta + pseudofermion φ generated on-device                   ║");
-    println!("║  Resident CG: α, β, rz on GPU — {check_interval}-iter batches, 8 bytes/check              ║");
-    println!("║  Readback: {old_readback_bytes:.0} → {new_readback_bytes:.0} bytes/traj ({reduction_factor:.0}× reduction)                   ║");
-    println!("║  4⁴ dispatch:  ⟨P⟩={dispatch_mean_plaq:.4}, acc={:.0}%, {dispatch_time:.1}s                    ║",
-        dispatch_acc_rate * 100.0);
-    println!("║  4⁴ streaming: ⟨P⟩={stream_mean_plaq:.4}, acc={:.0}%, {streaming_time:.1}s                   ║",
-        stream_acc_rate * 100.0);
-    println!("║  4⁴ resident:  ⟨P⟩={resident_mean_plaq:.4}, acc={:.0}%, {resident_time:.1}s                    ║",
-        resident_acc_rate * 100.0);
+    println!(
+        "║  Resident CG: α, β, rz on GPU — {check_interval}-iter batches, 8 bytes/check              ║"
+    );
+    println!(
+        "║  Readback: {old_readback_bytes:.0} → {new_readback_bytes:.0} bytes/traj ({reduction_factor:.0}× reduction)                   ║"
+    );
+    println!(
+        "║  4⁴ dispatch:  ⟨P⟩={dispatch_mean_plaq:.4}, acc={:.0}%, {dispatch_time:.1}s                    ║",
+        dispatch_acc_rate * 100.0
+    );
+    println!(
+        "║  4⁴ streaming: ⟨P⟩={stream_mean_plaq:.4}, acc={:.0}%, {streaming_time:.1}s                   ║",
+        stream_acc_rate * 100.0
+    );
+    println!(
+        "║  4⁴ resident:  ⟨P⟩={resident_mean_plaq:.4}, acc={:.0}%, {resident_time:.1}s                    ║",
+        resident_acc_rate * 100.0
+    );
     println!(
         "║  8⁴ streaming: ⟨P⟩={mean_8:.4}, acc={:.0}%, {time_8:.1}s                       ║",
         f64::from(acc_8) / f64::from(n_traj_8) * 100.0

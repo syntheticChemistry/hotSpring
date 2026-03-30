@@ -3,13 +3,13 @@
 //! Brain-mode CG: NPU residual streaming and interrupt support.
 
 use super::dynamical::{GpuDynHmcPipelines, GpuDynHmcResult, GpuDynHmcState};
-use super::resident_cg_buffers::{encode_cg_batch, encode_reduce_chain, GpuResidentCgBuffers};
+use super::resident_cg_buffers::{GpuResidentCgBuffers, encode_cg_batch, encode_reduce_chain};
 use super::resident_cg_pipelines::GpuResidentCgPipelines;
-use super::streaming::{make_ferm_prng_params, GpuDynHmcStreamingPipelines};
+use super::streaming::{GpuDynHmcStreamingPipelines, make_ferm_prng_params};
 #[allow(deprecated)]
 use super::{
-    gpu_dirac_dispatch, gpu_dot_re, gpu_kinetic_energy, gpu_plaquette, gpu_wilson_action,
-    make_link_mom_params, make_prng_params, GpuF64,
+    GpuF64, gpu_dirac_dispatch, gpu_dot_re, gpu_kinetic_energy, gpu_plaquette, gpu_wilson_action,
+    make_link_mom_params, make_prng_params,
 };
 
 use super::GpuHmcPipelines;

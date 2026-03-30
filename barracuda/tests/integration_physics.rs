@@ -6,7 +6,7 @@
 //! energy output, verifying that the public API composes correctly across
 //! module boundaries.
 
-use hotspring_barracuda::physics::{binding_energy_l2, semf_binding_energy, SphericalHFB};
+use hotspring_barracuda::physics::{SphericalHFB, binding_energy_l2, semf_binding_energy};
 use hotspring_barracuda::provenance::SLY4_PARAMS;
 use hotspring_barracuda::tolerances;
 

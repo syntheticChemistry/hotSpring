@@ -4,7 +4,7 @@
 
 //! NPU lifecycle handlers: retrain, bootstrap, export.
 
-use crate::md::reservoir::{heads, MultiHeadNpu};
+use crate::md::reservoir::{MultiHeadNpu, heads};
 use crate::production::checkpoint::{
     load_esn_weights, load_nautilus_shell, nautilus_shell_path_from_weights, save_esn_weights,
     save_nautilus_shell,

@@ -255,25 +255,25 @@ fn main() {
     println!();
     println!("═══ Idle-GPU Science Budget (16 hrs/day, not gaming) ══════════════");
 
-    if let Some(r) = results.iter().find(|r| r.n == 10000) {
-        if let Some(sps) = r.gpu_steps_per_sec {
-            let hours = 16.0;
-            let steps_per_day = sps * 3600.0 * hours;
-            let runs_per_day = steps_per_day / 80_000.0;
-            let kwh_per_day = 60.0 * hours / 1000.0;
-            let cost_per_day = kwh_per_day * 0.12;
+    if let Some(r) = results.iter().find(|r| r.n == 10000)
+        && let Some(sps) = r.gpu_steps_per_sec
+    {
+        let hours = 16.0;
+        let steps_per_day = sps * 3600.0 * hours;
+        let runs_per_day = steps_per_day / 80_000.0;
+        let kwh_per_day = 60.0 * hours / 1000.0;
+        let cost_per_day = kwh_per_day * 0.12;
 
-            println!("  N=10,000 via {}: {sps:.0} steps/s", r.mode);
-            println!("    Paper runs/day: {runs_per_day:.0} (80k production steps each)");
-            println!("    Cost/day:       ${cost_per_day:.2}");
-            println!();
+        println!("  N=10,000 via {}: {sps:.0} steps/s", r.mode);
+        println!("    Paper runs/day: {runs_per_day:.0} (80k production steps each)");
+        println!("    Cost/day:       ${cost_per_day:.2}");
+        println!();
 
-            let runs_per_month = runs_per_day * 30.0;
-            let cost_per_month = cost_per_day * 30.0;
-            println!("    Per month: {runs_per_month:.0} runs for ${cost_per_month:.2}");
-            println!("    That's {runs_per_month:.0} paper-parity Yukawa OCP simulations");
-            println!("    while you sleep, game, and live your life.");
-        }
+        let runs_per_month = runs_per_day * 30.0;
+        let cost_per_month = cost_per_day * 30.0;
+        println!("    Per month: {runs_per_month:.0} runs for ${cost_per_month:.2}");
+        println!("    That's {runs_per_month:.0} paper-parity Yukawa OCP simulations");
+        println!("    while you sleep, game, and live your life.");
     }
 
     // ═══════════════════════════════════════════════════════════════

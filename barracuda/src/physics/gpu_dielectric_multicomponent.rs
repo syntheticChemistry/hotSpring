@@ -9,7 +9,7 @@
 #![allow(clippy::cast_precision_loss)]
 
 use super::dielectric_multicomponent::{
-    epsilon_multicomponent_mermin, MultiComponentPlasma, SpeciesParams,
+    MultiComponentPlasma, SpeciesParams, epsilon_multicomponent_mermin,
 };
 use crate::gpu::GpuF64;
 

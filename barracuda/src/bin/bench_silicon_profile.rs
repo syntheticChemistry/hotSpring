@@ -22,7 +22,7 @@
 //! - Pretty-printed profile with tier routing table to stdout
 //! - JSON saved to `profiles/silicon/<adapter_name>.json`
 
-use hotspring_barracuda::bench::silicon_profile::{from_spec_sheet, SiliconProfile, SiliconUnit};
+use hotspring_barracuda::bench::silicon_profile::{SiliconProfile, SiliconUnit, from_spec_sheet};
 use hotspring_barracuda::bench::telemetry::GpuTelemetry;
 use hotspring_barracuda::gpu::GpuF64;
 
@@ -745,8 +745,7 @@ fn characterize_gpu(gpu: &GpuF64, info: &wgpu::AdapterInfo) -> SiliconProfile {
     println!("  ── Saturation experiments (with energy) ──\n");
 
     // FP32 ALU
-    let (fp32, idle, loaded) =
-        bench_with_energy(&telem, |d, q| measure_fp32_alu(d, q), device, queue);
+    let (fp32, idle, loaded) = bench_with_energy(&telem, measure_fp32_alu, device, queue);
     profile.set_measured(SiliconUnit::Fp32Alu, fp32);
     profile.set_measured_energy(SiliconUnit::Fp32Alu, idle, loaded);
     println!(
@@ -757,8 +756,7 @@ fn characterize_gpu(gpu: &GpuF64, info: &wgpu::AdapterInfo) -> SiliconProfile {
     );
 
     // DF64 ALU (not a separate unit entry but captures df64_tflops)
-    let (df64, idle, loaded) =
-        bench_with_energy(&telem, |d, q| measure_df64_alu(d, q), device, queue);
+    let (df64, idle, loaded) = bench_with_energy(&telem, measure_df64_alu, device, queue);
     profile.df64_tflops = df64;
     println!(
         "      Energy: idle={:.1}W loaded={:.1}W Δ={:.1}W",
@@ -768,8 +766,7 @@ fn characterize_gpu(gpu: &GpuF64, info: &wgpu::AdapterInfo) -> SiliconProfile {
     );
 
     // Memory Bandwidth
-    let (bw, idle, loaded) =
-        bench_with_energy(&telem, |d, q| measure_memory_bw(d, q), device, queue);
+    let (bw, idle, loaded) = bench_with_energy(&telem, measure_memory_bw, device, queue);
     profile.set_measured(SiliconUnit::MemoryBandwidth, bw);
     profile.set_measured_energy(SiliconUnit::MemoryBandwidth, idle, loaded);
     println!(
@@ -780,13 +777,7 @@ fn characterize_gpu(gpu: &GpuF64, info: &wgpu::AdapterInfo) -> SiliconProfile {
     );
 
     // TMU
-    let (tmu, idle, loaded) = bench_with_energy_tex(
-        &telem,
-        |d, q, tv| measure_tmu(d, q, tv),
-        device,
-        queue,
-        &tex_view,
-    );
+    let (tmu, idle, loaded) = bench_with_energy_tex(&telem, measure_tmu, device, queue, &tex_view);
     profile.set_measured(SiliconUnit::Tmu, tmu);
     profile.set_measured_energy(SiliconUnit::Tmu, idle, loaded);
     println!(
@@ -797,7 +788,7 @@ fn characterize_gpu(gpu: &GpuF64, info: &wgpu::AdapterInfo) -> SiliconProfile {
     );
 
     // ROP / Atomics
-    let (rop, idle, loaded) = bench_with_energy(&telem, |d, q| measure_rop(d, q), device, queue);
+    let (rop, idle, loaded) = bench_with_energy(&telem, measure_rop, device, queue);
     profile.set_measured(SiliconUnit::Rop, rop);
     profile.set_measured_energy(SiliconUnit::Rop, idle, loaded);
     println!(
@@ -808,8 +799,7 @@ fn characterize_gpu(gpu: &GpuF64, info: &wgpu::AdapterInfo) -> SiliconProfile {
     );
 
     // Shared Memory / LDS
-    let (lds, idle, loaded) =
-        bench_with_energy(&telem, |d, q| measure_shared_mem(d, q), device, queue);
+    let (lds, idle, loaded) = bench_with_energy(&telem, measure_shared_mem, device, queue);
     profile.set_measured(SiliconUnit::SharedMemory, lds);
     profile.set_measured_energy(SiliconUnit::SharedMemory, idle, loaded);
     println!(
@@ -934,7 +924,7 @@ async fn main() {
             let vb = b.measured(unit);
             if va > 0.0 || vb > 0.0 {
                 let ratio = if vb > 0.0 { va / vb } else { f64::INFINITY };
-                println!("  {:<14} {:>14.2} {:>14.2}  {:>7.2}x", unit, va, vb, ratio);
+                println!("  {unit:<14} {va:>14.2} {vb:>14.2}  {ratio:>7.2}x");
             }
         }
     }

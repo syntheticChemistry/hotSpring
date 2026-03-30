@@ -30,10 +30,10 @@
 
 use super::cg::WGSL_SUM_REDUCE_F64;
 use super::gpu_hmc::resident_cg_buffers::{
-    build_reduce_chain_pub, encode_reduce_chain, ReduceChain,
+    ReduceChain, build_reduce_chain_pub, encode_reduce_chain,
 };
 use super::gpu_hmc::{
-    gpu_force_dispatch, make_link_mom_params, make_u32x4_params, GpuHmcPipelines, GpuHmcState,
+    GpuHmcPipelines, GpuHmcState, gpu_force_dispatch, make_link_mom_params, make_u32x4_params,
 };
 use barracuda::numerical::lscfrk::{self as lscfrk_lib, LscfrkCoefficients};
 
@@ -117,15 +117,17 @@ impl GpuFlowState {
         enc.copy_buffer_to_buffer(&source.nbr_buf, 0, &nbr_buf, 0, nbr_bytes);
         gpu.submit_encoder(enc);
 
+        // Minimal 1-scalar buffers: gradient flow does not use backup/momentum/polyakov
+        // paths, but `GpuHmcState` requires these bindings for a unified layout.
         let hmc = GpuHmcState {
             link_buf,
-            link_backup: gpu.create_f64_output_buffer(1, "flow_bk_dummy"),
-            mom_buf: gpu.create_f64_output_buffer(1, "flow_mom_dummy"),
+            link_backup: gpu.create_f64_output_buffer(1, "flow_bk_placeholder"),
+            mom_buf: gpu.create_f64_output_buffer(1, "flow_mom_placeholder"),
             force_buf,
             ke_out_buf,
             plaq_out_buf,
-            poly_out_buf: gpu.create_f64_output_buffer(1, "flow_poly_dummy"),
-            poly_params_buf: gpu.create_f64_output_buffer(1, "flow_pp_dummy"),
+            poly_out_buf: gpu.create_f64_output_buffer(1, "flow_poly_placeholder"),
+            poly_params_buf: gpu.create_f64_output_buffer(1, "flow_pp_placeholder"),
             nbr_buf,
             dims: source.dims,
             volume: source.volume,

@@ -11,9 +11,9 @@
 //! bottleneck on small lattices where sync cost exceeds compute cost).
 
 use super::dynamical::{GpuDynHmcPipelines, GpuDynHmcState};
-use super::resident_cg_buffers::{build_reduce_chain_pub, encode_reduce_chain, ReduceChain};
+use super::resident_cg_buffers::{ReduceChain, build_reduce_chain_pub, encode_reduce_chain};
 use super::resident_cg_pipelines::GpuResidentCgPipelines;
-use super::{make_u32x4_params, GpuF64};
+use super::{GpuF64, make_u32x4_params};
 
 /// Compiled pipelines for GPU-resident shifted CG.
 pub struct GpuResidentShiftedCgPipelines {

@@ -14,7 +14,7 @@
 //! Exit code 0 = all checks pass, exit code 1 = any check fails.
 
 use hotspring_barracuda::gpu::GpuF64;
-use hotspring_barracuda::spectral::{self, anderson_2d, anderson_3d, CsrMatrix, WGSL_SPMV_CSR_F64};
+use hotspring_barracuda::spectral::{self, CsrMatrix, WGSL_SPMV_CSR_F64, anderson_2d, anderson_3d};
 use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
 use std::time::Instant;

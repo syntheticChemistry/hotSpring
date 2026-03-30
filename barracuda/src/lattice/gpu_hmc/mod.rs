@@ -23,6 +23,7 @@
 //!
 //! | Module | Responsibility |
 //! |--------|---------------|
+//! | `uni_hamiltonian` | GPU-resident H assembly, fermion action sum, `UniPipelines` |
 //! | `unidirectional_rhmc` | RHMC with GPU-resident shifted CG (~50x fewer syncs) |
 //! | `resident_cg` | GPU-resident CG solve (convergence check every ~50 iters) |
 //! | `resident_cg_brain` | Resident CG with NpuCortex adaptive feedback |
@@ -36,7 +37,7 @@
 //! | Module | Responsibility |
 //! |--------|---------------|
 //! | `dynamical` | Dynamical fermion HMC (`gpu_cg_solve_internal`: per-iter readback) |
-//! | `gpu_rhmc` | RHMC with `gpu_shifted_cg_solve` (per-iter readback) |
+//! | `gpu_rhmc` | RHMC with `gpu_shifted_cg_solve` (per-iter readback; solver in `rhmc_shifted_cg`) |
 //! | `hasenbusch` | Hasenbusch 2-mass splitting (`gpu_cg_solve_mass`: per-iter readback) |
 //!
 //! ## Shared infrastructure
@@ -67,12 +68,13 @@ pub(crate) mod resident_cg_buffers;
 mod resident_cg_pipelines;
 pub mod resident_observables;
 pub mod resident_shifted_cg;
-pub mod rop_force_accum;
 pub mod rhmc_calibrator;
+pub mod rop_force_accum;
 pub mod spectral_probe;
 pub mod streaming;
 pub mod tmu_tables;
 pub mod true_multishift_cg;
+pub mod uni_hamiltonian;
 pub mod unidirectional_cortex;
 pub mod unidirectional_rhmc;
 
@@ -83,36 +85,35 @@ pub use dynamical::{
 };
 #[allow(deprecated)]
 pub use gpu_rhmc::{
-    gpu_multi_shift_cg_solve, gpu_rhmc_trajectory, GpuRhmcPipelines, GpuRhmcResult,
-    GpuRhmcSectorBuffers, GpuRhmcState, MAX_POLES, WGSL_MULTI_SHIFT_ZETA,
+    GpuRhmcPipelines, GpuRhmcResult, GpuRhmcSectorBuffers, GpuRhmcState, MAX_POLES,
+    WGSL_MULTI_SHIFT_ZETA, gpu_multi_shift_cg_solve, gpu_rhmc_trajectory,
 };
-pub use hasenbusch::{gpu_hasenbusch_hmc_trajectory, GpuHasenbuschBuffers, GpuHasenbuschConfig};
+pub use hasenbusch::{GpuHasenbuschBuffers, GpuHasenbuschConfig, gpu_hasenbusch_hmc_trajectory};
 pub use observables::{BidirectionalStream, StreamObservables};
 pub use resident_cg::{
-    gpu_cg_solve_brain, gpu_cg_solve_resident, gpu_cg_solve_resident_async,
-    gpu_dynamical_hmc_trajectory_brain, gpu_dynamical_hmc_trajectory_resident, AsyncCgReadback,
-    BrainInterrupt, CgResidualUpdate, GpuResidentCgBuffers, GpuResidentCgPipelines,
-    WGSL_CG_COMPUTE_ALPHA, WGSL_CG_COMPUTE_BETA, WGSL_CG_UPDATE_P, WGSL_CG_UPDATE_XR,
-    WGSL_SUM_REDUCE,
+    AsyncCgReadback, BrainInterrupt, CgResidualUpdate, GpuResidentCgBuffers,
+    GpuResidentCgPipelines, WGSL_CG_COMPUTE_ALPHA, WGSL_CG_COMPUTE_BETA, WGSL_CG_UPDATE_P,
+    WGSL_CG_UPDATE_XR, WGSL_SUM_REDUCE, gpu_cg_solve_brain, gpu_cg_solve_resident,
+    gpu_cg_solve_resident_async, gpu_dynamical_hmc_trajectory_brain,
+    gpu_dynamical_hmc_trajectory_resident,
 };
 pub use resident_observables::{
-    encode_ke_reduce, encode_plaquette_reduce, gauge_ke_resident, plaquette_resident,
-    wilson_action_resident, ResidentObservableBuffers,
+    ResidentObservableBuffers, encode_ke_reduce, encode_plaquette_reduce, gauge_ke_resident,
+    plaquette_resident, wilson_action_resident,
 };
 pub use rhmc_calibrator::RhmcCalibrator;
+pub use rop_force_accum::RopForceAccumulator;
 pub use spectral_probe::SpectralInfo;
 pub use streaming::{
+    GpuDynHmcStreamingPipelines, GpuHmcStreamingPipelines, WGSL_GAUSSIAN_FERMION,
     gpu_dynamical_hmc_trajectory_streaming, gpu_hmc_trajectory_streaming,
-    gpu_hmc_trajectory_streaming_cpu_mom, GpuDynHmcStreamingPipelines, GpuHmcStreamingPipelines,
-    WGSL_GAUSSIAN_FERMION,
+    gpu_hmc_trajectory_streaming_cpu_mom,
 };
+pub use uni_hamiltonian::{UniHamiltonianBuffers, UniPipelines};
 pub use unidirectional_cortex::{
-    dual_gpu_trajectories, DualGpuResult, TrajectoryResult, UnidirectionalRhmc,
+    DualGpuResult, TrajectoryResult, UnidirectionalRhmc, dual_gpu_trajectories,
 };
-pub use rop_force_accum::RopForceAccumulator;
-pub use unidirectional_rhmc::{
-    gpu_rhmc_trajectory_unidirectional, UniHamiltonianBuffers, UniPipelines,
-};
+pub use unidirectional_rhmc::gpu_rhmc_trajectory_unidirectional;
 
 use super::wilson::Lattice;
 use crate::gpu::GpuF64;
@@ -123,12 +124,12 @@ use crate::gpu::GpuF64;
 //   - RTX 3090, 4070, consumer → DF64 on FP32 cores (force + plaquette + KE)
 use barracuda::device::driver_profile::Fp64Strategy;
 
-/// Substrate-aware FP64 strategy using metalForge's hardware classification.
+/// Substrate-aware FP64 strategy using adapter-name hardware classification.
 ///
 /// barraCuda's `DeviceCapabilities::fp64_strategy()` only distinguishes Native
 /// vs Hybrid based on f64 probe results. It never returns Concurrent because
-/// it doesn't know the FP64:FP32 hardware ratio. metalForge's substrate probe
-/// classifies this from the adapter name and `SHADER_F16` presence (df64 proxy).
+/// it doesn't know the FP64:FP32 hardware ratio. This function classifies
+/// the rate from the adapter name (mirroring metalForge's substrate probe).
 ///
 /// On narrow-rate GPUs (RTX 3090 1:64, RX 6950 XT 1:16), this returns
 /// `Concurrent`: saturate native f64 AND use DF64 on FP32 cores for bulk
@@ -139,27 +140,33 @@ pub fn substrate_fp64_strategy(gpu: &GpuF64) -> Fp64Strategy {
         return Fp64Strategy::Hybrid;
     }
 
-    let forge_rate = hotspring_forge::substrate::Fp64Strategy::for_properties(
-        &hotspring_forge::substrate::Properties {
-            has_f64: gpu.has_f64,
-            has_df64: true,
-            fp64_rate: Some(classify_fp64_rate_from_adapter(&gpu.adapter_name)),
-            ..hotspring_forge::substrate::Properties::default()
-        },
-    );
-
-    match forge_rate {
-        hotspring_forge::substrate::Fp64Strategy::Native => Fp64Strategy::Native,
-        hotspring_forge::substrate::Fp64Strategy::Hybrid => Fp64Strategy::Hybrid,
-        hotspring_forge::substrate::Fp64Strategy::Concurrent => Fp64Strategy::Concurrent,
+    let rate = classify_fp64_rate_from_adapter(&gpu.adapter_name);
+    match rate {
+        Fp64RateLocal::Full | Fp64RateLocal::Half => Fp64Strategy::Native,
+        Fp64RateLocal::Narrow if gpu.has_f64 => {
+            // Narrow-rate GPU with DF64 support: saturate native + overflow to FP32
+            Fp64Strategy::Concurrent
+        }
+        Fp64RateLocal::Narrow => Fp64Strategy::Hybrid,
     }
 }
 
+/// Hardware FP64 throughput relative to FP32 (local mirror of metalForge substrate).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Fp64RateLocal {
+    /// 1:1 FP64:FP32 (datacenter: A100, H100).
+    Full,
+    /// 1:2 FP64:FP32 (Titan V / Volta, some Turing).
+    Half,
+    /// 1:32 or 1:64 FP64:FP32 (consumer Ampere, Ada, Turing).
+    Narrow,
+}
+
 /// Classify FP64:FP32 rate from adapter name (mirrors metalForge probe logic).
-fn classify_fp64_rate_from_adapter(name: &str) -> hotspring_forge::substrate::Fp64Rate {
+fn classify_fp64_rate_from_adapter(name: &str) -> Fp64RateLocal {
     let name_lower = name.to_lowercase();
     if name_lower.contains("a100") || name_lower.contains("h100") {
-        hotspring_forge::substrate::Fp64Rate::Full
+        Fp64RateLocal::Full
     } else if name_lower.contains("titan v")
         || name_lower.contains("v100")
         || name_lower.contains("gv100")
@@ -167,9 +174,9 @@ fn classify_fp64_rate_from_adapter(name: &str) -> hotspring_forge::substrate::Fp
         || name_lower.contains("mi100")
         || name_lower.contains("mi250")
     {
-        hotspring_forge::substrate::Fp64Rate::Half
+        Fp64RateLocal::Half
     } else {
-        hotspring_forge::substrate::Fp64Rate::Narrow
+        Fp64RateLocal::Narrow
     }
 }
 

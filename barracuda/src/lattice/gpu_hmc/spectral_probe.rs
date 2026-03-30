@@ -26,7 +26,7 @@
 
 use super::dynamical::GpuDynHmcPipelines;
 #[allow(deprecated)]
-use super::{gpu_dot_re, GpuDynHmcState, GpuF64};
+use super::{GpuDynHmcState, GpuF64, gpu_dot_re};
 use crate::tolerances::{
     RHMC_POWER_ITERATION_COUNT, RHMC_SPECTRAL_SAFETY_HIGH, RHMC_SPECTRAL_SAFETY_LOW,
 };

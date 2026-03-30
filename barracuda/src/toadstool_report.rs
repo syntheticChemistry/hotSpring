@@ -7,7 +7,9 @@
 //! running — measurements are constructed but only logged locally.
 //!
 //! Protocol: JSON-RPC 2.0 over Unix domain socket (newline-delimited).
-//! Socket discovery: `TOADSTOOL_SOCKET` → `XDG_RUNTIME_DIR` → `/tmp`.
+//! Socket path: [`toadstool_socket`] — wateringHole IPC v3.1:
+//! `$XDG_RUNTIME_DIR/biomeos/toadstool-<FAMILY_ID>.sock` with `/tmp` when `XDG_RUNTIME_DIR`
+//! is unset, or override with `TOADSTOOL_SOCKET`.
 
 use serde::Serialize;
 use std::path::PathBuf;
@@ -45,44 +47,14 @@ pub fn epoch_now() -> u64 {
         .unwrap_or(0)
 }
 
-/// Discover toadStool's JSON-RPC Unix socket path.
-///
-/// Checks `TOADSTOOL_SOCKET` (with `.jsonrpc.sock` extension),
-/// `XDG_RUNTIME_DIR/biomeos/toadstool.jsonrpc.sock` (toadStool's default),
-/// `XDG_RUNTIME_DIR/toadstool.jsonrpc.sock` (flat layout), and `/tmp/toadstool.jsonrpc.sock`.
-fn discover_socket() -> Option<PathBuf> {
-    for var in &["TOADSTOOL_SOCKET", "PRIMAL_SOCKET"] {
-        if let Ok(p) = std::env::var(var) {
-            let sock = PathBuf::from(&p).with_extension("jsonrpc.sock");
-            if sock.exists() {
-                return Some(sock);
-            }
-            let direct = PathBuf::from(&p);
-            if direct.exists() {
-                return Some(direct);
-            }
-        }
+/// Resolve toadStool's JSON-RPC Unix socket path (wateringHole IPC v3.1).
+fn toadstool_socket() -> String {
+    if let Ok(p) = std::env::var("TOADSTOOL_SOCKET") {
+        return p;
     }
-
-    if let Ok(xdg) = std::env::var("XDG_RUNTIME_DIR") {
-        let xdg = PathBuf::from(xdg);
-        // toadStool serves under biomeos/ subdirectory
-        let biomeos = xdg.join("biomeos/toadstool.jsonrpc.sock");
-        if biomeos.exists() {
-            return Some(biomeos);
-        }
-        let flat = xdg.join("toadstool.jsonrpc.sock");
-        if flat.exists() {
-            return Some(flat);
-        }
-    }
-
-    let tmp = PathBuf::from("/tmp/toadstool.jsonrpc.sock");
-    if tmp.exists() {
-        return Some(tmp);
-    }
-
-    None
+    let runtime_dir = std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".into());
+    let family = std::env::var("FAMILY_ID").unwrap_or_else(|_| "default".into());
+    format!("{runtime_dir}/biomeos/toadstool-{family}.sock")
 }
 
 /// Send a JSON-RPC 2.0 request over a Unix domain socket.
@@ -150,21 +122,12 @@ fn send_jsonrpc(
 /// `compute.performance_surface.report`. If toadStool is not running, logs
 /// a message and returns silently.
 pub fn report_to_toadstool(measurements: &[PerformanceMeasurement]) {
-    let Some(socket) = discover_socket() else {
-        println!("  toadStool socket not found — measurements logged locally only");
-        for m in measurements {
-            println!(
-                "    {}: {} / {} / {} → tol={:.2e}",
-                m.gpu_model, m.operation, m.silicon_unit, m.precision_mode, m.tolerance_achieved
-            );
-        }
-        return;
-    };
-
+    let socket = toadstool_socket();
+    let socket_path = PathBuf::from(&socket);
     println!(
         "  Reporting {} measurement(s) to toadStool at {}",
         measurements.len(),
-        socket.display()
+        socket_path.display()
     );
 
     for m in measurements {
@@ -175,7 +138,7 @@ pub fn report_to_toadstool(measurements: &[PerformanceMeasurement]) {
                 continue;
             }
         };
-        match send_jsonrpc(&socket, "compute.performance_surface.report", &params) {
+        match send_jsonrpc(&socket_path, "compute.performance_surface.report", &params) {
             Ok(resp) => {
                 let status = resp
                     .get("result")

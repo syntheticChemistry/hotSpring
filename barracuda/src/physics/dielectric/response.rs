@@ -7,7 +7,7 @@
 //!   number and momentum.
 
 use super::complex::Complex;
-use super::plasma_dispersion::{epsilon_vlasov, PlasmaParams};
+use super::plasma_dispersion::{PlasmaParams, epsilon_vlasov};
 use std::f64::consts::PI;
 
 /// Standard Mermin dielectric function with collision frequency ν.

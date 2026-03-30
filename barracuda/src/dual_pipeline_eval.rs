@@ -126,9 +126,10 @@ impl<'a> DualPipelineEval<'a> {
     }
 
     /// Split HMC: throughput computes trajectories, precise validates.
-    #[allow(deprecated)]
     fn eval_split_hmc(&self) -> Vec<DualPatternResult> {
-        use crate::lattice::gpu_hmc::{gpu_hmc_trajectory, GpuHmcPipelines, GpuHmcState};
+        use crate::lattice::gpu_hmc::{
+            GpuHmcState, GpuHmcStreamingPipelines, gpu_hmc_trajectory_streaming,
+        };
         use crate::lattice::wilson::Lattice;
 
         let dims = [4, 4, 4, 4];
@@ -140,26 +141,42 @@ impl<'a> DualPipelineEval<'a> {
         let lattice = Lattice::hot_start(dims, beta, 42);
 
         // Single-card reference (throughput)
-        let p_t = GpuHmcPipelines::new(&self.pair.throughput);
+        let p_t = GpuHmcStreamingPipelines::new(&self.pair.throughput);
         let s_t = GpuHmcState::from_lattice(&self.pair.throughput, &lattice, beta);
         let mut seed_t = 42_u64;
 
         let t_single = Instant::now();
-        for _ in 0..n_traj {
-            gpu_hmc_trajectory(&self.pair.throughput, &p_t, &s_t, n_md, dt, &mut seed_t);
+        for i in 0..n_traj {
+            gpu_hmc_trajectory_streaming(
+                &self.pair.throughput,
+                &p_t,
+                &s_t,
+                n_md,
+                dt,
+                i as u32,
+                &mut seed_t,
+            );
         }
         let single_ms = t_single.elapsed().as_secs_f64() * 1e3;
 
         // Dual-card: throughput computes, precise validates first trajectory
-        let p_p = GpuHmcPipelines::new(&self.pair.precise);
+        let p_p = GpuHmcStreamingPipelines::new(&self.pair.precise);
         let s_p = GpuHmcState::from_lattice(&self.pair.precise, &lattice, beta);
         let mut seed_p = 42_u64;
         let mut seed_t2 = 42_u64;
 
         let t_split = Instant::now();
-        let r_precise = gpu_hmc_trajectory(&self.pair.precise, &p_p, &s_p, n_md, dt, &mut seed_p);
-        let r_throughput =
-            gpu_hmc_trajectory(&self.pair.throughput, &p_t, &s_t, n_md, dt, &mut seed_t2);
+        let r_precise =
+            gpu_hmc_trajectory_streaming(&self.pair.precise, &p_p, &s_p, n_md, dt, 0, &mut seed_p);
+        let r_throughput = gpu_hmc_trajectory_streaming(
+            &self.pair.throughput,
+            &p_t,
+            &s_t,
+            n_md,
+            dt,
+            0,
+            &mut seed_t2,
+        );
         let split_ms = t_split.elapsed().as_secs_f64() * 1e3;
 
         let plaq_diff = (r_precise.plaquette - r_throughput.plaquette).abs();
@@ -183,9 +200,10 @@ impl<'a> DualPipelineEval<'a> {
     }
 
     /// Redundant HMC: same lattice on both cards, compare plaquette.
-    #[allow(deprecated)]
     fn eval_redundant_hmc(&self) -> DualPatternResult {
-        use crate::lattice::gpu_hmc::{gpu_hmc_trajectory, GpuHmcPipelines, GpuHmcState};
+        use crate::lattice::gpu_hmc::{
+            GpuHmcState, GpuHmcStreamingPipelines, gpu_hmc_trajectory_streaming,
+        };
         use crate::lattice::wilson::Lattice;
 
         let dims = [4, 4, 4, 4];
@@ -196,8 +214,8 @@ impl<'a> DualPipelineEval<'a> {
 
         let lattice = Lattice::hot_start(dims, beta, 42);
 
-        let pipelines_p = GpuHmcPipelines::new(&self.pair.precise);
-        let pipelines_t = GpuHmcPipelines::new(&self.pair.throughput);
+        let pipelines_p = GpuHmcStreamingPipelines::new(&self.pair.precise);
+        let pipelines_t = GpuHmcStreamingPipelines::new(&self.pair.throughput);
         let state_p = GpuHmcState::from_lattice(&self.pair.precise, &lattice, beta);
         let state_t = GpuHmcState::from_lattice(&self.pair.throughput, &lattice, beta);
         let mut seed_p = 42_u64;
@@ -205,21 +223,23 @@ impl<'a> DualPipelineEval<'a> {
 
         let t0 = Instant::now();
         let mut max_diff = 0.0_f64;
-        for _ in 0..n_traj {
-            let rp = gpu_hmc_trajectory(
+        for i in 0..n_traj {
+            let rp = gpu_hmc_trajectory_streaming(
                 &self.pair.precise,
                 &pipelines_p,
                 &state_p,
                 n_md,
                 dt,
+                i as u32,
                 &mut seed_p,
             );
-            let rt = gpu_hmc_trajectory(
+            let rt = gpu_hmc_trajectory_streaming(
                 &self.pair.throughput,
                 &pipelines_t,
                 &state_t,
                 n_md,
                 dt,
+                i as u32,
                 &mut seed_t,
             );
             let diff = (rp.plaquette - rt.plaquette).abs();

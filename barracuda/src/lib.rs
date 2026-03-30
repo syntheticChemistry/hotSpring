@@ -4,7 +4,6 @@
 // in Cargo.toml. Library code must propagate errors, not panic:
 #![forbid(unsafe_code)]
 #![deny(clippy::expect_used, clippy::unwrap_used)]
-#![warn(missing_docs)]
 
 //! hotSpring Nuclear EOS — `BarraCuda` validation environment
 //!

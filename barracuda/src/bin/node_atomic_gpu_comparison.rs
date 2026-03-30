@@ -11,7 +11,7 @@
 //!   Phase 5: Report per-card precision routing via metalForge substrate census
 
 use barracuda::ops::linalg::BatchedEighGpu;
-use hotspring_barracuda::gpu::{discover_primary_and_secondary_adapters, GpuF64};
+use hotspring_barracuda::gpu::{GpuF64, discover_primary_and_secondary_adapters};
 use hotspring_barracuda::physics::bcs_gpu::BcsBisectionGpu;
 use hotspring_barracuda::validation::ValidationHarness;
 
@@ -126,7 +126,10 @@ fn validate_primal_health(harness: &mut ValidationHarness, sock: &std::path::Pat
     harness.check_bool("health.check", health_ok);
 
     if let Ok(ref h) = health {
-        let gpus = h.get("gpus").and_then(|g| g.as_u64()).unwrap_or(0);
+        let gpus = h
+            .get("gpus")
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(0);
         harness.check_bool("gpu_count >= 1", gpus >= 1);
         println!(
             "  health.check: status=ok, gpus={gpus}, version={}",
@@ -215,7 +218,7 @@ fn validate_compute_status(harness: &mut ValidationHarness, sock: &std::path::Pa
             let strat = gpu.get("strategy").and_then(|s| s.as_str()).unwrap_or("?");
             let has_df64 = gpu
                 .get("has_df64")
-                .and_then(|d| d.as_bool())
+                .and_then(serde_json::Value::as_bool)
                 .unwrap_or(false);
             harness.check_bool(&format!("{name} has_df64"), has_df64);
             println!("  {name}");
@@ -259,9 +262,10 @@ fn bench_eigensolve_single(gpu: &GpuF64, batch: usize, dim: usize) -> f64 {
     for b in 0..batch {
         for r in 0..dim {
             for c in (r + 1)..dim {
-                let val = (symmetrized[b * dim * dim + r * dim + c]
-                    + symmetrized[b * dim * dim + c * dim + r])
-                    / 2.0;
+                let val = f64::midpoint(
+                    symmetrized[b * dim * dim + r * dim + c],
+                    symmetrized[b * dim * dim + c * dim + r],
+                );
                 symmetrized[b * dim * dim + r * dim + c] = val;
                 symmetrized[b * dim * dim + c * dim + r] = val;
             }
@@ -538,13 +542,13 @@ fn main() {
     println!("  Primary:   {primary_name}");
     println!("  Secondary: {secondary_name}");
 
-    #[allow(deprecated)]
     let gpu_a = rt.block_on(async {
-        std::env::set_var("HOTSPRING_GPU_ADAPTER", &primary_name);
+        // SAFETY: single-threaded at this point; no concurrent env readers.
+        unsafe { std::env::set_var("HOTSPRING_GPU_ADAPTER", &primary_name) };
         GpuF64::new().await
     });
-    #[allow(deprecated)]
-    std::env::set_var("HOTSPRING_GPU_ADAPTER", &secondary_name);
+    // SAFETY: single-threaded at this point; no concurrent env readers.
+    unsafe { std::env::set_var("HOTSPRING_GPU_ADAPTER", &secondary_name) };
     let gpu_b = rt.block_on(GpuF64::new());
 
     let gpu_a = match gpu_a {

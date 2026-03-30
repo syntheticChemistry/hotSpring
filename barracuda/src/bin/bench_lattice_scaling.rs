@@ -9,12 +9,12 @@
 use barracuda::pipeline::ReduceScalarPipeline;
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::lattice::cg::{
-    cg_solve, WGSL_AXPY_F64, WGSL_COMPLEX_DOT_RE_F64, WGSL_XPAY_F64,
+    WGSL_AXPY_F64, WGSL_COMPLEX_DOT_RE_F64, WGSL_XPAY_F64, cg_solve,
 };
 use hotspring_barracuda::lattice::dirac::{
-    flatten_fermion, DiracGpuLayout, FermionField, WGSL_DIRAC_STAGGERED_F64,
+    DiracGpuLayout, FermionField, WGSL_DIRAC_STAGGERED_F64, flatten_fermion,
 };
-use hotspring_barracuda::lattice::hmc::{hmc_trajectory, HmcConfig};
+use hotspring_barracuda::lattice::hmc::{HmcConfig, hmc_trajectory};
 use hotspring_barracuda::lattice::wilson::Lattice;
 use std::time::Instant;
 

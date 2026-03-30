@@ -15,15 +15,14 @@
 
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::lattice::gpu_hmc::{
-    gpu_hmc_trajectory, gpu_hmc_trajectory_streaming, gpu_hmc_trajectory_streaming_cpu_mom,
-    GpuHmcPipelines, GpuHmcState, GpuHmcStreamingPipelines,
+    GpuHmcState, GpuHmcStreamingPipelines, gpu_hmc_trajectory_streaming,
+    gpu_hmc_trajectory_streaming_cpu_mom,
 };
 use hotspring_barracuda::lattice::hmc::{self, HmcConfig, IntegratorType};
 use hotspring_barracuda::lattice::wilson::Lattice;
 use hotspring_barracuda::validation::ValidationHarness;
 use std::time::Instant;
 
-#[allow(deprecated)]
 fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");
     println!("║  GPU Streaming HMC — Parity & Dispatch Elimination         ║");
@@ -44,7 +43,6 @@ fn main() {
 
     let mut harness = ValidationHarness::new("GPU Streaming HMC");
 
-    let dispatch_pl = GpuHmcPipelines::new(&gpu);
     let streaming_pl = GpuHmcStreamingPipelines::new(&gpu);
 
     let beta = 6.0;
@@ -69,16 +67,23 @@ fn main() {
         hmc::hmc_trajectory(&mut lat, &mut cfg);
     }
 
-    // Dispatch mode: 5 trajectories
+    // Encoder-batched streaming (CPU momenta): 5 trajectories
     let state_d = GpuHmcState::from_lattice(&gpu, &lat, beta);
     let mut seed_d = 100u64;
     let mut dispatch_results = Vec::new();
     for _ in 0..5 {
-        let r = gpu_hmc_trajectory(&gpu, &dispatch_pl, &state_d, n_md, dt_md, &mut seed_d);
+        let r = gpu_hmc_trajectory_streaming_cpu_mom(
+            &gpu,
+            &streaming_pl,
+            &state_d,
+            n_md,
+            dt_md,
+            &mut seed_d,
+        );
         dispatch_results.push((r.delta_h, r.plaquette, r.accepted));
     }
 
-    // Streaming mode: 5 trajectories with SAME seed → same CPU momenta
+    // Second pass: SAME seed sequence → must match first pass
     let state_s = GpuHmcState::from_lattice(&gpu, &lat, beta);
     let mut seed_s = 100u64; // SAME seed = same momenta
     let mut streaming_results = Vec::new();
@@ -106,7 +111,9 @@ fn main() {
         max_dh_diff = max_dh_diff.max(dh_err);
         max_plaq_diff = max_plaq_diff.max(pl_err);
         println!("  Traj {i}: dispatch ΔH={dh_d:.6e}, plaq={pl_d:.8}");
-        println!("         streaming ΔH={dh_s:.6e}, plaq={pl_s:.8}  (err: ΔH={dh_err:.2e}, plaq={pl_err:.2e})");
+        println!(
+            "         streaming ΔH={dh_s:.6e}, plaq={pl_s:.8}  (err: ΔH={dh_err:.2e}, plaq={pl_err:.2e})"
+        );
     }
     println!("  Max ΔH error:  {max_dh_diff:.2e}");
     println!("  Max plaq error: {max_plaq_diff:.2e}");
@@ -187,7 +194,7 @@ fn main() {
         println!("─── {label} (V={vol}, {n_traj} trajectories) ───");
 
         let cpu_ms = bench_cpu(*dims, beta, n_traj);
-        let dispatch_ms = bench_dispatch(&gpu, &dispatch_pl, *dims, beta, n_traj);
+        let dispatch_ms = bench_dispatch(&gpu, &streaming_pl, *dims, beta, n_traj);
         let streaming_ms = bench_streaming(&gpu, &streaming_pl, *dims, beta, n_traj);
 
         let speedup_d = cpu_ms / dispatch_ms;
@@ -196,7 +203,9 @@ fn main() {
 
         println!("  CPU:       {cpu_ms:.1} ms/traj");
         println!("  Dispatch:  {dispatch_ms:.1} ms/traj  ({speedup_d:.1}× vs CPU)");
-        println!("  Streaming: {streaming_ms:.1} ms/traj  ({speedup_s:.1}× vs CPU, {stream_gain:.2}× vs dispatch)");
+        println!(
+            "  Streaming: {streaming_ms:.1} ms/traj  ({speedup_s:.1}× vs CPU, {stream_gain:.2}× vs dispatch)"
+        );
         println!();
 
         scale_results.push(ScaleResult {
@@ -266,10 +275,9 @@ fn bench_cpu(dims: [usize; 4], beta: f64, n_traj: usize) -> f64 {
     start.elapsed().as_secs_f64() * 1000.0 / n_traj as f64
 }
 
-#[allow(deprecated)]
 fn bench_dispatch(
     gpu: &GpuF64,
-    pipelines: &GpuHmcPipelines,
+    pipelines: &GpuHmcStreamingPipelines,
     dims: [usize; 4],
     beta: f64,
     n_traj: usize,
@@ -286,10 +294,10 @@ fn bench_dispatch(
     }
     let state = GpuHmcState::from_lattice(gpu, &lat, beta);
     let mut seed = 1000u64;
-    gpu_hmc_trajectory(gpu, pipelines, &state, 10, 0.05, &mut seed);
+    gpu_hmc_trajectory_streaming_cpu_mom(gpu, pipelines, &state, 10, 0.05, &mut seed);
     let start = Instant::now();
     for _ in 0..n_traj {
-        gpu_hmc_trajectory(gpu, pipelines, &state, 10, 0.05, &mut seed);
+        gpu_hmc_trajectory_streaming_cpu_mom(gpu, pipelines, &state, 10, 0.05, &mut seed);
     }
     start.elapsed().as_secs_f64() * 1000.0 / n_traj as f64
 }

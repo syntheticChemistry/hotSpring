@@ -466,7 +466,9 @@ fn check_predictive_steering(harness: &mut ValidationHarness) {
     let uniform_cost = 80; // 80 points in full scan
     let adaptive_cost = 10 + n_fine; // 10 coarse + 20 fine
     let savings_pct = (1.0 - f64::from(adaptive_cost) / f64::from(uniform_cost)) * 100.0;
-    println!("  Compute savings: {adaptive_cost} vs {uniform_cost} evaluations ({savings_pct:.0}% saved)");
+    println!(
+        "  Compute savings: {adaptive_cost} vs {uniform_cost} evaluations ({savings_pct:.0}% saved)"
+    );
 
     harness.check_upper(
         "refined β_c error < PHASE_BOUNDARY",

@@ -4,7 +4,7 @@
 
 //! NPU worker mutable state and ESN factory.
 
-use crate::md::reservoir::{heads, Activation, EchoStateNetwork, EsnConfig, MultiHeadNpu};
+use crate::md::reservoir::{Activation, EchoStateNetwork, EsnConfig, MultiHeadNpu, heads};
 use crate::production::{AttentionState, BetaResult};
 use barracuda::nautilus::{NautilusBrain, NautilusBrainConfig};
 use std::sync::mpsc;
@@ -12,8 +12,8 @@ use std::sync::mpsc;
 use super::head_confidence::HeadConfidence;
 use super::training::build_training_data;
 use crate::lattice::gpu_hmc::BrainInterrupt;
-use crate::production::sub_models::SubModelRegistry;
 use crate::production::TrajectoryEvent;
+use crate::production::sub_models::SubModelRegistry;
 use crate::proxy::ProxyFeatures;
 
 /// Mutable state for the NPU worker thread.

@@ -17,18 +17,20 @@
 //! ```
 
 use hotspring_barracuda::bench::compute_backend::{
-    compare_backends, BackendKind, BarraCudaCpuBackend, BenchmarkResult, BenchmarkSpec,
-    ComputeBackend, PrecisionMode,
+    BackendKind, BarraCudaCpuBackend, BenchmarkResult, BenchmarkSpec, ComputeBackend,
+    PrecisionMode, compare_backends,
 };
 use hotspring_barracuda::gpu::GpuF64;
-use hotspring_barracuda::lattice::gpu_hmc::{gpu_hmc_trajectory, GpuHmcPipelines, GpuHmcState};
+use hotspring_barracuda::lattice::gpu_hmc::{
+    GpuHmcState, GpuHmcStreamingPipelines, gpu_hmc_trajectory_streaming,
+};
 use hotspring_barracuda::lattice::hmc::{self, HmcConfig, IntegratorType};
 use hotspring_barracuda::lattice::wilson::Lattice;
 use std::time::Instant;
 
 struct BarraCudaGpuBackend {
     gpu: GpuF64,
-    pipelines: GpuHmcPipelines,
+    pipelines: GpuHmcStreamingPipelines,
 }
 
 impl BarraCudaGpuBackend {
@@ -37,7 +39,7 @@ impl BarraCudaGpuBackend {
         let gpu = rt
             .block_on(GpuF64::new())
             .map_err(|e| format!("GPU: {e}"))?;
-        let pipelines = GpuHmcPipelines::new(&gpu);
+        let pipelines = GpuHmcStreamingPipelines::new(&gpu);
         Ok(Self { gpu, pipelines })
     }
 }
@@ -56,7 +58,6 @@ impl ComputeBackend for BarraCudaGpuBackend {
         true
     }
 
-    #[allow(deprecated)]
     fn run_quenched_hmc(&self, spec: &BenchmarkSpec) -> Result<BenchmarkResult, String> {
         let mut lat = Lattice::hot_start(spec.dims, spec.beta, spec.seed);
         let mut cfg = HmcConfig {
@@ -75,38 +76,45 @@ impl ComputeBackend for BarraCudaGpuBackend {
         let mut seed = spec.seed * 100;
 
         let remaining_therm = spec.n_therm.saturating_sub(cpu_therm);
+        let mut traj_id = 0u32;
         for _ in 0..remaining_therm {
-            gpu_hmc_trajectory(
+            gpu_hmc_trajectory_streaming(
                 &self.gpu,
                 &self.pipelines,
                 &state,
                 spec.n_md_steps,
                 spec.dt,
+                traj_id,
                 &mut seed,
             );
+            traj_id = traj_id.wrapping_add(1);
         }
 
-        gpu_hmc_trajectory(
+        gpu_hmc_trajectory_streaming(
             &self.gpu,
             &self.pipelines,
             &state,
             spec.n_md_steps,
             spec.dt,
+            traj_id,
             &mut seed,
         );
+        traj_id = traj_id.wrapping_add(1);
 
         let start = Instant::now();
         let mut plaq_vals = Vec::with_capacity(spec.n_meas);
         let mut accepted = 0usize;
         for _ in 0..spec.n_meas {
-            let r = gpu_hmc_trajectory(
+            let r = gpu_hmc_trajectory_streaming(
                 &self.gpu,
                 &self.pipelines,
                 &state,
                 spec.n_md_steps,
                 spec.dt,
+                traj_id,
                 &mut seed,
             );
+            traj_id = traj_id.wrapping_add(1);
             plaq_vals.push(r.plaquette);
             if r.accepted {
                 accepted += 1;

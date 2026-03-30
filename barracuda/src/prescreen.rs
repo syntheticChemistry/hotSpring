@@ -14,7 +14,7 @@
 //! - Tier 3:   NPU (Akida, ~1W) or CPU fallback
 //! - Tier 4:   CPU parallel (rayon) for HFB that passes all screens
 
-use crate::physics::{nuclear_matter_properties, semf_binding_energy, NuclearMatterProps};
+use crate::physics::{NuclearMatterProps, nuclear_matter_properties, semf_binding_energy};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 

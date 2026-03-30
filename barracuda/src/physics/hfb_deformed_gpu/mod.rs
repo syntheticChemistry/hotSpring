@@ -30,8 +30,8 @@ use crate::tolerances::{BROYDEN_WARMUP, HFB_MAX_ITER, SCF_ENERGY_TOLERANCE};
 use barracuda::device::WgpuDevice;
 use barracuda::ops::linalg::BatchedEighGpu;
 use rayon::prelude::*;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 
 pub use types::GpuResidentL3Result;

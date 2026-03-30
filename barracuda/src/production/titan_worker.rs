@@ -9,8 +9,8 @@
 
 use crate::gpu::GpuF64;
 use crate::lattice::gpu_hmc::{
-    flatten_links, gpu_hmc_trajectory_streaming, gpu_links_to_lattice, GpuHmcState,
-    GpuHmcStreamingPipelines,
+    GpuHmcState, GpuHmcStreamingPipelines, flatten_links, gpu_hmc_trajectory_streaming,
+    gpu_links_to_lattice,
 };
 use crate::lattice::hmc::{self, HmcConfig, IntegratorType};
 use crate::lattice::wilson::Lattice;

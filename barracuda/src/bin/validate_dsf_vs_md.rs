@@ -16,7 +16,7 @@
 //!   cargo run --release --bin validate_dsf_vs_md
 
 use hotspring_barracuda::physics::dielectric::{
-    dynamic_structure_factor, dynamic_structure_factor_completed, PlasmaParams,
+    PlasmaParams, dynamic_structure_factor, dynamic_structure_factor_completed,
 };
 use hotspring_barracuda::validation::ValidationHarness;
 

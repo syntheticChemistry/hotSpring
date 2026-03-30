@@ -32,7 +32,7 @@
 
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::lattice::gpu_hmc::dynamical::{
-    gpu_dynamical_hmc_trajectory, GpuDynHmcPipelines, GpuDynHmcState,
+    GpuDynHmcPipelines, GpuDynHmcState, gpu_dynamical_hmc_trajectory,
 };
 use hotspring_barracuda::lattice::wilson::Lattice;
 use std::io::Write;

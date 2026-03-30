@@ -13,7 +13,7 @@
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::lattice::gpu_hmc::dynamical::GpuDynHmcState;
 use hotspring_barracuda::lattice::gpu_hmc::resident_cg::{
-    gpu_dynamical_hmc_trajectory_resident, GpuResidentCgBuffers, GpuResidentCgPipelines,
+    GpuResidentCgBuffers, GpuResidentCgPipelines, gpu_dynamical_hmc_trajectory_resident,
 };
 use hotspring_barracuda::lattice::gpu_hmc::streaming::GpuDynHmcStreamingPipelines;
 use hotspring_barracuda::lattice::wilson::Lattice;
@@ -86,7 +86,9 @@ fn main() {
                     let n_md = ((1.0 / dt).round() as usize).max(10);
                     let traj_length = dt * n_md as f64;
 
-                    print!("[{point_idx:3}/{total}] L={l} β={beta:.2} m={mass:.2} dt={dt:.4} n_md={n_md}...");
+                    print!(
+                        "[{point_idx:3}/{total}] L={l} β={beta:.2} m={mass:.2} dt={dt:.4} n_md={n_md}..."
+                    );
                     std::io::stdout().flush().ok();
 
                     let point_start = Instant::now();

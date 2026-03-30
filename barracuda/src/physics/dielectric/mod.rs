@@ -25,11 +25,11 @@ pub mod response;
 
 pub use complex::Complex;
 pub use plasma_dispersion::{
-    chi0_classical, epsilon_vlasov, plasma_dispersion_w, plasma_dispersion_w_stable,
-    plasma_dispersion_z, PlasmaParams,
+    PlasmaParams, chi0_classical, epsilon_vlasov, plasma_dispersion_w, plasma_dispersion_w_stable,
+    plasma_dispersion_z,
 };
 pub use response::{
-    conductivity_dc, debye_screening, dynamic_structure_factor, dynamic_structure_factor_completed,
-    epsilon_completed_mermin, epsilon_mermin, f_sum_rule_integral, f_sum_rule_integral_completed,
-    validate_dielectric, DielectricValidation,
+    DielectricValidation, conductivity_dc, debye_screening, dynamic_structure_factor,
+    dynamic_structure_factor_completed, epsilon_completed_mermin, epsilon_mermin,
+    f_sum_rule_integral, f_sum_rule_integral_completed, validate_dielectric,
 };

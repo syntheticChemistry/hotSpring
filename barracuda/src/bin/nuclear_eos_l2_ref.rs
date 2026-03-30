@@ -22,9 +22,9 @@ use hotspring_barracuda::provenance;
 use hotspring_barracuda::tolerances;
 
 use barracuda::optimize::convergence_diagnostics;
-use barracuda::sample::direct::{direct_sampler, DirectSamplerConfig};
+use barracuda::sample::direct::{DirectSamplerConfig, direct_sampler};
 use barracuda::sample::latin_hypercube;
-use barracuda::sample::sparsity::{sparsity_sampler, PenaltyFilter, SparsitySamplerConfig};
+use barracuda::sample::sparsity::{PenaltyFilter, SparsitySamplerConfig, sparsity_sampler};
 use barracuda::stats::{bootstrap_ci, chi2_decomposed_weighted};
 use rayon::prelude::*;
 
@@ -256,10 +256,10 @@ fn main() {
         }
 
         let history: Vec<f64> = result_direct.rounds.iter().map(|r| r.best_f).collect();
-        if history.len() >= 2 {
-            if let Ok(diag) = convergence_diagnostics(&history, 5, 0.01, 2) {
-                println!("\n  {}", diag.summary());
-            }
+        if history.len() >= 2
+            && let Ok(diag) = convergence_diagnostics(&history, 5, 0.01, 2)
+        {
+            println!("\n  {}", diag.summary());
         }
 
         // ═══════════════════════════════════════════════════════════════
@@ -322,84 +322,83 @@ fn main() {
 
         let (observed, expected, sigma) = compute_l2_binding_energies(best_params, &nuclei);
 
-        if !observed.is_empty() {
-            if let Ok(chi2_result) =
+        if !observed.is_empty()
+            && let Ok(chi2_result) =
                 chi2_decomposed_weighted(&observed, &expected, &sigma, bounds.len())
-            {
-                println!("\n{}", chi2_result.summary());
+        {
+            println!("\n{}", chi2_result.summary());
 
-                let worst = chi2_result.worst_n(5);
-                println!("\n  Top 5 worst-fitting nuclei (by pull):");
-                for &idx in &worst {
-                    println!(
-                        "    [{}] pull={:.2}sigma, chi2_i={:.2}, residual={:.2} MeV",
-                        idx,
-                        chi2_result.pulls[idx],
-                        chi2_result.contributions[idx],
-                        chi2_result.residuals[idx]
-                    );
-                }
-
-                let per_datum: Vec<f64> = chi2_result.contributions.clone();
-                if per_datum.len() >= 5 {
-                    if let Ok(ci) = bootstrap_ci(
-                        &per_datum,
-                        |d| d.iter().sum::<f64>() / d.len() as f64,
-                        5000,
-                        0.95,
-                        current_seed,
-                    ) {
-                        println!("\n  Bootstrap 95% CI on chi2/datum: {}", ci.summary());
-                    }
-                }
-
-                // Per-region analysis
-                println!("\n  Accuracy by mass region:");
+            let worst = chi2_result.worst_n(5);
+            println!("\n  Top 5 worst-fitting nuclei (by pull):");
+            for &idx in &worst {
                 println!(
-                    "  {:>15} {:>6} {:>10} {:>10} {:>12} {:>10}",
-                    "Region", "Count", "RMS(MeV)", "MAE(MeV)", "Mean|dB/B|", "chi2/dat"
+                    "    [{}] pull={:.2}sigma, chi2_i={:.2}, residual={:.2} MeV",
+                    idx,
+                    chi2_result.pulls[idx],
+                    chi2_result.contributions[idx],
+                    chi2_result.residuals[idx]
                 );
-                for (label, lo, hi) in &[
-                    ("Light A<56", 0, 56),
-                    ("Medium 56-100", 56, 100),
-                    ("Heavy 100-200", 100, 200),
-                    ("V.Heavy 200+", 200, 999),
-                ] {
-                    let region: Vec<usize> = nuclei
-                        .iter()
-                        .enumerate()
-                        .filter(|(_, (z, n, _))| {
-                            let a = z + n;
-                            a >= *lo && a < *hi
-                        })
-                        .map(|(i, _)| i)
-                        .filter(|&i| i < observed.len())
-                        .collect();
-                    if region.is_empty() {
-                        continue;
-                    }
-                    let mut sum_sq = 0.0;
-                    let mut sum_abs = 0.0;
-                    let mut sum_rel = 0.0;
-                    let mut sum_chi2 = 0.0;
-                    for &i in &region {
-                        let resid = observed[i] - expected[i];
-                        sum_sq += resid * resid;
-                        sum_abs += resid.abs();
-                        sum_rel += (resid / expected[i]).abs();
-                        sum_chi2 += chi2_result.contributions[i];
-                    }
-                    let cnt = region.len() as f64;
-                    println!(
-                        "  {:>15} {:>6} {:>10.3} {:>10.3} {:>12.6e} {:>10.4}",
-                        label,
-                        region.len(),
-                        (sum_sq / cnt).sqrt(),
-                        sum_abs / cnt,
-                        sum_rel / cnt,
-                        sum_chi2 / cnt
-                    );
+            }
+
+            let per_datum: Vec<f64> = chi2_result.contributions.clone();
+            if per_datum.len() >= 5
+                && let Ok(ci) = bootstrap_ci(
+                    &per_datum,
+                    |d| d.iter().sum::<f64>() / d.len() as f64,
+                    5000,
+                    0.95,
+                    current_seed,
+                )
+            {
+                println!("\n  Bootstrap 95% CI on chi2/datum: {}", ci.summary());
+            }
+
+            // Per-region analysis
+            println!("\n  Accuracy by mass region:");
+            println!(
+                "  {:>15} {:>6} {:>10} {:>10} {:>12} {:>10}",
+                "Region", "Count", "RMS(MeV)", "MAE(MeV)", "Mean|dB/B|", "chi2/dat"
+            );
+            for (label, lo, hi) in &[
+                ("Light A<56", 0, 56),
+                ("Medium 56-100", 56, 100),
+                ("Heavy 100-200", 100, 200),
+                ("V.Heavy 200+", 200, 999),
+            ] {
+                let region: Vec<usize> = nuclei
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, (z, n, _))| {
+                        let a = z + n;
+                        a >= *lo && a < *hi
+                    })
+                    .map(|(i, _)| i)
+                    .filter(|&i| i < observed.len())
+                    .collect();
+                if region.is_empty() {
+                    continue;
                 }
+                let mut sum_sq = 0.0;
+                let mut sum_abs = 0.0;
+                let mut sum_rel = 0.0;
+                let mut sum_chi2 = 0.0;
+                for &i in &region {
+                    let resid = observed[i] - expected[i];
+                    sum_sq += resid * resid;
+                    sum_abs += resid.abs();
+                    sum_rel += (resid / expected[i]).abs();
+                    sum_chi2 += chi2_result.contributions[i];
+                }
+                let cnt = region.len() as f64;
+                println!(
+                    "  {:>15} {:>6} {:>10.3} {:>10.3} {:>12.6e} {:>10.4}",
+                    label,
+                    region.len(),
+                    (sum_sq / cnt).sqrt(),
+                    sum_abs / cnt,
+                    sum_rel / cnt,
+                    sum_chi2 / cnt
+                );
             }
         }
 

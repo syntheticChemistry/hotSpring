@@ -10,8 +10,8 @@ use super::super::hfb::SphericalHFB;
 #[cfg(feature = "gpu_energy")]
 use super::super::hfb_gpu_types::EnergyParamsUniform;
 use super::super::hfb_gpu_types::{
-    make_bind_group, DensityParamsUniform, GroupResources, HamiltonianDimsUniform,
-    MixParamsUniform, PotentialDimsUniform,
+    DensityParamsUniform, GroupResources, HamiltonianDimsUniform, MixParamsUniform,
+    PotentialDimsUniform, make_bind_group,
 };
 use super::pipelines;
 

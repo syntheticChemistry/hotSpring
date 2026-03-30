@@ -11,7 +11,7 @@
 
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::lattice::gpu_hmc::{
-    gpu_hmc_trajectory_streaming, GpuHmcState, GpuHmcStreamingPipelines,
+    GpuHmcState, GpuHmcStreamingPipelines, gpu_hmc_trajectory_streaming,
 };
 use hotspring_barracuda::lattice::wilson::Lattice;
 
@@ -46,7 +46,7 @@ fn estimate_vram_bytes(dims: [usize; 4]) -> u64 {
         + (n_links as u64 * 8)   // ke_out
         + (vol as u64 * 8 * 4)   // nbr (u32 × 8 per site)
         + (vol as u64 * 2 * 8)   // poly_out
-        + 4 * 1024 * 1024        // reduce scratch + staging + misc
+        + 4 * 1024 * 1024 // reduce scratch + staging + misc
 }
 
 fn bench_one_card(gpu: &GpuF64, max_buffer: u64) -> CardResult {
@@ -83,7 +83,13 @@ fn bench_one_card(gpu: &GpuF64, max_buffer: u64) -> CardResult {
             continue;
         }
 
-        let n_traj = if vol <= 4096 { 20 } else if vol <= 65536 { 10 } else { 5 };
+        let n_traj = if vol <= 4096 {
+            20
+        } else if vol <= 65536 {
+            10
+        } else {
+            5
+        };
 
         print!("    {}^4 (V={vol}, {n_traj} traj) ... ", dims[0]);
         std::io::Write::flush(&mut std::io::stdout()).ok();
@@ -157,9 +163,13 @@ fn bench_one_card(gpu: &GpuF64, max_buffer: u64) -> CardResult {
 }
 
 fn print_comparison(cards: &[CardResult]) {
-    println!("\n╔══════════════════════════════════════════════════════════════════════════════════╗");
+    println!(
+        "\n╔══════════════════════════════════════════════════════════════════════════════════╗"
+    );
     println!("║  Full-Trajectory Silicon Comparison                                             ║");
-    println!("╠══════════════════════════════════════════════════════════════════════════════════╣");
+    println!(
+        "╠══════════════════════════════════════════════════════════════════════════════════╣"
+    );
 
     if cards.len() >= 2 {
         let a = &cards[0];
@@ -169,10 +179,16 @@ fn print_comparison(cards: &[CardResult]) {
             &a.adapter_name[..a.adapter_name.len().min(30)],
             &b.adapter_name[..b.adapter_name.len().min(30)],
         );
-        println!("╠════════╤════════╤══════════════╤══════════════╤═══════════╤═══════════════════╣");
-        println!("║ L      │ Volume │ {:<12} │ {:<12} │ Ratio     │ Largest?          ║",
-            "Card A ms", "Card B ms");
-        println!("╠════════╪════════╪══════════════╪══════════════╪═══════════╪═══════════════════╣");
+        println!(
+            "╠════════╤════════╤══════════════╤══════════════╤═══════════╤═══════════════════╣"
+        );
+        println!(
+            "║ L      │ Volume │ {:<12} │ {:<12} │ Ratio     │ Largest?          ║",
+            "Card A ms", "Card B ms"
+        );
+        println!(
+            "╠════════╪════════╪══════════════╪══════════════╪═══════════╪═══════════════════╣"
+        );
 
         let all_sizes: std::collections::BTreeSet<usize> = a
             .lattice_results
@@ -188,23 +204,20 @@ fn print_comparison(cards: &[CardResult]) {
                 Some(r) => r.dims[0],
                 None => continue,
             };
-            let (a_ms, b_ms) = (
-                ra.map(|r| r.mean_traj_ms),
-                rb.map(|r| r.mean_traj_ms),
-            );
+            let (a_ms, b_ms) = (ra.map(|r| r.mean_traj_ms), rb.map(|r| r.mean_traj_ms));
             let ratio_str = match (a_ms, b_ms) {
                 (Some(a), Some(b)) => {
                     let r = a / b;
                     if r < 1.0 {
                         format!("A {:.1}x", 1.0 / r)
                     } else {
-                        format!("B {:.1}x", r)
+                        format!("B {r:.1}x")
                     }
                 }
                 _ => "—".to_string(),
             };
-            let a_str = a_ms.map_or("SKIP".to_string(), |v| format!("{v:.1}"));
-            let b_str = b_ms.map_or("SKIP".to_string(), |v| format!("{v:.1}"));
+            let a_str = a_ms.map_or_else(|| "SKIP".to_string(), |v| format!("{v:.1}"));
+            let b_str = b_ms.map_or_else(|| "SKIP".to_string(), |v| format!("{v:.1}"));
             let largest = match (ra, rb) {
                 (Some(_), None) => "A only",
                 (None, Some(_)) => "B only",
@@ -214,20 +227,38 @@ fn print_comparison(cards: &[CardResult]) {
                 "║ {l:>4}^4 │ {vol:>6} │ {a_str:>12} │ {b_str:>12} │ {ratio_str:>9} │ {largest:<17} ║"
             );
         }
-        println!("╚════════╧════════╧══════════════╧══════════════╧═══════════╧═══════════════════╝");
+        println!(
+            "╚════════╧════════╧══════════════╧══════════════╧═══════════╧═══════════════════╝"
+        );
     } else {
         for card in cards {
-            println!("║  {} (max_buf: {:.0} MB)", card.adapter_name, card.max_buffer_bytes as f64 / (1024.0 * 1024.0));
-            println!("╠════════╤════════╤══════════════╤═══════════════╤═══════════════════════════╣");
-            println!("║ L      │ Volume │  ms/traj     │  Accept%      │  Plaquette                ║");
-            println!("╠════════╪════════╪══════════════╪═══════════════╪═══════════════════════════╣");
+            println!(
+                "║  {} (max_buf: {:.0} MB)",
+                card.adapter_name,
+                card.max_buffer_bytes as f64 / (1024.0 * 1024.0)
+            );
+            println!(
+                "╠════════╤════════╤══════════════╤═══════════════╤═══════════════════════════╣"
+            );
+            println!(
+                "║ L      │ Volume │  ms/traj     │  Accept%      │  Plaquette                ║"
+            );
+            println!(
+                "╠════════╪════════╪══════════════╪═══════════════╪═══════════════════════════╣"
+            );
             for r in &card.lattice_results {
                 println!(
                     "║ {:>4}^4 │ {:>6} │ {:>10.1}   │ {:>10.0}%   │ {:>10.6}                  ║",
-                    r.dims[0], r.volume, r.mean_traj_ms, r.acceptance_rate * 100.0, r.mean_plaquette
+                    r.dims[0],
+                    r.volume,
+                    r.mean_traj_ms,
+                    r.acceptance_rate * 100.0,
+                    r.mean_plaquette
                 );
             }
-            println!("╚════════╧════════╧══════════════╧═══════════════╧═══════════════════════════╝");
+            println!(
+                "╚════════╧════════╧══════════════╧═══════════════╧═══════════════════════════╝"
+            );
         }
     }
 }
@@ -271,7 +302,10 @@ fn save_results(cards: &[CardResult]) {
     });
 
     let path = dir.join(format!("bench_full_trajectory_silicon_{timestamp}.json"));
-    match std::fs::write(&path, serde_json::to_string_pretty(&json).unwrap_or_default()) {
+    match std::fs::write(
+        &path,
+        serde_json::to_string_pretty(&json).unwrap_or_default(),
+    ) {
         Ok(()) => println!("\n  Results saved → {}", path.display()),
         Err(e) => eprintln!("\n  Save failed: {e}"),
     }
@@ -287,7 +321,7 @@ fn quenched_buffer_bytes(vol: usize) -> u64 {
         + (vol as u64 * 8)       // plaq_out
         + (vol as u64 * 16)      // poly_out (2 f64)
         + (vol as u64 * 8 * 4)   // nbr table (8 u32 per site)
-        + 4 * 1024 * 1024        // reduce scratch + staging
+        + 4 * 1024 * 1024 // reduce scratch + staging
 }
 
 /// Compute buffer overhead for dynamical RHMC: CG + pseudofermion + multi-shift.
@@ -317,16 +351,23 @@ fn largest_single_buffer(vol: usize) -> u64 {
 /// Estimate total VRAM from adapter name (wgpu doesn't expose this directly).
 fn estimate_total_vram_bytes(adapter_name: &str) -> u64 {
     let name = adapter_name.to_lowercase();
-    if name.contains("3090") { 24 * 1024 * 1024 * 1024 }
-    else if name.contains("4090") { 24 * 1024 * 1024 * 1024 }
-    else if name.contains("4080") { 16 * 1024 * 1024 * 1024 }
-    else if name.contains("4070") { 12 * 1024 * 1024 * 1024 }
-    else if name.contains("6950") { 16 * 1024 * 1024 * 1024 }
-    else if name.contains("6900") { 16 * 1024 * 1024 * 1024 }
-    else if name.contains("7900 xtx") { 24 * 1024 * 1024 * 1024 }
-    else if name.contains("7900 xt") { 20 * 1024 * 1024 * 1024 }
-    else if name.contains("titan v") { 12 * 1024 * 1024 * 1024 }
-    else { 8 * 1024 * 1024 * 1024 }
+    if name.contains("3090") || name.contains("4090") {
+        24 * 1024 * 1024 * 1024
+    } else if name.contains("4080") {
+        16 * 1024 * 1024 * 1024
+    } else if name.contains("4070") {
+        12 * 1024 * 1024 * 1024
+    } else if name.contains("6950") || name.contains("6900") {
+        16 * 1024 * 1024 * 1024
+    } else if name.contains("7900 xtx") {
+        24 * 1024 * 1024 * 1024
+    } else if name.contains("7900 xt") {
+        20 * 1024 * 1024 * 1024
+    } else if name.contains("titan v") {
+        12 * 1024 * 1024 * 1024
+    } else {
+        8 * 1024 * 1024 * 1024
+    }
 }
 
 /// Compute the largest isotropic lattice L^4 that fits in VRAM.
@@ -358,11 +399,17 @@ fn max_lattice_for_vram(
 }
 
 fn print_capacity_analysis(cards: &[CardResult]) {
-    println!("\n╔══════════════════════════════════════════════════════════════════════════════════╗");
+    println!(
+        "\n╔══════════════════════════════════════════════════════════════════════════════════╗"
+    );
     println!("║  Max-Lattice Capacity Analysis                                                  ║");
-    println!("╠══════════════════════════════════════════════════════════════════════════════════╣");
+    println!(
+        "╠══════════════════════════════════════════════════════════════════════════════════╣"
+    );
     println!("║  Buffer accounting: quenched + dynamical RHMC (Nf=2+1, 15 poles/sector)        ║");
-    println!("╠══════════════════════════════════════════════════════════════════════════════════╣");
+    println!(
+        "╠══════════════════════════════════════════════════════════════════════════════════╣"
+    );
 
     for card in cards {
         let max_buf = card.max_buffer_bytes;
@@ -375,10 +422,15 @@ fn print_capacity_analysis(cards: &[CardResult]) {
             let mut bb = 0;
             for l in (4..=128).step_by(2) {
                 let vol = l * l * l * l;
-                if largest_single_buffer(vol) > max_buf { break; }
+                if largest_single_buffer(vol) > max_buf {
+                    break;
+                }
                 let total = quenched_buffer_bytes(vol);
-                if total > total_vram { break; }
-                bl = l; bb = total;
+                if total > total_vram {
+                    break;
+                }
+                bl = l;
+                bb = total;
             }
             (bl, bb)
         };
@@ -388,16 +440,30 @@ fn print_capacity_analysis(cards: &[CardResult]) {
         let qvol = max_l_quenched.pow(4);
         let dvol = max_l_dyn.pow(4);
 
-        println!("║                                                                                  ║");
+        println!(
+            "║                                                                                  ║"
+        );
         println!("║  {:50}                        ║", card.adapter_name);
-        println!("║  max_buffer_size: {:.0} MB, estimated VRAM: {:.0} MB                        ║",
+        println!(
+            "║  max_buffer_size: {:.0} MB, estimated VRAM: {:.0} MB                        ║",
             max_buf as f64 / (1024.0 * 1024.0),
-            total_vram as f64 / (1024.0 * 1024.0));
-        println!("║                                                                                  ║");
-        println!("║  Quenched HMC:    L={:>3}^4 (V={:>9})  {:.1} MB used                      ║",
-            max_l_quenched, qvol, qb as f64 / (1024.0 * 1024.0));
-        println!("║  Dynamical RHMC:  L={:>3}^4 (V={:>9})  {:.1} MB used (2 sectors × 15 poles)║",
-            max_l_dyn, dvol, db as f64 / (1024.0 * 1024.0));
+            total_vram as f64 / (1024.0 * 1024.0)
+        );
+        println!(
+            "║                                                                                  ║"
+        );
+        println!(
+            "║  Quenched HMC:    L={:>3}^4 (V={:>9})  {:.1} MB used                      ║",
+            max_l_quenched,
+            qvol,
+            qb as f64 / (1024.0 * 1024.0)
+        );
+        println!(
+            "║  Dynamical RHMC:  L={:>3}^4 (V={:>9})  {:.1} MB used (2 sectors × 15 poles)║",
+            max_l_dyn,
+            dvol,
+            db as f64 / (1024.0 * 1024.0)
+        );
 
         // Per-lattice breakdown for reference sizes
         for l in [8, 16, 24, 32, 48] {
@@ -410,13 +476,17 @@ fn print_capacity_analysis(cards: &[CardResult]) {
             let fits = if single_ok && total_ok { "✓" } else { "✗" };
             println!(
                 "║  {:>2}^4: quench {:.0} + dyn {:.0} = {:.0} MB (link {:.0} MB) {fits}          ║",
-                l, q as f64 / (1024.0 * 1024.0), d as f64 / (1024.0 * 1024.0),
+                l,
+                q as f64 / (1024.0 * 1024.0),
+                d as f64 / (1024.0 * 1024.0),
                 total as f64 / (1024.0 * 1024.0),
                 largest_single_buffer(vol) as f64 / (1024.0 * 1024.0),
             );
         }
     }
-    println!("╚══════════════════════════════════════════════════════════════════════════════════╝");
+    println!(
+        "╚══════════════════════════════════════════════════════════════════════════════════╝"
+    );
 }
 
 fn main() {
@@ -428,7 +498,8 @@ fn main() {
 
     let rt = tokio::runtime::Runtime::new().unwrap_or_else(|e| panic!("runtime: {e}"));
     let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
-    let adapters: Vec<wgpu::Adapter> = rt.block_on(instance.enumerate_adapters(wgpu::Backends::all()));
+    let adapters: Vec<wgpu::Adapter> =
+        rt.block_on(instance.enumerate_adapters(wgpu::Backends::all()));
 
     let mut cards = Vec::new();
 
@@ -463,6 +534,9 @@ fn main() {
     save_results(&cards);
 
     println!("\n═══════════════════════════════════════════════════════════════");
-    println!("  Full-Trajectory Silicon Benchmark Complete — {} GPUs", cards.len());
+    println!(
+        "  Full-Trajectory Silicon Benchmark Complete — {} GPUs",
+        cards.len()
+    );
     println!("═══════════════════════════════════════════════════════════════");
 }

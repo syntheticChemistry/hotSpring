@@ -6,7 +6,7 @@
 //! GPU discovery uses the same wgpu path that toadstool/barracuda uses.
 //! NPU and CPU discovery are local probes.
 
-use hotspring_forge::dispatch::{self, profiles, Workload};
+use hotspring_forge::dispatch::{self, Workload, profiles};
 use hotspring_forge::pipeline::topologies;
 use hotspring_forge::substrate::{Capability, Fp64Strategy, SubstrateKind};
 

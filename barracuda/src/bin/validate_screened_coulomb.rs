@@ -19,8 +19,8 @@
 //! Exit code 0 = all checks pass, 1 = any failure.
 
 use hotspring_barracuda::physics::screened_coulomb::{
-    self, critical_screening, eigenvalues, screening_models, CRITICAL_SCREENING_REFERENCE,
-    DEFAULT_N_GRID, DEFAULT_R_MAX, HYDROGEN_E2_EXACT, HYDROGEN_EXACT,
+    self, CRITICAL_SCREENING_REFERENCE, DEFAULT_N_GRID, DEFAULT_R_MAX, HYDROGEN_E2_EXACT,
+    HYDROGEN_EXACT, critical_screening, eigenvalues, screening_models,
 };
 use hotspring_barracuda::provenance::{
     PYTHON_SCREENED_COULOMB_EIGENVALUES, SCREENED_COULOMB_PROVENANCE,
@@ -148,7 +148,9 @@ fn main() {
     let e_unscreened = eigenvalues(1.0, 0.0, 0, DEFAULT_N_GRID, DEFAULT_R_MAX)[0];
     let e_screened = eigenvalues(1.0, 0.5, 0, DEFAULT_N_GRID, DEFAULT_R_MAX)[0];
     let weaker = e_screened > e_unscreened;
-    println!("    Screening weakens binding: E(κ=0)={e_unscreened:.6}, E(κ=0.5)={e_screened:.6} → {weaker}");
+    println!(
+        "    Screening weakens binding: E(κ=0)={e_unscreened:.6}, E(κ=0.5)={e_screened:.6} → {weaker}"
+    );
     harness.check_bool("screening weakens binding", weaker);
 
     // Screening breaks degeneracy (2s deeper than 2p at finite κ)

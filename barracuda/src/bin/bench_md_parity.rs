@@ -18,11 +18,11 @@
 //! HOTSPRING_GPU_ADAPTER=titan cargo run --release --bin bench_md_parity  # Titan V only
 //! ```
 
-use hotspring_barracuda::bench::md_backend::{
-    compare_md_backends, print_gap_analysis, BarraCudaMdBackend, KokkosLammpsBackend,
-    MdBenchmarkBackend, MdBenchmarkResult, MdBenchmarkSpec,
-};
 use hotspring_barracuda::bench::BackendKind;
+use hotspring_barracuda::bench::md_backend::{
+    BarraCudaMdBackend, KokkosLammpsBackend, MdBenchmarkBackend, MdBenchmarkResult,
+    MdBenchmarkSpec, compare_md_backends, print_gap_analysis,
+};
 
 fn main() {
     let mut quick = false;

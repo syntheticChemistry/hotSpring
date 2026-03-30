@@ -5,9 +5,9 @@
 //! Chuna & Murillo, Phys. Rev. E 111, 035206 (2024), arXiv:2405.07871
 
 use hotspring_barracuda::physics::dielectric::{
-    conductivity_dc, debye_screening, dynamic_structure_factor, dynamic_structure_factor_completed,
-    epsilon_completed_mermin, epsilon_mermin, f_sum_rule_integral, f_sum_rule_integral_completed,
-    plasma_dispersion_w, validate_dielectric, Complex, PlasmaParams,
+    Complex, PlasmaParams, conductivity_dc, debye_screening, dynamic_structure_factor,
+    dynamic_structure_factor_completed, epsilon_completed_mermin, epsilon_mermin,
+    f_sum_rule_integral, f_sum_rule_integral_completed, plasma_dispersion_w, validate_dielectric,
 };
 use hotspring_barracuda::validation::ValidationHarness;
 

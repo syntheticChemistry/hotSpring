@@ -13,7 +13,7 @@
 //! | Full validation    | ~13000 ms        | measured here      |
 
 use hotspring_barracuda::physics::screened_coulomb::{
-    self, critical_screening, eigenvalues, DEFAULT_N_GRID, DEFAULT_R_MAX,
+    self, DEFAULT_N_GRID, DEFAULT_R_MAX, critical_screening, eigenvalues,
 };
 
 use std::time::Instant;

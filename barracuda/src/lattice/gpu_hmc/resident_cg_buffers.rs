@@ -9,7 +9,7 @@
 
 use super::dynamical::{GpuDynHmcPipelines, GpuDynHmcState};
 use super::resident_cg_pipelines::GpuResidentCgPipelines;
-use super::{make_u32x4_params, GpuF64};
+use super::{GpuF64, make_u32x4_params};
 
 pub struct ReducePass {
     pub(crate) bg: wgpu::BindGroup,

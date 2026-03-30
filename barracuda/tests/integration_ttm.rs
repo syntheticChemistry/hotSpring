@@ -7,7 +7,7 @@
 //! equilibrium temperature theory, and error handling.
 
 use hotspring_barracuda::ttm::{
-    collision_frequency, equilibrium_temperature_theory, integrate_ttm_rk4, TtmError, TtmSpecies,
+    TtmError, TtmSpecies, collision_frequency, equilibrium_temperature_theory, integrate_ttm_rk4,
 };
 
 #[test]

@@ -11,11 +11,11 @@
 //!
 //! Port of CPU implementation in `lattice::pseudofermion::hasenbusch_hmc_trajectory`.
 
-use super::dynamical::{gen_random_fermion, GpuDynHmcPipelines, GpuDynHmcResult, GpuDynHmcState};
+use super::dynamical::{GpuDynHmcPipelines, GpuDynHmcResult, GpuDynHmcState, gen_random_fermion};
 #[allow(deprecated)]
 use super::{
-    gpu_dot_re, gpu_force_dispatch, gpu_kinetic_energy, gpu_plaquette, gpu_wilson_action,
-    make_link_mom_params, GpuF64,
+    GpuF64, gpu_dot_re, gpu_force_dispatch, gpu_kinetic_energy, gpu_plaquette, gpu_wilson_action,
+    make_link_mom_params,
 };
 
 /// Extra GPU buffers for Hasenbusch mass preconditioning.

@@ -11,7 +11,7 @@
 //! This proves: "barracuda CPU is pure math and faster than interpreted language."
 
 use hotspring_barracuda::lattice::cg::cg_solve;
-use hotspring_barracuda::lattice::dirac::{apply_dirac, apply_dirac_sq, FermionField};
+use hotspring_barracuda::lattice::dirac::{FermionField, apply_dirac, apply_dirac_sq};
 use hotspring_barracuda::lattice::wilson::Lattice;
 use std::time::Instant;
 

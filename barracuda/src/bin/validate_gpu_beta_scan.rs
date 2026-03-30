@@ -18,7 +18,7 @@
 
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::lattice::gpu_hmc::{
-    gpu_hmc_trajectory, gpu_links_to_lattice, GpuHmcPipelines, GpuHmcState,
+    GpuHmcState, GpuHmcStreamingPipelines, gpu_hmc_trajectory_streaming, gpu_links_to_lattice,
 };
 use hotspring_barracuda::lattice::hmc::{self, HmcConfig, IntegratorType};
 use hotspring_barracuda::lattice::wilson::Lattice;
@@ -34,10 +34,9 @@ struct BetaPoint {
     gpu_ms: f64,
 }
 
-#[allow(deprecated)]
 fn gpu_beta_scan(
     gpu: &GpuF64,
-    pipelines: &GpuHmcPipelines,
+    pipelines: &GpuHmcStreamingPipelines,
     dims: [usize; 4],
     betas: &[f64],
     n_therm: usize,
@@ -67,10 +66,12 @@ fn gpu_beta_scan(
         // Upload to GPU
         let state = GpuHmcState::from_lattice(gpu, &lat, beta);
         let mut seed = 777u64;
+        let mut traj_id = 0u32;
 
         // GPU thermalization
         for _ in 0..n_therm {
-            gpu_hmc_trajectory(gpu, pipelines, &state, n_md, dt, &mut seed);
+            gpu_hmc_trajectory_streaming(gpu, pipelines, &state, n_md, dt, traj_id, &mut seed);
+            traj_id = traj_id.wrapping_add(1);
         }
 
         // GPU measurements
@@ -79,7 +80,9 @@ fn gpu_beta_scan(
         let mut poly_sum = 0.0;
 
         for _ in 0..n_meas {
-            let r = gpu_hmc_trajectory(gpu, pipelines, &state, n_md, dt, &mut seed);
+            let r =
+                gpu_hmc_trajectory_streaming(gpu, pipelines, &state, n_md, dt, traj_id, &mut seed);
+            traj_id = traj_id.wrapping_add(1);
             plaq_sum += r.plaquette;
             if r.accepted {
                 n_accepted += 1;
@@ -105,7 +108,6 @@ fn gpu_beta_scan(
     results
 }
 
-#[allow(deprecated)]
 fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");
     println!("║  Pure GPU β-Scan — Full Temperature Sweep on GPU (fp64)    ║");
@@ -127,8 +129,8 @@ fn main() {
     };
 
     println!("  GPU: {}", gpu.adapter_name);
-    let pipelines = GpuHmcPipelines::new(&gpu);
-    println!("  5 HMC shader pipelines compiled");
+    let pipelines = GpuHmcStreamingPipelines::new(&gpu);
+    println!("  HMC streaming pipelines compiled");
     println!();
 
     // ═══ Phase 1: 8⁴ β-scan (9 temperatures) ═══

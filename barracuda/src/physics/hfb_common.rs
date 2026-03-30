@@ -129,11 +129,7 @@ pub fn bcs_v2(eps: f64, delta: f64) -> f64 {
 pub fn bcs_v2_stable(eps: f64, delta: f64, e_qp: f64) -> f64 {
     let d2 = delta * delta;
     let v2 = d2 / (2.0 * e_qp * (e_qp + eps.abs()));
-    if eps > 0.0 {
-        v2
-    } else {
-        1.0 - v2
-    }
+    if eps > 0.0 { v2 } else { 1.0 - v2 }
 }
 
 /// Coulomb exchange potential (Slater approximation) at a single point.
@@ -447,11 +443,7 @@ mod tests {
         if eps.abs() > delta.abs() {
             let d2 = delta * delta;
             let v2 = d2 / (2.0 * e_qp * (e_qp + eps.abs()));
-            if eps > 0.0 {
-                v2
-            } else {
-                1.0 - v2
-            }
+            if eps > 0.0 { v2 } else { 1.0 - v2 }
         } else {
             0.5 * (1.0 - eps / e_qp)
         }

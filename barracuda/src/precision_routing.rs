@@ -104,8 +104,7 @@ pub fn route_precision(domain: PhysicsDomain, gpu: &GpuF64) -> PrecisionRoutingA
                 PrecisionRoutingAdvice {
                     tier: PrecisionTier::F64Precise,
                     fma_safe: false,
-                    rationale:
-                        "Complex arithmetic requires FMA-free precision to avoid cancellation",
+                    rationale: "Complex arithmetic requires FMA-free precision to avoid cancellation",
                     hw_advice,
                 }
             } else {

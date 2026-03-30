@@ -69,72 +69,72 @@ pub fn load_jsonl_files(results_dir: &str) -> Vec<AggPoint> {
             continue;
         };
 
-        if let Ok(root) = serde_json::from_str::<serde_json::Value>(&content) {
-            if let Some(pts) = root.get("points").and_then(|p| p.as_array()) {
-                let file_lattice = root
-                    .get("lattice")
-                    .and_then(serde_json::Value::as_u64)
-                    .unwrap_or(lattice as u64) as usize;
-                let file_mass = root
+        if let Ok(root) = serde_json::from_str::<serde_json::Value>(&content)
+            && let Some(pts) = root.get("points").and_then(|p| p.as_array())
+        {
+            let file_lattice = root
+                .get("lattice")
+                .and_then(serde_json::Value::as_u64)
+                .unwrap_or(lattice as u64) as usize;
+            let file_mass = root
+                .get("mass")
+                .and_then(serde_json::Value::as_f64)
+                .unwrap_or(0.1);
+            for pt in pts {
+                let beta = pt
+                    .get("beta")
+                    .and_then(serde_json::Value::as_f64)
+                    .unwrap_or(0.0);
+                let mass = pt
                     .get("mass")
                     .and_then(serde_json::Value::as_f64)
-                    .unwrap_or(0.1);
-                for pt in pts {
-                    let beta = pt
-                        .get("beta")
-                        .and_then(serde_json::Value::as_f64)
-                        .unwrap_or(0.0);
-                    let mass = pt
-                        .get("mass")
-                        .and_then(serde_json::Value::as_f64)
-                        .unwrap_or(file_mass);
-                    let mean_plaq = pt
-                        .get("mean_plaquette")
-                        .and_then(serde_json::Value::as_f64)
-                        .unwrap_or(0.0);
-                    let acceptance = pt
-                        .get("acceptance")
-                        .and_then(serde_json::Value::as_f64)
-                        .unwrap_or(0.0);
-                    let mean_cg = pt
-                        .get("mean_cg_iterations")
-                        .and_then(serde_json::Value::as_f64)
-                        .unwrap_or(0.0);
-                    let n_traj = pt
-                        .get("n_trajectories")
-                        .and_then(serde_json::Value::as_u64)
-                        .unwrap_or(1) as usize;
-                    let std_plaq = pt
-                        .get("std_plaquette")
-                        .and_then(serde_json::Value::as_f64)
-                        .unwrap_or(0.005);
-                    let polyakov = pt
-                        .get("polyakov_re")
-                        .and_then(serde_json::Value::as_f64)
-                        .or_else(|| pt.get("polyakov").and_then(serde_json::Value::as_f64))
-                        .unwrap_or(0.0)
-                        .abs();
-                    let action_density = pt
-                        .get("action_density")
-                        .and_then(serde_json::Value::as_f64)
-                        .unwrap_or(0.0);
+                    .unwrap_or(file_mass);
+                let mean_plaq = pt
+                    .get("mean_plaquette")
+                    .and_then(serde_json::Value::as_f64)
+                    .unwrap_or(0.0);
+                let acceptance = pt
+                    .get("acceptance")
+                    .and_then(serde_json::Value::as_f64)
+                    .unwrap_or(0.0);
+                let mean_cg = pt
+                    .get("mean_cg_iterations")
+                    .and_then(serde_json::Value::as_f64)
+                    .unwrap_or(0.0);
+                let n_traj = pt
+                    .get("n_trajectories")
+                    .and_then(serde_json::Value::as_u64)
+                    .unwrap_or(1) as usize;
+                let std_plaq = pt
+                    .get("std_plaquette")
+                    .and_then(serde_json::Value::as_f64)
+                    .unwrap_or(0.005);
+                let polyakov = pt
+                    .get("polyakov_re")
+                    .and_then(serde_json::Value::as_f64)
+                    .or_else(|| pt.get("polyakov").and_then(serde_json::Value::as_f64))
+                    .unwrap_or(0.0)
+                    .abs();
+                let action_density = pt
+                    .get("action_density")
+                    .and_then(serde_json::Value::as_f64)
+                    .unwrap_or(0.0);
 
-                    schema_b_points.push(AggPoint {
-                        beta,
-                        mass,
-                        lattice: file_lattice,
-                        mean_plaq,
-                        std_plaq,
-                        acceptance,
-                        mean_cg,
-                        mean_delta_h: action_density,
-                        polyakov,
-                        n_traj,
-                        experiment: exp.clone(),
-                    });
-                }
-                continue;
+                schema_b_points.push(AggPoint {
+                    beta,
+                    mass,
+                    lattice: file_lattice,
+                    mean_plaq,
+                    std_plaq,
+                    acceptance,
+                    mean_cg,
+                    mean_delta_h: action_density,
+                    polyakov,
+                    n_traj,
+                    experiment: exp.clone(),
+                });
             }
+            continue;
         }
 
         for line in content.lines() {
@@ -423,11 +423,11 @@ pub fn train_and_evaluate_with(
 
         for p in test_data {
             let seq = build_sequence_v2(p, seq_len);
-            if let Ok(out) = esn.predict(&seq) {
-                if hi < out.len() {
-                    actual.push((spec.target_fn)(p));
-                    predicted.push(out[hi]);
-                }
+            if let Ok(out) = esn.predict(&seq)
+                && hi < out.len()
+            {
+                actual.push((spec.target_fn)(p));
+                predicted.push(out[hi]);
             }
         }
 

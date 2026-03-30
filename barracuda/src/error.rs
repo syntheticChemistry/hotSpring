@@ -38,6 +38,9 @@ pub enum HotSpringError {
 
     /// JSON parse/serialize error.
     JsonError(serde_json::Error),
+
+    /// A scoped or worker thread terminated by panic (`join` could not return a value).
+    ThreadPanicked(&'static str),
 }
 
 impl fmt::Display for HotSpringError {
@@ -57,6 +60,7 @@ impl fmt::Display for HotSpringError {
             Self::Barracuda(e) => write!(f, "BarraCuda error: {e}"),
             Self::IoError(e) => write!(f, "I/O error: {e}"),
             Self::JsonError(e) => write!(f, "JSON error: {e}"),
+            Self::ThreadPanicked(ctx) => write!(f, "Thread panicked: {ctx}"),
         }
     }
 }

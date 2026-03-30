@@ -13,7 +13,7 @@
 //! Run while production experiments are in progress — this is pure CPU.
 
 use hotspring_barracuda::md::reservoir::{
-    heads, EchoStateNetwork, EsnConfig, ExportedWeights, HeadGroupDisagreement, MultiHeadNpu,
+    EchoStateNetwork, EsnConfig, ExportedWeights, HeadGroupDisagreement, MultiHeadNpu, heads,
 };
 use std::collections::BTreeMap;
 use std::time::Instant;
@@ -435,12 +435,12 @@ fn main() {
         let cluster_width = 0.15;
 
         for &(beta, urgency) in &concept_edges {
-            if let Some(last) = clusters.last_mut() {
-                if beta - last.1 < cluster_width {
-                    last.1 = beta;
-                    last.2 = last.2.max(urgency);
-                    continue;
-                }
+            if let Some(last) = clusters.last_mut()
+                && beta - last.1 < cluster_width
+            {
+                last.1 = beta;
+                last.2 = last.2.max(urgency);
+                continue;
             }
             clusters.push((beta, beta, urgency));
         }

@@ -13,7 +13,7 @@
 //! Run: cargo run --release --bin `nuclear_eos_gpu`
 
 use hotspring_barracuda::bench::{
-    peak_rss_mb, BenchReport, HardwareInventory, PhaseResult, PowerMonitor,
+    BenchReport, HardwareInventory, PhaseResult, PowerMonitor, peak_rss_mb,
 };
 use hotspring_barracuda::data;
 use hotspring_barracuda::discovery;
@@ -63,7 +63,7 @@ const SHADER_CHI2: &str = include_str!("../physics/shaders/chi2_batch_f64.wgsl")
 // ═══════════════════════════════════════════════════════════════════
 
 fn main() {
-    use barracuda::sample::direct::{direct_sampler, DirectSamplerConfig};
+    use barracuda::sample::direct::{DirectSamplerConfig, direct_sampler};
     use barracuda::shaders::precision::ShaderTemplate;
 
     println!("╔══════════════════════════════════════════════════════════════╗");

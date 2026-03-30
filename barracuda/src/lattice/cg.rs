@@ -17,7 +17,7 @@
 //! - Gattringer & Lang, "QCD on the Lattice" (2010), Ch. 8.4
 
 use super::complex_f64::Complex64;
-use super::dirac::{apply_dirac_sq, FermionField};
+use super::dirac::{FermionField, apply_dirac_sq};
 use super::wilson::Lattice;
 
 // ═══════════════════════════════════════════════════════════════════

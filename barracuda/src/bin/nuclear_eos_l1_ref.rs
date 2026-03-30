@@ -22,8 +22,8 @@ use hotspring_barracuda::physics::{nuclear_matter_properties, semf_binding_energ
 use hotspring_barracuda::provenance;
 
 // ALL from barracuda native — no hotspring_barracuda::surrogate or ::stats
-use barracuda::sample::direct::{direct_sampler, DirectSamplerConfig};
-use barracuda::sample::sparsity::{sparsity_sampler, PenaltyFilter, SparsitySamplerConfig};
+use barracuda::sample::direct::{DirectSamplerConfig, direct_sampler};
+use barracuda::sample::sparsity::{PenaltyFilter, SparsitySamplerConfig, sparsity_sampler};
 use barracuda::stats::{bootstrap_ci, chi2_decomposed_weighted};
 // loo_cv_optimal_smoothing and RBFKernel now used internally by SparsitySampler
 use barracuda::optimize::convergence_diagnostics;
@@ -640,7 +640,9 @@ fn run_pareto_sweep(base_seed: u64) {
         let (j_mean, j_std) = compute_mean_std(&j_vals);
         let rms_mean = rms_vals.iter().sum::<f64>() / rms_vals.len() as f64;
 
-        println!("  lambda={lam:>5.0}: chi2_BE={be_mean:.4}+/-{be_std:.4}, chi2_NMP={nmp_mean:.4}+/-{nmp_std:.4}, J={j_mean:.1}+/-{j_std:.1}, RMS={rms_mean:.2}MeV, 2sigma={within_2s}/{n_seeds_per_lambda} [{elapsed:.1}s]");
+        println!(
+            "  lambda={lam:>5.0}: chi2_BE={be_mean:.4}+/-{be_std:.4}, chi2_NMP={nmp_mean:.4}+/-{nmp_std:.4}, J={j_mean:.1}+/-{j_std:.1}, RMS={rms_mean:.2}MeV, 2sigma={within_2s}/{n_seeds_per_lambda} [{elapsed:.1}s]"
+        );
 
         pareto.push(ParetoPoint {
             lambda: lam,

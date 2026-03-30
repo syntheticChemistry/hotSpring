@@ -22,7 +22,7 @@ use std::fs::File;
 use std::io::Write;
 use std::os::unix::io::AsRawFd;
 
-use hotspring_barracuda::register_maps::{detect_register_map, RegisterDump, RegisterEntry};
+use hotspring_barracuda::register_maps::{RegisterDump, RegisterEntry, detect_register_map};
 
 const BAR0_MAP_SIZE: usize = 16 * 1024 * 1024; // 16 MiB
 
@@ -79,7 +79,9 @@ fn main() {
         Ok(f) => f,
         Err(e) => {
             eprintln!("ERROR: cannot open {resource_path}: {e}");
-            eprintln!("  Hint: run with sudo/pkexec, or ensure {bdf} is bound to a driver that exposes resource0");
+            eprintln!(
+                "  Hint: run with sudo/pkexec, or ensure {bdf} is bound to a driver that exposes resource0"
+            );
             std::process::exit(1);
         }
     };

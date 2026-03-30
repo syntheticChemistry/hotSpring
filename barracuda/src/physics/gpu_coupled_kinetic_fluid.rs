@@ -23,8 +23,8 @@
 #![allow(clippy::too_many_lines)]
 
 use super::kinetic_fluid::{
-    compute_moments, maxwellian_1d, run_coupled_kinetic_fluid, CoupledResult,
-    INTERFACE_CONVERGENCE_TOL, INTERFACE_MAX_SUB_ITERATIONS,
+    CoupledResult, INTERFACE_CONVERGENCE_TOL, INTERFACE_MAX_SUB_ITERATIONS, compute_moments,
+    maxwellian_1d, run_coupled_kinetic_fluid,
 };
 use crate::gpu::GpuF64;
 

@@ -27,7 +27,7 @@
 //! - Bazavov et al., PRD 111, 094508 (2025) — HVP g-2
 //! - Bazavov et al., PRD 93, 014512 (2016) — freeze-out curvature
 
-use super::cg::{cg_solve, CgResult};
+use super::cg::{CgResult, cg_solve};
 use super::complex_f64::Complex64;
 use super::dirac::FermionField;
 use super::wilson::Lattice;

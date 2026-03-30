@@ -5,8 +5,8 @@
 //! ESN training data construction and beta-steering helpers.
 
 use crate::md::reservoir::heads;
-use crate::production::trajectory_input::canonical_input;
 use crate::production::BetaResult;
+use crate::production::trajectory_input::canonical_input;
 use crate::provenance::KNOWN_BETA_C_SU3_NT4;
 
 /// Estimate β_c from the susceptibility peak in results.

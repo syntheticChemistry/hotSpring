@@ -109,11 +109,7 @@ impl FermionField {
 /// Staggered phase `η_μ`(x) = (-1)^{x\_0 + x\_1 + ... + x\_{μ-1}}
 fn staggered_phase(x: [usize; 4], mu: usize) -> f64 {
     let sum: usize = x.iter().take(mu).sum();
-    if sum.is_multiple_of(2) {
-        1.0
-    } else {
-        -1.0
-    }
+    if sum.is_multiple_of(2) { 1.0 } else { -1.0 }
 }
 
 /// Apply `SU(3)` matrix to a color vector: `result_c` = Σ\_c' `U_{c,c'}` × v\_{c'}

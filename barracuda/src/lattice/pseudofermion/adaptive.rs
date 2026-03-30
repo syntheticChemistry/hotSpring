@@ -7,8 +7,8 @@
 //! parameter suggestions.  Includes mass annealing for warm-start
 //! thermalization from quenched configurations.
 
-use super::npu_steering::{npu_canonical_seq, HmcForceAnomalyDetector, NpuSteering};
-use super::{dynamical_hmc_trajectory, DynamicalHmcConfig};
+use super::npu_steering::{HmcForceAnomalyDetector, NpuSteering, npu_canonical_seq};
+use super::{DynamicalHmcConfig, dynamical_hmc_trajectory};
 use crate::lattice::hmc::IntegratorType;
 use crate::lattice::wilson::Lattice;
 use crate::md::reservoir::heads;
@@ -376,28 +376,29 @@ fn dynamical_thermalize_warm_start_inner(
                 );
             }
 
-            if let Some(ref mut steering) = npu {
-                if steering.feedback_interval > 0 && (i + 1) % steering.feedback_interval == 0 {
-                    if let Some((dt, n_md)) = steering.suggest_params(
-                        beta,
-                        mass,
-                        lattice_size,
-                        lattice.average_plaquette(),
-                        controller.acceptance_rate(),
-                        result.delta_h,
-                    ) {
-                        println!(
-                            "      [NPU] steer → dt={dt:.5}, n_md={n_md} (acc={:.0}%, |ΔH|={:.2})",
-                            controller.acceptance_rate() * 100.0,
-                            result.delta_h.abs(),
-                        );
-                        controller.set_params(dt, n_md);
-                    } else {
-                        println!(
-                            "      [NPU] defer to heuristic (acc={:.0}%)",
-                            controller.acceptance_rate() * 100.0,
-                        );
-                    }
+            if let Some(ref mut steering) = npu
+                && steering.feedback_interval > 0
+                && (i + 1) % steering.feedback_interval == 0
+            {
+                if let Some((dt, n_md)) = steering.suggest_params(
+                    beta,
+                    mass,
+                    lattice_size,
+                    lattice.average_plaquette(),
+                    controller.acceptance_rate(),
+                    result.delta_h,
+                ) {
+                    println!(
+                        "      [NPU] steer → dt={dt:.5}, n_md={n_md} (acc={:.0}%, |ΔH|={:.2})",
+                        controller.acceptance_rate() * 100.0,
+                        result.delta_h.abs(),
+                    );
+                    controller.set_params(dt, n_md);
+                } else {
+                    println!(
+                        "      [NPU] defer to heuristic (acc={:.0}%)",
+                        controller.acceptance_rate() * 100.0,
+                    );
                 }
             }
 

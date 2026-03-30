@@ -4,9 +4,9 @@
 
 #[allow(deprecated)]
 use super::{
-    flatten_momenta, gpu_dirac_dispatch, gpu_dot_re, gpu_fermion_force_dispatch,
-    gpu_force_dispatch, gpu_kinetic_energy, gpu_link_update_dispatch, gpu_mom_update_dispatch,
-    gpu_plaquette, gpu_wilson_action, make_link_mom_params, GpuF64, GpuHmcPipelines, GpuHmcState,
+    GpuF64, GpuHmcPipelines, GpuHmcState, flatten_momenta, gpu_dirac_dispatch, gpu_dot_re,
+    gpu_fermion_force_dispatch, gpu_force_dispatch, gpu_kinetic_energy, gpu_link_update_dispatch,
+    gpu_mom_update_dispatch, gpu_plaquette, gpu_wilson_action, make_link_mom_params,
 };
 
 /// WGSL shader: staggered Dirac operator D·ψ.

@@ -26,14 +26,14 @@
 //!   cargo run --release --bin `sarkas_gpu` -- --brain-skin   # skin sweep to teach optimal skin
 
 use hotspring_barracuda::bench::{
-    peak_rss_mb, BenchReport, HardwareInventory, PhaseResult, PowerMonitor,
+    BenchReport, HardwareInventory, PhaseResult, PowerMonitor, peak_rss_mb,
 };
 use hotspring_barracuda::discovery;
 use hotspring_barracuda::md::brain::MD_NUM_HEADS;
 use hotspring_barracuda::md::config::{self, MdConfig};
 use hotspring_barracuda::md::observables;
 use hotspring_barracuda::md::sarkas_harness::{
-    print_n_scaling_summary, run_single_case, run_single_case_with_brain, BrainState,
+    BrainState, print_n_scaling_summary, run_single_case, run_single_case_with_brain,
 };
 use hotspring_barracuda::md::simulation;
 use hotspring_barracuda::validation::ValidationHarness;

@@ -18,8 +18,10 @@
 //!     cargo run --release --bin validate_dual_gpu_qcd
 //! ```
 
-use hotspring_barracuda::gpu::{discover_primary_and_secondary_adapters, GpuF64};
-use hotspring_barracuda::lattice::gpu_hmc::{gpu_hmc_trajectory, GpuHmcPipelines, GpuHmcState};
+use hotspring_barracuda::gpu::{GpuF64, discover_primary_and_secondary_adapters};
+use hotspring_barracuda::lattice::gpu_hmc::{
+    GpuHmcState, GpuHmcStreamingPipelines, gpu_hmc_trajectory_streaming,
+};
 use hotspring_barracuda::lattice::wilson::Lattice;
 use hotspring_barracuda::validation::ValidationHarness;
 use std::time::Instant;
@@ -30,17 +32,16 @@ struct GpuResult {
     wall_secs: f64,
 }
 
-#[allow(deprecated)]
 fn run_on_gpu(name_hint: &str, dims: [usize; 4], beta: f64, seed: u64) -> GpuResult {
     let rt = tokio::runtime::Runtime::new().expect("tokio runtime");
     let gpu = rt
         .block_on(GpuF64::from_adapter_name(name_hint))
-        .unwrap_or_else(|e| panic!("Failed to open GPU '{}': {}", name_hint, e));
+        .unwrap_or_else(|e| panic!("Failed to open GPU '{name_hint}': {e}"));
 
     let adapter_name = gpu.adapter_name.clone();
     println!("  [{adapter_name}] GPU opened");
 
-    let pipelines = GpuHmcPipelines::new(&gpu);
+    let pipelines = GpuHmcStreamingPipelines::new(&gpu);
     println!("  [{adapter_name}] HMC pipelines compiled");
 
     let lat = Lattice::hot_start(dims, beta, seed);
@@ -56,7 +57,15 @@ fn run_on_gpu(name_hint: &str, dims: [usize; 4], beta: f64, seed: u64) -> GpuRes
     let mut rng_seed = seed;
 
     for i in 0..n_therm {
-        let result = gpu_hmc_trajectory(&gpu, &pipelines, &hmc_state, n_md, dt, &mut rng_seed);
+        let result = gpu_hmc_trajectory_streaming(
+            &gpu,
+            &pipelines,
+            &hmc_state,
+            n_md,
+            dt,
+            i as u32,
+            &mut rng_seed,
+        );
         if (i + 1) % 10 == 0 {
             println!(
                 "  [{adapter_name}] therm {}/{n_therm}: P={:.6}",
@@ -67,8 +76,16 @@ fn run_on_gpu(name_hint: &str, dims: [usize; 4], beta: f64, seed: u64) -> GpuRes
     }
 
     let mut plaquettes = Vec::with_capacity(n_meas);
-    for _ in 0..n_meas {
-        let result = gpu_hmc_trajectory(&gpu, &pipelines, &hmc_state, n_md, dt, &mut rng_seed);
+    for j in 0..n_meas {
+        let result = gpu_hmc_trajectory_streaming(
+            &gpu,
+            &pipelines,
+            &hmc_state,
+            n_md,
+            dt,
+            (n_therm + j) as u32,
+            &mut rng_seed,
+        );
         plaquettes.push(result.plaquette);
     }
 
@@ -85,7 +102,6 @@ fn run_on_gpu(name_hint: &str, dims: [usize; 4], beta: f64, seed: u64) -> GpuRes
     }
 }
 
-#[allow(deprecated)]
 fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");
     println!("║  Dual-GPU Parallel QCD Validation                          ║");
@@ -95,23 +111,17 @@ fn main() {
 
     let mut harness = ValidationHarness::new("dual_gpu_qcd");
 
-    let (primary, secondary) = discover_primary_and_secondary_adapters();
-    let primary = match primary {
-        Some(p) => p,
-        None => {
-            println!("  No primary GPU found (need SHADER_F64)");
-            harness.check_bool("Primary GPU available", false);
-            harness.finish();
-        }
+    let (primary_opt, secondary_opt) = discover_primary_and_secondary_adapters();
+    let Some(primary) = primary_opt else {
+        println!("  No primary GPU found (need SHADER_F64)");
+        harness.check_bool("Primary GPU available", false);
+        harness.finish();
     };
-    let secondary = match secondary {
-        Some(s) => s,
-        None => {
-            println!("  No secondary GPU found (need 2 GPUs with SHADER_F64)");
-            println!("  Set HOTSPRING_GPU_PRIMARY and HOTSPRING_GPU_SECONDARY");
-            harness.check_bool("Secondary GPU available", false);
-            harness.finish();
-        }
+    let Some(secondary) = secondary_opt else {
+        println!("  No secondary GPU found (need 2 GPUs with SHADER_F64)");
+        println!("  Set HOTSPRING_GPU_PRIMARY and HOTSPRING_GPU_SECONDARY");
+        harness.check_bool("Secondary GPU available", false);
+        harness.finish();
     };
 
     println!("  Primary:   {primary}");
@@ -128,8 +138,8 @@ fn main() {
     println!("  Launching parallel GPU threads...");
     println!();
 
-    let p_name = primary.clone();
-    let s_name = secondary.clone();
+    let p_name = primary;
+    let s_name = secondary;
 
     let handle_primary = std::thread::spawn(move || run_on_gpu(&p_name, dims, beta, seed));
     let handle_secondary = std::thread::spawn(move || run_on_gpu(&s_name, dims, beta, seed));

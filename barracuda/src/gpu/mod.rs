@@ -32,7 +32,7 @@ mod buffers;
 mod dispatch;
 mod telemetry;
 
-pub use adapter::{discover_best_adapter, discover_primary_and_secondary_adapters, AdapterInfo};
+pub use adapter::{AdapterInfo, discover_best_adapter, discover_primary_and_secondary_adapters};
 
 use barracuda::device::{DeviceCapabilities, TensorContext, WgpuDevice};
 use barracuda::shaders::precision::ShaderTemplate;
@@ -335,6 +335,17 @@ impl GpuF64 {
             wgpu_device,
         )
         .await)
+    }
+
+    /// Create GPU device from an explicit adapter hint (same rules as one token in
+    /// `HOTSPRING_GPU_ADAPTER`: numeric index, case-insensitive name substring, or
+    /// `"auto"`). Does **not** read or modify the process environment.
+    ///
+    /// Use this when discovery or CLI supplies the adapter id instead of relying on
+    /// [`Self::new`] (which reads `HOTSPRING_GPU_ADAPTER` / `BARRACUDA_GPU_ADAPTER`).
+    pub async fn with_adapter(hint: &str) -> Result<Self, crate::error::HotSpringError> {
+        let selected = adapter::select_adapter_hint(hint)?;
+        Self::from_adapter(selected).await
     }
 
     /// Create GPU device by matching an adapter name substring.

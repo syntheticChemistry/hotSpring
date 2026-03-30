@@ -26,9 +26,9 @@
 #![allow(clippy::cast_precision_loss)]
 
 use super::dynamical::{GpuDynHmcPipelines, GpuDynHmcState};
-use super::resident_cg_buffers::{build_reduce_chain_pub, encode_reduce_chain, ReduceChain};
+use super::resident_cg_buffers::{ReduceChain, build_reduce_chain_pub, encode_reduce_chain};
 use super::resident_cg_pipelines::GpuResidentCgPipelines;
-use super::{make_u32x4_params, GpuF64};
+use super::{GpuF64, make_u32x4_params};
 
 const WGSL_MS_ZETA: &str = include_str!("../shaders/ms_zeta_update_f64.wgsl");
 const WGSL_MS_X_UPDATE: &str = include_str!("../shaders/ms_x_update_f64.wgsl");
@@ -427,8 +427,8 @@ fn encode_ms_cg_batch(
 
         GpuF64::encode_pass(enc, &ms_pipelines.zeta_pipeline, &bufs.zeta_bg, 1);
 
-        for s in 0..bufs.n_shifts {
-            GpuF64::encode_pass(enc, &ms_pipelines.ms_x_pipeline, &ms_x_bgs[s], bufs.wg_vec);
+        for ms_bg in ms_x_bgs.iter().take(bufs.n_shifts) {
+            GpuF64::encode_pass(enc, &ms_pipelines.ms_x_pipeline, ms_bg, bufs.wg_vec);
         }
 
         GpuF64::encode_pass(
@@ -464,13 +464,8 @@ fn encode_ms_cg_batch(
             bufs.wg_vec,
         );
 
-        for s in 0..bufs.n_shifts {
-            GpuF64::encode_pass(
-                enc,
-                &ms_pipelines.ms_p_pipeline,
-                &bufs.ms_p_bgs[s],
-                bufs.wg_vec,
-            );
+        for ms_p_bg in bufs.ms_p_bgs.iter().take(bufs.n_shifts) {
+            GpuF64::encode_pass(enc, &ms_pipelines.ms_p_pipeline, ms_p_bg, bufs.wg_vec);
         }
 
         enc.copy_buffer_to_buffer(&bufs.alpha_buf, 0, &bufs.alpha_prev_buf, 0, 8);
@@ -505,14 +500,16 @@ pub fn gpu_true_multi_shift_cg_solve(
 
     // Use σ_min as base shift; effective shifts δ_s = σ_s - σ_min
     let sigma_min = shifts.iter().copied().fold(f64::INFINITY, f64::min);
+    // Exact match: `sigma_min` is one of the discrete shift values in `shifts`.
+    #[allow(clippy::float_cmp)]
     let i_min = shifts.iter().position(|&s| s == sigma_min).unwrap_or(0);
     let effective_shifts: Vec<f64> = shifts.iter().map(|&s| s - sigma_min).collect();
 
     gpu.upload_f64(&bufs.sigma_buf, &effective_shifts);
     gpu.upload_f64(&bufs.sigma_min_buf, &[sigma_min]);
 
-    for s in 0..n_shifts {
-        gpu.zero_buffer(&x_bufs[s], (n_flat * 8) as u64);
+    for xb in x_bufs.iter().take(n_shifts) {
+        gpu.zero_buffer(xb, (n_flat * 8) as u64);
     }
     gpu.zero_buffer(&state.x_buf, (n_flat * 8) as u64);
 
@@ -617,6 +614,8 @@ pub fn gpu_true_multi_shift_cg_solve(
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
     use super::*;
 
     fn make_gpu() -> GpuF64 {

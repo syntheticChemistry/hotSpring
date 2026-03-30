@@ -15,7 +15,7 @@ use super::super::hfb_gpu_types::{
     PotentialDimsUniform,
 };
 use super::resources::PackGroupResources;
-use super::types::{compute_spin_orbit_diagonal, EigenBcsResult, NucleusState};
+use super::types::{EigenBcsResult, NucleusState, compute_spin_orbit_diagonal};
 use crate::error::HotSpringError;
 use crate::tolerances::{DENSITY_FLOOR, RHO_POWF_GUARD};
 
