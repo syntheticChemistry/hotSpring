@@ -44,6 +44,17 @@ control/akida_dw_edma/modules.order
 control/akida_dw_edma/akida-dw-edma/*.o
 control/akida_dw_edma/akida-dw-edma/.*.cmd
 
+# ----- Livepatch kernel module build artifacts -----
+scripts/livepatch/*.o
+scripts/livepatch/*.ko
+scripts/livepatch/*.mod
+scripts/livepatch/*.mod.c
+scripts/livepatch/*.mod.o
+scripts/livepatch/.*.o
+scripts/livepatch/.*.cmd
+scripts/livepatch/Module.symvers
+scripts/livepatch/modules.order
+
 # ----- Profiling data -----
 *.prof
 

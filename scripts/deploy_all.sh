@@ -8,7 +8,8 @@ set -euo pipefail
 HOTSPRING="/home/biomegate/Development/ecoPrimals/springs/hotSpring"
 CORALREEF="/home/biomegate/Development/ecoPrimals/primals/coralReef"
 TARGET="${CORALREEF}/target/release"
-KO_SRC="/tmp/nouveau-build/livepatch/livepatch_nvkm_mc_reset.ko"
+LP_SRC_DIR="${HOTSPRING}/scripts/livepatch"
+KO_SRC="${LP_SRC_DIR}/livepatch_nvkm_mc_reset.ko"
 KVER="$(uname -r)"
 KO_DST="/lib/modules/${KVER}/extra/livepatch_nvkm_mc_reset.ko"
 SYSFS_LP="/sys/kernel/livepatch/livepatch_nvkm_mc_reset"
@@ -35,7 +36,11 @@ echo "▸ Phase 3: Deploying modprobe config"
 cp "${HOTSPRING}/scripts/boot/coralreef-dual-titanv.conf" /etc/modprobe.d/
 echo "  modprobe: OK"
 
-# ── Phase 4: Livepatch module ──
+# ── Phase 4: Livepatch module (build from source) ──
+echo "▸ Phase 4: Building livepatch from ${LP_SRC_DIR}"
+if [ -f "${LP_SRC_DIR}/Makefile" ]; then
+    MAKE=/usr/bin/make /usr/bin/make -C "/lib/modules/${KVER}/build" M="${LP_SRC_DIR}" modules 2>&1 | tail -3
+fi
 if [ -f "$KO_SRC" ]; then
     echo "▸ Phase 4: Deploying livepatch module"
     if [ -d "$SYSFS_LP" ]; then
@@ -54,7 +59,7 @@ if [ -f "$KO_SRC" ]; then
     depmod -a
     modprobe livepatch_nvkm_mc_reset
     if [ -d "$SYSFS_LP" ]; then
-        echo "  livepatch: ACTIVE ($(ls "${SYSFS_LP}/nouveau/" 2>/dev/null | tr '\n' ' '))"
+        echo "  livepatch: ACTIVE ($(ls "${SYSFS_LP}/nouveau/funcs/" 2>/dev/null | tr '\n' ' '))"
     else
         echo "  livepatch: FAILED to activate"
     fi
@@ -87,6 +92,11 @@ if [ -f "${TARGET}/coralctl" ]; then
     chmod 755 /usr/local/bin/coralctl
     echo "  coralctl: installed"
 fi
+
+echo "▸ Phase 5b: Deploying systemd service files"
+cp "${HOTSPRING}/scripts/boot/coral-ember.service" /etc/systemd/system/coral-ember.service
+cp "${HOTSPRING}/scripts/boot/coral-glowplug.service" /etc/systemd/system/coral-glowplug.service
+echo "  service files: installed"
 
 echo "▸ Phase 6: Restarting services"
 systemctl daemon-reload

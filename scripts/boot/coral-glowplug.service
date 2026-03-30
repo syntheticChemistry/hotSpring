@@ -19,6 +19,7 @@ KillSignal=SIGTERM
 FinalKillSignal=SIGKILL
 WatchdogSec=120
 Environment=RUST_LOG=info
+Environment=CORALREEF_EMBER_SOCKET=/run/coralreef/ember.sock
 # RuntimeDirectory owned by coral-ember.service (ember starts first, never stops).
 # Glowplug must NOT declare RuntimeDirectory — systemd would wipe /run/coralreef/
 # on glowplug restart, destroying ember.sock and breaking SCM_RIGHTS fd passing.

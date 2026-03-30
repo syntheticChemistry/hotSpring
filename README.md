@@ -34,25 +34,19 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 
 ## Current Status (2026-03-30)
 
-> **125+ experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **870 lib tests, 139 binaries, 99 WGSL shaders** | **NVIDIA GPFIFO pipeline OPERATIONAL on RTX 3090** | **AMD scratch/local memory OPERATIONAL on RX 6950 XT** | **AMD sovereign compiler: 24/24 QCD shaders compile to native GFX ISA** | **Silicon saturation profiling: 7-tier routing, TMU PRNG, subgroup reduce, ROP atomics**
+> **128 experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **870 lib tests, 139 binaries, 99 WGSL shaders** | **NVIDIA GPFIFO pipeline OPERATIONAL on RTX 3090** | **AMD scratch/local memory OPERATIONAL on RX 6950 XT** | **AMD sovereign compiler: 24/24 QCD shaders compile to native GFX ISA** | **Silicon saturation profiling: 7-tier routing, TMU PRNG, subgroup reduce, ROP atomics**
 >
-> **NVIDIA Sovereign Compute Breakthrough (2026-03-30):** The RTX 3090 GPFIFO command submission pipeline is now **fully operational** through coralReef's sovereign driver. Key fixes discovered via `ioctl` interception of CUDA's proprietary driver: (1) `NV906F_CTRL_CMD_BIND` binds compute engine to channel subchannel — without this, GPU ignores all push buffer work; (2) TSG scheduling via `NVA06C_CTRL_CMD_GPFIFO_SCHEDULE` on the channel group, not individual channels; (3) `GET_WORK_SUBMIT_TOKEN` via Volta class (0xC36F), not Kepler/Ampere; (4) VRAM USERD with CUDA-matching flags (2 MiB, GPU_CACHEABLE, PAGE_SIZE_HUGE); (5) Error notifier with owner=device, type=NOTIFIER(13); (6) 48-byte NVOS64_PARAMETERS for RM_ALLOC on 580.x GSP-RM; (7) FERMI_CONTEXT_SHARE_A under TSG. NOP smoke test passes, 350 unit tests pass, alloc/free/sync all operational. **This unblocks the biomeGate team's Titan V/Tesla K80 HMB2 work** — the channel initialization sequence is now correct for all Turing+ architectures.
+> **Sovereign GPU Pipeline (Exp 110-128, 2026-03-30):** FECS firmware survives the nouveau→vfio-pci driver swap via kernel livepatch (Exp 125). Warm handoff orchestration wired into `ember`/`glowplug` as first-class RPC operations — `ember.livepatch.*`, `ember.fecs.state`, `ember.mmio.read`, `device.warm_handoff` — replacing all shell-scripted GPU control with a programmable daemon interface (coralReef Iter 70d). K80 direct PIO boot validated (Exp 123). WPR2 root cause definitive (Exp 122). 10.5/11 sovereign layers on Volta. Puzzle Box Matrix (Exp 128) implements parallel solution tracks across K80 (Kepler, unsigned) and Titan V (Volta, HS+ signed). **Fleet:** 2x Titan V + RTX 5070 + K80.
 >
-> **AMD Sovereign Compute — Local Memory Breakthrough (2026-03-30):** Three-layer fix unlocks per-thread scratch memory on RDNA2. (1) coralReef compiler: `OpLd`/`OpSt` with `MemSpace::Local` now emit `SEG=SCRATCH` (1) instead of `SEG=GLOBAL` (2). (2) coral-driver: allocates GEM scratch buffer, wires `COMPUTE_TMPRING_SIZE` + `COMPUTE_PGM_RSRC2.SCRATCH_EN` + `COMPUTE_DISPATCH_SCRATCH_BASE_LO/HI`. (3) **Key discovery: the amdgpu DRM Command Processor does NOT auto-initialize `FLAT_SCRATCH` for compute IB submissions** — unlike KFD/HSA paths. Fixed with `S_MOV_B32`+`S_SETREG_B32` shader prolog that writes `HW_REG_FLAT_SCR_LO/HI` at dispatch time. Result: `array<f64, 18>` sum = 6.0 (1+2+3), scratch stores/loads verified, **7/8 hardware parity tests pass** (1672 unit tests pass). Wilson plaquette QCD on AMD blocked by separate EXEC mask issue; NVIDIA blocked by GR context allocation. This discovery directly helps the biomeGate GPU cracking team and the broader ROCm community (matches open ROCm issue #6030).
+> **NVIDIA Sovereign Compute Breakthrough (2026-03-30):** RTX 3090 GPFIFO command submission pipeline **fully operational** through coralReef's sovereign driver. Key fixes via `ioctl` interception of CUDA: `NV906F_CTRL_CMD_BIND`, TSG scheduling, `GET_WORK_SUBMIT_TOKEN` via Volta class (0xC36F), VRAM USERD, 48-byte RM_ALLOC on 580.x GSP-RM.
 >
-> **AMD Sovereign Compiler:** coralReef compiles all 24 QCD production shaders (WGSL → native AMD GFX10.3 ISA) in 102ms total. 38/39 dispatch tests pass. Remaining frontiers: EXEC masking for divergent wavefront control flow, Wilson plaquette QCD dispatch.
+> **AMD Sovereign Compute — Local Memory Breakthrough (2026-03-30):** Three-layer fix unlocks per-thread scratch memory on RDNA2. Key discovery: amdgpu DRM Command Processor does NOT auto-initialize `FLAT_SCRATCH` for compute IB submissions. Fixed with `S_MOV_B32`+`S_SETREG_B32` shader prolog. **7/8 hardware parity tests pass** (1672 unit tests pass).
 >
-> **Silicon Saturation (Exp 105-106):** Full 7-phase silicon saturation profiling on strandgate (RTX 3090 + RX 6950 XT). **TMU PRNG**, **subgroup reduce**, **ROP atomic scatter-add** live in production RHMC. **Capacity analysis:** RTX 3090 max L=46⁴ dynamical (23.6 GB), RX 6950 XT max L=40⁴ (13.5 GB).
+> **AMD Sovereign Compiler:** 24/24 QCD shaders compiled (WGSL → native GFX10.3 ISA) in 102ms. 38/39 dispatch tests pass. Remaining frontiers: EXEC masking, Wilson plaquette QCD dispatch.
 >
-> **Science (Exp 096-103):** GPU RHMC production (Nf=2, Nf=2+1), gradient flow at volume (5 LSCFRK integrators), self-tuning RHMC (zero hand-tuned parameters).
+> **AMD Sovereign Compiler:** 24/24 QCD shaders compiled (WGSL → native GFX10.3 ISA) in 102ms. 38/39 dispatch tests pass. Remaining frontier: EXEC masking for divergent wavefront control flow.
 >
-> **Sovereign (Exp 110-126):** K80 direct PIO boot (Exp 123). WPR2 root cause definitive (Exp 122). 10.5/11 sovereign layers on Volta. **Fleet:** 2x Titan V + RTX 5070 + K80. biomeGate team cracking HMB2/Volta firmware layers with shared coralReef driver code.
->
-> **Exp 124:** VM Capture K80/Titan V Cross-Analysis — nvidia-470/535 VM captures analyzed.
->
-> **Exp 125:** Warm Handoff Livepatch Breakthrough — kernel livepatch NOP (4 functions), dynamic enable/disable, reset_method fix.
->
-> **Exp 126:** DRM Proprietary Tracing Matrix — solve maze from both sides.
+> **Science (Exp 096-103):** GPU RHMC production (Nf=2, Nf=2+1), gradient flow at volume (5 LSCFRK integrators), self-tuning RHMC (zero hand-tuned parameters). Silicon saturation profiling complete (Exp 105-106).
 >
 > See [`EXPERIMENT_INDEX.md`](EXPERIMENT_INDEX.md) for the full validation table and benchmark data.
 
@@ -67,7 +61,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **Self-Tuning RHMC** | ✅ Complete | Zero hand-tuned parameters — spectral + acceptance-driven |
 | **Spectral Theory** (Kachkovskiy) | ✅ 45/45 | Anderson 1D/2D/3D, Hofstadter, GPU Lanczos |
 | **NPU** (AKD1000 hardware) | ✅ 34/35 | 10 SDK assumptions overturned, physics pipeline, phase detection |
-| **Sovereign GPU** (coralReef) | ✅ GPFIFO + AMD scratch | RTX 3090 GPFIFO working, AMD local memory f64 PASS, 7/8 HW parity tests |
+| **Sovereign GPU** (coralReef) | ✅ GPFIFO + AMD scratch | RTX 3090 pipeline, AMD scratch/local f64 PASS, K80 direct boot, livepatch + warm handoff wired into ember/glowplug |
 | **Silicon Characterization** | ✅ Complete | TMU, ROP, L2, shader cores — AMD vs NVIDIA personalities |
 | **Silicon Saturation Profiling** | ✅ Complete | TMU PRNG, subgroup reduce, ROP atomics, capacity analysis |
 | **Chuna Papers 43-45** | ✅ **44/44** | Gradient flow + BGK dielectric + kinetic-fluid coupling |
@@ -76,7 +70,7 @@ Full validation table (130+ rows) with per-experiment details: [`EXPERIMENT_INDE
 
 ### Science Ladder
 
-Quenched SU(3) ✅ → Gradient Flow ✅ → LSCFRK Integrators ✅ → N_f=4 Infra ✅ → Chuna 44/44 ✅ → **N_f=2 ✅** → **N_f=2+1 ✅** → **Self-tuning ✅** → **True multi-shift CG ✅** → **Fermion force validated ✅** → **Silicon saturation profiling ✅** → **Sovereign NVIDIA GPFIFO ✅** → **AMD sovereign compiler 24/24 ✅** → **AMD scratch/local memory ✅** → NVIDIA GR context → AMD EXEC masking → 16⁴+ dynamical production on sovereign pipeline. Cross-cutting sovereign validation matrix: [`specs/SOVEREIGN_VALIDATION_MATRIX.md`](specs/SOVEREIGN_VALIDATION_MATRIX.md).
+Quenched SU(3) ✅ → Gradient Flow ✅ → LSCFRK Integrators ✅ → N_f=4 Infra ✅ → Chuna 44/44 ✅ → **N_f=2 ✅** → **N_f=2+1 ✅** → **Self-tuning ✅** → **True multi-shift CG ✅** → **Fermion force validated ✅** → **Silicon saturation profiling ✅** → **Sovereign NVIDIA GPFIFO ✅** → **AMD sovereign compiler 24/24 ✅** → **AMD scratch/local memory ✅** → **Livepatch warm handoff wired into daemons ✅** → K80/Titan V puzzle box matrix (next) → AMD EXEC masking → 16⁴+ dynamical production on sovereign pipeline. Cross-cutting sovereign validation matrix: [`specs/SOVEREIGN_VALIDATION_MATRIX.md`](specs/SOVEREIGN_VALIDATION_MATRIX.md).
 
 ## Evolution Architecture: Write → Absorb → Lean
 
@@ -303,12 +297,12 @@ hotSpring/
 │   ├── CHANGELOG.md                   # Version history
 │   └── src/bin/                       # 129 binaries (validation, production, benchmarks)
 │
-├── experiments/                        # 125+ experiment journals (fossil record); 001-057 archived under experiments/archive/
+├── experiments/                        # 128 experiment journals (fossil record); 001-057 archived under experiments/archive/
 │   ├── archive/                        # experiments 001-057 (archived journals)
 │   ├── 058-069: Precision, sovereign GPU cracking, GlowPlug, falcon boot
 │   ├── 070-095: Backend matrix, MMU, WPR, sysmem HS mode breakthrough
 │   ├── 096-103: Silicon characterization, GPU RHMC, gradient flow, self-tuning
-│   └── 110-126: Consolidation, WPR2, K80 sovereign compute, VM capture, livepatch, DRM tracing (biomeGate)
+│   └── 110-128: Consolidation, WPR2, K80 sovereign, VM capture, livepatch, warm handoff, puzzle box matrix
 │
 ├── specs/                              # Specifications, requirements, gap trackers
 ├── control/                            # Python control scripts (by domain)
@@ -343,7 +337,7 @@ a network service, you must make your source available under the same terms.
 
 ---
 
-*125+ experiments, 870 tests, 139 binaries, 99 WGSL shaders, ~$0.30 total science cost.
+*128 experiments, 870 tests, 139 binaries, 99 WGSL shaders, ~$0.30 total science cost.
 Consumer GPUs reproduce HPC physics at paper parity. DF64 delivers 3.24 TFLOPS at
 14-digit precision. GPU RHMC runs all-flavors dynamical QCD (Nf=2+1). Self-tuning
 RHMC eliminates hand-tuned parameters. Chuna 44/44 checks pass. K80 validates the

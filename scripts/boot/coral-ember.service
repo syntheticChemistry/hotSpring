@@ -19,6 +19,7 @@ KillMode=mixed
 KillSignal=SIGTERM
 FinalKillSignal=SIGKILL
 Environment=RUST_LOG=info
+Environment=CORALREEF_EMBER_SOCKET=/run/coralreef/ember.sock
 SupplementaryGroups=coralreef
 UMask=0117
 RuntimeDirectory=coralreef

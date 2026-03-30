@@ -1,9 +1,9 @@
 # baseCamp: Sovereign GPU Compute — GlowPlug & Falcon Boot Chain
 
-**Date:** 2026-03-25 (updated 2026-03-30 — Exp 125–126 livepatch/upstream wiring, validation matrix)  
-**Domain:** Hardware — PCIe GPU lifecycle, falcon microcontrollers, HBM2 management, PFIFO command submission, ACR secure boot, WPR construction, cross-driver profiling, daemon resilience, adaptive experiment loop, sysmem DMA, GV100 MMU v2 page tables, WPR2 hardware protection, Kepler PIO falcon loading  
-**Experiments:** 060-126  
-**Hardware:** 2× NVIDIA Titan V (GV100, 12GB HBM2), RTX 5070 (GB206, Blackwell, display/validator), Tesla K80 (GK210, Kepler, incoming 2026-03-26)
+**Date:** 2026-03-25 (updated 2026-03-30 — Exp 125–128 livepatch, warm handoff wiring, puzzle box matrix)  
+**Domain:** Hardware — PCIe GPU lifecycle, falcon microcontrollers, HBM2 management, PFIFO command submission, ACR secure boot, WPR construction, cross-driver profiling, daemon RPC orchestration, adaptive experiment loop, sysmem DMA, GV100 MMU v2 page tables, WPR2 hardware protection, Kepler PIO falcon loading  
+**Experiments:** 060-128  
+**Hardware:** 2× NVIDIA Titan V (GV100, 12GB HBM2), RTX 5070 (GB206, Blackwell, display/validator), Tesla K80 (GK210, Kepler)
 
 ---
 
@@ -919,9 +919,38 @@ A new `specs/SOVEREIGN_VALIDATION_MATRIX.md` maps every pipeline layer (L1-L11) 
 
 Four dispatch paths to Titan V compute:
 
-- **VFIO warm handoff** — livepatch ready to test (our frontier)
+- **VFIO warm handoff** — livepatch tested, FECS preserved but in idle-HALT (Exp 127)
 - **nvidia-drm + UVM** — code-complete, pending on-site validation
 - **nouveau DRM** — blocked by missing PMU firmware
 - **NVK/wgpu** — proven for physics (4-tier QCD validated)
 
 The nvidia+UVM path is valuable even if not sovereign: it reveals exactly how RM initializes FECS/GPCCS on Volta, informing our sovereign boot strategy.
+
+### Warm FECS Dispatch Attack (Exp 127)
+
+FECS firmware **survives** the nouveau→vfio-pci driver swap via livepatch — CPUCTL goes from `0xbadf1201` (dead) to `0x00000010` (halted), SCTL reads `0x00003000` (HS+), 23 engines powered. But FECS enters an idle HALT (`CPUCTL bit 4`) after nouveau's DRM close handler runs, and cannot be woken by host-side register writes (CPUCTL writes are ignored in HS+ mode). The problem shifted from **preservation** to **resumption**.
+
+### Puzzle Box Matrix (Exp 128)
+
+Two GPUs, related generations, solving the same fundamental problem from different angles:
+
+**K80 (Kepler):** Full nvidia-470 recipe replay + FECS PIO boot + GPFIFO channel dispatch. No HS security barriers — validates dispatch infrastructure in isolation.
+
+**Titan V (Volta):** Keepalive subprocess (hold DRM fd during swap), nvidia proprietary warm handoff (learn RM's FECS init), timing attack (catch FECS running before idle-halt), STOP_CTXSW method (freeze scheduling without halting).
+
+**Cross-cutting:** FECS method enumeration (STOP/START_CTXSW), CPUCTL bit labeling fix (bit 4 = halted, bit 5 = stopped — was inverted), serde aliases for backward compatibility.
+
+### Livepatch and GPU Toggles Wired Into Daemons (2026-03-30)
+
+All GPU lifecycle control operations moved from shell scripts and `coralctl` into the `ember`/`glowplug` daemon layer as first-class JSON-RPC operations:
+
+| RPC | Description |
+|-----|-------------|
+| `ember.livepatch.status` | Query loaded/enabled/transition state + patched functions |
+| `ember.livepatch.enable` | `modprobe` + sysfs enable + transition polling (idempotent) |
+| `ember.livepatch.disable` | Sysfs disable + transition polling (idempotent) |
+| `ember.mmio.read` | BAR0 register read via mmap (replaces File::seek) |
+| `ember.fecs.state` | Structured FECS register snapshot (CPUCTL, SCTL, PC, MB0/1, EXCI + derived booleans) |
+| `device.warm_handoff` | Full orchestrated warm handoff (livepatch → swap → settle → poll FECS → swap back) |
+
+Architectural wins: FECS register constants shared from `coral-driver::nv::bar0`, hex parsing consolidated into `coral-driver::parse_hex_u32`, `Bar0Access` DRY'd via `mmap_file` helper, `enrich_fecs_via_ember` uses typed booleans from the JSON response. 808 tests pass across all three crates.
