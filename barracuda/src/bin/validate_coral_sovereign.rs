@@ -18,7 +18,7 @@
 //!   NVIDIA: proprietary driver loaded; UVM compute init not yet wired.
 //!
 //! Usage:
-//!   cargo run --release --features coral-sovereign --bin validate_coral_sovereign
+//!   cargo run --release --features sovereign-dispatch --bin validate_coral_sovereign
 
 use coral_gpu::{GpuContext, GpuTarget};
 use std::time::Instant;

@@ -1,5 +1,11 @@
 # coralReef Dispatch Frontier — strandgate Handoff
 
+> **HISTORICAL (2026-03-28):** This handoff document is superseded by the
+> Exp 124 AMD scratch/local memory breakthrough (RDNA2 FLAT_STORE solved),
+> the RTX 3090 GPFIFO sovereign dispatch progress (Exp 126-128), and the
+> firmware-interface strategy for Titan V FECS (Exp 125/127). Retained for
+> provenance. The feature flag is `sovereign-dispatch` (not `coral-sovereign`).
+
 **Date:** 2026-03-28
 **From:** strandgate (hotSpring) — AMD RDNA2 + RTX 3090 (SM86)
 **To:** biomeGate (coralReef/coral-driver) — Titan V (SM70) + K80 (SM35)
@@ -22,7 +28,7 @@ initialization**, not the compiler, not pipeline wiring, not shader code.
 | WGSL → native compilation | **LIVE** | 24/24 QCD shaders → ~60KB native AMD GFX ISA in 102ms |
 | coral-reef auto-prepend | **LIVE** | Complex64 + SU3 + PRNG preambles inject correctly |
 | PM4 nop dispatch (AMD) | **LIVE** | Command buffer submits, fence syncs, no GPU hang |
-| validate_coral_sovereign | **LIVE** | Full validation binary, `--features coral-sovereign` |
+| validate_coral_sovereign | **LIVE** | Full validation binary, `--features sovereign-dispatch` |
 
 ## The 4 Failures — Precise Diagnosis
 
@@ -154,7 +160,7 @@ Debug `alloc_gpfifo_channel` for `AMPERE_CHANNEL_GPFIFO_A`:
 Once dispatch works on either platform:
 ```bash
 cd hotSpring/barracuda
-cargo run --release --features coral-sovereign --bin validate_coral_sovereign
+cargo run --release --features sovereign-dispatch --bin validate_coral_sovereign
 ```
 
 All 24 shaders are pre-wired. Compilation is instant (102ms). Only dispatch
@@ -186,4 +192,4 @@ needs the driver fix.
 | File | Role |
 |------|------|
 | `barracuda/src/bin/validate_coral_sovereign.rs` | Sovereign pipeline validation binary |
-| `barracuda/Cargo.toml` | `coral-sovereign` feature flag + `coral-gpu` dep |
+| `barracuda/Cargo.toml` | `sovereign-dispatch` feature flag + `coral-gpu` dep |

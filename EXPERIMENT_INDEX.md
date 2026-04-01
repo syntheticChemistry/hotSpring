@@ -4,7 +4,7 @@
 > experiments, validation suites, and benchmark data. For project overview, see [README.md](README.md).
 > Experiments 001-057 archived to `experiments/archive/` — completed physics and benchmark work, results absorbed into baseCamp.
 
-**125+ experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **AGPL-3.0-only**
+**128+ experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **AGPL-3.0-only**
 
 ---
 
@@ -156,9 +156,13 @@
 | **WPR2 Resolution** (Exp 122) | ✅ Complete | biomeGate: **definitive root cause** — WPR2 registers hardware-locked by FWSEC |
 | **Parasitic Compute** (Exp 123T) | ✅ Complete | biomeGate: parasitic compute probe |
 | **K80 Sovereign Compute** (Exp 123) | 🔄 Active | biomeGate: Tesla K80 (GK210) — zero firmware security, direct PIO boot |
-| **VM Capture Cross-Analysis** (Exp 124) | ✅ Complete | biomeGate: nvidia-470/535 VM captures for K80+Titan V, cross-driver register tracing |
+| **AMD Scratch/Local Memory Breakthrough** (Exp 124) | ✅ Complete | strandgate: AMD RX 6950 XT (RDNA2) scratch/local memory dispatch via coralReef DRM path |
+| **VM Capture Cross-Analysis** (Exp 124b) | ✅ Complete | biomeGate: nvidia-470/535 VM captures for K80+Titan V, cross-driver register tracing |
 | **Warm Handoff Livepatch** (Exp 125) | 🔄 Active | biomeGate: kernel livepatch NOP (mc_reset+gr_fini+falcon_fini+runl_commit), dynamic enable/disable, reset_method sysfs fix, PBDMA warm mode |
-| **TOTAL** | **39/39 Rust validation suites** | **870 tests (lib)**, 139 binaries, 99 WGSL shaders. Zero clippy, zero unsafe, AGPL-3.0-only. **Science ladder:** Quenched → Gradient Flow → Integrators → N_f=4 Infra → Chuna 44/44 → N_f=2 → N_f=2+1 → Self-tuning → Silicon saturation → 16⁴+ production. 125+ experiments. Experiments 001-057 archived to `experiments/archive/` (completed physics validation, absorbed into baseCamp). |
+| **DRM Proprietary Tracing Matrix** (Exp 126) | 🔄 Active | biomeGate: map all non-VFIO dispatch paths for Titan V (DRM+proprietary dual-use) |
+| **Warm FECS Dispatch Attack** (Exp 127) | ✅ Complete | biomeGate: FECS firmware preserved in IMEM but cannot be woken from HS+ halt state |
+| **GPU Puzzle Box Matrix** (Exp 128) | 🔄 Active | biomeGate: multi-path sovereign compute matrix — firmware interface approach |
+| **TOTAL** | **39/39 Rust validation suites** | **870 tests (lib)**, 139 binaries, 99 WGSL shaders. Zero clippy, zero unsafe, AGPL-3.0-only. **Science ladder:** Quenched → Gradient Flow → Integrators → N_f=4 Infra → Chuna 44/44 → N_f=2 → N_f=2+1 → Self-tuning → Silicon saturation → 16⁴+ production. 128+ experiments. Experiments 001-057 archived to `experiments/archive/` (completed physics validation, absorbed into baseCamp). |
 
 ---
 
