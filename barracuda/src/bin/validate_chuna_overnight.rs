@@ -2,41 +2,69 @@
 
 //! Chuna overnight validation — all Paper 43/44/45 systems in one run.
 //!
-//! This binary exercises every Chuna-paper pipeline (CPU + GPU), including:
+//! Hardware-agnostic: discovers all f64-capable GPUs at runtime, profiles
+//! each via `HardwareCalibration + PrecisionBrain`, sizes workloads to
+//! available VRAM, and validates on every target substrate. Any GPU with
+//! SHADER_F64 or DF64 fallback is a science device at 14-digit precision.
 //!
 //! **Paper 43** (Gradient flow integrators):
 //!   - Convergence sweep: ε = 0.02→0.001 for W6/W7/CK4
-//!   - Production flow at 8⁴ and 16⁴ β = {5.9, 6.0, 6.2}
+//!   - Production flow at 8⁴+ β = {5.9, 6.0, 6.2} (VRAM-adaptive sizes)
+//!   - Dynamical fermion extension (warm-start + mass annealing)
 //!
 //! **Paper 44** (Conservative BGK dielectric):
 //!   - Standard + completed Mermin (CPU + GPU)
 //!   - Multi-component Mermin (electron-ion, CPU + GPU)
-//!   - Physics checks: f-sum rule, DSF positivity, Debye screening
 //!
 //! **Paper 45** (Multi-species kinetic-fluid coupling):
-//!   - GPU BGK relaxation (conservation checks)
-//!   - GPU Euler/Sod shock tube
-//!   - Full coupled kinetic-fluid (GPU BGK + GPU Euler + interface)
+//!   - GPU BGK relaxation, Euler/Sod shock tube, coupled kinetic-fluid
 //!
 //! Usage:
-//!   cargo run --release --bin validate_chuna_overnight 2>&1 | tee chuna_overnight.log
+//!   cargo run --release --bin validate_chuna_overnight              # auto-select best GPU
+//!   cargo run --release --bin validate_chuna_overnight -- --all-gpus # validate on every f64 GPU
+//!   cargo run --release --bin validate_chuna_overnight -- --gpu 3090 # target specific GPU
 
 use hotspring_barracuda::gpu::GpuF64;
+use hotspring_barracuda::precision_brain::PrecisionBrain;
 use hotspring_barracuda::validation::{TelemetryWriter, ValidationHarness};
 use std::time::Instant;
+
+/// Key observables collected per substrate for cross-GPU comparison.
+#[derive(Debug, Default)]
+struct SubstrateResults {
+    adapter_name: String,
+    plaquettes: Vec<(String, f64)>,
+    w0: Option<f64>,
+    t0: Option<f64>,
+    wall_seconds: f64,
+}
+
+/// Determine max lattice L for SU(3) based on available VRAM.
+///
+/// Memory per config: links + momenta + forces ~ 3 * 4 * L^4 * 4 * 18 * 8 bytes
+/// (4D, 4 directions, 3x3 complex matrix = 18 f64, times 3 for link+mom+force).
+fn max_lattice_l(max_buffer_bytes: u64) -> usize {
+    let safety_margin = 4;
+    let bytes_per_site: u64 = 4 * 18 * 8 * safety_margin;
+    let max_sites = max_buffer_bytes / bytes_per_site;
+    let l = (max_sites as f64).powf(0.25).floor() as usize;
+    l.min(64).max(8)
+}
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let skip_to_dynamical = args.iter().any(|a| a == "--dynamical-only");
+    let all_gpus = args.iter().any(|a| a == "--all-gpus");
+    let gpu_token: Option<String> = args
+        .iter()
+        .position(|a| a == "--gpu")
+        .and_then(|i| args.get(i + 1).cloned());
 
     let rt = tokio::runtime::Runtime::new().expect("tokio runtime");
-    let mut harness = ValidationHarness::new("chuna_overnight");
-    let mut telem = TelemetryWriter::discover("chuna_overnight_telemetry.jsonl");
 
     println!("╔══════════════════════════════════════════════════════════════╗");
     println!("║  Chuna Overnight Validation — Papers 43 / 44 / 45         ║");
-    println!("║  Bazavov & Chuna 2021, Chuna & Murillo 2024,              ║");
-    println!("║  Haack, Murillo, Sagert & Chuna 2024                      ║");
+    println!("║  Hardware-agnostic: discover, profile, validate            ║");
     println!("╚══════════════════════════════════════════════════════════════╝\n");
 
     if skip_to_dynamical {
@@ -45,163 +73,192 @@ fn main() {
 
     let total_start = Instant::now();
 
-    // ═══════════════════════════════════════════════════════════════
-    //  Titan V Pre-Motor: background quenched pre-thermalization
-    // ═══════════════════════════════════════════════════════════════
-    let titan_handles = if skip_to_dynamical {
-        None
+    // ═══ Phase 1: Discover GPU substrates ═══
+    let adapters = GpuF64::enumerate_adapters();
+    let f64_adapters: Vec<_> = adapters.iter().filter(|a| a.has_f64).collect();
+
+    println!("  Substrate inventory ({} adapters, {} with f64):", adapters.len(), f64_adapters.len());
+    for a in &adapters {
+        let tag = if a.has_f64 { "f64" } else { "f32" };
+        let mem_gb = a.memory_bytes as f64 / (1024.0 * 1024.0 * 1024.0);
+        println!("    [{}] {} ({}, {tag}, {mem_gb:.1} GB)", a.index, a.name, a.driver);
+    }
+    println!();
+
+    let targets: Vec<String> = if all_gpus {
+        f64_adapters.iter().map(|a| a.index.to_string()).collect()
+    } else if let Some(token) = gpu_token {
+        vec![token]
     } else {
-        let h = spawn_titan_pretherm_if_available(&rt);
-        if h.is_some() {
-            println!(
-                "  [Brain] Titan V pre-motor spawned — quenched β=5.4 running in background\n"
-            );
-        }
-        h
+        vec!["auto".to_string()]
     };
 
-    if !skip_to_dynamical {
-        // ═══════════════════════════════════════════════════════════════
-        //  Paper 43: Gradient Flow Integrators (quenched sections)
-        // ═══════════════════════════════════════════════════════════════
-        println!("\n━━━ Paper 43: Gradient Flow Integrators ━━━\n");
-
-        paper_43_convergence(&mut harness, &mut telem);
-        paper_43_production(&mut harness, &mut telem);
-
-        // ═══════════════════════════════════════════════════════════════
-        //  Paper 44: Conservative BGK Dielectric
-        // ═══════════════════════════════════════════════════════════════
-        println!("\n━━━ Paper 44: Conservative BGK Dielectric ━━━\n");
-
-        paper_44_cpu(&mut harness, &mut telem);
-        paper_44_multicomponent_cpu(&mut harness, &mut telem);
-
-        match rt.block_on(GpuF64::new()) {
-            Ok(gpu) => {
-                paper_44_gpu(&mut harness, &gpu, &mut telem);
-                paper_44_multicomponent_gpu(&mut harness, &gpu, &mut telem);
-
-                // ═══════════════════════════════════════════════════════════════
-                //  Paper 45: Multi-Species Kinetic-Fluid Coupling
-                // ═══════════════════════════════════════════════════════════════
-                println!("\n━━━ Paper 45: Kinetic-Fluid Coupling ━━━\n");
-
-                paper_45_gpu_bgk(&mut harness, &gpu, &mut telem);
-                paper_45_gpu_euler(&mut harness, &gpu, &mut telem);
-                paper_45_gpu_coupled(&mut harness, &gpu, &mut telem);
-            }
-            Err(e) => {
-                println!("  ⚠ No GPU available ({e}) — skipping GPU sections\n");
-            }
-        }
+    if targets.is_empty() {
+        eprintln!("  FATAL: no f64-capable GPUs discovered");
+        std::process::exit(1);
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    //  Paper 43 (cont.): Dynamical fermion extension
-    //  Runs after 44/45 so Titan V pre-motor has time to thermalize
-    // ═══════════════════════════════════════════════════════════════
-    println!("\n━━━ Paper 43: Dynamical Extension (warm-start) ━━━\n");
-    paper_43_dynamical(&mut harness, &mut telem, titan_handles);
+    let mut harness = ValidationHarness::new("chuna_overnight");
+    let mut all_results: Vec<SubstrateResults> = Vec::new();
+
+    for (gpu_idx, token) in targets.iter().enumerate() {
+        let gpu_header = if targets.len() > 1 {
+            format!("GPU {}/{}", gpu_idx + 1, targets.len())
+        } else {
+            "GPU".to_string()
+        };
+
+        // ═══ Phase 2: Open + Profile ═══
+        let gpu = match rt.block_on(GpuF64::with_adapter(token)) {
+            Ok(g) => g,
+            Err(e) => {
+                eprintln!("  [{gpu_header}] Failed to open GPU '{token}': {e}");
+                continue;
+            }
+        };
+
+        let max_l = max_lattice_l(gpu.device().limits().max_buffer_size);
+        let vram_gb = gpu.device().limits().max_buffer_size as f64 / (1024.0 * 1024.0 * 1024.0);
+
+        let brain = PrecisionBrain::new(&gpu);
+        let cal = &brain.calibration;
+
+        println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        println!("  [{gpu_header}] {} (f64={}, df64={}, f16={}, subgroups={})",
+            gpu.adapter_name, gpu.has_f64, gpu.full_df64_mode, gpu.has_f16, gpu.has_subgroups);
+        println!("  [{gpu_header}] {cal}");
+        println!("  [{gpu_header}] VRAM: {vram_gb:.1} GB → max lattice L={max_l}");
+
+        let telem_filename = if targets.len() > 1 {
+            let safe_name: String = gpu.adapter_name.chars()
+                .map(|c| if c.is_alphanumeric() { c } else { '_' })
+                .collect();
+            format!("chuna_overnight_{safe_name}.jsonl")
+        } else {
+            "chuna_overnight_telemetry.jsonl".to_string()
+        };
+        let mut telem = TelemetryWriter::discover(&telem_filename)
+            .with_substrate(gpu.adapter_name.clone());
+
+        telem.log_map("hardware_profile", &[
+            ("has_f64", f64::from(u8::from(gpu.has_f64))),
+            ("full_df64_mode", f64::from(u8::from(gpu.full_df64_mode))),
+            ("has_f16", f64::from(u8::from(gpu.has_f16))),
+            ("has_subgroups", f64::from(u8::from(gpu.has_subgroups))),
+            ("has_timestamps", f64::from(u8::from(gpu.has_timestamps))),
+            ("vram_gb", vram_gb),
+            ("max_lattice_l", max_l as f64),
+        ]);
+        for tier in &cal.tiers {
+            telem.log_map(
+                &format!("tier_{:?}", tier.tier),
+                &[
+                    ("compiles", f64::from(u8::from(tier.compiles))),
+                    ("dispatches", f64::from(u8::from(tier.dispatches))),
+                    ("transcendentals_safe", f64::from(u8::from(tier.transcendentals_safe))),
+                    ("compile_us", tier.compile_us),
+                    ("dispatch_us", tier.dispatch_us),
+                    ("probe_ulp", if tier.probe_ulp.is_finite() { tier.probe_ulp } else { -1.0 }),
+                ],
+            );
+        }
+
+        harness.set_gpu(&gpu.adapter_name);
+        harness.set_substrate(&gpu.adapter_name);
+
+        let gpu_start = Instant::now();
+        let mut results = SubstrateResults {
+            adapter_name: gpu.adapter_name.clone(),
+            ..Default::default()
+        };
+
+        // ═══ Phase 3: Validate ═══
+        if !skip_to_dynamical {
+            println!("\n━━━ Paper 43: Gradient Flow Integrators ━━━\n");
+            paper_43_convergence(&mut harness, &mut telem);
+            paper_43_production(&mut harness, &mut telem, &mut results);
+
+            println!("\n━━━ Paper 44: Conservative BGK Dielectric ━━━\n");
+            paper_44_cpu(&mut harness, &mut telem);
+            paper_44_multicomponent_cpu(&mut harness, &mut telem);
+            paper_44_gpu(&mut harness, &gpu, &mut telem);
+            paper_44_multicomponent_gpu(&mut harness, &gpu, &mut telem);
+
+            println!("\n━━━ Paper 45: Kinetic-Fluid Coupling ━━━\n");
+            paper_45_gpu_bgk(&mut harness, &gpu, &mut telem);
+            paper_45_gpu_euler(&mut harness, &gpu, &mut telem);
+            paper_45_gpu_coupled(&mut harness, &gpu, &mut telem);
+        }
+
+        println!("\n━━━ Paper 43: Dynamical Extension (warm-start) ━━━\n");
+        paper_43_dynamical(&mut harness, &mut telem, &mut results);
+
+        results.wall_seconds = gpu_start.elapsed().as_secs_f64();
+        telem.log("substrate_summary", "wall_seconds", results.wall_seconds);
+        println!("\n  [{gpu_header}] {} done in {:.1}s\n", gpu.adapter_name, results.wall_seconds);
+        all_results.push(results);
+    }
+
+    // ═══ Phase 4: Cross-GPU Comparison ═══
+    if all_results.len() > 1 {
+        println!("━━━ Cross-Substrate Comparison ({} GPUs) ━━━\n", all_results.len());
+        harness.clear_substrate();
+
+        for i in 0..all_results.len() {
+            for j in (i + 1)..all_results.len() {
+                let a = &all_results[i];
+                let b = &all_results[j];
+                println!("  {} vs {}:", a.adapter_name, b.adapter_name);
+
+                for (label_a, plaq_a) in &a.plaquettes {
+                    if let Some((_, plaq_b)) = b.plaquettes.iter().find(|(l, _)| l == label_a) {
+                        let rel = if plaq_a.abs() > 1e-15 {
+                            (plaq_a - plaq_b).abs() / plaq_a.abs()
+                        } else {
+                            (plaq_a - plaq_b).abs()
+                        };
+                        let agree = rel < 0.05;
+                        println!("    {label_a}: {plaq_a:.6} vs {plaq_b:.6} (rel={rel:.4e}) {}",
+                            if agree { "OK" } else { "CHECK" });
+                        harness.check_upper(
+                            &format!("xgpu_{label_a}_{}_{}", a.adapter_name, b.adapter_name),
+                            rel, 0.05,
+                        );
+                    }
+                }
+
+                if let (Some(w0_a), Some(w0_b)) = (a.w0, b.w0) {
+                    let rel = (w0_a - w0_b).abs() / w0_a.abs().max(1e-15);
+                    println!("    w0: {w0_a:.4} vs {w0_b:.4} (rel={rel:.4e})");
+                    harness.check_upper(
+                        &format!("xgpu_w0_{}_{}", a.adapter_name, b.adapter_name),
+                        rel, 0.1,
+                    );
+                }
+                if let (Some(t0_a), Some(t0_b)) = (a.t0, b.t0) {
+                    let rel = (t0_a - t0_b).abs() / t0_a.abs().max(1e-15);
+                    println!("    t0: {t0_a:.4} vs {t0_b:.4} (rel={rel:.4e})");
+                    harness.check_upper(
+                        &format!("xgpu_t0_{}_{}", a.adapter_name, b.adapter_name),
+                        rel, 0.1,
+                    );
+                }
+                println!();
+            }
+        }
+
+        println!("  Wall times:");
+        for r in &all_results {
+            println!("    {}: {:.1}s", r.adapter_name, r.wall_seconds);
+        }
+        println!();
+    }
 
     let total = total_start.elapsed();
-    telem.log("summary", "total_wall_seconds", total.as_secs_f64());
-    telem.log("summary", "checks_passed", harness.passed_count() as f64);
-    telem.log("summary", "checks_total", harness.total_count() as f64);
-    println!("\n  Total wall time: {:.1}s", total.as_secs_f64());
+    println!("\n  Total wall time: {:.1}s ({} substrate{})",
+        total.as_secs_f64(), all_results.len(),
+        if all_results.len() == 1 { "" } else { "s" });
     harness.finish();
-}
-
-// ─── Titan V Pre-Motor ───────────────────────────────────────────
-
-/// Handles returned by the Titan V background pre-thermalization.
-struct TitanPrethermHandles {
-    handles: hotspring_barracuda::production::titan_worker::TitanWorkerHandles,
-}
-
-/// Spawn Titan V background quenched pre-thermalization if a secondary GPU is available.
-///
-/// Returns `None` if only one GPU is found or if the worker fails to spawn.
-fn spawn_titan_pretherm_if_available(rt: &tokio::runtime::Runtime) -> Option<TitanPrethermHandles> {
-    use hotspring_barracuda::gpu::discover_primary_and_secondary_adapters;
-    use hotspring_barracuda::production::titan_worker::{TitanRequest, spawn_titan_worker};
-
-    let (_, secondary) = discover_primary_and_secondary_adapters();
-    let secondary_idx = secondary?;
-
-    println!(
-        "  [Brain] Secondary GPU discovered (adapter {secondary_idx}), spawning Titan V pre-motor..."
-    );
-
-    // Create the GPU on the main thread to avoid wgpu deadlocks (explicit hint, no env mutation).
-    let titan_gpu = match rt.block_on(GpuF64::with_adapter(&secondary_idx)) {
-        Ok(gpu) => {
-            println!("    Titan V: {} (f64={})", gpu.adapter_name, gpu.has_f64);
-            gpu
-        }
-        Err(e) => {
-            println!("    Titan V init failed: {e}");
-            return None;
-        }
-    };
-
-    let handles = match spawn_titan_worker(titan_gpu) {
-        Ok(h) => h,
-        Err(e) => {
-            println!("    Titan V worker spawn failed: {e}");
-            return None;
-        }
-    };
-
-    // Send the pre-thermalization request (runs in background)
-    let _ = handles.titan_tx.send(TitanRequest::PreThermalize {
-        beta: 5.4,
-        mass: 0.1,
-        lattice: 8,
-        n_quenched: 200,
-        seed: 42,
-        dt: 0.05,
-        n_md: 20,
-    });
-
-    Some(TitanPrethermHandles { handles })
-}
-
-/// Try to receive a warm config from the Titan V pre-motor.
-///
-/// Waits up to 5 seconds, then falls back to CPU pre-thermalization.
-fn receive_titan_warm_config(
-    titan: TitanPrethermHandles,
-    dims: [usize; 4],
-    beta: f64,
-) -> Option<hotspring_barracuda::lattice::wilson::Lattice> {
-    use hotspring_barracuda::production::titan_worker::{TitanRequest, TitanResponse};
-
-    match titan
-        .handles
-        .titan_rx
-        .recv_timeout(std::time::Duration::from_secs(300))
-    {
-        Ok(TitanResponse::WarmConfig {
-            beta: b,
-            gauge_links,
-            plaquette,
-            wall_ms,
-        }) => {
-            println!(
-                "    [Titan V] Warm config ready: β={b:.4}, ⟨P⟩={plaquette:.6}, {wall_ms:.0}ms"
-            );
-            let mut lattice = hotspring_barracuda::lattice::wilson::Lattice::cold_start(dims, beta);
-            hotspring_barracuda::lattice::gpu_hmc::unflatten_links_into(&mut lattice, &gauge_links);
-            let _ = titan.handles.titan_tx.send(TitanRequest::Shutdown);
-            Some(lattice)
-        }
-        Err(_) => {
-            println!("    [Titan V] Pre-therm timed out — falling back to CPU");
-            let _ = titan.handles.titan_tx.send(TitanRequest::Shutdown);
-            None
-        }
-    }
 }
 
 /// CPU-based quenched pre-thermalization fallback.
@@ -333,7 +390,7 @@ fn paper_43_convergence(harness: &mut ValidationHarness, telem: &mut TelemetryWr
     println!("    {:.1}s", start.elapsed().as_secs_f64());
 }
 
-fn paper_43_production(harness: &mut ValidationHarness, telem: &mut TelemetryWriter) {
+fn paper_43_production(harness: &mut ValidationHarness, telem: &mut TelemetryWriter, results: &mut SubstrateResults) {
     use hotspring_barracuda::lattice::gradient_flow::{FlowIntegrator, find_t0, find_w0, run_flow};
     use hotspring_barracuda::lattice::hmc::{HmcConfig, hmc_trajectory};
     use hotspring_barracuda::lattice::wilson::Lattice;
@@ -404,6 +461,7 @@ fn paper_43_production(harness: &mut ValidationHarness, telem: &mut TelemetryWri
             ],
         );
         harness.check_lower(&format!("p43_accept_{label}"), acceptance, 0.25);
+        results.plaquettes.push((label.to_string(), lattice.average_plaquette()));
 
         let flow = run_flow(&mut lattice, FlowIntegrator::Lscfrk3w7, 0.01, 4.0, 5);
 
@@ -415,10 +473,12 @@ fn paper_43_production(harness: &mut ValidationHarness, telem: &mut TelemetryWri
         if let Some(w0) = find_w0(&flow) {
             println!("    w₀ = {w0:.4}");
             telem.log(&format!("p43_prod_{label}"), "w0", w0);
+            results.w0 = Some(w0);
         }
         if let Some(t0) = find_t0(&flow) {
             println!("    t₀ = {t0:.4}");
             telem.log(&format!("p43_prod_{label}"), "t0", t0);
+            results.t0 = Some(t0);
         }
 
         println!("    {:.1}s", start.elapsed().as_secs_f64());
@@ -435,7 +495,7 @@ fn paper_43_production(harness: &mut ValidationHarness, telem: &mut TelemetryWri
 fn paper_43_dynamical(
     harness: &mut ValidationHarness,
     telem: &mut TelemetryWriter,
-    titan_handles: Option<TitanPrethermHandles>,
+    results: &mut SubstrateResults,
 ) {
     use hotspring_barracuda::lattice::gradient_flow::{FlowIntegrator, find_t0, find_w0, run_flow};
     use hotspring_barracuda::lattice::pseudofermion::{
@@ -451,40 +511,12 @@ fn paper_43_dynamical(
 
     let npu_available = hotspring_barracuda::discovery::probe_npu_available();
 
-    // Step 1: Obtain pre-thermalized quenched config
-    // Try Titan V first (was thermalizing in background during Papers 44/45).
-    // Guard: reject Titan warm config if plaquette is physically implausible
-    // (NVK driver can produce all-zero link buffers on Titan V/GV100).
-    let mut lattice = if let Some(handles) = titan_handles {
-        if let Some(lat) = receive_titan_warm_config(handles, dims, beta) {
-            let plaq = lat.average_plaquette();
-            telem.log("p43_dyn_titan", "plaquette", plaq);
-            if plaq > 0.1 && plaq < 0.999 {
-                println!(
-                    "  Dynamical 8⁴ β={beta} (N_f=4, m={mass}) [Titan V warm config, ⟨P⟩={plaq:.6}]...",
-                );
-                lat
-            } else {
-                println!(
-                    "  ⚠ Titan V warm config implausible (⟨P⟩={plaq:.6}) — GPU driver issue, falling back to CPU",
-                );
-                telem.log("p43_dyn_titan", "rejected_plaquette", plaq);
-                cpu_quenched_pretherm(dims, beta, 100, telem, &start)
-            }
-        } else {
-            println!(
-                "  Dynamical 8⁴ β={beta} (N_f=4, m={mass}) [Titan V unavailable, CPU fallback]..."
-            );
-            cpu_quenched_pretherm(dims, beta, 100, telem, &start)
-        }
+    if npu_available {
+        println!("  Dynamical 8⁴ β={beta} (N_f=4, m={mass}) [NPU detected, warm-start]...");
     } else {
-        if npu_available {
-            println!("  Dynamical 8⁴ β={beta} (N_f=4, m={mass}) [NPU detected, warm-start]...");
-        } else {
-            println!("  Dynamical 8⁴ β={beta} (N_f=4, m={mass}) [warm-start + mass annealing]...");
-        }
-        cpu_quenched_pretherm(dims, beta, 100, telem, &start)
-    };
+        println!("  Dynamical 8⁴ β={beta} (N_f=4, m={mass}) [warm-start + mass annealing]...");
+    }
+    let mut lattice = cpu_quenched_pretherm(dims, beta, 100, telem, &start);
 
     // Step 2: Mass annealing with adaptive Omelyan HMC
     let schedule = MassAnnealingSchedule::default_for(mass);
@@ -611,6 +643,7 @@ fn paper_43_dynamical(
 
     harness.check_lower("p43_dyn_accept", warm.final_acceptance, 0.20);
     harness.check_lower("p43_dyn_plaquette", plaq, 0.3);
+    results.plaquettes.push(("dyn_8^4".to_string(), plaq));
 
     // Step 3: Gradient flow on the dynamical config
     let flow = run_flow(&mut lattice, FlowIntegrator::Lscfrk3w7, 0.01, 2.0, 5);
@@ -623,10 +656,12 @@ fn paper_43_dynamical(
     if let Some(w0) = find_w0(&flow) {
         println!("    w₀ = {w0:.4} (dynamical)");
         telem.log("p43_dyn", "w0", w0);
+        results.w0 = Some(w0);
     }
     if let Some(t0) = find_t0(&flow) {
         println!("    t₀ = {t0:.4} (dynamical)");
         telem.log("p43_dyn", "t0", t0);
+        results.t0 = Some(t0);
     }
 
     println!("    {:.1}s", start.elapsed().as_secs_f64());

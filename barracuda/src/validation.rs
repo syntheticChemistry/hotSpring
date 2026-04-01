@@ -28,6 +28,8 @@ pub struct Check {
     pub tolerance: f64,
     /// How the tolerance was applied (absolute, relative, percentage)
     pub mode: ToleranceMode,
+    /// GPU/substrate that produced this result (for cross-substrate comparison)
+    pub substrate: Option<String>,
 }
 
 /// How a tolerance threshold is applied.
@@ -58,13 +60,17 @@ impl std::fmt::Display for ToleranceMode {
 }
 
 /// Accumulates validation checks and produces a summary with exit code.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 #[must_use]
 pub struct ValidationHarness {
     /// Name of the validation binary
     pub name: String,
     /// All checks performed
     pub checks: Vec<Check>,
+    /// GPU adapter name (used in reports and comparison)
+    gpu_name: Option<String>,
+    /// Active substrate tag applied to subsequent checks
+    active_substrate: Option<String>,
 }
 
 impl ValidationHarness {
@@ -86,7 +92,30 @@ impl ValidationHarness {
         Self {
             name: name.to_string(),
             checks: Vec::new(),
+            gpu_name: None,
+            active_substrate: None,
         }
+    }
+
+    /// Record the GPU adapter name for this validation run.
+    pub fn set_gpu(&mut self, name: &str) {
+        self.gpu_name = Some(name.to_string());
+    }
+
+    /// GPU adapter name, if set.
+    #[must_use]
+    pub fn gpu_name(&self) -> Option<&str> {
+        self.gpu_name.as_deref()
+    }
+
+    /// Set the active substrate tag. All subsequent `check_*` calls carry it.
+    pub fn set_substrate(&mut self, name: &str) {
+        self.active_substrate = Some(name.to_string());
+    }
+
+    /// Clear the active substrate tag.
+    pub fn clear_substrate(&mut self) {
+        self.active_substrate = None;
     }
 
     /// Add an absolute tolerance check: |observed - expected| < tolerance
@@ -99,6 +128,7 @@ impl ValidationHarness {
             expected,
             tolerance,
             mode: ToleranceMode::Absolute,
+            substrate: self.active_substrate.clone(),
         });
     }
 
@@ -116,6 +146,7 @@ impl ValidationHarness {
             expected,
             tolerance,
             mode: ToleranceMode::Relative,
+            substrate: self.active_substrate.clone(),
         });
     }
 
@@ -128,6 +159,7 @@ impl ValidationHarness {
             expected: threshold,
             tolerance: threshold,
             mode: ToleranceMode::UpperBound,
+            substrate: self.active_substrate.clone(),
         });
     }
 
@@ -140,6 +172,7 @@ impl ValidationHarness {
             expected: threshold,
             tolerance: threshold,
             mode: ToleranceMode::LowerBound,
+            substrate: self.active_substrate.clone(),
         });
     }
 
@@ -163,6 +196,7 @@ impl ValidationHarness {
             expected,
             tolerance,
             mode: ToleranceMode::Absolute,
+            substrate: self.active_substrate.clone(),
         });
     }
 
@@ -175,6 +209,7 @@ impl ValidationHarness {
             expected: 1.0,
             tolerance: 0.0,
             mode: ToleranceMode::Absolute,
+            substrate: self.active_substrate.clone(),
         });
     }
 
@@ -297,6 +332,7 @@ impl ValidationHarness {
 pub struct TelemetryWriter {
     file: Option<std::io::BufWriter<std::fs::File>>,
     start: std::time::Instant,
+    substrate: Option<String>,
 }
 
 impl TelemetryWriter {
@@ -312,6 +348,7 @@ impl TelemetryWriter {
         Self {
             file,
             start: std::time::Instant::now(),
+            substrate: None,
         }
     }
 
@@ -332,6 +369,7 @@ impl TelemetryWriter {
         Self {
             file,
             start: std::time::Instant::now(),
+            substrate: None,
         }
     }
 
@@ -341,11 +379,20 @@ impl TelemetryWriter {
         Self {
             file: None,
             start: std::time::Instant::now(),
+            substrate: None,
         }
+    }
+
+    /// Tag all subsequent telemetry events with the GPU/substrate name.
+    #[must_use]
+    pub fn with_substrate(mut self, name: String) -> Self {
+        self.substrate = Some(name);
+        self
     }
 
     /// Log a telemetry event. Fields with NaN/Inf are written as null.
     pub fn log(&mut self, section: &str, observable: &str, value: f64) {
+        let sub = substrate_fragment(&self.substrate);
         let Some(ref mut f) = self.file else { return };
         let t = self.start.elapsed().as_secs_f64();
         let val = if value.is_finite() {
@@ -355,13 +402,14 @@ impl TelemetryWriter {
         };
         let _ = writeln!(
             f,
-            r#"{{"t":{t:.3},"section":"{section}","obs":"{observable}","val":{val}}}"#
+            r#"{{"t":{t:.3},"section":"{section}","obs":"{observable}","val":{val}{sub}}}"#
         );
         let _ = f.flush();
     }
 
     /// Log a telemetry event with multiple key-value pairs.
     pub fn log_map(&mut self, section: &str, fields: &[(&str, f64)]) {
+        let sub = substrate_fragment(&self.substrate);
         let Some(ref mut f) = self.file else { return };
         let t = self.start.elapsed().as_secs_f64();
         let pairs: Vec<String> = fields
@@ -377,10 +425,17 @@ impl TelemetryWriter {
             .collect();
         let _ = writeln!(
             f,
-            r#"{{"t":{t:.3},"section":"{section}",{}}}"#,
+            r#"{{"t":{t:.3},"section":"{section}",{}{sub}}}"#,
             pairs.join(",")
         );
         let _ = f.flush();
+    }
+}
+
+fn substrate_fragment(substrate: &Option<String>) -> String {
+    match substrate {
+        Some(s) => format!(r#","substrate":"{s}""#),
+        None => String::new(),
     }
 }
 

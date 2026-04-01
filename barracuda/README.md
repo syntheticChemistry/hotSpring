@@ -98,6 +98,34 @@ hotSpring implements physics locally (Rust + WGSL templates)
 | `tolerances/` | ~170 centralized thresholds | ~20 | — |
 | `bench/` | Benchmark harness (RAPL, nvidia-smi) | ~10 | — |
 
+### Hardware-Agnostic GPU Discovery
+
+Any GPU with SHADER_F64 or DF64 fallback is a science device at 14-digit precision.
+The overnight validation binary (`validate_chuna_overnight`) uses a four-phase pattern:
+
+1. **Discover** — `GpuF64::enumerate_adapters()` finds all GPUs, filters by f64 capability
+2. **Profile** — `PrecisionBrain::new()` probes each tier (F32/F64/DF64/F64Precise) for compilation, dispatch, transcendental safety, and ULP accuracy
+3. **Size** — `max_lattice_l()` derives workload dimensions from VRAM (`max_buffer_size`), so a 3050 with 8 GB runs 16^4, a 3090 with 24 GB runs 24^4+
+4. **Validate** — runs the full Paper 43/44/45 suite on each substrate with tagged telemetry, then cross-compares physics observables across GPUs
+
+```bash
+cargo run --release --bin validate_chuna_overnight              # auto-select best GPU
+cargo run --release --bin validate_chuna_overnight -- --all-gpus # validate every f64 GPU
+cargo run --release --bin validate_chuna_overnight -- --gpu 3090 # target specific GPU
+```
+
+`TelemetryWriter` and `ValidationHarness` support per-substrate tagging, so every
+JSONL event and JSON report records which GPU produced the result. When benchScale
+deploys this in a container with one GPU passed through, the binary discovers that
+GPU, profiles it, sizes workloads, validates — zero hardcoding.
+
+This is smart **single-substrate** usage, distinct from brain architecture
+(cross-substrate work-sharing, a metalForge concern).
+
+**Migration for other binaries:** The 48+ other `GpuF64::new()` binaries already
+work via env-driven discovery (`HOTSPRING_GPU_ADAPTER`). The discover-profile-size
+pattern in the overnight binary is the reference for multi-GPU + profiling adoption.
+
 ### Key Properties
 
 - **AGPL-3.0-or-later** on all `.rs` and `.wgsl` files
