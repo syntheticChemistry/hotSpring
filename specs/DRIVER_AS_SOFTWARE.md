@@ -106,8 +106,9 @@ Build: `hotSpring/scripts/build_nvidia_oracle.sh [VERSION]`
 
 ## Cross-Driver Comparison
 
-The comparison tool (`scripts/compare_snapshots.py`) diffs any two register snapshots and
-automatically flags ACR/falcon-relevant changes. This enables systematic analysis:
+The comparison tool (`coralctl snapshot diff <BDF>`, formerly `scripts/archive/compare_snapshots.py`)
+diffs any two register snapshots and automatically flags ACR/falcon-relevant changes. This
+enables systematic analysis:
 
 | Comparison | Reveals |
 |-----------|---------|

@@ -1,7 +1,7 @@
 # hotSpring Specifications
 
 **Last Updated**: March 30, 2026
-**Status**: Phase A-J complete — 4,065+ tests, 139 binaries, crate v0.6.32+, barraCuda v0.3.11, toadStool S168+, coralReef Phase 10 Iter 70c. **NVIDIA GPFIFO pipeline OPERATIONAL on RTX 3090.** **AMD scratch/local memory OPERATIONAL on RX 6950 XT** (Exp 124). 7/8 HW parity tests, 1672 coral unit tests. 125+ experiments, 99 WGSL shaders. Silicon saturation: TMU PRNG, subgroup reduce, ROP atomics. Self-routing PrecisionBrain (15-tier). Multi-backend dispatch (wgpu/Vulkan + coralReef sovereign + Kokkos reference).
+**Status**: Phase A-J complete — 4,065+ tests, 139 binaries, crate v0.6.32+, barraCuda v0.3.11, toadStool S168+, coralReef Phase 10 Iter 70i. **NVIDIA GPFIFO pipeline OPERATIONAL on RTX 3090.** **AMD scratch/local memory OPERATIONAL on RX 6950 XT** (Exp 124). 7/8 HW parity tests, 1672 coral unit tests. 131+ experiments, 99 WGSL shaders. Silicon saturation: TMU PRNG, subgroup reduce, ROP atomics. Self-routing PrecisionBrain (15-tier). Multi-backend dispatch (wgpu/Vulkan + coralReef sovereign + Kokkos reference). Ember/GlowPlug daemon-managed GPU lifecycle (Exp 131). Deep debt evolution complete — Python→Rust, virsh→virt, nvidia-smi→nvml, RegisterMap, LockedAlloc RAII.
 **Domain**: Computational plasma physics, nuclear structure, transport, lattice QCD, spectral theory, surrogate learning
 
 ---
@@ -41,8 +41,22 @@
 | [BIOMEGATE_BRAIN_ARCHITECTURE.md](BIOMEGATE_BRAIN_ARCHITECTURE.md) | Active | 4-substrate brain architecture: NPU steering, Nautilus Shell, concept edges |
 | [PRECISION_STABILITY_SPECIFICATION.md](PRECISION_STABILITY_SPECIFICATION.md) | Active | Numerical stability across f32/DF64/f64, GPU precision routing, cross-spring impact |
 | [MULTI_BACKEND_DISPATCH.md](MULTI_BACKEND_DISPATCH.md) | Active | Three-tier dispatch: wgpu/Vulkan (production), coralReef sovereign (long-term), Kokkos/LAMMPS (reference target). NVK discovery, gap analysis |
-| [SOVEREIGN_VALIDATION_MATRIX.md](SOVEREIGN_VALIDATION_MATRIX.md) | Active | Pipeline layer x dispatch path x hardware substrate validation matrix. Consolidates gap tracker, experiments 058-125, and DRM-from-both-sides strategy. |
+| [SOVEREIGN_VALIDATION_MATRIX.md](SOVEREIGN_VALIDATION_MATRIX.md) | Active | Pipeline layer x dispatch path x hardware substrate validation matrix. Consolidates gap tracker, experiments 058-131, and DRM-from-both-sides strategy. |
 | [COMPUTATIONAL_OMICS.md](COMPUTATIONAL_OMICS.md) | Active | Environmental genomics for sovereign hardware — register trace alignment, firmware motif search, subsystem phylogeny. Long-term compute trio evolution |
+
+### Sovereign GPU & Hardware
+
+| Spec | Status | Description |
+|------|--------|-------------|
+| [CORALREEF_DISPATCH_FRONTIER_HANDOFF.md](CORALREEF_DISPATCH_FRONTIER_HANDOFF.md) | Reference | Dispatch frontier handoff from coralReef — sovereign pipeline integration points |
+| [DRIVER_AS_SOFTWARE.md](DRIVER_AS_SOFTWARE.md) | Active | GPU driver as evolved software — ember/glowplug lifecycle, livepatch, warm handoff |
+| [FIRMWARE_LEARNING_MATRIX.md](FIRMWARE_LEARNING_MATRIX.md) | Active | Firmware learning matrix — ACR, SEC2, FECS, GPCCS, PMU subsystem knowledge map |
+| [GPU_CRACKING_GAP_TRACKER.md](GPU_CRACKING_GAP_TRACKER.md) | Superseded | Original gap tracker — consolidated into SOVEREIGN_VALIDATION_MATRIX.md |
+| [NATIVE_COMPUTE_ROADMAP.md](NATIVE_COMPUTE_ROADMAP.md) | Active | Native compute roadmap — coralReef sovereign dispatch evolution targets |
+| [SILICON_INVENTORY.md](SILICON_INVENTORY.md) | Active | Fleet hardware inventory — GPU/NPU/CPU specs, PCIe topology, IOMMU groups |
+| [SILICON_TIER_ROUTING.md](SILICON_TIER_ROUTING.md) | Active | 7-tier silicon routing spec — TMU, ROP, subgroup, shader core characterization |
+| [CROSS_SPRING_EVOLUTION.md](CROSS_SPRING_EVOLUTION.md) | Active | Cross-spring shader ecosystem evolution — 164+ shaders, Write→Absorb→Lean cycle |
+| [UNIVERSAL_DRIVER_REAGENT_ARCHITECTURE.md](UNIVERSAL_DRIVER_REAGENT_ARCHITECTURE.md) | Active | agentReagents + benchScale architecture for driver capture and analysis VMs |
 
 ### Existing Documentation (in parent directories)
 

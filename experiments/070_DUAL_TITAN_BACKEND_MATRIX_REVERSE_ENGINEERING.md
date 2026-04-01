@@ -1,5 +1,8 @@
 # Experiment 070: Dual-Titan Full Backend Matrix for Sovereign Reverse Engineering
 
+> **Fossil Record**: "Config Deployment" section uses `pkexec cp` — superseded by
+> `coralctl deploy-udev --config glowplug.toml` and `sudo systemctl restart coral-glowplug`.
+
 **Date**: March 18, 2026 (executed March 19, 2026)
 **Status**: EXECUTED — Phases 1–4 complete, pipeline gap identified
 **Hardware**: 2x Titan V (GV100, SM70) — `0000:03:00.0` (oracle), `0000:4a:00.0` (target)

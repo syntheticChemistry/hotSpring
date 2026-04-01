@@ -21,13 +21,22 @@ requiring forced power-off.
 | Script | Purpose | Safe? |
 |--------|---------|-------|
 | `build_nvidia_oracle.sh` | Build nvidia_oracle.ko from source | Yes (build only) |
-| `deploy_glowplug.sh` | Deploy GlowPlug systemd service | Yes |
-| `deploy_ember_first_time.sh` | First-time Ember setup | Yes |
 | `clone-repos.sh` | Clone project repositories | Yes |
-| `capture_multi_backend.sh` | Multi-backend register capture | Read-only |
-| `distill_oracle_recipe.sh` | Oracle recipe distillation | Read-only |
+| `distill_oracle_recipe.sh` | Oracle recipe distillation via toadStool hw-learn | Read-only |
 | `regenerate-all.sh` | Full project regeneration | Yes |
+| `run_reagent_capture.sh` | Run agentReagents capture VM | Yes (isolated VM) |
 | `boot/*.sh` | Boot-time setup scripts | Yes |
+
+All Python lab analysis scripts and the `titan_timing_attack.sh` experiment script
+have been archived — their functionality is now available via `coralctl` subcommands
+(see archive table below).
+
+### Deployment
+
+Deploy scripts (`deploy_glowplug.sh`, `deploy_ember_first_time.sh`, etc.) have been
+archived — deployment is now handled by `coralctl deploy` or the systemd service
+units shipped in the `coral-glowplug` crate (`coral-glowplug.service`,
+`coral-ember.service`).
 
 ## Archived Scripts (scripts/archive/) — Fossil Record
 
@@ -59,6 +68,14 @@ scripting to daemon-managed GPU lifecycle.
 | `capture_mmiotrace_oracle.sh` | `coralctl experiment sweep --trace` |
 | `exp084_b1b4_test.sh` | Absorbed into coral-driver test suite |
 | `exp089b_warm_swap_test.sh` | `coralctl warm-fecs <BDF>` |
+| `capture_multi_backend.sh` | `coralctl swap <BDF> <target> --trace` |
+| `titan_timing_attack.sh` | `coralctl warm-fecs <BDF>` (Exp 127 complete) |
+| `bar0_read.py` | `coralctl mmio read <BDF> <offset>` |
+| `parse_mmiotrace.py` | `coralctl trace-parse <file>` |
+| `replay_devinit.py` | `coralctl devinit replay <BDF>` |
+| `generate_titanv_recipe.py` | `coralctl trace-parse --recipe-json <file>` |
+| `extract_devinit.py` | `coralctl devinit replay <BDF>` |
+| `apply_recipe.py` | `coralctl oracle apply <BDF> <recipe>` |
 
 ## Adding New Scripts
 

@@ -1,5 +1,9 @@
 # Experiment 063: Sovereign Boot Driver Architecture
 
+> **Fossil Record**: Design realized as coral-glowplug (Exp 064-065, 069).
+> "Next Morning Checklist" below uses `pkexec`/`setup_dual_titanv.sh` — superseded
+> by `coralctl swap`, `coralctl deploy-udev`, and systemd services.
+
 **Date**: March 16, 2026
 **Status**: REALIZED — design evolved into coral-glowplug daemon (Exp 064-065, 069). Boot persistence, hot-swap, and graceful shutdown all implemented.
 **Hardware**: 2× Titan V (GV100), 2× Radeon MI50 (Vega 20) incoming

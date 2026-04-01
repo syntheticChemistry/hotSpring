@@ -46,7 +46,7 @@ fi
 
 if [ "$BINDING_OK" = false ]; then
     echo ""
-    echo "Driver bindings incorrect. Run setup_dual_titanv.sh manually, or check boot config."
+    echo "Driver bindings incorrect. Check boot config or use: coralctl swap <BDF> vfio"
     echo "Continuing anyway for diagnostic value..."
 fi
 

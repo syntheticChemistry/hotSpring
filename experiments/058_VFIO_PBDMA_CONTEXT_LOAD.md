@@ -1,5 +1,8 @@
 # Experiment 058: VFIO PBDMA Context Load on Volta (GV100)
 
+> **Fossil Record**: Script references (`warm_and_test.sh`, `capture_nouveau_mmiotrace.sh`)
+> are archived. Modern equivalents: `coralctl warm-fecs <BDF>`, `coralctl swap <BDF> nouveau --trace`.
+
 **Date**: March 13-14, 2026
 **Hardware**: Titan V (GV100, SM70) at `0000:4b:00.0` on `vfio-pci`
 **Software**: coralReef Phase 10, Iteration 44+, `coral-driver` crate

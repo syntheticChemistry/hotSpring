@@ -56,9 +56,12 @@ udevadm control --reload-rules 2>/dev/null || true
 udevadm trigger 2>/dev/null || true
 
 # Step 6: Update kernel cmdline vfio-pci.ids (Pop!_OS kernelstub)
-# K80 (10de:102d) included — both dies boot cold on vfio-pci
+# Only Titan V needs cmdline protection — nvidia-open corrupts Volta HBM2 on
+# failed probe. K80 (10de:102d) is NOT listed here because ember manages it
+# via driver_override at runtime (see coralreef-dual-titanv.conf lines 24-38
+# and 99-coralreef-vfio.rules header).
 echo "[6] Updating kernel cmdline vfio-pci.ids..."
-VFIO_IDS="10de:1d81,10de:10f2,10de:102d"
+VFIO_IDS="10de:1d81,10de:10f2"
 if command -v kernelstub >/dev/null 2>&1; then
     CURRENT_IDS=$(grep -oP 'vfio-pci\.ids=\K[^ ]+' /proc/cmdline 2>/dev/null || echo "")
     if [ "$CURRENT_IDS" != "$VFIO_IDS" ]; then

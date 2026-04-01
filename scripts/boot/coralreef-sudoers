@@ -62,7 +62,7 @@ biomegate ALL=(root) NOPASSWD: /usr/bin/systemctl status coral-glowplug
 biomegate ALL=(root) NOPASSWD: /usr/bin/systemctl daemon-reload
 
 # ── Cargo test execution ──
-biomegate ALL=(root) NOPASSWD: SETENV: /home/biomegate/Development/ecoPrimals/springs/hotSpring/scripts/sudo-cargo-test.sh *
+biomegate ALL=(root) NOPASSWD: SETENV: /home/biomegate/Development/ecoPrimals/springs/hotSpring/scripts/archive/sudo-cargo-test.sh *
 
 # ── coralReef binaries (daemon and CLI, debug + release) ──
 biomegate ALL=(root) NOPASSWD: /home/biomegate/Development/ecoPrimals/primals/coralReef/target/release/coral-glowplug *
@@ -102,13 +102,15 @@ biomegate ALL=(root) NOPASSWD: /usr/bin/pkill -f coral-glowplug
 biomegate ALL=(root) NOPASSWD: /usr/bin/pkill -9 -f coral-ember
 biomegate ALL=(root) NOPASSWD: /usr/bin/pkill -9 -f coral-glowplug
 
-# ── Deploy scripts (any script in hotSpring/scripts/) ──
-biomegate ALL=(root) NOPASSWD: /home/biomegate/Development/ecoPrimals/springs/hotSpring/scripts/setup_dual_titanv.sh
+# ── Deploy scripts ──
+# Active boot-time config installer:
 biomegate ALL=(root) NOPASSWD: /home/biomegate/Development/ecoPrimals/springs/hotSpring/scripts/boot/install-boot-config.sh
-biomegate ALL=(root) NOPASSWD: /home/biomegate/Development/ecoPrimals/springs/hotSpring/scripts/deploy_glowplug.sh
-biomegate ALL=(root) NOPASSWD: /home/biomegate/Development/ecoPrimals/springs/hotSpring/scripts/deploy_ember_update.sh
-biomegate ALL=(root) NOPASSWD: /home/biomegate/Development/ecoPrimals/springs/hotSpring/scripts/deploy_livepatch_v2.sh
-biomegate ALL=(root) NOPASSWD: /home/biomegate/Development/ecoPrimals/springs/hotSpring/scripts/deploy_warm_handoff_config.sh
+# Archived deploy scripts (paths preserved for backward compat):
+biomegate ALL=(root) NOPASSWD: /home/biomegate/Development/ecoPrimals/springs/hotSpring/scripts/archive/setup_dual_titanv.sh
+biomegate ALL=(root) NOPASSWD: /home/biomegate/Development/ecoPrimals/springs/hotSpring/scripts/archive/deploy_glowplug.sh
+biomegate ALL=(root) NOPASSWD: /home/biomegate/Development/ecoPrimals/springs/hotSpring/scripts/archive/deploy_ember_update.sh
+biomegate ALL=(root) NOPASSWD: /home/biomegate/Development/ecoPrimals/springs/hotSpring/scripts/archive/deploy_livepatch_v2.sh
+biomegate ALL=(root) NOPASSWD: /home/biomegate/Development/ecoPrimals/springs/hotSpring/scripts/archive/deploy_warm_handoff_config.sh
 
 # ── System diagnostics ──
 biomegate ALL=(root) NOPASSWD: /usr/bin/lspci *

@@ -4,7 +4,7 @@
 > experiments, validation suites, and benchmark data. For project overview, see [README.md](README.md).
 > Experiments 001-057 archived to `experiments/archive/` — completed physics and benchmark work, results absorbed into baseCamp.
 
-**128+ experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **AGPL-3.0-only**
+**131+ experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **AGPL-3.0-only**
 
 ---
 
@@ -162,7 +162,9 @@
 | **DRM Proprietary Tracing Matrix** (Exp 126) | 🔄 Active | biomeGate: map all non-VFIO dispatch paths for Titan V (DRM+proprietary dual-use) |
 | **Warm FECS Dispatch Attack** (Exp 127) | ✅ Complete | biomeGate: FECS firmware preserved in IMEM but cannot be woken from HS+ halt state |
 | **GPU Puzzle Box Matrix** (Exp 128) | 🔄 Active | biomeGate: multi-path sovereign compute matrix — firmware interface approach |
-| **TOTAL** | **39/39 Rust validation suites** | **870 tests (lib)**, 139 binaries, 99 WGSL shaders. Zero clippy, zero unsafe, AGPL-3.0-only. **Science ladder:** Quenched → Gradient Flow → Integrators → N_f=4 Infra → Chuna 44/44 → N_f=2 → N_f=2+1 → Self-tuning → Silicon saturation → 16⁴+ production. 128+ experiments. Experiments 001-057 archived to `experiments/archive/` (completed physics validation, absorbed into baseCamp). |
+| **No-FLR Recovery & PRI Ring Lessons** (Exp 130) | ✅ Complete | biomeGate: K80 GK210 PRI ring diagnostics, cold GPU detection, PMU/FECS falcon state analysis |
+| **Reset Architecture Evolution** (Exp 131) | ✅ Complete | biomeGate: warm_fecs.rs → device.warm_handoff RPC, livepatch into ember, orphan cleanup |
+| **TOTAL** | **39/39 Rust validation suites** | **870 tests (lib)**, 139 binaries, 99 WGSL shaders. Zero clippy, zero unsafe, AGPL-3.0-only. **Science ladder:** Quenched → Gradient Flow → Integrators → N_f=4 Infra → Chuna 44/44 → N_f=2 → N_f=2+1 → Self-tuning → Silicon saturation → 16⁴+ production. 130+ experiments. Experiments 001-057 archived to `experiments/archive/` (completed physics validation, absorbed into baseCamp). |
 
 ---
 

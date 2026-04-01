@@ -1,10 +1,14 @@
 #!/bin/bash
-# Titan V Timing Attack — FECS warm handoff via nouveau with rapid polling.
+# Titan V Timing Attack — FECS warm handoff via nouveau with rapid BAR0 polling.
 #
-# 1. Swap to nouveau (loads ACR → FECS firmware)
-# 2. Poll FECS CPUCTL via BAR0 mmap every 100ms
-# 3. As soon as FECS is running (not halted/stopped), enable livepatch and swap to vfio
-# 4. Check post-swap FECS state
+# Research script: supplements `coralctl warm-fecs` with 100ms BAR0 CPUCTL
+# polling during nouveau load to capture the exact FECS boot moment.
+#
+# All driver transitions go through coralctl (ember). Livepatch is managed
+# by the warm-fecs flow automatically. Direct sysfs writes are prohibited
+# per scripts/README.md safety policy.
+#
+# For production warm-fecs, use: coralctl warm-fecs <BDF>
 set -euo pipefail
 
 BDF="${1:-0000:03:00.0}"
@@ -16,18 +20,13 @@ echo "=== Titan V Timing Attack ==="
 echo "BDF: ${BDF}"
 echo ""
 
-# Step 0: Disable livepatch before nouveau load
-echo "step 0: disabling livepatch for clean nouveau init..."
-echo 0 > /sys/kernel/livepatch/livepatch_nvkm_mc_reset/enabled 2>/dev/null || true
-sleep 2
-# Wait for livepatch transition to complete
-for i in $(seq 1 10); do
-    if [ "$(cat /sys/kernel/livepatch/livepatch_nvkm_mc_reset/transition 2>/dev/null)" = "0" ] 2>/dev/null; then
-        break
-    fi
-    sleep 1
-done
-echo "  livepatch disabled"
+# Step 0: Pre-swap state capture
+echo "step 0: checking ember/glowplug connectivity..."
+coralctl --socket "${SOCKET}" status >/dev/null 2>&1 || {
+    echo "ERROR: glowplug not running. Start with: sudo systemctl start coral-glowplug"
+    exit 1
+}
+echo "  glowplug connected"
 
 # Capture pre-swap state
 echo ""
@@ -84,30 +83,19 @@ if ! ${CAUGHT_RUNNING}; then
     echo "  FECS never caught running. Final CPUCTL=${CPUCTL_FINAL}"
 fi
 
-# Step 3: Enable livepatch (freeze teardown)
+# Step 3: Swap to vfio via coralctl (ember handles livepatch automatically
+# when warm_handoff is used; for manual swap we enable it explicitly)
 echo ""
-echo "step 3: enabling livepatch..."
-modprobe livepatch_nvkm_mc_reset 2>/dev/null || true
-echo 1 > /sys/kernel/livepatch/livepatch_nvkm_mc_reset/enabled 2>/dev/null || true
-sleep 1
-LP_ENABLED=$(cat /sys/kernel/livepatch/livepatch_nvkm_mc_reset/enabled 2>/dev/null || echo "?")
-echo "  livepatch enabled: ${LP_ENABLED}"
-
-# Step 4: Swap to vfio
-echo ""
-echo "step 4: swapping ${BDF} -> vfio..."
+echo "step 3: swapping ${BDF} -> vfio via coralctl..."
 coralctl --socket "${SOCKET}" swap "${BDF}" vfio 2>&1 || {
-    echo "  swap failed — trying manual recovery"
-    /usr/local/bin/coralreef-sysfs-write "/sys/bus/pci/devices/${BDF}/driver_override" vfio-pci 2>/dev/null || true
-    /usr/local/bin/coralreef-sysfs-write "/sys/bus/pci/devices/${BDF}/driver/unbind" "${BDF}" 2>/dev/null || true
-    sleep 2
-    /usr/local/bin/coralreef-sysfs-write "/sys/bus/pci/drivers/vfio-pci/bind" "${BDF}" 2>/dev/null || true
-    echo "  manual recovery attempted"
+    echo "  ERROR: swap to vfio failed. Check: coralctl --socket ${SOCKET} status"
+    echo "  Do NOT attempt manual sysfs recovery (D-state risk)."
+    exit 1
 }
 
-# Step 5: Post-swap FECS state
+# Step 4: Post-swap FECS state
 echo ""
-echo "step 5: post-swap FECS state..."
+echo "step 4: post-swap FECS state..."
 sleep 1
 FECS_POST=$(${BAR0_READ} "${BDF}" 0x409100 2>/dev/null || echo "0xDEADDEAD")
 SCTL_POST=$(${BAR0_READ} "${BDF}" 0x409240 2>/dev/null || echo "0xDEADDEAD")

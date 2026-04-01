@@ -34,9 +34,9 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 
 ## Current Status (2026-03-30)
 
-> **128 experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **870 lib tests, 139 binaries, 99 WGSL shaders** | **NVIDIA GPFIFO pipeline OPERATIONAL on RTX 3090** | **AMD scratch/local memory OPERATIONAL on RX 6950 XT** | **AMD sovereign compiler: 24/24 QCD shaders compile to native GFX ISA** | **Silicon saturation profiling: 7-tier routing, TMU PRNG, subgroup reduce, ROP atomics**
+> **131+ experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **870 lib tests, 139 binaries, 99 WGSL shaders** | **NVIDIA GPFIFO pipeline OPERATIONAL on RTX 3090** | **AMD scratch/local memory OPERATIONAL on RX 6950 XT** | **AMD sovereign compiler: 24/24 QCD shaders compile to native GFX ISA** | **Silicon saturation profiling: 7-tier routing, TMU PRNG, subgroup reduce, ROP atomics**
 >
-> **Sovereign GPU Pipeline (Exp 110-128, 2026-03-30):** FECS firmware survives the nouveau→vfio-pci driver swap via kernel livepatch (Exp 125). Warm handoff orchestration wired into `ember`/`glowplug` as first-class RPC operations — `ember.livepatch.*`, `ember.fecs.state`, `ember.mmio.read`, `device.warm_handoff` — replacing all shell-scripted GPU control with a programmable daemon interface (coralReef Iter 70d). K80 direct PIO boot validated (Exp 123). WPR2 root cause definitive (Exp 122). 10.5/11 sovereign layers on Volta. Puzzle Box Matrix (Exp 128) implements parallel solution tracks across K80 (Kepler, unsigned) and Titan V (Volta, HS+ signed). **Fleet:** 2x Titan V + RTX 5070 + K80.
+> **Sovereign GPU Pipeline (Exp 110-131, 2026-03-30):** FECS firmware survives the nouveau→vfio-pci driver swap via kernel livepatch (Exp 125). Warm handoff orchestration wired into `ember`/`glowplug` as first-class RPC operations — `ember.livepatch.*`, `ember.fecs.state`, `ember.mmio.read`, `device.warm_handoff` — replacing all shell-scripted GPU control with a programmable daemon interface (coralReef Iter 70d). K80 direct PIO boot validated (Exp 123). WPR2 root cause definitive (Exp 122). 10.5/11 sovereign layers on Volta. Puzzle Box Matrix (Exp 128) implements parallel solution tracks across K80 (Kepler, unsigned) and Titan V (Volta, HS+ signed). **Fleet:** 2x Titan V + RTX 5070 + K80.
 >
 > **NVIDIA Sovereign Compute Breakthrough (2026-03-30):** RTX 3090 GPFIFO command submission pipeline **fully operational** through coralReef's sovereign driver. Key fixes via `ioctl` interception of CUDA: `NV906F_CTRL_CMD_BIND`, TSG scheduling, `GET_WORK_SUBMIT_TOKEN` via Volta class (0xC36F), VRAM USERD, 48-byte RM_ALLOC on 580.x GSP-RM.
 >
@@ -61,7 +61,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **Self-Tuning RHMC** | ✅ Complete | Zero hand-tuned parameters — spectral + acceptance-driven |
 | **Spectral Theory** (Kachkovskiy) | ✅ 45/45 | Anderson 1D/2D/3D, Hofstadter, GPU Lanczos |
 | **NPU** (AKD1000 hardware) | ✅ 34/35 | 10 SDK assumptions overturned, physics pipeline, phase detection |
-| **Sovereign GPU** (coralReef) | ✅ GPFIFO + AMD scratch | RTX 3090 pipeline, AMD scratch/local f64 PASS, K80 direct boot, livepatch + warm handoff wired into ember/glowplug |
+| **Sovereign GPU** (coralReef) | ✅ GPFIFO + AMD scratch | RTX 3090 pipeline, AMD scratch/local f64 PASS, K80 direct boot, livepatch + warm handoff wired into ember/glowplug, deep debt evolution (Exp 130-131) |
 | **Silicon Characterization** | ✅ Complete | TMU, ROP, L2, shader cores — AMD vs NVIDIA personalities |
 | **Silicon Saturation Profiling** | ✅ Complete | TMU PRNG, subgroup reduce, ROP atomics, capacity analysis |
 | **Chuna Papers 43-45** | ✅ **44/44** | Gradient flow + BGK dielectric + kinetic-fluid coupling |
@@ -297,12 +297,12 @@ hotSpring/
 │   ├── CHANGELOG.md                   # Version history
 │   └── src/bin/                       # 129 binaries (validation, production, benchmarks)
 │
-├── experiments/                        # 128 experiment journals (fossil record); 001-057 archived under experiments/archive/
+├── experiments/                        # 131+ experiment journals (fossil record); 001-057 archived under experiments/archive/
 │   ├── archive/                        # experiments 001-057 (archived journals)
 │   ├── 058-069: Precision, sovereign GPU cracking, GlowPlug, falcon boot
 │   ├── 070-095: Backend matrix, MMU, WPR, sysmem HS mode breakthrough
 │   ├── 096-103: Silicon characterization, GPU RHMC, gradient flow, self-tuning
-│   └── 110-128: Consolidation, WPR2, K80 sovereign, VM capture, livepatch, warm handoff, puzzle box matrix
+│   └── 110-131: Consolidation, WPR2, K80 sovereign, VM capture, livepatch, warm handoff, puzzle box matrix, reset architecture
 │
 ├── specs/                              # Specifications, requirements, gap trackers
 ├── control/                            # Python control scripts (by domain)
@@ -337,7 +337,7 @@ a network service, you must make your source available under the same terms.
 
 ---
 
-*128 experiments, 870 tests, 139 binaries, 99 WGSL shaders, ~$0.30 total science cost.
+*131+ experiments, 870 tests, 139 binaries, 99 WGSL shaders, ~$0.30 total science cost.
 Consumer GPUs reproduce HPC physics at paper parity. DF64 delivers 3.24 TFLOPS at
 14-digit precision. GPU RHMC runs all-flavors dynamical QCD (Nf=2+1). Self-tuning
 RHMC eliminates hand-tuned parameters. Chuna 44/44 checks pass. K80 validates the
