@@ -1,10 +1,11 @@
 # hotSpring — Experiment & Validation Index
 
-> Updated March 30, 2026. This is the authoritative ledger of all
+> Updated April 2, 2026. This is the authoritative ledger of all
 > experiments, validation suites, and benchmark data. For project overview, see [README.md](README.md).
 > Experiments 001-057 archived to `experiments/archive/` — completed physics and benchmark work, results absorbed into baseCamp.
+> Note: Experiments 096-105 have dual-numbered IDs (physics + sovereign GPU tracks ran in parallel). Filenames are self-descriptive. Exp 136b disambiguated from 136.
 
-**131+ experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **AGPL-3.0-only**
+**141+ experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **AGPL-3.0-only**
 
 ---
 
@@ -164,7 +165,17 @@
 | **GPU Puzzle Box Matrix** (Exp 128) | 🔄 Active | biomeGate: multi-path sovereign compute matrix — firmware interface approach |
 | **No-FLR Recovery & PRI Ring Lessons** (Exp 130) | ✅ Complete | biomeGate: K80 GK210 PRI ring diagnostics, cold GPU detection, PMU/FECS falcon state analysis |
 | **Reset Architecture Evolution** (Exp 131) | ✅ Complete | biomeGate: warm_fecs.rs → device.warm_handoff RPC, livepatch into ember, orphan cleanup |
-| **TOTAL** | **39/39 Rust validation suites** | **870 tests (lib)**, 139 binaries, 99 WGSL shaders. Zero clippy, zero unsafe, AGPL-3.0-only. **Science ladder:** Quenched → Gradient Flow → Integrators → N_f=4 Infra → Chuna 44/44 → N_f=2 → N_f=2+1 → Self-tuning → Silicon saturation → 16⁴+ production. 130+ experiments. Experiments 001-057 archived to `experiments/archive/` (completed physics validation, absorbed into baseCamp). |
+| **Ember Frozen Warm Dispatch** (Exp 132) | ✅ Implemented | biomeGate: diesel engine pattern — glowplug orchestrates swap, ember keeps VFIO fds alive, `mmio.write` for active intervention, STOP_CTXSW freezes FECS scheduling |
+| **Kepler Sovereign Compute** (Exp 133) | ✅ Implemented | biomeGate: K80 (GK210) Kepler-specific QMD v1.7, push buffer methods from `cla1c0.h`, architecture-aware dispatch branching |
+| **K80 Sovereign Cold Boot Pipeline** (Exp 134) | ✅ Implemented | biomeGate: single-command cold boot (`coralctl cold-boot <BDF> --recipe <path>`) — D3cold→FECS-running without any vendor driver |
+| **Dual GPU Sovereign Boot Attempt** (Exp 135) | ✅ Complete | biomeGate: K80 needs VBIOS POST (memory training), Titan V SEC2 ROM rejects ACR — PMU/WPR chain required. FECS PIO upload works on K80 but PGRAPH CTXSW domain PRI-faults above 0x409504 |
+| **Dual GPU Sovereign Boot Iteration** (Exp 136) | ✅ Complete | biomeGate: both GPUs hit known barriers. SEC2 DMA path analysis + FBHUB/FBPA discovery. FBIF locked in VIRT mode by HS+ |
+| **SEC2 DMA Reconstruction** (Exp 137) | ✅ Complete | biomeGate: BOOTSTRAP_FALCON failure root cause confirmed, SEC2 communication protocol identified |
+| **D-State Root Cause & Rewire Plan** (Exp 138) | ✅ Complete | biomeGate: D-state root cause traced, ember/glowplug rewire for resilient VFIO control |
+| **Sovereign Dispatch ACR Lockdown** (Exp 139) | 🔴 Blocked | biomeGate: Titan V ACR lockdown confirmed, K80 cold/needs POST. FBIF locked in VIRT mode by HS+ |
+| **Uncrashable GPU Safety Architecture** (Exp 140) | ✅ Validated | biomeGate: D-state resilience, timeout-guarded sysfs writes, ember process isolation |
+| **ACR HS Auth Root Cause** (Exp 141) | ✅ Complete | biomeGate: **ROOT CAUSE** — missing VBIOS DEVINIT. SEC2 crypto engine uninitialized after SBR. DMA path fully fixed (sysmem PTEs, FBIF VIRT, DMEM repair). 0x2d78 auth loop = hardware not POST-initialized |
+| **TOTAL** | **39/39 Rust validation suites** | **870 tests (lib)**, 139 binaries, 99 WGSL shaders. Zero clippy, zero unsafe, AGPL-3.0-only. **Science ladder:** Quenched → Gradient Flow → Integrators → N_f=4 Infra → Chuna 44/44 → N_f=2 → N_f=2+1 → Self-tuning → Silicon saturation → 16⁴+ production. 141+ experiments. Experiments 001-057 archived to `experiments/archive/` (completed physics validation, absorbed into baseCamp). |
 
 ---
 

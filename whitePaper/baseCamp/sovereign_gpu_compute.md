@@ -1,8 +1,8 @@
 # baseCamp: Sovereign GPU Compute — GlowPlug & Falcon Boot Chain
 
-**Date:** 2026-03-25 (updated 2026-03-30 — Exp 125–128 livepatch, warm handoff wiring, puzzle box matrix)  
-**Domain:** Hardware — PCIe GPU lifecycle, falcon microcontrollers, HBM2 management, PFIFO command submission, ACR secure boot, WPR construction, cross-driver profiling, daemon RPC orchestration, adaptive experiment loop, sysmem DMA, GV100 MMU v2 page tables, WPR2 hardware protection, Kepler PIO falcon loading  
-**Experiments:** 060-128  
+**Date:** 2026-03-25 (updated 2026-04-02 — Exp 132–141 dual GPU sovereign boot, D-state safety, ACR HS auth root cause)  
+**Domain:** Hardware — PCIe GPU lifecycle, falcon microcontrollers, HBM2 management, PFIFO command submission, ACR secure boot, WPR construction, cross-driver profiling, daemon RPC orchestration, adaptive experiment loop, sysmem DMA, GV100 MMU v2 page tables, WPR2 hardware protection, Kepler PIO falcon loading, VBIOS DEVINIT  
+**Experiments:** 060-141  
 **Hardware:** 2× NVIDIA Titan V (GV100, 12GB HBM2), RTX 5070 (GB206, Blackwell, display/validator), Tesla K80 (GK210, Kepler)
 
 ---
@@ -954,3 +954,87 @@ All GPU lifecycle control operations moved from shell scripts and `coralctl` int
 | `device.warm_handoff` | Full orchestrated warm handoff (livepatch → swap → settle → poll FECS → swap back) |
 
 Architectural wins: FECS register constants shared from `coral-driver::nv::bar0`, hex parsing consolidated into `coral-driver::parse_hex_u32`, `Bar0Access` DRY'd via `mmap_file` helper, `enrich_fecs_via_ember` uses typed booleans from the JSON response. 808 tests pass across all three crates.
+
+---
+
+## April 2, 2026 — Dual GPU Sovereign Boot + ACR Root Cause (Exp 132-141)
+
+### Phase 12: Ember Diesel Engine + Kepler Compute (Exp 132-134)
+
+**Exp 132 (Ember Frozen Warm Dispatch):** Evolved warm handoff to "diesel engine" pattern — glowplug orchestrates driver swap, ember holds VFIO fds and provides active intervention via `mmio.write`. STOP_CTXSW freezes FECS scheduling during swap. Accepts that PFIFO is destroyed by nouveau teardown and rebuilds it while FECS is frozen.
+
+**Exp 133 (Kepler Sovereign Compute):** Correct Kepler compute dispatch path: QMD v1.7 (`cla1c0qmd.h`), Kepler-specific push buffer methods, `SEND_PCAS_A` at 0x02B4 (not Volta's 0x0D00), `SET_PROGRAM_REGION_A/B` for code address. Architecture-aware dispatch branching in `coral-driver`.
+
+**Exp 134 (K80 Cold Boot Pipeline):** Single-command sovereign cold boot wired into `coralctl cold-boot <BDF> --recipe <path>` — D3cold→FECS-running without any vendor driver involvement.
+
+### Phase 13: Dual GPU Sovereign Boot (Exp 135-136)
+
+Both GPUs booted in parallel. Both hit fundamental barriers:
+
+| GPU | What Worked | Blocker |
+|-----|-------------|---------|
+| **K80** (GK210) | Clock init (258 regs), DEVINIT (315 regs), FECS PIO upload, falcon running (CPUCTL=0x00) | PGRAPH CTXSW domain PRI-faults above 0x409504. VBIOS POST (memory training) required |
+| **Titan V** (GV100) | SEC2 engine reset, ACR BL execution, DMA enabled | ACR HS authentication loop at PC 0x2d78 — never completes |
+
+### Phase 14: SEC2 DMA Deep Dive (Exp 136-139)
+
+Six progressive discoveries resolved all DMA issues:
+
+| Discovery | Impact |
+|-----------|--------|
+| **FBIF locked in VIRT mode** | HS+ boot ROM sets FBIF_TRANSCFG=0x0100 for all DMA indices. Host writes blocked. Falcon always uses virtual addressing |
+| **System memory page tables** | PT0 pages 384-389 rewritten as SYS_MEM_COH PTEs → ACR payload. New PT1 at VRAM 0x16000 → WPR buffer. All via PRAMIN |
+| **ctx_dma = VIRT** | BL uses falcon MMU → our patched PTEs → IOMMU → system memory. PHYS_SYS_COH was wrong |
+| **DMEM repair** | BL descriptor (84B) overwrites data_section[0..84] at DMEM@0. Repair after BL reads descriptor |
+| **No warm-up STARTCPU** | `falcon_engine_reset` includes PMC reset → boot ROM = priming. Extra STARTCPU re-locks FBIF |
+| **IOMMU clean** | No faults at ACR/WPR DMA addresses — DMA succeeds or is not attempted |
+
+### Phase 15: Uncrashable GPU Safety Architecture (Exp 138, 140)
+
+D-state root cause: sysfs writes to GPU power/driver files can enter uninterruptible kernel sleep if the GPU is in a bad state. Ember/glowplug rewired:
+
+- **Timeout-guarded sysfs writes** via child process isolation (existing `guarded_sysfs_write`)
+- **Pre-flight GPU health checks** before risky operations
+- **Process isolation** — D-state child is killed without blocking daemon
+- **Validated**: GPU access operations cannot crash the host
+
+### Phase 16: ACR HS Authentication Root Cause (Exp 141)
+
+**ROOT CAUSE IDENTIFIED: Missing VBIOS DEVINIT**
+
+The ACR Boot Loader executes, loads ACR code, and enters the HS authentication loop at PC 0x2d78 — but authentication never completes. After fixing all DMA/page-table issues, the persistent loop was traced to uninitialized security hardware:
+
+1. **Recipe source**: Captured from nouveau's init (AFTER VBIOS POST)
+2. **Missing**: The VBIOS DEVINIT scripts that run BEFORE nouveau
+3. **VBIOS DEVINIT configures**: ROOT_PLL, NVPLL, MEMPLL, power sequencing, crypto engine, fuse access, memory controller calibration, clock domain routing
+4. **Without it**: SEC2 crypto engine cannot verify HS signatures → auth loop retries and fails silently
+
+**Evidence chain:**
+- Strategy 12 (direct IMEM, DMA disabled): mb0=0x36 — ACR runs correctly but WPR read fails (no DMA)
+- Strategy 7c (BL + DMA): mb0=0x00 — ACR passes WPR check (DMA works) but HS authentication fails
+- IOMMU: no faults at DMA addresses — the DMA path is correct
+- The loop is consistent across ALL DMA-enabled strategies → hardware-level issue, not software
+
+### Updated Sovereign Pipeline Layer Status (April 2, 2026)
+
+| Layer | Component | Status |
+|-------|-----------|--------|
+| 0 | PCIe / VFIO | ✅ BAR0 MMIO, DMA buffers, IOMMU (iommufd/cdev) |
+| 1 | PFB / MMU | ✅ Alive via warm-state transfer from nouveau |
+| 2 | PFIFO Engine | ✅ Re-initialized |
+| 3 | Scheduler | ✅ Processes runlists |
+| 4 | Channel | ✅ Accepted by scheduler |
+| 5 | PBDMA Context | ✅ Loaded correctly |
+| 6 | MMU Translation | ✅ Volta FBHUB fault buffer config |
+| 7 | SEC2 Falcon Binding + DMA | ✅ bind_stat=5, DMA active, sysmem PTEs |
+| 8 | WPR/ACR Payload | ✅ WPR format correct, ACR firmware alive |
+| 9 | ACR DMA + Page Tables | ✅ PDE slot fix, FBIF VIRT mode, falcon MMU routing |
+| 10 | HS Authentication | 🔴 **BLOCKED** — missing VBIOS DEVINIT (crypto engine uninitialized) |
+| 11 | GR Context Init + Shader Dispatch | 🔓 Unblocked when L10 achieved |
+
+### Next Steps
+
+1. **VBIOS Script Execution**: The codebase has a VBIOS script interpreter at `devinit/script/interpreter.rs`. Execute BIT 'I' init scripts from the Titan V's VBIOS ROM before ACR boot
+2. **SEC2 PMC bit**: Find correct bit via PTOP register scan (fallback bit 22 may be wrong)
+3. **No-SBR test**: Skip SBR reset, use GPU in VBIOS-POSTed state — confirms the hypothesis
+4. **K80**: Resolve PGRAPH CTXSW domain PRI-faults (likely needs GR engine enable via PMC)

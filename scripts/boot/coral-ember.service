@@ -14,7 +14,12 @@ ExecStart=/usr/local/bin/coral-ember /etc/coralreef/glowplug.toml
 # will occur. Only a cold reboot can recover. The ember must never crash.
 Restart=no
 TimeoutStartSec=30
-TimeoutStopSec=3
+# Exp 140: Graceful shutdown via IPC before SIGTERM. ExecStop drains all
+# held VFIO devices using guarded close (thread-isolated with 10s timeout
+# per device). This prevents D-state when GPUs are in degraded BAR0 state
+# from prior experiments. SIGTERM is the fallback if IPC shutdown fails.
+ExecStop=/usr/local/bin/coralctl shutdown
+TimeoutStopSec=30
 KillMode=mixed
 KillSignal=SIGTERM
 FinalKillSignal=SIGKILL
@@ -24,14 +29,14 @@ SupplementaryGroups=coralreef
 UMask=0117
 RuntimeDirectory=coralreef
 RuntimeDirectoryMode=0750
-ExecStartPost=/bin/chgrp coralreef /run/coralreef
+ExecStartPost=/bin/sh -c 'chgrp coralreef /run/coralreef && mkdir -p /run/coralreef/staging && chgrp coralreef /run/coralreef/staging && chmod 770 /run/coralreef/staging'
 
 CapabilityBoundingSet=CAP_SYS_ADMIN CAP_SYS_RAWIO CAP_DAC_OVERRIDE CAP_SYS_MODULE
 AmbientCapabilities=CAP_SYS_ADMIN CAP_SYS_RAWIO CAP_DAC_OVERRIDE CAP_SYS_MODULE
 NoNewPrivileges=true
 
 ProtectSystem=strict
-ReadWritePaths=/sys/bus/pci /sys/kernel/iommu_groups /run/coralreef /proc /sys/kernel/debug/tracing /var/lib/coralreef
+ReadWritePaths=/sys/bus/pci /sys/kernel/iommu_groups /run/coralreef /proc /sys/kernel/debug/tracing /var/lib/coralreef /usr/local/bin
 ReadOnlyPaths=/lib/modules /etc/modprobe.d /lib/modprobe.d
 PrivateTmp=true
 ProtectHome=true

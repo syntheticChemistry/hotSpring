@@ -36,17 +36,15 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 
 ## Current Status (2026-04-03)
 
-> **131+ experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **870 lib tests, 139 binaries, 99 WGSL shaders** | **guideStone artifact: 59/59 checks x 5 substrates (x86_64 + aarch64)** | **OCI container image + Windows/macOS launchers** | **NVIDIA GPFIFO pipeline OPERATIONAL on RTX 3090** | **AMD scratch/local memory OPERATIONAL on RX 6950 XT** | **AMD sovereign compiler: 24/24 QCD shaders compile to native GFX ISA** | **Silicon saturation profiling: 7-tier routing, TMU PRNG, subgroup reduce, ROP atomics**
+> **141+ experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **870 lib tests, 139 binaries, 99 WGSL shaders** | **guideStone artifact: 59/59 checks x 5 substrates (x86_64 + aarch64)** | **OCI container image + Windows/macOS launchers** | **NVIDIA GPFIFO pipeline OPERATIONAL on RTX 3090** | **AMD scratch/local memory OPERATIONAL on RX 6950 XT** | **AMD sovereign compiler: 24/24 QCD shaders compile to native GFX ISA** | **Silicon saturation profiling: 7-tier routing, TMU PRNG, subgroup reduce, ROP atomics**
 >
 > **Universal Substrate Deployment (April 2026):** guideStone artifact validated across 5 substrates — CPU-only Ubuntu, NVIDIA GPU, AMD GPU, Alpine musl, aarch64 qemu-user. Cross-architecture parity: 40/40 observable comparisons bit-identical between x86_64 and aarch64. OCI container image (`hotspring-guidestone.tar`) enables deployment on Windows (WSL2/Docker), macOS (Docker/Podman), and any Linux without ext4. `./hotspring` unified entry point with subcommands. exFAT tmpdir fallback for non-executable filesystems. `prepare-usb.sh` supports ext4 (Linux-native) and exFAT (universal) modes.
 >
-> **Sovereign GPU Pipeline (Exp 110-131, 2026-03-30):** FECS firmware survives the nouveau→vfio-pci driver swap via kernel livepatch (Exp 125). Warm handoff orchestration wired into `ember`/`glowplug` as first-class RPC operations — `ember.livepatch.*`, `ember.fecs.state`, `ember.mmio.read`, `device.warm_handoff` — replacing all shell-scripted GPU control with a programmable daemon interface (coralReef Iter 70d). K80 direct PIO boot validated (Exp 123). WPR2 root cause definitive (Exp 122). 10.5/11 sovereign layers on Volta. Puzzle Box Matrix (Exp 128) implements parallel solution tracks across K80 (Kepler, unsigned) and Titan V (Volta, HS+ signed). **Fleet:** 2x Titan V + RTX 5070 + K80.
+> **Sovereign GPU Pipeline (Exp 110-141, 2026-04-02):** Dual GPU sovereign boot attempted on Titan V (GV100) + K80 (GK210) in parallel (Exp 135-136). ACR HS authentication root cause identified: **missing VBIOS DEVINIT** — the nouveau-captured recipe replays register state but omits the VBIOS scripts that initialize the SEC2 crypto engine and fuse access hardware (Exp 141). Uncrashable GPU safety architecture validated (Exp 140): D-state root cause traced and fixed, ember/glowplug rewired for resilient VFIO control. SEC2 DMA path fully debugged: FBIF locked in VIRT mode by HS+, system memory page tables constructed via PRAMIN, falcon MMU routing verified (Exp 136-139). K80 cold boot pipeline wired into `coralctl` (Exp 134), Kepler compute dispatch path implemented (Exp 133). **Fleet:** 2x Titan V + RTX 5070 + K80.
 >
 > **NVIDIA Sovereign Compute Breakthrough (2026-03-30):** RTX 3090 GPFIFO command submission pipeline **fully operational** through coralReef's sovereign driver. Key fixes via `ioctl` interception of CUDA: `NV906F_CTRL_CMD_BIND`, TSG scheduling, `GET_WORK_SUBMIT_TOKEN` via Volta class (0xC36F), VRAM USERD, 48-byte RM_ALLOC on 580.x GSP-RM.
 >
 > **AMD Sovereign Compute — Local Memory Breakthrough (2026-03-30):** Three-layer fix unlocks per-thread scratch memory on RDNA2. Key discovery: amdgpu DRM Command Processor does NOT auto-initialize `FLAT_SCRATCH` for compute IB submissions. Fixed with `S_MOV_B32`+`S_SETREG_B32` shader prolog. **7/8 hardware parity tests pass** (1672 unit tests pass).
->
-> **AMD Sovereign Compiler:** 24/24 QCD shaders compiled (WGSL → native GFX10.3 ISA) in 102ms. 38/39 dispatch tests pass. Remaining frontiers: EXEC masking, Wilson plaquette QCD dispatch.
 >
 > **AMD Sovereign Compiler:** 24/24 QCD shaders compiled (WGSL → native GFX10.3 ISA) in 102ms. 38/39 dispatch tests pass. Remaining frontier: EXEC masking for divergent wavefront control flow.
 >
@@ -65,16 +63,16 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 | **Self-Tuning RHMC** | ✅ Complete | Zero hand-tuned parameters — spectral + acceptance-driven |
 | **Spectral Theory** (Kachkovskiy) | ✅ 45/45 | Anderson 1D/2D/3D, Hofstadter, GPU Lanczos |
 | **NPU** (AKD1000 hardware) | ✅ 34/35 | 10 SDK assumptions overturned, physics pipeline, phase detection |
-| **Sovereign GPU** (coralReef) | ✅ GPFIFO + AMD scratch | RTX 3090 pipeline, AMD scratch/local f64 PASS, K80 direct boot, livepatch + warm handoff wired into ember/glowplug, deep debt evolution (Exp 130-131) |
+| **Sovereign GPU** (coralReef) | ✅ GPFIFO + AMD scratch | RTX 3090 pipeline, AMD scratch/local f64 PASS, K80 cold boot pipeline, Titan V ACR root cause (VBIOS DEVINIT), uncrashable GPU safety arch (Exp 130-141) |
 | **Silicon Characterization** | ✅ Complete | TMU, ROP, L2, shader cores — AMD vs NVIDIA personalities |
 | **Silicon Saturation Profiling** | ✅ Complete | TMU PRNG, subgroup reduce, ROP atomics, capacity analysis |
 | **Chuna Papers 43-45** | ✅ **44/44** | Gradient flow + BGK dielectric + kinetic-fluid coupling |
 
-Full validation table (130+ rows) with per-experiment details: [`EXPERIMENT_INDEX.md`](EXPERIMENT_INDEX.md)
+Full validation table (140+ rows) with per-experiment details: [`EXPERIMENT_INDEX.md`](EXPERIMENT_INDEX.md)
 
 ### Science Ladder
 
-Quenched SU(3) ✅ → Gradient Flow ✅ → LSCFRK Integrators ✅ → N_f=4 Infra ✅ → Chuna 44/44 ✅ → **N_f=2 ✅** → **N_f=2+1 ✅** → **Self-tuning ✅** → **True multi-shift CG ✅** → **Fermion force validated ✅** → **Silicon saturation profiling ✅** → **Sovereign NVIDIA GPFIFO ✅** → **AMD sovereign compiler 24/24 ✅** → **AMD scratch/local memory ✅** → **Livepatch warm handoff wired into daemons ✅** → K80/Titan V puzzle box matrix (next) → AMD EXEC masking → 16⁴+ dynamical production on sovereign pipeline. Cross-cutting sovereign validation matrix: [`specs/SOVEREIGN_VALIDATION_MATRIX.md`](specs/SOVEREIGN_VALIDATION_MATRIX.md).
+Quenched SU(3) ✅ → Gradient Flow ✅ → LSCFRK Integrators ✅ → N_f=4 Infra ✅ → Chuna 44/44 ✅ → **N_f=2 ✅** → **N_f=2+1 ✅** → **Self-tuning ✅** → **True multi-shift CG ✅** → **Fermion force validated ✅** → **Silicon saturation profiling ✅** → **Sovereign NVIDIA GPFIFO ✅** → **AMD sovereign compiler 24/24 ✅** → **AMD scratch/local memory ✅** → **Livepatch warm handoff wired into daemons ✅** → **Dual GPU sovereign boot ✅** → **ACR root cause: VBIOS DEVINIT ✅** → **Uncrashable GPU safety arch ✅** → VBIOS script execution (next) → AMD EXEC masking → 16⁴+ dynamical production on sovereign pipeline. Cross-cutting sovereign validation matrix: [`specs/SOVEREIGN_VALIDATION_MATRIX.md`](specs/SOVEREIGN_VALIDATION_MATRIX.md).
 
 ## Evolution Architecture: Write → Absorb → Lean
 
@@ -322,12 +320,13 @@ hotSpring/
 │   ├── CHANGELOG.md                   # Version history
 │   └── src/bin/                       # 129 binaries (validation, production, benchmarks)
 │
-├── experiments/                        # 131+ experiment journals (fossil record); 001-057 archived under experiments/archive/
+├── experiments/                        # 141+ experiment journals (fossil record); 001-057 archived under experiments/archive/
 │   ├── archive/                        # experiments 001-057 (archived journals)
 │   ├── 058-069: Precision, sovereign GPU cracking, GlowPlug, falcon boot
 │   ├── 070-095: Backend matrix, MMU, WPR, sysmem HS mode breakthrough
 │   ├── 096-103: Silicon characterization, GPU RHMC, gradient flow, self-tuning
-│   └── 110-131: Consolidation, WPR2, K80 sovereign, VM capture, livepatch, warm handoff, puzzle box matrix, reset architecture
+│   ├── 110-131: Consolidation, WPR2, K80 sovereign, VM capture, livepatch, warm handoff, puzzle box matrix, reset architecture
+│   └── 132-141: Dual GPU sovereign boot, D-state safety, SEC2 DMA debugging, ACR HS auth root cause
 │
 ├── scripts/                            # Build, regeneration, deployment scripts
 │   ├── build-guidestone.sh            # Build guideStone artifact (dual-arch, container, launchers)
@@ -370,12 +369,11 @@ a network service, you must make your source available under the same terms.
 
 ---
 
-*131+ experiments, 870 tests, 139 binaries, 99 WGSL shaders, ~$0.30 total science cost.
+*141+ experiments, 870 tests, 139 binaries, 99 WGSL shaders, ~$0.30 total science cost.
 Consumer GPUs reproduce HPC physics at paper parity. DF64 delivers 3.24 TFLOPS at
 14-digit precision. GPU RHMC runs all-flavors dynamical QCD (Nf=2+1). Self-tuning
-RHMC eliminates hand-tuned parameters. Chuna 44/44 checks pass. K80 validates the
-sovereign compute stack without firmware barriers. 10.5/11 sovereign layers on Volta.
-guideStone artifact validated across 5 substrates (x86_64 + aarch64, bit-identical).
-Deployable on any OS via OCI container, any filesystem via tmpdir fallback.
+RHMC eliminates hand-tuned parameters. Chuna 44/44 checks pass. RTX 3090 GPFIFO
+operational. ACR HS authentication root cause identified (VBIOS DEVINIT). Uncrashable
+GPU safety architecture validated. guideStone artifact validated across 5 substrates.
 The full science ladder — quenched through dynamical fermions with gradient flow
 scale setting — runs on consumer hardware. The scarcity was artificial.*
