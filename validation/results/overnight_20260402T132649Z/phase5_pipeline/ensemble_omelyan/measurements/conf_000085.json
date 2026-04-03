@@ -1,0 +1,108 @@
+{
+  "schema_version": "1.0",
+  "ensemble_id": "hotspring_b6.00_L8_Nt16",
+  "ildg_lfn": "/hotspring/b6.00/8x8x8x16/conf.000085",
+  "trajectory": 85,
+  "gauge": {
+    "plaquette": 0.590959445560784,
+    "polyakov_abs": 0.013876585922034976,
+    "polyakov_re": 0.005991550556909474,
+    "polyakov_im": -0.012516427556440259,
+    "action_density": 2.4542433266352965
+  },
+  "wilson_loops": [
+    {
+      "r": 1,
+      "t": 1,
+      "value": 0.5913855068020076
+    },
+    {
+      "r": 1,
+      "t": 2,
+      "value": 0.3789407852494813
+    },
+    {
+      "r": 1,
+      "t": 3,
+      "value": 0.24807992944770937
+    },
+    {
+      "r": 1,
+      "t": 4,
+      "value": 0.16349360636089424
+    },
+    {
+      "r": 2,
+      "t": 1,
+      "value": 0.38197314282849687
+    },
+    {
+      "r": 2,
+      "t": 2,
+      "value": 0.18301620480241768
+    },
+    {
+      "r": 2,
+      "t": 3,
+      "value": 0.09415175738781974
+    },
+    {
+      "r": 2,
+      "t": 4,
+      "value": 0.051373358085444513
+    },
+    {
+      "r": 3,
+      "t": 1,
+      "value": 0.24961674367605224
+    },
+    {
+      "r": 3,
+      "t": 2,
+      "value": 0.09423283053381487
+    },
+    {
+      "r": 3,
+      "t": 3,
+      "value": 0.04171772331563411
+    },
+    {
+      "r": 3,
+      "t": 4,
+      "value": 0.02185300848204059
+    },
+    {
+      "r": 4,
+      "t": 1,
+      "value": 0.16461013532669913
+    },
+    {
+      "r": 4,
+      "t": 2,
+      "value": 0.04873995098757434
+    },
+    {
+      "r": 4,
+      "t": 3,
+      "value": 0.019715229315894898
+    },
+    {
+      "r": 4,
+      "t": 4,
+      "value": 0.008538208902978121
+    }
+  ],
+  "diagnostics": {
+    "accepted": true,
+    "delta_h": 0.06859272764995694,
+    "trajectory_seconds": 27.110152252
+  },
+  "implementation": {
+    "code_name": "hotSpring-barracuda",
+    "code_version": "hotSpring-barracuda 0.6.32",
+    "machine": "pop-os",
+    "institution": "ecoPrimals",
+    "machine_type": "CPU workstation"
+  },
+  "wall_seconds": 27.985556715
+}

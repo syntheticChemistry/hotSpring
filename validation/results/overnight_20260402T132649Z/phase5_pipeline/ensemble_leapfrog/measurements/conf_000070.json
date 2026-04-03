@@ -1,0 +1,108 @@
+{
+  "schema_version": "1.0",
+  "ensemble_id": "hotspring_b6.00_L8_Nt16",
+  "ildg_lfn": "/hotspring/b6.00/8x8x8x16/conf.000070",
+  "trajectory": 70,
+  "gauge": {
+    "plaquette": 0.5923104959528819,
+    "polyakov_abs": 0.014972200899211342,
+    "polyakov_re": -0.005795280967372814,
+    "polyakov_im": 0.013805126521533635,
+    "action_density": 2.4461370242827085
+  },
+  "wilson_loops": [
+    {
+      "r": 1,
+      "t": 1,
+      "value": 0.5911783887360177
+    },
+    {
+      "r": 1,
+      "t": 2,
+      "value": 0.3787044154428912
+    },
+    {
+      "r": 1,
+      "t": 3,
+      "value": 0.24685707578643026
+    },
+    {
+      "r": 1,
+      "t": 4,
+      "value": 0.1623435597226764
+    },
+    {
+      "r": 2,
+      "t": 1,
+      "value": 0.3800011871077391
+    },
+    {
+      "r": 2,
+      "t": 2,
+      "value": 0.18429194442902408
+    },
+    {
+      "r": 2,
+      "t": 3,
+      "value": 0.09592177352610047
+    },
+    {
+      "r": 2,
+      "t": 4,
+      "value": 0.049325812900453646
+    },
+    {
+      "r": 3,
+      "t": 1,
+      "value": 0.2475467297229029
+    },
+    {
+      "r": 3,
+      "t": 2,
+      "value": 0.09548371648585892
+    },
+    {
+      "r": 3,
+      "t": 3,
+      "value": 0.04417275929990744
+    },
+    {
+      "r": 3,
+      "t": 4,
+      "value": 0.020510516216477974
+    },
+    {
+      "r": 4,
+      "t": 1,
+      "value": 0.1628418892960141
+    },
+    {
+      "r": 4,
+      "t": 2,
+      "value": 0.052898760617003555
+    },
+    {
+      "r": 4,
+      "t": 3,
+      "value": 0.01931820283093846
+    },
+    {
+      "r": 4,
+      "t": 4,
+      "value": 0.009117821460419688
+    }
+  ],
+  "diagnostics": {
+    "accepted": false,
+    "delta_h": 0.85436139444937,
+    "trajectory_seconds": 10.569010035
+  },
+  "implementation": {
+    "code_name": "hotSpring-barracuda",
+    "code_version": "hotSpring-barracuda 0.6.32",
+    "machine": "pop-os",
+    "institution": "ecoPrimals",
+    "machine_type": "CPU workstation"
+  },
+  "wall_seconds": 11.436361372
+}

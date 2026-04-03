@@ -1,0 +1,784 @@
+{
+  "timestamp": "2026-04-02T19:24:32.574503+00:00",
+  "control_dir": "/home/strandgate/Development/ecoPrimals/springs/hotSpring/control",
+  "rust_dir": "/home/strandgate/Development/ecoPrimals/springs/hotSpring/validation/results",
+  "total_papers": 10,
+  "active_papers": 9,
+  "passed_papers": 9,
+  "skipped_papers": 1,
+  "all_green": true,
+  "papers": {
+    "6": {
+      "paper": 6,
+      "description": "Screened Coulomb (Murillo & Weisheit 1998)",
+      "mode": "self-parity",
+      "python_path": "/home/strandgate/Development/ecoPrimals/springs/hotSpring/control/screened_coulomb/reference_eigenvalues.json",
+      "all_passed": true,
+      "n_checks": 34,
+      "n_passed": 34,
+      "results": [
+        {
+          "observable": "E(z=1.0,kappa=0.0,l=0,n=0)",
+          "python_value": -0.4996882015065012,
+          "rust_value": -0.4996882015065012,
+          "delta": 0.0,
+          "tolerance": 1e-10,
+          "passed": true,
+          "note": "Sturm vs scipy on same grid"
+        },
+        {
+          "observable": "E(z=1.0,kappa=0.0,l=0,n=1)",
+          "python_value": -0.1249804943562367,
+          "rust_value": -0.1249804943562367,
+          "delta": 0.0,
+          "tolerance": 1e-10,
+          "passed": true,
+          "note": "Sturm vs scipy on same grid"
+        },
+        {
+          "observable": "E(z=1.0,kappa=0.0,l=0,n=2)",
+          "python_value": -0.05555170192235437,
+          "rust_value": -0.05555170192235437,
+          "delta": 0.0,
+          "tolerance": 1e-10,
+          "passed": true,
+          "note": "Sturm vs scipy on same grid"
+        },
+        {
+          "observable": "E(z=1.0,kappa=0.0,l=0,n=3)",
+          "python_value": -0.031248780612600058,
+          "rust_value": -0.031248780612600058,
+          "delta": 0.0,
+          "tolerance": 1e-10,
+          "passed": true,
+          "note": "Sturm vs scipy on same grid"
+        },
+        {
+          "observable": "E(z=1.0,kappa=0.05,l=0,n=0)",
+          "python_value": -0.45150536501330407,
+          "rust_value": -0.45150536501330407,
+          "delta": 0.0,
+          "tolerance": 1e-10,
+          "passed": true,
+          "note": "Sturm vs scipy on same grid"
+        },
+        {
+          "observable": "E(z=1.0,kappa=0.05,l=0,n=1)",
+          "python_value": -0.08175232922474152,
+          "rust_value": -0.08175232922474152,
+          "delta": 0.0,
+          "tolerance": 1e-10,
+          "passed": true,
+          "note": "Sturm vs scipy on same grid"
+        },
+        {
+          "observable": "E(z=1.0,kappa=0.05,l=0,n=2)",
+          "python_value": -0.01934926047385943,
+          "rust_value": -0.01934926047385943,
+          "delta": 0.0,
+          "tolerance": 1e-10,
+          "passed": true,
+          "note": "Sturm vs scipy on same grid"
+        },
+        {
+          "observable": "E(z=1.0,kappa=0.05,l=0,n=3)",
+          "python_value": -0.0030905597636774473,
+          "rust_value": -0.0030905597636774473,
+          "delta": 0.0,
+          "tolerance": 1e-10,
+          "passed": true,
+          "note": "Sturm vs scipy on same grid"
+        },
+        {
+          "observable": "E(z=1.0,kappa=0.1,l=0,n=0)",
+          "python_value": -0.40674902696366644,
+          "rust_value": -0.40674902696366644,
+          "delta": 0.0,
+          "tolerance": 1e-10,
+          "passed": true,
+          "note": "Sturm vs scipy on same grid"
+        },
+        {
+          "observable": "E(z=1.0,kappa=0.1,l=0,n=1)",
+          "python_value": -0.049911055444567864,
+          "rust_value": -0.049911055444567864,
+          "delta": 0.0,
+          "tolerance": 1e-10,
+          "passed": true,
+          "note": "Sturm vs scipy on same grid"
+        },
+        {
+          "observable": "E(z=1.0,kappa=0.1,l=0,n=2)",
+          "python_value": -0.003206227415716967,
+          "rust_value": -0.003206227415716967,
+          "delta": 0.0,
+          "tolerance": 1e-10,
+          "passed": true,
+          "note": "Sturm vs scipy on same grid"
+        },
+        {
+          "observable": "E(z=1.0,kappa=0.2,l=0,n=0)",
+          "python_value": -0.3265070466572979,
+          "rust_value": -0.3265070466572979,
+          "delta": 0.0,
+          "tolerance": 1e-10,
+          "passed": true,
+          "note": "Sturm vs scipy on same grid"
+        },
+        {
+          "observable": "E(z=1.0,kappa=0.2,l=0,n=1)",
+          "python_value": -0.012096744520817992,
+          "rust_value": -0.012096744520817992,
+          "delta": 0.0,
+          "tolerance": 1e-10,
+          "passed": true,
+          "note": "Sturm vs scipy on same grid"
+        },
+        {
+          "observable": "E(z=1.0,kappa=0.3,l=0,n=0)",
+          "python_value": -0.25734876064984746,
+          "rust_value": -0.25734876064984746,
+          "delta": 0.0,
+          "tolerance": 1e-10,
+          "passed": true,
+          "note": "Sturm vs scipy on same grid"
+        },
+        {
+          "observable": "E(z=1.0,kappa=0.3,l=0,n=1)",
+          "python_value": -4.666279846787802e-05,
+          "rust_value": -4.666279846787802e-05,
+          "delta": 0.0,
+          "tolerance": 1e-10,
+          "passed": true,
+          "note": "Sturm vs scipy on same grid"
+        },
+        {
+          "observable": "E(z=1.0,kappa=0.5,l=0,n=0)",
+          "python_value": -0.14786217723656137,
+          "rust_value": -0.14786217723656137,
+          "delta": 0.0,
+          "tolerance": 1e-10,
+          "passed": true,
+          "note": "Sturm vs scipy on same grid"
+        },
+        {
+          "observable": "E(z=1.0,kappa=0.8,l=0,n=0)",
+          "python_value": -0.04453270180597446,
+          "rust_value": -0.04453270180597446,
+          "delta": 0.0,
+          "tolerance": 1e-10,
+          "passed": true,
+          "note": "Sturm vs scipy on same grid"
+        },
+        {
+          "observable": "E(z=1.0,kappa=1.0,l=0,n=0)",
+          "python_value": -0.01019250826828838,
+          "rust_value": -0.01019250826828838,
+          "delta": 0.0,
+          "tolerance": 1e-10,
+          "passed": true,
+          "note": "Sturm vs scipy on same grid"
+        },
+        {
+          "observable": "E(z=1.0,kappa=1.1,l=0,n=0)",
+          "python_value": -0.0022406247900422726,
+          "rust_value": -0.0022406247900422726,
+          "delta": 0.0,
+          "tolerance": 1e-10,
+          "passed": true,
+          "note": "Sturm vs scipy on same grid"
+        },
+        {
+          "observable": "E(z=1.0,kappa=0.0,l=1,n=0)",
+          "python_value": -0.1250065063933217,
+          "rust_value": -0.1250065063933217,
+          "delta": 0.0,
+          "tolerance": 1e-10,
+          "passed": true,
+          "note": "Sturm vs scipy on same grid"
+        },
+        {
+          "observable": "E(z=1.0,kappa=0.0,l=1,n=1)",
+          "python_value": -0.05555855425341667,
+          "rust_value": -0.05555855425341667,
+          "delta": 0.0,
+          "tolerance": 1e-10,
+          "passed": true,
+          "note": "Sturm vs scipy on same grid"
+        },
+        {
+          "observable": "E(z=1.0,kappa=0.0,l=1,n=2)",
+          "python_value": -0.03125154516188769,
+          "rust_value": -0.03125154516188769,
+          "delta": 0.0,
+          "tolerance": 1e-10,
+          "passed": true,
+          "note": "Sturm vs scipy on same grid"
+        },
+        {
+          "observable": "E(z=1.0,kappa=0.0,l=1,n=3)",
+          "python_value": -0.020000864693783732,
+          "rust_value": -0.020000864693783732,
+          "delta": 0.0,
+          "tolerance": 1e-10,
+          "passed": true,
+          "note": "Sturm vs scipy on same grid"
+        },
+        {
+          "observable": "E(z=1.0,kappa=0.05,l=1,n=0)",
+          "python_value": -0.08074645233128806,
+          "rust_value": -0.08074645233128806,
+          "delta": 0.0,
+          "tolerance": 1e-10,
+          "passed": true,
+          "note": "Sturm vs scipy on same grid"
+        },
+        {
+          "observable": "E(z=1.0,kappa=0.05,l=1,n=1)",
+          "python_value": -0.018559984522802733,
+          "rust_value": -0.018559984522802733,
+          "delta": 0.0,
+          "tolerance": 1e-10,
+          "passed": true,
+          "note": "Sturm vs scipy on same grid"
+        },
+        {
+          "observable": "E(z=1.0,kappa=0.05,l=1,n=2)",
+          "python_value": -0.002598118472216457,
+          "rust_value": -0.002598118472216457,
+          "delta": 0.0,
+          "tolerance": 1e-10,
+          "passed": true,
+          "note": "Sturm vs scipy on same grid"
+        },
+        {
+          "observable": "E(z=1.0,kappa=0.1,l=1,n=0)",
+          "python_value": -0.04653937311792641,
+          "rust_value": -0.04653937311792641,
+          "delta": 0.0,
+          "tolerance": 1e-10,
+          "passed": true,
+          "note": "Sturm vs scipy on same grid"
+        },
+        {
+          "observable": "E(z=1.0,kappa=0.1,l=1,n=1)",
+          "python_value": -0.0015894769028263755,
+          "rust_value": -0.0015894769028263755,
+          "delta": 0.0,
+          "tolerance": 1e-10,
+          "passed": true,
+          "note": "Sturm vs scipy on same grid"
+        },
+        {
+          "observable": "E(z=1.0,kappa=0.15,l=1,n=0)",
+          "python_value": -0.021108410997516182,
+          "rust_value": -0.021108410997516182,
+          "delta": 0.0,
+          "tolerance": 1e-10,
+          "passed": true,
+          "note": "Sturm vs scipy on same grid"
+        },
+        {
+          "observable": "E(z=1.0,kappa=0.2,l=1,n=0)",
+          "python_value": -0.004103477582280731,
+          "rust_value": -0.004103477582280731,
+          "delta": 0.0,
+          "tolerance": 1e-10,
+          "passed": true,
+          "note": "Sturm vs scipy on same grid"
+        },
+        {
+          "observable": "E(z=2.0,kappa=0.0,l=0,n=0)",
+          "python_value": -1.9950297916155932,
+          "rust_value": -1.9950297916155932,
+          "delta": 0.0,
+          "tolerance": 1e-10,
+          "passed": true,
+          "note": "Sturm vs scipy on same grid"
+        },
+        {
+          "observable": "E(z=2.0,kappa=0.0,l=0,n=1)",
+          "python_value": -0.4996882015028632,
+          "rust_value": -0.4996882015028632,
+          "delta": 0.0,
+          "tolerance": 1e-10,
+          "passed": true,
+          "note": "Sturm vs scipy on same grid"
+        },
+        {
+          "observable": "E(z=2.0,kappa=0.0,l=0,n=2)",
+          "python_value": -0.22216058971002894,
+          "rust_value": -0.22216058971002894,
+          "delta": 0.0,
+          "tolerance": 1e-10,
+          "passed": true,
+          "note": "Sturm vs scipy on same grid"
+        },
+        {
+          "observable": "E(z=2.0,kappa=0.0,l=0,n=3)",
+          "python_value": -0.12498049435703251,
+          "rust_value": -0.12498049435703251,
+          "delta": 0.0,
+          "tolerance": 1e-10,
+          "passed": true,
+          "note": "Sturm vs scipy on same grid"
+        }
+      ]
+    },
+    "8": {
+      "paper": 8,
+      "description": "Pure gauge SU(3) Wilson action",
+      "mode": "self-parity",
+      "python_path": "/home/strandgate/Development/ecoPrimals/springs/hotSpring/control/lattice_qcd/results/quenched_beta_scan_4x4.json",
+      "all_passed": true,
+      "n_checks": 9,
+      "n_passed": 9,
+      "results": [
+        {
+          "observable": "plaquette_beta_4.0",
+          "python_value": 0.29125027509869456,
+          "rust_value": 0.29125027509869456,
+          "delta": 0.0,
+          "tolerance": 0.005,
+          "passed": true,
+          "note": "thermalization noise on 4^4, 30 traj"
+        },
+        {
+          "observable": "plaquette_beta_4.5",
+          "python_value": 0.34542570786561716,
+          "rust_value": 0.34542570786561716,
+          "delta": 0.0,
+          "tolerance": 0.005,
+          "passed": true,
+          "note": "thermalization noise on 4^4, 30 traj"
+        },
+        {
+          "observable": "plaquette_beta_5.0",
+          "python_value": 0.3986339839895943,
+          "rust_value": 0.3986339839895943,
+          "delta": 0.0,
+          "tolerance": 0.005,
+          "passed": true,
+          "note": "thermalization noise on 4^4, 30 traj"
+        },
+        {
+          "observable": "plaquette_beta_5.5",
+          "python_value": 0.49660733512998606,
+          "rust_value": 0.49660733512998606,
+          "delta": 0.0,
+          "tolerance": 0.005,
+          "passed": true,
+          "note": "thermalization noise on 4^4, 30 traj"
+        },
+        {
+          "observable": "plaquette_beta_5.7",
+          "python_value": 0.542858473028531,
+          "rust_value": 0.542858473028531,
+          "delta": 0.0,
+          "tolerance": 0.005,
+          "passed": true,
+          "note": "thermalization noise on 4^4, 30 traj"
+        },
+        {
+          "observable": "plaquette_beta_5.8",
+          "python_value": 0.5631169255214921,
+          "rust_value": 0.5631169255214921,
+          "delta": 0.0,
+          "tolerance": 0.005,
+          "passed": true,
+          "note": "thermalization noise on 4^4, 30 traj"
+        },
+        {
+          "observable": "plaquette_beta_6.0",
+          "python_value": 0.5911718612414811,
+          "rust_value": 0.5911718612414811,
+          "delta": 0.0,
+          "tolerance": 0.005,
+          "passed": true,
+          "note": "thermalization noise on 4^4, 30 traj"
+        },
+        {
+          "observable": "plaquette_beta_6.2",
+          "python_value": 0.6118218377444957,
+          "rust_value": 0.6118218377444957,
+          "delta": 0.0,
+          "tolerance": 0.005,
+          "passed": true,
+          "note": "thermalization noise on 4^4, 30 traj"
+        },
+        {
+          "observable": "plaquette_beta_6.5",
+          "python_value": 0.6448181164997062,
+          "rust_value": 0.6448181164997062,
+          "delta": 0.0,
+          "tolerance": 0.005,
+          "passed": true,
+          "note": "thermalization noise on 4^4, 30 traj"
+        }
+      ]
+    },
+    "9": {
+      "paper": 9,
+      "description": "Production QCD beta-scan",
+      "mode": "self-parity",
+      "python_path": "/home/strandgate/Development/ecoPrimals/springs/hotSpring/control/lattice_qcd/results/quenched_beta_scan_4x4.json",
+      "all_passed": true,
+      "n_checks": 10,
+      "n_passed": 10,
+      "results": [
+        {
+          "observable": "plaquette_beta_4.0",
+          "python_value": 0.29125027509869456,
+          "rust_value": 0.29125027509869456,
+          "delta": 0.0,
+          "tolerance": 0.005,
+          "passed": true,
+          "note": "thermalization noise on 4^4, 30 traj"
+        },
+        {
+          "observable": "plaquette_beta_4.5",
+          "python_value": 0.34542570786561716,
+          "rust_value": 0.34542570786561716,
+          "delta": 0.0,
+          "tolerance": 0.005,
+          "passed": true,
+          "note": "thermalization noise on 4^4, 30 traj"
+        },
+        {
+          "observable": "plaquette_beta_5.0",
+          "python_value": 0.3986339839895943,
+          "rust_value": 0.3986339839895943,
+          "delta": 0.0,
+          "tolerance": 0.005,
+          "passed": true,
+          "note": "thermalization noise on 4^4, 30 traj"
+        },
+        {
+          "observable": "plaquette_beta_5.5",
+          "python_value": 0.49660733512998606,
+          "rust_value": 0.49660733512998606,
+          "delta": 0.0,
+          "tolerance": 0.005,
+          "passed": true,
+          "note": "thermalization noise on 4^4, 30 traj"
+        },
+        {
+          "observable": "plaquette_beta_5.7",
+          "python_value": 0.542858473028531,
+          "rust_value": 0.542858473028531,
+          "delta": 0.0,
+          "tolerance": 0.005,
+          "passed": true,
+          "note": "thermalization noise on 4^4, 30 traj"
+        },
+        {
+          "observable": "plaquette_beta_5.8",
+          "python_value": 0.5631169255214921,
+          "rust_value": 0.5631169255214921,
+          "delta": 0.0,
+          "tolerance": 0.005,
+          "passed": true,
+          "note": "thermalization noise on 4^4, 30 traj"
+        },
+        {
+          "observable": "plaquette_beta_6.0",
+          "python_value": 0.5911718612414811,
+          "rust_value": 0.5911718612414811,
+          "delta": 0.0,
+          "tolerance": 0.005,
+          "passed": true,
+          "note": "thermalization noise on 4^4, 30 traj"
+        },
+        {
+          "observable": "plaquette_beta_6.2",
+          "python_value": 0.6118218377444957,
+          "rust_value": 0.6118218377444957,
+          "delta": 0.0,
+          "tolerance": 0.005,
+          "passed": true,
+          "note": "thermalization noise on 4^4, 30 traj"
+        },
+        {
+          "observable": "plaquette_beta_6.5",
+          "python_value": 0.6448181164997062,
+          "rust_value": 0.6448181164997062,
+          "delta": 0.0,
+          "tolerance": 0.005,
+          "passed": true,
+          "note": "thermalization noise on 4^4, 30 traj"
+        },
+        {
+          "observable": "plaquette_monotonicity_py",
+          "python_value": 1.0,
+          "rust_value": 1.0,
+          "delta": 0.0,
+          "tolerance": 0.0,
+          "passed": true,
+          "note": "boolean property check"
+        }
+      ]
+    },
+    "10": {
+      "paper": 10,
+      "description": "Dynamical fermion QCD",
+      "mode": "self-parity",
+      "python_path": "/home/strandgate/Development/ecoPrimals/springs/hotSpring/control/lattice_qcd/results/dynamical_fermion_control.json",
+      "all_passed": true,
+      "n_checks": 2,
+      "n_passed": 2,
+      "results": [
+        {
+          "observable": "dynamical_plaquette",
+          "python_value": 0.4968412185341064,
+          "rust_value": 0.4968412185341064,
+          "delta": 0.0,
+          "tolerance": 0.005,
+          "passed": true,
+          "note": "thermalization + CG noise on 4^4"
+        },
+        {
+          "observable": "quenched_plaquette",
+          "python_value": 0.49684121853410645,
+          "rust_value": 0.49684121853410645,
+          "delta": 0.0,
+          "tolerance": 0.005,
+          "passed": true,
+          "note": "thermalization noise"
+        }
+      ]
+    },
+    "11": {
+      "paper": 11,
+      "description": "HVP g-2 correlator",
+      "mode": "self-parity",
+      "python_path": "/home/strandgate/Development/ecoPrimals/springs/hotSpring/control/lattice_qcd/results/hvp_correlator_control.json",
+      "all_passed": true,
+      "n_checks": 4,
+      "n_passed": 4,
+      "results": [
+        {
+          "observable": "hvp_positive_py",
+          "python_value": 1.0,
+          "rust_value": 1.0,
+          "delta": 0.0,
+          "tolerance": 0.0,
+          "passed": true,
+          "note": "boolean property check"
+        },
+        {
+          "observable": "correlator_positive_py",
+          "python_value": 1.0,
+          "rust_value": 1.0,
+          "delta": 0.0,
+          "tolerance": 0.0,
+          "passed": true,
+          "note": "boolean property check"
+        },
+        {
+          "observable": "mass_ordering_py",
+          "python_value": 1.0,
+          "rust_value": 1.0,
+          "delta": 0.0,
+          "tolerance": 0.0,
+          "passed": true,
+          "note": "boolean property check"
+        },
+        {
+          "observable": "hvp_value",
+          "python_value": 0.79279227859631,
+          "rust_value": 0.79279227859631,
+          "delta": 0.0,
+          "tolerance": 0.5,
+          "passed": true,
+          "note": "order-of-magnitude on same lattice"
+        }
+      ]
+    },
+    "12": {
+      "paper": 12,
+      "description": "Freeze-out susceptibility",
+      "mode": "self-parity",
+      "python_path": "/home/strandgate/Development/ecoPrimals/springs/hotSpring/control/lattice_qcd/results/freeze_out_control.json",
+      "all_passed": true,
+      "n_checks": 3,
+      "n_passed": 3,
+      "results": [
+        {
+          "observable": "beta_c",
+          "python_value": 5.5,
+          "rust_value": 5.5,
+          "delta": 0.0,
+          "tolerance": 0.3,
+          "passed": true,
+          "note": "finite-volume crossover on 4^4"
+        },
+        {
+          "observable": "plaquette_monotone_py",
+          "python_value": 1.0,
+          "rust_value": 1.0,
+          "delta": 0.0,
+          "tolerance": 0.0,
+          "passed": true,
+          "note": "boolean property check"
+        },
+        {
+          "observable": "transition_detected_py",
+          "python_value": 1.0,
+          "rust_value": 1.0,
+          "delta": 0.0,
+          "tolerance": 0.0,
+          "passed": true,
+          "note": "boolean property check"
+        }
+      ]
+    },
+    "13": {
+      "paper": 13,
+      "description": "Abelian Higgs U(1)",
+      "mode": "self-parity",
+      "python_path": "/home/strandgate/Development/ecoPrimals/springs/hotSpring/control/abelian_higgs/abelian_higgs_reference.json",
+      "all_passed": true,
+      "n_checks": 12,
+      "n_passed": 12,
+      "results": [
+        {
+          "observable": "plaquette_weak_coupling",
+          "python_value": 0.9126939407252863,
+          "rust_value": 0.9126939407252863,
+          "delta": 0.0,
+          "tolerance": 0.05,
+          "passed": true,
+          "note": "HMC noise on small (1+1)D lattice"
+        },
+        {
+          "observable": "higgs_sq_weak_coupling",
+          "python_value": 0.8897729035016197,
+          "rust_value": 0.8897729035016197,
+          "delta": 0.0,
+          "tolerance": 0.05,
+          "passed": true,
+          "note": "scalar field fluctuations"
+        },
+        {
+          "observable": "plaquette_strong_coupling",
+          "python_value": 0.24839726654382818,
+          "rust_value": 0.24839726654382818,
+          "delta": 0.0,
+          "tolerance": 0.05,
+          "passed": true,
+          "note": "HMC noise on small (1+1)D lattice"
+        },
+        {
+          "observable": "higgs_sq_strong_coupling",
+          "python_value": 0.8861791123502795,
+          "rust_value": 0.8861791123502795,
+          "delta": 0.0,
+          "tolerance": 0.05,
+          "passed": true,
+          "note": "scalar field fluctuations"
+        },
+        {
+          "observable": "plaquette_higgs_condensed",
+          "python_value": 0.9286490476689299,
+          "rust_value": 0.9286490476689299,
+          "delta": 0.0,
+          "tolerance": 0.05,
+          "passed": true,
+          "note": "HMC noise on small (1+1)D lattice"
+        },
+        {
+          "observable": "higgs_sq_higgs_condensed",
+          "python_value": 4.421049779612145,
+          "rust_value": 4.421049779612145,
+          "delta": 0.0,
+          "tolerance": 0.05,
+          "passed": true,
+          "note": "scalar field fluctuations"
+        },
+        {
+          "observable": "plaquette_confined",
+          "python_value": 0.43073145519553213,
+          "rust_value": 0.43073145519553213,
+          "delta": 0.0,
+          "tolerance": 0.05,
+          "passed": true,
+          "note": "HMC noise on small (1+1)D lattice"
+        },
+        {
+          "observable": "higgs_sq_confined",
+          "python_value": 0.7963108328282458,
+          "rust_value": 0.7963108328282458,
+          "delta": 0.0,
+          "tolerance": 0.05,
+          "passed": true,
+          "note": "scalar field fluctuations"
+        },
+        {
+          "observable": "plaquette_large_lambda",
+          "python_value": 0.7064485784302217,
+          "rust_value": 0.7064485784302217,
+          "delta": 0.0,
+          "tolerance": 0.05,
+          "passed": true,
+          "note": "HMC noise on small (1+1)D lattice"
+        },
+        {
+          "observable": "higgs_sq_large_lambda",
+          "python_value": 1.003618144877865,
+          "rust_value": 1.003618144877865,
+          "delta": 0.0,
+          "tolerance": 0.05,
+          "passed": true,
+          "note": "scalar field fluctuations"
+        },
+        {
+          "observable": "plaquette_cold_start_check",
+          "python_value": 0.6498975250571006,
+          "rust_value": 0.6498975250571006,
+          "delta": 0.0,
+          "tolerance": 0.05,
+          "passed": true,
+          "note": "HMC noise on small (1+1)D lattice"
+        },
+        {
+          "observable": "higgs_sq_cold_start_check",
+          "python_value": 0.8723774849955992,
+          "rust_value": 0.8723774849955992,
+          "delta": 0.0,
+          "tolerance": 0.05,
+          "passed": true,
+          "note": "scalar field fluctuations"
+        }
+      ]
+    },
+    "43": {
+      "paper": 43,
+      "description": "SU(3) gradient flow integrators (Chuna)",
+      "mode": "self-parity",
+      "python_path": "/home/strandgate/Development/ecoPrimals/springs/hotSpring/control/gradient_flow/results/gradient_flow_control.json",
+      "all_passed": true,
+      "n_checks": 0,
+      "n_passed": 0,
+      "results": []
+    },
+    "44": {
+      "paper": 44,
+      "description": "Conservative dielectric functions (Chuna)",
+      "mode": "self-parity",
+      "python_path": "/home/strandgate/Development/ecoPrimals/springs/hotSpring/control/bgk_dielectric/results/bgk_dielectric_control.json",
+      "all_passed": true,
+      "n_checks": 0,
+      "n_passed": 0,
+      "results": []
+    },
+    "45": {
+      "paper": 45,
+      "description": "Multi-species kinetic-fluid coupling (Chuna)",
+      "mode": "skipped",
+      "reason": "Python result not found: kinetic_fluid/results/kinetic_fluid_control.json",
+      "all_passed": false,
+      "n_checks": 0,
+      "n_passed": 0
+    }
+  }
+}

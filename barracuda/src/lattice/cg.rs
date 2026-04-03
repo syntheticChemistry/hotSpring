@@ -113,6 +113,8 @@ pub struct CgResult {
     pub final_residual: f64,
     /// Initial relative residual.
     pub initial_residual: f64,
+    /// Per-iteration relative residual (populated by `cg_solve_with_history`).
+    pub residual_history: Vec<f64>,
 }
 
 /// Solve D†D x = b using Conjugate Gradient.
@@ -148,6 +150,7 @@ pub fn cg_solve(
             iterations: 0,
             final_residual: 0.0,
             initial_residual: 0.0,
+            residual_history: Vec::new(),
         };
     }
 
@@ -161,6 +164,7 @@ pub fn cg_solve(
             iterations: 0,
             final_residual: initial_residual,
             initial_residual,
+            residual_history: Vec::new(),
         };
     }
 
@@ -215,6 +219,107 @@ pub fn cg_solve(
         iterations,
         final_residual,
         initial_residual,
+        residual_history: Vec::new(),
+    }
+}
+
+/// Solve D†D x = b using CG, recording per-iteration residual history.
+///
+/// Identical to `cg_solve` but populates `CgResult::residual_history`
+/// with the relative residual at each iteration. Useful for solver
+/// comparison (e.g. against Python InverseProblemSolvers).
+pub fn cg_solve_with_history(
+    lattice: &Lattice,
+    x: &mut FermionField,
+    b: &FermionField,
+    mass: f64,
+    tol: f64,
+    max_iter: usize,
+) -> CgResult {
+    let vol = lattice.volume();
+
+    let ax = apply_dirac_sq(lattice, x, mass);
+    let mut r = FermionField::zeros(vol);
+    for i in 0..vol {
+        for c in 0..3 {
+            r.data[i][c] = b.data[i][c] - ax.data[i][c];
+        }
+    }
+
+    let b_norm_sq = b.norm_sq();
+    if b_norm_sq < super::constants::LATTICE_DIVISION_GUARD {
+        return CgResult {
+            converged: true,
+            iterations: 0,
+            final_residual: 0.0,
+            initial_residual: 0.0,
+            residual_history: Vec::new(),
+        };
+    }
+
+    let mut r_norm_sq = r.norm_sq();
+    let initial_residual = (r_norm_sq / b_norm_sq).sqrt();
+    let tol_sq = tol * tol * b_norm_sq;
+
+    let mut history = Vec::with_capacity(max_iter.min(4096));
+    history.push(initial_residual);
+
+    if r_norm_sq < tol_sq {
+        return CgResult {
+            converged: true,
+            iterations: 0,
+            final_residual: initial_residual,
+            initial_residual,
+            residual_history: history,
+        };
+    }
+
+    let mut p = FermionField::zeros(vol);
+    p.copy_from(&r);
+
+    let mut iterations = 0;
+
+    for iter in 0..max_iter {
+        iterations = iter + 1;
+
+        let ap = apply_dirac_sq(lattice, &p, mass);
+
+        let p_ap = p.dot(&ap).re;
+        if p_ap.abs() < super::constants::LATTICE_DIVISION_GUARD {
+            break;
+        }
+        let alpha = r_norm_sq / p_ap;
+
+        x.axpy(Complex64::new(alpha, 0.0), &p);
+        r.axpy(Complex64::new(-alpha, 0.0), &ap);
+
+        let r_norm_sq_new = r.norm_sq();
+        let rel_residual = (r_norm_sq_new / b_norm_sq).sqrt();
+        history.push(rel_residual);
+
+        if r_norm_sq_new < tol_sq {
+            r_norm_sq = r_norm_sq_new;
+            break;
+        }
+
+        let beta = r_norm_sq_new / r_norm_sq;
+        r_norm_sq = r_norm_sq_new;
+
+        for i in 0..vol {
+            for c in 0..3 {
+                p.data[i][c] = r.data[i][c] + p.data[i][c].scale(beta);
+            }
+        }
+    }
+
+    let final_residual = (r_norm_sq / b_norm_sq).sqrt();
+
+    CgResult {
+        converged: final_residual < tol,
+        iterations,
+        final_residual,
+        initial_residual,
+        residual_history: history,
     }
 }
 

@@ -47,6 +47,8 @@ pub mod bench;
 pub mod data;
 /// Heterogeneous dual-GPU device pair (precise + throughput brains).
 pub mod device_pair;
+/// rhizoCrypt DAG session for computation trace with merkle root.
+pub mod dag_provenance;
 /// Capability-based data-path resolution (zero hardcoded absolute paths).
 pub mod discovery;
 /// Dual-dispatch executor for heterogeneous GPU workloads.
@@ -85,6 +87,8 @@ pub mod precision_eval;
 pub mod precision_routing;
 /// NMP cascade filter for L2 heterogeneous pipeline.
 pub mod prescreen;
+/// NUCLEUS primal discovery — runtime detection of available primals.
+pub mod primal_bridge;
 /// Shared types and infrastructure for production lattice QCD binaries.
 pub mod production;
 /// Traces every hardcoded value to its Python origin (script, commit, date).
@@ -97,6 +101,8 @@ pub mod spectral;
 pub mod streaming_dispatch;
 /// JSONL telemetry reader for petalTongue visualization integration.
 pub mod telemetry_reader;
+/// Ed25519 receipt signing via bearDog crypto.sign JSON-RPC.
+pub mod receipt_signing;
 /// Minimal toadStool performance surface reporter (JSON-RPC over Unix socket).
 pub mod toadstool_report;
 /// Centralized, justified validation thresholds (~170 constants).

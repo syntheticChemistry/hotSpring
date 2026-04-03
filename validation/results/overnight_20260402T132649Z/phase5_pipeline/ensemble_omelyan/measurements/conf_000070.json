@@ -1,0 +1,108 @@
+{
+  "schema_version": "1.0",
+  "ensemble_id": "hotspring_b6.00_L8_Nt16",
+  "ildg_lfn": "/hotspring/b6.00/8x8x8x16/conf.000070",
+  "trajectory": 70,
+  "gauge": {
+    "plaquette": 0.593048828350699,
+    "polyakov_abs": 0.008912505692252194,
+    "polyakov_re": -0.007935521581027347,
+    "polyakov_im": 0.004057123975364445,
+    "action_density": 2.441707029895806
+  },
+  "wilson_loops": [
+    {
+      "r": 1,
+      "t": 1,
+      "value": 0.5926950928618442
+    },
+    {
+      "r": 1,
+      "t": 2,
+      "value": 0.381814011568894
+    },
+    {
+      "r": 1,
+      "t": 3,
+      "value": 0.2512975498807608
+    },
+    {
+      "r": 1,
+      "t": 4,
+      "value": 0.16528293423356297
+    },
+    {
+      "r": 2,
+      "t": 1,
+      "value": 0.38415837545639997
+    },
+    {
+      "r": 2,
+      "t": 2,
+      "value": 0.18806216541888518
+    },
+    {
+      "r": 2,
+      "t": 3,
+      "value": 0.09999876851260937
+    },
+    {
+      "r": 2,
+      "t": 4,
+      "value": 0.05513672909672474
+    },
+    {
+      "r": 3,
+      "t": 1,
+      "value": 0.2521542085729976
+    },
+    {
+      "r": 3,
+      "t": 2,
+      "value": 0.10080892851953437
+    },
+    {
+      "r": 3,
+      "t": 3,
+      "value": 0.04572657624005599
+    },
+    {
+      "r": 3,
+      "t": 4,
+      "value": 0.021258315059980912
+    },
+    {
+      "r": 4,
+      "t": 1,
+      "value": 0.1666328214884866
+    },
+    {
+      "r": 4,
+      "t": 2,
+      "value": 0.05305692611982177
+    },
+    {
+      "r": 4,
+      "t": 3,
+      "value": 0.020427219010666103
+    },
+    {
+      "r": 4,
+      "t": 4,
+      "value": 0.008857438240099628
+    }
+  ],
+  "diagnostics": {
+    "accepted": true,
+    "delta_h": -0.05851803984842263,
+    "trajectory_seconds": 27.04092739
+  },
+  "implementation": {
+    "code_name": "hotSpring-barracuda",
+    "code_version": "hotSpring-barracuda 0.6.32",
+    "machine": "pop-os",
+    "institution": "ecoPrimals",
+    "machine_type": "CPU workstation"
+  },
+  "wall_seconds": 27.926626421
+}

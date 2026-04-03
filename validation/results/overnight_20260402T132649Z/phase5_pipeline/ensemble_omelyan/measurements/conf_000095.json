@@ -1,0 +1,108 @@
+{
+  "schema_version": "1.0",
+  "ensemble_id": "hotspring_b6.00_L8_Nt16",
+  "ildg_lfn": "/hotspring/b6.00/8x8x8x16/conf.000095",
+  "trajectory": 95,
+  "gauge": {
+    "plaquette": 0.5949064931076893,
+    "polyakov_abs": 0.007698570938334243,
+    "polyakov_re": 0.007697691582082623,
+    "polyakov_im": 0.00011635634790980883,
+    "action_density": 2.4305610413538643
+  },
+  "wilson_loops": [
+    {
+      "r": 1,
+      "t": 1,
+      "value": 0.5935349849086616
+    },
+    {
+      "r": 1,
+      "t": 2,
+      "value": 0.3816704034357778
+    },
+    {
+      "r": 1,
+      "t": 3,
+      "value": 0.250485217059892
+    },
+    {
+      "r": 1,
+      "t": 4,
+      "value": 0.16477252896066907
+    },
+    {
+      "r": 2,
+      "t": 1,
+      "value": 0.38496897352648823
+    },
+    {
+      "r": 2,
+      "t": 2,
+      "value": 0.1881377830643922
+    },
+    {
+      "r": 2,
+      "t": 3,
+      "value": 0.09781220257453967
+    },
+    {
+      "r": 2,
+      "t": 4,
+      "value": 0.051797921507934545
+    },
+    {
+      "r": 3,
+      "t": 1,
+      "value": 0.25318510246784015
+    },
+    {
+      "r": 3,
+      "t": 2,
+      "value": 0.0996653464279081
+    },
+    {
+      "r": 3,
+      "t": 3,
+      "value": 0.04454033383504771
+    },
+    {
+      "r": 3,
+      "t": 4,
+      "value": 0.01982050848845546
+    },
+    {
+      "r": 4,
+      "t": 1,
+      "value": 0.16612304979575324
+    },
+    {
+      "r": 4,
+      "t": 2,
+      "value": 0.0521844728198809
+    },
+    {
+      "r": 4,
+      "t": 3,
+      "value": 0.020803844431233273
+    },
+    {
+      "r": 4,
+      "t": 4,
+      "value": 0.007862886762356676
+    }
+  ],
+  "diagnostics": {
+    "accepted": true,
+    "delta_h": 0.17500187613768503,
+    "trajectory_seconds": 27.245384336
+  },
+  "implementation": {
+    "code_name": "hotSpring-barracuda",
+    "code_version": "hotSpring-barracuda 0.6.32",
+    "machine": "pop-os",
+    "institution": "ecoPrimals",
+    "machine_type": "CPU workstation"
+  },
+  "wall_seconds": 28.144904288
+}

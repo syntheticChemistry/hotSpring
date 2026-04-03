@@ -22,6 +22,8 @@ hotSpring is where we reproduce published computational physics work from the Mu
 
 - **Phase F (Kokkos-CUDA Parity + Verlet Neighbor List)**: Runtime-adaptive algorithm selection (AllPairs/CellList/VerletList) with DF64 precision on consumer GPUs. **✅ 9/9 cases pass, ≤0.004% drift. Verlet achieves 992 steps/s (κ=3) — gap vs Kokkos-CUDA closed from 27× to 3.7×. barraCuda v0.6.17.**
 
+- **Phase G (Universal Substrate Deployment)**: guideStone-certified artifact deployable on any OS, any architecture, any filesystem. **✅ 59/59 checks x 5 substrates. Cross-architecture parity (x86_64 + aarch64, bit-identical). OCI container image. Windows WSL2/Docker + macOS Docker launchers. exFAT tmpdir fallback. `./hotspring` unified ecoBin entry point. benchScale 5-substrate validation (40/40 cross-substrate parity).**
+
 hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust+WGSL replace the Python scientific stack?"*
 
 > **For the physics**: See [`PHYSICS.md`](PHYSICS.md) for complete equation documentation
@@ -32,9 +34,11 @@ hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust
 
 ---
 
-## Current Status (2026-03-30)
+## Current Status (2026-04-03)
 
-> **131+ experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **870 lib tests, 139 binaries, 99 WGSL shaders** | **NVIDIA GPFIFO pipeline OPERATIONAL on RTX 3090** | **AMD scratch/local memory OPERATIONAL on RX 6950 XT** | **AMD sovereign compiler: 24/24 QCD shaders compile to native GFX ISA** | **Silicon saturation profiling: 7-tier routing, TMU PRNG, subgroup reduce, ROP atomics**
+> **131+ experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **870 lib tests, 139 binaries, 99 WGSL shaders** | **guideStone artifact: 59/59 checks x 5 substrates (x86_64 + aarch64)** | **OCI container image + Windows/macOS launchers** | **NVIDIA GPFIFO pipeline OPERATIONAL on RTX 3090** | **AMD scratch/local memory OPERATIONAL on RX 6950 XT** | **AMD sovereign compiler: 24/24 QCD shaders compile to native GFX ISA** | **Silicon saturation profiling: 7-tier routing, TMU PRNG, subgroup reduce, ROP atomics**
+>
+> **Universal Substrate Deployment (April 2026):** guideStone artifact validated across 5 substrates — CPU-only Ubuntu, NVIDIA GPU, AMD GPU, Alpine musl, aarch64 qemu-user. Cross-architecture parity: 40/40 observable comparisons bit-identical between x86_64 and aarch64. OCI container image (`hotspring-guidestone.tar`) enables deployment on Windows (WSL2/Docker), macOS (Docker/Podman), and any Linux without ext4. `./hotspring` unified entry point with subcommands. exFAT tmpdir fallback for non-executable filesystems. `prepare-usb.sh` supports ext4 (Linux-native) and exFAT (universal) modes.
 >
 > **Sovereign GPU Pipeline (Exp 110-131, 2026-03-30):** FECS firmware survives the nouveau→vfio-pci driver swap via kernel livepatch (Exp 125). Warm handoff orchestration wired into `ember`/`glowplug` as first-class RPC operations — `ember.livepatch.*`, `ember.fecs.state`, `ember.mmio.read`, `device.warm_handoff` — replacing all shell-scripted GPU control with a programmable daemon interface (coralReef Iter 70d). K80 direct PIO boot validated (Exp 123). WPR2 root cause definitive (Exp 122). 10.5/11 sovereign layers on Volta. Puzzle Box Matrix (Exp 128) implements parallel solution tracks across K80 (Kepler, unsigned) and Titan V (Volta, HS+ signed). **Fleet:** 2x Titan V + RTX 5070 + K80.
 >
@@ -274,10 +278,31 @@ Upstream repos are pinned to specific versions and automatically patched:
 hotSpring/
 ├── README.md                           # This file
 ├── PHYSICS.md                          # Complete physics documentation (equations + references)
-├── CONTROL_EXPERIMENT_STATUS.md        # Comprehensive status + results (197/197)
-├── NUCLEAR_EOS_STRATEGY.md             # Nuclear EOS Phase A→B strategy
+├── CONTROL_EXPERIMENT_STATUS.md        # [fossil record] Comprehensive status + results (197/197)
+├── NUCLEAR_EOS_STRATEGY.md             # [fossil record] Nuclear EOS Phase A→B strategy
+├── SOVEREIGN_VALIDATION_GOAL.md        # [fossil record] Sovereign validation original goal
+├── NPU_STEERING_LESSONS.md            # [fossil record] NPU AKD1000 lessons learned
+├── WORKSPACE_MIGRATION_HANDOFF.md     # [fossil record] Workspace migration (complete)
 ├── LICENSE                             # AGPL-3.0
+├── Dockerfile                          # OCI container image (Ubuntu 22.04 + Vulkan)
 ├── .gitignore
+│
+├── validation/                         # guideStone deployment artifact (v0.7.0)
+│   ├── hotspring                      # Unified ecoBin entry point (./hotspring validate|benchmark|...)
+│   ├── hotspring.bat                  # Windows launcher (WSL2 → Docker fallback)
+│   ├── _lib.sh                        # Shared functions (integrity, arch/GPU/OS detect, container dispatch)
+│   ├── GUIDESTONE.md                  # guideStone certification spec
+│   ├── README                         # Artifact documentation (quick start, deployment matrix)
+│   ├── CHECKSUMS                      # SHA-256 integrity manifest
+│   ├── bin/
+│   │   ├── x86_64/
+│   │   │   ├── static/               # musl binaries (CPU-only, any Linux)
+│   │   │   └── gpu/                   # glibc binaries (GPU-capable, Vulkan dlopen)
+│   │   └── aarch64/
+│   │       └── static/               # musl binaries (CPU-only, ARM Linux)
+│   ├── container/
+│   │   └── hotspring-guidestone.tar   # OCI container image (Docker/Podman)
+│   └── results/                       # Validation + benchmark results (per-host)
 │
 ├── whitePaper/                         # Public-facing study documents
 │   ├── README.md                      # Document index
@@ -304,10 +329,15 @@ hotSpring/
 │   ├── 096-103: Silicon characterization, GPU RHMC, gradient flow, self-tuning
 │   └── 110-131: Consolidation, WPR2, K80 sovereign, VM capture, livepatch, warm handoff, puzzle box matrix, reset architecture
 │
+├── scripts/                            # Build, regeneration, deployment scripts
+│   ├── build-guidestone.sh            # Build guideStone artifact (dual-arch, container, launchers)
+│   ├── build-container.sh             # Build + export OCI container image
+│   ├── prepare-usb.sh                 # Prepare USB liveSpore (ext4/exFAT modes)
+│   └── regenerate-all.sh             # Full science regeneration pipeline
+│
 ├── specs/                              # Specifications, requirements, gap trackers
 ├── control/                            # Python control scripts (by domain)
 ├── metalForge/                         # Hardware characterization (GPU, NPU, nodes)
-├── scripts/                            # Regeneration, boot config, hw-test
 ├── benchmarks/                         # Kokkos/LAMMPS parity, protocol
 └── data/                               # Reference data (gitignored large files)
 ```
@@ -323,6 +353,9 @@ hotSpring/
 | [`specs/PAPER_REVIEW_QUEUE.md`](specs/PAPER_REVIEW_QUEUE.md) | Papers to review/reproduce, prioritized by tier |
 | [`specs/SOVEREIGN_VALIDATION_MATRIX.md`](specs/SOVEREIGN_VALIDATION_MATRIX.md) | Sovereign validation ladder / cross-cutting matrix (DRM, drivers, hardware) |
 | [`whitePaper/baseCamp/`](whitePaper/baseCamp/) | Per-domain research briefings (17 docs) |
+| [`validation/README`](validation/README) | guideStone artifact documentation — quick start, deployment matrix, cross-platform |
+| [`validation/GUIDESTONE.md`](validation/GUIDESTONE.md) | guideStone certification spec (deterministic, traceable, self-verifying) |
+| [`Dockerfile`](Dockerfile) | OCI container image for universal substrate deployment |
 
 ---
 
@@ -342,5 +375,7 @@ Consumer GPUs reproduce HPC physics at paper parity. DF64 delivers 3.24 TFLOPS a
 14-digit precision. GPU RHMC runs all-flavors dynamical QCD (Nf=2+1). Self-tuning
 RHMC eliminates hand-tuned parameters. Chuna 44/44 checks pass. K80 validates the
 sovereign compute stack without firmware barriers. 10.5/11 sovereign layers on Volta.
+guideStone artifact validated across 5 substrates (x86_64 + aarch64, bit-identical).
+Deployable on any OS via OCI container, any filesystem via tmpdir fallback.
 The full science ladder — quenched through dynamical fermions with gradient flow
 scale setting — runs on consumer hardware. The scarcity was artificial.*

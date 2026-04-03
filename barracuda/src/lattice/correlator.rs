@@ -27,7 +27,7 @@
 //! - Bazavov et al., PRD 111, 094508 (2025) — HVP g-2
 //! - Bazavov et al., PRD 93, 014512 (2016) — freeze-out curvature
 
-use super::cg::{CgResult, cg_solve};
+use super::cg::{CgResult, cg_solve, cg_solve_with_history};
 use super::complex_f64::Complex64;
 use super::dirac::FermionField;
 use super::wilson::Lattice;
@@ -75,6 +75,39 @@ pub fn point_propagator_correlator(
     CorrelatorResult { correlator, cg }
 }
 
+/// Same as `point_propagator_correlator` but records per-iteration CG residual history.
+///
+/// The `CgResult::residual_history` field will contain the relative residual
+/// at each CG iteration, suitable for convergence analysis or comparison
+/// with external solvers.
+#[must_use]
+pub fn point_propagator_correlator_with_history(
+    lattice: &Lattice,
+    mass: f64,
+    cg_tol: f64,
+    cg_max_iter: usize,
+) -> CorrelatorResult {
+    let vol = lattice.volume();
+    let nt = lattice.dims[3];
+
+    let mut source = FermionField::zeros(vol);
+    source.data[0][0] = Complex64::ONE;
+
+    let mut propagator = FermionField::zeros(vol);
+    let cg = cg_solve_with_history(lattice, &mut propagator, &source, mass, cg_tol, cg_max_iter);
+
+    let mut correlator = vec![0.0; nt];
+    for idx in 0..vol {
+        let coords = lattice.site_coords(idx);
+        let t = coords[3];
+        for c in 0..3 {
+            correlator[t] += propagator.data[idx][c].abs_sq();
+        }
+    }
+
+    CorrelatorResult { correlator, cg }
+}
+
 /// Multi-source averaged correlator for reduced variance.
 ///
 /// Averages over `n_sources` random wall sources (different colors)
@@ -97,6 +130,7 @@ pub fn averaged_correlator(
         iterations: 0,
         final_residual: 0.0,
         initial_residual: 0.0,
+        residual_history: Vec::new(),
     };
 
     for color in 0..n_sources.min(3) {
@@ -183,6 +217,90 @@ pub fn polyakov_susceptibility(poly_abs: &[f64], spatial_vol: usize) -> f64 {
     let mean_abs = poly_abs.iter().sum::<f64>() / n;
     let mean_sq = poly_abs.iter().map(|p| p * p).sum::<f64>() / n;
     spatial_vol as f64 * mean_abs.mul_add(-mean_abs, mean_sq)
+}
+
+/// Stochastic estimate of the chiral condensate ⟨ψ̄ψ⟩.
+#[derive(Clone, Debug)]
+pub struct ChiralCondensateResult {
+    /// Estimated condensate value
+    pub condensate: f64,
+    /// Stochastic error estimate (std. dev. of per-source estimates / sqrt(N))
+    pub error: f64,
+    /// Number of stochastic sources actually used
+    pub n_sources: usize,
+    /// Average CG iterations across all source inversions
+    pub avg_cg_iters: f64,
+}
+
+/// Stochastic estimator for the chiral condensate ⟨ψ̄ψ⟩ = (1/V) Tr[D⁻¹].
+///
+/// Uses `n_sources` random Z₂ noise vectors and CG inversion to estimate
+/// ⟨ψ̄ψ⟩ = (1/V) (1/N_src) Σ_i ξ_i† D⁻¹ ξ_i.
+///
+/// # Arguments
+/// * `lattice` — gauge configuration
+/// * `mass` — bare quark mass
+/// * `cg_tol` — CG stopping tolerance
+/// * `cg_max_iter` — maximum CG iterations
+/// * `n_sources` — number of stochastic noise vectors
+/// * `seed` — RNG seed
+#[must_use]
+pub fn chiral_condensate_stochastic(
+    lattice: &Lattice,
+    mass: f64,
+    cg_tol: f64,
+    cg_max_iter: usize,
+    n_sources: usize,
+    seed: u64,
+) -> ChiralCondensateResult {
+    let vol = lattice.volume();
+    let mut rng = seed;
+    let mut estimates = Vec::with_capacity(n_sources);
+    let mut total_cg_iters = 0u64;
+
+    for _src in 0..n_sources {
+        let mut source = FermionField::zeros(vol);
+        for idx in 0..vol {
+            for c in 0..3 {
+                let r = super::constants::lcg_uniform_f64(&mut rng);
+                let sign = if r < 0.5 { 1.0 } else { -1.0 };
+                source.data[idx][c] = Complex64 { re: sign, im: 0.0 };
+            }
+        }
+
+        let mut solution = FermionField::zeros(vol);
+        let cg_result = cg_solve(lattice, &mut solution, &source, mass, cg_tol, cg_max_iter);
+        total_cg_iters += cg_result.iterations as u64;
+
+        let mut trace_est = 0.0;
+        for idx in 0..vol {
+            for c in 0..3 {
+                trace_est += source.data[idx][c].re * solution.data[idx][c].re
+                    + source.data[idx][c].im * solution.data[idx][c].im;
+            }
+        }
+        estimates.push(trace_est / vol as f64);
+    }
+
+    let n = estimates.len() as f64;
+    let mean = estimates.iter().sum::<f64>() / n;
+    let variance = if estimates.len() > 1 {
+        estimates.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / (n - 1.0)
+    } else {
+        0.0
+    };
+    let error = (variance / n).sqrt();
+
+    ChiralCondensateResult {
+        condensate: mean,
+        error,
+        n_sources: estimates.len(),
+        avg_cg_iters: if estimates.is_empty() {
+            0.0
+        } else {
+            total_cg_iters as f64 / estimates.len() as f64
+        },
+    }
 }
 
 #[cfg(test)]

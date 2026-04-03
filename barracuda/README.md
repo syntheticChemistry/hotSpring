@@ -92,7 +92,7 @@ hotSpring implements physics locally (Rust + WGSL templates)
 |--------|--------|:-----:|:------------:|
 | `physics/` | Nuclear structure (L1/L2/L3 HFB, SEMF) | ~180 | 14 |
 | `md/` | GPU molecular dynamics (Yukawa OCP) | ~120 | 11 |
-| `lattice/` | Lattice QCD (SU(3), HMC, Dirac, CG) | ~200 | 7 |
+| `lattice/` | Lattice QCD (SU(3), HMC, Dirac, CG, asymmetric Ns³×Nt) | ~200 | 7 |
 | `spectral/` | Re-exports from upstream barracuda | — | — |
 | `gpu/` | FP64 device wrapper, telemetry | ~30 | — |
 | `tolerances/` | ~170 centralized thresholds | ~20 | — |
@@ -103,7 +103,7 @@ hotSpring implements physics locally (Rust + WGSL templates)
 Any GPU with SHADER_F64 or DF64 fallback is a science device at 14-digit precision.
 The overnight validation binary (`validate_chuna_overnight`) uses a four-phase pattern:
 
-1. **Discover** — `GpuF64::enumerate_adapters()` finds all GPUs, filters by f64 capability
+1. **Discover** — `GpuF64::enumerate_adapters()` finds all GPUs, filters by f64 capability (wrapped in `catch_unwind` + `HOTSPRING_NO_GPU` escape hatch for headless HPC)
 2. **Profile** — `PrecisionBrain::new()` probes each tier (F32/F64/DF64/F64Precise) for compilation, dispatch, transcendental safety, and ULP accuracy
 3. **Size** — `max_lattice_l()` derives workload dimensions from VRAM (`max_buffer_size`), so a 3050 with 8 GB runs 16^4, a 3090 with 24 GB runs 24^4+
 4. **Validate** — runs the full Paper 43/44/45 suite on each substrate with tagged telemetry, then cross-compares physics observables across GPUs

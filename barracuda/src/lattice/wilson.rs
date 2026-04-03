@@ -25,6 +25,7 @@ use super::su3::Su3Matrix;
 ///
 /// Links are stored as `links[site_index][mu]` where μ ∈ {0,1,2,3}
 /// represents the four spacetime directions.
+#[derive(Clone)]
 pub struct Lattice {
     /// Lattice dimensions [Nx, Ny, Nz, Nt].
     pub dims: [usize; 4],
@@ -290,6 +291,69 @@ impl Lattice {
         let avg_re = sum_re / spatial_vol as f64;
         let avg_im = sum_im / spatial_vol as f64;
         (avg_re, avg_im)
+    }
+
+    /// Spatial-temporal Wilson loop W(R,T) averaged over the lattice.
+    ///
+    /// Computes the R x T rectangular Wilson loop in the (x,t) plane,
+    /// averaged over all spatial origins and spatial directions.
+    /// Returns Re(1/3 Tr W) averaged over the lattice.
+    #[must_use]
+    pub fn spatial_temporal_wilson_loop(&self, r: usize, t: usize) -> f64 {
+        let vol = self.volume();
+        let mut sum = 0.0;
+        let mut count = 0u64;
+
+        for idx in 0..vol {
+            let x = self.site_coords(idx);
+            for spatial_dir in 0..3_usize {
+                let temporal_dir = 3;
+
+                let mut bottom = Su3Matrix::IDENTITY;
+                let mut pos = x;
+                for _ in 0..r {
+                    bottom = bottom * self.link(pos, spatial_dir);
+                    pos = self.neighbor(pos, spatial_dir, true);
+                }
+
+                let mut right = Su3Matrix::IDENTITY;
+                let mut pos_r = pos;
+                for _ in 0..t {
+                    right = right * self.link(pos_r, temporal_dir);
+                    pos_r = self.neighbor(pos_r, temporal_dir, true);
+                }
+
+                let mut top = Su3Matrix::IDENTITY;
+                let mut pos_t = pos_r;
+                for _ in 0..r {
+                    pos_t = self.neighbor(pos_t, spatial_dir, false);
+                    top = top * self.link(pos_t, spatial_dir).adjoint();
+                }
+
+                let mut left = Su3Matrix::IDENTITY;
+                let mut pos_l = x;
+                let mut left_links = Vec::with_capacity(t);
+                for _ in 0..t {
+                    left_links.push(self.link(pos_l, temporal_dir));
+                    pos_l = self.neighbor(pos_l, temporal_dir, true);
+                }
+                for u in left_links.iter().rev() {
+                    left = left * u.adjoint();
+                }
+
+                let w = bottom * right * top * left;
+                sum += w.trace().re / 3.0;
+                count += 1;
+            }
+        }
+
+        if count > 0 { sum / count as f64 } else { 0.0 }
+    }
+
+    /// Convenience alias for `spatial_temporal_wilson_loop`.
+    #[must_use]
+    pub fn average_wilson_loop(&self, r: usize, t: usize) -> f64 {
+        self.spatial_temporal_wilson_loop(r, t)
     }
 }
 

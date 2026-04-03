@@ -1,0 +1,424 @@
+{
+  "phase": "custom",
+  "results": [
+    {
+      "acceptance": 0.39,
+      "beta": 5.8,
+      "dims": [
+        8,
+        8,
+        8,
+        8
+      ],
+      "flow_seconds": 146.784043709,
+      "hmc_seconds": 430.671923634,
+      "label": "custom_8⁴_b5.80",
+      "lattice": "8⁴",
+      "mass": null,
+      "mean_plaquette": 0.5691066223737772,
+      "mean_polyakov": 0.01461479306305075,
+      "nf": 0,
+      "plaquette_susceptibility": 0.028483972961626972,
+      "polyakov_susceptibility": 0.011732447162296655,
+      "std_plaquette": 0.0026436792851246373,
+      "topo_charge": -0.05278471260284972,
+      "topo_susceptibility": 1.391293856859986e-6,
+      "volume": 4096,
+      "wall_seconds": 577.918309267,
+      "wilson_loops": [
+        {
+          "r": 1,
+          "t": 1,
+          "value": 0.5667690977727594
+        },
+        {
+          "r": 1,
+          "t": 2,
+          "value": 0.3504310550772765
+        },
+        {
+          "r": 1,
+          "t": 3,
+          "value": 0.21578233131396973
+        },
+        {
+          "r": 1,
+          "t": 4,
+          "value": 0.13539770800847628
+        },
+        {
+          "r": 2,
+          "t": 1,
+          "value": 0.3482661941418444
+        },
+        {
+          "r": 2,
+          "t": 2,
+          "value": 0.1560222373303725
+        },
+        {
+          "r": 2,
+          "t": 3,
+          "value": 0.07287550698898387
+        },
+        {
+          "r": 2,
+          "t": 4,
+          "value": 0.03301927611693711
+        },
+        {
+          "r": 3,
+          "t": 1,
+          "value": 0.21956080234314743
+        },
+        {
+          "r": 3,
+          "t": 2,
+          "value": 0.07301913767936119
+        },
+        {
+          "r": 3,
+          "t": 3,
+          "value": 0.02471268301664246
+        },
+        {
+          "r": 3,
+          "t": 4,
+          "value": 0.00911533632693904
+        },
+        {
+          "r": 4,
+          "t": 1,
+          "value": 0.14375070947575688
+        },
+        {
+          "r": 4,
+          "t": 2,
+          "value": 0.0338456465354193
+        },
+        {
+          "r": 4,
+          "t": 3,
+          "value": 0.012056438982534471
+        },
+        {
+          "r": 4,
+          "t": 4,
+          "value": 0.002526308172639684
+        }
+      ]
+    },
+    {
+      "acceptance": 0.39,
+      "beta": 5.8,
+      "chiral_condensate": 5.322877149026861,
+      "chiral_condensate_error": 0.06617654892365216,
+      "dims": [
+        8,
+        8,
+        8,
+        8
+      ],
+      "flow_seconds": 0.0,
+      "hmc_seconds": 484.625040359,
+      "label": "custom_8⁴_b5.80_Nf2_m0.100",
+      "lattice": "8⁴",
+      "mass": 0.1,
+      "mean_plaquette": 0.5698762285177957,
+      "mean_polyakov": 0.018105558582827523,
+      "nf": 2,
+      "plaquette_susceptibility": 0.028554142854472834,
+      "polyakov_susceptibility": 0.03454289122336907,
+      "std_plaquette": 0.0026469336167656054,
+      "volume": 4096,
+      "wall_seconds": 761.340683222
+    },
+    {
+      "acceptance": 0.42,
+      "beta": 6.0,
+      "dims": [
+        8,
+        8,
+        8,
+        8
+      ],
+      "flow_seconds": 148.266991027,
+      "hmc_seconds": 430.704832848,
+      "label": "custom_8⁴_b6.00",
+      "lattice": "8⁴",
+      "mass": null,
+      "mean_plaquette": 0.5934734738821102,
+      "mean_polyakov": 0.034899810881500924,
+      "nf": 0,
+      "plaquette_susceptibility": 0.010915202716593055,
+      "polyakov_susceptibility": 0.016558841753399386,
+      "std_plaquette": 0.0016365315732867784,
+      "topo_charge": 0.00028903232449412427,
+      "topo_susceptibility": 1.7059448697943842e-10,
+      "volume": 4096,
+      "wall_seconds": 579.439178327,
+      "wilson_loops": [
+        {
+          "r": 1,
+          "t": 1,
+          "value": 0.5962712639898337
+        },
+        {
+          "r": 1,
+          "t": 2,
+          "value": 0.38653716039353087
+        },
+        {
+          "r": 1,
+          "t": 3,
+          "value": 0.2547159715344648
+        },
+        {
+          "r": 1,
+          "t": 4,
+          "value": 0.16963681089406027
+        },
+        {
+          "r": 2,
+          "t": 1,
+          "value": 0.38787143079815684
+        },
+        {
+          "r": 2,
+          "t": 2,
+          "value": 0.19513685415779125
+        },
+        {
+          "r": 2,
+          "t": 3,
+          "value": 0.10474069551614446
+        },
+        {
+          "r": 2,
+          "t": 4,
+          "value": 0.05919028465594531
+        },
+        {
+          "r": 3,
+          "t": 1,
+          "value": 0.2547464784541776
+        },
+        {
+          "r": 3,
+          "t": 2,
+          "value": 0.10532393876513924
+        },
+        {
+          "r": 3,
+          "t": 3,
+          "value": 0.049237985353399204
+        },
+        {
+          "r": 3,
+          "t": 4,
+          "value": 0.02736553803697082
+        },
+        {
+          "r": 4,
+          "t": 1,
+          "value": 0.17225743898478033
+        },
+        {
+          "r": 4,
+          "t": 2,
+          "value": 0.057812606617859474
+        },
+        {
+          "r": 4,
+          "t": 3,
+          "value": 0.024531188180260146
+        },
+        {
+          "r": 4,
+          "t": 4,
+          "value": 0.010398134239510708
+        }
+      ]
+    },
+    {
+      "acceptance": 0.375,
+      "beta": 6.0,
+      "chiral_condensate": 4.672175913478915,
+      "chiral_condensate_error": 0.03626326917987118,
+      "dims": [
+        8,
+        8,
+        8,
+        8
+      ],
+      "flow_seconds": 0.0,
+      "hmc_seconds": 484.572018419,
+      "label": "custom_8⁴_b6.00_Nf2_m0.100",
+      "lattice": "8⁴",
+      "mass": 0.1,
+      "mean_plaquette": 0.5953240414725718,
+      "mean_polyakov": 0.030035857266557723,
+      "nf": 2,
+      "plaquette_susceptibility": 0.012883271813444437,
+      "polyakov_susceptibility": 0.05606653356714358,
+      "std_plaquette": 0.0017779582984453943,
+      "volume": 4096,
+      "wall_seconds": 759.974813905
+    },
+    {
+      "acceptance": 0.41,
+      "beta": 6.2,
+      "dims": [
+        8,
+        8,
+        8,
+        8
+      ],
+      "flow_seconds": 146.840009547,
+      "hmc_seconds": 430.337070089,
+      "label": "custom_8⁴_b6.20",
+      "lattice": "8⁴",
+      "mass": null,
+      "mean_plaquette": 0.6136737248222217,
+      "mean_polyakov": 0.030067177876645732,
+      "nf": 0,
+      "plaquette_susceptibility": 0.016576773617624392,
+      "polyakov_susceptibility": 0.05595072167238535,
+      "std_plaquette": 0.0020167798284574374,
+      "topo_charge": 0.00011827912185174306,
+      "topo_susceptibility": 1.6681005575464346e-11,
+      "volume": 4096,
+      "wall_seconds": 577.638914705,
+      "wilson_loops": [
+        {
+          "r": 1,
+          "t": 1,
+          "value": 0.6133458136010834
+        },
+        {
+          "r": 1,
+          "t": 2,
+          "value": 0.40935656061283954
+        },
+        {
+          "r": 1,
+          "t": 3,
+          "value": 0.2792766288357354
+        },
+        {
+          "r": 1,
+          "t": 4,
+          "value": 0.18995751569194516
+        },
+        {
+          "r": 2,
+          "t": 1,
+          "value": 0.4110000184229517
+        },
+        {
+          "r": 2,
+          "t": 2,
+          "value": 0.21501089935626017
+        },
+        {
+          "r": 2,
+          "t": 3,
+          "value": 0.12256804768797663
+        },
+        {
+          "r": 2,
+          "t": 4,
+          "value": 0.0722514783468665
+        },
+        {
+          "r": 3,
+          "t": 1,
+          "value": 0.27985573109390777
+        },
+        {
+          "r": 3,
+          "t": 2,
+          "value": 0.12080821780782734
+        },
+        {
+          "r": 3,
+          "t": 3,
+          "value": 0.0632304716496488
+        },
+        {
+          "r": 3,
+          "t": 4,
+          "value": 0.03452261776038474
+        },
+        {
+          "r": 4,
+          "t": 1,
+          "value": 0.19453642382089445
+        },
+        {
+          "r": 4,
+          "t": 2,
+          "value": 0.06985703220273753
+        },
+        {
+          "r": 4,
+          "t": 3,
+          "value": 0.032450166486589015
+        },
+        {
+          "r": 4,
+          "t": 4,
+          "value": 0.014974244920481904
+        }
+      ]
+    },
+    {
+      "acceptance": 0.39,
+      "beta": 6.2,
+      "chiral_condensate": 4.073274513830632,
+      "chiral_condensate_error": 0.03581406692359127,
+      "dims": [
+        8,
+        8,
+        8,
+        8
+      ],
+      "flow_seconds": 0.0,
+      "hmc_seconds": 482.938889579,
+      "label": "custom_8⁴_b6.20_Nf2_m0.100",
+      "lattice": "8⁴",
+      "mass": 0.1,
+      "mean_plaquette": 0.6137347525743096,
+      "mean_polyakov": 0.05016745846525705,
+      "nf": 2,
+      "plaquette_susceptibility": 0.010617513801155923,
+      "polyakov_susceptibility": 0.26647153856999845,
+      "std_plaquette": 0.0016140608468959482,
+      "volume": 4096,
+      "wall_seconds": 755.964359019
+    }
+  ],
+  "run": {
+    "arch": "x86_64",
+    "argv": [
+      "../barracuda/target/release/validation_matrix",
+      "--phase=custom",
+      "--ns=8",
+      "--nt=8",
+      "--beta=5.8,6.0,6.2",
+      "--nf=0,2",
+      "--mass=0.1",
+      "--telemetry=results/overnight_20260402T132649Z/phase4_telemetry.jsonl",
+      "--output=results/overnight_20260402T132649Z/phase4_param_mixing.json"
+    ],
+    "binary": "validation_matrix",
+    "engine_version": "0.6.32",
+    "hostname": "pop-os",
+    "os": "linux",
+    "schema_version": "1.0",
+    "timestamp": "2026-04-02T15:16:02Z"
+  },
+  "seed": 42,
+  "total_cells": 6,
+  "total_wall_seconds": 4012.27796873
+}

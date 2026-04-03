@@ -54,13 +54,25 @@ pub mod gpu_hmc;
 pub mod gradient_flow;
 /// Hybrid Monte Carlo integrator (Cayley SU(3) exponential).
 pub mod hmc;
+/// ILDG gauge configuration I/O (LIME containers, CRC integrity).
+pub mod ildg;
+/// LIME record-level I/O for ILDG and QCDml data exchange.
+pub mod lime;
+/// Measurement provenance: implementation info, scale setting, diagnostics.
+pub mod measurement;
 /// Multi-GPU lattice dispatcher (CPU-threaded, evolution target).
 pub mod multi_gpu;
 /// Pseudofermion action and dynamical fermion HMC.
 pub mod pseudofermion;
 /// Rational HMC for fractional determinant powers (Nf=2, 2+1).
 pub mod rhmc;
+/// Physics process catalog with cost models for parameter sweeps.
+pub mod process_catalog;
+/// QCDml 2.0 XML metadata for ILDG catalog interop.
+pub mod qcdml;
 /// SU(3) 3x3 complex matrix operations (group, algebra, Cayley).
 pub mod su3;
+/// Task matrix: systematic parameter sweeps with priority scheduling.
+pub mod task_matrix;
 /// Wilson gauge action: plaquettes, staples, gauge force.
 pub mod wilson;

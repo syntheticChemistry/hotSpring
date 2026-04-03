@@ -30,13 +30,15 @@
 //! - Lüscher, JHEP 08 (2010) 071 — Wilson flow definition and t₀ scale
 //! - Bazavov & Chuna, arXiv:2101.05320 — optimized Lie group integrators
 
-use barracuda::numerical::lscfrk::{self as lscfrk_lib, LscfrkCoefficients};
+use barracuda::numerical::lscfrk::{self as lscfrk_lib};
 
 use super::hmc::exp_su3_cayley_pub;
 use super::su3::Su3Matrix;
 use super::wilson::Lattice;
 
-pub use lscfrk_lib::{FlowMeasurement, compute_w_function, derive_lscfrk3, find_t0, find_w0};
+pub use lscfrk_lib::{
+    FlowMeasurement, LscfrkCoefficients, compute_w_function, derive_lscfrk3, find_t0, find_w0,
+};
 
 /// Flow integrator type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -223,6 +225,111 @@ pub fn run_flow(
     }
 
     measurements
+}
+
+/// Run gradient flow with custom LSCFRK coefficients.
+///
+/// Same as `run_flow` but uses caller-supplied coefficients instead of
+/// a named integrator variant. Used by the benchmark flow workbench to
+/// explore the LSCFRK parameter space.
+pub fn run_flow_custom(
+    lattice: &mut Lattice,
+    coeffs: &LscfrkCoefficients,
+    epsilon: f64,
+    t_max: f64,
+    measure_interval: usize,
+) -> Vec<FlowMeasurement> {
+    let n_steps = (t_max / epsilon).round() as usize;
+    let mut measurements = Vec::new();
+
+    let e0 = energy_density(lattice);
+    let p0 = lattice.average_plaquette();
+    measurements.push(FlowMeasurement {
+        t: 0.0,
+        energy_density: e0,
+        t2_e: 0.0,
+        plaquette: p0,
+    });
+
+    for step in 1..=n_steps {
+        lscfrk_step(lattice, epsilon, coeffs);
+
+        if step % measure_interval == 0 || step == n_steps {
+            let t = step as f64 * epsilon;
+            let e = energy_density(lattice);
+            measurements.push(FlowMeasurement {
+                t,
+                energy_density: e,
+                t2_e: t * t * e,
+                plaquette: lattice.average_plaquette(),
+            });
+        }
+    }
+
+    measurements
+}
+
+/// Topological susceptibility from a set of charge measurements.
+///
+/// χ_t = ⟨Q²⟩ / V where Q is the topological charge per configuration
+/// and V is the lattice 4-volume.
+#[must_use]
+pub fn topological_susceptibility(charges: &[f64], volume: usize) -> f64 {
+    let n = charges.len() as f64;
+    let mean_q2 = charges.iter().map(|q| q * q).sum::<f64>() / n;
+    mean_q2 / volume as f64
+}
+
+/// Topological charge via the clover field-strength tensor.
+///
+/// Q = (1/(32π²)) Σ_x ε_{μνρσ} Tr[F_{μν}(x) F_{ρσ}(x)]
+///
+/// Uses the symmetric clover definition for F_{μν} after gradient flow
+/// has smoothed the gauge field. On un-flowed lattices the result is noisy
+/// and not expected to be integer-valued.
+#[must_use]
+pub fn topological_charge(lattice: &Lattice) -> f64 {
+    let vol = lattice.volume();
+    let mut q = 0.0;
+
+    for idx in 0..vol {
+        let x = lattice.site_coords(idx);
+        let f01 = clover_fmunu(lattice, x, 0, 1);
+        let f23 = clover_fmunu(lattice, x, 2, 3);
+        let f02 = clover_fmunu(lattice, x, 0, 2);
+        let f13 = clover_fmunu(lattice, x, 1, 3);
+        let f03 = clover_fmunu(lattice, x, 0, 3);
+        let f12 = clover_fmunu(lattice, x, 1, 2);
+
+        q += trace_product(&f01, &f23);
+        q -= trace_product(&f02, &f13);
+        q += trace_product(&f03, &f12);
+    }
+
+    q / (4.0 * std::f64::consts::PI * std::f64::consts::PI)
+}
+
+fn clover_fmunu(lattice: &Lattice, x: [usize; 4], mu: usize, nu: usize) -> Su3Matrix {
+    let p1 = lattice.plaquette(x, mu, nu);
+    let x_bk_nu = lattice.neighbor(x, nu, false);
+    let p2 = plaq_oriented(lattice, x_bk_nu, mu, nu);
+    let x_bk_mu = lattice.neighbor(x, mu, false);
+    let x_bk_mu_bk_nu = lattice.neighbor(x_bk_mu, nu, false);
+    let p3 = plaq_oriented(lattice, x_bk_mu_bk_nu, mu, nu);
+    let p4 = plaq_oriented(lattice, x_bk_mu, mu, nu);
+
+    let sum = p1 + p2 + p3 + p4;
+    let diff = sum - sum.adjoint();
+    diff.scale(0.125)
+}
+
+fn plaq_oriented(lattice: &Lattice, x: [usize; 4], mu: usize, nu: usize) -> Su3Matrix {
+    lattice.plaquette(x, mu, nu)
+}
+
+fn trace_product(a: &Su3Matrix, b: &Su3Matrix) -> f64 {
+    let p = *a * *b;
+    p.trace().re
 }
 
 #[cfg(test)]

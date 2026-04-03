@@ -62,27 +62,45 @@ pub fn create_instance() -> wgpu::Instance {
 /// Returns a summary for each adapter including name, driver, and
 /// `SHADER_F64` support. Use the `index` field with
 /// `HOTSPRING_GPU_ADAPTER=<index>` to target a specific GPU.
+///
+/// Set `HOTSPRING_NO_GPU=1` to skip enumeration entirely (returns empty).
+/// On broken Vulkan stacks (common on headless HPC nodes), panics from
+/// the native ICD loader are caught and an empty list is returned.
 #[must_use]
 pub fn enumerate_adapters() -> Vec<AdapterInfo> {
-    let instance = create_instance();
-    pollster::block_on(instance.enumerate_adapters(wgpu::Backends::all()))
-        .into_iter()
-        .enumerate()
-        .map(|(i, adapter): (usize, wgpu::Adapter)| {
-            let info = adapter.get_info();
-            let features = adapter.features();
-            let limits = adapter.limits();
-            AdapterInfo {
-                index: i,
-                name: info.name.clone(),
-                driver: info.driver.clone(),
-                has_f64: features.contains(wgpu::Features::SHADER_F64),
-                has_timestamps: features.contains(wgpu::Features::TIMESTAMP_QUERY),
-                device_type: info.device_type,
-                memory_bytes: limits.max_buffer_size,
-            }
-        })
-        .collect()
+    if std::env::var("HOTSPRING_NO_GPU").is_ok() {
+        return Vec::new();
+    }
+
+    let result = std::panic::catch_unwind(|| {
+        let instance = create_instance();
+        pollster::block_on(instance.enumerate_adapters(wgpu::Backends::all()))
+            .into_iter()
+            .enumerate()
+            .map(|(i, adapter): (usize, wgpu::Adapter)| {
+                let info = adapter.get_info();
+                let features = adapter.features();
+                let limits = adapter.limits();
+                AdapterInfo {
+                    index: i,
+                    name: info.name.clone(),
+                    driver: info.driver.clone(),
+                    has_f64: features.contains(wgpu::Features::SHADER_F64),
+                    has_timestamps: features.contains(wgpu::Features::TIMESTAMP_QUERY),
+                    device_type: info.device_type,
+                    memory_bytes: limits.max_buffer_size,
+                }
+            })
+            .collect()
+    });
+
+    match result {
+        Ok(adapters) => adapters,
+        Err(_) => {
+            eprintln!("warning: GPU adapter enumeration failed (broken Vulkan/ICD?). Continuing CPU-only.");
+            Vec::new()
+        }
+    }
 }
 
 /// Discover the best available GPU adapter by memory/capability.

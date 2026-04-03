@@ -1,0 +1,108 @@
+{
+  "schema_version": "1.0",
+  "ensemble_id": "hotspring_b6.00_L8_Nt16",
+  "ildg_lfn": "/hotspring/b6.00/8x8x8x16/conf.000100",
+  "trajectory": 100,
+  "gauge": {
+    "plaquette": 0.5933385239156815,
+    "polyakov_abs": 0.03127603668658012,
+    "polyakov_re": 0.028997330937309745,
+    "polyakov_im": 0.01171943980454888,
+    "action_density": 2.439968856505911
+  },
+  "wilson_loops": [
+    {
+      "r": 1,
+      "t": 1,
+      "value": 0.5937580517881548
+    },
+    {
+      "r": 1,
+      "t": 2,
+      "value": 0.38402786480444545
+    },
+    {
+      "r": 1,
+      "t": 3,
+      "value": 0.252815008938605
+    },
+    {
+      "r": 1,
+      "t": 4,
+      "value": 0.16704391130027374
+    },
+    {
+      "r": 2,
+      "t": 1,
+      "value": 0.3842526851506036
+    },
+    {
+      "r": 2,
+      "t": 2,
+      "value": 0.18987342474930535
+    },
+    {
+      "r": 2,
+      "t": 3,
+      "value": 0.10124217256243177
+    },
+    {
+      "r": 2,
+      "t": 4,
+      "value": 0.05407557428290762
+    },
+    {
+      "r": 3,
+      "t": 1,
+      "value": 0.25181542333748524
+    },
+    {
+      "r": 3,
+      "t": 2,
+      "value": 0.09873472740110878
+    },
+    {
+      "r": 3,
+      "t": 3,
+      "value": 0.0449612446707739
+    },
+    {
+      "r": 3,
+      "t": 4,
+      "value": 0.023955213765604052
+    },
+    {
+      "r": 4,
+      "t": 1,
+      "value": 0.16758535043188696
+    },
+    {
+      "r": 4,
+      "t": 2,
+      "value": 0.0531627714232367
+    },
+    {
+      "r": 4,
+      "t": 3,
+      "value": 0.02364617008249727
+    },
+    {
+      "r": 4,
+      "t": 4,
+      "value": 0.012757853016830904
+    }
+  ],
+  "diagnostics": {
+    "accepted": true,
+    "delta_h": 0.09189785088528879,
+    "trajectory_seconds": 27.256427301
+  },
+  "implementation": {
+    "code_name": "hotSpring-barracuda",
+    "code_version": "hotSpring-barracuda 0.6.32",
+    "machine": "pop-os",
+    "institution": "ecoPrimals",
+    "machine_type": "CPU workstation"
+  },
+  "wall_seconds": 28.147058344
+}

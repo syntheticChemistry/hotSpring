@@ -1,0 +1,134 @@
+{
+  "schema_version": "1.0",
+  "ensemble_id": "hotspring_b6.00_L8_Nt16",
+  "created": "2026-04-02T16:26:33Z",
+  "gauge_action": "Wilson",
+  "fermion_action": "none",
+  "beta": 6.0,
+  "mass": 0.0,
+  "nf": 0,
+  "dims": [
+    8,
+    8,
+    8,
+    16
+  ],
+  "provenance": {
+    "engine": "hotSpring-barracuda 0.6.32",
+    "arch": "x86_64",
+    "os": "linux",
+    "hostname": "pop-os"
+  },
+  "algorithm": {
+    "algorithm": "HMC",
+    "integrator": "Omelyan",
+    "dt": 0.05,
+    "n_md_steps": 20,
+    "n_therm": 50,
+    "meas_interval": 5,
+    "seed": 42
+  },
+  "run": {
+    "schema_version": "1.0",
+    "binary": "chuna_generate",
+    "engine_version": "0.6.32",
+    "timestamp": "2026-04-02T16:26:33Z",
+    "hostname": "pop-os",
+    "arch": "x86_64",
+    "os": "linux",
+    "argv": [
+      "../barracuda/target/release/chuna_generate",
+      "--ns=8",
+      "--nt=16",
+      "--beta=6.0",
+      "--integrator=omelyan",
+      "--therm=50",
+      "--configs=10",
+      "--interval=5",
+      "--no-flow",
+      "--outdir=results/overnight_20260402T132649Z/phase5_pipeline/ensemble_omelyan"
+    ]
+  },
+  "configs": [
+    {
+      "trajectory": 55,
+      "filename": "conf_000055.lime",
+      "ildg_lfn": "/hotspring/b6.00/8x8x8x16/conf.000055",
+      "checksum_crc32": "b2ba3917",
+      "checksum_ildg_crc": 2998548759,
+      "plaquette": 0.5911733129341606
+    },
+    {
+      "trajectory": 60,
+      "filename": "conf_000060.lime",
+      "ildg_lfn": "/hotspring/b6.00/8x8x8x16/conf.000060",
+      "checksum_crc32": "8603c58f",
+      "checksum_ildg_crc": 2248394127,
+      "plaquette": 0.5940759282382307
+    },
+    {
+      "trajectory": 65,
+      "filename": "conf_000065.lime",
+      "ildg_lfn": "/hotspring/b6.00/8x8x8x16/conf.000065",
+      "checksum_crc32": "ae7d382b",
+      "checksum_ildg_crc": 2927441963,
+      "plaquette": 0.5948392218852142
+    },
+    {
+      "trajectory": 70,
+      "filename": "conf_000070.lime",
+      "ildg_lfn": "/hotspring/b6.00/8x8x8x16/conf.000070",
+      "checksum_crc32": "7e88fc8f",
+      "checksum_ildg_crc": 2122906767,
+      "plaquette": 0.593048828350699
+    },
+    {
+      "trajectory": 75,
+      "filename": "conf_000075.lime",
+      "ildg_lfn": "/hotspring/b6.00/8x8x8x16/conf.000075",
+      "checksum_crc32": "13f938c1",
+      "checksum_ildg_crc": 335100097,
+      "plaquette": 0.5907227506629559
+    },
+    {
+      "trajectory": 80,
+      "filename": "conf_000080.lime",
+      "ildg_lfn": "/hotspring/b6.00/8x8x8x16/conf.000080",
+      "checksum_crc32": "1464c19a",
+      "checksum_ildg_crc": 342147482,
+      "plaquette": 0.5937622696949709
+    },
+    {
+      "trajectory": 85,
+      "filename": "conf_000085.lime",
+      "ildg_lfn": "/hotspring/b6.00/8x8x8x16/conf.000085",
+      "checksum_crc32": "6af57748",
+      "checksum_ildg_crc": 1794471752,
+      "plaquette": 0.590959445560784
+    },
+    {
+      "trajectory": 90,
+      "filename": "conf_000090.lime",
+      "ildg_lfn": "/hotspring/b6.00/8x8x8x16/conf.000090",
+      "checksum_crc32": "e90ed0c0",
+      "checksum_ildg_crc": 3910062272,
+      "plaquette": 0.5935773997594963
+    },
+    {
+      "trajectory": 95,
+      "filename": "conf_000095.lime",
+      "ildg_lfn": "/hotspring/b6.00/8x8x8x16/conf.000095",
+      "checksum_crc32": "c7a37c6a",
+      "checksum_ildg_crc": 3349380202,
+      "plaquette": 0.5949064931076893
+    },
+    {
+      "trajectory": 100,
+      "filename": "conf_000100.lime",
+      "ildg_lfn": "/hotspring/b6.00/8x8x8x16/conf.000100",
+      "checksum_crc32": "2f796b7e",
+      "checksum_ildg_crc": 796486526,
+      "plaquette": 0.5933385239156815
+    }
+  ]
+}

@@ -1,0 +1,3 @@
+#!/bin/sh
+# Backward-compatible entry point. Forwards to ./hotspring validate.
+exec "$(dirname "$0")/hotspring" validate "$@"

@@ -7,10 +7,12 @@
 //! available VRAM, and validates on every target substrate. Any GPU with
 //! SHADER_F64 or DF64 fallback is a science device at 14-digit precision.
 //!
-//! **Paper 43** (Gradient flow integrators):
-//!   - Convergence sweep: ε = 0.02→0.001 for W6/W7/CK4
-//!   - Production flow at 8⁴+ β = {5.9, 6.0, 6.2} (VRAM-adaptive sizes)
-//!   - Dynamical fermion extension (warm-start + mass annealing)
+//! **Paper 43** (Gradient flow integrators) — **GPU streaming HMC**:
+//!   - Convergence sweep: ε = 0.02→0.001 for W6/W7/CK4 (GPU streaming)
+//!   - Production flow: symmetric N⁴ and asymmetric Ns³×Nt geometries
+//!     at β = {5.9, 6.0, 6.2} with `gpu_hmc_trajectory_streaming`
+//!   - Includes 8³×16 (T≈125 MeV) and 16³×32 (T≈62 MeV) finite-T lattices
+//!   - Dynamical fermion extension via `gpu_dynamical_hmc_trajectory`
 //!
 //! **Paper 44** (Conservative BGK dielectric):
 //!   - Standard + completed Mermin (CPU + GPU)
@@ -25,6 +27,10 @@
 //!   cargo run --release --bin validate_chuna_overnight -- --gpu 3090 # target specific GPU
 
 use hotspring_barracuda::gpu::GpuF64;
+use hotspring_barracuda::lattice::gpu_hmc::{
+    GpuDynHmcState, GpuHmcState, GpuHmcStreamingPipelines,
+    gpu_dynamical_hmc_trajectory_streaming, gpu_hmc_trajectory_streaming, gpu_links_to_lattice,
+};
 use hotspring_barracuda::precision_brain::PrecisionBrain;
 use hotspring_barracuda::validation::{TelemetryWriter, ValidationHarness};
 use std::time::Instant;
@@ -175,8 +181,8 @@ fn main() {
         // ═══ Phase 3: Validate ═══
         if !skip_to_dynamical {
             println!("\n━━━ Paper 43: Gradient Flow Integrators ━━━\n");
-            paper_43_convergence(&mut harness, &mut telem);
-            paper_43_production(&mut harness, &mut telem, &mut results);
+            paper_43_convergence(&mut harness, &gpu, &mut telem);
+            paper_43_production(&mut harness, &gpu, &mut telem, &mut results);
 
             println!("\n━━━ Paper 44: Conservative BGK Dielectric ━━━\n");
             paper_44_cpu(&mut harness, &mut telem);
@@ -190,8 +196,8 @@ fn main() {
             paper_45_gpu_coupled(&mut harness, &gpu, &mut telem);
         }
 
-        println!("\n━━━ Paper 43: Dynamical Extension (warm-start) ━━━\n");
-        paper_43_dynamical(&mut harness, &mut telem, &mut results);
+        println!("\n━━━ Paper 43: Dynamical Extension (warm-start, GPU streaming) ━━━\n");
+        paper_43_dynamical(&mut harness, &gpu, &mut telem, &mut results);
 
         results.wall_seconds = gpu_start.elapsed().as_secs_f64();
         telem.log("substrate_summary", "wall_seconds", results.wall_seconds);
@@ -261,7 +267,8 @@ fn main() {
     harness.finish();
 }
 
-/// CPU-based quenched pre-thermalization fallback.
+/// CPU-based quenched pre-thermalization fallback (retained for HOTSPRING_NO_GPU=1).
+#[allow(dead_code)]
 fn cpu_quenched_pretherm(
     dims: [usize; 4],
     beta: f64,
@@ -314,15 +321,20 @@ fn cpu_quenched_pretherm(
 
 // ─── Paper 43 ────────────────────────────────────────────────────
 
-fn paper_43_convergence(harness: &mut ValidationHarness, telem: &mut TelemetryWriter) {
+fn paper_43_convergence(harness: &mut ValidationHarness, gpu: &GpuF64, telem: &mut TelemetryWriter) {
     use hotspring_barracuda::lattice::gradient_flow::{FlowIntegrator, run_flow};
-    use hotspring_barracuda::lattice::hmc::{HmcConfig, hmc_trajectory};
     use hotspring_barracuda::lattice::wilson::Lattice;
 
-    println!("  Convergence sweep (8⁴ β=6.0)...");
+    println!("  Convergence sweep (8⁴ β=6.0) [GPU streaming HMC]...");
     let start = Instant::now();
 
+    let dims = [8, 8, 8, 8];
+    let beta = 6.0;
     let n_therm = 100;
+    let n_md_steps = 20;
+    let dt = 0.05;
+
+    let pipelines = GpuHmcStreamingPipelines::new(gpu);
 
     let integrators = [
         (FlowIntegrator::Rk3Luscher, "W6", 3),
@@ -335,32 +347,32 @@ fn paper_43_convergence(harness: &mut ValidationHarness, telem: &mut TelemetryWr
     for (integrator, name, expected_order) in &integrators {
         let mut e_values: Vec<(f64, f64)> = Vec::new();
         for &eps in &epsilons {
-            let mut lat = Lattice::hot_start([8, 8, 8, 8], 6.0, 42);
-            let mut cfg = HmcConfig {
-                n_md_steps: 20,
-                dt: 0.05,
-                seed: 12345,
-                ..Default::default()
-            };
+            let lat = Lattice::hot_start(dims, beta, 42);
+            let state = GpuHmcState::from_lattice(gpu, &lat, beta);
+            let mut seed = 12345u64;
             for i in 0..n_therm {
-                let result = hmc_trajectory(&mut lat, &mut cfg);
+                let r = gpu_hmc_trajectory_streaming(
+                    gpu, &pipelines, &state, n_md_steps, dt, i as u32, &mut seed,
+                );
                 if (i + 1) % 25 == 0 {
                     println!(
                         "      [{name} ε={eps}] therm {}/{n_therm}: ⟨P⟩={:.6}, acc={}",
                         i + 1,
-                        lat.average_plaquette(),
-                        if result.accepted { "Y" } else { "N" }
+                        r.plaquette,
+                        if r.accepted { "Y" } else { "N" }
                     );
                     telem.log_map(
                         &format!("p43_conv_{name}_eps{eps}"),
                         &[
                             ("trajectory", (i + 1) as f64),
-                            ("plaquette", lat.average_plaquette()),
-                            ("accepted", f64::from(u8::from(result.accepted))),
+                            ("plaquette", r.plaquette),
+                            ("accepted", f64::from(u8::from(r.accepted))),
                         ],
                     );
                 }
             }
+            let mut lat = Lattice::hot_start(dims, beta, 42);
+            gpu_links_to_lattice(gpu, &state, &mut lat);
             let results = run_flow(&mut lat, *integrator, eps, 1.0, 1);
             let e = results.last().map_or(0.0, |m| m.energy_density);
             e_values.push((eps, e));
@@ -390,78 +402,79 @@ fn paper_43_convergence(harness: &mut ValidationHarness, telem: &mut TelemetryWr
     println!("    {:.1}s", start.elapsed().as_secs_f64());
 }
 
-fn paper_43_production(harness: &mut ValidationHarness, telem: &mut TelemetryWriter, results: &mut SubstrateResults) {
+fn paper_43_production(harness: &mut ValidationHarness, gpu: &GpuF64, telem: &mut TelemetryWriter, results: &mut SubstrateResults) {
     use hotspring_barracuda::lattice::gradient_flow::{FlowIntegrator, find_t0, find_w0, run_flow};
-    use hotspring_barracuda::lattice::hmc::{HmcConfig, hmc_trajectory};
     use hotspring_barracuda::lattice::wilson::Lattice;
 
     let configs: &[([usize; 4], f64, usize, &str)] = &[
-        ([8, 8, 8, 8], 5.9, 200, "8⁴ β=5.9"),
-        ([8, 8, 8, 8], 6.0, 200, "8⁴ β=6.0"),
-        ([8, 8, 8, 8], 6.2, 200, "8⁴ β=6.2"),
+        ([8, 8, 8, 8],     5.9, 200, "8⁴ β=5.9"),
+        ([8, 8, 8, 8],     6.0, 200, "8⁴ β=6.0"),
+        ([8, 8, 8, 16],    6.0, 200, "8³×16 β=6.0"),
+        ([8, 8, 8, 8],     6.2, 200, "8⁴ β=6.2"),
         ([16, 16, 16, 16], 6.0, 500, "16⁴ β=6.0"),
+        ([16, 16, 16, 32], 6.0, 300, "16³×32 β=6.0"),
     ];
 
     for (dims, beta, n_therm, label) in configs {
         let start = Instant::now();
-        println!("  {label}...");
+        println!("  {label} [GPU streaming]...");
 
-        let mut lattice = Lattice::hot_start(*dims, *beta, 42);
-        let volume = dims[0] * dims[1] * dims[2] * dims[3];
+        let lattice = Lattice::hot_start(*dims, *beta, 42);
+        let volume: usize = dims.iter().product();
         let (n_md, md_dt) = if volume > 10000 {
             (40, 0.025)
         } else {
             (20, 0.05)
         };
-        let mut config = HmcConfig {
-            n_md_steps: n_md,
-            dt: md_dt,
-            seed: 12345,
-            ..Default::default()
-        };
-        let mut n_accept = 0;
+
+        let pipelines = GpuHmcStreamingPipelines::new(gpu);
+        let state = GpuHmcState::from_lattice(gpu, &lattice, *beta);
+        let mut seed = 12345u64;
+        let mut n_accept = 0usize;
+        let mut last_plaq = 0.0;
         let log_interval = if *n_therm >= 500 { 50 } else { 25 };
+
         for i in 0..*n_therm {
-            let result = hmc_trajectory(&mut lattice, &mut config);
-            if result.accepted {
-                n_accept += 1;
-            }
+            let r = gpu_hmc_trajectory_streaming(
+                gpu, &pipelines, &state, n_md, md_dt, i as u32, &mut seed,
+            );
+            if r.accepted { n_accept += 1; }
+            last_plaq = r.plaquette;
             if (i + 1) % log_interval == 0 {
                 let running_acc = n_accept as f64 / (i + 1) as f64;
                 println!(
                     "    [{}/{}] ⟨P⟩={:.6}, acc={:.0}%",
-                    i + 1,
-                    n_therm,
-                    lattice.average_plaquette(),
-                    running_acc * 100.0
+                    i + 1, n_therm, r.plaquette, running_acc * 100.0
                 );
                 telem.log_map(
                     &format!("p43_prod_{label}"),
                     &[
                         ("trajectory", (i + 1) as f64),
-                        ("plaquette", lattice.average_plaquette()),
+                        ("plaquette", r.plaquette),
                         ("acceptance", running_acc),
-                        ("delta_h", result.delta_h),
+                        ("delta_h", r.delta_h),
                     ],
                 );
             }
         }
         let acceptance = n_accept as f64 / *n_therm as f64;
         println!(
-            "    ⟨P⟩ = {:.6}, {:.0}% accept",
-            lattice.average_plaquette(),
+            "    ⟨P⟩ = {last_plaq:.6}, {:.0}% accept",
             acceptance * 100.0
         );
         telem.log_map(
             &format!("p43_prod_{label}"),
             &[
-                ("final_plaquette", lattice.average_plaquette()),
+                ("final_plaquette", last_plaq),
                 ("final_acceptance", acceptance),
                 ("wall_seconds", start.elapsed().as_secs_f64()),
             ],
         );
         harness.check_lower(&format!("p43_accept_{label}"), acceptance, 0.25);
-        results.plaquettes.push((label.to_string(), lattice.average_plaquette()));
+        results.plaquettes.push((label.to_string(), last_plaq));
+
+        let mut lattice = Lattice::hot_start(*dims, *beta, 42);
+        gpu_links_to_lattice(gpu, &state, &mut lattice);
 
         let flow = run_flow(&mut lattice, FlowIntegrator::Lscfrk3w7, 0.01, 4.0, 5);
 
@@ -494,130 +507,137 @@ fn paper_43_production(harness: &mut ValidationHarness, telem: &mut TelemetryWri
 /// The NPU, when available, monitors and adjusts the annealing schedule.
 fn paper_43_dynamical(
     harness: &mut ValidationHarness,
+    gpu: &GpuF64,
     telem: &mut TelemetryWriter,
     results: &mut SubstrateResults,
 ) {
     use hotspring_barracuda::lattice::gradient_flow::{FlowIntegrator, find_t0, find_w0, run_flow};
-    use hotspring_barracuda::lattice::pseudofermion::{
-        AdaptiveStepController, DynamicalHmcConfig, MassAnnealingSchedule, PseudofermionConfig,
-        dynamical_thermalize_warm_start, dynamical_thermalize_warm_start_npu,
-    };
+    use hotspring_barracuda::lattice::wilson::Lattice;
 
     let start = Instant::now();
 
     let dims = [8, 8, 8, 8];
     let beta = 5.4;
     let mass = 0.1;
+    let n_fields = 1; // Nf = 4
+    let cg_tol = 1e-8;
+    let cg_max_iter = 5000;
+    let n_quenched_therm = 100;
+    let n_dyn_therm = 50;
+    let n_md_steps = 20;
+    let dt = 0.05;
 
-    let npu_available = hotspring_barracuda::discovery::probe_npu_available();
+    println!("  Dynamical 8⁴ β={beta} (N_f=4, m={mass}) [GPU streaming]...");
 
-    if npu_available {
-        println!("  Dynamical 8⁴ β={beta} (N_f=4, m={mass}) [NPU detected, warm-start]...");
-    } else {
-        println!("  Dynamical 8⁴ β={beta} (N_f=4, m={mass}) [warm-start + mass annealing]...");
+    // Step 1: Quenched GPU pre-thermalization
+    println!("    Quenched pre-therm ({n_quenched_therm} trajectories, GPU streaming)...");
+    let lattice = Lattice::hot_start(dims, beta, 42);
+    let quenched_pip = GpuHmcStreamingPipelines::new(gpu);
+    let quenched_state = GpuHmcState::from_lattice(gpu, &lattice, beta);
+    let mut seed = 12345u64;
+    let mut q_accept = 0usize;
+
+    for i in 0..n_quenched_therm {
+        let r = gpu_hmc_trajectory_streaming(
+            gpu, &quenched_pip, &quenched_state, n_md_steps, dt, i as u32, &mut seed,
+        );
+        if r.accepted { q_accept += 1; }
+        if (i + 1) % 25 == 0 {
+            println!(
+                "      [{}/{}] ⟨P⟩={:.6}, acc={:.0}%",
+                i + 1, n_quenched_therm, r.plaquette,
+                q_accept as f64 / (i + 1) as f64 * 100.0,
+            );
+            telem.log_map(
+                "p43_dyn_quenched",
+                &[
+                    ("trajectory", (i + 1) as f64),
+                    ("plaquette", r.plaquette),
+                    ("acceptance", q_accept as f64 / (i + 1) as f64),
+                ],
+            );
+        }
     }
-    let mut lattice = cpu_quenched_pretherm(dims, beta, 100, telem, &start);
-
-    // Step 2: Mass annealing with adaptive Omelyan HMC
-    let schedule = MassAnnealingSchedule::default_for(mass);
+    let q_plaq = {
+        let mut tmp = Lattice::hot_start(dims, beta, 42);
+        gpu_links_to_lattice(gpu, &quenched_state, &mut tmp);
+        tmp.average_plaquette()
+    };
     println!(
-        "    Mass annealing: {} stages → m={mass}",
-        schedule.stages.len()
+        "    Quenched done: ⟨P⟩={q_plaq:.6}, {:.0}% accept, {:.1}s",
+        q_accept as f64 / n_quenched_therm as f64 * 100.0,
+        start.elapsed().as_secs_f64(),
     );
 
-    // If NPU is available, use it for initial param suggestion and runtime steering
-    let mut npu_steering = if npu_available {
-        hotspring_barracuda::discovery::try_create_npu_steering(5)
-    } else {
-        None
-    };
+    // Step 2: Dynamical fermion HMC via GPU streaming
+    println!("    Dynamical GPU streaming ({n_dyn_therm} trajectories, mass annealing)...");
+    let mut lattice = Lattice::hot_start(dims, beta, 42);
+    gpu_links_to_lattice(gpu, &quenched_state, &mut lattice);
 
-    let npu_active = npu_steering.is_some();
-    let mut controller = if let Some(ref mut steering) = npu_steering {
-        let ctrl =
-            AdaptiveStepController::for_dynamical_with_npu(dims, beta, 1.0, &mut steering.npu);
+        let dyn_pip = hotspring_barracuda::lattice::gpu_hmc::GpuDynHmcStreamingPipelines::new(gpu);
+    let masses = [1.0, 0.5, 0.2, mass];
+    let trajs_per_mass = n_dyn_therm / masses.len().max(1);
+    let mut total_cg = 0usize;
+    let mut total_traj = 0usize;
+    let mut last_acceptance = 0.0;
+    let mut last_plaq = 0.0;
+
+    for (stage_idx, &m) in masses.iter().enumerate() {
+        let dyn_state = GpuDynHmcState::from_lattice_multi(
+            gpu, &lattice, beta, m, cg_tol, cg_max_iter, n_fields,
+        );
+        let n_traj = if stage_idx == masses.len() - 1 {
+            n_dyn_therm - trajs_per_mass * (masses.len() - 1)
+        } else {
+            trajs_per_mass
+        };
+        let mut stage_accept = 0usize;
+
+        for t in 0..n_traj {
+            let r = gpu_dynamical_hmc_trajectory_streaming(
+                gpu, &dyn_pip, &dyn_state, n_md_steps, dt, (total_traj + t) as u32, &mut seed,
+            );
+            if r.accepted { stage_accept += 1; }
+            total_cg += r.cg_iterations;
+            total_traj += 1;
+            last_plaq = r.plaquette;
+        }
+        last_acceptance = stage_accept as f64 / n_traj.max(1) as f64;
+
         println!(
-            "    [NPU] Steering active — initial dt={:.5}, n_md={}, feedback every {} traj",
-            ctrl.dt, ctrl.n_md_steps, steering.feedback_interval,
+            "      stage {} (m={m}): {:.0}% accept, ⟨P⟩={last_plaq:.6}",
+            stage_idx, last_acceptance * 100.0
         );
         telem.log_map(
-            "p43_dyn_npu",
+            &format!("p43_dyn_stage{stage_idx}"),
             &[
-                ("npu_active", 1.0),
-                ("initial_dt", ctrl.dt),
-                ("initial_n_md", ctrl.n_md_steps as f64),
-                ("feedback_interval", steering.feedback_interval as f64),
+                ("mass", m),
+                ("acceptance", last_acceptance),
+                ("plaquette", last_plaq),
+                ("n_trajectories", n_traj as f64),
             ],
         );
-        ctrl
-    } else {
-        let ctrl = AdaptiveStepController::for_dynamical(dims, beta, 1.0);
-        println!("    [NPU] Not available — using heuristic controller");
-        telem.log("p43_dyn_npu", "npu_active", 0.0);
-        ctrl
-    };
 
-    let mut config = DynamicalHmcConfig {
-        seed: 12345,
-        fermion: PseudofermionConfig {
-            mass: 1.0,
-            cg_tol: 1e-8,
-            cg_max_iter: 5000,
-        },
-        beta,
-        n_flavors_over_4: 1,
-        ..Default::default()
-    };
-
-    let warm = if let Some(ref mut steering) = npu_steering {
-        dynamical_thermalize_warm_start_npu(
-            &mut lattice,
-            &mut config,
-            &schedule,
-            &mut controller,
-            steering,
-        )
-    } else {
-        dynamical_thermalize_warm_start(&mut lattice, &mut config, &schedule, &mut controller)
-    };
+        gpu_links_to_lattice(gpu, &dyn_state.gauge, &mut lattice);
+    }
 
     let plaq = lattice.average_plaquette();
     println!(
-        "    ⟨P⟩ = {plaq:.6}, {:.0}% accept (final stage), {} CG iters, dt={:.4}, n_md={}",
-        warm.final_acceptance * 100.0,
-        warm.total_cg_iterations,
-        warm.final_dt,
-        warm.final_n_md,
+        "    ⟨P⟩ = {plaq:.6}, {:.0}% accept (final stage), {} CG iters",
+        last_acceptance * 100.0, total_cg,
     );
-
-    for (i, stage) in warm.stage_results.iter().enumerate() {
-        telem.log_map(
-            &format!("p43_dyn_stage{i}"),
-            &[
-                ("mass", stage.mass),
-                ("acceptance", stage.acceptance_rate),
-                ("plaquette", stage.plaquette),
-                ("mean_delta_h", stage.mean_delta_h),
-                ("n_trajectories", stage.n_trajectories as f64),
-            ],
-        );
-    }
 
     telem.log_map(
         "p43_dyn",
         &[
             ("final_plaquette", plaq),
-            ("final_acceptance", warm.final_acceptance),
-            ("total_cg_iterations", warm.total_cg_iterations as f64),
-            ("final_dt", warm.final_dt),
-            ("final_n_md", warm.final_n_md as f64),
-            ("total_trajectories", warm.total_trajectories as f64),
+            ("final_acceptance", last_acceptance),
+            ("total_cg_iterations", total_cg as f64),
+            ("total_trajectories", total_traj as f64),
             ("wall_seconds", start.elapsed().as_secs_f64()),
-            ("npu_active", if npu_active { 1.0 } else { 0.0 }),
         ],
     );
 
-    // Write run summary to run history for NPU cross-run learning
     {
         use hotspring_barracuda::lattice::pseudofermion::run_history::{
             RunHistoryWriter, RunSummary,
@@ -631,17 +651,17 @@ fn paper_43_dynamical(
             writer.write_summary(&RunSummary {
                 beta,
                 mass,
-                final_acceptance: warm.final_acceptance,
+                final_acceptance: last_acceptance,
                 final_plaquette: plaq,
-                final_dt: warm.final_dt,
-                n_trajectories: warm.total_trajectories,
-                converged: warm.final_acceptance > 0.20,
+                final_dt: dt,
+                n_trajectories: total_traj,
+                converged: last_acceptance > 0.20,
             });
             writer.flush();
         }
     }
 
-    harness.check_lower("p43_dyn_accept", warm.final_acceptance, 0.20);
+    harness.check_lower("p43_dyn_accept", last_acceptance, 0.20);
     harness.check_lower("p43_dyn_plaquette", plaq, 0.3);
     results.plaquettes.push(("dyn_8^4".to_string(), plaq));
 

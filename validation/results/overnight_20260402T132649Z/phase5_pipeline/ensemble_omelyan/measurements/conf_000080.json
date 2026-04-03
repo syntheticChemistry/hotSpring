@@ -1,0 +1,108 @@
+{
+  "schema_version": "1.0",
+  "ensemble_id": "hotspring_b6.00_L8_Nt16",
+  "ildg_lfn": "/hotspring/b6.00/8x8x8x16/conf.000080",
+  "trajectory": 80,
+  "gauge": {
+    "plaquette": 0.5937622696949709,
+    "polyakov_abs": 0.007781978202001667,
+    "polyakov_re": 0.0037639704683829624,
+    "polyakov_im": 0.006811146089284097,
+    "action_density": 2.4374263818301745
+  },
+  "wilson_loops": [
+    {
+      "r": 1,
+      "t": 1,
+      "value": 0.5931740174530946
+    },
+    {
+      "r": 1,
+      "t": 2,
+      "value": 0.3844601213897538
+    },
+    {
+      "r": 1,
+      "t": 3,
+      "value": 0.252149892277758
+    },
+    {
+      "r": 1,
+      "t": 4,
+      "value": 0.1665139256493716
+    },
+    {
+      "r": 2,
+      "t": 1,
+      "value": 0.38341170699663807
+    },
+    {
+      "r": 2,
+      "t": 2,
+      "value": 0.190384311172903
+    },
+    {
+      "r": 2,
+      "t": 3,
+      "value": 0.099824954091229
+    },
+    {
+      "r": 2,
+      "t": 4,
+      "value": 0.05037618387132642
+    },
+    {
+      "r": 3,
+      "t": 1,
+      "value": 0.2548432970861516
+    },
+    {
+      "r": 3,
+      "t": 2,
+      "value": 0.1003810180490945
+    },
+    {
+      "r": 3,
+      "t": 3,
+      "value": 0.04451535095833201
+    },
+    {
+      "r": 3,
+      "t": 4,
+      "value": 0.01876371992203572
+    },
+    {
+      "r": 4,
+      "t": 1,
+      "value": 0.16828577990592217
+    },
+    {
+      "r": 4,
+      "t": 2,
+      "value": 0.05189987529949406
+    },
+    {
+      "r": 4,
+      "t": 3,
+      "value": 0.016534503308069232
+    },
+    {
+      "r": 4,
+      "t": 4,
+      "value": 0.005831842755347913
+    }
+  ],
+  "diagnostics": {
+    "accepted": true,
+    "delta_h": -0.09467216103803366,
+    "trajectory_seconds": 27.2568957
+  },
+  "implementation": {
+    "code_name": "hotSpring-barracuda",
+    "code_version": "hotSpring-barracuda 0.6.32",
+    "machine": "pop-os",
+    "institution": "ecoPrimals",
+    "machine_type": "CPU workstation"
+  },
+  "wall_seconds": 28.138544777
+}

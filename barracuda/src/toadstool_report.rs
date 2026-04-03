@@ -11,7 +11,8 @@
 //! `$XDG_RUNTIME_DIR/biomeos/toadstool-<FAMILY_ID>.sock` with `/tmp` when `XDG_RUNTIME_DIR`
 //! is unset, or override with `TOADSTOOL_SOCKET`.
 
-use serde::Serialize;
+use crate::primal_bridge::NucleusContext;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -114,6 +115,90 @@ fn send_jsonrpc(
     _params: &serde_json::Value,
 ) -> Result<serde_json::Value, String> {
     Err("toadStool JSON-RPC over Unix socket not available on this platform".into())
+}
+
+/// A GPU capability record returned by toadStool's compute.capability_query.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GpuCapability {
+    pub adapter_name: String,
+    pub vendor: String,
+    pub vram_mb: u64,
+    pub f64_support: bool,
+    pub precision_tier: String,
+    pub available: bool,
+}
+
+/// NUCLEUS-aware compute capabilities from toadStool.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComputeCapabilities {
+    pub gpus: Vec<GpuCapability>,
+    pub source: String,
+}
+
+/// Query toadStool for available compute capabilities (NUCLEUS silicon view).
+///
+/// When toadStool is available, this returns the cluster-wide GPU inventory.
+/// Falls back to `None` when toadStool is absent — callers should use
+/// local `GpuF64::enumerate_adapters()` as a fallback.
+pub fn query_capabilities(nucleus: &NucleusContext) -> Option<ComputeCapabilities> {
+    let params = serde_json::json!({
+        "spring": "hotSpring",
+        "require_f64": true,
+    });
+
+    let resp = nucleus
+        .call("toadstool", "compute.capability_query", &params)
+        .ok()?;
+
+    let result = resp.get("result")?;
+    let gpus_val = result.get("gpus")?;
+    let gpus: Vec<GpuCapability> = serde_json::from_value(gpus_val.clone()).ok()?;
+
+    println!(
+        "  toadStool: {} GPU(s) via NUCLEUS capability query",
+        gpus.len()
+    );
+    for g in &gpus {
+        println!(
+            "    {} ({}, {}MB, f64={}, {})",
+            g.adapter_name, g.vendor, g.vram_mb, g.f64_support, g.precision_tier
+        );
+    }
+
+    Some(ComputeCapabilities {
+        gpus,
+        source: "toadstool".to_string(),
+    })
+}
+
+/// Register a validated shader with toadStool for cross-spring absorption.
+///
+/// Sends `compute.shader.register` JSON-RPC when toadStool is available.
+pub fn register_shader(
+    nucleus: &NucleusContext,
+    name: &str,
+    version: &str,
+    precision_tier: &str,
+    receipt_json: &serde_json::Value,
+) -> Result<(), String> {
+    let params = serde_json::json!({
+        "shader_name": name,
+        "shader_version": version,
+        "precision_tier": precision_tier,
+        "spring": "hotSpring",
+        "guidestone_receipt": receipt_json,
+    });
+
+    let resp = nucleus.call("toadstool", "compute.shader.register", &params)?;
+
+    let status = resp
+        .get("result")
+        .and_then(|r| r.get("status"))
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("unknown");
+
+    println!("  toadStool: shader.register({name} v{version}) → {status}");
+    Ok(())
 }
 
 /// Report a batch of performance measurements to toadStool.

@@ -25,8 +25,8 @@ pipeline on harder physics — toadStool evolves the GPU acceleration in paralle
 | 8 | Pure gauge SU(3) | ✅ `lattice_qcd/quenched_beta_scan.py` | ✅ `validate_pure_gauge` (12/12) | ✅ GPU plaquette + HMC force shaders | ✅ NPU: phase classification |
 | 9 | Production QCD β-scan | ✅ `lattice_qcd/quenched_beta_scan.py` | ✅ `validate_production_qcd` (10/10) | ✅ GPU CG (9/9) + Dirac (8/8) | ✅ NPU: `validate_lattice_npu` (10/10) |
 | 10 | Dynamical fermion QCD | ✅ `lattice_qcd/dynamical_fermion_control.py` | ✅ `validate_dynamical_qcd` (7/7) + Omelyan + Hasenbusch | ✅ `validate_pure_gpu_hmc` (8/8) + `validate_gpu_streaming` (9/9): streaming GPU-resident HMC | ✅ NPU: dyn phase classify (100%, 3.2e-7) |
-| 11 | Hadronic vacuum polarization | — | ✅ `validate_hvp_g2` (10/10) | ✅ GPU streaming HMC pipeline (6 shaders + GPU PRNG) | — |
-| 12 | Freeze-out curvature | — | ✅ `validate_freeze_out` (8/8) | ✅ GPU streaming HMC pipeline (susceptibility via GPU plaquette) | — |
+| 11 | Hadronic vacuum polarization | ✅ `lattice_qcd/hvp_correlator_control.py` (8/8) | ✅ `validate_hvp_g2` (10/10) | ✅ GPU streaming HMC pipeline (6 shaders + GPU PRNG) | — |
+| 12 | Freeze-out curvature | ✅ `lattice_qcd/freeze_out_control.py` (8/8) | ✅ `validate_freeze_out` (8/8) | ✅ GPU streaming HMC pipeline (susceptibility via GPU plaquette) | — |
 | 13 | Abelian Higgs | ✅ `abelian_higgs/abelian_higgs_hmc.py` | ✅ `validate_abelian_higgs` (17/17) | ✅ GPU Higgs shader absorbed | — |
 | 14 | Anderson 1D localization | ✅ `spectral_theory/spectral_control.py` | ✅ `validate_spectral` (10/10) | ✅ GPU SpMV (8/8) | — |
 | 15 | Aubry-André transition | ✅ (in spectral_control.py) | ✅ (in validate_spectral) | ✅ (via GPU SpMV) | — |
@@ -47,7 +47,7 @@ pipeline on harder physics — toadStool evolves the GPU acceleration in paralle
 
 | Substrate | Papers with validation | Coverage |
 |-----------|:---:|:---:|
-| **Python Control** | **21/25** | Papers 1-6, 8-10, 13-22, 43-45 |
+| **Python Control** | **24/25** | Papers 1-6, 8-22, 43-45 (only 23/wetSpring missing) |
 | **BarraCuda CPU** | **25/25** | All except 23 (wetSpring domain) — Papers 43-45 now validated |
 | **BarraCuda GPU** | **20/25** | Papers 1, 3-5, 8-19 + pure GPU HMC + dynamical GPU + β-scan |
 | **metalForge (GPU+NPU)** | **9/25** | Papers 5, 8-10, 12-16 (transport + QCD + Higgs + spectral) |
@@ -57,13 +57,33 @@ pipeline on harder physics — toadStool evolves the GPU acceleration in paralle
 | Paper | What's Needed | Effort | Priority |
 |-------|--------------|--------|----------|
 | 7 (HotQCD EOS) | No control needed — uses published reference data | — | — |
-| 11 (HVP g-2) | ✅ DONE — `validate_hvp_g2` (10/10): correlator + HVP kernel on 8⁴ | — | — |
-| 12 (Freeze-out) | ✅ DONE — `validate_freeze_out` (8/8): susceptibility β-scan, β_c detected | — | — |
+| 11 (HVP g-2) | ✅ DONE — `hvp_correlator_control.py` (8/8): staggered CG + HVP kernel + mass ordering on 4⁴ | — | — |
+| 12 (Freeze-out) | ✅ DONE — `freeze_out_control.py` (8/8): susceptibility β-scan, β_c=5.50 (3.3% of known 5.69) | — | — |
 | 20 (3D Anderson) | ✅ DONE — 3D Anderson added to spectral_control.py (Feb 22, 2026) | — | — |
 | 23 (Sulfolobus) | Bioinformatics pipeline (wetSpring domain) | Medium | P3 |
+| 24 (Anderson subseafloor) | No control needed — reference only | — | — |
 | 43 (Chuna gradient flow) | ✅ DONE — `gradient_flow_control.py`: 5 integrators, t₀ + w₀ scale, convergence analysis | — | — |
 | 44 (Chuna dielectric) | ✅ DONE — `bgk_dielectric_control.py`: standard + completed Mermin, f-sum, DSF | ✅ `dielectric.rs` 25 tests | ✅ `dielectric_mermin_f64.wgsl` (std + completed) |
 | 45 (Chuna kinetic-fluid) | ✅ DONE — `kinetic_fluid_control.py`: BGK relaxation, Sod shock, coupled | ✅ `kinetic_fluid.rs` 16 tests | ✅ `bgk_relaxation_f64.wgsl` |
+
+### Cross-Substrate Parity Green Board (April 2, 2026)
+
+Full paper-queue parity orchestrator (`run_all_parity.py`) validates all papers
+with Python control results against each other.  **9/9 active papers ALL GREEN**,
+74 checks across 10 registered papers.
+
+| Paper | Checks | Status | Mode |
+|-------|:------:|--------|------|
+| 6 (screened Coulomb) | 34/34 | ✅ ALL PASS | Eigenvalue parity (15 cases × z/κ/l) |
+| 8 (pure gauge SU(3)) | 9/9 | ✅ ALL PASS | Per-β plaquette parity (9 β values) |
+| 9 (production QCD) | 10/10 | ✅ ALL PASS | Same + monotonicity check |
+| 10 (dynamical fermion) | 2/2 | ✅ ALL PASS | Dynamical + quenched plaquette |
+| 11 (HVP g-2) | 4/4 | ✅ ALL PASS | HVP positivity, C(t) shape, mass ordering |
+| 12 (freeze-out) | 3/3 | ✅ ALL PASS | β_c location, monotonicity, transition |
+| 13 (Abelian Higgs) | 12/12 | ✅ ALL PASS | Per-config plaquette + Higgs condensate |
+| 43 (gradient flow) | — | ✅ | Nested integrator data (cross-substrate requires Rust JSON) |
+| 44 (BGK dielectric) | — | ✅ | Nested quadrature data (cross-substrate requires Rust JSON) |
+| 45 (kinetic-fluid) | — | SKIP | Python control exists, results not yet committed |
 
 **Total science cost**: ~$0.30 for 25 papers, 500+ validation checks, 102 experiments.
 Papers 6, 7, 13-22 add checks at negligible cost (CPU-only, <15 seconds each).

@@ -1,0 +1,31 @@
+{
+  "type": "guidestone_nucleus_deployment",
+  "artifact": "hotSpring-guideStone-v0.7.0",
+  "timestamp": "2026-04-02T21:30:46Z",
+  "hostname": "pop-os",
+  "arch": "x86_64",
+  "primals_detected": 0,
+  "nucleus_mode": "nucleus",
+  "deploy_dir": "results/deploy_20260402_173046",
+  "validation": {
+    "rust_suite_passed": true,
+    "cross_substrate_parity": 1,
+    "parity_checks": 74,
+    "papers_green": 9
+  },
+  "guidestone_properties": {
+    "deterministic": true,
+    "reference_traceable": true,
+    "self_verifying": true,
+    "environment_agnostic": true,
+    "tolerance_documented": true,
+    "cross_substrate_parity": true
+  },
+  "nucleus_capabilities": {
+    "beardog_signing": false,
+    "rhizocrypt_dag": false,
+    "toadstool_compute": false,
+    "loamspine_ledger": false,
+    "sweetgrass_attribution": false
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "schema_version": "1.0",
+  "ensemble_id": "hotspring_b6.00_L8_Nt16",
+  "n_configs": 10,
+  "n_skipped": 0,
+  "plaquette": {
+    "mean": 0.591551350112496,
+    "error": 0.00044491601211246,
+    "tau_int": 1.0208589189001271,
+    "tau_int_error": 0.6456478706843031,
+    "n_values": 10
+  },
+  "polyakov_abs": {
+    "mean": 0.01559367519898705,
+    "error": 0.003241471103418602,
+    "tau_int": 1.0,
+    "tau_int_error": 0.0,
+    "n_values": 10
+  },
+  "plaquette_susceptibility": 1.7815523203958967e-6,
+  "polyakov_susceptibility": 0.00009456421422868042,
+  "run": {
+    "arch": "x86_64",
+    "argv": [
+      "../barracuda/target/release/chuna_analyze",
+      "--dir=results/overnight_20260402T132649Z/phase5_pipeline/ensemble_leapfrog/measurements",
+      "--output=results/overnight_20260402T132649Z/phase5_pipeline/analysis_leapfrog.json"
+    ],
+    "binary": "chuna_analyze",
+    "engine_version": "0.6.32",
+    "hostname": "pop-os",
+    "os": "linux",
+    "schema_version": "1.0",
+    "timestamp": "2026-04-02T16:38:06Z"
+  }
+}

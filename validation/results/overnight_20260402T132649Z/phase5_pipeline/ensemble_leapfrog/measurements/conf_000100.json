@@ -1,0 +1,108 @@
+{
+  "schema_version": "1.0",
+  "ensemble_id": "hotspring_b6.00_L8_Nt16",
+  "ildg_lfn": "/hotspring/b6.00/8x8x8x16/conf.000100",
+  "trajectory": 100,
+  "gauge": {
+    "plaquette": 0.5912120112265217,
+    "polyakov_abs": 0.012959121592107712,
+    "polyakov_re": -0.005900920278058447,
+    "polyakov_im": -0.011537676209316628,
+    "action_density": 2.4527279326408697
+  },
+  "wilson_loops": [
+    {
+      "r": 1,
+      "t": 1,
+      "value": 0.5931414287466085
+    },
+    {
+      "r": 1,
+      "t": 2,
+      "value": 0.3838836179319835
+    },
+    {
+      "r": 1,
+      "t": 3,
+      "value": 0.25131682698885166
+    },
+    {
+      "r": 1,
+      "t": 4,
+      "value": 0.16597547405058527
+    },
+    {
+      "r": 2,
+      "t": 1,
+      "value": 0.3802689667970431
+    },
+    {
+      "r": 2,
+      "t": 2,
+      "value": 0.18575895485092864
+    },
+    {
+      "r": 2,
+      "t": 3,
+      "value": 0.09496180237243208
+    },
+    {
+      "r": 2,
+      "t": 4,
+      "value": 0.049979145686804595
+    },
+    {
+      "r": 3,
+      "t": 1,
+      "value": 0.24785165277244317
+    },
+    {
+      "r": 3,
+      "t": 2,
+      "value": 0.09493620250699263
+    },
+    {
+      "r": 3,
+      "t": 3,
+      "value": 0.03962820259372772
+    },
+    {
+      "r": 3,
+      "t": 4,
+      "value": 0.017632980639775236
+    },
+    {
+      "r": 4,
+      "t": 1,
+      "value": 0.16169230312886929
+    },
+    {
+      "r": 4,
+      "t": 2,
+      "value": 0.04642954891585749
+    },
+    {
+      "r": 4,
+      "t": 3,
+      "value": 0.015243053435024351
+    },
+    {
+      "r": 4,
+      "t": 4,
+      "value": 0.006508411492945877
+    }
+  ],
+  "diagnostics": {
+    "accepted": false,
+    "delta_h": 2.8291148171992972,
+    "trajectory_seconds": 10.466736514
+  },
+  "implementation": {
+    "code_name": "hotSpring-barracuda",
+    "code_version": "hotSpring-barracuda 0.6.32",
+    "machine": "pop-os",
+    "institution": "ecoPrimals",
+    "machine_type": "CPU workstation"
+  },
+  "wall_seconds": 11.352817671
+}

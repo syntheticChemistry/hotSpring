@@ -1,0 +1,108 @@
+{
+  "schema_version": "1.0",
+  "ensemble_id": "hotspring_b6.00_L8_Nt16",
+  "ildg_lfn": "/hotspring/b6.00/8x8x8x16/conf.000095",
+  "trajectory": 95,
+  "gauge": {
+    "plaquette": 0.5913878923836977,
+    "polyakov_abs": 0.03227484191271744,
+    "polyakov_re": -0.01668868779879302,
+    "polyakov_im": -0.0276252261537407,
+    "action_density": 2.4516726456978137
+  },
+  "wilson_loops": [
+    {
+      "r": 1,
+      "t": 1,
+      "value": 0.5930186365247255
+    },
+    {
+      "r": 1,
+      "t": 2,
+      "value": 0.3808306816724514
+    },
+    {
+      "r": 1,
+      "t": 3,
+      "value": 0.24836839777700134
+    },
+    {
+      "r": 1,
+      "t": 4,
+      "value": 0.16089264707119852
+    },
+    {
+      "r": 2,
+      "t": 1,
+      "value": 0.38153745288149343
+    },
+    {
+      "r": 2,
+      "t": 2,
+      "value": 0.18735420736470473
+    },
+    {
+      "r": 2,
+      "t": 3,
+      "value": 0.09746949679893518
+    },
+    {
+      "r": 2,
+      "t": 4,
+      "value": 0.04892633872122363
+    },
+    {
+      "r": 3,
+      "t": 1,
+      "value": 0.24890461846814027
+    },
+    {
+      "r": 3,
+      "t": 2,
+      "value": 0.09631321248822833
+    },
+    {
+      "r": 3,
+      "t": 3,
+      "value": 0.04334428509068273
+    },
+    {
+      "r": 3,
+      "t": 4,
+      "value": 0.019041837063246293
+    },
+    {
+      "r": 4,
+      "t": 1,
+      "value": 0.16546654526691312
+    },
+    {
+      "r": 4,
+      "t": 2,
+      "value": 0.05338440765655266
+    },
+    {
+      "r": 4,
+      "t": 3,
+      "value": 0.021787523142505486
+    },
+    {
+      "r": 4,
+      "t": 4,
+      "value": 0.009957045052942126
+    }
+  ],
+  "diagnostics": {
+    "accepted": false,
+    "delta_h": 0.27460526788490824,
+    "trajectory_seconds": 10.657796069
+  },
+  "implementation": {
+    "code_name": "hotSpring-barracuda",
+    "code_version": "hotSpring-barracuda 0.6.32",
+    "machine": "pop-os",
+    "institution": "ecoPrimals",
+    "machine_type": "CPU workstation"
+  },
+  "wall_seconds": 11.561905413
+}

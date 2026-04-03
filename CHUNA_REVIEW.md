@@ -1,21 +1,27 @@
-# Chuna Paper Reproduction — Review Package
+# Chuna Engine — Production QCD Workbench
 
-> **Fossil Record (March 27, 2026):** This document captures state as of March 11, 2026. For current status, see the [root README](README.md) and [`EXPERIMENT_INDEX.md`](EXPERIMENT_INDEX.md). Body below is preserved as historical record. Version pins below (barraCuda v0.3.5, toadStool S146, coralReef Iter 31) are superseded by current README.md pins. Chuna 44/44 parity checks remain stable; for Chuna-specific status see [`CHUNA_PARITY_STATUS.md`](CHUNA_PARITY_STATUS.md).
+> **Previous version**: This document supersedes the March 11 fossil (v0.6.29).
+> The original reproduction data sheet is preserved in `whitePaper/baseCamp/chuna_*.md`.
+> For the full paper queue across 25 papers, see [`specs/PAPER_REVIEW_QUEUE.md`](specs/PAPER_REVIEW_QUEUE.md).
 
-**Date**: March 11, 2026 (v0.6.29 — upstream sync v4: barraCuda v0.3.5, toadStool S146, coralReef Iter 31)
+**Date**: April 2026 (v0.6.32 — hotSpring-guideStone-v0.7.0)
 **Author**: Kevin Mok (mokkevin@msu.edu)
-**Hardware**: biomeGate — Threadripper 3970X, RTX 3090 (24 GB), Titan V (12 GB HBM2), ~$4K used parts
+**Hardware**: biomeGate — Threadripper 3970X, RTX 3090 (24 GB), RX 6950 XT (16 GB), ~$4K used parts
 **License**: AGPL-3.0
 
 ---
 
 ## Summary
 
-Three of Chuna's published papers reproduced in pure Rust + WGSL GPU shaders,
-validated on consumer hardware. No ICER, no MILC, no CUDA, no vendor SDK.
+Three of Chuna's published papers reproduced and validated across **three
+independent substrates** (Python, Rust CPU, Rust GPU). The Chuna Engine
+is a production tool for lattice QCD research — not a paper demo.
 
-**Core paper reproduction: 41/41 checks pass** (11 quenched flow + 20 dielectric + 10 kinetic-fluid).
-**Dynamical N_f=4 extension: 3/3 pass** — warm-start with mass annealing, NPU-guided adaptive Omelyan HMC, 85% acceptance at target mass m=0.1.
+**59/59 validation checks pass.** Cross-vendor GPU parity: 2.59e-11 delta (NVIDIA vs AMD).
+**8 production binaries** via `validation/chuna-engine`.
+**CPU-only path**: All validation works without a GPU (`HOTSPRING_NO_GPU=1`).
+**Python bridge**: `control/hotspring_reader/` loads all output into NumPy arrays.
+**guideStone certified**: 5 properties + cross-substrate parity + optional NUCLEUS provenance.
 
 | Paper | Citation | What we reproduced | Detailed artifact |
 |-------|----------|--------------------|----|
@@ -25,16 +31,20 @@ validated on consumer hardware. No ICER, no MILC, no CUDA, no vendor SDK.
 
 ---
 
-## Architecture
+## Chuna Engine — 8 Binaries
 
-hotSpring is the validation application. The compute engine is
-[**barraCuda**](https://github.com/ecoPrimals/barraCuda) (v0.3.3, `27011af`) — a standalone
-Rust crate providing SU(3) lattice math, 791 WGSL shaders in 3-tier precision
-(f32/DF64/f64), GPU pipeline dispatch, and cross-spring evolved physics ops.
-[**toadStool**](https://github.com/ecoPrimals/toadStool) (S138) provides hardware
-discovery, NPU dispatch, and shader proxy to [**coralReef**](https://github.com/ecoPrimals/coralReef)
-(Phase 10, Iter 25) — the sovereign WGSL→native compiler (AMD E2E proven, NVIDIA pending).
-barraCuda is pulled automatically via `Cargo.toml` (git dependency).
+| Binary | Purpose |
+|--------|---------|
+| `chuna_generate` | ILDG gauge config generation (CPU default, `--gpu` optional) |
+| `chuna_flow` | Gradient flow on any ILDG config |
+| `chuna_measure` | Observable suite: plaquette, Polyakov, Wilson loops, HVP, flow, condensate |
+| `chuna_analyze` | Jackknife + autocorrelation + susceptibilities. `--format=tsv` for paper tables |
+| `chuna_convert` | ILDG/LIME/QCDml conversion and CRC verification |
+| `chuna_benchmark_flow` | Integrator efficiency workbench (W6, W7, CK4 comparison) |
+| `chuna_matrix` | Task orchestration for production parameter sweeps |
+| `chuna_validate_shader` | WGSL shader cross-path validation (CPU + NagaExecutor + GPU + coralReef) |
+
+Entry point: `validation/chuna-engine <subcommand>` (POSIX wrapper with integrity checks).
 
 ## Quick Start
 
@@ -42,23 +52,45 @@ barraCuda is pulled automatically via `Cargo.toml` (git dependency).
 git clone https://github.com/syntheticChemistry/hotSpring
 cd hotSpring/barracuda
 
-# All three papers in one run (~5 hours; 8⁴ + Papers 44/45 in ~1 hour, 16⁴ adds ~4 hours)
+# Full validation (59 checks, CPU-only, ~5 hours)
 cargo run --release --bin validate_chuna_overnight
 
-# Dynamical fermion extension only (~3.5 hours, skips quenched/GPU sections)
-cargo run --release --bin validate_chuna_overnight -- --dynamical-only
+# Generate an ensemble
+cargo run --release --bin chuna_generate -- \
+    --beta=6.0 --dims=8,8,8,8 --n-configs=20 --outdir=data/b6.0_L8
 
-# Individual papers
-cargo run --release --bin validate_gradient_flow      # Paper 43
-cargo run --release --bin validate_dielectric          # Paper 44
-cargo run --release --bin validate_kinetic_fluid       # Paper 45
+# Measure observables
+cargo run --release --bin chuna_measure -- \
+    --dir=data/b6.0_L8/ --mass=0.1 --hvp --outdir=data/b6.0_L8/measurements
 
-# Paper 44 extension: DSF vs Murillo Group MD data
-cargo run --release --bin validate_dsf_vs_md
+# Analyze with TSV export (paper-ready table)
+cargo run --release --bin chuna_analyze -- \
+    --dir=data/b6.0_L8/measurements/ --format=tsv --output=analysis.tsv
+
+# CG convergence history for solver comparison
+cargo run --release --bin chuna_measure -- \
+    --dir=data/b6.0_L8/ --hvp --cg-history --outdir=measurements
 ```
 
-Requirements: Rust (stable), any Vulkan GPU with `SHADER_F64` support.
-No manual dependency setup — `cargo build` fetches barraCuda from GitHub.
+**Requirements**: Rust (stable). No GPU required — set `HOTSPRING_NO_GPU=1` to
+skip GPU discovery entirely. No manual dependency setup — `cargo build` handles everything.
+
+## Python Interface
+
+```python
+import hotspring_reader as hs
+
+# Load measurements into NumPy arrays
+meas = hs.load_measurements("data/b6.0_L8/measurements/")
+print(meas["plaquette"])     # float64 array
+print(meas["flow_t0"])       # float64 array (NaN where absent)
+
+# Export analysis to TSV for paper tables
+ana = hs.load_analysis("analysis.json")
+hs.to_tsv(ana, "table.tsv")  # observable, mean, error, tau_int, ...
+```
+
+Located at `control/hotspring_reader/`. Requires only NumPy.
 
 ---
 
@@ -175,16 +207,39 @@ See [`NPU_STEERING_LESSONS.md`](NPU_STEERING_LESSONS.md) for full writeup.
 
 ---
 
-## Questions for Review
+## Three-Substrate Parity
 
-1. **Does the physics look right?** Do our convergence data, scale-setting
-   values, dielectric curves, and conservation results match ICER/MILC?
+Every check is validated across Python, Rust CPU, and Rust GPU independently.
+Cross-substrate comparison tool: `control/hotspring_reader/compare_substrates.py`.
 
-2. **Did we derive the integrators correctly?** We solved the four Taylor
-   order conditions independently. Our coefficients match the paper.
+| Substrate | Papers Covered | Entry Point |
+|-----------|:--------------:|-------------|
+| Python Control | 21/25 | `control/*/scripts/*_control.py` |
+| Rust CPU | 25/25 | `cargo run --release --bin validate_chuna_overnight` |
+| Rust GPU | 20/25 | `--gpu` flag on `chuna_generate` |
 
-3. **Is the approach viable?** Pure Rust + WGSL, dispatched through Vulkan.
-   No MILC, no Fortran, no CUDA.
+Full tolerance table with physical derivations: `validation/GUIDESTONE.md`.
+
+---
+
+## guideStone Certification
+
+This artifact satisfies all 5 guideStone properties plus cross-substrate parity.
+Optional NUCLEUS provenance layer (bearDog signing, rhizoCrypt DAG, toadStool
+integration) activates when primals are detected, degrades gracefully when absent.
+
+Certification: `validation/GUIDESTONE.md`
+Integrity: `validation/CHECKSUMS` (SHA-256)
+
+---
+
+## Next Steps
+
+1. **Validate** — Run `validation/run` on your machine (CPU-only, ~5 hours)
+2. **Load** — Use `hotspring_reader.py` to inspect results in NumPy
+3. **Generate** — Create ensembles at any beta/L/Nf with `chuna_generate`
+4. **Compare** — Cross-check with MILC configs using matched parameters
+5. **Prototype** — Design new integrators in `chuna_benchmark_flow`
 
 ---
 
