@@ -114,3 +114,24 @@ specific state for ACR to write to FECS/GPCCS IMEM.
   No additional action needed.
 - **blob_size (Exp 116)**: Firmware binary already has blob_size=0. Our
   patch is correct.
+
+---
+
+## CORRECTION (April 3, 2026 — Exp 141)
+
+**The conclusion "We don't need DEVINIT" is CONTEXT-DEPENDENT and partially wrong.**
+
+Exp 120 tested on a BIOS-POSTed GPU (no SBR). In that context, `devinit_reg`
+showed bit 1 set and `needs_post=false` — the VBIOS ROM had already run DEVINIT
+during system POST. This finding is correct for warm GPUs.
+
+However, **Exp 141 proved that after SBR (Subsystem Bridge Reset), VBIOS DEVINIT
+IS the root cause of ACR HS authentication failure.** SBR resets the GPU to cold
+state — PLLs, clocks, crypto engine, and memory controllers are uninitialized.
+The `sovereign_boot()` recipe replay can maintain register state but cannot
+establish it from cold. Without VBIOS DEVINIT, the crypto engine used for HS
+signature verification is never initialized, causing the 0x2d78 auth loop.
+
+**Updated conclusion**: VBIOS DEVINIT is not needed when the GPU is warm
+(BIOS-POSTed). It IS needed after SBR or any cold boot. `sovereign_boot()` now
+runs VBIOS DEVINIT as Phase 0 before recipe replay (see Exp 142).

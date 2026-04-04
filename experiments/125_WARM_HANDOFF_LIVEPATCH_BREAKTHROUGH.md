@@ -1,7 +1,7 @@
 # Experiment 125: Warm Handoff via Livepatch — Falcon Preservation Confirmed
 
 **Date**: 2026-03-30
-**Status**: BREAKTHROUGH — FECS/GPCCS preserved across nouveau→vfio-pci swap
+**Status**: COMPLETE — FECS/GPCCS preserved across nouveau→vfio-pci swap. Livepatch wired into ember/glowplug.
 **GPU**: Titan V (GV100, 0000:03:00.0)
 
 ## Summary

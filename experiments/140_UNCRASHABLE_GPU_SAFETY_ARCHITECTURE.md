@@ -186,3 +186,24 @@ The crash was never about the GPU interaction itself — it was about the
 PCIe bus reset. The system crash happens when the VFIO fd close attempts
 PCI config space access on a dead endpoint. The fix is not just "don't write
 to cold GPUs" (Layer 1) but also "survive if you do" (Layers 2 and 3).
+
+## Addendum: Startup D-State Resilience (April 3, 2026)
+
+A fourth crash vector was discovered: **VFIO device open on a PCI-locked GPU**.
+After SBR experiments leave the GPU in a broken PCIe state, the vfio-pci
+probe hangs during bind, and ALL subsequent sysfs operations on the device
+block in D-state (cascading kernel lock). If ember's startup touches these
+devices synchronously, ember itself hangs and cannot start.
+
+**Fix**: Moved the entire per-device acquisition path (vendor detection,
+sysfs operations, VFIO open) into a dedicated thread with a 15-second
+timeout. If ANY operation blocks (D-state), the thread is leaked and the
+device is deferred. Ember starts immediately and serves the remaining
+healthy devices. The deferred device can be retried via `ember.open_device`
+after a reboot clears the D-state.
+
+This completes the four-layer defense:
+1. Cold-detect: `is_gpu_cold()` rejects BAR0 writes to dead engines
+2. Guarded close: thread-isolated fd teardown with 10s timeout
+3. Guarded open: thread-isolated device acquire with 15s timeout (NEW)
+4. Process isolation: D-state threads are leaked, not joined

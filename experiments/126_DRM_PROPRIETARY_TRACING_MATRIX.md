@@ -3,6 +3,7 @@
 **Date:** 2026-03-30
 **Hardware:** Titan V (GV100) @ 0000:03:00.0, RTX 5060 (GB206) @ 0000:21:00.0, Tesla K80 (GK210) @ 0000:4c:00.0/4d:00.0
 **Purpose:** Map all non-VFIO dispatch paths for Titan V. Solve the maze from both sides.
+**Status:** PAUSED — deprioritized in favor of VBIOS DEVINIT track (Exp 141-142). DRM tracing remains useful for comparison but is not on the critical path.
 
 ## Current Dual-Use Setup
 

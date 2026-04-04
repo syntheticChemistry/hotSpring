@@ -1,7 +1,7 @@
 # Experiment 128: GPU Puzzle Box — Multi-Path Sovereign Compute Matrix
 
 **Date**: 2026-03-28
-**Status**: Implementation complete, hardware validation pending
+**Status**: SUPERSEDED by Exp 141 (ACR HS Auth Root Cause). The puzzle box converged to VBIOS DEVINIT as the single remaining blocker. See Exp 142 for the resolution path.
 **Depends on**: Exp 125 (livepatch breakthrough), Exp 127 (warm FECS dispatch), Exp 123 (K80 sovereign)
 
 ## Motivation

@@ -1,11 +1,11 @@
 # hotSpring — Experiment & Validation Index
 
-> Updated April 2, 2026. This is the authoritative ledger of all
+> Updated April 3, 2026. This is the authoritative ledger of all
 > experiments, validation suites, and benchmark data. For project overview, see [README.md](README.md).
-> Experiments 001-057 archived to `experiments/archive/` — completed physics and benchmark work, results absorbed into baseCamp.
+> Experiments 001-107 archived to `experiments/archive/` — completed physics, benchmark, and early sovereign GPU work, results absorbed into baseCamp and coralReef code.
 > Note: Experiments 096-105 have dual-numbered IDs (physics + sovereign GPU tracks ran in parallel). Filenames are self-descriptive. Exp 136b disambiguated from 136.
 
-**141+ experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **AGPL-3.0-only**
+**143+ experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **AGPL-3.0-only**
 
 ---
 
@@ -153,16 +153,16 @@
 | **WPR2 State Tracking** (Exp 117) | ✅ Complete | biomeGate: WPR2 valid at 12GB during nouveau, destroyed on swap |
 | **WPR2 Preservation** (Exp 118) | ✅ Complete | biomeGate: WPR2 preservation attempts |
 | **Cold Boot WPR2** (Exp 119) | ✅ Complete | biomeGate: cold boot WPR2 invalid |
-| **Sovereign DEVINIT** (Exp 120) | ✅ Complete | biomeGate: sovereign DEVINIT not needed |
+| **Sovereign DEVINIT** (Exp 120) | ⚠️ Corrected | biomeGate: DEVINIT not needed on warm GPU (correct), BUT IS needed after SBR (see Exp 141 correction) |
 | **WPR2 Resolution** (Exp 122) | ✅ Complete | biomeGate: **definitive root cause** — WPR2 registers hardware-locked by FWSEC |
 | **Parasitic Compute** (Exp 123T) | ✅ Complete | biomeGate: parasitic compute probe |
 | **K80 Sovereign Compute** (Exp 123) | 🔄 Active | biomeGate: Tesla K80 (GK210) — zero firmware security, direct PIO boot |
 | **AMD Scratch/Local Memory Breakthrough** (Exp 124) | ✅ Complete | strandgate: AMD RX 6950 XT (RDNA2) scratch/local memory dispatch via coralReef DRM path |
 | **VM Capture Cross-Analysis** (Exp 124b) | ✅ Complete | biomeGate: nvidia-470/535 VM captures for K80+Titan V, cross-driver register tracing |
-| **Warm Handoff Livepatch** (Exp 125) | 🔄 Active | biomeGate: kernel livepatch NOP (mc_reset+gr_fini+falcon_fini+runl_commit), dynamic enable/disable, reset_method sysfs fix, PBDMA warm mode |
-| **DRM Proprietary Tracing Matrix** (Exp 126) | 🔄 Active | biomeGate: map all non-VFIO dispatch paths for Titan V (DRM+proprietary dual-use) |
+| **Warm Handoff Livepatch** (Exp 125) | ✅ Complete | biomeGate: kernel livepatch NOP (mc_reset+gr_fini+falcon_fini+runl_commit), wired into ember/glowplug |
+| **DRM Proprietary Tracing Matrix** (Exp 126) | ⏸ Paused | biomeGate: deprioritized vs VBIOS DEVINIT track (Exp 141-142) |
 | **Warm FECS Dispatch Attack** (Exp 127) | ✅ Complete | biomeGate: FECS firmware preserved in IMEM but cannot be woken from HS+ halt state |
-| **GPU Puzzle Box Matrix** (Exp 128) | 🔄 Active | biomeGate: multi-path sovereign compute matrix — firmware interface approach |
+| **GPU Puzzle Box Matrix** (Exp 128) | ⏹ Superseded | biomeGate: converged to VBIOS DEVINIT as single remaining blocker (see Exp 141) |
 | **No-FLR Recovery & PRI Ring Lessons** (Exp 130) | ✅ Complete | biomeGate: K80 GK210 PRI ring diagnostics, cold GPU detection, PMU/FECS falcon state analysis |
 | **Reset Architecture Evolution** (Exp 131) | ✅ Complete | biomeGate: warm_fecs.rs → device.warm_handoff RPC, livepatch into ember, orphan cleanup |
 | **Ember Frozen Warm Dispatch** (Exp 132) | ✅ Implemented | biomeGate: diesel engine pattern — glowplug orchestrates swap, ember keeps VFIO fds alive, `mmio.write` for active intervention, STOP_CTXSW freezes FECS scheduling |
@@ -175,7 +175,9 @@
 | **Sovereign Dispatch ACR Lockdown** (Exp 139) | 🔴 Blocked | biomeGate: Titan V ACR lockdown confirmed, K80 cold/needs POST. FBIF locked in VIRT mode by HS+ |
 | **Uncrashable GPU Safety Architecture** (Exp 140) | ✅ Validated | biomeGate: D-state resilience, timeout-guarded sysfs writes, ember process isolation |
 | **ACR HS Auth Root Cause** (Exp 141) | ✅ Complete | biomeGate: **ROOT CAUSE** — missing VBIOS DEVINIT. SEC2 crypto engine uninitialized after SBR. DMA path fully fixed (sysmem PTEs, FBIF VIRT, DMEM repair). 0x2d78 auth loop = hardware not POST-initialized |
-| **TOTAL** | **39/39 Rust validation suites** | **870 tests (lib)**, 139 binaries, 99 WGSL shaders. Zero clippy, zero unsafe, AGPL-3.0-only. **Science ladder:** Quenched → Gradient Flow → Integrators → N_f=4 Infra → Chuna 44/44 → N_f=2 → N_f=2+1 → Self-tuning → Silicon saturation → 16⁴+ production. 141+ experiments. Experiments 001-057 archived to `experiments/archive/` (completed physics validation, absorbed into baseCamp). |
+| **Sovereign Boot VBIOS DEVINIT** (Exp 142) | ⚠️ Ran | biomeGate: PM bridge reset did not cold-reset GPU. DEVINIT correctly skipped (GPU still POSTed). ACR fails — SEC2 POST-START FAULT. Root cause is SEC2 HAL, not DEVINIT. |
+| **No-SBR Confirmation Test** (Exp 143) | ❌ Contradicted | biomeGate: ACR fails even on BIOS-POSTed GPU (no SBR, fresh cold boot). VBIOS DEVINIT is NOT the sole root cause. SEC2 falcon cannot start — PTOP missing SEC2 bit, PMC fallback may be wrong. |
+| **TOTAL** | **39/39 Rust validation suites** | **870 tests (lib)**, 139 binaries, 99 WGSL shaders. Zero clippy, zero unsafe, AGPL-3.0-only. **Science ladder:** Quenched → Gradient Flow → Integrators → N_f=4 Infra → Chuna 44/44 → N_f=2 → N_f=2+1 → Self-tuning → Silicon saturation → 16⁴+ production. 143+ experiments. Experiments 001-107 archived to `experiments/archive/` (completed physics validation + early sovereign GPU work, absorbed into baseCamp and coralReef). |
 
 ---
 
