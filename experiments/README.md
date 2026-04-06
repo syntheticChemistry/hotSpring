@@ -50,6 +50,11 @@ NNN_DESCRIPTOR.{sh,md,json}
 | 090–095 | Layer10 through HS mode | analysis | GPCCS running, silicon science |
 | 096–107 | Silicon science | analysis | TMU mapping, QCD, RHMC |
 | 110–126 | Consolidation through livepatch | analysis | VRAM, WPR, sovereign boot |
+| 127–131 | Warm FECS, puzzle box, reset arch | analysis | FECS dispatch, reset architecture |
+| 132–136 | Dual GPU sovereign boot | analysis | Ember dispatch, Kepler, cold boot, fabric |
+| 137–143 | SEC2 DMA, ACR root cause | analysis | DMA reconstruction, VBIOS DEVINIT, PMC |
+| 144 | PMC bit5 ACR progress | analysis | PMC bit5 discovery, instance block binding |
+| 150 | Crash vector hunt | analysis | PRAMIN crash isolation, sacrificial ember validation |
 
 ## Benchmark Data
 
