@@ -42,19 +42,28 @@ NNN_DESCRIPTOR.{sh,md,json}
 
 ## Sovereign Compute Experiments (GPU Boot / Driver)
 
-| # | Name | Type | Domain |
+### Archived (fossil record — `archive/`)
+
+| # | Name | Type | Key Finding |
+|---|------|------|-------------|
+| 058–069 | VFIO through GlowPlug | analysis | VFIO pipeline, GlowPlug daemon, Falcon boot sequences |
+| 070–089 | Dual Titan through GPCCS | analysis | Multi-GPU MMU, PFIFO, Falcon boot, SEC2, GPCCS |
+| 090–107 | Silicon science + HS mode | analysis | GPCCS running, TMU mapping, QCD, RHMC, silicon saturation |
+| 110–122 | Consolidation through WPR2 | analysis | VRAM page tables, dual-phase boot, WPR2 preservation/resolution |
+| 123–126 | K80 + AMD + livepatch | analysis | K80 sovereign design, AMD scratch breakthrough, warm handoff confirmed |
+| 127–131 | Warm FECS + reset arch | analysis | FECS dispatch, GPU puzzle box matrix, no-FLR recovery, reset evolution |
+| 132–136 | Dual GPU sovereign boot | analysis | Ember dispatch, Kepler compute, cold boot pipeline, FBHUB/FBPA discovery |
+| 137–139 | SEC2 DMA + D-state | analysis | DMA reconstruction, D-state root cause, ACR lockdown discovery |
+| 140 | PMC bit 5 + safety arch | analysis | **SEC2 at bit 5 (not 22)**, uncrashable GPU safety architecture validated |
+| 141–143 | ACR root cause | analysis | VBIOS DEVINIT suspected then **contradicted** — ACR fails even on POSTed GPU |
+
+### Active
+
+| # | Name | Type | Status |
 |---|------|------|--------|
-| 058–069 | VFIO through GlowPlug | analysis | VFIO, GlowPlug, Falcon boot |
-| 070–078 | Dual Titan through MMU | analysis | Multi-GPU, MMU, PFIFO |
-| 079–089 | Falcon through GPCCS | analysis | Falcon boot, SEC2, GPCCS |
-| 090–095 | Layer10 through HS mode | analysis | GPCCS running, silicon science |
-| 096–107 | Silicon science | analysis | TMU mapping, QCD, RHMC |
-| 110–126 | Consolidation through livepatch | analysis | VRAM, WPR, sovereign boot |
-| 127–131 | Warm FECS, puzzle box, reset arch | analysis | FECS dispatch, reset architecture |
-| 132–136 | Dual GPU sovereign boot | analysis | Ember dispatch, Kepler, cold boot, fabric |
-| 137–143 | SEC2 DMA, ACR root cause | analysis | DMA reconstruction, VBIOS DEVINIT, PMC |
-| 144 | PMC bit5 ACR progress | analysis | PMC bit5 discovery, instance block binding |
-| 150 | Crash vector hunt | analysis | PRAMIN crash isolation, sacrificial ember validation |
+| 144 | PMC_BIT5_ACR_PROGRESS | analysis | KEY FINDINGS: SEC2 resets properly, IMEM PIO verified, BOOTVEC ignored, **VRAM dead** root cause found |
+| 150 | CRASH_VECTOR_HUNT | analysis | Probe plan defined (P1-P14), not yet executed — now safe with sacrificial ember |
+| 151 | REVALIDATION_AND_NEXT_STAGES | synthesis | Fossil record review, validated state, open questions, 6-stage plan for next phases |
 
 ## Benchmark Data
 
