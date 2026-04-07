@@ -1,10 +1,10 @@
 # baseCamp: Research Domain Briefings
 
-**Date:** 2026-04-05
+**Date:** 2026-04-07
 **Project:** hotSpring (ecoPrimals)
-**Status:** v0.6.32, experiments 001-143, 4,065+ tests pass, 39/39 validation suites, 139 binaries, 99 WGSL shaders. **NVIDIA GPFIFO pipeline OPERATIONAL on RTX 3090.** **AMD scratch/local memory OPERATIONAL on RX 6950 XT.** AMD sovereign compiler: 24/24 QCD shaders → native GFX ISA. **ACR HS auth under investigation** — Exp 141 identified VBIOS DEVINIT, **Exp 142-143 contradicted** (fails on POSTed GPU). SEC2 PTOP/PMC bit discovery next. Uncrashable GPU safety architecture validated (Exp 140). coralReef Deep Debt Evolution complete (P1-P7).
+**Status:** v0.6.32, experiments 001-151, 4,065+ tests pass, 39/39 validation suites, 139 binaries, 99 WGSL shaders. **NVIDIA GPFIFO pipeline OPERATIONAL on RTX 3090.** **AMD scratch/local memory OPERATIONAL on RX 6950 XT.** AMD sovereign compiler: 24/24 QCD shaders → native GFX ISA. **ACR HS auth under investigation** — VBIOS DEVINIT contradicted, SEC2 PTOP/PMC bit discovery next. **Ember Survivability Hardening COMPLETE** — 3-phase hardening (fork-isolated MMIO, zero-I/O recovery, FdVault + warm cycle resurrection). 8 consecutive fault runs survived. coralReef Deep Debt + Survivability Evolution complete.
 
-**Notes:** Sovereign GPU frontier: ACR authentication loop (PC 0x2d78) initially traced to uninitialized SEC2 crypto engine (Exp 141), but Exp 142-143 show failure persists even on BIOS-POSTed GPU — VBIOS DEVINIT is NOT the sole root cause. SEC2 falcon PTOP discovery and PMC bit enumeration are the active track. DMA path fully debugged: FBIF locked in VIRT mode, sysmem page tables via PRAMIN, falcon MMU routing verified. K80 cold boot wired into `coralctl`. D-state resilience validated. coralReef Deep Debt: socket consistency, ChipCapability trait, unsafe reduction, large file refactoring, ecosystem discovery. **Fleet: 2x Titan V + RTX 5070 (GB206) + K80 + RTX 3090 + RX 6950 XT.** Chuna Papers 43-45: **44/44 overnight checks pass**. All AGPL-3.0-only.
+**Notes:** Sovereign GPU frontier: ACR authentication loop (PC 0x2d78) root cause narrowing continues — VBIOS DEVINIT is NOT the sole root cause (Exp 142-143). Cold VRAM (`0xbad0ac0X`) now detected gracefully. GPU warm cycle (nouveau bind/unbind) wired into glowplug resurrection and available as `ember.warm_cycle` RPC. FdVault keeps VFIO binding alive through ember death (periodic fd checkpoint). All MMIO paths fork-isolated. DMA path fully debugged: FBIF locked in VIRT mode, sysmem page tables via PRAMIN, falcon MMU routing verified. **Fleet: Titan V (GV100) + 2× Tesla K80 (GK210) + RTX 5070 (GB206).** Chuna Papers 43-45: **44/44 overnight checks pass**. All AGPL-3.0-only.
 
 ---
 

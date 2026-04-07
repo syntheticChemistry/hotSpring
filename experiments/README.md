@@ -62,8 +62,16 @@ NNN_DESCRIPTOR.{sh,md,json}
 | # | Name | Type | Status |
 |---|------|------|--------|
 | 144 | PMC_BIT5_ACR_PROGRESS | analysis | KEY FINDINGS: SEC2 resets properly, IMEM PIO verified, BOOTVEC ignored, **VRAM dead** root cause found |
-| 150 | CRASH_VECTOR_HUNT | analysis | Probe plan defined (P1-P14), not yet executed — now safe with sacrificial ember |
+| 150 | CRASH_VECTOR_HUNT | analysis | **RESOLVED** — Crash vectors eliminated by Ember Survivability Hardening (fork-isolated MMIO, zero-I/O recovery, abort-not-exit). 8 consecutive runs survive. |
 | 151 | REVALIDATION_AND_NEXT_STAGES | synthesis | Fossil record review, validated state, open questions, 6-stage plan for next phases |
+
+### Ember Survivability Hardening (2026-04-07)
+
+Not a numbered experiment — a systematic architectural evolution tracked via plan:
+- **Phase 1**: 6 critical lockup vectors eliminated (C1-C6)
+- **Phase 2**: 4 moderate debt items hardened (M1-M4)
+- **Phase 3**: Glowplug resurrection evolved (warm cycle, FdVault, warm_cycle RPC)
+- **Validation**: 8 consecutive exp145 crash probes — zero lockups, all faults contained
 
 ## Benchmark Data
 

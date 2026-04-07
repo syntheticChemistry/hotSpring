@@ -1,9 +1,9 @@
 # baseCamp: Sovereign GPU Compute — GlowPlug & Falcon Boot Chain
 
-**Date:** 2026-03-25 (updated 2026-04-02 — Exp 132–141 dual GPU sovereign boot, D-state safety, ACR HS auth root cause)  
-**Domain:** Hardware — PCIe GPU lifecycle, falcon microcontrollers, HBM2 management, PFIFO command submission, ACR secure boot, WPR construction, cross-driver profiling, daemon RPC orchestration, adaptive experiment loop, sysmem DMA, GV100 MMU v2 page tables, WPR2 hardware protection, Kepler PIO falcon loading, VBIOS DEVINIT  
-**Experiments:** 060-141  
-**Hardware:** 2× NVIDIA Titan V (GV100, 12GB HBM2), RTX 5070 (GB206, Blackwell, display/validator), Tesla K80 (GK210, Kepler)
+**Date:** 2026-03-25 (updated 2026-04-07 — Ember Survivability Hardening complete, 8 consecutive fault runs survived)  
+**Domain:** Hardware — PCIe GPU lifecycle, falcon microcontrollers, HBM2 management, PFIFO command submission, ACR secure boot, WPR construction, cross-driver profiling, daemon RPC orchestration, adaptive experiment loop, sysmem DMA, GV100 MMU v2 page tables, WPR2 hardware protection, Kepler PIO falcon loading, VBIOS DEVINIT, fault containment architecture  
+**Experiments:** 060-151  
+**Hardware:** NVIDIA Titan V (GV100, 12GB HBM2), 2× Tesla K80 (GK210, Kepler), RTX 5070 (GB206, Blackwell, display/validator)
 
 ---
 
@@ -989,14 +989,26 @@ Six progressive discoveries resolved all DMA issues:
 | **No warm-up STARTCPU** | `falcon_engine_reset` includes PMC reset → boot ROM = priming. Extra STARTCPU re-locks FBIF |
 | **IOMMU clean** | No faults at ACR/WPR DMA addresses — DMA succeeds or is not attempted |
 
-### Phase 15: Uncrashable GPU Safety Architecture (Exp 138, 140)
+### Phase 15: Uncrashable GPU Safety Architecture (Exp 138, 140, Survivability Hardening Apr 7)
 
-D-state root cause: sysfs writes to GPU power/driver files can enter uninterruptible kernel sleep if the GPU is in a bad state. Ember/glowplug rewired:
+D-state root cause: sysfs writes to GPU power/driver files can enter uninterruptible kernel sleep if the GPU is in a bad state. Three-phase hardening:
 
-- **Timeout-guarded sysfs writes** via child process isolation (existing `guarded_sysfs_write`)
-- **Pre-flight GPU health checks** before risky operations
-- **Process isolation** — D-state child is killed without blocking daemon
-- **Validated**: GPU access operations cannot crash the host
+**Phase 1 — Eliminate Critical Lockup Vectors:**
+- **Fork-isolated MMIO everywhere** — preflight_check, low_level read/write/batch, post_swap_quiesce all run in expendable child processes
+- **Zero-I/O recovery** — removed all parent-side sysfs writes (disable_bus_master) from fault/recovery/shutdown paths
+- **`abort()` not `exit()`** — `std::process::exit` runs destructors that can stall; `abort()` terminates immediately
+- **Removed `sync_all()` from trace** — disk flush before fork could stall on frozen NVMe
+
+**Phase 2 — Harden Moderate Debt:**
+- **Guarded sysfs everywhere** — `sysfs_write_direct` → `guarded_sysfs_write` with timeout, `guarded_sysfs_read` for power state queries
+- **Non-blocking tracing** — critical fault paths use fire-and-forget background threads for tracing (prevents journald backpressure stalls)
+
+**Phase 3 — Evolve Glowplug Resurrection:**
+- **GPU warm cycle in resurrection** — glowplug performs nouveau bind/unbind before restarting ember, retraining GPU memory controller
+- **`ember.warm_cycle` RPC** — live warm cycle without restarting ember (release → nouveau → unbind → reacquire)
+- **FdVault integration** — periodic fd checkpoint keeps VFIO binding alive through ember death, enabling skip of warm cycle when vault has live fds
+
+**Validated**: 8 consecutive exp145 runs — zero lockups. Cold VRAM (`0xbad0ac0X`) detected and reported as clean error. System stays responsive throughout.
 
 ### Phase 16: ACR HS Authentication Root Cause (Exp 141)
 
@@ -1015,7 +1027,7 @@ The ACR Boot Loader executes, loads ACR code, and enters the HS authentication l
 - IOMMU: no faults at DMA addresses — the DMA path is correct
 - The loop is consistent across ALL DMA-enabled strategies → hardware-level issue, not software
 
-### Updated Sovereign Pipeline Layer Status (April 2, 2026)
+### Updated Sovereign Pipeline Layer Status (April 7, 2026)
 
 | Layer | Component | Status |
 |-------|-----------|--------|
@@ -1031,10 +1043,12 @@ The ACR Boot Loader executes, loads ACR code, and enters the HS authentication l
 | 9 | ACR DMA + Page Tables | ✅ PDE slot fix, FBIF VIRT mode, falcon MMU routing |
 | 10 | HS Authentication | 🔴 **BLOCKED** — missing VBIOS DEVINIT (crypto engine uninitialized) |
 | 11 | GR Context Init + Shader Dispatch | 🔓 Unblocked when L10 achieved |
+| — | **Safety Infrastructure** | ✅ **Ember Survivability Hardening COMPLETE** — all MMIO fork-isolated, zero-I/O recovery, FdVault checkpoint, warm cycle resurrection. 8 consecutive fault runs survived. |
 
 ### Next Steps
 
 1. **VBIOS Script Execution**: The codebase has a VBIOS script interpreter at `devinit/script/interpreter.rs`. Execute BIT 'I' init scripts from the Titan V's VBIOS ROM before ACR boot
 2. **SEC2 PMC bit**: Find correct bit via PTOP register scan (fallback bit 22 may be wrong)
 3. **No-SBR test**: Skip SBR reset, use GPU in VBIOS-POSTed state — confirms the hypothesis
+4. **Tesla K80 comparative debugging**: K80 has no security barriers — compare sovereign boot paths between Kepler and Volta to isolate ACR-specific issues
 4. **K80**: Resolve PGRAPH CTXSW domain PRI-faults (likely needs GR engine enable via PMC)
