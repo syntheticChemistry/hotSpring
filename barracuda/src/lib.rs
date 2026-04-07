@@ -47,7 +47,9 @@ pub mod bench;
 pub mod data;
 /// Heterogeneous dual-GPU device pair (precise + throughput brains).
 pub mod device_pair;
-/// rhizoCrypt DAG session for computation trace with merkle root.
+/// ToadStool compute dispatch validation (submit/result/capabilities).
+pub mod compute_dispatch;
+/// rhizoCrypt DAG session for computation trace with blake3 + witnesses.
 pub mod dag_provenance;
 /// Capability-based data-path resolution (zero hardcoded absolute paths).
 pub mod discovery;
@@ -113,6 +115,8 @@ pub mod transfer_eval;
 pub mod ttm;
 /// Pass/fail harness for validation binaries (exit 0/1).
 pub mod validation;
+/// `WireWitnessRef` — self-describing provenance events (ATTESTATION_ENCODING_STANDARD v2).
+pub mod witness;
 /// Workload planner for heterogeneous dual-GPU dispatch.
 pub mod workload_planner;
 

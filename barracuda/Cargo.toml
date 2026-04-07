@@ -96,6 +96,9 @@ cuda-validation = ["dep:cudarc", "dep:base64"]
 # Local dev override: .cargo/config.toml patches this to ../../barraCuda
 barracuda = { git = "https://github.com/ecoPrimals/barraCuda.git", rev = "32554b0a" }
 
+# BLAKE3 hashing for provenance witnesses (compute output hashing)
+blake3 = "1"
+
 # Structured logging (transitive dep via wgpu; explicit for library diagnostics)
 log = "0.4"
 
@@ -775,4 +778,9 @@ path = "src/bin/bench_silicon_composition.rs"
 [[bin]]
 name = "production_rhmc_scan"
 path = "src/bin/production_rhmc_scan.rs"
+
+# ── Exp 152: compute dispatch + provenance witness validation ──
+[[bin]]
+name = "validate_compute_dispatch"
+path = "src/bin/validate_compute_dispatch.rs"
 

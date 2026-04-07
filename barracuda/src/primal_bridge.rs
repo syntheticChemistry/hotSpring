@@ -28,6 +28,7 @@ pub struct NucleusContext {
     pub rhizocrypt: Option<PrimalEndpoint>,
     pub loamspine: Option<PrimalEndpoint>,
     pub sweetgrass: Option<PrimalEndpoint>,
+    pub coralreef: Option<PrimalEndpoint>,
     pub family_id: String,
 }
 
@@ -54,6 +55,7 @@ impl NucleusContext {
             ("rhizocrypt", format!("{base}/rhizocrypt-{family}.sock"), "dag.health"),
             ("loamspine", format!("{base}/loamspine-{family}.sock"), "commit.health"),
             ("sweetgrass", format!("{base}/sweetgrass-{family}.sock"), "provenance.health"),
+            ("coralreef", format!("{base}/coral-glowplug-{family}.sock"), "health.liveness"),
         ];
 
         let mut ctx = Self::empty(&family);
@@ -66,6 +68,7 @@ impl NucleusContext {
                     "rhizocrypt" => ctx.rhizocrypt = Some(ep),
                     "loamspine" => ctx.loamspine = Some(ep),
                     "sweetgrass" => ctx.sweetgrass = Some(ep),
+                    "coralreef" => ctx.coralreef = Some(ep),
                     _ => {}
                 }
             }
@@ -81,6 +84,7 @@ impl NucleusContext {
             rhizocrypt: None,
             loamspine: None,
             sweetgrass: None,
+            coralreef: None,
             family_id: family.to_string(),
         }
     }
@@ -112,6 +116,7 @@ impl NucleusContext {
             ("rhizocrypt", &self.rhizocrypt),
             ("loamspine", &self.loamspine),
             ("sweetgrass", &self.sweetgrass),
+            ("coralreef", &self.coralreef),
         ]
     }
 
@@ -138,6 +143,7 @@ impl NucleusContext {
             "rhizocrypt" => &self.rhizocrypt,
             "loamspine" => &self.loamspine,
             "sweetgrass" => &self.sweetgrass,
+            "coralreef" => &self.coralreef,
             _ => return Err(format!("unknown primal: {primal}")),
         };
 
@@ -224,4 +230,42 @@ pub fn send_jsonrpc(
     _params: &serde_json::Value,
 ) -> Result<serde_json::Value, String> {
     Err("Unix socket IPC not available on this platform".into())
+}
+
+/// `composition.physics_health` per `COMPOSITION_HEALTH_STANDARD.md`.
+///
+/// Returns a health report for the hotSpring physics pipeline: which
+/// primals are alive, whether the compute dispatch path is available,
+/// and whether the provenance trio can record results.
+impl NucleusContext {
+    /// Generate a `composition.physics_health` response.
+    #[must_use]
+    pub fn physics_health(&self) -> serde_json::Value {
+        let alive = self.alive_names();
+        let compute_ready = self.toadstool.as_ref().is_some_and(|e| e.alive);
+        let gpu_ready = self.coralreef.as_ref().is_some_and(|e| e.alive);
+        let trio_ready = self.rhizocrypt.as_ref().is_some_and(|e| e.alive)
+            && self.loamspine.as_ref().is_some_and(|e| e.alive)
+            && self.sweetgrass.as_ref().is_some_and(|e| e.alive);
+
+        let mut subsystems = serde_json::Map::new();
+        for name in &alive {
+            subsystems.insert((*name).to_string(), serde_json::json!("ok"));
+        }
+        for (name, ep) in self.all_endpoints() {
+            if ep.as_ref().is_none_or(|e| !e.alive) && !subsystems.contains_key(name) {
+                subsystems.insert(name.to_string(), serde_json::json!("unavailable"));
+            }
+        }
+
+        serde_json::json!({
+            "healthy": compute_ready,
+            "deploy_graph": "physics_pipeline",
+            "subsystems": subsystems,
+            "compute_dispatch": compute_ready,
+            "gpu_backend": gpu_ready,
+            "provenance_trio": trio_ready,
+            "primals_alive": alive.len(),
+        })
+    }
 }

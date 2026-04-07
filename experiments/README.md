@@ -64,6 +64,7 @@ NNN_DESCRIPTOR.{sh,md,json}
 | 144 | PMC_BIT5_ACR_PROGRESS | analysis | KEY FINDINGS: SEC2 resets properly, IMEM PIO verified, BOOTVEC ignored, **VRAM dead** root cause found |
 | 150 | CRASH_VECTOR_HUNT | analysis | **RESOLVED** — Crash vectors eliminated by Ember Survivability Hardening (fork-isolated MMIO, zero-I/O recovery, abort-not-exit). 8 consecutive runs survive. |
 | 151 | REVALIDATION_AND_NEXT_STAGES | synthesis | Fossil record review, validated state, open questions, 6-stage plan for next phases |
+| 152 | COMPUTE_DISPATCH_PROVENANCE_VALIDATION | framework | ToadStool compute.dispatch + blake3 witness + trio provenance (primalSpring audit) |
 
 ### Ember Survivability Hardening (2026-04-07)
 

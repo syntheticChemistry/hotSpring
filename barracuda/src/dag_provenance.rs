@@ -1,15 +1,22 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-//! rhizoCrypt DAG session for computation trace.
+//! rhizoCrypt DAG session with witness emission.
 //!
 //! When rhizoCrypt is available (detected via [`NucleusContext`]), creates
 //! an ephemeral DAG session for the run, appends events for each pipeline
 //! phase, and dehydrates to a merkle root on exit.
 //!
+//! **Witness integration (v2):** Each pipeline phase can produce a
+//! `WireWitnessRef` hash witness (blake3 of the output). On dehydration,
+//! the merkle root can optionally be signed by BearDog, producing a
+//! signature witness. All witnesses are collected for downstream
+//! loamSpine commit and sweetGrass braid.
+//!
 //! When rhizoCrypt is absent, all operations are no-ops and the session
 //! fields stay `None` in the receipt.
 
 use crate::primal_bridge::NucleusContext;
+use crate::witness::WireWitnessRef;
 use serde::{Deserialize, Serialize};
 
 /// Active DAG session handle.
@@ -21,6 +28,8 @@ pub struct DagSession {
     pub session_id: String,
     pub events_appended: usize,
     pub merkle_root: Option<String>,
+    #[serde(default)]
+    pub witnesses: Vec<WireWitnessRef>,
 }
 
 /// Metadata for a single DAG event (one pipeline phase).
@@ -39,6 +48,8 @@ pub struct DagProvenance {
     pub dag_session_id: String,
     pub merkle_root: String,
     pub events_count: usize,
+    #[serde(default)]
+    pub witnesses: Vec<WireWitnessRef>,
 }
 
 impl DagSession {
@@ -64,11 +75,26 @@ impl DagSession {
             session_id,
             events_appended: 0,
             merkle_root: None,
+            witnesses: Vec::new(),
         })
     }
 
-    /// Append an event to the DAG.
+    /// Append an event to the DAG. If `output_hash` is present, a hash
+    /// witness is automatically emitted.
     pub fn append(&mut self, nucleus: &NucleusContext, event: DagEvent) {
+        if let Some(ref hash) = event.output_hash {
+            self.witnesses.push(WireWitnessRef::hash(
+                "hotspring:pipeline",
+                hash,
+                Some(&format!("dag:{}:phase:{}", self.session_id, event.phase)),
+            ));
+        }
+
+        self.witnesses.push(WireWitnessRef::checkpoint(
+            "hotspring:pipeline",
+            &format!("dag:{}:phase:{}", self.session_id, event.phase),
+        ));
+
         let params = serde_json::json!({
             "session_id": self.session_id,
             "event": {
@@ -91,6 +117,10 @@ impl DagSession {
     }
 
     /// Dehydrate the session to a merkle root.
+    ///
+    /// When BearDog is available, signs the merkle root and adds a
+    /// signature witness. Returns the complete provenance with all
+    /// witnesses collected during the session.
     pub fn dehydrate(mut self, nucleus: &NucleusContext) -> DagProvenance {
         let params = serde_json::json!({
             "session_id": self.session_id,
@@ -110,71 +140,139 @@ impl DagSession {
         };
 
         self.merkle_root = Some(root.clone());
+
+        self.witnesses.push(WireWitnessRef::hash(
+            "hotspring:pipeline",
+            &root,
+            Some(&format!("dag:{}:merkle_root", self.session_id)),
+        ));
+
+        if let Some(sig_witness) = try_sign_merkle_root(nucleus, &root, &self.session_id) {
+            self.witnesses.push(sig_witness);
+        }
+
         println!(
-            "  rhizoCrypt: session {} dehydrated → {}",
+            "  rhizoCrypt: session {} dehydrated → {} ({} witnesses)",
             self.session_id,
-            &root[..root.len().min(16)]
+            &root[..root.len().min(16)],
+            self.witnesses.len(),
         );
 
         DagProvenance {
             dag_session_id: self.session_id,
             merkle_root: root,
             events_count: self.events_appended,
+            witnesses: self.witnesses,
         }
     }
 }
 
-/// Convenience: compute SHA-256 of a byte slice and return hex string.
-///
-/// Used to hash inputs/outputs for DAG events.
-pub fn sha256_hex(data: &[u8]) -> String {
-    use std::io::Write;
-    let mut hasher = Sha256::new();
-    hasher.write_all(data).unwrap_or(());
-    hasher.finish_hex()
+/// Attempt to sign the merkle root via BearDog. Returns `None` if
+/// BearDog is not available or signing fails.
+fn try_sign_merkle_root(
+    nucleus: &NucleusContext,
+    merkle_root: &str,
+    session_id: &str,
+) -> Option<WireWitnessRef> {
+    use base64_encode::encode as b64_encode;
+
+    let message_b64 = b64_encode(merkle_root.as_bytes());
+
+    let params = serde_json::json!({
+        "message": message_b64,
+    });
+
+    let resp = nucleus.call("beardog", "crypto.sign_ed25519", &params).ok()?;
+    let sig_b64 = resp
+        .get("result")
+        .and_then(|r| r.get("signature"))
+        .and_then(serde_json::Value::as_str)?;
+
+    let family = &nucleus.family_id;
+    println!("  BearDog: signed merkle root ({family})");
+
+    Some(WireWitnessRef::beardog_signature(
+        family,
+        sig_b64,
+        Some(&format!("dag:{session_id}:merkle_sign")),
+    ))
 }
 
-/// Minimal SHA-256 for DAG hashing (no external dependency — uses the same
-/// approach as CHECKSUMS generation in the validation harness).
-struct Sha256 {
-    data: Vec<u8>,
-}
+/// Minimal base64 encoding (standard alphabet, no padding dependency).
+mod base64_encode {
+    const ALPHABET: &[u8; 64] =
+        b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-impl Sha256 {
-    fn new() -> Self {
-        Self { data: Vec::new() }
-    }
+    pub fn encode(input: &[u8]) -> String {
+        let mut out = String::with_capacity(input.len().div_ceil(3) * 4);
+        for chunk in input.chunks(3) {
+            let b0 = chunk[0] as u32;
+            let b1 = chunk.get(1).copied().unwrap_or(0) as u32;
+            let b2 = chunk.get(2).copied().unwrap_or(0) as u32;
+            let triple = (b0 << 16) | (b1 << 8) | b2;
 
-    fn finish_hex(&self) -> String {
-        use std::process::Command;
-        let result = Command::new("sha256sum")
-            .stdin(std::process::Stdio::piped())
-            .stdout(std::process::Stdio::piped())
-            .spawn()
-            .and_then(|mut child| {
-                use std::io::Write;
-                if let Some(ref mut stdin) = child.stdin {
-                    stdin.write_all(&self.data)?;
-                }
-                child.wait_with_output()
-            });
-
-        match result {
-            Ok(output) => {
-                let s = String::from_utf8_lossy(&output.stdout);
-                s.split_whitespace().next().unwrap_or("").to_string()
+            out.push(ALPHABET[((triple >> 18) & 0x3F) as usize] as char);
+            out.push(ALPHABET[((triple >> 12) & 0x3F) as usize] as char);
+            if chunk.len() > 1 {
+                out.push(ALPHABET[((triple >> 6) & 0x3F) as usize] as char);
+            } else {
+                out.push('=');
             }
-            Err(_) => format!("{:016x}", self.data.len()),
+            if chunk.len() > 2 {
+                out.push(ALPHABET[(triple & 0x3F) as usize] as char);
+            } else {
+                out.push('=');
+            }
         }
+        out
     }
 }
 
-impl std::io::Write for Sha256 {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        self.data.extend_from_slice(buf);
-        Ok(buf.len())
+/// Compute BLAKE3 hash of a byte slice and return hex string.
+///
+/// Used to hash GPU compute inputs/outputs for DAG events and witnesses.
+pub fn blake3_hex(data: &[u8]) -> String {
+    blake3::hash(data).to_hex().to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn blake3_hex_deterministic() {
+        let h1 = blake3_hex(b"hello world");
+        let h2 = blake3_hex(b"hello world");
+        assert_eq!(h1, h2);
+        assert_eq!(h1.len(), 64);
     }
-    fn flush(&mut self) -> std::io::Result<()> {
-        Ok(())
+
+    #[test]
+    fn blake3_hex_differs_for_different_input() {
+        let h1 = blake3_hex(b"hello");
+        let h2 = blake3_hex(b"world");
+        assert_ne!(h1, h2);
+    }
+
+    #[test]
+    fn base64_encode_known_values() {
+        assert_eq!(base64_encode::encode(b"hello"), "aGVsbG8=");
+        assert_eq!(base64_encode::encode(b""), "");
+        assert_eq!(base64_encode::encode(b"a"), "YQ==");
+        assert_eq!(base64_encode::encode(b"ab"), "YWI=");
+        assert_eq!(base64_encode::encode(b"abc"), "YWJj");
+    }
+
+    #[test]
+    fn dag_provenance_serializes() {
+        let prov = DagProvenance {
+            dag_session_id: "test-session".into(),
+            merkle_root: "deadbeef".into(),
+            events_count: 3,
+            witnesses: vec![WireWitnessRef::hash("test", "abc123", None)],
+        };
+        let json = serde_json::to_string(&prov).expect("serialize");
+        assert!(json.contains("witnesses"));
+        assert!(json.contains("blake3:abc123"));
     }
 }
