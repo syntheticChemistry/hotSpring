@@ -74,6 +74,16 @@ Not a numbered experiment — a systematic architectural evolution tracked via p
 - **Phase 3**: Glowplug resurrection evolved (warm cycle, FdVault, warm_cycle RPC)
 - **Validation**: 8 consecutive exp145 crash probes — zero lockups, all faults contained
 
+### Multi-Ember Fleet Architecture (2026-04-07)
+
+Architectural evolution — ember becomes per-device, glowplug becomes fleet orchestrator:
+- **Per-device ember**: `--bdf` CLI flag, per-BDF socket paths, systemd template units
+- **Fleet orchestrator**: `EmberFleet` in glowplug manages N active + M standby instances
+- **Hot-standby pool**: Pre-spawned embers with `ember.adopt_device` RPC for instant takeover
+- **Fault-informed resurrection**: Strategy selected by fault history (HotAdopt / WarmThenRespawn / FullRecovery)
+- **Discovery file**: `/tmp/biomeos/coral-ember-fleet.json` for external client routing
+- **Backward compatible**: `fleet_mode = false` preserves legacy single-ember behavior
+
 ## Benchmark Data
 
 | # | Name | Format |

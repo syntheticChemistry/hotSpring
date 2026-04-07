@@ -1045,10 +1045,27 @@ The ACR Boot Loader executes, loads ACR code, and enters the HS authentication l
 | 11 | GR Context Init + Shader Dispatch | 🔓 Unblocked when L10 achieved |
 | — | **Safety Infrastructure** | ✅ **Ember Survivability Hardening COMPLETE** — all MMIO fork-isolated, zero-I/O recovery, FdVault checkpoint, warm cycle resurrection. 8 consecutive fault runs survived. |
 
+### Phase 17: Multi-Ember Fleet Architecture (2026-04-07)
+
+**Architectural evolution**: Ember transformed from a monolithic process (one ember holds all GPUs) into a per-device fleet model:
+
+- **Per-device ember**: Each GPU gets its own ember process (`coral-ember server --bdf 0000:03:00.0`), with per-device socket (`/run/coralreef/ember-{slug}.sock`)
+- **Systemd template units**: `coral-ember@.service` spawns per-device instances; `coral-ember-standby@.service` spawns hot-standby pool
+- **Glowplug fleet orchestrator**: `EmberFleet` manages N active + M standby embers with independent heartbeat/checkpoint/resurrection per device
+- **Hot-standby pool**: Pre-spawned ember processes with no devices; receive `ember.adopt_device` RPC to take over a dead ember's device instantly
+- **Fault-informed resurrection**: `FaultRecord` history drives strategy selection — `HotAdopt` (instant), `WarmThenRespawn`, `FullRecovery` (remove+rescan), `ColdRespawn`
+- **Discovery file**: Glowplug writes `/tmp/biomeos/coral-ember-fleet.json` with BDF → socket mappings for external clients
+- **Backward compatible**: Without `fleet_mode = true` in config, single-ember legacy mode preserved
+
+**Key isolation gain**: K80 ember crash has zero impact on Titan V. Each GPU's fault domain is fully isolated.
+
+**Config**: `[daemon] fleet_mode = true` and `standby_pool_size = 1` in `glowplug.toml`.
+
 ### Next Steps
 
-1. **VBIOS Script Execution**: The codebase has a VBIOS script interpreter at `devinit/script/interpreter.rs`. Execute BIT 'I' init scripts from the Titan V's VBIOS ROM before ACR boot
+1. **VBIOS Script Execution**: Execute BIT 'I' init scripts from the Titan V's VBIOS ROM before ACR boot
 2. **SEC2 PMC bit**: Find correct bit via PTOP register scan (fallback bit 22 may be wrong)
 3. **No-SBR test**: Skip SBR reset, use GPU in VBIOS-POSTed state — confirms the hypothesis
 4. **Tesla K80 comparative debugging**: K80 has no security barriers — compare sovereign boot paths between Kepler and Volta to isolate ACR-specific issues
-4. **K80**: Resolve PGRAPH CTXSW domain PRI-faults (likely needs GR engine enable via PMC)
+5. **K80**: Resolve PGRAPH CTXSW domain PRI-faults (likely needs GR engine enable via PMC)
+6. **Fleet validation**: Stress-test fleet mode with concurrent GPU experiments, verify standby adoption under real fault conditions
