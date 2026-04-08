@@ -61,10 +61,21 @@ NNN_DESCRIPTOR.{sh,md,json}
 
 | # | Name | Type | Status |
 |---|------|------|--------|
-| 144 | PMC_BIT5_ACR_PROGRESS | analysis | KEY FINDINGS: SEC2 resets properly, IMEM PIO verified, BOOTVEC ignored, **VRAM dead** root cause found |
-| 150 | CRASH_VECTOR_HUNT | analysis | **RESOLVED** — Crash vectors eliminated by Ember Survivability Hardening (fork-isolated MMIO, zero-I/O recovery, abort-not-exit). 8 consecutive runs survive. |
-| 151 | REVALIDATION_AND_NEXT_STAGES | synthesis | Fossil record review, validated state, open questions, 6-stage plan for next phases |
-| 152 | COMPUTE_DISPATCH_PROVENANCE_VALIDATION | framework | ToadStool compute.dispatch + blake3 witness + trio provenance (primalSpring audit) |
+| 144 | PMC_BIT5_ACR_PROGRESS | analysis | ✅ SEC2 resets properly, IMEM PIO verified, BOOTVEC ignored, **VRAM dead** root cause found |
+| 150 | CRASH_VECTOR_HUNT | analysis | ✅ Crash vectors eliminated by Ember Survivability Hardening. 8 consecutive runs survive. |
+| 151 | REVALIDATION_AND_NEXT_STAGES | synthesis | ✅ Fossil record review, validated state, 6-stage plan |
+| 152 | COMPUTE_DISPATCH_PROVENANCE_VALIDATION | framework | ✅ ToadStool compute.dispatch + blake3 witness + trio provenance |
+| 153 | EMBER_FLOOD_RESURRECTION_PROOF | validation | ✅ Ember flood/resurrection under continuous fault injection |
+| 154 | SEC2_ACR_PMU_FIRST_PIPELINE | investigation | ✅ SEC2→PMU first-boot pipeline, ACR chain ordering |
+| 155 | K80_WARM_FECS_DISPATCH | validation | ✅ K80 warm-state FECS dispatch (Kepler PIO path) |
+| 156 | REAGENT_TRACE_COMPARISON | analysis | ✅ Cross-reagent register trace comparison |
+| 157 | K80_DEVINIT_REPLAY | investigation | ⚠️ K80 direct DEVINIT replay — PLL reprogramming risk |
+| 158 | SEC2_REAL_FIRMWARE | investigation | ✅ SEC2 ACR BL executes, stalls on DMA (HBM2 not trained) |
+| 159 | TITANV_VM_POST_HBM2 | breakthrough | ✅ HBM2 trained via nvidia-535 VM. FLR kills it. nouveau warm-cycle + reset_method clear preserves HBM2. |
+| 160 | TITANV_MMIOTRACE_CAPTURE | capture | ✅ MMIOTRACE register capture for GV100 nouveau init |
+| 161 | TITANV_NVDEC_SOVEREIGN_ATTEMPT | investigation | ✅ NVDEC engine sovereign dispatch attempt |
+| 162 | TITANV_SOVEREIGN_COMPUTE_PIPELINE | architecture | ✅ Full sovereign compute pipeline design |
+| 163 | FIRMWARE_BOUNDARY | **breakthrough** | ✅ **Architectural pivot.** Driver/firmware/hardware delineation. NOP dispatch via DRM (C + Rust). PMU mailbox mapped. PmuInterface created. |
 
 ### Ember Survivability Hardening (2026-04-07)
 

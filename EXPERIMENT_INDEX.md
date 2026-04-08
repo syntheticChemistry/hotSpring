@@ -177,7 +177,22 @@
 | **ACR HS Auth Investigation** (Exp 141) | ⚠️ Refined | biomeGate: initially identified VBIOS DEVINIT as root cause (SEC2 crypto uninitialized after SBR). DMA path fully fixed (sysmem PTEs, FBIF VIRT, DMEM repair). **Exp 142-143 contradicted** — ACR fails even on BIOS-POSTed GPU. Actual root cause: SEC2 PTOP/PMC bit missing, falcon cannot start |
 | **Sovereign Boot VBIOS DEVINIT** (Exp 142) | ⚠️ Ran | biomeGate: PM bridge reset did not cold-reset GPU. DEVINIT correctly skipped (GPU still POSTed). ACR fails — SEC2 POST-START FAULT. Root cause is SEC2 HAL, not DEVINIT. |
 | **No-SBR Confirmation Test** (Exp 143) | ❌ Contradicted | biomeGate: ACR fails even on BIOS-POSTed GPU (no SBR, fresh cold boot). VBIOS DEVINIT is NOT the sole root cause. SEC2 falcon cannot start — PTOP missing SEC2 bit, PMC fallback may be wrong. |
-| **TOTAL** | **39/39 Rust validation suites** | **870 tests (lib)**, 139 binaries, 99 WGSL shaders. Zero clippy, zero unsafe, AGPL-3.0-only. **Science ladder:** Quenched → Gradient Flow → Integrators → N_f=4 Infra → Chuna 44/44 → N_f=2 → N_f=2+1 → Self-tuning → Silicon saturation → 16⁴+ production. 143+ experiments. Experiments 001-107 archived to `experiments/archive/` (completed physics validation + early sovereign GPU work, absorbed into baseCamp and coralReef). |
+| **PMC Bit5 ACR Progress** (Exp 144) | ✅ Complete | biomeGate: PMC bit 5 SEC2 enable/discovery, ACR pipeline progression |
+| **Crash Vector Hunt** (Exp 150) | ✅ Complete | biomeGate: PRAMIN isolated as lockup trigger on cold VRAM. Graceful cold-VRAM detection. |
+| **Revalidation & Next Stages** (Exp 151) | ✅ Complete | biomeGate: full revalidation pass + next-stage planning. Ember survivability hardening plan. |
+| **Compute Dispatch Provenance** (Exp 152) | ✅ Complete | biomeGate: dispatch provenance validation, multi-backend parity confirmation |
+| **Ember Flood Resurrection Proof** (Exp 153) | ✅ Complete | biomeGate: ember flood/resurrection under continuous fault injection |
+| **SEC2 ACR PMU First Pipeline** (Exp 154) | ✅ Complete | biomeGate: SEC2→PMU first-boot pipeline, ACR chain ordering investigation |
+| **K80 Warm FECS Dispatch** (Exp 155) | ✅ Complete | biomeGate: K80 warm-state FECS dispatch (Kepler PIO path) |
+| **Reagent Trace Comparison** (Exp 156) | ✅ Complete | biomeGate: cross-reagent register trace comparison for DEVINIT analysis |
+| **K80 DEVINIT Replay** (Exp 157) | ⚠️ Ran | biomeGate: K80 direct DEVINIT replay — PLL reprogramming risk identified |
+| **SEC2 Real Firmware** (Exp 158) | ✅ Complete | biomeGate: SEC2 ACR bootloader executes but stalls on DMA (HBM2 not trained) |
+| **Titan V VM-POST HBM2** (Exp 159) | ✅ Complete | biomeGate: HBM2 trained via nvidia-535 VM passthrough. **FLR kills training.** nouveau warm-cycle + `reset_method` clear preserves HBM2 through vfio-pci bind. |
+| **Titan V MMIOTRACE Capture** (Exp 160) | ✅ Complete | biomeGate: mmiotrace register capture for GV100 nouveau init sequence |
+| **Titan V NVDEC Sovereign Attempt** (Exp 161) | ✅ Complete | biomeGate: NVDEC engine sovereign dispatch attempt on GV100 |
+| **Titan V Sovereign Compute Pipeline** (Exp 162) | ✅ Complete | biomeGate: full sovereign compute pipeline design for GV100 with firmware coexistence |
+| **Firmware Boundary** (Exp 163) | ✅ Complete | biomeGate: **Architectural pivot.** Driver/firmware/hardware delineation. Falcon firmware = GPU's BIOS. PMU mailbox protocol mapped (register-based on GV100). Hot-handoff channel injection proven (CH 500 accepted by scheduler). **NOP dispatch via nouveau DRM: SUCCEEDED** (C + pure Rust). `PmuInterface` struct created. End-to-end: `VM_INIT → CHANNEL_ALLOC(VOLTA_COMPUTE_A) → GEM → VM_BIND → EXEC → SYNCOBJ`. |
+| **TOTAL** | **39/39 Rust validation suites** | **870 tests (lib)**, 139 binaries, 99 WGSL shaders. Zero clippy, zero unsafe, AGPL-3.0-only. **Science ladder:** Quenched → Gradient Flow → Integrators → N_f=4 Infra → Chuna 44/44 → N_f=2 → N_f=2+1 → Self-tuning → Silicon saturation → 16⁴+ production → **Firmware Boundary → NOP Dispatch (DRM + pure Rust)**. 163+ experiments. Experiments 001-107 archived to `experiments/archive/` (completed physics validation + early sovereign GPU work, absorbed into baseCamp and coralReef). |
 
 ---
 

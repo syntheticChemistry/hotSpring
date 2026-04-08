@@ -1,8 +1,8 @@
 # baseCamp: Sovereign GPU Compute — GlowPlug & Falcon Boot Chain
 
-**Date:** 2026-03-25 (updated 2026-04-07 — Ember Survivability Hardening complete, 8 consecutive fault runs survived)  
-**Domain:** Hardware — PCIe GPU lifecycle, falcon microcontrollers, HBM2 management, PFIFO command submission, ACR secure boot, WPR construction, cross-driver profiling, daemon RPC orchestration, adaptive experiment loop, sysmem DMA, GV100 MMU v2 page tables, WPR2 hardware protection, Kepler PIO falcon loading, VBIOS DEVINIT, fault containment architecture  
-**Experiments:** 060-151  
+**Date:** 2026-03-25 (updated 2026-04-07 — Firmware Boundary pivot complete, NOP dispatch proven in pure Rust)  
+**Domain:** Hardware — PCIe GPU lifecycle, falcon microcontrollers, HBM2 management, PFIFO command submission, ACR secure boot, WPR construction, cross-driver profiling, daemon RPC orchestration, adaptive experiment loop, sysmem DMA, GV100 MMU v2 page tables, WPR2 hardware protection, Kepler PIO falcon loading, VBIOS DEVINIT, fault containment architecture, **firmware-agnostic interfacing, PMU mailbox protocol, DRM ioctl sovereign pipeline**  
+**Experiments:** 060-163  
 **Hardware:** NVIDIA Titan V (GV100, 12GB HBM2), 2× Tesla K80 (GK210, Kepler), RTX 5070 (GB206, Blackwell, display/validator)
 
 ---
@@ -1061,11 +1061,64 @@ The ACR Boot Loader executes, loads ACR code, and enters the HS authentication l
 
 **Config**: `[daemon] fleet_mode = true` and `standby_pool_size = 1` in `glowplug.toml`.
 
+### Phase 18: Firmware Boundary — Architectural Pivot (Exp 159-163, 2026-04-07)
+
+**The fundamental insight**: Falcon firmware (PMU, SEC2, FECS, GPCCS) is the GPU's internal operating system — to be **interfaced with**, not replaced. Previous phases attempted to replicate firmware functionality in the driver layer. This phase pivots to a firmware-agnostic interfacing approach, analogous to how toadStool interfaces with platform BIOS/UEFI.
+
+**Three-layer delineation:**
+- **Driver** (host, what we write): BAR0 MMIO, DMA buffers, channel structures, firmware mailbox communication
+- **Firmware** (falcon processors): PMU (PRI gates, clocks, power), SEC2 (ACR trust root), FECS (GR scheduler), GPCCS (GPC context)
+- **Hardware** (silicon): PBDMAs, PFIFO, copy engines, GR compute, GPU MMU, HBM2
+
+**Key discoveries:**
+1. **HBM2 training persists through nouveau warm-cycle** (Exp 159): `reset_method` clear on vfio-pci bind avoids FLR, preserving HBM2
+2. **PFIFO scheduler is firmware-controlled** (Exp 163): Direct BAR0 writes to PFIFO_ENABLE/SCHED_EN are PRI-gated. Scheduler only responds to firmware commands.
+3. **GV100 PMU uses register-based mailbox** (Exp 163): MBOX0/MBOX1 + IRQSSET, not queue-based RPC (Turing+). Queue offsets return 0xBADF5040.
+4. **Hot-handoff channel injection works** (Exp 163): Channel 500 injected via PRAMIN alongside running nouveau — scheduler accepted it.
+5. **NOP dispatch via DRM: SUCCEEDED** (Exp 163): Both raw C and pure Rust paths proven end-to-end.
+
+**NOP dispatch pipeline (pure Rust):**
+```
+VM_INIT → CHANNEL_ALLOC(VOLTA_COMPUTE_A) → SYNCOBJ → GEM_NEW → VM_BIND → mmap → EXEC → SYNCOBJ_WAIT
+```
+New UAPI (kernel 6.6+) confirmed required and working on kernel 6.17 + GV100. Zero C, zero libc.
+
+**`PmuInterface` struct created:** Encapsulates register-based mailbox protocol (MBOX0/MBOX1 + IRQSSET). Provides `attach()`, `mailbox_exchange()`, `poll_mbox0_bits()`, state probing. Firmware-agnostic — works with whatever PMU firmware is loaded.
+
+**Scaling across GPU generations:**
+
+| Era | Firmware Interface | Driver Role |
+|-----|-------------------|-------------|
+| Kepler (K80) | None — direct register writes | Full hardware control |
+| Volta (GV100) | PMU mailbox + SEC2 ACR + FECS scheduling | Firmware interface + channel structures |
+| Turing/Ampere | GSP RPC — host driver becomes thin RPC client | RPC message formatting |
+| Hopper/Blackwell | GSP with extended offloaded functionality | Even thinner RPC layer |
+
+Learning the Volta firmware interface is the foundation for ALL modern NVIDIA cards.
+
+### Updated Sovereign Pipeline Layer Status (April 7, 2026)
+
+| Layer | Component | Status |
+|-------|-----------|--------|
+| 0 | PCIe / VFIO | ✅ BAR0 MMIO, DMA buffers, IOMMU (iommufd/cdev) |
+| 1 | PFB / MMU | ✅ Alive via warm-state transfer from nouveau |
+| 2 | PFIFO Engine | ✅ Re-initialized (firmware-controlled) |
+| 3 | Scheduler | ✅ Processes runlists (via firmware, not direct BAR0) |
+| 4 | Channel | ✅ Accepted by scheduler (hot-handoff proven) |
+| 5 | PBDMA Context | ✅ Loaded correctly |
+| 6 | MMU Translation | ✅ Volta FBHUB fault buffer config |
+| 7 | SEC2 Falcon Binding + DMA | ✅ bind_stat=5, DMA active, sysmem PTEs |
+| 8 | WPR/ACR Payload | ✅ WPR format correct, ACR firmware alive |
+| 9 | ACR DMA + Page Tables | ✅ PDE slot fix, FBIF VIRT mode, falcon MMU routing |
+| 10 | HS Authentication | 🔴 **BLOCKED** (VFIO path) — firmware-agnostic DRM path bypasses this entirely |
+| 11 | **NOP Dispatch via DRM** | ✅ **PROVEN** — pure Rust, new UAPI, SET_OBJECT(0xC3C0) on Titan V |
+| — | **Firmware Interface** | ✅ `PmuInterface` struct, `FalconProbe`, register-based mailbox protocol |
+| — | **Safety Infrastructure** | ✅ Ember Survivability Hardening COMPLETE |
+
 ### Next Steps
 
-1. **VBIOS Script Execution**: Execute BIT 'I' init scripts from the Titan V's VBIOS ROM before ACR boot
-2. **SEC2 PMC bit**: Find correct bit via PTOP register scan (fallback bit 22 may be wrong)
-3. **No-SBR test**: Skip SBR reset, use GPU in VBIOS-POSTed state — confirms the hypothesis
-4. **Tesla K80 comparative debugging**: K80 has no security barriers — compare sovereign boot paths between Kepler and Volta to isolate ACR-specific issues
-5. **K80**: Resolve PGRAPH CTXSW domain PRI-faults (likely needs GR engine enable via PMC)
-6. **Fleet validation**: Stress-test fleet mode with concurrent GPU experiments, verify standby adoption under real fault conditions
+1. **Full compute dispatch via DRM**: Use existing `NvDevice` infrastructure (shader upload, QMD, multi-buffer) — already proven in `nvidia_nouveau_e2e.rs` (f32/f64 arithmetic, LJ forces)
+2. **PMU command mapping**: Use `PmuInterface` to discover PMU command vocabulary (engine enable, clock control, PRI gate management)
+3. **VFIO + firmware coexistence**: Investigate binding vfio-pci with nouveau-initialized firmware still alive (no FLR via `reset_method` clear)
+4. **GSP RPC client**: Extend `PmuInterface` pattern to Turing/Ampere GSP message protocol — same firmware-agnostic approach, different transport
+5. **Fleet validation**: Stress-test fleet mode with concurrent GPU experiments
