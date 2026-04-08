@@ -1,6 +1,6 @@
 # Sovereign Validation Matrix
 
-**Updated:** 2026-04-01
+**Updated:** 2026-04-07
 **Purpose:** Single source of truth mapping every pipeline layer against dispatch paths, hardware substrates, and experiment evidence. "Solve the maze from both sides."
 
 ## Dispatch Path Inventory
@@ -9,7 +9,7 @@
 |------|--------|-------------------|---------|-----|----------|
 | **VFIO cold** | `vfio-pci` | Direct BAR0/GPFIFO, FECS must be booted from scratch | BLOCKED (WPR2 HW-locked) | BLOCKED (not UEFI-POSTed) | N/A (display GPU) |
 | **VFIO warm** | `nouveau` then `vfio-pci` | nouveau boots FECS via ACR; livepatch freezes state; swap to vfio | **FRONTIER** (livepatch ready) | N/A (nouveau rejects) | N/A |
-| **nouveau DRM** | `nouveau` | GEM + VM_INIT/EXEC via DRM ioctls | BLOCKED (missing PMU firmware) | BLOCKED (not UEFI-POSTed) | N/A |
+| **nouveau DRM** | `nouveau` | GEM + VM_INIT/EXEC via DRM ioctls | **PROVEN** (NOP dispatch, Exp 163) | BLOCKED (not UEFI-POSTed) | N/A |
 | **nvidia-drm + UVM** | `nvidia` proprietary | RM ioctls + `/dev/nvidia-uvm` GPFIFO | UNTESTED (code-complete) | UNTESTED | Available (RTX 5060) |
 | **NVK/wgpu** | `nouveau` + Mesa NVK | Vulkan compute via wgpu abstraction | **PROVEN** (4-tier QCD) | N/A | N/A |
 | **AMD DRM** | `amdgpu` | GEM + PM4 via DRM ioctls | N/A | N/A | N/A |
@@ -35,10 +35,10 @@
 | L5: MMU fault buffer | PASS (Exp 076) | PASS | PASS | UNTESTED | PASS |
 | L6: PBDMA context load | PARTIAL (Exp 058) | PASS (stale intr fix) | PASS | UNTESTED | PASS |
 | L7: SEC2 + ACR DMA | PASS (Exp 110) | N/A (nouveau handles) | N/A | N/A | N/A |
-| L8: WPR/ACR + FECS boot | BLOCKED (Exp 122: WPR2 HW-locked) | N/A (nouveau handles) | BLOCKED (no PMU fw) | UNTESTED | PROVEN |
-| L9: FECS alive + GR init | BLOCKED by L8 | **FRONTIER** (livepatch Exp 125) | BLOCKED by L8 | UNTESTED | PROVEN |
-| L10: GPFIFO submit | BLOCKED by L9 | **FRONTIER** (QMD+pushbuf ready) | BLOCKED | UNTESTED | PROVEN |
-| L11: Fence + readback | BLOCKED by L10 | **FRONTIER** | BLOCKED | UNTESTED | PROVEN |
+| L8: WPR/ACR + FECS boot | BLOCKED (Exp 122: WPR2 HW-locked) | N/A (nouveau handles) | PASS (nouveau handles) | UNTESTED | PROVEN |
+| L9: FECS alive + GR init | BLOCKED by L8 | **FRONTIER** (livepatch Exp 125) | PASS (nouveau handles) | UNTESTED | PROVEN |
+| L10: GPFIFO submit | BLOCKED by L9 | **FRONTIER** (QMD+pushbuf ready) | **PASS** (Exp 163: NOP dispatch, pure Rust) | UNTESTED | PROVEN |
+| L11: Fence + readback | BLOCKED by L10 | **FRONTIER** | **PASS** (syncobj wait, Exp 163) | UNTESTED | PROVEN |
 | Compile (WGSL->SASS) | PASS (SM70) | PASS (SM70) | PASS (SM70) | PASS (SM70) | PASS (via NVK) |
 
 ### Tesla K80 (GK210, Kepler)
@@ -146,3 +146,5 @@
 | 129 | Kepler VFIO Dispatch | L4-L10 | KeplerChannel created, dispatch blocked by PFIFO PRI faults |
 | 130 | No-FLR Recovery + PRI Ring | L1-L3 | PRI fault false-positive fixes, PMC soft-reset validated, FLR routing through ember |
 | 131 | Reset Architecture Evolution | L1-L11 | ember owns all resets, PRI-aware diagnostics, no sudo/pkexec, Titan V FLReset- confirmed |
+| 159 | Titan V VM-POST HBM2 | L1 | HBM2 trained via VM, preserved through nouveau warm-cycle + reset_method clear |
+| 163 | Firmware Boundary | L8-L11 | **Architectural pivot.** NOP dispatch via DRM (pure Rust). PMU mailbox mapped. PmuInterface created. Hot-handoff channel injection proven. |
