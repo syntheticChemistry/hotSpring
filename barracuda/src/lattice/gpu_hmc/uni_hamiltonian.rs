@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! GPU-resident Hamiltonian evaluation for unidirectional RHMC (B2).
 //!
@@ -446,7 +446,6 @@ fn encode_hamiltonian_assembly(
 ///
 /// Returns the number of CG iterations used. The result lives in `h_buf` and
 /// `diag_buf` on GPU — no readback.
-#[allow(clippy::too_many_arguments)]
 pub(crate) fn compute_h_gpu(
     gpu: &GpuF64,
     dyn_pipelines: &GpuDynHmcPipelines,

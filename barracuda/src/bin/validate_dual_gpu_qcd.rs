@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Dual-GPU parallel QCD validation: run the same physics on two GPUs simultaneously.
 //!
@@ -65,7 +65,8 @@ fn run_on_gpu(name_hint: &str, dims: [usize; 4], beta: f64, seed: u64) -> GpuRes
             dt,
             i as u32,
             &mut rng_seed,
-        );
+        )
+        .expect("streaming HMC trajectory");
         if (i + 1) % 10 == 0 {
             println!(
                 "  [{adapter_name}] therm {}/{n_therm}: P={:.6}",
@@ -85,7 +86,8 @@ fn run_on_gpu(name_hint: &str, dims: [usize; 4], beta: f64, seed: u64) -> GpuRes
             dt,
             (n_therm + j) as u32,
             &mut rng_seed,
-        );
+        )
+        .expect("streaming HMC trajectory");
         plaquettes.push(result.plaquette);
     }
 
@@ -176,6 +178,8 @@ fn main() {
     // plaquette values. The exact trajectories may differ due to floating-point
     // non-associativity across different hardware, but the ensemble average
     // should agree within statistical noise (~0.01 for 10 measurements at 4^4).
+    // Not centralized: cross-GPU ensemble agreement is a loose statistical gate,
+    // distinct from lattice `GPU_*_PARITY` tolerances (same-code CPU/GPU paths).
     let stat_tol = 0.02;
     harness.check_bool(
         &format!(

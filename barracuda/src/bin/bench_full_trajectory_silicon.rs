@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Full-trajectory silicon comparison: actual RHMC/HMC wall-clock on both GPUs.
 //!
@@ -101,7 +101,8 @@ fn bench_one_card(gpu: &GpuF64, max_buffer: u64) -> CardResult {
 
         // Warmup: 3 trajectories
         for i in 0..3 {
-            gpu_hmc_trajectory_streaming(gpu, &pipelines, &state, n_md, dt, i, &mut seed);
+            gpu_hmc_trajectory_streaming(gpu, &pipelines, &state, n_md, dt, i, &mut seed)
+                .expect("streaming HMC trajectory");
         }
 
         let mut times = Vec::with_capacity(n_traj);
@@ -118,7 +119,8 @@ fn bench_one_card(gpu: &GpuF64, max_buffer: u64) -> CardResult {
                 dt,
                 (3 + i) as u32,
                 &mut seed,
-            );
+            )
+            .expect("streaming HMC trajectory");
             let elapsed_ms = start.elapsed().as_secs_f64() * 1000.0;
             times.push(elapsed_ms);
             if r.accepted {

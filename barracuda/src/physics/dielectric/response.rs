@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Dielectric response functions: Mermin, completed Mermin, DSF, f-sum rule.
 //!

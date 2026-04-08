@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! GPU-accelerated 1D Euler fluid solver with HLL Riemann solver (Paper 45).
 //!
@@ -9,9 +9,6 @@
 //!
 //! This becomes meaningful at larger spatial meshes (nx > ~256) where the
 //! per-cell parallelism justifies GPU dispatch overhead.
-
-#![allow(clippy::cast_possible_truncation)]
-#![allow(clippy::cast_precision_loss)]
 
 use super::kinetic_fluid::{SodResult, run_sod_shock_tube};
 use crate::gpu::GpuF64;

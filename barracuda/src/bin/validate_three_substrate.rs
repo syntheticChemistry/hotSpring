@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Three-Substrate Orchestration: Primary GPU + AKD1000 NPU + Validation GPU
 //!
@@ -159,7 +159,8 @@ fn main() {
         for t in 0..n_traj {
             let result = gpu_hmc_trajectory_streaming(
                 &gpu, &pipelines, &state, 20, 0.02, t as u32, &mut seed,
-            );
+            )
+            .expect("streaming HMC trajectory");
 
             let (poly_mag, poly_phase) = gpu_polyakov_loop(&gpu, &pipelines.hmc, &state);
 
@@ -243,7 +244,8 @@ fn main() {
                     0.02,
                     t as u32 + 5000,
                     &mut seed,
-                );
+                )
+                .expect("streaming HMC trajectory");
                 plaq_sum += r.plaquette;
             }
             let titan_plaq = plaq_sum / f64::from(n_verify);

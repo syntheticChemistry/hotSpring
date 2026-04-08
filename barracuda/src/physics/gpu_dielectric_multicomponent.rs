@@ -1,12 +1,9 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! GPU-accelerated multi-component Mermin dielectric function (Paper 44 extension).
 //!
 //! Promotes `dielectric_multicomponent.rs` to GPU, dispatching batched ε(k,ω)
 //! evaluation across frequency points in parallel.
-
-#![allow(clippy::cast_possible_truncation)]
-#![allow(clippy::cast_precision_loss)]
 
 use super::dielectric_multicomponent::{
     MultiComponentPlasma, SpeciesParams, epsilon_multicomponent_mermin,

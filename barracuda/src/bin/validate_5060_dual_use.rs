@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 //! Proof-of-concept: dispatch CUDA compute on the RTX 5060 while it serves as
 //! the active display GPU.  Validates dual-use (display + compute) without
 //! displacing the nvidia driver or disrupting DRM.
@@ -8,6 +8,7 @@
 
 use cudarc::driver::{CudaContext, CudaSlice, LaunchConfig, PushKernelArg};
 use cudarc::nvrtc::Ptx;
+use hotspring_barracuda::tolerances;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -108,7 +109,7 @@ fn main() {
         (3.0 * N as f64 * 4.0) / elapsed.as_secs_f64() / 1e9
     );
 
-    let ok = max_err < 1e-2; // f32 SAXPY on 1M elements; FMA precision is ~2.4e-4
+    let ok = max_err < tolerances::GLOWPLUG_F32_SAXPY_MAX_ABS; // f32 SAXPY on 1M elements; FMA precision is ~2.4e-4
     println!(
         "\n{}\n",
         if ok {

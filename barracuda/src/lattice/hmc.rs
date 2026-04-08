@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Hybrid Monte Carlo (HMC) integrator for pure gauge SU(3).
 //!

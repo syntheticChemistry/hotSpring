@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Physics-domain tolerances: screened Coulomb, nuclear EOS acceptance criteria,
 //! and numerical singularity guards for nuclear/MD computations.
@@ -73,6 +73,19 @@ pub const TTM_HELIUM_EQUILIBRIUM_T_REL: f64 = 0.50;
 /// RK4 integration; total energy E = Ce·Te + Ci·Ti should be conserved.
 /// 1% drift acceptable for long runs.
 pub const TTM_ENERGY_DRIFT_REL: f64 = 0.01;
+
+/// GPU batched Mermin dielectric: f-sum quadrature vs CPU reference integral (relative).
+///
+/// GPU ω-quadrature of ∫ ω Im[1/ε] dω can differ from the CPU reference by up to ~6%
+/// for Γ = 10–200, κ = 1–2 plasmas (`validate_gpu_dielectric`).
+pub const DIELECTRIC_F_SUM_GPU_CPU_REL: f64 = 0.06;
+
+/// Dielectric high-frequency / large-argument limit: small |W| or small |loss|.
+///
+/// Plasma dispersion |W(z)| at large |z| and high-ω dielectric loss should vanish.
+/// Used for |W(ω→∞)| in `validate_dielectric` and |Im[1/ε]| at high ω in
+/// `validate_gpu_dielectric`.
+pub const DIELECTRIC_HIGH_FREQ_LIMIT_ABS: f64 = 0.01;
 
 // ═══════════════════════════════════════════════════════════════════
 // Nuclear EOS acceptance criteria (METHODOLOGY.md)

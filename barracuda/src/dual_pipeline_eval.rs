@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Dual-card cooperative profiler.
 //!
@@ -155,7 +155,8 @@ impl<'a> DualPipelineEval<'a> {
                 dt,
                 i as u32,
                 &mut seed_t,
-            );
+            )
+            .expect("streaming HMC trajectory");
         }
         let single_ms = t_single.elapsed().as_secs_f64() * 1e3;
 
@@ -166,8 +167,16 @@ impl<'a> DualPipelineEval<'a> {
         let mut seed_t2 = 42_u64;
 
         let t_split = Instant::now();
-        let r_precise =
-            gpu_hmc_trajectory_streaming(&self.pair.precise, &p_p, &s_p, n_md, dt, 0, &mut seed_p);
+        let r_precise = gpu_hmc_trajectory_streaming(
+            &self.pair.precise,
+            &p_p,
+            &s_p,
+            n_md,
+            dt,
+            0,
+            &mut seed_p,
+        )
+        .expect("streaming HMC trajectory");
         let r_throughput = gpu_hmc_trajectory_streaming(
             &self.pair.throughput,
             &p_t,
@@ -176,7 +185,8 @@ impl<'a> DualPipelineEval<'a> {
             dt,
             0,
             &mut seed_t2,
-        );
+        )
+        .expect("streaming HMC trajectory");
         let split_ms = t_split.elapsed().as_secs_f64() * 1e3;
 
         let plaq_diff = (r_precise.plaquette - r_throughput.plaquette).abs();
@@ -232,7 +242,8 @@ impl<'a> DualPipelineEval<'a> {
                 dt,
                 i as u32,
                 &mut seed_p,
-            );
+            )
+            .expect("streaming HMC trajectory");
             let rt = gpu_hmc_trajectory_streaming(
                 &self.pair.throughput,
                 &pipelines_t,
@@ -241,7 +252,8 @@ impl<'a> DualPipelineEval<'a> {
                 dt,
                 i as u32,
                 &mut seed_t,
-            );
+            )
+            .expect("streaming HMC trajectory");
             let diff = (rp.plaquette - rt.plaquette).abs();
             max_diff = max_diff.max(diff);
         }

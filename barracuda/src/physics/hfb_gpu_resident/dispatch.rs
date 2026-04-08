@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! GPU dispatch routines for the HFB SCF loop.
 //!
@@ -29,8 +29,6 @@ type DensityResult = std::collections::HashMap<usize, (Vec<f64>, Vec<f64>)>;
 type EnergyDensityResult = Option<std::collections::HashMap<usize, Vec<f64>>>;
 
 /// Upload densities, spin-orbit diagonals, and pack params to GPU.
-#[allow(clippy::cast_possible_truncation)] // uniform dimensions: grid ≤ 256, n_groups ≤ 30
-#[allow(clippy::too_many_arguments)] // GPU upload requires all buffer handles
 pub(super) fn upload_densities(
     raw_queue: &wgpu::Queue,
     active_groups: &[(usize, Vec<usize>)],
@@ -148,7 +146,6 @@ pub(super) fn upload_densities(
 }
 
 /// Dispatch H-build and SO-pack GPU passes in a single encoder.
-#[allow(clippy::cast_possible_truncation)] // Hamiltonian grid: nmax ≤ 30, nr ≤ 200
 pub(super) fn dispatch_hbuild_and_pack(
     raw_device: &wgpu::Device,
     raw_queue: &wgpu::Queue,
@@ -212,8 +209,6 @@ pub(super) fn dispatch_hbuild_and_pack(
 
 /// Dispatch BCS v², density, mixing (and optional energy) passes, then
 /// readback mixed densities via staging buffers.
-#[allow(clippy::cast_possible_truncation)] // BCS density grid: nr ≤ 200
-#[allow(clippy::too_many_arguments)] // GPU dispatch gathers all resources for a single encoder submit
 pub(super) fn run_density_mixing_pass(
     raw_device: &wgpu::Device,
     raw_queue: &wgpu::Queue,
@@ -380,7 +375,6 @@ fn dispatch_bcs_density_mix(encoder: &mut wgpu::CommandEncoder, g: &GroupResourc
 }
 
 #[cfg(feature = "gpu_energy")]
-#[allow(clippy::cast_possible_truncation)] // energy density grid: nr ≤ 200
 fn dispatch_energy_pass(
     raw_queue: &wgpu::Queue,
     encoder: &mut wgpu::CommandEncoder,

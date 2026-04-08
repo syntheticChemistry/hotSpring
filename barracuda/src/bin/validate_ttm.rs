@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! TTM (Two-Temperature Model) 0D ODE solver validation (Paper 2).
 //!

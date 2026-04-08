@@ -35,6 +35,7 @@ use hotspring_barracuda::lattice::gpu_hmc::dynamical::{
     GpuDynHmcPipelines, GpuDynHmcState, gpu_dynamical_hmc_trajectory,
 };
 use hotspring_barracuda::lattice::wilson::Lattice;
+use hotspring_barracuda::production_support::std_dev;
 use std::io::Write;
 use std::time::Instant;
 
@@ -306,13 +307,4 @@ fn main() {
             .expect("failed to write output");
         println!("  Results → {path}");
     }
-}
-
-fn std_dev(values: &[f64]) -> f64 {
-    if values.len() < 2 {
-        return 0.0;
-    }
-    let mean = values.iter().sum::<f64>() / values.len() as f64;
-    let var = values.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / (values.len() - 1) as f64;
-    var.sqrt()
 }

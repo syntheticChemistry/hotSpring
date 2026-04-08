@@ -1,10 +1,8 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Conservative multi-species BGK kinetic relaxation.
 //!
 //! Reference: Haack, Hauck, Murillo, J. Stat. Phys. 168:826 (2017).
-
-#![allow(clippy::similar_names)]
 
 use super::maxwellian::{compute_moments, maxwellian_1d};
 

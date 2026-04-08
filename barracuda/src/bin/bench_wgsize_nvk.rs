@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Diagnostic: `workgroup_size(1)` vs `workgroup_size(N)` on NVK vs proprietary.
 //!

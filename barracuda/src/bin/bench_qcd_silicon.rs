@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! QCD silicon benchmark: per-kernel profiling across GPUs, lattice sizes, and
 //! precision tiers (FP32 proxy + DF64).

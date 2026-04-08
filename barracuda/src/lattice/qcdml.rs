@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! QCDml 2.0 metadata generation for ILDG ensemble and config records.
 //!

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Data types for the GPU-accelerated deformed HFB solver.
 //!
@@ -42,7 +42,6 @@ pub(super) struct HamiltonianParamsGpu {
 }
 
 impl HamiltonianParamsGpu {
-    #[allow(clippy::cast_possible_truncation)] // f64 bit-splitting for WGSL uniform; no truncation
     #[allow(dead_code)] // EVOLUTION(GPU): used in test_params_gpu_layout; will wire to deformed_*.wgsl when GPU pipeline is complete
     pub(super) const fn new(
         n_rho: u32,
@@ -146,7 +145,6 @@ impl NucleusSetup {
         setup
     }
 
-    #[allow(clippy::cast_possible_truncation)] // Basis quantum numbers: n_z, n_perp, abs_l, n_shell ≤ 16
     pub(super) fn build_basis(&mut self, n_shells: usize) {
         for n_sh in 0..n_shells {
             for n_z_v in 0..=n_sh {

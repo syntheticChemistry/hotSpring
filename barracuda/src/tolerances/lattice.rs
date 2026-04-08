@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Lattice QCD, GPU SpMV/Lanczos, and spectral theory tolerances.
 
@@ -133,6 +133,13 @@ pub const BETA_SCAN_ACCEPTANCE_MIN: f64 = 0.30;
 /// parity is limited by FP summation order differences between `NumPy`
 /// and Rust iterators. On 4^4 (256 sites), 1% relative is achievable.
 pub const BETA_SCAN_PYTHON_RUST_PLAQUETTE_PARITY: f64 = 0.01;
+
+/// β-scan / streaming pipeline: grid tolerance for nominal couplings and monotonicity slack.
+///
+/// Used when matching measurement rows to the same nominal β (e.g. |β − 6.0| &lt; tol)
+/// and when allowing thermal noise in mean plaquette between adjacent β
+/// (`⟨P⟩_{i+1} ≥ ⟨P⟩_i − tol`) in GPU β-scan and streaming-pipeline checks.
+pub const BETA_SCAN_GRID_TOLERANCE: f64 = BETA_SCAN_PYTHON_RUST_PLAQUETTE_PARITY;
 
 /// β-scan 8^4 scaling: plaquette should approach 4^4 at large β.
 ///

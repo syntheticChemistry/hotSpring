@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Meta-table burst scanner: fast parameter sweeps across (lattice, beta, mass).
 //!
@@ -288,7 +288,6 @@ fn chrono_timestamp() -> String {
 }
 
 /// Run a single quenched parameter point. Returns (`mean_plaq`, chi, acceptance, 0.0, `wall_per_traj`).
-#[allow(clippy::too_many_arguments)]
 fn run_quenched_point(
     gpu: &GpuF64,
     pipelines: &GpuHmcStreamingPipelines,
@@ -319,7 +318,8 @@ fn run_quenched_point(
     let mut s = seed * 100;
 
     for i in 0..n_therm {
-        gpu_hmc_trajectory_streaming(gpu, pipelines, &state, n_md, dt, i as u32, &mut s);
+        gpu_hmc_trajectory_streaming(gpu, pipelines, &state, n_md, dt, i as u32, &mut s)
+            .expect("streaming HMC trajectory");
     }
 
     let mut plaq_vals = Vec::with_capacity(n_meas);
@@ -335,7 +335,8 @@ fn run_quenched_point(
             dt,
             (n_therm + i) as u32,
             &mut s,
-        );
+        )
+        .expect("streaming HMC trajectory");
         plaq_vals.push(r.plaquette);
         if r.accepted {
             n_accepted += 1;
@@ -358,7 +359,6 @@ fn run_quenched_point(
 }
 
 /// Run a single dynamical parameter point. Returns (`mean_plaq`, chi, acceptance, `mean_cg`, `wall_per_traj`).
-#[allow(clippy::too_many_arguments)]
 fn run_dynamical_point(
     gpu: &GpuF64,
     dyn_pipelines: &GpuDynHmcStreamingPipelines,
@@ -405,7 +405,8 @@ fn run_dynamical_point(
             dt,
             i as u32,
             &mut s,
-        );
+        )
+        .expect("streaming HMC trajectory");
     }
     gpu_links_to_lattice(gpu, &quenched_state, &mut lat);
 

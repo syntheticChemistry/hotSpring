@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! GPU gradient flow — pure-GPU Wilson flow via HMC shader reuse.
 //!
@@ -23,10 +23,6 @@
 //!
 //! The force shader computes F (gauge force), the accumulate shader updates K,
 //! and the link update shader applies the Cayley exponential.
-
-#![allow(clippy::cast_possible_truncation)]
-#![allow(clippy::cast_sign_loss)]
-#![allow(clippy::cast_precision_loss)]
 
 use super::cg::WGSL_SUM_REDUCE_F64;
 use super::gpu_hmc::resident_cg_buffers::{
@@ -375,7 +371,6 @@ fn gpu_flow_plaquette_reduced(
 /// measurements (8-byte readback per measurement instead of O(V)).
 /// Use `GpuFlowState::from_gpu_gauge` to avoid the B4 link transfer.
 #[must_use]
-#[allow(clippy::too_many_arguments)]
 pub fn gpu_gradient_flow_resident(
     gpu: &GpuF64,
     pipelines: &GpuFlowPipelines,

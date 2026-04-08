@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Nuclear EOS Level 2 — GPU-Batched HFB Pipeline
 //!

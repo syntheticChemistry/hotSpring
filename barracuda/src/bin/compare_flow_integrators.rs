@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Compare gradient flow integrators — Bazavov & Chuna (2021) reproduction.
 //!

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Hamiltonian buffer allocation and GPU encode passes for unidirectional RHMC (B2).
 

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Full coupled kinetic-fluid GPU pipeline (Paper 45).
 //!
@@ -16,11 +16,6 @@
 //!   4. Euler update (GPU, HLL flux + conservative update)
 //!   5. Interface: fluid → kinetic (CPU, Maxwellian boundary)
 //! ```
-
-#![allow(clippy::cast_possible_truncation)]
-#![allow(clippy::cast_precision_loss)]
-#![allow(clippy::similar_names)]
-#![allow(clippy::too_many_lines)]
 
 use super::kinetic_fluid::{
     CoupledResult, INTERFACE_CONVERGENCE_TOL, INTERFACE_MAX_SUB_ITERATIONS, compute_moments,

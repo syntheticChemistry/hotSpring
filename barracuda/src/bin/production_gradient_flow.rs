@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Production gradient flow measurement — SU(3) quenched.
 //!
@@ -33,6 +33,7 @@ use hotspring_barracuda::lattice::gradient_flow::{
 };
 use hotspring_barracuda::lattice::hmc::{HmcConfig, IntegratorType, hmc_trajectory};
 use hotspring_barracuda::lattice::wilson::Lattice;
+use hotspring_barracuda::production_support::std_dev;
 use std::time::Instant;
 
 struct CliArgs {
@@ -336,13 +337,4 @@ fn main() {
             .expect("failed to write output");
         println!("  Results → {path}");
     }
-}
-
-fn std_dev(values: &[f64]) -> f64 {
-    if values.len() < 2 {
-        return 0.0;
-    }
-    let mean = values.iter().sum::<f64>() / values.len() as f64;
-    let var = values.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / (values.len() - 1) as f64;
-    var.sqrt()
 }

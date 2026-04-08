@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! DF64 transcendental poisoning diagnostic: tests whether exp_df64/sqrt_df64
 //! produce correct (non-zero) forces on each available GPU/driver combination.

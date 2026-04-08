@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Per-β execution for dynamical mixed scan: quenched pre-therm, dynamical HMC, measurement, NPU steering.
 
@@ -160,7 +160,8 @@ pub(super) fn run_single_beta(
                 *dt,
                 i as u32,
                 &mut seed,
-            );
+            )
+            .expect("streaming HMC trajectory");
             let wall_us = traj_start.elapsed().as_micros() as u64;
             quenched_plaq_history.push(r.plaquette);
             quenched_used = i + 1;

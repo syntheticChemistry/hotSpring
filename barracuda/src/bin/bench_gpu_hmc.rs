@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! GPU HMC Scaling Benchmark — CPU vs pure GPU at production lattice sizes.
 //!
@@ -89,14 +89,16 @@ fn bench_gpu(
 
     // Warmup (1 trajectory)
     let mut seed = 1000u64;
-    gpu_hmc_trajectory_streaming(gpu, pipelines, &state, n_md, dt, 0, &mut seed);
+    gpu_hmc_trajectory_streaming(gpu, pipelines, &state, n_md, dt, 0, &mut seed)
+        .expect("streaming HMC trajectory");
 
     // Benchmark
     let start = Instant::now();
     let mut accepted = 0;
     let mut plaq_sum = 0.0;
     for i in 0..n_traj {
-        let r = gpu_hmc_trajectory_streaming(gpu, pipelines, &state, n_md, dt, i as u32, &mut seed);
+        let r = gpu_hmc_trajectory_streaming(gpu, pipelines, &state, n_md, dt, i as u32, &mut seed)
+            .expect("streaming HMC trajectory");
         if r.accepted {
             accepted += 1;
         }

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Silicon capability diagnostic: characterize precision tier behavior per GPU.
 //!
@@ -15,6 +15,7 @@
 
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::toadstool_report::{self, PerformanceMeasurement};
+use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
 
 use barracuda::pipeline::ReduceScalarPipeline;
@@ -204,13 +205,20 @@ async fn probe_f32_fma(gpu: &GpuF64, tag: &str, harness: &mut ValidationHarness)
     };
     let vals = bytes_to_f32(&bytes);
 
-    check_print(tag, "fma(2,3,1)", f64::from(vals[0]), 7.0, 1e-6, harness);
+    check_print(
+        tag,
+        "fma(2,3,1)",
+        f64::from(vals[0]),
+        7.0,
+        tolerances::GPU_VS_CPU_F64,
+        harness,
+    );
     check_print(
         tag,
         "fma(2,3,-6) [exact product]",
         f64::from(vals[1]),
         0.0,
-        1e-10,
+        tolerances::EXACT_F64,
         harness,
     );
 
@@ -219,6 +227,7 @@ async fn probe_f32_fma(gpu: &GpuF64, tag: &str, harness: &mut ValidationHarness)
     let q_f32 = vals[3];
     let exact_product = f64::from(c) * f64::from(d);
     let expected_error = exact_product - f64::from(q_f32);
+    // Not `tolerances::*`: Dekker `two_prod` error term is O(1) here; loose bound is intentional.
     check_print(
         tag,
         "fma two_prod error extraction",
@@ -324,6 +333,7 @@ async fn probe_f32_workgroup_reduce(gpu: &GpuF64, tag: &str, harness: &mut Valid
     };
     let vals = bytes_to_f32(&bytes);
 
+    // Not `MD_FORCE_TOLERANCE` (relative 1% on forces): this is absolute error on a 256-term f32 sum.
     check_print(
         tag,
         "f32 workgroup sum(256x1.0)",
@@ -407,10 +417,24 @@ async fn probe_df64_storage_arith(gpu: &GpuF64, tag: &str, harness: &mut Validat
     let vals = bytes_to_f32(&bytes);
 
     let add_result = f64::from(vals[0]) + f64::from(vals[1]);
-    check_print(tag, "df64_add(1,1) = 2", add_result, 2.0, 1e-10, harness);
+    check_print(
+        tag,
+        "df64_add(1,1) = 2",
+        add_result,
+        2.0,
+        tolerances::EXACT_F64,
+        harness,
+    );
 
     let mul_result = f64::from(vals[2]) + f64::from(vals[3]);
-    check_print(tag, "df64_mul(2,3) = 6", mul_result, 6.0, 1e-10, harness);
+    check_print(
+        tag,
+        "df64_mul(2,3) = 6",
+        mul_result,
+        6.0,
+        tolerances::EXACT_F64,
+        harness,
+    );
 
     let pi_sq = f64::from(vals[4]) + f64::from(vals[5]);
     let pi_sq_ref = std::f64::consts::PI * std::f64::consts::PI;
@@ -419,7 +443,7 @@ async fn probe_df64_storage_arith(gpu: &GpuF64, tag: &str, harness: &mut Validat
         "df64_mul(pi,pi) ~ 9.8696",
         pi_sq,
         pi_sq_ref,
-        1e-6,
+        tolerances::GPU_VS_CPU_F64,
         harness,
     );
     println!();
@@ -526,7 +550,7 @@ async fn probe_df64_workgroup_reduce_f32(gpu: &GpuF64, tag: &str, harness: &mut 
         "DF64 workgroup sum(256x1.0) [f32 storage]",
         result,
         256.0,
-        1e-10,
+        tolerances::EXACT_F64,
         harness,
     );
     println!();
@@ -634,7 +658,7 @@ async fn probe_df64_workgroup_reduce_f64(gpu: &GpuF64, tag: &str, harness: &mut 
         "DF64 workgroup sum(256x1.0) [f64 storage]",
         vals[0],
         256.0,
-        1e-10,
+        tolerances::EXACT_F64,
         harness,
     );
     println!();
@@ -680,7 +704,7 @@ async fn probe_reduce_pipeline(gpu: &GpuF64, tag: &str, harness: &mut Validation
                 &format!("ReduceScalarPipeline sum_f64({n}x1.0)"),
                 result,
                 n as f64,
-                1e-6,
+                tolerances::GPU_VS_CPU_F64,
                 harness,
             );
         }
@@ -715,7 +739,7 @@ async fn probe_reduce_pipeline(gpu: &GpuF64, tag: &str, harness: &mut Validation
                 "ReduceScalarPipeline sum(1..512) [Gauss]",
                 result,
                 gauss_expected,
-                1e-6,
+                tolerances::GPU_VS_CPU_F64,
                 harness,
             );
         }

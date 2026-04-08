@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 #![recursion_limit = "256"]
 
 //! Production Dynamical + Multi-Head NPU Mixed Pipeline

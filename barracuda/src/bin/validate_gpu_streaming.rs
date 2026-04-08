@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! GPU Streaming HMC — Parity + Performance Validation
 //!
@@ -20,6 +20,7 @@ use hotspring_barracuda::lattice::gpu_hmc::{
 };
 use hotspring_barracuda::lattice::hmc::{self, HmcConfig, IntegratorType};
 use hotspring_barracuda::lattice::wilson::Lattice;
+use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
 use std::time::Instant;
 
@@ -79,7 +80,8 @@ fn main() {
             n_md,
             dt_md,
             &mut seed_d,
-        );
+        )
+        .expect("streaming HMC trajectory (CPU momenta)");
         dispatch_results.push((r.delta_h, r.plaquette, r.accepted));
     }
 
@@ -95,7 +97,8 @@ fn main() {
             n_md,
             dt_md,
             &mut seed_s,
-        );
+        )
+        .expect("streaming HMC trajectory (CPU momenta)");
         streaming_results.push((r.delta_h, r.plaquette, r.accepted));
     }
 
@@ -121,9 +124,13 @@ fn main() {
     harness.check_upper(
         "Streaming ΔH matches dispatch (encoder batching is correct)",
         max_dh_diff,
-        1e-8,
+        tolerances::ITERATIVE_F64,
     );
-    harness.check_upper("Streaming plaquette matches dispatch", max_plaq_diff, 1e-10);
+    harness.check_upper(
+        "Streaming plaquette matches dispatch",
+        max_plaq_diff,
+        tolerances::GPU_STREAMING_PLAQUETTE_PARITY,
+    );
 
     // ═══════════════════════════════════════════════════════════════
     //  Phase 2: Full GPU-resident streaming (PRNG + encoder batching)
@@ -144,7 +151,8 @@ fn main() {
             dt_md,
             traj,
             &mut seed_full,
-        );
+        )
+        .expect("streaming HMC trajectory");
         full_plaqs.push(r.plaquette);
         if r.accepted {
             full_accepts += 1;
@@ -294,10 +302,12 @@ fn bench_dispatch(
     }
     let state = GpuHmcState::from_lattice(gpu, &lat, beta);
     let mut seed = 1000u64;
-    gpu_hmc_trajectory_streaming_cpu_mom(gpu, pipelines, &state, 10, 0.05, &mut seed);
+    gpu_hmc_trajectory_streaming_cpu_mom(gpu, pipelines, &state, 10, 0.05, &mut seed)
+        .expect("streaming HMC trajectory (CPU momenta)");
     let start = Instant::now();
     for _ in 0..n_traj {
-        gpu_hmc_trajectory_streaming_cpu_mom(gpu, pipelines, &state, 10, 0.05, &mut seed);
+        gpu_hmc_trajectory_streaming_cpu_mom(gpu, pipelines, &state, 10, 0.05, &mut seed)
+            .expect("streaming HMC trajectory (CPU momenta)");
     }
     start.elapsed().as_secs_f64() * 1000.0 / n_traj as f64
 }
@@ -321,10 +331,12 @@ fn bench_streaming(
     }
     let state = GpuHmcState::from_lattice(gpu, &lat, beta);
     let mut seed = 2000u64;
-    gpu_hmc_trajectory_streaming_cpu_mom(gpu, pipelines, &state, 10, 0.05, &mut seed);
+    gpu_hmc_trajectory_streaming_cpu_mom(gpu, pipelines, &state, 10, 0.05, &mut seed)
+        .expect("streaming HMC trajectory (CPU momenta)");
     let start = Instant::now();
     for _ in 0..n_traj {
-        gpu_hmc_trajectory_streaming_cpu_mom(gpu, pipelines, &state, 10, 0.05, &mut seed);
+        gpu_hmc_trajectory_streaming_cpu_mom(gpu, pipelines, &state, 10, 0.05, &mut seed)
+            .expect("streaming HMC trajectory (CPU momenta)");
     }
     start.elapsed().as_secs_f64() * 1000.0 / n_traj as f64
 }

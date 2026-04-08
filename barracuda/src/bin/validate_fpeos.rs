@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Validate Militzer FPEOS table lookup and interpolation (Paper 32).
 //!
@@ -12,11 +12,38 @@
 //! Provenance: Militzer et al. Phys. Rev. E 103, 013203 (2021), fpeos.de
 
 use hotspring_barracuda::physics::fpeos::{helium_reference, hydrogen_reference};
+use hotspring_barracuda::provenance::BaselineProvenance;
 use hotspring_barracuda::validation::{TelemetryWriter, ValidationHarness};
+
+/// Frozen grid-point pressure for H (log ρ=0, log T=5) from Militzer table.
+const MILITZER_H_P_GRID: BaselineProvenance = BaselineProvenance {
+    label: "Hydrogen pressure at (log ρ=0, log T=5) — MILITZER EOS table",
+    script: "control/fpeos/militzer_pre2021_table.py",
+    commit: "10.1103/PhysRevE.103.013203; fpeos.de (see provenance.rs)",
+    date: "2021-01-01",
+    command: "N/A (embedded table via hydrogen_reference())",
+    environment: "Rust hotspring_barracuda::physics::fpeos",
+    value: 9.2,
+    unit: "pressure (table units)",
+};
+
+/// Frozen grid-point pressure for He (log ρ=0, log T=6).
+const MILITZER_HE_P_GRID: BaselineProvenance = BaselineProvenance {
+    label: "Helium pressure at (log ρ=0, log T=6) — MILITZER EOS table",
+    script: "control/fpeos/militzer_pre2021_table.py",
+    commit: "10.1103/PhysRevE.103.013203; fpeos.de (see provenance.rs)",
+    date: "2021-01-01",
+    command: "N/A (embedded table via helium_reference())",
+    environment: "Rust hotspring_barracuda::physics::fpeos",
+    value: 46.5,
+    unit: "pressure (table units)",
+};
 
 fn main() {
     let mut harness = ValidationHarness::new("fpeos_militzer");
     let mut telem = TelemetryWriter::discover("fpeos_telemetry.jsonl");
+
+    harness.print_provenance(&[&MILITZER_H_P_GRID, &MILITZER_HE_P_GRID]);
 
     println!("╔══════════════════════════════════════════════════════════════╗");
     println!("║  Paper 32: Militzer FPEOS — EOS Table Validation           ║");

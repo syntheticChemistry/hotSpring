@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 #![allow(clippy::unwrap_used)]
 
 //! Integration tests: Two-Temperature Model (TTM) public API.

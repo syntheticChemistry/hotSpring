@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Production RHMC + gradient flow — Chuna Paper 43 continuation.
 //!
@@ -34,6 +34,7 @@ use hotspring_barracuda::lattice::gpu_hmc::{
 use hotspring_barracuda::lattice::gradient_flow::{FlowIntegrator, find_t0, find_w0};
 use hotspring_barracuda::lattice::rhmc::RhmcConfig;
 use hotspring_barracuda::lattice::wilson::Lattice;
+use hotspring_barracuda::production_support::std_dev;
 
 use std::time::Instant;
 
@@ -205,7 +206,8 @@ fn main() {
                 0.1,
                 i as u32,
                 &mut seed,
-            );
+            )
+            .expect("streaming HMC trajectory");
             if (i + 1) % 10 == 0 {
                 eprintln!(
                     "    pretherm {}/{}: P={:.6} ΔH={:.4} {}",
@@ -289,7 +291,8 @@ fn main() {
             &ham_bufs,
             &rhmc_config,
             &mut seed,
-        );
+        )
+        .expect("unidirectional RHMC trajectory failed");
         if r.accepted {
             therm_accepted += 1;
         }
@@ -336,7 +339,8 @@ fn main() {
                 &ham_bufs,
                 &rhmc_config,
                 &mut seed,
-            );
+            )
+            .expect("unidirectional RHMC trajectory failed");
         }
 
         // GPU-resident gradient flow: B4+B5 fully eliminated
@@ -440,13 +444,4 @@ fn main() {
         let w0 = all_w0.get(i).copied().unwrap_or(f64::NAN);
         println!("{i},{p:.8},{t0:.6},{w0:.6}");
     }
-}
-
-fn std_dev(values: &[f64]) -> f64 {
-    if values.len() < 2 {
-        return 0.0;
-    }
-    let mean = values.iter().sum::<f64>() / values.len() as f64;
-    let var = values.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / (values.len() - 1) as f64;
-    var.sqrt()
 }

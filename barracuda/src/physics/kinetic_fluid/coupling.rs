@@ -1,12 +1,9 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Kinetic-fluid interface coupling with sub-iteration convergence.
 //!
 //! Implements the two-domain coupled solver from Haack, Murillo, Sagert & Chuna,
 //! J. Comput. Phys. (2024): BGK kinetic domain ↔ 1D Euler fluid domain.
-
-#![allow(clippy::similar_names)]
-#![allow(clippy::cast_precision_loss)]
 
 use super::euler::{cons_to_prim, flux, hll_flux, prim_to_cons};
 use super::maxwellian::{compute_moments, maxwellian_1d};

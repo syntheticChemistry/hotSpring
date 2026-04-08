@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! `BarraCuda` Evolution Validation — CPU Foundation + Substrate Coverage
 //!
@@ -28,9 +28,24 @@ use hotspring_barracuda::lattice::pseudofermion::{
     DynamicalHmcConfig, PseudofermionConfig, dynamical_hmc_trajectory,
 };
 use hotspring_barracuda::lattice::wilson::Lattice;
+use hotspring_barracuda::provenance::{
+    BaselineProvenance, ABELIAN_HIGGS_PYTHON_TIMING_MS, QUENCHED_BETA_SCAN_PROVENANCE,
+};
 use hotspring_barracuda::spectral;
 use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
+
+/// Spectral / Anderson checkpoints in this binary (GOE–Poisson transition scale).
+const EVOLUTION_ANDERSON_WC: BaselineProvenance = BaselineProvenance {
+    label: "3D Anderson W_c reference (spectral checks in evolution)",
+    script: "control/spectral/anderson_3d.py",
+    commit: "see provenance.rs (Slevin & Ohtsuki 1999)",
+    date: "1999-01-01",
+    command: "N/A (CPU Lanczos + level statistics in barracuda)",
+    environment: "Rust hotspring_barracuda::spectral",
+    value: 16.5,
+    unit: "W (disorder)",
+};
 
 fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");
@@ -40,6 +55,12 @@ fn main() {
     println!();
 
     let mut harness = ValidationHarness::new("barracuda_evolution");
+
+    harness.print_provenance(&[
+        &QUENCHED_BETA_SCAN_PROVENANCE,
+        &ABELIAN_HIGGS_PYTHON_TIMING_MS,
+        &EVOLUTION_ANDERSON_WC,
+    ]);
 
     check_pure_gauge_hmc(&mut harness);
     check_dirac_cg(&mut harness);

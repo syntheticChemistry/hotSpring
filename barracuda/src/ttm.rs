@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Two-Temperature Model (TTM) 0D ODE solver — laser-plasma electron-ion equilibration.
 //!

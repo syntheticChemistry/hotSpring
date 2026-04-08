@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Production finite-temperature β-scan with multiple `N_t` values.
 //!
@@ -236,7 +236,8 @@ fn main() {
                     dt,
                     i as u32,
                     &mut rng_seed,
-                );
+                )
+                .expect("streaming HMC trajectory");
                 let wall_us = traj_start.elapsed().as_micros() as u64;
 
                 if let Some(ref mut w) = traj_writer {
@@ -272,7 +273,8 @@ fn main() {
                     dt,
                     (n_therm + i) as u32,
                     &mut rng_seed,
-                );
+                )
+                .expect("streaming HMC trajectory");
                 let wall_us = traj_start.elapsed().as_micros() as u64;
                 plaq_vals.push(r.plaquette);
                 if r.accepted {

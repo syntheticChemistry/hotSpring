@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! GPU-accelerated BGK relaxation for multi-species kinetic plasma (Paper 45).
 //!
@@ -8,11 +8,6 @@
 //!
 //! The Euler fluid solver remains on CPU since it operates on the spatial
 //! mesh (small N_x) rather than velocity space (large N_v × N_species).
-
-#![allow(clippy::cast_possible_truncation)]
-#![allow(clippy::cast_precision_loss)]
-#![allow(clippy::similar_names)]
-#![allow(clippy::suboptimal_flops)]
 
 use super::kinetic_fluid::{
     BgkRelaxationResult, BgkSpecies, bgk_target_params, compute_moments, maxwellian_1d,

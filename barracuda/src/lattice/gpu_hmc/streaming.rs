@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Streaming GPU HMC — zero dispatch overhead via batched command encoders.
 //!
@@ -22,6 +22,7 @@ use super::{
     GpuF64, GpuHmcPipelines, GpuHmcResult, GpuHmcState, gpu_link_update_dispatch,
     make_force_params, make_link_mom_params, make_prng_params,
 };
+use crate::error::HotSpringError;
 
 /// Streaming HMC pipelines: quenched HMC + GPU PRNG + GPU reduce for observables.
 pub struct GpuHmcStreamingPipelines {
@@ -88,7 +89,7 @@ pub fn gpu_hmc_trajectory_streaming(
     dt: f64,
     traj_id: u32,
     seed: &mut u64,
-) -> GpuHmcResult {
+) -> Result<GpuHmcResult, HotSpringError> {
     let n_links = state.n_links;
     let p = &pipelines.hmc;
     let obs = ResidentObservableBuffers::new(gpu, &pipelines.reduce_pipeline, state);
@@ -115,12 +116,14 @@ pub fn gpu_hmc_trajectory_streaming(
         gpu.submit_encoder(enc);
     }
 
-    let (plaq_old, ke_old) = gauge_ke_resident(gpu, p, state, &pipelines.reduce_pipeline, &obs);
+    let (plaq_old, ke_old) =
+        gauge_ke_resident(gpu, p, state, &pipelines.reduce_pipeline, &obs)?;
     let h_old = state.beta * 6.0f64.mul_add(state.volume as f64, -plaq_old) + ke_old;
 
     gpu_streaming_md_encoder(gpu, p, state, n_md_steps, dt);
 
-    let (plaq_new, ke_new) = gauge_ke_resident(gpu, p, state, &pipelines.reduce_pipeline, &obs);
+    let (plaq_new, ke_new) =
+        gauge_ke_resident(gpu, p, state, &pipelines.reduce_pipeline, &obs)?;
     let h_new = state.beta * 6.0f64.mul_add(state.volume as f64, -plaq_new) + ke_new;
 
     let delta_h = h_new - h_old;
@@ -139,13 +142,14 @@ pub fn gpu_hmc_trajectory_streaming(
         gpu.submit_encoder(enc);
     }
 
-    let plaquette = plaquette_resident(gpu, p, state, &pipelines.reduce_pipeline, &obs);
+    let plaquette =
+        plaquette_resident(gpu, p, state, &pipelines.reduce_pipeline, &obs)?;
 
-    GpuHmcResult {
+    Ok(GpuHmcResult {
         accepted,
         delta_h,
         plaquette,
-    }
+    })
 }
 
 /// Streaming HMC with CPU-generated momenta (for parity testing).
@@ -161,7 +165,7 @@ pub fn gpu_hmc_trajectory_streaming_cpu_mom(
     n_md_steps: usize,
     dt: f64,
     seed: &mut u64,
-) -> GpuHmcResult {
+) -> Result<GpuHmcResult, HotSpringError> {
     let n_links = state.n_links;
     let p = &pipelines.hmc;
     let obs = ResidentObservableBuffers::new(gpu, &pipelines.reduce_pipeline, state);
@@ -184,12 +188,14 @@ pub fn gpu_hmc_trajectory_streaming_cpu_mom(
         gpu.submit_encoder(enc);
     }
 
-    let (plaq_old, ke_old) = gauge_ke_resident(gpu, p, state, &pipelines.reduce_pipeline, &obs);
+    let (plaq_old, ke_old) =
+        gauge_ke_resident(gpu, p, state, &pipelines.reduce_pipeline, &obs)?;
     let h_old = state.beta * 6.0f64.mul_add(state.volume as f64, -plaq_old) + ke_old;
 
     gpu_streaming_md_encoder(gpu, p, state, n_md_steps, dt);
 
-    let (plaq_new, ke_new) = gauge_ke_resident(gpu, p, state, &pipelines.reduce_pipeline, &obs);
+    let (plaq_new, ke_new) =
+        gauge_ke_resident(gpu, p, state, &pipelines.reduce_pipeline, &obs)?;
     let h_new = state.beta * 6.0f64.mul_add(state.volume as f64, -plaq_new) + ke_new;
 
     let delta_h = h_new - h_old;
@@ -208,13 +214,14 @@ pub fn gpu_hmc_trajectory_streaming_cpu_mom(
         gpu.submit_encoder(enc);
     }
 
-    let plaquette = plaquette_resident(gpu, p, state, &pipelines.reduce_pipeline, &obs);
+    let plaquette =
+        plaquette_resident(gpu, p, state, &pipelines.reduce_pipeline, &obs)?;
 
-    GpuHmcResult {
+    Ok(GpuHmcResult {
         accepted,
         delta_h,
         plaquette,
-    }
+    })
 }
 
 /// Dispatch PRNG momenta generation via TMU path if available, else ALU fallback.
@@ -373,7 +380,7 @@ pub fn gpu_dynamical_hmc_trajectory_streaming(
     dt: f64,
     traj_id: u32,
     seed: &mut u64,
-) -> GpuDynHmcResult {
+) -> Result<GpuDynHmcResult, HotSpringError> {
     let vol = state.gauge.volume;
     let n_links = state.gauge.n_links;
     let gs = &state.gauge;
@@ -424,7 +431,7 @@ pub fn gpu_dynamical_hmc_trajectory_streaming(
     }
 
     let (plaq_old, ke_old) =
-        gauge_ke_resident(gpu, &dp.gauge, gs, &pipelines.reduce_pipeline, &obs);
+        gauge_ke_resident(gpu, &dp.gauge, gs, &pipelines.reduce_pipeline, &obs)?;
     let s_gauge_old = gs.beta * 6.0f64.mul_add(gs.volume as f64, -plaq_old);
     let (s_ferm_old, cg_iters_old) = gpu_fermion_action_all(gpu, dp, state);
     let h_old = s_gauge_old + ke_old + s_ferm_old;
@@ -442,7 +449,7 @@ pub fn gpu_dynamical_hmc_trajectory_streaming(
     }
 
     let (plaq_new, ke_new) =
-        gauge_ke_resident(gpu, &dp.gauge, gs, &pipelines.reduce_pipeline, &obs);
+        gauge_ke_resident(gpu, &dp.gauge, gs, &pipelines.reduce_pipeline, &obs)?;
     let s_gauge_new = gs.beta * 6.0f64.mul_add(gs.volume as f64, -plaq_new);
     let (s_ferm_new, cg_iters_new) = gpu_fermion_action_all(gpu, dp, state);
     let h_new = s_gauge_new + ke_new + s_ferm_new;
@@ -464,14 +471,15 @@ pub fn gpu_dynamical_hmc_trajectory_streaming(
         gpu.submit_encoder(enc);
     }
 
-    let plaquette = plaquette_resident(gpu, &dp.gauge, gs, &pipelines.reduce_pipeline, &obs);
+    let plaquette =
+        plaquette_resident(gpu, &dp.gauge, gs, &pipelines.reduce_pipeline, &obs)?;
 
-    GpuDynHmcResult {
+    Ok(GpuDynHmcResult {
         accepted,
         delta_h,
         plaquette,
         cg_iterations: total_cg,
-    }
+    })
 }
 
 pub(super) fn make_ferm_prng_params(volume: u32, traj_id: u32, seed: &mut u64) -> Vec<u8> {

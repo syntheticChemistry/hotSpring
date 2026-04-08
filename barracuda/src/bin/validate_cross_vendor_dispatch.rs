@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 //! Cross-vendor dispatch validation: submit SAXPY via coralReef RPC to every
 //! available CUDA-capable GPU, proving the same kernel runs interchangeably
 //! through the daemon pipeline.
@@ -6,10 +6,11 @@
 //! No direct device access or privileges required — all work flows through
 //! the glowplug daemon's `device.dispatch` RPC.
 
-use base64::Engine;
-use std::io::{BufRead, Write};
-use std::os::unix::net::UnixStream;
+use std::path::Path;
 use std::time::Instant;
+
+use hotspring_barracuda::glowplug_client::{GlowplugClient, GlowplugDispatchOptions};
+use hotspring_barracuda::tolerances;
 
 const N: usize = 1 << 12; // 4K f32 elements — fits RPC line limit comfortably
 const ALPHA: f32 = 2.5;
@@ -23,28 +24,6 @@ fn glowplug_socket() -> String {
         .or_else(|_| std::env::var("FAMILY_ID"))
         .unwrap_or_else(|_| "default".into());
     format!("{runtime_dir}/biomeos/coral-glowplug-{family}.sock")
-}
-
-fn rpc_call(method: &str, params: serde_json::Value) -> serde_json::Value {
-    let socket = glowplug_socket();
-    let mut stream = UnixStream::connect(&socket).unwrap_or_else(|e| {
-        eprintln!("Cannot connect to glowplug at {socket}: {e}");
-        eprintln!("Is coral-glowplug running?  systemctl status coral-glowplug");
-        std::process::exit(1);
-    });
-    let request = serde_json::json!({
-        "jsonrpc": "2.0",
-        "id": 1,
-        "method": method,
-        "params": params,
-    });
-    let mut payload = serde_json::to_string(&request).unwrap();
-    payload.push('\n');
-    stream.write_all(payload.as_bytes()).expect("rpc write");
-    let mut reader = std::io::BufReader::new(&stream);
-    let mut line = String::new();
-    reader.read_line(&mut line).expect("rpc read");
-    serde_json::from_str(&line).expect("rpc parse")
 }
 
 /// Build PTX for SAXPY: `out[i] = alpha*x[i] + y[i]`
@@ -103,19 +82,19 @@ fn main() {
     println!("=== Cross-Vendor Dispatch Validation ===");
     println!("Kernel: SAXPY out[i] = {ALPHA}*x[i] + y[i], N={N}\n");
 
-    let b64 = base64::engine::general_purpose::STANDARD;
+    let client = GlowplugClient::from_socket(Path::new(&glowplug_socket()));
 
-    let list_resp = rpc_call("device.list", serde_json::json!({}));
-    if let Some(err) = list_resp.get("error") {
-        let msg = err.get("message").and_then(|v| v.as_str()).unwrap_or("?");
-        eprintln!("device.list failed: {msg}");
-        std::process::exit(1);
-    }
-    let devices = list_resp
-        .get("result")
-        .and_then(|v| v.as_array())
-        .cloned()
-        .unwrap_or_default();
+    let devices = match client.list_devices() {
+        Ok(d) => d,
+        Err(e) => {
+            eprintln!("device.list failed: {e}");
+            eprintln!(
+                "Is coral-glowplug running?  systemctl status coral-glowplug  (socket: {})",
+                glowplug_socket()
+            );
+            std::process::exit(1);
+        }
+    };
 
     if devices.is_empty() {
         println!("No managed devices found. Is coral-glowplug running with managed GPUs?");
@@ -135,28 +114,20 @@ fn main() {
     let y_bytes: Vec<u8> = y_host.iter().flat_map(|v| v.to_le_bytes()).collect();
 
     let ptx = build_saxpy_ptx();
-    let shader_b64 = b64.encode(ptx.as_bytes());
-    let x_b64 = b64.encode(&x_bytes);
-    let y_b64 = b64.encode(&y_bytes);
+    let input_bufs = vec![x_bytes, y_bytes];
     let output_bytes = (N * 4) as u64;
 
     let mut total = 0;
     let mut passed = 0;
 
     for dev in &devices {
-        let bdf = dev.get("bdf").and_then(|v| v.as_str()).unwrap_or("?");
+        let bdf = dev.bdf.as_str();
         let name = dev
-            .get("name")
-            .and_then(|v| v.as_str())
+            .name
+            .as_deref()
             .unwrap_or("unknown");
-        let personality = dev
-            .get("personality")
-            .and_then(|v| v.as_str())
-            .unwrap_or("?");
-        let protected = dev
-            .get("protected")
-            .and_then(serde_json::Value::as_bool)
-            .unwrap_or(false);
+        let personality = dev.personality.as_str();
+        let protected = dev.protected;
 
         if !personality.contains("nvidia") && !personality.contains("cuda") {
             println!("{bdf}  {name:<30} ({personality:<10})  SKIP (no CUDA driver)");
@@ -169,43 +140,35 @@ fn main() {
         let block = 256u32;
         let grid = (N as u32).div_ceil(block);
 
-        let params = serde_json::json!({
-            "bdf": bdf,
-            "shader": shader_b64,
-            "inputs": [x_b64, y_b64],
-            "output_sizes": [output_bytes],
-            "dims": [grid, 1, 1],
-            "workgroup": [block, 1, 1],
-            "kernel_name": "main_kernel",
-        });
-
-        let t0 = Instant::now();
-        let resp = rpc_call("device.dispatch", params);
-        let elapsed = t0.elapsed();
-
-        if let Some(err) = resp.get("error") {
-            let msg = err.get("message").and_then(|v| v.as_str()).unwrap_or("?");
-            println!("FAIL ({msg})");
-            continue;
-        }
-
-        let Some(result) = resp.get("result") else {
-            println!("FAIL (no result in response)");
-            continue;
+        let opts = GlowplugDispatchOptions {
+            dims: [grid, 1, 1],
+            workgroup: [block, 1, 1],
+            kernel_name: "main_kernel".to_string(),
+            shared_mem: 0,
         };
 
-        let outputs = match result.get("outputs").and_then(|v| v.as_array()) {
-            Some(o) if !o.is_empty() => o,
-            _ => {
-                println!("FAIL (empty output)");
+        let t0 = Instant::now();
+        let dispatch_result = client.dispatch_with_options(
+            bdf,
+            ptx.as_bytes(),
+            &input_bufs,
+            std::slice::from_ref(&output_bytes),
+            &opts,
+        );
+        let elapsed = t0.elapsed();
+
+        let outputs = match dispatch_result {
+            Ok(o) => o,
+            Err(e) => {
+                println!("FAIL ({e})");
                 continue;
             }
         };
 
-        let out_bytes = match b64.decode(outputs[0].as_str().unwrap_or("")) {
-            Ok(b) => b,
-            Err(e) => {
-                println!("FAIL (base64 decode: {e})");
+        let out_bytes = match outputs.first() {
+            Some(b) if !b.is_empty() => b.as_slice(),
+            _ => {
+                println!("FAIL (empty output)");
                 continue;
             }
         };
@@ -221,7 +184,7 @@ fn main() {
             let err = (out_f32[i] as f64 - expected[i] as f64).abs();
             if err > max_err {
                 max_err = err;
-                if err > 1e-2 && first_bad.is_none() {
+                if err > tolerances::GLOWPLUG_F32_SAXPY_MAX_ABS && first_bad.is_none() {
                     first_bad = Some(i);
                 }
             }
@@ -229,7 +192,7 @@ fn main() {
 
         let throughput_gbs = (3.0 * N as f64 * 4.0) / elapsed.as_secs_f64() / 1e9;
 
-        let ok = max_err < 1e-2;
+        let ok = max_err < tolerances::GLOWPLUG_F32_SAXPY_MAX_ABS;
         if ok {
             passed += 1;
             println!(
@@ -241,8 +204,9 @@ fn main() {
             );
         } else {
             println!(
-                "FAIL  max_err={:.2e} (threshold 1e-2)  first_bad={}",
+                "FAIL  max_err={:.2e} (threshold {:.2e})  first_bad={}",
                 max_err,
+                tolerances::GLOWPLUG_F32_SAXPY_MAX_ABS,
                 first_bad.map_or_else(|| "?".to_string(), |i| format!("[{i}]")),
             );
         }

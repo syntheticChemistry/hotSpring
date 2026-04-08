@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Potential, field, and energy computations for the deformed HFB solver.
 //!
@@ -196,7 +196,6 @@ impl DeformedHFB {
     ///
     /// Includes central Skyrme (t0, t3), effective mass (t1, t2),
     /// simplified spin-orbit (W0), and Coulomb.
-    #[allow(clippy::too_many_arguments)]
     pub(super) fn mean_field_potential_fast(
         &self,
         params: &[f64],

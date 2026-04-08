@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Quenched β-scan with NPU offloading.
 //!
@@ -337,7 +337,6 @@ pub fn spawn_quenched_npu_worker() -> Result<
 
 /// Run a set of β points with NPU-assisted thermalization, rejection prediction,
 /// phase classification, and per-trajectory logging.
-#[allow(clippy::too_many_arguments)] // beta scan requires lattice, GPU, and NPU state
 pub fn run_beta_points_npu(
     gpu: &GpuF64,
     pipelines: &GpuHmcStreamingPipelines,
@@ -384,8 +383,16 @@ pub fn run_beta_points_npu(
         let mut early_exit = false;
 
         for i in 0..n_therm {
-            let r =
-                gpu_hmc_trajectory_streaming(gpu, pipelines, &state, n_md, dt, i as u32, &mut seed);
+            let r = gpu_hmc_trajectory_streaming(
+                gpu,
+                pipelines,
+                &state,
+                n_md,
+                dt,
+                i as u32,
+                &mut seed,
+            )
+            .expect("streaming HMC trajectory");
             plaq_history.push(r.plaquette);
             therm_used = i + 1;
 
@@ -449,7 +456,8 @@ pub fn run_beta_points_npu(
                 dt,
                 (n_therm + i) as u32,
                 &mut seed,
-            );
+            )
+            .expect("streaming HMC trajectory");
             plaq_vals.push(r.plaquette);
             plaq_history.push(r.plaquette);
             if plaq_history.len() > 32 {

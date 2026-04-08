@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Hardware calibration: safe per-tier compilation probe + runtime throughput
 //! measurement.
@@ -78,7 +78,6 @@ pub struct TierCapability {
 
 /// Complete hardware calibration for a single GPU.
 #[derive(Debug, Clone)]
-#[allow(clippy::struct_excessive_bools)]
 pub struct HardwareCalibration {
     /// Adapter name.
     pub adapter_name: String,

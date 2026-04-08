@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! NPU-Driven Adaptive Beta Steering (Phase 2)
 //!
@@ -234,7 +234,8 @@ fn run_gpu_measurement(
     let n_traj = 8;
 
     for t in 0..n_traj {
-        let r = gpu_hmc_trajectory_streaming(gpu, pipelines, &state, 20, 0.02, t as u32, &mut seed);
+        let r = gpu_hmc_trajectory_streaming(gpu, pipelines, &state, 20, 0.02, t as u32, &mut seed)
+            .expect("streaming HMC trajectory");
         plaq_sum += r.plaquette;
     }
 

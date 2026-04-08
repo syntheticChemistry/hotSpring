@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Summary, NPU stats, and JSON output for the dynamical mixed pipeline (Exp 023).
 //!
@@ -272,7 +272,6 @@ pub fn print_dynamical_summary(
 }
 
 /// Write dynamical mixed pipeline results to JSON.
-#[allow(clippy::too_many_arguments)] // summary writer collects all pipeline statistics
 pub fn write_dynamical_json(
     path: &str,
     results: &[BetaResult],

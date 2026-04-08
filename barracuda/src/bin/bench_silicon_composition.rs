@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Silicon composition experiments: measure compound throughput when multiple
 //! GPU silicon units operate on different sub-problems simultaneously.

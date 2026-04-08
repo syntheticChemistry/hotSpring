@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! GPU-resident cell list and cell-list MD simulation.
 //!
@@ -132,7 +132,6 @@ impl CellList {
 /// Returns [`crate::error::HotSpringError::NoShaderF64`] if the GPU lacks `SHADER_F64`.
 /// Returns [`crate::error::HotSpringError::DeviceCreation`] or
 /// [`crate::error::HotSpringError::Barracuda`] if GPU initialization or pipeline setup fails.
-#[allow(clippy::cast_possible_truncation)] // Cell-list dimensions: N ≤ 100,000, grid ≤ 100³
 pub async fn run_simulation_celllist(
     config: &MdConfig,
 ) -> Result<MdSimulation, crate::error::HotSpringError> {

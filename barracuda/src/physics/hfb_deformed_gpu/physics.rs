@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! CPU physics kernels (Rayon-parallelized) for the deformed HFB GPU solver.
 //!
@@ -252,7 +252,6 @@ pub(super) fn density_radial_derivative(setup: &NucleusSetup, density: &[f64]) -
         .collect()
 }
 
-#[allow(clippy::too_many_arguments)]
 pub(super) fn mean_field_potential(
     setup: &NucleusSetup,
     params: &[f64],
@@ -339,7 +338,6 @@ pub(super) fn compute_densities_rayon(
     (rho_p, rho_n)
 }
 
-#[allow(clippy::too_many_arguments)]
 pub(super) fn density_mixing(
     rho_p: &mut [f64],
     rho_n: &mut [f64],

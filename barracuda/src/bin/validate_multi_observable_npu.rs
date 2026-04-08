@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Multi-Observable NPU Monitoring (Phase 1)
 //!
@@ -82,7 +82,8 @@ fn main() {
         for t in 0..n_traj {
             let result = gpu_hmc_trajectory_streaming(
                 &gpu, &pipelines, &state, 20, 0.02, t as u32, &mut seed,
-            );
+            )
+            .expect("streaming HMC trajectory");
 
             plaquette_history.push(result.plaquette);
             if result.accepted {

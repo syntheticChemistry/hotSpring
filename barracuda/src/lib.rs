@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Clippy pedantic/nursery + physics-specific allows are in [workspace.lints.clippy]
 // in Cargo.toml. Library code must propagate errors, not panic:
@@ -41,6 +41,12 @@
 //!
 //! AGPL-3.0 — see LICENSE in repository root.
 
+// Shared `bin_helpers` modules use `hotspring_barracuda::...` paths; alias this crate so those
+// resolve the same way as in `src/bin` targets.
+extern crate self as hotspring_barracuda;
+
+/// Shared infrastructure for `src/bin` targets (refactored validation suites).
+pub mod bin_helpers;
 /// Benchmark harness (RAPL energy, `nvidia-smi`, JSON reports).
 pub mod bench;
 /// AME2020 experimental data, Skyrme parameter bounds, and chi-squared.
@@ -57,6 +63,8 @@ pub mod discovery;
 pub mod dual_dispatch;
 /// Dual-card cooperative pipeline profiler (Split BCS, Split HMC, Redundant).
 pub mod dual_pipeline_eval;
+/// Typed response structs for coral-ember IPC (MMIO, falcon, SEC2, PRAMIN, DMA).
+pub mod ember_types;
 /// Typed errors for GPU, simulation, and data-loading failure modes.
 pub mod error;
 /// GPU FP64 compute wrapper (`SHADER_F64` via wgpu/Vulkan).
@@ -91,8 +99,14 @@ pub mod precision_routing;
 pub mod prescreen;
 /// NUCLEUS primal discovery — runtime detection of available primals.
 pub mod primal_bridge;
+/// coral-ember multi-instance fleet discovery and per-socket JSON-RPC routing.
+pub mod fleet_client;
+/// JSON-RPC client for coral-glowplug (`device.dispatch`, `device.list`, health, …).
+pub mod glowplug_client;
 /// Shared types and infrastructure for production lattice QCD binaries.
 pub mod production;
+/// Shared statistical helpers for production binaries (delegates to barraCuda `stats`).
+pub mod production_support;
 /// Traces every hardcoded value to its Python origin (script, commit, date).
 pub mod provenance;
 /// Physics proxy pipeline (Anderson 3D, Z(3) Potts) for NPU training.

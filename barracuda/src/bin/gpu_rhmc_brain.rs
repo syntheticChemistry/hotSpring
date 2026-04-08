@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Brain-steered dual-GPU RHMC — hardware NPU cortex drives physics.
 //!
@@ -156,7 +156,8 @@ fn main() {
             0.1,
             pretherm_count as u32,
             &mut rng_seed,
-        );
+        )
+        .expect("streaming HMC trajectory");
         pretherm_count += 1;
         plaq_window.push(r.plaquette);
         if plaq_window.len() > 10 {
@@ -195,7 +196,7 @@ fn main() {
         RhmcCalibrator::new(nf, mass, beta, dims)
     };
 
-    let base_config = calibrator.produce_config();
+    let base_config = calibrator.produce_config().expect("RHMC config failed");
 
     // ═══ Initialize RHMC state on both GPUs ═════════════════════════
     let dyn_state_a = GpuDynHmcState::from_lattice(
@@ -228,7 +229,7 @@ fn main() {
     println!("\n--- dt discovery ---");
     let mut probe_dt = 0.02_f64;
     for round in 0..20 {
-        let mut config = calibrator.produce_config();
+        let mut config = calibrator.produce_config().expect("RHMC config failed");
         config.dt = probe_dt;
         config.n_md_steps = 1;
         let r = gpu_rhmc_trajectory(
@@ -258,7 +259,7 @@ fn main() {
         probe_dt *= 0.5;
     }
 
-    let mut config = calibrator.produce_config();
+    let mut config = calibrator.produce_config().expect("RHMC config failed");
     config.dt = probe_dt;
     config.n_md_steps = 1;
 

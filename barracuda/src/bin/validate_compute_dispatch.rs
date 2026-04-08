@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Experiment 152 validation binary: compute dispatch + provenance witnesses.
 //!
@@ -49,7 +49,7 @@ fn main() {
     );
 
     // Phase 2: compute dispatch validation
-    if nucleus.toadstool.as_ref().is_some_and(|e| e.alive) {
+    if nucleus.toadstool().is_some_and(|e| e.alive) {
         println!("  ToadStool detected — running compute dispatch validation");
         let result = hotspring_barracuda::compute_dispatch::validate_dispatch(
             &nucleus,

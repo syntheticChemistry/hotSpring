@@ -3,7 +3,7 @@ name = "hotspring-barracuda"
 version = "0.6.32"
 edition = "2024"
 description = "Nuclear EOS + GPU MD validation for BarraCuda — L1/L2/L3 physics, Yukawa OCP, lattice QCD, spectral theory, typed errors, full Result propagation, provenance, capability-based discovery"
-license = "AGPL-3.0-only"
+license = "AGPL-3.0-or-later"
 repository = "https://github.com/biomegate/ecoPrimals"
 readme = "README.md"
 keywords = ["nuclear-physics", "gpu-compute", "validation", "molecular-dynamics", "lattice-qcd"]
@@ -88,13 +88,15 @@ workspace = true
 gpu_energy = []
 npu-hw = ["dep:akida-driver", "dep:akida-models"]
 sovereign-dispatch = ["barracuda/sovereign-dispatch", "dep:coral-gpu"]
-cuda-validation = ["dep:cudarc", "dep:base64"]
+cuda-validation = ["dep:cudarc"]
+# BAR0 mmap / sysfs hardware probes (Exp 070). Optional: pulls rustix for syscalls.
+low-level = ["dep:rustix"]
 
 [dependencies]
 # BarraCuda (standalone primal): math, shaders, compilation, ESN, NPU math
 # Public repo: https://github.com/ecoPrimals/barraCuda
 # Local dev override: .cargo/config.toml patches this to ../../barraCuda
-barracuda = { git = "https://github.com/ecoPrimals/barraCuda.git", rev = "32554b0a" }
+barracuda = { git = "https://github.com/ecoPrimals/barraCuda.git", rev = "fbad3c0a" }
 
 # BLAKE3 hashing for provenance witnesses (compute output hashing)
 blake3 = "1"
@@ -105,6 +107,9 @@ log = "0.4"
 # Data loading
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+
+# glowplug JSON-RPC: base64 shader/buffer payloads for `device.dispatch`
+base64 = "0.22"
 
 # Parallelism for L2 HFB
 rayon = "1.8"
@@ -139,9 +144,8 @@ coral-gpu = { path = "../../../primals/coralReef/crates/coral-gpu", optional = t
 # metalForge substrate probe (hardware FP64-rate classification, dispatch profiles)
 hotspring-forge = { path = "../metalForge/forge" }
 
-# Low-level syscalls (mmap for BAR0 register reading in Exp 070 binaries)
-libc = "0.2"
-base64 = { version = "0.22", optional = true }
+# Low-level syscalls (mmap for BAR0 register reading in Exp 070 binaries; optional)
+rustix = { version = "1.1", optional = true, features = ["mm", "net"] }
 cudarc = { version = "0.19.3", features = ["driver", "cuda-12060", "nvrtc"], optional = true }
 
 # ── L1 validation (NMP-constrained, Pareto sweep, multi-seed) ──────
@@ -713,6 +717,7 @@ name = "bench_sovereign_dispatch"
 path = "src/bin/bench_sovereign_dispatch.rs"
 
 # ── Exp 070: BAR0 register dump (JSON output for backend matrix) ──
+# Direct mmap path requires `low-level` feature; `--via-ember` works without it.
 [[bin]]
 name = "exp070_register_dump"
 path = "src/bin/exp070_register_dump.rs"
@@ -721,6 +726,7 @@ path = "src/bin/exp070_register_dump.rs"
 [[bin]]
 name = "exp070_register_diff"
 path = "src/bin/exp070_register_diff.rs"
+required-features = ["low-level"]
 
 # ── RTX 5060 dual-use validation: CUDA compute alongside display ──
 [[bin]]
@@ -783,4 +789,24 @@ path = "src/bin/production_rhmc_scan.rs"
 [[bin]]
 name = "validate_compute_dispatch"
 path = "src/bin/validate_compute_dispatch.rs"
+
+# ── Exp 153: ember flood/resurrection resilience proof ──
+[[bin]]
+name = "validate_ember_resilience"
+path = "src/bin/validate_ember_resilience.rs"
+
+# ── Exp 154: Titan V SEC2/ACR pipeline via ember IPC (PMU-first hypothesis) ──
+[[bin]]
+name = "exp154_sec2_acr_pipeline"
+path = "src/bin/exp154_sec2_acr_pipeline.rs"
+
+# ── Exp 155: K80 warm-cycle FECS dispatch via ember IPC ──
+[[bin]]
+name = "exp155_k80_warm_fecs"
+path = "src/bin/exp155_k80_warm_fecs.rs"
+
+# ── Exp 156: Reagent trace comparison (sovereign vs driver capture) ──
+[[bin]]
+name = "exp156_reagent_compare"
+path = "src/bin/exp156_reagent_compare.rs"
 

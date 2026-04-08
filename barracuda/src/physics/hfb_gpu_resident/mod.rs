@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! GPU-Resident Spherical HFB Solver (Level 2)
 //!
@@ -56,7 +56,7 @@ const SO_PACK_SHADER: &str = include_str!("../shaders/spin_orbit_pack_f64.wgsl")
 ///
 /// Returns [`HotSpringError::GpuCompute`] if GPU buffer allocation, shader
 /// compilation, or eigensolve fails.
-#[allow(clippy::cast_possible_truncation, unused_assignments)] // HFB shell dimensions fit u32; cfg-gated assignments
+#[allow(unused_assignments)] // cfg-gated assignments
 pub fn binding_energies_l2_gpu_resident(
     device: &Arc<WgpuDevice>,
     nuclei: &[(usize, usize)],

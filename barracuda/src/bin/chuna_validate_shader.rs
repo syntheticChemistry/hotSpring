@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Chuna Engine: Validate Shader — dual/triple-path shader validation with guideStone receipt.
 //!
@@ -485,11 +485,9 @@ fn validate_coral_jit(
     //
     // For now: check if coralReef is reachable via NUCLEUS and report.
 
-    let _coral_available = nucleus.call(
-        "rhizocrypt", // coralReef doesn't have its own socket in current deployment
-        "health.liveness",
-        &serde_json::json!({}),
-    ).is_ok();
+    let _coral_available = nucleus
+        .call("coralreef", "health.liveness", &serde_json::json!({}))
+        .is_ok();
 
     // coralReef is a compiler, not a NUCLEUS primal — it would be invoked
     // via local binary or library call. Return None for now.

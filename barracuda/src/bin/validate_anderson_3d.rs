@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! 3D Anderson Model Validation — Kachkovskiy Extension (Tier 3)
 //!
@@ -27,8 +27,45 @@
 //! Slevin & Ohtsuki (1999) Phys. Rev. Lett. 82, 382
 //! Oganesyan & Huse (2007) Phys. Rev. B 75, 155111
 
+use hotspring_barracuda::provenance::BaselineProvenance;
 use hotspring_barracuda::spectral;
 use hotspring_barracuda::validation::ValidationHarness;
+
+/// GOE mean level-spacing ratio (extended / metallic bulk).
+const ANDERSON_GOE_R: BaselineProvenance = BaselineProvenance {
+    label: "GOE mean level-spacing ratio ⟨r⟩ (3D metallic regime)",
+    script: "N/A (Mehta 2004; Dyson GOE statistics)",
+    commit: "literature (Abrahams et al. 1979, PRL 42, 673)",
+    date: "1979-01-01",
+    command: "N/A",
+    environment: "Random-matrix theory reference",
+    value: 0.531,
+    unit: "⟨r⟩",
+};
+
+/// Poisson (uncorrelated) level-spacing ratio — insulating / localized reference.
+const ANDERSON_POISSON_R: BaselineProvenance = BaselineProvenance {
+    label: "Poisson mean level-spacing ratio ⟨r⟩",
+    script: "N/A (uncorrelated levels)",
+    commit: "literature (Poisson spacing statistics)",
+    date: "N/A",
+    command: "N/A",
+    environment: "Analytic (2 ln 2 − 1)",
+    value: 0.386_294_361_119_890_6,
+    unit: "⟨r⟩",
+};
+
+/// Critical disorder for 3D Anderson transition (band center), published estimate.
+const ANDERSON_WC_3D: BaselineProvenance = BaselineProvenance {
+    label: "3D Anderson critical disorder W_c (band center)",
+    script: "N/A (Slevin & Ohtsuki 1999 transfer-matrix analysis)",
+    commit: "10.1103/PhysRevLett.82.382",
+    date: "1999-01-01",
+    command: "N/A",
+    environment: "Published multifractal / scaling analysis",
+    value: 16.5,
+    unit: "W",
+};
 
 fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");
@@ -38,6 +75,12 @@ fn main() {
     println!();
 
     let mut harness = ValidationHarness::new("anderson_3d");
+
+    harness.print_provenance(&[
+        &ANDERSON_GOE_R,
+        &ANDERSON_POISSON_R,
+        &ANDERSON_WC_3D,
+    ]);
 
     check_3d_nnz(&mut harness);
     check_clean_3d_bandwidth(&mut harness);

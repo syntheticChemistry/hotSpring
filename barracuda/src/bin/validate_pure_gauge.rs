@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Pure Gauge SU(3) Validation (Paper 8).
 //!
@@ -25,8 +25,45 @@ use hotspring_barracuda::lattice::cg;
 use hotspring_barracuda::lattice::dirac::FermionField;
 use hotspring_barracuda::lattice::hmc::{self, HmcConfig};
 use hotspring_barracuda::lattice::wilson::Lattice;
+use hotspring_barracuda::provenance::BaselineProvenance;
 use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
+
+/// Cold-start Wilson plaquette (unit links); matches checks vs 1.0.
+const PURE_GAUGE_COLD_PLAQUETTE: BaselineProvenance = BaselineProvenance {
+    label: "Cold-start Wilson plaquette (unit links)",
+    script: "N/A (definition; Creutz 1983, Ch. 9)",
+    commit: "see provenance.rs (PURE_GAUGE_REFS)",
+    date: "1983-01-01",
+    command: "N/A",
+    environment: "Wilson gauge action, unit SU(3) links",
+    value: 1.0,
+    unit: "⟨P⟩",
+};
+
+/// MC literature anchor for β=6.0 plaquette (8^4); used as expected scale in Paper 8 docs.
+const PURE_GAUGE_BALI_PLAQUETTE_B6: BaselineProvenance = BaselineProvenance {
+    label: "Mean plaquette β=6.0 on 8^4 (published MC)",
+    script: "N/A (Bali et al. 1993 SU(3) thermodynamics)",
+    commit: "see provenance.rs (PURE_GAUGE_REFS)",
+    date: "1993-01-01",
+    command: "N/A",
+    environment: "Published lattice QCD MC",
+    value: 0.594,
+    unit: "⟨P⟩",
+};
+
+/// Infinite-volume estimate for deconfinement coupling (N_t=4).
+const PURE_GAUGE_BETA_C_NT4: BaselineProvenance = BaselineProvenance {
+    label: "SU(3) deconfinement β_c (N_t=4, Wilson action)",
+    script: "N/A (Wilson 1974; Creutz 1980; Bali et al. 1993)",
+    commit: "see provenance.rs (KNOWN_BETA_C_SU3_NT4)",
+    date: "1993-01-01",
+    command: "N/A",
+    environment: "Published MC / extrapolation",
+    value: 5.6925,
+    unit: "β",
+};
 
 fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");
@@ -37,6 +74,12 @@ fn main() {
     println!();
 
     let mut harness = ValidationHarness::new("pure_gauge_su3");
+
+    harness.print_provenance(&[
+        &PURE_GAUGE_COLD_PLAQUETTE,
+        &PURE_GAUGE_BALI_PLAQUETTE_B6,
+        &PURE_GAUGE_BETA_C_NT4,
+    ]);
 
     // ═══ Test 1: Cold start identities ═══
     println!("═══ Cold Start Verification ═══");

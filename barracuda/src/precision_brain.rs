@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Self-routing precision brain.
 //!
@@ -37,12 +37,15 @@
 
 use crate::gpu::GpuF64;
 use crate::hardware_calibration::HardwareCalibration;
+use crate::primal_bridge::NucleusContext;
 pub use crate::precision_routing::HwPrecisionAdvice;
 use crate::precision_routing::{PhysicsDomain, PrecisionRoutingAdvice, PrecisionTier};
 
 /// Detect whether coralReef sovereign compilation is available.
 ///
-/// Checks for the coralReef XDG manifest or well-known socket paths.
+/// Checks for the coralReef XDG manifest, `CORALREEF_SOCKET`, then
+/// [`NucleusContext::detect`] (scans `$XDG_RUNTIME_DIR/biomeos/*.sock` and
+/// treats `coralreef` / `coral-glowplug` sockets with a passing `health.liveness` as available).
 /// When available, the sovereign path can bypass NVVM for shader
 /// compilation (coralReef Iteration 30 validated 45/46 shaders, 12/12
 /// NVVM bypass patterns, plus FMA contraction enforcement via
@@ -73,22 +76,8 @@ fn detect_sovereign_available() -> bool {
     {
         return true;
     }
-    let family = std::env::var("CORALREEF_FAMILY_ID")
-        .or_else(|_| std::env::var("FAMILY_ID"))
-        .unwrap_or_else(|_| "default".into());
-    let runtime_dir = std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".into());
-    let sock = std::path::Path::new(&runtime_dir).join(format!("biomeos/coralreef-{family}.sock"));
-    if sock.exists() {
-        return true;
-    }
-    // Last resort: scan `/tmp` for legacy flat socket names (pre–wateringHole IPC v3.1).
-    // Prefer `$XDG_RUNTIME_DIR/biomeos/coralreef-<family>.sock` or `CORALREEF_SOCKET`.
-    for e in std::fs::read_dir("/tmp").into_iter().flatten().flatten() {
-        if e.file_name().to_string_lossy().starts_with("coralreef-") {
-            return true;
-        }
-    }
-    false
+    let nucleus = NucleusContext::detect();
+    nucleus.coralreef().is_some_and(|e| e.alive)
 }
 
 /// Self-routing precision brain for a single GPU.

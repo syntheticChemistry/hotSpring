@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! `MdBenchmarkBackend` trait — swappable backend interface for Yukawa MD
 //! performance comparison across dispatch tiers.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! GPU dielectric validation — physics-based checks for batched Mermin ε(k,ω).
 //!
@@ -19,6 +19,7 @@ use hotspring_barracuda::physics::dielectric::{self, PlasmaParams};
 use hotspring_barracuda::physics::gpu_dielectric::{
     GpuDielectricPipeline, gpu_dielectric_batch, gpu_f_sum_integral,
 };
+use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
 
 fn main() {
@@ -98,9 +99,17 @@ fn main() {
         );
         println!();
 
-        harness.check_upper(&format!("{label}_fsum_err"), f_sum_err, 0.06);
+        harness.check_upper(
+            &format!("{label}_fsum_err"),
+            f_sum_err,
+            tolerances::DIELECTRIC_F_SUM_GPU_CPU_REL,
+        );
         harness.check_lower(&format!("{label}_dsf_pos"), frac_pos, 0.95);
-        harness.check_upper(&format!("{label}_high_freq"), max_high_loss, 0.01);
+        harness.check_upper(
+            &format!("{label}_high_freq"),
+            max_high_loss,
+            tolerances::DIELECTRIC_HIGH_FREQ_LIMIT_ABS,
+        );
         harness.check_lower(&format!("{label}_passive"), frac_neg, 0.99);
     }
 

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Chuna Engine: Convert — import/export between hotSpring and ILDG/LIME.
 //!

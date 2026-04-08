@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Node Atomic GPU Comparison — validates primalSpring composition patterns
 //! for hotSpring's compute surface, then runs NVIDIA vs AMD comparison.
@@ -542,14 +542,9 @@ fn main() {
     println!("  Primary:   {primary_name}");
     println!("  Secondary: {secondary_name}");
 
-    let gpu_a = rt.block_on(async {
-        // SAFETY: single-threaded at this point; no concurrent env readers.
-        unsafe { std::env::set_var("HOTSPRING_GPU_ADAPTER", &primary_name) };
-        GpuF64::new().await
-    });
-    // SAFETY: single-threaded at this point; no concurrent env readers.
-    unsafe { std::env::set_var("HOTSPRING_GPU_ADAPTER", &secondary_name) };
-    let gpu_b = rt.block_on(GpuF64::new());
+    // Explicit hints — same rules as `HOTSPRING_GPU_ADAPTER`, without `set_var` (Rust 2024).
+    let gpu_a = rt.block_on(GpuF64::with_adapter(&primary_name));
+    let gpu_b = rt.block_on(GpuF64::with_adapter(&secondary_name));
 
     let gpu_a = match gpu_a {
         Ok(g) => {

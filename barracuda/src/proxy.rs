@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Physics proxy pipeline — library functions for Anderson 3D and Z(3) Potts.
 //!

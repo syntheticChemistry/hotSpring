@@ -1,11 +1,9 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! 1D compressible Euler equations with HLL Riemann solver.
 //!
 //! Validates the fluid half of the kinetic-fluid coupling against
 //! the classical Sod shock tube problem.
-
-#![allow(clippy::similar_names)]
 
 use super::GAMMA;
 

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Production RHMC β-scan: all-flavors dynamical QCD (Nf=2, 2+1).
 //!
@@ -189,7 +189,8 @@ fn main() {
                     0.1,
                     i as u32,
                     &mut seed,
-                );
+                )
+                .expect("streaming HMC trajectory");
                 if (i + 1) % 10 == 0 {
                     eprintln!(
                         "  quenched pretherm {}/{}: P={:.6} ΔH={:.4} {}",
@@ -215,7 +216,7 @@ fn main() {
         };
 
         let initial_config = if let Some(ref cal) = calibrator {
-            cal.produce_config()
+            cal.produce_config().expect("RHMC config failed")
         } else {
             let mut cfg = match args.nf.as_str() {
                 "2" => RhmcConfig::nf2(args.mass, beta),
@@ -284,7 +285,7 @@ fn main() {
         let mut therm_accepted = 0;
         for i in 0..args.n_therm {
             let rhmc_config = if let Some(ref cal) = calibrator {
-                cal.produce_config()
+                cal.produce_config().expect("RHMC config failed")
             } else {
                 initial_config.clone()
             };
@@ -301,7 +302,8 @@ fn main() {
                 &ham_bufs,
                 &rhmc_config,
                 &mut seed,
-            );
+            )
+            .expect("unidirectional RHMC trajectory failed");
             let ms = t0.elapsed().as_secs_f64() * 1000.0;
             if r.accepted {
                 therm_accepted += 1;
@@ -355,7 +357,7 @@ fn main() {
             }
 
             let rhmc_config = if let Some(ref cal) = calibrator {
-                cal.produce_config()
+                cal.produce_config().expect("RHMC config failed")
             } else {
                 initial_config.clone()
             };
@@ -372,7 +374,8 @@ fn main() {
                 &ham_bufs,
                 &rhmc_config,
                 &mut seed,
-            );
+            )
+            .expect("unidirectional RHMC trajectory failed");
             let ms = t0.elapsed().as_secs_f64() * 1000.0;
 
             if let Some(ref mut cal) = calibrator {

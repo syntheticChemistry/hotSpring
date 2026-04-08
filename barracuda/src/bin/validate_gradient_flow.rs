@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Validate Wilson gradient flow — Paper 43 (Bazavov & Chuna, 2021).
 //!

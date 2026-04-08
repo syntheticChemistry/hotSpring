@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! GPU buffer allocation and bind-group wiring for the HFB solver.
 //!
@@ -31,8 +31,6 @@ pub(super) struct PackGroupResources {
 ///
 /// This is the heaviest one-time setup call: it creates ~30 buffers,
 /// ~15 bind groups, and 8+ compute pipelines per group.
-#[allow(clippy::cast_possible_truncation)] // HFB shell dimensions: n_levels ≤ 30, nr ≤ 200
-#[allow(clippy::too_many_arguments, clippy::too_many_lines)] // GPU resource allocation requires all layout/pipeline handles
 pub(super) fn allocate_group_resources(
     raw_device: &wgpu::Device,
     group_indices: &[usize],

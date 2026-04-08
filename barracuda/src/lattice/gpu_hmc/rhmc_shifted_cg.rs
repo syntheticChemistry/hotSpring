@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 #![allow(deprecated)]
 
 //! Legacy multi-shift CG with per-iteration CPU readback of dot products.

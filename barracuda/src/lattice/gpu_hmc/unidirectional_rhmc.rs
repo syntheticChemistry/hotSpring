@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Unidirectional GPU RHMC pipeline — zero per-iteration readback.
 //!
@@ -92,6 +92,10 @@ fn make_metropolis_params(seed: &mut u64, six_v: f64) -> Vec<u8> {
 /// GPU Metropolis: compute delta_H, accept/reject, write diagnostics.
 ///
 /// Returns `GpuRhmcResult` from a single 56-byte readback.
+///
+/// # Errors
+///
+/// Returns `GpuCompute` if the Metropolis staging readback fails (device lost).
 fn gpu_metropolis(
     gpu: &GpuF64,
     uni_pipelines: &UniPipelines,
@@ -99,7 +103,7 @@ fn gpu_metropolis(
     gauge: &GpuHmcState,
     total_cg: usize,
     seed: &mut u64,
-) -> GpuRhmcResult {
+) -> Result<GpuRhmcResult, crate::error::HotSpringError> {
     let six_v = 6.0 * gauge.volume as f64;
 
     let mut enc = gpu.begin_encoder("b3_metropolis");
@@ -127,7 +131,9 @@ fn gpu_metropolis(
     // Single readback: 72 bytes (9 f64s)
     let data = gpu
         .read_staging_f64_n(&ham.metropolis_staging, 9)
-        .unwrap_or_else(|e| panic!("Metropolis readback failed (GPU lost?): {e}"));
+        .map_err(|e| crate::error::HotSpringError::GpuCompute(
+            format!("Metropolis readback failed (GPU lost?): {e}"),
+        ))?;
 
     let accepted = data[0] > 0.5;
 
@@ -144,7 +150,7 @@ fn gpu_metropolis(
         gpu.submit_encoder(enc);
     }
 
-    GpuRhmcResult {
+    Ok(GpuRhmcResult {
         accepted,
         delta_h: data[1],
         plaquette: data[2],
@@ -155,7 +161,7 @@ fn gpu_metropolis(
         t_new: data[6],
         s_ferm_old: data[7],
         s_ferm_new: data[8],
-    }
+    })
 }
 
 // ── Full unidirectional RHMC trajectory (Phase 4) ────────────────
@@ -169,7 +175,10 @@ fn gpu_metropolis(
 ///
 /// Total readback budget: ~100 × 8 bytes (CG convergence) + 56 bytes (Metropolis).
 /// This eliminates 4+ sync points vs the prior CPU-assembly path.
-#[allow(clippy::too_many_arguments)]
+///
+/// # Errors
+///
+/// Returns `GpuCompute` if any GPU readback fails (device lost, timeout).
 pub fn gpu_rhmc_trajectory_unidirectional(
     gpu: &GpuF64,
     dyn_pipelines: &GpuDynHmcPipelines,
@@ -181,7 +190,7 @@ pub fn gpu_rhmc_trajectory_unidirectional(
     ham_bufs: &UniHamiltonianBuffers,
     config: &RhmcConfig,
     seed: &mut u64,
-) -> GpuRhmcResult {
+) -> Result<GpuRhmcResult, crate::error::HotSpringError> {
     let gauge = &state.gauge.gauge;
     let n_links = gauge.n_links;
     let n_md_steps = config.n_md_steps;
@@ -320,7 +329,6 @@ pub fn gpu_rhmc_trajectory_unidirectional(
 // ── Heatbath + force helpers (internal) ──────────────────────────
 
 /// RHMC heatbath for one sector using GPU PRNG + multi-shift CG.
-#[allow(clippy::too_many_arguments)]
 fn uni_heatbath_sector(
     gpu: &GpuF64,
     dyn_pipelines: &GpuDynHmcPipelines,
@@ -431,7 +439,6 @@ fn uni_heatbath_sector(
 ///
 /// Uses true multi-shift CG (shared Krylov) when `ms_bufs` is available,
 /// otherwise falls back to sequential shifted CG.
-#[allow(clippy::too_many_arguments)]
 fn uni_total_force_dispatch(
     gpu: &GpuF64,
     dyn_pipelines: &GpuDynHmcPipelines,

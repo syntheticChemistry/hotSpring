@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! True multi-shift CG: shared Krylov basis across all shifts.
 //!
@@ -20,10 +20,6 @@
 //!   7. β = ρ_new / ρ                        (scalar)
 //!   8. p_base = r + β · p_base             (base p update)
 //!   9. p_s = ζ_s · r + β_s · p_s           (N_shifts vector updates)
-
-#![allow(clippy::cast_possible_truncation)]
-#![allow(clippy::cast_sign_loss)]
-#![allow(clippy::cast_precision_loss)]
 
 use super::dynamical::{GpuDynHmcPipelines, GpuDynHmcState};
 use super::resident_cg_buffers::{ReduceChain, build_reduce_chain_pub, encode_reduce_chain};

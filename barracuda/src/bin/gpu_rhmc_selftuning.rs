@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! GPU-only self-tuning RHMC production binary.
 //!
@@ -158,7 +158,8 @@ fn main() {
             0.1,
             pretherm_count as u32,
             &mut rng_seed,
-        );
+        )
+        .expect("streaming HMC trajectory");
         pretherm_count += 1;
         plaq_window.push(r.plaquette);
         if plaq_window.len() > 10 {
@@ -198,7 +199,7 @@ fn main() {
         RhmcCalibrator::new(nf, mass, beta, dims)
     };
 
-    let base_config = calibrator.produce_config();
+    let base_config = calibrator.produce_config().expect("RHMC config failed");
     let dyn_state = GpuDynHmcState::from_lattice(
         &gpu,
         &lat_cpu,
@@ -221,7 +222,7 @@ fn main() {
     let mut probe_dt = 0.02_f64;
 
     for round in 0..20 {
-        let mut config = calibrator.produce_config();
+        let mut config = calibrator.produce_config().expect("RHMC config failed");
         config.dt = probe_dt;
         config.n_md_steps = 1;
         let r = gpu_rhmc_trajectory(
@@ -260,7 +261,7 @@ fn main() {
     let n_md = 1;
 
     for i in 1..=therm_max {
-        let mut config = calibrator.produce_config();
+        let mut config = calibrator.produce_config().expect("RHMC config failed");
         config.dt = ctrl.dt;
         config.n_md_steps = n_md;
         let r = gpu_rhmc_trajectory(
@@ -324,7 +325,7 @@ fn main() {
 
         // Decorrelation
         for _ in 0..skip {
-            let mut config = calibrator.produce_config();
+            let mut config = calibrator.produce_config().expect("RHMC config failed");
             config.dt = ctrl.dt;
             config.n_md_steps = n_md;
             let r = gpu_rhmc_trajectory(
@@ -341,7 +342,7 @@ fn main() {
         ctrl.adapt();
 
         // Measurement trajectory
-        let mut config = calibrator.produce_config();
+        let mut config = calibrator.produce_config().expect("RHMC config failed");
         config.dt = ctrl.dt;
         config.n_md_steps = n_md;
         let meas = gpu_rhmc_trajectory(

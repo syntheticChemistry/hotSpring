@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Multi-GPU cooperative benchmark: distribute work across two GPUs.
 //!
@@ -47,14 +47,9 @@ fn main() {
     println!();
 
     // Initialize both GPUs
-    let gpu_primary = rt.block_on(async {
-        // SAFETY: single-threaded main; no concurrent env readers.
-        unsafe { std::env::set_var("HOTSPRING_GPU_ADAPTER", &primary_name) };
-        GpuF64::new().await
-    });
-    // SAFETY: single-threaded main; no concurrent env readers.
-    unsafe { std::env::set_var("HOTSPRING_GPU_ADAPTER", &secondary_name) };
-    let gpu_secondary = rt.block_on(GpuF64::new());
+    // Explicit hints — same rules as `HOTSPRING_GPU_ADAPTER`, without `set_var` (Rust 2024).
+    let gpu_primary = rt.block_on(GpuF64::with_adapter(&primary_name));
+    let gpu_secondary = rt.block_on(GpuF64::with_adapter(&secondary_name));
 
     let gpu_primary = match gpu_primary {
         Ok(g) => {

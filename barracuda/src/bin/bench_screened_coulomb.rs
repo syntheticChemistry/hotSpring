@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Screened Coulomb performance benchmark: pure Rust vs Python/scipy.
 //!

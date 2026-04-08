@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! GPU-resident scalar observables — O(1) readback for plaquette, KE, and Wilson action.
 //!
@@ -123,13 +123,16 @@ pub fn encode_ke_reduce(
 ///
 /// Returns `(plaq_sum, kinetic_energy)`. Caller computes
 /// `S_gauge = beta * (6V - plaq_sum)` and `H = S_gauge + KE + S_ferm`.
+/// # Errors
+///
+/// Returns `GpuCompute` if the staging buffer readback fails (device lost, timeout).
 pub fn gauge_ke_resident(
     gpu: &GpuF64,
     pipelines: &GpuHmcPipelines,
     gauge: &GpuHmcState,
     reduce_pl: &wgpu::ComputePipeline,
     obs: &ResidentObservableBuffers,
-) -> (f64, f64) {
+) -> Result<(f64, f64), crate::error::HotSpringError> {
     let mut enc = gpu.begin_encoder("obs_gauge_ke");
     encode_plaquette_reduce(&mut enc, gpu, pipelines, gauge, reduce_pl, obs);
     encode_ke_reduce(&mut enc, gpu, pipelines, gauge, reduce_pl, obs);
@@ -139,32 +142,42 @@ pub fn gauge_ke_resident(
 
     let data = gpu
         .read_staging_f64_n(&obs.staging, 2)
-        .unwrap_or_else(|e| panic!("gauge/KE readback failed (GPU lost?): {e}"));
-    (data[0], data[1])
+        .map_err(|e| crate::error::HotSpringError::GpuCompute(
+            format!("gauge/KE readback failed (GPU lost?): {e}"),
+        ))?;
+    Ok((data[0], data[1]))
 }
 
 /// GPU-resident Wilson action from 16-byte readback.
 ///
 /// S_gauge = beta * (6V - plaq_sum).
+///
+/// # Errors
+///
+/// Returns `GpuCompute` if the staging buffer readback fails.
 pub fn wilson_action_resident(
     gpu: &GpuF64,
     pipelines: &GpuHmcPipelines,
     gauge: &GpuHmcState,
     reduce_pl: &wgpu::ComputePipeline,
     obs: &ResidentObservableBuffers,
-) -> f64 {
-    let (plaq_sum, _) = gauge_ke_resident(gpu, pipelines, gauge, reduce_pl, obs);
-    gauge.beta * 6.0f64.mul_add(gauge.volume as f64, -plaq_sum)
+) -> Result<f64, crate::error::HotSpringError> {
+    let (plaq_sum, _) = gauge_ke_resident(gpu, pipelines, gauge, reduce_pl, obs)?;
+    Ok(gauge.beta * 6.0f64.mul_add(gauge.volume as f64, -plaq_sum))
 }
 
 /// GPU-resident average plaquette from 8-byte readback.
+///
+/// # Errors
+///
+/// Returns `GpuCompute` if the staging buffer readback fails.
 pub fn plaquette_resident(
     gpu: &GpuF64,
     pipelines: &GpuHmcPipelines,
     gauge: &GpuHmcState,
     reduce_pl: &wgpu::ComputePipeline,
     obs: &ResidentObservableBuffers,
-) -> f64 {
+) -> Result<f64, crate::error::HotSpringError> {
     let mut enc = gpu.begin_encoder("obs_plaq");
     encode_plaquette_reduce(&mut enc, gpu, pipelines, gauge, reduce_pl, obs);
     enc.copy_buffer_to_buffer(&obs.plaq_sum_buf, 0, &obs.staging, 0, 8);
@@ -172,6 +185,8 @@ pub fn plaquette_resident(
 
     let data = gpu
         .read_staging_f64_n(&obs.staging, 1)
-        .unwrap_or_else(|e| panic!("plaquette readback failed (GPU lost?): {e}"));
-    data[0] / (6.0 * gauge.volume as f64)
+        .map_err(|e| crate::error::HotSpringError::GpuCompute(
+            format!("plaquette readback failed (GPU lost?): {e}"),
+        ))?;
+    Ok(data[0] / (6.0 * gauge.volume as f64))
 }

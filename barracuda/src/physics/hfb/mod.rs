@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Spherical Hartree-Fock + BCS solver (Level 2).
 //!
@@ -257,7 +257,6 @@ impl SphericalHFB {
         hfb
     }
 
-    #[allow(clippy::cast_possible_truncation)] // lj_blocks key: j < 50, (j*1000) fits u64
     fn build_basis(&mut self, n_shells: usize) {
         for n_sh in 0..n_shells {
             for l in 0..=n_sh {

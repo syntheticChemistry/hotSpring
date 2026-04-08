@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! GPU-accelerated BGK dielectric functions (Chuna & Murillo 2024).
 //!
@@ -11,12 +11,6 @@
 //! ```
 //!
 //! Uses `complex_f64.wgsl` preamble from the lattice QCD shader library.
-
-#![allow(clippy::cast_possible_truncation)]
-#![allow(clippy::cast_precision_loss)]
-#![allow(clippy::cast_possible_wrap)]
-#![allow(clippy::similar_names)]
-#![allow(clippy::suboptimal_flops)]
 
 use super::dielectric::{self, PlasmaParams, f_sum_rule_integral};
 use crate::gpu::GpuF64;

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! `ComputeBackend` comparison benchmark — runs the same physics on all
 //! available backends (CPU, GPU, external) and reports speedup ratios.
@@ -86,7 +86,8 @@ impl ComputeBackend for BarraCudaGpuBackend {
                 spec.dt,
                 traj_id,
                 &mut seed,
-            );
+            )
+            .expect("streaming HMC trajectory");
             traj_id = traj_id.wrapping_add(1);
         }
 
@@ -98,7 +99,8 @@ impl ComputeBackend for BarraCudaGpuBackend {
             spec.dt,
             traj_id,
             &mut seed,
-        );
+        )
+        .expect("streaming HMC trajectory");
         traj_id = traj_id.wrapping_add(1);
 
         let start = Instant::now();
@@ -113,7 +115,8 @@ impl ComputeBackend for BarraCudaGpuBackend {
                 spec.dt,
                 traj_id,
                 &mut seed,
-            );
+            )
+            .expect("streaming HMC trajectory");
             traj_id = traj_id.wrapping_add(1);
             plaq_vals.push(r.plaquette);
             if r.accepted {

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Brain-steered RHMC: NPU cortex drives GPU physics parameters.
 //!
@@ -800,21 +800,21 @@ impl BrainRhmcRunner {
             let ga = &mut *gpu_a;
             let gb = &mut *gpu_b;
 
-            let handle_a = scope.spawn(move || {
-                let r = ga.run_trajectory(&config_a, &mut sa);
-                (r, sa)
+            let handle_a = scope.spawn(move || -> Result<(TrajectoryResult, u64), HotSpringError> {
+                let r = ga.run_trajectory(&config_a, &mut sa)?;
+                Ok((r, sa))
             });
-            let handle_b = scope.spawn(move || {
-                let r = gb.run_trajectory(&config_b, &mut sb);
-                (r, sb)
+            let handle_b = scope.spawn(move || -> Result<(TrajectoryResult, u64), HotSpringError> {
+                let r = gb.run_trajectory(&config_b, &mut sb)?;
+                Ok((r, sb))
             });
 
             let (ra, new_sa) = handle_a
                 .join()
-                .map_err(|_| HotSpringError::ThreadPanicked("GPU A trajectory thread panicked"))?;
+                .map_err(|_| HotSpringError::ThreadPanicked("GPU A trajectory thread panicked"))??;
             let (rb, new_sb) = handle_b
                 .join()
-                .map_err(|_| HotSpringError::ThreadPanicked("GPU B trajectory thread panicked"))?;
+                .map_err(|_| HotSpringError::ThreadPanicked("GPU B trajectory thread panicked"))??;
             self.seed_a = new_sa;
             self.seed_b = new_sb;
             Ok::<(TrajectoryResult, TrajectoryResult), HotSpringError>((ra, rb))

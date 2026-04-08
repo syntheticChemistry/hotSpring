@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Titan V (or CPU) validation oracle for critical configurations.
 //!
@@ -61,7 +61,8 @@ pub fn run_titan_validation(
                     dt.max(0.01),
                     t as u32,
                     &mut seed,
-                );
+                )
+                .expect("streaming HMC trajectory");
             }
 
             let mut plaq_sum = 0.0;
@@ -75,7 +76,8 @@ pub fn run_titan_validation(
                     dt.max(0.01),
                     (20 + t) as u32,
                     &mut seed,
-                );
+                )
+                .expect("streaming HMC trajectory");
                 plaq_sum += tr.plaquette;
             }
             let titan_plaq = plaq_sum / f64::from(n_verify);

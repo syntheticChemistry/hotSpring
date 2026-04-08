@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Production dynamical fermion β-scan at arbitrary lattice size.
 //!
@@ -240,7 +240,8 @@ fn main() {
                     dt,
                     i as u32,
                     &mut seed,
-                );
+                )
+                .expect("streaming HMC trajectory");
                 if let Some(ref mut w) = traj_writer {
                     let line = serde_json::json!({
                         "beta": beta,

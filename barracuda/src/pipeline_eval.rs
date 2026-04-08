@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Full physics pipeline end-to-end profiler.
 //!
@@ -115,7 +115,8 @@ impl<'a> PipelineEval<'a> {
         for i in 0..n_traj {
             let r = gpu_hmc_trajectory_streaming(
                 self.gpu, &pipelines, &state, n_md_steps, dt, i as u32, &mut seed,
-            );
+            )
+            .expect("streaming HMC trajectory");
             plaqs.push(r.plaquette);
         }
         let wall_ms = t0.elapsed().as_secs_f64() * 1e3;

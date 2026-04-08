@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Chuna Engine: Generate — produce thermalized ILDG gauge configurations.
 //!
@@ -191,7 +191,8 @@ fn run_gpu_trajectory(
 ) -> (bool, f64, f64) {
     match backend {
         GpuBackend::Quenched { pipelines, state } => {
-            let r = gpu_hmc_trajectory_streaming(gpu, pipelines, state, n_md_steps, dt, traj_id, seed);
+            let r = gpu_hmc_trajectory_streaming(gpu, pipelines, state, n_md_steps, dt, traj_id, seed)
+                .expect("streaming HMC trajectory");
             (r.accepted, r.delta_h, r.plaquette)
         }
         GpuBackend::Dynamical { pipelines, state, .. } => {

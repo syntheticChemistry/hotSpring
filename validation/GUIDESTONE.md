@@ -71,7 +71,7 @@ Papers validated against:
 
 ## Property 4: Environment-Agnostic
 
-- [x] ecoBin compliant: Pure Rust, static musl, cross-arch capable
+- [x] ecoBin compliant by default: Pure Rust dependency graph from hotSpring (no direct `libc`); hardware BAR0 probes (Exp 070) are behind the `low-level` Cargo feature (optional `rustix` syscalls). Static musl / cross-arch remain targets for release binaries.
 - [x] No runtime dependencies (no downloads, no package managers)
 - [x] No sudo required
 - [x] CPU-only mode covers full validation output (59/59 checks)

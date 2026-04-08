@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Pure GPU β-scan: full quenched QCD temperature sweep on GPU.
 //!
@@ -22,6 +22,7 @@ use hotspring_barracuda::lattice::gpu_hmc::{
 };
 use hotspring_barracuda::lattice::hmc::{self, HmcConfig, IntegratorType};
 use hotspring_barracuda::lattice::wilson::Lattice;
+use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
 use std::time::Instant;
 
@@ -70,7 +71,8 @@ fn gpu_beta_scan(
 
         // GPU thermalization
         for _ in 0..n_therm {
-            gpu_hmc_trajectory_streaming(gpu, pipelines, &state, n_md, dt, traj_id, &mut seed);
+            gpu_hmc_trajectory_streaming(gpu, pipelines, &state, n_md, dt, traj_id, &mut seed)
+                .expect("streaming HMC trajectory");
             traj_id = traj_id.wrapping_add(1);
         }
 
@@ -80,8 +82,16 @@ fn gpu_beta_scan(
         let mut poly_sum = 0.0;
 
         for _ in 0..n_meas {
-            let r =
-                gpu_hmc_trajectory_streaming(gpu, pipelines, &state, n_md, dt, traj_id, &mut seed);
+            let r = gpu_hmc_trajectory_streaming(
+                gpu,
+                pipelines,
+                &state,
+                n_md,
+                dt,
+                traj_id,
+                &mut seed,
+            )
+            .expect("streaming HMC trajectory");
             traj_id = traj_id.wrapping_add(1);
             plaq_sum += r.plaquette;
             if r.accepted {
@@ -156,15 +166,15 @@ fn main() {
     println!();
 
     // Check 1: plaquette monotonicity
-    let plaq_monotonic = results_8
-        .windows(2)
-        .all(|w| w[1].mean_plaq >= w[0].mean_plaq - 0.01);
+    let plaq_monotonic = results_8.windows(2).all(|w| {
+        w[1].mean_plaq >= w[0].mean_plaq - tolerances::BETA_SCAN_GRID_TOLERANCE
+    });
     harness.check_bool("8⁴ plaquette monotonically increasing", plaq_monotonic);
 
     // Check 2: plaquette at β=6.0 in physical range
     let plaq_60 = results_8
         .iter()
-        .find(|r| (r.beta - 6.0).abs() < 0.01)
+        .find(|r| (r.beta - 6.0).abs() < tolerances::BETA_SCAN_GRID_TOLERANCE)
         .map_or(0.0, |r| r.mean_plaq);
     harness.check_bool(
         "8⁴ plaquette at β=6.0 in (0.55, 0.65)",
@@ -193,7 +203,9 @@ fn main() {
     println!("  β      plaquette(8³×16)  plaquette(8⁴)  |Δ|");
     println!("  ─────  ────────────────  ─────────────  ─────");
     for ra in &results_asym {
-        let r8 = results_8.iter().find(|r| (r.beta - ra.beta).abs() < 0.01);
+        let r8 = results_8
+            .iter()
+            .find(|r| (r.beta - ra.beta).abs() < tolerances::BETA_SCAN_GRID_TOLERANCE);
         let plaq_8 = r8.map_or(0.0, |r| r.mean_plaq);
         let delta = (ra.mean_plaq - plaq_8).abs();
         println!(
@@ -205,9 +217,14 @@ fn main() {
 
     // Check 5: 8³×16 consistent with 8⁴ (within 5%)
     let cross_ok = results_asym.iter().all(|ra| {
-        let r8 = results_8.iter().find(|r| (r.beta - ra.beta).abs() < 0.01);
+        let r8 = results_8
+            .iter()
+            .find(|r| (r.beta - ra.beta).abs() < tolerances::BETA_SCAN_GRID_TOLERANCE);
         match r8 {
-            Some(r) => (ra.mean_plaq - r.mean_plaq).abs() < 0.05 * r.mean_plaq,
+            Some(r) => {
+                (ra.mean_plaq - r.mean_plaq).abs()
+                    < tolerances::BETA_SCAN_SCALING_PARITY * r.mean_plaq
+            }
             None => true,
         }
     });

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Self-tuning RHMC calibrator — eliminates hand-tuned magic numbers.
 //!
@@ -150,8 +150,10 @@ impl RhmcCalibrator {
     ///
     /// Every field is set from either theory, measurement, or adaptation.
     /// No hardcoded magic numbers.
-    #[must_use]
-    pub fn produce_config(&self) -> RhmcConfig {
+    /// # Errors
+    ///
+    /// Returns `Err` if `nf` is not 2 or 3 (the only supported flavor counts).
+    pub fn produce_config(&self) -> Result<RhmcConfig, crate::error::HotSpringError> {
         let spectral = self
             .spectral
             .clone()
@@ -172,7 +174,7 @@ impl RhmcCalibrator {
                     spectral.range_min,
                     spectral.range_max,
                 );
-                RhmcConfig {
+                Ok(RhmcConfig {
                     sectors: vec![RhmcFermionConfig {
                         mass: self.mass,
                         det_power,
@@ -185,7 +187,7 @@ impl RhmcCalibrator {
                     n_md_steps: self.n_md_steps,
                     cg_tol: self.cg_tol_force,
                     cg_max_iter: self.cg_max_iter,
-                }
+                })
             }
             3 => {
                 let strange = self.strange_mass.unwrap_or(0.5);
@@ -203,7 +205,7 @@ impl RhmcCalibrator {
                     spectral.range_min,
                     spectral.range_max,
                 );
-                RhmcConfig {
+                Ok(RhmcConfig {
                     sectors: vec![
                         RhmcFermionConfig {
                             mass: self.mass,
@@ -235,9 +237,11 @@ impl RhmcCalibrator {
                     n_md_steps: self.n_md_steps,
                     cg_tol: self.cg_tol_force,
                     cg_max_iter: self.cg_max_iter,
-                }
+                })
             }
-            _ => panic!("unsupported nf={}", self.nf),
+            nf => Err(crate::error::HotSpringError::InvalidOperation(
+                format!("unsupported flavor count nf={nf} (only 2 and 3 are supported)"),
+            )),
         }
     }
 
@@ -292,7 +296,9 @@ impl RhmcCalibrator {
 
     /// Check approximation quality and auto-increase pole count if needed.
     fn maybe_increase_poles(&mut self) {
-        let config = self.produce_config();
+        let Ok(config) = self.produce_config() else {
+            return;
+        };
         let max_err = config
             .sectors
             .iter()

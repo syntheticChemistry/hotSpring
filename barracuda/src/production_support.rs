@@ -1,19 +1,15 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Small statistical helpers shared by production silicon binaries.
+//! Small statistical helpers shared by production binaries.
+//!
+//! Descriptive statistics delegate to [`barracuda::stats`] (barraCuda).
 
+/// Arithmetic mean of a slice; empty slices yield `0.0`.
 pub fn mean(v: &[f64]) -> f64 {
-    if v.is_empty() {
-        return 0.0;
-    }
-    v.iter().sum::<f64>() / v.len() as f64
+    barracuda::stats::mean(v)
 }
 
+/// Sample standard deviation (Bessel correction); fewer than two points yield `0.0`.
 pub fn std_dev(v: &[f64]) -> f64 {
-    if v.len() < 2 {
-        return 0.0;
-    }
-    let m = mean(v);
-    let var = v.iter().map(|x| (x - m).powi(2)).sum::<f64>() / (v.len() - 1) as f64;
-    var.sqrt()
+    barracuda::stats::correlation::std_dev(v).unwrap_or(0.0)
 }

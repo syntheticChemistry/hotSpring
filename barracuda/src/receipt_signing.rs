@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Ed25519 receipt signing via bearDog `crypto.sign` JSON-RPC.
 //!
@@ -37,10 +37,10 @@ pub fn sign_receipt(
     receipt_json: &str,
     receipt_path: &Path,
 ) -> SignResult {
-    match &nucleus.beardog {
-        Some(ep) if ep.alive => { let _ = ep; }
+    match nucleus.beardog() {
+        Some(ep) if ep.alive => {}
         _ => return SignResult::Unavailable,
-    };
+    }
 
     let params = serde_json::json!({
         "payload": receipt_json,

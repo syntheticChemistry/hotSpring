@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Pure GPU HMC validation: all lattice QCD math on GPU via fp64 WGSL.
 //!
@@ -90,7 +90,8 @@ fn main() {
     for i in 0..n_traj {
         let result = gpu_hmc_trajectory_streaming(
             &gpu, &pipelines, &gpu_state, 15, 0.05, i as u32, &mut seed,
-        );
+        )
+        .expect("streaming HMC trajectory");
         let tag = if result.accepted { "✓" } else { "✗" };
         println!(
             "  traj {}: {} ΔH={:+.4e}  plaq={:.6}",

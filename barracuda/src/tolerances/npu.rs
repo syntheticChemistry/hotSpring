@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! NPU and reservoir computing tolerances: quantization, hardware probing,
 //! ESN transport validation, and heterogeneous pipeline acceptance.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! GPU batched eigensolve and BCS occupation computation for deformed HFB.
 
@@ -10,7 +10,6 @@ use barracuda::ops::linalg::BatchedEighGpu;
 use rayon::prelude::*;
 use std::sync::Arc;
 
-#[allow(clippy::too_many_arguments)]
 pub(super) fn diag_blocks_gpu(
     device: &Arc<WgpuDevice>,
     setup: &NucleusSetup,

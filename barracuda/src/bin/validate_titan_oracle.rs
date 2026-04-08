@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Titan V as Precision Oracle — Teaching the NPU (Phase 5)
 //!
@@ -287,8 +287,16 @@ fn generate_gpu_training_data(
         let beta_norm = (beta - 5.0) / 2.0;
 
         for t in 0..10 {
-            let r =
-                gpu_hmc_trajectory_streaming(gpu, pipelines, &state, 20, 0.02, t as u32, &mut seed);
+            let r = gpu_hmc_trajectory_streaming(
+                gpu,
+                pipelines,
+                &state,
+                20,
+                0.02,
+                t as u32,
+                &mut seed,
+            )
+            .expect("streaming HMC trajectory");
             let (poly, _) = gpu_polyakov_loop(gpu, &pipelines.hmc, &state);
             seq.push(vec![beta_norm, r.plaquette, poly]);
         }
@@ -322,7 +330,8 @@ fn run_oracle_measurement(
     let mut plaq_sum = 0.0;
     let n = 5;
     for t in 0..n {
-        let r = gpu_hmc_trajectory_streaming(gpu, pipelines, &state, 20, 0.02, t as u32, &mut seed);
+        let r = gpu_hmc_trajectory_streaming(gpu, pipelines, &state, 20, 0.02, t as u32, &mut seed)
+            .expect("streaming HMC trajectory");
         plaq_sum += r.plaquette;
     }
     let (poly, _) = gpu_polyakov_loop(gpu, &pipelines.hmc, &state);

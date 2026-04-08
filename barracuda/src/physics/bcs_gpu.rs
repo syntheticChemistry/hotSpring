@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! GPU BCS Bisection — hotSpring Nuclear HFB Implementation
 //!
@@ -226,7 +226,6 @@ impl<'a> BcsBisectionGpu<'a> {
         )
     }
 
-    #[allow(clippy::cast_possible_truncation)] // BCS batch_size ≤ 128, n_levels ≤ 30
     fn dispatch(
         &self,
         lower: &[f64],
@@ -368,7 +367,6 @@ fn make_f64_buf(device: &wgpu::Device, label: &str, data: &[f64]) -> wgpu::Buffe
     })
 }
 
-#[allow(clippy::cast_possible_truncation)] // BCS buffer sizes: count ≤ 128
 fn read_f64(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
@@ -417,7 +415,6 @@ fn read_f64(
     Ok(result)
 }
 
-#[allow(clippy::cast_possible_truncation)] // BCS buffer sizes: count ≤ 128
 fn read_u32(
     device: &wgpu::Device,
     queue: &wgpu::Queue,

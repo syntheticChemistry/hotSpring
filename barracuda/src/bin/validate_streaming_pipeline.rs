@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Three-Substrate Streaming Pipeline Validation
 //!
@@ -85,7 +85,9 @@ fn main() {
     let cpu_elapsed = cpu_start.elapsed();
     println!("  CPU time: {:.1}s", cpu_elapsed.as_secs_f64());
 
-    let cpu_monotonic = cpu_plaquettes.windows(2).all(|w| w[1] >= w[0] - 0.01);
+    let cpu_monotonic = cpu_plaquettes.windows(2).all(|w| {
+        w[1] >= w[0] - tolerances::BETA_SCAN_GRID_TOLERANCE
+    });
     harness.check_bool(
         "CPU plaquettes monotonically increase with β",
         cpu_monotonic,
@@ -124,7 +126,8 @@ fn main() {
         for t in 0..n_traj {
             let r = gpu_hmc_trajectory_streaming(
                 &gpu, &pipelines, &state, 20, 0.02, t as u32, &mut seed,
-            );
+            )
+            .expect("streaming HMC trajectory");
             plaq_sum += r.plaquette;
             if r.accepted {
                 accept_count += 1;
@@ -161,10 +164,12 @@ fn main() {
     harness.check_upper(
         "GPU-CPU plaquette parity within 5% (statistical)",
         max_plaq_err,
-        0.05,
+        tolerances::BETA_SCAN_SCALING_PARITY,
     );
 
-    let gpu_monotonic = gpu_plaquettes_small.windows(2).all(|w| w[1] >= w[0] - 0.01);
+    let gpu_monotonic = gpu_plaquettes_small.windows(2).all(|w| {
+        w[1] >= w[0] - tolerances::BETA_SCAN_GRID_TOLERANCE
+    });
     harness.check_bool(
         "GPU plaquettes monotonically increase with β",
         gpu_monotonic,
@@ -212,7 +217,8 @@ fn main() {
                 0.04,
                 t as u32 + 1000,
                 &mut seed,
-            );
+            )
+            .expect("streaming HMC trajectory");
             plaq_sum += r.plaquette;
             if r.accepted {
                 accept_count += 1;
@@ -235,7 +241,9 @@ fn main() {
     let scale_elapsed = scale_start.elapsed();
     println!("  GPU 8⁴ time: {:.1}s", scale_elapsed.as_secs_f64());
 
-    let scale_monotonic = gpu_plaquettes_8.windows(2).all(|w| w[1] >= w[0] - 0.01);
+    let scale_monotonic = gpu_plaquettes_8.windows(2).all(|w| {
+        w[1] >= w[0] - tolerances::BETA_SCAN_GRID_TOLERANCE
+    });
     harness.check_bool(
         "8⁴ plaquettes monotonically increase with β",
         scale_monotonic,
@@ -577,7 +585,8 @@ fn build_esn_data_from_gpu(
                     0.025,
                     frame as u32 + sample as u32 * 100,
                     &mut seed,
-                );
+                )
+                .expect("streaming HMC trajectory");
 
                 gpu_links_to_lattice(gpu, &state, &mut lat);
                 let poly = lat.average_polyakov_loop();

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Validation binary for BGK dielectric functions (Paper 44).
 //!
@@ -9,10 +9,38 @@ use hotspring_barracuda::physics::dielectric::{
     dynamic_structure_factor_completed, epsilon_completed_mermin, epsilon_mermin,
     f_sum_rule_integral, f_sum_rule_integral_completed, plasma_dispersion_w, validate_dielectric,
 };
+use hotspring_barracuda::provenance::BaselineProvenance;
+use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
+
+/// Friedel / KK anchor: Re W(0) for the plasma dispersion function.
+const BGK_W0_REAL: BaselineProvenance = BaselineProvenance {
+    label: "Plasma dispersion W(0): Re W = 1 (Paper 44 analytic limit)",
+    script: "control/plasma/dielectric_bgk.py",
+    commit: "10.1103/PhysRevE.111.035206 (Chuna & Murillo 2024)",
+    date: "2024-01-01",
+    command: "N/A (checked in validate_dielectric against library)",
+    environment: "Rust hotspring_barracuda::physics::dielectric",
+    value: 1.0,
+    unit: "Re W(0)",
+};
+
+/// f-sum rule scale (−π ω_p² / 2) used in Debye/Mermin completed checks.
+const BGK_F_SUM_ANCHOR: BaselineProvenance = BaselineProvenance {
+    label: "f-sum rule integral scale (−π ω_p²/2) — Mermin / completed Mermin",
+    script: "control/plasma/dielectric_bgk.py",
+    commit: "10.1103/PhysRevE.111.035206 (Chuna & Murillo 2024)",
+    date: "2024-01-01",
+    command: "N/A (quadrature vs analytic target in validate_dielectric)",
+    environment: "Rust hotspring_barracuda::physics::dielectric",
+    value: 0.0,
+    unit: "aggregate (per-case ω_p in tests)",
+};
 
 fn main() {
     let mut harness = ValidationHarness::new("validate_dielectric");
+
+    harness.print_provenance(&[&BGK_W0_REAL, &BGK_F_SUM_ANCHOR]);
 
     println!("╔══════════════════════════════════════════════════════════╗");
     println!("║  Paper 44: BGK Dielectric (Chuna & Murillo 2024)       ║");
@@ -24,7 +52,11 @@ fn main() {
     harness.check_upper("W(0) imaginary part ≈ 0", w0.im.abs(), 1e-14);
 
     let w_large = plasma_dispersion_w(Complex::new(20.0, 0.0));
-    harness.check_upper("|W(20)| → 0", w_large.abs(), 0.01);
+    harness.check_upper(
+        "|W(20)| → 0",
+        w_large.abs(),
+        tolerances::DIELECTRIC_HIGH_FREQ_LIMIT_ABS,
+    );
 
     let test_cases: &[(f64, f64, &str)] = &[
         (1.0, 1.0, "weak"),

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! GPU compute pipeline factories for the HFB solver.
 //!
@@ -57,7 +57,6 @@ pub(super) fn create_hamiltonian_pipelines(
 }
 
 /// Create the BCS v², density, and mixing pipelines.
-#[allow(clippy::too_many_arguments)]
 pub(super) fn create_density_pipelines(
     raw_device: &wgpu::Device,
     density_module: &wgpu::ShaderModule,

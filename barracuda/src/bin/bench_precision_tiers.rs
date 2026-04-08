@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Precision tier benchmark: f32 vs DF64 vs f64 stability and throughput.
 //!

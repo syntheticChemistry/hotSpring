@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Pipeline compilation for unidirectional GPU RHMC (ALU/TMU PRNG, B2+B3 kernels, optional ROP).
 

@@ -1,5 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
-#![allow(clippy::cast_precision_loss)] // nucleus counts (≤52) fit in f64 mantissa
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Nuclear EOS Validation — Pure Rust replication of all Python control work.
 //!

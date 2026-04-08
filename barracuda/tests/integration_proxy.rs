@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Integration tests: physics proxy pipeline (Anderson 3D, Z(3) Potts) public API.
 //!

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Core numerical tolerances: machine precision, linear algebra, special functions,
 //! and optimizer/ODE solver validation thresholds.
@@ -25,6 +25,14 @@ pub const ITERATIVE_F64: f64 = 1e-8;
 /// instruction ordering. Max observed difference: 8e-8 for `exp()` on
 /// RTX 4070 (see `experiments/001_N_SCALING_GPU.md` §4.4).
 pub const GPU_VS_CPU_F64: f64 = 1e-6;
+
+/// f32 SAXPY / RPC dispatch: maximum absolute error vs host reference.
+///
+/// Host-computed `α*x + y` in f64 compared to device f32 output element-wise.
+/// f32 mantissa limits absolute agreement; 1% is a generous gate for
+/// `validate_cross_vendor_dispatch` (glowplug RPC) and `validate_5060_dual_use`
+/// (local CUDA) correctness checks.
+pub const GLOWPLUG_F32_SAXPY_MAX_ABS: f64 = 1e-2;
 
 // ═══════════════════════════════════════════════════════════════════
 // Linear algebra tolerances

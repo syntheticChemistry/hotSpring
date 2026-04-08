@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Unidirectional RHMC cortex — async dispatch and dual-GPU coordination.
 //!
@@ -90,7 +90,11 @@ impl UnidirectionalRhmc {
     }
 
     /// Run one trajectory synchronously (blocking). Fast (~1-2s for 8^4).
-    pub fn run_trajectory(&mut self, config: &RhmcConfig, seed: &mut u64) -> TrajectoryResult {
+    pub fn run_trajectory(
+        &mut self,
+        config: &RhmcConfig,
+        seed: &mut u64,
+    ) -> Result<TrajectoryResult, HotSpringError> {
         if self.ms_bufs.is_none() {
             let max_shifts = config
                 .sectors
@@ -120,14 +124,14 @@ impl UnidirectionalRhmc {
             &self.ham_bufs,
             config,
             seed,
-        );
-        TrajectoryResult {
+        )?;
+        Ok(TrajectoryResult {
             accepted: result.accepted,
             delta_h: result.delta_h,
             plaquette: result.plaquette,
             total_cg_iterations: result.total_cg_iterations,
             elapsed_secs: t0.elapsed().as_secs_f64(),
-        }
+        })
     }
 
     /// Name of the GPU adapter backing this instance.
@@ -198,20 +202,20 @@ pub fn dual_gpu_trajectories(
     let mut sb = *seed_b;
 
     let (result_a, result_b) = std::thread::scope(|scope| {
-        let handle_a = scope.spawn(|| {
-            let r = gpu_a.run_trajectory(&config_a, &mut sa);
-            (r, sa)
+        let handle_a = scope.spawn(|| -> Result<(TrajectoryResult, u64), HotSpringError> {
+            let r = gpu_a.run_trajectory(&config_a, &mut sa)?;
+            Ok((r, sa))
         });
-        let handle_b = scope.spawn(|| {
-            let r = gpu_b.run_trajectory(&config_b, &mut sb);
-            (r, sb)
+        let handle_b = scope.spawn(|| -> Result<(TrajectoryResult, u64), HotSpringError> {
+            let r = gpu_b.run_trajectory(&config_b, &mut sb)?;
+            Ok((r, sb))
         });
         let (ra, new_sa) = handle_a
             .join()
-            .map_err(|_| HotSpringError::ThreadPanicked("GPU A trajectory thread panicked"))?;
+            .map_err(|_| HotSpringError::ThreadPanicked("GPU A trajectory thread panicked"))??;
         let (rb, new_sb) = handle_b
             .join()
-            .map_err(|_| HotSpringError::ThreadPanicked("GPU B trajectory thread panicked"))?;
+            .map_err(|_| HotSpringError::ThreadPanicked("GPU B trajectory thread panicked"))??;
         *seed_a = new_sa;
         *seed_b = new_sb;
         Ok::<(TrajectoryResult, TrajectoryResult), HotSpringError>((ra, rb))
