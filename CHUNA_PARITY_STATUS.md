@@ -1,6 +1,6 @@
 # Chuna Papers — Parity & Extensions Status
 
-> **Note (April 2, 2026):** This document captures the Chuna parity status as of v0.6.29. For current overall status, see the [root README](README.md). Chuna **44/44 checks remain passing** (unchanged through v0.6.32, 141+ experiments). Body is a fossil record — Chuna results are stable.
+> **Note (April 8, 2026):** This document is a **fossil record** of the Chuna parity status as of v0.6.29. For current authoritative status, see [`CHUNA_REVIEW.md`](CHUNA_REVIEW.md) and [`whitePaper/baseCamp/chuna_*.md`](whitePaper/baseCamp/). Chuna **44/44 checks remain passing** (unchanged through v0.6.32, 165+ experiments). Body below is preserved for provenance — do not treat coralReef iteration/shader counts below as current.
 
 **Last Updated**: March 11, 2026 (v0.6.29 — upstream sync v4: barraCuda v0.3.5 + toadStool S146 + coralReef Iter 31)
 **Crate**: hotspring-barracuda v0.6.29 (847 lib tests, 112+ binaries)

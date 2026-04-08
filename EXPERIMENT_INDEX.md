@@ -5,7 +5,7 @@
 > Experiments 001-107 archived to `experiments/archive/` — completed physics, benchmark, and early sovereign GPU work, results absorbed into baseCamp and coralReef code.
 > Note: Experiments 096-105 have dual-numbered IDs (physics + sovereign GPU tracks ran in parallel). Filenames are self-descriptive. Exp 136b disambiguated from 136.
 
-**143+ experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **AGPL-3.0-only**
+**165+ experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **AGPL-3.0-only**
 
 ---
 
@@ -192,7 +192,9 @@
 | **Titan V NVDEC Sovereign Attempt** (Exp 161) | ✅ Complete | biomeGate: NVDEC engine sovereign dispatch attempt on GV100 |
 | **Titan V Sovereign Compute Pipeline** (Exp 162) | ✅ Complete | biomeGate: full sovereign compute pipeline design for GV100 with firmware coexistence |
 | **Firmware Boundary** (Exp 163) | ✅ Complete | biomeGate: **Architectural pivot.** Driver/firmware/hardware delineation. Falcon firmware = GPU's BIOS. PMU mailbox protocol mapped (register-based on GV100). Hot-handoff channel injection proven (CH 500 accepted by scheduler). **NOP dispatch via nouveau DRM: SUCCEEDED** (C + pure Rust). `PmuInterface` struct created. End-to-end: `VM_INIT → CHANNEL_ALLOC(VOLTA_COMPUTE_A) → GEM → VM_BIND → EXEC → SYNCOBJ`. |
-| **TOTAL** | **39/39 Rust validation suites** | **870 tests (lib)**, 139 binaries, 99 WGSL shaders. Zero clippy, zero unsafe, AGPL-3.0-only. **Science ladder:** Quenched → Gradient Flow → Integrators → N_f=4 Infra → Chuna 44/44 → N_f=2 → N_f=2+1 → Self-tuning → Silicon saturation → 16⁴+ production → **Firmware Boundary → NOP Dispatch (DRM + pure Rust)**. 163+ experiments. Experiments 001-107 archived to `experiments/archive/` (completed physics validation + early sovereign GPU work, absorbed into baseCamp and coralReef). |
+| **Sovereign Compute Dispatch Proven** (Exp 164) | ✅ Complete | biomeGate: NOP dispatch proven via DRM + pure Rust ioctls. nouveau warm-cycle preserves HBM2 training. `reset_method` clear prevents FLR from destroying trained memory. Channel injection alongside nouveau scheduler validated. |
+| **SovereignInit Full Pipeline** (Exp 165) | ✅ Complete | biomeGate: 8-stage `SovereignInit` pipeline replaces nouveau subsystem by subsystem. Stages: HBM2 Training → PMC Gating → Topology → PFB → Falcon Boot (15 strategies) → GR Init → PFIFO → GR Context. `open_sovereign()` entry point. GR init extracted to standalone fns. `SovereignInitResult` with `compute_ready()` + `diagnostic_summary()`. FECS method probe validates responsiveness. Optional Stage 7 GR context allocation + golden save. 429 coral-driver tests pass. |
+| **TOTAL** | **39/39 Rust validation suites** | **870 tests (lib)**, 139 binaries, 99 WGSL shaders. Zero clippy, zero unsafe, AGPL-3.0-only. **Science ladder:** Quenched → Gradient Flow → Integrators → N_f=4 Infra → Chuna 44/44 → N_f=2 → N_f=2+1 → Self-tuning → Silicon saturation → 16⁴+ production → **Firmware Boundary → NOP Dispatch → SovereignInit Pipeline (pure Rust, zero nouveau)**. 165+ experiments. Experiments 001-107 archived to `experiments/archive/` (completed physics validation + early sovereign GPU work, absorbed into baseCamp and coralReef). |
 
 ---
 

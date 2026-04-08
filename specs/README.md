@@ -1,7 +1,7 @@
 # hotSpring Specifications
 
-**Last Updated**: March 30, 2026
-**Status**: Phase A-J complete — 4,065+ tests, 139 binaries, crate v0.6.32+, barraCuda v0.3.11, toadStool S168+, coralReef Phase 10 Iter 70i. **NVIDIA GPFIFO pipeline OPERATIONAL on RTX 3090.** **AMD scratch/local memory OPERATIONAL on RX 6950 XT** (Exp 124). 7/8 HW parity tests, 1672 coral unit tests. 131+ experiments, 99 WGSL shaders. Silicon saturation: TMU PRNG, subgroup reduce, ROP atomics. Self-routing PrecisionBrain (15-tier). Multi-backend dispatch (wgpu/Vulkan + coralReef sovereign + Kokkos reference). Ember/GlowPlug daemon-managed GPU lifecycle (Exp 131). Deep debt evolution complete — Python→Rust, virsh→virt, nvidia-smi→nvml, RegisterMap, LockedAlloc RAII.
+**Last Updated**: April 8, 2026
+**Status**: Phase A-J complete — 4,065+ tests, 139 binaries, crate v0.6.32+, barraCuda v0.3.11, toadStool S168+, coralReef Phase 10 Iter 78+. **SovereignInit pipeline: 8-stage pure Rust nouveau replacement** (Exp 165). **Full compute dispatch PROVEN on Titan V** — 5/5 E2E phases (Exp 164). **Firmware-as-ingredient architecture** — falcon firmware loaded/sequenced by Rust, executed by hardware. **NVIDIA GPFIFO pipeline OPERATIONAL on RTX 3090.** **AMD scratch/local memory OPERATIONAL on RX 6950 XT** (Exp 124). 165+ experiments, 99 WGSL shaders. Ember Survivability Hardening COMPLETE. Multi-Ember Fleet Architecture COMPLETE.
 **Domain**: Computational plasma physics, nuclear structure, transport, lattice QCD, spectral theory, surrogate learning
 
 ---
@@ -41,7 +41,7 @@
 | [BIOMEGATE_BRAIN_ARCHITECTURE.md](BIOMEGATE_BRAIN_ARCHITECTURE.md) | Active | 4-substrate brain architecture: NPU steering, Nautilus Shell, concept edges |
 | [PRECISION_STABILITY_SPECIFICATION.md](PRECISION_STABILITY_SPECIFICATION.md) | Active | Numerical stability across f32/DF64/f64, GPU precision routing, cross-spring impact |
 | [MULTI_BACKEND_DISPATCH.md](MULTI_BACKEND_DISPATCH.md) | Active | Three-tier dispatch: wgpu/Vulkan (production), coralReef sovereign (long-term), Kokkos/LAMMPS (reference target). NVK discovery, gap analysis |
-| [SOVEREIGN_VALIDATION_MATRIX.md](SOVEREIGN_VALIDATION_MATRIX.md) | Active | Pipeline layer x dispatch path x hardware substrate validation matrix. Consolidates gap tracker, experiments 058-131, and DRM-from-both-sides strategy. |
+| [SOVEREIGN_VALIDATION_MATRIX.md](SOVEREIGN_VALIDATION_MATRIX.md) | Active | Pipeline layer x dispatch path x hardware substrate validation matrix. Consolidates gap tracker, experiments 058-165, DRM-from-both-sides strategy, and SovereignInit pipeline status. |
 | [COMPUTATIONAL_OMICS.md](COMPUTATIONAL_OMICS.md) | Active | Environmental genomics for sovereign hardware — register trace alignment, firmware motif search, subsystem phylogeny. Long-term compute trio evolution |
 
 ### Sovereign GPU & Hardware

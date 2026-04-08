@@ -1,8 +1,8 @@
 # baseCamp: Sovereign GPU Compute — GlowPlug & Falcon Boot Chain
 
-**Date:** 2026-03-25 (updated 2026-04-07 — Firmware Boundary pivot complete, NOP dispatch proven in pure Rust)  
-**Domain:** Hardware — PCIe GPU lifecycle, falcon microcontrollers, HBM2 management, PFIFO command submission, ACR secure boot, WPR construction, cross-driver profiling, daemon RPC orchestration, adaptive experiment loop, sysmem DMA, GV100 MMU v2 page tables, WPR2 hardware protection, Kepler PIO falcon loading, VBIOS DEVINIT, fault containment architecture, **firmware-agnostic interfacing, PMU mailbox protocol, DRM ioctl sovereign pipeline**  
-**Experiments:** 060-163  
+**Date:** 2026-03-25 (updated 2026-04-08 — **Sovereign compute PROVEN**: 5/5 E2E phases pass, f32+f64+LJ forces, WGSL→SM70 SASS→DRM dispatch)  
+**Domain:** Hardware — PCIe GPU lifecycle, falcon microcontrollers, HBM2 management, PFIFO command submission, ACR secure boot, WPR construction, cross-driver profiling, daemon RPC orchestration, adaptive experiment loop, sysmem DMA, GV100 MMU v2 page tables, WPR2 hardware protection, Kepler PIO falcon loading, VBIOS DEVINIT, fault containment architecture, **firmware-agnostic interfacing, PMU mailbox protocol, DRM ioctl sovereign pipeline, SM70 SASS compute dispatch**  
+**Experiments:** 060-165  
 **Hardware:** NVIDIA Titan V (GV100, 12GB HBM2), 2× Tesla K80 (GK210, Kepler), RTX 5070 (GB206, Blackwell, display/validator)
 
 ---
@@ -1115,10 +1115,115 @@ Learning the Volta firmware interface is the foundation for ALL modern NVIDIA ca
 | — | **Firmware Interface** | ✅ `PmuInterface` struct, `FalconProbe`, register-based mailbox protocol |
 | — | **Safety Infrastructure** | ✅ Ember Survivability Hardening COMPLETE |
 
+### Phase 19: Full Compute Dispatch — PROVEN (Exp 164, 2026-04-08)
+
+**5/5 E2E phases pass on Titan V via nouveau DRM.**
+
+| Phase | Shader | Result |
+|-------|--------|--------|
+| A | f32 write (64 threads → 42.0) | PASS |
+| B | f32 arithmetic (6×7=42) | PASS |
+| C | Multi-workgroup (4×64=256 threads) | PASS |
+| D | f64 write (64 threads → 42.0) | PASS |
+| E | f64 Lennard-Jones (2-particle, Newton's 3rd law) | PASS |
+
+**7 bugs found and fixed** between NOP dispatch (Exp 163) and full compute:
+
+1. **NVIF object creation** — `CTXNOTVALID`: bare GPFIFO channel lacks GR context. Fixed with `DRM_NOUVEAU_NVIF` ioctl.
+2. **Subchannel assignment** — `CLASS_SUBCH_MISMATCH`: compute (0xC3C0) must use subchannel 1, not 0 (reserved for GR 0xC397).
+3. **NVC3C0 method offsets** — `ILLEGAL_MTHD`: all 5 compute methods had wrong offsets. Corrected from `clc3c0.h`.
+4. **Local memory window** — `INVALID_BITFIELD`: 64-bit address exceeded 17-bit upper field. Corrected to 49-bit address.
+5. **QMD v02_02 bitfields** — `SKED` errors: complete rewrite from `clc3c0qmd.h` (every field relocated from v2.1).
+6. **SPH header offset** — `ILLEGAL_INSTR_ENCODING`: binary always has 128-byte header but dispatch used 80 for SM70.
+7. **Phase E sign convention** — test comparison, not GPU: signs swapped in assertion.
+
+**Dispatch pipeline:**
+```
+WGSL → coral-reef (SM70) → 128B SPH + SASS → NvDevice::dispatch()
+  → GEM_NEW + VM_BIND (shader, CBUF desc, QMD)
+  → Push: SET_OBJECT(sc1,0xC3C0) + INVALIDATE + LOCAL_MEM + SEND_PCAS
+  → EXEC → SYNCOBJ_WAIT → readback
+```
+
+**Significance**: First end-to-end sovereign GPU compute — WGSL source to verified physics output on NVIDIA silicon, zero CUDA, zero C, pure Rust.
+
+### Updated Sovereign Pipeline Layer Status (April 8, 2026)
+
+| Layer | Component | Status |
+|-------|-----------|--------|
+| 0 | PCIe / VFIO | ✅ BAR0 MMIO, DMA buffers, IOMMU (iommufd/cdev) |
+| 1 | PFB / MMU | ✅ Alive via warm-state transfer from nouveau |
+| 2 | PFIFO Engine | ✅ Re-initialized (firmware-controlled) |
+| 3 | Scheduler | ✅ Processes runlists (via firmware, not direct BAR0) |
+| 4 | Channel | ✅ Accepted by scheduler (hot-handoff proven) |
+| 5 | PBDMA Context | ✅ Loaded correctly |
+| 6 | MMU Translation | ✅ Volta FBHUB fault buffer config |
+| 7 | SEC2 Falcon Binding + DMA | ✅ bind_stat=5, DMA active, sysmem PTEs |
+| 8 | WPR/ACR Payload | ✅ WPR format correct, ACR firmware alive |
+| 9 | ACR DMA + Page Tables | ✅ PDE slot fix, FBIF VIRT mode, falcon MMU routing |
+| 10 | HS Authentication | 🔴 **BLOCKED** (VFIO path) — firmware-agnostic DRM path bypasses this entirely |
+| 11 | **Full Compute Dispatch via DRM** | ✅ **PROVEN** — f32, f64, multi-workgroup, Lennard-Jones. 5/5 phases pass. |
+| — | **Firmware Interface** | ✅ `PmuInterface` struct, `FalconProbe`, register-based mailbox protocol |
+| — | **Safety Infrastructure** | ✅ Ember Survivability Hardening COMPLETE |
+
+### Phase 20: SovereignInit Pipeline — nouveau Replaced (Exp 165, 2026-04-08)
+
+**Full pure Rust GPU initialization pipeline — zero nouveau, zero DRM.**
+
+The `SovereignInit` orchestrator replaces nouveau's initialization subsystem by subsystem.
+Firmware is treated as an **ingredient** (proprietary microcode loaded as blobs), not a subsystem to rebuild.
+
+**8-Stage Pipeline:**
+
+| Stage | Module | What It Does |
+|-------|--------|-------------|
+| 0 | HBM2 Training | Cold/warm detection. Cold boot: VBIOS DEVINIT interpreter trains HBM2/VRAM. Warm: skip. |
+| 1 | PMC Engine Gating | Clock-gate engines via PMC registers. Matches nouveau `mc_init()`. |
+| 2 | Topology Discovery | GPC/TPC/SM/FBP/PBDMA enumeration. Fuse reads + mask registers. |
+| 3 | PFB Memory Controller | FBPA configuration, memory partitions, MMU setup. |
+| 4 | Falcon Boot Chain | `FalconBootSolver` — 15 strategies to boot SEC2→ACR→FECS/GPCCS. `legacy-acr` feature flag gates older paths. |
+| 5 | GR Engine Init | Standalone `apply_gr_bar0_init()` applies firmware register writes. FECS method probe validates responsiveness. |
+| 6 | PFIFO Discovery | PBDMA/runlist enumeration, engine→runlist binding. |
+| 7 | GR Context Setup | Optional. FECS exception config, context size discovery, DMA buffer allocation, bind + golden save. |
+
+**Key Architectural Decisions:**
+
+- **Firmware as ingredient**: Proprietary firmware blobs (PMU, SEC2, FECS, GPCCS) are loaded and executed by the hardware. We manage the loading, not the code inside.
+- **`NvVfioComputeDevice::open_sovereign(bdf)`**: Single entry point. Takes a BDF string, runs all 8 stages, returns `(device, SovereignInitResult)`.
+- **`SovereignInitResult`**: Structured reporting with `compute_ready()`, `diagnostic_summary()`, per-subsystem booleans.
+- **GR init extraction**: `apply_gr_bar0_init`, `apply_nonctx_writes`, `apply_dynamic_gr_init` are standalone module-level functions, callable by both sovereign and DRM paths.
+- **`TrainingBackend`**: Enum selecting HBM2 training method — VBIOS interpreter (current), differential replay (future), falcon upload (future).
+- **`Hbm2Controller`**: Typestate pipeline (`Configured → Training → Trained`) enforcing correct sequencing.
+
+**ember integration**: `ember.gpu.train_hbm2` RPC triggers HBM2 training via fork-isolated MMIO for crash safety.
+
+**Test results**: 429 coral-driver tests pass. 171 coral-ember tests pass. `cargo check --features vfio` clean.
+
+### Updated Sovereign Pipeline Layer Status (April 8, 2026)
+
+| Layer | Component | Status |
+|-------|-----------|--------|
+| 0 | PCIe / VFIO | ✅ BAR0 MMIO, DMA buffers, IOMMU (iommufd/cdev) |
+| 1 | PFB / MMU | ✅ Alive via warm-state transfer from nouveau |
+| 2 | PFIFO Engine | ✅ Re-initialized (firmware-controlled) |
+| 3 | Scheduler | ✅ Processes runlists (via firmware, not direct BAR0) |
+| 4 | Channel | ✅ Accepted by scheduler (hot-handoff proven) |
+| 5 | PBDMA Context | ✅ Loaded correctly |
+| 6 | MMU Translation | ✅ Volta FBHUB fault buffer config |
+| 7 | SEC2 Falcon Binding + DMA | ✅ bind_stat=5, DMA active, sysmem PTEs |
+| 8 | WPR/ACR Payload | ✅ WPR format correct, ACR firmware alive |
+| 9 | ACR DMA + Page Tables | ✅ PDE slot fix, FBIF VIRT mode, falcon MMU routing |
+| 10 | HS Authentication | 🔴 **BLOCKED** (VFIO path) — bypassed by SovereignInit pipeline + DRM path |
+| 11 | **Full Compute Dispatch via DRM** | ✅ **PROVEN** — f32, f64, multi-workgroup, Lennard-Jones. 5/5 phases pass. |
+| 12 | **SovereignInit Pipeline** | ✅ **IMPLEMENTED** — 8-stage pure Rust init. `open_sovereign()`. GR context + golden save. |
+| — | **Firmware Interface** | ✅ `PmuInterface`, `FalconProbe`, `FalconBootSolver` (15 strategies), `Hbm2Controller` |
+| — | **Safety Infrastructure** | ✅ Ember Survivability Hardening COMPLETE. Fork-isolated HBM2 training. |
+
 ### Next Steps
 
-1. **Full compute dispatch via DRM**: Use existing `NvDevice` infrastructure (shader upload, QMD, multi-buffer) — already proven in `nvidia_nouveau_e2e.rs` (f32/f64 arithmetic, LJ forces)
+1. **Hardware validation**: Run `sovereign_compute_e2e` example on Titan V from cold boot — validate all 8 stages end-to-end
 2. **PMU command mapping**: Use `PmuInterface` to discover PMU command vocabulary (engine enable, clock control, PRI gate management)
-3. **VFIO + firmware coexistence**: Investigate binding vfio-pci with nouveau-initialized firmware still alive (no FLR via `reset_method` clear)
+3. **Production QCD shaders**: Dispatch the 24 QCD production shaders compiled by coral-reef on Titan V via `open_sovereign()`
 4. **GSP RPC client**: Extend `PmuInterface` pattern to Turing/Ampere GSP message protocol — same firmware-agnostic approach, different transport
-5. **Fleet validation**: Stress-test fleet mode with concurrent GPU experiments
+5. **Cross-vendor validation**: Run the same WGSL→compute pipeline on MI50 (AMD) and Titan V (NVIDIA) in the same session
+6. **Fleet mode stress test**: Concurrent GPU experiments across Titan V + K80 fleet

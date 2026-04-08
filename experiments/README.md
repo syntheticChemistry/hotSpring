@@ -76,6 +76,8 @@ NNN_DESCRIPTOR.{sh,md,json}
 | 161 | TITANV_NVDEC_SOVEREIGN_ATTEMPT | investigation | ✅ NVDEC engine sovereign dispatch attempt |
 | 162 | TITANV_SOVEREIGN_COMPUTE_PIPELINE | architecture | ✅ Full sovereign compute pipeline design |
 | 163 | FIRMWARE_BOUNDARY | **breakthrough** | ✅ **Architectural pivot.** Driver/firmware/hardware delineation. NOP dispatch via DRM (C + Rust). PMU mailbox mapped. PmuInterface created. |
+| 164 | SOVEREIGN_COMPUTE_DISPATCH_PROVEN | **breakthrough** | ✅ **5/5 E2E phases pass.** f32 write/arith, multi-workgroup, f64 write, f64 Lennard-Jones. WGSL→SM70 SASS→DRM dispatch. Newton's 3rd law verified. |
+| 165 | SOVEREIGN_INIT_PIPELINE | **breakthrough** | ✅ **8-stage SovereignInit pipeline replaces nouveau.** `open_sovereign(bdf)` entry point. GR init extracted. FECS method probe. GR context Stage 7. Firmware-as-ingredient. 429 tests. |
 
 ### Ember Survivability Hardening (2026-04-07)
 

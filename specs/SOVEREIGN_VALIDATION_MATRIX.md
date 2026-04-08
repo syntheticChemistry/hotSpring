@@ -1,7 +1,7 @@
 # Sovereign Validation Matrix
 
-**Updated:** 2026-04-07
-**Purpose:** Single source of truth mapping every pipeline layer against dispatch paths, hardware substrates, and experiment evidence. "Solve the maze from both sides."
+**Updated:** 2026-04-08
+**Purpose:** Single source of truth mapping every pipeline layer against dispatch paths, hardware substrates, and experiment evidence. "Solve the maze from both sides." **SovereignInit pipeline (Exp 165)** adds a pure Rust `open_sovereign(bdf)` path that replaces nouveau initialization subsystem by subsystem.
 
 ## Dispatch Path Inventory
 
@@ -148,3 +148,5 @@
 | 131 | Reset Architecture Evolution | L1-L11 | ember owns all resets, PRI-aware diagnostics, no sudo/pkexec, Titan V FLReset- confirmed |
 | 159 | Titan V VM-POST HBM2 | L1 | HBM2 trained via VM, preserved through nouveau warm-cycle + reset_method clear |
 | 163 | Firmware Boundary | L8-L11 | **Architectural pivot.** NOP dispatch via DRM (pure Rust). PMU mailbox mapped. PmuInterface created. Hot-handoff channel injection proven. |
+| 164 | Sovereign Compute Dispatch | L11 | **5/5 E2E phases pass.** f32, f64, multi-workgroup, Lennard-Jones on Titan V via DRM. |
+| 165 | SovereignInit Pipeline | L12 | **8-stage pure Rust nouveau replacement.** `open_sovereign(bdf)`. Firmware-as-ingredient. GR init extracted. FECS method probe. 429 tests. |
