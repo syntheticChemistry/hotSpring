@@ -117,6 +117,11 @@ pub const DEPENDENCIES: &[NicheDependency] = &[
     },
 ];
 
+// When Squirrel is composed, `inference.complete`, `inference.embed`, and
+// `inference.models` are consumed from the inference provider (neuralSpring via
+// Squirrel discovery) — they are not listed in `CAPABILITIES` below, which only
+// names capabilities this spring implements itself.
+
 /// Capabilities this niche advertises via `capability.list`.
 pub const CAPABILITIES: &[&str] = &[
     "physics.lattice_qcd",

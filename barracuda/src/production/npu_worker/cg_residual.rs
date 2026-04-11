@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-#![allow(missing_docs)]
-
 //! Brain Layer 1: CG residual monitoring and attention state machine.
 //!
 //! Monitors CG convergence in real time, transitions Green→Yellow→Red based on

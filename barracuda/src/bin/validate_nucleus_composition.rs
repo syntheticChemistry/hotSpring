@@ -44,7 +44,11 @@ fn main() {
     println!("    Profile:     {}", niche::PARTICLE_PROFILE);
     println!("    Model:       {}", niche::COMPOSITION_MODEL);
     println!("    Fragments:   {:?}", niche::FRAGMENTS);
-    println!("    Bond:        {} / {}", niche::BOND_TYPE, niche::TRUST_MODEL);
+    println!(
+        "    Bond:        {} / {}",
+        niche::BOND_TYPE,
+        niche::TRUST_MODEL
+    );
     println!("    Deps:        {} primals", niche::DEPENDENCIES.len());
     println!();
 
@@ -63,7 +67,10 @@ fn main() {
             .and_then(|c| c.get("capabilities"))
             .and_then(|a| a.as_array())
             .map_or(0, |a| a.len());
-        println!("    {name:<16} [{status}]  caps={caps}  socket={}", ep.socket);
+        println!(
+            "    {name:<16} [{status}]  caps={caps}  socket={}",
+            ep.socket
+        );
     }
     println!();
 

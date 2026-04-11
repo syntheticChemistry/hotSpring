@@ -140,11 +140,11 @@ pub fn gauge_ke_resident(
     enc.copy_buffer_to_buffer(&obs.ke_buf, 0, &obs.staging, 8, 8);
     gpu.submit_encoder(enc);
 
-    let data = gpu
-        .read_staging_f64_n(&obs.staging, 2)
-        .map_err(|e| crate::error::HotSpringError::GpuCompute(
-            format!("gauge/KE readback failed (GPU lost?): {e}"),
-        ))?;
+    let data = gpu.read_staging_f64_n(&obs.staging, 2).map_err(|e| {
+        crate::error::HotSpringError::GpuCompute(format!(
+            "gauge/KE readback failed (GPU lost?): {e}"
+        ))
+    })?;
     Ok((data[0], data[1]))
 }
 
@@ -183,10 +183,10 @@ pub fn plaquette_resident(
     enc.copy_buffer_to_buffer(&obs.plaq_sum_buf, 0, &obs.staging, 0, 8);
     gpu.submit_encoder(enc);
 
-    let data = gpu
-        .read_staging_f64_n(&obs.staging, 1)
-        .map_err(|e| crate::error::HotSpringError::GpuCompute(
-            format!("plaquette readback failed (GPU lost?): {e}"),
-        ))?;
+    let data = gpu.read_staging_f64_n(&obs.staging, 1).map_err(|e| {
+        crate::error::HotSpringError::GpuCompute(format!(
+            "plaquette readback failed (GPU lost?): {e}"
+        ))
+    })?;
     Ok(data[0] / (6.0 * gauge.volume as f64))
 }

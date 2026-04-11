@@ -34,28 +34,28 @@
 //! ```
 
 use hotspring_barracuda::dag_provenance::{DagEvent, DagSession};
-use hotspring_barracuda::lattice::gradient_flow::{
-    FlowIntegrator, find_t0, find_w0, run_flow, topological_charge,
-};
-use hotspring_barracuda::lattice::hmc::{HmcConfig, IntegratorType, hmc_trajectory};
+use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::lattice::gpu_hmc::{
     GpuDynHmcPipelines, GpuDynHmcState, GpuHmcState, GpuHmcStreamingPipelines,
     gpu_dynamical_hmc_trajectory, gpu_hmc_trajectory_streaming, gpu_links_to_lattice,
 };
-use hotspring_barracuda::gpu::GpuF64;
+use hotspring_barracuda::lattice::gradient_flow::{
+    FlowIntegrator, find_t0, find_w0, run_flow, topological_charge,
+};
+use hotspring_barracuda::lattice::hmc::{HmcConfig, IntegratorType, hmc_trajectory};
 use hotspring_barracuda::lattice::ildg::{IldgMetadata, ildg_crc, write_gauge_config_file};
 use hotspring_barracuda::lattice::measurement::{
     ConfigEntry, ConfigMeasurement, EnsembleManifest, FlowPoint, FlowResults, GaugeObservables,
-    ImplementationInfo, RunManifest, TopologyResults, WilsonLoopEntry,
-    format_dims, format_dims_id, min_spatial_dim, parse_dims_from_args,
+    ImplementationInfo, RunManifest, TopologyResults, WilsonLoopEntry, format_dims, format_dims_id,
+    min_spatial_dim, parse_dims_from_args,
 };
-use hotspring_barracuda::primal_bridge::NucleusContext;
-use hotspring_barracuda::receipt_signing;
-use hotspring_barracuda::validation::TelemetryWriter;
 use hotspring_barracuda::lattice::qcdml::{
     QcdmlConfigInfo, QcdmlEnsembleInfo, generate_config_xml, generate_ensemble_xml,
 };
 use hotspring_barracuda::lattice::wilson::Lattice;
+use hotspring_barracuda::primal_bridge::NucleusContext;
+use hotspring_barracuda::receipt_signing;
+use hotspring_barracuda::validation::TelemetryWriter;
 
 use std::time::Instant;
 
@@ -191,11 +191,14 @@ fn run_gpu_trajectory(
 ) -> (bool, f64, f64) {
     match backend {
         GpuBackend::Quenched { pipelines, state } => {
-            let r = gpu_hmc_trajectory_streaming(gpu, pipelines, state, n_md_steps, dt, traj_id, seed)
-                .expect("streaming HMC trajectory");
+            let r =
+                gpu_hmc_trajectory_streaming(gpu, pipelines, state, n_md_steps, dt, traj_id, seed)
+                    .expect("streaming HMC trajectory");
             (r.accepted, r.delta_h, r.plaquette)
         }
-        GpuBackend::Dynamical { pipelines, state, .. } => {
+        GpuBackend::Dynamical {
+            pipelines, state, ..
+        } => {
             let r = gpu_dynamical_hmc_trajectory(gpu, pipelines, state, n_md_steps, dt, seed);
             (r.accepted, r.delta_h, r.plaquette)
         }
@@ -220,18 +223,30 @@ fn main() {
     println!("  Lattice:    {} ({} sites)", format_dims(dims), vol);
     println!("  β:          {:.4}", args.beta);
     println!("  Therm:      {} HMC trajectories", args.n_therm);
-    println!("  Configs:    {} (every {} trajectories)", args.n_configs, args.meas_interval);
+    println!(
+        "  Configs:    {} (every {} trajectories)",
+        args.n_configs, args.meas_interval
+    );
     let integrator_name = match args.integrator {
         IntegratorType::Leapfrog => "Leapfrog",
         IntegratorType::Omelyan => "Omelyan",
     };
-    println!("  MD:         {} steps × dt={} ({})", args.n_md_steps, args.dt, integrator_name);
+    println!(
+        "  MD:         {} steps × dt={} ({})",
+        args.n_md_steps, args.dt, integrator_name
+    );
     if args.gpu {
-        println!("  GPU:        enabled (dynamical Nf={}, mass={})", args.nf, args.mass);
+        println!(
+            "  GPU:        enabled (dynamical Nf={}, mass={})",
+            args.nf, args.mass
+        );
     } else {
         println!("  GPU:        disabled (CPU path)");
     }
-    println!("  Flow:       {}", if args.flow { "enabled" } else { "disabled" });
+    println!(
+        "  Flow:       {}",
+        if args.flow { "enabled" } else { "disabled" }
+    );
     println!("  Output:     {}", args.outdir);
 
     let nucleus = NucleusContext::detect();
@@ -262,7 +277,10 @@ fn main() {
     let total_start = Instant::now();
 
     // Phase 1: Thermalize
-    println!("\n═══ Phase 1: Thermalization ({} trajectories) ═══", args.n_therm);
+    println!(
+        "\n═══ Phase 1: Thermalization ({} trajectories) ═══",
+        args.n_therm
+    );
     let mut lattice = Lattice::hot_start(dims, args.beta, args.seed);
     let mut hmc_cfg = HmcConfig {
         n_md_steps: args.n_md_steps,
@@ -274,20 +292,40 @@ fn main() {
     // GPU initialization (when --gpu is set)
     let gpu_ctx: Option<(GpuF64, GpuBackend)> = if args.gpu {
         let rt = tokio::runtime::Runtime::new().expect("tokio runtime");
-        let gpu = rt.block_on(GpuF64::new()).expect("GPU initialization failed");
+        let gpu = rt
+            .block_on(GpuF64::new())
+            .expect("GPU initialization failed");
         println!("  GPU:   {}", gpu.adapter_name);
         if args.nf > 0 {
             let n_fields = args.nf / 4 + if args.nf % 4 > 0 { 1 } else { 0 };
             let dyn_pip = GpuDynHmcPipelines::new(&gpu);
             let dyn_state = GpuDynHmcState::from_lattice_multi(
-                &gpu, &lattice, args.beta, args.mass,
-                args.cg_tol, args.cg_max_iter, n_fields,
+                &gpu,
+                &lattice,
+                args.beta,
+                args.mass,
+                args.cg_tol,
+                args.cg_max_iter,
+                n_fields,
             );
-            Some((gpu, GpuBackend::Dynamical { pipelines: dyn_pip, state: dyn_state, _n_fields: n_fields }))
+            Some((
+                gpu,
+                GpuBackend::Dynamical {
+                    pipelines: dyn_pip,
+                    state: dyn_state,
+                    _n_fields: n_fields,
+                },
+            ))
         } else {
             let q_pip = GpuHmcStreamingPipelines::new(&gpu);
             let q_state = GpuHmcState::from_lattice(&gpu, &lattice, args.beta);
-            Some((gpu, GpuBackend::Quenched { pipelines: q_pip, state: q_state }))
+            Some((
+                gpu,
+                GpuBackend::Quenched {
+                    pipelines: q_pip,
+                    state: q_state,
+                },
+            ))
         }
     } else {
         None
@@ -297,7 +335,14 @@ fn main() {
     let mut n_accepted = 0usize;
     for i in 0..args.n_therm {
         let (accepted, delta_h, plaquette) = if let Some((ref gpu, ref backend)) = gpu_ctx {
-            run_gpu_trajectory(gpu, backend, args.n_md_steps, args.dt, &mut hmc_cfg.seed, i as u32)
+            run_gpu_trajectory(
+                gpu,
+                backend,
+                args.n_md_steps,
+                args.dt,
+                &mut hmc_cfg.seed,
+                i as u32,
+            )
         } else {
             let r = hmc_trajectory(&mut lattice, &mut hmc_cfg);
             (r.accepted, r.delta_h, r.plaquette)
@@ -333,17 +378,20 @@ fn main() {
     );
 
     if let Some(ref mut dag) = dag_session {
-        dag.append(&nucleus, DagEvent {
-            phase: "thermalize".to_string(),
-            input_hash: None,
-            output_hash: None,
-            wall_seconds: therm_secs,
-            summary: serde_json::json!({
-                "trajectories": args.n_therm,
-                "acceptance": 100.0 * n_accepted as f64 / args.n_therm as f64,
-                "plaquette": lattice.average_plaquette(),
-            }),
-        });
+        dag.append(
+            &nucleus,
+            DagEvent {
+                phase: "thermalize".to_string(),
+                input_hash: None,
+                output_hash: None,
+                wall_seconds: therm_secs,
+                summary: serde_json::json!({
+                    "trajectories": args.n_therm,
+                    "acceptance": 100.0 * n_accepted as f64 / args.n_therm as f64,
+                    "plaquette": lattice.average_plaquette(),
+                }),
+            },
+        );
     }
 
     // Phase 2: Generate and save configurations
@@ -362,13 +410,19 @@ fn main() {
         let mut last_delta_h = 0.0;
         for j in 0..args.meas_interval {
             let traj_idx = (traj_counter + j + 1) as u32;
-            let (accepted, delta_h, plaquette) =
-                if let Some((ref gpu, ref backend)) = gpu_ctx {
-                    run_gpu_trajectory(gpu, backend, args.n_md_steps, args.dt, &mut hmc_cfg.seed, traj_idx)
-                } else {
-                    let r = hmc_trajectory(&mut lattice, &mut hmc_cfg);
-                    (r.accepted, r.delta_h, r.plaquette)
-                };
+            let (accepted, delta_h, plaquette) = if let Some((ref gpu, ref backend)) = gpu_ctx {
+                run_gpu_trajectory(
+                    gpu,
+                    backend,
+                    args.n_md_steps,
+                    args.dt,
+                    &mut hmc_cfg.seed,
+                    traj_idx,
+                )
+            } else {
+                let r = hmc_trajectory(&mut lattice, &mut hmc_cfg);
+                (r.accepted, r.delta_h, r.plaquette)
+            };
             telemetry.log("generate", "plaquette", plaquette);
             telemetry.log("generate", "delta_h", delta_h);
             telemetry.log("generate", "accepted", if accepted { 1.0 } else { 0.0 });
@@ -389,8 +443,7 @@ fn main() {
         meta.ensemble_id = ensemble_id.clone();
         let conf_filename = format!("conf_{traj_counter:06}.lime");
         let conf_path = format!("{}/{conf_filename}", args.outdir);
-        write_gauge_config_file(&conf_path, &lattice, &meta)
-            .expect("write ILDG config");
+        write_gauge_config_file(&conf_path, &lattice, &meta).expect("write ILDG config");
 
         // Compute ILDG CRC (POSIX cksum) of the written file
         let file_bytes = std::fs::read(&conf_path).expect("read back config");
@@ -424,14 +477,12 @@ fn main() {
             polyakov_im: poly_im,
             action_density: 6.0 * (1.0 - plaq),
         };
-        measurement.diagnostics = Some(
-            hotspring_barracuda::lattice::measurement::HmcDiagnostics {
-                accepted: hmc_accepted,
-                delta_h: hmc_delta_h,
-                cg_iterations: None,
-                trajectory_seconds: cfg_start.elapsed().as_secs_f64(),
-            },
-        );
+        measurement.diagnostics = Some(hotspring_barracuda::lattice::measurement::HmcDiagnostics {
+            accepted: hmc_accepted,
+            delta_h: hmc_delta_h,
+            cg_iterations: None,
+            trajectory_seconds: cfg_start.elapsed().as_secs_f64(),
+        });
 
         // Gradient flow
         if args.flow {
@@ -539,16 +590,19 @@ fn main() {
 
     // DAG event for generation phase
     if let Some(ref mut dag) = dag_session {
-        dag.append(&nucleus, DagEvent {
-            phase: "generate".to_string(),
-            input_hash: None,
-            output_hash: None,
-            wall_seconds: total_start.elapsed().as_secs_f64(),
-            summary: serde_json::json!({
-                "n_configs": args.n_configs,
-                "interval": args.meas_interval,
-            }),
-        });
+        dag.append(
+            &nucleus,
+            DagEvent {
+                phase: "generate".to_string(),
+                input_hash: None,
+                output_hash: None,
+                wall_seconds: total_start.elapsed().as_secs_f64(),
+                summary: serde_json::json!({
+                    "n_configs": args.n_configs,
+                    "interval": args.meas_interval,
+                }),
+            },
+        );
     }
 
     // Finalize DAG session
@@ -580,7 +634,10 @@ fn main() {
 
     let total_secs = total_start.elapsed().as_secs_f64();
     println!("\n═══ Complete ═══");
-    println!("  Configs:   {} ILDG files in {}", args.n_configs, args.outdir);
+    println!(
+        "  Configs:   {} ILDG files in {}",
+        args.n_configs, args.outdir
+    );
     println!("  Manifest:  {manifest_path}");
     println!("  QCDml:     {xml_path}");
     println!("  Total:     {total_secs:.1}s");

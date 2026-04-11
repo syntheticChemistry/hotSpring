@@ -2,8 +2,8 @@
 
 //! Shared helpers extracted from large validation binaries (harness setup, domain suites, reports).
 
+pub mod chuna_overnight;
 #[cfg(feature = "sovereign-dispatch")]
 pub mod coral_sovereign;
-pub mod validation_matrix;
 pub mod silicon_qcd;
-pub mod chuna_overnight;
+pub mod validation_matrix;

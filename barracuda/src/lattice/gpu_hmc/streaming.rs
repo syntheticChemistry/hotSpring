@@ -116,14 +116,12 @@ pub fn gpu_hmc_trajectory_streaming(
         gpu.submit_encoder(enc);
     }
 
-    let (plaq_old, ke_old) =
-        gauge_ke_resident(gpu, p, state, &pipelines.reduce_pipeline, &obs)?;
+    let (plaq_old, ke_old) = gauge_ke_resident(gpu, p, state, &pipelines.reduce_pipeline, &obs)?;
     let h_old = state.beta * 6.0f64.mul_add(state.volume as f64, -plaq_old) + ke_old;
 
     gpu_streaming_md_encoder(gpu, p, state, n_md_steps, dt);
 
-    let (plaq_new, ke_new) =
-        gauge_ke_resident(gpu, p, state, &pipelines.reduce_pipeline, &obs)?;
+    let (plaq_new, ke_new) = gauge_ke_resident(gpu, p, state, &pipelines.reduce_pipeline, &obs)?;
     let h_new = state.beta * 6.0f64.mul_add(state.volume as f64, -plaq_new) + ke_new;
 
     let delta_h = h_new - h_old;
@@ -142,8 +140,7 @@ pub fn gpu_hmc_trajectory_streaming(
         gpu.submit_encoder(enc);
     }
 
-    let plaquette =
-        plaquette_resident(gpu, p, state, &pipelines.reduce_pipeline, &obs)?;
+    let plaquette = plaquette_resident(gpu, p, state, &pipelines.reduce_pipeline, &obs)?;
 
     Ok(GpuHmcResult {
         accepted,
@@ -188,14 +185,12 @@ pub fn gpu_hmc_trajectory_streaming_cpu_mom(
         gpu.submit_encoder(enc);
     }
 
-    let (plaq_old, ke_old) =
-        gauge_ke_resident(gpu, p, state, &pipelines.reduce_pipeline, &obs)?;
+    let (plaq_old, ke_old) = gauge_ke_resident(gpu, p, state, &pipelines.reduce_pipeline, &obs)?;
     let h_old = state.beta * 6.0f64.mul_add(state.volume as f64, -plaq_old) + ke_old;
 
     gpu_streaming_md_encoder(gpu, p, state, n_md_steps, dt);
 
-    let (plaq_new, ke_new) =
-        gauge_ke_resident(gpu, p, state, &pipelines.reduce_pipeline, &obs)?;
+    let (plaq_new, ke_new) = gauge_ke_resident(gpu, p, state, &pipelines.reduce_pipeline, &obs)?;
     let h_new = state.beta * 6.0f64.mul_add(state.volume as f64, -plaq_new) + ke_new;
 
     let delta_h = h_new - h_old;
@@ -214,8 +209,7 @@ pub fn gpu_hmc_trajectory_streaming_cpu_mom(
         gpu.submit_encoder(enc);
     }
 
-    let plaquette =
-        plaquette_resident(gpu, p, state, &pipelines.reduce_pipeline, &obs)?;
+    let plaquette = plaquette_resident(gpu, p, state, &pipelines.reduce_pipeline, &obs)?;
 
     Ok(GpuHmcResult {
         accepted,
@@ -471,8 +465,7 @@ pub fn gpu_dynamical_hmc_trajectory_streaming(
         gpu.submit_encoder(enc);
     }
 
-    let plaquette =
-        plaquette_resident(gpu, &dp.gauge, gs, &pipelines.reduce_pipeline, &obs)?;
+    let plaquette = plaquette_resident(gpu, &dp.gauge, gs, &pipelines.reduce_pipeline, &obs)?;
 
     Ok(GpuDynHmcResult {
         accepted,

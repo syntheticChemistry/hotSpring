@@ -31,7 +31,7 @@ use std::time::Instant;
 
 /// Message sent from the GPU/main thread to the quenched NPU worker.
 #[derive(Debug)]
-#[allow(missing_docs)]
+#[expect(missing_docs, reason = "NPU production API — item-level docs deferred")]
 pub enum QuenchedNpuRequest {
     /// Placement A: check if thermalization has converged.
     ThermCheck { plaq_window: Vec<f64>, beta: f64 },
@@ -70,7 +70,7 @@ pub enum QuenchedNpuRequest {
 
 /// Response from the quenched NPU worker.
 #[derive(Debug)]
-#[allow(missing_docs)]
+#[expect(missing_docs, reason = "NPU production API — item-level docs deferred")]
 pub enum QuenchedNpuResponse {
     /// Thermalization: true = converged, can exit early.
     ThermConverged(bool),
@@ -337,6 +337,10 @@ pub fn spawn_quenched_npu_worker() -> Result<
 
 /// Run a set of β points with NPU-assisted thermalization, rejection prediction,
 /// phase classification, and per-trajectory logging.
+#[expect(
+    clippy::expect_used,
+    reason = "GPU trajectory failure is unrecoverable in this pipeline"
+)]
 pub fn run_beta_points_npu(
     gpu: &GpuF64,
     pipelines: &GpuHmcStreamingPipelines,
@@ -383,16 +387,9 @@ pub fn run_beta_points_npu(
         let mut early_exit = false;
 
         for i in 0..n_therm {
-            let r = gpu_hmc_trajectory_streaming(
-                gpu,
-                pipelines,
-                &state,
-                n_md,
-                dt,
-                i as u32,
-                &mut seed,
-            )
-            .expect("streaming HMC trajectory");
+            let r =
+                gpu_hmc_trajectory_streaming(gpu, pipelines, &state, n_md, dt, i as u32, &mut seed)
+                    .expect("streaming HMC trajectory");
             plaq_history.push(r.plaquette);
             therm_used = i + 1;
 

@@ -4,6 +4,7 @@
 **Proto-nucleate:** `hotspring_qcd_proto_nucleate.toml`
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026
+**Last audited:** April 10, 2026
 **License:** AGPL-3.0-or-later
 
 ---
@@ -47,26 +48,6 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
   that returns any primal advertising the requested capability, falling
   back to named lookup for compatibility.
 
-### GAP-HS-003: MCP Tool Surface Missing
-
-- **Primal:** petalTongue
-- **Severity:** Medium
-- **Status:** Not started
-- **Description:** Sibling springs (airSpring, wetSpring) expose MCP tool
-  definitions for AI/LLM integration. hotSpring has no MCP tooling.
-- **Action:** Define MCP tools for validation-related queries:
-  `hotspring.validate_status`, `hotspring.tolerance_check`,
-  `hotspring.gpu_capability_report`.
-
-### GAP-HS-004: health.readiness Not Implemented
-
-- **Primal:** hotspring_primal
-- **Severity:** Low
-- **Status:** Fixed (April 2026) — added to handle_request dispatch.
-- **Description:** `hotspring_primal.rs` served `health.liveness` but not
-  `health.readiness`. Readiness should indicate whether GPU substrates
-  are initialized and validation capabilities are available.
-
 ### GAP-HS-005: IONIC-RUNTIME Cross-Family GPU Lease
 
 - **Primal:** BearDog / Songbird
@@ -101,30 +82,16 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 - **Action:** Monitor barraCuda TensorSession stabilization; wire when
   the API is stable for lattice workloads.
 
-### GAP-HS-008: Composition Validation Binaries Created
+### GAP-HS-010: Inline Validation Thresholds
 
 - **Primal:** hotspring (self)
-- **Severity:** Informational (resolved)
-- **Status:** Complete
-- **Description:** Created `validate_nucleus_composition`, `validate_nucleus_tower`,
-  `validate_nucleus_node`, `validate_nucleus_nest` binaries that prove NUCLEUS
-  composition (IPC-wired primals) produces results consistent with direct Rust
-  execution. This is Phase 2: Rust+Python baselines validate NUCLEUS patterns.
-- **Pattern:** Same as Python→Rust: trusted baseline is local Rust, validation
-  target is IPC composition. Standalone mode (no primals) skip-passes.
-- **Handoff:** Pattern documented in wateringHole handoff for sibling springs.
-
-### GAP-HS-009: ecoBin / plasmidBin Packaging
-
-- **Primal:** hotspring
-- **Severity:** Medium
-- **Status:** Complete (harvest script created)
-- **Description:** Created `scripts/harvest-ecobin.sh` for musl-static builds
-  and plasmidBin submission. Generates `metadata.toml` per ecoBin v3.0 standard.
-  Cross-compilation for aarch64 supported via `--cross-aarch64` flag.
-- **Note:** Proto-nucleate states hotSpring binary is "not in plasmidBin" since
-  it's a spring, not a primal. The harvest script enables opt-in submission
-  when the ecosystem requires pre-built spring binaries for composition testing.
+- **Severity:** Low
+- **Status:** Open — migration in progress
+- **Description:** Approximately 33 `validate_*` binaries use inline numeric
+  thresholds instead of a centralized tolerances module. Centralizing improves
+  auditability and keeps parity checks consistent across domains.
+- **Action:** Continue migrating thresholds into the shared tolerances
+  infrastructure as domains are touched.
 
 ---
 
@@ -132,9 +99,10 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 
 | ID | Description | Resolution | Date |
 |----|-------------|------------|------|
-| GAP-HS-004 | health.readiness missing | Added to hotspring_primal.rs | Apr 2026 |
-| GAP-HS-008 | Composition validation binaries | 4 validate_nucleus_* binaries | Apr 2026 |
-| GAP-HS-009 | ecoBin / plasmidBin packaging | harvest-ecobin.sh created | Apr 2026 |
+| GAP-HS-003 | MCP tool surface missing | `barracuda/src/mcp_tools.rs` defines 5 MCP tools; `hotspring_primal` serves `mcp.tools.list` with those tool schemas | Apr 2026 |
+| GAP-HS-004 | health.readiness missing | Added to `hotspring_primal.rs` `handle_request` dispatch | Apr 2026 |
+| GAP-HS-008 | Composition validation binaries | `validate_nucleus_composition`, `validate_nucleus_tower`, `validate_nucleus_node`, `validate_nucleus_nest` | Apr 2026 |
+| GAP-HS-009 | ecoBin / plasmidBin packaging | `scripts/harvest-ecobin.sh` for musl-static builds and plasmidBin submission | Apr 2026 |
 
 ---
 

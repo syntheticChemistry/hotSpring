@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-#![allow(missing_docs)]
-
 //! Trajectory input construction and encoding for NPU.
 //!
 //! Gen 1: canonical 6D input for the multi-head ESN.

@@ -131,9 +131,11 @@ fn gpu_metropolis(
     // Single readback: 72 bytes (9 f64s)
     let data = gpu
         .read_staging_f64_n(&ham.metropolis_staging, 9)
-        .map_err(|e| crate::error::HotSpringError::GpuCompute(
-            format!("Metropolis readback failed (GPU lost?): {e}"),
-        ))?;
+        .map_err(|e| {
+            crate::error::HotSpringError::GpuCompute(format!(
+                "Metropolis readback failed (GPU lost?): {e}"
+            ))
+        })?;
 
     let accepted = data[0] > 0.5;
 

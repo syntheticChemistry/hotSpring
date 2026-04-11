@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-#![allow(missing_docs)]
-
 //! NPU worker thread for the 11-head dynamical mixed pipeline.
 //!
 //! Handles pre/during/post computation screening, Brain Layer 1 (CG residual

@@ -29,7 +29,7 @@
 
 use hotspring_barracuda::bench::GpuTelemetry;
 use hotspring_barracuda::bin_helpers::silicon_qcd::{
-    lookup_budget, mode_label, parse_args, run_beta_point, AmdGpuPower, BetaSummary,
+    AmdGpuPower, BetaSummary, lookup_budget, mode_label, parse_args, run_beta_point,
 };
 use hotspring_barracuda::gpu::GpuF64;
 

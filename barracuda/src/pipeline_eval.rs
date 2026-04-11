@@ -92,6 +92,10 @@ impl<'a> PipelineEval<'a> {
             .collect()
     }
 
+    #[expect(
+        clippy::expect_used,
+        reason = "GPU trajectory failure is unrecoverable in this pipeline"
+    )]
     fn run_hmc(
         &self,
         dims: [usize; 4],

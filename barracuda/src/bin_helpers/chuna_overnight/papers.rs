@@ -4,8 +4,8 @@
 
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::lattice::gpu_hmc::{
-    GpuDynHmcState, GpuHmcState, GpuHmcStreamingPipelines,
-    gpu_dynamical_hmc_trajectory_streaming, gpu_hmc_trajectory_streaming, gpu_links_to_lattice,
+    GpuDynHmcState, GpuHmcState, GpuHmcStreamingPipelines, gpu_dynamical_hmc_trajectory_streaming,
+    gpu_hmc_trajectory_streaming, gpu_links_to_lattice,
 };
 use hotspring_barracuda::validation::{TelemetryWriter, ValidationHarness};
 use std::time::Instant;
@@ -13,7 +13,6 @@ use std::time::Instant;
 use super::harness::SubstrateResults;
 
 /// CPU-based quenched pre-thermalization fallback (retained for HOTSPRING_NO_GPU=1).
-#[allow(dead_code)]
 pub fn cpu_quenched_pretherm(
     dims: [usize; 4],
     beta: f64,
@@ -66,7 +65,15 @@ pub fn cpu_quenched_pretherm(
 
 // ─── Paper 43 ────────────────────────────────────────────────────
 
-pub fn paper_43_convergence(harness: &mut ValidationHarness, gpu: &GpuF64, telem: &mut TelemetryWriter) {
+#[expect(
+    clippy::expect_used,
+    reason = "GPU trajectory failure is unrecoverable in this pipeline"
+)]
+pub fn paper_43_convergence(
+    harness: &mut ValidationHarness,
+    gpu: &GpuF64,
+    telem: &mut TelemetryWriter,
+) {
     use hotspring_barracuda::lattice::gradient_flow::{FlowIntegrator, run_flow};
     use hotspring_barracuda::lattice::wilson::Lattice;
 
@@ -148,15 +155,24 @@ pub fn paper_43_convergence(harness: &mut ValidationHarness, gpu: &GpuF64, telem
     println!("    {:.1}s", start.elapsed().as_secs_f64());
 }
 
-pub fn paper_43_production(harness: &mut ValidationHarness, gpu: &GpuF64, telem: &mut TelemetryWriter, results: &mut SubstrateResults) {
+#[expect(
+    clippy::expect_used,
+    reason = "GPU trajectory failure is unrecoverable in this pipeline"
+)]
+pub fn paper_43_production(
+    harness: &mut ValidationHarness,
+    gpu: &GpuF64,
+    telem: &mut TelemetryWriter,
+    results: &mut SubstrateResults,
+) {
     use hotspring_barracuda::lattice::gradient_flow::{FlowIntegrator, find_t0, find_w0, run_flow};
     use hotspring_barracuda::lattice::wilson::Lattice;
 
     let configs: &[([usize; 4], f64, usize, &str)] = &[
-        ([8, 8, 8, 8],     5.9, 200, "8⁴ β=5.9"),
-        ([8, 8, 8, 8],     6.0, 200, "8⁴ β=6.0"),
-        ([8, 8, 8, 16],    6.0, 200, "8³×16 β=6.0"),
-        ([8, 8, 8, 8],     6.2, 200, "8⁴ β=6.2"),
+        ([8, 8, 8, 8], 5.9, 200, "8⁴ β=5.9"),
+        ([8, 8, 8, 8], 6.0, 200, "8⁴ β=6.0"),
+        ([8, 8, 8, 16], 6.0, 200, "8³×16 β=6.0"),
+        ([8, 8, 8, 8], 6.2, 200, "8⁴ β=6.2"),
         ([16, 16, 16, 16], 6.0, 500, "16⁴ β=6.0"),
         ([16, 16, 16, 32], 6.0, 300, "16³×32 β=6.0"),
     ];
@@ -185,13 +201,18 @@ pub fn paper_43_production(harness: &mut ValidationHarness, gpu: &GpuF64, telem:
                 gpu, &pipelines, &state, n_md, md_dt, i as u32, &mut seed,
             )
             .expect("streaming HMC trajectory");
-            if r.accepted { n_accept += 1; }
+            if r.accepted {
+                n_accept += 1;
+            }
             last_plaq = r.plaquette;
             if (i + 1) % log_interval == 0 {
                 let running_acc = n_accept as f64 / (i + 1) as f64;
                 println!(
                     "    [{}/{}] ⟨P⟩={:.6}, acc={:.0}%",
-                    i + 1, n_therm, r.plaquette, running_acc * 100.0
+                    i + 1,
+                    n_therm,
+                    r.plaquette,
+                    running_acc * 100.0
                 );
                 telem.log_map(
                     &format!("p43_prod_{label}"),
@@ -252,6 +273,10 @@ pub fn paper_43_production(harness: &mut ValidationHarness, gpu: &GpuF64, telem:
 /// This solves the 0% acceptance problem from hot-start (|ΔH| ~ 6.5M).
 ///
 /// The NPU, when available, monitors and adjusts the annealing schedule.
+#[expect(
+    clippy::expect_used,
+    reason = "GPU trajectory failure is unrecoverable in this pipeline"
+)]
 pub fn paper_43_dynamical(
     harness: &mut ValidationHarness,
     gpu: &GpuF64,
@@ -286,14 +311,24 @@ pub fn paper_43_dynamical(
 
     for i in 0..n_quenched_therm {
         let r = gpu_hmc_trajectory_streaming(
-            gpu, &quenched_pip, &quenched_state, n_md_steps, dt, i as u32, &mut seed,
+            gpu,
+            &quenched_pip,
+            &quenched_state,
+            n_md_steps,
+            dt,
+            i as u32,
+            &mut seed,
         )
         .expect("streaming HMC trajectory");
-        if r.accepted { q_accept += 1; }
+        if r.accepted {
+            q_accept += 1;
+        }
         if (i + 1) % 25 == 0 {
             println!(
                 "      [{}/{}] ⟨P⟩={:.6}, acc={:.0}%",
-                i + 1, n_quenched_therm, r.plaquette,
+                i + 1,
+                n_quenched_therm,
+                r.plaquette,
                 q_accept as f64 / (i + 1) as f64 * 100.0,
             );
             telem.log_map(
@@ -322,7 +357,7 @@ pub fn paper_43_dynamical(
     let mut lattice = Lattice::hot_start(dims, beta, 42);
     gpu_links_to_lattice(gpu, &quenched_state, &mut lattice);
 
-        let dyn_pip = hotspring_barracuda::lattice::gpu_hmc::GpuDynHmcStreamingPipelines::new(gpu);
+    let dyn_pip = hotspring_barracuda::lattice::gpu_hmc::GpuDynHmcStreamingPipelines::new(gpu);
     let masses = [1.0, 0.5, 0.2, mass];
     let trajs_per_mass = n_dyn_therm / masses.len().max(1);
     let mut total_cg = 0usize;
@@ -332,7 +367,13 @@ pub fn paper_43_dynamical(
 
     for (stage_idx, &m) in masses.iter().enumerate() {
         let dyn_state = GpuDynHmcState::from_lattice_multi(
-            gpu, &lattice, beta, m, cg_tol, cg_max_iter, n_fields,
+            gpu,
+            &lattice,
+            beta,
+            m,
+            cg_tol,
+            cg_max_iter,
+            n_fields,
         );
         let n_traj = if stage_idx == masses.len() - 1 {
             n_dyn_therm - trajs_per_mass * (masses.len() - 1)
@@ -343,10 +384,18 @@ pub fn paper_43_dynamical(
 
         for t in 0..n_traj {
             let r = gpu_dynamical_hmc_trajectory_streaming(
-                gpu, &dyn_pip, &dyn_state, n_md_steps, dt, (total_traj + t) as u32, &mut seed,
+                gpu,
+                &dyn_pip,
+                &dyn_state,
+                n_md_steps,
+                dt,
+                (total_traj + t) as u32,
+                &mut seed,
             )
             .expect("dynamical streaming HMC trajectory");
-            if r.accepted { stage_accept += 1; }
+            if r.accepted {
+                stage_accept += 1;
+            }
             total_cg += r.cg_iterations;
             total_traj += 1;
             last_plaq = r.plaquette;
@@ -355,7 +404,8 @@ pub fn paper_43_dynamical(
 
         println!(
             "      stage {} (m={m}): {:.0}% accept, ⟨P⟩={last_plaq:.6}",
-            stage_idx, last_acceptance * 100.0
+            stage_idx,
+            last_acceptance * 100.0
         );
         telem.log_map(
             &format!("p43_dyn_stage{stage_idx}"),
@@ -373,7 +423,8 @@ pub fn paper_43_dynamical(
     let plaq = lattice.average_plaquette();
     println!(
         "    ⟨P⟩ = {plaq:.6}, {:.0}% accept (final stage), {} CG iters",
-        last_acceptance * 100.0, total_cg,
+        last_acceptance * 100.0,
+        total_cg,
     );
 
     telem.log_map(
@@ -653,7 +704,11 @@ pub fn paper_44_multicomponent_gpu(
 
 // ─── Paper 45 ────────────────────────────────────────────────────
 
-pub fn paper_45_gpu_bgk(harness: &mut ValidationHarness, gpu: &GpuF64, telem: &mut TelemetryWriter) {
+pub fn paper_45_gpu_bgk(
+    harness: &mut ValidationHarness,
+    gpu: &GpuF64,
+    telem: &mut TelemetryWriter,
+) {
     use hotspring_barracuda::physics::gpu_kinetic_fluid::{GpuBgkPipeline, validate_gpu_bgk};
 
     println!("  GPU BGK relaxation...");
@@ -683,7 +738,11 @@ pub fn paper_45_gpu_bgk(harness: &mut ValidationHarness, gpu: &GpuF64, telem: &m
     println!("    {:.1}s", start.elapsed().as_secs_f64());
 }
 
-pub fn paper_45_gpu_euler(harness: &mut ValidationHarness, gpu: &GpuF64, telem: &mut TelemetryWriter) {
+pub fn paper_45_gpu_euler(
+    harness: &mut ValidationHarness,
+    gpu: &GpuF64,
+    telem: &mut TelemetryWriter,
+) {
     use hotspring_barracuda::physics::gpu_euler::{GpuEulerPipeline, validate_gpu_euler};
 
     println!("  GPU Euler / Sod shock tube...");

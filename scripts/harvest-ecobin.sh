@@ -47,7 +47,7 @@ if [ ! -f "$BINARY_X86" ]; then
 fi
 
 echo "  Verifying static linkage..."
-file "$BINARY_X86" | grep -q "statically linked" || {
+file "$BINARY_X86" | grep -qE "static(ally|-pie) linked" || {
     echo "WARNING: binary may not be statically linked:"
     file "$BINARY_X86"
 }
@@ -58,13 +58,9 @@ echo "  Binary: $BINARY_X86 ($(( BINARY_SIZE / 1024 / 1024 )) MB)"
 # ── Harvest to plasmidBin ──
 echo ""
 echo "  Harvesting to plasmidBin..."
-if [ -x "$PLASMIDB/harvest.sh" ]; then
-    "$PLASMIDB/harvest.sh" --primal hotspring --source "$(dirname "$BINARY_X86")"
-else
-    mkdir -p "$PLASMIDB/hotspring/x86_64"
-    cp "$BINARY_X86" "$PLASMIDB/hotspring/x86_64/hotspring_primal"
-    echo "  Copied to $PLASMIDB/hotspring/x86_64/hotspring_primal"
-fi
+mkdir -p "$PLASMIDB/hotspring/x86_64"
+cp "$BINARY_X86" "$PLASMIDB/hotspring/x86_64/hotspring_primal"
+echo "  Copied to $PLASMIDB/hotspring/x86_64/hotspring_primal"
 
 # ── b3sum checksum ──
 if command -v b3sum &>/dev/null; then
@@ -80,13 +76,9 @@ if $CROSS_AARCH64; then
 
     BINARY_ARM="target/aarch64-unknown-linux-musl/release/hotspring_primal"
     if [ -f "$BINARY_ARM" ]; then
-        if [ -x "$PLASMIDB/harvest.sh" ]; then
-            "$PLASMIDB/harvest.sh" --primal hotspring --arch aarch64 --source "$(dirname "$BINARY_ARM")"
-        else
-            mkdir -p "$PLASMIDB/hotspring/aarch64"
-            cp "$BINARY_ARM" "$PLASMIDB/hotspring/aarch64/hotspring_primal"
-            echo "  Copied to $PLASMIDB/hotspring/aarch64/hotspring_primal"
-        fi
+        mkdir -p "$PLASMIDB/hotspring/aarch64"
+        cp "$BINARY_ARM" "$PLASMIDB/hotspring/aarch64/hotspring_primal"
+        echo "  Copied to $PLASMIDB/hotspring/aarch64/hotspring_primal"
         if command -v b3sum &>/dev/null; then
             B3_ARM=$(b3sum "$BINARY_ARM" | cut -d' ' -f1)
             echo "  b3sum (aarch64): $B3_ARM"

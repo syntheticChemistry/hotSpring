@@ -525,6 +525,36 @@ pub const ANDERSON_3D_CLEAN_BANDWIDTH_ABS: f64 = 0.1;
 /// Smaller differences can be finite-size fluctuations.
 pub const ANDERSON_3D_GOE_POISSON_DELTA_R_MIN: f64 = 0.05;
 
+/// Anderson 3D metallic bulk: minimum mean level-spacing ratio ⟨r⟩ (GOE-like).
+///
+/// Weak-disorder 3D bulk should satisfy ⟨r⟩ above ~0.48 to match GOE
+/// universality (⟨r⟩ ≈ 0.531) within sample variance on L=8.
+pub const ANDERSON_3D_METALLIC_R_MIN: f64 = 0.48;
+
+/// Anderson 3D localized bulk: max |⟨r⟩ − r_Poisson| for strong disorder.
+///
+/// Stricter than `POISSON_DEVIATION_TOLERANCE` (0.05): 3D validation at W=30
+/// uses 0.04 to match the Poisson reference more tightly on small volumes.
+pub const ANDERSON_3D_POISSON_R_MEAN_DEVIATION: f64 = 0.04;
+
+/// Gershgorin / spectrum-bound slack (tight): eigenvalue padding vs analytic bounds.
+///
+/// Used for 1D Anderson and almost-Mathieu checks where the discrete spectrum
+/// should lie inside published intervals with O(0.01) numerical margin.
+pub const SPECTRAL_GERSHGORIN_SLACK: f64 = 0.01;
+
+/// Gershgorin / spectrum-bound slack (Lanczos finite-volume).
+///
+/// 2D/3D Anderson spectrum checks with full Lanczos on moderate L use a wider
+/// 0.1 padding vs `[-bound, bound]` from row-sum (Gershgorin) estimates.
+pub const SPECTRAL_GERSHGORIN_SLACK_LATTICE: f64 = 0.1;
+
+/// 1D Anderson Lyapunov at weak disorder: relative error vs Kappus–Wegner W²/96.
+///
+/// `validate_spectral` quantitative gate at W=1: |γ(0) − W²/96| / (W²/96) must
+/// stay within ~30% given transfer-matrix statistics at finite N.
+pub const SPECTRAL_LYAPUNOV_KW_THEORY_REL: f64 = 0.30;
+
 /// U(1) leapfrog reversibility: |ΔH| upper bound for small dt.
 ///
 /// With dt=0.01 and 100 steps, |ΔH| should be < 1.0. Verifies

@@ -37,16 +37,15 @@ fn main() {
     println!("  ── Compute Dispatch (ToadStool) ──");
     if let Some(ts) = ctx.toadstool() {
         if ts.alive {
-            let cap_result = ctx.call(
-                "toadstool",
-                "compute.capabilities",
-                &serde_json::json!({}),
-            );
+            let cap_result = ctx.call("toadstool", "compute.capabilities", &serde_json::json!({}));
             match cap_result {
                 Ok(resp) => {
                     let has_caps = resp.get("result").is_some();
                     harness.check_bool("ToadStool compute.capabilities", has_caps);
-                    println!("    Capabilities query: {}", if has_caps { "OK" } else { "FAIL" });
+                    println!(
+                        "    Capabilities query: {}",
+                        if has_caps { "OK" } else { "FAIL" }
+                    );
                     if let Some(result) = resp.get("result") {
                         if let Some(devices) = result.get("devices").and_then(|d| d.as_array()) {
                             println!("    Devices: {}", devices.len());
@@ -65,11 +64,7 @@ fn main() {
     println!("  ── Sovereign Compile (coralReef) ──");
     if let Some(cr) = ctx.coralreef() {
         if cr.alive {
-            let compile_result = ctx.call(
-                "coralreef",
-                "shader.list",
-                &serde_json::json!({}),
-            );
+            let compile_result = ctx.call("coralreef", "shader.list", &serde_json::json!({}));
             match compile_result {
                 Ok(resp) => {
                     let has_list = resp.get("result").is_some();

@@ -68,7 +68,11 @@ fn main() {
     println!("  CPU time: {cpu_time:.2}s");
 
     let ev = validate_energy(&sim.energy_history, &case);
-    harness.check_upper("CPU energy conservation", ev.drift_pct, tolerances::ENERGY_DRIFT_PCT);
+    harness.check_upper(
+        "CPU energy conservation",
+        ev.drift_pct,
+        tolerances::ENERGY_DRIFT_PCT,
+    );
     println!();
 
     // ── Phase 2: Upload snapshots to GPU ring + GPU VACF ──
@@ -145,7 +149,7 @@ fn main() {
     harness.check_upper(
         "D* CPU≈GPU VACF (same data, different reduction)",
         rel_err,
-        0.01, // 1% tolerance — same data, just GPU reduction vs CPU sum
+        tolerances::TRANSPORT_VACF_CPU_GPU_PARITY_REL,
     );
 
     harness.check_bool("GPU D* > 0", d_gpu > 0.0);

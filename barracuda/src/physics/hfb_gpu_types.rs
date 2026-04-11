@@ -232,13 +232,13 @@ pub struct GroupResources {
     pub lambda_p_buf: wgpu::Buffer,
     pub lambda_n_buf: wgpu::Buffer,
     pub delta_buf: wgpu::Buffer,
-    #[allow(dead_code)] // GPU buffers kept alive for bind group validity
+    #[expect(dead_code, reason = "EVOLUTION: reserved for GPU pipeline wiring")]
     pub v2_p_buf: wgpu::Buffer,
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "EVOLUTION: reserved for GPU pipeline wiring")]
     pub v2_n_buf: wgpu::Buffer,
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "EVOLUTION: reserved for GPU pipeline wiring")]
     pub rho_p_new_buf: wgpu::Buffer,
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "EVOLUTION: reserved for GPU pipeline wiring")]
     pub rho_n_new_buf: wgpu::Buffer,
     pub mix_params_buf: wgpu::Buffer,
     pub bcs_v2_pipe: wgpu::ComputePipeline,

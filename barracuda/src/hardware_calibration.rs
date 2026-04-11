@@ -405,7 +405,10 @@ fn max_ulp(reference: &[f64], actual: &[f64]) -> f64 {
         .fold(0.0_f64, f64::max)
 }
 
-#[allow(clippy::float_cmp)]
+#[expect(
+    clippy::float_cmp,
+    reason = "exact equality required for determinism check"
+)]
 fn ulp_distance(a: f64, b: f64) -> f64 {
     if a.is_nan() || b.is_nan() {
         return f64::NAN;

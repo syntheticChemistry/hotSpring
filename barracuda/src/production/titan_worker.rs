@@ -23,7 +23,6 @@ pub enum TitanRequest {
     PreThermalize {
         /// Inverse coupling β.
         beta: f64,
-        #[expect(dead_code, reason = "quenched HMC ignores mass; kept for dynamical extension")]
         /// Fermion mass (unused in quenched).
         mass: f64,
         /// Lattice size (one dimension of L⁴).

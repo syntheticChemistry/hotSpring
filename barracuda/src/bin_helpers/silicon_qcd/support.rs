@@ -6,7 +6,6 @@ use hotspring_barracuda::bench::EnergyReport;
 
 // ── Silicon budget (reused from bench_silicon_budget) ──
 
-#[allow(dead_code)] // Fields used for future reporting / CSV parity with bench_silicon_budget
 pub struct SiliconBudget {
     pub name: String,
     pub fp32_tflops: f64,
@@ -94,7 +93,12 @@ pub fn lookup_budget(name: &str) -> SiliconBudget {
 ///   CG:    ~24 FLOP/site per iteration (dot + axpy)
 ///   PRNG:  ~100 FLOP/site per momentum/pseudofermion draw
 ///   Plaq:  ~1224 FLOP/site (6 planes × 204 FLOP)
-pub fn estimate_traj_flops(vol: usize, n_md: usize, total_cg_iters: usize, is_quenched: bool) -> f64 {
+pub fn estimate_traj_flops(
+    vol: usize,
+    n_md: usize,
+    total_cg_iters: usize,
+    is_quenched: bool,
+) -> f64 {
     let v = vol as f64;
     let force = 16000.0 * v * n_md as f64;
     let plaq = 1224.0 * v * 2.0; // start + end
@@ -111,7 +115,12 @@ pub fn estimate_traj_flops(vol: usize, n_md: usize, total_cg_iters: usize, is_qu
 }
 
 /// Memory traffic estimate for a trajectory (bytes).
-pub fn estimate_traj_bytes(vol: usize, n_md: usize, total_cg_iters: usize, is_quenched: bool) -> f64 {
+pub fn estimate_traj_bytes(
+    vol: usize,
+    n_md: usize,
+    total_cg_iters: usize,
+    is_quenched: bool,
+) -> f64 {
     let n_links = vol * 4;
     let link_bytes = n_links as f64 * 18.0 * 8.0; // SU(3) = 18 f64
     let force_rw = link_bytes * 2.0 * n_md as f64; // read links + write force per step
@@ -161,7 +170,6 @@ impl AmdGpuPower {
 
 // ── Trajectory result with silicon metrics ──
 
-#[allow(dead_code)] // traj_idx and other fields align with CSV columns / tooling
 pub struct InstrumentedResult {
     pub traj_idx: usize,
     pub accepted: bool,
@@ -176,7 +184,6 @@ pub struct InstrumentedResult {
 
 // ── Run summary per beta ──
 
-#[allow(dead_code)] // Summary struct consumed by downstream tooling / eprintln
 pub struct BetaSummary {
     pub beta: f64,
     pub mode: String,
@@ -199,7 +206,6 @@ pub struct BetaSummary {
     pub flow_results: Option<FlowSummary>,
 }
 
-#[allow(dead_code)]
 pub struct FlowSummary {
     pub n_configs: usize,
     pub mean_t0: Option<f64>,
@@ -234,6 +240,10 @@ pub struct CliArgs {
     pub flow_t_max: f64,
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "CLI argument parsing — invalid input should panic with diagnostic"
+)]
 pub fn parse_args() -> CliArgs {
     let mut args = CliArgs {
         mode: "quenched".to_string(),
@@ -332,4 +342,3 @@ pub fn is_dynamical(mode: &str) -> bool {
         "nf1" | "1" | "nf2" | "2" | "nf2+1" | "2+1" | "nf3" | "3" | "nf4" | "4" | "nf2+1+1"
     )
 }
-

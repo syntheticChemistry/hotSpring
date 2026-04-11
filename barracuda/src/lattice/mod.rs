@@ -62,14 +62,14 @@ pub mod lime;
 pub mod measurement;
 /// Multi-GPU lattice dispatcher (CPU-threaded, evolution target).
 pub mod multi_gpu;
-/// Pseudofermion action and dynamical fermion HMC.
-pub mod pseudofermion;
-/// Rational HMC for fractional determinant powers (Nf=2, 2+1).
-pub mod rhmc;
 /// Physics process catalog with cost models for parameter sweeps.
 pub mod process_catalog;
+/// Pseudofermion action and dynamical fermion HMC.
+pub mod pseudofermion;
 /// QCDml 2.0 XML metadata for ILDG catalog interop.
 pub mod qcdml;
+/// Rational HMC for fractional determinant powers (Nf=2, 2+1).
+pub mod rhmc;
 /// SU(3) 3x3 complex matrix operations (group, algebra, Cayley).
 pub mod su3;
 /// Task matrix: systematic parameter sweeps with priority scheduling.

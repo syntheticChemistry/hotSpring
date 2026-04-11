@@ -10,7 +10,7 @@
 > but rather the PDE slot position. This experiment's `strategy_sysmem.rs` used
 > legacy lower-8-byte PDE entries, causing MMU walker fallback to physical VRAM
 > addressing, which satisfied HS authentication. See `experiments/110_CONSOLIDATION_MATRIX.md`
-> for the definitive truth table and `specs/GPU_CRACKING_GAP_TRACKER.md` Gap 14.
+> for the definitive truth table and `specs/archive/GPU_CRACKING_GAP_TRACKER.md` Gap 14.
 
 ## Summary
 

@@ -34,8 +34,8 @@
 //! ```
 
 use hotspring_barracuda::bin_helpers::validation_matrix::{
-    beta_scan_cells, custom_cell, dynamical_scaling_cells, mass_scan_cells, parse_args,
-    print_planning_matrix, quenched_ladder_cells, run_cell, CliArgs, MatrixCell,
+    CliArgs, MatrixCell, beta_scan_cells, custom_cell, dynamical_scaling_cells, mass_scan_cells,
+    parse_args, print_planning_matrix, quenched_ladder_cells, run_cell,
 };
 use hotspring_barracuda::lattice::measurement::RunManifest;
 use hotspring_barracuda::validation::TelemetryWriter;
@@ -83,7 +83,10 @@ fn main() {
         "quenched-ladder" => quenched_ladder_cells(),
         "dynamical-scaling" => dynamical_scaling_cells(),
         "beta-scan" => beta_scan_cells(args.first_lattice().unwrap_or(16)),
-        "mass-scan" => mass_scan_cells(args.first_lattice().unwrap_or(16), args.first_beta().unwrap_or(6.0)),
+        "mass-scan" => mass_scan_cells(
+            args.first_lattice().unwrap_or(16),
+            args.first_beta().unwrap_or(6.0),
+        ),
         "custom" => custom_cell(&args),
         "all" => {
             let mut all = quenched_ladder_cells();
@@ -94,7 +97,9 @@ fn main() {
         }
         other => {
             eprintln!("Unknown phase: {other}");
-            eprintln!("Valid phases: quenched-ladder, dynamical-scaling, beta-scan, mass-scan, custom, all, print-matrix");
+            eprintln!(
+                "Valid phases: quenched-ladder, dynamical-scaling, beta-scan, mass-scan, custom, all, print-matrix"
+            );
             std::process::exit(1);
         }
     };
@@ -133,11 +138,7 @@ fn main() {
     let mut results = Vec::with_capacity(cells.len());
 
     for (i, cell) in cells.iter().enumerate() {
-        eprintln!(
-            "═══ Cell {}/{} ═══",
-            i + 1,
-            cells.len()
-        );
+        eprintln!("═══ Cell {}/{} ═══", i + 1, cells.len());
         let result = run_cell(cell, args.seed + i as u64, args.max_flow_time);
         telemetry.log(&result.label, "plaquette", result.mean_plaquette);
         telemetry.log(&result.label, "acceptance", result.acceptance);
@@ -205,9 +206,7 @@ fn main() {
             r.mean_polyakov,
             r.t0.map(|v| format!("{v:.6}")).unwrap_or_default(),
             r.w0.map(|v| format!("{v:.6}")).unwrap_or_default(),
-            r.topo_charge
-                .map(|v| format!("{v:.4}"))
-                .unwrap_or_default(),
+            r.topo_charge.map(|v| format!("{v:.4}")).unwrap_or_default(),
             r.chiral_condensate
                 .map(|v| format!("{v:.6e}"))
                 .unwrap_or_default(),

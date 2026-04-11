@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-#![allow(deprecated)]
+#![expect(deprecated, reason = "transitional — migration to new API pending")]
 
 //! Legacy multi-shift CG with per-iteration CPU readback of dot products.
 //!
@@ -39,7 +39,7 @@ pub fn gpu_multi_shift_cg_solve(
     let mut total_iters = 0;
 
     for (s, &sigma) in shifts.iter().enumerate() {
-        #[allow(deprecated)]
+        #[expect(deprecated, reason = "transitional — migration to new API pending")]
         let iters = gpu_shifted_cg_solve(
             gpu,
             dyn_pipelines,
@@ -66,7 +66,7 @@ pub fn gpu_multi_shift_cg_solve(
 /// sync points. Use `gpu_shifted_cg_solve_resident` from
 /// `resident_shifted_cg.rs` which keeps all scalars on GPU.
 #[deprecated(note = "use gpu_shifted_cg_solve_resident from resident_shifted_cg.rs")]
-#[allow(deprecated)]
+#[expect(deprecated, reason = "transitional — migration to new API pending")]
 fn gpu_shifted_cg_solve(
     gpu: &GpuF64,
     pipelines: &GpuDynHmcPipelines,

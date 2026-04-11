@@ -63,7 +63,8 @@ fn check_anderson_spectrum(harness: &mut ValidationHarness) {
 
     let lo = -2.0 - w / 2.0;
     let hi = 2.0 + w / 2.0;
-    let all_in_bounds = evals.iter().all(|&ev| ev >= lo - 0.01 && ev <= hi + 0.01);
+    let slack = tolerances::SPECTRAL_GERSHGORIN_SLACK;
+    let all_in_bounds = evals.iter().all(|&ev| ev >= lo - slack && ev <= hi + slack);
     let min_ev = evals.first().copied().unwrap_or(0.0);
     let max_ev = evals.last().copied().unwrap_or(0.0);
 
@@ -103,7 +104,11 @@ fn check_anderson_lyapunov(harness: &mut ValidationHarness) {
     let theory_1 = 1.0 / 96.0;
     let rel_err = ((gamma_1 - theory_1) / theory_1).abs();
 
-    harness.check_upper("γ(0) at W=1 within 30% of W²/96", rel_err, 0.30);
+    harness.check_upper(
+        "γ(0) at W=1 within 30% of W²/96",
+        rel_err,
+        tolerances::SPECTRAL_LYAPUNOV_KW_THEORY_REL,
+    );
     println!();
 }
 
@@ -179,7 +184,8 @@ fn check_almost_mathieu_bounds(harness: &mut ValidationHarness) {
     let evals = spectral::find_all_eigenvalues(&d, &e);
 
     let bound = 2.0f64.mul_add(lambda, 2.0);
-    let all_bounded = evals.iter().all(|&ev| ev.abs() <= bound + 0.01);
+    let slack = tolerances::SPECTRAL_GERSHGORIN_SLACK;
+    let all_bounded = evals.iter().all(|&ev| ev.abs() <= bound + slack);
     let min_ev = evals.first().copied().unwrap_or(0.0);
     let max_ev = evals.last().copied().unwrap_or(0.0);
 

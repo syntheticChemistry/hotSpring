@@ -62,7 +62,9 @@ impl DagSession {
             "spring": "hotSpring",
         });
 
-        let resp = nucleus.call("rhizocrypt", "dag.create_session", &params).ok()?;
+        let resp = nucleus
+            .call_by_capability("dag", "dag.create_session", params)
+            .ok()?;
         let session_id = resp
             .get("result")
             .and_then(|r| r.get("session_id"))
@@ -106,7 +108,7 @@ impl DagSession {
             },
         });
 
-        match nucleus.call("rhizocrypt", "dag.append_event", &params) {
+        match nucleus.call_by_capability("dag", "dag.append_event", params) {
             Ok(_) => {
                 self.events_appended += 1;
             }
@@ -126,7 +128,7 @@ impl DagSession {
             "session_id": self.session_id,
         });
 
-        let root = match nucleus.call("rhizocrypt", "dag.dehydrate", &params) {
+        let root = match nucleus.call_by_capability("dag", "dag.dehydrate", params) {
             Ok(resp) => resp
                 .get("result")
                 .and_then(|r| r.get("merkle_root"))
@@ -182,7 +184,9 @@ fn try_sign_merkle_root(
         "message": message_b64,
     });
 
-    let resp = nucleus.call("beardog", "crypto.sign_ed25519", &params).ok()?;
+    let resp = nucleus
+        .call_by_capability("crypto", "crypto.sign_ed25519", params)
+        .ok()?;
     let sig_b64 = resp
         .get("result")
         .and_then(|r| r.get("signature"))
@@ -200,8 +204,7 @@ fn try_sign_merkle_root(
 
 /// Minimal base64 encoding (standard alphabet, no padding dependency).
 mod base64_encode {
-    const ALPHABET: &[u8; 64] =
-        b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
     pub fn encode(input: &[u8]) -> String {
         let mut out = String::with_capacity(input.len().div_ceil(3) * 4);

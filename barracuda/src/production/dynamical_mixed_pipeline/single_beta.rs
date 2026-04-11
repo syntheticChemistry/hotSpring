@@ -27,6 +27,10 @@ const NMD_MIN: usize = 20;
 const NMD_MAX: usize = 500;
 
 /// Run a single β point: quenched pre-therm, dynamical therm, measurement, NPU post-processing.
+#[expect(
+    clippy::expect_used,
+    reason = "GPU trajectory failure is unrecoverable in this pipeline"
+)]
 pub(super) fn run_single_beta(
     config: &DynamicalMixedConfig,
     ctx: &DynamicalMixedScanContext<'_>,

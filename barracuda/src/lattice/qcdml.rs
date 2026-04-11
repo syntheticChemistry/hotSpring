@@ -17,6 +17,7 @@
 
 use super::ildg::IldgMetadata;
 use super::measurement::{AlgorithmParams, ConfigEntry, EnsembleManifest, Provenance};
+use std::fmt::Write;
 
 /// Management information for QCDml archive history events.
 #[derive(Clone, Debug)]
@@ -82,10 +83,7 @@ impl QcdmlEnsembleInfo {
     pub fn for_manifest(manifest: &EnsembleManifest) -> Self {
         let [nx, ny, nz, nt] = manifest.dims;
         Self {
-            markov_chain_uri: format!(
-                "urn:hotspring:ensemble:{}",
-                manifest.ensemble_id
-            ),
+            markov_chain_uri: format!("urn:hotspring:ensemble:{}", manifest.ensemble_id),
             collaboration: "hotSpring".to_string(),
             project_name: "hotSpring-barracuda QCD".to_string(),
             ensemble_label: Some(format!(
@@ -143,10 +141,7 @@ impl QcdmlConfigInfo {
 }
 
 /// Generate a QCDml 2.0 ensemble XML document.
-pub fn generate_ensemble_xml(
-    manifest: &EnsembleManifest,
-    info: &QcdmlEnsembleInfo,
-) -> String {
+pub fn generate_ensemble_xml(manifest: &EnsembleManifest, info: &QcdmlEnsembleInfo) -> String {
     let [nx, ny, nz, nt] = manifest.dims;
     let now = super::measurement::iso8601_now();
 
@@ -247,7 +242,9 @@ pub fn generate_config_xml(
     xml.push('\n');
     xml.push_str(r#"<gaugeConfiguration xmlns="http://www.lqcd.org/ildg/QCDml/config2.0""#);
     xml.push_str(r#" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance""#);
-    xml.push_str(r#" xsi:schemaLocation="http://www.lqcd.org/ildg/QCDml/config2.0 QCDmlConfig2.0.0.xsd">"#);
+    xml.push_str(
+        r#" xsi:schemaLocation="http://www.lqcd.org/ildg/QCDml/config2.0 QCDmlConfig2.0.0.xsd">"#,
+    );
     xml.push('\n');
 
     // dataLFN
@@ -293,7 +290,12 @@ pub fn generate_config_xml(
 
     // markovSequence
     xml.push_str("  <markovSequence>\n");
-    emit_tag(&mut xml, 2, "markovChainURI", &ensemble_info.markov_chain_uri);
+    emit_tag(
+        &mut xml,
+        2,
+        "markovChainURI",
+        &ensemble_info.markov_chain_uri,
+    );
     emit_tag(&mut xml, 2, "series", &config_info.series);
     xml.push_str("    <markovStep>\n");
     emit_tag(&mut xml, 3, "update", &entry.trajectory.to_string());
@@ -333,13 +335,13 @@ fn emit_tag(xml: &mut String, indent: usize, tag: &str, value: &str) {
 
 fn emit_participant_xml(xml: &mut String, indent: usize, p: &QcdmlParticipant) {
     let pad = "  ".repeat(indent);
-    xml.push_str(&format!("{pad}<participant>\n"));
+    let _ = writeln!(xml, "{pad}<participant>");
     if let Some(ref orcid) = p.orcid {
         emit_tag(xml, indent + 1, "orcid", orcid);
     }
     emit_tag(xml, indent + 1, "name", &p.name);
     emit_tag(xml, indent + 1, "institution", &p.institution);
-    xml.push_str(&format!("{pad}</participant>\n"));
+    let _ = writeln!(xml, "{pad}</participant>");
 }
 
 fn emit_gauge_action_xml(xml: &mut String, manifest: &EnsembleManifest) {
@@ -377,47 +379,50 @@ fn emit_gauge_action_xml(xml: &mut String, manifest: &EnsembleManifest) {
 
 fn emit_fermion_action_xml(xml: &mut String, manifest: &EnsembleManifest) {
     xml.push_str("    <quarkAction>\n");
-    match manifest.fermion_action.to_lowercase().as_str() {
-        "hisq" => {
-            xml.push_str("      <hisqQuark>\n");
-            xml.push_str("        <quarkField>\n");
-            emit_tag(xml, 5, "normalisation", "default");
-            xml.push_str("          <boundaryCondition>periodic</boundaryCondition>\n");
-            xml.push_str("          <boundaryCondition>periodic</boundaryCondition>\n");
-            xml.push_str("          <boundaryCondition>periodic</boundaryCondition>\n");
-            xml.push_str("          <boundaryCondition>antiperiodic</boundaryCondition>\n");
-            xml.push_str("        </quarkField>\n");
-            emit_tag(xml, 4, "mass", &format!("{:.6}", manifest.mass));
-            emit_tag(xml, 4, "numberOfFlavours", &manifest.nf.to_string());
-            xml.push_str("      </hisqQuark>\n");
-        }
-        _ => {
-            xml.push_str("      <ksQuark>\n");
-            xml.push_str("        <quarkField>\n");
-            emit_tag(xml, 5, "normalisation", "default");
-            xml.push_str("          <boundaryCondition>periodic</boundaryCondition>\n");
-            xml.push_str("          <boundaryCondition>periodic</boundaryCondition>\n");
-            xml.push_str("          <boundaryCondition>periodic</boundaryCondition>\n");
-            xml.push_str("          <boundaryCondition>antiperiodic</boundaryCondition>\n");
-            xml.push_str("        </quarkField>\n");
-            emit_tag(xml, 4, "mass", &format!("{:.6}", manifest.mass));
-            emit_tag(xml, 4, "numberOfFlavours", &manifest.nf.to_string());
-            xml.push_str("      </ksQuark>\n");
-        }
+    if manifest.fermion_action.to_lowercase().as_str() == "hisq" {
+        xml.push_str("      <hisqQuark>\n");
+        xml.push_str("        <quarkField>\n");
+        emit_tag(xml, 5, "normalisation", "default");
+        xml.push_str("          <boundaryCondition>periodic</boundaryCondition>\n");
+        xml.push_str("          <boundaryCondition>periodic</boundaryCondition>\n");
+        xml.push_str("          <boundaryCondition>periodic</boundaryCondition>\n");
+        xml.push_str("          <boundaryCondition>antiperiodic</boundaryCondition>\n");
+        xml.push_str("        </quarkField>\n");
+        emit_tag(xml, 4, "mass", &format!("{:.6}", manifest.mass));
+        emit_tag(xml, 4, "numberOfFlavours", &manifest.nf.to_string());
+        xml.push_str("      </hisqQuark>\n");
+    } else {
+        xml.push_str("      <ksQuark>\n");
+        xml.push_str("        <quarkField>\n");
+        emit_tag(xml, 5, "normalisation", "default");
+        xml.push_str("          <boundaryCondition>periodic</boundaryCondition>\n");
+        xml.push_str("          <boundaryCondition>periodic</boundaryCondition>\n");
+        xml.push_str("          <boundaryCondition>periodic</boundaryCondition>\n");
+        xml.push_str("          <boundaryCondition>antiperiodic</boundaryCondition>\n");
+        xml.push_str("        </quarkField>\n");
+        emit_tag(xml, 4, "mass", &format!("{:.6}", manifest.mass));
+        emit_tag(xml, 4, "numberOfFlavours", &manifest.nf.to_string());
+        xml.push_str("      </ksQuark>\n");
     }
     xml.push_str("    </quarkAction>\n");
 }
 
 fn emit_algorithm_xml(xml: &mut String, alg: &AlgorithmParams, reweighting: bool) {
     xml.push_str("  <algorithm>\n");
-    emit_tag(xml, 2, "annotation", &format!(
-        "{} with {} integrator, dt={}, n_md={}, seed={}",
-        alg.algorithm, alg.integrator, alg.dt, alg.n_md_steps, alg.seed
-    ));
-    xml.push_str(&format!(
-        "    <reweightingNeeded>{}</reweightingNeeded>\n",
+    emit_tag(
+        xml,
+        2,
+        "annotation",
+        &format!(
+            "{} with {} integrator, dt={}, n_md={}, seed={}",
+            alg.algorithm, alg.integrator, alg.dt, alg.n_md_steps, alg.seed
+        ),
+    );
+    let _ = writeln!(
+        xml,
+        "    <reweightingNeeded>{}</reweightingNeeded>",
         if reweighting { "true" } else { "false" }
-    ));
+    );
     xml.push_str("    <parameters>\n");
     emit_parameter(xml, "algorithm", &alg.algorithm);
     emit_parameter(xml, "integrator", &alg.integrator);
@@ -582,7 +587,10 @@ mod tests {
         // GNU cksum of "123456789" is 930766865 9
         let data = b"123456789";
         let crc = ildg_crc(data);
-        assert_eq!(crc, 930_766_865, "POSIX CRC of '123456789' should be 930766865, got {crc}");
+        assert_eq!(
+            crc, 930_766_865,
+            "POSIX CRC of '123456789' should be 930766865, got {crc}"
+        );
     }
 
     #[test]

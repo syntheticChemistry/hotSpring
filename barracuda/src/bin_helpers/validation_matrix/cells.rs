@@ -96,17 +96,23 @@ pub struct CliArgs {
 
 impl CliArgs {
     pub fn first_lattice(&self) -> Option<usize> {
-        self.lattice_raw.as_ref()
+        self.lattice_raw
+            .as_ref()
             .and_then(|s| s.split(',').next())
             .and_then(|s| s.parse().ok())
     }
     pub fn first_beta(&self) -> Option<f64> {
-        self.beta_raw.as_ref()
+        self.beta_raw
+            .as_ref()
             .and_then(|s| s.split(',').next())
             .and_then(|s| s.parse().ok())
     }
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "CLI argument parsing — invalid input should panic with diagnostic"
+)]
 pub fn parse_args() -> CliArgs {
     let mut args = CliArgs {
         phase: "quenched-ladder".to_string(),
@@ -204,18 +210,28 @@ pub fn custom_cell(args: &CliArgs) -> Vec<MatrixCell> {
         for &nt in &effective_nts {
             for &beta in &beta_list {
                 for &nf in &nf_list {
-                    let masses = if nf == 0 { vec![0.0] } else { mass_list.clone() };
+                    let masses = if nf == 0 {
+                        vec![0.0]
+                    } else {
+                        mass_list.clone()
+                    };
                     for &m in &masses {
                         let dims = [ns, ns, ns, nt];
                         let n_therm = args.therm.unwrap_or(if nf > 0 { 500 } else { 200 });
                         let n_meas = args.meas.unwrap_or(200);
 
-                        let mass_tag = if nf > 0 { format!("_m{m:.3}") } else { String::new() };
-                        let nf_tag = if nf > 0 { format!("_Nf{nf}") } else { String::new() };
-                        let label = format!(
-                            "custom_{}_b{beta:.2}{nf_tag}{mass_tag}",
-                            format_dims(dims)
-                        );
+                        let mass_tag = if nf > 0 {
+                            format!("_m{m:.3}")
+                        } else {
+                            String::new()
+                        };
+                        let nf_tag = if nf > 0 {
+                            format!("_Nf{nf}")
+                        } else {
+                            String::new()
+                        };
+                        let label =
+                            format!("custom_{}_b{beta:.2}{nf_tag}{mass_tag}", format_dims(dims));
 
                         cells.push(MatrixCell {
                             label,
@@ -239,7 +255,10 @@ pub fn custom_cell(args: &CliArgs) -> Vec<MatrixCell> {
     if cells.is_empty() {
         eprintln!("warning: parameter mixing produced 0 cells — check your inputs");
     } else if cells.len() > 1 {
-        println!("  Parameter mixing: {} cells from Cartesian product", cells.len());
+        println!(
+            "  Parameter mixing: {} cells from Cartesian product",
+            cells.len()
+        );
     }
 
     cells
@@ -258,7 +277,7 @@ pub fn estimate_wall_time(cell: &MatrixCell) -> String {
     let total_s = base_traj_ms * fermion_factor * flow_factor * total_traj as f64 / 1000.0;
 
     if total_s < 60.0 {
-        format!("{:.0}s", total_s)
+        format!("{total_s:.0}s")
     } else if total_s < 3600.0 {
         format!("{:.0}min", total_s / 60.0)
     } else if total_s < 86400.0 {
@@ -270,12 +289,22 @@ pub fn estimate_wall_time(cell: &MatrixCell) -> String {
 
 /// Print the full planning matrix as a grid for the Chuna meeting.
 pub fn print_planning_matrix() {
-    println!("╔══════════════════════════════════════════════════════════════════════════════════════════════════════════════╗");
-    println!("║  3-Month Validation Matrix — hotSpring × Chuna                                                            ║");
-    println!("║  \"You bring the accuracy of where to look. We bring the precision.\"                                        ║");
-    println!("╚══════════════════════════════════════════════════════════════════════════════════════════════════════════════╝");
+    println!(
+        "╔══════════════════════════════════════════════════════════════════════════════════════════════════════════════╗"
+    );
+    println!(
+        "║  3-Month Validation Matrix — hotSpring × Chuna                                                            ║"
+    );
+    println!(
+        "║  \"You bring the accuracy of where to look. We bring the precision.\"                                        ║"
+    );
+    println!(
+        "╚══════════════════════════════════════════════════════════════════════════════════════════════════════════════╝"
+    );
     println!();
-    println!("  Hardware: RTX 3090 (24GB, ≤32⁴) │ RX 6950 XT (16GB, ≤24⁴) │ CPU fallback (any size, 10-100× slower)");
+    println!(
+        "  Hardware: RTX 3090 (24GB, ≤32⁴) │ RX 6950 XT (16GB, ≤24⁴) │ CPU fallback (any size, 10-100× slower)"
+    );
     println!();
 
     // Observable status
@@ -327,7 +356,11 @@ pub fn print_planning_matrix() {
             if cell.measure_flow { "✓" } else { "—" },
             if cell.measure_flow { "✓" } else { "—" },
             if cell.measure_topo { "✓" } else { "—" },
-            if cell.measure_wilson_loops { "✓" } else { "—" },
+            if cell.measure_wilson_loops {
+                "✓"
+            } else {
+                "—"
+            },
             est,
         );
     }
@@ -357,7 +390,11 @@ pub fn print_planning_matrix() {
             cell.nf,
             format!("{}+{}", cell.n_therm, cell.n_meas),
             "✓",
-            if cell.measure_condensate { "✓" } else { "—" },
+            if cell.measure_condensate {
+                "✓"
+            } else {
+                "—"
+            },
             "✓",
             est,
         );
@@ -391,7 +428,11 @@ pub fn print_planning_matrix() {
             if cell.measure_flow { "✓" } else { "—" },
             if cell.measure_flow { "✓" } else { "—" },
             if cell.measure_topo { "✓" } else { "—" },
-            if cell.measure_condensate { "✓" } else { "—" },
+            if cell.measure_condensate {
+                "✓"
+            } else {
+                "—"
+            },
             est,
         );
     }
@@ -430,7 +471,11 @@ pub fn print_planning_matrix() {
             cell.nf,
             format!("{}+{}", cell.n_therm, cell.n_meas),
             "✓",
-            if cell.measure_condensate { "✓" } else { "—" },
+            if cell.measure_condensate {
+                "✓"
+            } else {
+                "—"
+            },
             est,
             notes,
         );
@@ -472,8 +517,13 @@ pub fn print_planning_matrix() {
     // Total cell count
     let total = quenched.len() + dynamical.len() + beta_scan.len() + mass_scan.len();
     println!("  Total matrix cells: {total}");
-    println!("  Quenched: {} │ Dynamical: {} │ β-scan: {} │ m-scan: {}",
-        quenched.len(), dynamical.len(), beta_scan.len(), mass_scan.len());
+    println!(
+        "  Quenched: {} │ Dynamical: {} │ β-scan: {} │ m-scan: {}",
+        quenched.len(),
+        dynamical.len(),
+        beta_scan.len(),
+        mass_scan.len()
+    );
     println!();
     println!("  Chuna priority column: ___  (he fills in at meeting)");
     println!();

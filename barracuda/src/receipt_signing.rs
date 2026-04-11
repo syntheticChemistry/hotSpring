@@ -37,7 +37,7 @@ pub fn sign_receipt(
     receipt_json: &str,
     receipt_path: &Path,
 ) -> SignResult {
-    match nucleus.beardog() {
+    match nucleus.get_by_capability("crypto") {
         Some(ep) if ep.alive => {}
         _ => return SignResult::Unavailable,
     }
@@ -48,21 +48,18 @@ pub fn sign_receipt(
         "algorithm": "Ed25519",
     });
 
-    let resp = match nucleus.call("beardog", "crypto.sign", &params) {
+    let resp = match nucleus.call_by_capability("crypto", "crypto.sign", params) {
         Ok(r) => r,
         Err(e) => return SignResult::Failed(format!("bearDog crypto.sign: {e}")),
     };
 
-    let result = match resp.get("result") {
-        Some(r) => r,
-        None => {
-            let err = resp
-                .get("error")
-                .and_then(|e| e.get("message"))
-                .and_then(serde_json::Value::as_str)
-                .unwrap_or("no result");
-            return SignResult::Failed(format!("bearDog error: {err}"));
-        }
+    let Some(result) = resp.get("result") else {
+        let err = resp
+            .get("error")
+            .and_then(|e| e.get("message"))
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("no result");
+        return SignResult::Failed(format!("bearDog error: {err}"));
     };
 
     let sig_hex = result

@@ -149,8 +149,10 @@ fn main() {
     println!("    |RK2-RK3|:   {:.2e}", (e_rk2 - e_rk3).abs());
 
     // Higher-order integrators must converge closer than Euler
-    harness.check_bool("RK2 closer to RK3 than Euler",
-        (e_rk2 - e_rk3).abs() < (e_euler - e_rk3).abs());
+    harness.check_bool(
+        "RK2 closer to RK3 than Euler",
+        (e_rk2 - e_rk3).abs() < (e_euler - e_rk3).abs(),
+    );
     harness.check_bool("E(t) finite (Euler)", e_euler.is_finite());
     harness.check_bool("E(t) finite (RK3)", e_rk3.is_finite());
 

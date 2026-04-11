@@ -21,11 +21,15 @@ requiring forced power-off.
 | Script | Purpose | Safe? |
 |--------|---------|-------|
 | `build_nvidia_oracle.sh` | Build nvidia_oracle.ko from source | Yes (build only) |
+| `ci-coverage-gate.sh` | CI coverage gate (thresholds / reporting) | Yes |
 | `clone-repos.sh` | Clone project repositories | Yes |
+| `coverage.sh` | Local coverage workflow | Yes |
 | `distill_oracle_recipe.sh` | Oracle recipe distillation via toadStool hw-learn | Read-only |
+| `harvest-ecobin.sh` | Harvest ecobin artifacts | Yes |
 | `regenerate-all.sh` | Full project regeneration | Yes |
-| `run_reagent_capture.sh` | Run agentReagents capture VM | Yes (isolated VM) |
 | `boot/*.sh` | Boot-time setup scripts | Yes |
+
+Other non-archived helpers in `scripts/` (e.g. `build-container.sh`, `build-guidestone.sh`, `download-data.sh`, `prepare-usb.sh`, `setup-envs.sh`, `validate-guidestone-multi.sh`) are also active as needed for builds and lab setup.
 
 All Python lab analysis scripts and the `titan_timing_attack.sh` experiment script
 have been archived — their functionality is now available via `coralctl` subcommands
@@ -76,6 +80,7 @@ scripting to daemon-managed GPU lifecycle.
 | `generate_titanv_recipe.py` | `coralctl trace-parse --recipe-json <file>` |
 | `extract_devinit.py` | `coralctl devinit replay <BDF>` |
 | `apply_recipe.py` | `coralctl oracle apply <BDF> <recipe>` |
+| `run_reagent_capture.sh` | Historical — preserved under `scripts/archive/` (agentReagents VM capture) |
 
 ## Adding New Scripts
 

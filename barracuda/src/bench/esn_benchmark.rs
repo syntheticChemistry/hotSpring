@@ -176,10 +176,8 @@ pub struct SubstrateResult {
     /// Mean inference time in microseconds.
     pub mean_us: f64,
     /// Standard deviation of inference time (μs).
-    #[allow(dead_code)]
     pub std_us: f64,
     /// Last prediction output (for parity checks).
-    #[allow(dead_code)]
     pub prediction: Vec<f64>,
 }
 

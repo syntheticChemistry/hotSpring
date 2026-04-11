@@ -27,9 +27,9 @@
 //!   cargo run --release --bin validate_chuna_overnight -- --gpu 3090 # target specific GPU
 
 use hotspring_barracuda::bin_helpers::chuna_overnight::{
-    max_lattice_l, paper_43_convergence, paper_43_dynamical, paper_43_production, paper_44_cpu,
-    paper_44_gpu, paper_44_multicomponent_cpu, paper_44_multicomponent_gpu, paper_45_gpu_bgk,
-    paper_45_gpu_coupled, paper_45_gpu_euler, SubstrateResults,
+    SubstrateResults, max_lattice_l, paper_43_convergence, paper_43_dynamical, paper_43_production,
+    paper_44_cpu, paper_44_gpu, paper_44_multicomponent_cpu, paper_44_multicomponent_gpu,
+    paper_45_gpu_bgk, paper_45_gpu_coupled, paper_45_gpu_euler,
 };
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::precision_brain::PrecisionBrain;
@@ -62,11 +62,18 @@ fn main() {
     let adapters = GpuF64::enumerate_adapters();
     let f64_adapters: Vec<_> = adapters.iter().filter(|a| a.has_f64).collect();
 
-    println!("  Substrate inventory ({} adapters, {} with f64):", adapters.len(), f64_adapters.len());
+    println!(
+        "  Substrate inventory ({} adapters, {} with f64):",
+        adapters.len(),
+        f64_adapters.len()
+    );
     for a in &adapters {
         let tag = if a.has_f64 { "f64" } else { "f32" };
         let mem_gb = a.memory_bytes as f64 / (1024.0 * 1024.0 * 1024.0);
-        println!("    [{}] {} ({}, {tag}, {mem_gb:.1} GB)", a.index, a.name, a.driver);
+        println!(
+            "    [{}] {} ({}, {tag}, {mem_gb:.1} GB)",
+            a.index, a.name, a.driver
+        );
     }
     println!();
 
@@ -109,41 +116,58 @@ fn main() {
         let cal = &brain.calibration;
 
         println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        println!("  [{gpu_header}] {} (f64={}, df64={}, f16={}, subgroups={})",
-            gpu.adapter_name, gpu.has_f64, gpu.full_df64_mode, gpu.has_f16, gpu.has_subgroups);
+        println!(
+            "  [{gpu_header}] {} (f64={}, df64={}, f16={}, subgroups={})",
+            gpu.adapter_name, gpu.has_f64, gpu.full_df64_mode, gpu.has_f16, gpu.has_subgroups
+        );
         println!("  [{gpu_header}] {cal}");
         println!("  [{gpu_header}] VRAM: {vram_gb:.1} GB → max lattice L={max_l}");
 
         let telem_filename = if targets.len() > 1 {
-            let safe_name: String = gpu.adapter_name.chars()
+            let safe_name: String = gpu
+                .adapter_name
+                .chars()
                 .map(|c| if c.is_alphanumeric() { c } else { '_' })
                 .collect();
             format!("chuna_overnight_{safe_name}.jsonl")
         } else {
             "chuna_overnight_telemetry.jsonl".to_string()
         };
-        let mut telem = TelemetryWriter::discover(&telem_filename)
-            .with_substrate(gpu.adapter_name.clone());
+        let mut telem =
+            TelemetryWriter::discover(&telem_filename).with_substrate(gpu.adapter_name.clone());
 
-        telem.log_map("hardware_profile", &[
-            ("has_f64", f64::from(u8::from(gpu.has_f64))),
-            ("full_df64_mode", f64::from(u8::from(gpu.full_df64_mode))),
-            ("has_f16", f64::from(u8::from(gpu.has_f16))),
-            ("has_subgroups", f64::from(u8::from(gpu.has_subgroups))),
-            ("has_timestamps", f64::from(u8::from(gpu.has_timestamps))),
-            ("vram_gb", vram_gb),
-            ("max_lattice_l", max_l as f64),
-        ]);
+        telem.log_map(
+            "hardware_profile",
+            &[
+                ("has_f64", f64::from(u8::from(gpu.has_f64))),
+                ("full_df64_mode", f64::from(u8::from(gpu.full_df64_mode))),
+                ("has_f16", f64::from(u8::from(gpu.has_f16))),
+                ("has_subgroups", f64::from(u8::from(gpu.has_subgroups))),
+                ("has_timestamps", f64::from(u8::from(gpu.has_timestamps))),
+                ("vram_gb", vram_gb),
+                ("max_lattice_l", max_l as f64),
+            ],
+        );
         for tier in &cal.tiers {
             telem.log_map(
                 &format!("tier_{:?}", tier.tier),
                 &[
                     ("compiles", f64::from(u8::from(tier.compiles))),
                     ("dispatches", f64::from(u8::from(tier.dispatches))),
-                    ("transcendentals_safe", f64::from(u8::from(tier.transcendentals_safe))),
+                    (
+                        "transcendentals_safe",
+                        f64::from(u8::from(tier.transcendentals_safe)),
+                    ),
                     ("compile_us", tier.compile_us),
                     ("dispatch_us", tier.dispatch_us),
-                    ("probe_ulp", if tier.probe_ulp.is_finite() { tier.probe_ulp } else { -1.0 }),
+                    (
+                        "probe_ulp",
+                        if tier.probe_ulp.is_finite() {
+                            tier.probe_ulp
+                        } else {
+                            -1.0
+                        },
+                    ),
                 ],
             );
         }
@@ -180,13 +204,19 @@ fn main() {
 
         results.wall_seconds = gpu_start.elapsed().as_secs_f64();
         telem.log("substrate_summary", "wall_seconds", results.wall_seconds);
-        println!("\n  [{gpu_header}] {} done in {:.1}s\n", gpu.adapter_name, results.wall_seconds);
+        println!(
+            "\n  [{gpu_header}] {} done in {:.1}s\n",
+            gpu.adapter_name, results.wall_seconds
+        );
         all_results.push(results);
     }
 
     // ═══ Phase 4: Cross-GPU Comparison ═══
     if all_results.len() > 1 {
-        println!("━━━ Cross-Substrate Comparison ({} GPUs) ━━━\n", all_results.len());
+        println!(
+            "━━━ Cross-Substrate Comparison ({} GPUs) ━━━\n",
+            all_results.len()
+        );
         harness.clear_substrate();
 
         for i in 0..all_results.len() {
@@ -203,11 +233,14 @@ fn main() {
                             (plaq_a - plaq_b).abs()
                         };
                         let agree = rel < 0.05;
-                        println!("    {label_a}: {plaq_a:.6} vs {plaq_b:.6} (rel={rel:.4e}) {}",
-                            if agree { "OK" } else { "CHECK" });
+                        println!(
+                            "    {label_a}: {plaq_a:.6} vs {plaq_b:.6} (rel={rel:.4e}) {}",
+                            if agree { "OK" } else { "CHECK" }
+                        );
                         harness.check_upper(
                             &format!("xgpu_{label_a}_{}_{}", a.adapter_name, b.adapter_name),
-                            rel, 0.05,
+                            rel,
+                            0.05,
                         );
                     }
                 }
@@ -217,7 +250,8 @@ fn main() {
                     println!("    w0: {w0_a:.4} vs {w0_b:.4} (rel={rel:.4e})");
                     harness.check_upper(
                         &format!("xgpu_w0_{}_{}", a.adapter_name, b.adapter_name),
-                        rel, 0.1,
+                        rel,
+                        0.1,
                     );
                 }
                 if let (Some(t0_a), Some(t0_b)) = (a.t0, b.t0) {
@@ -225,7 +259,8 @@ fn main() {
                     println!("    t0: {t0_a:.4} vs {t0_b:.4} (rel={rel:.4e})");
                     harness.check_upper(
                         &format!("xgpu_t0_{}_{}", a.adapter_name, b.adapter_name),
-                        rel, 0.1,
+                        rel,
+                        0.1,
                     );
                 }
                 println!();
@@ -240,8 +275,11 @@ fn main() {
     }
 
     let total = total_start.elapsed();
-    println!("\n  Total wall time: {:.1}s ({} substrate{})",
-        total.as_secs_f64(), all_results.len(),
-        if all_results.len() == 1 { "" } else { "s" });
+    println!(
+        "\n  Total wall time: {:.1}s ({} substrate{})",
+        total.as_secs_f64(),
+        all_results.len(),
+        if all_results.len() == 1 { "" } else { "s" }
+    );
     harness.finish();
 }

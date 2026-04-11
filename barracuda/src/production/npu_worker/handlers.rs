@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-#![allow(missing_docs)]
-
 //! NPU request handlers — pre/during/post computation, lifecycle, and sub-models.
 
 use crate::md::reservoir::heads;

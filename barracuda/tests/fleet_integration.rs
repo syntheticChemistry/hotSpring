@@ -144,8 +144,14 @@ fn fleet_per_device_isolation_distinct_ember_clients_per_socket() {
     let f = FleetFile {
         mode: Some("fleet".into()),
         routes: HashMap::from([
-            (String::from("0000:01:00.0"), String::from("/tmp/iso-a.sock")),
-            (String::from("0000:02:00.0"), String::from("/tmp/iso-b.sock")),
+            (
+                String::from("0000:01:00.0"),
+                String::from("/tmp/iso-a.sock"),
+            ),
+            (
+                String::from("0000:02:00.0"),
+                String::from("/tmp/iso-b.sock"),
+            ),
         ]),
         standby_count: None,
         devices: vec![],

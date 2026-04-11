@@ -41,12 +41,13 @@ impl PhysicsProcess {
     pub fn dependencies(&self) -> &'static [PhysicsProcess] {
         match self {
             PhysicsProcess::Generate => &[],
-            PhysicsProcess::GradientFlow => &[PhysicsProcess::Generate],
-            PhysicsProcess::WilsonLoops => &[PhysicsProcess::Generate],
-            PhysicsProcess::ChiralCondensate => &[PhysicsProcess::Generate],
-            PhysicsProcess::TopologicalCharge => &[PhysicsProcess::GradientFlow],
-            PhysicsProcess::Correlators => &[PhysicsProcess::Generate],
-            PhysicsProcess::ScaleSetting => &[PhysicsProcess::GradientFlow],
+            PhysicsProcess::GradientFlow
+            | PhysicsProcess::WilsonLoops
+            | PhysicsProcess::ChiralCondensate
+            | PhysicsProcess::Correlators => &[PhysicsProcess::Generate],
+            PhysicsProcess::TopologicalCharge | PhysicsProcess::ScaleSetting => {
+                &[PhysicsProcess::GradientFlow]
+            }
         }
     }
 
@@ -186,10 +187,7 @@ pub struct CostModel;
 
 impl CostModel {
     /// Estimate wall-clock seconds for a process on given hardware.
-    pub fn estimate_wall_seconds(
-        spec: &ProcessSpec,
-        hardware: &HardwareTier,
-    ) -> f64 {
+    pub fn estimate_wall_seconds(spec: &ProcessSpec, hardware: &HardwareTier) -> f64 {
         let volume = spec.dims.iter().product::<usize>() as f64;
         let n = spec.n_configs as f64;
         let hw_factor = Self::hardware_factor(hardware);
@@ -207,7 +205,7 @@ impl CostModel {
                 // Gradient flow: ~5.6s per config at 8^4 CPU, linear in V
                 let t_max = spec.params.t_max.unwrap_or(4.0);
                 let eps = spec.params.epsilon.unwrap_or(0.01);
-                let n_steps = (t_max / eps) as f64;
+                let n_steps = t_max / eps;
                 let base_per_step = 5.6 / 400.0; // 400 steps for t_max=4, eps=0.01
                 base_per_step * n_steps * (volume / 4096.0) * n / hw_factor
             }
@@ -317,9 +315,7 @@ impl ProcessCatalog {
         beta: f64,
     ) -> Option<&CatalogEntry> {
         self.entries.iter().find(|e| {
-            &e.spec.process == process
-                && e.spec.dims == dims
-                && (e.spec.beta - beta).abs() < 1e-10
+            &e.spec.process == process && e.spec.dims == dims && (e.spec.beta - beta).abs() < 1e-10
         })
     }
 
@@ -328,7 +324,7 @@ impl ProcessCatalog {
         spec.process.dependencies().iter().all(|dep| {
             self.find(dep, spec.dims, spec.beta)
                 .and_then(|e| e.result.as_ref())
-                .map_or(false, |r| r.status == ProcessStatus::Completed)
+                .is_some_and(|r| r.status == ProcessStatus::Completed)
         })
     }
 

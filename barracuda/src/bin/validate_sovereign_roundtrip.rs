@@ -18,6 +18,9 @@
 //!   Level 5: DF64 workgroup reduction (the production pattern that broke)
 
 use hotspring_barracuda::gpu::GpuF64;
+use hotspring_barracuda::tolerances::{
+    SOVEREIGN_ROUNTRIP_GPU_PARITY_ABS, SOVEREIGN_ROUNTRIP_RAW_VS_EXPECTED_ABS,
+};
 
 use barracuda::device::capabilities::DeviceCapabilities;
 use barracuda::shaders::sovereign::SovereignCompiler;
@@ -518,7 +521,7 @@ fn run_tests_on_gpu(
                     if !test.expected.is_empty() && test.wgsl.contains("array<f64>") {
                         let raw_f64s = bytes_to_f64s(&raw_output);
                         for (i, (got, exp)) in raw_f64s.iter().zip(&test.expected).enumerate() {
-                            if (got - exp).abs() > 1e-6 {
+                            if (got - exp).abs() > SOVEREIGN_ROUNTRIP_RAW_VS_EXPECTED_ABS {
                                 println!("    WARNING: raw output[{i}]={got}, expected={exp}");
                             }
                         }
@@ -537,7 +540,7 @@ fn run_tests_on_gpu(
                     let raw_f64s = bytes_to_f64s(&raw_output);
                     let sov_f64s = bytes_to_f64s(&sovereign_output);
                     for (i, (r, s)) in raw_f64s.iter().zip(&sov_f64s).enumerate() {
-                        if (r - s).abs() > 1e-15 {
+                        if (r - s).abs() > SOVEREIGN_ROUNTRIP_GPU_PARITY_ABS {
                             println!("    output[{i}]: raw={r}, sovereign={s}");
                         }
                     }

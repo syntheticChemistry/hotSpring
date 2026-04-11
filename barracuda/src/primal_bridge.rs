@@ -42,7 +42,7 @@ impl NucleusContext {
     pub fn detect() -> Self {
         let family = std::env::var("FAMILY_ID").unwrap_or_else(|_| "default".into());
 
-        if std::env::var("HOTSPRING_NO_NUCLEUS").map_or(false, |v| v == "1") {
+        if std::env::var("HOTSPRING_NO_NUCLEUS").is_ok_and(|v| v == "1") {
             return Self::empty(&family);
         }
 
@@ -53,8 +53,7 @@ impl NucleusContext {
 
         #[cfg(unix)]
         {
-            let runtime_dir =
-                std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".into());
+            let runtime_dir = std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".into());
             let base = format!("{runtime_dir}/biomeos");
 
             let mut discovered = HashMap::new();
@@ -174,8 +173,43 @@ impl NucleusContext {
         if names.is_empty() {
             println!("  NUCLEUS: standalone (no primals detected)");
         } else {
-            println!("  NUCLEUS: {} primal(s) — {}", names.len(), names.join(", "));
+            println!(
+                "  NUCLEUS: {} primal(s) — {}",
+                names.len(),
+                names.join(", ")
+            );
         }
+    }
+
+    /// Discover by capability rather than by name: first alive primal whose
+    /// `capability.list` includes a capability string starting with `capability_domain`.
+    #[must_use]
+    pub fn get_by_capability(&self, capability_domain: &str) -> Option<&PrimalEndpoint> {
+        self.discovered.values().find(|ep| {
+            ep.alive
+                && ep
+                    .capabilities
+                    .as_ref()
+                    .and_then(|c| c.get("capabilities"))
+                    .and_then(|a| a.as_array())
+                    .is_some_and(|arr| {
+                        arr.iter()
+                            .any(|v| v.as_str().is_some_and(|s| s.starts_with(capability_domain)))
+                    })
+        })
+    }
+
+    /// JSON-RPC call routed by capability domain (see [`Self::get_by_capability`]).
+    pub fn call_by_capability(
+        &self,
+        capability_domain: &str,
+        method: &str,
+        params: serde_json::Value,
+    ) -> Result<serde_json::Value, String> {
+        let ep = self
+            .get_by_capability(capability_domain)
+            .ok_or_else(|| format!("no alive primal for capability domain: {capability_domain}"))?;
+        self.call(&ep.name, method, &params)
     }
 
     /// Send a JSON-RPC call to a specific primal.
@@ -200,11 +234,13 @@ impl NucleusContext {
     #[must_use]
     pub fn physics_health(&self) -> serde_json::Value {
         let alive = self.alive_names();
-        let compute_ready = self.toadstool().is_some_and(|e| e.alive);
-        let gpu_ready = self.coralreef().is_some_and(|e| e.alive);
-        let trio_ready = self.rhizocrypt().is_some_and(|e| e.alive)
-            && self.loamspine().is_some_and(|e| e.alive)
-            && self.sweetgrass().is_some_and(|e| e.alive);
+        let compute_ready = self.get_by_capability("compute").is_some_and(|e| e.alive);
+        let gpu_ready = self.get_by_capability("shader").is_some_and(|e| e.alive);
+        let trio_ready = self.get_by_capability("dag").is_some_and(|e| e.alive)
+            && self.get_by_capability("ledger").is_some_and(|e| e.alive)
+            && self
+                .get_by_capability("attribution")
+                .is_some_and(|e| e.alive);
 
         let mut subsystems = serde_json::Map::new();
         for (name, ep) in self.all_endpoints() {

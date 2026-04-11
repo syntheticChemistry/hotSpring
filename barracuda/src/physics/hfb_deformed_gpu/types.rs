@@ -42,7 +42,7 @@ pub(super) struct HamiltonianParamsGpu {
 }
 
 impl HamiltonianParamsGpu {
-    #[expect(dead_code, reason = "EVOLUTION(GPU): deformed_*.wgsl GPU pipeline wiring")]
+    #[cfg(test)]
     pub(super) const fn new(
         n_rho: u32,
         n_z: u32,
@@ -73,7 +73,6 @@ pub(super) struct BasisState {
     pub(super) lambda: i32,
     pub(super) sigma: i32,
     pub(super) omega_x2: i32,
-    #[expect(dead_code, reason = "EVOLUTION(GPU): deformed_*.wgsl shell truncation")]
     pub(super) _n_shell: u32,
 }
 
@@ -87,7 +86,6 @@ pub(super) struct NucleusSetup {
     pub(super) d_rho: f64,
     pub(super) d_z: f64,
     pub(super) z_min: f64,
-    #[expect(dead_code, reason = "EVOLUTION(GPU): deformed_*.wgsl grid bound wiring")]
     pub(super) _rho_max: f64,
     pub(super) hw_z: f64,
     pub(super) hw_perp: f64,

@@ -53,7 +53,11 @@ impl ImplementationInfo {
             git_commit: std::env::var("GIT_COMMIT")
                 .ok()
                 .or_else(|| option_env!("GIT_COMMIT").map(String::from)),
-            gpus: if gpu_names.is_empty() { None } else { Some(gpu_names) },
+            gpus: if gpu_names.is_empty() {
+                None
+            } else {
+                Some(gpu_names)
+            },
         }
     }
 
@@ -157,7 +161,11 @@ impl RunManifest {
 
     /// Attach NUCLEUS metadata from a detected context.
     pub fn with_nucleus(mut self, ctx: &crate::primal_bridge::NucleusContext) -> Self {
-        let names = ctx.alive_names().iter().map(|s| s.to_string()).collect();
+        let names = ctx
+            .alive_names()
+            .iter()
+            .map(std::string::ToString::to_string)
+            .collect();
         self.nucleus = Some(NucleusManifest {
             primals_detected: names,
             dag_session: None,

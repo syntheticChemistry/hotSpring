@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-#![allow(missing_docs)]
-
 //! NPU checkpoint save/load: ESN weights and Nautilus shell JSON serialization.
 //!
 //! Shell config uses a sibling path convention: `weights.json` → `weights.nautilus.json`.

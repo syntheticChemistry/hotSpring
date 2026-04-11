@@ -22,7 +22,7 @@
 //! hotSpring → rhizoCrypt: kind:"hash" witness (blake3 of output)
 //! ```
 
-use crate::dag_provenance::{blake3_hex, DagEvent, DagSession};
+use crate::dag_provenance::{DagEvent, DagSession, blake3_hex};
 use crate::primal_bridge::NucleusContext;
 use crate::witness::WireWitnessRef;
 use serde::{Deserialize, Serialize};
@@ -53,10 +53,10 @@ impl DispatchValidation {
 /// dispatch system. An empty list means ToadStool is reachable but
 /// has no GPU backends registered.
 pub fn query_capabilities(nucleus: &NucleusContext) -> Result<Vec<String>, String> {
-    let resp = nucleus.call(
-        "toadstool",
+    let resp = nucleus.call_by_capability(
+        "compute",
         "compute.dispatch.capabilities",
-        &serde_json::json!({}),
+        serde_json::json!({}),
     )?;
 
     let caps = resp
@@ -96,7 +96,7 @@ pub fn submit_workload(
         "spring": "hotSpring",
     });
 
-    let resp = nucleus.call("toadstool", "compute.dispatch.submit", &params)?;
+    let resp = nucleus.call_by_capability("compute", "compute.dispatch.submit", params)?;
 
     resp.get("result")
         .and_then(|r| r.get("job_id"))
@@ -117,7 +117,7 @@ pub fn retrieve_result(
         "job_id": job_id,
     });
 
-    let resp = nucleus.call("toadstool", "compute.dispatch.result", &params)?;
+    let resp = nucleus.call_by_capability("compute", "compute.dispatch.result", params)?;
 
     resp.get("result")
         .cloned()
@@ -147,12 +147,10 @@ pub fn validate_dispatch(
         errors: Vec::new(),
     };
 
-    result
-        .witnesses
-        .push(WireWitnessRef::checkpoint(
-            "hotspring:dispatch",
-            "compute_dispatch:start",
-        ));
+    result.witnesses.push(WireWitnessRef::checkpoint(
+        "hotspring:dispatch",
+        "compute_dispatch:start",
+    ));
 
     // Phase 1: capabilities
     let start = std::time::Instant::now();
@@ -257,12 +255,10 @@ pub fn validate_dispatch(
         }
     }
 
-    result
-        .witnesses
-        .push(WireWitnessRef::checkpoint(
-            "hotspring:dispatch",
-            "compute_dispatch:complete",
-        ));
+    result.witnesses.push(WireWitnessRef::checkpoint(
+        "hotspring:dispatch",
+        "compute_dispatch:complete",
+    ));
 
     result
 }

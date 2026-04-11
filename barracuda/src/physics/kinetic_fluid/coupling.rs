@@ -151,7 +151,10 @@ pub fn run_coupled_kinetic_fluid(
         }
         std::mem::swap(&mut f_kin, &mut f_buf);
 
-        #[expect(clippy::needless_range_loop, reason = "index needed for f_kin[i] mutation")]
+        #[expect(
+            clippy::needless_range_loop,
+            reason = "index needed for f_kin[i] mutation"
+        )]
         for i in 0..nx_kin {
             let (ni, ui, ti, _) = compute_moments(&f_kin[i], &v, dv, m);
             if ni < 1e-30 {

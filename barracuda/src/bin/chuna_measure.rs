@@ -39,9 +39,8 @@ use hotspring_barracuda::lattice::gradient_flow::{
 };
 use hotspring_barracuda::lattice::ildg::read_gauge_config_file;
 use hotspring_barracuda::lattice::measurement::{
-    ConfigMeasurement, FermionObservables, FlowPoint, FlowResults, GaugeObservables,
-    HvpResults, ImplementationInfo, RunManifest, TopologyResults, WilsonLoopEntry,
-    min_spatial_dim,
+    ConfigMeasurement, FermionObservables, FlowPoint, FlowResults, GaugeObservables, HvpResults,
+    ImplementationInfo, RunManifest, TopologyResults, WilsonLoopEntry, min_spatial_dim,
 };
 use hotspring_barracuda::lattice::wilson::Lattice;
 use hotspring_barracuda::primal_bridge::NucleusContext;
@@ -180,7 +179,14 @@ fn main() {
             nx, ny, nz, nt, lattice.beta
         );
 
-        let mut measurement = measure_config(&lattice, &meta.ensemble_id, meta.trajectory, &meta.lfn, &args, &mut telemetry);
+        let mut measurement = measure_config(
+            &lattice,
+            &meta.ensemble_id,
+            meta.trajectory,
+            &meta.lfn,
+            &args,
+            &mut telemetry,
+        );
         measurement.run = Some(run_manifest.clone());
 
         let meas_path = format!("{}/meas_{:06}.json", args.outdir, meta.trajectory);
@@ -198,16 +204,19 @@ fn main() {
 
         // DAG event per config measurement
         if let Some(ref mut dag) = dag_session {
-            dag.append(&nucleus, DagEvent {
-                phase: "measure".to_string(),
-                input_hash: None,
-                output_hash: None,
-                wall_seconds: cfg_start.elapsed().as_secs_f64(),
-                summary: serde_json::json!({
-                    "trajectory": meta.trajectory,
-                    "plaquette": measurement.gauge.plaquette,
-                }),
-            });
+            dag.append(
+                &nucleus,
+                DagEvent {
+                    phase: "measure".to_string(),
+                    input_hash: None,
+                    output_hash: None,
+                    wall_seconds: cfg_start.elapsed().as_secs_f64(),
+                    summary: serde_json::json!({
+                        "trajectory": meta.trajectory,
+                        "plaquette": measurement.gauge.plaquette,
+                    }),
+                },
+            );
         }
 
         println!(
@@ -308,9 +317,7 @@ fn measure_config(
             "  Wilson:  {}×{} grid, W(1,1)={:.6}",
             r_max,
             t_max_wl,
-            wl_entries
-                .first()
-                .map_or(0.0, |e| e.value)
+            wl_entries.first().map_or(0.0, |e| e.value)
         );
         meas.wilson_loops = Some(wl_entries);
     }
@@ -401,12 +408,13 @@ fn measure_config(
         let hvp_start = Instant::now();
         let corr_result = if args.cg_history {
             point_propagator_correlator_with_history(
-                lattice, args.mass, args.cg_tol, args.cg_max_iter,
+                lattice,
+                args.mass,
+                args.cg_tol,
+                args.cg_max_iter,
             )
         } else {
-            point_propagator_correlator(
-                lattice, args.mass, args.cg_tol, args.cg_max_iter,
-            )
+            point_propagator_correlator(lattice, args.mass, args.cg_tol, args.cg_max_iter)
         };
         let a_mu = hvp_integral(&corr_result.correlator);
         telemetry.log("hvp", "hvp_integral", a_mu);
@@ -427,17 +435,17 @@ fn measure_config(
 
         // Write CG convergence history if requested
         if args.cg_history && !corr_result.cg.residual_history.is_empty() {
-            let hist_path = format!(
-                "{}/cg_history_{:06}.tsv", args.outdir, trajectory
-            );
+            let hist_path = format!("{}/cg_history_{:06}.tsv", args.outdir, trajectory);
             let mut hist_lines = Vec::with_capacity(corr_result.cg.residual_history.len() + 1);
             hist_lines.push("iteration\tresidual".to_string());
             for (i, res) in corr_result.cg.residual_history.iter().enumerate() {
                 hist_lines.push(format!("{i}\t{res:.12e}"));
             }
-            std::fs::write(&hist_path, hist_lines.join("\n") + "\n")
-                .expect("write CG history");
-            println!("  CG history → {hist_path} ({} iters)", corr_result.cg.residual_history.len());
+            std::fs::write(&hist_path, hist_lines.join("\n") + "\n").expect("write CG history");
+            println!(
+                "  CG history → {hist_path} ({} iters)",
+                corr_result.cg.residual_history.len()
+            );
         }
     }
 

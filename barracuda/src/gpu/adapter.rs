@@ -94,12 +94,13 @@ pub fn enumerate_adapters() -> Vec<AdapterInfo> {
             .collect()
     });
 
-    match result {
-        Ok(adapters) => adapters,
-        Err(_) => {
-            eprintln!("warning: GPU adapter enumeration failed (broken Vulkan/ICD?). Continuing CPU-only.");
-            Vec::new()
-        }
+    if let Ok(adapters) = result {
+        adapters
+    } else {
+        eprintln!(
+            "warning: GPU adapter enumeration failed (broken Vulkan/ICD?). Continuing CPU-only."
+        );
+        Vec::new()
     }
 }
 

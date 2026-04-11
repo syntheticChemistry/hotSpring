@@ -20,6 +20,7 @@ use hotspring_barracuda::lattice::gpu_hmc::{
 };
 use hotspring_barracuda::lattice::hmc::{self, HmcConfig, IntegratorType};
 use hotspring_barracuda::lattice::wilson::Lattice;
+use hotspring_barracuda::tolerances::U1_HMC_ACCEPTANCE_MIN;
 use hotspring_barracuda::validation::ValidationHarness;
 use std::time::Instant;
 
@@ -115,7 +116,11 @@ fn main() {
     );
     println!("  Mean plaquette: {mean_plaq:.6}");
 
-    harness.check_lower("GPU HMC acceptance > 30%", accept_rate, 0.30);
+    harness.check_lower(
+        "GPU HMC acceptance > 30%",
+        accept_rate,
+        U1_HMC_ACCEPTANCE_MIN,
+    );
     harness.check_bool(
         "GPU HMC plaquette in physical range",
         mean_plaq > 0.45 && mean_plaq < 0.70,

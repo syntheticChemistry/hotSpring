@@ -28,33 +28,20 @@ fn main() {
     // Phase 0: composition health
     let health = nucleus.physics_health();
     println!("  composition.physics_health:");
-    println!(
-        "    compute_dispatch: {}",
-        health["compute_dispatch"]
-    );
-    println!(
-        "    gpu_backend:      {}",
-        health["gpu_backend"]
-    );
-    println!(
-        "    provenance_trio:  {}",
-        health["provenance_trio"]
-    );
+    println!("    compute_dispatch: {}", health["compute_dispatch"]);
+    println!("    gpu_backend:      {}", health["gpu_backend"]);
+    println!("    provenance_trio:  {}", health["provenance_trio"]);
     println!();
 
     // Phase 1: DAG session (if rhizoCrypt available)
-    let mut dag = hotspring_barracuda::dag_provenance::DagSession::begin(
-        &nucleus,
-        "exp152_compute_dispatch",
-    );
+    let mut dag =
+        hotspring_barracuda::dag_provenance::DagSession::begin(&nucleus, "exp152_compute_dispatch");
 
     // Phase 2: compute dispatch validation
     if nucleus.toadstool().is_some_and(|e| e.alive) {
         println!("  ToadStool detected — running compute dispatch validation");
-        let result = hotspring_barracuda::compute_dispatch::validate_dispatch(
-            &nucleus,
-            dag.as_mut(),
-        );
+        let result =
+            hotspring_barracuda::compute_dispatch::validate_dispatch(&nucleus, dag.as_mut());
 
         println!();
         println!("  Dispatch validation results:");
@@ -98,8 +85,8 @@ fn main() {
     let json = serde_json::to_string_pretty(&w).unwrap_or_default();
     println!("{json}");
 
-    let back: hotspring_barracuda::witness::WireWitnessRef =
-        serde_json::from_str(&json).unwrap_or_else(|e| {
+    let back: hotspring_barracuda::witness::WireWitnessRef = serde_json::from_str(&json)
+        .unwrap_or_else(|e| {
             eprintln!("  FAIL: witness round-trip deserialize: {e}");
             std::process::exit(1);
         });

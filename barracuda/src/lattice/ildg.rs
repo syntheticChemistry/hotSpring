@@ -81,10 +81,7 @@ impl IldgMetadata {
             action: "Wilson".to_string(),
             fermion_action: "none".to_string(),
             creator: format!("hotSpring-barracuda {}", env!("CARGO_PKG_VERSION")),
-            ensemble_id: format!(
-                "hotspring_b{:.2}_L{}",
-                lattice.beta, nx
-            ),
+            ensemble_id: format!("hotspring_b{:.2}_L{}", lattice.beta, nx),
             trajectory,
             plaquette: plaq,
             precision_bits: 64,
@@ -161,11 +158,13 @@ pub fn read_gauge_config<R: Read>(reader: R) -> io::Result<(Lattice, IldgMetadat
         }
     }
 
-    let xml = format_xml.ok_or_else(|| {
-        io::Error::new(io::ErrorKind::InvalidData, "missing ildg-format record")
-    })?;
+    let xml = format_xml
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "missing ildg-format record"))?;
     let data = binary_data.ok_or_else(|| {
-        io::Error::new(io::ErrorKind::InvalidData, "missing ildg-binary-data record")
+        io::Error::new(
+            io::ErrorKind::InvalidData,
+            "missing ildg-binary-data record",
+        )
     })?;
 
     let meta = parse_format_xml(&xml, lfn.as_deref())?;
@@ -202,12 +201,8 @@ fn lattice_to_ildg_binary(lattice: &Lattice, precision_bits: u32) -> Vec<u8> {
                         for row in 0..3 {
                             for col in 0..3 {
                                 if precision_bits == 32 {
-                                    buf.extend_from_slice(
-                                        &(u.m[row][col].re as f32).to_be_bytes(),
-                                    );
-                                    buf.extend_from_slice(
-                                        &(u.m[row][col].im as f32).to_be_bytes(),
-                                    );
+                                    buf.extend_from_slice(&(u.m[row][col].re as f32).to_be_bytes());
+                                    buf.extend_from_slice(&(u.m[row][col].im as f32).to_be_bytes());
                                 } else {
                                     buf.extend_from_slice(&u.m[row][col].re.to_be_bytes());
                                     buf.extend_from_slice(&u.m[row][col].im.to_be_bytes());
@@ -344,12 +339,10 @@ fn parse_format_xml(xml: &str, lfn: Option<&str>) -> io::Result<IldgMetadata> {
         Some(xml[start..end].trim().to_string())
     };
 
-    let extract_f64 = |tag: &str| -> f64 {
-        extract(tag).and_then(|s| s.parse().ok()).unwrap_or(0.0)
-    };
-    let extract_usize = |tag: &str| -> usize {
-        extract(tag).and_then(|s| s.parse().ok()).unwrap_or(0)
-    };
+    let extract_f64 =
+        |tag: &str| -> f64 { extract(tag).and_then(|s| s.parse().ok()).unwrap_or(0.0) };
+    let extract_usize =
+        |tag: &str| -> usize { extract(tag).and_then(|s| s.parse().ok()).unwrap_or(0) };
 
     let nx = extract_usize("lx");
     let ny = extract_usize("ly");
@@ -514,6 +507,10 @@ mod tests {
         let n_links = 4 * 4 * 4 * 4 * 4;
         let data_bytes = n_links * 18 * 8; // 18 f64 per link
         // Should have 3 LIME headers (144 each) + xml + binary data + lfn + padding
-        assert!(buf.len() > data_bytes, "file too small: {} < {data_bytes}", buf.len());
+        assert!(
+            buf.len() > data_bytes,
+            "file too small: {} < {data_bytes}",
+            buf.len()
+        );
     }
 }

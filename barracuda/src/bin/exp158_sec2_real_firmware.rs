@@ -61,11 +61,23 @@ fn main() {
         }
     };
     harness.check_bool("firmware loaded", true);
-    println!("  ACR BL code: {} bytes (offset {:#x})", fw.acr_bl_code.len(), fw.acr_bl_code_offset);
-    println!("  SEC2 image: {} bytes, code: {} bytes", fw.sec2_image.len(), fw.sec2_code.len());
+    println!(
+        "  ACR BL code: {} bytes (offset {:#x})",
+        fw.acr_bl_code.len(),
+        fw.acr_bl_code_offset
+    );
+    println!(
+        "  SEC2 image: {} bytes, code: {} bytes",
+        fw.sec2_image.len(),
+        fw.sec2_code.len()
+    );
     println!("  SEC2 data: {} bytes", fw.sec2_data.len());
     println!("  SEC2 sig: {} bytes", fw.sec2_sig.len());
-    println!("  FECS inst: {} bytes, data: {} bytes", fw.fecs_inst.len(), fw.fecs_data.len());
+    println!(
+        "  FECS inst: {} bytes, data: {} bytes",
+        fw.fecs_inst.len(),
+        fw.fecs_data.len()
+    );
 
     // Phase 2: Pre-flight
     println!("\n━━━ Phase 2: Pre-flight ━━━\n");
@@ -100,7 +112,10 @@ fn main() {
     println!("\n━━━ Phase 4: SEC2 Code → IMEM ━━━\n");
     let bl_words = fw.acr_bl_code.len() / 4;
     let code_imem_start = (bl_words as u32) * 4; // Start after bootloader
-    println!("  SEC2 code: {} bytes → IMEM offset {code_imem_start:#x}", fw.sec2_code.len());
+    println!(
+        "  SEC2 code: {} bytes → IMEM offset {code_imem_start:#x}",
+        fw.sec2_code.len()
+    );
 
     let chunk_size = 4096;
     let mut uploaded = 0;
@@ -123,7 +138,10 @@ fn main() {
         }
     }
     println!("  Uploaded: {uploaded}/{} bytes", fw.sec2_code.len());
-    harness.check_bool("SEC2 code upload", upload_ok && uploaded == fw.sec2_code.len());
+    harness.check_bool(
+        "SEC2 code upload",
+        upload_ok && uploaded == fw.sec2_code.len(),
+    );
 
     // Phase 5: SEC2 data → DMEM
     println!("\n━━━ Phase 5: SEC2 Data → DMEM ━━━\n");
@@ -148,7 +166,10 @@ fn main() {
     println!("\n━━━ Phase 6: SEC2 Start ━━━\n");
     match ember.falcon_start_cpu(&bdf, SEC2_BASE) {
         Ok(r) => {
-            println!("  SEC2 start: ok={}, pc={:?}, cpuctl={:?}", r.ok, r.pc, r.cpuctl);
+            println!(
+                "  SEC2 start: ok={}, pc={:?}, cpuctl={:?}",
+                r.ok, r.pc, r.cpuctl
+            );
             harness.check_bool("SEC2 start", r.ok);
         }
         Err(e) => {
@@ -166,8 +187,10 @@ fn main() {
             println!("  Snapshots: {snap_count}");
             println!("  PC trace: {:?}", r.pc_trace);
             if let Some(fin) = &r.final_state {
-                println!("  Final: pc={:?}, cpuctl={:?}, mb0={:?}, sctl={:?}",
-                    fin.pc, fin.cpuctl, fin.mailbox0, fin.sctl);
+                println!(
+                    "  Final: pc={:?}, cpuctl={:?}, mb0={:?}, sctl={:?}",
+                    fin.pc, fin.cpuctl, fin.mailbox0, fin.sctl
+                );
                 let hs = fin.sctl.map_or(false, |s| s & 0x2 != 0);
                 println!("  HS mode: {hs}");
                 harness.check_bool("SEC2 HS mode reached", hs);
@@ -215,7 +238,10 @@ fn main() {
     println!("  Starting FECS...");
     match ember.falcon_start_cpu(&bdf, FECS_BASE) {
         Ok(r) => {
-            println!("  FECS start: ok={}, pc={:?}, cpuctl={:?}", r.ok, r.pc, r.cpuctl);
+            println!(
+                "  FECS start: ok={}, pc={:?}, cpuctl={:?}",
+                r.ok, r.pc, r.cpuctl
+            );
             harness.check_bool("FECS start", r.ok);
         }
         Err(e) => {
@@ -228,10 +254,15 @@ fn main() {
     match ember.falcon_poll(&bdf, FECS_BASE, 5000, 0xDEAD_A5A5) {
         Ok(r) => {
             let snap_count = r.snapshots.len();
-            println!("  FECS poll: {snap_count} snapshots, pc_trace={:?}", r.pc_trace);
+            println!(
+                "  FECS poll: {snap_count} snapshots, pc_trace={:?}",
+                r.pc_trace
+            );
             if let Some(fin) = &r.final_state {
-                println!("  FECS final: pc={:?}, cpuctl={:?}, mb0={:?}",
-                    fin.pc, fin.cpuctl, fin.mailbox0);
+                println!(
+                    "  FECS final: pc={:?}, cpuctl={:?}, mb0={:?}",
+                    fin.pc, fin.cpuctl, fin.mailbox0
+                );
             }
         }
         Err(e) => eprintln!("  FECS poll: {e}"),
@@ -297,7 +328,10 @@ fn load_firmware(dir: &str) -> Option<FirmwareSet> {
 }
 
 fn mmio_rd(ember: &EmberClient, bdf: &str, offset: u32) -> u32 {
-    ember.mmio_read(bdf, offset).map(|r| r.value).unwrap_or(0xDEAD_DEAD)
+    ember
+        .mmio_read(bdf, offset)
+        .map(|r| r.value)
+        .unwrap_or(0xDEAD_DEAD)
 }
 
 fn connect_ember(bdf: &str) -> Option<EmberClient> {

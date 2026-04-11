@@ -108,7 +108,7 @@ fn try_stream_meta_jsonl(path: &str) -> Result<Option<Vec<MetaRow>>, HotSpringEr
 /// into `MetaRows`. This is the format produced by `production_dynamical_mixed`.
 fn load_summary_json_as_meta(contents: &str, path: &str) -> Result<Vec<MetaRow>, HotSpringError> {
     #[derive(serde::Deserialize)]
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "EVOLUTION: reserved for GPU pipeline wiring")]
     struct SummaryPoint {
         beta: f64,
         #[serde(default)]
@@ -439,13 +439,12 @@ pub struct TrajectoryEvent {
 // ═══════════════════════════════════════════════════════════════════
 
 /// Compute sample variance of plaquette history.
+///
+/// Delegates to [`barracuda::stats::correlation::variance`] (Bessel, n−1); empty or
+/// single-point histories yield `0.0` to match production callers' expectations.
 #[must_use]
 pub fn plaquette_variance(history: &[f64]) -> f64 {
-    if history.len() < 2 {
-        return 0.0;
-    }
-    let mean = history.iter().sum::<f64>() / history.len() as f64;
-    history.iter().map(|p| (p - mean).powi(2)).sum::<f64>() / (history.len() - 1) as f64
+    barracuda::stats::correlation::variance(history).unwrap_or(0.0)
 }
 
 // ═══════════════════════════════════════════════════════════════════

@@ -29,6 +29,7 @@
 
 use hotspring_barracuda::provenance::BaselineProvenance;
 use hotspring_barracuda::spectral;
+use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
 
 /// GOE mean level-spacing ratio (extended / metallic bulk).
@@ -76,11 +77,7 @@ fn main() {
 
     let mut harness = ValidationHarness::new("anderson_3d");
 
-    harness.print_provenance(&[
-        &ANDERSON_GOE_R,
-        &ANDERSON_POISSON_R,
-        &ANDERSON_WC_3D,
-    ]);
+    harness.print_provenance(&[&ANDERSON_GOE_R, &ANDERSON_POISSON_R, &ANDERSON_WC_3D]);
 
     check_3d_nnz(&mut harness);
     check_clean_3d_bandwidth(&mut harness);
@@ -144,7 +141,7 @@ fn check_clean_3d_bandwidth(harness: &mut ValidationHarness) {
     harness.check_upper(
         "bandwidth matches open-BC theory",
         (bw - exact_bw).abs(),
-        0.1,
+        tolerances::ANDERSON_3D_CLEAN_BANDWIDTH_ABS,
     );
     println!();
 }
@@ -160,9 +157,10 @@ fn check_3d_spectrum_bounds(harness: &mut ValidationHarness) {
     let evals = spectral::lanczos_eigenvalues(&result);
 
     let bound = 6.0 + w / 2.0;
+    let pad = tolerances::SPECTRAL_GERSHGORIN_SLACK_LATTICE;
     let e_min = evals[0];
     let e_max = *evals.last().expect("collection verified non-empty");
-    let in_bounds = e_min >= -(bound + 0.1) && e_max <= bound + 0.1;
+    let in_bounds = e_min >= -(bound + pad) && e_max <= bound + pad;
 
     println!("  L={l}, W={w}, N={}", l * l * l);
     println!("  Spectrum: [{e_min:.4}, {e_max:.4}]");
@@ -199,7 +197,7 @@ fn check_3d_goe_statistics(harness: &mut ValidationHarness) {
 
     harness.check_bool(
         "⟨r⟩ > 0.48 (GOE-like for 3D metallic regime)",
-        r_mean > 0.48,
+        r_mean > tolerances::ANDERSON_3D_METALLIC_R_MIN,
     );
     println!();
 }
@@ -232,7 +230,11 @@ fn check_3d_poisson_statistics(harness: &mut ValidationHarness) {
     println!("  ⟨r⟩ = {r_mean:.4} (Poisson = {:.4})", spectral::POISSON_R);
 
     let deviation = (r_mean - spectral::POISSON_R).abs();
-    harness.check_upper("⟨r⟩ within 0.04 of Poisson", deviation, 0.04);
+    harness.check_upper(
+        "⟨r⟩ within 0.04 of Poisson",
+        deviation,
+        tolerances::ANDERSON_3D_POISSON_R_MEAN_DEVIATION,
+    );
     println!();
 }
 
@@ -271,7 +273,7 @@ fn check_3d_statistics_transition(harness: &mut ValidationHarness) {
 
     harness.check_bool(
         "⟨r⟩ decreases from weak to strong disorder (3D transition)",
-        transition && delta > 0.05,
+        transition && delta > tolerances::ANDERSON_3D_GOE_POISSON_DELTA_R_MIN,
     );
     println!();
 }
@@ -452,6 +454,10 @@ fn check_3d_spectrum_symmetry(harness: &mut ValidationHarness) {
     println!("  E_min = {e_min:.6}, E_max = {e_max:.6}");
     println!("  |E_min + E_max| = {asymmetry:.2e} (should be ≈ 0)");
 
-    harness.check_upper("spectrum symmetric about E=0", asymmetry, 1e-8);
+    harness.check_upper(
+        "spectrum symmetric about E=0",
+        asymmetry,
+        tolerances::ITERATIVE_F64,
+    );
     println!();
 }

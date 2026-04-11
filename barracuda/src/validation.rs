@@ -329,7 +329,9 @@ impl ValidationHarness {
             .or_else(|_| std::fs::read_to_string("/etc/hostname").map(|s| s.trim().to_string()))
             .unwrap_or_else(|_| "unknown".into());
 
-        let gpu_names: Vec<String> = self.hardware_profiles.iter()
+        let gpu_names: Vec<String> = self
+            .hardware_profiles
+            .iter()
             .map(|hp| format!("\"{}\"", escape_json(&hp.adapter)))
             .collect();
         let gpu_str = if gpu_names.is_empty() {
@@ -339,11 +341,7 @@ impl ValidationHarness {
         };
 
         let _ = write!(f, "{{\n  \"version\": \"1.1\",\n");
-        let _ = write!(
-            f,
-            "  \"timestamp\": \"{}\",\n",
-            chrono_rfc3339_utc()
-        );
+        let _ = writeln!(f, "  \"timestamp\": \"{}\",", chrono_rfc3339_utc());
         let _ = write!(
             f,
             "  \"substrate\": {{\n    \"arch\": \"{}\",\n    \"os\": \"{}\",\n    \"hostname\": \"{}\"\n  }},\n",
@@ -357,38 +355,56 @@ impl ValidationHarness {
         );
 
         if let Some(ref manifest) = self.run_manifest {
-            let _ = write!(f, "  \"run\": {},\n", manifest.to_json_value());
+            let _ = writeln!(f, "  \"run\": {},", manifest.to_json_value());
         }
 
         if !self.hardware_profiles.is_empty() {
-            let _ = write!(f, "  \"hardware_profiles\": [\n");
+            let _ = writeln!(f, "  \"hardware_profiles\": [");
             for (pi, hp) in self.hardware_profiles.iter().enumerate() {
-                let pcomma = if pi + 1 < self.hardware_profiles.len() { "," } else { "" };
-                let _ = write!(f, "    {{\n");
-                let _ = write!(f, "      \"adapter\": \"{}\",\n", escape_json(&hp.adapter));
-                let _ = write!(f, "      \"vram_bytes\": {},\n", hp.vram_bytes);
-                let _ = write!(f, "      \"precision_tiers\": {{\n");
+                let pcomma = if pi + 1 < self.hardware_profiles.len() {
+                    ","
+                } else {
+                    ""
+                };
+                let _ = writeln!(f, "    {{");
+                let _ = writeln!(f, "      \"adapter\": \"{}\",", escape_json(&hp.adapter));
+                let _ = writeln!(f, "      \"vram_bytes\": {},", hp.vram_bytes);
+                let _ = writeln!(f, "      \"precision_tiers\": {{");
                 for (ti, (name, compiles, dispatch, ulp)) in hp.precision_tiers.iter().enumerate() {
-                    let tcomma = if ti + 1 < hp.precision_tiers.len() { "," } else { "" };
-                    let _ = write!(f,
-                        "        \"{name}\": {{\"compiles\": {compiles}, \"dispatch_us\": {}, \"max_ulp\": {}}}{tcomma}\n",
-                        json_f64(*dispatch), json_f64(*ulp));
+                    let tcomma = if ti + 1 < hp.precision_tiers.len() {
+                        ","
+                    } else {
+                        ""
+                    };
+                    let _ = writeln!(
+                        f,
+                        "        \"{name}\": {{\"compiles\": {compiles}, \"dispatch_us\": {}, \"max_ulp\": {}}}{tcomma}",
+                        json_f64(*dispatch),
+                        json_f64(*ulp)
+                    );
                 }
-                let _ = write!(f, "      }},\n");
-                let _ = write!(f, "      \"domain_routing\": {{\n");
+                let _ = writeln!(f, "      }},");
+                let _ = writeln!(f, "      \"domain_routing\": {{");
                 for (di, (domain, tier)) in hp.domain_routing.iter().enumerate() {
-                    let dcomma = if di + 1 < hp.domain_routing.len() { "," } else { "" };
-                    let _ = write!(f, "        \"{domain}\": \"{tier}\"{dcomma}\n");
+                    let dcomma = if di + 1 < hp.domain_routing.len() {
+                        ","
+                    } else {
+                        ""
+                    };
+                    let _ = writeln!(f, "        \"{domain}\": \"{tier}\"{dcomma}");
                 }
-                let _ = write!(f, "      }},\n");
-                let _ = write!(f, "      \"sizing\": {{\"max_lattice_l\": {}, \"max_buffer_bytes\": {}}}\n",
-                    hp.max_lattice_l, hp.vram_bytes);
-                let _ = write!(f, "    }}{pcomma}\n");
+                let _ = writeln!(f, "      }},");
+                let _ = writeln!(
+                    f,
+                    "      \"sizing\": {{\"max_lattice_l\": {}, \"max_buffer_bytes\": {}}}",
+                    hp.max_lattice_l, hp.vram_bytes
+                );
+                let _ = writeln!(f, "    }}{pcomma}");
             }
-            let _ = write!(f, "  ],\n");
+            let _ = writeln!(f, "  ],");
         }
 
-        let _ = write!(f, "  \"checks\": [\n");
+        let _ = writeln!(f, "  \"checks\": [");
 
         for (i, c) in self.checks.iter().enumerate() {
             let comma = if i + 1 < self.checks.len() { "," } else { "" };
@@ -400,12 +416,12 @@ impl ValidationHarness {
                 ToleranceMode::LowerBound => "lower_bound",
             };
 
-            let _ = write!(f, "    {{\n");
-            let _ = write!(f, "      \"label\": \"{}\",\n", c.label);
-            let _ = write!(f, "      \"passed\": {},\n", c.passed);
-            let _ = write!(f, "      \"observed\": {},\n", json_f64(c.observed));
-            let _ = write!(f, "      \"expected\": {},\n", json_f64(c.expected));
-            let _ = write!(f, "      \"tolerance\": {},\n", json_f64(c.tolerance));
+            let _ = writeln!(f, "    {{");
+            let _ = writeln!(f, "      \"label\": \"{}\",", c.label);
+            let _ = writeln!(f, "      \"passed\": {},", c.passed);
+            let _ = writeln!(f, "      \"observed\": {},", json_f64(c.observed));
+            let _ = writeln!(f, "      \"expected\": {},", json_f64(c.expected));
+            let _ = writeln!(f, "      \"tolerance\": {},", json_f64(c.tolerance));
             let _ = write!(f, "      \"mode\": \"{mode_str}\"");
 
             if let Some(ref sub) = c.substrate {
@@ -421,7 +437,11 @@ impl ValidationHarness {
                 let _ = write!(f, ",\n      \"unit\": \"{u}\"");
             }
             if let Some(ref tj) = c.tolerance_justification {
-                let _ = write!(f, ",\n      \"tolerance_justification\": \"{}\"", escape_json(tj));
+                let _ = write!(
+                    f,
+                    ",\n      \"tolerance_justification\": \"{}\"",
+                    escape_json(tj)
+                );
             }
             if let Some(ms) = c.duration_ms {
                 let _ = write!(f, ",\n      \"duration_ms\": {ms}");
@@ -429,7 +449,7 @@ impl ValidationHarness {
             let _ = write!(f, "\n    }}{comma}\n");
         }
 
-        let _ = write!(f, "  ],\n");
+        let _ = writeln!(f, "  ],");
         let _ = write!(
             f,
             "  \"summary\": {{\n    \"total\": {},\n    \"passed\": {},\n    \"failed\": {},\n    \"duration_ms\": {}\n  }}\n",
@@ -603,7 +623,7 @@ impl TelemetryWriter {
 
     /// Log a telemetry event. Fields with NaN/Inf are written as null.
     pub fn log(&mut self, section: &str, observable: &str, value: f64) {
-        let sub = substrate_fragment(&self.substrate);
+        let sub = substrate_fragment(self.substrate.as_deref());
         let Some(ref mut f) = self.file else { return };
         let t = self.start.elapsed().as_secs_f64();
         let val = if value.is_finite() {
@@ -620,7 +640,7 @@ impl TelemetryWriter {
 
     /// Log a telemetry event with multiple key-value pairs.
     pub fn log_map(&mut self, section: &str, fields: &[(&str, f64)]) {
-        let sub = substrate_fragment(&self.substrate);
+        let sub = substrate_fragment(self.substrate.as_deref());
         let Some(ref mut f) = self.file else { return };
         let t = self.start.elapsed().as_secs_f64();
         let pairs: Vec<String> = fields
@@ -674,7 +694,16 @@ fn epoch_days_to_ymd(mut days: u64) -> (u64, u64, u64) {
     let mdays = [
         31,
         if leap { 29 } else { 28 },
-        31, 30, 31, 30, 31, 31, 30, 31, 30, 31,
+        31,
+        30,
+        31,
+        30,
+        31,
+        31,
+        30,
+        31,
+        30,
+        31,
     ];
     let mut mo = 0;
     for (i, &md) in mdays.iter().enumerate() {
@@ -688,16 +717,13 @@ fn epoch_days_to_ymd(mut days: u64) -> (u64, u64, u64) {
 }
 
 fn is_leap(y: u64) -> bool {
-    (y % 4 == 0 && y % 100 != 0) || y % 400 == 0
+    (y.is_multiple_of(4) && !y.is_multiple_of(100)) || y.is_multiple_of(400)
 }
 
 fn json_f64(v: f64) -> String {
     if v.is_finite() {
         // Preserve full precision, strip unnecessary trailing noise
-        let s = format!("{v}");
-        s
-    } else if v.is_nan() {
-        "null".into()
+        format!("{v}")
     } else {
         "null".into()
     }
@@ -711,7 +737,7 @@ fn escape_json(s: &str) -> String {
         .replace('\t', "\\t")
 }
 
-fn substrate_fragment(substrate: &Option<String>) -> String {
+fn substrate_fragment(substrate: Option<&str>) -> String {
     match substrate {
         Some(s) => format!(r#","substrate":"{s}""#),
         None => String::new(),

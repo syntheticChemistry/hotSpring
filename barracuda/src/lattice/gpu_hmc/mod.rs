@@ -83,7 +83,7 @@ pub use dynamical::{
     GpuDynHmcPipelines, GpuDynHmcResult, GpuDynHmcState, WGSL_AXPY, WGSL_COMPLEX_DOT_RE,
     WGSL_DIRAC_STAGGERED, WGSL_FERMION_FORCE, WGSL_RANDOM_MOMENTA, WGSL_XPAY,
 };
-#[allow(deprecated)]
+#[expect(deprecated, reason = "transitional — migration to new API pending")]
 pub use gpu_rhmc::{
     GpuRhmcPipelines, GpuRhmcResult, GpuRhmcSectorBuffers, GpuRhmcState, MAX_POLES,
     WGSL_MULTI_SHIFT_ZETA, gpu_multi_shift_cg_solve, gpu_rhmc_trajectory,
@@ -595,7 +595,7 @@ impl GpuHmcState {
 /// trajectory via `gpu_wilson_action` / `gpu_kinetic_energy`, then sums
 /// on CPU. The streaming path keeps all scalars GPU-resident.
 #[deprecated(note = "use gpu_hmc_trajectory_streaming for GPU-resident observables")]
-#[allow(deprecated)]
+#[expect(deprecated, reason = "transitional — migration to new API pending")]
 pub fn gpu_hmc_trajectory(
     gpu: &GpuF64,
     pipelines: &GpuHmcPipelines,

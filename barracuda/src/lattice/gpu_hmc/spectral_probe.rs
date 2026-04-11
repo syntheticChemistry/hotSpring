@@ -25,7 +25,7 @@
 //! - Kalkreuter, hep-lat/9511009 — eigenvalue estimation for LQCD
 
 use super::dynamical::GpuDynHmcPipelines;
-#[allow(deprecated)]
+#[expect(deprecated, reason = "transitional — migration to new API pending")]
 use super::{GpuDynHmcState, GpuF64, gpu_dot_re};
 use crate::tolerances::{
     RHMC_POWER_ITERATION_COUNT, RHMC_SPECTRAL_SAFETY_HIGH, RHMC_SPECTRAL_SAFETY_LOW,
@@ -77,7 +77,7 @@ impl SpectralInfo {
 /// Reuses the existing Dirac dispatch and dot product pipelines.
 /// Uses `gpu_dot_re` (3 calls per iteration × ~5 iterations = ~15 total).
 /// Low call count; not a hot path.
-#[allow(deprecated)]
+#[expect(deprecated, reason = "transitional — migration to new API pending")]
 pub fn gpu_power_iteration_lambda_max(
     gpu: &GpuF64,
     pipelines: &GpuDynHmcPipelines,

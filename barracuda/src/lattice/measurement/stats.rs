@@ -51,8 +51,8 @@ pub fn jackknife_error(data: &[f64]) -> (f64, f64) {
     let mean = total / n as f64;
 
     let mut jk_means = Vec::with_capacity(n);
-    for i in 0..n {
-        let jk_sum = total - data[i];
+    for &x in data {
+        let jk_sum = total - x;
         jk_means.push(jk_sum / (n - 1) as f64);
     }
 
@@ -103,11 +103,8 @@ pub fn estimate_tau_int(data: &[f64]) -> (f64, f64) {
             bin_means.push(bin_mean);
         }
 
-        let bin_var: f64 = bin_means
-            .iter()
-            .map(|&x| (x - mean).powi(2))
-            .sum::<f64>()
-            / (n_bins - 1) as f64;
+        let bin_var: f64 =
+            bin_means.iter().map(|&x| (x - mean).powi(2)).sum::<f64>() / (n_bins - 1) as f64;
 
         let tau = 0.5 * bin_size as f64 * bin_var / naive_var;
         let tau_err = tau * (2.0 / n_bins as f64).sqrt();

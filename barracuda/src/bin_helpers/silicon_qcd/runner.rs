@@ -3,8 +3,8 @@
 //! GPU trajectory execution (RHMC / streaming HMC) for production silicon QCD.
 
 use super::support::{
-    estimate_traj_bytes, estimate_traj_flops, is_dynamical, mode_label, AmdGpuPower, BetaSummary,
-    CliArgs, InstrumentedResult, SiliconBudget,
+    AmdGpuPower, BetaSummary, CliArgs, InstrumentedResult, SiliconBudget, estimate_traj_bytes,
+    estimate_traj_flops, is_dynamical, mode_label,
 };
 use hotspring_barracuda::bench::{GpuTelemetry, PowerMonitor};
 use hotspring_barracuda::gpu::GpuF64;
@@ -23,6 +23,10 @@ use std::time::Instant;
 
 use super::flow::{build_summary, run_gradient_flow_uni, run_quenched_gradient_flow};
 
+#[expect(
+    clippy::expect_used,
+    reason = "GPU trajectory failure is unrecoverable in this pipeline"
+)]
 pub fn run_beta_point(
     gpu: &GpuF64,
     budget: &SiliconBudget,
@@ -326,6 +330,10 @@ pub fn run_beta_point(
     build_summary(&results, args, beta, budget, energy, flow_results)
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "GPU trajectory failure is unrecoverable in this pipeline"
+)]
 pub fn run_quenched_beta(
     gpu: &GpuF64,
     budget: &SiliconBudget,
@@ -492,6 +500,10 @@ pub fn run_quenched_beta(
 }
 
 /// Wrapper: run one unidirectional RHMC trajectory with timing.
+#[expect(
+    clippy::expect_used,
+    reason = "GPU trajectory failure is unrecoverable in this pipeline"
+)]
 pub fn run_uni_traj(
     gpu: &GpuF64,
     dyn_pipelines: &GpuDynHmcPipelines,

@@ -5,7 +5,7 @@
 mod harness;
 mod papers;
 
-pub use harness::{max_lattice_l, SubstrateResults};
+pub use harness::{SubstrateResults, max_lattice_l};
 pub use papers::{
     cpu_quenched_pretherm, paper_43_convergence, paper_43_dynamical, paper_43_production,
     paper_44_cpu, paper_44_gpu, paper_44_multicomponent_cpu, paper_44_multicomponent_gpu,

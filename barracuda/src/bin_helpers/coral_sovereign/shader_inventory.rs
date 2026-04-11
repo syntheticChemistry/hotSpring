@@ -4,7 +4,7 @@
 // Phase 3: QCD Shader Compilation Inventory
 // ═══════════════════════════════════════════════════════════════
 
-use super::prelude::{vec2_preamble_with_su3, LIB_LCG_F64, LIB_SU3_EXTENDED};
+use super::prelude::{LIB_LCG_F64, LIB_SU3_EXTENDED, vec2_preamble_with_su3};
 use coral_gpu::GpuContext;
 use std::time::Instant;
 

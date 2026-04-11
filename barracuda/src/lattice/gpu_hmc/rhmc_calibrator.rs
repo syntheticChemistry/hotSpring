@@ -55,7 +55,7 @@ pub struct RhmcCalibrator {
     strange_mass: Option<f64>,
     beta: f64,
     /// Lattice dimensions (used for volume-dependent heuristics and spectral probing).
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "EVOLUTION: reserved for GPU pipeline wiring")]
     dims: [usize; 4],
 
     // Discovered state
@@ -239,9 +239,9 @@ impl RhmcCalibrator {
                     cg_max_iter: self.cg_max_iter,
                 })
             }
-            nf => Err(crate::error::HotSpringError::InvalidOperation(
-                format!("unsupported flavor count nf={nf} (only 2 and 3 are supported)"),
-            )),
+            nf => Err(crate::error::HotSpringError::InvalidOperation(format!(
+                "unsupported flavor count nf={nf} (only 2 and 3 are supported)"
+            ))),
         }
     }
 

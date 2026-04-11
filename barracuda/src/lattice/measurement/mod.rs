@@ -35,8 +35,8 @@ mod time_host;
 
 pub use cli::{format_dims, format_dims_id, min_spatial_dim, parse_dims_from_args};
 pub use config_measurement::{
-    ConfigMeasurement, FlowPoint, FlowResults, FermionObservables, GaugeObservables, HmcDiagnostics,
-    HvpResults, ScaleSetting, TopologyResults, WilsonLoopEntry,
+    ConfigMeasurement, FermionObservables, FlowPoint, FlowResults, GaugeObservables,
+    HmcDiagnostics, HvpResults, ScaleSetting, TopologyResults, WilsonLoopEntry,
 };
 pub use ensemble::{AlgorithmParams, ConfigEntry, EnsembleManifest, Provenance};
 pub use provenance::{ImplementationInfo, NucleusManifest, RunManifest};
@@ -44,7 +44,7 @@ pub use shader_manifest::{
     PaperReference, PathValidation, ShaderBufferLayout, ShaderManifest, ShaderReferenceValue,
     ShaderValidationResult,
 };
-pub use stats::{estimate_tau_int, jackknife_error, ObservableSummary, StatisticalAnalysis};
+pub use stats::{ObservableSummary, StatisticalAnalysis, estimate_tau_int, jackknife_error};
 pub use time_host::iso8601_now;
 
 #[cfg(test)]

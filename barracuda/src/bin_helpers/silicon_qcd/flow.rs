@@ -14,10 +14,14 @@ use hotspring_barracuda::lattice::gpu_hmc::{
     UniHamiltonianBuffers, UniPipelines, gpu_hmc_trajectory_streaming,
     gpu_rhmc_trajectory_unidirectional,
 };
-use hotspring_barracuda::lattice::gradient_flow::{find_t0, find_w0, FlowIntegrator};
+use hotspring_barracuda::lattice::gradient_flow::{FlowIntegrator, find_t0, find_w0};
 use hotspring_barracuda::lattice::rhmc::RhmcConfig;
 use hotspring_barracuda::production_support::{mean, std_dev};
 
+#[expect(
+    clippy::expect_used,
+    reason = "GPU trajectory failure is unrecoverable in this pipeline"
+)]
 pub fn run_gradient_flow_uni(
     _uni: (), // placeholder — we use free function directly
     gpu: &GpuF64,
@@ -131,6 +135,10 @@ pub fn run_gradient_flow_uni(
     }
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "GPU trajectory failure is unrecoverable in this pipeline"
+)]
 pub fn run_quenched_gradient_flow(
     gpu: &GpuF64,
     args: &CliArgs,

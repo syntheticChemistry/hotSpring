@@ -36,7 +36,11 @@ const PMC_BOOT0: u32 = 0x0;
 const FECS_CPUCTL: u32 = 0x409100;
 
 const VRAM_DEAD_PATTERNS: [u32; 5] = [
-    0xBAD0_AC00, 0xBAD0_AC01, 0xBAD0_AC02, 0xBADF_3000, 0xFFFF_FFFF,
+    0xBAD0_AC00,
+    0xBAD0_AC01,
+    0xBAD0_AC02,
+    0xBADF_3000,
+    0xFFFF_FFFF,
 ];
 
 fn main() {
@@ -49,9 +53,8 @@ fn main() {
 
     let args: Vec<String> = std::env::args().collect();
     let bdf = extract_arg(&args, "--bdf").unwrap_or_else(|| "0000:4c:00.0".to_string());
-    let recipe_path = extract_arg(&args, "--recipe").unwrap_or_else(|| {
-        "data/k80/gk210_devinit_recipe.json".to_string()
-    });
+    let recipe_path = extract_arg(&args, "--recipe")
+        .unwrap_or_else(|| "data/k80/gk210_devinit_recipe.json".to_string());
     let dry_run = args.iter().any(|a| a == "--dry-run");
 
     println!("  Target BDF: {bdf}");
@@ -99,7 +102,11 @@ fn main() {
     let mut last_pmc_enable = pre_state.pmc_enable;
 
     for (script_idx, script) in recipe.iter().enumerate() {
-        println!("  Script {script_idx} ({} ops, addr={}):", script.ops.len(), script.addr);
+        println!(
+            "  Script {script_idx} ({} ops, addr={}):",
+            script.ops.len(),
+            script.addr
+        );
 
         for (op_idx, raw) in script.ops.iter().enumerate() {
             let op = DevinitOp::from(raw);
@@ -149,7 +156,10 @@ fn main() {
                                 breaker_resets += 1;
                                 std::thread::sleep(Duration::from_millis(50));
                                 match ember.mmio_write(&bdf, *reg, *val) {
-                                    Ok(_) => { ops_executed += 1; continue; }
+                                    Ok(_) => {
+                                        ops_executed += 1;
+                                        continue;
+                                    }
                                     Err(_) => {}
                                 }
                             }
@@ -173,7 +183,9 @@ fn main() {
                                 Err(e) => {
                                     ops_failed += 1;
                                     if ops_failed <= 10 {
-                                        eprintln!("    [{op_idx:3}] RMW WRITE FAILED: reg={reg:#010x} err={e}");
+                                        eprintln!(
+                                            "    [{op_idx:3}] RMW WRITE FAILED: reg={reg:#010x} err={e}"
+                                        );
                                     }
                                 }
                             }
@@ -181,12 +193,18 @@ fn main() {
                         Err(e) => {
                             ops_failed += 1;
                             if ops_failed <= 10 {
-                                eprintln!("    [{op_idx:3}] RMW READ FAILED: reg={reg:#010x} err={e}");
+                                eprintln!(
+                                    "    [{op_idx:3}] RMW READ FAILED: reg={reg:#010x} err={e}"
+                                );
                             }
                         }
                     }
                 }
-                DevinitOp::ZmMaskAdd { reg, inv_mask, add_val } => {
+                DevinitOp::ZmMaskAdd {
+                    reg,
+                    inv_mask,
+                    add_val,
+                } => {
                     if dry_run {
                         ops_executed += 1;
                         continue;
@@ -207,7 +225,9 @@ fn main() {
                         Err(e) => {
                             ops_failed += 1;
                             if ops_failed <= 10 {
-                                eprintln!("    [{op_idx:3}] MADD READ FAILED: reg={reg:#010x} err={e}");
+                                eprintln!(
+                                    "    [{op_idx:3}] MADD READ FAILED: reg={reg:#010x} err={e}"
+                                );
                             }
                         }
                     }
@@ -240,8 +260,10 @@ fn main() {
     print_state("  POST", &post_state);
 
     let pmc_changed = post_state.pmc_enable != pre_state.pmc_enable;
-    println!("  PMC_ENABLE changed: {pmc_changed} ({:#010x} → {:#010x})",
-        pre_state.pmc_enable, post_state.pmc_enable);
+    println!(
+        "  PMC_ENABLE changed: {pmc_changed} ({:#010x} → {:#010x})",
+        pre_state.pmc_enable, post_state.pmc_enable
+    );
     harness.check_bool("PMC_ENABLE updated by DEVINIT", pmc_changed);
 
     // Phase 4: VRAM liveness
@@ -268,11 +290,17 @@ fn main() {
     // Phase 5: PGRAPH / FECS check
     println!("\n━━━ Phase 5: PGRAPH / FECS State ━━━\n");
     let pgraph_ok = post_state.pgraph != 0 && !is_badf(post_state.pgraph);
-    println!("  PGRAPH_STATUS: {:#010x} (alive: {pgraph_ok})", post_state.pgraph);
+    println!(
+        "  PGRAPH_STATUS: {:#010x} (alive: {pgraph_ok})",
+        post_state.pgraph
+    );
     harness.check_bool("PGRAPH alive after DEVINIT", pgraph_ok);
 
     let fecs_ok = post_state.fecs_cpuctl != 0 && !is_badf(post_state.fecs_cpuctl);
-    println!("  FECS CPUCTL: {:#010x} (responsive: {fecs_ok})", post_state.fecs_cpuctl);
+    println!(
+        "  FECS CPUCTL: {:#010x} (responsive: {fecs_ok})",
+        post_state.fecs_cpuctl
+    );
     harness.check_bool("FECS responsive after DEVINIT", fecs_ok);
 
     // Phase 6: Additional engine checks
@@ -290,8 +318,11 @@ fn main() {
         match ember.mmio_read(&bdf, reg) {
             Ok(r) => {
                 let alive = !is_badf(r.value);
-                println!("  {name} ({reg:#08x}) = {:#010x} {}", r.value,
-                    if alive { "✓" } else { "×" });
+                println!(
+                    "  {name} ({reg:#08x}) = {:#010x} {}",
+                    r.value,
+                    if alive { "✓" } else { "×" }
+                );
             }
             Err(e) => println!("  {name}: read failed: {e}"),
         }
@@ -315,7 +346,10 @@ struct GpuState {
 
 fn read_key_registers(ember: &EmberClient, bdf: &str) -> GpuState {
     let read = |reg: u32| -> u32 {
-        ember.mmio_read(bdf, reg).map(|r| r.value).unwrap_or(0xDEAD_DEAD)
+        ember
+            .mmio_read(bdf, reg)
+            .map(|r| r.value)
+            .unwrap_or(0xDEAD_DEAD)
     };
     GpuState {
         boot0: read(PMC_BOOT0),
@@ -376,21 +410,49 @@ struct RawDevinitOp {
 }
 
 enum DevinitOp {
-    ZmReg { reg: u32, val: u32 },
-    NvReg { reg: u32, mask: u32, or_val: u32 },
-    ZmMaskAdd { reg: u32, inv_mask: u32, add_val: u32 },
-    Time { usec: u64 },
+    ZmReg {
+        reg: u32,
+        val: u32,
+    },
+    NvReg {
+        reg: u32,
+        mask: u32,
+        or_val: u32,
+    },
+    ZmMaskAdd {
+        reg: u32,
+        inv_mask: u32,
+        add_val: u32,
+    },
+    Time {
+        usec: u64,
+    },
 }
 
 impl From<&RawDevinitOp> for DevinitOp {
     fn from(raw: &RawDevinitOp) -> Self {
         match raw.op_type.as_str() {
-            "ZM_REG" | "ZmReg" => DevinitOp::ZmReg { reg: raw.reg, val: raw.val },
-            "NV_REG" | "NvReg" => DevinitOp::NvReg { reg: raw.reg, mask: raw.mask, or_val: raw.or_val },
+            "ZM_REG" | "ZmReg" => DevinitOp::ZmReg {
+                reg: raw.reg,
+                val: raw.val,
+            },
+            "NV_REG" | "NvReg" => DevinitOp::NvReg {
+                reg: raw.reg,
+                mask: raw.mask,
+                or_val: raw.or_val,
+            },
             "ZM_MASK_ADD" | "ZmMaskAdd" => DevinitOp::ZmMaskAdd {
                 reg: raw.reg,
-                inv_mask: if raw.inv_mask != 0 { raw.inv_mask } else { raw.mask },
-                add_val: if raw.add_val != 0 { raw.add_val } else { raw.val },
+                inv_mask: if raw.inv_mask != 0 {
+                    raw.inv_mask
+                } else {
+                    raw.mask
+                },
+                add_val: if raw.add_val != 0 {
+                    raw.add_val
+                } else {
+                    raw.val
+                },
             },
             "Time" => DevinitOp::Time { usec: raw.usec },
             other => {

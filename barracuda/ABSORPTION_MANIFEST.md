@@ -1,8 +1,10 @@
 # hotSpring → BarraCuda/ToadStool Absorption Manifest
 
 **Date:** April 10, 2026
-**Version:** v0.6.32 (synced to barraCuda `fbad3c0a`, toadStool S155b, coralReef Iter 47)
+**Version:** v0.6.32 — synced to barraCuda **v0.3.11** (`fbad3c0a`), toadStool S155b, coralReef Iter 47
 **License:** AGPL-3.0-only
+
+**barraCuda v0.3.11 alignment:** `plaquette_variance` is delegated to `barracuda::stats::correlation::variance`. **20+ new tolerance constants** were added for validation parity (see `tolerances/`). **Squirrel client** module: `squirrel_client.rs`. **Capability-based routing** via `call_by_capability()` in `primal_bridge.rs`.
 
 ---
 
@@ -405,3 +407,9 @@ For each absorption candidate:
 3. Include: Rust source, WGSL template, binding layout, dispatch geometry, test suite
 4. After absorption: rewire hotSpring to `use barracuda::ops::*`, delete local code
 5. Run `validate_all` to confirm 39/39 suites still pass
+
+---
+
+## Workspace test coverage (April 10, 2026 audit)
+
+**956** library tests · **145** `[[bin]]` targets (cargo workspace). See `EXPERIMENT_INDEX.md` for `validate_*` and WGSL shader counts.

@@ -44,15 +44,13 @@ use hotspring_barracuda::lattice::gradient_flow::{
 use hotspring_barracuda::lattice::hmc::{HmcConfig, IntegratorType, hmc_trajectory};
 use hotspring_barracuda::lattice::ildg::{IldgMetadata, ildg_crc, write_gauge_config_file};
 use hotspring_barracuda::lattice::measurement::{
-    ConfigEntry, ConfigMeasurement, EnsembleManifest, FlowPoint, FlowResults,
-    ImplementationInfo, TopologyResults, WilsonLoopEntry,
+    ConfigEntry, ConfigMeasurement, EnsembleManifest, FlowPoint, FlowResults, ImplementationInfo,
+    TopologyResults, WilsonLoopEntry,
 };
 use hotspring_barracuda::lattice::process_catalog::{
     CostModel, HardwareTier, PhysicsProcess, ProcessParams,
 };
-use hotspring_barracuda::lattice::qcdml::{
-    QcdmlEnsembleInfo, generate_ensemble_xml,
-};
+use hotspring_barracuda::lattice::qcdml::{QcdmlEnsembleInfo, generate_ensemble_xml};
 use hotspring_barracuda::lattice::task_matrix::{SweepParams, TaskMatrix};
 use hotspring_barracuda::lattice::wilson::Lattice;
 
@@ -99,7 +97,9 @@ fn print_usage() {
     eprintln!("  export   Generate QCDml package from completed data");
     eprintln!();
     eprintln!("Examples:");
-    eprintln!("  chuna_matrix init --betas=5.8,6.0 --lattices=8,12 --observables=flow,wilson --file=matrix.json");
+    eprintln!(
+        "  chuna_matrix init --betas=5.8,6.0 --lattices=8,12 --observables=flow,wilson --file=matrix.json"
+    );
     eprintln!("  chuna_matrix add --beta=6.0 --lattice=16 --observable=pbp --file=matrix.json");
     eprintln!("  chuna_matrix status --file=matrix.json");
     eprintln!("  chuna_matrix run --max-hours=4 --file=matrix.json");
@@ -177,9 +177,8 @@ fn cmd_init(args: &[String]) {
 
     let matrix_id = parse_kv(args, "id").unwrap_or("chuna_sweep").to_string();
 
-    let nt_override: Option<Vec<usize>> = parse_kv(args, "nt").map(|s| {
-        s.split(',').filter_map(|v| v.parse().ok()).collect()
-    });
+    let nt_override: Option<Vec<usize>> =
+        parse_kv(args, "nt").map(|s| s.split(',').filter_map(|v| v.parse().ok()).collect());
 
     let sweep = SweepParams {
         betas,
@@ -306,7 +305,9 @@ fn cmd_run(args: &[String]) {
         .unwrap_or(1.0);
     let max_seconds = max_hours * 3600.0;
 
-    let outdir = parse_kv(args, "outdir").unwrap_or("chuna_matrix_output").to_string();
+    let outdir = parse_kv(args, "outdir")
+        .unwrap_or("chuna_matrix_output")
+        .to_string();
     std::fs::create_dir_all(&outdir).expect("create output dir");
     let meas_dir = format!("{outdir}/measurements");
     std::fs::create_dir_all(&meas_dir).expect("create measurements dir");
@@ -418,8 +419,7 @@ fn execute_task(
                 let meta = IldgMetadata::for_lattice(&lattice, traj);
                 let conf_file = format!("conf_{traj:06}.lime");
                 let conf_path = format!("{ens_dir}/{conf_file}");
-                write_gauge_config_file(&conf_path, &lattice, &meta)
-                    .map_err(|e| e.to_string())?;
+                write_gauge_config_file(&conf_path, &lattice, &meta).map_err(|e| e.to_string())?;
 
                 let file_bytes = std::fs::read(&conf_path).map_err(|e| e.to_string())?;
                 let crc = ildg_crc(&file_bytes);
@@ -433,17 +433,11 @@ fn execute_task(
                     plaquette: lattice.average_plaquette(),
                 });
 
-                println!(
-                    "    traj={traj:>5}  ⟨P⟩={:.6}",
-                    lattice.average_plaquette()
-                );
+                println!("    traj={traj:>5}  ⟨P⟩={:.6}", lattice.average_plaquette());
             }
 
-            std::fs::write(
-                format!("{ens_dir}/ensemble.json"),
-                manifest.to_json(),
-            )
-            .map_err(|e| e.to_string())?;
+            std::fs::write(format!("{ens_dir}/ensemble.json"), manifest.to_json())
+                .map_err(|e| e.to_string())?;
 
             Ok(Some(ens_dir))
         }
@@ -577,12 +571,14 @@ fn execute_task(
                     ConfigMeasurement::new(&meta.ensemble_id, meta.trajectory, &meta.lfn);
                 meas.gauge.plaquette = lattice.average_plaquette();
                 meas.implementation = Some(ImplementationInfo::auto_detect_cpu_only());
-                meas.fermion = Some(hotspring_barracuda::lattice::measurement::FermionObservables {
-                    chiral_condensate: result.condensate,
-                    chiral_condensate_error: result.error,
-                    n_sources: result.n_sources,
-                    mass,
-                });
+                meas.fermion = Some(
+                    hotspring_barracuda::lattice::measurement::FermionObservables {
+                        chiral_condensate: result.condensate,
+                        chiral_condensate_error: result.error,
+                        n_sources: result.n_sources,
+                        mass,
+                    },
+                );
 
                 let meas_path = format!("{meas_dir}/pbp_{:06}.json", meta.trajectory);
                 std::fs::write(&meas_path, meas.to_json()).map_err(|e| e.to_string())?;
@@ -596,15 +592,19 @@ fn execute_task(
             Ok(Some(meas_dir.to_string()))
         }
         PhysicsProcess::Correlators => {
-            eprintln!("    [SKIP] Correlator measurement requires point-to-point propagator \
+            eprintln!(
+                "    [SKIP] Correlator measurement requires point-to-point propagator \
                        computation (Dirac inversion on each source). Blocked on GPU CG \
-                       solver integration for full-lattice inversions.");
+                       solver integration for full-lattice inversions."
+            );
             Ok(None)
         }
         PhysicsProcess::ScaleSetting => {
-            eprintln!("    [SKIP] Scale setting (Wilson flow t₀/w₀) requires gradient flow \
+            eprintln!(
+                "    [SKIP] Scale setting (Wilson flow t₀/w₀) requires gradient flow \
                        on production-size lattices with statistical averaging. Use \
-                       validate_gradient_flow for single-config flow validation.");
+                       validate_gradient_flow for single-config flow validation."
+            );
             Ok(None)
         }
     }
@@ -635,7 +635,10 @@ fn cmd_export(args: &[String]) {
 
     let format = parse_kv(args, "format").unwrap_or("qcdml");
 
-    println!("\n  Exporting completed tasks from matrix: {}", matrix.matrix_id);
+    println!(
+        "\n  Exporting completed tasks from matrix: {}",
+        matrix.matrix_id
+    );
     println!("  Format: {format}");
     println!("  Output: {outdir}");
 
@@ -643,8 +646,7 @@ fn cmd_export(args: &[String]) {
         .tasks
         .iter()
         .filter(|t| {
-            t.status
-                == hotspring_barracuda::lattice::process_catalog::ProcessStatus::Completed
+            t.status == hotspring_barracuda::lattice::process_catalog::ProcessStatus::Completed
         })
         .collect();
 
@@ -690,8 +692,11 @@ fn cmd_export(args: &[String]) {
     });
 
     let summary_path = format!("{outdir}/export_manifest.json");
-    std::fs::write(&summary_path, serde_json::to_string_pretty(&summary).unwrap())
-        .expect("write summary");
+    std::fs::write(
+        &summary_path,
+        serde_json::to_string_pretty(&summary).unwrap(),
+    )
+    .expect("write summary");
     println!("  → {summary_path}");
 
     println!(

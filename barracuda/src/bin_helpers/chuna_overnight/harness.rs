@@ -21,5 +21,5 @@ pub fn max_lattice_l(max_buffer_bytes: u64) -> usize {
     let bytes_per_site: u64 = 4 * 18 * 8 * safety_margin;
     let max_sites = max_buffer_bytes / bytes_per_site;
     let l = (max_sites as f64).powf(0.25).floor() as usize;
-    l.min(64).max(8)
+    l.clamp(8, 64)
 }

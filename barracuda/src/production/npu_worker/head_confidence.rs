@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-#![allow(missing_docs)]
-
 //! Rolling per-head confidence tracker for NPU steering decisions.
 
 const HEAD_CONFIDENCE_WINDOW: usize = 20;
@@ -21,7 +19,7 @@ enum HeadMetric {
     /// R² for continuous targets — preferred for all heads (captures gradient).
     Regression,
     /// Accuracy for binary targets — kept for backward compatibility with saved weights.
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "EVOLUTION: reserved for GPU pipeline wiring")]
     Classification,
 }
 

@@ -36,6 +36,22 @@ pub enum AtomicType {
     FullNucleus,
 }
 
+/// Capability domain for composition checks — aligns with [`crate::niche::NicheDependency::capability_domain`].
+fn capability_domain_for_required_primal(name: &str) -> &'static str {
+    match name {
+        "beardog" => "crypto",
+        "songbird" => "discovery",
+        "toadstool" => "compute",
+        "barracuda" => "math",
+        "coralreef" => "shader",
+        "nestgate" => "storage",
+        "rhizocrypt" => "dag",
+        "loamspine" => "ledger",
+        "sweetgrass" => "attribution",
+        _ => "unknown",
+    }
+}
+
 impl AtomicType {
     /// Primals required for this atomic to be valid.
     #[must_use]
@@ -105,19 +121,19 @@ pub fn validate_atomic(
     println!("    Required primals: {}", required.len());
 
     for &name in required {
-        let check_name = format!("{} {} alive", atomic.label(), name);
-        match ctx.get(name) {
+        let domain = capability_domain_for_required_primal(name);
+        let check_name = format!("{} {} ({domain}) alive", atomic.label(), name);
+        match ctx.get_by_capability(domain) {
             Some(ep) if ep.alive => {
                 alive_count += 1;
                 harness.check_bool(&check_name, true);
-                println!("    {name}: alive ({})", ep.socket);
+                println!("    {name} [{domain}]: alive ({})", ep.socket);
 
                 if let Ok(resp) =
-                    ctx.call(name, "health.liveness", &serde_json::json!({}))
+                    ctx.call_by_capability(domain, "health.liveness", serde_json::json!({}))
+                    && resp.get("result").is_some()
                 {
-                    if resp.get("result").is_some() {
-                        health_passed += 1;
-                    }
+                    health_passed += 1;
                 }
 
                 if ep.capabilities.is_some() {
@@ -126,12 +142,12 @@ pub fn validate_atomic(
             }
             Some(ep) => {
                 harness.check_bool(&check_name, false);
-                println!("    {name}: UNREACHABLE ({})", ep.socket);
+                println!("    {name} [{domain}]: UNREACHABLE ({})", ep.socket);
                 missing.push(name.to_string());
             }
             None => {
                 harness.check_bool(&check_name, false);
-                println!("    {name}: NOT DISCOVERED");
+                println!("    {name} [{domain}]: NOT DISCOVERED");
                 missing.push(name.to_string());
             }
         }
@@ -229,13 +245,15 @@ fn atomic_health_json(ctx: &NucleusContext, atomic: AtomicType) -> serde_json::V
     let mut alive = 0usize;
 
     for &name in required {
-        let status = ctx
-            .get(name)
-            .is_some_and(|ep| ep.alive);
+        let domain = capability_domain_for_required_primal(name);
+        let status = ctx.get_by_capability(domain).is_some_and(|ep| ep.alive);
         if status {
             alive += 1;
         }
-        statuses.insert(name.to_string(), serde_json::json!(if status { "ok" } else { "missing" }));
+        statuses.insert(
+            name.to_string(),
+            serde_json::json!(if status { "ok" } else { "missing" }),
+        );
     }
 
     serde_json::json!({
@@ -248,10 +266,10 @@ fn atomic_health_json(ctx: &NucleusContext, atomic: AtomicType) -> serde_json::V
 }
 
 fn check_atomic_alive(ctx: &NucleusContext, atomic: AtomicType) -> bool {
-    atomic
-        .required_primals()
-        .iter()
-        .all(|&name| ctx.get(name).is_some_and(|ep| ep.alive))
+    atomic.required_primals().iter().all(|&name| {
+        let domain = capability_domain_for_required_primal(name);
+        ctx.get_by_capability(domain).is_some_and(|ep| ep.alive)
+    })
 }
 
 /// Discover by capability rather than by name. Returns the first alive primal
@@ -261,18 +279,7 @@ pub fn get_by_capability<'a>(
     ctx: &'a NucleusContext,
     capability_domain: &str,
 ) -> Option<&'a PrimalEndpoint> {
-    ctx.discovered.values().find(|ep| {
-        ep.alive
-            && ep
-                .capabilities
-                .as_ref()
-                .and_then(|c| c.get("capabilities"))
-                .and_then(|a| a.as_array())
-                .is_some_and(|arr| {
-                    arr.iter()
-                        .any(|v| v.as_str().is_some_and(|s| s.starts_with(capability_domain)))
-                })
-    })
+    ctx.get_by_capability(capability_domain)
 }
 
 #[cfg(test)]

@@ -2,7 +2,7 @@
 
 //! Dynamical fermion GPU HMC — full QCD with staggered quarks.
 
-#[allow(deprecated)]
+#[expect(deprecated, reason = "transitional — migration to new API pending")]
 use super::{
     GpuF64, GpuHmcPipelines, GpuHmcState, flatten_momenta, gpu_dirac_dispatch, gpu_dot_re,
     gpu_fermion_force_dispatch, gpu_force_dispatch, gpu_kinetic_energy, gpu_link_update_dispatch,
@@ -234,7 +234,7 @@ pub fn gpu_dynamical_hmc_trajectory(
 
     // EVOLUTION(B2): GPU-resident Hamiltonian assembly — blocked on fused
     // gauge-action + fermion-force pipeline in barraCuda TensorSession.
-    #[allow(deprecated)]
+    #[expect(deprecated, reason = "transitional — migration to new API pending")]
     let s_gauge_old = gpu_wilson_action(gpu, &pipelines.gauge, &state.gauge);
     let t_old = gpu_kinetic_energy(gpu, &pipelines.gauge, &state.gauge);
     let (s_ferm_old, cg_iters_old) = gpu_fermion_action_all(gpu, pipelines, state);
@@ -257,7 +257,7 @@ pub fn gpu_dynamical_hmc_trajectory(
         }
     }
 
-    #[allow(deprecated)]
+    #[expect(deprecated, reason = "transitional — migration to new API pending")]
     let s_gauge_new = gpu_wilson_action(gpu, &pipelines.gauge, &state.gauge);
     let t_new = gpu_kinetic_energy(gpu, &pipelines.gauge, &state.gauge);
     let (s_ferm_new, cg_iters_new) = gpu_fermion_action_all(gpu, pipelines, state);
@@ -281,7 +281,7 @@ pub fn gpu_dynamical_hmc_trajectory(
         gpu.submit_encoder(enc);
     }
 
-    #[allow(deprecated)]
+    #[expect(deprecated, reason = "transitional — migration to new API pending")]
     let plaquette = gpu_plaquette(gpu, &pipelines.gauge, &state.gauge);
 
     GpuDynHmcResult {
@@ -308,7 +308,7 @@ pub(super) fn gen_random_fermion(vol: usize, seed: &mut u64) -> Vec<f64> {
 ///
 /// **Legacy** — uses `gpu_cg_solve_internal` (per-iteration readback) +
 /// single `gpu_dot_re` for final action. Modern: `gpu_dynamical_hmc_trajectory_resident`.
-#[allow(deprecated)]
+#[expect(deprecated, reason = "transitional — migration to new API pending")]
 pub(super) fn gpu_fermion_action(
     gpu: &GpuF64,
     pipelines: &GpuDynHmcPipelines,
@@ -388,7 +388,7 @@ pub(super) fn gpu_total_force_dispatch(
 /// GPU CG solver: (D†D)x = b, solution in `state.x_buf`.
 ///
 /// **Legacy** — per-iteration `gpu_dot_re` readback. Use `gpu_cg_solve_resident` instead.
-#[allow(deprecated)]
+#[expect(deprecated, reason = "transitional — migration to new API pending")]
 fn gpu_cg_solve_internal(
     gpu: &GpuF64,
     pipelines: &GpuDynHmcPipelines,

@@ -45,20 +45,20 @@
 // resolve the same way as in `src/bin` targets.
 extern crate self as hotspring_barracuda;
 
-/// Shared infrastructure for `src/bin` targets (refactored validation suites).
-pub mod bin_helpers;
 /// Benchmark harness (RAPL energy, `nvidia-smi`, JSON reports).
 pub mod bench;
-/// AME2020 experimental data, Skyrme parameter bounds, and chi-squared.
-pub mod data;
-/// Heterogeneous dual-GPU device pair (precise + throughput brains).
-pub mod device_pair;
+/// Shared infrastructure for `src/bin` targets (refactored validation suites).
+pub mod bin_helpers;
 /// NUCLEUS composition validation — atomic health, capability routing, science probes.
 pub mod composition;
 /// ToadStool compute dispatch validation (submit/result/capabilities).
 pub mod compute_dispatch;
 /// rhizoCrypt DAG session for computation trace with blake3 + witnesses.
 pub mod dag_provenance;
+/// AME2020 experimental data, Skyrme parameter bounds, and chi-squared.
+pub mod data;
+/// Heterogeneous dual-GPU device pair (precise + throughput brains).
+pub mod device_pair;
 /// Capability-based data-path resolution (zero hardcoded absolute paths).
 pub mod discovery;
 /// Dual-dispatch executor for heterogeneous GPU workloads.
@@ -69,18 +69,28 @@ pub mod dual_pipeline_eval;
 pub mod ember_types;
 /// Typed errors for GPU, simulation, and data-loading failure modes.
 pub mod error;
+/// coral-ember multi-instance fleet discovery and per-socket JSON-RPC routing.
+pub mod fleet_client;
+/// Per-ember JSON-RPC client: MMIO, falcon, SEC2, PRAMIN, DMA, flood testing.
+pub mod fleet_ember;
+/// JSON-RPC client for coral-glowplug.
+///
+/// Covers `device.dispatch`, `device.list`, health checks, and related helpers.
+pub mod glowplug_client;
 /// GPU FP64 compute wrapper (`SHADER_F64` via wgpu/Vulkan).
 pub mod gpu;
 /// Hardware calibration: safe per-tier probe + capability mask.
 pub mod hardware_calibration;
 /// Lattice QCD: SU(3), Wilson action, HMC, Dirac, CG, Abelian Higgs.
 pub mod lattice;
-/// GPU molecular dynamics (f64 WGSL Yukawa OCP, cell-list, transport).
-pub mod md;
 /// MCP (Model Context Protocol) tool definitions for AI/LLM integration.
 pub mod mcp_tools;
+/// GPU molecular dynamics (f64 WGSL Yukawa OCP, cell-list, transport).
+pub mod md;
 /// Mixed-hardware pipeline infrastructure for metalForge integration.
 pub mod mixed_hardware;
+/// Niche deployment self-knowledge: capabilities, dependencies, proto-nucleate.
+pub mod niche;
 /// NPU experiment campaign.
 ///
 /// Trajectory generation, dataset builders, evaluators, and placement strategies.
@@ -101,16 +111,8 @@ pub mod precision_eval;
 pub mod precision_routing;
 /// NMP cascade filter for L2 heterogeneous pipeline.
 pub mod prescreen;
-/// Niche deployment self-knowledge: capabilities, dependencies, proto-nucleate.
-pub mod niche;
 /// NUCLEUS primal discovery — runtime detection of available primals.
 pub mod primal_bridge;
-/// Per-ember JSON-RPC client: MMIO, falcon, SEC2, PRAMIN, DMA, flood testing.
-pub mod fleet_ember;
-/// coral-ember multi-instance fleet discovery and per-socket JSON-RPC routing.
-pub mod fleet_client;
-/// JSON-RPC client for coral-glowplug (`device.dispatch`, `device.list`, health, …).
-pub mod glowplug_client;
 /// Shared types and infrastructure for production lattice QCD binaries.
 pub mod production;
 /// Shared statistical helpers for production binaries (delegates to barraCuda `stats`).
@@ -119,14 +121,16 @@ pub mod production_support;
 pub mod provenance;
 /// Physics proxy pipeline (Anderson 3D, Z(3) Potts) for NPU training.
 pub mod proxy;
+/// Ed25519 receipt signing via bearDog crypto.sign JSON-RPC.
+pub mod receipt_signing;
 /// Spectral theory re-exports from `barracuda::spectral`.
 pub mod spectral;
+/// Squirrel / neuralSpring `inference.*` JSON-RPC client (NUCLEUS capability discovery).
+pub mod squirrel_client;
 /// Streaming compute dispatch for GPU-resident physics (local toadStool evolution).
 pub mod streaming_dispatch;
 /// JSONL telemetry reader for petalTongue visualization integration.
 pub mod telemetry_reader;
-/// Ed25519 receipt signing via bearDog crypto.sign JSON-RPC.
-pub mod receipt_signing;
 /// Minimal toadStool performance surface reporter (JSON-RPC over Unix socket).
 pub mod toadstool_report;
 /// Centralized, justified validation thresholds (~170 constants).

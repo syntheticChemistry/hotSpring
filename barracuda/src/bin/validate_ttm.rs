@@ -19,7 +19,8 @@ use hotspring_barracuda::provenance::{
     TTM_ARGON_EQUILIBRIUM_K, TTM_HELIUM_EQUILIBRIUM_K, TTM_XENON_EQUILIBRIUM_K,
 };
 use hotspring_barracuda::tolerances::{
-    TTM_ENERGY_DRIFT_REL, TTM_EQUILIBRIUM_T_REL, TTM_HELIUM_EQUILIBRIUM_T_REL,
+    TTM_ENERGY_DRIFT_REL, TTM_EQUILIBRATION_CLOSE_K, TTM_EQUILIBRIUM_T_REL,
+    TTM_HELIUM_EQUILIBRIUM_T_REL, TTM_TEMPERATURE_TRAJECTORY_SLOP_K,
 };
 use hotspring_barracuda::ttm::{TtmSpecies, integrate_ttm_rk4};
 use hotspring_barracuda::validation::ValidationHarness;
@@ -125,7 +126,7 @@ fn main() {
     // ══════════════════════════════════════════════════════════════
     // 4–5: He equilibrates fastest, Xe slowest
     // ══════════════════════════════════════════════════════════════
-    let equil_threshold_k = 500.0;
+    let equil_threshold_k = TTM_EQUILIBRATION_CLOSE_K;
     let argon_tau = argon_result
         .equilibration_time
         .or_else(|| {
@@ -188,8 +189,14 @@ fn main() {
     // ══════════════════════════════════════════════════════════════
     // 7: Trajectories monotonic (Te decreasing, Ti increasing)
     // ══════════════════════════════════════════════════════════════
-    let te_decreasing = |te: &[f64]| te.windows(2).all(|w| w[1] <= w[0] + 1e-6);
-    let ti_increasing = |ti: &[f64]| ti.windows(2).all(|w| w[1] >= w[0] - 1e-6);
+    let te_decreasing = |te: &[f64]| {
+        te.windows(2)
+            .all(|w| w[1] <= w[0] + TTM_TEMPERATURE_TRAJECTORY_SLOP_K)
+    };
+    let ti_increasing = |ti: &[f64]| {
+        ti.windows(2)
+            .all(|w| w[1] >= w[0] - TTM_TEMPERATURE_TRAJECTORY_SLOP_K)
+    };
 
     harness.check_bool(
         "Argon Te decreasing",

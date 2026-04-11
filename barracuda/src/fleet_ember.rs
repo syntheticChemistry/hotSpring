@@ -7,7 +7,6 @@
 //! stress-tests an ember with concurrent RPCs.
 
 use base64::Engine;
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
@@ -154,7 +153,12 @@ impl EmberClient {
     }
 
     /// `ember.mmio.write` — write a single 32-bit BAR0 register.
-    pub fn mmio_write(&self, bdf: &str, offset: u32, value: u32) -> Result<MmioWriteResult, String> {
+    pub fn mmio_write(
+        &self,
+        bdf: &str,
+        offset: u32,
+        value: u32,
+    ) -> Result<MmioWriteResult, String> {
         let v = send_jsonrpc(
             &self.socket_path,
             "ember.mmio.write",
@@ -291,12 +295,7 @@ impl EmberClient {
     // ── PRAMIN (bulk VRAM staging) ──────────────────────────────────
 
     /// `ember.pramin.read` — read VRAM at `vram_addr` for `length` bytes.
-    pub fn pramin_read(
-        &self,
-        bdf: &str,
-        vram_addr: u64,
-        length: u32,
-    ) -> Result<Vec<u8>, String> {
+    pub fn pramin_read(&self, bdf: &str, vram_addr: u64, length: u32) -> Result<Vec<u8>, String> {
         let v = send_jsonrpc(
             &self.socket_path,
             "ember.pramin.read",
@@ -427,12 +426,9 @@ fn adopt_device_recv_scm_rights_impl(
     use std::os::unix::net::UnixStream;
 
     use rustix::io::IoSliceMut;
-    use rustix::net::{
-        RecvAncillaryBuffer, RecvAncillaryMessage, RecvFlags, recvmsg,
-    };
+    use rustix::net::{RecvAncillaryBuffer, RecvAncillaryMessage, RecvFlags, recvmsg};
 
-    let mut stream =
-        UnixStream::connect(socket_path).map_err(|e| format!("connect: {e}"))?;
+    let mut stream = UnixStream::connect(socket_path).map_err(|e| format!("connect: {e}"))?;
     stream
         .set_read_timeout(Some(std::time::Duration::from_secs(30)))
         .map_err(|e| format!("timeout: {e}"))?;
@@ -443,8 +439,7 @@ fn adopt_device_recv_scm_rights_impl(
         "params": { "bdf": bdf },
         "id": 1,
     });
-    let mut request_bytes =
-        serde_json::to_vec(&request).map_err(|e| format!("serialize: {e}"))?;
+    let mut request_bytes = serde_json::to_vec(&request).map_err(|e| format!("serialize: {e}"))?;
     request_bytes.push(b'\n');
     stream
         .write_all(&request_bytes)
@@ -511,7 +506,10 @@ impl FleetEmberHub {
 
     /// Convenience: client for a fleet route's socket.
     #[must_use]
-    pub fn client_for_route(&mut self, route: &crate::fleet_client::FleetDeviceRoute) -> &EmberClient {
+    pub fn client_for_route(
+        &mut self,
+        route: &crate::fleet_client::FleetDeviceRoute,
+    ) -> &EmberClient {
         self.client_for_socket(&route.socket_path)
     }
 
@@ -616,10 +614,10 @@ pub fn flood_test(config: &FloodTestConfig) -> FloodTestResult {
                             if v.get("result").is_some() {
                                 (true, None)
                             } else {
-                                let msg = v
-                                    .get("error")
-                                    .map(|e| e.to_string())
-                                    .unwrap_or_else(|| "no result".into());
+                                let msg = v.get("error").map_or_else(
+                                    || "no result".into(),
+                                    std::string::ToString::to_string,
+                                );
                                 (false, Some(msg))
                             }
                         }
@@ -636,7 +634,10 @@ pub fn flood_test(config: &FloodTestConfig) -> FloodTestResult {
                 out
             }));
         }
-        handles.into_iter().map(|h| h.join().unwrap_or_default()).collect()
+        handles
+            .into_iter()
+            .map(|h| h.join().unwrap_or_default())
+            .collect()
     });
 
     let total_duration = start.elapsed();
@@ -644,8 +645,11 @@ pub fn flood_test(config: &FloodTestConfig) -> FloodTestResult {
     let success_count = all.iter().filter(|r| r.success).count();
     let failure_count = all.len() - success_count;
 
-    let mut ok_latencies: Vec<std::time::Duration> =
-        all.iter().filter(|r| r.success).map(|r| r.latency).collect();
+    let mut ok_latencies: Vec<std::time::Duration> = all
+        .iter()
+        .filter(|r| r.success)
+        .map(|r| r.latency)
+        .collect();
     ok_latencies.sort();
 
     let median_latency = ok_latencies
@@ -678,8 +682,8 @@ fn send_jsonrpc_with_timeout(
     use std::io::{BufRead, Write};
     use std::os::unix::net::UnixStream;
 
-    let stream =
-        UnixStream::connect(socket_path).map_err(|e| format!("connect {}: {e}", socket_path.display()))?;
+    let stream = UnixStream::connect(socket_path)
+        .map_err(|e| format!("connect {}: {e}", socket_path.display()))?;
     stream
         .set_read_timeout(Some(timeout))
         .map_err(|e| format!("set timeout: {e}"))?;
@@ -735,6 +739,6 @@ pub fn extract_ember_pid(socket_path: &Path) -> Option<u32> {
     .ok()?;
     resp.get("result")
         .and_then(|r| r.get("pid"))
-        .and_then(|p| p.as_u64())
+        .and_then(serde_json::Value::as_u64)
         .map(|p| p as u32)
 }

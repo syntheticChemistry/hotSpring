@@ -6,7 +6,7 @@ use super::dynamical::{GpuDynHmcPipelines, GpuDynHmcResult, GpuDynHmcState};
 use super::resident_cg_buffers::{GpuResidentCgBuffers, encode_cg_batch, encode_reduce_chain};
 use super::resident_cg_pipelines::GpuResidentCgPipelines;
 use super::streaming::{GpuDynHmcStreamingPipelines, make_ferm_prng_params};
-#[allow(deprecated)]
+#[expect(deprecated, reason = "transitional — migration to new API pending")]
 use super::{
     GpuF64, gpu_dirac_dispatch, gpu_dot_re, gpu_kinetic_energy, gpu_plaquette, gpu_wilson_action,
     make_link_mom_params, make_prng_params,
@@ -180,7 +180,7 @@ pub fn gpu_cg_solve_brain(
 }
 
 /// Single `gpu_dot_re` for final S_f = φ†x — intentional, not per-iteration.
-#[allow(deprecated)]
+#[expect(deprecated, reason = "transitional — migration to new API pending")]
 fn gpu_fermion_action_brain_single(
     gpu: &GpuF64,
     dyn_pipelines: &GpuDynHmcPipelines,
@@ -480,7 +480,7 @@ pub fn gpu_dynamical_hmc_trajectory_brain(
 
     // EVOLUTION(B2): GPU-resident Hamiltonian assembly — blocked on fused
     // gauge-action + fermion-force pipeline in barraCuda TensorSession.
-    #[allow(deprecated)]
+    #[expect(deprecated, reason = "transitional — migration to new API pending")]
     let s_gauge_old = gpu_wilson_action(gpu, &dp.gauge, gs);
     let t_old = gpu_kinetic_energy(gpu, &dp.gauge, gs);
     let cg_beta = gs.beta;
@@ -553,7 +553,7 @@ pub fn gpu_dynamical_hmc_trajectory_brain(
         total_cg += cg1 + cg2 + cg3;
     }
 
-    #[allow(deprecated)]
+    #[expect(deprecated, reason = "transitional — migration to new API pending")]
     let s_gauge_new = gpu_wilson_action(gpu, &dp.gauge, gs);
     let t_new = gpu_kinetic_energy(gpu, &dp.gauge, gs);
     let (s_ferm_new, cg_iters_new) = gpu_fermion_action_brain_all(
@@ -589,7 +589,7 @@ pub fn gpu_dynamical_hmc_trajectory_brain(
         gpu.submit_encoder(enc);
     }
 
-    #[allow(deprecated)]
+    #[expect(deprecated, reason = "transitional — migration to new API pending")]
     let plaquette = gpu_plaquette(gpu, &dp.gauge, gs);
 
     GpuDynHmcResult {

@@ -3,7 +3,7 @@
 **Status:** Active — foundational architectural pattern for GlowPlug/Ember
 **Origin:** hotSpring GPU cracking pipeline, "5060 lesson", user directive
 **Absorbers:** coralReef (GlowPlug/Ember/coralctl), ecoPrimals standards
-**Related:** [DRIVER_AS_SOFTWARE.md](DRIVER_AS_SOFTWARE.md), [GPU_CRACKING_GAP_TRACKER.md](GPU_CRACKING_GAP_TRACKER.md)
+**Related:** [DRIVER_AS_SOFTWARE.md](DRIVER_AS_SOFTWARE.md), [GPU_CRACKING_GAP_TRACKER.md](archive/GPU_CRACKING_GAP_TRACKER.md)
 
 ## Core Thesis
 
@@ -428,7 +428,7 @@ structures to identify head/tail pointers and command entry format.
   cycle and recipe distillation. This document extends it with open targets and the
   reagent safety model.
 
-- **[GPU_CRACKING_GAP_TRACKER.md](GPU_CRACKING_GAP_TRACKER.md):** Open target acceptance
+- **[GPU_CRACKING_GAP_TRACKER.md](archive/GPU_CRACKING_GAP_TRACKER.md):** Open target acceptance
   is prerequisite for Gap 6 (nvidia_oracle) and enables novel driver experimentation
   beyond the current allowlist.
 

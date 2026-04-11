@@ -29,7 +29,7 @@ use hotspring_barracuda::lattice::pseudofermion::{
 };
 use hotspring_barracuda::lattice::wilson::Lattice;
 use hotspring_barracuda::provenance::{
-    BaselineProvenance, ABELIAN_HIGGS_PYTHON_TIMING_MS, QUENCHED_BETA_SCAN_PROVENANCE,
+    ABELIAN_HIGGS_PYTHON_TIMING_MS, BaselineProvenance, QUENCHED_BETA_SCAN_PROVENANCE,
 };
 use hotspring_barracuda::spectral;
 use hotspring_barracuda::tolerances;

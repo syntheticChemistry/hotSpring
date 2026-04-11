@@ -145,7 +145,13 @@ fn main() {
         );
 
         if args.compare_all {
-            run_comparison(&lattice, &args, &meta.lfn, &meta.ensemble_id, meta.trajectory);
+            run_comparison(
+                &lattice,
+                &args,
+                &meta.lfn,
+                &meta.ensemble_id,
+                meta.trajectory,
+            );
         } else {
             let int = parse_integrator(&args.integrator);
             let mut measurement = run_single_flow(
@@ -285,7 +291,10 @@ fn run_comparison(
     _trajectory: usize,
 ) {
     println!("\n  ┌─────────────────────────────────────────────────────────────────────────┐");
-    println!("  │  Integrator Comparison (same config, ε={}, t_max={})              │", args.eps, args.tmax);
+    println!(
+        "  │  Integrator Comparison (same config, ε={}, t_max={})              │",
+        args.eps, args.tmax
+    );
     println!("  ├──────────────────────┬──────────┬──────────┬─────────┬────────────────┤");
     println!("  │ Integrator           │    t₀    │    w₀    │    Q    │   Time (s)     │");
     println!("  ├──────────────────────┼──────────┼──────────┼─────────┼────────────────┤");
@@ -310,9 +319,7 @@ fn run_comparison(
 
         let t0s = t0.map_or("   N/A  ".to_string(), |v| format!("{v:8.5}"));
         let w0s = w0.map_or("   N/A  ".to_string(), |v| format!("{v:8.5}"));
-        println!(
-            "  │ {name:<20} │ {t0s} │ {w0s} │ {q:>7.3} │ {secs:>14.3} │"
-        );
+        println!("  │ {name:<20} │ {t0s} │ {w0s} │ {q:>7.3} │ {secs:>14.3} │");
     }
     println!("  └──────────────────────┴──────────┴──────────┴─────────┴────────────────┘");
 }

@@ -228,7 +228,7 @@ The -omics framework provides:
 
 | Existing Spec | How -omics Extends It |
 |--------------|----------------------|
-| `GPU_CRACKING_GAP_TRACKER.md` | Gap analysis becomes systematic via alignment, not manual |
+| `archive/GPU_CRACKING_GAP_TRACKER.md` | Gap analysis becomes systematic via alignment, not manual |
 | `DRIVER_AS_SOFTWARE.md` | Driver personalities become "organisms" with distinct genomes |
 | `UNIVERSAL_DRIVER_REAGENT_ARCHITECTURE.md` | Reagent recipes become "metabolic pathways" |
 | `NATIVE_COMPUTE_ROADMAP.md` | Late-stage sovereign compute benefits from phylogenetic firmware analysis |

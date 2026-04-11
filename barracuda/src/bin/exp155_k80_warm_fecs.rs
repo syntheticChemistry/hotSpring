@@ -36,7 +36,13 @@ const PRAMIN_WINDOW: u32 = 0x700000;
 const FECS_BASE: u32 = 0x409000;
 const PGRAPH_STATUS: u32 = 0x400700;
 
-const VRAM_DEAD_PATTERNS: [u32; 5] = [0xBAD0_AC00, 0xBAD0_AC01, 0xBAD0_AC02, 0xBADF_3000, 0xFFFF_FFFF];
+const VRAM_DEAD_PATTERNS: [u32; 5] = [
+    0xBAD0_AC00,
+    0xBAD0_AC01,
+    0xBAD0_AC02,
+    0xBADF_3000,
+    0xFFFF_FFFF,
+];
 
 fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");
@@ -80,8 +86,13 @@ fn main() {
 
     println!("\n━━━ Phase 2: Nouveau Warm Cycle ━━━\n");
     let warm_ok = if pgraph_cold {
-        println!("  Cold VFIO K80 detected (PGRAPH={:#010x}) — skipping warm cycle",
-            ember.mmio_read(&bdf, PGRAPH_STATUS).map(|r| r.value).unwrap_or(0));
+        println!(
+            "  Cold VFIO K80 detected (PGRAPH={:#010x}) — skipping warm cycle",
+            ember
+                .mmio_read(&bdf, PGRAPH_STATUS)
+                .map(|r| r.value)
+                .unwrap_or(0)
+        );
         println!("  (Cold Kepler goes D-state on driver swap; use agentReagents VM to POST)");
         harness.check_bool("warm cycle skipped (cold VFIO)", true);
         false
@@ -147,15 +158,14 @@ fn phase1_baseline(harness: &mut ValidationHarness, ember: &EmberClient, bdf: &s
             println!("  MMIO batch (pre-warm):");
             for (i, op) in ops.iter().enumerate() {
                 let val = result.read_value(i).unwrap_or(0xDEAD_DEAD);
-                println!(
-                    "    [{:#08x}] = {val:#010x}",
-                    op.offset,
-                );
+                println!("    [{:#08x}] = {val:#010x}", op.offset,);
             }
             harness.check_bool("pre-warm MMIO batch readable", true);
 
             let pramin_val = result.read_value(ops.len() - 1).unwrap_or(0);
-            let dead = VRAM_DEAD_PATTERNS.iter().any(|&p| pramin_val & 0xFFFF_FF00 == p & 0xFFFF_FF00);
+            let dead = VRAM_DEAD_PATTERNS
+                .iter()
+                .any(|&p| pramin_val & 0xFFFF_FF00 == p & 0xFFFF_FF00);
             println!("  PRAMIN[{PRAMIN_WINDOW:#x}] = {pramin_val:#010x} (dead={dead})");
         }
         Err(e) => {
@@ -216,7 +226,10 @@ fn phase2_warm_cycle(
     // Prepare DMA (AER mask, optional bus master)
     match _ember.prepare_dma(bdf, false) {
         Ok(r) => {
-            println!("  DMA prepare: pmc_before={:?}, pmc_after={:?}", r.pmc_before, r.pmc_after);
+            println!(
+                "  DMA prepare: pmc_before={:?}, pmc_after={:?}",
+                r.pmc_before, r.pmc_after
+            );
             harness.check_bool("DMA prepare after warm cycle", r.ok);
         }
         Err(e) => {
@@ -231,7 +244,9 @@ fn phase3_vram_check(harness: &mut ValidationHarness, ember: &EmberClient, bdf: 
     match ember.mmio_read(bdf, PRAMIN_WINDOW) {
         Ok(result) => {
             let val = result.value;
-            let dead = VRAM_DEAD_PATTERNS.iter().any(|&p| val & 0xFFFF_FF00 == p & 0xFFFF_FF00);
+            let dead = VRAM_DEAD_PATTERNS
+                .iter()
+                .any(|&p| val & 0xFFFF_FF00 == p & 0xFFFF_FF00);
             println!("  PRAMIN[{PRAMIN_WINDOW:#x}] = {val:#010x}");
             println!("  VRAM alive: {}", !dead);
             harness.check_bool("VRAM alive after warm cycle", !dead);
@@ -284,12 +299,18 @@ fn phase3b_pmc_pgraph_enable(harness: &mut ValidationHarness, ember: &EmberClien
             match ember.mmio_write(bdf, PMC_ENABLE, target) {
                 Ok(_) => {
                     std::thread::sleep(std::time::Duration::from_millis(100));
-                    let after = ember.mmio_read(bdf, PMC_ENABLE).map(|r| r.value).unwrap_or(0);
+                    let after = ember
+                        .mmio_read(bdf, PMC_ENABLE)
+                        .map(|r| r.value)
+                        .unwrap_or(0);
                     println!("  PMC_ENABLE after: {after:#010x}");
                     let pgraph_live = after & PGRAPH_BIT != 0;
                     println!("  PGRAPH enabled: {pgraph_live}");
 
-                    let fecs_val = ember.mmio_read(bdf, PGRAPH_STATUS).map(|r| r.value).unwrap_or(0xDEAD);
+                    let fecs_val = ember
+                        .mmio_read(bdf, PGRAPH_STATUS)
+                        .map(|r| r.value)
+                        .unwrap_or(0xDEAD);
                     println!("  FECS PGRAPH_STATUS after enable: {fecs_val:#010x}");
                     let fecs_responsive = fecs_val != 0xBADF_1201 && fecs_val != 0xBADF_1200;
                     println!("  FECS responsive: {fecs_responsive}");
@@ -322,11 +343,17 @@ fn phase4_fecs_upload(harness: &mut ValidationHarness, ember: &EmberClient, bdf:
         fw
     };
 
-    println!("  Uploading FECS micro-firmware ({} bytes)...", nop_halt_fw.len());
+    println!(
+        "  Uploading FECS micro-firmware ({} bytes)...",
+        nop_halt_fw.len()
+    );
 
     match ember.falcon_upload_imem(bdf, FECS_BASE, 0, &nop_halt_fw, 0, false) {
         Ok(result) => {
-            println!("  FECS IMEM upload: ok={}, bytes={:?}", result.ok, result.bytes);
+            println!(
+                "  FECS IMEM upload: ok={}, bytes={:?}",
+                result.ok, result.bytes
+            );
             harness.check_bool("FECS IMEM upload", result.ok);
         }
         Err(e) => {
@@ -359,7 +386,11 @@ fn phase5_fecs_start(harness: &mut ValidationHarness, ember: &EmberClient, bdf: 
     println!("  Polling FECS (5s timeout, sentinel 0xDEADA5A5)...");
     match ember.falcon_poll(bdf, FECS_BASE, 5000, 0xDEAD_A5A5) {
         Ok(result) => {
-            println!("  FECS poll: {} snapshots, pc_trace={:?}", result.snapshots.len(), result.pc_trace);
+            println!(
+                "  FECS poll: {} snapshots, pc_trace={:?}",
+                result.snapshots.len(),
+                result.pc_trace
+            );
             if let Some(final_state) = &result.final_state {
                 println!(
                     "  Final: pc={:?}, cpuctl={:?}, mb0={:?}",
@@ -380,7 +411,10 @@ fn phase5_fecs_start(harness: &mut ValidationHarness, ember: &EmberClient, bdf: 
 fn phase6_fecs_state(harness: &mut ValidationHarness, ember: &EmberClient, bdf: &str) {
     match ember.fecs_state(bdf) {
         Ok(state) => {
-            println!("  FECS state: {}", serde_json::to_string_pretty(&state).unwrap_or_default());
+            println!(
+                "  FECS state: {}",
+                serde_json::to_string_pretty(&state).unwrap_or_default()
+            );
             harness.check_bool("ember.fecs.state readable", true);
         }
         Err(e) => {
@@ -428,7 +462,5 @@ fn connect_ember(bdf: &str) -> Option<EmberClient> {
 }
 
 fn extract_arg(args: &[String], flag: &str) -> Option<String> {
-    args.windows(2)
-        .find(|w| w[0] == flag)
-        .map(|w| w[1].clone())
+    args.windows(2).find(|w| w[0] == flag).map(|w| w[1].clone())
 }

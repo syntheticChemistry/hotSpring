@@ -48,10 +48,10 @@
 
 | Spec | Status | Description |
 |------|--------|-------------|
-| [CORALREEF_DISPATCH_FRONTIER_HANDOFF.md](CORALREEF_DISPATCH_FRONTIER_HANDOFF.md) | Reference | Dispatch frontier handoff from coralReef — sovereign pipeline integration points |
+| [CORALREEF_DISPATCH_FRONTIER_HANDOFF.md](archive/CORALREEF_DISPATCH_FRONTIER_HANDOFF.md) | Historical (archived) | Dispatch frontier handoff from coralReef — sovereign pipeline integration points |
 | [DRIVER_AS_SOFTWARE.md](DRIVER_AS_SOFTWARE.md) | Active | GPU driver as evolved software — ember/glowplug lifecycle, livepatch, warm handoff |
 | [FIRMWARE_LEARNING_MATRIX.md](FIRMWARE_LEARNING_MATRIX.md) | Active | Firmware learning matrix — ACR, SEC2, FECS, GPCCS, PMU subsystem knowledge map |
-| [GPU_CRACKING_GAP_TRACKER.md](GPU_CRACKING_GAP_TRACKER.md) | Superseded | Original gap tracker — consolidated into SOVEREIGN_VALIDATION_MATRIX.md |
+| [GPU_CRACKING_GAP_TRACKER.md](archive/GPU_CRACKING_GAP_TRACKER.md) | Superseded (archived) | Original gap tracker — consolidated into SOVEREIGN_VALIDATION_MATRIX.md |
 | [NATIVE_COMPUTE_ROADMAP.md](NATIVE_COMPUTE_ROADMAP.md) | Active | Native compute roadmap — coralReef sovereign dispatch evolution targets |
 | [SILICON_INVENTORY.md](SILICON_INVENTORY.md) | Active | Fleet hardware inventory — GPU/NPU/CPU specs, PCIe topology, IOMMU groups |
 | [SILICON_TIER_ROUTING.md](SILICON_TIER_ROUTING.md) | Active | 7-tier silicon routing spec — TMU, ROP, subgroup, shader core characterization |

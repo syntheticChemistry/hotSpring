@@ -15,11 +15,7 @@ use std::time::Instant;
 
 use super::cells::{CellResult, MatrixCell, WilsonLoopResult};
 
-pub fn run_quenched_cell(
-    cell: &MatrixCell,
-    seed: u64,
-    max_flow_time: f64,
-) -> CellResult {
+pub fn run_quenched_cell(cell: &MatrixCell, seed: u64, max_flow_time: f64) -> CellResult {
     let start = Instant::now();
     let dims = cell.dims;
     let vol: usize = dims.iter().product();
@@ -135,12 +131,8 @@ pub fn run_quenched_cell(
 
         eprintln!(
             "  t₀={} w₀={}",
-            t0_val
-                .map(|v| format!("{v:.4}"))
-                .unwrap_or("N/A".to_string()),
-            w0_val
-                .map(|v| format!("{v:.4}"))
-                .unwrap_or("N/A".to_string()),
+            t0_val.map_or_else(|| "N/A".to_string(), |v| format!("{v:.4}")),
+            w0_val.map_or_else(|| "N/A".to_string(), |v| format!("{v:.4}")),
         );
     }
 
@@ -168,10 +160,12 @@ pub fn run_quenched_cell(
             }
         }
         if topo_charges.len() > 1 {
-            topo_susc = Some(hotspring_barracuda::lattice::gradient_flow::topological_susceptibility(
-                &topo_charges,
-                vol,
-            ));
+            topo_susc = Some(
+                hotspring_barracuda::lattice::gradient_flow::topological_susceptibility(
+                    &topo_charges,
+                    vol,
+                ),
+            );
         }
     }
     let flow_secs = flow_start.elapsed().as_secs_f64();
@@ -187,7 +181,7 @@ pub fn run_quenched_cell(
                 loops.push(WilsonLoopResult { r, t, value: val });
             }
         }
-        eprintln!("  Wilson loops: {}×{} grid measured", max_r, max_t);
+        eprintln!("  Wilson loops: {max_r}×{max_t} grid measured");
         Some(loops)
     } else {
         None
@@ -223,10 +217,7 @@ pub fn run_quenched_cell(
     }
 }
 
-pub fn run_dynamical_cell(
-    cell: &MatrixCell,
-    seed: u64,
-) -> CellResult {
+pub fn run_dynamical_cell(cell: &MatrixCell, seed: u64) -> CellResult {
     let start = Instant::now();
     let dims = cell.dims;
     let vol: usize = dims.iter().product();
@@ -372,4 +363,3 @@ pub fn run_cell(cell: &MatrixCell, seed: u64, max_flow_time: f64) -> CellResult 
         run_dynamical_cell(cell, seed)
     }
 }
-

@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-#![allow(missing_docs)]
-
 //! ESN training data construction and beta-steering helpers.
 
 use crate::md::reservoir::heads;

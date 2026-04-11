@@ -243,7 +243,11 @@ fn check_clean_2d_bandwidth(harness: &mut ValidationHarness) {
     println!("  E_min = {e_min:.6}, E_max = {e_max:.6}");
     println!("  Bandwidth = {bw:.4} (theory: 8.0)");
 
-    harness.check_upper("bandwidth within 0.1 of 8.0", (bw - 8.0).abs(), 0.1);
+    harness.check_upper(
+        "bandwidth within 0.1 of 8.0",
+        (bw - 8.0).abs(),
+        tolerances::ANDERSON_3D_CLEAN_BANDWIDTH_ABS,
+    );
     println!();
 }
 
@@ -258,9 +262,10 @@ fn check_2d_spectrum_bounds(harness: &mut ValidationHarness) {
     let evals = spectral::lanczos_eigenvalues(&result);
 
     let bound = 4.0 + w / 2.0;
+    let pad = tolerances::SPECTRAL_GERSHGORIN_SLACK_LATTICE;
     let e_min = evals[0];
     let e_max = *evals.last().expect("collection verified non-empty");
-    let in_bounds = e_min >= -(bound + 0.1) && e_max <= bound + 0.1;
+    let in_bounds = e_min >= -(bound + pad) && e_max <= bound + pad;
 
     println!("  L={l}, W={w}, N={}", l * l);
     println!("  Spectrum: [{e_min:.4}, {e_max:.4}]");

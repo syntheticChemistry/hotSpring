@@ -122,10 +122,7 @@ fn main() {
 
     for dev in &devices {
         let bdf = dev.bdf.as_str();
-        let name = dev
-            .name
-            .as_deref()
-            .unwrap_or("unknown");
+        let name = dev.name.as_deref().unwrap_or("unknown");
         let personality = dev.personality.as_str();
         let protected = dev.protected;
 

@@ -1,10 +1,10 @@
 # hotSpring — Paper Review Queue
 
-> **HISTORICAL COUNTS** — Paper queue is current but crate counts are from March 26 (v0.6.29).
-> Current state: v0.6.32, 870 tests, 143 binaries, 128 WGSL shaders. Paper reproduction
+> **HISTORICAL COUNTS** — Paper queue is current; crate counts updated April 10, 2026 (v0.6.32).
+> Current state: v0.6.32, 956 tests, 145 binaries, 128 WGSL shaders. Paper reproduction
 > priorities and status are still authoritative.
 
-**Last Updated**: March 26, 2026
+**Last Updated**: April 10, 2026
 **Purpose**: Track papers for reproduction/review, ordered by priority and feasibility
 **Principle**: Reproduce, validate, then decrease cost. Each paper proves the
 pipeline on harder physics — toadStool evolves the GPU acceleration in parallel.

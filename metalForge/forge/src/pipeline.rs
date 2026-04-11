@@ -145,7 +145,10 @@ impl Pipeline {
         kind: SubstrateKind,
         role: StageRole,
     ) -> StageId {
-        #[allow(clippy::cast_possible_truncation)]
+        #[expect(
+            clippy::cast_possible_truncation,
+            reason = "physics index/accumulator conversions"
+        )]
         let id = StageId(self.stages.len() as u32);
         self.stages.push(Stage {
             id,

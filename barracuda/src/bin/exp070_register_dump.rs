@@ -33,9 +33,7 @@ const BAR0_MAP_SIZE: usize = 16 * 1024 * 1024;
 
 enum AccessMode {
     #[cfg(feature = "low-level")]
-    DirectMmap {
-        base: *const u8,
-    },
+    DirectMmap { base: *const u8 },
     EmberIpc {
         client: hotspring_barracuda::fleet_client::EmberClient,
         bdf: String,
@@ -100,15 +98,11 @@ fn resolve_ember_socket(bdf: &str) -> std::path::PathBuf {
         }
     }
     let slug = bdf.replace(':', "-");
-    let fleet_sock = std::path::PathBuf::from(format!(
-        "/run/coralreef/fleet/ember-{slug}.sock",
-    ));
+    let fleet_sock = std::path::PathBuf::from(format!("/run/coralreef/fleet/ember-{slug}.sock",));
     if fleet_sock.exists() {
         return fleet_sock;
     }
-    let per_device = std::path::PathBuf::from(format!(
-        "/run/coralreef/ember-{slug}.sock",
-    ));
+    let per_device = std::path::PathBuf::from(format!("/run/coralreef/ember-{slug}.sock",));
     if per_device.exists() {
         return per_device;
     }
@@ -143,10 +137,7 @@ fn main() {
 
     let access = if via_ember {
         let socket = resolve_ember_socket(bdf);
-        eprintln!(
-            "Mode: ember-ipc via {}",
-            socket.display()
-        );
+        eprintln!("Mode: ember-ipc via {}", socket.display());
         AccessMode::EmberIpc {
             client: hotspring_barracuda::fleet_client::EmberClient::connect(&socket),
             bdf: bdf.to_string(),
@@ -200,7 +191,9 @@ fn main() {
     );
 
     let regs = reg_map.registers();
-    let boot0 = access.read_register(regs.first().map_or(0, |r| r.offset)).unwrap_or(0);
+    let boot0 = access
+        .read_register(regs.first().map_or(0, |r| r.offset))
+        .unwrap_or(0);
 
     let temp_str = if let Some(offset) = reg_map.thermal_offset() {
         let raw = access.read_register(offset).unwrap_or(0);

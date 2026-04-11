@@ -12,7 +12,7 @@
 //! Port of CPU implementation in `lattice::pseudofermion::hasenbusch_hmc_trajectory`.
 
 use super::dynamical::{GpuDynHmcPipelines, GpuDynHmcResult, GpuDynHmcState, gen_random_fermion};
-#[allow(deprecated)]
+#[expect(deprecated, reason = "transitional — migration to new API pending")]
 use super::{
     GpuF64, gpu_dot_re, gpu_force_dispatch, gpu_kinetic_energy, gpu_plaquette, gpu_wilson_action,
     make_link_mom_params,
@@ -161,7 +161,7 @@ fn gpu_mom_kick(gpu: &GpuF64, pipelines: &GpuDynHmcPipelines, state: &GpuDynHmcS
 /// CG solve with explicit mass (overrides state.mass temporarily via params).
 ///
 /// **Legacy** — per-iteration `gpu_dot_re` readback. No resident equivalent yet.
-#[allow(deprecated)]
+#[expect(deprecated, reason = "transitional — migration to new API pending")]
 fn gpu_cg_solve_mass(
     gpu: &GpuF64,
     pipelines: &GpuDynHmcPipelines,
@@ -285,7 +285,7 @@ fn gpu_cg_solve_mass(
 }
 
 /// Compute fermion action for the heavy sector: `S_h` = `phi_h`† (D†D(m_h))^{-1} `phi_h`.
-#[allow(deprecated)]
+#[expect(deprecated, reason = "transitional — migration to new API pending")]
 fn gpu_heavy_action(
     gpu: &GpuF64,
     pipelines: &GpuDynHmcPipelines,
@@ -312,7 +312,7 @@ fn gpu_heavy_action(
 /// The ratio determinant `det(D†D(m_l)/D†D(m_h))` is represented by the action
 /// `S_r` = `phi_r`† [`D†D(m_h)` · (D†D(m_l))^{-1}] `phi_r`.
 /// Steps: 1) CG solve (`D†D(m_l)`) x = `phi_r`, 2) compute `D†D(m_h)` x, 3) dot `phi_r` with result.
-#[allow(deprecated)]
+#[expect(deprecated, reason = "transitional — migration to new API pending")]
 fn gpu_ratio_action(
     gpu: &GpuF64,
     pipelines: &GpuDynHmcPipelines,
@@ -561,7 +561,7 @@ pub fn gpu_hasenbusch_hmc_trajectory(
 
     // EVOLUTION(B2): GPU-resident Hamiltonian assembly — blocked on fused
     // gauge-action + fermion-force pipeline in barraCuda TensorSession.
-    #[allow(deprecated)]
+    #[expect(deprecated, reason = "transitional — migration to new API pending")]
     let s_gauge_old = gpu_wilson_action(gpu, &pipelines.gauge, gs);
     let t_old = gpu_kinetic_energy(gpu, &pipelines.gauge, gs);
     let (s_heavy_old, cg_h0) =
@@ -601,7 +601,7 @@ pub fn gpu_hasenbusch_hmc_trajectory(
         total_cg += gpu_heavy_force_kick(gpu, pipelines, state, phi_heavy, config, 0.5 * dt_heavy);
     }
 
-    #[allow(deprecated)]
+    #[expect(deprecated, reason = "transitional — migration to new API pending")]
     let s_gauge_new = gpu_wilson_action(gpu, &pipelines.gauge, gs);
     let t_new = gpu_kinetic_energy(gpu, &pipelines.gauge, gs);
     let (s_heavy_new, cg_h1) =
@@ -626,7 +626,7 @@ pub fn gpu_hasenbusch_hmc_trajectory(
         gpu.submit_encoder(enc);
     }
 
-    #[allow(deprecated)]
+    #[expect(deprecated, reason = "transitional — migration to new API pending")]
     let plaquette = gpu_plaquette(gpu, &pipelines.gauge, gs);
 
     GpuDynHmcResult {

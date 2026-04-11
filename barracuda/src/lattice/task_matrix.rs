@@ -18,6 +18,7 @@ use super::process_catalog::{
     CostModel, HardwareTier, PhysicsProcess, ProcessParams, ProcessSpec, ProcessStatus,
 };
 use serde::{Deserialize, Serialize};
+use std::fmt::Write;
 
 /// Priority level for task scheduling.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -139,10 +140,7 @@ impl TaskMatrix {
                     if *obs == PhysicsProcess::Generate {
                         continue;
                     }
-                    let task_id = format!(
-                        "{}_b{beta:.2}_{dims_tag}",
-                        obs.name().to_lowercase()
-                    );
+                    let task_id = format!("{}_b{beta:.2}_{dims_tag}", obs.name().to_lowercase());
                     let spec = ProcessSpec {
                         process: obs.clone(),
                         dims,
@@ -287,36 +285,40 @@ impl TaskMatrix {
         let total: usize = self.tasks.len();
 
         let mut out = String::with_capacity(2048);
-        out.push_str(&format!("Task Matrix: {}\n", self.matrix_id));
-        out.push_str(&format!(
-            "Hardware: {:?}  |  Total: {}  |  Pending: {}  Running: {}  Done: {}  Failed: {}\n",
+        let _ = writeln!(&mut out, "Task Matrix: {}", self.matrix_id);
+        let _ = writeln!(
+            &mut out,
+            "Hardware: {:?}  |  Total: {}  |  Pending: {}  Running: {}  Done: {}  Failed: {}",
             self.hardware, total, counts.pending, counts.running, counts.completed, counts.failed
-        ));
-        out.push_str(&format!(
-            "Estimated remaining: {}\n\n",
+        );
+        let _ = writeln!(
+            &mut out,
+            "Estimated remaining: {}",
             CostModel::format_duration(remaining)
-        ));
+        );
+        let _ = writeln!(&mut out);
 
-        out.push_str(&format!(
-            "{:<40} {:<14} {:<10} {:<12} {:<10}\n",
+        let _ = writeln!(
+            &mut out,
+            "{:<40} {:<14} {:<10} {:<12} {:<10}",
             "Task ID", "Process", "Status", "Est. Time", "Actual"
-        ));
+        );
         out.push_str(&"-".repeat(86));
         out.push('\n');
 
         for task in &self.tasks {
             let actual = task
                 .actual_seconds
-                .map(|s| CostModel::format_duration(s))
-                .unwrap_or_else(|| "-".to_string());
-            out.push_str(&format!(
-                "{:<40} {:<14} {:<10} {:<12} {:<10}\n",
+                .map_or_else(|| "-".to_string(), CostModel::format_duration);
+            let _ = writeln!(
+                &mut out,
+                "{:<40} {:<14} {:<10} {:<12} {:<10}",
                 task.id,
                 task.spec.process.name(),
                 task.status,
                 CostModel::format_duration(task.estimated_seconds),
                 actual
-            ));
+            );
         }
 
         out

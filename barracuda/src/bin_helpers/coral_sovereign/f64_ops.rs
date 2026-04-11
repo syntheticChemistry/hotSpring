@@ -235,7 +235,9 @@ pub fn test_f64_cmp_branch(ctx: &mut GpuContext) -> Result<(), String> {
 /// Verifies f64 load, f64 division, f64 store across 3 buffers.
 pub fn test_cg_compute_alpha(ctx: &mut GpuContext) -> Result<(), String> {
     let kernel = ctx
-        .compile_wgsl(include_str!("../../lattice/shaders/cg_compute_alpha_f64.wgsl"))
+        .compile_wgsl(include_str!(
+            "../../lattice/shaders/cg_compute_alpha_f64.wgsl"
+        ))
         .map_err(|e| format!("compile: {e}"))?;
 
     eprintln!(
@@ -352,7 +354,8 @@ pub fn test_uniform_read(ctx: &mut GpuContext) -> Result<(), String> {
     }
 
     // Test B: u32 then f64 in uniform struct (alpha at offset 8)
-    const WGSL_B: &str = include_str!("../../bin/shaders/coral_sovereign/uniform_params_n_alpha.wgsl");
+    const WGSL_B: &str =
+        include_str!("../../bin/shaders/coral_sovereign/uniform_params_n_alpha.wgsl");
     let kernel_b = ctx
         .compile_wgsl(WGSL_B)
         .map_err(|e| format!("compile B: {e}"))?;
@@ -532,7 +535,8 @@ pub fn test_axpy_f64(ctx: &mut GpuContext) -> Result<(), String> {
 
 /// Diagnostic: verify @builtin(num_workgroups) reads the correct dispatch dimensions.
 pub fn test_num_workgroups(ctx: &mut GpuContext) -> Result<(), String> {
-    const WGSL: &str = include_str!("../../bin/shaders/coral_sovereign/num_workgroups_builtin.wgsl");
+    const WGSL: &str =
+        include_str!("../../bin/shaders/coral_sovereign/num_workgroups_builtin.wgsl");
     let kernel = ctx
         .compile_wgsl(WGSL)
         .map_err(|e| format!("compile: {e}"))?;
@@ -670,7 +674,9 @@ pub fn test_axpy_with_num_workgroups(ctx: &mut GpuContext) -> Result<(), String>
 /// Tests the coral-reef f64 pipeline with multiple buffer reads in a real physics kernel.
 pub fn test_complex_dot_re(ctx: &mut GpuContext) -> Result<(), String> {
     let kernel = ctx
-        .compile_wgsl(include_str!("../../lattice/shaders/complex_dot_re_f64.wgsl"))
+        .compile_wgsl(include_str!(
+            "../../lattice/shaders/complex_dot_re_f64.wgsl"
+        ))
         .map_err(|e| format!("compile: {e}"))?;
 
     print!(

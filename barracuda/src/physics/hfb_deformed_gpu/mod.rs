@@ -37,14 +37,14 @@ use std::time::Instant;
 pub use types::GpuResidentL3Result;
 
 // EVOLUTION(GPU): will be used when deformed_*.wgsl shaders are wired for full GPU-resident pipeline
-#[allow(dead_code)]
+#[expect(dead_code, reason = "EVOLUTION: reserved for GPU pipeline wiring")]
 fn create_f64_storage_buf(device: &WgpuDevice, label: &str, data: &[f64]) -> wgpu::Buffer {
     let bytes: Vec<u8> = data.iter().flat_map(|v| v.to_le_bytes()).collect();
     device.create_storage_buffer(label, &bytes)
 }
 
 // EVOLUTION(GPU): will be used when deformed_*.wgsl shaders are wired for full GPU-resident pipeline
-#[allow(dead_code)]
+#[expect(dead_code, reason = "EVOLUTION: reserved for GPU pipeline wiring")]
 fn read_f64_from_gpu(device: &WgpuDevice, buf: &wgpu::Buffer, count: usize) -> Vec<f64> {
     device
         .read_buffer_f64(buf, count)

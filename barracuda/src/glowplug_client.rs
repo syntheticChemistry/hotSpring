@@ -11,10 +11,9 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 
 use crate::ember_types::{
-    Bar0RangeResult, DeviceLifecycleResult, ExperimentLifecycleResult,
-    GlowplugRegisterDumpResult,
+    Bar0RangeResult, DeviceLifecycleResult, ExperimentLifecycleResult, GlowplugRegisterDumpResult,
 };
-use crate::primal_bridge::{send_jsonrpc, NucleusContext};
+use crate::primal_bridge::{NucleusContext, send_jsonrpc};
 
 /// Connected glowplug endpoint (socket path only; each RPC opens a short-lived connection).
 #[derive(Debug, Clone)]
@@ -68,7 +67,7 @@ pub struct GlowplugDeviceHealthSummary {
 }
 
 /// Full `device.get` payload (structured like coral-glowplug `DeviceInfo`).
-#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct GlowplugDeviceDetail {
     pub bdf: String,
     pub name: Option<String>,
@@ -88,7 +87,7 @@ pub struct GlowplugDeviceDetail {
 }
 
 /// Daemon response for `health.check` / `health.liveness` (same JSON shape in glowplug today).
-#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct GlowplugDaemonHealth {
     pub alive: bool,
     pub name: String,
@@ -118,7 +117,9 @@ pub enum GlowplugError {
 impl fmt::Display for GlowplugError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            GlowplugError::NoCoralreefEndpoint => write!(f, "no coralreef / coral-glowplug primal in NucleusContext"),
+            GlowplugError::NoCoralreefEndpoint => {
+                write!(f, "no coralreef / coral-glowplug primal in NucleusContext")
+            }
             GlowplugError::EndpointNotAlive => write!(f, "coralreef primal socket is not alive"),
             GlowplugError::Transport(s) => write!(f, "transport: {s}"),
             GlowplugError::JsonRpc { code, message } => write!(f, "json-rpc {code}: {message}"),
@@ -134,7 +135,9 @@ impl std::error::Error for GlowplugError {}
 impl GlowplugClient {
     /// Build a client from a discovered coralReef / coral-glowplug endpoint.
     pub fn from_nucleus(nucleus: &NucleusContext) -> Result<Self, GlowplugError> {
-        let ep = nucleus.coralreef().ok_or(GlowplugError::NoCoralreefEndpoint)?;
+        let ep = nucleus
+            .coralreef()
+            .ok_or(GlowplugError::NoCoralreefEndpoint)?;
         if !ep.alive {
             return Err(GlowplugError::EndpointNotAlive);
         }
@@ -157,7 +160,11 @@ impl GlowplugClient {
     }
 
     /// Raw JSON-RPC call (same framing as [`send_jsonrpc`]).
-    pub fn call(&self, method: &str, params: &serde_json::Value) -> Result<serde_json::Value, GlowplugError> {
+    pub fn call(
+        &self,
+        method: &str,
+        params: &serde_json::Value,
+    ) -> Result<serde_json::Value, GlowplugError> {
         rpc_result(&self.socket, method, params)
     }
 
@@ -199,7 +206,12 @@ impl GlowplugClient {
     }
 
     /// `device.swap` — hot-swap driver personality.
-    pub fn device_swap(&self, bdf: &str, target: &str, trace: bool) -> Result<serde_json::Value, GlowplugError> {
+    pub fn device_swap(
+        &self,
+        bdf: &str,
+        target: &str,
+        trace: bool,
+    ) -> Result<serde_json::Value, GlowplugError> {
         self.call(
             "device.swap",
             &serde_json::json!({
@@ -239,19 +251,17 @@ impl GlowplugClient {
         output_sizes: &[u64],
         options: &GlowplugDispatchOptions,
     ) -> Result<Vec<Vec<u8>>, GlowplugError> {
-        let params = build_dispatch_params(
-            bdf,
-            kernel,
-            buffers,
-            output_sizes,
-            options,
-        )?;
+        let params = build_dispatch_params(bdf, kernel, buffers, output_sizes, options);
         let v = self.call("device.dispatch", &params)?;
         decode_dispatch_outputs(&v)
     }
 
     /// `device.oracle_capture` — MMU page table capture (privileged daemon path).
-    pub fn oracle_capture(&self, bdf: &str, max_channels: u64) -> Result<serde_json::Value, GlowplugError> {
+    pub fn oracle_capture(
+        &self,
+        bdf: &str,
+        max_channels: u64,
+    ) -> Result<serde_json::Value, GlowplugError> {
         self.call(
             "device.oracle_capture",
             &serde_json::json!({
@@ -271,8 +281,14 @@ impl GlowplugClient {
     }
 
     /// `device.register_snapshot` — snapshot of key registers (lighter than full dump).
-    pub fn register_snapshot(&self, bdf: &str) -> Result<GlowplugRegisterDumpResult, GlowplugError> {
-        let v = self.call("device.register_snapshot", &serde_json::json!({ "bdf": bdf }))?;
+    pub fn register_snapshot(
+        &self,
+        bdf: &str,
+    ) -> Result<GlowplugRegisterDumpResult, GlowplugError> {
+        let v = self.call(
+            "device.register_snapshot",
+            &serde_json::json!({ "bdf": bdf }),
+        )?;
         serde_json::from_value(v)
             .map_err(|e| GlowplugError::InvalidPayload(format!("register_snapshot: {e}")))
     }
@@ -296,7 +312,10 @@ impl GlowplugClient {
 
     /// `device.experiment_start` — mark a device as under active experiment.
     pub fn experiment_start(&self, bdf: &str) -> Result<ExperimentLifecycleResult, GlowplugError> {
-        let v = self.call("device.experiment_start", &serde_json::json!({ "bdf": bdf }))?;
+        let v = self.call(
+            "device.experiment_start",
+            &serde_json::json!({ "bdf": bdf }),
+        )?;
         serde_json::from_value(v)
             .map_err(|e| GlowplugError::InvalidPayload(format!("experiment_start: {e}")))
     }
@@ -379,9 +398,7 @@ fn rpc_result(
             .to_string();
         return Err(GlowplugError::JsonRpc { code, message });
     }
-    v.get("result")
-        .cloned()
-        .ok_or(GlowplugError::MissingResult)
+    v.get("result").cloned().ok_or(GlowplugError::MissingResult)
 }
 
 fn build_dispatch_params(
@@ -390,11 +407,11 @@ fn build_dispatch_params(
     buffers: &[Vec<u8>],
     output_sizes: &[u64],
     options: &GlowplugDispatchOptions,
-) -> Result<serde_json::Value, GlowplugError> {
+) -> serde_json::Value {
     let b64 = base64::engine::general_purpose::STANDARD;
     let shader_b64 = b64.encode(kernel);
     let inputs: Vec<String> = buffers.iter().map(|b| b64.encode(b)).collect();
-    Ok(serde_json::json!({
+    serde_json::json!({
         "bdf": bdf,
         "shader": shader_b64,
         "inputs": inputs,
@@ -403,14 +420,16 @@ fn build_dispatch_params(
         "workgroup": [options.workgroup[0], options.workgroup[1], options.workgroup[2]],
         "shared_mem": options.shared_mem,
         "kernel_name": options.kernel_name,
-    }))
+    })
 }
 
 fn decode_dispatch_outputs(result: &serde_json::Value) -> Result<Vec<Vec<u8>>, GlowplugError> {
     let outputs = result
         .get("outputs")
         .and_then(serde_json::Value::as_array)
-        .ok_or_else(|| GlowplugError::InvalidPayload("dispatch result missing outputs array".into()))?;
+        .ok_or_else(|| {
+            GlowplugError::InvalidPayload("dispatch result missing outputs array".into())
+        })?;
     let b64 = base64::engine::general_purpose::STANDARD;
     let mut out = Vec::with_capacity(outputs.len());
     for (i, o) in outputs.iter().enumerate() {
@@ -450,14 +469,7 @@ mod tests {
             kernel_name: "k".to_string(),
             shared_mem: 0,
         };
-        let params = build_dispatch_params(
-            "0000:01:00.0",
-            kernel,
-            &inputs,
-            &[4096u64],
-            &opts,
-        )
-        .expect("build params");
+        let params = build_dispatch_params("0000:01:00.0", kernel, &inputs, &[4096u64], &opts);
 
         assert_eq!(params["bdf"], "0000:01:00.0");
         assert_eq!(params["dims"], serde_json::json!([64, 1, 1]));

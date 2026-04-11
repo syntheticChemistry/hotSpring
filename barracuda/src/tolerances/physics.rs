@@ -74,6 +74,72 @@ pub const TTM_HELIUM_EQUILIBRIUM_T_REL: f64 = 0.50;
 /// 1% drift acceptable for long runs.
 pub const TTM_ENERGY_DRIFT_REL: f64 = 0.01;
 
+/// TTM equilibration-time detection: |Te − Ti| threshold (Kelvin).
+///
+/// `find_equilibration_time` marks equilibrium when electron and ion temperatures
+/// differ by less than this absolute value (see `validate_ttm`).
+pub const TTM_EQUILIBRATION_CLOSE_K: f64 = 500.0;
+
+/// TTM trajectory monotonicity: allowed Te/Ti step inversion (Kelvin-scale noise floor).
+///
+/// RK4 and print sampling can produce ≤1e-6 K apparent non-monotonicity; the
+/// harness treats adjacent steps within this slop as still monotonic.
+pub const TTM_TEMPERATURE_TRAJECTORY_SLOP_K: f64 = 1e-6;
+
+/// Militzer FPEOS: grid-point and interpolation relative error on P and E.
+///
+/// Table lookup and bilinear interpolation should match embedded control values
+/// to 1% relative (`validate_fpeos`).
+pub const FPEOS_GRID_POINT_REL: f64 = 0.01;
+
+/// Militzer FPEOS: He vs H pressure at identical table indices.
+///
+/// Helium pressure must not exceed hydrogen by more than this factor (1% margin)
+/// at each shared grid point.
+pub const FPEOS_HE_TO_H_PRESSURE_RATIO_MAX: f64 = 1.01;
+
+/// Militzer FPEOS: thermodynamic consistency max |ΔP/P| from numerical derivatives.
+///
+/// s ≈ (ε+P)/T style checks accumulate finite-difference noise; 2.0 is an upper
+/// bound on the reported inconsistency metric (`validate_fpeos`).
+pub const FPEOS_THERMO_CONSISTENCY_MAX: f64 = 2.0;
+
+/// Kinetic-fluid BGK: species mass conservation relative error.
+pub const KINETIC_FLUID_BGK_MASS_REL: f64 = 1e-8;
+
+/// Kinetic-fluid BGK: total momentum conservation relative error.
+pub const KINETIC_FLUID_BGK_MOMENTUM_REL: f64 = 1e-10;
+
+/// Kinetic-fluid BGK: temperature relaxation |T₁−T₂|/T scale (dimensionless).
+pub const KINETIC_FLUID_TEMP_RELAXATION_REL: f64 = 0.01;
+
+/// Kinetic-fluid BGK: equilibrium temperature absolute check vs analytic midpoint.
+pub const KINETIC_FLUID_EQUILIBRIUM_T_ABS: f64 = 0.05;
+
+/// Sod shock tube: mass and energy conservation relative error.
+pub const KINETIC_FLUID_SOD_CONSERVATION_REL: f64 = 1e-10;
+
+/// Sod shock tube: minimum physical density (lower bound check).
+pub const KINETIC_FLUID_SOD_RHO_MIN: f64 = 0.1;
+
+/// Sod shock tube: maximum physical density (upper bound check).
+pub const KINETIC_FLUID_SOD_RHO_MAX: f64 = 1.1;
+
+/// Coupled kinetic–fluid: mass / energy conservation relative error.
+pub const KINETIC_FLUID_COUPLED_MASS_ENERGY_REL: f64 = 0.15;
+
+/// Coupled kinetic–fluid: momentum conservation relative error.
+pub const KINETIC_FLUID_COUPLED_MOMENTUM_REL: f64 = 0.25;
+
+/// Coupled kinetic–fluid: interface |Δρ|/ρ₀ match metric.
+pub const KINETIC_FLUID_INTERFACE_DENSITY_MATCH: f64 = 0.5;
+
+/// Coupled kinetic–fluid: fluid-region density lower bound.
+pub const KINETIC_FLUID_REGION_RHO_MIN: f64 = 0.5;
+
+/// Coupled kinetic–fluid: fluid-region density upper bound.
+pub const KINETIC_FLUID_REGION_RHO_MAX: f64 = 2.0;
+
 /// GPU batched Mermin dielectric: f-sum quadrature vs CPU reference integral (relative).
 ///
 /// GPU ω-quadrature of ∫ ω Im[1/ε] dω can differ from the CPU reference by up to ~6%

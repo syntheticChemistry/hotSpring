@@ -18,6 +18,10 @@ use crate::production::BetaResult;
 ///
 /// For each transition-region β point, runs quenched HMC on the validation
 /// substrate and compares plaquette and Polyakov loop to the primary GPU result.
+#[expect(
+    clippy::expect_used,
+    reason = "GPU trajectory failure is unrecoverable in this pipeline"
+)]
 pub fn run_titan_validation(
     gpu_titan: Option<&GpuF64>,
     results: &[BetaResult],

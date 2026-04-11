@@ -25,7 +25,7 @@
 
 use super::super::rhmc::{RhmcConfig, RhmcFermionConfig};
 use super::dynamical::{GpuDynHmcPipelines, GpuDynHmcState, gen_random_fermion, gpu_axpy};
-#[allow(deprecated)]
+#[expect(deprecated, reason = "transitional — migration to new API pending")]
 use super::{
     GpuF64, GpuHmcState, flatten_momenta, gpu_dot_re, gpu_force_dispatch, gpu_kinetic_energy,
     gpu_link_update_dispatch, gpu_mom_update_dispatch, gpu_plaquette, gpu_wilson_action,
@@ -308,7 +308,7 @@ pub(super) fn fermion_force_dispatch(
 #[path = "rhmc_shifted_cg.rs"]
 mod rhmc_shifted_cg;
 
-#[allow(deprecated)]
+#[expect(deprecated, reason = "transitional — migration to new API pending")]
 pub use rhmc_shifted_cg::gpu_multi_shift_cg_solve;
 
 // ═══════════════════════════════════════════════════════════════════
@@ -322,7 +322,7 @@ pub use rhmc_shifted_cg::gpu_multi_shift_cg_solve;
 /// then φ = α₀·η + Σ αₛ·x_s.
 ///
 /// Returns CG iteration count.
-#[allow(deprecated)]
+#[expect(deprecated, reason = "transitional — migration to new API pending")]
 fn gpu_rhmc_heatbath_sector(
     gpu: &GpuF64,
     dyn_pipelines: &GpuDynHmcPipelines,
@@ -431,7 +431,7 @@ fn gpu_rhmc_heatbath_sector(
 /// After multi-shift CG: S_f = α₀·⟨φ|φ⟩ + Σ αₛ·⟨φ|x_s⟩.
 ///
 /// Returns (action, cg_iterations).
-#[allow(deprecated)]
+#[expect(deprecated, reason = "transitional — migration to new API pending")]
 fn gpu_rhmc_fermion_action_sector(
     gpu: &GpuF64,
     dyn_pipelines: &GpuDynHmcPipelines,
@@ -491,7 +491,7 @@ fn gpu_rhmc_fermion_action_sector(
 /// fermion force from the shifted solution and accumulates into momenta.
 ///
 /// Returns total CG iterations.
-#[allow(deprecated)]
+#[expect(deprecated, reason = "transitional — migration to new API pending")]
 fn gpu_rhmc_total_force_dispatch(
     gpu: &GpuF64,
     dyn_pipelines: &GpuDynHmcPipelines,
@@ -604,7 +604,7 @@ fn gpu_rhmc_total_force_dispatch(
 /// unidirectional path. New code should use `UnidirectionalRhmc`
 /// or `gpu_rhmc_trajectory_unidirectional`.
 #[deprecated(note = "use gpu_rhmc_trajectory_unidirectional for ~50x fewer GPU-CPU sync points")]
-#[allow(deprecated)]
+#[expect(deprecated, reason = "transitional — migration to new API pending")]
 pub fn gpu_rhmc_trajectory(
     gpu: &GpuF64,
     dyn_pipelines: &GpuDynHmcPipelines,

@@ -56,7 +56,6 @@ const SO_PACK_SHADER: &str = include_str!("../shaders/spin_orbit_pack_f64.wgsl")
 ///
 /// Returns [`HotSpringError::GpuCompute`] if GPU buffer allocation, shader
 /// compilation, or eigensolve fails.
-#[allow(unused_assignments)] // cfg-gated assignments
 pub fn binding_energies_l2_gpu_resident(
     device: &Arc<WgpuDevice>,
     nuclei: &[(usize, usize)],
@@ -191,28 +190,14 @@ pub fn binding_energies_l2_gpu_resident(
         .collect();
 
     // ═══ UNIFIED SCF LOOP ═══
-    #[allow(
-        unused_variables,
-        unused_mut,
-        reason = "only read in debug_assertions profile block"
-    )]
+    // Timing accumulators — used only in debug_assertions profiling block.
+    #[cfg(debug_assertions)]
     let mut t_gpu_total = 0.0f64;
-    #[allow(
-        unused_variables,
-        reason = "only read in debug_assertions profile block"
-    )]
+    #[cfg(debug_assertions)]
     let t_poll_total = 0.0f64;
-    #[allow(
-        unused_variables,
-        unused_mut,
-        reason = "only read in debug_assertions profile block"
-    )]
+    #[cfg(debug_assertions)]
     let mut t_cpu_total = 0.0f64;
-    #[allow(
-        unused_variables,
-        unused_mut,
-        reason = "only read in debug_assertions profile block"
-    )]
+    #[cfg(debug_assertions)]
     let mut t_upload_total = 0.0f64;
 
     for iter in 0..max_iter {
@@ -265,7 +250,10 @@ pub fn binding_energies_l2_gpu_resident(
             iter,
             global_max_ns,
         );
-        t_upload_total += t_upload.elapsed().as_secs_f64();
+        #[cfg(debug_assertions)]
+        {
+            t_upload_total += t_upload.elapsed().as_secs_f64();
+        }
 
         let t_gpu = std::time::Instant::now();
         dispatch::dispatch_hbuild_and_pack(
@@ -279,7 +267,10 @@ pub fn binding_energies_l2_gpu_resident(
             &mut total_gpu_dispatches,
         );
         gpu_dispatches += 1;
-        t_gpu_total += t_gpu.elapsed().as_secs_f64();
+        #[cfg(debug_assertions)]
+        {
+            t_gpu_total += t_gpu.elapsed().as_secs_f64();
+        }
 
         let t_read = std::time::Instant::now();
         let gpu_eigen: Option<(Vec<f64>, Vec<f64>)> = if n_work > 0 {
@@ -409,7 +400,10 @@ pub fn binding_energies_l2_gpu_resident(
                 iter,
             );
         }
-        t_cpu_total += t_read.elapsed().as_secs_f64();
+        #[cfg(debug_assertions)]
+        {
+            t_cpu_total += t_read.elapsed().as_secs_f64();
+        }
     }
 
     #[cfg(debug_assertions)]

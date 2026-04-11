@@ -195,7 +195,10 @@ fn main() {
     let n_total = measurements.len() + args.skip;
     let n_used = measurements.len();
 
-    println!("  Configs:   {} loaded, {} skipped, {} analyzed", n_total, args.skip, n_used);
+    println!(
+        "  Configs:   {} loaded, {} skipped, {} analyzed",
+        n_total, args.skip, n_used
+    );
 
     let ensemble_id = measurements
         .first()
@@ -350,16 +353,19 @@ fn main() {
 
     // DAG event for the analysis phase
     if let Some(ref mut dag) = dag_session {
-        dag.append(&nucleus, DagEvent {
-            phase: "analyze".to_string(),
-            input_hash: None,
-            output_hash: None,
-            wall_seconds: 0.0,
-            summary: serde_json::json!({
-                "n_configs": n_used,
-                "plaquette_mean": analysis.plaquette.mean,
-            }),
-        });
+        dag.append(
+            &nucleus,
+            DagEvent {
+                phase: "analyze".to_string(),
+                input_hash: None,
+                output_hash: None,
+                wall_seconds: 0.0,
+                summary: serde_json::json!({
+                    "n_configs": n_used,
+                    "plaquette_mean": analysis.plaquette.mean,
+                }),
+            },
+        );
     }
 
     // Finalize DAG session

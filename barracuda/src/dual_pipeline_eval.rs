@@ -126,6 +126,10 @@ impl<'a> DualPipelineEval<'a> {
     }
 
     /// Split HMC: throughput computes trajectories, precise validates.
+    #[expect(
+        clippy::expect_used,
+        reason = "GPU trajectory failure is unrecoverable in this pipeline"
+    )]
     fn eval_split_hmc(&self) -> Vec<DualPatternResult> {
         use crate::lattice::gpu_hmc::{
             GpuHmcState, GpuHmcStreamingPipelines, gpu_hmc_trajectory_streaming,
@@ -167,16 +171,9 @@ impl<'a> DualPipelineEval<'a> {
         let mut seed_t2 = 42_u64;
 
         let t_split = Instant::now();
-        let r_precise = gpu_hmc_trajectory_streaming(
-            &self.pair.precise,
-            &p_p,
-            &s_p,
-            n_md,
-            dt,
-            0,
-            &mut seed_p,
-        )
-        .expect("streaming HMC trajectory");
+        let r_precise =
+            gpu_hmc_trajectory_streaming(&self.pair.precise, &p_p, &s_p, n_md, dt, 0, &mut seed_p)
+                .expect("streaming HMC trajectory");
         let r_throughput = gpu_hmc_trajectory_streaming(
             &self.pair.throughput,
             &p_t,
@@ -210,6 +207,10 @@ impl<'a> DualPipelineEval<'a> {
     }
 
     /// Redundant HMC: same lattice on both cards, compare plaquette.
+    #[expect(
+        clippy::expect_used,
+        reason = "GPU trajectory failure is unrecoverable in this pipeline"
+    )]
     fn eval_redundant_hmc(&self) -> DualPatternResult {
         use crate::lattice::gpu_hmc::{
             GpuHmcState, GpuHmcStreamingPipelines, gpu_hmc_trajectory_streaming,

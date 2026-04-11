@@ -176,7 +176,10 @@ fn load_register_dump(path: &str, source: &str) -> Result<RegMap, String> {
                 RegObservation {
                     value: val,
                     name: entry.get("name").and_then(|v| v.as_str()).map(String::from),
-                    group: entry.get("group").and_then(|v| v.as_str()).map(String::from),
+                    group: entry
+                        .get("group")
+                        .and_then(|v| v.as_str())
+                        .map(String::from),
                     source: source.to_string(),
                 },
             );
@@ -245,7 +248,12 @@ fn load_mmiotrace(path: &str, source: &str) -> Result<RegMap, String> {
     Ok(map)
 }
 
-fn compare_maps(sovereign: &RegMap, reagent: &RegMap, sov_path: &str, rea_path: &str) -> DiffReport {
+fn compare_maps(
+    sovereign: &RegMap,
+    reagent: &RegMap,
+    sov_path: &str,
+    rea_path: &str,
+) -> DiffReport {
     let mut entries = Vec::new();
     let mut matches = 0usize;
     let mut divergences = 0usize;
@@ -422,7 +430,5 @@ fn classify_offset(offset: u32) -> String {
 }
 
 fn extract_arg(args: &[String], flag: &str) -> Option<String> {
-    args.windows(2)
-        .find(|w| w[0] == flag)
-        .map(|w| w[1].clone())
+    args.windows(2).find(|w| w[0] == flag).map(|w| w[1].clone())
 }

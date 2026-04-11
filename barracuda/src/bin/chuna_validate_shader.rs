@@ -61,7 +61,9 @@ fn parse_args() -> CliArgs {
     }
 
     if args.shader_path.is_empty() || args.manifest_path.is_empty() {
-        eprintln!("Usage: chuna_validate_shader --shader=FILE.wgsl --manifest=FILE.json [--output=FILE.json] [--no-gpu]");
+        eprintln!(
+            "Usage: chuna_validate_shader --shader=FILE.wgsl --manifest=FILE.json [--output=FILE.json] [--no-gpu]"
+        );
         std::process::exit(1);
     }
 
@@ -95,7 +97,11 @@ fn main() {
             std::process::exit(1);
         }
     };
-    println!("\n  Shader:   {} ({} bytes)", args.shader_path, shader_source.len());
+    println!(
+        "\n  Shader:   {} ({} bytes)",
+        args.shader_path,
+        shader_source.len()
+    );
 
     // Load manifest
     let manifest_str = match std::fs::read_to_string(&args.manifest_path) {
@@ -112,11 +118,17 @@ fn main() {
             std::process::exit(1);
         }
     };
-    println!("  Manifest: {} v{} ({})", manifest.name, manifest.version, manifest.precision_tier);
+    println!(
+        "  Manifest: {} v{} ({})",
+        manifest.name, manifest.version, manifest.precision_tier
+    );
     if let Some(ref paper) = manifest.paper_ref {
         println!("  Paper:    {} — {}", paper.citation, paper.equation);
     }
-    println!("  References: {} test case(s)", manifest.reference_values.len());
+    println!(
+        "  References: {} test case(s)",
+        manifest.reference_values.len()
+    );
     println!();
 
     // Parse WGSL with naga
@@ -258,12 +270,11 @@ fn main() {
 
     manifest.validation = Some(validation_result);
 
-    let n_paths = 1
-        + manifest.validation.as_ref().map_or(0, |v| {
-            v.naga_executor.as_ref().map_or(0, |_| 1)
-                + v.gpu_wgpu.as_ref().map_or(0, |_| 1)
-                + v.coral_jit.as_ref().map_or(0, |_| 1)
-        });
+    let n_paths = 1 + manifest.validation.as_ref().map_or(0, |v| {
+        v.naga_executor.as_ref().map_or(0, |_| 1)
+            + v.gpu_wgpu.as_ref().map_or(0, |_| 1)
+            + v.coral_jit.as_ref().map_or(0, |_| 1)
+    });
 
     println!("\n═══ Summary ═══");
     println!(
@@ -273,19 +284,22 @@ fn main() {
 
     // DAG event
     if let Some(ref mut dag) = dag_session {
-        dag.append(&nucleus, DagEvent {
-            phase: "validate_shader".to_string(),
-            input_hash: None,
-            output_hash: None,
-            wall_seconds: total_start.elapsed().as_secs_f64(),
-            summary: serde_json::json!({
-                "shader": manifest.name,
-                "version": manifest.version,
-                "paths": n_paths,
-                "all_agree": all_passed,
-                "max_delta": max_cross_path_delta,
-            }),
-        });
+        dag.append(
+            &nucleus,
+            DagEvent {
+                phase: "validate_shader".to_string(),
+                input_hash: None,
+                output_hash: None,
+                wall_seconds: total_start.elapsed().as_secs_f64(),
+                summary: serde_json::json!({
+                    "shader": manifest.name,
+                    "version": manifest.version,
+                    "paths": n_paths,
+                    "all_agree": all_passed,
+                    "max_delta": max_cross_path_delta,
+                }),
+            },
+        );
     }
 
     // Finalize DAG
@@ -325,11 +339,7 @@ fn main() {
 
         // Sign the receipt
         if let Ok(mut receipt_val) = serde_json::from_str::<serde_json::Value>(&receipt_json) {
-            receipt_signing::sign_and_embed(
-                &nucleus,
-                &mut receipt_val,
-                std::path::Path::new(path),
-            );
+            receipt_signing::sign_and_embed(&nucleus, &mut receipt_val, std::path::Path::new(path));
         }
 
         println!("  Receipt → {path}");
@@ -403,10 +413,7 @@ fn validate_cpu_reference(manifest: &ShaderManifest) -> ValidationPathResult {
     }
 }
 
-fn validate_naga_executor(
-    _shader_source: &str,
-    manifest: &ShaderManifest,
-) -> ValidationPathResult {
+fn validate_naga_executor(_shader_source: &str, manifest: &ShaderManifest) -> ValidationPathResult {
     // NagaExecutor path: interpret the WGSL on CPU via naga
     // Full implementation would use barraCuda's NagaExecutor to run the shader
     // on known inputs and compare outputs to manifest reference values.
@@ -436,10 +443,7 @@ fn validate_naga_executor(
     }
 }
 
-fn validate_gpu_dispatch(
-    _shader_source: &str,
-    manifest: &ShaderManifest,
-) -> ValidationPathResult {
+fn validate_gpu_dispatch(_shader_source: &str, manifest: &ShaderManifest) -> ValidationPathResult {
     // GPU dispatch path: compile and run the WGSL on GPU via wgpu
     // Full implementation would:
     //   1. Create wgpu device
@@ -450,8 +454,7 @@ fn validate_gpu_dispatch(
     //   6. Compare to reference values
     //
     // For now: attempt GPU discovery and report availability
-    let gpu_available = !std::env::var("HOTSPRING_NO_GPU")
-        .map_or(false, |v| v == "1");
+    let gpu_available = !std::env::var("HOTSPRING_NO_GPU").map_or(false, |v| v == "1");
 
     if !gpu_available {
         println!("    SKIP: HOTSPRING_NO_GPU=1");

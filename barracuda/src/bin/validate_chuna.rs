@@ -19,6 +19,7 @@
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::lattice::gpu_flow::{GpuFlowPipelines, GpuFlowState, gpu_gradient_flow};
 use hotspring_barracuda::lattice::gradient_flow::{FlowIntegrator, find_t0, run_flow};
+use hotspring_barracuda::lattice::measurement::RunManifest;
 use hotspring_barracuda::lattice::su3::Su3Matrix;
 use hotspring_barracuda::lattice::wilson::Lattice;
 use hotspring_barracuda::physics::dielectric::{
@@ -31,7 +32,6 @@ use hotspring_barracuda::physics::kinetic_fluid::{
 };
 use hotspring_barracuda::precision_brain::PrecisionBrain;
 use hotspring_barracuda::precision_routing::PhysicsDomain;
-use hotspring_barracuda::lattice::measurement::RunManifest;
 use hotspring_barracuda::toadstool_report::{PerformanceMeasurement, report_to_toadstool};
 use hotspring_barracuda::validation::{HardwareProfile, ValidationHarness};
 use std::time::Instant;
@@ -77,8 +77,12 @@ fn main() {
     paper_45_kinetic_fluid(&mut harness);
 
     let cpu_ms = wall_start.elapsed().as_millis() as u64;
-    println!("  CPU baseline: {}/{} checks in {:.1}s\n",
-        harness.passed_count(), harness.total_count(), cpu_ms as f64 / 1000.0);
+    println!(
+        "  CPU baseline: {}/{} checks in {:.1}s\n",
+        harness.passed_count(),
+        harness.total_count(),
+        cpu_ms as f64 / 1000.0
+    );
 
     // Phase 2: GPU discovery + profiling + parity checks
     gpu_substrate_validation(&mut harness, &cpu_ref);
@@ -105,12 +109,21 @@ fn gpu_substrate_validation(harness: &mut ValidationHarness, cpu_ref: &CpuRefere
     let adapters = GpuF64::enumerate_adapters();
     let f64_adapters: Vec<_> = adapters.iter().filter(|a| a.has_f64).collect();
 
-    println!("  Discovered {} adapter(s), {} with f64 support",
-        adapters.len(), f64_adapters.len());
+    println!(
+        "  Discovered {} adapter(s), {} with f64 support",
+        adapters.len(),
+        f64_adapters.len()
+    );
     for a in &adapters {
         let f64_tag = if a.has_f64 { "f64" } else { "f32-only" };
-        println!("    [{}] {} ({}, {}, {}MB)",
-            a.index, a.name, a.driver, f64_tag, a.memory_bytes / (1024 * 1024));
+        println!(
+            "    [{}] {} ({}, {}, {}MB)",
+            a.index,
+            a.name,
+            a.driver,
+            f64_tag,
+            a.memory_bytes / (1024 * 1024)
+        );
     }
     println!();
 
@@ -154,12 +167,16 @@ fn gpu_substrate_validation(harness: &mut ValidationHarness, cpu_ref: &CpuRefere
         let probe_ms = t_probe.elapsed().as_millis();
 
         println!("  Calibration ({probe_ms}ms):");
-        println!("    f64: {}, df64: {}, transcendental_risk: {}",
-            cal.has_any_f64, cal.df64_safe, cal.nvvm_transcendental_risk);
+        println!(
+            "    f64: {}, df64: {}, transcendental_risk: {}",
+            cal.has_any_f64, cal.df64_safe, cal.nvvm_transcendental_risk
+        );
         for tier in &cal.tiers {
             if tier.compiles {
-                println!("    {:?}: compile={:.0}μs, dispatch={:.0}μs, ulp={:.1}",
-                    tier.tier, tier.compile_us, tier.dispatch_us, tier.probe_ulp);
+                println!(
+                    "    {:?}: compile={:.0}μs, dispatch={:.0}μs, ulp={:.1}",
+                    tier.tier, tier.compile_us, tier.dispatch_us, tier.probe_ulp
+                );
             }
         }
 
@@ -174,7 +191,8 @@ fn gpu_substrate_validation(harness: &mut ValidationHarness, cpu_ref: &CpuRefere
             (PhysicsDomain::KineticFluid, "kinetic_fluid"),
             (PhysicsDomain::LatticeQcd, "lattice_qcd"),
         ];
-        let domain_routing: Vec<(String, String)> = domains.iter()
+        let domain_routing: Vec<(String, String)> = domains
+            .iter()
             .map(|(d, name)| (name.to_string(), format!("{:?}", brain.route(*d))))
             .collect();
 
@@ -186,9 +204,18 @@ fn gpu_substrate_validation(harness: &mut ValidationHarness, cpu_ref: &CpuRefere
         harness.hardware_profiles.push(HardwareProfile {
             adapter: adapter_name.clone(),
             vram_bytes: vram,
-            precision_tiers: cal.tiers.iter().map(|t| {
-                (format!("{:?}", t.tier), t.compiles, t.dispatch_us, t.probe_ulp)
-            }).collect(),
+            precision_tiers: cal
+                .tiers
+                .iter()
+                .map(|t| {
+                    (
+                        format!("{:?}", t.tier),
+                        t.compiles,
+                        t.dispatch_us,
+                        t.probe_ulp,
+                    )
+                })
+                .collect(),
             domain_routing: domain_routing.clone(),
             max_lattice_l: max_l,
         });
@@ -205,13 +232,24 @@ fn gpu_substrate_validation(harness: &mut ValidationHarness, cpu_ref: &CpuRefere
         let pipelines = GpuFlowPipelines::new(&gpu);
         let state = GpuFlowState::from_lattice(&gpu, &gpu_lat, beta);
         let gpu_flow = gpu_gradient_flow(
-            &gpu, &pipelines, &state,
-            FlowIntegrator::Rk3Luscher, eps, 2.0, meas,
+            &gpu,
+            &pipelines,
+            &state,
+            FlowIntegrator::Rk3Luscher,
+            eps,
+            2.0,
+            meas,
         );
         let flow_ms = t_flow.elapsed().as_millis();
 
-        let gpu_plaq = gpu_flow.measurements.last().map_or(f64::NAN, |m| m.plaquette);
-        let gpu_energy = gpu_flow.measurements.last().map_or(f64::NAN, |m| m.energy_density);
+        let gpu_plaq = gpu_flow
+            .measurements
+            .last()
+            .map_or(f64::NAN, |m| m.plaquette);
+        let gpu_energy = gpu_flow
+            .measurements
+            .last()
+            .map_or(f64::NAN, |m| m.energy_density);
 
         println!("  GPU flow ({flow_ms}ms): plaq={gpu_plaq:.10}, E={gpu_energy:.6}");
 
@@ -221,10 +259,12 @@ fn gpu_substrate_validation(harness: &mut ValidationHarness, cpu_ref: &CpuRefere
         let plaq_diff = (gpu_plaq - cpu_ref.plaquette_8_rk3).abs();
         harness.check_upper(
             &format!("gpu_cpu_plaquette_parity_{}", sanitize_name(adapter_name)),
-            plaq_diff, 1e-9,
+            plaq_diff,
+            1e-9,
         );
         harness.annotate(
-            "cross_substrate", "guideStone Property 1",
+            "cross_substrate",
+            "guideStone Property 1",
             "plaquette_difference",
             "CPU-GPU plaquette within 1e-9: 200 RK3 steps × parallel vs sequential reduction order",
         );
@@ -232,22 +272,28 @@ fn gpu_substrate_validation(harness: &mut ValidationHarness, cpu_ref: &CpuRefere
         let energy_diff = (gpu_energy - cpu_ref.energy_8_rk3).abs();
         harness.check_upper(
             &format!("gpu_cpu_energy_parity_{}", sanitize_name(adapter_name)),
-            energy_diff, 1e-8,
+            energy_diff,
+            1e-8,
         );
         harness.annotate(
-            "cross_substrate", "guideStone Property 1",
+            "cross_substrate",
+            "guideStone Property 1",
             "energy_density_difference",
             "CPU and GPU flow energy within 1e-8 (accumulated integration differences)",
         );
 
         // GPU flow should also smooth energy
-        let gpu_e_start = gpu_flow.measurements.first().map_or(f64::NAN, |m| m.energy_density);
+        let gpu_e_start = gpu_flow
+            .measurements
+            .first()
+            .map_or(f64::NAN, |m| m.energy_density);
         harness.check_bool(
             &format!("gpu_flow_energy_smoothing_{}", sanitize_name(adapter_name)),
             gpu_energy <= gpu_e_start,
         );
         harness.annotate(
-            "lattice_qcd", "Bazavov & Chuna, arXiv:2101.05320",
+            "lattice_qcd",
+            "Bazavov & Chuna, arXiv:2101.05320",
             "energy_density",
             "GPU flow E(t_final) <= E(t_initial)",
         );
@@ -281,8 +327,13 @@ fn gpu_substrate_validation(harness: &mut ValidationHarness, cpu_ref: &CpuRefere
                 let diff = (plaq_a - plaq_b).abs();
                 println!("  {} vs {}: |Δplaq| = {diff:.2e}", name_a, name_b);
                 harness.check_upper(
-                    &format!("cross_gpu_plaquette_{}_{}", sanitize_name(name_a), sanitize_name(name_b)),
-                    diff, 5e-10,
+                    &format!(
+                        "cross_gpu_plaquette_{}_{}",
+                        sanitize_name(name_a),
+                        sanitize_name(name_b)
+                    ),
+                    diff,
+                    5e-10,
                 );
                 harness.annotate(
                     "cross_substrate", "guideStone Property 1",
@@ -297,7 +348,13 @@ fn gpu_substrate_validation(harness: &mut ValidationHarness, cpu_ref: &CpuRefere
 
 fn sanitize_name(name: &str) -> String {
     name.chars()
-        .map(|c| if c.is_alphanumeric() { c.to_ascii_lowercase() } else { '_' })
+        .map(|c| {
+            if c.is_alphanumeric() {
+                c.to_ascii_lowercase()
+            } else {
+                '_'
+            }
+        })
         .collect::<String>()
         .trim_matches('_')
         .replace("__", "_")

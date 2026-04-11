@@ -189,6 +189,12 @@ pub const HFB_RUST_VS_PYTHON_REL: f64 = 0.12;
 // Transport parity tolerances (CPU vs GPU same-physics proof)
 // ═══════════════════════════════════════════════════════════════════
 
+/// GPU-resident VACF path: D* from CPU vs GPU VACF on identical snapshots.
+///
+/// Same velocity history with different parallel reduction order should agree
+/// to ~1% relative (`validate_transport_gpu_resident`).
+pub const TRANSPORT_VACF_CPU_GPU_PARITY_REL: f64 = 0.01;
+
 /// D* CPU vs GPU parity: relative tolerance.
 ///
 /// 65% tolerance reflects statistical noise and FP-ordering sensitivity at

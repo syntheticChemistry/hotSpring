@@ -85,9 +85,9 @@ fn main() {
     let cpu_elapsed = cpu_start.elapsed();
     println!("  CPU time: {:.1}s", cpu_elapsed.as_secs_f64());
 
-    let cpu_monotonic = cpu_plaquettes.windows(2).all(|w| {
-        w[1] >= w[0] - tolerances::BETA_SCAN_GRID_TOLERANCE
-    });
+    let cpu_monotonic = cpu_plaquettes
+        .windows(2)
+        .all(|w| w[1] >= w[0] - tolerances::BETA_SCAN_GRID_TOLERANCE);
     harness.check_bool(
         "CPU plaquettes monotonically increase with β",
         cpu_monotonic,
@@ -167,9 +167,9 @@ fn main() {
         tolerances::BETA_SCAN_SCALING_PARITY,
     );
 
-    let gpu_monotonic = gpu_plaquettes_small.windows(2).all(|w| {
-        w[1] >= w[0] - tolerances::BETA_SCAN_GRID_TOLERANCE
-    });
+    let gpu_monotonic = gpu_plaquettes_small
+        .windows(2)
+        .all(|w| w[1] >= w[0] - tolerances::BETA_SCAN_GRID_TOLERANCE);
     harness.check_bool(
         "GPU plaquettes monotonically increase with β",
         gpu_monotonic,
@@ -241,9 +241,9 @@ fn main() {
     let scale_elapsed = scale_start.elapsed();
     println!("  GPU 8⁴ time: {:.1}s", scale_elapsed.as_secs_f64());
 
-    let scale_monotonic = gpu_plaquettes_8.windows(2).all(|w| {
-        w[1] >= w[0] - tolerances::BETA_SCAN_GRID_TOLERANCE
-    });
+    let scale_monotonic = gpu_plaquettes_8
+        .windows(2)
+        .all(|w| w[1] >= w[0] - tolerances::BETA_SCAN_GRID_TOLERANCE);
     harness.check_bool(
         "8⁴ plaquettes monotonically increase with β",
         scale_monotonic,

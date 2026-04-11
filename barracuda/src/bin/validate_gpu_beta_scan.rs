@@ -82,16 +82,9 @@ fn gpu_beta_scan(
         let mut poly_sum = 0.0;
 
         for _ in 0..n_meas {
-            let r = gpu_hmc_trajectory_streaming(
-                gpu,
-                pipelines,
-                &state,
-                n_md,
-                dt,
-                traj_id,
-                &mut seed,
-            )
-            .expect("streaming HMC trajectory");
+            let r =
+                gpu_hmc_trajectory_streaming(gpu, pipelines, &state, n_md, dt, traj_id, &mut seed)
+                    .expect("streaming HMC trajectory");
             traj_id = traj_id.wrapping_add(1);
             plaq_sum += r.plaquette;
             if r.accepted {
@@ -166,9 +159,9 @@ fn main() {
     println!();
 
     // Check 1: plaquette monotonicity
-    let plaq_monotonic = results_8.windows(2).all(|w| {
-        w[1].mean_plaq >= w[0].mean_plaq - tolerances::BETA_SCAN_GRID_TOLERANCE
-    });
+    let plaq_monotonic = results_8
+        .windows(2)
+        .all(|w| w[1].mean_plaq >= w[0].mean_plaq - tolerances::BETA_SCAN_GRID_TOLERANCE);
     harness.check_bool("8⁴ plaquette monotonically increasing", plaq_monotonic);
 
     // Check 2: plaquette at β=6.0 in physical range

@@ -7,9 +7,8 @@
 pub(crate) const LIB_COMPLEX_VEC2: &str = include_str!(
     "../../../../../../primals/barraCuda/crates/barracuda/src/shaders/math/complex_f64.wgsl"
 );
-pub(crate) const LIB_SU3_VEC2: &str = include_str!(
-    "../../../../../../primals/barraCuda/crates/barracuda/src/shaders/math/su3.wgsl"
-);
+pub(crate) const LIB_SU3_VEC2: &str =
+    include_str!("../../../../../../primals/barraCuda/crates/barracuda/src/shaders/math/su3.wgsl");
 pub(crate) const LIB_LCG_F64: &str = include_str!(
     "../../../../../../primals/barraCuda/crates/barracuda/src/shaders/math/lcg_f64.wgsl"
 );

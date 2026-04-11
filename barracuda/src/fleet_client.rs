@@ -38,7 +38,7 @@ pub const DOMAIN_TRANSPORT: &str = "transport";
 pub const DOMAIN_DEFAULT: &str = "default";
 
 /// Raw fleet file payload (glowplug-compatible + optional extended metadata).
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct FleetFile {
     /// Should be `"fleet"` when written by glowplug fleet mode.
     #[serde(default)]
@@ -124,8 +124,8 @@ impl FleetDiscovery {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
             Err(e) => Err(format!("read {}: {e}", path.display())),
             Ok(bytes) => {
-                let file: FleetFile = serde_json::from_slice(&bytes)
-                    .map_err(|e| format!("parse fleet JSON: {e}"))?;
+                let file: FleetFile =
+                    serde_json::from_slice(&bytes).map_err(|e| format!("parse fleet JSON: {e}"))?;
                 Ok(Some(Self { path, file }))
             }
         }
@@ -172,10 +172,7 @@ pub struct FleetDeviceRoute {
 
 impl FleetDeviceRoute {
     fn from_record(r: &FleetDeviceRecord, routes: &HashMap<String, String>) -> Option<Self> {
-        let socket = r
-            .socket
-            .clone()
-            .or_else(|| routes.get(&r.bdf).cloned())?;
+        let socket = r.socket.clone().or_else(|| routes.get(&r.bdf).cloned())?;
         Some(Self {
             bdf: r.bdf.clone(),
             socket_path: PathBuf::from(socket),
@@ -207,24 +204,23 @@ impl FleetDeviceRoute {
 /// Build [`FleetDeviceRoute`] list from a [`FleetFile`].
 fn expand_devices(file: &FleetFile) -> Vec<FleetDeviceRoute> {
     let mut out = Vec::new();
-    if !file.devices.is_empty() {
+    if file.devices.is_empty() {
+        let mut bdfs: Vec<&String> = file.routes.keys().collect();
+        bdfs.sort();
+        for bdf in bdfs {
+            if let Some(sock) = file.routes.get(bdf) {
+                out.push(FleetDeviceRoute::from_routes_only(bdf, sock));
+            }
+        }
+    } else {
         for d in &file.devices {
             if let Some(row) = FleetDeviceRoute::from_record(d, &file.routes) {
                 out.push(row);
             }
         }
-        let seen: std::collections::HashSet<String> =
-            out.iter().map(|x| x.bdf.clone()).collect();
+        let seen: std::collections::HashSet<String> = out.iter().map(|x| x.bdf.clone()).collect();
         for (bdf, sock) in &file.routes {
             if !seen.contains(bdf) {
-                out.push(FleetDeviceRoute::from_routes_only(bdf, sock));
-            }
-        }
-    } else {
-        let mut bdfs: Vec<&String> = file.routes.keys().collect();
-        bdfs.sort();
-        for bdf in bdfs {
-            if let Some(sock) = file.routes.get(bdf) {
                 out.push(FleetDeviceRoute::from_routes_only(bdf, sock));
             }
         }
@@ -301,24 +297,26 @@ impl FleetRouter {
         if d.reachable == Some(true) {
             score += 100;
         }
-        if let Some(domains) = &d.physics_domains {
-            if domains.iter().any(|x| x.to_ascii_lowercase() == domain_l) {
-                score += 80;
-            }
+        if let Some(domains) = &d.physics_domains
+            && domains.iter().any(|x| x.to_ascii_lowercase() == domain_l)
+        {
+            score += 80;
         }
         if matches!(
-            d.health_hint.as_deref().map(str::to_ascii_lowercase).as_deref(),
-            Some("alive") | Some("ok") | Some("pristine")
+            d.health_hint
+                .as_deref()
+                .map(str::to_ascii_lowercase)
+                .as_deref(),
+            Some("alive" | "ok" | "pristine")
         ) {
             score += 40;
         }
-        if domain_l == DOMAIN_LATTICE_QCD || domain_l == "qcd" {
-            if d.vendor
+        if (domain_l == DOMAIN_LATTICE_QCD || domain_l == "qcd")
+            && d.vendor
                 .as_deref()
                 .is_some_and(|v| v.to_ascii_lowercase().contains("nvidia"))
-            {
-                score += 25;
-            }
+        {
+            score += 25;
         }
         if domain_l == DOMAIN_DEFAULT || domain.is_empty() {
             score += 5;
@@ -425,8 +423,7 @@ mod tests {
 
     #[test]
     fn fleet_file_parses_routes_and_devices() -> Result<(), String> {
-        let f: FleetFile =
-            serde_json::from_str(SAMPLE_FLEET_JSON).map_err(|e| e.to_string())?;
+        let f: FleetFile = serde_json::from_str(SAMPLE_FLEET_JSON).map_err(|e| e.to_string())?;
         assert_eq!(f.mode.as_deref(), Some("fleet"));
         assert_eq!(f.routes.len(), 2);
         assert_eq!(f.devices.len(), 2);
@@ -437,8 +434,7 @@ mod tests {
 
     #[test]
     fn route_by_bdf_finds_socket() -> Result<(), String> {
-        let f: FleetFile =
-            serde_json::from_str(SAMPLE_FLEET_JSON).map_err(|e| e.to_string())?;
+        let f: FleetFile = serde_json::from_str(SAMPLE_FLEET_JSON).map_err(|e| e.to_string())?;
         let router = FleetRouter::from_fleet_file(&f);
         let d = router
             .route_by_bdf("0000:03:00.0")
@@ -452,8 +448,7 @@ mod tests {
 
     #[test]
     fn route_by_capability_prefers_domain_and_reachable() -> Result<(), String> {
-        let f: FleetFile =
-            serde_json::from_str(SAMPLE_FLEET_JSON).map_err(|e| e.to_string())?;
+        let f: FleetFile = serde_json::from_str(SAMPLE_FLEET_JSON).map_err(|e| e.to_string())?;
         let mut router = FleetRouter::from_fleet_file(&f);
         for d in &mut router.devices {
             if d.bdf == "0000:03:00.0" {
@@ -473,10 +468,7 @@ mod tests {
     fn expand_devices_routes_only_without_devices_array() {
         let f = FleetFile {
             mode: Some("fleet".into()),
-            routes: HashMap::from([(
-                "0000:01:00.0".into(),
-                "/tmp/e0.sock".into(),
-            )]),
+            routes: HashMap::from([("0000:01:00.0".into(), "/tmp/e0.sock".into())]),
             standby_count: None,
             devices: vec![],
         };
@@ -505,8 +497,14 @@ mod tests {
             Path::new("/tmp/b.sock")
         );
         assert_eq!(hub.len(), 2);
-        let first = hub.client_for_socket("/tmp/a.sock").socket_path().to_path_buf();
-        let again = hub.client_for_socket("/tmp/a.sock").socket_path().to_path_buf();
+        let first = hub
+            .client_for_socket("/tmp/a.sock")
+            .socket_path()
+            .to_path_buf();
+        let again = hub
+            .client_for_socket("/tmp/a.sock")
+            .socket_path()
+            .to_path_buf();
         assert_eq!(first, again);
         assert_eq!(hub.len(), 2);
     }

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-#![allow(missing_docs)]
+#![expect(missing_docs, reason = "NPU IPC messages — module docs deferred")]
 
 //! NPU worker request/response types and handles.
 

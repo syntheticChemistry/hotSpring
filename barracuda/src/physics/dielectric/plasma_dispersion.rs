@@ -45,7 +45,6 @@ impl PlasmaParams {
         let a = (3.0 / (4.0 * PI * n)).cbrt();
         let q2 = q * q;
         let omega_p = (4.0 * PI * n * q2 / m).sqrt();
-        #[allow(clippy::suspicious_operation_groupings)]
         let temperature = q2 / (a * gamma);
         let v_th = (temperature / m).sqrt();
         let k_debye = kappa / a;

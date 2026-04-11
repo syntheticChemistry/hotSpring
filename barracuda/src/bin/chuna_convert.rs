@@ -46,8 +46,12 @@ struct CliArgs {
 }
 
 enum Mode {
-    Info { path: String },
-    Verify { path: String },
+    Info {
+        path: String,
+    },
+    Verify {
+        path: String,
+    },
     Convert {
         input: String,
         output: String,
@@ -58,7 +62,9 @@ enum Mode {
         beta: f64,
         output: String,
     },
-    EmitQcdml { path: String },
+    EmitQcdml {
+        path: String,
+    },
 }
 
 fn parse_args() -> CliArgs {
@@ -115,11 +121,7 @@ fn parse_args() -> CliArgs {
             }
         }
         return CliArgs {
-            mode: Mode::GenerateCold {
-                dims,
-                beta,
-                output,
-            },
+            mode: Mode::GenerateCold { dims, beta, output },
         };
     }
 
@@ -180,11 +182,7 @@ fn main() {
             output,
             precision,
         } => cmd_convert(&input, &output, precision),
-        Mode::GenerateCold {
-            dims,
-            beta,
-            output,
-        } => cmd_generate_cold(dims, beta, &output),
+        Mode::GenerateCold { dims, beta, output } => cmd_generate_cold(dims, beta, &output),
         Mode::EmitQcdml { path } => cmd_emit_qcdml(&path),
     }
 }
@@ -250,19 +248,25 @@ fn cmd_verify(path: &str) {
         .expect("write to buffer");
 
     // Read back
-    let (loaded, _) =
-        hotspring_barracuda::lattice::ildg::read_gauge_config(Cursor::new(&buf))
-            .expect("read from buffer");
+    let (loaded, _) = hotspring_barracuda::lattice::ildg::read_gauge_config(Cursor::new(&buf))
+        .expect("read from buffer");
     let plaq_loaded = loaded.average_plaquette();
     println!("  Reloaded:  ⟨P⟩={plaq_loaded:.10}");
 
     let diff = (plaq_orig - plaq_loaded).abs();
-    let tol = if meta.precision_bits == 32 { 1e-5 } else { 1e-12 };
+    let tol = if meta.precision_bits == 32 {
+        1e-5
+    } else {
+        1e-12
+    };
     let pass = diff < tol;
 
     println!("  Δ⟨P⟩:     {diff:.2e} (tol={tol:.0e})");
     if pass {
-        println!("  ✓ PASS — round-trip verified ({:.2}s)", start.elapsed().as_secs_f64());
+        println!(
+            "  ✓ PASS — round-trip verified ({:.2}s)",
+            start.elapsed().as_secs_f64()
+        );
     } else {
         println!("  ✗ FAIL — plaquette mismatch exceeds tolerance");
         std::process::exit(1);
@@ -336,9 +340,7 @@ fn cmd_emit_qcdml(path: &str) {
     std::fs::write(&cfg_xml_path, &cfg_xml).expect("write config XML");
     println!("  → Config XML:   {cfg_xml_path}");
 
-    println!(
-        "  ILDG CRC:       {crc}",
-    );
+    println!("  ILDG CRC:       {crc}",);
     println!(
         "  Lattice:        {}×{}×{}×{}, β={:.4}, traj={}",
         nx, ny, nz, nt, meta.beta, meta.trajectory

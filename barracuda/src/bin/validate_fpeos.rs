@@ -13,6 +13,9 @@
 
 use hotspring_barracuda::physics::fpeos::{helium_reference, hydrogen_reference};
 use hotspring_barracuda::provenance::BaselineProvenance;
+use hotspring_barracuda::tolerances::{
+    FPEOS_GRID_POINT_REL, FPEOS_HE_TO_H_PRESSURE_RATIO_MAX, FPEOS_THERMO_CONSISTENCY_MAX,
+};
 use hotspring_barracuda::validation::{TelemetryWriter, ValidationHarness};
 
 /// Frozen grid-point pressure for H (log ρ=0, log T=5) from Militzer table.
@@ -70,8 +73,8 @@ fn main() {
         let e_err = (pt.internal_energy - exp_e).abs() / exp_e.abs().max(1e-10);
         let label_p = format!("h_P_rho{lr}_T{lt}");
         let label_e = format!("h_E_rho{lr}_T{lt}");
-        harness.check_upper(&label_p, p_err, 0.01);
-        harness.check_upper(&label_e, e_err, 0.01);
+        harness.check_upper(&label_p, p_err, FPEOS_GRID_POINT_REL);
+        harness.check_upper(&label_e, e_err, FPEOS_GRID_POINT_REL);
         telem.log_map(
             "h_grid",
             &[
@@ -133,7 +136,7 @@ fn main() {
     println!("  Cross-element comparison (He ≤ H)...");
     let mut cross_ok = true;
     for i in 0..h.pressure.len() {
-        if he.pressure[i] > h.pressure[i] * 1.01 {
+        if he.pressure[i] > h.pressure[i] * FPEOS_HE_TO_H_PRESSURE_RATIO_MAX {
             cross_ok = false;
         }
     }
@@ -143,7 +146,7 @@ fn main() {
     println!("  Helium grid-point lookup...");
     let he_pt = he.interpolate_log(0.0, 6.0).unwrap();
     let he_p_err = (he_pt.pressure - 46.5).abs() / 46.5;
-    harness.check_upper("he_P_rho0_T6", he_p_err, 0.01);
+    harness.check_upper("he_P_rho0_T6", he_p_err, FPEOS_GRID_POINT_REL);
 
     // Thermodynamic consistency
     println!("  Thermodynamic consistency...");
@@ -151,7 +154,11 @@ fn main() {
     println!("    max ΔP/P = {consistency:.4e}");
     telem.log("fpeos", "thermo_consistency", consistency);
     // FPEOS data has numerical differentiation noise; allow generous threshold
-    harness.check_upper("h_thermo_consistency", consistency, 2.0);
+    harness.check_upper(
+        "h_thermo_consistency",
+        consistency,
+        FPEOS_THERMO_CONSISTENCY_MAX,
+    );
 
     harness.finish();
 }

@@ -234,3 +234,21 @@ pub const NORMAL_CDF_TOLERANCE: f64 = 1e-4;
 /// The rational approximation for the quantile function has ~1e-3
 /// accuracy in the tails (|z| > 2).
 pub const NORMAL_PPF_TOLERANCE: f64 = 1e-3;
+
+/// `validate_precision_matrix`: absolute error gate for fp32 shader outputs.
+pub const PRECISION_MATRIX_FP32_ABS: f64 = 1e-5;
+
+/// `validate_precision_matrix`: absolute error gate for df64 (f32-pair) outputs.
+pub const PRECISION_MATRIX_DF64_ABS: f64 = 1e-6;
+
+/// `validate_precision_matrix`: absolute error gate for native f64 and df128 tiers.
+pub const PRECISION_MATRIX_FP64_DF128_ABS: f64 = 1e-14;
+
+/// `validate_precision_matrix`: fallback absolute gate for unknown tiers.
+pub const PRECISION_MATRIX_DEFAULT_ABS: f64 = 1e-3;
+
+/// Sovereign WGSL round-trip: warn when raw f64 output differs from expected scalar.
+pub const SOVEREIGN_ROUNTRIP_RAW_VS_EXPECTED_ABS: f64 = 1e-6;
+
+/// Sovereign WGSL round-trip: max |raw − sovereign| per f64 element (bit-identical goal).
+pub const SOVEREIGN_ROUNTRIP_GPU_PARITY_ABS: f64 = 1e-15;

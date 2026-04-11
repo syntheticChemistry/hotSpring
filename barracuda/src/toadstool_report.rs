@@ -141,13 +141,15 @@ pub struct ComputeCapabilities {
 /// Falls back to `None` when toadStool is absent — callers should use
 /// local `GpuF64::enumerate_adapters()` as a fallback.
 pub fn query_capabilities(nucleus: &NucleusContext) -> Option<ComputeCapabilities> {
+    let compute_ep = nucleus.get_by_capability("compute")?;
+    let source = compute_ep.name.clone();
     let params = serde_json::json!({
         "spring": "hotSpring",
         "require_f64": true,
     });
 
     let resp = nucleus
-        .call("toadstool", "compute.capability_query", &params)
+        .call_by_capability("compute", "compute.capability_query", params)
         .ok()?;
 
     let result = resp.get("result")?;
@@ -155,7 +157,7 @@ pub fn query_capabilities(nucleus: &NucleusContext) -> Option<ComputeCapabilitie
     let gpus: Vec<GpuCapability> = serde_json::from_value(gpus_val.clone()).ok()?;
 
     println!(
-        "  toadStool: {} GPU(s) via NUCLEUS capability query",
+        "  compute primal ({source}): {} GPU(s) via NUCLEUS capability query",
         gpus.len()
     );
     for g in &gpus {
@@ -165,10 +167,7 @@ pub fn query_capabilities(nucleus: &NucleusContext) -> Option<ComputeCapabilitie
         );
     }
 
-    Some(ComputeCapabilities {
-        gpus,
-        source: "toadstool".to_string(),
-    })
+    Some(ComputeCapabilities { gpus, source })
 }
 
 /// Register a validated shader with toadStool for cross-spring absorption.
@@ -189,7 +188,7 @@ pub fn register_shader(
         "guidestone_receipt": receipt_json,
     });
 
-    let resp = nucleus.call("toadstool", "compute.shader.register", &params)?;
+    let resp = nucleus.call_by_capability("compute", "compute.shader.register", params)?;
 
     let status = resp
         .get("result")
@@ -201,13 +200,27 @@ pub fn register_shader(
     Ok(())
 }
 
-/// Report a batch of performance measurements to toadStool.
+/// Resolve compute dispatch socket: use [`NucleusContext`] capability table when provided,
+/// otherwise bootstrap via [`toadstool_socket`] (name-based path).
+fn resolve_compute_report_socket(nucleus: Option<&NucleusContext>) -> String {
+    if let Some(ctx) = nucleus
+        && let Some(ep) = ctx.get_by_capability("compute")
+    {
+        return ep.socket.clone();
+    }
+    toadstool_socket()
+}
+
+/// Report a batch of performance measurements to the compute primal.
 ///
-/// Connects to the toadStool JSON-RPC socket and sends each measurement via
-/// `compute.performance_surface.report`. If toadStool is not running, logs
-/// a message and returns silently.
-pub fn report_to_toadstool(measurements: &[PerformanceMeasurement]) {
-    let socket = toadstool_socket();
+/// Connects over JSON-RPC and sends each measurement via
+/// `compute.performance_surface.report`. With `nucleus`, the socket comes from
+/// capability discovery; otherwise the bootstrap path in [`toadstool_socket`] is used.
+pub fn report_to_toadstool_with_nucleus(
+    nucleus: Option<&NucleusContext>,
+    measurements: &[PerformanceMeasurement],
+) {
+    let socket = resolve_compute_report_socket(nucleus);
     let socket_path = PathBuf::from(&socket);
     println!(
         "  Reporting {} measurement(s) to toadStool at {}",
@@ -240,4 +253,9 @@ pub fn report_to_toadstool(measurements: &[PerformanceMeasurement]) {
             }
         }
     }
+}
+
+/// Same as [`report_to_toadstool_with_nucleus`] with no nucleus context (bootstrap socket only).
+pub fn report_to_toadstool(measurements: &[PerformanceMeasurement]) {
+    report_to_toadstool_with_nucleus(None, measurements);
 }

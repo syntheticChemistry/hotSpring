@@ -325,6 +325,11 @@ path = "src/bin/validate_production_qcd.rs"
 name = "validate_dynamical_qcd"
 path = "src/bin/validate_dynamical_qcd.rs"
 
+# ── Dual-GPU parallel QCD: two GPUs, same physics, cross-vendor parity ──
+[[bin]]
+name = "validate_dual_gpu_qcd"
+path = "src/bin/validate_dual_gpu_qcd.rs"
+
 # ── Production QCD V2: Omelyan integrator + Hasenbusch preconditioning ──
 [[bin]]
 name = "validate_production_qcd_v2"
@@ -638,6 +643,11 @@ path = "src/bin/bench_sovereign_fma.rs"
 [[bin]]
 name = "bench_flow_convergence"
 path = "src/bin/bench_flow_convergence.rs"
+
+# ── Chuna papers 43/44/45: unified portable validation artifact ──
+[[bin]]
+name = "validate_chuna"
+path = "src/bin/validate_chuna.rs"
 
 # ── Chuna overnight: all Paper 43/44/45 validations in one run ──
 [[bin]]

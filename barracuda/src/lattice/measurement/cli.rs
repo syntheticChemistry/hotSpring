@@ -42,10 +42,10 @@ pub fn parse_dims_from_args(args: &[String]) -> Option<[usize; 4]> {
         return Some([ns, ns, ns, nt]);
     }
 
-    if let Some(nt) = nt_val {
-        if let Some(l) = lattice_val {
-            return Some([l, l, l, nt]);
-        }
+    if let Some(nt) = nt_val
+        && let Some(l) = lattice_val
+    {
+        return Some([l, l, l, nt]);
     }
 
     lattice_val.map(|l| [l, l, l, l])
@@ -58,11 +58,11 @@ pub fn parse_dims_from_args(args: &[String]) -> Option<[usize; 4]> {
 pub fn format_dims(dims: [usize; 4]) -> String {
     let [nx, ny, nz, nt] = dims;
     if nx == ny && ny == nz && nz == nt {
-        format!("{}⁴", nx)
+        format!("{nx}⁴")
     } else if nx == ny && ny == nz {
-        format!("{}³×{}", nx, nt)
+        format!("{nx}³×{nt}")
     } else {
-        format!("{}×{}×{}×{}", nx, ny, nz, nt)
+        format!("{nx}×{ny}×{nz}×{nt}")
     }
 }
 

@@ -37,9 +37,9 @@
 
 use crate::gpu::GpuF64;
 use crate::hardware_calibration::HardwareCalibration;
-use crate::primal_bridge::NucleusContext;
 pub use crate::precision_routing::HwPrecisionAdvice;
 use crate::precision_routing::{PhysicsDomain, PrecisionRoutingAdvice, PrecisionTier};
+use crate::primal_bridge::NucleusContext;
 
 /// Detect whether coralReef sovereign compilation is available.
 ///

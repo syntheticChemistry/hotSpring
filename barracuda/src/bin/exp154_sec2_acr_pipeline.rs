@@ -102,7 +102,9 @@ fn main() {
     // ── Phase 4: SEC2 ACR boot ──
     println!("\n━━━ Phase 4: SEC2 ACR Boot ━━━\n");
     if !prepared {
-        println!("  NOTE: SEC2 prepare failed — IMEM-only (no DMA/PRAMIN), results are best-effort");
+        println!(
+            "  NOTE: SEC2 prepare failed — IMEM-only (no DMA/PRAMIN), results are best-effort"
+        );
     }
     phase4_sec2_acr(&mut harness, &ember, &bdf);
 
@@ -120,10 +122,10 @@ fn main() {
     // Halt any falcons we started to prevent runaway execution during warm cycle.
     // Write CPUCTL.HALT (bit 4) to PMU and SEC2 to force halt before unbinding.
     let halt_ops = vec![
-        MmioBatchOp::write(PMU_CPUCTL, 0x10),    // PMU: force halt
-        MmioBatchOp::write(SEC2_CPUCTL, 0x10),    // SEC2: force halt
-        MmioBatchOp::read(PMU_CPUCTL),            // readback verify
-        MmioBatchOp::read(SEC2_CPUCTL),           // readback verify
+        MmioBatchOp::write(PMU_CPUCTL, 0x10),  // PMU: force halt
+        MmioBatchOp::write(SEC2_CPUCTL, 0x10), // SEC2: force halt
+        MmioBatchOp::read(PMU_CPUCTL),         // readback verify
+        MmioBatchOp::read(SEC2_CPUCTL),        // readback verify
     ];
     match ember.mmio_batch(&bdf, &halt_ops) {
         Ok(r) => {
@@ -135,7 +137,10 @@ fn main() {
     }
 
     match ember.cleanup_dma(&bdf) {
-        Ok(r) => println!("  DMA cleanup: ok={}, decontaminated={:?}", r.ok, r.decontaminated),
+        Ok(r) => println!(
+            "  DMA cleanup: ok={}, decontaminated={:?}",
+            r.ok, r.decontaminated
+        ),
         Err(e) => println!("  DMA cleanup error: {e}"),
     }
     if glowplug.experiment_end(&bdf).is_ok() {
@@ -148,8 +153,8 @@ fn main() {
 
 fn phase1_baseline(harness: &mut ValidationHarness, ember: &EmberClient, bdf: &str) {
     let ops = vec![
-        MmioBatchOp::read(0x000000),      // BOOT0
-        MmioBatchOp::read(0x000200),      // PMC_ENABLE
+        MmioBatchOp::read(0x000000), // BOOT0
+        MmioBatchOp::read(0x000200), // PMC_ENABLE
         MmioBatchOp::read(BROM_MODSEL),
         MmioBatchOp::read(BROM_UCODEID),
         MmioBatchOp::read(BROM_ENGID_MASK),
@@ -167,10 +172,7 @@ fn phase1_baseline(harness: &mut ValidationHarness, ember: &EmberClient, bdf: &s
             for (i, op) in ops.iter().enumerate() {
                 let val = result.read_value(i).unwrap_or(0xDEAD_DEAD);
                 let name = offset_label(op.offset);
-                println!(
-                    "    [{:#08x}] {:<20} = {val:#010x}",
-                    op.offset, name,
-                );
+                println!("    [{:#08x}] {:<20} = {val:#010x}", op.offset, name,);
             }
             harness.check_bool("pre-boot MMIO baseline readable", true);
         }
@@ -185,7 +187,10 @@ fn phase2_prepare(harness: &mut ValidationHarness, ember: &EmberClient, bdf: &st
     // DMA prepare (bus_master=true for DMA-capable ACR path)
     let dma_ok = match ember.prepare_dma(bdf, true) {
         Ok(r) => {
-            println!("  DMA prepare: pmc_before={:?}, pmc_after={:?}", r.pmc_before, r.pmc_after);
+            println!(
+                "  DMA prepare: pmc_before={:?}, pmc_after={:?}",
+                r.pmc_before, r.pmc_after
+            );
             harness.check_bool("DMA prepare", r.ok);
             r.ok
         }
@@ -221,7 +226,10 @@ fn phase2_prepare(harness: &mut ValidationHarness, ember: &EmberClient, bdf: &st
 fn phase3_pmu_first(harness: &mut ValidationHarness, ember: &EmberClient, bdf: &str) {
     // Minimal PMU micro-firmware: NOP sled + mailbox write + halt
     let pmu_fw = build_probe_firmware();
-    println!("  Uploading PMU firmware ({} bytes) at base {PMU_BASE:#x}...", pmu_fw.len());
+    println!(
+        "  Uploading PMU firmware ({} bytes) at base {PMU_BASE:#x}...",
+        pmu_fw.len()
+    );
 
     let upload_ok = match ember.falcon_upload_imem(bdf, PMU_BASE, 0, &pmu_fw, 0, false) {
         Ok(r) => {
@@ -295,7 +303,10 @@ fn phase3_pmu_first(harness: &mut ValidationHarness, ember: &EmberClient, bdf: &
 
 fn phase4_sec2_acr(harness: &mut ValidationHarness, ember: &EmberClient, bdf: &str) {
     let sec2_fw = build_probe_firmware();
-    println!("  Uploading SEC2 BL ({} bytes) at base {SEC2_BASE:#x}...", sec2_fw.len());
+    println!(
+        "  Uploading SEC2 BL ({} bytes) at base {SEC2_BASE:#x}...",
+        sec2_fw.len()
+    );
 
     let upload_ok = match ember.falcon_upload_imem(bdf, SEC2_BASE, 0, &sec2_fw, 0, true) {
         Ok(r) => {
@@ -335,7 +346,11 @@ fn phase4_sec2_acr(harness: &mut ValidationHarness, ember: &EmberClient, bdf: &s
     // Poll SEC2 with longer timeout (ACR may take time)
     match ember.falcon_poll(bdf, SEC2_BASE, 10000, 0xDEAD_A5A5) {
         Ok(r) => {
-            println!("  SEC2 poll: {} snapshots, pc_trace len={}", r.snapshots.len(), r.pc_trace.len());
+            println!(
+                "  SEC2 poll: {} snapshots, pc_trace len={}",
+                r.snapshots.len(),
+                r.pc_trace.len()
+            );
             if let Some(f) = &r.final_state {
                 println!(
                     "  SEC2 final: pc={:?}, sctl={:?}, mb0={:?}",
@@ -481,7 +496,5 @@ fn connect_ember(bdf: &str) -> Option<EmberClient> {
 }
 
 fn extract_arg(args: &[String], flag: &str) -> Option<String> {
-    args.windows(2)
-        .find(|w| w[0] == flag)
-        .map(|w| w[1].clone())
+    args.windows(2).find(|w| w[0] == flag).map(|w| w[1].clone())
 }

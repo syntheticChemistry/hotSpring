@@ -80,11 +80,7 @@ fn main() {
     let other_sockets: Vec<PathBuf> = router
         .devices()
         .iter()
-        .filter(|d| {
-            d.reachable == Some(true)
-                && d.bdf != target_bdf
-                && d.hot_standby_of.is_none()
-        })
+        .filter(|d| d.reachable == Some(true) && d.bdf != target_bdf && d.hot_standby_of.is_none())
         .map(|d| d.socket_path.clone())
         .collect();
 
@@ -141,11 +137,11 @@ fn phase1_baseline(
         .iter()
         .filter(|d| d.reachable == Some(true))
         .count();
-    harness.check_bool(
-        "at least one ember reachable",
-        reachable_count > 0,
+    harness.check_bool("at least one ember reachable", reachable_count > 0);
+    println!(
+        "  Reachable embers: {reachable_count}/{}",
+        router.devices().len()
     );
-    println!("  Reachable embers: {reachable_count}/{}", router.devices().len());
 
     for d in router.devices() {
         let status = if d.reachable == Some(true) {
@@ -172,9 +168,7 @@ fn phase1_baseline(
             Ok(g) => g,
             Err(_) => {
                 println!("  Nucleus discovery failed — trying default socket");
-                GlowplugClient::from_socket(std::path::Path::new(
-                    "/run/coralreef/glowplug.sock",
-                ))
+                GlowplugClient::from_socket(std::path::Path::new("/run/coralreef/glowplug.sock"))
             }
         }
     };
@@ -208,10 +202,7 @@ fn phase2_checkpoint(harness: &mut ValidationHarness, glowplug: &GlowplugClient)
     // Glowplug checkpoints fds automatically during its lifecycle tick.
     // We verify the vault is populated by checking that the devices are healthy.
     let healthy = devices.iter().filter(|d| d.health.vram_alive).count();
-    harness.check_bool(
-        "at least one device with vram_alive",
-        healthy > 0,
-    );
+    harness.check_bool("at least one device with vram_alive", healthy > 0);
     println!("  Devices with vram_alive: {healthy}/{}", devices.len());
 }
 
@@ -269,10 +260,7 @@ fn phase3_single_kill(
         // Try to reach the target ember socket (glowplug respawns with same or new socket)
         if fleet_client::verify_ember_alive(target_socket).is_ok() {
             let resurrection_time = resurrection_start.elapsed();
-            println!(
-                "  Resurrected in {:.1}s",
-                resurrection_time.as_secs_f64()
-            );
+            println!("  Resurrected in {:.1}s", resurrection_time.as_secs_f64());
             resurrected = true;
             break;
         }
@@ -339,8 +327,7 @@ fn phase4_flood(
     );
 
     // Check if ember survived (some requests succeeded) or died (all failed late)
-    let ember_survived_flood =
-        fleet_client::verify_ember_alive(target_socket).is_ok();
+    let ember_survived_flood = fleet_client::verify_ember_alive(target_socket).is_ok();
     println!(
         "  Ember status after flood: {}",
         if ember_survived_flood {
@@ -365,7 +352,10 @@ fn phase4_flood(
                 harness.check_bool(&label, true);
             }
             Err(e) => {
-                println!("  Other ember #{i} ({}) — UNREACHABLE: {e}", other.display());
+                println!(
+                    "  Other ember #{i} ({}) — UNREACHABLE: {e}",
+                    other.display()
+                );
                 harness.check_bool(&label, false);
             }
         }
@@ -434,26 +424,16 @@ fn phase5_standby(
     }
 }
 
-fn phase6_dispatch(
-    harness: &mut ValidationHarness,
-    target_bdf: &str,
-    glowplug: &GlowplugClient,
-) {
+fn phase6_dispatch(harness: &mut ValidationHarness, target_bdf: &str, glowplug: &GlowplugClient) {
     let device_status = glowplug.device_status(target_bdf);
     match &device_status {
         Ok(info) => {
             println!("  Device {target_bdf}: personality={}", info.personality);
-            harness.check_bool(
-                "device reachable via glowplug after resurrection",
-                true,
-            );
+            harness.check_bool("device reachable via glowplug after resurrection", true);
         }
         Err(e) => {
             println!("  Device {target_bdf} not reachable via glowplug: {e}");
-            harness.check_bool(
-                "device reachable via glowplug after resurrection",
-                false,
-            );
+            harness.check_bool("device reachable via glowplug after resurrection", false);
             return;
         }
     }
@@ -468,17 +448,11 @@ fn phase6_dispatch(
                 "  Device {target_bdf}: vfio_fd={gpu_ok}, personality={}",
                 detail.personality
             );
-            harness.check_bool(
-                "post-resurrection GPU path live (device.get ok)",
-                true,
-            );
+            harness.check_bool("post-resurrection GPU path live (device.get ok)", true);
         }
         Err(e) => {
             println!("  GPU path check failed: {e}");
-            harness.check_bool(
-                "post-resurrection GPU path live",
-                false,
-            );
+            harness.check_bool("post-resurrection GPU path live", false);
         }
     }
 }

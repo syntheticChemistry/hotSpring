@@ -179,13 +179,7 @@ impl<W: Write> LimeWriter<W> {
         self.writer
     }
 
-    fn write_raw(
-        &mut self,
-        record_type: &str,
-        data: &[u8],
-        mb: bool,
-        me: bool,
-    ) -> io::Result<()> {
+    fn write_raw(&mut self, record_type: &str, data: &[u8], mb: bool, me: bool) -> io::Result<()> {
         let mut hdr = [0u8; LIME_HEADER_SIZE];
         let data_len = data.len() as u64;
 
@@ -218,7 +212,7 @@ impl<W: Write> LimeWriter<W> {
 impl<W: Write + Seek> LimeWriter<W> {
     /// Returns the current byte position in the output stream.
     pub fn position(&mut self) -> io::Result<u64> {
-        self.writer.seek(io::SeekFrom::Current(0))
+        self.writer.stream_position()
     }
 }
 
@@ -233,10 +227,15 @@ fn parse_header(buf: &[u8; LIME_HEADER_SIZE]) -> io::Result<LimeHeader> {
 
     let version = u16::from_be_bytes([buf[4], buf[5]]);
     let flags = u16::from_be_bytes([buf[6], buf[7]]);
-    let data_length = u64::from_be_bytes([buf[8], buf[9], buf[10], buf[11], buf[12], buf[13], buf[14], buf[15]]);
+    let data_length = u64::from_be_bytes([
+        buf[8], buf[9], buf[10], buf[11], buf[12], buf[13], buf[14], buf[15],
+    ]);
 
     let type_slice = &buf[16..LIME_HEADER_SIZE];
-    let nul_pos = type_slice.iter().position(|&b| b == 0).unwrap_or(LIME_TYPE_MAX);
+    let nul_pos = type_slice
+        .iter()
+        .position(|&b| b == 0)
+        .unwrap_or(LIME_TYPE_MAX);
     let record_type = String::from_utf8_lossy(&type_slice[..nul_pos]).to_string();
 
     Ok(LimeHeader {

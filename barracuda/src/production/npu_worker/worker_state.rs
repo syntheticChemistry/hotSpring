@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-#![allow(missing_docs)]
-
 //! NPU worker mutable state and ESN factory.
 
 use crate::md::reservoir::{Activation, EchoStateNetwork, EsnConfig, MultiHeadNpu, heads};

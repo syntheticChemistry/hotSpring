@@ -497,7 +497,10 @@ pub fn gpu_true_multi_shift_cg_solve(
     // Use σ_min as base shift; effective shifts δ_s = σ_s - σ_min
     let sigma_min = shifts.iter().copied().fold(f64::INFINITY, f64::min);
     // Exact match: `sigma_min` is one of the discrete shift values in `shifts`.
-    #[allow(clippy::float_cmp)]
+    #[expect(
+        clippy::float_cmp,
+        reason = "exact equality required for determinism check"
+    )]
     let i_min = shifts.iter().position(|&s| s == sigma_min).unwrap_or(0);
     let effective_shifts: Vec<f64> = shifts.iter().map(|&s| s - sigma_min).collect();
 

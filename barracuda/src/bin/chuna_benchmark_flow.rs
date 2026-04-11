@@ -89,7 +89,10 @@ fn parse_args() -> CliArgs {
         } else if let Some(v) = arg.strip_prefix("--tmax=") {
             args.tmax = v.parse().expect("--tmax=F");
         } else if let Some(v) = arg.strip_prefix("--eps-range=") {
-            args.eps_range = v.split(',').map(|s| s.parse().expect("eps value")).collect();
+            args.eps_range = v
+                .split(',')
+                .map(|s| s.parse().expect("eps value"))
+                .collect();
         } else if let Some(v) = arg.strip_prefix("--outdir=") {
             args.outdir = Some(v.to_string());
         } else if let Some(v) = arg.strip_prefix("--custom-c2=") {
@@ -153,11 +156,20 @@ fn main() {
         let [nx, ny, nz, nt] = lat.dims;
         println!(
             "  Loaded: {}×{}×{}×{}, β={:.4}, ⟨P⟩={:.6}",
-            nx, ny, nz, nt, lat.beta, lat.average_plaquette()
+            nx,
+            ny,
+            nz,
+            nt,
+            lat.beta,
+            lat.average_plaquette()
         );
         lat
     } else if args.self_generate {
-        println!("\n  Self-generating {} config at β={:.2}...", format_dims(args.dims), args.beta);
+        println!(
+            "\n  Self-generating {} config at β={:.2}...",
+            format_dims(args.dims),
+            args.beta
+        );
         let dims = args.dims;
         let mut lat = Lattice::hot_start(dims, args.beta, 42);
         let mut hmc_cfg = HmcConfig {
@@ -219,7 +231,15 @@ fn main() {
 
     println!("\n  Step sizes: {:?}", eps_range);
     println!("  t_max: {}", args.tmax);
-    println!("  Integrators: {} ({}custom)", n_integrators, if custom_coeffs.is_some() { "incl. " } else { "" });
+    println!(
+        "  Integrators: {} ({}custom)",
+        n_integrators,
+        if custom_coeffs.is_some() {
+            "incl. "
+        } else {
+            ""
+        }
+    );
 
     // Collect all results
     let mut all_results: Vec<FlowBenchResult> = Vec::new();
@@ -277,8 +297,7 @@ fn main() {
             let start = Instant::now();
             let mut flow_lat = lattice.clone();
             let measure_interval = (0.05 / eps).max(1.0) as usize;
-            let results =
-                run_flow_custom(&mut flow_lat, coeffs, eps, args.tmax, measure_interval);
+            let results = run_flow_custom(&mut flow_lat, coeffs, eps, args.tmax, measure_interval);
             let t0 = find_t0(&results);
             let w0 = find_w0(&results);
             let q = topological_charge(&flow_lat);
@@ -309,11 +328,19 @@ fn main() {
 
     // Summary table: accuracy relative to finest step size
     let finest_eps = eps_range.last().copied().unwrap_or(0.005);
-    println!("\n╔══════════════════════════════════════════════════════════════════════════════════╗");
-    println!("║  Summary: Relative accuracy vs reference (ε={finest_eps})                        ║");
-    println!("╠══════════════════╦══════╦══════════╦══════════╦══════════╦══════════╦════════════╣");
+    println!(
+        "\n╔══════════════════════════════════════════════════════════════════════════════════╗"
+    );
+    println!(
+        "║  Summary: Relative accuracy vs reference (ε={finest_eps})                        ║"
+    );
+    println!(
+        "╠══════════════════╦══════╦══════════╦══════════╦══════════╦══════════╦════════════╣"
+    );
     println!("║ Integrator       ║  ε   ║ Δt₀/t₀  ║ Δw₀/w₀  ║   ΔQ     ║  Evals   ║  Time (s)  ║");
-    println!("╠══════════════════╬══════╬══════════╬══════════╬══════════╬══════════╬════════════╣");
+    println!(
+        "╠══════════════════╬══════╬══════════╬══════════╬══════════╬══════════╬════════════╣"
+    );
 
     for &int in &integrators {
         let ref_result = all_results
@@ -350,7 +377,9 @@ fn main() {
             );
         }
     }
-    println!("╚══════════════════╩══════╩══════════╩══════════╩══════════╩══════════╩════════════╝");
+    println!(
+        "╚══════════════════╩══════╩══════════╩══════════╩══════════╩══════════╩════════════╝"
+    );
 
     // Convergence order analysis
     println!("\n═══ Convergence Order Analysis ═══");
@@ -417,7 +446,12 @@ fn ref_result_for<'a>(
         .find(|r| r.integrator == int && (r.epsilon - eps).abs() < 1e-10)
 }
 
-fn build_json_summary(results: &[FlowBenchResult], ref_eps: f64, tmax: f64, manifest: &RunManifest) -> String {
+fn build_json_summary(
+    results: &[FlowBenchResult],
+    ref_eps: f64,
+    tmax: f64,
+    manifest: &RunManifest,
+) -> String {
     let mut json = String::from("{\n  \"benchmark\": \"flow_integrator_comparison\",\n");
     json.push_str(&format!("  \"run\": {},\n", manifest.to_json_value()));
     json.push_str(&format!("  \"reference_epsilon\": {ref_eps},\n"));
@@ -442,10 +476,7 @@ fn build_json_summary(results: &[FlowBenchResult], ref_eps: f64, tmax: f64, mani
         json.push_str(&format!("      \"Q\": {},\n", res.q));
         json.push_str(&format!("      \"wall_seconds\": {},\n", res.wall_secs));
         json.push_str(&format!("      \"n_steps\": {},\n", res.n_steps));
-        json.push_str(&format!(
-            "      \"n_force_evals\": {}\n",
-            res.n_force_evals
-        ));
+        json.push_str(&format!("      \"n_force_evals\": {}\n", res.n_force_evals));
         json.push_str("    }");
         if i + 1 < results.len() {
             json.push(',');

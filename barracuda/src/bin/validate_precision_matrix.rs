@@ -21,6 +21,10 @@
 
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::toadstool_report::{self, PerformanceMeasurement};
+use hotspring_barracuda::tolerances::{
+    PRECISION_MATRIX_DEFAULT_ABS, PRECISION_MATRIX_DF64_ABS, PRECISION_MATRIX_FP32_ABS,
+    PRECISION_MATRIX_FP64_DF128_ABS,
+};
 
 // ── Test infrastructure ─────────────────────────────────────────────────────
 
@@ -753,10 +757,10 @@ async fn main() {
                     abs_err
                 };
                 let tol = match test.tier {
-                    "fp32" => 1e-5,
-                    "df64" => 1e-6,
-                    "fp64" | "df128" => 1e-14,
-                    _ => 1e-3,
+                    "fp32" => PRECISION_MATRIX_FP32_ABS,
+                    "df64" => PRECISION_MATRIX_DF64_ABS,
+                    "fp64" | "df128" => PRECISION_MATRIX_FP64_DF128_ABS,
+                    _ => PRECISION_MATRIX_DEFAULT_ABS,
                 };
                 let pass = abs_err < tol;
                 let mark = if pass { "PASS" } else { "FAIL" };

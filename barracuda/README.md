@@ -46,7 +46,7 @@ hotSpring (this repo)
 ```bash
 cd barracuda
 
-cargo test --lib          # 848 library tests
+cargo test --lib          # 956 library tests
 cargo clippy --all-targets  # 0 warnings (pedantic + nursery)
 cargo doc --no-deps       # Full API docs, 0 warnings
 
@@ -130,7 +130,7 @@ pattern in the overnight binary is the reference for multi-GPU + profiling adopt
 
 - **AGPL-3.0-or-later** on all `.rs` and `.wgsl` files
 - **Provenance**: all validation constants traced to Python origins or DOIs
-- **Tolerances**: ~150 centralized constants with physical justification
+- **Tolerances**: ~170+ centralized constants with physical justification
 - **ValidationHarness**: structured pass/fail with exit code 0/1
 - **Capability discovery**: GPU adapter by name/index/auto, NPU via sysfs
 - **NaN-safe**: all float sorting uses `f64::total_cmp()`
