@@ -1,5 +1,9 @@
 # hotSpring — BarraCuda Requirements
 
+> **HISTORICAL** — Snapshot from February 25, 2026 (v0.6.15). Current state: v0.6.32, 870 tests,
+> 143 binaries, 128 WGSL shaders. For current absorption status see `barracuda/ABSORPTION_MANIFEST.md`.
+> For current gaps see `docs/PRIMAL_GAPS.md`. Retained as fossil record of early GPU kernel requirements.
+
 **Last Updated**: February 25, 2026
 **Purpose**: GPU kernel requirements, gap analysis, and evolution priorities
 **Crate**: hotspring-barracuda v0.6.15 — ~700 tests, 84 binaries, 62 WGSL shaders

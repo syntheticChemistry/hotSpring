@@ -75,8 +75,7 @@ pub struct GpuCoupledResult {
 
 /// GPU coupled kinetic-fluid pipeline.
 pub struct GpuCoupledPipeline {
-    /// Kept for batched BGK (future: N_x cells at once).
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "batched BGK evolution: N_x cells at once")]
     bgk_moments: wgpu::ComputePipeline,
     bgk_relax: wgpu::ComputePipeline,
     euler_flux: wgpu::ComputePipeline,
@@ -112,7 +111,6 @@ impl GpuCoupledPipeline {
 
 /// Run the coupled kinetic-fluid simulation with GPU-accelerated BGK and Euler.
 #[must_use]
-#[allow(clippy::while_float)]
 pub fn gpu_coupled_kinetic_fluid(
     gpu: &GpuF64,
     pipeline: &GpuCoupledPipeline,
@@ -191,7 +189,10 @@ pub fn gpu_coupled_kinetic_fluid(
     let mut n_steps = 0;
     let max_steps = 5000;
 
-    while t < t_final && n_steps < max_steps {
+    for _ in 0..max_steps {
+        if t >= t_final {
+            break;
+        }
         let max_speed_fluid = rho_fluid
             .iter()
             .zip(u_fluid.iter())

@@ -10,7 +10,7 @@ use barracuda::device::WgpuDevice;
 
 use crate::md::config::MdConfig;
 use crate::md::simulation::MdSimulation;
-use crate::tolerances::RDF_TAIL_TOLERANCE;
+use crate::tolerances::{ENERGY_DRIFT_PCT, RDF_TAIL_TOLERANCE};
 
 use super::energy::validate_energy;
 use super::rdf::compute_rdf;
@@ -47,8 +47,8 @@ pub fn print_observable_summary_with_gpu(
     let energy_val = validate_energy(&sim.energy_history, config);
     let icon = if energy_val.passed { "PASS" } else { "FAIL" };
     println!(
-        "    Energy: drift={:.3}% [{}] (< 5% required)",
-        energy_val.drift_pct, icon
+        "    Energy: drift={:.3}% [{}] (< {:.1}% required)",
+        energy_val.drift_pct, icon, ENERGY_DRIFT_PCT
     );
     println!(
         "    Temperature: {:.6} +/- {:.6} (target {:.6})",

@@ -15,6 +15,8 @@
 //!   hotspring_primal server          # start JSON-RPC server
 //!   hotspring_primal capabilities    # print capabilities and exit
 
+use hotspring_barracuda::composition;
+use hotspring_barracuda::primal_bridge::NucleusContext;
 use hotspring_forge::probe;
 use hotspring_forge::substrate::{Capability, Fp64Rate, Fp64Strategy, SubstrateKind};
 use serde_json::{Value, json};
@@ -44,6 +46,7 @@ fn socket_path(cli_override: Option<&str>) -> PathBuf {
 struct HotSpringState {
     capabilities: Vec<String>,
     gpu_info: Vec<GpuSummary>,
+    nucleus: NucleusContext,
     version: &'static str,
     socket_path: PathBuf,
 }
@@ -73,6 +76,12 @@ fn discover_capabilities() -> (Vec<String>, Vec<GpuSummary>) {
         "compute.gradient_flow".into(),
         "health.check".into(),
         "health.liveness".into(),
+        "health.readiness".into(),
+        "composition.health".into(),
+        "composition.tower_health".into(),
+        "composition.node_health".into(),
+        "composition.nest_health".into(),
+        "composition.science_health".into(),
         "capabilities.list".into(),
     ];
 
@@ -151,6 +160,18 @@ fn handle_request(state: &HotSpringState, method: &str, _params: &Value) -> Valu
             "version": state.version,
             "gpus": state.gpu_info.len(),
         }),
+        "health.readiness" => {
+            let gpu_ready = !state.gpu_info.is_empty();
+            let status = if gpu_ready { "ready" } else { "degraded" };
+            json!({
+                "status": status,
+                "primal": "hotspring",
+                "version": state.version,
+                "gpu_ready": gpu_ready,
+                "gpu_count": state.gpu_info.len(),
+                "capabilities_count": state.capabilities.len(),
+            })
+        }
         "capabilities.list" | "capability.list" => json!({
             "capabilities": state.capabilities,
         }),
@@ -171,6 +192,14 @@ fn handle_request(state: &HotSpringState, method: &str, _params: &Value) -> Valu
                 .collect();
             json!({ "gpus": gpus, "status": "ok" })
         }
+        "composition.health" | "composition.nucleus_health" => {
+            composition::nucleus_health(&state.nucleus)
+        }
+        "composition.tower_health" => composition::tower_health(&state.nucleus),
+        "composition.node_health" => composition::node_health(&state.nucleus),
+        "composition.nest_health" => composition::nest_health(&state.nucleus),
+        "composition.science_health" => state.nucleus.physics_health(),
+        "mcp.tools.list" => hotspring_barracuda::mcp_tools::tools_list_json(),
         _ => json!({
             "error": { "code": -32601, "message": format!("Method not found: {method}") }
         }),
@@ -262,10 +291,12 @@ fn main() {
     }
 
     let (capabilities, gpu_info) = discover_capabilities();
+    let nucleus = NucleusContext::detect();
 
     let state = Arc::new(HotSpringState {
         capabilities: capabilities.clone(),
         gpu_info,
+        nucleus,
         version: env!("CARGO_PKG_VERSION"),
         socket_path: socket_path(socket_override),
     });

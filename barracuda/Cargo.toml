@@ -810,3 +810,27 @@ path = "src/bin/exp155_k80_warm_fecs.rs"
 name = "exp156_reagent_compare"
 path = "src/bin/exp156_reagent_compare.rs"
 
+# ═══════════════════════════════════════════════════════════════
+# NUCLEUS Composition Validation (Phase 2: Rust → Primal composition)
+# ═══════════════════════════════════════════════════════════════
+
+# Full NUCLEUS composition: all 9 primals, all 3 atomics
+[[bin]]
+name = "validate_nucleus_composition"
+path = "src/bin/validate_nucleus_composition.rs"
+
+# Tower atomic (electron): BearDog + Songbird
+[[bin]]
+name = "validate_nucleus_tower"
+path = "src/bin/validate_nucleus_tower.rs"
+
+# Node atomic (proton): ToadStool + barraCuda + coralReef
+[[bin]]
+name = "validate_nucleus_node"
+path = "src/bin/validate_nucleus_node.rs"
+
+# Nest atomic (neutron): rhizoCrypt + loamSpine + sweetGrass + NestGate
+[[bin]]
+name = "validate_nucleus_nest"
+path = "src/bin/validate_nucleus_nest.rs"
+

@@ -97,7 +97,8 @@ impl DtAdapter {
 }
 
 // Tooling binary: uses legacy RHMC trajectory for self-tuning parameter search.
-// TODO: migrate to unidirectional when RhmcCalibrator supports it.
+// EVOLUTION(B3): migrate to unidirectional when RhmcCalibrator supports it — blocked on
+// upstream barraCuda RhmcCalibrator unidirectional mode stabilization.
 #[allow(deprecated)]
 fn main() {
     let args: Vec<String> = std::env::args().collect();

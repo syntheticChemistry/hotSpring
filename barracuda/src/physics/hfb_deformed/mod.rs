@@ -47,16 +47,14 @@ pub(super) struct DeformedState {
     pub(super) lambda: i32,
     pub(super) sigma: i32,
     pub(super) omega_x2: i32,
-    #[allow(dead_code)]
-    // EVOLUTION(GPU): will be used when deformed_*.wgsl shaders need parity/symmetry checks
+    #[expect(dead_code, reason = "EVOLUTION(GPU): deformed_*.wgsl parity/symmetry checks")]
     pub(super) _parity: i32,
-    #[allow(dead_code)]
-    // EVOLUTION(GPU): will be used when deformed_*.wgsl shaders wire shell truncation
+    #[expect(dead_code, reason = "EVOLUTION(GPU): deformed_*.wgsl shell truncation")]
     pub(super) _n_shell: usize,
 }
 
 impl DeformedState {
-    #[allow(dead_code)] // EVOLUTION(GPU): omega() will be used when deformed_*.wgsl shaders need Omega as f64
+    #[expect(dead_code, reason = "EVOLUTION(GPU): deformed_*.wgsl Omega as f64")]
     fn omega(&self) -> f64 {
         f64::from(self.omega_x2) / 2.0
     }
@@ -127,8 +125,7 @@ pub struct DeformedHFB {
     pub(super) hw_perp: f64,
     pub(super) b_z: f64,
     pub(super) b_perp: f64,
-    #[allow(dead_code)]
-    // EVOLUTION(GPU): will be used when deformed_*.wgsl shaders track deformation during SCF
+    #[expect(dead_code, reason = "EVOLUTION(GPU): deformed_*.wgsl SCF deformation tracking")]
     _beta2: f64,
     pub(super) delta_p: f64,
     pub(super) delta_n: f64,

@@ -46,16 +46,13 @@ NNN_DESCRIPTOR.{sh,md,json}
 
 | # | Name | Type | Key Finding |
 |---|------|------|-------------|
+| 001–057 | Early physics + sovereign GPU | various | Sarkas MD, nuclear EOS, TTM, surrogate, spectral, sovereign GPU cracking |
 | 058–069 | VFIO through GlowPlug | analysis | VFIO pipeline, GlowPlug daemon, Falcon boot sequences |
 | 070–089 | Dual Titan through GPCCS | analysis | Multi-GPU MMU, PFIFO, Falcon boot, SEC2, GPCCS |
 | 090–107 | Silicon science + HS mode | analysis | GPCCS running, TMU mapping, QCD, RHMC, silicon saturation |
 | 110–122 | Consolidation through WPR2 | analysis | VRAM page tables, dual-phase boot, WPR2 preservation/resolution |
-| 123–126 | K80 + AMD + livepatch | analysis | K80 sovereign design, AMD scratch breakthrough, warm handoff confirmed |
-| 127–131 | Warm FECS + reset arch | analysis | FECS dispatch, GPU puzzle box matrix, no-FLR recovery, reset evolution |
-| 132–136 | Dual GPU sovereign boot | analysis | Ember dispatch, Kepler compute, cold boot pipeline, FBHUB/FBPA discovery |
-| 137–139 | SEC2 DMA + D-state | analysis | DMA reconstruction, D-state root cause, ACR lockdown discovery |
-| 140 | PMC bit 5 + safety arch | analysis | **SEC2 at bit 5 (not 22)**, uncrashable GPU safety architecture validated |
-| 141–143 | ACR root cause | analysis | VBIOS DEVINIT suspected then **contradicted** — ACR fails even on POSTed GPU |
+| 123–131 | K80 + AMD + livepatch + reset | analysis | K80 sovereign, AMD scratch, warm handoff, FECS dispatch, reset evolution |
+| 132–143 | Dual GPU boot + ACR | analysis | Ember dispatch, Kepler compute, SEC2 DMA, D-state, ACR root cause |
 
 ### Active
 

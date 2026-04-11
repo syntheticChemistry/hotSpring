@@ -128,8 +128,11 @@ pub fn gpu_sod_shock_tube(
 
     // Time stepping with CFL
     let mut t = 0.0;
-    #[allow(clippy::while_float)]
-    while t < t_final {
+    let max_steps = (t_final / 1e-6).ceil() as usize + 1;
+    for _ in 0..max_steps {
+        if t >= t_final {
+            break;
+        }
         // Read current state for CFL
         let state = gpu
             .read_back_f64(&cons_buf, 3 * nx)

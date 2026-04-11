@@ -43,7 +43,6 @@ pub struct CoupledResult {
 ///
 /// Panics if `nx_kin`, `nx_fluid`, or `nv` is less than 2.
 #[must_use]
-#[allow(clippy::while_float)]
 pub fn run_coupled_kinetic_fluid(
     nx_kin: usize,
     nx_fluid: usize,
@@ -111,7 +110,10 @@ pub fn run_coupled_kinetic_fluid(
     let mut u_fluid_save = vec![0.0; nx_fluid];
     let mut p_fluid_save = vec![0.0; nx_fluid];
 
-    while t < t_final && n_steps < max_steps {
+    for _ in 0..max_steps {
+        if t >= t_final {
+            break;
+        }
         let max_speed_fluid = rho_fluid
             .iter()
             .zip(u_fluid.iter())
@@ -149,7 +151,7 @@ pub fn run_coupled_kinetic_fluid(
         }
         std::mem::swap(&mut f_kin, &mut f_buf);
 
-        #[allow(clippy::needless_range_loop)]
+        #[expect(clippy::needless_range_loop, reason = "index needed for f_kin[i] mutation")]
         for i in 0..nx_kin {
             let (ni, ui, ti, _) = compute_moments(&f_kin[i], &v, dv, m);
             if ni < 1e-30 {

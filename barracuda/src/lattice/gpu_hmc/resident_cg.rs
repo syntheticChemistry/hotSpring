@@ -296,7 +296,8 @@ pub fn gpu_dynamical_hmc_trajectory_resident(
         gpu.submit_encoder(enc);
     }
 
-    // TODO(B2): replace with GPU-resident Hamiltonian assembly
+    // EVOLUTION(B2): GPU-resident Hamiltonian assembly — blocked on fused
+    // gauge-action + fermion-force pipeline in barraCuda TensorSession.
     #[allow(deprecated)]
     let s_gauge_old = gpu_wilson_action(gpu, &dp.gauge, gs);
     let t_old = gpu_kinetic_energy(gpu, &dp.gauge, gs);

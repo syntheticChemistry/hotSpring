@@ -249,6 +249,7 @@ async fn main() {
         ),
     ];
 
+    let mut total_fail = 0usize;
     for &(arch_name, fp64_software) in &targets {
         println!("  ═══ Target: {arch_name} ═══\n");
         println!("  {:<40} {:>8} {:>6}", "Shader", "Binary", "Status");
@@ -277,6 +278,7 @@ async fn main() {
             }
         }
 
+        total_fail += fail;
         println!(
             "\n  Summary ({arch_name}): {ok}/{} compiled, {fail} failed, {total_bytes} total bytes\n",
             ok + fail
@@ -289,4 +291,8 @@ async fn main() {
     println!("    - nvidia-drm: RTX 5060 Blackwell DRM cracked (4/4 HW tests). SM120 ISA pending.");
     println!("    - iommufd: kernel-agnostic VFIO on 6.2+, dual-path (iommufd + legacy)");
     println!("\n  No Vulkan. No vendor SDK. Pure Rust → native binary compilation.");
+
+    if total_fail > 0 {
+        std::process::exit(1);
+    }
 }

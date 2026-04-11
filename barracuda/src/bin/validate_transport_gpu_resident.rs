@@ -26,6 +26,8 @@ use hotspring_barracuda::md::cpu_reference;
 use hotspring_barracuda::md::observables::transport_gpu::compute_vacf_gpu;
 use hotspring_barracuda::md::observables::{GpuVelocityRing, compute_vacf, validate_energy};
 use hotspring_barracuda::md::transport::d_star_daligault;
+use hotspring_barracuda::provenance::TRANSPORT_MD_BASELINE_PROVENANCE;
+use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
 
 use std::time::Instant;
@@ -38,6 +40,8 @@ fn main() {
     println!();
 
     let mut harness = ValidationHarness::new("transport_gpu_resident");
+    harness.print_provenance(&[&TRANSPORT_MD_BASELINE_PROVENANCE]);
+    println!();
 
     let cases = config::transport_cases(500, true);
     let case = cases
@@ -64,7 +68,7 @@ fn main() {
     println!("  CPU time: {cpu_time:.2}s");
 
     let ev = validate_energy(&sim.energy_history, &case);
-    harness.check_upper("CPU energy conservation", ev.drift_pct, 5.0);
+    harness.check_upper("CPU energy conservation", ev.drift_pct, tolerances::ENERGY_DRIFT_PCT);
     println!();
 
     // ── Phase 2: Upload snapshots to GPU ring + GPU VACF ──

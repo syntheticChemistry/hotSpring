@@ -110,7 +110,6 @@ pub struct SodResult {
 ///
 /// Panics if `nx` is zero (division by zero in grid spacing).
 #[must_use]
-#[allow(clippy::while_float)]
 pub fn run_sod_shock_tube(nx: usize, t_final: f64) -> SodResult {
     let dx = 1.0 / nx as f64;
     let x: Vec<f64> = (0..nx).map(|i| (i as f64 + 0.5) * dx).collect();
@@ -143,7 +142,11 @@ pub fn run_sod_shock_tube(nx: usize, t_final: f64) -> SodResult {
     let total_e_0: f64 = e0_vec.iter().sum::<f64>() * dx;
 
     let mut t = 0.0;
-    while t < t_final {
+    let max_steps = (t_final / 1e-6).ceil() as usize + 1;
+    for _ in 0..max_steps {
+        if t >= t_final {
+            break;
+        }
         let max_speed = rho
             .iter()
             .zip(u.iter())

@@ -17,6 +17,7 @@ use hotspring_barracuda::lattice::gradient_flow::{
     FlowIntegrator, FlowMeasurement, energy_density, find_t0, run_flow,
 };
 use hotspring_barracuda::lattice::wilson::Lattice;
+use hotspring_barracuda::validation::ValidationHarness;
 use std::time::Instant;
 
 fn print_flow_table(measurements: &[FlowMeasurement]) {
@@ -95,6 +96,10 @@ fn main() {
     println!("║  Bazavov & Chuna, arXiv:2101.05320 (2021)                  ║");
     println!("╚══════════════════════════════════════════════════════════════╝");
 
+    let mut harness = ValidationHarness::new("gradient_flow");
+    // Provenance: Wilson gradient flow reference from Bazavov & Chuna, arXiv:2101.05320 (2021).
+    // No Python baseline — analytical integrator convergence is the validation target.
+    // t₀ scale definition: Lüscher, JHEP 1008:071 (2010).
     let total_t0 = Instant::now();
 
     println!("\n═══════════════════════════════════════════════════════════");
@@ -143,6 +148,12 @@ fn main() {
     println!("    |Euler-RK3|: {:.2e}", (e_euler - e_rk3).abs());
     println!("    |RK2-RK3|:   {:.2e}", (e_rk2 - e_rk3).abs());
 
+    // Higher-order integrators must converge closer than Euler
+    harness.check_bool("RK2 closer to RK3 than Euler",
+        (e_rk2 - e_rk3).abs() < (e_euler - e_rk3).abs());
+    harness.check_bool("E(t) finite (Euler)", e_euler.is_finite());
+    harness.check_bool("E(t) finite (RK3)", e_rk3.is_finite());
+
     println!("\n═══════════════════════════════════════════════════════════");
     println!("  Phase 2: β-scan with RK3 on 4⁴");
     println!("═══════════════════════════════════════════════════════════");
@@ -177,4 +188,6 @@ fn main() {
     println!("\n═══════════════════════════════════════════════════════════");
     println!("  Total wall time: {:.1}s", total_elapsed.as_secs_f64());
     println!("═══════════════════════════════════════════════════════════");
+
+    harness.finish();
 }

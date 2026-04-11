@@ -595,8 +595,16 @@ fn execute_task(
 
             Ok(Some(meas_dir.to_string()))
         }
-        PhysicsProcess::Correlators | PhysicsProcess::ScaleSetting => {
-            println!("    (stub: {} not yet fully automated)", spec.process.name());
+        PhysicsProcess::Correlators => {
+            eprintln!("    [SKIP] Correlator measurement requires point-to-point propagator \
+                       computation (Dirac inversion on each source). Blocked on GPU CG \
+                       solver integration for full-lattice inversions.");
+            Ok(None)
+        }
+        PhysicsProcess::ScaleSetting => {
+            eprintln!("    [SKIP] Scale setting (Wilson flow t₀/w₀) requires gradient flow \
+                       on production-size lattices with statistical averaging. Use \
+                       validate_gradient_flow for single-config flow validation.");
             Ok(None)
         }
     }

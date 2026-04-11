@@ -53,6 +53,8 @@ pub mod bench;
 pub mod data;
 /// Heterogeneous dual-GPU device pair (precise + throughput brains).
 pub mod device_pair;
+/// NUCLEUS composition validation — atomic health, capability routing, science probes.
+pub mod composition;
 /// ToadStool compute dispatch validation (submit/result/capabilities).
 pub mod compute_dispatch;
 /// rhizoCrypt DAG session for computation trace with blake3 + witnesses.
@@ -75,6 +77,8 @@ pub mod hardware_calibration;
 pub mod lattice;
 /// GPU molecular dynamics (f64 WGSL Yukawa OCP, cell-list, transport).
 pub mod md;
+/// MCP (Model Context Protocol) tool definitions for AI/LLM integration.
+pub mod mcp_tools;
 /// Mixed-hardware pipeline infrastructure for metalForge integration.
 pub mod mixed_hardware;
 /// NPU experiment campaign.
@@ -97,8 +101,12 @@ pub mod precision_eval;
 pub mod precision_routing;
 /// NMP cascade filter for L2 heterogeneous pipeline.
 pub mod prescreen;
+/// Niche deployment self-knowledge: capabilities, dependencies, proto-nucleate.
+pub mod niche;
 /// NUCLEUS primal discovery — runtime detection of available primals.
 pub mod primal_bridge;
+/// Per-ember JSON-RPC client: MMIO, falcon, SEC2, PRAMIN, DMA, flood testing.
+pub mod fleet_ember;
 /// coral-ember multi-instance fleet discovery and per-socket JSON-RPC routing.
 pub mod fleet_client;
 /// JSON-RPC client for coral-glowplug (`device.dispatch`, `device.list`, health, …).
