@@ -1,0 +1,316 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# hotSpring Capability Registry
+#
+# Authoritative list of capabilities this spring exposes. Bidirectional
+# sync tested against niche.rs (LOCAL_CAPABILITIES + ROUTED_CAPABILITIES).
+# When adding a capability, add it here AND in niche.rs — the test
+# `capabilities_match_registry_toml` enforces lockstep.
+#
+# Schema: each [[capabilities]] entry has:
+#   method   — fully qualified domain.operation name
+#   served   — "local" (hotspring_primal handles) or "routed" (proxy to provider)
+#   provider — canonical primal for routed capabilities (empty for local)
+#   domain   — top-level domain grouping
+
+# ── Physics domain (locally served) ──────────────────────────────────
+
+[[capabilities]]
+method = "physics.lattice_qcd"
+served = "local"
+provider = ""
+domain = "physics"
+
+[[capabilities]]
+method = "physics.lattice_gauge_update"
+served = "local"
+provider = ""
+domain = "physics"
+
+[[capabilities]]
+method = "physics.hmc_trajectory"
+served = "local"
+provider = ""
+domain = "physics"
+
+[[capabilities]]
+method = "physics.wilson_dirac"
+served = "local"
+provider = ""
+domain = "physics"
+
+[[capabilities]]
+method = "physics.molecular_dynamics"
+served = "local"
+provider = ""
+domain = "physics"
+
+[[capabilities]]
+method = "physics.fluid"
+served = "local"
+provider = ""
+domain = "physics"
+
+[[capabilities]]
+method = "physics.nuclear_eos"
+served = "local"
+provider = ""
+domain = "physics"
+
+[[capabilities]]
+method = "physics.thermal"
+served = "local"
+provider = ""
+domain = "physics"
+
+[[capabilities]]
+method = "physics.radiation"
+served = "local"
+provider = ""
+domain = "physics"
+
+# ── Compute primitives (locally served) ──────────────────────────────
+
+[[capabilities]]
+method = "compute.df64"
+served = "local"
+provider = ""
+domain = "compute"
+
+[[capabilities]]
+method = "compute.cg_solver"
+served = "local"
+provider = ""
+domain = "compute"
+
+[[capabilities]]
+method = "compute.gradient_flow"
+served = "local"
+provider = ""
+domain = "compute"
+
+[[capabilities]]
+method = "compute.f64"
+served = "local"
+provider = ""
+domain = "compute"
+
+# ── Composition health (locally served) ──────────────────────────────
+
+[[capabilities]]
+method = "composition.health"
+served = "local"
+provider = ""
+domain = "composition"
+
+# ── Lifecycle / health (locally served) ──────────────────────────────
+
+[[capabilities]]
+method = "health.check"
+served = "local"
+provider = ""
+domain = "health"
+
+[[capabilities]]
+method = "health.liveness"
+served = "local"
+provider = ""
+domain = "health"
+
+[[capabilities]]
+method = "health.readiness"
+served = "local"
+provider = ""
+domain = "health"
+
+[[capabilities]]
+method = "capabilities.list"
+served = "local"
+provider = ""
+domain = "capabilities"
+
+[[capabilities]]
+method = "mcp.tools.list"
+served = "local"
+provider = ""
+domain = "mcp"
+
+# ── Inference (routed to Squirrel -> neuralSpring) ───────────────────
+
+[[capabilities]]
+method = "inference.complete"
+served = "routed"
+provider = "squirrel"
+domain = "inference"
+
+[[capabilities]]
+method = "inference.embed"
+served = "routed"
+provider = "squirrel"
+domain = "inference"
+
+[[capabilities]]
+method = "inference.models"
+served = "routed"
+provider = "squirrel"
+domain = "inference"
+
+# ── Crypto (routed to BearDog) ───────────────────────────────────────
+
+[[capabilities]]
+method = "crypto.sign_ed25519"
+served = "routed"
+provider = "beardog"
+domain = "crypto"
+
+[[capabilities]]
+method = "crypto.verify_ed25519"
+served = "routed"
+provider = "beardog"
+domain = "crypto"
+
+# ── Compute dispatch (routed to ToadStool) ───────────────────────────
+
+[[capabilities]]
+method = "compute.dispatch.submit"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+[[capabilities]]
+method = "compute.dispatch.capabilities"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+# ── Shader compilation (routed to coralReef) ─────────────────────────
+
+[[capabilities]]
+method = "shader.compile.wgsl"
+served = "routed"
+provider = "coralreef"
+domain = "shader"
+
+[[capabilities]]
+method = "shader.compile.spirv"
+served = "routed"
+provider = "coralreef"
+domain = "shader"
+
+# ── Storage (routed to NestGate) ─────────────────────────────────────
+
+[[capabilities]]
+method = "storage.store"
+served = "routed"
+provider = "nestgate"
+domain = "storage"
+
+[[capabilities]]
+method = "storage.retrieve"
+served = "routed"
+provider = "nestgate"
+domain = "storage"
+
+[[capabilities]]
+method = "storage.list"
+served = "routed"
+provider = "nestgate"
+domain = "storage"
+
+# ── Provenance DAG (routed to rhizoCrypt) ────────────────────────────
+
+[[capabilities]]
+method = "dag.session.create"
+served = "routed"
+provider = "rhizocrypt"
+domain = "dag"
+
+[[capabilities]]
+method = "dag.event.append"
+served = "routed"
+provider = "rhizocrypt"
+domain = "dag"
+
+[[capabilities]]
+method = "dag.merkle.root"
+served = "routed"
+provider = "rhizocrypt"
+domain = "dag"
+
+[[capabilities]]
+method = "dag.merkle.verify"
+served = "routed"
+provider = "rhizocrypt"
+domain = "dag"
+
+# ── Ledger (routed to loamSpine) ─────────────────────────────────────
+
+[[capabilities]]
+method = "spine.create"
+served = "routed"
+provider = "loamspine"
+domain = "ledger"
+
+[[capabilities]]
+method = "entry.append"
+served = "routed"
+provider = "loamspine"
+domain = "ledger"
+
+[[capabilities]]
+method = "session.commit"
+served = "routed"
+provider = "loamspine"
+domain = "ledger"
+
+[[capabilities]]
+method = "certificate.mint"
+served = "routed"
+provider = "loamspine"
+domain = "ledger"
+
+# ── Attribution (routed to sweetGrass) ───────────────────────────────
+
+[[capabilities]]
+method = "braid.create"
+served = "routed"
+provider = "sweetgrass"
+domain = "attribution"
+
+[[capabilities]]
+method = "braid.commit"
+served = "routed"
+provider = "sweetgrass"
+domain = "attribution"
+
+[[capabilities]]
+method = "provenance.graph"
+served = "routed"
+provider = "sweetgrass"
+domain = "attribution"
+
+[[capabilities]]
+method = "provenance.export_provo"
+served = "routed"
+provider = "sweetgrass"
+domain = "attribution"
+
+[[capabilities]]
+method = "attribution.chain"
+served = "routed"
+provider = "sweetgrass"
+domain = "attribution"
+
+# ── Discovery (routed to Songbird) ───────────────────────────────────
+
+[[capabilities]]
+method = "discovery.find_primals"
+served = "routed"
+provider = "songbird"
+domain = "discovery"
+
+[[capabilities]]
+method = "discovery.announce"
+served = "routed"
+provider = "songbird"
+domain = "discovery"

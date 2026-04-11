@@ -746,6 +746,327 @@ fn substrate_fragment(substrate: Option<&str>) -> String {
     }
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// Ecosystem-converged composition validation patterns
+//
+// Absorbed from primalSpring / groundSpring / wetSpring / healthSpring.
+// These complement the physics-rich ValidationHarness above with patterns
+// needed for NUCLEUS composition validation and CI pipelines.
+// ═══════════════════════════════════════════════════════════════════════
+
+/// Zero-panic exit trait for validation binaries.
+///
+/// Replaces verbose `let Ok(v) = expr else { log::error!(...); process::exit(1); }`
+/// boilerplate with a clean `.or_exit(msg)` call.
+pub trait OrExit<T> {
+    /// Unwrap the value or print `msg` to stderr and exit with code 1.
+    fn or_exit(self, msg: &str) -> T;
+}
+
+impl<T, E: std::fmt::Display> OrExit<T> for Result<T, E> {
+    fn or_exit(self, msg: &str) -> T {
+        match self {
+            Ok(v) => v,
+            Err(e) => {
+                log::error!("{msg}: {e}");
+                process::exit(1);
+            }
+        }
+    }
+}
+
+impl<T> OrExit<T> for Option<T> {
+    fn or_exit(self, msg: &str) -> T {
+        self.unwrap_or_else(|| {
+            log::error!("{msg}");
+            process::exit(1);
+        })
+    }
+}
+
+/// Outcome of a single composition validation check.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CheckOutcome {
+    /// Check passed.
+    Pass,
+    /// Check failed.
+    Fail,
+    /// Check skipped (needs live primals or other prerequisites).
+    Skip,
+}
+
+/// Pluggable output destination for composition validation checks.
+///
+/// Converged ecosystem pattern from primalSpring / groundSpring / wetSpring.
+/// Default implementation writes to stdout; test harnesses can substitute
+/// a capture buffer.
+pub trait ValidationSink: std::fmt::Debug + Send + Sync {
+    /// Emit a single check result.
+    fn on_check(&self, outcome: CheckOutcome, name: &str, detail: &str);
+
+    /// Begin a named section of checks.
+    fn section(&self, _name: &str) {}
+
+    /// Write a summary footer after all checks are emitted.
+    fn write_summary(&self, _passed: u32, _failed: u32, _skipped: u32) {}
+}
+
+/// Default sink that writes check results to stdout.
+#[derive(Debug)]
+pub struct StdoutSink;
+
+impl ValidationSink for StdoutSink {
+    fn on_check(&self, outcome: CheckOutcome, name: &str, detail: &str) {
+        let tag = match outcome {
+            CheckOutcome::Pass => "PASS",
+            CheckOutcome::Fail => "FAIL",
+            CheckOutcome::Skip => "SKIP",
+        };
+        println!("  [{tag}] {name}: {detail}");
+    }
+
+    fn section(&self, name: &str) {
+        println!("\n--- {name} ---");
+    }
+
+    fn write_summary(&self, passed: u32, failed: u32, skipped: u32) {
+        let total = passed + failed;
+        print!("  Summary: {passed}/{total} passed");
+        if skipped > 0 {
+            print!(" ({skipped} skipped)");
+        }
+        println!();
+    }
+}
+
+/// Sink that discards all output (useful for tests).
+#[derive(Debug)]
+pub struct NullSink;
+
+impl ValidationSink for NullSink {
+    fn on_check(&self, _: CheckOutcome, _: &str, _: &str) {}
+}
+
+/// Newline-delimited JSON sink for streaming validation output.
+///
+/// Absorbed from groundSpring / wetSpring / neuralSpring. Emits one JSON
+/// object per check, one per line — ideal for log aggregation and CI.
+#[derive(Debug)]
+pub struct NdjsonSink<W: std::io::Write + std::fmt::Debug + Send + Sync> {
+    writer: std::sync::Mutex<W>,
+}
+
+impl<W: std::io::Write + std::fmt::Debug + Send + Sync> NdjsonSink<W> {
+    /// Create a new NDJSON sink writing to the given destination.
+    pub const fn new(writer: W) -> Self {
+        Self {
+            writer: std::sync::Mutex::new(writer),
+        }
+    }
+}
+
+impl NdjsonSink<std::io::Stdout> {
+    /// Create a sink that writes NDJSON to stdout.
+    #[must_use]
+    pub fn stdout() -> Self {
+        Self::new(std::io::stdout())
+    }
+}
+
+impl<W: std::io::Write + std::fmt::Debug + Send + Sync> ValidationSink for NdjsonSink<W> {
+    fn on_check(&self, outcome: CheckOutcome, name: &str, detail: &str) {
+        let tag = match outcome {
+            CheckOutcome::Pass => "pass",
+            CheckOutcome::Fail => "fail",
+            CheckOutcome::Skip => "skip",
+        };
+        let line = format!(
+            "{{\"outcome\":\"{tag}\",\"name\":{},\"detail\":{}}}",
+            serde_json::json!(name),
+            serde_json::json!(detail),
+        );
+        if let Ok(mut w) = self.writer.lock() {
+            let _ = writeln!(w, "{line}");
+        }
+    }
+
+    fn section(&self, name: &str) {
+        let line = format!("{{\"section\":{}}}", serde_json::json!(name));
+        if let Ok(mut w) = self.writer.lock() {
+            let _ = writeln!(w, "{line}");
+        }
+    }
+
+    fn write_summary(&self, passed: u32, failed: u32, skipped: u32) {
+        let line = format!(
+            "{{\"summary\":{{\"passed\":{passed},\"failed\":{failed},\"skipped\":{skipped}}}}}"
+        );
+        if let Ok(mut w) = self.writer.lock() {
+            let _ = writeln!(w, "{line}");
+        }
+    }
+}
+
+/// Composition validation result for NUCLEUS / primal integration tests.
+///
+/// Complements [`ValidationHarness`] (physics) with the ecosystem-converged
+/// pattern for boolean/latency/skip checks used in composition validation.
+/// Supports pluggable sinks, honest skips, and skip-aware exit codes.
+#[derive(Debug)]
+pub struct CompositionResult {
+    /// Experiment or validation suite name.
+    pub experiment: String,
+    /// Number of checks that passed.
+    pub passed: u32,
+    /// Number of checks that failed.
+    pub failed: u32,
+    /// Number of checks that were skipped.
+    pub skipped: u32,
+    /// Individual check results in execution order.
+    pub checks: Vec<CompositionCheck>,
+    sink: std::sync::Arc<dyn ValidationSink>,
+}
+
+/// Result of a single named composition check.
+#[derive(Debug)]
+pub struct CompositionCheck {
+    /// Check identifier.
+    pub name: String,
+    /// Whether this check passed, failed, or was skipped.
+    pub outcome: CheckOutcome,
+    /// Human-readable detail.
+    pub detail: String,
+}
+
+impl CompositionResult {
+    /// Create a new composition validation result.
+    #[must_use]
+    pub fn new(experiment: &str) -> Self {
+        Self {
+            experiment: experiment.to_owned(),
+            passed: 0,
+            failed: 0,
+            skipped: 0,
+            checks: Vec::new(),
+            sink: std::sync::Arc::new(StdoutSink),
+        }
+    }
+
+    /// Replace the output sink (builder-style).
+    #[must_use]
+    pub fn with_sink(mut self, sink: std::sync::Arc<dyn ValidationSink>) -> Self {
+        self.sink = sink;
+        self
+    }
+
+    /// Begin a named section of checks.
+    pub fn section(&self, name: &str) {
+        self.sink.section(name);
+    }
+
+    /// Record a boolean pass/fail check.
+    pub fn check_bool(&mut self, name: &str, condition: bool, detail: &str) {
+        let outcome = if condition {
+            self.passed += 1;
+            CheckOutcome::Pass
+        } else {
+            self.failed += 1;
+            CheckOutcome::Fail
+        };
+        self.sink.on_check(outcome, name, detail);
+        self.checks.push(CompositionCheck {
+            name: name.to_owned(),
+            outcome,
+            detail: detail.to_owned(),
+        });
+    }
+
+    /// Record a check that cannot be evaluated yet (needs live primals).
+    ///
+    /// Skipped checks do not count as pass or fail. They are honest
+    /// markers of incomplete validation — never fake a pass.
+    pub fn check_skip(&mut self, name: &str, reason: &str) {
+        self.skipped += 1;
+        self.sink.on_check(CheckOutcome::Skip, name, reason);
+        self.checks.push(CompositionCheck {
+            name: name.to_owned(),
+            outcome: CheckOutcome::Skip,
+            detail: reason.to_owned(),
+        });
+    }
+
+    /// Check that a latency measurement is within an acceptable bound.
+    pub fn check_latency(&mut self, name: &str, actual_us: u64, max_us: u64) {
+        let ok = actual_us <= max_us;
+        let detail = format!("{actual_us}\u{03bc}s (max: {max_us}\u{03bc}s)");
+        self.check_bool(name, ok, &detail);
+    }
+
+    /// Conditionally run a check or skip based on a prerequisite.
+    pub fn check_or_skip<T, F>(
+        &mut self,
+        name: &str,
+        prerequisite: Option<T>,
+        skip_reason: &str,
+        check: F,
+    ) where
+        F: FnOnce(T, &mut Self),
+    {
+        match prerequisite {
+            Some(val) => check(val, self),
+            None => self.check_skip(name, skip_reason),
+        }
+    }
+
+    /// All non-skipped checks passed and at least one check was evaluated.
+    #[must_use]
+    pub const fn all_passed(&self) -> bool {
+        self.failed == 0 && self.passed > 0
+    }
+
+    /// Print summary and delegate to sink.
+    pub fn finish(&self) {
+        println!(
+            "\n{}: {}/{} checks passed{}",
+            self.experiment,
+            self.passed,
+            self.passed + self.failed,
+            if self.skipped > 0 {
+                format!(" ({} skipped)", self.skipped)
+            } else {
+                String::new()
+            }
+        );
+        self.sink
+            .write_summary(self.passed, self.failed, self.skipped);
+    }
+
+    /// Process exit code: 0 = pass, 1 = fail.
+    #[must_use]
+    pub const fn exit_code(&self) -> i32 {
+        if self.failed == 0 && self.passed > 0 {
+            0
+        } else {
+            1
+        }
+    }
+
+    /// Skip-aware exit code: 0 = pass, 1 = fail, 2 = all skipped.
+    ///
+    /// Absorbed from wetSpring: when all checks are skipped (no live primals),
+    /// returning 2 lets CI distinguish "nothing to test" from "tests failed."
+    #[must_use]
+    pub const fn exit_code_skip_aware(&self) -> i32 {
+        if self.failed == 0 && self.passed > 0 {
+            0
+        } else if self.failed > 0 {
+            1
+        } else {
+            2
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -966,5 +1287,106 @@ mod tests {
         assert!(s.contains('✓') || s.contains("pass"));
         assert!(s.contains('✗') || s.contains("fail"));
         assert!(s.contains("1/2"));
+    }
+
+    // ── Composition validation tests ────────────────────────────────
+
+    #[test]
+    fn composition_result_pass_fail() {
+        let mut r = CompositionResult::new("test").with_sink(std::sync::Arc::new(NullSink));
+        r.check_bool("ok", true, "yes");
+        r.check_bool("fail", false, "no");
+        assert_eq!(r.passed, 1);
+        assert_eq!(r.failed, 1);
+        assert!(!r.all_passed());
+        assert_eq!(r.exit_code(), 1);
+    }
+
+    #[test]
+    fn composition_result_all_pass() {
+        let mut r = CompositionResult::new("test").with_sink(std::sync::Arc::new(NullSink));
+        r.check_bool("a", true, "ok");
+        r.check_bool("b", true, "ok");
+        assert!(r.all_passed());
+        assert_eq!(r.exit_code(), 0);
+    }
+
+    #[test]
+    fn composition_result_skip() {
+        let mut r = CompositionResult::new("test").with_sink(std::sync::Arc::new(NullSink));
+        r.check_skip("primal_health", "biomeOS not available");
+        assert_eq!(r.skipped, 1);
+        assert_eq!(r.passed, 0);
+        assert_eq!(r.failed, 0);
+        assert!(!r.all_passed());
+    }
+
+    #[test]
+    fn composition_result_exit_code_skip_aware() {
+        let mut r = CompositionResult::new("test").with_sink(std::sync::Arc::new(NullSink));
+        r.check_skip("a", "no primals");
+        assert_eq!(r.exit_code_skip_aware(), 2, "all skipped = exit 2");
+
+        let mut r2 = CompositionResult::new("test").with_sink(std::sync::Arc::new(NullSink));
+        r2.check_bool("ok", true, "yes");
+        r2.check_skip("b", "no primal");
+        assert_eq!(r2.exit_code_skip_aware(), 0, "pass + skip = exit 0");
+
+        let mut r3 = CompositionResult::new("test").with_sink(std::sync::Arc::new(NullSink));
+        r3.check_bool("fail", false, "no");
+        r3.check_skip("b", "no primal");
+        assert_eq!(r3.exit_code_skip_aware(), 1, "fail + skip = exit 1");
+    }
+
+    #[test]
+    fn composition_result_check_or_skip() {
+        let mut r = CompositionResult::new("test").with_sink(std::sync::Arc::new(NullSink));
+        r.check_or_skip("with_value", Some(42), "no value", |val, cr| {
+            cr.check_bool("got_42", val == 42, "expected 42");
+        });
+        assert_eq!(r.passed, 1);
+
+        r.check_or_skip::<i32, _>("no_value", None, "not available", |_, _| {
+            unreachable!();
+        });
+        assert_eq!(r.skipped, 1);
+    }
+
+    #[test]
+    fn composition_result_latency() {
+        let mut r = CompositionResult::new("test").with_sink(std::sync::Arc::new(NullSink));
+        r.check_latency("fast", 100, 50_000);
+        assert_eq!(r.passed, 1);
+        r.check_latency("slow", 100_000, 50_000);
+        assert_eq!(r.failed, 1);
+    }
+
+    #[test]
+    fn or_exit_result_ok() {
+        let r: Result<i32, &str> = Ok(42);
+        assert_eq!(r.or_exit("should not exit"), 42);
+    }
+
+    #[test]
+    fn or_exit_option_some() {
+        let o: Option<i32> = Some(99);
+        assert_eq!(o.or_exit("should not exit"), 99);
+    }
+
+    #[test]
+    fn check_outcome_equality() {
+        assert_eq!(CheckOutcome::Pass, CheckOutcome::Pass);
+        assert_ne!(CheckOutcome::Pass, CheckOutcome::Fail);
+        assert_ne!(CheckOutcome::Fail, CheckOutcome::Skip);
+    }
+
+    #[test]
+    fn ndjson_sink_does_not_panic() {
+        let buf = std::io::Cursor::new(Vec::new());
+        let sink = NdjsonSink::new(buf);
+        sink.on_check(CheckOutcome::Pass, "test", "ok");
+        sink.on_check(CheckOutcome::Skip, "skipped", "no primal");
+        sink.section("section_name");
+        sink.write_summary(1, 0, 1);
     }
 }

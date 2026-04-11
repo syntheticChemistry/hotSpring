@@ -456,6 +456,7 @@ pub fn jsonrpc_request_object(method: &str, params: &serde_json::Value) -> serde
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
 

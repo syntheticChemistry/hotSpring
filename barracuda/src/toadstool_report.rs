@@ -7,7 +7,7 @@
 //! running — measurements are constructed but only logged locally.
 //!
 //! Protocol: JSON-RPC 2.0 over Unix domain socket (newline-delimited).
-//! Socket path: [`toadstool_socket`] — wateringHole IPC v3.1:
+//! Socket path: `toadstool_socket` — wateringHole IPC v3.1:
 //! `$XDG_RUNTIME_DIR/biomeos/toadstool-<FAMILY_ID>.sock` with `/tmp` when `XDG_RUNTIME_DIR`
 //! is unset, or override with `TOADSTOOL_SOCKET`.
 
@@ -200,8 +200,8 @@ pub fn register_shader(
     Ok(())
 }
 
-/// Resolve compute dispatch socket: use [`NucleusContext`] capability table when provided,
-/// otherwise bootstrap via [`toadstool_socket`] (name-based path).
+/// Resolve compute dispatch socket: use `NucleusContext` capability table when provided,
+/// otherwise bootstrap via `toadstool_socket` (name-based path).
 fn resolve_compute_report_socket(nucleus: Option<&NucleusContext>) -> String {
     if let Some(ctx) = nucleus
         && let Some(ep) = ctx.get_by_capability("compute")
@@ -215,7 +215,7 @@ fn resolve_compute_report_socket(nucleus: Option<&NucleusContext>) -> String {
 ///
 /// Connects over JSON-RPC and sends each measurement via
 /// `compute.performance_surface.report`. With `nucleus`, the socket comes from
-/// capability discovery; otherwise the bootstrap path in [`toadstool_socket`] is used.
+/// capability discovery; otherwise the bootstrap path in `toadstool_socket` is used.
 pub fn report_to_toadstool_with_nucleus(
     nucleus: Option<&NucleusContext>,
     measurements: &[PerformanceMeasurement],

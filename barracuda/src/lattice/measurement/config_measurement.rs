@@ -122,7 +122,7 @@ pub struct WilsonLoopEntry {
 /// Fermion observables.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FermionObservables {
-    /// Chiral condensate <psi-bar psi>.
+    /// Chiral condensate \<psi-bar psi\>.
     pub chiral_condensate: f64,
     /// Statistical error on condensate.
     pub chiral_condensate_error: f64,

@@ -48,6 +48,7 @@ pub use stats::{ObservableSummary, StatisticalAnalysis, estimate_tau_int, jackkn
 pub use time_host::iso8601_now;
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
 

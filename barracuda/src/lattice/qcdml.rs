@@ -35,7 +35,7 @@ pub struct QcdmlParticipant {
 pub struct QcdmlLicense {
     /// License name (e.g. "CC-BY-4.0").
     pub name: String,
-    /// License URI (e.g. "https://creativecommons.org/licenses/by/4.0/").
+    /// License URI (e.g. `https://creativecommons.org/licenses/by/4.0/`).
     pub uri: String,
     /// Optional embargo end date (ISO 8601).
     pub embargo_end: Option<String>,

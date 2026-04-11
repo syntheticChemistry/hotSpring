@@ -2,7 +2,7 @@
 
 //! Ed25519 receipt signing via bearDog `crypto.sign` JSON-RPC.
 //!
-//! When bearDog is available (detected via [`NucleusContext`]), signs
+//! When bearDog is available (detected via [`crate::primal_bridge::NucleusContext`]), signs
 //! the JSON receipt with Ed25519 and writes a detached `.sig` file.
 //! When bearDog is absent, the receipt is written unsigned.
 

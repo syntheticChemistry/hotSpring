@@ -65,7 +65,7 @@ pub struct FleetDeviceRecord {
     /// Free-form health hint from the writer (e.g. `"Alive"`, `"Degraded"`).
     #[serde(default)]
     pub health: Option<String>,
-    /// Physics domains this device is tagged for (see [`DOMAIN_*`] constants).
+    /// Physics domains this device is tagged for (see `DOMAIN_*` constants).
     #[serde(default)]
     pub physics_domains: Option<Vec<String>>,
     /// When set, this row is a hot standby for the given primary BDF.

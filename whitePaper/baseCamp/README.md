@@ -2,7 +2,7 @@
 
 **Date:** April 11, 2026  
 **Project:** hotSpring (ecoPrimals)  
-**Status:** v0.6.32 — 964 lib tests, 140 binaries, 128 WGSL shaders; NUCLEUS composition validation operational with science probes; ecoBin in `infra/plasmidBin/hotspring/`. Squirrel wired in proto-nucleate (optional). Capability-based primal routing via `by_domain()`. NVIDIA GPFIFO (RTX 3090) and AMD scratch/local (RX 6950 XT) paths operational; SovereignInit and multi-ember fleet work complete per domain briefings.
+**Status:** v0.6.32 — 985 lib tests, 140 binaries, 128 WGSL shaders. NUCLEUS composition evolution complete (Wave 1-3): LOCAL/ROUTED capability split, biomeOS registration, ValidationSink/NDJSON/Skip, OrExit, `capability_registry.toml` sync, standalone mode, plasmidBin schema aligned. ecoBin in `infra/plasmidBin/hotspring/`. Squirrel wired in proto-nucleate (optional). NVIDIA GPFIFO (RTX 3090) and AMD scratch/local (RX 6950 XT) paths operational.
 
 **Validation arc:** Science stacks are validated on three tiers — **Python (and legacy HPC) baselines → sovereign Rust → NUCLEUS IPC composition** — so peer-reviewed physics and methods are checked at the **primal composition layer**, not only in standalone binaries. Rust results serve as trusted baselines for IPC-composed NUCLEUS patterns, using the same tolerance-driven, exit-code-gated methodology that proved Rust matches Python.
 

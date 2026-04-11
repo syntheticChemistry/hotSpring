@@ -2,7 +2,7 @@
 
 //! rhizoCrypt DAG session with witness emission.
 //!
-//! When rhizoCrypt is available (detected via [`NucleusContext`]), creates
+//! When rhizoCrypt is available (detected via [`crate::primal_bridge::NucleusContext`]), creates
 //! an ephemeral DAG session for the run, appends events for each pipeline
 //! phase, and dehydrates to a merkle root on exit.
 //!
@@ -239,6 +239,7 @@ pub fn blake3_hex(data: &[u8]) -> String {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
 

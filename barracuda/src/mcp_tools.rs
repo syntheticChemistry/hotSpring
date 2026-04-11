@@ -99,6 +99,7 @@ pub fn tools_list_json() -> serde_json::Value {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
 

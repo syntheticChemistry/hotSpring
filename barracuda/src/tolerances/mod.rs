@@ -27,6 +27,8 @@
 
 /// Machine-precision, linalg, special function, and optimizer tolerances.
 pub mod core;
+/// biomeOS scheduling cost estimates for capability operations.
+pub mod cost;
 /// Lattice QCD: plaquette, HMC acceptance, CG residual, spectral theory.
 pub mod lattice;
 /// Molecular dynamics: energy drift, force, transport, PPPM, ESN.

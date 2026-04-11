@@ -2,7 +2,8 @@
 
 **Status**: Working draft — reviewed for PII, suitable for public repository  
 **Purpose**: Document the replication of Murillo Group computational plasma physics on consumer hardware using BarraCuda  
-**Date**: February 26, 2026 (v0.6.14 — cross-substrate ESN, NPU characterization, DF64 production)
+**Date**: February 26, 2026 (inception); updated April 11, 2026 (v0.6.32 — NUCLEUS composition evolution, 985 lib tests, 128 WGSL shaders)  
+**Validation arc**: Python baselines → Rust validation → NUCLEUS primal composition validation
 
 ---
 

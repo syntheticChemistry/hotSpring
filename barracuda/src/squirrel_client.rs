@@ -10,7 +10,7 @@
 //!
 //! **Fallback path:** until native WGSL inference ships in neuralSpring, deployments
 //! typically route through **Ollama** (or similar) behind Squirrel — same wire contract,
-//! different provider. Callers should treat [`SquirrelError::Unavailable`] as “no
+//! different provider. Callers should treat `SquirrelError::Unavailable` as “no
 //! inference primal in this NUCLEUS snapshot” and continue with local heuristics or
 //! barraCuda-side models when appropriate.
 
@@ -73,7 +73,7 @@ fn rpc_result(resp: &serde_json::Value) -> Result<&serde_json::Value, SquirrelEr
         .ok_or_else(|| SquirrelError::InvalidResponse("missing result".into()))
 }
 
-/// Text completion via `inference.complete` (ecoPrimal [`CompleteRequest`] shape).
+/// Text completion via `inference.complete` (ecoPrimal `CompleteRequest` shape).
 pub fn inference_complete(
     ctx: &NucleusContext,
     prompt: &str,

@@ -2,8 +2,8 @@
 
 //! Per-ember JSON-RPC client: MMIO, falcon, SEC2, PRAMIN, DMA, and flood testing.
 //!
-//! [`EmberClient`] wraps a single Unix socket to one coral-ember instance.
-//! [`FleetEmberHub`] manages a stable client per socket. [`flood_test`]
+//! `EmberClient` wraps a single Unix socket to one coral-ember instance.
+//! `FleetEmberHub` manages a stable client per socket. `flood_test`
 //! stress-tests an ember with concurrent RPCs.
 
 use base64::Engine;

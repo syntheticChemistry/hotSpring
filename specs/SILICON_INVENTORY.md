@@ -1,7 +1,7 @@
 # Silicon Inventory: Per-Card Per-Unit Utilization Matrix
 
 **Status**: Active — Exp 108 (full-die utilization campaign)
-**Version**: hotSpring v0.6.33
+**Version**: hotSpring v0.6.32
 **License**: AGPL-3.0-only
 
 ## Principle

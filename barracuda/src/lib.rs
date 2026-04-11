@@ -139,7 +139,7 @@ pub mod tolerances;
 pub mod transfer_eval;
 /// Two-Temperature Model (laser-plasma 0D ODE solver).
 pub mod ttm;
-/// Pass/fail harness for validation binaries (exit 0/1).
+/// Pass/fail harness for validation binaries (exit 0/1/2).
 pub mod validation;
 /// `WireWitnessRef` — self-describing provenance events (ATTESTATION_ENCODING_STANDARD v2).
 pub mod witness;

@@ -135,7 +135,7 @@ pub struct LimeWriter<W: Write> {
 }
 
 impl<W: Write> LimeWriter<W> {
-    /// Wrap a writer (file, Vec<u8>, etc.) as a LIME record sink.
+    /// Wrap a writer (file, `Vec<u8>`, etc.) as a LIME record sink.
     pub fn new(writer: W) -> Self {
         Self {
             writer,
@@ -254,6 +254,7 @@ const fn pad_to_8(len: u64) -> u64 {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
 
