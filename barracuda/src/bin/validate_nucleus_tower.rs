@@ -55,9 +55,9 @@ fn main() {
 
     // ── Capability checks ──
     println!("  ── Capability assertions ──");
-    validate_capability(&ctx, "beardog", "crypto.sign", &mut harness);
-    validate_capability(&ctx, "beardog", "crypto.verify", &mut harness);
-    validate_capability(&ctx, "songbird", "net.discovery", &mut harness);
+    validate_capability(&ctx, "beardog", "crypto.sign_ed25519", &mut harness);
+    validate_capability(&ctx, "beardog", "crypto.verify_ed25519", &mut harness);
+    validate_capability(&ctx, "songbird", "discovery.find_primals", &mut harness);
     println!();
 
     if ctx.discovered.is_empty() {

@@ -9,7 +9,7 @@
 //! Capabilities are discovered at startup from metalForge substrate detection:
 //! GPU model, FP64 rate, df64 support, precision strategy, available VRAM.
 //!
-//! Socket: `$XDG_RUNTIME_DIR/biomeos/hotspring-physics.sock` (primalSpring convention)
+//! Socket: resolved via `niche::resolve_server_socket()` — `hotspring-physics-{family_id}.sock`
 //!
 //! Usage:
 //!   hotspring_primal server          # start JSON-RPC server
@@ -29,18 +29,7 @@ fn socket_path(cli_override: Option<&str>) -> PathBuf {
     if let Some(p) = cli_override {
         return PathBuf::from(p);
     }
-    if let Ok(p) = std::env::var("HOTSPRING_SOCKET") {
-        return PathBuf::from(p);
-    }
-    if let Ok(p) = std::env::var("PRIMAL_SOCKET") {
-        return PathBuf::from(p);
-    }
-    if let Ok(xdg) = std::env::var("XDG_RUNTIME_DIR") {
-        let dir = PathBuf::from(&xdg).join("biomeos");
-        let _ = std::fs::create_dir_all(&dir);
-        return dir.join("hotspring-physics.sock");
-    }
-    PathBuf::from("/tmp/biomeos/hotspring-physics.sock")
+    hotspring_barracuda::niche::resolve_server_socket()
 }
 
 struct HotSpringState {
@@ -65,25 +54,10 @@ fn discover_capabilities() -> (Vec<String>, Vec<GpuSummary>) {
     let cpu = probe::probe_cpu();
     let npus = probe::probe_npus();
 
-    let mut caps = vec![
-        "physics.thermal".into(),
-        "physics.fluid".into(),
-        "physics.radiation".into(),
-        "physics.lattice_qcd".into(),
-        "physics.nuclear_eos".into(),
-        "physics.molecular_dynamics".into(),
-        "compute.f64".into(),
-        "compute.gradient_flow".into(),
-        "health.check".into(),
-        "health.liveness".into(),
-        "health.readiness".into(),
-        "composition.health".into(),
-        "composition.tower_health".into(),
-        "composition.node_health".into(),
-        "composition.nest_health".into(),
-        "composition.science_health".into(),
-        "capabilities.list".into(),
-    ];
+    let mut caps: Vec<String> = hotspring_barracuda::niche::all_capabilities()
+        .into_iter()
+        .map(String::from)
+        .collect();
 
     let mut gpu_summaries = Vec::new();
 
@@ -206,11 +180,24 @@ fn handle_request(state: &HotSpringState, method: &str, _params: &Value) -> Disp
         "composition.nest_health" => DispatchResult::Ok(composition::nest_health(&state.nucleus)),
         "composition.science_health" => DispatchResult::Ok(state.nucleus.physics_health()),
         "mcp.tools.list" => DispatchResult::Ok(hotspring_barracuda::mcp_tools::tools_list_json()),
+        m if is_registered_but_pending(m) => DispatchResult::Err {
+            code: -32001,
+            message: format!(
+                "Method '{m}' is registered but dispatch is pending — \
+                 use validation binaries directly or wait for full dispatch wiring"
+            ),
+        },
         _ => DispatchResult::Err {
             code: -32601,
             message: format!("Method not found: {method}"),
         },
     }
+}
+
+fn is_registered_but_pending(method: &str) -> bool {
+    hotspring_barracuda::niche::LOCAL_CAPABILITIES
+        .iter()
+        .any(|cap| *cap == method)
 }
 
 fn normalize_method(method: &str) -> &str {
@@ -238,6 +225,8 @@ fn run_server(state: Arc<HotSpringState>) {
             std::process::exit(1);
         }
     };
+
+    hotspring_barracuda::niche::register_with_target(sock);
 
     eprintln!("[hotspring_primal] listening on {}", sock.display());
     eprintln!(
@@ -294,7 +283,8 @@ fn main() {
                 i += 2;
             }
             "--family-id" if i + 1 < args.len() => {
-                i += 2; // accepted but unused — family baked into socket name
+                std::env::set_var("FAMILY_ID", &args[i + 1]);
+                i += 2;
             }
             _ => i += 1,
         }

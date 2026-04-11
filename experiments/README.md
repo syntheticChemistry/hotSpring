@@ -35,8 +35,8 @@ NNN_DESCRIPTOR.{sh,md,json}
 | 100 | SILICON_CHARACTERIZATION_AT_SCALE | analysis | Silicon characterization |
 | 101 | GPU_RHMC_PRODUCTION | analysis | RHMC production runs |
 | 102 | GRADIENT_FLOW_AT_VOLUME | analysis | Gradient flow volume scaling |
-| 103 | RHMC_GRADIENT_FLOW | analysis | RHMC + gradient flow combined |
-| 103 | SELF_TUNING_RHMC_CALIBRATOR | analysis | Self-tuning RHMC calibration |
+| 103a | RHMC_GRADIENT_FLOW | analysis | RHMC + gradient flow combined |
+| 103b | SELF_TUNING_RHMC_CALIBRATOR | analysis | Self-tuning RHMC calibration |
 | 105 | SILICON_ROUTED_QCD_REVALIDATION | analysis | Silicon-routed QCD revalidation |
 | 107 | SILICON_SATURATION_PROFILING | analysis | Silicon saturation profiling |
 
@@ -73,7 +73,7 @@ NNN_DESCRIPTOR.{sh,md,json}
 | 161 | TITANV_NVDEC_SOVEREIGN_ATTEMPT | investigation | ✅ NVDEC engine sovereign dispatch attempt |
 | 162 | TITANV_SOVEREIGN_COMPUTE_PIPELINE | architecture | ✅ Full sovereign compute pipeline design |
 | 163 | FIRMWARE_BOUNDARY | **breakthrough** | ✅ **Architectural pivot.** Driver/firmware/hardware delineation. NOP dispatch via DRM (C + Rust). PMU mailbox mapped. PmuInterface created. |
-| 164 | SOVEREIGN_COMPUTE_DISPATCH_PROVEN | **breakthrough** | ✅ **5/5 E2E phases pass.** f32 write/arith, multi-workgroup, f64 write, f64 Lennard-Jones. WGSL→SM70 SASS→DRM dispatch. Newton's 3rd law verified. |
+| 164 | SOVEREIGN_COMPUTE_DISPATCH_PROVEN | **breakthrough** | ✅ **5/5 E2E phases pass.** f32 write/arith, multi-workgroup, f64 write, f64 Lennard-Jones. WGSL→SM70 SASS→DRM dispatch. Newton's 3rd law verified. *(No standalone journal — findings documented in Exp 165)* |
 | 165 | SOVEREIGN_INIT_PIPELINE | **breakthrough** | ✅ **8-stage SovereignInit pipeline replaces nouveau.** `open_sovereign(bdf)` entry point. GR init extracted. FECS method probe. GR context Stage 7. Firmware-as-ingredient. 429 tests. |
 
 ### Ember Survivability Hardening (2026-04-07)
@@ -93,6 +93,21 @@ Architectural evolution — ember becomes per-device, glowplug becomes fleet orc
 - **Fault-informed resurrection**: Strategy selected by fault history (HotAdopt / WarmThenRespawn / FullRecovery)
 - **Discovery file**: `/tmp/biomeos/coral-ember-fleet.json` for external client routing
 - **Backward compatible**: `fleet_mode = false` preserves legacy single-ember behavior
+
+## NUCLEUS Composition Validation (April 2026)
+
+Not numbered experiments — systematic composition infrastructure:
+
+| Name | Type | Status |
+|------|------|--------|
+| `validate_nucleus_composition` | binary | ✅ Validates all four atomic tiers (Tower/Node/Nest/NUCLEUS) via IPC |
+| `validate_nucleus_tower` | binary | ✅ Tower atomic (BearDog + Songbird) validation |
+| `validate_nucleus_node` | binary | ✅ Node atomic (Tower + toadStool + barraCuda + coralReef) validation |
+| `validate_nucleus_nest` | binary | ✅ Nest atomic (Tower + NestGate + rhizoCrypt + loamSpine + sweetGrass) validation |
+| `validate_squirrel_roundtrip` | binary | ✅ Squirrel inference end-to-end (models, complete, embed) |
+| `validate_science_probes` | library fn | ✅ compute health + math capability + provenance trio via IPC |
+| `graphs/hotspring_qcd_deploy.toml` | deploy graph | ✅ 10 primals, bonding policy, spawn order for biomeOS |
+| Composition audit + remediation | session | ✅ Socket fix, registration wiring, DAG/crypto alignment, validation.rs split |
 
 ## Benchmark Data
 

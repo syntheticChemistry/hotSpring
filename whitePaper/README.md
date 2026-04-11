@@ -1,8 +1,8 @@
 # hotSpring White Paper
 
-**Status**: Working draft — reviewed for PII, suitable for public repository  
-**Purpose**: Document the replication of Murillo Group computational plasma physics on consumer hardware using BarraCuda  
-**Date**: February 26, 2026 (inception); updated April 11, 2026 (v0.6.32 — NUCLEUS composition evolution, 985 lib tests, 128 WGSL shaders)  
+**Status**: Current — reviewed for PII, suitable for public repository  
+**Purpose**: Document the replication of Murillo Group computational plasma physics on consumer hardware using BarraCuda, and the three-tier validation arc proving NUCLEUS primal composition  
+**Date**: February 26, 2026 (inception); updated April 11, 2026 (v0.6.32 — composition audit + remediation, 985 lib tests, 140 binaries, 128 WGSL shaders)  
 **Validation arc**: Python baselines → Rust validation → NUCLEUS primal composition validation
 
 ---
@@ -15,7 +15,7 @@
 | [BARRACUDA_SCIENCE_VALIDATION.md](BARRACUDA_SCIENCE_VALIDATION.md) | Phase B technical results — BarraCuda vs Python/SciPy numbers | Technical reference |
 | [CONTROL_EXPERIMENT_SUMMARY.md](CONTROL_EXPERIMENT_SUMMARY.md) | Phase A summary — Python reproduction of published work | Quick reference |
 | [METHODOLOGY.md](METHODOLOGY.md) | Two-phase validation protocol | Methodology review |
-| [baseCamp/](baseCamp/) | Per-domain research briefings (Murillo plasma, lattice QCD, Kachkovskiy spectral, cross-spring, neuromorphic silicon) | Faculty, collaborators |
+| [baseCamp/](baseCamp/) | Per-domain research briefings (17 docs — Murillo plasma, lattice QCD, Kachkovskiy spectral, Chuna papers, sovereign GPU, NPU, self-tuning RHMC, etc.) | Faculty, collaborators |
 
 ---
 
@@ -387,35 +387,33 @@ No institutional access required. No Code Ocean account. No Fortran compiler. AG
 
 ---
 
-## Codebase Health (Feb 26, 2026)
+## Codebase Health (April 11, 2026)
 
 | Metric | Value |
 |--------|-------|
-| Crate | v0.6.14 |
-| Unit tests | ~**665** pass + 1 env-flaky, 6 GPU/heavy-ignored (spectral tests upstream in barracuda) |
-| Integration tests | **31** pass (3 suites: physics, data, transport) |
-| WGSL shaders | **27** lattice + 14 MD + 14 HFB + 8 diag = **62** |
-| Rust files | **135+** |
+| Crate | v0.6.32 |
+| Lib tests | **985** pass, 6 GPU/heavy-ignored (spectral tests upstream in barracuda) |
+| Binaries | **140** (82 validate_*, production, benchmarks, composition) |
+| WGSL shaders | **128** (lattice, MD, HFB, diag, spectral, sovereign) |
 | Coverage | 74.9% region / 83.8% function |
 | Validation suites | **39/39** pass |
-| metalForge forge tests | **19** pass |
-| Experiments | **21** (001-021) |
+| Experiments | **165+** |
 | Python control scripts | **34** (Sarkas, surrogate, TTM, NPU, reservoir, lattice, spectral theory) |
-| Rust validation binaries | **78** (physics, MD, lattice, NPU, transport, spectral, benchmarks, production, ESN cross-substrate) |
 | `expect()`/`unwrap()` in library | **0** (crate-level deny) |
-| Clippy warnings | **0** (pedantic + nursery, workspace-wide) |
-| Doc warnings | **0** |
-| Unsafe blocks | **0** |
+| Clippy warnings | **0** (pedantic + nursery, `--all-targets`) |
+| Doc warnings | **0** (`cargo doc --lib --no-deps`) |
+| Unsafe blocks | **0** in application code (`#![forbid(unsafe_code)]`) |
 | External FFI/C bindings | **0** (all pure Rust except wgpu GPU driver bridge) |
-| Centralized tolerances | **172** constants (including 8 solver config, 6 dynamical QCD) |
-| Hardcoded solver params | **0** (all centralized in `tolerances/`) |
-| Files over 1000 LOC | **1** (`hfb_gpu_resident/mod.rs` — monolithic GPU pipeline) |
+| Centralized tolerances | **~150** constants in `tolerances/` module tree |
+| Files over 1000 LOC | **0** (validation.rs split; brain_rhmc.rs split) |
 | Provenance records | All validation targets traced to Python origins or DOIs |
 | AGPL-3.0 compliance | All `.rs` and `.wgsl` files |
+| NUCLEUS composition | 4 composition binaries, 3 science probes, deploy graph |
+| Deploy graph | `graphs/hotspring_qcd_deploy.toml` — 10 primals declared |
 
 ---
 
-## GPU FP64 Status (Feb 24, 2026)
+## GPU FP64 Status (confirmed Feb 24, 2026; unchanged)
 
 Native FP64 GPU compute confirmed on RTX 4070, RTX 3090, and Titan V via `wgpu::Features::SHADER_F64` (Vulkan backend):
 - **Precision**: True IEEE 754 double precision (0 ULP error vs CPU f64)

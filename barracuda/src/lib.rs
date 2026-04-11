@@ -121,7 +121,7 @@ pub mod production_support;
 pub mod provenance;
 /// Physics proxy pipeline (Anderson 3D, Z(3) Potts) for NPU training.
 pub mod proxy;
-/// Ed25519 receipt signing via bearDog crypto.sign JSON-RPC.
+/// Ed25519 receipt signing via bearDog `crypto.sign_ed25519` JSON-RPC.
 pub mod receipt_signing;
 /// Spectral theory re-exports from `barracuda::spectral`.
 pub mod spectral;

@@ -1,0 +1,178 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# hotSpring Deploy Graph — Lattice QCD / HPC Physics
+#
+# Derived from proto-nucleate: primalSpring/graphs/downstream/hotspring_qcd_proto_nucleate.toml
+# This is the spring-local deploy graph consumed by biomeOS:
+#   biomeos deploy --graph graphs/hotspring_qcd_deploy.toml
+#
+# Proto-nucleate defines WHAT primals compose; this graph defines HOW to
+# deploy them for a specific environment. Springs maintain deploy graphs;
+# primalSpring maintains proto-nucleates.
+#
+# Composition: Tower + Node (coralReef + toadStool + barraCuda) +
+#              Nest (NestGate + Provenance trio) + Squirrel (optional AI)
+
+[graph]
+name = "hotspring_qcd_deploy"
+description = "Deploy graph for hotSpring lattice QCD — WGSL shader composition with full NUCLEUS"
+version = "0.6.32"
+coordination = "sequential"
+
+[graph.metadata]
+security_model = "btsp_enforced"
+transport = "uds_only"
+tcp_ports = 0
+owner = "hotSpring"
+pattern = "deploy"
+proto_nucleate = "primalSpring/graphs/downstream/hotspring_qcd_proto_nucleate.toml"
+particle_profile = "proton_heavy"
+science_domain = "high_performance_compute"
+composition_model = "nucleated"
+fragments = ["tower_atomic", "node_atomic", "nest_atomic"]
+
+[graph.bonding_policy]
+bond_type = "Metallic"
+trust_model = "InternalNucleus"
+tower_internal = "covalent"
+tower_to_node = "metallic"
+tower_to_nest = "metallic"
+node_to_nest = "metallic"
+nucleus_internal = "weak"
+encryption_tiers.tower = "full"
+encryption_tiers.node = "delegated"
+encryption_tiers.nest = "delegated"
+
+# Tower Atomic
+[[graph.nodes]]
+name = "beardog"
+binary = "beardog"
+order = 1
+required = true
+spawn = false
+health_method = "health.liveness"
+by_capability = "security"
+
+[[graph.nodes]]
+name = "songbird"
+binary = "songbird"
+order = 2
+required = true
+spawn = false
+depends_on = ["beardog"]
+health_method = "health.liveness"
+by_capability = "discovery"
+
+# Node Atomic
+[[graph.nodes]]
+name = "coralreef"
+binary = "coralreef"
+order = 3
+required = true
+spawn = false
+depends_on = ["beardog"]
+health_method = "health.liveness"
+by_capability = "shader_compile"
+
+[[graph.nodes]]
+name = "toadstool"
+binary = "toadstool"
+order = 4
+required = true
+spawn = false
+depends_on = ["beardog", "songbird"]
+health_method = "health.liveness"
+by_capability = "compute"
+
+[[graph.nodes]]
+name = "barracuda"
+binary = "barracuda"
+order = 5
+required = true
+spawn = false
+depends_on = ["beardog"]
+health_method = "health.liveness"
+by_capability = "math"
+
+# Nest Atomic
+[[graph.nodes]]
+name = "nestgate"
+binary = "nestgate"
+order = 6
+required = true
+spawn = false
+depends_on = ["beardog"]
+health_method = "health.liveness"
+by_capability = "storage"
+
+[[graph.nodes]]
+name = "rhizocrypt"
+binary = "rhizocrypt"
+order = 7
+required = true
+spawn = false
+depends_on = ["beardog"]
+health_method = "health.liveness"
+by_capability = "dag"
+
+[[graph.nodes]]
+name = "loamspine"
+binary = "loamspine"
+order = 8
+required = true
+spawn = false
+depends_on = ["beardog", "rhizocrypt"]
+health_method = "health.liveness"
+by_capability = "ledger"
+
+[[graph.nodes]]
+name = "sweetgrass"
+binary = "sweetgrass"
+order = 9
+required = true
+spawn = false
+depends_on = ["beardog", "loamspine"]
+health_method = "health.liveness"
+by_capability = "attribution"
+
+# Meta-tier (optional)
+[[graph.nodes]]
+name = "squirrel"
+binary = "squirrel"
+order = 9
+required = false
+spawn = false
+depends_on = ["beardog", "songbird"]
+health_method = "health.liveness"
+by_capability = "ai"
+
+# hotSpring application
+[[graph.nodes]]
+name = "hotspring"
+binary = "hotspring_primal"
+order = 10
+required = true
+spawn = true
+depends_on = ["beardog", "songbird", "coralreef", "toadstool", "barracuda", "nestgate"]
+health_method = "health.liveness"
+by_capability = "physics"
+capabilities = [
+    "physics.lattice_qcd",
+    "physics.lattice_gauge_update",
+    "physics.hmc_trajectory",
+    "physics.wilson_dirac",
+    "physics.molecular_dynamics",
+    "physics.fluid",
+    "physics.nuclear_eos",
+    "physics.thermal",
+    "physics.radiation",
+    "compute.df64",
+    "compute.cg_solver",
+    "compute.gradient_flow",
+    "compute.f64",
+    "composition.health",
+    "health.liveness",
+    "health.readiness",
+    "capabilities.list",
+    "mcp.tools.list",
+]

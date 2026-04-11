@@ -4,7 +4,7 @@
 **Proto-nucleate:** `hotspring_qcd_proto_nucleate.toml`
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026
-**Last audited:** April 11, 2026 (Wave 1-3 composition evolution)
+**Last audited:** April 11, 2026 (Full composition audit + remediation)
 **License:** AGPL-3.0-or-later
 
 ---
@@ -19,17 +19,18 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 
 ## Active Gaps
 
-### GAP-HS-001: Squirrel Composition Wiring
+### GAP-HS-001: Squirrel End-to-End Validation
 
 - **Primal:** Squirrel
-- **Severity:** Low (was Medium)
-- **Status:** Proto-nucleate wired (optional node), code client exists
-- **Description:** Squirrel added to `hotspring_qcd_proto_nucleate.toml`
-  as an optional node (required=false). `squirrel_client.rs` provides
-  `inference.complete`, `inference.embed`, `inference.models` routing.
-  Remaining: validate inference round-trip when neuralSpring native
-  inference is live (currently falls back to Ollama).
-- **Action:** Integration test when neuralSpring WGSL ML is ready.
+- **Severity:** Low
+- **Status:** Client wired, `validate_squirrel_roundtrip` binary added
+- **Description:** Squirrel is in the proto-nucleate (optional node) and
+  `squirrel_client.rs` routes `inference.*` capabilities. The
+  `validate_squirrel_roundtrip` binary validates the round-trip when
+  Squirrel is available. Remaining: confirm parity once neuralSpring
+  WGSL shader ML replaces Ollama fallback.
+- **Action:** Run `validate_squirrel_roundtrip` against live Squirrel
+  once neuralSpring native inference is deployed.
 
 ### GAP-HS-002: by_capability Discovery Evolution
 
@@ -78,6 +79,44 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 - **Action:** Monitor barraCuda TensorSession stabilization; wire when
   the API is stable for lattice workloads.
 
+### GAP-HS-026: Physics Dispatch Not Wired in Server
+
+- **Primal:** hotSpring (self)
+- **Severity:** Medium
+- **Status:** Active — registered-but-pending dispatch returns -32001
+- **Description:** `hotspring_primal` server advertises physics/compute
+  capabilities via `capabilities.list` and `niche::LOCAL_CAPABILITIES`,
+  but the `handle_request` dispatch only implements health, composition,
+  capabilities, compute.status, and mcp.tools.list. Physics methods
+  return a structured `-32001` error indicating dispatch is pending.
+  Full physics execution dispatch requires wiring validation binary
+  logic into the JSON-RPC server.
+- **Action:** Incrementally wire physics dispatch methods into
+  `hotspring_primal` as physics pipelines stabilize.
+
+### GAP-HS-027: TensorSession Adoption
+
+- **Primal:** barraCuda
+- **Severity:** Low
+- **Status:** Deferred (supersedes GAP-HS-007)
+- **Description:** barraCuda's `TensorSession` fused multi-op pipeline
+  API is not yet adopted in hotSpring. GPU HMC trajectory (leapfrog +
+  force + gauge update) is the natural first candidate. Blocked on
+  TensorSession API stabilization for lattice workloads.
+- **Action:** Wire `TensorSession` into `gpu_hmc/mod.rs` when barraCuda
+  API stabilizes.
+
+### GAP-HS-028: LIME/ILDG Zero-Copy I/O
+
+- **Primal:** hotSpring (self)
+- **Severity:** Low
+- **Status:** Active
+- **Description:** `lattice/lime.rs` and `lattice/ildg.rs` allocate
+  `Vec<u8>` and copy binary payloads. Zero-copy I/O via `mmap` or
+  streaming parsers would reduce memory pressure for large gauge configs.
+- **Action:** Evaluate `memmap2` (behind feature gate) or streaming
+  record parsers for LIME binary payload path.
+
 ---
 
 ## Resolved Gaps
@@ -104,6 +143,16 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 | GAP-HS-023 | No standalone mode | `HOTSPRING_NO_NUCLEUS=1` skips registration and IPC; physics runs locally without biomeOS | Apr 11, 2026 |
 | GAP-HS-024 | Clippy errors in test/bin targets | All `#[cfg(test)]` modules carry `#[allow(clippy::unwrap_used, clippy::expect_used)]`; `cargo clippy --all-targets` clean | Apr 11, 2026 |
 | GAP-HS-025 | 13+ rustdoc warnings | Fixed unresolved links, HTML tags, bare URLs; `cargo doc --lib --no-deps` clean | Apr 11, 2026 |
+| GAP-HS-007 | TensorSession not adopted | Superseded by GAP-HS-027 (deferred) | Apr 11, 2026 |
+| — | Socket naming mismatch | `hotspring_primal` uses `niche::resolve_server_socket()` for family-scoped names | Apr 11, 2026 |
+| — | biomeOS registration not wired | `register_with_target()` called on server startup after socket bind | Apr 11, 2026 |
+| — | barraCuda pin drift | `Cargo.toml` reconciled to `b95e9c59` matching CHANGELOG v0.6.32 | Apr 11, 2026 |
+| — | DAG method name drift | `dag_provenance.rs` aligned to `dag.session.create`, `dag.event.append`, `dag.merkle.root` | Apr 11, 2026 |
+| — | receipt_signing crypto method | `crypto.sign` → `crypto.sign_ed25519` matching registry | Apr 11, 2026 |
+| — | validation.rs over 1000 LOC | Split into `validation/` module: harness, telemetry, composition, tests | Apr 11, 2026 |
+| — | Capability validation stale names | `validate_nucleus_*` binaries use canonical names from proto-nucleate | Apr 11, 2026 |
+| — | No deploy graphs | `graphs/hotspring_qcd_deploy.toml` created from proto-nucleate | Apr 11, 2026 |
+| — | discover_capabilities() duplicated niche | Delegates to `niche::all_capabilities()` as source of truth | Apr 11, 2026 |
 
 ---
 

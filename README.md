@@ -24,7 +24,7 @@ hotSpring is where we reproduce published computational physics work from the Mu
 
 - **Phase G (Universal Substrate Deployment)**: guideStone-certified artifact deployable on any OS, any architecture, any filesystem. **✅ 59/59 checks x 5 substrates. Cross-architecture parity (x86_64 + aarch64, bit-identical). OCI container image. Windows WSL2/Docker + macOS Docker launchers. exFAT tmpdir fallback. `./hotspring` unified ecoBin entry point. benchScale 5-substrate validation (40/40 cross-substrate parity).**
 
-hotSpring answers: *"Does our hardware produce correct physics?"* and *"Can Rust+WGSL replace the Python scientific stack?"*
+hotSpring answers: *"Does our hardware produce correct physics?"*, *"Can Rust+WGSL replace the Python scientific stack?"*, and *"Can IPC-composed NUCLEUS primals reproduce what standalone Rust proves?"*
 
 > **For the physics**: See [`PHYSICS.md`](PHYSICS.md) for complete equation documentation
 > with numbered references — every formula, every constant, every approximation.
@@ -132,7 +132,7 @@ makes the upstream library richer and hotSpring leaner.
 - HFB shader suite — potentials + density + BCS bisection (14+GPU+6 checks, Tier 2)
 - NPU substrate discovery — `metalForge/forge/src/probe.rs` (local evolution)
 
-**Already leaning on upstream** (v0.6.32, synced to barraCuda v0.3.11 (fbad3c0a) + toadStool S168 + coralReef Phase 10+, wgpu 28, pollster 0.3, bytemuck 1.25, tokio 1.50):
+**Already leaning on upstream** (v0.6.32, synced to barraCuda v0.3.11 (b95e9c59) + toadStool S168 + coralReef Phase 10+, wgpu 28, pollster 0.3, bytemuck 1.25, tokio 1.50):
 
 ToadStool **S168** adds `shader.dispatch` completing the orchestration layer for GPU shader pipelines. **barraCuda Sprint 23** landed the f64 precision fix (production numerical parity on mixed pipelines).
 
@@ -328,12 +328,21 @@ hotSpring/
 │   ├── BARRACUDA_SCIENCE_VALIDATION.md # Phase B technical results
 │   ├── CONTROL_EXPERIMENT_SUMMARY.md  # Phase A quick reference
 │   ├── METHODOLOGY.md                # Two-phase validation protocol
-│   └── baseCamp/                      # Per-domain research briefings
+│   ├── TECHNICAL_SUMMARY_FEB2026.md  # Technical summary snapshot
+│   └── baseCamp/                      # Per-domain research briefings (17 docs — see baseCamp/README.md)
 │       ├── murillo_plasma.md          # Murillo Group — dense plasma MD (Papers 1-6)
 │       ├── murillo_lattice_qcd.md     # Lattice QCD — quenched & dynamical (Papers 7-12)
 │       ├── kachkovskiy_spectral.md    # Spectral theory — Anderson, Hofstadter
 │       ├── cross_spring_evolution.md  # Cross-spring shader ecosystem (164+ shaders)
-│       └── neuromorphic_silicon.md    # AKD1000 NPU exploration — silicon behavior, cross-substrate ESN
+│       ├── sovereign_gpu_compute.md   # GlowPlug, DRM, ACR, SovereignInit
+│       ├── neuromorphic_silicon.md    # AKD1000 NPU — silicon behavior, cross-substrate ESN
+│       └── ...                        # 11 more: Chuna, self-tuning RHMC, ESN, reality ladder, etc.
+│
+├── CHANGELOG.md                        # Root changelog (spring-level changes)
+│
+├── graphs/                             # biomeOS deploy graphs (NUCLEUS composition deployment)
+│   ├── hotspring_qcd_deploy.toml      # Primary deploy graph (10 primals, bonding policy)
+│   └── README.md                      # Deploy graph documentation
 │
 ├── docs/                               # Active documentation
 │   └── PRIMAL_GAPS.md                # NUCLEUS composition gaps (handback to primalSpring)
@@ -388,6 +397,8 @@ hotSpring/
 | [`validation/README`](validation/README) | guideStone artifact documentation — quick start, deployment matrix, cross-platform |
 | [`validation/GUIDESTONE.md`](validation/GUIDESTONE.md) | guideStone certification spec (deterministic, traceable, self-verifying) |
 | [`docs/PRIMAL_GAPS.md`](docs/PRIMAL_GAPS.md) | NUCLEUS composition gaps — handback to primalSpring |
+| [`graphs/hotspring_qcd_deploy.toml`](graphs/hotspring_qcd_deploy.toml) | biomeOS deploy graph — 10 primals, bonding policy, spawn order |
+| [`CHANGELOG.md`](CHANGELOG.md) | Root changelog — spring-level changes |
 | [`barracuda/ABSORPTION_MANIFEST.md`](barracuda/ABSORPTION_MANIFEST.md) | Write → Absorb → Lean tracking for upstream absorption |
 | [`Dockerfile`](Dockerfile) | OCI container image for universal substrate deployment |
 
@@ -409,7 +420,8 @@ Consumer GPUs reproduce HPC physics at paper parity. DF64 delivers 3.24 TFLOPS a
 14-digit precision. GPU RHMC runs all-flavors dynamical QCD (Nf=2+1). Self-tuning
 RHMC eliminates hand-tuned parameters. Chuna 44/44 checks pass. RTX 3090 GPFIFO
 operational. Sacrificial Ember architecture validated — GPU faults kill ember, not the system.
-NUCLEUS composition validation: Rust+Python→primal IPC.
+Three-tier validation: Python validates Rust. Rust validates NUCLEUS. Peer-reviewed
+science runs on consumer hardware, composed via sovereign primal IPC.
 guideStone artifact validated across 5 substrates.
 The full science ladder — quenched through dynamical fermions with gradient flow
 scale setting — runs on consumer hardware. The scarcity was artificial.*

@@ -66,7 +66,7 @@ enforced crate-wide — all fallible operations use `?` propagation via `HotSpri
 
 ### Dependency on barraCuda
 
-hotspring-barracuda depends on the standalone `barracuda` crate (v0.3.11 via git pin `fbad3c0a`) for:
+hotspring-barracuda depends on the standalone `barracuda` crate (v0.3.11 via git pin `b95e9c59`) for:
 
 | Primitive | Usage |
 |-----------|-------|

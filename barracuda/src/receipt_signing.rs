@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Ed25519 receipt signing via bearDog `crypto.sign` JSON-RPC.
+//! Ed25519 receipt signing via bearDog `crypto.sign_ed25519` JSON-RPC.
 //!
 //! When bearDog is available (detected via [`crate::primal_bridge::NucleusContext`]), signs
 //! the JSON receipt with Ed25519 and writes a detached `.sig` file.
@@ -48,9 +48,9 @@ pub fn sign_receipt(
         "algorithm": "Ed25519",
     });
 
-    let resp = match nucleus.call_by_capability("crypto", "crypto.sign", params) {
+    let resp = match nucleus.call_by_capability("crypto", "crypto.sign_ed25519", params) {
         Ok(r) => r,
-        Err(e) => return SignResult::Failed(format!("bearDog crypto.sign: {e}")),
+        Err(e) => return SignResult::Failed(format!("bearDog crypto.sign_ed25519: {e}")),
     };
 
     let Some(result) = resp.get("result") else {

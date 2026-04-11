@@ -63,7 +63,7 @@ impl DagSession {
         });
 
         let resp = nucleus
-            .call_by_capability("dag", "dag.create_session", params)
+            .call_by_capability("dag", "dag.session.create", params)
             .ok()?;
         let session_id = resp
             .get("result")
@@ -108,7 +108,7 @@ impl DagSession {
             },
         });
 
-        match nucleus.call_by_capability("dag", "dag.append_event", params) {
+        match nucleus.call_by_capability("dag", "dag.event.append", params) {
             Ok(_) => {
                 self.events_appended += 1;
             }
@@ -128,7 +128,7 @@ impl DagSession {
             "session_id": self.session_id,
         });
 
-        let root = match nucleus.call_by_capability("dag", "dag.dehydrate", params) {
+        let root = match nucleus.call_by_capability("dag", "dag.merkle.root", params) {
             Ok(resp) => resp
                 .get("result")
                 .and_then(|r| r.get("merkle_root"))

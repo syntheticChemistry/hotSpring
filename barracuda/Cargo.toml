@@ -96,7 +96,7 @@ low-level = ["dep:rustix"]
 # BarraCuda (standalone primal): math, shaders, compilation, ESN, NPU math
 # Public repo: https://github.com/ecoPrimals/barraCuda
 # Local dev override: .cargo/config.toml patches this to ../../barraCuda
-barracuda = { git = "https://github.com/ecoPrimals/barraCuda.git", rev = "fbad3c0a" }
+barracuda = { git = "https://github.com/ecoPrimals/barraCuda.git", rev = "b95e9c59" }
 
 # BLAKE3 hashing for provenance witnesses (compute output hashing)
 blake3 = "1"
@@ -846,4 +846,9 @@ path = "src/bin/validate_nucleus_node.rs"
 [[bin]]
 name = "validate_nucleus_nest"
 path = "src/bin/validate_nucleus_nest.rs"
+
+# Squirrel / neuralSpring inference round-trip validation
+[[bin]]
+name = "validate_squirrel_roundtrip"
+path = "src/bin/validate_squirrel_roundtrip.rs"
 
