@@ -56,6 +56,7 @@
 //! | `rhmc_calibrator` | Self-tuning dt/n_md/spectral range for RHMC |
 //! | `observables` | Three-substrate stream integration and NPU monitoring |
 
+pub mod brain_persistence;
 pub mod brain_rhmc;
 pub mod dynamical;
 pub mod gpu_rhmc;

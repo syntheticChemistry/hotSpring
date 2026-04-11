@@ -403,7 +403,7 @@ struct RawDevinitOp {
     or_val: u32,
     #[serde(default, alias = "add")]
     add_val: u32,
-    #[serde(default, alias = "mask")]
+    #[serde(default)]
     inv_mask: u32,
     #[serde(default)]
     usec: u64,

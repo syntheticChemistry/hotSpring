@@ -340,36 +340,28 @@ fn snapshot_idle_watts(telem: &GpuTelemetry) -> f64 {
 }
 
 /// Sample average GPU power during a timed closure.
-/// Spawns a sampling thread that reads the telemetry snapshot at ~100ms
-/// intervals while the closure runs, then returns the average.
+/// Uses `std::thread::scope` so the sampling thread can borrow `telem` safely.
 fn measure_loaded_watts(telem: &GpuTelemetry, work: impl FnOnce()) -> f64 {
-    let state = telem.snapshot(); // warm read
-    let _ = state;
+    let _ = telem.snapshot(); // warm read
 
-    let samples: std::sync::Arc<std::sync::Mutex<Vec<f64>>> =
-        std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
-    let done = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let samples = std::sync::Mutex::new(Vec::<f64>::new());
+    let done = std::sync::atomic::AtomicBool::new(false);
 
-    let s_clone = samples.clone();
-    let d_clone = done.clone();
-    let telem_ptr = telem as *const GpuTelemetry;
-    // SAFETY: the telem reference outlives the thread (we join before returning)
-    let telem_ref: &'static GpuTelemetry = unsafe { &*telem_ptr };
-
-    let handle = std::thread::spawn(move || {
-        while !d_clone.load(std::sync::atomic::Ordering::Relaxed) {
-            let snap = telem_ref.snapshot();
-            if snap.power_w > 0.0 {
-                s_clone.lock().unwrap().push(snap.power_w);
+    std::thread::scope(|s| {
+        s.spawn(|| {
+            while !done.load(std::sync::atomic::Ordering::Relaxed) {
+                let snap = telem.snapshot();
+                if snap.power_w > 0.0 {
+                    samples.lock().unwrap().push(snap.power_w);
+                }
+                std::thread::sleep(std::time::Duration::from_millis(100));
             }
-            std::thread::sleep(std::time::Duration::from_millis(100));
-        }
+        });
+
+        work();
+
+        done.store(true, std::sync::atomic::Ordering::Relaxed);
     });
-
-    work();
-
-    done.store(true, std::sync::atomic::Ordering::Relaxed);
-    let _ = handle.join();
 
     let readings = samples.lock().unwrap();
     if readings.is_empty() {

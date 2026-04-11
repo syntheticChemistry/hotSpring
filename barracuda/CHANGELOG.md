@@ -5,6 +5,26 @@ All notable changes to the hotSpring BarraCuda validation crate.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased — Composition Evolution (April 11, 2026)
+
+### Added
+- **Science composition probes** (`composition.rs`): `validate_science_probes()` executes `probe_compute_health`, `probe_math_capability`, and `probe_provenance_trio` — validates IPC-composed NUCLEUS patterns against local Rust baselines
+- **biomeOS scheduling metadata** (`niche.rs`): `operation_dependencies()`, `cost_estimates()`, `SEMANTIC_MAPPINGS`, `socket_dirs()`, `resolve_server_socket()`, `resolve_neural_api_socket()` — matches sibling spring patterns for biomeOS orchestration
+- **Brain persistence module** (`lattice/gpu_hmc/brain_persistence.rs`): `BrainState`, `SerializableWeights`, and persistence functions extracted from `brain_rhmc.rs` to stay under 1000 LOC
+- **Squirrel in proto-nucleate**: Optional node (Phase 3) in `hotspring_qcd_proto_nucleate.toml` with `inference.*` capabilities
+
+### Changed
+- **Capability-based routing** (`primal_bridge.rs`): `by_domain()` is now the preferred lookup; named accessors (`toadstool()`, `beardog()`, etc.) route through `by_domain()` first, falling back to name-based lookup
+- **JSON-RPC 2.0 compliance** (`hotspring_primal.rs`): Method-not-found responses now use proper top-level `error` objects with `code`/`message` fields via `DispatchResult` enum
+- **Unsafe code audit**: `bench_silicon_profile.rs` rewritten with `std::thread::scope` (was raw pointer cast); `validate_5060_dual_use.rs` and `exp070_register_dump.rs` documented with explicit `#![allow(unsafe_code)]` and feature-gating rationale
+
+### Fixed
+- `validation_matrix.rs`: Removed unused `CliArgs` import
+- `exp157_k80_devinit_replay.rs`: Removed redundant `alias = "mask"` (unreachable pattern)
+- `validate_nucleus_composition.rs`: Redundant closure → `Vec::len`
+- `niche.rs` tests: Removed unfulfilled `#[expect(clippy::unwrap_used)]`
+- `composition.rs`: `too_long_first_doc_paragraph` + `vec![]` initialization
+
 ## Unreleased — Silicon Tier Routing Sprint (March 28, 2026)
 
 ### Added

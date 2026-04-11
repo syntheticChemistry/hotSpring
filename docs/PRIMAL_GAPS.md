@@ -4,7 +4,7 @@
 **Proto-nucleate:** `hotspring_qcd_proto_nucleate.toml`
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026
-**Last audited:** April 10, 2026
+**Last audited:** April 11, 2026
 **License:** AGPL-3.0-or-later
 
 ---
@@ -19,34 +19,30 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 
 ## Active Gaps
 
-### GAP-HS-001: Squirrel Not Wired
+### GAP-HS-001: Squirrel Composition Wiring
 
 - **Primal:** Squirrel
-- **Severity:** Medium
-- **Status:** Not started
-- **Description:** The proto-nucleate does not include Squirrel in the
-  composition. Adding Squirrel would give hotSpring access to
-  `inference.complete`, `inference.embed`, and `inference.models`
-  capabilities from neuralSpring's WGSL shader ML evolution.
-- **Blocker:** No immediate physics need; hotSpring's ESN/NPU inference
-  is currently in-repo via barraCuda. Adding Squirrel is a composition
-  evolution, not a code change.
-- **Action:** Propose Squirrel addition to proto-nucleate when AI-guided
-  parameter tuning (e.g. HMC step size, thermostat coupling) is ready.
+- **Severity:** Low (was Medium)
+- **Status:** Proto-nucleate wired (optional node), code client exists
+- **Description:** Squirrel added to `hotspring_qcd_proto_nucleate.toml`
+  as an optional node (required=false). `squirrel_client.rs` provides
+  `inference.complete`, `inference.embed`, `inference.models` routing.
+  Remaining: validate inference round-trip when neuralSpring native
+  inference is live (currently falls back to Ollama).
+- **Action:** Integration test when neuralSpring WGSL ML is ready.
 
-### GAP-HS-002: by_capability Discovery Not Pure
+### GAP-HS-002: by_capability Discovery Evolution
 
 - **Primal:** biomeOS / primal_bridge
 - **Severity:** Low
-- **Status:** Partial
-- **Description:** `primal_bridge.rs` uses named accessors (`toadstool()`,
-  `beardog()`, `coralreef()`) alongside `capability.list` probing. The
-  convenience API works but is not fully capability-addressed. The
-  `fleet_client.rs` `route_by_capability()` method implements domain-based
-  routing for the ember fleet but not for NUCLEUS socket routing.
-- **Action:** Evolve `primal_bridge` to support `get_by_capability(domain)`
-  that returns any primal advertising the requested capability, falling
-  back to named lookup for compatibility.
+- **Status:** Mostly resolved
+- **Description:** `primal_bridge.rs` now has `by_domain(domain)` as the
+  preferred entry point. Named accessors (`toadstool()`, `beardog()`, etc.)
+  are retained for backward compatibility but internally route through
+  `by_domain()` first, falling back to name-based lookup. Full migration
+  to pure capability-based addressing requires downstream callers to
+  switch from `.toadstool()` to `.by_domain("compute")`.
+- **Action:** Migrate remaining call sites in bin/ targets over time.
 
 ### GAP-HS-005: IONIC-RUNTIME Cross-Family GPU Lease
 
@@ -103,6 +99,12 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 | GAP-HS-004 | health.readiness missing | Added to `hotspring_primal.rs` `handle_request` dispatch | Apr 2026 |
 | GAP-HS-008 | Composition validation binaries | `validate_nucleus_composition`, `validate_nucleus_tower`, `validate_nucleus_node`, `validate_nucleus_nest` | Apr 2026 |
 | GAP-HS-009 | ecoBin / plasmidBin packaging | `scripts/harvest-ecobin.sh` for musl-static builds and plasmidBin submission | Apr 2026 |
+| GAP-HS-011 | JSON-RPC error encoding non-compliant | `hotspring_primal.rs` now uses `DispatchResult` enum with proper top-level JSON-RPC 2.0 `error` objects | Apr 11, 2026 |
+| GAP-HS-012 | niche.rs missing biomeOS scheduling hints | Added `operation_dependencies()`, `cost_estimates()`, `SEMANTIC_MAPPINGS`, `socket_dirs()`, `resolve_server_socket()` (sibling spring pattern) | Apr 11, 2026 |
+| GAP-HS-013 | Named accessors bypass capability routing | `primal_bridge.rs` named accessors now route through `by_domain()` first | Apr 11, 2026 |
+| GAP-HS-014 | brain_rhmc.rs over 1000 LOC | Extracted `brain_persistence` module (serializable weights, save/load state) | Apr 11, 2026 |
+| GAP-HS-015 | unsafe in bench_silicon_profile.rs | Replaced raw pointer with `std::thread::scope` (safe borrowing) | Apr 11, 2026 |
+| GAP-HS-016 | Science composition probes missing | Added `validate_science_probes()` to `composition.rs` — Rust baseline validates NUCLEUS IPC parity | Apr 11, 2026 |
 
 ---
 

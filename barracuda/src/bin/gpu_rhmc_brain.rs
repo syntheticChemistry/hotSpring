@@ -15,9 +15,8 @@
 //!     --checkpoint 25 --report-interval 20
 
 use hotspring_barracuda::gpu::GpuF64;
-use hotspring_barracuda::lattice::gpu_hmc::brain_rhmc::{
-    BrainRhmcRunner, NpuCortex, load_brain_state,
-};
+use hotspring_barracuda::lattice::gpu_hmc::brain_persistence::load_brain_state;
+use hotspring_barracuda::lattice::gpu_hmc::brain_rhmc::{BrainRhmcRunner, NpuCortex};
 use hotspring_barracuda::lattice::gpu_hmc::dynamical::{GpuDynHmcPipelines, GpuDynHmcState};
 #[allow(deprecated)]
 use hotspring_barracuda::lattice::gpu_hmc::gpu_rhmc::{

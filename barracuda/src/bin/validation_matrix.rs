@@ -34,8 +34,8 @@
 //! ```
 
 use hotspring_barracuda::bin_helpers::validation_matrix::{
-    CliArgs, MatrixCell, beta_scan_cells, custom_cell, dynamical_scaling_cells, mass_scan_cells,
-    parse_args, print_planning_matrix, quenched_ladder_cells, run_cell,
+    MatrixCell, beta_scan_cells, custom_cell, dynamical_scaling_cells, mass_scan_cells, parse_args,
+    print_planning_matrix, quenched_ladder_cells, run_cell,
 };
 use hotspring_barracuda::lattice::measurement::RunManifest;
 use hotspring_barracuda::validation::TelemetryWriter;

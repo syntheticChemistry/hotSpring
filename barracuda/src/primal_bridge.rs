@@ -98,41 +98,65 @@ impl NucleusContext {
         None
     }
 
+    /// Discover by capability domain. Preferred over named accessors.
+    ///
+    /// Returns first alive primal whose `capability.list` includes a string
+    /// starting with `domain`. Use `"compute"` for toadStool, `"crypto"` for
+    /// bearDog, `"shader"` for coralReef, etc.
+    #[must_use]
+    pub fn by_domain(&self, domain: &str) -> Option<&PrimalEndpoint> {
+        self.get_by_capability(domain)
+    }
+
+    // Named accessors are retained for backward compatibility but should
+    // migrate to `by_domain()` / `get_by_capability()` over time (GAP-HS-002).
+
     /// Convenience: toadStool compute primal.
+    /// Prefer `by_domain("compute")`.
     #[must_use]
     pub fn toadstool(&self) -> Option<&PrimalEndpoint> {
-        self.discovered.get("toadstool")
+        self.by_domain("compute")
+            .or_else(|| self.discovered.get("toadstool"))
     }
 
     /// Convenience: bearDog signing primal.
+    /// Prefer `by_domain("crypto")`.
     #[must_use]
     pub fn beardog(&self) -> Option<&PrimalEndpoint> {
-        self.discovered.get("beardog")
+        self.by_domain("crypto")
+            .or_else(|| self.discovered.get("beardog"))
     }
 
     /// Convenience: rhizoCrypt DAG primal.
+    /// Prefer `by_domain("dag")`.
     #[must_use]
     pub fn rhizocrypt(&self) -> Option<&PrimalEndpoint> {
-        self.discovered.get("rhizocrypt")
+        self.by_domain("dag")
+            .or_else(|| self.discovered.get("rhizocrypt"))
     }
 
     /// Convenience: loamSpine commit primal.
+    /// Prefer `by_domain("ledger")`.
     #[must_use]
     pub fn loamspine(&self) -> Option<&PrimalEndpoint> {
-        self.discovered.get("loamspine")
+        self.by_domain("ledger")
+            .or_else(|| self.discovered.get("loamspine"))
     }
 
     /// Convenience: sweetgrass provenance primal.
+    /// Prefer `by_domain("attribution")`.
     #[must_use]
     pub fn sweetgrass(&self) -> Option<&PrimalEndpoint> {
-        self.discovered.get("sweetgrass")
+        self.by_domain("attribution")
+            .or_else(|| self.discovered.get("sweetgrass"))
     }
 
-    /// Convenience: coralReef / coral-glowplug GPU sovereign path (glowplug socket naming).
+    /// Convenience: coralReef / coral-glowplug GPU sovereign path.
+    /// Prefer `by_domain("shader")`.
     #[must_use]
     pub fn coralreef(&self) -> Option<&PrimalEndpoint> {
-        self.discovered
-            .get("coralreef")
+        self.by_domain("shader")
+            .or_else(|| self.discovered.get("coralreef"))
             .or_else(|| self.discovered.get("coral-glowplug"))
     }
 

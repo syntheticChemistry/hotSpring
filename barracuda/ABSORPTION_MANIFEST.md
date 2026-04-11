@@ -412,4 +412,4 @@ For each absorption candidate:
 
 ## Workspace test coverage (April 10, 2026 audit)
 
-**956** library tests · **145** `[[bin]]` targets (cargo workspace). See `EXPERIMENT_INDEX.md` for `validate_*` and WGSL shader counts.
+**964** library tests · **140** `[[bin]]` targets (cargo workspace). See `EXPERIMENT_INDEX.md` for `validate_*` and WGSL shader counts.

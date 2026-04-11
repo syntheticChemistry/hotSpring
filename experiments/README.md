@@ -103,6 +103,6 @@ Architectural evolution — ember becomes per-device, glowplug becomes fleet orc
 
 ## Utilities
 
-- `run_chuna_overnight.sh` — Run the Chuna overnight validation suite
+- `archive/run_chuna_overnight.sh` — Run the Chuna overnight validation suite (archived)
 - `archive/` — Completed experiments moved to fossil record
 - `data/` — Experiment-associated data files

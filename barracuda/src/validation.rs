@@ -663,6 +663,8 @@ impl TelemetryWriter {
     }
 }
 
+/// RFC 3339 UTC timestamp without external crate dependencies.
+/// Intentionally hand-rolled to keep the validation harness dependency-free.
 fn chrono_rfc3339_utc() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
     let secs = SystemTime::now()

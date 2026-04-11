@@ -66,7 +66,7 @@ fn main() {
             .as_ref()
             .and_then(|c| c.get("capabilities"))
             .and_then(|a| a.as_array())
-            .map_or(0, |a| a.len());
+            .map_or(0, Vec::len);
         println!(
             "    {name:<16} [{status}]  caps={caps}  socket={}",
             ep.socket

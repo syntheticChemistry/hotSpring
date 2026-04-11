@@ -1,4 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// Hardware-touching binary: CUDA kernel launch requires unsafe (cudarc API).
+// Gated behind `--features cuda-validation` — not part of the default ecoBin build.
+#![allow(unsafe_code)]
+
 //! Proof-of-concept: dispatch CUDA compute on the RTX 5060 while it serves as
 //! the active display GPU.  Validates dual-use (display + compute) without
 //! displacing the nvidia driver or disrupting DRM.

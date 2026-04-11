@@ -151,30 +151,36 @@ fn sanitize_name(name: &str) -> String {
         .replace("__", "_")
 }
 
-fn handle_request(state: &HotSpringState, method: &str, _params: &Value) -> Value {
+/// Dispatch result: either a successful JSON value or a JSON-RPC 2.0 error object.
+enum DispatchResult {
+    Ok(Value),
+    Err { code: i64, message: String },
+}
+
+fn handle_request(state: &HotSpringState, method: &str, _params: &Value) -> DispatchResult {
     let method = normalize_method(method);
     match method {
-        "health.check" | "health.liveness" => json!({
+        "health.check" | "health.liveness" => DispatchResult::Ok(json!({
             "status": "ok",
             "primal": "hotspring",
             "version": state.version,
             "gpus": state.gpu_info.len(),
-        }),
+        })),
         "health.readiness" => {
             let gpu_ready = !state.gpu_info.is_empty();
             let status = if gpu_ready { "ready" } else { "degraded" };
-            json!({
+            DispatchResult::Ok(json!({
                 "status": status,
                 "primal": "hotspring",
                 "version": state.version,
                 "gpu_ready": gpu_ready,
                 "gpu_count": state.gpu_info.len(),
                 "capabilities_count": state.capabilities.len(),
-            })
+            }))
         }
-        "capabilities.list" | "capability.list" => json!({
+        "capabilities.list" | "capability.list" => DispatchResult::Ok(json!({
             "capabilities": state.capabilities,
-        }),
+        })),
         "compute.status" => {
             let gpus: Vec<Value> = state
                 .gpu_info
@@ -190,19 +196,20 @@ fn handle_request(state: &HotSpringState, method: &str, _params: &Value) -> Valu
                     })
                 })
                 .collect();
-            json!({ "gpus": gpus, "status": "ok" })
+            DispatchResult::Ok(json!({ "gpus": gpus, "status": "ok" }))
         }
         "composition.health" | "composition.nucleus_health" => {
-            composition::nucleus_health(&state.nucleus)
+            DispatchResult::Ok(composition::nucleus_health(&state.nucleus))
         }
-        "composition.tower_health" => composition::tower_health(&state.nucleus),
-        "composition.node_health" => composition::node_health(&state.nucleus),
-        "composition.nest_health" => composition::nest_health(&state.nucleus),
-        "composition.science_health" => state.nucleus.physics_health(),
-        "mcp.tools.list" => hotspring_barracuda::mcp_tools::tools_list_json(),
-        _ => json!({
-            "error": { "code": -32601, "message": format!("Method not found: {method}") }
-        }),
+        "composition.tower_health" => DispatchResult::Ok(composition::tower_health(&state.nucleus)),
+        "composition.node_health" => DispatchResult::Ok(composition::node_health(&state.nucleus)),
+        "composition.nest_health" => DispatchResult::Ok(composition::nest_health(&state.nucleus)),
+        "composition.science_health" => DispatchResult::Ok(state.nucleus.physics_health()),
+        "mcp.tools.list" => DispatchResult::Ok(hotspring_barracuda::mcp_tools::tools_list_json()),
+        _ => DispatchResult::Err {
+            code: -32601,
+            message: format!("Method not found: {method}"),
+        },
     }
 }
 
@@ -254,12 +261,15 @@ fn run_server(state: Arc<HotSpringState>) {
                 let method = req.get("method").and_then(Value::as_str).unwrap_or("");
                 let params = req.get("params").cloned().unwrap_or(Value::Null);
 
-                let result = handle_request(&state, method, &params);
+                let dispatch = handle_request(&state, method, &params);
 
-                let response = if result.get("error").is_some() {
-                    json!({ "jsonrpc": "2.0", "id": id, "error": result["error"] })
-                } else {
-                    json!({ "jsonrpc": "2.0", "id": id, "result": result })
+                let response = match dispatch {
+                    DispatchResult::Ok(result) => {
+                        json!({ "jsonrpc": "2.0", "id": id, "result": result })
+                    }
+                    DispatchResult::Err { code, message } => {
+                        json!({ "jsonrpc": "2.0", "id": id, "error": { "code": code, "message": message } })
+                    }
                 };
 
                 let mut out = response.to_string();

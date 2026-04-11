@@ -26,8 +26,8 @@ dynamics, lattice QCD, spectral theory, and transport coefficients.
 
 ```
 hotSpring (this repo)
-  └── barracuda/              ← you are here (hotspring-barracuda v0.6.31)
-       ├── src/lib.rs         ← crate root (v0.6.31)
+  └── barracuda/              ← you are here (hotspring-barracuda v0.6.32)
+       ├── src/lib.rs         ← crate root (v0.6.32)
        ├── src/physics/       ← nuclear structure (L1/L2/L3 HFB, SEMF)
        ├── src/md/            ← GPU molecular dynamics (Yukawa OCP)
        ├── src/lattice/       ← lattice QCD (SU(3), HMC, Dirac, CG, Abelian Higgs)
@@ -46,7 +46,7 @@ hotSpring (this repo)
 ```bash
 cd barracuda
 
-cargo test --lib          # 956 library tests
+cargo test --lib          # 964 library tests
 cargo clippy --all-targets  # 0 warnings (pedantic + nursery)
 cargo doc --no-deps       # Full API docs, 0 warnings
 
@@ -66,7 +66,7 @@ enforced crate-wide — all fallible operations use `?` propagation via `HotSpri
 
 ### Dependency on barraCuda
 
-hotspring-barracuda depends on the standalone `barracuda` crate (v0.3.3) for:
+hotspring-barracuda depends on the standalone `barracuda` crate (v0.3.11 via git pin `fbad3c0a`) for:
 
 | Primitive | Usage |
 |-----------|-------|
@@ -155,8 +155,10 @@ pattern in the overnight binary is the reference for multi-GPU + profiling adopt
 
 See [CHANGELOG.md](CHANGELOG.md) for full version history.
 
-Current: **v0.6.29** (March 11, 2026)
-- 847 lib tests, 112+ binaries, 84 WGSL shaders, 0 clippy warnings
+Current: **v0.6.32** (April 11, 2026)
+- 964 lib tests, 140 binaries, 128 WGSL shaders, 0 clippy warnings (lib)
+- NUCLEUS composition validation, science probes, Squirrel wired
+- Three-tier validation: Python → Rust → NUCLEUS IPC
 - barraCuda v0.3.5 (`8d63c77`), toadStool S146, coralReef Phase 10 Iter 31
 - Chuna Papers 43-45: 44/44 overnight checks pass
 - coralReef sovereign compile: **45/46** shaders to native SM70/SM86 SASS

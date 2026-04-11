@@ -1,10 +1,10 @@
 # baseCamp: Research Domain Briefings
 
-**Date:** April 10, 2026  
+**Date:** April 11, 2026  
 **Project:** hotSpring (ecoPrimals)  
-**Status:** v0.6.32 — 956 lib tests, 145 binaries, 128 WGSL shaders; research index current through audit/execution cycle; NUCLEUS composition validation operational; ecoBin in `infra/plasmidBin/hotspring/`. NVIDIA GPFIFO (RTX 3090) and AMD scratch/local (RX 6950 XT) paths operational; SovereignInit and multi-ember fleet work complete per domain briefings.
+**Status:** v0.6.32 — 964 lib tests, 140 binaries, 128 WGSL shaders; NUCLEUS composition validation operational with science probes; ecoBin in `infra/plasmidBin/hotspring/`. Squirrel wired in proto-nucleate (optional). Capability-based primal routing via `by_domain()`. NVIDIA GPFIFO (RTX 3090) and AMD scratch/local (RX 6950 XT) paths operational; SovereignInit and multi-ember fleet work complete per domain briefings.
 
-**Validation arc:** Science stacks are validated on three tiers — **Python (and legacy HPC) baselines → sovereign Rust → NUCLEUS IPC composition** — so peer-reviewed physics and methods are checked at the **primal composition layer**, not only in standalone binaries.
+**Validation arc:** Science stacks are validated on three tiers — **Python (and legacy HPC) baselines → sovereign Rust → NUCLEUS IPC composition** — so peer-reviewed physics and methods are checked at the **primal composition layer**, not only in standalone binaries. Rust results serve as trusted baselines for IPC-composed NUCLEUS patterns, using the same tolerance-driven, exit-code-gated methodology that proved Rust matches Python.
 
 ---
 
@@ -54,5 +54,7 @@ Published paper (Python/FORTRAN/HPC)
 - **barraCuda** (`../../../barraCuda/`): Standalone compute primal. WGSL library, DF64, lattice QCD, precision system.
 - **coralReef** (`../../../coralReef/`): Sovereign shader compiler; WGSL→native; coral-driver backends.
 - **toadStool** (`../../../phase1/toadStool/`): Hardware discovery and orchestration; `shader.dispatch`.
+- **primalSpring** (`../../../primalSpring/`): NUCLEUS composition definitions, proto-nucleate graphs, deployment matrix.
 - **Experiment journals**: `../../experiments/`
-- **Handoffs**: `ecoPrimals/infra/wateringHole/handoffs/` (including April 10, 2026 NUCLEUS deployment, composition validation, and audit/execution entries)
+- **Handoffs**: `ecoPrimals/infra/wateringHole/handoffs/` (including April 11, 2026 composition evolution and primal usage handoff)
+- **Primal gaps**: [`../../docs/PRIMAL_GAPS.md`](../../docs/PRIMAL_GAPS.md) — discovered gaps handed back to primalSpring

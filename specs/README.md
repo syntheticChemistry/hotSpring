@@ -1,7 +1,7 @@
 # hotSpring Specifications
 
-**Last Updated**: April 8, 2026
-**Status**: Phase A-J complete — 4,065+ tests, 139 binaries, crate v0.6.32+, barraCuda v0.3.11, toadStool S168+, coralReef Phase 10 Iter 78+. **SovereignInit pipeline: 8-stage pure Rust nouveau replacement** (Exp 165). **Full compute dispatch PROVEN on Titan V** — 5/5 E2E phases (Exp 164). **Firmware-as-ingredient architecture** — falcon firmware loaded/sequenced by Rust, executed by hardware. **NVIDIA GPFIFO pipeline OPERATIONAL on RTX 3090.** **AMD scratch/local memory OPERATIONAL on RX 6950 XT** (Exp 124). 165+ experiments, 99 WGSL shaders. Ember Survivability Hardening COMPLETE. Multi-Ember Fleet Architecture COMPLETE.
+**Last Updated**: April 11, 2026
+**Status**: Phase A-J complete + NUCLEUS Composition Validation — 4,065+ tests (964 lib), 140 binaries, crate v0.6.32, barraCuda v0.3.11, toadStool S168+, coralReef Phase 10 Iter 78+. **Three-tier validation: Python → Rust → NUCLEUS IPC.** SovereignInit pipeline: 8-stage pure Rust nouveau replacement. NVIDIA GPFIFO pipeline OPERATIONAL on RTX 3090. AMD scratch/local memory OPERATIONAL on RX 6950 XT. 165+ experiments, 128 WGSL shaders. Ember Survivability Hardening COMPLETE. Squirrel wired in proto-nucleate. Science composition probes operational.
 **Domain**: Computational plasma physics, nuclear structure, transport, lattice QCD, spectral theory, surrogate learning
 
 ---
