@@ -1219,11 +1219,59 @@ Firmware is treated as an **ingredient** (proprietary microcode loaded as blobs)
 | — | **Firmware Interface** | ✅ `PmuInterface`, `FalconProbe`, `FalconBootSolver` (15 strategies), `Hbm2Controller` |
 | — | **Safety Infrastructure** | ✅ Ember Survivability Hardening COMPLETE. Fork-isolated HBM2 training. |
 
+### Phase 21: Staged Sovereign Init — Ember Sacrificial Pattern (Exp 165+, 2026-04-12)
+
+**Architectural principle: ember sacrifices rather than locks.**
+
+Direct VFIO access from any process (including sovereign init examples) can cause PCIe bus hangs that freeze the entire system. Fork isolation kills the child process, but a hardware-level bus hang propagates through the AMD NBIO/data fabric and locks all CPU cores. The solution: all GPU interaction routes through ember, and ember runs each dangerous operation in a sacrificial child.
+
+**Three hardening changes:**
+
+1. **Zero-MMIO startup**: Ember startup opens VFIO fds but does NOT map BAR0 or run `post_swap_quiesce`. The device is held with zero hardware I/O. BAR0 mapping is deferred to explicit RPC calls. This eliminates the startup lockup vector entirely.
+
+2. **Per-stage fork isolation**: The monolithic `SovereignInit::init_all()` previously ran inside a single fork child with a 60s timeout. Now each stage runs in its own fork-isolated child with a short timeout (3-15s). If a stage hangs, ember kills just that child and reports which stage failed:
+
+| Stage | Timeout | What It Does |
+|-------|---------|-------------|
+| probe | 3s | Read-only: BOOT0, PMC_ENABLE, DEVINIT check |
+| hbm2 | 10s | HBM2 training (cold only, auto-detected) |
+| pmc | 5s | PMC engine ungating |
+| topology | 5s | GPC/TPC/SM/FBP enumeration (read-only) |
+| pfb | 5s | Memory controller configuration |
+| pri_ring_reset | 5s | PRI ring fault drain + GR engine reset |
+| falcons | 15s | SEC2 -> ACR -> FECS/GPCCS boot solver |
+| gr | 10s | GR engine init |
+| pfifo | 5s | PFIFO/PBDMA discovery |
+
+3. **PRI ring reset stage**: After PMC ungating, stale engine state floods the PRI ring with faults, making falcon registers read as `0xbad00100`. A new `reset_pri_ring()` stage toggles the GR engine via PMC, enumerates the PRI ring master, and drains faults. This restored falcon register access.
+
+**Hardware validation results (April 12, 2026):**
+
+| Stage | Result | Detail |
+|-------|--------|--------|
+| probe | OK | PMC_ENABLE=0x40000020 (2 bits), warm |
+| hbm2 | OK | DEVINIT done, VRAM alive |
+| pmc | OK | 5 writes, engines ungated |
+| topology | OK | 1 GPC, 16 SM, 12 FBP, 4 PBDMA |
+| pfb | OK | Memory controller configured |
+| pri_ring_reset | OK | 4 writes, PRI faults cleared |
+| falcons | TIMEOUT | SEC2 started but hit trap (exci=0x041f0000) |
+
+Stages 0-5 proven safe with system alive throughout. Falcon boot (stage 6) times out and ember sacrifices the child — no system lockup. The falcon trap is caused by FBP=0 after nouveau teardown (memory controller goes back to sleep when nouveau unbinds).
+
+**Warm detection relaxed**: After nouveau teardown, PMC_ENABLE is minimal (2 bits) but HBM2 was trained. Changed from `count_ones() >= 4` to `pmc != 0` — any PMC bit means some initialization ran.
+
+**coralctl updated**: `coralctl sovereign init` now displays per-stage results, including status (OK/FAIL/TIMEOUT/BLOCKED), write counts, topology detail, and halt location.
+
+**Remaining gap**: Falcon boot needs active VRAM (FBP > 0) to upload firmware via PRAMIN. Nouveau teardown puts the memory controller to sleep. Two paths:
+1. Capture the "hot" state before nouveau unbinds (FBP=12)
+2. Wake the memory controller in the PFB stage via VBIOS DEVINIT interpreter
+
 ### Next Steps
 
-1. **Hardware validation**: Run `sovereign_compute_e2e` example on Titan V from cold boot — validate all 8 stages end-to-end
-2. **PMU command mapping**: Use `PmuInterface` to discover PMU command vocabulary (engine enable, clock control, PRI gate management)
-3. **Production QCD shaders**: Dispatch the 24 QCD production shaders compiled by coral-reef on Titan V via `open_sovereign()`
-4. **GSP RPC client**: Extend `PmuInterface` pattern to Turing/Ampere GSP message protocol — same firmware-agnostic approach, different transport
-5. **Cross-vendor validation**: Run the same WGSL→compute pipeline on MI50 (AMD) and Titan V (NVIDIA) in the same session
-6. **Fleet mode stress test**: Concurrent GPU experiments across Titan V + K80 fleet
+1. **PMU command mapping**: Use `PmuInterface` to discover PMU command vocabulary (engine enable, clock control, PRI gate management)
+2. **Production QCD shaders**: Dispatch the 24 QCD production shaders compiled by coral-reef on Titan V via DRM path
+3. **GSP RPC client**: Extend `PmuInterface` pattern to Turing/Ampere GSP message protocol — same firmware-agnostic approach, different transport
+4. **Cross-vendor validation**: Run the same WGSL->compute pipeline on MI50 (AMD) and Titan V (NVIDIA) in the same session
+5. **Fleet mode stress test**: Concurrent GPU experiments across Titan V + K80 fleet
+6. **Memory controller wake**: Resolve FBP=0 after nouveau teardown to enable VFIO-path falcon boot

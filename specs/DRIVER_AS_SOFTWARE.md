@@ -193,3 +193,13 @@ extends this pattern with:
 4. **ecoPrimals standards** formalize the swap-capture-return cycle as a reusable pattern
 5. **barraCuda** benefits from sovereign compute path (DRM-free GPU dispatch)
 6. **barraCuda** integrates with native-compute mode for gaming GPU borrowing (late-stage)
+
+## Update (April 2026): SovereignInit + Staged Fork Isolation
+
+The driver-as-software pattern evolved into the **SovereignInit pipeline** (Exp 165):
+an 8-stage pure Rust replacement for nouveau's initialization subsystem. Firmware blobs
+are treated as ingredients (loaded by Rust, executed by GPU hardware). Each stage runs
+inside ember's fork-isolated child process. The **nouveau DRM dispatch path is fully
+proven** (Exp 164: 5/5 E2E phases pass on Titan V). The VFIO sovereign path has stages
+0-5 hardware-validated; falcon boot (stage 6) is blocked by memory controller sleep
+after nouveau teardown. See `whitePaper/baseCamp/sovereign_gpu_compute.md` Phase 21.

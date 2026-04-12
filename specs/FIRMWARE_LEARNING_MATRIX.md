@@ -1,6 +1,6 @@
 # Firmware Learning Matrix
 
-**Updated:** 2026-03-30
+**Updated:** 2026-04-12
 **Purpose:** Authoritative reference for GPU firmware interfaces per generation. Not a lock to pick — a system to learn.
 
 ## Core Principle
@@ -28,7 +28,7 @@ Every NVIDIA GPU since Maxwell has a firmware management interface. The host CPU
 | **Kepler** | GK110/GK210 | PIO direct from host | None | None needed | No WPR | IMEM upload validated, clocks blocking |
 | **Maxwell** | GM200+ | ACR v1 via SEC2 | Signed firmware | nouveau | WPR1 | Not tested (no hardware) |
 | **Pascal** | GP100+ | ACR v2 via SEC2 | Signed + WPR2 | nouveau | WPR2 | Not tested (no hardware) |
-| **Volta** | GV100 | ACR v2 + FWSEC | WPR2 fuse-locked | nouveau (warm) | WPR2 locked | FECS alive via livepatch, PFIFO fix ready |
+| **Volta** | GV100 | ACR v2 + FWSEC | WPR2 fuse-locked | nouveau (warm) | WPR2 locked | **DRM dispatch PROVEN (Exp 164, 5/5)**. SovereignInit stages 0-5 via ember. Falcon boot blocked (FBP=0). |
 | **Turing** | TU10x | GSP (optional) | GSP or ACR | nvidia proprietary | WPR2/GSP | Not tested |
 | **Ampere** | GA10x | GSP mandatory | GSP-locked | nvidia proprietary | GSP manages | VM captures analyzed (RTX 3090) |
 | **Ada** | AD10x | GSP mandatory | GSP-locked | nvidia proprietary | GSP manages | RTX 5060 display + UVM code-complete |

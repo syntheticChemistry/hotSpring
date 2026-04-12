@@ -420,6 +420,9 @@ Consumer GPUs reproduce HPC physics at paper parity. DF64 delivers 3.24 TFLOPS a
 14-digit precision. GPU RHMC runs all-flavors dynamical QCD (Nf=2+1). Self-tuning
 RHMC eliminates hand-tuned parameters. Chuna 44/44 checks pass. RTX 3090 GPFIFO
 operational. Sacrificial Ember architecture validated — GPU faults kill ember, not the system.
+Sovereign compute dispatch PROVEN on Titan V (Exp 164: 5/5 E2E via nouveau DRM).
+SovereignInit pipeline replaces nouveau subsystem-by-subsystem (Exp 165).
+Staged fork isolation: per-stage sacrificial children, zero-MMIO startup.
 Three-tier validation: Python validates Rust. Rust validates NUCLEUS. Peer-reviewed
 science runs on consumer hardware, composed via sovereign primal IPC.
 guideStone artifact validated across 5 substrates.
