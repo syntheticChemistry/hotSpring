@@ -283,7 +283,9 @@ fn main() {
                 i += 2;
             }
             "--family-id" if i + 1 < args.len() => {
-                std::env::set_var("FAMILY_ID", &args[i + 1]);
+                // SAFETY: called before spawning any threads (single-threaded
+                // CLI arg parsing at startup). Required unsafe in Rust 2024.
+                unsafe { std::env::set_var("FAMILY_ID", &args[i + 1]) };
                 i += 2;
             }
             _ => i += 1,

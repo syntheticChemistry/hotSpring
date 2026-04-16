@@ -193,7 +193,6 @@ pub fn test_qcd_shader_compilation(ctx: &GpuContext) -> (u32, Vec<(String, Strin
         }
     }
     let total_ms = total_t0.elapsed().as_millis();
-    let total_shaders = shaders.len() + composite_shaders.len();
 
     println!(
         "\n  Standalone: {compiled}/{} compiled in {standalone_ms}ms",

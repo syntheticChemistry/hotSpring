@@ -4,7 +4,7 @@
 **Proto-nucleate:** `hotspring_qcd_proto_nucleate.toml`
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026
-**Last audited:** April 11, 2026 (Full composition audit + remediation)
+**Last audited:** April 16, 2026 (Sovereign pipeline complete + composition audit)
 **License:** AGPL-3.0-or-later
 
 ---
@@ -153,6 +153,43 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 | — | Capability validation stale names | `validate_nucleus_*` binaries use canonical names from proto-nucleate | Apr 11, 2026 |
 | — | No deploy graphs | `graphs/hotspring_qcd_deploy.toml` created from proto-nucleate | Apr 11, 2026 |
 | — | discover_capabilities() duplicated niche | Delegates to `niche::all_capabilities()` as source of truth | Apr 11, 2026 |
+
+### GAP-HS-029: Fork Isolation Pattern Not in Ecosystem Standard
+
+- **Primal:** coralReef / toadStool
+- **Severity:** Low (pattern works, not yet standardized)
+- **Status:** Implemented in coral-driver, needs ecosystem documentation
+- **Description:** The fork-isolation pattern (`fork_isolated_raw` +
+  `MappedBar::isolated_*` safe wrappers) is a reusable primitive for any
+  hardware operation that might hang. Currently lives only in coral-driver.
+  Should be documented in `SPRING_COMPOSITION_PATTERNS.md` or
+  `ECOBIN_ARCHITECTURE_STANDARD.md` as a recommended pattern for hardware
+  fault containment.
+- **Action:** PR to primalSpring documenting fork-isolation as ecosystem pattern.
+
+### GAP-HS-030: Ember Absorption into toadStool
+
+- **Primal:** toadStool / coralReef
+- **Severity:** Medium (architectural)
+- **Status:** Deferred until sovereign pipeline fully validated on all GPUs
+- **Description:** Per NUCLEUS design, ember (per-GPU MMIO daemon) should be
+  absorbed into toadStool after the sovereign GPU solve. The sovereign_init
+  pipeline, fork isolation, and MMIO gateway modules are the primary
+  absorption targets. The `handlers_mmio.rs` RPC surface becomes part of
+  toadStool's hardware orchestration layer.
+- **Action:** Track in toadStool's roadmap. Coordinate with coralReef team on
+  module boundaries.
+
+### GAP-HS-031: K80 VFIO Legacy Group EBUSY
+
+- **Primal:** coralReef (ember)
+- **Severity:** Medium (hardware-specific)
+- **Status:** Blocked — kernel issue
+- **Description:** Tesla K80 VFIO groups report EBUSY when ember tries to
+  open them. Root cause is likely iommufd cdev reference leak on AMD IOMMU.
+  The swap logic is validated on Titan V; K80 path is architecturally
+  identical but blocked by this kernel issue.
+- **Action:** Test after reboot with `iommu=pt` or legacy-only VFIO config.
 
 ---
 

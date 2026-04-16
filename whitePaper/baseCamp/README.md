@@ -1,8 +1,8 @@
 # baseCamp: Research Domain Briefings
 
-**Date:** April 11, 2026  
+**Date:** April 16, 2026  
 **Project:** hotSpring (ecoPrimals)  
-**Status:** v0.6.32 — 985 lib tests, 140 binaries, 128 WGSL shaders. NUCLEUS composition evolution complete (Wave 1-3): LOCAL/ROUTED capability split, biomeOS registration, ValidationSink/NDJSON/Skip, OrExit, `capability_registry.toml` sync, standalone mode, plasmidBin schema aligned. ecoBin in `infra/plasmidBin/hotspring/`. Squirrel wired in proto-nucleate (optional). NVIDIA GPFIFO (RTX 3090) and AMD scratch/local (RX 6950 XT) paths operational.
+**Status:** v0.6.32 — 985+ lib tests, 140+ binaries, 128 WGSL shaders. Sovereign GPU pipeline COMPLETE: fork-isolated MMIO, 6-stage init, PMU DEVINIT + VBIOS PROM wired as ember RPCs, warm handoff validated on Titan V. NUCLEUS composition evolution complete (Wave 1-3). ecoBin in `infra/plasmidBin/hotspring/`. coralReef sovereign modules: `isolation.rs`, `sovereign_init.rs`, `handlers_mmio.rs`, `handlers_sovereign.rs`, `handlers_devinit.rs`. 908 tests across coral-driver + coral-ember.
 
 **Validation arc:** Science stacks are validated on three tiers — **Python (and legacy HPC) baselines → sovereign Rust → NUCLEUS IPC composition** — so peer-reviewed physics and methods are checked at the **primal composition layer**, not only in standalone binaries. Rust results serve as trusted baselines for IPC-composed NUCLEUS patterns, using the same tolerance-driven, exit-code-gated methodology that proved Rust matches Python.
 

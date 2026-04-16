@@ -350,6 +350,75 @@ impl GlowplugClient {
     pub fn daemon_status(&self) -> Result<serde_json::Value, GlowplugError> {
         self.call("daemon.status", &serde_json::json!({}))
     }
+
+    // ── Sovereign boot + training capture ────────────────────────────
+
+    /// `capture.training` — capture a training recipe by observing an external
+    /// driver's memory initialization on a cold GPU.
+    ///
+    /// Orchestrates: cold BAR0 snapshot → swap to warm driver (with mmiotrace)
+    /// → settle → warm BAR0 snapshot → diff → save recipe JSON. The recipe is
+    /// stored at `/var/lib/coralreef/training/{chip}.json` for sovereign replay.
+    pub fn capture_training(
+        &self,
+        bdf: &str,
+        warm_driver: Option<&str>,
+    ) -> Result<CaptureTrainingResult, GlowplugError> {
+        let mut params = serde_json::json!({"bdf": bdf});
+        if let Some(driver) = warm_driver {
+            params["warm_driver"] = serde_json::Value::String(driver.to_string());
+        }
+        let v = self.call("capture.training", &params)?;
+        serde_json::from_value(v)
+            .map_err(|e| GlowplugError::InvalidPayload(format!("capture.training: {e}")))
+    }
+
+    /// `sovereign.boot` — full orchestrated sovereign boot: detect driver →
+    /// warm if needed → swap to vfio → run SovereignInit pipeline.
+    ///
+    /// Routes through glowplug for full lifecycle coordination.
+    pub fn sovereign_boot(
+        &self,
+        bdf: &str,
+    ) -> Result<SovereignBootResult, GlowplugError> {
+        let v = self.call("sovereign.boot", &serde_json::json!({"bdf": bdf}))?;
+        serde_json::from_value(v)
+            .map_err(|e| GlowplugError::InvalidPayload(format!("sovereign.boot: {e}")))
+    }
+}
+
+/// Result of `capture.training` — training recipe capture flow.
+#[derive(Debug, Clone, Deserialize)]
+pub struct CaptureTrainingResult {
+    pub bdf: String,
+    pub warm_driver: String,
+    pub recipe_path: Option<String>,
+    pub total_writes: usize,
+    pub success: bool,
+    pub summary: String,
+    pub steps: Vec<BootStepResult>,
+}
+
+/// Result of `sovereign.boot` — full orchestrated sovereign boot.
+#[derive(Debug, Clone, Deserialize)]
+pub struct SovereignBootResult {
+    pub bdf: String,
+    pub initial_driver: Option<String>,
+    pub warm_cycle_performed: bool,
+    pub final_driver: Option<String>,
+    pub sovereign_init: Option<serde_json::Value>,
+    pub success: bool,
+    pub summary: String,
+    pub steps: Vec<BootStepResult>,
+}
+
+/// A single step in an orchestrated boot or capture flow.
+#[derive(Debug, Clone, Deserialize)]
+pub struct BootStepResult {
+    pub name: String,
+    pub status: String,
+    pub detail: Option<String>,
+    pub duration_ms: u64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -517,5 +586,70 @@ mod tests {
             let req = jsonrpc_request_object(method, &serde_json::json!({}));
             assert_eq!(req["params"], serde_json::json!({}), "{method}");
         }
+    }
+
+    #[test]
+    fn capture_training_params_shape() {
+        let params = serde_json::json!({
+            "bdf": "0000:03:00.0",
+            "warm_driver": "nouveau",
+        });
+        let req = jsonrpc_request_object("capture.training", &params);
+        assert_eq!(req["method"], "capture.training");
+        assert_eq!(req["params"]["bdf"], "0000:03:00.0");
+        assert_eq!(req["params"]["warm_driver"], "nouveau");
+    }
+
+    #[test]
+    fn capture_training_params_auto_driver() {
+        let params = serde_json::json!({"bdf": "0000:03:00.0"});
+        let req = jsonrpc_request_object("capture.training", &params);
+        assert!(req["params"].get("warm_driver").is_none());
+    }
+
+    #[test]
+    fn sovereign_boot_params_shape() {
+        let params = serde_json::json!({"bdf": "0000:03:00.0"});
+        let req = jsonrpc_request_object("sovereign.boot", &params);
+        assert_eq!(req["method"], "sovereign.boot");
+        assert_eq!(req["params"]["bdf"], "0000:03:00.0");
+    }
+
+    #[test]
+    fn capture_training_result_deserializes() {
+        let json = serde_json::json!({
+            "bdf": "0000:03:00.0",
+            "warm_driver": "nouveau",
+            "recipe_path": "/var/lib/coralreef/training/gv100.json",
+            "total_writes": 342,
+            "success": true,
+            "summary": "captured 342 training writes for gv100",
+            "steps": [
+                {"name": "cold_snapshot", "status": "ok", "detail": "boot0=0x140000a1", "duration_ms": 12}
+            ]
+        });
+        let result: CaptureTrainingResult =
+            serde_json::from_value(json).expect("deserialize CaptureTrainingResult");
+        assert!(result.success);
+        assert_eq!(result.total_writes, 342);
+        assert_eq!(result.steps.len(), 1);
+    }
+
+    #[test]
+    fn sovereign_boot_result_deserializes() {
+        let json = serde_json::json!({
+            "bdf": "0000:03:00.0",
+            "initial_driver": "vfio-pci",
+            "warm_cycle_performed": false,
+            "final_driver": "vfio-pci",
+            "sovereign_init": {"all_ok": true, "compute_ready": false},
+            "success": false,
+            "summary": "sovereign pipeline halted at: WAKE_MEMORY_CONTROLLER",
+            "steps": []
+        });
+        let result: SovereignBootResult =
+            serde_json::from_value(json).expect("deserialize SovereignBootResult");
+        assert!(!result.success);
+        assert!(result.sovereign_init.is_some());
     }
 }

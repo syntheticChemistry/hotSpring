@@ -79,7 +79,7 @@ fn main() {
 
     // ── Tier 2: Sovereign/coralReef backend ──
     println!("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    println!("  TIER 2: Sovereign (GpuBackend = CoralReefDevice)");
+    println!("  TIER 2: Sovereign (GpuBackend = SovereignDevice)");
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 
     let sovereign_result = try_sovereign(&config);
@@ -157,10 +157,10 @@ fn last_energy(sim: &hotspring_barracuda::md::simulation::MdSimulation) -> (f64,
 fn try_sovereign(
     config: &MdConfig,
 ) -> Option<Result<hotspring_barracuda::md::simulation::MdSimulation, String>> {
-    use barracuda::device::CoralReefDevice;
+    use barracuda::device::SovereignDevice;
 
     print!("  Trying auto-discovery... ");
-    match CoralReefDevice::with_auto_device() {
+    match SovereignDevice::with_auto_device() {
         Ok(dev) => {
             if !dev.has_dispatch() {
                 println!("no dispatch capability");

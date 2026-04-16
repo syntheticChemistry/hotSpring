@@ -236,6 +236,7 @@ pub fn binding_energies_l2_gpu_resident(
             }
         }
 
+        #[cfg(debug_assertions)]
         let t_upload = std::time::Instant::now();
         let n_work = all_work.len();
         dispatch::upload_densities(
@@ -255,6 +256,7 @@ pub fn binding_energies_l2_gpu_resident(
             t_upload_total += t_upload.elapsed().as_secs_f64();
         }
 
+        #[cfg(debug_assertions)]
         let t_gpu = std::time::Instant::now();
         dispatch::dispatch_hbuild_and_pack(
             raw_device,
@@ -272,6 +274,7 @@ pub fn binding_energies_l2_gpu_resident(
             t_gpu_total += t_gpu.elapsed().as_secs_f64();
         }
 
+        #[cfg(debug_assertions)]
         let t_read = std::time::Instant::now();
         let gpu_eigen: Option<(Vec<f64>, Vec<f64>)> = if n_work > 0 {
             let batch_size = n_work * 2;

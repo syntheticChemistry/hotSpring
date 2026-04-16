@@ -1,8 +1,8 @@
 # baseCamp: Sovereign GPU Compute — GlowPlug & Falcon Boot Chain
 
-**Date:** 2026-03-25 (updated 2026-04-08 — **Sovereign compute PROVEN**: 5/5 E2E phases pass, f32+f64+LJ forces, WGSL→SM70 SASS→DRM dispatch)  
-**Domain:** Hardware — PCIe GPU lifecycle, falcon microcontrollers, HBM2 management, PFIFO command submission, ACR secure boot, WPR construction, cross-driver profiling, daemon RPC orchestration, adaptive experiment loop, sysmem DMA, GV100 MMU v2 page tables, WPR2 hardware protection, Kepler PIO falcon loading, VBIOS DEVINIT, fault containment architecture, **firmware-agnostic interfacing, PMU mailbox protocol, DRM ioctl sovereign pipeline, SM70 SASS compute dispatch**  
-**Experiments:** 060-165  
+**Date:** 2026-03-25 (updated 2026-04-16 — **Sovereign pipeline COMPLETE**: fork-isolated MMIO, 6-stage init, PMU DEVINIT wired, warm handoff validated on Titan V, 908 tests)  
+**Domain:** Hardware — PCIe GPU lifecycle, falcon microcontrollers, HBM2 management, PFIFO command submission, ACR secure boot, WPR construction, cross-driver profiling, daemon RPC orchestration, adaptive experiment loop, sysmem DMA, GV100 MMU v2 page tables, WPR2 hardware protection, Kepler PIO falcon loading, VBIOS DEVINIT, fault containment architecture, **firmware-agnostic interfacing, PMU mailbox protocol, DRM ioctl sovereign pipeline, SM70 SASS compute dispatch, fork-isolated MMIO gateway, staged sovereign init, PCI remove/rescan with kernel override handling**  
+**Experiments:** 060-168  
 **Hardware:** NVIDIA Titan V (GV100, 12GB HBM2), 2× Tesla K80 (GK210, Kepler), RTX 5070 (GB206, Blackwell, display/validator)
 
 ---
@@ -1267,11 +1267,30 @@ Stages 0-5 proven safe with system alive throughout. Falcon boot (stage 6) times
 1. Capture the "hot" state before nouveau unbinds (FBP=12)
 2. Wake the memory controller in the PFB stage via VBIOS DEVINIT interpreter
 
+### Sovereign Pipeline Complete (April 16, 2026 — Exp 166–168)
+
+**Warm handoff validated**: Full vfio→nouveau→vfio round-trip on Titan V. No D-state.
+HBM2 training preserved across swap cycle. Three critical bugs fixed in ember:
+- `AdaptiveLifecycle` delegation (forwarded `skip_sysfs_unbind` to inner lifecycle)
+- `reset_method` permission error (best-effort write, not fatal)
+- `vfio-pci.ids` kernel parameter (force-unbind wrong driver after PCI rescan)
+
+**Fork-isolated MMIO gateway**: All BAR0 operations run in sacrificial child processes
+via `rustix::runtime::kernel_fork`. Parent kills child on timeout. 11 new JSON-RPC
+methods in ember (mmio.*, ember.sovereign.init, ember.devinit.*, ember.vbios.read).
+
+**6-stage sovereign init**: bar0_probe → pmc_enable → hbm2_training → falcon_boot →
+gr_init → verify. Uses existing HBM2 typestate controller + FECS boot infrastructure.
+`SovereignInitResult` matches glowplug contract (all_ok, compute_ready, halted_at).
+
+**908 tests** across coral-driver (680) + coral-ember (228), zero failures.
+
 ### Next Steps
 
-1. **PMU command mapping**: Use `PmuInterface` to discover PMU command vocabulary (engine enable, clock control, PRI gate management)
-2. **Production QCD shaders**: Dispatch the 24 QCD production shaders compiled by coral-reef on Titan V via DRM path
-3. **GSP RPC client**: Extend `PmuInterface` pattern to Turing/Ampere GSP message protocol — same firmware-agnostic approach, different transport
-4. **Cross-vendor validation**: Run the same WGSL->compute pipeline on MI50 (AMD) and Titan V (NVIDIA) in the same session
-5. **Fleet mode stress test**: Concurrent GPU experiments across Titan V + K80 fleet
-6. **Memory controller wake**: Resolve FBP=0 after nouveau teardown to enable VFIO-path falcon boot
+1. **K80 validation**: Reboot with legacy-only VFIO config to clear EBUSY on K80 VFIO groups
+2. **End-to-end sovereign boot**: `coralctl sovereign-boot 0000:03:00.0` via glowplug
+3. **Golden HBM2 capture**: Warm nouveau → capture oracle state → use as training seed
+4. **Production QCD shaders**: Dispatch 24 QCD shaders via sovereign pipeline on Titan V
+5. **GSP RPC client**: Extend `PmuInterface` pattern to Turing/Ampere GSP message protocol
+6. **Cross-vendor validation**: Run the same WGSL→compute pipeline on MI50 (AMD) and Titan V in the same session
+7. **toadStool absorption**: Migrate ember's sovereign init into toadStool's hardware orchestration layer

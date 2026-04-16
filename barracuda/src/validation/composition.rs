@@ -6,7 +6,6 @@
 //! These complement the physics-rich [`super::ValidationHarness`] with
 //! patterns needed for NUCLEUS composition validation and CI pipelines.
 
-use std::io::Write;
 use std::process;
 
 /// Zero-panic exit trait for validation binaries.

@@ -22,7 +22,6 @@
 
 use coral_gpu::{GpuContext, GpuTarget};
 use hotspring_barracuda::bin_helpers::coral_sovereign::*;
-use std::time::Instant;
 
 fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");

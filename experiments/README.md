@@ -75,6 +75,9 @@ NNN_DESCRIPTOR.{sh,md,json}
 | 163 | FIRMWARE_BOUNDARY | **breakthrough** | ✅ **Architectural pivot.** Driver/firmware/hardware delineation. NOP dispatch via DRM (C + Rust). PMU mailbox mapped. PmuInterface created. |
 | 164 | SOVEREIGN_COMPUTE_DISPATCH_PROVEN | **breakthrough** | ✅ **5/5 E2E phases pass.** f32 write/arith, multi-workgroup, f64 write, f64 Lennard-Jones. WGSL→SM70 SASS→DRM dispatch. Newton's 3rd law verified. *(No standalone journal — findings documented in Exp 165)* |
 | 165 | SOVEREIGN_INIT_PIPELINE | **breakthrough** | ✅ **8-stage SovereignInit pipeline replaces nouveau.** `open_sovereign(bdf)` entry point. GR init extracted. FECS method probe. GR context Stage 7. Firmware-as-ingredient. 429 tests. |
+| 166 | SOVEREIGN_BOOT_WIRING | investigation | ✅ **AdaptiveLifecycle delegation bug** found and fixed. `skip_sysfs_unbind` forwarding, `reset_method` permission error, `vfio-pci.ids` kernel parameter handling. 3 critical bugs resolved. |
+| 167 | WARM_HANDOFF | validation | ✅ **Full vfio→nouveau→vfio round-trip on Titan V.** No D-state. HBM2 training preserved across swap cycle. K80 deferred (EBUSY). |
+| 168 | SOVEREIGN_PIPELINE_COMPLETE | **milestone** | ✅ **Sovereign pipeline COMPLETE.** Fork-isolated MMIO gateway (6 RPCs). 6-stage sovereign init. PMU DEVINIT + VBIOS PROM wired as ember RPCs. 908 tests across coral-driver + coral-ember. |
 
 ### Ember Survivability Hardening (2026-04-07)
 

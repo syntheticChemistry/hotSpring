@@ -823,6 +823,21 @@ path = "src/bin/exp155_k80_warm_fecs.rs"
 name = "exp156_reagent_compare"
 path = "src/bin/exp156_reagent_compare.rs"
 
+# ── Exp 157: K80 DEVINIT replay experiment ──
+[[bin]]
+name = "exp157_k80_devinit_replay"
+path = "src/bin/exp157_k80_devinit_replay.rs"
+
+# ── Exp 158: SEC2 real firmware experiment ──
+[[bin]]
+name = "exp158_sec2_real_firmware"
+path = "src/bin/exp158_sec2_real_firmware.rs"
+
+# ── Exp 167: Warm handoff — nouveau HBM2 training → vfio sovereign compute ──
+[[bin]]
+name = "exp167_warm_handoff"
+path = "src/bin/exp167_warm_handoff.rs"
+
 # ═══════════════════════════════════════════════════════════════
 # NUCLEUS Composition Validation (Phase 2: Rust → Primal composition)
 # ═══════════════════════════════════════════════════════════════

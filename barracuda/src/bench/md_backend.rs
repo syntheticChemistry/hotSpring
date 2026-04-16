@@ -383,10 +383,10 @@ impl GenericMdBackend {
     pub fn new() -> Result<Self, String> {
         #[cfg(feature = "sovereign-dispatch")]
         {
-            use barracuda::device::CoralReefDevice;
+            use barracuda::device::SovereignDevice;
             use barracuda::device::backend::GpuBackend;
 
-            if let Ok(dev) = CoralReefDevice::with_auto_device() {
+            if let Ok(dev) = SovereignDevice::with_auto_device() {
                 if dev.has_dispatch() {
                     let name = GpuBackend::name(&dev);
                     return Ok(Self {
@@ -440,8 +440,8 @@ impl MdBenchmarkBackend for GenericMdBackend {
         let sim = if self.dispatch_tier.contains("Sovereign") {
             #[cfg(feature = "sovereign-dispatch")]
             {
-                use barracuda::device::CoralReefDevice;
-                let dev = CoralReefDevice::with_auto_device()
+                use barracuda::device::SovereignDevice;
+                let dev = SovereignDevice::with_auto_device()
                     .map_err(|e| format!("sovereign device: {e}"))?;
                 crate::md::sovereign_engine::run_simulation_generic(&dev, &config)?
             }
