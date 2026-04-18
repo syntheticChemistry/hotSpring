@@ -270,7 +270,7 @@ fn check_multi_output(harness: &mut ValidationHarness) {
     harness.check_bool("All 3 outputs are finite and reasonable", all_finite);
 
     // Exact parity check — independent readouts must differ
-    #[allow(clippy::float_cmp)] // determinism test: bit-identical outputs required
+    #[expect(clippy::float_cmp, reason = "determinism test: bit-identical outputs required")]
     let all_different = predictions[0] != predictions[1]
         && predictions[1] != predictions[2]
         && predictions[0] != predictions[2];
@@ -467,7 +467,7 @@ fn check_determinism(harness: &mut ValidationHarness) {
         .map(|_| esn.predict(&test_seq).expect("ESN trained")[0])
         .collect();
     // Exact parity check — determinism: same input → bit-identical output
-    #[allow(clippy::float_cmp)] // determinism test: bit-identical outputs required
+    #[expect(clippy::float_cmp, reason = "determinism test: bit-identical outputs required")]
     let all_same = results.windows(2).all(|w| w[0] == w[1]);
     println!("  10 runs: all identical = {all_same}");
     println!("  value = {:.6}", results[0]);

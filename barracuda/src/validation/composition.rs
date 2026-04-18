@@ -6,6 +6,7 @@
 //! These complement the physics-rich [`super::ValidationHarness`] with
 //! patterns needed for NUCLEUS composition validation and CI pipelines.
 
+use std::io::Write as _;
 use std::process;
 
 /// Zero-panic exit trait for validation binaries.
@@ -50,7 +51,7 @@ pub enum CheckOutcome {
 pub enum ValidationSink {
     Stdout,
     Null,
-    Ndjson(std::sync::Mutex<Box<dyn std::io::Write + Send>>),
+    Ndjson(std::sync::Mutex<Vec<u8>>),
 }
 
 impl std::fmt::Debug for ValidationSink {
@@ -64,7 +65,7 @@ impl std::fmt::Debug for ValidationSink {
 }
 
 impl ValidationSink {
-    fn on_check(&self, outcome: CheckOutcome, name: &str, detail: &str) {
+    pub(crate) fn on_check(&self, outcome: CheckOutcome, name: &str, detail: &str) {
         match self {
             Self::Stdout => {
                 let tag = match outcome {
@@ -93,7 +94,7 @@ impl ValidationSink {
         }
     }
 
-    fn section(&self, name: &str) {
+    pub(crate) fn section(&self, name: &str) {
         match self {
             Self::Stdout => println!("\n--- {name} ---"),
             Self::Null => {}
@@ -106,7 +107,7 @@ impl ValidationSink {
         }
     }
 
-    fn write_summary(&self, passed: u32, failed: u32, skipped: u32) {
+    pub(crate) fn write_summary(&self, passed: u32, failed: u32, skipped: u32) {
         match self {
             Self::Stdout => {
                 let total = passed + failed;
@@ -137,9 +138,9 @@ impl ValidationSink {
         Self::Null
     }
 
-    /// Create an NDJSON sink writing to the given writer.
-    pub fn ndjson<W: std::io::Write + Send + 'static>(writer: W) -> Self {
-        Self::Ndjson(std::sync::Mutex::new(Box::new(writer)))
+    /// Create an NDJSON sink writing to an in-memory buffer.
+    pub fn ndjson() -> Self {
+        Self::Ndjson(std::sync::Mutex::new(Vec::new()))
     }
 }
 

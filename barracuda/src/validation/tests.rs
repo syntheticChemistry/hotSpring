@@ -304,8 +304,7 @@ fn check_outcome_equality() {
 
 #[test]
 fn ndjson_sink_does_not_panic() {
-    let buf = std::io::Cursor::new(Vec::new());
-    let sink = ValidationSink::ndjson(buf);
+    let sink = ValidationSink::ndjson();
     sink.on_check(CheckOutcome::Pass, "test", "ok");
     sink.on_check(CheckOutcome::Skip, "skipped", "no primal");
     sink.section("section_name");

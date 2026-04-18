@@ -4,6 +4,7 @@
 name = "hotspring-forge"
 version = "0.2.0"
 edition = "2024"
+rust-version = "1.87"
 description = "Hardware discovery and cross-substrate dispatch for hotSpring"
 license = "AGPL-3.0-or-later"
 

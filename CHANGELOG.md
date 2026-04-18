@@ -7,34 +7,38 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
-## Unreleased — Stadial Audit + Primal Composition Proof (April 17, 2026)
+## Unreleased — Level 5 Primal Proof Audit (April 17, 2026)
 
 ### Added
+- **`validate_primal_proof` binary** — Tier 3 Level 5 harness calling barraCuda/BearDog primal methods over IPC (`tensor.matmul`, `stats.mean`, `crypto.hash`, etc.) and comparing against Python/Rust baselines. 9 probes, 10 manifest capabilities exercised. Exits 0/1/2.
+- **`docs/PRIMAL_PROOF_IPC_MAPPING.md`** — maps every domain science path to specific primal JSON-RPC methods with parameters, expected values, tolerances, and test procedure
 - `deny.toml` for barracuda + metalForge/forge — ecoBin C-dep bans, async-trait ban, license allowlist
-- `rust-version = "1.87"` in Cargo.toml (ecosystem MSRV target)
+- `rust-version = "1.87"` in both `barracuda/Cargo.toml` and `metalForge/forge/Cargo.toml`
 - Composition parity tolerances: `COMPOSITION_SEMF_PARITY_REL` (1e-10), `COMPOSITION_PLAQUETTE_PARITY_ABS` (1e-12) in `tolerances/physics.rs`
 - Science parity probes in `validate_nucleus_node` and `validate_nucleus_composition` — local Rust values vs IPC-routed primal results within centralized tolerances
 - `niche::set_family_id()` + `OnceLock` for thread-safe family ID resolution
-- wateringHole handoffs: `HOTSPRING_V0632_STADIAL_AUDIT_HANDOFF_APR17_2026.md`, `HOTSPRING_V0632_PRIMAL_ABSORPTION_HANDOFF_APR17_2026.md`
+- wateringHole handoffs: stadial audit, primal absorption, and Level 5 composition proof patterns
 
 ### Fixed
 - **GAP-HS-026 resolved**: All 13 physics/compute methods wired in `hotspring_primal.rs` server dispatch with `catch_unwind` safety — no more `-32001` pending stubs
 - **Unsafe elimination**: Replaced `unsafe { std::env::set_var("FAMILY_ID", ...) }` with `niche::set_family_id()` using `OnceLock`
-- **`dyn` dispatch eliminated**: `GpuRegisterMap` enum replaces `Box<dyn RegisterMap>`; `ValidationSink` enum replaces `Arc<dyn ValidationSink>`
-- **`#[allow]` → `#[expect]` migration**: All production binary code (11 files, ~20 sites) migrated to `#[expect(lint, reason = "...")]`; library `#[allow]` in `#[cfg(test)]` retained per convention
+- **`dyn` dispatch eliminated**: `GpuRegisterMap` enum replaces `Box<dyn RegisterMap>`; `ValidationSink::Ndjson` now uses `Vec<u8>` (was `Box<dyn Write + Send>`)
+- **`#[allow]` → `#[expect]` migration**: All production binary code migrated to `#[expect(lint, reason = "...")]`; `#![expect(unsafe_code, reason)]` in hardware-touching bins (CUDA, BAR0 mmap); library `#[allow]` in `#[cfg(test)]` retained per convention
 - **Inline tolerances centralized**: ~15 numeric literals in `validate_chuna.rs` replaced with named constants from `tolerances::*`; 10 new constants added with documented rationale
 - **Deploy graph capability fix**: `coralreef` `by_capability` corrected from `shader_compile` to `shader` in `hotspring_qcd_deploy.toml`
 - **Proto-nucleate references**: Updated stale `hotspring_qcd_proto_nucleate.toml` → `downstream_manifest.toml` in niche.rs, deploy graph, validators
-- **Downstream manifest aligned**: `validation_capabilities` updated to actual `physics.*`/`compute.*` methods; `nestgate` added to `depends_on`
-- **Spring validation manifest**: Capabilities expanded from 3 to all 13 served methods
+- **Downstream manifest aligned**: `validation_capabilities` corrected from hotSpring's own methods to actual primal IPC methods (`tensor.matmul`, `stats.mean`, `compute.dispatch`, `crypto.hash`, etc.)
+- **Capability domain routing fixed**: `validate_nucleus_node` and `validate_nucleus_composition` now route physics methods through "physics" domain (was incorrectly using "compute")
+- **harvest-ecobin.sh reconciled**: Script now generates full metadata schema matching committed `infra/plasmidBin/hotspring/metadata.toml` (`[provenance]`, `[compatibility]`, `[builds.*]`, `[genomeBin]`)
 
 ### Changed
-- `validate_all.rs` expanded from 37 to 62 suites (three-tier: Python baselines → Rust validation → NUCLEUS IPC composition)
+- `validate_all.rs` expanded from 37 to 63 suites (three-tier: Python baselines → Rust validation → NUCLEUS IPC composition + Level 5 primal proof)
 - `composition.rs` docstring clarified: `validate_science_probes()` checks liveness, not numeric parity
 - `primal_bridge.rs` and `toadstool_report.rs` now use centralized `niche::family_id()`
+- `graphs/README.md` documents deploy graph vs proto-nucleate distinction (Level 2-3 vs Level 5)
 
 ### Documentation
-- Root docs (README, EXPERIMENT_INDEX, whitePaper): dates, binary counts (164), suite counts (62/62), composition narrative updated
+- Root docs (README, EXPERIMENT_INDEX, whitePaper): dates, binary counts (165), suite counts (63/63), Level 5 primal proof narrative
 - `docs/PRIMAL_GAPS.md`: GAP-HS-026 marked RESOLVED; composition tolerance constants documented
 - `infra/wateringHole/NUCLEUS_SPRING_ALIGNMENT.md`: test count corrected (985), proto-nucleate reference updated
 - `primalSpring/graphs/spring_deploy/spring_deploy_manifest.toml`: hotSpring added as 6th science spring

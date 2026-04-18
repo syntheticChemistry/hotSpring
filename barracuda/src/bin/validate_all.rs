@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Meta-validator: runs all 62 hotSpring validation suites in sequence.
+//! Meta-validator: runs all 63 hotSpring validation suites in sequence.
 //!
 //! Exit code is 0 only if ALL validation binaries pass.
 //! Follows the hotSpring pattern: explicit pass/fail, exit code 0/1.
@@ -308,6 +308,11 @@ const SUITES: &[Suite] = &[
     Suite {
         name: "NUCLEUS Composition",
         binary: "validate_nucleus_composition",
+        requires_gpu: false,
+    },
+    Suite {
+        name: "Primal Proof (Level 5)",
+        binary: "validate_primal_proof",
         requires_gpu: false,
     },
     Suite {

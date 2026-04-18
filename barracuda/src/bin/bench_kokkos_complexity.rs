@@ -234,7 +234,7 @@ fn main() {
     println!();
 
     for case in CASES {
-        #[allow(clippy::float_cmp)] // exact kappa match from const table
+        #[expect(clippy::float_cmp, reason = "exact kappa match from const table")]
         let case_results: Vec<&ScalingResult> = results
             .iter()
             .filter(|r| r.method == format!("{}", case.expected_method) && r.kappa == case.kappa)

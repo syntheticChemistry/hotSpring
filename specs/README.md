@@ -1,7 +1,7 @@
 # hotSpring Specifications
 
 **Last Updated**: April 17, 2026
-**Status**: Phase A-J complete + NUCLEUS Composition Validation — 4,065+ tests (985 lib), 140 binaries, crate v0.6.32, barraCuda v0.3.11, toadStool S168+, coralReef Phase 10 Iter 78+. **Three-tier validation: Python → Rust → NUCLEUS IPC.** SovereignInit pipeline: 8-stage pure Rust nouveau replacement. NVIDIA GPFIFO pipeline OPERATIONAL on RTX 3090. AMD scratch/local memory OPERATIONAL on RX 6950 XT. 165+ experiments, 128 WGSL shaders. Ember Survivability Hardening COMPLETE. Squirrel wired in proto-nucleate. Science composition probes operational.
+**Status**: Phase A-J complete + Level 5 Primal Proof — 4,065+ tests (985 lib), 165 binaries, 63/63 validation suites, crate v0.6.32, barraCuda v0.3.11, toadStool S168+, coralReef Phase 10 Iter 78+. **Three-tier validation: Python → Rust → NUCLEUS IPC (Level 5 primal proof).** SovereignInit pipeline: 8-stage pure Rust nouveau replacement. NVIDIA GPFIFO pipeline OPERATIONAL on RTX 3090. AMD scratch/local memory OPERATIONAL on RX 6950 XT. 168+ experiments, 128 WGSL shaders. Ember Survivability Hardening COMPLETE. Squirrel wired in proto-nucleate. Science composition probes operational. `validate_primal_proof` harness calls barraCuda/BearDog primals over IPC.
 **Domain**: Computational plasma physics, nuclear structure, transport, lattice QCD, spectral theory, surrogate learning
 
 ---

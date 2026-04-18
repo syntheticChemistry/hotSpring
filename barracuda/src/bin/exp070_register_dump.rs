@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // Hardware-touching binary: reads GPU BAR0 registers via sysfs mmap or ember IPC.
-#![allow(unsafe_code)]
+#![cfg_attr(feature = "low-level", expect(unsafe_code, reason = "BAR0 register access via sysfs mmap + volatile reads requires unsafe"))]
 
 //! Experiment 070: BAR0 register dump for sovereign reverse engineering.
 //!

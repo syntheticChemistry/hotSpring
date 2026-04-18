@@ -406,7 +406,7 @@ For each absorption candidate:
 2. Create handoff doc in `wateringHole/handoffs/`
 3. Include: Rust source, WGSL template, binding layout, dispatch geometry, test suite
 4. After absorption: rewire hotSpring to `use barracuda::ops::*`, delete local code
-5. Run `validate_all` to confirm 62/62 suites still pass
+5. Run `validate_all` to confirm 63/63 suites still pass
 
 ---
 

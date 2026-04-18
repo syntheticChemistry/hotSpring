@@ -298,7 +298,7 @@ Result: **12/12 checks pass** (`validate_pure_gauge`).
 
 Result: Thermodynamic consistency validated (`validate_hotqcd_eos`).
 
-### Grand Total: 985 Unit Tests, 62/62 Validation Suites
+### Grand Total: 985 Unit Tests, 63/63 Validation Suites
 
 | Phase | Checks | Description |
 |-------|:------:|-------------|

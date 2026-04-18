@@ -148,7 +148,7 @@ fn main() {
 
     if !ctx.discovered.is_empty() {
         match ctx.call_by_capability(
-            "compute",
+            "physics",
             "physics.nuclear_eos",
             serde_json::json!({ "Z": z, "N": n }),
         ) {
@@ -179,7 +179,7 @@ fn main() {
         println!("    Rust plaquette (4⁴ β=6.0): {local_plaq:.6}");
 
         match ctx.call_by_capability(
-            "compute",
+            "physics",
             "physics.lattice_qcd",
             serde_json::json!({
                 "dims": dims, "beta": beta, "seed": seed
@@ -203,7 +203,7 @@ fn main() {
 
         // Probe 3: HMC trajectory through composition
         match ctx.call_by_capability(
-            "compute",
+            "physics",
             "physics.hmc_trajectory",
             serde_json::json!({
                 "dims": [4,4,4,4], "beta": 6.0, "n_steps": 10, "dt": 0.05, "seed": 42

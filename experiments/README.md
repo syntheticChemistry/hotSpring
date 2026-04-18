@@ -108,11 +108,13 @@ Not numbered experiments — systematic composition infrastructure:
 | `validate_nucleus_node` | binary | ✅ Node atomic (Tower + toadStool + barraCuda + coralReef) validation + science parity probes |
 | `validate_nucleus_nest` | binary | ✅ Nest atomic (Tower + NestGate + rhizoCrypt + loamSpine + sweetGrass) validation |
 | `validate_squirrel_roundtrip` | binary | ✅ Squirrel inference end-to-end (models, complete, embed) |
+| `validate_primal_proof` | binary | ✅ **Level 5 primal proof** — calls barraCuda/BearDog over IPC (`tensor.matmul`, `stats.mean`, `crypto.hash`, etc.), compares vs Python/Rust baselines |
 | `validate_science_probes` | library fn | ✅ compute health + math capability + provenance trio via IPC |
 | `graphs/hotspring_qcd_deploy.toml` | deploy graph | ✅ 10 primals, bonding policy, spawn order for biomeOS |
 | Composition audit + remediation | session | ✅ Socket fix, registration wiring, DAG/crypto alignment, validation.rs split |
 | Stadial audit (April 17) | session | ✅ deny.toml, `#[expect]` migration, dyn elimination, tolerance centralization, unsafe→OnceLock |
 | Primal composition proof (April 17) | session | ✅ Science parity probes, downstream_manifest alignment, all 13 methods dispatched |
+| Level 5 primal proof audit (April 17) | session | ✅ `validate_primal_proof` harness, IPC mapping doc, downstream manifest corrected to primal IPC methods, capability domain routing fixed, dyn dispatch eliminated |
 
 ## Benchmark Data
 

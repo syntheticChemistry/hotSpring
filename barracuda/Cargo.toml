@@ -848,6 +848,11 @@ path = "src/bin/exp167_warm_handoff.rs"
 name = "validate_nucleus_composition"
 path = "src/bin/validate_nucleus_composition.rs"
 
+# Level 5 primal proof: calls barraCuda/BearDog over IPC, compares vs baselines
+[[bin]]
+name = "validate_primal_proof"
+path = "src/bin/validate_primal_proof.rs"
+
 # Tower atomic (electron): BearDog + Songbird
 [[bin]]
 name = "validate_nucleus_tower"

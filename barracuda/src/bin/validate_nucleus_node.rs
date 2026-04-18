@@ -99,10 +99,10 @@ fn main() {
     );
     println!("    Local SEMF B.E.(Pb-208): {local_be:.4} MeV");
 
-    if let Some(hs) = ctx.get_by_capability("compute") {
+    if let Some(hs) = ctx.get_by_capability("physics") {
         if hs.alive {
             match ctx.call_by_capability(
-                "compute",
+                "physics",
                 "physics.nuclear_eos",
                 serde_json::json!({ "Z": z, "N": n }),
             ) {
@@ -139,10 +139,10 @@ fn main() {
         let local_plaq = lat.average_plaquette();
         println!("    Local plaquette (4⁴, β=6.0): {local_plaq:.6}");
 
-        if let Some(hs) = ctx.get_by_capability("compute") {
+        if let Some(hs) = ctx.get_by_capability("physics") {
             if hs.alive {
                 match ctx.call_by_capability(
-                    "compute",
+                    "physics",
                     "physics.lattice_qcd",
                     serde_json::json!({
                         "dims": dims, "beta": beta, "seed": seed
