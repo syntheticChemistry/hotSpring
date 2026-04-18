@@ -152,35 +152,29 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 | — | No deploy graphs | `graphs/hotspring_qcd_deploy.toml` created from proto-nucleate | Apr 11, 2026 |
 | — | discover_capabilities() duplicated niche | Delegates to `niche::all_capabilities()` as source of truth | Apr 11, 2026 |
 
-### GAP-HS-032: guideStone Binary Unification
+### GAP-HS-032: guideStone Binary Unification — RESOLVED
 
 - **Primal:** hotSpring (self)
-- **Severity:** Low (Level 5 is functional, consolidation improves ergonomics)
-- **Status:** Active
-- **Description:** hotSpring's guideStone infrastructure is split across two artifacts:
-  `validation/hotspring` (bare guideStone, Properties 1-5 without primals) and
-  `validate_primal_proof` (Level 5 IPC harness, 9 probes, 10 capabilities). The
-  primalSpring v0.9.15 guideStone standard specifies a single `hotspring_guidestone`
-  binary that does both: bare properties + IPC parity when NUCLEUS is available. This
-  binary should use `primalspring::composition::{CompositionContext, validate_parity}`
-  from the public API.
-- **Action:** Create `hotspring_guidestone` binary combining bare validation + IPC
-  probes + primalSpring pre-flight. Keep `validate_primal_proof` as the testing shim
-  until migration is complete.
+- **Severity:** Low
+- **Status:** **Resolved** (April 18, 2026)
+- **Resolution:** Created `hotspring_guidestone` binary using
+  `primalspring::composition::{CompositionContext, validate_parity, validate_liveness}`
+  API. Bare guideStone validates Properties 1-5 without primals; NUCLEUS additive
+  layer tests scalar parity (stats.mean), vector parity (tensor.matmul), SEMF
+  end-to-end, crypto.hash provenance witness, and compute.dispatch via IPC.
+  `validate_primal_proof` retained for backward compatibility and extended IPC
+  probes using hotSpring's own `NucleusContext`.
 
-### GAP-HS-033: primalSpring Composition API Adoption
+### GAP-HS-033: primalSpring Composition API Adoption — RESOLVED
 
 - **Primal:** hotSpring (self) / primalSpring
 - **Severity:** Low
-- **Status:** Active
-- **Description:** hotSpring uses its own `NucleusContext` for IPC discovery and
-  calls (`primal_bridge.rs`). The primalSpring v0.9.15 standard provides
-  `primalspring::composition::CompositionContext` with `validate_parity()`,
-  `validate_liveness()`, and `method_to_capability_domain()`. The guideStone binary
-  should use the primalSpring API for consistency; the existing `NucleusContext` stays
-  for the hotSpring server and Tier 2 validators.
-- **Action:** Add `primalspring` as a dependency (dev/optional) for the guideStone
-  binary. Migrate `validate_primal_proof` to use `CompositionContext`.
+- **Status:** **Resolved** (April 18, 2026)
+- **Resolution:** Added `primalspring` as a path dependency.
+  `hotspring_guidestone` binary uses `CompositionContext::from_live_discovery_with_fallback()`,
+  `validate_parity()`, `validate_parity_vec()`, `validate_liveness()`, and
+  `primalspring::tolerances` for all IPC parity checks. hotSpring's own
+  `NucleusContext` retained for the server binary and Tier 2 validators.
 
 ### GAP-HS-029: Fork Isolation Pattern Not in Ecosystem Standard
 

@@ -148,6 +148,11 @@ coral-gpu = { path = "../../../primals/coralReef/crates/coral-gpu", optional = t
 # metalForge substrate probe (hardware FP64-rate classification, dispatch profiles)
 hotspring-forge = { path = "../metalForge/forge" }
 
+# primalSpring composition API — guideStone binary uses CompositionContext,
+# validate_parity, validate_liveness for Level 5 certification. Not used by
+# the library or other binaries (they use hotSpring's own NucleusContext).
+primalspring = { path = "../../primalSpring/ecoPrimal" }
+
 # Low-level syscalls (mmap for BAR0 register reading in Exp 070 binaries; optional)
 rustix = { version = "1.1", optional = true, features = ["mm", "net"] }
 cudarc = { version = "0.19.3", features = ["driver", "cuda-12060", "nvrtc"], optional = true }
@@ -872,4 +877,9 @@ path = "src/bin/validate_nucleus_nest.rs"
 [[bin]]
 name = "validate_squirrel_roundtrip"
 path = "src/bin/validate_squirrel_roundtrip.rs"
+
+# guideStone: self-validating NUCLEUS deployable (Level 5 certified)
+[[bin]]
+name = "hotspring_guidestone"
+path = "src/bin/hotspring_guidestone.rs"
 

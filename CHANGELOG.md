@@ -7,7 +7,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
-## Unreleased — guideStone Alignment (April 18, 2026)
+## Unreleased — guideStone Binary + Alignment (April 18, 2026)
+
+### Added
+- **`hotspring_guidestone` binary** — self-validating NUCLEUS deployable using `primalspring::composition` API. Combines bare guideStone validation (Properties 1-5 without primals) with IPC parity probes (stats.mean, tensor.matmul, crypto.hash, compute.dispatch) against live NUCLEUS primals. Exit 0/1/2 semantics.
+- `primalspring` dependency (path) — for `CompositionContext`, `validate_parity`, `validate_liveness`, `ValidationResult`
+- Binary count: 165 → 166
+- Validation suite count: 63 → 64/64
 
 ### Changed
 - **guideStone alignment**: Absorbed primalSpring v0.9.15 guideStone Composition Standard. hotSpring is Level 5 CERTIFIED (reference implementation). All 5 guideStone properties satisfied:
@@ -21,7 +27,7 @@ This file covers the spring as a whole. For crate-level details see
 
 ### Documentation
 - README: guideStone standard terminology, validation ladder, pre-flight pattern
-- `docs/PRIMAL_GAPS.md`: Added guideStone-specific gaps for upstream primal teams
+- `docs/PRIMAL_GAPS.md`: Added GAP-HS-032 (guideStone binary unification) and GAP-HS-033 (primalSpring composition API adoption)
 
 ## Unreleased — Level 5 Primal Proof Audit (April 17, 2026)
 

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Meta-validator: runs all 63 hotSpring validation suites in sequence.
+//! Meta-validator: runs all 64 hotSpring validation suites in sequence.
 //!
 //! Exit code is 0 only if ALL validation binaries pass.
 //! Follows the hotSpring pattern: explicit pass/fail, exit code 0/1.
@@ -333,6 +333,11 @@ const SUITES: &[Suite] = &[
     Suite {
         name: "Squirrel Inference Round-Trip",
         binary: "validate_squirrel_roundtrip",
+        requires_gpu: false,
+    },
+    Suite {
+        name: "guideStone (Level 5 Certified)",
+        binary: "hotspring_guidestone",
         requires_gpu: false,
     },
 ];

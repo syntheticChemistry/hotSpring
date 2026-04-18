@@ -52,7 +52,7 @@ hotSpring is the reference implementation for the guideStone Composition Standar
 
 ## Current Status (2026-04-17)
 
-> **168+ experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **985 lib tests, 165 binaries, 63/63 validation suites, 128 WGSL shaders** | **deny.toml** (ecoBin C-dep bans) | **all 13 physics/compute methods wired in JSON-RPC server** | **zero `dyn` dispatch, zero unsafe, `#[expect]` over `#[allow]`** | **guideStone artifact: 59/59 checks x 5 substrates (x86_64 + aarch64)** | **OCI container image + Windows/macOS launchers** | **NVIDIA GPFIFO pipeline OPERATIONAL on RTX 3090** | **AMD scratch/local memory OPERATIONAL on RX 6950 XT** | **AMD sovereign compiler: 24/24 QCD shaders compile to native GFX ISA** | **Ember Survivability Hardening COMPLETE** | **Firmware Boundary → SovereignInit Pipeline COMPLETE** | **NUCLEUS Composition Evolution COMPLETE — LOCAL/ROUTED capability split, biomeOS registration, ValidationSink/NDJSON/Skip, OrExit, capability_registry.toml sync, standalone mode, plasmidBin schema aligned** | **Primal Composition Proof — science parity probes (IPC vs Rust baselines), centralized composition tolerances, `OnceLock` family_id, `downstream_manifest.toml` alignment** | **Level 5 Primal Proof — `validate_primal_proof` harness calls barraCuda/BearDog over IPC, compares vs Python/Rust baselines, 10 manifest capabilities exercised**
+> **168+ experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **985 lib tests, 166 binaries, 64/64 validation suites, 128 WGSL shaders** | **deny.toml** (ecoBin C-dep bans) | **all 13 physics/compute methods wired in JSON-RPC server** | **zero `dyn` dispatch, zero unsafe, `#[expect]` over `#[allow]`** | **guideStone artifact: 59/59 checks x 5 substrates (x86_64 + aarch64)** | **OCI container image + Windows/macOS launchers** | **NVIDIA GPFIFO pipeline OPERATIONAL on RTX 3090** | **AMD scratch/local memory OPERATIONAL on RX 6950 XT** | **AMD sovereign compiler: 24/24 QCD shaders compile to native GFX ISA** | **Ember Survivability Hardening COMPLETE** | **Firmware Boundary → SovereignInit Pipeline COMPLETE** | **NUCLEUS Composition Evolution COMPLETE — LOCAL/ROUTED capability split, biomeOS registration, ValidationSink/NDJSON/Skip, OrExit, capability_registry.toml sync, standalone mode, plasmidBin schema aligned** | **Primal Composition Proof — science parity probes (IPC vs Rust baselines), centralized composition tolerances, `OnceLock` family_id, `downstream_manifest.toml` alignment** | **Level 5 Primal Proof — `validate_primal_proof` harness calls barraCuda/BearDog over IPC, compares vs Python/Rust baselines, 10 manifest capabilities exercised**
 >
 > **Three-Tier Validation Architecture (2026-04-17):** Python baselines → Rust validation → NUCLEUS primal composition validation. The same tolerance-driven, exit-code-gated methodology that proved Rust matches Python now proves IPC-composed NUCLEUS patterns match direct Rust execution. Composition validators (`validate_nucleus_*`) run standalone (skip-pass for CI, exit 2 = all skipped) or against live primals (full IPC validation). `validate_science_probes()` validates compute, math, and provenance trio capabilities via IPC with Rust baseline parity. Pattern documented for sibling spring adoption in wateringHole handoffs.
 >
@@ -175,7 +175,7 @@ ToadStool **S168** adds `shader.dispatch` completing the orchestration layer for
 The `barracuda/` directory is a standalone Rust crate providing the validation
 environment, physics implementations, and GPU compute. Key architectural properties:
 
-- **985 tests** (lib), **165 binaries**, **63 validation suites** (63/63 pass via `validate_all`; 83 individual `validate_*` binaries), **128 WGSL shaders** (all AGPL-3.0-only),
+- **985 tests** (lib), **166 binaries**, **64 validation suites** (64/64 pass via `validate_all`; 84 individual `validate_*` binaries + `hotspring_guidestone`), **128 WGSL shaders** (all AGPL-3.0-only),
   **16 determinism tests** (rerun-identical for all stochastic algorithms). Includes
   lattice QCD (complex f64, SU(3), Wilson action, HMC, Dirac CG, pseudofermion HMC),
   Abelian Higgs (U(1) + Higgs, HMC), transport coefficients (Green-Kubo D*/η*/λ*,
@@ -205,7 +205,7 @@ environment, physics implementations, and GPU compute. Key architectural propert
   pipeline, NPU quantization, and NPU beyond-SDK hardware capabilities.
   Zero inline magic numbers — all validation binaries and solver loops wired to `tolerances::*`.
 - **ValidationHarness** — structured pass/fail tracking with exit code 0/1.
-  56 of 165 binaries use it (validation targets). Remaining binaries are optimization
+  56 of 166 binaries use it (validation targets). Remaining binaries are optimization
   explorers, benchmarks, and diagnostics.
 - **Shared data loading** — `data::EosContext` and `data::load_eos_context()`
   eliminate duplicated path construction across all nuclear EOS binaries.
@@ -252,7 +252,7 @@ cd barracuda
 cargo test               # 985 tests (lib), 6 ignored (~700s; spectral tests upstream)
 cargo clippy --all-targets  # Zero warnings (pedantic + nursery via Cargo.toml workspace lints)
 cargo doc --no-deps      # Full API documentation — 0 warnings
-cargo run --release --bin validate_all  # 63/63 suites pass
+cargo run --release --bin validate_all  # 64/64 suites pass
 ```
 
 See [`barracuda/CHANGELOG.md`](barracuda/CHANGELOG.md) for version history.
@@ -365,7 +365,7 @@ hotSpring/
 │   ├── PRIMAL_GAPS.md                # NUCLEUS composition gaps (handback to primalSpring)
 │   └── PRIMAL_PROOF_IPC_MAPPING.md   # Level 5: domain science → primal IPC method mapping
 │
-├── barracuda/                          # BarraCuda Rust crate (985 tests, 165 binaries, 128 WGSL shaders)
+├── barracuda/                          # BarraCuda Rust crate (985 tests, 166 binaries, 128 WGSL shaders)
 │   ├── Cargo.toml                     # Dependencies (requires ecoPrimals/barraCuda)
 │   ├── CHANGELOG.md                   # Version history
 │   ├── ABSORPTION_MANIFEST.md         # Write → Absorb → Lean tracking
@@ -374,7 +374,7 @@ hotSpring/
 │       ├── composition.rs             # NUCLEUS atomic health probes and capability routing
 │       ├── mcp_tools.rs              # MCP tool schemas for AI/LLM integration
 │       ├── hotspring_primal.rs       # JSON-RPC server (health, capability, composition, MCP)
-│       └── bin/                       # 165 binaries (validation, production, benchmarks, composition)
+│       └── bin/                       # 166 binaries (validation, production, benchmarks, composition, guideStone)
 │
 ├── experiments/                        # 168+ experiment journals (fossil record); 001-143 archived under experiments/archive/
 │   ├── archive/                        # experiments 001-057 (archived journals)
@@ -434,7 +434,7 @@ a network service, you must make your source available under the same terms.
 
 ---
 
-*168+ experiments, 985 tests, 165 binaries, 128 WGSL shaders, ~$0.30 total science cost.
+*168+ experiments, 985 tests, 166 binaries, 128 WGSL shaders, ~$0.30 total science cost.
 Consumer GPUs reproduce HPC physics at paper parity. DF64 delivers 3.24 TFLOPS at
 14-digit precision. GPU RHMC runs all-flavors dynamical QCD (Nf=2+1). Self-tuning
 RHMC eliminates hand-tuned parameters. Chuna 44/44 checks pass. RTX 3090 GPFIFO
