@@ -26,6 +26,22 @@ hotSpring is where we reproduce published computational physics work from the Mu
 
 hotSpring answers: *"Does our hardware produce correct physics?"*, *"Can Rust+WGSL replace the Python scientific stack?"*, and *"Can IPC-composed NUCLEUS primals reproduce what standalone Rust proves?"*
 
+### guideStone Status: Level 5 — CERTIFIED (reference implementation)
+
+hotSpring is the reference implementation for the guideStone Composition Standard (primalSpring v0.9.15). The guideStone is a self-validating deployable that carries its own benchmark — all 5 certified properties are satisfied:
+
+| Property | Evidence |
+|----------|----------|
+| **1. Deterministic** | Same binary, same results. Cross-substrate parity (Python/CPU/GPU). `validation/` artifact: 59/59 checks × 5 substrates. |
+| **2. Reference-traceable** | Every value traces to a paper or proof via `BaselineProvenance` / `AnalyticalProvenance`. DOIs for AME2020, Chabanat, Kortelainen, Bender, Lattimer & Prakash. |
+| **3. Self-verifying** | CHECKSUMS file (SHA-256). Tampered inputs → non-zero exit. |
+| **4. Environment-agnostic** | ecoBin compliant, static musl, no sudo, no network, no GPU required for core validation. |
+| **5. Tolerance-documented** | 308 named constants in `tolerances/` module tree with physical/mathematical derivations. |
+
+**Validation ladder**: Python baseline (L1) → Rust proof (L2, DONE) → barraCuda CPU (L3) → barraCuda GPU (L4) → **guideStone (L5, CERTIFIED)** → NUCLEUS deployment (L6, target).
+
+**Pre-flight**: `primalspring_guidestone` certifies composition correctness (6 layers). hotSpring's domain guideStone inherits that base and only validates QCD physics on top.
+
 > **For the physics**: See [`PHYSICS.md`](PHYSICS.md) for complete equation documentation
 > with numbered references — every formula, every constant, every approximation.
 >

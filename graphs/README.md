@@ -35,15 +35,30 @@ dispatches domain science via in-process library calls.
 
 Used for: `biomeos deploy --graph graphs/hotspring_qcd_deploy.toml`
 
+### guideStone Deployment (Level 5-6)
+
+The guideStone is a self-validating deployable. In Level 6, it deploys as a node
+in the proto-nucleate graph alongside primals. In Level 5 (current), it runs
+externally and validates IPC parity. The existing `validate_primal_proof` binary
+is the Level 5 IPC harness; the `validation/hotspring` artifact is the bare
+guideStone (Properties 1-5 without primals). The next evolution combines these
+into a single `hotspring_guidestone` binary following the pattern in
+`primalSpring/wateringHole/GUIDESTONE_COMPOSITION_STANDARD.md`.
+
+The `primalspring_guidestone` binary provides base composition certification (6
+layers: graph parsing, discovery, health, capability parity, cross-atomic
+pipeline, bonding, crypto). hotSpring's domain guideStone inherits that and only
+validates QCD physics on top.
+
 ### Summary
 
-| Property | Proto-Nucleate | Deploy Graph |
-|----------|---------------|--------------|
-| Location | primalSpring/graphs/downstream/ | graphs/ (this directory) |
-| Spring binary as node | No | Yes (order = 10) |
-| Purpose | Level 5 primal proof | Level 2-3 integration |
-| Consumed by | validate_primal_proof harness | biomeOS deploy |
-| Primals | Pure NUCLEUS primals only | Primals + spring server |
+| Property | Proto-Nucleate | Deploy Graph | guideStone |
+|----------|---------------|--------------|------------|
+| Location | primalSpring/graphs/downstream/ | graphs/ (this directory) | validation/ + validate_primal_proof |
+| Spring binary as node | No | Yes (order = 10) | No (validates externally) |
+| Purpose | Level 5 primal proof target | Level 2-3 integration | Level 5-6 self-validation |
+| Consumed by | validate_primal_proof harness | biomeOS deploy | biomeOS (Level 6) or standalone |
+| Primals | Pure NUCLEUS primals only | Primals + spring server | Primals (additive) |
 
 ## License
 

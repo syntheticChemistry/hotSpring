@@ -7,6 +7,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Unreleased — guideStone Alignment (April 18, 2026)
+
+### Changed
+- **guideStone alignment**: Absorbed primalSpring v0.9.15 guideStone Composition Standard. hotSpring is Level 5 CERTIFIED (reference implementation). All 5 guideStone properties satisfied:
+  1. Deterministic — same binary, same results, cross-substrate parity (Python/CPU/GPU)
+  2. Reference-traceable — every value has `BaselineProvenance` or `AnalyticalProvenance` with DOIs
+  3. Self-verifying — CHECKSUMS file, integrity validation on execution
+  4. Environment-agnostic — ecoBin, static musl, no sudo, no network, no GPU required for core
+  5. Tolerance-documented — 308 named constants with physical/mathematical derivations
+- `downstream_manifest.toml`: Added `guidestone_binary`, `guidestone_readiness = 5`, `guidestone_properties` to hotspring entry
+- Deploy graph vs proto-nucleate vs guideStone: `graphs/README.md` updated with guideStone deployment model
+
+### Documentation
+- README: guideStone standard terminology, validation ladder, pre-flight pattern
+- `docs/PRIMAL_GAPS.md`: Added guideStone-specific gaps for upstream primal teams
+
 ## Unreleased — Level 5 Primal Proof Audit (April 17, 2026)
 
 ### Added
