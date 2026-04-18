@@ -50,7 +50,7 @@ cargo test --lib          # 985 library tests
 cargo clippy --all-targets  # 0 warnings (pedantic + nursery)
 cargo doc --no-deps       # Full API docs, 0 warnings
 
-cargo run --release --bin validate_all  # 39/39 validation suites
+cargo run --release --bin validate_all  # 62/62 validation suites
 ```
 
 Requires the [barraCuda](../../barraCuda/) primal at `../../barraCuda/crates/barracuda`.
@@ -140,7 +140,7 @@ pattern in the overnight binary is the reference for multi-GPU + profiling adopt
 
 ## Validation Suites
 
-39 validation suites covering 22 papers across 4 substrates:
+62 validation suites covering 22 papers across 4 substrates:
 
 | Substrate | Coverage |
 |-----------|----------|
@@ -156,7 +156,7 @@ pattern in the overnight binary is the reference for multi-GPU + profiling adopt
 See [CHANGELOG.md](CHANGELOG.md) for full version history.
 
 Current: **v0.6.32** (April 11, 2026)
-- 985 lib tests, 140 binaries, 128 WGSL shaders, 0 clippy warnings (lib)
+- 985 lib tests, 164 binaries, 128 WGSL shaders, 0 clippy warnings (lib)
 - NUCLEUS composition validation, science probes, Squirrel wired
 - Three-tier validation: Python → Rust → NUCLEUS IPC
 - barraCuda v0.3.5 (`8d63c77`), toadStool S146, coralReef Phase 10 Iter 31

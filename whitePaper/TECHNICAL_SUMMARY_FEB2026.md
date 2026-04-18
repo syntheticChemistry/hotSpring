@@ -25,7 +25,7 @@ magnitude below institutional HPC.
 |--------|-------|
 | Papers reproduced | 22 |
 | Quantitative validation checks | ~700 |
-| Validation suites (all passing) | 39/39 |
+| Validation suites (all passing) | 62/62 |
 | WGSL compute shaders | 628+ |
 | Physics domains | 5 (plasma MD, nuclear structure, lattice QCD, spectral theory, Abelian gauge) |
 | Computational substrates | 4 (CPU, consumer GPU, Titan V, neuromorphic NPU) |

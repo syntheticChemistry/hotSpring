@@ -203,7 +203,7 @@ and trajectory count (n_md) in real time.  Key design: the NPU is an
 controller during crisis regimes (acceptance < 40% or |ΔH| > 5) and only
 steers when the system has stabilized.
 
-See [`NPU_STEERING_LESSONS.md`](NPU_STEERING_LESSONS.md) for full writeup.
+See [`whitePaper/baseCamp/neuromorphic_silicon.md`](whitePaper/baseCamp/neuromorphic_silicon.md) for full writeup (NPU steering lessons absorbed into baseCamp).
 
 ---
 

@@ -1,10 +1,10 @@
 # hotSpring — Experiment & Validation Index
 
-> **Last audited:** April 11, 2026 · **985 lib tests** · **140 binaries** · **82** `validate_*` binaries · **128 WGSL shaders**.
+> **Last audited:** April 17, 2026 · **985 lib tests** · **164 binaries** · **82** `validate_*` binaries · **62/62 validation suites** · **128 WGSL shaders**.
 >
-> Experiments 001–165 validate Python→Rust fidelity and sovereign GPU compute. **Phase 2** (NUCLEUS composition validation) is tracked via `validate_nucleus_*` binaries and [`docs/PRIMAL_GAPS.md`](docs/PRIMAL_GAPS.md).
+> Experiments 001–168 validate Python→Rust fidelity and sovereign GPU compute. **Phase 2** (NUCLEUS composition validation) is tracked via `validate_nucleus_*` binaries and [`docs/PRIMAL_GAPS.md`](docs/PRIMAL_GAPS.md). **Phase 3** (primal composition proof) validates IPC-composed NUCLEUS patterns against direct Rust baselines.
 
-> Updated April 11, 2026. This is the authoritative ledger of all
+> Updated April 17, 2026. This is the authoritative ledger of all
 > experiments, validation suites, and benchmark data. For project overview, see [README.md](README.md).
 > Experiments 001-143 archived to `experiments/archive/` — completed physics, benchmark, sovereign GPU, and ember hardening work, results absorbed into baseCamp and coralReef code.
 > Note: Experiments 096-105 have dual-numbered IDs (physics + sovereign GPU tracks ran in parallel). Filenames are self-descriptive. Exp 136b disambiguated from 136.
@@ -105,7 +105,7 @@
 | **toadStool S60 DF64 Expansion** | ✅ Complete | FMA-optimized df64_core. 60% of HMC in DF64. |
 | **Mixed Pipeline β-Scan** | ⏸️ Partial | 3-substrate (3090+NPU+Titan V). DF64 2× confirmed at 32⁴. |
 | **Cross-Spring Rewiring** | ✅ Complete | GPU Polyakov loop (72× less transfer), NVK alloc guard, PRNG fix. |
-| **Debt Reduction Audit** | ✅ Complete | 685 tests (lib), 47 validation binaries. |
+| **Debt Reduction Audit** | ✅ Complete | 985 tests (lib), 82 validation binaries. |
 | **DF64 Production Benchmark** (Exp 018) | ✅ Complete | 32⁴ at 7.1h mixed (vs 13.6h FP64-only). |
 | **Forge Evolution Validation** (Exp 019) | ✅ Complete | metalForge streaming pipeline: 9/9 domains. |
 | **NPU Characterization Campaign** (Exp 020) | ✅ Complete | 13/13: thermalization detector 87.5%, rejection predictor 96.2%. |
@@ -198,7 +198,7 @@
 | **Firmware Boundary** (Exp 163) | ✅ Complete | biomeGate: **Architectural pivot.** Driver/firmware/hardware delineation. Falcon firmware = GPU's BIOS. PMU mailbox protocol mapped (register-based on GV100). Hot-handoff channel injection proven (CH 500 accepted by scheduler). **NOP dispatch via nouveau DRM: SUCCEEDED** (C + pure Rust). `PmuInterface` struct created. End-to-end: `VM_INIT → CHANNEL_ALLOC(VOLTA_COMPUTE_A) → GEM → VM_BIND → EXEC → SYNCOBJ`. |
 | **Sovereign Compute Dispatch Proven** (Exp 164) | ✅ Complete | biomeGate: NOP dispatch proven via DRM + pure Rust ioctls. nouveau warm-cycle preserves HBM2 training. `reset_method` clear prevents FLR from destroying trained memory. Channel injection alongside nouveau scheduler validated. |
 | **SovereignInit Full Pipeline** (Exp 165) | ✅ Complete | biomeGate: 8-stage `SovereignInit` pipeline replaces nouveau subsystem by subsystem. Stages: HBM2 Training → PMC Gating → Topology → PFB → Falcon Boot (15 strategies) → GR Init → PFIFO → GR Context. `open_sovereign()` entry point. GR init extracted to standalone fns. `SovereignInitResult` with `compute_ready()` + `diagnostic_summary()`. FECS method probe validates responsiveness. Optional Stage 7 GR context allocation + golden save. 429 coral-driver tests pass. |
-| **TOTAL** | **39/39 Rust validation suites** | **985 tests (lib)**, 140 binaries (82 `validate_*`), 128 WGSL shaders. Zero clippy, zero unsafe, AGPL-3.0-only. **Science ladder:** Quenched → Gradient Flow → Integrators → N_f=4 Infra → Chuna 44/44 → N_f=2 → N_f=2+1 → Self-tuning → Silicon saturation → 16⁴+ production → **Firmware Boundary → NOP Dispatch → SovereignInit Pipeline (pure Rust, zero nouveau) → NUCLEUS Composition Validation → Composition Evolution (science probes, capability routing, biomeOS scheduling)**. 165+ experiments. Experiments 001-143 archived to `experiments/archive/` (completed physics validation + sovereign GPU + ember hardening, absorbed into baseCamp and coralReef). |
+| **TOTAL** | **62/62 validation suites** | **985 tests (lib)**, 164 binaries (82 `validate_*`), 128 WGSL shaders. Zero clippy, zero unsafe, zero `dyn` dispatch (prod), AGPL-3.0-only. `deny.toml` enforced (ecoBin C-dep bans). `#[expect(lint, reason)]` in all production code. **Science ladder:** Quenched → Gradient Flow → Integrators → N_f=4 Infra → Chuna 44/44 → N_f=2 → N_f=2+1 → Self-tuning → Silicon saturation → 16⁴+ production → **Firmware Boundary → NOP Dispatch → SovereignInit Pipeline (pure Rust, zero nouveau) → NUCLEUS Composition Validation → Composition Evolution → Primal Composition Proof (science parity probes, IPC vs Rust baselines, centralized tolerances)**. 168+ experiments. Experiments 001-143 archived to `experiments/archive/` (completed physics validation + sovereign GPU + ember hardening, absorbed into baseCamp and coralReef). |
 
 ---
 
@@ -287,8 +287,8 @@ Run the UCLA-MSU TTM for laser-plasma equilibration.
 | Document | Purpose |
 |----------|---------|
 | [`PHYSICS.md`](PHYSICS.md) | Complete physics documentation — every equation, constant, approximation |
-| [`CONTROL_EXPERIMENT_STATUS.md`](CONTROL_EXPERIMENT_STATUS.md) | Full status with numbers, evolution history |
-| [`NUCLEAR_EOS_STRATEGY.md`](NUCLEAR_EOS_STRATEGY.md) | Nuclear EOS Phase A→B strategy |
+| [`whitePaper/CONTROL_EXPERIMENT_SUMMARY.md`](whitePaper/CONTROL_EXPERIMENT_SUMMARY.md) | Phase A summary with numbers |
+| [`PHYSICS.md`](PHYSICS.md) | Physics equations, constants, nuclear EOS strategy |
 | [`barracuda/CHANGELOG.md`](barracuda/CHANGELOG.md) | Crate version history |
 | [`barracuda/EVOLUTION_READINESS.md`](barracuda/EVOLUTION_READINESS.md) | Module → shader → GPU promotion tier |
 | [`specs/README.md`](specs/README.md) | Specification index |

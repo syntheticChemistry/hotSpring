@@ -406,10 +406,10 @@ For each absorption candidate:
 2. Create handoff doc in `wateringHole/handoffs/`
 3. Include: Rust source, WGSL template, binding layout, dispatch geometry, test suite
 4. After absorption: rewire hotSpring to `use barracuda::ops::*`, delete local code
-5. Run `validate_all` to confirm 39/39 suites still pass
+5. Run `validate_all` to confirm 62/62 suites still pass
 
 ---
 
 ## Workspace test coverage (April 10, 2026 audit)
 
-**985** library tests · **140** `[[bin]]` targets (cargo workspace). See `EXPERIMENT_INDEX.md` for `validate_*` and WGSL shader counts.
+**985** library tests · **164** `[[bin]]` targets (cargo workspace). See `EXPERIMENT_INDEX.md` for `validate_*` and WGSL shader counts.

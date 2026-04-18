@@ -57,5 +57,5 @@ Published paper (Python/FORTRAN/HPC)
 - **toadStool** (`../../../phase1/toadStool/`): Hardware discovery and orchestration; `shader.dispatch`.
 - **primalSpring** (`../../../primalSpring/`): NUCLEUS composition definitions, proto-nucleate graphs, deployment matrix.
 - **Experiment journals**: `../../experiments/`
-- **Handoffs**: `ecoPrimals/infra/wateringHole/handoffs/` (including April 11, 2026 composition evolution and primal usage handoff)
+- **Handoffs**: `ecoPrimals/infra/wateringHole/handoffs/` (including April 17, 2026 stadial audit and primal absorption handoffs)
 - **Primal gaps**: [`../../docs/PRIMAL_GAPS.md`](../../docs/PRIMAL_GAPS.md) — discovered gaps handed back to primalSpring

@@ -7,7 +7,39 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
-## Unreleased — Composition Audit + Doc Cleanup (April 11, 2026)
+## Unreleased — Stadial Audit + Primal Composition Proof (April 17, 2026)
+
+### Added
+- `deny.toml` for barracuda + metalForge/forge — ecoBin C-dep bans, async-trait ban, license allowlist
+- `rust-version = "1.87"` in Cargo.toml (ecosystem MSRV target)
+- Composition parity tolerances: `COMPOSITION_SEMF_PARITY_REL` (1e-10), `COMPOSITION_PLAQUETTE_PARITY_ABS` (1e-12) in `tolerances/physics.rs`
+- Science parity probes in `validate_nucleus_node` and `validate_nucleus_composition` — local Rust values vs IPC-routed primal results within centralized tolerances
+- `niche::set_family_id()` + `OnceLock` for thread-safe family ID resolution
+- wateringHole handoffs: `HOTSPRING_V0632_STADIAL_AUDIT_HANDOFF_APR17_2026.md`, `HOTSPRING_V0632_PRIMAL_ABSORPTION_HANDOFF_APR17_2026.md`
+
+### Fixed
+- **GAP-HS-026 resolved**: All 13 physics/compute methods wired in `hotspring_primal.rs` server dispatch with `catch_unwind` safety — no more `-32001` pending stubs
+- **Unsafe elimination**: Replaced `unsafe { std::env::set_var("FAMILY_ID", ...) }` with `niche::set_family_id()` using `OnceLock`
+- **`dyn` dispatch eliminated**: `GpuRegisterMap` enum replaces `Box<dyn RegisterMap>`; `ValidationSink` enum replaces `Arc<dyn ValidationSink>`
+- **`#[allow]` → `#[expect]` migration**: All production binary code (11 files, ~20 sites) migrated to `#[expect(lint, reason = "...")]`; library `#[allow]` in `#[cfg(test)]` retained per convention
+- **Inline tolerances centralized**: ~15 numeric literals in `validate_chuna.rs` replaced with named constants from `tolerances::*`; 10 new constants added with documented rationale
+- **Deploy graph capability fix**: `coralreef` `by_capability` corrected from `shader_compile` to `shader` in `hotspring_qcd_deploy.toml`
+- **Proto-nucleate references**: Updated stale `hotspring_qcd_proto_nucleate.toml` → `downstream_manifest.toml` in niche.rs, deploy graph, validators
+- **Downstream manifest aligned**: `validation_capabilities` updated to actual `physics.*`/`compute.*` methods; `nestgate` added to `depends_on`
+- **Spring validation manifest**: Capabilities expanded from 3 to all 13 served methods
+
+### Changed
+- `validate_all.rs` expanded from 37 to 62 suites (three-tier: Python baselines → Rust validation → NUCLEUS IPC composition)
+- `composition.rs` docstring clarified: `validate_science_probes()` checks liveness, not numeric parity
+- `primal_bridge.rs` and `toadstool_report.rs` now use centralized `niche::family_id()`
+
+### Documentation
+- Root docs (README, EXPERIMENT_INDEX, whitePaper): dates, binary counts (164), suite counts (62/62), composition narrative updated
+- `docs/PRIMAL_GAPS.md`: GAP-HS-026 marked RESOLVED; composition tolerance constants documented
+- `infra/wateringHole/NUCLEUS_SPRING_ALIGNMENT.md`: test count corrected (985), proto-nucleate reference updated
+- `primalSpring/graphs/spring_deploy/spring_deploy_manifest.toml`: hotSpring added as 6th science spring
+
+## v0.6.32 — Composition Audit + Doc Cleanup (April 11, 2026)
 
 ### Added
 - `graphs/` directory with deploy TOMLs aligned to proto-nucleate

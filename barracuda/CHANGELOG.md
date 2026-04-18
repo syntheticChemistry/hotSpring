@@ -5,13 +5,13 @@ All notable changes to the hotSpring BarraCuda validation crate.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased — Composition Evolution (April 11, 2026)
+## Unreleased — Composition Evolution (April 11, 2026; April 17, 2026 work is logged in the repository root `CHANGELOG.md`)
 
 ### Added
 - **Science composition probes** (`composition.rs`): `validate_science_probes()` executes `probe_compute_health`, `probe_math_capability`, and `probe_provenance_trio` — validates IPC-composed NUCLEUS patterns against local Rust baselines
 - **biomeOS scheduling metadata** (`niche.rs`): `operation_dependencies()`, `cost_estimates()`, `SEMANTIC_MAPPINGS`, `socket_dirs()`, `resolve_server_socket()`, `resolve_neural_api_socket()` — matches sibling spring patterns for biomeOS orchestration
 - **Brain persistence module** (`lattice/gpu_hmc/brain_persistence.rs`): `BrainState`, `SerializableWeights`, and persistence functions extracted from `brain_rhmc.rs` to stay under 1000 LOC
-- **Squirrel in proto-nucleate**: Optional node (Phase 3) in `hotspring_qcd_proto_nucleate.toml` with `inference.*` capabilities
+- **Squirrel in proto-nucleate**: Optional node (Phase 3) in `downstream_manifest.toml` with `inference.*` capabilities
 
 ### Changed
 - **Capability-based routing** (`primal_bridge.rs`): `by_domain()` is now the preferred lookup; named accessors (`toadstool()`, `beardog()`, etc.) route through `by_domain()` first, falling back to name-based lookup

@@ -5,7 +5,7 @@
 //! A Spring is a niche validation domain — not a primal. It proves that
 //! scientific Python baselines can be faithfully ported to sovereign
 //! Rust + GPU compute using the ecoPrimals stack. The niche deploys as
-//! a biomeOS graph (`hotspring_qcd_proto_nucleate.toml`) that composes
+//! a biomeOS graph (defined in `downstream_manifest.toml`) that composes
 //! real primals (BearDog, Songbird, ToadStool, barraCuda, etc.).
 //!
 //! This module holds the niche's self-knowledge:

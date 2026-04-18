@@ -32,7 +32,7 @@ fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");
     println!("║  NUCLEUS Composition Validation — hotSpring QCD Niche      ║");
     println!("║  Phase 2: Rust+Python baselines → Primal composition       ║");
-    println!("║  Proto-nucleate: hotspring_qcd_proto_nucleate.toml         ║");
+    println!("║  Proto-nucleate: downstream_manifest.toml                  ║");
     println!("╚══════════════════════════════════════════════════════════════╝");
     println!();
 

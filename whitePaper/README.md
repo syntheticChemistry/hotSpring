@@ -2,7 +2,7 @@
 
 **Status**: Current — reviewed for PII, suitable for public repository  
 **Purpose**: Document the replication of Murillo Group computational plasma physics on consumer hardware using BarraCuda, and the three-tier validation arc proving NUCLEUS primal composition  
-**Date**: February 26, 2026 (inception); updated April 11, 2026 (v0.6.32 — composition audit + remediation, 985 lib tests, 140 binaries, 128 WGSL shaders)  
+**Date**: February 26, 2026 (inception); updated April 17, 2026 (v0.6.32 — stadial audit + primal composition proof, 985 lib tests, 164 binaries, 62/62 validation suites, 128 WGSL shaders)  
 **Validation arc**: Python baselines → Rust validation → NUCLEUS primal composition validation
 
 ---
@@ -15,7 +15,7 @@
 | [BARRACUDA_SCIENCE_VALIDATION.md](BARRACUDA_SCIENCE_VALIDATION.md) | Phase B technical results — BarraCuda vs Python/SciPy numbers | Technical reference |
 | [CONTROL_EXPERIMENT_SUMMARY.md](CONTROL_EXPERIMENT_SUMMARY.md) | Phase A summary — Python reproduction of published work | Quick reference |
 | [METHODOLOGY.md](METHODOLOGY.md) | Two-phase validation protocol | Methodology review |
-| [baseCamp/](baseCamp/) | Per-domain research briefings (18 docs — Murillo plasma, lattice QCD, Kachkovskiy spectral, Chuna papers, sovereign GPU, NPU, self-tuning RHMC, etc.) | Faculty, collaborators |
+| [baseCamp/](baseCamp/) | Per-domain research briefings (19 docs — Murillo plasma, lattice QCD, Kachkovskiy spectral, Chuna papers, sovereign GPU, NPU, self-tuning RHMC, NUCLEUS composition evolution, etc.) | Faculty, collaborators |
 
 ---
 
@@ -387,17 +387,17 @@ No institutional access required. No Code Ocean account. No Fortran compiler. AG
 
 ---
 
-## Codebase Health (April 11, 2026)
+## Codebase Health (April 17, 2026)
 
 | Metric | Value |
 |--------|-------|
 | Crate | v0.6.32 |
 | Lib tests | **985** pass, 6 GPU/heavy-ignored (spectral tests upstream in barracuda) |
-| Binaries | **140** (82 validate_*, production, benchmarks, composition) |
+| Binaries | **164** (82 validate_*, production, benchmarks, composition) |
 | WGSL shaders | **128** (lattice, MD, HFB, diag, spectral, sovereign) |
 | Coverage | 74.9% region / 83.8% function |
-| Validation suites | **39/39** pass |
-| Experiments | **165+** |
+| Validation suites | **62/62** pass |
+| Experiments | **168+** |
 | Python control scripts | **34** (Sarkas, surrogate, TTM, NPU, reservoir, lattice, spectral theory) |
 | `expect()`/`unwrap()` in library | **0** (crate-level deny) |
 | Clippy warnings | **0** (pedantic + nursery, `--all-targets`) |

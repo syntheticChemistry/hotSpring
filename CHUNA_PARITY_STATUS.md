@@ -32,7 +32,7 @@
 - [x] **Dynamical N_f=4 staggered** (extension, not paper requirement): 8⁴ β=5.4,
       m=0.1. Warm-start mass annealing (m: 1.0→0.5→0.2→0.1), adaptive Omelyan
       with NPU steering. 85% acceptance, |ΔH|<0.5, 3/3 checks pass.
-      See `NPU_STEERING_LESSONS.md` for full analysis
+      See `whitePaper/baseCamp/neuromorphic_silicon.md` for full analysis (NPU steering lessons absorbed into baseCamp)
       produce 0% acceptance from hot start. Root cause: hot-start ↛ dynamical
       equilibrium without intermediate warm-up. |ΔH| ~ 6.5×10⁶ even at smallest dt.
       **Next step**: warm-start from thermalized quenched config (β=5.4 quenched ⟨P⟩~0.54),

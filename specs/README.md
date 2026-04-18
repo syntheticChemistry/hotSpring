@@ -1,6 +1,6 @@
 # hotSpring Specifications
 
-**Last Updated**: April 11, 2026
+**Last Updated**: April 17, 2026
 **Status**: Phase A-J complete + NUCLEUS Composition Validation — 4,065+ tests (985 lib), 140 binaries, crate v0.6.32, barraCuda v0.3.11, toadStool S168+, coralReef Phase 10 Iter 78+. **Three-tier validation: Python → Rust → NUCLEUS IPC.** SovereignInit pipeline: 8-stage pure Rust nouveau replacement. NVIDIA GPFIFO pipeline OPERATIONAL on RTX 3090. AMD scratch/local memory OPERATIONAL on RX 6950 XT. 165+ experiments, 128 WGSL shaders. Ember Survivability Hardening COMPLETE. Squirrel wired in proto-nucleate. Science composition probes operational.
 **Domain**: Computational plasma physics, nuclear structure, transport, lattice QCD, spectral theory, surrogate learning
 
@@ -62,9 +62,9 @@
 
 | Document | Location | Description |
 |----------|----------|-------------|
-| CONTROL_EXPERIMENT_STATUS.md | `../` | Detailed experiment logs and check counts |
+| whitePaper/CONTROL_EXPERIMENT_SUMMARY.md | `../whitePaper/` | Phase A summary with numbers |
 | PHYSICS.md | `../` | Physics background and equations |
-| NUCLEAR_EOS_STRATEGY.md | `../` | L1-L3 nuclear EOS approach |
+| docs/PRIMAL_GAPS.md | `../docs/` | NUCLEUS composition gaps — handback to primalSpring |
 | whitePaper/STUDY.md | `../whitePaper/` | Full study narrative |
 | whitePaper/METHODOLOGY.md | `../whitePaper/` | Two-phase validation protocol |
 | whitePaper/BARRACUDA_SCIENCE_VALIDATION.md | `../whitePaper/` | Phase B GPU results |
@@ -107,7 +107,7 @@
 3. PAPER_REVIEW_QUEUE.md — what's next (5 min)
 
 **Deep dive** (2 hours):
-`../whitePaper/STUDY.md` → `../PHYSICS.md` → `../NUCLEAR_EOS_STRATEGY.md` → BARRACUDA_REQUIREMENTS.md
+`../whitePaper/STUDY.md` → `../PHYSICS.md` → BARRACUDA_REQUIREMENTS.md
 
 ---
 
