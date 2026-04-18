@@ -1,6 +1,6 @@
 # hotSpring → BarraCuda/ToadStool Absorption Manifest
 
-**Date:** April 10, 2026
+**Date:** April 18, 2026
 **Version:** v0.6.32 — synced to barraCuda **v0.3.11** (`b95e9c59`), toadStool S155b, coralReef Iter 47
 **License:** AGPL-3.0-only
 
@@ -406,10 +406,10 @@ For each absorption candidate:
 2. Create handoff doc in `wateringHole/handoffs/`
 3. Include: Rust source, WGSL template, binding layout, dispatch geometry, test suite
 4. After absorption: rewire hotSpring to `use barracuda::ops::*`, delete local code
-5. Run `validate_all` to confirm 63/63 suites still pass
+5. Run `validate_all` to confirm 64/64 suites still pass
 
 ---
 
 ## Workspace test coverage (April 10, 2026 audit)
 
-**985** library tests · **164** `[[bin]]` targets (cargo workspace). See `EXPERIMENT_INDEX.md` for `validate_*` and WGSL shader counts.
+**985** library tests · **166** `[[bin]]` targets (cargo workspace). See `EXPERIMENT_INDEX.md` for `validate_*` and WGSL shader counts.

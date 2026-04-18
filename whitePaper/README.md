@@ -2,8 +2,8 @@
 
 **Status**: Current — reviewed for PII, suitable for public repository  
 **Purpose**: Document the replication of Murillo Group computational plasma physics on consumer hardware using BarraCuda, and the three-tier validation arc proving NUCLEUS primal composition  
-**Date**: February 26, 2026 (inception); updated April 17, 2026 (v0.6.32 — Level 5 primal proof audit, 985 lib tests, 165 binaries, 63/63 validation suites, 128 WGSL shaders)  
-**Validation arc**: Python baselines → Rust validation → NUCLEUS primal composition validation
+**Date**: February 26, 2026 (inception); updated April 18, 2026 (v0.6.32 — guideStone Level 5 CERTIFIED, 985 lib tests, 166 binaries, 64/64 validation suites, 128 WGSL shaders)  
+**Validation arc**: Python baselines → Rust validation → NUCLEUS primal composition validation (guideStone certified)
 
 ---
 
@@ -387,16 +387,16 @@ No institutional access required. No Code Ocean account. No Fortran compiler. AG
 
 ---
 
-## Codebase Health (April 17, 2026)
+## Codebase Health (April 18, 2026)
 
 | Metric | Value |
 |--------|-------|
 | Crate | v0.6.32 |
 | Lib tests | **985** pass, 6 GPU/heavy-ignored (spectral tests upstream in barracuda) |
-| Binaries | **165** (83 validate_*, production, benchmarks, composition) |
+| Binaries | **166** (84 validate_*, production, benchmarks, composition, guideStone) |
 | WGSL shaders | **128** (lattice, MD, HFB, diag, spectral, sovereign) |
 | Coverage | 74.9% region / 83.8% function |
-| Validation suites | **63/63** pass |
+| Validation suites | **64/64** pass |
 | Experiments | **168+** |
 | Python control scripts | **34** (Sarkas, surrogate, TTM, NPU, reservoir, lattice, spectral theory) |
 | `expect()`/`unwrap()` in library | **0** (crate-level deny) |
@@ -408,7 +408,8 @@ No institutional access required. No Code Ocean account. No Fortran compiler. AG
 | Files over 1000 LOC | **0** (validation.rs split; brain_rhmc.rs split) |
 | Provenance records | All validation targets traced to Python origins or DOIs |
 | AGPL-3.0 compliance | All `.rs` and `.wgsl` files |
-| NUCLEUS composition | 5 composition binaries (incl. `validate_primal_proof` Level 5), 3 science probes, deploy graph |
+| NUCLEUS composition | 6 composition binaries (incl. `hotspring_guidestone` Level 5 CERTIFIED), 3 science probes, deploy graph |
+| guideStone | `hotspring_guidestone` — unified Level 5 certified binary (Deterministic, Traceable, Self-Verifying, Env-Agnostic, Tolerance-Documented) |
 | Deploy graph | `graphs/hotspring_qcd_deploy.toml` — 10 primals declared |
 
 ---

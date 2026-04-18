@@ -1,13 +1,13 @@
 # hotSpring — Paper Review Queue
 
-> Current state: v0.6.32, 985 tests, 165 binaries, 128 WGSL shaders. Paper reproduction
+> Current state: v0.6.32, 985 tests, 166 binaries, 128 WGSL shaders. Paper reproduction
 > priorities and status are still authoritative.
 
 **Last Updated**: April 11, 2026
 **Purpose**: Track papers for reproduction/review, ordered by priority and feasibility
 **Principle**: Reproduce, validate, then decrease cost. Each paper proves the
 pipeline on harder physics — toadStool evolves the GPU acceleration in parallel.
-**Crate**: hotspring-barracuda v0.6.32 — 985 tests, 165 binaries, 128 WGSL shaders
+**Crate**: hotspring-barracuda v0.6.32 — 985 tests, 166 binaries, 128 WGSL shaders
 **Current Goal**: GPU RHMC (Nf=2, 2+1) → gradient flow on RHMC configs → Chuna validation meeting (late April)
 
 **Evolution path per paper**: Python Control → BarraCuda CPU → BarraCuda GPU → metalForge
