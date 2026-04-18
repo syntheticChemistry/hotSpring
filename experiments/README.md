@@ -78,6 +78,9 @@ NNN_DESCRIPTOR.{sh,md,json}
 | 166 | SOVEREIGN_BOOT_WIRING | investigation | ✅ **AdaptiveLifecycle delegation bug** found and fixed. `skip_sysfs_unbind` forwarding, `reset_method` permission error, `vfio-pci.ids` kernel parameter handling. 3 critical bugs resolved. |
 | 167 | WARM_HANDOFF | validation | ✅ **Full vfio→nouveau→vfio round-trip on Titan V.** No D-state. HBM2 training preserved across swap cycle. K80 deferred (EBUSY). |
 | 168 | SOVEREIGN_PIPELINE_COMPLETE | **milestone** | ✅ **Sovereign pipeline COMPLETE.** Fork-isolated MMIO gateway (6 RPCs). 6-stage sovereign init. PMU DEVINIT + VBIOS PROM wired as ember RPCs. 908 tests across coral-driver + coral-ember. |
+| 169 | WARM_HANDOFF_VALIDATED | validation | ✅ **Full warm handoff cycle on Titan V.** vfio→nouveau→vfio round-trip. HBM2 warm state persists (pmc_enable=0x5fecdff1). Stages 1-3 pass. Falcon boot = next frontier. |
+| 170 | SOVEREIGN_BOOT_E2E | **milestone** | ✅ **End-to-end `coralctl sovereign-boot`.** Vendor-ingredient loop: cold detect → nouveau warm → vfio swap → sovereign init. Warm detection heuristic (PMC popcount + PRAMIN). golden_state_path file reference. |
+| 171 | K80_SOVEREIGN_INIT | validation | ⚠️ **K80 (GK210) BAR0 probe + PMC enable OK.** GDDR5 training BLOCKED (cold memory, PRAMIN returns PCIe timeout). VBIOS readable from PROM. Kepler: no signed firmware required. DEVINIT interpreter needed. |
 
 ### Ember Survivability Hardening (2026-04-07)
 
@@ -117,6 +120,12 @@ Not numbered experiments — systematic composition infrastructure:
 | Primal composition proof (April 17) | session | ✅ Science parity probes, downstream_manifest alignment, all 13 methods dispatched |
 | Level 5 primal proof audit (April 17) | session | ✅ `validate_primal_proof` harness, IPC mapping doc, downstream manifest corrected to primal IPC methods, capability domain routing fixed, dyn dispatch eliminated |
 | guideStone alignment (April 18) | session | ✅ `hotspring_guidestone` binary, `primalspring` dep, composition API adoption, downstream manifest guideStone metadata, 5/5 properties certified |
+
+| 172 | NO_ACR_WARM_HANDOFF | md | ✅ Warm HBM2 without HS lockout by removing ACR firmware |
+| 173 | VM_REAGENT_WPR_CAPTURE | investigation | ✅ VM reagent WPR capture. GV100 closed driver does NOT configure WPR (Volta predates GSP). Architectural pivot for Volta sovereign boot. |
+| 174 | K80_SOVEREIGN_BOOT | investigation | ⚠️ K80 Kepler sovereign boot progress. GDDR5 training path. |
+| 175 | RTX5060_SHARED_COMPUTE | investigation | ⚠️ RTX 5060 shared display/compute. UVM GPFIFO NOP timeout (GAP-HS-031). QMD v5.0 implemented. |
+| 176 | QCD_PARITY_BENCHMARK | **milestone** | ✅ **Full HMC pipeline → native SASS on 3 GPU generations.** SM35 10/10, SM70 10/10, SM120 10/10. coralReef f64 lowering fixed (was 4/10 on Kepler). Vendor wgpu dispatch validated on RTX 5060. validate_pure_gauge 16/16 ALL CHECKS PASSED. |
 
 ## Benchmark Data
 

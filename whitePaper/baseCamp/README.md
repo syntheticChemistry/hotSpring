@@ -2,7 +2,7 @@
 
 **Date:** April 18, 2026  
 **Project:** hotSpring (ecoPrimals)  
-**Status:** v0.6.32 — guideStone Level 5 CERTIFIED. 985 lib tests, 166 binaries, 64/64 validation suites, 128 WGSL shaders, 308 named tolerance constants. `hotspring_guidestone` binary validates all 5 guideStone properties (Deterministic, Reference-Traceable, Self-Verifying, Environment-Agnostic, Tolerance-Documented) and probes NUCLEUS IPC parity via `primalspring::composition` API. NUCLEUS composition evolution complete (Wave 1-3). ecoBin in `infra/plasmidBin/hotspring/`. Sovereign GPU pipeline COMPLETE. 908 tests across coral-driver + coral-ember.
+**Status:** v0.6.32 — guideStone Level 5 CERTIFIED. 985 lib tests, 166 binaries, 64/64 validation suites, 128 WGSL shaders. **Sovereign compile parity: 10/10 HMC pipeline shaders compile to native SASS on SM35 (Kepler) + SM70 (Volta) + SM120 (Blackwell).** coralReef f64 transcendental lowering fixed for all NVIDIA generations. QMD v5.0 for Blackwell. validate_pure_gauge: 16/16 checks pass. Sovereign GPU pipeline COMPLETE. 908 tests across coral-driver + coral-ember.
 
 **Validation arc:** Science stacks are validated on three tiers — **Python (and legacy HPC) baselines → sovereign Rust → NUCLEUS primal composition (guideStone)** — so peer-reviewed physics and methods are checked at the **primal composition layer**, not only in standalone binaries. Rust results serve as trusted baselines for IPC-composed NUCLEUS patterns, using the same tolerance-driven, exit-code-gated methodology that proved Rust matches Python. The `hotspring_guidestone` binary is the unified Level 5 artifact that certifies this arc.
 

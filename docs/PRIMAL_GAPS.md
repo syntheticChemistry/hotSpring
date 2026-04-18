@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026
-**Last audited:** April 18, 2026 (guideStone alignment + Level 5 primal proof)
+**Last audited:** April 18, 2026 (Sovereign compile parity + f64 lowering fix + guideStone Level 5)
 **License:** AGPL-3.0-or-later
 
 ---
@@ -212,6 +212,113 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
   The swap logic is validated on Titan V; K80 path is architecturally
   identical but blocked by this kernel issue.
 - **Action:** Test after reboot with `iommu=pt` or legacy-only VFIO config.
+
+### GAP-HS-030: GV100 WPR Not Used by Closed Driver (Exp 173)
+
+- **Primal:** coralReef (coral-driver / sovereign_init)
+- **Severity:** Critical (blocks GV100 sovereign ACR boot)
+- **Status:** Open — approach pivot required
+- **Description:** Experiment 173 proved the nvidia-535 closed driver does NOT
+  configure WPR (Write-Protected Region) on GV100 Titan V. WPR registers
+  (PFB_WPR1/WPR2 at 0x100CE4-CF0) remain zero while nvidia-smi shows a
+  fully functional GPU. GV100 is pre-GSP: the RM runs on the CPU and does
+  not need WPR hardware protection. The "vendor UEFI WPR capture" approach
+  is a dead end for Volta.
+  
+  The ACR chain in coral-driver's `FalconBootSolver` expects WPR to be
+  configured (Turing+ assumption). On GV100, SEC2 cannot enter HS mode
+  because the WPR-based signature verification path doesn't apply. The
+  no-ACR warm handoff (Exp 172: nouveau→vfio swap preserving HBM2) remains
+  the best achievable state, but FECS/GPCCS remain halted because they
+  require ACR bootstrapping that depends on WPR.
+  
+  Possible paths: (a) reverse-engineer nvidia-535 mmiotrace to find how RM
+  initializes FECS without ACR on Volta, (b) focus sovereign boot on K80
+  (Kepler, no ACR) and Turing+ (where WPR is actually used), (c) accept
+  vendor-in-VM as GV100 compute path.
+- **Action:** Pivot coral-driver `FalconBootSolver` to support a Volta-specific
+  path that bypasses WPR/ACR. Analyze mmiotrace from Exp 173 artifacts.
+
+### GAP-HS-031: Blackwell GPFIFO Doorbell Mechanism (Exp 175)
+
+- **Primal:** coralReef (coral-driver / uvm_compute)
+- **Severity:** Medium (blocks UVM dispatch on RTX 5060, compile path works)
+- **Status:** Partially resolved — QMD v5.0 implemented, NOP timeout TBD
+- **Description:** Experiment 175 validated the full WGSL→SM120 SASS compile
+  pipeline on the RTX 5060 (GB206, Blackwell, PCI ID 0x2d05). The RM
+  successfully allocates BLACKWELL_CHANNEL_GPFIFO_B (0xCA6F) and
+  BLACKWELL_COMPUTE_B (0xCEC0). However, the NOP smoke test times out:
+  GP_GET stays at 0 while GP_PUT advances to 1.
+  
+  **QMD v5.0 fix applied:** Blackwell uses a completely different 384-byte
+  (96-word) QMD layout vs. the 256-byte (64-word) v3.0 used for Ampere.
+  Key differences: grid dimensions at bits 0-63, version at bits 64-71,
+  shared memory shifted by 7, program address shifted by 4, CBUF descriptors
+  at bit offset 2048. `build_qmd_v50()` and `build_qmd_for_sm()` updated
+  (SM >= 100 → v5.0). All 40 QMD unit tests pass including 7 new v5.0 tests.
+  
+  The NOP smoke test failure may be a separate USERD/doorbell issue
+  (the NOP doesn't involve QMD). NVK uses the same VOLTA_USERMODE_A and
+  USERD offsets for Blackwell, so it's more likely a channel setup issue.
+  
+  PCI device ID 0x2d05 was NOT in the original Blackwell range
+  (0x2900..=0x2999). Fixed to include 0x2B00..=0x2DFF.
+- **Action:** Test on hardware. If NOP timeout persists, investigate
+  channel scheduling, USERD VRAM allocation size, or error notifier state.
+
+### GAP-HS-032: Generation-Branched FalconBootSolver (Resolved)
+
+- **Primal:** coralReef (coral-driver / acr_boot / solver)
+- **Severity:** Enhancement
+- **Status:** Resolved
+- **Description:** The FalconBootSolver now classifies GPUs into three
+  generations via `GpuGeneration` enum: Kepler (no ACR), CpuRm (Volta/Pascal,
+  no WPR), GspRm (Turing+, full ACR). The `boot_for_generation()` method
+  dispatches to the correct strategy cascade. Kepler skips ACR entirely
+  (sovereign_init handles direct PIO boot). Volta logs a CPU-RM advisory
+  before falling through to legacy ACR (golden-state replay is the primary
+  path via sovereign_init's GR init stage). Turing+ runs the full cascade.
+
+### GAP-HS-033: coralReef f64 Transcendental Lowering for SM32 (Resolved)
+
+- **Primal:** coralReef (coral-reef / codegen / lower_f64)
+- **Severity:** Critical (blocked Kepler sovereign compile)
+- **Status:** Resolved (April 18, 2026)
+- **Description:** The `lower_f64_function` pass had an early return
+  (`if !is_amd && sm.sm() < 70 { return; }`) that skipped f64 transcendental
+  lowering for all NVIDIA GPUs below SM70, leaving `f64rcp`/`f64exp2` ops in
+  the IR. The SM32 encoder panicked on these unrecognized ops. Since MUFU is
+  f32-only on ALL NVIDIA generations, the lowering pass must run everywhere.
+  
+  Fix applied in three parts:
+  1. Removed the SM < 70 guard in `lower_f64/mod.rs`
+  2. Added SM-aware helpers: `emit_iadd` (IAdd2 for SM32, IAdd3 for SM70+)
+     and `emit_shl_imm` (OpShl for SM32, OpShf for SM70+)
+  3. Fixed `as_imm_not_i20`/`as_imm_not_f20` in `codegen/ir/src.rs` to
+     return None instead of asserting when source modifiers are on immediates
+  
+  Result: 10/10 HMC pipeline shaders now compile to native SASS on SM35 (Kepler).
+  All 1314 coral-reef unit tests pass.
+- **Action:** None — resolved. Pattern documented for other SM-specific encoder gaps.
+
+### GAP-HS-034: Sovereign Compile Parity Across GPU Generations (Resolved)
+
+- **Primal:** coralReef (coral-reef + coral-gpu), barraCuda
+- **Severity:** Milestone
+- **Status:** Resolved (April 18, 2026)
+- **Description:** Full HMC pipeline (10 shaders: wilson_plaquette, sum_reduce,
+  cg_compute_alpha, su3_gauge_force, metropolis, dirac_staggered,
+  staggered_fermion_force, fermion_action_sum, hamiltonian_assembly, cg_kernels)
+  compiles from WGSL to native SASS on:
+  - SM35 (Kepler/Tesla K80): 10/10
+  - SM70 (Volta/Titan V): 10/10
+  - SM120 (Blackwell/RTX 5060): 10/10
+  
+  Validated via `bench_sovereign_parity` and `validate_pure_gauge --features sovereign-dispatch`
+  (16/16 checks pass). QMD v5.0 implemented for Blackwell.
+  
+  Remaining blocker for dispatch: GAP-HS-031 (GPFIFO NOP timeout on Blackwell).
+- **Action:** None — compile parity resolved. Dispatch parity tracked in GAP-HS-031.
 
 ---
 

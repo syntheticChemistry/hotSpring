@@ -2,14 +2,14 @@
 
 > **Last audited:** April 18, 2026 · **985 lib tests** · **166 binaries** · **84** `validate_*`/`hotspring_guidestone` binaries · **64/64 validation suites** · **128 WGSL shaders**.
 >
-> Experiments 001–168 validate Python→Rust fidelity and sovereign GPU compute. **Phase 2** (NUCLEUS composition validation) is tracked via `validate_nucleus_*` binaries and [`docs/PRIMAL_GAPS.md`](docs/PRIMAL_GAPS.md). **Phase 3** (primal composition proof) validates IPC-composed NUCLEUS patterns against direct Rust baselines.
+> Experiments 001–176 validate Python→Rust fidelity, sovereign GPU compute, cross-generation WGSL→native ISA compilation, and primal composition proof. **Phase 2** (NUCLEUS composition validation) is tracked via `validate_nucleus_*` binaries and [`docs/PRIMAL_GAPS.md`](docs/PRIMAL_GAPS.md). **Phase 3** (primal composition proof) validates IPC-composed NUCLEUS patterns against direct Rust baselines.
 
-> Updated April 17, 2026. This is the authoritative ledger of all
+> Updated April 18, 2026. This is the authoritative ledger of all
 > experiments, validation suites, and benchmark data. For project overview, see [README.md](README.md).
 > Experiments 001-143 archived to `experiments/archive/` — completed physics, benchmark, sovereign GPU, and ember hardening work, results absorbed into baseCamp and coralReef code.
 > Note: Experiments 096-105 have dual-numbered IDs (physics + sovereign GPU tracks ran in parallel). Filenames are self-descriptive. Exp 136b disambiguated from 136.
 
-**168+ experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **AGPL-3.0-only**
+**176+ experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **AGPL-3.0-only**
 
 ---
 
@@ -35,7 +35,7 @@
 | **Stanton-Murillo Transport** (Paper 5) | ✅ Complete | 13/13 pass (D* Sarkas-calibrated, MSD≈VACF, Green-Kubo η*/λ*) |
 | **GPU-Only Transport Pipeline** | ✅ Complete | Green-Kubo D*/η*/λ* entirely on GPU, ~493s |
 | **HotQCD EOS Tables** (Paper 7) | ✅ Complete | Thermodynamic consistency, asymptotic freedom validated |
-| **Pure Gauge SU(3)** (Paper 8) | ✅ Complete | 12/12 pass (HMC, Dirac CG, plaquette physics) |
+| **Pure Gauge SU(3)** (Paper 8) | ✅ Complete | 16/16 pass (HMC, Dirac CG, plaquette physics + sovereign GPU compile validation on SM35/SM70/SM120) |
 | **Screened Coulomb** (Paper 6) | ✅ Complete | 23/23 pass (Sturm bisection, Python parity Δ≈10⁻¹², critical screening) |
 | **Abelian Higgs** (Paper 13) | ✅ Complete | 17/17 pass (U(1)+Higgs HMC, phase structure, Rust 143× faster than Python) |
 | **ToadStool Rewire v2** | ✅ Complete | WgslOptimizer + GpuDriverProfile wired into all shader compilation |
@@ -288,7 +288,6 @@ Run the UCLA-MSU TTM for laser-plasma equilibration.
 |----------|---------|
 | [`PHYSICS.md`](PHYSICS.md) | Complete physics documentation — every equation, constant, approximation |
 | [`whitePaper/CONTROL_EXPERIMENT_SUMMARY.md`](whitePaper/CONTROL_EXPERIMENT_SUMMARY.md) | Phase A summary with numbers |
-| [`PHYSICS.md`](PHYSICS.md) | Physics equations, constants, nuclear EOS strategy |
 | [`barracuda/CHANGELOG.md`](barracuda/CHANGELOG.md) | Crate version history |
 | [`barracuda/EVOLUTION_READINESS.md`](barracuda/EVOLUTION_READINESS.md) | Module → shader → GPU promotion tier |
 | [`specs/README.md`](specs/README.md) | Specification index |

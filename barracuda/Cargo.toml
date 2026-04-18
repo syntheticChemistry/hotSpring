@@ -784,6 +784,12 @@ path = "src/bin/validate_silicon_science.rs"
 name = "bench_qcd_silicon"
 path = "src/bin/bench_qcd_silicon.rs"
 
+# ── Sovereign parity: coral-reef SASS vs wgpu/Vulkan on QCD WGSL shaders ──
+[[bin]]
+name = "bench_sovereign_parity"
+path = "src/bin/bench_sovereign_parity.rs"
+required-features = ["sovereign-dispatch"]
+
 # ── Silicon budget: theoretical peak per GPU per silicon unit ──
 [[bin]]
 name = "bench_silicon_budget"

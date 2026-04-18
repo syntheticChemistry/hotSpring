@@ -2,8 +2,8 @@
 
 **Date:** 2026-03-25 (updated 2026-04-16 — **Sovereign pipeline COMPLETE**: fork-isolated MMIO, 6-stage init, PMU DEVINIT wired, warm handoff validated on Titan V, 908 tests)  
 **Domain:** Hardware — PCIe GPU lifecycle, falcon microcontrollers, HBM2 management, PFIFO command submission, ACR secure boot, WPR construction, cross-driver profiling, daemon RPC orchestration, adaptive experiment loop, sysmem DMA, GV100 MMU v2 page tables, WPR2 hardware protection, Kepler PIO falcon loading, VBIOS DEVINIT, fault containment architecture, **firmware-agnostic interfacing, PMU mailbox protocol, DRM ioctl sovereign pipeline, SM70 SASS compute dispatch, fork-isolated MMIO gateway, staged sovereign init, PCI remove/rescan with kernel override handling**  
-**Experiments:** 060-168  
-**Hardware:** NVIDIA Titan V (GV100, 12GB HBM2), 2× Tesla K80 (GK210, Kepler), RTX 5070 (GB206, Blackwell, display/validator)
+**Experiments:** 060-176  
+**Hardware:** NVIDIA Titan V (GV100, 12GB HBM2), 2× Tesla K80 (GK210, Kepler), RTX 5060 (GB206, Blackwell, display/validator)
 
 ---
 
@@ -1285,12 +1285,44 @@ gr_init → verify. Uses existing HBM2 typestate controller + FECS boot infrastr
 
 **908 tests** across coral-driver (680) + coral-ember (228), zero failures.
 
+### Sovereign Compile Parity (April 18, 2026 — Exp 176)
+
+**Full HMC pipeline compiles to native SASS on all 3 GPU generations**:
+- SM35 (Kepler/K80): 10/10 shaders → native SASS
+- SM70 (Volta/Titan V): 10/10 shaders → native SASS
+- SM120 (Blackwell/RTX 5060): 10/10 shaders → native SASS
+
+coralReef f64 transcendental lowering fixed — the `lower_f64_function` pass previously
+skipped NVIDIA GPUs below SM70, leaving `f64rcp`/`f64exp2` ops in the IR which panicked
+the SM32 encoder. Fix: removed the SM < 70 guard, added SM-aware `emit_iadd` (IAdd2
+for Kepler, IAdd3 for Volta+) and `emit_shl_imm` (OpShl for Kepler, OpShf for Volta+).
+All f64 transcendentals now lower via MUFU seed + Newton-Raphson sequences on all
+NVIDIA generations.
+
+Additionally, `as_imm_not_i20`/`as_imm_not_f20` in the IR source encoder now gracefully
+fall back when source modifiers are attached to immediates (copy propagation artifact),
+instead of asserting.
+
+**QMD v5.0**: Blackwell (SM120+) uses a 384-byte QMD layout vs 256-byte for pre-Hopper.
+Implemented in `coral-driver::nv::qmd::build_qmd_v50()`, dispatched via `build_qmd_for_sm()`.
+
+**Vendor wgpu dispatch validated**: RTX 5060 via Vulkan — Wilson plaquette and sum
+reduction run correctly through wgpu.
+
+**validate_pure_gauge integration**: 16/16 checks pass including sovereign compile on
+all three GPU generations.
+
+**10 HMC pipeline shaders**: `wilson_plaquette_f64`, `sum_reduce_f64`,
+`cg_compute_alpha_f64`, `su3_gauge_force_f64`, `metropolis_f64`,
+`dirac_staggered_f64`, `staggered_fermion_force_f64`, `fermion_action_sum_f64`,
+`hamiltonian_assembly_f64`, `cg_kernels_f64`.
+
 ### Next Steps
 
-1. **K80 validation**: Reboot with legacy-only VFIO config to clear EBUSY on K80 VFIO groups
-2. **End-to-end sovereign boot**: `coralctl sovereign-boot 0000:03:00.0` via glowplug
-3. **Golden HBM2 capture**: Warm nouveau → capture oracle state → use as training seed
-4. **Production QCD shaders**: Dispatch 24 QCD shaders via sovereign pipeline on Titan V
+1. **Sovereign dispatch**: Debug NOP GPFIFO timeout on RTX 5060 (GAP-HS-031 — USERD allocation, error notifier, channel scheduling)
+2. **K80 validation**: Reboot with legacy-only VFIO config to clear EBUSY on K80 VFIO groups
+3. **End-to-end sovereign boot**: `coralctl sovereign-boot 0000:03:00.0` via glowplug
+4. **Golden HBM2 capture**: Warm nouveau → capture oracle state → use as training seed
 5. **GSP RPC client**: Extend `PmuInterface` pattern to Turing/Ampere GSP message protocol
 6. **Cross-vendor validation**: Run the same WGSL→compute pipeline on MI50 (AMD) and Titan V in the same session
 7. **toadStool absorption**: Migrate ember's sovereign init into toadStool's hardware orchestration layer

@@ -50,9 +50,9 @@ hotSpring is the reference implementation for the guideStone Composition Standar
 
 ---
 
-## Current Status (2026-04-17)
+## Current Status (2026-04-18)
 
-> **168+ experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **985 lib tests, 166 binaries, 64/64 validation suites, 128 WGSL shaders** | **deny.toml** (ecoBin C-dep bans) | **all 13 physics/compute methods wired in JSON-RPC server** | **zero `dyn` dispatch, zero unsafe, `#[expect]` over `#[allow]`** | **guideStone artifact: 59/59 checks x 5 substrates (x86_64 + aarch64)** | **OCI container image + Windows/macOS launchers** | **NVIDIA GPFIFO pipeline OPERATIONAL on RTX 3090** | **AMD scratch/local memory OPERATIONAL on RX 6950 XT** | **AMD sovereign compiler: 24/24 QCD shaders compile to native GFX ISA** | **Ember Survivability Hardening COMPLETE** | **Firmware Boundary → SovereignInit Pipeline COMPLETE** | **NUCLEUS Composition Evolution COMPLETE — LOCAL/ROUTED capability split, biomeOS registration, ValidationSink/NDJSON/Skip, OrExit, capability_registry.toml sync, standalone mode, plasmidBin schema aligned** | **Primal Composition Proof — science parity probes (IPC vs Rust baselines), centralized composition tolerances, `OnceLock` family_id, `downstream_manifest.toml` alignment** | **Level 5 Primal Proof — `validate_primal_proof` harness calls barraCuda/BearDog over IPC, compares vs Python/Rust baselines, 10 manifest capabilities exercised**
+> **176+ experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **985 lib tests, 166 binaries, 64/64 validation suites, 128 WGSL shaders** | **deny.toml** (ecoBin C-dep bans) | **all 13 physics/compute methods wired in JSON-RPC server** | **zero `dyn` dispatch, zero unsafe, `#[expect]` over `#[allow]`** | **guideStone artifact: 59/59 checks x 5 substrates (x86_64 + aarch64)** | **OCI container image + Windows/macOS launchers** | **NVIDIA GPFIFO pipeline OPERATIONAL on RTX 3090** | **AMD scratch/local memory OPERATIONAL on RX 6950 XT** | **AMD sovereign compiler: 24/24 QCD shaders compile to native GFX ISA** | **NVIDIA sovereign compiler: 10/10 HMC pipeline shaders compile to native SASS on SM35 (Kepler) + SM70 (Volta) + SM120 (Blackwell)** | **Ember Survivability Hardening COMPLETE** | **Firmware Boundary → SovereignInit Pipeline COMPLETE** | **NUCLEUS Composition Evolution COMPLETE** | **coralReef f64 transcendental lowering fixed for all NVIDIA generations (SM32+)** | **Level 5 Primal Proof — `validate_primal_proof` harness, 10 manifest capabilities exercised**
 >
 > **Three-Tier Validation Architecture (2026-04-17):** Python baselines → Rust validation → NUCLEUS primal composition validation. The same tolerance-driven, exit-code-gated methodology that proved Rust matches Python now proves IPC-composed NUCLEUS patterns match direct Rust execution. Composition validators (`validate_nucleus_*`) run standalone (skip-pass for CI, exit 2 = all skipped) or against live primals (full IPC validation). `validate_science_probes()` validates compute, math, and provenance trio capabilities via IPC with Rust baseline parity. Pattern documented for sibling spring adoption in wateringHole handoffs.
 >
@@ -434,7 +434,7 @@ a network service, you must make your source available under the same terms.
 
 ---
 
-*168+ experiments, 985 tests, 166 binaries, 128 WGSL shaders, ~$0.30 total science cost.
+*176+ experiments, 985 tests, 166 binaries, 128 WGSL shaders, ~$0.30 total science cost.
 Consumer GPUs reproduce HPC physics at paper parity. DF64 delivers 3.24 TFLOPS at
 14-digit precision. GPU RHMC runs all-flavors dynamical QCD (Nf=2+1). Self-tuning
 RHMC eliminates hand-tuned parameters. Chuna 44/44 checks pass. RTX 3090 GPFIFO

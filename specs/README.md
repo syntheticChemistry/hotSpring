@@ -107,7 +107,7 @@
 3. PAPER_REVIEW_QUEUE.md — what's next (5 min)
 
 **Deep dive** (2 hours):
-`../whitePaper/STUDY.md` → `../PHYSICS.md` → BARRACUDA_REQUIREMENTS.md
+`../whitePaper/STUDY.md` → `../PHYSICS.md` → `../whitePaper/baseCamp/` → BARRACUDA_REQUIREMENTS.md
 
 ---
 

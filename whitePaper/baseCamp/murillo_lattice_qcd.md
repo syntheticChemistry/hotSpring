@@ -20,7 +20,7 @@ first principles. Our reproduction starts from the HotQCD equation of state
 | Study | Paper | Checks | Result |
 |-------|-------|--------|--------|
 | HotQCD EOS Tables | Paper 7 | Pass | Thermodynamic consistency, asymptotic freedom |
-| Pure Gauge SU(3) | Paper 8 | 12/12 | HMC, Dirac CG, plaquette physics |
+| Pure Gauge SU(3) | Paper 8 | 16/16 | HMC, Dirac CG, plaquette physics + sovereign GPU compile (SM35/SM70/SM120) |
 | Production QCD (quenched) | Paper 9 | 12/12 | 32⁴ on RTX 3090 (13.6h, $0.58), β_c=5.69 |
 | Dynamical Fermion HMC | Paper 10 | 7/7 | Pseudofermion HMC: ΔH scaling, plaquette, acceptance |
 | Abelian Higgs | Paper 13 | 17/17 | U(1)+Higgs (1+1)D, Rust 143× faster than Python |
