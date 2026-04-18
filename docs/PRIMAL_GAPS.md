@@ -1,10 +1,10 @@
 # hotSpring Primal Composition Gaps
 
 **Spring:** hotSpring v0.6.32
-**Proto-nucleate:** `hotspring_qcd_proto_nucleate.toml`
+**Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026
-**Last audited:** April 16, 2026 (Sovereign pipeline complete + composition audit)
+**Last audited:** April 17, 2026 (Stadial audit: physics dispatch wired, dyn eliminated, composition parity probes)
 **License:** AGPL-3.0-or-later
 
 ---
@@ -79,20 +79,18 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 - **Action:** Monitor barraCuda TensorSession stabilization; wire when
   the API is stable for lattice workloads.
 
-### GAP-HS-026: Physics Dispatch Not Wired in Server
+### GAP-HS-026: Physics Dispatch Not Wired in Server — RESOLVED
 
 - **Primal:** hotSpring (self)
 - **Severity:** Medium
-- **Status:** Active — registered-but-pending dispatch returns -32001
-- **Description:** `hotspring_primal` server advertises physics/compute
-  capabilities via `capabilities.list` and `niche::LOCAL_CAPABILITIES`,
-  but the `handle_request` dispatch only implements health, composition,
-  capabilities, compute.status, and mcp.tools.list. Physics methods
-  return a structured `-32001` error indicating dispatch is pending.
-  Full physics execution dispatch requires wiring validation binary
-  logic into the JSON-RPC server.
-- **Action:** Incrementally wire physics dispatch methods into
-  `hotspring_primal` as physics pipelines stabilize.
+- **Status:** **Resolved** (April 17, 2026)
+- **Resolution:** All 13 physics/compute methods in `LOCAL_CAPABILITIES` are
+  now wired in `hotspring_primal.rs`. Physics methods (`physics.*`) execute
+  real library code with `catch_unwind` safety. Compute methods (`compute.*`)
+  delegate to GPU capability detection. The `is_registered_but_pending`
+  fallback and `-32001` code have been removed. NUCLEUS composition validators
+  now include science parity probes comparing local Rust results against
+  IPC-routed results within documented tolerances.
 
 ### GAP-HS-027: TensorSession Adoption
 

@@ -189,6 +189,10 @@ pub trait MdBenchmarkBackend {
     fn run_yukawa_md(&self, spec: &MdBenchmarkSpec) -> Result<MdBenchmarkResult, String>;
 }
 
+// Heterogeneous backend slice requires dynamic dispatch — this is a
+// benchmark harness pattern, not production dispatch. The closed set
+// (CPU/GPU/CoralReef) could use an enum, but `dyn` keeps the bench
+// extensible for external backends without library changes.
 /// Run the same spec on all available MD backends and print comparison.
 pub fn compare_md_backends(
     backends: &[&dyn MdBenchmarkBackend],

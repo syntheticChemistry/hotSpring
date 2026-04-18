@@ -1,3 +1,7 @@
 [toolchain]
 channel = "stable"
+# Minimum supported: 1.87 (Edition 2024, stadial gate).
+# Pinned to stable rather than exact version because wgpu 28
+# may require a newer toolchain than 1.87. The rust-version
+# field in Cargo.toml declares the ecosystem MSRV target.
 components = ["clippy", "rustfmt", "llvm-tools-preview"]

@@ -15,7 +15,7 @@
 | [BARRACUDA_SCIENCE_VALIDATION.md](BARRACUDA_SCIENCE_VALIDATION.md) | Phase B technical results — BarraCuda vs Python/SciPy numbers | Technical reference |
 | [CONTROL_EXPERIMENT_SUMMARY.md](CONTROL_EXPERIMENT_SUMMARY.md) | Phase A summary — Python reproduction of published work | Quick reference |
 | [METHODOLOGY.md](METHODOLOGY.md) | Two-phase validation protocol | Methodology review |
-| [baseCamp/](baseCamp/) | Per-domain research briefings (17 docs — Murillo plasma, lattice QCD, Kachkovskiy spectral, Chuna papers, sovereign GPU, NPU, self-tuning RHMC, etc.) | Faculty, collaborators |
+| [baseCamp/](baseCamp/) | Per-domain research briefings (18 docs — Murillo plasma, lattice QCD, Kachkovskiy spectral, Chuna papers, sovereign GPU, NPU, self-tuning RHMC, etc.) | Faculty, collaborators |
 
 ---
 

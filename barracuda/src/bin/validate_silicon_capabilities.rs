@@ -80,7 +80,7 @@ fn bgl_uniform(binding: u32) -> wgpu::BindGroupLayoutEntry {
     }
 }
 
-#[allow(clippy::unused_async)]
+#[expect(clippy::unused_async, reason = "async signature required by dispatch framework")]
 async fn readback_bytes(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
@@ -666,7 +666,7 @@ async fn probe_df64_workgroup_reduce_f64(gpu: &GpuF64, tag: &str, harness: &mut 
 
 // ── Probe 6: ReduceScalarPipeline end-to-end ────────────────────────────────
 
-#[allow(clippy::unused_async)]
+#[expect(clippy::unused_async, reason = "async signature required by dispatch framework")]
 async fn probe_reduce_pipeline(gpu: &GpuF64, tag: &str, harness: &mut ValidationHarness) {
     println!("── ReduceScalarPipeline end-to-end (production path) ──");
 

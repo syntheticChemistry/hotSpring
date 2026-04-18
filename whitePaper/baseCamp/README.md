@@ -23,11 +23,11 @@ Published paper (Python/FORTRAN/HPC)
 
 ---
 
-## Documents (18)
+## Documents (19)
 
 | File | Role | Status (Apr 2026) |
 |------|------|-------------------|
-| **README.md** | Index for this folder | Current; points to 17 domain briefings |
+| **README.md** | Index for this folder | Current; points to 18 domain briefings |
 | [`murillo_plasma.md`](murillo_plasma.md) | Dense plasma MD | 60/60 checks, paper parity |
 | [`murillo_lattice_qcd.md`](murillo_lattice_qcd.md) | Lattice QCD (quenched & dynamical) | Asymmetric 64³×8, N_f=4 infra, deconfinement at β_c≈5.69 |
 | [`chuna_gradient_flow.md`](chuna_gradient_flow.md) | Chuna 43 — SU(3) gradient flow | 11/11 core; LSCFRK; strong GPU speedup |
@@ -45,6 +45,7 @@ Published paper (Python/FORTRAN/HPC)
 | [`silicon_characterization_at_scale.md`](silicon_characterization_at_scale.md) | Consumer to CERN-scale silicon | Saturation profiling; memory ceilings |
 | [`self_tuning_rhmc.md`](self_tuning_rhmc.md) | Self-tuning RHMC | RhmcCalibrator; GPU spectral probes |
 | [`true_multishift_cg_validated.md`](true_multishift_cg_validated.md) | Multi-shift CG + fermion force | Production RHMC; ΔH controlled |
+| [`nucleus_composition_evolution.md`](nucleus_composition_evolution.md) | NUCLEUS primal composition evolution — three-tier validation arc | Wave 1–3; IPC composition tier |
 
 ---
 

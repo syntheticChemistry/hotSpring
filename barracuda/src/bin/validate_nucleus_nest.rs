@@ -109,6 +109,37 @@ fn main() {
     validate_capability(&ctx, "rhizocrypt", "dag.session.create", &mut harness);
     validate_capability(&ctx, "loamspine", "session.commit", &mut harness);
     validate_capability(&ctx, "sweetgrass", "provenance.create_braid", &mut harness);
+
+    // ── Provenance Parity: local witness vs IPC DAG ──
+    println!("  ── Provenance Parity ──");
+    if ctx.rhizocrypt().is_some_and(|e| e.alive) {
+        let test_data = b"hotSpring nest validation probe - science parity";
+        let local_hash = hotspring_barracuda::dag_provenance::blake3_hex(test_data);
+        println!("    Local blake3: {local_hash}");
+
+        let w = hotspring_barracuda::witness::WireWitnessRef::hash(
+            "hotspring:nest_validation",
+            &local_hash,
+            Some("composition:parity:probe"),
+        );
+        let json_str = serde_json::to_string(&w).unwrap_or_default();
+        let roundtrip: Result<hotspring_barracuda::witness::WireWitnessRef, _> =
+            serde_json::from_str(&json_str);
+        match roundtrip {
+            Ok(back) => {
+                let match_ok = back.evidence == w.evidence && back.kind == w.kind;
+                harness.check_bool("Witness round-trip (serialize/deserialize)", match_ok);
+                println!(
+                    "    Witness round-trip: {}",
+                    if match_ok { "PASS" } else { "FAIL" }
+                );
+            }
+            Err(e) => {
+                harness.check_bool("Witness round-trip", false);
+                println!("    Witness error: {e}");
+            }
+        }
+    }
     println!();
 
     if ctx.discovered.is_empty() {

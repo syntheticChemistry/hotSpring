@@ -36,7 +36,7 @@ struct RegObservation {
     value: u32,
     name: Option<String>,
     group: Option<String>,
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "experiment-specific code retained for reproducibility")]
     source: String,
 }
 

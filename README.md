@@ -34,9 +34,9 @@ hotSpring answers: *"Does our hardware produce correct physics?"*, *"Can Rust+WG
 
 ---
 
-## Current Status (2026-04-11)
+## Current Status (2026-04-17)
 
-> **165+ experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **985 lib tests, 140 binaries, 128 WGSL shaders** | **guideStone artifact: 59/59 checks x 5 substrates (x86_64 + aarch64)** | **OCI container image + Windows/macOS launchers** | **NVIDIA GPFIFO pipeline OPERATIONAL on RTX 3090** | **AMD scratch/local memory OPERATIONAL on RX 6950 XT** | **AMD sovereign compiler: 24/24 QCD shaders compile to native GFX ISA** | **Ember Survivability Hardening COMPLETE** | **Firmware Boundary → SovereignInit Pipeline COMPLETE** | **NUCLEUS Composition Evolution COMPLETE — LOCAL/ROUTED capability split, biomeOS registration, ValidationSink/NDJSON/Skip, OrExit, capability_registry.toml sync, standalone mode, plasmidBin schema aligned**
+> **165+ experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **985 lib tests, 140 binaries, 62/62 validation suites, 128 WGSL shaders** | **deny.toml** | **physics dispatch wired** | **guideStone artifact: 59/59 checks x 5 substrates (x86_64 + aarch64)** | **OCI container image + Windows/macOS launchers** | **NVIDIA GPFIFO pipeline OPERATIONAL on RTX 3090** | **AMD scratch/local memory OPERATIONAL on RX 6950 XT** | **AMD sovereign compiler: 24/24 QCD shaders compile to native GFX ISA** | **Ember Survivability Hardening COMPLETE** | **Firmware Boundary → SovereignInit Pipeline COMPLETE** | **NUCLEUS Composition Evolution COMPLETE — LOCAL/ROUTED capability split, biomeOS registration, ValidationSink/NDJSON/Skip, OrExit, capability_registry.toml sync, standalone mode, plasmidBin schema aligned**
 >
 > **Three-Tier Validation Architecture (2026-04-11):** Python baselines → Rust validation → NUCLEUS primal composition validation. The same tolerance-driven, exit-code-gated methodology that proved Rust matches Python now proves IPC-composed NUCLEUS patterns match direct Rust execution. Composition validators (`validate_nucleus_*`) run standalone (skip-pass for CI, exit 2 = all skipped) or against live primals (full IPC validation). `validate_science_probes()` validates compute, math, and provenance trio capabilities via IPC with Rust baseline parity. Pattern documented for sibling spring adoption in wateringHole handoffs.
 >
@@ -159,7 +159,7 @@ ToadStool **S168** adds `shader.dispatch` completing the orchestration layer for
 The `barracuda/` directory is a standalone Rust crate providing the validation
 environment, physics implementations, and GPU compute. Key architectural properties:
 
-- **985 tests** (lib), **140 binaries**, **39 validation suites** (39/39 pass via `validate_all`; 82 individual `validate_*` binaries), **128 WGSL shaders** (all AGPL-3.0-only),
+- **985 tests** (lib), **140 binaries**, **62 validation suites** (62/62 pass via `validate_all`; 82 individual `validate_*` binaries), **128 WGSL shaders** (all AGPL-3.0-only),
   **16 determinism tests** (rerun-identical for all stochastic algorithms). Includes
   lattice QCD (complex f64, SU(3), Wilson action, HMC, Dirac CG, pseudofermion HMC),
   Abelian Higgs (U(1) + Higgs, HMC), transport coefficients (Green-Kubo D*/η*/λ*,
@@ -227,8 +227,7 @@ environment, physics implementations, and GPU compute. Key architectural propert
 - **NUCLEUS composition** — `niche.rs` declares proto-nucleate, capabilities, and dependencies.
   `composition.rs` validates atomic health (Tower/Node/Nest/FullNucleus) via IPC; `squirrel_client.rs` wires the Squirrel IPC client for primal communication.
   `mcp_tools.rs` exposes 5 MCP tool schemas for AI/LLM integration.
-  `hotspring_primal.rs` JSON-RPC server serves `health.*`, `capability.*`, `composition.*`,
-  and `mcp.tools.list`. ecoBin packaging via `scripts/harvest-ecobin.sh`.
+  `hotspring_primal.rs` JSON-RPC server serves `health.*`, `capability.*`, `composition.*`, `physics.*`, `compute.*`, and `mcp.tools.list`. ecoBin packaging via `scripts/harvest-ecobin.sh`.
 - **Quality gates**: Zero clippy warnings (lib), zero unsafe blocks, 8 scoped EVOLUTION(B2) markers (GPU-resident migration), all files <1000 lines, AGPL-3.0-only consistent.
 
 ```bash
@@ -236,7 +235,7 @@ cd barracuda
 cargo test               # 985 tests (lib), 6 ignored (~700s; spectral tests upstream)
 cargo clippy --all-targets  # Zero warnings (pedantic + nursery via Cargo.toml workspace lints)
 cargo doc --no-deps      # Full API documentation — 0 warnings
-cargo run --release --bin validate_all  # 39/39 suites pass
+cargo run --release --bin validate_all  # 62/62 suites pass
 ```
 
 See [`barracuda/CHANGELOG.md`](barracuda/CHANGELOG.md) for version history.
@@ -427,7 +426,7 @@ Sovereign pipeline COMPLETE (Exp 168): fork-isolated MMIO gateway, 6-stage init
 PMU DEVINIT + VBIOS PROM wired as ember RPCs. Warm handoff validated: full
 vfio→nouveau→vfio round-trip on Titan V with HBM2 preservation.
 Three-tier validation: Python validates Rust. Rust validates NUCLEUS. Peer-reviewed
-science runs on consumer hardware, composed via sovereign primal IPC.
+science runs on consumer hardware, composed via sovereign primal IPC. All 13 physics/compute methods wired in JSON-RPC server — composition parity probes compare IPC results against local Rust baselines.
 guideStone artifact validated across 5 substrates.
 The full science ladder — quenched through dynamical fermions with gradient flow
 scale setting — runs on consumer hardware. The scarcity was artificial.*

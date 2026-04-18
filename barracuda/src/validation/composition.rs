@@ -46,106 +46,100 @@ pub enum CheckOutcome {
     Skip,
 }
 
-/// Pluggable output destination for composition validation checks.
-pub trait ValidationSink: std::fmt::Debug + Send + Sync {
-    /// Emit a single check result.
-    fn on_check(&self, outcome: CheckOutcome, name: &str, detail: &str);
-    /// Begin a named section of checks.
-    fn section(&self, _name: &str) {}
-    /// Write a summary footer after all checks are emitted.
-    fn write_summary(&self, _passed: u32, _failed: u32, _skipped: u32) {}
+/// Concrete enum for validation output sinks (zero `dyn` dispatch).
+pub enum ValidationSink {
+    Stdout,
+    Null,
+    Ndjson(std::sync::Mutex<Box<dyn std::io::Write + Send>>),
 }
 
-/// Default sink that writes check results to stdout.
-#[derive(Debug)]
-pub struct StdoutSink;
+impl std::fmt::Debug for ValidationSink {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Stdout => f.write_str("Stdout"),
+            Self::Null => f.write_str("Null"),
+            Self::Ndjson(_) => f.write_str("Ndjson(_)"),
+        }
+    }
+}
 
-impl ValidationSink for StdoutSink {
+impl ValidationSink {
     fn on_check(&self, outcome: CheckOutcome, name: &str, detail: &str) {
-        let tag = match outcome {
-            CheckOutcome::Pass => "PASS",
-            CheckOutcome::Fail => "FAIL",
-            CheckOutcome::Skip => "SKIP",
-        };
-        println!("  [{tag}] {name}: {detail}");
+        match self {
+            Self::Stdout => {
+                let tag = match outcome {
+                    CheckOutcome::Pass => "PASS",
+                    CheckOutcome::Fail => "FAIL",
+                    CheckOutcome::Skip => "SKIP",
+                };
+                println!("  [{tag}] {name}: {detail}");
+            }
+            Self::Null => {}
+            Self::Ndjson(writer) => {
+                let tag = match outcome {
+                    CheckOutcome::Pass => "pass",
+                    CheckOutcome::Fail => "fail",
+                    CheckOutcome::Skip => "skip",
+                };
+                let line = format!(
+                    "{{\"outcome\":\"{tag}\",\"name\":{},\"detail\":{}}}",
+                    serde_json::json!(name),
+                    serde_json::json!(detail),
+                );
+                if let Ok(mut w) = writer.lock() {
+                    let _ = writeln!(w, "{line}");
+                }
+            }
+        }
     }
 
     fn section(&self, name: &str) {
-        println!("\n--- {name} ---");
+        match self {
+            Self::Stdout => println!("\n--- {name} ---"),
+            Self::Null => {}
+            Self::Ndjson(writer) => {
+                let line = format!("{{\"section\":{}}}", serde_json::json!(name));
+                if let Ok(mut w) = writer.lock() {
+                    let _ = writeln!(w, "{line}");
+                }
+            }
+        }
     }
 
     fn write_summary(&self, passed: u32, failed: u32, skipped: u32) {
-        let total = passed + failed;
-        print!("  Summary: {passed}/{total} passed");
-        if skipped > 0 {
-            print!(" ({skipped} skipped)");
-        }
-        println!();
-    }
-}
-
-/// Sink that discards all output (useful for tests).
-#[derive(Debug)]
-pub struct NullSink;
-
-impl ValidationSink for NullSink {
-    fn on_check(&self, _: CheckOutcome, _: &str, _: &str) {}
-}
-
-/// Newline-delimited JSON sink for streaming validation output.
-#[derive(Debug)]
-pub struct NdjsonSink<W: std::io::Write + std::fmt::Debug + Send + Sync> {
-    writer: std::sync::Mutex<W>,
-}
-
-impl<W: std::io::Write + std::fmt::Debug + Send + Sync> NdjsonSink<W> {
-    /// Create a new NDJSON sink writing to the given destination.
-    pub const fn new(writer: W) -> Self {
-        Self {
-            writer: std::sync::Mutex::new(writer),
+        match self {
+            Self::Stdout => {
+                let total = passed + failed;
+                print!("  Summary: {passed}/{total} passed");
+                if skipped > 0 {
+                    print!(" ({skipped} skipped)");
+                }
+                println!();
+            }
+            Self::Null => {}
+            Self::Ndjson(writer) => {
+                let line = format!(
+                    "{{\"summary\":{{\"passed\":{passed},\"failed\":{failed},\"skipped\":{skipped}}}}}"
+                );
+                if let Ok(mut w) = writer.lock() {
+                    let _ = writeln!(w, "{line}");
+                }
+            }
         }
     }
 }
 
-impl NdjsonSink<std::io::Stdout> {
-    /// Create a sink that writes NDJSON to stdout.
+/// Convenience constructors for backward compatibility with the old trait-based API.
+impl ValidationSink {
+    /// Create a null sink that discards all output (useful for tests).
     #[must_use]
-    pub fn stdout() -> Self {
-        Self::new(std::io::stdout())
-    }
-}
-
-impl<W: std::io::Write + std::fmt::Debug + Send + Sync> ValidationSink for NdjsonSink<W> {
-    fn on_check(&self, outcome: CheckOutcome, name: &str, detail: &str) {
-        let tag = match outcome {
-            CheckOutcome::Pass => "pass",
-            CheckOutcome::Fail => "fail",
-            CheckOutcome::Skip => "skip",
-        };
-        let line = format!(
-            "{{\"outcome\":\"{tag}\",\"name\":{},\"detail\":{}}}",
-            serde_json::json!(name),
-            serde_json::json!(detail),
-        );
-        if let Ok(mut w) = self.writer.lock() {
-            let _ = writeln!(w, "{line}");
-        }
+    pub fn null() -> Self {
+        Self::Null
     }
 
-    fn section(&self, name: &str) {
-        let line = format!("{{\"section\":{}}}", serde_json::json!(name));
-        if let Ok(mut w) = self.writer.lock() {
-            let _ = writeln!(w, "{line}");
-        }
-    }
-
-    fn write_summary(&self, passed: u32, failed: u32, skipped: u32) {
-        let line = format!(
-            "{{\"summary\":{{\"passed\":{passed},\"failed\":{failed},\"skipped\":{skipped}}}}}"
-        );
-        if let Ok(mut w) = self.writer.lock() {
-            let _ = writeln!(w, "{line}");
-        }
+    /// Create an NDJSON sink writing to the given writer.
+    pub fn ndjson<W: std::io::Write + Send + 'static>(writer: W) -> Self {
+        Self::Ndjson(std::sync::Mutex::new(Box::new(writer)))
     }
 }
 
@@ -162,7 +156,7 @@ pub struct CompositionResult {
     pub skipped: u32,
     /// Individual check results in execution order.
     pub checks: Vec<CompositionCheck>,
-    sink: std::sync::Arc<dyn ValidationSink>,
+    sink: std::sync::Arc<ValidationSink>,
 }
 
 /// Result of a single named composition check.
@@ -186,13 +180,13 @@ impl CompositionResult {
             failed: 0,
             skipped: 0,
             checks: Vec::new(),
-            sink: std::sync::Arc::new(StdoutSink),
+            sink: std::sync::Arc::new(ValidationSink::Stdout),
         }
     }
 
     /// Replace the output sink (builder-style).
     #[must_use]
-    pub fn with_sink(mut self, sink: std::sync::Arc<dyn ValidationSink>) -> Self {
+    pub fn with_sink(mut self, sink: std::sync::Arc<ValidationSink>) -> Self {
         self.sink = sink;
         self
     }

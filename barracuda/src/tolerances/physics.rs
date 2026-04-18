@@ -153,6 +153,50 @@ pub const DIELECTRIC_F_SUM_GPU_CPU_REL: f64 = 0.06;
 /// `validate_gpu_dielectric`.
 pub const DIELECTRIC_HIGH_FREQ_LIMIT_ABS: f64 = 0.01;
 
+/// Plasma dispersion function at z=0: |Re W(0)−1| and |Im W(0)| absolute gate.
+///
+/// The series definition gives W(0)=1 and Im W(0)=0 analytically; the implementation
+/// should match to ~machine precision. 1e-14 allows a few ULP beyond f64 epsilon
+/// (`validate_chuna` Paper 44).
+pub const DIELECTRIC_PLASMA_DISPERSION_W0_ABS: f64 = 1e-14;
+
+/// Static Debye limit: relative agreement between Mermin static ε and analytic Debye.
+///
+/// `debye_screening` compares long-wavelength screening in the collisionless limit;
+/// 1e-12 is tight enough to catch implementation errors while allowing quadrature
+/// noise in κ-space (`validate_chuna` Paper 44).
+pub const DIELECTRIC_DEBYE_SCREENING_REL: f64 = 1e-12;
+
+/// Drude DC conductivity: relative agreement with σ = ωₚ²/(4πν).
+///
+/// The closed form is exact for the Drude model; 1e-13 bounds floating-point
+/// composition of plasma frequency and collision rate (`validate_chuna` Paper 44).
+pub const DIELECTRIC_DRUDE_CONDUCTIVITY_REL: f64 = 1e-13;
+
+/// Dynamic structure factor: relative slack for “numerical negativity” near zero.
+///
+/// Quadrature noise can make S(k,ω) slightly negative when the true value is 0;
+/// points with S ≥ −`tol`×max(S, floor) count as physically nonnegative (`validate_chuna`).
+pub const DIELECTRIC_DSF_RELATIVE_NOISE_FLOOR: f64 = 1e-6;
+
+/// Dynamic structure factor: floor inside max(S_max, floor) for positivity slack.
+///
+/// When all S are tiny, comparing to zero in relative terms would be ill-conditioned;
+/// 1e-10 provides an absolute scale so the near-positivity test remains stable.
+pub const DIELECTRIC_DSF_MAGNITUDE_FLOOR: f64 = 1e-10;
+
+/// Dynamic structure factor: minimum fraction of ω samples required nonnegative.
+///
+/// After applying [`DIELECTRIC_DSF_RELATIVE_NOISE_FLOOR`] slack, at least 98% of
+/// frequency samples should pass — leaving margin for isolated quadrature outliers.
+pub const DIELECTRIC_DSF_POSITIVE_FRACTION_MIN: f64 = 0.98;
+
+/// Completed Mermin DSF: stricter minimum nonnegative fraction than [`DIELECTRIC_DSF_POSITIVE_FRACTION_MIN`].
+///
+/// The completed construction is smoother; 99% is the acceptance bar for
+/// `dynamic_structure_factor_completed` in Paper 44 validation.
+pub const DIELECTRIC_COMPLETED_DSF_POSITIVE_FRACTION_MIN: f64 = 0.99;
+
 // ═══════════════════════════════════════════════════════════════════
 // Nuclear EOS acceptance criteria (METHODOLOGY.md)
 // ═══════════════════════════════════════════════════════════════════

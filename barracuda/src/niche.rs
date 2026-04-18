@@ -53,7 +53,11 @@ pub const NICHE_DESCRIPTION: &str =
 pub const NICHE_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Proto-nucleate graph defining this spring's NUCLEUS composition target.
-pub const PROTO_NUCLEATE: &str = "primalSpring/graphs/downstream/hotspring_qcd_proto_nucleate.toml";
+///
+/// After v0.9.15 graph consolidation, the canonical source is the `[[downstream]]`
+/// entry with `spring_name = "hotspring"` inside `downstream_manifest.toml`.
+/// The standalone file was merged into the manifest.
+pub const PROTO_NUCLEATE: &str = "primalSpring/graphs/downstream/downstream_manifest.toml";
 
 /// NUCLEUS particle profile.
 pub const PARTICLE_PROFILE: &str = "proton_heavy";

@@ -2,6 +2,7 @@
 name = "hotspring-barracuda"
 version = "0.6.32"
 edition = "2024"
+rust-version = "1.87"
 description = "Nuclear EOS + GPU MD validation for BarraCuda — L1/L2/L3 physics, Yukawa OCP, lattice QCD, spectral theory, typed errors, full Result propagation, provenance, capability-based discovery"
 license = "AGPL-3.0-or-later"
 repository = "https://github.com/biomegate/ecoPrimals"

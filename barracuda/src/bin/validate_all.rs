@@ -248,6 +248,121 @@ const SUITES: &[Suite] = &[
         binary: "validate_transport",
         requires_gpu: true,
     },
+    Suite {
+        name: "TTM Laser-Plasma (Paper 2)",
+        binary: "validate_ttm",
+        requires_gpu: false,
+    },
+    Suite {
+        name: "Gradient Flow (Paper 43)",
+        binary: "validate_gradient_flow",
+        requires_gpu: false,
+    },
+    Suite {
+        name: "GPU Gradient Flow (Paper 43 GPU)",
+        binary: "validate_gpu_gradient_flow",
+        requires_gpu: true,
+    },
+    Suite {
+        name: "Chuna Papers 43/44/45",
+        binary: "validate_chuna",
+        requires_gpu: false,
+    },
+    Suite {
+        name: "BGK Dielectric (Paper 44)",
+        binary: "validate_dielectric",
+        requires_gpu: false,
+    },
+    Suite {
+        name: "GPU Dielectric (Paper 44 GPU)",
+        binary: "validate_gpu_dielectric",
+        requires_gpu: true,
+    },
+    Suite {
+        name: "Kinetic-Fluid Coupling (Haack)",
+        binary: "validate_kinetic_fluid",
+        requires_gpu: false,
+    },
+    Suite {
+        name: "DSF vs MD (Chuna/Murillo)",
+        binary: "validate_dsf_vs_md",
+        requires_gpu: false,
+    },
+    Suite {
+        name: "FPEOS Table (Paper 32)",
+        binary: "validate_fpeos",
+        requires_gpu: false,
+    },
+    Suite {
+        name: "atoMEC Average-Atom (Paper 33)",
+        binary: "validate_atomec",
+        requires_gpu: false,
+    },
+    Suite {
+        name: "Freeze-Out Curvature (Paper 12)",
+        binary: "validate_freeze_out",
+        requires_gpu: false,
+    },
+    Suite {
+        name: "HVP g-2 (Paper 11)",
+        binary: "validate_hvp_g2",
+        requires_gpu: false,
+    },
+    Suite {
+        name: "Production QCD v2 (Omelyan+Hasenbusch)",
+        binary: "validate_production_qcd_v2",
+        requires_gpu: false,
+    },
+    Suite {
+        name: "GPU β-Scan (Full Temperature Sweep)",
+        binary: "validate_gpu_beta_scan",
+        requires_gpu: true,
+    },
+    Suite {
+        name: "GPU Dynamical Fermion HMC",
+        binary: "validate_gpu_dynamical_hmc",
+        requires_gpu: true,
+    },
+    Suite {
+        name: "Sovereign Round-Trip",
+        binary: "validate_sovereign_roundtrip",
+        requires_gpu: true,
+    },
+    Suite {
+        name: "Precision Matrix (Silicon)",
+        binary: "validate_precision_matrix",
+        requires_gpu: true,
+    },
+    Suite {
+        name: "BarraCuda CPU/GPU Parity (All Domains)",
+        binary: "validate_barracuda_cpu_gpu_parity",
+        requires_gpu: true,
+    },
+    Suite {
+        name: "NUCLEUS Composition",
+        binary: "validate_nucleus_composition",
+        requires_gpu: false,
+    },
+    Suite {
+        name: "NUCLEUS Tower Atomic",
+        binary: "validate_nucleus_tower",
+        requires_gpu: false,
+    },
+    Suite {
+        name: "NUCLEUS Node Atomic",
+        binary: "validate_nucleus_node",
+        requires_gpu: false,
+    },
+    Suite {
+        name: "NUCLEUS Nest Atomic",
+        binary: "validate_nucleus_nest",
+        requires_gpu: false,
+    },
+    Suite {
+        name: "Squirrel Inference Round-Trip",
+        binary: "validate_squirrel_roundtrip",
+        requires_gpu: false,
+    },
 ];
 
 fn main() {

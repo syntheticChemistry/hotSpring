@@ -14,7 +14,7 @@
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::lattice::gpu_flow::{GpuFlowPipelines, GpuFlowState, gpu_gradient_flow};
 use hotspring_barracuda::lattice::gpu_hmc::dynamical::{GpuDynHmcPipelines, GpuDynHmcState};
-#[allow(deprecated)]
+#[expect(deprecated, reason = "legacy API retained for backward compatibility during migration")]
 use hotspring_barracuda::lattice::gpu_hmc::gpu_rhmc::{
     GpuRhmcPipelines, GpuRhmcState, gpu_rhmc_trajectory,
 };
@@ -88,7 +88,7 @@ impl DtAdapter {
 
 // Legacy trajectory calls used for pre-therm and dt-discovery probes only;
 // the main trajectory loop uses the unidirectional path.
-#[allow(deprecated)]
+#[expect(deprecated, reason = "legacy API retained for backward compatibility during migration")]
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let lattice_size = parse_arg(&args, "--lattice", 8);
@@ -470,7 +470,7 @@ fn run_adaptive_flow(
     epsilon: f64,
 ) -> (Option<f64>, Option<f64>) {
     let mut t_max = 4.0;
-    #[allow(clippy::while_float)]
+    #[expect(clippy::while_float, reason = "adaptive HMC step-size loop with convergence guard")]
     while t_max <= 32.0 {
         let state = GpuFlowState::from_lattice(gpu, lattice, beta);
         let fr = gpu_gradient_flow(

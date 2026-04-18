@@ -148,7 +148,7 @@ impl ComputeBackend for BarraCudaGpuBackend {
     }
 }
 
-#[allow(deprecated)]
+#[expect(deprecated, reason = "legacy API retained for backward compatibility during migration")]
 fn main() {
     let mut dims: Option<[usize; 4]> = None;
     let mut lattice: Option<usize> = None;

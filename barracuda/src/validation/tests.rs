@@ -215,7 +215,7 @@ fn format_summary_includes_failed_icon() {
 
 #[test]
 fn composition_result_pass_fail() {
-    let mut r = CompositionResult::new("test").with_sink(std::sync::Arc::new(NullSink));
+    let mut r = CompositionResult::new("test").with_sink(std::sync::Arc::new(ValidationSink::Null));
     r.check_bool("ok", true, "yes");
     r.check_bool("fail", false, "no");
     assert_eq!(r.passed, 1);
@@ -226,7 +226,7 @@ fn composition_result_pass_fail() {
 
 #[test]
 fn composition_result_all_pass() {
-    let mut r = CompositionResult::new("test").with_sink(std::sync::Arc::new(NullSink));
+    let mut r = CompositionResult::new("test").with_sink(std::sync::Arc::new(ValidationSink::Null));
     r.check_bool("a", true, "ok");
     r.check_bool("b", true, "ok");
     assert!(r.all_passed());
@@ -235,7 +235,7 @@ fn composition_result_all_pass() {
 
 #[test]
 fn composition_result_skip() {
-    let mut r = CompositionResult::new("test").with_sink(std::sync::Arc::new(NullSink));
+    let mut r = CompositionResult::new("test").with_sink(std::sync::Arc::new(ValidationSink::Null));
     r.check_skip("primal_health", "biomeOS not available");
     assert_eq!(r.skipped, 1);
     assert_eq!(r.passed, 0);
@@ -245,16 +245,16 @@ fn composition_result_skip() {
 
 #[test]
 fn composition_result_exit_code_skip_aware() {
-    let mut r = CompositionResult::new("test").with_sink(std::sync::Arc::new(NullSink));
+    let mut r = CompositionResult::new("test").with_sink(std::sync::Arc::new(ValidationSink::Null));
     r.check_skip("a", "no primals");
     assert_eq!(r.exit_code_skip_aware(), 2, "all skipped = exit 2");
 
-    let mut r2 = CompositionResult::new("test").with_sink(std::sync::Arc::new(NullSink));
+    let mut r2 = CompositionResult::new("test").with_sink(std::sync::Arc::new(ValidationSink::Null));
     r2.check_bool("ok", true, "yes");
     r2.check_skip("b", "no primal");
     assert_eq!(r2.exit_code_skip_aware(), 0, "pass + skip = exit 0");
 
-    let mut r3 = CompositionResult::new("test").with_sink(std::sync::Arc::new(NullSink));
+    let mut r3 = CompositionResult::new("test").with_sink(std::sync::Arc::new(ValidationSink::Null));
     r3.check_bool("fail", false, "no");
     r3.check_skip("b", "no primal");
     assert_eq!(r3.exit_code_skip_aware(), 1, "fail + skip = exit 1");
@@ -262,7 +262,7 @@ fn composition_result_exit_code_skip_aware() {
 
 #[test]
 fn composition_result_check_or_skip() {
-    let mut r = CompositionResult::new("test").with_sink(std::sync::Arc::new(NullSink));
+    let mut r = CompositionResult::new("test").with_sink(std::sync::Arc::new(ValidationSink::Null));
     r.check_or_skip("with_value", Some(42), "no value", |val, cr| {
         cr.check_bool("got_42", val == 42, "expected 42");
     });
@@ -276,7 +276,7 @@ fn composition_result_check_or_skip() {
 
 #[test]
 fn composition_result_latency() {
-    let mut r = CompositionResult::new("test").with_sink(std::sync::Arc::new(NullSink));
+    let mut r = CompositionResult::new("test").with_sink(std::sync::Arc::new(ValidationSink::Null));
     r.check_latency("fast", 100, 50_000);
     assert_eq!(r.passed, 1);
     r.check_latency("slow", 100_000, 50_000);
@@ -305,7 +305,7 @@ fn check_outcome_equality() {
 #[test]
 fn ndjson_sink_does_not_panic() {
     let buf = std::io::Cursor::new(Vec::new());
-    let sink = NdjsonSink::new(buf);
+    let sink = ValidationSink::ndjson(buf);
     sink.on_check(CheckOutcome::Pass, "test", "ok");
     sink.on_check(CheckOutcome::Skip, "skipped", "no primal");
     sink.section("section_name");

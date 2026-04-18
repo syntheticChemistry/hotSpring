@@ -173,6 +173,10 @@ pub trait ComputeBackend {
     fn run_quenched_hmc(&self, spec: &BenchmarkSpec) -> Result<BenchmarkResult, String>;
 }
 
+// Heterogeneous backend slice requires dynamic dispatch — this is a
+// benchmark harness pattern, not production dispatch. The closed set
+// (CPU/GPU/CoralReef) could use an enum, but `dyn` keeps the bench
+// extensible for external backends without library changes.
 /// Run the same spec on all available backends and print comparison.
 pub fn compare_backends(
     backends: &[&dyn ComputeBackend],

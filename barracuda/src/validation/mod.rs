@@ -13,16 +13,13 @@
 //! - [`CompositionResult`] — NUCLEUS composition validation (bool/skip/latency)
 //! - [`TelemetryWriter`] — JSONL telemetry for petalTongue integration
 //! - [`OrExit`] — zero-panic exit for validation binaries
-//! - Pluggable sinks ([`StdoutSink`], [`NullSink`], [`NdjsonSink`])
+//! - [`ValidationSink`] enum (Stdout, Null, Ndjson) — zero `dyn` dispatch
 
 mod composition;
 mod harness;
 mod telemetry;
 
-pub use composition::{
-    CheckOutcome, CompositionCheck, CompositionResult, NdjsonSink, NullSink, OrExit, StdoutSink,
-    ValidationSink,
-};
+pub use composition::{CheckOutcome, CompositionCheck, CompositionResult, OrExit, ValidationSink};
 pub use harness::{Check, HardwareProfile, ToleranceMode, ValidationHarness};
 pub use telemetry::TelemetryWriter;
 

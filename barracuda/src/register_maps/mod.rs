@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-#![allow(missing_docs)]
+#![expect(missing_docs, reason = "hardware register definitions are self-documenting by name")]
 //! Vendor-agnostic register map abstraction for GPU reverse engineering.
 //!
 //! Each GPU architecture provides a `RegisterMap` implementation that
@@ -45,14 +45,64 @@ pub trait RegisterMap {
     fn thermal_offset(&self) -> Option<u32>;
 }
 
+/// Concrete enum dispatch for register maps (zero `dyn`).
+pub enum GpuRegisterMap {
+    NvGv100(NvGv100Map),
+    AmdGfx906(AmdGfx906Map),
+}
+
+impl GpuRegisterMap {
+    pub fn vendor(&self) -> &str {
+        match self {
+            Self::NvGv100(m) => m.vendor(),
+            Self::AmdGfx906(m) => m.vendor(),
+        }
+    }
+
+    pub fn arch(&self) -> &str {
+        match self {
+            Self::NvGv100(m) => m.arch(),
+            Self::AmdGfx906(m) => m.arch(),
+        }
+    }
+
+    pub fn registers(&self) -> &[RegDef] {
+        match self {
+            Self::NvGv100(m) => m.registers(),
+            Self::AmdGfx906(m) => m.registers(),
+        }
+    }
+
+    pub fn decode_temp_c(&self, raw: u32) -> Option<u32> {
+        match self {
+            Self::NvGv100(m) => m.decode_temp_c(raw),
+            Self::AmdGfx906(m) => m.decode_temp_c(raw),
+        }
+    }
+
+    pub fn decode_boot_id(&self, raw: u32) -> String {
+        match self {
+            Self::NvGv100(m) => m.decode_boot_id(raw),
+            Self::AmdGfx906(m) => m.decode_boot_id(raw),
+        }
+    }
+
+    pub fn thermal_offset(&self) -> Option<u32> {
+        match self {
+            Self::NvGv100(m) => m.thermal_offset(),
+            Self::AmdGfx906(m) => m.thermal_offset(),
+        }
+    }
+}
+
 /// Detect the appropriate register map from PCI vendor ID.
 ///
-/// Falls back to NVIDIA GV100 for `0x10de`, AMD GFX906 for `0x1002`.
+/// Returns NVIDIA GV100 for `0x10de`, AMD GFX906 for `0x1002`.
 /// Returns `None` for unknown vendors.
-pub fn detect_register_map(vendor_id: u16) -> Option<Box<dyn RegisterMap>> {
+pub fn detect_register_map(vendor_id: u16) -> Option<GpuRegisterMap> {
     match vendor_id {
-        0x10de => Some(Box::new(NvGv100Map)),
-        0x1002 => Some(Box::new(AmdGfx906Map)),
+        0x10de => Some(GpuRegisterMap::NvGv100(NvGv100Map)),
+        0x1002 => Some(GpuRegisterMap::AmdGfx906(AmdGfx906Map)),
         _ => None,
     }
 }

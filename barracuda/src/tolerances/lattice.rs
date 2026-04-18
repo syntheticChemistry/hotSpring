@@ -578,6 +578,31 @@ pub const U1_SPEEDUP_MIN: f64 = 1.0;
 /// to 1e-10 (near machine epsilon for accumulated f64 sums).
 pub const GPU_STREAMING_PLAQUETTE_PARITY: f64 = 1e-10;
 
+// ═══════════════════════════════════════════════════════════════════
+// Wilson gradient flow — Chuna validation (`validate_chuna`, Paper 43)
+// ═══════════════════════════════════════════════════════════════════
+
+/// CPU–GPU plaquette absolute difference after long RK3 gradient flow.
+///
+/// On 8⁴ hot-start lattices, 200 RK3 steps with GPU parallel reduction vs
+/// CPU sequential accumulation gives |Δ⟨P⟩| ~2–3×10⁻¹⁰ empirically; 1e-9 is
+/// a safe upper bound (Bazavov & Chuna, arXiv:2101.05320 parity gate).
+pub const GRADIENT_FLOW_GPU_CPU_PLAQUETTE_ABS: f64 = 1e-9;
+
+/// Cross-GPU plaquette absolute difference (two f64 adapters, same algorithm).
+///
+/// Both sides use parallel reductions, so disagreement is smaller than CPU–GPU;
+/// driver/compiler differences remain. Measured scatter is below ~4×10⁻¹⁰; 5e-10
+/// is the acceptance ceiling for cross-substrate plaquette agreement.
+pub const GRADIENT_FLOW_CROSS_GPU_PLAQUETTE_ABS: f64 = 5e-10;
+
+/// LSCFRK4CK vs RK3 Lüscher energy density at fixed step (`ε`, flow time).
+///
+/// Fourth-order and third-order integrators agree on the smoothed observable
+/// within ~1% on 8⁴ for the validation parameters; tighter bounds would reject
+/// benign scheme differences while still catching instability or divergence.
+pub const GRADIENT_FLOW_CK4_RK3_ENERGY_ABS: f64 = 0.01;
+
 /// GPU dynamical fermion force: CPU-vs-GPU parity.
 ///
 /// The staggered fermion force involves D†D⁻¹ and SU(3) matrix products.

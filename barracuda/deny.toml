@@ -1,0 +1,104 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# cargo-deny configuration for hotSpring barracuda crate.
+#
+# Enforces license compliance, known vulnerability scanning, and
+# crate-level bans aligned with ecoBin (no C-FFI in default build).
+#
+# Run:     cargo deny check
+# Install: cargo install cargo-deny
+
+[graph]
+targets = []
+all-features = true
+
+[advisories]
+version = 2
+db-path = "~/.cargo/advisory-db"
+db-urls = ["https://github.com/rustsec/advisory-db"]
+unmaintained = "workspace"
+yanked = "deny"
+ignore = []
+
+[licenses]
+version = 2
+confidence-threshold = 0.8
+unused-allowed-license = "allow"
+allow = [
+    "AGPL-3.0-or-later",
+    "AGPL-3.0-only",
+    "AGPL-3.0",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BSL-1.0",
+    "CC0-1.0",
+    "0BSD",
+    "ISC",
+    "MIT",
+    "MPL-2.0",
+    "OpenSSL",
+    "Unicode-3.0",
+    "Unicode-DFS-2016",
+    "Zlib",
+]
+
+[licenses.private]
+ignore = true
+
+[[licenses.clarify]]
+crate = "ring"
+expression = "MIT AND ISC AND OpenSSL"
+license-files = [{ path = "LICENSE", hash = 0xbd0eed23 }]
+
+[bans]
+multiple-versions = "warn"
+wildcards = "allow"
+highlight = "all"
+allow = []
+
+# ecoBin compliance: zero C dependencies in application code.
+# These crates pull in C/C++ compilers or link native libraries.
+# Feature-gated exceptions: cudarc (cuda-validation), rustix (low-level),
+# coral-gpu (sovereign-dispatch) — infrastructure, not default-feature code.
+# blake3 uses cc for build-time SIMD assembly — allowed via wrapper.
+# renderdoc-sys is transitive via wgpu-hal (GPU debug, not application code).
+# pkg-config appears via khronos-egl (wgpu Vulkan portability layer).
+deny = [
+    { crate = "openssl-sys", wrappers = [], reason = "C dependency — use rustls (Tower Atomic delegation)" },
+    { crate = "openssl", wrappers = [], reason = "C dependency — use rustls (Tower Atomic delegation)" },
+    { crate = "native-tls", wrappers = [], reason = "C dependency — use rustls" },
+    { crate = "aws-lc-sys", wrappers = [], reason = "C dependency" },
+    { crate = "aws-lc-rs", wrappers = [], reason = "C dependency" },
+    { crate = "ring", wrappers = ["rustls", "rustls-webpki"], reason = "C/asm crypto — Tower Atomic delegates to BearDog" },
+    { crate = "libz-sys", wrappers = [], reason = "C dependency — use flate2 rust_backend" },
+    { crate = "bzip2-sys", wrappers = [], reason = "C dependency" },
+    { crate = "lzma-sys", wrappers = [], reason = "C dependency" },
+    { crate = "zstd-sys", wrappers = [], reason = "C dependency — use ruzstd" },
+    { crate = "curl-sys", wrappers = [], reason = "C dependency — use ureq/reqwest" },
+    { crate = "libgit2-sys", wrappers = [], reason = "C dependency — use gitoxide" },
+    { crate = "libssh2-sys", wrappers = [], reason = "C dependency" },
+    { crate = "libsqlite3-sys", wrappers = [], reason = "C dependency" },
+    { crate = "cmake", wrappers = [], reason = "C build tool" },
+    { crate = "cc", wrappers = ["blake3"], reason = "C compiler — allowed only via blake3 build-time SIMD assembly" },
+    { crate = "bindgen", wrappers = [], reason = "C header parser" },
+    { crate = "pkg-config", wrappers = ["khronos-egl"], reason = "C build tool — allowed via wgpu Vulkan portability" },
+    { crate = "vcpkg", wrappers = [], reason = "C build tool" },
+    { crate = "async-trait", wrappers = [], reason = "Stadial invariant: zero async-trait — use native async fn in traits" },
+]
+
+skip = [
+    # wgpu v28 pulls windows-sys duplicates via separate transitive paths.
+    # Harmless (platform abstraction only). Revisit on wgpu bump.
+    { crate = "windows-sys@0.60.2", reason = "wgpu v28 transitive duplicate" },
+]
+skip-tree = []
+workspace-default-features = "allow"
+external-default-features = "allow"
+allow-wildcard-paths = true
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "warn"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

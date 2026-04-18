@@ -645,11 +645,14 @@ pub fn find_max_uncertainty_beta(
 
 /// Bootstrap ESN from a previous run's trajectory log.
 /// Streams JSONL lines, extracts per-beta aggregates, trains ESN.
-pub fn bootstrap_esn_from_trajectory_log(
+pub fn bootstrap_esn_from_trajectory_log<F>(
     path: &str,
-    make_esn: &dyn Fn(u64, &[BetaResult]) -> Option<NpuSimulator>,
+    make_esn: &F,
     npu: &mut Option<NpuSimulator>,
-) -> Result<(usize, f64), HotSpringError> {
+) -> Result<(usize, f64), HotSpringError>
+where
+    F: Fn(u64, &[BetaResult]) -> Option<NpuSimulator>,
+{
     let file = std::fs::File::open(path)?;
     let reader = std::io::BufReader::new(file);
 

@@ -17,6 +17,7 @@
 //!   cargo run --release --bin validate_chuna -- --output results/
 
 use hotspring_barracuda::gpu::GpuF64;
+use hotspring_barracuda::tolerances;
 use hotspring_barracuda::lattice::gpu_flow::{GpuFlowPipelines, GpuFlowState, gpu_gradient_flow};
 use hotspring_barracuda::lattice::gradient_flow::{FlowIntegrator, find_t0, run_flow};
 use hotspring_barracuda::lattice::measurement::RunManifest;
@@ -260,7 +261,7 @@ fn gpu_substrate_validation(harness: &mut ValidationHarness, cpu_ref: &CpuRefere
         harness.check_upper(
             &format!("gpu_cpu_plaquette_parity_{}", sanitize_name(adapter_name)),
             plaq_diff,
-            1e-9,
+            tolerances::GRADIENT_FLOW_GPU_CPU_PLAQUETTE_ABS,
         );
         harness.annotate(
             "cross_substrate",
@@ -273,7 +274,7 @@ fn gpu_substrate_validation(harness: &mut ValidationHarness, cpu_ref: &CpuRefere
         harness.check_upper(
             &format!("gpu_cpu_energy_parity_{}", sanitize_name(adapter_name)),
             energy_diff,
-            1e-8,
+            tolerances::ITERATIVE_F64,
         );
         harness.annotate(
             "cross_substrate",
@@ -333,7 +334,7 @@ fn gpu_substrate_validation(harness: &mut ValidationHarness, cpu_ref: &CpuRefere
                         sanitize_name(name_b)
                     ),
                     diff,
-                    5e-10,
+                    tolerances::GRADIENT_FLOW_CROSS_GPU_PLAQUETTE_ABS,
                 );
                 harness.annotate(
                     "cross_substrate", "guideStone Property 1",
@@ -443,7 +444,7 @@ fn paper_43_gradient_flow(harness: &mut ValidationHarness) -> CpuReferenceValues
     // Unitarity after flow
     let u = lat.link([0, 0, 0, 0], 0);
     let dev = (u * u.adjoint() - Su3Matrix::IDENTITY).norm_sq().sqrt();
-    harness.check_upper("gradient_flow_unitarity", dev, 1e-10);
+    harness.check_upper("gradient_flow_unitarity", dev, tolerances::EXACT_F64);
     harness.annotate(
         DOMAIN,
         PAPER,
@@ -460,7 +461,7 @@ fn paper_43_gradient_flow(harness: &mut ValidationHarness) -> CpuReferenceValues
         let e_i = res_w7.first().map_or(f64::NAN, |m| m.energy_density);
         let e_f = res_w7.last().map_or(f64::NAN, |m| m.energy_density);
         let label = format!("gradient_flow_w7_beta_{}", beta as u32 * 10);
-        harness.check_bool(&label, e_f <= e_i + 1e-10);
+        harness.check_bool(&label, e_f <= e_i + tolerances::EXACT_F64);
         harness.annotate(DOMAIN, PAPER, "energy_density", "LSCFRK3W7 smoothing");
         harness.annotate_duration(dur);
     }
@@ -481,7 +482,11 @@ fn paper_43_gradient_flow(harness: &mut ValidationHarness) -> CpuReferenceValues
     harness.annotate_duration(dur);
 
     let ck4_rk3_diff = (e_ck4 - e_end).abs();
-    harness.check_upper("gradient_flow_ck4_rk3_agreement", ck4_rk3_diff, 0.01);
+    harness.check_upper(
+        "gradient_flow_ck4_rk3_agreement",
+        ck4_rk3_diff,
+        tolerances::GRADIENT_FLOW_CK4_RK3_ENERGY_ABS,
+    );
     harness.annotate(
         DOMAIN,
         PAPER,
@@ -510,18 +515,31 @@ fn paper_44_dielectric(harness: &mut ValidationHarness) {
 
     // Plasma dispersion function
     let w0 = plasma_dispersion_w(Complex::ZERO);
-    harness.check_abs("dielectric_W0_real", w0.re, 1.0, 1e-14);
+    harness.check_abs(
+        "dielectric_W0_real",
+        w0.re,
+        1.0,
+        tolerances::DIELECTRIC_PLASMA_DISPERSION_W0_ABS,
+    );
     harness.annotate(
         DOMAIN,
         PAPER,
         "dimensionless",
         "W(0)=1 exact from series definition",
     );
-    harness.check_upper("dielectric_W0_imag", w0.im.abs(), 1e-14);
+    harness.check_upper(
+        "dielectric_W0_imag",
+        w0.im.abs(),
+        tolerances::DIELECTRIC_PLASMA_DISPERSION_W0_ABS,
+    );
     harness.annotate(DOMAIN, PAPER, "dimensionless", "Im[W(0)]=0 exact");
 
     let w_large = plasma_dispersion_w(Complex::new(20.0, 0.0));
-    harness.check_upper("dielectric_W_large_arg", w_large.abs(), 0.01);
+    harness.check_upper(
+        "dielectric_W_large_arg",
+        w_large.abs(),
+        tolerances::DIELECTRIC_HIGH_FREQ_LIMIT_ABS,
+    );
     harness.annotate(DOMAIN, PAPER, "dimensionless", "W(z)→0 for |z|→∞");
 
     let test_cases: &[(f64, f64, &str)] = &[
@@ -536,7 +554,12 @@ fn paper_44_dielectric(harness: &mut ValidationHarness) {
 
         // Debye screening
         let (eps_s, eps_d) = debye_screening(1.0, &params);
-        harness.check_rel(&format!("dielectric_debye_{label}"), eps_s, eps_d, 1e-12);
+        harness.check_rel(
+            &format!("dielectric_debye_{label}"),
+            eps_s,
+            eps_d,
+            tolerances::DIELECTRIC_DEBYE_SCREENING_REL,
+        );
         harness.annotate(
             DOMAIN,
             PAPER,
@@ -547,7 +570,12 @@ fn paper_44_dielectric(harness: &mut ValidationHarness) {
         // DC conductivity (Drude)
         let dc = conductivity_dc(nu, &params);
         let dc_exp = params.omega_p.powi(2) / (4.0 * std::f64::consts::PI * nu);
-        harness.check_rel(&format!("dielectric_drude_{label}"), dc, dc_exp, 1e-13);
+        harness.check_rel(
+            &format!("dielectric_drude_{label}"),
+            dc,
+            dc_exp,
+            tolerances::DIELECTRIC_DRUDE_CONDUCTIVITY_REL,
+        );
         harness.annotate(DOMAIN, PAPER, "conductivity", "Drude σ = ωₚ²/(4πν) exact");
 
         // High-frequency limit
@@ -555,7 +583,7 @@ fn paper_44_dielectric(harness: &mut ValidationHarness) {
         harness.check_upper(
             &format!("dielectric_eps_inf_{label}"),
             (eps_high - Complex::ONE).abs(),
-            0.01,
+            tolerances::DIELECTRIC_HIGH_FREQ_LIMIT_ABS,
         );
         harness.annotate(DOMAIN, PAPER, "dielectric_function", "ε(ω→∞)→1");
 
@@ -575,10 +603,17 @@ fn paper_44_dielectric(harness: &mut ValidationHarness) {
         let s_max = s_kw.iter().copied().fold(0.0_f64, f64::max);
         let n_pos = s_kw
             .iter()
-            .filter(|&&s| s >= -1e-6 * s_max.max(1e-10))
+            .filter(|&&s| {
+                s >= -tolerances::DIELECTRIC_DSF_RELATIVE_NOISE_FLOOR
+                    * s_max.max(tolerances::DIELECTRIC_DSF_MAGNITUDE_FLOOR)
+            })
             .count();
         let frac = n_pos as f64 / s_kw.len() as f64;
-        harness.check_lower(&format!("dielectric_dsf_pos_{label}"), frac, 0.98);
+        harness.check_lower(
+            &format!("dielectric_dsf_pos_{label}"),
+            frac,
+            tolerances::DIELECTRIC_DSF_POSITIVE_FRACTION_MIN,
+        );
         harness.annotate(
             DOMAIN,
             PAPER,
@@ -596,7 +631,7 @@ fn paper_44_dielectric(harness: &mut ValidationHarness) {
         harness.check_upper(
             &format!("dielectric_cm_inf_{label}"),
             (eps_cm - Complex::ONE).abs(),
-            0.01,
+            tolerances::DIELECTRIC_HIGH_FREQ_LIMIT_ABS,
         );
         harness.annotate(
             DOMAIN,
@@ -614,10 +649,17 @@ fn paper_44_dielectric(harness: &mut ValidationHarness) {
         let s_max_cm = s_cm.iter().copied().fold(0.0_f64, f64::max);
         let n_pos_cm = s_cm
             .iter()
-            .filter(|&&s| s >= -1e-6 * s_max_cm.max(1e-10))
+            .filter(|&&s| {
+                s >= -tolerances::DIELECTRIC_DSF_RELATIVE_NOISE_FLOOR
+                    * s_max_cm.max(tolerances::DIELECTRIC_DSF_MAGNITUDE_FLOOR)
+            })
             .count();
         let frac_cm = n_pos_cm as f64 / s_cm.len() as f64;
-        harness.check_lower(&format!("dielectric_cm_dsf_{label}"), frac_cm, 0.99);
+        harness.check_lower(
+            &format!("dielectric_cm_dsf_{label}"),
+            frac_cm,
+            tolerances::DIELECTRIC_COMPLETED_DSF_POSITIVE_FRACTION_MIN,
+        );
         harness.annotate(
             DOMAIN,
             PAPER,
@@ -629,8 +671,9 @@ fn paper_44_dielectric(harness: &mut ValidationHarness) {
     // Full validation helper
     for &(gamma, kappa) in &[(1.0, 1.0), (10.0, 1.0), (10.0, 2.0)] {
         let r = validate_dielectric(gamma, kappa);
-        let passed =
-            r.debye_error < 1e-12 && r.f_sum_computed < 0.0 && r.high_freq_deviation < 0.01;
+        let passed = r.debye_error < tolerances::DIELECTRIC_DEBYE_SCREENING_REL
+            && r.f_sum_computed < 0.0
+            && r.high_freq_deviation < tolerances::DIELECTRIC_HIGH_FREQ_LIMIT_ABS;
         harness.check_bool(&format!("dielectric_full_G{gamma}_k{kappa}"), passed);
         harness.annotate(
             DOMAIN,
@@ -658,23 +701,39 @@ fn paper_45_kinetic_fluid(harness: &mut ValidationHarness) {
     // BGK relaxation
     let bgk = run_bgk_relaxation(3000, 0.005);
 
-    harness.check_upper("kf_mass_conservation_1", bgk.mass_err_1, 1e-8);
+    harness.check_upper(
+        "kf_mass_conservation_1",
+        bgk.mass_err_1,
+        tolerances::KINETIC_FLUID_BGK_MASS_REL,
+    );
     harness.annotate(
         DOMAIN,
         PAPER,
         "relative_error",
         "species 1 mass conserved to machine precision",
     );
-    harness.check_upper("kf_mass_conservation_2", bgk.mass_err_2, 1e-8);
+    harness.check_upper(
+        "kf_mass_conservation_2",
+        bgk.mass_err_2,
+        tolerances::KINETIC_FLUID_BGK_MASS_REL,
+    );
     harness.annotate(
         DOMAIN,
         PAPER,
         "relative_error",
         "species 2 mass conserved to machine precision",
     );
-    harness.check_upper("kf_momentum_conservation", bgk.momentum_err, 1e-10);
+    harness.check_upper(
+        "kf_momentum_conservation",
+        bgk.momentum_err,
+        tolerances::KINETIC_FLUID_BGK_MOMENTUM_REL,
+    );
     harness.annotate(DOMAIN, PAPER, "relative_error", "total momentum conserved");
-    harness.check_upper("kf_energy_conservation", bgk.energy_err, 0.01);
+    harness.check_upper(
+        "kf_energy_conservation",
+        bgk.energy_err,
+        tolerances::TTM_ENERGY_DRIFT_REL,
+    );
     harness.annotate(
         DOMAIN,
         PAPER,
@@ -688,7 +747,11 @@ fn paper_45_kinetic_fluid(harness: &mut ValidationHarness) {
         "boolean",
         "H-theorem: entropy monotonically increases",
     );
-    harness.check_upper("kf_temperature_relaxation", bgk.temp_relaxed, 0.01);
+    harness.check_upper(
+        "kf_temperature_relaxation",
+        bgk.temp_relaxed,
+        tolerances::KINETIC_FLUID_TEMP_RELAXATION_REL,
+    );
     harness.annotate(
         DOMAIN,
         PAPER,
@@ -697,7 +760,12 @@ fn paper_45_kinetic_fluid(harness: &mut ValidationHarness) {
     );
 
     let t_eq = f64::midpoint(bgk.t1_final, bgk.t2_final);
-    harness.check_abs("kf_equilibrium_temperature", t_eq, 1.25, 0.05);
+    harness.check_abs(
+        "kf_equilibrium_temperature",
+        t_eq,
+        1.25,
+        tolerances::KINETIC_FLUID_EQUILIBRIUM_T_ABS,
+    );
     harness.annotate(
         DOMAIN,
         PAPER,
@@ -708,9 +776,17 @@ fn paper_45_kinetic_fluid(harness: &mut ValidationHarness) {
     // Sod shock tube
     let sod = run_sod_shock_tube(400, 0.2);
 
-    harness.check_upper("kf_sod_mass", sod.mass_err, 1e-10);
+    harness.check_upper(
+        "kf_sod_mass",
+        sod.mass_err,
+        tolerances::KINETIC_FLUID_SOD_CONSERVATION_REL,
+    );
     harness.annotate(DOMAIN, PAPER, "relative_error", "Sod shock: mass conserved");
-    harness.check_upper("kf_sod_energy", sod.energy_err, 1e-10);
+    harness.check_upper(
+        "kf_sod_energy",
+        sod.energy_err,
+        tolerances::KINETIC_FLUID_SOD_CONSERVATION_REL,
+    );
     harness.annotate(
         DOMAIN,
         PAPER,
@@ -726,9 +802,17 @@ fn paper_45_kinetic_fluid(harness: &mut ValidationHarness) {
     );
     harness.check_bool("kf_sod_shock", sod.shock_detected);
     harness.annotate(DOMAIN, PAPER, "boolean", "shock front detected");
-    harness.check_lower("kf_sod_rho_min", sod.rho_min, 0.1);
+    harness.check_lower(
+        "kf_sod_rho_min",
+        sod.rho_min,
+        tolerances::KINETIC_FLUID_SOD_RHO_MIN,
+    );
     harness.annotate(DOMAIN, PAPER, "density", "density stays physical (>0.1)");
-    harness.check_upper("kf_sod_rho_max", sod.rho_max, 1.1);
+    harness.check_upper(
+        "kf_sod_rho_max",
+        sod.rho_max,
+        tolerances::KINETIC_FLUID_SOD_RHO_MAX,
+    );
     harness.annotate(
         DOMAIN,
         PAPER,
@@ -739,37 +823,61 @@ fn paper_45_kinetic_fluid(harness: &mut ValidationHarness) {
     // Coupled kinetic-fluid
     let coupled = run_coupled_kinetic_fluid(30, 30, 81, 0.05);
 
-    harness.check_upper("kf_coupled_mass", coupled.mass_err, 0.15);
+    harness.check_upper(
+        "kf_coupled_mass",
+        coupled.mass_err,
+        tolerances::KINETIC_FLUID_COUPLED_MASS_ENERGY_REL,
+    );
     harness.annotate(
         DOMAIN,
         PAPER,
         "relative_error",
         "coupled: mass conservation within 15% (interface flux mismatch at low resolution)",
     );
-    harness.check_upper("kf_coupled_momentum", coupled.momentum_err, 0.25);
+    harness.check_upper(
+        "kf_coupled_momentum",
+        coupled.momentum_err,
+        tolerances::KINETIC_FLUID_COUPLED_MOMENTUM_REL,
+    );
     harness.annotate(
         DOMAIN,
         PAPER,
         "relative_error",
         "coupled: momentum conservation within 25% (operator splitting at low resolution)",
     );
-    harness.check_upper("kf_coupled_energy", coupled.energy_err, 0.15);
+    harness.check_upper(
+        "kf_coupled_energy",
+        coupled.energy_err,
+        tolerances::KINETIC_FLUID_COUPLED_MASS_ENERGY_REL,
+    );
     harness.annotate(
         DOMAIN,
         PAPER,
         "relative_error",
         "coupled: energy conservation within 15%",
     );
-    harness.check_upper("kf_coupled_interface", coupled.interface_density_match, 0.5);
+    harness.check_upper(
+        "kf_coupled_interface",
+        coupled.interface_density_match,
+        tolerances::KINETIC_FLUID_INTERFACE_DENSITY_MATCH,
+    );
     harness.annotate(
         DOMAIN,
         PAPER,
         "relative_error",
         "interface density match within 50% (coarse grid, operator splitting)",
     );
-    harness.check_lower("kf_coupled_rho_min", coupled.rho_fluid_min, 0.5);
+    harness.check_lower(
+        "kf_coupled_rho_min",
+        coupled.rho_fluid_min,
+        tolerances::KINETIC_FLUID_REGION_RHO_MIN,
+    );
     harness.annotate(DOMAIN, PAPER, "density", "fluid density stays physical");
-    harness.check_upper("kf_coupled_rho_max", coupled.rho_fluid_max, 2.0);
+    harness.check_upper(
+        "kf_coupled_rho_max",
+        coupled.rho_fluid_max,
+        tolerances::KINETIC_FLUID_REGION_RHO_MAX,
+    );
     harness.annotate(DOMAIN, PAPER, "density", "fluid density bounded");
     harness.check_bool("kf_simulation_completed", coupled.n_steps > 0);
     harness.annotate(DOMAIN, PAPER, "boolean", "simulation ran to completion");

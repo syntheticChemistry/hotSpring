@@ -382,9 +382,9 @@ fn is_badf(val: u32) -> bool {
 
 #[derive(Debug, serde::Deserialize)]
 struct DevinitScript {
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "experiment-specific code retained for reproducibility")]
     id: Option<u32>,
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "experiment-specific code retained for reproducibility")]
     addr: String,
     ops: Vec<RawDevinitOp>,
 }

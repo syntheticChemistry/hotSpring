@@ -20,7 +20,7 @@ use hotspring_barracuda::lattice::hmc::{self, HmcConfig, IntegratorType};
 use hotspring_barracuda::lattice::wilson::Lattice;
 use std::time::Instant;
 
-#[allow(dead_code)]
+#[expect(dead_code, reason = "experiment-specific code retained for reproducibility")]
 struct BenchResult {
     label: String,
     volume: usize,

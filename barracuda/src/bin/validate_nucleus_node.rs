@@ -17,6 +17,7 @@
 use hotspring_barracuda::composition::{AtomicType, validate_atomic, validate_capability};
 use hotspring_barracuda::primal_bridge::NucleusContext;
 use hotspring_barracuda::validation::ValidationHarness;
+use serde_json;
 
 fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");
@@ -83,6 +84,90 @@ fn main() {
     println!("  ── Capability assertions ──");
     validate_capability(&ctx, "toadstool", "compute.dispatch.submit", &mut harness);
     validate_capability(&ctx, "coralreef", "shader.compile", &mut harness);
+
+    // ── Science parity: local Rust vs IPC compute ──
+    println!("  ── Science Parity (Rust vs IPC) ──");
+
+    // Nuclear EOS parity: compute SEMF locally, then via hotspring_primal IPC
+    let z = 82_u32;
+    let n = 126_u32;
+    let local_be = hotspring_barracuda::physics::semf_binding_energy(
+        z as usize,
+        n as usize,
+        &hotspring_barracuda::provenance::SLY4_PARAMS,
+    );
+    println!("    Local SEMF B.E.(Pb-208): {local_be:.4} MeV");
+
+    if let Some(hs) = ctx.get_by_capability("compute") {
+        if hs.alive {
+            match ctx.call_by_capability(
+                "compute",
+                "physics.nuclear_eos",
+                serde_json::json!({ "Z": z, "N": n }),
+            ) {
+                Ok(resp) => {
+                    if let Some(ipc_be) = resp
+                        .get("result")
+                        .and_then(|r| r.get("binding_energy_mev"))
+                        .and_then(|v| v.as_f64())
+                    {
+                        let rel_err = ((local_be - ipc_be) / local_be).abs();
+                        harness.check_upper("SEMF parity (local vs IPC)", rel_err, 1e-10);
+                        println!("    IPC SEMF B.E.(Pb-208): {ipc_be:.4} MeV (rel_err: {rel_err:.2e})");
+                    } else {
+                        harness.check_bool("SEMF parity (IPC response format)", false);
+                    }
+                }
+                Err(e) => {
+                    println!("    SEMF IPC error: {e}");
+                    harness.check_bool("SEMF parity (IPC call)", false);
+                }
+            }
+        }
+    } else {
+        println!("    No compute provider — skipping science parity");
+    }
+
+    // Lattice QCD parity: compute plaquette locally, then via IPC
+    {
+        use hotspring_barracuda::lattice::wilson::Lattice;
+        let dims = [4_usize, 4, 4, 4];
+        let beta = 6.0;
+        let seed = 42;
+        let lat = Lattice::hot_start(dims, beta, seed);
+        let local_plaq = lat.average_plaquette();
+        println!("    Local plaquette (4⁴, β=6.0): {local_plaq:.6}");
+
+        if let Some(hs) = ctx.get_by_capability("compute") {
+            if hs.alive {
+                match ctx.call_by_capability(
+                    "compute",
+                    "physics.lattice_qcd",
+                    serde_json::json!({
+                        "dims": dims, "beta": beta, "seed": seed
+                    }),
+                ) {
+                    Ok(resp) => {
+                        if let Some(ipc_plaq) = resp
+                            .get("result")
+                            .and_then(|r| r.get("plaquette"))
+                            .and_then(|v| v.as_f64())
+                        {
+                            let abs_err = (local_plaq - ipc_plaq).abs();
+                            harness.check_upper("Lattice plaquette parity", abs_err, 1e-12);
+                            println!("    IPC plaquette: {ipc_plaq:.6} (abs_err: {abs_err:.2e})");
+                        } else {
+                            harness.check_bool("Lattice parity (IPC format)", false);
+                        }
+                    }
+                    Err(e) => {
+                        println!("    Lattice IPC error: {e}");
+                        harness.check_bool("Lattice parity (IPC call)", false);
+                    }
+                }
+            }
+        }
+    }
     println!();
 
     if ctx.discovered.is_empty() {

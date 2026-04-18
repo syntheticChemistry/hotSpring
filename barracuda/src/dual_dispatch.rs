@@ -81,7 +81,7 @@ pub trait GpuKernel: Send + Sync {
 pub fn dispatch_dual(
     pair: &DevicePair,
     assignment: &WorkloadAssignment,
-    kernel: &dyn GpuKernel,
+    kernel: &(impl GpuKernel + ?Sized),
     data: &[f64],
 ) -> Result<DualResult, HotSpringError> {
     match assignment {
