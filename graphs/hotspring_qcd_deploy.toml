@@ -2,7 +2,7 @@
 #
 # hotSpring Deploy Graph — Lattice QCD / HPC Physics
 #
-# Derived from proto-nucleate: primalSpring/graphs/downstream/hotspring_qcd_proto_nucleate.toml
+# Derived from proto-nucleate: primalSpring/graphs/downstream/downstream_manifest.toml
 # This is the spring-local deploy graph consumed by biomeOS:
 #   biomeos deploy --graph graphs/hotspring_qcd_deploy.toml
 #
@@ -72,7 +72,7 @@ required = true
 spawn = false
 depends_on = ["beardog"]
 health_method = "health.liveness"
-by_capability = "shader_compile"
+by_capability = "shader"
 
 [[graph.nodes]]
 name = "toadstool"

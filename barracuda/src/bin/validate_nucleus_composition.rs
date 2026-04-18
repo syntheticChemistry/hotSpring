@@ -13,7 +13,7 @@
 //!   5. Science health: compute_dispatch, gpu_backend, provenance_trio
 //!   6. Capability-based routing: `get_by_capability` resolves vs named lookup
 //!
-//! Proto-nucleate: hotspring_qcd_proto_nucleate.toml
+//! Proto-nucleate: primalSpring/graphs/downstream/downstream_manifest.toml
 //! Composition model: nucleated (hotSpring has its own binary)
 //! Particle profile: proton-heavy (Node atomic dominant)
 //!
@@ -24,6 +24,7 @@ use hotspring_barracuda::composition::{
 };
 use hotspring_barracuda::niche;
 use hotspring_barracuda::primal_bridge::NucleusContext;
+use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
 use serde_json;
 
@@ -158,7 +159,7 @@ fn main() {
                     .and_then(|v| v.as_f64())
                 {
                     let rel_err = ((local_be - ipc_be) / local_be).abs();
-                    harness.check_upper("SEMF: Rust vs IPC parity", rel_err, 1e-10);
+                    harness.check_upper("SEMF: Rust vs IPC parity", rel_err, tolerances::COMPOSITION_SEMF_PARITY_REL);
                     println!("    IPC  SEMF B.E.(Pb-208):    {ipc_be:.4} MeV  (rel_err: {rel_err:.2e})");
                 } else {
                     harness.check_bool("SEMF: IPC response", false);
@@ -191,7 +192,7 @@ fn main() {
                     .and_then(|v| v.as_f64())
                 {
                     let abs_err = (local_plaq - ipc_plaq).abs();
-                    harness.check_upper("Plaquette: Rust vs IPC parity", abs_err, 1e-12);
+                    harness.check_upper("Plaquette: Rust vs IPC parity", abs_err, tolerances::COMPOSITION_PLAQUETTE_PARITY_ABS);
                     println!("    IPC  plaquette:             {ipc_plaq:.6} (abs_err: {abs_err:.2e})");
                 } else {
                     harness.check_bool("Plaquette: IPC response", false);

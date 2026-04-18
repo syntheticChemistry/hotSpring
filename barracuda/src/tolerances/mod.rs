@@ -205,6 +205,7 @@ pub use physics::{
     SHARP_FILLING_THRESHOLD, SIGMA_THEO_FLOOR_MEV, SIGMA_THEO_FRACTION, SPIN_ORBIT_R_MIN,
     TTM_ENERGY_DRIFT_REL, TTM_EQUILIBRATION_CLOSE_K, TTM_EQUILIBRIUM_T_REL,
     TTM_HELIUM_EQUILIBRIUM_T_REL, TTM_TEMPERATURE_TRAJECTORY_SLOP_K, sigma_theo,
+    COMPOSITION_SEMF_PARITY_REL, COMPOSITION_PLAQUETTE_PARITY_ABS,
 };
 
 #[cfg(test)]
@@ -446,6 +447,9 @@ mod tests {
             KINETIC_FLUID_TEMP_RELAXATION_REL,
             TTM_EQUILIBRATION_CLOSE_K,
             TTM_TEMPERATURE_TRAJECTORY_SLOP_K,
+            // NUCLEUS IPC composition parity
+            COMPOSITION_SEMF_PARITY_REL,
+            COMPOSITION_PLAQUETTE_PARITY_ABS,
         ];
         for (i, &t) in tols.iter().enumerate() {
             assert!(t > 0.0, "tolerance index {i} must be positive, got {t}");

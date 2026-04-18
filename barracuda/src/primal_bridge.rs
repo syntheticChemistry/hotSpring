@@ -40,7 +40,7 @@ impl NucleusContext {
     /// platforms, or when the biomeos directory is missing or empty.
     #[must_use]
     pub fn detect() -> Self {
-        let family = std::env::var("FAMILY_ID").unwrap_or_else(|_| "default".into());
+        let family = crate::niche::family_id();
 
         if std::env::var("HOTSPRING_NO_NUCLEUS").is_ok_and(|v| v == "1") {
             return Self::empty(&family);

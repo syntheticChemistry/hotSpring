@@ -16,6 +16,7 @@
 
 use hotspring_barracuda::composition::{AtomicType, validate_atomic, validate_capability};
 use hotspring_barracuda::primal_bridge::NucleusContext;
+use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
 use serde_json;
 
@@ -112,7 +113,7 @@ fn main() {
                         .and_then(|v| v.as_f64())
                     {
                         let rel_err = ((local_be - ipc_be) / local_be).abs();
-                        harness.check_upper("SEMF parity (local vs IPC)", rel_err, 1e-10);
+                        harness.check_upper("SEMF parity (local vs IPC)", rel_err, tolerances::COMPOSITION_SEMF_PARITY_REL);
                         println!("    IPC SEMF B.E.(Pb-208): {ipc_be:.4} MeV (rel_err: {rel_err:.2e})");
                     } else {
                         harness.check_bool("SEMF parity (IPC response format)", false);
@@ -154,7 +155,7 @@ fn main() {
                             .and_then(|v| v.as_f64())
                         {
                             let abs_err = (local_plaq - ipc_plaq).abs();
-                            harness.check_upper("Lattice plaquette parity", abs_err, 1e-12);
+                            harness.check_upper("Lattice plaquette parity", abs_err, tolerances::COMPOSITION_PLAQUETTE_PARITY_ABS);
                             println!("    IPC plaquette: {ipc_plaq:.6} (abs_err: {abs_err:.2e})");
                         } else {
                             harness.check_bool("Lattice parity (IPC format)", false);

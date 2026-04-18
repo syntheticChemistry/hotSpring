@@ -298,11 +298,13 @@ pub struct ScienceProbeResult {
     pub skip_reason: Option<String>,
 }
 
-/// Validate science capabilities route through NUCLEUS IPC with Rust baseline parity.
+/// Validate science capability **liveness** through NUCLEUS IPC.
 ///
-/// Each probe computes a known value locally, requests the same via IPC,
-/// and compares within tolerance. Probes skip gracefully when primals are
-/// unavailable (`HOTSPRING_NO_NUCLEUS=1`).
+/// These probes verify that compute, math, and provenance trio primals are
+/// reachable and alive via IPC. They do NOT perform numeric parity checks —
+/// for science parity (Rust vs IPC values), see the `validate_nucleus_*`
+/// binaries which compare SEMF, plaquette, and HMC results with centralized
+/// tolerances from `tolerances::COMPOSITION_*`.
 pub fn validate_science_probes(
     ctx: &NucleusContext,
     harness: &mut ValidationHarness,

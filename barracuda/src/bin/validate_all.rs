@@ -1,46 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Meta-validator: runs all hotSpring validation suites in sequence.
+//! Meta-validator: runs all 62 hotSpring validation suites in sequence.
 //!
 //! Exit code is 0 only if ALL validation binaries pass.
 //! Follows the hotSpring pattern: explicit pass/fail, exit code 0/1.
 //!
-//! # Validation suites (in order)
-//!
-//! | Binary | Domain | GPU? |
-//! |--------|--------|------|
-//! | `validate_special_functions` | Gamma, Bessel, Laguerre | No |
-//! | `validate_linalg` | LU, QR, SVD, eigh | No |
-//! | `validate_optimizers` | NM, BFGS, RK45, Sobol | No |
-//! | `validate_md` | LJ, Coulomb, Morse, VV | No |
-//! | `validate_nuclear_eos` | L1 SEMF, L2 HFB, NMP | No |
-//! | `verify_hfb` | HFB verbose SLy4 verification | No |
-//! | `f64_builtin_test` | WGSL f64 builtins | GPU |
-//! | `validate_barracuda_hfb` | BCS bisection, BatchedEigh | GPU |
-//! | `validate_barracuda_pipeline` | Yukawa MD GPU ops | GPU |
-//! | `validate_pppm` | PPPM Coulomb/Ewald | GPU |
-//! | `validate_cpu_gpu_parity` | CPU vs GPU same-physics proof | GPU |
-//! | `validate_nak_eigensolve` | NAK-optimized eigensolve correctness | GPU |
-//! | `validate_transport_gpu_only` | GPU-only transport: D* via GPU VACF | GPU |
-//! | `validate_screened_coulomb` | Yukawa bound states (Murillo-Weisheit) | No |
-//! | `validate_pure_gauge` | Pure gauge SU(3) lattice QCD | No |
-//! | `validate_dynamical_qcd` | Dynamical fermion HMC (Paper 10) | No |
-//! | `validate_abelian_higgs` | Abelian Higgs (1+1)D U(1)+scalar | No |
-//! | `validate_npu_quantization` | NPU ESN quantization cascade | No |
-//! | `validate_npu_beyond_sdk` | NPU beyond-SDK capabilities | No |
-//! | `validate_npu_pipeline` | NPU physics pipeline math | No |
-//! | `validate_lattice_npu` | Lattice QCD + NPU phase classification | No |
-//! | `validate_hetero_monitor` | Heterogeneous real-time physics monitor | No |
-//! | `validate_spectral` | Spectral theory: Anderson + almost-Mathieu | No |
-//! | `validate_lanczos` | Lanczos + SpMV + 2D Anderson | No |
-//! | `validate_anderson_3d` | 3D Anderson: mobility edge, dimensional hierarchy | No |
-//! | `validate_hofstadter` | Hofstadter butterfly: band counting, spectral topology | No |
-//! | `validate_barracuda_evolution` | CPU foundation: all domains, evolution evidence | No |
-//! | `validate_gpu_spmv` | GPU CSR SpMV: CPU/GPU parity for spectral theory | GPU |
-//! | `validate_gpu_lanczos` | GPU Lanczos eigensolve: GPU SpMV inner loop | GPU |
-//! | `validate_gpu_dirac` | GPU staggered Dirac: SU(3) × color on GPU (Papers 9-12) | GPU |
-//! | `validate_gpu_cg` | GPU CG solver: D†D x = b on GPU (Papers 9-12 complete) | GPU |
-//! | `validate_pure_gpu_qcd` | Pure GPU workload: HMC + CG on thermalized configs | GPU |
+//! Three-tier validation: Python baselines → Rust validation → NUCLEUS IPC composition.
+//! Suites 1–57 prove Rust/GPU parity with Python. Suites 58–62 prove NUCLEUS primal
+//! composition produces the same science via IPC (the "primal proof").
 
 use std::process::{self, Command};
 use std::time::Instant;

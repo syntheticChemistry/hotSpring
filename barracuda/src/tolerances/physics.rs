@@ -443,3 +443,23 @@ pub const HFB_L2_TOLERANCE: f64 = 0.05;
 /// where margin is this value. 50 `MeV` ensures the Fermi level is
 /// always bracketed even for loosely-bound systems.
 pub const FERMI_SEARCH_MARGIN: f64 = 50.0;
+
+// ═══════════════════════════════════════════════════════════════════
+//  NUCLEUS IPC composition parity tolerances
+// ═══════════════════════════════════════════════════════════════════
+
+/// Relative error tolerance for SEMF binding energy parity (local Rust vs IPC).
+///
+/// SEMF is pure arithmetic with identical `SLY4_PARAMS` on both sides. The only
+/// source of error is JSON serialization round-trip of f64 (lossless for finite
+/// values via `serde_json`). 1e-10 allows for any residual floating-point
+/// reordering in the server's parameter parsing path.
+pub const COMPOSITION_SEMF_PARITY_REL: f64 = 1e-10;
+
+/// Absolute error tolerance for lattice plaquette parity (local Rust vs IPC).
+///
+/// Both sides call `Lattice::hot_start(dims, beta, seed)` with identical
+/// parameters. The PRNG seed ensures bit-identical configurations; plaquette
+/// averaging is deterministic. 1e-12 is well above f64 machine epsilon (2.2e-16)
+/// to absorb any summation-order differences.
+pub const COMPOSITION_PLAQUETTE_PARITY_ABS: f64 = 1e-12;

@@ -54,7 +54,7 @@ fn toadstool_socket() -> String {
         return p;
     }
     let runtime_dir = std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".into());
-    let family = std::env::var("FAMILY_ID").unwrap_or_else(|_| "default".into());
+    let family = crate::niche::family_id();
     format!("{runtime_dir}/biomeos/toadstool-{family}.sock")
 }
 

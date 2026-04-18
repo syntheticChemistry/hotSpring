@@ -341,11 +341,24 @@ pub const SEMANTIC_MAPPINGS: &[(&str, &str)] = &[
     ("tools", "mcp.tools.list"),
 ];
 
-/// Resolve the biomeOS family ID from environment.
+static FAMILY_ID_OVERRIDE: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+
+/// Set the family ID programmatically (thread-safe, first-write-wins).
 ///
-/// Priority: `FAMILY_ID` -> `BIOMEOS_FAMILY_ID` -> `"default"`.
+/// Call before any socket resolution or primal discovery. This avoids
+/// `unsafe { std::env::set_var }` in Edition 2024.
+pub fn set_family_id(id: String) {
+    FAMILY_ID_OVERRIDE.set(id).ok();
+}
+
+/// Resolve the biomeOS family ID.
+///
+/// Priority: `set_family_id()` override -> `FAMILY_ID` env -> `BIOMEOS_FAMILY_ID` env -> `"default"`.
 #[must_use]
 pub fn family_id() -> String {
+    if let Some(id) = FAMILY_ID_OVERRIDE.get() {
+        return id.clone();
+    }
     std::env::var("FAMILY_ID")
         .or_else(|_| std::env::var("BIOMEOS_FAMILY_ID"))
         .unwrap_or_else(|_| "default".to_string())
