@@ -28,7 +28,7 @@ This file covers the spring as a whole. For crate-level details see
 - CHANGELOG, README, PRIMAL_GAPS: v0.9.16 absorption session
 - wateringHole handoff: `HOTSPRING_V0632_V0916_ABSORPTION_HANDOFF_APR20_2026.md`
 
-## Sovereign Compute Parity + guideStone (April 18, 2026)
+## Sovereign Compute Parity + guideStone (April 18-19, 2026)
 
 ### Added
 - `bench_sovereign_parity` binary — dual-path QCD benchmark (coral-gpu sovereign vs wgpu vendor)
@@ -39,9 +39,11 @@ This file covers the spring as a whole. For crate-level details see
 - **`hotspring_guidestone` binary** — self-validating NUCLEUS deployable using `primalspring::composition` API
 - `deny.toml` for barracuda + metalForge/forge — ecoBin C-dep bans
 - `validate_primal_proof` binary — Level 5 primal proof harness (10 manifest capabilities)
-- wateringHole handoffs: sovereign compile parity, Level 5 composition proof
+- wateringHole handoffs: sovereign compile parity, Level 5 composition proof, Blackwell dispatch handoff
 
 ### Fixed
+- coralReef `UvmPageableMemAccessParams` ABI bug: struct was 4 bytes, kernel expects 8 — `pageable_mem_access` field was missing, causing false "failure" reports (ioctl was always succeeding)
+- coralReef coral-kmod VRAM alloc flags: 2MB huge page attrs on 4KB buffers caused FAULT_PDE; fixed to PAGE_SIZE_4KB
 - coralReef f64 transcendental lowering: removed SM < 70 guard, SM32 now lowers via MUFU seed + Newton-Raphson
 - coralReef SM32 encoder: `emit_iadd` (IAdd2 for Kepler), `emit_shl_imm` (OpShl for Kepler)
 - coralReef `as_imm_not_i20`/`as_imm_not_f20`: graceful fallback when source modifiers on immediates
@@ -54,6 +56,7 @@ This file covers the spring as a whole. For crate-level details see
 - guideStone Level 5 CERTIFIED (all 5 guideStone properties satisfied)
 - `validate_all.rs` expanded from 37 to 64 suites
 - Binary count: 140 → 166
+- GAP-HS-031 root cause identified: GR context buffers not eagerly promoted on Blackwell (UVM VA space registration fails, GPU_PROMOTE_CTX requires kernel privilege)
 
 ## v0.6.32 — Composition Audit + Doc Cleanup (April 11, 2026)
 

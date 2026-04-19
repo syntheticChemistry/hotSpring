@@ -32,6 +32,16 @@ const SUM_REDUCE_WGSL: &str =
     include_str!("../lattice/shaders/sum_reduce_f64.wgsl");
 const CG_COMPUTE_ALPHA_WGSL: &str =
     include_str!("../lattice/shaders/cg_compute_alpha_f64.wgsl");
+
+const DIAG_WRITE_CONST_WGSL: &str = r#"
+@group(0) @binding(0) var<uniform> params: vec4<u32>;
+@group(0) @binding(1) var<storage, read_write> out: array<f64>;
+@compute @workgroup_size(64)
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+    if gid.x >= params.x { return; }
+    out[gid.x] = f64(42.0);
+}
+"#;
 const SU3_GAUGE_FORCE_WGSL: &str =
     include_str!("../lattice/shaders/su3_gauge_force_f64.wgsl");
 const METROPOLIS_WGSL: &str =
@@ -109,6 +119,19 @@ fn gen_trivial_nbr(volume: u32) -> Vec<u8> {
     bytemuck::cast_slice(&nbr).to_vec()
 }
 
+fn setup_diag_write_const(volume: u32) -> KernelInputs {
+    let params: [u32; 4] = [volume, 0, 0, 0];
+    let out_size = volume as usize * 8;
+    let wg_x = (volume + 63) / 64;
+    let sentinel = vec![99.0_f64; volume as usize];
+    KernelInputs {
+        uniform_data: bytemuck::cast_slice(&params).to_vec(),
+        storage_buffers: vec![bytemuck::cast_slice(&sentinel).to_vec()],
+        output_size_bytes: out_size,
+        workgroups: [wg_x, 1, 1],
+    }
+}
+
 fn setup_wilson_plaquette(volume: u32) -> KernelInputs {
     let params = PlaqParams {
         volume,
@@ -155,6 +178,11 @@ fn setup_sum_reduce(volume: u32) -> KernelInputs {
 }
 
 const KERNELS: &[KernelSpec] = &[
+    KernelSpec {
+        name: "diag_write_const",
+        wgsl: DIAG_WRITE_CONST_WGSL,
+        setup: setup_diag_write_const,
+    },
     KernelSpec {
         name: "wilson_plaquette_f64",
         wgsl: WILSON_PLAQUETTE_WGSL,
@@ -362,6 +390,30 @@ fn run_sovereign(
         .map_err(|e| format!("sovereign compile: {e}"))?;
     let compile_time = t_compile.elapsed().as_secs_f64();
 
+    if std::env::var("DUMP_SASS").is_ok() {
+        let binary = &compiled.binary;
+        eprintln!(
+            "=== SASS dump for {} ({} bytes, {} instructions) ===",
+            kernel.name,
+            binary.len(),
+            binary.len() / 16
+        );
+        for i in 0..(binary.len() / 16) {
+            let off = i * 16;
+            let chunk = &binary[off..off + 16];
+            let w0 = u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+            let w1 = u32::from_le_bytes([chunk[4], chunk[5], chunk[6], chunk[7]]);
+            let w2 = u32::from_le_bytes([chunk[8], chunk[9], chunk[10], chunk[11]]);
+            let w3 = u32::from_le_bytes([chunk[12], chunk[13], chunk[14], chunk[15]]);
+            let opcode = w0 & 0xFFF;
+            eprintln!(
+                "  [{:2}] {:08x} {:08x} {:08x} {:08x}  opcode=0x{:03x}",
+                i, w0, w1, w2, w3, opcode
+            );
+        }
+        eprintln!("=== end SASS ===");
+    }
+
     let inputs = (kernel.setup)(volume);
 
     let uniform_handle = ctx
@@ -426,6 +478,10 @@ fn compare_f64_results(vendor: &[u8], sovereign: &[u8], max_ulp: u64) -> (bool, 
 
     let vendor_f64: &[f64] = bytemuck::cast_slice(vendor);
     let sovereign_f64: &[f64] = bytemuck::cast_slice(sovereign);
+
+    let n = vendor_f64.len().min(4);
+    eprint!("    DEBUG vendor[..{n}]  = {:?}\n", &vendor_f64[..n]);
+    eprint!("    DEBUG sovereign[..{n}] = {:?}\n", &sovereign_f64[..n]);
 
     let mut max_ulp_diff = 0u64;
     for (v, s) in vendor_f64.iter().zip(sovereign_f64.iter()) {

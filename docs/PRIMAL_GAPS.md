@@ -252,27 +252,36 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 - **Action:** Pivot coral-driver `FalconBootSolver` to support a Volta-specific
   path that bypasses WPR/ACR. Analyze mmiotrace from Exp 173 artifacts.
 
-### GAP-HS-031: Blackwell GPFIFO Doorbell Mechanism (Exp 175)
+### GAP-HS-031: Blackwell SM Warp Exception — Invalid Address Space (Exp 175-177)
 
-- **Primal:** coralReef (coral-driver / uvm_compute)
-- **Severity:** Medium (blocks UVM dispatch on RTX 5060, compile path works)
-- **Status:** Partially resolved — QMD v5.0 implemented, NOP timeout TBD
-- **Description:** Experiment 175 validated the full WGSL→SM120 SASS compile
-  pipeline on the RTX 5060 (GB206, Blackwell, PCI ID 0x2d05). The RM
-  successfully allocates BLACKWELL_CHANNEL_GPFIFO_B (0xCA6F) and
-  BLACKWELL_COMPUTE_B (0xCEC0). However, the NOP smoke test times out:
-  GP_GET stays at 0 while GP_PUT advances to 1.
+- **Primal:** coralReef (coral-driver / coral-kmod / uvm_compute)
+- **Severity:** Critical (blocks sovereign dispatch on RTX 5060)
+- **Status:** Root cause identified — fix requires kmod GPU_PROMOTE_CTX
+- **Description:** Experiment 175-177 evolved the Blackwell dispatch investigation.
+  The full WGSL→SM120 SASS compile pipeline works on RTX 5060 (GB206). Channel
+  creation, GPFIFO allocation, and doorbell mechanism all work via coral-kmod.
   
-  **QMD v5.0 fix applied:** Blackwell uses a completely different 384-byte
-  (96-word) QMD layout vs. the 256-byte (64-word) v3.0 used for Ampere.
-  Key differences: grid dimensions at bits 0-63, version at bits 64-71,
-  shared memory shifted by 7, program address shifted by 4, CBUF descriptors
-  at bit offset 2048. `build_qmd_v50()` and `build_qmd_for_sm()` updated
-  (SM >= 100 → v5.0). All 40 QMD unit tests pass including 7 new v5.0 tests.
+  **Resolved sub-issues:**
+  - Channel class: fixed to BLACKWELL_CHANNEL_GPFIFO_A (0xC96F, matches CUDA)
+  - QMD v5.0: 384-byte layout implemented, 40+ unit tests pass
+  - UVM_PAGEABLE_MEM_ACCESS: ABI struct was 4 bytes (kernel expects 8) — field
+    misread caused false "failure" reports; actually always succeeded
+  - VRAM page size: kmod used 2MB huge page attrs for 4KB buffers → FAULT_PDE;
+    fixed to PAGE_SIZE_4KB, eliminating page directory faults
+  - FAULT_PDE → FAULT_PTE progression: page directory correct, page table closer
   
-  The NOP smoke test failure may be a separate USERD/doorbell issue
-  (the NOP doesn't involve QMD). NVK uses the same VOLTA_USERMODE_A and
-  USERD offsets for Blackwell, so it's more likely a channel setup issue.
+  **Root cause chain (current):**
+  1. `UVM_REGISTER_GPU_VASPACE` fails with `GPU_IN_FULL` (0x5D) on desktop Blackwell
+  2. Without UVM VA space registration, replayable page faults can't be serviced
+  3. `GPU_PROMOTE_CTX` returns `INSUFFICIENT_PERMISSIONS` from userspace (kernel-only)
+  4. `GR_CTXSW_SETUP_BIND` with `vMemPtr=0` relies on demand-paging via UVM (step 1)
+  5. SM hits "Invalid Address Space" (ESR 0x10) on first CBUF/context access
+  
+  CUDA avoids this because it has working UVM fault handling. coral-kmod has kernel
+  privilege to call GPU_PROMOTE_CTX and eagerly allocate GR context buffers.
+  
+- **Action:** Re-enable GPU_PROMOTE_CTX in coral-kmod for Blackwell. Allocate
+  context buffers from kernel context to bypass demand-paging dependency on UVM.
   
   PCI device ID 0x2d05 was NOT in the original Blackwell range
   (0x2900..=0x2999). Fixed to include 0x2B00..=0x2DFF.
