@@ -7,7 +7,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
-## Unreleased — Sovereign Compute Parity + guideStone (April 18, 2026)
+## Unreleased — primalSpring v0.9.16 Absorption (April 20, 2026)
+
+### Changed
+- **Property 3 (Self-Verifying)**: Upgraded from manual CHECKSUMS file-exists check to `primalspring::checksums::verify_manifest()` — BLAKE3 per-file hash verification with PASS/FAIL/SKIP semantics (v0.9.16 pattern)
+- **Protocol tolerance**: Added `is_protocol_error()` arms to `validate_provenance_witness` and `validate_compute_dispatch` — Songbird/petalTongue HTTP-on-UDS classified as SKIP (reachable but incompatible), matching v0.9.16 liveness semantics
+- **primalspring dependency**: Auto-updated v0.9.15 → v0.9.16 (BLAKE3 checksums module, family-aware discovery, protocol error classification)
+- **Doc reference**: v0.9.15 → v0.9.16 in guideStone binary module doc
+
+### Documentation
+- CHANGELOG, README, PRIMAL_GAPS: v0.9.16 absorption session
+- wateringHole handoff: `HOTSPRING_V0632_V0916_ABSORPTION_HANDOFF_APR20_2026.md`
+
+## Sovereign Compute Parity + guideStone (April 18, 2026)
 
 ### Added
 - `bench_sovereign_parity` binary — dual-path QCD benchmark (coral-gpu sovereign vs wgpu vendor)

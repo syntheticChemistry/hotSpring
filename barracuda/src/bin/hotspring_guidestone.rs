@@ -5,7 +5,7 @@
 //! Combines bare guideStone validation (Properties 1-5 without primals) with
 //! NUCLEUS IPC parity probes using the primalSpring composition API. This is
 //! the Level 5 certified artifact — the reference implementation for the
-//! guideStone Composition Standard (primalSpring v0.9.15).
+//! guideStone Composition Standard (primalSpring v0.9.16).
 //!
 //! # Bare guideStone (always runs, no primals needed)
 //!
@@ -35,6 +35,7 @@
 
 #![forbid(unsafe_code)]
 
+use primalspring::checksums;
 use primalspring::composition::{
     self, CompositionContext, validate_liveness, validate_parity,
 };
@@ -167,21 +168,7 @@ fn validate_traceable(v: &mut ValidationResult) {
 // ════════════════════════════════════════════════════════════════════════
 
 fn validate_self_verifying(v: &mut ValidationResult) {
-    let checksums_path = std::path::Path::new("validation/CHECKSUMS");
-    if checksums_path.exists() {
-        let content = std::fs::read_to_string(checksums_path).unwrap_or_default();
-        let lines = content.lines().count();
-        v.check_bool(
-            "self_verifying:checksums_present",
-            lines > 0,
-            &format!("{lines} checksum entries"),
-        );
-    } else {
-        v.check_skip(
-            "self_verifying:checksums_present",
-            "validation/CHECKSUMS not found (run from repo root)",
-        );
-    }
+    checksums::verify_manifest(v, "validation/CHECKSUMS");
 
     let deny_path = std::path::Path::new("deny.toml");
     if deny_path.exists() {
@@ -398,6 +385,13 @@ fn validate_provenance_witness(ctx: &mut CompositionContext, v: &mut ValidationR
             v.check_skip("crypto:blake3_witness", &format!("security not available: {e}"));
             v.check_skip("crypto:blake3_determinism", "security not available");
         }
+        Err(e) if e.is_protocol_error() => {
+            v.check_skip(
+                "crypto:blake3_witness",
+                &format!("security reachable but protocol mismatch (likely HTTP): {e}"),
+            );
+            v.check_skip("crypto:blake3_determinism", "security protocol mismatch");
+        }
         Err(e) => {
             v.check_bool("crypto:blake3_witness", false, &format!("hash error: {e}"));
             v.check_skip("crypto:blake3_determinism", "first hash failed");
@@ -432,6 +426,12 @@ fn validate_compute_dispatch(ctx: &mut CompositionContext, v: &mut ValidationRes
             v.check_skip(
                 "compute:dispatch_returns_result",
                 &format!("compute not available: {e}"),
+            );
+        }
+        Err(e) if e.is_protocol_error() => {
+            v.check_skip(
+                "compute:dispatch_returns_result",
+                &format!("compute reachable but protocol mismatch: {e}"),
             );
         }
         Err(e) => {

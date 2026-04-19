@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026
-**Last audited:** April 18, 2026 (Sovereign compile parity + f64 lowering fix + guideStone Level 5)
+**Last audited:** April 20, 2026 (primalSpring v0.9.16 absorption — BLAKE3 checksums, protocol tolerance, family-aware discovery)
 **License:** AGPL-3.0-or-later
 
 ---
@@ -175,6 +175,19 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
   `validate_parity()`, `validate_parity_vec()`, `validate_liveness()`, and
   `primalspring::tolerances` for all IPC parity checks. hotSpring's own
   `NucleusContext` retained for the server binary and Tier 2 validators.
+
+### GAP-HS-035: primalSpring v0.9.16 Pattern Absorption — RESOLVED
+
+- **Primal:** hotSpring (self) / primalSpring
+- **Severity:** Low
+- **Status:** **Resolved** (April 20, 2026)
+- **Resolution:** Absorbed three v0.9.16 patterns into `hotspring_guidestone`:
+  1. **Property 3 BLAKE3**: Replaced manual CHECKSUMS file-exists check with
+     `primalspring::checksums::verify_manifest()` — per-file BLAKE3 hash verification.
+  2. **Protocol tolerance**: Added `is_protocol_error()` arms in crypto and compute
+     IPC handlers — HTTP-on-UDS classified as SKIP (Songbird/petalTongue pattern).
+  3. **Family-aware discovery**: Inherited automatically via `CompositionContext` —
+     `{capability}-{FAMILY_ID}.sock` resolved before `{capability}.sock`.
 
 ### GAP-HS-029: Fork Isolation Pattern Not in Ecosystem Standard
 
