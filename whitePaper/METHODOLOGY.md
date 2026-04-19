@@ -242,8 +242,8 @@ synchronous dispatches is a false positive for GPU efficiency.
 
 | Component | Version | Notes |
 |-----------|---------|-------|
-| Rust | stable (1.77+) | `rustc --version` |
-| wgpu | 0.19+ | Vulkan backend, SHADER_F64 |
+| Rust | stable (1.87+, Edition 2024) | `rustc --version` |
+| wgpu | 28+ | Vulkan backend, SHADER_F64 |
 | Python | 3.9 (Sarkas), 3.10 (surrogate, TTM) | via micromamba |
 | Sarkas | v1.0.0 (pinned, fd908c41) | 3 patches applied |
 | NumPy | 1.26+ | 2.x compat patches |

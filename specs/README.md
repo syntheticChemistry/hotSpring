@@ -1,7 +1,7 @@
 # hotSpring Specifications
 
-**Last Updated**: April 18, 2026
-**Status**: Phase A-J complete + guideStone Level 5 CERTIFIED — 4,065+ tests (985 lib), 166 binaries, 64/64 validation suites, crate v0.6.32, barraCuda v0.3.11, toadStool S168+, coralReef Phase 10 Iter 78+. **Three-tier validation: Python → Rust → NUCLEUS primal composition (guideStone).** `hotspring_guidestone` binary validates 5 guideStone properties + NUCLEUS IPC parity via `primalspring::composition` API. SovereignInit pipeline: 8-stage pure Rust nouveau replacement. NVIDIA GPFIFO pipeline OPERATIONAL on RTX 3090. AMD scratch/local memory OPERATIONAL on RX 6950 XT. 168+ experiments, 128 WGSL shaders. Ember Survivability Hardening COMPLETE. Squirrel wired in proto-nucleate. Science composition probes operational.
+**Last Updated**: April 20, 2026
+**Status**: Phase A-J complete + guideStone Level 5 CERTIFIED (primalSpring v0.9.16) — 4,065+ tests (985 lib), 166 binaries, 64/64 validation suites, crate v0.6.32, barraCuda v0.3.11, toadStool S168+, coralReef Phase 10 Iter 78+. **Three-tier validation: Python → Rust → NUCLEUS primal composition (guideStone).** `hotspring_guidestone` binary validates 5 guideStone properties + NUCLEUS IPC parity via `primalspring::composition` API. Bare mode verified: 14/14 PASS. `validate-primal-proof.sh` deployment script. SovereignInit pipeline: 8-stage pure Rust nouveau replacement. NVIDIA GPFIFO pipeline OPERATIONAL on RTX 3090. AMD scratch/local memory OPERATIONAL on RX 6950 XT. 176+ experiments, 128 WGSL shaders. Ember Survivability Hardening COMPLETE. Squirrel wired in proto-nucleate. Science composition probes operational.
 **Domain**: Computational plasma physics, nuclear structure, transport, lattice QCD, spectral theory, surrogate learning
 
 ---

@@ -29,6 +29,8 @@ requiring forced power-off.
 | `regenerate-all.sh` | Full project regeneration | Yes |
 | `boot/*.sh` | Boot-time setup scripts | Yes |
 
+| `validate-primal-proof.sh` | Primal proof (bare + NUCLEUS, `--full` for pre-flight) | Yes |
+
 Other non-archived helpers in `scripts/` (e.g. `build-container.sh`, `build-guidestone.sh`, `download-data.sh`, `prepare-usb.sh`, `setup-envs.sh`, `validate-guidestone-multi.sh`) are also active as needed for builds and lab setup.
 
 All Python lab analysis scripts and the `titan_timing_attack.sh` experiment script

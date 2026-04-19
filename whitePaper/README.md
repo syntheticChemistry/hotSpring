@@ -2,7 +2,7 @@
 
 **Status**: Current — reviewed for PII, suitable for public repository  
 **Purpose**: Document the replication of Murillo Group computational plasma physics on consumer hardware using BarraCuda, and the three-tier validation arc proving NUCLEUS primal composition  
-**Date**: February 26, 2026 (inception); updated April 18, 2026 (v0.6.32 — guideStone Level 5 CERTIFIED, 985 lib tests, 166 binaries, 64/64 validation suites, 128 WGSL shaders)  
+**Date**: February 26, 2026 (inception); updated April 20, 2026 (v0.6.32 — guideStone Level 5 CERTIFIED, primalSpring v0.9.16 absorbed, 985 lib tests, 166 binaries, 64/64 validation suites, 128 WGSL shaders)  
 **Validation arc**: Python baselines → Rust validation → NUCLEUS primal composition validation (guideStone certified)
 
 ---
@@ -387,7 +387,7 @@ No institutional access required. No Code Ocean account. No Fortran compiler. AG
 
 ---
 
-## Codebase Health (April 18, 2026)
+## Codebase Health (April 20, 2026)
 
 | Metric | Value |
 |--------|-------|
@@ -397,7 +397,7 @@ No institutional access required. No Code Ocean account. No Fortran compiler. AG
 | WGSL shaders | **128** (lattice, MD, HFB, diag, spectral, sovereign) |
 | Coverage | 74.9% region / 83.8% function |
 | Validation suites | **64/64** pass |
-| Experiments | **168+** |
+| Experiments | **176+** |
 | Python control scripts | **34** (Sarkas, surrogate, TTM, NPU, reservoir, lattice, spectral theory) |
 | `expect()`/`unwrap()` in library | **0** (crate-level deny) |
 | Clippy warnings | **0** (pedantic + nursery, `--all-targets`) |

@@ -1,6 +1,6 @@
 # baseCamp: Research Domain Briefings
 
-**Date:** April 18, 2026  
+**Date:** April 20, 2026  
 **Project:** hotSpring (ecoPrimals)  
 **Status:** v0.6.32 — guideStone Level 5 CERTIFIED. 985 lib tests, 166 binaries, 64/64 validation suites, 128 WGSL shaders. **Sovereign compile parity: 10/10 HMC pipeline shaders compile to native SASS on SM35 (Kepler) + SM70 (Volta) + SM120 (Blackwell).** coralReef f64 transcendental lowering fixed for all NVIDIA generations. QMD v5.0 for Blackwell. validate_pure_gauge: 16/16 checks pass. Sovereign GPU pipeline COMPLETE. 908 tests across coral-driver + coral-ember.
 

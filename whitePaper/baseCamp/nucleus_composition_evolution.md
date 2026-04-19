@@ -3,8 +3,8 @@
 # NUCLEUS Composition Evolution — Primal Composition Tier
 
 **Spring:** hotSpring (BarraCuda crate)  
-**Updated:** April 17, 2026  
-**Status:** Composition tier operational — Python/Rust baselines extended through IPC-composed primals; server dispatch wired (GAP-HS-026 resolved)
+**Updated:** April 20, 2026  
+**Status:** guideStone Level 5 CERTIFIED (primalSpring v0.9.16). `hotspring_guidestone` binary validates 5 bare properties + NUCLEUS IPC parity. Bare mode: 14/14 PASS. `validate-primal-proof.sh` wraps the full primal proof workflow. BLAKE3 checksums, protocol tolerance, family-aware discovery absorbed.
 
 ---
 
@@ -56,6 +56,14 @@ Code paths:
 3. **Science parity probes** — Rust baseline vs IPC for SEMF binding energy, Wilson plaquette on a small thermalized lattice, and `physics.hmc_trajectory` JSON shape + plaquette/acceptance fields (see Phase 5 in `validate_nucleus_composition.rs`).
 
 4. **Full server dispatch** — `barracuda/src/bin/hotspring_primal.rs` serves all methods in `niche::LOCAL_CAPABILITIES` (13 physics/compute methods + composition/health/MCP). **GAP-HS-026** (April 17, 2026): every local method is wired; pending placeholders removed. See `docs/PRIMAL_GAPS.md`.
+
+5. **`hotspring_guidestone` binary** — Unified guideStone deployable (primalSpring v0.9.16):
+   - **Bare mode**: Validates Properties 1-5 (Deterministic, Reference-Traceable, Self-Verifying [BLAKE3], Environment-Agnostic, Tolerance-Documented) without any primals deployed. 14/14 checks pass, 4 SKIPs expected.
+   - **NUCLEUS additive mode**: IPC parity via `primalspring::composition` API — scalar parity, vector parity, SEMF end-to-end, crypto provenance witness, compute dispatch against live primals.
+   - **Protocol tolerance**: `is_protocol_error()` classifies HTTP-on-UDS (Songbird, petalTongue) as SKIP, matching v0.9.16 liveness semantics.
+   - **Family-aware discovery**: Inherited via `CompositionContext` — `{capability}-{FAMILY_ID}.sock` resolved before fallback.
+
+6. **`validate-primal-proof.sh`** — End-to-end script. Bare mode (domain only) and `--full` mode (pre-flight `primalspring_guidestone` + domain `hotspring_guidestone`). Detects bare vs live NUCLEUS automatically.
 
 Forward evolution (tracked as gaps): **TensorSession** fused pipelines (GAP-HS-027), **LIME/ILDG zero-copy** (GAP-HS-028), and expanded **cross-primal science parity** (more observables routed the same way production will call them).
 
@@ -128,6 +136,16 @@ cargo run --release --bin validate_squirrel_roundtrip   # exit 2 if Squirrel abs
 cargo run --release --bin validate_all                  # includes all of the above suites
 ```
 
+**guideStone primal proof (recommended):**
+
+```bash
+# Bare mode (no NUCLEUS required)
+./scripts/validate-primal-proof.sh
+
+# Full mode (pre-flight + domain against live NUCLEUS)
+FAMILY_ID=hotspring-validation ./scripts/validate-primal-proof.sh --full
+```
+
 **Standalone / lab without NUCLEUS:**
 
 ```bash
@@ -156,5 +174,7 @@ Reference pattern doc for new niches: `primalSpring/graphs/downstream/NICHE_STAR
 
 - Deploy graph: `graphs/hotspring_qcd_deploy.toml`  
 - Spring manifest entry (6th spring): `primalSpring/graphs/spring_deploy/spring_deploy_manifest.toml` (`spring_name = "hotspring"`)  
-- Gap ledger: `docs/PRIMAL_GAPS.md` (GAP-HS-026 resolved, GAP-HS-027/028 forward work)  
-- Ecosystem handoff: `infra/wateringHole/handoffs/HOTSPRING_V0632_PRIMAL_ABSORPTION_HANDOFF_APR17_2026.md`
+- guideStone standard: `primalSpring/wateringHole/GUIDESTONE_COMPOSITION_STANDARD.md` (v1.1.0)
+- plasmidBin depot: `primalSpring/wateringHole/PLASMINBIN_DEPOT_PATTERN.md`
+- Gap ledger: `docs/PRIMAL_GAPS.md` (GAP-HS-026/032/033/035 resolved, GAP-HS-027/028 forward work)  
+- Ecosystem handoffs: `infra/wateringHole/handoffs/HOTSPRING_V0632_*`
