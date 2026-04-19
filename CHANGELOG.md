@@ -9,11 +9,20 @@ This file covers the spring as a whole. For crate-level details see
 
 ## Unreleased — primalSpring v0.9.16 Absorption (April 20, 2026)
 
+### Added
+- `scripts/validate-primal-proof.sh` — end-to-end primal proof validation script. Bare mode (domain only) and `--full` mode (pre-flight `primalspring_guidestone` + domain `hotspring_guidestone`). Detects bare-only vs live NUCLEUS automatically.
+- plasmidBin deployment workflow documented in README Quick Start
+
 ### Changed
 - **Property 3 (Self-Verifying)**: Upgraded from manual CHECKSUMS file-exists check to `primalspring::checksums::verify_manifest()` — BLAKE3 per-file hash verification with PASS/FAIL/SKIP semantics (v0.9.16 pattern)
 - **Protocol tolerance**: Added `is_protocol_error()` arms to `validate_provenance_witness` and `validate_compute_dispatch` — Songbird/petalTongue HTTP-on-UDS classified as SKIP (reachable but incompatible), matching v0.9.16 liveness semantics
 - **primalspring dependency**: Auto-updated v0.9.15 → v0.9.16 (BLAKE3 checksums module, family-aware discovery, protocol error classification)
 - **Doc reference**: v0.9.15 → v0.9.16 in guideStone binary module doc
+
+### Verified
+- Bare guideStone: 14/14 checks pass (4 SKIP expected — no CHECKSUMS manifest, no NUCLEUS primals)
+- Known v0.9.16 issues handled: `is_protocol_error()` → SKIP for HTTP-on-UDS, `is_connection_error()` → SKIP for BearDog BTSP reset
+- plasmidBin ecoBin present: `hotspring_primal` (v0.6.32, x86_64 musl-static)
 
 ### Documentation
 - CHANGELOG, README, PRIMAL_GAPS: v0.9.16 absorption session

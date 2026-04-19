@@ -42,6 +42,8 @@ hotSpring is the reference implementation for the guideStone Composition Standar
 
 **Pre-flight**: `primalspring_guidestone` certifies composition correctness (6 layers). hotSpring's domain guideStone inherits that base and only validates QCD physics on top.
 
+**plasmidBin Deployment**: NUCLEUS primals ship as musl-static ecoBin binaries via `infra/plasmidBin/`. No compilation needed — deploy with `nucleus_launcher.sh --composition niche-hotspring`, then run `hotspring_guidestone` against the live stack. See `scripts/validate-primal-proof.sh` for the end-to-end workflow.
+
 > **For the physics**: See [`PHYSICS.md`](PHYSICS.md) for complete equation documentation
 > with numbered references — every formula, every constant, every approximation.
 >
@@ -50,7 +52,7 @@ hotSpring is the reference implementation for the guideStone Composition Standar
 
 ---
 
-## Current Status (2026-04-18)
+## Current Status (2026-04-20)
 
 > **176+ experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **985 lib tests, 166 binaries, 64/64 validation suites, 128 WGSL shaders** | **deny.toml** (ecoBin C-dep bans) | **all 13 physics/compute methods wired in JSON-RPC server** | **zero `dyn` dispatch, zero unsafe, `#[expect]` over `#[allow]`** | **guideStone artifact: 59/59 checks x 5 substrates (x86_64 + aarch64)** | **OCI container image + Windows/macOS launchers** | **NVIDIA GPFIFO pipeline OPERATIONAL on RTX 3090** | **AMD scratch/local memory OPERATIONAL on RX 6950 XT** | **AMD sovereign compiler: 24/24 QCD shaders compile to native GFX ISA** | **NVIDIA sovereign compiler: 10/10 HMC pipeline shaders compile to native SASS on SM35 (Kepler) + SM70 (Volta) + SM120 (Blackwell)** | **Ember Survivability Hardening COMPLETE** | **Firmware Boundary → SovereignInit Pipeline COMPLETE** | **NUCLEUS Composition Evolution COMPLETE** | **coralReef f64 transcendental lowering fixed for all NVIDIA generations (SM32+)** | **Level 5 Primal Proof — `validate_primal_proof` harness, 10 manifest capabilities exercised**
 >
@@ -281,6 +283,17 @@ bash scripts/setup-envs.sh        # Create Python environments
 ```
 
 ```bash
+# guideStone Primal Proof (bare mode — no NUCLEUS required)
+./scripts/validate-primal-proof.sh
+
+# guideStone Primal Proof (full mode — against live NUCLEUS from plasmidBin)
+export FAMILY_ID="hotspring-validation"
+export BEARDOG_FAMILY_SEED="$(head -c 32 /dev/urandom | xxd -p)"
+cd ../plasmidBin && ./nucleus_launcher.sh --family-id "$FAMILY_ID" --composition niche-hotspring
+cd ../hotSpring && ./scripts/validate-primal-proof.sh --full
+```
+
+```bash
 # Phase C: GPU Molecular Dynamics (requires SHADER_F64 GPU)
 cd barracuda
 cargo run --release --bin sarkas_gpu              # Quick: kappa=2, Gamma=158, N=500 (~30s)
@@ -387,6 +400,7 @@ hotSpring/
 │   └── 151-165: Revalidation, ember hardening, SovereignInit pipeline, firmware boundary pivot
 │
 ├── scripts/                            # Build, regeneration, deployment scripts
+│   ├── validate-primal-proof.sh       # Primal proof validation (bare + NUCLEUS modes)
 │   ├── build-guidestone.sh            # Build guideStone artifact (dual-arch, container, launchers)
 │   ├── build-container.sh             # Build + export OCI container image
 │   ├── prepare-usb.sh                 # Prepare USB liveSpore (ext4/exFAT modes)
@@ -416,6 +430,7 @@ hotSpring/
 | [`validation/GUIDESTONE.md`](validation/GUIDESTONE.md) | guideStone certification spec (deterministic, traceable, self-verifying) |
 | [`docs/PRIMAL_GAPS.md`](docs/PRIMAL_GAPS.md) | NUCLEUS composition gaps — handback to primalSpring |
 | [`docs/PRIMAL_PROOF_IPC_MAPPING.md`](docs/PRIMAL_PROOF_IPC_MAPPING.md) | Level 5 primal proof — domain science → IPC method mapping |
+| [`scripts/validate-primal-proof.sh`](scripts/validate-primal-proof.sh) | Primal proof validation — bare + NUCLEUS modes, pre-flight integration |
 | [`graphs/hotspring_qcd_deploy.toml`](graphs/hotspring_qcd_deploy.toml) | biomeOS deploy graph — 10 primals, bonding policy, spawn order |
 | [`CHANGELOG.md`](CHANGELOG.md) | Root changelog — spring-level changes |
 | [`barracuda/ABSORPTION_MANIFEST.md`](barracuda/ABSORPTION_MANIFEST.md) | Write → Absorb → Lean tracking for upstream absorption |
