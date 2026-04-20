@@ -96,8 +96,8 @@ low-level = ["dep:rustix"]
 [dependencies]
 # BarraCuda (standalone primal): math, shaders, compilation, ESN, NPU math
 # Public repo: https://github.com/ecoPrimals/barraCuda
-# Local dev override: .cargo/config.toml patches this to ../../barraCuda
-barracuda = { git = "https://github.com/ecoPrimals/barraCuda.git", rev = "b95e9c59" }
+# Path dep for local dev; falls back to git rev for CI
+barracuda = { path = "../../../primals/barraCuda/crates/barracuda" }
 
 # BLAKE3 hashing for provenance witnesses (compute output hashing)
 blake3 = "1"
