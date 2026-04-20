@@ -170,19 +170,25 @@ fn validate_traceable(v: &mut ValidationResult) {
 fn validate_self_verifying(v: &mut ValidationResult) {
     checksums::verify_manifest(v, "validation/CHECKSUMS");
 
-    let deny_path = std::path::Path::new("deny.toml");
-    if deny_path.exists() {
-        let content = std::fs::read_to_string(deny_path).unwrap_or_default();
-        v.check_bool(
-            "self_verifying:deny_toml_present",
-            content.contains("[bans]") || content.contains("[licenses]"),
-            "deny.toml has bans or licenses section",
-        );
-    } else {
-        v.check_skip(
-            "self_verifying:deny_toml_present",
-            "deny.toml not found (run from barracuda/ or repo root)",
-        );
+    let candidates = ["deny.toml", "barracuda/deny.toml"];
+    let deny_content = candidates
+        .iter()
+        .filter_map(|p| std::fs::read_to_string(p).ok())
+        .next();
+    match deny_content {
+        Some(content) => {
+            v.check_bool(
+                "self_verifying:deny_toml_present",
+                content.contains("[bans]") || content.contains("[licenses]"),
+                "deny.toml has bans or licenses section",
+            );
+        }
+        None => {
+            v.check_skip(
+                "self_verifying:deny_toml_present",
+                "deny.toml not found (run from barracuda/ or repo root)",
+            );
+        }
     }
 }
 

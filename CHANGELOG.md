@@ -7,7 +7,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
-## Unreleased — primalSpring v0.9.17 Absorption (April 20, 2026)
+## Unreleased — Property 3 CHECKSUMS + Script Fix (April 17, 2026)
+
+### Added
+- **BLAKE3 CHECKSUMS manifest** (`validation/CHECKSUMS`): 15 validation-critical source files hashed with BLAKE3, following primalSpring's source-integrity pattern. Covers guideStone binary, physics modules, provenance, tolerances, composition, niche, lib, Cargo.toml, and validate-primal-proof.sh.
+- Old binary-artifact CHECKSUMS preserved as `validation/CHECKSUMS.v0631-binaries`.
+
+### Changed
+- **Property 3 (Self-Verifying)**: `deny.toml` lookup now checks both `deny.toml` (barracuda/) and `barracuda/deny.toml` (repo root), so the guideStone passes from either CWD.
+- **`validate-primal-proof.sh`**: Now builds from `barracuda/` then runs the binary from the repo root, so `validation/CHECKSUMS` resolves correctly. BLAKE3 checksums verify on every invocation.
+
+### Verified
+- Bare guideStone: **30/30 checks pass** (3 SKIP — expected NUCLEUS liveness only). Property 3 now fully green with all 15 file hashes verified.
+- 990 unit tests pass (0 failures, 6 ignored)
+- guideStone runs correctly from both barracuda/ and repo root
+
+## primalSpring v0.9.17 Absorption (April 20, 2026)
 
 ### Changed
 - **primalspring dependency**: v0.9.16 → v0.9.17 (genomeBin v5.1, 46 cross-arch binaries, deployment-validated end-to-end, guideStone standard v1.2.0)

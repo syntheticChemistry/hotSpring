@@ -90,8 +90,9 @@ echo
 DOMAIN_EXIT=0
 DOMAIN_OUTPUT_FILE=$(mktemp)
 cd "$BARRACUDA"
-cargo run --release --bin hotspring_guidestone 2>&1 | tee "$DOMAIN_OUTPUT_FILE" || DOMAIN_EXIT=$?
+cargo build --release --bin hotspring_guidestone 2>&1
 cd "$ROOT"
+"$BARRACUDA/target/release/hotspring_guidestone" 2>&1 | tee "$DOMAIN_OUTPUT_FILE" || DOMAIN_EXIT=$?
 
 BARE_ONLY=0
 if grep -q "bare certification only" "$DOMAIN_OUTPUT_FILE" 2>/dev/null; then

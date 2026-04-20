@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026
-**Last audited:** April 20, 2026 (primalSpring v0.9.17 absorption — genomeBin v5.1, guideStone v1.2.0, deployment-validated end-to-end, v0.9.17 env var requirements documented)
+**Last audited:** April 17, 2026 (Property 3 BLAKE3 CHECKSUMS live — 30/30 bare checks pass, 990 tests pass)
 **License:** AGPL-3.0-or-later
 
 ---
@@ -175,6 +175,18 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
   `validate_parity()`, `validate_parity_vec()`, `validate_liveness()`, and
   `primalspring::tolerances` for all IPC parity checks. hotSpring's own
   `NucleusContext` retained for the server binary and Tier 2 validators.
+
+### GAP-HS-037: Property 3 BLAKE3 CHECKSUMS Manifest — RESOLVED
+
+- **Primal:** hotSpring (self) / primalSpring
+- **Severity:** Medium
+- **Status:** **Resolved** (April 17, 2026)
+- **Resolution:** Generated BLAKE3 CHECKSUMS manifest for 15 validation-critical
+  source files (guideStone binary, physics, provenance, tolerances, composition,
+  niche, lib, Cargo.toml, validate-primal-proof.sh). Property 3 now fully passes
+  (30/30 bare checks). Also fixed `deny.toml` lookup to check both `deny.toml`
+  and `barracuda/deny.toml`, and updated script to build from barracuda/ then
+  run from repo root so CHECKSUMS resolves correctly.
 
 ### GAP-HS-036: primalSpring v0.9.17 Absorption — RESOLVED
 
