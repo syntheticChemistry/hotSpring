@@ -1,6 +1,6 @@
 # hotSpring — BarraCuda Requirements
 
-> **HISTORICAL** — Snapshot from February 25, 2026 (v0.6.15). Current state: v0.6.32, 964 tests,
+> **HISTORICAL** — Snapshot from February 25, 2026 (v0.6.15). Current state: v0.6.32, 990 tests,
 > 166 binaries, 128 WGSL shaders. For current absorption status see `barracuda/ABSORPTION_MANIFEST.md`.
 > For current gaps see `docs/PRIMAL_GAPS.md`. Retained as fossil record of early GPU kernel requirements.
 
@@ -154,7 +154,7 @@ All components implemented and validated (13/13 checks pass):
 
 ### Key Facts for ToadStool Team
 
-- 22 papers reproduced, 985 lib tests, 64/64 validation suites, ~$0.30 total compute cost
+- 22 papers reproduced, 990 lib tests, 64/64 validation suites, ~$0.30 total compute cost
 - RTX 4070 sustains f64 MD at 149-259 steps/s; Titan V (NVK) produces identical physics
 - Energy drift 0.000% over 80k steps sets the precision bar for any new integrator
 - `ReduceScalarPipeline` is the most-used upstream primitive after `WgpuDevice`

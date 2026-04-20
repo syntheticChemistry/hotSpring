@@ -4,7 +4,7 @@
 
 **Spring:** hotSpring (BarraCuda crate)  
 **Updated:** April 20, 2026  
-**Status:** guideStone Level 5 CERTIFIED (primalSpring v0.9.16). `hotspring_guidestone` binary validates 5 bare properties + NUCLEUS IPC parity. Bare mode: 14/14 PASS. `validate-primal-proof.sh` wraps the full primal proof workflow. BLAKE3 checksums, protocol tolerance, family-aware discovery absorbed.
+**Status:** guideStone Level 5 CERTIFIED (primalSpring v0.9.17, guideStone v1.2.0). `hotspring_guidestone` binary validates 5 bare properties + NUCLEUS IPC parity. **Bare mode: 30/30 PASS** (3 SKIP = expected NUCLEUS liveness). Property 3 BLAKE3 CHECKSUMS manifest covers 15 validation-critical source files — verified via `primalspring::checksums::verify_manifest()`. `validate-primal-proof.sh` wraps the full primal proof workflow (builds from barracuda/, runs from root, auto-sets BEARDOG_FAMILY_SEED/SONGBIRD_SECURITY_PROVIDER/NESTGATE_JWT_SECRET). BLAKE3 checksums, protocol tolerance, family-aware discovery, genomeBin v5.1, deployment validation absorbed.
 
 ---
 
@@ -57,11 +57,12 @@ Code paths:
 
 4. **Full server dispatch** — `barracuda/src/bin/hotspring_primal.rs` serves all methods in `niche::LOCAL_CAPABILITIES` (13 physics/compute methods + composition/health/MCP). **GAP-HS-026** (April 17, 2026): every local method is wired; pending placeholders removed. See `docs/PRIMAL_GAPS.md`.
 
-5. **`hotspring_guidestone` binary** — Unified guideStone deployable (primalSpring v0.9.16):
-   - **Bare mode**: Validates Properties 1-5 (Deterministic, Reference-Traceable, Self-Verifying [BLAKE3], Environment-Agnostic, Tolerance-Documented) without any primals deployed. 14/14 checks pass, 4 SKIPs expected.
+5. **`hotspring_guidestone` binary** — Unified guideStone deployable (primalSpring v0.9.17, guideStone v1.2.0):
+   - **Bare mode**: Validates Properties 1-5 (Deterministic, Reference-Traceable, Self-Verifying [BLAKE3 CHECKSUMS — 15 source files], Environment-Agnostic, Tolerance-Documented) without any primals deployed. **30/30 checks pass**, 3 SKIPs (expected NUCLEUS liveness only). Property 3 verifies per-file BLAKE3 hashes + `deny.toml` present.
    - **NUCLEUS additive mode**: IPC parity via `primalspring::composition` API — scalar parity, vector parity, SEMF end-to-end, crypto provenance witness, compute dispatch against live primals.
-   - **Protocol tolerance**: `is_protocol_error()` classifies HTTP-on-UDS (Songbird, petalTongue) as SKIP, matching v0.9.16 liveness semantics.
+   - **Protocol tolerance**: `is_protocol_error()` classifies HTTP-on-UDS (Songbird, petalTongue) as SKIP, matching v0.9.16+ liveness semantics.
    - **Family-aware discovery**: Inherited via `CompositionContext` — `{capability}-{FAMILY_ID}.sock` resolved before fallback.
+   - **Env var auto-setup**: `validate-primal-proof.sh` auto-sets `BEARDOG_FAMILY_SEED`, `SONGBIRD_SECURITY_PROVIDER`, `NESTGATE_JWT_SECRET` when `FAMILY_ID` is provided.
 
 6. **`validate-primal-proof.sh`** — End-to-end script. Bare mode (domain only) and `--full` mode (pre-flight `primalspring_guidestone` + domain `hotspring_guidestone`). Detects bare vs live NUCLEUS automatically.
 

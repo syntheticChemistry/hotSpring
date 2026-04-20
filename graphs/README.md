@@ -39,11 +39,13 @@ Used for: `biomeos deploy --graph graphs/hotspring_qcd_deploy.toml`
 
 The guideStone is a self-validating deployable. In Level 6, it deploys as a node
 in the proto-nucleate graph alongside primals. In Level 5 (current), it runs
-externally and validates IPC parity. The existing `validate_primal_proof` binary
-is the Level 5 IPC harness; the `validation/hotspring` artifact is the bare
-guideStone (Properties 1-5 without primals). The next evolution combines these
-into a single `hotspring_guidestone` binary following the pattern in
-`primalSpring/wateringHole/GUIDESTONE_COMPOSITION_STANDARD.md`.
+externally and validates IPC parity. The `hotspring_guidestone` binary is the
+unified Level 5 artifact — it validates all 5 bare properties (including
+Property 3 BLAKE3 CHECKSUMS via `primalspring::checksums::verify_manifest()` —
+15 validation-critical source files hashed) then probes NUCLEUS IPC when primals
+are deployed. **Bare mode: 30/30 checks pass** (primalSpring v0.9.17).
+`validation/CHECKSUMS` holds the BLAKE3 manifest. See
+`primalSpring/wateringHole/GUIDESTONE_COMPOSITION_STANDARD.md` for the standard.
 
 The `primalspring_guidestone` binary provides base composition certification (6
 layers: graph parsing, discovery, health, capability parity, cross-atomic

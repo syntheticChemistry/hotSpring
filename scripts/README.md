@@ -29,7 +29,7 @@ requiring forced power-off.
 | `regenerate-all.sh` | Full project regeneration | Yes |
 | `boot/*.sh` | Boot-time setup scripts | Yes |
 
-| `validate-primal-proof.sh` | Primal proof (bare + NUCLEUS, `--full` for pre-flight) | Yes |
+| `validate-primal-proof.sh` | Primal proof validation (primalSpring v0.9.17). Bare mode (no NUCLEUS) or `--full` (pre-flight `primalspring_guidestone` + domain `hotspring_guidestone`). Builds from `barracuda/`, runs from repo root so `validation/CHECKSUMS` resolves. Auto-sets `BEARDOG_FAMILY_SEED`, `SONGBIRD_SECURITY_PROVIDER`, `NESTGATE_JWT_SECRET` when `FAMILY_ID` is provided. | Yes |
 
 Other non-archived helpers in `scripts/` (e.g. `build-container.sh`, `build-guidestone.sh`, `download-data.sh`, `prepare-usb.sh`, `setup-envs.sh`, `validate-guidestone-multi.sh`) are also active as needed for builds and lab setup.
 
