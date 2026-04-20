@@ -7,7 +7,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
-## Unreleased — primalSpring v0.9.16 Absorption (April 20, 2026)
+## Unreleased — primalSpring v0.9.17 Absorption (April 20, 2026)
+
+### Changed
+- **primalspring dependency**: v0.9.16 → v0.9.17 (genomeBin v5.1, 46 cross-arch binaries, deployment-validated end-to-end, guideStone standard v1.2.0)
+- **Doc reference**: v0.9.16 → v0.9.17 in guideStone binary module doc
+- **`validate-primal-proof.sh`**: Auto-sets required NUCLEUS env vars when FAMILY_ID is provided — `BEARDOG_FAMILY_SEED` (derived from FAMILY_ID), `SONGBIRD_SECURITY_PROVIDER=beardog`, `NESTGATE_JWT_SECRET` (random Base64). Header updated for v0.9.17 genomeBin depot workflow.
+
+### Verified
+- Bare guideStone: 14/14 checks pass against primalSpring v0.9.17 (backward-compatible API)
+- All v0.9.17 known issues addressed in script: beardog seed, songbird security provider, nestgate JWT, coralReef `--rpc-bind`
+
+### Documentation
+- CHANGELOG, README, PRIMAL_GAPS: v0.9.17 absorption session
+- wateringHole handoffs: comprehensive evolution patterns + v0.9.17 absorption
+
+## primalSpring v0.9.16 Absorption (April 20, 2026)
 
 ### Added
 - `scripts/validate-primal-proof.sh` — end-to-end primal proof validation script. Bare mode (domain only) and `--full` mode (pre-flight `primalspring_guidestone` + domain `hotspring_guidestone`). Detects bare-only vs live NUCLEUS automatically.

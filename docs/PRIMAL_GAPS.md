@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026
-**Last audited:** April 20, 2026 (primalSpring v0.9.16 absorption — BLAKE3 checksums, protocol tolerance, family-aware discovery)
+**Last audited:** April 20, 2026 (primalSpring v0.9.17 absorption — genomeBin v5.1, guideStone v1.2.0, deployment-validated end-to-end, v0.9.17 env var requirements documented)
 **License:** AGPL-3.0-or-later
 
 ---
@@ -175,6 +175,20 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
   `validate_parity()`, `validate_parity_vec()`, `validate_liveness()`, and
   `primalspring::tolerances` for all IPC parity checks. hotSpring's own
   `NucleusContext` retained for the server binary and Tier 2 validators.
+
+### GAP-HS-036: primalSpring v0.9.17 Absorption — RESOLVED
+
+- **Primal:** hotSpring (self) / primalSpring
+- **Severity:** Low
+- **Status:** **Resolved** (April 20, 2026)
+- **Resolution:** Absorbed v0.9.17 patterns:
+  1. **primalspring dep**: v0.9.16 → v0.9.17 (backward-compatible, compiles clean)
+  2. **guideStone standard v1.2.0**: Reference updated in binary module doc
+  3. **Deployment env vars**: `validate-primal-proof.sh` auto-sets
+     `BEARDOG_FAMILY_SEED`, `SONGBIRD_SECURITY_PROVIDER`, `NESTGATE_JWT_SECRET`
+     when `FAMILY_ID` is provided
+  4. **genomeBin v5.1**: 46 binaries across 6 target triples acknowledged
+  5. **coralReef iter84**: `--port` → `--rpc-bind` noted for any future deploy scripts
 
 ### GAP-HS-035: primalSpring v0.9.16 Pattern Absorption — RESOLVED
 

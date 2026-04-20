@@ -28,7 +28,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"*, *"Can Rust+WG
 
 ### guideStone Status: Level 5 — CERTIFIED (reference implementation)
 
-hotSpring is the reference implementation for the guideStone Composition Standard (primalSpring v0.9.16). The guideStone is a self-validating deployable that carries its own benchmark — all 5 certified properties are satisfied:
+hotSpring is the reference implementation for the guideStone Composition Standard (primalSpring v0.9.17, guideStone v1.2.0). The guideStone is a self-validating deployable that carries its own benchmark — all 5 certified properties are satisfied:
 
 | Property | Evidence |
 |----------|----------|
@@ -42,7 +42,7 @@ hotSpring is the reference implementation for the guideStone Composition Standar
 
 **Pre-flight**: `primalspring_guidestone` certifies composition correctness (6 layers). hotSpring's domain guideStone inherits that base and only validates QCD physics on top.
 
-**plasmidBin Deployment**: NUCLEUS primals ship as musl-static ecoBin binaries via `infra/plasmidBin/`. No compilation needed — deploy with `nucleus_launcher.sh --composition niche-hotspring`, then run `hotspring_guidestone` against the live stack. See `scripts/validate-primal-proof.sh` for the end-to-end workflow.
+**plasmidBin Deployment**: NUCLEUS primals ship as musl-static genomeBin binaries (46 binaries across 6 target triples, primalSpring v0.9.17) via `infra/plasmidBin/`. No compilation needed — deploy with `nucleus_launcher.sh --composition niche-hotspring`, then run `hotspring_guidestone` against the live stack. See `scripts/validate-primal-proof.sh` for the end-to-end workflow (auto-sets BEARDOG_FAMILY_SEED, SONGBIRD_SECURITY_PROVIDER, NESTGATE_JWT_SECRET).
 
 > **For the physics**: See [`PHYSICS.md`](PHYSICS.md) for complete equation documentation
 > with numbered references — every formula, every constant, every approximation.

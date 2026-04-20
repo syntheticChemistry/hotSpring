@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-# hotSpring Primal Proof Validation — plasmidBin Depot Workflow
+# hotSpring Primal Proof Validation — genomeBin Depot Workflow (v0.9.17)
 #
 # Runs the full primal-proof chain:
 #   1. Pre-flight: primalspring_guidestone (composition base check)
@@ -9,6 +9,11 @@ set -eu
 #
 # Requires a running NUCLEUS (deployed via plasmidBin/nucleus_launcher.sh).
 # See primalSpring/wateringHole/PLASMINBIN_DEPOT_PATTERN.md for depot setup.
+#
+# Auto-sets required env vars when FAMILY_ID is provided:
+#   BEARDOG_FAMILY_SEED  — derived from FAMILY_ID if not set
+#   SONGBIRD_SECURITY_PROVIDER — defaults to "beardog"
+#   NESTGATE_JWT_SECRET  — random Base64 if not set
 #
 # Usage:
 #   ./scripts/validate-primal-proof.sh                      # bare mode (no NUCLEUS)
@@ -29,9 +34,21 @@ done
 
 FAMILY_ID="${FAMILY_ID:-}"
 BEARDOG_FAMILY_SEED="${BEARDOG_FAMILY_SEED:-}"
+SONGBIRD_SECURITY_PROVIDER="${SONGBIRD_SECURITY_PROVIDER:-beardog}"
+NESTGATE_JWT_SECRET="${NESTGATE_JWT_SECRET:-}"
+
+export SONGBIRD_SECURITY_PROVIDER
+if [ -n "$FAMILY_ID" ] && [ -z "$BEARDOG_FAMILY_SEED" ]; then
+    BEARDOG_FAMILY_SEED="$(echo "$FAMILY_ID" | sha256sum | cut -c1-64)"
+    export BEARDOG_FAMILY_SEED
+fi
+if [ -n "$FAMILY_ID" ] && [ -z "$NESTGATE_JWT_SECRET" ]; then
+    NESTGATE_JWT_SECRET="$(head -c 32 /dev/urandom | base64)"
+    export NESTGATE_JWT_SECRET
+fi
 
 echo "╔══════════════════════════════════════════════════════════════╗"
-echo "║  hotSpring Primal Proof Validation                         ║"
+echo "║  hotSpring Primal Proof Validation (v0.9.17)               ║"
 echo "╚══════════════════════════════════════════════════════════════╝"
 echo
 echo "  Family ID:  ${FAMILY_ID:-<none — bare mode>}"

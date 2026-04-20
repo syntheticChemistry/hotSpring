@@ -5,7 +5,7 @@
 //! Combines bare guideStone validation (Properties 1-5 without primals) with
 //! NUCLEUS IPC parity probes using the primalSpring composition API. This is
 //! the Level 5 certified artifact — the reference implementation for the
-//! guideStone Composition Standard (primalSpring v0.9.16).
+//! guideStone Composition Standard (primalSpring v0.9.17).
 //!
 //! # Bare guideStone (always runs, no primals needed)
 //!
