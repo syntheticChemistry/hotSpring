@@ -11,7 +11,7 @@
 #   5. Unload
 set -euo pipefail
 
-KMOD_DIR="$(cd "$(dirname "$0")/../../primals/coralReef/crates/coral-kmod" && pwd)"
+KMOD_DIR="$(cd "$(dirname "$0")/../../../primals/coralReef/crates/coral-kmod" && pwd)"
 HOTSPRING_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
 RED='\033[0;31m'

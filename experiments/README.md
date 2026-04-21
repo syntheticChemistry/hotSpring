@@ -129,6 +129,7 @@ Not numbered experiments — systematic composition infrastructure:
 | 174 | K80_SOVEREIGN_BOOT | investigation | ⚠️ K80 Kepler sovereign boot progress. GDDR5 training path. |
 | 175 | RTX5060_SHARED_COMPUTE | investigation | ⚠️ RTX 5060 shared display/compute. UVM GPFIFO NOP timeout (GAP-HS-031). QMD v5.0 implemented. |
 | 176 | QCD_PARITY_BENCHMARK | **milestone** | ✅ **Full HMC pipeline → native SASS on 3 GPU generations.** SM35 10/10, SM70 10/10, SM120 10/10. coralReef f64 lowering fixed (was 4/10 on Kepler). Vendor wgpu dispatch validated on RTX 5060. validate_pure_gauge 16/16 ALL CHECKS PASSED. |
+| 177 | BLACKWELL_DISPATCH_ABI_FIXES | **milestone** | ✅ **Blackwell sovereign dispatch live.** QMD v5.0 + UVM faulting VA space + semaphore fence + UVM_REGISTER_CHANNEL. f64 div fixed (MUFU.RCP64H→F2F+RCP fallback). num_workgroups fixed (S2R NCTAID→LDC CBUF 7). 1404 tests passing. |
 
 ## Benchmark Data
 
