@@ -40,6 +40,7 @@ use crate::hardware_calibration::HardwareCalibration;
 pub use crate::precision_routing::HwPrecisionAdvice;
 use crate::precision_routing::{PhysicsDomain, PrecisionRoutingAdvice, PrecisionTier};
 use crate::primal_bridge::NucleusContext;
+use std::sync::Arc;
 
 /// Detect whether coralReef sovereign compilation is available.
 ///
@@ -78,6 +79,24 @@ fn detect_sovereign_available() -> bool {
     }
     let nucleus = NucleusContext::detect();
     nucleus.coralreef().is_some_and(|e| e.alive)
+}
+
+/// Backend-agnostic precision route descriptor.
+///
+/// Returned by [`PrecisionBrain::route_descriptor`] — carries everything
+/// needed to dispatch a shader on any `GpuBackend`, without binding to wgpu.
+#[derive(Debug, Clone)]
+pub struct PrecisionRoute {
+    /// Selected precision tier.
+    pub tier: PrecisionTier,
+    /// WGSL shader source (or transformed source for DF64/F64Precise).
+    pub wgsl_source: Arc<str>,
+    /// Whether the shader needs f64 compilation.
+    pub f64_shader: bool,
+    /// Whether the shader uses DF64 (f32-pair emulation).
+    pub df64_shader: bool,
+    /// Entry point name.
+    pub entry_point: Arc<str>,
 }
 
 /// Self-routing precision brain for a single GPU.
@@ -125,6 +144,39 @@ impl PrecisionBrain {
         brain
     }
 
+    /// Probe any `GpuBackend` and build the routing table.
+    ///
+    /// Backend-agnostic version of [`new`] — works with both wgpu and
+    /// sovereign IPC backends.
+    pub fn new_from_backend<B: barracuda::device::backend::GpuBackend>(backend: &B) -> Self {
+        let mut calibration = HardwareCalibration::probe_backend(backend);
+
+        if calibration.nvvm_transcendental_risk && detect_sovereign_available() {
+            calibration.set_sovereign_available();
+            eprintln!(
+                "[Brain] coralReef sovereign bypass detected — \
+                 NVVM-blocked tiers unlockable via WGSL → SASS pipeline"
+            );
+        }
+
+        eprintln!("[Brain] {calibration}");
+
+        let caps = backend.capabilities();
+        let hw_native = caps.has_hardware_f64;
+        let route_table = ALL_DOMAINS.map(|domain| route_domain(domain, &calibration, hw_native));
+
+        let brain = Self {
+            calibration,
+            route_table,
+        };
+
+        for (i, domain) in ALL_DOMAINS.iter().enumerate() {
+            eprintln!("[Brain] {:?} → {:?}", domain, brain.route_table[i]);
+        }
+
+        brain
+    }
+
     /// Route a physics domain to the best available precision tier.
     ///
     /// O(1) lookup — the routing table was pre-computed at construction.
@@ -149,6 +201,9 @@ impl PrecisionBrain {
     }
 
     /// Compile a shader at the brain-selected tier for the given domain.
+    ///
+    /// Returns a `wgpu::ComputePipeline` — use [`route_descriptor`](Self::route_descriptor)
+    /// for a backend-agnostic dispatch descriptor that works on any `GpuBackend`.
     #[must_use]
     pub fn compile(
         &self,
@@ -163,6 +218,32 @@ impl PrecisionBrain {
             PrecisionTier::F64 => gpu.create_pipeline_f64(shader_source, label),
             PrecisionTier::DF64 => gpu.compile_full_df64_pipeline(shader_source, label),
             PrecisionTier::F64Precise => gpu.create_pipeline_f64_precise(shader_source, label),
+        }
+    }
+
+    /// Build a backend-agnostic dispatch descriptor for the given domain.
+    ///
+    /// Returns a [`PrecisionRoute`] that can be used with any `GpuBackend`
+    /// via `backend.dispatch_compute(route.into_descriptor(...))`. This
+    /// enables sovereign dispatch through coralReef, wgpu, or any future backend.
+    #[must_use]
+    pub fn route_descriptor(
+        &self,
+        domain: PhysicsDomain,
+        shader_source: &str,
+    ) -> PrecisionRoute {
+        let tier = self.route(domain);
+        let (f64_shader, df64_shader) = match tier {
+            PrecisionTier::F32 => (false, false),
+            PrecisionTier::F64 | PrecisionTier::F64Precise => (true, false),
+            PrecisionTier::DF64 => (false, true),
+        };
+        PrecisionRoute {
+            tier,
+            wgsl_source: Arc::from(shader_source),
+            f64_shader,
+            df64_shader,
+            entry_point: Arc::from("main"),
         }
     }
 

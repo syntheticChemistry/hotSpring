@@ -37,6 +37,7 @@
 
 use crate::gpu::GpuF64;
 use crate::precision_routing::PrecisionTier;
+use barracuda::device::backend::{BufferBinding, DispatchDescriptor, GpuBackend};
 use std::time::Instant;
 
 /// Arithmetic probe: trivial multiply — tests basic compilation path.
@@ -126,6 +127,11 @@ impl HardwareCalibration {
         let input: Vec<f64> = (0..PROBE_N).map(|i| (i as f64 + 1.0) * 0.01).collect();
         let arith_ref: Vec<f64> = input.iter().map(|&x| x * x + 1.0).collect();
 
+        let is_open_source_driver = {
+            let name = gpu.adapter_name.to_lowercase();
+            name.contains("nvk") || name.contains("llvmpipe") || name.contains("radv")
+        };
+
         // Probe order: safest first, riskiest last. DF64 is last because
         // a failed NVVM compilation permanently poisons the wgpu device —
         // all subsequent operations on the same device will fail.
@@ -154,13 +160,77 @@ impl HardwareCalibration {
                 continue;
             }
 
-            let cap = probe_tier(gpu, tier, &input, &arith_ref);
+            let cap = probe_tier(gpu, tier, &input, &arith_ref, is_open_source_driver);
 
             // If the arithmetic probe panicked, the device is likely poisoned.
             if !cap.compiles {
                 device_poisoned = true;
             }
 
+            tiers.push(cap);
+        }
+
+        let has_any_f64 = tiers.iter().any(|t| {
+            t.dispatches && matches!(t.tier, PrecisionTier::F64 | PrecisionTier::F64Precise)
+        });
+        let df64_safe = tiers
+            .iter()
+            .any(|t| t.dispatches && t.tier == PrecisionTier::DF64);
+        let nvvm_transcendental_risk = tiers
+            .iter()
+            .any(|t| t.dispatches && !t.transcendentals_safe);
+
+        Self {
+            adapter_name,
+            tiers,
+            has_any_f64,
+            df64_safe,
+            nvvm_transcendental_risk,
+            sovereign_compile_available: false,
+        }
+    }
+
+    /// Probe all precision tiers on any `GpuBackend` implementation.
+    ///
+    /// This is the backend-agnostic version of [`probe`] — it works with both
+    /// wgpu (`WgpuDevice`) and sovereign IPC (`SovereignDevice`) backends. Uses
+    /// `GpuBackend::dispatch_compute` which takes WGSL source directly.
+    ///
+    /// When [`BackendCapabilities`](barracuda::device::backend::BackendCapabilities)
+    /// reports `!has_hardware_f64`, F64/F64Precise tiers are skipped entirely —
+    /// no need to probe what the hardware cannot run.
+    pub fn probe_backend<B: GpuBackend>(backend: &B) -> Self {
+        let adapter_name = backend.name().to_string();
+        let caps = backend.capabilities();
+
+        let input: Vec<f64> = (0..PROBE_N).map(|i| (i as f64 + 1.0) * 0.01).collect();
+        let arith_ref: Vec<f64> = input.iter().map(|&x| x * x + 1.0).collect();
+
+        let tiers_to_probe = [
+            PrecisionTier::F32,
+            PrecisionTier::F64,
+            PrecisionTier::F64Precise,
+            PrecisionTier::DF64,
+        ];
+
+        let mut tiers: Vec<TierCapability> = Vec::with_capacity(4);
+
+        for &tier in &tiers_to_probe {
+            if !caps.has_hardware_f64
+                && matches!(tier, PrecisionTier::F64 | PrecisionTier::F64Precise)
+            {
+                tiers.push(TierCapability {
+                    tier,
+                    compiles: false,
+                    dispatches: false,
+                    transcendentals_safe: false,
+                    compile_us: 0.0,
+                    dispatch_us: 0.0,
+                    probe_ulp: f64::NAN,
+                });
+                continue;
+            }
+            let cap = probe_tier_backend(backend, tier, &input, &arith_ref, &caps);
             tiers.push(cap);
         }
 
@@ -291,6 +361,7 @@ fn probe_tier(
     tier: PrecisionTier,
     input: &[f64],
     arith_ref: &[f64],
+    is_open_source_driver: bool,
 ) -> TierCapability {
     // Phase 1: arithmetic probe
     let arith = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -320,9 +391,10 @@ fn probe_tier(
     //
     // NVK (Mesa open source) handles all modes correctly.
     // F32 and native F64 (with FMA) always work.
-    let is_nvk = gpu.adapter_name.contains("NVK") || gpu.adapter_name.contains("llvmpipe");
-    let transcendentals_safe =
-        dispatches && (tier == PrecisionTier::F32 || tier == PrecisionTier::F64 || is_nvk);
+    let transcendentals_safe = dispatches
+        && (tier == PrecisionTier::F32
+            || tier == PrecisionTier::F64
+            || is_open_source_driver);
 
     TierCapability {
         tier,
@@ -394,6 +466,136 @@ fn compile_at_tier(
         PrecisionTier::F64 => gpu.create_pipeline_f64(source, label),
         PrecisionTier::DF64 => gpu.compile_full_df64_pipeline(source, label),
         PrecisionTier::F64Precise => gpu.create_pipeline_f64_precise(source, label),
+    }
+}
+
+/// Backend-agnostic tier probe via `GpuBackend::dispatch_compute`.
+fn probe_tier_backend<B: GpuBackend>(
+    backend: &B,
+    tier: PrecisionTier,
+    input: &[f64],
+    arith_ref: &[f64],
+    caps: &barracuda::device::backend::BackendCapabilities,
+) -> TierCapability {
+    let (f64_shader, df64_shader) = match tier {
+        PrecisionTier::F32 => (false, false),
+        PrecisionTier::F64 | PrecisionTier::F64Precise => (true, false),
+        PrecisionTier::DF64 => (false, true),
+    };
+
+    let label = format!("probe_{tier:?}_arith");
+    let input_bytes: &[u8] = bytemuck::cast_slice(input);
+
+    let input_buf = match backend.alloc_buffer_init(&format!("{label}_in"), input_bytes) {
+        Ok(b) => b,
+        Err(_) => {
+            return TierCapability {
+                tier,
+                compiles: false,
+                dispatches: false,
+                transcendentals_safe: false,
+                compile_us: 0.0,
+                dispatch_us: 0.0,
+                probe_ulp: f64::NAN,
+            };
+        }
+    };
+
+    let output_size = (PROBE_N * std::mem::size_of::<f64>()) as u64;
+    let output_buf = match backend.alloc_buffer(&format!("{label}_out"), output_size) {
+        Ok(b) => b,
+        Err(_) => {
+            return TierCapability {
+                tier,
+                compiles: false,
+                dispatches: false,
+                transcendentals_safe: false,
+                compile_us: 0.0,
+                dispatch_us: 0.0,
+                probe_ulp: f64::NAN,
+            };
+        }
+    };
+
+    let t_compile = Instant::now();
+    let desc = DispatchDescriptor {
+        label: &label,
+        shader_source: PROBE_SHADER_ARITH,
+        entry_point: "main",
+        bindings: vec![
+            BufferBinding {
+                index: 0,
+                buffer: &input_buf,
+                read_only: true,
+                is_uniform: false,
+            },
+            BufferBinding {
+                index: 1,
+                buffer: &output_buf,
+                read_only: false,
+                is_uniform: false,
+            },
+        ],
+        workgroups: (PROBE_WORKGROUPS, 1, 1),
+        f64_shader,
+        df64_shader,
+        hardware_hint: barracuda::device::backend::HardwareHint::Compute,
+    };
+
+    let compile_and_dispatch = backend.dispatch_compute(desc);
+    let compile_us = t_compile.elapsed().as_secs_f64() * 1e6;
+
+    if compile_and_dispatch.is_err() {
+        return TierCapability {
+            tier,
+            compiles: false,
+            dispatches: false,
+            transcendentals_safe: false,
+            compile_us,
+            dispatch_us: 0.0,
+            probe_ulp: f64::NAN,
+        };
+    }
+
+    let output_bytes = match backend.download(&output_buf, output_size) {
+        Ok(b) => b,
+        Err(_) => {
+            return TierCapability {
+                tier,
+                compiles: true,
+                dispatches: false,
+                transcendentals_safe: false,
+                compile_us,
+                dispatch_us: 0.0,
+                probe_ulp: f64::NAN,
+            };
+        }
+    };
+
+    let output: Vec<f64> = output_bytes
+        .chunks_exact(8)
+        .map(|c| f64::from_le_bytes(c.try_into().unwrap_or([0; 8])))
+        .collect();
+
+    let valid = !output.is_empty() && output.iter().all(|v| v.is_finite() && *v != 0.0);
+    let probe_ulp = if valid {
+        max_ulp(arith_ref, &output)
+    } else {
+        f64::NAN
+    };
+
+    let is_nvidia_proprietary = caps.is_nvidia_proprietary();
+    let transcendentals_safe = valid
+        && (tier == PrecisionTier::F32 || tier == PrecisionTier::F64 || !is_nvidia_proprietary);
+
+    TierCapability {
+        tier,
+        compiles: true,
+        dispatches: valid,
+        transcendentals_safe,
+        compile_us,
+        dispatch_us: 0.0,
+        probe_ulp,
     }
 }
 

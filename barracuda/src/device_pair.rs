@@ -21,8 +21,10 @@
 //! should delegate topology discovery to `PcieTopologyGraph` and multi-GPU
 //! routing to `WorkloadRouter` instead of manual PCIe bandwidth estimation.
 
+use barracuda::device::backend::GpuBackend;
 use barracuda::device::driver_profile::{Fp64Rate, Fp64Strategy};
 use barracuda::unified_hardware::{BandwidthTier, PcieBridge, TransferCost};
+use std::sync::Arc;
 
 use crate::error::HotSpringError;
 use crate::gpu::GpuF64;
@@ -221,6 +223,91 @@ impl DevicePair {
 impl std::fmt::Display for DevicePair {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "DevicePair:")?;
+        writeln!(
+            f,
+            "  Precise:    {} ({:.1} TFLOPS f64)",
+            self.profile.precise_name, self.profile.precise_tflops_f64
+        )?;
+        writeln!(
+            f,
+            "  Throughput: {} ({:.1} TFLOPS f32, {:.1} TFLOPS DF64)",
+            self.profile.throughput_name,
+            self.profile.throughput_tflops_f32,
+            self.profile.throughput_tflops_df64
+        )?;
+        write!(
+            f,
+            "  Bridge:     {:.1} GB/s, {:.0} us latency",
+            self.profile.bridge_bandwidth_gbps, self.profile.bridge_latency_us
+        )
+    }
+}
+
+/// Backend-agnostic heterogeneous dual-GPU pair.
+///
+/// Generic over any `GpuBackend` — enables pairing two sovereign devices,
+/// two wgpu devices, or any homogeneous backend pair. For mixed backends
+/// (wgpu + sovereign), use two separate instances and route by profile.
+pub struct BackendPair<B: GpuBackend> {
+    /// The "precise brain" — native f64 at full rate.
+    pub precise: Arc<B>,
+    /// The "throughput brain" — DF64 on f32 cores.
+    pub throughput: Arc<B>,
+    /// Computed capability profile.
+    pub profile: PairProfile,
+}
+
+impl<B: GpuBackend> BackendPair<B> {
+    /// Construct from two backends with explicit role assignment.
+    ///
+    /// The caller determines which backend is "precise" (full-rate f64)
+    /// and which is "throughput" (DF64 on f32 cores).
+    pub fn new(
+        precise: Arc<B>,
+        throughput: Arc<B>,
+        precise_f64_tflops: f64,
+        throughput_f32_tflops: f64,
+        bridge_tier: BandwidthTier,
+    ) -> Self {
+        let profile = PairProfile {
+            precise_tflops_f64: precise_f64_tflops,
+            throughput_tflops_f32: throughput_f32_tflops,
+            throughput_tflops_df64: throughput_f32_tflops * 0.5,
+            bridge_bandwidth_gbps: bridge_tier.bandwidth_gbps(),
+            bridge_latency_us: bridge_tier.latency_us(),
+            precise_name: precise.name().to_string(),
+            throughput_name: throughput.name().to_string(),
+        };
+        Self {
+            precise,
+            throughput,
+            profile,
+        }
+    }
+
+    /// Probe and assign roles automatically based on f64 capability.
+    pub fn auto_assign(a: Arc<B>, b: Arc<B>, bridge_tier: BandwidthTier) -> Self {
+        let a_f64 = a.has_f64_shaders();
+        let b_f64 = b.has_f64_shaders();
+
+        let (precise, throughput) = if a_f64 && !b_f64 {
+            (a, b)
+        } else if b_f64 && !a_f64 {
+            (b, a)
+        } else {
+            (a, b)
+        };
+
+        let precise_f64 = estimate_f32_tflops(precise.name()) / 2.0;
+        let throughput_f32 = estimate_f32_tflops(throughput.name());
+
+        Self::new(precise, throughput, precise_f64, throughput_f32, bridge_tier)
+    }
+}
+
+impl<B: GpuBackend> std::fmt::Display for BackendPair<B> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "BackendPair:")?;
         writeln!(
             f,
             "  Precise:    {} ({:.1} TFLOPS f64)",
