@@ -46,7 +46,7 @@ hotSpring (this repo)
 ```bash
 cd barracuda
 
-cargo test --lib          # 990 library tests
+cargo test --lib          # 993 library tests
 cargo clippy --all-targets  # 0 warnings (pedantic + nursery)
 cargo doc --no-deps       # Full API docs, 0 warnings
 
@@ -156,7 +156,7 @@ pattern in the overnight binary is the reference for multi-GPU + profiling adopt
 See [CHANGELOG.md](CHANGELOG.md) for full version history.
 
 Current: **v0.6.32** (April 11, 2026)
-- 990 lib tests, 166 binaries, 128 WGSL shaders, 0 clippy warnings (lib)
+- 993 lib tests, 166 binaries, 128 WGSL shaders, 0 clippy warnings (lib)
 - NUCLEUS composition validation, science probes, Squirrel wired
 - Three-tier validation: Python → Rust → NUCLEUS IPC
 - barraCuda v0.3.5 (`8d63c77`), toadStool S146, coralReef Phase 10 Iter 31

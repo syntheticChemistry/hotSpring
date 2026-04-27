@@ -7,7 +7,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
-## Unreleased — Deep Debt Evolution (April 27, 2026)
+## Unreleased — Documentation Sweep + Handoff (April 27, 2026)
+
+### Changed
+- **Test counts**: 990→993 across all documentation (README, EXPERIMENT_INDEX, barracuda/README, whitePaper/*, specs/*, experiments/README, ABSORPTION_MANIFEST).
+- **Dates**: All audit/status dates updated to April 27, 2026.
+- **`whitePaper/baseCamp/nucleus_composition_evolution.md`**: Added Phase 46 composition template (§7) and deep debt evolution (§8) sections.
+- **`whitePaper/README.md`**: Updated header to reflect Phase 46 + deep debt completion.
+- **`whitePaper/baseCamp/README.md`**: Status line updated with Phase 46 + deep debt.
+- **`specs/README.md`**: Date and test count updated.
+- **`scripts/boot/install-coralreef-perms.sh`**: Hardcoded `/home/biomegate/` replaced with `$REEF_ROOT` env var with fallback.
+
+### Added
+- **`experiments/README.md`**: Deep debt evolution session entry (April 27).
+- **`infra/wateringHole/NUCLEUS_SPRING_ALIGNMENT.md`**: Phase 46 Composition Evolution section with lane assignments, hotSpring deep debt summary, updated spring pinning.
+- **`infra/wateringHole/handoffs/HOTSPRING_V0632_DEEPDEBT_PHASE46_HANDOFF_APR27_2026.md`**: Comprehensive handoff documenting capability-based discovery patterns, smart refactoring guidance, EVOLUTION markers for upstream, active PRIMAL_GAPS, composition patterns for NUCLEUS deployment.
+
+## Deep Debt Evolution (April 27, 2026)
 
 ### Changed
 - **Capability-based primal discovery**: `composition.rs` now derives primal requirements from `niche::DEPENDENCIES` (single source of truth) instead of duplicating name→domain mappings. `AtomicType` exposes `required_domains()` as the primary API; `required_primals()` is derived. Removed redundant `capability_domain_for_required_primal()`.
@@ -58,7 +74,7 @@ This file covers the spring as a whole. For crate-level details see
 
 ### Verified
 - Bare guideStone: **30/30 checks pass** (3 SKIP — expected NUCLEUS liveness only). Property 3 now fully green with all 15 file hashes verified.
-- 990 unit tests pass (0 failures, 6 ignored)
+- 993 unit tests pass (0 failures, 6 ignored)
 - guideStone runs correctly from both barracuda/ and repo root
 
 ## Blackwell Dispatch Live (April 16, 2026)

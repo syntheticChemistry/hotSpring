@@ -9,7 +9,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REEF_ROOT="/home/biomegate/Development/ecoPrimals/primals/coralReef"
+REEF_ROOT="${REEF_ROOT:-$(cd "$SCRIPT_DIR/../../../primals/coralReef" 2>/dev/null && pwd || echo "/home/$USER/Development/ecoPrimals/primals/coralReef")}"
 
 echo "=== Installing coralReef sudoers rule ==="
 install -m 440 "$SCRIPT_DIR/99-coralreef-nopasswd" /etc/sudoers.d/99-coralreef-nopasswd

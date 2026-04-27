@@ -3,8 +3,8 @@
 # NUCLEUS Composition Evolution — Primal Composition Tier
 
 **Spring:** hotSpring (BarraCuda crate)  
-**Updated:** April 20, 2026  
-**Status:** guideStone Level 5 CERTIFIED (primalSpring v0.9.17, guideStone v1.2.0). `hotspring_guidestone` binary validates 5 bare properties + NUCLEUS IPC parity. **Bare mode: 30/30 PASS** (3 SKIP = expected NUCLEUS liveness). Property 3 BLAKE3 CHECKSUMS manifest covers 15 validation-critical source files — verified via `primalspring::checksums::verify_manifest()`. `validate-primal-proof.sh` wraps the full primal proof workflow (builds from barracuda/, runs from root, auto-sets BEARDOG_FAMILY_SEED/SONGBIRD_SECURITY_PROVIDER/NESTGATE_JWT_SECRET). BLAKE3 checksums, protocol tolerance, family-aware discovery, genomeBin v5.1, deployment validation absorbed.
+**Updated:** April 27, 2026  
+**Status:** guideStone Level 5 CERTIFIED (primalSpring v0.9.17, guideStone v1.2.0). Phase 46 composition template absorbed. Deep debt evolution complete — capability-based discovery from `niche::DEPENDENCIES`, deprecated named accessors, data-driven aliases. `hotspring_guidestone` binary validates 5 bare properties + NUCLEUS IPC parity. **Bare mode: 30/30 PASS** (3 SKIP = expected NUCLEUS liveness). Property 3 BLAKE3 CHECKSUMS manifest covers 15 validation-critical source files — verified via `primalspring::checksums::verify_manifest()`. `validate-primal-proof.sh` wraps the full primal proof workflow (builds from barracuda/, runs from root, auto-sets BEARDOG_FAMILY_SEED/SONGBIRD_SECURITY_PROVIDER/NESTGATE_JWT_SECRET). BLAKE3 checksums, protocol tolerance, family-aware discovery, genomeBin v5.1, deployment validation absorbed. 993/993 lib tests pass.
 
 ---
 
@@ -66,7 +66,23 @@ Code paths:
 
 6. **`validate-primal-proof.sh`** — End-to-end script. Bare mode (domain only) and `--full` mode (pre-flight `primalspring_guidestone` + domain `hotspring_guidestone`). Detects bare vs live NUCLEUS automatically.
 
-Forward evolution (tracked as gaps): **TensorSession** fused pipelines (GAP-HS-027), **LIME/ILDG zero-copy** (GAP-HS-028), and expanded **cross-primal science parity** (more observables routed the same way production will call them).
+7. **Phase 46 Composition Template (April 27, 2026)** — `tools/hotspring_composition.sh` implements hotSpring's event-driven QCD computation lane:
+   - **Async tick model**: Convergence-based progression (not fixed-rate) — simulations run until physics converges, with `domain_on_tick()` as the entry point.
+   - **DAG memoization**: Parameter sweeps as directed acyclic graphs — `VERTEX_STACK` tracks lattice configurations, `BRANCH_STACK` tracks coupling constants, visited vertices are memoized to avoid recomputation.
+   - **Scientific provenance**: `sweetGrass` braids carry peer-review audit metadata (coupling constants, lattice dimensions, Monte Carlo sweeps, algorithm, convergence tolerance).
+   - **Compute dispatch**: `toadStool`/`barraCuda` tensor workloads through the composition.
+   - **Ledger sealing**: Each simulation run as a sealed `loamSpine` spine for reproducibility.
+   - `tools/nucleus_composition_lib.sh` (41-function library from primalSpring) provides discovery, transport, DAG, ledger, braids, petalTongue, and sensor stream wiring.
+
+8. **Deep Debt Evolution (April 27, 2026)** — Capability-based discovery refactored to single source of truth:
+   - `composition.rs` derives all primal requirements from `niche::DEPENDENCIES` — eliminated hardcoded name→domain maps.
+   - `primal_bridge.rs` named accessors (`toadstool()`, `beardog()`, `coralreef()`) deprecated with `#[deprecated]`; all 8 production call sites migrated to `by_domain()`.
+   - Data-driven `PRIMAL_ALIASES` table replaces hardcoded alias fallback.
+   - Smart refactoring: `rhmc.rs` (989L) → `rhmc/mod.rs` + `rhmc/remez.rs`; `nuclear_eos_helpers.rs` (978L) → `mod.rs` + `objectives.rs`.
+   - Pre-existing compile errors fixed (`DiscoveredDevice` API in `nuclear_eos_l2_*` binaries).
+   - 993/993 lib tests pass. Zero compilation errors.
+
+**Forward evolution (tracked as gaps):** **TensorSession** fused pipelines (GAP-HS-027), **LIME/ILDG zero-copy** (GAP-HS-028), and expanded **cross-primal science parity** (more observables routed the same way production will call them).
 
 ---
 
