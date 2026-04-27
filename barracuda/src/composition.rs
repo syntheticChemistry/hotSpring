@@ -24,6 +24,7 @@
 //! and the validation target is the primal composition producing the same
 //! result through IPC dispatch.
 
+use crate::niche;
 use crate::primal_bridge::{NucleusContext, PrimalEndpoint};
 use crate::validation::ValidationHarness;
 
@@ -36,49 +37,51 @@ pub enum AtomicType {
     FullNucleus,
 }
 
-/// Capability domain for composition checks — aligns with [`crate::niche::NicheDependency::capability_domain`].
-fn capability_domain_for_required_primal(name: &str) -> &'static str {
-    match name {
-        "beardog" => "crypto",
-        "songbird" => "discovery",
-        "toadstool" => "compute",
-        "barracuda" => "math",
-        "coralreef" => "shader",
-        "nestgate" => "storage",
-        "rhizocrypt" => "dag",
-        "loamspine" => "ledger",
-        "sweetgrass" => "attribution",
-        _ => "unknown",
-    }
+/// Capability domains required by each atomic fragment.
+/// Single source of truth: `niche::DEPENDENCIES` provides the name→domain mapping.
+const TOWER_DOMAINS: &[&str] = &["crypto", "discovery"];
+const NODE_DOMAINS: &[&str] = &["crypto", "discovery", "compute", "math", "shader"];
+const NEST_DOMAINS: &[&str] = &["crypto", "discovery", "storage", "dag", "ledger", "attribution"];
+
+/// Look up capability domain for a dependency name via [`niche::DEPENDENCIES`].
+#[cfg(test)]
+pub(crate) fn domain_for_dependency(name: &str) -> &'static str {
+    niche::DEPENDENCIES
+        .iter()
+        .find(|d| d.name == name)
+        .map_or("unknown", |d| d.capability_domain)
+}
+
+/// Look up dependency name for a capability domain via [`niche::DEPENDENCIES`].
+fn dependency_for_domain(domain: &str) -> Option<&'static str> {
+    niche::DEPENDENCIES
+        .iter()
+        .find(|d| d.capability_domain == domain)
+        .map(|d| d.name)
 }
 
 impl AtomicType {
-    /// Primals required for this atomic to be valid.
+    /// Capability domains required for this atomic to be valid.
     #[must_use]
-    pub const fn required_primals(&self) -> &[&str] {
+    pub const fn required_domains(&self) -> &[&str] {
         match self {
-            Self::Tower => &["beardog", "songbird"],
-            Self::Node => &["beardog", "songbird", "toadstool", "barracuda", "coralreef"],
-            Self::Nest => &[
-                "beardog",
-                "songbird",
-                "nestgate",
-                "rhizocrypt",
-                "loamspine",
-                "sweetgrass",
-            ],
+            Self::Tower => TOWER_DOMAINS,
+            Self::Node => NODE_DOMAINS,
+            Self::Nest => NEST_DOMAINS,
             Self::FullNucleus => &[
-                "beardog",
-                "songbird",
-                "toadstool",
-                "barracuda",
-                "coralreef",
-                "nestgate",
-                "rhizocrypt",
-                "loamspine",
-                "sweetgrass",
+                "crypto", "discovery", "compute", "math", "shader", "storage", "dag", "ledger",
+                "attribution",
             ],
         }
+    }
+
+    /// Primal names required for this atomic (derived from capability domains).
+    #[must_use]
+    pub fn required_primals(&self) -> Vec<&'static str> {
+        self.required_domains()
+            .iter()
+            .filter_map(|d| dependency_for_domain(d))
+            .collect()
     }
 
     /// Human-readable name.
@@ -111,18 +114,18 @@ pub fn validate_atomic(
     atomic: AtomicType,
     harness: &mut ValidationHarness,
 ) -> AtomicValidation {
-    let required = atomic.required_primals();
+    let domains = atomic.required_domains();
     let mut alive_count = 0;
     let mut missing = Vec::new();
     let mut health_passed = 0;
     let mut cap_passed = 0;
 
     println!("  ── {} ──", atomic.label());
-    println!("    Required primals: {}", required.len());
+    println!("    Required domains: {}", domains.len());
 
-    for &name in required {
-        let domain = capability_domain_for_required_primal(name);
-        let check_name = format!("{} {} ({domain}) alive", atomic.label(), name);
+    for &domain in domains {
+        let name = dependency_for_domain(domain).unwrap_or(domain);
+        let check_name = format!("{} {name} ({domain}) alive", atomic.label());
         match ctx.get_by_capability(domain) {
             Some(ep) if ep.alive => {
                 alive_count += 1;
@@ -157,7 +160,7 @@ pub fn validate_atomic(
     println!(
         "    Result: {}/{} alive, {} health, {} capabilities [{}]",
         alive_count,
-        required.len(),
+        domains.len(),
         health_passed,
         cap_passed,
         if passed { "PASS" } else { "FAIL" }
@@ -165,7 +168,7 @@ pub fn validate_atomic(
 
     AtomicValidation {
         atomic,
-        primals_required: required.len(),
+        primals_required: domains.len(),
         primals_alive: alive_count,
         primals_missing: missing,
         health_checks_passed: health_passed,
@@ -240,12 +243,12 @@ pub fn nucleus_health(ctx: &NucleusContext) -> serde_json::Value {
 }
 
 fn atomic_health_json(ctx: &NucleusContext, atomic: AtomicType) -> serde_json::Value {
-    let required = atomic.required_primals();
+    let domains = atomic.required_domains();
     let mut statuses = serde_json::Map::new();
     let mut alive = 0usize;
 
-    for &name in required {
-        let domain = capability_domain_for_required_primal(name);
+    for &domain in domains {
+        let name = dependency_for_domain(domain).unwrap_or(domain);
         let status = ctx.get_by_capability(domain).is_some_and(|ep| ep.alive);
         if status {
             alive += 1;
@@ -258,18 +261,18 @@ fn atomic_health_json(ctx: &NucleusContext, atomic: AtomicType) -> serde_json::V
 
     serde_json::json!({
         "atomic": atomic.label(),
-        "healthy": alive == required.len(),
-        "primals_required": required.len(),
+        "healthy": alive == domains.len(),
+        "primals_required": domains.len(),
         "primals_alive": alive,
         "statuses": statuses,
     })
 }
 
 fn check_atomic_alive(ctx: &NucleusContext, atomic: AtomicType) -> bool {
-    atomic.required_primals().iter().all(|&name| {
-        let domain = capability_domain_for_required_primal(name);
-        ctx.get_by_capability(domain).is_some_and(|ep| ep.alive)
-    })
+    atomic
+        .required_domains()
+        .iter()
+        .all(|&domain| ctx.get_by_capability(domain).is_some_and(|ep| ep.alive))
 }
 
 /// Discover by capability rather than by name. Returns the first alive primal
@@ -434,11 +437,33 @@ mod tests {
     use super::*;
 
     #[test]
-    fn atomic_type_required_primals() {
-        assert_eq!(AtomicType::Tower.required_primals().len(), 2);
-        assert_eq!(AtomicType::Node.required_primals().len(), 5);
-        assert_eq!(AtomicType::Nest.required_primals().len(), 6);
-        assert_eq!(AtomicType::FullNucleus.required_primals().len(), 9);
+    fn atomic_type_required_domains() {
+        assert_eq!(AtomicType::Tower.required_domains().len(), 2);
+        assert_eq!(AtomicType::Node.required_domains().len(), 5);
+        assert_eq!(AtomicType::Nest.required_domains().len(), 6);
+        assert_eq!(AtomicType::FullNucleus.required_domains().len(), 9);
+    }
+
+    #[test]
+    fn required_primals_derived_from_domains() {
+        let primals = AtomicType::Tower.required_primals();
+        assert_eq!(primals.len(), 2);
+        assert!(primals.contains(&"beardog"));
+        assert!(primals.contains(&"songbird"));
+    }
+
+    #[test]
+    fn domain_lookup_uses_niche_registry() {
+        assert_eq!(domain_for_dependency("beardog"), "crypto");
+        assert_eq!(domain_for_dependency("toadstool"), "compute");
+        assert_eq!(domain_for_dependency("nonexistent"), "unknown");
+    }
+
+    #[test]
+    fn reverse_lookup_uses_niche_registry() {
+        assert_eq!(dependency_for_domain("crypto"), Some("beardog"));
+        assert_eq!(dependency_for_domain("compute"), Some("toadstool"));
+        assert_eq!(dependency_for_domain("nonexistent"), None);
     }
 
     #[test]

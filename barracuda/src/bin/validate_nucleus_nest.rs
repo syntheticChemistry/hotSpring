@@ -36,7 +36,7 @@ fn main() {
 
     // ── DAG session probe (rhizoCrypt) ──
     println!("  ── DAG Provenance (rhizoCrypt) ──");
-    if let Some(rc) = ctx.rhizocrypt() {
+    if let Some(rc) = ctx.by_domain("dag") {
         if rc.alive {
             let session_result = ctx.call(
                 "rhizocrypt",
@@ -68,7 +68,7 @@ fn main() {
 
     // ── Commit probe (loamSpine) ──
     println!("  ── Ledger Commit (loamSpine) ──");
-    if let Some(ls) = ctx.loamspine() {
+    if let Some(ls) = ctx.by_domain("ledger") {
         if ls.alive {
             let health = ctx.call("loamspine", "health.liveness", &serde_json::json!({}));
             match health {
@@ -87,7 +87,7 @@ fn main() {
 
     // ── Attribution probe (sweetGrass) ──
     println!("  ── Attribution (sweetGrass) ──");
-    if let Some(sg) = ctx.sweetgrass() {
+    if let Some(sg) = ctx.by_domain("attribution") {
         if sg.alive {
             let health = ctx.call("sweetgrass", "health.liveness", &serde_json::json!({}));
             match health {
@@ -112,7 +112,7 @@ fn main() {
 
     // ── Provenance Parity: local witness vs IPC DAG ──
     println!("  ── Provenance Parity ──");
-    if ctx.rhizocrypt().is_some_and(|e| e.alive) {
+    if ctx.by_domain("dag").is_some_and(|e| e.alive) {
         let test_data = b"hotSpring nest validation probe - science parity";
         let local_hash = hotspring_barracuda::dag_provenance::blake3_hex(test_data);
         println!("    Local blake3: {local_hash}");

@@ -621,9 +621,13 @@ fn main() {
     println!();
 
     let rt = tokio::runtime::Runtime::new().expect("tokio runtime");
-    let device = rt
+    let discovered = rt
         .block_on(barracuda::device::Auto::new())
         .expect("GPU device required for RBF surrogate (barracuda::Auto)");
+    let device = discovered
+        .wgpu_device()
+        .expect("RBF surrogate requires local wgpu device, not sovereign IPC")
+        .clone();
 
     let cli = parse_cli();
     let mode = cli.mode.as_str();

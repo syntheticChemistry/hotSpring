@@ -136,7 +136,7 @@ impl GlowplugClient {
     /// Build a client from a discovered coralReef / coral-glowplug endpoint.
     pub fn from_nucleus(nucleus: &NucleusContext) -> Result<Self, GlowplugError> {
         let ep = nucleus
-            .coralreef()
+            .by_domain("shader")
             .ok_or(GlowplugError::NoCoralreefEndpoint)?;
         if !ep.alive {
             return Err(GlowplugError::EndpointNotAlive);

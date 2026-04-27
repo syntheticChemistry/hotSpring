@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026
-**Last audited:** April 27, 2026 (Phase 46 composition template absorption — event-driven QCD + DAG memoization)
+**Last audited:** April 27, 2026 (deep debt evolution — capability-based discovery, smart refactoring)
 **License:** AGPL-3.0-or-later
 
 ---
@@ -32,18 +32,18 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 - **Action:** Run `validate_squirrel_roundtrip` against live Squirrel
   once neuralSpring native inference is deployed.
 
-### GAP-HS-002: by_capability Discovery Evolution
+### GAP-HS-002: by_capability Discovery Evolution — RESOLVED
 
 - **Primal:** biomeOS / primal_bridge
 - **Severity:** Low
-- **Status:** Mostly resolved
-- **Description:** `primal_bridge.rs` now has `by_domain(domain)` as the
-  preferred entry point. Named accessors (`toadstool()`, `beardog()`, etc.)
-  are retained for backward compatibility but internally route through
-  `by_domain()` first, falling back to name-based lookup. Full migration
-  to pure capability-based addressing requires downstream callers to
-  switch from `.toadstool()` to `.by_domain("compute")`.
-- **Action:** Migrate remaining call sites in bin/ targets over time.
+- **Status:** RESOLVED (April 27, 2026)
+- **Description:** All production callers migrated to `by_domain()`. Named
+  accessors deprecated since v0.6.33 with `#[deprecated]` annotations.
+  `composition.rs` now derives primal requirements from `niche::DEPENDENCIES`
+  (single source of truth) via `required_domains()`. Hardcoded name→domain
+  map removed.
+- **Resolution:** Capability-based discovery is now the default. Legacy
+  accessors remain for backward compat but emit deprecation warnings.
 
 ### GAP-HS-005: IONIC-RUNTIME Cross-Family GPU Lease
 
@@ -265,6 +265,20 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
   threading issues. Use local (non-plasmidBin) build for live visualization mode.
   Composition script's `push_scene` degrades to no-op when visualization is offline.
 - **Action:** Upstream petalTongue should test musl-static winit compatibility.
+
+### GAP-HS-043: Deep Debt Evolution — Capability-Based Discovery — RESOLVED
+
+- **Severity:** Medium
+- **Status:** RESOLVED (April 27, 2026)
+- **Description:** `composition.rs` and `primal_bridge.rs` had hardcoded primal
+  name→domain mappings that duplicated `niche::DEPENDENCIES`. Named accessors
+  required knowledge of specific primal names. Large files (rhmc 989L,
+  nuclear_eos_helpers 978L) exceeded 800-line threshold.
+- **Resolution:** composition.rs uses `niche::DEPENDENCIES` as single source of
+  truth. All production callers migrated to `by_domain()`. Named accessors
+  deprecated. rhmc.rs split into mod.rs + remez.rs. nuclear_eos_helpers split
+  into mod.rs + objectives.rs. Pre-existing `nuclear_eos_l2_*` compile errors
+  fixed (upstream barraCuda `DiscoveredDevice` API). 993 tests pass.
 
 ### GAP-HS-029: Fork Isolation Pattern Not in Ecosystem Standard
 

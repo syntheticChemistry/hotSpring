@@ -92,8 +92,12 @@ impl NucleusContext {
         if let Some(ep) = self.discovered.get(primal) {
             return Some(ep);
         }
-        if primal == "coralreef" {
-            return self.discovered.get("coral-glowplug");
+        // coral-glowplug is the fleet orchestrator that also serves shader capabilities;
+        // fall through when the direct name isn't found.
+        for &alias in known_aliases(primal) {
+            if let Some(ep) = self.discovered.get(alias) {
+                return Some(ep);
+            }
         }
         None
     }
@@ -108,11 +112,12 @@ impl NucleusContext {
         self.get_by_capability(domain)
     }
 
-    // Named accessors are retained for backward compatibility but should
-    // migrate to `by_domain()` / `get_by_capability()` over time (GAP-HS-002).
+    // Named accessors retained for backward compatibility (GAP-HS-002).
+    // All route through capability-based discovery first, falling back to
+    // name-based lookup only for legacy socket naming.
 
     /// Convenience: toadStool compute primal.
-    /// Prefer `by_domain("compute")`.
+    #[deprecated(since = "0.6.33", note = "use `by_domain(\"compute\")` instead")]
     #[must_use]
     pub fn toadstool(&self) -> Option<&PrimalEndpoint> {
         self.by_domain("compute")
@@ -120,7 +125,7 @@ impl NucleusContext {
     }
 
     /// Convenience: bearDog signing primal.
-    /// Prefer `by_domain("crypto")`.
+    #[deprecated(since = "0.6.33", note = "use `by_domain(\"crypto\")` instead")]
     #[must_use]
     pub fn beardog(&self) -> Option<&PrimalEndpoint> {
         self.by_domain("crypto")
@@ -128,7 +133,7 @@ impl NucleusContext {
     }
 
     /// Convenience: rhizoCrypt DAG primal.
-    /// Prefer `by_domain("dag")`.
+    #[deprecated(since = "0.6.33", note = "use `by_domain(\"dag\")` instead")]
     #[must_use]
     pub fn rhizocrypt(&self) -> Option<&PrimalEndpoint> {
         self.by_domain("dag")
@@ -136,7 +141,7 @@ impl NucleusContext {
     }
 
     /// Convenience: loamSpine commit primal.
-    /// Prefer `by_domain("ledger")`.
+    #[deprecated(since = "0.6.33", note = "use `by_domain(\"ledger\")` instead")]
     #[must_use]
     pub fn loamspine(&self) -> Option<&PrimalEndpoint> {
         self.by_domain("ledger")
@@ -144,7 +149,7 @@ impl NucleusContext {
     }
 
     /// Convenience: sweetgrass provenance primal.
-    /// Prefer `by_domain("attribution")`.
+    #[deprecated(since = "0.6.33", note = "use `by_domain(\"attribution\")` instead")]
     #[must_use]
     pub fn sweetgrass(&self) -> Option<&PrimalEndpoint> {
         self.by_domain("attribution")
@@ -152,7 +157,7 @@ impl NucleusContext {
     }
 
     /// Convenience: coralReef / coral-glowplug GPU sovereign path.
-    /// Prefer `by_domain("shader")`.
+    #[deprecated(since = "0.6.33", note = "use `by_domain(\"shader\")` instead")]
     #[must_use]
     pub fn coralreef(&self) -> Option<&PrimalEndpoint> {
         self.by_domain("shader")
@@ -381,6 +386,19 @@ pub fn send_jsonrpc(
     }
 
     serde_json::from_slice(&response).map_err(|e| format!("parse response: {e}"))
+}
+
+/// Known socket-name aliases for primals that may register under alternative names.
+/// Data-driven: no hardcoded if/else chains.
+const PRIMAL_ALIASES: &[(&str, &[&str])] = &[
+    ("coralreef", &["coral-glowplug"]),
+];
+
+fn known_aliases(name: &str) -> &'static [&'static str] {
+    PRIMAL_ALIASES
+        .iter()
+        .find(|(k, _)| *k == name)
+        .map_or(&[], |(_, aliases)| aliases)
 }
 
 #[cfg(not(unix))]

@@ -7,7 +7,29 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
-## Unreleased — Phase 46 Composition Template Absorption (April 27, 2026)
+## Unreleased — Deep Debt Evolution (April 27, 2026)
+
+### Changed
+- **Capability-based primal discovery**: `composition.rs` now derives primal requirements from `niche::DEPENDENCIES` (single source of truth) instead of duplicating name→domain mappings. `AtomicType` exposes `required_domains()` as the primary API; `required_primals()` is derived. Removed redundant `capability_domain_for_required_primal()`.
+- **Deprecated named accessors**: `primal_bridge.rs` named methods (`toadstool()`, `beardog()`, `coralreef()`, etc.) deprecated in favor of `by_domain("compute")`, `by_domain("crypto")`, `by_domain("shader")` etc. All production callers migrated.
+- **Data-driven alias resolution**: `primal_bridge.rs` hardcoded `if primal == "coralreef"` replaced with data-driven `PRIMAL_ALIASES` table.
+
+### Refactored
+- **`lattice/rhmc.rs` (989→802+190)**: Extracted Remez exchange algorithm and Gaussian elimination solver to `lattice/rhmc/remez.rs`. Physics types and RHMC functions remain in `mod.rs`.
+- **`nuclear_eos_helpers.rs` (978→824+174)**: Extracted L1/L2 optimization objectives to `nuclear_eos_helpers/objectives.rs`. Residual metrics, reporting, and analysis remain in `mod.rs`.
+
+### Fixed
+- **Pre-existing `nuclear_eos_l2_*` compile errors**: Updated `nuclear_eos_l2_ref.rs` and `nuclear_eos_l2_hetero.rs` to handle upstream barraCuda `DiscoveredDevice` API change (`Auto::new()` → `.wgpu_device()`).
+
+### Assessed (no action needed)
+- **Unsafe code**: Only in `exp070_register_dump.rs` (BAR0 mmap) and `validate_5060_dual_use.rs` (CUDA launch) — both feature-gated with documented `#[expect]` reasons. `lib.rs` enforces `#![forbid(unsafe_code)]`.
+- **Dependencies**: All healthy — no deprecated crates, no OpenSSL/ring. `blake3`, `wgpu`, `cudarc`, `rustix` are appropriate for their domains.
+- **dyn dispatch**: Benchmark traits (`MdBenchmarkBackend`, `ComputeBackend`) retain `dyn` — open extensibility across lib/bin boundary, not on hot physics paths.
+- **async_trait**: Zero uses. Clean.
+- **`#[allow]` in production**: Only in `_fossilized/` (archived) binaries.
+- **NpuSimulator**: Software NPU simulator used in production pipeline — legitimate fallback for non-NPU hardware, not a mock.
+
+## Phase 46 Composition Template Absorption (April 27, 2026)
 
 ### Added
 - **`tools/hotspring_composition.sh`**: Domain-specific NUCLEUS composition script implementing event-driven QCD computation with DAG memoization. Covers all 5 composition hooks (`domain_init`, `domain_render`, `domain_on_key`, `domain_on_click`, `domain_on_tick`). Async tick model uses convergence-based progression instead of fixed-rate polling. Parameter sweeps (beta values) run as DAG vertex walks with memoization to skip recomputed configurations. Ledger spines seal reproducible runs. Braids carry peer-review provenance (DOIs, lattice dimensions, hardware IDs). Compute dispatch routes to barraCuda/toadStool via IPC with local fallback.

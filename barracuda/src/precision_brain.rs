@@ -78,7 +78,7 @@ fn detect_sovereign_available() -> bool {
         return true;
     }
     let nucleus = NucleusContext::detect();
-    nucleus.coralreef().is_some_and(|e| e.alive)
+    nucleus.by_domain("shader").is_some_and(|e| e.alive)
 }
 
 /// Backend-agnostic precision route descriptor.
