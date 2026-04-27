@@ -44,6 +44,8 @@ hotSpring is the reference implementation for the guideStone Composition Standar
 
 **plasmidBin Deployment**: NUCLEUS primals ship as musl-static genomeBin binaries (46 binaries across 6 target triples, primalSpring v0.9.17) via `infra/plasmidBin/`. No compilation needed — deploy with `nucleus_launcher.sh --composition niche-hotspring`, then run `hotspring_guidestone` against the live stack. See `scripts/validate-primal-proof.sh` for the end-to-end workflow (auto-sets BEARDOG_FAMILY_SEED, SONGBIRD_SECURITY_PROVIDER, NESTGATE_JWT_SECRET).
 
+**Composition Template (Phase 46)**: `tools/hotspring_composition.sh` implements event-driven QCD computation via the NUCLEUS composition library. Async tick model (convergence-based, not 60Hz), DAG memoization for parameter sweeps, ledger-sealed reproducible runs, and scientific provenance braids for peer-review audit. Run with `COMPOSITION_NAME=hotspring ./tools/hotspring_composition.sh` (requires NUCLEUS primals) or test in bare mode (graceful degradation, no crash).
+
 > **For the physics**: See [`PHYSICS.md`](PHYSICS.md) for complete equation documentation
 > with numbered references — every formula, every constant, every approximation.
 >

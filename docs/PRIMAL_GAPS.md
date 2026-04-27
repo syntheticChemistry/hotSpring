@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026
-**Last audited:** April 17, 2026 (Property 3 BLAKE3 CHECKSUMS live — 30/30 bare checks pass, 990 tests pass)
+**Last audited:** April 27, 2026 (Phase 46 composition template absorption — event-driven QCD + DAG memoization)
 **License:** AGPL-3.0-or-later
 
 ---
@@ -214,6 +214,57 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
      IPC handlers — HTTP-on-UDS classified as SKIP (Songbird/petalTongue pattern).
   3. **Family-aware discovery**: Inherited automatically via `CompositionContext` —
      `{capability}-{FAMILY_ID}.sock` resolved before `{capability}.sock`.
+
+### GAP-HS-038: Phase 46 Composition Template Absorption — RESOLVED
+
+- **Primal:** hotSpring (self) / primalSpring
+- **Severity:** Low
+- **Status:** **Resolved** (April 27, 2026)
+- **Resolution:** Absorbed Phase 46 composition template:
+  1. **`nucleus_composition_lib.sh`**: Copied to `tools/`, verified all 41 functions source correctly
+  2. **`hotspring_composition.sh`**: Domain-specific composition with 5 hooks, async tick model, DAG memoization, scientific provenance braids, compute dispatch to barraCuda/toadStool
+  3. **Bare mode verified**: All capabilities degrade gracefully (no crash without NUCLEUS)
+  4. **DAG memoization wrapper**: `memo_check_vertex`/`memo_store_result`/`memo_get_result` — candidate for upstream promotion
+
+### GAP-HS-039: rhizoCrypt DAG Graceful Degradation (PG-45)
+
+- **Primal:** rhizoCrypt
+- **Severity:** Medium
+- **Status:** Active — mitigated locally
+- **Description:** rhizoCrypt may accept UDS connection with no JSON-RPC response,
+  causing DAG calls to timeout. Composition script wraps all DAG calls with
+  `cap_available dag` guards and local memo cache fallback.
+- **Action:** Upstream rhizoCrypt should implement connection-level healthcheck.
+
+### GAP-HS-040: toadStool Short Timeout Sensitivity (PG-46)
+
+- **Primal:** toadStool
+- **Severity:** Low
+- **Status:** Active — mitigated locally
+- **Description:** toadStool IPC is slow on short timeouts (< 5s). Composition
+  script uses >= 10s for real compute dispatch. Background validation via
+  `dispatch_background_validation()` uses async polling to avoid blocking.
+- **Action:** Upstream toadStool should document minimum recommended timeout.
+
+### GAP-HS-041: barraCuda stats.entropy Missing (PG-47)
+
+- **Primal:** barraCuda
+- **Severity:** Low
+- **Status:** Active — mitigated locally
+- **Description:** barraCuda may lack `stats.entropy` method. Composition script
+  uses `stats.mean` as a proxy for tensor IPC validation and computes entropy
+  locally when needed.
+- **Action:** Monitor barraCuda for `stats.entropy` addition.
+
+### GAP-HS-042: petalTongue plasmidBin Threading (PG-48)
+
+- **Primal:** petalTongue
+- **Severity:** Low
+- **Status:** Active — documented
+- **Description:** petalTongue musl-static build from plasmidBin may have winit
+  threading issues. Use local (non-plasmidBin) build for live visualization mode.
+  Composition script's `push_scene` degrades to no-op when visualization is offline.
+- **Action:** Upstream petalTongue should test musl-static winit compatibility.
 
 ### GAP-HS-029: Fork Isolation Pattern Not in Ecosystem Standard
 

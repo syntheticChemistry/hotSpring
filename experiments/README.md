@@ -123,6 +123,7 @@ Not numbered experiments — systematic composition infrastructure:
 | v0.9.16 absorption + primal proof (April 20) | session | ✅ BLAKE3 P3, `is_protocol_error()`, `validate-primal-proof.sh` script, plasmidBin ecoBin verified |
 | v0.9.17 absorption (April 20) | session | ✅ genomeBin v5.1, guideStone v1.2.0, env var auto-setup (BEARDOG_FAMILY_SEED, SONGBIRD_SECURITY_PROVIDER, NESTGATE_JWT_SECRET), backward-compatible API |
 | Property 3 CHECKSUMS + 30/30 bare (April 17) | session | ✅ Generated BLAKE3 CHECKSUMS manifest (15 source files), fixed deny.toml lookup for dual CWD, script builds from barracuda/ runs from root. **30/30 bare checks pass**, 3 SKIP (expected NUCLEUS liveness only). 990 lib tests pass. |
+| Phase 46 composition template (April 27) | session | ✅ Absorbed primalSpring Phase 46 composition library. `tools/hotspring_composition.sh`: event-driven QCD + async tick model + DAG memoization + ledger sealing + scientific provenance braids + compute dispatch. Bare mode verified. |
 
 | 172 | NO_ACR_WARM_HANDOFF | md | ✅ Warm HBM2 without HS lockout by removing ACR firmware |
 | 173 | VM_REAGENT_WPR_CAPTURE | investigation | ✅ VM reagent WPR capture. GV100 closed driver does NOT configure WPR (Volta predates GSP). Architectural pivot for Volta sovereign boot. |

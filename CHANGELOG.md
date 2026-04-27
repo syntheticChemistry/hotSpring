@@ -7,7 +7,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
-## Unreleased — Property 3 CHECKSUMS + Script Fix (April 17, 2026)
+## Unreleased — Phase 46 Composition Template Absorption (April 27, 2026)
+
+### Added
+- **`tools/hotspring_composition.sh`**: Domain-specific NUCLEUS composition script implementing event-driven QCD computation with DAG memoization. Covers all 5 composition hooks (`domain_init`, `domain_render`, `domain_on_key`, `domain_on_click`, `domain_on_tick`). Async tick model uses convergence-based progression instead of fixed-rate polling. Parameter sweeps (beta values) run as DAG vertex walks with memoization to skip recomputed configurations. Ledger spines seal reproducible runs. Braids carry peer-review provenance (DOIs, lattice dimensions, hardware IDs). Compute dispatch routes to barraCuda/toadStool via IPC with local fallback.
+- **`tools/nucleus_composition_lib.sh`**: Copied from primalSpring Phase 46 — reusable NUCLEUS composition library (41 functions: discovery, transport, DAG, ledger, braids, petalTongue, sensor streams).
+- **DAG memoization wrapper**: `memo_check_vertex`, `memo_store_result`, `memo_get_result` — wraps rhizoCrypt DAG with SHA-256 parameter hashing. Candidate for upstream promotion to `nucleus_composition_lib.sh`.
+- **Scientific provenance schema**: Braid metadata includes paper DOI, coupling constant (beta), lattice dimensions (L³×T), algorithm (HMC/RHMC), trajectory count, hardware ID, Rust version. Satisfies peer-review audit requirements.
+
+### Verified
+- Bare mode: all lib functions degrade gracefully (no NUCLEUS → no crash, capability checks return offline)
+- Memoization: cache miss on first call, cache hit after store, DAG backing offline = local-only memo
+- Compute dispatch: tensor probe skips when offline, SEMF falls back to local computation, background validation launches and polls correctly
+
+### Documentation
+- CHANGELOG, README, PRIMAL_GAPS, experiments/README, scripts/README: Phase 46 absorption
+- wateringHole handoff: async computation patterns, DAG memoization, scientific provenance schema
+
+## Property 3 CHECKSUMS + Script Fix (April 17, 2026)
 
 ### Added
 - **BLAKE3 CHECKSUMS manifest** (`validation/CHECKSUMS`): 15 validation-critical source files hashed with BLAKE3, following primalSpring's source-integrity pattern. Covers guideStone binary, physics modules, provenance, tolerances, composition, niche, lib, Cargo.toml, and validate-primal-proof.sh.

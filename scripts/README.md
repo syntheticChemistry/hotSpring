@@ -31,6 +31,9 @@ requiring forced power-off.
 
 | `validate-primal-proof.sh` | Primal proof validation (primalSpring v0.9.17). Bare mode (no NUCLEUS) or `--full` (pre-flight `primalspring_guidestone` + domain `hotspring_guidestone`). Builds from `barracuda/`, runs from repo root so `validation/CHECKSUMS` resolves. Auto-sets `BEARDOG_FAMILY_SEED`, `SONGBIRD_SECURITY_PROVIDER`, `NESTGATE_JWT_SECRET` when `FAMILY_ID` is provided. | Yes |
 
+| `tools/hotspring_composition.sh` | Event-driven QCD composition via NUCLEUS library (Phase 46). Async tick model (convergence-based), DAG memoization for parameter sweeps, ledger-sealed runs, scientific provenance braids. Run with `COMPOSITION_NAME=hotspring ./tools/hotspring_composition.sh`. Degrades gracefully without NUCLEUS. | Yes |
+| `tools/nucleus_composition_lib.sh` | NUCLEUS composition library (copied from primalSpring Phase 46). 41 functions: discovery, transport, DAG, ledger, braids, petalTongue, sensor streams. Sourced by `hotspring_composition.sh`. | Yes |
+
 Other non-archived helpers in `scripts/` (e.g. `build-container.sh`, `build-guidestone.sh`, `download-data.sh`, `prepare-usb.sh`, `setup-envs.sh`, `validate-guidestone-multi.sh`) are also active as needed for builds and lab setup.
 
 All Python lab analysis scripts and the `titan_timing_attack.sh` experiment script
