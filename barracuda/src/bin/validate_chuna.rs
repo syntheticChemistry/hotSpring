@@ -17,7 +17,6 @@
 //!   cargo run --release --bin validate_chuna -- --output results/
 
 use hotspring_barracuda::gpu::GpuF64;
-use hotspring_barracuda::tolerances;
 use hotspring_barracuda::lattice::gpu_flow::{GpuFlowPipelines, GpuFlowState, gpu_gradient_flow};
 use hotspring_barracuda::lattice::gradient_flow::{FlowIntegrator, find_t0, run_flow};
 use hotspring_barracuda::lattice::measurement::RunManifest;
@@ -34,6 +33,7 @@ use hotspring_barracuda::physics::kinetic_fluid::{
 use hotspring_barracuda::precision_brain::PrecisionBrain;
 use hotspring_barracuda::precision_routing::PhysicsDomain;
 use hotspring_barracuda::toadstool_report::{PerformanceMeasurement, report_to_toadstool};
+use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::{HardwareProfile, ValidationHarness};
 use std::time::Instant;
 
@@ -51,10 +51,10 @@ fn main() {
     let output_dir = args.windows(2).find_map(|pair| {
         if pair[0] == "--output" {
             Some(pair[1].clone())
-        } else if let Some(stripped) = pair[0].strip_prefix("--output=") {
-            Some(stripped.to_string())
         } else {
-            None
+            pair[0]
+                .strip_prefix("--output=")
+                .map(std::string::ToString::to_string)
         }
     });
 
@@ -147,7 +147,7 @@ fn gpu_substrate_validation(harness: &mut ValidationHarness, cpu_ref: &CpuRefere
         let token = adapter.index.to_string();
         let adapter_name = &adapter.name;
 
-        println!("━━━ GPU: {} ━━━", adapter_name);
+        println!("━━━ GPU: {adapter_name} ━━━");
 
         let gpu = match rt.block_on(GpuF64::with_adapter(&token)) {
             Ok(g) => g,
@@ -326,7 +326,7 @@ fn gpu_substrate_validation(harness: &mut ValidationHarness, cpu_ref: &CpuRefere
                 let (ref name_a, plaq_a) = gpu_plaquettes[i];
                 let (ref name_b, plaq_b) = gpu_plaquettes[j];
                 let diff = (plaq_a - plaq_b).abs();
-                println!("  {} vs {}: |Δplaq| = {diff:.2e}", name_a, name_b);
+                println!("  {name_a} vs {name_b}: |Δplaq| = {diff:.2e}");
                 harness.check_upper(
                     &format!(
                         "cross_gpu_plaquette_{}_{}",

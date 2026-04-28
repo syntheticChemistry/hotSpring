@@ -237,7 +237,7 @@ fn run_heterogeneous_l2(
             }
             // If physical, use surrogate prediction
             let x_vec = vec![x.to_vec()];
-            surrogate.predict(&x_vec).map(|v| v[0]).unwrap_or(1e6)
+            surrogate.predict(&x_vec).map_or(1e6, |v| v[0])
         };
         let (nm_result, _, _) = multi_start_nelder_mead(
             surrogate_fn,

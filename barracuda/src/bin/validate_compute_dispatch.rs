@@ -38,7 +38,12 @@ fn main() {
         hotspring_barracuda::dag_provenance::DagSession::begin(&nucleus, "exp152_compute_dispatch");
 
     // Phase 2: compute dispatch validation
-    if nucleus.by_domain("compute").is_some_and(|e| e.alive) {
+    // Domain `"compute"` is toadStool; fallback: `.toadstool()`.
+    if nucleus
+        .by_domain("compute")
+        .or_else(|| nucleus.toadstool())
+        .is_some_and(|e| e.alive)
+    {
         println!("  ToadStool detected — running compute dispatch validation");
         let result =
             hotspring_barracuda::compute_dispatch::validate_dispatch(&nucleus, dag.as_mut());

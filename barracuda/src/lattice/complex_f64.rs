@@ -90,7 +90,10 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::float_cmp)]
+    #[expect(
+        clippy::float_cmp,
+        reason = "Exact equality for Complex64 literal components (ZERO, ONE, I)."
+    )]
     fn complex_constants() {
         assert_eq!(Complex64::ZERO.re, 0.0);
         assert_eq!(Complex64::ZERO.im, 0.0);

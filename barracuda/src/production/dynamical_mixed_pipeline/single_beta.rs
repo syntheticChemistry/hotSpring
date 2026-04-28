@@ -917,11 +917,9 @@ pub(super) fn run_single_beta(
             Ok(NpuResponse::AdaptiveSteered {
                 suggestion: None,
                 saturated,
-            }) => {
-                if saturated {
-                    println!("  [NPU] Parameter set saturated — no novel points remain, moving on");
-                    npu_stats.adaptive_inserted = config.max_adaptive;
-                }
+            }) if saturated => {
+                println!("  [NPU] Parameter set saturated — no novel points remain, moving on");
+                npu_stats.adaptive_inserted = config.max_adaptive;
             }
             _ => {}
         }

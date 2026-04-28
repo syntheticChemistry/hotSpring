@@ -22,7 +22,7 @@
 //!
 //! Requires a running coral-glowplug fleet (Titan V + K80 targets).
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use hotspring_barracuda::fleet_client::{
@@ -46,11 +46,8 @@ fn main() {
 
     // ── Phase 1: Fleet baseline ──
     println!("━━━ Phase 1: Fleet Baseline ━━━\n");
-    let (fleet_file, router, glowplug) = match phase1_baseline(&mut harness) {
-        Some(ctx) => ctx,
-        None => {
-            harness.finish();
-        }
+    let Some((fleet_file, router, glowplug)) = phase1_baseline(&mut harness) else {
+        harness.finish();
     };
 
     // ── Phase 2: Checkpoint verification ──
@@ -164,12 +161,11 @@ fn phase1_baseline(
     let glowplug = {
         use hotspring_barracuda::primal_bridge::NucleusContext;
         let nucleus = NucleusContext::detect();
-        match GlowplugClient::from_nucleus(&nucleus) {
-            Ok(g) => g,
-            Err(_) => {
-                println!("  Nucleus discovery failed — trying default socket");
-                GlowplugClient::from_socket(std::path::Path::new("/run/coralreef/glowplug.sock"))
-            }
+        if let Ok(g) = GlowplugClient::from_nucleus(&nucleus) {
+            g
+        } else {
+            println!("  Nucleus discovery failed — trying default socket");
+            GlowplugClient::from_socket(std::path::Path::new("/run/coralreef/glowplug.sock"))
         }
     };
 
@@ -209,7 +205,7 @@ fn phase2_checkpoint(harness: &mut ValidationHarness, glowplug: &GlowplugClient)
 fn phase3_single_kill(
     harness: &mut ValidationHarness,
     target_bdf: &str,
-    target_socket: &PathBuf,
+    target_socket: &Path,
     glowplug: &GlowplugClient,
 ) {
     let pre_pid = fleet_client::extract_ember_pid(target_socket);
@@ -282,11 +278,7 @@ fn phase3_single_kill(
     }
 }
 
-fn phase4_flood(
-    harness: &mut ValidationHarness,
-    target_socket: &PathBuf,
-    other_sockets: &[PathBuf],
-) {
+fn phase4_flood(harness: &mut ValidationHarness, target_socket: &Path, other_sockets: &[PathBuf]) {
     // Verify target alive before flood
     let pre_alive = fleet_client::verify_ember_alive(target_socket);
     if pre_alive.is_err() {
@@ -295,7 +287,7 @@ fn phase4_flood(
     }
 
     let config = FloodTestConfig {
-        target_socket: target_socket.clone(),
+        target_socket: target_socket.to_path_buf(),
         concurrency: FLOOD_CONCURRENCY,
         total_requests: FLOOD_TOTAL_REQUESTS,
         request_timeout: Duration::from_secs(5),

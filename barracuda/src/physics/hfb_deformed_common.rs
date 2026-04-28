@@ -106,7 +106,7 @@ mod tests {
     };
 
     #[test]
-    #[allow(clippy::float_cmp)] // exact known values
+    #[expect(clippy::float_cmp, reason = "exact known values")]
     fn doubly_magic_nuclei_are_spherical() {
         assert_eq!(deformation_guess(8, 8), 0.0); // O-16
         assert_eq!(deformation_guess(20, 20), 0.0); // Ca-40
@@ -115,40 +115,40 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::float_cmp)] // exact known values
+    #[expect(clippy::float_cmp, reason = "exact known values")]
     fn actinides_are_well_deformed() {
         assert_eq!(deformation_guess(92, 146), 0.25); // U-238
         assert_eq!(deformation_guess(94, 150), 0.25); // Pu-244
     }
 
     #[test]
-    #[allow(clippy::float_cmp)] // exact known values
+    #[expect(clippy::float_cmp, reason = "exact known values")]
     fn rare_earths_strongly_deformed() {
         assert_eq!(deformation_guess(66, 96), 0.28); // Dy-162
         assert_eq!(deformation_guess(68, 98), 0.28); // Er-166
     }
 
     #[test]
-    #[allow(clippy::float_cmp)] // exact known values
+    #[expect(clippy::float_cmp, reason = "exact known values")]
     fn sd_shell_nuclei_deformed() {
         assert_eq!(deformation_guess(12, 12), DEFORMATION_GUESS_SD); // Mg-24
     }
 
     #[test]
-    #[allow(clippy::float_cmp)] // exact known values
+    #[expect(clippy::float_cmp, reason = "exact known values")]
     fn single_magic_weakly_deformed() {
         assert_eq!(deformation_guess(50, 60), DEFORMATION_GUESS_WEAK); // Sn-110, Z magic
         assert_eq!(deformation_guess(40, 50), DEFORMATION_GUESS_WEAK); // Zr-90, N magic
     }
 
     #[test]
-    #[allow(clippy::float_cmp)] // exact known values
+    #[expect(clippy::float_cmp, reason = "exact known values")]
     fn generic_nuclei_moderate_deformation() {
         assert_eq!(deformation_guess(40, 56), DEFORMATION_GUESS_GENERIC); // Zr-96
     }
 
     #[test]
-    #[allow(clippy::float_cmp)] // exact known values
+    #[expect(clippy::float_cmp, reason = "exact known values")]
     fn beta2_from_q20_zero_for_spherical() {
         assert_eq!(beta2_from_q20(16, 0.0), 0.0);
     }
@@ -186,7 +186,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::float_cmp)] // exact known values
+    #[expect(clippy::float_cmp, reason = "exact known values")]
     fn rms_radius_zero_density_returns_zero() {
         let density = vec![0.0; 25];
         let r = rms_radius(&density, 5, 5, 1.0, 1.0, -2.5);

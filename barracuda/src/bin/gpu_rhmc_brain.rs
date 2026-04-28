@@ -18,7 +18,10 @@ use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::lattice::gpu_hmc::brain_persistence::load_brain_state;
 use hotspring_barracuda::lattice::gpu_hmc::brain_rhmc::{BrainRhmcRunner, NpuCortex};
 use hotspring_barracuda::lattice::gpu_hmc::dynamical::{GpuDynHmcPipelines, GpuDynHmcState};
-#[expect(deprecated, reason = "legacy API retained for backward compatibility during migration")]
+#[expect(
+    deprecated,
+    reason = "legacy API retained for backward compatibility during migration"
+)]
 use hotspring_barracuda::lattice::gpu_hmc::gpu_rhmc::{
     GpuRhmcPipelines, GpuRhmcState, gpu_rhmc_trajectory,
 };
@@ -38,7 +41,10 @@ use std::time::Instant;
 
 // Legacy RHMC trajectory calls used for dt-discovery probes only;
 // the main brain trajectory uses the unidirectional path.
-#[expect(deprecated, reason = "legacy API retained for backward compatibility during migration")]
+#[expect(
+    deprecated,
+    reason = "legacy API retained for backward compatibility during migration"
+)]
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let lattice_size = parse_arg(&args, "--lattice", 8);

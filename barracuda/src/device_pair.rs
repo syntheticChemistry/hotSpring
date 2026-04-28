@@ -301,7 +301,13 @@ impl<B: GpuBackend> BackendPair<B> {
         let precise_f64 = estimate_f32_tflops(precise.name()) / 2.0;
         let throughput_f32 = estimate_f32_tflops(throughput.name());
 
-        Self::new(precise, throughput, precise_f64, throughput_f32, bridge_tier)
+        Self::new(
+            precise,
+            throughput,
+            precise_f64,
+            throughput_f32,
+            bridge_tier,
+        )
     }
 }
 

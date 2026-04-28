@@ -297,7 +297,7 @@ fn main() {
             .expect("GPU initialization failed");
         println!("  GPU:   {}", gpu.adapter_name);
         if args.nf > 0 {
-            let n_fields = args.nf / 4 + if args.nf % 4 > 0 { 1 } else { 0 };
+            let n_fields = args.nf / 4 + usize::from(!args.nf.is_multiple_of(4));
             let dyn_pip = GpuDynHmcPipelines::new(&gpu);
             let dyn_state = GpuDynHmcState::from_lattice_multi(
                 &gpu,
@@ -440,7 +440,7 @@ fn main() {
 
         // Save ILDG config
         let mut meta = IldgMetadata::for_lattice(&lattice, traj_counter);
-        meta.ensemble_id = ensemble_id.clone();
+        meta.ensemble_id.clone_from(&ensemble_id);
         let conf_filename = format!("conf_{traj_counter:06}.lime");
         let conf_path = format!("{}/{conf_filename}", args.outdir);
         write_gauge_config_file(&conf_path, &lattice, &meta).expect("write ILDG config");
@@ -569,11 +569,11 @@ fn main() {
             .flow
             .as_ref()
             .and_then(|f| f.t0)
-            .map_or("N/A".to_string(), |v| format!("{v:.4}"));
+            .map_or_else(|| "N/A".to_string(), |v| format!("{v:.4}"));
         let q_str = measurement
             .topology
             .as_ref()
-            .map_or("N/A".to_string(), |t| format!("{:.2}", t.charge));
+            .map_or_else(|| "N/A".to_string(), |t| format!("{:.2}", t.charge));
 
         println!(
             "  [{:>3}/{}] traj={:>5}  ⟨P⟩={:.6}  |L|={:.4}  t₀={}  Q={}  ({:.1}s)",

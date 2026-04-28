@@ -135,8 +135,10 @@ impl std::error::Error for GlowplugError {}
 impl GlowplugClient {
     /// Build a client from a discovered coralReef / coral-glowplug endpoint.
     pub fn from_nucleus(nucleus: &NucleusContext) -> Result<Self, GlowplugError> {
+        // Capability domain `"shader"` (coralReef / shader_compile); fallback: `.coralreef()`.
         let ep = nucleus
             .by_domain("shader")
+            .or_else(|| nucleus.coralreef())
             .ok_or(GlowplugError::NoCoralreefEndpoint)?;
         if !ep.alive {
             return Err(GlowplugError::EndpointNotAlive);
@@ -377,10 +379,7 @@ impl GlowplugClient {
     /// warm if needed → swap to vfio → run SovereignInit pipeline.
     ///
     /// Routes through glowplug for full lifecycle coordination.
-    pub fn sovereign_boot(
-        &self,
-        bdf: &str,
-    ) -> Result<SovereignBootResult, GlowplugError> {
+    pub fn sovereign_boot(&self, bdf: &str) -> Result<SovereignBootResult, GlowplugError> {
         let v = self.call("sovereign.boot", &serde_json::json!({"bdf": bdf}))?;
         serde_json::from_value(v)
             .map_err(|e| GlowplugError::InvalidPayload(format!("sovereign.boot: {e}")))
@@ -516,16 +515,14 @@ fn decode_dispatch_outputs(result: &serde_json::Value) -> Result<Vec<Vec<u8>>, G
 /// Build the JSON-RPC request object (for tests and tooling). Matches [`send_jsonrpc`] wire format.
 #[must_use]
 pub fn jsonrpc_request_object(method: &str, params: &serde_json::Value) -> serde_json::Value {
-    serde_json::json!({
-        "jsonrpc": "2.0",
-        "method": method,
-        "params": params,
-        "id": 1,
-    })
+    crate::primal_bridge::jsonrpc_request(method, params.clone())
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
+#[expect(
+    clippy::expect_used,
+    reason = "protocol tests use expect on constructed dispatch params"
+)]
 mod tests {
     use super::*;
 

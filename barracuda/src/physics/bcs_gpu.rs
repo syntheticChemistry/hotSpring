@@ -468,7 +468,7 @@ mod tests {
     use super::*;
 
     #[test]
-    #[allow(clippy::float_cmp)] // exact known constant roundtrip
+    #[expect(clippy::float_cmp, reason = "exact known constant roundtrip")]
     fn bisection_params_tolerance_roundtrip() {
         let tol = 1e-12_f64;
         let params = BisectionParams::new(4, 100, 10, true, tol);

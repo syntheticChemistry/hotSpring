@@ -220,6 +220,59 @@ fn adapter_is_nvk(info: &wgpu::AdapterInfo) -> bool {
 /// On NVK, forces full DF64 even if the basic probe passes — NVK's NAK
 /// compiler segfaults or produces invalid pipelines for complex f64 shaders
 /// (HMC gauge force, CG solvers) even though simple f64 arithmetic compiles.
+async fn open_from_adapter_inner(
+    selected: wgpu::Adapter,
+    device_label: &'static str,
+) -> Result<GpuF64, crate::error::HotSpringError> {
+    let adapter_info = selected.get_info();
+    let adapter_features = selected.features();
+    let is_nvk = adapter_is_nvk(&adapter_info);
+
+    let required_features = negotiate_features(adapter_features, is_nvk);
+
+    let adapter_limits = selected.limits();
+    let required_limits = wgpu::Limits {
+        max_storage_buffer_binding_size: adapter_limits
+            .max_storage_buffer_binding_size
+            .min(2 * 1024 * 1024 * 1024),
+        max_buffer_size: adapter_limits.max_buffer_size.min(4 * 1024 * 1024 * 1024),
+        max_storage_buffers_per_shader_stage: 12,
+        ..wgpu::Limits::default()
+    };
+
+    let device_result: Result<(wgpu::Device, wgpu::Queue), wgpu::RequestDeviceError> = selected
+        .request_device(&wgpu::DeviceDescriptor {
+            label: Some(device_label),
+            required_features,
+            required_limits,
+            memory_hints: wgpu::MemoryHints::default(),
+            experimental_features: wgpu::ExperimentalFeatures::default(),
+            trace: wgpu::Trace::default(),
+        })
+        .await;
+    let (device, queue) =
+        device_result.map_err(|e| crate::error::HotSpringError::DeviceCreation(e.to_string()))?;
+
+    let adapter_name = adapter_info.name.clone();
+    let advertised_f64 = required_features.contains(wgpu::Features::SHADER_F64);
+    let has_timestamps = required_features.contains(wgpu::Features::TIMESTAMP_QUERY);
+    let has_subgroups = required_features.contains(wgpu::Features::SUBGROUP);
+    let has_f16 = required_features.contains(wgpu::Features::SHADER_F16);
+
+    let wgpu_device = Arc::new(WgpuDevice::from_existing(device, queue, adapter_info));
+
+    Ok(finalize_device(
+        adapter_name,
+        advertised_f64,
+        has_timestamps,
+        has_subgroups,
+        has_f16,
+        is_nvk,
+        wgpu_device,
+    )
+    .await)
+}
+
 async fn finalize_device(
     adapter_name: String,
     advertised_f64: bool,
@@ -288,53 +341,7 @@ impl GpuF64 {
     /// or device creation fails.
     pub async fn new() -> Result<Self, crate::error::HotSpringError> {
         let selected = adapter::select_adapter()?;
-        let adapter_info = selected.get_info();
-        let adapter_features = selected.features();
-        let is_nvk = adapter_is_nvk(&adapter_info);
-
-        let required_features = negotiate_features(adapter_features, is_nvk);
-
-        let adapter_limits = selected.limits();
-        let required_limits = wgpu::Limits {
-            max_storage_buffer_binding_size: adapter_limits
-                .max_storage_buffer_binding_size
-                .min(2 * 1024 * 1024 * 1024),
-            max_buffer_size: adapter_limits.max_buffer_size.min(4 * 1024 * 1024 * 1024),
-            max_storage_buffers_per_shader_stage: 12,
-            ..wgpu::Limits::default()
-        };
-
-        let device_result: Result<(wgpu::Device, wgpu::Queue), wgpu::RequestDeviceError> = selected
-            .request_device(&wgpu::DeviceDescriptor {
-                label: Some("hotSpring science device"),
-                required_features,
-                required_limits,
-                memory_hints: wgpu::MemoryHints::default(),
-                experimental_features: wgpu::ExperimentalFeatures::default(),
-                trace: wgpu::Trace::default(),
-            })
-            .await;
-        let (device, queue) = device_result
-            .map_err(|e| crate::error::HotSpringError::DeviceCreation(e.to_string()))?;
-
-        let adapter_name = adapter_info.name.clone();
-        let advertised_f64 = required_features.contains(wgpu::Features::SHADER_F64);
-        let has_timestamps = required_features.contains(wgpu::Features::TIMESTAMP_QUERY);
-        let has_subgroups = required_features.contains(wgpu::Features::SUBGROUP);
-        let has_f16 = required_features.contains(wgpu::Features::SHADER_F16);
-
-        let wgpu_device = Arc::new(WgpuDevice::from_existing(device, queue, adapter_info));
-
-        Ok(finalize_device(
-            adapter_name,
-            advertised_f64,
-            has_timestamps,
-            has_subgroups,
-            has_f16,
-            is_nvk,
-            wgpu_device,
-        )
-        .await)
+        open_from_adapter_inner(selected, "hotSpring science device").await
     }
 
     /// Create GPU device from an explicit adapter hint (same rules as one token in
@@ -378,53 +385,7 @@ impl GpuF64 {
     pub async fn from_adapter(
         selected: wgpu::Adapter,
     ) -> Result<Self, crate::error::HotSpringError> {
-        let adapter_info = selected.get_info();
-        let adapter_features = selected.features();
-        let is_nvk = adapter_is_nvk(&adapter_info);
-
-        let required_features = negotiate_features(adapter_features, is_nvk);
-
-        let adapter_limits = selected.limits();
-        let required_limits = wgpu::Limits {
-            max_storage_buffer_binding_size: adapter_limits
-                .max_storage_buffer_binding_size
-                .min(2 * 1024 * 1024 * 1024),
-            max_buffer_size: adapter_limits.max_buffer_size.min(4 * 1024 * 1024 * 1024),
-            max_storage_buffers_per_shader_stage: 12,
-            ..wgpu::Limits::default()
-        };
-
-        let device_result = selected
-            .request_device(&wgpu::DeviceDescriptor {
-                label: Some("hotSpring secondary device"),
-                required_features,
-                required_limits,
-                memory_hints: wgpu::MemoryHints::default(),
-                experimental_features: wgpu::ExperimentalFeatures::default(),
-                trace: wgpu::Trace::default(),
-            })
-            .await;
-        let (device, queue) = device_result
-            .map_err(|e| crate::error::HotSpringError::DeviceCreation(e.to_string()))?;
-
-        let adapter_name = adapter_info.name.clone();
-        let advertised_f64 = required_features.contains(wgpu::Features::SHADER_F64);
-        let has_timestamps = required_features.contains(wgpu::Features::TIMESTAMP_QUERY);
-        let has_subgroups = required_features.contains(wgpu::Features::SUBGROUP);
-        let has_f16 = required_features.contains(wgpu::Features::SHADER_F16);
-
-        let wgpu_device = Arc::new(WgpuDevice::from_existing(device, queue, adapter_info));
-
-        Ok(finalize_device(
-            adapter_name,
-            advertised_f64,
-            has_timestamps,
-            has_subgroups,
-            has_f16,
-            is_nvk,
-            wgpu_device,
-        )
-        .await)
+        open_from_adapter_inner(selected, "hotSpring secondary device").await
     }
 
     /// Enumerate all available GPU adapters.
@@ -767,7 +728,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::float_cmp)] // exact known test value
+    #[expect(clippy::float_cmp, reason = "exact known test value")]
     fn f64_byte_roundtrip() {
         let original = vec![
             0.0,
@@ -791,7 +752,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::float_cmp)] // exact known test value
+    #[expect(clippy::float_cmp, reason = "exact known test value")]
     fn f64_byte_conversion_special_values() {
         let values = [std::f64::consts::PI, 1e-308, 1e308];
         let bytes = f64_to_bytes(&values);

@@ -306,8 +306,12 @@ pub fn run_simulation_cpu(config: &MdConfig) -> MdSimulation {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
 mod tests {
+    #![expect(
+        clippy::expect_used,
+        reason = "CPU reference tests expect non-empty simulation history"
+    )]
+
     use super::compute_forces_cpu;
     use crate::md::config::MdConfig;
     use crate::md::simulation::{init_fcc_lattice, init_velocities};

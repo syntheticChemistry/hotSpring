@@ -263,7 +263,7 @@ impl std::fmt::Display for TtmError {
 impl std::error::Error for TtmError {}
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::float_cmp)]
+#[expect(clippy::unwrap_used, reason = "tests unwrap known Ok/Err results")]
 mod tests {
     use super::*;
 

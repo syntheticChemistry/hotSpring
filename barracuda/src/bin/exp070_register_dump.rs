@@ -1,7 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // Hardware-touching binary: reads GPU BAR0 registers via sysfs mmap or ember IPC.
-#![cfg_attr(feature = "low-level", expect(unsafe_code, reason = "BAR0 register access via sysfs mmap + volatile reads requires unsafe"))]
+#![cfg_attr(
+    feature = "low-level",
+    expect(
+        unsafe_code,
+        reason = "BAR0 register access via sysfs mmap + volatile reads requires unsafe"
+    )
+)]
 
 //! Experiment 070: BAR0 register dump for sovereign reverse engineering.
 //!
@@ -98,11 +104,11 @@ fn resolve_ember_socket(bdf: &str) -> std::path::PathBuf {
         }
     }
     let slug = bdf.replace(':', "-");
-    let fleet_sock = std::path::PathBuf::from(format!("/run/coralreef/fleet/ember-{slug}.sock",));
+    let fleet_sock = std::path::PathBuf::from(format!("/run/coralreef/fleet/ember-{slug}.sock"));
     if fleet_sock.exists() {
         return fleet_sock;
     }
-    let per_device = std::path::PathBuf::from(format!("/run/coralreef/ember-{slug}.sock",));
+    let per_device = std::path::PathBuf::from(format!("/run/coralreef/ember-{slug}.sock"));
     if per_device.exists() {
         return per_device;
     }
@@ -123,11 +129,16 @@ fn main() {
         .map(String::as_str)
         .collect();
 
-    let bdf = positional.first().copied().unwrap_or("0000:03:00.0");
+    let bdf = positional
+        .first()
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| {
+            std::env::var("HOTSPRING_BDF").unwrap_or_else(|_| "0000:03:00.0".to_string())
+        });
     let output_path = positional.get(1).copied();
 
-    let vendor_id = read_vendor_id(bdf);
-    let device_id = read_device_id(bdf);
+    let vendor_id = read_vendor_id(&bdf);
+    let device_id = read_device_id(&bdf);
 
     let Some(reg_map) = detect_register_map(vendor_id) else {
         eprintln!("ERROR: unknown vendor {vendor_id:#06x} for {bdf} — no register map available");
@@ -136,16 +147,16 @@ fn main() {
     };
 
     let access = if via_ember {
-        let socket = resolve_ember_socket(bdf);
+        let socket = resolve_ember_socket(&bdf);
         eprintln!("Mode: ember-ipc via {}", socket.display());
         AccessMode::EmberIpc {
             client: hotspring_barracuda::fleet_client::EmberClient::connect(&socket),
-            bdf: bdf.to_string(),
+            bdf: bdf.clone(),
         }
     } else {
         #[cfg(feature = "low-level")]
         {
-            let resource_path = format!("/sys/bus/pci/devices/{bdf}/resource0");
+            let resource_path = format!("/sys/bus/pci/devices/{}/resource0", &bdf);
             let file = match File::options().read(true).open(&resource_path) {
                 Ok(f) => f,
                 Err(e) => {
@@ -258,7 +269,7 @@ fn main() {
         vendor: reg_map.vendor().to_string(),
         arch: reg_map.arch().to_string(),
         pci_id: format!("{vendor_id:#06x}:{device_id:#06x}"),
-        bdf: bdf.to_string(),
+        bdf,
         timestamp: chrono_iso8601(),
         registers: entries,
     };

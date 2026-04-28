@@ -179,7 +179,7 @@ fn quantum_numbers_have_correct_degeneracy() {
 }
 
 #[test]
-#[allow(clippy::float_cmp)] // exact known values
+#[expect(clippy::float_cmp, reason = "exact known values")]
 fn wavefunction_accessor_consistency() {
     let hfb = SphericalHFB::new(8, 8, 4, 10.0, 50);
     let ns = hfb.n_states();
@@ -318,7 +318,7 @@ fn bcs_occupations_zero_particles() {
 
     let (v2, lambda) = hfb.bcs_occupations(&eigs, 0, delta);
     assert_eq!(v2.len(), ns);
-    #[allow(clippy::float_cmp)] // exact known values
+    #[expect(clippy::float_cmp, reason = "exact known values")]
     {
         assert!(v2.iter().all(|&x| x == 0.0));
         assert_eq!(lambda, 0.0);
@@ -381,7 +381,7 @@ fn sharp_filling_partial_occupation() {
 }
 
 #[test]
-#[allow(clippy::float_cmp)] // exact known values
+#[expect(clippy::float_cmp, reason = "exact known values")]
 fn ll1_values_match_l_quantum_numbers() {
     let hfb = SphericalHFB::new(8, 8, 4, 10.0, 50);
     let ll1 = hfb.ll1_values();

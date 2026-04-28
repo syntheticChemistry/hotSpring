@@ -114,7 +114,10 @@ fn parse_args() -> CliArgs {
     args
 }
 
-#[expect(clippy::suspicious_operation_groupings, reason = "physics formula grouping follows standard notation")]
+#[expect(
+    clippy::suspicious_operation_groupings,
+    reason = "physics formula grouping follows standard notation"
+)]
 fn main() {
     let args = parse_args();
     let l = args.lattice;

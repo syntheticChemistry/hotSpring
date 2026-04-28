@@ -2,7 +2,10 @@
 //
 // Hardware-touching binary: CUDA kernel launch requires unsafe (cudarc API).
 // Gated behind `--features cuda-validation` — not part of the default ecoBin build.
-#![expect(unsafe_code, reason = "CUDA kernel launch via cudarc requires unsafe; gated behind --features cuda-validation")]
+#![expect(
+    unsafe_code,
+    reason = "CUDA kernel launch via cudarc requires unsafe; gated behind --features cuda-validation"
+)]
 
 //! Proof-of-concept: dispatch CUDA compute on the RTX 5060 while it serves as
 //! the active display GPU.  Validates dual-use (display + compute) without

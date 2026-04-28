@@ -229,7 +229,7 @@ mod tests {
     use super::*;
 
     #[test]
-    #[allow(clippy::float_cmp)] // exact known values
+    #[expect(clippy::float_cmp, reason = "exact known values")]
     fn mat_zeros_and_access() {
         let mut m = Mat::zeros(3);
         assert_eq!(m.get(0, 0), 0.0);
@@ -240,7 +240,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::float_cmp)] // exact known values
+    #[expect(clippy::float_cmp, reason = "exact known values")]
     fn hermite_known_values() {
         assert_eq!(hermite_value(0, 1.0), 1.0);
         assert_eq!(hermite_value(1, 1.0), 2.0);
@@ -250,7 +250,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::float_cmp)] // exact known values
+    #[expect(clippy::float_cmp, reason = "exact known values")]
     fn factorial_known_values() {
         assert_eq!(factorial_f64(0), 1.0);
         assert_eq!(factorial_f64(1), 1.0);
@@ -260,7 +260,10 @@ mod tests {
 
     #[test]
     fn hermite_determinism() {
-        #[allow(clippy::approx_constant)] // test inputs, not math constants; determinism check
+        #[expect(
+            clippy::approx_constant,
+            reason = "test inputs, not math constants; determinism check"
+        )]
         let xs = [0.0, 1.0, -1.5, 3.14, -2.718];
         for &x in &xs {
             for n in 0..8 {
@@ -322,7 +325,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::float_cmp)] // exact known value (0.0)
+    #[expect(clippy::float_cmp, reason = "exact known value (0.0)")]
     fn coulomb_exchange_slater_zero_density() {
         assert_eq!(coulomb_exchange_slater(0.0), 0.0);
     }

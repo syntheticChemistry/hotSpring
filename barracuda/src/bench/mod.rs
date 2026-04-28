@@ -49,7 +49,7 @@ mod tests {
     use report::{format_duration, format_eval_time, now_iso8601};
 
     #[test]
-    #[allow(clippy::float_cmp)] // exact known values (0.0)
+    #[expect(clippy::float_cmp, reason = "exact known values (0.0)")]
     fn energy_report_default_values() {
         let r = EnergyReport::default();
         assert_eq!(r.cpu_joules, 0.0);
@@ -62,7 +62,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::float_cmp)] // exact known values
+    #[expect(clippy::float_cmp, reason = "exact known values")]
     fn phase_result_creation_and_fields() {
         let energy = EnergyReport {
             cpu_joules: 1.5,
@@ -196,7 +196,10 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::expect_used)]
+    #[expect(
+        clippy::expect_used,
+        reason = "bench test uses expect for temp paths and I/O"
+    )]
     fn bench_report_save_json_round_trip() {
         let hw = HardwareInventory {
             gate_name: "CI_Test".to_string(),
@@ -242,7 +245,10 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::expect_used)]
+    #[expect(
+        clippy::expect_used,
+        reason = "bench test uses expect for serde round-trip"
+    )]
     fn bench_report_serialize_deserialize() {
         let hw = HardwareInventory {
             gate_name: "serde_test".to_string(),

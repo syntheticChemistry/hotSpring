@@ -99,7 +99,10 @@ pub fn tools_list_json() -> serde_json::Value {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
+#[expect(
+    clippy::unwrap_used,
+    reason = "MCP tool tests use unwrap on tool definitions and JSON"
+)]
 mod tests {
     use super::*;
 

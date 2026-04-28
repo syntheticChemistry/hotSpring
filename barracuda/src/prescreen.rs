@@ -456,8 +456,10 @@ impl CascadeStats {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
-#[allow(clippy::unwrap_used)]
+#[expect(
+    clippy::expect_used,
+    reason = "prescreen tests use expect on classifiers and fixtures"
+)]
 mod tests {
     use super::*;
     use crate::provenance::SLY4_PARAMS;
@@ -539,7 +541,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::float_cmp)] // exact known values (0.0)
+    #[expect(clippy::float_cmp, reason = "exact known values (0.0)")]
     fn cascade_stats_default_zero() {
         let stats = CascadeStats::default();
         assert_eq!(stats.total_candidates, 0);

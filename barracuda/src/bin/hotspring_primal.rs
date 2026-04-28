@@ -384,8 +384,8 @@ fn handle_request(state: &HotSpringState, method: &str, params: &Value) -> Dispa
                 };
             };
             catch_physics(method, || {
-                let z = parse_usize(m, "Z", 8).max(0);
-                let n = parse_usize(m, "N", 8).max(0);
+                let z = parse_usize(m, "Z", 8);
+                let n = parse_usize(m, "N", 8);
                 let pvec = parse_skyrme_params(m);
                 let be = if pvec.len() >= 10 {
                     physics::semf_binding_energy(z, n, &pvec[..10])
@@ -476,8 +476,9 @@ fn handle_request(state: &HotSpringState, method: &str, params: &Value) -> Dispa
             let Some(m) = params_map(params) else {
                 return DispatchResult::Err {
                     code: -32602,
-                    message: "Invalid params: expected object with dims, beta, flow_steps, eps, seed"
-                        .into(),
+                    message:
+                        "Invalid params: expected object with dims, beta, flow_steps, eps, seed"
+                            .into(),
                 };
             };
             catch_physics(method, || {
@@ -492,9 +493,7 @@ fn handle_request(state: &HotSpringState, method: &str, params: &Value) -> Dispa
                     gradient_flow::run_flow(&mut lat, FlowIntegrator::Rk3Luscher, eps, t_max, 1);
                 let t0 = find_t0(&measurements);
                 let w0 = find_w0(&measurements);
-                let final_energy = measurements
-                    .last()
-                    .map_or(f64::NAN, |x| x.energy_density);
+                let final_energy = measurements.last().map_or(f64::NAN, |x| x.energy_density);
                 json!({
                     "t0": t0,
                     "w0": w0,

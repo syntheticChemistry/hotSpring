@@ -88,13 +88,13 @@ pub use lattice::{
     EVOLUTION_PURE_GAUGE_MIN_ACCEPTED,
     GOE_DEVIATION_TOLERANCE,
     GOE_MEAN_R,
-    GRADIENT_FLOW_CK4_RK3_ENERGY_ABS,
-    GRADIENT_FLOW_CROSS_GPU_PLAQUETTE_ABS,
-    GRADIENT_FLOW_GPU_CPU_PLAQUETTE_ABS,
     GPU_CG_ACTION_PARITY,
     GPU_DYN_STREAMING_PLAQUETTE_PARITY,
     GPU_FERMION_FORCE_PARITY,
     GPU_STREAMING_PLAQUETTE_PARITY,
+    GRADIENT_FLOW_CK4_RK3_ENERGY_ABS,
+    GRADIENT_FLOW_CROSS_GPU_PLAQUETTE_ABS,
+    GRADIENT_FLOW_GPU_CPU_PLAQUETTE_ABS,
     HOFSTADTER_SYMMETRY_TOLERANCE,
     HOFSTADTER_WIDE_BAND_MIN_WIDTH,
     HOTQCD_CONSISTENCY,
@@ -184,28 +184,28 @@ pub use npu::{
 };
 
 pub use physics::{
-    BCS_DENSITY_SKIP, BROYDEN_HISTORY, BROYDEN_WARMUP, COULOMB_R_MIN, DEFORMATION_GUESS_GENERIC,
-    DEFORMATION_GUESS_SD, DEFORMATION_GUESS_WEAK, DEFORMED_COULOMB_R_MIN, DENSITY_FLOOR,
+    BCS_DENSITY_SKIP, BROYDEN_HISTORY, BROYDEN_WARMUP, COMPOSITION_PLAQUETTE_PARITY_ABS,
+    COMPOSITION_SEMF_PARITY_REL, COULOMB_R_MIN, DEFORMATION_GUESS_GENERIC, DEFORMATION_GUESS_SD,
+    DEFORMATION_GUESS_WEAK, DEFORMED_COULOMB_R_MIN, DENSITY_FLOOR,
     DIELECTRIC_COMPLETED_DSF_POSITIVE_FRACTION_MIN, DIELECTRIC_DEBYE_SCREENING_REL,
     DIELECTRIC_DRUDE_CONDUCTIVITY_REL, DIELECTRIC_DSF_MAGNITUDE_FLOOR,
     DIELECTRIC_DSF_POSITIVE_FRACTION_MIN, DIELECTRIC_DSF_RELATIVE_NOISE_FLOOR,
     DIELECTRIC_F_SUM_GPU_CPU_REL, DIELECTRIC_HIGH_FREQ_LIMIT_ABS,
-    DIELECTRIC_PLASMA_DISPERSION_W0_ABS, DIVISION_GUARD,
-    FERMI_SEARCH_MARGIN, FPEOS_GRID_POINT_REL, FPEOS_HE_TO_H_PRESSURE_RATIO_MAX,
-    FPEOS_THERMO_CONSISTENCY_MAX, GPU_JACOBI_CONVERGENCE, HFB_L2_MIXING, HFB_L2_TOLERANCE,
-    HFB_MAX_ITER, HFB_RUST_VS_EXP_REL, KINETIC_FLUID_BGK_MASS_REL, KINETIC_FLUID_BGK_MOMENTUM_REL,
-    KINETIC_FLUID_COUPLED_MASS_ENERGY_REL, KINETIC_FLUID_COUPLED_MOMENTUM_REL,
-    KINETIC_FLUID_EQUILIBRIUM_T_ABS, KINETIC_FLUID_INTERFACE_DENSITY_MATCH,
-    KINETIC_FLUID_REGION_RHO_MAX, KINETIC_FLUID_REGION_RHO_MIN, KINETIC_FLUID_SOD_CONSERVATION_REL,
-    KINETIC_FLUID_SOD_RHO_MAX, KINETIC_FLUID_SOD_RHO_MIN, KINETIC_FLUID_TEMP_RELAXATION_REL,
-    L1_CHI2_THRESHOLD, L1_PROXY_THRESHOLD, L2_CHI2_THRESHOLD, NEAR_ZERO_EXPECTED, NMP_N_SIGMA,
-    NMP_SIGMA_THRESHOLD, PAIRING_GAP_THRESHOLD, RHO_POWF_GUARD, SCF_ENERGY_TOLERANCE,
-    SCREENED_CRITICAL_VS_LITERATURE, SCREENED_HYDROGEN_VS_EXACT, SCREENED_ION_SPHERE_SQRT3_ABS,
-    SCREENED_PYTHON_RUST_PARITY, SCREENED_SP_TO_IS_LIMIT, SCREENED_Z2_SCALING_MIN_RATIO,
-    SHARP_FILLING_THRESHOLD, SIGMA_THEO_FLOOR_MEV, SIGMA_THEO_FRACTION, SPIN_ORBIT_R_MIN,
-    TTM_ENERGY_DRIFT_REL, TTM_EQUILIBRATION_CLOSE_K, TTM_EQUILIBRIUM_T_REL,
-    TTM_HELIUM_EQUILIBRIUM_T_REL, TTM_TEMPERATURE_TRAJECTORY_SLOP_K, sigma_theo,
-    COMPOSITION_SEMF_PARITY_REL, COMPOSITION_PLAQUETTE_PARITY_ABS,
+    DIELECTRIC_PLASMA_DISPERSION_W0_ABS, DIVISION_GUARD, FERMI_SEARCH_MARGIN, FPEOS_GRID_POINT_REL,
+    FPEOS_HE_TO_H_PRESSURE_RATIO_MAX, FPEOS_THERMO_CONSISTENCY_MAX, GPU_JACOBI_CONVERGENCE,
+    HFB_L2_MIXING, HFB_L2_TOLERANCE, HFB_MAX_ITER, HFB_RUST_VS_EXP_REL, KINETIC_FLUID_BGK_MASS_REL,
+    KINETIC_FLUID_BGK_MOMENTUM_REL, KINETIC_FLUID_COUPLED_MASS_ENERGY_REL,
+    KINETIC_FLUID_COUPLED_MOMENTUM_REL, KINETIC_FLUID_EQUILIBRIUM_T_ABS,
+    KINETIC_FLUID_INTERFACE_DENSITY_MATCH, KINETIC_FLUID_REGION_RHO_MAX,
+    KINETIC_FLUID_REGION_RHO_MIN, KINETIC_FLUID_SOD_CONSERVATION_REL, KINETIC_FLUID_SOD_RHO_MAX,
+    KINETIC_FLUID_SOD_RHO_MIN, KINETIC_FLUID_TEMP_RELAXATION_REL, L1_CHI2_THRESHOLD,
+    L1_PROXY_THRESHOLD, L2_CHI2_THRESHOLD, NEAR_ZERO_EXPECTED, NMP_N_SIGMA, NMP_SIGMA_THRESHOLD,
+    PAIRING_GAP_THRESHOLD, RHO_POWF_GUARD, SCF_ENERGY_TOLERANCE, SCREENED_CRITICAL_VS_LITERATURE,
+    SCREENED_HYDROGEN_VS_EXACT, SCREENED_ION_SPHERE_SQRT3_ABS, SCREENED_PYTHON_RUST_PARITY,
+    SCREENED_SP_TO_IS_LIMIT, SCREENED_Z2_SCALING_MIN_RATIO, SHARP_FILLING_THRESHOLD,
+    SIGMA_THEO_FLOOR_MEV, SIGMA_THEO_FRACTION, SPIN_ORBIT_R_MIN, TTM_ENERGY_DRIFT_REL,
+    TTM_EQUILIBRATION_CLOSE_K, TTM_EQUILIBRIUM_T_REL, TTM_HELIUM_EQUILIBRIUM_T_REL,
+    TTM_TEMPERATURE_TRAJECTORY_SLOP_K, sigma_theo,
 };
 
 #[cfg(test)]
@@ -213,7 +213,7 @@ mod tests {
     use super::*;
 
     #[test]
-    #[allow(clippy::assertions_on_constants)] // constants sanity check
+    #[expect(clippy::assertions_on_constants, reason = "constants sanity check")]
     fn tolerance_ordering() {
         assert!(EXACT_F64 < ITERATIVE_F64);
         assert!(ITERATIVE_F64 < GPU_VS_CPU_F64);
@@ -221,7 +221,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::float_cmp)] // exact known values
+    #[expect(clippy::float_cmp, reason = "exact known values")]
     fn sigma_theo_floor() {
         assert_eq!(sigma_theo(100.0), 2.0);
         assert_eq!(sigma_theo(500.0), 5.0);
@@ -229,7 +229,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::assertions_on_constants)] // constants sanity check
+    #[expect(clippy::assertions_on_constants, reason = "constants sanity check")]
     fn energy_drift_is_generous() {
         // Measured drift is 0.000-0.002%; threshold 0.5% is 250× above worst case.
         // Ensure we retain margin above measured (0.01% = 5× measured).
@@ -237,13 +237,12 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::float_cmp)] // exact known value
     fn nmp_sigma_is_two() {
         assert!((NMP_N_SIGMA - 2.0).abs() < f64::EPSILON);
     }
 
     #[test]
-    #[allow(clippy::assertions_on_constants)] // constants sanity check
+    #[expect(clippy::assertions_on_constants, reason = "constants sanity check")]
     fn physics_guards_are_positive() {
         assert!(DENSITY_FLOOR > 0.0);
         assert!(SPIN_ORBIT_R_MIN > 0.0);
@@ -256,7 +255,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::assertions_on_constants)] // constants sanity check
+    #[expect(clippy::assertions_on_constants, reason = "constants sanity check")]
     fn guard_hierarchy() {
         // RHO_POWF_GUARD < DENSITY_FLOOR < SPIN_ORBIT_R_MIN
         assert!(RHO_POWF_GUARD < DENSITY_FLOOR);
@@ -264,14 +263,13 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::assertions_on_constants)] // constants sanity check
+    #[expect(clippy::assertions_on_constants, reason = "constants sanity check")]
     fn deformation_guesses_ordered() {
         assert!(DEFORMATION_GUESS_WEAK < DEFORMATION_GUESS_GENERIC);
         assert!(DEFORMATION_GUESS_GENERIC < DEFORMATION_GUESS_SD);
     }
 
     #[test]
-    #[allow(clippy::assertions_on_constants)] // constants sanity check
     fn all_tolerances_are_positive() {
         let tols = [
             EXACT_F64,
@@ -457,13 +455,13 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::assertions_on_constants)] // constants sanity check
+    #[expect(clippy::assertions_on_constants, reason = "constants sanity check")]
     fn hotqcd_max_violations_nonzero() {
         assert!(HOTQCD_MAX_VIOLATIONS > 0);
     }
 
     #[test]
-    #[allow(clippy::assertions_on_constants)] // constants sanity check
+    #[expect(clippy::assertions_on_constants, reason = "constants sanity check")]
     fn spectral_goe_poisson_separation() {
         assert!(GOE_MEAN_R > POISSON_MEAN_R);
         assert!(
@@ -472,7 +470,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::assertions_on_constants)] // constants sanity check
+    #[expect(clippy::assertions_on_constants, reason = "constants sanity check")]
     fn solver_config_sensible() {
         assert!(
             HFB_MAX_ITER >= 100,
@@ -505,7 +503,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::assertions_on_constants)] // constants sanity check
+    #[expect(clippy::assertions_on_constants, reason = "constants sanity check")]
     fn md_config_sensible() {
         assert!(
             CELLLIST_REBUILD_INTERVAL >= 5,

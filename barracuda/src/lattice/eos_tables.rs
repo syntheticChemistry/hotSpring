@@ -240,7 +240,10 @@ pub fn computational_overlap_summary() -> String {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
+#[expect(
+    clippy::expect_used,
+    reason = "Unit tests use expect on reference EOS table and interpolation paths."
+)]
 mod tests {
     use super::*;
 
@@ -324,7 +327,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::float_cmp)] // exact known values
+    #[expect(clippy::float_cmp, reason = "exact known value")]
     fn interpolate_single_point() {
         let eos = HotQcdEos {
             points: vec![EosPoint {
@@ -344,7 +347,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::float_cmp)] // exact boundary match
+    #[expect(clippy::float_cmp, reason = "exact boundary match")]
     fn interpolate_at_exact_boundary_min() {
         let eos = HotQcdEos::reference_table();
         let first = &eos.points[0];
@@ -354,7 +357,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::float_cmp)] // exact boundary match
+    #[expect(clippy::float_cmp, reason = "exact boundary match")]
     fn interpolate_at_exact_boundary_max() {
         let eos = HotQcdEos::reference_table();
         let last = eos.points.last().expect("reference table non-empty");
@@ -364,7 +367,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::float_cmp)] // exact known value
+    #[expect(clippy::float_cmp, reason = "exact known value")]
     fn interpolate_below_minimum() {
         let eos = HotQcdEos::reference_table();
         let p = eos.interpolate(0.1).expect("below min returns first point");
@@ -372,7 +375,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::float_cmp)] // exact known value
+    #[expect(clippy::float_cmp, reason = "exact known value")]
     fn interpolate_above_maximum() {
         let eos = HotQcdEos::reference_table();
         let last_t = eos
@@ -398,7 +401,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::float_cmp)] // exact known value (0.0)
+    #[expect(clippy::float_cmp, reason = "exact known value (0.0)")]
     fn eos_point_speed_of_sound_sq_ideal_zero_energy() {
         let p = EosPoint {
             t_over_tc: 1.0,

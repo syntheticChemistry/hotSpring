@@ -373,7 +373,10 @@ pub fn format_eval_time(us: f64) -> String {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::unwrap_used)]
+#[expect(
+    clippy::expect_used,
+    reason = "formatting tests use expect on fixed inputs"
+)]
 mod tests {
     use super::*;
 

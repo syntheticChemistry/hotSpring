@@ -2,6 +2,8 @@
 
 //! Experiment 158: SEC2 Real Firmware Upload
 //!
+//! See also: `exp154_sec2_acr_pipeline` for the original PMU-first pipeline narrative.
+//!
 //! Uploads NVIDIA's signed SEC2/ACR firmware (from linux-firmware) to the Titan V's
 //! SEC2 falcon. Replaces the NOP/halt probe from exp154 with the actual GV100
 //! firmware stack: ACR bootloader + SEC2 HS image + FECS real firmware.
@@ -33,32 +35,28 @@ fn main() {
     let mut harness = ValidationHarness::new("exp158_sec2_real_firmware");
 
     let args: Vec<String> = std::env::args().collect();
-    let bdf = extract_arg(&args, "--bdf").unwrap_or_else(|| "0000:03:00.0".to_string());
+    let bdf = extract_arg(&args, "--bdf").unwrap_or_else(|| {
+        std::env::var("HOTSPRING_BDF").unwrap_or_else(|_| "0000:03:00.0".to_string())
+    });
     let fw_dir = extract_arg(&args, "--firmware-dir")
         .unwrap_or_else(|| "/lib/firmware/nvidia/gv100".to_string());
 
     println!("  Target BDF: {bdf}");
     println!("  Firmware dir: {fw_dir}");
 
-    let ember = match connect_ember(&bdf) {
-        Some(e) => e,
-        None => {
-            eprintln!("ERROR: cannot connect to ember for {bdf}");
-            harness.check_bool("ember reachable", false);
-            harness.finish();
-        }
+    let Some(ember) = connect_ember(&bdf) else {
+        eprintln!("ERROR: cannot connect to ember for {bdf}");
+        harness.check_bool("ember reachable", false);
+        harness.finish();
     };
     harness.check_bool("ember reachable", true);
 
     // Phase 1: Load firmware
     println!("\n━━━ Phase 1: Load Firmware ━━━\n");
-    let fw = match load_firmware(&fw_dir) {
-        Some(fw) => fw,
-        None => {
-            eprintln!("ERROR: failed to load firmware");
-            harness.check_bool("firmware loaded", false);
-            harness.finish();
-        }
+    let Some(fw) = load_firmware(&fw_dir) else {
+        eprintln!("ERROR: failed to load firmware");
+        harness.check_bool("firmware loaded", false);
+        harness.finish();
     };
     harness.check_bool("firmware loaded", true);
     println!(
@@ -145,7 +143,10 @@ fn main() {
 
     // Phase 5: SEC2 data → DMEM
     println!("\n━━━ Phase 5: SEC2 Data → DMEM ━━━\n");
-    if !fw.sec2_data.is_empty() {
+    if fw.sec2_data.is_empty() {
+        println!("  No data section");
+        harness.check_bool("SEC2 DMEM upload", true);
+    } else {
         println!("  Uploading {} bytes to SEC2 DMEM...", fw.sec2_data.len());
         match ember.falcon_upload_dmem(&bdf, SEC2_BASE, 0, &fw.sec2_data) {
             Ok(r) => {
@@ -157,9 +158,6 @@ fn main() {
                 harness.check_bool("SEC2 DMEM upload", false);
             }
         }
-    } else {
-        println!("  No data section");
-        harness.check_bool("SEC2 DMEM upload", true);
     }
 
     // Phase 6: Start SEC2
@@ -191,7 +189,7 @@ fn main() {
                     "  Final: pc={:?}, cpuctl={:?}, mb0={:?}, sctl={:?}",
                     fin.pc, fin.cpuctl, fin.mailbox0, fin.sctl
                 );
-                let hs = fin.sctl.map_or(false, |s| s & 0x2 != 0);
+                let hs = fin.sctl.is_some_and(|s| s & 0x2 != 0);
                 println!("  HS mode: {hs}");
                 harness.check_bool("SEC2 HS mode reached", hs);
             } else {
@@ -330,8 +328,7 @@ fn load_firmware(dir: &str) -> Option<FirmwareSet> {
 fn mmio_rd(ember: &EmberClient, bdf: &str, offset: u32) -> u32 {
     ember
         .mmio_read(bdf, offset)
-        .map(|r| r.value)
-        .unwrap_or(0xDEAD_DEAD)
+        .map_or(0xDEAD_DEAD, |r| r.value)
 }
 
 fn connect_ember(bdf: &str) -> Option<EmberClient> {

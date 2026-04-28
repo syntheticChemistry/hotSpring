@@ -62,6 +62,25 @@ This file covers the spring as a whole. For crate-level details see
 - CHANGELOG, README, PRIMAL_GAPS, experiments/README, scripts/README: Phase 46 absorption
 - wateringHole handoff: async computation patterns, DAG memoization, scientific provenance schema
 
+## GPU Solve Tighten and Refactor (April 27, 2026)
+
+### Changed (coralReef coral-driver)
+- **init.rs split**: Monolithic 5466-LOC `vfio_compute/init.rs` split into 11 focused modules: `gr_bar0.rs`, `warm_channel.rs`, `kepler_cold.rs`, `kepler_warm.rs`, `kepler_recovery.rs`, `kepler_fecs_boot.rs`, `pmu.rs`, `pgob.rs`, `pri.rs`, `quiesce.rs`, `vbios_devinit.rs`. Original file reduced to 19-line re-export facade.
+- **Shared abstractions**: `write_kepler_hub_station_params()` deduplicated across 3 files; `PGOB_POWER_STEPS` table deduplicated in `pgob.rs`; dead code (`kepler_pclock_pre_init`, `kepler_pri_station_probe`) removed.
+- **kepler_csdata.rs**: `pub const` narrowed to `pub(crate) const`, `debug_assert!` for xfer==0 edge case, precondition docs added.
+- **hardware_guard.rs**: Magic numbers replaced with named constants (`PMC_ENABLE`, `PGRAPH_BIT`, `DEAD_SENTINEL`).
+
+### Changed (hotSpring barracuda)
+- **IPC dedup**: Shared `primal_bridge::jsonrpc_request()` envelope builder; `glowplug_client` and `niche::send_registration` refactored to use shared transport.
+- **GPU module DRY**: `gpu/mod.rs` extracted `open_from_adapter_inner()`; `hardware_calibration.rs` extracted `summarize_tiers()`; `precision_brain.rs` extracted shared `finish()` bootstrap.
+- **Experiment bin hygiene**: 6 experiment bins now use `HOTSPRING_BDF` env var fallback instead of hardcoded BDF; `exp154`/`exp158` cross-referenced; `dual_dispatch.rs` `#[allow(dead_code)]` replaced with `#[expect(dead_code, reason="...")]`.
+
+### Verified
+- `cargo fmt` clean on both repos
+- `cargo clippy -- -W clippy::pedantic -W clippy::nursery` passes (warnings only, no errors)
+- `#![forbid(unsafe_code)]` holds in hotSpring library code
+- No `#[allow()]` in production code (only in fossilized archives)
+
 ## Property 3 CHECKSUMS + Script Fix (April 17, 2026)
 
 ### Added

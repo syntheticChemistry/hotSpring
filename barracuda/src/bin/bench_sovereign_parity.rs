@@ -26,12 +26,9 @@ use hotspring_barracuda::gpu::GpuF64;
 
 // ── Shader sources (loaded from lattice/shaders/) ────────────────────────────
 
-const WILSON_PLAQUETTE_WGSL: &str =
-    include_str!("../lattice/shaders/wilson_plaquette_f64.wgsl");
-const SUM_REDUCE_WGSL: &str =
-    include_str!("../lattice/shaders/sum_reduce_f64.wgsl");
-const CG_COMPUTE_ALPHA_WGSL: &str =
-    include_str!("../lattice/shaders/cg_compute_alpha_f64.wgsl");
+const WILSON_PLAQUETTE_WGSL: &str = include_str!("../lattice/shaders/wilson_plaquette_f64.wgsl");
+const SUM_REDUCE_WGSL: &str = include_str!("../lattice/shaders/sum_reduce_f64.wgsl");
+const CG_COMPUTE_ALPHA_WGSL: &str = include_str!("../lattice/shaders/cg_compute_alpha_f64.wgsl");
 
 const DIAG_WRITE_CONST_WGSL: &str = r#"
 @group(0) @binding(0) var<uniform> params: vec4<u32>;
@@ -42,20 +39,16 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     out[gid.x] = f64(42.0);
 }
 "#;
-const SU3_GAUGE_FORCE_WGSL: &str =
-    include_str!("../lattice/shaders/su3_gauge_force_f64.wgsl");
-const METROPOLIS_WGSL: &str =
-    include_str!("../lattice/shaders/metropolis_f64.wgsl");
-const DIRAC_STAGGERED_WGSL: &str =
-    include_str!("../lattice/shaders/dirac_staggered_f64.wgsl");
+const SU3_GAUGE_FORCE_WGSL: &str = include_str!("../lattice/shaders/su3_gauge_force_f64.wgsl");
+const METROPOLIS_WGSL: &str = include_str!("../lattice/shaders/metropolis_f64.wgsl");
+const DIRAC_STAGGERED_WGSL: &str = include_str!("../lattice/shaders/dirac_staggered_f64.wgsl");
 const STAGGERED_FERMION_FORCE_WGSL: &str =
     include_str!("../lattice/shaders/staggered_fermion_force_f64.wgsl");
 const FERMION_ACTION_SUM_WGSL: &str =
     include_str!("../lattice/shaders/fermion_action_sum_f64.wgsl");
 const HAMILTONIAN_ASSEMBLY_WGSL: &str =
     include_str!("../lattice/shaders/hamiltonian_assembly_f64.wgsl");
-const CG_KERNELS_WGSL: &str =
-    include_str!("../lattice/shaders/cg_kernels_f64.wgsl");
+const CG_KERNELS_WGSL: &str = include_str!("../lattice/shaders/cg_kernels_f64.wgsl");
 
 // ── Kernel descriptors ───────────────────────────────────────────────────────
 
@@ -207,11 +200,10 @@ fn run_vendor(
 ) -> Result<(Vec<u8>, f64), String> {
     let inputs = (kernel.setup)(volume);
 
-    let module = device
-        .create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some(kernel.name),
-            source: wgpu::ShaderSource::Wgsl(kernel.wgsl.into()),
-        });
+    let module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        label: Some(kernel.name),
+        source: wgpu::ShaderSource::Wgsl(kernel.wgsl.into()),
+    });
 
     let mut bind_group_entries = Vec::new();
     let mut buffers: Vec<wgpu::Buffer> = Vec::new();
@@ -451,8 +443,7 @@ fn run_sovereign(
     for _ in 0..iters {
         ctx.dispatch(&compiled, &all_handles, wg)
             .map_err(|e| format!("sovereign dispatch: {e}"))?;
-        ctx.sync()
-            .map_err(|e| format!("sovereign sync: {e}"))?;
+        ctx.sync().map_err(|e| format!("sovereign sync: {e}"))?;
     }
     let elapsed = t0.elapsed().as_secs_f64() / iters as f64;
 
@@ -532,10 +523,7 @@ async fn main() {
     eprintln!("  coral-reef SASS vs wgpu/Vulkan on QCD WGSL shaders");
     eprintln!("═══════════════════════════════════════════════════════════\n");
 
-    let volumes: &[(u32, &str)] = &[
-        (256, "4^4"),
-        (4096, "8^4"),
-    ];
+    let volumes: &[(u32, &str)] = &[(256, "4^4"), (4096, "8^4")];
     let warmup = 2;
     let iters = 5;
     let max_ulp_tolerance = 4;
@@ -554,9 +542,7 @@ async fn main() {
 
     // ── Vendor context (wgpu) ────────────────────────────────────────────────
     let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
-    let adapters: Vec<wgpu::Adapter> = instance
-        .enumerate_adapters(wgpu::Backends::all())
-        .await;
+    let adapters: Vec<wgpu::Adapter> = instance.enumerate_adapters(wgpu::Backends::all()).await;
 
     if adapters.is_empty() {
         eprintln!("  No wgpu GPU adapters found.");
@@ -584,20 +570,16 @@ async fn main() {
             eprintln!("━━━ {}: {} ({} sites) ━━━", kernel.name, vol_name, volume);
 
             // Vendor dispatch
-            let (vendor_data, vendor_time) = match run_vendor(
-                device, queue, kernel, volume, warmup, iters,
-            ) {
-                Ok(r) => r,
-                Err(e) => {
-                    eprintln!("  vendor FAIL: {e}");
-                    any_failure = true;
-                    continue;
-                }
-            };
-            eprintln!(
-                "  vendor:    {:.3} ms/dispatch",
-                vendor_time * 1000.0,
-            );
+            let (vendor_data, vendor_time) =
+                match run_vendor(device, queue, kernel, volume, warmup, iters) {
+                    Ok(r) => r,
+                    Err(e) => {
+                        eprintln!("  vendor FAIL: {e}");
+                        any_failure = true;
+                        continue;
+                    }
+                };
+            eprintln!("  vendor:    {:.3} ms/dispatch", vendor_time * 1000.0,);
 
             // Sovereign dispatch
             if let Some(ref mut ctx) = sovereign_ctx {
@@ -620,11 +602,8 @@ async fn main() {
 
                 match run_sovereign(ctx, kernel, volume, warmup, iters) {
                     Ok((sovereign_data, sovereign_time, _)) => {
-                        let (parity_ok, max_ulp) = compare_f64_results(
-                            &vendor_data,
-                            &sovereign_data,
-                            max_ulp_tolerance,
-                        );
+                        let (parity_ok, max_ulp) =
+                            compare_f64_results(&vendor_data, &sovereign_data, max_ulp_tolerance);
                         eprintln!(
                             "  sovereign: {:.3} ms/dispatch, parity={}, max_ulp={}",
                             sovereign_time * 1000.0,
@@ -685,16 +664,46 @@ async fn main() {
         wgsl: &'static str,
     }
     let hmc_shaders: &[CompileTarget] = &[
-        CompileTarget { name: "wilson_plaquette_f64", wgsl: WILSON_PLAQUETTE_WGSL },
-        CompileTarget { name: "sum_reduce_f64", wgsl: SUM_REDUCE_WGSL },
-        CompileTarget { name: "cg_compute_alpha_f64", wgsl: CG_COMPUTE_ALPHA_WGSL },
-        CompileTarget { name: "su3_gauge_force_f64", wgsl: SU3_GAUGE_FORCE_WGSL },
-        CompileTarget { name: "metropolis_f64", wgsl: METROPOLIS_WGSL },
-        CompileTarget { name: "dirac_staggered_f64", wgsl: DIRAC_STAGGERED_WGSL },
-        CompileTarget { name: "staggered_fermion_force_f64", wgsl: STAGGERED_FERMION_FORCE_WGSL },
-        CompileTarget { name: "fermion_action_sum_f64", wgsl: FERMION_ACTION_SUM_WGSL },
-        CompileTarget { name: "hamiltonian_assembly_f64", wgsl: HAMILTONIAN_ASSEMBLY_WGSL },
-        CompileTarget { name: "cg_kernels_f64", wgsl: CG_KERNELS_WGSL },
+        CompileTarget {
+            name: "wilson_plaquette_f64",
+            wgsl: WILSON_PLAQUETTE_WGSL,
+        },
+        CompileTarget {
+            name: "sum_reduce_f64",
+            wgsl: SUM_REDUCE_WGSL,
+        },
+        CompileTarget {
+            name: "cg_compute_alpha_f64",
+            wgsl: CG_COMPUTE_ALPHA_WGSL,
+        },
+        CompileTarget {
+            name: "su3_gauge_force_f64",
+            wgsl: SU3_GAUGE_FORCE_WGSL,
+        },
+        CompileTarget {
+            name: "metropolis_f64",
+            wgsl: METROPOLIS_WGSL,
+        },
+        CompileTarget {
+            name: "dirac_staggered_f64",
+            wgsl: DIRAC_STAGGERED_WGSL,
+        },
+        CompileTarget {
+            name: "staggered_fermion_force_f64",
+            wgsl: STAGGERED_FERMION_FORCE_WGSL,
+        },
+        CompileTarget {
+            name: "fermion_action_sum_f64",
+            wgsl: FERMION_ACTION_SUM_WGSL,
+        },
+        CompileTarget {
+            name: "hamiltonian_assembly_f64",
+            wgsl: HAMILTONIAN_ASSEMBLY_WGSL,
+        },
+        CompileTarget {
+            name: "cg_kernels_f64",
+            wgsl: CG_KERNELS_WGSL,
+        },
     ];
 
     let compile_targets: &[(&str, NvArch)] = &[

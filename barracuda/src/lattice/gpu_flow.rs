@@ -185,6 +185,10 @@ impl FlowReduceBuffers {
 ///
 /// Caller must validate that `integrator` is not `Rk2` before calling.
 fn coeffs_for(integrator: FlowIntegrator) -> LscfrkCoefficients {
+    debug_assert!(
+        !matches!(integrator, FlowIntegrator::Rk2),
+        "RK2 is not a 2N-storage scheme; gpu_gradient_flow must reject before coeffs_for"
+    );
     match integrator {
         FlowIntegrator::Euler => LscfrkCoefficients {
             a: &[0.0],

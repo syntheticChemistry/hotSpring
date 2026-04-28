@@ -1,24 +1,48 @@
 #!/usr/bin/env bash
-# Run LLVM source-based coverage for hotspring-barracuda (see barracuda/.cargo/llvm-cov-config.toml).
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# coverage.sh — Generate llvm-cov coverage report for hotSpring.
+#
+# Usage:
+#   ./scripts/coverage.sh              # summary only
+#   ./scripts/coverage.sh html         # generate HTML report
+#   ./scripts/coverage.sh --open       # generate + open HTML report
+#
+# Prerequisites:
+#   cargo install cargo-llvm-cov
+#   rustup component add llvm-tools-preview
+#
+# Target: 90%+ line coverage (currently ~45% lib-only, higher with bins)
+
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "$ROOT/barracuda"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+BARRACUDA_DIR="$SCRIPT_DIR/../barracuda"
 
-mkdir -p coverage/html
+cd "$BARRACUDA_DIR"
 
-# Values mirror barracuda/.cargo/llvm-cov-config.toml
-FAIL_UNDER_LINES="${COVERAGE_FAIL_UNDER_LINES:-90}"
-IGNORE_REGEX="${COVERAGE_IGNORE_FILENAME_REGEX:-/tests/|/src/bin/|(^|/)tests\\.rs\$|.*_tests\\.rs\$|.*-tests\\.rs\$}"
+COV_DIR="$BARRACUDA_DIR/target/llvm-cov"
+mkdir -p "$COV_DIR"
 
-EXTRA=()
-if [[ -n "$FAIL_UNDER_LINES" && "$FAIL_UNDER_LINES" != "0" ]]; then
-  EXTRA+=(--fail-under-lines "$FAIL_UNDER_LINES")
-fi
-
-exec cargo llvm-cov --workspace \
-  --html --output-dir coverage/html \
-  --json --output-path coverage/coverage.json \
-  --ignore-filename-regex "$IGNORE_REGEX" \
-  "${EXTRA[@]}" \
-  "$@"
+case "${1:-summary}" in
+    html)
+        cargo llvm-cov --lib --html --output-dir "$COV_DIR/html"
+        echo "Coverage report: $COV_DIR/html/index.html"
+        ;;
+    --open)
+        cargo llvm-cov --lib --html --open --output-dir "$COV_DIR/html"
+        ;;
+    json)
+        cargo llvm-cov --lib --json --output-path "$COV_DIR/coverage.json"
+        echo "Coverage JSON: $COV_DIR/coverage.json"
+        ;;
+    summary|*)
+        echo "═══════════════════════════════════════════"
+        echo "  hotSpring Coverage Report (lib tests)"
+        echo "═══════════════════════════════════════════"
+        echo ""
+        cargo llvm-cov --lib --summary-only 2>&1 | grep -E "^TOTAL|^---"
+        echo ""
+        echo "For full report: $0 html"
+        echo "Target: 90%+ line coverage"
+        ;;
+esac

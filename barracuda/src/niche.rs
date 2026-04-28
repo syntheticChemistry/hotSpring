@@ -489,16 +489,9 @@ pub fn register_with_target(our_socket: &Path) {
         "version": NICHE_VERSION,
     });
 
-    if let Ok(reg_json) = serde_json::to_string(&serde_json::json!({
-        "jsonrpc": "2.0",
-        "id": 1,
-        "method": "lifecycle.register",
-        "params": reg_payload,
-    })) {
-        match send_registration(&biomeos_path, &reg_json) {
-            Ok(()) => info!(target: "biomeos", "registered with lifecycle manager"),
-            Err(e) => warn!(target: "biomeos", "lifecycle.register failed (non-fatal): {e}"),
-        }
+    match send_registration(&biomeos_path, "lifecycle.register", &reg_payload) {
+        Ok(()) => info!(target: "biomeos", "registered with lifecycle manager"),
+        Err(e) => warn!(target: "biomeos", "lifecycle.register failed (non-fatal): {e}"),
     }
 
     let physics_mappings = physics_semantic_mappings();
@@ -521,53 +514,31 @@ pub fn register_with_target(our_socket: &Path) {
             payload["operation_dependencies"] = operation_dependencies();
             payload["cost_estimates"] = cost_estimates();
         }
-        let cap_json = serde_json::json!({
-            "jsonrpc": "2.0",
-            "id": 2,
-            "method": "capability.register",
-            "params": payload,
-        });
-        if let Ok(json_str) = serde_json::to_string(&cap_json) {
-            let _ = send_registration(&biomeos_path, &json_str);
-        }
+        let _ = send_registration(&biomeos_path, "capability.register", &payload);
     }
 
     let mut registered = 0u32;
     for cap in LOCAL_CAPABILITIES {
-        let cap_json = serde_json::json!({
-            "jsonrpc": "2.0",
-            "id": 3,
-            "method": "capability.register",
-            "params": {
-                "primal": NICHE_NAME,
-                "capability": cap,
-                "socket": &sock_str,
-                "served_locally": true,
-            },
+        let params = serde_json::json!({
+            "primal": NICHE_NAME,
+            "capability": cap,
+            "socket": &sock_str,
+            "served_locally": true,
         });
-        if let Ok(json_str) = serde_json::to_string(&cap_json)
-            && send_registration(&biomeos_path, &json_str).is_ok()
-        {
+        if send_registration(&biomeos_path, "capability.register", &params).is_ok() {
             registered += 1;
         }
     }
 
     for (cap, provider) in ROUTED_CAPABILITIES {
-        let cap_json = serde_json::json!({
-            "jsonrpc": "2.0",
-            "id": 4,
-            "method": "capability.register",
-            "params": {
-                "primal": NICHE_NAME,
-                "capability": cap,
-                "socket": &sock_str,
-                "served_locally": false,
-                "canonical_provider": provider,
-            },
+        let params = serde_json::json!({
+            "primal": NICHE_NAME,
+            "capability": cap,
+            "socket": &sock_str,
+            "served_locally": false,
+            "canonical_provider": provider,
         });
-        if let Ok(json_str) = serde_json::to_string(&cap_json) {
-            let _ = send_registration(&biomeos_path, &json_str);
-        }
+        let _ = send_registration(&biomeos_path, "capability.register", &params);
     }
 
     let total = LOCAL_CAPABILITIES.len() + ROUTED_CAPABILITIES.len();
@@ -594,25 +565,20 @@ fn physics_semantic_mappings() -> serde_json::Value {
     serde_json::Value::Object(map)
 }
 
-/// Best-effort JSON-RPC send over Unix socket (fire-and-forget style).
-fn send_registration(socket_path: &std::path::Path, json: &str) -> Result<(), std::io::Error> {
-    use std::io::{Read, Write};
-    use std::os::unix::net::UnixStream;
-    use std::time::Duration;
-
-    let mut stream = UnixStream::connect(socket_path)?;
-    stream.set_write_timeout(Some(Duration::from_secs(2)))?;
-    stream.set_read_timeout(Some(Duration::from_secs(2)))?;
-    stream.write_all(json.as_bytes())?;
-    stream.write_all(b"\n")?;
-    stream.flush()?;
-    let mut buf = vec![0u8; 4096];
-    let _ = stream.read(&mut buf);
-    Ok(())
+/// Best-effort JSON-RPC registration RPC (uses [`crate::primal_bridge::send_jsonrpc`] / [`crate::primal_bridge::jsonrpc_request`] wire format).
+fn send_registration(
+    socket_path: &std::path::Path,
+    method: &str,
+    params: &serde_json::Value,
+) -> Result<(), String> {
+    crate::primal_bridge::send_jsonrpc(socket_path, method, params).map(|_| ())
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
+#[expect(
+    clippy::expect_used,
+    reason = "niche manifest tests use expect on fixtures"
+)]
 mod tests {
     use super::*;
 

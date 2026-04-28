@@ -233,8 +233,7 @@ fn expand_devices(file: &FleetFile) -> Vec<FleetDeviceRoute> {
 #[must_use]
 pub fn probe_ember_socket(socket_path: &Path) -> bool {
     send_jsonrpc(socket_path, "ember.status", &serde_json::json!({}))
-        .map(|resp| resp.get("result").is_some())
-        .unwrap_or(false)
+        .is_ok_and(|resp| resp.get("result").is_some())
 }
 
 /// Routes GPU work using fleet discovery + optional socket probes.

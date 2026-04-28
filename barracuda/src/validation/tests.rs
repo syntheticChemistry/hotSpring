@@ -249,12 +249,14 @@ fn composition_result_exit_code_skip_aware() {
     r.check_skip("a", "no primals");
     assert_eq!(r.exit_code_skip_aware(), 2, "all skipped = exit 2");
 
-    let mut r2 = CompositionResult::new("test").with_sink(std::sync::Arc::new(ValidationSink::Null));
+    let mut r2 =
+        CompositionResult::new("test").with_sink(std::sync::Arc::new(ValidationSink::Null));
     r2.check_bool("ok", true, "yes");
     r2.check_skip("b", "no primal");
     assert_eq!(r2.exit_code_skip_aware(), 0, "pass + skip = exit 0");
 
-    let mut r3 = CompositionResult::new("test").with_sink(std::sync::Arc::new(ValidationSink::Null));
+    let mut r3 =
+        CompositionResult::new("test").with_sink(std::sync::Arc::new(ValidationSink::Null));
     r3.check_bool("fail", false, "no");
     r3.check_skip("b", "no primal");
     assert_eq!(r3.exit_code_skip_aware(), 1, "fail + skip = exit 1");

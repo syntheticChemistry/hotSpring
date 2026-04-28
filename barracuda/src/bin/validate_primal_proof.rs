@@ -68,9 +68,18 @@ fn main() {
     let bd_alive = ctx.get_by_capability("crypto").is_some_and(|ep| ep.alive);
     let ts_alive = ctx.get_by_capability("compute").is_some_and(|ep| ep.alive);
 
-    println!("  barraCuda (math):  {}", if bc_alive { "ALIVE" } else { "DOWN" });
-    println!("  BearDog (crypto):  {}", if bd_alive { "ALIVE" } else { "DOWN" });
-    println!("  toadStool (compute): {}", if ts_alive { "ALIVE" } else { "DOWN" });
+    println!(
+        "  barraCuda (math):  {}",
+        if bc_alive { "ALIVE" } else { "DOWN" }
+    );
+    println!(
+        "  BearDog (crypto):  {}",
+        if bd_alive { "ALIVE" } else { "DOWN" }
+    );
+    println!(
+        "  toadStool (compute): {}",
+        if ts_alive { "ALIVE" } else { "DOWN" }
+    );
     println!();
 
     // ════════════════════════════════════════════════════════════════════
@@ -91,7 +100,10 @@ fn main() {
             Ok(resp) => {
                 let has_result = resp.get("result").is_some();
                 harness.check_bool("tensor.create returns result", has_result);
-                println!("  tensor.create: {}", if has_result { "OK" } else { "FAIL" });
+                println!(
+                    "  tensor.create: {}",
+                    if has_result { "OK" } else { "FAIL" }
+                );
 
                 if let Some(tensor_id) = resp
                     .get("result")
@@ -108,7 +120,10 @@ fn main() {
                     );
                     match scale_result {
                         Ok(sr) => {
-                            harness.check_bool("tensor.scale returns result", sr.get("result").is_some());
+                            harness.check_bool(
+                                "tensor.scale returns result",
+                                sr.get("result").is_some(),
+                            );
                             println!("  tensor.scale(A=208): OK");
                         }
                         Err(e) => {
@@ -158,7 +173,7 @@ fn main() {
                     let expected = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0];
                     let values: Vec<f64> = result_data
                         .iter()
-                        .filter_map(|v| v.as_f64())
+                        .filter_map(serde_json::Value::as_f64)
                         .collect();
                     if values.len() == 9 {
                         let max_err: f64 = values
@@ -208,7 +223,8 @@ fn main() {
                     .and_then(|d| d.as_array())
                 {
                     let expected = [11.0, 22.0, 33.0, 44.0];
-                    let values: Vec<f64> = data.iter().filter_map(|v| v.as_f64()).collect();
+                    let values: Vec<f64> =
+                        data.iter().filter_map(serde_json::Value::as_f64).collect();
                     let max_err: f64 = values
                         .iter()
                         .zip(expected.iter())
@@ -238,7 +254,7 @@ fn main() {
         // Python baseline: np.mean([0.333, 0.334, 0.332, 0.335, 0.331]) = 0.333
         let plaquette_obs = [0.333, 0.334, 0.332, 0.335, 0.331];
         let python_mean = 0.333;
-        let python_std = 0.001_414_213_562_373_095_1; // np.std(obs, ddof=0)
+        let python_std = 0.001_414_213_562_373_095; // np.std(obs, ddof=0)
 
         let mean_result = ctx.call_by_capability(
             "math",
@@ -250,7 +266,7 @@ fn main() {
                 if let Some(ipc_mean) = resp
                     .get("result")
                     .and_then(|r| r.get("mean").or_else(|| r.get("value")))
-                    .and_then(|v| v.as_f64())
+                    .and_then(serde_json::Value::as_f64)
                 {
                     let rel_err = ((ipc_mean - python_mean) / python_mean).abs();
                     harness.check_upper(
@@ -258,7 +274,9 @@ fn main() {
                         rel_err,
                         tolerances::COMPOSITION_SEMF_PARITY_REL,
                     );
-                    println!("  IPC mean: {ipc_mean:.6}  Python: {python_mean:.6}  rel_err: {rel_err:.2e}");
+                    println!(
+                        "  IPC mean: {ipc_mean:.6}  Python: {python_mean:.6}  rel_err: {rel_err:.2e}"
+                    );
                 } else {
                     harness.check_bool("stats.mean result format", false);
                 }
@@ -279,11 +297,17 @@ fn main() {
                 if let Some(ipc_std) = resp
                     .get("result")
                     .and_then(|r| r.get("std_dev").or_else(|| r.get("value")))
-                    .and_then(|v| v.as_f64())
+                    .and_then(serde_json::Value::as_f64)
                 {
                     let rel_err = ((ipc_std - python_std) / python_std).abs();
-                    harness.check_upper("stats.std_dev parity", rel_err, tolerances::COMPOSITION_SEMF_PARITY_REL);
-                    println!("  IPC std:  {ipc_std:.6e}  Python: {python_std:.6e}  rel_err: {rel_err:.2e}");
+                    harness.check_upper(
+                        "stats.std_dev parity",
+                        rel_err,
+                        tolerances::COMPOSITION_SEMF_PARITY_REL,
+                    );
+                    println!(
+                        "  IPC std:  {ipc_std:.6e}  Python: {python_std:.6e}  rel_err: {rel_err:.2e}"
+                    );
                 } else {
                     harness.check_bool("stats.std_dev result format", false);
                 }
@@ -315,7 +339,10 @@ fn main() {
             Ok(resp) => {
                 let has_result = resp.get("result").is_some();
                 harness.check_bool("compute.dispatch returns result", has_result);
-                println!("  dispatch: {}", if has_result { "OK" } else { "no result" });
+                println!(
+                    "  dispatch: {}",
+                    if has_result { "OK" } else { "no result" }
+                );
             }
             Err(e) => {
                 harness.check_bool("compute.dispatch callable", false);
@@ -335,7 +362,10 @@ fn main() {
             Ok(resp) => {
                 let has_result = resp.get("result").is_some();
                 harness.check_bool("compute.dispatch via barraCuda", has_result);
-                println!("  dispatch via barraCuda: {}", if has_result { "OK" } else { "no result" });
+                println!(
+                    "  dispatch via barraCuda: {}",
+                    if has_result { "OK" } else { "no result" }
+                );
             }
             Err(e) => {
                 harness.check_bool("compute.dispatch callable", false);
@@ -402,7 +432,7 @@ fn main() {
                 if let Some(val) = resp
                     .get("result")
                     .and_then(|r| r.get("value"))
-                    .and_then(|v| v.as_f64())
+                    .and_then(serde_json::Value::as_f64)
                 {
                     println!("  SEMF_PARITY_REL: {val:.2e}");
                 } else {
@@ -424,17 +454,17 @@ fn main() {
     // ════════════════════════════════════════════════════════════════════
     println!("═══ Probe 8: validate.gpu_stack ═══");
     if bc_alive {
-        let gpu_result = ctx.call_by_capability(
-            "math",
-            "validate.gpu_stack",
-            serde_json::json!({}),
-        );
+        let gpu_result =
+            ctx.call_by_capability("math", "validate.gpu_stack", serde_json::json!({}));
         match gpu_result {
             Ok(resp) => {
                 let has_result = resp.get("result").is_some();
                 harness.check_bool("validate.gpu_stack returns result", has_result);
                 if let Some(result) = resp.get("result") {
-                    if let Some(gpu_ok) = result.get("gpu_available").and_then(|v| v.as_bool()) {
+                    if let Some(gpu_ok) = result
+                        .get("gpu_available")
+                        .and_then(serde_json::Value::as_bool)
+                    {
                         println!("  GPU available: {gpu_ok}");
                     }
                     if let Some(backend) = result.get("backend").and_then(|v| v.as_str()) {
@@ -475,9 +505,9 @@ fn main() {
         let surf = -18.56 * a.powf(2.0 / 3.0);
         let coul = -0.711 * (z as f64) * (z as f64 - 1.0) / a.powf(1.0 / 3.0);
         let asym = -23.28 * ((z as f64) - (n as f64)).powi(2) / a;
-        let pair_delta = if z % 2 == 0 && n % 2 == 0 {
+        let pair_delta = if z.is_multiple_of(2) && n.is_multiple_of(2) {
             12.0 / a.sqrt()
-        } else if z % 2 != 0 && n % 2 != 0 {
+        } else if !z.is_multiple_of(2) && !n.is_multiple_of(2) {
             -12.0 / a.sqrt()
         } else {
             0.0
@@ -486,17 +516,14 @@ fn main() {
         let terms = [vol, surf, coul, asym, pair_delta];
         let local_sum: f64 = terms.iter().sum();
 
-        let sum_via_ipc = ctx.call_by_capability(
-            "math",
-            "stats.mean",
-            serde_json::json!({ "values": terms }),
-        );
+        let sum_via_ipc =
+            ctx.call_by_capability("math", "stats.mean", serde_json::json!({ "values": terms }));
         match sum_via_ipc {
             Ok(resp) => {
                 if let Some(ipc_mean) = resp
                     .get("result")
                     .and_then(|r| r.get("mean").or_else(|| r.get("value")))
-                    .and_then(|v| v.as_f64())
+                    .and_then(serde_json::Value::as_f64)
                 {
                     // barraCuda returns mean; multiply by N to get sum
                     let ipc_sum = ipc_mean * terms.len() as f64;
@@ -506,7 +533,9 @@ fn main() {
                         rel_err,
                         tolerances::COMPOSITION_SEMF_PARITY_REL,
                     );
-                    println!("  Rust sum:  {local_sum:.4}  IPC sum: {ipc_sum:.4}  rel_err: {rel_err:.2e}");
+                    println!(
+                        "  Rust sum:  {local_sum:.4}  IPC sum: {ipc_sum:.4}  rel_err: {rel_err:.2e}"
+                    );
                 } else {
                     harness.check_bool("SEMF IPC result format", false);
                 }

@@ -72,7 +72,7 @@ mod tests {
     use crate::provenance::SLY4_PARAMS;
 
     #[test]
-    #[allow(clippy::float_cmp)] // exact known value (0.0)
+    #[expect(clippy::float_cmp, reason = "exact known value (0.0)")]
     fn semf_zero_mass_returns_zero() {
         assert_eq!(semf_binding_energy(0, 0, &SLY4_PARAMS), 0.0);
     }

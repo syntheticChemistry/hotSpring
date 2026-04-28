@@ -24,5 +24,4 @@ pub use harness::{Check, HardwareProfile, ToleranceMode, ValidationHarness};
 pub use telemetry::TelemetryWriter;
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests;

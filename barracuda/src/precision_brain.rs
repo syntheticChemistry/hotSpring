@@ -78,7 +78,11 @@ fn detect_sovereign_available() -> bool {
         return true;
     }
     let nucleus = NucleusContext::detect();
-    nucleus.by_domain("shader").is_some_and(|e| e.alive)
+    // Domain `"shader"` is coralReef; fallback: `.coralreef()`.
+    nucleus
+        .by_domain("shader")
+        .or_else(|| nucleus.coralreef())
+        .is_some_and(|e| e.alive)
 }
 
 /// Backend-agnostic precision route descriptor.
@@ -111,14 +115,15 @@ pub struct PrecisionBrain {
 }
 
 impl PrecisionBrain {
-    /// Probe the GPU and build the routing table.
-    ///
-    /// Runs 4 compilation probes (F32, F64, DF64, F64Precise) and uses
-    /// the results to build a safe routing table for all physics domains.
-    /// Detects coralReef sovereign compilation availability and factors
-    /// it into routing when NVVM transcendental risk is present.
-    pub fn new(gpu: &GpuF64) -> Self {
-        let mut calibration = HardwareCalibration::probe(gpu);
+    fn finish<F>(mut calibration: HardwareCalibration, adapter: &str, build_route_table: F) -> Self
+    where
+        F: FnOnce(&HardwareCalibration) -> [PrecisionTier; 12],
+    {
+        debug_assert_eq!(
+            adapter,
+            calibration.adapter_name.as_str(),
+            "adapter hint must match probed calibration.adapter_name"
+        );
 
         if calibration.nvvm_transcendental_risk && detect_sovereign_available() {
             calibration.set_sovereign_available();
@@ -130,7 +135,7 @@ impl PrecisionBrain {
 
         eprintln!("[Brain] {calibration}");
 
-        let route_table = build_route_table(&calibration, gpu);
+        let route_table = build_route_table(&calibration);
 
         let brain = Self {
             calibration,
@@ -144,37 +149,33 @@ impl PrecisionBrain {
         brain
     }
 
+    /// Probe the GPU and build the routing table.
+    ///
+    /// Runs 4 compilation probes (F32, F64, DF64, F64Precise) and uses
+    /// the results to build a safe routing table for all physics domains.
+    /// Detects coralReef sovereign compilation availability and factors
+    /// it into routing when NVVM transcendental risk is present.
+    pub fn new(gpu: &GpuF64) -> Self {
+        Self::finish(
+            HardwareCalibration::probe(gpu),
+            gpu.adapter_name.as_str(),
+            |cal| build_route_table(cal, gpu),
+        )
+    }
+
     /// Probe any `GpuBackend` and build the routing table.
     ///
     /// Backend-agnostic version of [`new`] — works with both wgpu and
     /// sovereign IPC backends.
     pub fn new_from_backend<B: barracuda::device::backend::GpuBackend>(backend: &B) -> Self {
-        let mut calibration = HardwareCalibration::probe_backend(backend);
-
-        if calibration.nvvm_transcendental_risk && detect_sovereign_available() {
-            calibration.set_sovereign_available();
-            eprintln!(
-                "[Brain] coralReef sovereign bypass detected — \
-                 NVVM-blocked tiers unlockable via WGSL → SASS pipeline"
-            );
-        }
-
-        eprintln!("[Brain] {calibration}");
-
-        let caps = backend.capabilities();
-        let hw_native = caps.has_hardware_f64;
-        let route_table = ALL_DOMAINS.map(|domain| route_domain(domain, &calibration, hw_native));
-
-        let brain = Self {
-            calibration,
-            route_table,
-        };
-
-        for (i, domain) in ALL_DOMAINS.iter().enumerate() {
-            eprintln!("[Brain] {:?} → {:?}", domain, brain.route_table[i]);
-        }
-
-        brain
+        Self::finish(
+            HardwareCalibration::probe_backend(backend),
+            backend.name(),
+            |cal| {
+                let hw_native = backend.capabilities().has_hardware_f64;
+                ALL_DOMAINS.map(|domain| route_domain(domain, cal, hw_native))
+            },
+        )
     }
 
     /// Route a physics domain to the best available precision tier.
@@ -227,11 +228,7 @@ impl PrecisionBrain {
     /// via `backend.dispatch_compute(route.into_descriptor(...))`. This
     /// enables sovereign dispatch through coralReef, wgpu, or any future backend.
     #[must_use]
-    pub fn route_descriptor(
-        &self,
-        domain: PhysicsDomain,
-        shader_source: &str,
-    ) -> PrecisionRoute {
+    pub fn route_descriptor(&self, domain: PhysicsDomain, shader_source: &str) -> PrecisionRoute {
         let tier = self.route(domain);
         let (f64_shader, df64_shader) = match tier {
             PrecisionTier::F32 => (false, false),
@@ -445,7 +442,10 @@ mod tests {
     use super::*;
     use crate::hardware_calibration::TierCapability;
 
-    #[allow(clippy::fn_params_excessive_bools)]
+    #[expect(
+        clippy::fn_params_excessive_bools,
+        reason = "test helper wires tier capability flags explicitly"
+    )]
     fn make_cal(
         f32_ok: bool,
         f64_ok: bool,

@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-#![expect(missing_docs, reason = "hardware register definitions are self-documenting by name")]
+#![expect(
+    missing_docs,
+    reason = "hardware register definitions are self-documenting by name"
+)]
 //! Vendor-agnostic register map abstraction for GPU reverse engineering.
 //!
 //! Each GPU architecture provides a `RegisterMap` implementation that

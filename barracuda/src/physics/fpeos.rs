@@ -255,7 +255,10 @@ pub fn helium_reference() -> FpeosTable {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used)]
+#[expect(
+    clippy::unwrap_used,
+    reason = "EOS table tests unwrap interpolation at grid points."
+)]
 mod tests {
     use super::*;
 

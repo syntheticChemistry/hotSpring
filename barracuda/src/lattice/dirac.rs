@@ -390,7 +390,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::float_cmp)] // exact known phases (±1.0)
+    #[expect(clippy::float_cmp, reason = "exact known phases (±1.0)")]
     fn staggered_phases() {
         assert_eq!(staggered_phase([0, 0, 0, 0], 0), 1.0);
         assert_eq!(staggered_phase([1, 0, 0, 0], 1), -1.0);

@@ -251,7 +251,6 @@ pub fn l2_objective(params: &[f64], nuclei: &[(usize, usize, f64)]) -> f64 {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::unwrap_used)]
 mod tests {
     use super::*;
     use crate::provenance::SLY4_PARAMS;

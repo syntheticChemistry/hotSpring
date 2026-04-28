@@ -206,7 +206,10 @@ fn velocity_features_multiple_frames() {
 }
 
 #[test]
-#[allow(clippy::expect_used)]
+#[expect(
+    clippy::expect_used,
+    reason = "export_weights is infallible for trained ESN in this test"
+)]
 fn npu_predict_return_state_consistent() {
     let config = EsnConfig {
         input_size: 3,

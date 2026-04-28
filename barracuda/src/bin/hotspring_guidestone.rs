@@ -36,9 +36,7 @@
 #![forbid(unsafe_code)]
 
 use primalspring::checksums;
-use primalspring::composition::{
-    self, CompositionContext, validate_liveness, validate_parity,
-};
+use primalspring::composition::{self, CompositionContext, validate_liveness, validate_parity};
 use primalspring::tolerances;
 use primalspring::validation::ValidationResult;
 
@@ -76,11 +74,7 @@ fn main() {
     v.section("NUCLEUS: Discovery + Liveness");
 
     let mut ctx = CompositionContext::from_live_discovery_with_fallback();
-    let alive = validate_liveness(
-        &mut ctx,
-        &mut v,
-        &["tensor", "security", "compute"],
-    );
+    let alive = validate_liveness(&mut ctx, &mut v, &["tensor", "security", "compute"]);
 
     if alive == 0 {
         eprintln!("[guideStone] No NUCLEUS primals discovered — bare certification only.");
@@ -117,7 +111,7 @@ fn validate_deterministic(v: &mut ValidationResult) {
     let be2 = semf_binding_energy(82, 126, &SLY4_PARAMS);
     v.check_bool(
         "deterministic:semf_pb208_identical",
-        be1 == be2,
+        be1.total_cmp(&be2).is_eq(),
         &format!("run1={be1}, run2={be2}"),
     );
 
@@ -131,8 +125,7 @@ fn validate_deterministic(v: &mut ValidationResult) {
     v.check_bool(
         "deterministic:tolerance_ordering",
         hotspring_barracuda::tolerances::COMPOSITION_SEMF_PARITY_REL
-            < hotspring_barracuda::tolerances::COMPOSITION_PLAQUETTE_PARITY_ABS
-                .max(1.0),
+            < hotspring_barracuda::tolerances::COMPOSITION_PLAQUETTE_PARITY_ABS.max(1.0),
         "SEMF rel tol < plaquette abs tol ceiling",
     );
 }
@@ -145,7 +138,11 @@ fn validate_traceable(v: &mut ValidationResult) {
     v.check_bool(
         "traceable:sly4_params_populated",
         SLY4_PARAMS.len() == 10 && SLY4_PARAMS[0] != 0.0,
-        &format!("SLY4_PARAMS: {} entries, t0={}", SLY4_PARAMS.len(), SLY4_PARAMS[0]),
+        &format!(
+            "SLY4_PARAMS: {} entries, t0={}",
+            SLY4_PARAMS.len(),
+            SLY4_PARAMS[0]
+        ),
     );
 
     let niche = hotspring_barracuda::niche::NICHE_NAME;
@@ -173,8 +170,7 @@ fn validate_self_verifying(v: &mut ValidationResult) {
     let candidates = ["deny.toml", "barracuda/deny.toml"];
     let deny_content = candidates
         .iter()
-        .filter_map(|p| std::fs::read_to_string(p).ok())
-        .next();
+        .find_map(|p| std::fs::read_to_string(p).ok());
     match deny_content {
         Some(content) => {
             v.check_bool(
@@ -388,7 +384,10 @@ fn validate_provenance_witness(ctx: &mut CompositionContext, v: &mut ValidationR
             }
         }
         Err(e) if e.is_connection_error() => {
-            v.check_skip("crypto:blake3_witness", &format!("security not available: {e}"));
+            v.check_skip(
+                "crypto:blake3_witness",
+                &format!("security not available: {e}"),
+            );
             v.check_skip("crypto:blake3_determinism", "security not available");
         }
         Err(e) if e.is_protocol_error() => {

@@ -31,8 +31,6 @@ use hotspring_barracuda::glowplug_client::GlowplugClient;
 use hotspring_barracuda::primal_bridge::NucleusContext;
 use hotspring_barracuda::validation::ValidationHarness;
 
-const DEFAULT_BDF: &str = "0000:03:00.0";
-
 fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");
     println!("║  Warm Handoff — Experiment 167                             ║");
@@ -42,7 +40,9 @@ fn main() {
     let mut harness = ValidationHarness::new("exp167_warm_handoff");
 
     let args: Vec<String> = std::env::args().collect();
-    let bdf = extract_arg(&args, "--bdf").unwrap_or_else(|| DEFAULT_BDF.to_string());
+    let bdf = extract_arg(&args, "--bdf").unwrap_or_else(|| {
+        std::env::var("HOTSPRING_BDF").unwrap_or_else(|_| "0000:03:00.0".to_string())
+    });
     println!("  Target BDF: {bdf}\n");
 
     let glowplug = connect_glowplug();
@@ -125,7 +125,10 @@ fn phase1_baseline(
             println!("  power:       {}", d.power);
             println!("  vram_alive:  {}", d.vram_alive);
             println!("  has_vfio_fd: {}", d.has_vfio_fd);
-            println!("  domains:     alive={}, faulted={}", d.domains_alive, d.domains_faulted);
+            println!(
+                "  domains:     alive={}, faulted={}",
+                d.domains_alive, d.domains_faulted
+            );
             harness.check_bool("device visible in glowplug", true);
             PreSwapState {
                 personality: d.personality.clone(),
@@ -146,8 +149,14 @@ fn phase1_baseline(
 
     match ember.status() {
         Ok(v) => {
-            let devices = v.get("devices").and_then(|d| d.as_array()).map(|a| a.len()).unwrap_or(0);
-            let uptime = v.get("uptime_secs").and_then(|u| u.as_u64()).unwrap_or(0);
+            let devices = v
+                .get("devices")
+                .and_then(|d| d.as_array())
+                .map_or(0, std::vec::Vec::len);
+            let uptime = v
+                .get("uptime_secs")
+                .and_then(serde_json::value::Value::as_u64)
+                .unwrap_or(0);
             println!("  ember: {devices} device(s) held, uptime {uptime}s");
             harness.check_bool("ember healthy", true);
         }
@@ -192,11 +201,7 @@ fn phase2_swap_to_nouveau(
     }
 }
 
-fn phase3_verify_nouveau(
-    harness: &mut ValidationHarness,
-    glowplug: &GlowplugClient,
-    bdf: &str,
-) {
+fn phase3_verify_nouveau(harness: &mut ValidationHarness, glowplug: &GlowplugClient, bdf: &str) {
     match glowplug.device_status(bdf) {
         Ok(d) => {
             println!("  personality: {}", d.personality);
@@ -262,9 +267,14 @@ fn phase5_verify_ember(
     // Verify ember re-acquired
     match ember.status() {
         Ok(v) => {
-            let devices: Vec<String> = v.get("devices")
+            let devices: Vec<String> = v
+                .get("devices")
                 .and_then(|d| d.as_array())
-                .map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect())
+                .map(|a| {
+                    a.iter()
+                        .filter_map(|x| x.as_str().map(String::from))
+                        .collect()
+                })
                 .unwrap_or_default();
             let held = devices.contains(&bdf.to_string());
             println!("  ember devices: {devices:?}");
@@ -284,7 +294,10 @@ fn phase5_verify_ember(
             println!("  personality: {} (want vfio)", d.personality);
             println!("  has_vfio_fd: {}", d.has_vfio_fd);
             println!("  vram_alive:  {}", d.vram_alive);
-            println!("  domains:     alive={}, faulted={}", d.domains_alive, d.domains_faulted);
+            println!(
+                "  domains:     alive={}, faulted={}",
+                d.domains_alive, d.domains_faulted
+            );
             println!("  power:       {}", d.power);
 
             harness.check_bool("device back on vfio after round-trip", is_vfio);
@@ -292,7 +305,9 @@ fn phase5_verify_ember(
 
             // The key result: did HBM2 training survive the round-trip?
             if d.vram_alive {
-                println!("\n  ✓ WARM HANDOFF SUCCESS: HBM2 state preserved through nouveau→vfio swap");
+                println!(
+                    "\n  ✓ WARM HANDOFF SUCCESS: HBM2 state preserved through nouveau→vfio swap"
+                );
                 println!("    Device is ready for open_warm() → GPFIFO channel → compute dispatch");
             } else {
                 println!("\n  ✗ WARM HANDOFF: VRAM not alive after round-trip");
@@ -307,7 +322,10 @@ fn phase5_verify_ember(
             println!("\n  Pre/post comparison:");
             println!("    personality: {} → {}", pre.personality, d.personality);
             println!("    vram_alive:  {} → {}", pre.vram_alive, d.vram_alive);
-            println!("    domains:     {} → {}", pre.domains_alive, d.domains_alive);
+            println!(
+                "    domains:     {} → {}",
+                pre.domains_alive, d.domains_alive
+            );
         }
         Err(e) => {
             println!("  device.get failed: {e}");
@@ -320,15 +338,14 @@ fn phase5_verify_ember(
 
 fn connect_glowplug() -> Option<GlowplugClient> {
     let nucleus = NucleusContext::detect();
-    match GlowplugClient::from_nucleus(&nucleus) {
-        Ok(g) => Some(g),
-        Err(_) => {
-            let sock = Path::new("/run/coralreef/glowplug.sock");
-            if sock.exists() {
-                Some(GlowplugClient::from_socket(sock))
-            } else {
-                None
-            }
+    if let Ok(g) = GlowplugClient::from_nucleus(&nucleus) {
+        Some(g)
+    } else {
+        let sock = Path::new("/run/coralreef/glowplug.sock");
+        if sock.exists() {
+            Some(GlowplugClient::from_socket(sock))
+        } else {
+            None
         }
     }
 }

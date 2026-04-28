@@ -116,6 +116,27 @@ pub struct HardwareCalibration {
 }
 
 impl HardwareCalibration {
+    fn summarize_tiers(tiers: Vec<TierCapability>, adapter_name: String) -> Self {
+        let has_any_f64 = tiers.iter().any(|t| {
+            t.dispatches && matches!(t.tier, PrecisionTier::F64 | PrecisionTier::F64Precise)
+        });
+        let df64_safe = tiers
+            .iter()
+            .any(|t| t.dispatches && t.tier == PrecisionTier::DF64);
+        let nvvm_transcendental_risk = tiers
+            .iter()
+            .any(|t| t.dispatches && !t.transcendentals_safe);
+
+        Self {
+            adapter_name,
+            tiers,
+            has_any_f64,
+            df64_safe,
+            nvvm_transcendental_risk,
+            sovereign_compile_available: false,
+        }
+    }
+
     /// Probe all precision tiers on the given GPU.
     ///
     /// Each tier is tested in isolation via `catch_unwind`. A failed probe
@@ -170,24 +191,7 @@ impl HardwareCalibration {
             tiers.push(cap);
         }
 
-        let has_any_f64 = tiers.iter().any(|t| {
-            t.dispatches && matches!(t.tier, PrecisionTier::F64 | PrecisionTier::F64Precise)
-        });
-        let df64_safe = tiers
-            .iter()
-            .any(|t| t.dispatches && t.tier == PrecisionTier::DF64);
-        let nvvm_transcendental_risk = tiers
-            .iter()
-            .any(|t| t.dispatches && !t.transcendentals_safe);
-
-        Self {
-            adapter_name,
-            tiers,
-            has_any_f64,
-            df64_safe,
-            nvvm_transcendental_risk,
-            sovereign_compile_available: false,
-        }
+        Self::summarize_tiers(tiers, adapter_name)
     }
 
     /// Probe all precision tiers on any `GpuBackend` implementation.
@@ -234,24 +238,7 @@ impl HardwareCalibration {
             tiers.push(cap);
         }
 
-        let has_any_f64 = tiers.iter().any(|t| {
-            t.dispatches && matches!(t.tier, PrecisionTier::F64 | PrecisionTier::F64Precise)
-        });
-        let df64_safe = tiers
-            .iter()
-            .any(|t| t.dispatches && t.tier == PrecisionTier::DF64);
-        let nvvm_transcendental_risk = tiers
-            .iter()
-            .any(|t| t.dispatches && !t.transcendentals_safe);
-
-        Self {
-            adapter_name,
-            tiers,
-            has_any_f64,
-            df64_safe,
-            nvvm_transcendental_risk,
-            sovereign_compile_available: false,
-        }
+        Self::summarize_tiers(tiers, adapter_name)
     }
 
     /// Mark sovereign compilation as available (coralReef detected).
@@ -392,9 +379,7 @@ fn probe_tier(
     // NVK (Mesa open source) handles all modes correctly.
     // F32 and native F64 (with FMA) always work.
     let transcendentals_safe = dispatches
-        && (tier == PrecisionTier::F32
-            || tier == PrecisionTier::F64
-            || is_open_source_driver);
+        && (tier == PrecisionTier::F32 || tier == PrecisionTier::F64 || is_open_source_driver);
 
     TierCapability {
         tier,
@@ -486,35 +471,29 @@ fn probe_tier_backend<B: GpuBackend>(
     let label = format!("probe_{tier:?}_arith");
     let input_bytes: &[u8] = bytemuck::cast_slice(input);
 
-    let input_buf = match backend.alloc_buffer_init(&format!("{label}_in"), input_bytes) {
-        Ok(b) => b,
-        Err(_) => {
-            return TierCapability {
-                tier,
-                compiles: false,
-                dispatches: false,
-                transcendentals_safe: false,
-                compile_us: 0.0,
-                dispatch_us: 0.0,
-                probe_ulp: f64::NAN,
-            };
-        }
+    let Ok(input_buf) = backend.alloc_buffer_init(&format!("{label}_in"), input_bytes) else {
+        return TierCapability {
+            tier,
+            compiles: false,
+            dispatches: false,
+            transcendentals_safe: false,
+            compile_us: 0.0,
+            dispatch_us: 0.0,
+            probe_ulp: f64::NAN,
+        };
     };
 
     let output_size = (PROBE_N * std::mem::size_of::<f64>()) as u64;
-    let output_buf = match backend.alloc_buffer(&format!("{label}_out"), output_size) {
-        Ok(b) => b,
-        Err(_) => {
-            return TierCapability {
-                tier,
-                compiles: false,
-                dispatches: false,
-                transcendentals_safe: false,
-                compile_us: 0.0,
-                dispatch_us: 0.0,
-                probe_ulp: f64::NAN,
-            };
-        }
+    let Ok(output_buf) = backend.alloc_buffer(&format!("{label}_out"), output_size) else {
+        return TierCapability {
+            tier,
+            compiles: false,
+            dispatches: false,
+            transcendentals_safe: false,
+            compile_us: 0.0,
+            dispatch_us: 0.0,
+            probe_ulp: f64::NAN,
+        };
     };
 
     let t_compile = Instant::now();
@@ -557,19 +536,16 @@ fn probe_tier_backend<B: GpuBackend>(
         };
     }
 
-    let output_bytes = match backend.download(&output_buf, output_size) {
-        Ok(b) => b,
-        Err(_) => {
-            return TierCapability {
-                tier,
-                compiles: true,
-                dispatches: false,
-                transcendentals_safe: false,
-                compile_us,
-                dispatch_us: 0.0,
-                probe_ulp: f64::NAN,
-            };
-        }
+    let Ok(output_bytes) = backend.download(&output_buf, output_size) else {
+        return TierCapability {
+            tier,
+            compiles: true,
+            dispatches: false,
+            transcendentals_safe: false,
+            compile_us,
+            dispatch_us: 0.0,
+            probe_ulp: f64::NAN,
+        };
     };
 
     let output: Vec<f64> = output_bytes

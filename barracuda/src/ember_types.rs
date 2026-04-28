@@ -243,7 +243,10 @@ pub struct DeviceLifecycleResult {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
+#[expect(
+    clippy::expect_used,
+    reason = "serde round-trip tests use expect on static JSON"
+)]
 mod tests {
     use super::*;
 

@@ -176,8 +176,8 @@ fn main() {
             r.mean_plaquette,
             r.std_plaquette,
             r.mean_polyakov,
-            r.t0.map(|v| format!("{v:.3}")).unwrap_or("—".into()),
-            r.w0.map(|v| format!("{v:.3}")).unwrap_or("—".into()),
+            r.t0.map_or_else(|| "—".into(), |v| format!("{v:.3}")),
+            r.w0.map_or_else(|| "—".into(), |v| format!("{v:.3}")),
             r.wall_seconds,
         );
     }

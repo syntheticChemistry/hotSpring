@@ -259,7 +259,6 @@ pub fn validate_dielectric(gamma: f64, kappa: f64) -> DielectricValidation {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 

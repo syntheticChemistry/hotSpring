@@ -228,7 +228,11 @@ pub fn dual_gpu_trajectories(
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
+#[expect(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "GPU/tokio test setup uses unwrap and expect on known-good paths."
+)]
 mod tests {
     use super::super::uni_hamiltonian::{
         WGSL_FERMION_ACTION_SUM, WGSL_HAMILTONIAN_ASSEMBLY, WGSL_METROPOLIS,

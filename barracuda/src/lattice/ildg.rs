@@ -380,7 +380,10 @@ fn parse_format_xml(xml: &str, lfn: Option<&str>) -> io::Result<IldgMetadata> {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
+#[expect(
+    clippy::unwrap_used,
+    reason = "ILDG roundtrip tests unwrap I/O on in-memory buffers."
+)]
 mod tests {
     use super::*;
 

@@ -343,11 +343,11 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 - **Action:** Pivot coral-driver `FalconBootSolver` to support a Volta-specific
   path that bypasses WPR/ACR. Analyze mmiotrace from Exp 173 artifacts.
 
-### GAP-HS-031: Blackwell SM Warp Exception — Invalid Address Space (Exp 175-177)
+### GAP-HS-031: Blackwell SM Warp Exception — Invalid Address Space (Exp 175-177) (RESOLVED)
 
 - **Primal:** coralReef (coral-driver / coral-kmod / uvm_compute)
-- **Severity:** Critical (blocks sovereign dispatch on RTX 5060)
-- **Status:** Root cause identified — fix requires kmod GPU_PROMOTE_CTX
+- **Severity:** Critical (was blocking sovereign dispatch on RTX 5060)
+- **Status:** RESOLVED (April 19, 2026) — RTX 5060 sovereign VFIO dispatch LIVE. f64 div/sqrt MUFU polyfills, semaphore fence ordering, UVM write access, QMD v5.0 all proven.
 - **Description:** Experiment 175-177 evolved the Blackwell dispatch investigation.
   The full WGSL→SM120 SASS compile pipeline works on RTX 5060 (GB206). Channel
   creation, GPFIFO allocation, and doorbell mechanism all work via coral-kmod.
@@ -430,8 +430,8 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
   Validated via `bench_sovereign_parity` and `validate_pure_gauge --features sovereign-dispatch`
   (16/16 checks pass). QMD v5.0 implemented for Blackwell.
   
-  Remaining blocker for dispatch: GAP-HS-031 (GPFIFO NOP timeout on Blackwell).
-- **Action:** None — compile parity resolved. Dispatch parity tracked in GAP-HS-031.
+  GAP-HS-031 RESOLVED — RTX 5060 sovereign VFIO dispatch LIVE (April 19, 2026).
+- **Action:** None — both compile parity and dispatch parity resolved.
 
 ---
 

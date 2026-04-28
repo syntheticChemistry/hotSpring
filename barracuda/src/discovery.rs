@@ -269,15 +269,13 @@ pub fn probe_npu_available() -> bool {
     #[cfg(not(feature = "npu-hw"))]
     {
         NPU_DEVICE_DIRS.iter().any(|dir| {
-            std::fs::read_dir(dir)
-                .map(|entries| {
-                    entries.filter_map(Result::ok).any(|e| {
-                        let name = e.file_name();
-                        let name = name.to_string_lossy();
-                        NPU_DEVICE_PREFIXES.iter().any(|p| name.starts_with(p))
-                    })
+            std::fs::read_dir(dir).is_ok_and(|entries| {
+                entries.filter_map(Result::ok).any(|e| {
+                    let name = e.file_name();
+                    let name = name.to_string_lossy();
+                    NPU_DEVICE_PREFIXES.iter().any(|p| name.starts_with(p))
                 })
-                .unwrap_or(false)
+            })
         })
     }
 }
@@ -327,7 +325,11 @@ pub fn try_create_npu_steering(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::unwrap_used)]
+#[expect(
+    clippy::expect_used,
+    clippy::unwrap_used,
+    reason = "discovery tests use unwrap/expect on known paths and UTF-8"
+)]
 mod tests {
     use super::*;
 

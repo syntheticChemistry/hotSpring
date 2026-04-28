@@ -288,7 +288,10 @@ pub fn ground_state_energy(z: f64, kappa: f64, l: u32, n_grid: usize, r_max: f64
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used)]
+#[expect(
+    clippy::unwrap_used,
+    reason = "Coulomb eigenvalue tests unwrap on converged grids."
+)]
 mod tests {
     use super::*;
 

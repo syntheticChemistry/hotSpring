@@ -93,13 +93,12 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::assertions_on_constants)] // constants sanity check
     fn n_dim_is_four() {
         assert_eq!(N_DIM, 4);
     }
 
     #[test]
-    #[allow(clippy::assertions_on_constants)] // constants sanity check
+    #[expect(clippy::assertions_on_constants, reason = "constants sanity check")]
     fn guards_are_positive() {
         assert!(LATTICE_DIVISION_GUARD > 0.0);
         assert!(HOT_START_EPSILON > 0.0);

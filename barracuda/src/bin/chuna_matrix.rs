@@ -54,7 +54,7 @@ use hotspring_barracuda::lattice::qcdml::{QcdmlEnsembleInfo, generate_ensemble_x
 use hotspring_barracuda::lattice::task_matrix::{SweepParams, TaskMatrix};
 use hotspring_barracuda::lattice::wilson::Lattice;
 
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 fn main() {
     let argv: Vec<String> = std::env::args().skip(1).collect();
@@ -115,8 +115,8 @@ fn parse_kv<'a>(args: &'a [String], key: &str) -> Option<&'a str> {
 
 fn parse_hardware(args: &[String]) -> HardwareTier {
     match parse_kv(args, "hardware") {
-        Some("gpu") | Some("consumer-gpu") => HardwareTier::ConsumerGpu,
-        Some("hpc") | Some("hpc-gpu") => HardwareTier::HpcGpu,
+        Some("gpu" | "consumer-gpu") => HardwareTier::ConsumerGpu,
+        Some("hpc" | "hpc-gpu") => HardwareTier::HpcGpu,
         Some("cluster") => HardwareTier::Cluster,
         _ => HardwareTier::Cpu,
     }
@@ -157,7 +157,7 @@ fn cmd_init(args: &[String]) {
     let observables: Vec<PhysicsProcess> = parse_kv(args, "observables")
         .unwrap_or("flow,topology,wilson")
         .split(',')
-        .filter_map(|s| parse_observable(s))
+        .filter_map(parse_observable)
         .collect();
 
     let n_configs: usize = parse_kv(args, "configs")
@@ -225,7 +225,7 @@ fn cmd_add(args: &[String]) {
         .unwrap_or(8);
 
     let observable = parse_kv(args, "observable")
-        .and_then(|s| parse_observable(s))
+        .and_then(parse_observable)
         .unwrap_or(PhysicsProcess::GradientFlow);
 
     let n_configs: usize = parse_kv(args, "configs")
@@ -317,15 +317,16 @@ fn cmd_run(args: &[String]) {
 
     let run_start = Instant::now();
     let mut tasks_run = 0usize;
+    let budget = Duration::from_secs_f64(max_seconds);
 
-    while run_start.elapsed().as_secs_f64() < max_seconds {
+    while run_start.elapsed() < budget {
         let Some(idx) = matrix.next_ready() else {
             println!("  No more ready tasks.");
             break;
         };
 
         let task = &matrix.tasks[idx];
-        let budget_left = max_seconds - run_start.elapsed().as_secs_f64();
+        let budget_left = budget.saturating_sub(run_start.elapsed()).as_secs_f64();
         if task.estimated_seconds > budget_left * 2.0 && tasks_run > 0 {
             println!(
                 "  Next task '{}' estimated at {} — exceeds remaining budget, stopping.",
@@ -349,7 +350,7 @@ fn cmd_run(args: &[String]) {
         let wall = task_start.elapsed().as_secs_f64();
         match result {
             Ok(output_path) => {
-                println!("  ✓ Completed in {:.1}s", wall);
+                println!("  ✓ Completed in {wall:.1}s");
                 matrix.mark_completed(idx, wall, output_path);
             }
             Err(e) => {
@@ -498,7 +499,7 @@ fn execute_task(
                 let meas_path = format!("{meas_dir}/flow_{:06}.json", meta.trajectory);
                 std::fs::write(&meas_path, meas.to_json()).map_err(|e| e.to_string())?;
 
-                let t0s = t0.map_or("N/A".to_string(), |v| format!("{v:.4}"));
+                let t0s = t0.map_or_else(|| "N/A".to_string(), |v| format!("{v:.4}"));
                 println!("    traj={}  t₀={}  Q={q:.2}", meta.trajectory, t0s);
             }
 
@@ -615,9 +616,13 @@ fn collect_lime_files(dir: &str) -> Vec<String> {
         return Vec::new();
     };
     let mut files: Vec<String> = entries
-        .filter_map(|e| e.ok())
+        .filter_map(std::result::Result::ok)
+        .filter(|e| {
+            e.path()
+                .extension()
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("lime"))
+        })
         .map(|e| e.path().display().to_string())
-        .filter(|p| p.ends_with(".lime"))
         .collect();
     files.sort();
     files

@@ -174,7 +174,10 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::unwrap_used)]
+    #[expect(
+        clippy::unwrap_used,
+        reason = "test inspects Err branch via unwrap_err"
+    )]
     fn from_via_question_mark_in_result() {
         fn inner() -> Result<(), HotSpringError> {
             let e: Result<(), _> = Err(barracuda::error::BarracudaError::device("test device err"));

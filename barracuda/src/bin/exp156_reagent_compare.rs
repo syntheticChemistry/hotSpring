@@ -23,7 +23,7 @@
 //!   [--output data/156/diff_report.json]
 //! ```
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 
 use hotspring_barracuda::validation::ValidationHarness;
@@ -36,7 +36,10 @@ struct RegObservation {
     value: u32,
     name: Option<String>,
     group: Option<String>,
-    #[expect(dead_code, reason = "experiment-specific code retained for reproducibility")]
+    #[expect(
+        dead_code,
+        reason = "experiment-specific code retained for reproducibility"
+    )]
     source: String,
 }
 
@@ -151,7 +154,7 @@ fn load_register_dump(path: &str, source: &str) -> Result<RegMap, String> {
     for entry in registers {
         let offset = entry
             .get("raw_offset")
-            .and_then(|v| v.as_u64())
+            .and_then(serde_json::Value::as_u64)
             .map(|v| v as u32)
             .or_else(|| {
                 entry
@@ -161,7 +164,7 @@ fn load_register_dump(path: &str, source: &str) -> Result<RegMap, String> {
             });
         let value = entry
             .get("raw_value")
-            .and_then(|v| v.as_u64())
+            .and_then(serde_json::Value::as_u64)
             .map(|v| v as u32)
             .or_else(|| {
                 entry
@@ -261,13 +264,9 @@ fn compare_maps(
     let mut reagent_only = 0usize;
     let mut domain_stats: BTreeMap<String, DomainStats> = BTreeMap::new();
 
-    let all_offsets: BTreeMap<u32, ()> = sovereign
-        .keys()
-        .chain(reagent.keys())
-        .map(|&k| (k, ()))
-        .collect();
+    let all_offsets: BTreeSet<u32> = sovereign.keys().chain(reagent.keys()).copied().collect();
 
-    for &offset in all_offsets.keys() {
+    for &offset in &all_offsets {
         let sov = sovereign.get(&offset);
         let rea = reagent.get(&offset);
 
@@ -312,7 +311,9 @@ fn compare_maps(
                 reagent_only += 1;
                 ("—".into(), format!("{:#010x}", r.value), "REA_ONLY".into())
             }
-            (None, None) => unreachable!(),
+            (None, None) => unreachable!(
+                "offset came from union of sovereign/reagent keys; at least one map must have it"
+            ),
         };
 
         entries.push(DiffEntry {

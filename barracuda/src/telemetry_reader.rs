@@ -214,8 +214,12 @@ fn split_kv(pair: &str) -> Option<(&str, &str)> {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used)]
 mod tests {
+    #![expect(
+        clippy::unwrap_used,
+        reason = "tests unwrap parsed values from known-good telemetry lines"
+    )]
+
     use super::*;
 
     #[test]

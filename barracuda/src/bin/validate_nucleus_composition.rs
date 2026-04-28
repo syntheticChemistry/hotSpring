@@ -26,7 +26,6 @@ use hotspring_barracuda::niche;
 use hotspring_barracuda::primal_bridge::NucleusContext;
 use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
-use serde_json;
 
 fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");
@@ -156,11 +155,17 @@ fn main() {
                 if let Some(ipc_be) = resp
                     .get("result")
                     .and_then(|r| r.get("binding_energy_mev"))
-                    .and_then(|v| v.as_f64())
+                    .and_then(serde_json::Value::as_f64)
                 {
                     let rel_err = ((local_be - ipc_be) / local_be).abs();
-                    harness.check_upper("SEMF: Rust vs IPC parity", rel_err, tolerances::COMPOSITION_SEMF_PARITY_REL);
-                    println!("    IPC  SEMF B.E.(Pb-208):    {ipc_be:.4} MeV  (rel_err: {rel_err:.2e})");
+                    harness.check_upper(
+                        "SEMF: Rust vs IPC parity",
+                        rel_err,
+                        tolerances::COMPOSITION_SEMF_PARITY_REL,
+                    );
+                    println!(
+                        "    IPC  SEMF B.E.(Pb-208):    {ipc_be:.4} MeV  (rel_err: {rel_err:.2e})"
+                    );
                 } else {
                     harness.check_bool("SEMF: IPC response", false);
                     println!("    IPC response missing binding_energy_mev");
@@ -173,8 +178,7 @@ fn main() {
         let dims = [4_usize, 4, 4, 4];
         let beta = 6.0;
         let seed = 42;
-        let lat =
-            hotspring_barracuda::lattice::wilson::Lattice::hot_start(dims, beta, seed);
+        let lat = hotspring_barracuda::lattice::wilson::Lattice::hot_start(dims, beta, seed);
         let local_plaq = lat.average_plaquette();
         println!("    Rust plaquette (4⁴ β=6.0): {local_plaq:.6}");
 
@@ -189,11 +193,17 @@ fn main() {
                 if let Some(ipc_plaq) = resp
                     .get("result")
                     .and_then(|r| r.get("plaquette"))
-                    .and_then(|v| v.as_f64())
+                    .and_then(serde_json::Value::as_f64)
                 {
                     let abs_err = (local_plaq - ipc_plaq).abs();
-                    harness.check_upper("Plaquette: Rust vs IPC parity", abs_err, tolerances::COMPOSITION_PLAQUETTE_PARITY_ABS);
-                    println!("    IPC  plaquette:             {ipc_plaq:.6} (abs_err: {abs_err:.2e})");
+                    harness.check_upper(
+                        "Plaquette: Rust vs IPC parity",
+                        abs_err,
+                        tolerances::COMPOSITION_PLAQUETTE_PARITY_ABS,
+                    );
+                    println!(
+                        "    IPC  plaquette:             {ipc_plaq:.6} (abs_err: {abs_err:.2e})"
+                    );
                 } else {
                     harness.check_bool("Plaquette: IPC response", false);
                 }
@@ -211,8 +221,8 @@ fn main() {
         ) {
             Ok(resp) => {
                 if let Some(result) = resp.get("result") {
-                    let accepted = result.get("accepted").and_then(|v| v.as_bool());
-                    let plaq = result.get("plaquette").and_then(|v| v.as_f64());
+                    let accepted = result.get("accepted").and_then(serde_json::Value::as_bool);
+                    let plaq = result.get("plaquette").and_then(serde_json::Value::as_f64);
                     if let (Some(acc), Some(p)) = (accepted, plaq) {
                         harness.check_bool("HMC: IPC trajectory", true);
                         println!("    IPC HMC: P={p:.6} accepted={acc}");

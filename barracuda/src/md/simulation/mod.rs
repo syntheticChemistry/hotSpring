@@ -375,7 +375,10 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::float_cmp)] // exact known constant (0.0) from energy initialization
+    #[expect(
+        clippy::float_cmp,
+        reason = "exact known constant (0.0) from energy initialization"
+    )]
     fn read_back_f64_byte_conversion_roundtrip() {
         let original: Vec<f64> = vec![0.0, 1.0, -1.0, std::f64::consts::PI];
         let bytes: Vec<u8> = original.iter().flat_map(|v| v.to_le_bytes()).collect();

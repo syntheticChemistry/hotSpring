@@ -162,7 +162,10 @@ fn check_pipeline_multi_output(harness: &mut ValidationHarness) {
     );
 
     // Exact parity check — independent readout weights produce distinct values
-    #[expect(clippy::float_cmp, reason = "determinism test: bit-identical outputs required")]
+    #[expect(
+        clippy::float_cmp,
+        reason = "determinism test: bit-identical outputs required"
+    )]
     let all_distinct = multi_preds
         .iter()
         .all(|p| p[0] != p[1] && p[1] != p[2] && p[0] != p[2]);
@@ -321,7 +324,10 @@ fn check_continuous_prediction(harness: &mut ValidationHarness) {
         .map(|_| esn.predict(&test).expect("ESN trained")[0])
         .collect();
     // Exact parity check — determinism: same input → bit-identical output
-    #[expect(clippy::float_cmp, reason = "determinism test: bit-identical outputs required")]
+    #[expect(
+        clippy::float_cmp,
+        reason = "determinism test: bit-identical outputs required"
+    )]
     let all_same = preds.windows(2).all(|w| w[0] == w[1]);
 
     println!("  20 streaming predictions: all identical = {all_same}");
@@ -335,7 +341,10 @@ fn check_continuous_prediction(harness: &mut ValidationHarness) {
     let mut npu = NpuSimulator::from_exported(&exported);
     let npu_preds: Vec<f64> = (0..20).map(|_| npu.predict(&test)[0]).collect();
     // Exact parity check — NpuSimulator determinism
-    #[expect(clippy::float_cmp, reason = "determinism test: bit-identical outputs required")]
+    #[expect(
+        clippy::float_cmp,
+        reason = "determinism test: bit-identical outputs required"
+    )]
     let npu_all_same = npu_preds.windows(2).all(|w| w[0] == w[1]);
 
     harness.check_bool(

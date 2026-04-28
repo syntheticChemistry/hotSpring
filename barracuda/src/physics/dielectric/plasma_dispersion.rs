@@ -76,7 +76,6 @@ pub fn epsilon_vlasov(k: f64, omega: Complex, params: &PlasmaParams) -> Complex 
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 

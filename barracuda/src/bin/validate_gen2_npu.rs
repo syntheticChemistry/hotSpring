@@ -22,7 +22,10 @@ use std::time::Instant;
 struct TrajRecord {
     beta: f64,
     #[serde(default)]
-    #[expect(dead_code, reason = "experiment-specific code retained for reproducibility")]
+    #[expect(
+        dead_code,
+        reason = "experiment-specific code retained for reproducibility"
+    )]
     mass: f64,
     plaquette: f64,
     accepted: bool,

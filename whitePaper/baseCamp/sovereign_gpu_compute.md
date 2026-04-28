@@ -1,6 +1,6 @@
 # baseCamp: Sovereign GPU Compute — GlowPlug & Falcon Boot Chain
 
-**Date:** 2026-03-25 (updated 2026-04-16 — **Sovereign pipeline COMPLETE**: fork-isolated MMIO, 6-stage init, PMU DEVINIT wired, warm handoff validated on Titan V, 908 tests)  
+**Date:** 2026-03-25 (updated 2026-04-27 — **RTX 5060 sovereign dispatch LIVE**, K80 init.rs split into 11 modules, IPC dedup, GPU solve tighten/refactor complete)  
 **Domain:** Hardware — PCIe GPU lifecycle, falcon microcontrollers, HBM2 management, PFIFO command submission, ACR secure boot, WPR construction, cross-driver profiling, daemon RPC orchestration, adaptive experiment loop, sysmem DMA, GV100 MMU v2 page tables, WPR2 hardware protection, Kepler PIO falcon loading, VBIOS DEVINIT, fault containment architecture, **firmware-agnostic interfacing, PMU mailbox protocol, DRM ioctl sovereign pipeline, SM70 SASS compute dispatch, fork-isolated MMIO gateway, staged sovereign init, PCI remove/rescan with kernel override handling**  
 **Experiments:** 060-176  
 **Hardware:** NVIDIA Titan V (GV100, 12GB HBM2), 2× Tesla K80 (GK210, Kepler), RTX 5060 (GB206, Blackwell, display/validator)
@@ -1317,12 +1317,59 @@ all three GPU generations.
 `dirac_staggered_f64`, `staggered_fermion_force_f64`, `fermion_action_sum_f64`,
 `hamiltonian_assembly_f64`, `cg_kernels_f64`.
 
+### RTX 5060 Sovereign Dispatch LIVE (April 19, 2026 — Exp 176+)
+
+**Full sovereign VFIO dispatch on RTX 5060 (SM120/Blackwell)**. Four hardware-level
+bugs fixed in coralReef Iter 85:
+
+| Bug | Fix |
+|-----|-----|
+| f64 division: `MUFU.RCP64H` returns 0 on SM120 | F2F(f64→f32) + MUFU.RCP + F2F(f32→f64) seed, 2 Newton-Raphson iterations |
+| f64 sqrt: `MUFU.RSQ64H` returns 0 on SM120 | F2F(f64→f32) + MUFU.RSQ + F2F(f32→f64) seed, 2 Newton-Raphson iterations |
+| `@builtin(num_workgroups)`: S2R NCTAID returns [0,0,0] on SM120 | LDC c[7][0/4/8] from driver constants CBUF |
+| Semaphore fence ordering | SET_REPORT_SEMAPHORE on compute engine subchannel (not PBDMA) |
+
+UVM write access: `gpu_mapping_type = 1` (ReadWriteAtomic). QMD v5.0 completeness:
+GRID_RESUME fields, SM_CONFIG_SHARED_MEM_SIZE, QMD_GROUP_ID = 0x1f.
+
+### GPU Solve Tighten and Refactor (April 27, 2026)
+
+**coralReef coral-driver**: The monolithic `vfio_compute/init.rs` (5466 LOC) was split
+into 11 focused modules, each under 1200 LOC:
+
+| Module | LOC | Responsibility |
+|--------|-----|---------------|
+| `gr_bar0.rs` | 214 | Firmware-blob-driven BAR0 register writes |
+| `warm_channel.rs` | 338 | Warm falcon restart and FECS channel init |
+| `kepler_cold.rs` | 425 | Kepler cold-boot (PRI ring → clocks → FECS) |
+| `kepler_warm.rs` | 1183 | Warm Kepler GR init |
+| `kepler_recovery.rs` | 223 | Cold recovery after bus reset |
+| `kepler_fecs_boot.rs` | 1687 | FECS/GPCCS firmware upload and boot |
+| `pmu.rs` | 176 | PMU falcon firmware boot |
+| `pgob.rs` | 174 | PGOB power gating control |
+| `pri.rs` | 321 | PRI ring management |
+| `quiesce.rs` | 66 | Engine quiesce before teardown |
+| `vbios_devinit.rs` | 561 | VBIOS DEVINIT script interpreter |
+
+Shared abstractions extracted:
+- `write_kepler_hub_station_params()` deduplicated across 3 files
+- `PGOB_POWER_STEPS` table deduplicated in `pgob.rs`
+- Dead code removed: `kepler_pclock_pre_init`, `kepler_pri_station_probe`
+- `kepler_csdata.rs`: visibility narrowed to `pub(crate)`, debug_assert for xfer==0
+- `hardware_guard.rs`: named constants (`PMC_ENABLE`, `PGRAPH_BIT`, `DEAD_SENTINEL`)
+
+**hotSpring barracuda**:
+- IPC dedup: shared `primal_bridge::jsonrpc_request()` envelope builder
+- GPU module DRY: `open_from_adapter_inner()`, `summarize_tiers()`, `finish()` extracted
+- Experiment bin hygiene: 6 bins use `HOTSPRING_BDF` env var, exp154/158 cross-referenced
+- `#[allow(dead_code)]` replaced with `#[expect(dead_code, reason="...")]`
+
+Both repos: `cargo fmt` clean, `cargo clippy -- -W clippy::pedantic -W clippy::nursery` pass.
+
 ### Next Steps
 
-1. **Sovereign dispatch**: Debug NOP GPFIFO timeout on RTX 5060 (GAP-HS-031 — USERD allocation, error notifier, channel scheduling)
-2. **K80 validation**: Reboot with legacy-only VFIO config to clear EBUSY on K80 VFIO groups
-3. **End-to-end sovereign boot**: `coralctl sovereign-boot 0000:03:00.0` via glowplug
-4. **Golden HBM2 capture**: Warm nouveau → capture oracle state → use as training seed
-5. **GSP RPC client**: Extend `PmuInterface` pattern to Turing/Ampere GSP message protocol
-6. **Cross-vendor validation**: Run the same WGSL→compute pipeline on MI50 (AMD) and Titan V in the same session
-7. **toadStool absorption**: Migrate ember's sovereign init into toadStool's hardware orchestration layer
+1. **K80 FECS boot**: Complete internal firmware protocol — full 4096-byte FECS/GPCCS firmware capture, csdata loading verified, golden context save
+2. **Titan V SEC2/ACR**: Resolve HS mode rejection on warm FECS (STARTCPU fails in secure mode). SBR hot reset via VFIO ioctl implemented.
+3. **Three-generation sovereign dispatch**: RTX 5060 (DONE) → Titan V → K80 all running the same WGSL→SASS→dispatch pipeline
+4. **Cross-vendor validation**: Run the same WGSL→compute pipeline on AMD and NVIDIA in the same session
+5. **toadStool absorption**: Migrate ember's sovereign init into toadStool's hardware orchestration layer

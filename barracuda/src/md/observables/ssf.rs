@@ -111,7 +111,6 @@ pub fn compute_ssf_gpu(
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
 

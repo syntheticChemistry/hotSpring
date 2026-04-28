@@ -6,8 +6,7 @@ pub fn iso8601_now() -> String {
     use std::time::SystemTime;
     let secs = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
+        .map_or(0, |d| d.as_secs());
     let days = (secs / 86400) as i64;
     let time_of_day = secs % 86400;
     let h = time_of_day / 3600;

@@ -53,7 +53,9 @@ fn main() {
             1 => evals_s[0],
             2 => evals_s[1],
             3 => evals_s[2],
-            _ => unreachable!(),
+            _ => {
+                unreachable!("HYDROGEN_EXACT must only use n=1,2,3; update this match if extended")
+            }
         };
         let rel_err = ((computed - exact) / exact).abs();
         let label = format!("H_{n}s vs exact");

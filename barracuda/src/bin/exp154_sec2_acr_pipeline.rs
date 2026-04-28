@@ -2,6 +2,8 @@
 
 //! Experiment 154: Titan V SEC2/ACR Pipeline (PMU-First Hypothesis)
 //!
+//! See also: `exp158_sec2_real_firmware` which extends this with real linux-firmware images.
+//!
 //! Routes the full SEC2/ACR boot pipeline through ember IPC, testing
 //! hypothesis A from Experiment 151: the BL's HS authentication needs
 //! keys/signatures that depend on prior PMU initialization.
@@ -59,7 +61,9 @@ fn main() {
     let mut harness = ValidationHarness::new("exp154_sec2_acr_pipeline");
 
     let args: Vec<String> = std::env::args().collect();
-    let bdf = extract_arg(&args, "--bdf").unwrap_or_else(|| "0000:03:00.0".to_string());
+    let bdf = extract_arg(&args, "--bdf").unwrap_or_else(|| {
+        std::env::var("HOTSPRING_BDF").unwrap_or_else(|_| "0000:03:00.0".to_string())
+    });
     println!("  Target BDF: {bdf}\n");
 
     let glowplug = connect_glowplug();
@@ -172,7 +176,7 @@ fn phase1_baseline(harness: &mut ValidationHarness, ember: &EmberClient, bdf: &s
             for (i, op) in ops.iter().enumerate() {
                 let val = result.read_value(i).unwrap_or(0xDEAD_DEAD);
                 let name = offset_label(op.offset);
-                println!("    [{:#08x}] {:<20} = {val:#010x}", op.offset, name,);
+                println!("    [{:#08x}] {:<20} = {val:#010x}", op.offset, name);
             }
             harness.check_bool("pre-boot MMIO baseline readable", true);
         }
@@ -358,7 +362,7 @@ fn phase4_sec2_acr(harness: &mut ValidationHarness, ember: &EmberClient, bdf: &s
                     f.sctl.map(|v| format!("{v:#010x}")),
                     f.mailbox0.map(|v| format!("{v:#010x}")),
                 );
-                let hs_reached = f.sctl.map_or(false, |s| s & 0x4000 != 0);
+                let hs_reached = f.sctl.is_some_and(|s| s & 0x4000 != 0);
                 println!("  HS mode reached: {hs_reached}");
                 harness.check_bool("SEC2 HS mode reached", hs_reached);
             }
@@ -391,10 +395,7 @@ fn phase5_brom_compare(harness: &mut ValidationHarness, ember: &EmberClient, bdf
                     all_badf = false;
                 }
             }
-            println!(
-                "  All BROM registers = 0xBADF5040 (uninitialized): {}",
-                all_badf
-            );
+            println!("  All BROM registers = 0xBADF5040 (uninitialized): {all_badf}");
             harness.check_bool("BROM post-boot state captured", true);
         }
         Err(e) => {
@@ -460,15 +461,14 @@ fn offset_label(offset: u32) -> &'static str {
 
 fn connect_glowplug() -> Option<GlowplugClient> {
     let nucleus = NucleusContext::detect();
-    match GlowplugClient::from_nucleus(&nucleus) {
-        Ok(g) => Some(g),
-        Err(_) => {
-            let sock = Path::new("/run/coralreef/glowplug.sock");
-            if sock.exists() {
-                Some(GlowplugClient::from_socket(sock))
-            } else {
-                None
-            }
+    if let Ok(g) = GlowplugClient::from_nucleus(&nucleus) {
+        Some(g)
+    } else {
+        let sock = Path::new("/run/coralreef/glowplug.sock");
+        if sock.exists() {
+            Some(GlowplugClient::from_socket(sock))
+        } else {
+            None
         }
     }
 }

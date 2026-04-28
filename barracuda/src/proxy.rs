@@ -305,7 +305,7 @@ impl LcgRng {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::float_cmp)]
+#[expect(clippy::float_cmp, reason = "proxy tests compare exact floats")]
 mod tests {
     use super::*;
 

@@ -333,7 +333,10 @@ fn trace_product(a: &Su3Matrix, b: &Su3Matrix) -> f64 {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used)]
+#[expect(
+    clippy::unwrap_used,
+    reason = "Unit tests unwrap lattice flow results on known-good fixtures."
+)]
 mod tests {
     use super::*;
 

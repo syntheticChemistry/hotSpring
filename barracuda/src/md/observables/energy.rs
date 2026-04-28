@@ -97,7 +97,7 @@ mod tests {
     use super::*;
 
     #[test]
-    #[allow(clippy::float_cmp)] // exact known values (0.0)
+    #[expect(clippy::float_cmp, reason = "exact known values (0.0)")]
     fn validate_energy_empty_history() {
         let config = crate::md::config::quick_test_case(500);
         let result = validate_energy(&[], &config);
@@ -173,7 +173,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::float_cmp)] // exact known value (0.0)
+    #[expect(clippy::float_cmp, reason = "exact known value (0.0)")]
     fn validate_energy_mean_near_zero_drift_safe() {
         let config = crate::md::config::quick_test_case(500);
         let history: Vec<EnergyRecord> = (0..20)

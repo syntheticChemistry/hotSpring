@@ -53,7 +53,9 @@ fn main() {
     let mut harness = ValidationHarness::new("exp155_k80_warm_fecs");
 
     let args: Vec<String> = std::env::args().collect();
-    let bdf = extract_arg(&args, "--bdf").unwrap_or_else(|| "0000:41:00.0".to_string());
+    let bdf = extract_arg(&args, "--bdf").unwrap_or_else(|| {
+        std::env::var("HOTSPRING_BDF").unwrap_or_else(|_| "0000:41:00.0".to_string())
+    });
     println!("  Target BDF: {bdf}\n");
 
     // ── Connect to glowplug + ember ──
@@ -81,17 +83,13 @@ fn main() {
     // Detect cold state from Phase 1 PGRAPH reading and skip the warm cycle.
     let pgraph_cold = ember
         .mmio_read(&bdf, PGRAPH_STATUS)
-        .map(|r| r.value & 0xFFFF_0000 == 0xBADF_0000)
-        .unwrap_or(true);
+        .map_or(true, |r| r.value & 0xFFFF_0000 == 0xBADF_0000);
 
     println!("\n━━━ Phase 2: Nouveau Warm Cycle ━━━\n");
     let warm_ok = if pgraph_cold {
         println!(
             "  Cold VFIO K80 detected (PGRAPH={:#010x}) — skipping warm cycle",
-            ember
-                .mmio_read(&bdf, PGRAPH_STATUS)
-                .map(|r| r.value)
-                .unwrap_or(0)
+            ember.mmio_read(&bdf, PGRAPH_STATUS).map_or(0, |r| r.value)
         );
         println!("  (Cold Kepler goes D-state on driver swap; use agentReagents VM to POST)");
         harness.check_bool("warm cycle skipped (cold VFIO)", true);
@@ -137,7 +135,7 @@ fn main() {
             result.ok, result.decontaminated
         );
     }
-    if let Ok(_) = glowplug.experiment_end(&bdf) {
+    if glowplug.experiment_end(&bdf).is_ok() {
         println!("  Experiment ended for {bdf}");
     }
 
@@ -158,7 +156,7 @@ fn phase1_baseline(harness: &mut ValidationHarness, ember: &EmberClient, bdf: &s
             println!("  MMIO batch (pre-warm):");
             for (i, op) in ops.iter().enumerate() {
                 let val = result.read_value(i).unwrap_or(0xDEAD_DEAD);
-                println!("    [{:#08x}] = {val:#010x}", op.offset,);
+                println!("    [{:#08x}] = {val:#010x}", op.offset);
             }
             harness.check_bool("pre-warm MMIO batch readable", true);
 
@@ -178,7 +176,7 @@ fn phase1_baseline(harness: &mut ValidationHarness, ember: &EmberClient, bdf: &s
 fn phase2_warm_cycle(
     harness: &mut ValidationHarness,
     glowplug: &GlowplugClient,
-    _ember: &EmberClient,
+    ember: &EmberClient,
     bdf: &str,
 ) -> bool {
     // Mark experiment start
@@ -224,7 +222,7 @@ fn phase2_warm_cycle(
     std::thread::sleep(Duration::from_secs(3));
 
     // Prepare DMA (AER mask, optional bus master)
-    match _ember.prepare_dma(bdf, false) {
+    match ember.prepare_dma(bdf, false) {
         Ok(r) => {
             println!(
                 "  DMA prepare: pmc_before={:?}, pmc_after={:?}",
@@ -299,18 +297,14 @@ fn phase3b_pmc_pgraph_enable(harness: &mut ValidationHarness, ember: &EmberClien
             match ember.mmio_write(bdf, PMC_ENABLE, target) {
                 Ok(_) => {
                     std::thread::sleep(std::time::Duration::from_millis(100));
-                    let after = ember
-                        .mmio_read(bdf, PMC_ENABLE)
-                        .map(|r| r.value)
-                        .unwrap_or(0);
+                    let after = ember.mmio_read(bdf, PMC_ENABLE).map_or(0, |r| r.value);
                     println!("  PMC_ENABLE after: {after:#010x}");
                     let pgraph_live = after & PGRAPH_BIT != 0;
                     println!("  PGRAPH enabled: {pgraph_live}");
 
                     let fecs_val = ember
                         .mmio_read(bdf, PGRAPH_STATUS)
-                        .map(|r| r.value)
-                        .unwrap_or(0xDEAD);
+                        .map_or(0xDEAD, |r| r.value);
                     println!("  FECS PGRAPH_STATUS after enable: {fecs_val:#010x}");
                     let fecs_responsive = fecs_val != 0xBADF_1201 && fecs_val != 0xBADF_1200;
                     println!("  FECS responsive: {fecs_responsive}");
@@ -426,15 +420,14 @@ fn phase6_fecs_state(harness: &mut ValidationHarness, ember: &EmberClient, bdf: 
 
 fn connect_glowplug() -> Option<GlowplugClient> {
     let nucleus = NucleusContext::detect();
-    match GlowplugClient::from_nucleus(&nucleus) {
-        Ok(g) => Some(g),
-        Err(_) => {
-            let sock = Path::new("/run/coralreef/glowplug.sock");
-            if sock.exists() {
-                Some(GlowplugClient::from_socket(sock))
-            } else {
-                None
-            }
+    if let Ok(g) = GlowplugClient::from_nucleus(&nucleus) {
+        Some(g)
+    } else {
+        let sock = Path::new("/run/coralreef/glowplug.sock");
+        if sock.exists() {
+            Some(GlowplugClient::from_socket(sock))
+        } else {
+            None
         }
     }
 }

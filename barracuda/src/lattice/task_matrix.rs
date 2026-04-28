@@ -357,7 +357,10 @@ pub struct StatusCounts {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
+#[expect(
+    clippy::unwrap_used,
+    reason = "Sweep/task-matrix tests unwrap known-good parameter grids."
+)]
 mod tests {
     use super::*;
 

@@ -142,7 +142,15 @@ impl ValidationHarness {
         self.active_substrate = None;
     }
 
-    fn push_check(&mut self, label: &str, passed: bool, observed: f64, expected: f64, tolerance: f64, mode: ToleranceMode) {
+    fn push_check(
+        &mut self,
+        label: &str,
+        passed: bool,
+        observed: f64,
+        expected: f64,
+        tolerance: f64,
+        mode: ToleranceMode,
+    ) {
         self.checks.push(Check {
             label: label.to_string(),
             passed,
@@ -162,7 +170,14 @@ impl ValidationHarness {
     /// Add an absolute tolerance check: |observed - expected| < tolerance
     pub fn check_abs(&mut self, label: &str, observed: f64, expected: f64, tolerance: f64) {
         let passed = (observed - expected).abs() < tolerance;
-        self.push_check(label, passed, observed, expected, tolerance, ToleranceMode::Absolute);
+        self.push_check(
+            label,
+            passed,
+            observed,
+            expected,
+            tolerance,
+            ToleranceMode::Absolute,
+        );
     }
 
     /// Add a relative tolerance check: |observed - expected| / |expected| < tolerance
@@ -172,17 +187,38 @@ impl ValidationHarness {
         } else {
             observed.abs() < tolerance
         };
-        self.push_check(label, passed, observed, expected, tolerance, ToleranceMode::Relative);
+        self.push_check(
+            label,
+            passed,
+            observed,
+            expected,
+            tolerance,
+            ToleranceMode::Relative,
+        );
     }
 
     /// Add an upper-bound check: observed < threshold
     pub fn check_upper(&mut self, label: &str, observed: f64, threshold: f64) {
-        self.push_check(label, observed < threshold, observed, threshold, threshold, ToleranceMode::UpperBound);
+        self.push_check(
+            label,
+            observed < threshold,
+            observed,
+            threshold,
+            threshold,
+            ToleranceMode::UpperBound,
+        );
     }
 
     /// Add a lower-bound check: observed > threshold
     pub fn check_lower(&mut self, label: &str, observed: f64, threshold: f64) {
-        self.push_check(label, observed > threshold, observed, threshold, threshold, ToleranceMode::LowerBound);
+        self.push_check(
+            label,
+            observed > threshold,
+            observed,
+            threshold,
+            threshold,
+            ToleranceMode::LowerBound,
+        );
     }
 
     /// Add a combined absolute-or-relative check.
@@ -197,12 +233,26 @@ impl ValidationHarness {
             abs_err
         };
         let passed = abs_err < tolerance || rel_err < tolerance;
-        self.push_check(label, passed, observed, expected, tolerance, ToleranceMode::Absolute);
+        self.push_check(
+            label,
+            passed,
+            observed,
+            expected,
+            tolerance,
+            ToleranceMode::Absolute,
+        );
     }
 
     /// Add a boolean pass/fail check.
     pub fn check_bool(&mut self, label: &str, passed: bool) {
-        self.push_check(label, passed, f64::from(u8::from(passed)), 1.0, 0.0, ToleranceMode::Absolute);
+        self.push_check(
+            label,
+            passed,
+            f64::from(u8::from(passed)),
+            1.0,
+            0.0,
+            ToleranceMode::Absolute,
+        );
     }
 
     /// Annotate the most recent check with domain metadata.
@@ -386,7 +436,11 @@ fn write_hardware_profiles(f: &mut std::fs::File, profiles: &[HardwareProfile]) 
         let _ = writeln!(f, "      \"vram_bytes\": {},", hp.vram_bytes);
         let _ = writeln!(f, "      \"precision_tiers\": {{");
         for (ti, (name, compiles, dispatch, ulp)) in hp.precision_tiers.iter().enumerate() {
-            let tcomma = if ti + 1 < hp.precision_tiers.len() { "," } else { "" };
+            let tcomma = if ti + 1 < hp.precision_tiers.len() {
+                ","
+            } else {
+                ""
+            };
             let _ = writeln!(
                 f,
                 "        \"{name}\": {{\"compiles\": {compiles}, \"dispatch_us\": {}, \"max_ulp\": {}}}{tcomma}",
@@ -397,7 +451,11 @@ fn write_hardware_profiles(f: &mut std::fs::File, profiles: &[HardwareProfile]) 
         let _ = writeln!(f, "      }},");
         let _ = writeln!(f, "      \"domain_routing\": {{");
         for (di, (domain, tier)) in hp.domain_routing.iter().enumerate() {
-            let dcomma = if di + 1 < hp.domain_routing.len() { "," } else { "" };
+            let dcomma = if di + 1 < hp.domain_routing.len() {
+                ","
+            } else {
+                ""
+            };
             let _ = writeln!(f, "        \"{domain}\": \"{tier}\"{dcomma}");
         }
         let _ = writeln!(f, "      }},");
@@ -442,7 +500,11 @@ fn write_checks_json(f: &mut std::fs::File, checks: &[Check]) {
             let _ = write!(f, ",\n      \"unit\": \"{u}\"");
         }
         if let Some(ref tj) = c.tolerance_justification {
-            let _ = write!(f, ",\n      \"tolerance_justification\": \"{}\"", escape_json(tj));
+            let _ = write!(
+                f,
+                ",\n      \"tolerance_justification\": \"{}\"",
+                escape_json(tj)
+            );
         }
         if let Some(ms) = c.duration_ms {
             let _ = write!(f, ",\n      \"duration_ms\": {ms}");
@@ -481,7 +543,16 @@ fn epoch_days_to_ymd(mut days: u64) -> (u64, u64, u64) {
     let mdays = [
         31,
         if leap { 29 } else { 28 },
-        31, 30, 31, 30, 31, 31, 30, 31, 30, 31,
+        31,
+        30,
+        31,
+        30,
+        31,
+        31,
+        30,
+        31,
+        30,
+        31,
     ];
     let mut mo = 0;
     for (i, &md) in mdays.iter().enumerate() {

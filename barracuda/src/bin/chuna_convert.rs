@@ -223,7 +223,7 @@ fn cmd_info(path: &str) {
     // Load and check
     let (lattice, meta) = read_gauge_config_file(path).expect("load config");
     let [nx, ny, nz, nt] = lattice.dims;
-    println!("\n  Dimensions:  {}×{}×{}×{}", nx, ny, nz, nt);
+    println!("\n  Dimensions:  {nx}×{ny}×{nz}×{nt}");
     println!("  β:           {:.4}", lattice.beta);
     println!("  Precision:   {} bit", meta.precision_bits);
     println!("  Trajectory:  {}", meta.trajectory);
@@ -282,10 +282,10 @@ fn cmd_convert(input: &str, output: &str, precision: u32) {
 
     write_gauge_config_file(output, &lattice, &meta).expect("write output");
 
-    let out_size = std::fs::metadata(output).map(|m| m.len()).unwrap_or(0);
+    let out_size = std::fs::metadata(output).map_or(0, |m| m.len());
     println!(
         "  Done: {} bytes → {} bytes ({:.2}s)",
-        std::fs::metadata(input).map(|m| m.len()).unwrap_or(0),
+        std::fs::metadata(input).map_or(0, |m| m.len()),
         out_size,
         start.elapsed().as_secs_f64()
     );
@@ -340,7 +340,7 @@ fn cmd_emit_qcdml(path: &str) {
     std::fs::write(&cfg_xml_path, &cfg_xml).expect("write config XML");
     println!("  → Config XML:   {cfg_xml_path}");
 
-    println!("  ILDG CRC:       {crc}",);
+    println!("  ILDG CRC:       {crc}");
     println!(
         "  Lattice:        {}×{}×{}×{}, β={:.4}, traj={}",
         nx, ny, nz, nt, meta.beta, meta.trajectory

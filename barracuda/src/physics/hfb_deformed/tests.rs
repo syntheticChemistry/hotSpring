@@ -27,7 +27,7 @@ fn test_deformed_basis_count() {
 }
 
 #[test]
-#[allow(clippy::float_cmp)] // exact known values
+#[expect(clippy::float_cmp, reason = "exact known values")]
 fn test_deformation_guess() {
     assert_eq!(deformation_guess(20, 20), 0.0);
     assert!(deformation_guess(66, 96) > 0.2);
@@ -175,7 +175,7 @@ fn find_fermi_bcs_conserves_particles() {
 }
 
 #[test]
-#[allow(clippy::float_cmp)] // exact known values
+#[expect(clippy::float_cmp, reason = "exact known values")]
 fn find_fermi_bcs_empty_returns_zero() {
     assert_eq!(DeformedHFB::find_fermi_bcs(&[], 8, 3.0), 0.0);
 }
@@ -240,7 +240,10 @@ fn basis_small_shell_closure_counts() {
 }
 
 #[test]
-#[allow(clippy::used_underscore_binding)]
+#[expect(
+    clippy::used_underscore_binding,
+    reason = "State field `_parity` is asserted against computed parity."
+)]
 fn basis_quantum_number_constraints() {
     let solver = DeformedHFB::new_adaptive(8, 8);
     for s in &solver.states {

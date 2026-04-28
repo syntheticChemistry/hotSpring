@@ -1,6 +1,6 @@
 # hotSpring — Experiment & Validation Index
 
-> **Last audited:** April 27, 2026 · **993 lib tests** · **166 binaries** · **84** `validate_*`/`hotspring_guidestone` binaries · **64/64 validation suites** · **128 WGSL shaders** · **guideStone bare: 30/30 checks pass** (Property 3 BLAKE3 CHECKSUMS verified).
+> **Last audited:** April 27, 2026 · **993 lib tests** · **166 binaries** · **84** `validate_*`/`hotspring_guidestone` binaries · **64/64 validation suites** · **128 WGSL shaders** · **guideStone bare: 30/30 checks pass** (Property 3 BLAKE3 CHECKSUMS verified). GPU solve tighten/refactor complete — coralReef init.rs (5466 LOC) split into 11 modules, hotSpring IPC deduplicated, GPU constructors DRYed.
 >
 > Experiments 001–176 validate Python→Rust fidelity, sovereign GPU compute, cross-generation WGSL→native ISA compilation, and primal composition proof. **Phase 2** (NUCLEUS composition validation) is tracked via `validate_nucleus_*` binaries and [`docs/PRIMAL_GAPS.md`](docs/PRIMAL_GAPS.md). **Phase 3** (primal composition proof) validates IPC-composed NUCLEUS patterns against direct Rust baselines.
 

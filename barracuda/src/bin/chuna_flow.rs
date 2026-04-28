@@ -185,9 +185,14 @@ fn collect_configs(args: &CliArgs) -> Vec<String> {
     if let Some(ref dir) = args.dir {
         if let Ok(entries) = std::fs::read_dir(dir) {
             let mut lime_files: Vec<String> = entries
-                .filter_map(|e| e.ok())
+                .filter_map(std::result::Result::ok)
+                .filter(|e| {
+                    e.path()
+                        .extension()
+                        .and_then(|ext| ext.to_str())
+                        .is_some_and(|ext| ext.eq_ignore_ascii_case("lime"))
+                })
                 .map(|e| e.path().display().to_string())
-                .filter(|p| p.ends_with(".lime"))
                 .collect();
             lime_files.sort();
             paths.extend(lime_files);
@@ -232,8 +237,8 @@ fn run_single_flow(
     println!(
         "  {} (ε={eps}): t₀={}, w₀={}, Q={q:.3} ({flow_secs:.2}s)",
         integrator_name(integrator),
-        t0.map_or("N/A".to_string(), |v| format!("{v:.6}")),
-        w0.map_or("N/A".to_string(), |v| format!("{v:.6}")),
+        t0.map_or_else(|| "N/A".to_string(), |v| format!("{v:.6}")),
+        w0.map_or_else(|| "N/A".to_string(), |v| format!("{v:.6}")),
     );
 
     let plaq = lattice.average_plaquette();
@@ -317,8 +322,8 @@ fn run_comparison(
         let q = topological_charge(&flow_lat);
         let secs = start.elapsed().as_secs_f64();
 
-        let t0s = t0.map_or("   N/A  ".to_string(), |v| format!("{v:8.5}"));
-        let w0s = w0.map_or("   N/A  ".to_string(), |v| format!("{v:8.5}"));
+        let t0s = t0.map_or_else(|| "   N/A  ".to_string(), |v| format!("{v:8.5}"));
+        let w0s = w0.map_or_else(|| "   N/A  ".to_string(), |v| format!("{v:8.5}"));
         println!("  │ {name:<20} │ {t0s} │ {w0s} │ {q:>7.3} │ {secs:>14.3} │");
     }
     println!("  └──────────────────────┴──────────┴──────────┴─────────┴────────────────┘");

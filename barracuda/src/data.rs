@@ -324,7 +324,11 @@ pub fn save_results_json(
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
+#[expect(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "data loader tests use unwrap/expect on embedded JSON fixtures"
+)]
 mod tests {
     use super::*;
     use crate::provenance::SLY4_PARAMS;
@@ -560,7 +564,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::float_cmp)] // exact known value (0.0)
+    #[expect(clippy::float_cmp, reason = "exact known value (0.0)")]
     fn chi2_per_datum_empty_exp_returns_zero() {
         let exp: HashMap<(usize, usize), (f64, f64)> = HashMap::new();
         let chi2 = chi2_per_datum(&crate::provenance::SLY4_PARAMS, &exp, |_z, _n, _| 100.0);

@@ -353,7 +353,10 @@ impl Default for ProcessCatalog {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
+#[expect(
+    clippy::unwrap_used,
+    reason = "Process catalog tests unwrap task matrix fixtures."
+)]
 mod tests {
     use super::*;
 
@@ -382,7 +385,7 @@ mod tests {
             params: ProcessParams {
                 n_therm: Some(200),
                 meas_interval: Some(10),
-                ..Default::default()
+                ..ProcessParams::default()
             },
         };
         let large = ProcessSpec {
@@ -395,7 +398,7 @@ mod tests {
             params: ProcessParams {
                 n_therm: Some(200),
                 meas_interval: Some(10),
-                ..Default::default()
+                ..ProcessParams::default()
             },
         };
 
@@ -415,7 +418,7 @@ mod tests {
             mass: 0.0,
             nf: 0,
             n_configs: 10,
-            params: Default::default(),
+            params: ProcessParams::default(),
         };
 
         let cpu = CostModel::estimate_wall_seconds(&spec, &HardwareTier::Cpu);
@@ -435,7 +438,7 @@ mod tests {
             mass: 0.0,
             nf: 0,
             n_configs: 10,
-            params: Default::default(),
+            params: ProcessParams::default(),
         };
         let flow_spec = ProcessSpec {
             process: PhysicsProcess::GradientFlow,
@@ -444,7 +447,7 @@ mod tests {
             mass: 0.0,
             nf: 0,
             n_configs: 10,
-            params: Default::default(),
+            params: ProcessParams::default(),
         };
 
         let gen_idx = catalog.register(gen_spec);
@@ -479,7 +482,7 @@ mod tests {
             mass: 0.0,
             nf: 0,
             n_configs: 5,
-            params: Default::default(),
+            params: ProcessParams::default(),
         });
 
         let json = catalog.to_json();

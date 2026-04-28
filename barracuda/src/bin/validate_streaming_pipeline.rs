@@ -451,7 +451,11 @@ fn main() {
 }
 
 /// Phase 4b: Probe real NPU hardware and compare with `NpuSimulator`.
-#[expect(unused_variables, clippy::needless_pass_by_ref_mut, reason = "pipeline stage placeholder for future substrate wiring")]
+#[expect(
+    unused_variables,
+    clippy::needless_pass_by_ref_mut,
+    reason = "pipeline stage placeholder for future substrate wiring"
+)]
 fn run_npu_hardware_phase(
     harness: &mut ValidationHarness,
     esn: &mut EchoStateNetwork,

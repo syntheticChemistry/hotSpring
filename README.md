@@ -458,16 +458,13 @@ a network service, you must make your source available under the same terms.
 *176+ experiments, 993 tests, 166 binaries, 128 WGSL shaders, ~$0.30 total science cost.
 Consumer GPUs reproduce HPC physics at paper parity. DF64 delivers 3.24 TFLOPS at
 14-digit precision. GPU RHMC runs all-flavors dynamical QCD (Nf=2+1). Self-tuning
-RHMC eliminates hand-tuned parameters. Chuna 44/44 checks pass. RTX 3090 GPFIFO
-operational. Sacrificial Ember architecture validated — GPU faults kill ember, not the system.
-Sovereign compute dispatch PROVEN on Titan V (Exp 164: 5/5 E2E via nouveau DRM).
-SovereignInit pipeline replaces nouveau subsystem-by-subsystem (Exp 165).
-Sovereign pipeline COMPLETE (Exp 168): fork-isolated MMIO gateway, 6-stage init
-(bar0\_probe → pmc\_enable → hbm2\_training → falcon\_boot → gr\_init → verify),
-PMU DEVINIT + VBIOS PROM wired as ember RPCs. Warm handoff validated: full
-vfio→nouveau→vfio round-trip on Titan V with HBM2 preservation.
+RHMC eliminates hand-tuned parameters. Chuna 44/44 checks pass. RTX 5060 sovereign
+dispatch LIVE (f64 div/sqrt polyfills, QMD v5.0, Blackwell SM120). Titan V SEC2/ACR
+active. K80 internal firmware protocol (FECS/GPCCS/PRI/PGOB) modularized into 11
+focused modules. coral-driver init.rs monolith (5466 LOC) eliminated. IPC deduplicated,
+GPU constructors DRYed, experiment bins standardized.
 Three-tier validation: Python validates Rust. Rust validates NUCLEUS. Peer-reviewed
-science runs on consumer hardware, composed via sovereign primal IPC. All 13 physics/compute methods wired in JSON-RPC server — composition parity probes compare IPC results against local Rust baselines. Level 5 primal proof harness calls barraCuda/BearDog primals directly over IPC and compares against baselines.
+science runs on consumer hardware, composed via sovereign primal IPC.
 guideStone artifact validated across 5 substrates.
 The full science ladder — quenched through dynamical fermions with gradient flow
 scale setting — runs on consumer hardware. The scarcity was artificial.*

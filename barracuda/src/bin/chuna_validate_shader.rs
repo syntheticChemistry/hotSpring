@@ -216,26 +216,23 @@ fn main() {
         println!("\n═══ Path 4: coralReef JIT (Cranelift) ═══");
         let coral_start = Instant::now();
         let r = validate_coral_jit(&nucleus, &shader_source, &manifest);
-        match r {
-            Some(ref result) => {
-                println!(
-                    "  {} — max_delta={:.2e} ({:.3}s)",
-                    if result.passed { "PASS" } else { "FAIL" },
-                    result.max_delta,
-                    coral_start.elapsed().as_secs_f64()
-                );
-                Some(PathValidation {
-                    path: "coral_jit".to_string(),
-                    executed: true,
-                    passed: result.passed,
-                    max_delta: result.max_delta,
-                    wall_seconds: coral_start.elapsed().as_secs_f64(),
-                })
-            }
-            None => {
-                println!("  SKIP — coralReef not available");
-                None
-            }
+        if let Some(ref result) = r {
+            println!(
+                "  {} — max_delta={:.2e} ({:.3}s)",
+                if result.passed { "PASS" } else { "FAIL" },
+                result.max_delta,
+                coral_start.elapsed().as_secs_f64()
+            );
+            Some(PathValidation {
+                path: "coral_jit".to_string(),
+                executed: true,
+                passed: result.passed,
+                max_delta: result.max_delta,
+                wall_seconds: coral_start.elapsed().as_secs_f64(),
+            })
+        } else {
+            println!("  SKIP — coralReef not available");
+            None
         }
     } else {
         None
@@ -257,7 +254,7 @@ fn main() {
         all_passed = all_passed && c.passed;
     }
 
-    let max_cross_path_delta = all_deltas.iter().cloned().fold(0.0_f64, f64::max);
+    let max_cross_path_delta = all_deltas.iter().copied().fold(0.0_f64, f64::max);
 
     let validation_result = ShaderValidationResult {
         cpu_reference: cpu_validation,
@@ -278,8 +275,7 @@ fn main() {
 
     println!("\n═══ Summary ═══");
     println!(
-        "  Paths validated: {}  All agree: {}  Max Δ: {:.2e}",
-        n_paths, all_passed, max_cross_path_delta
+        "  Paths validated: {n_paths}  All agree: {all_passed}  Max Δ: {max_cross_path_delta:.2e}"
     );
 
     // DAG event
@@ -454,7 +450,7 @@ fn validate_gpu_dispatch(_shader_source: &str, manifest: &ShaderManifest) -> Val
     //   6. Compare to reference values
     //
     // For now: attempt GPU discovery and report availability
-    let gpu_available = !std::env::var("HOTSPRING_NO_GPU").map_or(false, |v| v == "1");
+    let gpu_available = !std::env::var("HOTSPRING_NO_GPU").is_ok_and(|v| v == "1");
 
     if !gpu_available {
         println!("    SKIP: HOTSPRING_NO_GPU=1");

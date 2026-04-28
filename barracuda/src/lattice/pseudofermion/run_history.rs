@@ -311,7 +311,10 @@ pub fn retrain_npu_from_history(npu: &mut super::NpuSteering, history: &RunHisto
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used)]
+#[expect(
+    clippy::unwrap_used,
+    reason = "Run history tests unwrap temp-dir filesystem setup."
+)]
 mod tests {
     use super::*;
 

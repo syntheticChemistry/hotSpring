@@ -28,6 +28,7 @@ requiring forced power-off.
 | `harvest-ecobin.sh` | Harvest ecobin artifacts | Yes |
 | `regenerate-all.sh` | Full project regeneration | Yes |
 | `boot/*.sh` | Boot-time setup scripts | Yes |
+| `warm_handoff_test.sh` | Full warm handoff pipeline for Titan V VFIO dispatch (livepatch → ember → nouveau cycle → dispatch test) | Yes (via coralctl) |
 
 | `validate-primal-proof.sh` | Primal proof validation (primalSpring v0.9.17). Bare mode (no NUCLEUS) or `--full` (pre-flight `primalspring_guidestone` + domain `hotspring_guidestone`). Builds from `barracuda/`, runs from repo root so `validation/CHECKSUMS` resolves. Auto-sets `BEARDOG_FAMILY_SEED`, `SONGBIRD_SECURITY_PROVIDER`, `NESTGATE_JWT_SECRET` when `FAMILY_ID` is provided. | Yes |
 

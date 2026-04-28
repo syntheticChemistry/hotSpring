@@ -84,27 +84,21 @@ fn load_measurements(dir: &str) -> Vec<ConfigMeasurement> {
 
     let mut files: Vec<_> = std::fs::read_dir(path)
         .expect("read directory")
-        .filter_map(|e| e.ok())
-        .filter(|e| {
-            e.path()
-                .extension()
-                .map(|ext| ext == "json")
-                .unwrap_or(false)
-        })
+        .filter_map(std::result::Result::ok)
+        .filter(|e| e.path().extension().is_some_and(|ext| ext == "json"))
         .collect();
 
-    files.sort_by_key(|e| e.file_name());
+    files.sort_by_key(std::fs::DirEntry::file_name);
 
     let mut measurements = Vec::new();
     for entry in &files {
-        let data = match std::fs::read_to_string(entry.path()) {
-            Ok(d) => d,
-            Err(_) => continue,
+        let Ok(data) = std::fs::read_to_string(entry.path()) else {
+            continue;
         };
-        match serde_json::from_str::<ConfigMeasurement>(&data) {
-            Ok(m) => measurements.push(m),
-            Err(_) => continue,
-        }
+        let Ok(m) = serde_json::from_str::<ConfigMeasurement>(&data) else {
+            continue;
+        };
+        measurements.push(m);
     }
 
     measurements
@@ -204,7 +198,7 @@ fn main() {
         .first()
         .map(|m| m.ensemble_id.clone())
         .unwrap_or_default();
-    println!("  Ensemble:  {}", ensemble_id);
+    println!("  Ensemble:  {ensemble_id}");
     println!();
 
     let plaquettes: Vec<f64> = measurements.iter().map(|m| m.gauge.plaquette).collect();
@@ -243,18 +237,13 @@ fn main() {
         poly_stats.mean, poly_stats.error, poly_stats.tau_int
     );
 
-    let vol: usize = measurements
-        .first()
-        .map(|m| {
-            let lfn = &m.ildg_lfn;
-            lfn.split('/')
-                .filter_map(|s| s.strip_prefix("L"))
-                .next()
-                .and_then(|s| s.parse::<usize>().ok())
-                .map(|l| l * l * l * l)
-                .unwrap_or(1)
-        })
-        .unwrap_or(1);
+    let vol: usize = measurements.first().map_or(1, |m| {
+        let lfn = &m.ildg_lfn;
+        lfn.split('/')
+            .find_map(|s| s.strip_prefix("L"))
+            .and_then(|s| s.parse::<usize>().ok())
+            .map_or(1, |l| l * l * l * l)
+    });
 
     let plaq_chi = if plaquettes.len() >= 2 {
         Some(plaquette_susceptibility(&plaquettes, vol.max(1)))
@@ -268,10 +257,10 @@ fn main() {
     };
 
     if let Some(chi) = plaq_chi {
-        println!("  χ_P       = {:.6e}", chi);
+        println!("  χ_P       = {chi:.6e}");
     }
     if let Some(chi) = poly_chi {
-        println!("  χ_L       = {:.6e}", chi);
+        println!("  χ_L       = {chi:.6e}");
     }
 
     let topo_stats = if topo_charges.len() >= 2 {
@@ -289,7 +278,7 @@ fn main() {
 
     let topo_chi = if topo_charges.len() >= 2 {
         let chi = topological_susceptibility(&topo_charges, vol.max(1));
-        println!("  χ_t       = {:.6e}", chi);
+        println!("  χ_t       = {chi:.6e}");
         Some(chi)
     } else {
         None
@@ -384,23 +373,17 @@ fn main() {
         } else {
             print!("{tsv}");
         }
-    } else {
-        if let Some(ref path) = args.output {
-            std::fs::write(path, &json).expect("write output");
+    } else if let Some(ref path) = args.output {
+        std::fs::write(path, &json).expect("write output");
 
-            // Sign the analysis receipt if bearDog is available
-            if let Ok(mut receipt_val) = serde_json::from_str::<serde_json::Value>(&json) {
-                receipt_signing::sign_and_embed(
-                    &nucleus,
-                    &mut receipt_val,
-                    std::path::Path::new(path),
-                );
-            }
-
-            println!("  Results → {path}");
-        } else {
-            println!("{json}");
+        // Sign the analysis receipt if bearDog is available
+        if let Ok(mut receipt_val) = serde_json::from_str::<serde_json::Value>(&json) {
+            receipt_signing::sign_and_embed(&nucleus, &mut receipt_val, std::path::Path::new(path));
         }
+
+        println!("  Results → {path}");
+    } else {
+        println!("{json}");
     }
 }
 

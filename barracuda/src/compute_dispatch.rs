@@ -264,7 +264,10 @@ pub fn validate_dispatch(
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
+#[expect(
+    clippy::expect_used,
+    reason = "dispatch validation tests use expect on test payloads"
+)]
 mod tests {
     use super::*;
 

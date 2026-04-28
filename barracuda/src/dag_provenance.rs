@@ -239,7 +239,10 @@ pub fn blake3_hex(data: &[u8]) -> String {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
+#[expect(
+    clippy::expect_used,
+    reason = "hash/encoding tests use expect on known vectors"
+)]
 mod tests {
     use super::*;
 

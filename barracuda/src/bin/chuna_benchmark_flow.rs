@@ -43,6 +43,7 @@ use hotspring_barracuda::lattice::measurement::{RunManifest, format_dims, parse_
 use hotspring_barracuda::lattice::wilson::Lattice;
 use hotspring_barracuda::validation::TelemetryWriter;
 
+use std::fmt::Write;
 use std::time::Instant;
 
 struct CliArgs {
@@ -215,8 +216,8 @@ fn main() {
         if let (Some(c2), Some(c3)) = (args.custom_c2, args.custom_c3) {
             let (a, b) = derive_lscfrk3(c2, c3);
             println!("\n  Custom LSCFRK3 (c₂={c2}, c₃={c3}):");
-            println!("    A = {:?}", a);
-            println!("    B = {:?}", b);
+            println!("    A = {a:?}");
+            println!("    B = {b:?}");
             let a_static: &'static [f64] = Box::leak(a.to_vec().into_boxed_slice());
             let b_static: &'static [f64] = Box::leak(b.to_vec().into_boxed_slice());
             Some(LscfrkCoefficients {
@@ -227,9 +228,9 @@ fn main() {
             None
         };
 
-    let n_integrators = integrators.len() + if custom_coeffs.is_some() { 1 } else { 0 };
+    let n_integrators = integrators.len() + usize::from(custom_coeffs.is_some());
 
-    println!("\n  Step sizes: {:?}", eps_range);
+    println!("\n  Step sizes: {eps_range:?}");
     println!("  t_max: {}", args.tmax);
     println!(
         "  Integrators: {} ({}custom)",
@@ -284,11 +285,10 @@ fn main() {
             telemetry.log(&section, "wall_secs", wall_secs);
             telemetry.log(&section, "n_force_evals", n_force as f64);
 
-            let t0s = t0.map_or("  N/A   ".to_string(), |v| format!("{v:8.5}"));
-            let w0s = w0.map_or("  N/A   ".to_string(), |v| format!("{v:8.5}"));
+            let t0s = t0.map_or_else(|| "  N/A   ".to_string(), |v| format!("{v:8.5}"));
+            let w0s = w0.map_or_else(|| "  N/A   ".to_string(), |v| format!("{v:8.5}"));
             println!(
-                "  {:<18}  t₀={t0s}  w₀={w0s}  Q={q:>7.3}  {n_force:>6} evals  {wall_secs:>7.3}s",
-                label
+                "  {label:<18}  t₀={t0s}  w₀={w0s}  Q={q:>7.3}  {n_force:>6} evals  {wall_secs:>7.3}s"
             );
         }
 
@@ -317,8 +317,8 @@ fn main() {
                 n_force_evals: n_force,
             });
 
-            let t0s = t0.map_or("  N/A   ".to_string(), |v| format!("{v:8.5}"));
-            let w0s = w0.map_or("  N/A   ".to_string(), |v| format!("{v:8.5}"));
+            let t0s = t0.map_or_else(|| "  N/A   ".to_string(), |v| format!("{v:8.5}"));
+            let w0s = w0.map_or_else(|| "  N/A   ".to_string(), |v| format!("{v:8.5}"));
             println!(
                 "  {:<18}  t₀={t0s}  w₀={w0s}  Q={q:>7.3}  {n_force:>6} evals  {wall_secs:>7.3}s",
                 "Custom (user)"
@@ -348,7 +348,7 @@ fn main() {
             .find(|r| r.integrator == int && (r.epsilon - finest_eps).abs() < 1e-10);
         let ref_t0 = ref_result.and_then(|r| r.t0);
         let ref_w0 = ref_result.and_then(|r| r.w0);
-        let ref_q = ref_result.map(|r| r.q).unwrap_or(0.0);
+        let ref_q = ref_result.map_or(0.0, |r| r.q);
 
         for res in all_results.iter().filter(|r| r.integrator == int) {
             let dt0 = match (res.t0, ref_t0) {
@@ -436,11 +436,11 @@ fn main() {
     println!("\n═══ Complete ═══");
 }
 
-fn ref_result_for<'a>(
+fn ref_result_for(
     int: FlowIntegrator,
     eps: f64,
-    results: &'a [FlowBenchResult],
-) -> Option<&'a FlowBenchResult> {
+    results: &[FlowBenchResult],
+) -> Option<&FlowBenchResult> {
     results
         .iter()
         .find(|r| r.integrator == int && (r.epsilon - eps).abs() < 1e-10)
@@ -453,30 +453,31 @@ fn build_json_summary(
     manifest: &RunManifest,
 ) -> String {
     let mut json = String::from("{\n  \"benchmark\": \"flow_integrator_comparison\",\n");
-    json.push_str(&format!("  \"run\": {},\n", manifest.to_json_value()));
-    json.push_str(&format!("  \"reference_epsilon\": {ref_eps},\n"));
-    json.push_str(&format!("  \"t_max\": {tmax},\n"));
+    let _ = writeln!(json, "  \"run\": {},", manifest.to_json_value());
+    let _ = writeln!(json, "  \"reference_epsilon\": {ref_eps},");
+    let _ = writeln!(json, "  \"t_max\": {tmax},");
     json.push_str("  \"results\": [\n");
 
     for (i, res) in results.iter().enumerate() {
         json.push_str("    {\n");
-        json.push_str(&format!(
-            "      \"integrator\": \"{:?}\",\n",
-            res.integrator
-        ));
-        json.push_str(&format!("      \"epsilon\": {},\n", res.epsilon));
-        json.push_str(&format!(
-            "      \"t0\": {},\n",
-            res.t0.map_or("null".to_string(), |v| format!("{v}"))
-        ));
-        json.push_str(&format!(
-            "      \"w0\": {},\n",
-            res.w0.map_or("null".to_string(), |v| format!("{v}"))
-        ));
-        json.push_str(&format!("      \"Q\": {},\n", res.q));
-        json.push_str(&format!("      \"wall_seconds\": {},\n", res.wall_secs));
-        json.push_str(&format!("      \"n_steps\": {},\n", res.n_steps));
-        json.push_str(&format!("      \"n_force_evals\": {}\n", res.n_force_evals));
+        let _ = writeln!(json, "      \"integrator\": \"{:?}\",", res.integrator);
+        let _ = writeln!(json, "      \"epsilon\": {},", res.epsilon);
+        let _ = writeln!(
+            json,
+            "      \"t0\": {},",
+            res.t0
+                .map_or_else(|| "null".to_string(), |v| format!("{v}"))
+        );
+        let _ = writeln!(
+            json,
+            "      \"w0\": {},",
+            res.w0
+                .map_or_else(|| "null".to_string(), |v| format!("{v}"))
+        );
+        let _ = writeln!(json, "      \"Q\": {},", res.q);
+        let _ = writeln!(json, "      \"wall_seconds\": {},", res.wall_secs);
+        let _ = writeln!(json, "      \"n_steps\": {},", res.n_steps);
+        let _ = writeln!(json, "      \"n_force_evals\": {}", res.n_force_evals);
         json.push_str("    }");
         if i + 1 < results.len() {
             json.push(',');

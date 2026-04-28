@@ -63,8 +63,7 @@ fn default_encoding() -> String {
 fn now_nanos() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_nanos() as u64)
-        .unwrap_or(0)
+        .map_or(0, |d| d.as_nanos() as u64)
 }
 
 impl WireWitnessRef {
@@ -142,8 +141,12 @@ impl WireWitnessRef {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
+    #![expect(
+        clippy::expect_used,
+        reason = "tests use expect for JSON serialization round-trips"
+    )]
+
     use super::*;
 
     #[test]

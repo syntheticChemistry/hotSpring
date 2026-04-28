@@ -289,6 +289,16 @@ impl NucleusContext {
     }
 }
 
+/// Build a JSON-RPC 2.0 request envelope.
+pub fn jsonrpc_request(method: &str, params: serde_json::Value) -> serde_json::Value {
+    serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": method,
+        "params": params,
+    })
+}
+
 #[cfg(unix)]
 fn collect_biomeos_socks(base: &Path, family: &str) -> Vec<PathBuf> {
     let mut out = Vec::new();
@@ -319,8 +329,7 @@ fn collect_biomeos_socks(base: &Path, family: &str) -> Vec<PathBuf> {
 fn probe_socket(path: &Path, logical_name: &str) -> PrimalEndpoint {
     let socket = path.to_string_lossy().into_owned();
     let alive = send_jsonrpc(path, "health.liveness", &serde_json::json!({}))
-        .map(|resp| resp.get("result").is_some())
-        .unwrap_or(false);
+        .is_ok_and(|resp| resp.get("result").is_some());
 
     let capabilities = if alive {
         send_jsonrpc(path, "capability.list", &serde_json::json!({}))
@@ -354,12 +363,7 @@ pub fn send_jsonrpc(
         .set_read_timeout(Some(std::time::Duration::from_secs(2)))
         .map_err(|e| format!("timeout: {e}"))?;
 
-    let request = serde_json::json!({
-        "jsonrpc": "2.0",
-        "method": method,
-        "params": params,
-        "id": 1
-    });
+    let request = jsonrpc_request(method, params.clone());
 
     let mut request_bytes = serde_json::to_vec(&request).map_err(|e| format!("serialize: {e}"))?;
     request_bytes.push(b'\n');

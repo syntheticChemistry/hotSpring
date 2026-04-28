@@ -263,7 +263,6 @@ mod tests {
     use super::*;
 
     #[test]
-    #[allow(clippy::float_cmp)] // exact known value (1.0)
     fn vacf_single_snapshot_returns() {
         let vel = vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0]; // 2 particles
         let vacf = compute_vacf(&[vel], 2, 0.01, 10);
@@ -298,7 +297,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::float_cmp)] // exact known value (0.0)
+    #[expect(clippy::float_cmp, reason = "exact known value (0.0)")]
     fn compute_d_star_msd_returns_zero_for_few_frames() {
         let pos = vec![0.0, 0.0, 0.0, 1.0, 0.0, 0.0]; // 2 particles
         assert_eq!(

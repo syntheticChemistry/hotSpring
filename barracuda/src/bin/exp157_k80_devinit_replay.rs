@@ -52,7 +52,9 @@ fn main() {
     let mut harness = ValidationHarness::new("exp157_k80_devinit_replay");
 
     let args: Vec<String> = std::env::args().collect();
-    let bdf = extract_arg(&args, "--bdf").unwrap_or_else(|| "0000:4c:00.0".to_string());
+    let bdf = extract_arg(&args, "--bdf").unwrap_or_else(|| {
+        std::env::var("HOTSPRING_BDF").unwrap_or_else(|_| "0000:4c:00.0".to_string())
+    });
     let recipe_path = extract_arg(&args, "--recipe")
         .unwrap_or_else(|| "data/k80/gk210_devinit_recipe.json".to_string());
     let dry_run = args.iter().any(|a| a == "--dry-run");
@@ -63,23 +65,17 @@ fn main() {
         println!("  Mode: DRY RUN (no writes)");
     }
 
-    let ember = match connect_ember(&bdf) {
-        Some(e) => e,
-        None => {
-            eprintln!("ERROR: cannot connect to ember for {bdf}");
-            harness.check_bool("ember reachable", false);
-            harness.finish();
-        }
+    let Some(ember) = connect_ember(&bdf) else {
+        eprintln!("ERROR: cannot connect to ember for {bdf}");
+        harness.check_bool("ember reachable", false);
+        harness.finish();
     };
     harness.check_bool("ember reachable", true);
 
-    let recipe = match load_recipe(&recipe_path) {
-        Some(r) => r,
-        None => {
-            eprintln!("ERROR: cannot load recipe from {recipe_path}");
-            harness.check_bool("recipe loaded", false);
-            harness.finish();
-        }
+    let Some(recipe) = load_recipe(&recipe_path) else {
+        eprintln!("ERROR: cannot load recipe from {recipe_path}");
+        harness.check_bool("recipe loaded", false);
+        harness.finish();
     };
     harness.check_bool("recipe loaded", true);
 
@@ -155,12 +151,9 @@ fn main() {
                                 let _ = ember.mmio_circuit_breaker(&bdf, Some("reset"));
                                 breaker_resets += 1;
                                 std::thread::sleep(Duration::from_millis(50));
-                                match ember.mmio_write(&bdf, *reg, *val) {
-                                    Ok(_) => {
-                                        ops_executed += 1;
-                                        continue;
-                                    }
-                                    Err(_) => {}
+                                if ember.mmio_write(&bdf, *reg, *val).is_ok() {
+                                    ops_executed += 1;
+                                    continue;
                                 }
                             }
                             ops_failed += 1;
@@ -345,12 +338,7 @@ struct GpuState {
 }
 
 fn read_key_registers(ember: &EmberClient, bdf: &str) -> GpuState {
-    let read = |reg: u32| -> u32 {
-        ember
-            .mmio_read(bdf, reg)
-            .map(|r| r.value)
-            .unwrap_or(0xDEAD_DEAD)
-    };
+    let read = |reg: u32| -> u32 { ember.mmio_read(bdf, reg).map_or(0xDEAD_DEAD, |r| r.value) };
     GpuState {
         boot0: read(PMC_BOOT0),
         pmc_enable: read(PMC_ENABLE),
@@ -382,9 +370,11 @@ fn is_badf(val: u32) -> bool {
 
 #[derive(Debug, serde::Deserialize)]
 struct DevinitScript {
-    #[expect(dead_code, reason = "experiment-specific code retained for reproducibility")]
+    #[expect(
+        dead_code,
+        reason = "experiment-specific code retained for reproducibility"
+    )]
     id: Option<u32>,
-    #[expect(dead_code, reason = "experiment-specific code retained for reproducibility")]
     addr: String,
     ops: Vec<RawDevinitOp>,
 }

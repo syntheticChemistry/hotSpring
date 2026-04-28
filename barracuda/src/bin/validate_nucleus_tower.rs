@@ -31,7 +31,8 @@ fn main() {
 
     // ── Deep checks ──
     println!("  ── Crypto roundtrip (BearDog) ──");
-    if let Some(bd) = ctx.by_domain("crypto") {
+    // Domain `"crypto"` is bearDog (trust/signing); fallback: `.beardog()`.
+    if let Some(bd) = ctx.by_domain("crypto").or_else(|| ctx.beardog()) {
         if bd.alive {
             let test_msg = "hotSpring tower validation probe";
             let sign_result = ctx.call(

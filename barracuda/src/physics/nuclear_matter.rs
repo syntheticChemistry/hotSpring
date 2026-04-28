@@ -162,7 +162,10 @@ impl NuclearMatterProps {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
+#[expect(
+    clippy::expect_used,
+    reason = "NMP tests expect SLY4 nuclear-matter properties on valid parameters."
+)]
 mod tests {
     use super::*;
     use crate::provenance::SLY4_PARAMS;
@@ -244,7 +247,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::float_cmp)] // exact known value (0.0)
+    #[expect(clippy::float_cmp, reason = "exact known value (0.0)")]
     fn zero_density_gives_zero() {
         let p: [f64; 10] = SLY4_PARAMS;
         assert_eq!(energy_per_nucleon_snm(0.0, &p), 0.0);

@@ -125,7 +125,14 @@ pub fn dispatch_dual(
 }
 
 #[cfg(test)]
-#[allow(dead_code, clippy::expect_used)]
+#[expect(
+    dead_code,
+    reason = "DoubleKernel is reserved for future dispatch_dual tests; current tests cover DualResult only."
+)]
+#[expect(
+    clippy::expect_used,
+    reason = "dual-dispatch tests use expect on test kernels"
+)]
 mod tests {
     use super::*;
 

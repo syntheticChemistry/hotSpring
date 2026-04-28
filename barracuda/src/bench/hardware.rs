@@ -206,7 +206,10 @@ fn read_stdout(cmd: &str, args: &[&str]) -> String {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
+#[expect(
+    clippy::expect_used,
+    reason = "hardware inventory tests use expect on fixed fixtures"
+)]
 mod tests {
     use super::*;
 

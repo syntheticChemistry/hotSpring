@@ -44,11 +44,14 @@ pub const CAPABILITIES_LIST_MS: f64 = 0.1;
 pub const CAPABILITIES_LIST_BYTES: u64 = 256;
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
 
     #[test]
+    #[expect(
+        clippy::assertions_on_constants,
+        reason = "compile-time sanity check for tolerance constants"
+    )]
     fn cost_latencies_are_positive() {
         assert!(LATTICE_QCD_MS > 0.0);
         assert!(HMC_TRAJECTORY_MS > 0.0);
@@ -56,6 +59,10 @@ mod tests {
     }
 
     #[test]
+    #[expect(
+        clippy::assertions_on_constants,
+        reason = "compile-time sanity check for tolerance constants"
+    )]
     fn cost_bytes_are_positive() {
         assert!(LATTICE_QCD_BYTES > 0);
         assert!(HEALTH_CHECK_BYTES > 0);
@@ -63,6 +70,10 @@ mod tests {
     }
 
     #[test]
+    #[expect(
+        clippy::assertions_on_constants,
+        reason = "compile-time sanity check for tolerance constants"
+    )]
     fn cost_latencies_are_ordered() {
         assert!(HEALTH_CHECK_MS < NUCLEAR_EOS_MS);
         assert!(NUCLEAR_EOS_MS < LATTICE_QCD_MS);
