@@ -1366,10 +1366,25 @@ Shared abstractions extracted:
 
 Both repos: `cargo fmt` clean, `cargo clippy -- -W clippy::pedantic -W clippy::nursery` pass.
 
+### nvidia-470 Binary Analysis (April 2026)
+
+Static disassembly of `nv-kernel.o_binary` from nvidia-470.256.02 revealed the
+proprietary driver uses a simpler PGOB sequence than Nouveau:
+
+- **PSW-only at `0x10a78c`**: bits 0 (trigger) and 1 (state). No `0x0205xx` power
+  domain steps. Functions `_nv029216rm` (ungate) and `_nv029114rm` (gate).
+- **Implemented**: `nvidia470_pgob_disable()` / `_enable()` in `coral-driver/pgob.rs`.
+- **Tried first** in `kepler_warm.rs` before Nouveau fallback.
+- **Result**: PSW writes are no-ops when PMU is halted (no firmware). Nouveau's
+  `0x0205xx` steps succeed but GPCs remain absent from PRI ring (`pri_gpc_cnt=0`).
+
+Root cause narrowed to **PRI ring GPC enrollment** — the GPCs aren't just
+power-gated, they're absent from the PRI routing table entirely.
+
 ### Next Steps
 
-1. **K80 FECS boot**: Complete internal firmware protocol — full 4096-byte FECS/GPCCS firmware capture, csdata loading verified, golden context save
-2. **Titan V SEC2/ACR**: Resolve HS mode rejection on warm FECS (STARTCPU fails in secure mode). SBR hot reset via VFIO ioctl implemented.
-3. **Three-generation sovereign dispatch**: RTX 5060 (DONE) → Titan V → K80 all running the same WGSL→SASS→dispatch pipeline
+1. **K80 PRI ring GPC enrollment**: Investigate why `pri_gpc_cnt=0` after PGOB. PRI ring init must enumerate GPC stations. Check `0x120070` (nstations) and `0x128000+` (per-GPC PRI config).
+2. **K80 PMU firmware**: Load PMU firmware (Nouveau or nvidia-470 extracted) so PSW handshake actually processes. PMU falcon is halted after warm-catch.
+3. **Three-generation sovereign dispatch**: RTX 5060 (DONE) → K80 (PRI ring fix) → Titan V (SEC2/ACR barrier or DRM path)
 4. **Cross-vendor validation**: Run the same WGSL→compute pipeline on AMD and NVIDIA in the same session
 5. **toadStool absorption**: Migrate ember's sovereign init into toadStool's hardware orchestration layer

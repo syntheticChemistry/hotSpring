@@ -242,28 +242,23 @@ for BDF in "${TARGETS[@]}"; do
     fi
 done
 
-# ── Phase 4.5: Halt PMU falcon to freeze GPC power state ──
-# Nouveau's GR constructor calls gk110_pmu_pgob(false) which powers up GPCs.
-# But the PMU firmware autonomously re-gates GPCs when the GPU is idle.
-# By halting the PMU falcon, we freeze whatever power state exists and
-# prevent re-gating. We then run PGOB ourselves via BAR0 to ensure GPCs
-# are powered.
-log "Phase 4.5: Halting PMU falcon + running PGOB to power up GPCs"
+# ── Phase 4.5: Run PGOB to power up GPCs ──
+# On GK110/GK210B, GPCs are power-gated at boot. The PGOB (Power Gate Off
+# Block) sequence ungate them by writing to PPWR power domain registers.
+# PMU must remain RUNNING — it processes the 0x10a78c handshake that
+# coordinates the power ungating. Halting PMU before PGOB prevents the
+# handshake from completing.
+log "Phase 4.5: Running PGOB with PMU alive to power up GPCs"
 
 for BDF in "${TARGETS[@]}"; do
     GPC0_PRE=$(gpu_read "$BDF" 0x500000)
     PMU_CPUCTL=$(gpu_read "$BDF" 0x10a100)
     log "$BDF pre-PGOB: GPC0=$GPC0_PRE PMU_CPUCTL=$PMU_CPUCTL"
 
-    # Halt PMU falcon to freeze current power state
-    gpu_write "$BDF" 0x10a100 0x00000010
-    sleep 0.1
-    PMU_AFTER=$(gpu_read "$BDF" 0x10a100)
-    log "$BDF PMU halted: CPUCTL=$PMU_AFTER"
-
-    # NVIDIA official PGOB disable sequence (NV_THERM_CTRL_1 based).
-    # CRITICAL: Do NOT use the gk110_pmu_pgob magic writes (0x0205xx) —
-    # those registers don't exist on K80/GK210B and corrupt the PRI ring.
+    # Full gk110_pmu_pgob() matching kernel gk110.c (with 0x0205xx power steps).
+    # PMU must be RUNNING for the 0x10a78c handshake. The 0x0205xx registers
+    # DO respond on GK210B but may need nvidia-470 mmiotrace to find what's
+    # different in the proprietary driver's sequence.
     python3 -c "
 import mmap, struct, time
 
@@ -284,54 +279,57 @@ def mask(reg, clr, set_bits):
     wr(reg, (v & ~clr) | set_bits)
 
 pmc_before = rd(0x200)
-therm_before = rd(0x20004)
-psw_before = rd(0x10a78c)
+pmu_psw = rd(0x10a78c)
+pmu_cpuctl = rd(0x10a100)
 gpc0_before = rd(0x500000)
-print(f'Pre: PMC={pmc_before:#010x} THERM={therm_before:#010x} PSW={psw_before:#010x} GPC0={gpc0_before:#010x}')
+nstations_pre = rd(0x120070)
+print(f'Pre: PMC={pmc_before:#010x} PSW={pmu_psw:#010x} PMU={pmu_cpuctl:#010x} GPC0={gpc0_before:#010x} NSTATIONS={nstations_pre}')
 
-# Step 1-2: Disable PGRAPH (PMC bit 12 = 0), flush
+# Kernel gk110_pmu_pgob() steps:
+# 1. Disable PGRAPH (PMC bit 12)
 mask(0x200, 0x1000, 0)
 rd(0x200)
-
-# Step 3-4: Enable BLG controller (PMC bit 27 = 1), wait
+# 2. Set PMC bit 27 (PGOB gate)
 mask(0x200, 0x08000000, 0x08000000)
 time.sleep(0.05)
-
-# Step 5-7: PSW clamp sequence to latch power-on
-mask(0x10a78c, 0x2, 0x2)   # CLAMPVAL_0 = 1
-mask(0x10a78c, 0x1, 0x1)   # CLAMPMSK_0 = 1
-mask(0x10a78c, 0x1, 0x0)   # CLAMPMSK_0 = 0 (latch)
-
-# Step 8-10: PGOB override = OFF (ungate graphics)
-mask(0x20004, 0x80000000, 0x00000000)  # PGOB_OVERRIDE_VALUE = 0 (OFF)
-mask(0x20004, 0x40000000, 0x40000000)  # PGOB_OVERRIDE = ENABLED
-time.sleep(0.05)
-
-# Step 11-13: Release PSW clamp
-mask(0x10a78c, 0x2, 0x0)   # CLAMPVAL_0 = 0
-mask(0x10a78c, 0x1, 0x1)   # CLAMPMSK_0 = 1
-mask(0x10a78c, 0x1, 0x0)   # CLAMPMSK_0 = 0 (release)
-
-# Step 14-16: Disable BLG, re-enable PGRAPH, flush
-mask(0x200, 0x08000000, 0x0)    # BLG off
-mask(0x200, 0x1000, 0x1000)     # PGRAPH on
+# 3. PMU PSW: set bit 1, pulse bit 0
+mask(0x10a78c, 0x2, 0x2)
+mask(0x10a78c, 0x1, 0x1)
+mask(0x10a78c, 0x1, 0x0)
+# 4. NOP mask on 0x0206b4 (hardware sync)
+mask(0x0206b4, 0, 0)
+# 5. Power steps with bit-31 polling (2s timeout each)
+STEPS = [
+    (0x020520, 0xFFFFFFFC), (0x020524, 0xFFFFFFFE), (0x020524, 0xFFFFFFFC),
+    (0x020524, 0xFFFFFFF8), (0x020524, 0xFFFFFFE0), (0x020530, 0xFFFFFFFE),
+    (0x02052C, 0xFFFFFFFA), (0x02052C, 0xFFFFFFF0), (0x02052C, 0xFFFFFFC0),
+    (0x02052C, 0xFFFFFF00), (0x02052C, 0xFFFFFC00), (0x02052C, 0xFFFCFC00),
+    (0x02052C, 0xFFF0FC00), (0x02052C, 0xFF80FC00), (0x020528, 0xFFFFFFFE),
+    (0x020528, 0xFFFFFFFC),
+]
+for i, (addr, data) in enumerate(STEPS):
+    pre = rd(addr)
+    wr(addr, data)
+    for _ in range(200):
+        time.sleep(0.01)
+        if rd(addr) & 0x80000000 == 0:
+            break
+    post = rd(addr)
+    if i == 0 or i == len(STEPS)-1:
+        print(f'  Step[{i}] {addr:#08x}: pre={pre:#010x} post={post:#010x}')
+# 6. PMU PSW: clear bit 1, pulse bit 0
+mask(0x10a78c, 0x2, 0x0)
+mask(0x10a78c, 0x1, 0x1)
+mask(0x10a78c, 0x1, 0x0)
+# 7. Clear PMC bit 27, re-enable PGRAPH
+mask(0x200, 0x08000000, 0x0)
+mask(0x200, 0x1000, 0x1000)
 rd(0x200)
 time.sleep(0.05)
 
-# Clear PRI ring faults and re-enumerate stations
-nstations = rd(0x120070)
-for i in range(max(nstations, 32)):
-    fault = rd(0x122124 + i * 0x800)
-    if fault != 0:
-        wr(0x122124 + i * 0x800, fault)
-
-# ACK ring interrupt
-intr = rd(0x120058)
-if intr != 0:
-    wr(0x12004c, 0x02)
-    time.sleep(0.02)
-
-# Re-enumerate
+# Re-enumerate PRI ring
+wr(0x12004c, 0x02)
+time.sleep(0.02)
 wr(0x12004c, 0x04)
 for _ in range(200):
     time.sleep(0.01)
@@ -339,14 +337,12 @@ for _ in range(200):
         break
 
 pmc_after = rd(0x200)
-therm_after = rd(0x20004)
-psw_after = rd(0x10a78c)
 nstations_after = rd(0x120070)
 gpc0_after = rd(0x500000)
-gpc1_after = rd(0x508000)
 fecs_after = rd(0x409100)
-print(f'Post: PMC={pmc_after:#010x} THERM={therm_after:#010x} PSW={psw_after:#010x}')
-print(f'Post: NSTATIONS={nstations_after} GPC0={gpc0_after:#010x} GPC1={gpc1_after:#010x} FECS={fecs_after:#010x}')
+gr_hub = rd(0x400000)
+print(f'Post: PMC={pmc_after:#010x} NSTATIONS={nstations_after} GR_HUB={gr_hub:#010x}')
+print(f'Post: GPC0={gpc0_after:#010x} FECS={fecs_after:#010x}')
 
 mm.close()
 f.close()
@@ -366,7 +362,7 @@ done
 # Extract it before unbinding so we can reload it via VFIO.
 # FECS IMEM: read via 0x409180 (addr) / 0x409184 (data)
 # GPCCS IMEM: read via 0x41A180 (addr) / 0x41A184 (data)
-FW_DIR="/home/biomegate/Development/ecoPrimals/primals/coralReef/crates/coral-driver/firmware/gk110"
+FW_DIR="${CORAL_FW_DIR:-$(cd "$(dirname "$0")/../../../primals/coralReef/crates/coral-driver/firmware/gk110" 2>/dev/null && pwd || echo "/home/biomegate/Development/ecoPrimals/primals/coralReef/crates/coral-driver/firmware/gk110")}"
 for BDF in "${TARGETS[@]}"; do
     python3 -c "
 import mmap, struct, sys
@@ -465,21 +461,86 @@ for BDF in "${TARGETS[@]}"; do
     log "$BDF BEFORE unbind: CPUCTL=$FECS_CPUCTL SCRATCH0=$FECS_SCRATCH0 PC=$FECS_PC"
     log "$BDF BEFORE unbind: GPC0=$GPC0_PRE GPC1=$GPC1_PRE BCAST=$GPC_BCAST_PRE PMC=$PMC_PRE"
 
-    # Before unbind: try to wake GPCs by poking nouveau's GR engine.
-    # Nouveau's idle power management may have gated GPCs.
-    # Try to force-wake by triggering a GR operation.
-    log "Attempting to wake GPCs via GR engine access before unbind..."
-    
-    # Read/write through nouveau's DRM ioctl would be ideal, but we don't
-    # have a DRM client. Instead, let's check if there's a sysfs PM control.
+    # Before unbind: force nouveau to initialize the GR engine.
+    # mmiotrace reveals nouveau NEVER inits GR on headless K80 (zero
+    # PGRAPH register accesses). We must force GR init by opening the
+    # render node and allocating a GEM buffer, which triggers
+    # nouveau's gf100_gr_init → FECS/GPCCS boot.
+    log "Forcing GR engine init via DRM render node..."
+
     if [[ -f "$SYSFS/power/control" ]]; then
         echo "on" > "$SYSFS/power/control" 2>/dev/null || true
-        sleep 1
     fi
-    
-    # Re-check GPCs after wake attempt
+
+    # Find this GPU's DRM render node.
+    RENDER_NODE=""
+    for CARD_DIR in /sys/class/drm/renderD*; do
+        [[ -d "$CARD_DIR/device" ]] || continue
+        CARD_BDF="$(basename "$(readlink -f "$CARD_DIR/device")")"
+        if [[ "$CARD_BDF" == "$BDF" ]]; then
+            RENDER_NODE="/dev/dri/$(basename "$CARD_DIR")"
+            break
+        fi
+    done
+
+    if [[ -n "$RENDER_NODE" && -c "$RENDER_NODE" ]]; then
+        log "$BDF render node: $RENDER_NODE — forcing GR engine init"
+
+        # Preferred path: compiled libdrm_nouveau tool (handles all ioctl details).
+        FORCE_GR_TOOL="$(cd "$(dirname "$0")/tools" && pwd)/k80_force_gr_init"
+        if [[ -x "$FORCE_GR_TOOL" ]]; then
+            "$FORCE_GR_TOOL" "$RENDER_NODE" 2>&1 | while IFS= read -r line; do log "  $line"; done || true
+        else
+            warn "k80_force_gr_init not compiled — using raw ioctl fallback"
+            # Fallback: raw DRM ioctl for channel allocation.
+            #
+            # struct drm_nouveau_channel_alloc (88 bytes):
+            #   offset  0: fb_ctxdma_handle  (u32) = 0
+            #   offset  4: tt_ctxdma_handle  (u32) = 0x01 (NOUVEAU_FIFO_ENGINE_GR for Kepler!)
+            #   offset  8: channel           (s32) = output
+            #   offset 12: pushbuf_domains   (u32) = 0x06 (VRAM|GART)
+            #   offset 16: notifier_handle   (u32) = 0
+            #   offset 20: subchan[8]        (64 bytes) = output
+            #   offset 84: nr_subchan        (u32) = output
+            #
+            # DRM_IOCTL_NOUVEAU_CHANNEL_ALLOC = DRM_IOWR('d', 0x42, 88) = 0xC0586442
+            #   DRM_COMMAND_BASE=0x40 + DRM_NOUVEAU_CHANNEL_ALLOC=0x02 = 0x42
+            python3 -c "
+import fcntl, struct, os, errno
+
+fd = os.open('$RENDER_NODE', os.O_RDWR)
+print(f'Opened render node fd={fd}')
+
+buf = bytearray(88)
+# fb_ctxdma=0, tt_ctxdma=NOUVEAU_FIFO_ENGINE_GR(0x01), channel=0(output), pushbuf=VRAM|GART(0x6)
+struct.pack_into('<IIiI', buf, 0, 0, 0x01, 0, 0x06)
+
+try:
+    fcntl.ioctl(fd, 0xC0586442, buf)
+    channel_id = struct.unpack_from('<i', buf, 8)[0]
+    nr_subchan = struct.unpack_from('<I', buf, 84)[0]
+    print(f'CHANNEL_ALLOC ok: channel={channel_id} nr_subchan={nr_subchan}')
+    for i in range(min(nr_subchan, 8)):
+        handle, grclass = struct.unpack_from('<II', buf, 20 + i*8)
+        print(f'  subchan[{i}]: handle=0x{handle:08x} grclass=0x{grclass:04x}')
+    print('GR engine initialized')
+except OSError as e:
+    print(f'CHANNEL_ALLOC failed: errno={e.errno} ({os.strerror(e.errno)})')
+
+os.close(fd)
+" 2>&1 | while IFS= read -r line; do log "  $line"; done
+        fi
+
+        sleep 3
+    else
+        warn "$BDF no render node found — GR init skipped (nouveau may not have created DRM device)"
+    fi
+
+    # Re-check GPCs and FECS after GR init attempt
     GPC0_WAKE=$(gpu_read "$BDF" 0x500000)
-    log "$BDF GPC0 after wake attempt: $GPC0_WAKE"
+    FECS_POST_GR=$(gpu_read "$BDF" 0x409100)
+    GR_HUB_POST=$(gpu_read "$BDF" 0x400000)
+    log "$BDF after GR init: GPC0=$GPC0_WAKE FECS_CPUCTL=$FECS_POST_GR GR_HUB=$GR_HUB_POST"
 
     # Unbind from nouveau (livepatch prevents FECS IMEM wipe)
     if [[ -L "$SYSFS/driver" ]]; then

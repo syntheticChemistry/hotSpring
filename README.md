@@ -54,7 +54,7 @@ hotSpring is the reference implementation for the guideStone Composition Standar
 
 ---
 
-## Current Status (2026-04-27)
+## Current Status (2026-04-29)
 
 > **176+ experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **993 lib tests, 166 binaries, 64/64 validation suites, 128 WGSL shaders** | **deny.toml** (ecoBin C-dep bans) | **all 13 physics/compute methods wired in JSON-RPC server** | **zero `dyn` dispatch, zero unsafe, `#[expect]` over `#[allow]`** | **guideStone artifact: 59/59 checks x 5 substrates (x86_64 + aarch64)** | **OCI container image + Windows/macOS launchers** | **NVIDIA GPFIFO pipeline OPERATIONAL on RTX 3090** | **AMD scratch/local memory OPERATIONAL on RX 6950 XT** | **AMD sovereign compiler: 24/24 QCD shaders compile to native GFX ISA** | **NVIDIA sovereign compiler: 10/10 HMC pipeline shaders compile to native SASS on SM35 (Kepler) + SM70 (Volta) + SM120 (Blackwell)** | **Ember Survivability Hardening COMPLETE** | **Firmware Boundary → SovereignInit Pipeline COMPLETE** | **NUCLEUS Composition Evolution COMPLETE** | **coralReef f64 transcendental lowering fixed for all NVIDIA generations (SM32+)** | **Level 5 Primal Proof — `validate_primal_proof` harness, 10 manifest capabilities exercised** | **GPU Generation Profile Architecture — vendor-agnostic `HardwareCapabilities` trait + NVIDIA/AMD/Intel generation profiles** | **Multi-vendor descriptor stride: 16-byte NVIDIA / 8-byte AMD (arrayLength fixed)** | **AMD RDNA binary format: ELF detection, GFX version validation, metadata extraction** | **Intel i915/xe DRM ioctl scaffold** | **ShaderInfo wire propagation through IPC protocol** | **GPU-aware compilation target selection via dispatch primal query**
 >
@@ -466,5 +466,8 @@ GPU constructors DRYed, experiment bins standardized.
 Three-tier validation: Python validates Rust. Rust validates NUCLEUS. Peer-reviewed
 science runs on consumer hardware, composed via sovereign primal IPC.
 guideStone artifact validated across 5 substrates.
+K80 PGOB: nvidia-470 binary analysis reveals PSW-only ungate sequence (0x10a78c) —
+proprietary driver skips 0x0205xx power steps entirely. Root cause narrowed: PRI ring
+has zero GPC stations enrolled. PMU firmware load or PRI ring enrollment needed.
 The full science ladder — quenched through dynamical fermions with gradient flow
 scale setting — runs on consumer hardware. The scarcity was artificial.*

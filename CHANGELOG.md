@@ -7,6 +7,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Unreleased — K80 PGOB Binary Analysis + GPU Checkpoint (April 29, 2026)
+
+### Added
+- **nvidia-470 PGOB binary analysis**: Static disassembly of `nv-kernel.o_binary` revealed PSW-only PGOB sequence at `0x10a78c` — nvidia-470 skips `0x0205xx` power domain steps entirely. Two functions identified: `_nv029216rm` (ungate) and `_nv029114rm` (gate). Documented in `agentReagents/tools/k80-sovereign/nvidia470_pgob_analysis.md`.
+- **`nvidia470_pgob_disable()`**: New PSW-only PGOB function in `coral-driver/pgob.rs`, derived from nvidia-470 binary analysis. Integrated into `kepler_warm.rs` as first-attempt before Nouveau fallback.
+- **`nvidia470_pgob_enable()`**: Inverse function (re-gate GPCs) in `coral-driver/pgob.rs`.
+- **Proprietary nvidia-470 build recipe**: `agentReagents/tools/k80-sovereign/build_nvidia470_kernel617.sh` — compiles proprietary nvidia-470 for kernel 6.17 in `/tmp` (zero host contamination). Applied Pop!_OS compat patches for `del_timer_sync`, `follow_pfn`, `__vma_start_write`, `drm_fb_create`.
+- **QEMU VM reagent for K80**: Built and tested direct QEMU VM with K80 VFIO passthrough, host kernel, proprietary nvidia-470 module. Module successfully probed K80 (`NVRM: loading 470.256.02`). mmiotrace empty due to VFIO BAR mapping bypass — pivoted to static binary analysis.
+- **K80 GPU solve status handoff**: `infra/wateringHole/handoffs/HOTSPRING_CORALREEF_K80_PGOB_NVIDIA470_HANDOFF_APR29_2026.md`.
+
+### Changed
+- **`coral-driver/pgob.rs`**: Added nvidia-470 PSW-only PGOB functions alongside existing Nouveau-derived `gk110_pgob_disable`. Both approaches now available — PSW-only tried first, Nouveau fallback if GPCs remain gated.
+- **`coral-driver/kepler_warm.rs`**: POST-done path and cold-recovery path both try `nvidia470_pgob_disable` first. Fallback to `gk110_pgob_disable` if GPCs still show `0xbadf` pattern.
+
+### Findings
+- **PSW-only requires running PMU firmware**: nvidia-470's PSW handshake at `0x10a78c` needs PMU falcon actively processing commands. Without loaded firmware, register writes are no-ops. The `0x0205xx` power steps succeed on GK210B (no PRIVRING faults as previously reported) but GPC PRI routes remain broken.
+- **Root cause narrowed**: PRI ring shows `pri_gpc_cnt=0` — zero GPC stations enrolled. GPCs aren't just power-gated, they're absent from PRI topology. Two paths forward: PRI ring GPC enrollment, or PMU firmware load for PSW processing.
+
 ## Unreleased — Documentation Sweep + Handoff (April 27, 2026)
 
 ### Changed

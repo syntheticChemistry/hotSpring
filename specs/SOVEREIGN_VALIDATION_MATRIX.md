@@ -54,12 +54,13 @@
 | L9-L11: Dispatch | BLOCKED by L4 (need nvidia-470 recipe + devinit for PFIFO) | BLOCKED | UNTESTED |
 | Compile | PASS (SM37) | PASS (SM37) | PASS (SM37) |
 
-**K80 Architecture Notes (2026-04-01):**
+**K80 Architecture Notes (2026-04-29):**
 - No FLR hardware — PMC soft-reset is the only recovery path (`device.reset method=pmc`)
 - PRI ring writes from userspace are destructive (corrupted die 0 ring fabric)
 - nvidia-470 recipe enables PGRAPH domain (FECS accessible) but NOT PFIFO domain
 - PFIFO clock domain requires VBIOS devinit replay or full nvidia POST
 - Cold K80 die 1 causes D-state on any PCI access (guarded open required)
+- **PGOB binary analysis (Apr 29):** nvidia-470 uses PSW-only sequence at `0x10a78c` (no `0x0205xx` steps). Requires running PMU firmware. `gk110_pgob_disable` `0x0205xx` steps succeed but PRI ring has 0 GPC stations enrolled. Root cause: PRI ring topology, not just power gating.
 
 ### RTX 5060 (GB206, Blackwell)
 
