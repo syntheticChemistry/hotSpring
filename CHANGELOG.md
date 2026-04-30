@@ -7,6 +7,39 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Unreleased — K80 Warm FECS/PFIFO Pipeline + Checkpoint (April 30, 2026)
+
+### Added
+- **K80 warm FECS boot** (coralReef coral-driver): Internal firmware protocol for GK210B Kepler — FECS/GPCCS firmware loaded via Falcon v3 PIO, IMEM tags, csdata in DMEM. FECS boots and reaches idle state (CPUCTL=0x20). Internal firmware context size read from `0x409804`. Fire-and-forget channel binding for internal protocol.
+- **Kepler PFIFO pipeline** (coralReef coral-driver): PFIFO scheduler sub-block (`0x2500-0x26FF`) permanently PRI-faulted after VFIO FLR — discovered accessible registers (`0x2270` RUNLIST_BASE, `0x2274` RUNLIST_SUBMIT, `0x2390+` PBDMA assignment table). Dynamic PBDMA-to-runlist discovery from `0x2390` (hardware shows PBDMA 0 → runlist 1, not 0). Runlist completes successfully.
+- **Kepler doorbell mechanism**: Architecture-specific doorbell at `0x3000 + channel_id * 8` for GPFIFO notification.
+- **GK104 runlist entry format**: Corrected to `(channel_id, 0x00000004)` matching Nouveau's `gk104_fifo_runlist_chan`.
+- **Experiment 179**: K80 warm FECS dispatch pipeline — full debug journal.
+- **K80 FECS/PFIFO handoff**: `wateringHole/handoffs/HOTSPRING_CORALREEF_K80_FECS_PFIFO_HANDOFF_APR30_2026.md`.
+
+### Changed
+- **`kepler_fecs_boot.rs`**: Tight PMC GR reset + CG disable sequence. Removed per-GPC ITFEN/WDT writes. Restored MC_UNK260 bracket. Falcon PC register reads corrected (0x0A4 not 0x0A8).
+- **`fecs_method.rs`**: Wake trigger at `0x409840`. Internal firmware method interface (`fecs_internal_method`, `fecs_internal_bind_channel`, `fecs_internal_save_context`).
+- **`warm_channel.rs`**: Internal firmware reads context size from `0x409804` (not FECS method 0x10). `fecs_set_watchdog_timeout` made non-fatal.
+- **`kepler_csdata.rs`**: Fixed AINCW+star (was AINCW+starstar) — prevented FECS DMEM overwrite.
+- **`gr_engine_status.rs`**: `fecs_halted()` correctly interprets CPUCTL 0x20 as idle (not halted). Added `ctxsw_mailbox0` field.
+- **`pfifo.rs`**: Reads PBDMA→runlist assignment from `0x2390` (accessible on GK210B). Skips writes to PRI-faulted registers. PBDMA stale state clearing added.
+- **`channel/mod.rs`**: `create_kepler` uses discovered `target_runlist` from `init_pfifo_engine_kepler` instead of hardcoded 0.
+- **`page_tables.rs`**: Kepler runlist entry format corrected.
+- **`registers.rs`**: `gk104_doorbell`, corrected runlist encoding functions, PCCSR field definitions.
+- **`submission.rs`**: Architecture-specific doorbell for Kepler.
+- **`device_open.rs`**: Fine-grained PFIFO register probe (0x2200–0x254C) for accessibility mapping.
+
+### Findings
+- **PFIFO scheduler sub-block dead after VFIO FLR**: Registers `0x2004`, `0x2200-0x2253`, `0x22C0`, `0x2300`, `0x2504`, `0x2600` consistently PRI-fault (`0xbad0011f`). Not recoverable by PMC/PRI resets. However, `0x2270` (RUNLIST_BASE), `0x2274` (RUNLIST_SUBMIT), `0x2390+` (PBDMA assignment) are accessible and functional.
+- **Runlist ID mismatch**: Nouveau programs PBDMA 0 → runlist 1 at `0x2390`. Previous hardcoded runlist 0 caused silent stall. After fix, runlist completes.
+- **SCHED_ERROR code=32**: Remaining issue — scheduler reports error after runlist completion. PBDMA 0 doesn't pick up the channel. Next: investigate PCCSR binding and PBDMA stale state clearing.
+
+### Status
+- K80 FECS boot: **OPERATIONAL** (firmware loads, boots, reaches idle)
+- K80 PFIFO runlist: **OPERATIONAL** (completes on correct runlist ID)
+- K80 GPFIFO dispatch: **IN PROGRESS** (SCHED_ERROR code=32, PBDMA stale state)
+
 ## Unreleased — K80 PGOB Binary Analysis + GPU Checkpoint (April 29, 2026)
 
 ### Added
@@ -15,7 +48,7 @@ This file covers the spring as a whole. For crate-level details see
 - **`nvidia470_pgob_enable()`**: Inverse function (re-gate GPCs) in `coral-driver/pgob.rs`.
 - **Proprietary nvidia-470 build recipe**: `agentReagents/tools/k80-sovereign/build_nvidia470_kernel617.sh` — compiles proprietary nvidia-470 for kernel 6.17 in `/tmp` (zero host contamination). Applied Pop!_OS compat patches for `del_timer_sync`, `follow_pfn`, `__vma_start_write`, `drm_fb_create`.
 - **QEMU VM reagent for K80**: Built and tested direct QEMU VM with K80 VFIO passthrough, host kernel, proprietary nvidia-470 module. Module successfully probed K80 (`NVRM: loading 470.256.02`). mmiotrace empty due to VFIO BAR mapping bypass — pivoted to static binary analysis.
-- **K80 GPU solve status handoff**: `infra/wateringHole/handoffs/HOTSPRING_CORALREEF_K80_PGOB_NVIDIA470_HANDOFF_APR29_2026.md`.
+- **K80 GPU solve status handoff**: `wateringHole/handoffs/HOTSPRING_CORALREEF_K80_PGOB_NVIDIA470_HANDOFF_APR29_2026.md`.
 
 ### Changed
 - **`coral-driver/pgob.rs`**: Added nvidia-470 PSW-only PGOB functions alongside existing Nouveau-derived `gk110_pgob_disable`. Both approaches now available — PSW-only tried first, Nouveau fallback if GPCs remain gated.
@@ -38,8 +71,8 @@ This file covers the spring as a whole. For crate-level details see
 
 ### Added
 - **`experiments/README.md`**: Deep debt evolution session entry (April 27).
-- **`infra/wateringHole/NUCLEUS_SPRING_ALIGNMENT.md`**: Phase 46 Composition Evolution section with lane assignments, hotSpring deep debt summary, updated spring pinning.
-- **`infra/wateringHole/handoffs/HOTSPRING_V0632_DEEPDEBT_PHASE46_HANDOFF_APR27_2026.md`**: Comprehensive handoff documenting capability-based discovery patterns, smart refactoring guidance, EVOLUTION markers for upstream, active PRIMAL_GAPS, composition patterns for NUCLEUS deployment.
+- **`wateringHole/NUCLEUS_SPRING_ALIGNMENT.md`**: Phase 46 Composition Evolution section with lane assignments, hotSpring deep debt summary, updated spring pinning.
+- **`wateringHole/handoffs/HOTSPRING_V0632_DEEPDEBT_PHASE46_HANDOFF_APR27_2026.md`**: Comprehensive handoff documenting capability-based discovery patterns, smart refactoring guidance, EVOLUTION markers for upstream, active PRIMAL_GAPS, composition patterns for NUCLEUS deployment.
 
 ## Deep Debt Evolution (April 27, 2026)
 

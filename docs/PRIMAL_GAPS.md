@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026
-**Last audited:** April 27, 2026 (deep debt evolution — capability-based discovery, smart refactoring)
+**Last audited:** April 30, 2026 (K80 warm FECS/PFIFO checkpoint, GAP-HS-006 upstream resolved)
 **License:** AGPL-3.0-or-later
 
 ---
@@ -56,15 +56,14 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
   yet implemented. This blocks multi-family metallic fleet pooling.
 - **Upstream ref:** `primalSpring/docs/PRIMAL_GAPS.md` IONIC-RUNTIME item.
 
-### GAP-HS-006: BTSP-BARRACUDA-WIRE Session Crypto
+### GAP-HS-006: BTSP-BARRACUDA-WIRE Session Crypto — UPSTREAM RESOLVED
 
 - **Primal:** barraCuda / BearDog
 - **Severity:** Medium (ecosystem-wide)
-- **Status:** Blocked upstream
-- **Description:** barraCuda session creation does not yet use full BTSP
-  stream encryption (Phase 3). hotSpring's df64/tensor work is in-process
-  via Rust crate import, so this gap only affects multi-process barraCuda
-  IPC scenarios.
+- **Status:** Upstream resolved (barraCuda Sprint 43: BTSP Phase 3 stream encryption). Pending hotSpring absorption after next barraCuda pull.
+- **Description:** barraCuda session creation now uses full BTSP stream
+  encryption (Phase 3, Sprint 43). hotSpring needs to pull the updated
+  barraCuda dependency to close this gap locally.
 - **Upstream ref:** `primalSpring/docs/PRIMAL_GAPS.md` BTSP-BARRACUDA-WIRE.
 
 ### GAP-HS-007: TensorSession Not Adopted

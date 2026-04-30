@@ -194,4 +194,4 @@ Reference pattern doc for new niches: `primalSpring/graphs/downstream/NICHE_STAR
 - guideStone standard: `primalSpring/wateringHole/GUIDESTONE_COMPOSITION_STANDARD.md` (v1.1.0)
 - plasmidBin depot: `primalSpring/wateringHole/PLASMINBIN_DEPOT_PATTERN.md`
 - Gap ledger: `docs/PRIMAL_GAPS.md` (GAP-HS-026/032/033/035 resolved, GAP-HS-027/028 forward work)  
-- Ecosystem handoffs: `infra/wateringHole/handoffs/HOTSPRING_V0632_*`
+- Ecosystem handoffs: `wateringHole/handoffs/HOTSPRING_V0632_*`
