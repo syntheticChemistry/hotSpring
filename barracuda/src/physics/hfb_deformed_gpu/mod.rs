@@ -36,14 +36,15 @@ use std::time::Instant;
 
 pub use types::GpuResidentL3Result;
 
-// EVOLUTION(GPU): will be used when deformed_*.wgsl shaders are wired for full GPU-resident pipeline
+// EVOLUTION(GPU): `physics/shaders/deformed_*_f64.wgsl` sources exist but this solver still
+// uses Rayon + batched GPU eigensolve only — WGSL grid kernels not hooked into `binding_energies_l3_gpu`.
 #[expect(dead_code, reason = "EVOLUTION: reserved for GPU pipeline wiring")]
 fn create_f64_storage_buf(device: &WgpuDevice, label: &str, data: &[f64]) -> wgpu::Buffer {
     let bytes: Vec<u8> = data.iter().flat_map(|v| v.to_le_bytes()).collect();
     device.create_storage_buffer(label, &bytes)
 }
 
-// EVOLUTION(GPU): will be used when deformed_*.wgsl shaders are wired for full GPU-resident pipeline
+// EVOLUTION(GPU): same as above — buffer readback helpers reserved for eventual WGSL path.
 #[expect(dead_code, reason = "EVOLUTION: reserved for GPU pipeline wiring")]
 fn read_f64_from_gpu(device: &WgpuDevice, buf: &wgpu::Buffer, count: usize) -> Vec<f64> {
     device

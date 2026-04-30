@@ -559,8 +559,11 @@ pub fn gpu_hasenbusch_hmc_trajectory(
         gpu.submit_encoder(enc);
     }
 
-    // EVOLUTION(B2): GPU-resident Hamiltonian assembly — blocked on fused
-    // gauge-action + fermion-force pipeline in barraCuda TensorSession.
+    // EVOLUTION(B2): still using discrete `gpu_wilson_action` / `gpu_kinetic_energy`
+    // (deprecated readbacks) for Metropolis scalars on this path — not `TensorSession`.
+    // HotSpring GAP-HS-027: upstream barraCuda `TensorSession` adoption remains deferred;
+    // RHMC has GPU-resident `H` via `uni_hamiltonian::compute_h_gpu`, but dynamical
+    // / resident_CG / Hasenbusch are separate — need TensorSession fusion or a port.
     #[expect(deprecated, reason = "transitional — migration to new API pending")]
     let s_gauge_old = gpu_wilson_action(gpu, &pipelines.gauge, gs);
     let t_old = gpu_kinetic_energy(gpu, &pipelines.gauge, gs);

@@ -57,8 +57,14 @@
 //! | `observables` | Three-substrate stream integration and NPU monitoring |
 
 pub mod brain_persistence;
+mod brain_config;
+mod brain_cortex;
+mod brain_inference;
 pub mod brain_rhmc;
+mod fp64_substrate;
+mod gauge_layout;
 pub mod dynamical;
+mod fermion_bridge;
 pub mod gpu_rhmc;
 pub mod hasenbusch;
 pub mod observables;
@@ -116,6 +122,13 @@ pub use unidirectional_cortex::{
 };
 pub use unidirectional_rhmc::gpu_rhmc_trajectory_unidirectional;
 
+pub use fp64_substrate::substrate_fp64_strategy;
+pub use gauge_layout::{
+    build_neighbors, flatten_links, flatten_momenta, unflatten_links_into,
+};
+#[expect(deprecated, reason = "transitional — re-export of deprecated gpu_dot_re for legacy callers")]
+pub(super) use fermion_bridge::{gpu_dirac_dispatch, gpu_dot_re, gpu_fermion_force_dispatch};
+
 use super::wilson::Lattice;
 use crate::gpu::GpuF64;
 
@@ -124,62 +137,6 @@ use crate::gpu::GpuF64;
 //   - Titan V, V100, A100, MI250 → native f64 (1:2 FP64:FP32)
 //   - RTX 3090, 4070, consumer → DF64 on FP32 cores (force + plaquette + KE)
 use barracuda::device::driver_profile::Fp64Strategy;
-
-/// Substrate-aware FP64 strategy using adapter-name hardware classification.
-///
-/// barraCuda's `DeviceCapabilities::fp64_strategy()` only distinguishes Native
-/// vs Hybrid based on f64 probe results. It never returns Concurrent because
-/// it doesn't know the FP64:FP32 hardware ratio. This function classifies
-/// the rate from the adapter name (mirroring metalForge's substrate probe).
-///
-/// On narrow-rate GPUs (RTX 3090 1:64, RX 6950 XT 1:16), this returns
-/// `Concurrent`: saturate native f64 AND use DF64 on FP32 cores for bulk
-/// computation. This activates the hand-written df64 force/plaquette/KE shaders,
-/// unlocking 4-6x more effective f64 TFLOPS from the FP32 silicon.
-pub fn substrate_fp64_strategy(gpu: &GpuF64) -> Fp64Strategy {
-    if gpu.full_df64_mode {
-        return Fp64Strategy::Hybrid;
-    }
-
-    let rate = classify_fp64_rate_from_adapter(&gpu.adapter_name);
-    match rate {
-        Fp64RateLocal::Full | Fp64RateLocal::Half => Fp64Strategy::Native,
-        Fp64RateLocal::Narrow if gpu.has_f64 => {
-            // Narrow-rate GPU with DF64 support: saturate native + overflow to FP32
-            Fp64Strategy::Concurrent
-        }
-        Fp64RateLocal::Narrow => Fp64Strategy::Hybrid,
-    }
-}
-
-/// Hardware FP64 throughput relative to FP32 (local mirror of metalForge substrate).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Fp64RateLocal {
-    /// 1:1 FP64:FP32 (datacenter: A100, H100).
-    Full,
-    /// 1:2 FP64:FP32 (Titan V / Volta, some Turing).
-    Half,
-    /// 1:32 or 1:64 FP64:FP32 (consumer Ampere, Ada, Turing).
-    Narrow,
-}
-
-/// Classify FP64:FP32 rate from adapter name (mirrors metalForge probe logic).
-fn classify_fp64_rate_from_adapter(name: &str) -> Fp64RateLocal {
-    let name_lower = name.to_lowercase();
-    if name_lower.contains("a100") || name_lower.contains("h100") {
-        Fp64RateLocal::Full
-    } else if name_lower.contains("titan v")
-        || name_lower.contains("v100")
-        || name_lower.contains("gv100")
-        || name_lower.contains("mi50")
-        || name_lower.contains("mi100")
-        || name_lower.contains("mi250")
-    {
-        Fp64RateLocal::Half
-    } else {
-        Fp64RateLocal::Narrow
-    }
-}
 
 /// WGSL shader: Wilson plaquette per site (6 planes, Re Tr P/3).
 pub const WGSL_WILSON_PLAQUETTE: &str = include_str!("../shaders/wilson_plaquette_f64.wgsl");
@@ -290,7 +247,7 @@ impl GpuHmcPipelines {
                 Fp64Strategy::Concurrent =>
                     "DF64 on FP32 cores for force + plaquette + KE — FP32 silicon activated",
             },
-            classify_fp64_rate_from_adapter(&gpu.adapter_name),
+            fp64_substrate::classify_fp64_rate_from_adapter(&gpu.adapter_name),
         );
 
         let complex_no_exp = WGSL_COMPLEX_F64
@@ -362,85 +319,6 @@ impl DualHmcPipelines {
         Self {
             precise: GpuHmcPipelines::new(&pair.precise),
             throughput: GpuHmcPipelines::new(&pair.throughput),
-        }
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════════
-//  Layout helpers (SU(3) ↔ flat f64 buffers)
-// ═══════════════════════════════════════════════════════════════════
-
-/// Flatten lattice links to f64 array (same layout as `DiracGpuLayout`).
-#[must_use]
-pub fn flatten_links(lattice: &Lattice) -> Vec<f64> {
-    let vol = lattice.volume();
-    let mut flat = vec![0.0_f64; vol * 4 * 18];
-    for idx in 0..vol {
-        let x = lattice.site_coords(idx);
-        for mu in 0..4 {
-            let u = lattice.link(x, mu);
-            let base = (idx * 4 + mu) * 18;
-            for row in 0..3 {
-                for col in 0..3 {
-                    flat[base + row * 6 + col * 2] = u.m[row][col].re;
-                    flat[base + row * 6 + col * 2 + 1] = u.m[row][col].im;
-                }
-            }
-        }
-    }
-    flat
-}
-
-/// Build neighbor table (same layout as `DiracGpuLayout`).
-#[must_use]
-pub fn build_neighbors(lattice: &Lattice) -> Vec<u32> {
-    let vol = lattice.volume();
-    let mut neighbors = vec![0_u32; vol * 8];
-    for idx in 0..vol {
-        let x = lattice.site_coords(idx);
-        for mu in 0..4 {
-            let fwd = lattice.site_index(lattice.neighbor(x, mu, true));
-            let bwd = lattice.site_index(lattice.neighbor(x, mu, false));
-            neighbors[idx * 8 + mu * 2] = fwd as u32;
-            neighbors[idx * 8 + mu * 2 + 1] = bwd as u32;
-        }
-    }
-    neighbors
-}
-
-/// Flatten SU(3) momenta to f64 array.
-#[must_use]
-pub fn flatten_momenta(momenta: &[super::su3::Su3Matrix]) -> Vec<f64> {
-    let mut flat = vec![0.0_f64; momenta.len() * 18];
-    for (i, p) in momenta.iter().enumerate() {
-        let base = i * 18;
-        for row in 0..3 {
-            for col in 0..3 {
-                flat[base + row * 6 + col * 2] = p.m[row][col].re;
-                flat[base + row * 6 + col * 2 + 1] = p.m[row][col].im;
-            }
-        }
-    }
-    flat
-}
-
-/// Unflatten f64 array back to SU(3) link matrices and update lattice.
-pub fn unflatten_links_into(lattice: &mut Lattice, flat: &[f64]) {
-    let vol = lattice.volume();
-    for idx in 0..vol {
-        let x = lattice.site_coords(idx);
-        for mu in 0..4 {
-            let base = (idx * 4 + mu) * 18;
-            let mut m = super::su3::Su3Matrix::ZERO;
-            for row in 0..3 {
-                for col in 0..3 {
-                    m.m[row][col] = super::complex_f64::Complex64::new(
-                        flat[base + row * 6 + col * 2],
-                        flat[base + row * 6 + col * 2 + 1],
-                    );
-                }
-            }
-            lattice.set_link(x, mu, m);
         }
     }
 }
@@ -815,93 +693,6 @@ pub(super) fn gpu_plaquette(gpu: &GpuF64, p: &GpuHmcPipelines, s: &GpuHmcState) 
     };
     let plaq_sum: f64 = per_site.iter().sum();
     plaq_sum / (6.0 * s.volume as f64)
-}
-
-// ═══════════════════════════════════════════════════════════════════
-//  Fermion dispatch helpers (shared by dynamical + resident_cg)
-// ═══════════════════════════════════════════════════════════════════
-
-pub(super) fn gpu_dirac_dispatch(
-    gpu: &GpuF64,
-    pipelines: &dynamical::GpuDynHmcPipelines,
-    state: &dynamical::GpuDynHmcState,
-    input: &wgpu::Buffer,
-    output: &wgpu::Buffer,
-    hop_sign: f64,
-) {
-    let vol = state.gauge.volume;
-    let wg = (vol as u32).div_ceil(64);
-    let mut params = Vec::with_capacity(24);
-    params.extend_from_slice(&(vol as u32).to_le_bytes());
-    params.extend_from_slice(&0u32.to_le_bytes());
-    params.extend_from_slice(&state.mass.to_le_bytes());
-    params.extend_from_slice(&hop_sign.to_le_bytes());
-    let pbuf = gpu.create_uniform_buffer(&params, "dirac_p");
-    let bg = gpu.create_bind_group(
-        &pipelines.dirac_pipeline,
-        &[
-            &pbuf,
-            &state.gauge.link_buf,
-            input,
-            output,
-            &state.gauge.nbr_buf,
-            &state.phases_buf,
-        ],
-    );
-    gpu.dispatch(&pipelines.dirac_pipeline, &bg, wg);
-}
-
-pub(super) fn gpu_fermion_force_dispatch(
-    gpu: &GpuF64,
-    pipelines: &dynamical::GpuDynHmcPipelines,
-    state: &dynamical::GpuDynHmcState,
-) {
-    let vol = state.gauge.volume;
-    let wg = (vol as u32).div_ceil(64);
-    let params = make_u32x4_params(vol as u32);
-    let pbuf = gpu.create_uniform_buffer(&params, "fforce_p");
-    let bg = gpu.create_bind_group(
-        &pipelines.fermion_force_pipeline,
-        &[
-            &pbuf,
-            &state.gauge.link_buf,
-            &state.x_buf,
-            &state.y_buf,
-            &state.gauge.nbr_buf,
-            &state.phases_buf,
-            &state.ferm_force_buf,
-        ],
-    );
-    gpu.dispatch(&pipelines.fermion_force_pipeline, &bg, wg);
-}
-
-/// GPU dot product with **full readback to CPU** — causes a pipeline stall.
-///
-/// # Deprecated — use GPU-resident scalar buffers instead
-///
-/// Each call: dispatch → fence → PCIe map → CPU sum → unmap.
-/// In the legacy CG path this is called ~3× per iteration ×7200 iters
-/// = ~20,000 stalls per trajectory. The GPU-resident CG path in
-/// `resident_cg.rs` / `resident_shifted_cg.rs` keeps all scalars
-/// on-device and only reads back every `check_interval` iterations.
-#[deprecated(note = "use GPU-resident CG scalar buffers (resident_cg.rs / resident_shifted_cg.rs)")]
-pub(super) fn gpu_dot_re(
-    gpu: &GpuF64,
-    dot_pl: &wgpu::ComputePipeline,
-    dot_buf: &wgpu::Buffer,
-    a: &wgpu::Buffer,
-    b: &wgpu::Buffer,
-    n_pairs: usize,
-) -> f64 {
-    let wg = (n_pairs as u32).div_ceil(64);
-    let params = make_u32x4_params(n_pairs as u32);
-    let pbuf = gpu.create_uniform_buffer(&params, "dot_p");
-    let bg = gpu.create_bind_group(dot_pl, &[&pbuf, a, b, dot_buf]);
-    gpu.dispatch(dot_pl, &bg, wg);
-    match gpu.read_back_f64(dot_buf, n_pairs) {
-        Ok(v) => v.iter().sum(),
-        Err(_) => f64::NAN,
-    }
 }
 
 // ═══════════════════════════════════════════════════════════════════

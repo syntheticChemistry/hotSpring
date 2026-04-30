@@ -20,6 +20,10 @@
 //! optimal for throughput. Many cheap trajectories decorrelate faster
 //! than fewer expensive ones, because τ_eq is limited by the Dirac
 //! condition number, not the integrator.
+//!
+//! Main RHMC trajectory work uses [`gpu_rhmc_trajectory_unidirectional`]:
+//! same `RhmcCalibrator`-driven tuning as legacy, but GPU-resident CG and Hamiltonian reduces.
+//! Legacy [`gpu_rhmc_trajectory`] remains only for a handful of dt-discovery probes.
 
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::lattice::gpu_flow::{GpuFlowPipelines, GpuFlowState, gpu_gradient_flow};
@@ -32,6 +36,9 @@ use hotspring_barracuda::lattice::gpu_hmc::gpu_rhmc::{
     GpuRhmcPipelines, GpuRhmcState, gpu_rhmc_trajectory,
 };
 use hotspring_barracuda::lattice::gpu_hmc::rhmc_calibrator::RhmcCalibrator;
+use hotspring_barracuda::lattice::gpu_hmc::unidirectional_rhmc::{
+    UniHamiltonianBuffers, UniPipelines, gpu_rhmc_trajectory_unidirectional,
+};
 use hotspring_barracuda::lattice::gpu_hmc::{
     GpuHmcState, GpuHmcStreamingPipelines, gpu_hmc_trajectory_streaming,
 };
@@ -99,9 +106,7 @@ impl DtAdapter {
     }
 }
 
-// Tooling binary: uses legacy RHMC trajectory for self-tuning parameter search.
-// EVOLUTION(B3): migrate to unidirectional when RhmcCalibrator supports it — blocked on
-// upstream barraCuda RhmcCalibrator unidirectional mode stabilization.
+// Dt discovery probes only: few cheap legacy trajectories (`gpu_rhmc_trajectory`).
 #[expect(
     deprecated,
     reason = "legacy API retained for backward compatibility during migration"
@@ -121,7 +126,7 @@ fn main() {
     let vol: usize = dims.iter().product();
 
     println!("═══════════════════════════════════════════════════════════════");
-    println!("  GPU Self-Tuning RHMC — Zero Magic Numbers");
+    println!("  GPU Self-Tuning RHMC — Zero Magic Numbers (unidirectional pipeline)");
     println!("═══════════════════════════════════════════════════════════════");
     println!(
         "  Lattice: {}⁴ ({} sites)  β={beta:.4}  Nf={}",
@@ -129,8 +134,10 @@ fn main() {
         vol,
         nf_label(nf, mass, strange_mass)
     );
-    println!("  Configs: {n_configs}  |  Everything else discovered.");
-    println!();
+    println!(
+        "  Configs: {n_configs}  |  Pipeline: unidirectional (GPU CG + Hamiltonian reduces)"
+    );
+    println!("  (Dt probes still use legacy readback trajectory — a small constant number.)");
 
     let rt = tokio::runtime::Runtime::new().expect("tokio runtime");
     let gpu = rt.block_on(GpuF64::new()).expect("GPU required");
@@ -143,8 +150,12 @@ fn main() {
     let t0 = Instant::now();
     let dyn_pipelines = GpuDynHmcPipelines::new(&gpu);
     let rhmc_pipelines = GpuRhmcPipelines::new(&gpu);
+    let uni_pipelines = UniPipelines::new_saturated(&gpu, vol);
     let flow_pipelines = GpuFlowPipelines::new(&gpu);
-    println!("  Pipelines: {:.1}s", t0.elapsed().as_secs_f64());
+    println!(
+        "  Pipelines: {:.1}s (includes shifted CG + reduce)",
+        t0.elapsed().as_secs_f64()
+    );
 
     // ═══ Phase 1: Quenched pre-thermalization ════════════════════
     println!("\n─── Phase 1: Quenched pre-therm (stability-detected) ───");
@@ -224,8 +235,22 @@ fn main() {
     );
     println!("  Poles: {} per sector", calibrator.n_poles());
 
+    let scg_bufs = hotspring_barracuda::lattice::gpu_hmc::resident_shifted_cg::GpuResidentShiftedCgBuffers::new(
+        &gpu,
+        &dyn_pipelines,
+        &uni_pipelines.shifted_cg,
+        &rhmc_state.gauge,
+    );
+    let ham_bufs = UniHamiltonianBuffers::new(
+        &gpu,
+        &uni_pipelines.shifted_cg.base.reduce_pipeline,
+        &rhmc_state.gauge.gauge,
+        &rhmc_state.gauge,
+    );
+    println!("  Unidirectional buffers allocated.");
+
     // ═══ Phase 2b: dt discovery (binary search, n_md=1) ═════════
-    println!("\n─── Phase 2b: dt discovery ───");
+    println!("\n─── Phase 2b: dt discovery (legacy sync path — few probes) ───");
     let mut probe_dt = 0.02_f64;
 
     for round in 0..20 {
@@ -261,7 +286,7 @@ fn main() {
     }
 
     // ═══ Phase 3: RHMC thermalization (dt self-tunes to ~60% acc) ═
-    println!("\n─── Phase 3: RHMC thermalization (n_md=1, dt adapts) ───");
+    println!("\n─── Phase 3: RHMC thermalization (UNIDIRECTIONAL — n_md=1, dt adapts) ───");
     let mut ctrl = DtAdapter::new(probe_dt);
     let t3 = Instant::now();
     let therm_max = 60;
@@ -271,14 +296,19 @@ fn main() {
         let mut config = calibrator.produce_config().expect("RHMC config failed");
         config.dt = ctrl.dt;
         config.n_md_steps = n_md;
-        let r = gpu_rhmc_trajectory(
+        let r = gpu_rhmc_trajectory_unidirectional(
             &gpu,
             &dyn_pipelines,
             &rhmc_pipelines,
+            &uni_pipelines,
             &rhmc_state,
+            &scg_bufs,
+            None,
+            &ham_bufs,
             &config,
             &mut rng_seed,
-        );
+        )
+        .expect("unidirectional RHMC trajectory failed");
         ctrl.observe(r.accepted, r.delta_h);
 
         if i % 5 == 0 {
@@ -317,10 +347,8 @@ fn main() {
     );
 
     // ═══ Phase 4: Production RHMC + GPU gradient flow ════════════
-    // With n_md=1, decorrelation needs many trajectories.
-    // Ideal: 10/τ. But CPU-GPU sync cost per trajectory limits throughput.
-    // Cap at 100 for now; GPU-resident CG will lift this.
-    let skip = ((5.0 / ctrl.dt).ceil() as usize).clamp(20, 100);
+    // With n_md=1, decorrelation needs many cheap trajectories — unidirectional path keeps throughput reasonable.
+    let skip = ((5.0 / ctrl.dt).ceil() as usize).clamp(20, 500);
     println!("\n─── Phase 4: Production ({n_configs} configs, skip={skip}) ───");
 
     let mut plaquettes: Vec<f64> = Vec::new();
@@ -330,19 +358,24 @@ fn main() {
     for cfg_idx in 0..n_configs {
         let cfg_start = Instant::now();
 
-        // Decorrelation
+        // Decorrelation (unidirectional)
         for _ in 0..skip {
             let mut config = calibrator.produce_config().expect("RHMC config failed");
             config.dt = ctrl.dt;
             config.n_md_steps = n_md;
-            let r = gpu_rhmc_trajectory(
+            let r = gpu_rhmc_trajectory_unidirectional(
                 &gpu,
                 &dyn_pipelines,
                 &rhmc_pipelines,
+                &uni_pipelines,
                 &rhmc_state,
+                &scg_bufs,
+                None,
+                &ham_bufs,
                 &config,
                 &mut rng_seed,
-            );
+            )
+            .expect("unidirectional RHMC trajectory failed");
             ctrl.observe(r.accepted, r.delta_h);
         }
         // Adapt dt during production too
@@ -352,14 +385,19 @@ fn main() {
         let mut config = calibrator.produce_config().expect("RHMC config failed");
         config.dt = ctrl.dt;
         config.n_md_steps = n_md;
-        let meas = gpu_rhmc_trajectory(
+        let meas = gpu_rhmc_trajectory_unidirectional(
             &gpu,
             &dyn_pipelines,
             &rhmc_pipelines,
+            &uni_pipelines,
             &rhmc_state,
+            &scg_bufs,
+            None,
+            &ham_bufs,
             &config,
             &mut rng_seed,
-        );
+        )
+        .expect("unidirectional RHMC trajectory failed");
         ctrl.observe(meas.accepted, meas.delta_h);
         plaquettes.push(meas.plaquette);
 

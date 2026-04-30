@@ -32,36 +32,31 @@
 //!
 //! # Module structure
 //!
-//! - `mod.rs` — types, basis construction, BCS, solver, energy functional
+//! - `mod.rs` — types, Hamiltonian/density assembly, SCF loop, public API
+//! - `basis.rs` — harmonic oscillator basis and radial wavefunctions
+//! - `bcs.rs` — BCS occupation factors
+//! - `energy.rs` — energy functional and `SpeciesResult`
 //! - `potentials.rs` — Coulomb, Skyrme, `T_eff`, Hamiltonian matrix assembly
 
+mod basis;
+mod bcs;
+mod energy;
 mod potentials;
 #[cfg(test)]
 mod tests;
 
-use super::constants::{HBAR_C, M_NUCLEON};
+use basis::BasisState;
+use energy::SpeciesResult;
 use super::hfb_common::Mat;
 use super::semf::semf_binding_energy;
 use barracuda::linalg::eigh_f64;
-use barracuda::numerical::{gradient_1d, trapz};
-use barracuda::special::{gamma, laguerre};
 use std::collections::HashMap;
 
 use crate::error::HotSpringError;
 use crate::tolerances::{
-    BCS_DENSITY_SKIP, DENSITY_FLOOR, FERMI_SEARCH_MARGIN, HFB_L2_MIXING, HFB_L2_TOLERANCE,
-    HFB_MAX_ITER, SHARP_FILLING_THRESHOLD,
+    BCS_DENSITY_SKIP, DENSITY_FLOOR, HFB_L2_MIXING, HFB_L2_TOLERANCE, HFB_MAX_ITER,
 };
 use std::f64::consts::PI;
-
-/// Basis state quantum numbers
-#[derive(Debug, Clone)]
-pub(super) struct BasisState {
-    pub n: usize,
-    pub l: usize,
-    pub j: f64,
-    pub deg: usize, // 2j+1
-}
 
 /// Spherical HF+BCS solver
 pub struct SphericalHFB {
@@ -93,10 +88,6 @@ pub struct HFBResult {
     /// Final energy change (`MeV`).
     pub delta_e: f64,
 }
-
-// ═══════════════════════════════════════════════════════════════════
-// Construction and accessors
-// ═══════════════════════════════════════════════════════════════════
 
 impl SphericalHFB {
     /// Create HFB solver with given grid and basis parameters.
@@ -223,107 +214,6 @@ impl SphericalHFB {
     }
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// Basis construction and wavefunctions
-// ═══════════════════════════════════════════════════════════════════
-
-impl SphericalHFB {
-    fn build(z: usize, n: usize, n_shells: usize, r_max: f64, n_grid: usize) -> Self {
-        let a = z + n;
-        let hw = 41.0 * (a as f64).powf(-1.0 / 3.0);
-        let b = HBAR_C / (M_NUCLEON * hw).sqrt();
-        let dr = r_max / n_grid as f64;
-        let r: Vec<f64> = (1..=n_grid).map(|i| i as f64 * dr).collect();
-        let delta = 12.0 / (a.max(4) as f64).sqrt();
-
-        let mut hfb = Self {
-            z,
-            n_neutrons: n,
-            r,
-            dr,
-            nr: n_grid,
-            hw,
-            b,
-            delta_p: delta,
-            delta_n: delta,
-            states: Vec::new(),
-            n_states: 0,
-            wf: Vec::new(),
-            dwf: Vec::new(),
-            lj_blocks: HashMap::new(),
-        };
-        hfb.build_basis(n_shells);
-        hfb.compute_wavefunctions();
-        hfb
-    }
-
-    fn build_basis(&mut self, n_shells: usize) {
-        for n_sh in 0..n_shells {
-            for l in 0..=n_sh {
-                let n_rad = (n_sh - l) / 2;
-                if (n_sh - l) % 2 != 0 {
-                    continue;
-                }
-                if l > 0 {
-                    for &j2 in &[2 * l as i32 - 1, 2 * l as i32 + 1] {
-                        self.states.push(BasisState {
-                            n: n_rad,
-                            l,
-                            j: f64::from(j2) / 2.0,
-                            deg: (j2 + 1) as usize,
-                        });
-                    }
-                } else {
-                    self.states.push(BasisState {
-                        n: n_rad,
-                        l: 0,
-                        j: 0.5,
-                        deg: 2,
-                    });
-                }
-            }
-        }
-        self.n_states = self.states.len();
-
-        for (i, s) in self.states.iter().enumerate() {
-            let key = (s.l, (s.j * 1000.0) as u64);
-            self.lj_blocks.entry(key).or_default().push(i);
-        }
-    }
-
-    fn compute_wavefunctions(&mut self) {
-        self.wf = self
-            .states
-            .iter()
-            .map(|s| Self::ho_radial(s.n, s.l, &self.r, self.b))
-            .collect();
-        self.dwf = self
-            .wf
-            .iter()
-            .map(|wf_i| gradient_1d(wf_i, self.dr))
-            .collect();
-    }
-
-    fn ho_radial(n: usize, l: usize, r: &[f64], b: f64) -> Vec<f64> {
-        let alpha = l as f64 + 0.5;
-        let n_fact = barracuda::special::factorial(n);
-        let gamma_val = gamma(n as f64 + l as f64 + 1.5).unwrap_or(1.0);
-        let norm = (2.0 * n_fact / (b.powi(3) * gamma_val)).abs().sqrt();
-
-        r.iter()
-            .map(|&ri| {
-                let xi = (ri / b).powi(2);
-                let lag = laguerre(n, alpha, xi);
-                norm * (ri / b).powi(l as i32) * (-xi / 2.0).exp() * lag
-            })
-            .collect()
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// Hamiltonian, BCS, density, and energy
-// ═══════════════════════════════════════════════════════════════════
-
 impl SphericalHFB {
     /// Build the full Hamiltonian matrix for one species (proton or neutron).
     ///
@@ -363,17 +253,6 @@ impl SphericalHFB {
         h.data
     }
 
-    /// Compute BCS occupations from externally-provided eigenvalues.
-    #[must_use]
-    pub fn bcs_occupations_from_eigs(
-        &self,
-        eigenvalues: &[f64],
-        num_particles: usize,
-        delta: f64,
-    ) -> (Vec<f64>, f64) {
-        self.bcs_occupations(eigenvalues, num_particles, delta)
-    }
-
     /// Compute density from BCS-weighted eigenstates (GPU-unpacked format).
     #[must_use]
     pub fn density_from_eigenstates(&self, eigvecs: &[f64], v2: &[f64], ns: usize) -> Vec<f64> {
@@ -403,266 +282,7 @@ impl SphericalHFB {
         }
         rho
     }
-
-    /// Compute total energy from proton/neutron densities and eigendecompositions.
-    #[must_use]
-    pub fn compute_energy_from_densities(
-        &self,
-        rho_p: &[f64],
-        rho_n: &[f64],
-        eigs_p: &[f64],
-        vecs_p: &[f64],
-        eigs_n: &[f64],
-        vecs_n: &[f64],
-        params: &[f64],
-    ) -> f64 {
-        let ns = self.n_states;
-        let (v2_p, _) = self.bcs_occupations(eigs_p, self.z, self.delta_p);
-        let (v2_n, _) = self.bcs_occupations(eigs_n, self.n_neutrons, self.delta_n);
-
-        let results_p = SpeciesResult::new(eigs_p.to_vec(), vecs_p.to_vec(), ns, v2_p, 0.0);
-        let results_n = SpeciesResult::new(eigs_n.to_vec(), vecs_n.to_vec(), ns, v2_n, 0.0);
-
-        self.compute_energy(rho_p, rho_n, &results_p, &results_n, params, false)
-    }
-
-    /// Fast energy calculation that accepts pre-computed v2 occupations.
-    #[must_use]
-    pub fn compute_energy_with_v2(
-        &self,
-        rho_p: &[f64],
-        rho_n: &[f64],
-        eigs_p: &[f64],
-        vecs_p: &[f64],
-        eigs_n: &[f64],
-        vecs_n: &[f64],
-        v2_p: &[f64],
-        v2_n: &[f64],
-        params: &[f64],
-    ) -> f64 {
-        let ns = self.n_states;
-        let results_p =
-            SpeciesResult::new(eigs_p.to_vec(), vecs_p.to_vec(), ns, v2_p.to_vec(), 0.0);
-        let results_n =
-            SpeciesResult::new(eigs_n.to_vec(), vecs_n.to_vec(), ns, v2_n.to_vec(), 0.0);
-        self.compute_energy(rho_p, rho_n, &results_p, &results_n, params, false)
-    }
-
-    pub(super) fn bcs_occupations(
-        &self,
-        eigenvalues: &[f64],
-        num_particles: usize,
-        delta: f64,
-    ) -> (Vec<f64>, f64) {
-        if num_particles == 0 {
-            return (vec![0.0; self.n_states], 0.0);
-        }
-
-        let degs: Vec<f64> = self.states.iter().map(|s| s.deg as f64).collect();
-
-        if delta < SHARP_FILLING_THRESHOLD {
-            return self.sharp_filling(eigenvalues, num_particles, &degs);
-        }
-
-        let num_p = num_particles as f64;
-
-        let particle_number = |lam: f64| -> f64 {
-            eigenvalues
-                .iter()
-                .zip(degs.iter())
-                .map(|(&ek_raw, &d)| {
-                    let ek = ek_raw - lam;
-                    let big_ek = ek.hypot(delta);
-                    let v2 = 0.5 * (1.0 - ek / big_ek);
-                    d * v2
-                })
-                .sum::<f64>()
-                - num_p
-        };
-
-        let e_min = eigenvalues.iter().copied().fold(f64::INFINITY, f64::min) - FERMI_SEARCH_MARGIN;
-        let e_max = eigenvalues
-            .iter()
-            .copied()
-            .fold(f64::NEG_INFINITY, f64::max)
-            + FERMI_SEARCH_MARGIN;
-
-        let lam = barracuda::optimize::brent(
-            particle_number,
-            e_min,
-            e_max,
-            crate::tolerances::BRENT_TOLERANCE,
-            100,
-        )
-        .map_or_else(
-            |_| self.approx_fermi(eigenvalues, num_particles, &degs),
-            |result| result.root,
-        );
-
-        let v2: Vec<f64> = eigenvalues
-            .iter()
-            .map(|&eps| {
-                let ek = eps - lam;
-                let big_ek = ek.hypot(delta);
-                0.5 * (1.0 - ek / big_ek)
-            })
-            .collect();
-
-        (v2, lam)
-    }
-
-    fn sharp_filling(
-        &self,
-        eigenvalues: &[f64],
-        num_particles: usize,
-        degs: &[f64],
-    ) -> (Vec<f64>, f64) {
-        let mut idx: Vec<usize> = (0..self.n_states).collect();
-        idx.sort_by(|&a, &b| eigenvalues[a].total_cmp(&eigenvalues[b]));
-
-        let mut v2 = vec![0.0; self.n_states];
-        let mut remaining = num_particles as f64;
-        for &i in &idx {
-            let fill = remaining.min(degs[i]);
-            v2[i] = fill / degs[i];
-            remaining -= fill;
-            if remaining <= 0.0 {
-                break;
-            }
-        }
-
-        let lam = self.approx_fermi(eigenvalues, num_particles, degs);
-        (v2, lam)
-    }
-
-    fn approx_fermi(&self, eigenvalues: &[f64], num_particles: usize, degs: &[f64]) -> f64 {
-        let mut idx: Vec<usize> = (0..self.n_states).collect();
-        idx.sort_by(|&a, &b| eigenvalues[a].total_cmp(&eigenvalues[b]));
-        let mut count = 0.0;
-        for &i in &idx {
-            count += degs[i];
-            if count >= num_particles as f64 {
-                return eigenvalues[i];
-            }
-        }
-        eigenvalues[*idx.last().unwrap_or(&0)]
-    }
-
-    fn compute_energy(
-        &self,
-        rho_p: &[f64],
-        rho_n: &[f64],
-        results_p: &SpeciesResult,
-        results_n: &SpeciesResult,
-        params: &[f64],
-        verbose: bool,
-    ) -> f64 {
-        let (t0, t3) = (params[0], params[3]);
-        let (x0, x3) = (params[4], params[7]);
-        let alpha = params[8];
-        let n = self.n_states;
-
-        let degs: Vec<f64> = self.states.iter().map(|s| s.deg as f64).collect();
-        let rho: Vec<f64> = (0..self.nr).map(|k| rho_p[k] + rho_n[k]).collect();
-
-        let mut e_kin = 0.0;
-        for (is_proton, res) in [(true, results_p), (false, results_n)] {
-            let t_eff = self.build_t_eff(rho_p, rho_n, is_proton, params);
-            for (i, (&d, &v2)) in degs.iter().zip(res.v2.iter()).enumerate().take(n) {
-                if d * v2 < BCS_DENSITY_SKIP {
-                    continue;
-                }
-                let mut val = 0.0;
-                for a in 0..n {
-                    for b in 0..n {
-                        val += res.eigvec(a, i) * t_eff.get(a, b) * res.eigvec(b, i);
-                    }
-                }
-                e_kin += d * v2 * val;
-            }
-        }
-
-        let rho_powf_guard = crate::tolerances::RHO_POWF_GUARD;
-        let sum_rho2: Vec<f64> = (0..self.nr)
-            .map(|k| rho_p[k].mul_add(rho_p[k], rho_n[k].powi(2)))
-            .collect();
-
-        let integ_t0: Vec<f64> = (0..self.nr)
-            .map(|k| {
-                (1.0 + x0 / 2.0).mul_add(rho[k].powi(2), -((0.5 + x0) * sum_rho2[k]))
-                    * 4.0
-                    * PI
-                    * self.r[k].powi(2)
-            })
-            .collect();
-        let e_t0 = (t0 / 2.0) * trapz(&integ_t0, &self.r).unwrap_or(0.0);
-
-        let integ_t3: Vec<f64> = (0..self.nr)
-            .map(|k| {
-                let rho_safe = rho[k].max(rho_powf_guard);
-                rho_safe.powf(alpha)
-                    * (1.0 + x3 / 2.0).mul_add(rho[k].powi(2), -((0.5 + x3) * sum_rho2[k]))
-                    * 4.0
-                    * PI
-                    * self.r[k].powi(2)
-            })
-            .collect();
-        let e_t3 = (t3 / 12.0) * trapz(&integ_t3, &self.r).unwrap_or(0.0);
-
-        let v_c = self.coulomb_direct(rho_p);
-        let integ_c_direct: Vec<f64> = (0..self.nr)
-            .map(|k| v_c[k] * rho_p[k] * 4.0 * PI * self.r[k].powi(2))
-            .collect();
-        let e_coul_direct = 0.5 * trapz(&integ_c_direct, &self.r).unwrap_or(0.0);
-
-        let v_cx = Self::coulomb_exchange(rho_p);
-        let integ_c_exch: Vec<f64> = (0..self.nr)
-            .map(|k| v_cx[k] * rho_p[k] * 4.0 * PI * self.r[k].powi(2))
-            .collect();
-        let e_coul_exchange = trapz(&integ_c_exch, &self.r).unwrap_or(0.0);
-
-        let mut e_pair = 0.0;
-        for (delta_q, res) in [(self.delta_p, results_p), (self.delta_n, results_n)] {
-            for (d, &v2) in degs.iter().zip(res.v2.iter()).take(n) {
-                let u2 = 1.0 - v2;
-                e_pair -= delta_q * d * (v2 * u2).max(0.0).sqrt();
-            }
-        }
-
-        let e_cm = -0.75 * self.hw;
-        let e_total = e_kin + e_t0 + e_t3 + e_coul_direct + e_coul_exchange + e_pair + e_cm;
-
-        if verbose {
-            let integ_np: Vec<f64> = (0..self.nr)
-                .map(|k| rho_p[k] * 4.0 * PI * self.r[k].powi(2))
-                .collect();
-            let integ_nn: Vec<f64> = (0..self.nr)
-                .map(|k| rho_n[k] * 4.0 * PI * self.r[k].powi(2))
-                .collect();
-            let n_p = trapz(&integ_np, &self.r).unwrap_or(0.0);
-            let n_n = trapz(&integ_nn, &self.r).unwrap_or(0.0);
-            println!("  Energy components:");
-            println!("    E_kin    = {e_kin:>10.2} MeV");
-            println!("    E_t0    = {e_t0:>10.2} MeV");
-            println!("    E_t3    = {e_t3:>10.2} MeV");
-            println!("    E_Cdir  = {e_coul_direct:>10.2} MeV");
-            println!("    E_Cexch = {e_coul_exchange:>10.2} MeV");
-            println!("    E_pair  = {e_pair:>10.2} MeV");
-            println!("    E_cm    = {e_cm:>10.2} MeV");
-            println!("    E_total = {e_total:>10.2} MeV");
-            println!(
-                "    N_p = {:.2}, N_n = {:.2} (target: Z={}, N={})",
-                n_p, n_n, self.z, self.n_neutrons
-            );
-        }
-
-        e_total
-    }
 }
-
-// ═══════════════════════════════════════════════════════════════════
-// SCF solver
-// ═══════════════════════════════════════════════════════════════════
 
 impl SphericalHFB {
     /// Solve the HFB equation for the given Skyrme parameters.
@@ -833,41 +453,6 @@ impl SphericalHFB {
             iterations: last_iter,
             delta_e: last_de,
         })
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// Internal types
-// ═══════════════════════════════════════════════════════════════════
-
-struct SpeciesResult {
-    eigvecs: Vec<f64>,
-    n: usize,
-    v2: Vec<f64>,
-}
-
-impl SpeciesResult {
-    fn new(
-        _eigenvalues: Vec<f64>,
-        eigvecs: Vec<f64>,
-        n: usize,
-        v2: Vec<f64>,
-        _lambda: f64,
-    ) -> Self {
-        Self { eigvecs, n, v2 }
-    }
-
-    fn empty(n_states: usize) -> Self {
-        Self {
-            eigvecs: vec![0.0; n_states * n_states],
-            n: n_states,
-            v2: vec![0.0; n_states],
-        }
-    }
-
-    #[inline]
-    fn eigvec(&self, row: usize, col: usize) -> f64 {
-        self.eigvecs[row * self.n + col]
     }
 }
 

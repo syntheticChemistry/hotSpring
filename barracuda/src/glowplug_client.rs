@@ -15,6 +15,10 @@ use crate::ember_types::{
 };
 use crate::primal_bridge::{NucleusContext, send_jsonrpc};
 
+const DEFAULT_DISPATCH_DIMS: [u32; 3] = [1, 1, 1];
+const DEFAULT_DISPATCH_WORKGROUP: [u32; 3] = [256, 1, 1];
+const DEFAULT_KERNEL_ENTRY_NAME: &str = "main_kernel";
+
 /// Connected glowplug endpoint (socket path only; each RPC opens a short-lived connection).
 #[derive(Debug, Clone)]
 pub struct GlowplugClient {
@@ -37,9 +41,9 @@ pub struct GlowplugDispatchOptions {
 impl Default for GlowplugDispatchOptions {
     fn default() -> Self {
         Self {
-            dims: [1, 1, 1],
-            workgroup: [256, 1, 1],
-            kernel_name: "main_kernel".to_string(),
+            dims: DEFAULT_DISPATCH_DIMS,
+            workgroup: DEFAULT_DISPATCH_WORKGROUP,
+            kernel_name: DEFAULT_KERNEL_ENTRY_NAME.to_string(),
             shared_mem: 0,
         }
     }

@@ -16,6 +16,12 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+#[cfg(unix)]
+const TOADSTOOL_JSONRPC_READ_TIMEOUT: std::time::Duration =
+    std::time::Duration::from_secs(5);
+#[cfg(unix)]
+const TOADSTOOL_JSONRPC_REQUEST_ID: i64 = 1;
+
 /// A performance measurement matching toadStool's `PerformanceMeasurement` schema.
 ///
 /// Fields are wire-compatible with `toadstool_core::silicon::PerformanceMeasurement`.
@@ -70,14 +76,14 @@ fn send_jsonrpc(
     let mut stream = UnixStream::connect(socket_path).map_err(|e| format!("connect: {e}"))?;
 
     stream
-        .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+        .set_read_timeout(Some(TOADSTOOL_JSONRPC_READ_TIMEOUT))
         .map_err(|e| format!("timeout: {e}"))?;
 
     let request = serde_json::json!({
         "jsonrpc": "2.0",
         "method": method,
         "params": params,
-        "id": 1
+        "id": TOADSTOOL_JSONRPC_REQUEST_ID
     });
 
     let mut request_bytes = serde_json::to_vec(&request).map_err(|e| format!("serialize: {e}"))?;

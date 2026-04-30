@@ -14,6 +14,11 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+const JSONRPC_SOCKET_READ_TIMEOUT: std::time::Duration =
+    std::time::Duration::from_secs(2);
+const JSONRPC_READ_BUFFER_BYTES: usize = 4096;
+const JSONRPC_REQUEST_ID: i64 = 1;
+
 /// A detected primal with its socket path and optional capability payload.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PrimalEndpoint {
@@ -293,7 +298,7 @@ impl NucleusContext {
 pub fn jsonrpc_request(method: &str, params: serde_json::Value) -> serde_json::Value {
     serde_json::json!({
         "jsonrpc": "2.0",
-        "id": 1,
+        "id": JSONRPC_REQUEST_ID,
         "method": method,
         "params": params,
     })
@@ -360,7 +365,7 @@ pub fn send_jsonrpc(
     let mut stream = UnixStream::connect(socket_path).map_err(|e| format!("connect: {e}"))?;
 
     stream
-        .set_read_timeout(Some(std::time::Duration::from_secs(2)))
+        .set_read_timeout(Some(JSONRPC_SOCKET_READ_TIMEOUT))
         .map_err(|e| format!("timeout: {e}"))?;
 
     let request = jsonrpc_request(method, params.clone());
@@ -374,7 +379,7 @@ pub fn send_jsonrpc(
     stream.flush().map_err(|e| format!("flush: {e}"))?;
 
     let mut response = Vec::new();
-    let mut buf = [0u8; 4096];
+    let mut buf = [0u8; JSONRPC_READ_BUFFER_BYTES];
     loop {
         match stream.read(&mut buf) {
             Ok(0) => break,
