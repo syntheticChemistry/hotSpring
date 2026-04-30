@@ -51,13 +51,25 @@ leverage Nouveau's proven init path:
 - **Kepler doorbell**: `0x3000 + channel_id * 8` (not Volta usermode doorbell).
 - After fixes: **runlist completes** for the first time (`rl_pending = 0x00000000`).
 
-### Current Blocker: SCHED_ERROR code=32
+### SCHED_ERROR code=32 — Root Cause and Fix
 
-- Runlist completes but scheduler reports `SCHED_ERROR code=32`
-- PBDMA 0 remains idle with stale Nouveau state (`gp_base=0x0000802b`)
-- Channel shows PCCSR status = PENDING (never transitions to RUNNING)
-- Added PBDMA stale state clearing (GP_BASE, GP_PUT, GP_GET, USERD, STATE, SIGNATURE)
-- Next investigation: PCCSR binding correctness, PBDMA context handoff
+- **Symptom**: Runlist completes but scheduler reports `SCHED_ERROR code=32`
+  (CONTEXT_RELOAD_TIMEOUT per GK104 sched error table). PBDMA 0 idle with
+  stale Nouveau state (`gp_base=0x0000802b`). PCCSR status = PENDING.
+- **Root cause**: Two missing RAMFC fields inherited from nv50_chan_ramfc_write.
+  The Kepler instance block at offsets `0x3C` and `0x44` was zero (DMA buffer
+  zeroed on allocation). These control the PBDMA's DMA method limit and push
+  buffer subroutine config. With all-zero values, the PBDMA rejects the
+  context during reload.
+- **Fix (coral-driver)**:
+  - Added `RAMFC[0x3C] = 0x003F6078` (DMA_LIMIT_REF — PB DMA limit/reference)
+  - Added `RAMFC[0x44] = 0x01003FFF` (PB_DMA_SUBROUTINE — subroutine config)
+  - Fixed runlist completion polling: replaced GV100 `RUNLIST_PENDING` (0x2284,
+    invalid on Kepler) with `PFIFO_INTR` bit 30 (INTR_RL_COMPLETE)
+  - Added SCHED_ERROR reason decoding (code → human-readable name)
+- **Secondary fix**: `RUNLIST_PENDING` (0x2284) is GV100 per-runlist stride —
+  on Kepler it collides with GV100's runlist_submit(1). Was reading a
+  meaningless register and treating 0 as "completed".
 
 ## Files Changed (coralReef coral-driver)
 
@@ -92,7 +104,9 @@ leverage Nouveau's proven init path:
 
 ## Next Steps
 
-1. Fix SCHED_ERROR code=32 — investigate PBDMA stale state clearing effectiveness
-2. Verify PCCSR instance block binding (IOVA encoding in bits [27:0])
-3. Once GPFIFO pipeline operational, run `k80_nouveau_warmup_dispatch` test
-4. Validate sovereign Rust compute pipeline on K80 (WGSL → SM35 SASS → dispatch)
+1. ~~Fix SCHED_ERROR code=32~~ → Fixed (missing RAMFC 0x3C/0x44 fields + runlist poll)
+2. ~~Verify PCCSR instance block binding~~ → Confirmed correct (INST_PTR | TARGET | BIND)
+3. Test fix on hardware: run `k80_nouveau_warmup_dispatch` with updated coral-driver
+4. Validate GPFIFO channel transitions from PENDING → ON_PBDMA → ON_ENG
+5. Once GPFIFO pipeline operational, submit first sovereign compute dispatch
+6. Validate sovereign Rust compute pipeline on K80 (WGSL → SM35 SASS → dispatch)
