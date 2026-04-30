@@ -126,16 +126,13 @@ pub fn dispatch_dual(
 
 #[cfg(test)]
 #[expect(
-    dead_code,
-    reason = "DoubleKernel is reserved for future dispatch_dual tests; current tests cover DualResult only."
-)]
-#[expect(
     clippy::expect_used,
     reason = "dual-dispatch tests use expect on test kernels"
 )]
 mod tests {
     use super::*;
 
+    #[allow(dead_code)]
     struct DoubleKernel;
 
     impl GpuKernel for DoubleKernel {

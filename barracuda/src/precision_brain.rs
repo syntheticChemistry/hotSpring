@@ -78,10 +78,8 @@ fn detect_sovereign_available() -> bool {
         return true;
     }
     let nucleus = NucleusContext::detect();
-    // Domain `"shader"` is coralReef; fallback: `.coralreef()`.
     nucleus
         .by_domain("shader")
-        .or_else(|| nucleus.coralreef())
         .is_some_and(|e| e.alive)
 }
 

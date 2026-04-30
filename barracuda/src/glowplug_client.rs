@@ -139,10 +139,8 @@ impl std::error::Error for GlowplugError {}
 impl GlowplugClient {
     /// Build a client from a discovered coralReef / coral-glowplug endpoint.
     pub fn from_nucleus(nucleus: &NucleusContext) -> Result<Self, GlowplugError> {
-        // Capability domain `"shader"` (coralReef / shader_compile); fallback: `.coralreef()`.
         let ep = nucleus
             .by_domain("shader")
-            .or_else(|| nucleus.coralreef())
             .ok_or(GlowplugError::NoCoralreefEndpoint)?;
         if !ep.alive {
             return Err(GlowplugError::EndpointNotAlive);

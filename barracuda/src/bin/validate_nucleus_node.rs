@@ -36,8 +36,7 @@ fn main() {
 
     // ── Compute dispatch probe ──
     println!("  ── Compute Dispatch (ToadStool) ──");
-    // Domain `"compute"` is toadStool; fallback: `.toadstool()`.
-    if let Some(ts) = ctx.by_domain("compute").or_else(|| ctx.toadstool()) {
+    if let Some(ts) = ctx.by_domain("compute") {
         if ts.alive {
             let cap_result = ctx.call("toadstool", "compute.capabilities", &serde_json::json!({}));
             match cap_result {
@@ -64,8 +63,7 @@ fn main() {
 
     // ── Sovereign compile probe ──
     println!("  ── Sovereign Compile (coralReef) ──");
-    // Domain `"shader"` is coralReef (shader_compile); fallback: `.coralreef()`.
-    if let Some(cr) = ctx.by_domain("shader").or_else(|| ctx.coralreef()) {
+    if let Some(cr) = ctx.by_domain("shader") {
         if cr.alive {
             let compile_result = ctx.call("coralreef", "shader.list", &serde_json::json!({}));
             match compile_result {
