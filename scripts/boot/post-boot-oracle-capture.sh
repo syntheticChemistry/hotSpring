@@ -11,7 +11,7 @@
 
 set -euo pipefail
 
-ORACLE="0000:03:00.0"
+ORACLE="0000:02:00.0"
 VFIO_TARGET="0000:4a:00.0"
 OUTDIR="$(cd "$(dirname "$0")/.." && pwd)/data"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)

@@ -3,10 +3,10 @@
 #
 # This installs modprobe.d, udev rules, sudoers, and the sysfs write
 # helper so that on every boot:
-#   03:00.0 Titan V   → vfio-pci (oracle, swappable to nouveau)
-#   4c:00.0 K80 die#1 → vfio-pci (sovereign target)
-#   4d:00.0 K80 die#2 → vfio-pci (oracle, swappable to nouveau)
-#   21:00.0 RTX 5070  → nvidia (display, locked)
+#   02:00.0 Titan V   → vfio-pci (oracle, swappable to nouveau via ember)
+#   4b:00.0 K80 die#1 → vfio-pci (sovereign target, cold)
+#   4c:00.0 K80 die#2 → vfio-pci (reagent target, cold)
+#   21:00.0 RTX 5060  → nvidia (display + shared compute)
 #
 # Usage: sudo ./scripts/boot/install-boot-config.sh
 
@@ -56,12 +56,11 @@ udevadm control --reload-rules 2>/dev/null || true
 udevadm trigger 2>/dev/null || true
 
 # Step 6: Update kernel cmdline vfio-pci.ids (Pop!_OS kernelstub)
-# Only Titan V needs cmdline protection — nvidia-open corrupts Volta HBM2 on
-# failed probe. K80 (10de:102d) is NOT listed here because ember manages it
-# via driver_override at runtime (see coralreef-dual-titanv.conf lines 24-38
-# and 99-coralreef-vfio.rules header).
+# Titan V (1d81+10f2) and K80 (102d) MUST be claimed at boot via cmdline.
+# K80 is behind a PLX PEX 8747 switch — any re-probe kills the PCIe link.
+# DO NOT rely on udev drivers_probe for K80; cmdline binding is required.
 echo "[6] Updating kernel cmdline vfio-pci.ids..."
-VFIO_IDS="10de:1d81,10de:10f2"
+VFIO_IDS="10de:1d81,10de:10f2,10de:102d"
 if command -v kernelstub >/dev/null 2>&1; then
     CURRENT_IDS=$(grep -oP 'vfio-pci\.ids=\K[^ ]+' /proc/cmdline 2>/dev/null || echo "")
     if [ "$CURRENT_IDS" != "$VFIO_IDS" ]; then
@@ -92,11 +91,11 @@ echo ""
 echo "=== Installation complete ==="
 echo ""
 echo "After reboot:"
-echo "  03:00.0 Titan V   -> vfio-pci (oracle)"
-echo "  4c:00.0 K80 die#1 -> vfio-pci (sovereign, cold)"
-echo "  4d:00.0 K80 die#2 -> vfio-pci (reagent target, cold)"
-echo "  21:00.0 RTX 5070  -> nvidia (display)"
+echo "  02:00.0 Titan V   -> vfio-pci (oracle, IOMMU group 69)"
+echo "  4b:00.0 K80 die#1 -> vfio-pci (sovereign, IOMMU group 35)"
+echo "  4c:00.0 K80 die#2 -> vfio-pci (reagent, IOMMU group 36)"
+echo "  21:00.0 RTX 5060  -> nvidia (display + shared compute)"
 echo ""
-echo "K80 init via agentReagents VM (nvidia-470 reagent) or Ember recipe replay."
+echo "K80 init via coral-ember warm handoff or sovereign cold-boot pipeline."
 echo ""
 echo "Run 'sudo reboot' to apply."

@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026
-**Last audited:** April 30, 2026 (K80 warm FECS/PFIFO checkpoint, GAP-HS-006 upstream resolved)
+**Last audited:** May 6, 2026 (K80 cold-boot sovereign, ember gate live, barraCuda Sprint 53 pulled)
 **License:** AGPL-3.0-or-later
 
 ---
@@ -56,14 +56,15 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
   yet implemented. This blocks multi-family metallic fleet pooling.
 - **Upstream ref:** `primalSpring/docs/PRIMAL_GAPS.md` IONIC-RUNTIME item.
 
-### GAP-HS-006: BTSP-BARRACUDA-WIRE Session Crypto — UPSTREAM RESOLVED
+### GAP-HS-006: BTSP-BARRACUDA-WIRE Session Crypto — RESOLVED
 
 - **Primal:** barraCuda / BearDog
 - **Severity:** Medium (ecosystem-wide)
-- **Status:** Upstream resolved (barraCuda Sprint 43: BTSP Phase 3 stream encryption). Pending hotSpring absorption after next barraCuda pull.
+- **Status:** RESOLVED (May 6, 2026)
 - **Description:** barraCuda session creation now uses full BTSP stream
-  encryption (Phase 3, Sprint 43). hotSpring needs to pull the updated
-  barraCuda dependency to close this gap locally.
+  encryption (Phase 3, Sprint 43). barraCuda Sprint 51-53 pulled (May 6) —
+  includes BufReader fix, client_nonce HKDF, encrypted frame loop E2E tests.
+  toadStool S218 also verified Phase 3 transport switch.
 - **Upstream ref:** `primalSpring/docs/PRIMAL_GAPS.md` BTSP-BARRACUDA-WIRE.
 
 ### GAP-HS-007: TensorSession Not Adopted
@@ -305,16 +306,19 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 - **Action:** Track in toadStool's roadmap. Coordinate with coralReef team on
   module boundaries.
 
-### GAP-HS-031: K80 VFIO Legacy Group EBUSY
+### GAP-HS-031: K80 VFIO Legacy Group EBUSY — RESOLVED
 
 - **Primal:** coralReef (ember)
 - **Severity:** Medium (hardware-specific)
-- **Status:** Blocked — kernel issue
-- **Description:** Tesla K80 VFIO groups report EBUSY when ember tries to
-  open them. Root cause is likely iommufd cdev reference leak on AMD IOMMU.
-  The swap logic is validated on Titan V; K80 path is architecturally
-  identical but blocked by this kernel issue.
-- **Action:** Test after reboot with `iommu=pt` or legacy-only VFIO config.
+- **Status:** RESOLVED (May 6, 2026)
+- **Description:** Tesla K80 VFIO groups previously reported EBUSY when ember
+  tried to open them. Root cause was redundant `drivers_probe` in udev rules
+  triggering a reset through the PLX PEX 8747 PCIe switch, leaving the device
+  in a broken state. Fix: removed `drivers_probe` writes, added
+  `d3cold_allowed=0`, kernel cmdline `vfio-pci.ids=10de:102d` handles binding.
+  VFIO groups 35/36 now accessible with 0666 permissions after cold boot.
+- **Resolution:** K80 boots cleanly to vfio-pci. `/dev/vfio/35` and
+  `/dev/vfio/36` open without EBUSY. Validated with full power drain.
 
 ### GAP-HS-030: GV100 WPR Not Used by Closed Driver (Exp 173)
 

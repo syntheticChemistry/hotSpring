@@ -1,22 +1,22 @@
 # coralReef GlowPlug daemon configuration
-# biomeGate: Titan V + RTX 5070 (display) + Tesla K80 (dual-GPU)
+# biomeGate: Titan V + RTX 5060 (display) + Tesla K80 (dual-GPU)
 #
 # health_policy: "passive" (default) = sysfs-only, no BAR0 reads
 #                "active" = full BAR0 register probing each tick
-# SAFETY: K80 shares PCIe root complex 0000:40 with the USB controller.
-# BAR0 reads on uninitialized K80 hardware cause PCIe completion timeouts
-# that cascade to USB, freezing mouse/keyboard. Keep K80 passive.
+# SAFETY: K80 sits behind a PLX PEX 8747 PCIe switch. Any unguarded
+# BAR0 access on uninitialized K80 hardware can cascade through the
+# switch. Keep K80 passive until explicitly initialized.
 
 [daemon]
 socket = "/run/coralreef/glowplug.sock"
 log_level = "info"
 health_interval_ms = 5000
 
-# RTX 5070 (GB206) — Blackwell display GPU, LOCKED to nvidia
+# RTX 5060 (GB206) — Blackwell display + shared compute, LOCKED to nvidia
 # PROTECTED: ember will not hold VFIO fds, swaps are forbidden
 [[device]]
 bdf = "0000:21:00.0"
-name = "rtx-5070-display"
+name = "rtx-5060-display"
 boot_personality = "nvidia"
 power_policy = "always_on"
 role = "display"
@@ -24,33 +24,31 @@ role = "display"
 # Titan V #1 — NVIDIA GV100, 12 GB HBM2, VFIO at boot
 # IOMMU group 69 (root complex 0000:00) — isolated from USB
 [[device]]
-bdf = "0000:03:00.0"
+bdf = "0000:02:00.0"
 name = "titan-v-1"
 boot_personality = "vfio"
 power_policy = "always_on"
 health_policy = "active"
 role = "oracle"
 
-# Tesla K80 GPU #1 — GK210 (Kepler), 12 GB GDDR5, VFIO at boot
-# IOMMU group 37, root complex 0000:40 (SHARED with USB at 47:00.3)
+# Tesla K80 GPU #1 — GK210B (Kepler), 12 GB GDDR5, VFIO at boot
+# IOMMU group 35, behind PLX PEX 8747 switch at 49:00.0
 # health_policy = "passive" (default) — no BAR0 reads until initialized
+# d3cold_allowed=0 set by udev to prevent PCIe link death through PLX
 [[device]]
-bdf = "0000:4c:00.0"
+bdf = "0000:4b:00.0"
 name = "k80-gpu-1"
 boot_personality = "vfio"
 power_policy = "always_on"
 role = "compute"
 
-# Tesla K80 GPU #2 — GK210 (Kepler), 12 GB GDDR5, vfio at boot (cold)
-# IOMMU group 38, root complex 0000:40 (SHARED with USB at 47:00.3)
+# Tesla K80 GPU #2 — GK210B (Kepler), 12 GB GDDR5, VFIO at boot (cold)
+# IOMMU group 36, behind PLX PEX 8747 switch at 49:00.0
 # Boots cold on vfio-pci (UEFI does not POST secondary GPUs).
-# BOOT0 returns 0x0f22d0a1 (cold GK210 default, not a valid chipset).
-# nouveau cannot probe cold GK210 — it fails with "unknown chipset".
-# Initialization: agentReagents VM with nvidia-470 POSTs the device,
-# then ember reclaims it for sovereign compute.
-# Kepler has no FLR — vfio-pci unbind on cold hardware D-states.
+# Kepler has no FLR — skip_sysfs_unbind=true in NvidiaKeplerLifecycle.
+# Initialization: coral-ember warm handoff or sovereign cold-boot pipeline.
 [[device]]
-bdf = "0000:4d:00.0"
+bdf = "0000:4c:00.0"
 name = "k80-gpu-2"
 boot_personality = "vfio"
 power_policy = "always_on"

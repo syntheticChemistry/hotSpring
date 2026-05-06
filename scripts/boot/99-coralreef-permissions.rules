@@ -28,20 +28,20 @@ ACTION=="add", SUBSYSTEM=="drivers", KERNEL=="nouveau", \
 ACTION=="add", SUBSYSTEM=="drivers", KERNEL=="nvidia", \
   RUN+="/bin/sh -c 'chmod 0222 /sys/bus/pci/drivers/nvidia/bind /sys/bus/pci/drivers/nvidia/unbind 2>/dev/null || true'"
 
-# ── Titan V #1 (03:00.0) — oracle ──
-ACTION=="add|change", SUBSYSTEM=="pci", KERNEL=="0000:03:00.0", \
+# ── Titan V #1 (02:00.0) — oracle ──
+ACTION=="add|change", SUBSYSTEM=="pci", KERNEL=="0000:02:00.0", \
   ATTR{vendor}=="0x10de", ATTR{device}=="0x1d81", \
-  RUN+="/bin/sh -c 'chmod 0666 /sys/bus/pci/devices/0000:03:00.0/driver_override /sys/bus/pci/devices/0000:03:00.0/config /sys/bus/pci/devices/0000:03:00.0/resource0 /sys/bus/pci/devices/0000:03:00.0/resource2 2>/dev/null || true'", \
-  RUN+="/bin/sh -c 'chmod 0666 /sys/bus/pci/devices/0000:03:00.0/remove /sys/bus/pci/devices/0000:03:00.0/reset /sys/bus/pci/devices/0000:03:00.0/reset_method /sys/bus/pci/devices/0000:03:00.0/power_state 2>/dev/null || true'", \
-  RUN+="/bin/sh -c 'chmod 0666 /sys/bus/pci/devices/0000:03:00.0/power/control /sys/bus/pci/devices/0000:03:00.0/d3cold_allowed 2>/dev/null || true'"
-ACTION=="bind", SUBSYSTEM=="pci", KERNEL=="0000:03:00.0", \
-  RUN+="/bin/chmod 0222 /sys/bus/pci/devices/0000:03:00.0/driver/unbind"
+  RUN+="/bin/sh -c 'chmod 0666 /sys/bus/pci/devices/0000:02:00.0/driver_override /sys/bus/pci/devices/0000:02:00.0/config /sys/bus/pci/devices/0000:02:00.0/resource0 /sys/bus/pci/devices/0000:02:00.0/resource2 2>/dev/null || true'", \
+  RUN+="/bin/sh -c 'chmod 0666 /sys/bus/pci/devices/0000:02:00.0/remove /sys/bus/pci/devices/0000:02:00.0/reset /sys/bus/pci/devices/0000:02:00.0/reset_method /sys/bus/pci/devices/0000:02:00.0/power_state 2>/dev/null || true'", \
+  RUN+="/bin/sh -c 'chmod 0666 /sys/bus/pci/devices/0000:02:00.0/power/control /sys/bus/pci/devices/0000:02:00.0/d3cold_allowed 2>/dev/null || true'"
+ACTION=="bind", SUBSYSTEM=="pci", KERNEL=="0000:02:00.0", \
+  RUN+="/bin/chmod 0222 /sys/bus/pci/devices/0000:02:00.0/driver/unbind"
 
-# Titan V #1 audio (03:00.1) — same IOMMU group
-ACTION=="add|change", SUBSYSTEM=="pci", KERNEL=="0000:03:00.1", \
-  RUN+="/bin/chmod 0666 /sys/bus/pci/devices/0000:03:00.1/driver_override"
-ACTION=="bind", SUBSYSTEM=="pci", KERNEL=="0000:03:00.1", \
-  RUN+="/bin/chmod 0222 /sys/bus/pci/devices/0000:03:00.1/driver/unbind"
+# Titan V #1 audio (02:00.1) — same IOMMU group
+ACTION=="add|change", SUBSYSTEM=="pci", KERNEL=="0000:02:00.1", \
+  RUN+="/bin/chmod 0666 /sys/bus/pci/devices/0000:02:00.1/driver_override"
+ACTION=="bind", SUBSYSTEM=="pci", KERNEL=="0000:02:00.1", \
+  RUN+="/bin/chmod 0222 /sys/bus/pci/devices/0000:02:00.1/driver/unbind"
 
 # ── Tesla K80 die #1 (4c:00.0) — sovereign target ──
 ACTION=="add|change", SUBSYSTEM=="pci", KERNEL=="0000:4c:00.0", \
@@ -52,11 +52,11 @@ ACTION=="add|change", SUBSYSTEM=="pci", KERNEL=="0000:4c:00.0", \
 ACTION=="bind", SUBSYSTEM=="pci", KERNEL=="0000:4c:00.0", \
   RUN+="/bin/chmod 0222 /sys/bus/pci/devices/0000:4c:00.0/driver/unbind"
 
-# ── Tesla K80 die #2 (4d:00.0) — reagent target ──
-ACTION=="add|change", SUBSYSTEM=="pci", KERNEL=="0000:4d:00.0", \
+# ── Tesla K80 die #2 (4c:00.0) — reagent target ──
+ACTION=="add|change", SUBSYSTEM=="pci", KERNEL=="0000:4c:00.0", \
   ATTR{vendor}=="0x10de", ATTR{device}=="0x102d", \
-  RUN+="/bin/sh -c 'chmod 0666 /sys/bus/pci/devices/0000:4d:00.0/driver_override /sys/bus/pci/devices/0000:4d:00.0/config /sys/bus/pci/devices/0000:4d:00.0/resource0 /sys/bus/pci/devices/0000:4d:00.0/resource2 2>/dev/null || true'", \
-  RUN+="/bin/sh -c 'chmod 0666 /sys/bus/pci/devices/0000:4d:00.0/remove /sys/bus/pci/devices/0000:4d:00.0/reset /sys/bus/pci/devices/0000:4d:00.0/reset_method /sys/bus/pci/devices/0000:4d:00.0/power_state 2>/dev/null || true'", \
-  RUN+="/bin/sh -c 'chmod 0666 /sys/bus/pci/devices/0000:4d:00.0/power/control /sys/bus/pci/devices/0000:4d:00.0/d3cold_allowed 2>/dev/null || true'"
-ACTION=="bind", SUBSYSTEM=="pci", KERNEL=="0000:4d:00.0", \
-  RUN+="/bin/chmod 0222 /sys/bus/pci/devices/0000:4d:00.0/driver/unbind"
+  RUN+="/bin/sh -c 'chmod 0666 /sys/bus/pci/devices/0000:4c:00.0/driver_override /sys/bus/pci/devices/0000:4c:00.0/config /sys/bus/pci/devices/0000:4c:00.0/resource0 /sys/bus/pci/devices/0000:4c:00.0/resource2 2>/dev/null || true'", \
+  RUN+="/bin/sh -c 'chmod 0666 /sys/bus/pci/devices/0000:4c:00.0/remove /sys/bus/pci/devices/0000:4c:00.0/reset /sys/bus/pci/devices/0000:4c:00.0/reset_method /sys/bus/pci/devices/0000:4c:00.0/power_state 2>/dev/null || true'", \
+  RUN+="/bin/sh -c 'chmod 0666 /sys/bus/pci/devices/0000:4c:00.0/power/control /sys/bus/pci/devices/0000:4c:00.0/d3cold_allowed 2>/dev/null || true'"
+ACTION=="bind", SUBSYSTEM=="pci", KERNEL=="0000:4c:00.0", \
+  RUN+="/bin/chmod 0222 /sys/bus/pci/devices/0000:4c:00.0/driver/unbind"
