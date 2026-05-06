@@ -1,13 +1,13 @@
 # Sovereign Validation Matrix
 
-**Updated:** 2026-04-08
-**Purpose:** Single source of truth mapping every pipeline layer against dispatch paths, hardware substrates, and experiment evidence. "Solve the maze from both sides." **SovereignInit pipeline (Exp 165)** adds a pure Rust `open_sovereign(bdf)` path that replaces nouveau initialization subsystem by subsystem.
+**Updated:** 2026-05-06
+**Purpose:** Single source of truth mapping every pipeline layer against dispatch paths, hardware substrates, and experiment evidence. "Solve the maze from both sides." **SovereignInit pipeline (Exp 165)** adds a pure Rust `open_sovereign(bdf)` path that replaces nouveau initialization subsystem by subsystem. **Sprint B (May 2026):** Titan V SEC2 FBIF instance-block DMA config (addressing PC=0 stall), K80 warm NOP dispatch wired, K80 cold-boot SSEL PLL fix + post-PMU retry, SLM pool allocation, unsafe audit (all NECESSARY).
 
 ## Dispatch Path Inventory
 
 | Path | Driver | How dispatch works | Titan V | K80 | RTX 5060 |
 |------|--------|-------------------|---------|-----|----------|
-| **VFIO cold** | `vfio-pci` | Direct BAR0/GPFIFO, FECS must be booted from scratch | BLOCKED (WPR2 HW-locked) | BLOCKED (not UEFI-POSTed) | N/A (display GPU) |
+| **VFIO cold** | `vfio-pci` | Direct BAR0/GPFIFO, FECS must be booted from scratch | **FRONTIER** (SEC2 FBIF fix, ACR boot solver ready) | **FRONTIER** (NOP dispatch wired, PLL fix applied) | N/A (display GPU) |
 | **VFIO warm** | `nouveau` then `vfio-pci` | nouveau boots FECS via ACR; livepatch freezes state; swap to vfio | **FRONTIER** (livepatch ready) | N/A (nouveau rejects) | N/A |
 | **nouveau DRM** | `nouveau` | GEM + VM_INIT/EXEC via DRM ioctls | **PROVEN** (NOP dispatch, Exp 163) | BLOCKED (not UEFI-POSTed) | N/A |
 | **nvidia-drm + UVM** | `nvidia` proprietary | RM ioctls + `/dev/nvidia-uvm` GPFIFO | UNTESTED (code-complete) | UNTESTED | Available (RTX 5060) |
@@ -35,40 +35,42 @@
 | L5: MMU fault buffer | PASS (Exp 076) | PASS | PASS | UNTESTED | PASS |
 | L6: PBDMA context load | PARTIAL (Exp 058) | PASS (stale intr fix) | PASS | UNTESTED | PASS |
 | L7: SEC2 + ACR DMA | PASS (Exp 110) | N/A (nouveau handles) | N/A | N/A | N/A |
-| L8: WPR/ACR + FECS boot | BLOCKED (Exp 122: WPR2 HW-locked) | N/A (nouveau handles) | PASS (nouveau handles) | UNTESTED | PROVEN |
-| L9: FECS alive + GR init | BLOCKED by L8 | **FRONTIER** (livepatch Exp 125) | PASS (nouveau handles) | UNTESTED | PROVEN |
-| L10: GPFIFO submit | BLOCKED by L9 | **FRONTIER** (QMD+pushbuf ready) | **PASS** (Exp 163: NOP dispatch, pure Rust) | UNTESTED | PROVEN |
-| L11: Fence + readback | BLOCKED by L10 | **FRONTIER** | **PASS** (syncobj wait, Exp 163) | UNTESTED | PROVEN |
+| L8: WPR/ACR + FECS boot | **FRONTIER** (SEC2 FBIF instance-block DMA fix, ACR boot solver) | N/A (nouveau handles) | PASS (nouveau handles) | UNTESTED | PROVEN |
+| L9: FECS alive + GR init | FRONTIER (depends on L8 HW validation) | **FRONTIER** (livepatch Exp 125) | PASS (nouveau handles) | UNTESTED | PROVEN |
+| L10: GPFIFO submit | FRONTIER (depends on L9) | **FRONTIER** (QMD+pushbuf ready) | **PASS** (Exp 163: NOP dispatch, pure Rust) | UNTESTED | PROVEN |
+| L11: Fence + readback | FRONTIER (depends on L10) | **FRONTIER** | **PASS** (syncobj wait, Exp 163) | UNTESTED | PROVEN |
 | Compile (WGSL->SASS) | PASS (SM70) | PASS (SM70) | PASS (SM70) | PASS (SM70) | PASS (via NVK) |
 
 ### Tesla K80 (GK210, Kepler)
 
 | Layer | VFIO Cold | nouveau DRM | nvidia+UVM |
 |-------|-----------|-------------|------------|
-| L1: Device binding | PASS | BLOCKED (not UEFI-POSTed) | UNTESTED |
-| L2: BAR0 access | PASS (Exp 123) | BLOCKED | UNTESTED |
-| L3: PMC enable | PASS (Exp 123, 128-A2) | BLOCKED | UNTESTED |
-| L4-L6: PFIFO/PBDMA | BLOCKED (Exp 129: PRI fault — PFIFO clock domain not running) | BLOCKED | UNTESTED |
+| L1: Device binding | PASS | PASS (nouveau DRM, kernel 6.17) | UNTESTED |
+| L2: BAR0 access | PASS (Exp 123) | PASS | UNTESTED |
+| L3: PMC enable | PASS (Exp 123, 128-A2) | PASS | UNTESTED |
+| L4-L6: PFIFO/PBDMA | PASS (Exp 179: dynamic PBDMA→runlist, GPFIFO wired) | PASS (channel created, CTXSW_TIMEOUT) | UNTESTED |
 | L7: SEC2/ACR | N/A (Kepler: no ACR) | N/A | N/A |
-| L8: FECS boot | PASS (Exp 128-A2: FECS PIO boot succeeds on die 0 with nvidia-470 recipe) | BLOCKED | UNTESTED |
-| L9-L11: Dispatch | BLOCKED by L4 (need nvidia-470 recipe + devinit for PFIFO) | BLOCKED | UNTESTED |
+| L8: FECS boot | PASS (Exp 128-A2: PIO boot + Exp 179: internal firmware) | PASS (nouveau handles) | UNTESTED |
+| L9-L11: Dispatch | **FRONTIER** (NOP dispatch wired, cold PLL fix, needs GPC HW validation) | BLOCKED (GR engine not init on kernel 6.17, Exp 181) | UNTESTED |
 | Compile | PASS (SM37) | PASS (SM37) | PASS (SM37) |
 
-**K80 Architecture Notes (2026-04-29):**
+**K80 Architecture Notes (2026-05-06):**
 - No FLR hardware — PMC soft-reset is the only recovery path (`device.reset method=pmc`)
 - PRI ring writes from userspace are destructive (corrupted die 0 ring fabric)
-- nvidia-470 recipe enables PGRAPH domain (FECS accessible) but NOT PFIFO domain
-- PFIFO clock domain requires VBIOS devinit replay or full nvidia POST
-- Cold K80 die 1 causes D-state on any PCI access (guarded open required)
-- **PGOB binary analysis (Apr 29):** nvidia-470 uses PSW-only sequence at `0x10a78c` (no `0x0205xx` steps). Requires running PMU firmware. `gk110_pgob_disable` `0x0205xx` steps succeed but PRI ring has 0 GPC stations enrolled. Root cause: PRI ring topology, not just power gating.
+- PLX PEX 8747 PCIe switch: D3cold kills link, requires full AC power drain to recover
+- Cold-boot sovereign: udev `drivers_probe` + `d3cold_allowed=0` fix applied (Exp 180)
+- **SSEL PLL fix (May 2026):** `program_engine_plls` now uses per-engine `locked_mask` — only sets SSEL bits for PLLs that actually achieved lock. Prevents dead GPC clock from failed PLL.
+- **Post-PMU PLL retry (May 2026):** After PMU boot, re-tests GPC PLL writability. If PMU ungated power domain, retries crystal clocks + engine PLLs.
+- **Warm NOP dispatch wired:** GPFIFO push → doorbell → GP_GET poll infrastructure complete in `kepler_cold_pipeline.rs`.
+- nouveau on kernel 6.17.9: GR engine does NOT initialize for K80 (chip 0xf2, no `nvf2_chipset` entry). CTXSW_TIMEOUT on all compute channels (Exp 181).
 
 ### RTX 5060 (GB206, Blackwell)
 
 | Layer | nvidia+UVM | NVK/wgpu |
 |-------|------------|----------|
 | L1-L3 | PASS (display GPU) | N/A (nvidia loaded) |
-| L4-L11 | UNTESTED (code-complete) | N/A |
-| Compile | PASS (SM89) | N/A |
+| L4-L11 | **PROVEN** (Exp 181: 8/8 dispatch, SM120 SASS) | N/A |
+| Compile | PASS (SM120) | N/A |
 
 ### AMD RX 6950 XT (RDNA2, decommissioned)
 

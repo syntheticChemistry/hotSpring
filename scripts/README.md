@@ -35,6 +35,14 @@ requiring forced power-off.
 | `tools/hotspring_composition.sh` | Event-driven QCD composition via NUCLEUS library (Phase 46). Async tick model (convergence-based), DAG memoization for parameter sweeps, ledger-sealed runs, scientific provenance braids. Run with `COMPOSITION_NAME=hotspring ./tools/hotspring_composition.sh`. Degrades gracefully without NUCLEUS. | Yes |
 | `tools/nucleus_composition_lib.sh` | NUCLEUS composition library (copied from primalSpring Phase 46). 41 functions: discovery, transport, DAG, ledger, braids, petalTongue, sensor streams. Sourced by `hotspring_composition.sh`. | Yes |
 
+| `k80_nouveau_post.sh` | POST K80 via patched nouveau → swap to vfio-pci for warm sovereign compute | Yes (via coralctl patterns) |
+| `gpu-solve/titan-v-module-swap.sh` | Swap nvidia-580 → nvidia-470 for Titan V compute testing | Requires root (TTY/SSH) |
+| `test_coral_kmod.sh` | Validate coral-reef kmod compilation and loading | Yes |
+| `hw-test` | Hardware test dispatch helper | Yes |
+| `gpu-ctl` | GPU power state management (D0 pinning) | Yes (power only) |
+| `livepatch/` | Livepatch kernel module build and management | Yes |
+| `boot/` | Boot-time udev rules, systemd units, sudoers, and install helpers | Yes |
+
 Other non-archived helpers in `scripts/` (e.g. `build-container.sh`, `build-guidestone.sh`, `download-data.sh`, `prepare-usb.sh`, `setup-envs.sh`, `validate-guidestone-multi.sh`) are also active as needed for builds and lab setup.
 
 All Python lab analysis scripts and the `titan_timing_attack.sh` experiment script

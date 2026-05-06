@@ -137,20 +137,20 @@ loop with 2-second timeout, abandoning the zombie if it remains stuck.
 | GPU | Status | Blocker |
 |-----|--------|---------|
 | RTX 5060 (SM120) | ✅ 8/8 dispatch proven | None — sovereign compute live |
-| Titan V (GV100) | 🔴 Blocked | SEC2/ACR boot chain, no PMU firmware in nouveau |
-| Tesla K80 (GK210B) | 🟡 Cold-boot OK | PGOB: PRI ring has 0 GPCs enrolled, GPC power gating |
+| Titan V (GV100) | 🟡 Code ready | SEC2 FBIF instance-block DMA config applied; ACR boot solver wired; needs HW validation |
+| Tesla K80 (GK210B) | 🟡 Code ready | SSEL PLL fix + post-PMU retry applied; NOP dispatch wired; needs HW validation of cold GPC |
 
 ### K80 Next Steps
 
-1. PGOB (Power Gating Off Block) — need to ungate GPCs so FECS can address them
-2. Options: PMU firmware approach (complex), or direct PRI ring GPC enrollment
-3. `scripts/gpu-solve/titan-v-module-swap.sh` available for nvidia-470 testing path
+1. Run `kepler_cold_pipeline` example on hardware — validate PLL lock and GPC clocks
+2. If GPCs come alive: NOP dispatch is wired, test end-to-end
+3. If still dead: investigate PMU firmware power domain sequencing
 
 ### Titan V Next Steps
 
-1. SEC2/ACR boot chain requires PMU firmware (not available in nouveau for GV100)
-2. Warm handoff path (nouveau → vfio) proven but FECS cannot exit HS-mode halt
-3. Long-term: pure Rust ACR implementation or RE of firmware protocol
+1. Run `volta_sovereign_pipeline` example on hardware — validate SEC2 boot with FBIF fix
+2. ACR boot solver has 15 strategies; at least one should achieve FECS boot
+3. If FECS boots: channel creation + NOP dispatch infrastructure is already wired
 
 ---
 
