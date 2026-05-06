@@ -1,15 +1,15 @@
 # hotSpring — Experiment & Validation Index
 
-> **Last audited:** April 30, 2026 · **993 lib tests** · **166 binaries** · **84** `validate_*`/`hotspring_guidestone` binaries · **64/64 validation suites** · **128 WGSL shaders** · **guideStone bare: 30/30 checks pass** (Property 3 BLAKE3 CHECKSUMS verified). K80 warm FECS/PFIFO pipeline: FECS boots, runlist completes, SCHED_ERROR code=32 root-caused and fixed (missing RAMFC 0x3C/0x44 fields). Hardware validation pending.
+> **Last audited:** May 6, 2026 · **993 lib tests** · **166 binaries** · **84** `validate_*`/`hotspring_guidestone` binaries · **64/64 validation suites** · **128 WGSL shaders** · **guideStone bare: 30/30 checks pass** (Property 3 BLAKE3 CHECKSUMS verified). K80 cold-boot sovereign: udev PLX fix (drivers_probe removed, d3cold_allowed=0), ember exclusive device gate live, NvidiaKeplerLifecycle skip_sysfs_unbind. RTX 5060 8/8 dispatch proven. Three-GPU HW validation complete.
 >
 > Experiments 001–179 validate Python→Rust fidelity, sovereign GPU compute, cross-generation WGSL→native ISA compilation, and primal composition proof. **Phase 2** (NUCLEUS composition validation) is tracked via `validate_nucleus_*` binaries and [`docs/PRIMAL_GAPS.md`](docs/PRIMAL_GAPS.md). **Phase 3** (primal composition proof) validates IPC-composed NUCLEUS patterns against direct Rust baselines.
 
-> Updated April 30, 2026. This is the authoritative ledger of all
+> Updated May 6, 2026. This is the authoritative ledger of all
 > experiments, validation suites, and benchmark data. For project overview, see [README.md](README.md).
 > Experiments 001-143 archived to `experiments/archive/` — completed physics, benchmark, sovereign GPU, and ember hardening work, results absorbed into baseCamp and coralReef code.
 > Note: Experiments 096-105 have dual-numbered IDs (physics + sovereign GPU tracks ran in parallel). Filenames are self-descriptive. Exp 136b disambiguated from 136.
 
-**176+ experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **AGPL-3.0-only**
+**181 experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **AGPL-3.0-only**
 
 ---
 
@@ -211,8 +211,10 @@
 | **QCD Parity Benchmark** (Exp 176) | ✅ Complete | biomeGate: cross-generation QCD parity benchmark (K80/Titan V/RTX 5060) |
 | **Blackwell Dispatch ABI Fixes** (Exp 177) | ✅ Complete | biomeGate: SM120 QMD ABI alignment fixes for Blackwell compute dispatch |
 | **K80 PGOB Nvidia470 Analysis** (Exp 178) | ⚠️ Pivoted | biomeGate: GK210B PGOB analysis. Cold sovereign blocked → pivoted to nouveau warm-catch |
-| **K80 Warm FECS Dispatch Pipeline** (Exp 179) | 🔄 Active | biomeGate: nouveau warm-catch → VFIO → FECS boot → PFIFO channel. SCHED_ERROR code=32 root-caused (missing RAMFC 0x3C/0x44) and fixed. Hardware validation pending |
-| **TOTAL** | **64/64 validation suites** | **993 tests (lib)**, 166 binaries (84 `validate_*` + `hotspring_guidestone`), 128 WGSL shaders. **guideStone bare: 30/30 checks pass** (Property 3 BLAKE3 CHECKSUMS verified, all 5 bare properties green, primalSpring v0.9.17). Zero clippy, zero unsafe, zero `dyn` dispatch (prod), AGPL-3.0-only. `deny.toml` enforced (ecoBin C-dep bans). `#[expect(lint, reason)]` in all production code. **Science ladder:** Quenched → Gradient Flow → Integrators → N_f=4 Infra → Chuna 44/44 → N_f=2 → N_f=2+1 → Self-tuning → Silicon saturation → 16⁴+ production → **Firmware Boundary → NOP Dispatch → SovereignInit Pipeline (pure Rust, zero nouveau) → NUCLEUS Composition Validation → Composition Evolution → Primal Composition Proof → Level 5 Primal Proof → guideStone → Property 3 BLAKE3 CHECKSUMS (30/30 bare) → K80 Warm FECS/PFIFO (SCHED_ERROR fixed, hw validation pending)**. 179 experiments. Experiments 001-143 archived to `experiments/archive/` (completed physics validation + sovereign GPU + ember hardening, absorbed into baseCamp and coralReef). |
+| **K80 Warm FECS Dispatch Pipeline** (Exp 179) | ✅ Complete | biomeGate: nouveau warm-catch → VFIO → FECS boot → PFIFO channel. SCHED_ERROR code=32 root-caused (missing RAMFC 0x3C/0x44) and fixed. HW validated: runlist works, SCHED_ERROR=0. Cold-boot sovereign achieved (udev PLX fix). GPC PGOB remains dispatch blocker |
+| **Three-GPU Hardware Validation** (Exp 180) | ✅ Complete | biomeGate: RTX 5060 19/19 pass (CUDA+DRM+discovery), Titan V 20/20 standalone VFIO pass, K80 device open + runlist pass. PGOB GPC gating confirmed as K80 root blocker |
+| **Sovereign Dispatch Pipeline Sweep** (Exp 181) | 🔧 In Progress | biomeGate: RTX 5060 8/8 PROVEN (WGSL→SM120→dispatch→readback). Titan V blocked: nouveau DRM (no PMU fw), VFIO warm handoff (FECS HRESET, HS-mode requires SEC2/ACR boot chain). K80 cold-boot sovereign (udev PLX fix), VFIO PGOB dispatch blocker remains. Ember Exclusive Device Gate live (all direct HW access routes through ember when active). nouveau+nvidia coexistence confirmed on kernel 6.17 |
+| **TOTAL** | **64/64 validation suites** | **993 tests (lib)**, 166 binaries (84 `validate_*` + `hotspring_guidestone`), 128 WGSL shaders. **guideStone bare: 30/30 checks pass** (Property 3 BLAKE3 CHECKSUMS verified, all 5 bare properties green, primalSpring v0.9.17). Zero clippy, zero unsafe, zero `dyn` dispatch (prod), AGPL-3.0-only. `deny.toml` enforced (ecoBin C-dep bans). `#[expect(lint, reason)]` in all production code. **Science ladder:** Quenched → Gradient Flow → Integrators → N_f=4 Infra → Chuna 44/44 → N_f=2 → N_f=2+1 → Self-tuning → Silicon saturation → 16⁴+ production → **Firmware Boundary → NOP Dispatch → SovereignInit Pipeline (pure Rust, zero nouveau) → NUCLEUS Composition Validation → Composition Evolution → Primal Composition Proof → Level 5 Primal Proof → guideStone → Property 3 BLAKE3 CHECKSUMS (30/30 bare) → K80 Warm FECS/PFIFO (SCHED_ERROR fixed) → Three-GPU HW Validation (RTX 5060 19/19, Titan V 20/20, K80 PGOB blocker confirmed) → Sovereign Dispatch Sweep (RTX 5060 8/8 PROVEN, Titan V SEC2/ACR gap, K80 PGOB gap) → K80 Cold-Boot Sovereign (udev PLX fix, d3cold_allowed=0, NvidiaKeplerLifecycle skip_sysfs_unbind) → Ember Exclusive Device Gate (fail-open hardware access routing through ember)**. 181 experiments. Experiments 001-143 archived to `experiments/archive/` (completed physics validation + sovereign GPU + ember hardening, absorbed into baseCamp and coralReef). |
 
 ---
 

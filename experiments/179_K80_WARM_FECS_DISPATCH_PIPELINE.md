@@ -1,7 +1,7 @@
 # Experiment 179: K80 Warm FECS Dispatch Pipeline
 
 **Date:** April 30, 2026
-**Status:** ⚠️ In Progress (FECS boot operational, PFIFO runlist operational, GPFIFO dispatch blocked on SCHED_ERROR)
+**Status:** 🔧 Code-Complete (FECS boot operational, PFIFO runlist operational, SCHED_ERROR code=32 fixed — hardware validation pending)
 **Hardware:** Tesla K80 (GK210B, Kepler)
 **Primal:** coralReef (coral-driver)
 **Predecessor:** Exp 178 (PGOB analysis), Exp 155 (K80 warm FECS), Exp 174 (K80 sovereign boot)
