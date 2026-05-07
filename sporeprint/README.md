@@ -1,3 +1,14 @@
++++
+title = "hotSpring sporePrint Directory"
+description = "Content pipeline for primals.eco — validation summaries, notebooks, and frozen data"
+date = 2026-05-07
+template = "page.html"
+render = false
+
+[taxonomies]
+springs = ["hotspring"]
++++
+
 # sporeprint/ — Content for primals.eco
 
 Files in this directory are published to [primals.eco](https://primals.eco) via

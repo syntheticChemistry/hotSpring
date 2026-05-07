@@ -5,7 +5,7 @@
 //! Proves:
 //!   1. ToadStool alive → `compute.dispatch.submit` works
 //!   2. barraCuda alive → `tensor.*` capabilities registered
-//!   3. coralReef alive → `shader.compile` works
+//!   3. coralReef alive → `shader.compile.wgsl` works
 //!   4. Compute dispatch: submit a trivial workload through ToadStool
 //!   5. Sovereign compile: submit WGSL through coralReef
 //!
@@ -83,7 +83,7 @@ fn main() {
     // ── Capability assertions ──
     println!("  ── Capability assertions ──");
     validate_capability(&ctx, "toadstool", "compute.dispatch.submit", &mut harness);
-    validate_capability(&ctx, "coralreef", "shader.compile", &mut harness);
+    validate_capability(&ctx, "coralreef", "shader.compile.wgsl", &mut harness);
 
     // ── Science parity: local Rust vs IPC compute ──
     println!("  ── Science Parity (Rust vs IPC) ──");

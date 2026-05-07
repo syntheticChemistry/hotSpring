@@ -53,7 +53,7 @@ pub struct DagProvenance {
 }
 
 impl DagSession {
-    /// Begin a new DAG session via `dag.create_session`.
+    /// Begin a new DAG session via `dag.session.create`.
     ///
     /// Returns `None` if rhizoCrypt is not available.
     pub fn begin(nucleus: &NucleusContext, label: &str) -> Option<Self> {

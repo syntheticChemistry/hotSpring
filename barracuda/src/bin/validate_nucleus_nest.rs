@@ -40,7 +40,7 @@ fn main() {
         if rc.alive {
             let session_result = ctx.call(
                 "rhizocrypt",
-                "dag.create_session",
+                "dag.session.create",
                 &serde_json::json!({
                     "label": "hotspring_nest_validation_probe",
                     "metadata": { "spring": "hotspring", "purpose": "composition_validation" }
@@ -52,14 +52,14 @@ fn main() {
                         .get("result")
                         .and_then(|r| r.get("session_id"))
                         .is_some();
-                    harness.check_bool("rhizoCrypt dag.create_session", has_session);
+                    harness.check_bool("rhizoCrypt dag.session.create", has_session);
                     println!(
                         "    DAG session: {}",
                         if has_session { "OK" } else { "FAIL" }
                     );
                 }
                 Err(e) => {
-                    harness.check_bool("rhizoCrypt dag.create_session", false);
+                    harness.check_bool("rhizoCrypt dag.session.create", false);
                     println!("    DAG session error: {e}");
                 }
             }
@@ -108,7 +108,7 @@ fn main() {
     println!("  ── Capability assertions ──");
     validate_capability(&ctx, "rhizocrypt", "dag.session.create", &mut harness);
     validate_capability(&ctx, "loamspine", "session.commit", &mut harness);
-    validate_capability(&ctx, "sweetgrass", "provenance.create_braid", &mut harness);
+    validate_capability(&ctx, "sweetgrass", "braid.create", &mut harness);
 
     // ── Provenance Parity: local witness vs IPC DAG ──
     println!("  ── Provenance Parity ──");
