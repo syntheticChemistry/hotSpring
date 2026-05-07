@@ -1,34 +1,51 @@
 +++
 title = "hotSpring Validation Summary"
-description = "Computational plasma physics, lattice QCD, spectral theory — 697+ tests, paper-parity MD for $0.044"
-date = 2026-05-06
+description = "Computational physics on consumer GPU — 993 tests, 181 experiments, guideStone Level 5, 22 papers reproduced, $0.30 total science cost"
+date = 2026-05-07
 
 [taxonomies]
-primals = ["barracuda", "toadstool", "coralreef"]
-springs = ["hotspring", "groundspring", "neuralspring", "wetspring"]
+primals = ["barracuda", "toadstool", "coralreef", "beardog", "songbird", "nestgate", "rhizocrypt", "loamspine", "sweetgrass", "squirrel"]
+springs = ["hotspring"]
 +++
 
 ## Status
 
-- **697+ tests**, 78 binaries, 62 WGSL shaders
-- **Sarkas Yukawa MD** at paper parity on RTX 4070 for **$0.044**
-- **Full AME2020** nuclear dataset (2,042 nuclei) on single consumer GPU
-- **Lattice QCD** production beta-scans resolving deconfinement at beta=5.69
-- **DF64** delivers 3.24 TFLOPS double precision on FP32 cores
+- **993 tests** passing (lib), 0 failed, 6 GPU-heavy ignored
+- **181 experiments** across 12 physics categories
+- **22 papers** reproduced (Sarkas, Chabanat, Kortelainen, Bender, AME2020, ...)
+- **guideStone Level 5** — 30/30 bare checks, BLAKE3 Property 3, 5/5 properties
+- **166 binaries**, **64/64 validation suites**, **128 WGSL shaders**
+- **$0.30** total science cost on consumer hardware
+- **9 primals** required (10 with optional Squirrel), capability-based routing via `by_domain()`
+- **Phase 46 composition template** absorbed — event-driven QCD + DAG memoization
+- **Deep debt evolution** complete — capability-based discovery, smart file refactoring
 
 ## Key Validation Binaries
 
-<!-- TODO: Update with actual binary names from target/release/ -->
+- `hotspring_guidestone` — 5 guideStone properties (bare + NUCLEUS IPC parity)
+- `validate_primal_proof` — end-to-end primal composition validation
+- `validate_nuclear_eos_*` — AME2020 binding energies (L1/L2/L3)
+- `validate_lattice_qcd_*` — SU(3) HMC/RHMC, gradient flow, beta-scan
 - `validate_sarkas_md` — Yukawa OCP molecular dynamics
-- `validate_nuclear_eos` — AME2020 equation of state
-- `validate_lattice_qcd` — SU(3) HMC beta-scan
 - `validate_anderson_3d` — Anderson localization (1D/2D/3D)
+- `validate_pure_gauge` — 16/16 quenched QCD checks
+
+## Notebooks (5)
+
+| # | Notebook | Focus |
+|---|----------|-------|
+| 01 | Composition Validation | Deploy graph, guideStone Level 5, capability routing, atomic types |
+| 02 | Benchmark Comparison | Python vs Rust (44.8x–2274x), GPU vs CPU (44–72x), DF64 3.24 TFLOPS |
+| 03 | Experiment Evidence | 181 experiments, 22 science ladder milestones, evolution timeline |
+| 04 | Cross-Spring Connections | 10 primals consumed, 5 patterns handed back, ecosystem flows |
+| 05 | Physics Deep Dive | Nuclear EOS, lattice QCD, sovereign GPU pipeline, code safety |
 
 ## Workload TOMLs
 
-Skeleton available in `projectNUCLEUS/workloads/hotspring/`.
+Not yet created — contribute to `projectNUCLEUS/workloads/hotspring/`.
 
 ## See Also
 
-- [hotSpring Science Hub](https://primals.eco/lab/springs/hotspring/) on primals.eco
-- [baseCamp Papers 07, 10, 15, 25](https://primals.eco/science/)
+- [Spring Catalog](https://primals.eco/architecture/spring-catalog-status-science-and-evolution/) on primals.eco
+- [Lab Notebooks](https://primals.eco/lab/notebooks/) for rendered notebook views
+- [baseCamp Papers](https://primals.eco/science/) — nuclear EOS, lattice QCD, plasma physics

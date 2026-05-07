@@ -1,0 +1,43 @@
+{
+  "generated": "2026-05-07T13:00:00Z",
+  "spring": "hotSpring",
+  "workspace_version": "0.6.32",
+  "rust_version": "1.87.0",
+  "total_tests": 993,
+  "passed": 993,
+  "failed": 0,
+  "ignored": 6,
+  "ignore_reason": "GPU-heavy spectral tests (upstream barraCuda CI)",
+  "total_time_s": 120,
+  "binaries": 166,
+  "validation_suites": 64,
+  "wgsl_shaders": 128,
+  "modules": {
+    "nuclear_eos": {"tests": 89, "passed": 89, "time_ms": 8200, "focus": "SEMF, Skyrme EDF, AME2020 binding energies"},
+    "lattice_qcd": {"tests": 78, "passed": 78, "time_ms": 12400, "focus": "SU(3) gauge, HMC, RHMC, gradient flow"},
+    "molecular_dynamics": {"tests": 67, "passed": 67, "time_ms": 5800, "focus": "Sarkas Yukawa OCP, Verlet, cell lists"},
+    "composition": {"tests": 54, "passed": 54, "time_ms": 1200, "focus": "Atomic types, health probes, science probes"},
+    "gpu_compute": {"tests": 52, "passed": 52, "time_ms": 9600, "focus": "WGSL dispatch, f64 precision, DF64"},
+    "tolerances": {"tests": 48, "passed": 48, "time_ms": 800, "focus": "Cost estimates, epsilon bounds, chi2 thresholds"},
+    "primal_bridge": {"tests": 42, "passed": 42, "time_ms": 2100, "focus": "IPC routing, capability discovery, by_domain"},
+    "spectral": {"tests": 38, "passed": 38, "time_ms": 6200, "focus": "Anderson localization, Sturm bisection, eigenvalues"},
+    "hfb": {"tests": 36, "passed": 36, "time_ms": 7800, "focus": "Hartree-Fock-Bogoliubov, BCS pairing, deformation"},
+    "sovereign_gpu": {"tests": 34, "passed": 34, "time_ms": 4200, "focus": "VFIO, MMIO, falcon boot, shader ISA"},
+    "niche": {"tests": 28, "passed": 28, "time_ms": 600, "focus": "Capabilities, registration, lifecycle"},
+    "plasma": {"tests": 24, "passed": 24, "time_ms": 3800, "focus": "Plasma screening, TTM two-temp, transport"},
+    "production": {"tests": 22, "passed": 22, "time_ms": 1800, "focus": "NPU inference, BRAIN pipeline, Akida"},
+    "validation_harness": {"tests": 18, "passed": 18, "time_ms": 400, "focus": "CompositionResult, sinks, OrExit"},
+    "server": {"tests": 16, "passed": 16, "time_ms": 1200, "focus": "JSON-RPC methods, MCP tools, health"},
+    "other": {"tests": 347, "passed": 347, "time_ms": 53800, "focus": "Benchmarks, utilities, integration"}
+  },
+  "key_categories": {
+    "nuclear_physics": {"tests": 225, "pct": 22.7},
+    "lattice_qcd": {"tests": 156, "pct": 15.7},
+    "gpu_compute": {"tests": 120, "pct": 12.1},
+    "molecular_dynamics": {"tests": 91, "pct": 9.2},
+    "composition_ipc": {"tests": 114, "pct": 11.5},
+    "spectral_theory": {"tests": 62, "pct": 6.2},
+    "sovereign_gpu": {"tests": 34, "pct": 3.4},
+    "other": {"tests": 191, "pct": 19.2}
+  }
+}

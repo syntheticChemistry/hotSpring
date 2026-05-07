@@ -1,0 +1,57 @@
+{
+  "generated": "2026-05-07T13:00:00Z",
+  "spring": "hotSpring",
+  "version": "0.6.32",
+  "guidestone_level": 5,
+  "deploy_graph": {
+    "file": "graphs/hotspring_qcd_deploy.toml",
+    "total_nodes": 11,
+    "primals_required": 9,
+    "primals_optional": 1,
+    "bond_type": "Metallic",
+    "trust_model": "InternalNucleus",
+    "encryption_tiers": ["tower", "node", "nest"]
+  },
+  "primals_validated": {
+    "required": [
+      {"name": "BearDog", "domain": "crypto", "role": "Witness signing, BTSP crypto identity"},
+      {"name": "Songbird", "domain": "discovery", "role": "Service discovery, event streaming"},
+      {"name": "ToadStool", "domain": "compute", "role": "Workload dispatch, GPU scheduling"},
+      {"name": "BarraCuda", "domain": "math", "role": "GPU compute, f64 WGSL dispatch"},
+      {"name": "coralReef", "domain": "shader", "role": "Shader compilation, GPU ISA"},
+      {"name": "NestGate", "domain": "storage", "role": "Gateway, data access, internet reach"},
+      {"name": "rhizoCrypt", "domain": "dag", "role": "DAG sessions, content-addressed storage"},
+      {"name": "loamSpine", "domain": "ledger", "role": "Append-only ledger, provenance chain"},
+      {"name": "sweetGrass", "domain": "provenance", "role": "Braid consensus, witness aggregation"}
+    ],
+    "optional": [
+      {"name": "Squirrel", "domain": "inference", "role": "AI coordination, meta-tier inference"}
+    ]
+  },
+  "atomic_types": {
+    "Tower": {"fragment": "BearDog + Songbird", "tests": 4},
+    "Node": {"fragment": "Tower + ToadStool + BarraCuda + coralReef", "tests": 8},
+    "Nest": {"fragment": "Node + NestGate + rhizoCrypt + loamSpine + sweetGrass", "tests": 6},
+    "FullNucleus": {"fragment": "All 9 required primals", "tests": 12}
+  },
+  "guidestone_bare": {
+    "total_checks": 30,
+    "passed": 30,
+    "skipped": 3,
+    "skip_reason": "Expected NUCLEUS liveness probes when no primals deployed",
+    "properties": {
+      "P1_deterministic": {"checks": 6, "status": "PASS"},
+      "P2_reference_traceable": {"checks": 6, "status": "PASS"},
+      "P3_self_verifying": {"checks": 6, "status": "PASS", "method": "BLAKE3 CHECKSUMS, 15 source files"},
+      "P4_environment_agnostic": {"checks": 6, "status": "PASS"},
+      "P5_tolerance_documented": {"checks": 6, "status": "PASS"}
+    }
+  },
+  "capability_routing": {
+    "local_capabilities": 21,
+    "routed_capabilities": 26,
+    "discovery_method": "niche::DEPENDENCIES single source of truth",
+    "api": "by_domain() — capability-based, not name-based"
+  },
+  "validation": "ALL PASS"
+}

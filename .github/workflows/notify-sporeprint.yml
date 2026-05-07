@@ -24,4 +24,4 @@ jobs:
           token: ${{ secrets.SPOREPRINT_DISPATCH_TOKEN }}
           repository: ecoPrimals/sporePrint
           event-type: source-updated
-          client-payload: '{"source": "${{ github.event.repository.name }}", "sha": "${{ github.sha }}", "type": "spring", "content": "false"}'
+          client-payload: '{"source": "${{ github.event.repository.name }}", "sha": "${{ github.sha }}", "type": "spring", "content": "true"}'

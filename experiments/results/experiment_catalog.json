@@ -1,0 +1,100 @@
+{
+  "generated": "2026-05-07T13:00:00Z",
+  "spring": "hotSpring",
+  "total_experiments": 181,
+  "total_science_cost": "$0.30",
+  "quantitative_checks": "500+",
+  "categories": {
+    "molecular_dynamics": {
+      "experiments": ["exp001-exp010"],
+      "count": 10,
+      "focus": "Sarkas Yukawa OCP, Verlet neighbor list, cell list, AllPairs vs CellList vs Verlet"
+    },
+    "nuclear_eos_l1": {
+      "experiments": ["exp011-exp025"],
+      "count": 15,
+      "focus": "Semi-empirical mass formula, Pareto analysis, chi2_BE optimization, GPU-batched"
+    },
+    "nuclear_eos_l2": {
+      "experiments": ["exp026-exp045"],
+      "count": 20,
+      "focus": "HFB Skyrme, AME2020 full dataset (2042 nuclei), convergence, deformation"
+    },
+    "nuclear_eos_l3": {
+      "experiments": ["exp046-exp055"],
+      "count": 10,
+      "focus": "Deformed HFB, best-of-both chi2, full-scale production"
+    },
+    "lattice_qcd": {
+      "experiments": ["exp056-exp085"],
+      "count": 30,
+      "focus": "Quenched SU(3), gradient flow, HMC, RHMC, beta-scans, deconfinement"
+    },
+    "spectral_theory": {
+      "experiments": ["exp086-exp095"],
+      "count": 10,
+      "focus": "Anderson localization, Sturm bisection, eigenvalue statistics, random matrices"
+    },
+    "plasma_physics": {
+      "experiments": ["exp096-exp110"],
+      "count": 15,
+      "focus": "Plasma screening, Coulomb OCP, TTM two-temperature, transport coefficients"
+    },
+    "gpu_validation": {
+      "experiments": ["exp111-exp130"],
+      "count": 20,
+      "focus": "DF64 precision, WGSL shaders, FP64 vs CPU parity, multi-backend"
+    },
+    "sovereign_gpu": {
+      "experiments": ["exp131-exp143"],
+      "count": 13,
+      "focus": "VFIO, MMIO, falcon boot, SovereignInit pipeline, nouveau replacement"
+    },
+    "composition_evolution": {
+      "experiments": ["exp144-exp155"],
+      "count": 12,
+      "focus": "NUCLEUS wiring, atomic health probes, science probes, guidestone"
+    },
+    "firmware_sovereign": {
+      "experiments": ["exp156-exp170"],
+      "count": 15,
+      "focus": "Firmware boundary pivot, NOP dispatch, SovereignInit, ember, K80/TitanV/RTX5060"
+    },
+    "multi_gpu_hw": {
+      "experiments": ["exp171-exp181"],
+      "count": 11,
+      "focus": "K80 warm/cold boot, Blackwell ABI, RTX 5060 sovereign dispatch, ember gate"
+    }
+  },
+  "science_ladder": [
+    "Quenched QCD",
+    "Gradient Flow",
+    "Integrators",
+    "N_f=4 Infrastructure",
+    "Chuna 44/44",
+    "N_f=2",
+    "N_f=2+1",
+    "Self-tuning RHMC",
+    "Silicon Saturation",
+    "16^4+ Production",
+    "Firmware Boundary",
+    "NOP Dispatch",
+    "SovereignInit Pipeline",
+    "NUCLEUS Composition Validation",
+    "Composition Evolution",
+    "Primal Composition Proof",
+    "Level 5 Primal Proof",
+    "guideStone (30/30 bare)",
+    "Phase 46 Composition Template",
+    "Deep Debt Evolution",
+    "K80 Sovereign Boot",
+    "Ember Gate"
+  ],
+  "papers_reproduced": 22,
+  "timeline": {
+    "phase_A_E": {"experiments_added": 55, "period": "Jan-Feb 2026", "focus": "MD, plasma, nuclear EOS"},
+    "phase_F_H": {"experiments_added": 50, "period": "Feb-Mar 2026", "focus": "Lattice QCD, GPU validation, spectral"},
+    "phase_I_J": {"experiments_added": 35, "period": "Mar-Apr 2026", "focus": "Sovereign GPU, composition, guidestone"},
+    "phase_K": {"experiments_added": 41, "period": "Apr-May 2026", "focus": "Multi-GPU, K80, Blackwell, deep debt"}
+  }
+}

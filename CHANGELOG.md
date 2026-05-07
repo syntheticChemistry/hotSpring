@@ -7,7 +7,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
-## Unreleased — K80 Warm FECS/PFIFO Pipeline + Checkpoint (April 30, 2026)
+## Unreleased — sporePrint Tier 2 Notebooks (May 7, 2026)
+
+### Added
+- **sporePrint Tier 2 content**: 5 public notebooks + 6 frozen JSON validation data files.
+  - `notebooks/01-composition-validation.ipynb` — guideStone Level 5, deploy graph, capability routing
+  - `notebooks/02-benchmark-comparison.ipynb` — Python vs Rust, GPU vs CPU, DF64, energy/cost
+  - `notebooks/03-experiment-evidence.ipynb` — 181 experiments, science ladder, evolution timeline
+  - `notebooks/04-cross-spring-connections.ipynb` — primal consumption, patterns handed back
+  - `notebooks/05-physics-deep-dive.ipynb` — nuclear EOS, lattice QCD, sovereign GPU, code safety
+- **`experiments/results/`**: 6 frozen JSON files (composition_validation, test_suite_report, experiment_catalog, benchmark_timing, cross_spring_matrix, security_convergence)
+- **`notebooks/NOTEBOOK_PATTERN.md`**: Adapted from primalSpring/wetSpring pattern for physics domains
+- **`sporeprint/validation-summary.md`**: Updated with current numbers (993 tests, 181 experiments, 5 notebooks)
+
+## K80 Warm FECS/PFIFO Pipeline + Checkpoint (April 30, 2026)
 
 ### Added
 - **K80 warm FECS boot** (coralReef coral-driver): Internal firmware protocol for GK210B Kepler — FECS/GPCCS firmware loaded via Falcon v3 PIO, IMEM tags, csdata in DMEM. FECS boots and reaches idle state (CPUCTL=0x20). Internal firmware context size read from `0x409804`. Fire-and-forget channel binding for internal protocol.

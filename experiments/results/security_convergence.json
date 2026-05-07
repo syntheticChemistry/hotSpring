@@ -1,0 +1,72 @@
+{
+  "generated": "2026-05-07T13:00:00Z",
+  "spring": "hotSpring",
+  "guidestone": {
+    "level": 5,
+    "binary": "hotspring_guidestone",
+    "api": "primalspring::composition",
+    "bare_checks": 30,
+    "bare_passed": 30,
+    "bare_skipped": 3,
+    "skip_reason": "Expected NUCLEUS liveness probes (no primals deployed)",
+    "properties": {
+      "P1_deterministic_output": "PASS — SEMF binding energy reproduces within tolerance",
+      "P2_reference_traceable": "PASS — all reference constants trace to published papers",
+      "P3_self_verifying": "PASS — BLAKE3 checksums for 15 source files verified",
+      "P4_environment_agnostic": "PASS — no host-specific paths, no root required",
+      "P5_tolerance_documented": "PASS — all epsilon/chi2 thresholds documented in tolerances::"
+    }
+  },
+  "btsp_posture": {
+    "note": "hotSpring consumes primals — BTSP posture inherited from primal implementations",
+    "primals_with_phase3": 13,
+    "primals_total": 13,
+    "per_primal_consumed": {
+      "beardog": {"phase": 3, "hotspring_usage": "Witness signing for SEMF provenance"},
+      "songbird": {"phase": 3, "hotspring_usage": "Family-aware discovery for NUCLEUS"},
+      "toadstool": {"phase": 3, "hotspring_usage": "Compute dispatch scheduling"},
+      "barracuda": {"phase": 3, "hotspring_usage": "GPU f64 WGSL kernel dispatch"},
+      "coralreef": {"phase": 3, "hotspring_usage": "Shader ISA compilation"},
+      "nestgate": {"phase": 3, "hotspring_usage": "Lattice config I/O"},
+      "rhizocrypt": {"phase": 3, "hotspring_usage": "DAG session memoization"},
+      "loamspine": {"phase": 3, "hotspring_usage": "Simulation run ledger"},
+      "sweetgrass": {"phase": 3, "hotspring_usage": "Scientific provenance braids"},
+      "squirrel": {"phase": 3, "hotspring_usage": "AI meta-tier (optional)"}
+    }
+  },
+  "code_safety": {
+    "unsafe_blocks": 2,
+    "unsafe_location": "Feature-gated binaries only (BAR0 mmap, CUDA launch)",
+    "lib_forbid_unsafe": true,
+    "dyn_dispatch_production": 0,
+    "allow_attributes_production": 0,
+    "expect_with_reason": "All production code uses #[expect(lint, reason)]",
+    "deny_toml": true,
+    "deny_toml_bans": "ecoBin C-dependency bans (no OpenSSL, no ring)"
+  },
+  "gap_summary": {
+    "total_gaps": 43,
+    "resolved": 32,
+    "active": 8,
+    "blocked_upstream": 3,
+    "active_gaps": [
+      {"id": "GAP-HS-001", "primal": "Squirrel", "severity": "Low", "desc": "E2E validation pending neuralSpring"},
+      {"id": "GAP-HS-005", "primal": "Songbird", "severity": "Medium", "desc": "Cross-family GPU lease"},
+      {"id": "GAP-HS-027", "primal": "barraCuda", "severity": "Medium", "desc": "TensorSession adoption"},
+      {"id": "GAP-HS-028", "primal": "NestGate", "severity": "Medium", "desc": "LIME/ILDG zero-copy I/O"},
+      {"id": "GAP-HS-039", "primal": "rhizoCrypt", "severity": "Low", "desc": "DAG graceful degradation"},
+      {"id": "GAP-HS-040", "primal": "toadStool", "severity": "Low", "desc": "Short timeout sensitivity"},
+      {"id": "GAP-HS-041", "primal": "barraCuda", "severity": "Low", "desc": "stats.entropy missing"},
+      {"id": "GAP-HS-042", "primal": "petalTongue", "severity": "Low", "desc": "plasmidBin threading"}
+    ]
+  },
+  "evolution_timeline": [
+    {"date": "2026-01-15", "event": "Phase A — Python baselines for Sarkas MD", "tests": 120},
+    {"date": "2026-02-15", "event": "Phase E — Rust parity, 697 tests", "tests": 697},
+    {"date": "2026-03-15", "event": "Phase H — Lattice QCD, 850 tests", "tests": 850},
+    {"date": "2026-04-10", "event": "NUCLEUS composition wiring, 985 tests", "tests": 985},
+    {"date": "2026-04-17", "event": "guideStone Level 5, 30/30 bare, 990 tests", "tests": 990},
+    {"date": "2026-04-27", "event": "Phase 46 + deep debt, 993 tests", "tests": 993},
+    {"date": "2026-05-06", "event": "K80 sovereign boot + ember gate, 993 tests", "tests": 993}
+  ]
+}

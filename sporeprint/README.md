@@ -12,9 +12,14 @@ the sporePrint auto-refresh CI pipeline.
 
 ## What goes here
 
-- `validation-summary.md` — your spring's headline validation results
+- `validation-summary.md` — hotSpring's headline validation results (993 tests, 181 experiments, guideStone Level 5)
 - Additional `.md` pages with Zola-compatible front matter
 - Results, benchmarks, or experiment summaries you want visible on primals.eco
+
+## Notebooks
+
+5 public notebooks in `notebooks/` — see `notebooks/NOTEBOOK_PATTERN.md` for the pattern.
+Frozen data in `experiments/results/*.json` (6 JSON files). Render via `jupyter nbconvert --execute`.
 
 ## Front matter requirements
 

@@ -1,0 +1,69 @@
+{
+  "generated": "2026-05-07T13:00:00Z",
+  "spring": "hotSpring",
+  "role": "Computational physics validation — QCD, nuclear structure, plasma, GPU compute",
+  "primals_consumed": {
+    "barracuda": {"domain": "math", "usage": "GPU f64 WGSL dispatch, DF64, tensor workloads", "critical": true},
+    "toadstool": {"domain": "compute", "usage": "Workload dispatch, GPU scheduling, batch jobs", "critical": true},
+    "coralreef": {"domain": "shader", "usage": "Shader compilation, GPU ISA (SASS/GFX), f64 lowering", "critical": true},
+    "beardog": {"domain": "crypto", "usage": "BTSP crypto identity, witness signing", "critical": true},
+    "songbird": {"domain": "discovery", "usage": "Service discovery, family-aware socket resolution", "critical": true},
+    "nestgate": {"domain": "storage", "usage": "LIME/ILDG lattice config I/O, data access", "critical": true},
+    "rhizocrypt": {"domain": "dag", "usage": "DAG sessions, parameter sweep memoization", "critical": true},
+    "loamspine": {"domain": "ledger", "usage": "Simulation run sealing, reproducibility ledger", "critical": true},
+    "sweetgrass": {"domain": "provenance", "usage": "Scientific provenance braids, peer-review audit", "critical": true},
+    "squirrel": {"domain": "inference", "usage": "AI coordination (optional meta-tier)", "critical": false}
+  },
+  "primal_contribution_patterns": {
+    "compute_triangle": {
+      "primals": ["barracuda", "toadstool", "coralreef"],
+      "pattern": "GPU compute triangle: barraCuda dispatches f64 WGSL, toadStool schedules, coralReef compiles to native ISA",
+      "unique_stress": "f64 precision on FP32 cores (DF64), multi-GPU multi-vendor (NVIDIA/AMD/Intel)"
+    },
+    "science_provenance": {
+      "primals": ["rhizocrypt", "loamspine", "sweetgrass"],
+      "pattern": "DAG memoization + ledger sealing + braid provenance for peer-review reproducibility",
+      "unique_stress": "Physics convergence criteria in braid metadata, not just hashes"
+    },
+    "sovereign_gpu": {
+      "primals": ["coralreef"],
+      "pattern": "Pure Rust GPU pipeline: VFIO → SovereignInit → SASS/GFX compilation → dispatch",
+      "unique_stress": "Firmware-as-ingredient pattern, multi-generation (Kepler→Volta→Turing→Blackwell)"
+    }
+  },
+  "patterns_handed_back": [
+    {
+      "pattern": "Capability-based primal discovery from niche::DEPENDENCIES",
+      "from": "hotSpring composition.rs refactor",
+      "for": "primalSpring composition library — springs should derive requirements from declared deps"
+    },
+    {
+      "pattern": "Convergence-based tick model (async, not fixed-rate)",
+      "from": "hotSpring Phase 46 domain_on_tick()",
+      "for": "nucleus_composition_lib.sh — scientific simulations converge, they don't tick at 60Hz"
+    },
+    {
+      "pattern": "DAG memoization for parameter sweeps",
+      "from": "hotSpring Phase 46 domain_on_branch()",
+      "for": "nucleus_composition_lib.sh — vertex=config, edge=param change, memo=skip revisit"
+    },
+    {
+      "pattern": "Scientific provenance braid schema",
+      "from": "hotSpring Phase 46 domain_on_braid()",
+      "for": "sweetGrass team — minimum metadata for peer-review audit (DOI, lattice dims, algorithm)"
+    },
+    {
+      "pattern": "DiscoveredDevice enum handling",
+      "from": "hotSpring deep debt — nuclear_eos_l2_* fixes",
+      "for": "barraCuda team — Auto::new() returns enum, consider .into_wgpu() convenience"
+    }
+  ],
+  "ecosystem_flows": [
+    {"from": "hotSpring", "to": "primalSpring", "type": "gap_tracking", "desc": "GAP-HS-* registry, capability-based patterns"},
+    {"from": "hotSpring", "to": "coralReef", "type": "sovereign_pipeline", "desc": "SovereignInit, ember, K80/Titan V/RTX 5060 firmware recipes"},
+    {"from": "hotSpring", "to": "barraCuda", "type": "compute_stress", "desc": "f64 WGSL, DF64, TensorSession gap, multi-GPU dispatch"},
+    {"from": "hotSpring", "to": "toadStool", "type": "scheduling", "desc": "GPU workload dispatch, timeout sensitivity feedback"},
+    {"from": "primalSpring", "to": "hotSpring", "type": "composition_patterns", "desc": "Deploy graphs, guidestone API, composition lib, Phase 46 template"},
+    {"from": "hotSpring", "to": "sporePrint", "type": "content_publishing", "desc": "Notebooks and validation summaries for primals.eco"}
+  ]
+}
