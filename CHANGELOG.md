@@ -7,6 +7,25 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Unreleased — Paper Baseline Notebooks (May 7, 2026)
+
+### Added
+- **`notebooks/papers/`**: 12 publishable-grade Jupyter notebooks reproducing 22 peer-reviewed physics papers from Python baselines.
+  - 01-semf-binding-energy (live SEMF for 2042 nuclei, Chabanat/AME2020)
+  - 02-yukawa-screening (live Yukawa eigenvalues, Murillo & Weisheit 1998)
+  - 03-sarkas-yukawa-md (live small-N MD + Daligault fit, Stanton & Murillo 2016)
+  - 04-ttm-laser-plasma (live TTM ODE for 3 noble gases, Chen et al. 2001)
+  - 05-stanton-murillo-transport (live Daligault analytical model)
+  - 06-surrogate-learning (live RBF surrogate demo, Diaw et al. 2024)
+  - 07-quenched-qcd (live SU(3) HMC beta-scan on 4^4, Wilson/Creutz)
+  - 08-dynamical-fermions (staggered Dirac + phase diagram, Gottlieb 1987)
+  - 09-abelian-higgs (live U(1) Higgs HMC on 8x8, Bazavov 2015)
+  - 10-spectral-theory (Anderson 1D/2D/3D + Hofstadter + Herman, 6 papers)
+  - 11-gradient-flow (LSCFRK3 W6/W7 integrators on 4^4, Luscher/Chuna)
+  - 12-plasma-dielectric (completed Mermin + BGK relaxation, Chuna & Murillo 2024)
+- **`notebooks/papers/PAPER_NOTEBOOK_GUIDE.md`**: Collaborator pattern doc (cell structure, data loading, evolution tiers)
+- **`experiments/results/papers/`**: Directory for frozen production data (transport grids, HMC trajectories)
+
 ## Unreleased — sporePrint Tier 2 Notebooks (May 7, 2026)
 
 ### Added

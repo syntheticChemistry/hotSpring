@@ -30,7 +30,7 @@ springs = ["hotspring"]
 - `validate_anderson_3d` — Anderson localization (1D/2D/3D)
 - `validate_pure_gauge` — 16/16 quenched QCD checks
 
-## Notebooks (5)
+## sporePrint Notebooks (5)
 
 | # | Notebook | Focus |
 |---|----------|-------|
@@ -39,6 +39,25 @@ springs = ["hotspring"]
 | 03 | Experiment Evidence | 181 experiments, 22 science ladder milestones, evolution timeline |
 | 04 | Cross-Spring Connections | 10 primals consumed, 5 patterns handed back, ecosystem flows |
 | 05 | Physics Deep Dive | Nuclear EOS, lattice QCD, sovereign GPU pipeline, code safety |
+
+## Paper Baseline Notebooks (12)
+
+Publishable Python baselines for 22 reproduced papers — `notebooks/papers/`.
+
+| # | Notebook | Domain |
+|---|----------|--------|
+| 01 | SEMF Binding Energy | Nuclear physics (live) |
+| 02 | Yukawa Screening | Screened Coulomb (live) |
+| 03 | Sarkas Yukawa MD | Plasma MD (live + frozen) |
+| 04 | TTM Laser-Plasma | Laser heating (live) |
+| 05 | Transport Coefficients | Daligault fit (live) |
+| 06 | Surrogate Learning | ML sampling (live) |
+| 07 | Quenched QCD | SU(3) HMC (live 4^4) |
+| 08 | Dynamical Fermions | Staggered QCD (live + frozen) |
+| 09 | Abelian Higgs | U(1) gauge-Higgs (live) |
+| 10 | Spectral Theory | Anderson/Hofstadter (live) |
+| 11 | Gradient Flow | Wilson flow (live 4^4) |
+| 12 | Plasma Dielectric | BGK/Mermin (live) |
 
 ## Workload TOMLs
 

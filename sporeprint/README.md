@@ -18,8 +18,12 @@ the sporePrint auto-refresh CI pipeline.
 
 ## Notebooks
 
-5 public notebooks in `notebooks/` — see `notebooks/NOTEBOOK_PATTERN.md` for the pattern.
+**sporePrint notebooks (5)** in `notebooks/` — see `notebooks/NOTEBOOK_PATTERN.md` for the pattern.
 Frozen data in `experiments/results/*.json` (6 JSON files). Render via `jupyter nbconvert --execute`.
+
+**Paper baseline notebooks (12)** in `notebooks/papers/` — publishable Python baselines for 22 reproduced papers.
+See `notebooks/papers/PAPER_NOTEBOOK_GUIDE.md` for the collaborator pattern. Live compute for small
+problems (SEMF, Yukawa, spectral, small-lattice QCD/Higgs), frozen JSON for production runs.
 
 ## Front matter requirements
 

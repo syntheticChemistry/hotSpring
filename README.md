@@ -54,6 +54,27 @@ hotSpring is the reference implementation for the guideStone Composition Standar
 
 ---
 
+## Paper Baseline Notebooks (12)
+
+Publishable-grade Jupyter notebooks reproducing 22 peer-reviewed physics papers.
+Live Python compute for small problems, frozen data for production simulations.
+See `notebooks/papers/PAPER_NOTEBOOK_GUIDE.md` for the collaborator pattern.
+
+| # | Notebook | Paper/Domain | Compute |
+|---|----------|-------------|---------|
+| 01 | SEMF Binding Energy | Chabanat (1998), AME2020 | Live |
+| 02 | Yukawa Screening | Murillo & Weisheit (1998) | Live |
+| 03 | Sarkas Yukawa MD | Stanton & Murillo (2016) | Live small + frozen |
+| 04 | TTM Laser-Plasma | Chen et al. (2001) | Live |
+| 05 | Transport Coefficients | Daligault (2012) | Live analytical |
+| 06 | Surrogate Learning | Diaw et al. (2024) | Live demo + frozen |
+| 07 | Quenched QCD | Wilson (1974), Creutz (1980) | Live 4^4 |
+| 08 | Dynamical Fermions | Gottlieb (1987), HVP | Live small + frozen |
+| 09 | Abelian Higgs | Bazavov (2015) | Live 8x8 |
+| 10 | Spectral Theory | Anderson (1958), Hofstadter (1976) | Live |
+| 11 | Gradient Flow | Luscher (2010), Chuna (2021) | Live 4^4 |
+| 12 | Plasma Dielectric | Chuna & Murillo (2024) | Live |
+
 ## Current Status (2026-05-06)
 
 > **181 experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **993 lib tests, 166 binaries, 64/64 validation suites, 128 WGSL shaders** | **deny.toml** (ecoBin C-dep bans) | **all 13 physics/compute methods wired in JSON-RPC server** | **zero `dyn` dispatch, zero unsafe, `#[expect]` over `#[allow]`** | **guideStone artifact: 59/59 checks x 5 substrates (x86_64 + aarch64)** | **OCI container image + Windows/macOS launchers** | **RTX 5060 sovereign dispatch PROVEN (8/8)** | **K80 warm NOP dispatch wired + cold PLL fix** | **Titan V SEC2 FBIF instance-block DMA config** | **SLM pool allocation (2 MiB)** | **AMD sovereign compiler: 24/24 QCD shaders** | **NVIDIA sovereign compiler: SM35 + SM70 + SM120** | **Ember gate + survivability hardening COMPLETE** | **SovereignInit Pipeline COMPLETE** | **NUCLEUS Composition Evolution COMPLETE** | **coralReef f64 transcendental lowering (SM32+)** | **Level 5 Primal Proof** | **GPU Generation Profile Architecture** | **unsafe audit: all NECESSARY**

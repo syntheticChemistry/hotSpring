@@ -138,6 +138,16 @@ Not numbered experiments — systematic composition infrastructure:
 | 181 | SOVEREIGN_DISPATCH_PIPELINE_SWEEP | investigation | 🔧 RTX 5060 8/8 PROVEN (WGSL→SM120→dispatch→readback). Titan V blocked (no PMU fw, SEC2/ACR). K80 cold-boot sovereign, PGOB dispatch blocker. Ember Exclusive Device Gate live. |
 | — | K80_QEMU_VM_REAGENT | investigation | ✅ QEMU VM with K80 VFIO passthrough + proprietary nvidia-470.256.02. Module probed K80 successfully. Reagent template + build recipe stored in `agentReagents/`. |
 
+## Paper Baseline Notebooks
+
+12 publishable Python notebooks covering all 22 reproduced papers — see `notebooks/papers/`.
+Each notebook wraps the corresponding `control/` Python baselines into clean,
+narrative-driven notebooks with live compute (small problems) and frozen JSON
+(production runs). These serve as entry points for collaborators and hooks
+for primal provenance.
+
+See `notebooks/papers/PAPER_NOTEBOOK_GUIDE.md` for the pattern.
+
 ## Benchmark Data
 
 | # | Name | Format |
