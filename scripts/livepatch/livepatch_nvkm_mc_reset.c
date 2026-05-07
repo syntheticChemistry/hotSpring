@@ -1,7 +1,7 @@
 /*
- * livepatch_nvkm_mc_reset.c — targeted patches for K80 warm handoff.
+ * livepatch_nvkm_mc_reset.c — targeted patches for warm handoff.
  *
- * Patches THREE functions in nouveau.ko:
+ * Patches FOUR functions in nouveau.ko:
  *
  *   1. gf100_gr_fini()       — NOP: prevents PGRAPH reset on unbind that
  *                               gates GPCs and destroys warm state needed
@@ -18,6 +18,12 @@
  *                               its engine domain, collapsing PMC to
  *                               ~0xc0002020 and killing the PLL clock
  *                               tree that GPCs depend on.
+ *
+ *   4. nvkm_fifo_fini()      — NOP: prevents FIFO teardown which preempts
+ *                               all runlists and disables PFIFO. Without
+ *                               this, FECS sees "no channels" on the GR
+ *                               runlist, disables GR, and halts. PFIFO
+ *                               then enters an unrecoverable state.
  *
  * This livepatch targets .name="nouveau" so it can be loaded BEFORE nouveau.
  * When nouveau loads, these patches apply immediately.
@@ -70,6 +76,23 @@ static void livepatch_nvkm_mc_disable(void *device, int type, int inst)
 		     type, inst);
 }
 
+/*
+ * int nvkm_fifo_fini(struct nvkm_subdev *, bool suspend)
+ * Called during nouveau unbind. Preempts all runlists, flushes empty,
+ * disables PFIFO. FECS sees "no channels" and halts. PFIFO enters an
+ * unrecoverable state (PFIFO_ENABLE stuck at 0). Return 0 (success).
+ *
+ * NOTE: This is safe to NOP because nvkm_fifo_fini is NOT called during
+ * normal init — only during teardown (unbind/suspend) or error cleanup.
+ * If init fails, the whole device probe fails anyway.
+ */
+static int livepatch_nvkm_fifo_fini(void *subdev, bool suspend)
+{
+	pr_info_once("nvkm_fifo_fini BLOCKED (suspend=%d) — preserving PFIFO/FECS for VFIO\n",
+		     suspend);
+	return 0;
+}
+
 static struct klp_func funcs[] = {
 	{
 		.old_name = "gf100_gr_fini",
@@ -82,6 +105,10 @@ static struct klp_func funcs[] = {
 	{
 		.old_name = "nvkm_mc_disable",
 		.new_func = livepatch_nvkm_mc_disable,
+	},
+	{
+		.old_name = "nvkm_fifo_fini",
+		.new_func = livepatch_nvkm_fifo_fini,
 	},
 	{ }
 };

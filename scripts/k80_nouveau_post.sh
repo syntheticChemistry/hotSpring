@@ -16,9 +16,11 @@
 set -euo pipefail
 
 MODE="${1:-die0}"
-K80_DIE0="0000:4c:00.0"
-K80_DIE1="0000:4d:00.0"
+K80_DIE0="0000:4b:00.0"
+K80_DIE1="0000:4c:00.0"
 SETTLE_SECS="${SETTLE_SECS:-10}"
+CAPTURE_MMIOTRACE="${CAPTURE_MMIOTRACE:-0}"
+TRACE_DIR="${CORALREEF_TRACE_DIR:-/var/lib/coralreef/traces}"
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; NC='\033[0m'
 log()  { echo -e "${CYAN}[k80]${NC} $*"; }
@@ -148,6 +150,26 @@ for BDF in "${TARGETS[@]}"; do
         echo "on" > "$PM_CTRL" 2>/dev/null
     fi
 done
+
+# ── Phase 3.25: Enable mmiotrace (if requested) ────
+if [[ "$CAPTURE_MMIOTRACE" == "1" ]]; then
+    log "Phase 3.25: Enabling kernel mmiotrace for init capture"
+    if [[ -f /sys/kernel/debug/tracing/current_tracer ]]; then
+        echo "" > /sys/kernel/debug/tracing/trace 2>/dev/null || true
+        echo "mmiotrace" > /sys/kernel/debug/tracing/current_tracer 2>/dev/null || warn "mmiotrace tracer not available"
+        echo "1" > /sys/kernel/debug/tracing/tracing_on 2>/dev/null
+        TRACER=$(cat /sys/kernel/debug/tracing/current_tracer 2>/dev/null)
+        if [[ "$TRACER" == "mmiotrace" ]]; then
+            ok "mmiotrace enabled — capturing ALL MMIO to kernel ring buffer"
+        else
+            warn "mmiotrace not active (current=$TRACER)"
+            CAPTURE_MMIOTRACE=0
+        fi
+    else
+        warn "debugfs tracing not available — skipping mmiotrace"
+        CAPTURE_MMIOTRACE=0
+    fi
+fi
 
 # ── Phase 3.5: Load nouveau (livepatch will patch it on load) ────
 log "Phase 3.5: Loading nouveau (livepatch will intercept gk110_pmu_pgob)"
@@ -444,6 +466,22 @@ f.close()
 " 2>&1 | while IFS= read -r line; do ok "$BDF firmware: $line"; done
 done
 
+# ── Phase 4.8: Capture mmiotrace (if enabled) ────
+if [[ "$CAPTURE_MMIOTRACE" == "1" ]]; then
+    log "Phase 4.8: Capturing mmiotrace data"
+    echo "0" > /sys/kernel/debug/tracing/tracing_on 2>/dev/null
+    mkdir -p "$TRACE_DIR" 2>/dev/null || true
+    TRACE_TS="$(date +%s)"
+    for BDF in "${TARGETS[@]}"; do
+        SAFE_BDF="${BDF//:/-}"
+        TRACE_FILE="$TRACE_DIR/${SAFE_BDF}_nouveau_${TRACE_TS}.mmiotrace"
+        cp /sys/kernel/debug/tracing/trace "$TRACE_FILE" 2>/dev/null && \
+            ok "mmiotrace saved: $TRACE_FILE ($(wc -l < "$TRACE_FILE") lines)" || \
+            warn "mmiotrace capture failed"
+    done
+    echo "nop" > /sys/kernel/debug/tracing/current_tracer 2>/dev/null
+fi
+
 # ── Phase 5: Swap to vfio-pci ───────────────────────────────
 log "Phase 5: Swapping to vfio-pci"
 
@@ -571,7 +609,7 @@ os.close(fd)
         done
     fi
     # Also disable by known BDF for this K80 topology
-    for bridge in 0000:4b:08.0 0000:4b:10.0 0000:4a:00.0 0000:40:01.3; do
+    for bridge in 0000:4a:08.0 0000:4a:10.0 0000:49:00.0 0000:40:01.3; do
         if [[ -f "/sys/bus/pci/devices/$bridge/reset_method" ]]; then
             echo "" > "/sys/bus/pci/devices/$bridge/reset_method" 2>/dev/null || true
         fi

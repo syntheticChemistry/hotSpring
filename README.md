@@ -75,9 +75,9 @@ See `notebooks/papers/PAPER_NOTEBOOK_GUIDE.md` for the collaborator pattern.
 | 11 | Gradient Flow | Luscher (2010), Chuna (2021) | Live 4^4 |
 | 12 | Plasma Dielectric | Chuna & Murillo (2024) | Live |
 
-## Current Status (2026-05-06)
+## Current Status (2026-05-07)
 
-> **181 experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **993 lib tests, 166 binaries, 64/64 validation suites, 128 WGSL shaders** | **deny.toml** (ecoBin C-dep bans) | **all 13 physics/compute methods wired in JSON-RPC server** | **zero `dyn` dispatch, zero unsafe, `#[expect]` over `#[allow]`** | **guideStone artifact: 59/59 checks x 5 substrates (x86_64 + aarch64)** | **OCI container image + Windows/macOS launchers** | **RTX 5060 sovereign dispatch PROVEN (8/8)** | **K80 warm NOP dispatch wired + cold PLL fix** | **Titan V SEC2 FBIF instance-block DMA config** | **SLM pool allocation (2 MiB)** | **AMD sovereign compiler: 24/24 QCD shaders** | **NVIDIA sovereign compiler: SM35 + SM70 + SM120** | **Ember gate + survivability hardening COMPLETE** | **SovereignInit Pipeline COMPLETE** | **NUCLEUS Composition Evolution COMPLETE** | **coralReef f64 transcendental lowering (SM32+)** | **Level 5 Primal Proof** | **GPU Generation Profile Architecture** | **unsafe audit: all NECESSARY**
+> **181 experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **993 lib tests, 166 binaries, 64/64 validation suites, 128 WGSL shaders** | **deny.toml** (ecoBin C-dep bans) | **all 13 physics/compute methods wired in JSON-RPC server** | **zero `dyn` dispatch, zero unsafe, `#[expect]` over `#[allow]`** | **guideStone artifact: 59/59 checks x 5 substrates (x86_64 + aarch64)** | **OCI container image + Windows/macOS launchers** | **RTX 5060 sovereign dispatch PROVEN (8/8)** | **K80 warm NOP dispatch wired + cold PLL fix** | **Titan V warm handoff: DMATRF to FECS PROVEN (101 blocks, 192µs), ROM security gate identified** | **SLM pool allocation (2 MiB)** | **AMD sovereign compiler: 24/24 QCD shaders** | **NVIDIA sovereign compiler: SM35 + SM70 + SM120** | **Ember gate + survivability hardening COMPLETE** | **SovereignInit Pipeline COMPLETE** | **NUCLEUS Composition Evolution COMPLETE** | **coralReef f64 transcendental lowering (SM32+)** | **Level 5 Primal Proof** | **GPU Generation Profile Architecture** | **unsafe audit: all NECESSARY**
 >
 > **Three-Tier Validation Architecture (2026-04-17):** Python baselines → Rust validation → NUCLEUS primal composition validation. **guideStone bare mode: 30/30 checks pass** (Property 3 BLAKE3 CHECKSUMS verified, deny.toml present, all 5 bare properties green). Only 3 SKIPs remain — expected NUCLEUS liveness probes when no primals deployed. The same tolerance-driven, exit-code-gated methodology that proved Rust matches Python now proves IPC-composed NUCLEUS patterns match direct Rust execution. Composition validators (`validate_nucleus_*`) run standalone (skip-pass for CI, exit 2 = all skipped) or against live primals (full IPC validation). `validate_science_probes()` validates compute, math, and provenance trio capabilities via IPC with Rust baseline parity. Pattern documented for sibling spring adoption in wateringHole handoffs.
 >
@@ -122,7 +122,7 @@ See `notebooks/papers/PAPER_NOTEBOOK_GUIDE.md` for the collaborator pattern.
 | **Self-Tuning RHMC** | ✅ Complete | Zero hand-tuned parameters — spectral + acceptance-driven |
 | **Spectral Theory** (Kachkovskiy) | ✅ 45/45 | Anderson 1D/2D/3D, Hofstadter, GPU Lanczos |
 | **NPU** (AKD1000 hardware) | ✅ 34/35 | 10 SDK assumptions overturned, physics pipeline, phase detection |
-| **Sovereign GPU** (coralReef) | ✅ Multi-gen sovereign | RTX 5060 dispatch live, **K80 warm NOP dispatch wired** (GPFIFO push + doorbell + GP_GET poll), **K80 cold-boot SSEL per-engine PLL fix + post-PMU retry**, **Titan V SEC2 FBIF instance-block DMA config** (addressing PC=0 stall), **SLM pool allocation** (2 MiB, fixes shared/local memory dispatch), AMD scratch/local f64 PASS, Ember gate + survivability hardening complete |
+| **Sovereign GPU** (coralReef) | ✅ Multi-gen sovereign | RTX 5060 dispatch live, **K80 warm NOP dispatch wired** (GPFIFO push + doorbell + GP_GET poll), **K80 cold-boot SSEL per-engine PLL fix + post-PMU retry**, **Titan V warm handoff: DMATRF FECS IMEM load proven** (101 blocks/192µs via resource0, falcon v5 ROM security gate is remaining barrier), **SLM pool allocation** (2 MiB), AMD scratch/local f64 PASS, Ember gate + survivability hardening complete |
 | **Silicon Characterization** | ✅ Complete | TMU, ROP, L2, shader cores — AMD vs NVIDIA personalities |
 | **Silicon Saturation Profiling** | ✅ Complete | TMU PRNG, subgroup reduce, ROP atomics, capacity analysis |
 | **Chuna Papers 43-45** | ✅ **44/44** | Gradient flow + BGK dielectric + kinetic-fluid coupling |
@@ -131,7 +131,7 @@ Full validation table (160+ rows) with per-experiment details: [`EXPERIMENT_INDE
 
 ### Science Ladder
 
-Quenched SU(3) ✅ → Gradient Flow ✅ → LSCFRK Integrators ✅ → N_f=4 Infra ✅ → Chuna 44/44 ✅ → **N_f=2 ✅** → **N_f=2+1 ✅** → **Self-tuning ✅** → **True multi-shift CG ✅** → **Fermion force validated ✅** → **Silicon saturation profiling ✅** → **Sovereign NVIDIA GPFIFO ✅** → **AMD sovereign compiler 24/24 ✅** → **AMD scratch/local memory ✅** → **Livepatch warm handoff ✅** → **Dual GPU sovereign boot ✅** → **Deep Debt Evolution complete ✅** → **Sacrificial Ember Architecture ✅** → **Firmware Boundary Pivot ✅** → **NOP Dispatch (pure Rust DRM) ✅** → **GPU Generation Profile Architecture ✅** → **RTX 5060 sovereign dispatch ✅** → **K80 warm NOP dispatch ✅** → **K80 cold-boot PLL fix ✅** → **Titan V SEC2 FBIF instance-block config ✅** → **SLM pool allocation ✅** → **unsafe audit (all NECESSARY) ✅** → HW validation (Titan V SEC2 + K80 cold) → full compute dispatch on legacy silicon → era-agnostic abstraction. Cross-cutting sovereign validation matrix: [`specs/SOVEREIGN_VALIDATION_MATRIX.md`](specs/SOVEREIGN_VALIDATION_MATRIX.md).
+Quenched SU(3) ✅ → Gradient Flow ✅ → LSCFRK Integrators ✅ → N_f=4 Infra ✅ → Chuna 44/44 ✅ → **N_f=2 ✅** → **N_f=2+1 ✅** → **Self-tuning ✅** → **True multi-shift CG ✅** → **Fermion force validated ✅** → **Silicon saturation profiling ✅** → **Sovereign NVIDIA GPFIFO ✅** → **AMD sovereign compiler 24/24 ✅** → **AMD scratch/local memory ✅** → **Livepatch warm handoff ✅** → **Dual GPU sovereign boot ✅** → **Deep Debt Evolution complete ✅** → **Sacrificial Ember Architecture ✅** → **Firmware Boundary Pivot ✅** → **NOP Dispatch (pure Rust DRM) ✅** → **GPU Generation Profile Architecture ✅** → **RTX 5060 sovereign dispatch ✅** → **K80 warm NOP dispatch ✅** → **K80 cold-boot PLL fix ✅** → **Titan V DMATRF FECS IMEM load ✅** → **SLM pool allocation ✅** → **unsafe audit (all NECESSARY) ✅** → HW validation (Titan V warm → cold) → nvidia-470 PMU firmware extraction → full compute dispatch on legacy silicon → era-agnostic abstraction. Cross-cutting sovereign validation matrix: [`specs/SOVEREIGN_VALIDATION_MATRIX.md`](specs/SOVEREIGN_VALIDATION_MATRIX.md).
 
 ## Evolution Architecture: Write → Absorb → Lean
 
@@ -416,15 +416,13 @@ hotSpring/
 │       ├── hotspring_primal.rs       # JSON-RPC server (health, capability, composition, MCP)
 │       └── bin/                       # 166 binaries (validation, production, benchmarks, composition, guideStone)
 │
-├── experiments/                        # 168+ experiment journals (fossil record); 001-143 archived under experiments/archive/
-│   ├── archive/                        # experiments 001-057 (archived journals)
-│   ├── 058-069: Precision, sovereign GPU cracking, GlowPlug, falcon boot
-│   ├── 070-095: Backend matrix, MMU, WPR, sysmem HS mode breakthrough
-│   ├── 096-107: Silicon characterization, GPU RHMC, gradient flow, self-tuning
-│   ├── 110-131: Consolidation, WPR2, K80 sovereign, VM capture, livepatch, warm handoff, puzzle box matrix, reset architecture
-│   ├── 132-143: Dual GPU sovereign boot, D-state safety, SEC2 DMA debugging, ACR HS auth investigation
+├── experiments/                        # 181 experiment journals (fossil record); 001-143 archived under experiments/archive/
+│   ├── archive/                        # experiments 001-143 (archived journals)
 │   ├── 144-150: PMC bit5 ACR progress, crash vector hunt, sacrificial ember architecture validation
-│   └── 151-165: Revalidation, ember hardening, SovereignInit pipeline, firmware boundary pivot
+│   ├── 151-165: Revalidation, ember hardening, SovereignInit pipeline, firmware boundary pivot
+│   ├── 166-175: Sovereign boot wiring, warm handoff, K80 sovereign, RTX 5060 shared compute
+│   ├── 176-178: QCD parity, Blackwell ABI, K80 PGOB nvidia-470 analysis
+│   └── 179-181: K80 FECS dispatch, three-GPU HW validation, sovereign dispatch sweep
 │
 ├── scripts/                            # Build, regeneration, deployment scripts
 │   ├── validate-primal-proof.sh       # Primal proof validation (bare + NUCLEUS modes)
@@ -476,7 +474,7 @@ a network service, you must make your source available under the same terms.
 
 ---
 
-*176+ experiments, 993 tests, 166 binaries, 128 WGSL shaders, ~$0.30 total science cost.
+*181 experiments, 993 tests, 166 binaries, 128 WGSL shaders, ~$0.30 total science cost.
 Consumer GPUs reproduce HPC physics at paper parity. DF64 delivers 3.24 TFLOPS at
 14-digit precision. GPU RHMC runs all-flavors dynamical QCD (Nf=2+1). Self-tuning
 RHMC eliminates hand-tuned parameters. Chuna 44/44 checks pass. RTX 5060 sovereign
@@ -488,7 +486,11 @@ Three-tier validation: Python validates Rust. Rust validates NUCLEUS. Peer-revie
 science runs on consumer hardware, composed via sovereign primal IPC.
 guideStone artifact validated across 5 substrates.
 K80 PGOB: nvidia-470 binary analysis reveals PSW-only ungate sequence (0x10a78c) —
-proprietary driver skips 0x0205xx power steps entirely. Root cause narrowed: PRI ring
-has zero GPC stations enrolled. PMU firmware load or PRI ring enrollment needed.
+proprietary driver skips 0x0205xx power steps entirely. Titan V warm handoff:
+nouveau POSTs GPU + HBM2, livepatch preserves state, direct resource0 BAR0
+mapping enables DMATRF FECS IMEM load (101 blocks/192µs verified). Falcon v5
+ROM in HS mode (sctl=0x3000) intercepts all startups — requires ACR-authenticated
+firmware in WPR. Root blocker: GV100 PMU firmware absent from linux-firmware,
+SEC2 ACR BL starts (mb0=1) but never completes. nvidia-470 PMU extraction next.
 The full science ladder — quenched through dynamical fermions with gradient flow
 scale setting — runs on consumer hardware. The scarcity was artificial.*

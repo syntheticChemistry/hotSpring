@@ -1,1 +1,2 @@
 obj-m += livepatch_nvkm_mc_reset.o
+obj-m += kprobe_nvkm_block.o

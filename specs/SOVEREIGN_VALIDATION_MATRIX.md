@@ -1,14 +1,14 @@
 # Sovereign Validation Matrix
 
-**Updated:** 2026-05-06
-**Purpose:** Single source of truth mapping every pipeline layer against dispatch paths, hardware substrates, and experiment evidence. "Solve the maze from both sides." **SovereignInit pipeline (Exp 165)** adds a pure Rust `open_sovereign(bdf)` path that replaces nouveau initialization subsystem by subsystem. **Sprint B (May 2026):** Titan V SEC2 FBIF instance-block DMA config (addressing PC=0 stall), K80 warm NOP dispatch wired, K80 cold-boot SSEL PLL fix + post-PMU retry, SLM pool allocation, unsafe audit (all NECESSARY).
+**Updated:** 2026-05-07 (Sprint D)
+**Purpose:** Single source of truth mapping every pipeline layer against dispatch paths, hardware substrates, and experiment evidence. "Solve the maze from both sides." **SovereignInit pipeline (Exp 165)** adds a pure Rust `open_sovereign(bdf)` path that replaces nouveau initialization subsystem by subsystem. **Sprint B (May 2026):** Titan V SEC2 FBIF instance-block DMA config, K80 warm NOP dispatch wired, K80 cold-boot SSEL PLL fix, SLM pool, unsafe audit. **Sprint C (May 2026):** HW validation run — Titan V SEC2 BL stalls at PC=0x1 (HBM2 cold), K80 GPC PLL unwritable (clock domain locked). Both confirmed: warm handoff is the intermediate path. BootConversation MITM tracing infrastructure built. **Sprint D (May 2026):** Warm handoff DMATRF to FECS proven (101 blocks/192µs via resource0). Falcon v5 HS ROM security gate identified — all falcon v5 boots intercepted by on-die ROM requiring WPR-authenticated firmware. SEC2 ACR BL starts (mb0=1) but never completes (PMU firmware missing from linux-firmware). nvidia-470 PMU extraction in progress.
 
 ## Dispatch Path Inventory
 
 | Path | Driver | How dispatch works | Titan V | K80 | RTX 5060 |
 |------|--------|-------------------|---------|-----|----------|
-| **VFIO cold** | `vfio-pci` | Direct BAR0/GPFIFO, FECS must be booted from scratch | **FRONTIER** (SEC2 FBIF fix, ACR boot solver ready) | **FRONTIER** (NOP dispatch wired, PLL fix applied) | N/A (display GPU) |
-| **VFIO warm** | `nouveau` then `vfio-pci` | nouveau boots FECS via ACR; livepatch freezes state; swap to vfio | **FRONTIER** (livepatch ready) | N/A (nouveau rejects) | N/A |
+| **VFIO cold** | `vfio-pci` | Direct BAR0/GPFIFO, FECS must be booted from scratch | **BLOCKED** (SEC2 BL stalls PC=0x1: HBM2 cold, no VRAM for DMA) | **BLOCKED** (GPC PLL `0x137000` HW write-protected, DEVINIT doesn't configure clock domain) | N/A (display GPU) |
+| **VFIO warm** | `nouveau`/`nvidia-470` then `vfio-pci` | Driver boots GPU; livepatch freezes state; swap to vfio | **PARTIAL** (DMATRF FECS IMEM 101blk/192µs proven; falcon v5 ROM HS gate blocks unsigned code; SEC2 ACR mb0=1 but PMU FW missing) | **FRONTIER** (nouveau crashes on kernel 6.17 GK210; nvidia-470 path TBD) | N/A |
 | **nouveau DRM** | `nouveau` | GEM + VM_INIT/EXEC via DRM ioctls | **PROVEN** (NOP dispatch, Exp 163) | BLOCKED (not UEFI-POSTed) | N/A |
 | **nvidia-drm + UVM** | `nvidia` proprietary | RM ioctls + `/dev/nvidia-uvm` GPFIFO | UNTESTED (code-complete) | UNTESTED | Available (RTX 5060) |
 | **NVK/wgpu** | `nouveau` + Mesa NVK | Vulkan compute via wgpu abstraction | **PROVEN** (4-tier QCD) | N/A | N/A |
@@ -34,11 +34,11 @@
 | L4: PFIFO init + PBDMA | PASS (Exp 058) | PASS (warm mode) | PASS | UNTESTED | PASS |
 | L5: MMU fault buffer | PASS (Exp 076) | PASS | PASS | UNTESTED | PASS |
 | L6: PBDMA context load | PARTIAL (Exp 058) | PASS (stale intr fix) | PASS | UNTESTED | PASS |
-| L7: SEC2 + ACR DMA | PASS (Exp 110) | N/A (nouveau handles) | N/A | N/A | N/A |
-| L8: WPR/ACR + FECS boot | **FRONTIER** (SEC2 FBIF instance-block DMA fix, ACR boot solver) | N/A (nouveau handles) | PASS (nouveau handles) | UNTESTED | PROVEN |
-| L9: FECS alive + GR init | FRONTIER (depends on L8 HW validation) | **FRONTIER** (livepatch Exp 125) | PASS (nouveau handles) | UNTESTED | PROVEN |
-| L10: GPFIFO submit | FRONTIER (depends on L9) | **FRONTIER** (QMD+pushbuf ready) | **PASS** (Exp 163: NOP dispatch, pure Rust) | UNTESTED | PROVEN |
-| L11: Fence + readback | FRONTIER (depends on L10) | **FRONTIER** | **PASS** (syncobj wait, Exp 163) | UNTESTED | PROVEN |
+| L7: SEC2 + ACR DMA | PASS (Exp 110) | **PARTIAL** (ACR BL starts mb0=1, stalls — PMU FW missing) | N/A | N/A | N/A |
+| L8: WPR/ACR + FECS boot | **BLOCKED** (SEC2 ACR never completes: no PMU FW in linux-firmware) | **PARTIAL** (DMATRF FECS 101blk/192µs proven; ROM HS gate blocks unsigned code) | PASS (nouveau handles) | UNTESTED | PROVEN |
+| L9: FECS alive + GR init | BLOCKED (depends on L8) | **FRONTIER** (depends on L8 ACR completion) | PASS (nouveau handles) | UNTESTED | PROVEN |
+| L10: GPFIFO submit | BLOCKED (depends on L9) | **FRONTIER** (QMD+pushbuf ready) | **PASS** (Exp 163: NOP dispatch, pure Rust) | UNTESTED | PROVEN |
+| L11: Fence + readback | BLOCKED (depends on L10) | **FRONTIER** | **PASS** (syncobj wait, Exp 163) | UNTESTED | PROVEN |
 | Compile (WGSL->SASS) | PASS (SM70) | PASS (SM70) | PASS (SM70) | PASS (SM70) | PASS (via NVK) |
 
 ### Tesla K80 (GK210, Kepler)

@@ -39,6 +39,24 @@ This file covers the spring as a whole. For crate-level details see
 - **`notebooks/NOTEBOOK_PATTERN.md`**: Adapted from primalSpring/wetSpring pattern for physics domains
 - **`sporeprint/validation-summary.md`**: Updated with current numbers (993 tests, 181 experiments, 5 notebooks)
 
+## Titan V Warm Handoff DMATRF Breakthrough + Docs Sweep (May 7, 2026)
+
+### Added
+- **Titan V warm handoff pipeline** (`volta_warm_pipeline.rs`): Direct `resource0` BAR0 mapping preserves nouveau warm state. DMATRF to FECS IMEM: 101 blocks (25632B) in 192µs, PRAMIN staging verified, DMEM PIO verified. Approach C (full firmware load) replaces BL-only approach.
+- **Falcon v5 HS ROM security gate discovery**: All falcon v5 boots (SEC2, FECS, GPCCS) go through on-die ROM that validates IMEM contents against WPR-authenticated signatures. FECS ROM runs to PC=0x1161 with `exci=0x04070000` (security trap) when loaded with unsigned firmware. `sctl=0x3000` (HS mode 3) confirmed mandatory. This is the architectural gate between warm DMA capability and actual code execution.
+- **SEC2 DMEM scan**: Full 64KB DMEM scan in warm audit reveals ACR firmware partial initialization (non-zero regions at 0x0000, 0x0200, 0x0B00, 0x0F00, 0xFE00 after IRQ poke).
+- **nvidia-470 firmware extraction attempt**: Downloaded `nvidia-kernel-source-470` (470.256.02). `nv-kernel.o_binary` (40MB) has obfuscated symbols (`_nvNNNNNNrm`). PMU firmware embedded in RM binary, not extractable by header magic alone.
+
+### Changed
+- **Warm pipeline streamlined**: Removed ineffective approaches A (mailbox+IRQ) and B (blind CMDQ write) in favor of direct DMATRF FECS loading. SEC2 ACR at mb0=1 confirmed non-responsive to host-initiated commands.
+- **FECS ENGCTL reset**: Added ENGCTL reset (pulse 0x01→0x00) before DMATRF loading for clean falcon state.
+- **PRAMIN multi-page staging**: Firmware staging now handles multi-page PRAMIN writes (64KB window at BAR0+0x700000) for full fecs_inst.bin (25632B).
+
+### Findings
+- **Root blocker**: GV100 PMU firmware absent from `linux-firmware` (only `gm20b`/`gp10b` Tegra chips have PMU FW). SEC2 ACR BL starts (mb0=1) but never completes authentication — PMU manages power/clock domains required by ACR. nvidia-470 embeds PMU FW in its kernel module binary.
+- **SEC2 warm state**: Running at PC=0x1161, TRACEPC shows deep ACR execution (0x2D07→0x4E5A), CMDQ header non-zero (h=0x8010) but DMEM queues never initialized. ACR BL started but stalled.
+- **DMATRF timing**: 192µs for 101 blocks — physical VRAM DMA path is fully functional on warm GPU.
+
 ## K80 Warm FECS/PFIFO Pipeline + Checkpoint (April 30, 2026)
 
 ### Added

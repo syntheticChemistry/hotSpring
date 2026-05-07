@@ -21,6 +21,8 @@ set -euo pipefail
 
 BDF="${1:?Usage: $0 <PCI_BDF>  (e.g. 0000:03:00.0)}"
 SETTLE_SECS="${SETTLE_SECS:-10}"
+CAPTURE_MMIOTRACE="${CAPTURE_MMIOTRACE:-0}"
+TRACE_DIR="${CORALREEF_TRACE_DIR:-/var/lib/coralreef/traces}"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 LIVEPATCH_DIR="$SCRIPT_DIR/livepatch"
@@ -134,6 +136,28 @@ sysfs_write "$SYSFS/driver_override" "" "clear driver_override for $BDF"
 sysfs_write "/sys/bus/pci/devices/$AUDIO_BDF/driver_override" "" "clear driver_override for audio"
 
 # ──────────────────────────────────────────────────────────────
+# Phase 2.5: Enable mmiotrace (if requested)
+# ──────────────────────────────────────────────────────────────
+if [[ "$CAPTURE_MMIOTRACE" == "1" ]]; then
+    log "Phase 2.5: Enabling kernel mmiotrace for init capture"
+    if [[ -f /sys/kernel/debug/tracing/current_tracer ]]; then
+        echo "" > /sys/kernel/debug/tracing/trace 2>/dev/null || true
+        echo "mmiotrace" > /sys/kernel/debug/tracing/current_tracer 2>/dev/null || warn "mmiotrace not available"
+        echo "1" > /sys/kernel/debug/tracing/tracing_on 2>/dev/null
+        TRACER=$(cat /sys/kernel/debug/tracing/current_tracer 2>/dev/null)
+        if [[ "$TRACER" == "mmiotrace" ]]; then
+            ok "mmiotrace enabled"
+        else
+            warn "mmiotrace not active (current=$TRACER)"
+            CAPTURE_MMIOTRACE=0
+        fi
+    else
+        warn "debugfs tracing not available"
+        CAPTURE_MMIOTRACE=0
+    fi
+fi
+
+# ──────────────────────────────────────────────────────────────
 # Phase 3: Load nouveau → GPU initialization
 # ──────────────────────────────────────────────────────────────
 log "Phase 3: Loading nouveau (NvPreserveEngines=1)"
@@ -189,6 +213,21 @@ if [[ -f "$LP_SYSFS" ]]; then
     ok "Livepatch active (enabled=$LP_VAL)"
 else
     fail "Livepatch sysfs not found after insmod"
+fi
+
+# ──────────────────────────────────────────────────────────────
+# Phase 4.5: Capture mmiotrace (if enabled)
+# ──────────────────────────────────────────────────────────────
+if [[ "$CAPTURE_MMIOTRACE" == "1" ]]; then
+    log "Phase 4.5: Capturing mmiotrace data"
+    echo "0" > /sys/kernel/debug/tracing/tracing_on 2>/dev/null
+    mkdir -p "$TRACE_DIR" 2>/dev/null || true
+    SAFE_BDF="${BDF//:/-}"
+    TRACE_FILE="$TRACE_DIR/${SAFE_BDF}_nouveau_$(date +%s).mmiotrace"
+    cp /sys/kernel/debug/tracing/trace "$TRACE_FILE" 2>/dev/null && \
+        ok "mmiotrace saved: $TRACE_FILE ($(wc -l < "$TRACE_FILE") lines)" || \
+        warn "mmiotrace capture failed"
+    echo "nop" > /sys/kernel/debug/tracing/current_tracer 2>/dev/null
 fi
 
 # ──────────────────────────────────────────────────────────────
