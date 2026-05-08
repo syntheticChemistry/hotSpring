@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026
-**Last audited:** May 8, 2026 (Phase 60 cross-spring parity absorption)
+**Last audited:** May 8, 2026 (Deep Debt Evolution Phase 2)
 **License:** AGPL-3.0-or-later
 
 ---
@@ -18,6 +18,31 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 ---
 
 ## Active Gaps
+
+### GAP-HS-046: Average-Atom SCF Charge Conservation (Deep Debt)
+
+- **Primal:** hotSpring (barracuda physics::average_atom)
+- **Severity:** Medium
+- **Status:** Active — `validate_atomec` 7/9 (2 failures)
+- **Description:** Paper 33 (atoMEC) average-atom solver passes 7/9
+  checks. Charge conservation (`∫n(r)dr = Z`) and cold density
+  monotonicity fail. The Thomas-Fermi/Kohn-Sham SCF solver needs
+  improved radial grid handling and electron density normalization.
+- **Action:** Improve `physics::average_atom::solve_average_atom`
+  density normalization. Add radial grid refinement near nucleus.
+  Target: 9/9 checks pass.
+
+### GAP-HS-047: projectNUCLEUS Workload Binary Name Mismatch (Deep Debt)
+
+- **Primal:** projectNUCLEUS / hotSpring
+- **Severity:** Low
+- **Status:** Active — workload points at non-existent binary
+- **Description:** `projectNUCLEUS/workloads/hotspring/hotspring-md-validation.toml`
+  references `validate_sarkas_md` but hotSpring ships `validate_md` and
+  `sarkas_gpu`. Live Science API shows `checks_passing: 0`.
+- **Action:** Update workload TOML to point at correct binary, or add
+  a thin `validate_sarkas_md` wrapper. Create additional workload TOMLs
+  for nuclear_eos, lattice_qcd, spectral domains.
 
 ### GAP-HS-044: Cross-Registry Method Drift (Phase 60)
 

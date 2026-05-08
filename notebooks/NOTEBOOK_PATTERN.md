@@ -48,7 +48,7 @@ This means they work without primals running.
 | File | Contents |
 |------|----------|
 | `composition_validation.json` | Deploy graph, atomic types, guideStone bare checks, capability routing |
-| `test_suite_report.json` | Module-level test counts (993), timings, physics categories |
+| `test_suite_report.json` | Module-level test counts (1002), timings, physics categories |
 | `experiment_catalog.json` | All 181 experiments, 12 categories, science ladder, papers reproduced |
 | `benchmark_timing.json` | Rust vs Python, GPU vs CPU, DF64 throughput, energy/cost estimates |
 | `cross_spring_matrix.json` | Primal consumption, patterns handed back, ecosystem flows |

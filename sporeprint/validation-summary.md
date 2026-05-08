@@ -1,6 +1,6 @@
 +++
 title = "hotSpring Validation Summary"
-description = "Computational physics on consumer GPU — 993 tests, 181 experiments, guideStone Level 5, 22 papers reproduced, $0.30 total science cost"
+description = "Computational physics on consumer GPU — 1002 tests, 181 experiments, guideStone Level 5, 22 papers reproduced, $0.30 total science cost"
 date = 2026-05-07
 
 [taxonomies]
@@ -10,7 +10,7 @@ springs = ["hotspring"]
 
 ## Status
 
-- **993 tests** passing (lib), 0 failed, 6 GPU-heavy ignored
+- **1002 tests** passing (lib), 0 failed, 6 GPU-heavy ignored
 - **181 experiments** across 12 physics categories
 - **22 papers** reproduced (Sarkas, Chabanat, Kortelainen, Bender, AME2020, ...)
 - **guideStone Level 5** — 30/30 bare checks, BLAKE3 Property 3, 5/5 properties

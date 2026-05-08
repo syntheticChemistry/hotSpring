@@ -124,3 +124,51 @@ pub fn sign_and_embed(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn empty_nucleus() -> NucleusContext {
+        NucleusContext {
+            discovered: HashMap::new(),
+            family_id: "test".to_string(),
+        }
+    }
+
+    #[test]
+    fn sign_receipt_unavailable_when_no_crypto_primal() {
+        let nucleus = empty_nucleus();
+        let tmp = std::env::temp_dir().join("hotspring-receipt-test-unused.json");
+        let result = sign_receipt(&nucleus, r#"{"x":1}"#, &tmp);
+        assert!(matches!(result, SignResult::Unavailable));
+    }
+
+    #[test]
+    fn sign_and_embed_empty_context_leaves_receipt_unchanged() {
+        let nucleus = empty_nucleus();
+        let mut receipt = serde_json::json!({ "field": 42 });
+        let before = receipt.clone();
+        let tmp = std::env::temp_dir().join("hotspring-sign-embed-empty.json");
+        sign_and_embed(&nucleus, &mut receipt, tmp.as_path());
+        assert_eq!(receipt, before);
+        assert!(receipt.get("signature").is_none());
+        assert!(receipt.get("signer_public_key").is_none());
+        assert!(receipt.get("signature_algorithm").is_none());
+    }
+
+    #[test]
+    fn receipt_signature_json_round_trip() {
+        let sig = ReceiptSignature {
+            signature_hex: "abc123".to_string(),
+            signer_public_key: "deadbeef".to_string(),
+            algorithm: "Ed25519".to_string(),
+        };
+        let json = serde_json::to_string(&sig).expect("serialize");
+        let back: ReceiptSignature = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(back.signature_hex, sig.signature_hex);
+        assert_eq!(back.signer_public_key, sig.signer_public_key);
+        assert_eq!(back.algorithm, sig.algorithm);
+    }
+}

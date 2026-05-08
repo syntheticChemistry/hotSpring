@@ -37,9 +37,67 @@ use hotspring_barracuda::register_maps::{RegisterDump, RegisterEntry, detect_reg
 #[cfg(feature = "low-level")]
 const BAR0_MAP_SIZE: usize = 16 * 1024 * 1024;
 
+#[cfg(feature = "low-level")]
+struct SafeBarMapping {
+    base: *const u8,
+    size: usize,
+}
+
+#[cfg(feature = "low-level")]
+impl SafeBarMapping {
+    fn open(resource_path: &str) -> Result<Self, String> {
+        use rustix::mm::{MapFlags, ProtFlags, mmap};
+
+        let file = File::options()
+            .read(true)
+            .open(resource_path)
+            .map_err(|e| format!("cannot open {resource_path}: {e}"))?;
+        // SAFETY: resource0 is a PCI BAR mmap exposed by the kernel. Read-only, 16 MiB.
+        let mm = unsafe {
+            mmap(
+                std::ptr::null_mut(),
+                BAR0_MAP_SIZE,
+                ProtFlags::READ,
+                MapFlags::SHARED,
+                &file,
+                0,
+            )
+        }
+        .map_err(|_| format!("mmap of {resource_path} failed"))?;
+        Ok(Self {
+            base: mm.cast::<u8>(),
+            size: BAR0_MAP_SIZE,
+        })
+    }
+
+    fn read_register(&self, offset: u32) -> Result<u32, String> {
+        if (offset as usize) + 4 > self.size {
+            return Err(format!("offset {offset:#x} out of BAR0 range"));
+        }
+        // SAFETY: offset is bounds-checked above; base points to a valid mmap of BAR0.
+        let ptr = unsafe { self.base.add(offset as usize) };
+        let mut buf = [0u8; 4];
+        for (i, byte) in buf.iter_mut().enumerate() {
+            *byte = unsafe { std::ptr::read_volatile(ptr.add(i)) };
+        }
+        Ok(u32::from_le_bytes(buf))
+    }
+}
+
+#[cfg(feature = "low-level")]
+impl Drop for SafeBarMapping {
+    fn drop(&mut self) {
+        let mm = self.base.cast::<std::ffi::c_void>().cast_mut();
+        // SAFETY: base was created by mmap with this size; we own it exclusively.
+        if unsafe { rustix::mm::munmap(mm, self.size) }.is_err() {
+            eprintln!("WARNING: munmap failed");
+        }
+    }
+}
+
 enum AccessMode {
     #[cfg(feature = "low-level")]
-    DirectMmap { base: *const u8 },
+    DirectMmap { mapping: SafeBarMapping },
     EmberIpc {
         client: hotspring_barracuda::fleet_client::EmberClient,
         bdf: String,
@@ -50,7 +108,7 @@ impl AccessMode {
     fn read_register(&self, offset: u32) -> Result<u32, String> {
         match self {
             #[cfg(feature = "low-level")]
-            AccessMode::DirectMmap { base } => read_bar0_mmap(*base, offset),
+            AccessMode::DirectMmap { mapping } => mapping.read_register(offset),
             AccessMode::EmberIpc { client, bdf } => {
                 let result = client.mmio_read(bdf, offset)?;
                 Ok(result.value)
@@ -65,20 +123,6 @@ impl AccessMode {
             AccessMode::EmberIpc { .. } => "ember-ipc",
         }
     }
-}
-
-#[cfg(feature = "low-level")]
-fn read_bar0_mmap(mm: *const u8, offset: u32) -> Result<u32, String> {
-    if (offset as usize) + 4 > BAR0_MAP_SIZE {
-        return Err(format!("offset {offset:#x} out of BAR0 range"));
-    }
-    // SAFETY: offset is bounds-checked above; mm points to a valid mmap of BAR0.
-    let ptr = unsafe { mm.add(offset as usize) };
-    let mut buf = [0u8; 4];
-    for (i, byte) in buf.iter_mut().enumerate() {
-        *byte = unsafe { std::ptr::read_volatile(ptr.add(i)) };
-    }
-    Ok(u32::from_le_bytes(buf))
 }
 
 fn read_vendor_id(bdf: &str) -> u16 {
@@ -157,36 +201,18 @@ fn main() {
         #[cfg(feature = "low-level")]
         {
             let resource_path = format!("/sys/bus/pci/devices/{}/resource0", &bdf);
-            let file = match File::options().read(true).open(&resource_path) {
-                Ok(f) => f,
+            let mapping = match SafeBarMapping::open(&resource_path) {
+                Ok(m) => m,
                 Err(e) => {
-                    eprintln!("ERROR: cannot open {resource_path}: {e}");
+                    eprintln!("ERROR: {e}");
                     eprintln!(
                         "  Hint: run with sudo/pkexec, or use --via-ember for ember-routed access"
                     );
                     std::process::exit(1);
                 }
             };
-            use rustix::mm::{MapFlags, ProtFlags, mmap};
-            // SAFETY: resource0 is a PCI BAR mmap exposed by the kernel. Read-only, 16 MiB.
-            let mm = unsafe {
-                mmap(
-                    std::ptr::null_mut(),
-                    BAR0_MAP_SIZE,
-                    ProtFlags::READ,
-                    MapFlags::SHARED,
-                    &file,
-                    0,
-                )
-            };
-            let Ok(mm) = mm else {
-                eprintln!("ERROR: mmap of {resource_path} failed");
-                std::process::exit(1);
-            };
             eprintln!("Mode: direct-mmap via {resource_path}");
-            AccessMode::DirectMmap {
-                base: mm.cast::<u8>(),
-            }
+            AccessMode::DirectMmap { mapping }
         }
         #[cfg(not(feature = "low-level"))]
         {
@@ -255,15 +281,6 @@ fn main() {
     }
 
     println!("╚══════════════════════════════════════════════════════════════════╝");
-
-    #[cfg(feature = "low-level")]
-    if let AccessMode::DirectMmap { base } = &access {
-        let mm = (*base).cast::<std::ffi::c_void>().cast_mut();
-        // SAFETY: clean up the mmap.
-        if unsafe { rustix::mm::munmap(mm, BAR0_MAP_SIZE) }.is_err() {
-            eprintln!("WARNING: munmap failed");
-        }
-    }
 
     let dump = RegisterDump {
         vendor: reg_map.vendor().to_string(),

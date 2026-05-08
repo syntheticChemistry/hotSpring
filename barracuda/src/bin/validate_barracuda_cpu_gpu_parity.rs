@@ -10,7 +10,8 @@
 //!   - Plasma dielectric: Mermin ε(k,ω), DSF S(k,ω)
 //!   - Multi-component Mermin: electron-ion
 //!   - Kinetic-fluid: BGK relaxation, Euler shock, coupled interface
-//!   - PPPM: Coulomb forces (GPU mesh vs CPU direct)
+//!   - Nuclear EOS: GPU SEMF binding energy vs CPU
+//!   - Spectral: GPU SpMV vs CPU on Anderson 2D
 
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::validation::{TelemetryWriter, ValidationHarness};
@@ -49,6 +50,12 @@ fn main() {
 
                 println!("\n━━━ Domain 6: Coupled Kinetic-Fluid ━━━\n");
                 validate_coupled(&mut harness, &gpu, &mut telem);
+
+                println!("\n━━━ Domain 7: Nuclear EOS (SEMF Batch) ━━━\n");
+                validate_nuclear_eos(&mut harness, &gpu, &mut telem);
+
+                println!("\n━━━ Domain 8: Spectral (GPU SpMV) ━━━\n");
+                validate_spectral(&mut harness, &gpu, &mut telem);
             } else {
                 println!("  SHADER_F64 not supported — skipping GPU domains\n");
             }
@@ -263,6 +270,258 @@ fn validate_euler(harness: &mut ValidationHarness, gpu: &GpuF64, telem: &mut Tel
         ],
     );
     println!("    Speedup: {speedup:.1}×");
+    println!("    {:.1}s", start.elapsed().as_secs_f64());
+}
+
+fn validate_nuclear_eos(
+    harness: &mut ValidationHarness,
+    gpu: &GpuF64,
+    telem: &mut TelemetryWriter,
+) {
+    use hotspring_barracuda::physics::semf_binding_energy;
+    use hotspring_barracuda::provenance::SLY4_PARAMS;
+
+    let start = Instant::now();
+    println!("  GPU SEMF batch vs CPU SEMF (SLy4, 20 nuclei)...");
+
+    let test_nuclei: Vec<(usize, usize)> = vec![
+        (8, 8),     // O-16
+        (20, 20),   // Ca-40
+        (26, 30),   // Fe-56
+        (28, 30),   // Ni-58
+        (50, 70),   // Sn-120
+        (82, 126),  // Pb-208
+        (92, 146),  // U-238
+        (6, 6),     // C-12
+        (1, 0),     // H-1
+        (2, 2),     // He-4
+        (14, 14),   // Si-28
+        (29, 34),   // Cu-63
+        (47, 60),   // Ag-107
+        (79, 118),  // Au-197
+        (3, 4),     // Li-7
+        (11, 12),   // Na-23
+        (19, 20),   // K-39
+        (30, 34),   // Zn-64
+        (48, 66),   // Cd-114
+        (56, 82),   // Ba-138
+    ];
+
+    let cpu_energies: Vec<f64> = test_nuclei
+        .iter()
+        .map(|&(z, n)| semf_binding_energy(z, n, &SLY4_PARAMS))
+        .collect();
+
+    let nuclei_flat: Vec<f64> = test_nuclei
+        .iter()
+        .flat_map(|&(z, n)| {
+            let a = (z + n) as f64;
+            vec![
+                z as f64,
+                n as f64,
+                a.powf(2.0 / 3.0),
+                a.cbrt(),
+                a.sqrt(),
+                if z % 2 == 0 { 1.0 } else { 0.0 },
+                if n % 2 == 0 { 1.0 } else { 0.0 },
+            ]
+        })
+        .collect();
+
+    let shader_src = include_str!("../physics/shaders/semf_batch_f64.wgsl");
+    let pipeline = gpu.create_pipeline(shader_src, "semf_parity");
+
+    let n = test_nuclei.len();
+
+    #[repr(C)]
+    #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+    struct SemfParams {
+        n_nuclei: u32,
+        _pad: [u32; 3],
+        params: [f64; 8],
+    }
+
+    let mut params_arr = [0.0f64; 8];
+    for (i, &p) in SLY4_PARAMS.iter().enumerate().take(8) {
+        params_arr[i] = p;
+    }
+
+    let params = SemfParams {
+        n_nuclei: n as u32,
+        _pad: [0; 3],
+        params: params_arr,
+    };
+
+    let params_buf = gpu.create_uniform_buffer(bytemuck::bytes_of(&params), "semf_params");
+    let nuclei_buf = gpu.create_f64_buffer(&nuclei_flat, "nuclei");
+    let output_buf = gpu.create_f64_output_buffer(n, "semf_out");
+
+    let bind_group = gpu.device().create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("semf_parity_bg"),
+        layout: &pipeline.get_bind_group_layout(0),
+        entries: &[
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: params_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: nuclei_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: output_buf.as_entire_binding(),
+            },
+        ],
+    });
+
+    let workgroups = (n as u32 + 63) / 64;
+    let gpu_energies = gpu
+        .dispatch_and_read(&pipeline, &bind_group, workgroups, &output_buf, n)
+        .expect("GPU SEMF dispatch");
+
+    let mut max_rel = 0.0f64;
+    let mut sum_rel = 0.0f64;
+    for (i, (&cpu_e, &gpu_e)) in cpu_energies.iter().zip(gpu_energies.iter()).enumerate() {
+        let rel: f64 = if cpu_e.abs() > 1e-10 {
+            (cpu_e - gpu_e).abs() / cpu_e.abs()
+        } else {
+            (cpu_e - gpu_e).abs()
+        };
+        if i < 3 {
+            let (z, n) = test_nuclei[i];
+            println!("    Z={z} N={n}: CPU={cpu_e:.4} GPU={gpu_e:.4} rel={rel:.2e}");
+        }
+        max_rel = max_rel.max(rel);
+        sum_rel += rel;
+    }
+    let mean_rel = sum_rel / n as f64;
+
+    println!("    Max relative error: {max_rel:.4e}");
+    println!("    Mean relative error: {mean_rel:.4e}");
+
+    harness.check_upper("nuclear_eos_max_rel", max_rel, 1e-10);
+    harness.check_upper("nuclear_eos_mean_rel", mean_rel, 1e-10);
+
+    telem.log_map(
+        "nuclear_eos",
+        &[
+            ("max_rel", max_rel),
+            ("mean_rel", mean_rel),
+            ("n_nuclei", n as f64),
+            ("wall_seconds", start.elapsed().as_secs_f64()),
+        ],
+    );
+    println!("    {:.1}s", start.elapsed().as_secs_f64());
+}
+
+fn validate_spectral(
+    harness: &mut ValidationHarness,
+    gpu: &GpuF64,
+    telem: &mut TelemetryWriter,
+) {
+    use hotspring_barracuda::spectral::{WGSL_SPMV_CSR_F64, anderson_2d};
+
+    let start = Instant::now();
+    println!("  GPU SpMV vs CPU SpMV (Anderson 2D, L=8)...");
+
+    let matrix = anderson_2d(8, 8, 0.0, 42);
+    let n = matrix.n;
+    let x: Vec<f64> = (0..n).map(|i| (i as f64 + 1.0) / n as f64).collect();
+    let mut cpu_result = vec![0.0; n];
+    matrix.spmv(&x, &mut cpu_result);
+
+    let pipeline = gpu.create_pipeline_f64(WGSL_SPMV_CSR_F64, "spmv_parity");
+
+    #[repr(C)]
+    #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+    struct SpMVParams {
+        n: u32,
+        nnz: u32,
+        pad0: u32,
+        pad1: u32,
+    }
+
+    let nnz = matrix.values.len();
+    let params = SpMVParams {
+        n: n as u32,
+        nnz: nnz as u32,
+        pad0: 0,
+        pad1: 0,
+    };
+
+    let row_ptr_u32: Vec<u32> = matrix.row_ptr.iter().map(|&v| v as u32).collect();
+    let col_idx_u32: Vec<u32> = matrix.col_idx.iter().map(|&v| v as u32).collect();
+
+    let params_buf = gpu.create_uniform_buffer(bytemuck::bytes_of(&params), "spmv_params");
+    let row_ptr_buf = gpu.create_u32_buffer(&row_ptr_u32, "row_ptr");
+    let col_idx_buf = gpu.create_u32_buffer(&col_idx_u32, "col_idx");
+    let values_buf = gpu.create_f64_buffer(&matrix.values, "values");
+    let x_buf = gpu.create_f64_buffer(&x, "x_vec");
+    let output_buf = gpu.create_f64_output_buffer(n, "spmv_out");
+
+    let bind_group = gpu.device().create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("spmv_parity_bg"),
+        layout: &pipeline.get_bind_group_layout(0),
+        entries: &[
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: params_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: row_ptr_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: col_idx_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 3,
+                resource: values_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 4,
+                resource: x_buf.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 5,
+                resource: output_buf.as_entire_binding(),
+            },
+        ],
+    });
+
+    let workgroups = (n as u32 + 63) / 64;
+    let gpu_result = gpu
+        .dispatch_and_read(&pipeline, &bind_group, workgroups, &output_buf, n)
+        .expect("GPU SpMV dispatch");
+
+    let mut max_err = 0.0f64;
+    let mut l2_sum = 0.0f64;
+    for (&cpu_v, &gpu_v) in cpu_result.iter().zip(gpu_result.iter()) {
+        let err = (cpu_v - gpu_v).abs();
+        max_err = max_err.max(err);
+        l2_sum += err * err;
+    }
+    let l2 = l2_sum.sqrt();
+
+    println!("    Max absolute error: {max_err:.4e}");
+    println!("    L2 norm error: {l2:.4e}");
+    println!("    Matrix: {}×{} ({} nnz)", n, n, nnz);
+
+    harness.check_upper("spectral_spmv_max_err", max_err, 1e-12);
+    harness.check_upper("spectral_spmv_l2", l2, 1e-10);
+
+    telem.log_map(
+        "spectral",
+        &[
+            ("max_err", max_err),
+            ("l2_norm", l2),
+            ("matrix_n", n as f64),
+            ("nnz", nnz as f64),
+            ("wall_seconds", start.elapsed().as_secs_f64()),
+        ],
+    );
     println!("    {:.1}s", start.elapsed().as_secs_f64());
 }
 

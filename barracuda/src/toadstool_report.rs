@@ -54,13 +54,22 @@ pub fn epoch_now() -> u64 {
 }
 
 /// Resolve toadStool's JSON-RPC Unix socket path (wateringHole IPC v3.1).
+///
+/// Uses the same socket directory resolution as other primals via `niche::socket_dirs()`.
 fn toadstool_socket() -> String {
     if let Ok(p) = std::env::var("TOADSTOOL_SOCKET") {
         return p;
     }
-    let runtime_dir = std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".into());
     let family = crate::niche::family_id();
-    format!("{runtime_dir}/biomeos/toadstool-{family}.sock")
+    let sock_name = format!("toadstool-{family}.sock");
+    for dir in crate::niche::socket_dirs() {
+        let candidate = dir.join(&sock_name);
+        if candidate.exists() {
+            return candidate.to_string_lossy().into_owned();
+        }
+    }
+    let runtime_dir = std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".into());
+    format!("{runtime_dir}/biomeos/{sock_name}")
 }
 
 /// Send a JSON-RPC 2.0 request over a Unix domain socket.

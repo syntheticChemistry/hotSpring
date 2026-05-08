@@ -7,7 +7,48 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
-## Unreleased — Phase 60 Absorption: Cross-Spring Parity (May 8, 2026)
+## Unreleased — Deep Debt Evolution Phase 2 (May 8, 2026)
+
+### Added
+- **3 integration tests**: `integration_dielectric.rs` (5 tests: Drude,
+  Mermin, conductivity, Debye screening), `integration_spectral.rs` (3 tests:
+  Lanczos eigenvalues, SpMV, DOS), `integration_lattice.rs` (4 tests: cold/hot
+  start, HMC trajectory)
+- **9 unit tests**: `primal_bridge.rs` (6 tests: empty context, by_domain,
+  get_by_capability, manual endpoint construction), `receipt_signing.rs`
+  (3 tests: unavailable, embed passthrough, serde round-trip)
+- **2 CPU/GPU parity domains**: Nuclear EOS (GPU SEMF batch vs CPU, 20 nuclei)
+  and Spectral (GPU SpMV vs CPU SpMV, Anderson 2D L=8) added to
+  `validate_barracuda_cpu_gpu_parity` (now 8 domains total)
+- **`docs/DOWNSTREAM_PATTERNS.md`**: Integration audit of `projectNUCLEUS`
+  and `foundation` repos (workload TOMLs, deploy graphs, lineage threads)
+- **Paper 45 `kinetic_fluid_control.json`**: Frozen reference results
+  (18/18 checks) committed to `control/kinetic_fluid/results/`
+- **`experiments/results/papers/`**: Frozen parity greenboard JSON snapshot
+  (25 papers, all substrates)
+
+### Changed
+- **Refactored `pseudofermion/mod.rs`** (926L → ~540L): Hasenbusch
+  mass-preconditioning extracted to `hasenbusch.rs` submodule
+- **Refactored `npu_worker/handlers.rs`** (839L → handlers/ directory):
+  Split into `precompute.rs`, `thermalization.rs`, `inference.rs`, `proxy.rs`
+- **Refactored `nuclear_eos_helpers/mod.rs`** (821L → ~440L): Display/print
+  functions extracted to `display.rs` submodule
+- **`exp070_register_dump.rs`**: Wrapped raw mmap in `SafeBarMapping` struct
+  with `Drop` impl for RAII munmap and bounds-checked register accessors
+- **`toadstool_report.rs`**: Socket resolution now uses `niche::socket_dirs()`
+  with live path probing instead of hardcoded `/tmp` fallback
+- **`primal_bridge.rs`**: Deprecated named accessors stripped of hardcoded
+  primal name fallbacks — now pure `by_domain()` delegates
+
+### Verified
+- **Tier 4 binaries**: `validate_fpeos` 18/19 (advisory thermo consistency),
+  `validate_atomec` 7/9 (average-atom SCF needs charge conservation tuning)
+- **1002/1002** lib tests pass (up from 993)
+
+---
+
+## Phase 60 Absorption: Cross-Spring Parity (May 8, 2026)
 
 ### Added
 - **Deploy graphs (1 → 5)**: 4 new domain-specific NUCLEUS deployment profiles:

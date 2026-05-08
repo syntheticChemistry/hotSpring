@@ -126,7 +126,6 @@ impl NucleusContext {
     #[must_use]
     pub fn toadstool(&self) -> Option<&PrimalEndpoint> {
         self.by_domain("compute")
-            .or_else(|| self.discovered.get("toadstool"))
     }
 
     /// Convenience: bearDog signing primal.
@@ -134,7 +133,6 @@ impl NucleusContext {
     #[must_use]
     pub fn beardog(&self) -> Option<&PrimalEndpoint> {
         self.by_domain("crypto")
-            .or_else(|| self.discovered.get("beardog"))
     }
 
     /// Convenience: rhizoCrypt DAG primal.
@@ -142,7 +140,6 @@ impl NucleusContext {
     #[must_use]
     pub fn rhizocrypt(&self) -> Option<&PrimalEndpoint> {
         self.by_domain("dag")
-            .or_else(|| self.discovered.get("rhizocrypt"))
     }
 
     /// Convenience: loamSpine commit primal.
@@ -150,7 +147,6 @@ impl NucleusContext {
     #[must_use]
     pub fn loamspine(&self) -> Option<&PrimalEndpoint> {
         self.by_domain("ledger")
-            .or_else(|| self.discovered.get("loamspine"))
     }
 
     /// Convenience: sweetgrass provenance primal.
@@ -158,7 +154,6 @@ impl NucleusContext {
     #[must_use]
     pub fn sweetgrass(&self) -> Option<&PrimalEndpoint> {
         self.by_domain("attribution")
-            .or_else(|| self.discovered.get("sweetgrass"))
     }
 
     /// Convenience: coralReef / coral-glowplug GPU sovereign path.
@@ -166,8 +161,6 @@ impl NucleusContext {
     #[must_use]
     pub fn coralreef(&self) -> Option<&PrimalEndpoint> {
         self.by_domain("shader")
-            .or_else(|| self.discovered.get("coralreef"))
-            .or_else(|| self.discovered.get("coral-glowplug"))
     }
 
     /// Names of all alive primals (for banner / manifest), sorted for stable output.
@@ -417,4 +410,81 @@ pub fn send_jsonrpc(
     _params: &serde_json::Value,
 ) -> Result<serde_json::Value, String> {
     Err("Unix socket IPC not available on this platform".into())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn empty_context_has_no_discovered_primals() {
+        let ctx = NucleusContext::empty("test-family");
+        assert!(ctx.discovered.is_empty());
+        assert_eq!(ctx.family_id, "test-family");
+    }
+
+    #[test]
+    fn by_domain_returns_none_on_empty_context() {
+        let ctx = NucleusContext::empty("fam");
+        assert!(ctx.by_domain("compute").is_none());
+    }
+
+    #[test]
+    fn alive_names_empty_on_empty_context() {
+        let ctx = NucleusContext::empty("fam");
+        assert!(ctx.alive_names().is_empty());
+    }
+
+    #[test]
+    fn get_unknown_name_returns_none() {
+        let ctx = NucleusContext::empty("fam");
+        assert!(ctx.get("no-such-primal").is_none());
+    }
+
+    #[test]
+    fn by_domain_finds_manually_constructed_endpoint_with_capabilities() {
+        let caps = serde_json::json!({
+            "capabilities": ["compute.batch", "compute.other"],
+        });
+        let ep = PrimalEndpoint {
+            name: "toad".to_string(),
+            socket: "/tmp/toad-test.sock".to_string(),
+            alive: true,
+            capabilities: Some(caps),
+        };
+        let mut discovered = HashMap::new();
+        let socket = ep.socket.clone();
+        discovered.insert("toad".to_string(), ep);
+        let ctx = NucleusContext {
+            discovered,
+            family_id: "fam".to_string(),
+        };
+        let found = ctx.by_domain("compute").expect("compute primal");
+        assert_eq!(found.name, "toad");
+        assert_eq!(found.socket, socket);
+        assert!(found.alive);
+    }
+
+    #[test]
+    fn get_by_capability_matches_domain_prefix_in_capabilities_list() {
+        let caps = serde_json::json!({
+            "capabilities": ["crypto.sign_ed25519"],
+        });
+        let ep = PrimalEndpoint {
+            name: "bear".to_string(),
+            socket: "/tmp/bear-test.sock".to_string(),
+            alive: true,
+            capabilities: Some(caps),
+        };
+        let mut discovered = HashMap::new();
+        discovered.insert("bear".to_string(), ep);
+        let ctx = NucleusContext {
+            discovered,
+            family_id: "fam".to_string(),
+        };
+        let found = ctx
+            .get_by_capability("crypto")
+            .expect("crypto capability");
+        assert_eq!(found.name, "bear");
+    }
 }
