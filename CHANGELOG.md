@@ -7,6 +7,29 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Unreleased — Phase 60 Absorption: Cross-Spring Parity (May 8, 2026)
+
+### Added
+- **Deploy graphs (1 → 5)**: 4 new domain-specific NUCLEUS deployment profiles:
+  `hotspring_plasma_md_deploy.toml` (Tower + Node, no shader),
+  `hotspring_nuclear_eos_deploy.toml` (Tower + Node + Nest provenance),
+  `hotspring_spectral_deploy.toml` (Tower + barraCuda minimal),
+  `hotspring_sovereign_gpu_deploy.toml` (full NUCLEUS with coralReef)
+- **`tools/check_method_strings.sh`**: Method string drift detector — local
+  registry check (source vs `capability_registry.toml`) + cross-registry
+  check (hotSpring vs primalSpring canonical 389-method registry)
+- **`tests/integration_registry_sync.rs`**: Rust integration tests for
+  registry validation — `local_registry_parses_cleanly`,
+  `deploy_graphs_reference_only_registered_capabilities`,
+  `cross_registry_sync_with_primalspring` (ignored: 13 methods pending
+  upstream addition)
+
+### Changed
+- **barraCuda optional**: `barracuda` dependency is now `optional = true`
+  with `barracuda-local` default feature. Build with `--no-default-features`
+  for IPC-only NUCLEUS deployment mode. Declaration of intent — all existing
+  code continues to work with default features enabled.
+
 ## Unreleased — Paper Baseline Notebooks (May 7, 2026)
 
 ### Added

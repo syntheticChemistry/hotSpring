@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026
-**Last audited:** May 6, 2026 (K80 cold-boot sovereign, ember gate live, barraCuda Sprint 53 pulled)
+**Last audited:** May 8, 2026 (Phase 60 cross-spring parity absorption)
 **License:** AGPL-3.0-or-later
 
 ---
@@ -18,6 +18,36 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 ---
 
 ## Active Gaps
+
+### GAP-HS-044: Cross-Registry Method Drift (Phase 60)
+
+- **Primal:** primalSpring (canonical registry)
+- **Severity:** Low
+- **Status:** Active — 13 methods pending upstream addition
+- **Description:** `tools/check_method_strings.sh` and the Rust
+  `cross_registry_sync_with_primalspring` integration test identify 13
+  hotSpring methods not yet in primalSpring's canonical 389-method registry:
+  `composition.health`, `compute.df64`, `compute.dispatch.capabilities`,
+  `compute.f64`, `physics.fluid`, `physics.hmc_trajectory`,
+  `physics.lattice_gauge_update`, `physics.lattice_qcd`,
+  `physics.molecular_dynamics`, `physics.nuclear_eos`, `physics.radiation`,
+  `physics.thermal`, `physics.wilson_dirac`.
+- **Action:** PR to primalSpring adding these methods to
+  `config/capability_registry.toml` with `owner = "hotspring"`.
+
+### GAP-HS-045: barraCuda IPC-Only Mode (Phase 60)
+
+- **Primal:** barraCuda / hotSpring
+- **Severity:** Low
+- **Status:** Active — declaration of intent shipped
+- **Description:** `barracuda` dep is now `optional = true` with
+  `barracuda-local` default feature. Building with `--no-default-features`
+  yields IPC-only mode. Currently the library compiles but many modules
+  use `barracuda::` imports unconditionally — full `#[cfg(feature)]` gating
+  of all direct library calls is a future evolution.
+- **Action:** Incrementally gate `barracuda::` imports behind
+  `#[cfg(feature = "barracuda-local")]` as modules are refactored.
+  Priority modules: `physics/`, `lattice/`, `md/`, `spectral/`.
 
 ### GAP-HS-001: Squirrel End-to-End Validation
 

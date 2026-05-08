@@ -86,9 +86,11 @@ redundant_pub_crate = "allow"
 workspace = true
 
 [features]
+default = ["barracuda-local"]
+barracuda-local = ["dep:barracuda"]
 gpu_energy = []
 npu-hw = ["dep:akida-driver", "dep:akida-models"]
-sovereign-dispatch = ["barracuda/sovereign-dispatch", "dep:coral-gpu"]
+sovereign-dispatch = ["barracuda-local", "barracuda/sovereign-dispatch", "dep:coral-gpu"]
 cuda-validation = ["dep:cudarc"]
 # BAR0 mmap / sysfs hardware probes (Exp 070). Optional: pulls rustix for syscalls.
 low-level = ["dep:rustix"]
@@ -97,7 +99,7 @@ low-level = ["dep:rustix"]
 # BarraCuda (standalone primal): math, shaders, compilation, ESN, NPU math
 # Public repo: https://github.com/ecoPrimals/barraCuda
 # Path dep for local dev; falls back to git rev for CI
-barracuda = { path = "../../../primals/barraCuda/crates/barracuda" }
+barracuda = { path = "../../../primals/barraCuda/crates/barracuda", optional = true }
 
 # BLAKE3 hashing for provenance witnesses (compute output hashing)
 blake3 = "1"

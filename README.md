@@ -75,7 +75,21 @@ See `notebooks/papers/PAPER_NOTEBOOK_GUIDE.md` for the collaborator pattern.
 | 11 | Gradient Flow | Luscher (2010), Chuna (2021) | Live 4^4 |
 | 12 | Plasma Dielectric | Chuna & Murillo (2024) | Live |
 
-## Current Status (2026-05-07)
+## Deploy Graphs (5)
+
+Domain-specific NUCLEUS deployment profiles in `graphs/`:
+
+| # | Graph | Composition | Domain |
+|---|-------|-------------|--------|
+| 1 | `hotspring_qcd_deploy` | Full NUCLEUS (Tower + Node + Nest + Squirrel) | Lattice QCD / HPC |
+| 2 | `hotspring_plasma_md_deploy` | Tower + Node (no coralReef) | Yukawa OCP, transport coefficients |
+| 3 | `hotspring_nuclear_eos_deploy` | Tower + Node + Nest (provenance) | SEMF/HFB binding energies |
+| 4 | `hotspring_spectral_deploy` | Tower + barraCuda (minimal) | Anderson, Hofstadter, Lanczos |
+| 5 | `hotspring_sovereign_gpu_deploy` | Full NUCLEUS (coralReef required) | Sovereign GPU WGSL-to-SASS |
+
+Deploy: `biomeos deploy --graph graphs/<name>.toml`
+
+## Current Status (2026-05-08)
 
 > **181 experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **993 lib tests, 166 binaries, 64/64 validation suites, 128 WGSL shaders** | **deny.toml** (ecoBin C-dep bans) | **all 13 physics/compute methods wired in JSON-RPC server** | **zero `dyn` dispatch, zero unsafe, `#[expect]` over `#[allow]`** | **guideStone artifact: 59/59 checks x 5 substrates (x86_64 + aarch64)** | **OCI container image + Windows/macOS launchers** | **RTX 5060 sovereign dispatch PROVEN (8/8)** | **K80 warm NOP dispatch wired + cold PLL fix** | **Titan V warm handoff: DMATRF to FECS PROVEN (101 blocks, 192µs), ROM security gate identified** | **SLM pool allocation (2 MiB)** | **AMD sovereign compiler: 24/24 QCD shaders** | **NVIDIA sovereign compiler: SM35 + SM70 + SM120** | **Ember gate + survivability hardening COMPLETE** | **SovereignInit Pipeline COMPLETE** | **NUCLEUS Composition Evolution COMPLETE** | **coralReef f64 transcendental lowering (SM32+)** | **Level 5 Primal Proof** | **GPU Generation Profile Architecture** | **unsafe audit: all NECESSARY**
 >
