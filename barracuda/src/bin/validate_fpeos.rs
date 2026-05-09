@@ -68,39 +68,49 @@ fn main() {
     ];
 
     for &(lr, lt, exp_p, exp_e) in test_points {
-        let pt = h.interpolate_log(lr, lt).unwrap();
-        let p_err = (pt.pressure - exp_p).abs() / exp_p.abs().max(1e-10);
-        let e_err = (pt.internal_energy - exp_e).abs() / exp_e.abs().max(1e-10);
         let label_p = format!("h_P_rho{lr}_T{lt}");
         let label_e = format!("h_E_rho{lr}_T{lt}");
-        harness.check_upper(&label_p, p_err, FPEOS_GRID_POINT_REL);
-        harness.check_upper(&label_e, e_err, FPEOS_GRID_POINT_REL);
-        telem.log_map(
-            "h_grid",
-            &[
-                ("log_rho", lr),
-                ("log_T", lt),
-                ("P", pt.pressure),
-                ("E", pt.internal_energy),
-            ],
-        );
+        if let Some(pt) = h.interpolate_log(lr, lt) {
+            let p_err = (pt.pressure - exp_p).abs() / exp_p.abs().max(1e-10);
+            let e_err = (pt.internal_energy - exp_e).abs() / exp_e.abs().max(1e-10);
+            harness.check_upper(&label_p, p_err, FPEOS_GRID_POINT_REL);
+            harness.check_upper(&label_e, e_err, FPEOS_GRID_POINT_REL);
+            telem.log_map(
+                "h_grid",
+                &[
+                    ("log_rho", lr),
+                    ("log_T", lt),
+                    ("P", pt.pressure),
+                    ("E", pt.internal_energy),
+                ],
+            );
+        } else {
+            eprintln!("    interpolation failed at rho={lr}, T={lt}");
+            harness.check_bool(&label_p, false);
+            harness.check_bool(&label_e, false);
+        }
     }
 
     // Interpolation between grid points
     println!("  Bilinear interpolation checks...");
     let interp_pts: &[(f64, f64)] = &[(0.15, 5.5), (0.5, 6.5), (-0.15, 4.5), (0.85, 7.5)];
     for &(lr, lt) in interp_pts {
-        let pt = h.interpolate_log(lr, lt).unwrap();
-        harness.check_lower(&format!("h_interp_P_{lr}_{lt}"), pt.pressure, 0.0);
-        telem.log_map(
-            "h_interp",
-            &[
-                ("log_rho", lr),
-                ("log_T", lt),
-                ("P", pt.pressure),
-                ("E", pt.internal_energy),
-            ],
-        );
+        let label = format!("h_interp_P_{lr}_{lt}");
+        if let Some(pt) = h.interpolate_log(lr, lt) {
+            harness.check_lower(&label, pt.pressure, 0.0);
+            telem.log_map(
+                "h_interp",
+                &[
+                    ("log_rho", lr),
+                    ("log_T", lt),
+                    ("P", pt.pressure),
+                    ("E", pt.internal_energy),
+                ],
+            );
+        } else {
+            eprintln!("    interpolation failed at rho={lr}, T={lt}");
+            harness.check_bool(&label, false);
+        }
     }
 
     // Monotonicity: P(ρ) at fixed T
@@ -109,11 +119,14 @@ fn main() {
     for t in [4.0, 5.0, 6.0, 7.0, 8.0] {
         let mut prev = 0.0;
         for &lr in &h.log_densities {
-            let pt = h.interpolate_log(lr, t).unwrap();
-            if pt.pressure <= prev {
+            if let Some(pt) = h.interpolate_log(lr, t) {
+                if pt.pressure <= prev {
+                    mono_ok = false;
+                }
+                prev = pt.pressure;
+            } else {
                 mono_ok = false;
             }
-            prev = pt.pressure;
         }
     }
     harness.check_bool("h_P_mono_rho", mono_ok);
@@ -123,11 +136,14 @@ fn main() {
     for &lr in &h.log_densities {
         let mut prev = 0.0;
         for t in [4.0, 5.0, 6.0, 7.0, 8.0] {
-            let pt = h.interpolate_log(lr, t).unwrap();
-            if pt.pressure <= prev {
+            if let Some(pt) = h.interpolate_log(lr, t) {
+                if pt.pressure <= prev {
+                    mono_t_ok = false;
+                }
+                prev = pt.pressure;
+            } else {
                 mono_t_ok = false;
             }
-            prev = pt.pressure;
         }
     }
     harness.check_bool("h_P_mono_T", mono_t_ok);
@@ -144,9 +160,13 @@ fn main() {
 
     // Helium grid-point checks
     println!("  Helium grid-point lookup...");
-    let he_pt = he.interpolate_log(0.0, 6.0).unwrap();
-    let he_p_err = (he_pt.pressure - 46.5).abs() / 46.5;
-    harness.check_upper("he_P_rho0_T6", he_p_err, FPEOS_GRID_POINT_REL);
+    if let Some(he_pt) = he.interpolate_log(0.0, 6.0) {
+        let he_p_err = (he_pt.pressure - 46.5).abs() / 46.5;
+        harness.check_upper("he_P_rho0_T6", he_p_err, FPEOS_GRID_POINT_REL);
+    } else {
+        eprintln!("    He interpolation failed at rho=0, T=6");
+        harness.check_bool("he_P_rho0_T6", false);
+    }
 
     // Thermodynamic consistency
     println!("  Thermodynamic consistency...");

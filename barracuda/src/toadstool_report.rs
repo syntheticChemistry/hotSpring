@@ -67,7 +67,8 @@ fn toadstool_socket() -> String {
             return candidate.to_string_lossy().into_owned();
         }
     }
-    let runtime_dir = std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".into());
+    let runtime_dir = std::env::var("XDG_RUNTIME_DIR")
+        .unwrap_or_else(|_| std::env::temp_dir().to_string_lossy().into_owned());
     format!("{runtime_dir}/biomeos/{sock_name}")
 }
 

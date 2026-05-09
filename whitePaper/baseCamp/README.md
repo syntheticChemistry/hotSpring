@@ -1,8 +1,8 @@
 # baseCamp: Research Domain Briefings
 
-**Date:** May 8, 2026  
+**Date:** May 9, 2026  
 **Project:** hotSpring (ecoPrimals)  
-**Status:** v0.6.32 — guideStone Level 5 CERTIFIED (primalSpring v0.9.17, Phase 60 cross-spring parity absorbed, deep debt evolution Phase 2 complete). 1002 lib tests, 166 binaries, 64/64 validation suites, 128 WGSL shaders. 25/25 papers reproduced (CPU), 20/25 GPU. **guideStone bare: 30/30 checks pass** (Property 3 BLAKE3 CHECKSUMS verified, all 5 bare properties green). **Sovereign compile parity: 10/10 HMC pipeline shaders compile to native SASS on SM35 (Kepler) + SM70 (Volta) + SM120 (Blackwell).** coralReef f64 transcendental lowering fixed for all NVIDIA generations. QMD v5.0 for Blackwell. validate_pure_gauge: 16/16 checks pass. Sovereign GPU pipeline COMPLETE. 908 tests across coral-driver + coral-ember.
+**Status:** v0.6.32 — guideStone Level 5 CERTIFIED (primalSpring v0.9.25 interstadial eukaryotic, deep debt evolution Phase 3 complete). 1002 lib tests, 148 binaries, 64/64 validation suites, 128 WGSL shaders. 25/25 papers reproduced (CPU), 20/25 GPU. **Eukaryotic UniBin** (`hotspring_unibin`) with certify/validate/status/version. Zero hardcoded paths, zero bare `#[allow]`, zero TODO/FIXME markers. Sovereign GPU pipeline COMPLETE.
 
 **Validation arc:** Science stacks are validated on three tiers — **Python (and legacy HPC) baselines → sovereign Rust → NUCLEUS primal composition (guideStone)** — so peer-reviewed physics and methods are checked at the **primal composition layer**, not only in standalone binaries. Rust results serve as trusted baselines for IPC-composed NUCLEUS patterns, using the same tolerance-driven, exit-code-gated methodology that proved Rust matches Python. The `hotspring_guidestone` binary is the unified Level 5 artifact that certifies this arc.
 
@@ -20,7 +20,7 @@ Published paper (Python/FORTRAN/HPC)
         → guideStone: NUCLEUS primal composition (IPC parity via primalSpring API)
 ```
 
-**Composition tier (guideStone):** Rust-direct results are the baseline for **IPC-composed** primal stacks (Tower / Node / Nest / full NUCLEUS), using the same tolerance-and-exit-code discipline as Python→Rust. The `hotspring_guidestone` binary validates this entire arc — from bare property certification (no primals needed) through NUCLEUS additive IPC parity probes against live barraCuda/BearDog/toadStool primals.
+**Composition tier (eukaryotic):** Rust-direct results are the baseline for **IPC-composed** primal stacks (Tower / Node / Nest / full NUCLEUS), using the same tolerance-and-exit-code discipline as Python→Rust. The `hotspring_unibin` binary validates this entire arc — from bare property certification (no primals needed) through NUCLEUS additive IPC parity probes against live barraCuda/BearDog/toadStool primals. The legacy `hotspring_guidestone` binary is transitional.
 
 ---
 

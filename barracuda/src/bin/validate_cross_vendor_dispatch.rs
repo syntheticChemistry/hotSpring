@@ -19,7 +19,8 @@ fn glowplug_socket() -> String {
     if let Ok(p) = std::env::var("CORALREEF_GLOWPLUG_SOCKET") {
         return p;
     }
-    let runtime_dir = std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".into());
+    let runtime_dir = std::env::var("XDG_RUNTIME_DIR")
+        .unwrap_or_else(|_| std::env::temp_dir().to_string_lossy().into_owned());
     let family = std::env::var("CORALREEF_FAMILY_ID")
         .or_else(|_| std::env::var("FAMILY_ID"))
         .unwrap_or_else(|_| "default".into());

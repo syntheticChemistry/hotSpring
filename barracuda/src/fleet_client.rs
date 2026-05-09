@@ -92,7 +92,7 @@ impl FleetDiscovery {
     /// Search order:
     /// 1. `EMBER_FLEET_FILE` env var (explicit override)
     /// 2. `$XDG_RUNTIME_DIR/biomeos/coral-ember-fleet.json`
-    /// 3. `/tmp/biomeos/coral-ember-fleet.json` (glowplug's default write path)
+    /// 3. `<temp_dir>/biomeos/coral-ember-fleet.json` (platform temp via `std::env::temp_dir()`)
     #[must_use]
     pub fn resolve_path() -> PathBuf {
         if let Ok(p) = std::env::var(EMBER_FLEET_FILE_ENV) {
@@ -104,7 +104,7 @@ impl FleetDiscovery {
                 return xdg_path;
             }
         }
-        PathBuf::from("/tmp").join(FLEET_FILE_REL)
+        std::env::temp_dir().join(FLEET_FILE_REL)
     }
 
     /// Read and parse the fleet discovery file at `path`.

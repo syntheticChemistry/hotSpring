@@ -2,7 +2,7 @@
 
 **Status**: Current — reviewed for PII, suitable for public repository  
 **Purpose**: Document the replication of Murillo Group computational plasma physics on consumer hardware using BarraCuda, and the three-tier validation arc proving NUCLEUS primal composition  
-**Date**: February 26, 2026 (inception); updated May 8, 2026 (v0.6.32 — guideStone Level 5 CERTIFIED, primalSpring v0.9.17 absorbed, Phase 60 cross-spring parity absorbed, deep debt evolution Phase 2 complete. 1002 lib tests, 166 binaries, 64/64 validation suites, 128 WGSL shaders, 25/25 papers reproduced (CPU), bare guideStone 30/30 checks pass with BLAKE3 CHECKSUMS)  
+**Date**: February 26, 2026 (inception); updated May 9, 2026 (v0.6.32 — guideStone Level 5 CERTIFIED, primalSpring v0.9.25 interstadial eukaryotic, deep debt evolution Phase 3 complete. 1002 lib tests, 148 binaries, 64/64 validation suites, 128 WGSL shaders, 25/25 papers reproduced (CPU), bare guideStone 30/30 checks pass with BLAKE3 CHECKSUMS, `hotspring_unibin` eukaryotic CLI)  
 **Validation arc**: Python baselines → Rust validation → NUCLEUS primal composition validation (guideStone certified)
 
 ---
@@ -387,29 +387,29 @@ No institutional access required. No Code Ocean account. No Fortran compiler. AG
 
 ---
 
-## Codebase Health (April 27, 2026)
+## Codebase Health (May 9, 2026)
 
 | Metric | Value |
 |--------|-------|
 | Crate | v0.6.32 |
-| Lib tests | **993** pass, 6 GPU/heavy-ignored (spectral tests upstream in barracuda) |
-| Binaries | **166** (84 validate_*, production, benchmarks, composition, guideStone) |
+| Lib tests | **1002** pass, 6 GPU/heavy-ignored |
+| Binaries | **148** (validate_*, production, benchmarks, composition, UniBin) |
 | WGSL shaders | **128** (lattice, MD, HFB, diag, spectral, sovereign) |
-| Coverage | 74.9% region / 83.8% function |
 | Validation suites | **64/64** pass |
-| Experiments | **176+** |
+| Experiments | **180+** |
 | Python control scripts | **34** (Sarkas, surrogate, TTM, NPU, reservoir, lattice, spectral theory) |
 | `expect()`/`unwrap()` in library | **0** (crate-level deny) |
-| Clippy warnings | **0** (pedantic + nursery, `--all-targets`) |
-| Doc warnings | **0** (`cargo doc --lib --no-deps`) |
+| Clippy warnings | **0** (pedantic + nursery) |
 | Unsafe blocks | **0** in application code (`#![forbid(unsafe_code)]`) |
 | External FFI/C bindings | **0** (all pure Rust except wgpu GPU driver bridge) |
 | Centralized tolerances | **308** constants in `tolerances/` module tree (6 submodules) |
-| Files over 1000 LOC | **0** (validation.rs split; brain_rhmc.rs split) |
+| Hardcoded paths | **0** (all resolved via `niche::socket_dirs()` or `std::env::temp_dir()`) |
+| Bare `#[allow]` | **0** (all carry `reason = "..."`) |
+| TODO/FIXME/HACK/DEBT | **0** in active code |
 | Provenance records | All validation targets traced to Python origins or DOIs |
 | AGPL-3.0 compliance | All `.rs` and `.wgsl` files |
-| NUCLEUS composition | 6 composition binaries (incl. `hotspring_guidestone` Level 5 CERTIFIED), 3 science probes, deploy graph |
-| guideStone | `hotspring_guidestone` — unified Level 5 certified binary (Deterministic, Traceable, Self-Verifying, Env-Agnostic, Tolerance-Documented) |
+| NUCLEUS composition | `hotspring_unibin` (certify, validate, status, version) + 6 composition binaries, deploy graph |
+| Eukaryotic UniBin | `hotspring_unibin` — L0-L5 certification + 6 validation scenarios via `ScenarioRegistry` |
 | Deploy graph | `graphs/hotspring_qcd_deploy.toml` — 10 primals declared |
 
 ---

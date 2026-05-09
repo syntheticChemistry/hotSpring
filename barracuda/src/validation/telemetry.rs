@@ -61,8 +61,8 @@ impl TelemetryWriter {
 
     /// Tag all subsequent telemetry events with the GPU/substrate name.
     #[must_use]
-    pub fn with_substrate(mut self, name: String) -> Self {
-        self.substrate = Some(name);
+    pub fn with_substrate(mut self, name: impl Into<String>) -> Self {
+        self.substrate = Some(name.into());
         self
     }
 

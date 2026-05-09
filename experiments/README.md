@@ -97,7 +97,7 @@ Architectural evolution — ember becomes per-device, glowplug becomes fleet orc
 - **Fleet orchestrator**: `EmberFleet` in glowplug manages N active + M standby instances
 - **Hot-standby pool**: Pre-spawned embers with `ember.adopt_device` RPC for instant takeover
 - **Fault-informed resurrection**: Strategy selected by fault history (HotAdopt / WarmThenRespawn / FullRecovery)
-- **Discovery file**: `/tmp/biomeos/coral-ember-fleet.json` for external client routing
+- **Discovery file**: `<temp_dir>/biomeos/coral-ember-fleet.json` for external client routing
 - **Backward compatible**: `fleet_mode = false` preserves legacy single-ember behavior
 
 ## NUCLEUS Composition Validation (April 2026)
@@ -160,3 +160,12 @@ See `notebooks/papers/PAPER_NOTEBOOK_GUIDE.md` for the pattern.
 - `archive/run_chuna_overnight.sh` — Run the Chuna overnight validation suite (archived)
 - `archive/` — Completed experiments moved to fossil record
 - `data/` — Experiment-associated data files
+
+## Eukaryotic Evolution (May 2026)
+
+6 representative experiment binaries have been absorbed into
+`barracuda/src/validation/scenarios/` as Tier 1 (Rust) scenarios with
+`ScenarioMeta` provenance tracking. 8 hardware-specific GPU experiment
+binaries are preserved in `fossilRecord/experiments_prokaryotic_may2026/`.
+The `hotspring_unibin validate` command is the eukaryotic entry point
+for running all absorbed scenarios.

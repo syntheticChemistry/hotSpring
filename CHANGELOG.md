@@ -7,6 +7,31 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Unreleased — Deep Debt Evolution Phase 3 (May 9, 2026)
+
+### Changed
+- **Hardcoded `/tmp` fallbacks evolved**: `primal_bridge.rs` now uses
+  `niche::socket_dirs()` multi-path discovery; `toadstool_report.rs`,
+  `fleet_client.rs`, `brain_persistence.rs`, `validate_cross_vendor_dispatch.rs`
+  all use `std::env::temp_dir()` instead of hardcoded `/tmp`.
+- **Smart refactor `rhmc/mod.rs`**: 802L → 363L mod.rs + 215L `rational.rs`
+  (partial-fraction math) + 210L `multishift_cg.rs` (solver). Config builders
+  deduplicated via `RhmcFermionConfig::from_spectral()` helper.
+- **API signatures evolved**: `niche::set_family_id(String)` →
+  `set_family_id(impl Into<String>)`; `TelemetryWriter::with_substrate(String)`
+  → `with_substrate(impl Into<String>)`.
+- **Dependency updates**: `cudarc` 0.19.3→0.19.4, `tokio` 1.50→1.52.3.
+- **Production error handling**: `production_dynamical.rs` and `validate_fpeos.rs`
+  unwrap() calls replaced with proper error paths and harness reporting.
+- **Validation matrix updated**: `cells.rs` now reflects ILDG/Lime and
+  autocorrelation as done (previously marked todo).
+- **NaN-safe sort**: `gpu_physics_proxy.rs` partial_cmp with Ordering::Equal fallback.
+
+### Verified
+- `cargo fmt --check` — zero formatting drift
+- `cargo clippy --lib` — zero warnings
+- `cargo test --lib` — 1002 tests pass, 0 failures
+
 ## Unreleased — Interstadial Eukaryotic Evolution (May 9, 2026)
 
 ### Added

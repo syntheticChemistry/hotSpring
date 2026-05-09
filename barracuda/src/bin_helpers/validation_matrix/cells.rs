@@ -323,10 +323,10 @@ pub fn print_planning_matrix() {
     println!("  │ Susceptibilities χ_P,χ_L│ ✓ done  │ Plaquette + Polyakov    │");
     println!("  │ HVP correlator          │ ✓ done  │ Point-to-all staggered  │");
     println!("  │ ─────────────────────── │ ─────── │ ─────────────────────── │");
-    println!("  │ HISQ smeared links      │ ✗ todo  │ ~2-3wk, needed m<0.05   │");
-    println!("  │ ILDG/Lime config I/O    │ ✗ todo  │ ~1wk, load Chuna configs│");
-    println!("  │ Autocorrelation analysis│ ✗ todo  │ ~2d, honest error bars  │");
-    println!("  │ Continuum extrapolation │ ✗ todo  │ ~3d, multi-β fitting    │");
+    println!("  │ ILDG/Lime config I/O    │ ✓ done  │ lattice::ildg + lime    │");
+    println!("  │ Autocorrelation analysis│ ✓ done  │ stats::autocorrelation  │");
+    println!("  │ HISQ smeared links      │ ✗ gap   │ Needed for m<0.05       │");
+    println!("  │ Continuum extrapolation │ ✗ gap   │ Multi-β fitting         │");
     println!("  └────────────────────────┴─────────┴─────────────────────────┘");
     println!();
 

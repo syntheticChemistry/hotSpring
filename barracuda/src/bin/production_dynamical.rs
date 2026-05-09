@@ -158,7 +158,13 @@ fn main() {
 
     println!("  Initializing GPU...");
     let lattice = Lattice::hot_start(dims, args.beta, args.seed);
-    let rt = tokio::runtime::Runtime::new().unwrap();
+    let rt = match tokio::runtime::Runtime::new() {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("  Tokio runtime init failed: {e}");
+            std::process::exit(1);
+        }
+    };
     let gpu = match rt.block_on(GpuF64::new()) {
         Ok(g) => g,
         Err(e) => {
@@ -303,8 +309,14 @@ fn main() {
             "ms_per_trajectory": ms_per_traj,
             "total_wall_s": total_wall,
         });
-        std::fs::write(&path, serde_json::to_string_pretty(&json).unwrap())
-            .expect("failed to write output");
+        let Ok(text) = serde_json::to_string_pretty(&json) else {
+            eprintln!("  Failed to serialize results JSON");
+            std::process::exit(1);
+        };
+        if let Err(e) = std::fs::write(&path, text) {
+            eprintln!("  Failed to write output to {path}: {e}");
+            std::process::exit(1);
+        }
         println!("  Results → {path}");
     }
 }

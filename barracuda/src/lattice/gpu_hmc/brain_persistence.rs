@@ -61,7 +61,8 @@ pub fn brain_state_dir() -> PathBuf {
 fn dirs_fallback() -> PathBuf {
     std::env::var("XDG_DATA_HOME").map_or_else(
         |_| {
-            let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+            let home = std::env::var("HOME")
+                .unwrap_or_else(|_| std::env::temp_dir().to_string_lossy().into_owned());
             PathBuf::from(home).join(".local").join("share")
         },
         PathBuf::from,

@@ -57,19 +57,18 @@ impl NucleusContext {
 
         #[cfg(unix)]
         {
-            let runtime_dir = std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".into());
-            let base = format!("{runtime_dir}/biomeos");
-
             let mut discovered = HashMap::new();
-            for path in collect_biomeos_socks(Path::new(&base), &family) {
-                let Some(stem) = path.file_stem().and_then(|s| s.to_str()) else {
-                    continue;
-                };
-                let Some((primal_name, _sock_family)) = stem.rsplit_once('-') else {
-                    continue;
-                };
-                let ep = probe_socket(&path, primal_name);
-                discovered.insert(primal_name.to_string(), ep);
+            for dir in crate::niche::socket_dirs() {
+                for path in collect_biomeos_socks(&dir, &family) {
+                    let Some(stem) = path.file_stem().and_then(|s| s.to_str()) else {
+                        continue;
+                    };
+                    let Some((primal_name, _sock_family)) = stem.rsplit_once('-') else {
+                        continue;
+                    };
+                    let ep = probe_socket(&path, primal_name);
+                    discovered.insert(primal_name.to_string(), ep);
+                }
             }
 
             Self {

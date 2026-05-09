@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026
-**Last audited:** May 9, 2026 (Interstadial Eukaryotic Evolution)
+**Last audited:** May 9, 2026 (Deep Debt Evolution Phase 3)
 **License:** AGPL-3.0-or-later
 
 ---
@@ -375,7 +375,7 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 - **Resolution:** K80 boots cleanly to vfio-pci. `/dev/vfio/35` and
   `/dev/vfio/36` open without EBUSY. Validated with full power drain.
 
-### GAP-HS-030: GV100 WPR Not Used by Closed Driver (Exp 173)
+### GAP-HS-048: GV100 WPR Not Used by Closed Driver (Exp 173)
 
 - **Primal:** coralReef (coral-driver / sovereign_init)
 - **Severity:** Critical (blocks GV100 sovereign ACR boot)
@@ -401,7 +401,7 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 - **Action:** Pivot coral-driver `FalconBootSolver` to support a Volta-specific
   path that bypasses WPR/ACR. Analyze mmiotrace from Exp 173 artifacts.
 
-### GAP-HS-031: Blackwell SM Warp Exception — Invalid Address Space (Exp 175-177) (RESOLVED)
+### GAP-HS-049: Blackwell SM Warp Exception — Invalid Address Space (Exp 175-177) (RESOLVED)
 
 - **Primal:** coralReef (coral-driver / coral-kmod / uvm_compute)
 - **Severity:** Critical (was blocking sovereign dispatch on RTX 5060)
@@ -488,7 +488,7 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
   Validated via `bench_sovereign_parity` and `validate_pure_gauge --features sovereign-dispatch`
   (16/16 checks pass). QMD v5.0 implemented for Blackwell.
   
-  GAP-HS-031 RESOLVED — RTX 5060 sovereign VFIO dispatch LIVE (April 19, 2026).
+  GAP-HS-049 RESOLVED — RTX 5060 sovereign VFIO dispatch LIVE (April 19, 2026).
 - **Action:** None — both compile parity and dispatch parity resolved.
 
 ---

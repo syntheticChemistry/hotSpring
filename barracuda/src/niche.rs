@@ -347,8 +347,8 @@ static FAMILY_ID_OVERRIDE: std::sync::OnceLock<String> = std::sync::OnceLock::ne
 ///
 /// Call before any socket resolution or primal discovery. This avoids
 /// `unsafe { std::env::set_var }` in Edition 2024.
-pub fn set_family_id(id: String) {
-    FAMILY_ID_OVERRIDE.set(id).ok();
+pub fn set_family_id(id: impl Into<String>) {
+    FAMILY_ID_OVERRIDE.set(id.into()).ok();
 }
 
 /// Resolve the biomeOS family ID.

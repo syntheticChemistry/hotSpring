@@ -274,7 +274,7 @@ fn compute_ipr_from_stats(eigenvalues: &[f64]) -> f64 {
         .windows(2)
         .map(|w| (w[1] - w[0]).abs())
         .collect();
-    spacings.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    spacings.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
     let median = spacings[spacings.len() / 2];
     if median < 1e-15 {
         return 1.0 / n;
