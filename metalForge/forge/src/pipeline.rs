@@ -392,7 +392,7 @@ pub mod topologies {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
+#[allow(clippy::expect_used, reason = "expect is acceptable in test assertions")]
 mod tests {
     use super::{ChannelKind, StageId, StageRole, SubstrateKind, WorkUnit, topologies};
 

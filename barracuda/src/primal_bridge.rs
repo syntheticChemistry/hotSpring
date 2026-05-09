@@ -14,8 +14,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-const JSONRPC_SOCKET_READ_TIMEOUT: std::time::Duration =
-    std::time::Duration::from_secs(2);
+const JSONRPC_SOCKET_READ_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(2);
 const JSONRPC_READ_BUFFER_BYTES: usize = 4096;
 const JSONRPC_REQUEST_ID: i64 = 1;
 
@@ -392,9 +391,7 @@ pub fn send_jsonrpc(
 
 /// Known socket-name aliases for primals that may register under alternative names.
 /// Data-driven: no hardcoded if/else chains.
-const PRIMAL_ALIASES: &[(&str, &[&str])] = &[
-    ("coralreef", &["coral-glowplug"]),
-];
+const PRIMAL_ALIASES: &[(&str, &[&str])] = &[("coralreef", &["coral-glowplug"])];
 
 fn known_aliases(name: &str) -> &'static [&'static str] {
     PRIMAL_ALIASES
@@ -482,9 +479,7 @@ mod tests {
             discovered,
             family_id: "fam".to_string(),
         };
-        let found = ctx
-            .get_by_capability("crypto")
-            .expect("crypto capability");
+        let found = ctx.get_by_capability("crypto").expect("crypto capability");
         assert_eq!(found.name, "bear");
     }
 }

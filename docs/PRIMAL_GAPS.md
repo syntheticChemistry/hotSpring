@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026
-**Last audited:** May 8, 2026 (Deep Debt Evolution Phase 2)
+**Last audited:** May 9, 2026 (Interstadial Eukaryotic Evolution)
 **License:** AGPL-3.0-or-later
 
 ---

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use crate::production::trajectory_input::canonical_seq;
 use crate::production::TrajectoryEvent;
+use crate::production::trajectory_input::canonical_seq;
 use barracuda::nautilus::BetaObservation;
 use std::sync::mpsc;
 
@@ -97,7 +97,10 @@ pub(super) fn handle_trajectory_event(
     }
 }
 
-pub(super) fn handle_flush_trajectory_batch(state: &mut WorkerState, resp_tx: &mpsc::Sender<NpuResponse>) {
+pub(super) fn handle_flush_trajectory_batch(
+    state: &mut WorkerState,
+    resp_tx: &mpsc::Sender<NpuResponse>,
+) {
     if state.traj_batch.is_empty() {
         let _ = resp_tx.send(NpuResponse::TrajectoryBatchProcessed { n_events: 0 });
     } else {

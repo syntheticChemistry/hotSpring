@@ -285,26 +285,26 @@ fn validate_nuclear_eos(
     println!("  GPU SEMF batch vs CPU SEMF (SLy4, 20 nuclei)...");
 
     let test_nuclei: Vec<(usize, usize)> = vec![
-        (8, 8),     // O-16
-        (20, 20),   // Ca-40
-        (26, 30),   // Fe-56
-        (28, 30),   // Ni-58
-        (50, 70),   // Sn-120
-        (82, 126),  // Pb-208
-        (92, 146),  // U-238
-        (6, 6),     // C-12
-        (1, 0),     // H-1
-        (2, 2),     // He-4
-        (14, 14),   // Si-28
-        (29, 34),   // Cu-63
-        (47, 60),   // Ag-107
-        (79, 118),  // Au-197
-        (3, 4),     // Li-7
-        (11, 12),   // Na-23
-        (19, 20),   // K-39
-        (30, 34),   // Zn-64
-        (48, 66),   // Cd-114
-        (56, 82),   // Ba-138
+        (8, 8),    // O-16
+        (20, 20),  // Ca-40
+        (26, 30),  // Fe-56
+        (28, 30),  // Ni-58
+        (50, 70),  // Sn-120
+        (82, 126), // Pb-208
+        (92, 146), // U-238
+        (6, 6),    // C-12
+        (1, 0),    // H-1
+        (2, 2),    // He-4
+        (14, 14),  // Si-28
+        (29, 34),  // Cu-63
+        (47, 60),  // Ag-107
+        (79, 118), // Au-197
+        (3, 4),    // Li-7
+        (11, 12),  // Na-23
+        (19, 20),  // K-39
+        (30, 34),  // Zn-64
+        (48, 66),  // Cd-114
+        (56, 82),  // Ba-138
     ];
 
     let cpu_energies: Vec<f64> = test_nuclei
@@ -415,11 +415,7 @@ fn validate_nuclear_eos(
     println!("    {:.1}s", start.elapsed().as_secs_f64());
 }
 
-fn validate_spectral(
-    harness: &mut ValidationHarness,
-    gpu: &GpuF64,
-    telem: &mut TelemetryWriter,
-) {
+fn validate_spectral(harness: &mut ValidationHarness, gpu: &GpuF64, telem: &mut TelemetryWriter) {
     use hotspring_barracuda::spectral::{WGSL_SPMV_CSR_F64, anderson_2d};
 
     let start = Instant::now();

@@ -50,7 +50,10 @@ fn binding_energy_l2_medium_nucleus_uses_hfb() {
 }
 
 #[test]
-#[allow(clippy::assertions_on_constants)]
+#[allow(
+    clippy::assertions_on_constants,
+    reason = "intentional constant assertions verify tolerance ordering invariants"
+)]
 fn hfb_solver_respects_tolerance_ordering() {
     assert!(
         tolerances::EXACT_F64 < tolerances::ITERATIVE_F64,

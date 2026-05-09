@@ -15,7 +15,10 @@ fn cold_start_unit_plaquette_and_zero_wilson_action() {
         "cold start ⟨□⟩ should be 1, got {plaq}"
     );
     let s = lat.wilson_action();
-    assert!(s.abs() < 1e-14, "cold start Wilson action S should be 0, got {s}");
+    assert!(
+        s.abs() < 1e-14,
+        "cold start Wilson action S should be 0, got {s}"
+    );
 }
 
 #[test]
@@ -33,7 +36,10 @@ fn hot_start_wilson_action_is_strictly_positive() {
     let beta = 5.5;
     let lat = wilson::Lattice::hot_start(DIM_4444, beta, 7);
     let s = lat.wilson_action();
-    assert!(s.is_finite() && s > 0.0, "disordered links give S > 0, got {s}");
+    assert!(
+        s.is_finite() && s > 0.0,
+        "disordered links give S > 0, got {s}"
+    );
 }
 
 #[test]

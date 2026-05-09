@@ -41,7 +41,14 @@ pub enum AtomicType {
 /// Single source of truth: `niche::DEPENDENCIES` provides the name→domain mapping.
 const TOWER_DOMAINS: &[&str] = &["crypto", "discovery"];
 const NODE_DOMAINS: &[&str] = &["crypto", "discovery", "compute", "math", "shader"];
-const NEST_DOMAINS: &[&str] = &["crypto", "discovery", "storage", "dag", "ledger", "attribution"];
+const NEST_DOMAINS: &[&str] = &[
+    "crypto",
+    "discovery",
+    "storage",
+    "dag",
+    "ledger",
+    "attribution",
+];
 
 /// Look up capability domain for a dependency name via [`niche::DEPENDENCIES`].
 #[cfg(test)]
@@ -69,7 +76,14 @@ impl AtomicType {
             Self::Node => NODE_DOMAINS,
             Self::Nest => NEST_DOMAINS,
             Self::FullNucleus => &[
-                "crypto", "discovery", "compute", "math", "shader", "storage", "dag", "ledger",
+                "crypto",
+                "discovery",
+                "compute",
+                "math",
+                "shader",
+                "storage",
+                "dag",
+                "ledger",
                 "attribution",
             ],
         }

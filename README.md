@@ -26,9 +26,24 @@ hotSpring is where we reproduce published computational physics work from the Mu
 
 hotSpring answers: *"Does our hardware produce correct physics?"*, *"Can Rust+WGSL replace the Python scientific stack?"*, and *"Can IPC-composed NUCLEUS primals reproduce what standalone Rust proves?"*
 
+### Eukaryotic UniBin: `hotspring_unibin`
+
+hotSpring has evolved from the prokaryotic era of separate binaries into an eukaryotic UniBin — a single `hotspring_unibin` binary consolidating certification (L0–L5 guideStone organelle), validation scenarios (6 absorbed experiments across 6 tracks), and status reporting. Reference: primalSpring v0.9.25 interstadial eukaryotic wave.
+
+```
+hotspring certify              # L0-L5 composition certification
+hotspring certify --bare       # L0 only, no primals needed
+hotspring validate             # run all validation scenarios
+hotspring validate --track nuclear-physics
+hotspring validate --tier rust  # Tier 1 only (no IPC)
+hotspring validate --list      # list all scenarios
+hotspring status               # composition health summary
+hotspring version              # version info
+```
+
 ### guideStone Status: Level 5 — CERTIFIED (reference implementation)
 
-hotSpring is the reference implementation for the guideStone Composition Standard (primalSpring v0.9.17, guideStone v1.2.0). The guideStone is a self-validating deployable that carries its own benchmark — all 5 certified properties are satisfied:
+hotSpring is the reference implementation for the guideStone Composition Standard (primalSpring v0.9.25, guideStone v1.2.0). The guideStone is a self-validating deployable that carries its own benchmark — all 5 certified properties are satisfied:
 
 | Property | Evidence |
 |----------|----------|
@@ -40,9 +55,9 @@ hotSpring is the reference implementation for the guideStone Composition Standar
 
 **Validation ladder**: Python baseline (L1) → Rust proof (L2, DONE) → barraCuda CPU (L3) → barraCuda GPU (L4) → **guideStone (L5, CERTIFIED)** → NUCLEUS deployment (L6, target).
 
-**Pre-flight**: `primalspring_guidestone` certifies composition correctness (6 layers). hotSpring's domain guideStone inherits that base and only validates QCD physics on top.
+**Pre-flight**: `hotspring_unibin certify` certifies composition correctness (6 layers). The legacy `hotspring_guidestone` binary is transitional — use `hotspring_unibin certify` instead.
 
-**plasmidBin Deployment**: NUCLEUS primals ship as musl-static genomeBin binaries (46 binaries across 6 target triples, primalSpring v0.9.17) via `infra/plasmidBin/`. No compilation needed — deploy with `nucleus_launcher.sh --composition niche-hotspring`, then run `hotspring_guidestone` against the live stack. See `scripts/validate-primal-proof.sh` for the end-to-end workflow (auto-sets BEARDOG_FAMILY_SEED, SONGBIRD_SECURITY_PROVIDER, NESTGATE_JWT_SECRET).
+**plasmidBin Deployment**: NUCLEUS primals ship as musl-static genomeBin binaries (46 binaries across 6 target triples, primalSpring v0.9.25) via `infra/plasmidBin/`. No compilation needed — deploy with `nucleus_launcher.sh --composition niche-hotspring`, then run `hotspring_guidestone` against the live stack. See `scripts/validate-primal-proof.sh` for the end-to-end workflow (auto-sets BEARDOG_FAMILY_SEED, SONGBIRD_SECURITY_PROVIDER, NESTGATE_JWT_SECRET).
 
 **Composition Template (Phase 46)**: `tools/hotspring_composition.sh` implements event-driven QCD computation via the NUCLEUS composition library. Async tick model (convergence-based, not 60Hz), DAG memoization for parameter sweeps, ledger-sealed reproducible runs, and scientific provenance braids for peer-review audit. Run with `COMPOSITION_NAME=hotspring ./tools/hotspring_composition.sh` (requires NUCLEUS primals) or test in bare mode (graceful degradation, no crash).
 

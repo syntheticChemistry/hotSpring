@@ -56,15 +56,15 @@
 //! | `rhmc_calibrator` | Self-tuning dt/n_md/spectral range for RHMC |
 //! | `observables` | Three-substrate stream integration and NPU monitoring |
 
-pub mod brain_persistence;
 mod brain_config;
 mod brain_cortex;
 mod brain_inference;
+pub mod brain_persistence;
 pub mod brain_rhmc;
-mod fp64_substrate;
-mod gauge_layout;
 pub mod dynamical;
 mod fermion_bridge;
+mod fp64_substrate;
+mod gauge_layout;
 pub mod gpu_rhmc;
 pub mod hasenbusch;
 pub mod observables;
@@ -122,12 +122,13 @@ pub use unidirectional_cortex::{
 };
 pub use unidirectional_rhmc::gpu_rhmc_trajectory_unidirectional;
 
-pub use fp64_substrate::substrate_fp64_strategy;
-pub use gauge_layout::{
-    build_neighbors, flatten_links, flatten_momenta, unflatten_links_into,
-};
-#[expect(deprecated, reason = "transitional — re-export of deprecated gpu_dot_re for legacy callers")]
+#[expect(
+    deprecated,
+    reason = "transitional — re-export of deprecated gpu_dot_re for legacy callers"
+)]
 pub(super) use fermion_bridge::{gpu_dirac_dispatch, gpu_dot_re, gpu_fermion_force_dispatch};
+pub use fp64_substrate::substrate_fp64_strategy;
+pub use gauge_layout::{build_neighbors, flatten_links, flatten_momenta, unflatten_links_into};
 
 use super::wilson::Lattice;
 use crate::gpu::GpuF64;

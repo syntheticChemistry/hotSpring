@@ -45,11 +45,11 @@ mod potentials;
 #[cfg(test)]
 mod tests;
 
-use basis::BasisState;
-use energy::SpeciesResult;
 use super::hfb_common::Mat;
 use super::semf::semf_binding_energy;
 use barracuda::linalg::eigh_f64;
+use basis::BasisState;
+use energy::SpeciesResult;
 use std::collections::HashMap;
 
 use crate::error::HotSpringError;

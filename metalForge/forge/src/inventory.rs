@@ -67,7 +67,7 @@ pub fn print_inventory(substrates: &[Substrate]) {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
+#[allow(clippy::expect_used, reason = "expect is acceptable in test assertions")]
 mod tests {
     use super::*;
 

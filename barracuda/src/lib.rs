@@ -49,6 +49,8 @@ extern crate self as hotspring_barracuda;
 pub mod bench;
 /// Shared infrastructure for `src/bin` targets (refactored validation suites).
 pub mod bin_helpers;
+/// Composition certification engine — absorbed guideStone organelle (L0–L5).
+pub mod certification;
 /// NUCLEUS composition validation — atomic health, capability routing, science probes.
 pub mod composition;
 /// ToadStool compute dispatch validation (submit/result/capabilities).
@@ -81,6 +83,8 @@ pub mod glowplug_client;
 pub mod gpu;
 /// Hardware calibration: safe per-tier probe + capability mask.
 pub mod hardware_calibration;
+/// Consolidated IPC module: discovery, composition, glowplug, ember, squirrel, signing.
+pub mod ipc;
 /// Lattice QCD: SU(3), Wilson action, HMC, Dirac, CG, Abelian Higgs.
 pub mod lattice;
 /// MCP (Model Context Protocol) tool definitions for AI/LLM integration.

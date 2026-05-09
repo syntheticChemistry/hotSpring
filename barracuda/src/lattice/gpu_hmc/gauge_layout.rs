@@ -1,10 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use super::super::{
-    complex_f64::Complex64,
-    su3::Su3Matrix,
-    wilson::Lattice,
-};
+use super::super::{complex_f64::Complex64, su3::Su3Matrix, wilson::Lattice};
 
 /// Flatten lattice links to f64 array (same layout as `DiracGpuLayout`).
 #[must_use]
@@ -70,8 +66,10 @@ pub fn unflatten_links_into(lattice: &mut Lattice, flat: &[f64]) {
             let mut m = Su3Matrix::ZERO;
             for row in 0..3 {
                 for col in 0..3 {
-                    m.m[row][col] =
-                        Complex64::new(flat[base + row * 6 + col * 2], flat[base + row * 6 + col * 2 + 1]);
+                    m.m[row][col] = Complex64::new(
+                        flat[base + row * 6 + col * 2],
+                        flat[base + row * 6 + col * 2 + 1],
+                    );
                 }
             }
             lattice.set_link(x, mu, m);

@@ -23,9 +23,7 @@ pub fn substrate_fp64_strategy(gpu: &GpuF64) -> Fp64Strategy {
     let rate = classify_fp64_rate_from_adapter(&gpu.adapter_name);
     match rate {
         Fp64RateLocal::Full | Fp64RateLocal::Half => Fp64Strategy::Native,
-        Fp64RateLocal::Narrow if gpu.has_f64 => {
-            Fp64Strategy::Concurrent
-        }
+        Fp64RateLocal::Narrow if gpu.has_f64 => Fp64Strategy::Concurrent,
         Fp64RateLocal::Narrow => Fp64Strategy::Hybrid,
     }
 }

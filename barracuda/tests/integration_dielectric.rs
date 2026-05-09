@@ -50,11 +50,18 @@ fn mermin_high_frequency_reaches_dielectric_vacuum() {
         "Re ε(ω→∞) → 1, got Re ε = {}",
         eps.re
     );
-    assert!(eps.im.abs() < 0.05, "Im ε should be small at high ω, got {}", eps.im);
+    assert!(
+        eps.im.abs() < 0.05,
+        "Im ε should be small at high ω, got {}",
+        eps.im
+    );
 
     let eps_cm = epsilon_completed_mermin(k, omega, nu, &params);
     assert!((eps_cm.re - 1.0).abs() < 0.02, "completed Mermin Re ε → 1");
-    assert!(eps_cm.im.abs() < 0.05, "completed Mermin Im ε small at high ω");
+    assert!(
+        eps_cm.im.abs() < 0.05,
+        "completed Mermin Im ε small at high ω"
+    );
 }
 
 #[test]

@@ -9,8 +9,8 @@ use crate::physics::NuclearMatterProps;
 use crate::provenance;
 
 use super::{
-    build_residuals_semf, compute_be_chi2_only, compute_residual_metrics,
-    per_nucleus_residuals_to_json, NucleusResidual, ResidualMetrics,
+    NucleusResidual, ResidualMetrics, build_residuals_semf, compute_be_chi2_only,
+    compute_residual_metrics, per_nucleus_residuals_to_json,
 };
 
 /// Print SEMF GPU vs CPU precision summary (max diff, speedup, verdict).

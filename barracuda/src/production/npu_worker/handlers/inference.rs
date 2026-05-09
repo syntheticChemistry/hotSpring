@@ -2,7 +2,7 @@
 
 use crate::md::reservoir::heads;
 use crate::production::trajectory_input::{canonical_input, canonical_seq, heuristic_phase};
-use crate::production::{predict_rejection, BetaResult};
+use crate::production::{BetaResult, predict_rejection};
 use barracuda::nautilus::BetaObservation;
 use std::sync::mpsc;
 

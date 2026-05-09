@@ -17,6 +17,8 @@
 
 mod composition;
 mod harness;
+/// Absorbed validation scenarios with `ScenarioMeta` registry.
+pub mod scenarios;
 mod telemetry;
 
 pub use composition::{CheckOutcome, CompositionCheck, CompositionResult, OrExit, ValidationSink};

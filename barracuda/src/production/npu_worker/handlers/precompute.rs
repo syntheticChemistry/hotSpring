@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 use crate::md::reservoir::heads;
-use crate::production::trajectory_input::{canonical_input, canonical_seq};
 use crate::production::MetaRow;
+use crate::production::trajectory_input::{canonical_input, canonical_seq};
 use crate::provenance::KNOWN_BETA_C_SU3_NT4;
 use std::sync::mpsc;
 

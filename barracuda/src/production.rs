@@ -16,20 +16,20 @@
 //!   find_max_uncertainty_beta, build_training_data, bootstrap_esn_from_trajectory_log
 
 pub mod beta_scan;
+pub mod bootstrap;
 pub mod checkpoint;
 pub mod cortex_worker;
 pub mod dynamical_bootstrap;
 pub mod dynamical_mixed_pipeline;
 pub mod dynamical_summary;
+pub mod esn_heuristics;
+pub mod meta_table;
 pub mod mixed_summary;
 pub mod npu_worker;
 pub mod sub_models;
 pub mod titan_validation;
 pub mod titan_worker;
 pub mod trajectory_input;
-pub mod bootstrap;
-pub mod esn_heuristics;
-pub mod meta_table;
 pub mod types;
 
 pub use bootstrap::bootstrap_esn_from_trajectory_log;
@@ -37,5 +37,5 @@ pub use esn_heuristics::{
     build_training_data, check_thermalization, find_max_uncertainty_beta, plaquette_variance,
     predict_beta_c, predict_rejection,
 };
-pub use meta_table::{load_meta_table, MetaRow};
+pub use meta_table::{MetaRow, load_meta_table};
 pub use types::{AttentionState, BetaResult, TrajectoryEvent, TrajectoryPhase};

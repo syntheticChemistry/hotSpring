@@ -132,7 +132,10 @@ pub fn dispatch_dual(
 mod tests {
     use super::*;
 
-    #[allow(dead_code)]
+    #[allow(
+        dead_code,
+        reason = "test helper struct used for trait impl validation"
+    )]
     struct DoubleKernel;
 
     impl GpuKernel for DoubleKernel {

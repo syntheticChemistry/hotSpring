@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use super::types::BetaResult;
 use crate::md::reservoir::NpuSimulator;
 use crate::provenance::KNOWN_BETA_C_SU3_NT4 as KNOWN_BETA_C;
-use super::types::BetaResult;
 
 /// Compute sample variance of plaquette history.
 ///
@@ -191,10 +191,8 @@ pub fn find_max_uncertainty_beta(
 
 #[cfg(test)]
 mod tests {
+    use super::{build_training_data, check_thermalization, plaquette_variance, predict_rejection};
     use crate::production::types::BetaResult;
-    use super::{
-        build_training_data, check_thermalization, plaquette_variance, predict_rejection,
-    };
 
     #[test]
     fn plaquette_variance_constant_is_zero() {

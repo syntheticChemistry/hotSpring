@@ -7,6 +7,41 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Unreleased — Interstadial Eukaryotic Evolution (May 9, 2026)
+
+### Added
+- **Eukaryotic UniBin** (`hotspring_unibin`): Single binary with `certify`,
+  `validate`, `status`, `version` subcommands. Absorbs guideStone certification
+  (L0–L5) and 6 validation scenarios into one binary.
+- **`barracuda/src/certification/`** organelle module: `bare.rs` (Properties 1-5),
+  `composition_probes.rs` (scalar/vector parity, SEMF E2E, crypto witness, compute
+  dispatch). Library API `certification::certify(max_layer)` returns `ValidationResult`.
+- **`barracuda/src/validation/scenarios/`** with `ScenarioMeta` registry:
+  6 absorbed scenarios across 6 tracks (nuclear-physics, lattice-qcd,
+  spectral-theory, molecular-dynamics, composition-parity, domain-science).
+  Each carries provenance (original binary name, date).
+- **`barracuda/src/ipc/`** consolidated IPC module: unified namespace re-exporting
+  from `primal_bridge`, `composition`, `glowplug_client`, `fleet_ember`,
+  `fleet_client`, `squirrel_client`, `toadstool_report`, `receipt_signing`.
+- **`docs/PRIMAL_PROOF_IPC_MAPPING.md`**: Maps every `barracuda::` library call
+  to its JSON-RPC equivalent for IPC-first composition validation.
+- **`fossilRecord/experiments_prokaryotic_may2026/`**: Dated snapshot of 8 experiment
+  binaries (exp070, exp154–exp158, exp167) with provenance README.
+
+### Changed
+- All 9 bare `#[allow(...)]` annotations now include `reason = "..."` — zero bare
+  suppressions in active code (metalForge/forge tests, integration tests, dual_dispatch).
+- primalSpring dependency updated to path → v0.9.25 (interstadial eukaryotic).
+- `clap` added as dependency for UniBin CLI argument parsing.
+
+### Verified
+- `cargo fmt --check` — zero formatting drift
+- `cargo clippy --lib` — zero warnings
+- `cargo test --lib` — 1002 tests pass, 0 failures
+- Zero `#[deprecated]` without `note =`
+- Zero `#[allow(...)]` without `reason =` in active code
+- Zero TODO/FIXME/HACK/DEBT markers in active code
+
 ## Unreleased — Deep Debt Evolution Phase 2 (May 8, 2026)
 
 ### Added

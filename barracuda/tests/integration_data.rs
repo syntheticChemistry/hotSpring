@@ -106,7 +106,10 @@ fn screened_coulomb_script_path_has_no_control_prefix() {
 }
 
 #[test]
-#[allow(clippy::assertions_on_constants)]
+#[allow(
+    clippy::assertions_on_constants,
+    reason = "intentional constant assertions verify tolerance ordering invariants"
+)]
 fn transport_tolerances_ordered() {
     assert!(
         tolerances::TRANSPORT_D_STAR_VS_SARKAS < tolerances::TRANSPORT_D_STAR_VS_FIT_LITE,

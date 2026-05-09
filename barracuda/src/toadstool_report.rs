@@ -17,8 +17,7 @@ use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[cfg(unix)]
-const TOADSTOOL_JSONRPC_READ_TIMEOUT: std::time::Duration =
-    std::time::Duration::from_secs(5);
+const TOADSTOOL_JSONRPC_READ_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
 #[cfg(unix)]
 const TOADSTOOL_JSONRPC_REQUEST_ID: i64 = 1;
 

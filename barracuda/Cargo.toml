@@ -104,6 +104,9 @@ barracuda = { path = "../../../primals/barraCuda/crates/barracuda", optional = t
 # BLAKE3 hashing for provenance witnesses (compute output hashing)
 blake3 = "1"
 
+# CLI argument parsing for UniBin binary
+clap = { version = "4", features = ["derive"] }
+
 # Structured logging (transitive dep via wgpu; explicit for library diagnostics)
 log = "0.4"
 
@@ -886,7 +889,16 @@ path = "src/bin/validate_nucleus_nest.rs"
 name = "validate_squirrel_roundtrip"
 path = "src/bin/validate_squirrel_roundtrip.rs"
 
+# ═══════════════════════════════════════════════════════════════
+# Eukaryotic UniBin (certify + validate + status + version)
+# ═══════════════════════════════════════════════════════════════
+
+[[bin]]
+name = "hotspring_unibin"
+path = "src/bin/hotspring/main.rs"
+
 # guideStone: self-validating NUCLEUS deployable (Level 5 certified)
+# Transition: → `hotspring_unibin certify`
 [[bin]]
 name = "hotspring_guidestone"
 path = "src/bin/hotspring_guidestone.rs"

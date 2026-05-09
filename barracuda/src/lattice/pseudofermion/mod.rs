@@ -38,12 +38,12 @@ pub use adaptive::{
     WarmStartResult, dynamical_thermalize_adaptive, dynamical_thermalize_warm_start,
     dynamical_thermalize_warm_start_npu,
 };
-pub use npu_steering::{HmcForceAnomalyDetector, NpuSteering};
 pub use hasenbusch::{
     HasenbuschConfig, HasenbuschHmcConfig, HasenbuschHmcResult, hasenbusch_heavy_action,
     hasenbusch_heavy_heatbath, hasenbusch_hmc_trajectory, hasenbusch_ratio_action,
     hasenbusch_ratio_force, hasenbusch_ratio_heatbath,
 };
+pub use npu_steering::{HmcForceAnomalyDetector, NpuSteering};
 
 use super::cg::{CgResult, cg_solve};
 use super::complex_f64::Complex64;

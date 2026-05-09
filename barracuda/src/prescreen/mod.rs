@@ -14,8 +14,8 @@
 //! - Tier 3:   NPU (Akida, ~1W) or CPU fallback
 //! - Tier 4:   CPU parallel (rayon) for HFB that passes all screens
 
-mod classifier;
 mod cascade;
+mod classifier;
 mod l1_proxy;
 mod nmp;
 mod objectives;

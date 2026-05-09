@@ -1,186 +1,140 @@
-# hotSpring — Primal Proof IPC Mapping
+# Primal Proof IPC Mapping — hotSpring
 
-**Spring:** hotSpring v0.6.32
-**Purpose:** Maps hotSpring domain science to barraCuda/primal JSON-RPC methods for Level 5 validation
-**Date:** April 17, 2026
-**License:** AGPL-3.0-or-later
-
----
+**Version**: v0.6.32 → interstadial eukaryotic  
+**Last updated**: May 9, 2026  
+**Purpose**: Maps every `barracuda::` library call used in hotSpring to its JSON-RPC equivalent for IPC-first operation.
 
 ## Overview
 
-For the primal proof (Level 5), hotSpring must validate that peer-reviewed science
-produces correct results when domain math is routed through NUCLEUS primals over IPC,
-rather than called in-process via library imports. This document maps each domain
-science path to the specific primal JSON-RPC methods it exercises.
+hotSpring validates physics computations through two paths:
 
-The validation harness (`validate_primal_proof`) calls these methods against a running
-NUCLEUS deployed from plasmidBin ecobins, compares results against Python baselines,
-and reports PASS/FAIL/SKIP per capability.
+1. **Library path** (`barracuda::`): Direct Rust crate import — used for Tier 1 (structural) validation
+2. **IPC path** (JSON-RPC 2.0): Primal composition via `CompositionContext` — used for Tier 2 (live) validation
 
----
+This document maps every `barracuda::` call to the JSON-RPC method that would produce the same result when routed through the NUCLEUS composition.
 
-## barraCuda IPC Methods (32 methods, UDS JSON-RPC 2.0)
+## Math / Statistics
 
-The barraCuda ecobin primal exposes:
+| Library Call | JSON-RPC Method | Capability | Provider |
+|-------------|----------------|------------|----------|
+| `barracuda::stats::mean(&data)` | `stats.mean` | `tensor` | barraCuda |
+| `barracuda::stats::variance(&data)` | `stats.variance` | `tensor` | barraCuda |
+| `barracuda::stats::std_dev(&data)` | `stats.std_dev` | `tensor` | barraCuda |
+| `barracuda::stats::median(&data)` | `stats.median` | `tensor` | barraCuda |
+| `barracuda::stats::jackknife_error(&data)` | `stats.jackknife_error` | `tensor` | barraCuda |
+| `barracuda::stats::bootstrap(&data, n)` | `stats.bootstrap` | `tensor` | barraCuda |
+| `barracuda::stats::autocorrelation(&data)` | `stats.autocorrelation` | `tensor` | barraCuda |
 
-| Category | Methods |
-|----------|---------|
-| **Tensor** | `tensor.matmul`, `tensor.create`, `tensor.add`, `tensor.scale`, `tensor.clamp`, `tensor.reduce`, `tensor.sigmoid`, `tensor.batch.submit` |
-| **Statistics** | `stats.mean`, `stats.std_dev`, `stats.weighted_mean` |
-| **Compute** | `compute.dispatch` |
-| **Noise** | `noise.perlin2d`, `noise.perlin3d` |
-| **Math** | `math.sigmoid`, `math.log2`, `activation.fitts`, `activation.hick` |
-| **FHE** | `fhe.ntt`, `fhe.pointwise_mul` |
-| **Device** | `device.list`, `device.probe` |
-| **Validation** | `tolerances.get`, `validate.gpu_stack` |
-| **Health** | `health.liveness`, `health.readiness`, `health.check` |
-| **Discovery** | `capabilities.list`, `identity.get`, `primal.info`, `primal.capabilities` |
-| **RNG** | `rng.uniform` |
+## Linear Algebra
 
-Other primals called:
+| Library Call | JSON-RPC Method | Capability | Provider |
+|-------------|----------------|------------|----------|
+| `barracuda::linalg::matmul(a, b)` | `tensor.matmul` | `tensor` | barraCuda |
+| `barracuda::linalg::eigenvalues(m)` | `linalg.eigenvalues` | `tensor` | barraCuda |
+| `barracuda::linalg::svd(m)` | `linalg.svd` | `tensor` | barraCuda |
+| `barracuda::linalg::solve(a, b)` | `linalg.solve` | `tensor` | barraCuda |
+| `barracuda::linalg::det(m)` | `linalg.determinant` | `tensor` | barraCuda |
+| `barracuda::linalg::inverse(m)` | `linalg.inverse` | `tensor` | barraCuda |
 
-| Primal | Methods |
-|--------|---------|
-| **BearDog** | `crypto.hash` (blake3 provenance witnesses) |
-| **toadStool** | `compute.dispatch` (GPU orchestration) |
+## Special Functions
 
----
+| Library Call | JSON-RPC Method | Capability | Provider |
+|-------------|----------------|------------|----------|
+| `barracuda::special::erf(x)` | `special.erf` | `math` | barraCuda |
+| `barracuda::special::erfc(x)` | `special.erfc` | `math` | barraCuda |
+| `barracuda::special::gamma(x)` | `special.gamma` | `math` | barraCuda |
+| `barracuda::special::bessel_j(n, x)` | `special.bessel_j` | `math` | barraCuda |
+| `barracuda::special::spherical_bessel_j(l, x)` | `special.spherical_bessel_j` | `math` | barraCuda |
 
-## Domain Science → IPC Method Mapping
+## GPU Compute / Shader Dispatch
 
-### 1. Nuclear EOS (SEMF Binding Energy)
+| Library Call | JSON-RPC Method | Capability | Provider |
+|-------------|----------------|------------|----------|
+| `GpuF64::dispatch(&shader, data)` | `device.dispatch` | `compute` | toadStool |
+| `GpuF64::create_pipeline(wgsl)` | `device.compile` | `compute` | toadStool |
+| `glowplug_client::dispatch()` | `device.dispatch` | `shader` | coralReef (glowplug) |
+| `glowplug_client::list_devices()` | `device.list` | `shader` | coralReef (glowplug) |
+| `coral_gpu::SovereignPipeline` | `sovereign.boot` | `shader` | coralReef (sovereign) |
 
-**Python baseline:** `control/nuclear_eos/scripts/semf_binding_energy.py`
-**Local Rust:** `physics::semf_binding_energy(Z, N, params)` → `barracuda::optimize::bisect`
+## Spectral Theory
 
-| Step | IPC Method | Params | Expected |
-|------|------------|--------|----------|
-| Create parameter tensor | `tensor.create` | `{ "shape": [10], "data": SLY4_PARAMS }` | tensor id |
-| Scale energy terms | `tensor.scale` | `{ "tensor": id, "scalar": A }` | scaled tensor |
-| Sum binding components | `stats.weighted_mean` | `{ "values": [vol, surf, coul, sym, pair], "weights": [1,1,1,1,1] }` | B/A in MeV |
-| Compare vs baseline | — | — | `|ipc - python| / python < COMPOSITION_SEMF_PARITY_REL (1e-10)` |
+| Library Call | JSON-RPC Method | Capability | Provider |
+|-------------|----------------|------------|----------|
+| `barracuda::spectral::anderson_2d(lx, ly, w, seed)` | `spectral.anderson_2d` | `math` | barraCuda |
+| `barracuda::spectral::lanczos(matrix, n, seed)` | `spectral.lanczos` | `math` | barraCuda |
+| `barracuda::spectral::spmv(matrix, vec)` | `spectral.spmv` | `math` | barraCuda |
 
-**Python baseline value:** Pb-208 B/A = 7.867 MeV (SLY4 params, `control/nuclear_eos`)
+## Security / Cryptography
 
-### 2. Lattice QCD Plaquette
+| Library Call | JSON-RPC Method | Capability | Provider |
+|-------------|----------------|------------|----------|
+| `blake3::hash(data)` | `crypto.hash` | `security` | bearDog |
+| `receipt_signing::sign_receipt()` | `crypto.sign_ed25519` | `security` | bearDog |
+| N/A (token verification) | `auth.check` | `security` | bearDog |
 
-**Python baseline:** `control/lattice_qcd/scripts/wilson_plaquette.py`
-**Local Rust:** `lattice::wilson::Lattice::hot_start(…).average_plaquette()`
+## Provenance / Storage
 
-| Step | IPC Method | Params | Expected |
-|------|------------|--------|----------|
-| Create gauge field tensor | `tensor.create` | `{ "shape": [V, 4, 3, 3], "dtype": "complex_f64" }` | tensor id |
-| Matrix multiply (link product) | `tensor.matmul` | `{ "a": U_mu, "b": U_nu }` | product tensor |
-| Trace and average | `stats.mean` | `{ "values": traces }` | average plaquette |
-| Compare vs baseline | — | — | `|ipc - python| < COMPOSITION_PLAQUETTE_PARITY_ABS (1e-12)` |
+| Library Call | JSON-RPC Method | Capability | Provider |
+|-------------|----------------|------------|----------|
+| `dag_provenance::DagSession` | `dag.commit` | `dag` | rhizoCrypt |
+| N/A (ledger) | `ledger.append` | `ledger` | loamSpine |
+| N/A (attribution) | `attribution.record` | `attribution` | sweetGrass |
+| N/A (storage) | `storage.put` / `storage.get` | `storage` | NestGate |
 
-**Python baseline value:** 4^4 hot-start plaquette ~ 0.333 (SU(3) random, seed-dependent)
+## Discovery / Health
 
-### 3. HMC Trajectory
+| Library Call | JSON-RPC Method | Capability | Provider |
+|-------------|----------------|------------|----------|
+| `NucleusContext::detect()` | `health.liveness` | all | per-primal |
+| `NucleusContext::by_domain(cap)` | `capability.list` | all | per-primal |
+| `NucleusContext::call_by_capability()` | `capability.call` | routed | songBird |
 
-**Python baseline:** `control/lattice_qcd/scripts/hmc_trajectory.py`
-**Local Rust:** `lattice::hmc::hmc_step()`
+## Inference (via Squirrel / neuralSpring)
 
-| Step | IPC Method | Params | Expected |
-|------|------------|--------|----------|
-| GPU shader dispatch | `compute.dispatch` | `{ "shader": "hmc_leapfrog_f64", "workgroups": [V/64, 1, 1] }` | dispatch result |
-| Tensor operations | `tensor.matmul`, `tensor.add`, `tensor.scale` | leapfrog + force | trajectory data |
-| Observable statistics | `stats.mean` | `{ "values": plaquettes }` | mean plaquette |
-| Compare vs baseline | — | — | finite plaquette + acceptance ∈ {true, false} |
+| Library Call | JSON-RPC Method | Capability | Provider |
+|-------------|----------------|------------|----------|
+| `squirrel_client::inference_complete()` | `inference.complete` | `inference` | squirrel |
+| `squirrel_client::inference_embed()` | `inference.embed` | `inference` | squirrel |
+| `squirrel_client::inference_models()` | `inference.models` | `inference` | squirrel |
 
-### 4. CG Solver (Conjugate Gradient)
+## Ember (GPU Hardware)
 
-**Python baseline:** `control/lattice_qcd/scripts/cg_solve.py`
-**Local Rust:** `lattice::cg::cg_solve()`
+| Library Call | JSON-RPC Method | Capability | Provider |
+|-------------|----------------|------------|----------|
+| `EmberClient::mmio_read()` | `mmio.read` | `hardware` | coralReef (ember) |
+| `EmberClient::mmio_write()` | `mmio.write` | `hardware` | coralReef (ember) |
+| `EmberClient::falcon_upload()` | `falcon.upload` | `hardware` | coralReef (ember) |
+| `EmberClient::falcon_start()` | `falcon.start` | `hardware` | coralReef (ember) |
+| `EmberClient::sec2_prepare()` | `sec2.prepare` | `hardware` | coralReef (ember) |
 
-| Step | IPC Method | Params | Expected |
-|------|------------|--------|----------|
-| Matrix-vector product | `tensor.matmul` | `{ "a": D_dagger_D, "b": x }` | Ax |
-| Vector addition | `tensor.add` | `{ "a": r, "b": p, "alpha": alpha }` | updated residual |
-| Dot product / norm | `stats.mean` | `{ "values": r_squared }` | convergence check |
-| Compare vs baseline | — | — | iteration count matches, residual < tolerance |
+## Migration Path
 
-### 5. Gradient Flow
+### Current (v0.6.32)
 
-**Python baseline:** `control/gradient_flow/scripts/flow_integrators.py`
-**Local Rust:** `lattice::gradient_flow::integrate()`
+hotSpring uses a **dual-lane** model:
+- **Lane 1**: Library calls via `barracuda` path dependency (fast, zero IPC overhead)
+- **Lane 2**: IPC calls via `NucleusContext` / `CompositionContext` (composition-validated)
 
-| Step | IPC Method | Params | Expected |
-|------|------------|--------|----------|
-| Gauge field evolution | `compute.dispatch` | `{ "shader": "gradient_flow_f64" }` | evolved field |
-| Scale setting (t₀, w₀) | `tensor.scale` + `stats.mean` | flow-time observables | t₀/w₀ values |
-| Compare vs baseline | — | — | `|ipc_t0 - python_t0| < tolerance` |
+### Target (Tier 3 → Tier 4)
 
-### 6. Molecular Dynamics
+- Make `barracuda` an `optional = true` dependency
+- Add `primal-proof` feature flag (reference: healthSpring pattern)
+- Default to IPC-first via `CompositionContext`
+- Library calls become opt-in fallback
+- All validation binaries confirm parity between lanes
 
-**Python baseline:** `control/sarkas/scripts/yukawa_md.py`
-**Local Rust:** `md::cpu_reference::run_simulation_cpu()`
+### CompositionContext Migration
 
-| Step | IPC Method | Params | Expected |
-|------|------------|--------|----------|
-| Force evaluation | `compute.dispatch` | `{ "shader": "yukawa_force_f64" }` | forces tensor |
-| Integration step | `tensor.add` + `tensor.scale` | velocity Verlet | updated positions |
-| Observable averaging | `stats.mean` | `{ "values": kinetic_energies }` | temperature |
-| Compare vs baseline | — | — | energy drift < 0.002%, RDF/VACF within tolerance |
+```rust
+// Old: Direct library call
+let mean = barracuda::stats::mean(&data);
 
-### 7. Observable Statistics
-
-All science domains use observable averaging:
-
-| Observable | IPC Method | Tolerance |
-|------------|------------|-----------|
-| Plaquette ⟨P⟩ | `stats.mean` | COMPOSITION_PLAQUETTE_PARITY_ABS |
-| Polyakov loop ⟨\|L\|⟩ | `stats.mean` | 1e-10 relative |
-| Energy per particle | `stats.mean` + `stats.std_dev` | domain-specific |
-| χ² per datum | `stats.weighted_mean` | 1e-10 relative |
-
-### 8. Provenance Witness
-
-| Step | IPC Method | Primal | Expected |
-|------|------------|--------|----------|
-| Hash result digest | `crypto.hash` | BearDog | blake3 hash matches local computation |
-
----
-
-## Test Procedure
-
-To run the primal proof against a live NUCLEUS:
-
-```bash
-# 1. Deploy primals from plasmidBin ecobins
-biomeos deploy --graph graphs/hotspring_qcd_deploy.toml
-
-# 2. Verify primals are alive
-ls $XDG_RUNTIME_DIR/biomeos/*.sock
-
-# 3. Set family ID (must match the deployed NUCLEUS)
-export FAMILY_ID=default
-
-# 4. Run the primal proof harness
-cargo run --bin validate_primal_proof
-
-# Exit 0 = all PASS, exit 1 = at least one FAIL, exit 2 = all SKIP (no NUCLEUS)
+// New: IPC via CompositionContext
+let ctx = CompositionContext::from_live_discovery_with_fallback();
+let result = ctx.call("tensor", "stats.mean", json!({"data": data}))?;
+let mean: f64 = result["result"].as_f64().unwrap();
 ```
 
-In standalone mode (no primals on UDS), the harness exits 2 (all SKIP) — verified.
+## License
 
----
-
-## Validation Harness Exit Codes
-
-| Code | Meaning |
-|------|---------|
-| 0 | All exercised capabilities PASS |
-| 1 | At least one capability FAIL |
-| 2 | All capabilities SKIP (NUCLEUS not deployed) |
-
----
-
-## References
-
-- barraCuda IPC surface: `infra/plasmidBin/barracuda/`
-- Python baselines: `control/` (per-domain subdirectories)
-- Tolerances: `barracuda/src/tolerances/` (308 named constants)
-- Provenance: `barracuda/src/provenance.rs` (BaselineProvenance records)
-- Proto-nucleate: `primalSpring/graphs/downstream/downstream_manifest.toml`
+AGPL-3.0-or-later
