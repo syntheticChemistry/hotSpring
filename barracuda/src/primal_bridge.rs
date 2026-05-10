@@ -252,7 +252,7 @@ impl NucleusContext {
             return Err(format!("{primal} socket exists but health check failed"));
         }
 
-        send_jsonrpc(&PathBuf::from(&ep.socket), method, params)
+        send_jsonrpc(&PathBuf::from(&ep.socket), method, params).map_err(|e| e.to_string())
     }
 
     /// Generate a `composition.physics_health` response per `COMPOSITION_HEALTH_STANDARD.md`.
@@ -349,25 +349,24 @@ pub fn send_jsonrpc(
     socket_path: &std::path::Path,
     method: &str,
     params: &serde_json::Value,
-) -> Result<serde_json::Value, String> {
+) -> Result<serde_json::Value, crate::error::HotSpringError> {
     use std::io::{Read, Write};
     use std::os::unix::net::UnixStream;
 
-    let mut stream = UnixStream::connect(socket_path).map_err(|e| format!("connect: {e}"))?;
+    let mut stream = UnixStream::connect(socket_path)
+        .map_err(|e| crate::error::HotSpringError::Ipc(format!("connect: {e}")))?;
 
     stream
         .set_read_timeout(Some(JSONRPC_SOCKET_READ_TIMEOUT))
-        .map_err(|e| format!("timeout: {e}"))?;
+        .map_err(|e| crate::error::HotSpringError::Ipc(format!("timeout: {e}")))?;
 
     let request = jsonrpc_request(method, params.clone());
 
-    let mut request_bytes = serde_json::to_vec(&request).map_err(|e| format!("serialize: {e}"))?;
+    let mut request_bytes = serde_json::to_vec(&request)?;
     request_bytes.push(b'\n');
 
-    stream
-        .write_all(&request_bytes)
-        .map_err(|e| format!("write: {e}"))?;
-    stream.flush().map_err(|e| format!("flush: {e}"))?;
+    stream.write_all(&request_bytes)?;
+    stream.flush()?;
 
     let mut response = Vec::new();
     let mut buf = [0u8; JSONRPC_READ_BUFFER_BYTES];
@@ -381,11 +380,11 @@ pub fn send_jsonrpc(
                 }
             }
             Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => break,
-            Err(e) => return Err(format!("read: {e}")),
+            Err(e) => return Err(e.into()),
         }
     }
 
-    serde_json::from_slice(&response).map_err(|e| format!("parse response: {e}"))
+    Ok(serde_json::from_slice(&response)?)
 }
 
 /// Known socket-name aliases for primals that may register under alternative names.
@@ -404,8 +403,10 @@ pub fn send_jsonrpc(
     _socket_path: &std::path::Path,
     _method: &str,
     _params: &serde_json::Value,
-) -> Result<serde_json::Value, String> {
-    Err("Unix socket IPC not available on this platform".into())
+) -> Result<serde_json::Value, crate::error::HotSpringError> {
+    Err(crate::error::HotSpringError::Ipc(
+        "Unix socket IPC not available on this platform".into(),
+    ))
 }
 
 #[cfg(test)]

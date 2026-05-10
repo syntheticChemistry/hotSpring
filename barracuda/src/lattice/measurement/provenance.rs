@@ -33,13 +33,19 @@ impl ImplementationInfo {
     /// Enumerates GPU adapters via wgpu if available, captures git commit
     /// from `GIT_COMMIT` env var or build-time embedding.
     pub fn auto_detect() -> Self {
-        let gpu_adapters = crate::gpu::GpuF64::enumerate_adapters();
-        let gpu_names: Vec<String> = gpu_adapters
-            .iter()
-            .filter(|a| a.has_f64)
-            .map(|a| a.name.clone())
-            .collect();
-        let has_gpu = !gpu_names.is_empty();
+        #[cfg(feature = "barracuda-local")]
+        let (gpu_names, has_gpu) = {
+            let gpu_adapters = crate::gpu::GpuF64::enumerate_adapters();
+            let names: Vec<String> = gpu_adapters
+                .iter()
+                .filter(|a| a.has_f64)
+                .map(|a| a.name.clone())
+                .collect();
+            let has = !names.is_empty();
+            (names, has)
+        };
+        #[cfg(not(feature = "barracuda-local"))]
+        let (gpu_names, has_gpu) = (Vec::<String>::new(), false);
         Self {
             code_name: "hotSpring-barracuda".to_string(),
             code_version: format!("hotSpring-barracuda {}", env!("CARGO_PKG_VERSION")),

@@ -57,46 +57,46 @@ use std::time::{Duration, Instant};
 use bar0_mmio::Bar0Map;
 
 // ── PMC registers ──────────────────────────────────────────────────────────
-const BOOT0:       u32 = 0x000000;
-const PMC_ENABLE:  u32 = 0x000200;
-const PTIMER_HI:   u32 = 0x009084; // PTIMER numerator (ticks)
+const BOOT0: u32 = 0x000000;
+const PMC_ENABLE: u32 = 0x000200;
+const PTIMER_HI: u32 = 0x009084; // PTIMER numerator (ticks)
 const PGRAPH_STAT: u32 = 0x400700; // GR engine status
 
 // ── FECS Falcon registers (base 0x409000) ──────────────────────────────────
-const FECS_BASE:   u32 = 0x409000;
+const FECS_BASE: u32 = 0x409000;
 const FECS_CPUCTL: u32 = FECS_BASE + 0x100; // CPU control
 const FECS_BOOTVEC: u32 = FECS_BASE + 0x104; // Boot vector
-const FECS_PC:     u32 = FECS_BASE + 0x110; // Program counter
-const FECS_SCTL:   u32 = FECS_BASE + 0x240; // Security control (0 = LS mode)
-const FECS_HWCFG:  u32 = FECS_BASE + 0x10c; // Hardware config
-const FECS_IMEMC:  u32 = FECS_BASE + 0x180; // IMEM control
-const FECS_IMEMD:  u32 = FECS_BASE + 0x184; // IMEM data (auto-increment)
+const FECS_PC: u32 = FECS_BASE + 0x110; // Program counter
+const FECS_SCTL: u32 = FECS_BASE + 0x240; // Security control (0 = LS mode)
+const FECS_HWCFG: u32 = FECS_BASE + 0x10c; // Hardware config
+const FECS_IMEMC: u32 = FECS_BASE + 0x180; // IMEM control
+const FECS_IMEMD: u32 = FECS_BASE + 0x184; // IMEM data (auto-increment)
 const FECS_IMETTAG: u32 = FECS_BASE + 0x188; // IMEM virtual tag
-const FECS_DMEMC:  u32 = FECS_BASE + 0x1c0; // DMEM control
-const FECS_DMEMD:  u32 = FECS_BASE + 0x1c4; // DMEM data (auto-increment)
-const FECS_MB0:    u32 = FECS_BASE + 0x040; // Mailbox 0 (FECS boot status)
-const FECS_MB1:    u32 = FECS_BASE + 0x044; // Mailbox 1
+const FECS_DMEMC: u32 = FECS_BASE + 0x1c0; // DMEM control
+const FECS_DMEMD: u32 = FECS_BASE + 0x1c4; // DMEM data (auto-increment)
+const FECS_MB0: u32 = FECS_BASE + 0x040; // Mailbox 0 (FECS boot status)
+const FECS_MB1: u32 = FECS_BASE + 0x044; // Mailbox 1
 
 // ── GPCCS registers (per-GPC, at GPC0=0x418000, GPC1=0x428000) ────────────
 const GPCCS_BASE_GPC0: u32 = 0x418000;
 const GPCCS_BASE_GPC1: u32 = 0x428000;
 const GPCCS_CPUCTL_OFF: u32 = 0x100;
-const GPCCS_PC_OFF:    u32 = 0x110;
-const GPCCS_MB0_OFF:   u32 = 0x040;
+const GPCCS_PC_OFF: u32 = 0x110;
+const GPCCS_MB0_OFF: u32 = 0x040;
 
 // ── Falcon CPUCTL bit masks (GK210 Falcon v2/v4) ──────────────────────────
 // Kepler Falcon (v2/v4): STARTCPU = bit 1 (0x02), HALTED = bit 4 (0x10)
 // Volta+ Falcon (v5):    STARTCPU = bit 0 (0x01), HRESET = bit 4 (0x10)
-const CPUCTL_STARTCPU: u32 = 0x02;  // bit 1 = start CPU (GK210 Falcon v2/v4)
-const CPUCTL_SRESET:   u32 = 0x04;  // bit 2 = soft reset (clear halted state)
-const CPUCTL_HALTED:   u32 = 0x10;  // bit 4 = CPU halted (also used as HRESET on v5)
-const CPUCTL_HALT:     u32 = CPUCTL_HALTED; // alias
+const CPUCTL_STARTCPU: u32 = 0x02; // bit 1 = start CPU (GK210 Falcon v2/v4)
+const CPUCTL_SRESET: u32 = 0x04; // bit 2 = soft reset (clear halted state)
+const CPUCTL_HALTED: u32 = 0x10; // bit 4 = CPU halted (also used as HRESET on v5)
+const CPUCTL_HALT: u32 = CPUCTL_HALTED; // alias
 
 // ── IMEMC bit masks ────────────────────────────────────────────────────────
 const IMEMC_AINCW: u32 = 0x0100_0000; // bit 24 = auto-increment on write
 
 // ── K80 warm PMC_ENABLE reference (set by nouveau during DEVINIT) ─────────
-const PMC_WARM_LO:     u32 = 0x0000_0001; // Minimum expected (not cold)
+const PMC_WARM_LO: u32 = 0x0000_0001; // Minimum expected (not cold)
 
 // ── Default firmware paths ────────────────────────────────────────────────
 const FW_INST_DEFAULT: &str = "/lib/firmware/nvidia/gk210/fecs_inst.bin";
@@ -105,9 +105,7 @@ const FECS_IMEM_PAGE_SIZE: usize = 256; // bytes per IMEM page
 const FECS_IMEM_WORDS_PER_PAGE: usize = FECS_IMEM_PAGE_SIZE / 4;
 
 fn extract_arg(args: &[String], flag: &str) -> Option<String> {
-    args.windows(2)
-        .find(|w| w[0] == flag)
-        .map(|w| w[1].clone())
+    args.windows(2).find(|w| w[0] == flag).map(|w| w[1].clone())
 }
 
 fn banner() {
@@ -119,8 +117,9 @@ fn banner() {
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    let bdf = extract_arg(&args, "--bdf")
-        .unwrap_or_else(|| std::env::var("HOTSPRING_BDF").unwrap_or_else(|_| "0000:4c:00.0".into()));
+    let bdf = extract_arg(&args, "--bdf").unwrap_or_else(|| {
+        std::env::var("HOTSPRING_BDF").unwrap_or_else(|_| "0000:4c:00.0".into())
+    });
     let inst_path = extract_arg(&args, "--inst")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from(FW_INST_DEFAULT));
@@ -147,27 +146,41 @@ fn main() {
         std::process::exit(1);
     });
 
-    let inst_words: Vec<u32> = fw_inst.chunks(4).map(|c| {
-        u32::from_le_bytes([
-            *c.first().unwrap_or(&0),
-            *c.get(1).unwrap_or(&0),
-            *c.get(2).unwrap_or(&0),
-            *c.get(3).unwrap_or(&0),
-        ])
-    }).collect();
-    let data_words: Vec<u32> = fw_data.chunks(4).map(|c| {
-        u32::from_le_bytes([
-            *c.first().unwrap_or(&0),
-            *c.get(1).unwrap_or(&0),
-            *c.get(2).unwrap_or(&0),
-            *c.get(3).unwrap_or(&0),
-        ])
-    }).collect();
+    let inst_words: Vec<u32> = fw_inst
+        .chunks(4)
+        .map(|c| {
+            u32::from_le_bytes([
+                *c.first().unwrap_or(&0),
+                *c.get(1).unwrap_or(&0),
+                *c.get(2).unwrap_or(&0),
+                *c.get(3).unwrap_or(&0),
+            ])
+        })
+        .collect();
+    let data_words: Vec<u32> = fw_data
+        .chunks(4)
+        .map(|c| {
+            u32::from_le_bytes([
+                *c.first().unwrap_or(&0),
+                *c.get(1).unwrap_or(&0),
+                *c.get(2).unwrap_or(&0),
+                *c.get(3).unwrap_or(&0),
+            ])
+        })
+        .collect();
 
     let inst_pages = (inst_words.len() + FECS_IMEM_WORDS_PER_PAGE - 1) / FECS_IMEM_WORDS_PER_PAGE;
-    println!("\n  IMEM: {} bytes / {} words / {} pages",
-             fw_inst.len(), inst_words.len(), inst_pages);
-    println!("  DMEM: {} bytes / {} words", fw_data.len(), data_words.len());
+    println!(
+        "\n  IMEM: {} bytes / {} words / {} pages",
+        fw_inst.len(),
+        inst_words.len(),
+        inst_pages
+    );
+    println!(
+        "  DMEM: {} bytes / {} words",
+        fw_data.len(),
+        data_words.len()
+    );
 
     // ── Open BAR0 ─────────────────────────────────────────────────────────
     let resource0 = format!("/sys/bus/pci/devices/{bdf}/resource0");
@@ -205,13 +218,19 @@ fn main() {
     let pt0 = bar0.r32(PTIMER_HI);
     std::thread::sleep(Duration::from_millis(5));
     let pt1 = bar0.r32(PTIMER_HI);
-    println!("  PTIMER:        {pt0:#010x} → {pt1:#010x}  ({})",
-             if pt1 != pt0 { "RUNNING ✓" } else { "FROZEN ✗" });
+    println!(
+        "  PTIMER:        {pt0:#010x} → {pt1:#010x}  ({})",
+        if pt1 != pt0 {
+            "RUNNING ✓"
+        } else {
+            "FROZEN ✗"
+        }
+    );
 
-    let fecs_sctl   = bar0.r32(FECS_SCTL);
+    let fecs_sctl = bar0.r32(FECS_SCTL);
     let fecs_cpuctl = bar0.r32(FECS_CPUCTL);
-    let fecs_hwcfg  = bar0.r32(FECS_HWCFG);
-    let fecs_mb0    = bar0.r32(FECS_MB0);
+    let fecs_hwcfg = bar0.r32(FECS_HWCFG);
+    let fecs_mb0 = bar0.r32(FECS_MB0);
     println!("  FECS_SCTL      = {fecs_sctl:#010x}  (0=LS mode ✓, non-zero=HS/ACR required)");
     println!("  FECS_CPUCTL    = {fecs_cpuctl:#010x}  (0x10=HRESET ✓, expected)");
     println!("  FECS_HWCFG     = {fecs_hwcfg:#010x}");
@@ -260,7 +279,10 @@ fn main() {
     }
 
     // ── Phase 3: FECS DMEM load ────────────────────────────────────────────
-    println!("\n━━━ Phase 3: FECS DMEM Load ({} words) ━━━\n", data_words.len());
+    println!(
+        "\n━━━ Phase 3: FECS DMEM Load ({} words) ━━━\n",
+        data_words.len()
+    );
 
     if !dry_run {
         // DMEMC: bit24=AINCW, byte address 0 = start of DMEM
@@ -345,7 +367,10 @@ fn main() {
         if booted {
             println!("  FECS BOOTED! (iterations: {iterations})");
         } else {
-            println!("  Timeout after {}ms (iterations: {iterations})", timeout.as_millis());
+            println!(
+                "  Timeout after {}ms (iterations: {iterations})",
+                timeout.as_millis()
+            );
             println!("  FECS_CPUCTL last = {last_cpuctl:#010x}");
         }
     } else {
@@ -356,29 +381,41 @@ fn main() {
     println!("\n━━━ Phase 6: Post-Boot State ━━━\n");
 
     let fecs_cpuctl_post = bar0.r32(FECS_CPUCTL);
-    let fecs_pc_post     = bar0.r32(FECS_PC);
-    let fecs_mb0_post    = bar0.r32(FECS_MB0);
-    let fecs_mb1_post    = bar0.r32(FECS_MB1);
-    let pmc_post         = bar0.r32(PMC_ENABLE);
-    let pgraph_post      = bar0.r32(PGRAPH_STAT);
-    let pt_post          = bar0.r32(PTIMER_HI);
+    let fecs_pc_post = bar0.r32(FECS_PC);
+    let fecs_mb0_post = bar0.r32(FECS_MB0);
+    let fecs_mb1_post = bar0.r32(FECS_MB1);
+    let pmc_post = bar0.r32(PMC_ENABLE);
+    let pgraph_post = bar0.r32(PGRAPH_STAT);
+    let pt_post = bar0.r32(PTIMER_HI);
 
     println!("  FECS_CPUCTL    = {fecs_cpuctl_post:#010x}");
     println!("  FECS_PC        = {fecs_pc_post:#010x}");
     println!("  FECS_MB0       = {fecs_mb0_post:#010x}  (0=idle, non-zero=status code)");
     println!("  FECS_MB1       = {fecs_mb1_post:#010x}");
-    println!("  PMC_ENABLE     = {pmc_post:#010x}  (preserved: {})",
-             if pmc_post == pmc_en { "YES ✓" } else { "CHANGED" });
+    println!(
+        "  PMC_ENABLE     = {pmc_post:#010x}  (preserved: {})",
+        if pmc_post == pmc_en {
+            "YES ✓"
+        } else {
+            "CHANGED"
+        }
+    );
     println!("  PGRAPH_STATUS  = {pgraph_post:#010x}  (was {pgraph_st:#010x})");
-    println!("  PTIMER         = {pt_post:#010x}  (running: {})",
-             if pt_post != pt0 { "YES ✓" } else { "FROZEN ✗" });
+    println!(
+        "  PTIMER         = {pt_post:#010x}  (running: {})",
+        if pt_post != pt0 {
+            "YES ✓"
+        } else {
+            "FROZEN ✗"
+        }
+    );
 
     // GPC0 GPCCS state
     let gpc0_cpuctl = bar0.r32(GPCCS_BASE_GPC0 + GPCCS_CPUCTL_OFF);
-    let gpc0_pc     = bar0.r32(GPCCS_BASE_GPC0 + GPCCS_PC_OFF);
-    let gpc0_mb0    = bar0.r32(GPCCS_BASE_GPC0 + GPCCS_MB0_OFF);
+    let gpc0_pc = bar0.r32(GPCCS_BASE_GPC0 + GPCCS_PC_OFF);
+    let gpc0_mb0 = bar0.r32(GPCCS_BASE_GPC0 + GPCCS_MB0_OFF);
     let gpc1_cpuctl = bar0.r32(GPCCS_BASE_GPC1 + GPCCS_CPUCTL_OFF);
-    let gpc1_pc     = bar0.r32(GPCCS_BASE_GPC1 + GPCCS_PC_OFF);
+    let gpc1_pc = bar0.r32(GPCCS_BASE_GPC1 + GPCCS_PC_OFF);
     println!("  GPC0_GPCCS_CPUCTL = {gpc0_cpuctl:#010x}  PC={gpc0_pc:#010x}  MB0={gpc0_mb0:#010x}");
     println!("  GPC1_GPCCS_CPUCTL = {gpc1_cpuctl:#010x}  PC={gpc1_pc:#010x}");
 
@@ -390,26 +427,59 @@ fn main() {
     println!("  ┌────────────────────────────────────────┐");
     println!("  │  Sovereign K80 FECS Boot Score         │");
     let fecs_started = !dry_run && booted;
-    let fecs_halted  = fecs_cpuctl_post & CPUCTL_HALT != 0 && !dry_run;
-    let ptimer_ok    = pt_post != pt0;
-    let gpc0_booted  = gpc0_alive;
-    println!("  │  FECS started:     {}  │",
-             if fecs_started { "✓ YES              " } else { "✗ NO               " });
-    println!("  │  FECS halted/done: {}  │",
-             if fecs_halted  { "✓ YES              " } else { "✗ NO (running/hung)" });
-    println!("  │  PTIMER running:   {}  │",
-             if ptimer_ok    { "✓ YES              " } else { "✗ FROZEN           " });
-    println!("  │  GPC0 GPCCS alive: {}  │",
-             if gpc0_booted  { "✓ YES              " } else { "✗ NO               " });
-    println!("  │  GPC1 GPCCS alive: {}  │",
-             if gpc1_alive   { "✓ YES              " } else { "✗ NO               " });
+    let fecs_halted = fecs_cpuctl_post & CPUCTL_HALT != 0 && !dry_run;
+    let ptimer_ok = pt_post != pt0;
+    let gpc0_booted = gpc0_alive;
+    println!(
+        "  │  FECS started:     {}  │",
+        if fecs_started {
+            "✓ YES              "
+        } else {
+            "✗ NO               "
+        }
+    );
+    println!(
+        "  │  FECS halted/done: {}  │",
+        if fecs_halted {
+            "✓ YES              "
+        } else {
+            "✗ NO (running/hung)"
+        }
+    );
+    println!(
+        "  │  PTIMER running:   {}  │",
+        if ptimer_ok {
+            "✓ YES              "
+        } else {
+            "✗ FROZEN           "
+        }
+    );
+    println!(
+        "  │  GPC0 GPCCS alive: {}  │",
+        if gpc0_booted {
+            "✓ YES              "
+        } else {
+            "✗ NO               "
+        }
+    );
+    println!(
+        "  │  GPC1 GPCCS alive: {}  │",
+        if gpc1_alive {
+            "✓ YES              "
+        } else {
+            "✗ NO               "
+        }
+    );
     println!("  └────────────────────────────────────────┘");
 
     if booted {
         println!("\n  FECS boot SUCCEEDED. K80 GR engine is ready.");
         println!("  Next: load GPCCS firmware and initialize PGFIFO for compute dispatch.");
     } else if fecs_started && !dry_run {
-        println!("\n  FECS started but did not halt within {}ms.", timeout.as_millis());
+        println!(
+            "\n  FECS started but did not halt within {}ms.",
+            timeout.as_millis()
+        );
         println!("  Possible causes:");
         println!("  1. FECS is still running (init takes longer — try --timeout 2000)");
         println!("  2. GDDR5 not accessible (check VRAM via PRAMIN probe)");

@@ -47,10 +47,13 @@ pub mod dirac;
 /// HotQCD EOS tables (Bazavov et al. PRD 90, 094503).
 pub mod eos_tables;
 /// GPU gradient flow — promotes CPU `gradient_flow` to GPU via HMC shader reuse.
+#[cfg(feature = "barracuda-local")]
 pub mod gpu_flow;
 /// Pure GPU HMC: all math on GPU via fp64 WGSL shaders.
+#[cfg(feature = "barracuda-local")]
 pub mod gpu_hmc;
 /// Wilson gradient flow on SU(3) gauge fields (Lüscher 2010, Bazavov & Chuna 2021).
+#[cfg(feature = "barracuda-local")]
 pub mod gradient_flow;
 /// Hybrid Monte Carlo integrator (Cayley SU(3) exponential).
 pub mod hmc;

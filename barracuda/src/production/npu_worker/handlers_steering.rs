@@ -48,11 +48,20 @@ pub(super) fn handle_reject_predict(
     resp_tx: &mpsc::Sender<NpuResponse>,
 ) {
     let (likely_rejected, confidence) = if let Some(ref mut npu) = state.multi_npu {
-        let input = canonical_input(beta, plaquette, mass, state.last_chi, acceptance_rate, state.lattice);
+        let input = canonical_input(
+            beta,
+            plaquette,
+            mass,
+            state.last_chi,
+            acceptance_rate,
+            state.lattice,
+        );
         let seq = vec![input; 10];
         let raw = npu.predict_head(&seq, heads::REJECT_PREDICT);
         let predicted_delta_h = raw * 10.0;
-        state.head_confidence.record_prediction(heads::REJECT_PREDICT, predicted_delta_h);
+        state
+            .head_confidence
+            .record_prediction(heads::REJECT_PREDICT, predicted_delta_h);
         if state.head_confidence.is_trusted(heads::REJECT_PREDICT) {
             let rejected = predicted_delta_h > 0.0;
             let conf = 1.0 / (1.0 + (-predicted_delta_h.abs()).exp());
@@ -63,7 +72,10 @@ pub(super) fn handle_reject_predict(
     } else {
         predict_rejection(0.0, 0.0, 0.0, delta_h, acceptance_rate)
     };
-    let _ = resp_tx.send(NpuResponse::RejectPrediction { likely_rejected, confidence });
+    let _ = resp_tx.send(NpuResponse::RejectPrediction {
+        likely_rejected,
+        confidence,
+    });
 }
 
 pub(super) fn handle_phase_classify(
@@ -76,12 +88,27 @@ pub(super) fn handle_phase_classify(
     resp_tx: &mpsc::Sender<NpuResponse>,
 ) {
     let label = if let Some(ref mut npu) = state.multi_npu {
-        let input = canonical_input(beta, plaquette, mass, susceptibility, acceptance, state.lattice);
+        let input = canonical_input(
+            beta,
+            plaquette,
+            mass,
+            susceptibility,
+            acceptance,
+            state.lattice,
+        );
         let seq = vec![input; 10];
         let raw = npu.predict_head(&seq, heads::PHASE_CLASSIFY);
-        state.head_confidence.record_prediction(heads::PHASE_CLASSIFY, raw.clamp(0.0, 1.0));
+        state
+            .head_confidence
+            .record_prediction(heads::PHASE_CLASSIFY, raw.clamp(0.0, 1.0));
         if state.head_confidence.is_trusted(heads::PHASE_CLASSIFY) {
-            if raw > 0.6 { "deconfined" } else if raw > 0.3 { "transition" } else { "confined" }
+            if raw > 0.6 {
+                "deconfined"
+            } else if raw > 0.3 {
+                "transition"
+            } else {
+                "confined"
+            }
         } else {
             heuristic_phase(beta)
         }
@@ -101,22 +128,39 @@ pub(super) fn handle_quality_score(
     state.last_acc = result.acceptance;
 
     let actual_delta_h = -(result.acceptance - 0.5) * 4.0;
-    state.head_confidence.record_actual(heads::REJECT_PREDICT, actual_delta_h);
+    state
+        .head_confidence
+        .record_actual(heads::REJECT_PREDICT, actual_delta_h);
     let actual_phase = result.polyakov.abs().clamp(0.0, 1.0);
-    state.head_confidence.record_actual(heads::PHASE_CLASSIFY, actual_phase);
-    state.head_confidence.record_actual(heads::CG_ESTIMATE, result.mean_cg_iters / 100_000.0);
+    state
+        .head_confidence
+        .record_actual(heads::PHASE_CLASSIFY, actual_phase);
+    state
+        .head_confidence
+        .record_actual(heads::CG_ESTIMATE, result.mean_cg_iters / 100_000.0);
     let actual_quality = if result.mean_plaq > 1e-9 {
         1.0 - (result.std_plaq / result.mean_plaq).min(1.0)
     } else {
         0.0
     };
-    state.head_confidence.record_actual(heads::QUALITY_SCORE, actual_quality);
+    state
+        .head_confidence
+        .record_actual(heads::QUALITY_SCORE, actual_quality);
 
     let score = if let Some(ref mut npu) = state.multi_npu {
-        let input = canonical_input(result.beta, result.mean_plaq, result.mass, result.susceptibility, result.acceptance, state.lattice);
+        let input = canonical_input(
+            result.beta,
+            result.mean_plaq,
+            result.mass,
+            result.susceptibility,
+            result.acceptance,
+            state.lattice,
+        );
         let seq = vec![input; 10];
         let raw = npu.predict_head(&seq, heads::QUALITY_SCORE).clamp(0.0, 1.0);
-        state.head_confidence.record_prediction(heads::QUALITY_SCORE, raw);
+        state
+            .head_confidence
+            .record_prediction(heads::QUALITY_SCORE, raw);
         if state.head_confidence.is_trusted(heads::QUALITY_SCORE) {
             raw
         } else {
@@ -144,7 +188,11 @@ pub(super) fn handle_quality_score(
 fn quality_heuristic(result: &BetaResult) -> f64 {
     let acc_ok = if result.acceptance > 0.3 { 0.4 } else { 0.1 };
     let stats_ok = if result.n_traj >= 100 { 0.3 } else { 0.1 };
-    let cg_ok = if result.mean_cg_iters < 1000.0 { 0.3 } else { 0.1 };
+    let cg_ok = if result.mean_cg_iters < 1000.0 {
+        0.3
+    } else {
+        0.1
+    };
     acc_ok + stats_ok + cg_ok
 }
 
@@ -167,7 +215,10 @@ pub(super) fn handle_anomaly_check(
         let s = if anomaly { 0.9 } else { 0.1 };
         (anomaly, s)
     };
-    let _ = resp_tx.send(NpuResponse::AnomalyFlag { is_anomaly, _score: score });
+    let _ = resp_tx.send(NpuResponse::AnomalyFlag {
+        is_anomaly,
+        _score: score,
+    });
 }
 
 pub(super) fn handle_steer_adaptive(
@@ -179,7 +230,11 @@ pub(super) fn handle_steer_adaptive(
     n_candidates: usize,
     resp_tx: &mpsc::Sender<NpuResponse>,
 ) {
-    let all_known: Vec<f64> = measured_betas.iter().chain(queued_betas.iter()).copied().collect();
+    let all_known: Vec<f64> = measured_betas
+        .iter()
+        .chain(queued_betas.iter())
+        .copied()
+        .collect();
     let n_measured = measured_betas.len();
 
     let (suggestion, best_score) = if let Some(ref mut npu) = state.multi_npu {
@@ -189,12 +244,23 @@ pub(super) fn handle_steer_adaptive(
         let exclusion = step * 0.3_f64.max(0.025);
         for ci in 1..=n_candidates {
             let candidate = (ci as f64).mul_add(step, beta_min);
-            let too_close = measured_betas.iter().any(|&m| (m - candidate).abs() < exclusion)
-                || queued_betas.iter().any(|&q| (q - candidate).abs() < exclusion);
+            let too_close = measured_betas
+                .iter()
+                .any(|&m| (m - candidate).abs() < exclusion)
+                || queued_betas
+                    .iter()
+                    .any(|&q| (q - candidate).abs() < exclusion);
             if too_close {
                 continue;
             }
-            let seq = canonical_seq(candidate, state.last_plaq, 0.1, state.last_chi, state.last_acc, state.lattice);
+            let seq = canonical_seq(
+                candidate,
+                state.last_plaq,
+                0.1,
+                state.last_chi,
+                state.last_acc,
+                state.lattice,
+            );
             let all = npu.predict_all_heads(&seq);
             let priority = all[heads::BETA_PRIORITY];
             let uncertainty = (all[heads::QUALITY_SCORE] - 0.5).abs();
@@ -214,25 +280,48 @@ pub(super) fn handle_steer_adaptive(
         {
             let too_close = all_known.iter().any(|&m| (m - edge_beta).abs() < 0.05);
             if too_close {
-                (find_largest_gaps(&all_known, beta_min, beta_max, 1).into_iter().next(), 0.0)
+                (
+                    find_largest_gaps(&all_known, beta_min, beta_max, 1)
+                        .into_iter()
+                        .next(),
+                    0.0,
+                )
             } else {
                 (Some(*edge_beta), *edge_score)
             }
         } else {
-            (find_largest_gaps(&all_known, beta_min, beta_max, 1).into_iter().next(), 0.0)
+            (
+                find_largest_gaps(&all_known, beta_min, beta_max, 1)
+                    .into_iter()
+                    .next(),
+                0.0,
+            )
         }
     } else {
-        (find_largest_gaps(&all_known, beta_min, beta_max, 1).into_iter().next(), 0.0)
+        (
+            find_largest_gaps(&all_known, beta_min, beta_max, 1)
+                .into_iter()
+                .next(),
+            0.0,
+        )
     };
 
     let range = beta_max - beta_min;
     let largest_gap = {
-        let mut sorted: Vec<f64> = all_known.iter().copied().chain([beta_min, beta_max]).collect();
+        let mut sorted: Vec<f64> = all_known
+            .iter()
+            .copied()
+            .chain([beta_min, beta_max])
+            .collect();
         sorted.sort_by(f64::total_cmp);
         sorted.dedup();
-        sorted.windows(2).map(|w| w[1] - w[0]).fold(0.0f64, f64::max)
+        sorted
+            .windows(2)
+            .map(|w| w[1] - w[0])
+            .fold(0.0f64, f64::max)
     };
-    let saturated = n_measured >= 5 && (largest_gap < range * 0.05 || (best_score < 0.15 && best_score > f64::NEG_INFINITY));
+    let saturated = n_measured >= 5
+        && (largest_gap < range * 0.05 || (best_score < 0.15 && best_score > f64::NEG_INFINITY));
 
     if saturated {
         eprintln!(
@@ -240,7 +329,10 @@ pub(super) fn handle_steer_adaptive(
         );
     }
 
-    let _ = resp_tx.send(NpuResponse::AdaptiveSteered { suggestion, saturated });
+    let _ = resp_tx.send(NpuResponse::AdaptiveSteered {
+        suggestion,
+        saturated,
+    });
 }
 
 pub(super) fn handle_recommend_next_run(
@@ -251,7 +343,14 @@ pub(super) fn handle_recommend_next_run(
     let plan = if let Some(ref mut npu) = state.multi_npu {
         let last = all_results.last();
         let last_beta = last.map_or(5.69, |r| r.beta);
-        let seq = canonical_seq(last_beta, last.map_or(0.5, |r| r.mean_plaq), last.map_or(0.1, |r| r.mass), last.map_or(0.0, |r| r.susceptibility), last.map_or(0.5, |r| r.acceptance), state.lattice);
+        let seq = canonical_seq(
+            last_beta,
+            last.map_or(0.5, |r| r.mean_plaq),
+            last.map_or(0.1, |r| r.mass),
+            last.map_or(0.0, |r| r.susceptibility),
+            last.map_or(0.5, |r| r.acceptance),
+            state.lattice,
+        );
         let raw = npu.predict_head(&seq, heads::NEXT_RUN_RECOMMEND);
         let suggested_beta = raw.abs().mul_add(2.0, 5.0);
         let mass = last.map_or(0.1, |r| r.mass);
@@ -262,5 +361,9 @@ pub(super) fn handle_recommend_next_run(
         let mass = all_results.first().map_or(0.1, |r| r.mass);
         (gaps, mass, 8)
     };
-    let _ = resp_tx.send(NpuResponse::NextRunPlan { betas: plan.0, mass: plan.1, lattice: plan.2 });
+    let _ = resp_tx.send(NpuResponse::NextRunPlan {
+        betas: plan.0,
+        mass: plan.1,
+        lattice: plan.2,
+    });
 }

@@ -2,7 +2,7 @@
 
 **Status**: Current — reviewed for PII, suitable for public repository  
 **Purpose**: Document the replication of Murillo Group computational plasma physics on consumer hardware using BarraCuda, and the three-tier validation arc proving NUCLEUS primal composition  
-**Date**: February 26, 2026 (inception); updated May 9, 2026 (v0.6.32 — guideStone Level 5 CERTIFIED, primalSpring v0.9.25 interstadial eukaryotic, deep debt evolution Phase 3 complete. 1002 lib tests, 148 binaries, 64/64 validation suites, 128 WGSL shaders, 25/25 papers reproduced (CPU), bare guideStone 30/30 checks pass with BLAKE3 CHECKSUMS, `hotspring_unibin` eukaryotic CLI)  
+**Date**: February 26, 2026 (inception); updated May 10, 2026 (v0.6.32 — guideStone Level 6 CERTIFIED (NUCLEUS Deployment Validation), primalSpring v0.9.25 post-interstadial Tier 4 IPC-first. 1016 lib tests, 148 binaries, 64/64 validation suites, 128 WGSL shaders, 25/25 papers reproduced (CPU), bare guideStone 30/30 checks pass with BLAKE3 CHECKSUMS, `hotspring_unibin` eukaryotic CLI, `primal-proof` feature gate, 4 deploy graphs, provenance trio IPC)  
 **Validation arc**: Python baselines → Rust validation → NUCLEUS primal composition validation (guideStone certified)
 
 ---
@@ -392,7 +392,7 @@ No institutional access required. No Code Ocean account. No Fortran compiler. AG
 | Metric | Value |
 |--------|-------|
 | Crate | v0.6.32 |
-| Lib tests | **1002** pass, 6 GPU/heavy-ignored |
+| Lib tests | **1019** pass, 6 GPU/heavy-ignored |
 | Binaries | **148** (validate_*, production, benchmarks, composition, UniBin) |
 | WGSL shaders | **128** (lattice, MD, HFB, diag, spectral, sovereign) |
 | Validation suites | **64/64** pass |

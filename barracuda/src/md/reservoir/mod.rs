@@ -453,7 +453,7 @@ fn solve_linear_system(a: &[Vec<f64>], b: &[Vec<f64>]) -> Vec<Vec<f64>> {
     let mut x = vec![vec![0.0; m]; n];
     for col in 0..m {
         let b_col: Vec<f64> = (0..n).map(|row| b[row][col]).collect();
-        match barracuda::ops::linalg::lu_solve(&a_flat, n, &b_col) {
+        match lu_solve_dispatch(&a_flat, n, &b_col) {
             Ok(sol) => {
                 for (row, val) in sol.iter().enumerate() {
                     x[row][col] = *val;
@@ -465,6 +465,53 @@ fn solve_linear_system(a: &[Vec<f64>], b: &[Vec<f64>]) -> Vec<Vec<f64>> {
         }
     }
     x
+}
+
+#[cfg(feature = "barracuda-local")]
+fn lu_solve_dispatch(a_flat: &[f64], n: usize, b: &[f64]) -> Result<Vec<f64>, String> {
+    barracuda::ops::linalg::lu_solve(a_flat, n, b).map_err(|e| e.to_string())
+}
+
+#[cfg(not(feature = "barracuda-local"))]
+fn lu_solve_dispatch(a_flat: &[f64], n: usize, b: &[f64]) -> Result<Vec<f64>, String> {
+    let mut a = vec![0.0; n * n];
+    a.copy_from_slice(&a_flat[..n * n]);
+    let mut p: Vec<usize> = (0..n).collect();
+    for k in 0..n {
+        let pivot = (k..n)
+            .max_by(|&i, &j| {
+                a[i * n + k]
+                    .abs()
+                    .partial_cmp(&a[j * n + k].abs())
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .unwrap_or(k);
+        if a[pivot * n + k].abs() < 1e-15 {
+            return Err("singular matrix".into());
+        }
+        if pivot != k {
+            p.swap(k, pivot);
+            for j in 0..n {
+                a.swap(k * n + j, pivot * n + j);
+            }
+        }
+        for i in (k + 1)..n {
+            a[i * n + k] /= a[k * n + k];
+            for j in (k + 1)..n {
+                let lik = a[i * n + k];
+                a[i * n + j] -= lik * a[k * n + j];
+            }
+        }
+    }
+    let mut x = vec![0.0; n];
+    let pb: Vec<f64> = p.iter().map(|&i| b[i]).collect();
+    for i in 0..n {
+        x[i] = pb[i] - (0..i).map(|j| a[i * n + j] * x[j]).sum::<f64>();
+    }
+    for i in (0..n).rev() {
+        x[i] = (x[i] - ((i + 1)..n).map(|j| a[i * n + j] * x[j]).sum::<f64>()) / a[i * n + i];
+    }
+    Ok(x)
 }
 
 pub(crate) fn spectral_radius_estimate(w: &[Vec<f64>]) -> f64 {

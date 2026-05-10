@@ -64,7 +64,10 @@ impl Bar0View {
         }
         .map_err(|_| format!("mmap of {resource_path} failed"))?;
 
-        Ok(Self { base: mm.cast::<u8>(), len: BAR0_MAP_SIZE })
+        Ok(Self {
+            base: mm.cast::<u8>(),
+            len: BAR0_MAP_SIZE,
+        })
     }
 
     /// Read a little-endian `u32` register at `offset` bytes from BAR0 base.
@@ -126,7 +129,10 @@ impl Bar0Map {
     ///
     /// Returns an `io::Error` if the file cannot be opened or the mmap fails.
     pub fn open(path: &str) -> io::Result<Self> {
-        let file = std::fs::OpenOptions::new().read(true).write(true).open(path)?;
+        let file = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(path)?;
         // SAFETY: `resource0` is a kernel PCI BAR file. READ|WRITE|SHARED
         // gives direct MMIO access. Caller must ensure no concurrent driver access.
         let ptr = unsafe {
@@ -140,7 +146,10 @@ impl Bar0Map {
             )
             .map_err(io::Error::from)?
         };
-        Ok(Self { ptr: ptr.cast(), len: BAR0_MAP_SIZE })
+        Ok(Self {
+            ptr: ptr.cast(),
+            len: BAR0_MAP_SIZE,
+        })
     }
 
     /// Read a `u32` MMIO register at `offset` bytes from BAR0 base.

@@ -10,14 +10,17 @@
 //! # Architecture
 //!
 //! ```text
-//! ipc::discovery     — NucleusContext, PrimalEndpoint, send_jsonrpc
-//! ipc::composition   — AtomicType, validate_atomic, composition_health
-//! ipc::glowplug      — GlowplugClient (coral-glowplug shader dispatch)
-//! ipc::ember         — EmberClient, FleetEmberHub (coral-ember MMIO/falcon)
-//! ipc::fleet         — FleetClient (multi-ember fleet discovery)
-//! ipc::squirrel      — SquirrelClient (inference via neuralSpring/squirrel)
-//! ipc::toadstool     — ToadStool performance surface reporter
-//! ipc::signing       — Receipt signing via bearDog crypto.sign_ed25519
+//! ipc::discovery       — NucleusContext, PrimalEndpoint, send_jsonrpc
+//! ipc::composition     — AtomicType, validate_atomic, composition_health
+//! ipc::biome_status    — biomeOS composition.status (v3.51)
+//! ipc::method_register — biomeOS method.register (v3.51)
+//! ipc::glowplug        — GlowplugClient (coral-glowplug shader dispatch)
+//! ipc::ember           — EmberClient, FleetEmberHub (coral-ember MMIO/falcon)
+//! ipc::fleet           — FleetClient (multi-ember fleet discovery)
+//! ipc::squirrel        — SquirrelClient (inference via neuralSpring/squirrel)
+//! ipc::toadstool       — ToadStool performance surface reporter
+//! ipc::signing         — Receipt signing via bearDog crypto.sign_ed25519
+//! ipc::provenance      — Per-trio modules (rhizoCrypt, loamSpine, sweetGrass)
 //! ```
 //!
 //! # Migration
@@ -30,6 +33,15 @@
 //! | `crate::composition::AtomicType` | `crate::ipc::composition::AtomicType` |
 //! | `crate::glowplug_client::GlowplugClient` | `crate::ipc::glowplug::GlowplugClient` |
 //! | `crate::fleet_ember::EmberClient` | `crate::ipc::ember::EmberClient` |
+
+/// biomeOS `composition.status` IPC client (v3.51).
+pub mod biome_status;
+
+/// biomeOS `method.register` IPC client (v3.51).
+pub mod method_register;
+
+/// Per-trio provenance modules (rhizoCrypt, loamSpine, sweetGrass).
+pub mod provenance;
 
 /// NUCLEUS primal discovery — socket scanning, liveness probing, capability queries.
 ///

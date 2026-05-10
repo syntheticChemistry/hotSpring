@@ -31,6 +31,7 @@ pub enum HotSpringError {
     InvalidOperation(String),
 
     /// Propagated from barracuda primitives (`ReduceScalarPipeline`, etc.)
+    #[cfg(feature = "barracuda-local")]
     Barracuda(barracuda::error::BarracudaError),
 
     /// I/O error (file open, read, etc.).
@@ -41,6 +42,9 @@ pub enum HotSpringError {
 
     /// A scoped or worker thread terminated by panic (`join` could not return a value).
     ThreadPanicked(&'static str),
+
+    /// IPC call failed (JSON-RPC to a peer primal via UDS).
+    Ipc(String),
 }
 
 impl fmt::Display for HotSpringError {
@@ -57,10 +61,12 @@ impl fmt::Display for HotSpringError {
             Self::DataLoad(msg) => write!(f, "Data loading failed: {msg}"),
             Self::GpuCompute(msg) => write!(f, "GPU compute failed: {msg}"),
             Self::InvalidOperation(msg) => write!(f, "Invalid operation: {msg}"),
+            #[cfg(feature = "barracuda-local")]
             Self::Barracuda(e) => write!(f, "BarraCuda error: {e}"),
             Self::IoError(e) => write!(f, "I/O error: {e}"),
             Self::JsonError(e) => write!(f, "JSON error: {e}"),
             Self::ThreadPanicked(ctx) => write!(f, "Thread panicked: {ctx}"),
+            Self::Ipc(msg) => write!(f, "IPC error: {msg}"),
         }
     }
 }
@@ -79,6 +85,7 @@ impl From<serde_json::Error> for HotSpringError {
 
 impl std::error::Error for HotSpringError {}
 
+#[cfg(feature = "barracuda-local")]
 impl From<barracuda::error::BarracudaError> for HotSpringError {
     fn from(e: barracuda::error::BarracudaError) -> Self {
         Self::Barracuda(e)

@@ -61,9 +61,12 @@ const PMU_BASE: u32 = 0x010A_000;
 const PMU_CPUCTL: u32 = PMU_BASE + 0x100;
 const PMU_BOOTVEC: u32 = PMU_BASE + 0x104;
 const PMU_HWCFG: u32 = PMU_BASE + 0x108;
-#[allow(dead_code)] const PMU_HWCFG1: u32 = PMU_BASE + 0x10C;
-#[allow(dead_code)] const PMU_ITFEN: u32 = PMU_BASE + 0x048;
-#[allow(dead_code)] const PMU_DMACTL: u32 = PMU_BASE + 0x10C;
+#[allow(dead_code)]
+const PMU_HWCFG1: u32 = PMU_BASE + 0x10C;
+#[allow(dead_code)]
+const PMU_ITFEN: u32 = PMU_BASE + 0x048;
+#[allow(dead_code)]
+const PMU_DMACTL: u32 = PMU_BASE + 0x10C;
 const PMU_SCTL: u32 = PMU_BASE + 0x240;
 const PMU_MB0: u32 = PMU_BASE + 0x040;
 const PMU_MB1: u32 = PMU_BASE + 0x044;
@@ -96,8 +99,9 @@ const SEC2_SCTL: u32 = SEC2_BASE + 0x240;
 fn main() {
     let args: Vec<String> = std::env::args().collect();
 
-    let bdf = extract_arg(&args, "--bdf")
-        .unwrap_or_else(|| std::env::var("HOTSPRING_BDF").unwrap_or_else(|_| "0000:02:00.0".into()));
+    let bdf = extract_arg(&args, "--bdf").unwrap_or_else(|| {
+        std::env::var("HOTSPRING_BDF").unwrap_or_else(|_| "0000:02:00.0".into())
+    });
     let fw_path = extract_arg(&args, "--firmware")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("/tmp/gv100_pmu_70k_B.bin"));
@@ -119,7 +123,11 @@ fn main() {
             std::process::exit(1);
         }
     };
-    println!("  Firmware:  {} bytes ({:.1} KB)", fw_data.len(), fw_data.len() as f64 / 1024.0);
+    println!(
+        "  Firmware:  {} bytes ({:.1} KB)",
+        fw_data.len(),
+        fw_data.len() as f64 / 1024.0
+    );
 
     // ── Open BAR0 ────────────────────────────────────────────────────────────
     let resource0 = format!("/sys/bus/pci/devices/{bdf}/resource0");
@@ -146,16 +154,19 @@ fn main() {
     let pmu_enabled = pmc_en & PMC_ENABLE_PMU_BIT != 0;
     println!("  PMC_ENABLE    = {pmc_en:#010x}  (PMU bit 13 = {pmu_enabled})");
 
-    let pmu_ctrl  = bar0.r32(PMU_CPUCTL);
-    let pmu_pc    = bar0.r32(PMU_PC);
-    let pmu_sctl  = bar0.r32(PMU_SCTL);
-    let pmu_mb0   = bar0.r32(PMU_MB0);
+    let pmu_ctrl = bar0.r32(PMU_CPUCTL);
+    let pmu_pc = bar0.r32(PMU_PC);
+    let pmu_sctl = bar0.r32(PMU_SCTL);
+    let pmu_mb0 = bar0.r32(PMU_MB0);
     let pmu_hwcfg = bar0.r32(PMU_HWCFG);
     let pmu_hreset = pmu_ctrl & 0x10 != 0;
     let pmu_halted = pmu_ctrl & 0x20 != 0;
     println!("  PMU cpuctl    = {pmu_ctrl:#010x}  (HRESET={pmu_hreset} HALTED={pmu_halted})");
     println!("  PMU pc        = {pmu_pc:#010x}");
-    println!("  PMU sctl      = {pmu_sctl:#010x}  (HS mode {})", (pmu_sctl >> 12) & 3);
+    println!(
+        "  PMU sctl      = {pmu_sctl:#010x}  (HS mode {})",
+        (pmu_sctl >> 12) & 3
+    );
     println!("  PMU mb0       = {pmu_mb0:#010x}");
     println!("  PMU hwcfg     = {pmu_hwcfg:#010x}");
 
@@ -164,8 +175,14 @@ fn main() {
     let dmem_pages = pmu_hwcfg & 0x1FF;
     let imem_bytes = imem_pages * 256;
     let dmem_bytes = dmem_pages * 256;
-    println!("  PMU IMEM      = {imem_pages} pages × 256 = {imem_bytes}B ({} KB)", imem_bytes / 1024);
-    println!("  PMU DMEM      = {dmem_pages} pages × 256 = {dmem_bytes}B ({} KB)\n", dmem_bytes / 1024);
+    println!(
+        "  PMU IMEM      = {imem_pages} pages × 256 = {imem_bytes}B ({} KB)",
+        imem_bytes / 1024
+    );
+    println!(
+        "  PMU DMEM      = {dmem_pages} pages × 256 = {dmem_bytes}B ({} KB)\n",
+        dmem_bytes / 1024
+    );
 
     // Determine code vs data split in firmware blob
     // Heuristic: code = first imem_bytes, data = remainder
@@ -176,8 +193,14 @@ fn main() {
         std::process::exit(1);
     }
     let actual_code_size = fw_code_size.min(fw_data.len());
-    println!("  FW code slice: [0..{actual_code_size}] ({} KB)", actual_code_size / 1024);
-    println!("  FW data slice: [{actual_code_size}..{}] ({fw_data_size}B)\n", fw_data.len());
+    println!(
+        "  FW code slice: [0..{actual_code_size}] ({} KB)",
+        actual_code_size / 1024
+    );
+    println!(
+        "  FW data slice: [{actual_code_size}..{}] ({fw_data_size}B)\n",
+        fw_data.len()
+    );
 
     // ── Phase 1: Stage firmware to VRAM via PRAMIN ───────────────────────────
     println!("━━━ Phase 1: Stage PMU Firmware to VRAM via PRAMIN ━━━\n");
@@ -209,9 +232,7 @@ fn main() {
         // Verify first word
         bar0.w32(NV_PRAMIN_WIN_BASE, vram_fw_page >> 16);
         let first_word = bar0.r32(NV_PRAMIN_DATA);
-        let expected = u32::from_le_bytes([
-            fw_data[0], fw_data[1], fw_data[2], fw_data[3],
-        ]);
+        let expected = u32::from_le_bytes([fw_data[0], fw_data[1], fw_data[2], fw_data[3]]);
         let ok = first_word == expected;
         println!("  PRAMIN verify: got={first_word:#010x} want={expected:#010x} ok={ok}");
 
@@ -221,8 +242,10 @@ fn main() {
     } else {
         println!("  (dry-run: skipping VRAM write)");
     }
-    println!("  Staged {actual_code_size}B ({} KB) to VRAM@{vram_fw_page:#010x}\n",
-             actual_code_size / 1024);
+    println!(
+        "  Staged {actual_code_size}B ({} KB) to VRAM@{vram_fw_page:#010x}\n",
+        actual_code_size / 1024
+    );
 
     // ── Phase 2: Clear PMU HRESET via PMC_ENABLE ─────────────────────────────
     println!("━━━ Phase 2: Clear PMU HRESET (PMC_ENABLE bit 13) ━━━\n");
@@ -296,8 +319,10 @@ fn main() {
         }
 
         let elapsed = start.elapsed();
-        println!("  DMATRF: {ok_count}/{n_blocks} blocks in {:.0}µs",
-                 elapsed.as_micros());
+        println!(
+            "  DMATRF: {ok_count}/{n_blocks} blocks in {:.0}µs",
+            elapsed.as_micros()
+        );
 
         // Attempt IMEM readback (may not work on all Falcons in this state)
         let imem_read_ctrl: u32 = 0x0200_0000; // read mode BIT(25)
@@ -374,14 +399,16 @@ fn main() {
 
         while poll_start.elapsed() < timeout {
             let mb0 = bar0.r32(PMU_MB0);
-            let pc  = bar0.r32(PMU_PC);
+            let pc = bar0.r32(PMU_PC);
             let ctrl = bar0.r32(PMU_CPUCTL);
 
             if mb0 != last_mb0 || pc != last_pc {
-                println!("\n  t={:.0}ms: mb0={mb0:#010x} pc={pc:#06x} ctrl={ctrl:#010x}",
-                         poll_start.elapsed().as_millis());
+                println!(
+                    "\n  t={:.0}ms: mb0={mb0:#010x} pc={pc:#06x} ctrl={ctrl:#010x}",
+                    poll_start.elapsed().as_millis()
+                );
                 last_mb0 = mb0;
-                last_pc  = pc;
+                last_pc = pc;
             }
 
             // Success: mb0 has a boot-complete signal (not 0, not 0xCAFE0000)
@@ -415,16 +442,22 @@ fn main() {
 
         println!();
         println!("━━━ Phase 6 Final PMU State ━━━\n");
-        let ctrl  = bar0.r32(PMU_CPUCTL);
-        let pc    = bar0.r32(PMU_PC);
-        let sctl  = bar0.r32(PMU_SCTL);
-        let mb0   = bar0.r32(PMU_MB0);
-        let mb1   = bar0.r32(PMU_MB1);
-        let exci  = bar0.r32(PMU_EXCI);
-        println!("  PMU cpuctl = {ctrl:#010x}  (HRESET={} HALTED={})",
-                 ctrl & 0x10 != 0, ctrl & 0x20 != 0);
+        let ctrl = bar0.r32(PMU_CPUCTL);
+        let pc = bar0.r32(PMU_PC);
+        let sctl = bar0.r32(PMU_SCTL);
+        let mb0 = bar0.r32(PMU_MB0);
+        let mb1 = bar0.r32(PMU_MB1);
+        let exci = bar0.r32(PMU_EXCI);
+        println!(
+            "  PMU cpuctl = {ctrl:#010x}  (HRESET={} HALTED={})",
+            ctrl & 0x10 != 0,
+            ctrl & 0x20 != 0
+        );
         println!("  PMU pc     = {pc:#010x}");
-        println!("  PMU sctl   = {sctl:#010x}  (HS mode {})", (sctl >> 12) & 3);
+        println!(
+            "  PMU sctl   = {sctl:#010x}  (HS mode {})",
+            (sctl >> 12) & 3
+        );
         println!("  PMU mb0    = {mb0:#010x}");
         println!("  PMU mb1    = {mb1:#010x}");
         println!("  PMU exci   = {exci:#010x}");
@@ -438,13 +471,16 @@ fn main() {
 
     {
         let sec2_ctrl = bar0.r32(SEC2_CPUCTL);
-        let sec2_pc   = bar0.r32(SEC2_PC);
+        let sec2_pc = bar0.r32(SEC2_PC);
         let sec2_sctl = bar0.r32(SEC2_SCTL);
-        let sec2_mb0  = bar0.r32(SEC2_MB0);
+        let sec2_mb0 = bar0.r32(SEC2_MB0);
 
         println!("  SEC2 cpuctl = {sec2_ctrl:#010x}");
         println!("  SEC2 pc     = {sec2_pc:#010x}");
-        println!("  SEC2 sctl   = {sec2_sctl:#010x}  (HS mode {})", (sec2_sctl >> 12) & 3);
+        println!(
+            "  SEC2 sctl   = {sec2_sctl:#010x}  (HS mode {})",
+            (sec2_sctl >> 12) & 3
+        );
         println!("  SEC2 mb0    = {sec2_mb0:#010x}");
 
         if sec2_mb0 > 1 && sec2_mb0 != 0xCAFE_0000 && sec2_mb0 != 0xCAFE_BEEF {
@@ -462,7 +498,10 @@ fn main() {
         println!("  WPR2 hi = {wpr2_hi:#010x}");
 
         if wpr2_lo != 0 && wpr2_lo != 0xBADF_1100 {
-            println!("  WPR2 configured! addr = {:#012x}", wpr2_lo as u64 | ((wpr2_hi as u64 & 0xFF) << 32));
+            println!(
+                "  WPR2 configured! addr = {:#012x}",
+                wpr2_lo as u64 | ((wpr2_hi as u64 & 0xFF) << 32)
+            );
             println!("  → ACR completed — FECS can now boot authenticated firmware");
         } else {
             println!("  WPR2 not configured (still BADF11xx pattern)");
@@ -479,8 +518,5 @@ fn main() {
 // ── CLI argument extraction ───────────────────────────────────────────────────
 
 fn extract_arg(args: &[String], flag: &str) -> Option<String> {
-    args.windows(2)
-        .find(|w| w[0] == flag)
-        .map(|w| w[1].clone())
+    args.windows(2).find(|w| w[0] == flag).map(|w| w[1].clone())
 }
-

@@ -214,8 +214,16 @@ pub fn hasenbusch_hmc_trajectory(
         accepted: accept,
         delta_h,
         plaquette,
-        gauge_action: if accept { gauge_action_after } else { gauge_action_before },
-        fermion_action: if accept { fermion_action_after } else { fermion_action_before },
+        gauge_action: if accept {
+            gauge_action_after
+        } else {
+            gauge_action_before
+        },
+        fermion_action: if accept {
+            fermion_action_after
+        } else {
+            fermion_action_before
+        },
         cg_iterations_heavy: cg_heavy_total,
         cg_iterations_ratio: cg_ratio_total,
     }

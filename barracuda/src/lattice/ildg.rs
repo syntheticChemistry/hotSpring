@@ -179,7 +179,10 @@ pub fn read_gauge_config<R: Read>(reader: R) -> io::Result<(Lattice, IldgMetadat
     let xml = format_xml
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "missing ildg-format record"))?;
     let data = binary_data.ok_or_else(|| {
-        io::Error::new(io::ErrorKind::InvalidData, "missing ildg-binary-data record")
+        io::Error::new(
+            io::ErrorKind::InvalidData,
+            "missing ildg-binary-data record",
+        )
     })?;
 
     let meta = parse_format_xml(&xml, lfn.as_deref())?;

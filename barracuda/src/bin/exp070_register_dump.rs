@@ -142,9 +142,7 @@ fn main() {
         {
             match Bar0View::open(&bdf) {
                 Ok(view) => {
-                    eprintln!(
-                        "Mode: direct-mmap via /sys/bus/pci/devices/{bdf}/resource0"
-                    );
+                    eprintln!("Mode: direct-mmap via /sys/bus/pci/devices/{bdf}/resource0");
                     AccessMode::DirectMmap(view)
                 }
                 Err(e) => {

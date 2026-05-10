@@ -26,6 +26,7 @@ pub mod s_composition_health;
 pub mod s_lattice_plaquette;
 pub mod s_md_yukawa;
 pub mod s_semf_parity;
+#[cfg(feature = "barracuda-local")]
 pub mod s_spectral_lanczos;
 pub mod s_tolerance_ordering;
 
@@ -35,6 +36,7 @@ pub fn build_registry() -> ScenarioRegistry {
     let mut r = ScenarioRegistry::new();
     r.register(s_semf_parity::SCENARIO);
     r.register(s_lattice_plaquette::SCENARIO);
+    #[cfg(feature = "barracuda-local")]
     r.register(s_spectral_lanczos::SCENARIO);
     r.register(s_md_yukawa::SCENARIO);
     r.register(s_composition_health::SCENARIO);

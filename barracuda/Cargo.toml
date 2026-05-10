@@ -87,6 +87,9 @@ workspace = true
 
 [features]
 default = ["barracuda-local"]
+# IPC-first: builds the IPC surface without local barracuda library linking.
+# When enabled WITHOUT barracuda-local, only IPC-capable modules compile.
+primal-proof = []
 barracuda-local = ["dep:barracuda"]
 gpu_energy = []
 npu-hw = ["dep:akida-driver", "dep:akida-models"]

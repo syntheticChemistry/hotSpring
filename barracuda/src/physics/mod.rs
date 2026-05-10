@@ -13,40 +13,54 @@
 /// Average-atom model for warm dense matter (Paper 33 — atoMEC).
 pub mod average_atom;
 /// BCS pairing gap solver on GPU (bisection in WGSL).
+#[cfg(feature = "barracuda-local")]
 pub mod bcs_gpu;
 /// Physical constants (CODATA 2018, nuclear, Skyrme).
 pub mod constants;
 /// BGK dielectric functions (Chuna & Murillo 2024, arXiv:2405.07871).
+#[cfg(feature = "barracuda-local")]
 pub mod dielectric;
 /// Multi-component Mermin dielectric for electron-ion plasmas (Paper 44 extension).
+#[cfg(feature = "barracuda-local")]
 pub mod dielectric_multicomponent;
 /// Militzer FPEOS database: first-principles EOS tables for WDM (Paper 32).
 pub mod fpeos;
 /// Full GPU coupled kinetic-fluid pipeline (Paper 45).
+#[cfg(feature = "barracuda-local")]
 pub mod gpu_coupled_kinetic_fluid;
 /// GPU-accelerated BGK dielectric (batched Mermin on GPU).
+#[cfg(feature = "barracuda-local")]
 pub mod gpu_dielectric;
 /// GPU-accelerated multi-component Mermin dielectric (Paper 44 extension).
+#[cfg(feature = "barracuda-local")]
 pub mod gpu_dielectric_multicomponent;
 /// GPU-accelerated 1D Euler with HLL Riemann solver (Paper 45).
+#[cfg(feature = "barracuda-local")]
 pub mod gpu_euler;
 /// GPU-accelerated BGK relaxation for multi-species kinetic plasma (Paper 45).
+#[cfg(feature = "barracuda-local")]
 pub mod gpu_kinetic_fluid;
 /// Spherical Hartree-Fock-Bogoliubov (L2 nuclear EOS).
+#[cfg(feature = "barracuda-local")]
 pub mod hfb;
 /// Shared HFB utilities: Woods-Saxon radii, deformation estimation.
 pub mod hfb_common;
 /// Deformed HFB in axial symmetry (L3 nuclear EOS).
+#[cfg(feature = "barracuda-local")]
 pub mod hfb_deformed;
 /// Shared constants and types for deformed HFB (CPU + GPU).
 pub mod hfb_deformed_common;
 /// Deformed HFB with GPU-accelerated Hamiltonian build.
+#[cfg(feature = "barracuda-local")]
 pub mod hfb_deformed_gpu;
 /// GPU-batched HFB eigensolve via `BatchedEighGpu`.
+#[cfg(feature = "barracuda-local")]
 pub mod hfb_gpu;
 /// Fully GPU-resident HFB pipeline (potentials → H → eigensolve → density → energy).
+#[cfg(feature = "barracuda-local")]
 pub mod hfb_gpu_resident;
 /// GPU buffer types and bind-group layouts for HFB pipelines.
+#[cfg(feature = "barracuda-local")]
 pub(crate) mod hfb_gpu_types;
 /// Multi-species kinetic-fluid coupling (Haack, Murillo, Sagert & Chuna 2024).
 pub mod kinetic_fluid;
@@ -58,10 +72,15 @@ pub mod screened_coulomb;
 pub mod semf;
 
 pub use constants::*;
+#[cfg(feature = "barracuda-local")]
 pub use hfb::{SphericalHFB, binding_energy_l2};
+#[cfg(feature = "barracuda-local")]
 pub use hfb_deformed::DeformedHFB;
+#[cfg(feature = "barracuda-local")]
 pub use hfb_deformed_gpu::binding_energies_l3_gpu_auto;
+#[cfg(feature = "barracuda-local")]
 pub use hfb_gpu::binding_energies_l2_gpu;
+#[cfg(feature = "barracuda-local")]
 pub use hfb_gpu_resident::binding_energies_l2_gpu_resident;
 pub use nuclear_matter::{NuclearMatterProps, nuclear_matter_properties};
 pub use semf::semf_binding_energy;

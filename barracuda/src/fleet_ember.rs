@@ -15,7 +15,13 @@ use crate::ember_types::{
     FalconUploadResult, MmioBatchOp, MmioBatchResult, MmioReadResult, MmioWriteResult,
     PraminReadResult, PraminWriteResult, Sec2PrepareResult,
 };
-use crate::primal_bridge::send_jsonrpc;
+fn send_rpc(
+    socket: &std::path::Path,
+    method: &str,
+    params: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    crate::primal_bridge::send_jsonrpc(socket, method, params).map_err(|e| e.to_string())
+}
 
 fn jsonrpc_ok_result(resp: &serde_json::Value) -> Result<serde_json::Value, String> {
     if let Some(err) = resp.get("error") {
@@ -72,7 +78,7 @@ impl EmberClient {
 
     /// `ember.status` — aggregate status (devices, uptime, per-device hints).
     pub fn status(&self) -> Result<serde_json::Value, String> {
-        let v = send_jsonrpc(&self.socket_path, "ember.status", &serde_json::json!({}))?;
+        let v = send_rpc(&self.socket_path, "ember.status", &serde_json::json!({}))?;
         jsonrpc_ok_result(&v)
     }
 
@@ -83,7 +89,7 @@ impl EmberClient {
 
     /// `ember.list` — BDFs currently held.
     pub fn list_devices(&self) -> Result<Vec<String>, String> {
-        let v = send_jsonrpc(&self.socket_path, "ember.list", &serde_json::json!({}))?;
+        let v = send_rpc(&self.socket_path, "ember.list", &serde_json::json!({}))?;
         let result = jsonrpc_ok_result(&v)?;
         let arr = result
             .get("devices")
@@ -101,7 +107,7 @@ impl EmberClient {
 
     /// `ember.adopt_device` — JSON-RPC only (current coral-ember opens VFIO server-side).
     pub fn adopt_device(&self, bdf: &str) -> Result<serde_json::Value, String> {
-        let v = send_jsonrpc(
+        let v = send_rpc(
             &self.socket_path,
             "ember.adopt_device",
             &serde_json::json!({ "bdf": bdf }),
@@ -111,7 +117,7 @@ impl EmberClient {
 
     /// `ember.warm_cycle` — driver warm cycle for `bdf`.
     pub fn warm_cycle(&self, bdf: &str) -> Result<serde_json::Value, String> {
-        let v = send_jsonrpc(
+        let v = send_rpc(
             &self.socket_path,
             "ember.warm_cycle",
             &serde_json::json!({ "bdf": bdf }),
@@ -121,7 +127,7 @@ impl EmberClient {
 
     /// `ember.device.health` — per-device health.
     pub fn device_health(&self, bdf: &str) -> Result<serde_json::Value, String> {
-        let v = send_jsonrpc(
+        let v = send_rpc(
             &self.socket_path,
             "ember.device.health",
             &serde_json::json!({ "bdf": bdf }),
@@ -131,7 +137,7 @@ impl EmberClient {
 
     /// `ember.device.recover` — attempt MMIO recovery for a faulted device.
     pub fn device_recover(&self, bdf: &str) -> Result<serde_json::Value, String> {
-        let v = send_jsonrpc(
+        let v = send_rpc(
             &self.socket_path,
             "ember.device.recover",
             &serde_json::json!({ "bdf": bdf }),
@@ -143,7 +149,7 @@ impl EmberClient {
 
     /// `ember.mmio.read` — read a single 32-bit BAR0 register.
     pub fn mmio_read(&self, bdf: &str, offset: u32) -> Result<MmioReadResult, String> {
-        let v = send_jsonrpc(
+        let v = send_rpc(
             &self.socket_path,
             "ember.mmio.read",
             &serde_json::json!({ "bdf": bdf, "offset": offset }),
@@ -159,7 +165,7 @@ impl EmberClient {
         offset: u32,
         value: u32,
     ) -> Result<MmioWriteResult, String> {
-        let v = send_jsonrpc(
+        let v = send_rpc(
             &self.socket_path,
             "ember.mmio.write",
             &serde_json::json!({ "bdf": bdf, "offset": offset, "value": value }),
@@ -170,7 +176,7 @@ impl EmberClient {
 
     /// `ember.mmio.batch` — execute a sequence of read/write ops in one fork.
     pub fn mmio_batch(&self, bdf: &str, ops: &[MmioBatchOp]) -> Result<MmioBatchResult, String> {
-        let v = send_jsonrpc(
+        let v = send_rpc(
             &self.socket_path,
             "ember.mmio.batch",
             &serde_json::json!({ "bdf": bdf, "ops": ops }),
@@ -189,7 +195,7 @@ impl EmberClient {
         if let Some(a) = action {
             params["action"] = serde_json::json!(a);
         }
-        let v = send_jsonrpc(&self.socket_path, "ember.mmio.circuit_breaker", &params)?;
+        let v = send_rpc(&self.socket_path, "ember.mmio.circuit_breaker", &params)?;
         let result = jsonrpc_ok_result(&v)?;
         serde_json::from_value(result).map_err(|e| format!("circuit_breaker parse: {e}"))
     }
@@ -207,7 +213,7 @@ impl EmberClient {
         secure: bool,
     ) -> Result<FalconUploadResult, String> {
         let b64 = base64::engine::general_purpose::STANDARD;
-        let v = send_jsonrpc(
+        let v = send_rpc(
             &self.socket_path,
             "ember.falcon.upload_imem",
             &serde_json::json!({
@@ -232,7 +238,7 @@ impl EmberClient {
         data: &[u8],
     ) -> Result<FalconUploadResult, String> {
         let b64 = base64::engine::general_purpose::STANDARD;
-        let v = send_jsonrpc(
+        let v = send_rpc(
             &self.socket_path,
             "ember.falcon.upload_dmem",
             &serde_json::json!({
@@ -248,7 +254,7 @@ impl EmberClient {
 
     /// `ember.falcon.start_cpu` — trigger STARTCPU and read back PC/EXCI/CPUCTL.
     pub fn falcon_start_cpu(&self, bdf: &str, base: u32) -> Result<FalconStartResult, String> {
-        let v = send_jsonrpc(
+        let v = send_rpc(
             &self.socket_path,
             "ember.falcon.start_cpu",
             &serde_json::json!({ "bdf": bdf, "base": base }),
@@ -265,7 +271,7 @@ impl EmberClient {
         timeout_ms: u32,
         mailbox_sentinel: u32,
     ) -> Result<FalconPollResult, String> {
-        let v = send_jsonrpc(
+        let v = send_rpc(
             &self.socket_path,
             "ember.falcon.poll",
             &serde_json::json!({
@@ -283,7 +289,7 @@ impl EmberClient {
 
     /// `ember.sec2.prepare_physical` — PMC reset + instance bind + PHYS_VID path.
     pub fn sec2_prepare_physical(&self, bdf: &str) -> Result<Sec2PrepareResult, String> {
-        let v = send_jsonrpc(
+        let v = send_rpc(
             &self.socket_path,
             "ember.sec2.prepare_physical",
             &serde_json::json!({ "bdf": bdf }),
@@ -296,7 +302,7 @@ impl EmberClient {
 
     /// `ember.pramin.read` — read VRAM at `vram_addr` for `length` bytes.
     pub fn pramin_read(&self, bdf: &str, vram_addr: u64, length: u32) -> Result<Vec<u8>, String> {
-        let v = send_jsonrpc(
+        let v = send_rpc(
             &self.socket_path,
             "ember.pramin.read",
             &serde_json::json!({
@@ -321,7 +327,7 @@ impl EmberClient {
         data: &[u8],
     ) -> Result<PraminWriteResult, String> {
         let b64 = base64::engine::general_purpose::STANDARD;
-        let v = send_jsonrpc(
+        let v = send_rpc(
             &self.socket_path,
             "ember.pramin.write",
             &serde_json::json!({
@@ -338,7 +344,7 @@ impl EmberClient {
 
     /// `ember.prepare_dma` — quiesce + AER mask + optional bus master enable.
     pub fn prepare_dma(&self, bdf: &str, bus_master: bool) -> Result<DmaPrepareResult, String> {
-        let v = send_jsonrpc(
+        let v = send_rpc(
             &self.socket_path,
             "ember.prepare_dma",
             &serde_json::json!({ "bdf": bdf, "bus_master": bus_master }),
@@ -349,7 +355,7 @@ impl EmberClient {
 
     /// `ember.cleanup_dma` — decontaminate + restore AER + disable bus master.
     pub fn cleanup_dma(&self, bdf: &str) -> Result<DmaCleanupResult, String> {
-        let v = send_jsonrpc(
+        let v = send_rpc(
             &self.socket_path,
             "ember.cleanup_dma",
             &serde_json::json!({ "bdf": bdf }),
@@ -362,7 +368,7 @@ impl EmberClient {
 
     /// `ember.fecs.state` — read FECS falcon status registers.
     pub fn fecs_state(&self, bdf: &str) -> Result<serde_json::Value, String> {
-        let v = send_jsonrpc(
+        let v = send_rpc(
             &self.socket_path,
             "ember.fecs.state",
             &serde_json::json!({ "bdf": bdf }),
@@ -374,7 +380,7 @@ impl EmberClient {
 
     /// `ember.journal.query` — query the per-device event journal.
     pub fn journal_query(&self, bdf: &str) -> Result<serde_json::Value, String> {
-        let v = send_jsonrpc(
+        let v = send_rpc(
             &self.socket_path,
             "ember.journal.query",
             &serde_json::json!({ "bdf": bdf }),
@@ -384,7 +390,7 @@ impl EmberClient {
 
     /// `ember.policy.list` — list active MMIO safety policies.
     pub fn policy_list(&self) -> Result<serde_json::Value, String> {
-        let v = send_jsonrpc(
+        let v = send_rpc(
             &self.socket_path,
             "ember.policy.list",
             &serde_json::json!({}),
@@ -607,7 +613,7 @@ pub fn flood_test(config: &FloodTestConfig) -> FloodTestResult {
                 for i in 0..count {
                     let idx = tid * per_thread + i;
                     let req_start = std::time::Instant::now();
-                    let result = send_jsonrpc_with_timeout(&socket, "ember.status", timeout);
+                    let result = send_rpc_with_timeout(&socket, "ember.status", timeout);
                     let latency = req_start.elapsed();
                     let (success, error) = match result {
                         Ok(v) => {
@@ -673,8 +679,8 @@ pub fn flood_test(config: &FloodTestConfig) -> FloodTestResult {
     }
 }
 
-/// Like [`send_jsonrpc`] but with an explicit connect+read timeout.
-fn send_jsonrpc_with_timeout(
+/// Like [`send_rpc`] but with an explicit connect+read timeout.
+fn send_rpc_with_timeout(
     socket_path: &Path,
     method: &str,
     timeout: std::time::Duration,
@@ -714,7 +720,7 @@ fn send_jsonrpc_with_timeout(
 /// Check if a socket is still accepting `ember.status` RPCs.
 pub fn verify_ember_alive(socket_path: &Path) -> Result<std::time::Duration, String> {
     let start = std::time::Instant::now();
-    let resp = send_jsonrpc_with_timeout(
+    let resp = send_rpc_with_timeout(
         socket_path,
         "ember.status",
         std::time::Duration::from_secs(5),
@@ -731,7 +737,7 @@ pub fn verify_ember_alive(socket_path: &Path) -> Result<std::time::Duration, Str
 ///
 /// Returns `None` if the response doesn't include `pid`.
 pub fn extract_ember_pid(socket_path: &Path) -> Option<u32> {
-    let resp = send_jsonrpc_with_timeout(
+    let resp = send_rpc_with_timeout(
         socket_path,
         "ember.status",
         std::time::Duration::from_secs(5),

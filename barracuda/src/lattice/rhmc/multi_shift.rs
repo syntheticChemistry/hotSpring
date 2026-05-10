@@ -103,7 +103,8 @@ pub fn multi_shift_cg_solve(
                 continue;
             }
             let sigma = shifts[s];
-            let denom = 1.0 + alpha * sigma + alpha * beta_prev[s] * (1.0 - zeta_curr[s] / zeta_prev[s]);
+            let denom =
+                1.0 + alpha * sigma + alpha * beta_prev[s] * (1.0 - zeta_curr[s] / zeta_prev[s]);
             let zeta_next = if denom.abs() < 1e-30 {
                 active[s] = false;
                 continue;

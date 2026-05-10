@@ -68,10 +68,24 @@ pub fn dynamical_hmc_trajectory(
 
     match config.integrator {
         IntegratorType::Leapfrog => {
-            dynamical_leapfrog(lattice, &mut momenta, &phi_fields, config.n_md_steps, config.dt, &config.fermion);
+            dynamical_leapfrog(
+                lattice,
+                &mut momenta,
+                &phi_fields,
+                config.n_md_steps,
+                config.dt,
+                &config.fermion,
+            );
         }
         IntegratorType::Omelyan => {
-            dynamical_omelyan(lattice, &mut momenta, &phi_fields, config.n_md_steps, config.dt, &config.fermion);
+            dynamical_omelyan(
+                lattice,
+                &mut momenta,
+                &phi_fields,
+                config.n_md_steps,
+                config.dt,
+                &config.fermion,
+            );
         }
     }
 
@@ -103,8 +117,16 @@ pub fn dynamical_hmc_trajectory(
         accepted: accept,
         delta_h,
         plaquette,
-        gauge_action: if accept { gauge_action_after } else { gauge_action_before },
-        fermion_action: if accept { fermion_action_after } else { fermion_action_before },
+        gauge_action: if accept {
+            gauge_action_after
+        } else {
+            gauge_action_before
+        },
+        fermion_action: if accept {
+            fermion_action_after
+        } else {
+            fermion_action_before
+        },
         cg_iterations: total_cg_iters,
     }
 }

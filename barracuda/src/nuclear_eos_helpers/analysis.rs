@@ -148,8 +148,7 @@ pub fn run_deep_residual_analysis(
 ) {
     use super::reporting::{
         print_accuracy_by_region, print_accuracy_distributions, print_accuracy_metrics_box,
-        print_best_parameters, print_semf_capability_analysis,
-        print_top_nuclei,
+        print_best_parameters, print_semf_capability_analysis, print_top_nuclei,
     };
     use crate::data;
     use crate::provenance;

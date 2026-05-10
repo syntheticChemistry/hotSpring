@@ -13,8 +13,32 @@
 //! See PHYSICS.md §3 for complete equation documentation.
 
 use super::constants::{HBAR_C, HBAR2_2M, M_NUCLEON};
-use barracuda::optimize::bisect;
 use std::f64::consts::PI;
+
+#[cfg(feature = "barracuda-local")]
+use barracuda::optimize::bisect;
+
+#[cfg(not(feature = "barracuda-local"))]
+fn bisect<F: Fn(f64) -> f64>(
+    f: F,
+    mut a: f64,
+    mut b: f64,
+    tol: f64,
+    max_iter: usize,
+) -> Option<f64> {
+    for _ in 0..max_iter {
+        let mid = 0.5 * (a + b);
+        if (b - a) < tol {
+            return Some(mid);
+        }
+        if f(mid) * f(a) <= 0.0 {
+            b = mid;
+        } else {
+            a = mid;
+        }
+    }
+    Some(0.5 * (a + b))
+}
 
 /// Nuclear matter property results.
 ///

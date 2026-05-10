@@ -1,16 +1,13 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
-# hotSpring Deploy Graph — Nuclear EOS (SEMF / HFB)
+# hotSpring Deploy Graph — Nuclear EOS (Skyrme HFB)
 #
-# Semi-empirical mass formula (L1), Hartree-Fock-Bogoliubov (L2/L3),
-# AME2020 binding energy validation. GPU-accelerated HFB via toadStool +
-# barraCuda. Provenance trio included for reproducibility certification.
-#
-# Usage: biomeos deploy --graph graphs/hotspring_nuclear_eos_deploy.toml
+# Composition: Tower + Node + Nest + skunkBat audit
+# Science domain: SEMF L1, spherical HFB L2, deformed HFB L3, GPU-batched eigensolve
 
 [graph]
 name = "hotspring_nuclear_eos_deploy"
-description = "Nuclear EOS — SEMF/HFB binding energies, AME2020 validation with provenance"
+description = "Deploy graph for hotSpring nuclear EOS — Skyrme HFB pipeline with GPU-batched eigensolve"
 version = "0.6.32"
 coordination = "sequential"
 
@@ -22,7 +19,7 @@ owner = "hotSpring"
 pattern = "deploy"
 proto_nucleate = "primalSpring/graphs/downstream/downstream_manifest.toml"
 particle_profile = "proton_heavy"
-science_domain = "nuclear_physics"
+science_domain = "nuclear_equation_of_state"
 composition_model = "nucleated"
 fragments = ["tower_atomic", "node_atomic", "nest_atomic"]
 
@@ -58,11 +55,21 @@ depends_on = ["beardog"]
 health_method = "health.liveness"
 by_capability = "discovery"
 
-# Node Atomic (compute — no shader compilation for EOS)
+# Node Atomic
+[[graph.nodes]]
+name = "coralreef"
+binary = "coralreef"
+order = 3
+required = true
+spawn = false
+depends_on = ["beardog"]
+health_method = "health.liveness"
+by_capability = "shader"
+
 [[graph.nodes]]
 name = "toadstool"
 binary = "toadstool"
-order = 3
+order = 4
 required = true
 spawn = false
 depends_on = ["beardog", "songbird"]
@@ -72,18 +79,18 @@ by_capability = "compute"
 [[graph.nodes]]
 name = "barracuda"
 binary = "barracuda"
-order = 4
+order = 5
 required = true
 spawn = false
 depends_on = ["beardog"]
 health_method = "health.liveness"
 by_capability = "math"
 
-# Nest Atomic (provenance for reproducibility certification)
+# Nest Atomic
 [[graph.nodes]]
 name = "nestgate"
 binary = "nestgate"
-order = 5
+order = 6
 required = true
 spawn = false
 depends_on = ["beardog"]
@@ -93,7 +100,7 @@ by_capability = "storage"
 [[graph.nodes]]
 name = "rhizocrypt"
 binary = "rhizocrypt"
-order = 6
+order = 7
 required = true
 spawn = false
 depends_on = ["beardog"]
@@ -103,7 +110,7 @@ by_capability = "dag"
 [[graph.nodes]]
 name = "loamspine"
 binary = "loamspine"
-order = 7
+order = 8
 required = true
 spawn = false
 depends_on = ["beardog", "rhizocrypt"]
@@ -113,30 +120,45 @@ by_capability = "ledger"
 [[graph.nodes]]
 name = "sweetgrass"
 binary = "sweetgrass"
-order = 8
+order = 9
 required = true
 spawn = false
 depends_on = ["beardog", "loamspine"]
 health_method = "health.liveness"
 by_capability = "attribution"
 
-# hotSpring application
+# Defense / Audit
+[[graph.nodes]]
+name = "skunkbat"
+binary = "skunkbat"
+order = 9
+required = false
+spawn = false
+depends_on = ["beardog", "nestgate"]
+health_method = "health.liveness"
+by_capability = "defense"
+
+# hotSpring Nuclear EOS application
 [[graph.nodes]]
 name = "hotspring"
 binary = "hotspring_primal"
-order = 9
+order = 10
 required = true
 spawn = true
-depends_on = ["beardog", "songbird", "toadstool", "barracuda", "nestgate"]
+depends_on = ["beardog", "songbird", "coralreef", "toadstool", "barracuda", "nestgate"]
 health_method = "health.liveness"
 by_capability = "physics"
 capabilities = [
     "physics.nuclear_eos",
+    "physics.semf",
+    "physics.hfb_spherical",
+    "physics.hfb_deformed",
+    "physics.nuclear_matter",
     "compute.df64",
     "compute.f64",
+    "compute.cg_solver",
     "composition.health",
     "health.liveness",
     "health.readiness",
     "capabilities.list",
-    "mcp.tools.list",
 ]

@@ -313,7 +313,12 @@ impl GpuF64 {
     /// Shared pipeline builder: WGSL-text path (skips sovereign compilation).
     ///
     /// Consolidates the former `build_pipeline` + `build_pipeline_entry` pair.
-    fn build_pipeline_inner(&self, wgsl: &str, entry_point: &str, label: &str) -> wgpu::ComputePipeline {
+    fn build_pipeline_inner(
+        &self,
+        wgsl: &str,
+        entry_point: &str,
+        label: &str,
+    ) -> wgpu::ComputePipeline {
         let shader_module = self
             .device()
             .create_shader_module(wgpu::ShaderModuleDescriptor {

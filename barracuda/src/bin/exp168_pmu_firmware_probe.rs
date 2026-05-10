@@ -99,7 +99,7 @@ const PMU_FILENAME_PATTERNS: &[&str] = &[
     "pmu_inst",
     "pmu_data",
     "gv100",
-    "tu1",  // Turing, but useful as reference
+    "tu1", // Turing, but useful as reference
     "gp100",
     "gm200",
 ];
@@ -140,7 +140,14 @@ fn try_parse_falcon_header(bytes: &[u8], offset: u64) -> Option<FalconUcHeader> 
     let sig_size = u32::from_le_bytes([bytes[8], bytes[9], bytes[10], bytes[11]]);
     let code_size = u32::from_le_bytes([bytes[12], bytes[13], bytes[14], bytes[15]]);
     let data_size = u32::from_le_bytes([bytes[16], bytes[17], bytes[18], bytes[19]]);
-    let hdr = FalconUcHeader { magic, version, sig_size, code_size, data_size, offset_in_file: offset };
+    let hdr = FalconUcHeader {
+        magic,
+        version,
+        sig_size,
+        code_size,
+        data_size,
+        offset_in_file: offset,
+    };
     if hdr.is_plausible() { Some(hdr) } else { None }
 }
 
@@ -175,8 +182,13 @@ fn scan_file_for_blobs(path: &Path, output_dir: Option<&Path>) -> io::Result<Vec
                 eprintln!(
                     "  PMU blob candidate at {:#010x}: magic={:#010x} ver={:#010x} \
                      sig={} code={} data={} total={}",
-                    hdr.offset_in_file, hdr.magic, hdr.version,
-                    hdr.sig_size, hdr.code_size, hdr.data_size, hdr.total_size()
+                    hdr.offset_in_file,
+                    hdr.magic,
+                    hdr.version,
+                    hdr.sig_size,
+                    hdr.code_size,
+                    hdr.data_size,
+                    hdr.total_size()
                 );
                 if let Some(outdir) = output_dir {
                     extract_blob(&mut file, &hdr, outdir)?;
@@ -205,7 +217,10 @@ fn extract_blob(file: &mut std::fs::File, hdr: &FalconUcHeader, outdir: &Path) -
     file.seek(SeekFrom::Start(hdr.offset_in_file))?;
     let n = file.read(&mut blob)?;
     if n < total {
-        eprintln!("  WARNING: blob at {:#x} truncated ({n}/{total} bytes)", hdr.offset_in_file);
+        eprintln!(
+            "  WARNING: blob at {:#x} truncated ({n}/{total} bytes)",
+            hdr.offset_in_file
+        );
         blob.truncate(n);
     }
 
@@ -241,7 +256,9 @@ fn scan_dir_recursive(dir: &Path, depth: usize) -> io::Result<()> {
             let is_pmu_named = PMU_FILENAME_PATTERNS
                 .iter()
                 .any(|pat| fname_lower.contains(pat));
-            let is_bin_ext = path.extension().is_some_and(|e| e.eq_ignore_ascii_case("bin"));
+            let is_bin_ext = path
+                .extension()
+                .is_some_and(|e| e.eq_ignore_ascii_case("bin"));
             if is_pmu_named || is_bin_ext {
                 eprintln!("  Candidate: {}", path.display());
                 match validate_blob(&path) {
@@ -249,7 +266,11 @@ fn scan_dir_recursive(dir: &Path, depth: usize) -> io::Result<()> {
                         eprintln!(
                             "    ✓ Falcon UC header: magic={:#010x} ver={:#010x} \
                              code={} data={} total={}",
-                            hdr.magic, hdr.version, hdr.code_size, hdr.data_size, hdr.total_size()
+                            hdr.magic,
+                            hdr.version,
+                            hdr.code_size,
+                            hdr.data_size,
+                            hdr.total_size()
                         );
                     }
                     Err(e) => {
@@ -268,10 +289,17 @@ fn scan_dir_recursive(dir: &Path, depth: usize) -> io::Result<()> {
 fn validate_blob(path: &Path) -> io::Result<FalconUcHeader> {
     let data = std::fs::read(path)?;
     if data.len() < 20 {
-        return Err(io::Error::new(io::ErrorKind::InvalidData, "file too small for Falcon header"));
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "file too small for Falcon header",
+        ));
     }
-    try_parse_falcon_header(&data, 0)
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "no valid Falcon UC header at offset 0"))
+    try_parse_falcon_header(&data, 0).ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::InvalidData,
+            "no valid Falcon UC header at offset 0",
+        )
+    })
 }
 
 fn print_blob_json(path: &Path, hdr: &FalconUcHeader) {
@@ -348,7 +376,11 @@ fn parse_args() -> Result<Args, String> {
     }
 
     let path = path.ok_or_else(|| "missing path argument".to_string())?;
-    Ok(Args { mode, path, output_dir })
+    Ok(Args {
+        mode,
+        path,
+        output_dir,
+    })
 }
 
 fn main() {
@@ -364,7 +396,9 @@ fn main() {
             eprintln!("ERROR: {e}");
             eprintln!();
             eprintln!("Usage:");
-            eprintln!("  exp168_pmu_firmware_probe --mode elf     <nv-kernel.o_binary or libnvidia*.so>");
+            eprintln!(
+                "  exp168_pmu_firmware_probe --mode elf     <nv-kernel.o_binary or libnvidia*.so>"
+            );
             eprintln!("  exp168_pmu_firmware_probe --mode squashfs <NVIDIA-Linux-x86_64-470*.run>");
             eprintln!("  exp168_pmu_firmware_probe --mode dir     <directory>");
             eprintln!("  exp168_pmu_firmware_probe --mode validate <candidate.bin>");
@@ -374,8 +408,12 @@ fn main() {
             eprintln!();
             eprintln!("Context:");
             eprintln!("  GV100 PMU FW is NOT in linux-firmware. It is embedded in nvidia-470.");
-            eprintln!("  Without it, SEC2 ACR cannot complete → WPR never configured → Titan V stuck.");
-            eprintln!("  See: wateringHole/handoffs/HOTSPRING_CORALREEF_TITANV_WARM_DMATRF_HANDOFF_MAY07_2026.md");
+            eprintln!(
+                "  Without it, SEC2 ACR cannot complete → WPR never configured → Titan V stuck."
+            );
+            eprintln!(
+                "  See: wateringHole/handoffs/HOTSPRING_CORALREEF_TITANV_WARM_DMATRF_HANDOFF_MAY07_2026.md"
+            );
             std::process::exit(2);
         }
     };
@@ -386,19 +424,17 @@ fn main() {
     }
 
     match args.mode {
-        Mode::Validate => {
-            match validate_blob(&args.path) {
-                Ok(hdr) => {
-                    println!("Falcon UC header VALID:");
-                    print_blob_json(&args.path, &hdr);
-                    std::process::exit(0);
-                }
-                Err(e) => {
-                    eprintln!("INVALID: {e}");
-                    std::process::exit(1);
-                }
+        Mode::Validate => match validate_blob(&args.path) {
+            Ok(hdr) => {
+                println!("Falcon UC header VALID:");
+                print_blob_json(&args.path, &hdr);
+                std::process::exit(0);
             }
-        }
+            Err(e) => {
+                eprintln!("INVALID: {e}");
+                std::process::exit(1);
+            }
+        },
 
         Mode::Dir => {
             if let Err(e) = scan_directory(&args.path) {
@@ -434,7 +470,9 @@ fn main() {
                             let _ = scan_directory(&outdir);
                         }
                         Ok(s) => {
-                            eprintln!("  unsquashfs exited with status {s}. Falling back to raw scan.");
+                            eprintln!(
+                                "  unsquashfs exited with status {s}. Falling back to raw scan."
+                            );
                             scan_and_report(&args.path, args.output_dir.as_deref());
                         }
                         Err(e) => {
@@ -472,8 +510,12 @@ fn scan_and_report(path: &Path, output_dir: Option<&Path>) {
                     print_blob_json(path, hdr);
                 }
                 println!();
-                println!("  Next: validate the extracted blob(s) and feed to exp158_sec2_real_firmware");
-                println!("  See: wateringHole/handoffs/HOTSPRING_CORALREEF_TITANV_WARM_DMATRF_HANDOFF_MAY07_2026.md");
+                println!(
+                    "  Next: validate the extracted blob(s) and feed to exp158_sec2_real_firmware"
+                );
+                println!(
+                    "  See: wateringHole/handoffs/HOTSPRING_CORALREEF_TITANV_WARM_DMATRF_HANDOFF_MAY07_2026.md"
+                );
                 std::process::exit(0);
             }
         }

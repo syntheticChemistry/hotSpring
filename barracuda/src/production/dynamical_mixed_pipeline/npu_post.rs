@@ -52,7 +52,15 @@ pub(super) fn npu_post_process_beta(
     beta_order: &mut Vec<f64>,
     traj_writer: &mut Option<std::io::BufWriter<std::fs::File>>,
 ) {
-    let NpuPostArgs { bi, beta, mean_plaq, susceptibility, acceptance, dt, n_md } = *args;
+    let NpuPostArgs {
+        bi,
+        beta,
+        mean_plaq,
+        susceptibility,
+        acceptance,
+        dt,
+        n_md,
+    } = *args;
 
     ctx.npu_tx.send(NpuRequest::FlushTrajectoryBatch).ok();
     if let Ok(NpuResponse::TrajectoryBatchProcessed { n_events }) = ctx.npu_rx.recv()

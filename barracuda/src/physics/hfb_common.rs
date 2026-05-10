@@ -70,7 +70,31 @@ impl Mat {
 #[inline]
 #[must_use]
 pub fn hermite_value(n: usize, x: f64) -> f64 {
-    barracuda::special::hermite(n, x)
+    #[cfg(feature = "barracuda-local")]
+    {
+        barracuda::special::hermite(n, x)
+    }
+    #[cfg(not(feature = "barracuda-local"))]
+    {
+        hermite_recurrence(n, x)
+    }
+}
+
+#[cfg(not(feature = "barracuda-local"))]
+fn hermite_recurrence(n: usize, x: f64) -> f64 {
+    match n {
+        0 => 1.0,
+        1 => 2.0 * x,
+        _ => {
+            let (mut h0, mut h1) = (1.0, 2.0 * x);
+            for k in 2..=n {
+                let h2 = 2.0 * x * h1 - 2.0 * (k as f64 - 1.0) * h0;
+                h0 = h1;
+                h1 = h2;
+            }
+            h1
+        }
+    }
 }
 
 /// Factorial n! as f64.
@@ -80,7 +104,41 @@ pub fn hermite_value(n: usize, x: f64) -> f64 {
 /// approximation for larger n.
 #[must_use]
 pub fn factorial_f64(n: usize) -> f64 {
-    barracuda::special::factorial(n)
+    #[cfg(feature = "barracuda-local")]
+    {
+        barracuda::special::factorial(n)
+    }
+    #[cfg(not(feature = "barracuda-local"))]
+    {
+        const TABLE: [f64; 21] = [
+            1.0,
+            1.0,
+            2.0,
+            6.0,
+            24.0,
+            120.0,
+            720.0,
+            5040.0,
+            40320.0,
+            362880.0,
+            3628800.0,
+            39916800.0,
+            479001600.0,
+            6227020800.0,
+            87178291200.0,
+            1307674368000.0,
+            20922789888000.0,
+            355687428096000.0,
+            6402373705728000.0,
+            121645100408832000.0,
+            2432902008176640000.0,
+        ];
+        if n <= 20 {
+            TABLE[n]
+        } else {
+            (1..=n).map(|i| i as f64).product()
+        }
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════

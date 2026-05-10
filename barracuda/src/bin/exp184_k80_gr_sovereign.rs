@@ -49,43 +49,43 @@ use hotspring_barracuda::ember_types::MmioBatchOp;
 use hotspring_barracuda::fleet_client::{EmberClient, FleetDiscovery};
 
 // ── PMC / MC registers ─────────────────────────────────────────────────────
-const BOOT0:      u32 = 0x000000;
+const BOOT0: u32 = 0x000000;
 const PMC_ENABLE: u32 = 0x000200;
-const MC_UNK260:  u32 = 0x000260;
-const PTIMER_LO:  u32 = 0x009400; // TIME_0: increments ~32M/sec, readable while running
+const MC_UNK260: u32 = 0x000260;
+const PTIMER_LO: u32 = 0x009400; // TIME_0: increments ~32M/sec, readable while running
 
 // ── GR engine PMC_ENABLE bitmask ──────────────────────────────────────────
 const PMC_GR_BIT: u32 = 1 << 12; // bit 12 = GR engine (PGRAPH)
 
 // ── PGRAPH / GR engine registers ──────────────────────────────────────────
-const GR_READY:   u32 = 0x409800; // FECS boot-ready flag (bit 31)
+const GR_READY: u32 = 0x409800; // FECS boot-ready flag (bit 31)
 const GR_CTX_SIZE: u32 = 0x409804; // context buffer size (set by FECS at boot)
 
 // ── FECS Falcon registers (base 0x409000) ─────────────────────────────────
-const FECS_BASE:    u32 = 0x409000;
-const FECS_CPUCTL:  u32 = FECS_BASE + 0x100;
+const FECS_BASE: u32 = 0x409000;
+const FECS_CPUCTL: u32 = FECS_BASE + 0x100;
 const FECS_BOOTVEC: u32 = FECS_BASE + 0x104;
-const FECS_PC:      u32 = FECS_BASE + 0x110;
-const FECS_SCTL:    u32 = FECS_BASE + 0x240;
+const FECS_PC: u32 = FECS_BASE + 0x110;
+const FECS_SCTL: u32 = FECS_BASE + 0x240;
 // GK110B: HWCFG at 0x10C (DMACTL in newer Falcon, repurposed in Kepler)
-const FECS_HWCFG:   u32 = FECS_BASE + 0x10C; // 0x40910C
+const FECS_HWCFG: u32 = FECS_BASE + 0x10C; // 0x40910C
 // IMEMC/IMEMD/IMETTAG are handled internally by ember.falcon.upload_imem
-const FECS_DMEMC:   u32 = FECS_BASE + 0x1C0;
-const FECS_DMEMD:   u32 = FECS_BASE + 0x1C4;
-const FECS_MB0:     u32 = FECS_BASE + 0x040;
-const FECS_MB1:     u32 = FECS_BASE + 0x044;
+const FECS_DMEMC: u32 = FECS_BASE + 0x1C0;
+const FECS_DMEMD: u32 = FECS_BASE + 0x1C4;
+const FECS_MB0: u32 = FECS_BASE + 0x040;
+const FECS_MB1: u32 = FECS_BASE + 0x044;
 
 // ── GPCCS Falcon registers (broadcast PIO at 0x41A000) ────────────────────
-const GPCCS_BASE:    u32 = 0x41A000;
-const GPCCS_CPUCTL:  u32 = GPCCS_BASE + 0x100;
+const GPCCS_BASE: u32 = 0x41A000;
+const GPCCS_CPUCTL: u32 = GPCCS_BASE + 0x100;
 const GPCCS_BOOTVEC: u32 = GPCCS_BASE + 0x104;
-const GPCCS_PC:      u32 = GPCCS_BASE + 0x110;
-const GPCCS_HWCFG:   u32 = GPCCS_BASE + 0x10C; // 0x41A10C
+const GPCCS_PC: u32 = GPCCS_BASE + 0x110;
+const GPCCS_HWCFG: u32 = GPCCS_BASE + 0x10C; // 0x41A10C
 // IMEMC/IMEMD/IMETTAG are handled internally by ember.falcon.upload_imem
-const GPCCS_DMEMC:   u32 = GPCCS_BASE + 0x1C0;
-const GPCCS_DMEMD:   u32 = GPCCS_BASE + 0x1C4;
-const GPCCS_MB0:     u32 = GPCCS_BASE + 0x040;
-const GPCCS_MB1:     u32 = GPCCS_BASE + 0x044;
+const GPCCS_DMEMC: u32 = GPCCS_BASE + 0x1C0;
+const GPCCS_DMEMD: u32 = GPCCS_BASE + 0x1C4;
+const GPCCS_MB0: u32 = GPCCS_BASE + 0x040;
+const GPCCS_MB1: u32 = GPCCS_BASE + 0x044;
 
 // ── GPC status ────────────────────────────────────────────────────────────
 const GPC0_BOOT0: u32 = 0x418000;
@@ -148,7 +148,7 @@ fn load_mmio_init(dir: &Path, name: &str) -> Vec<(u32, u32)> {
         .filter(|c| c.len() == 8)
         .map(|c| {
             let addr = u32::from_le_bytes([c[0], c[1], c[2], c[3]]);
-            let val  = u32::from_le_bytes([c[4], c[5], c[6], c[7]]);
+            let val = u32::from_le_bytes([c[4], c[5], c[6], c[7]]);
             (addr, val)
         })
         .collect()
@@ -242,8 +242,7 @@ fn connect_ember(bdf: &str, override_socket: Option<&str>) -> EmberClient {
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    let bdf = extract_arg(&args, "--bdf")
-        .unwrap_or_else(|| "0000:4b:00.0".into());
+    let bdf = extract_arg(&args, "--bdf").unwrap_or_else(|| "0000:4b:00.0".into());
     let fw_dir = extract_arg(&args, "--fw-dir")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("../wateringHole/gk110"));
@@ -257,24 +256,26 @@ fn main() {
     println!("  BDF:    {bdf}");
     println!("  FW dir: {}", fw_dir.display());
     println!("  Wiring: coral-ember (all MMIO via JSON-RPC — no raw BAR0 mmap)");
-    if dry_run { println!("  Mode:   DRY RUN"); }
+    if dry_run {
+        println!("  Mode:   DRY RUN");
+    }
 
     // ── Connect to ember ───────────────────────────────────────────────────
     let ember = connect_ember(&bdf, ember_socket.as_deref());
     println!("  Ember:  connected ✓");
 
     // ── Load firmware and tables ───────────────────────────────────────────
-    let fecs_code  = load_fw_words(&fw_dir, "fecs_code.bin");
-    let fecs_data  = load_fw_words(&fw_dir, "fecs_data.bin");
+    let fecs_code = load_fw_words(&fw_dir, "fecs_code.bin");
+    let fecs_data = load_fw_words(&fw_dir, "fecs_data.bin");
     let gpccs_code = load_fw_words(&fw_dir, "gpccs_code.bin");
     let gpccs_data = load_fw_words(&fw_dir, "gpccs_data.bin");
 
     // CSDATA: context-switch register descriptor lists
-    let hub_csdata  = load_fw_words(&fw_dir, "hub_csdata.bin");   // → FECS DMEM[0x000]
-    let gpc0_csdata = load_fw_words(&fw_dir, "gpc0_csdata.bin");  // → GPCCS DMEM[0x000]
+    let hub_csdata = load_fw_words(&fw_dir, "hub_csdata.bin"); // → FECS DMEM[0x000]
+    let gpc0_csdata = load_fw_words(&fw_dir, "gpc0_csdata.bin"); // → GPCCS DMEM[0x000]
     let gpc1_csdata = load_fw_words(&fw_dir, "gpc1_csdata.bin");
     let tpc0_csdata = load_fw_words(&fw_dir, "tpc0_csdata.bin");
-    let ppc_csdata  = load_fw_words(&fw_dir, "ppc_csdata.bin");
+    let ppc_csdata = load_fw_words(&fw_dir, "ppc_csdata.bin");
 
     let mut gpccs_csdata: Vec<u32> = Vec::with_capacity(
         gpc0_csdata.len() + gpc1_csdata.len() + tpc0_csdata.len() + ppc_csdata.len(),
@@ -287,17 +288,39 @@ fn main() {
     let mmio_init = load_mmio_init(&fw_dir, "gr_mmio_init.bin");
 
     println!("\n  Firmware/tables loaded:");
-    println!("    fecs_code:    {} words ({} bytes)", fecs_code.len(), fecs_code.len() * 4);
-    println!("    fecs_data:    {} words, DMEM offset=0x{FECS_DMEM_FW_OFFSET:04x}", fecs_data.len());
-    println!("    gpccs_code:   {} words ({} bytes)", gpccs_code.len(), gpccs_code.len() * 4);
-    println!("    gpccs_data:   {} words, DMEM offset=0x{GPCCS_DMEM_FW_OFFSET:04x}", gpccs_data.len());
-    println!("    hub_csdata:   {} words → FECS DMEM[0x000]", hub_csdata.len());
-    println!("    gpccs_csdata: {} words → GPCCS DMEM[0x000]  (gpc0={} gpc1={} tpc={} ppc={})",
-             gpccs_csdata.len(), gpc0_csdata.len(), gpc1_csdata.len(),
-             tpc0_csdata.len(), ppc_csdata.len());
+    println!(
+        "    fecs_code:    {} words ({} bytes)",
+        fecs_code.len(),
+        fecs_code.len() * 4
+    );
+    println!(
+        "    fecs_data:    {} words, DMEM offset=0x{FECS_DMEM_FW_OFFSET:04x}",
+        fecs_data.len()
+    );
+    println!(
+        "    gpccs_code:   {} words ({} bytes)",
+        gpccs_code.len(),
+        gpccs_code.len() * 4
+    );
+    println!(
+        "    gpccs_data:   {} words, DMEM offset=0x{GPCCS_DMEM_FW_OFFSET:04x}",
+        gpccs_data.len()
+    );
+    println!(
+        "    hub_csdata:   {} words → FECS DMEM[0x000]",
+        hub_csdata.len()
+    );
+    println!(
+        "    gpccs_csdata: {} words → GPCCS DMEM[0x000]  (gpc0={} gpc1={} tpc={} ppc={})",
+        gpccs_csdata.len(),
+        gpc0_csdata.len(),
+        gpc1_csdata.len(),
+        tpc0_csdata.len(),
+        ppc_csdata.len()
+    );
     println!("    mmio_init:    {} register writes", mmio_init.len());
 
-    let hub_bytes   = (hub_csdata.len() as u32) * 4;
+    let hub_bytes = (hub_csdata.len() as u32) * 4;
     let gpccs_bytes = (gpccs_csdata.len() as u32) * 4;
     if hub_bytes > FECS_DMEM_FW_OFFSET {
         eprintln!("FATAL: hub_csdata ({hub_bytes}B) overflows FECS DMEM fw offset");
@@ -307,14 +330,16 @@ fn main() {
         eprintln!("FATAL: gpccs_csdata ({gpccs_bytes}B) overflows GPCCS DMEM fw offset");
         std::process::exit(1);
     }
-    println!("    Layout OK: hub ends {hub_bytes:#06x} < fw@{FECS_DMEM_FW_OFFSET:#06x}  \
-              gpccs ends {gpccs_bytes:#06x} < fw@{GPCCS_DMEM_FW_OFFSET:#06x}  ✓");
+    println!(
+        "    Layout OK: hub ends {hub_bytes:#06x} < fw@{FECS_DMEM_FW_OFFSET:#06x}  \
+              gpccs ends {gpccs_bytes:#06x} < fw@{GPCCS_DMEM_FW_OFFSET:#06x}  ✓"
+    );
 
     // ── Phase 0: Pre-condition check ──────────────────────────────────────
     println!("\n━━━ Phase 0: Pre-conditions (via ember.mmio.read) ━━━\n");
 
-    let boot0    = r32(&ember, &bdf, BOOT0);
-    let pmc_en   = r32(&ember, &bdf, PMC_ENABLE);
+    let boot0 = r32(&ember, &bdf, BOOT0);
+    let pmc_en = r32(&ember, &bdf, PMC_ENABLE);
     let fecs_sctl = r32(&ember, &bdf, FECS_SCTL);
     let gpc0_pre = r32(&ember, &bdf, GPC0_BOOT0);
     let gpc1_pre = r32(&ember, &bdf, GPC1_BOOT0);
@@ -324,19 +349,41 @@ fn main() {
 
     println!("  BOOT0        = {boot0:#010x}  (GK210 expect 0x0f22d0a1)");
     if boot0 == 0xFFFF_FFFF || boot0 == 0 {
-        eprintln!("FATAL: GPU link dead (BOOT0=0x{boot0:08x}). Check PLX D0 and ember circuit breaker.");
+        eprintln!(
+            "FATAL: GPU link dead (BOOT0=0x{boot0:08x}). Check PLX D0 and ember circuit breaker."
+        );
         std::process::exit(1);
     }
-    println!("  PMC_ENABLE   = {pmc_en:#010x}  (bit12 GR = {})",
-             if pmc_en & PMC_GR_BIT != 0 { "ON ✓" } else { "OFF ✗" });
+    println!(
+        "  PMC_ENABLE   = {pmc_en:#010x}  (bit12 GR = {})",
+        if pmc_en & PMC_GR_BIT != 0 {
+            "ON ✓"
+        } else {
+            "OFF ✗"
+        }
+    );
     println!("  FECS_SCTL    = {fecs_sctl:#010x}");
-    println!("  GPC0_BOOT0   = {gpc0_pre:#010x}  ({})",
-             if gpc0_pre == 0xBADF_1100 { "PRIV ring corrupt ✗" }
-             else if gpc0_pre == 0xFFFF_FFFF { "dead ✗" }
-             else { "accessible ✓" });
+    println!(
+        "  GPC0_BOOT0   = {gpc0_pre:#010x}  ({})",
+        if gpc0_pre == 0xBADF_1100 {
+            "PRIV ring corrupt ✗"
+        } else if gpc0_pre == 0xFFFF_FFFF {
+            "dead ✗"
+        } else {
+            "accessible ✓"
+        }
+    );
     println!("  GPC1_BOOT0   = {gpc1_pre:#010x}");
-    println!("  PTIMER:      {} ({} → {})",
-             if pt1 != pt0 { "RUNNING ✓" } else { "FROZEN ✗" }, pt0, pt1);
+    println!(
+        "  PTIMER:      {} ({} → {})",
+        if pt1 != pt0 {
+            "RUNNING ✓"
+        } else {
+            "FROZEN ✗"
+        },
+        pt0,
+        pt1
+    );
 
     if dry_run {
         println!("\n  DRY RUN — no writes. Exiting.");
@@ -356,20 +403,29 @@ fn main() {
     w32(&ember, &bdf, PMC_ENABLE, pmc_en | PMC_GR_BIT);
     std::thread::sleep(Duration::from_millis(5));
     let pmc_after = r32(&ember, &bdf, PMC_ENABLE);
-    println!("  PMC_ENABLE after = {pmc_after:#010x}  ({})",
-             if pmc_after & PMC_GR_BIT != 0 { "GR ON ✓" } else { "GR still OFF ✗" });
+    println!(
+        "  PMC_ENABLE after = {pmc_after:#010x}  ({})",
+        if pmc_after & PMC_GR_BIT != 0 {
+            "GR ON ✓"
+        } else {
+            "GR still OFF ✗"
+        }
+    );
 
     // ── Phase 2: GR MMIO init table (153 BAR0 writes) ─────────────────────
     // Promoted to sovereign_stages.rs kepler_falcon_boot Phase 2.
     // Applied as one mmio.batch RPC (single round-trip for all 153 writes).
-    println!("\n━━━ Phase 2: GR MMIO init ({} writes via mmio.batch) ━━━\n", mmio_init.len());
+    println!(
+        "\n━━━ Phase 2: GR MMIO init ({} writes via mmio.batch) ━━━\n",
+        mmio_init.len()
+    );
     {
         let ops: Vec<MmioBatchOp> = mmio_init
             .iter()
             .map(|&(addr, val)| MmioBatchOp::write(addr, val))
             .collect();
         match ember.mmio_batch(&bdf, &ops) {
-            Ok(_)  => println!("  Applied {} register writes ✓", mmio_init.len()),
+            Ok(_) => println!("  Applied {} register writes ✓", mmio_init.len()),
             Err(e) => println!("  WARN: mmio.batch failed: {e}"),
         }
     }
@@ -394,11 +450,17 @@ fn main() {
         std::thread::sleep(Duration::from_micros(10));
     }
     let rst_final = r32(&ember, &bdf, FECS_RESET);
-    println!("  0x409614 = {rst_final:#010x}  ({})",
-             if fecs_reset_ok { "handshake complete ✓" } else { "TIMEOUT ✗" });
-    w32(&ember, &bdf, FECS_RESET, 0x10);  // release
-    w32(&ember, &bdf, FECS_HWCFG, 0x0);   // clear HWCFG (disable scrub)
-    w32(&ember, &bdf, FECS_CPUCTL, 0x0);  // clear CPUCTL
+    println!(
+        "  0x409614 = {rst_final:#010x}  ({})",
+        if fecs_reset_ok {
+            "handshake complete ✓"
+        } else {
+            "TIMEOUT ✗"
+        }
+    );
+    w32(&ember, &bdf, FECS_RESET, 0x10); // release
+    w32(&ember, &bdf, FECS_HWCFG, 0x0); // clear HWCFG (disable scrub)
+    w32(&ember, &bdf, FECS_CPUCTL, 0x0); // clear CPUCTL
     println!("  0x409614 ← 0x10 (release)  FECS_HWCFG ← 0  FECS_CPUCTL ← 0");
 
     // ── Phase 3: Assert HRESET (MC_UNK260 = 0) ────────────────────────────
@@ -411,8 +473,11 @@ fn main() {
     // ── Phase 4: FECS firmware data → FECS DMEM[0x600] (while in HRESET) ─
     // Promoted to sovereign_stages.rs kepler_falcon_boot Phase 4.
     // ember.falcon.upload_dmem handles the DMEMC/DMEMD PIO internally.
-    println!("\n━━━ Phase 4: FECS firmware data → DMEM[0x{FECS_DMEM_FW_OFFSET:04x}] \
-              ({} words) ━━━\n", fecs_data.len());
+    println!(
+        "\n━━━ Phase 4: FECS firmware data → DMEM[0x{FECS_DMEM_FW_OFFSET:04x}] \
+              ({} words) ━━━\n",
+        fecs_data.len()
+    );
     upload_dmem(&ember, &bdf, FECS_BASE, FECS_DMEM_FW_OFFSET, &fecs_data);
     // Readback verification via mmio.batch (DMEMC→address, then read DMEMD)
     {
@@ -422,29 +487,45 @@ fn main() {
         ];
         if let Ok(result) = ember.mmio_batch(&bdf, &ops) {
             let fw_v0 = result.read_value(1).unwrap_or(0xDEAD);
-            println!("  FECS DMEM[0x{FECS_DMEM_FW_OFFSET:04x}] readback: {fw_v0:#010x} \
-                      (expected {:#010x}) {}", fecs_data[0],
-                     if fw_v0 == fecs_data[0] { "✓" } else { "✗ mismatch" });
+            println!(
+                "  FECS DMEM[0x{FECS_DMEM_FW_OFFSET:04x}] readback: {fw_v0:#010x} \
+                      (expected {:#010x}) {}",
+                fecs_data[0],
+                if fw_v0 == fecs_data[0] {
+                    "✓"
+                } else {
+                    "✗ mismatch"
+                }
+            );
         }
     }
 
     // ── Phase 5: FECS firmware code → FECS IMEM ───────────────────────────
     // Promoted to sovereign_stages.rs kepler_falcon_boot Phase 5.
     // ember.falcon.upload_imem handles page-by-page IMEMC/IMEMD/IMETTAG.
-    println!("\n━━━ Phase 5: FECS IMEM ({} words, {} pages) ━━━\n",
-             fecs_code.len(), fecs_code.len().div_ceil(IMEM_WORDS_PER_PAGE));
+    println!(
+        "\n━━━ Phase 5: FECS IMEM ({} words, {} pages) ━━━\n",
+        fecs_code.len(),
+        fecs_code.len().div_ceil(IMEM_WORDS_PER_PAGE)
+    );
     upload_imem(&ember, &bdf, FECS_BASE, &fecs_code);
     println!("  FECS IMEM loaded via ember.falcon.upload_imem ✓");
 
     // ── Phase 6: GPCCS firmware data → GPCCS DMEM[0x800] (in HRESET) ─────
-    println!("\n━━━ Phase 6: GPCCS firmware data → DMEM[0x{GPCCS_DMEM_FW_OFFSET:04x}] \
-              ({} words) ━━━\n", gpccs_data.len());
+    println!(
+        "\n━━━ Phase 6: GPCCS firmware data → DMEM[0x{GPCCS_DMEM_FW_OFFSET:04x}] \
+              ({} words) ━━━\n",
+        gpccs_data.len()
+    );
     upload_dmem(&ember, &bdf, GPCCS_BASE, GPCCS_DMEM_FW_OFFSET, &gpccs_data);
     println!("  GPCCS DMEM[0x{GPCCS_DMEM_FW_OFFSET:04x}] loaded ✓");
 
     // ── Phase 7: GPCCS firmware code → GPCCS IMEM ────────────────────────
-    println!("\n━━━ Phase 7: GPCCS IMEM ({} words, {} pages) ━━━\n",
-             gpccs_code.len(), gpccs_code.len().div_ceil(IMEM_WORDS_PER_PAGE));
+    println!(
+        "\n━━━ Phase 7: GPCCS IMEM ({} words, {} pages) ━━━\n",
+        gpccs_code.len(),
+        gpccs_code.len().div_ceil(IMEM_WORDS_PER_PAGE)
+    );
     upload_imem(&ember, &bdf, GPCCS_BASE, &gpccs_code);
     println!("  GPCCS IMEM loaded ✓");
 
@@ -460,12 +541,14 @@ fn main() {
     // ── Phase 9: Hub CSDATA → FECS DMEM[0x000] (POST-HRESET) ────────────
     // Promoted to sovereign_stages.rs kepler_falcon_boot Phase 9.
     // Applied as one mmio.batch: DMEMC setup + all CSDATA words (AINCW auto-increment).
-    println!("\n━━━ Phase 9: Hub CSDATA → FECS DMEM[0x000] ({} words) — POST-HRESET ━━━\n",
-             hub_csdata.len());
+    println!(
+        "\n━━━ Phase 9: Hub CSDATA → FECS DMEM[0x000] ({} words) — POST-HRESET ━━━\n",
+        hub_csdata.len()
+    );
     {
         let ops = csdata_batch_ops(FECS_DMEMC, FECS_DMEMD, &hub_csdata, 0);
         match ember.mmio_batch(&bdf, &ops) {
-            Ok(_)  => {}
+            Ok(_) => {}
             Err(e) => println!("  WARN: hub CSDATA batch failed: {e}"),
         }
         // Readback first two words
@@ -478,21 +561,32 @@ fn main() {
         if let Ok(r) = ember.mmio_batch(&bdf, &rb_ops) {
             let c0 = r.read_value(1).unwrap_or(0xDEAD);
             let c1 = r.read_value(3).unwrap_or(0xDEAD);
-            println!("  FECS DMEM[0x000]=0x{c0:08x} (expected 0x{:08x}) {}",
-                     hub_csdata[0], if c0 == hub_csdata[0] { "✓" } else { "✗" });
-            println!("  FECS DMEM[0x004]=0x{c1:08x} (expected 0x{:08x}) {}",
-                     hub_csdata.get(1).copied().unwrap_or(0),
-                     if c1 == hub_csdata.get(1).copied().unwrap_or(0) { "✓" } else { "✗" });
+            println!(
+                "  FECS DMEM[0x000]=0x{c0:08x} (expected 0x{:08x}) {}",
+                hub_csdata[0],
+                if c0 == hub_csdata[0] { "✓" } else { "✗" }
+            );
+            println!(
+                "  FECS DMEM[0x004]=0x{c1:08x} (expected 0x{:08x}) {}",
+                hub_csdata.get(1).copied().unwrap_or(0),
+                if c1 == hub_csdata.get(1).copied().unwrap_or(0) {
+                    "✓"
+                } else {
+                    "✗"
+                }
+            );
         }
     }
 
     // ── Phase 10: GPCCS CSDATA → GPCCS DMEM[0x000] (POST-HRESET) ─────────
-    println!("\n━━━ Phase 10: GPCCS CSDATA → GPCCS DMEM[0x000] ({} words) — POST-HRESET ━━━\n",
-             gpccs_csdata.len());
+    println!(
+        "\n━━━ Phase 10: GPCCS CSDATA → GPCCS DMEM[0x000] ({} words) — POST-HRESET ━━━\n",
+        gpccs_csdata.len()
+    );
     {
         let ops = csdata_batch_ops(GPCCS_DMEMC, GPCCS_DMEMD, &gpccs_csdata, 0);
         match ember.mmio_batch(&bdf, &ops) {
-            Ok(_)  => {}
+            Ok(_) => {}
             Err(e) => println!("  WARN: GPCCS CSDATA batch failed: {e}"),
         }
         let rb_ops = vec![
@@ -504,11 +598,20 @@ fn main() {
         if let Ok(r) = ember.mmio_batch(&bdf, &rb_ops) {
             let c0 = r.read_value(1).unwrap_or(0xDEAD);
             let c1 = r.read_value(3).unwrap_or(0xDEAD);
-            println!("  GPCCS DMEM[0x000]=0x{c0:08x} (expected 0x{:08x}) {}",
-                     gpccs_csdata[0], if c0 == gpccs_csdata[0] { "✓" } else { "✗" });
-            println!("  GPCCS DMEM[0x004]=0x{c1:08x} (expected 0x{:08x}) {}",
-                     gpccs_csdata.get(1).copied().unwrap_or(0),
-                     if c1 == gpccs_csdata.get(1).copied().unwrap_or(0) { "✓" } else { "✗" });
+            println!(
+                "  GPCCS DMEM[0x000]=0x{c0:08x} (expected 0x{:08x}) {}",
+                gpccs_csdata[0],
+                if c0 == gpccs_csdata[0] { "✓" } else { "✗" }
+            );
+            println!(
+                "  GPCCS DMEM[0x004]=0x{c1:08x} (expected 0x{:08x}) {}",
+                gpccs_csdata.get(1).copied().unwrap_or(0),
+                if c1 == gpccs_csdata.get(1).copied().unwrap_or(0) {
+                    "✓"
+                } else {
+                    "✗"
+                }
+            );
         }
     }
 
@@ -520,7 +623,9 @@ fn main() {
     let scrub_start = Instant::now();
     loop {
         let hwcfg = r32(&ember, &bdf, FECS_HWCFG);
-        if hwcfg & 0x6 == 0 { break; }
+        if hwcfg & 0x6 == 0 {
+            break;
+        }
         if scrub_start.elapsed() >= Duration::from_millis(500) {
             println!("  WARN: FECS scrub timeout (HWCFG={hwcfg:#010x})");
             break;
@@ -530,7 +635,9 @@ fn main() {
     let gscrub_start = Instant::now();
     loop {
         let hwcfg = r32(&ember, &bdf, GPCCS_HWCFG);
-        if hwcfg & 0x6 == 0 { break; }
+        if hwcfg & 0x6 == 0 {
+            break;
+        }
         if gscrub_start.elapsed() >= Duration::from_millis(500) {
             println!("  WARN: GPCCS scrub timeout (HWCFG={hwcfg:#010x})");
             break;
@@ -538,7 +645,7 @@ fn main() {
         std::thread::sleep(Duration::from_micros(100));
     }
 
-    let fecs_hwcfg  = r32(&ember, &bdf, FECS_HWCFG);
+    let fecs_hwcfg = r32(&ember, &bdf, FECS_HWCFG);
     let gpccs_hwcfg = r32(&ember, &bdf, GPCCS_HWCFG);
     println!("  FECS_HWCFG   = {fecs_hwcfg:#010x}  (bits 1-2 should be 0)");
     println!("  GPCCS_HWCFG  = {gpccs_hwcfg:#010x}");
@@ -549,13 +656,13 @@ fn main() {
     {
         let ops = vec![
             MmioBatchOp::write(GPCCS_BOOTVEC, 0x0),
-            MmioBatchOp::write(GPCCS_HWCFG, 0x0),   // clear scrub enable
+            MmioBatchOp::write(GPCCS_HWCFG, 0x0), // clear scrub enable
             MmioBatchOp::write(GPCCS_MB1, 0x0),
             MmioBatchOp::write(GPCCS_MB0, FECS_CMD_INIT), // MB0=4 BEFORE STARTCPU
             MmioBatchOp::write(GPCCS_CPUCTL, 0x02),       // STARTCPU
         ];
         match ember.mmio_batch(&bdf, &ops) {
-            Ok(_)  => {}
+            Ok(_) => {}
             Err(e) => println!("  WARN: GPCCS boot batch: {e}"),
         }
         println!("  GPCCS: BOOTVEC←0 HWCFG←0 MB0←0x{FECS_CMD_INIT:08x} STARTCPU ✓");
@@ -563,9 +670,11 @@ fn main() {
     std::thread::sleep(Duration::from_millis(20));
 
     let gpccs_cpuctl_running = r32(&ember, &bdf, GPCCS_CPUCTL);
-    let gpccs_pc_running     = r32(&ember, &bdf, GPCCS_PC);
-    println!("  GPCCS_CPUCTL after start = {gpccs_cpuctl_running:#010x}  \
-              (0x00=running ✓, 0x10=still halted ✗)");
+    let gpccs_pc_running = r32(&ember, &bdf, GPCCS_PC);
+    println!(
+        "  GPCCS_CPUCTL after start = {gpccs_cpuctl_running:#010x}  \
+              (0x00=running ✓, 0x10=still halted ✗)"
+    );
     println!("  GPCCS_PC     after start = {gpccs_pc_running:#010x}");
 
     // Boot FECS: pre-load MB0=4 (INIT_CTXSW) before STARTCPU.
@@ -573,13 +682,13 @@ fn main() {
     {
         let ops = vec![
             MmioBatchOp::write(FECS_BOOTVEC, 0x0),
-            MmioBatchOp::write(FECS_HWCFG, 0x0),    // clear scrub enable
+            MmioBatchOp::write(FECS_HWCFG, 0x0), // clear scrub enable
             MmioBatchOp::write(FECS_MB1, 0x0),
             MmioBatchOp::write(FECS_MB0, FECS_CMD_INIT), // MB0=4 BEFORE STARTCPU
             MmioBatchOp::write(FECS_CPUCTL, 0x02),       // STARTCPU
         ];
         match ember.mmio_batch(&bdf, &ops) {
-            Ok(_)  => {}
+            Ok(_) => {}
             Err(e) => println!("  WARN: FECS boot batch: {e}"),
         }
         println!("  FECS:  BOOTVEC←0 HWCFG←0 MB0←0x{FECS_CMD_INIT:08x} STARTCPU ✓");
@@ -587,21 +696,23 @@ fn main() {
 
     // ── Phase 12: Poll GR_READY (0x409800 bit 31) ─────────────────────────
     println!("\n━━━ Phase 12: Poll GR_READY + MB0 completion (0x409800 bit 31) ━━━\n");
-    println!("  MB0 pre-poll = {:#010x}  (expect 0x00000004 = INIT_CTXSW in progress)",
-             r32(&ember, &bdf, FECS_MB0));
+    println!(
+        "  MB0 pre-poll = {:#010x}  (expect 0x00000004 = INIT_CTXSW in progress)",
+        r32(&ember, &bdf, FECS_MB0)
+    );
 
     let poll_timeout = Duration::from_millis(8000);
-    let poll_start   = Instant::now();
+    let poll_start = Instant::now();
     let mut fecs_ready = false;
-    let mut last_ready    = 0xDEAD_BEEF_u32;
-    let mut last_fecs_pc  = 0xDEAD_BEEF_u32;
+    let mut last_ready = 0xDEAD_BEEF_u32;
+    let mut last_fecs_pc = 0xDEAD_BEEF_u32;
     let mut last_gpccs_pc = 0xDEAD_BEEF_u32;
     let mut last_sample_ms = 0u64;
 
     loop {
         let elapsed_ms = poll_start.elapsed().as_millis() as u64;
-        let ready  = r32(&ember, &bdf, GR_READY);
-        let fpc    = r32(&ember, &bdf, FECS_PC);
+        let ready = r32(&ember, &bdf, GR_READY);
+        let fpc = r32(&ember, &bdf, FECS_PC);
         let gpc_pc = r32(&ember, &bdf, GPCCS_PC);
 
         if ready != last_ready {
@@ -618,13 +729,15 @@ fn main() {
         }
 
         if elapsed_ms >= last_sample_ms + 500 {
-            let mb0  = r32(&ember, &bdf, FECS_MB0);
-            let mb1  = r32(&ember, &bdf, FECS_MB1);
-            let fc   = r32(&ember, &bdf, FECS_CPUCTL);
-            let gc   = r32(&ember, &bdf, GPCCS_CPUCTL);
+            let mb0 = r32(&ember, &bdf, FECS_MB0);
+            let mb1 = r32(&ember, &bdf, FECS_MB1);
+            let fc = r32(&ember, &bdf, FECS_CPUCTL);
+            let gc = r32(&ember, &bdf, GPCCS_CPUCTL);
             let gpc0 = r32(&ember, &bdf, GPC0_BOOT0);
-            println!("  t={elapsed_ms}ms  MB0={mb0:#010x} MB1={mb1:#010x} \
-                      F_CTL={fc:#010x} G_CTL={gc:#010x} GPC0={gpc0:#010x}");
+            println!(
+                "  t={elapsed_ms}ms  MB0={mb0:#010x} MB1={mb1:#010x} \
+                      F_CTL={fc:#010x} G_CTL={gc:#010x} GPC0={gpc0:#010x}"
+            );
             last_sample_ms = elapsed_ms;
         }
 
@@ -642,7 +755,9 @@ fn main() {
             break;
         }
 
-        if poll_start.elapsed() >= poll_timeout { break; }
+        if poll_start.elapsed() >= poll_timeout {
+            break;
+        }
         std::thread::sleep(Duration::from_millis(10));
     }
 
@@ -652,19 +767,22 @@ fn main() {
     println!("\n━━━ Phase 13: Post-Boot Diagnostic ━━━\n");
 
     let fecs_cpuctl_post = r32(&ember, &bdf, FECS_CPUCTL);
-    let fecs_pc_post     = r32(&ember, &bdf, FECS_PC);
-    let fecs_mb0_post    = r32(&ember, &bdf, FECS_MB0);
-    let fecs_mb1_post    = r32(&ember, &bdf, FECS_MB1);
-    let gr_ready_post    = r32(&ember, &bdf, GR_READY);
-    let gr_ctx_size      = r32(&ember, &bdf, GR_CTX_SIZE);
-    let gpc0_post        = r32(&ember, &bdf, GPC0_BOOT0);
-    let gpc1_post        = r32(&ember, &bdf, GPC1_BOOT0);
+    let fecs_pc_post = r32(&ember, &bdf, FECS_PC);
+    let fecs_mb0_post = r32(&ember, &bdf, FECS_MB0);
+    let fecs_mb1_post = r32(&ember, &bdf, FECS_MB1);
+    let gr_ready_post = r32(&ember, &bdf, GR_READY);
+    let gr_ctx_size = r32(&ember, &bdf, GR_CTX_SIZE);
+    let gpc0_post = r32(&ember, &bdf, GPC0_BOOT0);
+    let gpc1_post = r32(&ember, &bdf, GPC1_BOOT0);
     let gpccs_cpuctl_post = r32(&ember, &bdf, GPCCS_CPUCTL);
-    let gpccs_pc_post    = r32(&ember, &bdf, GPCCS_PC);
-    let pmc_post         = r32(&ember, &bdf, PMC_ENABLE);
-    let pt_post          = r32(&ember, &bdf, PTIMER_LO);
+    let gpccs_pc_post = r32(&ember, &bdf, GPCCS_PC);
+    let pmc_post = r32(&ember, &bdf, PMC_ENABLE);
+    let pt_post = r32(&ember, &bdf, PTIMER_LO);
 
-    println!("  GR_READY     = {gr_ready_post:#010x}  (bit31={})", (gr_ready_post >> 31) & 1);
+    println!(
+        "  GR_READY     = {gr_ready_post:#010x}  (bit31={})",
+        (gr_ready_post >> 31) & 1
+    );
     println!("  GR_CTX_SIZE  = {gr_ctx_size:#010x}  ({gr_ctx_size} bytes)");
     println!("  FECS_CPUCTL  = {fecs_cpuctl_post:#010x}");
     println!("  FECS_PC      = {fecs_pc_post:#010x}");
@@ -672,21 +790,35 @@ fn main() {
     println!("  FECS_MB1     = {fecs_mb1_post:#010x}");
     println!("  GPCCS_CPUCTL = {gpccs_cpuctl_post:#010x}  (0x00=running ✓)");
     println!("  GPCCS_PC     = {gpccs_pc_post:#010x}");
-    println!("  GPC0_BOOT0   = {gpc0_post:#010x}  ({})",
-             if gpc0_post == 0xBADF_1100 { "power-gated ✗" }
-             else if gpc0_post == 0xFFFF_FFFF { "dead ✗" }
-             else { "alive ✓" });
+    println!(
+        "  GPC0_BOOT0   = {gpc0_post:#010x}  ({})",
+        if gpc0_post == 0xBADF_1100 {
+            "power-gated ✗"
+        } else if gpc0_post == 0xFFFF_FFFF {
+            "dead ✗"
+        } else {
+            "alive ✓"
+        }
+    );
     println!("  GPC1_BOOT0   = {gpc1_post:#010x}");
     println!("  PMC_ENABLE   = {pmc_post:#010x}");
-    println!("  PTIMER       = {pt_post:#010x}  ({})",
-             if pt_post != pt0 { "RUNNING ✓" } else { "FROZEN ✗" });
+    println!(
+        "  PTIMER       = {pt_post:#010x}  ({})",
+        if pt_post != pt0 {
+            "RUNNING ✓"
+        } else {
+            "FROZEN ✗"
+        }
+    );
 
     // DMEM dump via mmio.batch (AINCR: bit 25 = auto-increment on read)
     let dmemc_aincr: u32 = 0x0200_0000;
     print!("  FECS DMEM[0..15]: ");
     {
         let mut ops = vec![MmioBatchOp::write(FECS_DMEMC, dmemc_aincr)];
-        for _ in 0..16 { ops.push(MmioBatchOp::read(FECS_DMEMD)); }
+        for _ in 0..16 {
+            ops.push(MmioBatchOp::read(FECS_DMEMD));
+        }
         if let Ok(r) = ember.mmio_batch(&bdf, &ops) {
             for i in 1..=16 {
                 print!("{:#010x} ", r.read_value(i).unwrap_or(0xDEAD));
@@ -697,7 +829,9 @@ fn main() {
     print!("  GPCCS DMEM[0..15]: ");
     {
         let mut ops = vec![MmioBatchOp::write(GPCCS_DMEMC, dmemc_aincr)];
-        for _ in 0..16 { ops.push(MmioBatchOp::read(GPCCS_DMEMD)); }
+        for _ in 0..16 {
+            ops.push(MmioBatchOp::read(GPCCS_DMEMD));
+        }
         if let Ok(r) = ember.mmio_batch(&bdf, &ops) {
             for i in 1..=16 {
                 print!("{:#010x} ", r.read_value(i).unwrap_or(0xDEAD));
@@ -709,39 +843,72 @@ fn main() {
     // ── Scorecard ──────────────────────────────────────────────────────────
     println!();
     let gpc0_alive = gpc0_post != 0xBADF_1100 && gpc0_post != 0xFFFF_FFFF;
-    let ctx_valid  = gr_ctx_size > 0 && gr_ctx_size < 0x100_0000;
-    let ptimer_ok  = pt_post != pt0;
+    let ctx_valid = gr_ctx_size > 0 && gr_ctx_size < 0x100_0000;
+    let ptimer_ok = pt_post != pt0;
 
     println!("  ┌──────────────────────────────────────────────────────┐");
     println!("  │  EXP 184 — K80 Sovereign GR Boot Scorecard           │");
     println!("  │  Wiring: coral-ember RPCs (crash-protected MMIO)     │");
     println!("  ├──────────────────────────────────────────────────────┤");
-    println!("  │  PRIV ring restored:  {}  │",
-             if gpc0_alive { "✓ YES — GPC accessible               " }
-             else          { "✗ NO  — 0xbadf1100 persists          " });
-    println!("  │  GR_READY bit31:      {}  │",
-             if fecs_ready  { "✓ SET — FECS booted!                 " }
-             else           { "✗ CLEAR — FECS did not complete boot  " });
-    println!("  │  GR ctx size valid:   {}  │",
-             if ctx_valid   { format!("✓ {gr_ctx_size:#x} bytes                       ") }
-             else           { "✗ 0 — FECS did not compute size      ".into() });
-    println!("  │  GPC0 alive:          {}  │",
-             if gpc0_alive  { "✓ YES                                " }
-             else           { "✗ power-gated / dead                 " });
-    println!("  │  PTIMER running:      {}  │",
-             if ptimer_ok   { "✓ YES                                " }
-             else           { "✗ FROZEN                             " });
-    println!("  │  Poll time:           {:6}ms                          │",
-             poll_elapsed.as_millis());
+    println!(
+        "  │  PRIV ring restored:  {}  │",
+        if gpc0_alive {
+            "✓ YES — GPC accessible               "
+        } else {
+            "✗ NO  — 0xbadf1100 persists          "
+        }
+    );
+    println!(
+        "  │  GR_READY bit31:      {}  │",
+        if fecs_ready {
+            "✓ SET — FECS booted!                 "
+        } else {
+            "✗ CLEAR — FECS did not complete boot  "
+        }
+    );
+    println!(
+        "  │  GR ctx size valid:   {}  │",
+        if ctx_valid {
+            format!("✓ {gr_ctx_size:#x} bytes                       ")
+        } else {
+            "✗ 0 — FECS did not compute size      ".into()
+        }
+    );
+    println!(
+        "  │  GPC0 alive:          {}  │",
+        if gpc0_alive {
+            "✓ YES                                "
+        } else {
+            "✗ power-gated / dead                 "
+        }
+    );
+    println!(
+        "  │  PTIMER running:      {}  │",
+        if ptimer_ok {
+            "✓ YES                                "
+        } else {
+            "✗ FROZEN                             "
+        }
+    );
+    println!(
+        "  │  Poll time:           {:6}ms                          │",
+        poll_elapsed.as_millis()
+    );
     println!("  └──────────────────────────────────────────────────────┘");
 
     if fecs_ready {
-        println!("\n  FECS boot SUCCEEDED after {}ms!", poll_elapsed.as_millis());
+        println!(
+            "\n  FECS boot SUCCEEDED after {}ms!",
+            poll_elapsed.as_millis()
+        );
         println!("  GR context size = {gr_ctx_size} bytes ({gr_ctx_size:#010x})");
         println!("  Sequence validated → promoted to coral-driver sovereign_stages.rs");
         println!("  Next: coralctl sovereign-boot should now succeed via the coral pipeline");
     } else {
-        println!("\n  FECS did not set GR_READY within {}ms. Diagnosis:", poll_timeout.as_millis());
+        println!(
+            "\n  FECS did not set GR_READY within {}ms. Diagnosis:",
+            poll_timeout.as_millis()
+        );
         if !gpc0_alive {
             println!("  → PRIV ring STILL corrupt. Check Phase 2b (FECS reset handshake).");
         } else if fecs_cpuctl_post == 0x0 {

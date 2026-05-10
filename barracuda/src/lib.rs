@@ -46,8 +46,10 @@
 extern crate self as hotspring_barracuda;
 
 /// Benchmark harness (RAPL energy, `nvidia-smi`, JSON reports).
+#[cfg(feature = "barracuda-local")]
 pub mod bench;
 /// Shared infrastructure for `src/bin` targets (refactored validation suites).
+#[cfg(feature = "barracuda-local")]
 pub mod bin_helpers;
 /// Composition certification engine — absorbed guideStone organelle (L0–L5).
 pub mod certification;
@@ -60,12 +62,15 @@ pub mod dag_provenance;
 /// AME2020 experimental data, Skyrme parameter bounds, and chi-squared.
 pub mod data;
 /// Heterogeneous dual-GPU device pair (precise + throughput brains).
+#[cfg(feature = "barracuda-local")]
 pub mod device_pair;
 /// Capability-based data-path resolution (zero hardcoded absolute paths).
 pub mod discovery;
 /// Dual-dispatch executor for heterogeneous GPU workloads.
+#[cfg(feature = "barracuda-local")]
 pub mod dual_dispatch;
 /// Dual-card cooperative pipeline profiler (Split BCS, Split HMC, Redundant).
+#[cfg(feature = "barracuda-local")]
 pub mod dual_pipeline_eval;
 /// Typed response structs for coral-ember IPC (MMIO, falcon, SEC2, PRAMIN, DMA).
 pub mod ember_types;
@@ -80,15 +85,18 @@ pub mod fleet_ember;
 /// Covers `device.dispatch`, `device.list`, health checks, and related helpers.
 pub mod glowplug_client;
 /// GPU FP64 compute wrapper (`SHADER_F64` via wgpu/Vulkan).
+#[cfg(feature = "barracuda-local")]
 pub mod gpu;
 /// Hardware calibration: safe per-tier probe + capability mask.
+#[cfg(feature = "barracuda-local")]
 pub mod hardware_calibration;
 /// Consolidated IPC module: discovery, composition, glowplug, ember, squirrel, signing.
 pub mod ipc;
 /// Lattice QCD: SU(3), Wilson action, HMC, Dirac, CG, Abelian Higgs.
 pub mod lattice;
 /// Safe RAII wrappers for PCI BAR0 MMIO (requires `low-level` feature).
-///
+#[cfg(feature = "low-level")]
+pub mod low_level;
 /// MCP (Model Context Protocol) tool definitions for AI/LLM integration.
 pub mod mcp_tools;
 /// GPU molecular dynamics (f64 WGSL Yukawa OCP, cell-list, transport).
@@ -100,40 +108,53 @@ pub mod niche;
 /// NPU experiment campaign.
 ///
 /// Trajectory generation, dataset builders, evaluators, and placement strategies.
+#[cfg(feature = "barracuda-local")]
 pub mod npu_experiments;
 /// Shared helpers for nuclear EOS validation binaries (L1/L2).
+#[cfg(feature = "barracuda-local")]
 pub mod nuclear_eos_helpers;
 /// Nuclear structure: SEMF, nuclear matter, spherical/deformed HFB, BCS.
 pub mod physics;
 /// L2 heterogeneous pipeline: L1 data gen, classifier training, L2 objective.
+#[cfg(feature = "barracuda-local")]
 pub mod pipeline;
 /// Full physics pipeline end-to-end profiler (MD, HMC, BCS, dielectric).
+#[cfg(feature = "barracuda-local")]
 pub mod pipeline_eval;
 /// Self-routing precision brain: data-driven tier selection from calibration.
+#[cfg(feature = "barracuda-local")]
 pub mod precision_brain;
 /// Per-shader precision/throughput profiler across all 3 tiers.
+#[cfg(feature = "barracuda-local")]
 pub mod precision_eval;
 /// Precision routing: capability-aware shader compilation (local toadStool evolution).
+#[cfg(feature = "barracuda-local")]
 pub mod precision_routing;
 /// NMP cascade filter for L2 heterogeneous pipeline.
+#[cfg(feature = "barracuda-local")]
 pub mod prescreen;
 /// NUCLEUS primal discovery — runtime detection of available primals.
 pub mod primal_bridge;
 /// Shared types and infrastructure for production lattice QCD binaries.
+#[cfg(feature = "barracuda-local")]
 pub mod production;
 /// Shared statistical helpers for production binaries (delegates to barraCuda `stats`).
+#[cfg(feature = "barracuda-local")]
 pub mod production_support;
 /// Traces every hardcoded value to its Python origin (script, commit, date).
 pub mod provenance;
 /// Physics proxy pipeline (Anderson 3D, Z(3) Potts) for NPU training.
+#[cfg(feature = "barracuda-local")]
 pub mod proxy;
 /// Ed25519 receipt signing via bearDog `crypto.sign_ed25519` JSON-RPC.
 pub mod receipt_signing;
 /// Spectral theory re-exports from `barracuda::spectral`.
+#[cfg(feature = "barracuda-local")]
 pub mod spectral;
 /// Squirrel / neuralSpring `inference.*` JSON-RPC client (NUCLEUS capability discovery).
 pub mod squirrel_client;
 /// Streaming compute dispatch for GPU-resident physics (local toadStool evolution).
+#[cfg(feature = "barracuda-local")]
 pub mod streaming_dispatch;
 /// JSONL telemetry reader for petalTongue visualization integration.
 pub mod telemetry_reader;
@@ -142,6 +163,7 @@ pub mod toadstool_report;
 /// Centralized, justified validation thresholds (~170 constants).
 pub mod tolerances;
 /// PCIe transfer cost profiler per GPU card.
+#[cfg(feature = "barracuda-local")]
 pub mod transfer_eval;
 /// Two-Temperature Model (laser-plasma 0D ODE solver).
 pub mod ttm;
@@ -150,6 +172,7 @@ pub mod validation;
 /// `WireWitnessRef` — self-describing provenance events (ATTESTATION_ENCODING_STANDARD v2).
 pub mod witness;
 /// Workload planner for heterogeneous dual-GPU dispatch.
+#[cfg(feature = "barracuda-local")]
 pub mod workload_planner;
 
 /// Vendor-agnostic register maps for GPU reverse engineering.

@@ -11,7 +11,154 @@
 //! Original: barraCuda `ops/lattice/cpu_complex.rs`.
 //! hotSpring extensions: `from_polar`, `WGSL_COMPLEX64`.
 
+#[cfg(feature = "barracuda-local")]
 pub use barracuda::ops::lattice::cpu_complex::Complex64;
+
+#[cfg(not(feature = "barracuda-local"))]
+pub use self::local_complex::Complex64;
+
+#[cfg(not(feature = "barracuda-local"))]
+mod local_complex {
+    /// Minimal Complex64 for IPC-only builds (mirrors barraCuda cpu_complex).
+    #[derive(Clone, Copy, Debug, PartialEq)]
+    pub struct Complex64 {
+        pub re: f64,
+        pub im: f64,
+    }
+
+    impl Complex64 {
+        pub const ZERO: Self = Self { re: 0.0, im: 0.0 };
+        pub const ONE: Self = Self { re: 1.0, im: 0.0 };
+        pub const I: Self = Self { re: 0.0, im: 1.0 };
+
+        #[inline]
+        pub const fn new(re: f64, im: f64) -> Self {
+            Self { re, im }
+        }
+
+        #[inline]
+        pub fn conj(self) -> Self {
+            Self::new(self.re, -self.im)
+        }
+
+        #[inline]
+        pub fn abs(self) -> f64 {
+            (self.re * self.re + self.im * self.im).sqrt()
+        }
+
+        #[inline]
+        pub fn norm_sq(self) -> f64 {
+            self.re * self.re + self.im * self.im
+        }
+
+        #[inline]
+        pub fn abs_sq(self) -> f64 {
+            self.re * self.re + self.im * self.im
+        }
+
+        #[inline]
+        pub fn scale(self, s: f64) -> Self {
+            Self::new(self.re * s, self.im * s)
+        }
+
+        #[inline]
+        pub fn inv(self) -> Self {
+            let n = self.norm_sq();
+            Self::new(self.re / n, -self.im / n)
+        }
+
+        #[inline]
+        pub fn exp(self) -> Self {
+            let r = self.re.exp();
+            Self::new(r * self.im.cos(), r * self.im.sin())
+        }
+    }
+
+    impl std::ops::Add for Complex64 {
+        type Output = Self;
+        #[inline]
+        fn add(self, rhs: Self) -> Self {
+            Self::new(self.re + rhs.re, self.im + rhs.im)
+        }
+    }
+
+    impl std::ops::Sub for Complex64 {
+        type Output = Self;
+        #[inline]
+        fn sub(self, rhs: Self) -> Self {
+            Self::new(self.re - rhs.re, self.im - rhs.im)
+        }
+    }
+
+    impl std::ops::Mul for Complex64 {
+        type Output = Self;
+        #[inline]
+        fn mul(self, rhs: Self) -> Self {
+            Self::new(
+                self.re * rhs.re - self.im * rhs.im,
+                self.re * rhs.im + self.im * rhs.re,
+            )
+        }
+    }
+
+    impl std::ops::Mul<f64> for Complex64 {
+        type Output = Self;
+        #[inline]
+        fn mul(self, rhs: f64) -> Self {
+            Self::new(self.re * rhs, self.im * rhs)
+        }
+    }
+
+    impl std::ops::Neg for Complex64 {
+        type Output = Self;
+        #[inline]
+        fn neg(self) -> Self {
+            Self::new(-self.re, -self.im)
+        }
+    }
+
+    impl std::ops::AddAssign for Complex64 {
+        #[inline]
+        fn add_assign(&mut self, rhs: Self) {
+            self.re += rhs.re;
+            self.im += rhs.im;
+        }
+    }
+
+    impl std::ops::SubAssign for Complex64 {
+        #[inline]
+        fn sub_assign(&mut self, rhs: Self) {
+            self.re -= rhs.re;
+            self.im -= rhs.im;
+        }
+    }
+
+    impl std::ops::MulAssign for Complex64 {
+        #[inline]
+        fn mul_assign(&mut self, rhs: Self) {
+            let re = self.re * rhs.re - self.im * rhs.im;
+            let im = self.re * rhs.im + self.im * rhs.re;
+            self.re = re;
+            self.im = im;
+        }
+    }
+
+    impl std::ops::MulAssign<f64> for Complex64 {
+        #[inline]
+        fn mul_assign(&mut self, rhs: f64) {
+            self.re *= rhs;
+            self.im *= rhs;
+        }
+    }
+
+    impl std::ops::Div for Complex64 {
+        type Output = Self;
+        #[inline]
+        fn div(self, rhs: Self) -> Self {
+            self * rhs.inv()
+        }
+    }
+}
 
 /// WGSL shader source for Complex64 operations.
 ///

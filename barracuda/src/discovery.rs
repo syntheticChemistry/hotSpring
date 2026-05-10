@@ -286,6 +286,7 @@ pub fn probe_npu_available() -> bool {
 /// the exported weights and creates a steering context. Returns `None`
 /// when no NPU is found or no weights are available (falls back to
 /// heuristic control).
+#[cfg(feature = "barracuda-local")]
 #[must_use]
 pub fn try_create_npu_steering(
     feedback_interval: usize,

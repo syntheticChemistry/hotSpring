@@ -63,77 +63,86 @@ const BOOT0: u32 = 0x000000;
 
 // Power management
 const PMC_ENABLE: u32 = 0x000200;
-#[allow(dead_code)] const PMC_INTR_0: u32 = 0x000160;
-#[allow(dead_code)] const PMC_INTR_1: u32 = 0x000164;
+#[allow(dead_code)]
+const PMC_INTR_0: u32 = 0x000160;
+#[allow(dead_code)]
+const PMC_INTR_1: u32 = 0x000164;
 
 // PTIMER
-#[allow(dead_code)] const PTIMER_NUM:  u32 = 0x009410;
-const PTIMER_DEN:  u32 = 0x009400;
-#[allow(dead_code)] const PTIMER_CTRL: u32 = 0x009140;
+#[allow(dead_code)]
+const PTIMER_NUM: u32 = 0x009410;
+const PTIMER_DEN: u32 = 0x009400;
+#[allow(dead_code)]
+const PTIMER_CTRL: u32 = 0x009140;
 
 // PRIV_RING (CORRECT addresses from trace analysis)
-const PRIV_RING_INFO_0:  u32 = 0x120058; // ring size
-#[allow(dead_code)] const PRIV_RING_INFO_1:  u32 = 0x12005c;
+const PRIV_RING_INFO_0: u32 = 0x120058; // ring size
+#[allow(dead_code)]
+const PRIV_RING_INFO_1: u32 = 0x12005c;
 const PRIV_RING_MASTER0: u32 = 0x120070; // master control
-#[allow(dead_code)] const PRIV_RING_MASTER1: u32 = 0x120074;
-#[allow(dead_code)] const PRIV_RING_MASTER2: u32 = 0x120078;
+#[allow(dead_code)]
+const PRIV_RING_MASTER1: u32 = 0x120074;
+#[allow(dead_code)]
+const PRIV_RING_MASTER2: u32 = 0x120078;
 const PRIV_RING_DEV_INFO: u32 = 0x122120; // device info base
-const PRIV_RING_CMD:     u32 = 0x12004c; // CMD: write 2 = ENUM_DEVICES
-const PRIV_RING_STATUS:  u32 = 0x12006c; // status (0xc = OK, 12 devices)
+const PRIV_RING_CMD: u32 = 0x12004c; // CMD: write 2 = ENUM_DEVICES
+const PRIV_RING_STATUS: u32 = 0x12006c; // status (0xc = OK, 12 devices)
 
 // WPR hardware-detected bounds (read from PMU/hardware)
-const WPR_HW_CFG: u32 = 0x100c80;  // detected WPR config
-const WPR_HW_LO:  u32 = 0x100cc4;  // detected WPR low VRAM address
-const WPR_HW_HI:  u32 = 0x100cc8;  // detected WPR high VRAM address
-const WPR_HW_END: u32 = 0x100ccc;  // detected WPR end VRAM address
+const WPR_HW_CFG: u32 = 0x100c80; // detected WPR config
+const WPR_HW_LO: u32 = 0x100cc4; // detected WPR low VRAM address
+const WPR_HW_HI: u32 = 0x100cc8; // detected WPR high VRAM address
+const WPR_HW_END: u32 = 0x100ccc; // detected WPR end VRAM address
 
 // WPR controller write-back registers
 const WPR_CFG: u32 = 0x1fac80;
-const WPR_LO:  u32 = 0x1facc4;
-const WPR_HI:  u32 = 0x1facc8;
+const WPR_LO: u32 = 0x1facc4;
+const WPR_HI: u32 = 0x1facc8;
 const WPR_END: u32 = 0x1faccc;
 
 // SEC2 Falcon (0x087000 base)
-const SEC2_BASE:      u32 = 0x087000;
-const SEC2_IRQMASK:   u32 = SEC2_BASE + 0x014; // IRQ mask
-const SEC2_IRQSTAT:   u32 = SEC2_BASE + 0x008; // IRQ status
-const SEC2_IRQCLR:    u32 = SEC2_BASE + 0x004; // IRQ clear (write)
-const SEC2_MAILBOX0:  u32 = SEC2_BASE + 0x040; // Mailbox 0 (cafebeef sentinel)
+const SEC2_BASE: u32 = 0x087000;
+const SEC2_IRQMASK: u32 = SEC2_BASE + 0x014; // IRQ mask
+const SEC2_IRQSTAT: u32 = SEC2_BASE + 0x008; // IRQ status
+const SEC2_IRQCLR: u32 = SEC2_BASE + 0x004; // IRQ clear (write)
+const SEC2_MAILBOX0: u32 = SEC2_BASE + 0x040; // Mailbox 0 (cafebeef sentinel)
 const SEC2_IRQMSKSET: u32 = SEC2_BASE + 0x0a4; // IRQ mask set
-const SEC2_UNK1C:     u32 = SEC2_BASE + 0x01c; // status mirror
-const SEC2_HWCFG:     u32 = SEC2_BASE + 0x10c; // HW config (bit0=idle, bit2=secured)
-const SEC2_CPUCTL:    u32 = SEC2_BASE + 0x100; // CPU control (bit1=STARTCPU)
-const SEC2_BOOTVEC:   u32 = SEC2_BASE + 0x104; // Boot vector (entry offset)
-const SEC2_BOOTVEC2:  u32 = SEC2_BASE + 0x084; // Secondary boot arg (GPU chip ID)
-const SEC2_CONFIG2:   u32 = SEC2_BASE + 0x048; // Falcon config 2
-const SEC2_CONFIG3:   u32 = SEC2_BASE + 0x054; // ACR alias selector
-const SEC2_ACR_PRIV:  u32 = SEC2_BASE + 0x090; // ACR privilege config
-const SEC2_ACR_DC:    u32 = SEC2_BASE + 0x0dc; // ACR data-cache config
-const SEC2_IMEMC:     u32 = SEC2_BASE + 0x180; // IMEM control
-const SEC2_IMEMD:     u32 = SEC2_BASE + 0x184; // IMEM data (auto-increment)
-const SEC2_IMETTAG:   u32 = SEC2_BASE + 0x188; // IMEM virtual page tag
-const SEC2_DMEMC:     u32 = SEC2_BASE + 0x1c0; // DMEM control
-const SEC2_DMEMD:     u32 = SEC2_BASE + 0x1c4; // DMEM data
-const SEC2_RESET:     u32 = SEC2_BASE + 0x3c0; // Soft-reset toggle
-const SEC2_MODE:      u32 = SEC2_BASE + 0x058; // Mode (bit1 = ACR mode)
-const SEC2_FBIF:      u32 = SEC2_BASE + 0x604; // FBIF / context config
+const SEC2_UNK1C: u32 = SEC2_BASE + 0x01c; // status mirror
+const SEC2_HWCFG: u32 = SEC2_BASE + 0x10c; // HW config (bit0=idle, bit2=secured)
+const SEC2_CPUCTL: u32 = SEC2_BASE + 0x100; // CPU control (bit1=STARTCPU)
+const SEC2_BOOTVEC: u32 = SEC2_BASE + 0x104; // Boot vector (entry offset)
+const SEC2_BOOTVEC2: u32 = SEC2_BASE + 0x084; // Secondary boot arg (GPU chip ID)
+const SEC2_CONFIG2: u32 = SEC2_BASE + 0x048; // Falcon config 2
+const SEC2_CONFIG3: u32 = SEC2_BASE + 0x054; // ACR alias selector
+const SEC2_ACR_PRIV: u32 = SEC2_BASE + 0x090; // ACR privilege config
+const SEC2_ACR_DC: u32 = SEC2_BASE + 0x0dc; // ACR data-cache config
+const SEC2_IMEMC: u32 = SEC2_BASE + 0x180; // IMEM control
+const SEC2_IMEMD: u32 = SEC2_BASE + 0x184; // IMEM data (auto-increment)
+const SEC2_IMETTAG: u32 = SEC2_BASE + 0x188; // IMEM virtual page tag
+const SEC2_DMEMC: u32 = SEC2_BASE + 0x1c0; // DMEM control
+const SEC2_DMEMD: u32 = SEC2_BASE + 0x1c4; // DMEM data
+const SEC2_RESET: u32 = SEC2_BASE + 0x3c0; // Soft-reset toggle
+const SEC2_MODE: u32 = SEC2_BASE + 0x058; // Mode (bit1 = ACR mode)
+const SEC2_FBIF: u32 = SEC2_BASE + 0x604; // FBIF / context config
 const SEC2_ACR_STATUS: u32 = SEC2_BASE + 0xa34; // ACR queue status
-const SEC2_ACR_CTL:   u32 = SEC2_BASE + 0xa30; // ACR queue control
-#[allow(dead_code)] const SEC2_ACR_CMD:  u32 = SEC2_BASE + 0xac0; // ACR command register
-#[allow(dead_code)] const SEC2_ACR_DATA: u32 = SEC2_BASE + 0xac4; // ACR data register
+const SEC2_ACR_CTL: u32 = SEC2_BASE + 0xa30; // ACR queue control
+#[allow(dead_code)]
+const SEC2_ACR_CMD: u32 = SEC2_BASE + 0xac0; // ACR command register
+#[allow(dead_code)]
+const SEC2_ACR_DATA: u32 = SEC2_BASE + 0xac4; // ACR data register
 
 // IMEMC fields
 const SEC2_IMEMC_AUTOINCR: u32 = 0x0100_0000; // bit24 = autoincrement
 const SEC2_IMEMC_PAGE_FE00: u32 = 0x0000_fe00; // physical IMEM byte address 0xfe00
-const SEC2_IMEM_WORDS_PER_PAGE: usize = 64;   // 256 bytes per page
+const SEC2_IMEM_WORDS_PER_PAGE: usize = 64; // 256 bytes per page
 
 // SEC2 boot constants (from trace)
-const SEC2_BOOTVEC_ENTRY: u32 = 0x0000_fd00;  // virtual entry point at 0xfd00
-const SEC2_BOOT_ARG:      u32 = 0x1400_00a1;  // GV100 chip ID as boot argument
-const SEC2_MAGIC:         u32 = 0xcafe_beef;  // sentinel for boot-complete handshake
+const SEC2_BOOTVEC_ENTRY: u32 = 0x0000_fd00; // virtual entry point at 0xfd00
+const SEC2_BOOT_ARG: u32 = 0x1400_00a1; // GV100 chip ID as boot argument
+const SEC2_MAGIC: u32 = 0xcafe_beef; // sentinel for boot-complete handshake
 
 // PMC_ENABLE: disable SEC2 engine (bit14 = SEC2 clock)
-const PMC_ENABLE_NO_SEC2: u32 = 0x5fec_9ff1;  // SEC2 disabled
+const PMC_ENABLE_NO_SEC2: u32 = 0x5fec_9ff1; // SEC2 disabled
 const PMC_ENABLE_WITH_SEC2: u32 = 0x5fec_dff1; // SEC2 enabled
 
 // SEC2 DMEM descriptor (22 words from trace, ACR bootstrap args)
@@ -141,18 +150,35 @@ const PMC_ENABLE_WITH_SEC2: u32 = 0x5fec_dff1; // SEC2 enabled
 // Fields: [0..7] = reserved zeros, [8] = 1 (ACR mode), [12..13] = 0x100 (size?),
 // [14] = 0x2e00, [16] = 0x2f00 (WPR page references), [18] = 0x1000 (granule)
 const SEC2_DMEM_DESC: [u32; 22] = [
-    0x0000_0000, 0x0000_0000, 0x0000_0000, 0x0000_0000,
-    0x0000_0000, 0x0000_0000, 0x0000_0000, 0x0000_0000,
-    0x0000_0001, 0x0000_0000, 0x0000_0000, 0x0000_0000,
-    0x0000_0100, 0x0000_0100, 0x0000_2e00, 0x0000_0000,
-    0x0000_2f00, 0x0000_0000, 0x0000_1000, 0x0000_0000,
-    0x0000_0000, 0x0000_0000,
+    0x0000_0000,
+    0x0000_0000,
+    0x0000_0000,
+    0x0000_0000,
+    0x0000_0000,
+    0x0000_0000,
+    0x0000_0000,
+    0x0000_0000,
+    0x0000_0001,
+    0x0000_0000,
+    0x0000_0000,
+    0x0000_0000,
+    0x0000_0100,
+    0x0000_0100,
+    0x0000_2e00,
+    0x0000_0000,
+    0x0000_2f00,
+    0x0000_0000,
+    0x0000_1000,
+    0x0000_0000,
+    0x0000_0000,
+    0x0000_0000,
 ];
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    let bdf = extract_arg(&args, "--bdf")
-        .unwrap_or_else(|| std::env::var("HOTSPRING_BDF").unwrap_or_else(|_| "0000:02:00.0".into()));
+    let bdf = extract_arg(&args, "--bdf").unwrap_or_else(|| {
+        std::env::var("HOTSPRING_BDF").unwrap_or_else(|_| "0000:02:00.0".into())
+    });
     let fw_path = extract_arg(&args, "--firmware")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("wateringHole/titanv_sec2_fw_from_trace.bin"));
@@ -166,18 +192,27 @@ fn main() {
         eprintln!("FATAL: cannot read SEC2 firmware: {e}");
         std::process::exit(1);
     });
-    let fw_words: Vec<u32> = fw_bytes.chunks(4).map(|c| {
-        u32::from_le_bytes([
-            *c.first().unwrap_or(&0),
-            *c.get(1).unwrap_or(&0),
-            *c.get(2).unwrap_or(&0),
-            *c.get(3).unwrap_or(&0),
-        ])
-    }).collect();
-    println!("  SEC2 firmware: {} bytes / {} words (expect 128)",
-             fw_bytes.len(), fw_words.len());
+    let fw_words: Vec<u32> = fw_bytes
+        .chunks(4)
+        .map(|c| {
+            u32::from_le_bytes([
+                *c.first().unwrap_or(&0),
+                *c.get(1).unwrap_or(&0),
+                *c.get(2).unwrap_or(&0),
+                *c.get(3).unwrap_or(&0),
+            ])
+        })
+        .collect();
+    println!(
+        "  SEC2 firmware: {} bytes / {} words (expect 128)",
+        fw_bytes.len(),
+        fw_words.len()
+    );
     if fw_words.len() != 128 {
-        eprintln!("  WARN: expected 128 words from trace, got {}", fw_words.len());
+        eprintln!(
+            "  WARN: expected 128 words from trace, got {}",
+            fw_words.len()
+        );
     }
 
     // ── Open BAR0 ────────────────────────────────────────────────────────────
@@ -210,13 +245,19 @@ fn main() {
     let pt_hi0 = bar0.r32(PTIMER_DEN);
     std::thread::sleep(Duration::from_millis(5));
     let pt_hi1 = bar0.r32(PTIMER_DEN);
-    println!("  PTIMER_DEN     = {pt_hi0:#010x} → {pt_hi1:#010x}  ({})",
-             if pt_hi1 != pt_hi0 { "RUNNING ✓" } else { "FROZEN !" });
+    println!(
+        "  PTIMER_DEN     = {pt_hi0:#010x} → {pt_hi1:#010x}  ({})",
+        if pt_hi1 != pt_hi0 {
+            "RUNNING ✓"
+        } else {
+            "FROZEN !"
+        }
+    );
 
     // Read PRIV_RING state at CORRECT addresses
-    let pr_cmd    = bar0.r32(PRIV_RING_CMD);
+    let pr_cmd = bar0.r32(PRIV_RING_CMD);
     let pr_status = bar0.r32(PRIV_RING_STATUS);
-    let pr_info0  = bar0.r32(PRIV_RING_INFO_0);
+    let pr_info0 = bar0.r32(PRIV_RING_INFO_0);
     let pr_master = bar0.r32(PRIV_RING_MASTER0);
     println!("  PRIV_RING_CMD    [0x12004c] = {pr_cmd:#010x}  (0=idle, 2=pending)");
     println!("  PRIV_RING_STATUS [0x12006c] = {pr_status:#010x}");
@@ -225,8 +266,8 @@ fn main() {
 
     // Read hardware-detected WPR bounds
     let wpr_hw_cfg = bar0.r32(WPR_HW_CFG);
-    let wpr_hw_lo  = bar0.r32(WPR_HW_LO);
-    let wpr_hw_hi  = bar0.r32(WPR_HW_HI);
+    let wpr_hw_lo = bar0.r32(WPR_HW_LO);
+    let wpr_hw_hi = bar0.r32(WPR_HW_HI);
     let wpr_hw_end = bar0.r32(WPR_HW_END);
     println!("  WPR_HW_CFG [0x100c80] = {wpr_hw_cfg:#010x}");
     println!("  WPR_HW_LO  [0x100cc4] = {wpr_hw_lo:#010x}");
@@ -238,9 +279,9 @@ fn main() {
     println!("  WPR_CFG    [0x1fac80] = {wpr_cfg_now:#010x}  (current)");
 
     // Read SEC2 baseline
-    let sec2_hwcfg  = bar0.r32(SEC2_HWCFG);
+    let sec2_hwcfg = bar0.r32(SEC2_HWCFG);
     let sec2_cpuctl = bar0.r32(SEC2_CPUCTL);
-    let sec2_mb0    = bar0.r32(SEC2_MAILBOX0);
+    let sec2_mb0 = bar0.r32(SEC2_MAILBOX0);
     println!("  SEC2_HWCFG [0x08710c] = {sec2_hwcfg:#010x}  (bit0=idle)");
     println!("  SEC2_CPUCTL[0x087100] = {sec2_cpuctl:#010x}  (0x10=HRESET, 0=running)");
     println!("  SEC2_MB0   [0x087040] = {sec2_mb0:#010x}");
@@ -252,8 +293,8 @@ fn main() {
     // (as seen in mmiotrace lines 99082-99094, immediately after DEVINIT trigger)
     println!("  Writing WPR bounds from hardware detection...");
     bar0.w32(WPR_CFG, wpr_hw_cfg);
-    bar0.w32(WPR_LO,  wpr_hw_lo);
-    bar0.w32(WPR_HI,  wpr_hw_hi);
+    bar0.w32(WPR_LO, wpr_hw_lo);
+    bar0.w32(WPR_HI, wpr_hw_hi);
     bar0.w32(WPR_END, wpr_hw_end);
 
     // Also set FB NISO address mask (from trace line 99082: W 0x100c10 = 0x00fffff0)
@@ -279,7 +320,7 @@ fn main() {
 
     // Read updated ring status
     let pr_status2 = bar0.r32(PRIV_RING_STATUS);
-    let pr_devinfo  = bar0.r32(PRIV_RING_DEV_INFO);
+    let pr_devinfo = bar0.r32(PRIV_RING_DEV_INFO);
     println!("  PRIV_RING_STATUS  = {pr_status2:#010x}");
     println!("  PRIV_RING_DEVINFO = {pr_devinfo:#010x}");
 
@@ -294,7 +335,7 @@ fn main() {
 
     // Clear SEC2 mailbox and interrupts
     bar0.w32(SEC2_MAILBOX0, 0x0000_0000);
-    bar0.w32(SEC2_IRQMASK,  0xffff_ffff);
+    bar0.w32(SEC2_IRQMASK, 0xffff_ffff);
 
     // Set boot vector argument (GPU chip ID, as in trace line 281180)
     bar0.w32(SEC2_BOOTVEC2, SEC2_BOOT_ARG);
@@ -383,7 +424,10 @@ fn main() {
     // ACR privilege mode (trace line 281238-281239)
     let acr_priv = bar0.r32(SEC2_ACR_PRIV);
     bar0.w32(SEC2_ACR_PRIV, acr_priv | 0x0001_0000);
-    println!("  SEC2_ACR_PRIV = {acr_priv:#010x} → {:#010x}", acr_priv | 0x0001_0000);
+    println!(
+        "  SEC2_ACR_PRIV = {acr_priv:#010x} → {:#010x}",
+        acr_priv | 0x0001_0000
+    );
 
     // Enable ACR interrupt (trace lines 281240-281245)
     bar0.w32(SEC2_IRQMSKSET, 0x0000_0008);
@@ -403,19 +447,25 @@ fn main() {
     // Load page 0: 64 words at physical 0xfe00, virtual tag 0xfd
     println!("  IMEMC ← 0x0100fe00 (autoincr, page 0xfe00)");
     bar0.w32(SEC2_IMEMC, SEC2_IMEMC_AUTOINCR | SEC2_IMEMC_PAGE_FE00);
-    bar0.w32(SEC2_IMETTAG, 0x0000_00fd);  // virtual page tag 0xfd
+    bar0.w32(SEC2_IMETTAG, 0x0000_00fd); // virtual page tag 0xfd
     let page0_words = SEC2_IMEM_WORDS_PER_PAGE.min(fw_words.len());
-    println!("  IMETTAG ← 0xfd  writing {} words (page 0)...", page0_words);
+    println!(
+        "  IMETTAG ← 0xfd  writing {} words (page 0)...",
+        page0_words
+    );
     for i in 0..page0_words {
         bar0.w32(SEC2_IMEMD, fw_words[i]);
     }
 
     // Load page 1: next 64 words, virtual tag 0xfe
     if fw_words.len() > SEC2_IMEM_WORDS_PER_PAGE {
-        bar0.w32(SEC2_IMETTAG, 0x0000_00fe);  // virtual page tag 0xfe
+        bar0.w32(SEC2_IMETTAG, 0x0000_00fe); // virtual page tag 0xfe
         let start = SEC2_IMEM_WORDS_PER_PAGE;
         let end = (start + SEC2_IMEM_WORDS_PER_PAGE).min(fw_words.len());
-        println!("  IMETTAG ← 0xfe  writing {} words (page 1)...", end - start);
+        println!(
+            "  IMETTAG ← 0xfe  writing {} words (page 1)...",
+            end - start
+        );
         for i in start..end {
             bar0.w32(SEC2_IMEMD, fw_words[i]);
         }
@@ -433,7 +483,10 @@ fn main() {
     // DMEMC = autoincrement from offset 0
     bar0.w32(SEC2_DMEMC, 0x0100_0000);
     println!("  DMEMC ← 0x01000000 (autoincr, offset 0)");
-    println!("  Writing {} DMEM descriptor words...", SEC2_DMEM_DESC.len());
+    println!(
+        "  Writing {} DMEM descriptor words...",
+        SEC2_DMEM_DESC.len()
+    );
     for &word in &SEC2_DMEM_DESC {
         bar0.w32(SEC2_DMEMD, word);
     }
@@ -468,8 +521,10 @@ fn main() {
         // Bit 4 = HRESET, bit 6 = halted; expect 0x10 or 0x50
         if cpuctl & 0x10 != 0 {
             let elapsed = t_start.elapsed();
-            println!("\n  SEC2 halted!  CPUCTL = {cpuctl:#010x}  in {}ms",
-                     elapsed.as_millis());
+            println!(
+                "\n  SEC2 halted!  CPUCTL = {cpuctl:#010x}  in {}ms",
+                elapsed.as_millis()
+            );
             sec2_done = true;
             break;
         }
@@ -485,12 +540,12 @@ fn main() {
     // ── Phase 9: Post-SEC2 State Probe ────────────────────────────────────────
     println!("\n━━━ Phase 9: Post-SEC2 State Probe ━━━\n");
 
-    let sec2_cpuctl  = bar0.r32(SEC2_CPUCTL);
-    let sec2_mb0     = bar0.r32(SEC2_MAILBOX0);
+    let sec2_cpuctl = bar0.r32(SEC2_CPUCTL);
+    let sec2_mb0 = bar0.r32(SEC2_MAILBOX0);
     let sec2_irqstat = bar0.r32(SEC2_IRQSTAT);
-    let sec2_unk1c   = bar0.r32(SEC2_UNK1C);
-    let sec2_irqmsk  = bar0.r32(SEC2_IRQMASK);
-    let pmc_final    = bar0.r32(PMC_ENABLE);
+    let sec2_unk1c = bar0.r32(SEC2_UNK1C);
+    let sec2_irqmsk = bar0.r32(SEC2_IRQMASK);
+    let pmc_final = bar0.r32(PMC_ENABLE);
 
     println!("  SEC2_CPUCTL  [0x087100] = {sec2_cpuctl:#010x}  (0x10=HRESET, 0x50=halt+bit6)");
     println!("  SEC2_MB0     [0x087040] = {sec2_mb0:#010x}  (0=sentinel cleared by SEC2)");
@@ -501,17 +556,17 @@ fn main() {
 
     // Read ACR registers
     let acr_status = bar0.r32(SEC2_ACR_STATUS);
-    let acr_ctl    = bar0.r32(SEC2_ACR_CTL);
+    let acr_ctl = bar0.r32(SEC2_ACR_CTL);
     println!("  SEC2_ACR_STATUS [0x087a34] = {acr_status:#010x}");
     println!("  SEC2_ACR_CTL    [0x087a30] = {acr_ctl:#010x}");
 
     // PRIV_RING final state (CORRECT addresses)
     println!();
-    let pr_cmd_f    = bar0.r32(PRIV_RING_CMD);
+    let pr_cmd_f = bar0.r32(PRIV_RING_CMD);
     let pr_status_f = bar0.r32(PRIV_RING_STATUS);
-    let pr_info_f   = bar0.r32(PRIV_RING_DEV_INFO);
-    let pr_cnt      = bar0.r32(PRIV_RING_DEV_INFO + 4);
-    let pr_flags    = bar0.r32(PRIV_RING_DEV_INFO + 8);
+    let pr_info_f = bar0.r32(PRIV_RING_DEV_INFO);
+    let pr_cnt = bar0.r32(PRIV_RING_DEV_INFO + 4);
+    let pr_flags = bar0.r32(PRIV_RING_DEV_INFO + 8);
     println!("  PRIV_RING_CMD    [0x12004c] = {pr_cmd_f:#010x}  (0=idle ✓)");
     println!("  PRIV_RING_STATUS [0x12006c] = {pr_status_f:#010x}");
     println!("  PRIV_RING_DEVINFO[0x122120] = {pr_info_f:#010x}");
@@ -521,8 +576,8 @@ fn main() {
     // WPR final state
     println!();
     let wpr_cfg_f = bar0.r32(WPR_CFG);
-    let wpr_lo_f  = bar0.r32(WPR_LO);
-    let wpr_hi_f  = bar0.r32(WPR_HI);
+    let wpr_lo_f = bar0.r32(WPR_LO);
+    let wpr_hi_f = bar0.r32(WPR_HI);
     println!("  WPR_CFG [0x1fac80] = {wpr_cfg_f:#010x}");
     println!("  WPR_LO  [0x1facc4] = {wpr_lo_f:#010x}");
     println!("  WPR_HI  [0x1facc8] = {wpr_hi_f:#010x}");
@@ -532,15 +587,21 @@ fn main() {
     std::thread::sleep(Duration::from_millis(10));
     let pt1 = bar0.r32(PTIMER_DEN);
     println!();
-    println!("  PTIMER_DEN = {pt0:#010x} → {pt1:#010x}  ({})",
-             if pt1 != pt0 { "RUNNING ✓" } else { "FROZEN !" });
+    println!(
+        "  PTIMER_DEN = {pt0:#010x} → {pt1:#010x}  ({})",
+        if pt1 != pt0 {
+            "RUNNING ✓"
+        } else {
+            "FROZEN !"
+        }
+    );
 
     // ── Score ─────────────────────────────────────────────────────────────────
     println!();
-    let sec2_ok   = sec2_done && (sec2_mb0 == 0 || sec2_mb0 != SEC2_MAGIC);
-    let priv_ok   = pr_cmd_f == 0;
+    let sec2_ok = sec2_done && (sec2_mb0 == 0 || sec2_mb0 != SEC2_MAGIC);
+    let priv_ok = pr_cmd_f == 0;
     let ptimer_ok = pt1 != pt0;
-    let wpr_ok    = wpr_cfg_f != 0 && wpr_cfg_f != 0xffff_ffff;
+    let wpr_ok = wpr_cfg_f != 0 && wpr_cfg_f != 0xffff_ffff;
 
     println!("  ┌──────────────────────────────────────┐");
     println!("  │  Sovereign SEC2 Boot Score            │");
@@ -587,4 +648,3 @@ fn banner() {
 fn extract_arg(args: &[String], flag: &str) -> Option<String> {
     args.windows(2).find(|w| w[0] == flag).map(|w| w[1].clone())
 }
-

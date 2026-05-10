@@ -455,7 +455,8 @@ fn rpc_result(
     method: &str,
     params: &serde_json::Value,
 ) -> Result<serde_json::Value, GlowplugError> {
-    let v = send_jsonrpc(socket, method, params).map_err(GlowplugError::Transport)?;
+    let v = send_jsonrpc(socket, method, params)
+        .map_err(|e| GlowplugError::Transport(e.to_string()))?;
     if let Some(err) = v.get("error") {
         let code = err
             .get("code")

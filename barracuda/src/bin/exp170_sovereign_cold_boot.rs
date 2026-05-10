@@ -61,8 +61,10 @@ use bar0_mmio::Bar0Map;
 // Power management
 const PMC_INTR_EN_SET_0: u32 = 0x000180;
 const PMC_INTR_EN_SET_1: u32 = 0x000184;
-#[allow(dead_code)] const PMC_INTR_0: u32 = 0x000160;
-#[allow(dead_code)] const PMC_INTR_1: u32 = 0x000164;
+#[allow(dead_code)]
+const PMC_INTR_0: u32 = 0x000160;
+#[allow(dead_code)]
+const PMC_INTR_1: u32 = 0x000164;
 const PMC_ENABLE: u32 = 0x000200;
 
 // Boot Falcon (0x084000 base — runs PMU HS firmware, triggers DEVINIT)
@@ -84,7 +86,8 @@ const BF_FBIF: u32 = BF_BASE + 0x624; // FBIF config
 // Main PMU (post-DEVINIT)
 const PMU_BASE: u32 = 0x10a000;
 const PMU_CPUCTL: u32 = PMU_BASE + 0x10c;
-#[allow(dead_code)] const PMU_IRQSTAT: u32 = PMU_BASE + 0x008;
+#[allow(dead_code)]
+const PMU_IRQSTAT: u32 = PMU_BASE + 0x008;
 const PMU_MB0: u32 = PMU_BASE + 0x450;
 
 // SEC2 (post-DEVINIT)
@@ -97,11 +100,13 @@ const PRIV_RING_MASTER_CONFIG: u32 = 0x012004c;
 
 // PTIMER
 const PTIMER_TIME_HI: u32 = 0x009400;
-#[allow(dead_code)] const PTIMER_TIME_LO: u32 = 0x009410;
+#[allow(dead_code)]
+const PTIMER_TIME_LO: u32 = 0x009410;
 
 // FB / PRAMIN
 const FB_NISO: u32 = 0x100c10;
-#[allow(dead_code)] const PRAMIN_WIN: u32 = 0x001700;
+#[allow(dead_code)]
+const PRAMIN_WIN: u32 = 0x001700;
 
 // ROM access
 const ROM_ACCESS_CTL: u32 = 0x088050;
@@ -118,13 +123,14 @@ const FW_SIG: [u32; 4] = [0x614c_30ee, 0x854d_057c, 0x2679_2cd8, 0x33b4_42f8];
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    let bdf = extract_arg(&args, "--bdf")
-        .unwrap_or_else(|| std::env::var("HOTSPRING_BDF").unwrap_or_else(|_| "0000:02:00.0".into()));
+    let bdf = extract_arg(&args, "--bdf").unwrap_or_else(|| {
+        std::env::var("HOTSPRING_BDF").unwrap_or_else(|_| "0000:02:00.0".into())
+    });
     let fw_path = extract_arg(&args, "--firmware")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("wateringHole/titanv_pmu_hs_fw_from_trace.bin"));
     let do_reset = args.iter().any(|a| a == "--reset");
-    let dry_run  = args.iter().any(|a| a == "--dry-run");
+    let dry_run = args.iter().any(|a| a == "--dry-run");
 
     banner();
     println!("  BDF:       {bdf}");
@@ -137,18 +143,28 @@ fn main() {
         eprintln!("FATAL: cannot read firmware: {e}");
         std::process::exit(1);
     });
-    let fw_words: Vec<u32> = fw_bytes.chunks(4).map(|c| {
-        u32::from_le_bytes([
-            *c.first().unwrap_or(&0),
-            *c.get(1).unwrap_or(&0),
-            *c.get(2).unwrap_or(&0),
-            *c.get(3).unwrap_or(&0),
-        ])
-    }).collect();
-    println!("  Firmware:  {} bytes / {} words ({} blocks × 64)",
-             fw_bytes.len(), fw_words.len(), (fw_words.len() + 63) / 64);
+    let fw_words: Vec<u32> = fw_bytes
+        .chunks(4)
+        .map(|c| {
+            u32::from_le_bytes([
+                *c.first().unwrap_or(&0),
+                *c.get(1).unwrap_or(&0),
+                *c.get(2).unwrap_or(&0),
+                *c.get(3).unwrap_or(&0),
+            ])
+        })
+        .collect();
+    println!(
+        "  Firmware:  {} bytes / {} words ({} blocks × 64)",
+        fw_bytes.len(),
+        fw_words.len(),
+        (fw_words.len() + 63) / 64
+    );
     if fw_words.len() != 896 {
-        eprintln!("  WARN: expected 896 words from mmiotrace, got {}", fw_words.len());
+        eprintln!(
+            "  WARN: expected 896 words from mmiotrace, got {}",
+            fw_words.len()
+        );
     }
 
     // ── PCIe D3hot→D0 Reset (optional) ──────────────────────────────────────
@@ -185,18 +201,23 @@ fn main() {
 
     let pmc_en = bar0.r32(PMC_ENABLE);
     println!("  PMC_ENABLE    = {pmc_en:#010x}");
-    println!("  PRIV_RING     = {:#010x}  (bad00100=HS-locked)",
-             bar0.r32(PRIV_RING_INTR));
-    println!("  PMU cpuctl    = {:#010x}  (0x01=idle-halted)",
-             bar0.r32(PMU_CPUCTL));
-    println!("  BF cpuctl     = {:#010x}",
-             bar0.r32(BF_CPUCTL));
+    println!(
+        "  PRIV_RING     = {:#010x}  (bad00100=HS-locked)",
+        bar0.r32(PRIV_RING_INTR)
+    );
+    println!(
+        "  PMU cpuctl    = {:#010x}  (0x01=idle-halted)",
+        bar0.r32(PMU_CPUCTL)
+    );
+    println!("  BF cpuctl     = {:#010x}", bar0.r32(BF_CPUCTL));
 
     let pt0 = bar0.r32(PTIMER_TIME_HI);
     std::thread::sleep(Duration::from_millis(10));
     let pt1 = bar0.r32(PTIMER_TIME_HI);
-    println!("  PTIMER_HI     = {pt0:#010x} → {pt1:#010x}  ({})",
-             if pt1 != pt0 { "RUNNING" } else { "FROZEN" });
+    println!(
+        "  PTIMER_HI     = {pt0:#010x} → {pt1:#010x}  ({})",
+        if pt1 != pt0 { "RUNNING" } else { "FROZEN" }
+    );
 
     // If DEVINIT already ran and PMC_ENABLE = 0x5fecdff1, warn user
     if pmc_en == 0x5fec_dff1 && !do_reset {
@@ -228,14 +249,30 @@ fn main() {
     println!("  Clock gating regs set");
 
     // PBDMA interrupt enables (6 PBDMAs, from lines 64927-64937)
-    for base in [0x00d97c_u32, 0x00d9cc, 0x00da1c, 0x00da6c, 0x00dabc, 0x00db0c] {
+    for base in [
+        0x00d97c_u32,
+        0x00d9cc,
+        0x00da1c,
+        0x00da6c,
+        0x00dabc,
+        0x00db0c,
+    ] {
         bar0.w32(base, 0x0000_0001);
     }
     println!("  PBDMA INTR_EN (6 units) ← 0x1");
 
     // FIFO class enables (9 classes, from lines 64938-64946)
-    for base in [0x00d014_u32, 0x00d034, 0x00d054, 0x00d074, 0x00d094,
-                 0x00d0b4, 0x00d0d4, 0x00d0f4, 0x00d114] {
+    for base in [
+        0x00d014_u32,
+        0x00d034,
+        0x00d054,
+        0x00d074,
+        0x00d094,
+        0x00d0b4,
+        0x00d0d4,
+        0x00d0f4,
+        0x00d114,
+    ] {
         bar0.w32(base, 0x0000_0007);
     }
     println!("  FIFO class enables (9) ← 0x7");
@@ -267,14 +304,14 @@ fn main() {
     println!("\n━━━ Phase 3: Boot Falcon Firmware Load (IMEMC/IMEMD PIO) ━━━\n");
 
     // Initial boot Falcon setup
-    bar0.w32(BF_DMACTL, 0x0000_0000);           // clear DMACTL
-    bar0.w32(BF_DMEMD0, BOOT_ARG_CHIPID);       // DMEMD[0] = GV100 chip ID
-    bar0.w32(BF_DMATRFMOFFS, 0x0000_0004);      // DMA config
-    bar0.w32(BF_IRQMASK, 0xffff_ffff);          // all IRQs
-    bar0.w32(BF_DMACTL, 0x0000_0000);           // DMACTL clear again
-    bar0.w32(BF_DMEMD0, BOOT_ARG_CHIPID);       // DMEMD[0] again
-    bar0.w32(BF_FBIF, 0x0000_0190);             // FBIF config
-    bar0.w32(BF_SCTL, 0x0000_0000);             // SCTL clear
+    bar0.w32(BF_DMACTL, 0x0000_0000); // clear DMACTL
+    bar0.w32(BF_DMEMD0, BOOT_ARG_CHIPID); // DMEMD[0] = GV100 chip ID
+    bar0.w32(BF_DMATRFMOFFS, 0x0000_0004); // DMA config
+    bar0.w32(BF_IRQMASK, 0xffff_ffff); // all IRQs
+    bar0.w32(BF_DMACTL, 0x0000_0000); // DMACTL clear again
+    bar0.w32(BF_DMEMD0, BOOT_ARG_CHIPID); // DMEMD[0] again
+    bar0.w32(BF_FBIF, 0x0000_0190); // FBIF config
+    bar0.w32(BF_SCTL, 0x0000_0000); // SCTL clear
     println!("  Boot Falcon control regs initialized");
 
     // Load firmware blocks via IMEMC/IMEMD PIO
@@ -313,8 +350,8 @@ fn main() {
 
     // Unlock and start
     bar0.w32(BF_DMACTL, DMACTL_MAGIC); // 0xcafebeef unlock
-    bar0.w32(BF_ALIAS, 0x0000_0000);   // clear alias
-    bar0.w32(BF_CPUCTL, 0x0000_0002);  // STARTCPU
+    bar0.w32(BF_ALIAS, 0x0000_0000); // clear alias
+    bar0.w32(BF_CPUCTL, 0x0000_0002); // STARTCPU
     println!("  STARTCPU issued (BF_CPUCTL ← 0x02)");
 
     // ── Phase 4: Wait for PMU clock init ─────────────────────────────────────
@@ -330,8 +367,10 @@ fn main() {
         std::thread::sleep(Duration::from_millis(10));
         let pt = bar0.r32(PTIMER_TIME_HI);
         if pt != pt_base && pt != 0 && pt != 0xffff_ffff {
-            println!("\n  PTIMER running! {pt_base:#010x} → {pt:#010x} in {}ms",
-                     t_start.elapsed().as_millis());
+            println!(
+                "\n  PTIMER running! {pt_base:#010x} → {pt:#010x} in {}ms",
+                t_start.elapsed().as_millis()
+            );
             ptimer_started = true;
             break;
         }
@@ -351,10 +390,22 @@ fn main() {
 
     // Replicate nouveau's gradual PMC_ENABLE progression from mmiotrace
     let pmc_steps: &[u32] = &[
-        0x4000_c121, 0x4000_c131, 0x4008_c131, 0x400c_c131,
-        0x400c_4131, 0x400c_d131, 0x400c_d031, 0x400c_d131,
-        0x400c_d931, 0x400c_dd31, 0x400c_df31, 0x410c_df31,
-        0x418c_df31, 0x41cc_df31, 0x41ec_df31, 0x41ec_dfb1,
+        0x4000_c121,
+        0x4000_c131,
+        0x4008_c131,
+        0x400c_c131,
+        0x400c_4131,
+        0x400c_d131,
+        0x400c_d031,
+        0x400c_d131,
+        0x400c_d931,
+        0x400c_dd31,
+        0x400c_df31,
+        0x410c_df31,
+        0x418c_df31,
+        0x41cc_df31,
+        0x41ec_df31,
+        0x41ec_dfb1,
         0x41ec_dff1,
     ];
     for &val in pmc_steps {
@@ -404,8 +455,10 @@ fn main() {
         print!(".");
         let _ = io::stdout().flush();
         if pmc != 0xffff_ffff && pmc != 0 {
-            println!("\n  DEVINIT complete in {}ms! PMC_ENABLE = {pmc:#010x}",
-                     devinit_start.elapsed().as_millis());
+            println!(
+                "\n  DEVINIT complete in {}ms! PMC_ENABLE = {pmc:#010x}",
+                devinit_start.elapsed().as_millis()
+            );
             devinit_done = true;
             break;
         }
@@ -421,8 +474,8 @@ fn main() {
 
     let pmc_final = bar0.r32(PMC_ENABLE);
     let priv_ring = bar0.r32(PRIV_RING_INTR);
-    let pmu_ctrl  = bar0.r32(PMU_CPUCTL);
-    let pmu_mb0   = bar0.r32(PMU_MB0);
+    let pmu_ctrl = bar0.r32(PMU_CPUCTL);
+    let pmu_mb0 = bar0.r32(PMU_MB0);
     let sec2_ctrl = bar0.r32(SEC2_CPUCTL);
     let pt_hi0 = bar0.r32(PTIMER_TIME_HI);
     std::thread::sleep(Duration::from_millis(20));
@@ -433,19 +486,34 @@ fn main() {
     println!("  PMU cpuctl    = {pmu_ctrl:#010x}  (0x01=idle-halted)");
     println!("  PMU mb0       = {pmu_mb0:#010x}");
     println!("  SEC2 cpuctl   = {sec2_ctrl:#010x}");
-    println!("  PTIMER_HI     = {pt_hi0:#010x} → {pt_hi1:#010x}  ({})",
-             if pt_hi1 != pt_hi0 { "RUNNING" } else { "FROZEN" });
+    println!(
+        "  PTIMER_HI     = {pt_hi0:#010x} → {pt_hi1:#010x}  ({})",
+        if pt_hi1 != pt_hi0 {
+            "RUNNING"
+        } else {
+            "FROZEN"
+        }
+    );
 
     // Score
     let devinit_ok = pmc_final == 0x5fec_dff1 || pmc_final == 0x5fec_9ff1;
-    let priv_ok    = priv_ring != 0xbad0_0100;
-    let ptimer_ok  = pt_hi1 != pt_hi0;
+    let priv_ok = priv_ring != 0xbad0_0100;
+    let ptimer_ok = pt_hi1 != pt_hi0;
 
     println!("\n  ┌─────────────────────────────────┐");
     println!("  │  Sovereign Boot Score           │");
-    println!("  │  DEVINIT complete:   {}         │", if devinit_ok { "✓ YES" } else { "✗ NO " });
-    println!("  │  PRIV_RING clear:    {}         │", if priv_ok    { "✓ YES" } else { "✗ NO " });
-    println!("  │  PTIMER running:     {}         │", if ptimer_ok  { "✓ YES" } else { "✗ NO " });
+    println!(
+        "  │  DEVINIT complete:   {}         │",
+        if devinit_ok { "✓ YES" } else { "✗ NO " }
+    );
+    println!(
+        "  │  PRIV_RING clear:    {}         │",
+        if priv_ok { "✓ YES" } else { "✗ NO " }
+    );
+    println!(
+        "  │  PTIMER running:     {}         │",
+        if ptimer_ok { "✓ YES" } else { "✗ NO " }
+    );
     println!("  └─────────────────────────────────┘");
 
     if devinit_ok && priv_ok && ptimer_ok {
@@ -472,10 +540,7 @@ fn pcie_d3hot_d0_reset(cfg_path: &str) -> io::Result<()> {
     use std::fs::OpenOptions;
     use std::io::{Read, Seek, SeekFrom, Write};
 
-    let mut f = OpenOptions::new()
-        .read(true)
-        .write(true)
-        .open(cfg_path)?;
+    let mut f = OpenOptions::new().read(true).write(true).open(cfg_path)?;
 
     // Read PM_CSR at config offset 0x54
     f.seek(SeekFrom::Start(0x54))?;
@@ -512,4 +577,3 @@ fn banner() {
 fn extract_arg(args: &[String], flag: &str) -> Option<String> {
     args.windows(2).find(|w| w[0] == flag).map(|w| w[1].clone())
 }
-

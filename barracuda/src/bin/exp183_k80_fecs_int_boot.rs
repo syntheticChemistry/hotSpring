@@ -62,51 +62,51 @@ use std::time::{Duration, Instant};
 use bar0_mmio::Bar0Map;
 
 // ── PMC / MC registers ─────────────────────────────────────────────────────
-const BOOT0:        u32 = 0x000000;
-const PMC_ENABLE:   u32 = 0x000200;
-const MC_UNK260:    u32 = 0x000260; // nvkm_mc_unk260 target register
-const PTIMER_HI:    u32 = 0x009084;
+const BOOT0: u32 = 0x000000;
+const PMC_ENABLE: u32 = 0x000200;
+const MC_UNK260: u32 = 0x000260; // nvkm_mc_unk260 target register
+const PTIMER_HI: u32 = 0x009084;
 
 // ── PGRAPH / GR engine registers ───────────────────────────────────────────
-const GR_READY:     u32 = 0x409800; // FECS boot-ready flag (bit 31 in _int path)
-const GR_CTX_SIZE:  u32 = 0x409804; // FECS reports context size here after boot
+const GR_READY: u32 = 0x409800; // FECS boot-ready flag (bit 31 in _int path)
+const GR_CTX_SIZE: u32 = 0x409804; // FECS reports context size here after boot
 
 // ── FECS Falcon registers (base 0x409000) ──────────────────────────────────
-const FECS_BASE:    u32 = 0x409000;
-const FECS_CPUCTL:  u32 = FECS_BASE + 0x100;
-const FECS_PC:      u32 = FECS_BASE + 0x110;
-const FECS_SCTL:    u32 = FECS_BASE + 0x240;
-const FECS_HWCFG:   u32 = FECS_BASE + 0x10c; // also: BAR0[0x40910c]
-const FECS_IMEMC:   u32 = FECS_BASE + 0x180;
-const FECS_IMEMD:   u32 = FECS_BASE + 0x184;
+const FECS_BASE: u32 = 0x409000;
+const FECS_CPUCTL: u32 = FECS_BASE + 0x100;
+const FECS_PC: u32 = FECS_BASE + 0x110;
+const FECS_SCTL: u32 = FECS_BASE + 0x240;
+const FECS_HWCFG: u32 = FECS_BASE + 0x10c; // also: BAR0[0x40910c]
+const FECS_IMEMC: u32 = FECS_BASE + 0x180;
+const FECS_IMEMD: u32 = FECS_BASE + 0x184;
 const FECS_IMETTAG: u32 = FECS_BASE + 0x188;
-const FECS_DMEMC:   u32 = FECS_BASE + 0x1c0;
-const FECS_DMEMD:   u32 = FECS_BASE + 0x1c4;
-const FECS_MB0:     u32 = FECS_BASE + 0x040;
-const FECS_MB1:     u32 = FECS_BASE + 0x044;
+const FECS_DMEMC: u32 = FECS_BASE + 0x1c0;
+const FECS_DMEMD: u32 = FECS_BASE + 0x1c4;
+const FECS_MB0: u32 = FECS_BASE + 0x040;
+const FECS_MB1: u32 = FECS_BASE + 0x044;
 
 // ── GPCCS broadcast Falcon registers (PIO access base 0x41a000) ────────────
 // NOTE: GPC status/BOOT0 is at 0x418000 (GPC_BCAST). The 0x41a000 address is
 // the GPCCS falcon PIO access register window used by nouveau's init_fw.
-const GPCCS_BASE:   u32 = 0x41a000;
-const GPCCS_HWCFG:  u32 = GPCCS_BASE + 0x10c; // also: BAR0[0x41a10c]
-const GPCCS_IMEMC:  u32 = GPCCS_BASE + 0x180;
-const GPCCS_IMEMD:  u32 = GPCCS_BASE + 0x184;
+const GPCCS_BASE: u32 = 0x41a000;
+const GPCCS_HWCFG: u32 = GPCCS_BASE + 0x10c; // also: BAR0[0x41a10c]
+const GPCCS_IMEMC: u32 = GPCCS_BASE + 0x180;
+const GPCCS_IMEMD: u32 = GPCCS_BASE + 0x184;
 const GPCCS_IMETTAG: u32 = GPCCS_BASE + 0x188;
-const GPCCS_DMEMC:  u32 = GPCCS_BASE + 0x1c0;
-const GPCCS_DMEMD:  u32 = GPCCS_BASE + 0x1c4;
+const GPCCS_DMEMC: u32 = GPCCS_BASE + 0x1c0;
+const GPCCS_DMEMD: u32 = GPCCS_BASE + 0x1c4;
 
 // ── GPC status (BAR0 broadcast, read-only from CPU) ────────────────────────
-const GPC0_BOOT0:   u32 = 0x418000;
-const GPC1_BOOT0:   u32 = 0x428000;
+const GPC0_BOOT0: u32 = 0x418000;
+const GPC1_BOOT0: u32 = 0x428000;
 
 // ── FECS CPUCTL bits (Falcon v2/v4 — GK110/GK210 Kepler) ──────────────────
 const FECS_STARTCPU: u32 = 0x02; // bit 1: start CPU
-const FECS_HALTED:   u32 = 0x10; // bit 4: CPU halted
+const FECS_HALTED: u32 = 0x10; // bit 4: CPU halted
 
 // ── IMEMC flags ────────────────────────────────────────────────────────────
-const IMEMC_AINCW:  u32 = 0x0100_0000; // bit 24: auto-increment on write
-const DMEMC_AINCW:  u32 = 0x0100_0000; // same encoding for DMEMC
+const IMEMC_AINCW: u32 = 0x0100_0000; // bit 24: auto-increment on write
+const DMEMC_AINCW: u32 = 0x0100_0000; // same encoding for DMEMC
 
 const IMEM_PAGE: usize = 256; // bytes per IMEM page (64 words)
 const IMEM_WORDS_PER_PAGE: usize = IMEM_PAGE / 4;
@@ -121,14 +121,17 @@ fn load_fw(dir: &Path, name: &str) -> Vec<u32> {
         eprintln!("FATAL: cannot read {}: {e}", path.display());
         std::process::exit(1);
     });
-    bytes.chunks(4).map(|c| {
-        u32::from_le_bytes([
-            *c.first().unwrap_or(&0),
-            *c.get(1).unwrap_or(&0),
-            *c.get(2).unwrap_or(&0),
-            *c.get(3).unwrap_or(&0),
-        ])
-    }).collect()
+    bytes
+        .chunks(4)
+        .map(|c| {
+            u32::from_le_bytes([
+                *c.first().unwrap_or(&0),
+                *c.get(1).unwrap_or(&0),
+                *c.get(2).unwrap_or(&0),
+                *c.get(3).unwrap_or(&0),
+            ])
+        })
+        .collect()
 }
 
 fn pio_load_dmem(bar0: &Bar0Map, dmemc: u32, dmemd: u32, words: &[u32]) {
@@ -158,8 +161,7 @@ fn pio_load_imem(bar0: &Bar0Map, imemc: u32, imemd: u32, imettag: u32, words: &[
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    let bdf = extract_arg(&args, "--bdf")
-        .unwrap_or_else(|| "0000:4b:00.0".into());
+    let bdf = extract_arg(&args, "--bdf").unwrap_or_else(|| "0000:4b:00.0".into());
     let fw_dir = extract_arg(&args, "--fw-dir")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("../wateringHole/gk110"));
@@ -170,7 +172,9 @@ fn main() {
     println!("╚══════════════════════════════════════════════════════════════════╝");
     println!("  BDF:    {bdf}");
     println!("  FW dir: {}", fw_dir.display());
-    if dry_run { println!("  Mode:   DRY RUN"); }
+    if dry_run {
+        println!("  Mode:   DRY RUN");
+    }
 
     // ── Load firmware ─────────────────────────────────────────────────────
     let fecs_code = load_fw(&fw_dir, "fecs_code.bin");
@@ -179,14 +183,26 @@ fn main() {
     let gpccs_data = load_fw(&fw_dir, "gpccs_data.bin");
 
     println!("\n  Firmware loaded:");
-    println!("    fecs_code:  {} words ({} bytes)",
-             fecs_code.len(), fecs_code.len() * 4);
-    println!("    fecs_data:  {} words ({} bytes)",
-             fecs_data.len(), fecs_data.len() * 4);
-    println!("    gpccs_code: {} words ({} bytes)",
-             gpccs_code.len(), gpccs_code.len() * 4);
-    println!("    gpccs_data: {} words ({} bytes)",
-             gpccs_data.len(), gpccs_data.len() * 4);
+    println!(
+        "    fecs_code:  {} words ({} bytes)",
+        fecs_code.len(),
+        fecs_code.len() * 4
+    );
+    println!(
+        "    fecs_data:  {} words ({} bytes)",
+        fecs_data.len(),
+        fecs_data.len() * 4
+    );
+    println!(
+        "    gpccs_code: {} words ({} bytes)",
+        gpccs_code.len(),
+        gpccs_code.len() * 4
+    );
+    println!(
+        "    gpccs_data: {} words ({} bytes)",
+        gpccs_data.len(),
+        gpccs_data.len() * 4
+    );
 
     // ── Open BAR0 ─────────────────────────────────────────────────────────
     let resource0 = format!("/sys/bus/pci/devices/{bdf}/resource0");
@@ -208,11 +224,11 @@ fn main() {
     }
 
     let pmc_en = bar0.r32(PMC_ENABLE);
-    let fecs_sctl   = bar0.r32(FECS_SCTL);
+    let fecs_sctl = bar0.r32(FECS_SCTL);
     let fecs_cpuctl = bar0.r32(FECS_CPUCTL);
-    let fecs_hwcfg  = bar0.r32(FECS_HWCFG);
-    let gpc0_boot0  = bar0.r32(GPC0_BOOT0);
-    let gpc1_boot0  = bar0.r32(GPC1_BOOT0);
+    let fecs_hwcfg = bar0.r32(FECS_HWCFG);
+    let gpc0_boot0 = bar0.r32(GPC0_BOOT0);
+    let gpc1_boot0 = bar0.r32(GPC1_BOOT0);
     let gr_ready_pre = bar0.r32(GR_READY);
 
     println!("  PMC_ENABLE   = {pmc_en:#010x}");
@@ -243,9 +259,19 @@ fn main() {
     let pt0 = bar0.r32(PTIMER_HI);
     std::thread::sleep(Duration::from_millis(5));
     let pt1 = bar0.r32(PTIMER_HI);
-    println!("  PTIMER:      {} ({})",
-             if pt1 != pt0 { "RUNNING ✓" } else { "FROZEN ✗" },
-             if pt1 != pt0 { format!("{pt0:#010x}→{pt1:#010x}") } else { format!("{pt0:#010x}") });
+    println!(
+        "  PTIMER:      {} ({})",
+        if pt1 != pt0 {
+            "RUNNING ✓"
+        } else {
+            "FROZEN ✗"
+        },
+        if pt1 != pt0 {
+            format!("{pt0:#010x}→{pt1:#010x}")
+        } else {
+            format!("{pt0:#010x}")
+        }
+    );
     println!("  Pre-conditions OK ✓");
 
     if dry_run {
@@ -264,17 +290,24 @@ fn main() {
     println!("\n━━━ Phase 3: FECS Firmware Load ━━━\n");
     println!("  Loading FECS DMEM ({} words)...", fecs_data.len());
     pio_load_dmem(&bar0, FECS_DMEMC, FECS_DMEMD, &fecs_data);
-    println!("  Loading FECS IMEM ({} words, {} pages)...",
-             fecs_code.len(),
-             (fecs_code.len() + IMEM_WORDS_PER_PAGE - 1) / IMEM_WORDS_PER_PAGE);
+    println!(
+        "  Loading FECS IMEM ({} words, {} pages)...",
+        fecs_code.len(),
+        (fecs_code.len() + IMEM_WORDS_PER_PAGE - 1) / IMEM_WORDS_PER_PAGE
+    );
     pio_load_imem(&bar0, FECS_IMEMC, FECS_IMEMD, FECS_IMETTAG, &fecs_code);
 
     // Readback verification
     bar0.w32(FECS_DMEMC, 0x0); // seek to word 0 (no auto-increment)
     let dmem_v0 = bar0.r32(FECS_DMEMD);
     let dmem_v1 = bar0.r32(FECS_DMEMD);
-    println!("  FECS DMEM readback: [{:#010x}, {:#010x}] (wrote [{:#010x}, {:#010x}])",
-             dmem_v0, dmem_v1, fecs_data[0], fecs_data.get(1).copied().unwrap_or(0));
+    println!(
+        "  FECS DMEM readback: [{:#010x}, {:#010x}] (wrote [{:#010x}, {:#010x}])",
+        dmem_v0,
+        dmem_v1,
+        fecs_data[0],
+        fecs_data.get(1).copied().unwrap_or(0)
+    );
     if dmem_v0 != fecs_data[0] {
         println!("  WARN: DMEM readback mismatch! FECS DMEM write may have failed.");
     }
@@ -282,12 +315,16 @@ fn main() {
 
     // ── Phase 4: Load GPCCS firmware ──────────────────────────────────────
     println!("\n━━━ Phase 4: GPCCS Firmware Load ━━━\n");
-    println!("  Loading GPCCS DMEM ({} words) via broadcast 0x{GPCCS_BASE:06x}...",
-             gpccs_data.len());
+    println!(
+        "  Loading GPCCS DMEM ({} words) via broadcast 0x{GPCCS_BASE:06x}...",
+        gpccs_data.len()
+    );
     pio_load_dmem(&bar0, GPCCS_DMEMC, GPCCS_DMEMD, &gpccs_data);
-    println!("  Loading GPCCS IMEM ({} words, {} pages)...",
-             gpccs_code.len(),
-             (gpccs_code.len() + IMEM_WORDS_PER_PAGE - 1) / IMEM_WORDS_PER_PAGE);
+    println!(
+        "  Loading GPCCS IMEM ({} words, {} pages)...",
+        gpccs_code.len(),
+        (gpccs_code.len() + IMEM_WORDS_PER_PAGE - 1) / IMEM_WORDS_PER_PAGE
+    );
     pio_load_imem(&bar0, GPCCS_IMEMC, GPCCS_IMEMD, GPCCS_IMETTAG, &gpccs_code);
     println!("  GPCCS firmware loaded ✓");
 
@@ -306,7 +343,9 @@ fn main() {
     let scrub_timeout = Duration::from_millis(2000);
     loop {
         let hwcfg = bar0.r32(FECS_HWCFG);
-        if hwcfg & 0x6 == 0 { break; }
+        if hwcfg & 0x6 == 0 {
+            break;
+        }
         if t0.elapsed() >= scrub_timeout {
             println!("  WARN: FECS mem scrubbing timeout (HWCFG={hwcfg:#010x})");
             break;
@@ -361,80 +400,140 @@ fn main() {
     println!("\n━━━ Phase 8: Post-Boot State ━━━\n");
 
     let fecs_cpuctl_post = bar0.r32(FECS_CPUCTL);
-    let fecs_pc_post     = bar0.r32(FECS_PC);
-    let fecs_mb0_post    = bar0.r32(FECS_MB0);
-    let fecs_mb1_post    = bar0.r32(FECS_MB1);
-    let gr_ready_post    = bar0.r32(GR_READY);
-    let gr_ctx_size      = bar0.r32(GR_CTX_SIZE);
-    let pmc_post         = bar0.r32(PMC_ENABLE);
-    let gpc0_post        = bar0.r32(GPC0_BOOT0);
-    let gpc1_post        = bar0.r32(GPC1_BOOT0);
+    let fecs_pc_post = bar0.r32(FECS_PC);
+    let fecs_mb0_post = bar0.r32(FECS_MB0);
+    let fecs_mb1_post = bar0.r32(FECS_MB1);
+    let gr_ready_post = bar0.r32(GR_READY);
+    let gr_ctx_size = bar0.r32(GR_CTX_SIZE);
+    let pmc_post = bar0.r32(PMC_ENABLE);
+    let gpc0_post = bar0.r32(GPC0_BOOT0);
+    let gpc1_post = bar0.r32(GPC1_BOOT0);
     let gpccs_hwcfg_post = bar0.r32(GPCCS_HWCFG);
-    let pt_post          = bar0.r32(PTIMER_HI);
+    let pt_post = bar0.r32(PTIMER_HI);
 
-    println!("  FECS_CPUCTL  = {fecs_cpuctl_post:#010x}  \
+    println!(
+        "  FECS_CPUCTL  = {fecs_cpuctl_post:#010x}  \
               ({})",
-             match fecs_cpuctl_post {
-                 0x10 => "HALTED (normal after boot)",
-                 0x00 => "RUNNING",
-                 v if v == FECS_HALTED => "HALTED",
-                 _ => "unknown",
-             });
+        match fecs_cpuctl_post {
+            0x10 => "HALTED (normal after boot)",
+            0x00 => "RUNNING",
+            v if v == FECS_HALTED => "HALTED",
+            _ => "unknown",
+        }
+    );
     println!("  FECS_PC      = {fecs_pc_post:#010x}");
     println!("  FECS_MB0     = {fecs_mb0_post:#010x}");
     println!("  FECS_MB1     = {fecs_mb1_post:#010x}");
-    println!("  GR_READY     = {gr_ready_post:#010x}  \
+    println!(
+        "  GR_READY     = {gr_ready_post:#010x}  \
               (bit31={}, bit0={})",
-             (gr_ready_post >> 31) & 1,
-             gr_ready_post & 1);
+        (gr_ready_post >> 31) & 1,
+        gr_ready_post & 1
+    );
     println!("  GR_CTX_SIZE  = {gr_ctx_size:#010x}  ({gr_ctx_size} bytes context)");
-    println!("  PMC_ENABLE   = {pmc_post:#010x}  (was {pmc_en:#010x}, {})",
-             if pmc_post == pmc_en { "preserved ✓" } else { "CHANGED" });
-    println!("  GPC0_BOOT0   = {gpc0_post:#010x}  \
+    println!(
+        "  PMC_ENABLE   = {pmc_post:#010x}  (was {pmc_en:#010x}, {})",
+        if pmc_post == pmc_en {
+            "preserved ✓"
+        } else {
+            "CHANGED"
+        }
+    );
+    println!(
+        "  GPC0_BOOT0   = {gpc0_post:#010x}  \
               ({})",
-             if gpc0_post == 0xbadf_1100 { "power-gated ✗" } else { "accessible ✓" });
-    println!("  GPC1_BOOT0   = {gpc1_post:#010x}  \
+        if gpc0_post == 0xbadf_1100 {
+            "power-gated ✗"
+        } else {
+            "accessible ✓"
+        }
+    );
+    println!(
+        "  GPC1_BOOT0   = {gpc1_post:#010x}  \
               ({})",
-             if gpc1_post == 0xbadf_1100 { "power-gated ✗" } else { "accessible ✓" });
+        if gpc1_post == 0xbadf_1100 {
+            "power-gated ✗"
+        } else {
+            "accessible ✓"
+        }
+    );
     println!("  GPCCS_HWCFG  = {gpccs_hwcfg_post:#010x}");
-    println!("  PTIMER       = {pt_post:#010x}  (running: {})", pt_post != pt0);
+    println!(
+        "  PTIMER       = {pt_post:#010x}  (running: {})",
+        pt_post != pt0
+    );
 
     // ── Summary ────────────────────────────────────────────────────────────
     println!();
     let succeeded = fecs_ready;
     let fecs_booted = fecs_cpuctl_post == 0x10 || fecs_cpuctl_post == FECS_HALTED;
-    let ctx_valid   = gr_ctx_size > 0 && gr_ctx_size < 0x10_0000; // sanity: < 1MB
-    let gpc0_alive  = gpc0_post != 0xbadf_1100 && gpc0_post != 0xffff_ffff;
-    let gpc1_alive  = gpc1_post != 0xbadf_1100 && gpc1_post != 0xffff_ffff;
-    let ptimer_ok   = pt_post != pt0;
+    let ctx_valid = gr_ctx_size > 0 && gr_ctx_size < 0x10_0000; // sanity: < 1MB
+    let gpc0_alive = gpc0_post != 0xbadf_1100 && gpc0_post != 0xffff_ffff;
+    let gpc1_alive = gpc1_post != 0xbadf_1100 && gpc1_post != 0xffff_ffff;
+    let ptimer_ok = pt_post != pt0;
 
     println!("  ┌────────────────────────────────────────────────────┐");
     println!("  │  EXP 183 — Sovereign K80 FECS Boot Scorecard       │");
     println!("  ├────────────────────────────────────────────────────┤");
-    println!("  │  GR_READY bit31:    {}  │",
-             if succeeded   { "✓ SET   — FECS booted!         " }
-             else           { "✗ CLEAR — FECS did not boot     " });
-    println!("  │  FECS halted/idle:  {}  │",
-             if fecs_booted { "✓ YES                          " }
-             else           { "? NO   (check FECS_CPUCTL)      " });
-    println!("  │  GR ctx size valid: {}  │",
-             if ctx_valid   { "✓ YES                          " }
-             else           { "✗ NO   (FECS did not report)    " });
-    println!("  │  GPC0 alive:        {}  │",
-             if gpc0_alive  { "✓ YES                          " }
-             else           { "✗ POWER-GATED                  " });
-    println!("  │  GPC1 alive:        {}  │",
-             if gpc1_alive  { "✓ YES                          " }
-             else           { "✗ POWER-GATED                  " });
-    println!("  │  PTIMER running:    {}  │",
-             if ptimer_ok   { "✓ YES                          " }
-             else           { "✗ FROZEN                       " });
-    println!("  │  Poll time:         {:6}ms                        │",
-             elapsed.as_millis());
+    println!(
+        "  │  GR_READY bit31:    {}  │",
+        if succeeded {
+            "✓ SET   — FECS booted!         "
+        } else {
+            "✗ CLEAR — FECS did not boot     "
+        }
+    );
+    println!(
+        "  │  FECS halted/idle:  {}  │",
+        if fecs_booted {
+            "✓ YES                          "
+        } else {
+            "? NO   (check FECS_CPUCTL)      "
+        }
+    );
+    println!(
+        "  │  GR ctx size valid: {}  │",
+        if ctx_valid {
+            "✓ YES                          "
+        } else {
+            "✗ NO   (FECS did not report)    "
+        }
+    );
+    println!(
+        "  │  GPC0 alive:        {}  │",
+        if gpc0_alive {
+            "✓ YES                          "
+        } else {
+            "✗ POWER-GATED                  "
+        }
+    );
+    println!(
+        "  │  GPC1 alive:        {}  │",
+        if gpc1_alive {
+            "✓ YES                          "
+        } else {
+            "✗ POWER-GATED                  "
+        }
+    );
+    println!(
+        "  │  PTIMER running:    {}  │",
+        if ptimer_ok {
+            "✓ YES                          "
+        } else {
+            "✗ FROZEN                       "
+        }
+    );
+    println!(
+        "  │  Poll time:         {:6}ms                        │",
+        elapsed.as_millis()
+    );
     println!("  └────────────────────────────────────────────────────┘");
 
     if succeeded {
-        println!("\n  🏆 FECS boot SUCCEEDED after {}ms!", elapsed.as_millis());
+        println!(
+            "\n  🏆 FECS boot SUCCEEDED after {}ms!",
+            elapsed.as_millis()
+        );
         println!("  GR context size = {gr_ctx_size} bytes");
         if gpc0_alive {
             println!("  GPC0 came online — GR engine is LIVE!");

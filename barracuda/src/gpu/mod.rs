@@ -310,8 +310,9 @@ mod tests {
     fn dispatch_and_read_result_type() {
         let ok_result: Result<Vec<f64>, crate::error::HotSpringError> = Ok(vec![1.0, 2.0]);
         assert!(ok_result.is_ok());
-        let err_result: Result<Vec<f64>, crate::error::HotSpringError> =
-            Err(crate::error::HotSpringError::GpuCompute("no GPU available".into()));
+        let err_result: Result<Vec<f64>, crate::error::HotSpringError> = Err(
+            crate::error::HotSpringError::GpuCompute("no GPU available".into()),
+        );
         assert!(err_result.is_err());
     }
 
@@ -327,6 +328,10 @@ mod tests {
         let v = std::f64::consts::PI;
         let pair = f64_to_df64(v);
         let back = df64_to_f64(pair);
-        assert!((back - v).abs() < 1e-7, "DF64 roundtrip error: {}", (back - v).abs());
+        assert!(
+            (back - v).abs() < 1e-7,
+            "DF64 roundtrip error: {}",
+            (back - v).abs()
+        );
     }
 }

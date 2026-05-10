@@ -584,7 +584,9 @@ fn send_registration(
     method: &str,
     params: &serde_json::Value,
 ) -> Result<(), String> {
-    crate::primal_bridge::send_jsonrpc(socket_path, method, params).map(|_| ())
+    crate::primal_bridge::send_jsonrpc(socket_path, method, params)
+        .map(|_| ())
+        .map_err(|e| e.to_string())
 }
 
 #[cfg(test)]

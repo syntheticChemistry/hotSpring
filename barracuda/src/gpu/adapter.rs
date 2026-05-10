@@ -319,9 +319,9 @@ fn select_by_name(
 
 // ── Device construction helpers ───────────────────────────────────────────────
 
-use std::sync::Arc;
 use barracuda::device::{DeviceCapabilities, TensorContext, WgpuDevice};
 use log::{info, warn};
+use std::sync::Arc;
 
 /// Negotiate wgpu features, requesting all science-relevant capabilities.
 ///

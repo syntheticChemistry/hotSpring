@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026
-**Last audited:** May 8, 2026 (evolution pass II: unsafe consolidation, BAR0 RAII, large-file refactoring, clippy --all-targets clean, hostname provenance, capability registry sync)
+**Last audited:** May 10, 2026 (Post-Interstadial Spring Evolution)
 **License:** AGPL-3.0-or-later
 
 ---
@@ -649,6 +649,75 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
      zero CUDA / C linkage.
 - **Action:** None — current containment is correct. Document in `deny.toml`
   under a skip-list comment explaining the optional C dep exception.
+
+### GAP-HS-057: Tier 4 IPC-First Rewiring — RESOLVED
+
+- **Primal:** hotSpring (self)
+- **Severity:** High (ecosystem-wide Tier 4 target)
+- **Status:** **Resolved** (May 10, 2026)
+- **Description:** primalSpring post-interstadial guidance requires Tier 4
+  IPC-first defaults: `barracuda` optional, feature-gated behind
+  `#[cfg(feature = "barracuda-local")]`, `CompositionContext` for cross-primal calls.
+- **Resolution:**
+  - `primal-proof` feature flag added to `Cargo.toml`.
+  - 25+ modules gated behind `#[cfg(feature = "barracuda-local")]`.
+  - Local fallbacks for `Complex64`, `bisect`, `hermite`, `factorial`,
+    `lu_solve`, `MD_WORKGROUP_SIZE`, GPU adapter enumeration.
+  - `primal-proof` build compiles clean (`--no-default-features --features primal-proof`).
+  - `low_level` module registered with `#[cfg(feature = "low-level")]` gate.
+- **Verified:** `cargo check --lib --no-default-features --features primal-proof` — zero errors.
+
+### GAP-HS-058: Deploy Graph Coverage — RESOLVED
+
+- **Primal:** hotSpring (self)
+- **Severity:** Medium (audit cited "1 TOML" vs 7+ elsewhere)
+- **Status:** **Resolved** (May 10, 2026)
+- **Description:** Audit identified hotSpring with only 1 deploy graph
+  (`hotspring_qcd_deploy.toml`) vs 7+ in other springs. Each major physics
+  pipeline should have a dedicated deploy graph.
+- **Resolution:** Created 3 new deploy graphs covering all major pipelines:
+  `hotspring_md_deploy.toml` (Yukawa OCP), `hotspring_nuclear_eos_deploy.toml`
+  (Skyrme HFB), `hotspring_plasma_deploy.toml` (dense plasma). All include
+  skunkBat, provenance trio, and full NUCLEUS composition.
+
+### GAP-HS-059: guideStone L6 NUCLEUS Deployment — RESOLVED
+
+- **Primal:** hotSpring (self)
+- **Severity:** Medium (certification level advancement)
+- **Status:** **Resolved** (May 10, 2026)
+- **Description:** primalSpring guidance to push toward guideStone L6
+  (NUCLEUS deployment validation) given test coverage supports it.
+- **Resolution:** `certification/deployment.rs` implements Layer 6 validation:
+  deploy graph coverage, biomeOS `composition.status` probing,
+  `method.register` dynamic registration, skunkBat audit wiring.
+  `MAX_LAYER` advanced from 5 to 6.
+
+### GAP-HS-060: biomeOS v3.51 Absorption — RESOLVED
+
+- **Primal:** biomeOS
+- **Severity:** Medium (composition API absorption)
+- **Status:** **Resolved** (May 10, 2026)
+- **Description:** biomeOS v3.51 provides `composition.status` and
+  `method.register` APIs for health monitoring and dynamic method registration.
+- **Resolution:**
+  - `ipc/biome_status.rs`: `CompositionStatus` struct, `query_composition_status`,
+    health validation integration.
+  - `ipc/method_register.rs`: 24 hotSpring physics/compute methods defined for
+    dynamic registration.
+  - `ipc/provenance/`: Per-trio modules — `rhizocrypt.rs`, `loamspine.rs`,
+    `sweetgrass.rs`.
+
+### GAP-HS-061: IPC Error Typing — RESOLVED
+
+- **Primal:** hotSpring (self)
+- **Severity:** Low (code quality — `Result<_, String>` elimination)
+- **Status:** **Resolved** (May 10, 2026)
+- **Description:** `send_jsonrpc` returned `Result<_, String>`, propagating
+  opaque string errors through the IPC layer. primalSpring exemplar targets
+  zero `Result<_, String>` in production paths.
+- **Resolution:** Added `HotSpringError::Ipc(String)` variant. `send_jsonrpc`
+  now returns `Result<_, HotSpringError>` with typed error variants for IO,
+  JSON, and IPC failures. Legacy callers bridge via `.map_err(|e| e.to_string())`.
 
 ---
 

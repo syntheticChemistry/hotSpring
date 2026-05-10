@@ -8,8 +8,8 @@ use std::sync::mpsc;
 use barracuda::nautilus::BetaObservation;
 
 use crate::md::reservoir::HeadGroupDisagreement;
-use crate::production::trajectory_input::canonical_seq;
 use crate::production::TrajectoryEvent;
+use crate::production::trajectory_input::canonical_seq;
 
 use super::messages::NpuResponse;
 use super::worker_state::WorkerState;
@@ -92,7 +92,9 @@ pub(super) fn handle_trajectory_event(
     if state.traj_batch.len() >= 8 {
         let n = state.traj_batch.len();
         for evt in std::mem::take(&mut state.traj_batch) {
-            state.sub_models.observe_event(&evt, state.latest_proxy.as_ref());
+            state
+                .sub_models
+                .observe_event(&evt, state.latest_proxy.as_ref());
         }
         let _ = resp_tx.send(NpuResponse::TrajectoryBatchProcessed { n_events: n });
     }
@@ -107,18 +109,22 @@ pub(super) fn handle_flush_trajectory_batch(
     } else {
         let n = state.traj_batch.len();
         for evt in std::mem::take(&mut state.traj_batch) {
-            state.sub_models.observe_event(&evt, state.latest_proxy.as_ref());
+            state
+                .sub_models
+                .observe_event(&evt, state.latest_proxy.as_ref());
         }
-        eprintln!("  [NPU] Sub-models: flushed {n} events — {}", state.sub_models.status_line());
+        eprintln!(
+            "  [NPU] Sub-models: flushed {n} events — {}",
+            state.sub_models.status_line()
+        );
         let _ = resp_tx.send(NpuResponse::TrajectoryBatchProcessed { n_events: n });
     }
 }
 
-pub(super) fn handle_sub_model_metrics(
-    state: &WorkerState,
-    resp_tx: &mpsc::Sender<NpuResponse>,
-) {
-    let _ = resp_tx.send(NpuResponse::SubModelMetricsSnapshot(state.sub_models.metrics_json()));
+pub(super) fn handle_sub_model_metrics(state: &WorkerState, resp_tx: &mpsc::Sender<NpuResponse>) {
+    let _ = resp_tx.send(NpuResponse::SubModelMetricsSnapshot(
+        state.sub_models.metrics_json(),
+    ));
 }
 
 pub(super) fn handle_sub_model_predict(
@@ -126,7 +132,9 @@ pub(super) fn handle_sub_model_predict(
     evt: &TrajectoryEvent,
     resp_tx: &mpsc::Sender<NpuResponse>,
 ) {
-    let predictions = state.sub_models.predict_all(evt, state.latest_proxy.as_ref());
+    let predictions = state
+        .sub_models
+        .predict_all(evt, state.latest_proxy.as_ref());
     let mut cg_cost = None;
     let mut steering = None;
     let mut phase = None;
@@ -140,5 +148,10 @@ pub(super) fn handle_sub_model_predict(
             _ => {}
         }
     }
-    let _ = resp_tx.send(NpuResponse::SubModelPredictions { cg_cost, steering, phase, trajectory });
+    let _ = resp_tx.send(NpuResponse::SubModelPredictions {
+        cg_cost,
+        steering,
+        phase,
+        trajectory,
+    });
 }

@@ -1,7 +1,7 @@
 # Primal Proof IPC Mapping — hotSpring
 
-**Version**: v0.6.32 → interstadial eukaryotic  
-**Last updated**: May 9, 2026  
+**Version**: v0.6.32 → post-interstadial Tier 4  
+**Last updated**: May 10, 2026  
 **Purpose**: Maps every `barracuda::` library call used in hotSpring to its JSON-RPC equivalent for IPC-first operation.
 
 ## Overview
@@ -115,12 +115,22 @@ hotSpring uses a **dual-lane** model:
 - **Lane 1**: Library calls via `barracuda` path dependency (fast, zero IPC overhead)
 - **Lane 2**: IPC calls via `NucleusContext` / `CompositionContext` (composition-validated)
 
-### Target (Tier 3 → Tier 4)
+### Achieved (Tier 4 — May 10, 2026)
 
-- Make `barracuda` an `optional = true` dependency
-- Add `primal-proof` feature flag (reference: healthSpring pattern)
-- Default to IPC-first via `CompositionContext`
-- Library calls become opt-in fallback
+- `barracuda` is `optional = true` with `barracuda-local = ["dep:barracuda"]`
+- `primal-proof` feature flag added — library compiles without barraCuda
+- 25+ GPU/compute modules gated behind `#[cfg(feature = "barracuda-local")]`
+- Local `Complex64` fallback enables lattice QCD core without barraCuda
+- `hermite`, `factorial`, `bisect`, `lu_solve` — local fallbacks provided
+- `composition.status`, `method.register` — biomeOS v3.51 IPC wired
+- Per-trio provenance modules: `ipc::provenance::{rhizocrypt, loamspine, sweetgrass}`
+- guideStone L6 certification: NUCLEUS deployment validation
+- Cross-sync: zero drift against primalSpring canonical 403 methods
+
+### Remaining IPC-first targets
+
+- Default to IPC-first via `CompositionContext` (currently opt-in)
+- Library calls become opt-in fallback (reverse default)
 - All validation binaries confirm parity between lanes
 
 ### CompositionContext Migration

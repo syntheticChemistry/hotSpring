@@ -319,8 +319,12 @@ pub const CELLLIST_MIN_CELLS_PER_DIM: usize = 3;
 ///
 /// Sourced from barraCuda's centralized constant for consistency.
 /// Must match `@workgroup_size(N)` in all MD WGSL shaders.
+#[cfg(feature = "barracuda-local")]
 pub const MD_WORKGROUP_SIZE: usize =
     barracuda::device::capabilities::WORKGROUP_SIZE_COMPACT as usize;
+
+#[cfg(not(feature = "barracuda-local"))]
+pub const MD_WORKGROUP_SIZE: usize = 64;
 
 /// Verlet skin radius as a fraction of the force cutoff `rc`.
 ///

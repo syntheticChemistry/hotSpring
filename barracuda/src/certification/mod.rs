@@ -14,18 +14,20 @@
 //! | 3     | Vector Parity | tensor.matmul IPC matches Rust baseline |
 //! | 4     | Domain Science | SEMF end-to-end via IPC |
 //! | 5     | Full Composition | Crypto witness + compute dispatch |
+//! | 6     | NUCLEUS Deployment | Deploy graph validation, biomeOS status, method registration |
 //!
 //! Originally the `hotspring_guidestone` binary. Endosymbiosed into the
 //! library at the interstadial transition (May 2026).
 
 pub mod bare;
 pub mod composition_probes;
+pub mod deployment;
 
 use primalspring::composition::{CompositionContext, validate_liveness};
 use primalspring::validation::ValidationResult;
 
 /// Maximum certification layer (inclusive).
-pub const MAX_LAYER: u8 = 5;
+pub const MAX_LAYER: u8 = 6;
 
 /// Run the full certification engine up to the specified layer.
 ///
@@ -94,6 +96,14 @@ pub fn certify(max_layer: u8) -> ValidationResult {
     v.section("Layer 5: Full Composition — Crypto + Compute");
     composition_probes::validate_provenance_witness(&mut ctx, &mut v);
     composition_probes::validate_compute_dispatch(&mut ctx, &mut v);
+
+    if max_layer < 6 {
+        v.finish();
+        return v;
+    }
+
+    v.section("Layer 6: NUCLEUS Deployment Validation");
+    deployment::validate_deployment(&mut v);
 
     v.finish();
     v

@@ -292,6 +292,7 @@ fn parse_summary(line: &str) -> Option<RunSummary> {
 ///
 /// Extracts training pairs from the run history and uses the Nautilus
 /// evolutionary loop to improve the NPU's parameter suggestions.
+#[cfg(feature = "barracuda-local")]
 pub fn retrain_npu_from_history(npu: &mut super::NpuSteering, history: &RunHistoryReader) {
     let pairs = history.to_npu_training_pairs();
     if pairs.is_empty() {

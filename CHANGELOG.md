@@ -7,6 +7,47 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Unreleased — Post-Interstadial Spring Evolution (May 10, 2026)
+
+### Added
+- **guideStone L6 certification**: NUCLEUS deployment validation layer —
+  deploy graph coverage, biomeOS `composition.status` probing,
+  `method.register` dynamic registration, skunkBat audit wiring.
+- **`primal-proof` feature flag**: IPC-first Tier 4 rewiring. 25+ modules
+  gated behind `#[cfg(feature = "barracuda-local")]`. Library compiles
+  without barraCuda for IPC-only builds (`--no-default-features --features primal-proof`).
+- **Local `Complex64` fallback**: lattice QCD core compiles without barraCuda
+  via self-contained complex arithmetic implementation.
+- **`ipc::biome_status`**: biomeOS v3.51 `composition.status` IPC client
+  with `CompositionStatus` struct and health validation integration.
+- **`ipc::method_register`**: biomeOS v3.51 `method.register` IPC client.
+  24 hotSpring physics/compute methods defined for dynamic registration.
+- **`ipc::provenance/`**: Per-trio modules — `rhizocrypt.rs` (DAG witnesses),
+  `loamspine.rs` (ledger entries), `sweetgrass.rs` (attribution braids).
+- **Deploy graphs**: `hotspring_md_deploy.toml` (Yukawa OCP),
+  `hotspring_nuclear_eos_deploy.toml` (Skyrme HFB), `hotspring_plasma_deploy.toml`
+  (dense plasma). All include skunkBat, provenance trio, and full NUCLEUS.
+- **skunkBat** node added to all deploy graphs (defense/audit capability).
+
+### Changed
+- `certification/mod.rs`: `MAX_LAYER` 5→6, L6 deployment validation integrated.
+- `physics/nuclear_matter.rs`: local bisect fallback when barracuda-local disabled.
+- `physics/hfb_common.rs`: local Hermite/factorial fallbacks for IPC-only builds.
+- `tolerances/md.rs`: `MD_WORKGROUP_SIZE` compile-time fallback (64) for IPC builds.
+- `error.rs`: `HotSpringError::Ipc` variant added; `Barracuda` variant gated behind `barracuda-local`.
+- `primal_bridge::send_jsonrpc`: returns `Result<_, HotSpringError>` (was `String`).
+- `lib.rs`: `pub mod low_level` registered with `#[cfg(feature = "low-level")]` gate
+  (upstream created module but missed the registration).
+- Upstream merge resolved: pseudofermion submodule refactor (action/config/dynamics)
+  + barracuda-local gates preserved cleanly.
+
+### Verified
+- `cargo fmt --check` — zero drift
+- `cargo clippy --lib` — zero new warnings (19 pre-existing upstream)
+- `cargo test --lib` — 1,019 passed, 0 failed, 6 ignored
+- `primal-proof` build (no barracuda) — compiles clean
+- Cross-sync: zero drift against primalSpring canonical 413 (was 403, +10 `game.*`)
+
 ## Sovereign Pipeline Hardening + Docs Cleanup (May 10, 2026)
 
 ### Added

@@ -68,9 +68,18 @@ pub(super) fn handle_suggest_params(
         (dt, n_md)
     };
     let (dt, n_md) = if let Some(ref mut npu) = state.multi_npu {
-        let seq = canonical_seq(beta, state.last_plaq, mass, state.last_chi, state.last_acc, state.lattice);
+        let seq = canonical_seq(
+            beta,
+            state.last_plaq,
+            mass,
+            state.last_chi,
+            state.last_acc,
+            state.lattice,
+        );
         let raw = npu.predict_head(&seq, heads::PARAM_SUGGEST);
-        state.head_confidence.record_prediction(heads::PARAM_SUGGEST, raw.clamp(0.0, 0.05));
+        state
+            .head_confidence
+            .record_prediction(heads::PARAM_SUGGEST, raw.clamp(0.0, 0.05));
         if state.head_confidence.is_trusted(heads::PARAM_SUGGEST) {
             let dt_suggest = raw.abs().mul_add(0.05, 0.001);
             let n_md_suggest = ((0.5 / dt_suggest).round() as usize).max(10);
@@ -96,9 +105,18 @@ pub(super) fn handle_predict_cg(
         (100.0 + vol.sqrt() / m.max(0.01)).round() as usize
     };
     let est = if let Some(ref mut npu) = state.multi_npu {
-        let seq = canonical_seq(beta, state.last_plaq, mass, state.last_chi, state.last_acc, state.lattice);
+        let seq = canonical_seq(
+            beta,
+            state.last_plaq,
+            mass,
+            state.last_chi,
+            state.last_acc,
+            state.lattice,
+        );
         let raw = npu.predict_head(&seq, heads::CG_ESTIMATE);
-        state.head_confidence.record_prediction(heads::CG_ESTIMATE, raw.clamp(0.0, 5.0));
+        state
+            .head_confidence
+            .record_prediction(heads::CG_ESTIMATE, raw.clamp(0.0, 5.0));
         if state.head_confidence.is_trusted(heads::CG_ESTIMATE) {
             (raw.abs() * 500.0).round() as usize
         } else {
@@ -119,9 +137,18 @@ pub(super) fn handle_predict_quenched_length(
     resp_tx: &mpsc::Sender<NpuResponse>,
 ) {
     let steps = if let Some(ref mut npu) = state.multi_npu {
-        let meta_plaq = meta_context.iter().find(|r| (r.beta - beta).abs() < 0.01).map_or(0.5, |r| r.mean_plaq);
-        let meta_acc = meta_context.iter().find(|r| (r.beta - beta).abs() < 0.01).map_or(0.5, |r| r.acceptance);
-        let meta_chi = meta_context.iter().find(|r| (r.beta - beta).abs() < 0.01).map_or(0.0, |r| r.chi);
+        let meta_plaq = meta_context
+            .iter()
+            .find(|r| (r.beta - beta).abs() < 0.01)
+            .map_or(0.5, |r| r.mean_plaq);
+        let meta_acc = meta_context
+            .iter()
+            .find(|r| (r.beta - beta).abs() < 0.01)
+            .map_or(0.5, |r| r.acceptance);
+        let meta_chi = meta_context
+            .iter()
+            .find(|r| (r.beta - beta).abs() < 0.01)
+            .map_or(0.0, |r| r.chi);
         let input = canonical_input(beta, meta_plaq, mass, meta_chi, meta_acc, lat);
         let seq = vec![input; 10];
         let raw = npu.predict_head(&seq, heads::QUENCHED_LENGTH);

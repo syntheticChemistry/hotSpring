@@ -42,7 +42,9 @@ mod config;
 mod dynamics;
 mod hasenbusch;
 
+#[cfg(feature = "barracuda-local")]
 pub mod adaptive;
+#[cfg(feature = "barracuda-local")]
 pub mod npu_steering;
 pub mod run_history;
 
@@ -50,17 +52,15 @@ pub mod run_history;
 mod tests;
 
 // ── Config re-exports ─────────────────────────────────────────────────────────
-pub use config::{
-    DynamicalHmcConfig, HasenbuschConfig, HasenbuschHmcConfig, PseudofermionConfig,
-};
+pub use config::{DynamicalHmcConfig, HasenbuschConfig, HasenbuschHmcConfig, PseudofermionConfig};
 
 // ── Core action re-exports ────────────────────────────────────────────────────
 pub use action::{pseudofermion_action, pseudofermion_force, pseudofermion_heatbath};
 
 // ── Hasenbusch re-exports ─────────────────────────────────────────────────────
 pub use hasenbusch::{
-    HasenbuschHmcResult, hasenbusch_hmc_trajectory, hasenbusch_heavy_action,
-    hasenbusch_heavy_heatbath, hasenbusch_ratio_action, hasenbusch_ratio_force,
+    HasenbuschHmcResult, hasenbusch_heavy_action, hasenbusch_heavy_heatbath,
+    hasenbusch_hmc_trajectory, hasenbusch_ratio_action, hasenbusch_ratio_force,
     hasenbusch_ratio_heatbath,
 };
 
@@ -68,9 +68,11 @@ pub use hasenbusch::{
 pub use dynamics::{DynamicalHmcResult, dynamical_hmc_trajectory};
 
 // ── Adaptive / NPU re-exports ─────────────────────────────────────────────────
+#[cfg(feature = "barracuda-local")]
 pub use adaptive::{
     AdaptiveStepController, AdaptiveThermalizationResult, MassAnnealingSchedule, StageResult,
     WarmStartResult, dynamical_thermalize_adaptive, dynamical_thermalize_warm_start,
     dynamical_thermalize_warm_start_npu,
 };
+#[cfg(feature = "barracuda-local")]
 pub use npu_steering::{HmcForceAnomalyDetector, NpuSteering};
