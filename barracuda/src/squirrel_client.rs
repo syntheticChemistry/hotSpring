@@ -60,7 +60,7 @@ fn inference_call(
         return Err(SquirrelError::Unavailable);
     }
     ctx.call_by_capability(INFERENCE_DOMAIN, method, params)
-        .map_err(SquirrelError::Ipc)
+        .map_err(|e| SquirrelError::Ipc(e.to_string()))
 }
 
 fn rpc_result(resp: &serde_json::Value) -> Result<&serde_json::Value, SquirrelError> {

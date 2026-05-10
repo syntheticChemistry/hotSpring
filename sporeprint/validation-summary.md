@@ -1,7 +1,7 @@
 +++
 title = "hotSpring Validation Summary"
-description = "Computational physics on consumer GPU — 1002 tests, 181 experiments, guideStone Level 5, 22 papers reproduced, $0.30 total science cost"
-date = 2026-05-07
+description = "Computational physics on consumer GPU — 1,019 tests, 184 experiments, guideStone Level 6, 25 papers reproduced, $0.30 total science cost"
+date = 2026-05-10
 
 [taxonomies]
 primals = ["barracuda", "toadstool", "coralreef", "beardog", "songbird", "nestgate", "rhizocrypt", "loamspine", "sweetgrass", "squirrel"]
@@ -10,19 +10,18 @@ springs = ["hotspring"]
 
 ## Status
 
-- **1002 tests** passing (lib), 0 failed, 6 GPU-heavy ignored
-- **181 experiments** across 12 physics categories
-- **22 papers** reproduced (Sarkas, Chabanat, Kortelainen, Bender, AME2020, ...)
-- **guideStone Level 5** — 30/30 bare checks, BLAKE3 Property 3, 5/5 properties
-- **166 binaries**, **64/64 validation suites**, **128 WGSL shaders**
+- **1,019 tests** passing (lib), 0 failed, 6 GPU-heavy ignored
+- **184 experiments** across 12 physics categories
+- **25 papers** reproduced (25/25 CPU, 20/25 GPU)
+- **guideStone Level 6 CERTIFIED** — NUCLEUS Deployment Validation
+- **155 binaries**, **64/64 validation suites**, **128 WGSL shaders**, **7 deploy graphs**
 - **$0.30** total science cost on consumer hardware
-- **9 primals** required (10 with optional Squirrel), capability-based routing via `by_domain()`
-- **Phase 46 composition template** absorbed — event-driven QCD + DAG memoization
-- **Deep debt evolution** complete — capability-based discovery, smart file refactoring
+- **Tier 4 IPC-first** — `primal-proof` feature, `barracuda` optional
+- **Deep Debt Phase 4** complete — typed IPC errors, hostname consolidation, smart refactoring
 
 ## Key Validation Binaries
 
-- `hotspring_guidestone` — 5 guideStone properties (bare + NUCLEUS IPC parity)
+- `hotspring_guidestone` — 6 guideStone properties (bare + NUCLEUS IPC parity + deployment)
 - `validate_primal_proof` — end-to-end primal composition validation
 - `validate_nuclear_eos_*` — AME2020 binding energies (L1/L2/L3)
 - `validate_lattice_qcd_*` — SU(3) HMC/RHMC, gradient flow, beta-scan
@@ -34,15 +33,15 @@ springs = ["hotspring"]
 
 | # | Notebook | Focus |
 |---|----------|-------|
-| 01 | Composition Validation | Deploy graph, guideStone Level 5, capability routing, atomic types |
+| 01 | Composition Validation | Deploy graphs (7), guideStone Level 6, capability routing, atomic types |
 | 02 | Benchmark Comparison | Python vs Rust (44.8x–2274x), GPU vs CPU (44–72x), DF64 3.24 TFLOPS |
-| 03 | Experiment Evidence | 181 experiments, 22 science ladder milestones, evolution timeline |
+| 03 | Experiment Evidence | 184 experiments, science ladder milestones, evolution timeline |
 | 04 | Cross-Spring Connections | 10 primals consumed, 5 patterns handed back, ecosystem flows |
 | 05 | Physics Deep Dive | Nuclear EOS, lattice QCD, sovereign GPU pipeline, code safety |
 
 ## Paper Baseline Notebooks (12)
 
-Publishable Python baselines for 22 reproduced papers — `notebooks/papers/`.
+Publishable Python baselines for 25 reproduced papers — `notebooks/papers/`.
 
 | # | Notebook | Domain |
 |---|----------|--------|

@@ -2,7 +2,7 @@
 
 **Status**: Current — reviewed for PII, suitable for public repository  
 **Purpose**: Document the replication of Murillo Group computational plasma physics on consumer hardware using BarraCuda, and the three-tier validation arc proving NUCLEUS primal composition  
-**Date**: February 26, 2026 (inception); updated May 10, 2026 (v0.6.32 — guideStone Level 6 CERTIFIED (NUCLEUS Deployment Validation), primalSpring v0.9.25 post-interstadial Tier 4 IPC-first. 1016 lib tests, 148 binaries, 64/64 validation suites, 128 WGSL shaders, 25/25 papers reproduced (CPU), bare guideStone 30/30 checks pass with BLAKE3 CHECKSUMS, `hotspring_unibin` eukaryotic CLI, `primal-proof` feature gate, 4 deploy graphs, provenance trio IPC)  
+**Date**: February 26, 2026 (inception); updated May 10, 2026 (v0.6.32 — guideStone Level 6 CERTIFIED (NUCLEUS Deployment Validation), primalSpring v0.9.25 post-interstadial Tier 4 IPC-first. 1019 lib tests, 155 binaries, 64/64 validation suites, 128 WGSL shaders, 25/25 papers reproduced (CPU), 20/25 GPU, Deep Debt Phase 4 complete, bare guideStone 30/30 checks pass with BLAKE3 CHECKSUMS, `hotspring_unibin` eukaryotic CLI, `primal-proof` feature gate, 7 deploy graphs, provenance trio IPC)  
 **Validation arc**: Python baselines → Rust validation → NUCLEUS primal composition validation (guideStone certified)
 
 ---
@@ -15,7 +15,7 @@
 | [BARRACUDA_SCIENCE_VALIDATION.md](BARRACUDA_SCIENCE_VALIDATION.md) | Phase B technical results — BarraCuda vs Python/SciPy numbers | Technical reference |
 | [CONTROL_EXPERIMENT_SUMMARY.md](CONTROL_EXPERIMENT_SUMMARY.md) | Phase A summary — Python reproduction of published work | Quick reference |
 | [METHODOLOGY.md](METHODOLOGY.md) | Two-phase validation protocol | Methodology review |
-| [baseCamp/](baseCamp/) | Per-domain research briefings (19 docs — Murillo plasma, lattice QCD, Kachkovskiy spectral, Chuna papers, sovereign GPU, NPU, self-tuning RHMC, NUCLEUS composition evolution, etc.) | Faculty, collaborators |
+| [baseCamp/](baseCamp/) | Per-domain research briefings — 18 domain briefings plus the folder README (19 files total): Murillo plasma, lattice QCD, Kachkovskiy spectral, Chuna papers, sovereign GPU, NPU, self-tuning RHMC, NUCLEUS composition evolution, etc. | Faculty, collaborators |
 
 ---
 
@@ -34,7 +34,7 @@ The study answers five questions:
 1. **Can published computational science be independently reproduced?** (Answer: yes, but it required fixing 6 silent bugs and rebuilding physics that was behind a gated platform)
 2. **Can Rust + WebGPU replace the Python scientific stack for real physics?** (Answer: yes — BarraCuda achieves 478× faster throughput and 44.8× less energy at L1, with GPU FP64 validated to 4.55e-13 MeV precision. Full Sarkas Yukawa MD runs on a $600 consumer GPU: 9/9 PP cases pass at N=10,000 with 80,000 production steps in 3.66 hours for $0.044. GPU-resident CG reduces readback by 15,360× and speeds dynamical fermion HMC by 30.7×. Bidirectional streaming pipeline dispatches 90%+ to GPU with async readback.)
 3. **Can consumer GPUs do first-principles nuclear structure at scale?** (Answer: yes — the full AME2020 dataset (2,042 nuclei, 39x the published paper) runs on a single RTX 4070. L1 Pareto analysis, L2 GPU-batched HFB, and L3 deformed HFB all produce results. This is direct physics computation, not surrogate learning.)
-4. **Does the Python → Rust → GPU evolution path extend beyond plasma physics?** (Answer: yes — lattice QCD (SU(3) pure gauge, HMC, staggered Dirac, dynamical fermion pseudofermion HMC), Abelian Higgs (U(1) gauge + Higgs field, 143× faster than Python), transport coefficients (Green-Kubo, Stanton-Murillo), screened Coulomb (Sturm eigensolve, 2274× faster than Python), and HotQCD EOS tables are all validated on CPU with WGSL templates ready for GPU promotion. 22 papers reproduced, 400+ validation checks, ~$0.20 total compute cost.)
+4. **Does the Python → Rust → GPU evolution path extend beyond plasma physics?** (Answer: yes — lattice QCD (SU(3) pure gauge, HMC, staggered Dirac, dynamical fermion pseudofermion HMC), Abelian Higgs (U(1) gauge + Higgs field, 143× faster than Python), transport coefficients (Green-Kubo, Stanton-Murillo), screened Coulomb (Sturm eigensolve, 2274× faster than Python), and HotQCD EOS tables are all validated on CPU with WGSL templates ready for GPU promotion. 25/25 papers reproduced on CPU (20/25 GPU), 400+ validation checks, ~$0.20 total compute cost.)
 5. **Can physics math be truly substrate-portable — CPU → GPU → NPU?** (Answer: yes — ESN reservoir math validated across f64 CPU, f32 NpuSimulator, int4 quantized, and real AKD1000 NPU hardware. 10 SDK assumptions overturned by probing beyond the SDK. The same WGSL shader math trains on GPU and deploys on NPU for inference at 30mW. See `metalForge/npu/akida/BEYOND_SDK.md`.)
 
 ---
@@ -204,9 +204,9 @@ of extreme energy limitation.
 Anderson 2021). Reproduction of Paper 23 requires bioinformatics only (public
 *Sulfolobus* genomes) — wetSpring's sovereign pipeline handles the computation.
 
-### All Reproduced Papers (22 total)
+### All Reproduced Papers (25 total)
 
-Papers 14-22 are documented in `specs/PAPER_REVIEW_QUEUE.md`.
+The full indexed list and queue status are documented in `specs/PAPER_REVIEW_QUEUE.md`.
 
 | # | Paper | Status | Highlights |
 |---|-------|--------|------------|
@@ -387,16 +387,16 @@ No institutional access required. No Code Ocean account. No Fortran compiler. AG
 
 ---
 
-## Codebase Health (May 9, 2026)
+## Codebase Health (May 10, 2026)
 
 | Metric | Value |
 |--------|-------|
 | Crate | v0.6.32 |
 | Lib tests | **1019** pass, 6 GPU/heavy-ignored |
-| Binaries | **148** (validate_*, production, benchmarks, composition, UniBin) |
+| Binaries | **155** (validate_*, production, benchmarks, composition, UniBin) |
 | WGSL shaders | **128** (lattice, MD, HFB, diag, spectral, sovereign) |
 | Validation suites | **64/64** pass |
-| Experiments | **180+** |
+| Experiments | **184** |
 | Python control scripts | **34** (Sarkas, surrogate, TTM, NPU, reservoir, lattice, spectral theory) |
 | `expect()`/`unwrap()` in library | **0** (crate-level deny) |
 | Clippy warnings | **0** (pedantic + nursery) |
@@ -408,9 +408,9 @@ No institutional access required. No Code Ocean account. No Fortran compiler. AG
 | TODO/FIXME/HACK/DEBT | **0** in active code |
 | Provenance records | All validation targets traced to Python origins or DOIs |
 | AGPL-3.0 compliance | All `.rs` and `.wgsl` files |
-| NUCLEUS composition | `hotspring_unibin` (certify, validate, status, version) + 6 composition binaries, deploy graph |
+| NUCLEUS composition | `hotspring_unibin` (certify, validate, status, version) + 6 composition binaries, 7 deploy graphs |
 | Eukaryotic UniBin | `hotspring_unibin` — L0-L5 certification + 6 validation scenarios via `ScenarioRegistry` |
-| Deploy graph | `graphs/hotspring_qcd_deploy.toml` — 10 primals declared |
+| Deploy graphs (7 total) | Example: `graphs/hotspring_qcd_deploy.toml` — 10 primals declared |
 
 ---
 

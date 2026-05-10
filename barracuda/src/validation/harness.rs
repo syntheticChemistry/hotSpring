@@ -299,10 +299,7 @@ impl ValidationHarness {
             return;
         };
 
-        let hostname = std::env::var("HOSTNAME")
-            .or_else(|_| std::env::var("HOST"))
-            .or_else(|_| std::fs::read_to_string("/etc/hostname").map(|s| s.trim().to_string()))
-            .unwrap_or_else(|_| "unknown".into());
+        let hostname = crate::niche::hostname();
 
         let gpu_names: Vec<String> = self
             .hardware_profiles

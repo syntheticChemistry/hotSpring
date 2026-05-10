@@ -94,9 +94,11 @@ pub mod hardware_calibration;
 pub mod ipc;
 /// Lattice QCD: SU(3), Wilson action, HMC, Dirac, CG, Abelian Higgs.
 pub mod lattice;
-/// Safe RAII wrappers for PCI BAR0 MMIO (requires `low-level` feature).
-#[cfg(feature = "low-level")]
-pub mod low_level;
+// low_level/bar0.rs: RAII wrappers for PCI BAR0 MMIO. Contains `unsafe` blocks
+// for mmap/read_volatile/write_volatile. Not declared as a library module because
+// lib.rs has #![forbid(unsafe_code)]. Binaries access it via #[path] inclusion
+// (e.g. exp070, exp168-184). See low_level/bar0.rs for docs.
+
 /// MCP (Model Context Protocol) tool definitions for AI/LLM integration.
 pub mod mcp_tools;
 /// GPU molecular dynamics (f64 WGSL Yukawa OCP, cell-list, transport).

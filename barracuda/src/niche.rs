@@ -262,6 +262,18 @@ pub const TRUST_MODEL: &str = "InternalNucleus";
 /// Conventional directory name for ecosystem IPC sockets.
 pub const ECOSYSTEM_SOCKET_DIR: &str = "biomeos";
 
+/// Best-effort hostname for benchmark provenance and telemetry.
+///
+/// Resolution order: `$HOSTNAME` → `$HOST` → `$COMPUTERNAME` → `/etc/hostname` → `"unknown"`.
+#[must_use]
+pub fn hostname() -> String {
+    std::env::var("HOSTNAME")
+        .or_else(|_| std::env::var("HOST"))
+        .or_else(|_| std::env::var("COMPUTERNAME"))
+        .or_else(|_| std::fs::read_to_string("/etc/hostname").map(|s| s.trim().to_string()))
+        .unwrap_or_else(|_| "unknown".into())
+}
+
 /// Whether standalone mode is requested (no NUCLEUS / biomeOS).
 #[must_use]
 pub fn standalone_mode() -> bool {

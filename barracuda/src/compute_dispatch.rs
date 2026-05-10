@@ -23,6 +23,7 @@
 //! ```
 
 use crate::dag_provenance::{DagEvent, DagSession, blake3_hex};
+use crate::error::HotSpringError;
 use crate::primal_bridge::NucleusContext;
 use crate::witness::WireWitnessRef;
 use serde::{Deserialize, Serialize};
@@ -52,7 +53,7 @@ impl DispatchValidation {
 /// Returns the list of capability strings advertised by the compute
 /// dispatch system. An empty list means ToadStool is reachable but
 /// has no GPU backends registered.
-pub fn query_capabilities(nucleus: &NucleusContext) -> Result<Vec<String>, String> {
+pub fn query_capabilities(nucleus: &NucleusContext) -> Result<Vec<String>, HotSpringError> {
     let resp = nucleus.call_by_capability(
         "compute",
         "compute.dispatch.capabilities",
@@ -83,7 +84,7 @@ pub fn submit_workload(
     nucleus: &NucleusContext,
     shader_name: &str,
     input_data: &[f64],
-) -> Result<String, String> {
+) -> Result<String, HotSpringError> {
     let input_hash = blake3_hex(&serde_json::to_vec(&input_data).unwrap_or_default());
 
     let params = serde_json::json!({
@@ -102,7 +103,7 @@ pub fn submit_workload(
         .and_then(|r| r.get("job_id"))
         .and_then(serde_json::Value::as_str)
         .map(String::from)
-        .ok_or_else(|| "no job_id in submit response".into())
+        .ok_or_else(|| HotSpringError::Ipc("no job_id in submit response".into()))
 }
 
 /// Retrieve the result of a submitted GPU workload.
@@ -112,7 +113,7 @@ pub fn submit_workload(
 pub fn retrieve_result(
     nucleus: &NucleusContext,
     job_id: &str,
-) -> Result<serde_json::Value, String> {
+) -> Result<serde_json::Value, HotSpringError> {
     let params = serde_json::json!({
         "job_id": job_id,
     });
@@ -121,7 +122,7 @@ pub fn retrieve_result(
 
     resp.get("result")
         .cloned()
-        .ok_or_else(|| "no result field in dispatch response".into())
+        .ok_or_else(|| HotSpringError::Ipc("no result field in dispatch response".into()))
 }
 
 /// Run the full compute dispatch validation pipeline.

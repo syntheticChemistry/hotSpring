@@ -7,6 +7,40 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Unreleased — Deep Debt Evolution Phase 4 (May 10, 2026)
+
+### Changed
+- **Typed IPC errors**: `fleet_ember.rs` (24 pub fns), `fleet_client.rs` (5),
+  `compute_dispatch.rs` (3), `NucleusContext::call/call_by_capability` (2) all
+  evolved from `Result<_, String>` to `Result<_, HotSpringError>`. Remaining
+  `Result<_, String>` now confined to binary helpers and hardware-access code.
+  `impl From<HotSpringError> for String` enables clean `?` at binary boundaries.
+- **Hostname consolidation**: `niche::hostname()` centralized from 3 separate
+  `/etc/hostname` reads (`bench/hardware.rs`, `validation/harness.rs`,
+  `lattice/measurement/time_host.rs`).
+- **`#![forbid(unsafe_code)]` fixed**: `low_level/bar0.rs` removed from `pub mod`
+  in `lib.rs` (only used via `#[path]` inclusion from binaries); `forbid` now
+  applies correctly library-wide.
+- **Smart refactor `chuna_overnight/papers.rs`**: 831L → 490L via extraction
+  of `paper_44.rs` (220L, dielectric) and `paper_45.rs` (132L, kinetic-fluid).
+
+### Documentation
+- **All docs aligned**: README.md, whitePaper/README.md, whitePaper/baseCamp/README.md,
+  EXPERIMENT_INDEX.md, sporeprint/ — unified to canonical 1,019 tests / 155 binaries /
+  7 deploy graphs / 184 experiments / guideStone L6 CERTIFIED.
+- **Upstream handoff**: `HOTSPRING_DEEP_DEBT_PHASE4_UPSTREAM_HANDOFF_MAY10_2026.md` —
+  patterns for primalSpring, barraCuda, coralReef, toadStool, projectNUCLEUS, foundation.
+- **wateringHole/README.md** cleaned: removed stale handoff table, mmiotraces reference.
+- **Deprecated scripts archived**: `scripts/warm_handoff.sh` and `scripts/manual_warm_handoff.sh`
+  moved to `scripts/archive/`.
+
+### Verified
+- `cargo fmt --check` — zero drift
+- `cargo clippy --lib` — zero new warnings (19 pre-existing dead_code)
+- `cargo test --lib` — 1,019 passed, 0 failed, 6 ignored
+- `primal-proof` build — compiles clean
+- Full `cargo check` (all binaries) — clean
+
 ## Unreleased — Post-Interstadial Spring Evolution (May 10, 2026)
 
 ### Added

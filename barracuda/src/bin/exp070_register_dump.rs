@@ -52,7 +52,7 @@ impl AccessMode {
             #[cfg(feature = "low-level")]
             AccessMode::DirectMmap(view) => view.read_u32(offset),
             AccessMode::EmberIpc { client, bdf } => {
-                let result = client.mmio_read(bdf, offset)?;
+                let result = client.mmio_read(bdf, offset).map_err(|e| e.to_string())?;
                 Ok(result.value)
             }
         }

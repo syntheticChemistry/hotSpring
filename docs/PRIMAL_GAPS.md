@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026
-**Last audited:** May 10, 2026 (Post-Interstadial Spring Evolution)
+**Last audited:** May 10, 2026 (Deep Debt Evolution Phase 4)
 **License:** AGPL-3.0-or-later
 
 ---
@@ -718,6 +718,47 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 - **Resolution:** Added `HotSpringError::Ipc(String)` variant. `send_jsonrpc`
   now returns `Result<_, HotSpringError>` with typed error variants for IO,
   JSON, and IPC failures. Legacy callers bridge via `.map_err(|e| e.to_string())`.
+
+### GAP-HS-062: Deep Typed Error Propagation — RESOLVED
+
+- **Primal:** hotSpring (self)
+- **Severity:** Medium (code quality)
+- **Status:** **Resolved** (May 10, 2026)
+- **Description:** 60+ `pub fn` across `fleet_ember.rs`, `fleet_client.rs`,
+  `compute_dispatch.rs`, and `NucleusContext` returned `Result<_, String>`.
+- **Resolution:** Evolved to `Result<_, HotSpringError>` with typed variants.
+  Added `impl From<HotSpringError> for String` for binary boundary ergonomics.
+  Remaining `Result<_, String>` confined to binary helpers and hardware-access.
+
+### GAP-HS-063: Hostname Hardcoding — RESOLVED
+
+- **Primal:** hotSpring (self)
+- **Severity:** Low (portability)
+- **Status:** **Resolved** (May 10, 2026)
+- **Description:** 3 production files read `/etc/hostname` directly, which is
+  Linux-specific and fails on macOS/BSDs.
+- **Resolution:** Consolidated into `niche::hostname()` with env var chain
+  (`$HOSTNAME` → `$HOST` → `$COMPUTERNAME` → `/etc/hostname`).
+
+### GAP-HS-064: `#![forbid(unsafe_code)]` vs `low_level` — RESOLVED
+
+- **Primal:** hotSpring (self)
+- **Severity:** Medium (build correctness)
+- **Status:** **Resolved** (May 10, 2026)
+- **Description:** `lib.rs` has `#![forbid(unsafe_code)]` but upstream added
+  `pub mod low_level` containing `unsafe` mmap/MMIO blocks.
+- **Resolution:** Removed `pub mod low_level` from lib.rs. Binaries access it
+  via `#[path]` inclusion (as designed). `forbid` applies library-wide.
+
+### GAP-HS-065: Chuna Papers Monolith — RESOLVED
+
+- **Primal:** hotSpring (self)
+- **Severity:** Low (maintainability)
+- **Status:** **Resolved** (May 10, 2026)
+- **Description:** `bin_helpers/chuna_overnight/papers.rs` at 831 lines mixed
+  3 distinct paper domains (lattice QCD, dielectric, kinetic-fluid).
+- **Resolution:** Extracted `paper_44.rs` (220L, dielectric) and `paper_45.rs`
+  (132L, kinetic-fluid). Residual `papers.rs` covers paper 43 at 490L.
 
 ---
 

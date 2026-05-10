@@ -230,10 +230,12 @@ impl NucleusContext {
         capability_domain: &str,
         method: &str,
         params: serde_json::Value,
-    ) -> Result<serde_json::Value, String> {
-        let ep = self
-            .get_by_capability(capability_domain)
-            .ok_or_else(|| format!("no alive primal for capability domain: {capability_domain}"))?;
+    ) -> Result<serde_json::Value, crate::error::HotSpringError> {
+        let ep = self.get_by_capability(capability_domain).ok_or_else(|| {
+            crate::error::HotSpringError::Ipc(format!(
+                "no alive primal for capability domain: {capability_domain}"
+            ))
+        })?;
         self.call(&ep.name, method, &params)
     }
 
@@ -243,16 +245,18 @@ impl NucleusContext {
         primal: &str,
         method: &str,
         params: &serde_json::Value,
-    ) -> Result<serde_json::Value, String> {
-        let ep = self
-            .resolve_endpoint(primal)
-            .ok_or_else(|| format!("unknown primal: {primal}"))?;
+    ) -> Result<serde_json::Value, crate::error::HotSpringError> {
+        let ep = self.resolve_endpoint(primal).ok_or_else(|| {
+            crate::error::HotSpringError::Ipc(format!("unknown primal: {primal}"))
+        })?;
 
         if !ep.alive {
-            return Err(format!("{primal} socket exists but health check failed"));
+            return Err(crate::error::HotSpringError::Ipc(format!(
+                "{primal} socket exists but health check failed"
+            )));
         }
 
-        send_jsonrpc(&PathBuf::from(&ep.socket), method, params).map_err(|e| e.to_string())
+        send_jsonrpc(&PathBuf::from(&ep.socket), method, params)
     }
 
     /// Generate a `composition.physics_health` response per `COMPOSITION_HEALTH_STANDARD.md`.

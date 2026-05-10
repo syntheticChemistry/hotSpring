@@ -1,10 +1,10 @@
 # baseCamp: Research Domain Briefings
 
-**Date:** May 9, 2026  
+**Date:** May 10, 2026  
 **Project:** hotSpring (ecoPrimals)  
-**Status:** v0.6.32 — guideStone Level 5 CERTIFIED (primalSpring v0.9.25 interstadial eukaryotic, deep debt evolution Phase 3 complete). 1002 lib tests, 148 binaries, 64/64 validation suites, 128 WGSL shaders. 25/25 papers reproduced (CPU), 20/25 GPU. **Eukaryotic UniBin** (`hotspring_unibin`) with certify/validate/status/version. Zero hardcoded paths, zero bare `#[allow]`, zero TODO/FIXME markers. Sovereign GPU pipeline COMPLETE.
+**Status:** v0.6.32 — guideStone Level 6 CERTIFIED (NUCLEUS Deployment Validation; primalSpring v0.9.25 interstadial eukaryotic, deep debt evolution Phase 4 complete). 1019 lib tests, 155 binaries, 64/64 validation suites, 128 WGSL shaders. 25/25 papers reproduced (CPU), 20/25 GPU. **Eukaryotic UniBin** (`hotspring_unibin`) with certify/validate/status/version. Zero hardcoded paths, zero bare `#[allow]`, zero TODO/FIXME markers. Sovereign GPU pipeline COMPLETE.
 
-**Validation arc:** Science stacks are validated on three tiers — **Python (and legacy HPC) baselines → sovereign Rust → NUCLEUS primal composition (guideStone)** — so peer-reviewed physics and methods are checked at the **primal composition layer**, not only in standalone binaries. Rust results serve as trusted baselines for IPC-composed NUCLEUS patterns, using the same tolerance-driven, exit-code-gated methodology that proved Rust matches Python. The `hotspring_guidestone` binary is the unified Level 5 artifact that certifies this arc.
+**Validation arc:** Science stacks are validated on three tiers — **Python (and legacy HPC) baselines → sovereign Rust → NUCLEUS primal composition (guideStone)** — so peer-reviewed physics and methods are checked at the **primal composition layer**, not only in standalone binaries. Rust results serve as trusted baselines for IPC-composed NUCLEUS patterns, using the same tolerance-driven, exit-code-gated methodology that proved Rust matches Python. The `hotspring_guidestone` binary is the unified Level 6 CERTIFIED artifact that certifies this arc.
 
 ---
 
@@ -24,11 +24,11 @@ Published paper (Python/FORTRAN/HPC)
 
 ---
 
-## Documents (19)
+## Documents (19 files total)
 
 | File | Role | Status (Apr 2026) |
 |------|------|-------------------|
-| **README.md** | Index for this folder | Current; points to 18 domain briefings |
+| **README.md** | Index for this folder | Current; 18 domain briefing files plus this README |
 | [`murillo_plasma.md`](murillo_plasma.md) | Dense plasma MD | 60/60 checks, paper parity |
 | [`murillo_lattice_qcd.md`](murillo_lattice_qcd.md) | Lattice QCD (quenched & dynamical) | Asymmetric 64³×8, N_f=4 infra, deconfinement at β_c≈5.69 |
 | [`chuna_gradient_flow.md`](chuna_gradient_flow.md) | Chuna 43 — SU(3) gradient flow | 11/11 core; LSCFRK; strong GPU speedup |

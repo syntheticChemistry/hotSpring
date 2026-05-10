@@ -26,6 +26,5 @@ pub fn iso8601_now() -> String {
 }
 
 pub(crate) fn hostname_best_effort() -> String {
-    std::fs::read_to_string("/etc/hostname")
-        .map_or_else(|_| "unknown".to_string(), |s| s.trim().to_string())
+    crate::niche::hostname()
 }

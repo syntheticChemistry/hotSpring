@@ -15,21 +15,15 @@ use crate::ember_types::{
     FalconUploadResult, MmioBatchOp, MmioBatchResult, MmioReadResult, MmioWriteResult,
     PraminReadResult, PraminWriteResult, Sec2PrepareResult,
 };
-fn send_rpc(
-    socket: &std::path::Path,
-    method: &str,
-    params: &serde_json::Value,
-) -> Result<serde_json::Value, String> {
-    crate::primal_bridge::send_jsonrpc(socket, method, params).map_err(|e| e.to_string())
-}
+use crate::error::HotSpringError;
 
-fn jsonrpc_ok_result(resp: &serde_json::Value) -> Result<serde_json::Value, String> {
+fn jsonrpc_ok_result(resp: &serde_json::Value) -> Result<serde_json::Value, HotSpringError> {
     if let Some(err) = resp.get("error") {
-        return Err(format!("JSON-RPC error: {err}"));
+        return Err(HotSpringError::Ipc(format!("JSON-RPC error: {err}")));
     }
     resp.get("result")
         .cloned()
-        .ok_or_else(|| "JSON-RPC response missing result".to_string())
+        .ok_or_else(|| HotSpringError::Ipc("JSON-RPC response missing result".into()))
 }
 
 /// Client for one ember instance (single Unix socket).
@@ -77,37 +71,45 @@ impl EmberClient {
     }
 
     /// `ember.status` — aggregate status (devices, uptime, per-device hints).
-    pub fn status(&self) -> Result<serde_json::Value, String> {
-        let v = send_rpc(&self.socket_path, "ember.status", &serde_json::json!({}))?;
+    pub fn status(&self) -> Result<serde_json::Value, HotSpringError> {
+        let v = crate::primal_bridge::send_jsonrpc(
+            &self.socket_path,
+            "ember.status",
+            &serde_json::json!({}),
+        )?;
         jsonrpc_ok_result(&v)
     }
 
     /// Ember health check — same payload as [`Self::status`] (`ember.status`).
-    pub fn health(&self) -> Result<serde_json::Value, String> {
+    pub fn health(&self) -> Result<serde_json::Value, HotSpringError> {
         self.status()
     }
 
     /// `ember.list` — BDFs currently held.
-    pub fn list_devices(&self) -> Result<Vec<String>, String> {
-        let v = send_rpc(&self.socket_path, "ember.list", &serde_json::json!({}))?;
+    pub fn list_devices(&self) -> Result<Vec<String>, HotSpringError> {
+        let v = crate::primal_bridge::send_jsonrpc(
+            &self.socket_path,
+            "ember.list",
+            &serde_json::json!({}),
+        )?;
         let result = jsonrpc_ok_result(&v)?;
         let arr = result
             .get("devices")
             .and_then(|x| x.as_array())
-            .ok_or_else(|| "ember.list: missing devices array".to_string())?;
+            .ok_or_else(|| HotSpringError::Ipc("ember.list: missing devices array".into()))?;
         let mut out = Vec::new();
         for x in arr {
             let s = x
                 .as_str()
-                .ok_or_else(|| "ember.list: non-string device entry".to_string())?;
+                .ok_or_else(|| HotSpringError::Ipc("ember.list: non-string device entry".into()))?;
             out.push(s.to_string());
         }
         Ok(out)
     }
 
     /// `ember.adopt_device` — JSON-RPC only (current coral-ember opens VFIO server-side).
-    pub fn adopt_device(&self, bdf: &str) -> Result<serde_json::Value, String> {
-        let v = send_rpc(
+    pub fn adopt_device(&self, bdf: &str) -> Result<serde_json::Value, HotSpringError> {
+        let v = crate::primal_bridge::send_jsonrpc(
             &self.socket_path,
             "ember.adopt_device",
             &serde_json::json!({ "bdf": bdf }),
@@ -116,8 +118,8 @@ impl EmberClient {
     }
 
     /// `ember.warm_cycle` — driver warm cycle for `bdf`.
-    pub fn warm_cycle(&self, bdf: &str) -> Result<serde_json::Value, String> {
-        let v = send_rpc(
+    pub fn warm_cycle(&self, bdf: &str) -> Result<serde_json::Value, HotSpringError> {
+        let v = crate::primal_bridge::send_jsonrpc(
             &self.socket_path,
             "ember.warm_cycle",
             &serde_json::json!({ "bdf": bdf }),
@@ -126,8 +128,8 @@ impl EmberClient {
     }
 
     /// `ember.device.health` — per-device health.
-    pub fn device_health(&self, bdf: &str) -> Result<serde_json::Value, String> {
-        let v = send_rpc(
+    pub fn device_health(&self, bdf: &str) -> Result<serde_json::Value, HotSpringError> {
+        let v = crate::primal_bridge::send_jsonrpc(
             &self.socket_path,
             "ember.device.health",
             &serde_json::json!({ "bdf": bdf }),
@@ -136,8 +138,8 @@ impl EmberClient {
     }
 
     /// `ember.device.recover` — attempt MMIO recovery for a faulted device.
-    pub fn device_recover(&self, bdf: &str) -> Result<serde_json::Value, String> {
-        let v = send_rpc(
+    pub fn device_recover(&self, bdf: &str) -> Result<serde_json::Value, HotSpringError> {
+        let v = crate::primal_bridge::send_jsonrpc(
             &self.socket_path,
             "ember.device.recover",
             &serde_json::json!({ "bdf": bdf }),
@@ -148,14 +150,14 @@ impl EmberClient {
     // ── MMIO (fork-isolated, circuit-breaker-protected) ─────────────
 
     /// `ember.mmio.read` — read a single 32-bit BAR0 register.
-    pub fn mmio_read(&self, bdf: &str, offset: u32) -> Result<MmioReadResult, String> {
-        let v = send_rpc(
+    pub fn mmio_read(&self, bdf: &str, offset: u32) -> Result<MmioReadResult, HotSpringError> {
+        let v = crate::primal_bridge::send_jsonrpc(
             &self.socket_path,
             "ember.mmio.read",
             &serde_json::json!({ "bdf": bdf, "offset": offset }),
         )?;
         let result = jsonrpc_ok_result(&v)?;
-        serde_json::from_value(result).map_err(|e| format!("mmio.read parse: {e}"))
+        Ok(serde_json::from_value(result)?)
     }
 
     /// `ember.mmio.write` — write a single 32-bit BAR0 register.
@@ -164,25 +166,29 @@ impl EmberClient {
         bdf: &str,
         offset: u32,
         value: u32,
-    ) -> Result<MmioWriteResult, String> {
-        let v = send_rpc(
+    ) -> Result<MmioWriteResult, HotSpringError> {
+        let v = crate::primal_bridge::send_jsonrpc(
             &self.socket_path,
             "ember.mmio.write",
             &serde_json::json!({ "bdf": bdf, "offset": offset, "value": value }),
         )?;
         let result = jsonrpc_ok_result(&v)?;
-        serde_json::from_value(result).map_err(|e| format!("mmio.write parse: {e}"))
+        Ok(serde_json::from_value(result)?)
     }
 
     /// `ember.mmio.batch` — execute a sequence of read/write ops in one fork.
-    pub fn mmio_batch(&self, bdf: &str, ops: &[MmioBatchOp]) -> Result<MmioBatchResult, String> {
-        let v = send_rpc(
+    pub fn mmio_batch(
+        &self,
+        bdf: &str,
+        ops: &[MmioBatchOp],
+    ) -> Result<MmioBatchResult, HotSpringError> {
+        let v = crate::primal_bridge::send_jsonrpc(
             &self.socket_path,
             "ember.mmio.batch",
             &serde_json::json!({ "bdf": bdf, "ops": ops }),
         )?;
         let result = jsonrpc_ok_result(&v)?;
-        serde_json::from_value(result).map_err(|e| format!("mmio.batch parse: {e}"))
+        Ok(serde_json::from_value(result)?)
     }
 
     /// `ember.mmio.circuit_breaker` — query or reset the MMIO circuit breaker.
@@ -190,14 +196,18 @@ impl EmberClient {
         &self,
         bdf: &str,
         action: Option<&str>,
-    ) -> Result<CircuitBreakerStatus, String> {
+    ) -> Result<CircuitBreakerStatus, HotSpringError> {
         let mut params = serde_json::json!({ "bdf": bdf });
         if let Some(a) = action {
             params["action"] = serde_json::json!(a);
         }
-        let v = send_rpc(&self.socket_path, "ember.mmio.circuit_breaker", &params)?;
+        let v = crate::primal_bridge::send_jsonrpc(
+            &self.socket_path,
+            "ember.mmio.circuit_breaker",
+            &params,
+        )?;
         let result = jsonrpc_ok_result(&v)?;
-        serde_json::from_value(result).map_err(|e| format!("circuit_breaker parse: {e}"))
+        Ok(serde_json::from_value(result)?)
     }
 
     // ── Falcon (IMEM/DMEM upload, CPU start, poll) ──────────────────
@@ -211,9 +221,9 @@ impl EmberClient {
         code: &[u8],
         start_tag: u32,
         secure: bool,
-    ) -> Result<FalconUploadResult, String> {
+    ) -> Result<FalconUploadResult, HotSpringError> {
         let b64 = base64::engine::general_purpose::STANDARD;
-        let v = send_rpc(
+        let v = crate::primal_bridge::send_jsonrpc(
             &self.socket_path,
             "ember.falcon.upload_imem",
             &serde_json::json!({
@@ -226,7 +236,7 @@ impl EmberClient {
             }),
         )?;
         let result = jsonrpc_ok_result(&v)?;
-        serde_json::from_value(result).map_err(|e| format!("falcon.upload_imem parse: {e}"))
+        Ok(serde_json::from_value(result)?)
     }
 
     /// `ember.falcon.upload_dmem` — upload data to falcon DMEM.
@@ -236,9 +246,9 @@ impl EmberClient {
         base: u32,
         dmem_addr: u32,
         data: &[u8],
-    ) -> Result<FalconUploadResult, String> {
+    ) -> Result<FalconUploadResult, HotSpringError> {
         let b64 = base64::engine::general_purpose::STANDARD;
-        let v = send_rpc(
+        let v = crate::primal_bridge::send_jsonrpc(
             &self.socket_path,
             "ember.falcon.upload_dmem",
             &serde_json::json!({
@@ -249,18 +259,22 @@ impl EmberClient {
             }),
         )?;
         let result = jsonrpc_ok_result(&v)?;
-        serde_json::from_value(result).map_err(|e| format!("falcon.upload_dmem parse: {e}"))
+        Ok(serde_json::from_value(result)?)
     }
 
     /// `ember.falcon.start_cpu` — trigger STARTCPU and read back PC/EXCI/CPUCTL.
-    pub fn falcon_start_cpu(&self, bdf: &str, base: u32) -> Result<FalconStartResult, String> {
-        let v = send_rpc(
+    pub fn falcon_start_cpu(
+        &self,
+        bdf: &str,
+        base: u32,
+    ) -> Result<FalconStartResult, HotSpringError> {
+        let v = crate::primal_bridge::send_jsonrpc(
             &self.socket_path,
             "ember.falcon.start_cpu",
             &serde_json::json!({ "bdf": bdf, "base": base }),
         )?;
         let result = jsonrpc_ok_result(&v)?;
-        serde_json::from_value(result).map_err(|e| format!("falcon.start_cpu parse: {e}"))
+        Ok(serde_json::from_value(result)?)
     }
 
     /// `ember.falcon.poll` — poll falcon state until halt/mailbox/timeout.
@@ -270,8 +284,8 @@ impl EmberClient {
         base: u32,
         timeout_ms: u32,
         mailbox_sentinel: u32,
-    ) -> Result<FalconPollResult, String> {
-        let v = send_rpc(
+    ) -> Result<FalconPollResult, HotSpringError> {
+        let v = crate::primal_bridge::send_jsonrpc(
             &self.socket_path,
             "ember.falcon.poll",
             &serde_json::json!({
@@ -282,27 +296,32 @@ impl EmberClient {
             }),
         )?;
         let result = jsonrpc_ok_result(&v)?;
-        serde_json::from_value(result).map_err(|e| format!("falcon.poll parse: {e}"))
+        Ok(serde_json::from_value(result)?)
     }
 
     // ── SEC2 ────────────────────────────────────────────────────────
 
     /// `ember.sec2.prepare_physical` — PMC reset + instance bind + PHYS_VID path.
-    pub fn sec2_prepare_physical(&self, bdf: &str) -> Result<Sec2PrepareResult, String> {
-        let v = send_rpc(
+    pub fn sec2_prepare_physical(&self, bdf: &str) -> Result<Sec2PrepareResult, HotSpringError> {
+        let v = crate::primal_bridge::send_jsonrpc(
             &self.socket_path,
             "ember.sec2.prepare_physical",
             &serde_json::json!({ "bdf": bdf }),
         )?;
         let result = jsonrpc_ok_result(&v)?;
-        serde_json::from_value(result).map_err(|e| format!("sec2.prepare parse: {e}"))
+        Ok(serde_json::from_value(result)?)
     }
 
     // ── PRAMIN (bulk VRAM staging) ──────────────────────────────────
 
     /// `ember.pramin.read` — read VRAM at `vram_addr` for `length` bytes.
-    pub fn pramin_read(&self, bdf: &str, vram_addr: u64, length: u32) -> Result<Vec<u8>, String> {
-        let v = send_rpc(
+    pub fn pramin_read(
+        &self,
+        bdf: &str,
+        vram_addr: u64,
+        length: u32,
+    ) -> Result<Vec<u8>, HotSpringError> {
+        let v = crate::primal_bridge::send_jsonrpc(
             &self.socket_path,
             "ember.pramin.read",
             &serde_json::json!({
@@ -312,11 +331,10 @@ impl EmberClient {
             }),
         )?;
         let result = jsonrpc_ok_result(&v)?;
-        let parsed: PraminReadResult =
-            serde_json::from_value(result).map_err(|e| format!("pramin.read parse: {e}"))?;
+        let parsed: PraminReadResult = serde_json::from_value(result)?;
         let b64 = base64::engine::general_purpose::STANDARD;
         b64.decode(parsed.data_b64.as_bytes())
-            .map_err(|e| format!("pramin.read base64 decode: {e}"))
+            .map_err(|e| HotSpringError::Ipc(format!("pramin.read base64 decode: {e}")))
     }
 
     /// `ember.pramin.write` — write `data` to VRAM at `vram_addr`.
@@ -325,9 +343,9 @@ impl EmberClient {
         bdf: &str,
         vram_addr: u64,
         data: &[u8],
-    ) -> Result<PraminWriteResult, String> {
+    ) -> Result<PraminWriteResult, HotSpringError> {
         let b64 = base64::engine::general_purpose::STANDARD;
-        let v = send_rpc(
+        let v = crate::primal_bridge::send_jsonrpc(
             &self.socket_path,
             "ember.pramin.write",
             &serde_json::json!({
@@ -337,38 +355,42 @@ impl EmberClient {
             }),
         )?;
         let result = jsonrpc_ok_result(&v)?;
-        serde_json::from_value(result).map_err(|e| format!("pramin.write parse: {e}"))
+        Ok(serde_json::from_value(result)?)
     }
 
     // ── DMA lifecycle ───────────────────────────────────────────────
 
     /// `ember.prepare_dma` — quiesce + AER mask + optional bus master enable.
-    pub fn prepare_dma(&self, bdf: &str, bus_master: bool) -> Result<DmaPrepareResult, String> {
-        let v = send_rpc(
+    pub fn prepare_dma(
+        &self,
+        bdf: &str,
+        bus_master: bool,
+    ) -> Result<DmaPrepareResult, HotSpringError> {
+        let v = crate::primal_bridge::send_jsonrpc(
             &self.socket_path,
             "ember.prepare_dma",
             &serde_json::json!({ "bdf": bdf, "bus_master": bus_master }),
         )?;
         let result = jsonrpc_ok_result(&v)?;
-        serde_json::from_value(result).map_err(|e| format!("prepare_dma parse: {e}"))
+        Ok(serde_json::from_value(result)?)
     }
 
     /// `ember.cleanup_dma` — decontaminate + restore AER + disable bus master.
-    pub fn cleanup_dma(&self, bdf: &str) -> Result<DmaCleanupResult, String> {
-        let v = send_rpc(
+    pub fn cleanup_dma(&self, bdf: &str) -> Result<DmaCleanupResult, HotSpringError> {
+        let v = crate::primal_bridge::send_jsonrpc(
             &self.socket_path,
             "ember.cleanup_dma",
             &serde_json::json!({ "bdf": bdf }),
         )?;
         let result = jsonrpc_ok_result(&v)?;
-        serde_json::from_value(result).map_err(|e| format!("cleanup_dma parse: {e}"))
+        Ok(serde_json::from_value(result)?)
     }
 
     // ── FECS (Kepler/Volta PGRAPH engine) ─────────────────────────
 
     /// `ember.fecs.state` — read FECS falcon status registers.
-    pub fn fecs_state(&self, bdf: &str) -> Result<serde_json::Value, String> {
-        let v = send_rpc(
+    pub fn fecs_state(&self, bdf: &str) -> Result<serde_json::Value, HotSpringError> {
+        let v = crate::primal_bridge::send_jsonrpc(
             &self.socket_path,
             "ember.fecs.state",
             &serde_json::json!({ "bdf": bdf }),
@@ -379,8 +401,8 @@ impl EmberClient {
     // ── Journal / Policy ────────────────────────────────────────────
 
     /// `ember.journal.query` — query the per-device event journal.
-    pub fn journal_query(&self, bdf: &str) -> Result<serde_json::Value, String> {
-        let v = send_rpc(
+    pub fn journal_query(&self, bdf: &str) -> Result<serde_json::Value, HotSpringError> {
+        let v = crate::primal_bridge::send_jsonrpc(
             &self.socket_path,
             "ember.journal.query",
             &serde_json::json!({ "bdf": bdf }),
@@ -389,8 +411,8 @@ impl EmberClient {
     }
 
     /// `ember.policy.list` — list active MMIO safety policies.
-    pub fn policy_list(&self) -> Result<serde_json::Value, String> {
-        let v = send_rpc(
+    pub fn policy_list(&self) -> Result<serde_json::Value, HotSpringError> {
+        let v = crate::primal_bridge::send_jsonrpc(
             &self.socket_path,
             "ember.policy.list",
             &serde_json::json!({}),
@@ -403,12 +425,12 @@ impl EmberClient {
     pub fn adopt_device_recv_scm_rights(
         &self,
         _bdf: &str,
-    ) -> Result<(serde_json::Value, Vec<std::os::fd::OwnedFd>), String> {
-        Err(
+    ) -> Result<(serde_json::Value, Vec<std::os::fd::OwnedFd>), HotSpringError> {
+        Err(HotSpringError::Ipc(
             "SCM_RIGHTS fd reception requires recvmsg with CMSG_SPACE ancillary buffers; build \
              hotspring-barracuda with the `low-level` feature (rustix net APIs)."
-                .to_string(),
-        )
+                .into(),
+        ))
     }
 
     /// Receive JSON + ancillary fds after `ember.adopt_device` (same connection).
@@ -416,7 +438,7 @@ impl EmberClient {
     pub fn adopt_device_recv_scm_rights(
         &self,
         bdf: &str,
-    ) -> Result<(serde_json::Value, Vec<std::os::fd::OwnedFd>), String> {
+    ) -> Result<(serde_json::Value, Vec<std::os::fd::OwnedFd>), HotSpringError> {
         adopt_device_recv_scm_rights_impl(&self.socket_path, bdf)
     }
 }
@@ -425,7 +447,7 @@ impl EmberClient {
 fn adopt_device_recv_scm_rights_impl(
     socket_path: &Path,
     bdf: &str,
-) -> Result<(serde_json::Value, Vec<std::os::fd::OwnedFd>), String> {
+) -> Result<(serde_json::Value, Vec<std::os::fd::OwnedFd>), HotSpringError> {
     use std::io::{Read, Write};
     use std::mem::MaybeUninit;
     use std::os::fd::AsFd;
@@ -434,10 +456,8 @@ fn adopt_device_recv_scm_rights_impl(
     use rustix::io::IoSliceMut;
     use rustix::net::{RecvAncillaryBuffer, RecvAncillaryMessage, RecvFlags, recvmsg};
 
-    let mut stream = UnixStream::connect(socket_path).map_err(|e| format!("connect: {e}"))?;
-    stream
-        .set_read_timeout(Some(std::time::Duration::from_secs(30)))
-        .map_err(|e| format!("timeout: {e}"))?;
+    let mut stream = UnixStream::connect(socket_path)?;
+    stream.set_read_timeout(Some(std::time::Duration::from_secs(30)))?;
 
     let request = serde_json::json!({
         "jsonrpc": "2.0",
@@ -445,19 +465,15 @@ fn adopt_device_recv_scm_rights_impl(
         "params": { "bdf": bdf },
         "id": 1,
     });
-    let mut request_bytes = serde_json::to_vec(&request).map_err(|e| format!("serialize: {e}"))?;
+    let mut request_bytes = serde_json::to_vec(&request)?;
     request_bytes.push(b'\n');
-    stream
-        .write_all(&request_bytes)
-        .map_err(|e| format!("write: {e}"))?;
-    stream.flush().map_err(|e| format!("flush: {e}"))?;
+    stream.write_all(&request_bytes)?;
+    stream.flush()?;
 
     let mut line_buf = Vec::new();
     let mut chunk = [0u8; 4096];
     loop {
-        let n = stream
-            .read(&mut chunk)
-            .map_err(|e| format!("read JSON line: {e}"))?;
+        let n = stream.read(&mut chunk)?;
         if n == 0 {
             break;
         }
@@ -469,10 +485,9 @@ fn adopt_device_recv_scm_rights_impl(
     let line_end = line_buf
         .iter()
         .position(|&b| b == b'\n')
-        .ok_or_else(|| "adopt_device: no newline in response".to_string())?;
+        .ok_or_else(|| HotSpringError::Ipc("adopt_device: no newline in response".into()))?;
     let json_line = &line_buf[..line_end];
-    let resp: serde_json::Value =
-        serde_json::from_slice(json_line).map_err(|e| format!("parse JSON-RPC: {e}"))?;
+    let resp: serde_json::Value = serde_json::from_slice(json_line)?;
     let result = jsonrpc_ok_result(&resp)?;
 
     let mut buf = [0u8; 256];
@@ -481,7 +496,7 @@ fn adopt_device_recv_scm_rights_impl(
     let mut ancillary_space = vec![MaybeUninit::uninit(); fd_space];
     let mut control = RecvAncillaryBuffer::new(&mut ancillary_space);
     let msg_result = recvmsg(&stream.as_fd(), &mut iov, &mut control, RecvFlags::empty())
-        .map_err(|e| format!("recvmsg (SCM_RIGHTS): {e}"))?;
+        .map_err(|e| HotSpringError::Ipc(format!("recvmsg (SCM_RIGHTS): {e}")))?;
 
     let mut fds = Vec::new();
     for msg in control.drain() {
@@ -627,7 +642,7 @@ pub fn flood_test(config: &FloodTestConfig) -> FloodTestResult {
                                 (false, Some(msg))
                             }
                         }
-                        Err(e) => (false, Some(e)),
+                        Err(e) => (false, Some(e.to_string())),
                     };
                     out.push(FloodRequestResult {
                         index: idx,
@@ -679,23 +694,18 @@ pub fn flood_test(config: &FloodTestConfig) -> FloodTestResult {
     }
 }
 
-/// Like [`send_rpc`] but with an explicit connect+read timeout.
+/// Like [`crate::primal_bridge::send_jsonrpc`] but with an explicit per-call connect + read/write timeout.
 fn send_rpc_with_timeout(
     socket_path: &Path,
     method: &str,
     timeout: std::time::Duration,
-) -> Result<serde_json::Value, String> {
+) -> Result<serde_json::Value, HotSpringError> {
     use std::io::{BufRead, Write};
     use std::os::unix::net::UnixStream;
 
-    let stream = UnixStream::connect(socket_path)
-        .map_err(|e| format!("connect {}: {e}", socket_path.display()))?;
-    stream
-        .set_read_timeout(Some(timeout))
-        .map_err(|e| format!("set timeout: {e}"))?;
-    stream
-        .set_write_timeout(Some(timeout))
-        .map_err(|e| format!("set write timeout: {e}"))?;
+    let stream = UnixStream::connect(socket_path)?;
+    stream.set_read_timeout(Some(timeout))?;
+    stream.set_write_timeout(Some(timeout))?;
 
     let req = serde_json::json!({
         "jsonrpc": "2.0",
@@ -703,22 +713,18 @@ fn send_rpc_with_timeout(
         "params": {},
         "id": 1,
     });
-    let mut buf = serde_json::to_vec(&req).map_err(|e| format!("serialize: {e}"))?;
+    let mut buf = serde_json::to_vec(&req)?;
     buf.push(b'\n');
-    (&stream)
-        .write_all(&buf)
-        .map_err(|e| format!("write: {e}"))?;
+    (&stream).write_all(&buf)?;
 
     let mut reader = std::io::BufReader::new(&stream);
     let mut line = String::new();
-    reader
-        .read_line(&mut line)
-        .map_err(|e| format!("read: {e}"))?;
-    serde_json::from_str(line.trim()).map_err(|e| format!("parse: {e}"))
+    reader.read_line(&mut line)?;
+    Ok(serde_json::from_str(line.trim())?)
 }
 
 /// Check if a socket is still accepting `ember.status` RPCs.
-pub fn verify_ember_alive(socket_path: &Path) -> Result<std::time::Duration, String> {
+pub fn verify_ember_alive(socket_path: &Path) -> Result<std::time::Duration, HotSpringError> {
     let start = std::time::Instant::now();
     let resp = send_rpc_with_timeout(
         socket_path,
@@ -729,7 +735,7 @@ pub fn verify_ember_alive(socket_path: &Path) -> Result<std::time::Duration, Str
     if resp.get("result").is_some() {
         Ok(latency)
     } else {
-        Err(format!("ember not alive: {resp}"))
+        Err(HotSpringError::Ipc(format!("ember not alive: {resp}")))
     }
 }
 

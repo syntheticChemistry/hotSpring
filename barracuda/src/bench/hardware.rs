@@ -38,19 +38,15 @@ pub struct HardwareInventory {
 
 /// Resolve the local machine name for benchmark provenance.
 ///
-/// Priority: `$HOSTNAME` → `$COMPUTERNAME` → `/etc/hostname` → `niche::NICHE_NAME`.
-/// Never returns `"unknown"` — always produces a stable, non-empty identifier.
+/// Delegates to [`crate::niche::hostname()`] with a fallback to `NICHE_NAME` if unknown.
 #[must_use]
 pub fn resolve_gate_name() -> String {
-    std::env::var("HOSTNAME")
-        .or_else(|_| std::env::var("COMPUTERNAME"))
-        .unwrap_or_else(|_| {
-            std::fs::read_to_string("/etc/hostname")
-                .ok()
-                .map(|s| s.trim().to_string())
-                .filter(|s| !s.is_empty())
-                .unwrap_or_else(|| crate::niche::NICHE_NAME.to_string())
-        })
+    let h = crate::niche::hostname();
+    if h == "unknown" {
+        crate::niche::NICHE_NAME.to_string()
+    } else {
+        h
+    }
 }
 
 impl HardwareInventory {

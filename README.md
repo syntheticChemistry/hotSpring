@@ -28,10 +28,10 @@ hotSpring answers: *"Does our hardware produce correct physics?"*, *"Can Rust+WG
 
 ### Eukaryotic UniBin: `hotspring_unibin`
 
-hotSpring has evolved from the prokaryotic era of separate binaries into an eukaryotic UniBin — a single `hotspring_unibin` binary consolidating certification (L0–L5 guideStone organelle), validation scenarios (6 absorbed experiments across 6 tracks), and status reporting. Reference: primalSpring v0.9.25 interstadial eukaryotic wave.
+hotSpring has evolved from the prokaryotic era of separate binaries into an eukaryotic UniBin — a single `hotspring_unibin` binary consolidating certification (L0–L6 guideStone organelle), validation scenarios (6 absorbed experiments across 6 tracks), and status reporting. Reference: primalSpring v0.9.25 interstadial eukaryotic wave.
 
 ```
-hotspring certify              # L0-L5 composition certification
+hotspring certify              # L0-L6 composition certification
 hotspring certify --bare       # L0 only, no primals needed
 hotspring validate             # run all validation scenarios
 hotspring validate --track nuclear-physics
@@ -41,9 +41,9 @@ hotspring status               # composition health summary
 hotspring version              # version info
 ```
 
-### guideStone Status: Level 5 — CERTIFIED (reference implementation)
+### guideStone Status: Level 6 — CERTIFIED (NUCLEUS Deployment Validation)
 
-hotSpring is the reference implementation for the guideStone Composition Standard (primalSpring v0.9.25, guideStone v1.2.0). The guideStone is a self-validating deployable that carries its own benchmark — all 5 certified properties are satisfied:
+hotSpring is the reference implementation for the guideStone Composition Standard (primalSpring v0.9.25, guideStone v1.2.0). The guideStone is a self-validating deployable that carries its own benchmark — all six certified properties are satisfied:
 
 | Property | Evidence |
 |----------|----------|
@@ -52,8 +52,9 @@ hotSpring is the reference implementation for the guideStone Composition Standar
 | **3. Self-verifying** | BLAKE3 CHECKSUMS manifest verified via `primalspring::checksums::verify_manifest()`. Tampered inputs → non-zero exit. |
 | **4. Environment-agnostic** | ecoBin compliant, static musl, no sudo, no network, no GPU required for core validation. |
 | **5. Tolerance-documented** | 308 named constants in `tolerances/` module tree with physical/mathematical derivations. |
+| **6. NUCLEUS deployment-validated** | **Level 6 — CERTIFIED**: IPC-composed NUCLEUS deployment validation complete; primals and composition patterns match direct Rust execution under the same tolerance methodology. |
 
-**Validation ladder**: Python baseline (L1) → Rust proof (L2, DONE) → barraCuda CPU (L3) → barraCuda GPU (L4) → **guideStone (L5, CERTIFIED)** → NUCLEUS deployment (L6, target).
+**Validation ladder**: Python baseline (L1) → Rust proof (L2, DONE) → barraCuda CPU (L3) → barraCuda GPU (L4) → guideStone composition (L5) → **NUCLEUS deployment validation (L6) — CERTIFIED**.
 
 **Pre-flight**: `hotspring_unibin certify` certifies composition correctness (6 layers). The legacy `hotspring_guidestone` binary is transitional — use `hotspring_unibin certify` instead.
 
@@ -90,7 +91,7 @@ See `notebooks/papers/PAPER_NOTEBOOK_GUIDE.md` for the collaborator pattern.
 | 11 | Gradient Flow | Luscher (2010), Chuna (2021) | Live 4^4 |
 | 12 | Plasma Dielectric | Chuna & Murillo (2024) | Live |
 
-## Deploy Graphs (5)
+## Deploy Graphs (7)
 
 Domain-specific NUCLEUS deployment profiles in `graphs/`:
 
@@ -98,15 +99,17 @@ Domain-specific NUCLEUS deployment profiles in `graphs/`:
 |---|-------|-------------|--------|
 | 1 | `hotspring_qcd_deploy` | Full NUCLEUS (Tower + Node + Nest + Squirrel) | Lattice QCD / HPC |
 | 2 | `hotspring_plasma_md_deploy` | Tower + Node (no coralReef) | Yukawa OCP, transport coefficients |
-| 3 | `hotspring_nuclear_eos_deploy` | Tower + Node + Nest (provenance) | SEMF/HFB binding energies |
-| 4 | `hotspring_spectral_deploy` | Tower + barraCuda (minimal) | Anderson, Hofstadter, Lanczos |
-| 5 | `hotspring_sovereign_gpu_deploy` | Full NUCLEUS (coralReef required) | Sovereign GPU WGSL-to-SASS |
+| 3 | `hotspring_md_deploy` | Tower + Node + Nest + skunkBat | GPU MD — Yukawa OCP, Sarkas validation |
+| 4 | `hotspring_plasma_deploy` | Tower + Node + Nest + skunkBat | Dense plasma — dielectric, kinetic-fluid coupling |
+| 5 | `hotspring_nuclear_eos_deploy` | Tower + Node + Nest (provenance) | SEMF/HFB binding energies |
+| 6 | `hotspring_spectral_deploy` | Tower + barraCuda (minimal) | Anderson, Hofstadter, Lanczos |
+| 7 | `hotspring_sovereign_gpu_deploy` | Full NUCLEUS (coralReef required) | Sovereign GPU WGSL-to-SASS |
 
 Deploy: `biomeos deploy --graph graphs/<name>.toml`
 
-## Current Status (2026-05-10)
+## Current Status (May 10, 2026)
 
-> **184 experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **1002 lib tests, 166 binaries, 64/64 validation suites, 128 WGSL shaders** | **deny.toml** (ecoBin C-dep bans) | **all 13 physics/compute methods wired in JSON-RPC server** | **zero `dyn` dispatch, `#[forbid(unsafe_code)]` on lib (unsafe confined to low-level GPU experiment bins), `#[expect]` over `#[allow]`** | **guideStone artifact: 59/59 checks x 5 substrates (x86_64 + aarch64)** | **OCI container image + Windows/macOS launchers** | **RTX 5060 sovereign dispatch PROVEN (8/8)** | **K80 warm NOP dispatch wired + cold PLL fix** | **Titan V warm handoff: DMATRF to FECS PROVEN (101 blocks, 192µs), ROM security gate identified** | **SLM pool allocation (2 MiB)** | **AMD sovereign compiler: 24/24 QCD shaders** | **NVIDIA sovereign compiler: SM35 + SM70 + SM120** | **Ember gate + survivability hardening COMPLETE** | **SovereignInit Pipeline COMPLETE** | **NUCLEUS Composition Evolution COMPLETE** | **coralReef f64 transcendental lowering (SM32+)** | **Level 5 Primal Proof** | **GPU Generation Profile Architecture** | **unsafe audit: all NECESSARY**
+> **184 experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **1,019 lib tests, 155 binaries, 64/64 validation suites, 128 WGSL shaders** | **deny.toml** (ecoBin C-dep bans) | **all 13 physics/compute methods wired in JSON-RPC server** | **zero `dyn` dispatch, `#[forbid(unsafe_code)]` on lib (unsafe confined to low-level GPU experiment bins), `#[expect]` over `#[allow]`** | **guideStone artifact: 59/59 checks x 5 substrates (x86_64 + aarch64)** | **OCI container image + Windows/macOS launchers** | **RTX 5060 sovereign dispatch PROVEN (8/8)** | **K80 warm NOP dispatch wired + cold PLL fix** | **Titan V warm handoff: DMATRF to FECS PROVEN (101 blocks, 192µs), ROM security gate identified** | **SLM pool allocation (2 MiB)** | **AMD sovereign compiler: 24/24 QCD shaders** | **NVIDIA sovereign compiler: SM35 + SM70 + SM120** | **Ember gate + survivability hardening COMPLETE** | **SovereignInit Pipeline COMPLETE** | **NUCLEUS Composition Evolution COMPLETE** | **coralReef f64 transcendental lowering (SM32+)** | **Level 6 — CERTIFIED (NUCLEUS Deployment Validation)** | **GPU Generation Profile Architecture** | **unsafe audit: all NECESSARY**
 >
 > **Three-Tier Validation Architecture (2026-04-17):** Python baselines → Rust validation → NUCLEUS primal composition validation. **guideStone bare mode: 30/30 checks pass** (Property 3 BLAKE3 CHECKSUMS verified, deny.toml present, all 5 bare properties green). Only 3 SKIPs remain — expected NUCLEUS liveness probes when no primals deployed. The same tolerance-driven, exit-code-gated methodology that proved Rust matches Python now proves IPC-composed NUCLEUS patterns match direct Rust execution. Composition validators (`validate_nucleus_*`) run standalone (skip-pass for CI, exit 2 = all skipped) or against live primals (full IPC validation). `validate_science_probes()` validates compute, math, and provenance trio capabilities via IPC with Rust baseline parity. Pattern documented for sibling spring adoption in wateringHole handoffs.
 >
@@ -235,7 +238,7 @@ ToadStool **S168** adds `shader.dispatch` completing the orchestration layer for
 The `barracuda/` directory is a standalone Rust crate providing the validation
 environment, physics implementations, and GPU compute. Key architectural properties:
 
-- **1002 tests** (lib), **166 binaries**, **64 validation suites** (64/64 pass via `validate_all`; 84 individual `validate_*` binaries + `hotspring_guidestone`), **128 WGSL shaders** (all AGPL-3.0-only),
+- **1,019 tests** (lib), **155 binaries**, **64 validation suites** (64/64 pass via `validate_all`; 84 individual `validate_*` binaries + `hotspring_guidestone`), **128 WGSL shaders** (all AGPL-3.0-only),
   **16 determinism tests** (rerun-identical for all stochastic algorithms). Includes
   lattice QCD (complex f64, SU(3), Wilson action, HMC, Dirac CG, pseudofermion HMC),
   Abelian Higgs (U(1) + Higgs, HMC), transport coefficients (Green-Kubo D*/η*/λ*,
@@ -265,7 +268,7 @@ environment, physics implementations, and GPU compute. Key architectural propert
   pipeline, NPU quantization, and NPU beyond-SDK hardware capabilities.
   Zero inline magic numbers — all validation binaries and solver loops wired to `tolerances::*`.
 - **ValidationHarness** — structured pass/fail tracking with exit code 0/1.
-  56 of 166 binaries use it (validation targets). Remaining binaries are optimization
+  56 of 155 binaries use it (validation targets). Remaining binaries are optimization
   explorers, benchmarks, and diagnostics.
 - **Shared data loading** — `data::EosContext` and `data::load_eos_context()`
   eliminate duplicated path construction across all nuclear EOS binaries.
@@ -299,7 +302,7 @@ environment, physics implementations, and GPU compute. Key architectural propert
 - **NaN-safe** — all float sorting uses `f64::total_cmp()`.
 - **Zero external commands** — pure-Rust ISO 8601 timestamps (Hinnant algorithm),
   no `date` shell-out. `nvidia-smi` calls degrade gracefully.
-- **Unsafe confined** — library crate enforces `#![forbid(unsafe_code)]`. Low-level GPU experiment binaries (`exp169`–`exp183`, gated behind `required-features = ["low-level"]`) use audited `unsafe` for direct BAR0 mmap; production and science code is fully safe. `niche::set_family_id()` uses `OnceLock` instead of `unsafe { std::env::set_var }`.
+- **Unsafe confined** — library crate enforces `#![forbid(unsafe_code)]`. Low-level GPU experiment binaries (`exp169`–`exp184`, gated behind `required-features = ["low-level"]`) use audited `unsafe` for direct BAR0 mmap; production and science code is fully safe. `niche::set_family_id()` uses `OnceLock` instead of `unsafe { std::env::set_var }`.
 - **NUCLEUS composition** — `niche.rs` declares proto-nucleate (`downstream_manifest.toml`), capabilities, and dependencies.
   `composition.rs` validates atomic health (Tower/Node/Nest/FullNucleus) via IPC; `squirrel_client.rs` wires the Squirrel IPC client for primal communication.
   `mcp_tools.rs` exposes 5 MCP tool schemas for AI/LLM integration.
@@ -309,7 +312,7 @@ environment, physics implementations, and GPU compute. Key architectural propert
 
 ```bash
 cd barracuda
-cargo test               # 1002 tests (lib), 6 ignored (~120s; spectral tests upstream)
+cargo test               # 1,019 tests (lib), 6 ignored (~120s; spectral tests upstream)
 cargo clippy --all-targets  # Zero warnings (pedantic + nursery via Cargo.toml workspace lints)
 cargo doc --no-deps      # Full API documentation — 0 warnings
 cargo run --release --bin validate_all  # 64/64 suites pass
@@ -433,10 +436,11 @@ hotSpring/
 │   └── README.md                      # Deploy graph documentation
 │
 ├── docs/                               # Active documentation
+│   ├── DOWNSTREAM_PATTERNS.md        # Downstream repo patterns (projectNUCLEUS, foundation)
 │   ├── PRIMAL_GAPS.md                # NUCLEUS composition gaps (handback to primalSpring)
-│   └── PRIMAL_PROOF_IPC_MAPPING.md   # Level 5: domain science → primal IPC method mapping
+│   └── PRIMAL_PROOF_IPC_MAPPING.md   # Level 6: domain science → primal IPC method mapping
 │
-├── barracuda/                          # BarraCuda Rust crate (1002 tests, 166 binaries, 128 WGSL shaders)
+├── barracuda/                          # BarraCuda Rust crate (1,019 tests, 155 binaries, 128 WGSL shaders)
 │   ├── Cargo.toml                     # Dependencies (requires ecoPrimals/barraCuda)
 │   ├── CHANGELOG.md                   # Version history
 │   ├── ABSORPTION_MANIFEST.md         # Write → Absorb → Lean tracking
@@ -445,7 +449,7 @@ hotSpring/
 │       ├── composition.rs             # NUCLEUS atomic health probes and capability routing
 │       ├── mcp_tools.rs              # MCP tool schemas for AI/LLM integration
 │       ├── hotspring_primal.rs       # JSON-RPC server (health, capability, composition, MCP)
-│       └── bin/                       # 166 binaries (validation, production, benchmarks, composition, guideStone)
+│       └── bin/                       # 155 binaries (validation, production, benchmarks, composition, guideStone)
 │
 ├── experiments/                        # 184 experiment journals (fossil record); 001-143 archived under experiments/archive/
 │   ├── archive/                        # experiments 001-143 (archived journals)
@@ -493,7 +497,8 @@ hotSpring/
 | [`validation/README`](validation/README) | guideStone artifact documentation — quick start, deployment matrix, cross-platform |
 | [`validation/GUIDESTONE.md`](validation/GUIDESTONE.md) | guideStone certification spec (deterministic, traceable, self-verifying) |
 | [`docs/PRIMAL_GAPS.md`](docs/PRIMAL_GAPS.md) | NUCLEUS composition gaps — handback to primalSpring |
-| [`docs/PRIMAL_PROOF_IPC_MAPPING.md`](docs/PRIMAL_PROOF_IPC_MAPPING.md) | Level 5 primal proof — domain science → IPC method mapping |
+| [`docs/DOWNSTREAM_PATTERNS.md`](docs/DOWNSTREAM_PATTERNS.md) | Downstream repository adoption patterns |
+| [`docs/PRIMAL_PROOF_IPC_MAPPING.md`](docs/PRIMAL_PROOF_IPC_MAPPING.md) | Level 6 — CERTIFIED primal proof — domain science → IPC method mapping |
 | [`scripts/validate-primal-proof.sh`](scripts/validate-primal-proof.sh) | Primal proof validation — bare + NUCLEUS modes, pre-flight integration |
 | [`graphs/hotspring_qcd_deploy.toml`](graphs/hotspring_qcd_deploy.toml) | biomeOS deploy graph — 10 primals, bonding policy, spawn order |
 | [`CHANGELOG.md`](CHANGELOG.md) | Root changelog — spring-level changes |
@@ -513,7 +518,7 @@ a network service, you must make your source available under the same terms.
 
 ---
 
-*181 experiments, 1002 tests, 166 binaries, 128 WGSL shaders, ~$0.30 total science cost.
+*184 experiments, 1,019 tests, 155 binaries, 128 WGSL shaders, ~$0.30 total science cost.
 Consumer GPUs reproduce HPC physics at paper parity. DF64 delivers 3.24 TFLOPS at
 14-digit precision. GPU RHMC runs all-flavors dynamical QCD (Nf=2+1). Self-tuning
 RHMC eliminates hand-tuned parameters. Chuna 44/44 checks pass. RTX 5060 sovereign

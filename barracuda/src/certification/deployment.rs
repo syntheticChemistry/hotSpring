@@ -39,7 +39,7 @@ fn validate_deploy_graph_coverage(v: &mut ValidationResult) {
     let graph_files: Vec<_> = std::fs::read_dir(&graphs_dir)
         .map(|entries| {
             entries
-                .filter_map(|e| e.ok())
+                .filter_map(Result::ok)
                 .filter(|e| e.path().extension().is_some_and(|ext| ext == "toml"))
                 .map(|e| e.path())
                 .collect()

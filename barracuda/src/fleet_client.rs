@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+use crate::error::HotSpringError;
 use crate::primal_bridge::send_jsonrpc;
 
 pub use crate::fleet_ember::{
@@ -108,31 +109,29 @@ impl FleetDiscovery {
     }
 
     /// Read and parse the fleet discovery file at `path`.
-    pub fn load(path: impl AsRef<Path>) -> Result<Self, String> {
+    pub fn load(path: impl AsRef<Path>) -> Result<Self, HotSpringError> {
         let path = path.as_ref().to_path_buf();
-        let bytes = std::fs::read(&path).map_err(|e| format!("read {}: {e}", path.display()))?;
-        let file: FleetFile =
-            serde_json::from_slice(&bytes).map_err(|e| format!("parse fleet JSON: {e}"))?;
+        let bytes = std::fs::read(&path)?;
+        let file: FleetFile = serde_json::from_slice(&bytes)?;
         Ok(Self { path, file })
     }
 
     /// Load the fleet file when present; if the path does not exist, return `Ok(None)` (graceful
     /// degradation). Other I/O or JSON errors are propagated.
-    pub fn load_if_present(path: impl AsRef<Path>) -> Result<Option<Self>, String> {
+    pub fn load_if_present(path: impl AsRef<Path>) -> Result<Option<Self>, HotSpringError> {
         let path = path.as_ref().to_path_buf();
         match std::fs::read(&path) {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
-            Err(e) => Err(format!("read {}: {e}", path.display())),
+            Err(e) => Err(e.into()),
             Ok(bytes) => {
-                let file: FleetFile =
-                    serde_json::from_slice(&bytes).map_err(|e| format!("parse fleet JSON: {e}"))?;
+                let file: FleetFile = serde_json::from_slice(&bytes)?;
                 Ok(Some(Self { path, file }))
             }
         }
     }
 
     /// Load from [`Self::resolve_path`].
-    pub fn load_default() -> Result<Self, String> {
+    pub fn load_default() -> Result<Self, HotSpringError> {
         Self::load(Self::resolve_path())
     }
 
@@ -252,7 +251,7 @@ impl FleetRouter {
     }
 
     /// Load discovery from the default / env-configured path and probe each socket.
-    pub fn discover() -> Result<Self, String> {
+    pub fn discover() -> Result<Self, HotSpringError> {
         let disc = FleetDiscovery::load_default()?;
         let mut router = Self::from_fleet_file(disc.file());
         router.probe_all()?;
@@ -260,7 +259,7 @@ impl FleetRouter {
     }
 
     /// Probe every known socket with `ember.status` and set [`FleetDeviceRoute::reachable`].
-    pub fn probe_all(&mut self) -> Result<(), String> {
+    pub fn probe_all(&mut self) -> Result<(), HotSpringError> {
         for d in &mut self.devices {
             d.reachable = Some(probe_ember_socket(&d.socket_path));
         }

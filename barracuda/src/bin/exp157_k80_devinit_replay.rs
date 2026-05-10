@@ -113,12 +113,15 @@ fn main() {
                 match e.mmio_read(b, reg) {
                     Ok(r) => Ok(r.value),
                     Err(err) => {
-                        if err.contains("circuit breaker") || err.contains("non-responsive") {
+                        let msg = err.to_string();
+                        if msg.contains("circuit breaker") || msg.contains("non-responsive") {
                             let _ = e.mmio_circuit_breaker(b, Some("reset"));
                             std::thread::sleep(Duration::from_millis(50));
-                            e.mmio_read(b, reg).map(|r| r.value)
+                            e.mmio_read(b, reg)
+                                .map(|r| r.value)
+                                .map_err(|e| e.to_string())
                         } else {
-                            Err(err)
+                            Err(msg)
                         }
                     }
                 }
@@ -147,7 +150,8 @@ fn main() {
                         }
                         Err(e) => {
                             // For writes, try resetting breaker and retrying
-                            if e.contains("circuit breaker") || e.contains("non-responsive") {
+                            let msg = e.to_string();
+                            if msg.contains("circuit breaker") || msg.contains("non-responsive") {
                                 let _ = ember.mmio_circuit_breaker(&bdf, Some("reset"));
                                 breaker_resets += 1;
                                 std::thread::sleep(Duration::from_millis(50));

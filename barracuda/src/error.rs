@@ -85,6 +85,12 @@ impl From<serde_json::Error> for HotSpringError {
 
 impl std::error::Error for HotSpringError {}
 
+impl From<HotSpringError> for String {
+    fn from(e: HotSpringError) -> Self {
+        e.to_string()
+    }
+}
+
 #[cfg(feature = "barracuda-local")]
 impl From<barracuda::error::BarracudaError> for HotSpringError {
     fn from(e: barracuda::error::BarracudaError) -> Self {
