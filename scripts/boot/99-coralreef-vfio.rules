@@ -6,6 +6,12 @@
 # K80 die #1 (4b:00.0): vfio-pci (sovereign target, cold at boot)  IOMMU group 35
 # K80 die #2 (4c:00.0): vfio-pci (reagent target, cold at boot)    IOMMU group 36
 #
+# PLX PEX 8747 upstream switch (49:00.0) + downstream ports (4a:08.0, 4a:10.0)
+# MUST have d3cold_allowed=0. Without this the kernel's runtime PM puts the
+# PLX switch to D3cold after ~autosuspend_delay_ms of idle, killing the PCIe
+# link through the switch and making K80 BAR0 permanently inaccessible until
+# the next full hardware power cycle. The fix: pin the entire PLX subtree to D0.
+#
 # K80 DESIGN NOTE: Both K80 dies boot on vfio-pci (cold). Nouveau cannot
 # cold-start GK210 — BOOT0 returns 0x0f22d0a1 (hardware default, not a valid
 # chipset ID) because UEFI only POSTs the primary display GPU.
@@ -28,6 +34,17 @@
 # Install:
 #   sudo cp scripts/boot/99-coralreef-vfio.rules /etc/udev/rules.d/
 #   sudo udevadm control --reload-rules
+
+# --- PLX PEX 8747 upstream + downstream ports — pin to D0, block D3cold ---
+# 49:00.0 = upstream port (managed by pcieport)
+ACTION=="add", KERNEL=="0000:49:00.0", SUBSYSTEM=="pci", ATTR{power/control}="on"
+ACTION=="add", KERNEL=="0000:49:00.0", SUBSYSTEM=="pci", ATTR{d3cold_allowed}="0"
+# 4a:08.0 = downstream port to K80 die #1 (IOMMU group 33)
+ACTION=="add", KERNEL=="0000:4a:08.0", SUBSYSTEM=="pci", ATTR{power/control}="on"
+ACTION=="add", KERNEL=="0000:4a:08.0", SUBSYSTEM=="pci", ATTR{d3cold_allowed}="0"
+# 4a:10.0 = downstream port to K80 die #2 (IOMMU group 34)
+ACTION=="add", KERNEL=="0000:4a:10.0", SUBSYSTEM=="pci", ATTR{power/control}="on"
+ACTION=="add", KERNEL=="0000:4a:10.0", SUBSYSTEM=="pci", ATTR{d3cold_allowed}="0"
 
 # --- Tesla K80 die #1 -> vfio-pci (sovereign target, cold) ---
 # IOMMU group 35 — already claimed by vfio-pci.ids on kernel cmdline

@@ -74,9 +74,31 @@ pub struct LimeRecord {
 }
 
 /// Reads LIME records from a byte stream.
+///
+/// ## Streaming pattern (zero-copy for large payloads)
+///
+/// For gauge configurations (which can be hundreds of MiB), use the
+/// streaming API to avoid buffering the binary payload:
+///
+/// ```no_run
+/// # use std::fs::File;
+/// # use hotspring_barracuda::lattice::lime::LimeReader;
+/// let file = File::open("config.lime").unwrap();
+/// let mut reader = LimeReader::new(file);
+/// while let Some(header) = reader.next_header().unwrap() {
+///     if header.record_type == "ildg-binary-data" {
+///         // stream directly into gauge field without intermediate Vec
+///         reader.copy_payload_into(&mut std::io::sink()).unwrap();
+///     } else {
+///         reader.skip_payload().unwrap();
+///     }
+/// }
+/// ```
 pub struct LimeReader<R: Read> {
     reader: R,
     finished: bool,
+    /// Remaining bytes (payload + padding) to consume before the next header.
+    pending_skip: u64,
 }
 
 impl<R: Read> LimeReader<R> {
@@ -85,11 +107,19 @@ impl<R: Read> LimeReader<R> {
         Self {
             reader,
             finished: false,
+            pending_skip: 0,
         }
     }
 
-    /// Read the next LIME record, or `None` at EOF.
-    pub fn next_record(&mut self) -> io::Result<Option<LimeRecord>> {
+    // ── Streaming API (zero-copy) ─────────────────────────────────────────
+
+    /// Read the next LIME record header without buffering the payload.
+    ///
+    /// After calling this, use [`Self::copy_payload_into`] to stream the
+    /// payload to a destination, or [`Self::skip_payload`] to discard it.
+    /// You MUST drain the pending payload before calling `next_header` again.
+    pub fn next_header(&mut self) -> io::Result<Option<LimeHeader>> {
+        self.drain_pending()?;
         if self.finished {
             return Ok(None);
         }
@@ -105,20 +135,74 @@ impl<R: Read> LimeReader<R> {
         }
 
         let header = parse_header(&hdr_buf)?;
-
-        let mut data = vec![0u8; header.data_length as usize];
-        self.reader.read_exact(&mut data)?;
-
-        let padding = pad_to_8(header.data_length) as usize;
-        if padding > 0 {
-            let mut pad = vec![0u8; padding];
-            self.reader.read_exact(&mut pad)?;
-        }
-
-        Ok(Some(LimeRecord { header, data }))
+        let padded = header.data_length + pad_to_8(header.data_length);
+        self.pending_skip = padded;
+        Ok(Some(header))
     }
 
-    /// Consume the reader, returning all records.
+    /// Stream the pending record payload into `dest` without intermediate buffering.
+    ///
+    /// Must be called exactly once after [`Self::next_header`] returns `Some`.
+    /// Reads exactly `header.data_length` bytes into `dest`, then consumes padding.
+    pub fn copy_payload_into<W: Write>(
+        &mut self,
+        dest: &mut W,
+        data_length: u64,
+    ) -> io::Result<()> {
+        if data_length > self.pending_skip {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "data_length exceeds pending payload",
+            ));
+        }
+        let padding = pad_to_8(data_length);
+        io::copy(&mut (&mut self.reader).take(data_length), dest)?;
+        // consume padding
+        if padding > 0 {
+            io::copy(&mut (&mut self.reader).take(padding), &mut io::sink())?;
+        }
+        self.pending_skip = 0;
+        Ok(())
+    }
+
+    /// Discard the pending record payload (header already read via `next_header`).
+    pub fn skip_payload(&mut self) -> io::Result<()> {
+        self.drain_pending()
+    }
+
+    fn drain_pending(&mut self) -> io::Result<()> {
+        if self.pending_skip > 0 {
+            io::copy(
+                &mut (&mut self.reader).take(self.pending_skip),
+                &mut io::sink(),
+            )?;
+            self.pending_skip = 0;
+        }
+        Ok(())
+    }
+
+    // ── Buffered API (backward compat) ────────────────────────────────────
+
+    /// Read the next LIME record, buffering the full payload into a `Vec<u8>`.
+    ///
+    /// For large binary payloads (gauge configurations), prefer the streaming
+    /// API ([`Self::next_header`] + [`Self::copy_payload_into`]).
+    pub fn next_record(&mut self) -> io::Result<Option<LimeRecord>> {
+        match self.next_header()? {
+            None => Ok(None),
+            Some(header) => {
+                let mut data = vec![0u8; header.data_length as usize];
+                self.copy_payload_into(&mut data.as_mut_slice(), header.data_length)?;
+                Ok(Some(LimeRecord { header, data }))
+            }
+        }
+    }
+
+    /// Consume the reader, returning all records (buffers all payloads).
+    ///
+    /// For large files, prefer iterating with [`Self::next_header`] +
+    /// [`Self::copy_payload_into`] to avoid peak memory proportional to
+    /// the total file size.
     pub fn read_all(mut self) -> io::Result<Vec<LimeRecord>> {
         let mut records = Vec::new();
         while let Some(rec) = self.next_record()? {

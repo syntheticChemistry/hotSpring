@@ -22,10 +22,12 @@
 //!
 //! ## Module structure
 //!
-//! - `adapter` — adapter discovery and selection
-//! - `buffers` — f64/u32 buffer creation, upload, readback
-//! - `dispatch` — command encoding and dispatch
-//! - `telemetry` — GPU power, temperature, VRAM monitoring
+//! | Submodule | Responsibility |
+//! |-----------|---------------|
+//! | `adapter` | Adapter discovery, selection, device construction helpers |
+//! | `buffers` | f64/u32 buffer creation, upload, readback, DF64 wire helpers |
+//! | `dispatch` | Command encoding, pipeline creation (merged with sub-module) |
+//! | `telemetry` | GPU power, temperature, VRAM monitoring |
 
 mod adapter;
 mod buffers;
@@ -33,10 +35,10 @@ mod dispatch;
 mod telemetry;
 
 pub use adapter::{AdapterInfo, discover_best_adapter, discover_primary_and_secondary_adapters};
+pub use buffers::{df64_bytes_to_f64_slice, df64_to_f64, f64_slice_to_df64_bytes, f64_to_df64};
+pub use dispatch::split_workgroups;
 
 use barracuda::device::{DeviceCapabilities, TensorContext, WgpuDevice};
-use barracuda::shaders::precision::ShaderTemplate;
-use log::{debug, error, info, warn};
 use std::sync::Arc;
 
 /// GPU context with FP64 support for science workloads.
@@ -66,63 +68,12 @@ pub struct GpuF64 {
     /// True when native f64 shaders are broken and all GPU work must use
     /// full DF64 (f32-pair) data plane — storage as `vec2<f32>`, not `f64`.
     pub full_df64_mode: bool,
-    wgpu_device: Arc<WgpuDevice>,
-    tensor_ctx: Arc<TensorContext>,
-    capabilities: DeviceCapabilities,
+    pub(crate) wgpu_device: Arc<WgpuDevice>,
+    pub(crate) tensor_ctx: Arc<TensorContext>,
+    pub(crate) capabilities: DeviceCapabilities,
 }
 
-// ── DF64 wire-format conversion (CPU side) ───────────────────────────
-
-/// Split a single `f64` into a DF64 (hi, lo) f32 pair.
-/// hi + lo ≈ value with ~48-bit mantissa.
-#[inline]
-#[must_use]
-pub fn f64_to_df64(v: f64) -> [f32; 2] {
-    let hi = v as f32;
-    let lo = (v - f64::from(hi)) as f32;
-    [hi, lo]
-}
-
-/// Reconstruct a single `f64` from a DF64 (hi, lo) f32 pair.
-#[inline]
-#[must_use]
-pub fn df64_to_f64(pair: [f32; 2]) -> f64 {
-    f64::from(pair[0]) + f64::from(pair[1])
-}
-
-/// Convert a slice of `f64` values to DF64 wire format bytes (pairs of f32).
-/// Output has the same byte length as the input (8 bytes per value).
-#[must_use]
-pub fn f64_slice_to_df64_bytes(data: &[f64]) -> Vec<u8> {
-    let mut bytes = Vec::with_capacity(data.len() * 8);
-    for &v in data {
-        let [hi, lo] = f64_to_df64(v);
-        bytes.extend_from_slice(&hi.to_le_bytes());
-        bytes.extend_from_slice(&lo.to_le_bytes());
-    }
-    bytes
-}
-
-/// Convert DF64 wire format bytes back to `f64` values.
-#[must_use]
-pub fn df64_bytes_to_f64_slice(bytes: &[u8]) -> Vec<f64> {
-    let count = bytes.len() / 8;
-    let mut result = Vec::with_capacity(count);
-    for i in 0..count {
-        let off = i * 8;
-        let hi = f32::from_le_bytes([bytes[off], bytes[off + 1], bytes[off + 2], bytes[off + 3]]);
-        let lo = f32::from_le_bytes([
-            bytes[off + 4],
-            bytes[off + 5],
-            bytes[off + 6],
-            bytes[off + 7],
-        ]);
-        result.push(df64_to_f64([hi, lo]));
-    }
-    result
-}
-
-// ── Core accessors ───────────────────────────────────────────────────
+// ── Core accessors ────────────────────────────────────────────────────────────
 
 impl GpuF64 {
     /// Access the underlying wgpu Device.
@@ -180,150 +131,7 @@ impl GpuF64 {
     }
 }
 
-// ── Constructor ──────────────────────────────────────────────────────
-
-/// Negotiate GPU features, requesting all science-relevant capabilities.
-///
-/// On NVK, `SPIRV_SHADER_PASSTHROUGH` is skipped — the NVK driver segfaults
-/// when ingesting Sovereign-compiled SPIR-V for complex f64 shaders.
-fn negotiate_features(adapter_features: wgpu::Features, _is_nvk: bool) -> wgpu::Features {
-    let mut f = wgpu::Features::empty();
-    for feat in [
-        wgpu::Features::SHADER_F64,
-        wgpu::Features::SHADER_F16,
-        wgpu::Features::SUBGROUP,
-        wgpu::Features::TIMESTAMP_QUERY,
-        wgpu::Features::PIPELINE_CACHE,
-    ] {
-        if adapter_features.contains(feat) {
-            f |= feat;
-        }
-    }
-    // wgpu 28: SPIRV_SHADER_PASSTHROUGH constant removed.
-    // barraCuda's WgpuDevice::has_spirv_passthrough() handles this at device level.
-    f
-}
-
-/// Heuristic NVK detection from adapter info (before device creation).
-fn adapter_is_nvk(info: &wgpu::AdapterInfo) -> bool {
-    let d = info.driver.to_lowercase();
-    let di = info.driver_info.to_lowercase();
-    d.contains("nvk")
-        || d.contains("nouveau")
-        || di.contains("nvk")
-        || di.contains("nouveau")
-        || (d.contains("mesa") && info.name.contains("NV"))
-}
-
-/// Shared post-creation logic: probe f64 builtins, detect `full_df64_mode`.
-///
-/// On NVK, forces full DF64 even if the basic probe passes — NVK's NAK
-/// compiler segfaults or produces invalid pipelines for complex f64 shaders
-/// (HMC gauge force, CG solvers) even though simple f64 arithmetic compiles.
-async fn open_from_adapter_inner(
-    selected: wgpu::Adapter,
-    device_label: &'static str,
-) -> Result<GpuF64, crate::error::HotSpringError> {
-    let adapter_info = selected.get_info();
-    let adapter_features = selected.features();
-    let is_nvk = adapter_is_nvk(&adapter_info);
-
-    let required_features = negotiate_features(adapter_features, is_nvk);
-
-    let adapter_limits = selected.limits();
-    let required_limits = wgpu::Limits {
-        max_storage_buffer_binding_size: adapter_limits
-            .max_storage_buffer_binding_size
-            .min(2 * 1024 * 1024 * 1024),
-        max_buffer_size: adapter_limits.max_buffer_size.min(4 * 1024 * 1024 * 1024),
-        max_storage_buffers_per_shader_stage: 12,
-        ..wgpu::Limits::default()
-    };
-
-    let device_result: Result<(wgpu::Device, wgpu::Queue), wgpu::RequestDeviceError> = selected
-        .request_device(&wgpu::DeviceDescriptor {
-            label: Some(device_label),
-            required_features,
-            required_limits,
-            memory_hints: wgpu::MemoryHints::default(),
-            experimental_features: wgpu::ExperimentalFeatures::default(),
-            trace: wgpu::Trace::default(),
-        })
-        .await;
-    let (device, queue) =
-        device_result.map_err(|e| crate::error::HotSpringError::DeviceCreation(e.to_string()))?;
-
-    let adapter_name = adapter_info.name.clone();
-    let advertised_f64 = required_features.contains(wgpu::Features::SHADER_F64);
-    let has_timestamps = required_features.contains(wgpu::Features::TIMESTAMP_QUERY);
-    let has_subgroups = required_features.contains(wgpu::Features::SUBGROUP);
-    let has_f16 = required_features.contains(wgpu::Features::SHADER_F16);
-
-    let wgpu_device = Arc::new(WgpuDevice::from_existing(device, queue, adapter_info));
-
-    Ok(finalize_device(
-        adapter_name,
-        advertised_f64,
-        has_timestamps,
-        has_subgroups,
-        has_f16,
-        is_nvk,
-        wgpu_device,
-    )
-    .await)
-}
-
-async fn finalize_device(
-    adapter_name: String,
-    advertised_f64: bool,
-    has_timestamps: bool,
-    has_subgroups: bool,
-    has_f16: bool,
-    is_nvk: bool,
-    wgpu_device: Arc<WgpuDevice>,
-) -> GpuF64 {
-    let tensor_ctx = Arc::new(TensorContext::new(Arc::clone(&wgpu_device)));
-    let capabilities = DeviceCapabilities::from_device(&wgpu_device);
-
-    let (has_f64, full_df64_mode) = if advertised_f64 {
-        let caps = barracuda::device::probe::probe_f64_builtins(&wgpu_device).await;
-        if caps.can_compile_f64() {
-            if is_nvk {
-                info!(
-                    "f64 probe: PASS on NVK ({}/{} builtins) — using barraCuda polyfill \
-                     pipeline (native f64 + exp/log/sin/cos polyfills)",
-                    caps.native_count(),
-                    9
-                );
-            } else {
-                info!(
-                    "f64 probe: PASS — native f64 shaders available ({}/{} builtins)",
-                    caps.native_count(),
-                    9
-                );
-            }
-            (true, false)
-        } else {
-            warn!("f64 probe: FAIL — switching to full DF64 data plane");
-            (false, true)
-        }
-    } else {
-        warn!("SHADER_F64 not advertised — using full DF64 data plane");
-        (false, true)
-    };
-
-    GpuF64 {
-        adapter_name,
-        has_f64,
-        has_timestamps,
-        has_subgroups,
-        has_f16,
-        full_df64_mode,
-        wgpu_device,
-        tensor_ctx,
-        capabilities,
-    }
-}
+// ── Constructors ──────────────────────────────────────────────────────────────
 
 impl GpuF64 {
     /// Create GPU device requesting `SHADER_F64`.
@@ -341,25 +149,17 @@ impl GpuF64 {
     /// or device creation fails.
     pub async fn new() -> Result<Self, crate::error::HotSpringError> {
         let selected = adapter::select_adapter()?;
-        open_from_adapter_inner(selected, "hotSpring science device").await
+        adapter::open_from_adapter_inner(selected, "hotSpring science device").await
     }
 
-    /// Create GPU device from an explicit adapter hint (same rules as one token in
-    /// `HOTSPRING_GPU_ADAPTER`: numeric index, case-insensitive name substring, or
-    /// `"auto"`). Does **not** read or modify the process environment.
-    ///
-    /// Use this when discovery or CLI supplies the adapter id instead of relying on
-    /// [`Self::new`] (which reads `HOTSPRING_GPU_ADAPTER` / `BARRACUDA_GPU_ADAPTER`).
+    /// Create GPU device from an explicit adapter hint (numeric index,
+    /// case-insensitive name substring, or `"auto"`).
     pub async fn with_adapter(hint: &str) -> Result<Self, crate::error::HotSpringError> {
         let selected = adapter::select_adapter_hint(hint)?;
         Self::from_adapter(selected).await
     }
 
     /// Create GPU device by matching an adapter name substring.
-    ///
-    /// Searches all available adapters for one whose name (case-insensitive)
-    /// contains `name_hint`. Useful for targeting a specific GPU (e.g., "titan")
-    /// from a thread without modifying environment variables.
     ///
     /// # Errors
     ///
@@ -385,7 +185,7 @@ impl GpuF64 {
     pub async fn from_adapter(
         selected: wgpu::Adapter,
     ) -> Result<Self, crate::error::HotSpringError> {
-        open_from_adapter_inner(selected, "hotSpring secondary device").await
+        adapter::open_from_adapter_inner(selected, "hotSpring secondary device").await
     }
 
     /// Enumerate all available GPU adapters.
@@ -422,280 +222,7 @@ impl GpuF64 {
     }
 }
 
-// ── Pipeline creation ────────────────────────────────────────────────
-
-impl GpuF64 {
-    /// Create a compute pipeline with `WgslOptimizer` + driver-aware patching.
-    ///
-    /// Does NOT apply exp/log workarounds — use [`Self::create_pipeline_f64`]
-    /// for shaders that call `exp()` or `log()` on f64 values.
-    #[must_use]
-    pub fn create_pipeline(&self, shader_source: &str, label: &str) -> wgpu::ComputePipeline {
-        let optimized = ShaderTemplate::for_driver_auto(shader_source, false);
-        self.build_pipeline(&optimized, label)
-    }
-
-    /// Create a compute pipeline with driver-aware f64 patching + sovereign compilation.
-    ///
-    /// Routes through barraCuda's `WgpuDevice::compile_shader_f64()` which applies:
-    /// 1. `ShaderTemplate::for_driver_auto` — fossil substitution, polyfills
-    /// 2. Sovereign compiler — naga IR → FMA fusion → SPIR-V (when available)
-    /// 3. WGSL text fallback when passthrough is unavailable
-    ///
-    /// In full DF64 mode (f64 probe failed), rewrites shaders to pure-f32 DF64.
-    #[must_use]
-    pub fn create_pipeline_f64(&self, shader_source: &str, label: &str) -> wgpu::ComputePipeline {
-        if self.full_df64_mode {
-            return self.compile_full_df64_pipeline(shader_source, label);
-        }
-        let shader_module = self
-            .wgpu_device
-            .compile_shader_f64(shader_source, Some(label));
-        self.validate_pipeline(shader_module, label)
-    }
-
-    /// DF64 pipeline for hand-written DF64 shaders (Hybrid mode). Delegates
-    /// to barraCuda's `compile_shader_df64()` which prepends `df64_core` +
-    /// `df64_transcendentals` and applies driver-aware optimization.
-    ///
-    /// Used for `Fp64Strategy::Hybrid` — force math on FP32 cores, PBC/I/O
-    /// in native f64.
-    #[must_use]
-    pub fn create_pipeline_df64(&self, shader_source: &str, label: &str) -> wgpu::ComputePipeline {
-        let shader_module = self
-            .wgpu_device
-            .compile_shader_df64(shader_source, Some(label));
-        self.validate_pipeline(shader_module, label)
-    }
-
-    /// WGSL-text f64 pipeline — skips sovereign SPIR-V compilation.
-    ///
-    /// In full DF64 mode, routes through the full DF64 pipeline.
-    ///
-    /// coralReef Iteration 30 added `FmaPolicy::Separate` which splits
-    /// FFma→FMul+FAdd in the sovereign compilation pipeline. This means
-    /// F64Precise can now go through sovereign WGSL→SASS compilation with
-    /// FMA-free guarantees. When `sovereign-dispatch` is integrated for
-    /// dispatch, this method should route through `compile_shader_f64()`
-    /// with `FmaPolicy::Separate` instead of the WGSL-text path, gaining
-    /// native SASS performance for precision-critical domains.
-    #[must_use]
-    pub fn create_pipeline_f64_precise(
-        &self,
-        shader_source: &str,
-        label: &str,
-    ) -> wgpu::ComputePipeline {
-        if self.full_df64_mode {
-            return self.compile_full_df64_pipeline(shader_source, label);
-        }
-        let optimized = ShaderTemplate::for_driver_auto(
-            shader_source,
-            self.wgpu_device.needs_f64_exp_log_workaround(),
-        );
-        self.build_pipeline(&optimized, label)
-    }
-
-    /// Full DF64 pipeline: delegates to barraCuda's `compile_shader_universal`
-    /// which handles the two-layer DF64 compilation (naga-guided infix rewrite
-    /// with text-based fallback). Precision is silicon — barraCuda owns it.
-    ///
-    /// Public so springs can explicitly test DF64 precision tier on hardware
-    /// that also supports native f64 (stability/throughput comparison).
-    pub fn compile_full_df64_pipeline(
-        &self,
-        shader_source: &str,
-        label: &str,
-    ) -> wgpu::ComputePipeline {
-        let shader_module = self
-            .wgpu_device
-            .compile_shader_df64(shader_source, Some(label));
-        self.validate_pipeline(shader_module, label)
-    }
-
-    /// Create a pipeline from a shader module with validation error checking.
-    fn validate_pipeline(
-        &self,
-        shader_module: wgpu::ShaderModule,
-        label: &str,
-    ) -> wgpu::ComputePipeline {
-        let t0 = std::time::Instant::now();
-        let gpu_tag = &self.adapter_name;
-        let scope = self
-            .device()
-            .push_error_scope(wgpu::ErrorFilter::Validation);
-        let pipeline = self
-            .device()
-            .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-                label: Some(label),
-                layout: None,
-                module: &shader_module,
-                entry_point: Some("main"),
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-                cache: None,
-            });
-        let waker = std::task::Waker::noop();
-        let mut cx = std::task::Context::from_waker(waker);
-        use std::future::Future;
-        let mut fut = std::pin::pin!(scope.pop());
-        let _ = self.device().poll(wgpu::PollType::Wait {
-            submission_index: None,
-            timeout: None,
-        });
-        match fut.as_mut().poll(&mut cx) {
-            std::task::Poll::Ready(Some(e)) => {
-                error!("[pipeline:{gpu_tag}] {label}: PIPELINE ERROR: {e}");
-            }
-            std::task::Poll::Ready(None) => {
-                debug!(
-                    "[pipeline:{gpu_tag}] {label}: pipeline valid ({:?})",
-                    t0.elapsed()
-                );
-            }
-            std::task::Poll::Pending => {
-                warn!(
-                    "[pipeline:{gpu_tag}] {label}: pipeline status pending ({:?})",
-                    t0.elapsed()
-                );
-            }
-        }
-        pipeline
-    }
-
-    /// Precise f64 pipeline with a named entry point (no FMA fusion).
-    ///
-    /// Combines the precision-preserving compilation of `create_pipeline_f64_precise`
-    /// with named entry point support for multi-entry shaders. Use for
-    /// precision-sensitive shaders like dielectric functions where FMA rounding
-    /// changes would corrupt complex arithmetic.
-    #[must_use]
-    pub fn create_pipeline_f64_entry_precise(
-        &self,
-        shader_source: &str,
-        entry_point: &str,
-        label: &str,
-    ) -> wgpu::ComputePipeline {
-        if self.full_df64_mode {
-            return self.compile_full_df64_pipeline(shader_source, label);
-        }
-        let optimized = ShaderTemplate::for_driver_auto(
-            shader_source,
-            self.wgpu_device.needs_f64_exp_log_workaround(),
-        );
-        self.build_pipeline_entry(&optimized, entry_point, label)
-    }
-
-    /// Create f64 pipeline with a named entry point (for multi-entry shaders).
-    ///
-    /// Unlike `create_pipeline_f64` which assumes `fn main()`, this variant
-    /// looks up the specified entry point in the compiled shader module.
-    #[must_use]
-    pub fn create_pipeline_f64_entry(
-        &self,
-        shader_source: &str,
-        entry_point: &str,
-        label: &str,
-    ) -> wgpu::ComputePipeline {
-        if self.full_df64_mode {
-            return self.compile_full_df64_pipeline(shader_source, label);
-        }
-        let shader_module = self
-            .wgpu_device
-            .compile_shader_f64(shader_source, Some(label));
-        self.validate_pipeline_entry(shader_module, entry_point, label)
-    }
-
-    fn validate_pipeline_entry(
-        &self,
-        shader_module: wgpu::ShaderModule,
-        entry_point: &str,
-        label: &str,
-    ) -> wgpu::ComputePipeline {
-        let t0 = std::time::Instant::now();
-        let gpu_tag = &self.adapter_name;
-        let scope = self
-            .device()
-            .push_error_scope(wgpu::ErrorFilter::Validation);
-        let pipeline = self
-            .device()
-            .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-                label: Some(label),
-                layout: None,
-                module: &shader_module,
-                entry_point: Some(entry_point),
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-                cache: None,
-            });
-        let waker = std::task::Waker::noop();
-        let mut cx = std::task::Context::from_waker(waker);
-        use std::future::Future;
-        let mut fut = std::pin::pin!(scope.pop());
-        let _ = self.device().poll(wgpu::PollType::Wait {
-            submission_index: None,
-            timeout: None,
-        });
-        match fut.as_mut().poll(&mut cx) {
-            std::task::Poll::Ready(Some(e)) => {
-                error!("[pipeline:{gpu_tag}] {label}: PIPELINE ERROR: {e}");
-            }
-            std::task::Poll::Ready(None) => {
-                debug!(
-                    "[pipeline:{gpu_tag}] {label}: pipeline valid ({:?})",
-                    t0.elapsed()
-                );
-            }
-            std::task::Poll::Pending => {
-                warn!(
-                    "[pipeline:{gpu_tag}] {label}: pipeline status pending ({:?})",
-                    t0.elapsed()
-                );
-            }
-        }
-        pipeline
-    }
-
-    fn build_pipeline_entry(
-        &self,
-        wgsl: &str,
-        entry_point: &str,
-        label: &str,
-    ) -> wgpu::ComputePipeline {
-        let shader_module = self
-            .device()
-            .create_shader_module(wgpu::ShaderModuleDescriptor {
-                label: Some(label),
-                source: wgpu::ShaderSource::Wgsl(wgsl.into()),
-            });
-
-        self.device()
-            .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-                label: Some(label),
-                layout: None,
-                module: &shader_module,
-                entry_point: Some(entry_point),
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-                cache: None,
-            })
-    }
-
-    fn build_pipeline(&self, wgsl: &str, label: &str) -> wgpu::ComputePipeline {
-        let shader_module = self
-            .device()
-            .create_shader_module(wgpu::ShaderModuleDescriptor {
-                label: Some(label),
-                source: wgpu::ShaderSource::Wgsl(wgsl.into()),
-            });
-
-        self.device()
-            .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-                label: Some(label),
-                layout: None,
-                module: &shader_module,
-                entry_point: Some("main"),
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-                cache: None,
-            })
-    }
-}
+// ── Tests ─────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
 mod tests {
@@ -731,7 +258,7 @@ mod tests {
     #[expect(clippy::float_cmp, reason = "exact known test value")]
     fn f64_byte_roundtrip() {
         let original = vec![
-            0.0,
+            0.0_f64,
             1.0,
             -1.0,
             std::f64::consts::PI,
@@ -754,7 +281,7 @@ mod tests {
     #[test]
     #[expect(clippy::float_cmp, reason = "exact known test value")]
     fn f64_byte_conversion_special_values() {
-        let values = [std::f64::consts::PI, 1e-308, 1e308];
+        let values = [std::f64::consts::PI, 1e-308_f64, 1e308];
         let bytes = f64_to_bytes(&values);
         assert_eq!(bytes.len(), 24);
         let back = bytes_to_f64(&bytes);
@@ -783,9 +310,8 @@ mod tests {
     fn dispatch_and_read_result_type() {
         let ok_result: Result<Vec<f64>, crate::error::HotSpringError> = Ok(vec![1.0, 2.0]);
         assert!(ok_result.is_ok());
-        let err_result: Result<Vec<f64>, crate::error::HotSpringError> = Err(
-            crate::error::HotSpringError::GpuCompute("no GPU available".into()),
-        );
+        let err_result: Result<Vec<f64>, crate::error::HotSpringError> =
+            Err(crate::error::HotSpringError::GpuCompute("no GPU available".into()));
         assert!(err_result.is_err());
     }
 
@@ -793,5 +319,14 @@ mod tests {
     fn read_back_f64_empty() {
         let empty: Vec<u8> = vec![];
         assert_eq!(empty.len() / 8, 0);
+    }
+
+    #[test]
+    fn df64_roundtrip_pi() {
+        use super::{df64_to_f64, f64_to_df64};
+        let v = std::f64::consts::PI;
+        let pair = f64_to_df64(v);
+        let back = df64_to_f64(pair);
+        assert!((back - v).abs() < 1e-7, "DF64 roundtrip error: {}", (back - v).abs());
     }
 }

@@ -36,7 +36,32 @@ pub struct HardwareInventory {
     pub rust_version: String,
 }
 
+/// Resolve the local machine name for benchmark provenance.
+///
+/// Priority: `$HOSTNAME` → `$COMPUTERNAME` → `/etc/hostname` → `niche::NICHE_NAME`.
+/// Never returns `"unknown"` — always produces a stable, non-empty identifier.
+#[must_use]
+pub fn resolve_gate_name() -> String {
+    std::env::var("HOSTNAME")
+        .or_else(|_| std::env::var("COMPUTERNAME"))
+        .unwrap_or_else(|_| {
+            std::fs::read_to_string("/etc/hostname")
+                .ok()
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .unwrap_or_else(|| crate::niche::NICHE_NAME.to_string())
+        })
+}
+
 impl HardwareInventory {
+    /// Auto-detect hardware, resolving the gate name from the environment.
+    ///
+    /// Prefers explicit name when provided; falls back to [`resolve_gate_name`].
+    #[must_use]
+    pub fn detect_local() -> Self {
+        Self::detect(&resolve_gate_name())
+    }
+
     /// Auto-detect hardware from Linux sysfs / nvidia-smi.
     #[must_use]
     pub fn detect(gate_name: &str) -> Self {

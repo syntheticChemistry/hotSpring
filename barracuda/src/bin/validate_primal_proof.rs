@@ -24,6 +24,13 @@
 //!
 //! Proto-nucleate: primalSpring/graphs/downstream/downstream_manifest.toml
 //! IPC mapping: docs/PRIMAL_PROOF_IPC_MAPPING.md
+//!
+//! # Determinism
+//!
+//! All probes use fixed, deterministic input values — no RNG or lattice Monte
+//! Carlo. The plaquette observations in Probe 4 are representative fixed floats,
+//! not hot-start samples. This ensures the proof is bit-reproducible across
+//! environments and NUCLEUS deployments.
 
 use hotspring_barracuda::primal_bridge::NucleusContext;
 use hotspring_barracuda::tolerances;
@@ -251,10 +258,15 @@ fn main() {
     // ════════════════════════════════════════════════════════════════════
     println!("═══ Probe 4: stats.mean + stats.std_dev — observables ═══");
     if bc_alive {
+        // Deterministic fixed plaquette observations — NOT from a random hot start.
+        // These are representative values near the SU(3) large-beta expectation (~1/3)
+        // chosen to be reproducible and independent of any RNG seed. This probe tests
+        // stats.mean / stats.std_dev arithmetic parity, not Monte Carlo convergence.
         // Python baseline: np.mean([0.333, 0.334, 0.332, 0.335, 0.331]) = 0.333
-        let plaquette_obs = [0.333, 0.334, 0.332, 0.335, 0.331];
-        let python_mean = 0.333;
-        let python_std = 0.001_414_213_562_373_095; // np.std(obs, ddof=0)
+        //                  np.std([...], ddof=0) = 0.001414213562373095
+        let plaquette_obs = [0.333, 0.334, 0.332, 0.335, 0.331_f64];
+        let python_mean = 0.333_f64;
+        let python_std = 0.001_414_213_562_373_095_f64; // np.std(obs, ddof=0)
 
         let mean_result = ctx.call_by_capability(
             "math",

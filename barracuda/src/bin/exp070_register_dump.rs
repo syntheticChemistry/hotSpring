@@ -1,13 +1,4 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-//
-// Hardware-touching binary: reads GPU BAR0 registers via sysfs mmap or ember IPC.
-#![cfg_attr(
-    feature = "low-level",
-    expect(
-        unsafe_code,
-        reason = "BAR0 register access via sysfs mmap + volatile reads requires unsafe"
-    )
-)]
 
 //! Experiment 070: BAR0 register dump for sovereign reverse engineering.
 //!
@@ -17,7 +8,9 @@
 //! ## Access modes
 //!
 //! - **Direct mmap** (default, requires `low-level` feature + sudo):
-//!   Opens `/sys/bus/pci/devices/<bdf>/resource0` via `mmap`.
+//!   Opens `/sys/bus/pci/devices/<bdf>/resource0` via `mmap`, wrapped in a
+//!   RAII [`Bar0View`] that bounds-checks every read and drops the mapping on
+//!   exit. Unsafe is confined to the two volatile-read lines inside `Bar0View`.
 //!
 //! - **Ember-routed** (`--via-ember`):
 //!   Routes all reads through `ember.mmio.read` IPC, using the fork-isolated,
@@ -30,74 +23,23 @@
 //!   cargo run --release --bin exp070_register_dump -- --via-ember <bdf> [output.json]
 
 use std::fs::File;
-use std::io::Write;
+use std::io::Write as _;
 
 use hotspring_barracuda::register_maps::{RegisterDump, RegisterEntry, detect_register_map};
 
 #[cfg(feature = "low-level")]
-const BAR0_MAP_SIZE: usize = 16 * 1024 * 1024;
+#[allow(unsafe_code)]
+#[path = "../low_level/bar0.rs"]
+mod bar0_mmio;
 
 #[cfg(feature = "low-level")]
-struct SafeBarMapping {
-    base: *const u8,
-    size: usize,
-}
+use bar0_mmio::Bar0View;
 
-#[cfg(feature = "low-level")]
-impl SafeBarMapping {
-    fn open(resource_path: &str) -> Result<Self, String> {
-        use rustix::mm::{MapFlags, ProtFlags, mmap};
-
-        let file = File::options()
-            .read(true)
-            .open(resource_path)
-            .map_err(|e| format!("cannot open {resource_path}: {e}"))?;
-        // SAFETY: resource0 is a PCI BAR mmap exposed by the kernel. Read-only, 16 MiB.
-        let mm = unsafe {
-            mmap(
-                std::ptr::null_mut(),
-                BAR0_MAP_SIZE,
-                ProtFlags::READ,
-                MapFlags::SHARED,
-                &file,
-                0,
-            )
-        }
-        .map_err(|_| format!("mmap of {resource_path} failed"))?;
-        Ok(Self {
-            base: mm.cast::<u8>(),
-            size: BAR0_MAP_SIZE,
-        })
-    }
-
-    fn read_register(&self, offset: u32) -> Result<u32, String> {
-        if (offset as usize) + 4 > self.size {
-            return Err(format!("offset {offset:#x} out of BAR0 range"));
-        }
-        // SAFETY: offset is bounds-checked above; base points to a valid mmap of BAR0.
-        let ptr = unsafe { self.base.add(offset as usize) };
-        let mut buf = [0u8; 4];
-        for (i, byte) in buf.iter_mut().enumerate() {
-            *byte = unsafe { std::ptr::read_volatile(ptr.add(i)) };
-        }
-        Ok(u32::from_le_bytes(buf))
-    }
-}
-
-#[cfg(feature = "low-level")]
-impl Drop for SafeBarMapping {
-    fn drop(&mut self) {
-        let mm = self.base.cast::<std::ffi::c_void>().cast_mut();
-        // SAFETY: base was created by mmap with this size; we own it exclusively.
-        if unsafe { rustix::mm::munmap(mm, self.size) }.is_err() {
-            eprintln!("WARNING: munmap failed");
-        }
-    }
-}
+// ── Access mode enum ─────────────────────────────────────────────────────────
 
 enum AccessMode {
     #[cfg(feature = "low-level")]
-    DirectMmap { mapping: SafeBarMapping },
+    DirectMmap(Bar0View),
     EmberIpc {
         client: hotspring_barracuda::fleet_client::EmberClient,
         bdf: String,
@@ -108,7 +50,7 @@ impl AccessMode {
     fn read_register(&self, offset: u32) -> Result<u32, String> {
         match self {
             #[cfg(feature = "low-level")]
-            AccessMode::DirectMmap { mapping } => mapping.read_register(offset),
+            AccessMode::DirectMmap(view) => view.read_u32(offset),
             AccessMode::EmberIpc { client, bdf } => {
                 let result = client.mmio_read(bdf, offset)?;
                 Ok(result.value)
@@ -119,7 +61,7 @@ impl AccessMode {
     fn mode_label(&self) -> &str {
         match self {
             #[cfg(feature = "low-level")]
-            AccessMode::DirectMmap { .. } => "direct-mmap",
+            AccessMode::DirectMmap(_) => "direct-mmap",
             AccessMode::EmberIpc { .. } => "ember-ipc",
         }
     }
@@ -173,12 +115,10 @@ fn main() {
         .map(String::as_str)
         .collect();
 
-    let bdf = positional
-        .first()
-        .map(|s| s.to_string())
-        .unwrap_or_else(|| {
-            std::env::var("HOTSPRING_BDF").unwrap_or_else(|_| "0000:03:00.0".to_string())
-        });
+    let bdf = positional.first().map_or_else(
+        || std::env::var("HOTSPRING_BDF").unwrap_or_else(|_| "0000:03:00.0".to_string()),
+        std::string::ToString::to_string,
+    );
     let output_path = positional.get(1).copied();
 
     let vendor_id = read_vendor_id(&bdf);
@@ -200,9 +140,13 @@ fn main() {
     } else {
         #[cfg(feature = "low-level")]
         {
-            let resource_path = format!("/sys/bus/pci/devices/{}/resource0", &bdf);
-            let mapping = match SafeBarMapping::open(&resource_path) {
-                Ok(m) => m,
+            match Bar0View::open(&bdf) {
+                Ok(view) => {
+                    eprintln!(
+                        "Mode: direct-mmap via /sys/bus/pci/devices/{bdf}/resource0"
+                    );
+                    AccessMode::DirectMmap(view)
+                }
                 Err(e) => {
                     eprintln!("ERROR: {e}");
                     eprintln!(
@@ -210,9 +154,7 @@ fn main() {
                     );
                     std::process::exit(1);
                 }
-            };
-            eprintln!("Mode: direct-mmap via {resource_path}");
-            AccessMode::DirectMmap { mapping }
+            }
         }
         #[cfg(not(feature = "low-level"))]
         {
@@ -281,6 +223,8 @@ fn main() {
     }
 
     println!("╚══════════════════════════════════════════════════════════════════╝");
+
+    // `access` is dropped here — Bar0View::drop() calls munmap automatically.
 
     let dump = RegisterDump {
         vendor: reg_map.vendor().to_string(),

@@ -55,6 +55,31 @@ echo "[5] Reloading udev rules..."
 udevadm control --reload-rules 2>/dev/null || true
 udevadm trigger 2>/dev/null || true
 
+# Step 5a: Install coral-ember (immortal VFIO fd holder + fork-isolated MMIO)
+echo "[5a] Installing coral-ember.service (sacrifice / crash interceptor)..."
+cp "$SCRIPT_DIR/coral-ember.service" /etc/systemd/system/coral-ember.service
+systemctl daemon-reload
+systemctl enable coral-ember.service
+echo "  -> /etc/systemd/system/coral-ember.service (enabled)"
+
+# Step 5b: PLX keepalive — now handled by coral-ember's pcie_keepalive.rs thread
+# The standalone plx-keepalive.service is DEPRECATED (replaced May 2026).
+# coral-ember reads [[pcie_switch]] from glowplug.toml and generates keepalive
+# traffic internally. If the old service is still enabled, disable it.
+if systemctl is-enabled --quiet plx-keepalive.service 2>/dev/null; then
+    echo "[5b] Disabling deprecated plx-keepalive.service (now handled by coral-ember)..."
+    systemctl disable plx-keepalive.service
+    systemctl stop plx-keepalive.service 2>/dev/null || true
+    echo "  -> plx-keepalive.service disabled (ember handles keepalive)"
+else
+    echo "[5b] PLX keepalive: handled by coral-ember (plx-keepalive.service not present)"
+fi
+
+# Step 5c: Install wake-and-run helper
+cp "$SCRIPT_DIR/k80-wake-and-run.sh" /usr/local/bin/k80-wake-and-run.sh
+chmod 755 /usr/local/bin/k80-wake-and-run.sh
+echo "  -> /usr/local/bin/k80-wake-and-run.sh"
+
 # Step 6: Update kernel cmdline vfio-pci.ids (Pop!_OS kernelstub)
 # Titan V (1d81+10f2) and K80 (102d) MUST be claimed at boot via cmdline.
 # K80 is behind a PLX PEX 8747 switch — any re-probe kills the PCIe link.

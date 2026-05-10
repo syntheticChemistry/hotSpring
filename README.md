@@ -20,7 +20,7 @@ hotSpring is where we reproduce published computational physics work from the Mu
 
 - **Phase E (Paper-Parity Long Run + Toadstool Rewire)**: 9-case Yukawa OCP sweep at N=10,000, 80k production steps — matching the Dense Plasma Properties Database exactly. **✅ 9/9 cases pass, 0.000-0.002% energy drift, 3.66 hours total, $0.044 electricity. Cell-list 4.1× faster than all-pairs. Toadstool GPU ops (BatchedEighGpu, SsfGpu, PppmGpu) wired into hotSpring.**
 
-- **Phase F (Kokkos-CUDA Parity + Verlet Neighbor List)**: Runtime-adaptive algorithm selection (AllPairs/CellList/VerletList) with DF64 precision on consumer GPUs. **✅ 9/9 cases pass, ≤0.004% drift. Verlet achieves 992 steps/s (κ=3) — gap vs Kokkos-CUDA closed from 27× to 3.7×. barraCuda v0.6.17.**
+- **Phase F (Kokkos-CUDA Parity + Verlet Neighbor List)**: Runtime-adaptive algorithm selection (AllPairs/CellList/VerletList) with DF64 precision on consumer GPUs. **✅ 9/9 cases pass, ≤0.004% drift. Verlet achieves 992 steps/s (κ=3) — gap vs Kokkos-CUDA closed from 27× to 3.7×. barraCuda v0.6.32.**
 
 - **Phase G (Universal Substrate Deployment)**: guideStone-certified artifact deployable on any OS, any architecture, any filesystem. **✅ 59/59 checks x 5 substrates. Cross-architecture parity (x86_64 + aarch64, bit-identical). OCI container image. Windows WSL2/Docker + macOS Docker launchers. exFAT tmpdir fallback. `./hotspring` unified ecoBin entry point. benchScale 5-substrate validation (40/40 cross-substrate parity).**
 
@@ -57,7 +57,7 @@ hotSpring is the reference implementation for the guideStone Composition Standar
 
 **Pre-flight**: `hotspring_unibin certify` certifies composition correctness (6 layers). The legacy `hotspring_guidestone` binary is transitional — use `hotspring_unibin certify` instead.
 
-**plasmidBin Deployment**: NUCLEUS primals ship as musl-static genomeBin binaries (46 binaries across 6 target triples, primalSpring v0.9.25) via `infra/plasmidBin/`. No compilation needed — deploy with `nucleus_launcher.sh --composition niche-hotspring`, then run `hotspring_guidestone` against the live stack. See `scripts/validate-primal-proof.sh` for the end-to-end workflow (auto-sets BEARDOG_FAMILY_SEED, SONGBIRD_SECURITY_PROVIDER, NESTGATE_JWT_SECRET).
+**plasmidBin Deployment**: NUCLEUS primals ship as musl-static genomeBin binaries (46 binaries across 6 target triples, primalSpring v0.9.25) via `primals/biomeOS/plasmidBin/`. No compilation needed — deploy with `nucleus_launcher.sh --composition niche-hotspring`, then run `hotspring_guidestone` against the live stack. See `scripts/validate-primal-proof.sh` for the end-to-end workflow (auto-sets BEARDOG_FAMILY_SEED, SONGBIRD_SECURITY_PROVIDER, NESTGATE_JWT_SECRET).
 
 **Composition Template (Phase 46)**: `tools/hotspring_composition.sh` implements event-driven QCD computation via the NUCLEUS composition library. Async tick model (convergence-based, not 60Hz), DAG memoization for parameter sweeps, ledger-sealed reproducible runs, and scientific provenance braids for peer-review audit. Run with `COMPOSITION_NAME=hotspring ./tools/hotspring_composition.sh` (requires NUCLEUS primals) or test in bare mode (graceful degradation, no crash).
 
@@ -104,9 +104,9 @@ Domain-specific NUCLEUS deployment profiles in `graphs/`:
 
 Deploy: `biomeos deploy --graph graphs/<name>.toml`
 
-## Current Status (2026-05-08, Deep Debt Evolution)
+## Current Status (2026-05-10)
 
-> **181 experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **1002 lib tests, 166 binaries, 64/64 validation suites, 128 WGSL shaders** | **deny.toml** (ecoBin C-dep bans) | **all 13 physics/compute methods wired in JSON-RPC server** | **zero `dyn` dispatch, zero unsafe, `#[expect]` over `#[allow]`** | **guideStone artifact: 59/59 checks x 5 substrates (x86_64 + aarch64)** | **OCI container image + Windows/macOS launchers** | **RTX 5060 sovereign dispatch PROVEN (8/8)** | **K80 warm NOP dispatch wired + cold PLL fix** | **Titan V warm handoff: DMATRF to FECS PROVEN (101 blocks, 192µs), ROM security gate identified** | **SLM pool allocation (2 MiB)** | **AMD sovereign compiler: 24/24 QCD shaders** | **NVIDIA sovereign compiler: SM35 + SM70 + SM120** | **Ember gate + survivability hardening COMPLETE** | **SovereignInit Pipeline COMPLETE** | **NUCLEUS Composition Evolution COMPLETE** | **coralReef f64 transcendental lowering (SM32+)** | **Level 5 Primal Proof** | **GPU Generation Profile Architecture** | **unsafe audit: all NECESSARY**
+> **184 experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **1002 lib tests, 166 binaries, 64/64 validation suites, 128 WGSL shaders** | **deny.toml** (ecoBin C-dep bans) | **all 13 physics/compute methods wired in JSON-RPC server** | **zero `dyn` dispatch, `#[forbid(unsafe_code)]` on lib (unsafe confined to low-level GPU experiment bins), `#[expect]` over `#[allow]`** | **guideStone artifact: 59/59 checks x 5 substrates (x86_64 + aarch64)** | **OCI container image + Windows/macOS launchers** | **RTX 5060 sovereign dispatch PROVEN (8/8)** | **K80 warm NOP dispatch wired + cold PLL fix** | **Titan V warm handoff: DMATRF to FECS PROVEN (101 blocks, 192µs), ROM security gate identified** | **SLM pool allocation (2 MiB)** | **AMD sovereign compiler: 24/24 QCD shaders** | **NVIDIA sovereign compiler: SM35 + SM70 + SM120** | **Ember gate + survivability hardening COMPLETE** | **SovereignInit Pipeline COMPLETE** | **NUCLEUS Composition Evolution COMPLETE** | **coralReef f64 transcendental lowering (SM32+)** | **Level 5 Primal Proof** | **GPU Generation Profile Architecture** | **unsafe audit: all NECESSARY**
 >
 > **Three-Tier Validation Architecture (2026-04-17):** Python baselines → Rust validation → NUCLEUS primal composition validation. **guideStone bare mode: 30/30 checks pass** (Property 3 BLAKE3 CHECKSUMS verified, deny.toml present, all 5 bare properties green). Only 3 SKIPs remain — expected NUCLEUS liveness probes when no primals deployed. The same tolerance-driven, exit-code-gated methodology that proved Rust matches Python now proves IPC-composed NUCLEUS patterns match direct Rust execution. Composition validators (`validate_nucleus_*`) run standalone (skip-pass for CI, exit 2 = all skipped) or against live primals (full IPC validation). `validate_science_probes()` validates compute, math, and provenance trio capabilities via IPC with Rust baseline parity. Pattern documented for sibling spring adoption in wateringHole handoffs.
 >
@@ -299,13 +299,13 @@ environment, physics implementations, and GPU compute. Key architectural propert
 - **NaN-safe** — all float sorting uses `f64::total_cmp()`.
 - **Zero external commands** — pure-Rust ISO 8601 timestamps (Hinnant algorithm),
   no `date` shell-out. `nvidia-smi` calls degrade gracefully.
-- **No unsafe code** — zero `unsafe` blocks in the entire crate. `niche::set_family_id()` uses `OnceLock` instead of `unsafe { std::env::set_var }`.
+- **Unsafe confined** — library crate enforces `#![forbid(unsafe_code)]`. Low-level GPU experiment binaries (`exp169`–`exp183`, gated behind `required-features = ["low-level"]`) use audited `unsafe` for direct BAR0 mmap; production and science code is fully safe. `niche::set_family_id()` uses `OnceLock` instead of `unsafe { std::env::set_var }`.
 - **NUCLEUS composition** — `niche.rs` declares proto-nucleate (`downstream_manifest.toml`), capabilities, and dependencies.
   `composition.rs` validates atomic health (Tower/Node/Nest/FullNucleus) via IPC; `squirrel_client.rs` wires the Squirrel IPC client for primal communication.
   `mcp_tools.rs` exposes 5 MCP tool schemas for AI/LLM integration.
   `hotspring_primal.rs` JSON-RPC server serves `health.*`, `capability.*`, `composition.*`, `physics.*`, `compute.*`, and `mcp.tools.list` — all 13 physics/compute methods fully dispatched with `catch_unwind` safety. ecoBin packaging via `scripts/harvest-ecobin.sh`.
   Composition tolerances centralized: `COMPOSITION_SEMF_PARITY_REL` (1e-10) and `COMPOSITION_PLAQUETTE_PARITY_ABS` (1e-12) for science parity probes.
-- **Quality gates**: Zero clippy warnings (lib), zero unsafe blocks, zero `dyn` dispatch in production code, `#[expect(lint, reason)]` in all production binaries, `deny.toml` enforced (ecoBin C-dep bans + async-trait ban), 8 scoped EVOLUTION(B2) markers (GPU-resident migration), all files <1000 lines, AGPL-3.0-only consistent.
+- **Quality gates**: Zero clippy warnings (lib), `#![forbid(unsafe_code)]` on lib (unsafe audited and confined to low-level experiment bins), zero `dyn` dispatch in production code, `#[expect(lint, reason)]` in all production binaries, `deny.toml` enforced (ecoBin C-dep bans + async-trait ban), 8 scoped EVOLUTION(B2) markers (GPU-resident migration), all files <1000 lines, AGPL-3.0-only consistent.
 
 ```bash
 cd barracuda
@@ -447,15 +447,20 @@ hotSpring/
 │       ├── hotspring_primal.rs       # JSON-RPC server (health, capability, composition, MCP)
 │       └── bin/                       # 166 binaries (validation, production, benchmarks, composition, guideStone)
 │
-├── experiments/                        # 181 experiment journals (fossil record); 001-143 archived under experiments/archive/
+├── experiments/                        # 184 experiment journals (fossil record); 001-143 archived under experiments/archive/
 │   ├── archive/                        # experiments 001-143 (archived journals)
-│   ├── 144-150: PMC bit5 ACR progress, crash vector hunt, sacrificial ember architecture validation
-│   ├── 151-165: Revalidation, ember hardening, SovereignInit pipeline, firmware boundary pivot
-│   ├── 166-175: Sovereign boot wiring, warm handoff, K80 sovereign, RTX 5060 shared compute
-│   ├── 176-178: QCD parity, Blackwell ABI, K80 PGOB nvidia-470 analysis
-│   └── 179-181: K80 FECS dispatch, three-GPU HW validation, sovereign dispatch sweep
+│   ├── 144-150: PMC bit5 ACR progress, crash vector hunt, sacrificial ember architecture
+│   ├── 151-165: Revalidation, ember hardening, SovereignInit pipeline, firmware boundary
+│   ├── 166-175: Sovereign boot wiring, warm handoff, K80 sovereign, RTX 5060 shared
+│   ├── 176-181: QCD parity, Blackwell ABI, K80 PGOB, FECS dispatch, sovereign sweep
+│   └── 182-184: K80 FECS PIO/interrupt boot, K80 GR sovereign (ember-wired)
 │
-├── scripts/                            # Build, regeneration, deployment scripts
+├── wateringHole/                       # Lab artifacts, handoffs, mmiotraces
+│   ├── handoffs/                      # Dated evolution handoff documents (11 docs)
+│   └── mmiotraces/                    # GPU mmiotrace captures
+│
+├── scripts/                            # Build, regeneration, deployment, boot scripts
+│   ├── boot/                          # Systemd units, wake scripts, install scripts
 │   ├── validate-primal-proof.sh       # Primal proof validation (bare + NUCLEUS modes)
 │   ├── build-guidestone.sh            # Build guideStone artifact (dual-arch, container, launchers)
 │   ├── build-container.sh             # Build + export OCI container image
@@ -464,6 +469,9 @@ hotSpring/
 │   ├── ci-coverage-gate.sh           # CI coverage threshold enforcement (90% line)
 │   └── regenerate-all.sh             # Full science regeneration pipeline
 │
+├── sporeprint/                         # SporePrint / primals.eco publishing
+├── tools/                              # Composition scripts, helpers
+├── notebooks/                          # Jupyter notebooks (Phase A baselines)
 ├── specs/                              # Specifications, requirements, gap trackers
 ├── control/                            # Python control scripts (by domain)
 ├── metalForge/                         # Hardware characterization (GPU, NPU, nodes)

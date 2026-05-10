@@ -98,7 +98,7 @@ systemctl status coral-glowplug coral-ember@*
 cargo run --release --bin validate_ember_resilience
 
 # Or via the orchestration script
-./scripts/exp153_flood_test.sh
+./scripts/archive/exp153_flood_test.sh
 ```
 
 ### Expected behavior
@@ -164,4 +164,4 @@ takes too long, the following defenses should be added to coral-ember:
 | `coralReef/crates/coral-glowplug/src/main.rs` | Vault Arc threading to accept_loop |
 | `hotSpring/barracuda/src/fleet_client.rs` | `flood_test()`, `FloodTestConfig`, `verify_ember_alive()` |
 | `hotSpring/barracuda/src/bin/validate_ember_resilience.rs` | 6-phase validation binary |
-| `hotSpring/scripts/exp153_flood_test.sh` | Orchestration: systemctl + binary + log collection |
+| `hotSpring/scripts/archive/exp153_flood_test.sh` | Orchestration: systemctl + binary + log collection |

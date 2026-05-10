@@ -87,6 +87,8 @@ pub mod hardware_calibration;
 pub mod ipc;
 /// Lattice QCD: SU(3), Wilson action, HMC, Dirac, CG, Abelian Higgs.
 pub mod lattice;
+/// Safe RAII wrappers for PCI BAR0 MMIO (requires `low-level` feature).
+///
 /// MCP (Model Context Protocol) tool definitions for AI/LLM integration.
 pub mod mcp_tools;
 /// GPU molecular dynamics (f64 WGSL Yukawa OCP, cell-list, transport).

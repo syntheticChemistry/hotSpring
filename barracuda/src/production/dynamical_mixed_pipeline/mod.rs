@@ -4,6 +4,7 @@
 //!
 //! Extracted from `production_dynamical_mixed` binary to reduce binary size.
 
+mod npu_post;
 mod single_beta;
 
 use crate::lattice::gpu_hmc::{GpuDynHmcStreamingPipelines, GpuHmcStreamingPipelines};

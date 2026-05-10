@@ -7,7 +7,10 @@
 
 mod cg_residual;
 mod handlers;
+mod handlers_inference;
 mod handlers_lifecycle;
+mod handlers_screening;
+mod handlers_steering;
 mod head_confidence;
 mod messages;
 mod training;

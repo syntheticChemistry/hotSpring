@@ -855,6 +855,14 @@ path = "src/bin/exp158_sec2_real_firmware.rs"
 name = "exp167_warm_handoff"
 path = "src/bin/exp167_warm_handoff.rs"
 
+# ── Exp 168: PMU firmware probe — P0 gate for Titan V sovereign compute ──────
+# Scans nv-kernel.o_binary / .run installers for GV100 PMU firmware blobs.
+# Without PMU FW, SEC2 ACR cannot complete → WPR never configured → FECS stuck.
+# See: wateringHole/handoffs/HOTSPRING_CORALREEF_TITANV_WARM_DMATRF_HANDOFF_MAY07_2026.md
+[[bin]]
+name = "exp168_pmu_firmware_probe"
+path = "src/bin/exp168_pmu_firmware_probe.rs"
+
 # ═══════════════════════════════════════════════════════════════
 # NUCLEUS Composition Validation (Phase 2: Rust → Primal composition)
 # ═══════════════════════════════════════════════════════════════
@@ -903,3 +911,39 @@ path = "src/bin/hotspring/main.rs"
 name = "hotspring_guidestone"
 path = "src/bin/hotspring_guidestone.rs"
 
+[[bin]]
+name = "exp169_pmu_boot"
+path = "src/bin/exp169_pmu_boot.rs"
+required-features = ["low-level"]
+
+# ── Exp 170: Sovereign GV100 cold-boot from mmiotrace recipe ──
+[[bin]]
+name = "exp170_sovereign_cold_boot"
+path = "src/bin/exp170_sovereign_cold_boot.rs"
+required-features = ["low-level"]
+
+# ── Exp 171: Sovereign GV100 SEC2 boot — ACR/WPR configuration ──
+[[bin]]
+name = "exp171_sovereign_sec2_boot"
+path = "src/bin/exp171_sovereign_sec2_boot.rs"
+required-features = ["low-level"]
+
+# ── Exp 182: K80 FECS PIO boot (low-level, diagnostic) ──
+[[bin]]
+name = "exp182_k80_fecs_pio_boot"
+path = "src/bin/exp182_k80_fecs_pio_boot.rs"
+required-features = ["low-level"]
+
+# ── Exp 183: K80 FECS interrupt-driven boot (low-level, diagnostic) ──
+[[bin]]
+name = "exp183_k80_fecs_int_boot"
+path = "src/bin/exp183_k80_fecs_int_boot.rs"
+required-features = ["low-level"]
+
+# ── Exp 184: K80 Sovereign GR engine boot via coral-ember RPCs ──────────────
+# Rewired from raw Bar0Map mmap to EmberClient JSON-RPC.
+# All GPU access routes through coral-ember (crash-protected, VFIO fd safe).
+# Diagnostic tool; the proven sequence is promoted to coral-driver sovereign_stages.rs.
+[[bin]]
+name = "exp184_k80_gr_sovereign"
+path = "src/bin/exp184_k80_gr_sovereign.rs"

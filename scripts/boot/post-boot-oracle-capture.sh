@@ -12,7 +12,8 @@
 set -euo pipefail
 
 ORACLE="0000:02:00.0"
-VFIO_TARGET="0000:4a:00.0"
+# K80 die0 sits behind PLX at 4b:00.0 (was incorrectly 4a:00.0 — a PLX downstream port)
+VFIO_TARGET="0000:4b:00.0"
 OUTDIR="$(cd "$(dirname "$0")/.." && pwd)/data"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 DO_MMIOTRACE="${1:-}"

@@ -7,6 +7,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Sovereign Pipeline Hardening + Docs Cleanup (May 10, 2026)
+
+### Added
+- **Experiments 182–184**: K80 FECS PIO boot, K80 FECS interrupt boot, K80 GR sovereign (ember-wired). Added to EXPERIMENT_INDEX.md and experiments/README.md.
+- **wateringHole/README.md**: Index of handoffs, mmiotraces, and deprecated lab scripts.
+- **Upstream handoff**: `HOTSPRING_CORALREEF_SOVEREIGN_KEEPALIVE_HANDOFF_MAY10_2026.md` — documents all coral-ember/glowplug hardening, upstream debt, and composition patterns for NUCLEUS/neuralAPI.
+
+### Changed
+- **coral-ember**: BDF validation (`validate_bdf`), keepalive interval clamping (≥250ms), COMMAND register + endpoint device reads in keepalive loop, lock-poison returns JSON-RPC error, `last_error` and `endpoint_alive` in `SwitchHealth`.
+- **coral-glowplug**: Config validation on load (BDF format + cross-ref), `query_switch_health` wrapped in `spawn_blocking` (2s timeout), sovereign pre-flight switch check, log level promotion for switch health failures.
+- **k80-wake-and-run.sh**: BDFs extracted from `glowplug.toml` via `tomllib` (zero hardcoded addresses), socket-readiness poll loops replace fixed sleeps, DRM isolation rules generated from config.
+- **k80-sovereign-wake.service**: Orders after `coral-glowplug.service` (was ember only).
+- **coral-ember.service**: Added `StartLimitIntervalSec=300 / StartLimitBurst=3`.
+- **install-boot-config.sh**: Disables deprecated `plx-keepalive.service` instead of installing it.
+- **post-boot-oracle-capture.sh**: Fixed stale VFIO target BDF (4a→4b).
+- **README.md**: Fixed version ref (v0.6.17→v0.6.32), directory tree (added wateringHole, sporeprint, tools, notebooks, scripts/boot), unsafe claims aligned with actual `#![forbid(unsafe_code)]` + low-level bin exceptions, experiment count 181→184, plasmidBin path corrected.
+
+### Deprecated
+- `wateringHole/warm_handoff.sh` — marked as legacy ad-hoc lab script, violates coralctl-only policy.
+- `scripts/boot/plx-keepalive.sh` — already deprecated (kept as fossil record).
+- `fleet_mode` and `standby_pool_size` keys removed from `/etc/coralreef/glowplug.toml`.
+
 ## Unreleased — Deep Debt Evolution Phase 3 (May 9, 2026)
 
 ### Changed
@@ -130,7 +152,6 @@ This file covers the spring as a whole. For crate-level details see
   with `barracuda-local` default feature. Build with `--no-default-features`
   for IPC-only NUCLEUS deployment mode. Declaration of intent — all existing
   code continues to work with default features enabled.
-
 ## Unreleased — Paper Baseline Notebooks (May 7, 2026)
 
 ### Added

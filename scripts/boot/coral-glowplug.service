@@ -9,6 +9,7 @@ Before=display-manager.service
 Type=notify
 NotifyAccess=main
 ExecStartPre=/bin/sh -c 'echo Y > /sys/module/vfio_pci/parameters/disable_idle_d3 2>/dev/null || true'
+ExecStartPre=/bin/sh -c 'for d in 0000:49:00.0 0000:4a:08.0 0000:4a:10.0; do echo on > /sys/bus/pci/devices/$d/power/control 2>/dev/null; echo 0 > /sys/bus/pci/devices/$d/power/d3cold_allowed 2>/dev/null; done; true'
 ExecStart=/usr/local/bin/coral-glowplug --config /etc/coralreef/glowplug.toml
 Restart=on-failure
 RestartSec=5

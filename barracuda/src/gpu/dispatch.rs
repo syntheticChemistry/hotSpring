@@ -155,3 +155,179 @@ impl GpuF64 {
         self.read_staging_f64(&staging)
     }
 }
+
+// ── Pipeline creation ────────────────────────────────────────────────────────
+
+use barracuda::shaders::precision::ShaderTemplate;
+use log::{debug, error, warn};
+
+impl GpuF64 {
+    /// Create a compute pipeline with `WgslOptimizer` + driver-aware patching.
+    ///
+    /// Does NOT apply exp/log workarounds — use [`Self::create_pipeline_f64`]
+    /// for shaders that call `exp()` or `log()` on f64 values.
+    #[must_use]
+    pub fn create_pipeline(&self, shader_source: &str, label: &str) -> wgpu::ComputePipeline {
+        let optimized = ShaderTemplate::for_driver_auto(shader_source, false);
+        self.build_pipeline_inner(&optimized, "main", label)
+    }
+
+    /// Create a compute pipeline with driver-aware f64 patching + sovereign compilation.
+    #[must_use]
+    pub fn create_pipeline_f64(&self, shader_source: &str, label: &str) -> wgpu::ComputePipeline {
+        if self.full_df64_mode {
+            return self.compile_full_df64_pipeline(shader_source, label);
+        }
+        let shader_module = self
+            .wgpu_device
+            .compile_shader_f64(shader_source, Some(label));
+        self.validate_pipeline_inner(shader_module, "main", label)
+    }
+
+    /// DF64 pipeline for hand-written DF64 shaders (Hybrid mode).
+    #[must_use]
+    pub fn create_pipeline_df64(&self, shader_source: &str, label: &str) -> wgpu::ComputePipeline {
+        let shader_module = self
+            .wgpu_device
+            .compile_shader_df64(shader_source, Some(label));
+        self.validate_pipeline_inner(shader_module, "main", label)
+    }
+
+    /// Precision-preserving f64 pipeline (no FMA fusion).
+    #[must_use]
+    pub fn create_pipeline_f64_precise(
+        &self,
+        shader_source: &str,
+        label: &str,
+    ) -> wgpu::ComputePipeline {
+        if self.full_df64_mode {
+            return self.compile_full_df64_pipeline(shader_source, label);
+        }
+        let optimized = ShaderTemplate::for_driver_auto(
+            shader_source,
+            self.wgpu_device.needs_f64_exp_log_workaround(),
+        );
+        self.build_pipeline_inner(&optimized, "main", label)
+    }
+
+    /// Full DF64 pipeline: delegates to barraCuda's `compile_shader_universal`.
+    pub fn compile_full_df64_pipeline(
+        &self,
+        shader_source: &str,
+        label: &str,
+    ) -> wgpu::ComputePipeline {
+        let shader_module = self
+            .wgpu_device
+            .compile_shader_df64(shader_source, Some(label));
+        self.validate_pipeline_inner(shader_module, "main", label)
+    }
+
+    /// Precise f64 pipeline with a named entry point (no FMA fusion).
+    #[must_use]
+    pub fn create_pipeline_f64_entry_precise(
+        &self,
+        shader_source: &str,
+        entry_point: &str,
+        label: &str,
+    ) -> wgpu::ComputePipeline {
+        if self.full_df64_mode {
+            return self.compile_full_df64_pipeline(shader_source, label);
+        }
+        let optimized = ShaderTemplate::for_driver_auto(
+            shader_source,
+            self.wgpu_device.needs_f64_exp_log_workaround(),
+        );
+        self.build_pipeline_inner(&optimized, entry_point, label)
+    }
+
+    /// f64 pipeline with a named entry point.
+    #[must_use]
+    pub fn create_pipeline_f64_entry(
+        &self,
+        shader_source: &str,
+        entry_point: &str,
+        label: &str,
+    ) -> wgpu::ComputePipeline {
+        if self.full_df64_mode {
+            return self.compile_full_df64_pipeline(shader_source, label);
+        }
+        let shader_module = self
+            .wgpu_device
+            .compile_shader_f64(shader_source, Some(label));
+        self.validate_pipeline_inner(shader_module, entry_point, label)
+    }
+
+    /// Shared pipeline builder: validated path (sovereign / compiled shader module).
+    ///
+    /// Consolidates the former `validate_pipeline` + `validate_pipeline_entry` pair
+    /// into a single function parameterised on `entry_point`.
+    fn validate_pipeline_inner(
+        &self,
+        shader_module: wgpu::ShaderModule,
+        entry_point: &str,
+        label: &str,
+    ) -> wgpu::ComputePipeline {
+        let t0 = std::time::Instant::now();
+        let gpu_tag = &self.adapter_name;
+        let scope = self
+            .device()
+            .push_error_scope(wgpu::ErrorFilter::Validation);
+        let pipeline = self
+            .device()
+            .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                label: Some(label),
+                layout: None,
+                module: &shader_module,
+                entry_point: Some(entry_point),
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+                cache: None,
+            });
+        let waker = std::task::Waker::noop();
+        let mut cx = std::task::Context::from_waker(waker);
+        use std::future::Future;
+        let mut fut = std::pin::pin!(scope.pop());
+        let _ = self.device().poll(wgpu::PollType::Wait {
+            submission_index: None,
+            timeout: None,
+        });
+        match fut.as_mut().poll(&mut cx) {
+            std::task::Poll::Ready(Some(e)) => {
+                error!("[pipeline:{gpu_tag}] {label}: PIPELINE ERROR: {e}");
+            }
+            std::task::Poll::Ready(None) => {
+                debug!(
+                    "[pipeline:{gpu_tag}] {label}: pipeline valid ({:?})",
+                    t0.elapsed()
+                );
+            }
+            std::task::Poll::Pending => {
+                warn!(
+                    "[pipeline:{gpu_tag}] {label}: pipeline status pending ({:?})",
+                    t0.elapsed()
+                );
+            }
+        }
+        pipeline
+    }
+
+    /// Shared pipeline builder: WGSL-text path (skips sovereign compilation).
+    ///
+    /// Consolidates the former `build_pipeline` + `build_pipeline_entry` pair.
+    fn build_pipeline_inner(&self, wgsl: &str, entry_point: &str, label: &str) -> wgpu::ComputePipeline {
+        let shader_module = self
+            .device()
+            .create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: Some(label),
+                source: wgpu::ShaderSource::Wgsl(wgsl.into()),
+            });
+        self.device()
+            .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                label: Some(label),
+                layout: None,
+                module: &shader_module,
+                entry_point: Some(entry_point),
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+                cache: None,
+            })
+    }
+}

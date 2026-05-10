@@ -1,68 +1,126 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use crate::lattice::cg::{CgResult, cg_solve};
-use crate::lattice::constants::lcg_uniform_f64;
+//! Hasenbusch mass preconditioning for HMC.
+//!
+//! Two-level split of the fermion determinant (Hasenbusch 2001, PLB 519, 177):
+//!
+//!   det(D†D(m_l)) = det(D†D(m_h)) × det(D†D(m_l)/D†D(m_h))
+//!
+//! Heavy sector is cheap (few CG iterations); ratio sector has smaller
+//! condition number than the full light-mass operator.
+
+use crate::lattice::cg::cg_solve;
 use crate::lattice::dirac::{FermionField, apply_dirac_sq};
 use crate::lattice::hmc::exp_su3_cayley_pub;
 use crate::lattice::su3::Su3Matrix;
 use crate::lattice::wilson::Lattice;
 
-/// Configuration for Hasenbusch mass preconditioning (Hasenbusch 2001, PLB 519, 177).
+use super::action::{force_bilinear_ab, pseudofermion_force, pseudofermion_heatbath};
+use super::config::{HasenbuschConfig, HasenbuschHmcConfig};
+
+/// Heatbath for the heavy sector: `φ_H` = `D†(m_heavy)` η.
+pub fn hasenbusch_heavy_heatbath(
+    lattice: &Lattice,
+    heavy_mass: f64,
+    seed: &mut u64,
+) -> FermionField {
+    pseudofermion_heatbath(lattice, heavy_mass, seed)
+}
+
+/// Heatbath for the ratio sector: φ = `D†(m_heavy)` η.
 ///
-/// Two-level split: `det(D†D(m_light))` = `det(D†D(m_heavy))` × `det(D†D(m_light)/D†D(m_heavy))`.
-/// Heavy sector is cheap (few CG iterations); ratio sector has smaller condition number than
-/// the full light-mass operator → faster CG and smaller forces.
-#[derive(Clone, Debug)]
-pub struct HasenbuschConfig {
-    /// Heavy (intermediate) mass — typically 0.3–0.5.
-    pub heavy_mass: f64,
-    /// Light (physical) mass — typically 0.01–0.1.
-    pub light_mass: f64,
-    /// CG tolerance for inversions.
-    pub cg_tol: f64,
-    /// CG maximum iterations per solve.
-    pub cg_max_iter: usize,
-    /// MD steps for the light (ratio) sector — more steps (expensive inversions).
-    pub n_md_steps_light: usize,
-    /// MD steps for the heavy sector — fewer steps (cheap inversions).
-    pub n_md_steps_heavy: usize,
+/// Standard approximation (exact would use matrix square root).
+pub fn hasenbusch_ratio_heatbath(
+    lattice: &Lattice,
+    heavy_mass: f64,
+    seed: &mut u64,
+) -> FermionField {
+    pseudofermion_heatbath(lattice, heavy_mass, seed)
 }
 
-impl Default for HasenbuschConfig {
-    fn default() -> Self {
-        Self {
-            heavy_mass: 0.4,
-            light_mass: 0.1,
-            cg_tol: 1e-8,
-            cg_max_iter: 5000,
-            n_md_steps_light: 16,
-            n_md_steps_heavy: 4,
-        }
+/// Action for the heavy sector: `S_H` = `φ†(D†D(m_heavy))⁻¹φ`.
+///
+/// Returns (action, CG result, solution x).
+pub fn hasenbusch_heavy_action(
+    lattice: &Lattice,
+    phi: &FermionField,
+    config: &HasenbuschConfig,
+) -> (f64, crate::lattice::cg::CgResult, FermionField) {
+    let vol = lattice.volume();
+    let mut x = FermionField::zeros(vol);
+
+    let cg_result = cg_solve(
+        lattice,
+        &mut x,
+        phi,
+        config.heavy_mass,
+        config.cg_tol,
+        config.cg_max_iter,
+    );
+
+    let action = phi.dot(&x).re;
+    (action, cg_result, x)
+}
+
+/// Action for the ratio sector: `S_ratio` = `φ†(D†D(m_light))⁻¹D†D(m_heavy)φ`.
+///
+/// Solve (`D†D(m_light)`) x = φ, then S = φ†`D†D(m_heavy)`x.
+/// Returns (action, CG result, x for force computation).
+pub fn hasenbusch_ratio_action(
+    lattice: &Lattice,
+    phi: &FermionField,
+    config: &HasenbuschConfig,
+) -> (f64, crate::lattice::cg::CgResult, FermionField) {
+    let vol = lattice.volume();
+    let mut x = FermionField::zeros(vol);
+
+    let cg_result = cg_solve(
+        lattice,
+        &mut x,
+        phi,
+        config.light_mass,
+        config.cg_tol,
+        config.cg_max_iter,
+    );
+
+    let ddx = apply_dirac_sq(lattice, &x, config.heavy_mass);
+    let action = phi.dot(&ddx).re;
+
+    (action, cg_result, x)
+}
+
+/// Force for the ratio sector.
+///
+/// `S_ratio` = φ†A⁻¹Bφ with A = `D†D(m_light)`, B = `D†D(m_heavy)`.
+/// dS/dU = −y†(dA/dU)x + φ†A⁻¹(dB/dU)φ, where x = A⁻¹φ, y = A⁻¹Bφ.
+#[must_use]
+pub fn hasenbusch_ratio_force(
+    lattice: &Lattice,
+    phi: &FermionField,
+    x: &FermionField,
+    config: &HasenbuschConfig,
+) -> Vec<Su3Matrix> {
+    let vol = lattice.volume();
+    let rhs = apply_dirac_sq(lattice, phi, config.heavy_mass);
+    let mut y = FermionField::zeros(vol);
+
+    let _cg = cg_solve(
+        lattice,
+        &mut y,
+        &rhs,
+        config.light_mass,
+        config.cg_tol,
+        config.cg_max_iter,
+    );
+
+    let f1 = force_bilinear_ab(lattice, &y, x, config.light_mass);
+    let f2 = force_bilinear_ab(lattice, x, phi, config.heavy_mass);
+
+    let mut force = vec![Su3Matrix::ZERO; vol * 4];
+    for (out, (a, b)) in force.iter_mut().zip(f1.iter().zip(f2.iter())) {
+        *out = *a - *b;
     }
-}
-
-/// Configuration for Hasenbusch HMC.
-#[derive(Clone, Debug)]
-pub struct HasenbuschHmcConfig {
-    /// MD step size.
-    pub dt: f64,
-    /// RNG seed.
-    pub seed: u64,
-    /// Hasenbusch mass splitting parameters.
-    pub hasenbusch: HasenbuschConfig,
-    /// Inverse coupling β.
-    pub beta: f64,
-}
-
-impl Default for HasenbuschHmcConfig {
-    fn default() -> Self {
-        Self {
-            dt: 0.02,
-            seed: 42,
-            hasenbusch: HasenbuschConfig::default(),
-            beta: 5.5,
-        }
-    }
+    force
 }
 
 /// Result of a Hasenbusch HMC trajectory.
@@ -84,116 +142,6 @@ pub struct HasenbuschHmcResult {
     pub cg_iterations_ratio: usize,
 }
 
-/// Heatbath for the heavy sector: `φ_H` = `D†(m_heavy)` η.
-pub fn hasenbusch_heavy_heatbath(
-    lattice: &Lattice,
-    heavy_mass: f64,
-    seed: &mut u64,
-) -> FermionField {
-    super::pseudofermion_heatbath(lattice, heavy_mass, seed)
-}
-
-/// Heatbath for the ratio sector: φ = `D†(m_heavy)` η.
-///
-/// Standard approximation (exact would use matrix square root).
-pub fn hasenbusch_ratio_heatbath(
-    lattice: &Lattice,
-    heavy_mass: f64,
-    seed: &mut u64,
-) -> FermionField {
-    super::pseudofermion_heatbath(lattice, heavy_mass, seed)
-}
-
-/// Action for the heavy sector: `S_H` = `φ†(D†D(m_heavy))⁻¹φ`.
-///
-/// Returns (action, CG result, solution x).
-pub fn hasenbusch_heavy_action(
-    lattice: &Lattice,
-    phi: &FermionField,
-    config: &HasenbuschConfig,
-) -> (f64, CgResult, FermionField) {
-    let vol = lattice.volume();
-    let mut x = FermionField::zeros(vol);
-
-    let cg_result = cg_solve(
-        lattice,
-        &mut x,
-        phi,
-        config.heavy_mass,
-        config.cg_tol,
-        config.cg_max_iter,
-    );
-
-    let action = phi.dot(&x).re;
-    (action, cg_result, x)
-}
-
-/// Action for the ratio sector: `S_ratio` = `φ†(D†D(m_light))⁻¹` `D†D(m_heavy)` φ.
-///
-/// Solve (`D†D(m_light)`) x = φ, then S = φ† `D†D(m_heavy)` x.
-/// Returns (action, CG result, x for force computation).
-pub fn hasenbusch_ratio_action(
-    lattice: &Lattice,
-    phi: &FermionField,
-    config: &HasenbuschConfig,
-) -> (f64, CgResult, FermionField) {
-    let vol = lattice.volume();
-    let mut x = FermionField::zeros(vol);
-
-    let cg_result = cg_solve(
-        lattice,
-        &mut x,
-        phi,
-        config.light_mass,
-        config.cg_tol,
-        config.cg_max_iter,
-    );
-
-    // S = φ† D†D(m_heavy) x
-    let ddx = apply_dirac_sq(lattice, &x, config.heavy_mass);
-    let action = phi.dot(&ddx).re;
-
-    (action, cg_result, x)
-}
-
-/// Force for the ratio sector.
-///
-/// `S_ratio` = φ† A⁻¹ B φ with A = `D†D(m_light)`, B = `D†D(m_heavy)`.
-/// dS/dU = -y†(dA/dU)x + φ†A⁻¹(dB/dU)φ, where x = A⁻¹φ, y = A⁻¹Bφ.
-/// -dS/dU = +y†(dA/dU)x - x†(dB/dU)φ.
-#[must_use]
-pub fn hasenbusch_ratio_force(
-    lattice: &Lattice,
-    phi: &FermionField,
-    x: &FermionField,
-    config: &HasenbuschConfig,
-) -> Vec<Su3Matrix> {
-    // Solve (D†D(m_light)) y = D†D(m_heavy) φ
-    let vol = lattice.volume();
-    let rhs = apply_dirac_sq(lattice, phi, config.heavy_mass);
-    let mut y = FermionField::zeros(vol);
-
-    let _cg = cg_solve(
-        lattice,
-        &mut y,
-        &rhs,
-        config.light_mass,
-        config.cg_tol,
-        config.cg_max_iter,
-    );
-
-    // -dS/dU = +y†(dA/dU)x - x†(dB/dU)φ
-    // = force_bilinear_ab(y,x,m_light) - force_bilinear_ab(x,phi,m_heavy)
-    let f1 = super::force_bilinear_ab(lattice, &y, x, config.light_mass);
-    let f2 = super::force_bilinear_ab(lattice, x, phi, config.heavy_mass);
-
-    let mut force = vec![Su3Matrix::ZERO; vol * 4];
-    for (out, (a, b)) in force.iter_mut().zip(f1.iter().zip(f2.iter())) {
-        *out = *a - *b;
-    }
-    force
-}
-
 /// Run one Hasenbusch-preconditioned HMC trajectory.
 ///
 /// Two pseudofermion sectors: heavy (cheap) and ratio (expensive).
@@ -205,13 +153,11 @@ pub fn hasenbusch_hmc_trajectory(
     let vol = lattice.volume();
     let old_links = lattice.links.clone();
 
-    // 1. Heatbath for both sectors
     let phi_heavy =
         hasenbusch_heavy_heatbath(lattice, config.hasenbusch.heavy_mass, &mut config.seed);
     let phi_ratio =
         hasenbusch_ratio_heatbath(lattice, config.hasenbusch.heavy_mass, &mut config.seed);
 
-    // 2. Initial Hamiltonian
     let gauge_action_before = lattice.wilson_action();
     let (s_heavy_before, cg_h, _) =
         hasenbusch_heavy_action(lattice, &phi_heavy, &config.hasenbusch);
@@ -220,18 +166,15 @@ pub fn hasenbusch_hmc_trajectory(
 
     let mut cg_heavy_total = cg_h.iterations;
     let mut cg_ratio_total = cg_r.iterations;
-
     let fermion_action_before = s_heavy_before + s_ratio_before;
 
-    // Random momenta
     let mut momenta = vec![Su3Matrix::ZERO; vol * 4];
     for p in &mut momenta {
         *p = Su3Matrix::random_algebra(&mut config.seed);
     }
-    let kinetic_before = super::kinetic_energy(&momenta);
+    let kinetic_before = kinetic_energy(&momenta);
     let h_old = kinetic_before + gauge_action_before + fermion_action_before;
 
-    // 3. Multiple time-scale leapfrog
     hasenbusch_leapfrog(
         lattice,
         &mut momenta,
@@ -241,7 +184,6 @@ pub fn hasenbusch_hmc_trajectory(
         config.dt,
     );
 
-    // 4. Final Hamiltonian
     let gauge_action_after = lattice.wilson_action();
     let (s_heavy_after, cg_h2, _) =
         hasenbusch_heavy_action(lattice, &phi_heavy, &config.hasenbusch);
@@ -252,15 +194,14 @@ pub fn hasenbusch_hmc_trajectory(
     cg_ratio_total += cg_r2.iterations;
 
     let fermion_action_after = s_heavy_after + s_ratio_after;
-    let kinetic_after = super::kinetic_energy(&momenta);
+    let kinetic_after = kinetic_energy(&momenta);
     let h_new = kinetic_after + gauge_action_after + fermion_action_after;
     let delta_h = h_new - h_old;
 
-    // 5. Metropolis
     let accept = if delta_h <= 0.0 {
         true
     } else {
-        lcg_uniform_f64(&mut config.seed) < (-delta_h).exp()
+        super::super::constants::lcg_uniform_f64(&mut config.seed) < (-delta_h).exp()
     };
 
     if !accept {
@@ -273,24 +214,14 @@ pub fn hasenbusch_hmc_trajectory(
         accepted: accept,
         delta_h,
         plaquette,
-        gauge_action: if accept {
-            gauge_action_after
-        } else {
-            gauge_action_before
-        },
-        fermion_action: if accept {
-            fermion_action_after
-        } else {
-            fermion_action_before
-        },
+        gauge_action: if accept { gauge_action_after } else { gauge_action_before },
+        fermion_action: if accept { fermion_action_after } else { fermion_action_before },
         cg_iterations_heavy: cg_heavy_total,
         cg_iterations_ratio: cg_ratio_total,
     }
 }
 
-/// Multiple time-scale leapfrog: heavy sector (outer, fewer steps), ratio sector (inner, more steps).
-///
-/// The ratio (expensive, larger forces) gets `n_md_steps_light` sub-steps per heavy step.
+/// Multiple time-scale leapfrog: heavy sector (outer), ratio sector (inner).
 fn hasenbusch_leapfrog(
     lattice: &mut Lattice,
     momenta: &mut [Su3Matrix],
@@ -306,17 +237,10 @@ fn hasenbusch_leapfrog(
     let half_dt_light = 0.5 * dt_light;
 
     for _ in 0..config.n_md_steps_heavy {
-        // Half kick: gauge + heavy only (ratio is on inner scale)
-        hasenbusch_update_momenta_gauge_heavy(lattice, momenta, phi_heavy, config, half_dt_heavy);
+        update_momenta_gauge_heavy(lattice, momenta, phi_heavy, config, half_dt_heavy);
 
         for _ in 0..config.n_md_steps_light {
-            hasenbusch_update_momenta_ratio_only(
-                lattice,
-                momenta,
-                phi_ratio,
-                config,
-                half_dt_light,
-            );
+            update_momenta_ratio_only(lattice, momenta, phi_ratio, config, half_dt_light);
 
             for idx in 0..vol {
                 let site = lattice.site_coords(idx);
@@ -329,20 +253,14 @@ fn hasenbusch_leapfrog(
                 }
             }
 
-            hasenbusch_update_momenta_ratio_only(
-                lattice,
-                momenta,
-                phi_ratio,
-                config,
-                half_dt_light,
-            );
+            update_momenta_ratio_only(lattice, momenta, phi_ratio, config, half_dt_light);
         }
 
-        hasenbusch_update_momenta_gauge_heavy(lattice, momenta, phi_heavy, config, half_dt_heavy);
+        update_momenta_gauge_heavy(lattice, momenta, phi_heavy, config, half_dt_heavy);
     }
 }
 
-fn hasenbusch_update_momenta_gauge_heavy(
+fn update_momenta_gauge_heavy(
     lattice: &Lattice,
     momenta: &mut [Su3Matrix],
     phi_heavy: &FermionField,
@@ -368,13 +286,13 @@ fn hasenbusch_update_momenta_gauge_heavy(
         config.cg_tol,
         config.cg_max_iter,
     );
-    let f_heavy = super::pseudofermion_force(lattice, &x_heavy, config.heavy_mass);
+    let f_heavy = pseudofermion_force(lattice, &x_heavy, config.heavy_mass);
     for (m, f) in momenta.iter_mut().zip(f_heavy.iter()) {
         *m = *m + f.scale(dt);
     }
 }
 
-fn hasenbusch_update_momenta_ratio_only(
+fn update_momenta_ratio_only(
     lattice: &Lattice,
     momenta: &mut [Su3Matrix],
     phi_ratio: &FermionField,
@@ -383,7 +301,6 @@ fn hasenbusch_update_momenta_ratio_only(
 ) {
     let vol = lattice.volume();
 
-    // Only ratio sector force (no gauge, no heavy)
     let mut x_ratio = FermionField::zeros(vol);
     let _ = cg_solve(
         lattice,
@@ -397,4 +314,14 @@ fn hasenbusch_update_momenta_ratio_only(
     for (m, f) in momenta.iter_mut().zip(f_ratio.iter()) {
         *m = *m + f.scale(dt);
     }
+}
+
+/// Kinetic energy T(P) = −(1/2) Σ Tr(P²)
+pub(super) fn kinetic_energy(momenta: &[Su3Matrix]) -> f64 {
+    let mut t = 0.0;
+    for p in momenta {
+        let p2 = *p * *p;
+        t -= 0.5 * p2.re_trace();
+    }
+    t
 }

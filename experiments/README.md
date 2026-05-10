@@ -136,6 +136,9 @@ Not numbered experiments — systematic composition infrastructure:
 | 179 | K80_WARM_FECS_DISPATCH_PIPELINE | **milestone** | ✅ **K80 warm-catch FECS/PFIFO pipeline.** Nouveau warm-catch → VFIO rebind. FECS boots (Falcon v3 PIO). PFIFO runlist completes. SCHED_ERROR code=32 root-caused (RAMFC 0x3C/0x44) and fixed. Cold-boot sovereign (udev PLX fix, d3cold_allowed=0). |
 | 180 | THREE_GPU_HARDWARE_VALIDATION | **milestone** | ✅ RTX 5060 19/19 (CUDA+DRM+discovery), Titan V 20/20 standalone VFIO, K80 device open + runlist pass. PGOB GPC gating confirmed as K80 dispatch blocker. |
 | 181 | SOVEREIGN_DISPATCH_PIPELINE_SWEEP | investigation | 🔧 RTX 5060 8/8 PROVEN (WGSL→SM120→dispatch→readback). Titan V blocked (no PMU fw, SEC2/ACR). K80 cold-boot sovereign, PGOB dispatch blocker. Ember Exclusive Device Gate live. |
+| 182 | K80_FECS_PIO_BOOT | diagnostic | 🔧 K80 GK210 FECS PIO boot diagnostic. Direct BAR0 mmap (`low-level` feature). Falcon IMEM/DMEM PIO path. |
+| 183 | K80_FECS_INT_BOOT | diagnostic | 🔧 K80 GK210 FECS interrupt-driven boot. Direct BAR0 mmap (`low-level` feature). |
+| 184 | K80_GR_SOVEREIGN | active | ✅ K80 GK210 sovereign GR init via ember RPC. Modern ember-wired path. Kepler falcon boot + firmware + PLX keepalive + switch preflight. |
 | — | K80_QEMU_VM_REAGENT | investigation | ✅ QEMU VM with K80 VFIO passthrough + proprietary nvidia-470.256.02. Module probed K80 successfully. Reagent template + build recipe stored in `agentReagents/`. |
 
 ## Paper Baseline Notebooks

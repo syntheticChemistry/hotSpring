@@ -74,10 +74,7 @@ fn main() {
     println!();
 
     // ── Hardware inventory ────────────────────────────────────────────
-    let hostname = std::env::var("HOSTNAME")
-        .or_else(|_| std::env::var("COMPUTERNAME"))
-        .unwrap_or_else(|_| "unknown".to_string());
-    let hw = HardwareInventory::detect(&hostname);
+    let hw = HardwareInventory::detect_local();
     hw.print();
     println!();
 

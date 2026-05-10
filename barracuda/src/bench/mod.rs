@@ -29,7 +29,7 @@ pub use compute_backend::{
 pub use esn_benchmark::{
     GpuEsn, SubstrateResult, generate_test_sequence, generate_training_data, time_fn,
 };
-pub use hardware::HardwareInventory;
+pub use hardware::{HardwareInventory, resolve_gate_name};
 pub use md_backend::{
     BarraCudaMdBackend, GenericMdBackend, KokkosLammpsBackend, MdBenchmarkBackend,
     MdBenchmarkResult, MdBenchmarkSpec, compare_md_backends,

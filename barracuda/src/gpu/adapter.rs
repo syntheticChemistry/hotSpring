@@ -316,3 +316,143 @@ fn select_by_name(
             ))
         })
 }
+
+// ── Device construction helpers ───────────────────────────────────────────────
+
+use std::sync::Arc;
+use barracuda::device::{DeviceCapabilities, TensorContext, WgpuDevice};
+use log::{info, warn};
+
+/// Negotiate wgpu features, requesting all science-relevant capabilities.
+///
+/// Silently drops features the adapter does not advertise — no panics.
+pub(super) fn negotiate_features(adapter_features: wgpu::Features) -> wgpu::Features {
+    let mut f = wgpu::Features::empty();
+    for feat in [
+        wgpu::Features::SHADER_F64,
+        wgpu::Features::SHADER_F16,
+        wgpu::Features::SUBGROUP,
+        wgpu::Features::TIMESTAMP_QUERY,
+        wgpu::Features::PIPELINE_CACHE,
+    ] {
+        if adapter_features.contains(feat) {
+            f |= feat;
+        }
+    }
+    f
+}
+
+/// Heuristic NVK detection from adapter info (before device creation).
+pub(super) fn adapter_is_nvk(info: &wgpu::AdapterInfo) -> bool {
+    let d = info.driver.to_lowercase();
+    let di = info.driver_info.to_lowercase();
+    d.contains("nvk")
+        || d.contains("nouveau")
+        || di.contains("nvk")
+        || di.contains("nouveau")
+        || (d.contains("mesa") && info.name.contains("NV"))
+}
+
+/// Shared post-creation logic: probe f64 builtins, detect `full_df64_mode`.
+pub(super) async fn open_from_adapter_inner(
+    selected: wgpu::Adapter,
+    device_label: &'static str,
+) -> Result<super::GpuF64, crate::error::HotSpringError> {
+    let adapter_info = selected.get_info();
+    let adapter_features = selected.features();
+    let is_nvk = adapter_is_nvk(&adapter_info);
+    let required_features = negotiate_features(adapter_features);
+
+    let adapter_limits = selected.limits();
+    let required_limits = wgpu::Limits {
+        max_storage_buffer_binding_size: adapter_limits
+            .max_storage_buffer_binding_size
+            .min(2 * 1024 * 1024 * 1024),
+        max_buffer_size: adapter_limits.max_buffer_size.min(4 * 1024 * 1024 * 1024),
+        max_storage_buffers_per_shader_stage: 12,
+        ..wgpu::Limits::default()
+    };
+
+    let (device, queue) = selected
+        .request_device(&wgpu::DeviceDescriptor {
+            label: Some(device_label),
+            required_features,
+            required_limits,
+            memory_hints: wgpu::MemoryHints::default(),
+            experimental_features: wgpu::ExperimentalFeatures::default(),
+            trace: wgpu::Trace::default(),
+        })
+        .await
+        .map_err(|e| crate::error::HotSpringError::DeviceCreation(e.to_string()))?;
+
+    let adapter_name = adapter_info.name.clone();
+    let advertised_f64 = required_features.contains(wgpu::Features::SHADER_F64);
+    let has_timestamps = required_features.contains(wgpu::Features::TIMESTAMP_QUERY);
+    let has_subgroups = required_features.contains(wgpu::Features::SUBGROUP);
+    let has_f16 = required_features.contains(wgpu::Features::SHADER_F16);
+
+    let wgpu_device = Arc::new(WgpuDevice::from_existing(device, queue, adapter_info));
+
+    Ok(finalize_device(
+        adapter_name,
+        advertised_f64,
+        has_timestamps,
+        has_subgroups,
+        has_f16,
+        is_nvk,
+        wgpu_device,
+    )
+    .await)
+}
+
+/// Final device configuration: f64 probe + capabilities detection.
+pub(super) async fn finalize_device(
+    adapter_name: String,
+    advertised_f64: bool,
+    has_timestamps: bool,
+    has_subgroups: bool,
+    has_f16: bool,
+    is_nvk: bool,
+    wgpu_device: Arc<WgpuDevice>,
+) -> super::GpuF64 {
+    let tensor_ctx = Arc::new(TensorContext::new(Arc::clone(&wgpu_device)));
+    let capabilities = DeviceCapabilities::from_device(&wgpu_device);
+
+    let (has_f64, full_df64_mode) = if advertised_f64 {
+        let caps = barracuda::device::probe::probe_f64_builtins(&wgpu_device).await;
+        if caps.can_compile_f64() {
+            if is_nvk {
+                info!(
+                    "f64 probe: PASS on NVK ({}/{} builtins) — using barraCuda polyfill pipeline",
+                    caps.native_count(),
+                    9
+                );
+            } else {
+                info!(
+                    "f64 probe: PASS — native f64 shaders available ({}/{} builtins)",
+                    caps.native_count(),
+                    9
+                );
+            }
+            (true, false)
+        } else {
+            warn!("f64 probe: FAIL — switching to full DF64 data plane");
+            (false, true)
+        }
+    } else {
+        warn!("SHADER_F64 not advertised — using full DF64 data plane");
+        (false, true)
+    };
+
+    super::GpuF64 {
+        adapter_name,
+        has_f64,
+        has_timestamps,
+        has_subgroups,
+        has_f16,
+        full_df64_mode,
+        wgpu_device,
+        tensor_ctx,
+        capabilities,
+    }
+}

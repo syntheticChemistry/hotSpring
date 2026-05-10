@@ -1,0 +1,21 @@
+[Unit]
+Description=PLX PEX 8747 PCIe switch keepalive — prevents BIOS idle D3cold gating
+Documentation=https://github.com/ecoPrimals/hotSpring
+# Must start early — before coral-glowplug so PLX is alive for K80 handoff
+DefaultDependencies=no
+After=sysinit.target
+Before=coral-glowplug.service multi-user.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/local/bin/plx-keepalive.sh
+Restart=always
+RestartSec=3
+StartLimitIntervalSec=0
+# Nice- and IO-class: keepalive should not compete with sovereign compute
+Nice=10
+IOSchedulingClass=idle
+
+[Install]
+WantedBy=multi-user.target

@@ -20,9 +20,10 @@
 //! `LOCAL_CAPABILITIES` lists methods that `hotspring_primal` actually
 //! handles — callers get a real physics result. `ROUTED_CAPABILITIES`
 //! lists methods that hotSpring understands but routes to canonical
-//! providers (Squirrel for inference, provenance trio for DAG/ledger/
-//! attribution, etc.). Callers reaching hotSpring directly for routed
-//! methods should go through `capability.call` or the Neural API.
+//! providers (Squirrel for inference, petalTongue for visualization,
+//! provenance trio for DAG/ledger/attribution, etc.). Callers reaching
+//! hotSpring directly for routed methods should go through `capability.call`
+//! or the Neural API.
 //!
 //! # Standalone Mode
 //!
@@ -145,6 +146,12 @@ pub const DEPENDENCIES: &[NicheDependency] = &[
         required: false,
         capability_domain: "ai",
     },
+    NicheDependency {
+        name: "petaltongue",
+        role: "visualization",
+        required: false,
+        capability_domain: "visualization",
+    },
 ];
 
 /// Capabilities this binary **locally serves** via `dispatch_request`.
@@ -225,6 +232,12 @@ pub const ROUTED_CAPABILITIES: &[(&str, &str)] = &[
     // Discovery (Songbird)
     ("discovery.find_primals", "songbird"),
     ("discovery.announce", "songbird"),
+    // Visualization (petalTongue)
+    ("visualization.render", "petaltongue"),
+    ("visualization.render.scene", "petaltongue"),
+    ("visualization.render.stream", "petaltongue"),
+    ("interaction.subscribe", "petaltongue"),
+    ("interaction.poll", "petaltongue"),
 ];
 
 /// Backward-compatible combined capability list (local + routed method names).

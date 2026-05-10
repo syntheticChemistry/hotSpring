@@ -314,3 +314,35 @@ method = "discovery.announce"
 served = "routed"
 provider = "songbird"
 domain = "discovery"
+
+# ── Visualization + Interaction (routed to petalTongue) ───────────────
+
+[[capabilities]]
+method = "visualization.render"
+served = "routed"
+provider = "petaltongue"
+domain = "visualization"
+
+[[capabilities]]
+method = "visualization.render.scene"
+served = "routed"
+provider = "petaltongue"
+domain = "visualization"
+
+[[capabilities]]
+method = "visualization.render.stream"
+served = "routed"
+provider = "petaltongue"
+domain = "visualization"
+
+[[capabilities]]
+method = "interaction.subscribe"
+served = "routed"
+provider = "petaltongue"
+domain = "visualization"
+
+[[capabilities]]
+method = "interaction.poll"
+served = "routed"
+provider = "petaltongue"
+domain = "visualization"

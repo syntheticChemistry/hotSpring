@@ -93,40 +93,40 @@ static int livepatch_nvkm_fifo_fini(void *subdev, bool suspend)
 	return 0;
 }
 
-static struct klp_func funcs[] = {
-	{
-		.old_name = "gf100_gr_fini",
-		.new_func = livepatch_gf100_gr_fini,
-	},
-	{
-		.old_name = "nvkm_pmu_fini",
-		.new_func = livepatch_nvkm_pmu_fini,
-	},
-	{
-		.old_name = "nvkm_mc_disable",
-		.new_func = livepatch_nvkm_mc_disable,
-	},
-	{
-		.old_name = "nvkm_fifo_fini",
-		.new_func = livepatch_nvkm_fifo_fini,
-	},
-	{ }
-};
-
-static struct klp_object objs[] = {
-	{
-		.name = "nouveau",
-		.funcs = funcs,
-	}, { }
-};
+/*
+ * Kernel 6.17+ rejects R_X86_64_64 relocations with non-zero addends in
+ * external modules (arch/x86/kernel/module.c: "existing value is nonzero").
+ * Compile-time struct initializers for function pointers and string pointers
+ * produce exactly this pattern.  Fix: declare all arrays uninitialized (BSS,
+ * zero-filled) and wire them up at __init time using PC-relative code refs.
+ */
+static struct klp_func funcs[5];    /* [0..3] = patches, [4] = terminator */
+static struct klp_object objs[2];   /* [0] = nouveau, [1] = terminator    */
 
 static struct klp_patch patch = {
 	.mod = THIS_MODULE,
-	.objs = objs,
+	/* .objs wired up in __init */
 };
 
 static int __init livepatch_init(void)
 {
+	/* Wire funcs at runtime — avoids R_X86_64_64 with non-zero addend. */
+	funcs[0].old_name = "gf100_gr_fini";
+	funcs[0].new_func = livepatch_gf100_gr_fini;
+	funcs[1].old_name = "nvkm_pmu_fini";
+	funcs[1].new_func = livepatch_nvkm_pmu_fini;
+	funcs[2].old_name = "nvkm_mc_disable";
+	funcs[2].new_func = livepatch_nvkm_mc_disable;
+	funcs[3].old_name = "nvkm_fifo_fini";
+	funcs[3].new_func = livepatch_nvkm_fifo_fini;
+	/* funcs[4] stays zero = terminator */
+
+	objs[0].name  = "nouveau";
+	objs[0].funcs = funcs;
+	/* objs[1] stays zero = terminator */
+
+	patch.objs = objs;
+
 	return klp_enable_patch(&patch);
 }
 
@@ -138,4 +138,4 @@ module_init(livepatch_init);
 module_exit(livepatch_exit);
 MODULE_LICENSE("GPL");
 MODULE_INFO(livepatch, "Y");
-MODULE_DESCRIPTION("K80 warm handoff: block PPWR corruption, PRI IRQ storms, and GR fini reset");
+MODULE_DESCRIPTION("Warm handoff: NOP nouveau GR/PMU/MC/FIFO teardown to preserve GPU state for VFIO takeover");

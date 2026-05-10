@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026
-**Last audited:** May 9, 2026 (Deep Debt Evolution Phase 3)
+**Last audited:** May 8, 2026 (evolution pass II: unsafe consolidation, BAR0 RAII, large-file refactoring, clippy --all-targets clean, hostname provenance, capability registry sync)
 **License:** AGPL-3.0-or-later
 
 ---
@@ -18,61 +18,6 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 ---
 
 ## Active Gaps
-
-### GAP-HS-046: Average-Atom SCF Charge Conservation (Deep Debt)
-
-- **Primal:** hotSpring (barracuda physics::average_atom)
-- **Severity:** Medium
-- **Status:** Active — `validate_atomec` 7/9 (2 failures)
-- **Description:** Paper 33 (atoMEC) average-atom solver passes 7/9
-  checks. Charge conservation (`∫n(r)dr = Z`) and cold density
-  monotonicity fail. The Thomas-Fermi/Kohn-Sham SCF solver needs
-  improved radial grid handling and electron density normalization.
-- **Action:** Improve `physics::average_atom::solve_average_atom`
-  density normalization. Add radial grid refinement near nucleus.
-  Target: 9/9 checks pass.
-
-### GAP-HS-047: projectNUCLEUS Workload Binary Name Mismatch (Deep Debt)
-
-- **Primal:** projectNUCLEUS / hotSpring
-- **Severity:** Low
-- **Status:** Active — workload points at non-existent binary
-- **Description:** `projectNUCLEUS/workloads/hotspring/hotspring-md-validation.toml`
-  references `validate_sarkas_md` but hotSpring ships `validate_md` and
-  `sarkas_gpu`. Live Science API shows `checks_passing: 0`.
-- **Action:** Update workload TOML to point at correct binary, or add
-  a thin `validate_sarkas_md` wrapper. Create additional workload TOMLs
-  for nuclear_eos, lattice_qcd, spectral domains.
-
-### GAP-HS-044: Cross-Registry Method Drift (Phase 60)
-
-- **Primal:** primalSpring (canonical registry)
-- **Severity:** Low
-- **Status:** Active — 13 methods pending upstream addition
-- **Description:** `tools/check_method_strings.sh` and the Rust
-  `cross_registry_sync_with_primalspring` integration test identify 13
-  hotSpring methods not yet in primalSpring's canonical 389-method registry:
-  `composition.health`, `compute.df64`, `compute.dispatch.capabilities`,
-  `compute.f64`, `physics.fluid`, `physics.hmc_trajectory`,
-  `physics.lattice_gauge_update`, `physics.lattice_qcd`,
-  `physics.molecular_dynamics`, `physics.nuclear_eos`, `physics.radiation`,
-  `physics.thermal`, `physics.wilson_dirac`.
-- **Action:** PR to primalSpring adding these methods to
-  `config/capability_registry.toml` with `owner = "hotspring"`.
-
-### GAP-HS-045: barraCuda IPC-Only Mode (Phase 60)
-
-- **Primal:** barraCuda / hotSpring
-- **Severity:** Low
-- **Status:** Active — declaration of intent shipped
-- **Description:** `barracuda` dep is now `optional = true` with
-  `barracuda-local` default feature. Building with `--no-default-features`
-  yields IPC-only mode. Currently the library compiles but many modules
-  use `barracuda::` imports unconditionally — full `#[cfg(feature)]` gating
-  of all direct library calls is a future evolution.
-- **Action:** Incrementally gate `barracuda::` imports behind
-  `#[cfg(feature = "barracuda-local")]` as modules are refactored.
-  Priority modules: `physics/`, `lattice/`, `md/`, `spectral/`.
 
 ### GAP-HS-001: Squirrel End-to-End Validation
 
@@ -159,16 +104,22 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 - **Action:** Wire `TensorSession` into `gpu_hmc/mod.rs` when barraCuda
   API stabilizes.
 
-### GAP-HS-028: LIME/ILDG Zero-Copy I/O
+### GAP-HS-028: LIME/ILDG Zero-Copy I/O — RESOLVED
 
 - **Primal:** hotSpring (self)
 - **Severity:** Low
-- **Status:** Active
-- **Description:** `lattice/lime.rs` and `lattice/ildg.rs` allocate
-  `Vec<u8>` and copy binary payloads. Zero-copy I/O via `mmap` or
-  streaming parsers would reduce memory pressure for large gauge configs.
-- **Action:** Evaluate `memmap2` (behind feature gate) or streaming
-  record parsers for LIME binary payload path.
+- **Status:** **Resolved** (May 7, 2026)
+- **Description:** `lattice/lime.rs` and `lattice/ildg.rs` previously
+  allocated `Vec<u8>` for all record payloads via `read_all()`.
+- **Resolution:** Added streaming API to `LimeReader`:
+  - `next_header()` — reads header without buffering payload
+  - `copy_payload_into(dest, data_length)` — streams payload to `W: Write`
+  - `skip_payload()` — discards pending payload (no allocation)
+  `read_gauge_config()` in `ildg.rs` now uses the streaming API for
+  metadata records and buffers only the binary-data record once (no clone).
+  Unknown LIME record types are skipped via `skip_payload()` without
+  any intermediate allocation. `read_all()` retained for backward compat
+  with a clear doc note directing large-file callers to the streaming API.
 
 ---
 
@@ -375,7 +326,7 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 - **Resolution:** K80 boots cleanly to vfio-pci. `/dev/vfio/35` and
   `/dev/vfio/36` open without EBUSY. Validated with full power drain.
 
-### GAP-HS-048: GV100 WPR Not Used by Closed Driver (Exp 173)
+### GAP-HS-030: GV100 WPR Not Used by Closed Driver (Exp 173)
 
 - **Primal:** coralReef (coral-driver / sovereign_init)
 - **Severity:** Critical (blocks GV100 sovereign ACR boot)
@@ -401,7 +352,7 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 - **Action:** Pivot coral-driver `FalconBootSolver` to support a Volta-specific
   path that bypasses WPR/ACR. Analyze mmiotrace from Exp 173 artifacts.
 
-### GAP-HS-049: Blackwell SM Warp Exception — Invalid Address Space (Exp 175-177) (RESOLVED)
+### GAP-HS-031: Blackwell SM Warp Exception — Invalid Address Space (Exp 175-177) (RESOLVED)
 
 - **Primal:** coralReef (coral-driver / coral-kmod / uvm_compute)
 - **Severity:** Critical (was blocking sovereign dispatch on RTX 5060)
@@ -488,8 +439,216 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
   Validated via `bench_sovereign_parity` and `validate_pure_gauge --features sovereign-dispatch`
   (16/16 checks pass). QMD v5.0 implemented for Blackwell.
   
-  GAP-HS-049 RESOLVED — RTX 5060 sovereign VFIO dispatch LIVE (April 19, 2026).
+  GAP-HS-031 RESOLVED — RTX 5060 sovereign VFIO dispatch LIVE (April 19, 2026).
 - **Action:** None — both compile parity and dispatch parity resolved.
+
+### GAP-HS-044: Deploy Graph Order Conflict — RESOLVED
+
+- **Primal:** hotSpring (self) / biomeOS
+- **Severity:** Medium (biomeOS deploy ordering)
+- **Status:** **Resolved** (May 7, 2026)
+- **Description:** `graphs/hotspring_qcd_deploy.toml` had `squirrel` and
+  `sweetgrass` both assigned `order = 9`, creating an ambiguous deploy
+  ordering for biomeOS. `hotspring` was at `order = 10`, which might
+  conflict with squirrel concurrency.
+- **Resolution:** `squirrel` → `order = 10`, `petaltongue` added at
+  `order = 11`, `hotspring` moved to `order = 12`. Strict monotonic
+  ordering enforced for all meta-tier nodes.
+
+### GAP-HS-045: petalTongue Not in niche.rs — RESOLVED
+
+- **Primal:** petalTongue
+- **Severity:** Low
+- **Status:** **Resolved** (May 7, 2026)
+- **Description:** `niche.rs` `DEPENDENCIES` and `ROUTED_CAPABILITIES`
+  did not list petalTongue, though the deploy graph included it. Any
+  biomeOS pathway analysis that reads niche dependencies would miss
+  visualization routing.
+- **Resolution:** Added `petaltongue` to `DEPENDENCIES` (`required = false`,
+  `capability_domain = "visualization"`) and five visualization/interaction
+  capabilities to `ROUTED_CAPABILITIES`.
+
+### GAP-HS-046: Clippy Dead Threshold in clippy.toml — RESOLVED
+
+- **Primal:** hotSpring (self)
+- **Severity:** Low (code hygiene)
+- **Status:** **Resolved** (May 7, 2026)
+- **Description:** `clippy.toml` had `too-many-lines-threshold = 500`
+  but `Cargo.toml` globally allows the `too_many_lines` lint, making the
+  threshold a dead configuration that created false expectation of
+  enforcement.
+- **Resolution:** Removed the dead threshold; added a clear comment
+  explaining the lint is intentionally suppressed (physics modules justify
+  long files within the 1000-line ecosystem limit).
+
+### GAP-HS-047: Titan V PMU Firmware Extraction Tool — ACTIVE (P0)
+
+- **Primal:** coralReef (acr_boot) / hotSpring (sovereign pipeline)
+- **Severity:** Critical (blocks Titan V sovereign dispatch)
+- **Status:** **Active** — tooling added, extraction not yet attempted
+- **Description:** GV100 PMU firmware is missing from `linux-firmware`.
+  nvidia-470 embeds it in `nv-kernel.o_binary`. Without it, SEC2 ACR
+  boot loader starts but never completes → WPR never configured →
+  FECS ROM intercepts all boot attempts at pc=0x1161 security trap.
+- **Resolution (partial):** `exp168_pmu_firmware_probe.rs` added to scan
+  `nv-kernel.o_binary` and NVIDIA `.run` installers for Falcon UC firmware
+  blobs by structural signature. Supports ELF scan, squashfs extraction,
+  directory walk, and blob validation modes.
+- **Next:** Run `exp168` against `nv-kernel.o_binary` from nvidia-470
+  package. If PMU blob found, feed to `exp158_sec2_real_firmware` to
+  complete SEC2 ACR boot → WPR configure → FECS authenticated load.
+- **Reference:** `wateringHole/handoffs/HOTSPRING_CORALREEF_TITANV_WARM_DMATRF_HANDOFF_MAY07_2026.md`
+
+### GAP-HS-048: gpu/mod.rs Pipeline Creation Duplication — RESOLVED
+
+- **Primal:** hotSpring (self)
+- **Severity:** Low (code quality)
+- **Status:** **Resolved** (May 7, 2026)
+- **Description:** `gpu/mod.rs` (797L) had near-duplicate `validate_pipeline`
+  + `validate_pipeline_entry` and `build_pipeline` + `build_pipeline_entry`
+  functions. The pipeline creation impl block duplicated the `entry_point`
+  pattern with no consolidation.
+- **Resolution:** Smart refactoring: DF64 wire helpers moved to `buffers.rs`,
+  pipeline creation impl (with merged `validate_pipeline_inner` +
+  `build_pipeline_inner`) moved to `dispatch.rs`, device constructor helpers
+  (`negotiate_features`, `open_from_adapter_inner`, `finalize_device`) moved
+  to `adapter.rs`. `mod.rs` reduced from 797 → 333 lines. All submodules
+  under 460 lines.
+
+### GAP-HS-049: exp070 Raw Pointer in Enum Variant — RESOLVED
+
+- **Primal:** hotSpring (self)
+- **Severity:** Low (safe Rust)
+- **Status:** **Resolved** (May 7, 2026)
+- **Description:** `exp070_register_dump.rs` had `AccessMode::DirectMmap { base: *const u8 }`
+  — a raw pointer in an enum variant that was visible outside the unsafe block
+  where it was created. The `read_bar0_mmap` function took a `*const u8`
+  argument, spreading unsafe pointer use across the file.
+- **Resolution:** Introduced `Bar0View` RAII struct that encapsulates
+  `rustix::mm::mmap`, provides safe bounds-checked `read_u32()` via
+  volatile reads, and calls `munmap` in `Drop`. The `AccessMode` enum now
+  holds `DirectMmap(Bar0View)` — no raw pointers outside the struct.
+  Unsafe surface reduced to two `read_volatile` lines inside `Bar0View`.
+
+### GAP-HS-050: Large File Smart Refactoring (Evolution Pass)
+
+- **Primal:** hotSpring (self)
+- **Severity:** Low
+- **Status:** **Resolved** (May 7, 2026)
+- **Summary of files refactored:**
+  - `lattice/pseudofermion/mod.rs` 926L → 76L (extracted `config.rs` 117L, `action.rs` 175L, `hasenbusch.rs` 327L, `dynamics.rs` 227L)
+  - `production/npu_worker/handlers.rs` 839L → 105L (extracted `handlers_screening.rs` 156L, `handlers_steering.rs` 266L, `handlers_inference.rs` 144L)
+  - `gpu/mod.rs` 797L → 333L (split across existing `adapter`, `buffers`, `dispatch` submodules)
+  - All 14 submodule files stay ≤ 460 lines; no file added exceeds 800L.
+
+### GAP-HS-051: BAR0 MMIO Unsafe Consolidation — RESOLVED
+
+- **Primal:** hotSpring (self) — sovereign GPU pipeline experiments
+- **Severity:** Low (code quality, unsafe surface area)
+- **Status:** **Resolved** (May 8, 2026)
+- **Description:** Four experiment binaries (`exp070`, `exp169`, `exp170`, `exp171`)
+  each contained a full duplicate copy of the same ~60-line BAR0 MMIO helper
+  (`Bar0Map`/`Bar0View` structs with `mmap`/`munmap` RAII wrappers and
+  `read_volatile`/`write_volatile` register accessors). Any bug or
+  improvement had to be applied in four places. The library's
+  `#![forbid(unsafe_code)]` prevented housing the unsafe code there.
+- **Resolution:** Created `src/low_level/bar0.rs` — a single-source-of-truth
+  file containing documented, bounds-checked `Bar0View` (read-only) and
+  `Bar0Map` (read-write) RAII types. All four binaries now include it via
+  `#[path = "../low_level/bar0.rs"] mod bar0_mmio;` with `#[allow(unsafe_code)]`
+  scoped to the module declaration. The unsafe surface is confined to two
+  `read_volatile` / `write_volatile` call sites inside one audited file.
+  `#![allow(dead_code)]` in the shared file suppresses false warnings from
+  binaries that only use one of the two types.
+
+### GAP-HS-052: capability_registry.toml Missing petalTongue Entries — RESOLVED
+
+- **Primal:** hotSpring (self) / petalTongue
+- **Severity:** Low (registry drift)
+- **Status:** **Resolved** (May 8, 2026)
+- **Description:** `config/capability_registry.toml` was missing 5 petalTongue
+  capability entries (`visualization.render`, `visualization.render.scene`,
+  `visualization.render.stream`, `interaction.subscribe`, `interaction.poll`)
+  that were present in `niche.rs`'s `ROUTED_CAPABILITIES`. The registry
+  diverged from the code.
+- **Resolution:** Added the 5 missing entries to `capability_registry.toml`
+  with correct `served = "routed"`, `provider = "petaltongue"`,
+  `domain = "visualization"` fields. Registry and niche.rs are now in sync.
+
+### GAP-HS-053: Large File Smart Refactoring — Phase 2 (RESOLVED)
+
+- **Primal:** hotSpring (self)
+- **Severity:** Low (code quality, maintainability)
+- **Status:** **Resolved** (May 8, 2026)
+- **Files refactored (this session):**
+  - `lattice/rhmc/mod.rs` 802L → 479L: Extracted `RationalApproximation` to
+    `rational_approx.rs` (181L) and `multi_shift_cg_solve` to
+    `multi_shift.rs` (162L). `mod.rs` is now a coordinating hub.
+  - `nuclear_eos_helpers/mod.rs` 821L → 227L: Extracted analysis logic to
+    `analysis.rs` (259L) and all print/report functions to `reporting.rs`
+    (386L). `mod.rs` retains core types and fundamental math.
+  - `production/dynamical_mixed_pipeline/single_beta.rs` 953L → 825L:
+    Extracted NPU post-processing phase to `npu_post.rs` (208L) containing
+    `NpuPostArgs` struct and `npu_post_process_beta` function.
+- **Combined with Phase 1 (May 7):** `pseudofermion/mod.rs` 926L → 76L,
+  `npu_worker/handlers.rs` 839L → 105L, `gpu/mod.rs` 797L → 333L.
+- **Note:** `single_beta.rs` (825L) remains above the 800L audit threshold.
+  It is a complex, stateful pipeline where further splitting would introduce
+  fragile parameter passing. Tracked for future evolution when the pipeline
+  is next refactored for TensorSession adoption.
+
+### GAP-HS-054: Hostname Provenance in Benchmark Binaries — RESOLVED
+
+- **Primal:** hotSpring (self)
+- **Severity:** Low (provenance quality)
+- **Status:** **Resolved** (May 8, 2026)
+- **Description:** `nuclear_eos_gpu.rs` and `sarkas_gpu.rs` used
+  `std::env::var("HOSTNAME").unwrap_or_else(|_| "unknown".to_string())`
+  for the `gate_name` field in `HardwareInventory`. Benchmarks run in
+  environments without `$HOSTNAME` set (e.g. CI, containers, WSL) would
+  report `"unknown"`, breaking provenance traceability.
+- **Resolution:** Added `pub fn resolve_gate_name() -> String` to
+  `src/bench/hardware.rs` with priority chain: `$HOSTNAME` → `$COMPUTERNAME`
+  → `/etc/hostname` → `niche::NICHE_NAME`. Never returns `"unknown"`.
+  Added `HardwareInventory::detect_local()` convenience constructor. Both
+  benchmark binaries updated to use `detect_local()`. Re-exported as
+  `pub use hardware::resolve_gate_name` from `bench/mod.rs`.
+
+### GAP-HS-055: clippy --all-targets Warnings — RESOLVED
+
+- **Primal:** hotSpring (self)
+- **Severity:** Low (code hygiene)
+- **Status:** **Resolved** (May 8, 2026)
+- **Description:** `cargo clippy --all-targets` revealed one unfulfilled lint
+  expectation: `#[expect(clippy::float_cmp)]` in `gpu/mod.rs:325` on a test
+  that uses `assert!(... < 1e-7)` rather than `==`, so `float_cmp` never
+  fired. Separately, `exp168_pmu_firmware_probe.rs` had `manual_range_contains`,
+  `case_sensitive_file_extension_comparison`, and `map_or_false` lints.
+  Hardware register constants in experiment binaries caused dead-code warnings.
+- **Resolution:** Removed unfulfilled `#[expect(clippy::float_cmp)]`.
+  Applied all clippy suggestions in `exp168`. Added targeted
+  `#[allow(dead_code)]` to GPU register reference constants (intentional
+  full maps for hardware documentation). `cargo clippy --all-targets`
+  now exits zero with no warnings.
+
+### GAP-HS-056: External C Dependency Assessment — DOCUMENTED
+
+- **Primal:** hotSpring (self)
+- **Severity:** Low (ecoBin compliance review)
+- **Status:** **Documented** (May 8, 2026)
+- **Description:** `cudarc = { version = "0.19.3", optional = true }` is a
+  Rust wrapper around the CUDA C runtime (C/FORTRAN). Reviewed for
+  ecoBin compliance per "zero C dependencies in application code" standard.
+- **Finding:** `cudarc` is **ecoBin-compliant** because:
+  1. It is `optional = true` — not in the default build.
+  2. Only activated by `--features cuda-validation` (feature `cuda-validation = ["dep:cudarc"]`).
+  3. Only two binaries require it (`validate_5060_dual_use`,
+     `validate_cross_vendor_dispatch`), both with `required-features = ["cuda-validation"]`.
+  4. Both binaries declare `#![expect(unsafe_code, reason = "CUDA kernel launch via cudarc...")]`.
+  5. The default `cargo build` / `cargo check` / `cargo clippy` produce
+     zero CUDA / C linkage.
+- **Action:** None — current containment is correct. Document in `deny.toml`
+  under a skip-list comment explaining the optional C dep exception.
 
 ---
 

@@ -379,3 +379,50 @@ pub fn mapped_bytes_to_f64(data: &[u8]) -> Vec<f64> {
         <[f64]>::to_vec,
     )
 }
+
+// ── DF64 wire-format conversion (CPU side) ────────────────────────────────────
+
+/// Split a single `f64` into a DF64 `(hi, lo)` f32 pair.
+///
+/// `hi + lo ≈ value` with ~48-bit mantissa.
+#[inline]
+#[must_use]
+pub fn f64_to_df64(v: f64) -> [f32; 2] {
+    let hi = v as f32;
+    let lo = (v - f64::from(hi)) as f32;
+    [hi, lo]
+}
+
+/// Reconstruct a single `f64` from a DF64 `(hi, lo)` f32 pair.
+#[inline]
+#[must_use]
+pub fn df64_to_f64(pair: [f32; 2]) -> f64 {
+    f64::from(pair[0]) + f64::from(pair[1])
+}
+
+/// Convert a slice of `f64` values to DF64 wire format bytes (pairs of f32).
+///
+/// Output byte length equals input byte length (8 bytes per value).
+#[must_use]
+pub fn f64_slice_to_df64_bytes(data: &[f64]) -> Vec<u8> {
+    let mut bytes = Vec::with_capacity(data.len() * 8);
+    for &v in data {
+        let [hi, lo] = f64_to_df64(v);
+        bytes.extend_from_slice(&hi.to_le_bytes());
+        bytes.extend_from_slice(&lo.to_le_bytes());
+    }
+    bytes
+}
+
+/// Convert DF64 wire format bytes back to `f64` values.
+#[must_use]
+pub fn df64_bytes_to_f64_slice(bytes: &[u8]) -> Vec<f64> {
+    bytes
+        .chunks_exact(8)
+        .map(|chunk| {
+            let hi = f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+            let lo = f32::from_le_bytes([chunk[4], chunk[5], chunk[6], chunk[7]]);
+            df64_to_f64([hi, lo])
+        })
+        .collect()
+}

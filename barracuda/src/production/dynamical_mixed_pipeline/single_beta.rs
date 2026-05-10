@@ -13,7 +13,7 @@ use crate::production::{
     dynamical_summary::DynamicalNpuStats,
     npu_worker::{NpuRequest, NpuResponse},
     plaquette_variance,
-    titan_worker::{TitanRequest, TitanResponse},
+    titan_worker::TitanResponse,
 };
 use crate::proxy::CortexRequest;
 use std::io::Write;
@@ -805,149 +805,21 @@ pub(super) fn run_single_beta(
     }
     println!();
 
-    ctx.npu_tx.send(NpuRequest::FlushTrajectoryBatch).ok();
-    if let Ok(NpuResponse::TrajectoryBatchProcessed { n_events }) = ctx.npu_rx.recv()
-        && n_events > 0
-    {
-        println!("  [NPU] Sub-models: {n_events} buffered events flushed");
-    }
-
-    ctx.npu_tx
-        .send(NpuRequest::Retrain {
-            results: results.clone(),
-        })
-        .ok();
-    npu_stats.total_npu_calls += 1;
-    if let Ok(NpuResponse::Retrained { beta_c }) = ctx.npu_rx.recv() {
-        println!("  ESN retrained → β_c ≈ {beta_c:.4}");
-    }
-
-    ctx.npu_tx.send(NpuRequest::SubModelMetrics).ok();
-    if let Ok(NpuResponse::SubModelMetricsSnapshot(metrics)) = ctx.npu_rx.recv()
-        && let Some(w) = traj_writer.as_mut()
-    {
-        writeln!(w, "{}", serde_json::json!({"beta": beta, "phase": "sub_model_metrics", "bi": bi, "sub_models": metrics})).ok();
-    }
-
-    ctx.npu_tx
-        .send(NpuRequest::DisagreementQuery {
+    super::npu_post::npu_post_process_beta(
+        ctx,
+        config,
+        &super::npu_post::NpuPostArgs {
+            bi,
             beta,
-            plaq: mean_plaq,
-            mass: config.mass,
-            chi: susceptibility,
+            mean_plaq,
+            susceptibility,
             acceptance,
-        })
-        .ok();
-    npu_stats.total_npu_calls += 1;
-    if let Ok(NpuResponse::DisagreementSnapshot {
-        delta_cg,
-        delta_phase,
-        delta_anomaly,
-        delta_priority,
-        urgency,
-    }) = ctx.npu_rx.recv()
-    {
-        if urgency > 0.05 {
-            println!(
-                "  [Concept Edge] β={beta:.4}: Δ_cg={delta_cg:.3} Δ_phase={delta_phase:.1} Δ_anom={delta_anomaly:.3} urgency={urgency:.3}"
-            );
-        }
-        if let Some(w) = traj_writer.as_mut() {
-            writeln!(
-                w,
-                "{}",
-                serde_json::json!({
-                    "beta": beta, "phase": "disagreement_snapshot",
-                    "delta_cg": delta_cg, "delta_phase": delta_phase,
-                    "delta_anomaly": delta_anomaly, "delta_priority": delta_priority,
-                    "urgency": urgency, "mean_plaq": mean_plaq, "acceptance": acceptance,
-                    "susceptibility": susceptibility,
-                })
-            )
-            .ok();
-        }
-    }
-
-    if results.len() >= 3 && npu_stats.adaptive_inserted < config.max_adaptive {
-        let measured: Vec<f64> = results.iter().map(|r| r.beta).collect();
-        let remaining: Vec<f64> = if bi + 1 < beta_order.len() {
-            beta_order[bi + 1..].to_vec()
-        } else {
-            vec![]
-        };
-        let beta_min = results.iter().map(|r| r.beta).fold(f64::INFINITY, f64::min) - 0.1;
-        let beta_max = results
-            .iter()
-            .map(|r| r.beta)
-            .fold(f64::NEG_INFINITY, f64::max)
-            + 0.1;
-        ctx.npu_tx
-            .send(NpuRequest::SteerAdaptive {
-                measured_betas: measured,
-                queued_betas: remaining,
-                beta_min,
-                beta_max,
-                n_candidates: 80,
-            })
-            .ok();
-        npu_stats.total_npu_calls += 1;
-        npu_stats.adaptive_steered += 1;
-        match ctx.npu_rx.recv() {
-            Ok(NpuResponse::AdaptiveSteered {
-                suggestion: Some(new_beta),
-                saturated,
-            }) => {
-                if saturated {
-                    println!(
-                        "  [NPU] Parameter set saturated — accepting final point β={new_beta:.4} then moving on"
-                    );
-                    beta_order.push(new_beta);
-                    npu_stats.adaptive_inserted = config.max_adaptive;
-                } else {
-                    println!(
-                        "  NPU adaptive steer: inserting β={:.4} into scan queue ({}/{} adaptive budget)",
-                        new_beta,
-                        npu_stats.adaptive_inserted + 1,
-                        config.max_adaptive
-                    );
-                    beta_order.push(new_beta);
-                    npu_stats.adaptive_inserted += 1;
-                }
-            }
-            Ok(NpuResponse::AdaptiveSteered {
-                suggestion: None,
-                saturated,
-            }) if saturated => {
-                println!("  [NPU] Parameter set saturated — no novel points remain, moving on");
-                npu_stats.adaptive_inserted = config.max_adaptive;
-            }
-            _ => {}
-        }
-    } else if npu_stats.adaptive_inserted >= config.max_adaptive && results.len() >= 3 {
-        println!(
-            "  NPU adaptive budget exhausted ({}/{})",
-            npu_stats.adaptive_inserted, config.max_adaptive
-        );
-    }
-
-    if let Some(handles) = ctx.titan_handles
-        && bi + 2 < beta_order.len()
-    {
-        let future_beta = beta_order[bi + 2];
-        handles
-            .titan_tx
-            .send(TitanRequest::PreThermalize {
-                beta: future_beta,
-                mass: config.mass,
-                lattice: config.lattice,
-                n_quenched: config.n_quenched_pretherm,
-                seed: config.seed + (bi as u64 + 2) * 1000 + 500,
-                dt: *dt,
-                n_md: *n_md,
-            })
-            .ok();
-        println!("  [Brain L2] Titan V pre-thermalizing β={future_beta:.4} in background");
-    }
-
-    ctx.npu_tx.send(NpuRequest::FlushTrajectoryBatch).ok();
+            dt: *dt,
+            n_md: *n_md,
+        },
+        results,
+        npu_stats,
+        beta_order,
+        traj_writer,
+    );
 }
