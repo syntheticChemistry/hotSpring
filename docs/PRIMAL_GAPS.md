@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026
-**Last audited:** May 11, 2026 (Post-Interstadial Push 2: GAP ID collision fix, primal-proof test coverage, skunkBat in 7/7 deploy graphs + cell, manifest alignment)
+**Last audited:** May 11, 2026 (Post-Interstadial Push 3: NUCLEUS scenario fix, foundation Thread 2 workload, fleet discovery evolution, deep debt audit)
 **License:** AGPL-3.0-or-later
 
 ---
@@ -924,6 +924,59 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 - **Description:** `manifest.toml [springs.hotspring]` showed `tests = 1040`
   (stale). Verified count is 1,025.
 - **Resolution:** Updated to `tests = 1025` and added Tier 4 IPC-first note.
+
+### GAP-HS-082: NUCLEUS Workload Scenario ID Mismatch — RESOLVED
+
+- **Primal:** projectNUCLEUS (workload)
+- **Severity:** Critical (NUCLEUS dispatch broken)
+- **Status:** **Resolved** (May 11, 2026)
+- **Description:** `hotspring-md-validation.toml` referenced `--scenario
+  sarkas_yukawa_md` but no scenario with that ID was registered. The existing
+  MD scenario was `md-yukawa-ocp` (config smoke test only). NUCLEUS workload
+  dispatch would find zero matching scenarios.
+- **Resolution:** Created `sarkas-yukawa-md` scenario (`s_sarkas_yukawa_md.rs`)
+  with foundation-grade validation: Daligault D* fit across 12 reference points,
+  RMSE check, plus CPU MD simulation with energy drift validation when
+  `barracuda-local` is enabled. Updated NUCLEUS TOML and foundation workload
+  to use `sarkas-yukawa-md`. 7 registered scenarios total (6 default + 1
+  barracuda-local).
+
+### GAP-HS-083: Foundation Thread 2 Workload Missing — RESOLVED
+
+- **Primal:** foundation (workload pipeline)
+- **Severity:** Medium (foundation_validate.sh gap)
+- **Status:** **Resolved** (May 11, 2026)
+- **Description:** `foundation_validate.sh --thread plasma` found zero workloads
+  because `workloads/thread02_plasma/` did not exist. Foundation targets existed
+  (12 targets, all validated) but had no execution path via the validate script.
+- **Resolution:** Created `workloads/thread02_plasma/hs-sarkas-md.toml` pointing
+  to UniBin `validate --scenario sarkas-yukawa-md`. Also fixed foundation
+  workload `hs-sarkas-md-validation.toml` scenario ID. Fixed targets file
+  `[meta].expression` to reference `PLASMA_QCD_SOVEREIGN_GPU.md`.
+
+### GAP-HS-084: Fleet Discovery Hardcoded /run/coralreef/ — RESOLVED
+
+- **Primal:** coralReef (fleet discovery)
+- **Severity:** Low (portability)
+- **Status:** **Resolved** (May 11, 2026)
+- **Description:** `discover_diesel_ember_socket()` in `fleet_client.rs`
+  hardcoded `/run/coralreef` as the ember socket directory. Not portable
+  to non-standard installations or containerized environments.
+- **Resolution:** Added `coralreef_run_dir()` discovery function with cascade:
+  `$CORALREEF_RUN_DIR` → `$XDG_RUNTIME_DIR/coralreef` → `/run/coralreef`.
+  Consistent with XDG Base Directory Specification.
+
+### GAP-HS-085: DOWNSTREAM_PATTERNS.md Stale — RESOLVED
+
+- **Primal:** hotSpring (documentation)
+- **Severity:** Low (docs alignment)
+- **Status:** **Resolved** (May 11, 2026)
+- **Description:** Several items stale: expression doc listed as "needed"
+  (was created), scenario name mismatched code, foundation workload listed
+  as "Pending" (was created), no mention of spectral scenario barracuda-local
+  requirement.
+- **Resolution:** Updated all stale items to current status. Added scenario
+  registry listing with tier requirements.
 
 ---
 

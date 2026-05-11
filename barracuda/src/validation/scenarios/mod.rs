@@ -25,6 +25,7 @@ pub use registry::{Scenario, ScenarioMeta, ScenarioRegistry, Tier, Track};
 pub mod s_composition_health;
 pub mod s_lattice_plaquette;
 pub mod s_md_yukawa;
+pub mod s_sarkas_yukawa_md;
 pub mod s_semf_parity;
 #[cfg(feature = "barracuda-local")]
 pub mod s_spectral_lanczos;
@@ -39,6 +40,7 @@ pub fn build_registry() -> ScenarioRegistry {
     #[cfg(feature = "barracuda-local")]
     r.register(s_spectral_lanczos::SCENARIO);
     r.register(s_md_yukawa::SCENARIO);
+    r.register(s_sarkas_yukawa_md::SCENARIO);
     r.register(s_composition_health::SCENARIO);
     r.register(s_tolerance_ordering::SCENARIO);
     r

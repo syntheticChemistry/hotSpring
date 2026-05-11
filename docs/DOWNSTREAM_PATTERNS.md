@@ -13,7 +13,7 @@ workload TOMLs, gate manifests, operational scripts.
 **hotSpring integration points:**
 
 - `workloads/hotspring/hotspring-md-validation.toml` — toadStool workload using
-  UniBin `hotspring_unibin validate --scenario sarkas_yukawa_md` with
+  UniBin `hotspring_unibin validate --scenario sarkas-yukawa-md` with
   gate-agnostic `$SPRINGS_ROOT` paths
 - `graphs/node_atomic.toml` — positions hotSpring as consumer of the Node
   atomic (compute) pattern alongside neuralSpring, wetSpring, ludoSpring
@@ -25,7 +25,11 @@ workload TOMLs, gate manifests, operational scripts.
 **Patterns absorbed:**
 
 1. **UniBin validation surface** — `hotspring_unibin validate --scenario <name>`
-   is the stable contract for plasmidBin and toadStool workloads
+   is the stable contract for plasmidBin and toadStool workloads. Registered
+   scenarios: `semf-parity`, `lattice-plaquette`, `md-yukawa-ocp` (config
+   smoke), `sarkas-yukawa-md` (foundation-grade), `composition-health`,
+   `tolerance-ordering`. The `spectral-lanczos` scenario requires
+   `barracuda-local` and is not available in `primal-proof` builds
 2. **Workload TOML contract** — `[metadata]`, `[execution]`, `[resources]`,
    `[security]` sections; `[provenance]` pending toadStool Gap 5 resolution
 3. **Path portability** — workload uses `$SPRINGS_ROOT` (verify expansion
@@ -60,8 +64,9 @@ thread indexes, validation graphs.
 
 1. **Sediment layer lifecycle** — spring proves result, binary to plasmidBin,
    workload TOML, `foundation_validate.sh` wraps with provenance
-2. **Thread expression** — Thread 2 expression doc needed
+2. **Thread expression** — Thread 2 expression doc created
    (`PLASMA_QCD_SOVEREIGN_GPU.md`), referenced from `thread02_plasma.toml`
+   and `THREAD_INDEX.toml`
 3. **Data anchor registration** — validation runs should register BLAKE3
    hashes in NestGate, feeding `validation/run-*` traceability
 
@@ -75,9 +80,9 @@ thread indexes, validation graphs.
 | P0 | Fix workload binary name + path portability | **Done** (UniBin + `$SPRINGS_ROOT`) |
 | P0 | Seed foundation Thread 2 validation targets | **Done** (12 targets, 12/12 PASS) |
 | P1 | Update Live Science API counts after gate validation runs | Pending |
-| P1 | Create Thread 2 expression doc for foundation | Pending |
+| P1 | Create Thread 2 expression doc for foundation | **Done** (`PLASMA_QCD_SOVEREIGN_GPU.md`) |
 | P1 | Create additional NUCLEUS workloads (nuclear EOS, spectral) | Future |
-| P1 | Add foundation Thread 2 workload TOML | Pending |
+| P1 | Add foundation Thread 2 workload TOML | **Done** (`workloads/thread02_plasma/hs-sarkas-md.toml`) |
 | P2 | Register validation BLAKE3 hashes in NestGate | Future |
 | P2 | Populate `blake3`/`retrieved` in thread02_plasma.toml sources | Future |
 | P2 | Verify `$SPRINGS_ROOT` expansion with live toadStool dispatch | Future |

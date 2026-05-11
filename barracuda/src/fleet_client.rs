@@ -235,15 +235,35 @@ pub fn probe_ember_socket(socket_path: &Path) -> bool {
         .is_ok_and(|resp| resp.get("result").is_some())
 }
 
+/// Well-known coralReef runtime directory for diesel engine sockets.
+const CORALREEF_RUN_DEFAULT: &str = "/run/coralreef";
+
+/// Resolve the coralReef runtime directory.
+///
+/// Checks `CORALREEF_RUN_DIR` env first, then `$XDG_RUNTIME_DIR/coralreef`,
+/// then falls back to the well-known `/run/coralreef`.
+fn coralreef_run_dir() -> PathBuf {
+    if let Ok(dir) = std::env::var("CORALREEF_RUN_DIR") {
+        return PathBuf::from(dir);
+    }
+    if let Ok(xdg) = std::env::var("XDG_RUNTIME_DIR") {
+        let p = PathBuf::from(xdg).join("coralreef");
+        if p.is_dir() {
+            return p;
+        }
+    }
+    PathBuf::from(CORALREEF_RUN_DEFAULT)
+}
+
 /// Discover the ember socket for a specific BDF via the diesel engine layout.
 ///
 /// In the diesel engine architecture, per-cylinder embers create sockets at
-/// `/run/coralreef/ember-{cylinder_name}.sock`. This function scans all such
-/// sockets, queries `ember.list` on each, and returns the socket path whose
-/// ember holds the requested BDF.
+/// `<coralreef_run_dir>/ember-{cylinder_name}.sock`. Checks `CORALREEF_RUN_DIR`
+/// env, then `$XDG_RUNTIME_DIR/coralreef`, then `/run/coralreef`. Queries
+/// `ember.list` on each socket and returns the one holding the requested BDF.
 #[must_use]
 pub fn discover_diesel_ember_socket(bdf: &str) -> Option<PathBuf> {
-    let coralreef_dir = Path::new("/run/coralreef");
+    let coralreef_dir = coralreef_run_dir();
     let entries = std::fs::read_dir(coralreef_dir).ok()?;
 
     for entry in entries.flatten() {

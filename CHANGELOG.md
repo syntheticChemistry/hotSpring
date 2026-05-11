@@ -7,7 +7,35 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
-## Unreleased — Post-Interstadial Push 2 (May 11, 2026)
+## Unreleased — Post-Interstadial Push 3: Deep Debt (May 11, 2026)
+
+### Added
+- **`sarkas-yukawa-md` validation scenario** (`s_sarkas_yukawa_md.rs`):
+  Foundation-grade scenario with Daligault D* fit across 12 reference points,
+  RMSE validation, and CPU MD simulation with energy drift checks (when
+  `barracuda-local` enabled). 7 registered scenarios total.
+- **Foundation Thread 2 workload**: `workloads/thread02_plasma/hs-sarkas-md.toml`
+  enables `foundation_validate.sh --thread plasma` execution path.
+
+### Changed
+- **NUCLEUS workload fix**: `hotspring-md-validation.toml` scenario ID corrected
+  from `sarkas_yukawa_md` to `sarkas-yukawa-md` (was broken — no matching
+  scenario existed).
+- **Fleet discovery evolution**: `discover_diesel_ember_socket()` now uses
+  `coralreef_run_dir()` cascade (`$CORALREEF_RUN_DIR` → `$XDG_RUNTIME_DIR/coralreef`
+  → `/run/coralreef`) instead of hardcoded path.
+- **Foundation targets metadata**: Fixed `thread02_plasma_targets.toml`
+  `[meta].expression` to reference `PLASMA_QCD_SOVEREIGN_GPU.md`.
+- **DOWNSTREAM_PATTERNS.md**: Refreshed all stale items, added scenario registry
+  listing with tier requirements.
+
+### Metrics
+- Tests: 1,025 (default) / 576 (primal-proof) — both configurations clean
+- Clippy: zero warnings
+- Scenarios: 7 registered (6 default + 1 barracuda-local)
+- Gaps: 4 new resolved (GAP-HS-082 through GAP-HS-085)
+
+## Post-Interstadial Push 2 (May 11, 2026)
 
 ### Changed
 - **primal-proof test coverage**: Moved barracuda-dependent tests in
