@@ -115,52 +115,6 @@ impl NucleusContext {
         self.get_by_capability(domain)
     }
 
-    // Named accessors retained for backward compatibility (GAP-HS-002).
-    // All route through capability-based discovery first, falling back to
-    // name-based lookup only for legacy socket naming.
-
-    /// Convenience: toadStool compute primal.
-    #[deprecated(since = "0.6.33", note = "use `by_domain(\"compute\")` instead")]
-    #[must_use]
-    pub fn toadstool(&self) -> Option<&PrimalEndpoint> {
-        self.by_domain("compute")
-    }
-
-    /// Convenience: bearDog signing primal.
-    #[deprecated(since = "0.6.33", note = "use `by_domain(\"crypto\")` instead")]
-    #[must_use]
-    pub fn beardog(&self) -> Option<&PrimalEndpoint> {
-        self.by_domain("crypto")
-    }
-
-    /// Convenience: rhizoCrypt DAG primal.
-    #[deprecated(since = "0.6.33", note = "use `by_domain(\"dag\")` instead")]
-    #[must_use]
-    pub fn rhizocrypt(&self) -> Option<&PrimalEndpoint> {
-        self.by_domain("dag")
-    }
-
-    /// Convenience: loamSpine commit primal.
-    #[deprecated(since = "0.6.33", note = "use `by_domain(\"ledger\")` instead")]
-    #[must_use]
-    pub fn loamspine(&self) -> Option<&PrimalEndpoint> {
-        self.by_domain("ledger")
-    }
-
-    /// Convenience: sweetgrass provenance primal.
-    #[deprecated(since = "0.6.33", note = "use `by_domain(\"attribution\")` instead")]
-    #[must_use]
-    pub fn sweetgrass(&self) -> Option<&PrimalEndpoint> {
-        self.by_domain("attribution")
-    }
-
-    /// Convenience: coralReef / coral-glowplug GPU sovereign path.
-    #[deprecated(since = "0.6.33", note = "use `by_domain(\"shader\")` instead")]
-    #[must_use]
-    pub fn coralreef(&self) -> Option<&PrimalEndpoint> {
-        self.by_domain("shader")
-    }
-
     /// Names of all alive primals (for banner / manifest), sorted for stable output.
     #[must_use]
     pub fn alive_names(&self) -> Vec<&str> {
