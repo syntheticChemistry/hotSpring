@@ -21,6 +21,7 @@
 //! ipc::toadstool       — ToadStool performance surface reporter
 //! ipc::signing         — Receipt signing via bearDog crypto.sign_ed25519
 //! ipc::provenance      — Per-trio modules (rhizoCrypt, loamSpine, sweetGrass)
+//! ipc::skunkbat        — SkunkBat security.audit_log client (JH-5)
 //! ```
 //!
 //! # Migration
@@ -42,6 +43,9 @@ pub mod method_register;
 
 /// Per-trio provenance modules (rhizoCrypt, loamSpine, sweetGrass).
 pub mod provenance;
+
+/// skunkBat `security.audit_log` IPC client (JH-5 audit forwarding).
+pub mod skunkbat;
 
 /// NUCLEUS primal discovery — socket scanning, liveness probing, capability queries.
 ///

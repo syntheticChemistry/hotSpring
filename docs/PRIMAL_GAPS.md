@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026
-**Last audited:** May 10, 2026 (Deep Debt Evolution Phase 4)
+**Last audited:** May 11, 2026 (Post-Interstadial Evolution)
 **License:** AGPL-3.0-or-later
 
 ---
@@ -759,6 +759,38 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
   3 distinct paper domains (lattice QCD, dielectric, kinetic-fluid).
 - **Resolution:** Extracted `paper_44.rs` (220L, dielectric) and `paper_45.rs`
   (132L, kinetic-fluid). Residual `papers.rs` covers paper 43 at 490L.
+
+### GAP-HS-066: 19 dead_code Warnings — RESOLVED
+
+- **Primal:** hotSpring (self)
+- **Severity:** Low (cleanliness)
+- **Status:** **Resolved** (May 11, 2026)
+- **Description:** 19 `dead_code` warnings from superseded NPU handler files
+  (`handlers_inference.rs`, `handlers_screening.rs`, `handlers_steering.rs`)
+  that were replaced by the `handlers/` subdirectory module structure.
+- **Resolution:** Removed 3 dead files and their `mod` declarations. Zero warnings.
+
+### GAP-HS-067: skunkBat IPC — Graph-Only — RESOLVED
+
+- **Primal:** skunkBat (JH-5)
+- **Severity:** Medium (composition completeness)
+- **Status:** **Resolved** (May 11, 2026)
+- **Description:** skunkBat was wired in 4 deploy graphs but had no Rust
+  IPC client module. Could not query audit events programmatically.
+- **Resolution:** Added `src/ipc/skunkbat.rs` — cursor-based `security.audit_log`
+  client. 6 tests. When Phase 3 ships, audit events auto-forward to rhizoCrypt DAG.
+
+### GAP-HS-068: Foundation Seeding — Plasma Thread — RESOLVED
+
+- **Primal:** foundation (sporeGarden)
+- **Severity:** Medium (provenance completeness)
+- **Status:** **Resolved** (May 11, 2026)
+- **Description:** Thread 2 (Plasma Physics) had data sources but no validation
+  targets. Sarkas Yukawa MD results were validated in hotSpring but not
+  contributed to the foundation geological layer.
+- **Resolution:** Created `data/targets/thread02_plasma_targets.toml` with 12
+  validated targets. Provenance manifest and validation summary committed.
+  Thread 2 upgraded from "mapped" to "active" in THREAD_INDEX.toml.
 
 ---
 

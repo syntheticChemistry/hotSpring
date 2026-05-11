@@ -7,7 +7,37 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
-## Unreleased — Deep Debt Evolution Phase 4 (May 10, 2026)
+## Unreleased — Post-Interstadial Evolution (May 11, 2026)
+
+### Added
+- **skunkBat IPC module** (`src/ipc/skunkbat.rs`): Rust client for
+  `security.audit_log` cursor-based audit event polling via JSON-RPC.
+  6 new tests. JH-5 forwarding ready — when Phase 3 ships, audit events
+  propagate to rhizoCrypt DAG + sweetGrass braid automatically.
+- **Foundation seeding**: Contributed 12 Sarkas Yukawa MD validation targets
+  to `sporeGarden/foundation` Thread 2 (Plasma Physics). Energy drift,
+  RDF structure, self-diffusion D*, viscosity, and Daligault fit parity —
+  all validated and traceable to published papers.
+
+### Changed
+- **19 dead_code warnings eliminated**: Removed 3 superseded handler files
+  (`handlers_inference.rs`, `handlers_screening.rs`, `handlers_steering.rs`)
+  that were replaced by `handlers/` subdirectory during prior NPU refactor.
+  Zero clippy warnings remaining.
+
+### Infrastructure
+- **UniBin release binary built**: 3.3M stripped binary (`hotspring_unibin`),
+  ready for plasmidBin GitHub Releases and NUCLEUS workload dispatch.
+- **NUCLEUS workload updated**: `hotspring-md-validation.toml` evolved from
+  hardcoded `/home/irongate/` path to gate-agnostic `$SPRINGS_ROOT` + UniBin
+  `validate` subcommand.
+
+### Metrics
+- Tests: 1,025 (up from 1,019 — skunkBat IPC tests)
+- Clippy: zero warnings (down from 19)
+- Build configs: default, `primal-proof` (IPC-only), all-targets — all clean
+
+## Deep Debt Evolution Phase 4 (May 10, 2026)
 
 ### Changed
 - **Typed IPC errors**: `fleet_ember.rs` (24 pub fns), `fleet_client.rs` (5),
