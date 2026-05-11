@@ -34,6 +34,31 @@ This file covers the spring as a whole. For crate-level details see
 - `cargo fmt --check` — clean
 - 8 registered validation scenarios total (was 7)
 
+## Unreleased — Sovereign Rust Evolution (May 11, 2026)
+
+### Added
+- **Pure Rust ELF patcher** (`coral-driver/src/tools/elf_patcher.rs`):
+  Replaces `patch_nouveau_teardown.py`. Uses the `object` crate for ELF
+  parsing — zero subprocess calls. `KmodPatcher::default_nouveau_targets()`
+  patches 4 teardown functions. Vendor-agnostic via `PatchTarget` struct.
+- **Standalone warm probe** (`coral-driver/src/vfio/warm_probe.rs`):
+  `WarmStateSnapshot` struct (PMC, PRAMIN, FECS, GPC) extracted from
+  `sovereign_stages.rs` as reusable public API.
+- **Warm-catch orchestrator** (`coral-ember/src/ipc/handlers_warm_catch.rs`):
+  `ember.warm_catch` JSON-RPC handler — full pipeline: patch → swap nouveau
+  → settle → swap vfio → probe. Era-aware settle durations from `MemoryType`
+  (GDDR5=10s, HBM2=12s, GDDR6=8s). Supports `--dry-run` and `--settle`.
+- **`coralctl warm-catch <BDF>`**: New CLI subcommand wired through glowplug →
+  ember RPC. Replaces `k80_warm_catch.sh` and `titanv_warm_handoff.sh`.
+- **Sovereign auto-warm pre-check**: `warm_catch_pre_check()` in
+  `sovereign_init.rs` detects cold GPU + available warm-catch infrastructure.
+  `handlers_sovereign.rs` logs opportunity before `sovereign_init`.
+
+### Changed
+- **Jelly strings archived**: `k80_warm_catch.sh`, `titanv_warm_handoff.sh`,
+  `patch_nouveau_teardown.py`, `bpf_warm_catch_guard.py` moved to
+  `scripts/archive/`. All warm-catch functionality now in pure Rust.
+- **scripts/README.md**: Updated archive table with pure Rust replacements.
 ## Unreleased — Sovereign Warm-Catch Breakthrough (May 11, 2026)
 
 ### Added
@@ -42,10 +67,10 @@ This file covers the spring as a whole. For crate-level details see
   nvkm_fifo_fini) in stock `nouveau.ko` to NOP. Replaces broken livepatch
   approach (kernel 6.17 R_X86_64_64 relocation check blocks out-of-tree
   livepatch/kprobe modules entirely).
-- **K80 warm-catch script** (`k80_bpf_warm_catch.sh`): Full warm-catch
+- **K80 warm-catch script** (`k80_warm_catch.sh`): Full warm-catch
   orchestration using patched nouveau. GDDR5 trained, GPCs active, PMC
   preserved across unbind.
-- **Titan V warm-handoff script** (`titanv_bpf_warm_handoff.sh`): nouveau
+- **Titan V warm-handoff script** (`titanv_warm_handoff.sh`): nouveau
   initializes FECS via ACR/SEC2 natively. FECS RUNNING post-VFIO rebind.
 
 ### Fixed

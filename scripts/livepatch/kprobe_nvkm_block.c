@@ -1,6 +1,11 @@
 /*
  * kprobe_nvkm_block.c — kprobe-based FIFO teardown blocker.
  *
+ * STATUS: SUPERSEDED by binary-patch approach (coral-driver::tools::elf_patcher).
+ * Kernel 6.17+ rejects out-of-tree kprobe modules. The ELF binary patcher
+ * NOP's all 4 teardown functions directly in nouveau.ko at the machine-code
+ * level. Retained as reference for the kprobe technique.
+ *
  * Loaded AFTER nouveau init completes to block nvkm_fifo_fini during unbind.
  * The livepatch handles gf100_gr_fini, nvkm_pmu_fini, and nvkm_mc_disable
  * (safe to NOP during both init and unbind). But nvkm_fifo_fini cannot be

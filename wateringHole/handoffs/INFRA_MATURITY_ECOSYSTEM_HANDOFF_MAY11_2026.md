@@ -282,17 +282,20 @@ Application (hotSpring physics)
 - `barracuda/src/bin/_fossilized/` — 30 historical binaries (not in Cargo.toml)
 
 ### Should Be Archived
-- `wateringHole/warm_handoff.sh` — marked DEPRECATED, supersedes by coralctl
-- `scripts/boot/plx-keepalive.sh` — marked DEPRECATED, superseded by coral-ember
-- `scripts/lab/titanv_nvidia470_warm_handoff.sh` — marked DEPRECATED, prefers
-  benchScale VM path
+- `wateringHole/warm_handoff.sh` — marked DEPRECATED, superseded by coralctl
 
-### Clean (Not Archivable)
-- `scripts/livepatch/` — active livepatch module source (`.c`, `Makefile`, `Kbuild`)
-  plus build artifacts (`.ko`, `.mod.c`, `.cmd`, `Module.symvers`). Build artifacts
-  should be gitignored, not archived.
+### Already Clean (gitignored or reference-only)
+- `scripts/livepatch/` — superseded livepatch/kprobe module source (`.c`, `Makefile`,
+  `Kbuild`) retained as fossil record. Build artifacts gitignored.
 - `data/firmware/` — untracked binary firmware extracts. Should remain untracked
   (gitignored). Not for archiving — these are operational artifacts.
+
+### Cleaned This Session
+- `scripts/lab/k80_warm_catch.sh` → moved to `scripts/archive/`
+- `scripts/lab/titanv_warm_handoff.sh` → moved to `scripts/archive/`
+- `scripts/lab/patch_nouveau_teardown.py` → moved to `scripts/archive/`
+- `scripts/lab/bpf_warm_catch_guard.py` → moved to `scripts/archive/`
+- All replaced by pure Rust: `coralctl warm-catch` + `coral-driver::tools::elf_patcher`
 
 ---
 
@@ -309,7 +312,7 @@ ecoPrimals/
 │   └── biomeOS        🔧 INTEGRATION — Neural API, registry, deploy graphs
 │
 └── springs/           (8 springs — hotSpring thru wetSpring)
-    └── hotSpring      ✅ L6 CERTIFIED — 189 experiments, NUCLEUS composition proven
+    └── hotSpring      ✅ L6 CERTIFIED — 190 experiments, ALL 3 GPUs sovereign, warm-catch in pure Rust
 ```
 
 benchScale and agentReagents are ready to be recognized as mature infra

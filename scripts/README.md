@@ -28,9 +28,9 @@ requiring forced power-off.
 | `harvest-ecobin.sh` | Harvest ecobin artifacts | Yes |
 | `regenerate-all.sh` | Full project regeneration | Yes |
 | `boot/*.sh` | Boot-time setup scripts | Yes |
-| `lab/k80_warm_catch.sh` | K80 GDDR5 warm-catch via binary-patched nouveau (teardown NOP'd) | Yes (root) |
-| `lab/titanv_warm_handoff.sh` | Titan V HBM2/FECS warm-handoff via binary-patched nouveau | Yes (root) |
-| `lab/patch_nouveau_teardown.py` | Binary-patch stock nouveau.ko to NOP 4 teardown functions | Yes (build tool) |
+| ~~`lab/k80_warm_catch.sh`~~ | **ARCHIVED** → `coralctl warm-catch <BDF> --memory-type gddr5` | Replaced by pure Rust |
+| ~~`lab/titanv_warm_handoff.sh`~~ | **ARCHIVED** → `coralctl warm-catch <BDF> --memory-type hbm2` | Replaced by pure Rust |
+| ~~`lab/patch_nouveau_teardown.py`~~ | **ARCHIVED** → `coral_driver::tools::elf_patcher` | Replaced by pure Rust |
 
 | `validate-primal-proof.sh` | Primal proof validation (primalSpring v0.9.17). Bare mode (no NUCLEUS) or `--full` (pre-flight `primalspring_guidestone` + domain `hotspring_guidestone`). Builds from `barracuda/`, runs from repo root so `validation/CHECKSUMS` resolves. Auto-sets `BEARDOG_FAMILY_SEED`, `SONGBIRD_SECURITY_PROVIDER`, `NESTGATE_JWT_SECRET` when `FAMILY_ID` is provided. | Yes |
 
@@ -91,6 +91,10 @@ scripting to daemon-managed GPU lifecycle.
 | `capture_multi_backend.sh` | `coralctl swap <BDF> <target> --trace` |
 | `titan_timing_attack.sh` | `coralctl warm-fecs <BDF>` (Exp 127 complete) |
 | `warm_handoff_test.sh` | `lab/k80_warm_catch.sh` + `lab/titanv_warm_handoff.sh` (binary-patched nouveau) |
+| `k80_warm_catch.sh` | `coralctl warm-catch <BDF> --memory-type gddr5` (pure Rust: `coral_driver::tools::elf_patcher` + `coral_ember::handlers_warm_catch`) |
+| `titanv_warm_handoff.sh` | `coralctl warm-catch <BDF> --memory-type hbm2` (pure Rust) |
+| `patch_nouveau_teardown.py` | `coral_driver::tools::elf_patcher::KmodPatcher` (pure Rust, zero subprocess calls) |
+| `bpf_warm_catch_guard.py` | **NOT FUNCTIONAL** — retained as reference (BPF approach blocked by missing `ALLOW_ERROR_INJECTION` in nouveau) |
 | `bar0_read.py` | `coralctl mmio read <BDF> <offset>` |
 | `parse_mmiotrace.py` | `coralctl trace-parse <file>` |
 | `replay_devinit.py` | `coralctl devinit replay <BDF>` |

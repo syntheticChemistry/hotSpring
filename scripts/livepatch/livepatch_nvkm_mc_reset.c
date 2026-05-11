@@ -1,7 +1,7 @@
 /*
  * livepatch_nvkm_mc_reset.c — targeted patches for warm handoff.
  *
- * STATUS: SUPERSEDED by binary-patch approach (patch_nouveau_teardown.py).
+ * STATUS: SUPERSEDED by binary-patch approach (coral-driver::tools::elf_patcher).
  * Kernel 6.17+ rejects R_X86_64_64 relocations with non-zero addends in
  * all out-of-tree modules, making livepatch/kprobe .ko files unloadable.
  * Retained as reference for the function signatures and rationale.

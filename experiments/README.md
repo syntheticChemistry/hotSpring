@@ -138,16 +138,16 @@ Not numbered experiments — systematic composition infrastructure:
 | 179 | K80_WARM_FECS_DISPATCH_PIPELINE | **milestone** | ✅ **K80 warm-catch FECS/PFIFO pipeline.** Nouveau warm-catch → VFIO rebind. FECS boots (Falcon v3 PIO). PFIFO runlist completes. SCHED_ERROR code=32 root-caused (RAMFC 0x3C/0x44) and fixed. Cold-boot sovereign (udev PLX fix, d3cold_allowed=0). |
 | 180 | THREE_GPU_HARDWARE_VALIDATION | **milestone** | ✅ RTX 5060 19/19 (CUDA+DRM+discovery), Titan V 20/20 standalone VFIO, K80 device open + runlist pass. PGOB GPC gating confirmed as K80 dispatch blocker. |
 | 181 | SOVEREIGN_DISPATCH_PIPELINE_SWEEP | investigation | 🔧 RTX 5060 8/8 PROVEN (WGSL→SM120→dispatch→readback). Titan V blocked (no PMU fw, SEC2/ACR). K80 cold-boot sovereign, PGOB dispatch blocker. Ember Exclusive Device Gate live. |
-| 182 | K80_FECS_PIO_BOOT | diagnostic | 🔧 K80 GK210 FECS PIO boot diagnostic. Direct BAR0 mmap (`low-level` feature). Falcon IMEM/DMEM PIO path. |
-| 183 | K80_FECS_INT_BOOT | diagnostic | 🔧 K80 GK210 FECS interrupt-driven boot. Direct BAR0 mmap (`low-level` feature). |
-| 184 | K80_GR_SOVEREIGN | active | ✅ K80 GK210 sovereign GR init via ember RPC. Modern ember-wired path. Kepler falcon boot + firmware + PLX keepalive + switch preflight. |
+| 182 | K80_FECS_PIO_BOOT | diagnostic | 🔧 K80 GK210 FECS PIO boot diagnostic. Direct BAR0 mmap (`low-level` feature). Falcon IMEM/DMEM PIO path. *(inline-only — no standalone journal)* |
+| 183 | K80_FECS_INT_BOOT | diagnostic | 🔧 K80 GK210 FECS interrupt-driven boot. Direct BAR0 mmap (`low-level` feature). *(inline-only — no standalone journal)* |
+| 184 | K80_GR_SOVEREIGN | active | ✅ K80 GK210 sovereign GR init via ember RPC. Modern ember-wired path. Kepler falcon boot + firmware + PLX keepalive + switch preflight. *(inline-only — no standalone journal)* |
 | 185 | K80_NOUVEAU_GK210_CHIPSET | complete | ✅ Root cause: upstream nouveau has NO `case 0x0f2:` — GK210 unrecognized → -ENODEV. One-line patch: `case 0x0f2: device->chip = &nvf1_chipset;` |
 | 186 | PMU_FW_EXTRACTION_ANALYSIS | complete | ✅ Kepler PMU from VBIOS (BIT tables). Volta PMU NOT in linux-firmware — needs nvidia-470 extraction. Enhanced exp168 probe. |
 | 187 | TITANV_NVIDIA580_MMIOTRACE_PREP | prepared | 🔧 Capture script for nvidia-580 mmiotrace on Titan V. Determines WPR usage, informs FalconBootSolver Volta branch. Awaiting execution window. |
 | 188 | K80_WARM_CATCH_BREAKTHROUGH | breakthrough | ✅ Patched nouveau RECOGNIZED GK210. First-ever GR init: 12 GiB GDDR5, 5 GPCs, 6 TPC/GPC. Post-rebind GPCs power-gated. PLX D3cold on ember stop. |
 | — | K80_QEMU_VM_REAGENT | investigation | ✅ QEMU VM with K80 VFIO passthrough + proprietary nvidia-470.256.02. Module probed K80 successfully. Reagent template + build recipe stored in `agentReagents/`. |
 | 189 | LTEE_B2_ANDERSON_FITNESS | notebook | 🔧 Tier 1 Python baseline — Wiser et al. 2013 LTEE Anderson fitness analogy. Power-law fitness model, Anderson Hamiltonian, localization analysis. |
-| 190 | THREE_GPU_SOVEREIGN_VALIDATION | **validation** | ✅ ALL 3 GPUs sovereign. Phase 1: RTX 5060 12/12 PASS, 154 steps/s. Phase 2: binary-patched nouveau warm-catch resolved GAP-HS-073 (Titan V FECS RUNNING) and GAP-HS-076 (K80 GDDR5 trained, GPCs active). |
+| 190 | THREE_GPU_SOVEREIGN_VALIDATION | **milestone** | ✅ **ALL 3 GPUs sovereign.** Phase 1: RTX 5060 12/12 PASS, 154 steps/s. Phase 2: binary-patched nouveau warm-catch resolved GAP-HS-073 (Titan V FECS RUNNING via ACR/SEC2) and GAP-HS-076 (K80 12 GiB GDDR5 trained, 5 GPCs active). Warm-catch pipeline elevated to pure Rust (`coralctl warm-catch`). |
 
 ## Paper Baseline Notebooks
 
@@ -171,6 +171,22 @@ See `notebooks/papers/PAPER_NOTEBOOK_GUIDE.md` for the pattern.
 - `archive/run_chuna_overnight.sh` — Run the Chuna overnight validation suite (archived)
 - `archive/` — Completed experiments moved to fossil record
 - `data/` — Experiment-associated data files
+
+## Sovereign Rust Evolution (May 2026)
+
+The warm-catch breakthrough (Exp 188-190) was initially proven via shell scripts
+and Python ("jelly strings"). These have been elevated to pure Rust in
+`coralReef`:
+
+- **`coral-driver/src/tools/elf_patcher.rs`** — Pure Rust ELF binary patcher
+  (replaces `patch_nouveau_teardown.py`). Uses `object` crate.
+- **`coral-driver/src/vfio/warm_probe.rs`** — Standalone `WarmStateSnapshot`
+  (PMC, PRAMIN, FECS, GPC registers).
+- **`coral-ember/src/ipc/handlers_warm_catch.rs`** — Full warm-catch
+  orchestrator via `ember.warm_catch` JSON-RPC. Era-aware settle durations.
+- **`coralctl warm-catch <BDF>`** — CLI entry point replacing all shell scripts.
+
+Original scripts archived in `scripts/archive/` as fossil record.
 
 ## Eukaryotic Evolution (May 2026)
 

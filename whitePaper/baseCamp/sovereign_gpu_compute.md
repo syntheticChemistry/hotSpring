@@ -1,8 +1,8 @@
 # baseCamp: Sovereign GPU Compute — GlowPlug & Falcon Boot Chain
 
-**Date:** 2026-03-25 (updated 2026-04-27 — **RTX 5060 sovereign dispatch LIVE**, K80 init.rs split into 11 modules, IPC dedup, GPU solve tighten/refactor complete)  
-**Domain:** Hardware — PCIe GPU lifecycle, falcon microcontrollers, HBM2 management, PFIFO command submission, ACR secure boot, WPR construction, cross-driver profiling, daemon RPC orchestration, adaptive experiment loop, sysmem DMA, GV100 MMU v2 page tables, WPR2 hardware protection, Kepler PIO falcon loading, VBIOS DEVINIT, fault containment architecture, **firmware-agnostic interfacing, PMU mailbox protocol, DRM ioctl sovereign pipeline, SM70 SASS compute dispatch, fork-isolated MMIO gateway, staged sovereign init, PCI remove/rescan with kernel override handling**  
-**Experiments:** 060-176  
+**Date:** 2026-03-25 (updated 2026-05-11 — **ALL 3 GPUs sovereign**, warm-catch pipeline in pure Rust, ELF patcher replaces Python scripts)  
+**Domain:** Hardware — PCIe GPU lifecycle, falcon microcontrollers, HBM2 management, PFIFO command submission, ACR secure boot, WPR construction, cross-driver profiling, daemon RPC orchestration, adaptive experiment loop, sysmem DMA, GV100 MMU v2 page tables, WPR2 hardware protection, Kepler PIO falcon loading, VBIOS DEVINIT, fault containment architecture, **firmware-agnostic interfacing, PMU mailbox protocol, DRM ioctl sovereign pipeline, SM70 SASS compute dispatch, fork-isolated MMIO gateway, staged sovereign init, PCI remove/rescan with kernel override handling, binary ELF patching, warm-catch orchestration, era-aware memory settle**  
+**Experiments:** 060-190  
 **Hardware:** NVIDIA Titan V (GV100, 12GB HBM2), 2× Tesla K80 (GK210, Kepler), RTX 5060 (GB206, Blackwell, display/validator)
 
 ---
@@ -1381,10 +1381,65 @@ proprietary driver uses a simpler PGOB sequence than Nouveau:
 Root cause narrowed to **PRI ring GPC enrollment** — the GPCs aren't just
 power-gated, they're absent from the PRI routing table entirely.
 
+### Warm-Catch Breakthrough (Exp 188-190, May 2026)
+
+The PRI ring / PGOB block was bypassed entirely by a different strategy:
+temporarily load a **binary-patched `nouveau.ko`** that has its teardown
+functions NOP'd, allow it to train memory and initialize GPCs, then swap
+back to `vfio-pci` before nouveau tears anything down.
+
+**Why it works**: `nouveau` contains battle-tested firmware loading and memory
+training code for each GPU generation. By patching 4 teardown functions
+(`gf100_gr_fini`, `nvkm_pmu_fini`, `nvkm_mc_disable`, `nvkm_fifo_fini`) to
+`return 0` via machine-code NOP, the driver initializes everything — GDDR5 on
+K80, FECS via ACR/SEC2 on Titan V — but when unbound, it cannot tear down what
+it built. The warm state persists across the `vfio-pci` rebind.
+
+**K80 (GK210) — GAP-HS-076 RESOLVED**:
+- Patched nouveau recognizes GK210 (requires upstream one-line fix: `case 0x0f2`)
+- Trains 12 GiB GDDR5, initializes 5 GPCs / 6 TPC per GPC
+- Post-rebind: PMC_ENABLE = 0xfc37b1ef (pop=22), FECS_MC = 0x00060005 (running)
+
+**Titan V (GV100) — GAP-HS-073 RESOLVED**:
+- Patched nouveau loads ACR/SEC2 firmware, brings up FECS
+- FECS_MC = 0x0c060006 (RUNNING), PGRAPH enabled, 1 GPC active
+- PMU absence is non-fatal (Volta ACR chain bypasses PMU)
+
+**RTX 5060 (GB206)**: Already sovereign (12/12 dispatch PASS). No warm-catch needed.
+
+### Sovereign Rust Evolution — From Jelly Strings to Pure Primals
+
+The warm-catch pipeline was initially proven via shell scripts and Python
+("jelly strings"). These have been elevated to pure Rust in `coralReef`:
+
+| Component | Jelly String | Pure Rust Replacement |
+|-----------|-------------|----------------------|
+| ELF binary patcher | `patch_nouveau_teardown.py` | `coral-driver/src/tools/elf_patcher.rs` (`KmodPatcher`, `object` crate) |
+| K80 warm-catch | `k80_warm_catch.sh` | `coralctl warm-catch <BDF> --memory-type gddr5` |
+| Titan V warm-catch | `titanv_warm_handoff.sh` | `coralctl warm-catch <BDF> --memory-type hbm2` |
+| Warm state probe | inline shell reads | `coral-driver/src/vfio/warm_probe.rs` (`WarmStateSnapshot`) |
+| Orchestration | scripts + manual timing | `coral-ember/src/ipc/handlers_warm_catch.rs` (`ember.warm_catch` RPC) |
+| Pre-check | ad-hoc register reads | `sovereign_init.rs::warm_catch_pre_check()` |
+
+The pure Rust pipeline is era-aware: `MemoryType::Gddr5` settles 10s,
+`MemoryType::Hbm2` settles 12s, `MemoryType::Gddr6` settles 8s.
+`ModuleCleanupGuard` (RAII) ensures stock `nouveau.ko` restoration even on
+panic. `--dry-run` mode validates the patching without loading.
+
+Original scripts archived in `scripts/archive/` as fossil record.
+
+### Three-GPU Sovereign Status (May 2026)
+
+| GPU | Generation | Memory | Warm-Catch | Sovereign Init | Compute Dispatch |
+|-----|-----------|--------|-----------|----------------|-----------------|
+| RTX 5060 | GB206 / SM120 | GDDR6 | Not needed | ✅ Direct VFIO | ✅ 8/8 QCD/HMC/MD |
+| Titan V | GV100 / SM70 | HBM2 | ✅ `coralctl warm-catch` | ✅ FECS RUNNING | Next: dispatch validation |
+| Tesla K80 | GK210 / SM35 | GDDR5 | ✅ `coralctl warm-catch` | ✅ GPCs active | Next: dispatch validation |
+
 ### Next Steps
 
-1. **K80 PRI ring GPC enrollment**: Investigate why `pri_gpc_cnt=0` after PGOB. PRI ring init must enumerate GPC stations. Check `0x120070` (nstations) and `0x128000+` (per-GPC PRI config).
-2. **K80 PMU firmware**: Load PMU firmware (Nouveau or nvidia-470 extracted) so PSW handshake actually processes. PMU falcon is halted after warm-catch.
-3. **Three-generation sovereign dispatch**: RTX 5060 (DONE) → K80 (PRI ring fix) → Titan V (SEC2/ACR barrier or DRM path)
-4. **Cross-vendor validation**: Run the same WGSL→compute pipeline on AMD and NVIDIA in the same session
-5. **toadStool absorption**: Migrate ember's sovereign init into toadStool's hardware orchestration layer
+1. **Sovereign dispatch on Titan V**: FECS is running — wire GPFIFO/QMD dispatch path via the existing SM70 compiler backend.
+2. **Sovereign dispatch on K80**: GPCs are active — wire Kepler PIO-based dispatch path via the SM35 compiler backend.
+3. **Cross-vendor validation**: Run the same WGSL→compute pipeline on AMD and NVIDIA in the same session.
+4. **toadStool absorption**: Migrate ember's sovereign init + warm-catch into toadStool's hardware orchestration layer, making it available to all springs.
+5. **Era-agnostic compiler trio**: coralReef (shader→compiler→driver) + toadStool (dispatch→results) + barracuda (physics workloads) as the sovereign compute trident.

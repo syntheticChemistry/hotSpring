@@ -32,6 +32,8 @@ entry for the session that produced it. Chronological by filename suffix.
 | 2026-05-10 | `HOTSPRING_CORALREEF_SOVEREIGN_KEEPALIVE_HANDOFF_MAY10_2026.md` | ✅ | PLX keepalive → coral-ember; glowplug diesel validation |
 | 2026-05-10 | `HOTSPRING_DEEP_DEBT_PHASE4_UPSTREAM_HANDOFF_MAY10_2026.md` | ✅ | Deep Debt Phase 4: Tier 4 IPC-first, typed errors, L6 cert |
 | 2026-05-11 | `HOTSPRING_CORALREEF_SOVEREIGN_BARRIERS_HANDOFF_MAY11_2026.md` | ✅ | Sovereign barrier resolution: Volta ACR skip, HBM2 warm-handoff, benchScale VM path, K80 PCIe diagnosis |
+| 2026-05-11 | `INFRA_MATURITY_ECOSYSTEM_HANDOFF_MAY11_2026.md` | ✅ | benchScale + agentReagents maturity, composition patterns, NUCLEUS deployment |
+| 2026-05-11 | `HOTSPRING_SOVEREIGN_RUST_EVOLUTION_HANDOFF_MAY11_2026.md` | ✅ | Warm-catch pipeline elevated to pure Rust. ALL 3 GPUs sovereign. Era-agnostic roadmap. |
 
 ### `mmiotraces/`
 
