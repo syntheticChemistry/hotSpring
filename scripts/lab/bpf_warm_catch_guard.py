@@ -2,11 +2,12 @@
 """
 bpf_warm_catch_guard.py — BPF-based GPU warm-catch teardown blocker.
 
+STATUS: NOT FUNCTIONAL — bpf_override_return requires ALLOW_ERROR_INJECTION()
+annotation on target functions, which nouveau functions lack. Retained as
+reference. Use patch_nouveau_teardown.py (binary patching) instead.
+
 Uses bpf_override_return to NOP four nouveau teardown functions during
 unbind, preserving GDDR5/HBM2 training and GR state for VFIO handoff.
-
-Kernel 6.17+ rejects livepatch/kprobe .ko modules due to strict R_X86_64_64
-relocation checks. BPF kprobes bypass this entirely — no module loading needed.
 
 Blocked functions:
   1. gf100_gr_fini    — prevents PGRAPH reset (preserves GPC state)
@@ -19,7 +20,7 @@ Usage:
   # ... unbind nouveau, rebind vfio-pci ...
   kill %1  # or Ctrl-C
 
-Requires: python3-bcc, CONFIG_BPF_KPROBE_OVERRIDE=y
+Requires: python3-bcc, CONFIG_BPF_KPROBE_OVERRIDE=y, ALLOW_ERROR_INJECTION on targets
 """
 
 import signal

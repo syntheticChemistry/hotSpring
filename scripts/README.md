@@ -28,7 +28,9 @@ requiring forced power-off.
 | `harvest-ecobin.sh` | Harvest ecobin artifacts | Yes |
 | `regenerate-all.sh` | Full project regeneration | Yes |
 | `boot/*.sh` | Boot-time setup scripts | Yes |
-| `warm_handoff_test.sh` | Full warm handoff pipeline for Titan V VFIO dispatch (livepatch → ember → nouveau cycle → dispatch test) | Yes (via coralctl) |
+| `lab/k80_warm_catch.sh` | K80 GDDR5 warm-catch via binary-patched nouveau (teardown NOP'd) | Yes (root) |
+| `lab/titanv_warm_handoff.sh` | Titan V HBM2/FECS warm-handoff via binary-patched nouveau | Yes (root) |
+| `lab/patch_nouveau_teardown.py` | Binary-patch stock nouveau.ko to NOP 4 teardown functions | Yes (build tool) |
 
 | `validate-primal-proof.sh` | Primal proof validation (primalSpring v0.9.17). Bare mode (no NUCLEUS) or `--full` (pre-flight `primalspring_guidestone` + domain `hotspring_guidestone`). Builds from `barracuda/`, runs from repo root so `validation/CHECKSUMS` resolves. Auto-sets `BEARDOG_FAMILY_SEED`, `SONGBIRD_SECURITY_PROVIDER`, `NESTGATE_JWT_SECRET` when `FAMILY_ID` is provided. | Yes |
 
@@ -40,7 +42,7 @@ requiring forced power-off.
 | `test_coral_kmod.sh` | Validate coral-reef kmod compilation and loading | Yes |
 | `hw-test` | Hardware test dispatch helper | Yes |
 | `gpu-ctl` | GPU power state management (D0 pinning) | Yes (power only) |
-| `livepatch/` | Livepatch kernel module build and management | Yes |
+| `livepatch/` | Livepatch kernel module source (SUPERSEDED by binary patching on kernel 6.17+) | Reference only |
 | `boot/` | Boot-time udev rules, systemd units, sudoers, and install helpers | Yes |
 
 Other non-archived helpers in `scripts/` (e.g. `build-container.sh`, `build-guidestone.sh`, `download-data.sh`, `prepare-usb.sh`, `setup-envs.sh`, `validate-guidestone-multi.sh`) are also active as needed for builds and lab setup.
@@ -88,6 +90,7 @@ scripting to daemon-managed GPU lifecycle.
 | `exp089b_warm_swap_test.sh` | `coralctl warm-fecs <BDF>` |
 | `capture_multi_backend.sh` | `coralctl swap <BDF> <target> --trace` |
 | `titan_timing_attack.sh` | `coralctl warm-fecs <BDF>` (Exp 127 complete) |
+| `warm_handoff_test.sh` | `lab/k80_warm_catch.sh` + `lab/titanv_warm_handoff.sh` (binary-patched nouveau) |
 | `bar0_read.py` | `coralctl mmio read <BDF> <offset>` |
 | `parse_mmiotrace.py` | `coralctl trace-parse <file>` |
 | `replay_devinit.py` | `coralctl devinit replay <BDF>` |
