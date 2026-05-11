@@ -326,36 +326,31 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 - **Resolution:** K80 boots cleanly to vfio-pci. `/dev/vfio/35` and
   `/dev/vfio/36` open without EBUSY. Validated with full power drain.
 
-### GAP-HS-073: GV100 FECS Secure Boot Without WPR — PARTIALLY RESOLVED
+### GAP-HS-073: GV100 FECS Secure Boot Without WPR — RESOLVED
 
 - **Primal:** coralReef (coral-driver / sovereign_init)
 - **Severity:** Critical (blocks GV100 sovereign FECS boot)
-- **Status:** Partially resolved — ACR solver bypass done, warm-handoff via
-  benchScale/agentReagents is the production path
+- **Status:** **RESOLVED** (May 11, 2026) — binary-patched nouveau warm-catch
+  bypasses the firmware barrier entirely. FECS RUNNING via ACR/SEC2 natively.
 - **Description:** Experiment 173 proved the nvidia-535 closed driver does NOT
   configure WPR (Write-Protected Region) on GV100 Titan V. WPR registers
   (PFB_WPR1/WPR2 at 0x100CE4-CF0) remain zero. GV100 is pre-GSP: the RM
   runs on the CPU and does not need WPR hardware protection.
   
-  **May 10-11, 2026 progress:**
-  - `sovereign_stages.rs`: Added Volta CpuRm early-exit that detects
-    `AcrSec2 + !wpr_configured + SM 70-74` and skips the ACR solver,
-    going directly to PIO FECS bootstrap. Eliminates >5min hang (now 4s).
-  - Sovereign init stages 1-3 all pass on warm GPU: bar0_probe OK,
-    pmc_enable OK (0x5fecdff1), hbm2_training SKIPPED (warm detected).
-  - HBM2 warm-handoff validated: nouveau trains 12GB HBM2, PRAMIN fully
-    accessible after `reset_method=none` VFIO rebind.
-  - FECS remains blocked: secure Falcon v5 rejects unsigned PIO upload
-    (cpuctl=0x12, mb0=0x0, running=false). nouveau skips GR entirely on
-    GV100 (PMU firmware unavailable). Direct PIO and ACR are both dead ends.
+  **Resolution (Exp 190):** Binary-patched nouveau warm-catch (4 teardown
+  functions NOP'd at ELF level via `coral-driver::tools::elf_patcher`).
+  Nouveau loads, trains HBM2, and initializes FECS via ACR/SEC2 natively.
+  The patched module cannot tear down — warm state persists across vfio-pci
+  rebind. FECS_MC = 0x0c060006 (running), PGRAPH enabled, 1 GPC active.
+  PMU absence is non-fatal (nouveau skips PMU but ACR/SEC2 still loads FECS).
   
-  **Production path:** nvidia-470 warm-handoff via benchScale VM isolation.
-  nvidia-470 is the only driver that initializes GR/FECS on GV100 (with
-  its embedded PMU firmware). The handoff runs inside a benchScale/
-  agentReagents VM to avoid crashing the host DRM. The host DRM (nvidia-580
-  serving RTX 5060 display) stays completely uninterrupted.
-- **Action:** Wire `agentReagents/templates/reagent-nvidia470-titanv.yaml`
-  for benchScale-driven warm-handoff. Physical card swaps also viable
+  Pipeline now in pure Rust: `coralctl warm-catch <BDF> --memory-type hbm2`.
+  Era-aware settle: HBM2=12s. RAII `ModuleCleanupGuard` ensures stock
+  `nouveau.ko` restored even on panic.
+  
+  Previous approaches (direct PIO, ACR solver, nvidia-470 VM warm-handoff)
+  are superseded by the binary-patched nouveau warm-catch.
+- **Action:** Dispatch validation on warm-caught Titan V is the next step
   (user has 1-2 cards from most NVIDIA generations).
 
 ### GAP-HS-031: Blackwell SM Warp Exception — Invalid Address Space (Exp 175-177) (RESOLVED)
@@ -796,7 +791,7 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
   validated targets. Provenance manifest and validation summary committed.
   Thread 2 upgraded from "mapped" to "active" in THREAD_INDEX.toml.
 
-### GAP-HS-076: K80 GK210 Nouveau Chipset ID Missing — PROVEN FIX (P0)
+### GAP-HS-076: K80 GK210 Nouveau Chipset ID Missing — RESOLVED
 
 - **Primal:** coralReef (sovereign pipeline) / upstream kernel (nouveau)
 - **Severity:** Critical (blocks K80 warm-catch and nouveau-assisted sovereign dispatch)
@@ -817,11 +812,15 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
   at offset `b76f8`) successfully boots K80 as GK110B. Output: `NVIDIA GK110B (0f22d0a1)`,
   `fb: 12288 MiB GDDR5`, `VRAM: 12288 MiB`, DRM initialized (card1, renderD129).
   5 GPCs enrolled (`0x022430=5`), 6 TPCs per GPC (`0x022438=6`), 30 TPCs total.
-  Post-VFIO-rebind GPC stations power-gated (livepatch load failure on 6.17) —
-  need PLX keepalive fix + livepatch rebuild for full warm-catch.
-- **Remaining:** Livepatch module format incompatible with kernel 6.17 strict relocation
-  enforcement. Need either kprobe-based approach or kernel source rebuild.
-- **Ref:** Exp 185, Exp 188, Exp 171, Exp 178, Exp 181
+  Post-VFIO-rebind GPC stations initially power-gated (livepatch load failure
+  on 6.17). **Resolved by binary ELF patching** — `coral-driver::tools::elf_patcher`
+  NOPs 4 teardown functions at machine-code level, replacing the livepatch approach.
+  Patched nouveau trains GDDR5 (12 GiB), initializes 5 GPCs, and warm state persists
+  across vfio-pci rebind. Pipeline: `coralctl warm-catch <BDF> --memory-type gddr5`.
+- **Status:** **RESOLVED** (May 11, 2026, Exp 190). K80 GDDR5 trained, 5 GPCs active,
+  FECS_MC = 0x00060005 (running). PMC_ENABLE = 0xfc37b1ef (pop=22).
+  Upstream one-line patch still needed for unmodified nouveau (`case 0x0f2`).
+- **Ref:** Exp 185, Exp 188, Exp 190, Exp 171, Exp 178, Exp 181
 
 ### GAP-HS-069: single_beta.rs Production Pipeline > 800L — RESOLVED
 

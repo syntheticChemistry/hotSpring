@@ -321,6 +321,40 @@ layer that hotSpring's sovereign GPU work depends on.
 
 ---
 
-*This handoff was generated during the hotSpring deep-debt evolution sprint
-(May 2026). All changes have been committed and pushed to benchScale, agentReagents,
-and hotSpring repositories.*
+## 8. Companion Handoffs (Sovereign Compute Evolution — May 11, 2026)
+
+The following companion handoffs document the sovereign compute breakthroughs
+and architectural evolution that emerged from the same sprint:
+
+| Handoff | Location | Audience |
+|---------|----------|----------|
+| **Sovereign Rust Evolution** | `springs/hotSpring/wateringHole/handoffs/HOTSPRING_SOVEREIGN_RUST_EVOLUTION_HANDOFF_MAY11_2026.md` | coralReef, toadStool, barracuda, springs, primalPsing |
+| **Three-GPU Warm-Catch** | `infra/wateringHole/handoffs/SOVEREIGN_COMPUTE_THREE_GPU_WARM_CATCH_HANDOFF_MAY11_2026.md` | All primal teams |
+
+**Key learnings for all primals and springs:**
+
+1. **Jelly Strings → Pure Rust → Sovereign Primals**: Shell scripts prove
+   concepts fast, but Rust elevation makes them composable. Any spring finding
+   new hardware patterns should follow this arc.
+
+2. **Nest Atomic Pattern for hardware**: coralReef (HOW/compiler) and toadStool
+   (WHERE/hardware) compose via `by_domain()` IPC — neither embeds the other's
+   crate. Same pattern as NestGate + BearDog for crypto.
+
+3. **Write → Absorb → Lean**: Springs write extensions locally, primals absorb
+   what works, springs lean on upstream. Keeps primals rich and springs lean.
+
+4. **Warm-catch as primal capability**: Hardware initialization barriers
+   (firmware, memory training) are solved by binary-patched kernel module
+   warm-catch — a composable capability now served via `coralctl warm-catch`.
+
+5. **coral-ember/glowplug absorption ready**: 664+ tests across ember (228) and
+   glowplug (436). toadStool trait surface exists (HeldResource, DeviceDiscovery,
+   SwapOrchestrator, etc.). toadStool team should absorb implementations and
+   validate on Akida NPU + AMD GPUs.
+
+---
+
+*This handoff was generated and updated during the hotSpring deep-debt and
+sovereign compute evolution sprints (May 2026). All changes have been committed
+and pushed to benchScale, agentReagents, and hotSpring repositories.*

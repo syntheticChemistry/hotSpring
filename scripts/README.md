@@ -37,7 +37,7 @@ requiring forced power-off.
 | `tools/hotspring_composition.sh` | Event-driven QCD composition via NUCLEUS library (Phase 46). Async tick model (convergence-based), DAG memoization for parameter sweeps, ledger-sealed runs, scientific provenance braids. Run with `COMPOSITION_NAME=hotspring ./tools/hotspring_composition.sh`. Degrades gracefully without NUCLEUS. | Yes |
 | `tools/nucleus_composition_lib.sh` | NUCLEUS composition library (copied from primalSpring Phase 46). 41 functions: discovery, transport, DAG, ledger, braids, petalTongue, sensor streams. Sourced by `hotspring_composition.sh`. | Yes |
 
-| `k80_nouveau_post.sh` | POST K80 via patched nouveau → swap to vfio-pci for warm sovereign compute | Yes (via coralctl patterns) |
+| ~~`k80_nouveau_post.sh`~~ | **ARCHIVED** → `coralctl warm-catch <BDF> --memory-type gddr5` | Replaced by pure Rust |
 | `gpu-solve/titan-v-module-swap.sh` | Swap nvidia-580 → nvidia-470 for Titan V compute testing | Requires root (TTY/SSH) |
 | `test_coral_kmod.sh` | Validate coral-reef kmod compilation and loading | Yes |
 | `hw-test` | Hardware test dispatch helper | Yes |
@@ -91,6 +91,7 @@ scripting to daemon-managed GPU lifecycle.
 | `capture_multi_backend.sh` | `coralctl swap <BDF> <target> --trace` |
 | `titan_timing_attack.sh` | `coralctl warm-fecs <BDF>` (Exp 127 complete) |
 | `warm_handoff_test.sh` | `lab/k80_warm_catch.sh` + `lab/titanv_warm_handoff.sh` (binary-patched nouveau) |
+| `k80_nouveau_post.sh` | `coralctl warm-catch <BDF> --memory-type gddr5` (pure Rust warm-catch replaces shell POST pipeline) |
 | `k80_warm_catch.sh` | `coralctl warm-catch <BDF> --memory-type gddr5` (pure Rust: `coral_driver::tools::elf_patcher` + `coral_ember::handlers_warm_catch`) |
 | `titanv_warm_handoff.sh` | `coralctl warm-catch <BDF> --memory-type hbm2` (pure Rust) |
 | `patch_nouveau_teardown.py` | `coral_driver::tools::elf_patcher::KmodPatcher` (pure Rust, zero subprocess calls) |

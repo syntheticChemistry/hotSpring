@@ -308,7 +308,7 @@ environment, physics implementations, and GPU compute. Key architectural propert
   `mcp_tools.rs` exposes 5 MCP tool schemas for AI/LLM integration.
   `hotspring_primal.rs` JSON-RPC server serves `health.*`, `capability.*`, `composition.*`, `physics.*`, `compute.*`, and `mcp.tools.list` — all 13 physics/compute methods fully dispatched with `catch_unwind` safety. ecoBin packaging via `scripts/harvest-ecobin.sh`.
   Composition tolerances centralized: `COMPOSITION_SEMF_PARITY_REL` (1e-10) and `COMPOSITION_PLAQUETTE_PARITY_ABS` (1e-12) for science parity probes.
-- **Quality gates**: Zero clippy warnings (lib), `#![forbid(unsafe_code)]` on lib (unsafe audited and confined to low-level experiment bins), zero `dyn` dispatch in production code, `#[expect(lint, reason)]` in all production binaries, `deny.toml` enforced (ecoBin C-dep bans + async-trait ban), 8 scoped EVOLUTION(B2) markers (GPU-resident migration), all files <1000 lines, AGPL-3.0-only consistent.
+- **Quality gates**: Zero clippy warnings (lib), `#![forbid(unsafe_code)]` on lib (unsafe audited and confined to low-level experiment bins), zero `dyn` dispatch in production code, `#[expect(lint, reason)]` in all production binaries, `deny.toml` enforced (ecoBin C-dep bans + async-trait ban), 6 scoped EVOLUTION markers (4 B2 GPU-resident migration + 2 GPU HFB deformed), all files <1000 lines, AGPL-3.0-only consistent.
 
 ```bash
 cd barracuda
@@ -522,20 +522,16 @@ a network service, you must make your source available under the same terms.
 *190 experiments, 579 / 1,028 lib tests (IPC-first default / barracuda-local), 155 binaries, 128 WGSL shaders, ~$0.30 total science cost.
 Consumer GPUs reproduce HPC physics at paper parity. DF64 delivers 3.24 TFLOPS at
 14-digit precision. GPU RHMC runs all-flavors dynamical QCD (Nf=2+1). Self-tuning
-RHMC eliminates hand-tuned parameters. Chuna 44/44 checks pass. RTX 5060 sovereign
-dispatch LIVE (f64 div/sqrt polyfills, QMD v5.0, Blackwell SM120). Titan V SEC2/ACR
-active. K80 internal firmware protocol (FECS/GPCCS/PRI/PGOB) modularized into 11
-focused modules. coral-driver init.rs monolith (5466 LOC) eliminated. IPC deduplicated,
-GPU constructors DRYed, experiment bins standardized.
+RHMC eliminates hand-tuned parameters. Chuna 44/44 checks pass. **ALL 3 GPUs
+SOVEREIGN** — RTX 5060 full dispatch LIVE (QMD v5.0, SM120). Titan V FECS RUNNING
+via binary-patched nouveau warm-catch (GAP-HS-073 RESOLVED). K80 GDDR5 trained
+(12 GiB), 5 GPCs active via warm-catch (GAP-HS-076 RESOLVED). Warm-catch pipeline
+elevated to pure Rust (`coralctl warm-catch` — ELF patcher + ember orchestrator).
 Three-tier validation: Python validates Rust. Rust validates NUCLEUS. Peer-reviewed
 science runs on consumer hardware, composed via sovereign primal IPC.
 guideStone artifact validated across 5 substrates.
-K80 PGOB: nvidia-470 binary analysis reveals PSW-only ungate sequence (0x10a78c) —
-proprietary driver skips 0x0205xx power steps entirely. Titan V warm handoff:
-nouveau POSTs GPU + HBM2, livepatch preserves state, direct resource0 BAR0
-mapping enables DMATRF FECS IMEM load (101 blocks/192µs verified). Falcon v5
-ROM in HS mode (sctl=0x3000) intercepts all startups — requires ACR-authenticated
-firmware in WPR. Root blocker: GV100 PMU firmware absent from linux-firmware,
-SEC2 ACR BL starts (mb0=1) but never completes. nvidia-470 PMU extraction next.
+Primal domain split follows Nest atomic pattern: coralReef owns compilation (HOW),
+toadStool owns hardware access (WHERE), barraCuda owns physics (WHAT). Composed
+via `by_domain()` IPC — no primal links another's crate at compile time.
 The full science ladder — quenched through dynamical fermions with gradient flow
 scale setting — runs on consumer hardware. The scarcity was artificial.*

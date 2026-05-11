@@ -136,27 +136,53 @@ coralctl warm-catch <BDF> [--settle <secs>] [--memory-type gddr5|hbm2|gddr6] [--
 
 ## 4. For toadStool Team
 
-### What to Absorb
+### Architectural Split — Nest Atomic Pattern
 
-toadStool currently dispatches compute workloads via wgpu (vendor path) or
-coralReef RPC (sovereign path). The warm-catch pipeline extends the sovereign
-path to legacy GPUs:
+The current `coral-driver` mixes compiler domain (SASS encoding, QMD layout) with
+hardware domain (BAR0, VFIO, GPFIFO, DRM ioctls). Following the Nest atomic pattern
+(NestGate does not embed BearDog's crypto — it calls `crypto.sign` via IPC):
+
+**Moves to toadStool (WHERE — hardware domain):**
+- BAR0/MMIO register access
+- VFIO channel creation, GPFIFO/pushbuf submission
+- Sovereign init stages (boot sequence, device lifecycle)
+- coral-gpu dispatch orchestration → becomes `compute.dispatch.execute`
+- DRM ioctl wrappers (nouveau EXEC, amdgpu CS)
+
+**Stays in coralReef (HOW — compiler domain):**
+- SASS/PTX instruction encoders (SM35/SM70/SM120/GFX10 backends)
+- naga_translate (IR construction), optimization passes, register allocation
+- QMD struct generation, ELF patcher
+- Serves `shader.compile.wgsl`, `shader.compile.spirv` via IPC
+
+**IPC contract:**
+- `by_domain("shader")` → coralReef compiles WGSL → returns binary blob + ShaderInfo
+- `by_domain("compute")` → toadStool dispatches binary to hardware → returns results
+- Neither primal links the other's crate at compile time
+
+### Ember/Glowplug/Cylinder Absorption
+
+**Assessment: READY.** coral-ember (228 tests) and coral-glowplug (436 tests)
+implementations are mature. toadStool already has the trait surface waiting:
+`HeldResource`, `ResourceHandle`, `DeviceDiscovery`, `DeviceSlot`,
+`DevicePersonality`, `SwapOrchestrator`, `FirmwareInterface`, `HealthProbe`.
+
+**Evolution path:**
 
 ```
-[Before]  toadStool → coralReef → sovereign_init → FAIL (cold GPU)
-[After]   toadStool → coralReef → warm_catch → sovereign_init → PASS
+Phase 1: Absorb coral-ember/glowplug implementations behind existing traits
+Phase 2: Absorb coral-driver hardware access (BAR0/MMIO/VFIO/DRM) into toadStool driver layer
+Phase 3: Validate with Akida NPU (non-GPU dispatch) + AMD (non-NVIDIA dispatch)
+Phase 4: Generalize cylinder from "per-GPU subprocess" to "per-device subprocess"
+Phase 5: Unify nvpmu + future amdpmu + npupmu behind a common PowerManagement trait
+Phase 6: Serve compute.dispatch.execute — receive compiled binary from coralReef, dispatch to any hardware
 ```
-
-**Recommendation**: When toadStool detects a cold legacy GPU (via
-`warm_catch_pre_check()`), it should orchestrate `coralctl warm-catch`
-before attempting sovereign dispatch. This can be wired into the existing
-`GpuLifecycle` trait or a new `WarmCatchLifecycle` trait.
 
 ### Compute Dispatch Readiness
 
 | GPU | Compiler | Dispatch | Status |
 |-----|----------|----------|--------|
-| RTX 5060 | SM120 (Blackwell) | QMD v5.0 + UVM | ✅ PROVEN (8/8 QCD/HMC/MD) |
+| RTX 5060 | SM120 (Blackwell) | QMD v5.0 + UVM | PROVEN (8/8 QCD/HMC/MD) |
 | Titan V | SM70 (Volta) | QMD v2.x + GPFIFO | FECS running — dispatch next |
 | K80 | SM35 (Kepler) | PIO FECS | GPCs active — dispatch next |
 
@@ -249,6 +275,46 @@ WGSL shader
 
 ---
 
-*This handoff was generated during the hotSpring sovereign Rust evolution sprint
-(May 2026). All warm-catch pipeline code compiles cleanly. ELF patcher tests
-pass. Original scripts archived as fossil record.*
+## 8. Local Wiring Plan (hotSpring Lab — Next Steps)
+
+These are the concrete tasks the local team (hotSpring hardware lab) continues:
+
+### Dispatch Validation on Warm-Caught GPUs
+
+1. **Titan V dispatch test**: After `coralctl warm-catch 65:00.0 --memory-type hbm2`,
+   run `vfio_warm_write_42_readback` test to prove VFIO dispatch works on the
+   warm GPU. This validates that FECS RUNNING state supports compute submission.
+
+2. **K80 dispatch test**: Same pattern on K80 after `coralctl warm-catch <BDF>
+   --memory-type gddr5`. Kepler uses PIO FECS path rather than GPFIFO — verify
+   the Kepler dispatch path works post-warm-catch.
+
+### barracuda sovereign-dispatch Exercise
+
+3. **Real physics workloads**: Exercise the barraCuda `sovereign-dispatch` feature
+   flag with real Yukawa MD on warm GPUs via `coral-gpu`. This is the E2E test
+   that proves: WGSL shader → coral-reef compile → coral-gpu dispatch →
+   physics results → readback.
+
+### glowplug VFIO Dispatch Mode
+
+4. **Extend `device.dispatch`**: The current glowplug `device.dispatch` handler
+   returns `CudaFeatureDisabled` without the `cuda` feature. Extend it to accept
+   VFIO/DRM mode — route through `VfioChannel::create_warm` for sovereign-path
+   dispatch, making glowplug the fleet-level dispatch surface for toadStool IPC.
+
+### Upstream Delegation
+
+| Team | Responsibility |
+|------|---------------|
+| **toadStool** | Absorb ember/glowplug/cylinder + coral-driver hardware layer, validate on Akida/AMD/Intel, serve `compute.dispatch.execute` IPC |
+| **coral naga** | naga WGSL parser evolution, IR-to-IR stability validation loop |
+| **coralReef compiler** | SM120 native SASS encoder (replacing PTX emitter) |
+| **coralReef kernel** | `coral-kmod` C code evolution to pure Rust |
+| **coralReef** | cudarc optional dep removal (after sovereign dispatch is default) |
+
+---
+
+*This handoff was generated and updated during the hotSpring sovereign Rust
+evolution sprint (May 2026). All warm-catch pipeline code compiles cleanly.
+ELF patcher tests pass. Original scripts archived as fossil record.*

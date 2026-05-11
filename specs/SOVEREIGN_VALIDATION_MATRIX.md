@@ -1,14 +1,14 @@
 # Sovereign Validation Matrix
 
-**Updated:** 2026-05-07 (Sprint D)
-**Purpose:** Single source of truth mapping every pipeline layer against dispatch paths, hardware substrates, and experiment evidence. "Solve the maze from both sides." **SovereignInit pipeline (Exp 165)** adds a pure Rust `open_sovereign(bdf)` path that replaces nouveau initialization subsystem by subsystem. **Sprint B (May 2026):** Titan V SEC2 FBIF instance-block DMA config, K80 warm NOP dispatch wired, K80 cold-boot SSEL PLL fix, SLM pool, unsafe audit. **Sprint C (May 2026):** HW validation run — Titan V SEC2 BL stalls at PC=0x1 (HBM2 cold), K80 GPC PLL unwritable (clock domain locked). Both confirmed: warm handoff is the intermediate path. BootConversation MITM tracing infrastructure built. **Sprint D (May 2026):** Warm handoff DMATRF to FECS proven (101 blocks/192µs via resource0). Falcon v5 HS ROM security gate identified — all falcon v5 boots intercepted by on-die ROM requiring WPR-authenticated firmware. SEC2 ACR BL starts (mb0=1) but never completes (PMU firmware missing from linux-firmware). nvidia-470 PMU extraction in progress.
+**Updated:** 2026-05-11 (Sprint E — ALL 3 GPUs Sovereign)
+**Purpose:** Single source of truth mapping every pipeline layer against dispatch paths, hardware substrates, and experiment evidence. "Solve the maze from both sides." **Sprint E (May 2026):** Binary-patched nouveau warm-catch resolves GAP-HS-073 (Titan V FECS RUNNING) and GAP-HS-076 (K80 GDDR5 trained + GPCs active). Warm-catch pipeline elevated to pure Rust (`coralctl warm-catch`). ALL 3 GPUs sovereign. Dispatch validation and E2E physics wiring are the remaining gap. **Sprint D (May 2026):** Warm handoff DMATRF to FECS proven. Falcon v5 HS ROM security gate identified. **Sprint C:** HW validation run confirmed warm handoff as intermediate path. **Sprint B:** Titan V SEC2 FBIF, K80 warm NOP dispatch, SLM pool, unsafe audit. **SovereignInit pipeline (Exp 165):** pure Rust `open_sovereign(bdf)` path.
 
 ## Dispatch Path Inventory
 
 | Path | Driver | How dispatch works | Titan V | K80 | RTX 5060 |
 |------|--------|-------------------|---------|-----|----------|
-| **VFIO cold** | `vfio-pci` | Direct BAR0/GPFIFO, FECS must be booted from scratch | **BLOCKED** (SEC2 BL stalls PC=0x1: HBM2 cold, no VRAM for DMA) | **BLOCKED** (GPC PLL `0x137000` HW write-protected, DEVINIT doesn't configure clock domain) | N/A (display GPU) |
-| **VFIO warm** | `nouveau`/`nvidia-470` then `vfio-pci` | Driver boots GPU; livepatch freezes state; swap to vfio | **PARTIAL** (DMATRF FECS IMEM 101blk/192µs proven; falcon v5 ROM HS gate blocks unsigned code; SEC2 ACR mb0=1 but PMU FW missing) | **FRONTIER** (nouveau crashes on kernel 6.17 GK210; nvidia-470 path TBD) | N/A |
+| **VFIO cold** | `vfio-pci` | Direct BAR0/GPFIFO, FECS must be booted from scratch | Bypassed by warm-catch | Bypassed by warm-catch | **PROVEN** (RTX 5060 full dispatch, Exp 175-177) |
+| **VFIO warm** | binary-patched `nouveau` then `vfio-pci` | Patched nouveau boots GPU (4 teardown fns NOP'd at ELF level); swap to vfio preserves warm state | **SOVEREIGN** (FECS RUNNING, GAP-HS-073 RESOLVED, Exp 190) | **SOVEREIGN** (GDDR5 trained, 5 GPCs active, GAP-HS-076 RESOLVED, Exp 190) | N/A (native VFIO cold dispatch) |
 | **nouveau DRM** | `nouveau` | GEM + VM_INIT/EXEC via DRM ioctls | **PROVEN** (NOP dispatch, Exp 163) | BLOCKED (not UEFI-POSTed) | N/A |
 | **nvidia-drm + UVM** | `nvidia` proprietary | RM ioctls + `/dev/nvidia-uvm` GPFIFO | UNTESTED (code-complete) | UNTESTED | Available (RTX 5060) |
 | **NVK/wgpu** | `nouveau` + Mesa NVK | Vulkan compute via wgpu abstraction | **PROVEN** (4-tier QCD) | N/A | N/A |

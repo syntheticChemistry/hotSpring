@@ -41,12 +41,13 @@ Raw GPU MMIO trace captures (Linux `mmiotrace`) for reverse-engineering
 driver initialization sequences. Used to extract register programming
 tables for sovereign boot pipelines.
 
-### Scripts (deprecated)
+### Scripts and Lab Artifacts
 
 | File | Status | Notes |
 |------|--------|-------|
-| `warm_handoff.sh` | **DEPRECATED** | Legacy ad-hoc lab script for direct `insmod`/unbind/rebind. Violates current policy: all GPU driver transitions must go through `coralctl` / ember / glowplug. Kept as fossil record. |
-| `exp192_postboot_warm_bf_init.py` | **Lab reference** | Post-reboot Boot Falcon (NVDEC0) init via direct BAR0 mmap. References missing exp191. For reference only — production path uses ember RPC. |
+| `exp192_postboot_warm_bf_init.py` | **Lab reference** | Post-reboot Boot Falcon (NVDEC0) init via direct BAR0 mmap. For reference only — production path uses `coralctl warm-catch`. |
+| `titanv_*.bin` | **Lab reference** | Binary firmware extracts from mmiotrace (SEC2, PMU, HS) — used for sovereign compute investigation. |
+| `gk110/` | **Lab reference** | GK110/GK210 register reference data. |
 
 ## Relationship to ecosystem wateringHole
 
