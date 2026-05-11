@@ -86,7 +86,7 @@ redundant_pub_crate = "allow"
 workspace = true
 
 [features]
-default = ["barracuda-local"]
+default = []
 # IPC-first: builds the IPC surface without local barracuda library linking.
 # When enabled WITHOUT barracuda-local, only IPC-capable modules compile.
 primal-proof = []

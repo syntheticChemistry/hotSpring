@@ -19,6 +19,7 @@ use std::f64::consts::PI;
 use barracuda::optimize::bisect;
 
 #[cfg(not(feature = "barracuda-local"))]
+#[allow(clippy::unnecessary_wraps)]
 fn bisect<F: Fn(f64) -> f64>(
     f: F,
     mut a: f64,

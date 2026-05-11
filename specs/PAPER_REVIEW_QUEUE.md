@@ -953,5 +953,5 @@ and `infra/whitePaper/attsi/non-anon/contact/barrick/PAPER_REVIEW_AND_SPRING_TAR
 
 | ID | Paper | What to Reproduce | Exp | Status |
 |----|-------|-------------------|-----|--------|
-| B2 | Wiser et al. 2013 "Long-term dynamics" *Science* | Anderson disorder analogy: fitness landscape as disordered potential; localization–delocalization transitions in fitness trajectories | TBD | QUEUED |
-| B9 | DFE Evolution in LTEE 2024 *Science* | DFE ↔ RMT connection: distribution of fitness effects as random matrix eigenvalue distribution; level spacing statistics | TBD | QUEUED |
+| B2 | Wiser et al. 2013 "Long-term dynamics" *Science* | Anderson disorder analogy: fitness landscape as disordered potential; localization–delocalization transitions in fitness trajectories | Exp 189 | **STARTED** — Tier 1 Python baseline in `notebooks/papers/13-ltee-anderson-fitness.ipynb` |
+| B9 | DFE Evolution in LTEE 2024 *Science* | DFE ↔ RMT connection: distribution of fitness effects as random matrix eigenvalue distribution; level spacing statistics | TBD | QUEUED — depends on B2 completion; RMT infrastructure in `barracuda::spectral::stats` |

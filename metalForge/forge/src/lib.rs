@@ -39,6 +39,7 @@
 //!    └─────────────────────────────┘
 //! ```
 
+#[cfg(feature = "barracuda-local")]
 pub mod bridge;
 pub mod dispatch;
 pub mod inventory;

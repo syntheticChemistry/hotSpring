@@ -7,6 +7,35 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Unreleased — Interstadial Sprint (May 11, 2026)
+
+### Changed
+- **Tier 4 IPC-first defaults**: `default = ["barracuda-local"]` → `default = []`.
+  Bare `cargo build` now produces IPC-only binary. Local compute opt-in via
+  `--features barracuda-local`. 576 tests pass in default mode, 1,025 with
+  barracuda-local. hotSpring now qualifies for the Pillar 5 Tier 4 exit gate.
+- **metalForge/forge decoupled**: barracuda dependency made optional behind
+  `barracuda-local` feature. `bridge` module conditionally compiled. Forge
+  builds and clips clean with `default = []`.
+- **Clippy warnings resolved**: `suspicious_arithmetic_impl` in `complex_f64.rs`
+  and `unnecessary_wraps` in `nuclear_matter.rs` fixed (zero warnings in
+  both default and barracuda-local builds).
+
+### Added
+- **LTEE B2 (Exp 189)**: Tier 1 Python baseline for Wiser et al. 2013 —
+  Anderson disorder analogy for fitness dynamics. Notebook at
+  `notebooks/papers/13-ltee-anderson-fitness.ipynb`. Power-law fitness model,
+  fitness-increment Anderson Hamiltonian, sliding-window ⟨r⟩ localization
+  analysis, 12-population variance study. Expected values JSON for lithoSpore
+  module 7 (anderson). B2 marked STARTED in PAPER_REVIEW_QUEUE.
+
+### Verification
+- `cargo clippy --lib` — zero warnings (default)
+- `cargo clippy --lib --features barracuda-local` — zero warnings
+- `cargo test --lib` — 576 passed, 0 failed (IPC-first default)
+- `cargo test --lib --features barracuda-local` — 1,025 passed, 0 failed, 6 ignored
+- `cargo check` metalForge/forge — clean (both default and barracuda-local)
+
 ## Unreleased — Post-Interstadial Push 3: Deep Debt (May 11, 2026)
 
 ### Added
