@@ -4,6 +4,7 @@
 //!
 //! Extracted from `production_dynamical_mixed` binary to reduce binary size.
 
+mod measurement;
 mod npu_post;
 mod single_beta;
 

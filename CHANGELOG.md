@@ -18,12 +18,22 @@ This file covers the spring as a whole. For crate-level details see
   to `sporeGarden/foundation` Thread 2 (Plasma Physics). Energy drift,
   RDF structure, self-diffusion D*, viscosity, and Daligault fit parity —
   all validated and traceable to published papers.
+- **Foundation Thread 2 expression doc**: Created
+  `PLASMA_QCD_SOVEREIGN_GPU.md` covering validation chain, Sarkas MD,
+  lattice QCD, Kokkos/LAMMPS parity, and cross-thread connections.
+- **Foundation workloads**: Two workload TOMLs for foundation validation
+  pipeline — Sarkas MD (`hs-sarkas-md-validation.toml`) and Chuna papers
+  (`hs-chuna-validation.toml`).
 
 ### Changed
 - **19 dead_code warnings eliminated**: Removed 3 superseded handler files
   (`handlers_inference.rs`, `handlers_screening.rs`, `handlers_steering.rs`)
   that were replaced by `handlers/` subdirectory during prior NPU refactor.
   Zero clippy warnings remaining.
+- **Smart refactor `single_beta.rs`** (826L→553L): Extracted 273-line
+  measurement loop into `measurement.rs` (423L). NPU reject prediction,
+  anomaly detection, sub-model steering, and Polyakov readback are now
+  separate functions with structured `MeasurementResult` return.
 
 ### Infrastructure
 - **UniBin release binary built**: 3.3M stripped binary (`hotspring_unibin`),

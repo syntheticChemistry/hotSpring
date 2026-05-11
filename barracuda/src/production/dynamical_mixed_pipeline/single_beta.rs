@@ -15,16 +15,17 @@ use crate::production::{
     plaquette_variance,
     titan_worker::TitanResponse,
 };
+
 use crate::proxy::CortexRequest;
 use std::io::Write;
 use std::time::Instant;
 
 use super::{DynamicalMixedConfig, DynamicalMixedScanContext};
 
-const DT_MIN: f64 = 0.001;
-const DT_MAX: f64 = 0.02;
-const NMD_MIN: usize = 20;
-const NMD_MAX: usize = 500;
+pub(super) const DT_MIN: f64 = 0.001;
+pub(super) const DT_MAX: f64 = 0.02;
+pub(super) const NMD_MIN: usize = 20;
+pub(super) const NMD_MAX: usize = 500;
 
 /// Run a single β point: quenched pre-therm, dynamical therm, measurement, NPU post-processing.
 #[expect(
@@ -419,302 +420,39 @@ pub(super) fn run_single_beta(
     }
     println!(" done");
 
-    let mut plaq_vals = Vec::with_capacity(config.n_meas);
-    let mut poly_vals = Vec::new();
-    let mut n_accepted = 0usize;
-    let mut cg_total = 0usize;
-    let mut reject_predictions = 0usize;
-    let mut reject_correct = 0usize;
-    let mut anomalies = 0usize;
-    plaq_history.clear();
+    let meas = super::measurement::run_measurement(
+        config,
+        ctx,
+        &dyn_state,
+        &cg_bufs,
+        &mut lat,
+        dt,
+        n_md,
+        &mut seed,
+        adaptive_check_interval,
+        beta,
+        npu_stats,
+        traj_writer,
+    );
 
-    print!("  Measuring ({} traj)...", config.n_meas);
-    std::io::stdout().flush().ok();
-    for i in 0..config.n_meas {
-        let traj_idx = config.n_quenched_pretherm + config.n_therm + i;
-        let traj_start = Instant::now();
-        let r = gpu_dynamical_hmc_trajectory_brain(
-            ctx.gpu,
-            ctx.dyn_streaming_pipelines,
-            ctx.resident_cg_pipelines,
-            &dyn_state,
-            &cg_bufs,
-            *n_md,
-            *dt,
-            traj_idx as u32,
-            &mut seed,
-            adaptive_check_interval,
-            ctx.brain_residual_tx,
-            ctx.brain_interrupt_rx,
-        );
-        let wall_us = traj_start.elapsed().as_micros() as u64;
-
-        plaq_vals.push(r.plaquette);
-        plaq_history.push(r.plaquette);
-        if plaq_history.len() > 32 {
-            plaq_history.remove(0);
-        }
-        cg_total += r.cg_iterations;
-        if r.accepted {
-            n_accepted += 1;
-        }
-        let running_acc = if i > 0 {
-            n_accepted as f64 / (i + 1) as f64
-        } else {
-            0.5
-        };
-
-        let (traj_poly_re, traj_poly_phase) = if r.accepted {
-            let (re, im) = lat.complex_polyakov_average();
-            (re.hypot(im), im.atan2(re))
-        } else {
-            (0.0, 0.0)
-        };
-
-        ctx.npu_tx
-            .send(NpuRequest::TrajectoryEvent(TrajectoryEvent {
-                beta,
-                mass: config.mass,
-                lattice: config.lattice,
-                phase_tag: TrajectoryPhase::Measurement,
-                traj_idx,
-                plaquette: r.plaquette,
-                delta_h: r.delta_h,
-                accepted: r.accepted,
-                cg_iterations: r.cg_iterations,
-                polyakov_re: traj_poly_re,
-                polyakov_phase: traj_poly_phase,
-                action_density: 6.0 * (1.0 - r.plaquette),
-                plaquette_var: plaquette_variance(&plaq_history),
-                wall_us,
-                running_acceptance: running_acc,
-            }))
-            .ok();
-
-        ctx.npu_tx
-            .send(NpuRequest::RejectPredict {
-                beta,
-                plaquette: r.plaquette,
-                delta_h: r.delta_h,
-                acceptance_rate: running_acc,
-                mass: config.mass,
-            })
-            .ok();
-        npu_stats.reject_predictions += 1;
-        npu_stats.total_npu_calls += 1;
-        reject_predictions += 1;
-
-        if let Ok(NpuResponse::RejectPrediction {
-            likely_rejected,
-            confidence,
-        }) = ctx.npu_rx.recv()
-        {
-            if likely_rejected != r.accepted {
-                npu_stats.reject_correct += 1;
-                reject_correct += 1;
-            }
-            if likely_rejected
-                && confidence > 0.8
-                && reject_correct > 3
-                && i >= 2
-                && n_accepted == 0
-            {
-                eprintln!(
-                    "  [NPU] Reject streak: skipping remaining meas (conf={:.2}, 0/{} accepted)",
-                    confidence,
-                    i + 1
-                );
-                if r.delta_h.abs() >= 0.1 {
-                    break;
-                }
-            }
-        }
-
-        if i == 0
-            && let Ok(features) = ctx.cortex_handles.proxy_rx.try_recv()
-        {
-            ctx.npu_tx
-                .send(NpuRequest::ProxyFeatures {
-                    beta: features.beta,
-                    level_spacing_ratio: features.level_spacing_ratio,
-                    lambda_min: features.lambda_min,
-                    ipr: features.ipr,
-                    bandwidth: features.bandwidth,
-                    condition_number: features.condition_number,
-                    phase: features.phase.clone(),
-                    tier: features.tier,
-                    potts_magnetization: features.potts_magnetization,
-                    potts_susceptibility: features.potts_susceptibility,
-                    potts_phase: features.potts_phase.clone(),
-                })
-                .ok();
-            println!(
-                "  [Brain L3] Anderson: ⟨r⟩={:.3} |λ|_min={:.3} [{}] | Potts: mag={:.3} χ={:.1} [{}]",
-                features.level_spacing_ratio,
-                features.lambda_min,
-                features.phase,
-                features.potts_magnetization,
-                features.potts_susceptibility,
-                features.potts_phase
-            );
-        }
-
-        if (i + 1) % 10 == 0 {
-            ctx.npu_tx
-                .send(NpuRequest::AnomalyCheck {
-                    beta,
-                    plaq: r.plaquette,
-                    delta_h: r.delta_h,
-                    cg_iters: r.cg_iterations,
-                    acceptance: running_acc,
-                    mass: config.mass,
-                })
-                .ok();
-            npu_stats.anomaly_checks += 1;
-            npu_stats.total_npu_calls += 1;
-            if let Ok(NpuResponse::AnomalyFlag { is_anomaly, .. }) = ctx.npu_rx.recv()
-                && is_anomaly
-            {
-                npu_stats.anomalies_found += 1;
-                anomalies += 1;
-            }
-            if npu_controls_params && i > 0 {
-                if running_acc > 0.85 {
-                    let bump = (*dt * 1.15).min(DT_MAX);
-                    *n_md = ((*dt * *n_md as f64 / bump).round() as usize).clamp(NMD_MIN, NMD_MAX);
-                    *dt = bump;
-                    println!(
-                        "  NPU mid-run: acc {running_acc:.0}% > 85%, dt → {:.4}, n_md → {}",
-                        *dt, *n_md
-                    );
-                } else if running_acc < 0.50 {
-                    let drop = (*dt * 0.85).max(DT_MIN);
-                    *n_md = ((*dt * *n_md as f64 / drop).round() as usize).clamp(NMD_MIN, NMD_MAX);
-                    *dt = drop;
-                    println!(
-                        "  NPU mid-run: acc {running_acc:.0}% < 50%, dt → {:.4}, n_md → {}",
-                        *dt, *n_md
-                    );
-                }
-            }
-            if i > 0 && (i + 1) % 10 == 0 {
-                let evt = TrajectoryEvent {
-                    beta,
-                    mass: config.mass,
-                    lattice: config.lattice,
-                    phase_tag: TrajectoryPhase::Measurement,
-                    traj_idx,
-                    plaquette: r.plaquette,
-                    delta_h: r.delta_h,
-                    accepted: r.accepted,
-                    cg_iterations: r.cg_iterations,
-                    polyakov_re: traj_poly_re,
-                    polyakov_phase: traj_poly_phase,
-                    action_density: 6.0 * (1.0 - r.plaquette),
-                    plaquette_var: plaquette_variance(&plaq_history),
-                    wall_us,
-                    running_acceptance: running_acc,
-                };
-                ctx.npu_tx.send(NpuRequest::SubModelPredict(evt)).ok();
-                if let Ok(NpuResponse::SubModelPredictions {
-                    cg_cost,
-                    steering,
-                    phase: phase_pred,
-                    ..
-                }) = ctx.npu_rx.recv()
-                {
-                    if let Some(ref cg) = cg_cost
-                        && cg.len() >= 2
-                        && cg[1] > 0.7
-                    {
-                        eprintln!(
-                            "  [Sub-model] CG stall warning: P(stall)={:.2} at β={:.4}",
-                            cg[1], beta
-                        );
-                    }
-                    if let Some(ref ph) = phase_pred
-                        && !ph.is_empty()
-                        && (ph[0] > 0.8 || ph[0] < 0.2)
-                    {
-                        eprintln!(
-                            "  [Sub-model] Phase confidence: {:.2} at β={:.4}",
-                            ph[0], beta
-                        );
-                    }
-                    if let Some(ref steer) = steering
-                        && steer.len() >= 5
-                        && steer[4] > 0.8
-                        && i >= config.n_meas / 2
-                    {
-                        eprintln!(
-                            "  [Sub-model] Steering: skip_decision={:.2}, saturation={:.2} → early-term meas",
-                            steer[4], steer[3]
-                        );
-                        break;
-                    }
-                }
-            }
-        }
-
-        let do_poly_readback = traj_writer.is_some() || (i + 1) % 100 == 0;
-        let mut poly_mag = 0.0;
-        let mut poly_phase = 0.0;
-        if do_poly_readback {
-            gpu_links_to_lattice(ctx.gpu, &dyn_state.gauge, &mut lat);
-            let (re, im) = lat.complex_polyakov_average();
-            poly_mag = re.hypot(im);
-            poly_phase = im.atan2(re);
-            if (i + 1) % 100 == 0 {
-                poly_vals.push(poly_mag);
-            }
-        }
-
-        if let Some(w) = traj_writer.as_mut() {
-            let pvar = plaquette_variance(&plaq_history);
-            writeln!(
-                w,
-                "{}",
-                serde_json::json!({
-                    "beta": beta, "mass": config.mass, "n_fields": config.n_fields,
-                    "traj_idx": traj_idx, "phase": "measurement",
-                    "accepted": r.accepted, "plaquette": r.plaquette,
-                    "delta_h": r.delta_h, "cg_iters": r.cg_iterations,
-                    "polyakov_re": poly_mag, "polyakov_phase": poly_phase,
-                    "action_density": 6.0 * (1.0 - r.plaquette),
-                    "plaquette_var": pvar, "wall_us": wall_us,
-                })
-            )
-            .ok();
-        }
-
-        if (i + 1) % 200 == 0 {
-            print!(" {}", i + 1);
-            std::io::stdout().flush().ok();
-        }
-    }
-    println!(" done");
-
-    if let Some(w) = traj_writer.as_mut() {
-        w.flush().ok();
-    }
-
-    let mean_plaq: f64 = plaq_vals.iter().sum::<f64>() / plaq_vals.len() as f64;
-    let var_plaq: f64 = plaq_vals
+    let mean_plaq: f64 = meas.plaq_vals.iter().sum::<f64>() / meas.plaq_vals.len() as f64;
+    let var_plaq: f64 = meas
+        .plaq_vals
         .iter()
         .map(|p| (p - mean_plaq).powi(2))
         .sum::<f64>()
-        / (plaq_vals.len() - 1).max(1) as f64;
+        / (meas.plaq_vals.len() - 1).max(1) as f64;
     let std_plaq = var_plaq.sqrt();
-    let mean_poly: f64 = if poly_vals.is_empty() {
+    let mean_poly: f64 = if meas.poly_vals.is_empty() {
         gpu_links_to_lattice(ctx.gpu, &dyn_state.gauge, &mut lat);
         lat.average_polyakov_loop()
     } else {
-        poly_vals.iter().sum::<f64>() / poly_vals.len() as f64
+        meas.poly_vals.iter().sum::<f64>() / meas.poly_vals.len() as f64
     };
     let susceptibility = var_plaq * vol as f64;
     let action_density = 6.0 * (1.0 - mean_plaq);
-    let acceptance = n_accepted as f64 / config.n_meas as f64;
-    let mean_cg = cg_total as f64 / config.n_meas as f64;
+    let acceptance = meas.n_accepted as f64 / config.n_meas as f64;
+    let mean_cg = meas.cg_total as f64 / config.n_meas as f64;
     let wall_s = start.elapsed().as_secs_f64();
 
     ctx.npu_tx
@@ -764,9 +502,9 @@ pub(super) fn run_single_beta(
         npu_quenched_budget,
         npu_quenched_used: quenched_used,
         npu_quenched_early_exit: quenched_early_exit,
-        npu_reject_predictions: reject_predictions,
-        npu_reject_correct: reject_correct,
-        npu_anomalies: anomalies,
+        npu_reject_predictions: meas.reject_predictions,
+        npu_reject_correct: meas.reject_correct,
+        npu_anomalies: meas.anomalies,
         npu_cg_check_interval: adaptive_check_interval,
     };
 
@@ -800,8 +538,8 @@ pub(super) fn run_single_beta(
         *dt,
         *n_md
     );
-    if anomalies > 0 {
-        println!("  ⚠ {anomalies} anomalies detected by NPU");
+    if meas.anomalies > 0 {
+        println!("  ⚠ {} anomalies detected by NPU", meas.anomalies);
     }
     println!();
 

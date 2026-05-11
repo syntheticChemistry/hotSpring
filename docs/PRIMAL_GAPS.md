@@ -796,7 +796,6 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
   validated targets. Provenance manifest and validation summary committed.
   Thread 2 upgraded from "mapped" to "active" in THREAD_INDEX.toml.
 
-
 ### GAP-HS-057: K80 GK210 Nouveau Chipset ID Missing — PROVEN FIX (P0)
 
 - **Primal:** coralReef (sovereign pipeline) / upstream kernel (nouveau)
@@ -823,6 +822,53 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 - **Remaining:** Livepatch module format incompatible with kernel 6.17 strict relocation
   enforcement. Need either kprobe-based approach or kernel source rebuild.
 - **Ref:** Exp 185, Exp 188, Exp 171, Exp 178, Exp 181
+
+### GAP-HS-069: single_beta.rs Production Pipeline > 800L — RESOLVED
+
+- **Primal:** N/A (local code quality)
+- **Severity:** Low (maintainability)
+- **Status:** **Resolved** (May 11, 2026)
+- **Description:** `single_beta.rs` was 826 lines — a single `run_single_beta`
+  function spanning 780 lines with embedded measurement loop, NPU interactions,
+  parameter tuning, anomaly detection, and trajectory logging.
+- **Resolution:** Extracted 273-line measurement loop into `measurement.rs` (423L).
+  `single_beta.rs` reduced to 553L. Measurement phase structured as
+  `MeasurementResult` with sub-functions for reject prediction, anomaly
+  detection, sub-model steering, and Polyakov readback.
+
+### GAP-HS-070: DOWNSTREAM_PATTERNS.md Stale P0 — RESOLVED
+
+- **Primal:** N/A (documentation alignment)
+- **Severity:** Low (documentation accuracy)
+- **Status:** **Resolved** (May 11, 2026)
+- **Description:** `DOWNSTREAM_PATTERNS.md` listed P0 "fix workload binary name
+  (`validate_sarkas_md` → `validate_md`)" as pending, but projectNUCLEUS
+  already uses `hotspring_unibin validate --scenario sarkas_yukawa_md`.
+- **Resolution:** Refreshed entire document — updated integration points,
+  patterns absorbed, and action items to reflect current state.
+
+### GAP-HS-071: PAPER_REVIEW_QUEUE Tier 3b Contradiction — RESOLVED
+
+- **Primal:** N/A (documentation accuracy)
+- **Severity:** Low (spec hygiene)
+- **Status:** **Resolved** (May 11, 2026)
+- **Description:** Papers 43-45 (Chuna) listed as "Queued" in Tier 3b table
+  but documented as "COMPLETE" in summary section. Stats header stale (1002
+  tests vs actual 1,025).
+- **Resolution:** Fixed Tier 3b table to show "COMPLETE". Updated header stats
+  to 1,025 tests, 155 binaries.
+
+### GAP-HS-072: Foundation Thread 2 Expression Missing — RESOLVED
+
+- **Primal:** foundation (sporeGarden)
+- **Severity:** Medium (cross-repo alignment)
+- **Status:** **Resolved** (May 11, 2026)
+- **Description:** `thread02_plasma.toml` referenced
+  `expressions/PLASMA_QCD_SOVEREIGN_GPU.md` but the file did not exist.
+  `THREAD_INDEX.toml` had `expression = ""`.
+- **Resolution:** Created `PLASMA_QCD_SOVEREIGN_GPU.md` covering validation
+  chain, Sarkas MD, lattice QCD, Kokkos parity, and cross-thread connections.
+  Aligned `THREAD_INDEX.toml` to reference it. Added 2 foundation workloads.
 
 ---
 
