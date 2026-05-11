@@ -86,14 +86,14 @@ with Python control results against each other.  **9/9 active papers ALL GREEN**
 | 13 (Abelian Higgs) | 12/12 | ✅ ALL PASS | Per-config plaquette + Higgs condensate |
 | 43 (gradient flow) | — | ✅ | Nested integrator data (cross-substrate requires Rust JSON) |
 | 44 (BGK dielectric) | — | ✅ | Nested quadrature data (cross-substrate requires Rust JSON) |
-| 45 (kinetic-fluid) | — | SKIP | Python control exists, results not yet committed |
+| 45 (kinetic-fluid) | — | ✅ ALL PASS | Python control JSON committed; cross-substrate uses Rust JSON |
 
-**Total science cost**: ~$0.30 for 25 papers, 500+ validation checks, 102 experiments.
+**Total science cost**: ~$0.30 for 25 papers, 500+ validation checks, 188 experiments.
 Papers 6, 7, 13-22 add checks at negligible cost (CPU-only, <15 seconds each).
 Papers 43-45 (Chuna) complete — ~$0.05 additional (gradient flow reuses SU(3) infrastructure).
 Experiments 096-100 (silicon characterization): ~$0.10 (budget, saturation, composition, QCD profiling).
 GPU RHMC production (Exp 101): ~$0.02 (Nf=2 + Nf=2+1, 640 trajectories).
-Gradient flow at volume (Exp 102): ~$0.03 (convergence + 16^4 scale setting, in progress).
+Gradient flow at volume (Exp 102): ~$0.03 (convergence + 16^4 scale setting; **complete** — see experiment archive).
 
 ---
 
@@ -556,10 +556,10 @@ trick: `det(D†D)^{Nf/8}` via rational approximation.
 - Nf=2+1 validated at 4^4 (68-78% acc, correct ordering Q < 2+1 < 2)
 - All 640 trajectories, ~$0.02 compute cost
 
-**Gradient flow at volume (Exp 102, March 26-27): IN PROGRESS**
+**Gradient flow at volume (Exp 102, March 26-27): COMPLETE** (experiment archive)
 - CK4 stability confirmed: error 2.3e-6 at ε=0.1 (W6/W7 diverge at 1.6)
 - Convergence orders: Euler 1.23✓, RK2 1.97✓, W6/W7/CK4 ~2.0-2.3 (8^4 finite-size suppressed)
-- 16^4 quenched flow running (t₀/w₀ scale setting)
+- 16^4 quenched flow completed (t₀/w₀ scale setting; archive)
 
 | Target | Lattice | Goal | Status |
 |--------|---------|------|--------|
@@ -567,7 +567,7 @@ trick: `det(D†D)^{Nf/8}` via rational approximation.
 | Nf=2 production (8^4) | 8^4 | β-scan across transition | **✅ DONE** — Exp 101, ⟨P⟩=0.498/0.542/0.600, 50% acc |
 | Nf=2+1 validation (4^4) | 4^4 | 2-sector: light + strange | **✅ DONE** — Exp 101, ⟨P⟩=0.531/0.561/0.593, 68-78% acc |
 | Flow convergence (8^4) | 8^4 | CK4 stability + order measurement | **✅ DONE** — Exp 102, CK4 error 2.3e-6 at ε=0.1 |
-| Flow t₀/w₀ (16^4) | 16^4 | Clean scale setting (W7 integrator) | 🔄 **Running** — Exp 102 |
+| Flow t₀/w₀ (16^4) | 16^4 | Clean scale setting (W7 integrator) | **✅ DONE** — Exp 102 (complete in archive) |
 | Nf=2+1 production (8^4→16^4) | 8-16^4 | Scale 2-sector to volume | Next |
 | Flow on Nf=2+1 configs | 16^4 | Chuna W7 integrator on RHMC configs | Exp 103 |
 | Nf=2+1 production (32^4) | 32^4 | Weekend run — MILC-comparable physics | Near-term |

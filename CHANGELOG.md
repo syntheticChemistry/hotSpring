@@ -131,8 +131,8 @@ This file covers the spring as a whole. For crate-level details see
 
 ### Documentation
 - **All docs aligned**: README.md, whitePaper/README.md, whitePaper/baseCamp/README.md,
-  EXPERIMENT_INDEX.md, sporeprint/ — unified to canonical 1,019 tests / 155 binaries /
-  7 deploy graphs / 184 experiments / guideStone L6 CERTIFIED.
+  EXPERIMENT_INDEX.md, sporeprint/ — unified to canonical 1,025 tests / 155 binaries /
+  7 deploy graphs / 188 experiments / guideStone L6 CERTIFIED (numbers as of May 11, 2026).
 - **Upstream handoff**: `HOTSPRING_DEEP_DEBT_PHASE4_UPSTREAM_HANDOFF_MAY10_2026.md` —
   patterns for primalSpring, barraCuda, coralReef, toadStool, projectNUCLEUS, foundation.
 - **wateringHole/README.md** cleaned: removed stale handoff table, mmiotraces reference.
@@ -142,7 +142,7 @@ This file covers the spring as a whole. For crate-level details see
 ### Verified
 - `cargo fmt --check` — zero drift
 - `cargo clippy --lib` — zero new warnings (19 pre-existing dead_code)
-- `cargo test --lib` — 1,019 passed, 0 failed, 6 ignored
+- `cargo test --lib` — 1,019 passed, 0 failed, 6 ignored (at time of phase; now 1,025)
 - `primal-proof` build — compiles clean
 - Full `cargo check` (all binaries) — clean
 
@@ -183,7 +183,7 @@ This file covers the spring as a whole. For crate-level details see
 ### Verified
 - `cargo fmt --check` — zero drift
 - `cargo clippy --lib` — zero new warnings (19 pre-existing upstream)
-- `cargo test --lib` — 1,019 passed, 0 failed, 6 ignored
+- `cargo test --lib` — 1,019 passed, 0 failed, 6 ignored (at time of phase; now 1,025)
 - `primal-proof` build (no barracuda) — compiles clean
 - Cross-sync: zero drift against primalSpring canonical 413 (was 403, +10 `game.*`)
 ## Sovereign Pipeline Hardening + Docs Cleanup (May 10, 2026)

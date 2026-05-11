@@ -2,9 +2,9 @@
 
 **Date:** May 11, 2026  
 **Project:** hotSpring (ecoPrimals)  
-**Status:** v0.6.32 — guideStone Level 6 CERTIFIED (NUCLEUS Deployment Validation; primalSpring v0.9.25 interstadial eukaryotic, deep debt evolution Phase 4 complete). 1,025 lib tests, 155 binaries, 64/64 validation suites, 128 WGSL shaders. 25/25 papers reproduced (CPU), 20/25 GPU. **Eukaryotic UniBin** (`hotspring_unibin`) with certify/validate/status/version. Zero hardcoded paths, zero bare `#[allow]`, zero TODO/FIXME markers. Sovereign GPU pipeline COMPLETE.
+**Status:** v0.6.32 — guideStone Level 6 CERTIFIED (NUCLEUS Deployment Validation; primalSpring v0.9.25 interstadial eukaryotic, deep debt evolution Phase 4 complete). 1,025 lib tests, 155 binaries, 64/64 validation suites, 128 WGSL shaders **in this crate** vs **164+ shaders (cross-spring ecosystem)** coordinated across springs. 25/25 papers reproduced (CPU), 20/25 GPU. **Eukaryotic UniBin** (`hotspring_unibin`) with certify/validate/status/version. Zero hardcoded paths, zero bare `#[allow]`, zero TODO/FIXME markers. Sovereign GPU pipeline COMPLETE.
 
-**Validation arc:** Science stacks are validated on three tiers — **Python (and legacy HPC) baselines → sovereign Rust → NUCLEUS primal composition (guideStone)** — so peer-reviewed physics and methods are checked at the **primal composition layer**, not only in standalone binaries. Rust results serve as trusted baselines for IPC-composed NUCLEUS patterns, using the same tolerance-driven, exit-code-gated methodology that proved Rust matches Python. The `hotspring_guidestone` binary is the unified Level 6 CERTIFIED artifact that certifies this arc.
+**Validation arc:** Science stacks are validated on three tiers — **Python (and legacy HPC) baselines → sovereign Rust → NUCLEUS primal composition (IPC-routed capabilities)** — so peer-reviewed physics and methods are checked at the **primal composition layer**, not only in standalone binaries. Rust results serve as trusted baselines for IPC-composed NUCLEUS patterns, using the same tolerance-driven, exit-code-gated methodology that proved Rust matches Python. **`hotspring_unibin`** is the primary Level 6 CERTIFIED validation entry (certify/validate/status/version); **`hotspring_guidestone`** remains the legacy unified guideStone binary for the same property and IPC-parity checks.
 
 ---
 
@@ -35,7 +35,7 @@ Published paper (Python/FORTRAN/HPC)
 | [`chuna_bgk_dielectric.md`](chuna_bgk_dielectric.md) | Chuna 44 — conservative BGK dielectric | 20/20; multi-component paths |
 | [`chuna_kinetic_fluid.md`](chuna_kinetic_fluid.md) | Chuna 45 — kinetic–fluid multi-species | 10/10; coupled GPU pipeline |
 | [`kachkovskiy_spectral.md`](kachkovskiy_spectral.md) | Anderson / Hofstadter spectral | 45/45; GPU Lanczos |
-| [`cross_spring_evolution.md`](cross_spring_evolution.md) | Shader ecosystem across springs | 164+ shaders; four-spring coordination |
+| [`cross_spring_evolution.md`](cross_spring_evolution.md) | Shader ecosystem across springs | 164+ shaders (cross-spring ecosystem); four-spring coordination |
 | [`neuromorphic_silicon.md`](neuromorphic_silicon.md) | AKD1000 / NPU exploration | Exps 020–031; NPU in production QCD paths |
 | [`reality_ladder_rung0.md`](reality_ladder_rung0.md) | Mass × volume × β scan | Exp 033; many trajectories |
 | [`esn_baseline_validation.md`](esn_baseline_validation.md) | ESN baseline & capability map | Training/capability coverage |

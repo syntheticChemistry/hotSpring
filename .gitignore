@@ -121,6 +121,11 @@ benchmarks/*/results/
 .DS_Store
 Thumbs.db
 
+# ----- Editor swap/backup -----
+*.swp
+*.swo
+*~
+
 # ----- Python virtual environments -----
 venv/
 .venv/

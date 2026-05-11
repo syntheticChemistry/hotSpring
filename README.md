@@ -28,7 +28,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"*, *"Can Rust+WG
 
 ### Eukaryotic UniBin: `hotspring_unibin`
 
-hotSpring has evolved from the prokaryotic era of separate binaries into an eukaryotic UniBin — a single `hotspring_unibin` binary consolidating certification (L0–L6 guideStone organelle), validation scenarios (6 absorbed experiments across 6 tracks), and status reporting. Reference: primalSpring v0.9.25 interstadial eukaryotic wave.
+hotSpring has evolved from the prokaryotic era of separate binaries into an eukaryotic UniBin — a single `hotspring_unibin` binary consolidating certification (L0–L6 guideStone organelle), validation scenarios (7 absorbed experiments across 6 tracks), and status reporting. Reference: primalSpring v0.9.25 interstadial eukaryotic wave.
 
 ```
 hotspring certify              # L0-L6 composition certification

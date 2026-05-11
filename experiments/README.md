@@ -106,25 +106,26 @@ Not numbered experiments — systematic composition infrastructure:
 
 | Name | Type | Status |
 |------|------|--------|
+| `hotspring_unibin` | binary | ✅ **Eukaryotic Tier 1 entry** — `certify` / `validate` / `status` / `version`; primary NUCLEUS validation CLI (successor to `hotspring_guidestone`) |
 | `validate_nucleus_composition` | binary | ✅ Validates all four atomic tiers (Tower/Node/Nest/NUCLEUS) via IPC + science parity probes (SEMF, plaquette, HMC) |
 | `validate_nucleus_tower` | binary | ✅ Tower atomic (BearDog + Songbird) validation |
 | `validate_nucleus_node` | binary | ✅ Node atomic (Tower + toadStool + barraCuda + coralReef) validation + science parity probes |
 | `validate_nucleus_nest` | binary | ✅ Nest atomic (Tower + NestGate + rhizoCrypt + loamSpine + sweetGrass) validation |
 | `validate_squirrel_roundtrip` | binary | ✅ Squirrel inference end-to-end (models, complete, embed) |
-| `validate_primal_proof` | binary | ✅ **Level 5 primal proof** — calls barraCuda/BearDog over IPC (`tensor.matmul`, `stats.mean`, `crypto.hash`, etc.), compares vs Python/Rust baselines |
-| `hotspring_guidestone` | binary | ✅ **guideStone Level 5 CERTIFIED** — unified guideStone binary. Bare: validates 5 properties (Deterministic, Traceable, Self-Verifying, Env-Agnostic, Tolerance-Documented). NUCLEUS additive: IPC parity via `primalspring::composition` API (scalar, vector, SEMF, crypto, compute) |
+| `validate_primal_proof` | binary | ✅ **Level 6 primal proof** — calls barraCuda/BearDog over IPC (`tensor.matmul`, `stats.mean`, `crypto.hash`, etc.), compares vs Python/Rust baselines |
+| `hotspring_guidestone` | binary | ✅ **guideStone Level 6 CERTIFIED** (legacy unified binary) — Bare: validates 5 properties (Deterministic, Traceable, Self-Verifying, Env-Agnostic, Tolerance-Documented). NUCLEUS additive: IPC parity via `primalspring::composition` API (scalar, vector, SEMF, crypto, compute). Prefer **`hotspring_unibin`** for new workflows. |
 | `validate_science_probes` | library fn | ✅ compute health + math capability + provenance trio via IPC |
 | `graphs/hotspring_qcd_deploy.toml` | deploy graph | ✅ 10 primals, bonding policy, spawn order for biomeOS |
 | Composition audit + remediation | session | ✅ Socket fix, registration wiring, DAG/crypto alignment, validation.rs split |
 | Stadial audit (April 17) | session | ✅ deny.toml, `#[expect]` migration, dyn elimination, tolerance centralization, unsafe→OnceLock |
 | Primal composition proof (April 17) | session | ✅ Science parity probes, downstream_manifest alignment, all 13 methods dispatched |
-| Level 5 primal proof audit (April 17) | session | ✅ `validate_primal_proof` harness, IPC mapping doc, downstream manifest corrected to primal IPC methods, capability domain routing fixed, dyn dispatch eliminated |
-| guideStone alignment (April 18) | session | ✅ `hotspring_guidestone` binary, `primalspring` dep, composition API adoption, downstream manifest guideStone metadata, 5/5 properties certified |
+| Level 6 primal proof audit (April 17) | session | ✅ `validate_primal_proof` harness, IPC mapping doc, downstream manifest corrected to primal IPC methods, capability domain routing fixed, dyn dispatch eliminated |
+| guideStone alignment (April 18) | session | ✅ `hotspring_guidestone` binary, `primalspring` dep, composition API adoption, downstream manifest guideStone metadata, 5/5 properties certified (UniBin successor documented May 2026) |
 | v0.9.16 absorption + primal proof (April 20) | session | ✅ BLAKE3 P3, `is_protocol_error()`, `validate-primal-proof.sh` script, plasmidBin ecoBin verified |
 | v0.9.17 absorption (April 20) | session | ✅ genomeBin v5.1, guideStone v1.2.0, env var auto-setup (BEARDOG_FAMILY_SEED, SONGBIRD_SECURITY_PROVIDER, NESTGATE_JWT_SECRET), backward-compatible API |
-| Property 3 CHECKSUMS + 30/30 bare (April 17) | session | ✅ Generated BLAKE3 CHECKSUMS manifest (15 source files), fixed deny.toml lookup for dual CWD, script builds from barracuda/ runs from root. **30/30 bare checks pass**, 3 SKIP (expected NUCLEUS liveness only). 993 lib tests pass. |
+| Property 3 CHECKSUMS + 30/30 bare (April 17) | session | ✅ Generated BLAKE3 CHECKSUMS manifest (15 source files), fixed deny.toml lookup for dual CWD, script builds from barracuda/ runs from root. **30/30 bare checks pass**, 3 SKIP (expected NUCLEUS liveness only). *(Historical test count: 993 lib tests at time of session.)* |
 | Phase 46 composition template (April 27) | session | ✅ Absorbed primalSpring Phase 46 composition library. `tools/hotspring_composition.sh`: event-driven QCD + async tick model + DAG memoization + ledger sealing + scientific provenance braids + compute dispatch. Bare mode verified. |
-| Deep debt evolution (April 27) | session | ✅ Capability-based primal discovery — `composition.rs` derives requirements from `niche::DEPENDENCIES` (single source of truth). Named accessors deprecated → `by_domain()`. Data-driven `PRIMAL_ALIASES`. Smart refactoring: `rhmc.rs` → `rhmc/mod.rs` + `remez.rs`, `nuclear_eos_helpers.rs` → `mod.rs` + `objectives.rs`. Pre-existing `DiscoveredDevice` compile errors fixed. 993/993 lib tests pass, zero compilation errors. |
+| Deep debt evolution (April 27) | session | ✅ Capability-based primal discovery — `composition.rs` derives requirements from `niche::DEPENDENCIES` (single source of truth). Named accessors deprecated → `by_domain()`. Data-driven `PRIMAL_ALIASES`. Smart refactoring: `rhmc.rs` → `rhmc/mod.rs` + `remez.rs`, `nuclear_eos_helpers.rs` → `mod.rs` + `objectives.rs`. Pre-existing `DiscoveredDevice` compile errors fixed. *(Historical test count: 993/993 lib tests at time of session.)* Zero compilation errors. |
 
 | 172 | NO_ACR_WARM_HANDOFF | md | ✅ Warm HBM2 without HS lockout by removing ACR firmware |
 | 173 | VM_REAGENT_WPR_CAPTURE | investigation | ✅ VM reagent WPR capture. GV100 closed driver does NOT configure WPR (Volta predates GSP). Architectural pivot for Volta sovereign boot. |

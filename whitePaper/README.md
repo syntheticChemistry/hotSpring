@@ -3,7 +3,7 @@
 **Status**: Current — reviewed for PII, suitable for public repository  
 **Purpose**: Document the replication of Murillo Group computational plasma physics on consumer hardware using BarraCuda, and the three-tier validation arc proving NUCLEUS primal composition  
 **Date**: February 26, 2026 (inception); updated May 11, 2026 (v0.6.32 — guideStone Level 6 CERTIFIED (NUCLEUS Deployment Validation), primalSpring v0.9.25 post-interstadial Tier 4 IPC-first. 1,025 lib tests, 155 binaries, 64/64 validation suites, 128 WGSL shaders, 25/25 papers reproduced (CPU), 20/25 GPU, Deep Debt Phase 4 complete, bare guideStone 30/30 checks pass with BLAKE3 CHECKSUMS, `hotspring_unibin` eukaryotic CLI, `primal-proof` feature gate, 7 deploy graphs, provenance trio IPC, skunkBat audit IPC wired, foundation Thread 2 seeded)  
-**Validation arc**: Python baselines → Rust validation → NUCLEUS primal composition validation (guideStone certified)
+**Validation arc**: Python baselines → Rust validation → NUCLEUS IPC primal composition validation (`hotspring_unibin` Tier 1 entry; guideStone properties certified)
 
 ---
 
@@ -34,7 +34,7 @@ The study answers five questions:
 1. **Can published computational science be independently reproduced?** (Answer: yes, but it required fixing 6 silent bugs and rebuilding physics that was behind a gated platform)
 2. **Can Rust + WebGPU replace the Python scientific stack for real physics?** (Answer: yes — BarraCuda achieves 478× faster throughput and 44.8× less energy at L1, with GPU FP64 validated to 4.55e-13 MeV precision. Full Sarkas Yukawa MD runs on a $600 consumer GPU: 9/9 PP cases pass at N=10,000 with 80,000 production steps in 3.66 hours for $0.044. GPU-resident CG reduces readback by 15,360× and speeds dynamical fermion HMC by 30.7×. Bidirectional streaming pipeline dispatches 90%+ to GPU with async readback.)
 3. **Can consumer GPUs do first-principles nuclear structure at scale?** (Answer: yes — the full AME2020 dataset (2,042 nuclei, 39x the published paper) runs on a single RTX 4070. L1 Pareto analysis, L2 GPU-batched HFB, and L3 deformed HFB all produce results. This is direct physics computation, not surrogate learning.)
-4. **Does the Python → Rust → GPU evolution path extend beyond plasma physics?** (Answer: yes — lattice QCD (SU(3) pure gauge, HMC, staggered Dirac, dynamical fermion pseudofermion HMC), Abelian Higgs (U(1) gauge + Higgs field, 143× faster than Python), transport coefficients (Green-Kubo, Stanton-Murillo), screened Coulomb (Sturm eigensolve, 2274× faster than Python), and HotQCD EOS tables are all validated on CPU with WGSL templates ready for GPU promotion. 25/25 papers reproduced on CPU (20/25 GPU), 400+ validation checks, ~$0.20 total compute cost.)
+4. **Does the Python → Rust → GPU evolution path extend beyond plasma physics?** (Answer: yes — lattice QCD (SU(3) pure gauge, HMC, staggered Dirac, dynamical fermion pseudofermion HMC), Abelian Higgs (U(1) gauge + Higgs field, 143× faster than Python), transport coefficients (Green-Kubo, Stanton-Murillo), screened Coulomb (Sturm eigensolve, 2274× faster than Python), and HotQCD EOS tables are all validated on CPU with WGSL templates ready for GPU promotion. The same arc continues through **NUCLEUS IPC composition**: science and compute must match when invoked **as routed JSON-RPC capabilities** over UDS (not only in-crate binaries), with `hotspring_unibin` as the primary validation CLI. 25/25 papers reproduced on CPU (20/25 GPU), 400+ validation checks, ~$0.20 total compute cost.)
 5. **Can physics math be truly substrate-portable — CPU → GPU → NPU?** (Answer: yes — ESN reservoir math validated across f64 CPU, f32 NpuSimulator, int4 quantized, and real AKD1000 NPU hardware. 10 SDK assumptions overturned by probing beyond the SDK. The same WGSL shader math trains on GPU and deploys on NPU for inference at 30mW. See `metalForge/npu/akida/BEYOND_SDK.md`.)
 
 ---
@@ -387,7 +387,7 @@ No institutional access required. No Code Ocean account. No Fortran compiler. AG
 
 ---
 
-## Codebase Health (May 10, 2026)
+## Codebase Health (May 11, 2026)
 
 | Metric | Value |
 |--------|-------|
@@ -409,7 +409,7 @@ No institutional access required. No Code Ocean account. No Fortran compiler. AG
 | Provenance records | All validation targets traced to Python origins or DOIs |
 | AGPL-3.0 compliance | All `.rs` and `.wgsl` files |
 | NUCLEUS composition | `hotspring_unibin` (certify, validate, status, version) + 6 composition binaries, 7 deploy graphs |
-| Eukaryotic UniBin | `hotspring_unibin` — L0-L5 certification + 6 validation scenarios via `ScenarioRegistry` |
+| Eukaryotic UniBin | `hotspring_unibin` — L0-L6 certification + 6 validation scenarios via `ScenarioRegistry` |
 | Deploy graphs (7 total) | Example: `graphs/hotspring_qcd_deploy.toml` — 10 primals declared |
 
 ---

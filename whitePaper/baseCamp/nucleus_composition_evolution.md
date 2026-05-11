@@ -57,7 +57,7 @@ Code paths:
 
 4. **Full server dispatch** — `barracuda/src/bin/hotspring_primal.rs` serves all methods in `niche::LOCAL_CAPABILITIES` (13 physics/compute methods + composition/health/MCP). **GAP-HS-026** (April 17, 2026): every local method is wired; pending placeholders removed. See `docs/PRIMAL_GAPS.md`.
 
-5. **`hotspring_guidestone` binary** — Unified guideStone deployable (primalSpring v0.9.17, guideStone v1.2.0):
+5. **`hotspring_guidestone` binary** — Unified guideStone deployable as of the v0.9.17-era stack (guideStone v1.2.0; **eukaryotic successor:** `hotspring_unibin` is now the primary NUCLEUS validation CLI — see header). Current primalSpring line: **v0.9.25** (post-interstadial).
    - **Bare mode**: Validates Properties 1-5 (Deterministic, Reference-Traceable, Self-Verifying [BLAKE3 CHECKSUMS — 15 source files], Environment-Agnostic, Tolerance-Documented) without any primals deployed. **30/30 checks pass**, 3 SKIPs (expected NUCLEUS liveness only). Property 3 verifies per-file BLAKE3 hashes + `deny.toml` present.
    - **NUCLEUS additive mode**: IPC parity via `primalspring::composition` API — scalar parity, vector parity, SEMF end-to-end, crypto provenance witness, compute dispatch against live primals.
    - **Protocol tolerance**: `is_protocol_error()` classifies HTTP-on-UDS (Songbird, petalTongue) as SKIP, matching v0.9.16+ liveness semantics.
@@ -80,7 +80,7 @@ Code paths:
    - Data-driven `PRIMAL_ALIASES` table replaces hardcoded alias fallback.
    - Smart refactoring: `rhmc.rs` (989L) → `rhmc/mod.rs` + `rhmc/remez.rs`; `nuclear_eos_helpers.rs` (978L) → `mod.rs` + `objectives.rs`.
    - Pre-existing compile errors fixed (`DiscoveredDevice` API in `nuclear_eos_l2_*` binaries).
-   - 1002/1002 lib tests pass. Zero compilation errors.
+   - 1,025/1,025 lib tests pass. Zero compilation errors.
 
 **Forward evolution (tracked as gaps):** **TensorSession** fused pipelines (GAP-HS-027), **LIME/ILDG zero-copy** (GAP-HS-028), and expanded **cross-primal science parity** (more observables routed the same way production will call them).
 
@@ -153,13 +153,16 @@ cargo run --release --bin validate_squirrel_roundtrip   # exit 2 if Squirrel abs
 cargo run --release --bin validate_all                  # includes all of the above suites
 ```
 
-**guideStone primal proof (recommended):**
+**Primal proof (recommended):** use **`hotspring_unibin`** (`validate`, `certify`, …) as the Tier 1 entry for NUCLEUS workload dispatch; the script path below is the legacy guideStone flow (still supported).
 
 ```bash
-# Bare mode (no NUCLEUS required)
+# Prefer: UniBin (eukaryotic CLI)
+cargo run --release --bin hotspring_unibin -- validate   # example; see --help
+
+# Legacy script: bare mode (no NUCLEUS required)
 ./scripts/validate-primal-proof.sh
 
-# Full mode (pre-flight + domain against live NUCLEUS)
+# Legacy script: full mode (pre-flight + domain against live NUCLEUS)
 FAMILY_ID=hotspring-validation ./scripts/validate-primal-proof.sh --full
 ```
 
