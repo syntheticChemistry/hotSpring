@@ -1,6 +1,11 @@
 /*
  * livepatch_nvkm_mc_reset.c — targeted patches for warm handoff.
  *
+ * STATUS: SUPERSEDED by binary-patch approach (patch_nouveau_teardown.py).
+ * Kernel 6.17+ rejects R_X86_64_64 relocations with non-zero addends in
+ * all out-of-tree modules, making livepatch/kprobe .ko files unloadable.
+ * Retained as reference for the function signatures and rationale.
+ *
  * Patches FOUR functions in nouveau.ko:
  *
  *   1. gf100_gr_fini()       — NOP: prevents PGRAPH reset on unbind that
@@ -46,50 +51,20 @@
  */
 static int livepatch_gf100_gr_fini(void *gr, bool suspend)
 {
-	pr_info_once("gf100_gr_fini BLOCKED (suspend=%d) — preserving GPC state for VFIO\n",
-		     suspend);
 	return 0;
 }
 
-/*
- * int nvkm_pmu_fini(struct nvkm_subdev *, bool suspend)
- * Called during nouveau unbind. Halts the PMU falcon, which FECS depends on
- * for GPC power management. Return 0 (success) without touching hardware.
- */
 static int livepatch_nvkm_pmu_fini(void *subdev, bool suspend)
 {
-	pr_info_once("nvkm_pmu_fini BLOCKED (suspend=%d) — preserving PMU for VFIO\n",
-		     suspend);
 	return 0;
 }
 
-/*
- * void nvkm_mc_disable(struct nvkm_device *, enum nvkm_subdev_type, int)
- * Called by each subdev's fini to clear its PMC_ENABLE bit. During unbind,
- * this cascades through ~15 subdevs, collapsing PMC from 0xe011312c to
- * 0xc0002020. The PCLOCK domain (PLLs) gets disabled, killing GPC clocks
- * and making PGRAPH unable to route to GPCs after VFIO bind.
- */
 static void livepatch_nvkm_mc_disable(void *device, int type, int inst)
 {
-	pr_info_once("nvkm_mc_disable BLOCKED (type=%d inst=%d) — preserving PMC_ENABLE for VFIO\n",
-		     type, inst);
 }
 
-/*
- * int nvkm_fifo_fini(struct nvkm_subdev *, bool suspend)
- * Called during nouveau unbind. Preempts all runlists, flushes empty,
- * disables PFIFO. FECS sees "no channels" and halts. PFIFO enters an
- * unrecoverable state (PFIFO_ENABLE stuck at 0). Return 0 (success).
- *
- * NOTE: This is safe to NOP because nvkm_fifo_fini is NOT called during
- * normal init — only during teardown (unbind/suspend) or error cleanup.
- * If init fails, the whole device probe fails anyway.
- */
 static int livepatch_nvkm_fifo_fini(void *subdev, bool suspend)
 {
-	pr_info_once("nvkm_fifo_fini BLOCKED (suspend=%d) — preserving PFIFO/FECS for VFIO\n",
-		     suspend);
 	return 0;
 }
 

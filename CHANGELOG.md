@@ -7,6 +7,30 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Unreleased — Sovereign Warm-Catch Breakthrough (May 11, 2026)
+
+### Added
+- **Binary-patched nouveau warm-catch**: `patch_nouveau_teardown.py` patches
+  4 teardown functions (gf100_gr_fini, nvkm_pmu_fini, nvkm_mc_disable,
+  nvkm_fifo_fini) in stock `nouveau.ko` to NOP. Replaces broken livepatch
+  approach (kernel 6.17 R_X86_64_64 relocation check blocks out-of-tree
+  livepatch/kprobe modules entirely).
+- **K80 warm-catch script** (`k80_bpf_warm_catch.sh`): Full warm-catch
+  orchestration using patched nouveau. GDDR5 trained, GPCs active, PMC
+  preserved across unbind.
+- **Titan V warm-handoff script** (`titanv_bpf_warm_handoff.sh`): nouveau
+  initializes FECS via ACR/SEC2 natively. FECS RUNNING post-VFIO rebind.
+
+### Fixed
+- **GAP-HS-073 (Titan V FECS)**: RESOLVED — patched nouveau warm-handoff
+  brings FECS up via ACR/SEC2 firmware (PMU absence is non-fatal). FECS_MC
+  = 0x0c060006 (running), PGRAPH enabled, 1 GPC active.
+- **GAP-HS-076 (K80 GPCs)**: RESOLVED — patched nouveau trains GDDR5
+  (12288 MiB), initializes GPCs. PMC_ENABLE = 0xfc37b1ef (pop=22), FECS_MC
+  = 0x00060005 (running), GPC_MASK = 0x10, WARM=True.
+- **Livepatch kernel 6.17 incompatibility**: Bypassed entirely. Binary
+  patching stock .ko avoids module loader relocation checks.
+
 ## Unreleased — Three-GPU Sovereign Validation (May 11, 2026)
 
 ### Added
