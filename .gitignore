@@ -167,6 +167,12 @@ wateringHole/*.bin
 wateringHole/mmiotraces/
 wateringHole/nvidia-closed-volta-580/
 
+# ----- Extracted firmware binaries (large, machine-local) -----
+data/firmware/**/*.bin
+
+# ----- Golden init recipes (large JSON, regenerable via distill_oracle_recipe.sh) -----
+data/golden/*.json
+
 # ============================================================
 # NOTE: These ARE tracked (small, important for reproducibility):
 #   control/sarkas/simulations/dsf-study/results/*.json   (validation results)

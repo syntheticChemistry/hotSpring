@@ -7,6 +7,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Unreleased — Deep Debt Evolution + Infra Handoff (May 11, 2026)
+
+### Changed
+- **Deprecated primal accessors removed**: `toadstool()`, `beardog()`,
+  `rhizocrypt()`, `loamspine()`, `sweetgrass()`, `coralreef()` convenience
+  methods deleted from `primal_bridge.rs` — zero callers remained. All primal
+  resolution now routes through `by_domain()` capability-based discovery.
+
+### Added
+- **Ecosystem handoff**: `wateringHole/handoffs/INFRA_MATURITY_ECOSYSTEM_HANDOFF_MAY11_2026.md`
+  — comprehensive handoff for primals/springs teams covering benchScale +
+  agentReagents maturity, NUCLEUS composition patterns, hardware interaction
+  lessons, Neural API integration, and gaps for upstream audit.
+
+### Infra (benchScale + agentReagents, pushed separately)
+- **benchScale**: LibvirtConfig→BenchScaleConfig migration complete, `cp`→`std::fs::copy`,
+  SSH interface discovery via russh, boot diagnostics async + configurable users,
+  DHCP FFI consolidated, `VfioPassthrough` with QEMU commandline injection.
+- **agentReagents**: `InstallingCosmic`→`InstallingDesktop`, verification.rs
+  smart refactor (1061→3 modules), cosmic-specific strings removed, desktop
+  verification now distro-agnostic.
+
 ## Unreleased — Interstadial Sprint (May 11, 2026)
 
 ### Changed

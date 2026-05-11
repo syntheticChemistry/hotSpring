@@ -146,6 +146,7 @@ Not numbered experiments — systematic composition infrastructure:
 | 187 | TITANV_NVIDIA580_MMIOTRACE_PREP | prepared | 🔧 Capture script for nvidia-580 mmiotrace on Titan V. Determines WPR usage, informs FalconBootSolver Volta branch. Awaiting execution window. |
 | 188 | K80_WARM_CATCH_BREAKTHROUGH | breakthrough | ✅ Patched nouveau RECOGNIZED GK210. First-ever GR init: 12 GiB GDDR5, 5 GPCs, 6 TPC/GPC. Post-rebind GPCs power-gated. PLX D3cold on ember stop. |
 | — | K80_QEMU_VM_REAGENT | investigation | ✅ QEMU VM with K80 VFIO passthrough + proprietary nvidia-470.256.02. Module probed K80 successfully. Reagent template + build recipe stored in `agentReagents/`. |
+| 189 | LTEE_B2_ANDERSON_FITNESS | notebook | 🔧 Tier 1 Python baseline — Wiser et al. 2013 LTEE Anderson fitness analogy. Power-law fitness model, Anderson Hamiltonian, localization analysis. |
 
 ## Paper Baseline Notebooks
 
