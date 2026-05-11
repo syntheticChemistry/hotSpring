@@ -149,18 +149,18 @@ impl EmberClient {
 
     // ── MMIO (fork-isolated, circuit-breaker-protected) ─────────────
 
-    /// `ember.mmio.read` — read a single 32-bit BAR0 register.
+    /// `mmio.read32` — read a single 32-bit BAR0 register.
     pub fn mmio_read(&self, bdf: &str, offset: u32) -> Result<MmioReadResult, HotSpringError> {
         let v = crate::primal_bridge::send_jsonrpc(
             &self.socket_path,
-            "ember.mmio.read",
+            "mmio.read32",
             &serde_json::json!({ "bdf": bdf, "offset": offset }),
         )?;
         let result = jsonrpc_ok_result(&v)?;
         Ok(serde_json::from_value(result)?)
     }
 
-    /// `ember.mmio.write` — write a single 32-bit BAR0 register.
+    /// `mmio.write32` — write a single 32-bit BAR0 register.
     pub fn mmio_write(
         &self,
         bdf: &str,
@@ -169,14 +169,14 @@ impl EmberClient {
     ) -> Result<MmioWriteResult, HotSpringError> {
         let v = crate::primal_bridge::send_jsonrpc(
             &self.socket_path,
-            "ember.mmio.write",
+            "mmio.write32",
             &serde_json::json!({ "bdf": bdf, "offset": offset, "value": value }),
         )?;
         let result = jsonrpc_ok_result(&v)?;
         Ok(serde_json::from_value(result)?)
     }
 
-    /// `ember.mmio.batch` — execute a sequence of read/write ops in one fork.
+    /// `mmio.batch` — execute a sequence of read/write ops in one fork.
     pub fn mmio_batch(
         &self,
         bdf: &str,
@@ -184,27 +184,23 @@ impl EmberClient {
     ) -> Result<MmioBatchResult, HotSpringError> {
         let v = crate::primal_bridge::send_jsonrpc(
             &self.socket_path,
-            "ember.mmio.batch",
+            "mmio.batch",
             &serde_json::json!({ "bdf": bdf, "ops": ops }),
         )?;
         let result = jsonrpc_ok_result(&v)?;
         Ok(serde_json::from_value(result)?)
     }
 
-    /// `ember.mmio.circuit_breaker` — query or reset the MMIO circuit breaker.
+    /// `mmio.bar0.probe` — query the MMIO circuit breaker and health status.
     pub fn mmio_circuit_breaker(
         &self,
         bdf: &str,
-        action: Option<&str>,
+        _action: Option<&str>,
     ) -> Result<CircuitBreakerStatus, HotSpringError> {
-        let mut params = serde_json::json!({ "bdf": bdf });
-        if let Some(a) = action {
-            params["action"] = serde_json::json!(a);
-        }
         let v = crate::primal_bridge::send_jsonrpc(
             &self.socket_path,
-            "ember.mmio.circuit_breaker",
-            &params,
+            "mmio.bar0.probe",
+            &serde_json::json!({ "bdf": bdf }),
         )?;
         let result = jsonrpc_ok_result(&v)?;
         Ok(serde_json::from_value(result)?)

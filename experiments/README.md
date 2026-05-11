@@ -139,6 +139,10 @@ Not numbered experiments — systematic composition infrastructure:
 | 182 | K80_FECS_PIO_BOOT | diagnostic | 🔧 K80 GK210 FECS PIO boot diagnostic. Direct BAR0 mmap (`low-level` feature). Falcon IMEM/DMEM PIO path. |
 | 183 | K80_FECS_INT_BOOT | diagnostic | 🔧 K80 GK210 FECS interrupt-driven boot. Direct BAR0 mmap (`low-level` feature). |
 | 184 | K80_GR_SOVEREIGN | active | ✅ K80 GK210 sovereign GR init via ember RPC. Modern ember-wired path. Kepler falcon boot + firmware + PLX keepalive + switch preflight. |
+| 185 | K80_NOUVEAU_GK210_CHIPSET | complete | ✅ Root cause: upstream nouveau has NO `case 0x0f2:` — GK210 unrecognized → -ENODEV. One-line patch: `case 0x0f2: device->chip = &nvf1_chipset;` |
+| 186 | PMU_FW_EXTRACTION_ANALYSIS | complete | ✅ Kepler PMU from VBIOS (BIT tables). Volta PMU NOT in linux-firmware — needs nvidia-470 extraction. Enhanced exp168 probe. |
+| 187 | TITANV_NVIDIA580_MMIOTRACE_PREP | prepared | 🔧 Capture script for nvidia-580 mmiotrace on Titan V. Determines WPR usage, informs FalconBootSolver Volta branch. Awaiting execution window. |
+| 188 | K80_WARM_CATCH_BREAKTHROUGH | breakthrough | ✅ Patched nouveau RECOGNIZED GK210. First-ever GR init: 12 GiB GDDR5, 5 GPCs, 6 TPC/GPC. Post-rebind GPCs power-gated. PLX D3cold on ember stop. |
 | — | K80_QEMU_VM_REAGENT | investigation | ✅ QEMU VM with K80 VFIO passthrough + proprietary nvidia-470.256.02. Module probed K80 successfully. Reagent template + build recipe stored in `agentReagents/`. |
 
 ## Paper Baseline Notebooks

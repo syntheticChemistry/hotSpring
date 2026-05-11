@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026
-**Last audited:** May 11, 2026 (Post-Interstadial Evolution)
+**Last audited:** May 11, 2026 (sovereign barrier resolution + Post-Interstadial Evolution: Volta ACR skip, HBM2 warm-handoff, benchScale VM isolation, K80 PCIe link, skunkBat IPC, Tier 4 IPC-first)
 **License:** AGPL-3.0-or-later
 
 ---
@@ -299,7 +299,7 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
   fault containment.
 - **Action:** PR to primalSpring documenting fork-isolation as ecosystem pattern.
 
-### GAP-HS-030: Ember Absorption into toadStool
+### GAP-HS-030a: Ember Absorption into toadStool
 
 - **Primal:** toadStool / coralReef
 - **Severity:** Medium (architectural)
@@ -312,7 +312,7 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 - **Action:** Track in toadStool's roadmap. Coordinate with coralReef team on
   module boundaries.
 
-### GAP-HS-031: K80 VFIO Legacy Group EBUSY — RESOLVED
+### GAP-HS-030b: K80 VFIO Legacy Group EBUSY — RESOLVED
 
 - **Primal:** coralReef (ember)
 - **Severity:** Medium (hardware-specific)
@@ -326,31 +326,37 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 - **Resolution:** K80 boots cleanly to vfio-pci. `/dev/vfio/35` and
   `/dev/vfio/36` open without EBUSY. Validated with full power drain.
 
-### GAP-HS-030: GV100 WPR Not Used by Closed Driver (Exp 173)
+### GAP-HS-030: GV100 FECS Secure Boot Without WPR — PARTIALLY RESOLVED
 
 - **Primal:** coralReef (coral-driver / sovereign_init)
-- **Severity:** Critical (blocks GV100 sovereign ACR boot)
-- **Status:** Open — approach pivot required
+- **Severity:** Critical (blocks GV100 sovereign FECS boot)
+- **Status:** Partially resolved — ACR solver bypass done, warm-handoff via
+  benchScale/agentReagents is the production path
 - **Description:** Experiment 173 proved the nvidia-535 closed driver does NOT
   configure WPR (Write-Protected Region) on GV100 Titan V. WPR registers
-  (PFB_WPR1/WPR2 at 0x100CE4-CF0) remain zero while nvidia-smi shows a
-  fully functional GPU. GV100 is pre-GSP: the RM runs on the CPU and does
-  not need WPR hardware protection. The "vendor UEFI WPR capture" approach
-  is a dead end for Volta.
+  (PFB_WPR1/WPR2 at 0x100CE4-CF0) remain zero. GV100 is pre-GSP: the RM
+  runs on the CPU and does not need WPR hardware protection.
   
-  The ACR chain in coral-driver's `FalconBootSolver` expects WPR to be
-  configured (Turing+ assumption). On GV100, SEC2 cannot enter HS mode
-  because the WPR-based signature verification path doesn't apply. The
-  no-ACR warm handoff (Exp 172: nouveau→vfio swap preserving HBM2) remains
-  the best achievable state, but FECS/GPCCS remain halted because they
-  require ACR bootstrapping that depends on WPR.
+  **May 10-11, 2026 progress:**
+  - `sovereign_stages.rs`: Added Volta CpuRm early-exit that detects
+    `AcrSec2 + !wpr_configured + SM 70-74` and skips the ACR solver,
+    going directly to PIO FECS bootstrap. Eliminates >5min hang (now 4s).
+  - Sovereign init stages 1-3 all pass on warm GPU: bar0_probe OK,
+    pmc_enable OK (0x5fecdff1), hbm2_training SKIPPED (warm detected).
+  - HBM2 warm-handoff validated: nouveau trains 12GB HBM2, PRAMIN fully
+    accessible after `reset_method=none` VFIO rebind.
+  - FECS remains blocked: secure Falcon v5 rejects unsigned PIO upload
+    (cpuctl=0x12, mb0=0x0, running=false). nouveau skips GR entirely on
+    GV100 (PMU firmware unavailable). Direct PIO and ACR are both dead ends.
   
-  Possible paths: (a) reverse-engineer nvidia-535 mmiotrace to find how RM
-  initializes FECS without ACR on Volta, (b) focus sovereign boot on K80
-  (Kepler, no ACR) and Turing+ (where WPR is actually used), (c) accept
-  vendor-in-VM as GV100 compute path.
-- **Action:** Pivot coral-driver `FalconBootSolver` to support a Volta-specific
-  path that bypasses WPR/ACR. Analyze mmiotrace from Exp 173 artifacts.
+  **Production path:** nvidia-470 warm-handoff via benchScale VM isolation.
+  nvidia-470 is the only driver that initializes GR/FECS on GV100 (with
+  its embedded PMU firmware). The handoff runs inside a benchScale/
+  agentReagents VM to avoid crashing the host DRM. The host DRM (nvidia-580
+  serving RTX 5060 display) stays completely uninterrupted.
+- **Action:** Wire `agentReagents/templates/reagent-nvidia470-titanv.yaml`
+  for benchScale-driven warm-handoff. Physical card swaps also viable
+  (user has 1-2 cards from most NVIDIA generations).
 
 ### GAP-HS-031: Blackwell SM Warp Exception — Invalid Address Space (Exp 175-177) (RESOLVED)
 
@@ -481,22 +487,20 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
   explaining the lint is intentionally suppressed (physics modules justify
   long files within the 1000-line ecosystem limit).
 
-### GAP-HS-047: Titan V PMU Firmware Extraction Tool — ACTIVE (P0)
+### GAP-HS-047: Titan V PMU Firmware Extraction Tool — DEPRIORITIZED
 
 - **Primal:** coralReef (acr_boot) / hotSpring (sovereign pipeline)
-- **Severity:** Critical (blocks Titan V sovereign dispatch)
-- **Status:** **Active** — tooling added, extraction not yet attempted
+- **Severity:** Medium (nvidia-470 warm-handoff bypasses this for compute)
+- **Status:** **Deprioritized** — benchScale warm-handoff is the faster path
 - **Description:** GV100 PMU firmware is missing from `linux-firmware`.
   nvidia-470 embeds it in `nv-kernel.o_binary`. Without it, SEC2 ACR
-  boot loader starts but never completes → WPR never configured →
-  FECS ROM intercepts all boot attempts at pc=0x1161 security trap.
-- **Resolution (partial):** `exp168_pmu_firmware_probe.rs` added to scan
-  `nv-kernel.o_binary` and NVIDIA `.run` installers for Falcon UC firmware
-  blobs by structural signature. Supports ELF scan, squashfs extraction,
-  directory walk, and blob validation modes.
-- **Next:** Run `exp168` against `nv-kernel.o_binary` from nvidia-470
-  package. If PMU blob found, feed to `exp158_sec2_real_firmware` to
-  complete SEC2 ACR boot → WPR configure → FECS authenticated load.
+  boot loader starts but never completes.
+- **Resolution (partial):** `exp168_pmu_firmware_probe.rs` scans for Falcon
+  UC firmware blobs. However, the nvidia-470 warm-handoff (via benchScale
+  VM isolation) achieves full FECS boot without extracting PMU — it lets
+  nvidia-470 do the work inside a VM, then hands the warm GPU to VFIO.
+  PMU extraction remains valuable for cold sovereign boot but is no longer
+  the critical path for Titan V compute.
 - **Reference:** `wateringHole/handoffs/HOTSPRING_CORALREEF_TITANV_WARM_DMATRF_HANDOFF_MAY07_2026.md`
 
 ### GAP-HS-048: gpu/mod.rs Pipeline Creation Duplication — RESOLVED
@@ -791,6 +795,34 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 - **Resolution:** Created `data/targets/thread02_plasma_targets.toml` with 12
   validated targets. Provenance manifest and validation summary committed.
   Thread 2 upgraded from "mapped" to "active" in THREAD_INDEX.toml.
+
+
+### GAP-HS-057: K80 GK210 Nouveau Chipset ID Missing — PROVEN FIX (P0)
+
+- **Primal:** coralReef (sovereign pipeline) / upstream kernel (nouveau)
+- **Severity:** Critical (blocks K80 warm-catch and nouveau-assisted sovereign dispatch)
+- **Status:** **PROVEN** — patched nouveau successfully initialized K80 GR (Exp 188)
+- **Description:** Upstream nouveau has no `case 0x0f2:` in the device chipset
+  switch table (`drivers/gpu/drm/nouveau/nvkm/engine/device/base.c`). K80 BOOT0
+  reads `0x0f22d0a1` (chip ID `0xf2`, GK210), which falls through to
+  "unknown chipset" → `-ENODEV`. No subdevices initialize — no GR, no PMU, no FIFO.
+  This is why the warm-catch pipeline cannot provide live GPCs: nouveau never
+  touches the GPU at all. The GK210 is architecturally identical to GK110B
+  (`nvf1_chipset`), differing only in VRAM addressing width. The fix is
+  `case 0x0f2: device->chip = &nvf1_chipset; break;` — discussed on nouveau
+  mailing list (April 2024, Ilia Mirkin) but never merged upstream.
+- **Risk:** FB/memory controller differences between GK210 and GK110B may cause
+  GDDR5 training failures even with the chipset patch. PMU VBIOS tables may
+  also differ.
+- **Resolution (May 10, 2026):** Binary-patched `nouveau.ko` (`cmp $0xf1` → `cmp $0xf2`
+  at offset `b76f8`) successfully boots K80 as GK110B. Output: `NVIDIA GK110B (0f22d0a1)`,
+  `fb: 12288 MiB GDDR5`, `VRAM: 12288 MiB`, DRM initialized (card1, renderD129).
+  5 GPCs enrolled (`0x022430=5`), 6 TPCs per GPC (`0x022438=6`), 30 TPCs total.
+  Post-VFIO-rebind GPC stations power-gated (livepatch load failure on 6.17) —
+  need PLX keepalive fix + livepatch rebuild for full warm-catch.
+- **Remaining:** Livepatch module format incompatible with kernel 6.17 strict relocation
+  enforcement. Need either kprobe-based approach or kernel source rebuild.
+- **Ref:** Exp 185, Exp 188, Exp 171, Exp 178, Exp 181
 
 ---
 

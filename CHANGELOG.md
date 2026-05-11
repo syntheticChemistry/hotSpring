@@ -37,6 +37,20 @@ This file covers the spring as a whole. For crate-level details see
 - Clippy: zero warnings (down from 19)
 - Build configs: default, `primal-proof` (IPC-only), all-targets — all clean
 
+## Sovereign Barrier Resolution + Docs Cleanup (May 11, 2026)
+
+### Added
+- **wateringHole handoff**: `HOTSPRING_CORALREEF_SOVEREIGN_BARRIERS_HANDOFF_MAY11_2026.md` — Volta ACR skip, HBM2 warm-handoff proof, benchScale VM isolation path, K80 PCIe diagnosis.
+
+### Changed
+- **docs/PRIMAL_GAPS.md**: Updated GAP-HS-030 (GV100 FECS) to Partially Resolved (ACR solver bypass + benchScale path). Deprioritized GAP-HS-047 (PMU extraction). Fixed duplicate gap IDs (030a/030b). Updated audit date.
+- **README.md**: Status block updated to 188 experiments, Titan V HBM2 warm-handoff proven, Diesel Engine validated. Sovereign GPU status row updated with current barrier states.
+- **wateringHole/README.md**: Added On Disk column, added May 10-11 handoff entries.
+- **scripts/lab/titanv_nvidia470_warm_handoff.sh**: Marked DEPRECATED — production path is benchScale VM isolation (host DRM stays uninterrupted).
+
+### Architecture
+- **Warm-handoff strategy pivot**: Direct host-side driver swaps (nvidia-470 ↔ nvidia-580) can crash the kernel DRM. Production path uses benchScale + agentReagents to run nvidia-470 inside a VM with Titan V VFIO passthrough, keeping the host display driver completely uninterrupted. Physical card swaps also supported (1-2 cards from most NVIDIA generations available for profiling).
+
 ## Deep Debt Evolution Phase 4 (May 10, 2026)
 
 ### Changed
@@ -111,7 +125,6 @@ This file covers the spring as a whole. For crate-level details see
 - `cargo test --lib` — 1,019 passed, 0 failed, 6 ignored
 - `primal-proof` build (no barracuda) — compiles clean
 - Cross-sync: zero drift against primalSpring canonical 413 (was 403, +10 `game.*`)
-
 ## Sovereign Pipeline Hardening + Docs Cleanup (May 10, 2026)
 
 ### Added

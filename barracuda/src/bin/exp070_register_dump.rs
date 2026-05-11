@@ -82,8 +82,11 @@ fn read_device_id(bdf: &str) -> u16 {
 }
 
 fn resolve_ember_socket(bdf: &str) -> std::path::PathBuf {
-    use hotspring_barracuda::fleet_client::FleetDiscovery;
+    use hotspring_barracuda::fleet_client::{FleetDiscovery, discover_diesel_ember_socket};
 
+    if let Some(sock) = discover_diesel_ember_socket(bdf) {
+        return sock;
+    }
     if let Ok(disc) = FleetDiscovery::load_default() {
         if let Some(sock) = disc.file().routes.get(bdf) {
             return std::path::PathBuf::from(sock);
@@ -97,10 +100,6 @@ fn resolve_ember_socket(bdf: &str) -> std::path::PathBuf {
     let per_device = std::path::PathBuf::from(format!("/run/coralreef/ember-{slug}.sock"));
     if per_device.exists() {
         return per_device;
-    }
-    let legacy = std::path::PathBuf::from("/run/coralreef/ember.sock");
-    if legacy.exists() {
-        return legacy;
     }
     per_device
 }

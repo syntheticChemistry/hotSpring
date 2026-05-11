@@ -235,6 +235,37 @@ pub fn probe_ember_socket(socket_path: &Path) -> bool {
         .is_ok_and(|resp| resp.get("result").is_some())
 }
 
+/// Discover the ember socket for a specific BDF via the diesel engine layout.
+///
+/// In the diesel engine architecture, per-cylinder embers create sockets at
+/// `/run/coralreef/ember-{cylinder_name}.sock`. This function scans all such
+/// sockets, queries `ember.list` on each, and returns the socket path whose
+/// ember holds the requested BDF.
+#[must_use]
+pub fn discover_diesel_ember_socket(bdf: &str) -> Option<PathBuf> {
+    let coralreef_dir = Path::new("/run/coralreef");
+    let entries = std::fs::read_dir(coralreef_dir).ok()?;
+
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        let name_str = name.to_string_lossy();
+        if !name_str.starts_with("ember-") || !name_str.ends_with(".sock") {
+            continue;
+        }
+        let path = entry.path();
+        if let Ok(resp) = send_jsonrpc(&path, "ember.list", &serde_json::json!({})) {
+            if let Some(devices) = resp.get("result").and_then(|r| r.get("devices")).and_then(|d| d.as_array()) {
+                for dev in devices {
+                    if dev.as_str().is_some_and(|s| s == bdf) {
+                        return Some(path);
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
 /// Routes GPU work using fleet discovery + optional socket probes.
 #[derive(Debug, Clone)]
 pub struct FleetRouter {

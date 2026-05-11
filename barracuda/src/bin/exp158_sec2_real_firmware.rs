@@ -332,10 +332,15 @@ fn mmio_rd(ember: &EmberClient, bdf: &str, offset: u32) -> u32 {
 }
 
 fn connect_ember(bdf: &str) -> Option<EmberClient> {
+    if let Some(sock) = hotspring_barracuda::fleet_client::discover_diesel_ember_socket(bdf) {
+        let client = EmberClient::connect(sock.to_string_lossy().as_ref());
+        if client.mmio_read(bdf, 0).is_ok() {
+            return Some(client);
+        }
+    }
     let slug = bdf.replace(':', "-");
     for c in [
         format!("/run/coralreef/fleet/ember-{slug}.sock"),
-        "/run/coralreef/ember.sock".to_string(),
     ] {
         if Path::new(&c).exists() {
             let client = EmberClient::connect(&c);

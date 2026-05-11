@@ -46,7 +46,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use hotspring_barracuda::ember_types::MmioBatchOp;
-use hotspring_barracuda::fleet_client::{EmberClient, FleetDiscovery};
+use hotspring_barracuda::fleet_client::{EmberClient, FleetDiscovery, discover_diesel_ember_socket};
 
 // ── PMC / MC registers ─────────────────────────────────────────────────────
 const BOOT0: u32 = 0x000000;
@@ -210,11 +210,15 @@ fn upload_dmem(ember: &EmberClient, bdf: &str, base: u32, byte_offset: u32, data
 
 /// Discover and connect to the coral-ember instance for a given BDF.
 ///
-/// Search order: fleet discovery file → slug-based socket → legacy socket.
+/// Search order: diesel engine scan → fleet discovery → slug-based socket → legacy.
 /// Accepts `--ember-socket` CLI override to skip discovery.
 fn connect_ember(bdf: &str, override_socket: Option<&str>) -> EmberClient {
     if let Some(sock) = override_socket {
         return EmberClient::connect(sock);
+    }
+    if let Some(sock) = discover_diesel_ember_socket(bdf) {
+        eprintln!("  diesel engine: found ember at {}", sock.display());
+        return EmberClient::connect(sock.to_string_lossy().as_ref());
     }
     if let Ok(disc) = FleetDiscovery::load_default() {
         if let Some(sock) = disc.file().routes.get(bdf) {
@@ -234,7 +238,7 @@ fn connect_ember(bdf: &str, override_socket: Option<&str>) -> EmberClient {
     }
     eprintln!(
         "FATAL: no ember socket found for BDF {bdf}.\n\
-         Start coral-ember and ensure it holds the VFIO fd for this device.\n\
+         Start coral-glowplug (diesel engine) and verify: coralctl cylinder list\n\
          Override with: --ember-socket /path/to/ember.sock"
     );
     std::process::exit(1);

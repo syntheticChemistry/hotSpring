@@ -463,10 +463,15 @@ fn load_recipe(path: &str) -> Option<Vec<DevinitScript>> {
 }
 
 fn connect_ember(bdf: &str) -> Option<EmberClient> {
+    if let Some(sock) = hotspring_barracuda::fleet_client::discover_diesel_ember_socket(bdf) {
+        let client = EmberClient::connect(sock.to_string_lossy().as_ref());
+        if client.mmio_read(bdf, 0).is_ok() {
+            return Some(client);
+        }
+    }
     let slug = bdf.replace(':', "-");
     let candidates = [
         format!("/run/coralreef/fleet/ember-{slug}.sock"),
-        "/run/coralreef/ember.sock".to_string(),
     ];
     for c in &candidates {
         if Path::new(c).exists() {

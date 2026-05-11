@@ -480,6 +480,9 @@ fn connect_ember(bdf: &str) -> Option<EmberClient> {
         }
     }
     let slug = bdf.replace(':', "-");
+    if let Some(sock) = hotspring_barracuda::fleet_client::discover_diesel_ember_socket(bdf) {
+        return Some(EmberClient::connect(sock.to_string_lossy().as_ref()));
+    }
     let fleet_sock = format!("/run/coralreef/fleet/ember-{slug}.sock");
     if Path::new(&fleet_sock).exists() {
         return Some(EmberClient::connect(&fleet_sock));
@@ -487,10 +490,6 @@ fn connect_ember(bdf: &str) -> Option<EmberClient> {
     let per_device = format!("/run/coralreef/ember-{slug}.sock");
     if Path::new(&per_device).exists() {
         return Some(EmberClient::connect(&per_device));
-    }
-    let legacy = Path::new("/run/coralreef/ember.sock");
-    if legacy.exists() {
-        return Some(EmberClient::connect(legacy));
     }
     None
 }
