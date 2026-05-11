@@ -1,13 +1,13 @@
 # hotSpring — Paper Review Queue
 
-> Current state: v0.6.32, 1,025 tests, 155 binaries, 128 WGSL shaders. Paper reproduction
+> Current state: v0.6.32, 579 / 1,028 lib tests (IPC-first default / barracuda-local), 155 binaries, 128 WGSL shaders. Paper reproduction
 > priorities and status are still authoritative.
 
 **Last Updated**: May 11, 2026
 **Purpose**: Track papers for reproduction/review, ordered by priority and feasibility
 **Principle**: Reproduce, validate, then decrease cost. Each paper proves the
 pipeline on harder physics — toadStool evolves the GPU acceleration in parallel.
-**Crate**: hotspring-barracuda v0.6.32 — 1,025 tests, 155 binaries, 128 WGSL shaders
+**Crate**: hotspring-barracuda v0.6.32 — 579 / 1,028 lib tests (IPC-first default / barracuda-local), 155 binaries, 128 WGSL shaders
 **Current Goal**: Foundation seeding + NUCLEUS workload validation → Tier 4 WDM reproduction → Chuna collaboration
 
 **Evolution path per paper**: Python Control → BarraCuda CPU → BarraCuda GPU → metalForge
@@ -953,5 +953,5 @@ and `infra/whitePaper/attsi/non-anon/contact/barrick/PAPER_REVIEW_AND_SPRING_TAR
 
 | ID | Paper | What to Reproduce | Exp | Status |
 |----|-------|-------------------|-----|--------|
-| B2 | Wiser et al. 2013 "Long-term dynamics" *Science* | Anderson disorder analogy: fitness landscape as disordered potential; localization–delocalization transitions in fitness trajectories | Exp 189 | **STARTED** — Tier 1 Python baseline in `notebooks/papers/13-ltee-anderson-fitness.ipynb` |
-| B9 | DFE Evolution in LTEE 2024 *Science* | DFE ↔ RMT connection: distribution of fitness effects as random matrix eigenvalue distribution; level spacing statistics | TBD | QUEUED — depends on B2 completion; RMT infrastructure in `barracuda::spectral::stats` |
+| B2 | Wiser et al. 2013 "Long-term dynamics" *Science* | Anderson disorder analogy: fitness landscape as disordered potential; localization–delocalization transitions in fitness trajectories | Exp 189 | **COMPLETE** — Tier 1 Python baseline in `notebooks/papers/13-ltee-anderson-fitness.ipynb`. Tier 2 Rust validation: `s_ltee_anderson` scenario (18 checks, self-contained tridiagonal eigensolver). Expected values JSON in `experiments/results/ltee/`. Feeds lithoSpore module 7 |
+| B9 | DFE Evolution in LTEE 2024 *Science* | DFE ↔ RMT connection: distribution of fitness effects as random matrix eigenvalue distribution; level spacing statistics | TBD | QUEUED — B2 dependency met; RMT infrastructure in `barracuda::spectral::stats` |

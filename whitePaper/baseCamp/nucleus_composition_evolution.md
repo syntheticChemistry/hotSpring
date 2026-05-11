@@ -4,7 +4,7 @@
 
 **Spring:** hotSpring (BarraCuda crate)  
 **Updated:** May 11, 2026  
-**Status:** guideStone Level 6 CERTIFIED (NUCLEUS Deployment Validation; primalSpring v0.9.25 post-interstadial). Tier 4 IPC-first rewiring complete — `barracuda` optional, 25+ modules feature-gated behind `#[cfg(feature = "barracuda-local")]`, `primal-proof` feature for IPC-only builds. Eukaryotic UniBin (`hotspring_unibin`) with certify/validate/status/version subcommands replaces legacy `hotspring_guidestone`. Deep debt Phase 4 complete — smart refactoring (pseudofermion, handlers, nuclear EOS helpers, measurement loop extraction), skunkBat audit IPC wired, foundation Thread 2 seeded (12 Sarkas Yukawa MD targets). `hotspring_unibin validate` is the Tier 1 entry for NUCLEUS workload dispatch. **Bare mode: 30/30 PASS** (3 SKIP = expected NUCLEUS liveness). **Lib tests:** 576/576 (default crate features) and 1,025/1,025 (`--features barracuda-local`).
+**Status:** guideStone Level 6 CERTIFIED (NUCLEUS Deployment Validation; primalSpring v0.9.25 post-interstadial). Tier 4 IPC-first rewiring complete — `barracuda` optional, 25+ modules feature-gated behind `#[cfg(feature = "barracuda-local")]`, `primal-proof` feature for IPC-only builds. Eukaryotic UniBin (`hotspring_unibin`) with certify/validate/status/version subcommands replaces legacy `hotspring_guidestone`. Deep debt Phase 4 complete — smart refactoring (pseudofermion, handlers, nuclear EOS helpers, measurement loop extraction), skunkBat audit IPC wired, foundation Thread 2 seeded (12 Sarkas Yukawa MD targets). `hotspring_unibin validate` is the Tier 1 entry for NUCLEUS workload dispatch. **Bare mode: 30/30 PASS** (3 SKIP = expected NUCLEUS liveness). **Lib tests:** 579/579 (default crate features) and 1,028/1,028 (`--features barracuda-local`).
 
 ---
 
@@ -80,7 +80,7 @@ Code paths:
    - Data-driven `PRIMAL_ALIASES` table replaces hardcoded alias fallback.
    - Smart refactoring: `rhmc.rs` (989L) → `rhmc/mod.rs` + `rhmc/remez.rs`; `nuclear_eos_helpers.rs` (978L) → `mod.rs` + `objectives.rs`.
    - Pre-existing compile errors fixed (`DiscoveredDevice` API in `nuclear_eos_l2_*` binaries).
-   - Lib tests: all pass under both default (576/576) and `barracuda-local` (1,025/1,025) configurations. Zero compilation errors.
+   - Lib tests: all pass under both default (579/579) and `barracuda-local` (1,028/1,028) configurations. Zero compilation errors.
 
 **Forward evolution (tracked as gaps):** **TensorSession** fused pipelines (GAP-HS-027), **LIME/ILDG zero-copy** (GAP-HS-028), and expanded **cross-primal science parity** (more observables routed the same way production will call them).
 

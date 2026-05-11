@@ -213,6 +213,39 @@ binary-patch the stock `nouveau.ko` directly:
 
 ---
 
+## Titan V / K80 Requirements from benchScale + agentReagents
+
+### Titan V (GV100)
+
+| Requirement | Component | Status | Detail |
+|:------------|:----------|:-------|:-------|
+| nvidia-470 VM image | agentReagents | **NEEDED** | `reagent-nvidia470-titanv.yaml` template. nvidia-470 is the only driver that initializes GR/FECS on GV100 with its embedded PMU firmware. Host runs nvidia-580 for RTX 5060 display — VM isolation prevents driver conflict. |
+| QEMU/VFIO passthrough config | benchScale | **PARTIAL** | VFIO binding works (`02:00.0`). Need automated VM boot + GPU passthrough + driver load + warm-handoff cycle. |
+| Warm-handoff automation | benchScale | **PARTIAL** | `patch_nouveau_teardown.py` works for host-side warm-catch. For production: automate nouveau load → init → NOP teardown → VFIO rebind → sovereign dispatch cycle. |
+| WPR capture (optional) | benchScale | DEFERRED | mmiotrace of nvidia-580 on GV100 to understand WPR layout. Would enable direct Falcon v5 HS boot without nouveau. Exp 187 prepared but not executed. |
+| Dispatch validation | hotSpring | **BLOCKED** | Need wgpu adapter to discover GV100 through VFIO. Currently sovereign init works but no wgpu device enumeration for warm GPU. Requires coralReef SM70 backend or manual adapter bind. |
+
+### K80 (GK210)
+
+| Requirement | Component | Status | Detail |
+|:------------|:----------|:-------|:-------|
+| QEMU VM + nvidia-470 | agentReagents | **NEEDED** | `reagent-nvidia470-k80.yaml` template. Alternative path to nouveau warm-catch: use nvidia-470 in a QEMU VM with VFIO passthrough to train GDDR5 and start GPCs with full NVIDIA driver stack. |
+| PLX bridge keepalive | benchScale | **OPERATIONAL** | PLX 8747 keepalive scripts working. D3cold disabled on K80 dies. Ember + glowplug services maintain bridge. |
+| Nouveau GK210 upstream patch | infra | **TRACKED** | One-line kernel patch `case 0x0f2: device->chip = &nvf1_chipset;` (Exp 185). Until upstream merges, binary-patched nouveau.ko is the path. |
+| Livepatch rebuild (alternative) | benchScale | DEFERRED | kernel 6.17 strict `R_X86_64_64` relocation enforcement blocks out-of-tree livepatch. Binary-patched nouveau bypasses this entirely. |
+| SM37 dispatch validation | hotSpring | **BLOCKED** | Same as Titan V: need wgpu adapter enumeration for warm K80. Kepler SM37 WGSL shaders exist (`df64_core.wgsl` compiles to SM37) but no dispatch path without wgpu device. |
+
+### Shared Requirements
+
+| Requirement | Component | Detail |
+|:------------|:----------|:-------|
+| Multi-GPU coexistence script | benchScale | Automated cycle: host nvidia-580 (RTX 5060 display) + VFIO-bound Titan V + VFIO-bound K80. Script should: bind VFIO → load patched nouveau → warm-catch → unbind nouveau → rebind VFIO → sovereign dispatch. |
+| CI integration | benchScale | `validate-hotspring-multi.sh` should include Titan V + K80 warm-catch phases when hardware is present. Graceful skip when GPUs absent. |
+| Firmware archive | agentReagents | Archive nvidia-470 Falcon/PMU firmware blobs extracted during VM runs. These are needed for future direct Falcon boot (no driver dependency). Store in `agentReagents/firmware/`. |
+| coralReef SM rebuild | coralReef | When coralReef ships its SM70/SM37 wgpu backend rebuild, both Titan V and K80 gain direct sovereign dispatch without VM intermediary. This is the terminal architecture. |
+
+---
+
 *Three GPU generations, one sovereign stack. All three GPUs now have warm,
 active engines with PGRAPH enabled and FECS running. RTX 5060 fully proven
 via wgpu/Vulkan. Titan V and K80 warm-caught via binary-patched nouveau —

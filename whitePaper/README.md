@@ -2,7 +2,7 @@
 
 **Status**: Current — reviewed for PII, suitable for public repository  
 **Purpose**: Document the replication of Murillo Group computational plasma physics on consumer hardware using BarraCuda, and the three-tier validation arc proving NUCLEUS primal composition  
-**Date**: February 26, 2026 (inception); updated May 11, 2026 (v0.6.32 — guideStone Level 6 CERTIFIED (NUCLEUS Deployment Validation), primalSpring v0.9.25 post-interstadial Tier 4 IPC-first. 576 (default) / 1,025 (barracuda-local) lib tests, 155 binaries, 64/64 validation suites, 128 WGSL shaders, 25/25 papers reproduced (CPU), 20/25 GPU, Deep Debt Phase 4 complete, bare guideStone 30/30 checks pass with BLAKE3 CHECKSUMS, `hotspring_unibin` eukaryotic CLI, `primal-proof` feature gate, 7 deploy graphs, provenance trio IPC, skunkBat audit IPC wired, foundation Thread 2 seeded)  
+**Date**: February 26, 2026 (inception); updated May 11, 2026 (v0.6.32 — guideStone Level 6 CERTIFIED (NUCLEUS Deployment Validation), primalSpring v0.9.25 post-interstadial Tier 4 IPC-first. 579 (default) / 1,028 (barracuda-local) lib tests, 155 binaries, 64/64 validation suites, 128 WGSL shaders, 25/25 papers reproduced (CPU), 20/25 GPU, Deep Debt Phase 4 complete, bare guideStone 30/30 checks pass with BLAKE3 CHECKSUMS, `hotspring_unibin` eukaryotic CLI, `primal-proof` feature gate, 7 deploy graphs, provenance trio IPC, skunkBat audit IPC wired, foundation Thread 2 seeded)  
 **Validation arc**: Python baselines → Rust validation → NUCLEUS IPC primal composition validation (`hotspring_unibin` Tier 1 entry; guideStone properties certified)
 
 ---
@@ -392,11 +392,11 @@ No institutional access required. No Code Ocean account. No Fortran compiler. AG
 | Metric | Value |
 |--------|-------|
 | Crate | v0.6.32 |
-| Lib tests | **576** pass (default) / **1,025** pass (barracuda-local), 6 GPU/heavy-ignored |
+| Lib tests | **579** pass (default) / **1,028** pass (barracuda-local), 6 GPU/heavy-ignored |
 | Binaries | **155** (validate_*, production, benchmarks, composition, UniBin) |
 | WGSL shaders | **128** (lattice, MD, HFB, diag, spectral, sovereign) |
 | Validation suites | **64/64** pass |
-| Experiments | **189** |
+| Experiments | **190** |
 | Python control scripts | **34** (Sarkas, surrogate, TTM, NPU, reservoir, lattice, spectral theory) |
 | `expect()`/`unwrap()` in library | **0** (crate-level deny) |
 | Clippy warnings | **0** (pedantic + nursery) |

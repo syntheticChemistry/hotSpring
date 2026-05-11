@@ -7,6 +7,33 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Unreleased — LTEE B2 Complete + Exp 190 Reconciliation (May 11, 2026)
+
+### Added
+- **LTEE B2 Tier 2 Rust scenario** (`s_ltee_anderson.rs`): Self-contained
+  validation scenario implementing Wiser et al. 2013 power-law fitness model,
+  Anderson-like Hamiltonian from fitness increments, QL tridiagonal
+  eigensolver, and level spacing ratio diagnostics. 18 validation checks
+  covering power-law fidelity, diminishing returns, GOE/Poisson bounds,
+  sliding-window localization, and 12-population variance. Available in
+  default (IPC-first) build — no `barracuda-local` dependency. B2 marked
+  COMPLETE in PAPER_REVIEW_QUEUE.
+- **Exp 190 in EXPERIMENT_INDEX**: Three-GPU sovereign validation now indexed
+  (was in `experiments/` but missing from index). RTX 5060 12/12, Titan V
+  warm-catch, K80 warm-catch all documented.
+- **Titan V / K80 benchScale needs**: Documented in Exp 190 — nvidia-470 VM
+  images, QEMU passthrough configs, multi-GPU coexistence script, firmware
+  archive requirements, coralReef SM rebuild dependency.
+- **Expected values JSON**: `experiments/results/ltee/ltee_b2_anderson_expected.json`
+  for lithoSpore module 7 absorption.
+
+### Verification
+- `cargo test --lib` — 579 passed, 0 failed (IPC-first default; +3 LTEE)
+- `cargo test --lib --features barracuda-local` — 1,028 passed, 0 failed, 6 ignored (+3 LTEE)
+- `cargo clippy --lib` — zero warnings (default)
+- `cargo fmt --check` — clean
+- 8 registered validation scenarios total (was 7)
+
 ## Unreleased — Sovereign Warm-Catch Breakthrough (May 11, 2026)
 
 ### Added
