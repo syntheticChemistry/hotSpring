@@ -30,7 +30,7 @@
 set -euo pipefail
 
 GLOWPLUG_CONF="${CORALREEF_GLOWPLUG_CONFIG:-/etc/coralreef/glowplug.toml}"
-BARRACUDA="${HOTSPRING_BARRACUDA:-/home/biomegate/Development/ecoPrimals/springs/hotSpring/barracuda}"
+BARRACUDA="${HOTSPRING_BARRACUDA:-$HOME/Development/ecoPrimals/springs/hotSpring/barracuda}"
 
 GLOWPLUG_SOCK=/run/coralreef/glowplug.sock
 EMBER_SOCK=/run/coralreef/ember.sock

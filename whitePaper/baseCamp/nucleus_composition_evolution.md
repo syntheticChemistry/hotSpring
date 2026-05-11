@@ -3,8 +3,8 @@
 # NUCLEUS Composition Evolution — Primal Composition Tier
 
 **Spring:** hotSpring (BarraCuda crate)  
-**Updated:** May 8, 2026  
-**Status:** guideStone Level 5 CERTIFIED (primalSpring v0.9.17, guideStone v1.2.0). Phase 60 cross-spring parity absorbed. Deep debt evolution Phase 2 complete — smart refactoring (pseudofermion, handlers, nuclear EOS helpers), unsafe evolution (SafeBarMapping), hardcoding elimination, 3 new integration tests, 9 new unit tests, 2 new CPU/GPU parity domains, frozen paper results. `hotspring_guidestone` binary validates 5 bare properties + NUCLEUS IPC parity. **Bare mode: 30/30 PASS** (3 SKIP = expected NUCLEUS liveness). 1002/1002 lib tests pass.
+**Updated:** May 11, 2026  
+**Status:** guideStone Level 6 CERTIFIED (NUCLEUS Deployment Validation; primalSpring v0.9.25 post-interstadial). Tier 4 IPC-first rewiring complete — `barracuda` optional, 25+ modules feature-gated behind `#[cfg(feature = "barracuda-local")]`, `primal-proof` feature for IPC-only builds. Eukaryotic UniBin (`hotspring_unibin`) with certify/validate/status/version subcommands replaces legacy `hotspring_guidestone`. Deep debt Phase 4 complete — smart refactoring (pseudofermion, handlers, nuclear EOS helpers, measurement loop extraction), skunkBat audit IPC wired, foundation Thread 2 seeded (12 Sarkas Yukawa MD targets). `hotspring_unibin validate` is the Tier 1 entry for NUCLEUS workload dispatch. **Bare mode: 30/30 PASS** (3 SKIP = expected NUCLEUS liveness). 1,025/1,025 lib tests pass.
 
 ---
 

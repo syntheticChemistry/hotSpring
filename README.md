@@ -302,7 +302,7 @@ environment, physics implementations, and GPU compute. Key architectural propert
 - **NaN-safe** — all float sorting uses `f64::total_cmp()`.
 - **Zero external commands** — pure-Rust ISO 8601 timestamps (Hinnant algorithm),
   no `date` shell-out. `nvidia-smi` calls degrade gracefully.
-- **Unsafe confined** — library crate enforces `#![forbid(unsafe_code)]`. Low-level GPU experiment binaries (`exp169`–`exp184`, gated behind `required-features = ["low-level"]`) use audited `unsafe` for direct BAR0 mmap; production and science code is fully safe. `niche::set_family_id()` uses `OnceLock` instead of `unsafe { std::env::set_var }`.
+- **Unsafe confined** — library crate enforces `#![forbid(unsafe_code)]`. Low-level GPU experiment binaries (`exp169`–`exp184`, gated behind `required-features = ["low-level"]`) use audited `unsafe` for direct BAR0 mmap; production and science code is fully safe.
 - **NUCLEUS composition** — `niche.rs` declares proto-nucleate (`downstream_manifest.toml`), capabilities, and dependencies.
   `composition.rs` validates atomic health (Tower/Node/Nest/FullNucleus) via IPC; `squirrel_client.rs` wires the Squirrel IPC client for primal communication.
   `mcp_tools.rs` exposes 5 MCP tool schemas for AI/LLM integration.
@@ -451,13 +451,14 @@ hotSpring/
 │       ├── hotspring_primal.rs       # JSON-RPC server (health, capability, composition, MCP)
 │       └── bin/                       # 155 binaries (validation, production, benchmarks, composition, guideStone)
 │
-├── experiments/                        # 184 experiment journals (fossil record); 001-143 archived under experiments/archive/
+├── experiments/                        # 188 experiment journals (fossil record); 001-143 archived under experiments/archive/
 │   ├── archive/                        # experiments 001-143 (archived journals)
 │   ├── 144-150: PMC bit5 ACR progress, crash vector hunt, sacrificial ember architecture
 │   ├── 151-165: Revalidation, ember hardening, SovereignInit pipeline, firmware boundary
 │   ├── 166-175: Sovereign boot wiring, warm handoff, K80 sovereign, RTX 5060 shared
 │   ├── 176-181: QCD parity, Blackwell ABI, K80 PGOB, FECS dispatch, sovereign sweep
-│   └── 182-184: K80 FECS PIO/interrupt boot, K80 GR sovereign (ember-wired)
+│   ├── 182-184: K80 FECS PIO/interrupt boot, K80 GR sovereign (ember-wired)
+│   └── 185-188: K80 nouveau chipset patch, warm-catch breakthrough
 │
 ├── wateringHole/                       # Lab artifacts, handoffs, mmiotraces
 │   ├── handoffs/                      # Dated evolution handoff documents (11 docs)
@@ -518,7 +519,7 @@ a network service, you must make your source available under the same terms.
 
 ---
 
-*184 experiments, 1,025 tests, 155 binaries, 128 WGSL shaders, ~$0.30 total science cost.
+*188 experiments, 1,025 tests, 155 binaries, 128 WGSL shaders, ~$0.30 total science cost.
 Consumer GPUs reproduce HPC physics at paper parity. DF64 delivers 3.24 TFLOPS at
 14-digit precision. GPU RHMC runs all-flavors dynamical QCD (Nf=2+1). Self-tuning
 RHMC eliminates hand-tuned parameters. Chuna 44/44 checks pass. RTX 5060 sovereign

@@ -1,10 +1,10 @@
 # hotSpring — Experiment & Validation Index
 
-> **Last audited:** May 10, 2026 · **1,019 lib tests** · **155 binaries** · **64/64 validation suites** · **128 WGSL shaders** · **guideStone Level 6 CERTIFIED** (NUCLEUS Deployment Validation) · **7 deploy graphs** · **primalSpring v0.9.25** · **Deep Debt Phase 4 complete**
+> **Last audited:** May 11, 2026 · **1,025 lib tests** · **155 binaries** · **64/64 validation suites** · **128 WGSL shaders** · **guideStone Level 6 CERTIFIED** (NUCLEUS Deployment Validation) · **7 deploy graphs** · **primalSpring v0.9.25** · **Deep Debt Phase 4 complete**
 >
-> Experiments 001–184 validate Python→Rust fidelity, sovereign GPU compute, cross-generation WGSL→native ISA compilation, and primal composition proof. **Phase 2** (NUCLEUS composition validation) is tracked via `validate_nucleus_*` binaries and [`docs/PRIMAL_GAPS.md`](docs/PRIMAL_GAPS.md). **Phase 3** (primal composition proof) validates IPC-composed NUCLEUS patterns against direct Rust baselines.
+> Experiments 001–188 validate Python→Rust fidelity, sovereign GPU compute, cross-generation WGSL→native ISA compilation, and primal composition proof. **Phase 2** (NUCLEUS composition validation) is tracked via `validate_nucleus_*` binaries and [`docs/PRIMAL_GAPS.md`](docs/PRIMAL_GAPS.md). **Phase 3** (primal composition proof) validates IPC-composed NUCLEUS patterns against direct Rust baselines.
 
-> Updated May 10, 2026. This is the authoritative ledger of all
+> Updated May 11, 2026. This is the authoritative ledger of all
 > experiments, validation suites, and benchmark data. For project overview, see [README.md](README.md).
 > Experiments 001-143 archived to `experiments/archive/` — completed physics, benchmark, sovereign GPU, and ember hardening work, results absorbed into baseCamp and coralReef code.
 > Note: Experiments 096-105 have dual-numbered IDs (physics + sovereign GPU tracks ran in parallel). Filenames are self-descriptive. Exp 136b disambiguated from 136.

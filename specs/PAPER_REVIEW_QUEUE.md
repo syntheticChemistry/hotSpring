@@ -8,7 +8,7 @@
 **Principle**: Reproduce, validate, then decrease cost. Each paper proves the
 pipeline on harder physics — toadStool evolves the GPU acceleration in parallel.
 **Crate**: hotspring-barracuda v0.6.32 — 1,025 tests, 155 binaries, 128 WGSL shaders
-**Current Goal**: GPU RHMC (Nf=2, 2+1) → gradient flow on RHMC configs → Chuna validation meeting (late April)
+**Current Goal**: Foundation seeding + NUCLEUS workload validation → Tier 4 WDM reproduction → Chuna collaboration
 
 **Evolution path per paper**: Python Control → BarraCuda CPU → BarraCuda GPU → metalForge
 

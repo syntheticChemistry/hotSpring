@@ -2,7 +2,7 @@
 # Run all 9 PP Yukawa DSF cases through LAMMPS/Kokkos-OpenMP
 # Matches barracuda/src/md/config.rs::dsf_pp_cases exactly
 
-LAMMPS_BIN="/home/biomegate/Development/ecoPrimals/lammps/build-kokkos-omp/lmp"
+LAMMPS_BIN="${LAMMPS_BIN:-$HOME/Development/ecoPrimals/lammps/build-kokkos-omp/lmp}"
 RESULTS_DIR="$(dirname "$0")/lammps_results"
 mkdir -p "$RESULTS_DIR"
 

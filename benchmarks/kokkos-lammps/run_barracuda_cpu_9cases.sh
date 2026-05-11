@@ -5,14 +5,14 @@
 
 set -e
 
-HOTSPRING_DIR="/home/biomegate/Development/ecoPrimals/hotSpring/barracuda"
+HOTSPRING_DIR="${HOTSPRING_DIR:-$(cd "$(dirname "$0")/../.." && pwd)/barracuda}"
 RESULTS_DIR="$(dirname "$0")/results_barracuda_cpu"
 mkdir -p "$RESULTS_DIR"
 
-CARGO="/home/biomegate/.cargo/bin/cargo"
-export RUSTUP_HOME="$HOME/.rustup"
-export CARGO_HOME="$HOME/.cargo"
-export PATH="/home/biomegate/.cargo/bin:/home/biomegate/.rustup/shims:/usr/bin:/bin:/usr/local/bin"
+CARGO="${CARGO:-$HOME/.cargo/bin/cargo}"
+export RUSTUP_HOME="${RUSTUP_HOME:-$HOME/.rustup}"
+export CARGO_HOME="${CARGO_HOME:-$HOME/.cargo}"
+export PATH="$HOME/.cargo/bin:$HOME/.rustup/shims:/usr/bin:/bin:/usr/local/bin"
 export HOME="$HOME"
 export XDG_RUNTIME_DIR="/run/user/$(id -u)"
 

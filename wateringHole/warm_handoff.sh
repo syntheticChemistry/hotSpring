@@ -7,7 +7,7 @@
 # Usage: sudo bash warm_handoff.sh
 set -euo pipefail
 
-LIVEPATCH_KO="/home/biomegate/Development/ecoPrimals/springs/hotSpring/scripts/livepatch/livepatch_nvkm_mc_reset.ko"
+LIVEPATCH_KO="${LIVEPATCH_KO:-$(cd "$(dirname "$0")/../scripts/livepatch" && pwd)/livepatch_nvkm_mc_reset.ko}"
 GPU="0000:02:00.0"
 
 echo "[1] Loading livepatch..."

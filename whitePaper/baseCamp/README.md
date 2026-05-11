@@ -1,8 +1,8 @@
 # baseCamp: Research Domain Briefings
 
-**Date:** May 10, 2026  
+**Date:** May 11, 2026  
 **Project:** hotSpring (ecoPrimals)  
-**Status:** v0.6.32 — guideStone Level 6 CERTIFIED (NUCLEUS Deployment Validation; primalSpring v0.9.25 interstadial eukaryotic, deep debt evolution Phase 4 complete). 1019 lib tests, 155 binaries, 64/64 validation suites, 128 WGSL shaders. 25/25 papers reproduced (CPU), 20/25 GPU. **Eukaryotic UniBin** (`hotspring_unibin`) with certify/validate/status/version. Zero hardcoded paths, zero bare `#[allow]`, zero TODO/FIXME markers. Sovereign GPU pipeline COMPLETE.
+**Status:** v0.6.32 — guideStone Level 6 CERTIFIED (NUCLEUS Deployment Validation; primalSpring v0.9.25 interstadial eukaryotic, deep debt evolution Phase 4 complete). 1,025 lib tests, 155 binaries, 64/64 validation suites, 128 WGSL shaders. 25/25 papers reproduced (CPU), 20/25 GPU. **Eukaryotic UniBin** (`hotspring_unibin`) with certify/validate/status/version. Zero hardcoded paths, zero bare `#[allow]`, zero TODO/FIXME markers. Sovereign GPU pipeline COMPLETE.
 
 **Validation arc:** Science stacks are validated on three tiers — **Python (and legacy HPC) baselines → sovereign Rust → NUCLEUS primal composition (guideStone)** — so peer-reviewed physics and methods are checked at the **primal composition layer**, not only in standalone binaries. Rust results serve as trusted baselines for IPC-composed NUCLEUS patterns, using the same tolerance-driven, exit-code-gated methodology that proved Rust matches Python. The `hotspring_guidestone` binary is the unified Level 6 CERTIFIED artifact that certifies this arc.
 
@@ -26,7 +26,7 @@ Published paper (Python/FORTRAN/HPC)
 
 ## Documents (19 files total)
 
-| File | Role | Status (Apr 2026) |
+| File | Role | Status (May 2026) |
 |------|------|-------------------|
 | **README.md** | Index for this folder | Current; 18 domain briefing files plus this README |
 | [`murillo_plasma.md`](murillo_plasma.md) | Dense plasma MD | 60/60 checks, paper parity |
@@ -58,5 +58,5 @@ Published paper (Python/FORTRAN/HPC)
 - **toadStool** (`../../../phase1/toadStool/`): Hardware discovery and orchestration; `shader.dispatch`.
 - **primalSpring** (`../../../primalSpring/`): NUCLEUS composition definitions, proto-nucleate graphs, deployment matrix.
 - **Experiment journals**: `../../experiments/`
-- **Handoffs**: `ecoPrimals/infra/wateringHole/handoffs/` (including April 17, 2026 stadial audit and primal absorption handoffs)
+- **Handoffs**: `ecoPrimals/infra/wateringHole/handoffs/` (post-interstadial May 2026 evolution handoffs; April 2026 stadial handoffs in archive)
 - **Primal gaps**: [`../../docs/PRIMAL_GAPS.md`](../../docs/PRIMAL_GAPS.md) — discovered gaps handed back to primalSpring

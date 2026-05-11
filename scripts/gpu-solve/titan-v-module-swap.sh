@@ -21,8 +21,8 @@ TITAN_V_BDF="0000:02:00.0"
 TITAN_V_AUDIO_BDF="0000:02:00.1"
 RTX_5060_BDF="0000:21:00.0"
 NVIDIA_470_DIR="/var/lib/dkms/nvidia/470.256.02/$(uname -r)/x86_64/module"
-CORAL_ROOT="/home/biomegate/Development/ecoPrimals/primals/coralReef"
-RUSTUP="/home/biomegate/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo"
+CORAL_ROOT="${CORAL_ROOT:-$HOME/Development/ecoPrimals/primals/coralReef}"
+RUSTUP="${CARGO:-$HOME/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo}"
 
 log() { echo "[$(date '+%H:%M:%S')] $*"; }
 

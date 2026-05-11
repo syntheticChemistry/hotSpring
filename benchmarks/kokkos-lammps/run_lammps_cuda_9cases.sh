@@ -2,7 +2,7 @@
 # Run all 9 PP Yukawa DSF cases through LAMMPS/Kokkos-CUDA on Titan V
 # GPU vs GPU comparison target for barraCuda validation
 
-LAMMPS_BIN="/home/biomegate/Development/ecoPrimals/lammps/build-kokkos-cuda/lmp"
+LAMMPS_BIN="${LAMMPS_BIN:-$HOME/Development/ecoPrimals/lammps/build-kokkos-cuda/lmp}"
 RESULTS_DIR="$(dirname "$0")/lammps_cuda_results"
 mkdir -p "$RESULTS_DIR"
 

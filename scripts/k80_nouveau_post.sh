@@ -384,7 +384,7 @@ done
 # Extract it before unbinding so we can reload it via VFIO.
 # FECS IMEM: read via 0x409180 (addr) / 0x409184 (data)
 # GPCCS IMEM: read via 0x41A180 (addr) / 0x41A184 (data)
-FW_DIR="${CORAL_FW_DIR:-$(cd "$(dirname "$0")/../../../primals/coralReef/crates/coral-driver/firmware/gk110" 2>/dev/null && pwd || echo "/home/biomegate/Development/ecoPrimals/primals/coralReef/crates/coral-driver/firmware/gk110")}"
+FW_DIR="${CORAL_FW_DIR:-$(cd "$(dirname "$0")/../../../primals/coralReef/crates/coral-driver/firmware/gk110" 2>/dev/null && pwd || echo "$HOME/Development/ecoPrimals/primals/coralReef/crates/coral-driver/firmware/gk110")}"
 for BDF in "${TARGETS[@]}"; do
     python3 -c "
 import mmap, struct, sys
