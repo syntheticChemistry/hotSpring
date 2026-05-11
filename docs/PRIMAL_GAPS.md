@@ -893,7 +893,7 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 - **Resolution:** Moved barracuda-dependent tests in `error.rs` to
   `#[cfg(feature = "barracuda-local")] mod tests_barracuda`. Gated
   `head_group_layout_matches_toadstool_head_group` behind `barracuda-local`.
-  576 tests now pass in primal-proof mode; 1,025 pass in default mode.
+  576 tests pass in default (IPC-first) mode; 1,025 pass with barracuda-local enabled.
 
 ### GAP-HS-079: skunkBat Missing from 3 Deploy Graphs — RESOLVED
 

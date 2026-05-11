@@ -59,7 +59,7 @@ This file covers the spring as a whole. For crate-level details see
   listing with tier requirements.
 
 ### Metrics
-- Tests: 1,025 (default) / 576 (primal-proof) — both configurations clean
+- Tests: 576 (default / IPC-first) / 1,025 (barracuda-local) — both configurations clean
 - Clippy: zero warnings
 - Scenarios: 7 registered (6 default + 1 barracuda-local)
 - Gaps: 4 new resolved (GAP-HS-082 through GAP-HS-085)
@@ -82,7 +82,7 @@ This file covers the spring as a whole. For crate-level details see
   IPC-first note.
 
 ### Metrics
-- Tests: 1,025 (default) / 576 (primal-proof) — both configurations clean
+- Tests: 576 (default / IPC-first) / 1,025 (barracuda-local) — both configurations clean
 - Clippy: zero warnings
 - Deploy graphs: 7 (all with skunkBat)
 - Gap IDs: zero duplicates (5 new gaps resolved: GAP-HS-077 through GAP-HS-081)

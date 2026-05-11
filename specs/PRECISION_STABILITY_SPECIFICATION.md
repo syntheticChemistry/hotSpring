@@ -1,6 +1,6 @@
 # hotSpring Precision & Stability Specification
 
-> **HISTORICAL** — Snapshot from March 6, 2026 (v0.6.19). Current state: v0.6.32, 964 tests.
+> **HISTORICAL** — Snapshot from March 6, 2026 (v0.6.19). Current state: v0.6.32, 576 / 1,025 lib tests (IPC-first default / barracuda-local).
 > Precision strategy and cancellation audit remain valid; test/binary counts superseded.
 > Retained as fossil record of precision architecture decisions.
 

@@ -81,6 +81,7 @@ NNN_DESCRIPTOR.{sh,md,json}
 | 169 | WARM_HANDOFF_VALIDATED | validation | ✅ **Full warm handoff cycle on Titan V.** vfio→nouveau→vfio round-trip. HBM2 warm state persists (pmc_enable=0x5fecdff1). Stages 1-3 pass. Falcon boot = next frontier. |
 | 170 | SOVEREIGN_BOOT_E2E | **milestone** | ✅ **End-to-end `coralctl sovereign-boot`.** Vendor-ingredient loop: cold detect → nouveau warm → vfio swap → sovereign init. Warm detection heuristic (PMC popcount + PRAMIN). golden_state_path file reference. |
 | 171 | K80_SOVEREIGN_INIT | validation | ⚠️ **K80 (GK210) BAR0 probe + PMC enable OK.** GDDR5 training BLOCKED (cold memory, PRAMIN returns PCIe timeout). VBIOS readable from PROM. Kepler: no signed firmware required. DEVINIT interpreter needed. |
+| 189 | LTEE_B2_ANDERSON_FITNESS | analysis | 🔄 **LTEE B2 — Anderson fitness landscape (GuideStone).** Wiser et al. 2013 disorder analogy; Tier 1 baseline in `notebooks/papers/13-ltee-anderson-fitness.ipynb`; feeds foundation Thread 7 (anderson). See `EXPERIMENT_INDEX.md`. |
 
 ### Ember Survivability Hardening (2026-04-07)
 
