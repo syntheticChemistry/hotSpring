@@ -942,3 +942,16 @@ algorithms are relevant; the trust model is not.
 - Paper 8 (pure gauge) bridges MD ↔ lattice QCD with minimal new code
 - Each paper reproduced at ~$0.01-0.10 proves the cost decrease thesis:
   **consumer GPU + Rust + open-source drivers → democratized computational science**
+
+---
+
+## LTEE GuideStone Queue (Barrick/Lenski)
+
+Targeted paper reproductions for the LTEE Targeted GuideStone artifact — a USB-deployable
+validation subsystem of projectNUCLEUS. See `infra/whitePaper/gen4/architecture/GUIDESTONE_LTEE.md`
+and `infra/whitePaper/attsi/non-anon/contact/barrick/PAPER_REVIEW_AND_SPRING_TARGETS.md`.
+
+| ID | Paper | What to Reproduce | Exp | Status |
+|----|-------|-------------------|-----|--------|
+| B2 | Wiser et al. 2013 "Long-term dynamics" *Science* | Anderson disorder analogy: fitness landscape as disordered potential; localization–delocalization transitions in fitness trajectories | TBD | QUEUED |
+| B9 | DFE Evolution in LTEE 2024 *Science* | DFE ↔ RMT connection: distribution of fitness effects as random matrix eigenvalue distribution; level spacing statistics | TBD | QUEUED |
