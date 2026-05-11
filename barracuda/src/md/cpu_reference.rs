@@ -9,7 +9,7 @@
 //! seed 42), identical algorithm, different hardware → must produce the same
 //! physics (energy conservation, VACF, D*) within documented f64 tolerances.
 
-use crate::md::config::MdConfig;
+use crate::md::config::{MD_REPORT_CADENCE, MdConfig};
 use crate::md::simulation::{EnergyRecord, MdSimulation, init_fcc_lattice, init_velocities};
 use crate::tolerances::MD_TEMPERATURE_FLOOR;
 
@@ -277,7 +277,7 @@ pub fn run_simulation_cpu(config: &MdConfig) -> MdSimulation {
             }
         }
 
-        if (step.is_multiple_of(5000) || step == config.prod_steps - 1)
+        if (step.is_multiple_of(MD_REPORT_CADENCE) || step == config.prod_steps - 1)
             && let Some(last) = energy_history.last()
         {
             println!(

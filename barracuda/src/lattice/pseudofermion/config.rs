@@ -3,6 +3,7 @@
 //! Configuration types for pseudofermion HMC variants.
 
 use crate::lattice::hmc::IntegratorType;
+use crate::tolerances::lattice::DYNAMICAL_CG_MAX_ITER;
 
 /// Configuration for pseudofermion HMC.
 #[derive(Clone, Debug)]
@@ -20,7 +21,7 @@ impl Default for PseudofermionConfig {
         Self {
             mass: 0.1,
             cg_tol: 1e-8,
-            cg_max_iter: 5000,
+            cg_max_iter: DYNAMICAL_CG_MAX_ITER,
         }
     }
 }
@@ -52,7 +53,7 @@ impl Default for HasenbuschConfig {
             heavy_mass: 0.4,
             light_mass: 0.1,
             cg_tol: 1e-8,
-            cg_max_iter: 5000,
+            cg_max_iter: DYNAMICAL_CG_MAX_ITER,
             n_md_steps_light: 16,
             n_md_steps_heavy: 4,
         }

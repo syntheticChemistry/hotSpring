@@ -22,7 +22,7 @@
 use barracuda::device::backend::GpuBackend;
 use barracuda::device::compute_pipeline::{BatchedComputeDispatch, ComputeDispatch};
 
-use crate::md::config::MdConfig;
+use crate::md::config::{MD_REPORT_CADENCE, MdConfig};
 use crate::md::shaders;
 use crate::md::simulation::{EnergyRecord, MdSimulation, init_fcc_lattice, init_velocities};
 use crate::tolerances::{DEFAULT_VELOCITY_SEED, MD_TEMPERATURE_FLOOR, MD_WORKGROUP_SIZE};
@@ -180,7 +180,7 @@ pub fn run_simulation_generic<B: GpuBackend>(
             velocity_snapshots.push(vel);
         }
 
-        if step_end % 5000 < config.dump_step || step_end >= config.prod_steps {
+        if step_end % MD_REPORT_CADENCE < config.dump_step || step_end >= config.prod_steps {
             println!(
                 "    Step {}: T*={:.6}, KE={:.4}, PE={:.4}, E={:.4}",
                 step_end - 1,

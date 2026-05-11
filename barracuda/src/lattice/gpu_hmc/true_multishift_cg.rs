@@ -613,7 +613,7 @@ pub fn gpu_true_multi_shift_cg_solve(
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used)]
+    #![expect(clippy::unwrap_used, clippy::expect_used, reason = "test assertions")]
 
     use super::*;
 

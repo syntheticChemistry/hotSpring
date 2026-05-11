@@ -2,7 +2,7 @@
 
 //! Tests for the axially-deformed HFB solver.
 
-#![allow(clippy::expect_used, clippy::unwrap_used)]
+#![expect(clippy::expect_used, clippy::unwrap_used, reason = "test assertions")]
 
 use super::*;
 use crate::physics::hfb_common::hermite_value;

@@ -26,6 +26,7 @@ mod remez;
 use super::complex_f64::Complex64;
 use super::dirac::FermionField;
 use super::wilson::Lattice;
+use crate::tolerances::lattice::DYNAMICAL_CG_MAX_ITER;
 
 pub use multi_shift::{MultiShiftCgResult, multi_shift_cg_solve};
 pub use rational_approx::RationalApproximation;
@@ -131,7 +132,7 @@ impl RhmcConfig {
             dt: 0.01,
             n_md_steps: 50,
             cg_tol: 1e-8,
-            cg_max_iter: 5000,
+            cg_max_iter: DYNAMICAL_CG_MAX_ITER,
         }
     }
 
@@ -155,7 +156,7 @@ impl RhmcConfig {
             dt: 0.01,
             n_md_steps: 50,
             cg_tol: 1e-8,
-            cg_max_iter: 5000,
+            cg_max_iter: DYNAMICAL_CG_MAX_ITER,
         }
     }
 
@@ -200,7 +201,7 @@ impl RhmcConfig {
             dt: 0.01,
             n_md_steps: 50,
             cg_tol: 1e-8,
-            cg_max_iter: 5000,
+            cg_max_iter: DYNAMICAL_CG_MAX_ITER,
         }
     }
 
@@ -224,7 +225,7 @@ impl RhmcConfig {
             dt: 0.01,
             n_md_steps: 50,
             cg_tol: 1e-8,
-            cg_max_iter: 5000,
+            cg_max_iter: DYNAMICAL_CG_MAX_ITER,
         }
     }
 
@@ -248,7 +249,7 @@ impl RhmcConfig {
             dt: 0.01,
             n_md_steps: 50,
             cg_tol: 1e-8,
-            cg_max_iter: 5000,
+            cg_max_iter: DYNAMICAL_CG_MAX_ITER,
         }
     }
 
@@ -306,7 +307,7 @@ impl RhmcConfig {
             dt: 0.008,
             n_md_steps: 60,
             cg_tol: 1e-8,
-            cg_max_iter: 5000,
+            cg_max_iter: DYNAMICAL_CG_MAX_ITER,
         }
     }
 }

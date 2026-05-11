@@ -7,6 +7,13 @@
 
 use std::f64::consts::PI;
 
+/// Default progress reporting cadence for MD simulations (in steps).
+///
+/// Governs how frequently the simulation loop prints temperature, energy,
+/// and drift diagnostics to stdout. Not the same as `dump_step` (which
+/// controls observable sampling).
+pub const MD_REPORT_CADENCE: usize = 5000;
+
 /// Simulation configuration in reduced units
 #[derive(Clone, Debug)]
 #[must_use]

@@ -9,6 +9,7 @@ use hotspring_barracuda::lattice::gpu_hmc::{
     GpuDynHmcState, GpuHmcState, GpuHmcStreamingPipelines, gpu_dynamical_hmc_trajectory_streaming,
     gpu_hmc_trajectory_streaming, gpu_links_to_lattice,
 };
+use hotspring_barracuda::tolerances::lattice::DYNAMICAL_CG_MAX_ITER;
 use hotspring_barracuda::validation::{TelemetryWriter, ValidationHarness};
 use std::time::Instant;
 
@@ -295,7 +296,7 @@ pub fn paper_43_dynamical(
     let mass = 0.1;
     let n_fields = 1; // Nf = 4
     let cg_tol = 1e-8;
-    let cg_max_iter = 5000;
+    let cg_max_iter = DYNAMICAL_CG_MAX_ITER;
     let n_quenched_therm = 100;
     let n_dyn_therm = 50;
     let n_md_steps = 20;

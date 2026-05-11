@@ -12,7 +12,7 @@ use barracuda::pipeline::ReduceScalarPipeline;
 
 use crate::gpu::GpuF64;
 use crate::md::brain::{MdBrain, MdStepEvent};
-use crate::md::config::MdConfig;
+use crate::md::config::{MD_REPORT_CADENCE, MdConfig};
 use crate::md::neighbor::ForceAlgorithm;
 use crate::md::shaders;
 use crate::tolerances::{
@@ -380,7 +380,7 @@ pub async fn run_simulation_verlet_with_brain(
             skin_fraction: skin / config.rc,
         });
 
-        if step_end % 5000 < config.dump_step || step_end >= config.prod_steps {
+        if step_end % MD_REPORT_CADENCE < config.dump_step || step_end >= config.prod_steps {
             let brain_info = if brain.readout_retrain_count() > 0 {
                 format!(
                     " [brain: {}R/{}G, {}/{} heads trusted, conf={:.2}, {}obs]",

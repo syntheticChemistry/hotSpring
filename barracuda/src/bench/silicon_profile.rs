@@ -640,7 +640,12 @@ impl SiliconProfile {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::float_cmp)]
+    #![expect(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::float_cmp,
+        reason = "test assertions"
+    )]
 
     use super::*;
 

@@ -22,7 +22,7 @@ use barracuda::pipeline::ReduceScalarPipeline;
 
 use crate::gpu::GpuF64;
 pub use crate::md::celllist::{CellList, run_simulation_celllist};
-use crate::md::config::MdConfig;
+use crate::md::config::{MD_REPORT_CADENCE, MdConfig};
 use crate::md::shaders;
 use crate::tolerances::{DEFAULT_VELOCITY_SEED, MD_TEMPERATURE_FLOOR, THERMOSTAT_INTERVAL};
 
@@ -287,7 +287,7 @@ pub async fn run_simulation(
             velocity_snapshots.push(gpu.read_staging_f64(&vel_staging)?);
         }
 
-        if step_end % 5000 < config.dump_step || step_end >= config.prod_steps {
+        if step_end % MD_REPORT_CADENCE < config.dump_step || step_end >= config.prod_steps {
             println!(
                 "    Step {}: T*={:.6}, KE={:.4}, PE={:.4}, E={:.4}",
                 step_end - 1,

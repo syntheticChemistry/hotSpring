@@ -40,7 +40,7 @@ use crate::tolerances::{
     ADAPTIVE_DT_BUMP, ADAPTIVE_DT_DROP, ADAPTIVE_DT_MAX, ADAPTIVE_DT_MIN, ADAPTIVE_HIGH_ACCEPTANCE,
     ADAPTIVE_LOW_ACCEPTANCE, ADAPTIVE_NMD_MAX, ADAPTIVE_NMD_MIN, RHMC_APPROX_ERROR_THRESHOLD,
     RHMC_CG_TOL_FORCE, RHMC_CG_TOL_METROPOLIS, RHMC_CONSISTENCY_THRESHOLD, RHMC_MAX_POLES,
-    RHMC_POLE_INCREMENT, RHMC_SPECTRAL_REPROBE_INTERVAL,
+    RHMC_POLE_INCREMENT, RHMC_SPECTRAL_REPROBE_INTERVAL, lattice::DYNAMICAL_CG_MAX_ITER,
 };
 
 /// Central self-tuning calibrator for GPU RHMC simulations.
@@ -112,7 +112,7 @@ impl RhmcCalibrator {
             consistency_history: Vec::new(),
             cg_tol_force: RHMC_CG_TOL_FORCE,
             cg_tol_metropolis: RHMC_CG_TOL_METROPOLIS,
-            cg_max_iter: 5000,
+            cg_max_iter: DYNAMICAL_CG_MAX_ITER,
             trajectory_count: 0,
         }
     }

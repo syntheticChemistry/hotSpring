@@ -31,7 +31,7 @@ use barracuda::ops::md::CellListGpu;
 use barracuda::pipeline::ReduceScalarPipeline;
 
 use crate::gpu::GpuF64;
-use crate::md::config::MdConfig;
+use crate::md::config::{MD_REPORT_CADENCE, MdConfig};
 use crate::md::shaders;
 use crate::md::simulation::{EnergyRecord, MdSimulation, init_fcc_lattice, init_velocities};
 use crate::tolerances::{CELLLIST_REBUILD_INTERVAL, MD_TEMPERATURE_FLOOR, THERMOSTAT_INTERVAL};
@@ -436,7 +436,7 @@ pub async fn run_simulation_celllist(
             gpu_cl.build(&pos_buf)?;
         }
 
-        if (step_end % 5000 < stream_batch || step_end >= config.prod_steps)
+        if (step_end % MD_REPORT_CADENCE < stream_batch || step_end >= config.prod_steps)
             && let Some(last) = energy_history.last()
         {
             println!(

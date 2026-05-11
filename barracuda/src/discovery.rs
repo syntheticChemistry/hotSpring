@@ -249,17 +249,37 @@ pub fn results_dir(domain: &str) -> std::io::Result<PathBuf> {
 
 /// Well-known sysfs/devfs directories where neuromorphic device nodes appear.
 #[cfg(not(feature = "npu-hw"))]
-const NPU_DEVICE_DIRS: &[&str] = &["/dev", "/sys/class/akida"];
+const NPU_DEVICE_DIRS_DEFAULT: &[&str] = &["/dev", "/sys/class/akida"];
 
 /// Device-node prefixes that indicate an Akida NPU is present.
 #[cfg(not(feature = "npu-hw"))]
 const NPU_DEVICE_PREFIXES: &[&str] = &["akida"];
 
+/// Resolve NPU device discovery directories.
+///
+/// Checks `$NPU_DEVICE_DIRS` (colon-separated) first, then falls back
+/// to the well-known `/dev` and `/sys/class/akida`.
+#[cfg(not(feature = "npu-hw"))]
+fn npu_device_dirs() -> Vec<std::path::PathBuf> {
+    if let Ok(dirs) = std::env::var("NPU_DEVICE_DIRS") {
+        return dirs
+            .split(':')
+            .filter(|s| !s.is_empty())
+            .map(std::path::PathBuf::from)
+            .collect();
+    }
+    NPU_DEVICE_DIRS_DEFAULT
+        .iter()
+        .map(std::path::PathBuf::from)
+        .collect()
+}
+
 /// Probe whether an NPU (neuromorphic processing unit) is available.
 ///
 /// When the `npu-hw` feature is enabled, delegates to the `akida-driver`
-/// device manager. Otherwise, scans `NPU_DEVICE_DIRS` for any device
+/// device manager. Otherwise, scans `npu_device_dirs()` for any device
 /// node whose name starts with one of `NPU_DEVICE_PREFIXES`.
+/// Discovery directories can be overridden with `$NPU_DEVICE_DIRS`.
 #[must_use]
 pub fn probe_npu_available() -> bool {
     #[cfg(feature = "npu-hw")]
@@ -268,7 +288,7 @@ pub fn probe_npu_available() -> bool {
     }
     #[cfg(not(feature = "npu-hw"))]
     {
-        NPU_DEVICE_DIRS.iter().any(|dir| {
+        npu_device_dirs().iter().any(|dir| {
             std::fs::read_dir(dir).is_ok_and(|entries| {
                 entries.filter_map(Result::ok).any(|e| {
                     let name = e.file_name();

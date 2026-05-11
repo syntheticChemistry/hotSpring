@@ -154,7 +154,10 @@ mod local_complex {
     impl std::ops::Div for Complex64 {
         type Output = Self;
         #[inline]
-        #[allow(clippy::suspicious_arithmetic_impl)]
+        #[expect(
+            clippy::suspicious_arithmetic_impl,
+            reason = "complex division via multiplication by inverse is correct"
+        )]
         fn div(self, rhs: Self) -> Self {
             self * rhs.inv()
         }

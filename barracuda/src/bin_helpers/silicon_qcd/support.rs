@@ -3,6 +3,7 @@
 //! Silicon budgets, FLOP estimates, AMD power sampling, and CLI for production QCD runs.
 
 use hotspring_barracuda::bench::EnergyReport;
+use hotspring_barracuda::tolerances::lattice::DYNAMICAL_CG_MAX_ITER;
 
 // ── Silicon budget (reused from bench_silicon_budget) ──
 
@@ -258,7 +259,7 @@ pub fn parse_args() -> CliArgs {
         n_md_steps: 20,
         dt: 0.01,
         cg_tol: 1e-8,
-        cg_max_iter: 5000,
+        cg_max_iter: DYNAMICAL_CG_MAX_ITER,
         seed: 42,
         output: None,
         flow: false,

@@ -365,7 +365,10 @@ fn read_sysfs_u64(path: &str) -> Option<u64> {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::float_cmp)]
+    #![expect(
+        clippy::float_cmp,
+        reason = "exact float comparison in test assertions"
+    )]
 
     use super::*;
 
