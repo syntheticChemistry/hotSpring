@@ -7,6 +7,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Unreleased — Three-GPU Sovereign Validation (May 11, 2026)
+
+### Added
+- **Exp 190**: Three-GPU sovereign validation sprint — post-power-cycle
+  validation across RTX 5060, Titan V, K80. RTX 5060: 12/12 sovereign
+  roundtrip PASS, 154.2 steps/s Yukawa OCP MD. Titan V: warm detected
+  (HBM2 from BIOS POST), FECS blocked (Falcon v5 HS mode). K80: PLX
+  alive (rev ca → first time since D3cold), PMC enabled (0xfc37b1ef),
+  GPCs power-gated (cold GDDR5).
+
+### Fixed
+- **k80-wake-and-run.sh**: `tomllib` → `tomli` fallback for Python 3.10
+  compatibility under sudo.
+
 ## Unreleased — Deep Debt Evolution + Infra Handoff (May 11, 2026)
 
 ### Changed

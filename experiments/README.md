@@ -147,6 +147,7 @@ Not numbered experiments — systematic composition infrastructure:
 | 188 | K80_WARM_CATCH_BREAKTHROUGH | breakthrough | ✅ Patched nouveau RECOGNIZED GK210. First-ever GR init: 12 GiB GDDR5, 5 GPCs, 6 TPC/GPC. Post-rebind GPCs power-gated. PLX D3cold on ember stop. |
 | — | K80_QEMU_VM_REAGENT | investigation | ✅ QEMU VM with K80 VFIO passthrough + proprietary nvidia-470.256.02. Module probed K80 successfully. Reagent template + build recipe stored in `agentReagents/`. |
 | 189 | LTEE_B2_ANDERSON_FITNESS | notebook | 🔧 Tier 1 Python baseline — Wiser et al. 2013 LTEE Anderson fitness analogy. Power-law fitness model, Anderson Hamiltonian, localization analysis. |
+| 190 | THREE_GPU_SOVEREIGN_VALIDATION | **validation** | ✅ Post-power-cycle sovereign validation across 3 GPU generations. RTX 5060 12/12 sovereign roundtrip PASS, 154 steps/s MD. Titan V warm (HBM2 from BIOS POST), FECS blocked (HS mode). K80 PLX alive (rev ca), PMC enabled, GPCs gated. |
 
 ## Paper Baseline Notebooks
 

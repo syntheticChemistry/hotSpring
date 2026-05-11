@@ -40,7 +40,11 @@ die() { echo "FATAL: $*" >&2; exit 1; }
 # ── Extract BDFs from glowplug.toml (no hardcoded addresses) ─────────────────
 [ -f "$GLOWPLUG_CONF" ] || die "Config not found: $GLOWPLUG_CONF"
 eval "$(python3 -c "
-import tomllib, sys, pathlib
+import sys, pathlib
+try:
+    import tomllib
+except ModuleNotFoundError:
+    import tomli as tomllib
 
 cfg = tomllib.loads(pathlib.Path('$GLOWPLUG_CONF').read_text())
 
@@ -141,7 +145,11 @@ echo "    coral-ember active  ✓  ($EMBER_SOCK)"
 # Generate from glowplug.toml: all non-"shared" devices need DRM isolation.
 DRM_RULES=/etc/udev/rules.d/61-coralreef-drm-ignore.rules
 COMPUTE_BDFS=$(python3 -c "
-import tomllib, pathlib
+import pathlib
+try:
+    import tomllib
+except ModuleNotFoundError:
+    import tomli as tomllib
 cfg = tomllib.loads(pathlib.Path('$GLOWPLUG_CONF').read_text())
 for d in cfg.get('device', []):
     if d.get('role') != 'shared':
