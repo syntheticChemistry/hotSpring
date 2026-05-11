@@ -92,7 +92,6 @@ const FALCON_UC_MAGIC_ALT: u32 = 0x10DE_0143 | 0x0001_0000;
 /// Falcon UC header magic for v3 (Kepler GK110/GK210 PMU uses Falcon v3).
 const FALCON_UC_MAGIC_V3: u32 = 0x10DE_0142;
 
-
 /// Minimum plausible PMU blob size in bytes (header + some code).
 const PMU_BLOB_MIN_BYTES: usize = 256;
 
@@ -433,13 +432,11 @@ fn main() {
             eprintln!();
             eprintln!("Context:");
             eprintln!("  PMU FW is NOT in linux-firmware for GK210 or GV100.");
+            eprintln!("  K80:     PMU needed for PGOB PSW → GPC ungate (pri_gpc_cnt=0 without it)");
+            eprintln!("  Titan V: PMU needed for HBM2 training → SEC2 ACR → FECS unlock");
             eprintln!(
-                "  K80:     PMU needed for PGOB PSW → GPC ungate (pri_gpc_cnt=0 without it)"
+                "  Try scanning nvidia kernel objects, .run installers, or proprietary libs."
             );
-            eprintln!(
-                "  Titan V: PMU needed for HBM2 training → SEC2 ACR → FECS unlock"
-            );
-            eprintln!("  Try scanning nvidia kernel objects, .run installers, or proprietary libs.");
             std::process::exit(2);
         }
     };
@@ -531,8 +528,11 @@ fn main() {
 /// contain DEVINIT scripts and PMU microcode as data blobs. We scan both for
 /// Falcon UC headers and for known byte patterns that indicate firmware data.
 fn scan_nvidia_ko(path: &Path, output_dir: Option<&Path>) {
-    eprintln!("Scanning kernel module: {} ({} bytes)", path.display(),
-        std::fs::metadata(path).map(|m| m.len()).unwrap_or(0));
+    eprintln!(
+        "Scanning kernel module: {} ({} bytes)",
+        path.display(),
+        std::fs::metadata(path).map(|m| m.len()).unwrap_or(0)
+    );
 
     // First, try ELF section extraction via `readelf` if available
     let readelf_result = std::process::Command::new("readelf")
@@ -547,8 +547,10 @@ fn scan_nvidia_ko(path: &Path, output_dir: Option<&Path>) {
                 .lines()
                 .filter(|l| {
                     let lower = l.to_lowercase();
-                    lower.contains("pmu") || lower.contains("falcon")
-                        || lower.contains("devinit") || lower.contains("firmware")
+                    lower.contains("pmu")
+                        || lower.contains("falcon")
+                        || lower.contains("devinit")
+                        || lower.contains("firmware")
                         || lower.contains("ucode")
                 })
                 .collect();
@@ -577,8 +579,10 @@ fn scan_nvidia_ko(path: &Path, output_dir: Option<&Path>) {
                 .lines()
                 .filter(|l| {
                     let lower = l.to_lowercase();
-                    lower.contains(".nv_firmware") || lower.contains("__firmware")
-                        || lower.contains("pmu") || lower.contains("devinit")
+                    lower.contains(".nv_firmware")
+                        || lower.contains("__firmware")
+                        || lower.contains("pmu")
+                        || lower.contains("devinit")
                 })
                 .collect();
             if !fw_sections.is_empty() {
@@ -622,10 +626,10 @@ fn scan_vbios_for_pmu(path: &Path) {
     // Search for BIT header: "BIT\0" at any aligned offset
     let mut bit_offsets = Vec::new();
     for i in 0..data.len().saturating_sub(4) {
-        if data[i] == b'\xff' && data[i+1] == b'\xff' {
+        if data[i] == b'\xff' && data[i + 1] == b'\xff' {
             continue; // Skip empty regions
         }
-        if &data[i..i+4] == b"BIT\0" {
+        if &data[i..i + 4] == b"BIT\0" {
             bit_offsets.push(i);
         }
     }
@@ -634,7 +638,7 @@ fn scan_vbios_for_pmu(path: &Path) {
         eprintln!("  No BIT (Binary Information Table) header found.");
         // Try BMP header (older format)
         for i in 0..data.len().saturating_sub(7) {
-            if &data[i..i+5] == b"\xff\x7fNV\0" {
+            if &data[i..i + 5] == b"\xff\x7fNV\0" {
                 eprintln!("  Found BMP header at offset {i:#x} (older format)");
             }
         }
@@ -671,7 +675,13 @@ fn scan_vbios_for_pmu(path: &Path) {
 
                     let is_pmu = entry_type == b'p' || entry_type == b'P';
                     let is_devinit = entry_type == b'I' || entry_type == b'i';
-                    let marker = if is_pmu { " ← PMU" } else if is_devinit { " ← DEVINIT" } else { "" };
+                    let marker = if is_pmu {
+                        " ← PMU"
+                    } else if is_devinit {
+                        " ← DEVINIT"
+                    } else {
+                        ""
+                    };
 
                     eprintln!(
                         "      BIT entry: type={type_char} ver={entry_version} \
@@ -686,12 +696,8 @@ fn scan_vbios_for_pmu(path: &Path) {
                             let boot_size = u16::from_le_bytes([pmu_bytes[2], pmu_bytes[3]]);
                             let code_addr = u16::from_le_bytes([pmu_bytes[4], pmu_bytes[5]]);
                             let code_size = u16::from_le_bytes([pmu_bytes[6], pmu_bytes[7]]);
-                            eprintln!(
-                                "        boot: addr={boot_addr:#06x} size={boot_size:#06x}"
-                            );
-                            eprintln!(
-                                "        code: addr={code_addr:#06x} size={code_size:#06x}"
-                            );
+                            eprintln!("        boot: addr={boot_addr:#06x} size={boot_size:#06x}");
+                            eprintln!("        code: addr={code_addr:#06x} size={code_size:#06x}");
                             if pmu_bytes.len() >= 12 {
                                 let data_addr = u16::from_le_bytes([pmu_bytes[8], pmu_bytes[9]]);
                                 let data_size = u16::from_le_bytes([pmu_bytes[10], pmu_bytes[11]]);
@@ -713,7 +719,7 @@ fn scan_vbios_for_pmu(path: &Path) {
     for i in 0..data.len().saturating_sub(8) {
         // Falcon boot vector: small code with specific patterns
         // PMU boot code typically starts with a specific instruction sequence
-        let w0 = u32::from_le_bytes([data[i], data[i+1], data[i+2], data[i+3]]);
+        let w0 = u32::from_le_bytes([data[i], data[i + 1], data[i + 2], data[i + 3]]);
         // Falcon NOP = 0x00000000, but boot code typically has a jump
         // Look for Falcon-style branch instructions at plausible offsets
         if w0 == 0xF0000000 || w0 == 0xF2000000 {

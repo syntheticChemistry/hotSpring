@@ -7,7 +7,30 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
-## Unreleased — Post-Interstadial Evolution (May 11, 2026)
+## Unreleased — Post-Interstadial Push 2 (May 11, 2026)
+
+### Changed
+- **primal-proof test coverage**: Moved barracuda-dependent tests in
+  `error.rs` behind `#[cfg(feature = "barracuda-local")]` and gated
+  `head_group_layout_matches_toadstool_head_group` in `reservoir/tests.rs`.
+  576 tests now pass in primal-proof mode (up from build-only validation).
+- **Deploy graphs 7/7 skunkBat**: Added skunkBat node to `spectral`,
+  `plasma_md`, and `sovereign_gpu` deploy graphs (was 4/7). All 7 deploy
+  graphs now include defense/audit node for JH-5 readiness.
+- **plasmidBin cell graph**: Added skunkBat node to `hotspring_cell.toml`
+  with `security.audit_log` capabilities.
+- **GAP ID collision fix**: Renumbered 4 duplicate gap IDs (GAP-HS-030/032/
+  033/057) to GAP-HS-073 through GAP-HS-076. Zero duplicates remain.
+- **plasmidBin manifest**: Fixed stale test count (1040→1025), added Tier 4
+  IPC-first note.
+
+### Metrics
+- Tests: 1,025 (default) / 576 (primal-proof) — both configurations clean
+- Clippy: zero warnings
+- Deploy graphs: 7 (all with skunkBat)
+- Gap IDs: zero duplicates (5 new gaps resolved: GAP-HS-077 through GAP-HS-081)
+
+## Post-Interstadial Evolution (May 11, 2026)
 
 ### Added
 - **skunkBat IPC module** (`src/ipc/skunkbat.rs`): Rust client for
@@ -36,7 +59,7 @@ This file covers the spring as a whole. For crate-level details see
   separate functions with structured `MeasurementResult` return.
 
 ### Infrastructure
-- **UniBin release binary built**: 3.3M stripped binary (`hotspring_unibin`),
+- **UniBin release binary built**: 2.4M stripped binary (`hotspring_unibin`),
   ready for plasmidBin GitHub Releases and NUCLEUS workload dispatch.
 - **NUCLEUS workload updated**: `hotspring-md-validation.toml` evolved from
   hardcoded `/home/irongate/` path to gate-agnostic `$SPRINGS_ROOT` + UniBin

@@ -254,7 +254,11 @@ pub fn discover_diesel_ember_socket(bdf: &str) -> Option<PathBuf> {
         }
         let path = entry.path();
         if let Ok(resp) = send_jsonrpc(&path, "ember.list", &serde_json::json!({})) {
-            if let Some(devices) = resp.get("result").and_then(|r| r.get("devices")).and_then(|d| d.as_array()) {
+            if let Some(devices) = resp
+                .get("result")
+                .and_then(|r| r.get("devices"))
+                .and_then(|d| d.as_array())
+            {
                 for dev in devices {
                     if dev.as_str().is_some_and(|s| s == bdf) {
                         return Some(path);

@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026
-**Last audited:** May 11, 2026 (sovereign barrier resolution + Post-Interstadial Evolution: Volta ACR skip, HBM2 warm-handoff, benchScale VM isolation, K80 PCIe link, skunkBat IPC, Tier 4 IPC-first)
+**Last audited:** May 11, 2026 (Post-Interstadial Push 2: GAP ID collision fix, primal-proof test coverage, skunkBat in 7/7 deploy graphs + cell, manifest alignment)
 **License:** AGPL-3.0-or-later
 
 ---
@@ -326,7 +326,7 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 - **Resolution:** K80 boots cleanly to vfio-pci. `/dev/vfio/35` and
   `/dev/vfio/36` open without EBUSY. Validated with full power drain.
 
-### GAP-HS-030: GV100 FECS Secure Boot Without WPR — PARTIALLY RESOLVED
+### GAP-HS-073: GV100 FECS Secure Boot Without WPR — PARTIALLY RESOLVED
 
 - **Primal:** coralReef (coral-driver / sovereign_init)
 - **Severity:** Critical (blocks GV100 sovereign FECS boot)
@@ -394,7 +394,7 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 - **Action:** Test on hardware. If NOP timeout persists, investigate
   channel scheduling, USERD VRAM allocation size, or error notifier state.
 
-### GAP-HS-032: Generation-Branched FalconBootSolver (Resolved)
+### GAP-HS-074: Generation-Branched FalconBootSolver (Resolved)
 
 - **Primal:** coralReef (coral-driver / acr_boot / solver)
 - **Severity:** Enhancement
@@ -407,7 +407,7 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
   before falling through to legacy ACR (golden-state replay is the primary
   path via sovereign_init's GR init stage). Turing+ runs the full cascade.
 
-### GAP-HS-033: coralReef f64 Transcendental Lowering for SM32 (Resolved)
+### GAP-HS-075: coralReef f64 Transcendental Lowering for SM32 (Resolved)
 
 - **Primal:** coralReef (coral-reef / codegen / lower_f64)
 - **Severity:** Critical (blocked Kepler sovereign compile)
@@ -796,7 +796,7 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
   validated targets. Provenance manifest and validation summary committed.
   Thread 2 upgraded from "mapped" to "active" in THREAD_INDEX.toml.
 
-### GAP-HS-057: K80 GK210 Nouveau Chipset ID Missing — PROVEN FIX (P0)
+### GAP-HS-076: K80 GK210 Nouveau Chipset ID Missing — PROVEN FIX (P0)
 
 - **Primal:** coralReef (sovereign pipeline) / upstream kernel (nouveau)
 - **Severity:** Critical (blocks K80 warm-catch and nouveau-assisted sovereign dispatch)
@@ -869,6 +869,61 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 - **Resolution:** Created `PLASMA_QCD_SOVEREIGN_GPU.md` covering validation
   chain, Sarkas MD, lattice QCD, Kokkos parity, and cross-thread connections.
   Aligned `THREAD_INDEX.toml` to reference it. Added 2 foundation workloads.
+
+### GAP-HS-077: Duplicate GAP IDs (030/032/033/057) — RESOLVED
+
+- **Primal:** hotSpring (documentation)
+- **Severity:** Low (registry hygiene)
+- **Status:** **Resolved** (May 11, 2026)
+- **Description:** Four GAP IDs were reused for different entries: GAP-HS-030
+  (standalone collided with 030a/030b), GAP-HS-032 (guideStone vs FalconBoot),
+  GAP-HS-033 (composition API vs f64 transcendental), GAP-HS-057 (Tier 4 vs
+  K80 GK210). Upstream audit flagged GAP-HS-030 specifically.
+- **Resolution:** Renumbered newer duplicates to GAP-HS-073 through GAP-HS-076.
+  Zero duplicate IDs remain.
+
+### GAP-HS-078: primal-proof Test Coverage Incomplete — RESOLVED
+
+- **Primal:** hotSpring (Tier 4)
+- **Severity:** Medium (test configuration)
+- **Status:** **Resolved** (May 11, 2026)
+- **Description:** `cargo test --lib --no-default-features --features primal-proof`
+  failed due to ungated `barracuda::` imports in test modules (`error.rs` tests,
+  `md/reservoir/tests.rs`). Production build was clean but test surface was not.
+- **Resolution:** Moved barracuda-dependent tests in `error.rs` to
+  `#[cfg(feature = "barracuda-local")] mod tests_barracuda`. Gated
+  `head_group_layout_matches_toadstool_head_group` behind `barracuda-local`.
+  576 tests now pass in primal-proof mode; 1,025 pass in default mode.
+
+### GAP-HS-079: skunkBat Missing from 3 Deploy Graphs — RESOLVED
+
+- **Primal:** hotSpring (deploy)
+- **Severity:** Low (JH-5 readiness)
+- **Status:** **Resolved** (May 11, 2026)
+- **Description:** skunkBat node was present in 4/7 local deploy graphs but
+  missing from `spectral`, `plasma_md`, and `sovereign_gpu` graphs, and from
+  the plasmidBin `hotspring_cell.toml`.
+- **Resolution:** Added skunkBat node to all 3 missing graphs (7/7 complete).
+  Added to `hotspring_cell.toml` with `security.audit_log` capabilities.
+
+### GAP-HS-080: Upstream Scorecard L5/L6 Discrepancy — DOCUMENTED
+
+- **Primal:** primalSpring (scorecard)
+- **Severity:** Low (reporting)
+- **Status:** **Documented** — owner is L2 (primalSpring)
+- **Description:** `CROSS_SPRING_PARITY_SCORECARD.md` row correctly shows
+  hotSpring as **L6 (certified)**, but the "Guidestone Level" summary table
+  groups hotSpring under L5. Next scorecard audit should reconcile.
+- **Owner layer:** L2 (primalSpring)
+
+### GAP-HS-081: plasmidBin Manifest Test Count Stale — RESOLVED
+
+- **Primal:** plasmidBin (manifest)
+- **Severity:** Low (metadata)
+- **Status:** **Resolved** (May 11, 2026)
+- **Description:** `manifest.toml [springs.hotspring]` showed `tests = 1040`
+  (stale). Verified count is 1,025.
+- **Resolution:** Updated to `tests = 1025` and added Tier 4 IPC-first note.
 
 ---
 

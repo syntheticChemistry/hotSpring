@@ -470,9 +470,7 @@ fn connect_ember(bdf: &str) -> Option<EmberClient> {
         }
     }
     let slug = bdf.replace(':', "-");
-    let candidates = [
-        format!("/run/coralreef/fleet/ember-{slug}.sock"),
-    ];
+    let candidates = [format!("/run/coralreef/fleet/ember-{slug}.sock")];
     for c in &candidates {
         if Path::new(c).exists() {
             let client = EmberClient::connect(c);

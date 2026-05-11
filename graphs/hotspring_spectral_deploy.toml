@@ -65,11 +65,22 @@ depends_on = ["beardog"]
 health_method = "health.liveness"
 by_capability = "math"
 
+# Defense / Audit
+[[graph.nodes]]
+name = "skunkbat"
+binary = "skunkbat"
+order = 4
+required = false
+spawn = false
+depends_on = ["beardog"]
+health_method = "health.liveness"
+by_capability = "defense"
+
 # hotSpring application
 [[graph.nodes]]
 name = "hotspring"
 binary = "hotspring_primal"
-order = 4
+order = 5
 required = true
 spawn = true
 depends_on = ["beardog", "songbird", "barracuda"]

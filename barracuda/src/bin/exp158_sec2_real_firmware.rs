@@ -339,9 +339,7 @@ fn connect_ember(bdf: &str) -> Option<EmberClient> {
         }
     }
     let slug = bdf.replace(':', "-");
-    for c in [
-        format!("/run/coralreef/fleet/ember-{slug}.sock"),
-    ] {
+    for c in [format!("/run/coralreef/fleet/ember-{slug}.sock")] {
         if Path::new(&c).exists() {
             let client = EmberClient::connect(&c);
             if client.mmio_read(bdf, 0).is_ok() {

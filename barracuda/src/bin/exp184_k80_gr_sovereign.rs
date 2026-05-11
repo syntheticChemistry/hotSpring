@@ -46,7 +46,9 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use hotspring_barracuda::ember_types::MmioBatchOp;
-use hotspring_barracuda::fleet_client::{EmberClient, FleetDiscovery, discover_diesel_ember_socket};
+use hotspring_barracuda::fleet_client::{
+    EmberClient, FleetDiscovery, discover_diesel_ember_socket,
+};
 
 // ── PMC / MC registers ─────────────────────────────────────────────────────
 const BOOT0: u32 = 0x000000;

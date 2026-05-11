@@ -99,6 +99,50 @@ impl From<barracuda::error::BarracudaError> for HotSpringError {
 }
 
 #[cfg(test)]
+#[cfg(feature = "barracuda-local")]
+mod tests_barracuda {
+    use super::*;
+
+    #[test]
+    fn display_barracuda() {
+        let barracuda_err = barracuda::error::BarracudaError::device("wgpu timeout");
+        let err = HotSpringError::Barracuda(barracuda_err);
+        let s = err.to_string();
+        assert!(s.contains("BarraCuda error"));
+        assert!(s.contains("Device error"));
+        assert!(s.contains("wgpu timeout"));
+    }
+
+    #[test]
+    fn from_barracuda_error_conversion() {
+        let barracuda_err = barracuda::error::BarracudaError::gpu("buffer overflow");
+        let hotspring_err: HotSpringError = barracuda_err.into();
+        let s = hotspring_err.to_string();
+        assert!(s.contains("BarraCuda error"));
+        assert!(s.contains("GPU error"));
+        assert!(s.contains("buffer overflow"));
+    }
+
+    #[test]
+    #[expect(
+        clippy::unwrap_used,
+        reason = "test inspects Err branch via unwrap_err"
+    )]
+    fn from_via_question_mark_in_result() {
+        fn inner() -> Result<(), HotSpringError> {
+            let e: Result<(), _> = Err(barracuda::error::BarracudaError::device("test device err"));
+            e?;
+            Ok(())
+        }
+        let result = inner();
+        assert!(result.is_err());
+        let s = result.unwrap_err().to_string();
+        assert!(s.contains("BarraCuda error"));
+        assert!(s.contains("test device err"));
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -144,26 +188,6 @@ mod tests {
     }
 
     #[test]
-    fn display_barracuda() {
-        let barracuda_err = barracuda::error::BarracudaError::device("wgpu timeout");
-        let err = HotSpringError::Barracuda(barracuda_err);
-        let s = err.to_string();
-        assert!(s.contains("BarraCuda error"));
-        assert!(s.contains("Device error"));
-        assert!(s.contains("wgpu timeout"));
-    }
-
-    #[test]
-    fn from_barracuda_error_conversion() {
-        let barracuda_err = barracuda::error::BarracudaError::gpu("buffer overflow");
-        let hotspring_err: HotSpringError = barracuda_err.into();
-        let s = hotspring_err.to_string();
-        assert!(s.contains("BarraCuda error"));
-        assert!(s.contains("GPU error"));
-        assert!(s.contains("buffer overflow"));
-    }
-
-    #[test]
     fn display_gpu_compute() {
         let err = HotSpringError::GpuCompute("eigenvalue readback: buffer map failed".into());
         let s = err.to_string();
@@ -184,23 +208,5 @@ mod tests {
         let err = HotSpringError::NoAdapter;
         let s = format!("{err:?}");
         assert!(s.contains("NoAdapter"));
-    }
-
-    #[test]
-    #[expect(
-        clippy::unwrap_used,
-        reason = "test inspects Err branch via unwrap_err"
-    )]
-    fn from_via_question_mark_in_result() {
-        fn inner() -> Result<(), HotSpringError> {
-            let e: Result<(), _> = Err(barracuda::error::BarracudaError::device("test device err"));
-            e?;
-            Ok(())
-        }
-        let result = inner();
-        assert!(result.is_err());
-        let s = result.unwrap_err().to_string();
-        assert!(s.contains("BarraCuda error"));
-        assert!(s.contains("test device err"));
     }
 }

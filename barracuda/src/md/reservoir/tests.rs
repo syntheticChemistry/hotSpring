@@ -460,6 +460,7 @@ fn exported_weights_serde_compatible_with_toadstool() {
 }
 
 #[test]
+#[cfg(feature = "barracuda-local")]
 fn head_group_layout_matches_toadstool_head_group() {
     use barracuda::esn_v2::HeadGroup;
 

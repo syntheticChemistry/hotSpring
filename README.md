@@ -97,13 +97,13 @@ Domain-specific NUCLEUS deployment profiles in `graphs/`:
 
 | # | Graph | Composition | Domain |
 |---|-------|-------------|--------|
-| 1 | `hotspring_qcd_deploy` | Full NUCLEUS (Tower + Node + Nest + Squirrel) | Lattice QCD / HPC |
-| 2 | `hotspring_plasma_md_deploy` | Tower + Node (no coralReef) | Yukawa OCP, transport coefficients |
+| 1 | `hotspring_qcd_deploy` | Full NUCLEUS + skunkBat + Squirrel | Lattice QCD / HPC |
+| 2 | `hotspring_plasma_md_deploy` | Tower + Node + skunkBat | Yukawa OCP, transport coefficients |
 | 3 | `hotspring_md_deploy` | Tower + Node + Nest + skunkBat | GPU MD — Yukawa OCP, Sarkas validation |
 | 4 | `hotspring_plasma_deploy` | Tower + Node + Nest + skunkBat | Dense plasma — dielectric, kinetic-fluid coupling |
-| 5 | `hotspring_nuclear_eos_deploy` | Tower + Node + Nest (provenance) | SEMF/HFB binding energies |
-| 6 | `hotspring_spectral_deploy` | Tower + barraCuda (minimal) | Anderson, Hofstadter, Lanczos |
-| 7 | `hotspring_sovereign_gpu_deploy` | Full NUCLEUS (coralReef required) | Sovereign GPU WGSL-to-SASS |
+| 5 | `hotspring_nuclear_eos_deploy` | Tower + Node + Nest + skunkBat | SEMF/HFB binding energies |
+| 6 | `hotspring_spectral_deploy` | Tower + barraCuda + skunkBat | Anderson, Hofstadter, Lanczos |
+| 7 | `hotspring_sovereign_gpu_deploy` | Full NUCLEUS + skunkBat | Sovereign GPU WGSL-to-SASS |
 
 Deploy: `biomeos deploy --graph graphs/<name>.toml`
 
