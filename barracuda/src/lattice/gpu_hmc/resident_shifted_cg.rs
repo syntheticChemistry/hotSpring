@@ -388,9 +388,7 @@ pub fn encode_shifted_cg_batch(
     }
 }
 
-/// Maximum batch size for exponential back-off convergence checking.
-/// Limits wasted iterations past actual convergence while keeping GPU busy.
-const CG_BACKOFF_CAP: usize = 2000;
+use crate::tolerances::lattice::CG_BACKOFF_CAP;
 
 /// GPU-resident shifted CG solver: (D†D + σ) x = b with minimal readback.
 ///

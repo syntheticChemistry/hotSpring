@@ -10,7 +10,10 @@ use std::io::{BufRead, BufReader};
 use std::process::{Command, Stdio};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::time::Instant;
+use std::time::{Duration, Instant};
+
+/// Polling interval for background GPU telemetry thread.
+const GPU_POLL_INTERVAL: Duration = Duration::from_millis(200);
 
 /// Point-in-time GPU hardware snapshot.
 #[derive(Debug, Clone, Default)]
@@ -289,7 +292,7 @@ impl GpuTelemetry {
                     }
 
                     poll_state.store_snapshot(&snap);
-                    std::thread::sleep(std::time::Duration::from_millis(200));
+                    std::thread::sleep(GPU_POLL_INTERVAL);
                 }
             })
             .ok();

@@ -27,8 +27,7 @@ use super::{
     gpu_wilson_action, make_link_mom_params, make_prng_params,
 };
 
-/// Maximum batch size for exponential back-off convergence checking.
-const CG_BACKOFF_CAP: usize = 2000;
+use crate::tolerances::lattice::CG_BACKOFF_CAP;
 
 /// GPU-resident CG solver: (D†D)x = b with minimal readback.
 ///

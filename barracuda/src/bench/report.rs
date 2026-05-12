@@ -79,6 +79,20 @@ impl BenchReport {
         Ok(path)
     }
 
+    /// Save report to the discovered benchmark results directory and print the path.
+    ///
+    /// Uses `discovery::benchmark_results_dir()` with fallback to the
+    /// default path. Prints success/failure to stdout.
+    pub fn save_and_print(&self) {
+        let dir = crate::discovery::benchmark_results_dir()
+            .map(|p| p.to_string_lossy().into_owned())
+            .unwrap_or_else(|_| crate::discovery::paths::BENCHMARK_RESULTS.to_string());
+        match self.save_json(&dir) {
+            Ok(path) => println!("  Benchmark report saved: {path}"),
+            Err(e) => println!("  Warning: could not save report: {e}"),
+        }
+    }
+
     /// Print summary table to stdout.
     pub fn print_summary(&self) {
         println!();
@@ -311,7 +325,9 @@ impl BenchReport {
 /// Read peak resident set size (`VmHWM`) in MB.
 #[must_use]
 pub fn peak_rss_mb() -> f64 {
-    let status = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
+    let path =
+        std::env::var("PROC_SELF_STATUS").unwrap_or_else(|_| "/proc/self/status".to_string());
+    let status = std::fs::read_to_string(path).unwrap_or_default();
     for line in status.lines() {
         if line.starts_with("VmHWM:") {
             let parts: Vec<&str> = line.split_whitespace().collect();

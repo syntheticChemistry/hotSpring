@@ -16,7 +16,6 @@ use hotspring_barracuda::bench::{
     BenchReport, HardwareInventory, PhaseResult, PowerMonitor, peak_rss_mb,
 };
 use hotspring_barracuda::data;
-use hotspring_barracuda::discovery;
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::nuclear_eos_helpers::{
     l1_chi2_cpu_nuclei, l1_objective_nmp_nuclei, l2_objective_nmp_exp_data, print_nmp_with_pulls,
@@ -30,7 +29,6 @@ use hotspring_barracuda::tolerances;
 
 use barracuda::sample::latin_hypercube;
 
-use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -783,18 +781,7 @@ fn main() {
     //  SUBSTRATE BENCHMARK REPORT (time + energy + hardware)
     // ═══════════════════════════════════════════════════════════════
     report.print_summary();
-
-    // Save JSON report
-    let report_dir = discovery::benchmark_results_dir()
-        .unwrap_or_else(|_| PathBuf::from(discovery::paths::BENCHMARK_RESULTS));
-    match report.save_json(
-        report_dir
-            .to_str()
-            .unwrap_or(discovery::paths::BENCHMARK_RESULTS),
-    ) {
-        Ok(path) => println!("  Benchmark report saved: {path}"),
-        Err(e) => println!("  Warning: failed to save benchmark report: {e}"),
-    }
+    report.save_and_print();
     println!();
 }
 

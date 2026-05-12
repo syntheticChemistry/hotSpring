@@ -132,8 +132,16 @@ impl HardwareInventory {
     }
 }
 
+fn cpuinfo_path() -> String {
+    std::env::var("PROC_CPUINFO").unwrap_or_else(|_| "/proc/cpuinfo".to_string())
+}
+
+fn meminfo_path() -> String {
+    std::env::var("PROC_MEMINFO").unwrap_or_else(|_| "/proc/meminfo".to_string())
+}
+
 fn read_cpuinfo() -> (String, usize, usize, usize) {
-    let content = std::fs::read_to_string("/proc/cpuinfo").unwrap_or_default();
+    let content = std::fs::read_to_string(cpuinfo_path()).unwrap_or_default();
     let mut model = String::from("unknown");
     let mut core_ids = std::collections::HashSet::new();
     let mut thread_count = 0usize;
@@ -163,7 +171,7 @@ fn read_cpuinfo() -> (String, usize, usize, usize) {
 }
 
 fn read_meminfo() -> usize {
-    let content = std::fs::read_to_string("/proc/meminfo").unwrap_or_default();
+    let content = std::fs::read_to_string(meminfo_path()).unwrap_or_default();
     for line in content.lines() {
         if line.starts_with("MemTotal:") {
             let parts: Vec<&str> = line.split_whitespace().collect();

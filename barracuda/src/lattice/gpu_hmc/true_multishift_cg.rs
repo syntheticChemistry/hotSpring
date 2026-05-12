@@ -32,7 +32,7 @@ const WGSL_MS_P_UPDATE: &str = include_str!("../shaders/ms_p_update_f64.wgsl");
 const WGSL_CG_ALPHA_SHIFTED: &str = include_str!("../shaders/cg_compute_alpha_shifted_f64.wgsl");
 const WGSL_CG_XR_SHIFTED: &str = include_str!("../shaders/cg_update_xr_shifted_f64.wgsl");
 
-const CG_BACKOFF_CAP: usize = 2000;
+use crate::tolerances::lattice::CG_BACKOFF_CAP;
 
 /// Pipelines for true multi-shift CG.
 pub struct TrueMultiShiftPipelines {

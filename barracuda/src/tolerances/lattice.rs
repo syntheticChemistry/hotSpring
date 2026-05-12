@@ -252,6 +252,13 @@ pub const DYNAMICAL_FERMION_ACTION_MIN: f64 = 0.0;
 /// tolerance within 5000 iterations on 4^4 lattices.
 pub const DYNAMICAL_CG_MAX_ITER: usize = 5000;
 
+/// Maximum batch size for exponential back-off convergence checking.
+///
+/// GPU-resident CG solvers check convergence every N iterations (doubling
+/// each time). This cap limits wasted iterations past actual convergence
+/// while keeping the GPU pipeline saturated.
+pub const CG_BACKOFF_CAP: usize = 2000;
+
 /// Dynamical plaquette vs quenched: fermion backreaction changes plaquette.
 ///
 /// At the same β, dynamical fermions shift the plaquette relative to

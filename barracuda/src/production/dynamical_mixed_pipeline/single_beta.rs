@@ -2,6 +2,10 @@
 
 //! Per-β execution for dynamical mixed scan: quenched pre-therm, dynamical HMC, measurement, NPU steering.
 
+/// Titan V warm-config channel timeout: 120 s allows sovereign GPU
+/// to complete a full thermalization pass before the CPU fallback kicks in.
+const TITAN_WARM_RECV_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(120);
+
 use crate::lattice::gpu_hmc::{
     GpuDynHmcState, GpuHmcState, GpuResidentCgBuffers, gpu_dynamical_hmc_trajectory_brain,
     gpu_hmc_trajectory_streaming, gpu_links_to_lattice, unflatten_links_into,
@@ -63,10 +67,7 @@ pub(super) fn run_single_beta(
     let mut titan_warm = false;
     if let Some(handles) = ctx.titan_handles {
         let titan_result = if bi > 0 {
-            handles
-                .titan_rx
-                .recv_timeout(std::time::Duration::from_secs(120))
-                .ok()
+            handles.titan_rx.recv_timeout(TITAN_WARM_RECV_TIMEOUT).ok()
         } else {
             None
         };

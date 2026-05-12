@@ -17,6 +17,13 @@ use crate::ember_types::{
 };
 use crate::error::HotSpringError;
 
+/// Read timeout for device adoption requests (SCM_RIGHTS fd passing).
+#[cfg(all(unix, feature = "low-level"))]
+const EMBER_ADOPT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
+
+/// Read timeout for lightweight ember status probes.
+const EMBER_STATUS_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
+
 fn jsonrpc_ok_result(resp: &serde_json::Value) -> Result<serde_json::Value, HotSpringError> {
     if let Some(err) = resp.get("error") {
         return Err(HotSpringError::Ipc(format!("JSON-RPC error: {err}")));
@@ -453,7 +460,7 @@ fn adopt_device_recv_scm_rights_impl(
     use rustix::net::{RecvAncillaryBuffer, RecvAncillaryMessage, RecvFlags, recvmsg};
 
     let mut stream = UnixStream::connect(socket_path)?;
-    stream.set_read_timeout(Some(std::time::Duration::from_secs(30)))?;
+    stream.set_read_timeout(Some(EMBER_ADOPT_TIMEOUT))?;
 
     let request = serde_json::json!({
         "jsonrpc": "2.0",
@@ -722,11 +729,7 @@ fn send_rpc_with_timeout(
 /// Check if a socket is still accepting `ember.status` RPCs.
 pub fn verify_ember_alive(socket_path: &Path) -> Result<std::time::Duration, HotSpringError> {
     let start = std::time::Instant::now();
-    let resp = send_rpc_with_timeout(
-        socket_path,
-        "ember.status",
-        std::time::Duration::from_secs(5),
-    )?;
+    let resp = send_rpc_with_timeout(socket_path, "ember.status", EMBER_STATUS_TIMEOUT)?;
     let latency = start.elapsed();
     if resp.get("result").is_some() {
         Ok(latency)
@@ -739,12 +742,7 @@ pub fn verify_ember_alive(socket_path: &Path) -> Result<std::time::Duration, Hot
 ///
 /// Returns `None` if the response doesn't include `pid`.
 pub fn extract_ember_pid(socket_path: &Path) -> Option<u32> {
-    let resp = send_rpc_with_timeout(
-        socket_path,
-        "ember.status",
-        std::time::Duration::from_secs(5),
-    )
-    .ok()?;
+    let resp = send_rpc_with_timeout(socket_path, "ember.status", EMBER_STATUS_TIMEOUT).ok()?;
     resp.get("result")
         .and_then(|r| r.get("pid"))
         .and_then(serde_json::Value::as_u64)

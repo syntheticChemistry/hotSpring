@@ -28,7 +28,6 @@
 use hotspring_barracuda::bench::{
     BenchReport, HardwareInventory, PhaseResult, PowerMonitor, peak_rss_mb,
 };
-use hotspring_barracuda::discovery;
 use hotspring_barracuda::md::brain::MD_NUM_HEADS;
 use hotspring_barracuda::md::config::{self, MdConfig};
 use hotspring_barracuda::md::observables;
@@ -89,15 +88,7 @@ async fn main() {
         run_quick_validation(&mut report, &mut harness).await;
     }
 
-    // Save benchmark report (discovery module: HOTSPRING_DATA_ROOT / manifest parent / cwd)
-    let report_dir = match discovery::benchmark_results_dir() {
-        Ok(p) => p.to_string_lossy().into_owned(),
-        Err(_) => discovery::paths::BENCHMARK_RESULTS.to_string(),
-    };
-    match report.save_json(&report_dir) {
-        Ok(path) => println!("  Benchmark report saved: {path}"),
-        Err(e) => println!("  Warning: could not save report: {e}"),
-    }
+    report.save_and_print();
     println!();
     report.print_summary();
     harness.finish();
