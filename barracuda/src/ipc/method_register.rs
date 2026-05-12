@@ -92,16 +92,30 @@ pub const HOTSPRING_METHODS: &[(&str, &str)] = &[
     ("compute.f64", "f64 precision GPU math"),
 ];
 
+/// Resolve the biomeOS socket via capability discovery, then env var,
+/// then conventional socket-dir fallback.
+fn biomeos_socket() -> Option<std::path::PathBuf> {
+    let nucleus = crate::primal_bridge::NucleusContext::detect();
+    if let Some(ep) = nucleus.by_domain("composition") {
+        return Some(ep.socket.clone().into());
+    }
+    if let Ok(p) = std::env::var("BIOMEOS_SOCKET") {
+        let path = std::path::PathBuf::from(p);
+        if path.exists() {
+            return Some(path);
+        }
+    }
+    crate::niche::socket_dirs()
+        .into_iter()
+        .map(|d| d.join("biomeos/biomeos.sock"))
+        .find(|p| p.exists())
+}
+
 /// Register all hotSpring methods with biomeOS via `method.register`.
 ///
 /// Returns the count of successfully registered methods.
 pub fn register_all_methods() -> usize {
-    let socket = crate::niche::socket_dirs()
-        .into_iter()
-        .map(|d| d.join("biomeos/biomeos.sock"))
-        .find(|p| p.exists());
-
-    let Some(socket) = socket else {
+    let Some(socket) = biomeos_socket() else {
         return 0;
     };
 
@@ -126,10 +140,7 @@ pub fn register_all_methods() -> usize {
 
 /// Register a single method with biomeOS.
 pub fn register_method(method: &str, description: &str) -> Option<RegistrationResult> {
-    let socket = crate::niche::socket_dirs()
-        .into_iter()
-        .map(|d| d.join("biomeos/biomeos.sock"))
-        .find(|p| p.exists())?;
+    let socket = biomeos_socket()?;
 
     let params = serde_json::json!({
         "method": method,

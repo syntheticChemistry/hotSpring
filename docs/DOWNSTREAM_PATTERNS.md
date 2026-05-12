@@ -86,6 +86,11 @@ thread indexes, validation graphs.
 | P1 | Create Thread 2 expression doc for foundation | **Done** (`PLASMA_QCD_SOVEREIGN_GPU.md`) |
 | P1 | Create additional NUCLEUS workloads (nuclear EOS, spectral) | Future |
 | P1 | Add foundation Thread 2 workload TOML | **Done** (`workloads/thread02_plasma/hs-sarkas-md.toml`) |
+| P1 | Unblock lithoSpore module 7 with B2 expected JSON | **Ready** (artifacts shipped, litho needs integration) |
+| P1 | Add scenario workloads for new registry entries (screened-coulomb, transport, gradient-flow, dielectric) | Pending |
+| P1 | Upstream LTEE doc alignment (foundation STARTED→COMPLETE, litho QUEUED→COMPLETE) | Needs cross-repo PRs |
 | P2 | Register validation BLAKE3 hashes in NestGate | Future |
 | P2 | Populate `blake3`/`retrieved` in thread02_plasma.toml sources | Future |
 | P2 | Verify `$SPRINGS_ROOT` expansion with live toadStool dispatch | Future |
+| P2 | Foundation Phase 5 workload scan: consolidate `workloads/hotspring/` under `thread02_plasma/` | Pending |
+| P2 | Foundation Phase 6 target schema alignment (`metric` vs `expected_value`) | Pending |

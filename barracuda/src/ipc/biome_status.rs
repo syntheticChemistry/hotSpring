@@ -32,13 +32,27 @@ impl CompositionStatus {
 
 /// Query biomeOS `composition.status` via JSON-RPC.
 ///
+/// Uses capability-based discovery: `by_domain("composition")` finds the
+/// orchestrator (biomeOS) regardless of socket naming. Falls back to
+/// `BIOMEOS_SOCKET` env var, then conventional socket-dir scanning for
+/// CI/lab environments where NUCLEUS discovery is not running.
+///
 /// Returns `None` if biomeOS is unreachable or the method is not available
 /// (pre-v3.51 instances).
 pub fn query_composition_status() -> Option<CompositionStatus> {
-    let socket = crate::niche::socket_dirs()
-        .into_iter()
-        .map(|d| d.join("biomeos/biomeos.sock"))
-        .find(|p| p.exists())?;
+    let nucleus = crate::primal_bridge::NucleusContext::detect();
+
+    let socket: std::path::PathBuf = if let Some(ep) = nucleus.by_domain("composition") {
+        ep.socket.clone().into()
+    } else if let Ok(p) = std::env::var("BIOMEOS_SOCKET") {
+        let path = std::path::PathBuf::from(p);
+        if path.exists() { path } else { return None; }
+    } else {
+        crate::niche::socket_dirs()
+            .into_iter()
+            .map(|d| d.join("biomeos/biomeos.sock"))
+            .find(|p| p.exists())?
+    };
 
     let params = serde_json::json!({});
     let response = send_jsonrpc(&socket, "composition.status", &params).ok()?;

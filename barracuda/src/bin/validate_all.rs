@@ -6,7 +6,7 @@
 //! Follows the hotSpring pattern: explicit pass/fail, exit code 0/1.
 //!
 //! Three-tier validation: Python baselines → Rust validation → NUCLEUS IPC composition.
-//! Suites 1–57 prove Rust/GPU parity with Python. Suites 58–62 prove NUCLEUS primal
+//! Suites 1–57 prove Rust/GPU parity with Python. Suites 58–64 prove NUCLEUS primal
 //! composition produces the same science via IPC (the "primal proof").
 
 use std::process::{self, Command};

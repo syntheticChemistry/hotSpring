@@ -1114,6 +1114,55 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 
 ---
 
+### GAP-HS-090 — Downstream Repo Audit + Scenario Registry Expansion (May 12 2026)
+
+- **Severity:** Medium
+- **Classification:** Evolution → registry expansion + cross-repo alignment
+- **Description:** Cloned and reviewed projectNUCLEUS, foundation, and lithoSpore
+  from sporeGarden. Identified hotSpring-side gaps and downstream staleness.
+- **Completed:**
+  - **Scenario registry expanded** from 7 → 11 (+ barracuda-local gated):
+    `screened-coulomb`, `gradient-flow`, `dielectric-mermin`, `transport-stanton-murillo`
+    added to `build_registry()`. Each scenario validates core physics with published
+    fits/limits. gradient-flow and dielectric-mermin require `barracuda-local` feature
+    (modules are feature-gated).
+  - **biomeOS IPC capability evolution:** `ipc/biome_status.rs` and `ipc/method_register.rs`
+    evolved from hardcoded `biomeos/biomeos.sock` path to `by_domain("composition")`
+    capability discovery, with `BIOMEOS_SOCKET` env var and socket-dir scanning as
+    fallbacks. Last two hardcoded socket paths in library IPC code.
+  - **validate_all.rs** tier range comment corrected (58–62 → 58–64 for NUCLEUS suites).
+  - **Downstream repos cloned** to `ecoPrimals/gardens/`:
+    projectNUCLEUS, foundation, lithoSpore.
+- **Downstream findings (not hotSpring code gaps — cross-repo process gaps):**
+  - lithoSpore `crates/ltee-anderson` module 7 still SKIP-stubbed with
+    `validation/expected/module7_anderson.json` path that does not exist.
+    hotSpring's `control/ltee_b2_anderson/expected_values.json` is the correct
+    artifact; litho needs to either symlink or reference it.
+  - foundation `expressions/LTEE_EVOLUTION.md` still marks hotSpring B2 as "STARTED"
+    (should be "COMPLETE"). lithoSpore `docs/UPSTREAM_GAPS.md` lists B2 as "QUEUED".
+  - foundation `foundation_validate.sh` Phase 5 only scans `workloads/thread*`
+    directories — `workloads/hotspring/` (containing Chuna validation) is orphaned
+    from automated runs. Either consolidate under `thread02_plasma/` or broaden scan.
+  - foundation Phase 6 target comparison expects `metric` field but
+    `thread02_plasma_targets.toml` uses `expected_value` — structural mismatch.
+- **Upstream actions:**
+  - lithoSpore: unblock module 7 with hotSpring B2 artifacts.
+  - foundation: update LTEE narrative docs, fix Phase 5/6 tooling alignment.
+  - projectNUCLEUS: workload TOMLs for new scenarios (screened-coulomb, transport,
+    gradient-flow, dielectric) pending hotSpring scenario stabilization.
+- **Benchmarks:** Python baselines exist for all major physics domains in
+  `control/*/scripts/` (Sarkas, nuclear EOS, lattice QCD, BGK, kinetic-fluid,
+  gradient flow, spectral, TTM, Abelian Higgs, screened Coulomb, transport).
+  Kokkos/LAMMPS parity wired for 9 Yukawa MD cases via `benchmarks/kokkos-lammps/`.
+  No Galaxy/OpenMM/GROMACS benchmarks (not applicable to our physics domains).
+- **Paper queue gaps:** Papers 25–31 (Folding@home, SETI@home, BOINC), 32–42
+  (Tier 4 warm-dense-matter / NIF roadmap), B9 (DFE evolution LTEE) remain queued.
+- **Dataset gaps:** Dense Plasma Properties Database (off-repo download),
+  Zenodo surrogate archive (optional 6GB), full Militzer FPEOS corpus (partial),
+  atoMEC (partial at 7/9), Sulfolobus genomes (wetSpring pipeline queued).
+
+---
+
 ## Handback Protocol
 
 1. Document gap in this file with severity and upstream reference.
