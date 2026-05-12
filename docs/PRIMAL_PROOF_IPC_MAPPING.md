@@ -1,7 +1,7 @@
 # Primal Proof IPC Mapping — hotSpring
 
 **Version**: v0.6.32 → post-interstadial Tier 4  
-**Last updated**: May 10, 2026  
+**Last updated**: May 12, 2026  
 **Purpose**: Maps every `barracuda::` library call used in hotSpring to its JSON-RPC equivalent for IPC-first operation.
 
 ## Overview
@@ -52,9 +52,11 @@ This document maps every `barracuda::` call to the JSON-RPC method that would pr
 |-------------|----------------|------------|----------|
 | `GpuF64::dispatch(&shader, data)` | `device.dispatch` | `compute` | toadStool |
 | `GpuF64::create_pipeline(wgsl)` | `device.compile` | `compute` | toadStool |
-| `glowplug_client::dispatch()` | `device.dispatch` | `shader` | coralReef (glowplug) |
-| `glowplug_client::list_devices()` | `device.list` | `shader` | coralReef (glowplug) |
-| `coral_gpu::SovereignPipeline` | `sovereign.boot` | `shader` | coralReef (sovereign) |
+| `ToadStoolDispatchClient::submit()` | `compute.dispatch.submit` | `compute` | toadStool (absorbs ember Phase A+B) |
+| `ToadStoolDispatchClient::capabilities()` | `compute.dispatch.capabilities` | `compute` | toadStool (absorbs ember Phase A+B) |
+| `glowplug_client::dispatch()` | `device.dispatch` | `shader` | coralReef (glowplug — soft-deprecated, absorbed by toadStool) |
+| `glowplug_client::list_devices()` | `device.list` | `shader` | coralReef (glowplug — soft-deprecated, absorbed by toadStool) |
+| `coral_gpu::SovereignPipeline` | `sovereign.boot` | `shader` | coralReef (sovereign compiler) |
 
 ## Spectral Theory
 

@@ -13,18 +13,15 @@ use primalspring::validation::ValidationResult;
 use crate::ipc::biome_status;
 use crate::ipc::method_register;
 
-/// Required primals in every hotSpring deploy graph.
-const REQUIRED_PRIMALS: &[&str] = &[
-    "beardog",
-    "songbird",
-    "coralreef",
-    "toadstool",
-    "barracuda",
-    "nestgate",
-    "rhizocrypt",
-    "loamspine",
-    "sweetgrass",
-];
+/// Required primals in every hotSpring deploy graph, derived from the
+/// niche dependency table (single source of truth).
+fn required_primals() -> Vec<&'static str> {
+    crate::niche::DEPENDENCIES
+        .iter()
+        .filter(|d| d.required)
+        .map(|d| d.name)
+        .collect()
+}
 
 /// Run all L6 deployment validation checks.
 pub fn validate_deployment(v: &mut ValidationResult) {
@@ -76,8 +73,9 @@ fn validate_deploy_graph_coverage(v: &mut ValidationResult) {
                 },
             );
 
+            let required = required_primals();
             let mut missing: Vec<&str> = Vec::new();
-            for primal in REQUIRED_PRIMALS {
+            for primal in &required {
                 if !contents.contains(primal) {
                     missing.push(primal);
                 }
@@ -86,7 +84,7 @@ fn validate_deploy_graph_coverage(v: &mut ValidationResult) {
                 &format!("l6:graph_{name}:all_primals_present"),
                 missing.is_empty(),
                 &if missing.is_empty() {
-                    "all 9 core primals".into()
+                    format!("all {} required primals", required.len())
                 } else {
                     format!("missing: {}", missing.join(", "))
                 },
@@ -175,11 +173,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn required_primals_has_core_nine() {
-        assert!(REQUIRED_PRIMALS.len() >= 9);
-        assert!(REQUIRED_PRIMALS.contains(&"beardog"));
-        assert!(REQUIRED_PRIMALS.contains(&"barracuda"));
-        assert!(REQUIRED_PRIMALS.contains(&"rhizocrypt"));
+    fn required_primals_derived_from_niche() {
+        let required = required_primals();
+        assert!(
+            !required.is_empty(),
+            "niche dependencies should include at least one required primal"
+        );
+        for name in &required {
+            assert!(
+                crate::niche::DEPENDENCIES.iter().any(|d| d.name == *name && d.required),
+                "{name} should be in DEPENDENCIES with required=true"
+            );
+        }
     }
 
     #[test]

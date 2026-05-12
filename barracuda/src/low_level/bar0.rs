@@ -24,7 +24,19 @@ use std::io;
 
 use rustix::mm::{MapFlags, ProtFlags, mmap, munmap};
 
-const BAR0_MAP_SIZE: usize = 16 * 1024 * 1024;
+/// Default BAR0 mapping size (16 MiB). Overridden by actual resource file
+/// size when available, so this serves as a fallback for platforms where
+/// file metadata isn't reliable for mmap'd resources.
+const BAR0_MAP_SIZE_DEFAULT: usize = 16 * 1024 * 1024;
+
+/// Determine the actual BAR0 resource size from file metadata, falling back
+/// to `BAR0_MAP_SIZE_DEFAULT` when metadata is unavailable.
+fn bar0_map_size(file: &std::fs::File) -> usize {
+    file.metadata()
+        .map(|m| m.len() as usize)
+        .filter(|&sz| sz > 0)
+        .unwrap_or(BAR0_MAP_SIZE_DEFAULT)
+}
 
 // ── Read-only MMIO ────────────────────────────────────────────────────────────
 
@@ -43,19 +55,23 @@ impl Bar0View {
     ///
     /// Returns an error string if `resource0` cannot be opened or mapped.
     pub fn open(bdf: &str) -> Result<Self, String> {
-        let resource_path = format!("/sys/bus/pci/devices/{bdf}/resource0");
+        let sysfs_base = std::env::var("HOTSPRING_SYSFS_PCI")
+            .unwrap_or_else(|_| "/sys/bus/pci/devices".into());
+        let resource_path = format!("{sysfs_base}/{bdf}/resource0");
         let file = std::fs::File::options()
             .read(true)
             .open(&resource_path)
             .map_err(|e| format!("cannot open {resource_path}: {e}"))?;
 
+        let map_size = bar0_map_size(&file);
+
         // SAFETY: `resource0` is a kernel-exported PCI BAR mmap. READ+SHARED
         // mirrors hardware registers without writeback. The kernel guarantees
-        // coverage of at least BAR0_MAP_SIZE bytes.
+        // coverage of at least `map_size` bytes.
         let mm = unsafe {
             mmap(
                 std::ptr::null_mut(),
-                BAR0_MAP_SIZE,
+                map_size,
                 ProtFlags::READ,
                 MapFlags::SHARED,
                 &file,
@@ -66,7 +82,7 @@ impl Bar0View {
 
         Ok(Self {
             base: mm.cast::<u8>(),
-            len: BAR0_MAP_SIZE,
+            len: map_size,
         })
     }
 
@@ -133,12 +149,13 @@ impl Bar0Map {
             .read(true)
             .write(true)
             .open(path)?;
+        let map_size = bar0_map_size(&file);
         // SAFETY: `resource0` is a kernel PCI BAR file. READ|WRITE|SHARED
         // gives direct MMIO access. Caller must ensure no concurrent driver access.
         let ptr = unsafe {
             mmap(
                 std::ptr::null_mut(),
-                BAR0_MAP_SIZE,
+                map_size,
                 ProtFlags::READ | ProtFlags::WRITE,
                 MapFlags::SHARED,
                 &file,
@@ -148,7 +165,7 @@ impl Bar0Map {
         };
         Ok(Self {
             ptr: ptr.cast(),
-            len: BAR0_MAP_SIZE,
+            len: map_size,
         })
     }
 

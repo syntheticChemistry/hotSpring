@@ -107,9 +107,11 @@ Domain-specific NUCLEUS deployment profiles in `graphs/`:
 
 Deploy: `biomeos deploy --graph graphs/<name>.toml`
 
-## Current Status (2026-05-11)
+## Current Status (2026-05-12)
 
-> **190 experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **579 / 1,028 lib tests (IPC-first default / barracuda-local), 155 binaries, 64/64 validation suites, 128 WGSL shaders** | **deny.toml** (ecoBin C-dep bans) | **all 13 physics/compute methods wired in JSON-RPC server** | **zero `dyn` dispatch, `#[forbid(unsafe_code)]` on lib (unsafe confined to low-level GPU experiment bins), `#[expect]` over `#[allow]`** | **guideStone artifact: 59/59 checks x 5 substrates (x86_64 + aarch64)** | **OCI container image + Windows/macOS launchers** | **ALL 3 GPUs SOVEREIGN** — RTX 5060 dispatch PROVEN (8/8), Titan V FECS RUNNING (warm-catch), K80 GDDR5 trained + GPCs active (warm-catch) | **Warm-catch pipeline in pure Rust** (`coralctl warm-catch <BDF>` — ELF patcher + ember orchestrator) | **SLM pool allocation (2 MiB)** | **AMD sovereign compiler: 24/24 QCD shaders** | **NVIDIA sovereign compiler: SM35 + SM70 + SM120** | **Ember gate + survivability hardening COMPLETE** | **SovereignInit Pipeline COMPLETE** | **NUCLEUS Composition Evolution COMPLETE** | **coralReef f64 transcendental lowering (SM32+)** | **Level 6 — CERTIFIED (NUCLEUS Deployment Validation)** | **GPU Generation Profile Architecture** | **unsafe audit: all NECESSARY** | **Diesel Engine Architecture: hierarchical glowplug/ember validated**
+> **190 experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **579 / 1,031 lib tests (IPC-first default / barracuda-local), 155 binaries, 64/64 validation suites, 128 WGSL shaders** | **deny.toml** (ecoBin C-dep bans) | **all 13 physics/compute methods wired in JSON-RPC server** | **zero `dyn` dispatch, `#[forbid(unsafe_code)]` on lib (unsafe confined to low-level GPU experiment bins), `#[expect]` over `#[allow]`** | **guideStone artifact: 59/59 checks x 5 substrates (x86_64 + aarch64)** | **OCI container image + Windows/macOS launchers** | **ALL 3 GPUs SOVEREIGN** — RTX 5060 dispatch PROVEN (8/8), Titan V FECS RUNNING (warm-catch), K80 GDDR5 trained + GPCs active (warm-catch) | **Warm-catch pipeline in pure Rust** (`coralctl warm-catch <BDF>` — ELF patcher + ember orchestrator) | **SLM pool allocation (2 MiB)** | **AMD sovereign compiler: 24/24 QCD shaders** | **NVIDIA sovereign compiler: SM35 + SM70 + SM120** | **Ember gate + survivability hardening COMPLETE** | **SovereignInit Pipeline COMPLETE** | **NUCLEUS Composition Evolution COMPLETE** | **coralReef f64 transcendental lowering (SM32+)** | **Level 6 — CERTIFIED (NUCLEUS Deployment Validation)** | **GPU Generation Profile Architecture** | **unsafe audit: all NECESSARY** | **Diesel Engine Architecture: hierarchical glowplug/ember validated**
+>
+> **Compute Trio Rewire + Deep Debt Capability Evolution (2026-05-12):** Completed GAP-HS-087 (Compute Trio Rewire Sprint) and GAP-HS-088 (Deep Debt Capability Discovery). **Trio Rewire:** Local `PrecisionTier` (4) and `PhysicsDomain` (12) replaced with barraCuda upstream 15-tier/15-variant canonical enums via re-exports. `toadstool-dispatch` feature flag with `ToadStoolDispatchClient` in `fleet_toadstool.rs` — parallel IPC migration path for Phase C ember→toadStool cutover. `HardwareHint` field in `PrecisionRoute` for domain-based hardware routing. `validate_compute_trio_pipeline` binary: Yukawa force + Wilson plaquette through full barraCuda→coralReef→toadStool→hardware chain. Barrier shader validation: 9 WGSL shaders using `workgroupBarrier()` cataloged for coralReef `membar.{cta,gl}` emitter. **Deep Debt:** `detect_sovereign_available()` inverted to NUCLEUS `by_domain("shader")`-first (env vars as fallback). IPC provenance clients (`sweetgrass`, `rhizocrypt`, `loamspine`, `skunkbat`) evolved from hardcoded `biomeos/*.sock` paths to NUCLEUS `by_domain()` capability discovery. `certification/deployment.rs` `REQUIRED_PRIMALS` derived from `niche::DEPENDENCIES` (single source of truth). `compute_dispatch.rs` barrier validation uses `call_by_capability("shader", ...)` instead of direct socket IPC. `toadstool_report.rs` uses `by_domain("compute")` + `call_by_capability` for performance reporting. `low_level/bar0.rs` BAR0 map size discovered from file metadata (not hardcoded 16 MiB), sysfs path overridable via `HOTSPRING_SYSFS_PCI`. `Vec<&String>` → `Vec<&str>` in fleet_client.rs. PCI vendor IDs extracted to named constants. **1,031/1,031 lib tests pass (barracuda-local + toadstool-dispatch). Zero clippy warnings.**
 >
 > **Three-Tier Validation Architecture (2026-04-17):** Python baselines → Rust validation → NUCLEUS primal composition validation. **guideStone bare mode: 30/30 checks pass** (Property 3 BLAKE3 CHECKSUMS verified, deny.toml present, all 5 bare properties green). Only 3 SKIPs remain — expected NUCLEUS liveness probes when no primals deployed. The same tolerance-driven, exit-code-gated methodology that proved Rust matches Python now proves IPC-composed NUCLEUS patterns match direct Rust execution. Composition validators (`validate_nucleus_*`) run standalone (skip-pass for CI, exit 2 = all skipped) or against live primals (full IPC validation). `validate_science_probes()` validates compute, math, and provenance trio capabilities via IPC with Rust baseline parity. Pattern documented for sibling spring adoption in wateringHole handoffs.
 >
@@ -238,7 +240,7 @@ ToadStool **S168** adds `shader.dispatch` completing the orchestration layer for
 The `barracuda/` directory is a standalone Rust crate providing the validation
 environment, physics implementations, and GPU compute. Key architectural properties:
 
-- **579 / 1,028 tests** (lib; **IPC-first default** / **barracuda-local**), **155 binaries**, **64 validation suites** (64/64 pass via `validate_all`; 84 individual `validate_*` binaries + `hotspring_guidestone`), **128 WGSL shaders** (all AGPL-3.0-only),
+- **579 / 1,031 tests** (lib; **IPC-first default** / **barracuda-local**), **155 binaries**, **64 validation suites** (64/64 pass via `validate_all`; 84 individual `validate_*` binaries + `hotspring_guidestone`), **128 WGSL shaders** (all AGPL-3.0-only),
   **16 determinism tests** (rerun-identical for all stochastic algorithms). Includes
   lattice QCD (complex f64, SU(3), Wilson action, HMC, Dirac CG, pseudofermion HMC),
   Abelian Higgs (U(1) + Higgs, HMC), transport coefficients (Green-Kubo D*/η*/λ*,
@@ -312,7 +314,7 @@ environment, physics implementations, and GPU compute. Key architectural propert
 
 ```bash
 cd barracuda
-cargo test               # 579 / 1,028 tests (lib; IPC-first default / barracuda-local), 6 ignored (~120s; spectral tests upstream)
+cargo test               # 579 / 1,031 tests (lib; IPC-first default / barracuda-local), 6 ignored (~120s; spectral tests upstream)
 cargo clippy --all-targets  # Zero warnings (pedantic + nursery via Cargo.toml workspace lints)
 cargo doc --no-deps      # Full API documentation — 0 warnings
 cargo run --release --bin validate_all  # 64/64 suites pass
@@ -440,7 +442,7 @@ hotSpring/
 │   ├── PRIMAL_GAPS.md                # NUCLEUS composition gaps (handback to primalSpring)
 │   └── PRIMAL_PROOF_IPC_MAPPING.md   # Level 6: domain science → primal IPC method mapping
 │
-├── barracuda/                          # BarraCuda Rust crate (579 / 1,028 lib tests, 155 binaries, 128 WGSL shaders)
+├── barracuda/                          # BarraCuda Rust crate (579 / 1,031 lib tests, 155 binaries, 128 WGSL shaders)
 │   ├── Cargo.toml                     # Dependencies (requires ecoPrimals/barraCuda)
 │   ├── CHANGELOG.md                   # Version history
 │   ├── ABSORPTION_MANIFEST.md         # Write → Absorb → Lean tracking
@@ -519,7 +521,7 @@ a network service, you must make your source available under the same terms.
 
 ---
 
-*190 experiments, 579 / 1,028 lib tests (IPC-first default / barracuda-local), 155 binaries, 128 WGSL shaders, ~$0.30 total science cost.
+*190 experiments, 579 / 1,031 lib tests (IPC-first default / barracuda-local), 155 binaries, 128 WGSL shaders, ~$0.30 total science cost.
 Consumer GPUs reproduce HPC physics at paper parity. DF64 delivers 3.24 TFLOPS at
 14-digit precision. GPU RHMC runs all-flavors dynamical QCD (Nf=2+1). Self-tuning
 RHMC eliminates hand-tuned parameters. Chuna 44/44 checks pass. **ALL 3 GPUs

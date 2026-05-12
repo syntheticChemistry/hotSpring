@@ -42,11 +42,14 @@ pub struct BraidResult {
 }
 
 /// Submit an attribution braid entry to sweetGrass.
+///
+/// Discovery: `by_domain("attribution")` → NUCLEUS capability routing.
 pub fn submit_braid(entry: &BraidEntry) -> Option<BraidResult> {
-    let socket = crate::niche::socket_dirs()
-        .into_iter()
-        .map(|d| d.join("biomeos/sweetgrass.sock"))
-        .find(|p| p.exists())?;
+    let ctx = crate::primal_bridge::NucleusContext::detect();
+    let socket = ctx
+        .by_domain("attribution")
+        .filter(|ep| ep.alive)
+        .map(|ep| std::path::PathBuf::from(&ep.socket))?;
 
     let params = serde_json::to_value(entry).ok()?;
     let resp = send_jsonrpc(&socket, "attribution.braid", &params).ok()?;

@@ -22,7 +22,7 @@ use crate::error::HotSpringError;
 const EMBER_ADOPT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
 
 /// Read timeout for lightweight ember status probes.
-const EMBER_STATUS_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
+pub const EMBER_STATUS_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
 
 fn jsonrpc_ok_result(resp: &serde_json::Value) -> Result<serde_json::Value, HotSpringError> {
     if let Some(err) = resp.get("error") {

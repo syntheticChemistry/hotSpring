@@ -5,6 +5,30 @@ All notable changes to the hotSpring BarraCuda validation crate.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased — Compute Trio Rewire + Deep Debt Capability Discovery (May 12, 2026)
+
+### Added
+- **`fleet_toadstool.rs`** (`toadstool-dispatch` feature): `ToadStoolDispatchClient` for IPC with toadStool — parallel migration path for Phase C ember→toadStool cutover
+- **`validate_compute_trio_pipeline` binary**: End-to-end validation of barraCuda→coralReef→toadStool→hardware chain (Yukawa force, Wilson plaquette, barrier shader compilation)
+- **`validate_barrier_shaders()`** (`compute_dispatch.rs`): Catalogues 9 WGSL shaders using `workgroupBarrier()` for coralReef `membar.{cta,gl}` emitter validation
+- **`HardwareHint` field** on `PrecisionRoute` with domain-based defaults (`hardware_hint_for_domain()`)
+- **PCI vendor ID constants** (`register_maps/mod.rs`): `PCI_VENDOR_NVIDIA`, `PCI_VENDOR_AMD`
+- **`bar0_map_size()`** (`low_level/bar0.rs`): Discovers BAR0 mapping size from file metadata instead of hardcoded 16 MiB
+
+### Changed
+- **`PrecisionTier` / `PhysicsDomain`** (`precision_routing.rs`): Now re-exported from upstream barraCuda (15-tier, 15-variant canonical enums); local 4/12-variant definitions removed
+- **`detect_sovereign_available()`** (`precision_brain.rs`): Inverted to NUCLEUS `by_domain("shader")`-first discovery; env vars (`CORALREEF_SOCKET`, `CORALREEF_MANIFEST`) are CI/lab fallbacks; removed XDG_DATA_DIRS filesystem scan
+- **IPC provenance clients** (`sweetgrass.rs`, `rhizocrypt.rs`, `loamspine.rs`): Evolved from `niche::socket_dirs()` + hardcoded `biomeos/*.sock` paths to NUCLEUS `by_domain()` capability discovery
+- **`skunkbat.rs`**: Evolved from hardcoded `skunkbat/skunkbat.sock` path to `by_domain("security")` NUCLEUS discovery
+- **`certification/deployment.rs`**: `REQUIRED_PRIMALS` constant replaced with `required_primals()` derived from `niche::DEPENDENCIES`
+- **`compute_dispatch.rs`**: Barrier shader validation uses `call_by_capability("shader", ...)` instead of direct `send_jsonrpc` on coralReef socket
+- **`toadstool_report.rs`**: `toadstool_socket()` prefers NUCLEUS `by_domain("compute")`; `report_to_toadstool_with_nucleus()` prefers `call_by_capability` over direct IPC
+- **`fleet_client.rs`**: `Vec<&String>` → `Vec<&str>` with `sort_unstable()`
+- **`low_level/bar0.rs`**: Sysfs PCI base path overridable via `HOTSPRING_SYSFS_PCI` env var
+
+### Tests
+- 1,031 lib tests pass (`barracuda-local` + `toadstool-dispatch`); zero clippy warnings
+
 ## Unreleased — Composition Evolution (April 11, 2026; April 17, 2026 work is logged in the repository root `CHANGELOG.md`)
 
 ### Added

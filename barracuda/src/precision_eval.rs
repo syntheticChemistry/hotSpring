@@ -213,10 +213,10 @@ impl<'a> PrecisionEval<'a> {
         tier: PrecisionTier,
     ) -> wgpu::ComputePipeline {
         match tier {
-            PrecisionTier::F32 => self.gpu.create_pipeline(source, label),
             PrecisionTier::F64 => self.gpu.create_pipeline_f64(source, label),
             PrecisionTier::DF64 => self.gpu.compile_full_df64_pipeline(source, label),
             PrecisionTier::F64Precise => self.gpu.create_pipeline_f64_precise(source, label),
+            _ => self.gpu.create_pipeline(source, label),
         }
     }
 }

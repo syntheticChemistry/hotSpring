@@ -96,13 +96,16 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 
 - **Primal:** barraCuda
 - **Severity:** Low
-- **Status:** Deferred (supersedes GAP-HS-007)
+- **Status:** Active — now viable (barraCuda Sprint 56d)
 - **Description:** barraCuda's `TensorSession` fused multi-op pipeline
   API is not yet adopted in hotSpring. GPU HMC trajectory (leapfrog +
-  force + gauge update) is the natural first candidate. Blocked on
-  TensorSession API stabilization for lattice workloads.
-- **Action:** Wire `TensorSession` into `gpu_hmc/mod.rs` when barraCuda
-  API stabilizes.
+  force + gauge update) is the natural first candidate. Sprint 56d
+  stabilized `TensorSession` with batched `run()` submission that
+  eliminates per-step `vkQueueSubmit` overhead — NVK benchmarks showed
+  2ms per submit (20x slower than proprietary). TensorSession batching
+  could recover much of that gap.
+- **Action:** Wire `TensorSession` into `gpu_hmc/mod.rs` for a single
+  HMC trajectory as proof-of-concept.
 
 ### GAP-HS-028: LIME/ILDG Zero-Copy I/O — RESOLVED
 
@@ -147,7 +150,7 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 | GAP-HS-023 | No standalone mode | `HOTSPRING_NO_NUCLEUS=1` skips registration and IPC; physics runs locally without biomeOS | Apr 11, 2026 |
 | GAP-HS-024 | Clippy errors in test/bin targets | All `#[cfg(test)]` modules carry `#[allow(clippy::unwrap_used, clippy::expect_used)]`; `cargo clippy --all-targets` clean | Apr 11, 2026 |
 | GAP-HS-025 | 13+ rustdoc warnings | Fixed unresolved links, HTML tags, bare URLs; `cargo doc --lib --no-deps` clean | Apr 11, 2026 |
-| GAP-HS-007 | TensorSession not adopted | Superseded by GAP-HS-027 (deferred) | Apr 11, 2026 |
+| GAP-HS-007 | TensorSession not adopted | Superseded by GAP-HS-027 (now active — barraCuda Sprint 56d) | Apr 11, 2026 |
 | — | Socket naming mismatch | `hotspring_primal` uses `niche::resolve_server_socket()` for family-scoped names | Apr 11, 2026 |
 | — | biomeOS registration not wired | `register_with_target()` called on server startup after socket bind | Apr 11, 2026 |
 | — | barraCuda pin drift | `Cargo.toml` reconciled to `b95e9c59` matching CHANGELOG v0.6.32 | Apr 11, 2026 |
@@ -246,21 +249,27 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 
 - **Primal:** toadStool
 - **Severity:** Low
-- **Status:** Active — mitigated locally
+- **Status:** Active — mitigated locally, toadStool S241 audited
 - **Description:** toadStool IPC is slow on short timeouts (< 5s). Composition
   script uses >= 10s for real compute dispatch. Background validation via
   `dispatch_background_validation()` uses async polling to avoid blocking.
-- **Action:** Upstream toadStool should document minimum recommended timeout.
+  Confirmed: 10s+ needed for real dispatch workloads. toadStool S241
+  audited discovery timeout and documented device pool acquire semantics.
+  hotSpring's `fleet_toadstool.rs` maps `TOADSTOOL_DISPATCH_TIMEOUT = 30s`
+  for sovereign dispatch (GAP-HS-040 confirmed this is necessary).
+- **Action:** Upstream toadStool should document minimum recommended timeout
+  in public API docs.
 
 ### GAP-HS-041: barraCuda stats.entropy Missing (PG-47)
 
 - **Primal:** barraCuda
 - **Severity:** Low
-- **Status:** Active — mitigated locally
+- **Status:** Active — mitigated locally, monitoring Sprint 56d
 - **Description:** barraCuda may lack `stats.entropy` method. Composition script
   uses `stats.mean` as a proxy for tensor IPC validation and computes entropy
-  locally when needed.
-- **Action:** Monitor barraCuda for `stats.entropy` addition.
+  locally when needed. Sprint 56d focused on `PrecisionTier`, `PhysicsDomain`,
+  `TensorSession`, and sovereign dispatch wire — `stats.entropy` not yet added.
+- **Action:** Monitor barraCuda for `stats.entropy` addition in upcoming sprints.
 
 ### GAP-HS-042: petalTongue plasmidBin Threading (PG-48)
 
@@ -290,27 +299,34 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 
 - **Primal:** coralReef / toadStool
 - **Severity:** Low (pattern works, not yet standardized)
-- **Status:** Implemented in coral-driver, needs ecosystem documentation
+- **Status:** Implemented in coral-driver, Phase C absorption target
 - **Description:** The fork-isolation pattern (`fork_isolated_raw` +
   `MappedBar::isolated_*` safe wrappers) is a reusable primitive for any
   hardware operation that might hang. Currently lives only in coral-driver.
-  Should be documented in `SPRING_COMPOSITION_PATTERNS.md` or
-  `ECOBIN_ARCHITECTURE_STANDARD.md` as a recommended pattern for hardware
-  fault containment.
-- **Action:** PR to primalSpring documenting fork-isolation as ecosystem pattern.
+  toadStool's `PHASE_C_CORAL_DRIVER_SPLIT_PLAN.md` lists `isolation.rs`
+  under VFIO absorption targets — this pattern should move with the
+  hardware code into toadStool.
+- **Action:** Confirm hotSpring's fork-isolation version matches or
+  supersedes coral-driver's version for the Phase C handshake. Document
+  in primalSpring as ecosystem pattern.
 
-### GAP-HS-030a: Ember Absorption into toadStool
+### GAP-HS-030a: Ember Absorption into toadStool — RESOLVED
 
 - **Primal:** toadStool / coralReef
 - **Severity:** Medium (architectural)
-- **Status:** Deferred until sovereign pipeline fully validated on all GPUs
+- **Status:** **RESOLVED** (toadStool Phase A+B, May 2026)
 - **Description:** Per NUCLEUS design, ember (per-GPU MMIO daemon) should be
   absorbed into toadStool after the sovereign GPU solve. The sovereign_init
   pipeline, fork isolation, and MMIO gateway modules are the primary
-  absorption targets. The `handlers_mmio.rs` RPC surface becomes part of
-  toadStool's hardware orchestration layer.
-- **Action:** Track in toadStool's roadmap. Coordinate with coralReef team on
-  module boundaries.
+  absorption targets.
+- **Resolution:** toadStool Phase A absorbed ember into `VfioResourceHandle`
+  (`crates/core/ember/src/vfio_handle.rs`). Phase B absorbed glowplug into
+  `SwapOrchestrator<SysfsSwapExecutor>` (`crates/core/glowplug/src/swap.rs`).
+  Both `coral-ember` and `coral-glowplug` are `#[deprecated(since = "0.2.0")]`
+  pointing to toadStool. hotSpring's `fleet_ember.rs` now has a parallel
+  `toadstool-dispatch` feature flag for migration to `ToadStoolDispatchClient`.
+  Phase C (cylinder/coral-driver absorption) is planned and documented in
+  `PHASE_C_CORAL_DRIVER_SPLIT_PLAN.md`.
 
 ### GAP-HS-030b: K80 VFIO Legacy Group EBUSY — RESOLVED
 
@@ -991,6 +1007,80 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
   via `PROC_CPUINFO`, `PROC_MEMINFO`, `PROC_SELF_STATUS` env vars.
   `BenchReport::save_and_print()` eliminates duplicated discovery+save pattern.
   579 tests (default) / 1,028 (barracuda-local) — zero clippy warnings.
+
+### GAP-HS-087: Compute Trio Rewire Sprint
+
+- **Primal:** toadStool / barraCuda / coralReef (cross-primal)
+- **Severity:** Medium (architectural alignment)
+- **Status:** Active — sprint in progress (May 12, 2026)
+- **Description:** hotSpring's interfaces with the compute trio
+  (toadStool, barraCuda, coralReef) need rewiring after the trio's
+  May 2026 evolution: Phase A+B ember/glowplug absorption, barraCuda
+  Sprint 56d PrecisionTier/PhysicsDomain formalization, coralReef
+  Iter 100 PTX atomics/barriers, and Phase C coral-driver split plan.
+- **Completed:**
+  - Local `PrecisionTier` (4 variants) and `PhysicsDomain` (12 variants)
+    replaced with re-exports from `barracuda::device::precision_tier`
+    (15-tier and 15-variant upstream enums). All 10 consumer files compile
+    clean with upstream types.
+  - `FmaPolicy` and `domain_requires_separate_fma` re-exported from
+    `barracuda::device::fma_policy`.
+  - `toadstool-dispatch` feature flag added with `ToadStoolDispatchClient`
+    in `fleet_toadstool.rs` — parallel IPC path alongside direct ember
+    sockets, preparing for Phase C cutover.
+  - `HardwareHint` field added to `PrecisionRoute` with domain-based
+    default routing (`hardware_hint_for_domain()`). Inference/Training
+    route to `TensorCore`; all physics domains route to `Compute`.
+  - `validate_compute_trio_pipeline` binary created: Yukawa force +
+    Wilson plaquette through full barraCuda→coralReef→toadStool→hardware
+    chain with CPU reference parity checks.
+  - Barrier shader compilation validation: 9 WGSL shaders using
+    `workgroupBarrier()` cataloged with `validate_barrier_shaders()`
+    for coralReef's `membar.{cta,gl}` emitter validation.
+- **Remaining:**
+  - Wire `TensorSession` into `gpu_hmc/mod.rs` (GAP-HS-027).
+  - Cut over default dispatch path from ember to toadStool after Phase C.
+  - Cross-generation validation: run `validate_compute_trio_pipeline`
+    on K80 (SM35), Titan V (SM70), RTX 5060 (SM120), RTX 4070 (Ada),
+    MI50 (GFX906) once trio daemons are available on all hardware.
+
+### GAP-HS-088: Deep Debt Rewire — Capability Discovery & Code Health
+
+- **Primal:** hotSpring (self)
+- **Severity:** Low (code health / architectural alignment)
+- **Status:** **RESOLVED** (May 12, 2026)
+- **Description:** Systematic evolution of hardcoded primal knowledge,
+  non-idiomatic Rust patterns, and unsafe code to modern capability-based
+  discovery and safe abstractions.
+- **Completed:**
+  - `detect_sovereign_available()` in `precision_brain.rs`: Inverted
+    discovery order — NUCLEUS `by_domain("shader")` is now primary, env
+    vars (`CORALREEF_SOCKET`, `CORALREEF_MANIFEST`) are CI/lab fallbacks.
+    Removed XDG_DATA_DIRS coralReef manifest filesystem scan.
+  - IPC provenance clients (`sweetgrass.rs`, `rhizocrypt.rs`,
+    `loamspine.rs`): Replaced `niche::socket_dirs()` + hardcoded
+    `biomeos/*.sock` path construction with `by_domain("attribution")`
+    / `by_domain("dag")` / `by_domain("ledger")` NUCLEUS discovery.
+  - `skunkbat.rs`: Replaced hardcoded `skunkbat/skunkbat.sock` path
+    construction with `by_domain("security")` NUCLEUS discovery.
+  - `certification/deployment.rs`: Replaced `REQUIRED_PRIMALS` hardcoded
+    9-entry name list with `required_primals()` derived from
+    `niche::DEPENDENCIES` (single source of truth for required primals).
+  - `compute_dispatch.rs`: Evolved barrier shader validation from direct
+    `send_jsonrpc` on coralReef socket to `call_by_capability("shader",
+    "shader.compile.wgsl", ...)` NUCLEUS routing.
+  - `toadstool_report.rs`: Added NUCLEUS `by_domain("compute")` as
+    primary discovery for `toadstool_socket()`. Evolved
+    `report_to_toadstool_with_nucleus()` to prefer `call_by_capability`
+    over direct socket IPC.
+  - `fleet_client.rs`: Fixed `Vec<&String>` → `Vec<&str>` with
+    `sort_unstable()`.
+  - `low_level/bar0.rs`: BAR0 map size now discovered from file metadata
+    (`bar0_map_size()`) instead of hardcoded 16 MiB. Sysfs PCI base path
+    overridable via `HOTSPRING_SYSFS_PCI` env var.
+  - `register_maps/mod.rs`: Extracted PCI vendor IDs to named constants
+    (`PCI_VENDOR_NVIDIA`, `PCI_VENDOR_AMD`).
+- **Validation:** 1,031 library tests pass, zero clippy warnings.
 
 ---
 

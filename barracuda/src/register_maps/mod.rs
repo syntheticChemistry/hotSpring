@@ -98,14 +98,19 @@ impl GpuRegisterMap {
     }
 }
 
+/// PCI vendor ID: NVIDIA Corporation (PCI-SIG assigned).
+pub const PCI_VENDOR_NVIDIA: u16 = 0x10de;
+/// PCI vendor ID: Advanced Micro Devices (PCI-SIG assigned).
+pub const PCI_VENDOR_AMD: u16 = 0x1002;
+
 /// Detect the appropriate register map from PCI vendor ID.
 ///
-/// Returns NVIDIA GV100 for `0x10de`, AMD GFX906 for `0x1002`.
-/// Returns `None` for unknown vendors.
+/// Uses PCI-SIG assigned vendor IDs to select the register layout.
+/// Returns `None` for vendors without a mapped architecture.
 pub fn detect_register_map(vendor_id: u16) -> Option<GpuRegisterMap> {
     match vendor_id {
-        0x10de => Some(GpuRegisterMap::NvGv100(NvGv100Map)),
-        0x1002 => Some(GpuRegisterMap::AmdGfx906(AmdGfx906Map)),
+        PCI_VENDOR_NVIDIA => Some(GpuRegisterMap::NvGv100(NvGv100Map)),
+        PCI_VENDOR_AMD => Some(GpuRegisterMap::AmdGfx906(AmdGfx906Map)),
         _ => None,
     }
 }

@@ -131,7 +131,7 @@ by_capability = "attribution"
 [[graph.nodes]]
 name = "skunkbat"
 binary = "skunkbat"
-order = 9
+order = 10
 required = false
 spawn = false
 depends_on = ["beardog", "nestgate"]

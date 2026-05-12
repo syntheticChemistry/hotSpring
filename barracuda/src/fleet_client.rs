@@ -204,8 +204,8 @@ impl FleetDeviceRoute {
 fn expand_devices(file: &FleetFile) -> Vec<FleetDeviceRoute> {
     let mut out = Vec::new();
     if file.devices.is_empty() {
-        let mut bdfs: Vec<&String> = file.routes.keys().collect();
-        bdfs.sort();
+        let mut bdfs: Vec<&str> = file.routes.keys().map(String::as_str).collect();
+        bdfs.sort_unstable();
         for bdf in bdfs {
             if let Some(sock) = file.routes.get(bdf) {
                 out.push(FleetDeviceRoute::from_routes_only(bdf, sock));

@@ -33,11 +33,14 @@ pub struct LedgerRecordResult {
 }
 
 /// Record a provenance entry in loamSpine.
+///
+/// Discovery: `by_domain("ledger")` → NUCLEUS capability routing.
 pub fn record_entry(entry: &LedgerEntry) -> Option<LedgerRecordResult> {
-    let socket = crate::niche::socket_dirs()
-        .into_iter()
-        .map(|d| d.join("biomeos/loamspine.sock"))
-        .find(|p| p.exists())?;
+    let ctx = crate::primal_bridge::NucleusContext::detect();
+    let socket = ctx
+        .by_domain("ledger")
+        .filter(|ep| ep.alive)
+        .map(|ep| std::path::PathBuf::from(&ep.socket))?;
 
     let params = serde_json::to_value(entry).ok()?;
     let resp = send_jsonrpc(&socket, "ledger.record", &params).ok()?;

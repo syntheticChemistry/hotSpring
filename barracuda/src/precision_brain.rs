@@ -35,6 +35,7 @@
 //! `WgpuDevice`), includes sovereign detection, and does actual GPU dispatch
 //! probes rather than profile synthesis.
 
+use barracuda::device::backend::HardwareHint;
 use crate::gpu::GpuF64;
 use crate::hardware_calibration::HardwareCalibration;
 pub use crate::precision_routing::HwPrecisionAdvice;
@@ -42,49 +43,37 @@ use crate::precision_routing::{PhysicsDomain, PrecisionRoutingAdvice, PrecisionT
 use crate::primal_bridge::NucleusContext;
 use std::sync::Arc;
 
-/// Detect whether coralReef sovereign compilation is available.
+/// Detect whether sovereign shader compilation is available.
 ///
-/// Checks for the coralReef XDG manifest, `CORALREEF_SOCKET`, then
-/// [`NucleusContext::detect`] (scans `$XDG_RUNTIME_DIR/biomeos/*.sock` and
-/// treats `coralreef` / `coral-glowplug` sockets with a passing `health.liveness` as available).
-/// When available, the sovereign path can bypass NVVM for shader
-/// compilation (coralReef Iteration 30 validated 45/46 shaders, 12/12
-/// NVVM bypass patterns, plus FMA contraction enforcement via
-/// `FmaPolicy::Separate`).
-///
-/// toadStool S145 added `compile_wgsl_multi` for multi-device sovereign
-/// compilation, `gpu_guards` for safe NVIDIA proprietary test skipping,
-/// `NvkZeroGuard` for zero-output detection on NVK Volta, and
-/// `ProviderRegistry` for spring-as-provider socket resolution.
-/// When toadStool's runtime is integrated, sovereign detection should
-/// delegate to toadStool's `NvvmPoisoningRisk` assessment.
+/// Uses capability-based discovery: `by_domain("shader")` finds any alive
+/// primal that advertises shader compilation (currently coralReef, but
+/// agnostic to implementation). Falls back to explicit env vars
+/// `CORALREEF_SOCKET` or `CORALREEF_MANIFEST` for CI/lab environments
+/// where NUCLEUS discovery is not running.
 fn detect_sovereign_available() -> bool {
-    if let Ok(p) = std::env::var("CORALREEF_MANIFEST")
-        && std::path::Path::new(&p).exists()
-    {
+    let nucleus = NucleusContext::detect();
+    if nucleus.by_domain("shader").is_some_and(|e| e.alive) {
         return true;
-    }
-    let xdg_dirs = std::env::var("XDG_DATA_DIRS")
-        .unwrap_or_else(|_| "/usr/local/share:/usr/share".to_string());
-    for dir in xdg_dirs.split(':') {
-        let manifest = std::path::Path::new(dir).join("biomeos/coralreef/manifest.json");
-        if manifest.exists() {
-            return true;
-        }
     }
     if let Ok(p) = std::env::var("CORALREEF_SOCKET")
         && std::path::Path::new(&p).exists()
     {
         return true;
     }
-    let nucleus = NucleusContext::detect();
-    nucleus.by_domain("shader").is_some_and(|e| e.alive)
+    if let Ok(p) = std::env::var("CORALREEF_MANIFEST")
+        && std::path::Path::new(&p).exists()
+    {
+        return true;
+    }
+    false
 }
 
 /// Backend-agnostic precision route descriptor.
 ///
 /// Returned by [`PrecisionBrain::route_descriptor`] — carries everything
 /// needed to dispatch a shader on any `GpuBackend`, without binding to wgpu.
+/// The `hardware_hint` tells toadStool which hardware unit to route to
+/// (compute cores, tensor cores, RT cores, etc.).
 #[derive(Debug, Clone)]
 pub struct PrecisionRoute {
     /// Selected precision tier.
@@ -97,6 +86,8 @@ pub struct PrecisionRoute {
     pub df64_shader: bool,
     /// Entry point name.
     pub entry_point: Arc<str>,
+    /// Hardware unit hint for toadStool dispatch routing.
+    pub hardware_hint: HardwareHint,
 }
 
 /// Self-routing precision brain for a single GPU.
@@ -106,14 +97,14 @@ pub struct PrecisionRoute {
 pub struct PrecisionBrain {
     /// The calibration data from probing.
     pub calibration: HardwareCalibration,
-    /// Pre-computed routing table: domain → tier (12 domains).
-    route_table: [PrecisionTier; 12],
+    /// Pre-computed routing table: domain → tier (15 domains, matches upstream PhysicsDomain).
+    route_table: [PrecisionTier; DOMAIN_COUNT],
 }
 
 impl PrecisionBrain {
     fn finish<F>(mut calibration: HardwareCalibration, adapter: &str, build_route_table: F) -> Self
     where
-        F: FnOnce(&HardwareCalibration) -> [PrecisionTier; 12],
+        F: FnOnce(&HardwareCalibration) -> [PrecisionTier; DOMAIN_COUNT],
     {
         debug_assert_eq!(
             adapter,
@@ -211,10 +202,10 @@ impl PrecisionBrain {
     ) -> wgpu::ComputePipeline {
         let tier = self.route(domain);
         match tier {
-            PrecisionTier::F32 => gpu.create_pipeline(shader_source, label),
             PrecisionTier::F64 => gpu.create_pipeline_f64(shader_source, label),
             PrecisionTier::DF64 => gpu.compile_full_df64_pipeline(shader_source, label),
             PrecisionTier::F64Precise => gpu.create_pipeline_f64_precise(shader_source, label),
+            _ => gpu.create_pipeline(shader_source, label),
         }
     }
 
@@ -225,11 +216,22 @@ impl PrecisionBrain {
     /// enables sovereign dispatch through coralReef, wgpu, or any future backend.
     #[must_use]
     pub fn route_descriptor(&self, domain: PhysicsDomain, shader_source: &str) -> PrecisionRoute {
+        self.route_descriptor_with_hint(domain, shader_source, hardware_hint_for_domain(domain))
+    }
+
+    /// Like [`route_descriptor`](Self::route_descriptor) but with an explicit
+    /// hardware hint override (e.g. `TensorCore` for eigensolve on SM70+).
+    pub fn route_descriptor_with_hint(
+        &self,
+        domain: PhysicsDomain,
+        shader_source: &str,
+        hardware_hint: HardwareHint,
+    ) -> PrecisionRoute {
         let tier = self.route(domain);
         let (f64_shader, df64_shader) = match tier {
-            PrecisionTier::F32 => (false, false),
             PrecisionTier::F64 | PrecisionTier::F64Precise => (true, false),
             PrecisionTier::DF64 => (false, true),
+            _ => (false, false),
         };
         PrecisionRoute {
             tier,
@@ -237,6 +239,7 @@ impl PrecisionBrain {
             f64_shader,
             df64_shader,
             entry_point: Arc::from("main"),
+            hardware_hint,
         }
     }
 
@@ -265,7 +268,9 @@ impl std::fmt::Display for PrecisionBrain {
 
 // ── Routing table construction ──────────────────────────────────────
 
-const ALL_DOMAINS: [PhysicsDomain; 12] = [
+const DOMAIN_COUNT: usize = 15;
+
+const ALL_DOMAINS: [PhysicsDomain; DOMAIN_COUNT] = [
     PhysicsDomain::LatticeQcd,
     PhysicsDomain::GradientFlow,
     PhysicsDomain::Dielectric,
@@ -278,6 +283,9 @@ const ALL_DOMAINS: [PhysicsDomain; 12] = [
     PhysicsDomain::Hydrology,
     PhysicsDomain::Statistics,
     PhysicsDomain::General,
+    PhysicsDomain::Inference,
+    PhysicsDomain::Training,
+    PhysicsDomain::Hashing,
 ];
 
 const fn domain_index(domain: PhysicsDomain) -> usize {
@@ -294,10 +302,13 @@ const fn domain_index(domain: PhysicsDomain) -> usize {
         PhysicsDomain::Hydrology => 9,
         PhysicsDomain::Statistics => 10,
         PhysicsDomain::General => 11,
+        PhysicsDomain::Inference => 12,
+        PhysicsDomain::Training => 13,
+        PhysicsDomain::Hashing => 14,
     }
 }
 
-fn build_route_table(cal: &HardwareCalibration, gpu: &GpuF64) -> [PrecisionTier; 12] {
+fn build_route_table(cal: &HardwareCalibration, gpu: &GpuF64) -> [PrecisionTier; DOMAIN_COUNT] {
     let hw_advice = gpu.capabilities().precision_routing();
     let hw_native = matches!(
         hw_advice,
@@ -350,7 +361,10 @@ fn route_domain(
         | PhysicsDomain::MolecularDynamics
         | PhysicsDomain::Bioinformatics
         | PhysicsDomain::Statistics
-        | PhysicsDomain::General => {
+        | PhysicsDomain::General
+        | PhysicsDomain::Inference
+        | PhysicsDomain::Training
+        | PhysicsDomain::Hashing => {
             if safe(PrecisionTier::F64) {
                 if safe(PrecisionTier::DF64) && is_f64_throttled(cal) {
                     PrecisionTier::DF64
@@ -382,6 +396,20 @@ fn is_f64_throttled(cal: &HardwareCalibration) -> bool {
     f64_us / f32_us > 8.0
 }
 
+/// Map a physics domain to its default hardware hint for toadStool dispatch.
+///
+/// Most physics workloads are ALU/FP-bound and route to `Compute`. Domains
+/// that benefit from matrix-multiply acceleration (e.g. ESN reservoir, ML
+/// inference/training) route to `TensorCore`. Callers can override via
+/// [`PrecisionBrain::route_descriptor_with_hint`].
+#[must_use]
+pub fn hardware_hint_for_domain(domain: PhysicsDomain) -> HardwareHint {
+    match domain {
+        PhysicsDomain::Inference | PhysicsDomain::Training => HardwareHint::TensorCore,
+        _ => HardwareHint::Compute,
+    }
+}
+
 fn domain_requirements(domain: PhysicsDomain, tier: PrecisionTier) -> (bool, &'static str) {
     match domain {
         PhysicsDomain::Dielectric | PhysicsDomain::Eigensolve => match tier {
@@ -397,7 +425,7 @@ fn domain_requirements(domain: PhysicsDomain, tier: PrecisionTier) -> (bool, &'s
                 false,
                 "DF64 emulation: ~14 digits, sufficient for most physics",
             ),
-            PrecisionTier::F32 => (
+            _ => (
                 true,
                 "F32 fallback: reduced precision, validation recommended",
             ),
@@ -413,14 +441,17 @@ fn domain_requirements(domain: PhysicsDomain, tier: PrecisionTier) -> (bool, &'s
                 true,
                 "DF64 provides sufficient precision for moderate domains",
             ),
-            PrecisionTier::F32 => (true, "F32 fallback: validate energy conservation"),
+            _ => (true, "F32 fallback: validate energy conservation"),
         },
         PhysicsDomain::LatticeQcd
         | PhysicsDomain::KineticFluid
         | PhysicsDomain::MolecularDynamics
         | PhysicsDomain::Bioinformatics
         | PhysicsDomain::Statistics
-        | PhysicsDomain::General => match tier {
+        | PhysicsDomain::General
+        | PhysicsDomain::Inference
+        | PhysicsDomain::Training
+        | PhysicsDomain::Hashing => match tier {
             PrecisionTier::F64 | PrecisionTier::F64Precise => {
                 (true, "Native f64 for compute-bound domains")
             }
@@ -428,7 +459,7 @@ fn domain_requirements(domain: PhysicsDomain, tier: PrecisionTier) -> (bool, &'s
                 true,
                 "DF64 throughput mode: f32 cores for max dispatch rate",
             ),
-            PrecisionTier::F32 => (true, "F32 screening/preview mode"),
+            _ => (true, "F32 screening/preview mode"),
         },
     }
 }

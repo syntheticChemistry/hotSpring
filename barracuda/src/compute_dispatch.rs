@@ -264,6 +264,98 @@ pub fn validate_dispatch(
     result
 }
 
+/// WGSL shaders that use `workgroupBarrier()` and require coralReef's
+/// `membar.{cta,gl}` emitter for PTX compilation. These must compile on
+/// SM35 (K80), SM70 (Titan V), and SM120 (RTX 5060) for generation parity.
+pub const BARRIER_SHADERS: &[&str] = &[
+    "src/bin/shaders/silicon_capabilities/probe_f32_workgroup_reduce.wgsl",
+    "src/bin/shaders/silicon_capabilities/probe_df64_workgroup_reduce_f32_body.wgsl",
+    "src/bin/shaders/silicon_capabilities/probe_df64_workgroup_reduce_f64_body.wgsl",
+    "src/bin/shaders/qcd_silicon_routing/reduce_shared.wgsl",
+    "src/lattice/shaders/sum_reduce_subgroup_f64.wgsl",
+    "src/lattice/shaders/sum_reduce_f64.wgsl",
+    "src/physics/shaders/deformed_potentials_f64.wgsl",
+    "src/physics/shaders/deformed_hamiltonian_f64.wgsl",
+    "src/physics/shaders/deformed_wavefunction_f64.wgsl",
+];
+
+/// Result of barrier shader compilation validation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BarrierShaderValidation {
+    pub shader_path: String,
+    pub compiled: bool,
+    pub error: Option<String>,
+}
+
+/// Validate that barrier/shared-memory WGSL shaders compile through
+/// coralReef's `shader.compile.wgsl` IPC.
+///
+/// Returns a per-shader compilation result. When coralReef is not
+/// available, all entries report `compiled: false` with an appropriate error.
+pub fn validate_barrier_shaders(
+    nucleus: &NucleusContext,
+) -> Vec<BarrierShaderValidation> {
+    let shader_alive = nucleus
+        .by_domain("shader")
+        .is_some_and(|ep| ep.alive);
+
+    if !shader_alive {
+        return BARRIER_SHADERS
+            .iter()
+            .map(|&path| BarrierShaderValidation {
+                shader_path: path.to_string(),
+                compiled: false,
+                error: Some("shader compilation primal not available".into()),
+            })
+            .collect();
+    }
+
+    BARRIER_SHADERS
+        .iter()
+        .map(|&rel_path| {
+            let shader_source = match std::fs::read_to_string(rel_path) {
+                Ok(src) => src,
+                Err(e) => {
+                    return BarrierShaderValidation {
+                        shader_path: rel_path.to_string(),
+                        compiled: false,
+                        error: Some(format!("read failed: {e}")),
+                    };
+                }
+            };
+
+            let params = serde_json::json!({
+                "source": shader_source,
+                "source_type": "wgsl",
+            });
+
+            match nucleus.call_by_capability(
+                "shader",
+                "shader.compile.wgsl",
+                params,
+            ) {
+                Ok(resp) => {
+                    let has_error = resp.get("error").is_some();
+                    BarrierShaderValidation {
+                        shader_path: rel_path.to_string(),
+                        compiled: !has_error,
+                        error: if has_error {
+                            Some(resp["error"].to_string())
+                        } else {
+                            None
+                        },
+                    }
+                }
+                Err(e) => BarrierShaderValidation {
+                    shader_path: rel_path.to_string(),
+                    compiled: false,
+                    error: Some(format!("IPC failed: {e}")),
+                },
+            }
+        })
+        .collect()
+}
+
 #[cfg(test)]
 #[expect(
     clippy::expect_used,

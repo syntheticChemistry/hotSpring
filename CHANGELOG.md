@@ -7,7 +7,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
-## Unreleased — Deep Debt Consolidation Sprint (May 12, 2026)
+## Unreleased — Compute Trio Rewire + Deep Debt Capability Evolution (May 12, 2026)
+
+### Added
+- **Compute Trio Rewire Sprint (GAP-HS-087):** `PrecisionTier`/`PhysicsDomain`
+  re-exported from upstream barraCuda (15-tier/15-variant canonical enums).
+  `toadstool-dispatch` feature flag with `ToadStoolDispatchClient` for Phase C
+  ember→toadStool cutover. `HardwareHint` in `PrecisionRoute`. `validate_compute_trio_pipeline`
+  binary (Yukawa force + Wilson plaquette end-to-end). Barrier shader validation
+  for coralReef `membar.{cta,gl}` emitter.
+- **Deep Debt Capability Discovery (GAP-HS-088):** IPC provenance clients
+  evolved to NUCLEUS `by_domain()` discovery. `detect_sovereign_available()`
+  inverted to capability-first. Barrier validation uses `call_by_capability`.
+  `toadstool_report.rs` uses `by_domain("compute")`. Deploy graph order dedup.
 
 ### Changed
 - **CG_BACKOFF_CAP** (2000) consolidated from 3 local consts in
@@ -24,9 +36,15 @@ This file covers the spring as a whole. For crate-level details see
   `discovery::benchmark_results_dir()` + `save_json()` + println pattern.
   `nuclear_eos_gpu.rs` and `sarkas_gpu.rs` simplified (unused `discovery`
   and `PathBuf` imports removed).
+- **Deploy graphs:** Fixed duplicate `order = 9` (sweetgrass/skunkbat) in md,
+  plasma, nuclear_eos, qcd graphs — skunkbat now `order = 10`.
+- **`low_level/bar0.rs`**: BAR0 map size discovered from file metadata; sysfs
+  path overridable via `HOTSPRING_SYSFS_PCI`.
+- **`fleet_client.rs`**: `Vec<&String>` → `Vec<&str>` with `sort_unstable()`.
+- **PCI vendor IDs** extracted to named constants in `register_maps/mod.rs`.
 
 ### Metrics
-- **579** lib tests (default) / **1,028** (barracuda-local) — zero clippy warnings
+- **579** lib tests (default) / **1,031** (barracuda-local + toadstool-dispatch) — zero clippy warnings
 - **190** experiments | **155** binaries | **64/64** validation suites
 
 ## Unreleased — LTEE B2 Complete + Exp 190 Reconciliation (May 11, 2026)

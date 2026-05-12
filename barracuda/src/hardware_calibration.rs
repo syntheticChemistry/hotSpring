@@ -447,10 +447,10 @@ fn compile_at_tier(
     tier: PrecisionTier,
 ) -> wgpu::ComputePipeline {
     match tier {
-        PrecisionTier::F32 => gpu.create_pipeline(source, label),
         PrecisionTier::F64 => gpu.create_pipeline_f64(source, label),
         PrecisionTier::DF64 => gpu.compile_full_df64_pipeline(source, label),
         PrecisionTier::F64Precise => gpu.create_pipeline_f64_precise(source, label),
+        _ => gpu.create_pipeline(source, label),
     }
 }
 
@@ -463,9 +463,9 @@ fn probe_tier_backend<B: GpuBackend>(
     caps: &barracuda::device::backend::BackendCapabilities,
 ) -> TierCapability {
     let (f64_shader, df64_shader) = match tier {
-        PrecisionTier::F32 => (false, false),
         PrecisionTier::F64 | PrecisionTier::F64Precise => (true, false),
         PrecisionTier::DF64 => (false, true),
+        _ => (false, false),
     };
 
     let label = format!("probe_{tier:?}_arith");

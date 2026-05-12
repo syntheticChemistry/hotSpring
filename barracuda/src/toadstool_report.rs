@@ -52,12 +52,19 @@ pub fn epoch_now() -> u64 {
         .map_or(0, |d| d.as_secs())
 }
 
-/// Resolve toadStool's JSON-RPC Unix socket path (wateringHole IPC v3.1).
+/// Resolve toadStool's JSON-RPC Unix socket path.
 ///
-/// Uses the same socket directory resolution as other primals via `niche::socket_dirs()`.
+/// Discovery order:
+/// 1. `TOADSTOOL_SOCKET` env override (CI/lab)
+/// 2. NUCLEUS `by_domain("compute")` capability discovery
+/// 3. `niche::socket_dirs()` filesystem scan (legacy fallback)
 fn toadstool_socket() -> String {
     if let Ok(p) = std::env::var("TOADSTOOL_SOCKET") {
         return p;
+    }
+    let nucleus = crate::primal_bridge::NucleusContext::detect();
+    if let Some(ep) = nucleus.by_domain("compute").filter(|ep| ep.alive) {
+        return ep.socket.clone();
     }
     let family = crate::niche::family_id();
     let sock_name = format!("toadstool-{family}.sock");
@@ -227,20 +234,28 @@ fn resolve_compute_report_socket(nucleus: Option<&NucleusContext>) -> String {
 
 /// Report a batch of performance measurements to the compute primal.
 ///
-/// Connects over JSON-RPC and sends each measurement via
-/// `compute.performance_surface.report`. With `nucleus`, the socket comes from
-/// capability discovery; otherwise the bootstrap path in `toadstool_socket` is used.
+/// Prefers `call_by_capability("compute", ...)` when NUCLEUS context is
+/// available; falls back to direct socket IPC via `toadstool_socket()`.
 pub fn report_to_toadstool_with_nucleus(
     nucleus: Option<&NucleusContext>,
     measurements: &[PerformanceMeasurement],
 ) {
-    let socket = resolve_compute_report_socket(nucleus);
-    let socket_path = PathBuf::from(&socket);
-    println!(
-        "  Reporting {} measurement(s) to toadStool at {}",
-        measurements.len(),
-        socket_path.display()
-    );
+    let use_capability = nucleus.is_some_and(|ctx| {
+        ctx.by_domain("compute").is_some_and(|ep| ep.alive)
+    });
+
+    if !use_capability {
+        let socket = resolve_compute_report_socket(nucleus);
+        println!(
+            "  Reporting {} measurement(s) to toadStool at {socket} (direct IPC)",
+            measurements.len(),
+        );
+    } else {
+        println!(
+            "  Reporting {} measurement(s) to toadStool via NUCLEUS capability",
+            measurements.len(),
+        );
+    }
 
     for m in measurements {
         let params = match serde_json::to_value(m) {
@@ -250,7 +265,20 @@ pub fn report_to_toadstool_with_nucleus(
                 continue;
             }
         };
-        match send_jsonrpc(&socket_path, "compute.performance_surface.report", &params) {
+
+        let result = if let Some(ctx) = nucleus.filter(|_| use_capability) {
+            ctx.call_by_capability(
+                "compute",
+                "compute.performance_surface.report",
+                params,
+            )
+            .map_err(|e| format!("{e}"))
+        } else {
+            let socket_path = PathBuf::from(resolve_compute_report_socket(nucleus));
+            send_jsonrpc(&socket_path, "compute.performance_surface.report", &params)
+        };
+
+        match result {
             Ok(resp) => {
                 let status = resp
                     .get("result")

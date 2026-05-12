@@ -80,6 +80,10 @@ pub mod error;
 pub mod fleet_client;
 /// Per-ember JSON-RPC client: MMIO, falcon, SEC2, PRAMIN, DMA, flood testing.
 pub mod fleet_ember;
+/// toadStool dispatch client: IPC path for compute.dispatch.capabilities/submit.
+/// Parallel to fleet_ember — preparation for toadStool Phase C migration.
+#[cfg(feature = "toadstool-dispatch")]
+pub mod fleet_toadstool;
 /// JSON-RPC client for coral-glowplug.
 ///
 /// Covers `device.dispatch`, `device.list`, health checks, and related helpers.

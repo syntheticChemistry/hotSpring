@@ -14,62 +14,23 @@
 //! requirements within those limits. `Fp64Strategy::Sovereign` (coralReef
 //! native compilation) routes like `Native` — it produces real f64 code.
 //!
-//! ## Upstream absorption (barraCuda v0.3.5 `82ff983`, toadStool S147)
+//! ## Upstream lean (barraCuda Sprint 56d, May 2026)
 //!
-//! `PrecisionTier` and `PhysicsDomain` are now upstream in
-//! `barracuda::device::precision_tier` (absorbed from hotSpring v0.6.25) with
-//! `fma_sensitive()`, `throughput_bound()`, and `minimum_tier()` methods.
-//! `FmaPolicy` is upstream in `barracuda::device::fma_policy`. toadStool S147
-//! has `PrecisionBrain` wired into `compile_wgsl_multi` with per-device
-//! precision advice and `nvvm_transcendental_risk`. Future versions may
-//! re-export upstream enums once the API stabilizes across all springs.
+//! `PrecisionTier` and `PhysicsDomain` are now re-exported from
+//! `barracuda::device::precision_tier` (originally absorbed from hotSpring
+//! v0.6.25). barraCuda's 15-tier `PrecisionTier` (Binary → DF128) and
+//! 15-variant `PhysicsDomain` (includes Inference, Training, Hashing) are
+//! the canonical definitions. hotSpring routing logic only produces the 4
+//! physics-relevant tiers (F32, DF64, F64, F64Precise) but accepts the full
+//! upstream enum for forward compatibility.
+//!
+//! `FmaPolicy` and `domain_requires_separate_fma` are re-exported from
+//! `barracuda::device::fma_policy`.
 
 use crate::gpu::GpuF64;
 pub use barracuda::device::PrecisionRoutingAdvice as HwPrecisionAdvice;
-
-/// Precision tier for shader compilation.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum PrecisionTier {
-    /// 32-bit float: screening, preview, throughput-bound work
-    F32,
-    /// Double-float emulation: 14 digits on f32 cores, ~10× native f64 throughput
-    DF64,
-    /// Native 64-bit: reference precision, validation, Titan V
-    F64,
-    /// F64 without FMA fusion: precision-critical (dielectric, eigensolve)
-    F64Precise,
-}
-
-/// Physics domain classification for precision routing.
-///
-/// Mirrors `barracuda::device::precision_tier::PhysicsDomain` (12 variants).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum PhysicsDomain {
-    /// Lattice QCD: gauge force, plaquette, HMC (tolerant of FMA)
-    LatticeQcd,
-    /// Gradient flow: energy density, scale setting (moderately sensitive)
-    GradientFlow,
-    /// Dielectric functions: complex arithmetic, cancellation-prone (needs precise)
-    Dielectric,
-    /// Kinetic-fluid: BGK relaxation, Euler HLL (tolerant)
-    KineticFluid,
-    /// Eigensolve: Jacobi, Lanczos (needs precise)
-    Eigensolve,
-    /// MD: forces, transport (tolerant)
-    MolecularDynamics,
-    /// Nuclear EOS: BCS pairing, HFB (moderate)
-    NuclearEos,
-    /// Population PK/PD: FOCE gradient, VPC Monte Carlo (moderate, from healthSpring)
-    PopulationPk,
-    /// Bioinformatics: bipartition encode, sequence alignment (throughput-bound)
-    Bioinformatics,
-    /// Hydrology: flow transport, dispersion (moderate)
-    Hydrology,
-    /// Statistics: bootstrap, chi-squared, regression (throughput-bound)
-    Statistics,
-    /// General-purpose: no domain-specific requirements (throughput-bound)
-    General,
-}
+pub use barracuda::device::precision_tier::{PhysicsDomain, PrecisionTier};
+pub use barracuda::device::{FmaPolicy, domain_requires_separate_fma};
 
 /// Precision routing advice for a given domain and hardware.
 #[derive(Clone, Debug)]
@@ -141,7 +102,10 @@ pub fn route_precision(domain: PhysicsDomain, gpu: &GpuF64) -> PrecisionRoutingA
         | PhysicsDomain::MolecularDynamics
         | PhysicsDomain::Bioinformatics
         | PhysicsDomain::Statistics
-        | PhysicsDomain::General => {
+        | PhysicsDomain::General
+        | PhysicsDomain::Inference
+        | PhysicsDomain::Training
+        | PhysicsDomain::Hashing => {
             if hw_supports_native && !is_df64_mode {
                 PrecisionRoutingAdvice {
                     tier: PrecisionTier::F64,
@@ -171,9 +135,9 @@ pub fn create_routed_pipeline(
     advice: &PrecisionRoutingAdvice,
 ) -> wgpu::ComputePipeline {
     match advice.tier {
-        PrecisionTier::F32 => gpu.create_pipeline(shader_source, label),
         PrecisionTier::DF64 | PrecisionTier::F64 => gpu.create_pipeline_f64(shader_source, label),
         PrecisionTier::F64Precise => gpu.create_pipeline_f64_precise(shader_source, label),
+        _ => gpu.create_pipeline(shader_source, label),
     }
 }
 
@@ -186,13 +150,13 @@ pub fn create_routed_pipeline_entry(
     advice: &PrecisionRoutingAdvice,
 ) -> wgpu::ComputePipeline {
     match advice.tier {
-        PrecisionTier::F32 => gpu.create_pipeline(shader_source, label),
         PrecisionTier::DF64 | PrecisionTier::F64 => {
             gpu.create_pipeline_f64_entry(shader_source, entry_point, label)
         }
         PrecisionTier::F64Precise => {
             gpu.create_pipeline_f64_entry_precise(shader_source, entry_point, label)
         }
+        _ => gpu.create_pipeline(shader_source, label),
     }
 }
 
@@ -274,6 +238,9 @@ mod tests {
             PhysicsDomain::Hydrology,
             PhysicsDomain::Statistics,
             PhysicsDomain::General,
+            PhysicsDomain::Inference,
+            PhysicsDomain::Training,
+            PhysicsDomain::Hashing,
         ];
         for domain in domains {
             assert!(matches!(
@@ -290,6 +257,9 @@ mod tests {
                     | PhysicsDomain::Hydrology
                     | PhysicsDomain::Statistics
                     | PhysicsDomain::General
+                    | PhysicsDomain::Inference
+                    | PhysicsDomain::Training
+                    | PhysicsDomain::Hashing
             ));
         }
     }

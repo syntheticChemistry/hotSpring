@@ -59,12 +59,14 @@ impl AuditLogResponse {
 /// `since_seq` is a cursor — events with `seq > since_seq` are returned.
 /// `limit` caps the number of events (server max: 1000).
 ///
+/// Discovery: `by_domain("security")` → NUCLEUS capability routing.
 /// Returns `None` if skunkBat is unreachable or the socket does not exist.
 pub fn query_audit_log(since_seq: u64, limit: u64) -> Option<AuditLogResponse> {
-    let socket = crate::niche::socket_dirs()
-        .into_iter()
-        .map(|d| d.join("skunkbat/skunkbat.sock"))
-        .find(|p| p.exists())?;
+    let ctx = crate::primal_bridge::NucleusContext::detect();
+    let socket = ctx
+        .by_domain("security")
+        .filter(|ep| ep.alive)
+        .map(|ep| std::path::PathBuf::from(&ep.socket))?;
 
     let params = serde_json::json!({
         "since_seq": since_seq,

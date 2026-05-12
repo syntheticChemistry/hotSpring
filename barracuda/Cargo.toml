@@ -94,6 +94,7 @@ barracuda-local = ["dep:barracuda"]
 gpu_energy = []
 npu-hw = ["dep:akida-driver", "dep:akida-models"]
 sovereign-dispatch = ["barracuda-local", "barracuda/sovereign-dispatch", "dep:coral-gpu"]
+toadstool-dispatch = ["barracuda-local"]
 cuda-validation = ["dep:cudarc"]
 # BAR0 mmap / sysfs hardware probes (Exp 070). Optional: pulls rustix for syscalls.
 low-level = ["dep:rustix"]
@@ -889,6 +890,11 @@ path = "src/bin/validate_nucleus_tower.rs"
 [[bin]]
 name = "validate_nucleus_node"
 path = "src/bin/validate_nucleus_node.rs"
+
+# Compute trio E2E: barraCuda → coralReef → toadStool → hardware → physics parity
+[[bin]]
+name = "validate_compute_trio_pipeline"
+path = "src/bin/validate_compute_trio_pipeline.rs"
 
 # Nest atomic (neutron): rhizoCrypt + loamSpine + sweetGrass + NestGate
 [[bin]]

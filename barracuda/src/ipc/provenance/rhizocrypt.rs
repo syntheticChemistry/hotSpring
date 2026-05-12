@@ -31,11 +31,14 @@ pub struct DagSubmitResult {
 }
 
 /// Submit a computation witness to rhizoCrypt.
+///
+/// Discovery: `by_domain("dag")` → NUCLEUS capability routing.
 pub fn submit_witness(witness: &DagWitness) -> Option<DagSubmitResult> {
-    let socket = crate::niche::socket_dirs()
-        .into_iter()
-        .map(|d| d.join("biomeos/rhizocrypt.sock"))
-        .find(|p| p.exists())?;
+    let ctx = crate::primal_bridge::NucleusContext::detect();
+    let socket = ctx
+        .by_domain("dag")
+        .filter(|ep| ep.alive)
+        .map(|ep| std::path::PathBuf::from(&ep.socket))?;
 
     let params = serde_json::to_value(witness).ok()?;
     let resp = send_jsonrpc(&socket, "dag.submit_witness", &params).ok()?;
