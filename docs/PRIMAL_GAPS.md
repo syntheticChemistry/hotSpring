@@ -1082,6 +1082,36 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
     (`PCI_VENDOR_NVIDIA`, `PCI_VENDOR_AMD`).
 - **Validation:** 1,031 library tests pass, zero clippy warnings.
 
+### GAP-HS-089: River Delta Upstream Audit Response (May 12, 2026)
+
+- **Primal:** hotSpring (self) / cross-primal
+- **Severity:** Medium (convergence readiness)
+- **Status:** **RESOLVED** (May 12, 2026)
+- **Description:** Response to primalSpring L2 gate "River Delta Evolution"
+  upstream audit. hotSpring is gS L6 (highest delta spring), Tier 4
+  IPC-first, LTEE B2 complete. Audit identified three gaps:
+  (1) `--format json` for Tier 2 `toadstool.validate` readiness,
+  (2) standard `control/ltee_b2_anderson/` layout for lithoSpore handoff,
+  (3) upstream PRIMAL_GAPS staleness (B2 listed as "started" vs "complete").
+- **Completed:**
+  - `--format json` flag added to `hotspring_unibin validate` CLI. New
+    `finish_json()` method on `ValidationHarness` produces structured JSON
+    to stdout: `{"status":"PASS","checks":N,"passed":N,"values":[...]}`.
+    Compatible with `toadstool.validate` Tier 2 ingestion (Pass 14).
+  - `control/ltee_b2_anderson/` directory created with `README.md` and
+    symlink to `experiments/results/ltee/ltee_b2_anderson_expected.json`
+    as `expected_values.json` for standard lithoSpore consumption layout.
+  - Upstream audit status corrections documented: LTEE B2 is **COMPLETE**
+    (Tier 1 + Tier 2), not "started" as in primalSpring PRIMAL_GAPS snapshot.
+    Thread 2 (plasma/QCD) is **ACTIVE** with sources + targets validated
+    (GAP-HS-068/072/083 resolved). Titan V FECS + K80 livepatch remain
+    blocked on coralReef Pass 12 (upstream sentinel).
+- **Upstream action:** primalSpring PRIMAL_GAPS Layer 3 row for hotSpring
+  should update LTEE column from "B2 started" to "B2 complete" and note
+  `--format json` readiness for Pass 14.
+- **Validation:** 1,031 library tests pass, `hotspring_unibin` compiles
+  with `--format json` flag.
+
 ---
 
 ## Handback Protocol

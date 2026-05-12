@@ -345,6 +345,56 @@ impl ValidationHarness {
         println!("JSON results → {path}");
     }
 
+    /// Write structured JSON summary to stdout and exit.
+    ///
+    /// Produces the same schema as `write_json` but writes to stdout for
+    /// `toadstool.validate` / `--format json` consumption (Tier 2 readiness).
+    pub fn finish_json(&self) -> ! {
+        let passed = self.passed_count();
+        let total = self.total_count();
+        let status = if self.all_passed() { "PASS" } else { "FAIL" };
+
+        let checks: Vec<serde_json::Value> = self
+            .checks
+            .iter()
+            .map(|c| {
+                let mut obj = serde_json::json!({
+                    "label": c.label,
+                    "passed": c.passed,
+                    "observed": json_f64_val(c.observed),
+                    "expected": json_f64_val(c.expected),
+                    "tolerance": json_f64_val(c.tolerance),
+                    "mode": format!("{}", c.mode),
+                });
+                if let Some(ref s) = c.substrate {
+                    obj["substrate"] = serde_json::Value::String(s.clone());
+                }
+                if let Some(ref d) = c.domain {
+                    obj["domain"] = serde_json::Value::String(d.clone());
+                }
+                if let Some(ref p) = c.paper {
+                    obj["paper"] = serde_json::Value::String(p.clone());
+                }
+                if let Some(ms) = c.duration_ms {
+                    obj["duration_ms"] = serde_json::json!(ms);
+                }
+                obj
+            })
+            .collect();
+
+        let output = serde_json::json!({
+            "status": status,
+            "checks": total,
+            "passed": passed,
+            "failed": total - passed,
+            "name": self.name,
+            "values": checks,
+        });
+
+        println!("{}", serde_json::to_string_pretty(&output).unwrap_or_default());
+        process::exit(if self.all_passed() { 0 } else { 1 });
+    }
+
     /// Print summary and exit with appropriate code.
     ///
     /// Exit 0 if all checks pass, exit 1 if any fails.
@@ -564,6 +614,14 @@ fn epoch_days_to_ymd(mut days: u64) -> (u64, u64, u64) {
 
 fn is_leap(y: u64) -> bool {
     (y.is_multiple_of(4) && !y.is_multiple_of(100)) || y.is_multiple_of(400)
+}
+
+fn json_f64_val(v: f64) -> serde_json::Value {
+    if v.is_finite() {
+        serde_json::json!(v)
+    } else {
+        serde_json::Value::Null
+    }
 }
 
 fn json_f64(v: f64) -> String {

@@ -42,6 +42,9 @@ pub enum Commands {
         /// List all available scenarios without running them.
         #[arg(long, default_value_t = false)]
         list: bool,
+        /// Output format: human (default) or json (structured, for toadstool.validate).
+        #[arg(long, default_value = "human")]
+        format: String,
     },
     /// Show composition health and capability discovery status.
     Status,

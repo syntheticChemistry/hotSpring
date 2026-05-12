@@ -24,7 +24,14 @@ fn main() {
             ref scenario,
             ref tier,
             list,
-        } => cmd_validate(track.as_deref(), scenario.as_deref(), tier.as_deref(), list),
+            ref format,
+        } => cmd_validate(
+            track.as_deref(),
+            scenario.as_deref(),
+            tier.as_deref(),
+            list,
+            format == "json",
+        ),
         cli::Commands::Status => cmd_status(),
         cli::Commands::Version => cmd_version(),
     }
@@ -41,7 +48,13 @@ fn cmd_certify(layer: Option<u8>, bare: bool) {
     std::process::exit(result.exit_code());
 }
 
-fn cmd_validate(track: Option<&str>, scenario_id: Option<&str>, tier: Option<&str>, list: bool) {
+fn cmd_validate(
+    track: Option<&str>,
+    scenario_id: Option<&str>,
+    tier: Option<&str>,
+    list: bool,
+    json_output: bool,
+) {
     use hotspring_barracuda::validation::scenarios::{Tier, Track, build_registry};
 
     let registry = build_registry();
@@ -123,7 +136,11 @@ fn cmd_validate(track: Option<&str>, scenario_id: Option<&str>, tier: Option<&st
         std::process::exit(1);
     }
 
-    harness.finish();
+    if json_output {
+        harness.finish_json();
+    } else {
+        harness.finish();
+    }
 }
 
 fn cmd_status() {
