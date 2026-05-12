@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026
-**Last audited:** May 11, 2026 (Post-Interstadial Push 3: NUCLEUS scenario fix, foundation Thread 2 workload, fleet discovery evolution, deep debt audit)
+**Last audited:** May 12, 2026 (Deep debt consolidation: CG_BACKOFF_CAP, timeout/path constants, BenchReport::save_and_print)
 **License:** AGPL-3.0-or-later
 
 ---
@@ -976,6 +976,21 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
   requirement.
 - **Resolution:** Updated all stale items to current status. Added scenario
   registry listing with tier requirements.
+
+### GAP-HS-086: Deep Debt Consolidation — Magic Numbers + Path Agnosticism — RESOLVED
+
+- **Primal:** hotSpring (code hygiene)
+- **Severity:** Low (maintainability)
+- **Status:** **Resolved** (May 12, 2026)
+- **Description:** Audit found 3 duplicated `CG_BACKOFF_CAP = 2000` constants,
+  5 hardcoded timeout literals, hardcoded `/proc/` paths, and repeated
+  benchmark report save logic across multiple binaries.
+- **Resolution:** `CG_BACKOFF_CAP` consolidated to `tolerances/lattice.rs`.
+  Timeout constants extracted: `EMBER_ADOPT_TIMEOUT`, `EMBER_STATUS_TIMEOUT`,
+  `GPU_POLL_INTERVAL`, `TITAN_WARM_RECV_TIMEOUT`. `/proc/` paths overridable
+  via `PROC_CPUINFO`, `PROC_MEMINFO`, `PROC_SELF_STATUS` env vars.
+  `BenchReport::save_and_print()` eliminates duplicated discovery+save pattern.
+  579 tests (default) / 1,028 (barracuda-local) — zero clippy warnings.
 
 ---
 

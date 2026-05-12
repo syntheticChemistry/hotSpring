@@ -1,6 +1,6 @@
 # Downstream Pattern Integration — hotSpring
 
-**Date:** May 11, 2026
+**Date:** May 12, 2026
 **Repos audited:** `gardens/projectNUCLEUS`, `gardens/foundation`
 
 ---
@@ -12,9 +12,11 @@ workload TOMLs, gate manifests, operational scripts.
 
 **hotSpring integration points:**
 
-- `workloads/hotspring/hotspring-md-validation.toml` — toadStool workload using
-  UniBin `hotspring_unibin validate --scenario sarkas-yukawa-md` with
-  gate-agnostic `$SPRINGS_ROOT` paths
+- `workloads/hotspring/` — **6 workload TOMLs** covering 3-tier compute ladder
+  (CPU/GPU/sovereign): `hotspring-md-validation.toml`, `hotspring-lattice-qcd.toml`,
+  `hotspring-ltee-anderson.toml`, `hotspring-composition-health.toml`,
+  `hotspring-gpu-sovereign-dispatch.toml`, `hotspring-sovereign-roundtrip.toml`.
+  Each documents `compute_tier`, `ladder`, and `spring = "hotSpring"` metadata
 - `graphs/node_atomic.toml` — positions hotSpring as consumer of the Node
   atomic (compute) pattern alongside neuralSpring, wetSpring, ludoSpring
 - `specs/LIVE_SCIENCE_API.md` — lists hotSpring in the "which springs are
@@ -28,8 +30,9 @@ workload TOMLs, gate manifests, operational scripts.
    is the stable contract for plasmidBin and toadStool workloads. Registered
    scenarios: `semf-parity`, `lattice-plaquette`, `md-yukawa-ocp` (config
    smoke), `sarkas-yukawa-md` (foundation-grade), `composition-health`,
-   `tolerance-ordering`. The `spectral-lanczos` scenario requires
-   `barracuda-local` and is not available in `primal-proof` builds
+   `tolerance-ordering`, `ltee-anderson`. The `spectral-lanczos` scenario
+   requires `barracuda-local` and is not available in `primal-proof` builds.
+   8 scenarios registered (7 default + 1 barracuda-local)
 2. **Workload TOML contract** — `[metadata]`, `[execution]`, `[resources]`,
    `[security]` sections; `[provenance]` pending toadStool Gap 5 resolution
 3. **Path portability** — workload uses `$SPRINGS_ROOT` (verify expansion

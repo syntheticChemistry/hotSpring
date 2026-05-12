@@ -81,7 +81,7 @@ NNN_DESCRIPTOR.{sh,md,json}
 | 169 | WARM_HANDOFF_VALIDATED | validation | ✅ **Full warm handoff cycle on Titan V.** vfio→nouveau→vfio round-trip. HBM2 warm state persists (pmc_enable=0x5fecdff1). Stages 1-3 pass. Falcon boot = next frontier. |
 | 170 | SOVEREIGN_BOOT_E2E | **milestone** | ✅ **End-to-end `coralctl sovereign-boot`.** Vendor-ingredient loop: cold detect → nouveau warm → vfio swap → sovereign init. Warm detection heuristic (PMC popcount + PRAMIN). golden_state_path file reference. |
 | 171 | K80_SOVEREIGN_INIT | validation | ⚠️ **K80 (GK210) BAR0 probe + PMC enable OK.** GDDR5 training BLOCKED (cold memory, PRAMIN returns PCIe timeout). VBIOS readable from PROM. Kepler: no signed firmware required. DEVINIT interpreter needed. |
-| 189 | LTEE_B2_ANDERSON_FITNESS | analysis | 🔄 **LTEE B2 — Anderson fitness landscape (GuideStone).** Wiser et al. 2013 disorder analogy; Tier 1 baseline in `notebooks/papers/13-ltee-anderson-fitness.ipynb`; feeds foundation Thread 7 (anderson). See `EXPERIMENT_INDEX.md`. |
+| 189 | LTEE_B2_ANDERSON_FITNESS | analysis | ✅ **LTEE B2 — Anderson fitness landscape.** Wiser et al. 2013 disorder analogy; Tier 1 Python baseline + Tier 2 Rust validation (`s_ltee_anderson.rs`). Feeds foundation Thread 7, lithoSpore module 7. |
 
 ### Ember Survivability Hardening (2026-04-07)
 
@@ -137,7 +137,7 @@ Not numbered experiments — systematic composition infrastructure:
 | 178 | K80_PGOB_NVIDIA470_ANALYSIS | investigation | ⚠️ **nvidia-470 binary analysis: PGOB PSW-only sequence discovered.** Static disassembly of `nv-kernel.o_binary` reveals `_nv029216rm` (ungate) and `_nv029114rm` (gate) use only `0x10a78c` bits 0-1. PSW-only requires running PMU firmware. Root cause narrowed: PRI ring has 0 GPCs enrolled. Pivoted to warm-catch (Exp 179). |
 | 179 | K80_WARM_FECS_DISPATCH_PIPELINE | **milestone** | ✅ **K80 warm-catch FECS/PFIFO pipeline.** Nouveau warm-catch → VFIO rebind. FECS boots (Falcon v3 PIO). PFIFO runlist completes. SCHED_ERROR code=32 root-caused (RAMFC 0x3C/0x44) and fixed. Cold-boot sovereign (udev PLX fix, d3cold_allowed=0). |
 | 180 | THREE_GPU_HARDWARE_VALIDATION | **milestone** | ✅ RTX 5060 19/19 (CUDA+DRM+discovery), Titan V 20/20 standalone VFIO, K80 device open + runlist pass. PGOB GPC gating confirmed as K80 dispatch blocker. |
-| 181 | SOVEREIGN_DISPATCH_PIPELINE_SWEEP | investigation | 🔧 RTX 5060 8/8 PROVEN (WGSL→SM120→dispatch→readback). Titan V blocked (no PMU fw, SEC2/ACR). K80 cold-boot sovereign, PGOB dispatch blocker. Ember Exclusive Device Gate live. |
+| 181 | SOVEREIGN_DISPATCH_PIPELINE_SWEEP | investigation | ✅ RTX 5060 8/8 PROVEN. Titan V and K80 resolved via warm-catch (Exp 188/190). |
 | 182 | K80_FECS_PIO_BOOT | diagnostic | 🔧 K80 GK210 FECS PIO boot diagnostic. Direct BAR0 mmap (`low-level` feature). Falcon IMEM/DMEM PIO path. *(inline-only — no standalone journal)* |
 | 183 | K80_FECS_INT_BOOT | diagnostic | 🔧 K80 GK210 FECS interrupt-driven boot. Direct BAR0 mmap (`low-level` feature). *(inline-only — no standalone journal)* |
 | 184 | K80_GR_SOVEREIGN | active | ✅ K80 GK210 sovereign GR init via ember RPC. Modern ember-wired path. Kepler falcon boot + firmware + PLX keepalive + switch preflight. *(inline-only — no standalone journal)* |
@@ -146,12 +146,11 @@ Not numbered experiments — systematic composition infrastructure:
 | 187 | TITANV_NVIDIA580_MMIOTRACE_PREP | prepared | 🔧 Capture script for nvidia-580 mmiotrace on Titan V. Determines WPR usage, informs FalconBootSolver Volta branch. Awaiting execution window. |
 | 188 | K80_WARM_CATCH_BREAKTHROUGH | breakthrough | ✅ Patched nouveau RECOGNIZED GK210. First-ever GR init: 12 GiB GDDR5, 5 GPCs, 6 TPC/GPC. Post-rebind GPCs power-gated. PLX D3cold on ember stop. |
 | — | K80_QEMU_VM_REAGENT | investigation | ✅ QEMU VM with K80 VFIO passthrough + proprietary nvidia-470.256.02. Module probed K80 successfully. Reagent template + build recipe stored in `agentReagents/`. |
-| 189 | LTEE_B2_ANDERSON_FITNESS | notebook | 🔧 Tier 1 Python baseline — Wiser et al. 2013 LTEE Anderson fitness analogy. Power-law fitness model, Anderson Hamiltonian, localization analysis. |
 | 190 | THREE_GPU_SOVEREIGN_VALIDATION | **milestone** | ✅ **ALL 3 GPUs sovereign.** Phase 1: RTX 5060 12/12 PASS, 154 steps/s. Phase 2: binary-patched nouveau warm-catch resolved GAP-HS-073 (Titan V FECS RUNNING via ACR/SEC2) and GAP-HS-076 (K80 12 GiB GDDR5 trained, 5 GPCs active). Warm-catch pipeline elevated to pure Rust (`coralctl warm-catch`). |
 
 ## Paper Baseline Notebooks
 
-12 publishable Python notebooks covering all 22 reproduced papers — see `notebooks/papers/`.
+13 publishable Python notebooks covering all 25 reproduced papers — see `notebooks/papers/`.
 Each notebook wraps the corresponding `control/` Python baselines into clean,
 narrative-driven notebooks with live compute (small problems) and frozen JSON
 (production runs). These serve as entry points for collaborators and hooks

@@ -7,6 +7,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Unreleased — Deep Debt Consolidation Sprint (May 12, 2026)
+
+### Changed
+- **CG_BACKOFF_CAP** (2000) consolidated from 3 local consts in
+  `resident_cg.rs`, `resident_shifted_cg.rs`, `true_multishift_cg.rs` to a
+  single source of truth in `tolerances/lattice.rs`.
+- **Timeout constants extracted:** `EMBER_ADOPT_TIMEOUT` (30 s),
+  `EMBER_STATUS_TIMEOUT` (5 s) in `fleet_ember.rs`; `GPU_POLL_INTERVAL`
+  (200 ms) in `bench/telemetry.rs`; `TITAN_WARM_RECV_TIMEOUT` (120 s) in
+  `single_beta.rs`.
+- **`/proc/` paths agnostic:** `bench/hardware.rs` (`PROC_CPUINFO`,
+  `PROC_MEMINFO`) and `bench/report.rs` (`PROC_SELF_STATUS`) now accept
+  environment variable overrides for cross-platform/CI testing.
+- **`BenchReport::save_and_print()`** consolidates repeated
+  `discovery::benchmark_results_dir()` + `save_json()` + println pattern.
+  `nuclear_eos_gpu.rs` and `sarkas_gpu.rs` simplified (unused `discovery`
+  and `PathBuf` imports removed).
+
+### Metrics
+- **579** lib tests (default) / **1,028** (barracuda-local) — zero clippy warnings
+- **190** experiments | **155** binaries | **64/64** validation suites
+
 ## Unreleased — LTEE B2 Complete + Exp 190 Reconciliation (May 11, 2026)
 
 ### Added
