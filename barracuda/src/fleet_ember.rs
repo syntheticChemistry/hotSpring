@@ -158,21 +158,37 @@ impl EmberClient {
     }
 
     /// `ember.device.health` — per-device health.
+    ///
+    /// Prefers `call_by_capability("compute", "ember.device.health", …)` via NUCLEUS,
+    /// falling back to direct socket RPC.
     pub fn device_health(&self, bdf: &str) -> Result<serde_json::Value, HotSpringError> {
+        let params = serde_json::json!({ "bdf": bdf });
+        let ctx = crate::primal_bridge::NucleusContext::detect();
+        if let Ok(resp) = ctx.call_by_capability("compute", "ember.device.health", params.clone()) {
+            return Ok(resp);
+        }
         let v = crate::primal_bridge::send_jsonrpc(
             &self.socket_path,
             "ember.device.health",
-            &serde_json::json!({ "bdf": bdf }),
+            &params,
         )?;
         jsonrpc_ok_result(&v)
     }
 
     /// `ember.device.recover` — attempt MMIO recovery for a faulted device.
+    ///
+    /// Prefers `call_by_capability("compute", "ember.device.recover", …)` via NUCLEUS,
+    /// falling back to direct socket RPC.
     pub fn device_recover(&self, bdf: &str) -> Result<serde_json::Value, HotSpringError> {
+        let params = serde_json::json!({ "bdf": bdf });
+        let ctx = crate::primal_bridge::NucleusContext::detect();
+        if let Ok(resp) = ctx.call_by_capability("compute", "ember.device.recover", params.clone()) {
+            return Ok(resp);
+        }
         let v = crate::primal_bridge::send_jsonrpc(
             &self.socket_path,
             "ember.device.recover",
-            &serde_json::json!({ "bdf": bdf }),
+            &params,
         )?;
         jsonrpc_ok_result(&v)
     }

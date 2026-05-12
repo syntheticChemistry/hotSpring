@@ -1190,7 +1190,7 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
     method in barraCuda's `REGISTERED_METHODS`); client will degrade gracefully.
   - ~~Wire `tier2_status()` into `hotspring_unibin status` subcommand.~~ **DONE** (May 12)
   - ~~Wire `workload_preflight()` into scenario runner pre-check.~~ **DONE** (May 12)
-- **Validation:** 587/587 lib tests pass. Zero clippy warnings.
+- **Validation:** 590/590 lib tests pass. Zero clippy warnings.
 
 ---
 
@@ -1230,7 +1230,7 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
   2. Direct `send_jsonrpc` to discovered socket — when NUCLEUS routing unavailable
      but endpoint discovered
   3. Env var / socket-dir fallback — for CI/lab environments
-- **Validation:** 587/587 lib tests pass. Zero clippy warnings.
+- **Validation:** 590/590 lib tests pass. Zero clippy warnings.
 
 ---
 
@@ -1263,17 +1263,29 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
     `try_local_dispatch()` function + `LocalDispatchResult` struct.
     Sets `local_dispatch: true` and `phase_d: true` in dispatch params.
     `local-dispatch` feature flag added to `Cargo.toml`.
-  - **3 new tests** (587 total lib tests, up from 584).
+  - **6 new tests** (590 total lib tests, up from 584).
+  - **`s_cold_boot_sentinel` scenario**: Second `GpuCompute`-track scenario
+    exercising typed `FecsState` response parsing, device health/recovery
+    routing, and dispatch result routable checks.
+  - **`FusedPipeline` concept** (`compute_dispatch.rs`): Multi-op session
+    dispatch via `compute.dispatch.submit_fused` with sequential fallback.
+    `FusedOp` with dependency graph, `FusedResult` with per-op outcomes.
+    3 new tests.
+  - **`fleet_ember.rs`**: `device_health()` and `device_recover()` evolved
+    to `call_by_capability` with socket fallback.
+  - **lithoSpore B2 handoff**: `expected_values.json` symlink verified intact.
 - **Remaining:**
   - Exercise `try_local_dispatch()` on biomeGate hardware (RTX 3090 / Titan V)
     and compare parity with coralReef-forwarded dispatch.
-  - TensorSession fused pipelines (GAP-HS-027 still deferred upstream).
   - Exercise cold boot validation via `falcon_boot()` on K80, capture structured
     `FecsState` errors, and hand back to coralReef.
   - Expand `s_sovereign_dispatch` with real workload dispatch once toadStool
     Phase D `try_local_dispatch()` becomes production default.
   - Sovereign dispatch timeout exercise with cold boot structured errors.
-- **Validation:** 587/587 lib tests pass. Zero clippy warnings.
+  - TensorSession: upstream barraCuda adoption still deferred (GAP-HS-027);
+    `FusedPipeline` is the hotSpring-side wiring. Wire into lattice
+    `resident_CG` / Hasenbusch paths once upstream ships.
+- **Validation:** 590/590 lib tests pass. Zero clippy warnings.
 
 ---
 

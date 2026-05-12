@@ -9,6 +9,8 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 - **`s_sovereign_dispatch` scenario**: First `GpuCompute`-track, `Live`-tier validation scenario exercising toadStool.validate preflight, precision.route advisory, compute.dispatch.submit probe, ember.fecs.state sentinel, and ember.warm_cycle routable check (GAP-HS-093)
+- **`s_cold_boot_sentinel` scenario**: Second `GpuCompute`-track scenario for coralReef FECS sentinel — typed `FecsState` parsing, device health/recovery routing, dispatch result routable checks
+- **`FusedPipeline`** (`compute_dispatch.rs`): Multi-op session dispatch with `compute.dispatch.submit_fused` + sequential fallback, dependency graph, per-op results (TensorSession evolution, GAP-HS-027)
 - **`FecsState` typed struct** (`ember_types.rs`): Replaces untyped `serde_json::Value` for `ember.fecs.state` — structured `running`, `pc`, `cpuctl`, `mailbox0`, `sctl`, `error`, `timed_out` fields with `is_faulted()` helper for coralReef sentinel feedback
 - **`try_local_dispatch()`** (`fleet_toadstool.rs`): Phase D local dispatch function + `LocalDispatchResult` struct for parity validation with coralReef-forwarded dispatch
 - **`local-dispatch` feature flag**: Enables Phase D `try_local_dispatch()` (depends on `toadstool-dispatch`)
@@ -17,12 +19,13 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Workload preflight in scenario runner**: `workload_preflight("hotspring-scenarios")` called before validation run
 
 ### Changed
-- **`fleet_ember.rs`**: `status()`, `warm_cycle()`, `adopt_device()`, `fecs_state()` now prefer `call_by_capability("compute", ...)` via NUCLEUS with direct socket fallback
+- **`fleet_ember.rs`**: `status()`, `warm_cycle()`, `adopt_device()`, `fecs_state()`, `device_health()`, `device_recover()` now prefer `call_by_capability("compute", ...)` via NUCLEUS with direct socket fallback
 - **`fecs_state()` return type**: `serde_json::Value` → typed `FecsState` struct
 
 ### Tests
-- 1,039 lib tests pass (`barracuda-local` + `toadstool-dispatch`); zero clippy warnings
+- 1,042 lib tests pass (`barracuda-local` + `toadstool-dispatch`); zero clippy warnings
 - 3 new `FecsState` tests: `fecs_state_deserializes_running`, `fecs_state_faulted_on_timeout`, `fecs_state_minimal_deserializes`
+- 3 new `FusedPipeline` tests: `fused_pipeline_builds_ops`, `fused_pipeline_serializes`, `fused_result_all_succeeded_logic`
 
 ## Unreleased — Compute Trio Rewire + Deep Debt Capability Discovery (May 12, 2026)
 
