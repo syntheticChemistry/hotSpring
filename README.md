@@ -28,7 +28,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"*, *"Can Rust+WG
 
 ### Eukaryotic UniBin: `hotspring_unibin`
 
-hotSpring has evolved from the prokaryotic era of separate binaries into an eukaryotic UniBin — a single `hotspring_unibin` binary consolidating certification (L0–L6 guideStone organelle), validation scenarios (7 absorbed experiments across 6 tracks), and status reporting. Reference: primalSpring v0.9.25 interstadial eukaryotic wave.
+hotSpring has evolved from the prokaryotic era of separate binaries into an eukaryotic UniBin — a single `hotspring_unibin` binary consolidating certification (L0–L6 guideStone organelle), validation scenarios (9 absorbed experiments across 7 tracks; 12 with `barracuda-local`), and status reporting. Reference: primalSpring v0.9.25 interstadial eukaryotic wave.
 
 ```
 hotspring certify              # L0-L6 composition certification
@@ -70,9 +70,9 @@ hotSpring is the reference implementation for the guideStone Composition Standar
 
 ---
 
-## Paper Baseline Notebooks (12)
+## Paper Baseline Notebooks (13)
 
-Publishable-grade Jupyter notebooks reproducing 22 peer-reviewed physics papers.
+Publishable-grade Jupyter notebooks reproducing 25 peer-reviewed physics papers.
 Live Python compute for small problems, frozen data for production simulations.
 See `notebooks/papers/PAPER_NOTEBOOK_GUIDE.md` for the collaborator pattern.
 
@@ -90,6 +90,7 @@ See `notebooks/papers/PAPER_NOTEBOOK_GUIDE.md` for the collaborator pattern.
 | 10 | Spectral Theory | Anderson (1958), Hofstadter (1976) | Live |
 | 11 | Gradient Flow | Luscher (2010), Chuna (2021) | Live 4^4 |
 | 12 | Plasma Dielectric | Chuna & Murillo (2024) | Live |
+| 13 | LTEE Anderson Fitness | Anderson & Wiser (2024) | Live statistics |
 
 ## Deploy Graphs (7)
 
@@ -109,17 +110,17 @@ Deploy: `biomeos deploy --graph graphs/<name>.toml`
 
 ## Current Status (2026-05-12)
 
-> **190 experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **579 / 1,031 lib tests (IPC-first default / barracuda-local), 155 binaries, 64/64 validation suites, 128 WGSL shaders** | **deny.toml** (ecoBin C-dep bans) | **all 13 physics/compute methods wired in JSON-RPC server** | **zero `dyn` dispatch, `#[forbid(unsafe_code)]` on lib (unsafe confined to low-level GPU experiment bins), `#[expect]` over `#[allow]`** | **guideStone artifact: 59/59 checks x 5 substrates (x86_64 + aarch64)** | **OCI container image + Windows/macOS launchers** | **ALL 3 GPUs SOVEREIGN** — RTX 5060 dispatch PROVEN (8/8), Titan V FECS RUNNING (warm-catch), K80 GDDR5 trained + GPCs active (warm-catch) | **Warm-catch pipeline in pure Rust** (`coralctl warm-catch <BDF>` — ELF patcher + ember orchestrator) | **SLM pool allocation (2 MiB)** | **AMD sovereign compiler: 24/24 QCD shaders** | **NVIDIA sovereign compiler: SM35 + SM70 + SM120** | **Ember gate + survivability hardening COMPLETE** | **SovereignInit Pipeline COMPLETE** | **NUCLEUS Composition Evolution COMPLETE** | **coralReef f64 transcendental lowering (SM32+)** | **Level 6 — CERTIFIED (NUCLEUS Deployment Validation)** | **GPU Generation Profile Architecture** | **unsafe audit: all NECESSARY** | **Diesel Engine Architecture: hierarchical glowplug/ember validated**
+> **190 experiments** | **500+ quantitative checks** | **~$0.30 total science cost** | **579 / 1,031 lib tests (IPC-first default / barracuda-local), 166 binaries, 64/64 validation suites, 128 WGSL shaders** | **deny.toml** (ecoBin C-dep bans) | **all 13 physics/compute methods wired in JSON-RPC server** | **zero `dyn` dispatch, `#[forbid(unsafe_code)]` on lib (unsafe confined to low-level GPU experiment bins), `#[expect]` over `#[allow]`** | **guideStone artifact: 59/59 checks x 5 substrates (x86_64 + aarch64)** | **OCI container image + Windows/macOS launchers** | **ALL 3 GPUs SOVEREIGN** — RTX 5060 dispatch PROVEN (8/8), Titan V FECS RUNNING (warm-catch), K80 GDDR5 trained + GPCs active (warm-catch) | **Warm-catch pipeline in pure Rust** (`coralctl warm-catch <BDF>` — ELF patcher + ember orchestrator) | **SLM pool allocation (2 MiB)** | **AMD sovereign compiler: 24/24 QCD shaders** | **NVIDIA sovereign compiler: SM35 + SM70 + SM120** | **Ember gate + survivability hardening COMPLETE** | **SovereignInit Pipeline COMPLETE** | **NUCLEUS Composition Evolution COMPLETE** | **coralReef f64 transcendental lowering (SM32+)** | **Level 6 — CERTIFIED (NUCLEUS Deployment Validation)** | **GPU Generation Profile Architecture** | **unsafe audit: all NECESSARY** | **Diesel Engine Architecture: hierarchical glowplug/ember validated**
 >
 > **Compute Trio Rewire + Deep Debt Capability Evolution (2026-05-12):** Completed GAP-HS-087 (Compute Trio Rewire Sprint) and GAP-HS-088 (Deep Debt Capability Discovery). **Trio Rewire:** Local `PrecisionTier` (4) and `PhysicsDomain` (12) replaced with barraCuda upstream 15-tier/15-variant canonical enums via re-exports. `toadstool-dispatch` feature flag with `ToadStoolDispatchClient` in `fleet_toadstool.rs` — parallel IPC migration path for Phase C ember→toadStool cutover. `HardwareHint` field in `PrecisionRoute` for domain-based hardware routing. `validate_compute_trio_pipeline` binary: Yukawa force + Wilson plaquette through full barraCuda→coralReef→toadStool→hardware chain. Barrier shader validation: 9 WGSL shaders using `workgroupBarrier()` cataloged for coralReef `membar.{cta,gl}` emitter. **Deep Debt:** `detect_sovereign_available()` inverted to NUCLEUS `by_domain("shader")`-first (env vars as fallback). IPC provenance clients (`sweetgrass`, `rhizocrypt`, `loamspine`, `skunkbat`) evolved from hardcoded `biomeos/*.sock` paths to NUCLEUS `by_domain()` capability discovery. `certification/deployment.rs` `REQUIRED_PRIMALS` derived from `niche::DEPENDENCIES` (single source of truth). `compute_dispatch.rs` barrier validation uses `call_by_capability("shader", ...)` instead of direct socket IPC. `toadstool_report.rs` uses `by_domain("compute")` + `call_by_capability` for performance reporting. `low_level/bar0.rs` BAR0 map size discovered from file metadata (not hardcoded 16 MiB), sysfs path overridable via `HOTSPRING_SYSFS_PCI`. `Vec<&String>` → `Vec<&str>` in fleet_client.rs. PCI vendor IDs extracted to named constants. **1,031/1,031 lib tests pass (barracuda-local + toadstool-dispatch). Zero clippy warnings.**
 >
 > **Three-Tier Validation Architecture (2026-04-17):** Python baselines → Rust validation → NUCLEUS primal composition validation. **guideStone bare mode: 30/30 checks pass** (Property 3 BLAKE3 CHECKSUMS verified, deny.toml present, all 5 bare properties green). Only 3 SKIPs remain — expected NUCLEUS liveness probes when no primals deployed. The same tolerance-driven, exit-code-gated methodology that proved Rust matches Python now proves IPC-composed NUCLEUS patterns match direct Rust execution. Composition validators (`validate_nucleus_*`) run standalone (skip-pass for CI, exit 2 = all skipped) or against live primals (full IPC validation). `validate_science_probes()` validates compute, math, and provenance trio capabilities via IPC with Rust baseline parity. Pattern documented for sibling spring adoption in wateringHole handoffs.
 >
-> **Composition Evolution Wave 1-3 (2026-04-11, refined 2026-04-17):** Absorbed hardened patterns from primalSpring. **Wave 1 (contract):** `niche.rs` split `CAPABILITIES` into `LOCAL_CAPABILITIES` (21 served) + `ROUTED_CAPABILITIES` (26 proxied with canonical providers). `register_with_target()` sends `lifecycle.register` + `capability.register` to biomeOS. `plasmidBin/hotspring/metadata.toml` upgraded to full schema (`[provenance]`, `[compatibility]`, `[builds.*]`, `[genomeBin]`). `manifest.lock` entry added. **Wave 2 (validation harness):** `CompositionResult` with `check_skip()`, `exit_code_skip_aware()` (0/1/2), `ValidationSink` trait, `NdjsonSink`, `StdoutSink`. `OrExit<T>` trait for zero-panic binary patterns. **Wave 3 (hardening):** Cost estimate literals extracted to `tolerances::cost`. `config/capability_registry.toml` with bidirectional sync test. `HOTSPRING_NO_NUCLEUS=1` standalone mode. `cargo clippy --all-targets` clean. `cargo doc --lib --no-deps` clean. 993/993 lib tests pass (historical — current: 579/1,028).
+> **Composition Evolution Wave 1-3 (2026-04-11, refined 2026-04-17):** Absorbed hardened patterns from primalSpring. **Wave 1 (contract):** `niche.rs` split `CAPABILITIES` into `LOCAL_CAPABILITIES` (21 served) + `ROUTED_CAPABILITIES` (26 proxied with canonical providers). `register_with_target()` sends `lifecycle.register` + `capability.register` to biomeOS. `plasmidBin/hotspring/metadata.toml` upgraded to full schema (`[provenance]`, `[compatibility]`, `[builds.*]`, `[genomeBin]`). `manifest.lock` entry added. **Wave 2 (validation harness):** `CompositionResult` with `check_skip()`, `exit_code_skip_aware()` (0/1/2), `ValidationSink` trait, `NdjsonSink`, `StdoutSink`. `OrExit<T>` trait for zero-panic binary patterns. **Wave 3 (hardening):** Cost estimate literals extracted to `tolerances::cost`. `config/capability_registry.toml` with bidirectional sync test. `HOTSPRING_NO_NUCLEUS=1` standalone mode. `cargo clippy --all-targets` clean. `cargo doc --lib --no-deps` clean. 993/993 lib tests pass (historical — current: 579/1,031).
 >
-> **Deep Debt Evolution Phase 2 (2026-05-08):** Smart refactoring wave: `pseudofermion/mod.rs` (926L) → split Hasenbusch mass-preconditioning into `hasenbusch.rs`. `npu_worker/handlers.rs` (839L) → split into `handlers/{mod,precompute,thermalization,inference,proxy}.rs`. `nuclear_eos_helpers/mod.rs` (821L) → display functions extracted to `display.rs`. Unsafe evolution: `exp070_register_dump.rs` mmap wrapped in `SafeBarMapping` struct with `Drop` impl (RAII munmap, bounds-checked accessors). Hardcoding elimination: `toadstool_report.rs` socket resolution migrated to `niche::socket_dirs()`, deprecated primal_bridge named accessors stripped of hardcoded name fallbacks. Test coverage: 9 new unit tests (primal_bridge + receipt_signing), 3 new integration tests (dielectric, spectral, lattice). Benchmark: nuclear EOS + spectral domains added to `validate_barracuda_cpu_gpu_parity` (8 domains total). Paper 45 `kinetic_fluid_control.json` committed. Tier 4 verified: `validate_fpeos` 18/19, `validate_atomec` 7/9. Downstream repos (`projectNUCLEUS`, `foundation`) cloned and audited → `docs/DOWNSTREAM_PATTERNS.md`. **1002/1002 lib tests pass (historical — current: 579/1,028).** Zero compilation errors.
+> **Deep Debt Evolution Phase 2 (2026-05-08):** Smart refactoring wave: `pseudofermion/mod.rs` (926L) → split Hasenbusch mass-preconditioning into `hasenbusch.rs`. `npu_worker/handlers.rs` (839L) → split into `handlers/{mod,precompute,thermalization,inference,proxy}.rs`. `nuclear_eos_helpers/mod.rs` (821L) → display functions extracted to `display.rs`. Unsafe evolution: `exp070_register_dump.rs` mmap wrapped in `SafeBarMapping` struct with `Drop` impl (RAII munmap, bounds-checked accessors). Hardcoding elimination: `toadstool_report.rs` socket resolution migrated to `niche::socket_dirs()`, deprecated primal_bridge named accessors stripped of hardcoded name fallbacks. Test coverage: 9 new unit tests (primal_bridge + receipt_signing), 3 new integration tests (dielectric, spectral, lattice). Benchmark: nuclear EOS + spectral domains added to `validate_barracuda_cpu_gpu_parity` (8 domains total). Paper 45 `kinetic_fluid_control.json` committed. Tier 4 verified: `validate_fpeos` 18/19, `validate_atomec` 7/9. Downstream repos (`projectNUCLEUS`, `foundation`) cloned and audited → `docs/DOWNSTREAM_PATTERNS.md`. **1002/1002 lib tests pass (historical — current: 579/1,031).** Zero compilation errors.
 >
-> **Deep Debt Evolution Phase 1 (2026-04-27):** Capability-based primal discovery — `composition.rs` derives all primal requirements from `niche::DEPENDENCIES` (single source of truth), eliminating hardcoded name→domain maps. `primal_bridge.rs` named accessors (`toadstool()`, `beardog()`, etc.) deprecated in favor of `by_domain()`. Data-driven `PRIMAL_ALIASES` table replaces hardcoded alias checks. Smart file refactoring: `lattice/rhmc.rs` (989L) → `rhmc/mod.rs` (802L) + `rhmc/remez.rs` (190L, Remez exchange + Gauss elimination). `nuclear_eos_helpers.rs` (978L) → `nuclear_eos_helpers/mod.rs` (824L) + `objectives.rs` (174L, L1/L2 optimization). Pre-existing compile errors fixed in `nuclear_eos_l2_ref.rs` and `nuclear_eos_l2_hetero.rs` (upstream `DiscoveredDevice` API). 993/993 lib tests pass (historical — current: 579/1,028). Zero compilation errors.
+> **Deep Debt Evolution Phase 1 (2026-04-27):** Capability-based primal discovery — `composition.rs` derives all primal requirements from `niche::DEPENDENCIES` (single source of truth), eliminating hardcoded name→domain maps. `primal_bridge.rs` named accessors (`toadstool()`, `beardog()`, etc.) deprecated in favor of `by_domain()`. Data-driven `PRIMAL_ALIASES` table replaces hardcoded alias checks. Smart file refactoring: `lattice/rhmc.rs` (989L) → `rhmc/mod.rs` (802L) + `rhmc/remez.rs` (190L, Remez exchange + Gauss elimination). `nuclear_eos_helpers.rs` (978L) → `nuclear_eos_helpers/mod.rs` (824L) + `objectives.rs` (174L, L1/L2 optimization). Pre-existing compile errors fixed in `nuclear_eos_l2_ref.rs` and `nuclear_eos_l2_hetero.rs` (upstream `DiscoveredDevice` API). 993/993 lib tests pass (historical — current: 579/1,031). Zero compilation errors.
 >
 > **Phase 46 Composition Template (2026-04-27):** Absorbed `primalSpring` Phase 46 composition patterns. `tools/hotspring_composition.sh` implements event-driven QCD computation lane with 5 domain hooks: async tick model (convergence-based, not fixed-rate), DAG memoization for parameter sweeps (`VERTEX_STACK`, `BRANCH_STACK`), scientific provenance via `sweetGrass` braids, compute dispatch through `toadStool`/`barraCuda`, ledger sealing via `loamSpine`. `tools/nucleus_composition_lib.sh` (41-function NUCLEUS wiring library) copied from primalSpring. Bare mode verified: all library functions gracefully degrade when primals absent.
 >
@@ -240,7 +241,7 @@ ToadStool **S168** adds `shader.dispatch` completing the orchestration layer for
 The `barracuda/` directory is a standalone Rust crate providing the validation
 environment, physics implementations, and GPU compute. Key architectural properties:
 
-- **579 / 1,031 tests** (lib; **IPC-first default** / **barracuda-local**), **155 binaries**, **64 validation suites** (64/64 pass via `validate_all`; 84 individual `validate_*` binaries + `hotspring_guidestone`), **128 WGSL shaders** (all AGPL-3.0-only),
+- **579 / 1,031 tests** (lib; **IPC-first default** / **barracuda-local**), **166 binaries**, **64 validation suites** (64/64 pass via `validate_all`; 84 individual `validate_*` binaries + `hotspring_guidestone`), **128 WGSL shaders** (all AGPL-3.0-only),
   **16 determinism tests** (rerun-identical for all stochastic algorithms). Includes
   lattice QCD (complex f64, SU(3), Wilson action, HMC, Dirac CG, pseudofermion HMC),
   Abelian Higgs (U(1) + Higgs, HMC), transport coefficients (Green-Kubo D*/η*/λ*,
@@ -270,7 +271,7 @@ environment, physics implementations, and GPU compute. Key architectural propert
   pipeline, NPU quantization, and NPU beyond-SDK hardware capabilities.
   Zero inline magic numbers — all validation binaries and solver loops wired to `tolerances::*`.
 - **ValidationHarness** — structured pass/fail tracking with exit code 0/1.
-  56 of 155 binaries use it (validation targets). Remaining binaries are optimization
+  56 of 166 binaries use it (validation targets). Remaining binaries are optimization
   explorers, benchmarks, and diagnostics.
 - **Shared data loading** — `data::EosContext` and `data::load_eos_context()`
   eliminate duplicated path construction across all nuclear EOS binaries.
@@ -442,7 +443,7 @@ hotSpring/
 │   ├── PRIMAL_GAPS.md                # NUCLEUS composition gaps (handback to primalSpring)
 │   └── PRIMAL_PROOF_IPC_MAPPING.md   # Level 6: domain science → primal IPC method mapping
 │
-├── barracuda/                          # BarraCuda Rust crate (579 / 1,031 lib tests, 155 binaries, 128 WGSL shaders)
+├── barracuda/                          # BarraCuda Rust crate (579 / 1,031 lib tests, 166 binaries, 128 WGSL shaders)
 │   ├── Cargo.toml                     # Dependencies (requires ecoPrimals/barraCuda)
 │   ├── CHANGELOG.md                   # Version history
 │   ├── ABSORPTION_MANIFEST.md         # Write → Absorb → Lean tracking
@@ -451,7 +452,7 @@ hotSpring/
 │       ├── composition.rs             # NUCLEUS atomic health probes and capability routing
 │       ├── mcp_tools.rs              # MCP tool schemas for AI/LLM integration
 │       ├── hotspring_primal.rs       # JSON-RPC server (health, capability, composition, MCP)
-│       └── bin/                       # 155 binaries (validation, production, benchmarks, composition, guideStone)
+│       └── bin/                       # 166 binaries (validation, production, benchmarks, composition, guideStone)
 │
 ├── experiments/                        # 190 experiment journals (fossil record); 001-143 archived under experiments/archive/
 │   ├── archive/                        # experiments 001-143 (archived journals)
@@ -521,7 +522,7 @@ a network service, you must make your source available under the same terms.
 
 ---
 
-*190 experiments, 579 / 1,031 lib tests (IPC-first default / barracuda-local), 155 binaries, 128 WGSL shaders, ~$0.30 total science cost.
+*190 experiments, 579 / 1,031 lib tests (IPC-first default / barracuda-local), 166 binaries, 128 WGSL shaders, ~$0.30 total science cost.
 Consumer GPUs reproduce HPC physics at paper parity. DF64 delivers 3.24 TFLOPS at
 14-digit precision. GPU RHMC runs all-flavors dynamical QCD (Nf=2+1). Self-tuning
 RHMC eliminates hand-tuned parameters. Chuna 44/44 checks pass. **ALL 3 GPUs

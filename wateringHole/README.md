@@ -34,6 +34,7 @@ entry for the session that produced it. Chronological by filename suffix.
 | 2026-05-11 | `HOTSPRING_CORALREEF_SOVEREIGN_BARRIERS_HANDOFF_MAY11_2026.md` | ✅ | Sovereign barrier resolution: Volta ACR skip, HBM2 warm-handoff, benchScale VM path, K80 PCIe diagnosis |
 | 2026-05-11 | `INFRA_MATURITY_ECOSYSTEM_HANDOFF_MAY11_2026.md` | ✅ | benchScale + agentReagents maturity, composition patterns, NUCLEUS deployment |
 | 2026-05-11 | `HOTSPRING_SOVEREIGN_RUST_EVOLUTION_HANDOFF_MAY11_2026.md` | ✅ | Warm-catch pipeline elevated to pure Rust. ALL 3 GPUs sovereign. Era-agnostic roadmap. |
+| 2026-05-12 | `HOTSPRING_COMPUTE_TRIO_CAPABILITY_EVOLUTION_HANDOFF_MAY12_2026.md` | ✅ | Compute trio rewire, capability discovery evolution, scenario expansion, downstream audit |
 
 ### `mmiotraces/`
 

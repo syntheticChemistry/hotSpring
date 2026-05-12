@@ -201,9 +201,10 @@ have been rewired for capability-based discovery (GAP-HS-087, GAP-HS-088):
 
 ## Eukaryotic Evolution (May 2026)
 
-6 representative experiment binaries have been absorbed into
+9 experiment binaries have been absorbed into
 `barracuda/src/validation/scenarios/` as Tier 1 (Rust) scenarios with
-`ScenarioMeta` provenance tracking. 8 hardware-specific GPU experiment
-binaries are preserved in `fossilRecord/experiments_prokaryotic_may2026/`.
+`ScenarioMeta` provenance tracking (12 with `barracuda-local` feature:
+adds gradient-flow, dielectric-mermin, spectral-lanczos). 8 hardware-specific
+GPU experiment binaries are preserved in `fossilRecord/experiments_prokaryotic_may2026/`.
 The `hotspring_unibin validate` command is the eukaryotic entry point
 for running all absorbed scenarios.

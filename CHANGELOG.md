@@ -43,9 +43,24 @@ This file covers the spring as a whole. For crate-level details see
 - **`fleet_client.rs`**: `Vec<&String>` → `Vec<&str>` with `sort_unstable()`.
 - **PCI vendor IDs** extracted to named constants in `register_maps/mod.rs`.
 
+### Added (May 12 — Scenario Expansion + Downstream Audit)
+- **Scenario registry expansion** (7 → 9 default / 12 with barracuda-local):
+  `screened-coulomb` (Yukawa eigenvalues), `transport-stanton-murillo` (η*/λ*
+  fits), `gradient-flow` (Wilson flow on SU(3), barracuda-local),
+  `dielectric-mermin` (Mermin static/high-freq limits, barracuda-local).
+- **biomeOS IPC capability evolution:** `ipc/biome_status.rs` and
+  `ipc/method_register.rs` evolved from hardcoded `biomeos/biomeos.sock` to
+  `by_domain("composition")` discovery with `BIOMEOS_SOCKET` env fallback.
+  Last hardcoded socket paths in library IPC code eliminated.
+- **Downstream repos cloned** (`gardens/projectNUCLEUS`, `gardens/foundation`,
+  `gardens/lithoSpore`) and audited for hotSpring integration patterns.
+  GAP-HS-090 documents findings in `docs/PRIMAL_GAPS.md`.
+- **`validate_all.rs`** tier range comment corrected (58–62 → 58–64).
+
 ### Metrics
 - **579** lib tests (default) / **1,031** (barracuda-local + toadstool-dispatch) — zero clippy warnings
-- **190** experiments | **155** binaries | **64/64** validation suites
+- **190** experiments | **166** binaries | **64/64** validation suites
+- **9** validation scenarios (default) / **12** (barracuda-local)
 
 ## Unreleased — LTEE B2 Complete + Exp 190 Reconciliation (May 11, 2026)
 

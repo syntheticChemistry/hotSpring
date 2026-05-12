@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """BAR0 register diff analyzer for sovereign GPU experiments.
 
+DEPRECATED: Superseded by `coralctl snapshot diff` (pure Rust, integrated
+with sovereign init pipeline). Retained as fossil record reference.
+
 Compares cold-state and warm-state BAR0 register snapshots (JSON) captured
 by gpu-state.py or similar tooling inside VM reagents. Extracts the register
 write delta that the vendor driver applied, organized by hardware region.
