@@ -138,6 +138,15 @@ hotSpring uses a **dual-lane** model:
 | `ipc::tier2::precision_advisory()` | `precision.route` | `math` | barraCuda |
 | `ipc::tier2::tier2_status()` | (probes both above) | `compute` + `math` | toadStool + barraCuda |
 
+### IPC Transport Evolution (GAP-HS-092)
+
+All IPC client modules now prefer `call_by_capability(domain, method, params)`
+for unified discovery + transport. This eliminates the two-step pattern of
+`by_domain()` → `send_jsonrpc()` and ensures primal code never embeds socket
+paths beyond fallback tiers. Modules evolved: `biome_status`, `method_register`,
+`skunkbat`, `sweetgrass`, `rhizocrypt`, `loamspine`, `fleet_toadstool`,
+`fleet_client`.
+
 ### Remaining IPC-first targets
 
 - Default to IPC-first via `CompositionContext` (currently opt-in)

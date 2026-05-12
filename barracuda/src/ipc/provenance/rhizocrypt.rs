@@ -6,7 +6,7 @@
 //! immutable provenance recording. Each physics computation produces a
 //! witness that is anchored in the DAG.
 
-use crate::primal_bridge::send_jsonrpc;
+use crate::primal_bridge::{NucleusContext, send_jsonrpc};
 use serde::{Deserialize, Serialize};
 
 /// A computation witness for the rhizoCrypt DAG.
@@ -32,15 +32,21 @@ pub struct DagSubmitResult {
 
 /// Submit a computation witness to rhizoCrypt.
 ///
-/// Discovery: `by_domain("dag")` → NUCLEUS capability routing.
+/// Uses `call_by_capability("dag", ...)` for fully capability-based transport.
+/// Falls back to direct socket RPC if NUCLEUS routing is unavailable but the
+/// endpoint was discovered.
 pub fn submit_witness(witness: &DagWitness) -> Option<DagSubmitResult> {
-    let ctx = crate::primal_bridge::NucleusContext::detect();
+    let ctx = NucleusContext::detect();
+    let params = serde_json::to_value(witness).ok()?;
+
+    if let Ok(resp) = ctx.call_by_capability("dag", "dag.submit_witness", params.clone()) {
+        return serde_json::from_value(resp).ok();
+    }
+
     let socket = ctx
         .by_domain("dag")
         .filter(|ep| ep.alive)
         .map(|ep| std::path::PathBuf::from(&ep.socket))?;
-
-    let params = serde_json::to_value(witness).ok()?;
     let resp = send_jsonrpc(&socket, "dag.submit_witness", &params).ok()?;
     serde_json::from_value(resp).ok()
 }

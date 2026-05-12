@@ -5,7 +5,7 @@
 //! Registers hotSpring's physics methods with biomeOS dynamically,
 //! eliminating the need for manual biomeOS configuration.
 
-use crate::primal_bridge::send_jsonrpc;
+use crate::primal_bridge::{NucleusContext, send_jsonrpc};
 use serde::{Deserialize, Serialize};
 
 /// Method registration request for biomeOS v3.51 `method.register`.
@@ -92,13 +92,20 @@ pub const HOTSPRING_METHODS: &[(&str, &str)] = &[
     ("compute.f64", "f64 precision GPU math"),
 ];
 
-/// Resolve the biomeOS socket via capability discovery, then env var,
-/// then conventional socket-dir fallback.
-fn biomeos_socket() -> Option<std::path::PathBuf> {
-    let nucleus = crate::primal_bridge::NucleusContext::detect();
-    if let Some(ep) = nucleus.by_domain("composition") {
-        return Some(ep.socket.clone().into());
+/// Send a `method.register` call, preferring `call_by_capability` for fully
+/// capability-based transport, falling back to env-var and socket-dir discovery.
+fn register_rpc(params: &serde_json::Value) -> Option<serde_json::Value> {
+    let nucleus = NucleusContext::detect();
+    if let Ok(resp) = nucleus.call_by_capability("composition", "method.register", params.clone()) {
+        return Some(resp);
     }
+
+    let socket = biomeos_socket_fallback()?;
+    send_jsonrpc(&socket, "method.register", params).ok()
+}
+
+/// Fallback socket resolution when NUCLEUS capability routing is unavailable.
+fn biomeos_socket_fallback() -> Option<std::path::PathBuf> {
     if let Ok(p) = std::env::var("BIOMEOS_SOCKET") {
         let path = std::path::PathBuf::from(p);
         if path.exists() {
@@ -115,10 +122,6 @@ fn biomeos_socket() -> Option<std::path::PathBuf> {
 ///
 /// Returns the count of successfully registered methods.
 pub fn register_all_methods() -> usize {
-    let Some(socket) = biomeos_socket() else {
-        return 0;
-    };
-
     let mut registered = 0;
     for &(method, description) in HOTSPRING_METHODS {
         let params = serde_json::json!({
@@ -127,7 +130,7 @@ pub fn register_all_methods() -> usize {
             "description": description,
         });
 
-        if let Ok(resp) = send_jsonrpc(&socket, "method.register", &params) {
+        if let Some(resp) = register_rpc(&params) {
             if let Ok(result) = serde_json::from_value::<RegistrationResult>(resp) {
                 if result.registered {
                     registered += 1;
@@ -140,15 +143,13 @@ pub fn register_all_methods() -> usize {
 
 /// Register a single method with biomeOS.
 pub fn register_method(method: &str, description: &str) -> Option<RegistrationResult> {
-    let socket = biomeos_socket()?;
-
     let params = serde_json::json!({
         "method": method,
         "provider": "hotspring",
         "description": description,
     });
 
-    let resp = send_jsonrpc(&socket, "method.register", &params).ok()?;
+    let resp = register_rpc(&params)?;
     serde_json::from_value(resp).ok()
 }
 

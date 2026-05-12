@@ -8,7 +8,7 @@
 //! Used by hotSpring's monitoring and health paths to report NUCLEUS-level
 //! composition state alongside spring-local validation results.
 
-use crate::primal_bridge::send_jsonrpc;
+use crate::primal_bridge::{NucleusContext, send_jsonrpc};
 use serde::{Deserialize, Serialize};
 
 /// Composition status response from biomeOS v3.51 `composition.status`.
@@ -32,19 +32,23 @@ impl CompositionStatus {
 
 /// Query biomeOS `composition.status` via JSON-RPC.
 ///
-/// Uses capability-based discovery: `by_domain("composition")` finds the
-/// orchestrator (biomeOS) regardless of socket naming. Falls back to
-/// `BIOMEOS_SOCKET` env var, then conventional socket-dir scanning for
-/// CI/lab environments where NUCLEUS discovery is not running.
+/// Prefers `call_by_capability("composition", ...)` for fully capability-based
+/// transport. Falls back to `BIOMEOS_SOCKET` env var, then conventional
+/// socket-dir scanning for CI/lab environments where NUCLEUS discovery
+/// is not running.
 ///
 /// Returns `None` if biomeOS is unreachable or the method is not available
 /// (pre-v3.51 instances).
 pub fn query_composition_status() -> Option<CompositionStatus> {
-    let nucleus = crate::primal_bridge::NucleusContext::detect();
+    let nucleus = NucleusContext::detect();
+    let params = serde_json::json!({});
 
-    let socket: std::path::PathBuf = if let Some(ep) = nucleus.by_domain("composition") {
-        ep.socket.clone().into()
-    } else if let Ok(p) = std::env::var("BIOMEOS_SOCKET") {
+    if let Ok(resp) = nucleus.call_by_capability("composition", "composition.status", params.clone())
+    {
+        return serde_json::from_value(resp).ok();
+    }
+
+    let socket: std::path::PathBuf = if let Ok(p) = std::env::var("BIOMEOS_SOCKET") {
         let path = std::path::PathBuf::from(p);
         if path.exists() { path } else { return None; }
     } else {
@@ -54,9 +58,7 @@ pub fn query_composition_status() -> Option<CompositionStatus> {
             .find(|p| p.exists())?
     };
 
-    let params = serde_json::json!({});
     let response = send_jsonrpc(&socket, "composition.status", &params).ok()?;
-
     serde_json::from_value(response).ok()
 }
 

@@ -6,7 +6,7 @@
 //! links a DAG witness (from rhizoCrypt) to a specific experiment or
 //! validation run.
 
-use crate::primal_bridge::send_jsonrpc;
+use crate::primal_bridge::{NucleusContext, send_jsonrpc};
 use serde::{Deserialize, Serialize};
 
 /// A ledger entry for loamSpine provenance.
@@ -34,15 +34,21 @@ pub struct LedgerRecordResult {
 
 /// Record a provenance entry in loamSpine.
 ///
-/// Discovery: `by_domain("ledger")` → NUCLEUS capability routing.
+/// Uses `call_by_capability("ledger", ...)` for fully capability-based
+/// transport. Falls back to direct socket RPC if NUCLEUS routing is
+/// unavailable but the endpoint was discovered.
 pub fn record_entry(entry: &LedgerEntry) -> Option<LedgerRecordResult> {
-    let ctx = crate::primal_bridge::NucleusContext::detect();
+    let ctx = NucleusContext::detect();
+    let params = serde_json::to_value(entry).ok()?;
+
+    if let Ok(resp) = ctx.call_by_capability("ledger", "ledger.record", params.clone()) {
+        return serde_json::from_value(resp).ok();
+    }
+
     let socket = ctx
         .by_domain("ledger")
         .filter(|ep| ep.alive)
         .map(|ep| std::path::PathBuf::from(&ep.socket))?;
-
-    let params = serde_json::to_value(entry).ok()?;
     let resp = send_jsonrpc(&socket, "ledger.record", &params).ok()?;
     serde_json::from_value(resp).ok()
 }

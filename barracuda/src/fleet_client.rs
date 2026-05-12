@@ -255,14 +255,31 @@ fn coralreef_run_dir() -> PathBuf {
     PathBuf::from(CORALREEF_RUN_DEFAULT)
 }
 
-/// Discover the ember socket for a specific BDF via the diesel engine layout.
+/// Discover the ember socket for a specific BDF.
 ///
-/// In the diesel engine architecture, per-cylinder embers create sockets at
-/// `<coralreef_run_dir>/ember-{cylinder_name}.sock`. Checks `CORALREEF_RUN_DIR`
-/// env, then `$XDG_RUNTIME_DIR/coralreef`, then `/run/coralreef`. Queries
-/// `ember.list` on each socket and returns the one holding the requested BDF.
+/// Tries NUCLEUS capability routing first (`ember.list` via `call_by_capability`),
+/// then falls back to the diesel engine layout: per-cylinder ember sockets at
+/// `<coralreef_run_dir>/ember-{cylinder_name}.sock`. Queries `ember.list` on
+/// each socket and returns the one holding the requested BDF.
 #[must_use]
 pub fn discover_diesel_ember_socket(bdf: &str) -> Option<PathBuf> {
+    let ctx = crate::primal_bridge::NucleusContext::detect();
+    if let Some(ep) = ctx.by_domain("ember") {
+        let socket = PathBuf::from(&ep.socket);
+        if ep.alive {
+            if let Ok(resp) = send_jsonrpc(&socket, "ember.list", &serde_json::json!({})) {
+                if resp
+                    .get("result")
+                    .and_then(|r| r.get("devices"))
+                    .and_then(|d| d.as_array())
+                    .is_some_and(|arr| arr.iter().any(|d| d.as_str() == Some(bdf)))
+                {
+                    return Some(socket);
+                }
+            }
+        }
+    }
+
     let coralreef_dir = coralreef_run_dir();
     let entries = std::fs::read_dir(coralreef_dir).ok()?;
 

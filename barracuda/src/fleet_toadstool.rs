@@ -78,7 +78,16 @@ impl ToadStoolDispatchClient {
 
     /// `compute.dispatch.capabilities` — query available dispatch backends
     /// and hardware units.
+    ///
+    /// Prefers `call_by_capability` when NUCLEUS context is available,
+    /// falling back to direct socket RPC.
     pub fn capabilities(&self) -> Result<serde_json::Value, HotSpringError> {
+        let ctx = NucleusContext::detect();
+        if let Ok(resp) =
+            ctx.call_by_capability("compute", "compute.dispatch.capabilities", serde_json::json!({}))
+        {
+            return Ok(resp);
+        }
         let resp = send_jsonrpc(
             &self.socket_path,
             "compute.dispatch.capabilities",
@@ -104,10 +113,19 @@ impl ToadStoolDispatchClient {
     /// - `dispatch_dims`: `[x, y, z]` workgroup counts
     /// - `buffers`: array of `{ data_b64, size, binding }` buffer descriptors
     /// - `timeout_ms`: dispatch timeout in milliseconds
+    ///
+    /// Prefers `call_by_capability` when NUCLEUS context is available,
+    /// falling back to direct socket RPC.
     pub fn submit(
         &self,
         params: &serde_json::Value,
     ) -> Result<serde_json::Value, HotSpringError> {
+        let ctx = NucleusContext::detect();
+        if let Ok(resp) =
+            ctx.call_by_capability("compute", "compute.dispatch.submit", params.clone())
+        {
+            return Ok(resp);
+        }
         let resp = send_jsonrpc(
             &self.socket_path,
             "compute.dispatch.submit",

@@ -1194,6 +1194,46 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 
 ---
 
+### GAP-HS-092 — IPC Transport Evolution: call_by_capability Proliferation (May 12 2026)
+
+- **Severity:** Low (all modules already had NUCLEUS discovery; transport now unified)
+- **Classification:** Deep Debt → IPC transport evolution
+- **Trigger:** Continued deep debt pass — IPC modules were split between
+  `by_domain()` discovery and `send_jsonrpc()` transport. The `call_by_capability()`
+  API unifies both in a single call, reducing coupling and socket-path leakage.
+- **Completed:**
+  - **`ipc/biome_status.rs`**: `query_composition_status()` now uses
+    `call_by_capability("composition", "composition.status", ...)` as primary
+    transport, falling back to env-var and socket-dir scan.
+  - **`ipc/method_register.rs`**: `register_rpc()` helper uses
+    `call_by_capability("composition", "method.register", ...)`, replacing the
+    `biomeos_socket()` + `send_jsonrpc()` two-step pattern.
+  - **`ipc/skunkbat.rs`**: `query_audit_log()` uses
+    `call_by_capability("security", "security.audit_log", ...)` with direct
+    socket fallback.
+  - **`ipc/provenance/sweetgrass.rs`**: `submit_braid()` uses
+    `call_by_capability("attribution", ...)` with direct socket fallback.
+  - **`ipc/provenance/rhizocrypt.rs`**: `submit_witness()` uses
+    `call_by_capability("dag", ...)` with direct socket fallback.
+  - **`ipc/provenance/loamspine.rs`**: `record_entry()` uses
+    `call_by_capability("ledger", ...)` with direct socket fallback.
+  - **`fleet_toadstool.rs`**: `capabilities()` and `submit()` now try
+    `call_by_capability("compute", ...)` before falling back to cached
+    socket transport.
+  - **`fleet_client.rs`**: `discover_diesel_ember_socket()` now tries NUCLEUS
+    `by_domain("ember")` before falling back to filesystem diesel layout scan.
+  - **`hardware_calibration.rs`**: `TierCapability::failed()` and
+    `TierCapability::compiled_only()` constructors eliminate ~50 lines of
+    repeated boilerplate.
+- **Pattern:** Every IPC client module now follows the same 3-tier resolution:
+  1. `call_by_capability(domain, method, params)` — unified discovery + transport
+  2. Direct `send_jsonrpc` to discovered socket — when NUCLEUS routing unavailable
+     but endpoint discovered
+  3. Env var / socket-dir fallback — for CI/lab environments
+- **Validation:** 584/584 lib tests pass. Zero clippy warnings.
+
+---
+
 ## Handback Protocol
 
 1. Document gap in this file with severity and upstream reference.

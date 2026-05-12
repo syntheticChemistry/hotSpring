@@ -6,7 +6,7 @@
 //! through sweetGrass's attribution braid. Each braid entry connects a
 //! computation witness to its scientific provenance.
 
-use crate::primal_bridge::send_jsonrpc;
+use crate::primal_bridge::{NucleusContext, send_jsonrpc};
 use serde::{Deserialize, Serialize};
 
 /// An attribution braid entry for sweetGrass.
@@ -43,15 +43,21 @@ pub struct BraidResult {
 
 /// Submit an attribution braid entry to sweetGrass.
 ///
-/// Discovery: `by_domain("attribution")` → NUCLEUS capability routing.
+/// Uses `call_by_capability("attribution", ...)` for fully capability-based
+/// transport. Falls back to direct socket RPC if NUCLEUS routing is unavailable
+/// but the endpoint was discovered.
 pub fn submit_braid(entry: &BraidEntry) -> Option<BraidResult> {
-    let ctx = crate::primal_bridge::NucleusContext::detect();
+    let ctx = NucleusContext::detect();
+    let params = serde_json::to_value(entry).ok()?;
+
+    if let Ok(resp) = ctx.call_by_capability("attribution", "attribution.braid", params.clone()) {
+        return serde_json::from_value(resp).ok();
+    }
+
     let socket = ctx
         .by_domain("attribution")
         .filter(|ep| ep.alive)
         .map(|ep| std::path::PathBuf::from(&ep.socket))?;
-
-    let params = serde_json::to_value(entry).ok()?;
     let resp = send_jsonrpc(&socket, "attribution.braid", &params).ok()?;
     serde_json::from_value(resp).ok()
 }

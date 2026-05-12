@@ -77,6 +77,36 @@ pub struct TierCapability {
     pub probe_ulp: f64,
 }
 
+impl TierCapability {
+    /// Construct a failed/skipped tier capability — all fields zeroed/NaN.
+    #[must_use]
+    fn failed(tier: PrecisionTier) -> Self {
+        Self {
+            tier,
+            compiles: false,
+            dispatches: false,
+            transcendentals_safe: false,
+            compile_us: 0.0,
+            dispatch_us: 0.0,
+            probe_ulp: f64::NAN,
+        }
+    }
+
+    /// Construct a tier that compiled but failed to dispatch.
+    #[must_use]
+    fn compiled_only(tier: PrecisionTier, compile_us: f64) -> Self {
+        Self {
+            tier,
+            compiles: true,
+            dispatches: false,
+            transcendentals_safe: false,
+            compile_us,
+            dispatch_us: 0.0,
+            probe_ulp: f64::NAN,
+        }
+    }
+}
+
 /// Complete hardware calibration for a single GPU.
 #[derive(Debug, Clone)]
 pub struct HardwareCalibration {
@@ -169,15 +199,7 @@ impl HardwareCalibration {
         for &tier in &tiers_to_probe {
             if device_poisoned {
                 eprintln!("[HwCal] {tier:?} SKIPPED — device poisoned by earlier probe");
-                tiers.push(TierCapability {
-                    tier,
-                    compiles: false,
-                    dispatches: false,
-                    transcendentals_safe: false,
-                    compile_us: 0.0,
-                    dispatch_us: 0.0,
-                    probe_ulp: f64::NAN,
-                });
+                tiers.push(TierCapability::failed(tier));
                 continue;
             }
 
@@ -223,15 +245,7 @@ impl HardwareCalibration {
             if !caps.has_hardware_f64
                 && matches!(tier, PrecisionTier::F64 | PrecisionTier::F64Precise)
             {
-                tiers.push(TierCapability {
-                    tier,
-                    compiles: false,
-                    dispatches: false,
-                    transcendentals_safe: false,
-                    compile_us: 0.0,
-                    dispatch_us: 0.0,
-                    probe_ulp: f64::NAN,
-                });
+                tiers.push(TierCapability::failed(tier));
                 continue;
             }
             let cap = probe_tier_backend(backend, tier, &input, &arith_ref, &caps);
@@ -357,15 +371,7 @@ fn probe_tier(
 
     let Ok((compiles, dispatches, compile_us, dispatch_us, probe_ulp)) = arith else {
         eprintln!("[HwCal] {tier:?} arith probe PANICKED — tier disabled");
-        return TierCapability {
-            tier,
-            compiles: false,
-            dispatches: false,
-            transcendentals_safe: false,
-            compile_us: 0.0,
-            dispatch_us: 0.0,
-            probe_ulp: f64::NAN,
-        };
+        return TierCapability::failed(tier);
     };
 
     // Phase 2: transcendental safety.
@@ -472,28 +478,12 @@ fn probe_tier_backend<B: GpuBackend>(
     let input_bytes: &[u8] = bytemuck::cast_slice(input);
 
     let Ok(input_buf) = backend.alloc_buffer_init(&format!("{label}_in"), input_bytes) else {
-        return TierCapability {
-            tier,
-            compiles: false,
-            dispatches: false,
-            transcendentals_safe: false,
-            compile_us: 0.0,
-            dispatch_us: 0.0,
-            probe_ulp: f64::NAN,
-        };
+        return TierCapability::failed(tier);
     };
 
     let output_size = (PROBE_N * std::mem::size_of::<f64>()) as u64;
     let Ok(output_buf) = backend.alloc_buffer(&format!("{label}_out"), output_size) else {
-        return TierCapability {
-            tier,
-            compiles: false,
-            dispatches: false,
-            transcendentals_safe: false,
-            compile_us: 0.0,
-            dispatch_us: 0.0,
-            probe_ulp: f64::NAN,
-        };
+        return TierCapability::failed(tier);
     };
 
     let t_compile = Instant::now();
@@ -525,27 +515,11 @@ fn probe_tier_backend<B: GpuBackend>(
     let compile_us = t_compile.elapsed().as_secs_f64() * 1e6;
 
     if compile_and_dispatch.is_err() {
-        return TierCapability {
-            tier,
-            compiles: false,
-            dispatches: false,
-            transcendentals_safe: false,
-            compile_us,
-            dispatch_us: 0.0,
-            probe_ulp: f64::NAN,
-        };
+        return TierCapability::failed(tier);
     }
 
     let Ok(output_bytes) = backend.download(&output_buf, output_size) else {
-        return TierCapability {
-            tier,
-            compiles: true,
-            dispatches: false,
-            transcendentals_safe: false,
-            compile_us,
-            dispatch_us: 0.0,
-            probe_ulp: f64::NAN,
-        };
+        return TierCapability::compiled_only(tier, compile_us);
     };
 
     let output: Vec<f64> = output_bytes

@@ -9,6 +9,17 @@ This file covers the spring as a whole. For crate-level details see
 
 ## Unreleased — Compute Trio Rewire + Deep Debt Capability Evolution (May 12, 2026)
 
+### Changed (May 12 — IPC Transport Evolution: call_by_capability Proliferation)
+- **GAP-HS-092:** All IPC client modules now prefer `call_by_capability(domain,
+  method, params)` for unified discovery + transport, falling back to direct
+  socket RPC and env-var/socket-dir scan. Affected modules: `biome_status`,
+  `method_register`, `skunkbat`, `sweetgrass`, `rhizocrypt`, `loamspine`,
+  `fleet_toadstool` (`capabilities`, `submit`), `fleet_client`
+  (`discover_diesel_ember_socket` tries NUCLEUS `by_domain("ember")` first).
+- **`hardware_calibration.rs`:** `TierCapability::failed()` and
+  `TierCapability::compiled_only()` constructors eliminate ~50 lines of
+  repeated failed-tier boilerplate.
+
 ### Added
 - **Compute Trio Rewire Sprint (GAP-HS-087):** `PrecisionTier`/`PhysicsDomain`
   re-exported from upstream barraCuda (15-tier/15-variant canonical enums).

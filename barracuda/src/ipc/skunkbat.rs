@@ -6,7 +6,7 @@
 //! JSON-RPC. When Phase 3 ships, audit events forwarded here automatically
 //! propagate to rhizoCrypt DAG + sweetGrass braid.
 
-use crate::primal_bridge::send_jsonrpc;
+use crate::primal_bridge::{NucleusContext, send_jsonrpc};
 use serde::{Deserialize, Serialize};
 
 /// Maximum batch size for `security.audit_log` queries.
@@ -59,21 +59,25 @@ impl AuditLogResponse {
 /// `since_seq` is a cursor — events with `seq > since_seq` are returned.
 /// `limit` caps the number of events (server max: 1000).
 ///
-/// Discovery: `by_domain("security")` → NUCLEUS capability routing.
-/// Returns `None` if skunkBat is unreachable or the socket does not exist.
+/// Uses `call_by_capability("security", ...)` for fully capability-based
+/// transport. Falls back to direct socket RPC if NUCLEUS routing is
+/// unavailable but the endpoint was discovered.
 pub fn query_audit_log(since_seq: u64, limit: u64) -> Option<AuditLogResponse> {
-    let ctx = crate::primal_bridge::NucleusContext::detect();
-    let socket = ctx
-        .by_domain("security")
-        .filter(|ep| ep.alive)
-        .map(|ep| std::path::PathBuf::from(&ep.socket))?;
-
+    let ctx = NucleusContext::detect();
     let params = serde_json::json!({
         "since_seq": since_seq,
         "limit": limit.min(AUDIT_LOG_BATCH_LIMIT),
     });
-    let response = send_jsonrpc(&socket, "security.audit_log", &params).ok()?;
 
+    if let Ok(resp) = ctx.call_by_capability("security", "security.audit_log", params.clone()) {
+        return serde_json::from_value(resp).ok();
+    }
+
+    let socket = ctx
+        .by_domain("security")
+        .filter(|ep| ep.alive)
+        .map(|ep| std::path::PathBuf::from(&ep.socket))?;
+    let response = send_jsonrpc(&socket, "security.audit_log", &params).ok()?;
     serde_json::from_value(response).ok()
 }
 
