@@ -1188,9 +1188,9 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
     which describes it as aspirational contract).
   - `barracuda.precision.route` may be library-level only (not yet a JSON-RPC
     method in barraCuda's `REGISTERED_METHODS`); client will degrade gracefully.
-  - Wire `tier2_status()` into `hotspring_unibin status` subcommand.
-  - Wire `workload_preflight()` into scenario runner pre-check.
-- **Validation:** 584/584 lib tests pass. Zero clippy warnings.
+  - ~~Wire `tier2_status()` into `hotspring_unibin status` subcommand.~~ **DONE** (May 12)
+  - ~~Wire `workload_preflight()` into scenario runner pre-check.~~ **DONE** (May 12)
+- **Validation:** 587/587 lib tests pass. Zero clippy warnings.
 
 ---
 
@@ -1230,7 +1230,50 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
   2. Direct `send_jsonrpc` to discovered socket — when NUCLEUS routing unavailable
      but endpoint discovered
   3. Env var / socket-dir fallback — for CI/lab environments
-- **Validation:** 584/584 lib tests pass. Zero clippy warnings.
+- **Validation:** 587/587 lib tests pass. Zero clippy warnings.
+
+---
+
+### GAP-HS-093 — Sovereign GPU Validation Niche Wiring (May 12 2026)
+
+- **Severity:** Medium (new functionality for upstream audit compliance)
+- **Classification:** Feature evolution → sovereign GPU validation
+- **Trigger:** primalSpring upstream audit designating hotSpring as "Sovereign GPU
+  Validation Niche" — requiring validation of warm/cold boot, Phase D local dispatch,
+  and compute trio E2E through Tier 2 Science API.
+- **Completed:**
+  - **`hotspring_unibin status`**: now includes Tier 2 readiness section
+    (`toadstool.validate`, `precision.route`, fully_wired status).
+  - **Scenario runner pre-check**: `workload_preflight("hotspring-scenarios")`
+    called before running scenarios — reports toadStool preflight status.
+  - **`s_sovereign_dispatch` scenario**: new `GpuCompute`-track Live-tier scenario
+    exercising: `tier2_status`, `workload_preflight`, `precision_advisory`,
+    `compute.dispatch.submit` probe, `ember.fecs.state` probe, and
+    `ember.warm_cycle` routable check. Gracefully degrades in standalone mode.
+  - **`ROUTED_CAPABILITIES` expanded**: `compute.dispatch.result`, `ember.status`,
+    `ember.warm_cycle`, `ember.adopt_device`, `ember.fecs.state` added to niche
+    routing table + `capability_registry.toml` (lockstep test passes).
+  - **`FecsState` typed struct**: replaces `serde_json::Value` return from
+    `fecs_state()` — typed `running`, `pc`, `cpuctl`, `mailbox0`, `sctl`,
+    `error`, `timed_out` fields with `is_faulted()` helper. 3 new tests.
+  - **`fleet_ember.rs` call_by_capability evolution**: `status()`, `warm_cycle()`,
+    `adopt_device()`, and `fecs_state()` now prefer NUCLEUS
+    `call_by_capability("compute", ...)` with direct socket fallback.
+  - **Phase D `try_local_dispatch()`**: `fleet_toadstool.rs` gains
+    `try_local_dispatch()` function + `LocalDispatchResult` struct.
+    Sets `local_dispatch: true` and `phase_d: true` in dispatch params.
+    `local-dispatch` feature flag added to `Cargo.toml`.
+  - **3 new tests** (587 total lib tests, up from 584).
+- **Remaining:**
+  - Exercise `try_local_dispatch()` on biomeGate hardware (RTX 3090 / Titan V)
+    and compare parity with coralReef-forwarded dispatch.
+  - TensorSession fused pipelines (GAP-HS-027 still deferred upstream).
+  - Exercise cold boot validation via `falcon_boot()` on K80, capture structured
+    `FecsState` errors, and hand back to coralReef.
+  - Expand `s_sovereign_dispatch` with real workload dispatch once toadStool
+    Phase D `try_local_dispatch()` becomes production default.
+  - Sovereign dispatch timeout exercise with cold boot structured errors.
+- **Validation:** 587/587 lib tests pass. Zero clippy warnings.
 
 ---
 

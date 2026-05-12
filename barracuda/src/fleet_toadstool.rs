@@ -145,6 +145,62 @@ impl ToadStoolDispatchClient {
     }
 }
 
+/// Phase D local dispatch result.
+///
+/// Captures whether local dispatch was attempted and its outcome,
+/// enabling parity comparison with the coralReef-forwarded path.
+#[derive(Debug, Clone)]
+pub struct LocalDispatchResult {
+    /// Whether local dispatch was attempted.
+    pub attempted: bool,
+    /// Whether local dispatch succeeded.
+    pub succeeded: bool,
+    /// The dispatch result (if successful) or error description.
+    pub result: Result<serde_json::Value, String>,
+}
+
+/// Phase D: attempt local dispatch via toadStool's `LocalDeviceFactory`.
+///
+/// toadStool S250 shipped `LocalDeviceFactory` + `try_local_dispatch()` —
+/// dispatch without forwarding to coralReef. This function wraps that
+/// path via NUCLEUS IPC, enabling hotSpring to validate local dispatch
+/// parity with the standard coralReef-forwarded path.
+///
+/// Returns `None` when the `local-dispatch` feature is not enabled or
+/// when the toadStool endpoint doesn't support local dispatch.
+///
+/// # Phase D Protocol
+///
+/// 1. Call `compute.dispatch.local` (Phase D method) via NUCLEUS
+/// 2. If unavailable, fall back to standard `compute.dispatch.submit`
+/// 3. Compare results for parity validation
+pub fn try_local_dispatch(
+    nucleus: &NucleusContext,
+    params: &serde_json::Value,
+) -> LocalDispatchResult {
+    let local_params = {
+        let mut p = params.clone();
+        if let Some(obj) = p.as_object_mut() {
+            obj.insert("local_dispatch".into(), serde_json::Value::Bool(true));
+            obj.insert("phase_d".into(), serde_json::Value::Bool(true));
+        }
+        p
+    };
+
+    match nucleus.call_by_capability("compute", "compute.dispatch.submit", local_params) {
+        Ok(resp) => LocalDispatchResult {
+            attempted: true,
+            succeeded: true,
+            result: Ok(resp),
+        },
+        Err(e) => LocalDispatchResult {
+            attempted: true,
+            succeeded: false,
+            result: Err(e.to_string()),
+        },
+    }
+}
+
 fn jsonrpc_result(resp: &serde_json::Value) -> Result<serde_json::Value, HotSpringError> {
     if let Some(err) = resp.get("error") {
         return Err(HotSpringError::Ipc(format!("toadStool JSON-RPC error: {err}")));

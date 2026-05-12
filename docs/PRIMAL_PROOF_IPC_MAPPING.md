@@ -145,15 +145,16 @@ for unified discovery + transport. This eliminates the two-step pattern of
 `by_domain()` → `send_jsonrpc()` and ensures primal code never embeds socket
 paths beyond fallback tiers. Modules evolved: `biome_status`, `method_register`,
 `skunkbat`, `sweetgrass`, `rhizocrypt`, `loamspine`, `fleet_toadstool`,
-`fleet_client`.
+`fleet_client`, `fleet_ember` (status, warm_cycle, adopt_device, fecs_state).
 
 ### Remaining IPC-first targets
 
 - Default to IPC-first via `CompositionContext` (currently opt-in)
 - Library calls become opt-in fallback (reverse default)
 - All validation binaries confirm parity between lanes
-- Wire `tier2_status()` into `hotspring_unibin status` subcommand
-- Wire `workload_preflight()` into scenario runner pre-check
+- ~~Wire `tier2_status()` into `hotspring_unibin status` subcommand~~ **DONE** (May 12)
+- ~~Wire `workload_preflight()` into scenario runner pre-check~~ **DONE** (May 12)
+- Phase D local dispatch parity validation on biomeGate hardware
 
 ### CompositionContext Migration
 

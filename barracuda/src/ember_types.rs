@@ -145,6 +145,49 @@ pub struct FalconPollResult {
     pub final_state: Option<FalconPollSnapshot>,
 }
 
+// ── FECS ─────────────────────────────────────────────────────────────────
+
+/// Result of `ember.fecs.state` — PGRAPH falcon status registers.
+///
+/// Replaces the untyped `serde_json::Value` return used prior to May 2026.
+/// The struct maps the register fields that coralReef's FECS hardening
+/// emits after `falcon_boot()`.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct FecsState {
+    /// Whether the FECS falcon is running (PC advancing).
+    #[serde(default)]
+    pub running: bool,
+    /// Current program counter of the falcon microprocessor.
+    #[serde(default)]
+    pub pc: Option<u32>,
+    /// CPUCTL register — indicates halt/run/exception state.
+    #[serde(default)]
+    pub cpuctl: Option<u32>,
+    /// Mailbox register 0 — firmware status/error code.
+    #[serde(default)]
+    pub mailbox0: Option<u32>,
+    /// SCTL register — security/privilege state.
+    #[serde(default)]
+    pub sctl: Option<u32>,
+    /// Error description from coralReef (populated on falcon_boot failures).
+    #[serde(default)]
+    pub error: Option<String>,
+    /// Whether this state represents a timeout (falcon didn't advance).
+    #[serde(default)]
+    pub timed_out: bool,
+    /// Additional fields from the upstream response.
+    #[serde(flatten)]
+    pub extra: serde_json::Value,
+}
+
+impl FecsState {
+    /// True when the falcon reported a failure or timed out.
+    #[must_use]
+    pub fn is_faulted(&self) -> bool {
+        self.timed_out || self.error.is_some() || !self.running
+    }
+}
+
 // ── SEC2 ────────────────────────────────────────────────────────────────
 
 /// Result of `ember.sec2.prepare_physical`.
@@ -310,5 +353,31 @@ mod tests {
         let json = r#"{"data_b64": "AAAA", "length": 3}"#;
         let r: PraminReadResult = serde_json::from_str(json).expect("parse");
         assert_eq!(r.length, 3);
+    }
+
+    #[test]
+    fn fecs_state_deserializes_running() {
+        let json = r#"{"running": true, "pc": 86, "cpuctl": 2, "mailbox0": 0}"#;
+        let r: FecsState = serde_json::from_str(json).expect("parse");
+        assert!(r.running);
+        assert_eq!(r.pc, Some(86));
+        assert!(!r.is_faulted());
+    }
+
+    #[test]
+    fn fecs_state_faulted_on_timeout() {
+        let json = r#"{"running": false, "timed_out": true, "error": "falcon halt"}"#;
+        let r: FecsState = serde_json::from_str(json).expect("parse");
+        assert!(r.is_faulted());
+        assert!(r.timed_out);
+        assert_eq!(r.error.as_deref(), Some("falcon halt"));
+    }
+
+    #[test]
+    fn fecs_state_minimal_deserializes() {
+        let json = r#"{}"#;
+        let r: FecsState = serde_json::from_str(json).expect("parse");
+        assert!(!r.running);
+        assert!(r.is_faulted());
     }
 }

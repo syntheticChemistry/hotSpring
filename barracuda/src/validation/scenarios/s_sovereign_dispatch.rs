@@ -1,0 +1,102 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+//! Scenario: Sovereign GPU Dispatch — validates the IPC-dispatched
+//! compute path through toadStool + barraCuda precision advisory.
+//!
+//! This is the first scenario on the `GpuCompute` track. It exercises:
+//! - `toadstool.validate` workload preflight via NUCLEUS IPC
+//! - `precision.route` advisory via NUCLEUS IPC
+//! - `compute.dispatch.submit` sovereign workload dispatch
+//! - Structured capability/error reporting for coralReef sentinel feedback
+//!
+//! In standalone mode (no NUCLEUS), all IPC checks gracefully report
+//! as skipped rather than failing.
+
+use crate::validation::ValidationHarness;
+use crate::validation::scenarios::registry::{Scenario, ScenarioMeta, Tier, Track};
+
+pub const SCENARIO: Scenario = Scenario {
+    meta: ScenarioMeta {
+        id: "sovereign-dispatch",
+        track: Track::GpuCompute,
+        tier: Tier::Live,
+        provenance_crate: "exp170_sovereign_cold_boot",
+        provenance_date: "2026-05-12",
+        description: "Sovereign GPU dispatch: toadStool validate + precision route + dispatch submit",
+    },
+    run,
+};
+
+pub fn run(v: &mut ValidationHarness) {
+    use crate::ipc::tier2;
+    use crate::primal_bridge::NucleusContext;
+
+    let nucleus = NucleusContext::detect();
+    let t2 = tier2::tier2_status(&nucleus);
+
+    t2.check(v);
+
+    // --- Workload preflight ---
+    let preflight = tier2::workload_preflight(&nucleus, "sovereign-dispatch-probe");
+    let preflight_responded = preflight.is_some();
+    v.check_bool("sovereign:preflight_responded", preflight_responded || !t2.toadstool_alive);
+    if let Some(pf) = &preflight {
+        v.check_bool("sovereign:preflight_valid", pf.valid);
+        v.check_bool("sovereign:gpu_available", pf.gpu_available);
+    }
+
+    // --- Precision advisory ---
+    let advisory = tier2::precision_advisory(&nucleus, "molecular_dynamics", "lennard_jones");
+    let precision_responded = advisory.is_some();
+    v.check_bool("sovereign:precision_responded", precision_responded || !t2.barracuda_alive);
+    if let Some(pa) = &advisory {
+        v.check_bool("sovereign:precision_gpu_preferred", pa.gpu_preferred);
+    }
+
+    // --- Sovereign dispatch probe ---
+    let dispatch_available = nucleus
+        .get_by_capability("compute.dispatch.submit")
+        .is_some_and(|ep| ep.alive);
+
+    if dispatch_available {
+        let params = serde_json::json!({
+            "workload": "hotspring-sovereign-probe",
+            "kind": "health_check",
+            "dry_run": true,
+        });
+        match nucleus.call_by_capability("compute", "compute.dispatch.submit", params) {
+            Ok(_resp) => {
+                v.check_bool("sovereign:dispatch_responded", true);
+            }
+            Err(_) => {
+                v.check_bool("sovereign:dispatch_responded", false);
+            }
+        }
+    } else {
+        v.check_bool("sovereign:dispatch_routable", dispatch_available || !t2.toadstool_alive);
+    }
+
+    // --- FECS state probe (coralReef sentinel) ---
+    let ember_available = nucleus
+        .get_by_capability("ember.fecs.state")
+        .is_some_and(|ep| ep.alive);
+
+    if ember_available {
+        let params = serde_json::json!({ "bdf": "auto" });
+        match nucleus.call_by_capability("compute", "ember.fecs.state", params) {
+            Ok(_resp) => {
+                v.check_bool("sovereign:fecs_responded", true);
+            }
+            Err(_) => {
+                v.check_bool("sovereign:fecs_responded", false);
+            }
+        }
+    } else {
+        v.check_bool("sovereign:fecs_routable", ember_available || !t2.toadstool_alive);
+    }
+
+    // --- Warm cycle routable ---
+    let warm_available = nucleus
+        .get_by_capability("ember.warm_cycle")
+        .is_some_and(|ep| ep.alive);
+    v.check_bool("sovereign:warm_cycle_routable", warm_available || !t2.toadstool_alive);
+}

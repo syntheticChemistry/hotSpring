@@ -33,6 +33,7 @@ pub mod s_md_yukawa;
 pub mod s_sarkas_yukawa_md;
 pub mod s_screened_coulomb;
 pub mod s_semf_parity;
+pub mod s_sovereign_dispatch;
 #[cfg(feature = "barracuda-local")]
 pub mod s_spectral_lanczos;
 pub mod s_tolerance_ordering;
@@ -57,5 +58,6 @@ pub fn build_registry() -> ScenarioRegistry {
     r.register(s_composition_health::SCENARIO);
     r.register(s_tolerance_ordering::SCENARIO);
     r.register(s_ltee_anderson::SCENARIO);
+    r.register(s_sovereign_dispatch::SCENARIO);
     r
 }

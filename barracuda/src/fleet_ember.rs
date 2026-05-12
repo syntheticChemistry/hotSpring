@@ -12,7 +12,7 @@ use std::path::{Path, PathBuf};
 
 use crate::ember_types::{
     CircuitBreakerStatus, DmaCleanupResult, DmaPrepareResult, FalconPollResult, FalconStartResult,
-    FalconUploadResult, MmioBatchOp, MmioBatchResult, MmioReadResult, MmioWriteResult,
+    FalconUploadResult, FecsState, MmioBatchOp, MmioBatchResult, MmioReadResult, MmioWriteResult,
     PraminReadResult, PraminWriteResult, Sec2PrepareResult,
 };
 use crate::error::HotSpringError;
@@ -78,7 +78,14 @@ impl EmberClient {
     }
 
     /// `ember.status` — aggregate status (devices, uptime, per-device hints).
+    ///
+    /// Prefers `call_by_capability("compute", "ember.status", …)` via NUCLEUS,
+    /// falling back to direct socket RPC.
     pub fn status(&self) -> Result<serde_json::Value, HotSpringError> {
+        let ctx = crate::primal_bridge::NucleusContext::detect();
+        if let Ok(resp) = ctx.call_by_capability("compute", "ember.status", serde_json::json!({})) {
+            return Ok(resp);
+        }
         let v = crate::primal_bridge::send_jsonrpc(
             &self.socket_path,
             "ember.status",
@@ -115,21 +122,37 @@ impl EmberClient {
     }
 
     /// `ember.adopt_device` — JSON-RPC only (current coral-ember opens VFIO server-side).
+    ///
+    /// Prefers `call_by_capability("compute", "ember.adopt_device", …)` via NUCLEUS,
+    /// falling back to direct socket RPC.
     pub fn adopt_device(&self, bdf: &str) -> Result<serde_json::Value, HotSpringError> {
+        let params = serde_json::json!({ "bdf": bdf });
+        let ctx = crate::primal_bridge::NucleusContext::detect();
+        if let Ok(resp) = ctx.call_by_capability("compute", "ember.adopt_device", params.clone()) {
+            return Ok(resp);
+        }
         let v = crate::primal_bridge::send_jsonrpc(
             &self.socket_path,
             "ember.adopt_device",
-            &serde_json::json!({ "bdf": bdf }),
+            &params,
         )?;
         jsonrpc_ok_result(&v)
     }
 
     /// `ember.warm_cycle` — driver warm cycle for `bdf`.
+    ///
+    /// Prefers `call_by_capability("compute", "ember.warm_cycle", …)` via NUCLEUS,
+    /// falling back to direct socket RPC.
     pub fn warm_cycle(&self, bdf: &str) -> Result<serde_json::Value, HotSpringError> {
+        let params = serde_json::json!({ "bdf": bdf });
+        let ctx = crate::primal_bridge::NucleusContext::detect();
+        if let Ok(resp) = ctx.call_by_capability("compute", "ember.warm_cycle", params.clone()) {
+            return Ok(resp);
+        }
         let v = crate::primal_bridge::send_jsonrpc(
             &self.socket_path,
             "ember.warm_cycle",
-            &serde_json::json!({ "bdf": bdf }),
+            &params,
         )?;
         jsonrpc_ok_result(&v)
     }
@@ -392,13 +415,24 @@ impl EmberClient {
     // ── FECS (Kepler/Volta PGRAPH engine) ─────────────────────────
 
     /// `ember.fecs.state` — read FECS falcon status registers.
-    pub fn fecs_state(&self, bdf: &str) -> Result<serde_json::Value, HotSpringError> {
+    ///
+    /// Returns a typed [`FecsState`] with structured fields for
+    /// falcon health, error descriptions, and timeout detection.
+    /// Prefers `call_by_capability("compute", "ember.fecs.state", …)` via NUCLEUS,
+    /// falling back to direct socket RPC.
+    pub fn fecs_state(&self, bdf: &str) -> Result<FecsState, HotSpringError> {
+        let params = serde_json::json!({ "bdf": bdf });
+        let ctx = crate::primal_bridge::NucleusContext::detect();
+        if let Ok(resp) = ctx.call_by_capability("compute", "ember.fecs.state", params.clone()) {
+            return Ok(serde_json::from_value(resp)?);
+        }
         let v = crate::primal_bridge::send_jsonrpc(
             &self.socket_path,
             "ember.fecs.state",
-            &serde_json::json!({ "bdf": bdf }),
+            &params,
         )?;
-        jsonrpc_ok_result(&v)
+        let result = jsonrpc_ok_result(&v)?;
+        Ok(serde_json::from_value(result)?)
     }
 
     // ── Journal / Policy ────────────────────────────────────────────

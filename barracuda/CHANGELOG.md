@@ -5,6 +5,25 @@ All notable changes to the hotSpring BarraCuda validation crate.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased — Sovereign GPU Validation Niche Wiring (May 12, 2026)
+
+### Added
+- **`s_sovereign_dispatch` scenario**: First `GpuCompute`-track, `Live`-tier validation scenario exercising toadStool.validate preflight, precision.route advisory, compute.dispatch.submit probe, ember.fecs.state sentinel, and ember.warm_cycle routable check (GAP-HS-093)
+- **`FecsState` typed struct** (`ember_types.rs`): Replaces untyped `serde_json::Value` for `ember.fecs.state` — structured `running`, `pc`, `cpuctl`, `mailbox0`, `sctl`, `error`, `timed_out` fields with `is_faulted()` helper for coralReef sentinel feedback
+- **`try_local_dispatch()`** (`fleet_toadstool.rs`): Phase D local dispatch function + `LocalDispatchResult` struct for parity validation with coralReef-forwarded dispatch
+- **`local-dispatch` feature flag**: Enables Phase D `try_local_dispatch()` (depends on `toadstool-dispatch`)
+- **Sovereign lifecycle ROUTED_CAPABILITIES**: `compute.dispatch.result`, `ember.status`, `ember.warm_cycle`, `ember.adopt_device`, `ember.fecs.state` added to niche routing table + `capability_registry.toml`
+- **Tier 2 in `hotspring_unibin status`**: Shows toadStool/barraCuda Tier 2 readiness and `fully_wired` status
+- **Workload preflight in scenario runner**: `workload_preflight("hotspring-scenarios")` called before validation run
+
+### Changed
+- **`fleet_ember.rs`**: `status()`, `warm_cycle()`, `adopt_device()`, `fecs_state()` now prefer `call_by_capability("compute", ...)` via NUCLEUS with direct socket fallback
+- **`fecs_state()` return type**: `serde_json::Value` → typed `FecsState` struct
+
+### Tests
+- 1,039 lib tests pass (`barracuda-local` + `toadstool-dispatch`); zero clippy warnings
+- 3 new `FecsState` tests: `fecs_state_deserializes_running`, `fecs_state_faulted_on_timeout`, `fecs_state_minimal_deserializes`
+
 ## Unreleased — Compute Trio Rewire + Deep Debt Capability Discovery (May 12, 2026)
 
 ### Added
@@ -27,7 +46,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **`low_level/bar0.rs`**: Sysfs PCI base path overridable via `HOTSPRING_SYSFS_PCI` env var
 
 ### Tests
-- 1,036 lib tests pass (`barracuda-local` + `toadstool-dispatch`); zero clippy warnings
+- 1,039 lib tests pass (`barracuda-local` + `toadstool-dispatch`); zero clippy warnings
 
 ## Unreleased — Composition Evolution (April 11, 2026; April 17, 2026 work is logged in the repository root `CHANGELOG.md`)
 

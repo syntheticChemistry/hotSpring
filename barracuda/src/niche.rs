@@ -206,9 +206,15 @@ pub const ROUTED_CAPABILITIES: &[(&str, &str)] = &[
     // Compute dispatch (ToadStool)
     ("compute.dispatch.submit", "toadstool"),
     ("compute.dispatch.capabilities", "toadstool"),
+    ("compute.dispatch.result", "toadstool"),
     // Tier 2 Live Science API (ToadStool)
     ("toadstool.validate", "toadstool"),
     ("toadstool.list_workloads", "toadstool"),
+    // Sovereign GPU lifecycle (coral-ember via toadStool)
+    ("ember.status", "toadstool"),
+    ("ember.warm_cycle", "toadstool"),
+    ("ember.adopt_device", "toadstool"),
+    ("ember.fecs.state", "toadstool"),
     // Precision advisory (barraCuda)
     ("precision.route", "barracuda"),
     // Shader compilation (coralReef)

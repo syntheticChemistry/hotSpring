@@ -105,6 +105,23 @@ fn cmd_validate(
     println!("╚══════════════════════════════════════════════════════════╝");
     println!();
 
+    {
+        use hotspring_barracuda::ipc::tier2;
+        use hotspring_barracuda::primal_bridge::NucleusContext;
+
+        let ctx = NucleusContext::detect();
+        if let Some(pf) = tier2::workload_preflight(&ctx, "hotspring-scenarios") {
+            println!("tier2 preflight: valid={}, gpu={}", pf.valid, pf.gpu_available);
+            for w in &pf.warnings {
+                println!("  warning: {w}");
+            }
+            harness.check_bool("tier2:scenario_preflight", pf.valid);
+        } else {
+            println!("tier2 preflight: toadStool not reachable (standalone mode)");
+        }
+        println!();
+    }
+
     let mut ran = 0usize;
     for s in registry.all() {
         if let Some(id) = scenario_id {
@@ -145,6 +162,7 @@ fn cmd_validate(
 
 fn cmd_status() {
     use hotspring_barracuda::composition::{AtomicType, composition_health};
+    use hotspring_barracuda::ipc::tier2;
     use hotspring_barracuda::primal_bridge::NucleusContext;
 
     let ctx = NucleusContext::detect();
@@ -181,6 +199,25 @@ fn cmd_status() {
         };
         println!("  [{status}] {domain}");
     }
+
+    let t2 = tier2::tier2_status(&ctx);
+    println!();
+    println!("tier2:");
+    let mark = |b: bool| if b { "UP" } else { "DOWN" };
+    println!("  [{}] toadstool (compute)", mark(t2.toadstool_alive));
+    println!("  [{}] barracuda (math)", mark(t2.barracuda_alive));
+    println!(
+        "  [{}] toadstool.validate (preflight)",
+        mark(t2.preflight_available)
+    );
+    println!(
+        "  [{}] precision.route (advisory)",
+        mark(t2.precision_available)
+    );
+    println!(
+        "  tier2 fully wired: {}",
+        if t2.fully_wired() { "YES" } else { "NO" }
+    );
 }
 
 fn cmd_version() {

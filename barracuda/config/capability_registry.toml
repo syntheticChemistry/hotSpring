@@ -183,6 +183,12 @@ served = "routed"
 provider = "toadstool"
 domain = "compute"
 
+[[capabilities]]
+method = "compute.dispatch.result"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
 # ── Tier 2 Live Science API (routed to ToadStool) ────────────────────
 
 [[capabilities]]
@@ -193,6 +199,32 @@ domain = "compute"
 
 [[capabilities]]
 method = "toadstool.list_workloads"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+# ── Sovereign GPU lifecycle (routed to toadStool / coral-ember) ────────
+
+[[capabilities]]
+method = "ember.status"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+[[capabilities]]
+method = "ember.warm_cycle"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+[[capabilities]]
+method = "ember.adopt_device"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+[[capabilities]]
+method = "ember.fecs.state"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
