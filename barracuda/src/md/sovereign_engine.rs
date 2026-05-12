@@ -22,7 +22,7 @@
 use barracuda::device::backend::GpuBackend;
 use barracuda::device::compute_pipeline::{BatchedComputeDispatch, ComputeDispatch};
 
-use crate::md::config::{MD_REPORT_CADENCE, MdConfig};
+use crate::md::config::{MD_REPORT_CADENCE, MdConfig, THERMOSTAT_LOG_INTERVAL};
 use crate::md::shaders;
 use crate::md::simulation::{EnergyRecord, MdSimulation, init_fcc_lattice, init_velocities};
 use crate::tolerances::{DEFAULT_VELOCITY_SEED, MD_TEMPERATURE_FLOOR, MD_WORKGROUP_SIZE};
@@ -122,7 +122,7 @@ pub fn run_simulation_generic<B: GpuBackend>(
         }
 
         step += batch_size;
-        if step % 1000 < thermostat_interval || step >= config.equil_steps {
+        if step % THERMOSTAT_LOG_INTERVAL < thermostat_interval || step >= config.equil_steps {
             println!("    Step {step}: T* = {t_current:.6} (target {temperature:.6})");
         }
     }

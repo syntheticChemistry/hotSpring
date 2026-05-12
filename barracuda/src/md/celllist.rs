@@ -31,7 +31,7 @@ use barracuda::ops::md::CellListGpu;
 use barracuda::pipeline::ReduceScalarPipeline;
 
 use crate::gpu::GpuF64;
-use crate::md::config::{MD_REPORT_CADENCE, MdConfig};
+use crate::md::config::{MD_REPORT_CADENCE, MdConfig, THERMOSTAT_LOG_INTERVAL};
 use crate::md::shaders;
 use crate::md::simulation::{EnergyRecord, MdSimulation, init_fcc_lattice, init_velocities};
 use crate::tolerances::{CELLLIST_REBUILD_INTERVAL, MD_TEMPERATURE_FLOOR, THERMOSTAT_INTERVAL};
@@ -348,7 +348,7 @@ pub async fn run_simulation_celllist(
             gpu_cl.build(&pos_buf)?;
         }
 
-        if step % 1000 < thermostat_interval || step >= config.equil_steps {
+        if step % THERMOSTAT_LOG_INTERVAL < thermostat_interval || step >= config.equil_steps {
             println!("    Step {step}: T* = {t_current:.6} (target {temperature:.6})");
         }
     }

@@ -22,7 +22,7 @@ use barracuda::pipeline::ReduceScalarPipeline;
 
 use crate::gpu::GpuF64;
 pub use crate::md::celllist::{CellList, run_simulation_celllist};
-use crate::md::config::{MD_REPORT_CADENCE, MdConfig};
+use crate::md::config::{MD_REPORT_CADENCE, MdConfig, THERMOSTAT_LOG_INTERVAL};
 use crate::md::shaders;
 use crate::tolerances::{DEFAULT_VELOCITY_SEED, MD_TEMPERATURE_FLOOR, THERMOSTAT_INTERVAL};
 
@@ -213,7 +213,7 @@ pub async fn run_simulation(
 
         step += batch_size;
 
-        if step % 1000 < thermostat_interval || step >= config.equil_steps {
+        if step % THERMOSTAT_LOG_INTERVAL < thermostat_interval || step >= config.equil_steps {
             println!("    Step {step}: T* = {t_current:.6} (target {temperature:.6})");
         }
     }

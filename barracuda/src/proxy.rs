@@ -89,7 +89,8 @@ pub fn anderson_3d_proxy(req: &CortexRequest, seed: u64) -> ProxyFeatures {
     let h = anderson_3d(l, l, l, w, seed);
     let n = l * l * l;
 
-    let eigenvalues = if n <= 1000 {
+    const FULL_EIGENSOLVE_THRESHOLD: usize = 1000;
+    let eigenvalues = if n <= FULL_EIGENSOLVE_THRESHOLD {
         let tri = lanczos(&h, n.min(h.n), seed);
         find_all_eigenvalues(&tri.alpha, &tri.beta)
     } else {

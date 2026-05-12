@@ -320,8 +320,22 @@ impl Drop for GpuTelemetry {
     }
 }
 
+fn sysfs_hwmon_dir() -> &'static str {
+    static DIR: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    DIR.get_or_init(|| {
+        std::env::var("SYSFS_HWMON_DIR").unwrap_or_else(|_| "/sys/class/hwmon".to_string())
+    })
+}
+
+fn sysfs_drm_dir() -> &'static str {
+    static DIR: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    DIR.get_or_init(|| {
+        std::env::var("SYSFS_DRM_DIR").unwrap_or_else(|_| "/sys/class/drm".to_string())
+    })
+}
+
 fn find_amdgpu_hwmon() -> Option<String> {
-    for entry in std::fs::read_dir("/sys/class/hwmon").ok()? {
+    for entry in std::fs::read_dir(sysfs_hwmon_dir()).ok()? {
         let entry = entry.ok()?;
         let name_path = entry.path().join("name");
         if let Ok(name) = std::fs::read_to_string(&name_path)
@@ -334,7 +348,7 @@ fn find_amdgpu_hwmon() -> Option<String> {
 }
 
 fn find_amdgpu_drm() -> Option<String> {
-    for entry in std::fs::read_dir("/sys/class/drm").ok()? {
+    for entry in std::fs::read_dir(sysfs_drm_dir()).ok()? {
         let entry = entry.ok()?;
         let name = entry.file_name().to_string_lossy().to_string();
         if !name.starts_with("card") || name.contains('-') {

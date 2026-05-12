@@ -14,6 +14,12 @@ use std::f64::consts::PI;
 /// controls observable sampling).
 pub const MD_REPORT_CADENCE: usize = 5000;
 
+/// Thermostat diagnostic logging interval (in steps).
+///
+/// During equilibration, thermostat rescaling is logged at this cadence
+/// so that temperature convergence is visible without flooding stdout.
+pub const THERMOSTAT_LOG_INTERVAL: usize = 1000;
+
 /// Simulation configuration in reduced units
 #[derive(Clone, Debug)]
 #[must_use]

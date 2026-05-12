@@ -12,7 +12,7 @@ use barracuda::pipeline::ReduceScalarPipeline;
 
 use crate::gpu::GpuF64;
 use crate::md::brain::{MdBrain, MdStepEvent};
-use crate::md::config::{MD_REPORT_CADENCE, MdConfig};
+use crate::md::config::{MD_REPORT_CADENCE, MdConfig, THERMOSTAT_LOG_INTERVAL};
 use crate::md::neighbor::ForceAlgorithm;
 use crate::md::shaders;
 use crate::tolerances::{
@@ -262,7 +262,7 @@ pub async fn run_simulation_verlet_with_brain(
         }
 
         step += batch_size;
-        if step % 1000 < thermostat_interval || step >= config.equil_steps {
+        if step % THERMOSTAT_LOG_INTERVAL < thermostat_interval || step >= config.equil_steps {
             println!("    Step {step}: T* = {t_current:.6} (target {temperature:.6})");
         }
     }

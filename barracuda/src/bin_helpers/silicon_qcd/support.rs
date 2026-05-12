@@ -144,7 +144,9 @@ pub struct AmdGpuPower {
 
 impl AmdGpuPower {
     pub fn detect() -> Self {
-        for entry in std::fs::read_dir("/sys/class/hwmon")
+        let hwmon_dir =
+            std::env::var("SYSFS_HWMON_DIR").unwrap_or_else(|_| "/sys/class/hwmon".to_string());
+        for entry in std::fs::read_dir(&hwmon_dir)
             .into_iter()
             .flatten()
             .flatten()

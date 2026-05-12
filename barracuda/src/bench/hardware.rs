@@ -202,19 +202,24 @@ fn read_nvidia_smi_inventory() -> (String, usize, String, String) {
     }
 }
 
+fn rapl_base_dir() -> String {
+    std::env::var("RAPL_ENERGY_DIR")
+        .unwrap_or_else(|_| "/sys/class/powercap/intel-rapl:0".to_string())
+}
+
 /// RAPL energy (microjoules). Used by `PowerMonitor`.
+///
+/// Override the sysfs path via `$RAPL_ENERGY_DIR` for non-standard
+/// powercap layouts or containerized environments.
 pub fn read_rapl_energy_uj() -> Option<u64> {
-    // Note: RAPL energy_uj requires read access to /sys/class/powercap/.
-    // If permission denied, run with: sudo chmod a+r /sys/class/powercap/intel-rapl:0/energy_uj
-    // Or run the binary with CAP_DAC_READ_SEARCH capability.
-    std::fs::read_to_string("/sys/class/powercap/intel-rapl:0/energy_uj")
+    std::fs::read_to_string(format!("{}/energy_uj", rapl_base_dir()))
         .ok()
         .and_then(|s| s.trim().parse().ok())
 }
 
 /// RAPL max energy range (microjoules). Used for counter wrap handling.
 pub fn read_rapl_max_energy_uj() -> Option<u64> {
-    std::fs::read_to_string("/sys/class/powercap/intel-rapl:0/max_energy_range_uj")
+    std::fs::read_to_string(format!("{}/max_energy_range_uj", rapl_base_dir()))
         .ok()
         .and_then(|s| s.trim().parse().ok())
 }

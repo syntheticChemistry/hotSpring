@@ -9,6 +9,9 @@
 use crate::primal_bridge::send_jsonrpc;
 use serde::{Deserialize, Serialize};
 
+/// Maximum batch size for `security.audit_log` queries.
+const AUDIT_LOG_BATCH_LIMIT: u64 = 1000;
+
 /// A single audit event from the skunkBat audit trail.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuditEvent {
@@ -65,7 +68,7 @@ pub fn query_audit_log(since_seq: u64, limit: u64) -> Option<AuditLogResponse> {
 
     let params = serde_json::json!({
         "since_seq": since_seq,
-        "limit": limit.min(1000),
+        "limit": limit.min(AUDIT_LOG_BATCH_LIMIT),
     });
     let response = send_jsonrpc(&socket, "security.audit_log", &params).ok()?;
 

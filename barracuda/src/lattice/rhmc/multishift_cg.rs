@@ -152,7 +152,7 @@ fn update_base_system(
     }
 }
 
-#[allow(
+#[expect(
     clippy::too_many_arguments,
     reason = "CG state inherently requires many coupled variables"
 )]
