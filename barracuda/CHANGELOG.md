@@ -27,7 +27,7 @@ This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **`low_level/bar0.rs`**: Sysfs PCI base path overridable via `HOTSPRING_SYSFS_PCI` env var
 
 ### Tests
-- 1,031 lib tests pass (`barracuda-local` + `toadstool-dispatch`); zero clippy warnings
+- 1,036 lib tests pass (`barracuda-local` + `toadstool-dispatch`); zero clippy warnings
 
 ## Unreleased — Composition Evolution (April 11, 2026; April 17, 2026 work is logged in the repository root `CHANGELOG.md`)
 

@@ -197,7 +197,7 @@ have been rewired for capability-based discovery (GAP-HS-087, GAP-HS-088):
 - **`validate_compute_trio_pipeline`** binary: end-to-end Yukawa + Wilson plaquette validation
 - **All IPC provenance clients** evolved from hardcoded socket paths to `by_domain()` NUCLEUS discovery
 - **Barrier shader validation** for coralReef `membar.{cta,gl}` emitter (9 WGSL shaders)
-- **1,031** lib tests pass (barracuda-local + toadstool-dispatch)
+- **1,036** lib tests pass (barracuda-local + toadstool-dispatch)
 
 ## Eukaryotic Evolution (May 2026)
 

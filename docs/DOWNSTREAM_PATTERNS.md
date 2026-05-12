@@ -28,11 +28,13 @@ workload TOMLs, gate manifests, operational scripts.
 
 1. **UniBin validation surface** — `hotspring_unibin validate --scenario <name>`
    is the stable contract for plasmidBin and toadStool workloads. Registered
-   scenarios: `semf-parity`, `lattice-plaquette`, `md-yukawa-ocp` (config
-   smoke), `sarkas-yukawa-md` (foundation-grade), `composition-health`,
-   `tolerance-ordering`, `ltee-anderson`. The `spectral-lanczos` scenario
-   requires `barracuda-local` and is not available in `primal-proof` builds.
-   8 scenarios registered (7 default + 1 barracuda-local)
+   scenarios: `semf-parity`, `lattice-plaquette`, `screened-coulomb`,
+   `transport-stanton-murillo`, `md-yukawa-ocp` (config smoke),
+   `sarkas-yukawa-md` (foundation-grade), `composition-health`,
+   `tolerance-ordering`, `ltee-anderson`. The `spectral-lanczos`,
+   `gradient-flow`, and `dielectric-mermin` scenarios require
+   `barracuda-local` and are not available in `primal-proof` builds.
+   12 scenarios registered (9 default + 3 barracuda-local)
 2. **Workload TOML contract** — `[metadata]`, `[execution]`, `[resources]`,
    `[security]` sections; `[provenance]` pending toadStool Gap 5 resolution
 3. **Path portability** — workload uses `$SPRINGS_ROOT` (verify expansion

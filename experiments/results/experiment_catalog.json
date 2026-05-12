@@ -83,14 +83,14 @@
     "NUCLEUS Composition Validation",
     "Composition Evolution",
     "Primal Composition Proof",
-    "Level 5 Primal Proof",
+    "Level 6 CERTIFIED",
     "guideStone (30/30 bare)",
     "Phase 46 Composition Template",
     "Deep Debt Evolution",
     "K80 Sovereign Boot",
     "Ember Gate"
   ],
-  "papers_reproduced": 22,
+  "papers_reproduced": 25,
   "timeline": {
     "phase_A_E": {"experiments_added": 55, "period": "Jan-Feb 2026", "focus": "MD, plasma, nuclear EOS"},
     "phase_F_H": {"experiments_added": 50, "period": "Feb-Mar 2026", "focus": "Lattice QCD, GPU validation, spectral"},
