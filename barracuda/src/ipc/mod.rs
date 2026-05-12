@@ -22,6 +22,7 @@
 //! ipc::signing         — Receipt signing via bearDog crypto.sign_ed25519
 //! ipc::provenance      — Per-trio modules (rhizoCrypt, loamSpine, sweetGrass)
 //! ipc::skunkbat        — SkunkBat security.audit_log client (JH-5)
+//! ipc::tier2           — Tier 2 Live Science API (toadstool.validate, precision.route)
 //! ```
 //!
 //! # Migration
@@ -110,3 +111,6 @@ pub mod toadstool {
 pub mod signing {
     pub use crate::receipt_signing::*;
 }
+
+/// Tier 2 Live Science API client — workload pre-flight and precision advisory.
+pub mod tier2;

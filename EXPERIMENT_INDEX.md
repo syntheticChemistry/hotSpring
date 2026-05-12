@@ -1,6 +1,6 @@
 # hotSpring — Experiment & Validation Index
 
-> **Last audited:** May 12, 2026 · **579 (default) / 1,031 (barracuda-local) lib tests** · **166 binaries** · **64/64 validation suites** · **128 WGSL shaders** · **guideStone Level 6 CERTIFIED** (NUCLEUS Deployment Validation) · **7 deploy graphs** · **primalSpring v0.9.25** · **Deep Debt Phase 4 complete** · **Tier 4 IPC-first** (`default = []`) · **9/12 validation scenarios** (default / barracuda-local)
+> **Last audited:** May 12, 2026 · **584 (default) / 1,036 (barracuda-local) lib tests** · **166 binaries** · **64/64 validation suites** · **128 WGSL shaders** · **guideStone Level 6 CERTIFIED** (NUCLEUS Deployment Validation) · **7 deploy graphs** · **primalSpring v0.9.25** · **Deep Debt Phase 4 complete** · **Tier 4 IPC-first** (`default = []`) · **9/12 validation scenarios** (default / barracuda-local)
 >
 > Experiments 001–190 validate Python→Rust fidelity, sovereign GPU compute, cross-generation WGSL→native ISA compilation, and primal composition proof. **Phase 2** (NUCLEUS composition validation) is tracked via `validate_nucleus_*` binaries and [`docs/PRIMAL_GAPS.md`](docs/PRIMAL_GAPS.md). **Phase 3** (primal composition proof) validates IPC-composed NUCLEUS patterns against direct Rust baselines.
 

@@ -1163,6 +1163,37 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 
 ---
 
+### GAP-HS-091 — Tier 2 Live Science API Convergence (May 12 2026)
+
+- **Severity:** Medium → Low (wired, awaiting upstream method availability)
+- **Classification:** Evolution → Tier 2 IPC convergence
+- **Trigger:** Ecosystem Wave Sync May 12 — toadStool S250 shipped `toadstool.validate`,
+  barraCuda shipped `precision.route`, Tier 2 declared UNBLOCKED.
+- **Completed:**
+  - **`ipc/tier2.rs` created:** Tier 2 Live Science API client module with:
+    - `workload_preflight()` — calls `toadstool.validate` for workload pre-flight
+      (GPU availability, precision tier, dispatch time estimate, warnings)
+    - `list_workloads()` — calls `toadstool.list_workloads` for workload catalog
+    - `precision_advisory()` — calls `precision.route` for barraCuda precision
+      routing advisory (domain + operation → tier/hardware/notes)
+    - `tier2_status()` — probes both Tier 2 services, reports readiness
+    - `Tier2Status::check()` — records readiness on `ValidationHarness`
+  - **`niche.rs` ROUTED_CAPABILITIES updated:** Added `toadstool.validate`,
+    `toadstool.list_workloads`, `precision.route` to routed capability table.
+  - **`capability_registry.toml` synced:** 3 new entries matching niche.
+  - **5 new tests** (584 total lib tests, up from 579).
+- **Remaining:**
+  - Upstream `toadstool.validate` JSON-RPC handler completion (S250 shipped
+    CLI preflight; JSON-RPC handler may still be pending per `LIVE_SCIENCE_API.md`
+    which describes it as aspirational contract).
+  - `barracuda.precision.route` may be library-level only (not yet a JSON-RPC
+    method in barraCuda's `REGISTERED_METHODS`); client will degrade gracefully.
+  - Wire `tier2_status()` into `hotspring_unibin status` subcommand.
+  - Wire `workload_preflight()` into scenario runner pre-check.
+- **Validation:** 584/584 lib tests pass. Zero clippy warnings.
+
+---
+
 ## Handback Protocol
 
 1. Document gap in this file with severity and upstream reference.

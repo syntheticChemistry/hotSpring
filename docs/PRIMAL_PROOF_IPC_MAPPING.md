@@ -129,11 +129,22 @@ hotSpring uses a **dual-lane** model:
 - guideStone L6 certification: NUCLEUS deployment validation
 - Cross-sync: zero drift against primalSpring canonical 403 methods
 
+### Tier 2 Live Science API (May 12 2026)
+
+| Library Call | JSON-RPC Method | Capability | Provider |
+|-------------|----------------|------------|----------|
+| `ipc::tier2::workload_preflight()` | `toadstool.validate` | `compute` | toadStool (S250+) |
+| `ipc::tier2::list_workloads()` | `toadstool.list_workloads` | `compute` | toadStool (S245+) |
+| `ipc::tier2::precision_advisory()` | `precision.route` | `math` | barraCuda |
+| `ipc::tier2::tier2_status()` | (probes both above) | `compute` + `math` | toadStool + barraCuda |
+
 ### Remaining IPC-first targets
 
 - Default to IPC-first via `CompositionContext` (currently opt-in)
 - Library calls become opt-in fallback (reverse default)
 - All validation binaries confirm parity between lanes
+- Wire `tier2_status()` into `hotspring_unibin status` subcommand
+- Wire `workload_preflight()` into scenario runner pre-check
 
 ### CompositionContext Migration
 

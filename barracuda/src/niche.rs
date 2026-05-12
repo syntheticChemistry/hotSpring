@@ -206,6 +206,11 @@ pub const ROUTED_CAPABILITIES: &[(&str, &str)] = &[
     // Compute dispatch (ToadStool)
     ("compute.dispatch.submit", "toadstool"),
     ("compute.dispatch.capabilities", "toadstool"),
+    // Tier 2 Live Science API (ToadStool)
+    ("toadstool.validate", "toadstool"),
+    ("toadstool.list_workloads", "toadstool"),
+    // Precision advisory (barraCuda)
+    ("precision.route", "barracuda"),
     // Shader compilation (coralReef)
     ("shader.compile.wgsl", "coralreef"),
     ("shader.compile.spirv", "coralreef"),

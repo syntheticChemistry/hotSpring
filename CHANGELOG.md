@@ -57,8 +57,17 @@ This file covers the spring as a whole. For crate-level details see
   GAP-HS-090 documents findings in `docs/PRIMAL_GAPS.md`.
 - **`validate_all.rs`** tier range comment corrected (58–62 → 58–64).
 
+### Added (May 12 — Tier 2 Live Science API Convergence)
+- **`ipc/tier2.rs`:** Tier 2 client wiring for `toadstool.validate` (workload
+  pre-flight), `toadstool.list_workloads` (catalog), `precision.route`
+  (barraCuda precision advisory). `tier2_status()` + `Tier2Status::check()`
+  for harness integration. Degrades gracefully when primals unavailable.
+- **`niche.rs`:** 3 new routed capabilities — `toadstool.validate`,
+  `toadstool.list_workloads`, `precision.route`.
+- **`capability_registry.toml`:** 3 new entries synced with niche.
+
 ### Metrics
-- **579** lib tests (default) / **1,031** (barracuda-local + toadstool-dispatch) — zero clippy warnings
+- **584** lib tests (default) / **1,036** (barracuda-local + toadstool-dispatch) — zero clippy warnings
 - **190** experiments | **166** binaries | **64/64** validation suites
 - **9** validation scenarios (default) / **12** (barracuda-local)
 

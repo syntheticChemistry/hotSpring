@@ -183,6 +183,28 @@ served = "routed"
 provider = "toadstool"
 domain = "compute"
 
+# ── Tier 2 Live Science API (routed to ToadStool) ────────────────────
+
+[[capabilities]]
+method = "toadstool.validate"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+[[capabilities]]
+method = "toadstool.list_workloads"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+# ── Precision advisory (routed to barraCuda) ─────────────────────────
+
+[[capabilities]]
+method = "precision.route"
+served = "routed"
+provider = "barracuda"
+domain = "math"
+
 # ── Shader compilation (routed to coralReef) ─────────────────────────
 
 [[capabilities]]

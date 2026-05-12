@@ -1,0 +1,232 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+//! Tier 2 Live Science API client — toadStool workload pre-flight and
+//! barraCuda precision advisory via NUCLEUS IPC.
+//!
+//! Tier 2 convergence wires hotSpring into the upstream APIs that became
+//! live with toadStool S250 and barraCuda `precision.rs`. Springs call
+//! `toadstool.validate` for workload pre-flight and
+//! `barracuda.precision.route` for precision advisory.
+//!
+//! Degrades gracefully: when toadStool or barraCuda primals are not
+//! reachable, functions return `None` and callers fall through to local
+//! validation.
+
+use crate::primal_bridge::NucleusContext;
+use serde::{Deserialize, Serialize};
+
+/// Workload pre-flight result from `toadstool.validate`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkloadPreflight {
+    /// Whether the workload can be dispatched.
+    pub valid: bool,
+    /// Whether the required GPU is available.
+    pub gpu_available: bool,
+    /// Precision tier available for this workload.
+    #[serde(default)]
+    pub precision_tier: Option<String>,
+    /// Estimated dispatch time in milliseconds.
+    #[serde(default)]
+    pub estimated_dispatch_time_ms: Option<u64>,
+    /// Warnings about suboptimal configuration.
+    #[serde(default)]
+    pub warnings: Vec<String>,
+    /// Capabilities required by this workload.
+    #[serde(default)]
+    pub required_capabilities: Vec<String>,
+}
+
+/// Workload catalog entry from `toadstool.list_workloads`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkloadEntry {
+    pub id: serde_json::Value,
+    #[serde(default)]
+    pub job_type: Option<String>,
+    #[serde(default)]
+    pub state: Option<String>,
+}
+
+/// Workload listing result from `toadstool.list_workloads`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkloadListing {
+    pub jobs: Vec<serde_json::Value>,
+    #[serde(default)]
+    pub counts: serde_json::Value,
+}
+
+/// Precision routing advisory from `barracuda.precision.route`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PrecisionAdvisory {
+    /// Recommended precision tier name.
+    #[serde(default)]
+    pub tier: Option<String>,
+    /// Recommended hardware target.
+    #[serde(default)]
+    pub hardware_hint: Option<String>,
+    /// Whether GPU dispatch is preferred for this domain.
+    #[serde(default)]
+    pub gpu_preferred: bool,
+    /// Advisory notes from the precision brain.
+    #[serde(default)]
+    pub notes: Vec<String>,
+}
+
+/// Pre-flight a workload via `toadstool.validate`.
+///
+/// Returns `None` when toadStool is unreachable or the method is not
+/// available. Falls back to `TOADSTOOL_SOCKET` env var when NUCLEUS
+/// discovery is not running.
+pub fn workload_preflight(
+    nucleus: &NucleusContext,
+    workload_name: &str,
+) -> Option<WorkloadPreflight> {
+    let params = serde_json::json!({
+        "workload": workload_name,
+        "format": "json",
+    });
+
+    let resp = nucleus
+        .call_by_capability("compute", "toadstool.validate", params)
+        .ok()?;
+
+    serde_json::from_value(resp).ok()
+}
+
+/// List workloads known to toadStool via `toadstool.list_workloads`.
+///
+/// Returns `None` when toadStool is unreachable.
+pub fn list_workloads(nucleus: &NucleusContext) -> Option<WorkloadListing> {
+    let params = serde_json::json!({});
+
+    let resp = nucleus
+        .call_by_capability("compute", "toadstool.list_workloads", params)
+        .ok()?;
+
+    serde_json::from_value(resp).ok()
+}
+
+/// Query precision routing advisory from barraCuda via `precision.route`.
+///
+/// Returns `None` when barraCuda is unreachable or the method is not
+/// available.
+pub fn precision_advisory(
+    nucleus: &NucleusContext,
+    domain: &str,
+    operation: &str,
+) -> Option<PrecisionAdvisory> {
+    let params = serde_json::json!({
+        "domain": domain,
+        "operation": operation,
+    });
+
+    let resp = nucleus
+        .call_by_capability("math", "precision.route", params)
+        .ok()?;
+
+    serde_json::from_value(resp).ok()
+}
+
+/// Check Tier 2 readiness for hotSpring's validation pipeline.
+///
+/// Returns a summary of which Tier 2 services are reachable and what
+/// capabilities they report. Used by `hotspring_unibin status` and
+/// validation pre-flight.
+pub fn tier2_status(nucleus: &NucleusContext) -> Tier2Status {
+    let toadstool_alive = nucleus
+        .by_domain("compute")
+        .is_some_and(|ep| ep.alive);
+
+    let barracuda_alive = nucleus
+        .by_domain("math")
+        .is_some_and(|ep| ep.alive);
+
+    let preflight_available = if toadstool_alive {
+        workload_preflight(nucleus, "__probe__").is_some()
+    } else {
+        false
+    };
+
+    let precision_available = if barracuda_alive {
+        precision_advisory(nucleus, "probe", "health").is_some()
+    } else {
+        false
+    };
+
+    Tier2Status {
+        toadstool_alive,
+        barracuda_alive,
+        preflight_available,
+        precision_available,
+    }
+}
+
+/// Tier 2 readiness summary.
+#[derive(Debug, Clone, Serialize)]
+pub struct Tier2Status {
+    /// Whether toadStool (compute domain) is reachable.
+    pub toadstool_alive: bool,
+    /// Whether barraCuda (math domain) is reachable.
+    pub barracuda_alive: bool,
+    /// Whether `toadstool.validate` responds to pre-flight probes.
+    pub preflight_available: bool,
+    /// Whether `precision.route` responds to advisory queries.
+    pub precision_available: bool,
+}
+
+impl Tier2Status {
+    /// True when both Tier 2 services are fully operational.
+    #[must_use]
+    pub fn fully_wired(&self) -> bool {
+        self.preflight_available && self.precision_available
+    }
+
+    /// Record Tier 2 status as validation checks on a harness.
+    pub fn check(&self, v: &mut crate::validation::ValidationHarness) {
+        v.check_bool("tier2:toadstool_alive", self.toadstool_alive);
+        v.check_bool("tier2:barracuda_alive", self.barracuda_alive);
+        v.check_bool("tier2:preflight_available", self.preflight_available);
+        v.check_bool("tier2:precision_available", self.precision_available);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tier2_status_not_wired_when_empty() {
+        let nucleus = NucleusContext::detect();
+        let status = tier2_status(&nucleus);
+        assert!(!status.fully_wired());
+    }
+
+    #[test]
+    fn workload_preflight_returns_none_without_toadstool() {
+        let nucleus = NucleusContext::detect();
+        assert!(workload_preflight(&nucleus, "test-workload").is_none());
+    }
+
+    #[test]
+    fn list_workloads_returns_none_without_toadstool() {
+        let nucleus = NucleusContext::detect();
+        assert!(list_workloads(&nucleus).is_none());
+    }
+
+    #[test]
+    fn precision_advisory_returns_none_without_barracuda() {
+        let nucleus = NucleusContext::detect();
+        assert!(precision_advisory(&nucleus, "nuclear", "semf").is_none());
+    }
+
+    #[test]
+    fn preflight_struct_deserializes_minimal() {
+        let json = serde_json::json!({
+            "valid": true,
+            "gpu_available": false,
+        });
+        let pf: WorkloadPreflight = serde_json::from_value(json).unwrap();
+        assert!(pf.valid);
+        assert!(!pf.gpu_available);
+        assert!(pf.warnings.is_empty());
+    }
+}
