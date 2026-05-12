@@ -5,6 +5,14 @@ All notable changes to the hotSpring BarraCuda validation crate.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased — Compute Trio Pipeline Wiring (May 12, 2026)
+
+### Added
+- **`s_compute_trio` scenario**: `GpuCompute`-track Live-tier scenario exercising full barraCuda→coralReef→toadStool pipeline: precision advisory, shader compilation, workload preflight, dispatch probe, per-GPU hardware readiness (RTX 5060/Titan V/K80) (GAP-HS-094)
+- **`s_hotqcd_dispatch` scenario**: `GpuCompute`-track Live-tier scenario for lattice QCD dispatch — 6 core QCD shader compilation through coralReef IPC, 3 silicon routing shader compilation, precision advisory f64/mixed/df64 confirmation, toadStool dispatch with QCD workload metadata (GAP-HS-094)
+- **`GlowplugClient` NUCLEUS evolution**: `call_with_nucleus_fallback()` helper — 7 lifecycle methods (`list_devices`, `dispatch_with_options`, `device_swap`, `device_health`, `device_resurrect`, `sovereign_boot`) now prefer `call_by_capability("compute", ...)` with glowplug socket fallback
+- **Expanded ROUTED_CAPABILITIES**: `ember.device.health`, `ember.device.recover`, `device.list`, `sovereign.boot` added to niche routing table + `capability_registry.toml`
+
 ## Unreleased — Sovereign GPU Validation Niche Wiring (May 12, 2026)
 
 ### Added

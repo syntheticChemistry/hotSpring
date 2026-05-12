@@ -36,6 +36,7 @@ entry for the session that produced it. Chronological by filename suffix.
 | 2026-05-11 | `HOTSPRING_SOVEREIGN_RUST_EVOLUTION_HANDOFF_MAY11_2026.md` | ✅ | Warm-catch pipeline elevated to pure Rust. ALL 3 GPUs sovereign. Era-agnostic roadmap. |
 | 2026-05-12 | `HOTSPRING_COMPUTE_TRIO_CAPABILITY_EVOLUTION_HANDOFF_MAY12_2026.md` | ✅ | Compute trio rewire, capability discovery evolution, scenario expansion, downstream audit |
 | 2026-05-12 | `HOTSPRING_IPC_TRANSPORT_EVOLUTION_HANDOFF_MAY12_2026.md` | ✅ | GAP-HS-092: call_by_capability proliferation, wildcard audit, production mock audit |
+| 2026-05-12 | `HOTSPRING_COMPUTE_TRIO_PIPELINE_HANDOFF_MAY12_2026.md` | ✅ | GAP-HS-094: GlowplugClient NUCLEUS evolution, compute trio + hotQCD scenarios |
 
 ### `mmiotraces/`
 

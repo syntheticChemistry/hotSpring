@@ -1289,6 +1289,62 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 
 ---
 
+### GAP-HS-094 — Compute Trio Rewire: GlowplugClient + Dispatch Pipeline (May 12 2026)
+
+- **Severity:** Medium (architectural evolution — glowplug→toadStool transition)
+- **Classification:** Deep Debt → compute trio IPC transport evolution
+- **Trigger:** toadStool Phase C absorbed glowplug/cylinder/ember from coralReef.
+  hotSpring's `GlowplugClient` was the last major IPC module using pre-toadStool
+  direct socket dispatch without NUCLEUS `call_by_capability` preference.
+- **Completed:**
+  - **`GlowplugClient` NUCLEUS evolution:** Added `call_with_nucleus_fallback()`
+    helper method that attempts `call_by_capability` routing before falling back
+    to direct socket RPC. Applied to 7 methods:
+    - `list_devices()` → `device.list` via compute domain
+    - `dispatch_with_options()` → `device.dispatch` via compute domain
+    - `device_swap()` → `device.swap` via compute domain
+    - `device_health()` → `device.health` via compute domain
+    - `device_resurrect()` → `device.resurrect` via compute domain
+    - `sovereign_boot()` → `sovereign.boot` via compute domain
+    - All with glowplug socket fallback when NUCLEUS unavailable.
+  - **ROUTED_CAPABILITIES expanded:** Added `ember.device.health`,
+    `ember.device.recover`, `device.list`, `sovereign.boot` to `niche.rs`
+    and `capability_registry.toml`.
+  - **`s_compute_trio` scenario:** New `GpuCompute`-track Live-tier scenario
+    exercising the full barraCuda→coralReef→toadStool pipeline:
+    - Phase 1: precision advisory via `precision.route`
+    - Phase 2: shader compilation via `shader.compile.wgsl`
+    - Phase 3: toadStool workload preflight
+    - Phase 4: toadStool dispatch probe (dry-run)
+    - Phase 5: per-GPU hardware readiness (RTX 5060, Titan V, K80)
+  - **`s_hotqcd_dispatch` scenario:** New `GpuCompute`-track Live-tier scenario
+    exercising the full lattice QCD dispatch pipeline:
+    - 6 core QCD shaders compiled through coralReef IPC
+    - 3 silicon routing (barrier-heavy) shaders compiled
+    - Precision advisory confirms f64/mixed/df64 tier for lattice QCD
+    - toadStool dispatch probe with QCD-specific workload metadata
+- **Per-GPU dispatch status (biomeGate):**
+  | GPU | Warm Boot | Engine State | Dispatch | Blocker |
+  |-----|-----------|-------------|----------|---------|
+  | RTX 5060 (SM120) | nvidia shared | All engines | PROVEN (12/12 wgpu) | None |
+  | Titan V (SM70) | warm-catch FECS running | PMC/FECS/GPC | BLOCKED | wgpu can't enumerate VFIO device |
+  | K80 (SM37) | warm-catch GDDR5 trained | PMC/FECS/5 GPCs | BLOCKED | wgpu can't enumerate VFIO device |
+- **Remaining:**
+  - `GlowplugClient` low-level methods (`register_dump`, `register_snapshot`,
+    `read_bar0_range`, `oracle_capture`, `capture_training`,
+    `experiment_start/end`, `device_reset`) intentionally remain on direct
+    socket — these are device-specific hardware operations that cannot be
+    load-balanced or routed through toadStool.
+  - Titan V + K80 dispatch validation blocked on wgpu VFIO adapter enumeration.
+    Terminal architecture: coralReef SM70/SM37 wgpu backend rebuild removes
+    VFIO adapter dependency entirely.
+  - `fleet_client.rs` FleetRouter still reads glowplug fleet JSON — not yet
+    NUCLEUS compute domain topology. This is expected until Phase C
+    consolidates all ember routing through toadStool.
+- **Validation:** 590/590 lib tests pass. 13/16 scenarios (default/barracuda-local).
+
+---
+
 ## Handback Protocol
 
 1. Document gap in this file with severity and upstream reference.

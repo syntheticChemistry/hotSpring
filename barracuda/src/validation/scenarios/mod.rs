@@ -24,6 +24,8 @@ pub use registry::{Scenario, ScenarioMeta, ScenarioRegistry, Tier, Track};
 
 pub mod s_cold_boot_sentinel;
 pub mod s_composition_health;
+pub mod s_compute_trio;
+pub mod s_hotqcd_dispatch;
 #[cfg(feature = "barracuda-local")]
 pub mod s_dielectric;
 #[cfg(feature = "barracuda-local")]
@@ -61,5 +63,7 @@ pub fn build_registry() -> ScenarioRegistry {
     r.register(s_ltee_anderson::SCENARIO);
     r.register(s_sovereign_dispatch::SCENARIO);
     r.register(s_cold_boot_sentinel::SCENARIO);
+    r.register(s_compute_trio::SCENARIO);
+    r.register(s_hotqcd_dispatch::SCENARIO);
     r
 }

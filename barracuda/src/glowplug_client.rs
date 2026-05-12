@@ -172,6 +172,24 @@ impl GlowplugClient {
         rpc_result(&self.socket, method, params)
     }
 
+    /// Attempt a NUCLEUS `call_by_capability` first, falling back to direct socket RPC.
+    ///
+    /// This is the toadStool-era evolution pattern: lifecycle methods that overlap
+    /// with the `compute` domain surface try NUCLEUS routing first so that
+    /// toadStool (which absorbed glowplug/cylinder) can intercept.
+    fn call_with_nucleus_fallback(
+        &self,
+        domain: &str,
+        method: &str,
+        params: &serde_json::Value,
+    ) -> Result<serde_json::Value, GlowplugError> {
+        let ctx = NucleusContext::detect();
+        if let Ok(resp) = ctx.call_by_capability(domain, method, params.clone()) {
+            return Ok(resp);
+        }
+        self.call(method, params)
+    }
+
     /// `health.check` — full daemon health snapshot.
     pub fn health(&self) -> Result<GlowplugDaemonHealth, GlowplugError> {
         let v = self.call("health.check", &serde_json::json!({}))?;
@@ -190,8 +208,15 @@ impl GlowplugClient {
     }
 
     /// `device.list` — managed GPUs/devices.
+    ///
+    /// Prefers NUCLEUS `call_by_capability("compute", "device.list", …)` so
+    /// toadStool can serve device enumeration once cylinder is absorbed.
     pub fn list_devices(&self) -> Result<Vec<GlowplugDeviceSummary>, GlowplugError> {
-        let v = self.call("device.list", &serde_json::json!({}))?;
+        let v = self.call_with_nucleus_fallback(
+            "compute",
+            "device.list",
+            &serde_json::json!({}),
+        )?;
         let rows: Vec<GlowplugListRow> = serde_json::from_value(v)
             .map_err(|e| GlowplugError::InvalidPayload(format!("device.list: {e}")))?;
         Ok(rows.into_iter().map(GlowplugDeviceSummary::from).collect())
@@ -210,13 +235,16 @@ impl GlowplugClient {
     }
 
     /// `device.swap` — hot-swap driver personality.
+    ///
+    /// Prefers NUCLEUS routing so toadStool can coordinate swaps.
     pub fn device_swap(
         &self,
         bdf: &str,
         target: &str,
         trace: bool,
     ) -> Result<serde_json::Value, GlowplugError> {
-        self.call(
+        self.call_with_nucleus_fallback(
+            "compute",
             "device.swap",
             &serde_json::json!({
                 "bdf": bdf,
@@ -247,6 +275,9 @@ impl GlowplugClient {
     }
 
     /// `device.dispatch` with explicit grid, workgroup, and kernel name.
+    ///
+    /// Prefers NUCLEUS `call_by_capability("compute", "device.dispatch", …)` so
+    /// toadStool can intercept dispatch once glowplug lifecycle is absorbed.
     pub fn dispatch_with_options(
         &self,
         bdf: &str,
@@ -256,7 +287,7 @@ impl GlowplugClient {
         options: &GlowplugDispatchOptions,
     ) -> Result<Vec<Vec<u8>>, GlowplugError> {
         let params = build_dispatch_params(bdf, kernel, buffers, output_sizes, options);
-        let v = self.call("device.dispatch", &params)?;
+        let v = self.call_with_nucleus_fallback("compute", "device.dispatch", &params)?;
         decode_dispatch_outputs(&v)
     }
 
@@ -339,15 +370,27 @@ impl GlowplugClient {
     }
 
     /// `device.resurrect` — resurrect a dead/faulted device via warm cycle + fd restore.
+    ///
+    /// Prefers NUCLEUS routing so toadStool can coordinate warm cycle recovery.
     pub fn device_resurrect(&self, bdf: &str) -> Result<DeviceLifecycleResult, GlowplugError> {
-        let v = self.call("device.resurrect", &serde_json::json!({ "bdf": bdf }))?;
+        let v = self.call_with_nucleus_fallback(
+            "compute",
+            "device.resurrect",
+            &serde_json::json!({ "bdf": bdf }),
+        )?;
         serde_json::from_value(v)
             .map_err(|e| GlowplugError::InvalidPayload(format!("device.resurrect: {e}")))
     }
 
     /// `device.health` — detailed per-device health (domain breakdown, fault history).
+    ///
+    /// Prefers NUCLEUS routing so toadStool can aggregate device health.
     pub fn device_health(&self, bdf: &str) -> Result<serde_json::Value, GlowplugError> {
-        self.call("device.health", &serde_json::json!({ "bdf": bdf }))
+        self.call_with_nucleus_fallback(
+            "compute",
+            "device.health",
+            &serde_json::json!({ "bdf": bdf }),
+        )
     }
 
     /// `daemon.status` — glowplug daemon status (mode, uptime, fleet info).
@@ -380,9 +423,15 @@ impl GlowplugClient {
     /// `sovereign.boot` — full orchestrated sovereign boot: detect driver →
     /// warm if needed → swap to vfio → run SovereignInit pipeline.
     ///
-    /// Routes through glowplug for full lifecycle coordination.
+    /// Prefers NUCLEUS `call_by_capability("compute", "sovereign.boot", …)` so
+    /// toadStool can orchestrate sovereign boot once lifecycle coordination is
+    /// absorbed from glowplug. Falls back to direct glowplug socket.
     pub fn sovereign_boot(&self, bdf: &str) -> Result<SovereignBootResult, GlowplugError> {
-        let v = self.call("sovereign.boot", &serde_json::json!({"bdf": bdf}))?;
+        let v = self.call_with_nucleus_fallback(
+            "compute",
+            "sovereign.boot",
+            &serde_json::json!({"bdf": bdf}),
+        )?;
         serde_json::from_value(v)
             .map_err(|e| GlowplugError::InvalidPayload(format!("sovereign.boot: {e}")))
     }

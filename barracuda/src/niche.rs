@@ -215,6 +215,11 @@ pub const ROUTED_CAPABILITIES: &[(&str, &str)] = &[
     ("ember.warm_cycle", "toadstool"),
     ("ember.adopt_device", "toadstool"),
     ("ember.fecs.state", "toadstool"),
+    ("ember.device.health", "toadstool"),
+    ("ember.device.recover", "toadstool"),
+    // Device management (glowplug lifecycle → toadStool)
+    ("device.list", "toadstool"),
+    ("sovereign.boot", "toadstool"),
     // Precision advisory (barraCuda)
     ("precision.route", "barracuda"),
     // Shader compilation (coralReef)

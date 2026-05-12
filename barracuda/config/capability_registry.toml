@@ -229,6 +229,32 @@ served = "routed"
 provider = "toadstool"
 domain = "compute"
 
+[[capabilities]]
+method = "ember.device.health"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+[[capabilities]]
+method = "ember.device.recover"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+# ── Device management (glowplug lifecycle → toadStool) ─────────────
+
+[[capabilities]]
+method = "device.list"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+[[capabilities]]
+method = "sovereign.boot"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
 # ── Precision advisory (routed to barraCuda) ─────────────────────────
 
 [[capabilities]]
