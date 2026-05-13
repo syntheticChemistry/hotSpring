@@ -1,15 +1,17 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Multi-ember fleet discovery and JSON-RPC routing for coral-ember.
+//! Multi-ember fleet discovery and JSON-RPC routing.
 //!
-//! Reads the fleet discovery file written by coral-glowplug (`mode: fleet`) and
-//! routes GPU work to per-device ember Unix sockets. Per-ember RPC methods live
+//! Reads the fleet discovery file written by the hardware daemon
+//! (toadStool fleet mode, or legacy coral-glowplug `mode: fleet`) and routes
+//! GPU work to per-device ember Unix sockets. Per-ember RPC methods live
 //! in [`crate::fleet_ember`].
 //!
 //! ## Discovery file
 //!
-//! Default path: `$XDG_RUNTIME_DIR/biomeos/coral-ember-fleet.json` (falls back to
-//! `/tmp` when `XDG_RUNTIME_DIR` is unset). Override with `EMBER_FLEET_FILE`.
+//! Default path: `$XDG_RUNTIME_DIR/biomeos/toadstool-ember-fleet.json` (falls
+//! back to legacy `coral-ember-fleet.json`, then `/tmp`). Override with
+//! `EMBER_FLEET_FILE`.
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -26,8 +28,11 @@ pub use crate::fleet_ember::{
 /// Environment variable overriding the fleet discovery JSON path.
 pub const EMBER_FLEET_FILE_ENV: &str = "EMBER_FLEET_FILE";
 
-/// Relative path under `XDG_RUNTIME_DIR` for fleet discovery.
-pub const FLEET_FILE_REL: &str = "biomeos/coral-ember-fleet.json";
+/// Relative path under `XDG_RUNTIME_DIR` for fleet discovery (toadStool naming).
+pub const FLEET_FILE_REL: &str = "biomeos/toadstool-ember-fleet.json";
+
+/// Legacy relative path for fleet discovery (coralReef naming, migration fallback).
+pub const FLEET_FILE_REL_LEGACY: &str = "biomeos/coral-ember-fleet.json";
 
 /// Physics domain tag: lattice QCD workloads (Wilson, staggered, HMC, …).
 pub const DOMAIN_LATTICE_QCD: &str = "lattice_qcd";
@@ -92,17 +97,22 @@ impl FleetDiscovery {
     ///
     /// Search order:
     /// 1. `EMBER_FLEET_FILE` env var (explicit override)
-    /// 2. `$XDG_RUNTIME_DIR/biomeos/coral-ember-fleet.json`
-    /// 3. `<temp_dir>/biomeos/coral-ember-fleet.json` (platform temp via `std::env::temp_dir()`)
+    /// 2. `$XDG_RUNTIME_DIR/biomeos/toadstool-ember-fleet.json` (preferred)
+    /// 3. `$XDG_RUNTIME_DIR/biomeos/coral-ember-fleet.json` (legacy fallback)
+    /// 4. `<temp_dir>/biomeos/toadstool-ember-fleet.json` (platform temp)
     #[must_use]
     pub fn resolve_path() -> PathBuf {
         if let Ok(p) = std::env::var(EMBER_FLEET_FILE_ENV) {
             return PathBuf::from(p);
         }
         if let Ok(runtime) = std::env::var("XDG_RUNTIME_DIR") {
-            let xdg_path = PathBuf::from(runtime).join(FLEET_FILE_REL);
-            if xdg_path.exists() {
-                return xdg_path;
+            let toad_path = PathBuf::from(&runtime).join(FLEET_FILE_REL);
+            if toad_path.exists() {
+                return toad_path;
+            }
+            let legacy_path = PathBuf::from(&runtime).join(FLEET_FILE_REL_LEGACY);
+            if legacy_path.exists() {
+                return legacy_path;
             }
         }
         std::env::temp_dir().join(FLEET_FILE_REL)
@@ -235,22 +245,44 @@ pub fn probe_ember_socket(socket_path: &Path) -> bool {
         .is_ok_and(|resp| resp.get("result").is_some())
 }
 
-/// Well-known coralReef runtime directory for diesel engine sockets.
+/// Well-known toadStool runtime directory for hardware lifecycle sockets (preferred).
+const TOADSTOOL_RUN_DEFAULT: &str = "/run/toadstool";
+
+/// Legacy coralReef runtime directory for diesel engine sockets (deprecated path).
 const CORALREEF_RUN_DEFAULT: &str = "/run/coralreef";
 
-/// Resolve the coralReef runtime directory.
+/// Resolve the hardware daemon runtime directory.
 ///
-/// Checks `CORALREEF_RUN_DIR` env first, then `$XDG_RUNTIME_DIR/coralreef`,
-/// then falls back to the well-known `/run/coralreef`.
-fn coralreef_run_dir() -> PathBuf {
+/// Prefers toadStool paths (the hardware lifecycle primal), falling back to
+/// legacy coralReef paths during the diesel engine migration transition.
+///
+/// Search order:
+/// 1. `TOADSTOOL_RUN_DIR` env (explicit toadStool override)
+/// 2. `CORALREEF_RUN_DIR` env (legacy explicit override)
+/// 3. `$XDG_RUNTIME_DIR/toadstool` (toadStool XDG)
+/// 4. `$XDG_RUNTIME_DIR/coralreef` (legacy coralReef XDG)
+/// 5. `/run/toadstool` (toadStool well-known)
+/// 6. `/run/coralreef` (legacy coralReef well-known)
+fn hardware_daemon_run_dir() -> PathBuf {
+    if let Ok(dir) = std::env::var("TOADSTOOL_RUN_DIR") {
+        return PathBuf::from(dir);
+    }
     if let Ok(dir) = std::env::var("CORALREEF_RUN_DIR") {
         return PathBuf::from(dir);
     }
     if let Ok(xdg) = std::env::var("XDG_RUNTIME_DIR") {
-        let p = PathBuf::from(xdg).join("coralreef");
-        if p.is_dir() {
-            return p;
+        let toad_path = PathBuf::from(&xdg).join("toadstool");
+        if toad_path.is_dir() {
+            return toad_path;
         }
+        let coral_path = PathBuf::from(&xdg).join("coralreef");
+        if coral_path.is_dir() {
+            return coral_path;
+        }
+    }
+    let toad_default = PathBuf::from(TOADSTOOL_RUN_DEFAULT);
+    if toad_default.is_dir() {
+        return toad_default;
     }
     PathBuf::from(CORALREEF_RUN_DEFAULT)
 }
@@ -259,7 +291,7 @@ fn coralreef_run_dir() -> PathBuf {
 ///
 /// Tries NUCLEUS capability routing first (`ember.list` via `call_by_capability`),
 /// then falls back to the diesel engine layout: per-cylinder ember sockets at
-/// `<coralreef_run_dir>/ember-{cylinder_name}.sock`. Queries `ember.list` on
+/// `<daemon_run_dir>/ember-{cylinder_name}.sock`. Queries `ember.list` on
 /// each socket and returns the one holding the requested BDF.
 #[must_use]
 pub fn discover_diesel_ember_socket(bdf: &str) -> Option<PathBuf> {
@@ -280,8 +312,8 @@ pub fn discover_diesel_ember_socket(bdf: &str) -> Option<PathBuf> {
         }
     }
 
-    let coralreef_dir = coralreef_run_dir();
-    let entries = std::fs::read_dir(coralreef_dir).ok()?;
+    let daemon_dir = hardware_daemon_run_dir();
+    let entries = std::fs::read_dir(daemon_dir).ok()?;
 
     for entry in entries.flatten() {
         let name = entry.file_name();

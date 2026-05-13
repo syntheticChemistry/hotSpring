@@ -347,7 +347,10 @@ pub fn send_jsonrpc(
 
 /// Known socket-name aliases for primals that may register under alternative names.
 /// Data-driven: no hardcoded if/else chains.
-const PRIMAL_ALIASES: &[(&str, &[&str])] = &[("coralreef", &["coral-glowplug"])];
+const PRIMAL_ALIASES: &[(&str, &[&str])] = &[
+    ("coralreef", &["coral-glowplug"]),
+    ("toadstool", &["toadstool-glowplug"]),
+];
 
 fn known_aliases(name: &str) -> &'static [&'static str] {
     PRIMAL_ALIASES

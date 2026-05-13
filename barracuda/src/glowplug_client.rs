@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! JSON-RPC client for [coral-glowplug](https://github.com/biomegate/ecoPrimals) over the
-//! NUCLEUS Unix socket (`NucleusContext::coralreef` or an explicit path).
+//! JSON-RPC client for the hardware orchestration daemon (toadStool-glowplug,
+//! or legacy coral-glowplug during migration) over the NUCLEUS Unix socket.
 //!
 //! All calls use [`crate::primal_bridge::send_jsonrpc`] (JSON-RPC 2.0, newline-framed).
 
