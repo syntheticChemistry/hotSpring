@@ -1,7 +1,7 @@
 # Experiment 167: Warm Handoff — Sovereign Compute via Nouveau HBM2 Training
 
 **Date:** 2026-04-16
-**Status:** Ready for execution (post-reboot)
+**Status:** Complete — superseded by Exp 169 (`169_WARM_HANDOFF_VALIDATED.md`)
 **Target:** Titan V (GV100, 0000:03:00.0)
 **Depends on:** Experiment 166 (Sovereign Boot Wiring)
 

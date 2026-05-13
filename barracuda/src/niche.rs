@@ -17,7 +17,7 @@
 //!
 //! # Local vs Routed Capabilities
 //!
-//! `LOCAL_CAPABILITIES` lists methods that `hotspring_primal` actually
+//! `LOCAL_CAPABILITIES` lists methods that `hotspring_unibin serve` actually
 //! handles — callers get a real physics result. `ROUTED_CAPABILITIES`
 //! lists methods that hotSpring understands but routes to canonical
 //! providers (Squirrel for inference, petalTongue for visualization,
@@ -32,7 +32,7 @@
 //!
 //! # Evolution
 //!
-//! The `hotspring_primal` binary exposes these capabilities via a
+//! The `hotspring_unibin serve` mode exposes these capabilities via a
 //! JSON-RPC server. The final form is graph-only deployment where
 //! biomeOS orchestrates the niche directly from deploy graphs.
 

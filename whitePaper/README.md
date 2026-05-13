@@ -2,7 +2,7 @@
 
 **Status**: Current — reviewed for PII, suitable for public repository  
 **Purpose**: Document the replication of Murillo Group computational plasma physics on consumer hardware using BarraCuda, and the three-tier validation arc proving NUCLEUS primal composition  
-**Date**: February 26, 2026 (inception); updated May 12, 2026 (v0.6.32 — guideStone Level 6 CERTIFIED (NUCLEUS Deployment Validation), primalSpring v0.9.25 post-interstadial Tier 4 IPC-first. 590 (default) / 1,042 (barracuda-local) lib tests, 166 binaries, 64/64 validation suites, 128 WGSL shaders, 25/25 papers reproduced (CPU), 20/25 GPU, deep debt consolidation complete — zero `#[allow]`, all `#[expect]` with reasons, all named constants in `tolerances/`, env overrides for all hardcoded paths. 7 deploy graphs, provenance trio IPC, skunkBat audit IPC wired, foundation Thread 2 seeded. IPC transport evolution: all modules use `call_by_capability()` for unified discovery + transport. Sovereign GPU validation niche wired — GAP-HS-093)  
+**Date**: February 26, 2026 (inception); updated May 13, 2026 (v0.6.32 — guideStone Level 6 CERTIFIED (NUCLEUS Deployment Validation), primalSpring v0.9.25 post-interstadial Tier 4 IPC-first. 592 (default) / 1,041 (barracuda-local) lib tests, 167 binaries, 64/64 validation suites, 128 WGSL shaders, 17/20 validation scenarios, 25/25 papers reproduced (CPU), 20/25 GPU. Deep debt resolution complete — zero TODO/FIXME/HACK, zero production mocks, zero library unsafe, zero C deps (default), zero clippy. 7 deploy graphs, provenance trio IPC, skunkBat audit IPC wired, foundation Thread 2 seeded. All IPC uses `call_by_capability()`. Sovereign GPU validation niche wired. Node atomic scenario added.  
 **Validation arc**: Python baselines → Rust validation → NUCLEUS IPC primal composition validation (`hotspring_unibin` Tier 1 entry; guideStone properties certified)
 
 ---
@@ -392,7 +392,7 @@ No institutional access required. No Code Ocean account. No Fortran compiler. AG
 | Metric | Value |
 |--------|-------|
 | Crate | v0.6.32 |
-| Lib tests | **590** pass (default) / **1,042** pass (barracuda-local), 6 GPU/heavy-ignored |
+| Lib tests | **592** pass (default) / **1,041** pass (barracuda-local), 6 GPU/heavy-ignored |
 | Binaries | **166** (validate_*, production, benchmarks, composition, UniBin) |
 | WGSL shaders | **128** (lattice, MD, HFB, diag, spectral, sovereign) |
 | Validation suites | **64/64** pass |
@@ -409,7 +409,7 @@ No institutional access required. No Code Ocean account. No Fortran compiler. AG
 | Provenance records | All validation targets traced to Python origins or DOIs |
 | AGPL-3.0 compliance | All `.rs` and `.wgsl` files |
 | NUCLEUS composition | `hotspring_unibin` (certify, validate, status, version) + 6 composition binaries, 7 deploy graphs |
-| Eukaryotic UniBin | `hotspring_unibin` — L0-L6 certification + 9 validation scenarios via `ScenarioRegistry` (12 with barracuda-local) |
+| Eukaryotic UniBin | `hotspring_unibin` — L0-L6 certification + 17 validation scenarios via `ScenarioRegistry` (20 with barracuda-local) |
 | Deploy graphs (7 total) | Example: `graphs/hotspring_qcd_deploy.toml` — 10 primals declared |
 
 ---

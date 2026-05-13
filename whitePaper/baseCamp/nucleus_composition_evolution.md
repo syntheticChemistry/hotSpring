@@ -3,8 +3,8 @@
 # NUCLEUS Composition Evolution — Primal Composition Tier
 
 **Spring:** hotSpring (BarraCuda crate)  
-**Updated:** May 11, 2026  
-**Status:** guideStone Level 6 CERTIFIED (NUCLEUS Deployment Validation; primalSpring v0.9.25 post-interstadial). Tier 4 IPC-first rewiring complete — `barracuda` optional, 25+ modules feature-gated behind `#[cfg(feature = "barracuda-local")]`, `primal-proof` feature for IPC-only builds. Eukaryotic UniBin (`hotspring_unibin`) with certify/validate/status/version subcommands replaces legacy `hotspring_guidestone`. Deep debt Phase 4 complete — smart refactoring (pseudofermion, handlers, nuclear EOS helpers, measurement loop extraction), skunkBat audit IPC wired, foundation Thread 2 seeded (12 Sarkas Yukawa MD targets). `hotspring_unibin validate` is the Tier 1 entry for NUCLEUS workload dispatch. **Bare mode: 30/30 PASS** (3 SKIP = expected NUCLEUS liveness). **Lib tests:** 579/579 (default crate features) and 1,028/1,028 (`--features barracuda-local`).
+**Updated:** May 13, 2026  
+**Status:** guideStone Level 6 CERTIFIED (NUCLEUS Deployment Validation; primalSpring v0.9.25 post-interstadial). Tier 4 IPC-first. Eukaryotic UniBin (`hotspring_unibin`) with certify/validate/status/version subcommands. 17 default / 20 barracuda-local validation scenarios in registry. Deep debt resolution complete — zero TODO/FIXME/HACK, zero production mocks, zero library unsafe, zero C deps, zero clippy. Node atomic scenario added. bearDog wire name corrected. coralReef socket discovery evolved. **Bare mode: 30/30 PASS** (3 SKIP = expected NUCLEUS liveness). **Lib tests:** 592/592 (default) and 1,041/1,041 (`--features barracuda-local`).
 
 ---
 
@@ -18,7 +18,7 @@ hotSpring’s validation story stacks three tiers that must agree before a scien
 | **2 — Rust** | Sovereign, reproducible physics in `hotspring_barracuda` | Same checks as tier 1 on CPU/GPU paths (`validate_*`, `cargo test --lib`) |
 | **3 — NUCLEUS IPC composition** | Real primals behind JSON-RPC over UDS | Local Rust baselines match results obtained when the same capability is invoked **through biomeOS discovery and primal routing** |
 
-Tier 3 is **Primal Composition**: it is not enough that `hotspring_primal` compiles; the niche must behave correctly when science is exercised **as a routed capability** (call-by-domain), the same way a deployed graph will call it.
+Tier 3 is **Primal Composition**: it is not enough that `hotspring_unibin` compiles; the niche must behave correctly when science is exercised **as a routed capability** (call-by-domain), the same way a deployed graph will call it.
 
 ---
 
@@ -104,7 +104,7 @@ NUCLEUS routing is **by capability domain**, not by hard-coded process names:
 
 - Discovery fills `NucleusContext` from live sockets / capability lists.  
 - Callers use **`call_by_capability(domain, method, params)`** (see `primal_bridge.rs` and `composition::get_by_capability`).  
-- `niche.rs` splits **`LOCAL_CAPABILITIES`** (served by `hotspring_primal`) from **`ROUTED_CAPABILITIES`** (canonical provider per method, e.g. ToadStool for `compute.dispatch.submit`).
+- `niche.rs` splits **`LOCAL_CAPABILITIES`** (served by `hotspring_unibin serve`) from **`ROUTED_CAPABILITIES`** (canonical provider per method, e.g. ToadStool for `compute.dispatch.submit`).
 
 This matches biomeOS / Neural API expectations: **call by capability**, let the graph decide which binary instance satisfies the domain.
 

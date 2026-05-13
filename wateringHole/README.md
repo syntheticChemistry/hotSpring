@@ -28,12 +28,12 @@ entry for the session that produced it. Chronological by filename suffix.
 | 2026-05-06 | `HOTSPRING_CORALREEF_EMBER_GATE_K80_COLDBOOT_HANDOFF_MAY06_2026.md` | upstream | Ember exclusive device gate + K80 cold-boot without PLX death |
 | 2026-05-06 | `HOTSPRING_CORALREEF_SOVEREIGN_PIPELINE_HARDENING_HANDOFF_MAY06B_2026.md` | upstream | Three-GPU hardening: SLM, K80 PLL, Volta pipeline, unsafe audit |
 | 2026-05-07 | `HOTSPRING_CORALREEF_TITANV_WARM_DMATRF_HANDOFF_MAY07_2026.md` | ✅ | Titan V DMATRF to FECS IMEM — ROM security gate identified |
-| 2026-05-07 | `HOTSPRING_EVOLUTION_PASS_DEBT_REFACTOR_HANDOFF_MAY07_2026.md` | ✅ | Evolution pass: deploy graph, `niche.rs`, clippy, exp070 RAII |
-| 2026-05-10 | `HOTSPRING_CORALREEF_SOVEREIGN_KEEPALIVE_HANDOFF_MAY10_2026.md` | ✅ | PLX keepalive → coral-ember; glowplug diesel validation |
-| 2026-05-10 | `HOTSPRING_DEEP_DEBT_PHASE4_UPSTREAM_HANDOFF_MAY10_2026.md` | ✅ | Deep Debt Phase 4: Tier 4 IPC-first, typed errors, L6 cert |
-| 2026-05-11 | `HOTSPRING_CORALREEF_SOVEREIGN_BARRIERS_HANDOFF_MAY11_2026.md` | ✅ | Sovereign barrier resolution: Volta ACR skip, HBM2 warm-handoff, benchScale VM path, K80 PCIe diagnosis |
-| 2026-05-11 | `INFRA_MATURITY_ECOSYSTEM_HANDOFF_MAY11_2026.md` | ✅ | benchScale + agentReagents maturity, composition patterns, NUCLEUS deployment |
-| 2026-05-11 | `HOTSPRING_SOVEREIGN_RUST_EVOLUTION_HANDOFF_MAY11_2026.md` | ✅ | Warm-catch pipeline elevated to pure Rust. ALL 3 GPUs sovereign. Era-agnostic roadmap. |
+| 2026-05-07 | `HOTSPRING_EVOLUTION_PASS_DEBT_REFACTOR_HANDOFF_MAY07_2026.md` | archive | Evolution pass: deploy graph, `niche.rs`, clippy, exp070 RAII |
+| 2026-05-10 | `HOTSPRING_CORALREEF_SOVEREIGN_KEEPALIVE_HANDOFF_MAY10_2026.md` | archive | PLX keepalive → coral-ember; glowplug diesel validation |
+| 2026-05-10 | `HOTSPRING_DEEP_DEBT_PHASE4_UPSTREAM_HANDOFF_MAY10_2026.md` | archive | Deep Debt Phase 4: Tier 4 IPC-first, typed errors, L6 cert |
+| 2026-05-11 | `HOTSPRING_CORALREEF_SOVEREIGN_BARRIERS_HANDOFF_MAY11_2026.md` | archive | Sovereign barrier resolution: Volta ACR skip, HBM2 warm-handoff, benchScale VM path, K80 PCIe diagnosis |
+| 2026-05-11 | `INFRA_MATURITY_ECOSYSTEM_HANDOFF_MAY11_2026.md` | archive | benchScale + agentReagents maturity, composition patterns, NUCLEUS deployment |
+| 2026-05-11 | `HOTSPRING_SOVEREIGN_RUST_EVOLUTION_HANDOFF_MAY11_2026.md` | archive | Warm-catch pipeline elevated to pure Rust. ALL 3 GPUs sovereign. Era-agnostic roadmap. |
 | 2026-05-12 | `HOTSPRING_COMPUTE_TRIO_CAPABILITY_EVOLUTION_HANDOFF_MAY12_2026.md` | ✅ | Compute trio rewire, capability discovery evolution, scenario expansion, downstream audit |
 | 2026-05-12 | `HOTSPRING_IPC_TRANSPORT_EVOLUTION_HANDOFF_MAY12_2026.md` | ✅ | GAP-HS-092: call_by_capability proliferation, wildcard audit, production mock audit |
 | 2026-05-12 | `HOTSPRING_COMPUTE_TRIO_PIPELINE_HANDOFF_MAY12_2026.md` | ✅ | GAP-HS-094: GlowplugClient NUCLEUS evolution, compute trio + hotQCD scenarios |
@@ -41,6 +41,7 @@ entry for the session that produced it. Chronological by filename suffix.
 | 2026-05-12 | `HOTSPRING_WARM_VFIO_DISPATCH_EVOLUTION_HANDOFF_MAY12_2026.md` | ✅ | GAP-HS-095 cont: warm API, cold/warm mismatch fix, ember blocker, kernel-module roadmap |
 | 2026-05-12 | `HOTSPRING_EMBER_GLOWPLUG_OWNERSHIP_AUDIT_HANDOFF_MAY12_2026.md` | ✅ | GAP-HS-096: dual-existence audit, cylinder translation fix, toadStool parity gap, cutover path |
 | 2026-05-12 | `HOTSPRING_PHASE_C_EXECUTION_PLAN_MAY12_2026.md` | ✅ | Phase C execution plan: 7 work items (C1-C7), coralReef soft-deprecation, hotSpring validation checklist |
+| 2026-05-13 | `HOTSPRING_DEEP_DEBT_SPRINT_MAY13_2026.md` | ✅ | Deep debt resolution: println migration, BDF discovery, pure-Rust blake3, boot scripts, CI gate |
 
 ### `mmiotraces/`
 

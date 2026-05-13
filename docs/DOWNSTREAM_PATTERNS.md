@@ -37,7 +37,7 @@ workload TOMLs, gate manifests, operational scripts.
    The `spectral-lanczos`, `gradient-flow`, and `dielectric-mermin`
    scenarios require `barracuda-local` and are not available in
    `primal-proof` builds.
-   17 scenarios registered (14 default + 3 barracuda-local)
+   20 scenarios registered (17 default + 3 barracuda-local)
 2. **Workload TOML contract** — `[metadata]`, `[execution]`, `[resources]`,
    `[security]` sections; `[provenance]` pending toadStool Gap 5 resolution
 3. **Path portability** — workload uses `$SPRINGS_ROOT` (verify expansion

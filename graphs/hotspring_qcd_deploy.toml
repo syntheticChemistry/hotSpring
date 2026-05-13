@@ -170,7 +170,7 @@ by_capability = "visualization"
 # hotSpring application
 [[graph.nodes]]
 name = "hotspring"
-binary = "hotspring_primal"
+binary = "hotspring_unibin"
 order = 12
 required = true
 spawn = true

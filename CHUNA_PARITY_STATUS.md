@@ -7,7 +7,7 @@
 **Rewired to**: barraCuda v0.3.5 (`8d63c77`), toadStool S146, coralReef Phase 10 Iter 31
 **Sovereign pipeline**: coralReef live — **46/46** standalone shaders compile to native SM70/SM86 SASS (Iter 31). All 9 cross-spring gaps resolved. Nouveau UAPI migration. UVM fix. 1509 tests. FMA lowering. `sovereign-dispatch` feature available.
 **Demo-ready**: **44/44 overnight checks pass** — core paper reproduction 41/41 (11 quenched flow + 20 dielectric + 10 kinetic-fluid). **Dynamical N_f=4 extension: 3/3 pass** (flow monotonic, acceptance 85%, plaquette 0.470). NPU-steered warm-start with mass annealing.
-**Handoff**: `wateringHole/handoffs/HOTSPRING_V0628_UPSTREAM_SYNC_HANDOFF_MAR10_2026.md`
+**Handoff**: Migrated upstream to `ecoPrimals/infra/wateringHole/handoffs/` (Mar 2026 archive)
 
 ---
 

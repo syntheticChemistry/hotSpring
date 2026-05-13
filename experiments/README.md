@@ -197,13 +197,13 @@ have been rewired for capability-based discovery (GAP-HS-087, GAP-HS-088):
 - **`validate_compute_trio_pipeline`** binary: end-to-end Yukawa + Wilson plaquette validation
 - **All IPC provenance clients** evolved from hardcoded socket paths to `by_domain()` NUCLEUS discovery
 - **Barrier shader validation** for coralReef `membar.{cta,gl}` emitter (9 WGSL shaders)
-- **1,042** lib tests pass (barracuda-local + toadstool-dispatch)
+- **1,041** lib tests pass (barracuda-local)
 
 ## Eukaryotic Evolution (May 2026)
 
-9 experiment binaries have been absorbed into
+17 experiment binaries have been absorbed into
 `barracuda/src/validation/scenarios/` as Tier 1 (Rust) scenarios with
-`ScenarioMeta` provenance tracking (12 with `barracuda-local` feature:
+`ScenarioMeta` provenance tracking (20 with `barracuda-local` feature:
 adds gradient-flow, dielectric-mermin, spectral-lanczos). 8 hardware-specific
 GPU experiment binaries are preserved in `fossilRecord/experiments_prokaryotic_may2026/`.
 The `hotspring_unibin validate` command is the eukaryotic entry point

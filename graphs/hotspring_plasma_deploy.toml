@@ -141,7 +141,7 @@ by_capability = "defense"
 # hotSpring Plasma application
 [[graph.nodes]]
 name = "hotspring"
-binary = "hotspring_primal"
+binary = "hotspring_unibin"
 order = 10
 required = true
 spawn = true

@@ -28,7 +28,7 @@ methods listed in `validation_capabilities` over IPC and compares against baseli
     graphs/hotspring_qcd_deploy.toml
 
 The deploy graph defines **how to deploy** the spring's own integration server
-(`hotspring_primal`, order = 10) alongside primals. It includes spawn order, health
+(`hotspring_unibin serve`, order = 10) alongside primals. It includes spawn order, health
 probes, and fragment references. The spring binary appears as a node here because
 this is the Level 2-3 integration test — the "Rust proof" where the spring server
 dispatches domain science via in-process library calls.

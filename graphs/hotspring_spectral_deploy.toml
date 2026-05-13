@@ -79,7 +79,7 @@ by_capability = "defense"
 # hotSpring application
 [[graph.nodes]]
 name = "hotspring"
-binary = "hotspring_primal"
+binary = "hotspring_unibin"
 order = 5
 required = true
 spawn = true
