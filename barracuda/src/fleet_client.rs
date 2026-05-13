@@ -235,6 +235,10 @@ fn expand_devices(file: &FleetFile) -> Vec<FleetDeviceRoute> {
 }
 
 /// True if `ember.status` returns a JSON-RPC result on this socket.
+///
+/// toadStool S237+ (Phase A/B) serves `ember.status` and `ember.list`
+/// as live JSON-RPC methods via sysfs GPU enumeration. The `ember.phase`
+/// field in `compute.dispatch.capabilities` reports "B" as of S239.
 #[must_use]
 pub fn probe_ember_socket(socket_path: &Path) -> bool {
     send_jsonrpc(socket_path, "ember.status", &serde_json::json!({}))
@@ -254,21 +258,33 @@ fn toadstool_compute_socket() -> PathBuf {
     PathBuf::from(base).join("biomeos").join("compute.sock")
 }
 
-/// Well-known coralReef runtime directory for diesel engine sockets (legacy).
-const CORALREEF_RUN_DEFAULT: &str = "/run/coralreef";
+/// Well-known toadStool runtime directory for ember sockets.
+const TOADSTOOL_RUN_DEFAULT: &str = "/run/toadstool";
 
-/// Resolve the coralReef runtime directory (legacy — excised Sprint 9).
-fn coralreef_run_dir() -> PathBuf {
+/// Resolve the toadStool runtime directory for ember sockets.
+///
+/// Precedence: `TOADSTOOL_RUN_DIR` → `CORALREEF_RUN_DIR` (deprecated) →
+/// `$XDG_RUNTIME_DIR/toadstool` → `/run/toadstool`.
+fn toadstool_run_dir() -> PathBuf {
+    if let Ok(dir) = std::env::var("TOADSTOOL_RUN_DIR") {
+        return PathBuf::from(dir);
+    }
     if let Ok(dir) = std::env::var("CORALREEF_RUN_DIR") {
+        log::warn!("CORALREEF_RUN_DIR is deprecated — use TOADSTOOL_RUN_DIR");
         return PathBuf::from(dir);
     }
     if let Ok(xdg) = std::env::var("XDG_RUNTIME_DIR") {
-        let p = PathBuf::from(xdg).join("coralreef");
+        let base = PathBuf::from(&xdg);
+        let p = base.join("toadstool");
         if p.is_dir() {
             return p;
         }
+        let legacy = base.join("coralreef");
+        if legacy.is_dir() {
+            return legacy;
+        }
     }
-    PathBuf::from(CORALREEF_RUN_DEFAULT)
+    PathBuf::from(TOADSTOOL_RUN_DEFAULT)
 }
 
 /// Discover the compute socket for a specific BDF.
@@ -276,7 +292,7 @@ fn coralreef_run_dir() -> PathBuf {
 /// Discovery chain:
 /// 1. NUCLEUS capability routing (`compute` domain → toadStool `ember.list`)
 /// 2. toadStool compute socket direct probe (`ember.list` on `compute.sock`)
-/// 3. Legacy diesel engine layout: `<coralreef_run_dir>/ember-*.sock`
+/// 3. toadStool run directory: `toadstool-ember-*.sock` or legacy `ember-*.sock`
 ///
 /// Returns the socket path of whichever endpoint holds the requested BDF.
 #[must_use]
@@ -315,13 +331,16 @@ pub fn discover_diesel_ember_socket(bdf: &str) -> Option<PathBuf> {
         }
     }
 
-    // 3. Legacy coralReef diesel engine layout
-    let coralreef_dir = coralreef_run_dir();
-    if let Ok(entries) = std::fs::read_dir(coralreef_dir) {
+    // 3. toadStool run directory (toadstool-ember-*.sock) + legacy (ember-*.sock)
+    let run_dir = toadstool_run_dir();
+    if let Ok(entries) = std::fs::read_dir(run_dir) {
         for entry in entries.flatten() {
             let name = entry.file_name();
             let name_str = name.to_string_lossy();
-            if !name_str.starts_with("ember-") || !name_str.ends_with(".sock") {
+            let is_ember = (name_str.starts_with("toadstool-ember-")
+                || name_str.starts_with("ember-"))
+                && name_str.ends_with(".sock");
+            if !is_ember {
                 continue;
             }
             let path = entry.path();

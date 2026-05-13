@@ -113,7 +113,7 @@ impl DagSession {
                 self.events_appended += 1;
             }
             Err(e) => {
-                eprintln!("  rhizoCrypt: append failed — {e}");
+                log::warn!("rhizoCrypt: append failed — {e}");
             }
         }
     }
@@ -136,7 +136,7 @@ impl DagSession {
                 .unwrap_or("unknown")
                 .to_string(),
             Err(e) => {
-                eprintln!("  rhizoCrypt: dehydrate failed — {e}");
+                log::warn!("rhizoCrypt: dehydrate failed — {e}");
                 "error".to_string()
             }
         };

@@ -1,7 +1,7 @@
 #!/bin/bash
-# k80-wake-and-run.sh — Post-power-cycle K80 sovereign boot via coral stack.
+# k80-wake-and-run.sh — Post-power-cycle K80 sovereign boot via toadStool stack.
 #
-# ALL GPU interaction routes through coral-ember + coral-glowplug.
+# ALL GPU interaction routes through toadstool-ember + toadstool-glowplug.
 # NEVER touch /sys/bus/pci/drivers/ directly while ember holds VFIO fds.
 # Direct sysfs driver manipulation causes VFIO group kernel deadlocks.
 #
@@ -29,11 +29,11 @@
 
 set -euo pipefail
 
-GLOWPLUG_CONF="${CORALREEF_GLOWPLUG_CONFIG:-/etc/coralreef/glowplug.toml}"
+GLOWPLUG_CONF="${TOADSTOOL_GLOWPLUG_CONFIG:-${CORALREEF_GLOWPLUG_CONFIG:-/etc/toadstool/glowplug.toml}}"
 BARRACUDA="${HOTSPRING_BARRACUDA:-$HOME/Development/ecoPrimals/springs/hotSpring/barracuda}"
 
-GLOWPLUG_SOCK=/run/coralreef/glowplug.sock
-EMBER_SOCK=/run/coralreef/ember.sock
+GLOWPLUG_SOCK="${TOADSTOOL_GLOWPLUG_SOCKET:-/run/toadstool/glowplug.sock}"
+EMBER_SOCK="${TOADSTOOL_EMBER_SOCKET:-/run/toadstool/ember.sock}"
 
 die() { echo "FATAL: $*" >&2; exit 1; }
 
@@ -124,12 +124,12 @@ for dev in $ALL_PCIE_DEVS; do
 done
 echo "    power/control=on for PLX subtree + K80 endpoints  ✓"
 
-# ── Step 5: Ensure coral-ember is running ─────────────────────────────────────
+# ── Step 5: Ensure toadstool-ember is running ────────────────────────────────
 echo ""
-echo "[5] Checking coral-ember (immortal VFIO fd holder)..."
-if ! systemctl is-active --quiet coral-ember 2>/dev/null; then
-    echo "    Starting coral-ember..."
-    systemctl start coral-ember || die "coral-ember failed to start"
+echo "[5] Checking toadstool-ember (immortal VFIO fd holder)..."
+if ! systemctl is-active --quiet toadstool-ember 2>/dev/null; then
+    echo "    Starting toadstool-ember..."
+    systemctl start toadstool-ember || die "toadstool-ember failed to start"
 fi
 echo "    Waiting for ember socket..."
 for i in $(seq 1 60); do
@@ -137,13 +137,13 @@ for i in $(seq 1 60); do
     sleep 0.5
 done
 [ -S "$EMBER_SOCK" ] || die "ember socket not ready after 30s: $EMBER_SOCK"
-echo "    coral-ember active  ✓  ($EMBER_SOCK)"
+echo "    toadstool-ember active  ✓  ($EMBER_SOCK)"
 
 # ── Step 5b: Fix DRM isolation rules (ember may overwrite with stale BDFs) ───
-# coral-ember auto-generates 61-coralreef-drm-ignore.rules at startup.
+# toadstool-ember auto-generates DRM ignore rules at startup.
 # If it generates stale BDFs, warm-fecs blocks with "DRM isolation incomplete".
 # Generate from glowplug.toml: all non-"shared" devices need DRM isolation.
-DRM_RULES=/etc/udev/rules.d/61-coralreef-drm-ignore.rules
+DRM_RULES=/etc/udev/rules.d/61-toadstool-drm-ignore.rules
 COMPUTE_BDFS=$(python3 -c "
 import pathlib
 try:
@@ -167,7 +167,7 @@ done
 if $RULES_STALE; then
     echo "    DRM isolation rules stale — regenerating from config..."
     {
-        echo "# coralReef: DRM isolation for compute GPUs (auto-generated from $GLOWPLUG_CONF)"
+        echo "# toadStool: DRM isolation for compute GPUs (auto-generated from $GLOWPLUG_CONF)"
         echo "# Prevents logind seat/uaccess tags — blocks driver swaps if active."
         echo ""
         for cbdf in $COMPUTE_BDFS; do
@@ -181,12 +181,12 @@ else
     echo "    DRM isolation rules OK ✓"
 fi
 
-# ── Step 6: Ensure coral-glowplug is running ──────────────────────────────────
+# ── Step 6: Ensure toadstool-glowplug is running ─────────────────────────────
 echo ""
-echo "[6] Checking coral-glowplug (lifecycle broker)..."
-if ! systemctl is-active --quiet coral-glowplug 2>/dev/null; then
-    echo "    Starting coral-glowplug..."
-    systemctl start coral-glowplug || die "coral-glowplug failed to start"
+echo "[6] Checking toadstool-glowplug (lifecycle broker)..."
+if ! systemctl is-active --quiet toadstool-glowplug 2>/dev/null; then
+    echo "    Starting toadstool-glowplug..."
+    systemctl start toadstool-glowplug || die "toadstool-glowplug failed to start"
 fi
 echo "    Waiting for glowplug socket..."
 for i in $(seq 1 60); do
@@ -194,7 +194,7 @@ for i in $(seq 1 60); do
     sleep 0.5
 done
 [ -S "$GLOWPLUG_SOCK" ] || die "glowplug socket not ready after 30s: $GLOWPLUG_SOCK"
-echo "    coral-glowplug active  ✓  ($GLOWPLUG_SOCK)"
+echo "    toadstool-glowplug active  ✓  ($GLOWPLUG_SOCK)"
 
 # ── Step 7: Verify ember PCIe switch keepalive ───────────────────────────────
 # Ember's built-in keepalive thread (pcie_keepalive.rs) replaced plx-keepalive.sh.
@@ -233,10 +233,10 @@ fi
 # compute_ready=true requires both GR_READY + VRAM sentinel — cold boot may
 # achieve GR_READY only. VRAM training is a future sovereign_stage task.
 echo ""
-echo "[8] Running sovereign boot on K80 die0 via coralctl..."
+echo "[8] Running sovereign boot on K80 die0 via toadstoolctl..."
 echo "========================================"
 
-SOVEREIGN_JSON=$(CORALREEF_EMBER_SOCKET="$EMBER_SOCK" coralctl sovereign-boot "$K80_DIE0" 2>&1) || true
+SOVEREIGN_JSON=$(TOADSTOOL_EMBER_SOCKET="$EMBER_SOCK" toadstoolctl sovereign-boot "$K80_DIE0" 2>&1) || true
 echo "$SOVEREIGN_JSON"
 
 # Extract per-stage outcomes for triage
@@ -264,8 +264,8 @@ elif [ "$FALCON_BOOT_OK" = "true" ]; then
 else
     echo " WARN: sovereign pipeline did not complete."
     echo "   → stages output above for per-stage diagnosis"
-    echo "   → Check: journalctl -u coral-ember -u coral-glowplug --since '5 min ago'"
-    echo "   → Verify kepler_fw_dir in /etc/coralreef/glowplug.toml"
+    echo "   → Check: journalctl -u toadstool-ember -u toadstool-glowplug --since '5 min ago'"
+    echo "   → Verify kepler_fw_dir in /etc/toadstool/glowplug.toml"
     echo "   → Run exp184 in diagnostic mode for register-level triage:"
     echo "       cd $BARRACUDA && ./target/release/exp184_k80_gr_sovereign --bdf $K80_DIE0 --dry-run"
     exit 1

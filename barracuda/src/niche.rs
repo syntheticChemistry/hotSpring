@@ -209,29 +209,60 @@ pub const ROUTED_CAPABILITIES: &[(&str, &str)] = &[
     ("compute.dispatch.result", "toadstool"),
     ("compute.dispatch.status", "toadstool"),
     ("compute.dispatch.forward", "toadstool"),
+    // Dispatch pipeline (toadStool — multi-stage ordered dispatch)
+    ("compute.dispatch.pipeline.submit", "toadstool"),
+    ("compute.dispatch.pipeline.status", "toadstool"),
+    // Performance surface + multi-unit routing (toadStool — operational)
+    ("compute.performance_surface.report", "toadstool"),
+    ("compute.performance_surface.query", "toadstool"),
+    ("compute.performance_surface.list", "toadstool"),
+    ("compute.route.multi_unit", "toadstool"),
     // GPU introspection (toadStool — operational)
     ("gpu.query_info", "toadstool"),
     ("gpu.query_memory", "toadstool"),
     ("gpu.query_telemetry", "toadstool"),
-    // Hardware learning (toadStool — operational)
+    // Hardware learning (toadStool S237+ — operational)
     ("compute.hardware.observe", "toadstool"),
     ("compute.hardware.status", "toadstool"),
     ("compute.hardware.vfio_devices", "toadstool"),
+    ("compute.hardware.distill", "toadstool"),
+    ("compute.hardware.apply", "toadstool"),
+    ("compute.hardware.share_recipe", "toadstool"),
+    ("compute.hardware.auto_init", "toadstool"),
+    ("compute.hardware.auto_init_all", "toadstool"),
     // Tier 2 Live Science API (toadStool — operational)
     ("toadstool.validate", "toadstool"),
     ("toadstool.list_workloads", "toadstool"),
-    // Ember device listing (toadStool — operational, Phase A/B)
+    // Ember device listing (toadStool Phase A/B — operational)
     ("ember.status", "toadstool"),
     ("ember.list", "toadstool"),
-    // Ember lifecycle (toadStool — Phase C pending, not yet served)
+    ("ember.reacquire", "toadstool"),
+    // Device management (toadStool Phase C — operational S252+)
+    ("device.list", "toadstool"),
+    ("device.status", "toadstool"),
+    ("device.reacquire", "toadstool"),
+    ("device.swap", "toadstool"),
+    ("device.warm_catch", "toadstool"),
+    // MMIO (toadStool S252 — hardware register access)
+    ("mmio.read32", "toadstool"),
+    ("mmio.write32", "toadstool"),
+    ("mmio.batch", "toadstool"),
+    ("mmio.pramin.read32", "toadstool"),
+    ("mmio.bar0.probe", "toadstool"),
+    ("mmio.falcon.status", "toadstool"),
+    // Ember lifecycle (toadStool Phase D — NVIDIA FECS-gated, AMD live)
     ("ember.warm_cycle", "toadstool"),
     ("ember.adopt_device", "toadstool"),
     ("ember.fecs.state", "toadstool"),
     ("ember.device.health", "toadstool"),
     ("ember.device.recover", "toadstool"),
-    // Device management (toadStool — Phase C pending)
-    ("device.list", "toadstool"),
+    // Sovereign boot (toadStool — via SwapOrchestrator)
     ("sovereign.boot", "toadstool"),
+    // Auth (toadStool MethodGate — operational)
+    ("auth.check", "toadstool"),
+    ("auth.mode", "toadstool"),
+    // Provenance (toadStool — operational)
+    ("provenance.query", "toadstool"),
     // Precision advisory (barraCuda v0.4.0 — operational)
     ("precision.route", "barracuda"),
     // Shader compilation (coralReef — operational, pure compiler)

@@ -115,7 +115,7 @@ fn main() {
         beta: lattice.beta,
     };
     let ref_result = run_flow(&mut ref_lat, FlowIntegrator::Lscfrk4ck, 0.001, t_test, 1);
-    let e_ref = ref_result.last().unwrap().energy_density;
+    let e_ref = ref_result.last().map_or(f64::NAN, |m| m.energy_density);
     println!("  Reference: LSCFRK4CK at ε=0.001 → E(1) = {e_ref:.10}");
 
     println!(
@@ -143,7 +143,7 @@ fn main() {
                 beta: lattice.beta,
             };
             let result = run_flow(&mut flow_lat, integrator, eps, t_test, 1);
-            let e = result.last().unwrap().energy_density;
+            let e = result.last().map_or(f64::NAN, |m| m.energy_density);
             errors.push((e - e_ref).abs());
         }
         println!(

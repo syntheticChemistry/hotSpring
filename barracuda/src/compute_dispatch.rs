@@ -159,8 +159,8 @@ pub fn validate_dispatch(
         Ok(caps) => {
             result.capabilities_available = true;
             result.gpu_capabilities.clone_from(&caps);
-            println!(
-                "  compute.dispatch.capabilities: {} capabilities",
+            log::info!(
+                "compute.dispatch.capabilities: {} capabilities",
                 caps.len()
             );
             if let Some(ref mut dag) = dag {
@@ -178,7 +178,7 @@ pub fn validate_dispatch(
         }
         Err(e) => {
             let msg = format!("capabilities query failed: {e}");
-            eprintln!("  {msg}");
+            log::error!("{msg}");
             result.errors.push(msg);
             return result;
         }
@@ -192,7 +192,7 @@ pub fn validate_dispatch(
     let job_id = match submit_workload(nucleus, "vector_add_f64", &test_input) {
         Ok(id) => {
             result.submit_succeeded = true;
-            println!("  compute.dispatch.submit: job_id={id}");
+            log::info!("compute.dispatch.submit: job_id={id}");
             if let Some(ref mut dag) = dag {
                 dag.append(
                     nucleus,
@@ -209,7 +209,7 @@ pub fn validate_dispatch(
         }
         Err(e) => {
             let msg = format!("submit failed: {e}");
-            eprintln!("  {msg}");
+            log::error!("{msg}");
             result.errors.push(msg);
             return result;
         }
@@ -230,8 +230,8 @@ pub fn validate_dispatch(
                 Some(&format!("compute_dispatch:result:{job_id}")),
             ));
 
-            println!(
-                "  compute.dispatch.result: {} bytes, blake3={}…",
+            log::info!(
+                "compute.dispatch.result: {} bytes, blake3={}…",
                 output_bytes.len(),
                 &output_hash[..16.min(output_hash.len())]
             );
@@ -251,7 +251,7 @@ pub fn validate_dispatch(
         }
         Err(e) => {
             let msg = format!("result retrieval failed: {e}");
-            eprintln!("  {msg}");
+            log::error!("{msg}");
             result.errors.push(msg);
         }
     }

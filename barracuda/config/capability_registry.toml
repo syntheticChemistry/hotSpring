@@ -229,51 +229,123 @@ served = "routed"
 provider = "toadstool"
 domain = "compute"
 
-# ── Ember lifecycle (toadStool Phase C — not yet served) ──────────────
-# These methods are registered for routing but toadStool does not yet
-# implement them. They will return method_not_found until Phase C lands.
+[[capabilities]]
+method = "ember.reacquire"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+# ── Device management (toadStool Phase C — operational S252+) ─────────
+
+[[capabilities]]
+method = "device.list"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+[[capabilities]]
+method = "device.status"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+[[capabilities]]
+method = "device.reacquire"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+[[capabilities]]
+method = "device.swap"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+[[capabilities]]
+method = "device.warm_catch"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+# ── MMIO (toadStool S252 — hardware register access) ─────────────────
+
+[[capabilities]]
+method = "mmio.read32"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+[[capabilities]]
+method = "mmio.write32"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+[[capabilities]]
+method = "mmio.batch"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+[[capabilities]]
+method = "mmio.pramin.read32"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+[[capabilities]]
+method = "mmio.bar0.probe"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+[[capabilities]]
+method = "mmio.falcon.status"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+# ── Ember lifecycle (toadStool Phase D — NVIDIA FECS-gated) ───────────
+# These methods exist as types/traits but NVIDIA dispatch returns
+# Unsupported until FECS firmware bridge is resolved. AMD path is live.
 
 [[capabilities]]
 method = "ember.warm_cycle"
-served = "phase-c-pending"
+served = "routed"
 provider = "toadstool"
 domain = "compute"
 
 [[capabilities]]
 method = "ember.adopt_device"
-served = "phase-c-pending"
+served = "routed"
 provider = "toadstool"
 domain = "compute"
 
 [[capabilities]]
 method = "ember.fecs.state"
-served = "phase-c-pending"
+served = "routed"
 provider = "toadstool"
 domain = "compute"
 
 [[capabilities]]
 method = "ember.device.health"
-served = "phase-c-pending"
+served = "routed"
 provider = "toadstool"
 domain = "compute"
 
 [[capabilities]]
 method = "ember.device.recover"
-served = "phase-c-pending"
+served = "routed"
 provider = "toadstool"
 domain = "compute"
 
-# ── Device management (toadStool Phase C — not yet served) ────────────
-
-[[capabilities]]
-method = "device.list"
-served = "phase-c-pending"
-provider = "toadstool"
-domain = "compute"
+# ── Sovereign boot (toadStool — via SwapOrchestrator) ─────────────────
+# Not a JSON-RPC method name; orchestration via toadstool device CLI
+# and GlowPlugClient::execute_boot. Kept for routing metadata.
 
 [[capabilities]]
 method = "sovereign.boot"
-served = "phase-c-pending"
+served = "routed"
 provider = "toadstool"
 domain = "compute"
 
@@ -317,10 +389,104 @@ served = "routed"
 provider = "toadstool"
 domain = "compute"
 
+# ── Dispatch pipeline (toadStool — multi-stage ordered dispatch) ──────
+
+[[capabilities]]
+method = "compute.dispatch.pipeline.submit"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+[[capabilities]]
+method = "compute.dispatch.pipeline.status"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+# ── Performance surface + multi-unit routing (toadStool — operational) ─
+
+[[capabilities]]
+method = "compute.performance_surface.report"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+[[capabilities]]
+method = "compute.performance_surface.query"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+[[capabilities]]
+method = "compute.performance_surface.list"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+[[capabilities]]
+method = "compute.route.multi_unit"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+# ── Hardware learning expanded (toadStool S237+ — operational) ────────
+
+[[capabilities]]
+method = "compute.hardware.distill"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+[[capabilities]]
+method = "compute.hardware.apply"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+[[capabilities]]
+method = "compute.hardware.share_recipe"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+[[capabilities]]
+method = "compute.hardware.auto_init"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+[[capabilities]]
+method = "compute.hardware.auto_init_all"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
 # ── Shader dispatch (toadStool — accepts compiled binaries) ───────────
 
 [[capabilities]]
 method = "shader.dispatch"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+# ── Auth (toadStool MethodGate — operational) ─────────────────────────
+
+[[capabilities]]
+method = "auth.check"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+[[capabilities]]
+method = "auth.mode"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+# ── Provenance (toadStool — operational) ──────────────────────────────
+
+[[capabilities]]
+method = "provenance.query"
 served = "routed"
 provider = "toadstool"
 domain = "compute"

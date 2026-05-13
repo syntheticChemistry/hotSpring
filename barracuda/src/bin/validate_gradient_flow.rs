@@ -68,10 +68,8 @@ fn run_single(
 
     let elapsed = t0.elapsed();
     let p_final = lattice.average_plaquette();
-    println!(
-        "    Final: ⟨P⟩={p_final:.6}, E={:.6}",
-        results.last().unwrap().energy_density
-    );
+    let final_e = results.last().map_or(f64::NAN, |m| m.energy_density);
+    println!("    Final: ⟨P⟩={p_final:.6}, E={final_e:.6}");
     println!("    Wall time: {:.2}s", elapsed.as_secs_f64());
 
     let u = lattice.link([0, 0, 0, 0], 0);
@@ -139,9 +137,9 @@ fn main() {
     );
 
     println!("\n  ── Integrator Convergence at t=1.0 ──");
-    let e_euler = results_euler.last().unwrap().energy_density;
-    let e_rk2 = results_rk2.last().unwrap().energy_density;
-    let e_rk3 = results_rk3.last().unwrap().energy_density;
+    let e_euler = results_euler.last().map_or(f64::NAN, |m| m.energy_density);
+    let e_rk2 = results_rk2.last().map_or(f64::NAN, |m| m.energy_density);
+    let e_rk3 = results_rk3.last().map_or(f64::NAN, |m| m.energy_density);
     println!("    Euler:       E(1.0) = {e_euler:.8}");
     println!("    RK2:         E(1.0) = {e_rk2:.8}");
     println!("    RK3 Lüscher: E(1.0) = {e_rk3:.8}");

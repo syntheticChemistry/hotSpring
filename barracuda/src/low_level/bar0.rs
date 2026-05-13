@@ -118,7 +118,7 @@ impl Drop for Bar0View {
     fn drop(&mut self) {
         // SAFETY: `self.base` was returned by `mmap` with `self.len`.
         if unsafe { munmap(self.base.cast_mut().cast(), self.len) }.is_err() {
-            eprintln!("WARNING: Bar0View munmap failed");
+            log::warn!("Bar0View munmap failed");
         }
     }
 }
@@ -209,7 +209,7 @@ impl Drop for Bar0Map {
     fn drop(&mut self) {
         // SAFETY: `self.ptr` was returned by `mmap` with `self.len`.
         if unsafe { munmap(self.ptr.cast(), self.len) }.is_err() {
-            eprintln!("WARNING: Bar0Map munmap failed");
+            log::warn!("Bar0Map munmap failed");
         }
     }
 }

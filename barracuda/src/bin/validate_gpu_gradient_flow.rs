@@ -64,11 +64,17 @@ fn main() {
             1,
         );
 
-        let cpu_plaq = cpu.last().unwrap().plaquette;
-        let gpu_plaq = gpu_r.measurements.last().unwrap().plaquette;
-        let diff = (cpu_plaq - gpu_plaq).abs();
-        println!("  CPU plaquette: {cpu_plaq:.10}");
-        println!("  GPU plaquette: {gpu_plaq:.10}");
+        let Some(cpu_last) = cpu.last() else {
+            harness.check_bool("euler_cpu_measurements_nonempty", false);
+            return;
+        };
+        let Some(gpu_last) = gpu_r.measurements.last() else {
+            harness.check_bool("euler_gpu_measurements_nonempty", false);
+            return;
+        };
+        let diff = (cpu_last.plaquette - gpu_last.plaquette).abs();
+        println!("  CPU plaquette: {:.10}", cpu_last.plaquette);
+        println!("  GPU plaquette: {:.10}", gpu_last.plaquette);
         println!("  Δ = {diff:.2e}");
         harness.check_upper("euler_plaquette_parity", diff, 1e-8);
     }
@@ -91,11 +97,13 @@ fn main() {
             10,
         );
 
-        let cpu_plaq = cpu.last().unwrap().plaquette;
-        let gpu_plaq = gpu_r.measurements.last().unwrap().plaquette;
-        let diff = (cpu_plaq - gpu_plaq).abs();
-        println!("  CPU plaquette: {cpu_plaq:.10}");
-        println!("  GPU plaquette: {gpu_plaq:.10}");
+        let (Some(cpu_last), Some(gpu_last)) = (cpu.last(), gpu_r.measurements.last()) else {
+            harness.check_bool("rk3_luscher_measurements_nonempty", false);
+            return;
+        };
+        let diff = (cpu_last.plaquette - gpu_last.plaquette).abs();
+        println!("  CPU plaquette: {:.10}", cpu_last.plaquette);
+        println!("  GPU plaquette: {:.10}", gpu_last.plaquette);
         println!("  Δ = {diff:.2e}");
         println!("  GPU wall time: {:.3}s", gpu_r.wall_seconds);
         harness.check_upper("rk3_luscher_plaquette_parity", diff, 1e-8);
@@ -119,11 +127,13 @@ fn main() {
             10,
         );
 
-        let cpu_plaq = cpu.last().unwrap().plaquette;
-        let gpu_plaq = gpu_r.measurements.last().unwrap().plaquette;
-        let diff = (cpu_plaq - gpu_plaq).abs();
-        println!("  CPU plaquette: {cpu_plaq:.10}");
-        println!("  GPU plaquette: {gpu_plaq:.10}");
+        let (Some(cpu_last), Some(gpu_last)) = (cpu.last(), gpu_r.measurements.last()) else {
+            harness.check_bool("lscfrk3w7_measurements_nonempty", false);
+            return;
+        };
+        let diff = (cpu_last.plaquette - gpu_last.plaquette).abs();
+        println!("  CPU plaquette: {:.10}", cpu_last.plaquette);
+        println!("  GPU plaquette: {:.10}", gpu_last.plaquette);
         println!("  Δ = {diff:.2e}");
         println!("  GPU wall time: {:.3}s", gpu_r.wall_seconds);
         harness.check_upper("lscfrk3w7_plaquette_parity", diff, 1e-8);
@@ -147,11 +157,13 @@ fn main() {
             10,
         );
 
-        let cpu_plaq = cpu.last().unwrap().plaquette;
-        let gpu_plaq = gpu_r.measurements.last().unwrap().plaquette;
-        let diff = (cpu_plaq - gpu_plaq).abs();
-        println!("  CPU plaquette: {cpu_plaq:.10}");
-        println!("  GPU plaquette: {gpu_plaq:.10}");
+        let (Some(cpu_last), Some(gpu_last)) = (cpu.last(), gpu_r.measurements.last()) else {
+            harness.check_bool("lscfrk4ck_measurements_nonempty", false);
+            return;
+        };
+        let diff = (cpu_last.plaquette - gpu_last.plaquette).abs();
+        println!("  CPU plaquette: {:.10}", cpu_last.plaquette);
+        println!("  GPU plaquette: {:.10}", gpu_last.plaquette);
         println!("  Δ = {diff:.2e}");
         println!("  GPU wall time: {:.3}s", gpu_r.wall_seconds);
         harness.check_upper("lscfrk4ck_plaquette_parity", diff, 1e-8);

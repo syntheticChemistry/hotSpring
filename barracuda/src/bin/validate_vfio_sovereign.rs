@@ -1,11 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! VFIO Sovereign Dispatch Validation — coral-gpu VFIO path
+//! VFIO Sovereign Dispatch Validation
 //!
 //! Exercises the sovereign GPU compute path on VFIO-bound GPUs:
-//!   WGSL → coral-reef compiler → native SASS → coral-driver VFIO → readback
+//!   WGSL → coralReef compiler → native SASS → toadStool VFIO dispatch → readback
 //!
 //! No wgpu. No Vulkan. No vendor drivers. Pure Rust through VFIO to hardware.
+//!
+//! **NOTE (May 2026):** `coral-gpu` was excised from coralReef Sprint 9. This
+//! binary requires the `sovereign-dispatch` feature and will not compile until
+//! toadStool Phase C provides the equivalent `GpuContext` API.
 //!
 //! Default mode is **warm** — expects GPUs were warm-caught via
 //! `coralctl warm-catch <BDF>`. Pass `--cold` for cold-init path.

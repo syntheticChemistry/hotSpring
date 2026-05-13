@@ -30,14 +30,33 @@ pub const SCENARIO: Scenario = Scenario {
 };
 
 /// Core QCD shaders that must compile for sovereign lattice compute.
-const QCD_PROBE_SHADERS: &[&str] = &[
-    "src/lattice/shaders/wilson_plaquette_f64.wgsl",
-    "src/lattice/shaders/su3_gauge_force_f64.wgsl",
-    "src/lattice/shaders/su3_link_update_f64.wgsl",
-    "src/lattice/shaders/dirac_staggered_f64.wgsl",
-    "src/lattice/shaders/cg_kernels_f64.wgsl",
-    "src/lattice/shaders/hmc_leapfrog_f64.wgsl",
+/// Relative to the crate root (CARGO_MANIFEST_DIR at build time).
+const QCD_PROBE_SHADER_NAMES: &[&str] = &[
+    "wilson_plaquette_f64.wgsl",
+    "su3_gauge_force_f64.wgsl",
+    "su3_link_update_f64.wgsl",
+    "dirac_staggered_f64.wgsl",
+    "cg_kernels_f64.wgsl",
+    "hmc_leapfrog_f64.wgsl",
 ];
+
+fn qcd_shader_dir() -> std::path::PathBuf {
+    if let Ok(dir) = std::env::var("HOTSPRING_QCD_SHADER_DIR") {
+        return std::path::PathBuf::from(dir);
+    }
+    let base = std::env::var("CARGO_MANIFEST_DIR")
+        .unwrap_or_else(|_| ".".to_string());
+    std::path::PathBuf::from(base).join("src/lattice/shaders")
+}
+
+fn routing_shader_dir() -> std::path::PathBuf {
+    if let Ok(dir) = std::env::var("HOTSPRING_ROUTING_SHADER_DIR") {
+        return std::path::PathBuf::from(dir);
+    }
+    let base = std::env::var("CARGO_MANIFEST_DIR")
+        .unwrap_or_else(|_| ".".to_string());
+    std::path::PathBuf::from(base).join("src/bin/shaders/qcd_silicon_routing")
+}
 
 pub fn run(v: &mut ValidationHarness) {
     use crate::ipc::tier2;
@@ -63,22 +82,24 @@ pub fn run(v: &mut ValidationHarness) {
     // --- Phase 2: QCD shader compilation through coralReef ---
     let shader_alive = nucleus.by_domain("shader").is_some_and(|ep| ep.alive);
     let mut compiled_count = 0usize;
-    let total = QCD_PROBE_SHADERS.len();
+    let total = QCD_PROBE_SHADER_NAMES.len();
 
-    for shader_path in QCD_PROBE_SHADERS {
+    let shader_dir = qcd_shader_dir();
+    for shader_name in QCD_PROBE_SHADER_NAMES {
+        let shader_path = shader_dir.join(shader_name);
         if !shader_alive {
             v.check_bool(
-                &format!("hotqcd:compile:{}", short_name(shader_path)),
+                &format!("hotqcd:compile:{}", short_name(shader_name)),
                 true, // standalone: skip is acceptable
             );
             continue;
         }
 
-        let source = match std::fs::read_to_string(shader_path) {
+        let source = match std::fs::read_to_string(&shader_path) {
             Ok(s) => s,
             Err(_) => {
                 v.check_bool(
-                    &format!("hotqcd:compile:{}", short_name(shader_path)),
+                    &format!("hotqcd:compile:{}", short_name(shader_name)),
                     false,
                 );
                 continue;
@@ -97,13 +118,13 @@ pub fn run(v: &mut ValidationHarness) {
                     compiled_count += 1;
                 }
                 v.check_bool(
-                    &format!("hotqcd:compile:{}", short_name(shader_path)),
+                    &format!("hotqcd:compile:{}", short_name(shader_name)),
                     ok,
                 );
             }
             Err(_) => {
                 v.check_bool(
-                    &format!("hotqcd:compile:{}", short_name(shader_path)),
+                    &format!("hotqcd:compile:{}", short_name(shader_name)),
                     false,
                 );
             }
@@ -145,22 +166,24 @@ pub fn run(v: &mut ValidationHarness) {
     }
 
     // --- Phase 5: QCD silicon routing shaders (barrier-heavy) ---
-    let routing_shaders = [
-        "src/bin/shaders/qcd_silicon_routing/reduce_shared.wgsl",
-        "src/bin/shaders/qcd_silicon_routing/force_alu.wgsl",
-        "src/bin/shaders/qcd_silicon_routing/stencil_storage.wgsl",
+    let routing_dir = routing_shader_dir();
+    let routing_names = [
+        "reduce_shared.wgsl",
+        "force_alu.wgsl",
+        "stencil_storage.wgsl",
     ];
 
-    for shader_path in &routing_shaders {
+    for shader_name in &routing_names {
+        let shader_path = routing_dir.join(shader_name);
         if !shader_alive {
             v.check_bool(
-                &format!("hotqcd:routing:{}", short_name(shader_path)),
+                &format!("hotqcd:routing:{}", short_name(shader_name)),
                 true,
             );
             continue;
         }
 
-        let ok = match std::fs::read_to_string(shader_path) {
+        let ok = match std::fs::read_to_string(&shader_path) {
             Ok(source) => {
                 let params = serde_json::json!({
                     "source": source,
@@ -173,7 +196,7 @@ pub fn run(v: &mut ValidationHarness) {
             Err(_) => false,
         };
         v.check_bool(
-            &format!("hotqcd:routing:{}", short_name(shader_path)),
+            &format!("hotqcd:routing:{}", short_name(shader_name)),
             ok,
         );
     }

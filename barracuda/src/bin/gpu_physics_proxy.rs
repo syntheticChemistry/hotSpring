@@ -129,7 +129,9 @@ fn main() {
                     "wall_ms": wall_ms,
                 });
 
-                writeln!(out, "{}", serde_json::to_string(&result).unwrap()).ok();
+                if let Ok(json) = serde_json::to_string(&result) {
+                    writeln!(out, "{json}").ok();
+                }
 
                 let status = match phase_label {
                     "extended" => "E",
@@ -196,7 +198,9 @@ fn main() {
                 "wall_ms": wall_ms,
             });
 
-            writeln!(out, "{}", serde_json::to_string(&result).unwrap()).ok();
+            if let Ok(json) = serde_json::to_string(&result) {
+                writeln!(out, "{json}").ok();
+            }
 
             let status = match phase_label.as_str() {
                 "ordered" => "O",
@@ -243,7 +247,9 @@ fn main() {
             "beta_potts": beta_potts,
             "expected_phase": label,
         });
-        writeln!(out, "{}", serde_json::to_string(&result).unwrap()).ok();
+        if let Ok(json) = serde_json::to_string(&result) {
+            writeln!(out, "{json}").ok();
+        }
         println!("  β_QCD={beta_qcd:.2} → β_Potts={beta_potts:.2} [{label}]");
     }
 

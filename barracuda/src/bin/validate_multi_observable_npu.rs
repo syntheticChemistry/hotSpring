@@ -239,11 +239,11 @@ fn main() {
         "Phase predictions finite",
         test_seqs
             .iter()
-            .all(|s| esn.predict(s).unwrap().iter().all(|v| v.is_finite())),
+            .all(|s| esn.predict(s).is_ok_and(|p| p.iter().all(|v| v.is_finite()))),
     );
     harness.check_bool(
         "All 4 outputs produced",
-        test_seqs.iter().all(|s| esn.predict(s).unwrap().len() == 4),
+        test_seqs.iter().all(|s| esn.predict(s).is_ok_and(|p| p.len() == 4)),
     );
 
     // ═══ Phase 4: NpuSimulator Parity ═══

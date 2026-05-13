@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-//! Cross-vendor dispatch validation: submit SAXPY via coralReef RPC to every
+//! Cross-vendor dispatch validation: submit SAXPY via toadStool RPC to every
 //! available CUDA-capable GPU, proving the same kernel runs interchangeably
 //! through the daemon pipeline.
 //!
 //! No direct device access or privileges required — all work flows through
-//! the glowplug daemon's `device.dispatch` RPC.
+//! toadStool's `device.dispatch` / `compute.dispatch.submit` RPC.
 
 use std::path::Path;
 use std::time::Instant;
@@ -16,15 +16,19 @@ const N: usize = 1 << 12; // 4K f32 elements — fits RPC line limit comfortably
 const ALPHA: f32 = 2.5;
 
 fn glowplug_socket() -> String {
+    if let Ok(p) = std::env::var("TOADSTOOL_SOCKET") {
+        return p;
+    }
     if let Ok(p) = std::env::var("CORALREEF_GLOWPLUG_SOCKET") {
+        eprintln!("warning: CORALREEF_GLOWPLUG_SOCKET is deprecated — use TOADSTOOL_SOCKET");
         return p;
     }
     let runtime_dir = std::env::var("XDG_RUNTIME_DIR")
         .unwrap_or_else(|_| std::env::temp_dir().to_string_lossy().into_owned());
-    let family = std::env::var("CORALREEF_FAMILY_ID")
-        .or_else(|_| std::env::var("FAMILY_ID"))
+    let family = std::env::var("FAMILY_ID")
+        .or_else(|_| std::env::var("CORALREEF_FAMILY_ID"))
         .unwrap_or_else(|_| "default".into());
-    format!("{runtime_dir}/biomeos/coral-glowplug-{family}.sock")
+    format!("{runtime_dir}/biomeos/compute-{family}.sock")
 }
 
 /// Build PTX for SAXPY: `out[i] = alpha*x[i] + y[i]`

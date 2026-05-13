@@ -1,7 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! JSON-RPC client for the hardware orchestration daemon (toadStool-glowplug,
-//! or legacy coral-glowplug during migration) over the NUCLEUS Unix socket.
+//! JSON-RPC client for the hardware orchestration daemon (toadStool) over
+//! the NUCLEUS Unix socket.
+//!
+//! Post-excision (coralReef Sprint 9, May 2026): toadStool is the sole
+//! provider for device management, lifecycle orchestration, and sovereign
+//! dispatch. The `compute` NUCLEUS domain resolves to toadStool's socket.
+//! Legacy coral-glowplug is no longer running; discovery falls through
+//! gracefully if toadStool is not yet available.
 //!
 //! All calls use [`crate::primal_bridge::send_jsonrpc`] (JSON-RPC 2.0, newline-framed).
 
@@ -102,8 +108,8 @@ pub struct GlowplugDaemonHealth {
 /// Errors from glowplug RPC or payload handling.
 #[derive(Debug)]
 pub enum GlowplugError {
-    /// No `coralreef` / `coral-glowplug` entry in [`NucleusContext`].
-    NoCoralreefEndpoint,
+    /// No `compute` provider (toadStool) found in [`NucleusContext`].
+    NoComputeEndpoint,
     /// Socket path exists but the primal failed liveness at discovery time.
     EndpointNotAlive,
     /// Low-level transport / JSON parse (`send_jsonrpc` message).
@@ -121,10 +127,10 @@ pub enum GlowplugError {
 impl fmt::Display for GlowplugError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            GlowplugError::NoCoralreefEndpoint => {
-                write!(f, "no coralreef / coral-glowplug primal in NucleusContext")
+            GlowplugError::NoComputeEndpoint => {
+                write!(f, "no compute provider (toadStool) in NucleusContext")
             }
-            GlowplugError::EndpointNotAlive => write!(f, "coralreef primal socket is not alive"),
+            GlowplugError::EndpointNotAlive => write!(f, "compute provider socket is not alive"),
             GlowplugError::Transport(s) => write!(f, "transport: {s}"),
             GlowplugError::JsonRpc { code, message } => write!(f, "json-rpc {code}: {message}"),
             GlowplugError::MissingResult => write!(f, "json-rpc response missing result"),
@@ -137,11 +143,15 @@ impl fmt::Display for GlowplugError {
 impl std::error::Error for GlowplugError {}
 
 impl GlowplugClient {
-    /// Build a client from a discovered coralReef / coral-glowplug endpoint.
+    /// Build a client from a discovered toadStool compute endpoint.
+    ///
+    /// Looks up the `compute` NUCLEUS domain first (toadStool), then falls
+    /// back to `shader` (legacy coralReef glowplug) for backward compat.
     pub fn from_nucleus(nucleus: &NucleusContext) -> Result<Self, GlowplugError> {
         let ep = nucleus
-            .by_domain("shader")
-            .ok_or(GlowplugError::NoCoralreefEndpoint)?;
+            .by_domain("compute")
+            .or_else(|| nucleus.by_domain("shader"))
+            .ok_or(GlowplugError::NoComputeEndpoint)?;
         if !ep.alive {
             return Err(GlowplugError::EndpointNotAlive);
         }
@@ -209,8 +219,8 @@ impl GlowplugClient {
 
     /// `device.list` — managed GPUs/devices.
     ///
-    /// Prefers NUCLEUS `call_by_capability("compute", "device.list", …)` so
-    /// toadStool can serve device enumeration once cylinder is absorbed.
+    /// toadStool S251+ serves `device.list` as a JSON-RPC alias for
+    /// `ember.list`. Routed via NUCLEUS `compute` domain.
     pub fn list_devices(&self) -> Result<Vec<GlowplugDeviceSummary>, GlowplugError> {
         let v = self.call_with_nucleus_fallback(
             "compute",
@@ -236,7 +246,8 @@ impl GlowplugClient {
 
     /// `device.swap` — hot-swap driver personality.
     ///
-    /// Prefers NUCLEUS routing so toadStool can coordinate swaps.
+    /// toadStool S252+ serves `device.swap` as a JSON-RPC method backed by
+    /// `SwapOrchestrator` with real sysfs PCI unbind/rebind.
     pub fn device_swap(
         &self,
         bdf: &str,
@@ -255,6 +266,10 @@ impl GlowplugClient {
     }
 
     /// `device.dispatch` — run `kernel` bytes (e.g. PTX) with `buffers` as inputs.
+    ///
+    /// toadStool S254+ serves `compute.dispatch.submit` with `LocalDeviceFactory`
+    /// (AMD live via DRM/GEM/PM4; NVIDIA FECS-gated). This legacy method shape
+    /// uses the older `device.dispatch` wire format.
     ///
     /// `output_sizes` lists byte lengths for each output buffer the kernel writes (protocol requirement).
     /// Grid and workgroup use [`GlowplugDispatchOptions`]; see [`GlowplugDispatchOptions::default`].
@@ -423,9 +438,9 @@ impl GlowplugClient {
     /// `sovereign.boot` — full orchestrated sovereign boot: detect driver →
     /// warm if needed → swap to vfio → run SovereignInit pipeline.
     ///
-    /// Prefers NUCLEUS `call_by_capability("compute", "sovereign.boot", …)` so
-    /// toadStool can orchestrate sovereign boot once lifecycle coordination is
-    /// absorbed from glowplug. Falls back to direct glowplug socket.
+    /// toadStool S253+ exposes sovereign boot via `SwapOrchestrator::execute_boot`
+    /// and the `toadstool device` CLI. JSON-RPC method routing uses `device.swap`
+    /// + `device.warm_catch` for the individual steps.
     pub fn sovereign_boot(&self, bdf: &str) -> Result<SovereignBootResult, GlowplugError> {
         let v = self.call_with_nucleus_fallback(
             "compute",

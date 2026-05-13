@@ -131,7 +131,7 @@ pub struct HardwareCalibration {
     /// NVVM-poisoning shader patterns (45/46 shaders compile, 12/12 bypass)
     /// and added FMA contraction enforcement (`FmaPolicy::Separate` splits
     /// FFma→FMul+FAdd), enabling F64Precise through sovereign compilation.
-    /// Dispatch requires coral-driver DRM maturation (AMD E2E ready,
+    /// Dispatch requires toadStool Phase C DRM maturation (AMD E2E ready,
     /// NVIDIA pending UVM).
     ///
     /// toadStool S145 absorbed our NVVM poisoning work into `nvvm_safety.rs`
@@ -198,7 +198,7 @@ impl HardwareCalibration {
 
         for &tier in &tiers_to_probe {
             if device_poisoned {
-                eprintln!("[HwCal] {tier:?} SKIPPED — device poisoned by earlier probe");
+                log::warn!("[HwCal] {tier:?} SKIPPED — device poisoned by earlier probe");
                 tiers.push(TierCapability::failed(tier));
                 continue;
             }
@@ -370,7 +370,7 @@ fn probe_tier(
     }));
 
     let Ok((compiles, dispatches, compile_us, dispatch_us, probe_ulp)) = arith else {
-        eprintln!("[HwCal] {tier:?} arith probe PANICKED — tier disabled");
+        log::error!("[HwCal] {tier:?} arith probe PANICKED — tier disabled");
         return TierCapability::failed(tier);
     };
 

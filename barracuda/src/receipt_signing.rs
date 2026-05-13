@@ -79,7 +79,7 @@ pub fn sign_receipt(
 
     let sig_path = receipt_path.with_extension("sig");
     if let Err(e) = std::fs::write(&sig_path, &sig_hex) {
-        eprintln!("  warning: could not write {}: {e}", sig_path.display());
+        log::warn!("could not write {}: {e}", sig_path.display());
     }
 
     SignResult::Signed(ReceiptSignature {
@@ -120,7 +120,7 @@ pub fn sign_and_embed(
         }
         SignResult::Unavailable => {}
         SignResult::Failed(e) => {
-            eprintln!("  bearDog: signing failed — {e}");
+            log::warn!("bearDog: signing failed — {e}");
         }
     }
 }

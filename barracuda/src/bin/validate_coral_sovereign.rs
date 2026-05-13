@@ -3,9 +3,12 @@
 //! Sovereign Pipeline Validation — coralReef compiler + DRM dispatch
 //!
 //! Exercises the complete sovereign GPU compute path:
-//!   WGSL → coral-reef compiler → native binary (GFX/SASS) → coral-driver DRM dispatch → readback
+//!   WGSL → coralReef compiler → native binary (GFX/SASS) → toadStool dispatch → readback
 //!
 //! No wgpu. No naga. No Vulkan. Pure Rust all the way to the hardware.
+//!
+//! **NOTE (May 2026):** `coral-gpu` was excised from coralReef Sprint 9.
+//! This binary awaits toadStool Phase C for its `GpuContext` equivalent.
 //!
 //! Validated capabilities:
 //!   - GPU enumeration via DRM render nodes (AMD + NVIDIA)
@@ -13,7 +16,7 @@
 //!   - Nop dispatch via PM4 (AMD amdgpu, fence sync works)
 //!   - Compile time profiling across the full shader inventory
 //!
-//! Known frontiers (coral-driver):
+//! Known frontiers (toadStool Phase C):
 //!   AMD: LIVE — sovereign compute dispatch with f64 QCD kernels on RDNA2.
 //!   NVIDIA: proprietary driver loaded; UVM compute init not yet wired.
 //!

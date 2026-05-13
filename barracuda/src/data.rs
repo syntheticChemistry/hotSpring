@@ -63,7 +63,7 @@ impl NucleiSet {
             "full" | "all" | "2042" => Self::Full,
             "selected" | "52" | "default" => Self::Selected,
             _ => {
-                eprintln!("  WARNING: Unknown nuclei set '{s}', using selected (52)");
+                log::warn!("Unknown nuclei set '{s}', using selected (52)");
                 Self::Selected
             }
         }

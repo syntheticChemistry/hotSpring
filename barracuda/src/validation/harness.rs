@@ -295,7 +295,7 @@ impl ValidationHarness {
         let _ = std::fs::create_dir_all(dir);
         let path = format!("{}/{}.json", dir, self.name);
         let Ok(mut f) = std::fs::File::create(&path) else {
-            eprintln!("warning: could not write {path}");
+            log::warn!("could not write {path}");
             return;
         };
 

@@ -3,14 +3,17 @@
 //! against vendor wgpu/Vulkan dispatch on the same WGSL QCD shaders.
 //!
 //! Dual-path comparison for each kernel:
-//! 1. **Sovereign**: coral-reef compile (WGSL → native ISA) + coral-driver UVM dispatch
+//! 1. **Sovereign**: coralReef compile (WGSL → native ISA) + toadStool VFIO dispatch
 //! 2. **Vendor**: wgpu/Vulkan (NVIDIA proprietary Vulkan driver compiles the WGSL)
 //!
 //! Outputs per-kernel correctness (ULP-bounded parity) and wall-clock timing.
 //!
 //! ## Required feature
 //!
-//! `sovereign-dispatch` — pulls in `coral-gpu` (coral-reef compiler + coral-driver).
+//! `sovereign-dispatch` — requires toadStool Phase C `GpuContext` API.
+//!
+//! **NOTE (May 2026):** `coral-gpu` was excised from coralReef Sprint 9.
+//! This binary will not compile until toadStool Phase C lands.
 //!
 //! ## Usage
 //!

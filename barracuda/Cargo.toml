@@ -111,7 +111,8 @@ low-level = ["dep:rustix"]
 barracuda = { path = "../../../primals/barraCuda/crates/barracuda", optional = true }
 
 # BLAKE3 hashing for provenance witnesses (compute output hashing)
-blake3 = "1"
+# default-features = false drops the `cc` C build dependency (pure Rust impl)
+blake3 = { version = "1", default-features = false }
 
 # CLI argument parsing for UniBin binary
 clap = { version = "4", features = ["derive"] }

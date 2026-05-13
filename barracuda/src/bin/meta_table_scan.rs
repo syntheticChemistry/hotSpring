@@ -217,8 +217,8 @@ fn main() {
                     ),
                     ScanMode::Dynamical => run_dynamical_point(
                         &gpu,
-                        dyn_streaming_pipelines.as_ref().unwrap(),
-                        resident_cg_pipelines.as_ref().unwrap(),
+                        dyn_streaming_pipelines.as_ref().expect("dynamical pipelines required for Dynamical mode"),
+                        resident_cg_pipelines.as_ref().expect("resident CG pipelines required for Dynamical mode"),
                         &quenched_pipelines,
                         dims,
                         beta,

@@ -90,23 +90,17 @@ pub fn run(v: &mut ValidationHarness) {
     // --- Phase 5: GPU hardware readiness per card ---
     let ember_alive = nucleus.by_domain("compute").is_some_and(|ep| ep.alive);
 
-    // RTX 5060 (SM120) — should always be ready
-    v.check_bool(
-        "trio:rtx5060_dispatchable",
-        !ember_alive || check_device_ready(&nucleus, "21:00.0"),
-    );
-
-    // Titan V (SM70) — warm-catch works, dispatch blocked on VFIO adapter
-    v.check_bool(
-        "trio:titanv_warm",
-        !ember_alive || check_device_ready(&nucleus, "02:00.0"),
-    );
-
-    // K80 (SM37) — warm-catch works, dispatch blocked on VFIO adapter
-    v.check_bool(
-        "trio:k80_warm",
-        !ember_alive || check_device_ready(&nucleus, "4b:00.0"),
-    );
+    for (label, env_key, default_bdf) in [
+        ("trio:rtx5060_dispatchable", "HOTSPRING_RTX5060_BDF", "21:00.0"),
+        ("trio:titanv_warm", "HOTSPRING_TITAN_V_BDF", "02:00.0"),
+        ("trio:k80_warm", "HOTSPRING_K80_BDF", "4b:00.0"),
+    ] {
+        let bdf = std::env::var(env_key).unwrap_or_else(|_| default_bdf.to_string());
+        v.check_bool(
+            label,
+            !ember_alive || check_device_ready(&nucleus, &bdf),
+        );
+    }
 }
 
 fn check_device_ready(nucleus: &crate::primal_bridge::NucleusContext, bdf: &str) -> bool {

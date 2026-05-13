@@ -47,23 +47,19 @@ use std::sync::Arc;
 ///
 /// Uses capability-based discovery: `by_domain("shader")` finds any alive
 /// primal that advertises shader compilation (currently coralReef, but
-/// agnostic to implementation). Falls back to explicit env vars
-/// `CORALREEF_SOCKET` or `CORALREEF_MANIFEST` for CI/lab environments
-/// where NUCLEUS discovery is not running.
+/// agnostic to implementation). Falls back to explicit env vars for CI/lab
+/// environments where NUCLEUS discovery is not running.
 fn detect_sovereign_available() -> bool {
     let nucleus = NucleusContext::detect();
     if nucleus.by_domain("shader").is_some_and(|e| e.alive) {
         return true;
     }
-    if let Ok(p) = std::env::var("CORALREEF_SOCKET")
-        && std::path::Path::new(&p).exists()
-    {
-        return true;
-    }
-    if let Ok(p) = std::env::var("CORALREEF_MANIFEST")
-        && std::path::Path::new(&p).exists()
-    {
-        return true;
+    for var in ["TOADSTOOL_SOCKET", "CORALREEF_SOCKET", "CORALREEF_MANIFEST"] {
+        if let Ok(p) = std::env::var(var)
+            && std::path::Path::new(&p).exists()
+        {
+            return true;
+        }
     }
     false
 }
@@ -114,13 +110,13 @@ impl PrecisionBrain {
 
         if calibration.nvvm_transcendental_risk && detect_sovereign_available() {
             calibration.set_sovereign_available();
-            eprintln!(
+            log::info!(
                 "[Brain] coralReef sovereign bypass detected — \
                  NVVM-blocked tiers unlockable via WGSL → SASS pipeline"
             );
         }
 
-        eprintln!("[Brain] {calibration}");
+        log::info!("[Brain] {calibration}");
 
         let route_table = build_route_table(&calibration);
 
@@ -130,7 +126,7 @@ impl PrecisionBrain {
         };
 
         for (i, domain) in ALL_DOMAINS.iter().enumerate() {
-            eprintln!("[Brain] {:?} → {:?}", domain, brain.route_table[i]);
+            log::debug!("[Brain] {:?} → {:?}", domain, brain.route_table[i]);
         }
 
         brain

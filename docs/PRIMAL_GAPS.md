@@ -1530,6 +1530,158 @@ The upstream evolution pass document has been updated with post-excision state:
 
 ---
 
+### Rewire Pass — May 13, 2026
+
+hotSpring rewired to fully modern architecture post-excision:
+
+- **`glowplug_client.rs`**: `from_nucleus` now resolves `compute` domain
+  (toadStool) first, falls back to `shader` (legacy). Error variant renamed
+  `NoCoralreefEndpoint` → `NoComputeEndpoint`. Module doc updated.
+- **Sovereign bins** (`validate_vfio_sovereign`, `validate_coral_sovereign`,
+  `bench_sovereign_parity`): Docs updated to reflect coral-gpu excision and
+  toadStool Phase C dependency. All behind `sovereign-dispatch` feature gate.
+- **`s_vfio_dispatch.rs`**: Description and scenario doc updated.
+- **`hardware_calibration.rs`**: Reference updated from `coral-driver` to
+  `toadStool Phase C`.
+- **Compile IPC**: `GLOBAL_CORAL` / `compile_wgsl_direct` path confirmed
+  correct — still talks to coralReef as pure compiler.
+- **Capability registry + niche**: Already modern (`compute.dispatch.*` →
+  toadstool, `shader.compile.*` → coralreef, `precision.route` → barracuda).
+- **Fleet discovery**: Already toadStool-first (NUCLEUS → compute.sock → legacy).
+- **590/590** lib tests pass.
+
+---
+
+### toadStool S243 Audit + Rewire — May 13, 2026
+
+Deep audit of toadStool S237–S243 with hotSpring capability alignment.
+
+**toadStool state (S243, 22,843+ tests, ~83.6% coverage):**
+
+- **Phase A (ember absorption): COMPLETE** — `toadstool-ember`,
+  `VfioResourceHandle`, vendor lifecycle, sysfs, device pool, dispatch
+  path. `compute.dispatch.capabilities` reports `ember.phase: "B"`.
+- **Phase B (glowplug absorption): COMPLETE** — `SwapOrchestrator` with
+  real `SysfsSwapExecutor` (PCI unbind/rebind), `GpuPersonality`,
+  `GlowPlugClient` using orchestrator, 7-step swap+boot.
+- **Phase C (cylinder + coral-driver): PLANNING ONLY** — Split plan
+  created (S241), recon complete (S243), legacy `swap_device` removed,
+  but no `toadstool-cylinder` crate yet. No coral-driver absorption.
+  VFIO PBDMA dispatch blocked on coralReef USERD_TARGET encoding fix.
+- **Phase D (local dispatch): PENDING**
+
+**67 live JSON-RPC methods** confirmed in handler, including:
+- `compute.dispatch.*` (submit, status, result, forward, capabilities)
+- `compute.dispatch.pipeline.submit/status` — multi-stage ordered dispatch
+- `compute.performance_surface.report/query/list` — silicon performance
+- `compute.route.multi_unit` — multi-GPU routing
+- `compute.hardware.*` (observe, status, vfio_devices, distill, apply,
+  share_recipe, auto_init, auto_init_all) — full HW learning surface
+- `shader.dispatch` — compiled binary dispatch
+- `gpu.query_info/memory/telemetry` — GPU introspection
+- `ember.list/status` — sysfs-based device listing (Phase A/B)
+- `auth.check/mode/peer_info` — MethodGate (JH-0+JH-2)
+- `provenance.query` — local provenance
+
+**Phase C pending (confirmed NOT served as JSON-RPC):**
+- `ember.swap` / `device.swap` — internal via SwapOrchestrator only
+- `ember.warm_cycle` / `ember.adopt_device` — not present
+- `ember.fecs.state` / `ember.device.health` / `ember.device.recover`
+- `device.list` — use `ember.list` instead
+- `sovereign.boot` — Rust API only (`SwapOrchestrator::execute_boot`)
+
+**VFIO reality:** `VfioResourceHandle` is metadata + optional fd number;
+ember crate does **not** own ioctl/open path. `compute.hardware.vfio_devices`
+is sysfs/metadata listing, not VFIO fd acquisition.
+
+**hotSpring rewire:**
+- Capability registry + niche expanded: +15 new toadStool methods
+  (pipeline, performance surface, HW learning expanded, auth, provenance)
+- `ipc/tier2.rs`: Added `dispatch_capabilities()` helper for S243 response
+- `glowplug_client.rs`: Phase C pending annotations on `device.swap`,
+  `device.list`, `sovereign.boot`, `device.dispatch`
+- `fleet_client.rs`: Ember phase B documentation
+- Registry↔niche lockstep test passes
+- **591/591** lib tests pass (up from 590)
+
+**Previously listed blockers (all RESOLVED by toadStool S245-S254):**
+1. ~~`toadstool-cylinder` crate~~ — **DONE (S245)**
+2. ~~Coral-driver absorption~~ — **DONE (S246-S248)**
+3. ~~Real VFIO fd holding~~ — **DONE (S253, OwnedFd)**
+4. ~~`ember.swap` / `sovereign.boot`~~ — **DONE: `device.swap` + `device.warm_catch` (S252)**
+5. ~~Warm-catch pipeline~~ — **DONE (S252)**
+6. ~~CLI parity~~ — **DONE: `toadstool device` CLI (S253)**
+
+All Phase C blockers RESOLVED. Phase D (LocalDeviceFactory) WIRED (S254).
+
+---
+
+### toadStool S254 Phase C+D Rewire — May 13, 2026
+
+toadStool shipped Phase C complete (S245-S253) and Phase D factory (S254).
+hotSpring rewired to match:
+
+- **Env vars**: `CORALREEF_RUN_DIR` → `TOADSTOOL_RUN_DIR` (with deprecated
+  fallback). `CORALREEF_SOCKET`/`CORALREEF_MANIFEST` → `TOADSTOOL_SOCKET`
+  primary. `CORALREEF_GLOWPLUG_SOCKET` → `TOADSTOOL_SOCKET`.
+- **Socket paths**: `/run/coralreef` → `/run/toadstool` default. Discovery
+  accepts both `toadstool-ember-*` and legacy `ember-*` socket names.
+- **Capability registry**: +10 new methods (device.swap, device.warm_catch,
+  device.list/status/reacquire, ember.reacquire, mmio.read32/write32/batch,
+  mmio.pramin.read32, mmio.bar0.probe, mmio.falcon.status). All
+  phase-c-pending entries promoted to routed.
+- **`glowplug_client.rs`**: Phase C complete annotations — device management
+  and dispatch all now served by toadStool.
+- **74 toadStool JSON-RPC methods**, 8,832+ lib tests upstream.
+- **Phase D**: AMD sovereign dispatch live (GEM/PM4/fence). NVIDIA
+  `NvVfioComputeDevice` FECS-gated (returns Unsupported until firmware bridge).
+- **591/591** hotSpring lib tests pass.
+
+**Sole remaining GPU blocker**: Titan V / NVIDIA FECS compute context init.
+Three paths: warm-handoff, coralReef IPC `compute.firmware.*`, local absorption.
+AMD path is live.
+
+---
+
+### GAP-HS-097 — Deep Debt Resolution + Evolution Sprint (May 13 2026)
+
+- **Severity:** Low (code health / ecosystem compliance)
+- **Classification:** Deep Debt → evolution sprint
+- **Trigger:** primalSpring "Deep Debt Resolution + Evolution Sprint" directive.
+- **Completed:**
+  1. **println/eprintln migration:** 10 library-core modules migrated from
+     `eprintln!`/`println!` to `log::info!`/`log::warn!`/`log::error!`/`log::debug!`:
+     `precision_brain`, `hardware_calibration`, `compute_dispatch`, `composition`,
+     `gpu/adapter`, `low_level/bar0`, `certification`, `receipt_signing`,
+     `dag_provenance`, `data`, `validation/harness`.
+  2. **Hardcoded lab BDFs evolved:** `s_compute_trio`, `s_vfio_dispatch`,
+     `s_hotqcd_dispatch` — all hardcoded PCI BDFs replaced with env var
+     overrides (`HOTSPRING_RTX5060_BDF`, `HOTSPRING_TITAN_V_BDF`,
+     `HOTSPRING_K80_BDF`) with lab defaults. Shader paths resolved via
+     `CARGO_MANIFEST_DIR` with `HOTSPRING_QCD_SHADER_DIR` override.
+  3. **blake3 pure Rust:** `default-features = false` drops `cc` C build
+     dependency. Default build has zero C dependencies.
+  4. **Boot scripts migrated:** Created `toadstool-ember.service` and
+     `toadstool-glowplug.service`. `k80-wake-and-run.sh` updated to use
+     `TOADSTOOL_*` vars and `toadstoolctl`. 9 coral-era scripts archived
+     to `scripts/archive/`.
+  5. **unwrap() evolution:** Top 10 concerning binary targets evolved:
+     `validate_gpu_gradient_flow` (8), `validate_precision_matrix` (4),
+     `validate_gradient_flow` (4), `gpu_physics_proxy` (3),
+     `validate_sovereign_roundtrip` (3), `meta_table_scan` (2),
+     `validate_multi_observable_npu` (2), `validate_silicon_science` (2),
+     `compare_flow_integrators` (2). Patterns: `.unwrap()` → `let Some(x) = .. else`,
+     `.map_or(NAN, ..)`, `.expect("context")`, `.is_ok_and(..)`.
+  6. **CI gate:** `.github/workflows/ci.yml` — `cargo check`, `cargo clippy`,
+     `cargo test --lib`, `cargo fmt --check`. No prior CI workflow existed.
+  7. **Dependency audit:** `docs/DEPENDENCY_AUDIT.md` — full ecoBin compliance
+     assessment. Default build: zero C deps. wgpu/tokio documented as
+     ecosystem boundaries. cudarc/rustix feature-gated.
+- **Validation:** 591/591 lib tests pass. Zero clippy warnings.
+- **Handoff:** `wateringHole/handoffs/HOTSPRING_DEEP_DEBT_SPRINT_MAY13_2026.md`
+
+---
+
 ## Handback Protocol
 
 1. Document gap in this file with severity and upstream reference.

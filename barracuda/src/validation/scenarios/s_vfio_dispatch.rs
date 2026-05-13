@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Scenario: VFIO Sovereign Dispatch — validates in-process GPU dispatch
-//! via coral-gpu's VFIO path, bypassing wgpu and Vulkan entirely.
+//! via the sovereign VFIO path, bypassing wgpu and Vulkan entirely.
+//!
+//! **NOTE (May 2026):** `coral-gpu` was excised from coralReef Sprint 9.
+//! The `sovereign-dispatch` feature gate keeps this scenario inert until
+//! toadStool Phase C provides the equivalent dispatch API.
 //!
 //! Exercises:
 //! - VFIO GPU detection via sysfs probing
@@ -23,7 +27,7 @@ pub const SCENARIO: Scenario = Scenario {
         tier: Tier::Live,
         provenance_crate: "validate_vfio_sovereign",
         provenance_date: "2026-05-12",
-        description: "VFIO sovereign dispatch: coral-gpu VFIO → compile → dispatch → readback",
+        description: "VFIO sovereign dispatch: VFIO → compile → dispatch → readback (awaits toadStool Phase C)",
     },
     run,
 };
@@ -39,28 +43,39 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 "#;
 
 #[allow(dead_code)]
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 struct VfioTarget {
-    name: &'static str,
-    bdf: &'static str,
+    name: String,
+    bdf: String,
     sm: u32,
     use_legacy: bool,
 }
 
-const TARGETS: &[VfioTarget] = &[
-    VfioTarget {
-        name: "titan-v",
-        bdf: "0000:02:00.0",
+fn discover_vfio_targets() -> Vec<VfioTarget> {
+    let mut targets = Vec::new();
+
+    let titan_bdf = std::env::var("HOTSPRING_TITAN_V_BDF")
+        .unwrap_or_else(|_| "0000:02:00.0".to_string());
+    targets.push(VfioTarget {
+        name: "titan-v".into(),
+        bdf: titan_bdf,
         sm: 70,
         use_legacy: false,
-    },
-    VfioTarget {
-        name: "k80-die0",
-        bdf: "0000:4b:00.0",
+    });
+
+    let k80_bdf = std::env::var("HOTSPRING_K80_BDF").map_or_else(
+        |_| "0000:4b:00.0".to_string(),
+        |b| if b.contains(':') && b.len() > 7 { b } else { format!("0000:{b}") },
+    );
+    targets.push(VfioTarget {
+        name: "k80-die0".into(),
+        bdf: k80_bdf,
         sm: 37,
         use_legacy: true,
-    },
-];
+    });
+
+    targets
+}
 
 pub fn run(v: &mut ValidationHarness) {
     let vfio_driver = std::path::Path::new("/sys/bus/pci/drivers/vfio-pci");
@@ -70,7 +85,8 @@ pub fn run(v: &mut ValidationHarness) {
         return;
     }
 
-    for target in TARGETS {
+    let targets = discover_vfio_targets();
+    for target in &targets {
         let prefix = format!("vfio:{}:", target.name);
 
         let device_sysfs = format!("/sys/bus/pci/devices/{}", target.bdf);

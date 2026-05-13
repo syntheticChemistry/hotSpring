@@ -137,6 +137,17 @@ pub fn precision_advisory(
     serde_json::from_value(resp).ok()
 }
 
+/// Query toadStool's dispatch capabilities via `compute.dispatch.capabilities`.
+///
+/// S243+ returns `render_node` and `device_id` on DRM GPU objects, plus
+/// `ember.phase` ("B" as of Phase B absorption) and `ember.held_devices`
+/// count. Returns `None` when toadStool is unreachable.
+pub fn dispatch_capabilities(nucleus: &NucleusContext) -> Option<serde_json::Value> {
+    nucleus
+        .call_by_capability("compute", "compute.dispatch.capabilities", serde_json::json!({}))
+        .ok()
+}
+
 /// Check Tier 2 readiness for hotSpring's validation pipeline.
 ///
 /// Returns a summary of which Tier 2 services are reachable and what
@@ -227,6 +238,12 @@ mod tests {
     fn precision_advisory_returns_none_without_barracuda() {
         let nucleus = NucleusContext::detect();
         assert!(precision_advisory(&nucleus, "lattice_qcd").is_none());
+    }
+
+    #[test]
+    fn dispatch_capabilities_returns_none_without_toadstool() {
+        let nucleus = NucleusContext::detect();
+        assert!(dispatch_capabilities(&nucleus).is_none());
     }
 
     #[test]

@@ -134,8 +134,8 @@ pub fn validate_atomic(
     let mut health_passed = 0;
     let mut cap_passed = 0;
 
-    println!("  ── {} ──", atomic.label());
-    println!("    Required domains: {}", domains.len());
+    log::info!("── {} ──", atomic.label());
+    log::info!("  Required domains: {}", domains.len());
 
     for &domain in domains {
         let name = dependency_for_domain(domain).unwrap_or(domain);
@@ -144,7 +144,7 @@ pub fn validate_atomic(
             Some(ep) if ep.alive => {
                 alive_count += 1;
                 harness.check_bool(&check_name, true);
-                println!("    {name} [{domain}]: alive ({})", ep.socket);
+                log::info!("  {name} [{domain}]: alive ({})", ep.socket);
 
                 if let Ok(resp) =
                     ctx.call_by_capability(domain, "health.liveness", serde_json::json!({}))
@@ -159,20 +159,20 @@ pub fn validate_atomic(
             }
             Some(ep) => {
                 harness.check_bool(&check_name, false);
-                println!("    {name} [{domain}]: UNREACHABLE ({})", ep.socket);
+                log::warn!("  {name} [{domain}]: UNREACHABLE ({})", ep.socket);
                 missing.push(name.to_string());
             }
             None => {
                 harness.check_bool(&check_name, false);
-                println!("    {name} [{domain}]: NOT DISCOVERED");
+                log::warn!("  {name} [{domain}]: NOT DISCOVERED");
                 missing.push(name.to_string());
             }
         }
     }
 
     let passed = missing.is_empty();
-    println!(
-        "    Result: {}/{} alive, {} health, {} capabilities [{}]",
+    log::info!(
+        "  Result: {}/{} alive, {} health, {} capabilities [{}]",
         alive_count,
         domains.len(),
         health_passed,

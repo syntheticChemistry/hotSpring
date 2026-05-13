@@ -58,8 +58,8 @@ pub fn certify(max_layer: u8) -> ValidationResult {
     let alive = validate_liveness(&mut ctx, &mut v, &["tensor", "security", "compute"]);
 
     if alive == 0 {
-        eprintln!("[certify] No NUCLEUS primals discovered — bare certification only.");
-        eprintln!("  Deploy from plasmidBin and rerun for full certification.");
+        log::warn!("[certify] No NUCLEUS primals discovered — bare certification only.");
+        log::warn!("  Deploy from plasmidBin and rerun for full certification.");
         v.finish();
         return v;
     }

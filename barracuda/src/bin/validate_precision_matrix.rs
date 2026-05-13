@@ -140,7 +140,7 @@ fn dispatch_simple(
         submission_index: None,
         timeout: None,
     });
-    rx.recv().unwrap().unwrap();
+    rx.recv().expect("map async channel closed").expect("map async failed");
 
     let data = slice.get_mapped_range();
     let result = data.to_vec();
@@ -725,7 +725,7 @@ async fn main() {
             );
 
             if let Some(expected_u32) = test.expected_u32 {
-                let got = u32::from_le_bytes(output[..4].try_into().unwrap());
+                let got = u32::from_le_bytes(output[..4].try_into().expect("4-byte slice"));
                 let pass = got == expected_u32;
                 let mark = if pass { "PASS" } else { "FAIL" };
                 println!(
@@ -746,9 +746,9 @@ async fn main() {
                 });
             } else if let Some(expected) = test.expected_f64 {
                 let got = if test.output_bytes == 4 {
-                    f64::from(f32::from_le_bytes(output[..4].try_into().unwrap()))
+                    f64::from(f32::from_le_bytes(output[..4].try_into().expect("4-byte slice")))
                 } else {
-                    f64::from_le_bytes(output[..8].try_into().unwrap())
+                    f64::from_le_bytes(output[..8].try_into().expect("8-byte slice"))
                 };
                 let abs_err = (got - expected).abs();
                 let rel_err = if expected.abs() > 1e-300 {
