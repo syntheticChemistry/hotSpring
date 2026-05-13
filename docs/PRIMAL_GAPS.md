@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026
-**Last audited:** May 13, 2026 (Niche convergence: bearDog wire fix, s_node_atomic scenario, harvest unibin, 8 clippy fixes)
+**Last audited:** May 13, 2026 (Deep debt resolution: 7-dimension audit clean, coralreef socket discovery, placeholder cleanup)
 **License:** AGPL-3.0-or-later
 
 ---
@@ -1703,6 +1703,36 @@ AMD path is live.
   6. **8 clippy errors resolved:** 5 default + 3 barracuda-local (doc paragraph, if_not_else,
      bool_to_int_with_if, manual_let_else, map_unwrap_or, unwrap_used).
 - **Validation:** 592 (default) / 1,041 (barracuda-local) lib tests pass. Zero clippy warnings.
+
+### GAP-HS-099 — Deep Debt Resolution + Evolution Sprint (May 13 2026)
+
+- **Severity:** Low (code health / ecosystem compliance)
+- **Classification:** Deep debt → evolution audit + resolution
+- **Trigger:** primalSpring "Deep Debt Resolution + Evolution Sprint" directive.
+- **Full audit completed across all 7 dimensions:**
+  1. **TODO/FIXME/HACK:** Zero markers in library or binary code.
+  2. **Modern Rust idioms:** `#![forbid(unsafe_code)]`, `#![deny(clippy::unwrap_used)]`,
+     zero clippy, `#[expect]` over `#[allow]`, `let...else`, `is_ok_and()`.
+  3. **External deps:** Zero C deps on default build. `deny.toml` bans 12 categories.
+  4. **Large files:** All 17 files >800L are standalone bin targets. Library max is
+     `niche.rs` (846L) — proper structure, not a split candidate.
+  5. **Unsafe:** 2 files, both feature-gated (`low-level`, `cuda-validation`).
+     Library has `#![forbid(unsafe_code)]`.
+  6. **Hardcoding:** coralReef socket paths evolved to env-var discovery.
+     8 binaries migrated. All `/proc/`, `/sys/`, BDF, NPU paths already discoverable.
+  7. **Mocks:** Zero production mocks. All outside `#[cfg(test)]`.
+- **Resolved:**
+  1. `fleet_client::ember_socket_candidates(bdf)` + `glowplug_socket_path()` with
+     `TOADSTOOL_GLOWPLUG_SOCKET` / `TOADSTOOL_RUN_DIR` env-var discovery.
+  2. 8 experiment binaries migrated from `/run/coralreef/` hardcoded paths.
+  3. `gpu_flow.rs` placeholder buffer labels → `*_unused`.
+  4. `silicon_qcd/flow.rs` removed `_uni: ()` placeholder parameter.
+  5. Clippy `collapsible_str_replace` fix.
+- **Documented for future evolution:**
+  25 binary targets use `panic!` in unrecoverable paths (tokio runtime, GPU init,
+  weight export). Library has zero panic paths. Evolution to `Result` mains is polish.
+- **Validation:** 592 (default) / 1,041 (barracuda-local). Zero clippy. Zero TODO.
+- **Handoff:** `wateringHole/handoffs/HOTSPRING_V0632_DEEP_DEBT_RESOLUTION_HANDOFF_MAY13_2026.md`
 
 ---
 

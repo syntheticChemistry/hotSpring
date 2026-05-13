@@ -117,13 +117,13 @@ impl GpuFlowState {
         // paths, but `GpuHmcState` requires these bindings for a unified layout.
         let hmc = GpuHmcState {
             link_buf,
-            link_backup: gpu.create_f64_output_buffer(1, "flow_bk_placeholder"),
-            mom_buf: gpu.create_f64_output_buffer(1, "flow_mom_placeholder"),
+            link_backup: gpu.create_f64_output_buffer(1, "flow_bk_unused"),
+            mom_buf: gpu.create_f64_output_buffer(1, "flow_mom_unused"),
             force_buf,
             ke_out_buf,
             plaq_out_buf,
-            poly_out_buf: gpu.create_f64_output_buffer(1, "flow_poly_placeholder"),
-            poly_params_buf: gpu.create_f64_output_buffer(1, "flow_pp_placeholder"),
+            poly_out_buf: gpu.create_f64_output_buffer(1, "flow_poly_unused"),
+            poly_params_buf: gpu.create_f64_output_buffer(1, "flow_pp_unused"),
             nbr_buf,
             dims: source.dims,
             volume: source.volume,

@@ -92,16 +92,13 @@ fn resolve_ember_socket(bdf: &str) -> std::path::PathBuf {
             return std::path::PathBuf::from(sock);
         }
     }
-    let slug = bdf.replace(':', "-");
-    let fleet_sock = std::path::PathBuf::from(format!("/run/coralreef/fleet/ember-{slug}.sock"));
-    if fleet_sock.exists() {
-        return fleet_sock;
+    let candidates = hotspring_barracuda::fleet_client::ember_socket_candidates(bdf);
+    for candidate in &candidates {
+        if candidate.exists() {
+            return candidate.clone();
+        }
     }
-    let per_device = std::path::PathBuf::from(format!("/run/coralreef/ember-{slug}.sock"));
-    if per_device.exists() {
-        return per_device;
-    }
-    per_device
+    candidates.into_iter().last().unwrap_or_default()
 }
 
 fn main() {

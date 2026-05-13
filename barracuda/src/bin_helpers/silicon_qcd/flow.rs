@@ -23,7 +23,6 @@ use hotspring_barracuda::production_support::{mean, std_dev};
     reason = "GPU trajectory failure is unrecoverable in this pipeline"
 )]
 pub fn run_gradient_flow_uni(
-    _uni: (), // placeholder — we use free function directly
     gpu: &GpuF64,
     args: &CliArgs,
     rhmc_state: &GpuRhmcState,

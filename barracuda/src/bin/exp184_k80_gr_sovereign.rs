@@ -227,15 +227,9 @@ fn connect_ember(bdf: &str, override_socket: Option<&str>) -> EmberClient {
             return EmberClient::connect(sock);
         }
     }
-    let slug = bdf.replace(':', "-");
-    let candidates = [
-        format!("/run/coralreef/fleet/ember-{slug}.sock"),
-        format!("/run/coralreef/ember-{slug}.sock"),
-        "/run/coralreef/ember.sock".to_string(),
-    ];
-    for sock in &candidates {
-        if Path::new(sock).exists() {
-            return EmberClient::connect(sock);
+    for candidate in hotspring_barracuda::fleet_client::ember_socket_candidates(bdf) {
+        if candidate.exists() {
+            return EmberClient::connect(candidate.to_string_lossy().as_ref());
         }
     }
     eprintln!(

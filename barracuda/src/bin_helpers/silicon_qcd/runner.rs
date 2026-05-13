@@ -315,7 +315,6 @@ pub fn run_beta_point(
 
     let flow_results = if args.flow {
         Some(run_gradient_flow_uni(
-            (),
             gpu,
             args,
             &rhmc_state,

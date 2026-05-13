@@ -286,6 +286,37 @@ fn toadstool_run_dir() -> PathBuf {
     PathBuf::from(TOADSTOOL_RUN_DEFAULT)
 }
 
+/// Candidate ember socket paths for a given PCI BDF, in priority order.
+///
+/// Returns toadStool-era paths first, then legacy coralReef-era paths.
+/// Callers iterate and probe each candidate until one responds.
+#[must_use]
+pub fn ember_socket_candidates(bdf: &str) -> Vec<PathBuf> {
+    let slug = bdf.replace([':', '.'], "-");
+    let run = toadstool_run_dir();
+    vec![
+        run.join(format!("toadstool-ember-{slug}.sock")),
+        run.join(format!("ember-{slug}.sock")),
+        run.join("ember.sock"),
+    ]
+}
+
+/// Resolved glowplug socket path.
+///
+/// Precedence: `TOADSTOOL_GLOWPLUG_SOCKET` → `CORALREEF_GLOWPLUG_SOCKET` (deprecated)
+/// → `{toadstool_run_dir}/glowplug.sock`.
+#[must_use]
+pub fn glowplug_socket_path() -> PathBuf {
+    if let Ok(p) = std::env::var("TOADSTOOL_GLOWPLUG_SOCKET") {
+        return PathBuf::from(p);
+    }
+    if let Ok(p) = std::env::var("CORALREEF_GLOWPLUG_SOCKET") {
+        log::warn!("CORALREEF_GLOWPLUG_SOCKET is deprecated — use TOADSTOOL_GLOWPLUG_SOCKET");
+        return PathBuf::from(p);
+    }
+    toadstool_run_dir().join("glowplug.sock")
+}
+
 /// Discover the compute socket for a specific BDF.
 ///
 /// Discovery chain:

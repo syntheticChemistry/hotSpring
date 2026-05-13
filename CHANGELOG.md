@@ -7,6 +7,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Unreleased — Deep Debt Resolution + Evolution Sprint (May 13, 2026)
+
+### Changed
+- **coralReef socket discovery evolved:** `fleet_client::ember_socket_candidates(bdf)`
+  and `fleet_client::glowplug_socket_path()` added with env-var discovery
+  (`TOADSTOOL_GLOWPLUG_SOCKET`, `TOADSTOOL_RUN_DIR` fallback chain).
+  8 experiment binaries migrated from hardcoded `/run/coralreef/` paths.
+- **`gpu_flow.rs`** buffer labels `*_placeholder` → `*_unused` (accurate naming).
+- **`silicon_qcd/flow.rs`** removed `_uni: ()` placeholder parameter +
+  updated caller in `runner.rs`.
+- **`collapsible_str_replace`** fix in `ember_socket_candidates`.
+
+### Metrics
+- **Tests:** 592 (default) / 1,041 (barracuda-local)
+- **Clippy:** zero warnings (both feature sets)
+- **TODO/FIXME/HACK:** zero
+- **Production mocks:** zero
+- **Library unsafe:** zero (`#![forbid(unsafe_code)]`)
+- **C deps (default):** zero
+
 ## Unreleased — Niche Convergence → Atomic Deployment (May 13, 2026)
 
 ### Fixed

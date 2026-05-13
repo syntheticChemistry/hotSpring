@@ -469,11 +469,9 @@ fn connect_ember(bdf: &str) -> Option<EmberClient> {
             return Some(client);
         }
     }
-    let slug = bdf.replace(':', "-");
-    let candidates = [format!("/run/coralreef/fleet/ember-{slug}.sock")];
-    for c in &candidates {
-        if Path::new(c).exists() {
-            let client = EmberClient::connect(c);
+    for candidate in hotspring_barracuda::fleet_client::ember_socket_candidates(bdf) {
+        if candidate.exists() {
+            let client = EmberClient::connect(candidate.to_string_lossy().as_ref());
             if client.mmio_read(bdf, 0).is_ok() {
                 return Some(client);
             }

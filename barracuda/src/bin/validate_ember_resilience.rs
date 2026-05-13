@@ -165,7 +165,7 @@ fn phase1_baseline(
             g
         } else {
             println!("  Nucleus discovery failed — trying default socket");
-            GlowplugClient::from_socket(std::path::Path::new("/run/coralreef/glowplug.sock"))
+            GlowplugClient::from_socket(&hotspring_barracuda::fleet_client::glowplug_socket_path())
         }
     };
 
