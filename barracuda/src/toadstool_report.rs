@@ -240,19 +240,18 @@ pub fn report_to_toadstool_with_nucleus(
     nucleus: Option<&NucleusContext>,
     measurements: &[PerformanceMeasurement],
 ) {
-    let use_capability = nucleus.is_some_and(|ctx| {
-        ctx.by_domain("compute").is_some_and(|ep| ep.alive)
-    });
+    let use_capability =
+        nucleus.is_some_and(|ctx| ctx.by_domain("compute").is_some_and(|ep| ep.alive));
 
-    if !use_capability {
-        let socket = resolve_compute_report_socket(nucleus);
+    if use_capability {
         println!(
-            "  Reporting {} measurement(s) to toadStool at {socket} (direct IPC)",
+            "  Reporting {} measurement(s) to toadStool via NUCLEUS capability",
             measurements.len(),
         );
     } else {
+        let socket = resolve_compute_report_socket(nucleus);
         println!(
-            "  Reporting {} measurement(s) to toadStool via NUCLEUS capability",
+            "  Reporting {} measurement(s) to toadStool at {socket} (direct IPC)",
             measurements.len(),
         );
     }
@@ -267,12 +266,8 @@ pub fn report_to_toadstool_with_nucleus(
         };
 
         let result = if let Some(ctx) = nucleus.filter(|_| use_capability) {
-            ctx.call_by_capability(
-                "compute",
-                "compute.performance_surface.report",
-                params,
-            )
-            .map_err(|e| format!("{e}"))
+            ctx.call_by_capability("compute", "compute.performance_surface.report", params)
+                .map_err(|e| format!("{e}"))
         } else {
             let socket_path = PathBuf::from(resolve_compute_report_socket(nucleus));
             send_jsonrpc(&socket_path, "compute.performance_surface.report", &params)

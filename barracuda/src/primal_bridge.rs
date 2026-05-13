@@ -348,7 +348,10 @@ pub fn send_jsonrpc(
 /// Known socket-name aliases for primals that may register under alternative names.
 /// Data-driven: no hardcoded if/else chains.
 const PRIMAL_ALIASES: &[(&str, &[&str])] = &[
-    ("toadstool", &["toadstool-server", "toadstool-glowplug", "compute"]),
+    (
+        "toadstool",
+        &["toadstool-server", "toadstool-glowplug", "compute"],
+    ),
     ("coralreef", &["coral-glowplug", "shader"]),
     ("barracuda", &["barracuda-core", "math"]),
 ];

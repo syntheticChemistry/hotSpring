@@ -42,10 +42,10 @@ pub fn sign_receipt(
         _ => return SignResult::Unavailable,
     }
 
+    let message_b64 = crate::base64_encode::encode(receipt_json.as_bytes());
     let params = serde_json::json!({
-        "payload": receipt_json,
-        "encoding": "utf8",
-        "algorithm": "Ed25519",
+        "message": message_b64,
+        "purpose": "receipt",
     });
 
     let resp = match nucleus.call_by_capability("crypto", "crypto.sign_ed25519", params) {

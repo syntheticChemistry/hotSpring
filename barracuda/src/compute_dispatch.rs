@@ -159,10 +159,7 @@ pub fn validate_dispatch(
         Ok(caps) => {
             result.capabilities_available = true;
             result.gpu_capabilities.clone_from(&caps);
-            log::info!(
-                "compute.dispatch.capabilities: {} capabilities",
-                caps.len()
-            );
+            log::info!("compute.dispatch.capabilities: {} capabilities", caps.len());
             if let Some(ref mut dag) = dag {
                 dag.append(
                     nucleus,
@@ -264,9 +261,10 @@ pub fn validate_dispatch(
     result
 }
 
-/// WGSL shaders that use `workgroupBarrier()` and require coralReef's
-/// `membar.{cta,gl}` emitter for PTX compilation. These must compile on
-/// SM35 (K80), SM70 (Titan V), and SM120 (RTX 5060) for generation parity.
+/// WGSL shaders that require coralReef's `membar.{cta,gl}` emitter.
+///
+/// These use `workgroupBarrier()` and must compile on SM35 (K80),
+/// SM70 (Titan V), and SM120 (RTX 5060) for generation parity.
 pub const BARRIER_SHADERS: &[&str] = &[
     "src/bin/shaders/silicon_capabilities/probe_f32_workgroup_reduce.wgsl",
     "src/bin/shaders/silicon_capabilities/probe_df64_workgroup_reduce_f32_body.wgsl",
@@ -292,12 +290,8 @@ pub struct BarrierShaderValidation {
 ///
 /// Returns a per-shader compilation result. When coralReef is not
 /// available, all entries report `compiled: false` with an appropriate error.
-pub fn validate_barrier_shaders(
-    nucleus: &NucleusContext,
-) -> Vec<BarrierShaderValidation> {
-    let shader_alive = nucleus
-        .by_domain("shader")
-        .is_some_and(|ep| ep.alive);
+pub fn validate_barrier_shaders(nucleus: &NucleusContext) -> Vec<BarrierShaderValidation> {
+    let shader_alive = nucleus.by_domain("shader").is_some_and(|ep| ep.alive);
 
     if !shader_alive {
         return BARRIER_SHADERS
@@ -329,11 +323,7 @@ pub fn validate_barrier_shaders(
                 "source_type": "wgsl",
             });
 
-            match nucleus.call_by_capability(
-                "shader",
-                "shader.compile.wgsl",
-                params,
-            ) {
+            match nucleus.call_by_capability("shader", "shader.compile.wgsl", params) {
                 Ok(resp) => {
                     let has_error = resp.get("error").is_some();
                     BarrierShaderValidation {
@@ -474,11 +464,9 @@ impl FusedPipeline {
             "ops": self.ops,
         });
 
-        if let Ok(resp) = nucleus.call_by_capability(
-            "compute",
-            "compute.dispatch.submit_fused",
-            fused_params,
-        ) {
+        if let Ok(resp) =
+            nucleus.call_by_capability("compute", "compute.dispatch.submit_fused", fused_params)
+        {
             if let Some(ids) = resp.get("job_ids").and_then(|v| v.as_array()) {
                 self.submitted_job_ids = ids
                     .iter()

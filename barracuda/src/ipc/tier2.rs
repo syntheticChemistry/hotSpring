@@ -122,10 +122,7 @@ pub fn list_workloads(nucleus: &NucleusContext) -> Option<WorkloadListing> {
 /// `rationale`, `needs_sovereign_compile`, and `adapter`.
 ///
 /// Returns `None` when barraCuda is unreachable or the method is not available.
-pub fn precision_advisory(
-    nucleus: &NucleusContext,
-    domain: &str,
-) -> Option<PrecisionAdvisory> {
+pub fn precision_advisory(nucleus: &NucleusContext, domain: &str) -> Option<PrecisionAdvisory> {
     let params = serde_json::json!({
         "domain": domain,
     });
@@ -144,7 +141,11 @@ pub fn precision_advisory(
 /// count. Returns `None` when toadStool is unreachable.
 pub fn dispatch_capabilities(nucleus: &NucleusContext) -> Option<serde_json::Value> {
     nucleus
-        .call_by_capability("compute", "compute.dispatch.capabilities", serde_json::json!({}))
+        .call_by_capability(
+            "compute",
+            "compute.dispatch.capabilities",
+            serde_json::json!({}),
+        )
         .ok()
 }
 
@@ -154,13 +155,9 @@ pub fn dispatch_capabilities(nucleus: &NucleusContext) -> Option<serde_json::Val
 /// capabilities they report. Used by `hotspring_unibin status` and
 /// validation pre-flight.
 pub fn tier2_status(nucleus: &NucleusContext) -> Tier2Status {
-    let toadstool_alive = nucleus
-        .by_domain("compute")
-        .is_some_and(|ep| ep.alive);
+    let toadstool_alive = nucleus.by_domain("compute").is_some_and(|ep| ep.alive);
 
-    let barracuda_alive = nucleus
-        .by_domain("math")
-        .is_some_and(|ep| ep.alive);
+    let barracuda_alive = nucleus.by_domain("math").is_some_and(|ep| ep.alive);
 
     let preflight_available = if toadstool_alive {
         workload_preflight(nucleus, "__probe__").is_some()

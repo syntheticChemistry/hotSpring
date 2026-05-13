@@ -89,9 +89,7 @@ pub fn plan_workload(
         | PhysicsDomain::General
         | PhysicsDomain::Inference
         | PhysicsDomain::Training
-        | PhysicsDomain::Hashing => {
-            plan_throughput_or_split(pair, data_bytes, compute_us_estimate)
-        }
+        | PhysicsDomain::Hashing => plan_throughput_or_split(pair, data_bytes, compute_us_estimate),
     }
 }
 

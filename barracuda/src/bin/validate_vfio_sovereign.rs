@@ -57,15 +57,45 @@ struct GpuInfo {
 fn known_gpus(cold: bool) -> Vec<GpuInfo> {
     if cold {
         return vec![
-            GpuInfo { name: "Titan V (GV100)", bdf: "0000:02:00.0".into(), sm: 70, open_mode: OpenMode::Cold },
-            GpuInfo { name: "K80 die0 (GK210)", bdf: "0000:4b:00.0".into(), sm: 37, open_mode: OpenMode::Cold },
-            GpuInfo { name: "K80 die1 (GK210)", bdf: "0000:4c:00.0".into(), sm: 37, open_mode: OpenMode::Cold },
+            GpuInfo {
+                name: "Titan V (GV100)",
+                bdf: "0000:02:00.0".into(),
+                sm: 70,
+                open_mode: OpenMode::Cold,
+            },
+            GpuInfo {
+                name: "K80 die0 (GK210)",
+                bdf: "0000:4b:00.0".into(),
+                sm: 37,
+                open_mode: OpenMode::Cold,
+            },
+            GpuInfo {
+                name: "K80 die1 (GK210)",
+                bdf: "0000:4c:00.0".into(),
+                sm: 37,
+                open_mode: OpenMode::Cold,
+            },
         ];
     }
     vec![
-        GpuInfo { name: "Titan V (GV100)", bdf: "0000:02:00.0".into(), sm: 70, open_mode: OpenMode::Warm },
-        GpuInfo { name: "K80 die0 (GK210)", bdf: "0000:4b:00.0".into(), sm: 37, open_mode: OpenMode::WarmLegacy },
-        GpuInfo { name: "K80 die1 (GK210)", bdf: "0000:4c:00.0".into(), sm: 37, open_mode: OpenMode::WarmLegacy },
+        GpuInfo {
+            name: "Titan V (GV100)",
+            bdf: "0000:02:00.0".into(),
+            sm: 70,
+            open_mode: OpenMode::Warm,
+        },
+        GpuInfo {
+            name: "K80 die0 (GK210)",
+            bdf: "0000:4b:00.0".into(),
+            sm: 37,
+            open_mode: OpenMode::WarmLegacy,
+        },
+        GpuInfo {
+            name: "K80 die1 (GK210)",
+            bdf: "0000:4c:00.0".into(),
+            sm: 37,
+            open_mode: OpenMode::WarmLegacy,
+        },
     ]
 }
 
@@ -78,9 +108,7 @@ fn open_gpu(gpu: &GpuInfo) -> Result<GpuContext, coral_gpu::GpuError> {
                 GpuContext::from_vfio_warm(&gpu.bdf)
             }
         }
-        OpenMode::WarmLegacy => {
-            GpuContext::from_vfio_warm_legacy(&gpu.bdf, gpu.sm)
-        }
+        OpenMode::WarmLegacy => GpuContext::from_vfio_warm_legacy(&gpu.bdf, gpu.sm),
         OpenMode::Cold => {
             if gpu.sm > 0 {
                 GpuContext::from_vfio_with_sm(&gpu.bdf, gpu.sm)
@@ -138,8 +166,7 @@ fn main() {
                 if let Ok(vendor) = std::fs::read_to_string(&vendor_path) {
                     if vendor.trim() == "0x10de" {
                         let device_path = format!("/sys/bus/pci/devices/{name_str}/device");
-                        let device_id = std::fs::read_to_string(&device_path)
-                            .unwrap_or_default();
+                        let device_id = std::fs::read_to_string(&device_path).unwrap_or_default();
                         println!("  VFIO NVIDIA: {name_str} (device {})", device_id.trim());
                         found += 1;
                     }
@@ -154,11 +181,8 @@ fn main() {
     }
 
     for gpu in &known_gpus(false) {
-        let bound = std::path::Path::new(&format!(
-            "/sys/bus/pci/devices/{}/driver",
-            gpu.bdf
-        ))
-        .exists();
+        let bound =
+            std::path::Path::new(&format!("/sys/bus/pci/devices/{}/driver", gpu.bdf)).exists();
         println!(
             "  {} ({}) — SM{} (sysfs present: {bound})",
             gpu.name, gpu.bdf, gpu.sm
@@ -198,13 +222,19 @@ fn main() {
     for gpu in &targets {
         println!(
             "━━━ {} (BDF={}, SM{}, mode={}) ━━━\n",
-            gpu.name, gpu.bdf, gpu.sm, mode_label(gpu.open_mode)
+            gpu.name,
+            gpu.bdf,
+            gpu.sm,
+            mode_label(gpu.open_mode)
         );
 
         let mut ctx = match open_gpu(gpu) {
             Ok(ctx) => {
                 let target = ctx.target();
-                println!("  VFIO open ({}): OK — {target:?}", mode_label(gpu.open_mode));
+                println!(
+                    "  VFIO open ({}): OK — {target:?}",
+                    mode_label(gpu.open_mode)
+                );
                 ctx
             }
             Err(e) => {
@@ -252,8 +282,7 @@ fn main() {
 
         // Test 3: QCD shader compilation (wilson_plaquette)
         print!("  Test 3: QCD shader compile (wilson_plaquette_f64)... ");
-        let qcd_source =
-            std::fs::read_to_string("src/lattice/shaders/wilson_plaquette_f64.wgsl");
+        let qcd_source = std::fs::read_to_string("src/lattice/shaders/wilson_plaquette_f64.wgsl");
         match qcd_source {
             Ok(src) => match ctx.compile_wgsl(&src) {
                 Ok(kernel) => {
@@ -277,8 +306,7 @@ fn main() {
 
         // Test 4: QCD shader compilation (su3_gauge_force)
         print!("  Test 4: QCD shader compile (su3_gauge_force_f64)... ");
-        let su3_source =
-            std::fs::read_to_string("src/lattice/shaders/su3_gauge_force_f64.wgsl");
+        let su3_source = std::fs::read_to_string("src/lattice/shaders/su3_gauge_force_f64.wgsl");
         match su3_source {
             Ok(src) => match ctx.compile_wgsl(&src) {
                 Ok(kernel) => {
@@ -315,10 +343,7 @@ fn main() {
     }
 }
 
-fn try_dispatch(
-    ctx: &mut GpuContext,
-    kernel: &coral_gpu::CompiledKernel,
-) -> Result<u32, String> {
+fn try_dispatch(ctx: &mut GpuContext, kernel: &coral_gpu::CompiledKernel) -> Result<u32, String> {
     let buf = ctx.alloc(4096).map_err(|e| format!("alloc: {e}"))?;
 
     let sentinel: u32 = 0xDEAD_BEEF;

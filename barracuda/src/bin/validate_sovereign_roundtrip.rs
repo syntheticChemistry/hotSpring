@@ -412,7 +412,10 @@ fn dispatch_shader(
     if needs_input {
         bg_entries.push(wgpu::BindGroupEntry {
             binding: 0,
-            resource: input_buf.as_ref().expect("input buffer not allocated").as_entire_binding(),
+            resource: input_buf
+                .as_ref()
+                .expect("input buffer not allocated")
+                .as_entire_binding(),
         });
         bg_entries.push(wgpu::BindGroupEntry {
             binding: 1,
@@ -461,7 +464,9 @@ fn dispatch_shader(
         submission_index: None,
         timeout: None,
     });
-    rx.recv().expect("map async channel closed").expect("map async failed");
+    rx.recv()
+        .expect("map async channel closed")
+        .expect("map async failed");
 
     let data = slice.get_mapped_range();
     let result = data.to_vec();

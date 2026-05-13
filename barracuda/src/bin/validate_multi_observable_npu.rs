@@ -237,13 +237,16 @@ fn main() {
     harness.check_bool("Multi-output ESN trained successfully", true);
     harness.check_bool(
         "Phase predictions finite",
-        test_seqs
-            .iter()
-            .all(|s| esn.predict(s).is_ok_and(|p| p.iter().all(|v| v.is_finite()))),
+        test_seqs.iter().all(|s| {
+            esn.predict(s)
+                .is_ok_and(|p| p.iter().all(|v| v.is_finite()))
+        }),
     );
     harness.check_bool(
         "All 4 outputs produced",
-        test_seqs.iter().all(|s| esn.predict(s).is_ok_and(|p| p.len() == 4)),
+        test_seqs
+            .iter()
+            .all(|s| esn.predict(s).is_ok_and(|p| p.len() == 4)),
     );
 
     // ═══ Phase 4: NpuSimulator Parity ═══

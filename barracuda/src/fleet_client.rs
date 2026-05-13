@@ -253,8 +253,7 @@ fn toadstool_compute_socket() -> PathBuf {
     if let Ok(sock) = std::env::var("TOADSTOOL_SOCKET") {
         return PathBuf::from(sock);
     }
-    let base = std::env::var("XDG_RUNTIME_DIR")
-        .unwrap_or_else(|_| "/tmp".to_owned());
+    let base = std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".to_owned());
     PathBuf::from(base).join("biomeos").join("compute.sock")
 }
 

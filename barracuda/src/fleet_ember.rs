@@ -131,11 +131,8 @@ impl EmberClient {
         if let Ok(resp) = ctx.call_by_capability("compute", "ember.adopt_device", params.clone()) {
             return Ok(resp);
         }
-        let v = crate::primal_bridge::send_jsonrpc(
-            &self.socket_path,
-            "ember.adopt_device",
-            &params,
-        )?;
+        let v =
+            crate::primal_bridge::send_jsonrpc(&self.socket_path, "ember.adopt_device", &params)?;
         jsonrpc_ok_result(&v)
     }
 
@@ -149,11 +146,7 @@ impl EmberClient {
         if let Ok(resp) = ctx.call_by_capability("compute", "ember.warm_cycle", params.clone()) {
             return Ok(resp);
         }
-        let v = crate::primal_bridge::send_jsonrpc(
-            &self.socket_path,
-            "ember.warm_cycle",
-            &params,
-        )?;
+        let v = crate::primal_bridge::send_jsonrpc(&self.socket_path, "ember.warm_cycle", &params)?;
         jsonrpc_ok_result(&v)
     }
 
@@ -167,11 +160,8 @@ impl EmberClient {
         if let Ok(resp) = ctx.call_by_capability("compute", "ember.device.health", params.clone()) {
             return Ok(resp);
         }
-        let v = crate::primal_bridge::send_jsonrpc(
-            &self.socket_path,
-            "ember.device.health",
-            &params,
-        )?;
+        let v =
+            crate::primal_bridge::send_jsonrpc(&self.socket_path, "ember.device.health", &params)?;
         jsonrpc_ok_result(&v)
     }
 
@@ -182,14 +172,12 @@ impl EmberClient {
     pub fn device_recover(&self, bdf: &str) -> Result<serde_json::Value, HotSpringError> {
         let params = serde_json::json!({ "bdf": bdf });
         let ctx = crate::primal_bridge::NucleusContext::detect();
-        if let Ok(resp) = ctx.call_by_capability("compute", "ember.device.recover", params.clone()) {
+        if let Ok(resp) = ctx.call_by_capability("compute", "ember.device.recover", params.clone())
+        {
             return Ok(resp);
         }
-        let v = crate::primal_bridge::send_jsonrpc(
-            &self.socket_path,
-            "ember.device.recover",
-            &params,
-        )?;
+        let v =
+            crate::primal_bridge::send_jsonrpc(&self.socket_path, "ember.device.recover", &params)?;
         jsonrpc_ok_result(&v)
     }
 
@@ -442,11 +430,7 @@ impl EmberClient {
         if let Ok(resp) = ctx.call_by_capability("compute", "ember.fecs.state", params.clone()) {
             return Ok(serde_json::from_value(resp)?);
         }
-        let v = crate::primal_bridge::send_jsonrpc(
-            &self.socket_path,
-            "ember.fecs.state",
-            &params,
-        )?;
+        let v = crate::primal_bridge::send_jsonrpc(&self.socket_path, "ember.fecs.state", &params)?;
         let result = jsonrpc_ok_result(&v)?;
         Ok(serde_json::from_value(result)?)
     }

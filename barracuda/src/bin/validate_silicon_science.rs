@@ -252,7 +252,9 @@ fn dispatch_timed(
         submission_index: None,
         timeout: None,
     });
-    rx.recv().expect("map async channel closed").expect("map async failed");
+    rx.recv()
+        .expect("map async channel closed")
+        .expect("map async failed");
     let data = slice.get_mapped_range().to_vec();
     staging.unmap();
 
@@ -456,7 +458,9 @@ fn dispatch_tmu(
         submission_index: None,
         timeout: None,
     });
-    rx.recv().expect("map async channel closed").expect("map async failed");
+    rx.recv()
+        .expect("map async channel closed")
+        .expect("map async failed");
     let data = slice.get_mapped_range().to_vec();
     staging.unmap();
 

@@ -7,6 +7,40 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Unreleased — Niche Convergence → Atomic Deployment (May 13, 2026)
+
+### Fixed
+- **bearDog wire name hygiene:** `receipt_signing.rs` corrected from
+  `payload`/`encoding` params to canonical `message` (base64) per bearDog
+  upstream spec. `validate_nucleus_tower.rs` also updated to base64-encode
+  the probe message. Extracted `base64_encode` as shared crate module
+  (previously duplicated in `dag_provenance.rs`).
+- **5 clippy errors** resolved: `too_long_first_doc_paragraph`
+  (`compute_dispatch.rs`), `if_not_else` (`toadstool_report.rs`),
+  `bool_to_int_with_if` (`harness.rs`), `manual_let_else`
+  (`s_hotqcd_dispatch.rs`), `map_unwrap_or` (`bench/report.rs`),
+  `unwrap_used` (`s_gradient_flow.rs`).
+
+### Added
+- **`s_node_atomic` validation scenario:** Node atomic (proton) structural
+  validation in UniBin registry — domain composition, Tower superset,
+  standalone behavior, SEMF/plaquette science baselines. 17 registered
+  scenarios (default) / 20 (barracuda-local+sovereign-dispatch).
+- **`base64_encode` crate module:** Minimal RFC 4648 encoder extracted from
+  `dag_provenance.rs` for reuse across `receipt_signing.rs` and
+  `validate_nucleus_tower.rs`.
+
+### Changed
+- **Harvest script updated:** `scripts/harvest-ecobin.sh` now builds
+  `hotspring_unibin` (the canonical UniBin binary) instead of the removed
+  `hotspring_primal`. All `unibin_modes` listed: certify, validate, serve,
+  status, version.
+
+### Metrics
+- **Tests:** 592 (default) / 1,041 (barracuda-local)
+- **Clippy:** zero warnings (both feature sets)
+- **Scenarios:** 17 (default) / 20 (barracuda-local+sovereign-dispatch)
+
 ## Unreleased — Compute Trio Rewire + Deep Debt Capability Evolution (May 12, 2026)
 
 ### Changed (May 12 — IPC Transport Evolution: call_by_capability Proliferation)

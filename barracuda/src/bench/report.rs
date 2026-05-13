@@ -84,9 +84,10 @@ impl BenchReport {
     /// Uses `discovery::benchmark_results_dir()` with fallback to the
     /// default path. Prints success/failure to stdout.
     pub fn save_and_print(&self) {
-        let dir = crate::discovery::benchmark_results_dir()
-            .map(|p| p.to_string_lossy().into_owned())
-            .unwrap_or_else(|_| crate::discovery::paths::BENCHMARK_RESULTS.to_string());
+        let dir = crate::discovery::benchmark_results_dir().map_or_else(
+            |_| crate::discovery::paths::BENCHMARK_RESULTS.to_string(),
+            |p| p.to_string_lossy().into_owned(),
+        );
         match self.save_json(&dir) {
             Ok(path) => println!("  Benchmark report saved: {path}"),
             Err(e) => println!("  Warning: could not save report: {e}"),

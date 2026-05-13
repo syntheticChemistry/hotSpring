@@ -48,6 +48,12 @@ pub fn run(v: &mut ValidationHarness) {
 
     // Screening dependence: higher kappa weakens correlations
     let eta_high_kappa = eta_star_stanton_murillo(10.0, 3.0);
-    v.check_bool("transport:eta_kappa_dependence_finite", eta_high_kappa.is_finite());
-    v.check_bool("transport:eta_kappa_dependence_positive", eta_high_kappa > 0.0);
+    v.check_bool(
+        "transport:eta_kappa_dependence_finite",
+        eta_high_kappa.is_finite(),
+    );
+    v.check_bool(
+        "transport:eta_kappa_dependence_positive",
+        eta_high_kappa > 0.0,
+    );
 }

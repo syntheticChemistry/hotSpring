@@ -54,8 +54,8 @@ struct VfioTarget {
 fn discover_vfio_targets() -> Vec<VfioTarget> {
     let mut targets = Vec::new();
 
-    let titan_bdf = std::env::var("HOTSPRING_TITAN_V_BDF")
-        .unwrap_or_else(|_| "0000:02:00.0".to_string());
+    let titan_bdf =
+        std::env::var("HOTSPRING_TITAN_V_BDF").unwrap_or_else(|_| "0000:02:00.0".to_string());
     targets.push(VfioTarget {
         name: "titan-v".into(),
         bdf: titan_bdf,
@@ -65,7 +65,13 @@ fn discover_vfio_targets() -> Vec<VfioTarget> {
 
     let k80_bdf = std::env::var("HOTSPRING_K80_BDF").map_or_else(
         |_| "0000:4b:00.0".to_string(),
-        |b| if b.contains(':') && b.len() > 7 { b } else { format!("0000:{b}") },
+        |b| {
+            if b.contains(':') && b.len() > 7 {
+                b
+            } else {
+                format!("0000:{b}")
+            }
+        },
     );
     targets.push(VfioTarget {
         name: "k80-die0".into(),
@@ -113,10 +119,7 @@ pub fn run(v: &mut ValidationHarness) {
 
         #[cfg(not(feature = "sovereign-dispatch"))]
         {
-            v.check_bool(
-                &format!("{prefix}sovereign_dispatch_feature"),
-                false,
-            );
+            v.check_bool(&format!("{prefix}sovereign_dispatch_feature"), false);
         }
     }
 }

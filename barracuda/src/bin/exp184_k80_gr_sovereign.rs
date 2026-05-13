@@ -909,7 +909,9 @@ fn main() {
         );
         println!("  GR context size = {gr_ctx_size} bytes ({gr_ctx_size:#010x})");
         println!("  Sequence validated → promoted to toadStool sovereign_stages.rs");
-        println!("  Next: toadstoolctl sovereign-boot should now succeed via the toadStool pipeline");
+        println!(
+            "  Next: toadstoolctl sovereign-boot should now succeed via the toadStool pipeline"
+        );
     } else {
         println!(
             "\n  FECS did not set GR_READY within {}ms. Diagnosis:",

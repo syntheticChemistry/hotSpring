@@ -10,6 +10,7 @@
 //!
 //! Exit code 0 = Tower valid, exit code 1 = degraded.
 
+use hotspring_barracuda::base64_encode;
 use hotspring_barracuda::composition::{AtomicType, validate_atomic, validate_capability};
 use hotspring_barracuda::primal_bridge::NucleusContext;
 use hotspring_barracuda::validation::ValidationHarness;
@@ -34,10 +35,11 @@ fn main() {
     if let Some(bd) = ctx.by_domain("crypto") {
         if bd.alive {
             let test_msg = "hotSpring tower validation probe";
+            let msg_b64 = base64_encode::encode(test_msg.as_bytes());
             let sign_result = ctx.call(
                 "beardog",
                 "crypto.sign_ed25519",
-                &serde_json::json!({ "message": test_msg }),
+                &serde_json::json!({ "message": msg_b64 }),
             );
             match sign_result {
                 Ok(resp) => {

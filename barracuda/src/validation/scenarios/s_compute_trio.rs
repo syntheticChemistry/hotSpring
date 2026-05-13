@@ -40,7 +40,10 @@ pub fn run(v: &mut ValidationHarness) {
     // --- Phase 1: barraCuda precision advisory ---
     let precision = tier2::precision_advisory(&nucleus, "lattice_qcd");
     let math_alive = nucleus.by_domain("math").is_some_and(|ep| ep.alive);
-    v.check_bool("trio:precision_advisory", precision.is_some() || !math_alive);
+    v.check_bool(
+        "trio:precision_advisory",
+        precision.is_some() || !math_alive,
+    );
 
     // --- Phase 2: coralReef shader compilation ---
     let shader_alive = nucleus.by_domain("shader").is_some_and(|ep| ep.alive);
@@ -65,7 +68,10 @@ pub fn run(v: &mut ValidationHarness) {
     // --- Phase 3: toadStool workload preflight ---
     let preflight = tier2::workload_preflight(&nucleus, "compute-trio-probe");
     let compute_alive = nucleus.by_domain("compute").is_some_and(|ep| ep.alive);
-    v.check_bool("trio:workload_preflight", preflight.is_some() || !compute_alive);
+    v.check_bool(
+        "trio:workload_preflight",
+        preflight.is_some() || !compute_alive,
+    );
 
     // --- Phase 4: toadStool dispatch ---
     if compute_alive {
@@ -91,15 +97,16 @@ pub fn run(v: &mut ValidationHarness) {
     let ember_alive = nucleus.by_domain("compute").is_some_and(|ep| ep.alive);
 
     for (label, env_key, default_bdf) in [
-        ("trio:rtx5060_dispatchable", "HOTSPRING_RTX5060_BDF", "21:00.0"),
+        (
+            "trio:rtx5060_dispatchable",
+            "HOTSPRING_RTX5060_BDF",
+            "21:00.0",
+        ),
         ("trio:titanv_warm", "HOTSPRING_TITAN_V_BDF", "02:00.0"),
         ("trio:k80_warm", "HOTSPRING_K80_BDF", "4b:00.0"),
     ] {
         let bdf = std::env::var(env_key).unwrap_or_else(|_| default_bdf.to_string());
-        v.check_bool(
-            label,
-            !ember_alive || check_device_ready(&nucleus, &bdf),
-        );
+        v.check_bool(label, !ember_alive || check_device_ready(&nucleus, &bdf));
     }
 }
 

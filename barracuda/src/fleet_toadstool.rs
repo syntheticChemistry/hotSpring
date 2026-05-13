@@ -83,9 +83,11 @@ impl ToadStoolDispatchClient {
     /// falling back to direct socket RPC.
     pub fn capabilities(&self) -> Result<serde_json::Value, HotSpringError> {
         let ctx = NucleusContext::detect();
-        if let Ok(resp) =
-            ctx.call_by_capability("compute", "compute.dispatch.capabilities", serde_json::json!({}))
-        {
+        if let Ok(resp) = ctx.call_by_capability(
+            "compute",
+            "compute.dispatch.capabilities",
+            serde_json::json!({}),
+        ) {
             return Ok(resp);
         }
         let resp = send_jsonrpc(
@@ -98,11 +100,7 @@ impl ToadStoolDispatchClient {
 
     /// `health.liveness` — lightweight health probe.
     pub fn health(&self) -> Result<serde_json::Value, HotSpringError> {
-        let resp = send_jsonrpc(
-            &self.socket_path,
-            "health.liveness",
-            &serde_json::json!({}),
-        )?;
+        let resp = send_jsonrpc(&self.socket_path, "health.liveness", &serde_json::json!({}))?;
         jsonrpc_result(&resp)
     }
 
@@ -116,26 +114,22 @@ impl ToadStoolDispatchClient {
     ///
     /// Prefers `call_by_capability` when NUCLEUS context is available,
     /// falling back to direct socket RPC.
-    pub fn submit(
-        &self,
-        params: &serde_json::Value,
-    ) -> Result<serde_json::Value, HotSpringError> {
+    pub fn submit(&self, params: &serde_json::Value) -> Result<serde_json::Value, HotSpringError> {
         let ctx = NucleusContext::detect();
         if let Ok(resp) =
             ctx.call_by_capability("compute", "compute.dispatch.submit", params.clone())
         {
             return Ok(resp);
         }
-        let resp = send_jsonrpc(
-            &self.socket_path,
-            "compute.dispatch.submit",
-            params,
-        )?;
+        let resp = send_jsonrpc(&self.socket_path, "compute.dispatch.submit", params)?;
         jsonrpc_result(&resp)
     }
 
     /// `compute.dispatch` — alias for `submit` (toadStool accepts both method names).
-    pub fn dispatch(&self, params: &serde_json::Value) -> Result<serde_json::Value, HotSpringError> {
+    pub fn dispatch(
+        &self,
+        params: &serde_json::Value,
+    ) -> Result<serde_json::Value, HotSpringError> {
         self.submit(params)
     }
 
@@ -203,7 +197,9 @@ pub fn try_local_dispatch(
 
 fn jsonrpc_result(resp: &serde_json::Value) -> Result<serde_json::Value, HotSpringError> {
     if let Some(err) = resp.get("error") {
-        return Err(HotSpringError::Ipc(format!("toadStool JSON-RPC error: {err}")));
+        return Err(HotSpringError::Ipc(format!(
+            "toadStool JSON-RPC error: {err}"
+        )));
     }
     resp.get("result")
         .cloned()

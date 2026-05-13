@@ -391,8 +391,11 @@ impl ValidationHarness {
             "values": checks,
         });
 
-        println!("{}", serde_json::to_string_pretty(&output).unwrap_or_default());
-        process::exit(if self.all_passed() { 0 } else { 1 });
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&output).unwrap_or_default()
+        );
+        process::exit(i32::from(!self.all_passed()));
     }
 
     /// Print summary and exit with appropriate code.

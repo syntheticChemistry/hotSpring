@@ -156,10 +156,7 @@ fn validate_barrier_compilation(ctx: &NucleusContext, harness: &mut ValidationHa
     }
 
     println!("  Summary: {compiled}/{total} barrier shaders compiled");
-    harness.check_bool(
-        "barrier_shaders_all",
-        compiled == total,
-    );
+    harness.check_bool("barrier_shaders_all", compiled == total);
 }
 
 /// Validate Wilson plaquette computation through the trio pipeline.
@@ -179,9 +176,7 @@ fn validate_plaquette_dispatch(ctx: &NucleusContext, harness: &mut ValidationHar
     println!("  HardwareHint: Compute");
     println!("  PrecisionTier: DF64 / F64");
     println!("  Input: cold lattice ({n_sites} sites x 18 f64 per SU(3) link)");
-    println!(
-        "  Reference: plaquette = {cold_plaquette_ref} (exact for cold start)"
-    );
+    println!("  Reference: plaquette = {cold_plaquette_ref} (exact for cold start)");
     println!("  Tolerance: {tolerance}");
 
     match hotspring_barracuda::compute_dispatch::submit_workload(ctx, shader_name, &input_data) {
@@ -203,7 +198,12 @@ fn validate_plaquette_dispatch(ctx: &NucleusContext, harness: &mut ValidationHar
                         println!(
                             "  Plaquette: {plaq_val:.15} (error: {error:.2e}, tol: {tolerance:.2e})"
                         );
-                        harness.check_abs("plaquette_parity", plaq_val, cold_plaquette_ref, tolerance);
+                        harness.check_abs(
+                            "plaquette_parity",
+                            plaq_val,
+                            cold_plaquette_ref,
+                            tolerance,
+                        );
                     } else {
                         println!("  Plaquette: result received (format varies by dispatch path)");
                         harness.check_bool("plaquette_output_received", true);

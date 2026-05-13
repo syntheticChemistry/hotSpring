@@ -111,7 +111,10 @@ fn cmd_validate(
 
         let ctx = NucleusContext::detect();
         if let Some(pf) = tier2::workload_preflight(&ctx, "hotspring-scenarios") {
-            println!("tier2 preflight: valid={}, gpu={}", pf.valid, pf.gpu_available);
+            println!(
+                "tier2 preflight: valid={}, gpu={}",
+                pf.valid, pf.gpu_available
+            );
             for w in &pf.warnings {
                 println!("  warning: {w}");
             }

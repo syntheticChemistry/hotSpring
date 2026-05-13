@@ -176,7 +176,7 @@ fn try_sign_merkle_root(
     merkle_root: &str,
     session_id: &str,
 ) -> Option<WireWitnessRef> {
-    use base64_encode::encode as b64_encode;
+    use crate::base64_encode::encode as b64_encode;
 
     let message_b64 = b64_encode(merkle_root.as_bytes());
 
@@ -200,35 +200,6 @@ fn try_sign_merkle_root(
         sig_b64,
         Some(&format!("dag:{session_id}:merkle_sign")),
     ))
-}
-
-/// Minimal base64 encoding (standard alphabet, no padding dependency).
-mod base64_encode {
-    const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
-    pub fn encode(input: &[u8]) -> String {
-        let mut out = String::with_capacity(input.len().div_ceil(3) * 4);
-        for chunk in input.chunks(3) {
-            let b0 = chunk[0] as u32;
-            let b1 = chunk.get(1).copied().unwrap_or(0) as u32;
-            let b2 = chunk.get(2).copied().unwrap_or(0) as u32;
-            let triple = (b0 << 16) | (b1 << 8) | b2;
-
-            out.push(ALPHABET[((triple >> 18) & 0x3F) as usize] as char);
-            out.push(ALPHABET[((triple >> 12) & 0x3F) as usize] as char);
-            if chunk.len() > 1 {
-                out.push(ALPHABET[((triple >> 6) & 0x3F) as usize] as char);
-            } else {
-                out.push('=');
-            }
-            if chunk.len() > 2 {
-                out.push(ALPHABET[(triple & 0x3F) as usize] as char);
-            } else {
-                out.push('=');
-            }
-        }
-        out
-    }
 }
 
 /// Compute BLAKE3 hash of a byte slice and return hex string.
@@ -263,11 +234,11 @@ mod tests {
 
     #[test]
     fn base64_encode_known_values() {
-        assert_eq!(base64_encode::encode(b"hello"), "aGVsbG8=");
-        assert_eq!(base64_encode::encode(b""), "");
-        assert_eq!(base64_encode::encode(b"a"), "YQ==");
-        assert_eq!(base64_encode::encode(b"ab"), "YWI=");
-        assert_eq!(base64_encode::encode(b"abc"), "YWJj");
+        assert_eq!(crate::base64_encode::encode(b"hello"), "aGVsbG8=");
+        assert_eq!(crate::base64_encode::encode(b""), "");
+        assert_eq!(crate::base64_encode::encode(b"a"), "YQ==");
+        assert_eq!(crate::base64_encode::encode(b"ab"), "YWI=");
+        assert_eq!(crate::base64_encode::encode(b"abc"), "YWJj");
     }
 
     #[test]

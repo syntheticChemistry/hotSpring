@@ -55,8 +55,8 @@ impl Bar0View {
     ///
     /// Returns an error string if `resource0` cannot be opened or mapped.
     pub fn open(bdf: &str) -> Result<Self, String> {
-        let sysfs_base = std::env::var("HOTSPRING_SYSFS_PCI")
-            .unwrap_or_else(|_| "/sys/bus/pci/devices".into());
+        let sysfs_base =
+            std::env::var("HOTSPRING_SYSFS_PCI").unwrap_or_else(|_| "/sys/bus/pci/devices".into());
         let resource_path = format!("{sysfs_base}/{bdf}/resource0");
         let file = std::fs::File::options()
             .read(true)

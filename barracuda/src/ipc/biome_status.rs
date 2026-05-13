@@ -43,14 +43,19 @@ pub fn query_composition_status() -> Option<CompositionStatus> {
     let nucleus = NucleusContext::detect();
     let params = serde_json::json!({});
 
-    if let Ok(resp) = nucleus.call_by_capability("composition", "composition.status", params.clone())
+    if let Ok(resp) =
+        nucleus.call_by_capability("composition", "composition.status", params.clone())
     {
         return serde_json::from_value(resp).ok();
     }
 
     let socket: std::path::PathBuf = if let Ok(p) = std::env::var("BIOMEOS_SOCKET") {
         let path = std::path::PathBuf::from(p);
-        if path.exists() { path } else { return None; }
+        if path.exists() {
+            path
+        } else {
+            return None;
+        }
     } else {
         crate::niche::socket_dirs()
             .into_iter()

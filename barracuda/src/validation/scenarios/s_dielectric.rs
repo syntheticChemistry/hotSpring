@@ -33,7 +33,12 @@ pub fn run(v: &mut ValidationHarness) {
     // High frequency (omega >> omega_p): epsilon -> 1
     let eps_high = epsilon_mermin(0.5, 100.0, nu, &params);
     v.check_bool("dielectric:high_freq_finite", eps_high.re.is_finite());
-    v.check_abs("dielectric:high_freq_approaches_unity", eps_high.re, 1.0, 0.1);
+    v.check_abs(
+        "dielectric:high_freq_approaches_unity",
+        eps_high.re,
+        1.0,
+        0.1,
+    );
 
     // Imaginary part positive for finite collisions (dissipation)
     let eps_mid = epsilon_mermin(1.0, 1.0, nu, &params);

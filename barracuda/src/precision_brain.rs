@@ -35,12 +35,12 @@
 //! `WgpuDevice`), includes sovereign detection, and does actual GPU dispatch
 //! probes rather than profile synthesis.
 
-use barracuda::device::backend::HardwareHint;
 use crate::gpu::GpuF64;
 use crate::hardware_calibration::HardwareCalibration;
 pub use crate::precision_routing::HwPrecisionAdvice;
 use crate::precision_routing::{PhysicsDomain, PrecisionRoutingAdvice, PrecisionTier};
 use crate::primal_bridge::NucleusContext;
+use barracuda::device::backend::HardwareHint;
 use std::sync::Arc;
 
 /// Detect whether sovereign shader compilation is available.

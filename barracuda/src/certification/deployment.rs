@@ -181,7 +181,9 @@ mod tests {
         );
         for name in &required {
             assert!(
-                crate::niche::DEPENDENCIES.iter().any(|d| d.name == *name && d.required),
+                crate::niche::DEPENDENCIES
+                    .iter()
+                    .any(|d| d.name == *name && d.required),
                 "{name} should be in DEPENDENCIES with required=true"
             );
         }

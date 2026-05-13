@@ -38,7 +38,10 @@ pub fn run(v: &mut ValidationHarness) {
     // --- Workload preflight ---
     let preflight = tier2::workload_preflight(&nucleus, "sovereign-dispatch-probe");
     let preflight_responded = preflight.is_some();
-    v.check_bool("sovereign:preflight_responded", preflight_responded || !t2.toadstool_alive);
+    v.check_bool(
+        "sovereign:preflight_responded",
+        preflight_responded || !t2.toadstool_alive,
+    );
     if let Some(pf) = &preflight {
         v.check_bool("sovereign:preflight_valid", pf.valid);
         v.check_bool("sovereign:gpu_available", pf.gpu_available);
@@ -47,12 +50,12 @@ pub fn run(v: &mut ValidationHarness) {
     // --- Precision advisory ---
     let advisory = tier2::precision_advisory(&nucleus, "molecular_dynamics");
     let precision_responded = advisory.is_some();
-    v.check_bool("sovereign:precision_responded", precision_responded || !t2.barracuda_alive);
+    v.check_bool(
+        "sovereign:precision_responded",
+        precision_responded || !t2.barracuda_alive,
+    );
     if let Some(pa) = &advisory {
-        v.check_bool(
-            "sovereign:precision_has_hint",
-            pa.hardware_hint.is_some(),
-        );
+        v.check_bool("sovereign:precision_has_hint", pa.hardware_hint.is_some());
     }
 
     // --- Sovereign dispatch probe ---
@@ -75,7 +78,10 @@ pub fn run(v: &mut ValidationHarness) {
             }
         }
     } else {
-        v.check_bool("sovereign:dispatch_routable", dispatch_available || !t2.toadstool_alive);
+        v.check_bool(
+            "sovereign:dispatch_routable",
+            dispatch_available || !t2.toadstool_alive,
+        );
     }
 
     // --- FECS state probe (coralReef sentinel) ---
@@ -94,12 +100,18 @@ pub fn run(v: &mut ValidationHarness) {
             }
         }
     } else {
-        v.check_bool("sovereign:fecs_routable", ember_available || !t2.toadstool_alive);
+        v.check_bool(
+            "sovereign:fecs_routable",
+            ember_available || !t2.toadstool_alive,
+        );
     }
 
     // --- Warm cycle routable ---
     let warm_available = nucleus
         .get_by_capability("ember.warm_cycle")
         .is_some_and(|ep| ep.alive);
-    v.check_bool("sovereign:warm_cycle_routable", warm_available || !t2.toadstool_alive);
+    v.check_bool(
+        "sovereign:warm_cycle_routable",
+        warm_available || !t2.toadstool_alive,
+    );
 }

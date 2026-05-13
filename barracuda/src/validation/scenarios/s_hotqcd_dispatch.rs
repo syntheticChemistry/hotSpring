@@ -44,8 +44,7 @@ fn qcd_shader_dir() -> std::path::PathBuf {
     if let Ok(dir) = std::env::var("HOTSPRING_QCD_SHADER_DIR") {
         return std::path::PathBuf::from(dir);
     }
-    let base = std::env::var("CARGO_MANIFEST_DIR")
-        .unwrap_or_else(|_| ".".to_string());
+    let base = std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string());
     std::path::PathBuf::from(base).join("src/lattice/shaders")
 }
 
@@ -53,8 +52,7 @@ fn routing_shader_dir() -> std::path::PathBuf {
     if let Ok(dir) = std::env::var("HOTSPRING_ROUTING_SHADER_DIR") {
         return std::path::PathBuf::from(dir);
     }
-    let base = std::env::var("CARGO_MANIFEST_DIR")
-        .unwrap_or_else(|_| ".".to_string());
+    let base = std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string());
     std::path::PathBuf::from(base).join("src/bin/shaders/qcd_silicon_routing")
 }
 
@@ -95,15 +93,12 @@ pub fn run(v: &mut ValidationHarness) {
             continue;
         }
 
-        let source = match std::fs::read_to_string(&shader_path) {
-            Ok(s) => s,
-            Err(_) => {
-                v.check_bool(
-                    &format!("hotqcd:compile:{}", short_name(shader_name)),
-                    false,
-                );
-                continue;
-            }
+        let Ok(source) = std::fs::read_to_string(&shader_path) else {
+            v.check_bool(
+                &format!("hotqcd:compile:{}", short_name(shader_name)),
+                false,
+            );
+            continue;
         };
 
         let params = serde_json::json!({
@@ -117,10 +112,7 @@ pub fn run(v: &mut ValidationHarness) {
                 if ok {
                     compiled_count += 1;
                 }
-                v.check_bool(
-                    &format!("hotqcd:compile:{}", short_name(shader_name)),
-                    ok,
-                );
+                v.check_bool(&format!("hotqcd:compile:{}", short_name(shader_name)), ok);
             }
             Err(_) => {
                 v.check_bool(
@@ -132,10 +124,7 @@ pub fn run(v: &mut ValidationHarness) {
     }
 
     if shader_alive {
-        v.check_bool(
-            "hotqcd:all_core_shaders_compiled",
-            compiled_count == total,
-        );
+        v.check_bool("hotqcd:all_core_shaders_compiled", compiled_count == total);
     }
 
     // --- Phase 3: toadStool workload preflight for QCD ---
@@ -176,10 +165,7 @@ pub fn run(v: &mut ValidationHarness) {
     for shader_name in &routing_names {
         let shader_path = routing_dir.join(shader_name);
         if !shader_alive {
-            v.check_bool(
-                &format!("hotqcd:routing:{}", short_name(shader_name)),
-                true,
-            );
+            v.check_bool(&format!("hotqcd:routing:{}", short_name(shader_name)), true);
             continue;
         }
 
@@ -195,13 +181,13 @@ pub fn run(v: &mut ValidationHarness) {
             }
             Err(_) => false,
         };
-        v.check_bool(
-            &format!("hotqcd:routing:{}", short_name(shader_name)),
-            ok,
-        );
+        v.check_bool(&format!("hotqcd:routing:{}", short_name(shader_name)), ok);
     }
 }
 
 fn short_name(path: &str) -> &str {
-    path.rsplit('/').next().unwrap_or(path).trim_end_matches(".wgsl")
+    path.rsplit('/')
+        .next()
+        .unwrap_or(path)
+        .trim_end_matches(".wgsl")
 }

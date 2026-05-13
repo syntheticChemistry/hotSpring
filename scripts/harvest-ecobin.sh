@@ -38,9 +38,9 @@ echo ""
 # ── Build x86_64 musl-static ──
 echo "  Building x86_64-unknown-linux-musl (release, stripped, LTO)..."
 cd "$ROOT/barracuda"
-cargo build --release --target x86_64-unknown-linux-musl --bin hotspring_primal
+cargo build --release --target x86_64-unknown-linux-musl --bin hotspring_unibin
 
-BINARY_X86="target/x86_64-unknown-linux-musl/release/hotspring_primal"
+BINARY_X86="target/x86_64-unknown-linux-musl/release/hotspring_unibin"
 if [ ! -f "$BINARY_X86" ]; then
     echo "ERROR: binary not found at $BINARY_X86"
     exit 1
@@ -59,8 +59,8 @@ echo "  Binary: $BINARY_X86 ($(( BINARY_SIZE / 1024 / 1024 )) MB)"
 echo ""
 echo "  Harvesting to plasmidBin..."
 mkdir -p "$PLASMIDB/hotspring/x86_64"
-cp "$BINARY_X86" "$PLASMIDB/hotspring/x86_64/hotspring_primal"
-echo "  Copied to $PLASMIDB/hotspring/x86_64/hotspring_primal"
+cp "$BINARY_X86" "$PLASMIDB/hotspring/x86_64/hotspring_unibin"
+echo "  Copied to $PLASMIDB/hotspring/x86_64/hotspring_unibin"
 
 # ── b3sum checksum ──
 if command -v b3sum &>/dev/null; then
@@ -72,13 +72,13 @@ fi
 if $CROSS_AARCH64; then
     echo ""
     echo "  Building aarch64-unknown-linux-musl..."
-    cargo build --release --target aarch64-unknown-linux-musl --bin hotspring_primal
+    cargo build --release --target aarch64-unknown-linux-musl --bin hotspring_unibin
 
-    BINARY_ARM="target/aarch64-unknown-linux-musl/release/hotspring_primal"
+    BINARY_ARM="target/aarch64-unknown-linux-musl/release/hotspring_unibin"
     if [ -f "$BINARY_ARM" ]; then
         mkdir -p "$PLASMIDB/hotspring/aarch64"
-        cp "$BINARY_ARM" "$PLASMIDB/hotspring/aarch64/hotspring_primal"
-        echo "  Copied to $PLASMIDB/hotspring/aarch64/hotspring_primal"
+        cp "$BINARY_ARM" "$PLASMIDB/hotspring/aarch64/hotspring_unibin"
+        echo "  Copied to $PLASMIDB/hotspring/aarch64/hotspring_unibin"
         if command -v b3sum &>/dev/null; then
             B3_ARM=$(b3sum "$BINARY_ARM" | cut -d' ' -f1)
             echo "  b3sum (aarch64): $B3_ARM"
@@ -145,7 +145,7 @@ capabilities = [
 # -- ecoBin: per-architecture builds --
 
 [builds.x86_64-linux]
-binary = "hotspring_primal"
+binary = "hotspring_unibin"
 target = "x86_64-unknown-linux-musl"
 pie_verified = true
 static_linked = true
@@ -156,7 +156,7 @@ if $CROSS_AARCH64; then
 cat >> "$PLASMIDB/hotspring/metadata.toml" <<TOML
 
 [builds.aarch64-linux]
-binary = "hotspring_primal"
+binary = "hotspring_unibin"
 target = "aarch64-unknown-linux-musl"
 pie_verified = true
 static_linked = true
@@ -170,7 +170,7 @@ cat >> "$PLASMIDB/hotspring/metadata.toml" <<TOML
 
 [genomeBin]
 tier = "ecoBin"
-unibin_modes = ["server", "version"]
+unibin_modes = ["certify", "validate", "serve", "status", "version"]
 default_mode = "server"
 
 [genomeBin.server]

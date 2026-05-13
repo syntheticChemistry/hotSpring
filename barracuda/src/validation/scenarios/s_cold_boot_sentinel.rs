@@ -34,37 +34,30 @@ pub fn run(v: &mut ValidationHarness) {
 
     let nucleus = NucleusContext::detect();
 
-    let ember_alive = nucleus
-        .by_domain("compute")
-        .is_some_and(|ep| ep.alive);
+    let ember_alive = nucleus.by_domain("compute").is_some_and(|ep| ep.alive);
 
     // --- FECS state query with typed FecsState ---
     if ember_alive {
         let fecs_params = serde_json::json!({ "bdf": "auto" });
         match nucleus.call_by_capability("compute", "ember.fecs.state", fecs_params) {
-            Ok(resp) => {
-                match serde_json::from_value::<crate::ember_types::FecsState>(resp) {
-                    Ok(fecs) => {
-                        v.check_bool("sentinel:fecs_typed_response", true);
-                        v.check_bool("sentinel:fecs_running", fecs.running);
-                        if fecs.is_faulted() {
-                            v.check_bool("sentinel:fecs_fault_observable", true);
-                        }
-                        if fecs.timed_out {
-                            v.check_bool("sentinel:fecs_timeout_structured", true);
-                        }
-                        if let Some(ref err) = fecs.error {
-                            v.check_bool(
-                                "sentinel:fecs_error_captured",
-                                !err.is_empty(),
-                            );
-                        }
+            Ok(resp) => match serde_json::from_value::<crate::ember_types::FecsState>(resp) {
+                Ok(fecs) => {
+                    v.check_bool("sentinel:fecs_typed_response", true);
+                    v.check_bool("sentinel:fecs_running", fecs.running);
+                    if fecs.is_faulted() {
+                        v.check_bool("sentinel:fecs_fault_observable", true);
                     }
-                    Err(_) => {
-                        v.check_bool("sentinel:fecs_typed_response", false);
+                    if fecs.timed_out {
+                        v.check_bool("sentinel:fecs_timeout_structured", true);
+                    }
+                    if let Some(ref err) = fecs.error {
+                        v.check_bool("sentinel:fecs_error_captured", !err.is_empty());
                     }
                 }
-            }
+                Err(_) => {
+                    v.check_bool("sentinel:fecs_typed_response", false);
+                }
+            },
             Err(_) => {
                 v.check_bool("sentinel:fecs_reachable", false);
             }

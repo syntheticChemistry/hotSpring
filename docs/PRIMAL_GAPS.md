@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026
-**Last audited:** May 12, 2026 (Deep debt consolidation: CG_BACKOFF_CAP, timeout/path constants, BenchReport::save_and_print)
+**Last audited:** May 13, 2026 (Niche convergence: bearDog wire fix, s_node_atomic scenario, harvest unibin, 8 clippy fixes)
 **License:** AGPL-3.0-or-later
 
 ---
@@ -1679,6 +1679,30 @@ AMD path is live.
      ecosystem boundaries. cudarc/rustix feature-gated.
 - **Validation:** 591/591 lib tests pass. Zero clippy warnings.
 - **Handoff:** `wateringHole/handoffs/HOTSPRING_DEEP_DEBT_SPRINT_MAY13_2026.md`
+
+### GAP-HS-098 — Niche Convergence: Wire Hygiene + Node Atomic Scenario (May 13 2026)
+
+- **Severity:** Low (wire correctness + scenario coverage)
+- **Classification:** Niche convergence → atomic deployment prep
+- **Trigger:** primalSpring "Delta Spring Directive — Niche Convergence → Atomic Deployment"
+  (May 13, 2026). ludoSpring found bearDog wire name discrepancy; all springs
+  directed to verify. Node atomic live validation path needed scenario in
+  UniBin registry.
+- **Completed:**
+  1. **bearDog wire name fix:** `receipt_signing.rs` corrected from `payload`/`encoding`
+     params to canonical `message` (base64) per bearDog `handle_sign_ed25519` spec.
+     `validate_nucleus_tower.rs` also fixed to base64-encode probe message.
+  2. **`base64_encode` crate module:** Extracted from `dag_provenance.rs` inline module
+     to shared `src/base64_encode.rs` for reuse across receipt signing and tower validation.
+  3. **skunkBat wire verified:** Already using `security.audit_log` — correct.
+  4. **`s_node_atomic` scenario:** Structural validation of Node atomic (proton) added to
+     UniBin registry — 5 domain checks, Tower superset, standalone behavior, SEMF/plaquette
+     science baselines (15 checks).
+  5. **Harvest script evolved:** `scripts/harvest-ecobin.sh` updated from retired
+     `hotspring_primal` binary to `hotspring_unibin`. All UniBin modes registered.
+  6. **8 clippy errors resolved:** 5 default + 3 barracuda-local (doc paragraph, if_not_else,
+     bool_to_int_with_if, manual_let_else, map_unwrap_or, unwrap_used).
+- **Validation:** 592 (default) / 1,041 (barracuda-local) lib tests pass. Zero clippy warnings.
 
 ---
 

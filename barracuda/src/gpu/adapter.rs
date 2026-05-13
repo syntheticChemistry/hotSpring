@@ -97,9 +97,7 @@ pub fn enumerate_adapters() -> Vec<AdapterInfo> {
     if let Ok(adapters) = result {
         adapters
     } else {
-        log::warn!(
-            "GPU adapter enumeration failed (broken Vulkan/ICD?). Continuing CPU-only."
-        );
+        log::warn!("GPU adapter enumeration failed (broken Vulkan/ICD?). Continuing CPU-only.");
         Vec::new()
     }
 }

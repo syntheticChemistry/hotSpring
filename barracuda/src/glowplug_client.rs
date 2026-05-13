@@ -222,11 +222,8 @@ impl GlowplugClient {
     /// toadStool S251+ serves `device.list` as a JSON-RPC alias for
     /// `ember.list`. Routed via NUCLEUS `compute` domain.
     pub fn list_devices(&self) -> Result<Vec<GlowplugDeviceSummary>, GlowplugError> {
-        let v = self.call_with_nucleus_fallback(
-            "compute",
-            "device.list",
-            &serde_json::json!({}),
-        )?;
+        let v =
+            self.call_with_nucleus_fallback("compute", "device.list", &serde_json::json!({}))?;
         let rows: Vec<GlowplugListRow> = serde_json::from_value(v)
             .map_err(|e| GlowplugError::InvalidPayload(format!("device.list: {e}")))?;
         Ok(rows.into_iter().map(GlowplugDeviceSummary::from).collect())
