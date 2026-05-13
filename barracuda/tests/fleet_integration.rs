@@ -31,7 +31,7 @@ fn write_fleet(path: &Path, json: &str) {
 #[test]
 fn fleet_discovery_parses_mock_file_and_enumerates_devices() {
     let dir = unique_tmp_dir("hotspring_fleet_disc");
-    let fleet_path = dir.join("coral-ember-fleet.json");
+    let fleet_path = dir.join("toadstool-ember-fleet.json");
     write_fleet(
         &fleet_path,
         r#"{

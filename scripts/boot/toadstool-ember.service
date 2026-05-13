@@ -1,39 +1,39 @@
 [Unit]
-Description=toadstool-ember — Immortal VFIO fd Holder
+Description=toadstool-ember — Sovereign GPU Lifecycle Daemon (plasmidBin ecoBin)
 Documentation=https://github.com/ecoPrimals/toadStool
 After=local-fs.target systemd-modules-load.service
 Wants=systemd-modules-load.service
-Before=toadstool-glowplug.service display-manager.service
+Before=display-manager.service
 
 [Service]
-Type=notify
-NotifyAccess=main
+Type=simple
 ExecStartPre=/bin/sh -c 'echo Y > /sys/module/vfio_pci/parameters/disable_idle_d3 2>/dev/null || true'
-ExecStart=/usr/local/bin/toadstool-ember server /etc/toadstool/glowplug.toml
+ExecStart=/usr/local/bin/toadstool daemon --config /etc/toadstool/glowplug.toml --socket /run/toadstool/ember.sock
 Restart=on-failure
 RestartSec=2
 TimeoutStartSec=30
-ExecStop=/usr/local/bin/toadstoolctl shutdown
+ExecStop=/bin/kill -SIGTERM $MAINPID
 TimeoutStopSec=30
 KillMode=mixed
 KillSignal=SIGTERM
 FinalKillSignal=SIGKILL
 Environment=RUST_LOG=info
 Environment=TOADSTOOL_EMBER_SOCKET=/run/toadstool/ember.sock
+Environment=XDG_RUNTIME_DIR=/run/toadstool
 SupplementaryGroups=toadstool
 UMask=0117
 RuntimeDirectory=toadstool
-RuntimeDirectoryMode=0750
-ExecStartPost=/bin/sh -c 'chgrp toadstool /run/toadstool && mkdir -p /run/toadstool/staging && chgrp toadstool /run/toadstool/staging && chmod 770 /run/toadstool/staging'
+RuntimeDirectoryMode=0755
+ExecStartPost=/bin/sh -c 'for i in 1 2 3 4 5 6 7 8; do [ -S /run/toadstool/biomeos/compute.sock ] && break; sleep 1; done; chmod 755 /run/toadstool/biomeos 2>/dev/null; chmod 666 /run/toadstool/biomeos/compute.sock 2>/dev/null; chgrp toadstool /run/toadstool/biomeos 2>/dev/null; mkdir -p /run/toadstool/staging && chgrp toadstool /run/toadstool/staging && chmod 770 /run/toadstool/staging; true'
 
 CapabilityBoundingSet=CAP_SYS_ADMIN CAP_SYS_RAWIO CAP_DAC_OVERRIDE CAP_SYS_MODULE
 AmbientCapabilities=CAP_SYS_ADMIN CAP_SYS_RAWIO CAP_DAC_OVERRIDE CAP_SYS_MODULE
 NoNewPrivileges=true
 
 ProtectSystem=strict
-ReadWritePaths=/sys/bus/pci /sys/kernel/iommu_groups /run/toadstool /proc /sys/kernel/debug/tracing /var/lib/toadstool /usr/local/bin
+ReadWritePaths=/sys/bus/pci /sys/kernel/iommu_groups /run/toadstool /proc /sys/kernel/debug/tracing /var/lib/toadstool
 ReadOnlyPaths=/lib/modules /etc/modprobe.d /lib/modprobe.d
-PrivateTmp=true
+PrivateTmp=false
 ProtectHome=true
 
 SystemCallFilter=@system-service @module ioctl sendmsg

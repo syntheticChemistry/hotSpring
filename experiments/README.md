@@ -53,35 +53,14 @@ NNN_DESCRIPTOR.{sh,md,json}
 | 110–122 | Consolidation through WPR2 | analysis | VRAM page tables, dual-phase boot, WPR2 preservation/resolution |
 | 123–131 | K80 + AMD + livepatch + reset | analysis | K80 sovereign, AMD scratch, warm handoff, FECS dispatch, reset evolution |
 | 132–143 | Dual GPU boot + ACR | analysis | Ember dispatch, Kepler compute, SEC2 DMA, D-state, ACR root cause |
+| 144–189 | Sovereign pipeline → warm-catch arc | various | PMC bit5 through LTEE Anderson fitness; per-number journals live under `archive/` (see also `archive/FOSSIL_RECORD_144_189.md`) |
 
 ### Active
 
 | # | Name | Type | Status |
 |---|------|------|--------|
-| 144 | PMC_BIT5_ACR_PROGRESS | analysis | ✅ SEC2 resets properly, IMEM PIO verified, BOOTVEC ignored, **VRAM dead** root cause found |
-| 150 | CRASH_VECTOR_HUNT | analysis | ✅ Crash vectors eliminated by Ember Survivability Hardening. 8 consecutive runs survive. |
-| 151 | REVALIDATION_AND_NEXT_STAGES | synthesis | ✅ Fossil record review, validated state, 6-stage plan |
-| 152 | COMPUTE_DISPATCH_PROVENANCE_VALIDATION | framework | ✅ ToadStool compute.dispatch + blake3 witness + trio provenance |
-| 153 | EMBER_FLOOD_RESURRECTION_PROOF | validation | ✅ Ember flood/resurrection under continuous fault injection |
-| 154 | SEC2_ACR_PMU_FIRST_PIPELINE | investigation | ✅ SEC2→PMU first-boot pipeline, ACR chain ordering |
-| 155 | K80_WARM_FECS_DISPATCH | validation | ✅ K80 warm-state FECS dispatch (Kepler PIO path) |
-| 156 | REAGENT_TRACE_COMPARISON | analysis | ✅ Cross-reagent register trace comparison |
-| 157 | K80_DEVINIT_REPLAY | investigation | ⚠️ K80 direct DEVINIT replay — PLL reprogramming risk |
-| 158 | SEC2_REAL_FIRMWARE | investigation | ✅ SEC2 ACR BL executes, stalls on DMA (HBM2 not trained) |
-| 159 | TITANV_VM_POST_HBM2 | breakthrough | ✅ HBM2 trained via nvidia-535 VM. FLR kills it. nouveau warm-cycle + reset_method clear preserves HBM2. |
-| 160 | TITANV_MMIOTRACE_CAPTURE | capture | ✅ MMIOTRACE register capture for GV100 nouveau init |
-| 161 | TITANV_NVDEC_SOVEREIGN_ATTEMPT | investigation | ✅ NVDEC engine sovereign dispatch attempt |
-| 162 | TITANV_SOVEREIGN_COMPUTE_PIPELINE | architecture | ✅ Full sovereign compute pipeline design |
-| 163 | FIRMWARE_BOUNDARY | **breakthrough** | ✅ **Architectural pivot.** Driver/firmware/hardware delineation. NOP dispatch via DRM (C + Rust). PMU mailbox mapped. PmuInterface created. |
-| 164 | SOVEREIGN_COMPUTE_DISPATCH_PROVEN | **breakthrough** | ✅ **5/5 E2E phases pass.** f32 write/arith, multi-workgroup, f64 write, f64 Lennard-Jones. WGSL→SM70 SASS→DRM dispatch. Newton's 3rd law verified. *(No standalone journal — findings documented in Exp 165)* |
-| 165 | SOVEREIGN_INIT_PIPELINE | **breakthrough** | ✅ **8-stage SovereignInit pipeline replaces nouveau.** `open_sovereign(bdf)` entry point. GR init extracted. FECS method probe. GR context Stage 7. Firmware-as-ingredient. 429 tests. |
-| 166 | SOVEREIGN_BOOT_WIRING | investigation | ✅ **AdaptiveLifecycle delegation bug** found and fixed. `skip_sysfs_unbind` forwarding, `reset_method` permission error, `vfio-pci.ids` kernel parameter handling. 3 critical bugs resolved. |
-| 167 | WARM_HANDOFF | validation | ✅ **Full vfio→nouveau→vfio round-trip on Titan V.** No D-state. HBM2 training preserved across swap cycle. K80 deferred (EBUSY). |
-| 168 | SOVEREIGN_PIPELINE_COMPLETE | **milestone** | ✅ **Sovereign pipeline COMPLETE.** Fork-isolated MMIO gateway (6 RPCs). 6-stage sovereign init. PMU DEVINIT + VBIOS PROM wired as ember RPCs. 908 tests across coral-driver + coral-ember. |
-| 169 | WARM_HANDOFF_VALIDATED | validation | ✅ **Full warm handoff cycle on Titan V.** vfio→nouveau→vfio round-trip. HBM2 warm state persists (pmc_enable=0x5fecdff1). Stages 1-3 pass. Falcon boot = next frontier. |
-| 170 | SOVEREIGN_BOOT_E2E | **milestone** | ✅ **End-to-end `coralctl sovereign-boot`.** Vendor-ingredient loop: cold detect → nouveau warm → vfio swap → sovereign init. Warm detection heuristic (PMC popcount + PRAMIN). golden_state_path file reference. |
-| 171 | K80_SOVEREIGN_INIT | validation | ⚠️ **K80 (GK210) BAR0 probe + PMC enable OK.** GDDR5 training BLOCKED (cold memory, PRAMIN returns PCIe timeout). VBIOS readable from PROM. Kepler: no signed firmware required. DEVINIT interpreter needed. |
-| 189 | LTEE_B2_ANDERSON_FITNESS | analysis | ✅ **LTEE B2 — Anderson fitness landscape.** Wiser et al. 2013 disorder analogy; Tier 1 Python baseline + Tier 2 Rust validation (`s_ltee_anderson.rs`). Feeds foundation Thread 7, lithoSpore module 7. |
+| 190 | THREE_GPU_SOVEREIGN_VALIDATION | **milestone** | ✅ ALL 3 GPUs sovereign — warm-catch + patched nouveau path; journals at repo root |
+| 191 | TOADSTOOL_S258_PBDMA_VALIDATION | validation | ✅ PBDMA dispatch sweep on RTX 5060 / Titan V / K80 under toadStool S258 |
 
 ### Ember Survivability Hardening (2026-04-07)
 
@@ -127,26 +106,6 @@ Not numbered experiments — systematic composition infrastructure:
 | Property 3 CHECKSUMS + 30/30 bare (April 17) | session | ✅ Generated BLAKE3 CHECKSUMS manifest (15 source files), fixed deny.toml lookup for dual CWD, script builds from barracuda/ runs from root. **30/30 bare checks pass**, 3 SKIP (expected NUCLEUS liveness only). *(Historical test count: 993 lib tests at time of session.)* |
 | Phase 46 composition template (April 27) | session | ✅ Absorbed primalSpring Phase 46 composition library. `tools/hotspring_composition.sh`: event-driven QCD + async tick model + DAG memoization + ledger sealing + scientific provenance braids + compute dispatch. Bare mode verified. |
 | Deep debt evolution (April 27) | session | ✅ Capability-based primal discovery — `composition.rs` derives requirements from `niche::DEPENDENCIES` (single source of truth). Named accessors deprecated → `by_domain()`. Data-driven `PRIMAL_ALIASES`. Smart refactoring: `rhmc.rs` → `rhmc/mod.rs` + `remez.rs`, `nuclear_eos_helpers.rs` → `mod.rs` + `objectives.rs`. Pre-existing `DiscoveredDevice` compile errors fixed. *(Historical test count: 993/993 lib tests at time of session.)* Zero compilation errors. |
-
-| 172 | NO_ACR_WARM_HANDOFF | md | ✅ Warm HBM2 without HS lockout by removing ACR firmware |
-| 173 | VM_REAGENT_WPR_CAPTURE | investigation | ✅ VM reagent WPR capture. GV100 closed driver does NOT configure WPR (Volta predates GSP). Architectural pivot for Volta sovereign boot. |
-| 174 | K80_SOVEREIGN_BOOT | investigation | ⚠️ K80 Kepler sovereign boot progress. GDDR5 training path. |
-| 175 | RTX5060_SHARED_COMPUTE | **milestone** | ✅ RTX 5060 shared display/compute. UVM GPFIFO NOP timeout resolved (GAP-HS-031 RESOLVED). QMD v5.0 implemented. Sovereign dispatch LIVE. |
-| 176 | QCD_PARITY_BENCHMARK | **milestone** | ✅ **Full HMC pipeline → native SASS on 3 GPU generations.** SM35 10/10, SM70 10/10, SM120 10/10. coralReef f64 lowering fixed (was 4/10 on Kepler). Vendor wgpu dispatch validated on RTX 5060. validate_pure_gauge 16/16 ALL CHECKS PASSED. |
-| 177 | BLACKWELL_DISPATCH_ABI_FIXES | **milestone** | ✅ **Blackwell sovereign dispatch live.** QMD v5.0 + UVM faulting VA space + semaphore fence + UVM_REGISTER_CHANNEL. f64 div fixed (MUFU.RCP64H→F2F+RCP fallback). num_workgroups fixed (S2R NCTAID→LDC CBUF 7). 1404 tests passing. |
-| 178 | K80_PGOB_NVIDIA470_ANALYSIS | investigation | ⚠️ **nvidia-470 binary analysis: PGOB PSW-only sequence discovered.** Static disassembly of `nv-kernel.o_binary` reveals `_nv029216rm` (ungate) and `_nv029114rm` (gate) use only `0x10a78c` bits 0-1. PSW-only requires running PMU firmware. Root cause narrowed: PRI ring has 0 GPCs enrolled. Pivoted to warm-catch (Exp 179). |
-| 179 | K80_WARM_FECS_DISPATCH_PIPELINE | **milestone** | ✅ **K80 warm-catch FECS/PFIFO pipeline.** Nouveau warm-catch → VFIO rebind. FECS boots (Falcon v3 PIO). PFIFO runlist completes. SCHED_ERROR code=32 root-caused (RAMFC 0x3C/0x44) and fixed. Cold-boot sovereign (udev PLX fix, d3cold_allowed=0). |
-| 180 | THREE_GPU_HARDWARE_VALIDATION | **milestone** | ✅ RTX 5060 19/19 (CUDA+DRM+discovery), Titan V 20/20 standalone VFIO, K80 device open + runlist pass. PGOB GPC gating confirmed as K80 dispatch blocker. |
-| 181 | SOVEREIGN_DISPATCH_PIPELINE_SWEEP | investigation | ✅ RTX 5060 8/8 PROVEN. Titan V and K80 resolved via warm-catch (Exp 188/190). |
-| 182 | K80_FECS_PIO_BOOT | diagnostic | 🔧 K80 GK210 FECS PIO boot diagnostic. Direct BAR0 mmap (`low-level` feature). Falcon IMEM/DMEM PIO path. *(inline-only — no standalone journal)* |
-| 183 | K80_FECS_INT_BOOT | diagnostic | 🔧 K80 GK210 FECS interrupt-driven boot. Direct BAR0 mmap (`low-level` feature). *(inline-only — no standalone journal)* |
-| 184 | K80_GR_SOVEREIGN | active | ✅ K80 GK210 sovereign GR init via ember RPC. Modern ember-wired path. Kepler falcon boot + firmware + PLX keepalive + switch preflight. *(inline-only — no standalone journal)* |
-| 185 | K80_NOUVEAU_GK210_CHIPSET | complete | ✅ Root cause: upstream nouveau has NO `case 0x0f2:` — GK210 unrecognized → -ENODEV. One-line patch: `case 0x0f2: device->chip = &nvf1_chipset;` |
-| 186 | PMU_FW_EXTRACTION_ANALYSIS | complete | ✅ Kepler PMU from VBIOS (BIT tables). Volta PMU NOT in linux-firmware — needs nvidia-470 extraction. Enhanced exp168 probe. |
-| 187 | TITANV_NVIDIA580_MMIOTRACE_PREP | prepared | 🔧 Capture script for nvidia-580 mmiotrace on Titan V. Determines WPR usage, informs FalconBootSolver Volta branch. Awaiting execution window. |
-| 188 | K80_WARM_CATCH_BREAKTHROUGH | breakthrough | ✅ Patched nouveau RECOGNIZED GK210. First-ever GR init: 12 GiB GDDR5, 5 GPCs, 6 TPC/GPC. Post-rebind GPCs power-gated. PLX D3cold on ember stop. |
-| — | K80_QEMU_VM_REAGENT | investigation | ✅ QEMU VM with K80 VFIO passthrough + proprietary nvidia-470.256.02. Module probed K80 successfully. Reagent template + build recipe stored in `agentReagents/`. |
-| 190 | THREE_GPU_SOVEREIGN_VALIDATION | **milestone** | ✅ **ALL 3 GPUs sovereign.** Phase 1: RTX 5060 12/12 PASS, 154 steps/s. Phase 2: binary-patched nouveau warm-catch resolved GAP-HS-073 (Titan V FECS RUNNING via ACR/SEC2) and GAP-HS-076 (K80 12 GiB GDDR5 trained, 5 GPCs active). Warm-catch pipeline elevated to pure Rust (`coralctl warm-catch`). |
 
 ## Paper Baseline Notebooks
 

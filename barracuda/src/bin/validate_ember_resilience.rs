@@ -20,7 +20,7 @@
 //! cargo run --release --bin validate_ember_resilience
 //! ```
 //!
-//! Requires a running coral-glowplug fleet (Titan V + K80 targets).
+//! Requires a running toadstool-ember daemon (Titan V + K80 targets).
 
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
@@ -165,7 +165,7 @@ fn phase1_baseline(
             g
         } else {
             println!("  Nucleus discovery failed — trying default socket");
-            GlowplugClient::from_socket(&hotspring_barracuda::fleet_client::glowplug_socket_path())
+            GlowplugClient::from_socket(std::path::Path::new("/run/toadstool/biomeos/compute.sock"))
         }
     };
 

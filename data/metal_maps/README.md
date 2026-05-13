@@ -35,7 +35,7 @@ Each JSON file captures a complete snapshot of a GPU's register topology, power 
 ## How to Generate
 
 ```bash
-CORALREEF_VFIO_BDF=0000:XX:00.0 cargo test --test hw_nv_vfio --features vfio \
+TOADSTOOL_VFIO_BDF=0000:XX:00.0 cargo test --test hw_nv_vfio --features vfio \
   -- --ignored vfio_metal_cartography --nocapture
 ```
 

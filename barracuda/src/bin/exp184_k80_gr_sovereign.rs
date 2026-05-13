@@ -4,7 +4,7 @@
 //!
 //! ## Architecture (rewired from raw Bar0Map to EmberClient RPCs)
 //!
-//! All GPU interaction routes through coral-ember's fork-isolated MMIO gateway.
+//! All GPU interaction routes through toadstool-ember's fork-isolated MMIO gateway.
 //! This eliminates the BAR0 mmap bypass and places exp184 under ember's crash
 //! interception: if the K80 triggers a PLX D3cold or BAR0 hang, ember's circuit
 //! breaker catches it and its immortal VFIO fd keeps the group alive for recovery
@@ -36,11 +36,11 @@
 //! sudo ./target/release/exp184_k80_gr_sovereign \
 //!      [--bdf 0000:4b:00.0]                         \
 //!      [--fw-dir ../wateringHole/gk110]              \
-//!      [--ember-socket /run/coralreef/ember.sock]    \
+//!      [--ember-socket /run/toadstool/biomeos/compute.sock]    \
 //!      [--dry-run]
 //! ```
 //!
-//! Requires coral-ember running and holding the VFIO fd for the target BDF.
+//! Requires toadstool-ember running and holding the VFIO fd for the target BDF.
 
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
@@ -210,7 +210,7 @@ fn upload_dmem(ember: &EmberClient, bdf: &str, base: u32, byte_offset: u32, data
     }
 }
 
-/// Discover and connect to the coral-ember instance for a given BDF.
+/// Discover and connect to the toadstool-ember instance for a given BDF.
 ///
 /// Search order: diesel engine scan → fleet discovery → slug-based socket → legacy.
 /// Accepts `--ember-socket` CLI override to skip discovery.
@@ -234,7 +234,7 @@ fn connect_ember(bdf: &str, override_socket: Option<&str>) -> EmberClient {
     }
     eprintln!(
         "FATAL: no ember socket found for BDF {bdf}.\n\
-         Start coral-glowplug (diesel engine) and verify: coralctl cylinder list\n\
+         Start toadstool-ember (diesel engine) and verify: toadstool device list\n\
          Override with: --ember-socket /path/to/ember.sock"
     );
     std::process::exit(1);
@@ -251,11 +251,11 @@ fn main() {
 
     println!("╔══════════════════════════════════════════════════════════════════╗");
     println!("║  EXP 184 — K80 Sovereign GR Engine Boot (ember-wired)          ║");
-    println!("║  All GPU access via coral-ember RPCs — crash protected          ║");
+    println!("║  All GPU access via toadstool-ember RPCs — crash protected       ║");
     println!("╚══════════════════════════════════════════════════════════════════╝");
     println!("  BDF:    {bdf}");
     println!("  FW dir: {}", fw_dir.display());
-    println!("  Wiring: coral-ember (all MMIO via JSON-RPC — no raw BAR0 mmap)");
+    println!("  Wiring: toadstool-ember (all MMIO via JSON-RPC — no raw BAR0 mmap)");
     if dry_run {
         println!("  Mode:   DRY RUN");
     }
@@ -751,7 +751,7 @@ fn main() {
         // MMIO path; the next mmio_read call will return an error.
         if ready == 0xFFFF_FFFF {
             println!("  WARN: GR_READY=0xffffffff at t={elapsed_ms}ms — possible D3cold");
-            println!("  → ember circuit breaker should intercept; check journalctl -u coral-ember");
+            println!("  → ember circuit breaker should intercept; check journalctl -u toadstool-ember");
             break;
         }
 
@@ -848,7 +848,7 @@ fn main() {
 
     println!("  ┌──────────────────────────────────────────────────────┐");
     println!("  │  EXP 184 — K80 Sovereign GR Boot Scorecard           │");
-    println!("  │  Wiring: coral-ember RPCs (crash-protected MMIO)     │");
+    println!("  │  Wiring: toadstool-ember RPCs (crash-protected MMIO)  │");
     println!("  ├──────────────────────────────────────────────────────┤");
     println!(
         "  │  PRIV ring restored:  {}  │",
@@ -921,11 +921,11 @@ fn main() {
         } else {
             println!("  → FECS_CPUCTL={fecs_cpuctl_post:#010x} FECS_PC={fecs_pc_post:#010x}");
         }
-        println!("\n  Check ember circuit breaker: verify_ember_alive via coralctl status");
+        println!("\n  Check ember circuit breaker: verify_ember_alive via toadstool device list");
     }
 
     println!();
     println!("═══════════════════════════════════════════════");
-    println!("  EXP 184 complete. All GPU access was via coral-ember.");
+    println!("  EXP 184 complete. All GPU access was via toadstool-ember.");
     println!("═══════════════════════════════════════════════");
 }

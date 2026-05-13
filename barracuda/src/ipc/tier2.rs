@@ -78,6 +78,9 @@ pub struct PrecisionAdvisory {
     /// GPU adapter name (null if no GPU available).
     #[serde(default)]
     pub adapter: Option<String>,
+    /// Active dispatch path: `"wgpu"`, `"sovereign"`, or `"unavailable"` (Sprint 64+).
+    #[serde(default)]
+    pub dispatch_path: Option<String>,
 }
 
 /// Pre-flight a workload via `toadstool.validate`.
@@ -233,13 +236,13 @@ mod tests {
 
     #[test]
     fn precision_advisory_returns_none_without_barracuda() {
-        let nucleus = NucleusContext::detect();
+        let nucleus = NucleusContext::empty("test");
         assert!(precision_advisory(&nucleus, "lattice_qcd").is_none());
     }
 
     #[test]
     fn dispatch_capabilities_returns_none_without_toadstool() {
-        let nucleus = NucleusContext::detect();
+        let nucleus = NucleusContext::empty("test");
         assert!(dispatch_capabilities(&nucleus).is_none());
     }
 

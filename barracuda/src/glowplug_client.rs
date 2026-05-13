@@ -6,7 +6,7 @@
 //! Post-excision (coralReef Sprint 9, May 2026): toadStool is the sole
 //! provider for device management, lifecycle orchestration, and sovereign
 //! dispatch. The `compute` NUCLEUS domain resolves to toadStool's socket.
-//! Legacy coral-glowplug is no longer running; discovery falls through
+//! Legacy glowplug daemon is no longer separate; discovery falls through
 //! gracefully if toadStool is not yet available.
 //!
 //! All calls use [`crate::primal_bridge::send_jsonrpc`] (JSON-RPC 2.0, newline-framed).
@@ -76,7 +76,7 @@ pub struct GlowplugDeviceHealthSummary {
     pub domains_faulted: usize,
 }
 
-/// Full `device.get` payload (structured like coral-glowplug `DeviceInfo`).
+/// Full `device.get` payload (structured like toadStool `DeviceInfo`).
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct GlowplugDeviceDetail {
     pub bdf: String,
@@ -145,8 +145,8 @@ impl std::error::Error for GlowplugError {}
 impl GlowplugClient {
     /// Build a client from a discovered toadStool compute endpoint.
     ///
-    /// Looks up the `compute` NUCLEUS domain first (toadStool), then falls
-    /// back to `shader` (legacy coralReef glowplug) for backward compat.
+    /// Looks up the `compute` NUCLEUS domain (toadStool), then falls
+    /// back to `shader` (coralReef compiler) for backward compat.
     pub fn from_nucleus(nucleus: &NucleusContext) -> Result<Self, GlowplugError> {
         let ep = nucleus
             .by_domain("compute")
@@ -264,8 +264,9 @@ impl GlowplugClient {
 
     /// `device.dispatch` — run `kernel` bytes (e.g. PTX) with `buffers` as inputs.
     ///
-    /// toadStool S254+ serves `compute.dispatch.submit` with `LocalDeviceFactory`
-    /// (AMD live via DRM/GEM/PM4; NVIDIA FECS-gated). This legacy method shape
+    /// toadStool S258 wired PBDMA dispatch through `NvVfioComputeDevice`: GPFIFO
+    /// submission, DMA alloc/upload/readback, doorbell + sync. NVIDIA FECS-gated
+    /// (warm probe required). AMD live via DRM/GEM/PM4. This legacy method shape
     /// uses the older `device.dispatch` wire format.
     ///
     /// `output_sizes` lists byte lengths for each output buffer the kernel writes (protocol requirement).
@@ -417,7 +418,7 @@ impl GlowplugClient {
     ///
     /// Orchestrates: cold BAR0 snapshot → swap to warm driver (with mmiotrace)
     /// → settle → warm BAR0 snapshot → diff → save recipe JSON. The recipe is
-    /// stored at `/var/lib/coralreef/training/{chip}.json` for sovereign replay.
+    /// stored at `/var/lib/toadstool/training/{chip}.json` for sovereign replay.
     pub fn capture_training(
         &self,
         bdf: &str,
@@ -430,6 +431,98 @@ impl GlowplugClient {
         let v = self.call("capture.training", &params)?;
         serde_json::from_value(v)
             .map_err(|e| GlowplugError::InvalidPayload(format!("capture.training: {e}")))
+    }
+
+    /// `device.warm_catch` — catch a warm GPU after driver handoff.
+    ///
+    /// toadStool S256 warm-catch pipeline: probes BAR0 for warm-preserved
+    /// FECS state, populates capabilities from BOOT0, and returns the device
+    /// as compute-ready if FECS is warm (`probe_warm_fecs()`). S258 adds
+    /// `open_vfio()` for PBDMA channel setup on successful warm catch.
+    pub fn device_warm_catch(&self, bdf: &str) -> Result<WarmCatchResult, GlowplugError> {
+        let v = self.call_with_nucleus_fallback(
+            "compute",
+            "device.warm_catch",
+            &serde_json::json!({"bdf": bdf}),
+        )?;
+        serde_json::from_value(v)
+            .map_err(|e| GlowplugError::InvalidPayload(format!("device.warm_catch: {e}")))
+    }
+
+    /// `device.vfio.open` — open VFIO device and create PBDMA channel.
+    ///
+    /// toadStool S258: after warm catch confirms FECS, this opens the VFIO
+    /// device, maps BAR0, allocates GPFIFO + USERD DMA buffers, and creates
+    /// a PFIFO channel for PBDMA dispatch.
+    pub fn device_vfio_open(&self, bdf: &str) -> Result<serde_json::Value, GlowplugError> {
+        self.call_with_nucleus_fallback(
+            "compute",
+            "device.vfio.open",
+            &serde_json::json!({"bdf": bdf}),
+        )
+    }
+
+    /// `device.vfio.alloc` — allocate a DMA buffer for PBDMA dispatch.
+    ///
+    /// Returns a `BufferHandle` (u32 id) and the IOVA of the allocated buffer.
+    pub fn device_vfio_alloc(
+        &self,
+        bdf: &str,
+        size: u64,
+    ) -> Result<serde_json::Value, GlowplugError> {
+        self.call_with_nucleus_fallback(
+            "compute",
+            "device.vfio.alloc",
+            &serde_json::json!({"bdf": bdf, "size": size}),
+        )
+    }
+
+    /// `device.vfio.roundtrip` — DMA buffer roundtrip test (alloc → upload → readback).
+    ///
+    /// toadStool S258 validation helper: allocates a DMA buffer, uploads
+    /// `data`, reads it back, and compares. Returns `{ok: true}` on match.
+    pub fn device_vfio_roundtrip(
+        &self,
+        bdf: &str,
+        data: &[u8],
+    ) -> Result<serde_json::Value, GlowplugError> {
+        self.call_with_nucleus_fallback(
+            "compute",
+            "device.vfio.roundtrip",
+            &serde_json::json!({
+                "bdf": bdf,
+                "data_b64": base64::engine::general_purpose::STANDARD.encode(data),
+            }),
+        )
+    }
+
+    /// `shader.compile.gemm` — compile a tensor-core GEMM kernel via coralReef.
+    ///
+    /// coralReef Sprint 9+: generates PTX using `mma.sync.aligned` instructions
+    /// for SM80+ (Ampere, Ada, Blackwell). Returns compiled binary + shader_info
+    /// with GPR count and workgroup size for QMD construction.
+    pub fn compile_gemm(
+        &self,
+        m: u32,
+        n: u32,
+        k: u32,
+        arch: &str,
+        precision: &str,
+    ) -> Result<serde_json::Value, GlowplugError> {
+        let nucleus = NucleusContext::detect();
+        nucleus
+            .call_by_capability(
+                "shader",
+                "shader.compile.gemm",
+                serde_json::json!({
+                    "m": m,
+                    "n": n,
+                    "k": k,
+                    "arch": arch,
+                    "precision": precision,
+                }),
+            )
+            .map_err(|e| GlowplugError::Transport(format!("shader.compile.gemm: {e}")))
     }
 
     /// `sovereign.boot` — full orchestrated sovereign boot: detect driver →
@@ -459,6 +552,29 @@ pub struct CaptureTrainingResult {
     pub success: bool,
     pub summary: String,
     pub steps: Vec<BootStepResult>,
+}
+
+/// Result of `device.warm_catch` — warm GPU catch after driver handoff.
+///
+/// S258: when FECS is warm and `open_vfio()` succeeds, `vfio_open` is `true`
+/// and `channel_id` contains the PFIFO channel ID for PBDMA dispatch.
+#[derive(Debug, Clone, Deserialize)]
+pub struct WarmCatchResult {
+    pub bdf: String,
+    #[serde(default)]
+    pub fecs_ready: bool,
+    #[serde(default)]
+    pub chip_id: Option<u32>,
+    #[serde(default)]
+    pub capabilities: Option<serde_json::Value>,
+    #[serde(default)]
+    pub summary: Option<String>,
+    /// Whether `open_vfio()` succeeded (S258 PBDMA channel ready).
+    #[serde(default)]
+    pub vfio_open: bool,
+    /// PFIFO channel ID if VFIO dispatch is initialized.
+    #[serde(default)]
+    pub channel_id: Option<u32>,
 }
 
 /// Result of `sovereign.boot` — full orchestrated sovereign boot.
@@ -681,7 +797,7 @@ mod tests {
         let json = serde_json::json!({
             "bdf": "0000:03:00.0",
             "warm_driver": "nouveau",
-            "recipe_path": "/var/lib/coralreef/training/gv100.json",
+            "recipe_path": "/var/lib/toadstool/training/gv100.json",
             "total_writes": 342,
             "success": true,
             "summary": "captured 342 training writes for gv100",
@@ -694,6 +810,38 @@ mod tests {
         assert!(result.success);
         assert_eq!(result.total_writes, 342);
         assert_eq!(result.steps.len(), 1);
+    }
+
+    #[test]
+    fn warm_catch_params_shape() {
+        let params = serde_json::json!({"bdf": "0000:02:00.0"});
+        let req = jsonrpc_request_object("device.warm_catch", &params);
+        assert_eq!(req["method"], "device.warm_catch");
+        assert_eq!(req["params"]["bdf"], "0000:02:00.0");
+    }
+
+    #[test]
+    fn warm_catch_result_deserializes() {
+        let json = serde_json::json!({
+            "bdf": "0000:02:00.0",
+            "fecs_ready": true,
+            "chip_id": 0x1d81,
+            "summary": "GV100 warm FECS detected — compute-ready"
+        });
+        let result: WarmCatchResult =
+            serde_json::from_value(json).expect("deserialize WarmCatchResult");
+        assert!(result.fecs_ready);
+        assert_eq!(result.chip_id, Some(0x1d81));
+        assert_eq!(result.bdf, "0000:02:00.0");
+    }
+
+    #[test]
+    fn warm_catch_result_deserializes_minimal() {
+        let json = serde_json::json!({ "bdf": "0000:4b:00.0" });
+        let result: WarmCatchResult =
+            serde_json::from_value(json).expect("deserialize minimal WarmCatchResult");
+        assert!(!result.fecs_ready);
+        assert!(result.chip_id.is_none());
     }
 
     #[test]

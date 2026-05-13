@@ -2,7 +2,7 @@
 
 //! Per-ember JSON-RPC client: MMIO, falcon, SEC2, PRAMIN, DMA, and flood testing.
 //!
-//! `EmberClient` wraps a single Unix socket to one coral-ember instance.
+//! `EmberClient` wraps a single Unix socket to one toadstool-ember instance.
 //! `FleetEmberHub` manages a stable client per socket. `flood_test`
 //! stress-tests an ember with concurrent RPCs.
 
@@ -121,7 +121,7 @@ impl EmberClient {
         Ok(out)
     }
 
-    /// `ember.adopt_device` — JSON-RPC only (current coral-ember opens VFIO server-side).
+    /// `ember.adopt_device` — JSON-RPC only (toadstool-ember opens VFIO server-side).
     ///
     /// Prefers `call_by_capability("compute", "ember.adopt_device", …)` via NUCLEUS,
     /// falling back to direct socket RPC.

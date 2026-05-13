@@ -94,7 +94,7 @@ fn main() {
         Err(e) => {
             eprintln!("device.list failed: {e}");
             eprintln!(
-                "Is coral-glowplug running?  systemctl status coral-glowplug  (socket: {})",
+                "Is toadstool-ember running?  systemctl status toadstool-ember  (socket: {})",
                 glowplug_socket()
             );
             std::process::exit(1);
@@ -102,7 +102,7 @@ fn main() {
     };
 
     if devices.is_empty() {
-        println!("No managed devices found. Is coral-glowplug running with managed GPUs?");
+        println!("No managed devices found. Is toadstool-ember running with managed GPUs?");
         std::process::exit(1);
     }
 

@@ -5,6 +5,11 @@ for the hotSpring validation spring. This is **not** the ecosystem-level
 `infra/wateringHole/` — it is hotSpring's local working area for hardware
 experimentation and cross-session knowledge transfer.
 
+**Historical naming:** References to `coral-ember` in this directory (handoffs,
+tables, scripts) are **historical**. As of May 2026 the diesel-engine lineage
+(ember / glowplug / cylinder) has been absorbed into **toadStool**; read those
+names as fossil-record context unless a note explicitly marks current wiring.
+
 Earlier handoffs (Apr 16 – May 7) were migrated to `ecoPrimals/infra/wateringHole/handoffs/`.
 Only the most recent local handoffs are retained here.
 

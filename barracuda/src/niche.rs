@@ -243,6 +243,10 @@ pub const ROUTED_CAPABILITIES: &[(&str, &str)] = &[
     ("device.reacquire", "toadstool"),
     ("device.swap", "toadstool"),
     ("device.warm_catch", "toadstool"),
+    // VFIO PBDMA dispatch (toadStool S258 — DMA alloc/upload/readback/dispatch/sync)
+    ("device.vfio.open", "toadstool"),
+    ("device.vfio.alloc", "toadstool"),
+    ("device.vfio.roundtrip", "toadstool"),
     // MMIO (toadStool S252 — hardware register access)
     ("mmio.read32", "toadstool"),
     ("mmio.write32", "toadstool"),
@@ -256,18 +260,25 @@ pub const ROUTED_CAPABILITIES: &[(&str, &str)] = &[
     ("ember.fecs.state", "toadstool"),
     ("ember.device.health", "toadstool"),
     ("ember.device.recover", "toadstool"),
-    // Sovereign boot (toadStool — via SwapOrchestrator)
+    // Semantic aliases (toadStool S255 — backward compat for hotSpring callers)
+    ("ember.swap", "toadstool"),
     ("sovereign.boot", "toadstool"),
     // Auth (toadStool MethodGate — operational)
     ("auth.check", "toadstool"),
     ("auth.mode", "toadstool"),
+    ("auth.peer_info", "toadstool"),
     // Provenance (toadStool — operational)
     ("provenance.query", "toadstool"),
+    ("provenance.get", "toadstool"),
     // Precision advisory (barraCuda v0.4.0 — operational)
     ("precision.route", "barracuda"),
     // Shader compilation (coralReef — operational, pure compiler)
     ("shader.compile.wgsl", "coralreef"),
     ("shader.compile.spirv", "coralreef"),
+    ("shader.compile.wgsl.multi", "coralreef"),
+    ("shader.compile.gemm", "coralreef"),
+    ("shader.compile.status", "coralreef"),
+    ("shader.compile.capabilities", "coralreef"),
     // Shader dispatch (toadStool — accepts compiled binaries)
     ("shader.dispatch", "toadstool"),
     // Storage (NestGate)
@@ -462,6 +473,12 @@ pub fn socket_dirs() -> Vec<std::path::PathBuf> {
     }
     if let Ok(xdg) = std::env::var("XDG_RUNTIME_DIR") {
         dirs.push(PathBuf::from(xdg).join(ECOSYSTEM_SOCKET_DIR));
+    }
+
+    // System-level toadStool daemon (runs as root with RuntimeDirectory=toadstool)
+    let toadstool_sys = PathBuf::from("/run/toadstool").join(ECOSYSTEM_SOCKET_DIR);
+    if !dirs.contains(&toadstool_sys) {
+        dirs.push(toadstool_sys);
     }
 
     let user = std::env::var("USER").unwrap_or_else(|_| "unknown".to_string());

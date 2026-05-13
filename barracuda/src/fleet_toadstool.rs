@@ -3,10 +3,15 @@
 //! toadStool dispatch client: IPC path for `compute.dispatch.capabilities`
 //! and `compute.dispatch.submit`.
 //!
-//! This module provides a parallel dispatch path alongside the direct
-//! `coral-ember` socket path in [`crate::fleet_ember`]. When toadStool
-//! Phase C (cylinder absorption) completes, the `toadstool-dispatch`
-//! feature flag will become the default dispatch path.
+//! toadStool S258 wired PBDMA dispatch through `NvVfioComputeDevice`:
+//! `alloc()` → VFIO DMA, `upload()` → host memcpy, `dispatch()` → GPFIFO
+//! pushbuf + doorbell, `sync()` → poll GP_GET. AMD DRM live.
+//!
+//! ## E2E compute kernel pipeline
+//!
+//! coralReef compiles WGSL → PTX/SASS (including `shader.compile.gemm` for
+//! tensor-core HMMA). toadStool submits the compiled binary via PBDMA.
+//! coralReef = HOW (compiler), toadStool = WHERE (hardware/submission).
 //!
 //! ## Discovery
 //!
@@ -155,19 +160,21 @@ pub struct LocalDispatchResult {
 
 /// Phase D: attempt local dispatch via toadStool's `LocalDeviceFactory`.
 ///
-/// toadStool S250 shipped `LocalDeviceFactory` + `try_local_dispatch()` —
-/// dispatch without forwarding to coralReef. This function wraps that
-/// path via NUCLEUS IPC, enabling hotSpring to validate local dispatch
-/// parity with the standard coralReef-forwarded path.
+/// toadStool S258 wired PBDMA dispatch through `NvVfioComputeDevice`:
+/// `alloc()` → VFIO DMA, `upload()` → host memcpy into DMA buffer,
+/// `dispatch()` → GPFIFO pushbuffer submission via doorbell,
+/// `readback()` → host read from DMA buffer, `sync()` → poll GP_GET.
+/// AMD: full DRM compute dispatch live (GEM/PM4/fence).
+/// NVIDIA: FECS-gated (warm probe S256), PBDMA dispatch live (S258).
 ///
-/// Returns `None` when the `local-dispatch` feature is not enabled or
-/// when the toadStool endpoint doesn't support local dispatch.
+/// The `local_dispatch` + `phase_d` flags in the dispatch params signal
+/// toadStool to prefer the local factory path over IPC forwarding.
 ///
 /// # Phase D Protocol
 ///
-/// 1. Call `compute.dispatch.local` (Phase D method) via NUCLEUS
-/// 2. If unavailable, fall back to standard `compute.dispatch.submit`
-/// 3. Compare results for parity validation
+/// 1. Call `compute.dispatch.submit` with `local_dispatch: true` via NUCLEUS
+/// 2. toadStool routes to `LocalDeviceFactory` if available
+/// 3. Returns `LocalDispatchResult` with attempt/success status
 pub fn try_local_dispatch(
     nucleus: &NucleusContext,
     params: &serde_json::Value,

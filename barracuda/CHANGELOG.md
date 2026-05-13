@@ -5,6 +5,53 @@ All notable changes to the hotSpring BarraCuda validation crate.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased — coralReef Sprint 9 GEMM + Wire Compat Rewire (May 13, 2026)
+
+### Added
+- **GlowplugClient::compile_gemm()**: IPC wrapper for coralReef `shader.compile.gemm` — tensor-core GEMM kernel compilation (SM80+ `mma.sync.aligned`). f16→f32, f16→f16, TF32 precision modes.
+- **Capability registry**: +1 entry: `shader.compile.gemm` in both `niche.rs` and `capability_registry.toml`.
+
+### Fixed
+- **GPR field name**: `compute_dispatch.rs` now reads `"gprs"` (canonical wire name) in addition to `"gpr_count"` (legacy) from `shader_info` in compile responses. Aligns with coralReef's `CompilationInfoResponse` wire contract.
+
+### Changed
+- **fleet_toadstool.rs**: Doc comments updated to describe E2E compute kernel pipeline (coralReef compile → toadStool PBDMA submit).
+- **PRIMAL_GAPS.md**: HMMA GEMM codegen marked as SHIPPED. Wire compat alias support documented.
+
+## Unreleased — toadStool S258 PBDMA Dispatch Rewire (May 13, 2026)
+
+### Added
+- **GlowplugClient PBDMA surface**: `device_vfio_open()`, `device_vfio_alloc()`, `device_vfio_roundtrip()` — IPC wrappers for toadStool S258 VFIO PBDMA dispatch (DMA alloc, upload, readback, GPFIFO submission).
+- **WarmCatchResult.vfio_open/channel_id**: S258 fields — `vfio_open` indicates PBDMA channel ready, `channel_id` contains PFIFO channel ID.
+- **s_vfio_dispatch.rs PBDMA validation**: After warm catch, probes `device.vfio.open` + `device.vfio.roundtrip` for DMA buffer roundtrip verification.
+- **s_sovereign_dispatch.rs PBDMA routability**: Added `pbdma_open_routable` and `pbdma_roundtrip_routable` checks.
+- **Capability registry**: +3 entries: `device.vfio.open`, `device.vfio.alloc`, `device.vfio.roundtrip` in both `niche.rs` and `capability_registry.toml`.
+- **PRIMAL_GAPS.md**: NVIDIA PBDMA dispatch marked WIRED (S258). Phase D status updated to WIRED for both AMD and NVIDIA. Hardware validation checklist added (DMA roundtrip, GPFIFO NOP, warm channel, sync timing).
+
+### Changed
+- **fleet_toadstool.rs**: Doc comments updated to reflect S258 full `ComputeDevice` trait impl (alloc → upload → dispatch → sync → readback).
+- **GlowplugClient::dispatch()**: Doc updated to reference S258 PBDMA dispatch wiring.
+- **s_vfio_dispatch.rs header**: Updated to S258 PBDMA pipeline documentation.
+
+## Unreleased — Sovereign Compute Evolution (May 13, 2026)
+
+### Added
+- **GlowplugClient::device_warm_catch()**: New method for toadStool S252+ `device.warm_catch` RPC — catches warm GPU after driver handoff, probes FECS state. `WarmCatchResult` struct with `fecs_ready`, `chip_id`, `capabilities`. +3 tests.
+- **PrecisionAdvisory.dispatch_path**: New field from barraCuda Sprint 64 — `"wgpu"` | `"sovereign"` | `"unavailable"`. Consumed in `s_compute_trio` and `s_hotqcd_dispatch` validation checks.
+- **BarrierShaderValidation.binary_size/gpr_count**: Compile response metadata from coralReef `size`/`binary_b64` and `shader_info.gpr_count` fields.
+- **s_sovereign_dispatch.rs evolved**: Added `dispatch_path` validity checks, `device.warm_catch` routability, Phase D local dispatch probe (feature-gated).
+- **s_vfio_dispatch.rs evolved**: Replaced excised `coral-gpu` GpuContext path with toadStool IPC: `ember.fecs.state` probe, `device.warm_catch` with `expected_sm`, Phase D dispatch probe. No longer depends on `sovereign-dispatch` feature for sysfs/FECS checks.
+- **Capability registry**: +8 entries: `ember.swap`, `auth.peer_info`, `provenance.get`, `shader.compile.wgsl.multi`, `shader.compile.status`, `shader.compile.capabilities` in both `niche.rs` and `capability_registry.toml`.
+
+### Fixed
+- **IPC param mismatch**: hotSpring sent `"source"` to `shader.compile.wgsl` but coralReef expects `"wgsl_source"`. Fixed in 4 call sites: `s_compute_trio.rs`, `s_hotqcd_dispatch.rs` (×2), `compute_dispatch.rs`. Stale `format`/`source_type`/`target` params removed.
+- **CORALREEF_SOCKET deprecation**: `precision_brain.rs` now emits `log::warn!` when legacy `CORALREEF_SOCKET` is detected, directing to `TOADSTOOL_SOCKET`. `CORALREEF_MANIFEST` fallback removed.
+
+### Changed
+- **fleet_toadstool.rs docs**: Reflect Phase D completion (S254), `NvVfioComputeDevice` FECS-gated warm probe (S256), PBDMA next.
+- **GAP-HS-041 RESOLVED**: `stats.entropy` available as alias of `stats.shannon` since barraCuda Sprint 50.
+- **GAP-HS-027 updated**: `TensorSession::sub()`/`negate()` shipped (Sprint 66). Momentum-update primitives complete for HMC leapfrog.
+
 ## Unreleased — Trio Modern Rewire (May 13, 2026)
 
 ### Changed

@@ -283,6 +283,12 @@ pub struct BarrierShaderValidation {
     pub shader_path: String,
     pub compiled: bool,
     pub error: Option<String>,
+    /// Binary size in bytes (from coralReef `size` or `binary_b64` decode length).
+    #[serde(default)]
+    pub binary_size: Option<u64>,
+    /// GPU registers used (from coralReef `shader_info.gpr_count`).
+    #[serde(default)]
+    pub gpr_count: Option<u32>,
 }
 
 /// Validate that barrier/shared-memory WGSL shaders compile through
@@ -300,6 +306,8 @@ pub fn validate_barrier_shaders(nucleus: &NucleusContext) -> Vec<BarrierShaderVa
                 shader_path: path.to_string(),
                 compiled: false,
                 error: Some("shader compilation primal not available".into()),
+                binary_size: None,
+                gpr_count: None,
             })
             .collect();
     }
@@ -314,18 +322,32 @@ pub fn validate_barrier_shaders(nucleus: &NucleusContext) -> Vec<BarrierShaderVa
                         shader_path: rel_path.to_string(),
                         compiled: false,
                         error: Some(format!("read failed: {e}")),
+                        binary_size: None,
+                        gpr_count: None,
                     };
                 }
             };
 
             let params = serde_json::json!({
-                "source": shader_source,
-                "source_type": "wgsl",
+                "wgsl_source": shader_source,
             });
 
             match nucleus.call_by_capability("shader", "shader.compile.wgsl", params) {
                 Ok(resp) => {
                     let has_error = resp.get("error").is_some();
+                    let binary_size = resp
+                        .get("size")
+                        .and_then(serde_json::Value::as_u64)
+                        .or_else(|| {
+                            resp.get("binary_b64")
+                                .and_then(serde_json::Value::as_str)
+                                .map(|b| (b.len() as u64 * 3) / 4)
+                        });
+                    let gpr_count = resp
+                        .get("shader_info")
+                        .and_then(|si| si.get("gprs").or_else(|| si.get("gpr_count")))
+                        .and_then(serde_json::Value::as_u64)
+                        .map(|n| n as u32);
                     BarrierShaderValidation {
                         shader_path: rel_path.to_string(),
                         compiled: !has_error,
@@ -334,12 +356,16 @@ pub fn validate_barrier_shaders(nucleus: &NucleusContext) -> Vec<BarrierShaderVa
                         } else {
                             None
                         },
+                        binary_size,
+                        gpr_count,
                     }
                 }
                 Err(e) => BarrierShaderValidation {
                     shader_path: rel_path.to_string(),
                     compiled: false,
                     error: Some(format!("IPC failed: {e}")),
+                    binary_size: None,
+                    gpr_count: None,
                 },
             }
         })

@@ -14,7 +14,7 @@
 //!
 //! - **Ember-routed** (`--via-ember`):
 //!   Routes all reads through `ember.mmio.read` IPC, using the fork-isolated,
-//!   circuit-breaker-protected MMIO path in coral-ember. No sudo required if
+//!   circuit-breaker-protected MMIO path in toadstool-ember. No sudo required if
 //!   ember holds the VFIO fd. Validates that the ember MMIO pipeline produces
 //!   identical results to direct access.
 //!
@@ -92,13 +92,16 @@ fn resolve_ember_socket(bdf: &str) -> std::path::PathBuf {
             return std::path::PathBuf::from(sock);
         }
     }
-    let candidates = hotspring_barracuda::fleet_client::ember_socket_candidates(bdf);
-    for candidate in &candidates {
-        if candidate.exists() {
-            return candidate.clone();
-        }
+    let slug = bdf.replace(':', "-");
+    let fleet_sock = std::path::PathBuf::from(format!("/run/toadstool/fleet/ember-{slug}.sock"));
+    if fleet_sock.exists() {
+        return fleet_sock;
     }
-    candidates.into_iter().last().unwrap_or_default()
+    let per_device = std::path::PathBuf::from(format!("/run/toadstool/ember-{slug}.sock"));
+    if per_device.exists() {
+        return per_device;
+    }
+    per_device
 }
 
 fn main() {

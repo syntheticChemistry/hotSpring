@@ -1,15 +1,15 @@
 #!/bin/bash
-# gpu-ctl — GPU device control wrapper for coralReef
+# gpu-ctl — GPU device control wrapper for toadStool
 #
-# Driver operations (swap, bind, unbind, setup) delegate to coralctl for
+# Driver operations (swap, bind, unbind, setup) delegate to toadstool for
 # safe lifecycle management with rollback, watchdog, and driver_override cleanup.
 # Direct sysfs writes are only used for read-only status and power pinning.
 #
 # Usage:
-#   gpu-ctl swap   BDF DRIVER        # Hot-swap to new driver (via coralctl)
+#   gpu-ctl swap   BDF DRIVER        # Hot-swap to new driver (via toadstool)
 #   gpu-ctl d0     BDF               # Force D0 + pin power=on
 #   gpu-ctl status                    # Show all GPU states
-#   gpu-ctl setup                     # Full dual Titan V setup (via coralctl)
+#   gpu-ctl setup                     # Full dual Titan V setup (via toadstool)
 
 set -euo pipefail
 
@@ -17,19 +17,20 @@ sysfs_write() {
     echo "$2" | sudo -n tee "$1" > /dev/null 2>&1
 }
 
-require_coralctl() {
-    if ! command -v coralctl &>/dev/null; then
-        echo "ERROR: coralctl not found. Build with: cargo build --release -p coral-glowplug"
-        echo "       Driver operations require GlowPlug/Ember for safe swap lifecycle."
+require_toadstool() {
+    if ! command -v toadstool &>/dev/null; then
+        echo "ERROR: toadstool not found. Install from plasmidBin:"
+        echo "       cd infra/plasmidBin && ./fetch.sh --primal toadstool"
+        echo "       sudo install -m 755 primals/x86_64-unknown-linux-musl/toadstool /usr/local/bin/"
         exit 1
     fi
 }
 
 cmd_swap() {
-    require_coralctl
+    require_toadstool
     local bdf="$1" target="$2"
-    echo "Swapping $bdf → $target (via coralctl)"
-    coralctl swap "$bdf" "$target"
+    echo "Swapping $bdf → $target (via toadstool)"
+    toadstool device swap "$bdf" "$target"
 }
 
 cmd_d0() {
@@ -65,13 +66,13 @@ cmd_status() {
 }
 
 cmd_setup() {
-    require_coralctl
+    require_toadstool
     echo ">>> Setting up dual Titan V (oracle + VFIO target)..."
 
     local ORACLE="0000:03:00.0"
     local TARGET="0000:4a:00.0"
 
-    coralctl swap "$TARGET" vfio
+    toadstool device swap "$TARGET" vfio
     cmd_d0 "$TARGET"
 
     local oracle_drv=$(basename "$(readlink "/sys/bus/pci/devices/$ORACLE/driver" 2>/dev/null)" 2>/dev/null || echo "none")
@@ -81,7 +82,7 @@ cmd_setup() {
     cmd_status
     echo ""
     echo "Ready. Run tests with:"
-    echo "  CORALREEF_VFIO_BDF=$TARGET cargo test --test hw_nv_vfio --features vfio -- --ignored --test-threads=1"
+    echo "  TOADSTOOL_VFIO_BDF=$TARGET cargo test --test hw_nv_vfio --features vfio -- --ignored --test-threads=1"
 }
 
 case "${1:-help}" in
@@ -90,7 +91,7 @@ case "${1:-help}" in
     status) cmd_status ;;
     setup)  cmd_setup ;;
     *)
-        echo "gpu-ctl — coralReef GPU device control"
+        echo "gpu-ctl — toadStool GPU device control"
         echo ""
         echo "Usage:"
         echo "  gpu-ctl status                 Show all GPUs"
@@ -98,7 +99,7 @@ case "${1:-help}" in
         echo "  gpu-ctl swap BDF DRIVER        Hot-swap to new driver"
         echo "  gpu-ctl d0 BDF                 Force D0 power state"
         echo ""
-        echo "Driver operations delegate to coralctl (GlowPlug/Ember) for safe"
+        echo "Driver operations delegate to toadstool (ember/cylinder) for safe"
         echo "swap lifecycle with rollback, watchdog, and driver_override cleanup."
         ;;
 esac

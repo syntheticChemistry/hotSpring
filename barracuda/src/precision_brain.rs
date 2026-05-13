@@ -54,10 +54,13 @@ fn detect_sovereign_available() -> bool {
     if nucleus.by_domain("shader").is_some_and(|e| e.alive) {
         return true;
     }
-    for var in ["TOADSTOOL_SOCKET", "CORALREEF_SOCKET", "CORALREEF_MANIFEST"] {
+    for var in ["TOADSTOOL_SOCKET", "CORALREEF_SOCKET"] {
         if let Ok(p) = std::env::var(var)
             && std::path::Path::new(&p).exists()
         {
+            if var.starts_with("CORALREEF_") {
+                log::warn!("{var} is deprecated — use TOADSTOOL_SOCKET");
+            }
             return true;
         }
     }

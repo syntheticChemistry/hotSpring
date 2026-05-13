@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Typed response structs for coral-ember IPC (JSON-RPC 2.0).
+//! Typed response structs for toadstool-ember IPC (JSON-RPC 2.0).
 //!
 //! Maps the JSON payloads returned by ember's fork-isolated MMIO, falcon,
 //! SEC2, PRAMIN, and DMA handlers into Rust types for use by experiment

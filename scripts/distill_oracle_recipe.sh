@@ -54,4 +54,4 @@ fi
 
 echo ""
 echo ">>> Next: Load in GlowPlug with:"
-echo "    CORALREEF_ORACLE_RECIPE=$OUTPUT cargo test ..."
+echo "    TOADSTOOL_ORACLE_RECIPE=$OUTPUT cargo test ..."

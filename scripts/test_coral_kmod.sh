@@ -7,7 +7,8 @@
 #   1. Build coral_kmod.ko
 #   2. Load it
 #   3. Verify /dev/coral-rm exists
-#   4. Run the hotSpring benchmark suite (which uses coral-driver → coral-kmod path)
+#   4. Run the hotSpring benchmark suite (legacy coral_kmod assist path; modern
+#      stack exercises toadstool-cylinder / nvidia-drm integration instead)
 #   5. Unload
 set -euo pipefail
 

@@ -1,112 +1,72 @@
-# hotSpring Scripts
+# scripts/ — hotSpring Operational Scripts
 
 ## Safety Policy
 
-**All GPU driver transitions (bind, unbind, swap) MUST go through `coralctl`
-(GlowPlug/Ember).** Raw sysfs writes to `driver_override`, `bind`, `unbind`,
+**All GPU driver transitions (bind, unbind, swap) MUST go through `toadstool device`
+(toadStool daemon).** Raw sysfs writes to `driver_override`, `bind`, `unbind`,
 or `drivers_probe` are prohibited in new scripts.
-
-Why: Raw sysfs writes bypass Ember's safety mechanisms:
-- **Atomic rollback** — if bind fails, Ember re-binds the previous driver
-- **D-state watchdog** — process-isolated sysfs writes with 10s timeout
-- **driver_override cleanup** — always cleared after bind attempts
-- **Pre-swap validation** — module existence check, power state, config space
-- **IOMMU group handling** — symmetric bind/release for multi-device groups
-
-Gap 13 (Exp 089c) demonstrated that raw sysfs scripts can cause D-state hangs
-requiring forced power-off.
 
 ## Active Scripts
 
-| Script | Purpose | Safe? |
-|--------|---------|-------|
-| `build_nvidia_oracle.sh` | Build nvidia_oracle.ko from source | Yes (build only) |
-| `ci-coverage-gate.sh` | CI coverage gate (thresholds / reporting) | Yes |
-| `clone-repos.sh` | Clone project repositories | Yes |
-| `coverage.sh` | Local coverage workflow | Yes |
-| `distill_oracle_recipe.sh` | Oracle recipe distillation via toadStool hw-learn | Read-only |
-| `harvest-ecobin.sh` | Harvest ecobin artifacts | Yes |
+| Script | Description | Safe to run? |
+|--------|-------------|-------------|
 | `regenerate-all.sh` | Full project regeneration | Yes |
 | `boot/*.sh` | Boot-time setup scripts | Yes |
-| ~~`lab/k80_warm_catch.sh`~~ | **ARCHIVED** → `coralctl warm-catch <BDF> --memory-type gddr5` | Replaced by pure Rust |
-| ~~`lab/titanv_warm_handoff.sh`~~ | **ARCHIVED** → `coralctl warm-catch <BDF> --memory-type hbm2` | Replaced by pure Rust |
-| ~~`lab/patch_nouveau_teardown.py`~~ | **ARCHIVED** → `coral_driver::tools::elf_patcher` | Replaced by pure Rust |
+| ~~`lab/k80_warm_catch.sh`~~ | **ARCHIVED** → `toadstool device warm-catch <BDF> --memory-type gddr5` | Replaced by pure Rust |
+| ~~`lab/titanv_warm_handoff.sh`~~ | **ARCHIVED** → `toadstool device warm-catch <BDF> --memory-type hbm2` | Replaced by pure Rust |
+| ~~`lab/patch_nouveau_teardown.py`~~ | **ARCHIVED** → `toadstool_cylinder::tools::elf_patcher` | Replaced by pure Rust |
 
-| `validate-primal-proof.sh` | Primal proof validation (primalSpring v0.9.17). Bare mode (no NUCLEUS) or `--full` (pre-flight `primalspring_guidestone` + domain `hotspring_guidestone`). Builds from `barracuda/`, runs from repo root so `validation/CHECKSUMS` resolves. Auto-sets `BEARDOG_FAMILY_SEED`, `SONGBIRD_SECURITY_PROVIDER`, `NESTGATE_JWT_SECRET` when `FAMILY_ID` is provided. | Yes |
-
-| `tools/hotspring_composition.sh` | Event-driven QCD composition via NUCLEUS library (Phase 46). Async tick model (convergence-based), DAG memoization for parameter sweeps, ledger-sealed runs, scientific provenance braids. Run with `COMPOSITION_NAME=hotspring ./tools/hotspring_composition.sh`. Degrades gracefully without NUCLEUS. | Yes |
+| Script | Description | Safe to run? |
+|--------|-------------|-------------|
 | `tools/nucleus_composition_lib.sh` | NUCLEUS composition library (copied from primalSpring Phase 46). 41 functions: discovery, transport, DAG, ledger, braids, petalTongue, sensor streams. Sourced by `hotspring_composition.sh`. | Yes |
 
-| ~~`k80_nouveau_post.sh`~~ | **ARCHIVED** → `coralctl warm-catch <BDF> --memory-type gddr5` | Replaced by pure Rust |
 | `gpu-solve/titan-v-module-swap.sh` | Swap nvidia-580 → nvidia-470 for Titan V compute testing | Requires root (TTY/SSH) |
-| `test_coral_kmod.sh` | Validate coral-reef kmod compilation and loading | Yes |
-| `hw-test` | Hardware test dispatch helper | Yes |
-| `gpu-ctl` | GPU power state management (D0 pinning) | Yes (power only) |
-| `livepatch/` | Livepatch kernel module source (SUPERSEDED by binary patching on kernel 6.17+) | Reference only |
-| `boot/` | Boot-time udev rules, systemd units, sudoers, and install helpers | Yes |
 
-Other non-archived helpers in `scripts/` (e.g. `build-container.sh`, `build-guidestone.sh`, `download-data.sh`, `prepare-usb.sh`, `setup-envs.sh`, `validate-guidestone-multi.sh`) are also active as needed for builds and lab setup.
+## Deployment
 
-All Python lab analysis scripts and the `titan_timing_attack.sh` experiment script
-have been archived — their functionality is now available via `coralctl` subcommands
-(see archive table below).
+Deployment is handled by **plasmidBin** (ecoBin deployment):
 
-### Deployment
+```bash
+cd infra/plasmidBin
+./fetch.sh --primal toadstool
+sudo install -m 755 primals/toadstool /usr/local/bin/toadstool
+```
 
-Deploy scripts (`deploy_glowplug.sh`, `deploy_ember_first_time.sh`, etc.) have been
-archived — deployment is now handled by `coralctl deploy` or the systemd service
-units shipped in the `coral-glowplug` crate (`coral-glowplug.service`,
-`coral-ember.service`).
+Or via the local install script:
+
+```bash
+sudo ./scripts/boot/install-glowplug.sh  # Uses plasmidBin, falls back to cargo build
+```
+
+Systemd units are at `scripts/boot/toadstool-ember.service` and
+`scripts/boot/toadstool-glowplug.service`.
 
 ## Archived Scripts (scripts/archive/) — Fossil Record
 
-**Archived 2026-03-25.** All scripts in `archive/` are superseded by `coralctl`
+**Archived 2026-03-25.** All scripts in `archive/` are superseded by `toadstool device`
 commands. They are preserved as fossil record of the evolution from manual
 scripting to daemon-managed GPU lifecycle.
 
 | Archived Script | Replaced By |
 |-----------------|-------------|
-| `read_bar0_regs.py` | `coralctl mmio read <BDF> <offset>` |
-| `read_bar0_deep.py` | `coralctl probe <BDF>` |
-| `test_pramin.py` | `coralctl vram-probe <BDF>` |
-| `capture_gr_registers.py` | `coralctl snapshot save <BDF>` |
-| `compare_gr_state.py` | `coralctl snapshot diff <BDF>` |
-| `compare_snapshots.py` | `coralctl snapshot diff <BDF>` |
-| `exp070_backend_matrix.sh` | `coralctl experiment sweep <BDF>` |
-| `exp086_run_matrix.sh` | `coralctl experiment sweep <BDF>` |
-| `exp086_falcon_profiler.py` | `coralctl probe <BDF>` |
-| `exp086_analyze.py` | `coralctl journal stats` |
-| `exp089_sec2_cmdq_probe.py` | Absorbed into coral-driver diagnostic module |
-| `cross_card_oracle.py` | `coralctl experiment sweep` + journal |
-| `bind-titanv-vfio.sh` | `coralctl swap <BDF> vfio` |
-| `unbind-titanv-vfio.sh` | `coralctl swap <BDF> unbound` |
-| `rebind_titanv_*.sh` | `coralctl swap <BDF> <target>` |
-| `vfio-bind-quick.sh` | `coralctl swap <BDF> vfio` |
-| `setup_dual_titanv.sh` | `glowplug.toml` config + systemd |
-| `warm_and_test.sh` | `coralctl warm-fecs <BDF>` |
-| `capture_nouveau_mmiotrace*.sh` | `coralctl swap <BDF> nouveau --trace` |
-| `capture_mmiotrace_oracle.sh` | `coralctl experiment sweep --trace` |
-| `exp084_b1b4_test.sh` | Absorbed into coral-driver test suite |
-| `exp089b_warm_swap_test.sh` | `coralctl warm-fecs <BDF>` |
-| `capture_multi_backend.sh` | `coralctl swap <BDF> <target> --trace` |
-| `titan_timing_attack.sh` | `coralctl warm-fecs <BDF>` (Exp 127 complete) |
-| `warm_handoff_test.sh` | `lab/k80_warm_catch.sh` + `lab/titanv_warm_handoff.sh` (binary-patched nouveau) |
-| `k80_nouveau_post.sh` | `coralctl warm-catch <BDF> --memory-type gddr5` (pure Rust warm-catch replaces shell POST pipeline) |
-| `k80_warm_catch.sh` | `coralctl warm-catch <BDF> --memory-type gddr5` (pure Rust: `coral_driver::tools::elf_patcher` + `coral_ember::handlers_warm_catch`) |
-| `titanv_warm_handoff.sh` | `coralctl warm-catch <BDF> --memory-type hbm2` (pure Rust) |
-| `patch_nouveau_teardown.py` | `coral_driver::tools::elf_patcher::KmodPatcher` (pure Rust, zero subprocess calls) |
-| `bpf_warm_catch_guard.py` | **NOT FUNCTIONAL** — retained as reference (BPF approach blocked by missing `ALLOW_ERROR_INJECTION` in nouveau) |
-| `bar0_read.py` | `coralctl mmio read <BDF> <offset>` |
-| `parse_mmiotrace.py` | `coralctl trace-parse <file>` |
-| `replay_devinit.py` | `coralctl devinit replay <BDF>` |
-| `generate_titanv_recipe.py` | `coralctl trace-parse --recipe-json <file>` |
-| `extract_devinit.py` | `coralctl devinit replay <BDF>` |
-| `apply_recipe.py` | `coralctl oracle apply <BDF> <recipe>` |
-| `run_reagent_capture.sh` | Historical — preserved under `scripts/archive/` (agentReagents VM capture) |
+| `read_bar0_regs.py` | `toadstool device mmio read <BDF> <offset>` |
+| `read_bar0_deep.py` | `toadstool device probe <BDF>` |
+| `test_pramin.py` | `toadstool device vram-probe <BDF>` |
+| `capture_gr_registers.py` | `toadstool device snapshot save <BDF>` |
+| `compare_gr_state.py` | `toadstool device snapshot diff <BDF>` |
+| `compare_snapshots.py` | `toadstool device snapshot diff <BDF>` |
+| `exp070_backend_matrix.sh` | `toadstool device experiment sweep <BDF>` |
+| `bind-titanv-vfio.sh` | `toadstool device swap <BDF> vfio` |
+| `unbind-titanv-vfio.sh` | `toadstool device swap <BDF> unbound` |
+| `rebind_titanv_*.sh` | `toadstool device swap <BDF> <target>` |
+| `warm_and_test.sh` | `toadstool device warm-catch <BDF>` |
+| `k80_nouveau_post.sh` | `toadstool device warm-catch <BDF> --memory-type gddr5` |
+| `k80_warm_catch.sh` | `toadstool device warm-catch <BDF> --memory-type gddr5` |
+| `titanv_warm_handoff.sh` | `toadstool device warm-catch <BDF> --memory-type hbm2` |
+| `patch_nouveau_teardown.py` | `toadstool_cylinder::tools::elf_patcher::KmodPatcher` (pure Rust) |
 
 ## Adding New Scripts
 
-1. Driver transitions: use `coralctl swap <BDF> <target>`
+1. Driver transitions: use `toadstool device swap <BDF> <target>`
 2. Register reads: BAR0 mmap or VFIO test harness (safe, no writes)
 3. Power management: `gpu-ctl d0 <BDF>` (power pinning only)
-4. Never write directly to `driver_override`, `bind`, `unbind`, or `remove`

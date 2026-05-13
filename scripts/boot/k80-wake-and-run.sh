@@ -19,10 +19,10 @@
 #   1. Verify PLX PEX 8747 + K80 config space accessible
 #   2. Enable MSE + Bus Master on K80s (config space writes, safe)
 #   3. Pin PLX subtree to D0 (power/control sysfs, safe)
-#   4. Ensure coral-ember is running (holds VFIO fds + PCIe switch keepalive)
-#   5. Ensure coral-glowplug is running (device lifecycle broker)
+#   4. Ensure toadstool-ember is running (holds VFIO fds + PCIe switch keepalive)
+#   5. Ensure toadstool-glowplug is running (device lifecycle broker)
 #   6. Verify ember's PCIe switch keepalive (replaces plx-keepalive.service)
-#   7. coralctl sovereign-boot — full sovereign pipeline via coral stack
+#   7. toadstool device sovereign-boot — full sovereign pipeline via toadStool stack
 #      On cold K80: kepler_falcon_boot handles GR init from scratch
 #      GDDR5 not trained → memory_training=Failed (non-fatal), GR_READY still set
 #      compute_ready=true requires both GR_READY + VRAM; cold boot gets GR_READY
@@ -220,7 +220,7 @@ for sw in switches:
 " 2>/dev/null; then
     echo "    ember switch keepalive OK  ✓"
 else
-    echo "    WARN: switch may be dead — check journalctl -u coral-ember"
+    echo "    WARN: switch may be dead — check journalctl -u toadstool-ember"
 fi
 
 # ── Step 8: Sovereign boot via coral stack ────────────────────────────────────
@@ -233,10 +233,10 @@ fi
 # compute_ready=true requires both GR_READY + VRAM sentinel — cold boot may
 # achieve GR_READY only. VRAM training is a future sovereign_stage task.
 echo ""
-echo "[8] Running sovereign boot on K80 die0 via toadstoolctl..."
+echo "[8] Running sovereign boot on K80 die0 via toadstool..."
 echo "========================================"
 
-SOVEREIGN_JSON=$(TOADSTOOL_EMBER_SOCKET="$EMBER_SOCK" toadstoolctl sovereign-boot "$K80_DIE0" 2>&1) || true
+SOVEREIGN_JSON=$(TOADSTOOL_EMBER_SOCKET="$EMBER_SOCK" toadstool device sovereign-boot "$K80_DIE0" 2>&1) || true
 echo "$SOVEREIGN_JSON"
 
 # Extract per-stage outcomes for triage

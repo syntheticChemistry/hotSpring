@@ -14,8 +14,8 @@
 //! ipc::composition     — AtomicType, validate_atomic, composition_health
 //! ipc::biome_status    — biomeOS composition.status (v3.51)
 //! ipc::method_register — biomeOS method.register (v3.51)
-//! ipc::glowplug        — GlowplugClient (coral-glowplug shader dispatch)
-//! ipc::ember           — EmberClient, FleetEmberHub (coral-ember MMIO/falcon)
+//! ipc::glowplug        — GlowplugClient (toadStool compute dispatch)
+//! ipc::ember           — EmberClient, FleetEmberHub (toadstool-ember MMIO/falcon)
 //! ipc::fleet           — FleetClient (multi-ember fleet discovery)
 //! ipc::squirrel        — SquirrelClient (inference via neuralSpring/squirrel)
 //! ipc::toadstool       — ToadStool performance surface reporter
@@ -66,7 +66,7 @@ pub mod composition {
     };
 }
 
-/// coral-glowplug JSON-RPC client (shader dispatch, device listing, BAR0 probes).
+/// toadStool JSON-RPC client (shader dispatch, device listing, BAR0 probes).
 ///
 /// Re-exports from [`crate::glowplug_client`].
 pub mod glowplug {
@@ -77,7 +77,7 @@ pub mod glowplug {
     };
 }
 
-/// coral-ember per-instance JSON-RPC client (MMIO, falcon, SEC2, PRAMIN, DMA).
+/// toadstool-ember per-instance JSON-RPC client (MMIO, falcon, SEC2, PRAMIN, DMA).
 ///
 /// Re-exports from [`crate::fleet_ember`].
 pub mod ember {

@@ -55,7 +55,16 @@ pub fn run(v: &mut ValidationHarness) {
         precision_responded || !t2.barracuda_alive,
     );
     if let Some(pa) = &advisory {
-        v.check_bool("sovereign:precision_has_hint", pa.hardware_hint.is_some());
+        v.check_bool(
+            "sovereign:precision_has_hint",
+            pa.hardware_hint.is_some(),
+        );
+        let has_dispatch_path = pa.dispatch_path.is_some();
+        v.check_bool("sovereign:dispatch_path_reported", has_dispatch_path || !t2.barracuda_alive);
+        if let Some(ref dp) = pa.dispatch_path {
+            let valid = dp == "wgpu" || dp == "sovereign" || dp == "unavailable";
+            v.check_bool("sovereign:dispatch_path_valid", valid);
+        }
     }
 
     // --- Sovereign dispatch probe ---
@@ -106,12 +115,40 @@ pub fn run(v: &mut ValidationHarness) {
         );
     }
 
+    // --- Warm catch (toadStool S256+ device.warm_catch) ---
+    let warm_catch_available = nucleus
+        .get_by_capability("device.warm_catch")
+        .is_some_and(|ep| ep.alive);
+    v.check_bool("sovereign:warm_catch_routable", warm_catch_available || !t2.toadstool_alive);
+
+    // --- PBDMA dispatch surface (toadStool S258) ---
+    let vfio_open_available = nucleus
+        .get_by_capability("device.vfio.open")
+        .is_some_and(|ep| ep.alive);
+    v.check_bool("sovereign:pbdma_open_routable", vfio_open_available || !t2.toadstool_alive);
+
+    let vfio_roundtrip_available = nucleus
+        .get_by_capability("device.vfio.roundtrip")
+        .is_some_and(|ep| ep.alive);
+    v.check_bool("sovereign:pbdma_roundtrip_routable", vfio_roundtrip_available || !t2.toadstool_alive);
+
     // --- Warm cycle routable ---
     let warm_available = nucleus
         .get_by_capability("ember.warm_cycle")
         .is_some_and(|ep| ep.alive);
-    v.check_bool(
-        "sovereign:warm_cycle_routable",
-        warm_available || !t2.toadstool_alive,
-    );
+    v.check_bool("sovereign:warm_cycle_routable", warm_available || !t2.toadstool_alive);
+
+    // --- Phase D local dispatch probe ---
+    #[cfg(feature = "toadstool-dispatch")]
+    if dispatch_available {
+        let local = crate::fleet_toadstool::try_local_dispatch(
+            &nucleus,
+            &serde_json::json!({
+                "workload": "hotspring-phase-d-probe",
+                "kind": "health_check",
+                "dry_run": true,
+            }),
+        );
+        v.check_bool("sovereign:phase_d_attempted", local.attempted);
+    }
 }

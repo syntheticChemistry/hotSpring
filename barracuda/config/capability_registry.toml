@@ -267,6 +267,26 @@ served = "routed"
 provider = "toadstool"
 domain = "compute"
 
+# ── VFIO PBDMA dispatch (toadStool S258) ──────────────────────────────
+
+[[capabilities]]
+method = "device.vfio.open"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+[[capabilities]]
+method = "device.vfio.alloc"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+[[capabilities]]
+method = "device.vfio.roundtrip"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
 # ── MMIO (toadStool S252 — hardware register access) ─────────────────
 
 [[capabilities]]
@@ -339,9 +359,15 @@ served = "routed"
 provider = "toadstool"
 domain = "compute"
 
-# ── Sovereign boot (toadStool — via SwapOrchestrator) ─────────────────
-# Not a JSON-RPC method name; orchestration via toadstool device CLI
-# and GlowPlugClient::execute_boot. Kept for routing metadata.
+# ── Semantic aliases (toadStool S255 — backward compat) ──────────────
+# ember.swap and sovereign.boot are semantic aliases to device.swap
+# in toadStool. hotSpring GlowplugClient uses these names.
+
+[[capabilities]]
+method = "ember.swap"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
 
 [[capabilities]]
 method = "sovereign.boot"
@@ -483,10 +509,22 @@ served = "routed"
 provider = "toadstool"
 domain = "compute"
 
+[[capabilities]]
+method = "auth.peer_info"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
 # ── Provenance (toadStool — operational) ──────────────────────────────
 
 [[capabilities]]
 method = "provenance.query"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+[[capabilities]]
+method = "provenance.get"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
@@ -509,6 +547,30 @@ domain = "shader"
 
 [[capabilities]]
 method = "shader.compile.spirv"
+served = "routed"
+provider = "coralreef"
+domain = "shader"
+
+[[capabilities]]
+method = "shader.compile.wgsl.multi"
+served = "routed"
+provider = "coralreef"
+domain = "shader"
+
+[[capabilities]]
+method = "shader.compile.gemm"
+served = "routed"
+provider = "coralreef"
+domain = "shader"
+
+[[capabilities]]
+method = "shader.compile.status"
+served = "routed"
+provider = "coralreef"
+domain = "shader"
+
+[[capabilities]]
+method = "shader.compile.capabilities"
 served = "routed"
 provider = "coralreef"
 domain = "shader"

@@ -9,7 +9,7 @@
 #   2. Unloads nvidia-580 modules
 #   3. Loads nvidia-470 modules from DKMS build path
 #   4. Binds Titan V to nvidia-470
-#   5. Runs coral-driver hw_nv_buffers tests targeting the Titan V
+#   5. Runs toadstool-cylinder hw_nv_buffers tests targeting the Titan V
 #   6. Restores nvidia-580 and restarts display
 #
 # MUST be run from: TTY (Ctrl+Alt+F2) or SSH — NOT from a graphical terminal.
@@ -21,7 +21,7 @@ TITAN_V_BDF="0000:02:00.0"
 TITAN_V_AUDIO_BDF="0000:02:00.1"
 RTX_5060_BDF="0000:21:00.0"
 NVIDIA_470_DIR="/var/lib/dkms/nvidia/470.256.02/$(uname -r)/x86_64/module"
-CORAL_ROOT="${CORAL_ROOT:-$HOME/Development/ecoPrimals/primals/coralReef}"
+TOADSTOOL_ROOT="${TOADSTOOL_ROOT:-$HOME/Development/ecoPrimals/primals/toadStool}"
 RUSTUP="${CARGO:-$HOME/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo}"
 
 log() { echo "[$(date '+%H:%M:%S')] $*"; }
@@ -130,11 +130,11 @@ bind_titan_v() {
 }
 
 run_tests() {
-    log "Running coral-driver hw_nv_buffers tests on Titan V..."
-    cd "$CORAL_ROOT"
+    log "Running toadstool-cylinder hw_nv_buffers tests on Titan V..."
+    cd "$TOADSTOOL_ROOT"
 
     RUSTUP_TOOLCHAIN=stable "$RUSTUP" test \
-        --manifest-path crates/coral-driver/Cargo.toml \
+        --manifest-path crates/toadstool-cylinder/Cargo.toml \
         --features nvidia-drm \
         --test hw_nv_buffers \
         -- --ignored --nocapture 2>&1 | tee /tmp/titan-v-test-results.txt

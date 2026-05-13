@@ -63,8 +63,12 @@ impl NucleusContext {
                     let Some(stem) = path.file_stem().and_then(|s| s.to_str()) else {
                         continue;
                     };
-                    let Some((primal_name, _sock_family)) = stem.rsplit_once('-') else {
-                        continue;
+                    let primal_name = if let Some((name, _sock_family)) = stem.rsplit_once('-') {
+                        name
+                    } else {
+                        // Single-name socket (e.g. compute.sock, math.sock) —
+                        // use the stem as-is; aliases will map to canonical primal.
+                        stem
                     };
                     let ep = probe_socket(&path, primal_name);
                     discovered.insert(primal_name.to_string(), ep);
@@ -78,7 +82,9 @@ impl NucleusContext {
         }
     }
 
-    fn empty(family: &str) -> Self {
+    /// Build an empty context with no discovered primals (for testing).
+    #[must_use]
+    pub fn empty(family: &str) -> Self {
         Self {
             discovered: HashMap::new(),
             family_id: family.to_string(),
@@ -95,8 +101,7 @@ impl NucleusContext {
         if let Some(ep) = self.discovered.get(primal) {
             return Some(ep);
         }
-        // coral-glowplug is the fleet orchestrator that also serves shader capabilities;
-        // fall through when the direct name isn't found.
+        // Fall through to alias table when the direct name isn't found.
         for &alias in known_aliases(primal) {
             if let Some(ep) = self.discovered.get(alias) {
                 return Some(ep);
@@ -164,6 +169,44 @@ impl NucleusContext {
     /// `capability.list` includes a capability string starting with `capability_domain`.
     #[must_use]
     pub fn get_by_capability(&self, capability_domain: &str) -> Option<&PrimalEndpoint> {
+        // First pass: exact `provided_capabilities.type` match (strongest signal)
+        let by_type = self.discovered.values().find(|ep| {
+            ep.alive
+                && ep
+                    .capabilities
+                    .as_ref()
+                    .and_then(|c| c.get("provided_capabilities"))
+                    .and_then(|a| a.as_array())
+                    .is_some_and(|arr| {
+                        arr.iter().any(|v| {
+                            v.get("type")
+                                .and_then(|t| t.as_str())
+                                .is_some_and(|t| t == capability_domain)
+                        })
+                    })
+        });
+        if by_type.is_some() {
+            return by_type;
+        }
+
+        // Second pass: `domains` array (barraCuda style)
+        let by_domain = self.discovered.values().find(|ep| {
+            ep.alive
+                && ep
+                    .capabilities
+                    .as_ref()
+                    .and_then(|c| c.get("domains"))
+                    .and_then(|a| a.as_array())
+                    .is_some_and(|arr| {
+                        arr.iter()
+                            .any(|v| v.as_str().is_some_and(|s| s == capability_domain))
+                    })
+        });
+        if by_domain.is_some() {
+            return by_domain;
+        }
+
+        // Legacy: flat `capabilities` array (test harness format, prefix match)
         self.discovered.values().find(|ep| {
             ep.alive
                 && ep
@@ -267,13 +310,16 @@ fn collect_biomeos_socks(base: &Path, family: &str) -> Vec<PathBuf> {
         let Some(name) = path.file_stem().and_then(|s| s.to_str()) else {
             continue;
         };
-        let Some((_primal, sock_family)) = name.rsplit_once('-') else {
-            continue;
-        };
-        if sock_family != family {
-            continue;
+        if let Some((_primal, sock_family)) = name.rsplit_once('-') {
+            // {primal}-{family}.sock — only include if family matches
+            if sock_family == family {
+                out.push(path);
+            }
+        } else {
+            // {name}.sock (no family suffix) — e.g. compute.sock, math.sock
+            // These are single-instance primal sockets; always include.
+            out.push(path);
         }
-        out.push(path);
     }
     out.sort();
     out
@@ -352,7 +398,7 @@ const PRIMAL_ALIASES: &[(&str, &[&str])] = &[
         "toadstool",
         &["toadstool-server", "toadstool-glowplug", "compute"],
     ),
-    ("coralreef", &["coral-glowplug", "shader"]),
+    ("coralreef", &["coral-glowplug", "coralreef-core", "shader"]),
     ("barracuda", &["barracuda-core", "math"]),
 ];
 

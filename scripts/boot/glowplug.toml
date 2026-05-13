@@ -1,4 +1,4 @@
-# coralReef GlowPlug daemon configuration
+# toadStool ember daemon configuration
 # biomeGate: Titan V + RTX 5060 (display) + Tesla K80 (dual-GPU)
 #
 # health_policy: "passive" (default) = sysfs-only, no BAR0 reads
@@ -8,7 +8,7 @@
 # switch. Keep K80 passive until explicitly initialized.
 
 [daemon]
-socket = "/run/coralreef/glowplug.sock"
+socket = "/run/toadstool/ember.sock"
 log_level = "info"
 health_interval_ms = 5000
 
@@ -46,7 +46,7 @@ role = "compute"
 # IOMMU group 36, behind PLX PEX 8747 switch at 49:00.0
 # Boots cold on vfio-pci (UEFI does not POST secondary GPUs).
 # Kepler has no FLR — skip_sysfs_unbind=true in NvidiaKeplerLifecycle.
-# Initialization: coral-ember warm handoff or sovereign cold-boot pipeline.
+# Initialization: toadstool-ember warm handoff or sovereign cold-boot pipeline.
 [[device]]
 bdf = "0000:4c:00.0"
 name = "k80-gpu-2"

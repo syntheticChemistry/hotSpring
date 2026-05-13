@@ -74,11 +74,11 @@ pub mod dual_dispatch;
 /// Dual-card cooperative pipeline profiler (Split BCS, Split HMC, Redundant).
 #[cfg(feature = "barracuda-local")]
 pub mod dual_pipeline_eval;
-/// Typed response structs for coral-ember IPC (MMIO, falcon, SEC2, PRAMIN, DMA).
+/// Typed response structs for toadstool-ember IPC (MMIO, falcon, SEC2, PRAMIN, DMA).
 pub mod ember_types;
 /// Typed errors for GPU, simulation, and data-loading failure modes.
 pub mod error;
-/// coral-ember multi-instance fleet discovery and per-socket JSON-RPC routing.
+/// toadstool-ember multi-instance fleet discovery and per-socket JSON-RPC routing.
 pub mod fleet_client;
 /// Per-ember JSON-RPC client: MMIO, falcon, SEC2, PRAMIN, DMA, flood testing.
 pub mod fleet_ember;
@@ -86,7 +86,7 @@ pub mod fleet_ember;
 /// Parallel to fleet_ember — preparation for toadStool Phase C migration.
 #[cfg(feature = "toadstool-dispatch")]
 pub mod fleet_toadstool;
-/// JSON-RPC client for coral-glowplug.
+/// JSON-RPC client for toadStool compute dispatch.
 ///
 /// Covers `device.dispatch`, `device.list`, health checks, and related helpers.
 pub mod glowplug_client;

@@ -44,14 +44,16 @@ pub fn run(v: &mut ValidationHarness) {
         "trio:precision_advisory",
         precision.is_some() || !math_alive,
     );
+    if let Some(ref adv) = precision {
+        let has_dispatch = adv.dispatch_path.is_some();
+        v.check_bool("trio:dispatch_path_reported", has_dispatch || !math_alive);
+    }
 
     // --- Phase 2: coralReef shader compilation ---
     let shader_alive = nucleus.by_domain("shader").is_some_and(|ep| ep.alive);
     if shader_alive {
         let compile_params = serde_json::json!({
-            "source": "// probe shader\n@compute @workgroup_size(1) fn main() {}",
-            "format": "wgsl",
-            "target": "spirv",
+            "wgsl_source": "// probe shader\n@compute @workgroup_size(1) fn main() {}",
         });
         match nucleus.call_by_capability("shader", "shader.compile.wgsl", compile_params) {
             Ok(_resp) => {

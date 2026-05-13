@@ -75,6 +75,8 @@ pub fn run(v: &mut ValidationHarness) {
             .as_deref()
             .is_some_and(|t| t.contains("f64") || t.contains("mixed") || t.contains("df64"));
         v.check_bool("hotqcd:precision_f64_or_mixed", tier_ok || adv.fma_safe);
+        let has_dispatch = adv.dispatch_path.is_some();
+        v.check_bool("hotqcd:dispatch_path_reported", has_dispatch || !math_alive);
     }
 
     // --- Phase 2: QCD shader compilation through coralReef ---
@@ -102,8 +104,7 @@ pub fn run(v: &mut ValidationHarness) {
         };
 
         let params = serde_json::json!({
-            "source": source,
-            "source_type": "wgsl",
+            "wgsl_source": source,
         });
 
         match nucleus.call_by_capability("shader", "shader.compile.wgsl", params) {
@@ -172,8 +173,7 @@ pub fn run(v: &mut ValidationHarness) {
         let ok = match std::fs::read_to_string(&shader_path) {
             Ok(source) => {
                 let params = serde_json::json!({
-                    "source": source,
-                    "source_type": "wgsl",
+                    "wgsl_source": source,
                 });
                 nucleus
                     .call_by_capability("shader", "shader.compile.wgsl", params)

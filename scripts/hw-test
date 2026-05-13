@@ -13,7 +13,7 @@ set -euo pipefail
 FILTER="${1:-}"
 EXPLICIT_BDF="${2:-}"
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
-CORALREEF_DIR="$(cd "$SCRIPT_DIR/../../../primals/coralReef" && pwd)"
+TOADSTOOL_DIR="$(cd "$SCRIPT_DIR/../../../primals/toadStool" && pwd)"
 
 # ── Auto-discover VFIO GPU ──
 discover_bdf() {
@@ -21,8 +21,8 @@ discover_bdf() {
         echo "$EXPLICIT_BDF"
         return
     fi
-    if [[ -n "${CORALREEF_VFIO_BDF:-}" ]]; then
-        echo "$CORALREEF_VFIO_BDF"
+    if [[ -n "${TOADSTOOL_VFIO_BDF:-}" ]]; then
+        echo "$TOADSTOOL_VFIO_BDF"
         return
     fi
     local driver_path="/sys/bus/pci/drivers/vfio-pci"
@@ -36,7 +36,7 @@ discover_bdf() {
         fi
     done
     echo >&2 "ERROR: No NVIDIA GPU bound to vfio-pci."
-    echo >&2 "  Set CORALREEF_VFIO_BDF or pass BDF as second argument."
+    echo >&2 "  Set TOADSTOOL_VFIO_BDF or pass BDF as second argument."
     exit 1
 }
 
@@ -54,8 +54,8 @@ check_permissions() {
             ok=false
         fi
     done
-    if ! id -nG | grep -qw coralreef; then
-        echo >&2 "WARN: user not in coralreef group"
+    if ! id -nG | grep -qw toadstool; then
+        echo >&2 "WARN: user not in toadstool group"
         ok=false
     fi
     if [[ "$ok" == "false" ]]; then
@@ -63,31 +63,26 @@ check_permissions() {
     fi
 }
 
-# ── GlowPlug status ──
-check_glowplug() {
-    if systemctl is-active --quiet coral-glowplug 2>/dev/null; then
-        echo "  GlowPlug: active"
+# ── toadStool daemon status ──
+check_toadstool() {
+    if systemctl is-active --quiet toadstool-ember 2>/dev/null; then
+        echo "  toadStool (ember): active"
     else
-        echo >&2 "WARN: coral-glowplug not running — nouveau cycling will fail"
-    fi
-    if systemctl is-active --quiet coral-ember 2>/dev/null; then
-        echo "  Ember:    active"
-    else
-        echo >&2 "WARN: coral-ember not running — VFIO fd acquisition will fail"
+        echo >&2 "WARN: toadstool-ember not running — VFIO fd acquisition will fail"
     fi
 }
 
 BDF=$(discover_bdf)
 echo "=== hw-test ==="
-echo "  BDF:      $BDF"
-echo "  coralReef: $CORALREEF_DIR"
+echo "  BDF:       $BDF"
+echo "  toadStool: $TOADSTOOL_DIR"
 check_permissions
-check_glowplug
+check_toadstool
 
-export CORALREEF_VFIO_BDF="$BDF"
+export TOADSTOOL_VFIO_BDF="$BDF"
 
 CARGO_ARGS=(
-    test -p coral-driver --features vfio --test hw_nv_vfio
+    test -p toadstool-cylinder --features vfio --test hw_nv_vfio
 )
 if [[ -n "$FILTER" ]]; then
     CARGO_ARGS+=("$FILTER")
@@ -98,5 +93,5 @@ echo ""
 echo "  Running: cargo ${CARGO_ARGS[*]}"
 echo ""
 
-cd "$CORALREEF_DIR"
+cd "$TOADSTOOL_DIR"
 exec cargo "${CARGO_ARGS[@]}"

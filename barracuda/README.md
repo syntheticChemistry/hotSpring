@@ -17,7 +17,7 @@ computation, and GPU acceleration for the [hotSpring](../README.md) project.
 |--------|----------|------|
 | [barraCuda](../../barraCuda/) | Math, shaders, compilation, ESN, NPU math | `../../barraCuda/crates/barracuda` |
 | [toadStool](../../phase1/toadStool/) | NPU hardware (akida-driver, akida-models) | `../../phase1/toadStool/crates/neuromorphic/` |
-| [coralReef](../../coralReef/) | Sovereign shader compiler (WGSL→native SASS/GFX) | `../../coralReef/crates/coral-gpu` |
+| [coralReef](../../coralReef/) | Sovereign shader compiler (WGSL→native SASS/GFX); **compile-only** in the trio — GPU IPC / dispatch routing lives in **toadStool** | `../../coralReef/` |
 
 barraCuda knows WHAT to compute. toadStool exposes WHERE hardware exists.
 coralReef compiles HOW (WGSL→native, bypassing wgpu/Vulkan). hotSpring

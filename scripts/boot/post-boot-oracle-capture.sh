@@ -47,7 +47,7 @@ fi
 
 if [ "$BINDING_OK" = false ]; then
     echo ""
-    echo "Driver bindings incorrect. Check boot config or use: coralctl swap <BDF> vfio"
+    echo "Driver bindings incorrect. Check boot config or use: toadstool device swap <BDF> vfio"
     echo "Continuing anyway for diagnostic value..."
 fi
 

@@ -54,9 +54,9 @@ This document maps every `barracuda::` call to the JSON-RPC method that would pr
 | `GpuF64::create_pipeline(wgsl)` | `device.compile` | `compute` | toadStool |
 | `ToadStoolDispatchClient::submit()` | `compute.dispatch.submit` | `compute` | toadStool (absorbs ember Phase A+B) |
 | `ToadStoolDispatchClient::capabilities()` | `compute.dispatch.capabilities` | `compute` | toadStool (absorbs ember Phase A+B) |
-| `glowplug_client::dispatch()` | `device.dispatch` | `shader` | coralReef (glowplug — soft-deprecated, absorbed by toadStool) |
-| `glowplug_client::list_devices()` | `device.list` | `shader` | coralReef (glowplug — soft-deprecated, absorbed by toadStool) |
-| `coral_gpu::SovereignPipeline` | `sovereign.boot` | `shader` | coralReef (sovereign compiler) |
+| `glowplug_client::dispatch()` | `device.dispatch` | `compute` | toadStool (glowplug client → diesel ECU; shader compile stays coralReef) |
+| `glowplug_client::list_devices()` | `device.list` | `compute` | toadStool |
+| `coral_gpu::SovereignPipeline` | `sovereign.boot` | `compute` | toadStool (legacy `coral-gpu` sovereign pipeline absorbed; coralReef remains WGSL/shader compile only) |
 
 ## Spectral Theory
 
@@ -103,11 +103,11 @@ This document maps every `barracuda::` call to the JSON-RPC method that would pr
 
 | Library Call | JSON-RPC Method | Capability | Provider |
 |-------------|----------------|------------|----------|
-| `EmberClient::mmio_read()` | `mmio.read` | `hardware` | coralReef (ember) |
-| `EmberClient::mmio_write()` | `mmio.write` | `hardware` | coralReef (ember) |
-| `EmberClient::falcon_upload()` | `falcon.upload` | `hardware` | coralReef (ember) |
-| `EmberClient::falcon_start()` | `falcon.start` | `hardware` | coralReef (ember) |
-| `EmberClient::sec2_prepare()` | `sec2.prepare` | `hardware` | coralReef (ember) |
+| `EmberClient::mmio_read()` | `mmio.read` | `hardware` | toadStool (ember / diesel MMIO) |
+| `EmberClient::mmio_write()` | `mmio.write` | `hardware` | toadStool (ember / diesel MMIO) |
+| `EmberClient::falcon_upload()` | `falcon.upload` | `hardware` | toadStool (ember / diesel MMIO) |
+| `EmberClient::falcon_start()` | `falcon.start` | `hardware` | toadStool (ember / diesel MMIO) |
+| `EmberClient::sec2_prepare()` | `sec2.prepare` | `hardware` | toadStool (ember / diesel MMIO) |
 
 ## Migration Path
 

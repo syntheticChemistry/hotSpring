@@ -5,17 +5,18 @@
 //! Discovers GPU compute endpoints via two paths:
 //! 1. **toadStool** (modern): NUCLEUS capability routing → `compute.sock`
 //!    at `$XDG_RUNTIME_DIR/biomeos/compute.sock` (or `$TOADSTOOL_SOCKET`)
-//! 2. **coral-ember** (legacy): Fleet JSON written by coral-glowplug `mode: fleet`
-//!    at `$XDG_RUNTIME_DIR/biomeos/coral-ember-fleet.json` (or `$EMBER_FLEET_FILE`)
+//! 2. **Fleet JSON** (legacy): fleet discovery JSON written by the ember daemon
+//!    at `$XDG_RUNTIME_DIR/biomeos/toadstool-ember-fleet.json` (or `$EMBER_FLEET_FILE`)
 //!
 //! Per-ember RPC methods live in [`crate::fleet_ember`].
 //! toadStool-specific dispatch in [`crate::fleet_toadstool`] (feature-gated).
 //!
-//! ## Post-excision note (May 2026)
+//! ## Stack evolution (May 2026)
 //!
-//! coralReef Sprint 9 excised coral-ember/coral-glowplug. The legacy diesel
-//! discovery paths (`/run/coralreef/ember-*.sock`) are retained for backward
-//! compatibility but the modern path is toadStool's compute socket.
+//! The ember/glowplug/cylinder daemon stack was absorbed from coralReef into
+//! toadStool (Phases A-D, S244-S258). All GPU lifecycle, VFIO dispatch, and
+//! PCIe switch management now routes through toadStool. Socket paths use
+//! `/run/toadstool/biomeos/` or `$XDG_RUNTIME_DIR/biomeos/`.
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -33,7 +34,7 @@ pub use crate::fleet_ember::{
 pub const EMBER_FLEET_FILE_ENV: &str = "EMBER_FLEET_FILE";
 
 /// Relative path under `XDG_RUNTIME_DIR` for fleet discovery.
-pub const FLEET_FILE_REL: &str = "biomeos/coral-ember-fleet.json";
+pub const FLEET_FILE_REL: &str = "biomeos/toadstool-ember-fleet.json";
 
 /// Physics domain tag: lattice QCD workloads (Wilson, staggered, HMC, …).
 pub const DOMAIN_LATTICE_QCD: &str = "lattice_qcd";
@@ -98,8 +99,8 @@ impl FleetDiscovery {
     ///
     /// Search order:
     /// 1. `EMBER_FLEET_FILE` env var (explicit override)
-    /// 2. `$XDG_RUNTIME_DIR/biomeos/coral-ember-fleet.json`
-    /// 3. `<temp_dir>/biomeos/coral-ember-fleet.json` (platform temp via `std::env::temp_dir()`)
+    /// 2. `$XDG_RUNTIME_DIR/biomeos/toadstool-ember-fleet.json`
+    /// 3. `<temp_dir>/biomeos/toadstool-ember-fleet.json` (platform temp via `std::env::temp_dir()`)
     #[must_use]
     pub fn resolve_path() -> PathBuf {
         if let Ok(p) = std::env::var(EMBER_FLEET_FILE_ENV) {
@@ -556,8 +557,8 @@ mod tests {
     const SAMPLE_FLEET_JSON: &str = r#"{
         "mode": "fleet",
         "routes": {
-            "0000:03:00.0": "/run/coralreef/ember-0000-03-00.0.sock",
-            "0000:4c:00.0": "/run/coralreef/ember-0000-4c-00.0.sock"
+            "0000:03:00.0": "/run/toadstool/ember-0000-03-00.0.sock",
+            "0000:4c:00.0": "/run/toadstool/ember-0000-4c-00.0.sock"
         },
         "standby_count": 1,
         "devices": [
@@ -596,7 +597,7 @@ mod tests {
             .ok_or_else(|| "missing bdf 03".to_string())?;
         assert_eq!(
             d.socket_path,
-            PathBuf::from("/run/coralreef/ember-0000-03-00.0.sock")
+            PathBuf::from("/run/toadstool/ember-0000-03-00.0.sock")
         );
         Ok(())
     }

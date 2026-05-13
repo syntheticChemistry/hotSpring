@@ -60,7 +60,7 @@ allow = []
 # ecoBin compliance: zero C dependencies in application code.
 # These crates pull in C/C++ compilers or link native libraries.
 # Feature-gated exceptions: cudarc (cuda-validation), rustix (low-level),
-# coral-gpu (sovereign-dispatch) — infrastructure, not default-feature code.
+# sovereign-dispatch: compilation now via coralReef IPC (no native deps).
 # blake3 uses cc for build-time SIMD assembly — allowed via wrapper.
 # renderdoc-sys is transitive via wgpu-hal (GPU debug, not application code).
 # pkg-config appears via khronos-egl (wgpu Vulkan portability layer).

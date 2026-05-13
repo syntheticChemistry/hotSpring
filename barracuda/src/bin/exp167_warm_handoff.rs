@@ -21,7 +21,7 @@
 //! cargo run --release --bin exp167_warm_handoff -- [--bdf 0000:03:00.0]
 //! ```
 //!
-//! Requires running coral-glowplug + coral-ember.
+//! Requires running toadstool-ember daemon.
 
 use std::path::Path;
 use std::time::{Duration, Instant};
@@ -341,7 +341,7 @@ fn connect_glowplug() -> Option<GlowplugClient> {
     if let Ok(g) = GlowplugClient::from_nucleus(&nucleus) {
         Some(g)
     } else {
-        let sock = hotspring_barracuda::fleet_client::glowplug_socket_path();
+        let sock = Path::new("/run/toadstool/biomeos/compute.sock");
         if sock.exists() {
             Some(GlowplugClient::from_socket(&sock))
         } else {
@@ -360,10 +360,13 @@ fn connect_ember(bdf: &str) -> Option<EmberClient> {
     if let Some(sock) = hotspring_barracuda::fleet_client::discover_diesel_ember_socket(bdf) {
         return Some(EmberClient::connect(sock.to_string_lossy().as_ref()));
     }
-    for candidate in hotspring_barracuda::fleet_client::ember_socket_candidates(bdf) {
-        if candidate.exists() {
-            return Some(EmberClient::connect(candidate.to_string_lossy().as_ref()));
-        }
+    let fleet_sock = format!("/run/toadstool/fleet/ember-{slug}.sock");
+    if Path::new(&fleet_sock).exists() {
+        return Some(EmberClient::connect(&fleet_sock));
+    }
+    let per_device = format!("/run/toadstool/ember-{slug}.sock");
+    if Path::new(&per_device).exists() {
+        return Some(EmberClient::connect(&per_device));
     }
     None
 }

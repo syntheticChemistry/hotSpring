@@ -64,12 +64,12 @@
 | **NPU HW Quantization** | ✅ Complete | 4/4 on AKD1000: f32/int8/int4/act4 cascade, 685μs/inference |
 | **NPU Lattice Phase** | ✅ 7/8 | β_c=5.715 on AKD1000, ESN 100% CPU, int4 NPU 60% (marginal as expected) |
 | **Titan V NVK** | ✅ Complete | NVK built from Mesa 25.1.5. `cpu_gpu_parity` 6/6, `stanton_murillo` 40/40, `bench_gpu_fp64` pass |
-| **Ember Architecture** | ✅ Complete | Immortal VFIO fd holder (`coral-ember`): `SCM_RIGHTS` fd passing, atomic `swap_device` RPC, DRM isolation preflight, external fd holder detection. Zero-crash driver hot-swap on live system |
+| **Ember Architecture** | ✅ Complete | Immortal VFIO fd holder (`toadstool-ember`): `SCM_RIGHTS` fd passing, atomic `swap_device` RPC, DRM isolation preflight, external fd holder detection. Zero-crash driver hot-swap on live system |
 | **DRM Isolation** | ✅ Complete | Xorg `AutoAddGPU=false` + udev seat tag removal (61-prefix) prevents compositor crash during driver swaps. Compute GPUs fully invisible to display manager |
 | **Dual Titan Backend Matrix** (Exp 070) | ✅ Complete | Both Titans on GlowPlug/Ember. vfio↔nouveau swap validated (oracle). Full backend matrix: vfio, nouveau, nvidia × 2 cards. Register diff infrastructure ready |
 | **PFIFO Diagnostic Matrix** (Exp 071) | ✅ Complete | 54-config matrix: 12 winning configs, 0 faults, scheduler-accepted. PFIFO re-init solved (PMC+preempt+clear). Root cause identified (PBDMA 0xbad00200 PBUS timeout) — resolved in Exp 076 (MMU fault buffer) + Exp 077 (init hardening). 6/10 sovereign pipeline layers proven. |
 | **MMU Fault Buffer Breakthrough** (Exp 076) | ✅ Complete | **Layer 6 resolved.** Volta FBHUB requires configured non-replayable fault buffers before any MMU page table walk completes. Without them, PBUS returns 0xbad00200 and PBDMA stalls forever. Fix: FAULT_BUF0/1 configured in VfioChannel::create. Channel creation + DMA roundtrip + MMU translation all pass. Shader dispatch blocked at Layer 7 (GR/FECS context). |
-| **PFIFO Init Hardening** (Exp 077) | ✅ Complete | Five failure modes documented and fixed. `PfifoInitConfig` unifies init paths, `GpuCapabilities` makes matrix arch-aware, `coralctl reset` provides PCIe FLR recovery. |
+| **PFIFO Init Hardening** (Exp 077) | ✅ Complete | Five failure modes documented and fixed. `PfifoInitConfig` unifies init paths, `GpuCapabilities` makes matrix arch-aware, `toadstool device reset` provides PCIe FLR recovery. |
 | **Layer 7 Diagnostic Matrix** (Exp 078) | ✅ Complete | FECS/GPCCS confirmed in HRESET — sole Layer 7 blocker. |
 | **Warm Handoff via Ember** (Exp 079) | ❌ Failed | nouveau teardown halts falcons before unbind. FECS IMEM does not survive swap. |
 | **Sovereign FECS Boot** (Exp 080) | ❌ Blocked | Direct IMEM upload succeeds but falcon remains in HRESET. ACR-managed boot required. |
@@ -85,12 +85,12 @@
 | **iommufd/cdev VFIO Evolution** (Exp 073) | ✅ Complete | **Kernel-agnostic VFIO** on Linux 6.2+. 607 tests pass. |
 | **Ember Swap Pipeline Evolution** (Exp 074) | ✅ Complete | **nouveau ↔ vfio round-trip proven** on Titan V. 86 ember + 178 glowplug tests. |
 | **Deep Debt + Cross-Vendor Dispatch** (Exp 075) | ✅ Complete | **13 deep-debt items resolved.** Cross-vendor CUDA dispatch via glowplug daemon RPC. |
-| **Vendor-Agnostic GlowPlug** | ✅ Complete | coral-ember standalone crate. RegisterMap trait (GV100 + GFX906/MI50). |
+| **Vendor-Agnostic GlowPlug** | ✅ Complete | toadstool-ember standalone crate (absorbed into toadStool). RegisterMap trait (GV100 + GFX906/MI50). |
 | **Privilege Hardening** | ✅ Complete | Capabilities + seccomp + namespaces. |
 | **VendorLifecycle Trait** | ✅ Complete | Vendor-specific swap hooks. 157 tests pass. |
 | **AMD D3cold Resolution** | ✅ Characterized | Vega 20 SMU firmware limitation: one vfio→amdgpu cycle per boot. |
 | **BrainChip Akida NPU** | ✅ Complete | AKD1000 fully integrated. Unlimited round-trips, SimpleBind, no DRM. |
-| **Zero-Sudo coralctl** | ✅ Complete | `coralreef` unix group, socket permissions. |
+| **Zero-Sudo toadstool device** | ✅ Complete | `toadstool` unix group (legacy `coralreef` group deprecated), socket permissions. |
 | **Experiment Loop Infrastructure** (Exp 092) | ✅ Complete | Adaptive experiment loop. **4,065 tests pass.** |
 | **First Personality Sweep** (Exp 092) | ✅ Complete | Both Titan Vs swept. **Sub-1% cross-card variance.** |
 | **GPU Streaming HMC** | ✅ Complete | 9/9 pass (4⁴→16⁴, streaming 67× CPU, dispatch parity, GPU PRNG) |
@@ -171,7 +171,7 @@
 | **Reset Architecture Evolution** (Exp 131) | ✅ Complete | biomeGate: warm_fecs.rs → device.warm_handoff RPC, livepatch into ember, orphan cleanup |
 | **Ember Frozen Warm Dispatch** (Exp 132) | ✅ Implemented | biomeGate: diesel engine pattern — glowplug orchestrates swap, ember keeps VFIO fds alive, `mmio.write` for active intervention, STOP_CTXSW freezes FECS scheduling |
 | **Kepler Sovereign Compute** (Exp 133) | ✅ Implemented | biomeGate: K80 (GK210) Kepler-specific QMD v1.7, push buffer methods from `cla1c0.h`, architecture-aware dispatch branching |
-| **K80 Sovereign Cold Boot Pipeline** (Exp 134) | ✅ Implemented | biomeGate: single-command cold boot (`coralctl cold-boot <BDF> --recipe <path>`) — D3cold→FECS-running without any vendor driver |
+| **K80 Sovereign Cold Boot Pipeline** (Exp 134) | ✅ Implemented | biomeGate: single-command cold boot (`toadstool device cold-boot <BDF> --recipe <path>`) — D3cold→FECS-running without any vendor driver |
 | **Dual GPU Sovereign Boot Attempt** (Exp 135) | ✅ Complete | biomeGate: K80 needs VBIOS POST (memory training), Titan V SEC2 ROM rejects ACR — PMU/WPR chain required. FECS PIO upload works on K80 but PGRAPH CTXSW domain PRI-faults above 0x409504 |
 | **Dual GPU Sovereign Boot Iteration** (Exp 136) | ✅ Complete | biomeGate: both GPUs hit known barriers. SEC2 DMA path analysis + FBHUB/FBPA discovery. FBIF locked in VIRT mode by HS+ |
 | **SEC2 DMA Reconstruction** (Exp 137) | ✅ Complete | biomeGate: BOOTSTRAP_FALCON failure root cause confirmed, SEC2 communication protocol identified |

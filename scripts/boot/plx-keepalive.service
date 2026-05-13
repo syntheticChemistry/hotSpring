@@ -1,10 +1,10 @@
 [Unit]
 Description=PLX PEX 8747 PCIe switch keepalive — prevents BIOS idle D3cold gating
 Documentation=https://github.com/ecoPrimals/hotSpring
-# Must start early — before coral-glowplug so PLX is alive for K80 handoff
+# Must start early — before toadstool-ember so PLX is alive for K80 handoff
 DefaultDependencies=no
 After=sysinit.target
-Before=coral-glowplug.service multi-user.target
+Before=toadstool-ember.service multi-user.target
 
 [Service]
 Type=simple

@@ -96,16 +96,17 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 
 - **Primal:** barraCuda
 - **Severity:** Low
-- **Status:** Active — now viable (barraCuda Sprint 56d)
+- **Status:** Active — upstream unblocked (barraCuda Sprint 66 shipped `sub`/`negate`)
 - **Description:** barraCuda's `TensorSession` fused multi-op pipeline
   API is not yet adopted in hotSpring. GPU HMC trajectory (leapfrog +
-  force + gauge update) is the natural first candidate. Sprint 56d
-  stabilized `TensorSession` with batched `run()` submission that
-  eliminates per-step `vkQueueSubmit` overhead — NVK benchmarks showed
-  2ms per submit (20x slower than proprietary). TensorSession batching
-  could recover much of that gap.
+  force + gauge update) is the natural first candidate. Sprint 66
+  shipped `TensorSession::sub()` and `TensorSession::negate()`, completing
+  the momentum-update primitives (`p_new = p - dt * force`). IPC batch
+  path (`tensor.batch.submit`) also handles `sub` and `negate` ops.
+  Sprint 64 added GEMM routing with `MatmulPrecision` and tensor-core
+  hints. OOM detection (`is_oom()`, `is_retriable()`) also available.
 - **Action:** Wire `TensorSession` into `gpu_hmc/mod.rs` for a single
-  HMC trajectory as proof-of-concept.
+  HMC trajectory as proof-of-concept, using `sub`/`negate` for leapfrog.
 
 ### GAP-HS-028: LIME/ILDG Zero-Copy I/O — RESOLVED
 
@@ -264,12 +265,10 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 
 - **Primal:** barraCuda
 - **Severity:** Low
-- **Status:** Active — mitigated locally, monitoring Sprint 56d
-- **Description:** barraCuda may lack `stats.entropy` method. Composition script
-  uses `stats.mean` as a proxy for tensor IPC validation and computes entropy
-  locally when needed. Sprint 56d focused on `PrecisionTier`, `PhysicsDomain`,
-  `TensorSession`, and sovereign dispatch wire — `stats.entropy` not yet added.
-- **Action:** Monitor barraCuda for `stats.entropy` addition in upcoming sprints.
+- **Status:** RESOLVED — `stats.entropy` registered as alias of `stats.shannon`
+  since barraCuda Sprint 50. Confirmed available in Sprint 64-67 method surface
+  (72 methods). Safe to call directly via IPC.
+- **Resolved:** May 13, 2026
 
 ### GAP-HS-042: petalTongue plasmidBin Threading (PG-48)
 
@@ -322,15 +321,15 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 - **Resolution:** toadStool Phase A absorbed ember into `VfioResourceHandle`
   (`crates/core/ember/src/vfio_handle.rs`). Phase B absorbed glowplug into
   `SwapOrchestrator<SysfsSwapExecutor>` (`crates/core/glowplug/src/swap.rs`).
-  Both `coral-ember` and `coral-glowplug` are `#[deprecated(since = "0.2.0")]`
-  pointing to toadStool. hotSpring's `fleet_ember.rs` now has a parallel
+  Legacy `coral-ember` / `coral-glowplug` crates are `#[deprecated(since = "0.2.0")]`
+  pointing to toadStool (`toadstool-ember`, `toadstool` glowplug / diesel ECU). hotSpring's `fleet_ember.rs` now has a parallel
   `toadstool-dispatch` feature flag for migration to `ToadStoolDispatchClient`.
   Phase C (cylinder/coral-driver absorption) is planned and documented in
   `PHASE_C_CORAL_DRIVER_SPLIT_PLAN.md`.
 
 ### GAP-HS-030b: K80 VFIO Legacy Group EBUSY — RESOLVED
 
-- **Primal:** coralReef (ember)
+- **Primal:** toadStool (ember hardware path; issue catalogued during coralReef-era deployments)
 - **Severity:** Medium (hardware-specific)
 - **Status:** RESOLVED (May 6, 2026)
 - **Description:** Tesla K80 VFIO groups previously reported EBUSY when ember
@@ -344,7 +343,7 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 
 ### GAP-HS-073: GV100 FECS Secure Boot Without WPR — RESOLVED
 
-- **Primal:** coralReef (coral-driver / sovereign_init)
+- **Primal:** toadStool (diesel sovereign pipeline; historically coral-driver / `sovereign_init` under coralReef)
 - **Severity:** Critical (blocks GV100 sovereign FECS boot)
 - **Status:** **RESOLVED** (May 11, 2026) — binary-patched nouveau warm-catch
   bypasses the firmware barrier entirely. FECS RUNNING via ACR/SEC2 natively.
@@ -360,7 +359,7 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
   rebind. FECS_MC = 0x0c060006 (running), PGRAPH enabled, 1 GPC active.
   PMU absence is non-fatal (nouveau skips PMU but ACR/SEC2 still loads FECS).
   
-  Pipeline now in pure Rust: `coralctl warm-catch <BDF> --memory-type hbm2`.
+  Pipeline now in pure Rust: `toadstool device warm-catch <BDF> --memory-type hbm2`.
   Era-aware settle: HBM2=12s. RAII `ModuleCleanupGuard` ensures stock
   `nouveau.ko` restored even on panic.
   
@@ -809,7 +808,7 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 
 ### GAP-HS-076: K80 GK210 Nouveau Chipset ID Missing — RESOLVED
 
-- **Primal:** coralReef (sovereign pipeline) / upstream kernel (nouveau)
+- **Primal:** toadStool (sovereign pipeline / warm-catch) / upstream kernel (nouveau)
 - **Severity:** Critical (blocks K80 warm-catch and nouveau-assisted sovereign dispatch)
 - **Status:** **PROVEN** — patched nouveau successfully initialized K80 GR (Exp 188)
 - **Description:** Upstream nouveau has no `case 0x0f2:` in the device chipset
@@ -832,7 +831,7 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
   on 6.17). **Resolved by binary ELF patching** — `coral-driver::tools::elf_patcher`
   NOPs 4 teardown functions at machine-code level, replacing the livepatch approach.
   Patched nouveau trains GDDR5 (12 GiB), initializes 5 GPCs, and warm state persists
-  across vfio-pci rebind. Pipeline: `coralctl warm-catch <BDF> --memory-type gddr5`.
+  across vfio-pci rebind. Pipeline: `toadstool device warm-catch <BDF> --memory-type gddr5`.
 - **Status:** **RESOLVED** (May 11, 2026, Exp 190). K80 GDDR5 trained, 5 GPCs active,
   FECS_MC = 0x00060005 (running). PMC_ENABLE = 0xfc37b1ef (pop=22).
   Upstream one-line patch still needed for unmodified nouveau (`case 0x0f2`).
@@ -969,16 +968,17 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
   workload `hs-sarkas-md-validation.toml` scenario ID. Fixed targets file
   `[meta].expression` to reference `PLASMA_QCD_SOVEREIGN_GPU.md`.
 
-### GAP-HS-084: Fleet Discovery Hardcoded /run/coralreef/ — RESOLVED
+### GAP-HS-084: Fleet Discovery legacy `/run/coralreef/` paths — RESOLVED
 
-- **Primal:** coralReef (fleet discovery)
+- **Primal:** toadStool (fleet discovery; superseded coralReef-era `/run/coralreef` hardcoding)
 - **Severity:** Low (portability)
 - **Status:** **Resolved** (May 11, 2026)
 - **Description:** `discover_diesel_ember_socket()` in `fleet_client.rs`
   hardcoded `/run/coralreef` as the ember socket directory. Not portable
   to non-standard installations or containerized environments.
-- **Resolution:** Added `coralreef_run_dir()` discovery function with cascade:
-  `$CORALREEF_RUN_DIR` → `$XDG_RUNTIME_DIR/coralreef` → `/run/coralreef`.
+- **Resolution:** Added runtime-dir discovery with cascade:
+  `$TOADSTOOL_RUN_DIR` → `$XDG_RUNTIME_DIR/toadstool` → `/run/toadstool`.
+  Legacy `$CORALREEF_RUN_DIR` → `$XDG_RUNTIME_DIR/coralreef` → `/run/coralreef` retained as deprecated fallbacks (prefer `TOADSTOOL_*`).
   Consistent with XDG Base Directory Specification.
 
 ### GAP-HS-085: DOWNSTREAM_PATTERNS.md Stale — RESOLVED
@@ -1055,7 +1055,7 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 - **Completed:**
   - `detect_sovereign_available()` in `precision_brain.rs`: Inverted
     discovery order — NUCLEUS `by_domain("shader")` is now primary, env
-    vars (`CORALREEF_SOCKET`, `CORALREEF_MANIFEST`) are CI/lab fallbacks.
+    vars (`CORALREEF_SOCKET`, `CORALREEF_MANIFEST` — deprecated; prefer `TOADSTOOL_SOCKET` / manifest equivalents) are CI/lab fallbacks.
     Removed XDG_DATA_DIRS coralReef manifest filesystem scan.
   - IPC provenance clients (`sweetgrass.rs`, `rhizocrypt.rs`,
     `loamspine.rs`): Replaced `niche::socket_dirs()` + hardcoded
@@ -1410,7 +1410,7 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 - **Evolution (May 12, 2026 — warm API + kernel-module roadmap):**
   - **Cold vs warm init mismatch fixed:** `GpuContext::from_vfio()` called
     `NvVfioComputeDevice::open()` which runs cold init — destroying warm
-    state from `coralctl warm-catch`. Added three warm-aware entry points
+    state from `toadstool device warm-catch`. Added three warm-aware entry points
     to `coral-gpu/src/context.rs`:
     - `from_vfio_warm(bdf)` — auto-detect SM, warm open with deferred bus-master
     - `from_vfio_warm_with_sm(bdf, sm)` — explicit SM, warm handoff
@@ -1421,7 +1421,7 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
   - **Scenario updated:** `s_vfio_dispatch` uses `from_vfio_warm_with_sm()` for
     Titan V and `from_vfio_warm_legacy()` for K80.
   - **Hardware validation blocked:** Ember subprocess crashes on startup
-    (zombie `[coral-ember] <defunct>` processes). `coralctl warm-fecs` cannot
+    (zombie `[toadstool-ember] <defunct>` processes). `toadstool device warm-fecs` cannot
     relay to ember. GPUs are cold (FECS PRI timeout). Warm API wiring is
     correct but hardware E2E requires upstream ember fix.
   - **Kernel-module evolution roadmap:** `coral-kmod` already proxies nvidia
@@ -1435,9 +1435,9 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 - **Validation:** 590/590 lib tests pass. `cargo check --features sovereign-dispatch`
   compiles clean with VFIO feature and warm API.
 - **Ownership audit (May 12, 2026 — ember/glowplug dual-existence resolved):**
-  - **Root cause of ember crash:** Stale `/usr/local/bin/coral-ember` binary
+  - **Root cause of ember crash:** Stale `/usr/local/bin/toadstool-ember` binary
     (pre-absorption build) caused zombie `<defunct>` processes. Fixed by
-    rebuilding from current coralReef source.
+    rebuilding from current toadStool / plasmidBin ecoBin sources.
   - **Cylinder device.swap translation bug FIXED:** In diesel engine mode,
     the ECU forwards `device.swap` to cylinder→ember, but ember only knows
     `ember.swap`. Added translation layer in `cylinder.rs` to convert
@@ -1449,13 +1449,7 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
     - WGSL compile (su3_gauge_force_f64): PASS (20096 bytes, 54 GPRs)
     - Dispatch + readback: FAIL (sentinel 0xDEADBEEF — FECS compute context
       not fully initialized from single nouveau round-trip)
-  - **Dual-existence mapped:** ember/glowplug code exists in both coralReef
-    (binary: `coral-ember`, `coral-glowplug`, `coralctl`) and toadStool
-    (lib: `toadstool-ember`, `toadstool-glowplug`). Phase A+B absorbed
-    types/traits but NOT the daemon runtime. toadStool daemon mode exposes
-    only `ember.list`/`ember.status` — no `device.swap`, no cylinder, no
-    warm-catch, no VFIO fd holding. coralReef binaries remain required for
-    hardware lifecycle until Phase C/D completes.
+  - **Dual-existence (May 12 snapshot; superseded May 13):** Diesel runtime was split between legacy coralReef-hosted binaries (`coral-ember`, `coral-glowplug`, `coralctl` → now **`toadstool-ember`**, **`toadstool`**, **`toadstool device`**) and early toadStool library crates. **Resolved:** diesel daemon + sockets consolidated under toadStool (`/run/toadstool`); coralReef is shader-compile-only (see Evolution Pass below).
 
 ---
 
@@ -1463,43 +1457,21 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 
 - **Severity:** Critical (architectural — blocks toadStool as sole hardware lifecycle daemon)
 - **Classification:** Ownership evolution → primal boundary resolution
-- **Trigger:** Ember subprocess crashes traced to stale coralReef binary.
+- **Trigger:** Ember subprocess crashes traced to stale diesel-stack binary install (historically coralReef-built paths; use **plasmidBin ecoBins** / toadStool rebuilds).
   Investigation revealed ember/glowplug/cylinder exist in both primals
   with different maturity levels.
-- **Current ownership map:**
-  - **coralReef owns (still deployed, still needed):**
-    - `coral-ember` binary — immortal VFIO fd holder, `ember.swap`,
-      `ember.warm_catch`, MMIO handlers, journal, kmod, sovereign boot
-    - `coral-glowplug` binary — diesel engine ECU, cylinder spawning,
-      `device.*` handler dispatch, socket server, config parsing
-    - `coralctl` binary — 20+ CLI commands including `warm-fecs`,
-      `warm-catch`, `swap`, `status`, `health`, `dispatch`
-    - `coral-driver` — VFIO stack, DRM enum, AMD GEM/PM4, NV BAR0/QMD
-    - systemd: `coral-glowplug.service`, `coral-ember.service`
-  - **toadStool owns (Phase A+B absorbed, not deployed as daemon):**
-    - `toadstool-ember` crate (lib) — `ResourceHandle`, `HeldResource`,
-      `VfioResourceHandle` (metadata-only, no real VFIO fds), journal, ring_meta
-    - `toadstool-glowplug` crate (lib) — `SwapOrchestrator` (7-step with
-      real `SysfsSwapExecutor`), `DevicePersonality`, `DeviceSlot`, discovery trait
-    - `toadstool-server` — `GlowPlugClient` Rust API (list/swap/reacquire),
-      JSON-RPC: `ember.list`, `ember.status` only
-    - `toadstool` CLI — `daemon` mode (workload manager, no ember/glowplug RPC)
-  - **Nobody owns yet (Phase C PENDING):**
-    - `toadstool-cylinder` crate — per-device subprocess isolation
-    - coral-driver absorption into toadStool
-    - VFIO fd holding in toadStool
-    - warm-catch/warm-fecs pipeline in toadStool
+- **Ownership map (May 12 audit — superseded May 13; see Evolution Pass below):**
+  - **coralReef:** Shader compilation primal (`shader.compile.*`) only; diesel stack excised from coralReef.
+  - **toadStool:** Diesel engine (ember / glowplug / cylinder / driver), hardware lifecycle IPC, **`toadstool device`** CLI — deploy via **plasmidBin ecoBins**; runtime dirs **`/run/toadstool`** (legacy **`/run/coralreef`** / **`CORALREEF_*`** env vars deprecated → **`TOADSTOOL_*`**).
+  - **Post-audit resolution:** Phase C/D items below were tracked May 12; **toadStool S243/S254** (sections below) record absorption completion (`toadstool-ember.service`, `toadstool-glowplug.service`, warm-catch, VFIO parity).
 - **Fixes applied:**
-  1. Rebuilt all coralReef binaries from source, reinstalled
+  1. Rebuilt diesel stack binaries from source (toadStool / plasmidBin ecoBins), reinstalled
   2. Fixed cylinder `device.*` → `ember.*` method translation in `cylinder.rs`
   3. Titan V warm VFIO open + compilation proven (3/4 tests PASS)
-- **Remaining gaps for toadStool to fully replace coralReef daemon:**
-  - `ember.swap` / `device.swap` RPC in toadStool server
-  - Cylinder subprocess architecture (per-device isolation)
-  - VFIO fd holding through swaps (not just metadata tracking)
-  - Warm-catch / warm-fecs / livepatch pipeline
-  - `coralctl` CLI parity (~20 subcommands)
-  - systemd service for `toadstool daemon`
+- **Remaining gaps (May 12 snapshot — largely cleared May 13; see S243/S254 below):**
+  - RPC/service parity items below were tracked during dual-existence; treat as **historical** unless reopened upstream.
+  - **`toadstool device`** CLI parity (~20 legacy `coralctl` subcommands) — shipped S253+
+  - systemd: **`toadstool-glowplug.service`**, **`toadstool-ember.service`**
 - **Validation:** 590/590 lib tests pass.
 
 ---
@@ -1567,8 +1539,8 @@ Deep audit of toadStool S237–S243 with hotSpring capability alignment.
 - **Phase C (cylinder + coral-driver): PLANNING ONLY** — Split plan
   created (S241), recon complete (S243), legacy `swap_device` removed,
   but no `toadstool-cylinder` crate yet. No coral-driver absorption.
-  VFIO PBDMA dispatch blocked on coralReef USERD_TARGET encoding fix.
-- **Phase D (local dispatch): PENDING**
+  VFIO PBDMA dispatch WIRED (S258) — full `ComputeDevice` trait impl.
+- **Phase D (local dispatch): WIRED** (S254 AMD, S258 NVIDIA PBDMA)
 
 **67 live JSON-RPC methods** confirmed in handler, including:
 - `compute.dispatch.*` (submit, status, result, forward, capabilities)
@@ -1621,11 +1593,8 @@ All Phase C blockers RESOLVED. Phase D (LocalDeviceFactory) WIRED (S254).
 toadStool shipped Phase C complete (S245-S253) and Phase D factory (S254).
 hotSpring rewired to match:
 
-- **Env vars**: `CORALREEF_RUN_DIR` → `TOADSTOOL_RUN_DIR` (with deprecated
-  fallback). `CORALREEF_SOCKET`/`CORALREEF_MANIFEST` → `TOADSTOOL_SOCKET`
-  primary. `CORALREEF_GLOWPLUG_SOCKET` → `TOADSTOOL_SOCKET`.
-- **Socket paths**: `/run/coralreef` → `/run/toadstool` default. Discovery
-  accepts both `toadstool-ember-*` and legacy `ember-*` socket names.
+- **Env vars:** Prefer **`TOADSTOOL_*`** (`TOADSTOOL_RUN_DIR`, `TOADSTOOL_SOCKET`, manifest discovery). Legacy **`CORALREEF_RUN_DIR`**, **`CORALREEF_SOCKET`**, **`CORALREEF_MANIFEST`**, **`CORALREEF_GLOWPLUG_SOCKET`** are deprecated compatibility aliases only.
+- **Socket paths**: `/run/toadstool` default (legacy `/run/coralreef` retained only as fallback). Discovery accepts both `toadstool-ember-*` and legacy `ember-*` socket names.
 - **Capability registry**: +10 new methods (device.swap, device.warm_catch,
   device.list/status/reacquire, ember.reacquire, mmio.read32/write32/batch,
   mmio.pramin.read32, mmio.bar0.probe, mmio.falcon.status). All
@@ -1637,9 +1606,11 @@ hotSpring rewired to match:
   `NvVfioComputeDevice` FECS-gated (returns Unsupported until firmware bridge).
 - **591/591** hotSpring lib tests pass.
 
-**Sole remaining GPU blocker**: Titan V / NVIDIA FECS compute context init.
-Three paths: warm-handoff, coralReef IPC `compute.firmware.*`, local absorption.
-AMD path is live.
+**NVIDIA PBDMA dispatch WIRED** (toadStool S258): `NvVfioComputeDevice` now
+implements full `ComputeDevice` trait: `alloc()` → VFIO DMA, `upload()` →
+host memcpy, `dispatch()` → GPFIFO pushbuf + doorbell, `readback()` → host read,
+`sync()` → poll GP_GET. FECS-gated (warm probe S256). AMD DRM path live.
+Next: hardware validation on Titan V and K80.
 
 ---
 
@@ -1733,6 +1704,61 @@ AMD path is live.
   weight export). Library has zero panic paths. Evolution to `Result` mains is polish.
 - **Validation:** 592 (default) / 1,041 (barracuda-local). Zero clippy. Zero TODO.
 - **Handoff:** `wateringHole/handoffs/HOTSPRING_V0632_DEEP_DEBT_RESOLUTION_HANDOFF_MAY13_2026.md`
+
+---
+
+### GAP-HS-098 — Compute Trio Pipeline Rewire (May 13, 2026)
+
+- **Scope:** Pull + review + rewire from toadStool S255-S257, barraCuda Sprint 64-67,
+  coralReef Sprint 5-6.
+- **What was rewired:**
+  1. **toadStool S255-S257:**
+     - Capability registry: added `ember.swap`, `sovereign.boot` semantic aliases
+       (both → `device_swap`), `auth.peer_info`, `provenance.get`.
+     - `niche.rs` ROUTED_CAPABILITIES aligned to 77 toadStool methods.
+     - FECS warm-state detection (`probe_warm_fecs()`) now in `NvVfioComputeDevice`:
+       BAR0 probe for PMC_ENABLE, FECS CPUCTL HALTED (bit 5 — reconciled from
+       incorrect bit 4), FECS MAILBOX0.
+     - CPUCTL HALTED bit fix: bit 5 (0x20) is HALTED, bit 4 was HRESET. Fixed
+       in toadStool `mmio.rs` and `firmware.rs`.
+  2. **barraCuda Sprint 64-67:**
+     - `PrecisionAdvisory` struct: added `dispatch_path` field
+       (`"wgpu"` | `"sovereign"` | `"unavailable"`).
+     - `dispatch_path` consumed in `s_compute_trio` and `s_hotqcd_dispatch`
+       validation scenarios.
+     - GAP-HS-041 RESOLVED: `stats.entropy` available (alias of `stats.shannon`).
+     - GAP-HS-027 updated: `TensorSession::sub()` and `negate()` shipped (Sprint 66).
+       IPC `tensor.batch.submit` handles `sub`/`negate` ops. GEMM routing wired
+       with `MatmulPrecision` and tensor-core hints. OOM detection available.
+  3. **coralReef Sprint 5-6:**
+     - **IPC param fix:** hotSpring was sending `"source"` to `shader.compile.wgsl`;
+       coralReef expects `"wgsl_source"`. Fixed in `s_compute_trio.rs`,
+       `s_hotqcd_dispatch.rs` (2 call sites), and `compute_dispatch.rs`.
+     - Capability registry: added `shader.compile.wgsl.multi`,
+       `shader.compile.status`, `shader.compile.capabilities` (new coralReef methods).
+     - `naga::Module` direct ingest (`compile_module`/`compile_module_full`) available.
+     - PTX SM120: switch lowering, math builtins, atomics/barriers/subgroups shipped.
+       Full SM120 texture instruction set still in progress.
+     - **HMMA GEMM codegen SHIPPED**: `shader.compile.gemm` endpoint generates PTX
+       using `mma.sync.aligned` for SM80+ (f16→f32, f16→f16, TF32). `compile_gemm()`
+       produces native tensor-core kernels. Wire compat aliases added (`source` →
+       `wgsl_source`, `binary` → `binary_b64`, `info` → `shader_info`).
+       `CompilationInfoResponse` wire fields: `gprs`, `shared_memory`, `barriers`,
+       `workgroup`, `wave_size`, `local_memory`.
+  4. **Env var deprecation:** Legacy **`CORALREEF_SOCKET`** (and related **`CORALREEF_*`** overrides) in `precision_brain.rs` emit warnings — prefer **`TOADSTOOL_SOCKET`**. **`CORALREEF_MANIFEST`** fallback removed.
+- **Remaining:**
+  - Wire `TensorSession` into `gpu_hmc/mod.rs` (GAP-HS-027 — upstream unblocked).
+  - **Hardware validation**: Run DMA roundtrip, GPFIFO NOP submission, warm channel
+    creation, and sync timing on Titan V and K80 with toadStool S258 PBDMA dispatch.
+  - Run `s_compute_trio` and `s_vfio_dispatch` live with all three GPUs.
+  - **HMMA GEMM E2E**: coralReef `shader.compile.gemm` → PTX with `mma.sync.aligned`
+    → toadStool PBDMA dispatch. The compile side is ready (SM80+). E2E requires
+    Compute QMD construction: coralReef builds Volta compute class method headers
+    (SET_SHADER_PROGRAM, LAUNCH); toadStool submits via PBDMA GPFIFO.
+  - `CompileResponse` wire compat: coralReef now serves both canonical (`binary_b64`,
+    `shader_info`, `gprs`) and legacy aliases (`binary`, `info`, `gpr_count`).
+    hotSpring parsers handle both forms.
+- **Validation:** 591/591 lib tests pass. Zero clippy warnings.
 
 ---
 

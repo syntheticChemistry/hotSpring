@@ -1,21 +1,27 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Scenario: VFIO Sovereign Dispatch — validates in-process GPU dispatch
-//! via the sovereign VFIO path, bypassing wgpu and Vulkan entirely.
+//! Scenario: VFIO Sovereign Dispatch — validates VFIO-bound GPU detection,
+//! warm FECS state, and toadStool IPC dispatch on sovereign hardware.
 //!
-//! **NOTE (May 2026):** `coral-gpu` was excised from coralReef Sprint 9.
-//! The `sovereign-dispatch` feature gate keeps this scenario inert until
-//! toadStool Phase C provides the equivalent dispatch API.
+//! ## Evolution (May 13, 2026)
+//!
+//! toadStool S258 wired PBDMA dispatch through `NvVfioComputeDevice`:
+//! GPFIFO submission, DMA alloc/upload/readback, doorbell + sync.
+//! `probe_warm_fecs()` (S256) probes BAR0 for warm-preserved FECS state.
+//! The full pipeline: warm probe → `open_vfio()` → alloc/upload → dispatch → sync → readback.
 //!
 //! Exercises:
 //! - VFIO GPU detection via sysfs probing
-//! - Warm VFIO open: `from_vfio_warm_with_sm()` (Titan V) / `from_vfio_warm_legacy()` (K80)
-//! - WGSL → native binary compilation via coral-reef
-//! - Buffer alloc → upload → dispatch → readback on real hardware
+//! - VFIO-pci driver binding verification
+//! - toadStool FECS state probe via `ember.fecs.state` IPC
+//! - toadStool warm catch via `device.warm_catch` IPC
+//! - Phase D dispatch probe via `compute.dispatch.submit` with `local_dispatch` flag
 //!
 //! Target hardware (biomeGate compute trio):
 //!   - Titan V (GV100, SM70) at BDF 02:00.0
 //!   - Tesla K80 (GK210, SM37) at BDF 4b:00.0
+
+use base64::Engine as _;
 
 use crate::validation::ValidationHarness;
 use crate::validation::scenarios::registry::{Scenario, ScenarioMeta, Tier, Track};
@@ -25,30 +31,18 @@ pub const SCENARIO: Scenario = Scenario {
         id: "vfio-dispatch",
         track: Track::GpuCompute,
         tier: Tier::Live,
-        provenance_crate: "validate_vfio_sovereign",
-        provenance_date: "2026-05-12",
-        description: "VFIO sovereign dispatch: VFIO → compile → dispatch → readback (awaits toadStool Phase C)",
+        provenance_crate: "embedded_vfio_dispatch_scenario",
+        provenance_date: "2026-05-13",
+        description: "VFIO sovereign dispatch: sysfs detection + FECS warm probe + toadStool Phase D dispatch",
     },
     run,
 };
 
-#[cfg(feature = "sovereign-dispatch")]
-const WRITE_CONSTANT_WGSL: &str = r#"
-@group(0) @binding(0) var<storage, read_write> output: array<u32>;
-
-@compute @workgroup_size(1)
-fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
-    output[gid.x] = 42u;
-}
-"#;
-
-#[allow(dead_code)]
 #[derive(Clone)]
 struct VfioTarget {
     name: String,
     bdf: String,
     sm: u32,
-    use_legacy: bool,
 }
 
 fn discover_vfio_targets() -> Vec<VfioTarget> {
@@ -60,7 +54,6 @@ fn discover_vfio_targets() -> Vec<VfioTarget> {
         name: "titan-v".into(),
         bdf: titan_bdf,
         sm: 70,
-        use_legacy: false,
     });
 
     let k80_bdf = std::env::var("HOTSPRING_K80_BDF").map_or_else(
@@ -77,19 +70,23 @@ fn discover_vfio_targets() -> Vec<VfioTarget> {
         name: "k80-die0".into(),
         bdf: k80_bdf,
         sm: 37,
-        use_legacy: true,
     });
 
     targets
 }
 
 pub fn run(v: &mut ValidationHarness) {
+    use crate::primal_bridge::NucleusContext;
+
     let vfio_driver = std::path::Path::new("/sys/bus/pci/drivers/vfio-pci");
     let vfio_loaded = vfio_driver.exists();
     v.check_bool("vfio:driver_present", vfio_loaded);
     if !vfio_loaded {
         return;
     }
+
+    let nucleus = NucleusContext::detect();
+    let toadstool_alive = nucleus.by_domain("compute").is_some_and(|ep| ep.alive);
 
     let targets = discover_vfio_targets();
     for target in &targets {
@@ -112,88 +109,103 @@ pub fn run(v: &mut ValidationHarness) {
             continue;
         }
 
-        #[cfg(feature = "sovereign-dispatch")]
-        {
-            validate_vfio_gpu(v, &prefix, target);
-        }
+        // --- FECS state probe via toadStool IPC ---
+        if toadstool_alive {
+            let fecs_params = serde_json::json!({ "bdf": target.bdf });
+            match nucleus.call_by_capability("compute", "ember.fecs.state", fecs_params) {
+                Ok(resp) => {
+                    let fecs_ready = resp
+                        .get("fecs_ready")
+                        .and_then(serde_json::Value::as_bool)
+                        .unwrap_or(false);
+                    v.check_bool(&format!("{prefix}fecs_state_responded"), true);
+                    v.check_bool(&format!("{prefix}fecs_ready"), fecs_ready);
+                }
+                Err(_) => {
+                    v.check_bool(&format!("{prefix}fecs_state_responded"), false);
+                }
+            }
 
-        #[cfg(not(feature = "sovereign-dispatch"))]
-        {
-            v.check_bool(&format!("{prefix}sovereign_dispatch_feature"), false);
-        }
-    }
-}
+            // --- Warm catch probe ---
+            let warm_params = serde_json::json!({ "bdf": target.bdf, "expected_sm": target.sm });
+            let warm_fecs = if let Ok(resp) = nucleus.call_by_capability("compute", "device.warm_catch", warm_params) {
+                let warm_ready = resp
+                    .get("fecs_ready")
+                    .and_then(serde_json::Value::as_bool)
+                    .unwrap_or(false);
+                let vfio_open = resp
+                    .get("vfio_open")
+                    .and_then(serde_json::Value::as_bool)
+                    .unwrap_or(false);
+                let channel_id = resp
+                    .get("channel_id")
+                    .and_then(serde_json::Value::as_u64)
+                    .map(|c| c as u32);
+                v.check_bool(&format!("{prefix}warm_catch_responded"), true);
+                v.check_bool(&format!("{prefix}warm_catch_fecs_ready"), warm_ready);
+                v.check_bool(&format!("{prefix}warm_catch_vfio_open"), vfio_open);
+                if let Some(ch) = channel_id {
+                    log::info!("[{prefix}] PBDMA channel ID: {ch}");
+                }
+                warm_ready
+            } else {
+                v.check_bool(&format!("{prefix}warm_catch_responded"), false);
+                false
+            };
 
-#[cfg(feature = "sovereign-dispatch")]
-fn validate_vfio_gpu(v: &mut ValidationHarness, prefix: &str, target: &VfioTarget) {
-    use coral_gpu::GpuContext;
+            // --- S258 PBDMA DMA roundtrip probe ---
+            if warm_fecs {
+                let open_params = serde_json::json!({ "bdf": target.bdf });
+                let vfio_opened = nucleus
+                    .call_by_capability("compute", "device.vfio.open", open_params)
+                    .is_ok();
+                v.check_bool(&format!("{prefix}pbdma_vfio_open"), vfio_opened);
 
-    let ctx_result = if target.use_legacy {
-        GpuContext::from_vfio_warm_legacy(target.bdf, target.sm)
-    } else {
-        GpuContext::from_vfio_warm_with_sm(target.bdf, target.sm)
-    };
-    let ctx_ok = ctx_result.is_ok();
-    v.check_bool(&format!("{prefix}vfio_open"), ctx_ok);
+                if vfio_opened {
+                    let roundtrip_params = serde_json::json!({
+                        "bdf": target.bdf,
+                        "data_b64": base64::engine::general_purpose::STANDARD
+                            .encode(b"hotspring-pbdma-probe"),
+                    });
+                    match nucleus.call_by_capability(
+                        "compute",
+                        "device.vfio.roundtrip",
+                        roundtrip_params,
+                    ) {
+                        Ok(resp) => {
+                            let ok = resp
+                                .get("ok")
+                                .and_then(serde_json::Value::as_bool)
+                                .unwrap_or(false);
+                            v.check_bool(&format!("{prefix}pbdma_dma_roundtrip"), ok);
+                        }
+                        Err(e) => {
+                            log::warn!("[{prefix}] DMA roundtrip failed: {e}");
+                            v.check_bool(&format!("{prefix}pbdma_dma_roundtrip"), false);
+                        }
+                    }
+                }
+            }
 
-    let mut ctx = match ctx_result {
-        Ok(c) => c,
-        Err(_) => return,
-    };
+            // --- Phase D local dispatch probe ---
+            #[cfg(feature = "toadstool-dispatch")]
+            {
+                let dispatch_params = serde_json::json!({
+                    "workload": format!("hotspring-vfio-probe-{}", target.name),
+                    "bdf": target.bdf,
+                    "kind": "health_check",
+                    "dry_run": true,
+                });
+                let local = crate::fleet_toadstool::try_local_dispatch(&nucleus, &dispatch_params);
+                v.check_bool(&format!("{prefix}phase_d_attempted"), local.attempted);
+            }
 
-    let target_arch = ctx.target();
-    v.check_bool(
-        &format!("{prefix}target_detected"),
-        format!("{target_arch:?}").contains("Nvidia"),
-    );
-
-    let compile_result = ctx.compile_wgsl(WRITE_CONSTANT_WGSL);
-    let compile_ok = compile_result.is_ok();
-    v.check_bool(&format!("{prefix}wgsl_compile"), compile_ok);
-
-    let kernel = match compile_result {
-        Ok(k) => k,
-        Err(_) => return,
-    };
-
-    v.check_bool(
-        &format!("{prefix}binary_nonzero"),
-        !kernel.binary.is_empty(),
-    );
-
-    let buf = match ctx.alloc(4096) {
-        Ok(b) => b,
-        Err(_) => {
-            v.check_bool(&format!("{prefix}alloc"), false);
-            return;
-        }
-    };
-    v.check_bool(&format!("{prefix}alloc"), true);
-
-    let sentinel: u32 = 0xDEAD_BEEF;
-    let mut init_data = vec![0u8; 4096];
-    for chunk in init_data[..16].chunks_exact_mut(4) {
-        chunk.copy_from_slice(&sentinel.to_le_bytes());
-    }
-    let upload_ok = ctx.upload(buf, &init_data).is_ok();
-    v.check_bool(&format!("{prefix}upload"), upload_ok);
-    if !upload_ok {
-        return;
-    }
-
-    let dispatch_ok = ctx.dispatch(&kernel, &[buf], [1, 1, 1]).is_ok();
-    v.check_bool(&format!("{prefix}dispatch"), dispatch_ok);
-    if !dispatch_ok {
-        return;
-    }
-
-    match ctx.readback(buf, 16) {
-        Ok(data) => {
-            let vals: &[u32] = bytemuck::cast_slice(&data[..4]);
-            v.check_bool(&format!("{prefix}readback_42"), vals[0] == 42);
-        }
-        Err(_) => {
-            v.check_bool(&format!("{prefix}readback"), false);
+            #[cfg(not(feature = "sovereign-dispatch"))]
+            {
+                v.check_bool(&format!("{prefix}sovereign_dispatch_feature"), false);
+            }
+        } else {
+            v.check_bool(&format!("{prefix}toadstool_available"), false);
         }
     }
 }
