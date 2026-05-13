@@ -40,6 +40,7 @@ pub mod s_sovereign_dispatch;
 #[cfg(feature = "barracuda-local")]
 pub mod s_spectral_lanczos;
 pub mod s_tolerance_ordering;
+pub mod s_vfio_dispatch;
 pub mod s_transport;
 
 /// Build the canonical scenario registry with all absorbed scenarios.
@@ -65,5 +66,6 @@ pub fn build_registry() -> ScenarioRegistry {
     r.register(s_cold_boot_sentinel::SCENARIO);
     r.register(s_compute_trio::SCENARIO);
     r.register(s_hotqcd_dispatch::SCENARIO);
+    r.register(s_vfio_dispatch::SCENARIO);
     r
 }

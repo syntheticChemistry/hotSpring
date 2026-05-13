@@ -5,6 +5,59 @@ All notable changes to the hotSpring BarraCuda validation crate.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased — Trio Modern Rewire (May 13, 2026)
+
+### Changed
+- **coral-gpu dependency removed**: coralReef Sprint 9 excised `coral-gpu`, `coral-ember`, `coral-glowplug`, and `coral-driver` source. The `coral-gpu` path dependency in `Cargo.toml` is now commented out. `sovereign-dispatch` feature no longer pulls `dep:coral-gpu`. All 590/590 lib tests pass.
+- **sovereign-dispatch feature**: Now a stub feature — `coral_sovereign` bin_helpers and VFIO validation bins will not compile until the dependency is rewired to toadStool's equivalent (Phase C/D). The IPC path is now via barraCuda v0.4.0's `sovereign_dispatch_wire.rs` → `compute.dispatch.submit`.
+- **fleet_client.rs rewired to toadStool**: Discovery chain now: (1) NUCLEUS `compute` domain, (2) toadStool `compute.sock` direct probe, (3) legacy coralReef diesel. Added `toadstool_compute_socket()` resolver (`$TOADSTOOL_SOCKET` → `$XDG_RUNTIME_DIR/biomeos/compute.sock`).
+- **primal_bridge.rs PRIMAL_ALIASES expanded**: Added `toadstool → [toadstool-server, compute]` and `barracuda → [barracuda-core, math]` alongside existing `coralreef → [coral-glowplug, shader]`.
+- **niche.rs ROUTED_CAPABILITIES expanded**: Added `compute.dispatch.status/forward`, `gpu.query_info/memory/telemetry`, `compute.hardware.observe/status/vfio_devices`, `shader.dispatch`, `ember.list`. Phase C pending methods annotated in comments.
+- **capability_registry.toml aligned with toadStool S243**: New `phase-c-pending` served status for ember lifecycle methods not yet implemented. Added `gpu.*`, `compute.hardware.*`, `shader.dispatch` entries. Matches niche.rs routing table.
+- **PrecisionAdvisory struct aligned with barraCuda v0.4.0**: Added `fma_safe`, `requires_compiler`, `rationale`, `needs_sovereign_compile`, `adapter` fields. Removed `gpu_preferred`, `notes`. `precision_advisory()` now takes `domain` only (barraCuda v0.4.0 contract: `{"domain": "<snake_case>"}`).
+- **Validation scenarios updated**: `s_hotqcd_dispatch`, `s_compute_trio`, `s_sovereign_dispatch` use updated `precision_advisory()` signature and `PrecisionAdvisory` fields.
+
+### Noted (upstream evolution since last audit)
+- **coralReef Sprint 8–9**: Feature freeze → full excision of diesel engine stack. coralReef is now a pure compiler primal (7 crates: coral-reef, coral-reef-isa, coral-reef-stubs, coral-reef-bitview, coralreef-core, nak-ir-proc, primal-rpc-client). FECS cold silicon init landed (Sprint 6: retry with PMC GR reset). Compiler domain clean.
+- **toadStool S237–S243**: Phase A (ember) and Phase B (glowplug) absorbed. Daemon serves `ember.list`/`ember.status`. Phase C (cylinder + coral-driver absorption) still planned — `toadstool-cylinder` crate does not exist yet. VFIO fd holding is metadata-only (`Option<i32>`), not `OwnedFd`. No `device.swap`, `warm_catch`, `ember.mmio.*`, `ember.falcon.*` RPCs. No CLI warm-fecs/swap commands. Split plan documented in `PHASE_C_CORAL_DRIVER_SPLIT_PLAN.md`.
+- **barraCuda v0.4.0**: `sovereign_dispatch_wire.rs` extracts IPC transport for `compute.dispatch.submit`. `precision.route` method wired. 15-tier precision ladder. Method gate auth. Trio E2E tests. Fleet/discovery drift toward toadStool names documented.
+
+## Unreleased — Ember/Glowplug Ownership Audit (May 12, 2026)
+
+### Fixed
+- **Stale coral-ember binary crash**: Rebuilt `coral-ember`, `coral-glowplug`, `coralctl` from current coralReef source. Zombie `<defunct>` processes eliminated (GAP-HS-096)
+- **Cylinder device.swap translation**: Diesel engine ECU routes `device.swap` to cylinder→ember, but ember only knows `ember.swap`. Added `device.*` → `ember.*` method translation in `cylinder.rs` catch-all handler
+
+### Validated
+- **Titan V warm VFIO dispatch pipeline** (3/4 tests PASS):
+  - VFIO warm open: PASS (Nvidia Sm70)
+  - WGSL compile (write_constant): PASS (192 bytes, 22 GPRs)
+  - WGSL compile (wilson_plaquette_f64): PASS (6000 bytes, 38 GPRs)
+  - WGSL compile (su3_gauge_force_f64): PASS (20096 bytes, 54 GPRs)
+  - Dispatch + readback: FAIL (FECS compute context not initialized)
+
+### Documented
+- **Dual-existence audit**: Mapped ember/glowplug/cylinder ownership across coralReef and toadStool. Phase A+B absorbed types/traits but NOT daemon runtime. toadStool daemon mode lacks: `device.swap` RPC, cylinder subprocess, VFIO fd holding, warm-catch pipeline, coralctl CLI parity
+
+## Unreleased — Warm VFIO Dispatch Evolution (May 12, 2026)
+
+### Added
+- **`coral-gpu` warm VFIO API**: `from_vfio_warm()`, `from_vfio_warm_with_sm()`, `from_vfio_warm_legacy()` — warm-aware VFIO entry points that preserve GPU state from `coralctl warm-catch`, fixing cold-vs-warm init mismatch (GAP-HS-095 cont)
+
+### Changed
+- **`validate_vfio_sovereign` binary**: Defaults to warm mode; `--cold` flag for cold init; K80 targets use `WarmLegacy` mode automatically (PLX 8747 safe); `--legacy` flag for explicit legacy VFIO group path
+- **`s_vfio_dispatch` scenario**: `VfioTarget` gains `use_legacy` field; K80 uses `from_vfio_warm_legacy()`, Titan V uses `from_vfio_warm_with_sm()`
+
+## Unreleased — VFIO Sovereign Dispatch Wiring (May 12, 2026)
+
+### Added
+- **`coral-gpu` VFIO feature enabled**: `Cargo.toml` now includes `features = ["vfio"]` on `coral-gpu`, unlocking `GpuContext::from_vfio()`, `from_vfio_with_sm()`, and VFIO backend preference in `auto()` (GAP-HS-095)
+- **`validate_vfio_sovereign` binary**: In-process VFIO dispatch validation — sysfs GPU discovery, per-GPU open/compile/dispatch/readback on Titan V (SM70), K80 die0/die1 (SM37). CLI `--bdf`/`--sm` for hardware targeting
+- **`s_vfio_dispatch` scenario**: `GpuCompute`-track Live-tier scenario — VFIO driver presence, sysfs binding, full dispatch pipeline with sentinel verification. Graceful `sovereign-dispatch` feature degradation
+
+### Changed
+- **Scenario count**: 14 default + 3 feature-gated = 17 total (was 13 + 3 = 16)
+
 ## Unreleased — Compute Trio Pipeline Wiring (May 12, 2026)
 
 ### Added

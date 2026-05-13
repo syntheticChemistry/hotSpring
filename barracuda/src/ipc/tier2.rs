@@ -54,21 +54,30 @@ pub struct WorkloadListing {
     pub counts: serde_json::Value,
 }
 
-/// Precision routing advisory from `barracuda.precision.route`.
+/// Precision routing advisory from `barracuda.precision.route` (v0.4.0).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PrecisionAdvisory {
-    /// Recommended precision tier name.
-    #[serde(default)]
+    /// Recommended precision tier name (e.g. "F32", "DF64", "F64").
+    #[serde(default, alias = "recommended_tier")]
     pub tier: Option<String>,
-    /// Recommended hardware target.
+    /// Whether FMA fusion is safe for this domain.
+    #[serde(default)]
+    pub fma_safe: bool,
+    /// Whether this tier needs sovereign compilation (coralReef).
+    #[serde(default)]
+    pub requires_compiler: bool,
+    /// Recommended hardware dispatch hint ("compute", "tensor_core", etc.).
     #[serde(default)]
     pub hardware_hint: Option<String>,
-    /// Whether GPU dispatch is preferred for this domain.
+    /// Human-readable rationale for the recommendation.
     #[serde(default)]
-    pub gpu_preferred: bool,
-    /// Advisory notes from the precision brain.
+    pub rationale: Option<String>,
+    /// Whether sovereign compile is needed vs wgpu polyfill.
     #[serde(default)]
-    pub notes: Vec<String>,
+    pub needs_sovereign_compile: bool,
+    /// GPU adapter name (null if no GPU available).
+    #[serde(default)]
+    pub adapter: Option<String>,
 }
 
 /// Pre-flight a workload via `toadstool.validate`.
@@ -107,16 +116,18 @@ pub fn list_workloads(nucleus: &NucleusContext) -> Option<WorkloadListing> {
 
 /// Query precision routing advisory from barraCuda via `precision.route`.
 ///
-/// Returns `None` when barraCuda is unreachable or the method is not
-/// available.
+/// `domain` is a snake_case physics domain name (e.g. "lattice_qcd",
+/// "gradient_flow", "molecular_dynamics"). barraCuda v0.4.0 returns
+/// `recommended_tier`, `fma_safe`, `requires_compiler`, `hardware_hint`,
+/// `rationale`, `needs_sovereign_compile`, and `adapter`.
+///
+/// Returns `None` when barraCuda is unreachable or the method is not available.
 pub fn precision_advisory(
     nucleus: &NucleusContext,
     domain: &str,
-    operation: &str,
 ) -> Option<PrecisionAdvisory> {
     let params = serde_json::json!({
         "domain": domain,
-        "operation": operation,
     });
 
     let resp = nucleus
@@ -147,7 +158,7 @@ pub fn tier2_status(nucleus: &NucleusContext) -> Tier2Status {
     };
 
     let precision_available = if barracuda_alive {
-        precision_advisory(nucleus, "probe", "health").is_some()
+        precision_advisory(nucleus, "lattice_qcd").is_some()
     } else {
         false
     };
@@ -215,7 +226,7 @@ mod tests {
     #[test]
     fn precision_advisory_returns_none_without_barracuda() {
         let nucleus = NucleusContext::detect();
-        assert!(precision_advisory(&nucleus, "nuclear", "semf").is_none());
+        assert!(precision_advisory(&nucleus, "lattice_qcd").is_none());
     }
 
     #[test]

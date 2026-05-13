@@ -37,6 +37,10 @@ entry for the session that produced it. Chronological by filename suffix.
 | 2026-05-12 | `HOTSPRING_COMPUTE_TRIO_CAPABILITY_EVOLUTION_HANDOFF_MAY12_2026.md` | ✅ | Compute trio rewire, capability discovery evolution, scenario expansion, downstream audit |
 | 2026-05-12 | `HOTSPRING_IPC_TRANSPORT_EVOLUTION_HANDOFF_MAY12_2026.md` | ✅ | GAP-HS-092: call_by_capability proliferation, wildcard audit, production mock audit |
 | 2026-05-12 | `HOTSPRING_COMPUTE_TRIO_PIPELINE_HANDOFF_MAY12_2026.md` | ✅ | GAP-HS-094: GlowplugClient NUCLEUS evolution, compute trio + hotQCD scenarios |
+| 2026-05-12 | `HOTSPRING_VFIO_SOVEREIGN_DISPATCH_HANDOFF_MAY12_2026.md` | ✅ | GAP-HS-095: VFIO feature enable, in-process dispatch wiring, upstream Phase C/D gaps |
+| 2026-05-12 | `HOTSPRING_WARM_VFIO_DISPATCH_EVOLUTION_HANDOFF_MAY12_2026.md` | ✅ | GAP-HS-095 cont: warm API, cold/warm mismatch fix, ember blocker, kernel-module roadmap |
+| 2026-05-12 | `HOTSPRING_EMBER_GLOWPLUG_OWNERSHIP_AUDIT_HANDOFF_MAY12_2026.md` | ✅ | GAP-HS-096: dual-existence audit, cylinder translation fix, toadStool parity gap, cutover path |
+| 2026-05-12 | `HOTSPRING_PHASE_C_EXECUTION_PLAN_MAY12_2026.md` | ✅ | Phase C execution plan: 7 work items (C1-C7), coralReef soft-deprecation, hotSpring validation checklist |
 
 ### `mmiotraces/`
 

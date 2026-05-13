@@ -45,11 +45,14 @@ pub fn run(v: &mut ValidationHarness) {
     }
 
     // --- Precision advisory ---
-    let advisory = tier2::precision_advisory(&nucleus, "molecular_dynamics", "lennard_jones");
+    let advisory = tier2::precision_advisory(&nucleus, "molecular_dynamics");
     let precision_responded = advisory.is_some();
     v.check_bool("sovereign:precision_responded", precision_responded || !t2.barracuda_alive);
     if let Some(pa) = &advisory {
-        v.check_bool("sovereign:precision_gpu_preferred", pa.gpu_preferred);
+        v.check_bool(
+            "sovereign:precision_has_hint",
+            pa.hardware_hint.is_some(),
+        );
     }
 
     // --- Sovereign dispatch probe ---

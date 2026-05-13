@@ -46,7 +46,7 @@ pub fn run(v: &mut ValidationHarness) {
     let nucleus = NucleusContext::detect();
 
     // --- Phase 1: Precision advisory for lattice QCD ---
-    let advisory = tier2::precision_advisory(&nucleus, "lattice_qcd", "wilson_plaquette");
+    let advisory = tier2::precision_advisory(&nucleus, "lattice_qcd");
     let math_alive = nucleus.by_domain("math").is_some_and(|ep| ep.alive);
     v.check_bool(
         "hotqcd:precision_advisory",
@@ -57,7 +57,7 @@ pub fn run(v: &mut ValidationHarness) {
             .tier
             .as_deref()
             .is_some_and(|t| t.contains("f64") || t.contains("mixed") || t.contains("df64"));
-        v.check_bool("hotqcd:precision_f64_or_mixed", tier_ok || adv.gpu_preferred);
+        v.check_bool("hotqcd:precision_f64_or_mixed", tier_ok || adv.fma_safe);
     }
 
     // --- Phase 2: QCD shader compilation through coralReef ---

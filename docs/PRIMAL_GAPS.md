@@ -1345,6 +1345,191 @@ via PRs to `primalSpring/docs/PRIMAL_GAPS.md` and `graphs/downstream/`.
 
 ---
 
+### GAP-HS-095 — VFIO Sovereign Dispatch Wiring (May 12 2026)
+
+- **Severity:** Critical (unblocks Titan V + K80 sovereign dispatch)
+- **Classification:** Feature evolution → in-process VFIO dispatch
+- **Trigger:** GAP-HS-094 identified that wgpu cannot enumerate VFIO-bound GPUs
+  (no Vulkan ICD). coral-gpu's `vfio` feature provides an alternative path:
+  `GpuContext::from_vfio(bdf)` opens `NvVfioComputeDevice` directly, bypassing
+  wgpu and Vulkan entirely.
+- **Root cause:** Three dispatch paths exist, none fully connected for VFIO GPUs:
+  1. **wgpu** — blind to VFIO GPUs (no Vulkan adapter exposed to host)
+  2. **coral-gpu VFIO** — works but `vfio` feature was not enabled in hotSpring's
+     `coral-gpu` dependency
+  3. **toadStool IPC** — forwards `compute.dispatch.submit` to
+     `compute.dispatch.execute`, a method coralReef does not implement
+- **Completed:**
+  - **`barracuda/Cargo.toml`**: `coral-gpu` dependency now includes
+    `features = ["vfio"]`, unlocking `discover_vfio_nvidia_bdf()`,
+    `GpuContext::from_vfio(bdf)`, `GpuContext::from_vfio_with_sm(bdf, sm)`,
+    and VFIO backend preference in `GpuContext::auto()`.
+  - **`validate_vfio_sovereign` binary**: New validation binary exercising
+    VFIO dispatch on all known biomeGate GPUs:
+    - Phase 1: VFIO GPU discovery via sysfs probing
+    - Phase 2: Per-GPU validation (Titan V SM70 at `02:00.0`,
+      K80 die0 SM37 at `4b:00.0`, K80 die1 SM37 at `4c:00.0`):
+      - `GpuContext::from_vfio_with_sm()` open
+      - WGSL → native SASS compile (`write_constant`, `wilson_plaquette_f64`,
+        `su3_gauge_force_f64`)
+      - Dispatch + readback with sentinel verification
+    - CLI: `--bdf <BDF>` and `--sm <SM>` for targeting specific devices
+  - **`s_vfio_dispatch` scenario**: New `GpuCompute`-track Live-tier scenario
+    in the validation harness:
+    - VFIO driver presence check
+    - Per-target sysfs presence + vfio-pci binding verification
+    - Full dispatch pipeline when `sovereign-dispatch` feature enabled:
+      VFIO open → target detect → WGSL compile → alloc → upload →
+      dispatch → readback → value verification (42)
+    - Graceful degradation: reports `sovereign_dispatch_feature = false`
+      without the feature, skips unbound GPUs
+  - **Scenario registry**: 17 scenarios total (14 default / 17 with
+    `barracuda-local` + `sovereign-dispatch`).
+- **Upstream Phase C/D gaps blocking IPC dispatch for other springs:**
+  1. **toadStool `compute.dispatch.execute` miswiring:** `compute.dispatch.submit`
+     handler in toadStool forwards to `compute.dispatch.execute` on coralReef,
+     but coralReef's `REGISTERED_METHODS` does not include that method.
+     Phase C should absorb `NvVfioComputeDevice` from `coral-driver` into
+     toadStool so dispatch executes locally without IPC forwarding.
+  2. **toadStool `VfioResourceHandle` is metadata-only:** `VfioResourceHandle`
+     (`crates/core/ember/src/vfio_handle.rs`) stores BDF, IOMMU group, and
+     resource token but does not open real VFIO file descriptors or create
+     compute contexts. Phase D should integrate the `NvVfioComputeDevice::open()`
+     stack (VFIO group fd → device fd → BAR0 mmap → DMA context → GPFIFO)
+     into the absorbed toadStool device factory.
+  3. **coralReef `enumerate_all()` is DRM-only:** Even with the `vfio` feature
+     enabled, `GpuContext::enumerate_all()` uses DRM render nodes
+     (`/dev/dri/renderD*`). VFIO-bound GPUs have no DRM node. Needs either
+     `enumerate_all_with_vfio()` or merge of VFIO discovery into the unified
+     enumeration path so `auto()` sees all available GPUs regardless of backend.
+  4. **Dispatch ownership confusion:** hotSpring uses in-process `coral-gpu`
+     (Option A, proven on RTX 5060 via DRM, now wired for VFIO on Titan V/K80).
+     Other springs using toadStool IPC (Option B) cannot dispatch until
+     Phase C/D completes. Both paths must converge post-Phase D so that
+     `compute.dispatch.submit` works for all springs uniformly.
+- **Evolution (May 12, 2026 — warm API + kernel-module roadmap):**
+  - **Cold vs warm init mismatch fixed:** `GpuContext::from_vfio()` called
+    `NvVfioComputeDevice::open()` which runs cold init — destroying warm
+    state from `coralctl warm-catch`. Added three warm-aware entry points
+    to `coral-gpu/src/context.rs`:
+    - `from_vfio_warm(bdf)` — auto-detect SM, warm open with deferred bus-master
+    - `from_vfio_warm_with_sm(bdf, sm)` — explicit SM, warm handoff
+    - `from_vfio_warm_legacy(bdf, sm)` — legacy VFIO group path for K80
+      (no iommufd FLR that kills PLX 8747 bridge)
+  - **Validation binary updated:** `validate_vfio_sovereign` defaults to warm
+    mode, `--cold` flag for cold init, K80 uses legacy variant automatically.
+  - **Scenario updated:** `s_vfio_dispatch` uses `from_vfio_warm_with_sm()` for
+    Titan V and `from_vfio_warm_legacy()` for K80.
+  - **Hardware validation blocked:** Ember subprocess crashes on startup
+    (zombie `[coral-ember] <defunct>` processes). `coralctl warm-fecs` cannot
+    relay to ember. GPUs are cold (FECS PRI timeout). Warm API wiring is
+    correct but hardware E2E requires upstream ember fix.
+  - **Kernel-module evolution roadmap:** `coral-kmod` already proxies nvidia
+    RM via `/dev/coral-rm` for Blackwell. Long-term: expand to standalone
+    GPU compute driver — graduate `vfio_compute/` init + dispatch from
+    userspace MMIO into kernel module. Module binds PCI device directly,
+    exposes `/dev/coral-gpu{N}`, GPU stays visible without VFIO isolation.
+    Warm boot experiments are R&D for register sequences that move into module.
+    Pattern: hotSpring solves locally, hands patterns upstream, primals absorb
+    and abstract, hotSpring resolves with their new abstraction.
+- **Validation:** 590/590 lib tests pass. `cargo check --features sovereign-dispatch`
+  compiles clean with VFIO feature and warm API.
+- **Ownership audit (May 12, 2026 — ember/glowplug dual-existence resolved):**
+  - **Root cause of ember crash:** Stale `/usr/local/bin/coral-ember` binary
+    (pre-absorption build) caused zombie `<defunct>` processes. Fixed by
+    rebuilding from current coralReef source.
+  - **Cylinder device.swap translation bug FIXED:** In diesel engine mode,
+    the ECU forwards `device.swap` to cylinder→ember, but ember only knows
+    `ember.swap`. Added translation layer in `cylinder.rs` to convert
+    `device.*` methods to `ember.*` before forwarding to ember.
+  - **Titan V warm dispatch results (post-fix):**
+    - VFIO warm open: PASS (Nvidia Sm70)
+    - WGSL compile (write_constant): PASS (192 bytes, 22 GPRs)
+    - WGSL compile (wilson_plaquette_f64): PASS (6000 bytes, 38 GPRs)
+    - WGSL compile (su3_gauge_force_f64): PASS (20096 bytes, 54 GPRs)
+    - Dispatch + readback: FAIL (sentinel 0xDEADBEEF — FECS compute context
+      not fully initialized from single nouveau round-trip)
+  - **Dual-existence mapped:** ember/glowplug code exists in both coralReef
+    (binary: `coral-ember`, `coral-glowplug`, `coralctl`) and toadStool
+    (lib: `toadstool-ember`, `toadstool-glowplug`). Phase A+B absorbed
+    types/traits but NOT the daemon runtime. toadStool daemon mode exposes
+    only `ember.list`/`ember.status` — no `device.swap`, no cylinder, no
+    warm-catch, no VFIO fd holding. coralReef binaries remain required for
+    hardware lifecycle until Phase C/D completes.
+
+---
+
+### GAP-HS-096 — Ember/Glowplug Ownership: Dual-Existence Audit (May 12 2026)
+
+- **Severity:** Critical (architectural — blocks toadStool as sole hardware lifecycle daemon)
+- **Classification:** Ownership evolution → primal boundary resolution
+- **Trigger:** Ember subprocess crashes traced to stale coralReef binary.
+  Investigation revealed ember/glowplug/cylinder exist in both primals
+  with different maturity levels.
+- **Current ownership map:**
+  - **coralReef owns (still deployed, still needed):**
+    - `coral-ember` binary — immortal VFIO fd holder, `ember.swap`,
+      `ember.warm_catch`, MMIO handlers, journal, kmod, sovereign boot
+    - `coral-glowplug` binary — diesel engine ECU, cylinder spawning,
+      `device.*` handler dispatch, socket server, config parsing
+    - `coralctl` binary — 20+ CLI commands including `warm-fecs`,
+      `warm-catch`, `swap`, `status`, `health`, `dispatch`
+    - `coral-driver` — VFIO stack, DRM enum, AMD GEM/PM4, NV BAR0/QMD
+    - systemd: `coral-glowplug.service`, `coral-ember.service`
+  - **toadStool owns (Phase A+B absorbed, not deployed as daemon):**
+    - `toadstool-ember` crate (lib) — `ResourceHandle`, `HeldResource`,
+      `VfioResourceHandle` (metadata-only, no real VFIO fds), journal, ring_meta
+    - `toadstool-glowplug` crate (lib) — `SwapOrchestrator` (7-step with
+      real `SysfsSwapExecutor`), `DevicePersonality`, `DeviceSlot`, discovery trait
+    - `toadstool-server` — `GlowPlugClient` Rust API (list/swap/reacquire),
+      JSON-RPC: `ember.list`, `ember.status` only
+    - `toadstool` CLI — `daemon` mode (workload manager, no ember/glowplug RPC)
+  - **Nobody owns yet (Phase C PENDING):**
+    - `toadstool-cylinder` crate — per-device subprocess isolation
+    - coral-driver absorption into toadStool
+    - VFIO fd holding in toadStool
+    - warm-catch/warm-fecs pipeline in toadStool
+- **Fixes applied:**
+  1. Rebuilt all coralReef binaries from source, reinstalled
+  2. Fixed cylinder `device.*` → `ember.*` method translation in `cylinder.rs`
+  3. Titan V warm VFIO open + compilation proven (3/4 tests PASS)
+- **Remaining gaps for toadStool to fully replace coralReef daemon:**
+  - `ember.swap` / `device.swap` RPC in toadStool server
+  - Cylinder subprocess architecture (per-device isolation)
+  - VFIO fd holding through swaps (not just metadata tracking)
+  - Warm-catch / warm-fecs / livepatch pipeline
+  - `coralctl` CLI parity (~20 subcommands)
+  - systemd service for `toadstool daemon`
+- **Validation:** 590/590 lib tests pass.
+
+---
+
+### Evolution Pass — May 13, 2026 (updated: post-excision alignment)
+
+All three GAPs (094, 095, 096) have been consolidated into a per-primal
+evolution pass handoff:
+`infra/wateringHole/handoffs/HOTSPRING_SOVEREIGN_COMPUTE_EVOLUTION_PASS_MAY13_2026.md`
+
+**Post-excision update**: coralReef Sprint 9 excised the entire diesel engine
+stack. `coral-gpu` path dependency broken and commented out in `Cargo.toml`.
+`sovereign-dispatch` feature is now a stub. 590/590 lib tests pass.
+
+Updated directives:
+
+- **coralReef** (E1–E2 SUPERSEDED, E3 RESOLVED, E4 DONE): Diesel stack fully
+  excised. coralReef is a pure compiler primal. No remaining hardware work.
+- **toadStool** (E1–E3, CRITICAL PATH): Phase C is now sole critical path for
+  sovereign compute. No coralReef fallback exists. Parity gaps and C1–C7
+  execution plan remain the roadmap.
+- **hotSpring** (self): Rewire sovereign-dispatch to toadStool post-Phase C,
+  validate each C-item on hardware, adopt barraCuda v0.4.0 dispatch wire,
+  migrate fleet discovery from coralReef to toadStool paths.
+
+The upstream evolution pass document has been updated with post-excision state:
+`infra/wateringHole/handoffs/UPSTREAM_PRIMAL_EVOLUTION_PASS_12_14_MAY12_2026.md`
+
+---
+
 ## Handback Protocol
 
 1. Document gap in this file with severity and upstream reference.

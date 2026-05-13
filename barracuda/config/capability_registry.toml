@@ -189,6 +189,18 @@ served = "routed"
 provider = "toadstool"
 domain = "compute"
 
+[[capabilities]]
+method = "compute.dispatch.status"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+[[capabilities]]
+method = "compute.dispatch.forward"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
 # ── Tier 2 Live Science API (routed to ToadStool) ────────────────────
 
 [[capabilities]]
@@ -203,7 +215,7 @@ served = "routed"
 provider = "toadstool"
 domain = "compute"
 
-# ── Sovereign GPU lifecycle (routed to toadStool / coral-ember) ────────
+# ── Ember device listing (toadStool Phase A/B — operational) ──────────
 
 [[capabilities]]
 method = "ember.status"
@@ -212,45 +224,103 @@ provider = "toadstool"
 domain = "compute"
 
 [[capabilities]]
-method = "ember.warm_cycle"
+method = "ember.list"
 served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+# ── Ember lifecycle (toadStool Phase C — not yet served) ──────────────
+# These methods are registered for routing but toadStool does not yet
+# implement them. They will return method_not_found until Phase C lands.
+
+[[capabilities]]
+method = "ember.warm_cycle"
+served = "phase-c-pending"
 provider = "toadstool"
 domain = "compute"
 
 [[capabilities]]
 method = "ember.adopt_device"
-served = "routed"
+served = "phase-c-pending"
 provider = "toadstool"
 domain = "compute"
 
 [[capabilities]]
 method = "ember.fecs.state"
-served = "routed"
+served = "phase-c-pending"
 provider = "toadstool"
 domain = "compute"
 
 [[capabilities]]
 method = "ember.device.health"
-served = "routed"
+served = "phase-c-pending"
 provider = "toadstool"
 domain = "compute"
 
 [[capabilities]]
 method = "ember.device.recover"
-served = "routed"
+served = "phase-c-pending"
 provider = "toadstool"
 domain = "compute"
 
-# ── Device management (glowplug lifecycle → toadStool) ─────────────
+# ── Device management (toadStool Phase C — not yet served) ────────────
 
 [[capabilities]]
 method = "device.list"
-served = "routed"
+served = "phase-c-pending"
 provider = "toadstool"
 domain = "compute"
 
 [[capabilities]]
 method = "sovereign.boot"
+served = "phase-c-pending"
+provider = "toadstool"
+domain = "compute"
+
+# ── GPU introspection (toadStool — operational) ───────────────────────
+
+[[capabilities]]
+method = "gpu.query_info"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+[[capabilities]]
+method = "gpu.query_memory"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+[[capabilities]]
+method = "gpu.query_telemetry"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+# ── Hardware learning (toadStool — operational) ───────────────────────
+
+[[capabilities]]
+method = "compute.hardware.observe"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+[[capabilities]]
+method = "compute.hardware.status"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+[[capabilities]]
+method = "compute.hardware.vfio_devices"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+# ── Shader dispatch (toadStool — accepts compiled binaries) ───────────
+
+[[capabilities]]
+method = "shader.dispatch"
 served = "routed"
 provider = "toadstool"
 domain = "compute"

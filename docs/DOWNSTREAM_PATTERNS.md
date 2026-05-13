@@ -32,11 +32,12 @@ workload TOMLs, gate manifests, operational scripts.
    `transport-stanton-murillo`, `md-yukawa-ocp` (config smoke),
    `sarkas-yukawa-md` (foundation-grade), `composition-health`,
    `tolerance-ordering`, `ltee-anderson`, `sovereign-dispatch`,
-   `cold-boot-sentinel`, `compute-trio-pipeline`, `hotqcd-dispatch`.
+   `cold-boot-sentinel`, `compute-trio-pipeline`, `hotqcd-dispatch`,
+   `vfio-dispatch`.
    The `spectral-lanczos`, `gradient-flow`, and `dielectric-mermin`
    scenarios require `barracuda-local` and are not available in
    `primal-proof` builds.
-   16 scenarios registered (13 default + 3 barracuda-local)
+   17 scenarios registered (14 default + 3 barracuda-local)
 2. **Workload TOML contract** — `[metadata]`, `[execution]`, `[resources]`,
    `[security]` sections; `[provenance]` pending toadStool Gap 5 resolution
 3. **Path portability** — workload uses `$SPRINGS_ROOT` (verify expansion

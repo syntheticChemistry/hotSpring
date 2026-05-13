@@ -2,16 +2,20 @@
 
 //! Multi-ember fleet discovery and JSON-RPC routing.
 //!
-//! Reads the fleet discovery file written by the hardware daemon
-//! (toadStool fleet mode, or legacy coral-glowplug `mode: fleet`) and routes
-//! GPU work to per-device ember Unix sockets. Per-ember RPC methods live
-//! in [`crate::fleet_ember`].
+//! Discovers GPU compute endpoints via two paths:
+//! 1. **toadStool** (modern): NUCLEUS capability routing → `compute.sock`
+//!    at `$XDG_RUNTIME_DIR/biomeos/compute.sock` (or `$TOADSTOOL_SOCKET`)
+//! 2. **coral-ember** (legacy): Fleet JSON written by coral-glowplug `mode: fleet`
+//!    at `$XDG_RUNTIME_DIR/biomeos/coral-ember-fleet.json` (or `$EMBER_FLEET_FILE`)
 //!
-//! ## Discovery file
+//! Per-ember RPC methods live in [`crate::fleet_ember`].
+//! toadStool-specific dispatch in [`crate::fleet_toadstool`] (feature-gated).
 //!
-//! Default path: `$XDG_RUNTIME_DIR/biomeos/toadstool-ember-fleet.json` (falls
-//! back to legacy `coral-ember-fleet.json`, then `/tmp`). Override with
-//! `EMBER_FLEET_FILE`.
+//! ## Post-excision note (May 2026)
+//!
+//! coralReef Sprint 9 excised coral-ember/coral-glowplug. The legacy diesel
+//! discovery paths (`/run/coralreef/ember-*.sock`) are retained for backward
+//! compatibility but the modern path is toadStool's compute socket.
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -28,11 +32,8 @@ pub use crate::fleet_ember::{
 /// Environment variable overriding the fleet discovery JSON path.
 pub const EMBER_FLEET_FILE_ENV: &str = "EMBER_FLEET_FILE";
 
-/// Relative path under `XDG_RUNTIME_DIR` for fleet discovery (toadStool naming).
-pub const FLEET_FILE_REL: &str = "biomeos/toadstool-ember-fleet.json";
-
-/// Legacy relative path for fleet discovery (coralReef naming, migration fallback).
-pub const FLEET_FILE_REL_LEGACY: &str = "biomeos/coral-ember-fleet.json";
+/// Relative path under `XDG_RUNTIME_DIR` for fleet discovery.
+pub const FLEET_FILE_REL: &str = "biomeos/coral-ember-fleet.json";
 
 /// Physics domain tag: lattice QCD workloads (Wilson, staggered, HMC, …).
 pub const DOMAIN_LATTICE_QCD: &str = "lattice_qcd";
@@ -97,22 +98,17 @@ impl FleetDiscovery {
     ///
     /// Search order:
     /// 1. `EMBER_FLEET_FILE` env var (explicit override)
-    /// 2. `$XDG_RUNTIME_DIR/biomeos/toadstool-ember-fleet.json` (preferred)
-    /// 3. `$XDG_RUNTIME_DIR/biomeos/coral-ember-fleet.json` (legacy fallback)
-    /// 4. `<temp_dir>/biomeos/toadstool-ember-fleet.json` (platform temp)
+    /// 2. `$XDG_RUNTIME_DIR/biomeos/coral-ember-fleet.json`
+    /// 3. `<temp_dir>/biomeos/coral-ember-fleet.json` (platform temp via `std::env::temp_dir()`)
     #[must_use]
     pub fn resolve_path() -> PathBuf {
         if let Ok(p) = std::env::var(EMBER_FLEET_FILE_ENV) {
             return PathBuf::from(p);
         }
         if let Ok(runtime) = std::env::var("XDG_RUNTIME_DIR") {
-            let toad_path = PathBuf::from(&runtime).join(FLEET_FILE_REL);
-            if toad_path.exists() {
-                return toad_path;
-            }
-            let legacy_path = PathBuf::from(&runtime).join(FLEET_FILE_REL_LEGACY);
-            if legacy_path.exists() {
-                return legacy_path;
+            let xdg_path = PathBuf::from(runtime).join(FLEET_FILE_REL);
+            if xdg_path.exists() {
+                return xdg_path;
             }
         }
         std::env::temp_dir().join(FLEET_FILE_REL)
@@ -245,58 +241,50 @@ pub fn probe_ember_socket(socket_path: &Path) -> bool {
         .is_ok_and(|resp| resp.get("result").is_some())
 }
 
-/// Well-known toadStool runtime directory for hardware lifecycle sockets (preferred).
-const TOADSTOOL_RUN_DEFAULT: &str = "/run/toadstool";
+/// Resolve the toadStool compute socket path.
+///
+/// Precedence: `TOADSTOOL_SOCKET` env → `$XDG_RUNTIME_DIR/biomeos/compute.sock`
+/// → `/tmp/biomeos/compute.sock`.
+fn toadstool_compute_socket() -> PathBuf {
+    if let Ok(sock) = std::env::var("TOADSTOOL_SOCKET") {
+        return PathBuf::from(sock);
+    }
+    let base = std::env::var("XDG_RUNTIME_DIR")
+        .unwrap_or_else(|_| "/tmp".to_owned());
+    PathBuf::from(base).join("biomeos").join("compute.sock")
+}
 
-/// Legacy coralReef runtime directory for diesel engine sockets (deprecated path).
+/// Well-known coralReef runtime directory for diesel engine sockets (legacy).
 const CORALREEF_RUN_DEFAULT: &str = "/run/coralreef";
 
-/// Resolve the hardware daemon runtime directory.
-///
-/// Prefers toadStool paths (the hardware lifecycle primal), falling back to
-/// legacy coralReef paths during the diesel engine migration transition.
-///
-/// Search order:
-/// 1. `TOADSTOOL_RUN_DIR` env (explicit toadStool override)
-/// 2. `CORALREEF_RUN_DIR` env (legacy explicit override)
-/// 3. `$XDG_RUNTIME_DIR/toadstool` (toadStool XDG)
-/// 4. `$XDG_RUNTIME_DIR/coralreef` (legacy coralReef XDG)
-/// 5. `/run/toadstool` (toadStool well-known)
-/// 6. `/run/coralreef` (legacy coralReef well-known)
-fn hardware_daemon_run_dir() -> PathBuf {
-    if let Ok(dir) = std::env::var("TOADSTOOL_RUN_DIR") {
-        return PathBuf::from(dir);
-    }
+/// Resolve the coralReef runtime directory (legacy — excised Sprint 9).
+fn coralreef_run_dir() -> PathBuf {
     if let Ok(dir) = std::env::var("CORALREEF_RUN_DIR") {
         return PathBuf::from(dir);
     }
     if let Ok(xdg) = std::env::var("XDG_RUNTIME_DIR") {
-        let toad_path = PathBuf::from(&xdg).join("toadstool");
-        if toad_path.is_dir() {
-            return toad_path;
+        let p = PathBuf::from(xdg).join("coralreef");
+        if p.is_dir() {
+            return p;
         }
-        let coral_path = PathBuf::from(&xdg).join("coralreef");
-        if coral_path.is_dir() {
-            return coral_path;
-        }
-    }
-    let toad_default = PathBuf::from(TOADSTOOL_RUN_DEFAULT);
-    if toad_default.is_dir() {
-        return toad_default;
     }
     PathBuf::from(CORALREEF_RUN_DEFAULT)
 }
 
-/// Discover the ember socket for a specific BDF.
+/// Discover the compute socket for a specific BDF.
 ///
-/// Tries NUCLEUS capability routing first (`ember.list` via `call_by_capability`),
-/// then falls back to the diesel engine layout: per-cylinder ember sockets at
-/// `<daemon_run_dir>/ember-{cylinder_name}.sock`. Queries `ember.list` on
-/// each socket and returns the one holding the requested BDF.
+/// Discovery chain:
+/// 1. NUCLEUS capability routing (`compute` domain → toadStool `ember.list`)
+/// 2. toadStool compute socket direct probe (`ember.list` on `compute.sock`)
+/// 3. Legacy diesel engine layout: `<coralreef_run_dir>/ember-*.sock`
+///
+/// Returns the socket path of whichever endpoint holds the requested BDF.
 #[must_use]
 pub fn discover_diesel_ember_socket(bdf: &str) -> Option<PathBuf> {
     let ctx = crate::primal_bridge::NucleusContext::detect();
-    if let Some(ep) = ctx.by_domain("ember") {
+
+    // 1. NUCLEUS capability routing
+    if let Some(ep) = ctx.by_domain("compute") {
         let socket = PathBuf::from(&ep.socket);
         if ep.alive {
             if let Ok(resp) = send_jsonrpc(&socket, "ember.list", &serde_json::json!({})) {
@@ -312,25 +300,41 @@ pub fn discover_diesel_ember_socket(bdf: &str) -> Option<PathBuf> {
         }
     }
 
-    let daemon_dir = hardware_daemon_run_dir();
-    let entries = std::fs::read_dir(daemon_dir).ok()?;
-
-    for entry in entries.flatten() {
-        let name = entry.file_name();
-        let name_str = name.to_string_lossy();
-        if !name_str.starts_with("ember-") || !name_str.ends_with(".sock") {
-            continue;
-        }
-        let path = entry.path();
-        if let Ok(resp) = send_jsonrpc(&path, "ember.list", &serde_json::json!({})) {
-            if let Some(devices) = resp
+    // 2. toadStool compute socket direct probe
+    let ts_sock = toadstool_compute_socket();
+    if ts_sock.exists() {
+        if let Ok(resp) = send_jsonrpc(&ts_sock, "ember.list", &serde_json::json!({})) {
+            if resp
                 .get("result")
                 .and_then(|r| r.get("devices"))
                 .and_then(|d| d.as_array())
+                .is_some_and(|arr| arr.iter().any(|d| d.as_str() == Some(bdf)))
             {
-                for dev in devices {
-                    if dev.as_str().is_some_and(|s| s == bdf) {
-                        return Some(path);
+                return Some(ts_sock);
+            }
+        }
+    }
+
+    // 3. Legacy coralReef diesel engine layout
+    let coralreef_dir = coralreef_run_dir();
+    if let Ok(entries) = std::fs::read_dir(coralreef_dir) {
+        for entry in entries.flatten() {
+            let name = entry.file_name();
+            let name_str = name.to_string_lossy();
+            if !name_str.starts_with("ember-") || !name_str.ends_with(".sock") {
+                continue;
+            }
+            let path = entry.path();
+            if let Ok(resp) = send_jsonrpc(&path, "ember.list", &serde_json::json!({})) {
+                if let Some(devices) = resp
+                    .get("result")
+                    .and_then(|r| r.get("devices"))
+                    .and_then(|d| d.as_array())
+                {
+                    for dev in devices {
+                        if dev.as_str().is_some_and(|s| s == bdf) {
+                            return Some(path);
+                        }
                     }
                 }
             }

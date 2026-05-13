@@ -93,7 +93,9 @@ primal-proof = []
 barracuda-local = ["dep:barracuda"]
 gpu_energy = []
 npu-hw = ["dep:akida-driver", "dep:akida-models"]
-sovereign-dispatch = ["barracuda-local", "barracuda/sovereign-dispatch", "dep:coral-gpu"]
+# sovereign-dispatch: coral-gpu excised in coralReef Sprint 9. Feature preserved
+# for gating existing bins/scenarios; VFIO dispatch now via toadStool IPC.
+sovereign-dispatch = ["barracuda-local", "barracuda/sovereign-dispatch"]
 toadstool-dispatch = ["barracuda-local"]
 # Phase D: local dispatch via toadStool's LocalDeviceFactory (S250+).
 # Exercises try_local_dispatch() without forwarding to coralReef.
@@ -154,8 +156,11 @@ naga = { version = "28", features = ["wgsl-in"] }
 # Blocking async operations (adapter enumeration is async in wgpu 28)
 pollster = "0.4"
 
-# Sovereign GPU pipeline (coralReef compiler + DRM dispatch, no wgpu)
-coral-gpu = { path = "../../../primals/coralReef/crates/coral-gpu", optional = true }
+# Sovereign GPU pipeline — coral-gpu excised in coralReef Sprint 9.
+# VFIO dispatch now routes through toadStool's compute.dispatch.submit IPC.
+# coral-gpu dependency removed; sovereign-dispatch feature gates the local
+# bin_helpers and validation scenarios that used it.
+# coral-gpu = { path = "../../../primals/coralReef/crates/coral-gpu", optional = true, features = ["vfio"] }
 
 # metalForge substrate probe (hardware FP64-rate classification, dispatch profiles)
 hotspring-forge = { path = "../metalForge/forge" }
@@ -740,6 +745,12 @@ required-features = ["sovereign-dispatch"]
 [[bin]]
 name = "validate_coral_sovereign"
 path = "src/bin/validate_coral_sovereign.rs"
+required-features = ["sovereign-dispatch"]
+
+# ── VFIO sovereign dispatch: Titan V + K80 via coral-driver VFIO ──
+[[bin]]
+name = "validate_vfio_sovereign"
+path = "src/bin/validate_vfio_sovereign.rs"
 required-features = ["sovereign-dispatch"]
 
 # ── Sovereign dispatch benchmark (wgpu vs coralReef → DRM) ──

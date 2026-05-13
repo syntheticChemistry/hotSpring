@@ -38,7 +38,7 @@ pub fn run(v: &mut ValidationHarness) {
     let nucleus = NucleusContext::detect();
 
     // --- Phase 1: barraCuda precision advisory ---
-    let precision = tier2::precision_advisory(&nucleus, "lattice_qcd", "wilson_plaquette");
+    let precision = tier2::precision_advisory(&nucleus, "lattice_qcd");
     let math_alive = nucleus.by_domain("math").is_some_and(|ep| ep.alive);
     v.check_bool("trio:precision_advisory", precision.is_some() || !math_alive);
 

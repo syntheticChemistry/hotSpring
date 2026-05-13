@@ -203,28 +203,42 @@ pub const ROUTED_CAPABILITIES: &[(&str, &str)] = &[
     // Crypto (BearDog)
     ("crypto.sign_ed25519", "beardog"),
     ("crypto.verify_ed25519", "beardog"),
-    // Compute dispatch (ToadStool)
+    // Compute dispatch (toadStool — operational)
     ("compute.dispatch.submit", "toadstool"),
     ("compute.dispatch.capabilities", "toadstool"),
     ("compute.dispatch.result", "toadstool"),
-    // Tier 2 Live Science API (ToadStool)
+    ("compute.dispatch.status", "toadstool"),
+    ("compute.dispatch.forward", "toadstool"),
+    // GPU introspection (toadStool — operational)
+    ("gpu.query_info", "toadstool"),
+    ("gpu.query_memory", "toadstool"),
+    ("gpu.query_telemetry", "toadstool"),
+    // Hardware learning (toadStool — operational)
+    ("compute.hardware.observe", "toadstool"),
+    ("compute.hardware.status", "toadstool"),
+    ("compute.hardware.vfio_devices", "toadstool"),
+    // Tier 2 Live Science API (toadStool — operational)
     ("toadstool.validate", "toadstool"),
     ("toadstool.list_workloads", "toadstool"),
-    // Sovereign GPU lifecycle (coral-ember via toadStool)
+    // Ember device listing (toadStool — operational, Phase A/B)
     ("ember.status", "toadstool"),
+    ("ember.list", "toadstool"),
+    // Ember lifecycle (toadStool — Phase C pending, not yet served)
     ("ember.warm_cycle", "toadstool"),
     ("ember.adopt_device", "toadstool"),
     ("ember.fecs.state", "toadstool"),
     ("ember.device.health", "toadstool"),
     ("ember.device.recover", "toadstool"),
-    // Device management (glowplug lifecycle → toadStool)
+    // Device management (toadStool — Phase C pending)
     ("device.list", "toadstool"),
     ("sovereign.boot", "toadstool"),
-    // Precision advisory (barraCuda)
+    // Precision advisory (barraCuda v0.4.0 — operational)
     ("precision.route", "barracuda"),
-    // Shader compilation (coralReef)
+    // Shader compilation (coralReef — operational, pure compiler)
     ("shader.compile.wgsl", "coralreef"),
     ("shader.compile.spirv", "coralreef"),
+    // Shader dispatch (toadStool — accepts compiled binaries)
+    ("shader.dispatch", "toadstool"),
     // Storage (NestGate)
     ("storage.store", "nestgate"),
     ("storage.retrieve", "nestgate"),
