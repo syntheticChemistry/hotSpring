@@ -22,6 +22,7 @@
 toadstool = ["toadstool-server", "toadstool-glowplug", "compute"]
 coralreef = ["coralreef-core", "coralreef-core-default", "coral-glowplug", "shader"]
 barracuda = ["barracuda-core", "math"]
+skunkbat = ["skunkbat-server", "skunk-bat", "defense"]
 
 # ── Physics domain (locally served) ──────────────────────────────────
 
@@ -164,6 +165,46 @@ method = "inference.models"
 served = "routed"
 provider = "squirrel"
 domain = "inference"
+
+# ── Defense / Audit (routed to SkunkBat) ─────────────────────────────
+# Per primalSpring routing (May 2026): security.audit_log and defense.*
+# route to SkunkBat ("defense" domain), not BearDog ("crypto" domain).
+
+[[capabilities]]
+method = "security.audit_log"
+served = "routed"
+provider = "skunkbat"
+domain = "defense"
+
+[[capabilities]]
+method = "security.audit_event"
+served = "routed"
+provider = "skunkbat"
+domain = "defense"
+
+[[capabilities]]
+method = "defense.scan"
+served = "routed"
+provider = "skunkbat"
+domain = "defense"
+
+[[capabilities]]
+method = "defense.status"
+served = "routed"
+provider = "skunkbat"
+domain = "defense"
+
+[[capabilities]]
+method = "recon.scan"
+served = "routed"
+provider = "skunkbat"
+domain = "defense"
+
+[[capabilities]]
+method = "threat.assess"
+served = "routed"
+provider = "skunkbat"
+domain = "defense"
 
 # ── Crypto (routed to BearDog) ───────────────────────────────────────
 

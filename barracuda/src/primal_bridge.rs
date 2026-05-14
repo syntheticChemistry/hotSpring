@@ -609,7 +609,7 @@ fn load_aliases_from_toml() -> HashMap<String, Vec<String>> {
     }
     let mut map = HashMap::new();
     for &(k, aliases) in DEFAULT_ALIASES {
-        map.insert(k.to_string(), aliases.iter().map(|s| s.to_string()).collect());
+        map.insert(k.to_string(), aliases.iter().map(|s| (*s).to_string()).collect());
     }
     map
 }

@@ -59,9 +59,12 @@ impl AuditLogResponse {
 /// `since_seq` is a cursor — events with `seq > since_seq` are returned.
 /// `limit` caps the number of events (server max: 1000).
 ///
-/// Uses `call_by_capability("security", ...)` for fully capability-based
-/// transport. Falls back to direct socket RPC if NUCLEUS routing is
-/// unavailable but the endpoint was discovered.
+/// Uses `call_by_capability("defense", ...)` for capability-based transport.
+/// Falls back to `by_domain("defense")` direct socket RPC if NUCLEUS routing
+/// is unavailable but the endpoint was discovered.
+///
+/// Per upstream primalSpring routing (May 2026), `security.audit_log` routes
+/// to the `"defense"` capability domain (skunkBat), not `"security"` (BearDog).
 pub fn query_audit_log(since_seq: u64, limit: u64) -> Option<AuditLogResponse> {
     let ctx = NucleusContext::detect();
     let params = serde_json::json!({
@@ -69,12 +72,12 @@ pub fn query_audit_log(since_seq: u64, limit: u64) -> Option<AuditLogResponse> {
         "limit": limit.min(AUDIT_LOG_BATCH_LIMIT),
     });
 
-    if let Ok(resp) = ctx.call_by_capability("security", "security.audit_log", params.clone()) {
+    if let Ok(resp) = ctx.call_by_capability("defense", "security.audit_log", params.clone()) {
         return serde_json::from_value(resp).ok();
     }
 
     let socket = ctx
-        .by_domain("security")
+        .by_domain("defense")
         .filter(|ep| ep.alive)
         .map(|ep| std::path::PathBuf::from(&ep.socket))?;
     let response = send_jsonrpc(&socket, "security.audit_log", &params).ok()?;

@@ -102,7 +102,7 @@ pub fn compile_and_submit(
         .ok_or_else(|| {
             let err_detail = compile_result
                 .get("error")
-                .map_or_else(|| "no binary in compile response".into(), |e| e.to_string());
+                .map_or_else(|| "no binary in compile response".into(), ToString::to_string);
             HotSpringError::Ipc(format!("shader compile failed: {err_detail}"))
         })?;
 
@@ -667,15 +667,12 @@ impl FusedPipeline {
                         .and_then(|r| r.get("job_id"))
                         .and_then(|v| v.as_str())
                         .map(String::from);
-                    match job_id {
-                        Some(id) => {
-                            self.submitted_job_ids.push(id.clone());
-                            outcomes.push(FusedOpSubmitOutcome::Submitted(id));
-                        }
-                        None => {
-                            let msg = "submit succeeded but response missing job_id".to_string();
-                            outcomes.push(FusedOpSubmitOutcome::Failed(msg));
-                        }
+                    if let Some(id) = job_id {
+                        self.submitted_job_ids.push(id.clone());
+                        outcomes.push(FusedOpSubmitOutcome::Submitted(id));
+                    } else {
+                        let msg = "submit succeeded but response missing job_id".to_string();
+                        outcomes.push(FusedOpSubmitOutcome::Failed(msg));
                     }
                 }
                 Err(e) => {

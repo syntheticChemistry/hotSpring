@@ -99,6 +99,12 @@ pub const DEPENDENCIES: &[NicheDependency] = &[
         capability_domain: "discovery",
     },
     NicheDependency {
+        name: "skunkbat",
+        role: "defense",
+        required: false,
+        capability_domain: "defense",
+    },
+    NicheDependency {
         name: "coralreef",
         role: "shader_compile",
         required: false,
@@ -200,6 +206,13 @@ pub const ROUTED_CAPABILITIES: &[(&str, &str)] = &[
     ("inference.complete", "squirrel"),
     ("inference.embed", "squirrel"),
     ("inference.models", "squirrel"),
+    // Defense / Audit (SkunkBat)
+    ("security.audit_log", "skunkbat"),
+    ("security.audit_event", "skunkbat"),
+    ("defense.scan", "skunkbat"),
+    ("defense.status", "skunkbat"),
+    ("recon.scan", "skunkbat"),
+    ("threat.assess", "skunkbat"),
     // Crypto (BearDog)
     ("crypto.sign_ed25519", "beardog"),
     ("crypto.verify_ed25519", "beardog"),
