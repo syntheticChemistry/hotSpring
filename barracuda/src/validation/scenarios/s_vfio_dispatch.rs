@@ -161,6 +161,14 @@ pub fn run(v: &mut ValidationHarness) {
                     .is_ok();
                 v.check_bool(&format!("{prefix}pbdma_vfio_open"), vfio_opened);
 
+                // --- S262 GR context init probe ---
+                if vfio_opened {
+                    let gr_init_routable = nucleus
+                        .get_by_capability("device.gr.init")
+                        .is_some_and(|ep| ep.alive);
+                    v.check_bool(&format!("{prefix}gr_init_routable"), gr_init_routable);
+                }
+
                 if vfio_opened {
                     let roundtrip_params = serde_json::json!({
                         "bdf": target.bdf,

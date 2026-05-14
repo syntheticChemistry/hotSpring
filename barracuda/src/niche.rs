@@ -256,10 +256,13 @@ pub const ROUTED_CAPABILITIES: &[(&str, &str)] = &[
     ("device.reacquire", "toadstool"),
     ("device.swap", "toadstool"),
     ("device.warm_catch", "toadstool"),
-    // VFIO PBDMA dispatch (toadStool S258 — DMA alloc/upload/readback/dispatch/sync)
+    // VFIO PBDMA dispatch (toadStool S258-S262 — DMA alloc/upload/readback/dispatch/sync)
     ("device.vfio.open", "toadstool"),
     ("device.vfio.alloc", "toadstool"),
     ("device.vfio.roundtrip", "toadstool"),
+    // GR context init (toadStool S262 — warm GPU compute context setup)
+    ("device.gr.init", "toadstool"),
+    ("compute.context.init", "toadstool"),
     // MMIO (toadStool S252 — hardware register access)
     ("mmio.read32", "toadstool"),
     ("mmio.write32", "toadstool"),

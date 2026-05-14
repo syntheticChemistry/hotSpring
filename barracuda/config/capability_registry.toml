@@ -338,6 +338,20 @@ served = "routed"
 provider = "toadstool"
 domain = "compute"
 
+# ── GR Context Init (toadStool S262 — warm GPU compute context) ──────
+
+[[capabilities]]
+method = "device.gr.init"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
+[[capabilities]]
+method = "compute.context.init"
+served = "routed"
+provider = "toadstool"
+domain = "compute"
+
 # ── MMIO (toadStool S252 — hardware register access) ─────────────────
 
 [[capabilities]]

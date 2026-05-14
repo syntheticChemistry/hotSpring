@@ -132,6 +132,12 @@ pub fn run(v: &mut ValidationHarness) {
         .is_some_and(|ep| ep.alive);
     v.check_bool("sovereign:pbdma_roundtrip_routable", vfio_roundtrip_available || !t2.toadstool_alive);
 
+    // --- GR context init (toadStool S262) ---
+    let gr_init_available = nucleus
+        .get_by_capability("device.gr.init")
+        .is_some_and(|ep| ep.alive);
+    v.check_bool("sovereign:gr_init_routable", gr_init_available || !t2.toadstool_alive);
+
     // --- Warm cycle routable ---
     let warm_available = nucleus
         .get_by_capability("ember.warm_cycle")

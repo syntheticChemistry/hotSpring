@@ -504,6 +504,52 @@ impl GlowplugClient {
         )
     }
 
+    /// `device.gr.init` — initialize GR compute context on warm-caught GPU.
+    ///
+    /// toadStool S262: accepts GR context method entries (register address/value
+    /// pairs from mmiotrace) and submits them as a pushbuffer to the warm GPU.
+    /// This bridges the gap between FECS warm detection and QMD dispatch —
+    /// the GPU needs a valid compute context before shader launches.
+    pub fn device_gr_init(
+        &self,
+        bdf: &str,
+        method_entries: &[[u32; 2]],
+    ) -> Result<serde_json::Value, GlowplugError> {
+        self.call_with_nucleus_fallback(
+            "compute",
+            "device.gr.init",
+            &serde_json::json!({
+                "bdf": bdf,
+                "method_entries": method_entries,
+            }),
+        )
+    }
+
+    /// `device.vfio.roundtrip` with optional GR init — single-call GR init + dispatch.
+    ///
+    /// toadStool S262: adds `gr_init_entries` parameter so GR context
+    /// initialization runs before dispatch in the same VFIO session.
+    pub fn device_vfio_roundtrip_with_gr_init(
+        &self,
+        bdf: &str,
+        binary_b64: &str,
+        shader_info: &serde_json::Value,
+        dispatch_dims: [u32; 3],
+        gr_init_entries: &[[u32; 2]],
+    ) -> Result<serde_json::Value, GlowplugError> {
+        self.call_with_nucleus_fallback(
+            "compute",
+            "device.vfio.roundtrip",
+            &serde_json::json!({
+                "bdf": bdf,
+                "gr_init_entries": gr_init_entries,
+                "binary_b64": binary_b64,
+                "shader_info": shader_info,
+                "dispatch_dims": dispatch_dims,
+            }),
+        )
+    }
+
     /// `shader.compile.gemm` — compile a tensor-core GEMM kernel via coralReef.
     ///
     /// coralReef Sprint 9+: generates PTX using `mma.sync.aligned` instructions
