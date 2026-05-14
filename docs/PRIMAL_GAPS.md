@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026
-**Last audited:** May 14, 2026 (Local debt sprint: compile-then-dispatch pipeline, circuit-breaker discovery, dispatch unification, FusedPipeline typed errors, TOML aliases, tiered validation)
+**Last audited:** May 14, 2026 (plasmidBin debt: release cascade, symlink-aware doctor, generalized upgrade, 13/13 NUCLEUS deployed)
 **License:** AGPL-3.0-or-later
 
 ---
@@ -1779,6 +1779,23 @@ Next: hardware validation on Titan V and K80.
   - **plasmidBin:** ecoBin pipeline lag — pre-subgroup-ops / pre-S259 harvests. Automated CI harvest would prevent.
 - **Validation:** 595/595 lib tests pass (default). Zero clippy warnings.
 - **Handoff:** `wateringHole/handoffs/HOTSPRING_LOCAL_DEBT_COMPOSITION_EVOLUTION_HANDOFF_MAY14_2026.md`
+
+---
+
+### GAP-HS-101 — plasmidBin Local Debt Resolution (May 14, 2026)
+
+- **Scope:** plasmidBin ecoBin harvest lag, tooling bugs, deployment gaps.
+- **What was implemented:**
+  1. **Release cascade in `fetch.sh`:** Cascades through 5 most recent releases when a binary is missing from `latest`, solving the incremental-release problem.
+  2. **Symlink-aware `doctor.sh`:** Fixed `file` → `file -L` and `du -h` → `du -hL` to correctly identify `static-pie` ecoBins behind backward-compat symlinks.
+  3. **Generalized `upgrade-primal.sh`:** Unified upgrade script supporting `--all`, `--trio`, `--status`, `--check`, with automatic rollback on service failure.
+  4. **User-mode systemd services:** `barracuda-user.service` and `coralreef-user.service` for `systemctl --user` deployment.
+  5. **Full NUCLEUS deployment:** 13/13 primals deployed to `/usr/local/bin/`, all ecoBin (static-pie, stripped).
+- **Upstream gaps discovered:**
+  - **GAP-PB-001:** `skunkbat` missing checksum entry in `checksums.toml` for `x86_64-unknown-linux-musl` (plasmidBin/primalSpring).
+  - **GAP-PB-002:** barracuda does not implement `health.version` RPC (barraCuda team).
+- **Validation:** 595/595 lib tests pass. Zero clippy warnings. 13/13 primals deployed. 3/3 compute trio live on IPC.
+- **Handoff:** `wateringHole/handoffs/HOTSPRING_PLASMIDBIN_LOCAL_OWNERSHIP_HANDOFF_MAY14B_2026.md`
 
 ---
 

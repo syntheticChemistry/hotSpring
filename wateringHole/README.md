@@ -50,6 +50,7 @@ entry for the session that produced it. Chronological by filename suffix.
 | 2026-05-13 | `HOTSPRING_FULL_MODERNIZATION_PLASMIDBIN_HANDOFF_MAY13_2026.md` | ✅ | Full modernization: plasmidBin ecoBin deployment, legacy coral_gpu excision, NUCLEUS discovery |
 | 2026-05-13 | `HOTSPRING_TRIO_REWIRE_MAY13_2026.md` | ✅ | Compute trio rewire: toadStool S258-S261, coralReef Sprint 9, barraCuda Sprint 23 |
 | 2026-05-14 | `HOTSPRING_LOCAL_DEBT_COMPOSITION_EVOLUTION_HANDOFF_MAY14_2026.md` | ✅ | Local debt sprint: compile-then-dispatch, circuit breaker, dispatch unification, TOML aliases, tiered validation |
+| 2026-05-14 | `HOTSPRING_PLASMIDBIN_LOCAL_OWNERSHIP_HANDOFF_MAY14B_2026.md` | ✅ | plasmidBin debt: release cascade, symlink-aware doctor, generalized upgrade, 13/13 NUCLEUS deployed |
 
 ### `mmiotraces/`
 

@@ -1,0 +1,20 @@
+[Unit]
+Description=barraCuda — GPU Math Engine Daemon (plasmidBin ecoBin)
+Documentation=https://github.com/ecoPrimals/barraCuda
+After=default.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/barracuda server
+Restart=on-failure
+RestartSec=2
+TimeoutStartSec=15
+TimeoutStopSec=15
+KillMode=mixed
+KillSignal=SIGTERM
+FinalKillSignal=SIGKILL
+Environment=RUST_LOG=info
+ExecStartPre=/bin/sh -c 'rm -f ${XDG_RUNTIME_DIR}/biomeos/math.sock 2>/dev/null; true'
+
+[Install]
+WantedBy=default.target

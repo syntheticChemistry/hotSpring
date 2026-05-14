@@ -7,6 +7,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Unreleased — plasmidBin Local Debt Resolution + Full Deployment (May 14, 2026)
+
+### Added
+- **Release cascade in `fetch.sh`:** plasmidBin cascades through 5 recent releases when
+  a binary is missing from `latest`, solving the incremental-release ecoBin harvest lag.
+- **Generalized `upgrade-primal.sh`:** Unified upgrade script replacing `upgrade-toadstool.sh`.
+  Supports `--all`, `--trio`, `--status`, `--check`, `--force` with automatic rollback.
+- **User-mode systemd services:** `barracuda-user.service` and `coralreef-user.service`.
+- **Full NUCLEUS deployment:** 13/13 primals deployed to `/usr/local/bin/` from plasmidBin ecoBins.
+
+### Fixed
+- **`doctor.sh` symlink detection:** `file` → `file -L`, `du -h` → `du -hL` to correctly
+  identify `static-pie` ecoBins behind backward-compat symlinks (was reporting DYNAMIC/0).
+
+### Metrics
+- 595/595 lib tests pass (default features)
+- 65 validation suites in 3 tiers (35 smoke / 7 nucleus / 23 silicon)
+- 0 clippy warnings
+- 13/13 NUCLEUS primals deployed, 3/3 compute trio IPC live
+
+---
+
 ## Unreleased — Local Debt Resolution + Composition Evolution (May 14, 2026)
 
 ### Added
