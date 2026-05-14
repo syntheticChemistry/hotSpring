@@ -118,8 +118,10 @@ fn validate_yukawa_dispatch(ctx: &NucleusContext, harness: &mut ValidationHarnes
                     harness.check_bool("yukawa_result", true);
 
                     if let Some(output) = result.get("data").and_then(|d| d.as_array()) {
-                        let output_vals: Vec<f64> =
-                            output.iter().filter_map(|v| v.as_f64()).collect();
+                        let output_vals: Vec<f64> = output
+                            .iter()
+                            .filter_map(serde_json::value::Value::as_f64)
+                            .collect();
                         let non_zero = output_vals.iter().any(|&v| v.abs() > 1e-30);
                         harness.check_bool("yukawa_nonzero", non_zero);
                         println!(
@@ -219,8 +221,12 @@ fn validate_plaquette_dispatch(ctx: &NucleusContext, harness: &mut ValidationHar
 
                     if let Some(plaq_val) = result
                         .get("plaquette")
-                        .and_then(|v| v.as_f64())
-                        .or_else(|| result.get("data").and_then(|d| d.as_f64()))
+                        .and_then(serde_json::value::Value::as_f64)
+                        .or_else(|| {
+                            result
+                                .get("data")
+                                .and_then(serde_json::value::Value::as_f64)
+                        })
                     {
                         let error = (plaq_val - cold_plaquette_ref).abs();
                         println!(

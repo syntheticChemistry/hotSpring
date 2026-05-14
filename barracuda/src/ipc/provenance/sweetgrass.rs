@@ -64,6 +64,7 @@ pub fn submit_braid(entry: &BraidEntry) -> Option<BraidResult> {
 
 #[cfg(test)]
 mod tests {
+    #![expect(clippy::expect_used, reason = "test assertions")]
     use super::*;
 
     #[test]

@@ -128,7 +128,9 @@ pub fn run(v: &mut ValidationHarness) {
 
             // --- Warm catch probe ---
             let warm_params = serde_json::json!({ "bdf": target.bdf, "expected_sm": target.sm });
-            let warm_fecs = if let Ok(resp) = nucleus.call_by_capability("compute", "device.warm_catch", warm_params) {
+            let warm_fecs = if let Ok(resp) =
+                nucleus.call_by_capability("compute", "device.warm_catch", warm_params)
+            {
                 let warm_ready = resp
                     .get("fecs_ready")
                     .and_then(serde_json::Value::as_bool)

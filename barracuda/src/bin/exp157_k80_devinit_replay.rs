@@ -23,7 +23,6 @@
 //!     --recipe data/k80/gk210_devinit_recipe.json
 //! ```
 
-use std::path::Path;
 use std::time::Duration;
 
 use hotspring_barracuda::fleet_client::{EmberClient, FleetDiscovery};

@@ -32,9 +32,7 @@ fn mermin_static_limit_matches_vlasov_epsilon_at_zero_frequency() {
     assert!(
         ((eps_small_omega.re - eps_static.re).abs() < 1e-10
             && (eps_small_omega.im - eps_static.im).abs() < 1e-10),
-        "ω→0 Mermin should match ε(k,0): {:?} vs {:?}",
-        eps_small_omega,
-        eps_static
+        "ω→0 Mermin should match ε(k,0): {eps_small_omega:?} vs {eps_static:?}"
     );
 }
 

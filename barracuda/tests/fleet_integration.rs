@@ -2,7 +2,7 @@
 
 //! Fleet-mode integration tests (mock JSON on disk; no live ember processes).
 
-#![allow(clippy::unwrap_used)]
+#![expect(clippy::unwrap_used, reason = "test assertions")]
 
 use std::collections::HashMap;
 use std::fs;

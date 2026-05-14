@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026
-**Last audited:** May 14, 2026 (plasmidBin debt: release cascade, symlink-aware doctor, generalized upgrade, 13/13 NUCLEUS deployed)
+**Last audited:** May 14, 2026 (upstream absorption: barraCuda v0.4.0 clippy alignment, plasmidBin skunkBat composition, lint evolution to `#[expect]`)
 **License:** AGPL-3.0-or-later
 
 ---
@@ -1796,6 +1796,27 @@ Next: hardware validation on Titan V and K80.
   - **GAP-PB-002:** barracuda does not implement `health.version` RPC (barraCuda team).
 - **Validation:** 595/595 lib tests pass. Zero clippy warnings. 13/13 primals deployed. 3/3 compute trio live on IPC.
 - **Handoff:** `wateringHole/handoffs/HOTSPRING_PLASMIDBIN_LOCAL_OWNERSHIP_HANDOFF_MAY14B_2026.md`
+
+### GAP-HS-102 — Upstream Absorption + Deep Debt Sprint (May 14, 2026)
+
+- **Severity:** Low (lint hygiene + composition alignment)
+- **Classification:** Upstream absorption + deep debt lint evolution
+- **Trigger:** primalSpring "Ecosystem Status Update — May 14, 2026" directive.
+  barraCuda v0.4.0 released back, coralReef v0.1.0 released back as pure sovereign compiler,
+  plasmidBin composition evolved with skunkBat per atomic model.
+- **Completed:**
+  1. **Clippy zero warnings restored** across `--all-targets --features barracuda-local`:
+     ~25 warnings fixed across bins, tests, and lib (auto-fix + manual).
+  2. **Test lint expectations aligned:** 5 `#[cfg(test)]` modules gained `#![expect]`,
+     3 unfulfilled expectations removed, 4 integration tests migrated `#[allow]` → `#[expect]`.
+  3. **plasmidBin composition:** `[niches.hotspring]` and `ports.env` updated to include
+     skunkBat per Tower = bearDog + songBird + skunkBat atomic model. `COMP_TOWER` aligned.
+  4. **barraCuda v0.4.0 alignment confirmed:** precision/E2E, VFIO dispatch, health.version
+     already wired by biomeGate. No stale `*_cpu` scalar names in codebase.
+  5. **coralReef v0.1.0 alignment confirmed:** IPC-only (no direct Rust dependency).
+     Blackwell SM120, naga::Module ingest, dual-vendor all accessible via IPC.
+- **Validation:** 595/595 lib tests pass. Zero clippy warnings (all-targets barracuda-local).
+  Zero unfulfilled lint expectations. `cargo fmt --check` clean.
 
 ---
 

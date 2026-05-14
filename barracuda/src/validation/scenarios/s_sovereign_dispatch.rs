@@ -55,12 +55,12 @@ pub fn run(v: &mut ValidationHarness) {
         precision_responded || !t2.barracuda_alive,
     );
     if let Some(pa) = &advisory {
-        v.check_bool(
-            "sovereign:precision_has_hint",
-            pa.hardware_hint.is_some(),
-        );
+        v.check_bool("sovereign:precision_has_hint", pa.hardware_hint.is_some());
         let has_dispatch_path = pa.dispatch_path.is_some();
-        v.check_bool("sovereign:dispatch_path_reported", has_dispatch_path || !t2.barracuda_alive);
+        v.check_bool(
+            "sovereign:dispatch_path_reported",
+            has_dispatch_path || !t2.barracuda_alive,
+        );
         if let Some(ref dp) = pa.dispatch_path {
             let valid = dp == "wgpu" || dp == "sovereign" || dp == "unavailable";
             v.check_bool("sovereign:dispatch_path_valid", valid);
@@ -119,30 +119,45 @@ pub fn run(v: &mut ValidationHarness) {
     let warm_catch_available = nucleus
         .get_by_capability("device.warm_catch")
         .is_some_and(|ep| ep.alive);
-    v.check_bool("sovereign:warm_catch_routable", warm_catch_available || !t2.toadstool_alive);
+    v.check_bool(
+        "sovereign:warm_catch_routable",
+        warm_catch_available || !t2.toadstool_alive,
+    );
 
     // --- PBDMA dispatch surface (toadStool S258) ---
     let vfio_open_available = nucleus
         .get_by_capability("device.vfio.open")
         .is_some_and(|ep| ep.alive);
-    v.check_bool("sovereign:pbdma_open_routable", vfio_open_available || !t2.toadstool_alive);
+    v.check_bool(
+        "sovereign:pbdma_open_routable",
+        vfio_open_available || !t2.toadstool_alive,
+    );
 
     let vfio_roundtrip_available = nucleus
         .get_by_capability("device.vfio.roundtrip")
         .is_some_and(|ep| ep.alive);
-    v.check_bool("sovereign:pbdma_roundtrip_routable", vfio_roundtrip_available || !t2.toadstool_alive);
+    v.check_bool(
+        "sovereign:pbdma_roundtrip_routable",
+        vfio_roundtrip_available || !t2.toadstool_alive,
+    );
 
     // --- GR context init (toadStool S262) ---
     let gr_init_available = nucleus
         .get_by_capability("device.gr.init")
         .is_some_and(|ep| ep.alive);
-    v.check_bool("sovereign:gr_init_routable", gr_init_available || !t2.toadstool_alive);
+    v.check_bool(
+        "sovereign:gr_init_routable",
+        gr_init_available || !t2.toadstool_alive,
+    );
 
     // --- Warm cycle routable ---
     let warm_available = nucleus
         .get_by_capability("ember.warm_cycle")
         .is_some_and(|ep| ep.alive);
-    v.check_bool("sovereign:warm_cycle_routable", warm_available || !t2.toadstool_alive);
+    v.check_bool(
+        "sovereign:warm_cycle_routable",
+        warm_available || !t2.toadstool_alive,
+    );
 
     // --- Phase D local dispatch probe ---
     #[cfg(feature = "toadstool-dispatch")]

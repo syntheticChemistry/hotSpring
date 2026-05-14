@@ -425,7 +425,7 @@ fn connect_glowplug() -> Option<GlowplugClient> {
     } else {
         let sock = Path::new("/run/toadstool/biomeos/compute.sock");
         if sock.exists() {
-            Some(GlowplugClient::from_socket(&sock))
+            Some(GlowplugClient::from_socket(sock))
         } else {
             None
         }

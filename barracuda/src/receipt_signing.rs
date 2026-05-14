@@ -127,6 +127,7 @@ pub fn sign_and_embed(
 
 #[cfg(test)]
 mod tests {
+    #![expect(clippy::expect_used, reason = "test assertions")]
     use super::*;
     use std::collections::HashMap;
 

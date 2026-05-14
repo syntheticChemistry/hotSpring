@@ -375,7 +375,7 @@ fn validate_nuclear_eos(
         ],
     });
 
-    let workgroups = (n as u32 + 63) / 64;
+    let workgroups = (n as u32).div_ceil(64);
     let gpu_energies = gpu
         .dispatch_and_read(&pipeline, &bind_group, workgroups, &output_buf, n)
         .expect("GPU SEMF dispatch");
@@ -487,7 +487,7 @@ fn validate_spectral(harness: &mut ValidationHarness, gpu: &GpuF64, telem: &mut 
         ],
     });
 
-    let workgroups = (n as u32 + 63) / 64;
+    let workgroups = (n as u32).div_ceil(64);
     let gpu_result = gpu
         .dispatch_and_read(&pipeline, &bind_group, workgroups, &output_buf, n)
         .expect("GPU SpMV dispatch");
@@ -503,7 +503,7 @@ fn validate_spectral(harness: &mut ValidationHarness, gpu: &GpuF64, telem: &mut 
 
     println!("    Max absolute error: {max_err:.4e}");
     println!("    L2 norm error: {l2:.4e}");
-    println!("    Matrix: {}×{} ({} nnz)", n, n, nnz);
+    println!("    Matrix: {n}×{n} ({nnz} nnz)");
 
     harness.check_upper("spectral_spmv_max_err", max_err, 1e-12);
     harness.check_upper("spectral_spmv_l2", l2, 1e-10);

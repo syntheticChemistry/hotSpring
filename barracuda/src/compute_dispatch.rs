@@ -100,9 +100,10 @@ pub fn compile_and_submit(
         .or_else(|| compile_result.get("binary"))
         .and_then(serde_json::Value::as_str)
         .ok_or_else(|| {
-            let err_detail = compile_result
-                .get("error")
-                .map_or_else(|| "no binary in compile response".into(), ToString::to_string);
+            let err_detail = compile_result.get("error").map_or_else(
+                || "no binary in compile response".into(),
+                ToString::to_string,
+            );
             HotSpringError::Ipc(format!("shader compile failed: {err_detail}"))
         })?;
 

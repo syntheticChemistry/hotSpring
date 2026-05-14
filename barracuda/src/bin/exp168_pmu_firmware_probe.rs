@@ -378,8 +378,8 @@ fn parse_args() -> Result<Args, String> {
                     Some("squashfs") => Mode::Squashfs,
                     Some("dir") => Mode::Dir,
                     Some("validate") => Mode::Validate,
-                    Some("nv-ko") | Some("ko") => Mode::NvKo,
-                    Some("vbios") | Some("rom") => Mode::Vbios,
+                    Some("nv-ko" | "ko") => Mode::NvKo,
+                    Some("vbios" | "rom") => Mode::Vbios,
                     other => return Err(format!("unknown mode: {other:?}")),
                 };
             }
@@ -670,7 +670,7 @@ fn scan_vbios_for_pmu(path: &Path) {
                     let type_char = if entry_type.is_ascii_graphic() {
                         format!("'{}' ({:#04x})", entry_type as char, entry_type)
                     } else {
-                        format!("{:#04x}", entry_type)
+                        format!("{entry_type:#04x}")
                     };
 
                     let is_pmu = entry_type == b'p' || entry_type == b'P';

@@ -14,7 +14,7 @@
 //! sudo ./target/release/exp158_sec2_real_firmware --bdf 0000:03:00.0
 //! ```
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::time::Duration;
 
 use hotspring_barracuda::fleet_client::{EmberClient, FleetDiscovery};

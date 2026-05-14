@@ -7,6 +7,31 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Unreleased — Upstream Absorption + Deep Debt Sprint (May 14, 2026)
+
+### Fixed
+- **Clippy zero warnings restored** across `--all-targets --features barracuda-local`:
+  `div_ceil`, `needless_borrow`, `map_unwrap_or`, `unnecessary_ne`, `unnested_or_patterns`,
+  `redundant_closure`, `needless_range_loop`, `unnecessary_raw_string_hashes`,
+  `variables_in_format_string`, `multiplication_by_neg_one`, `unused_import`.
+- **Test module lint expectations** updated: 5 `#[cfg(test)]` modules gained proper
+  `#![expect(clippy::expect_used)]` / `#![expect(clippy::unwrap_used)]`.
+  3 unfulfilled expectations removed (`hfb/tests.rs`, `hfb_deformed/potentials.rs`).
+- **Integration test `#[allow]` → `#[expect]`**: 4 test crates migrated to Rust 2024 idiom.
+- **`validate_streaming_pipeline.rs`**: `needless_pass_by_ref_mut` expectation restored,
+  unused `unwrap_used` expectation in `integration_prescreen` removed.
+
+### Changed
+- **plasmidBin composition aligned with atomic model:** `[niches.hotspring]` in
+  `manifest.toml` and `ports.env` now include `skunkbat` per Tower = bearDog + songBird
+  + skunkBat definition. `COMP_TOWER` also updated.
+
+### Metrics
+- 595/595 lib tests pass (default features)
+- 65 validation suites in 3 tiers (35 smoke / 7 nucleus / 23 silicon)
+- 0 clippy warnings (`--all-targets --features barracuda-local`)
+- 0 unfulfilled lint expectations
+
 ## Unreleased — plasmidBin Local Debt Resolution + Full Deployment (May 14, 2026)
 
 ### Added

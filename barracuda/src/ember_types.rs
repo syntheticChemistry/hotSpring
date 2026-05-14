@@ -375,7 +375,7 @@ mod tests {
 
     #[test]
     fn fecs_state_minimal_deserializes() {
-        let json = r#"{}"#;
+        let json = r"{}";
         let r: FecsState = serde_json::from_str(json).expect("parse");
         assert!(!r.running);
         assert!(r.is_faulted());

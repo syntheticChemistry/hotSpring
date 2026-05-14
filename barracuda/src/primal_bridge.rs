@@ -134,9 +134,9 @@ impl NucleusContext {
         let canonical = self.resolve_canonical_name(primal);
         let should_reprobe = self.discovered.get(&canonical).is_some_and(|ep| {
             !ep.alive
-                && ep.dead_since.is_some_and(|t| {
-                    t.elapsed().as_secs() >= CIRCUIT_BREAKER_COOLDOWN_SECS
-                })
+                && ep
+                    .dead_since
+                    .is_some_and(|t| t.elapsed().as_secs() >= CIRCUIT_BREAKER_COOLDOWN_SECS)
         });
         if should_reprobe {
             if let Some(ep) = self.discovered.get(&canonical) {
@@ -150,9 +150,7 @@ impl NucleusContext {
                 }
             }
         }
-        self.discovered
-            .get(&canonical)
-            .is_some_and(|ep| ep.alive)
+        self.discovered.get(&canonical).is_some_and(|ep| ep.alive)
     }
 
     fn resolve_canonical_name(&self, primal: &str) -> String {
@@ -354,9 +352,7 @@ impl NucleusContext {
         let path = PathBuf::from(&ep.socket);
         match send_jsonrpc(&path, method, params) {
             Ok(v) => Ok(v),
-            Err(crate::error::HotSpringError::Ipc(ref msg))
-                if is_retriable_ipc(msg) =>
-            {
+            Err(crate::error::HotSpringError::Ipc(ref msg)) if is_retriable_ipc(msg) => {
                 std::thread::sleep(std::time::Duration::from_secs(2));
                 send_jsonrpc(&path, method, params)
             }
@@ -438,7 +434,10 @@ pub fn parse_jsonrpc_response(
     method_hint: &str,
 ) -> Result<serde_json::Value, crate::error::HotSpringError> {
     if let Some(err) = resp.get("error") {
-        let code = err.get("code").and_then(serde_json::Value::as_i64).unwrap_or(-1);
+        let code = err
+            .get("code")
+            .and_then(serde_json::Value::as_i64)
+            .unwrap_or(-1);
         let message = err
             .get("message")
             .and_then(serde_json::Value::as_str)
@@ -447,13 +446,11 @@ pub fn parse_jsonrpc_response(
             "{method_hint}: JSON-RPC error {code}: {message}"
         )));
     }
-    resp.get("result")
-        .cloned()
-        .ok_or_else(|| {
-            crate::error::HotSpringError::Ipc(format!(
-                "{method_hint}: JSON-RPC response missing result"
-            ))
-        })
+    resp.get("result").cloned().ok_or_else(|| {
+        crate::error::HotSpringError::Ipc(format!(
+            "{method_hint}: JSON-RPC response missing result"
+        ))
+    })
 }
 
 #[cfg(unix)]
@@ -569,7 +566,12 @@ const DEFAULT_ALIASES: &[(&str, &[&str])] = &[
     ),
     (
         "coralreef",
-        &["coralreef-core", "coralreef-core-default", "coral-glowplug", "shader"],
+        &[
+            "coralreef-core",
+            "coralreef-core-default",
+            "coral-glowplug",
+            "shader",
+        ],
     ),
     ("barracuda", &["barracuda-core", "math"]),
 ];
@@ -609,7 +611,10 @@ fn load_aliases_from_toml() -> HashMap<String, Vec<String>> {
     }
     let mut map = HashMap::new();
     for &(k, aliases) in DEFAULT_ALIASES {
-        map.insert(k.to_string(), aliases.iter().map(|s| (*s).to_string()).collect());
+        map.insert(
+            k.to_string(),
+            aliases.iter().map(|s| (*s).to_string()).collect(),
+        );
     }
     map
 }
@@ -634,6 +639,7 @@ pub fn send_jsonrpc(
 
 #[cfg(test)]
 mod tests {
+    #![expect(clippy::expect_used, reason = "test assertions")]
     use super::*;
 
     #[test]

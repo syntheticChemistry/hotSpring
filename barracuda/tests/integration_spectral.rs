@@ -42,7 +42,7 @@ fn lanczos_recovers_known_eigenvalues_on_two_by_two() {
     };
     let tri = lanczos(&csr, 2, 7);
     let mut got = lanczos_eigenvalues(&tri);
-    got.sort_by(|a, b| a.total_cmp(b));
+    got.sort_by(f64::total_cmp);
 
     let trace = 5.0_f64;
     let det = 5.0_f64;
@@ -65,18 +65,17 @@ fn csr_spmv_matches_dense_symmetric_multiply() {
     let dense_ax = |i: usize| -> f64 {
         let mut s = 4.0 * x[i];
         if i > 0 {
-            s += -1.0 * x[i - 1];
+            s += -x[i - 1];
         }
         if i + 1 < 3 {
-            s += -1.0 * x[i + 1];
+            s += -x[i + 1];
         }
         s
     };
-    for i in 0..3 {
+    for (i, &yi) in y.iter().enumerate().take(3) {
         assert!(
-            (y[i] - dense_ax(i)).abs() < 1e-14,
-            "row {i}: SpMV {} vs dense {}",
-            y[i],
+            (yi - dense_ax(i)).abs() < 1e-14,
+            "row {i}: SpMV {yi} vs dense {}",
             dense_ax(i)
         );
     }
@@ -108,7 +107,7 @@ fn density_of_states_histogram_normalizes_and_integrates() {
     let csr = symmetric_tridiag_to_csr(&d, &e);
     let tri = lanczos(&csr, n, 42);
     let mut l_vals = lanczos_eigenvalues(&tri);
-    l_vals.sort_by(|a, b| a.total_cmp(b));
+    l_vals.sort_by(f64::total_cmp);
 
     for i in 0..n {
         assert!(

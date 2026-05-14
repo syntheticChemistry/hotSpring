@@ -368,7 +368,6 @@ impl DeformedHFB {
 
 #[cfg(test)]
 mod tests {
-    #![expect(clippy::unwrap_used, clippy::expect_used, reason = "test assertions")]
 
     use super::super::DeformedHFB;
     use crate::provenance::SLY4_PARAMS;

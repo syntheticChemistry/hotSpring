@@ -244,8 +244,7 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
     let bdf = extract_arg(&args, "--bdf").unwrap_or_else(|| "0000:4b:00.0".into());
     let fw_dir = extract_arg(&args, "--fw-dir")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("../wateringHole/gk110"));
+        .map_or_else(|| PathBuf::from("../wateringHole/gk110"), PathBuf::from);
     let ember_socket = extract_arg(&args, "--ember-socket");
     let dry_run = args.iter().any(|a| a == "--dry-run");
 
@@ -376,10 +375,10 @@ fn main() {
     println!("  GPC1_BOOT0   = {gpc1_pre:#010x}");
     println!(
         "  PTIMER:      {} ({} → {})",
-        if pt1 != pt0 {
-            "RUNNING ✓"
-        } else {
+        if pt1 == pt0 {
             "FROZEN ✗"
+        } else {
+            "RUNNING ✓"
         },
         pt0,
         pt1
@@ -751,7 +750,9 @@ fn main() {
         // MMIO path; the next mmio_read call will return an error.
         if ready == 0xFFFF_FFFF {
             println!("  WARN: GR_READY=0xffffffff at t={elapsed_ms}ms — possible D3cold");
-            println!("  → ember circuit breaker should intercept; check journalctl -u toadstool-ember");
+            println!(
+                "  → ember circuit breaker should intercept; check journalctl -u toadstool-ember"
+            );
             break;
         }
 
@@ -804,10 +805,10 @@ fn main() {
     println!("  PMC_ENABLE   = {pmc_post:#010x}");
     println!(
         "  PTIMER       = {pt_post:#010x}  ({})",
-        if pt_post != pt0 {
-            "RUNNING ✓"
-        } else {
+        if pt_post == pt0 {
             "FROZEN ✗"
+        } else {
+            "RUNNING ✓"
         }
     );
 
