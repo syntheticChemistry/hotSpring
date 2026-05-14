@@ -47,6 +47,9 @@ entry for the session that produced it. Chronological by filename suffix.
 | 2026-05-12 | `HOTSPRING_EMBER_GLOWPLUG_OWNERSHIP_AUDIT_HANDOFF_MAY12_2026.md` | ✅ | GAP-HS-096: dual-existence audit, cylinder translation fix, toadStool parity gap, cutover path |
 | 2026-05-12 | `HOTSPRING_PHASE_C_EXECUTION_PLAN_MAY12_2026.md` | ✅ | Phase C execution plan: 7 work items (C1-C7), coralReef soft-deprecation, hotSpring validation checklist |
 | 2026-05-13 | `HOTSPRING_DEEP_DEBT_SPRINT_MAY13_2026.md` | ✅ | Deep debt resolution: println migration, BDF discovery, pure-Rust blake3, boot scripts, CI gate |
+| 2026-05-13 | `HOTSPRING_FULL_MODERNIZATION_PLASMIDBIN_HANDOFF_MAY13_2026.md` | ✅ | Full modernization: plasmidBin ecoBin deployment, legacy coral_gpu excision, NUCLEUS discovery |
+| 2026-05-13 | `HOTSPRING_TRIO_REWIRE_MAY13_2026.md` | ✅ | Compute trio rewire: toadStool S258-S261, coralReef Sprint 9, barraCuda Sprint 23 |
+| 2026-05-14 | `HOTSPRING_LOCAL_DEBT_COMPOSITION_EVOLUTION_HANDOFF_MAY14_2026.md` | ✅ | Local debt sprint: compile-then-dispatch, circuit breaker, dispatch unification, TOML aliases, tiered validation |
 
 ### `mmiotraces/`
 

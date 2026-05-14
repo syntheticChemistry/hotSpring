@@ -7,6 +7,32 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Unreleased — Local Debt Resolution + Composition Evolution (May 14, 2026)
+
+### Added
+- **Compile-then-dispatch pipeline:** `compile_and_submit()` in `compute_dispatch.rs` chains
+  coralReef `shader.compile.wgsl` → toadStool `compute.dispatch.submit` with compiled binary.
+  `submit_binary()` for pre-compiled payloads.
+- **Circuit-breaker discovery:** `PrimalEndpoint` tracks `fail_count`/`dead_since`.
+  `NucleusContext` gains `record_failure()`/`record_success()`/`maybe_reprobe()`/`refresh()`.
+  `call_tracked()` applies circuit-breaker logic (3 failures = mark dead, 30s cooldown).
+- **`parse_jsonrpc_response()` helper:** Centralized JSON-RPC envelope parsing with typed errors.
+- **`FusedSubmitReport`/`FusedOpSubmitOutcome`:** Typed error handling for batched submissions.
+- **TOML-loaded primal aliases:** `[primal_aliases]` in `capability_registry.toml` loaded at runtime.
+- **Tiered validation:** `validate_all --tier smoke|nucleus|silicon` (65 suites: 35/7/23).
+
+### Changed
+- `fleet_toadstool.rs` `submit()`/`dispatch()` deprecated → use `compute_dispatch.rs`.
+- `glowplug_client.rs` docs clarify device-management-only scope.
+- `validate_compute_trio_pipeline` uses `compile_and_submit()` for yukawa/plaquette.
+- Experiment 190 archived (coral-ember era); 191 is active toadStool-era journal.
+
+### Metrics
+- **Tests:** 595 (default) / 1,041 (barracuda-local)
+- **Clippy:** zero warnings
+- **TODO/FIXME/HACK:** zero
+- **Validation suites:** 65 (3 tiers: smoke/nucleus/silicon)
+
 ## Unreleased — Deep Debt Resolution + Evolution Sprint (May 13, 2026)
 
 ### Changed

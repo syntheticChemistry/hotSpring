@@ -1,7 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! JSON-RPC client for the hardware orchestration daemon (toadStool) over
-//! the NUCLEUS Unix socket.
+//! JSON-RPC client for toadStool **device management** RPCs over the
+//! NUCLEUS Unix socket.
+//!
+//! This client wraps device lifecycle methods: `device.list`, `device.get`,
+//! `device.swap`, `device.warm_catch`, `device.vfio.*`, `device.reset`,
+//! `device.resurrect`, `capture.training`, and `sovereign.boot`.
+//!
+//! **Compute dispatch** (shader submission + result retrieval) is in
+//! [`crate::compute_dispatch`] — use [`crate::compute_dispatch::compile_and_submit`]
+//! for the full WGSL→binary→hardware pipeline.
 //!
 //! Post-excision (coralReef Sprint 9, May 2026): toadStool is the sole
 //! provider for device management, lifecycle orchestration, and sovereign

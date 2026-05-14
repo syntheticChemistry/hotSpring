@@ -24,7 +24,7 @@
 
 use crate::dag_provenance::{DagEvent, DagSession, blake3_hex};
 use crate::error::HotSpringError;
-use crate::primal_bridge::NucleusContext;
+use crate::primal_bridge::{NucleusContext, parse_jsonrpc_response};
 use crate::witness::WireWitnessRef;
 use serde::{Deserialize, Serialize};
 
@@ -60,9 +60,10 @@ pub fn query_capabilities(nucleus: &NucleusContext) -> Result<Vec<String>, HotSp
         serde_json::json!({}),
     )?;
 
-    let caps = resp
-        .get("result")
-        .and_then(|r| r.get("capabilities"))
+    let result = parse_jsonrpc_response(&resp, "compute.dispatch.capabilities")?;
+
+    let caps = result
+        .get("capabilities")
         .and_then(serde_json::Value::as_array)
         .map(|arr| {
             arr.iter()
@@ -75,11 +76,91 @@ pub fn query_capabilities(nucleus: &NucleusContext) -> Result<Vec<String>, HotSp
     Ok(caps)
 }
 
-/// Submit a GPU workload via `compute.dispatch.submit`.
+/// Compile a WGSL shader source via coralReef, then submit the compiled
+/// binary to toadStool for dispatch.  Returns the `job_id` for result
+/// retrieval.
 ///
-/// Returns the job ID for result retrieval. The workload is a simple
-/// vector addition shader — validates the pipeline without requiring
-/// heavy physics computation.
+/// Two-step pipeline:
+/// 1. `shader.compile.wgsl` → coralReef → `binary_b64` + metadata
+/// 2. `compute.dispatch.submit` → toadStool → `job_id`
+pub fn compile_and_submit(
+    nucleus: &NucleusContext,
+    wgsl_source: &str,
+    input_data: &[f64],
+    bdf: Option<&str>,
+) -> Result<String, HotSpringError> {
+    let compile_params = serde_json::json!({ "wgsl_source": wgsl_source });
+    let compile_resp =
+        nucleus.call_by_capability("shader", "shader.compile.wgsl", compile_params)?;
+
+    let compile_result = parse_jsonrpc_response(&compile_resp, "shader.compile.wgsl")?;
+
+    let binary_b64 = compile_result
+        .get("binary_b64")
+        .or_else(|| compile_result.get("binary"))
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| {
+            let err_detail = compile_result
+                .get("error")
+                .map_or_else(|| "no binary in compile response".into(), |e| e.to_string());
+            HotSpringError::Ipc(format!("shader compile failed: {err_detail}"))
+        })?;
+
+    let input_hash = blake3_hex(&serde_json::to_vec(&input_data).unwrap_or_default());
+
+    let mut submit = serde_json::json!({
+        "binary_b64": binary_b64,
+        "input": {
+            "data": input_data,
+            "format": "f64_array",
+        },
+        "input_hash": input_hash,
+        "spring": "hotSpring",
+        "dispatch_mode": "passthrough",
+    });
+
+    if let Some(bdf_val) = bdf {
+        submit["bdf"] = serde_json::Value::String(bdf_val.to_string());
+    }
+
+    let resp = nucleus.call_by_capability("compute", "compute.dispatch.submit", submit)?;
+
+    extract_job_id(&resp)
+}
+
+/// Submit a pre-compiled binary to toadStool for dispatch.
+/// Use [`compile_and_submit`] for the full WGSL→binary→dispatch pipeline.
+pub fn submit_binary(
+    nucleus: &NucleusContext,
+    binary_b64: &str,
+    input_data: &[f64],
+    bdf: Option<&str>,
+) -> Result<String, HotSpringError> {
+    let input_hash = blake3_hex(&serde_json::to_vec(&input_data).unwrap_or_default());
+
+    let mut params = serde_json::json!({
+        "binary_b64": binary_b64,
+        "input": {
+            "data": input_data,
+            "format": "f64_array",
+        },
+        "input_hash": input_hash,
+        "spring": "hotSpring",
+        "dispatch_mode": "passthrough",
+    });
+
+    if let Some(bdf_val) = bdf {
+        params["bdf"] = serde_json::Value::String(bdf_val.to_string());
+    }
+
+    let resp = nucleus.call_by_capability("compute", "compute.dispatch.submit", params)?;
+
+    extract_job_id(&resp)
+}
+
+/// Legacy name-based submission.  Kept for workloads where toadStool
+/// resolves shaders by catalog name (requires toadStool-side shader registry).
+#[deprecated(note = "prefer compile_and_submit() or submit_binary()")]
 pub fn submit_workload(
     nucleus: &NucleusContext,
     shader_name: &str,
@@ -99,11 +180,17 @@ pub fn submit_workload(
 
     let resp = nucleus.call_by_capability("compute", "compute.dispatch.submit", params)?;
 
-    resp.get("result")
-        .and_then(|r| r.get("job_id"))
+    extract_job_id(&resp)
+}
+
+/// Extract `job_id` from a `compute.dispatch.submit` response envelope.
+fn extract_job_id(resp: &serde_json::Value) -> Result<String, HotSpringError> {
+    let result = parse_jsonrpc_response(resp, "compute.dispatch.submit")?;
+    result
+        .get("job_id")
         .and_then(serde_json::Value::as_str)
         .map(String::from)
-        .ok_or_else(|| HotSpringError::Ipc("no job_id in submit response".into()))
+        .ok_or_else(|| HotSpringError::Ipc("compute.dispatch.submit: missing job_id".into()))
 }
 
 /// Retrieve the result of a submitted GPU workload.
@@ -120,9 +207,7 @@ pub fn retrieve_result(
 
     let resp = nucleus.call_by_capability("compute", "compute.dispatch.result", params)?;
 
-    resp.get("result")
-        .cloned()
-        .ok_or_else(|| HotSpringError::Ipc("no result field in dispatch response".into()))
+    parse_jsonrpc_response(&resp, "compute.dispatch.result")
 }
 
 /// Run the full compute dispatch validation pipeline.
@@ -186,6 +271,7 @@ pub fn validate_dispatch(
     let input_hash = blake3_hex(&serde_json::to_vec(&test_input).unwrap_or_default());
 
     let submit_start = std::time::Instant::now();
+    #[allow(deprecated)]
     let job_id = match submit_workload(nucleus, "vector_add_f64", &test_input) {
         Ok(id) => {
             result.submit_succeeded = true;
@@ -265,16 +351,18 @@ pub fn validate_dispatch(
 ///
 /// These use `workgroupBarrier()` and must compile on SM35 (K80),
 /// SM70 (Titan V), and SM120 (RTX 5060) for generation parity.
+/// Ordered so stable shaders run first — subgroup shaders last to contain
+/// upstream panic risk (coralReef copy-prop assertion on SubgroupBallotResult).
 pub const BARRIER_SHADERS: &[&str] = &[
     "src/bin/shaders/silicon_capabilities/probe_f32_workgroup_reduce.wgsl",
     "src/bin/shaders/silicon_capabilities/probe_df64_workgroup_reduce_f32_body.wgsl",
     "src/bin/shaders/silicon_capabilities/probe_df64_workgroup_reduce_f64_body.wgsl",
     "src/bin/shaders/qcd_silicon_routing/reduce_shared.wgsl",
-    "src/lattice/shaders/sum_reduce_subgroup_f64.wgsl",
     "src/lattice/shaders/sum_reduce_f64.wgsl",
     "src/physics/shaders/deformed_potentials_f64.wgsl",
     "src/physics/shaders/deformed_hamiltonian_f64.wgsl",
     "src/physics/shaders/deformed_wavefunction_f64.wgsl",
+    "src/lattice/shaders/sum_reduce_subgroup_f64.wgsl",
 ];
 
 /// Result of barrier shader compilation validation.
@@ -408,7 +496,54 @@ pub struct FusedOp {
     pub depends_on: Vec<usize>,
 }
 
-/// Result of a fused pipeline submission.
+/// Per-operation outcome from [`FusedPipeline::submit`].
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum FusedOpSubmitOutcome {
+    /// Successfully submitted — contains the job ID for result retrieval.
+    Submitted(String),
+    /// Submission failed — contains the error description.
+    Failed(String),
+}
+
+/// Report returned by [`FusedPipeline::submit`].
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FusedSubmitReport {
+    pub session_name: String,
+    pub outcomes: Vec<FusedOpSubmitOutcome>,
+}
+
+impl FusedSubmitReport {
+    /// True when every operation was submitted successfully.
+    #[must_use]
+    pub fn all_submitted(&self) -> bool {
+        self.outcomes
+            .iter()
+            .all(|o| matches!(o, FusedOpSubmitOutcome::Submitted(_)))
+    }
+
+    /// Number of operations that were submitted successfully.
+    #[must_use]
+    pub fn submitted_count(&self) -> usize {
+        self.outcomes
+            .iter()
+            .filter(|o| matches!(o, FusedOpSubmitOutcome::Submitted(_)))
+            .count()
+    }
+
+    /// Collect job IDs for successfully submitted operations.
+    #[must_use]
+    pub fn job_ids(&self) -> Vec<&str> {
+        self.outcomes
+            .iter()
+            .filter_map(|o| match o {
+                FusedOpSubmitOutcome::Submitted(id) => Some(id.as_str()),
+                FusedOpSubmitOutcome::Failed(_) => None,
+            })
+            .collect()
+    }
+}
+
+/// Result of a fused pipeline retrieval.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FusedResult {
     pub session_name: String,
@@ -484,7 +619,15 @@ impl FusedPipeline {
     ///
     /// Attempts `compute.dispatch.submit_fused` first; if unavailable,
     /// falls back to sequential `compute.dispatch.submit` per operation.
-    pub fn submit(&mut self, nucleus: &NucleusContext) -> Result<(), HotSpringError> {
+    ///
+    /// Returns a [`FusedSubmitReport`] with per-operation outcomes.
+    /// Individual operations may fail while others succeed.
+    pub fn submit(
+        &mut self,
+        nucleus: &NucleusContext,
+    ) -> Result<FusedSubmitReport, HotSpringError> {
+        let mut outcomes = Vec::with_capacity(self.ops.len());
+
         let fused_params = serde_json::json!({
             "session": self.session_name,
             "ops": self.ops,
@@ -498,7 +641,15 @@ impl FusedPipeline {
                     .iter()
                     .filter_map(|v| v.as_str().map(String::from))
                     .collect();
-                return Ok(());
+                outcomes = self
+                    .submitted_job_ids
+                    .iter()
+                    .map(|id| FusedOpSubmitOutcome::Submitted(id.clone()))
+                    .collect();
+                return Ok(FusedSubmitReport {
+                    session_name: self.session_name.clone(),
+                    outcomes,
+                });
             }
         }
 
@@ -515,34 +666,38 @@ impl FusedPipeline {
                         .get("result")
                         .and_then(|r| r.get("job_id"))
                         .and_then(|v| v.as_str())
-                        .unwrap_or("unknown")
-                        .to_string();
-                    self.submitted_job_ids.push(job_id);
+                        .map(String::from);
+                    match job_id {
+                        Some(id) => {
+                            self.submitted_job_ids.push(id.clone());
+                            outcomes.push(FusedOpSubmitOutcome::Submitted(id));
+                        }
+                        None => {
+                            let msg = "submit succeeded but response missing job_id".to_string();
+                            outcomes.push(FusedOpSubmitOutcome::Failed(msg));
+                        }
+                    }
                 }
                 Err(e) => {
-                    self.submitted_job_ids.push(format!("error:{e}"));
+                    outcomes.push(FusedOpSubmitOutcome::Failed(e.to_string()));
                 }
             }
         }
-        Ok(())
+
+        Ok(FusedSubmitReport {
+            session_name: self.session_name.clone(),
+            outcomes,
+        })
     }
 
     /// Retrieve results for all submitted operations.
+    ///
+    /// Only retrieves results for operations that were successfully submitted.
     pub fn retrieve(&self, nucleus: &NucleusContext) -> FusedResult {
         let mut op_results = Vec::with_capacity(self.ops.len());
 
         for (i, job_id) in self.submitted_job_ids.iter().enumerate() {
             let shader = self.ops.get(i).map_or("unknown", |o| &o.shader).to_string();
-            if job_id.starts_with("error:") {
-                op_results.push(FusedOpResult {
-                    index: i,
-                    shader,
-                    succeeded: false,
-                    result: None,
-                    error: Some(job_id.clone()),
-                });
-                continue;
-            }
             match retrieve_result(nucleus, job_id) {
                 Ok(data) => {
                     op_results.push(FusedOpResult {

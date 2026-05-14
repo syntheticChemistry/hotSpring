@@ -160,6 +160,8 @@ mod tests {
             socket: "/tmp/test.sock".into(),
             alive: true,
             capabilities: Some(caps),
+            fail_count: 0,
+            dead_since: None,
         };
         let mut discovered = HashMap::new();
         discovered.insert("squirrel".into(), ep);

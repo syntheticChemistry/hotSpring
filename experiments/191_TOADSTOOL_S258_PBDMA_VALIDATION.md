@@ -451,16 +451,43 @@ Experiment 152: COMPLETE
 ### Trio Pipeline
 
 ```
+  NUCLEUS: 6 primal(s) — barracuda, compute, coralreef-core, math, shader, tensor
+  toadStool: ALIVE
+  barraCuda: ALIVE
+  coralReef: ALIVE (health.version: coralreef-core 0.1.0)
+  Result: 10/15 checks passed
+```
+
+Revalidation May 14, 2026 (pass 2) — fresh ecoBins: toadStool S260+, coralReef subgroup-fix.
+NUCLEUS discovery correctly resolves 6 endpoints (3 primals × 2 aliases each).
+`health.version` and `health.drain` confirmed live on toadStool ecoBin.
+`health.version` confirmed live on coralReef ecoBin.
+
+Result: **10/15 checks passed** — 7/9 shaders compile.
+
+Remaining failures (all coralReef upstream):
+- `sum_reduce_subgroup_f64.wgsl`: coralReef panics in copy-prop optimizer
+  (`entry_ssa.comps() == 1` assertion in `opt_copy_prop/mod.rs:142`)
+  — SubgroupBallotResult multi-component SSA not handled by copy-prop pass.
+  Process crash cascades to subsequent shaders; mitigated by reordering
+  subgroup shaders last in BARRIER_SHADERS array.
+- `deformed_wavefunction_f64.wgsl`: persistent f64 math type error (upstream)
+- `yukawa_submit` / `plaquette_submit`: hotSpring validator sends shader *name*
+  (e.g. `yukawa_force_f64`) but toadStool expects pre-compiled binary
+  (`binary_b64`). The correct E2E flow is: compile via coralReef first,
+  then submit binary to toadStool. This is a hotSpring local wiring gap —
+  the validator needs a two-step compile→dispatch pipeline. toadStool itself
+  works correctly (`compute.dispatch.submit` returns `job_id` when given
+  a binary).
+
+### Trio Pipeline — Previous (Pre-plasmidBin)
+
+```
   toadStool: OFFLINE (socket naming convention mismatch)
   barraCuda: OFFLINE (daemon not running locally)
   coralReef: OFFLINE (daemon not running locally)
   Result: SKIP (requires all 3 primals running with NUCLEUS discovery)
 ```
-
-Trio pipeline validation requires all three primals running with socket
-naming convention `{primal}-{family_id}.sock`. toadStool daemon creates
-`compute.sock` (no family suffix). This is an interoperability gap for
-upstream to resolve.
 
 ### Hardware State Summary (Post-Sprint)
 
@@ -470,8 +497,11 @@ upstream to resolve.
 | Titan V | WARM-RUNNING on vfio-pci | PMC pop=23, FECS 0x300 |
 | K80 | D0, config readable | Recovered from D3cold after power cycle |
 | PLX bridge | Alive | VID=0x10b58747 |
-| toadStool daemon | Running | systemd active, IPC on /run/toadstool/biomeos/ |
-| hotSpring tests | 1043/1043 pass | cargo test --lib |
+| toadStool daemon | Running (S259 ecoBin) | systemd active, device.vfio.open wired |
+| barraCuda daemon | Running | IPC on /run/user/1000/biomeos/math.sock |
+| coralReef daemon | Running (health.version live) | IPC on coralreef-core-default.sock |
+| hotSpring tests | 595/595 pass | cargo test --lib |
+| NUCLEUS discovery | 6 primals detected | barracuda, compute, coralreef-core, math, shader, tensor |
 
 ---
 

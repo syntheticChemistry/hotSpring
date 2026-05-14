@@ -18,6 +18,11 @@ const JSONRPC_SOCKET_READ_TIMEOUT: std::time::Duration = std::time::Duration::fr
 const JSONRPC_READ_BUFFER_BYTES: usize = 4096;
 const JSONRPC_REQUEST_ID: i64 = 1;
 
+/// Max consecutive IPC failures before marking an endpoint dead.
+const CIRCUIT_BREAKER_THRESHOLD: u32 = 3;
+/// Cooldown before re-probing a dead endpoint (seconds).
+const CIRCUIT_BREAKER_COOLDOWN_SECS: u64 = 30;
+
 /// A detected primal with its socket path and optional capability payload.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PrimalEndpoint {
@@ -27,6 +32,12 @@ pub struct PrimalEndpoint {
     /// Result of `capability.list` when the primal supports it and liveness passed.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub capabilities: Option<serde_json::Value>,
+    /// Consecutive IPC failure count (circuit breaker).
+    #[serde(skip)]
+    pub fail_count: u32,
+    /// When the endpoint was marked dead (for cooldown-based re-probe).
+    #[serde(skip)]
+    pub dead_since: Option<std::time::Instant>,
 }
 
 /// Runtime snapshot of which NUCLEUS primals are reachable.
@@ -91,6 +102,71 @@ impl NucleusContext {
         }
     }
 
+    /// Re-scan socket directories and re-probe all endpoints.
+    pub fn refresh(&mut self) {
+        *self = Self::detect();
+    }
+
+    /// Record an IPC failure for a primal. After [`CIRCUIT_BREAKER_THRESHOLD`]
+    /// consecutive failures the endpoint is marked dead with a cooldown.
+    pub fn record_failure(&mut self, primal: &str) {
+        let canonical = self.resolve_canonical_name(primal);
+        if let Some(ep) = self.discovered.get_mut(&canonical) {
+            ep.fail_count += 1;
+            if ep.fail_count >= CIRCUIT_BREAKER_THRESHOLD {
+                ep.alive = false;
+                ep.dead_since = Some(std::time::Instant::now());
+            }
+        }
+    }
+
+    /// Record a successful IPC call — resets the failure counter.
+    pub fn record_success(&mut self, primal: &str) {
+        let canonical = self.resolve_canonical_name(primal);
+        if let Some(ep) = self.discovered.get_mut(&canonical) {
+            ep.fail_count = 0;
+            ep.dead_since = None;
+        }
+    }
+
+    /// Check if a dead endpoint's cooldown has expired and re-probe it.
+    pub fn maybe_reprobe(&mut self, primal: &str) -> bool {
+        let canonical = self.resolve_canonical_name(primal);
+        let should_reprobe = self.discovered.get(&canonical).is_some_and(|ep| {
+            !ep.alive
+                && ep.dead_since.is_some_and(|t| {
+                    t.elapsed().as_secs() >= CIRCUIT_BREAKER_COOLDOWN_SECS
+                })
+        });
+        if should_reprobe {
+            if let Some(ep) = self.discovered.get(&canonical) {
+                let path = PathBuf::from(&ep.socket);
+                let fresh = probe_socket(&path, &canonical);
+                if let Some(entry) = self.discovered.get_mut(&canonical) {
+                    entry.alive = fresh.alive;
+                    entry.capabilities = fresh.capabilities;
+                    entry.fail_count = 0;
+                    entry.dead_since = None;
+                }
+            }
+        }
+        self.discovered
+            .get(&canonical)
+            .is_some_and(|ep| ep.alive)
+    }
+
+    fn resolve_canonical_name(&self, primal: &str) -> String {
+        if self.discovered.contains_key(primal) {
+            return primal.to_string();
+        }
+        for alias in known_aliases(primal) {
+            if self.discovered.contains_key(alias) {
+                return alias.to_string();
+            }
+        }
+        primal.to_string()
+    }
+
     /// Look up a primal by the logical name used in socket filenames.
     #[must_use]
     pub fn get(&self, name: &str) -> Option<&PrimalEndpoint> {
@@ -101,8 +177,7 @@ impl NucleusContext {
         if let Some(ep) = self.discovered.get(primal) {
             return Some(ep);
         }
-        // Fall through to alias table when the direct name isn't found.
-        for &alias in known_aliases(primal) {
+        for alias in known_aliases(primal) {
             if let Some(ep) = self.discovered.get(alias) {
                 return Some(ep);
             }
@@ -222,21 +297,44 @@ impl NucleusContext {
     }
 
     /// JSON-RPC call routed by capability domain (see [`Self::get_by_capability`]).
+    ///
+    /// When multiple primals match the same domain, prefers the one whose
+    /// registered `methods` list contains the exact method being called.
+    /// This disambiguates e.g. `shader.compile.wgsl` → coralReef (has method)
+    /// vs toadStool (has `shader.dispatch` but not `shader.compile.wgsl`).
     pub fn call_by_capability(
         &self,
         capability_domain: &str,
         method: &str,
         params: serde_json::Value,
     ) -> Result<serde_json::Value, crate::error::HotSpringError> {
-        let ep = self.get_by_capability(capability_domain).ok_or_else(|| {
-            crate::error::HotSpringError::Ipc(format!(
-                "no alive primal for capability domain: {capability_domain}"
-            ))
-        })?;
+        let ep = self
+            .get_by_exact_method(method)
+            .or_else(|| self.get_by_capability(capability_domain))
+            .ok_or_else(|| {
+                crate::error::HotSpringError::Ipc(format!(
+                    "no alive primal for capability domain: {capability_domain}"
+                ))
+            })?;
         self.call(&ep.name, method, &params)
     }
 
+    /// Find the alive primal whose `methods` list contains the exact method name.
+    fn get_by_exact_method(&self, method: &str) -> Option<&PrimalEndpoint> {
+        self.discovered.values().find(|ep| {
+            ep.alive
+                && ep
+                    .capabilities
+                    .as_ref()
+                    .and_then(|c| c.get("methods"))
+                    .and_then(|a| a.as_array())
+                    .is_some_and(|arr| arr.iter().any(|v| v.as_str().is_some_and(|s| s == method)))
+        })
+    }
+
     /// Send a JSON-RPC call to a specific primal.
+    ///
+    /// Retries once on connection reset (daemon restart during call).
     pub fn call(
         &self,
         primal: &str,
@@ -253,7 +351,41 @@ impl NucleusContext {
             )));
         }
 
-        send_jsonrpc(&PathBuf::from(&ep.socket), method, params)
+        let path = PathBuf::from(&ep.socket);
+        match send_jsonrpc(&path, method, params) {
+            Ok(v) => Ok(v),
+            Err(crate::error::HotSpringError::Ipc(ref msg))
+                if is_retriable_ipc(msg) =>
+            {
+                std::thread::sleep(std::time::Duration::from_secs(2));
+                send_jsonrpc(&path, method, params)
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    /// Like [`call`] but tracks failures for circuit-breaker semantics.
+    ///
+    /// After [`CIRCUIT_BREAKER_THRESHOLD`] consecutive failures, the endpoint
+    /// is marked dead and will not be retried until the cooldown expires
+    /// (at which point it's automatically re-probed).
+    pub fn call_tracked(
+        &mut self,
+        primal: &str,
+        method: &str,
+        params: &serde_json::Value,
+    ) -> Result<serde_json::Value, crate::error::HotSpringError> {
+        self.maybe_reprobe(primal);
+        match self.call(primal, method, params) {
+            Ok(v) => {
+                self.record_success(primal);
+                Ok(v)
+            }
+            Err(e) => {
+                self.record_failure(primal);
+                Err(e)
+            }
+        }
     }
 
     /// Generate a `composition.physics_health` response per `COMPOSITION_HEALTH_STANDARD.md`.
@@ -294,6 +426,34 @@ pub fn jsonrpc_request(method: &str, params: serde_json::Value) -> serde_json::V
         "method": method,
         "params": params,
     })
+}
+
+/// Parse a JSON-RPC 2.0 response envelope.
+///
+/// Extracts the `result` value on success or returns a typed
+/// `HotSpringError::Ipc` with code/message on JSON-RPC `error` objects.
+/// `method_hint` is included in error messages for diagnostics.
+pub fn parse_jsonrpc_response(
+    resp: &serde_json::Value,
+    method_hint: &str,
+) -> Result<serde_json::Value, crate::error::HotSpringError> {
+    if let Some(err) = resp.get("error") {
+        let code = err.get("code").and_then(serde_json::Value::as_i64).unwrap_or(-1);
+        let message = err
+            .get("message")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("unknown error");
+        return Err(crate::error::HotSpringError::Ipc(format!(
+            "{method_hint}: JSON-RPC error {code}: {message}"
+        )));
+    }
+    resp.get("result")
+        .cloned()
+        .ok_or_else(|| {
+            crate::error::HotSpringError::Ipc(format!(
+                "{method_hint}: JSON-RPC response missing result"
+            ))
+        })
 }
 
 #[cfg(unix)]
@@ -344,7 +504,17 @@ fn probe_socket(path: &Path, logical_name: &str) -> PrimalEndpoint {
         socket,
         alive,
         capabilities,
+        fail_count: 0,
+        dead_since: None,
     }
+}
+
+/// Connection errors that indicate a daemon restart — worth one retry.
+fn is_retriable_ipc(msg: &str) -> bool {
+    msg.contains("connect:")
+        || msg.contains("Connection reset")
+        || msg.contains("Broken pipe")
+        || msg.contains("Connection refused")
 }
 
 /// Send a JSON-RPC 2.0 request over a Unix domain socket with 2s timeout.
@@ -391,22 +561,64 @@ pub fn send_jsonrpc(
     Ok(serde_json::from_slice(&response)?)
 }
 
-/// Known socket-name aliases for primals that may register under alternative names.
-/// Data-driven: no hardcoded if/else chains.
-const PRIMAL_ALIASES: &[(&str, &[&str])] = &[
+/// Compiled-in fallback aliases (used when `capability_registry.toml` is missing).
+const DEFAULT_ALIASES: &[(&str, &[&str])] = &[
     (
         "toadstool",
         &["toadstool-server", "toadstool-glowplug", "compute"],
     ),
-    ("coralreef", &["coral-glowplug", "coralreef-core", "shader"]),
+    (
+        "coralreef",
+        &["coralreef-core", "coralreef-core-default", "coral-glowplug", "shader"],
+    ),
     ("barracuda", &["barracuda-core", "math"]),
 ];
 
-fn known_aliases(name: &str) -> &'static [&'static str] {
-    PRIMAL_ALIASES
-        .iter()
-        .find(|(k, _)| *k == name)
-        .map_or(&[], |(_, aliases)| aliases)
+/// Lazily-loaded alias table from `config/capability_registry.toml`.
+fn loaded_aliases() -> &'static HashMap<String, Vec<String>> {
+    use std::sync::OnceLock;
+    static ALIASES: OnceLock<HashMap<String, Vec<String>>> = OnceLock::new();
+    ALIASES.get_or_init(load_aliases_from_toml)
+}
+
+fn load_aliases_from_toml() -> HashMap<String, Vec<String>> {
+    let candidates = [
+        PathBuf::from("barracuda/config/capability_registry.toml"),
+        PathBuf::from("config/capability_registry.toml"),
+    ];
+    for path in &candidates {
+        if let Ok(contents) = std::fs::read_to_string(path) {
+            if let Ok(table) = contents.parse::<toml::Table>() {
+                if let Some(aliases_val) = table.get("primal_aliases") {
+                    if let Some(tbl) = aliases_val.as_table() {
+                        let mut map = HashMap::new();
+                        for (k, v) in tbl {
+                            if let Some(arr) = v.as_array() {
+                                let names: Vec<String> = arr
+                                    .iter()
+                                    .filter_map(|s| s.as_str().map(String::from))
+                                    .collect();
+                                map.insert(k.clone(), names);
+                            }
+                        }
+                        return map;
+                    }
+                }
+            }
+        }
+    }
+    let mut map = HashMap::new();
+    for &(k, aliases) in DEFAULT_ALIASES {
+        map.insert(k.to_string(), aliases.iter().map(|s| s.to_string()).collect());
+    }
+    map
+}
+
+fn known_aliases(name: &str) -> Vec<&str> {
+    loaded_aliases()
+        .get(name)
+        .map(|v| v.iter().map(String::as_str).collect())
+        .unwrap_or_default()
 }
 
 #[cfg(not(unix))]
@@ -459,6 +671,8 @@ mod tests {
             socket: "/tmp/toad-test.sock".to_string(),
             alive: true,
             capabilities: Some(caps),
+            fail_count: 0,
+            dead_since: None,
         };
         let mut discovered = HashMap::new();
         let socket = ep.socket.clone();
@@ -483,6 +697,8 @@ mod tests {
             socket: "/tmp/bear-test.sock".to_string(),
             alive: true,
             capabilities: Some(caps),
+            fail_count: 0,
+            dead_since: None,
         };
         let mut discovered = HashMap::new();
         discovered.insert("bear".to_string(), ep);

@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026
-**Last audited:** May 13, 2026 (Deep debt resolution: 7-dimension audit clean, coralreef socket discovery, placeholder cleanup)
+**Last audited:** May 14, 2026 (Local debt sprint: compile-then-dispatch pipeline, circuit-breaker discovery, dispatch unification, FusedPipeline typed errors, TOML aliases, tiered validation)
 **License:** AGPL-3.0-or-later
 
 ---
@@ -1702,7 +1702,7 @@ Next: hardware validation on Titan V and K80.
 - **Documented for future evolution:**
   25 binary targets use `panic!` in unrecoverable paths (tokio runtime, GPU init,
   weight export). Library has zero panic paths. Evolution to `Result` mains is polish.
-- **Validation:** 592 (default) / 1,041 (barracuda-local). Zero clippy. Zero TODO.
+- **Validation:** 595 (default) / 1,041 (barracuda-local). Zero clippy. Zero TODO.
 - **Handoff:** `wateringHole/handoffs/HOTSPRING_V0632_DEEP_DEBT_RESOLUTION_HANDOFF_MAY13_2026.md`
 
 ---
@@ -1759,6 +1759,26 @@ Next: hardware validation on Titan V and K80.
     `shader_info`, `gprs`) and legacy aliases (`binary`, `info`, `gpr_count`).
     hotSpring parsers handle both forms.
 - **Validation:** 591/591 lib tests pass. Zero clippy warnings.
+
+---
+
+### GAP-HS-100 — Local Debt Resolution + Composition Evolution (May 14, 2026)
+
+- **Scope:** Seven-item sprint resolving fragile composition patterns.
+- **What was implemented:**
+  1. **Compile-then-dispatch pipeline:** `compile_and_submit()` chains coralReef compile → toadStool dispatch.
+  2. **Circuit-breaker discovery:** `PrimalEndpoint` tracks failures, marks dead after 3, re-probes after 30s.
+  3. **Dispatch unification:** `compute_dispatch.rs` canonical; `fleet_toadstool.rs` submit/dispatch deprecated.
+  4. **FusedPipeline typed errors:** `FusedSubmitReport` with per-op `Submitted`/`Failed` outcomes.
+  5. **`parse_jsonrpc_response()`:** Centralized JSON-RPC envelope parsing.
+  6. **TOML-loaded aliases:** `[primal_aliases]` in `capability_registry.toml` at runtime.
+  7. **Tiered validation:** `validate_all --tier smoke|nucleus|silicon` (65 suites: 35/7/23).
+- **Upstream gaps discovered:**
+  - **coralReef:** `sum_reduce_subgroup_f64.wgsl` causes assertion panic killing daemon (GAP for coralReef team).
+  - **toadStool:** `compute.dispatch.submit` returns no structured error on invalid binary (empty result, no error field).
+  - **plasmidBin:** ecoBin pipeline lag — pre-subgroup-ops / pre-S259 harvests. Automated CI harvest would prevent.
+- **Validation:** 595/595 lib tests pass (default). Zero clippy warnings.
+- **Handoff:** `wateringHole/handoffs/HOTSPRING_LOCAL_DEBT_COMPOSITION_EVOLUTION_HANDOFF_MAY14_2026.md`
 
 ---
 

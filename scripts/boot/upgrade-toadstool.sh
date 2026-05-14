@@ -84,6 +84,15 @@ echo ">>> Installing..."
 echo "  Old hash: ${OLD_HASH:0:16}..."
 echo "  New hash: ${NEW_HASH:0:16}..."
 
+if [ -f /usr/local/bin/toadstool ]; then
+    sudo cp /usr/local/bin/toadstool /usr/local/bin/toadstool.prev
+    echo "  Backup:  /usr/local/bin/toadstool.prev"
+fi
+
+echo '{"jsonrpc":"2.0","method":"health.drain","id":1}' \
+  | socat -t5 - UNIX:/run/toadstool/biomeos/compute.sock >/dev/null 2>&1 || true
+sleep 1
+sudo systemctl stop toadstool-ember 2>/dev/null || true
 sudo install -m 755 "$TOADSTOOL_BIN" /usr/local/bin/toadstool
 
 NEW_VERSION=$(/usr/local/bin/toadstool --version 2>/dev/null || echo "unknown")
@@ -93,20 +102,34 @@ echo ">>> Updating service file..."
 sudo cp "$SCRIPT_DIR/toadstool-ember.service" /etc/systemd/system/toadstool-ember.service
 sudo systemctl daemon-reload
 
-echo ">>> Restarting toadstool-ember..."
-sudo systemctl restart toadstool-ember
-sleep 2
+echo ">>> Starting toadstool-ember..."
+sudo systemctl start toadstool-ember
+sleep 3
 
 if systemctl is-active --quiet toadstool-ember; then
+    RPC_VERSION=$(echo '{"jsonrpc":"2.0","method":"health.version","id":1}' \
+      | socat -t2 - UNIX:/run/toadstool/biomeos/compute.sock 2>/dev/null || true)
     echo ""
     echo ">>> Upgrade complete!"
-    echo "  Version: $NEW_VERSION"
-    echo "  Status:  $(systemctl is-active toadstool-ember)"
-    echo ""
-    echo "  Verify: echo '{\"jsonrpc\":\"2.0\",\"method\":\"device.list\",\"id\":1}' | socat - UNIX:/run/toadstool/biomeos/compute.sock"
+    echo "  CLI version: $NEW_VERSION"
+    echo "  RPC version: ${RPC_VERSION:-"(health.version not available)"}"
+    echo "  Status:      $(systemctl is-active toadstool-ember)"
 else
     echo ""
-    echo ">>> WARNING: toadstool-ember failed to start after upgrade!"
-    echo "  Check: journalctl -u toadstool-ember -n 20"
+    echo ">>> New binary failed to start — rolling back!"
+    if [ -f /usr/local/bin/toadstool.prev ]; then
+        sudo install -m 755 /usr/local/bin/toadstool.prev /usr/local/bin/toadstool
+        sudo systemctl start toadstool-ember
+        sleep 2
+        if systemctl is-active --quiet toadstool-ember; then
+            echo "  Rollback successful — running previous version."
+        else
+            echo "  FATAL: Rollback also failed!"
+            echo "  Check: journalctl -u toadstool-ember -n 20"
+        fi
+    else
+        echo "  No .prev backup available for rollback."
+        echo "  Check: journalctl -u toadstool-ember -n 20"
+    fi
     exit 1
 fi

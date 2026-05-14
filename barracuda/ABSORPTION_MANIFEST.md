@@ -1,7 +1,7 @@
 # hotSpring → BarraCuda/ToadStool Absorption Manifest
 
-**Date:** April 18, 2026
-**Version:** v0.6.32 — synced to barraCuda **v0.3.11** (`b95e9c59`), toadStool S155b, coralReef Iter 47
+**Date:** April 18, 2026 (refreshed May 14, 2026)
+**Version:** v0.6.32 — synced to barraCuda **v0.3.11**, toadStool **S261**, coralReef **Sprint 9**
 **License:** AGPL-3.0-only
 
 **barraCuda v0.3.11 alignment:** `plaquette_variance` is delegated to `barracuda::stats::correlation::variance`. **20+ new tolerance constants** were added for validation parity (see `tolerances/`). **Squirrel client** module: `squirrel_client.rs`. **Capability-based routing** via `call_by_capability()` in `primal_bridge.rs`.

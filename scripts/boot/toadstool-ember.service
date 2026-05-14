@@ -19,12 +19,13 @@ KillSignal=SIGTERM
 FinalKillSignal=SIGKILL
 Environment=RUST_LOG=info
 Environment=TOADSTOOL_EMBER_SOCKET=/run/toadstool/ember.sock
+Environment=TOADSTOOL_SOCKET_MODE=0660
 Environment=XDG_RUNTIME_DIR=/run/toadstool
 SupplementaryGroups=toadstool
 UMask=0117
 RuntimeDirectory=toadstool
 RuntimeDirectoryMode=0755
-ExecStartPost=/bin/sh -c 'for i in 1 2 3 4 5 6 7 8; do [ -S /run/toadstool/biomeos/compute.sock ] && break; sleep 1; done; chmod 755 /run/toadstool/biomeos 2>/dev/null; chmod 666 /run/toadstool/biomeos/compute.sock 2>/dev/null; chgrp toadstool /run/toadstool/biomeos 2>/dev/null; mkdir -p /run/toadstool/staging && chgrp toadstool /run/toadstool/staging && chmod 770 /run/toadstool/staging; true'
+ExecStartPost=/bin/sh -c 'for i in 1 2 3 4 5 6 7 8; do [ -S /run/toadstool/biomeos/compute.sock ] && break; sleep 1; done; chmod 755 /run/toadstool/biomeos 2>/dev/null; chmod 666 /run/toadstool/biomeos/compute.sock 2>/dev/null; true'
 
 CapabilityBoundingSet=CAP_SYS_ADMIN CAP_SYS_RAWIO CAP_DAC_OVERRIDE CAP_SYS_MODULE
 AmbientCapabilities=CAP_SYS_ADMIN CAP_SYS_RAWIO CAP_DAC_OVERRIDE CAP_SYS_MODULE

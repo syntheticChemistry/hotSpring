@@ -82,18 +82,32 @@ fn check_trio_liveness(ctx: &NucleusContext, harness: &mut ValidationHarness) ->
 
 /// Validate Yukawa MD force computation through the trio pipeline.
 ///
-/// Sends a simple Yukawa force kernel through coralReef for compilation
-/// and toadStool for dispatch, then checks result sanity.
+/// Reads WGSL source from disk, compiles via coralReef, dispatches via
+/// toadStool, then checks result sanity.
 fn validate_yukawa_dispatch(ctx: &NucleusContext, harness: &mut ValidationHarness) {
-    let shader_name = "yukawa_force_f64";
+    let shader_path = "src/md/shaders/yukawa_force_f64.wgsl";
     let input_data: Vec<f64> = (0..128).map(|i| (i as f64) * 0.01).collect();
 
-    println!("  Workload: {shader_name}");
+    println!("  Workload: yukawa_force_f64");
     println!("  PhysicsDomain: MolecularDynamics");
     println!("  HardwareHint: Compute");
     println!("  Input: {} f64 values", input_data.len());
 
-    match hotspring_barracuda::compute_dispatch::submit_workload(ctx, shader_name, &input_data) {
+    let wgsl_source = match std::fs::read_to_string(shader_path) {
+        Ok(src) => src,
+        Err(e) => {
+            println!("  Submit: FAILED (cannot read shader: {e})");
+            harness.check_bool("yukawa_submit", false);
+            return;
+        }
+    };
+
+    match hotspring_barracuda::compute_dispatch::compile_and_submit(
+        ctx,
+        &wgsl_source,
+        &input_data,
+        None,
+    ) {
         Ok(job_id) => {
             println!("  Submit: job_id={job_id}");
             harness.check_bool("yukawa_submit", true);
@@ -164,14 +178,14 @@ fn validate_barrier_compilation(ctx: &NucleusContext, harness: &mut ValidationHa
 /// On a cold-start lattice (all links = identity), the plaquette is exactly 1.
 /// This validates precision routing (DF64/F64) through the sovereign pipeline.
 fn validate_plaquette_dispatch(ctx: &NucleusContext, harness: &mut ValidationHarness) {
-    let shader_name = "wilson_plaquette_f64";
+    let shader_path = "src/lattice/shaders/wilson_plaquette_f64.wgsl";
     let cold_plaquette_ref = 1.0_f64;
     let tolerance = hotspring_barracuda::tolerances::LATTICE_COLD_PLAQUETTE_ABS;
 
     let n_sites = 256;
     let input_data: Vec<f64> = vec![1.0; n_sites * 18];
 
-    println!("  Workload: {shader_name}");
+    println!("  Workload: wilson_plaquette_f64");
     println!("  PhysicsDomain: LatticeQcd");
     println!("  HardwareHint: Compute");
     println!("  PrecisionTier: DF64 / F64");
@@ -179,7 +193,21 @@ fn validate_plaquette_dispatch(ctx: &NucleusContext, harness: &mut ValidationHar
     println!("  Reference: plaquette = {cold_plaquette_ref} (exact for cold start)");
     println!("  Tolerance: {tolerance}");
 
-    match hotspring_barracuda::compute_dispatch::submit_workload(ctx, shader_name, &input_data) {
+    let wgsl_source = match std::fs::read_to_string(shader_path) {
+        Ok(src) => src,
+        Err(e) => {
+            println!("  Submit: FAILED (cannot read shader: {e})");
+            harness.check_bool("plaquette_submit", false);
+            return;
+        }
+    };
+
+    match hotspring_barracuda::compute_dispatch::compile_and_submit(
+        ctx,
+        &wgsl_source,
+        &input_data,
+        None,
+    ) {
         Ok(job_id) => {
             println!("  Submit: job_id={job_id}");
             harness.check_bool("plaquette_submit", true);

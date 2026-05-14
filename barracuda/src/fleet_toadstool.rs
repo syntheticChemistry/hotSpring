@@ -30,7 +30,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use crate::error::HotSpringError;
-use crate::primal_bridge::{NucleusContext, send_jsonrpc};
+use crate::primal_bridge::{NucleusContext, parse_jsonrpc_response, send_jsonrpc};
 
 /// Timeout for device acquisition via toadStool (maps to `EMBER_ADOPT_TIMEOUT`).
 pub const TOADSTOOL_DEVICE_TIMEOUT: Duration = Duration::from_secs(30);
@@ -119,6 +119,7 @@ impl ToadStoolDispatchClient {
     ///
     /// Prefers `call_by_capability` when NUCLEUS context is available,
     /// falling back to direct socket RPC.
+    #[deprecated(note = "use compute_dispatch::compile_and_submit() or submit_binary()")]
     pub fn submit(&self, params: &serde_json::Value) -> Result<serde_json::Value, HotSpringError> {
         let ctx = NucleusContext::detect();
         if let Ok(resp) =
@@ -131,6 +132,7 @@ impl ToadStoolDispatchClient {
     }
 
     /// `compute.dispatch` — alias for `submit` (toadStool accepts both method names).
+    #[deprecated(note = "use compute_dispatch::compile_and_submit() or submit_binary()")]
     pub fn dispatch(
         &self,
         params: &serde_json::Value,
@@ -203,14 +205,7 @@ pub fn try_local_dispatch(
 }
 
 fn jsonrpc_result(resp: &serde_json::Value) -> Result<serde_json::Value, HotSpringError> {
-    if let Some(err) = resp.get("error") {
-        return Err(HotSpringError::Ipc(format!(
-            "toadStool JSON-RPC error: {err}"
-        )));
-    }
-    resp.get("result")
-        .cloned()
-        .ok_or_else(|| HotSpringError::Ipc("toadStool JSON-RPC response missing result".into()))
+    parse_jsonrpc_response(resp, "toadStool")
 }
 
 #[cfg(test)]

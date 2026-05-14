@@ -13,6 +13,16 @@
 #   provider — canonical primal for routed capabilities (empty for local)
 #   domain   — top-level domain grouping
 
+# ── Primal Aliases ────────────────────────────────────────────────────
+# Maps canonical primal names to socket-name aliases they may register
+# under.  Loaded at runtime by NucleusContext; compiled defaults used
+# when this file is missing.
+
+[primal_aliases]
+toadstool = ["toadstool-server", "toadstool-glowplug", "compute"]
+coralreef = ["coralreef-core", "coralreef-core-default", "coral-glowplug", "shader"]
+barracuda = ["barracuda-core", "math"]
+
 # ── Physics domain (locally served) ──────────────────────────────────
 
 [[capabilities]]

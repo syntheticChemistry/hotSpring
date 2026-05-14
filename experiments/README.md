@@ -59,8 +59,9 @@ NNN_DESCRIPTOR.{sh,md,json}
 
 | # | Name | Type | Status |
 |---|------|------|--------|
-| 190 | THREE_GPU_SOVEREIGN_VALIDATION | **milestone** | ✅ ALL 3 GPUs sovereign — warm-catch + patched nouveau path; journals at repo root |
-| 191 | TOADSTOOL_S258_PBDMA_VALIDATION | validation | ✅ PBDMA dispatch sweep on RTX 5060 / Titan V / K80 under toadStool S258 |
+| 191 | TOADSTOOL_S258_PBDMA_VALIDATION | validation | ✅ Compute trio pipeline: toadStool PBDMA dispatch (S258-S261), compile-then-dispatch wiring, circuit-breaker discovery |
+
+> **Note:** Exp 190 (THREE_GPU_SOVEREIGN_VALIDATION) archived — final coral-ember era journal. Exp 191 is the toadStool-era successor.
 
 ### Ember Survivability Hardening (2026-04-07)
 
@@ -134,15 +135,16 @@ See `notebooks/papers/PAPER_NOTEBOOK_GUIDE.md` for the pattern.
 
 The warm-catch breakthrough (Exp 188-190) was initially proven via shell scripts
 and Python ("jelly strings"). These have been elevated to pure Rust in
-`coralReef`:
+**toadStool** (which absorbed the diesel engine lineage from coralReef):
 
-- **`coral-driver/src/tools/elf_patcher.rs`** — Pure Rust ELF binary patcher
-  (replaces `patch_nouveau_teardown.py`). Uses `object` crate.
-- **`coral-driver/src/vfio/warm_probe.rs`** — Standalone `WarmStateSnapshot`
-  (PMC, PRAMIN, FECS, GPC registers).
-- **`coral-ember/src/ipc/handlers_warm_catch.rs`** — Full warm-catch
-  orchestrator via `ember.warm_catch` JSON-RPC. Era-aware settle durations.
-- **`coralctl warm-catch <BDF>`** — CLI entry point replacing all shell scripts.
+- **ELF binary patcher** — Pure Rust ELF patcher (replaces `patch_nouveau_teardown.py`). Uses `object` crate.
+- **Warm probe** — Standalone `WarmStateSnapshot` (PMC, PRAMIN, FECS, GPC registers).
+- **Warm-catch orchestrator** — `device.warm_catch` JSON-RPC via toadStool ember. Era-aware settle durations.
+- **`toadstool device warm-catch <BDF>`** — CLI entry point replacing all shell scripts.
+
+> **Historical note:** Pre-May 2026 references to `coral-ember`, `coral-driver`, `coralctl` in
+> archived experiments and scripts are **fossil record**. The diesel engine (ember/glowplug/cylinder)
+> has been absorbed into toadStool. Read those names as historical context.
 
 Original scripts archived in `scripts/archive/` as fossil record.
 
