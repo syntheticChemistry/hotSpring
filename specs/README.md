@@ -1,7 +1,7 @@
 # hotSpring Specifications
 
-**Last Updated**: April 27, 2026
-**Status**: Phase A-J complete + guideStone Level 5 CERTIFIED (primalSpring v0.9.17) — 579 / 1,028 lib tests (IPC-first default / barracuda-local), 155 binaries, 64/64 validation suites, crate v0.6.32, barraCuda v0.3.11, toadStool S168+, coralReef Phase 10 Iter 78+. **Three-tier validation: Python → Rust → NUCLEUS primal composition (guideStone).** `hotspring_guidestone` binary validates 5 guideStone properties + NUCLEUS IPC parity via `primalspring::composition` API. **Bare mode: 30/30 PASS** (Property 3 BLAKE3 CHECKSUMS verified, 3 SKIP = expected NUCLEUS liveness). `validate-primal-proof.sh` deployment script (auto-sets env vars, builds from barracuda/, runs from root). SovereignInit pipeline: 8-stage pure Rust nouveau replacement. NVIDIA GPFIFO pipeline OPERATIONAL on RTX 3090. AMD scratch/local memory OPERATIONAL on RX 6950 XT. 190 experiments, 128 WGSL shaders. Ember Survivability Hardening COMPLETE. Squirrel wired in proto-nucleate. Science composition probes operational.
+**Last Updated**: May 15, 2026
+**Status**: Phase A-J complete + guideStone Level 6 CERTIFIED (primalSpring v0.9.25) — 595 / 1,041 lib tests (IPC-first default / barracuda-local), 167 binaries, 65 validation suites (3 tiers), crate v0.6.32, barraCuda v0.3.11, toadStool S263, coralReef Sprint 11. **Three-tier validation: Python → Rust → NUCLEUS primal composition (guideStone).** `hotspring_unibin` is the eukaryotic entry point (certify/validate/status/version). 192 experiments, 128 WGSL shaders. **Titan V e2e sovereign VFIO dispatch VALIDATED** (Exp 191B). RTX 5060 full dispatch LIVE. K80 sovereign warm-catch. Science composition probes operational.
 **Domain**: Computational plasma physics, nuclear structure, transport, lattice QCD, spectral theory, surrogate learning
 
 ---
