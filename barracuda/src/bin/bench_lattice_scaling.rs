@@ -6,7 +6,6 @@
 //! At each size: runs HMC thermalization, then GPU CG fermion solve.
 //! Reports timing, iteration counts, and GPU vs CPU scaling.
 
-use barracuda::pipeline::ReduceScalarPipeline;
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::lattice::cg::{
     WGSL_AXPY_F64, WGSL_COMPLEX_DOT_RE_F64, WGSL_XPAY_F64, cg_solve,
@@ -16,6 +15,10 @@ use hotspring_barracuda::lattice::dirac::{
 };
 use hotspring_barracuda::lattice::hmc::{HmcConfig, hmc_trajectory};
 use hotspring_barracuda::lattice::wilson::Lattice;
+
+use hotspring_barracuda as barracuda;
+
+use barracuda::pipeline::ReduceScalarPipeline;
 use std::time::Instant;
 
 #[repr(C)]

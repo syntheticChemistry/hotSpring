@@ -18,6 +18,8 @@ use hotspring_barracuda::toadstool_report::{self, PerformanceMeasurement};
 use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
 
+use hotspring_barracuda as barracuda;
+
 use barracuda::pipeline::ReduceScalarPipeline;
 
 use std::sync::Arc;

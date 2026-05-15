@@ -17,14 +17,17 @@
 //! with 0.000% energy drift. This binary validates the `BarraCuda` abstraction
 //! produces identical physics through a different code path.
 
+use hotspring_barracuda::gpu::GpuF64;
+use hotspring_barracuda::tolerances;
+use hotspring_barracuda::validation::ValidationHarness;
+
+use hotspring_barracuda as barracuda;
+
 use barracuda::ops::md::forces::YukawaForceF64;
 use barracuda::ops::md::integrators::{VelocityVerletHalfKick, VelocityVerletKickDrift};
 use barracuda::ops::md::observables::KineticEnergy;
 use barracuda::ops::md::thermostats::BerendsenThermostat;
 use barracuda::tensor::Tensor;
-use hotspring_barracuda::gpu::GpuF64;
-use hotspring_barracuda::tolerances;
-use hotspring_barracuda::validation::ValidationHarness;
 
 // ═══════════════════════════════════════════════════════════════════
 // System setup (same physics as sarkas_gpu quick mode)

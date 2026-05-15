@@ -14,12 +14,15 @@
 //! **Provenance**: All expected values are analytical force laws, not Python
 //! baselines. See `provenance::MD_FORCE_REFS`.
 
+use hotspring_barracuda::tolerances;
+use hotspring_barracuda::validation::ValidationHarness;
+
+use hotspring_barracuda as barracuda;
+
 use barracuda::device::WgpuDevice;
 use barracuda::ops::md::forces::{CoulombForce, LennardJonesForce, MorseForce};
 use barracuda::ops::md::integrators::VelocityVerlet;
 use barracuda::tensor::Tensor;
-use hotspring_barracuda::tolerances;
-use hotspring_barracuda::validation::ValidationHarness;
 use std::sync::Arc;
 
 // ═══════════════════════════════════════════════════════════════════

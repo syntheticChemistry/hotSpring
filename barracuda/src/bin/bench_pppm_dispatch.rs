@@ -17,9 +17,11 @@
 
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::validation::{TelemetryWriter, ValidationHarness};
-use std::time::Instant;
+
+use hotspring_barracuda as barracuda;
 
 use barracuda::ops::md::electrostatics::{PppmGpu, PppmParams};
+use std::time::Instant;
 
 fn main() {
     let rt = tokio::runtime::Runtime::new().expect("tokio runtime");

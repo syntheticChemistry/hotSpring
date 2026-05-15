@@ -10,6 +10,8 @@
 //! Usage:
 //!   cargo run --release --bin bench_sovereign_fma
 
+use hotspring_barracuda as barracuda;
+
 use barracuda::shaders::sovereign::{dead_expr, fma_fusion};
 
 struct ShaderEntry {

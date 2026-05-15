@@ -520,14 +520,15 @@ a network service, you must make your source available under the same terms.
 
 ---
 
-*191 experiments, 595 / 1,041 lib tests (IPC-first default / barracuda-local), 167 binaries, 128 WGSL shaders, ~$0.30 total science cost.
+*192 experiments, 595 / 1,041 lib tests (IPC-first default / barracuda-local), 167 binaries, 128 WGSL shaders, ~$0.30 total science cost.
 Consumer GPUs reproduce HPC physics at paper parity. DF64 delivers 3.24 TFLOPS at
 14-digit precision. GPU RHMC runs all-flavors dynamical QCD (Nf=2+1). Self-tuning
 RHMC eliminates hand-tuned parameters. Chuna 44/44 checks pass. **ALL 3 GPUs
-SOVEREIGN** — RTX 5060 full dispatch LIVE (QMD v5.0, SM120). Titan V FECS RUNNING
-via binary-patched nouveau warm-catch (GAP-HS-073 RESOLVED). K80 GDDR5 trained
-(12 GiB), 5 GPCs active via warm-catch (GAP-HS-076 RESOLVED). Warm-catch pipeline
-elevated to pure Rust (`toadstool device warm-catch` — ELF patcher + ember orchestrator).
+SOVEREIGN** — RTX 5060 full dispatch LIVE (QMD v5.0, SM120). **Titan V e2e VFIO
+dispatch VALIDATED** — FECS alive via CPUCTL_ALIAS warm handoff, DMA roundtrip +
+GR init confirmed (Exp 191B, toadStool S263). K80 GDDR5 trained (12 GiB), 5 GPCs
+active via warm-catch (GAP-HS-076 RESOLVED). Warm-catch pipeline elevated to pure
+Rust (`toadstool device warm-catch` — ELF patcher + ember orchestrator).
 Three-tier validation: Python validates Rust. Rust validates NUCLEUS. Peer-reviewed
 science runs on consumer hardware, composed via sovereign primal IPC.
 guideStone artifact validated across 5 substrates.

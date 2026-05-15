@@ -13,6 +13,8 @@
 //! Usage:
 //!   cargo run --release --features sovereign-dispatch --bin validate_sovereign_compile
 
+use hotspring_barracuda as barracuda;
+
 use barracuda::device::coral_compiler::GLOBAL_CORAL;
 
 struct ShaderEntry {

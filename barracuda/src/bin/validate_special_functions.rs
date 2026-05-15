@@ -19,6 +19,8 @@ use hotspring_barracuda::provenance;
 use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
 
+use hotspring_barracuda as barracuda;
+
 fn main() {
     println!("═══════════════════════════════════════════════════════════");
     println!("  BarraCuda Special Functions Validation");

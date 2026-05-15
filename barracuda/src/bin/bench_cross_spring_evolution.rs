@@ -34,6 +34,8 @@
 //! | **GemmF64 transpose** | neuralSpring | Sprint6 | A^T*B without materializing transpose |
 //! | **PrecisionTier+Domain** | hotSpring v0.6.25 | Sprint2 | F32/DF64/F64/F64Precise routing |
 
+use hotspring_barracuda as barracuda;
+
 use std::panic;
 use std::sync::Arc;
 use std::time::Instant;

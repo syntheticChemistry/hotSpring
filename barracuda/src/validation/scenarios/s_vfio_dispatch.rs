@@ -20,6 +20,7 @@
 //! Target hardware (biomeGate compute trio):
 //!   - Titan V (GV100, SM70) at BDF 02:00.0
 //!   - Tesla K80 (GK210, SM37) at BDF 4b:00.0
+//!   - RTX 5060 (GB206, SM120) at env `HOTSPRING_RTX5060_BDF` (optional)
 
 use base64::Engine as _;
 
@@ -71,6 +72,19 @@ fn discover_vfio_targets() -> Vec<VfioTarget> {
         bdf: k80_bdf,
         sm: 37,
     });
+
+    if let Ok(bdf_5060) = std::env::var("HOTSPRING_RTX5060_BDF") {
+        let bdf = if bdf_5060.contains(':') && bdf_5060.len() > 7 {
+            bdf_5060
+        } else {
+            format!("0000:{bdf_5060}")
+        };
+        targets.push(VfioTarget {
+            name: "rtx-5060".into(),
+            bdf,
+            sm: 120,
+        });
+    }
 
     targets
 }

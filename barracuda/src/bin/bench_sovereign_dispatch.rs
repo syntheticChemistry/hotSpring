@@ -13,10 +13,13 @@
 //!   cargo run --release --bin bench_sovereign_dispatch
 //!   cargo run --release --features sovereign-dispatch --bin bench_sovereign_dispatch
 
-use barracuda::device::WgpuDevice;
-use barracuda::device::backend::GpuBackend;
 use hotspring_barracuda::md::config::MdConfig;
 use hotspring_barracuda::md::sovereign_engine::run_simulation_generic;
+
+use hotspring_barracuda as barracuda;
+
+use barracuda::device::WgpuDevice;
+use barracuda::device::backend::GpuBackend;
 use std::sync::Arc;
 
 /// This crate’s package name (local primal); do not hardcode peer primal names.

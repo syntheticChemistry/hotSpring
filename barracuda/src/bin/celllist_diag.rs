@@ -14,11 +14,13 @@
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::md::diag::{force_comparison_stats, net_force, print_force_mismatches};
 use hotspring_barracuda::md::shaders;
+use hotspring_barracuda::md::shaders::patch_math_f64_preamble;
 use hotspring_barracuda::md::simulation::{CellList, init_fcc_lattice};
 use hotspring_barracuda::validation::ValidationHarness;
 
+use hotspring_barracuda as barracuda;
+
 use barracuda::shaders::precision::ShaderTemplate;
-use hotspring_barracuda::md::shaders::patch_math_f64_preamble;
 
 use std::time::Instant;
 

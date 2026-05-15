@@ -15,12 +15,15 @@
 //! and real AME2020 nuclei with `SLy4` parameters (3).
 //! No Python baseline — this measures GPU throughput, not physics fidelity.
 
-use barracuda::ops::linalg::BatchedEighGpu;
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::physics::bcs_gpu::BcsBisectionGpu;
 use hotspring_barracuda::physics::hfb_gpu_resident::binding_energies_l2_gpu_resident;
 use hotspring_barracuda::provenance;
 use hotspring_barracuda::tolerances::{HFB_L2_MIXING, HFB_L2_TOLERANCE};
+
+use hotspring_barracuda as barracuda;
+
+use barracuda::ops::linalg::BatchedEighGpu;
 use std::sync::Arc;
 use std::time::Instant;
 

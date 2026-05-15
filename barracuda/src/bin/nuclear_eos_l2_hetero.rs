@@ -29,17 +29,18 @@ use hotspring_barracuda::prescreen::{
 };
 use hotspring_barracuda::provenance;
 
+use hotspring_barracuda as barracuda;
+
 use barracuda::optimize::{EvaluationCache, multi_start_nelder_mead};
 use barracuda::sample::latin_hypercube;
 use barracuda::sample::sparsity::{SparsitySamplerConfig, sparsity_sampler};
 use barracuda::surrogate::{RBFKernel, RBFSurrogate};
+use barracuda::device::WgpuDevice;
 
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
-
-use barracuda::device::WgpuDevice;
 
 // ═══════════════════════════════════════════════════════════════════
 // CLI and output helpers

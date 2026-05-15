@@ -16,12 +16,15 @@
 //! This is TIER 3 handoff validation: if these pass, the `ToadStool`
 //! team can wire the GPU ops into the full SCF loop.
 
-use barracuda::linalg::eigh_f64;
-use barracuda::ops::linalg::BatchedEighGpu;
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::physics::bcs_gpu::BcsBisectionGpu;
 use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
+
+use hotspring_barracuda as barracuda;
+
+use barracuda::linalg::eigh_f64;
+use barracuda::ops::linalg::BatchedEighGpu;
 
 // ═══════════════════════════════════════════════════════════════════
 // CPU reference: BCS bisection (same as hfb_deformed_gpu.rs)

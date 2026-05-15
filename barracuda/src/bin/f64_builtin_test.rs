@@ -13,11 +13,14 @@
 //! Usage:
 //!   cargo run --release --bin `f64_builtin_test`
 
-use barracuda::shaders::precision::ShaderTemplate;
 use hotspring_barracuda::gpu::GpuF64;
 use hotspring_barracuda::md::shaders::patch_math_f64_preamble;
 use hotspring_barracuda::tolerances;
 use hotspring_barracuda::validation::ValidationHarness;
+
+use hotspring_barracuda as barracuda;
+
+use barracuda::shaders::precision::ShaderTemplate;
 use std::time::Instant;
 
 #[tokio::main]

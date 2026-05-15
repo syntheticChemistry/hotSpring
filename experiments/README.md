@@ -60,8 +60,9 @@ NNN_DESCRIPTOR.{sh,md,json}
 | # | Name | Type | Status |
 |---|------|------|--------|
 | 191 | TOADSTOOL_S258_PBDMA_VALIDATION | validation | ✅ Compute trio pipeline: toadStool PBDMA dispatch (S258-S261), compile-then-dispatch wiring, circuit-breaker discovery |
+| 191B | SOVEREIGN_DISPATCH_VALIDATED | validation | ✅ First e2e sovereign VFIO dispatch on Titan V (S263). Warm handoff validated, CPUCTL_ALIAS breakthrough, DMA roundtrip + GR init. Frontier: FECS PENDING_CTX_RELOAD |
 
-> **Note:** Exp 190 (THREE_GPU_SOVEREIGN_VALIDATION) archived — final coral-ember era journal. Exp 191 is the toadStool-era successor.
+> **Note:** Exp 190 (THREE_GPU_SOVEREIGN_VALIDATION) archived — final coral-ember era journal. Exp 191/191B are the toadStool-era successors.
 
 ### Ember Survivability Hardening (2026-04-07)
 

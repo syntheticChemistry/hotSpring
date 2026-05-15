@@ -21,6 +21,8 @@ use hotspring_barracuda::physics::{nuclear_matter_properties, semf_binding_energ
 use hotspring_barracuda::provenance;
 use hotspring_barracuda::tolerances;
 
+use hotspring_barracuda as barracuda;
+
 use barracuda::optimize::convergence_diagnostics;
 use barracuda::sample::direct::{DirectSamplerConfig, direct_sampler};
 use barracuda::sample::latin_hypercube;

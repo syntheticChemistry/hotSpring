@@ -20,7 +20,8 @@
 //!
 //! Validation binaries use hardcoded constants derived from control JSON files
 //! in `control/`. The JSON files are the authoritative source; constants are
-//! frozen at a specific commit (see `provenance.rs` for commit hashes).
+//! frozen at a specific commit (see [`crate::provenance`] for commit hashes
+//! and [`BaselineProvenance`](crate::provenance::BaselineProvenance) records).
 //! Binaries do NOT load JSON at runtime — this ensures deterministic validation
 //! independent of filesystem state. To update baselines, re-run the Python
 //! control scripts and update both the JSON files and the Rust constants.

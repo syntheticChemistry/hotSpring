@@ -525,6 +525,26 @@ impl GlowplugClient {
         )
     }
 
+    /// `compute.context.init` — alias for [`Self::device_gr_init`].
+    ///
+    /// toadStool routes both `device.gr.init` and `compute.context.init` to
+    /// the same handler. This alias exists for callers that prefer the
+    /// compute-domain naming convention.
+    pub fn compute_context_init(
+        &self,
+        bdf: &str,
+        method_entries: &[[u32; 2]],
+    ) -> Result<serde_json::Value, GlowplugError> {
+        self.call_with_nucleus_fallback(
+            "compute",
+            "compute.context.init",
+            &serde_json::json!({
+                "bdf": bdf,
+                "method_entries": method_entries,
+            }),
+        )
+    }
+
     /// `device.vfio.roundtrip` with optional GR init — single-call GR init + dispatch.
     ///
     /// toadStool S262: adds `gr_init_entries` parameter so GR context
