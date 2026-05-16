@@ -7,6 +7,47 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Unreleased — Diesel Engine Driver Sketch + PRI Refactor (May 16, 2026)
+
+### Added (toadStool cylinder)
+- **`nv::pri` module**: Single source of truth for PRI fault detection (`is_pri_fault`,
+  `is_error_or_zero`, `domain_for_offset`). Eliminates 4 duplicate implementations
+  across `gr_init`, `driver_probe`, `pmu_init`, `warm_capture`, and `sovereign_init`.
+- **`GrInitSequence::apply(bar0)`**: Replays captured init sequence onto hardware
+  via BAR0 MMIO writes. Handles read-modify-write for masked registers.
+- **`GrInitSequence::validate(bar0)`**: Reads back registers and returns mismatches
+  against expected values for post-replay verification.
+- **`GrInitSequence`**: Ordered register write list built from BAR0 cold/warm diffs.
+  Serialize/deserialize via JSON for cross-session capture and replay. Domain
+  filtering, merge, and summary methods.
+- **`WarmStateCapture`**: Automated cold/warm snapshot pipeline — captures two
+  `Bar0Snapshot`s, computes `Bar0Diff`, derives `GrInitSequence`. Bridges
+  glowplug orchestration with cylinder hardware capture.
+- **`DriverProbe` + `TrialResult`**: Multi-driver comparison tool. `FalconState`
+  enum (NotStarted/Halted/Running/HsLocked/PriGated) probes falcons at arbitrary
+  BAR0 bases. `DriverProbe` tracks trials across drivers with analysis methods
+  (`best_by_engines`, `pgraph_alive_trials`, `fecs_uploadable_trials`).
+- **`PmuBootstrap`**: Kepler PMU falcon bootstrap — reset, IMEM/DMEM upload via
+  PIO, start with mailbox handshake, PFIFO writability test. `PmuSnapshot`
+  captures PMU register state with `falcon_state()` bridge to shared `FalconState`.
+- **Kepler PGRAPH ungating stage**: `sovereign_init.rs` Stage 3b replays
+  `GrInitSequence` to ungate PGRAPH before falcon boot on NoAcr GPUs. Now
+  delegates to `GrInitSequence::apply()` instead of inline write logic.
+
+### Changed
+- **`ChipFamily::from_sm`** now delegates to `profile_for_sm()` — eliminates
+  SM→family range drift between `ChipFamily` and `GenerationProfile`.
+- **`kepler_pgraph_ungate`** refactored from 35-line inline write loop to 10-line
+  delegation to `GrInitSequence::apply()` + shared `is_pri_fault()`.
+- **`PmuSnapshot` gains `falcon_state()`** bridge method — reuses `FalconState`
+  from `driver_probe` instead of independent boolean `is_running`.
+
+### Metrics
+- 40 new tests across `nv::pri`, `nv::gr_init`, `nv::driver_probe`, `nv::pmu_init`,
+  `vfio::warm_capture` — all pass
+- Full workspace: 585+ tests pass, zero lint errors, zero new warnings
+- Zero code duplication for PRI fault detection (was 4 copies)
+
 ## Unreleased — Upstream Absorption + Deep Debt Sprint (May 14, 2026)
 
 ### Fixed

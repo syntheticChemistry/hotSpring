@@ -88,7 +88,7 @@ with Python control results against each other.  **9/9 active papers ALL GREEN**
 | 44 (BGK dielectric) | — | ✅ | Nested quadrature data (cross-substrate requires Rust JSON) |
 | 45 (kinetic-fluid) | — | ✅ ALL PASS | Python control JSON committed; cross-substrate uses Rust JSON |
 
-**Total science cost**: ~$0.30 for 25 papers, 500+ validation checks, 188 experiments.
+**Total science cost**: ~$0.30 for 25 papers, 500+ validation checks, 196 experiments.
 Papers 6, 7, 13-22 add checks at negligible cost (CPU-only, <15 seconds each).
 Papers 43-45 (Chuna) complete — ~$0.05 additional (gradient flow reuses SU(3) infrastructure).
 Experiments 096-100 (silicon characterization): ~$0.10 (budget, saturation, composition, QCD profiling).

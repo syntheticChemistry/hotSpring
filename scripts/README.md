@@ -20,7 +20,7 @@ or `drivers_probe` are prohibited in new scripts.
 |--------|-------------|-------------|
 | `tools/nucleus_composition_lib.sh` | NUCLEUS composition library (copied from primalSpring Phase 46). 41 functions: discovery, transport, DAG, ledger, braids, petalTongue, sensor streams. Sourced by `hotspring_composition.sh`. | Yes |
 
-| `gpu-solve/titan-v-module-swap.sh` | Swap nvidia-580 → nvidia-470 for Titan V compute testing | Requires root (TTY/SSH) |
+| `archive/titan-v-module-swap.sh` | **Archived.** Superseded by benchScale VM isolation + pure Rust warm-catch. | — |
 
 ## Deployment
 

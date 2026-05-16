@@ -51,6 +51,7 @@ entry for the session that produced it. Chronological by filename suffix.
 | 2026-05-13 | `HOTSPRING_TRIO_REWIRE_MAY13_2026.md` | ✅ | Compute trio rewire: toadStool S258-S261, coralReef Sprint 9, barraCuda Sprint 23 |
 | 2026-05-14 | `HOTSPRING_LOCAL_DEBT_COMPOSITION_EVOLUTION_HANDOFF_MAY14_2026.md` | ✅ | Local debt sprint: compile-then-dispatch, circuit breaker, dispatch unification, TOML aliases, tiered validation |
 | 2026-05-14 | `HOTSPRING_PLASMIDBIN_LOCAL_OWNERSHIP_HANDOFF_MAY14B_2026.md` | ✅ | plasmidBin debt: release cascade, symlink-aware doctor, generalized upgrade, 13/13 NUCLEUS deployed |
+| 2026-05-16 | `HOTSPRING_DIESEL_ENGINE_DRIVER_SKETCH_HANDOFF_MAY16_2026.md` | ✅ | Diesel engine driver sketch: GrInitSequence, WarmStateCapture, DriverProbe, PmuBootstrap, shared `nv::pri` |
 
 ### `mmiotraces/`
 
