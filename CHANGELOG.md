@@ -7,6 +7,46 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Unreleased — PLX Keepalive Boot-Catch + Event-Driven Evolution (May 16, 2026)
+
+### Fixed (toadStool server — `pcie_keepalive.rs`)
+- **PCI class code extraction bug**: `(class >> 8) & 0xFFFFFF` produced 24-bit values
+  compared against 16-bit constants (`0x0604`, `0x0300`, `0x0302`) — bridge and GPU
+  class checks **never matched**. Fixed to `(class >> 16) & 0xFFFF` via new
+  `pci_base_subclass()` helper with named constants (`PCI_CLASS_BRIDGE_PCI`,
+  `PCI_CLASS_VGA`, `PCI_CLASS_3D`).
+- **PLX bridge discovery at boot**: Class scan now correctly discovers PLX PEX 8747
+  bridges (vendor `0x10b5`, class `0x0604`). Three-phase discovery: class scan →
+  GPU ancestry walk (handles dead config space) → retry with delay (3 attempts, 1s each).
+- **`pci0000:40` root complex inclusion**: Ancestry walk now uses `is_pci_bdf()` (checks
+  for both `:` and `.`) to reject PCI domain roots.
+
+### Added (toadStool ember — `plx_keepalive.rs`)
+- **`ActivityTracker`**: Shared `Arc<AtomicU64>` for PCIe activity-aware backpressure.
+  Keepalive skips synthetic heartbeats when real PCIe traffic was recent. Uses
+  `epoch_ms()` from `observation.rs` instead of inline `SystemTime` boilerplate.
+- **`is_pci_bdf(name)`**: Shared BDF format validator — rejects PCI domain roots
+  like `pci0000:40` that contain a colon but no dot.
+- **`PlxKeepalive::with_activity_tracker()`**: Builder method to attach an activity
+  tracker for backpressure.
+
+### Changed
+- **`tokio::time::sleep` → `tokio::time::interval`**: Both server `pcie_keepalive` and
+  ember `PlxKeepalive` now use `interval` with `MissedTickBehavior::Skip`. First
+  heartbeat fires immediately at t=0 (no initial delay).
+- **Server activity tracking**: Replaced static `LAST_PCIE_ACTIVITY_MS` + `record_pcie_activity()`
+  with ember's `ActivityTracker` via `OnceLock<ActivityTracker>`. Single implementation,
+  no duplicated timestamp logic.
+- **Dead-bridge recovery**: Ancestry walk adds parent bridges with dead config space (`0xFFFF`)
+  as keepalive targets and pins their power — handles the case where the PLX fabric is
+  already in D3cold when the service starts.
+
+### Metrics
+- 17 new tests across `pcie_keepalive.rs` and `plx_keepalive.rs` — all pass
+- Full workspace: `cargo check` clean, `cargo test` 0 failures
+- PLX keepalive **validated at boot** — 3 PLX bridges discovered, 2 K80 GPUs
+  downstream, 8 hierarchy nodes pinned, first heartbeat at t=0
+
 ## Unreleased — Diesel Engine Driver Sketch + PRI Refactor (May 16, 2026)
 
 ### Added (toadStool cylinder)

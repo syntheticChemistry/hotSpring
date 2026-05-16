@@ -91,6 +91,13 @@ if systemctl is-enabled --quiet coral-ember.service 2>/dev/null; then
     systemctl stop coral-ember.service 2>/dev/null || true
 fi
 
+# Clean up legacy coral-glowplug.service if present
+if systemctl is-enabled --quiet coral-glowplug.service 2>/dev/null; then
+    echo "  Disabling legacy coral-glowplug.service..."
+    systemctl disable coral-glowplug.service
+    systemctl stop coral-glowplug.service 2>/dev/null || true
+fi
+
 # Step 5b: PLX keepalive — now handled by toadstool-ember's pcie_keepalive thread
 # The standalone plx-keepalive.service is DEPRECATED.
 # toadstool-ember reads [[pcie_switch]] from glowplug.toml and generates keepalive
