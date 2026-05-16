@@ -7,7 +7,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
-## Unreleased — Wave 17 Signal Adoption Sprint (May 16, 2026)
+## Unreleased — Wave 17 Signal Adoption + Deep Debt Refactoring (May 16, 2026)
 
 ### Added (Neural API signals)
 - **`primal.announce`** registration in `niche.rs` — single atomic call replaces
@@ -22,13 +22,28 @@ This file covers the spring as a whole. For crate-level details see
 - **Signal tier annotations** in `capability_registry.toml` — declares `node.compute`
   and `tower.publish` as adopted, `nest.store` and `nest.commit` as candidates.
 
-### Changed
-- **`register_with_target()`** refactored into `try_primal_announce()` +
-  `legacy_register()` + `discover_biomeos_socket()` — cleaner separation of
-  concerns, shared socket discovery.
+### Refactored (deep debt — large file evolution)
+- **`niche.rs` (932L) → `niche/mod.rs` (516L) + `niche/tables.rs` (394L)**:
+  Static capability tables, dependency declarations, semantic mappings, and cost
+  estimates extracted to `tables.rs`. Runtime logic (socket resolution, registration,
+  standalone mode) remains in `mod.rs`. Registration logic is now visible without
+  scrolling past 400 lines of data tables.
+- **`compute_dispatch.rs` (926L) → `compute_dispatch/mod.rs` (592L) + `compute_dispatch/fused.rs` (335L)**:
+  `FusedPipeline` and its 5 types (`FusedOp`, `FusedOpSubmitOutcome`, `FusedSubmitReport`,
+  `FusedResult`, `FusedOpResult`) extracted to `fused.rs` with their own tests. Dispatch
+  validation and signal APIs remain in `mod.rs`.
+
+### Deep Debt Audit Results
+- **Zero TODO/FIXME/HACK** markers in codebase
+- **10 `unsafe` sites** — all necessary (BAR0 MMIO mmap/volatile in `low_level/bar0.rs` + 1 CUDA FFI)
+- **Zero mock leakage** into production code (`NpuSimulator` is intentional)
+- **19 files >800L** — 2 refactored this sprint, remainder are experiment binaries (biomeGate)
+- **14 external deps** — all pure Rust except `cudarc` (CUDA FFI) and `wgpu` (GPU drivers)
 
 ### Metrics
 - 595 lib tests pass, zero clippy warnings, zero format drift
+- niche.rs: 932 → 516 + 394 (table extraction, not just splitting)
+- compute_dispatch.rs: 926 → 592 + 335 (FusedPipeline extraction)
 
 ## Unreleased — PLX Keepalive Boot-Catch + Event-Driven Evolution (May 16, 2026)
 

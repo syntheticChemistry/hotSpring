@@ -1818,30 +1818,51 @@ Next: hardware validation on Titan V and K80.
 - **Validation:** 595/595 lib tests pass. Zero clippy warnings (all-targets barracuda-local).
   Zero unfulfilled lint expectations. `cargo fmt --check` clean.
 
-### GAP-HS-103 — Wave 17 Signal Adoption Sprint (May 16, 2026)
+### GAP-HS-103 — Wave 17 Signal Adoption + Deep Debt Sprint (May 16, 2026)
 
-- **Severity:** Low (forward evolution, no regressions)
-- **Classification:** Neural API signal adoption per primalSpring Wave 17 directive
-- **Trigger:** primalSpring "Cross-Cutting: Wave 17 — What Every Spring Needs to Know" +
-  `SIGNAL_ADOPTION_STANDARD.md` + `PRIMAL_ANNOUNCE_PROTOCOL.md`.
-- **Completed:**
+- **Severity:** Low (forward evolution + structural improvements, no regressions)
+- **Classification:** Neural API signal adoption + deep debt refactoring audit
+
+#### Signal adoption (per primalSpring Wave 17)
   1. **`primal.announce` registration**: `niche.rs` refactored — `register_with_target()`
-     now tries `primal.announce` first (single atomic call with all methods, capabilities,
-     semantic mappings, signal tiers), falling back to legacy multi-call pattern for older
-     biomeOS. Socket discovery extracted to `discover_biomeos_socket()`.
-  2. **`node.compute` signal dispatch**: `dispatch_node_compute()` in `compute_dispatch.rs`
-     dispatches GPU workloads via `signal.dispatch("node.compute", ...)`. biomeOS
-     decomposes compile → submit → execute through the graph. Falls back to
-     `compile_and_submit()` for older biomeOS.
-  3. **`tower.publish` signed publication**: `publish_result()` in `compute_dispatch.rs`
-     publishes signed results via `tower.publish` signal (sign → announce → audit).
-     Falls back to direct `crypto.sign_ed25519` + `discovery.announce`.
-  4. **Capability registry signals**: `capability_registry.toml` extended with `[signals]`
-     section — `node.compute` and `tower.publish` adopted, `nest.store` and `nest.commit`
-     as next candidates.
-- **Remaining candidates:** `nest.store` for physics result provenance chains,
-  `nest.commit` for session finalization. Domain-specific physics calls (`stats.mean`,
-  `linalg.*`, `tensor.*`) remain as `ctx.call()` per the standard.
+     now tries `primal.announce` first, falling back to legacy multi-call for older biomeOS.
+  2. **`node.compute` signal dispatch**: `dispatch_node_compute()` in `compute_dispatch.rs`.
+  3. **`tower.publish` signed publication**: `publish_result()` in `compute_dispatch.rs`.
+  4. **Capability registry signals**: `[signals]` section with adopted/candidate tiers.
+- **Signal candidates remaining:** `nest.store`, `nest.commit`.
+
+#### Deep debt refactoring
+  5. **`niche.rs` (932L) → `niche/mod.rs` (516L) + `niche/tables.rs` (394L)**: Table
+     extraction. Registration logic visible without scrolling past 400L of data.
+  6. **`compute_dispatch.rs` (926L) → `compute_dispatch/mod.rs` (592L) + `fused.rs` (335L)**:
+     FusedPipeline and 5 types extracted with their own tests.
+
+#### Comprehensive audit results
+- **TODO/FIXME/HACK:** Zero in codebase.
+- **`unsafe`:** 10 sites, all necessary (8 BAR0 MMIO mmap/volatile, 2 `Send` impls, 1 CUDA FFI).
+- **Large files (>800L):** 19 files. 2 refactored this sprint (`niche.rs`, `compute_dispatch.rs`).
+  Remaining 17 are experiment binaries (biomeGate-owned sovereign compute):
+  `sarkas_gpu.rs` (856L), `nuclear_eos_l2_hetero.rs` (858L), `nuclear_eos_gpu.rs` (870L),
+  `validate_silicon_capabilities.rs` (867L), `validate_precision_matrix.rs` (885L),
+  `validate_chuna.rs` (887L), `bench_qcd_silicon.rs` (908L), `bench_silicon_saturation.rs` (923L),
+  `bench_silicon_budget.rs` (845L), `validate_silicon_science.rs` (844L),
+  `bench_cross_spring_evolution.rs` (934L), `cross_substrate_esn_benchmark.rs` (942L),
+  `celllist_diag.rs` (951L), `exp184_k80_gr_sovereign.rs` (932L),
+  `glowplug_client.rs` (938L), and 2 fossilized bins.
+- **External deps:** 14 crates, all pure Rust except `cudarc` (CUDA FFI, feature-gated) and
+  `wgpu` (inherent to GPU mission). `blake3` configured C-free.
+- **Mock leakage:** None. `NpuSimulator` is intentional production simulation.
+- **Hardcoded paths:** ~45 socket path literals. Production paths use env-var fallback chains
+  (`BIOMEOS_SOCKET_DIR` → `XDG_RUNTIME_DIR` → `/run/toadstool` → `temp_dir`). Test paths
+  are appropriately isolated in `#[cfg(test)]` modules.
+
+#### Benchmark & paper audit
+- **Python CPU benchmarks:** Yes — `control/` + `validate_*` + `run_all_parity.py`, 9/9 papers green.
+- **Kokkos/LAMMPS GPU parity:** Yes — `bench_md_parity`, `bench_kokkos_complexity`. Gap 27× → 3.7×.
+- **OpenMM/GROMACS/Galaxy:** Not applicable per project physics scope.
+- **Papers remaining:** ~25 queued (Paper 23, Track 5 [25-31], Tier 4 [32-42], LTEE B9).
+- **Datasets partial:** Militzer FPEOS (partial), atoMEC (7/9), Zenodo surrogate (optional 6GB).
+
 - **Validation:** 595/595 lib tests pass. Zero clippy warnings. `cargo fmt --check` clean.
 
 ---
