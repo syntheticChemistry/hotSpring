@@ -65,7 +65,58 @@ This file covers the spring as a whole. For crate-level details see
 - niche.rs: 932 → 516 + 394 (table extraction, not just splitting)
 - compute_dispatch.rs: 926 → 592 + 335 (FusedPipeline extraction)
 
-## Unreleased — PLX Keepalive Boot-Catch + Event-Driven Evolution (May 16, 2026)
+## Diesel Engine Capability Abstraction (May 16, 2026)
+
+### Changed (toadStool ember — `plx_keepalive.rs`)
+- **`PlxKeepalive` → `PcieBridgeKeepalive`**: Generalized naming. PLX discovery retained
+  as a priority hint, not the identity of the subsystem. `PlxKeepalive` preserved as a
+  type alias for backward compatibility.
+- **`detect_pcie_bridges()`**: Returns all upstream bridge BDFs with PLX bridges first.
+  `detect_plx_bridge()` is now a thin wrapper.
+- **`PLX_VENDOR_ID`**: Consolidated as a shared `pub const` — server no longer has its own copy.
+
+### Changed (toadStool glowplug — `plx.rs`)
+- **`PlxGuardian` → `BridgeGuardian`**: Generalized to protect any PCIe-bridged device.
+  `PlxGuardian` preserved as type alias. `scan_and_protect()` now uses
+  `detect_pcie_bridges()` with PLX hint logging.
+
+### Added (toadStool cylinder — `gsp_bridge.rs`)
+- **`GspBridge` capability queries**: `supports_acr()`, `supports_pgob()`, `supports_pmu()`,
+  `supports_gr_init()` — all default to `false`. Enables callers to introspect bridge
+  capabilities instead of matching on `BootStrategy` externally.
+- **`GspBridge::pmu_boot()`**: Default method for PMU falcon bootstrap (returns `Unsupported`).
+
+### Added (toadStool cylinder — `sovereign_stages.rs`)
+- **`MemoryTrainingStrategy`**: Enum dispatch keyed by `MemoryType`. Maps GDDR5 → DEVINIT,
+  HBM2 → typestate controller, GDDR6/GDDR6X/GDDR7/HBM3 → explicit `Unsupported`.
+- **`dispatch_memory_training()`**: Centralizes warm-detection + training execution. The
+  100+ lines of if/else in `sovereign_init` collapsed to a single `match`.
+
+### Changed (toadStool cylinder — `sovereign_init.rs`)
+- **`engine_ungate()`**: Generalized from Kepler-only `kepler_pgraph_ungate` to support
+  arbitrary engines. Takes `engine_name` and optional `status_reg` for post-replay
+  validation. Stage names are now `engine_ungate:PGRAPH`, `engine_ungate:CE`, etc.
+- **`SovereignInitOptions::engine_init_sequences`**: Vec of (name, sequence, status_reg)
+  tuples for per-engine ungating. Legacy `kepler_gr_init` preserved as fallback.
+
+### Added (toadStool cylinder — `pmu_init.rs`)
+- **`PmuBootstrap::for_chip(ChipFamily)`**: Parametric constructor — makes PMU bootstrap
+  available beyond Kepler.
+
+### Added (toadStool glowplug — `warm_init.rs`)
+- **`DriverLabExecutor`**: Callback-driven executor for `DriverLabPlan`. Orchestrates
+  power cycle → swap → settle → capture → persist → pairwise diff. Composable with
+  any swap mechanism (bare-metal, VM, manual).
+- **`LabExecutionResult`**, **`TrialExecutionResult`**, **`DiffSummary`**: Structured
+  result types for lab execution reporting.
+
+### Validated
+- **6,989 tests pass**, 0 failures, 0 new warnings
+- Deployed to `toadstool-ember.service` — PCIe bridge keepalive confirmed:
+  3 PLX bridges discovered, 2 K80 GPUs protected, 8 hierarchies pinned
+- All 3 GPUs alive: K80 (D0, vfio-pci), Titan V (D0, vfio-pci), RTX 5060 (nvidia)
+
+## PLX Keepalive Boot-Catch + Event-Driven Evolution (May 16, 2026)
 
 ### Fixed (toadStool server — `pcie_keepalive.rs`)
 - **PCI class code extraction bug**: `(class >> 8) & 0xFFFFFF` produced 24-bit values
