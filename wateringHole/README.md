@@ -46,11 +46,11 @@ entry for the session that produced it. Chronological by filename suffix.
 | 2026-05-12 | `HOTSPRING_WARM_VFIO_DISPATCH_EVOLUTION_HANDOFF_MAY12_2026.md` | archive | GAP-HS-095 cont: warm API, cold/warm mismatch fix, ember blocker, kernel-module roadmap |
 | 2026-05-12 | `HOTSPRING_EMBER_GLOWPLUG_OWNERSHIP_AUDIT_HANDOFF_MAY12_2026.md` | archive | GAP-HS-096: dual-existence audit, cylinder translation fix, toadStool parity gap, cutover path |
 | 2026-05-12 | `HOTSPRING_PHASE_C_EXECUTION_PLAN_MAY12_2026.md` | archive | Phase C execution plan: 7 work items (C1-C7), coralReef soft-deprecation, hotSpring validation checklist |
-| 2026-05-13 | `HOTSPRING_DEEP_DEBT_SPRINT_MAY13_2026.md` | ✅ | Deep debt resolution: println migration, BDF discovery, pure-Rust blake3, boot scripts, CI gate |
-| 2026-05-13 | `HOTSPRING_FULL_MODERNIZATION_PLASMIDBIN_HANDOFF_MAY13_2026.md` | ✅ | Full modernization: plasmidBin ecoBin deployment, legacy coral_gpu excision, NUCLEUS discovery |
-| 2026-05-13 | `HOTSPRING_TRIO_REWIRE_MAY13_2026.md` | ✅ | Compute trio rewire: toadStool S258-S261, coralReef Sprint 9, barraCuda Sprint 23 |
-| 2026-05-14 | `HOTSPRING_LOCAL_DEBT_COMPOSITION_EVOLUTION_HANDOFF_MAY14_2026.md` | ✅ | Local debt sprint: compile-then-dispatch, circuit breaker, dispatch unification, TOML aliases, tiered validation |
-| 2026-05-14 | `HOTSPRING_PLASMIDBIN_LOCAL_OWNERSHIP_HANDOFF_MAY14B_2026.md` | ✅ | plasmidBin debt: release cascade, symlink-aware doctor, generalized upgrade, 13/13 NUCLEUS deployed |
+| 2026-05-13 | `HOTSPRING_DEEP_DEBT_SPRINT_MAY13_2026.md` | archive | Deep debt resolution: println migration, BDF discovery, pure-Rust blake3, boot scripts, CI gate |
+| 2026-05-13 | `HOTSPRING_FULL_MODERNIZATION_PLASMIDBIN_HANDOFF_MAY13_2026.md` | archive | Full modernization: plasmidBin ecoBin deployment, legacy coral_gpu excision, NUCLEUS discovery |
+| 2026-05-13 | `HOTSPRING_TRIO_REWIRE_MAY13_2026.md` | archive | Compute trio rewire: toadStool S258-S261, coralReef Sprint 9, barraCuda Sprint 23 |
+| 2026-05-14 | `HOTSPRING_LOCAL_DEBT_COMPOSITION_EVOLUTION_HANDOFF_MAY14_2026.md` | archive | Local debt sprint: compile-then-dispatch, circuit breaker, dispatch unification, TOML aliases, tiered validation |
+| 2026-05-14 | `HOTSPRING_PLASMIDBIN_LOCAL_OWNERSHIP_HANDOFF_MAY14B_2026.md` | archive | plasmidBin debt: release cascade, symlink-aware doctor, generalized upgrade, 13/13 NUCLEUS deployed |
 | 2026-05-16 | `HOTSPRING_DIESEL_ENGINE_DRIVER_SKETCH_HANDOFF_MAY16_2026.md` | ✅ | Diesel engine driver sketch: GrInitSequence, WarmStateCapture, DriverProbe, PmuBootstrap, shared `nv::pri` |
 | 2026-05-16 | `HOTSPRING_PLX_KEEPALIVE_BOOT_CATCH_HANDOFF_MAY16_2026.md` | ✅ | PLX keepalive boot-catch: class code extraction fix, event-driven interval, activity-aware backpressure, boot validation |
 | 2026-05-16 | `HOTSPRING_WAVE17_SIGNAL_ADOPTION_HANDOFF_MAY16_2026.md` | ✅ | Wave 17: primal.announce, node.compute, tower.publish signal adoption |

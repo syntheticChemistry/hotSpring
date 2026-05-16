@@ -20,6 +20,17 @@ This file covers the spring as a whole. For crate-level details see
 - **Full deep debt audit re-confirmed:** zero TODO/FIXME/HACK, zero `.unwrap()` in lib,
   zero `Box<dyn>` in hot paths, `unsafe` confined to `bar0.rs` MMIO + CUDA FFI binary.
 
+### Documentation evolution (same sprint)
+- All docs normalized to 596/1,045 test counts, 198 experiments
+- README directory tree updated for `niche/`, `compute_dispatch/`, `glowplug_client/` modules
+- `hotspring_primal.rs` → `_fossilized/` path corrected in tree
+- Notebook upgraded to Level 6 CERTIFIED, stale counts fixed
+- whitePaper/README.md date updated to May 16, 2026; experiment count 190 → 198
+- whitePaper/baseCamp/README.md date updated to May 16, 2026
+- 5 May 13–14 handoffs archived to `wateringHole/handoffs/archive/`
+- scripts/README.md: `tools/` path clarified, archive date description improved
+- Upstream handoff: `infra/wateringHole/handoffs/HOTSPRING_DEEP_DEBT_DOC_EVOLUTION_MAY16_2026.md`
+
 ### Metrics
 - Lib tests: 596 (default) / 1,045 (barracuda-local)
 - Clippy: zero warnings

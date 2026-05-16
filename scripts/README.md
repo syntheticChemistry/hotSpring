@@ -18,7 +18,7 @@ or `drivers_probe` are prohibited in new scripts.
 
 | Script | Description | Safe to run? |
 |--------|-------------|-------------|
-| `tools/nucleus_composition_lib.sh` | NUCLEUS composition library (copied from primalSpring Phase 46). 41 functions: discovery, transport, DAG, ledger, braids, petalTongue, sensor streams. Sourced by `hotspring_composition.sh`. | Yes |
+| `../tools/nucleus_composition_lib.sh` | NUCLEUS composition library (repo root `tools/`, from primalSpring Phase 46). 41 functions: discovery, transport, DAG, ledger, braids, petalTongue, sensor streams. Sourced by `hotspring_composition.sh`. | Yes |
 
 | `archive/titan-v-module-swap.sh` | **Archived.** Superseded by benchScale VM isolation + pure Rust warm-catch. | — |
 
@@ -43,7 +43,7 @@ Systemd units are at `scripts/boot/toadstool-ember.service` and
 
 ## Archived Scripts (scripts/archive/) — Fossil Record
 
-**Archived 2026-03-25.** All scripts in `archive/` are superseded by `toadstool device`
+**Archival started 2026-03-25; supplemented through May 2026.** All scripts in `archive/` are superseded by `toadstool device`
 commands. They are preserved as fossil record of the evolution from manual
 scripting to daemon-managed GPU lifecycle.
 
