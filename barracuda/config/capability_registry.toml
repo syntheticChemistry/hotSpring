@@ -9,7 +9,7 @@
 #
 # Schema: each [[capabilities]] entry has:
 #   method   — fully qualified domain.operation name
-#   served   — "local" (hotspring_primal handles) or "routed" (proxy to provider)
+#   served   — "local" (hotspring_unibin handles) or "routed" (proxy to provider)
 #   provider — canonical primal for routed capabilities (empty for local)
 #   domain   — top-level domain grouping
 

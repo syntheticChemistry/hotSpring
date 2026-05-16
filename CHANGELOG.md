@@ -7,6 +7,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Unreleased — Documentation Evolution + Upstream Handoff (May 16, 2026)
+
+### Changed (documentation normalization)
+- **Test/binary/suite counts**: All living docs updated 592→595 (default),
+  64→65 (validation suites), 166→167 (binaries).
+- **`hotspring_primal` → `hotspring_unibin`**: Living docs normalized.
+  Historical entries in PRIMAL_GAPS.md and CHANGELOG.md kept as fossil record.
+- **experiments/README.md**: Experiments 192–196 added to Active table.
+- **wateringHole archival**: 7 May 12 handoffs moved to `archive/`.
+  Titan V DMATRF May 7 status corrected to `upstream`.
+- **scripts/README.md**: Archived script paths corrected `lab/` → `archive/`.
+- **PRIMAL_GAPS.md**: Stale handoff filename and test count fixed.
+- **EXPERIMENT_INDEX.md**: Stray `||` typo on Exp 194 corrected.
+- **notebook**: `01-composition-validation.ipynb` counts and deploy node updated.
+
+### Added
+- **Upstream handoff**: `HOTSPRING_DOC_EVOLUTION_UPSTREAM_HANDOFF_MAY16_2026.md`
+  — composition patterns, signal adoption summary, deep debt status, upstream
+  asks for primalSpring + sibling springs.
+
 ## Unreleased — Wave 17 Signal Adoption + Deep Debt Refactoring (May 16, 2026)
 
 ### Added (Neural API signals)

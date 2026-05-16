@@ -12,9 +12,9 @@ or `drivers_probe` are prohibited in new scripts.
 |--------|-------------|-------------|
 | `regenerate-all.sh` | Full project regeneration | Yes |
 | `boot/*.sh` | Boot-time setup scripts | Yes |
-| ~~`lab/k80_warm_catch.sh`~~ | **ARCHIVED** → `toadstool device warm-catch <BDF> --memory-type gddr5` | Replaced by pure Rust |
-| ~~`lab/titanv_warm_handoff.sh`~~ | **ARCHIVED** → `toadstool device warm-catch <BDF> --memory-type hbm2` | Replaced by pure Rust |
-| ~~`lab/patch_nouveau_teardown.py`~~ | **ARCHIVED** → `toadstool_cylinder::tools::elf_patcher` | Replaced by pure Rust |
+| ~~`archive/k80_warm_catch.sh`~~ | **ARCHIVED** → `toadstool device warm-catch <BDF> --memory-type gddr5` | Replaced by pure Rust |
+| ~~`archive/titanv_warm_handoff.sh`~~ | **ARCHIVED** → `toadstool device warm-catch <BDF> --memory-type hbm2` | Replaced by pure Rust |
+| ~~`archive/patch_nouveau_teardown.py`~~ | **ARCHIVED** → `toadstool_cylinder::tools::elf_patcher` | Replaced by pure Rust |
 
 | Script | Description | Safe to run? |
 |--------|-------------|-------------|

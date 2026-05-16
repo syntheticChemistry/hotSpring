@@ -88,7 +88,7 @@ fn main() {
     // ── Science parity: local Rust vs IPC compute ──
     println!("  ── Science Parity (Rust vs IPC) ──");
 
-    // Nuclear EOS parity: compute SEMF locally, then via hotspring_primal IPC
+    // Nuclear EOS parity: compute SEMF locally, then via hotspring IPC
     let z = 82_u32;
     let n = 126_u32;
     let local_be = hotspring_barracuda::physics::semf_binding_energy(

@@ -1673,7 +1673,7 @@ Next: hardware validation on Titan V and K80.
      `hotspring_primal` binary to `hotspring_unibin`. All UniBin modes registered.
   6. **8 clippy errors resolved:** 5 default + 3 barracuda-local (doc paragraph, if_not_else,
      bool_to_int_with_if, manual_let_else, map_unwrap_or, unwrap_used).
-- **Validation:** 592 (default) / 1,041 (barracuda-local) lib tests pass. Zero clippy warnings.
+- **Validation:** 595 (default) / 1,041 (barracuda-local) lib tests pass. Zero clippy warnings.
 
 ### GAP-HS-099 — Deep Debt Resolution + Evolution Sprint (May 13 2026)
 
@@ -1703,7 +1703,7 @@ Next: hardware validation on Titan V and K80.
   25 binary targets use `panic!` in unrecoverable paths (tokio runtime, GPU init,
   weight export). Library has zero panic paths. Evolution to `Result` mains is polish.
 - **Validation:** 595 (default) / 1,041 (barracuda-local). Zero clippy. Zero TODO.
-- **Handoff:** `wateringHole/handoffs/HOTSPRING_V0632_DEEP_DEBT_RESOLUTION_HANDOFF_MAY13_2026.md`
+- **Handoff:** `wateringHole/handoffs/HOTSPRING_DEEP_DEBT_SPRINT_MAY13_2026.md`
 
 ---
 

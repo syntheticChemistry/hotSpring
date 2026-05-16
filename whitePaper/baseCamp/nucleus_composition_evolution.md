@@ -3,8 +3,8 @@
 # NUCLEUS Composition Evolution — Primal Composition Tier
 
 **Spring:** hotSpring (BarraCuda crate)  
-**Updated:** May 13, 2026  
-**Status:** guideStone Level 6 CERTIFIED (NUCLEUS Deployment Validation; primalSpring v0.9.25 post-interstadial). Tier 4 IPC-first. Eukaryotic UniBin (`hotspring_unibin`) with certify/validate/status/version subcommands. 17 default / 20 barracuda-local validation scenarios in registry. Deep debt resolution complete — zero TODO/FIXME/HACK, zero production mocks, zero library unsafe, zero C deps, zero clippy. Node atomic scenario added. bearDog wire name corrected. coralReef socket discovery evolved. **Bare mode: 30/30 PASS** (3 SKIP = expected NUCLEUS liveness). **Lib tests:** 592/592 (default) and 1,041/1,041 (`--features barracuda-local`).
+**Updated:** May 16, 2026  
+**Status:** guideStone Level 6 CERTIFIED (NUCLEUS Deployment Validation; primalSpring v0.9.25 post-interstadial). Tier 4 IPC-first. Eukaryotic UniBin (`hotspring_unibin`) with certify/validate/status/version subcommands. 17 default / 20 barracuda-local validation scenarios in registry. Deep debt resolution complete — zero TODO/FIXME/HACK, zero production mocks, zero library unsafe, zero C deps, zero clippy. Node atomic scenario added. bearDog wire name corrected. coralReef socket discovery evolved. **Bare mode: 30/30 PASS** (3 SKIP = expected NUCLEUS liveness). **Lib tests:** 595/595 (default) and 1,041/1,041 (`--features barracuda-local`).
 
 ---
 
@@ -55,7 +55,7 @@ Code paths:
 
 3. **Science parity probes** — Rust baseline vs IPC for SEMF binding energy, Wilson plaquette on a small thermalized lattice, and `physics.hmc_trajectory` JSON shape + plaquette/acceptance fields (see Phase 5 in `validate_nucleus_composition.rs`).
 
-4. **Full server dispatch** — `barracuda/src/bin/hotspring_primal.rs` serves all methods in `niche::LOCAL_CAPABILITIES` (13 physics/compute methods + composition/health/MCP). **GAP-HS-026** (April 17, 2026): every local method is wired; pending placeholders removed. See `docs/PRIMAL_GAPS.md`.
+4. **Full server dispatch** — `hotspring_unibin serve` serves all methods in `niche::LOCAL_CAPABILITIES` (13 physics/compute methods + composition/health/MCP). Legacy source: `barracuda/src/bin/_fossilized/hotspring_primal.rs` (superseded). **GAP-HS-026** (April 17, 2026): every local method is wired; pending placeholders removed. See `docs/PRIMAL_GAPS.md`.
 
 5. **`hotspring_guidestone` binary** — Unified guideStone deployable as of the v0.9.17-era stack (guideStone v1.2.0; **eukaryotic successor:** `hotspring_unibin` is now the primary NUCLEUS validation CLI — see header). Current primalSpring line: **v0.9.25** (post-interstadial).
    - **Bare mode**: Validates Properties 1-5 (Deterministic, Reference-Traceable, Self-Verifying [BLAKE3 CHECKSUMS — 15 source files], Environment-Agnostic, Tolerance-Documented) without any primals deployed. **30/30 checks pass**, 3 SKIPs (expected NUCLEUS liveness only). Property 3 verifies per-file BLAKE3 hashes + `deny.toml` present.
@@ -80,7 +80,7 @@ Code paths:
    - Data-driven `PRIMAL_ALIASES` table replaces hardcoded alias fallback.
    - Smart refactoring: `rhmc.rs` (989L) → `rhmc/mod.rs` + `rhmc/remez.rs`; `nuclear_eos_helpers.rs` (978L) → `mod.rs` + `objectives.rs`.
    - Pre-existing compile errors fixed (`DiscoveredDevice` API in `nuclear_eos_l2_*` binaries).
-   - Lib tests: all pass under both default (579/579) and `barracuda-local` (1,028/1,028) configurations. Zero compilation errors.
+   - Lib tests: all pass under both default (595/595) and `barracuda-local` (1,041/1,041) configurations. Zero compilation errors.
 
 **Forward evolution (tracked as gaps):** **TensorSession** fused pipelines (GAP-HS-027), **LIME/ILDG zero-copy** (GAP-HS-028), and expanded **cross-primal science parity** (more observables routed the same way production will call them).
 
@@ -91,7 +91,7 @@ Code paths:
 **Deploy graph (spring-local):** `graphs/hotspring_qcd_deploy.toml`
 
 - **10 primals** appear as peer `[[graph.nodes]]` entries (BearDog, Songbird, coralReef, ToadStool, BarraCuda, NestGate, rhizoCrypt, loamSpine, sweetGrass, Squirrel).  
-- **`hotspring_primal`** is the **spawning** application node (order 10) that depends on the core stack.  
+- **`hotspring_unibin`** is the **spawning** application node (order 10) that depends on the core stack.  
 - **Bonding:** `bond_type = "Metallic"`, `trust_model = "InternalNucleus"`, with **tiered encryption** (`encryption_tiers.tower/node/nest`) matching NUCLEUS boundary semantics.
 
 **`AtomicType::FullNucleus` (composition code):** nine **required** primals for the atom — BearDog, Songbird, ToadStool, BarraCuda, coralReef, NestGate, rhizoCrypt, loamSpine, sweetGrass — defined in `composition.rs` (`required_primals()`). Squirrel remains **optional** meta-tier; hotSpring itself is the client under test, not a row in `required_primals()`.

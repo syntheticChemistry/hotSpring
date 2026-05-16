@@ -61,8 +61,13 @@ NNN_DESCRIPTOR.{sh,md,json}
 |---|------|------|--------|
 | 191 | TOADSTOOL_S258_PBDMA_VALIDATION | validation | ✅ Compute trio pipeline: toadStool PBDMA dispatch (S258-S261), compile-then-dispatch wiring, circuit-breaker discovery |
 | 191B | SOVEREIGN_DISPATCH_VALIDATED | validation | ✅ First e2e sovereign VFIO dispatch on Titan V (S263). Warm handoff validated, CPUCTL_ALIAS breakthrough, DMA roundtrip + GR init. Frontier: FECS PENDING_CTX_RELOAD |
+| 192 | HARDWARE_VALIDATION_SPRINT_COMPUTE_TRIO | validation | ✅ Compute trio hardware validation sprint |
+| 193 | PLX_D3COLD_KEEPALIVE_K80 | analysis | ✅ PLX D3cold keepalive on K80 |
+| 194 | COLD_WARM_BOOT_ARCHITECTURE | analysis | ✅ Cold/warm boot architecture |
+| 195 | DRIVER_LAB_MESA_VS_VENDOR | analysis | ✅ Driver lab: Mesa vs vendor |
+| 196 | WARM_SWAP_VALIDATION_PLX_KEEPALIVE | validation | ✅ Warm swap + PLX keepalive validation |
 
-> **Note:** Exp 190 (THREE_GPU_SOVEREIGN_VALIDATION) archived — final coral-ember era journal. Exp 191/191B are the toadStool-era successors.
+> **Note:** 196 experiments total (001–189 archived + 190 archived final coral-ember + 191–196 active).
 
 ### Ember Survivability Hardening (2026-04-07)
 
@@ -159,7 +164,7 @@ have been rewired for capability-based discovery (GAP-HS-087, GAP-HS-088):
 - **`validate_compute_trio_pipeline`** binary: end-to-end Yukawa + Wilson plaquette validation
 - **All IPC provenance clients** evolved from hardcoded socket paths to `by_domain()` NUCLEUS discovery
 - **Barrier shader validation** for coralReef `membar.{cta,gl}` emitter (9 WGSL shaders)
-- **1,041** lib tests pass (barracuda-local)
+- **595** (default) / **1,041** (barracuda-local) lib tests pass
 
 ## Eukaryotic Evolution (May 2026)
 
