@@ -35,6 +35,7 @@ pub mod s_ltee_anderson;
 pub mod s_md_yukawa;
 pub mod s_node_atomic;
 pub mod s_sarkas_yukawa_md;
+pub mod s_schema_standard;
 pub mod s_screened_coulomb;
 pub mod s_semf_parity;
 pub mod s_sovereign_dispatch;
@@ -69,5 +70,6 @@ pub fn build_registry() -> ScenarioRegistry {
     r.register(s_hotqcd_dispatch::SCENARIO);
     r.register(s_vfio_dispatch::SCENARIO);
     r.register(s_node_atomic::SCENARIO);
+    r.register(s_schema_standard::SCENARIO);
     r
 }

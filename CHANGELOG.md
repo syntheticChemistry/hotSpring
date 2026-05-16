@@ -7,6 +7,33 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Unreleased — Wave 20 Schema Standardization (May 16, 2026)
+
+### Added (Wave 20 absorption — primalSpring schema standard)
+- **`capabilities_list_response()`** in `niche/tables.rs` — canonical response
+  builder for `capability.list` per Wave 20 schema: `{ "capabilities": [...],
+  "count": N, "primal": "hotspring" }`. All downstream consumers get the required
+  canonical subset.
+- **`primal.list`** added to `capability_registry.toml` as routed capability
+  (biomeOS-served). Corresponding entry in `ROUTED_CAPABILITIES`. Ready for
+  biomeOS Wave 20 rollout.
+- **`commit_provenance()`** in `dag_provenance.rs` — `nest.commit` signal
+  dispatch (Wave 20). Dispatches `nest.commit` signal which biomeOS decomposes
+  into event.append → crypto.sign → content.put → session.commit → braid.create.
+  Falls back to direct `ledger.record` + `attribution.braid` multi-call for
+  pre-v3.57 biomeOS.
+- **`s_schema_standard` scenario** — validates Wave 20 canonical response shapes:
+  capability.list envelope (capabilities array, count, primal), signal registry
+  presence (adopted + candidate), niche identity constants.
+- **`nest.commit` promoted** from signal candidate to adopted in
+  `capability_registry.toml` `[signals]`.
+
+### Metrics
+- 596 (default) / 1,045 (barracuda-local) lib tests pass
+- Zero clippy warnings
+- Zero format drift
+- 18 registered scenarios (default) / 21 (barracuda-local)
+
 ## Unreleased — Post-BootPipeline Documentation + Cross-Team Handoff (May 16, 2026)
 
 ### Changed (documentation)

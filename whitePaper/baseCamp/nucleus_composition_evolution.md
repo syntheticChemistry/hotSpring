@@ -4,7 +4,7 @@
 
 **Spring:** hotSpring (BarraCuda crate)  
 **Updated:** May 16, 2026  
-**Status:** guideStone Level 6 CERTIFIED (NUCLEUS Deployment Validation; primalSpring v0.9.25 post-interstadial). Tier 4 IPC-first. Eukaryotic UniBin (`hotspring_unibin`) with certify/validate/status/version subcommands. 17 default / 20 barracuda-local validation scenarios in registry. Deep debt resolution complete — zero TODO/FIXME/HACK, zero production mocks, zero library unsafe, zero C deps, zero clippy. Node atomic scenario added. bearDog wire name corrected. coralReef socket discovery evolved. **Bare mode: 30/30 PASS** (3 SKIP = expected NUCLEUS liveness). **Lib tests:** 606/606 (cylinder), 595/595 (barracuda default), 1,041/1,041 (`--features barracuda-local`). **Vendor-agnostic `BootPipeline` trait** validated (3 implementations: KeplerInit, VoltaInit, VegaInit).
+**Status:** guideStone Level 6 CERTIFIED (NUCLEUS Deployment Validation; primalSpring v0.9.25 post-interstadial). Tier 4 IPC-first. Eukaryotic UniBin (`hotspring_unibin`) with certify/validate/status/version subcommands. 17 default / 20 barracuda-local validation scenarios in registry. Deep debt resolution complete — zero TODO/FIXME/HACK, zero production mocks, zero library unsafe, zero C deps, zero clippy. Node atomic scenario added. bearDog wire name corrected. coralReef socket discovery evolved. **Bare mode: 30/30 PASS** (3 SKIP = expected NUCLEUS liveness). **Lib tests:** 606/606 (cylinder), 596/596 (barracuda default), 1,045/1,045 (`--features barracuda-local`). **Vendor-agnostic `BootPipeline` trait** validated (3 implementations: KeplerInit, VoltaInit, VegaInit).
 
 ---
 
@@ -80,7 +80,7 @@ Code paths:
    - Data-driven `PRIMAL_ALIASES` table replaces hardcoded alias fallback.
    - Smart refactoring: `rhmc.rs` (989L) → `rhmc/mod.rs` + `rhmc/remez.rs`; `nuclear_eos_helpers.rs` (978L) → `mod.rs` + `objectives.rs`.
    - Pre-existing compile errors fixed (`DiscoveredDevice` API in `nuclear_eos_l2_*` binaries).
-   - Lib tests: all pass under both default (595/595) and `barracuda-local` (1,041/1,041) configurations. Zero compilation errors.
+   - Lib tests: all pass under both default (596/596) and `barracuda-local` (1,045/1,045) configurations. Zero compilation errors.
 
 **Forward evolution (tracked as gaps):** **TensorSession** fused pipelines (GAP-HS-027), **LIME/ILDG zero-copy** (GAP-HS-028), and expanded **cross-primal science parity** (more observables routed the same way production will call them).
 

@@ -758,6 +758,14 @@ served = "routed"
 provider = "songbird"
 domain = "discovery"
 
+# ── Primal discovery (biomeOS-served, Wave 20) ───────────────────────
+
+[[capabilities]]
+method = "primal.list"
+served = "routed"
+provider = "biomeos"
+domain = "primal"
+
 # ── Visualization + Interaction (routed to petalTongue) ───────────────
 
 [[capabilities]]
@@ -796,8 +804,8 @@ domain = "visualization"
 # multi-call sequences dispatched via ctx.dispatch("tier.signal", ...).
 
 [signals]
-adopted = ["node.compute", "tower.publish"]
-candidates = ["nest.store", "nest.commit"]
+adopted = ["node.compute", "tower.publish", "nest.commit"]
+candidates = ["nest.store"]
 
 # primal.announce replaces lifecycle.register + capability.register + method.register.
 # See primalSpring/wateringHole/PRIMAL_ANNOUNCE_PROTOCOL.md.

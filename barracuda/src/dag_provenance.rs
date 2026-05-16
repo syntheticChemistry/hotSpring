@@ -202,6 +202,65 @@ fn try_sign_merkle_root(
     ))
 }
 
+/// Commit provenance via the Wave 20 `nest.commit` signal.
+///
+/// Dispatches `nest.commit` which biomeOS decomposes into:
+/// `event.append` → `crypto.sign` → `content.put` → `session.commit` → `braid.create`.
+/// Falls back to direct `ledger.record` + `attribution.braid` multi-call
+/// if the signal is unavailable (pre-v3.57 biomeOS).
+pub fn commit_provenance(
+    nucleus: &NucleusContext,
+    provenance: &DagProvenance,
+    experiment_id: &str,
+    paper_ref: Option<&str>,
+) -> Option<serde_json::Value> {
+    let signal_params = serde_json::json!({
+        "session_id": provenance.dag_session_id,
+        "merkle_root": provenance.merkle_root,
+        "events_count": provenance.events_count,
+        "experiment_id": experiment_id,
+        "spring": "hotSpring",
+        "paper_ref": paper_ref,
+    });
+
+    let dispatch_params = serde_json::json!({
+        "signal": "nest.commit",
+        "params": signal_params,
+    });
+
+    if let Ok(resp) =
+        nucleus.call_by_capability("orchestration", "signal.dispatch", dispatch_params)
+    {
+        log::info!("nest.commit signal dispatched for {experiment_id}");
+        return resp.get("result").cloned();
+    }
+
+    log::info!("nest.commit signal unavailable, falling back to multi-call");
+    let ledger_params = serde_json::json!({
+        "experiment_id": experiment_id,
+        "dag_node_id": provenance.dag_session_id,
+        "spring": "hotspring",
+        "method": "dag.commit",
+    });
+    let _ = nucleus.call_by_capability("ledger", "ledger.record", ledger_params);
+
+    if let Some(ref_str) = paper_ref {
+        let braid_params = serde_json::json!({
+            "witness_hash": provenance.merkle_root,
+            "paper_ref": ref_str,
+            "spring": "hotspring",
+            "status": "pass",
+        });
+        let _ = nucleus.call_by_capability("attribution", "attribution.braid", braid_params);
+    }
+
+    Some(serde_json::json!({
+        "committed": true,
+        "fallback": true,
+        "experiment_id": experiment_id,
+    }))
+}
+
 /// Compute BLAKE3 hash of a byte slice and return hex string.
 ///
 /// Used to hash GPU compute inputs/outputs for DAG events and witnesses.

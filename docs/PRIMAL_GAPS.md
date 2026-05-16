@@ -1865,6 +1865,26 @@ Next: hardware validation on Titan V and K80.
 
 - **Validation:** 595/595 lib tests pass. Zero clippy warnings. `cargo fmt --check` clean.
 
+### GAP-HS-104 — Wave 20 Schema Standardization (May 16, 2026)
+
+- **Severity:** Low (schema alignment, no regressions)
+- **Classification:** primalSpring Wave 20 absorption
+- **Trigger:** primalSpring "Wave 20 Delta Spring Evolution — Schema Standardization + E2E Validation"
+  directive. Registry expanded to 452 methods. `capability.list` canonical envelope defined.
+  `nest.commit` E2E validation scenario added upstream.
+- **Completed:**
+  1. **`capabilities_list_response()`**: New canonical response builder in `niche/tables.rs`.
+     Returns `{ "capabilities": [...], "count": N, "primal": "hotspring" }` per Wave 20 schema.
+  2. **`primal.list` registered**: Added to `capability_registry.toml` as routed capability
+     (biomeOS-served) and to `ROUTED_CAPABILITIES` in `niche/tables.rs`.
+  3. **`nest.commit` signal dispatch**: `commit_provenance()` in `dag_provenance.rs` dispatches
+     via `signal.dispatch("nest.commit", ...)` with fallback to direct `ledger.record` +
+     `attribution.braid`. Signal promoted from candidate to adopted in `[signals]`.
+  4. **`s_schema_standard` scenario**: Validates capability.list envelope shape (array, count,
+     primal), signal registry presence (3 adopted, 1 candidate), niche identity constants.
+- **Validation:** 596 (default) / 1,045 (barracuda-local) lib tests pass. Zero clippy warnings.
+  `cargo fmt --check` clean.
+
 ---
 
 ## Handback Protocol

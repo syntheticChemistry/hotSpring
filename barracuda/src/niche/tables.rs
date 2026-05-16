@@ -276,6 +276,8 @@ pub const ROUTED_CAPABILITIES: &[(&str, &str)] = &[
     // Discovery (Songbird)
     ("discovery.find_primals", "songbird"),
     ("discovery.announce", "songbird"),
+    // Primal discovery (biomeOS — Wave 20)
+    ("primal.list", "biomeos"),
     // Visualization (petalTongue)
     ("visualization.render", "petaltongue"),
     ("visualization.render.scene", "petaltongue"),
@@ -292,6 +294,22 @@ pub fn all_capabilities() -> Vec<&'static str> {
     let mut all = LOCAL_CAPABILITIES.to_vec();
     all.extend(ROUTED_CAPABILITIES.iter().map(|(method, _)| *method));
     all
+}
+
+/// Build the canonical `capability.list` response per Wave 20 schema.
+///
+/// Returns `{ "capabilities": [...], "count": N, "primal": "hotspring" }`.
+/// Extra fields are allowed by the standard; this provides the required
+/// canonical subset that downstream consumers (projectNUCLEUS,
+/// projectFOUNDATION) depend on.
+#[must_use]
+pub fn capabilities_list_response() -> serde_json::Value {
+    let caps = all_capabilities();
+    serde_json::json!({
+        "capabilities": caps,
+        "count": caps.len(),
+        "primal": NICHE_NAME,
+    })
 }
 
 /// Backward-compatible alias — points to [`LOCAL_CAPABILITIES`].
