@@ -7,6 +7,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Sovereign Init RPC — Warm/Cold Cross-Hardware (Exp 197, May 16, 2026)
+
+### Added (toadStool server — `sovereign.rs`)
+- **`sovereign.init` JSON-RPC method**: First direct diesel engine invocation over IPC.
+  Opens BAR0 via sysfs, runs the staged `sovereign_init` pipeline, returns per-stage
+  results with timing. Params: `bdf` (required), `halt_before`, `skip_gr_init`,
+  `golden_state_path`, `vbios_rom_path`, `sm_version`, `fbpa_count`.
+
+### Added (toadStool cylinder — `mapped_bar.rs`)
+- **`MappedBar::from_sysfs_rw(bdf, size)`**: Opens BAR0 via sysfs `resource0` with
+  read-write mmap. Enables sovereign init without a full VFIO device open (iommufd FDs
+  not needed for BAR0-only stages).
+
+### Validated (Experiment 197)
+- **Titan V (GV100, warm)**: BAR0 probe OK (12ms), PMC enable OK (75ms),
+  memory training skipped (warm detected), falcon boot halted at StubGspBridge.
+  Pipeline total: 88ms. Stages 1-3 proven sovereign.
+- **K80 GPU0 + GPU1 (GK210, cold VFIO)**: BAR0 probe OK (12ms), PMC enable OK (75ms),
+  memory training failed ("PRAMIN dead" — GDDR5 DEVINIT replay needed). 206-208ms total.
+- **Next steps**: K80 VBIOS ROM extraction + DEVINIT replay. Titan V: real GspBridge
+  (coralReef IPC or warm-handoff FECS state).
+
 ## Unreleased — Documentation Evolution + Upstream Handoff (May 16, 2026)
 
 ### Changed (documentation normalization)
