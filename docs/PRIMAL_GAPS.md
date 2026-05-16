@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026
-**Last audited:** May 16, 2026 (Wave 17 signal adoption: primal.announce, node.compute, tower.publish)
+**Last audited:** May 16, 2026 (Deep Debt Sprint: glowplug_client refactor, zero >800L lib files)
 **License:** AGPL-3.0-or-later
 
 ---
@@ -1882,6 +1882,40 @@ Next: hardware validation on Titan V and K80.
      `attribution.braid`. Signal promoted from candidate to adopted in `[signals]`.
   4. **`s_schema_standard` scenario**: Validates capability.list envelope shape (array, count,
      primal), signal registry presence (3 adopted, 1 candidate), niche identity constants.
+- **Validation:** 596 (default) / 1,045 (barracuda-local) lib tests pass. Zero clippy warnings.
+  `cargo fmt --check` clean.
+
+### GAP-HS-105 — Deep Debt Sprint: glowplug_client Refactor + Full Audit (May 16, 2026)
+
+- **Severity:** Low (refactoring, no regressions)
+- **Classification:** Deep debt resolution
+- **Trigger:** Reiterated deep debt directive — modernize, refactor large files, audit all debt dimensions.
+- **Completed:**
+  1. **`glowplug_client.rs` refactored (938L → 647 + 221):** Split into `glowplug_client/mod.rs`
+     (client impl, free functions, tests — 647L) and `glowplug_client/types.rs` (protocol types,
+     error variants, response structs — 221L). **Zero library files >800L remain** — highest is
+     `gpu_rhmc.rs` at 796L.
+  2. **`#[allow(deprecated)]` → `#[expect(deprecated)]`** in `compute_dispatch/mod.rs:359`:
+     upgraded to idiomatic Rust 1.81+ lint expectation.
+  3. **Full audit re-confirmed:**
+     - **TODO/FIXME/HACK:** Zero in all library code.
+     - **`unsafe`:** 9 blocks in `low_level/bar0.rs` (MMIO — inherently unsafe, well-audited),
+       1 in `validate_5060_dual_use.rs` (CUDA FFI, binary only). No evolution possible.
+     - **External deps:** All pure Rust except `cudarc` (CUDA FFI, feature-gated) and `wgpu`
+       (Vulkan backend, unavoidable for GPU). `blake3` explicitly avoids C build path.
+     - **Hardcoding:** Production paths (`/run/toadstool`) have env-var fallbacks. Routing tables
+       in `niche/tables.rs` are compile-time self-knowledge by design.
+     - **Mocks:** `NpuSimulator` is intentional cross-substrate math, not test leakage.
+     - **`.unwrap()`:** `#![deny(clippy::unwrap_used)]` enforced at crate level — zero in lib code.
+     - **`Box<dyn>`:** Zero in hot paths.
+  4. **Benchmark status confirmed:**
+     - Python CPU parity: 10 papers wired (6, 8–13, 43–45), `run_all_parity.py` green.
+     - Kokkos GPU parity: `bench_md_parity`, `bench_kokkos_complexity` — gap 27× → 3.7×.
+     - OpenMM/GROMACS/Galaxy: Not applicable per physics scope.
+  5. **Paper queue:** ~25 queued (Paper 23/Sulfolobus, Track 5 [25–31], Tier 4 [32–42], LTEE B9).
+     LTEE B1–B7 complete per primalSpring `LTEE_PAPER_QUEUE_TRACKER.md`.
+  6. **Dataset status:** Militzer FPEOS (partial), atoMEC (7/9), Zenodo surrogate (optional 6GB),
+     Dense Plasma Properties DB (off-repo), Sulfolobus genomes (wetSpring queued).
 - **Validation:** 596 (default) / 1,045 (barracuda-local) lib tests pass. Zero clippy warnings.
   `cargo fmt --check` clean.
 

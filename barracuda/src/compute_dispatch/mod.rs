@@ -356,7 +356,10 @@ pub fn validate_dispatch(
     let input_hash = blake3_hex(&serde_json::to_vec(&test_input).unwrap_or_default());
 
     let submit_start = std::time::Instant::now();
-    #[allow(deprecated)]
+    #[expect(
+        deprecated,
+        reason = "validates legacy submit path alongside compile_and_submit"
+    )]
     let job_id = match submit_workload(nucleus, "vector_add_f64", &test_input) {
         Ok(id) => {
             result.submit_succeeded = true;

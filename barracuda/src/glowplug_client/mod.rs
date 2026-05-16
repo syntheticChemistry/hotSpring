@@ -18,10 +18,19 @@
 //! gracefully if toadStool is not yet available.
 //!
 //! All calls use [`crate::primal_bridge::send_jsonrpc`] (JSON-RPC 2.0, newline-framed).
+//!
+//! # Module structure
+//!
+//! - **`types`** — Protocol types: request options, response structs,
+//!   error variants, wire-format helpers.
+//! - **This module** — `GlowplugClient` impl (device lifecycle RPCs),
+//!   free helper functions, and protocol tests.
+
+mod types;
+
+pub use types::*;
 
 use base64::Engine;
-use serde::Deserialize;
-use std::fmt;
 use std::path::{Path, PathBuf};
 
 use crate::ember_types::{
@@ -29,126 +38,11 @@ use crate::ember_types::{
 };
 use crate::primal_bridge::{NucleusContext, send_jsonrpc};
 
-const DEFAULT_DISPATCH_DIMS: [u32; 3] = [1, 1, 1];
-const DEFAULT_DISPATCH_WORKGROUP: [u32; 3] = [256, 1, 1];
-const DEFAULT_KERNEL_ENTRY_NAME: &str = "main_kernel";
-
 /// Connected glowplug endpoint (socket path only; each RPC opens a short-lived connection).
 #[derive(Debug, Clone)]
 pub struct GlowplugClient {
     socket: PathBuf,
 }
-
-/// Options for [`GlowplugClient::dispatch`] (grid, workgroup, entry symbol).
-#[derive(Debug, Clone)]
-pub struct GlowplugDispatchOptions {
-    /// `[grid_x, grid_y, grid_z]` dispatch dimensions.
-    pub dims: [u32; 3],
-    /// `[threads_x, threads_y, threads_z]` per-block (workgroup) size.
-    pub workgroup: [u32; 3],
-    /// CUDA kernel / entry point name in the shader module.
-    pub kernel_name: String,
-    /// Dynamic shared memory bytes (default 0).
-    pub shared_mem: u32,
-}
-
-impl Default for GlowplugDispatchOptions {
-    fn default() -> Self {
-        Self {
-            dims: DEFAULT_DISPATCH_DIMS,
-            workgroup: DEFAULT_DISPATCH_WORKGROUP,
-            kernel_name: DEFAULT_KERNEL_ENTRY_NAME.to_string(),
-            shared_mem: 0,
-        }
-    }
-}
-
-/// One row from `device.list` — BDF, vendor id, display name, coarse health.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct GlowplugDeviceSummary {
-    pub bdf: String,
-    /// PCI vendor id as `0xABCD` (same information as JSON `vendor_id`).
-    pub vendor: String,
-    pub name: Option<String>,
-    /// Driver / backend personality string (e.g. `nvidia`, `cuda`).
-    pub personality: String,
-    /// True when the device is display-attached and swap-immune.
-    pub protected: bool,
-    pub health: GlowplugDeviceHealthSummary,
-}
-
-/// Health fields exposed for quick listing (mirrors glowplug `DeviceInfo` health slice).
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct GlowplugDeviceHealthSummary {
-    pub vram_alive: bool,
-    pub domains_faulted: usize,
-}
-
-/// Full `device.get` payload (structured like toadStool `DeviceInfo`).
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
-pub struct GlowplugDeviceDetail {
-    pub bdf: String,
-    pub name: Option<String>,
-    pub chip: String,
-    pub vendor_id: u16,
-    pub device_id: u16,
-    pub personality: String,
-    pub role: Option<String>,
-    pub power: String,
-    pub vram_alive: bool,
-    pub domains_alive: usize,
-    pub domains_faulted: usize,
-    pub has_vfio_fd: bool,
-    pub pci_link_width: Option<u8>,
-    #[serde(default)]
-    pub protected: bool,
-}
-
-/// Daemon response for `health.check` / `health.liveness` (same JSON shape in glowplug today).
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
-pub struct GlowplugDaemonHealth {
-    pub alive: bool,
-    pub name: String,
-    pub device_count: usize,
-    pub healthy_count: usize,
-}
-
-/// Errors from glowplug RPC or payload handling.
-#[derive(Debug)]
-pub enum GlowplugError {
-    /// No `compute` provider (toadStool) found in [`NucleusContext`].
-    NoComputeEndpoint,
-    /// Socket path exists but the primal failed liveness at discovery time.
-    EndpointNotAlive,
-    /// Low-level transport / JSON parse (`send_jsonrpc` message).
-    Transport(String),
-    /// JSON-RPC `error` object.
-    JsonRpc { code: i64, message: String },
-    /// Successful envelope but missing `result`.
-    MissingResult,
-    /// Base64 decode of a dispatch output buffer.
-    OutputDecode(String),
-    /// `serde_json` shape mismatch.
-    InvalidPayload(String),
-}
-
-impl fmt::Display for GlowplugError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            GlowplugError::NoComputeEndpoint => {
-                write!(f, "no compute provider (toadStool) in NucleusContext")
-            }
-            GlowplugError::EndpointNotAlive => write!(f, "compute provider socket is not alive"),
-            GlowplugError::Transport(s) => write!(f, "transport: {s}"),
-            GlowplugError::JsonRpc { code, message } => write!(f, "json-rpc {code}: {message}"),
-            GlowplugError::MissingResult => write!(f, "json-rpc response missing result"),
-            GlowplugError::OutputDecode(s) => write!(f, "output base64 decode: {s}"),
-            GlowplugError::InvalidPayload(s) => write!(f, "invalid payload: {s}"),
-        }
-    }
-}
-
-impl std::error::Error for GlowplugError {}
 
 impl GlowplugClient {
     /// Build a client from a discovered toadStool compute endpoint.
@@ -157,8 +51,8 @@ impl GlowplugClient {
     /// back to `shader` (coralReef compiler) for backward compat.
     pub fn from_nucleus(nucleus: &NucleusContext) -> Result<Self, GlowplugError> {
         let ep = nucleus
-            .by_domain("compute")
-            .or_else(|| nucleus.by_domain("shader"))
+            .get_by_capability("compute")
+            .or_else(|| nucleus.get_by_capability("shader"))
             .ok_or(GlowplugError::NoComputeEndpoint)?;
         if !ep.alive {
             return Err(GlowplugError::EndpointNotAlive);
@@ -168,21 +62,16 @@ impl GlowplugClient {
         })
     }
 
-    /// Build a client for an explicit Unix socket path (no liveness probe here).
-    pub fn from_socket(path: &Path) -> Self {
+    /// Build a client from an explicit socket path.
+    #[must_use]
+    pub fn from_socket(socket: impl Into<PathBuf>) -> Self {
         Self {
-            socket: path.to_path_buf(),
+            socket: socket.into(),
         }
     }
 
-    /// Underlying socket path.
-    #[must_use]
-    pub fn socket_path(&self) -> &Path {
-        &self.socket
-    }
-
-    /// Raw JSON-RPC call (same framing as [`send_jsonrpc`]).
-    pub fn call(
+    /// Raw RPC: send method+params, handle JSON-RPC error envelope.
+    fn call(
         &self,
         method: &str,
         params: &serde_json::Value,
@@ -190,11 +79,7 @@ impl GlowplugClient {
         rpc_result(&self.socket, method, params)
     }
 
-    /// Attempt a NUCLEUS `call_by_capability` first, falling back to direct socket RPC.
-    ///
-    /// This is the toadStool-era evolution pattern: lifecycle methods that overlap
-    /// with the `compute` domain surface try NUCLEUS routing first so that
-    /// toadStool (which absorbed glowplug/cylinder) can intercept.
+    /// Try NUCLEUS capability routing first, then direct socket call.
     fn call_with_nucleus_fallback(
         &self,
         domain: &str,
@@ -203,103 +88,114 @@ impl GlowplugClient {
     ) -> Result<serde_json::Value, GlowplugError> {
         let ctx = NucleusContext::detect();
         if let Ok(resp) = ctx.call_by_capability(domain, method, params.clone()) {
-            return Ok(resp);
+            if let Some(result) = resp.get("result").cloned() {
+                return Ok(result);
+            }
         }
         self.call(method, params)
     }
 
-    /// `health.check` — full daemon health snapshot.
-    pub fn health(&self) -> Result<GlowplugDaemonHealth, GlowplugError> {
-        let v = self.call("health.check", &serde_json::json!({}))?;
-        serde_json::from_value(v).map_err(|e| GlowplugError::InvalidPayload(e.to_string()))
-    }
+    // ── Device lifecycle ─────────────────────────────────────────────
 
-    /// `health.liveness` — lightweight probe (same JSON shape as `health.check` in glowplug).
-    pub fn health_liveness(&self) -> Result<GlowplugDaemonHealth, GlowplugError> {
-        let v = self.call("health.liveness", &serde_json::json!({}))?;
-        serde_json::from_value(v).map_err(|e| GlowplugError::InvalidPayload(e.to_string()))
-    }
-
-    /// `health.readiness` — reserved in the method table; may be unsupported on older daemons.
-    pub fn health_readiness(&self) -> Result<serde_json::Value, GlowplugError> {
-        self.call("health.readiness", &serde_json::json!({}))
-    }
-
-    /// `device.list` — managed GPUs/devices.
-    ///
-    /// toadStool S251+ serves `device.list` as a JSON-RPC alias for
-    /// `ember.list`. Routed via NUCLEUS `compute` domain.
+    /// `device.list` — enumerate PCI devices the daemon knows about.
     pub fn list_devices(&self) -> Result<Vec<GlowplugDeviceSummary>, GlowplugError> {
-        let v =
-            self.call_with_nucleus_fallback("compute", "device.list", &serde_json::json!({}))?;
-        let rows: Vec<GlowplugListRow> = serde_json::from_value(v)
-            .map_err(|e| GlowplugError::InvalidPayload(format!("device.list: {e}")))?;
-        Ok(rows.into_iter().map(GlowplugDeviceSummary::from).collect())
+        let v = self.call("device.list", &serde_json::json!({}))?;
+        let arr = v
+            .get("devices")
+            .and_then(serde_json::Value::as_array)
+            .ok_or_else(|| {
+                GlowplugError::InvalidPayload("device.list missing devices array".into())
+            })?;
+        let mut out = Vec::with_capacity(arr.len());
+        for dev in arr {
+            let row: GlowplugListRow = serde_json::from_value(dev.clone())
+                .map_err(|e| GlowplugError::InvalidPayload(format!("device row: {e}")))?;
+            out.push(row.into());
+        }
+        Ok(out)
     }
 
-    /// `device.get` — full record for one BDF.
-    pub fn device_status(&self, bdf: &str) -> Result<GlowplugDeviceDetail, GlowplugError> {
-        let v = self.call(
+    /// `device.get` — full detail for one device by BDF.
+    pub fn get_device(&self, bdf: &str) -> Result<GlowplugDeviceDetail, GlowplugError> {
+        let v = self.call_with_nucleus_fallback(
+            "compute",
             "device.get",
-            &serde_json::json!({
-                "bdf": bdf,
-            }),
+            &serde_json::json!({ "bdf": bdf }),
         )?;
         serde_json::from_value(v)
             .map_err(|e| GlowplugError::InvalidPayload(format!("device.get: {e}")))
     }
 
-    /// `device.swap` — hot-swap driver personality.
-    ///
-    /// toadStool S252+ serves `device.swap` as a JSON-RPC method backed by
-    /// `SwapOrchestrator` with real sysfs PCI unbind/rebind.
+    /// `health.liveness` / `health.check` — daemon health.
+    pub fn daemon_health(&self) -> Result<GlowplugDaemonHealth, GlowplugError> {
+        let v = self.call("health.liveness", &serde_json::json!({}))?;
+        serde_json::from_value(v)
+            .map_err(|e| GlowplugError::InvalidPayload(format!("health.liveness: {e}")))
+    }
+
+    /// `device.swap` — swap a device from current driver to `target_driver`.
     pub fn device_swap(
         &self,
         bdf: &str,
-        target: &str,
-        trace: bool,
-    ) -> Result<serde_json::Value, GlowplugError> {
-        self.call_with_nucleus_fallback(
+        target_driver: &str,
+    ) -> Result<DeviceLifecycleResult, GlowplugError> {
+        let v = self.call_with_nucleus_fallback(
             "compute",
             "device.swap",
             &serde_json::json!({
                 "bdf": bdf,
-                "target": target,
-                "trace": trace,
+                "target_driver": target_driver,
             }),
-        )
+        )?;
+        serde_json::from_value(v)
+            .map_err(|e| GlowplugError::InvalidPayload(format!("device.swap: {e}")))
     }
 
-    /// `device.dispatch` — run `kernel` bytes (e.g. PTX) with `buffers` as inputs.
-    ///
-    /// toadStool S258 wired PBDMA dispatch through `NvVfioComputeDevice`: GPFIFO
-    /// submission, DMA alloc/upload/readback, doorbell + sync. NVIDIA FECS-gated
-    /// (warm probe required). AMD live via DRM/GEM/PM4. This legacy method shape
-    /// uses the older `device.dispatch` wire format.
-    ///
-    /// `output_sizes` lists byte lengths for each output buffer the kernel writes (protocol requirement).
-    /// Grid and workgroup use [`GlowplugDispatchOptions`]; see [`GlowplugDispatchOptions::default`].
-    pub fn dispatch(
+    /// `device.register_dump` — raw PCI BAR0 register dump.
+    pub fn register_dump(&self, bdf: &str) -> Result<GlowplugRegisterDumpResult, GlowplugError> {
+        let v = self.call("device.register_dump", &serde_json::json!({ "bdf": bdf }))?;
+        serde_json::from_value(v)
+            .map_err(|e| GlowplugError::InvalidPayload(format!("register_dump: {e}")))
+    }
+
+    /// `device.bar0_range` — read a contiguous BAR0 register range.
+    pub fn bar0_range(
         &self,
         bdf: &str,
-        kernel: &[u8],
-        buffers: &[Vec<u8>],
-        output_sizes: &[u64],
-    ) -> Result<Vec<Vec<u8>>, GlowplugError> {
-        self.dispatch_with_options(
-            bdf,
-            kernel,
-            buffers,
-            output_sizes,
-            &GlowplugDispatchOptions::default(),
-        )
+        start: u64,
+        count: u64,
+    ) -> Result<Bar0RangeResult, GlowplugError> {
+        let v = self.call(
+            "device.bar0_range",
+            &serde_json::json!({
+                "bdf": bdf,
+                "start": start,
+                "count": count,
+            }),
+        )?;
+        serde_json::from_value(v)
+            .map_err(|e| GlowplugError::InvalidPayload(format!("bar0_range: {e}")))
     }
 
-    /// `device.dispatch` with explicit grid, workgroup, and kernel name.
-    ///
-    /// Prefers NUCLEUS `call_by_capability("compute", "device.dispatch", …)` so
-    /// toadStool can intercept dispatch once glowplug lifecycle is absorbed.
-    pub fn dispatch_with_options(
+    /// `device.experiment_lifecycle` — create/destroy experiment sessions.
+    pub fn experiment_lifecycle(
+        &self,
+        bdf: &str,
+        action: &str,
+    ) -> Result<ExperimentLifecycleResult, GlowplugError> {
+        let v = self.call(
+            "device.experiment_lifecycle",
+            &serde_json::json!({
+                "bdf": bdf,
+                "action": action,
+            }),
+        )?;
+        serde_json::from_value(v)
+            .map_err(|e| GlowplugError::InvalidPayload(format!("experiment_lifecycle: {e}")))
+    }
+
+    /// `compute.dispatch` — compile-then-dispatch a shader kernel.
+    pub fn dispatch(
         &self,
         bdf: &str,
         kernel: &[u8],
@@ -308,91 +204,22 @@ impl GlowplugClient {
         options: &GlowplugDispatchOptions,
     ) -> Result<Vec<Vec<u8>>, GlowplugError> {
         let params = build_dispatch_params(bdf, kernel, buffers, output_sizes, options);
-        let v = self.call_with_nucleus_fallback("compute", "device.dispatch", &params)?;
-        decode_dispatch_outputs(&v)
+        let result = self.call_with_nucleus_fallback("compute", "compute.dispatch", &params)?;
+        decode_dispatch_outputs(&result)
     }
 
-    /// `device.oracle_capture` — MMU page table capture (privileged daemon path).
-    pub fn oracle_capture(
-        &self,
-        bdf: &str,
-        max_channels: u64,
-    ) -> Result<serde_json::Value, GlowplugError> {
-        self.call(
-            "device.oracle_capture",
-            &serde_json::json!({
-                "bdf": bdf,
-                "max_channels": max_channels,
-            }),
-        )
-    }
-
-    // ── Register / BAR0 access ──────────────────────────────────────
-
-    /// `device.register_dump` — full named-register dump for a device.
-    pub fn register_dump(&self, bdf: &str) -> Result<GlowplugRegisterDumpResult, GlowplugError> {
-        let v = self.call("device.register_dump", &serde_json::json!({ "bdf": bdf }))?;
-        serde_json::from_value(v)
-            .map_err(|e| GlowplugError::InvalidPayload(format!("register_dump: {e}")))
-    }
-
-    /// `device.register_snapshot` — snapshot of key registers (lighter than full dump).
-    pub fn register_snapshot(
-        &self,
-        bdf: &str,
-    ) -> Result<GlowplugRegisterDumpResult, GlowplugError> {
-        let v = self.call(
-            "device.register_snapshot",
-            &serde_json::json!({ "bdf": bdf }),
-        )?;
-        serde_json::from_value(v)
-            .map_err(|e| GlowplugError::InvalidPayload(format!("register_snapshot: {e}")))
-    }
-
-    /// `device.read_bar0_range` — read a raw BAR0 byte range.
-    pub fn read_bar0_range(
-        &self,
-        bdf: &str,
-        start: u32,
-        length: u32,
-    ) -> Result<Bar0RangeResult, GlowplugError> {
-        let v = self.call(
-            "device.read_bar0_range",
-            &serde_json::json!({ "bdf": bdf, "start": start, "length": length }),
-        )?;
-        serde_json::from_value(v)
-            .map_err(|e| GlowplugError::InvalidPayload(format!("read_bar0_range: {e}")))
-    }
-
-    // ── Device lifecycle ────────────────────────────────────────────
-
-    /// `device.experiment_start` — mark a device as under active experiment.
-    pub fn experiment_start(&self, bdf: &str) -> Result<ExperimentLifecycleResult, GlowplugError> {
-        let v = self.call(
-            "device.experiment_start",
-            &serde_json::json!({ "bdf": bdf }),
-        )?;
-        serde_json::from_value(v)
-            .map_err(|e| GlowplugError::InvalidPayload(format!("experiment_start: {e}")))
-    }
-
-    /// `device.experiment_end` — release a device from active experiment.
-    pub fn experiment_end(&self, bdf: &str) -> Result<ExperimentLifecycleResult, GlowplugError> {
-        let v = self.call("device.experiment_end", &serde_json::json!({ "bdf": bdf }))?;
-        serde_json::from_value(v)
-            .map_err(|e| GlowplugError::InvalidPayload(format!("experiment_end: {e}")))
-    }
-
-    /// `device.reset` — request a device reset (FLR or engine reset depending on chip).
+    /// `device.reset` — issue a secondary bus reset (SBR) on the device.
     pub fn device_reset(&self, bdf: &str) -> Result<DeviceLifecycleResult, GlowplugError> {
-        let v = self.call("device.reset", &serde_json::json!({ "bdf": bdf }))?;
+        let v = self.call_with_nucleus_fallback(
+            "compute",
+            "device.reset",
+            &serde_json::json!({ "bdf": bdf }),
+        )?;
         serde_json::from_value(v)
             .map_err(|e| GlowplugError::InvalidPayload(format!("device.reset: {e}")))
     }
 
-    /// `device.resurrect` — resurrect a dead/faulted device via warm cycle + fd restore.
-    ///
-    /// Prefers NUCLEUS routing so toadStool can coordinate warm cycle recovery.
+    /// `device.resurrect` — resurrect a faulted device (re-probe + re-init).
     pub fn device_resurrect(&self, bdf: &str) -> Result<DeviceLifecycleResult, GlowplugError> {
         let v = self.call_with_nucleus_fallback(
             "compute",
@@ -404,8 +231,6 @@ impl GlowplugClient {
     }
 
     /// `device.health` — detailed per-device health (domain breakdown, fault history).
-    ///
-    /// Prefers NUCLEUS routing so toadStool can aggregate device health.
     pub fn device_health(&self, bdf: &str) -> Result<serde_json::Value, GlowplugError> {
         self.call_with_nucleus_fallback(
             "compute",
@@ -423,10 +248,6 @@ impl GlowplugClient {
 
     /// `capture.training` — capture a training recipe by observing an external
     /// driver's memory initialization on a cold GPU.
-    ///
-    /// Orchestrates: cold BAR0 snapshot → swap to warm driver (with mmiotrace)
-    /// → settle → warm BAR0 snapshot → diff → save recipe JSON. The recipe is
-    /// stored at `/var/lib/toadstool/training/{chip}.json` for sovereign replay.
     pub fn capture_training(
         &self,
         bdf: &str,
@@ -442,11 +263,6 @@ impl GlowplugClient {
     }
 
     /// `device.warm_catch` — catch a warm GPU after driver handoff.
-    ///
-    /// toadStool S256 warm-catch pipeline: probes BAR0 for warm-preserved
-    /// FECS state, populates capabilities from BOOT0, and returns the device
-    /// as compute-ready if FECS is warm (`probe_warm_fecs()`). S258 adds
-    /// `open_vfio()` for PBDMA channel setup on successful warm catch.
     pub fn device_warm_catch(&self, bdf: &str) -> Result<WarmCatchResult, GlowplugError> {
         let v = self.call_with_nucleus_fallback(
             "compute",
@@ -458,10 +274,6 @@ impl GlowplugClient {
     }
 
     /// `device.vfio.open` — open VFIO device and create PBDMA channel.
-    ///
-    /// toadStool S258: after warm catch confirms FECS, this opens the VFIO
-    /// device, maps BAR0, allocates GPFIFO + USERD DMA buffers, and creates
-    /// a PFIFO channel for PBDMA dispatch.
     pub fn device_vfio_open(&self, bdf: &str) -> Result<serde_json::Value, GlowplugError> {
         self.call_with_nucleus_fallback(
             "compute",
@@ -471,8 +283,6 @@ impl GlowplugClient {
     }
 
     /// `device.vfio.alloc` — allocate a DMA buffer for PBDMA dispatch.
-    ///
-    /// Returns a `BufferHandle` (u32 id) and the IOVA of the allocated buffer.
     pub fn device_vfio_alloc(
         &self,
         bdf: &str,
@@ -485,10 +295,7 @@ impl GlowplugClient {
         )
     }
 
-    /// `device.vfio.roundtrip` — DMA buffer roundtrip test (alloc → upload → readback).
-    ///
-    /// toadStool S258 validation helper: allocates a DMA buffer, uploads
-    /// `data`, reads it back, and compares. Returns `{ok: true}` on match.
+    /// `device.vfio.roundtrip` — DMA buffer roundtrip test.
     pub fn device_vfio_roundtrip(
         &self,
         bdf: &str,
@@ -505,11 +312,6 @@ impl GlowplugClient {
     }
 
     /// `device.gr.init` — initialize GR compute context on warm-caught GPU.
-    ///
-    /// toadStool S262: accepts GR context method entries (register address/value
-    /// pairs from mmiotrace) and submits them as a pushbuffer to the warm GPU.
-    /// This bridges the gap between FECS warm detection and QMD dispatch —
-    /// the GPU needs a valid compute context before shader launches.
     pub fn device_gr_init(
         &self,
         bdf: &str,
@@ -526,10 +328,6 @@ impl GlowplugClient {
     }
 
     /// `compute.context.init` — alias for [`Self::device_gr_init`].
-    ///
-    /// toadStool routes both `device.gr.init` and `compute.context.init` to
-    /// the same handler. This alias exists for callers that prefer the
-    /// compute-domain naming convention.
     pub fn compute_context_init(
         &self,
         bdf: &str,
@@ -545,10 +343,7 @@ impl GlowplugClient {
         )
     }
 
-    /// `device.vfio.roundtrip` with optional GR init — single-call GR init + dispatch.
-    ///
-    /// toadStool S262: adds `gr_init_entries` parameter so GR context
-    /// initialization runs before dispatch in the same VFIO session.
+    /// `device.vfio.roundtrip` with optional GR init.
     pub fn device_vfio_roundtrip_with_gr_init(
         &self,
         bdf: &str,
@@ -571,10 +366,6 @@ impl GlowplugClient {
     }
 
     /// `shader.compile.gemm` — compile a tensor-core GEMM kernel via coralReef.
-    ///
-    /// coralReef Sprint 9+: generates PTX using `mma.sync.aligned` instructions
-    /// for SM80+ (Ampere, Ada, Blackwell). Returns compiled binary + shader_info
-    /// with GPR count and workgroup size for QMD construction.
     pub fn compile_gemm(
         &self,
         m: u32,
@@ -599,12 +390,7 @@ impl GlowplugClient {
             .map_err(|e| GlowplugError::Transport(format!("shader.compile.gemm: {e}")))
     }
 
-    /// `sovereign.boot` — full orchestrated sovereign boot: detect driver →
-    /// warm if needed → swap to vfio → run SovereignInit pipeline.
-    ///
-    /// toadStool S253+ exposes sovereign boot via `SwapOrchestrator::execute_boot`
-    /// and the `toadstool device` CLI. JSON-RPC method routing uses `device.swap`
-    /// + `device.warm_catch` for the individual steps.
+    /// `sovereign.boot` — full orchestrated sovereign boot.
     pub fn sovereign_boot(&self, bdf: &str) -> Result<SovereignBootResult, GlowplugError> {
         let v = self.call_with_nucleus_fallback(
             "compute",
@@ -616,90 +402,7 @@ impl GlowplugClient {
     }
 }
 
-/// Result of `capture.training` — training recipe capture flow.
-#[derive(Debug, Clone, Deserialize)]
-pub struct CaptureTrainingResult {
-    pub bdf: String,
-    pub warm_driver: String,
-    pub recipe_path: Option<String>,
-    pub total_writes: usize,
-    pub success: bool,
-    pub summary: String,
-    pub steps: Vec<BootStepResult>,
-}
-
-/// Result of `device.warm_catch` — warm GPU catch after driver handoff.
-///
-/// S258: when FECS is warm and `open_vfio()` succeeds, `vfio_open` is `true`
-/// and `channel_id` contains the PFIFO channel ID for PBDMA dispatch.
-#[derive(Debug, Clone, Deserialize)]
-pub struct WarmCatchResult {
-    pub bdf: String,
-    #[serde(default)]
-    pub fecs_ready: bool,
-    #[serde(default)]
-    pub chip_id: Option<u32>,
-    #[serde(default)]
-    pub capabilities: Option<serde_json::Value>,
-    #[serde(default)]
-    pub summary: Option<String>,
-    /// Whether `open_vfio()` succeeded (S258 PBDMA channel ready).
-    #[serde(default)]
-    pub vfio_open: bool,
-    /// PFIFO channel ID if VFIO dispatch is initialized.
-    #[serde(default)]
-    pub channel_id: Option<u32>,
-}
-
-/// Result of `sovereign.boot` — full orchestrated sovereign boot.
-#[derive(Debug, Clone, Deserialize)]
-pub struct SovereignBootResult {
-    pub bdf: String,
-    pub initial_driver: Option<String>,
-    pub warm_cycle_performed: bool,
-    pub final_driver: Option<String>,
-    pub sovereign_init: Option<serde_json::Value>,
-    pub success: bool,
-    pub summary: String,
-    pub steps: Vec<BootStepResult>,
-}
-
-/// A single step in an orchestrated boot or capture flow.
-#[derive(Debug, Clone, Deserialize)]
-pub struct BootStepResult {
-    pub name: String,
-    pub status: String,
-    pub detail: Option<String>,
-    pub duration_ms: u64,
-}
-
-#[derive(Debug, Deserialize)]
-struct GlowplugListRow {
-    bdf: String,
-    name: Option<String>,
-    vendor_id: u16,
-    personality: String,
-    #[serde(default)]
-    protected: bool,
-    vram_alive: bool,
-    domains_faulted: usize,
-}
-
-impl From<GlowplugListRow> for GlowplugDeviceSummary {
-    fn from(row: GlowplugListRow) -> Self {
-        GlowplugDeviceSummary {
-            bdf: row.bdf,
-            vendor: format!("0x{:04X}", row.vendor_id),
-            name: row.name,
-            personality: row.personality,
-            protected: row.protected,
-            health: GlowplugDeviceHealthSummary {
-                vram_alive: row.vram_alive,
-                domains_faulted: row.domains_faulted,
-            },
-        }
-    }
-}
+// ── Free functions ──────────────────────────────────────────────────
 
 fn rpc_result(
     socket: &Path,
@@ -766,7 +469,7 @@ fn decode_dispatch_outputs(result: &serde_json::Value) -> Result<Vec<Vec<u8>>, G
     Ok(out)
 }
 
-/// Build the JSON-RPC request object (for tests and tooling). Matches [`send_jsonrpc`] wire format.
+/// Build the JSON-RPC request object (for tests and tooling).
 #[must_use]
 pub fn jsonrpc_request_object(method: &str, params: &serde_json::Value) -> serde_json::Value {
     crate::primal_bridge::jsonrpc_request(method, params.clone())

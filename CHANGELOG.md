@@ -7,6 +7,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Unreleased — Deep Debt Sprint: glowplug_client Refactor (May 16, 2026)
+
+### Changed (deep debt — large file refactoring)
+- **`glowplug_client.rs` (938L) → `glowplug_client/mod.rs` (647L) + `glowplug_client/types.rs`
+  (221L)**: Protocol types (GlowplugDispatchOptions, GlowplugDeviceSummary, GlowplugDeviceDetail,
+  GlowplugDaemonHealth, GlowplugError, CaptureTrainingResult, WarmCatchResult,
+  SovereignBootResult, BootStepResult) extracted to `types.rs`. Client impl, free functions, and
+  tests remain in `mod.rs`. **Zero library files >800L remain.**
+- `#[allow(deprecated)]` upgraded to `#[expect(deprecated, reason = "...")]` in
+  `compute_dispatch/mod.rs` for idiomatic Rust 1.81+ lint expectations.
+- **Full deep debt audit re-confirmed:** zero TODO/FIXME/HACK, zero `.unwrap()` in lib,
+  zero `Box<dyn>` in hot paths, `unsafe` confined to `bar0.rs` MMIO + CUDA FFI binary.
+
+### Metrics
+- Lib tests: 596 (default) / 1,045 (barracuda-local)
+- Clippy: zero warnings
+- Library files >800L: **zero** (highest: gpu_rhmc.rs 796L)
+
 ## Unreleased — Wave 20 Schema Standardization (May 16, 2026)
 
 ### Added (Wave 20 absorption — primalSpring schema standard)
