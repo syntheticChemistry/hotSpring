@@ -66,8 +66,10 @@ NNN_DESCRIPTOR.{sh,md,json}
 | 194 | COLD_WARM_BOOT_ARCHITECTURE | analysis | ✅ Cold/warm boot architecture |
 | 195 | DRIVER_LAB_MESA_VS_VENDOR | analysis | ✅ Driver lab: Mesa vs vendor |
 | 196 | WARM_SWAP_VALIDATION_PLX_KEEPALIVE | validation | ✅ Warm swap + PLX keepalive validation |
+| 197 | SOVEREIGN_INIT_RPC_WARM_COLD | validation | ✅ `sovereign.init` JSON-RPC wired, Titan V warm 88ms, K80 cold PRAMIN dead |
+| 198 | VENDOR_AGNOSTIC_BOOT_PIPELINE | validation | ✅ `BootPipeline` trait, VBIOS interpreter fixes, VegaInit AMD stub, 591→606 tests |
 
-> **Note:** 196 experiments total (001–189 archived + 190 archived final coral-ember + 191–196 active).
+> **Note:** 198 experiments total (001–189 archived + 190 archived final coral-ember + 191–198 active).
 
 ### Ember Survivability Hardening (2026-04-07)
 
@@ -164,7 +166,7 @@ have been rewired for capability-based discovery (GAP-HS-087, GAP-HS-088):
 - **`validate_compute_trio_pipeline`** binary: end-to-end Yukawa + Wilson plaquette validation
 - **All IPC provenance clients** evolved from hardcoded socket paths to `by_domain()` NUCLEUS discovery
 - **Barrier shader validation** for coralReef `membar.{cta,gl}` emitter (9 WGSL shaders)
-- **595** (default) / **1,041** (barracuda-local) lib tests pass
+- **606** (cylinder) / **595** (default barracuda) / **1,041** (barracuda-local) lib tests pass
 
 ## Eukaryotic Evolution (May 2026)
 

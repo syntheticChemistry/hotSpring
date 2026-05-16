@@ -7,6 +7,78 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Unreleased — Post-BootPipeline Documentation + Cross-Team Handoff (May 16, 2026)
+
+### Changed (documentation)
+- **Test counts updated**: 591→606 (cylinder), experiment count 196→198 across
+  README, EXPERIMENT_INDEX, experiments/README, whitePaper/baseCamp.
+- **Science ladder**: Added Sovereign Init RPC (Exp 197) + Vendor-Agnostic
+  BootPipeline (Exp 198) to README progression.
+- **sovereign_gpu_compute.md**: Added BootPipeline section with trait signature,
+  DeviceTopology vocabulary, VBIOS interpreter fix details, updated next steps.
+- **nucleus_composition_evolution.md**: Updated test counts, added BootPipeline
+  validation status.
+
+### Added (handoffs)
+- **`HOTSPRING_BOOT_PIPELINE_VBIOS_HANDOFF_MAY16C_2026.md`**: BootPipeline trait,
+  VBIOS fixes, DeviceTopology, VegaInit stub — upstream asks for toadStool and
+  coralReef teams.
+- **`HOTSPRING_PRIMALS_SPRINGS_EVOLUTION_HANDOFF_MAY16D_2026.md`**: Cross-team
+  handoff covering primal use/evolution review, NUCLEUS composition patterns,
+  neuralAPI signal adoption, sovereign boot insights, atomic instantiation
+  patterns, and upstream asks for all primal and spring teams.
+
+### Remaining Sovereign Boot Issues
+- **Titan V warm**: GspBridge stub halts at stage 4. Needs real FECS state
+  capture or coralReef IPC bridge.
+- **K80 cold**: VBIOS interpreter correct, BAR access blocked (vfio-pci binding
+  requires iommufd FDs, not sysfs resource0).
+- **K80 warm**: PGRAPH clock-gated after driver teardown — needs ungating.
+
+## Sovereign Boot: Hardware-Agnostic BootPipeline + VBIOS Interpreter Fixes (Exp 198, May 16, 2026)
+
+### Added (toadStool cylinder — `hardware.rs`)
+- **`BootPipeline` trait**: Vendor-agnostic boot pipeline trait using `&dyn RegisterAccess`.
+  Associated types `ProbeResult`/`InitResult` allow vendor-specific detail while the
+  trait signature is universal: `probe → is_warm → devinit → engine_init → verify`.
+- **`DeviceTopology` + `DeviceFunction`**: Replace NVIDIA-specific `DeviceInit`/`DieInfo`
+  with vocabulary that works for AMD chiplets, Intel tiles, FPGAs. `single()`, `dual()`,
+  `with_firmware()` builders.
+- **`BootProbeInfo`, `BootInitInfo`, `DeviceBootResult`, `FunctionBootResult`**:
+  Cross-vendor summary types bridging vendor-specific results to universal consumers.
+
+### Added (toadStool cylinder — `init_kepler.rs`, `init_volta.rs`)
+- **`BootPipeline` impl for `KeplerInit` + `VoltaInit`**: NVIDIA pipelines now implement
+  both `InitPipeline` (NV-specific, `&MappedBar`) and `BootPipeline` (vendor-agnostic,
+  `&dyn RegisterAccess`). Warm path fully functional; cold path returns `Unsupported`
+  via `BootPipeline` (requires fork-isolated MMIO via `InitPipeline`).
+
+### Added (toadStool cylinder — `amd_metal.rs`)
+- **`VegaInit` BootPipeline stub**: AMD Vega 20 (MI50) `BootPipeline` implementation
+  using GRBM_STATUS/SRBM_STATUS register map. Probe detects warm/cold, verify checks
+  engine idle bits. Proves the trait works cross-vendor without AMD hardware.
+  8 new tests with `FakeBar` mock.
+
+### Fixed (toadStool cylinder — VBIOS interpreter)
+- **Opcode `0x50` (`INIT_IO_RESTRICT_PROG`)**: Wrong format `4 + count*2` corrected to
+  `11 + count*4` per nouveau `init_io_restrict_prog`. Root cause of K80 Script 1 going
+  off-script and hitting "too many unknown opcodes" error.
+- **Opcode `0x88` (`INIT_RAM_RESTRICT_ZM_REG_GROUP`)**: Added missing opcode for
+  ram-restrict register group writes needed by GDDR5 memory training tables.
+- **`ram_restrict_group_count()`**: Was reading from raw BIT M data offset `M+2`;
+  corrected to dereference the M table pointer and read `snr` field from rammap table
+  header at offset +4.
+- **Opcode `0x70` (`INIT_EON`)**: Added end-of-nested-condition complement.
+
+### Validated (Experiment 198)
+- **Titan V (GV100, warm)**: `sovereign.init` re-confirmed: `compute_ready=true`,
+  `all_ok=true`, 6 stages (3 ok + 3 skipped), 101ms total. PTIMER alive, VRAM ok,
+  FECS warm-preserved.
+- **toadStool cylinder**: 591 → 606 tests (15 new: 7 hardware, 8 AMD stub).
+- **VBIOS interpreter**: K80 Script 1 opcode stream now parses correctly through
+  INIT_IO_RESTRICT_PROG blocks. K80 bound to vfio-pci (BARs unassigned) — hardware
+  validation pending proper VFIO device open.
+
 ## Sovereign Init RPC — Warm/Cold Cross-Hardware (Exp 197, May 16, 2026)
 
 ### Added (toadStool server — `sovereign.rs`)

@@ -1436,10 +1436,55 @@ Original scripts archived in `scripts/archive/` as fossil record.
 | Titan V | GV100 / SM70 | HBM2 | ✅ `coralctl warm-catch` | ✅ FECS RUNNING | Next: dispatch validation |
 | Tesla K80 | GK210 / SM35 | GDDR5 | ✅ `coralctl warm-catch` | ✅ GPCs active | Next: dispatch validation |
 
+### Vendor-Agnostic BootPipeline (Exp 198, May 2026)
+
+The sovereign boot pipeline has been abstracted into a vendor-agnostic trait
+in `toadstool-cylinder/src/hardware.rs`:
+
+```rust
+pub trait BootPipeline: Send + Sync + Debug {
+    type ProbeResult: Debug + Clone;
+    type InitResult: Debug + Clone;
+    fn probe(&self, bar: &dyn RegisterAccess) -> Result<Self::ProbeResult, DriverError>;
+    fn is_warm(&self, probe: &Self::ProbeResult) -> bool;
+    fn devinit(&self, bar: &dyn RegisterAccess, probe: &Self::ProbeResult) -> Result<Self::InitResult, DriverError>;
+    fn engine_init(&self, bar: &dyn RegisterAccess, probe: &Self::ProbeResult) -> Result<(), DriverError>;
+    fn verify(&self, bar: &dyn RegisterAccess) -> Result<bool, DriverError>;
+}
+```
+
+Three implementations proven:
+
+| Pipeline | GPU | Warm Detect | Cold Path | Tests |
+|----------|-----|-------------|-----------|-------|
+| `KeplerInit` | GK210 (K80) | PMC_ENABLE + PTIMER | via `InitPipeline` (VBIOS DEVINIT) | 7 existing + BootPipeline |
+| `VoltaInit` | GV100 (Titan V) | PMC_ENABLE + PTIMER | via `InitPipeline` (staged SovereignInit) | 7 existing + BootPipeline |
+| `VegaInit` | Vega 20 (MI50) | GRBM_STATUS + SRBM_STATUS | stub (Unsupported) | 8 new with FakeBar mock |
+
+`DeviceTopology` replaces NVIDIA-specific multi-die models:
+
+```rust
+pub struct DeviceTopology {
+    pub name: String,
+    pub functions: Vec<DeviceFunction>,  // one per PCIe function/die
+    pub shared_firmware: Option<Vec<u8>>,
+}
+```
+
+This lets K80 (2 GK210 dies) and AMD chiplet designs share the same
+vocabulary. The `single()` / `dual()` / `with_firmware()` builders
+cover the common cases without boilerplate.
+
+**VBIOS interpreter fixes** resolved the K80 Script 1 parse failure:
+- Opcode 0x50 (`INIT_IO_RESTRICT_PROG`): stride corrected from `4+count*2` to `11+count*4`
+- Opcode 0x88 (`INIT_RAM_RESTRICT_ZM_REG_GROUP`): added missing handler
+- `ram_restrict_group_count()`: fixed to dereference M table pointer
+- Opcode 0x70 (`INIT_EON`): added end-of-nested-condition complement
+
 ### Next Steps
 
-1. **Sovereign dispatch on Titan V**: FECS is running — wire GPFIFO/QMD dispatch path via the existing SM70 compiler backend.
-2. **Sovereign dispatch on K80**: GPCs are active — wire Kepler PIO-based dispatch path via the SM35 compiler backend.
-3. **Cross-vendor validation**: Run the same WGSL→compute pipeline on AMD and NVIDIA in the same session.
-4. **toadStool absorption**: Migrate ember's sovereign init + warm-catch into toadStool's hardware orchestration layer, making it available to all springs.
-5. **Era-agnostic compiler trio**: coralReef (shader→compiler→driver) + toadStool (dispatch→results) + barracuda (physics workloads) as the sovereign compute trident.
+1. **K80 cold boot via VBIOS DEVINIT replay**: VBIOS ROM extracted (0x10000 bytes). Interpreter fixes proven. Need proper VFIO device open (K80 currently bound to vfio-pci — BAR access requires iommufd FDs, not sysfs resource0).
+2. **Titan V real GspBridge**: warm-catch preserves FECS — need real GspBridge over coralReef IPC or warm-handoff FECS state to complete compute dispatch.
+3. **Cross-vendor BootPipeline validation**: VegaInit stub is tested with FakeBar — needs real AMD hardware to validate GRBM_STATUS warm detection.
+4. **BootPipeline → neuralAPI**: expose `BootPipeline::probe` / `verify` as `sovereign.probe` / `sovereign.verify` JSON-RPC methods via toadStool's server, enabling biomeOS to orchestrate boot sequences across heterogeneous GPU fleets.
+5. **Upstream primal absorption**: `BootPipeline` + `DeviceTopology` are candidates for toadStool's public API surface — any spring that needs device-level boot orchestration gets it for free.

@@ -4,7 +4,7 @@
 
 **Spring:** hotSpring (BarraCuda crate)  
 **Updated:** May 16, 2026  
-**Status:** guideStone Level 6 CERTIFIED (NUCLEUS Deployment Validation; primalSpring v0.9.25 post-interstadial). Tier 4 IPC-first. Eukaryotic UniBin (`hotspring_unibin`) with certify/validate/status/version subcommands. 17 default / 20 barracuda-local validation scenarios in registry. Deep debt resolution complete — zero TODO/FIXME/HACK, zero production mocks, zero library unsafe, zero C deps, zero clippy. Node atomic scenario added. bearDog wire name corrected. coralReef socket discovery evolved. **Bare mode: 30/30 PASS** (3 SKIP = expected NUCLEUS liveness). **Lib tests:** 595/595 (default) and 1,041/1,041 (`--features barracuda-local`).
+**Status:** guideStone Level 6 CERTIFIED (NUCLEUS Deployment Validation; primalSpring v0.9.25 post-interstadial). Tier 4 IPC-first. Eukaryotic UniBin (`hotspring_unibin`) with certify/validate/status/version subcommands. 17 default / 20 barracuda-local validation scenarios in registry. Deep debt resolution complete — zero TODO/FIXME/HACK, zero production mocks, zero library unsafe, zero C deps, zero clippy. Node atomic scenario added. bearDog wire name corrected. coralReef socket discovery evolved. **Bare mode: 30/30 PASS** (3 SKIP = expected NUCLEUS liveness). **Lib tests:** 606/606 (cylinder), 595/595 (barracuda default), 1,041/1,041 (`--features barracuda-local`). **Vendor-agnostic `BootPipeline` trait** validated (3 implementations: KeplerInit, VoltaInit, VegaInit).
 
 ---
 

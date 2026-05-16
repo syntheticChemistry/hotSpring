@@ -56,6 +56,8 @@ entry for the session that produced it. Chronological by filename suffix.
 | 2026-05-16 | `HOTSPRING_WAVE17_SIGNAL_ADOPTION_HANDOFF_MAY16_2026.md` | ✅ | Wave 17: primal.announce, node.compute, tower.publish signal adoption |
 | 2026-05-16 | `HOTSPRING_DOC_EVOLUTION_UPSTREAM_HANDOFF_MAY16_2026.md` | ✅ | Doc evolution: count normalization, unibin naming, handoff archival, upstream patterns |
 | 2026-05-16 | `HOTSPRING_DIESEL_ENGINE_CAPABILITY_ABSTRACTION_HANDOFF_MAY16B_2026.md` | ✅ | Diesel engine capability abstraction: 6 subsystems generalized (PCIe Bridge Health, GspBridge caps, Memory Training dispatch, Falcon Boot wiring, Engine Ungating, DriverLab Executor), 6,989 tests, deployed |
+| 2026-05-16 | `HOTSPRING_BOOT_PIPELINE_VBIOS_HANDOFF_MAY16C_2026.md` | ✅ | Vendor-agnostic BootPipeline trait, VBIOS interpreter fixes (K80 0x50/0x88/0x70), DeviceTopology, VegaInit AMD stub, 591→606 tests |
+| 2026-05-16 | `HOTSPRING_PRIMALS_SPRINGS_EVOLUTION_HANDOFF_MAY16D_2026.md` | ✅ | Cross-team handoff: primal use/evolution, NUCLEUS composition patterns, neuralAPI signals, sovereign boot insights, upstream asks for all teams |
 
 ### `mmiotraces/`
 
