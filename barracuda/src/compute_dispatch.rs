@@ -129,6 +129,44 @@ pub fn compile_and_submit(
     extract_job_id(&resp)
 }
 
+/// Dispatch a GPU compute workload via the Wave 17 `node.compute` signal.
+///
+/// Sends a single `node.compute` signal that biomeOS decomposes into
+/// compile → submit → execute via the graph. Falls back to the
+/// multi-call [`compile_and_submit`] pipeline for older biomeOS.
+pub fn dispatch_node_compute(
+    nucleus: &NucleusContext,
+    wgsl_source: &str,
+    input_data: &[f64],
+    bdf: Option<&str>,
+) -> Result<String, HotSpringError> {
+    let input_hash = blake3_hex(&serde_json::to_vec(&input_data).unwrap_or_default());
+
+    let mut signal_params = serde_json::json!({
+        "wgsl_source": wgsl_source,
+        "input": {
+            "data": input_data,
+            "format": "f64_array",
+        },
+        "input_hash": input_hash,
+        "spring": "hotSpring",
+    });
+
+    if let Some(bdf_val) = bdf {
+        signal_params["bdf"] = serde_json::Value::String(bdf_val.to_string());
+    }
+
+    let dispatch_params = serde_json::json!({
+        "signal": "node.compute",
+        "params": signal_params,
+    });
+
+    match nucleus.call_by_capability("orchestration", "signal.dispatch", dispatch_params) {
+        Ok(resp) => extract_job_id(&resp),
+        Err(_) => compile_and_submit(nucleus, wgsl_source, input_data, bdf),
+    }
+}
+
 /// Submit a pre-compiled binary to toadStool for dispatch.
 /// Use [`compile_and_submit`] for the full WGSL→binary→dispatch pipeline.
 pub fn submit_binary(
@@ -209,6 +247,52 @@ pub fn retrieve_result(
     let resp = nucleus.call_by_capability("compute", "compute.dispatch.result", params)?;
 
     parse_jsonrpc_response(&resp, "compute.dispatch.result")
+}
+
+/// Publish a signed result via the Wave 17 `tower.publish` signal.
+///
+/// Dispatches `tower.publish` which biomeOS decomposes into sign (bearDog)
+/// → announce (songBird) → audit (skunkBat). Falls back to direct
+/// `crypto.sign_ed25519` + `discovery.announce` if the signal is unavailable.
+pub fn publish_result(
+    nucleus: &NucleusContext,
+    result_data: &serde_json::Value,
+    topic: &str,
+) -> Result<serde_json::Value, HotSpringError> {
+    let result_hash = blake3_hex(&serde_json::to_vec(result_data).unwrap_or_default());
+
+    let signal_params = serde_json::json!({
+        "content": result_data,
+        "content_hash": result_hash,
+        "topic": topic,
+        "spring": "hotSpring",
+    });
+
+    let dispatch_params = serde_json::json!({
+        "signal": "tower.publish",
+        "params": signal_params,
+    });
+
+    if let Ok(resp) =
+        nucleus.call_by_capability("orchestration", "signal.dispatch", dispatch_params)
+    {
+        parse_jsonrpc_response(&resp, "tower.publish")
+    } else {
+        let sign_params = serde_json::json!({
+            "message": result_hash,
+            "key_purpose": "result_signing",
+        });
+        let _sign_resp = nucleus.call_by_capability("security", "crypto.sign_ed25519", sign_params);
+
+        let announce_params = serde_json::json!({
+            "topic": topic,
+            "content_hash": result_hash,
+            "spring": "hotSpring",
+        });
+        let resp =
+            nucleus.call_by_capability("discovery", "discovery.announce", announce_params)?;
+        parse_jsonrpc_response(&resp, "discovery.announce")
+    }
 }
 
 /// Run the full compute dispatch validation pipeline.

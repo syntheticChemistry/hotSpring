@@ -555,42 +555,21 @@ pub fn resolve_neural_api_socket() -> Option<std::path::PathBuf> {
 
 /// Register this niche's capabilities with biomeOS.
 ///
-/// Discovers biomeOS at runtime via socket convention, then sends
-/// `lifecycle.register` followed by `capability.register` for each
-/// domain and individual capability.
+/// Tries **`primal.announce`** (Wave 17 signal API) first — a single
+/// atomic call carrying all methods, capabilities, semantic mappings,
+/// and signal tiers. Falls back to the legacy multi-call pattern
+/// (`lifecycle.register` + N × `capability.register`) for older biomeOS.
 ///
 /// Degrades gracefully if biomeOS is unreachable or if standalone mode
 /// is active (`HOTSPRING_NO_NUCLEUS=1`). Physics must never depend on
 /// registration success.
-///
-/// Absorbed from primalSpring `niche::register_with_target()` pattern.
 pub fn register_with_target(our_socket: &Path) {
     if standalone_mode() {
         info!(target: "niche", "HOTSPRING_NO_NUCLEUS set — skipping registration");
         return;
     }
 
-    let target = std::env::var("BIOMEOS_PRIMAL").unwrap_or_else(|_| REGISTRATION_TARGET.to_owned());
-
-    let biomeos_socket = {
-        let mut found = None;
-        for dir in socket_dirs() {
-            let fid = family_id();
-            let candidate = dir.join(format!("{target}-{fid}.sock"));
-            if candidate.exists() {
-                found = Some(candidate);
-                break;
-            }
-            let candidate = dir.join(format!("neural-api-{fid}.sock"));
-            if candidate.exists() {
-                found = Some(candidate);
-                break;
-            }
-        }
-        found
-    };
-
-    let Some(biomeos_path) = biomeos_socket else {
+    let Some(biomeos_path) = discover_biomeos_socket() else {
         info!(
             target: "niche",
             "biomeOS socket not discovered — registration deferred"
@@ -600,15 +579,72 @@ pub fn register_with_target(our_socket: &Path) {
 
     let sock_str = our_socket.to_string_lossy().to_string();
 
+    if try_primal_announce(&biomeos_path, &sock_str) {
+        return;
+    }
+
+    legacy_register(&biomeos_path, &sock_str);
+}
+
+/// Attempt `primal.announce` — the Wave 17 single-call registration.
+/// Returns `true` if biomeOS accepted the announce.
+fn try_primal_announce(biomeos_path: &Path, sock_str: &str) -> bool {
+    let methods: Vec<&str> = LOCAL_CAPABILITIES.to_vec();
+    let routed: Vec<serde_json::Value> = ROUTED_CAPABILITIES
+        .iter()
+        .map(|(cap, provider)| {
+            serde_json::json!({
+                "method": cap,
+                "canonical_provider": provider,
+            })
+        })
+        .collect();
+
+    let announce_payload = serde_json::json!({
+        "primal": NICHE_NAME,
+        "socket": sock_str,
+        "pid": std::process::id(),
+        "version": NICHE_VERSION,
+        "capabilities": ["physics", "composition"],
+        "methods": methods,
+        "routed_methods": routed,
+        "semantic_mappings": physics_semantic_mappings(),
+        "signal_tiers": ["node", "nest"],
+    });
+
+    match send_registration(biomeos_path, "primal.announce", &announce_payload) {
+        Ok(()) => {
+            let total = LOCAL_CAPABILITIES.len() + ROUTED_CAPABILITIES.len();
+            info!(
+                target: "biomeos",
+                "primal.announce accepted: {total} capabilities ({} local, {} routed), signal tiers: [node, nest]",
+                LOCAL_CAPABILITIES.len(),
+                ROUTED_CAPABILITIES.len(),
+            );
+            true
+        }
+        Err(e) => {
+            info!(
+                target: "biomeos",
+                "primal.announce not available ({e}) — falling back to legacy registration"
+            );
+            false
+        }
+    }
+}
+
+/// Legacy multi-call registration for biomeOS that doesn't support
+/// `primal.announce` yet.
+fn legacy_register(biomeos_path: &Path, sock_str: &str) {
     let reg_payload = serde_json::json!({
         "name": NICHE_NAME,
-        "socket_path": &sock_str,
+        "socket_path": sock_str,
         "pid": std::process::id(),
         "domain": PRIMAL_DOMAIN,
         "version": NICHE_VERSION,
     });
 
-    match send_registration(&biomeos_path, "lifecycle.register", &reg_payload) {
+    match send_registration(biomeos_path, "lifecycle.register", &reg_payload) {
         Ok(()) => info!(target: "biomeos", "registered with lifecycle manager"),
         Err(e) => warn!(target: "biomeos", "lifecycle.register failed (non-fatal): {e}"),
     }
@@ -626,14 +662,14 @@ pub fn register_with_target(our_socket: &Path) {
         let mut payload = serde_json::json!({
             "primal": NICHE_NAME,
             "capability": domain,
-            "socket": &sock_str,
+            "socket": sock_str,
             "semantic_mappings": mappings,
         });
         if *domain == "physics" {
             payload["operation_dependencies"] = operation_dependencies();
             payload["cost_estimates"] = cost_estimates();
         }
-        let _ = send_registration(&biomeos_path, "capability.register", &payload);
+        let _ = send_registration(biomeos_path, "capability.register", &payload);
     }
 
     let mut registered = 0u32;
@@ -641,10 +677,10 @@ pub fn register_with_target(our_socket: &Path) {
         let params = serde_json::json!({
             "primal": NICHE_NAME,
             "capability": cap,
-            "socket": &sock_str,
+            "socket": sock_str,
             "served_locally": true,
         });
-        if send_registration(&biomeos_path, "capability.register", &params).is_ok() {
+        if send_registration(biomeos_path, "capability.register", &params).is_ok() {
             registered += 1;
         }
     }
@@ -653,11 +689,11 @@ pub fn register_with_target(our_socket: &Path) {
         let params = serde_json::json!({
             "primal": NICHE_NAME,
             "capability": cap,
-            "socket": &sock_str,
+            "socket": sock_str,
             "served_locally": false,
             "canonical_provider": provider,
         });
-        let _ = send_registration(&biomeos_path, "capability.register", &params);
+        let _ = send_registration(biomeos_path, "capability.register", &params);
     }
 
     let total = LOCAL_CAPABILITIES.len() + ROUTED_CAPABILITIES.len();
@@ -667,6 +703,23 @@ pub fn register_with_target(our_socket: &Path) {
         ROUTED_CAPABILITIES.len(),
         domains.len(),
     );
+}
+
+/// Discover the biomeOS socket at runtime.
+fn discover_biomeos_socket() -> Option<std::path::PathBuf> {
+    let target = std::env::var("BIOMEOS_PRIMAL").unwrap_or_else(|_| REGISTRATION_TARGET.to_owned());
+    for dir in socket_dirs() {
+        let fid = family_id();
+        let candidate = dir.join(format!("{target}-{fid}.sock"));
+        if candidate.exists() {
+            return Some(candidate);
+        }
+        let candidate = dir.join(format!("neural-api-{fid}.sock"));
+        if candidate.exists() {
+            return Some(candidate);
+        }
+    }
+    None
 }
 
 /// Physics-domain semantic mappings for `capability.register`.

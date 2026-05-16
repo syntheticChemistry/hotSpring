@@ -7,6 +7,29 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Unreleased — Wave 17 Signal Adoption Sprint (May 16, 2026)
+
+### Added (Neural API signals)
+- **`primal.announce`** registration in `niche.rs` — single atomic call replaces
+  the legacy `lifecycle.register` + N × `capability.register` + `method.register`
+  pattern. Automatic fallback to legacy multi-call for older biomeOS.
+- **`dispatch_node_compute()`** in `compute_dispatch.rs` — dispatches GPU workloads
+  via the `node.compute` signal. biomeOS decomposes compile → submit → execute
+  through the graph. Falls back to `compile_and_submit()` for older biomeOS.
+- **`publish_result()`** in `compute_dispatch.rs` — publishes signed results via
+  `tower.publish` signal (sign → announce → audit). Falls back to direct
+  `crypto.sign_ed25519` + `discovery.announce` for older biomeOS.
+- **Signal tier annotations** in `capability_registry.toml` — declares `node.compute`
+  and `tower.publish` as adopted, `nest.store` and `nest.commit` as candidates.
+
+### Changed
+- **`register_with_target()`** refactored into `try_primal_announce()` +
+  `legacy_register()` + `discover_biomeos_socket()` — cleaner separation of
+  concerns, shared socket discovery.
+
+### Metrics
+- 595 lib tests pass, zero clippy warnings, zero format drift
+
 ## Unreleased — PLX Keepalive Boot-Catch + Event-Driven Evolution (May 16, 2026)
 
 ### Fixed (toadStool server — `pcie_keepalive.rs`)

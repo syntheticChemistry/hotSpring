@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026
-**Last audited:** May 14, 2026 (upstream absorption: barraCuda v0.4.0 clippy alignment, plasmidBin skunkBat composition, lint evolution to `#[expect]`)
+**Last audited:** May 16, 2026 (Wave 17 signal adoption: primal.announce, node.compute, tower.publish)
 **License:** AGPL-3.0-or-later
 
 ---
@@ -1817,6 +1817,32 @@ Next: hardware validation on Titan V and K80.
      Blackwell SM120, naga::Module ingest, dual-vendor all accessible via IPC.
 - **Validation:** 595/595 lib tests pass. Zero clippy warnings (all-targets barracuda-local).
   Zero unfulfilled lint expectations. `cargo fmt --check` clean.
+
+### GAP-HS-103 — Wave 17 Signal Adoption Sprint (May 16, 2026)
+
+- **Severity:** Low (forward evolution, no regressions)
+- **Classification:** Neural API signal adoption per primalSpring Wave 17 directive
+- **Trigger:** primalSpring "Cross-Cutting: Wave 17 — What Every Spring Needs to Know" +
+  `SIGNAL_ADOPTION_STANDARD.md` + `PRIMAL_ANNOUNCE_PROTOCOL.md`.
+- **Completed:**
+  1. **`primal.announce` registration**: `niche.rs` refactored — `register_with_target()`
+     now tries `primal.announce` first (single atomic call with all methods, capabilities,
+     semantic mappings, signal tiers), falling back to legacy multi-call pattern for older
+     biomeOS. Socket discovery extracted to `discover_biomeos_socket()`.
+  2. **`node.compute` signal dispatch**: `dispatch_node_compute()` in `compute_dispatch.rs`
+     dispatches GPU workloads via `signal.dispatch("node.compute", ...)`. biomeOS
+     decomposes compile → submit → execute through the graph. Falls back to
+     `compile_and_submit()` for older biomeOS.
+  3. **`tower.publish` signed publication**: `publish_result()` in `compute_dispatch.rs`
+     publishes signed results via `tower.publish` signal (sign → announce → audit).
+     Falls back to direct `crypto.sign_ed25519` + `discovery.announce`.
+  4. **Capability registry signals**: `capability_registry.toml` extended with `[signals]`
+     section — `node.compute` and `tower.publish` adopted, `nest.store` and `nest.commit`
+     as next candidates.
+- **Remaining candidates:** `nest.store` for physics result provenance chains,
+  `nest.commit` for session finalization. Domain-specific physics calls (`stats.mean`,
+  `linalg.*`, `tensor.*`) remain as `ctx.call()` per the standard.
+- **Validation:** 595/595 lib tests pass. Zero clippy warnings. `cargo fmt --check` clean.
 
 ---
 

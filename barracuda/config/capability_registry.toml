@@ -789,3 +789,18 @@ method = "interaction.poll"
 served = "routed"
 provider = "petaltongue"
 domain = "visualization"
+
+# ── Wave 17 signal adoption (May 2026) ──────────────────────────────
+# These are neural-API signal tiers this spring supports. They are
+# NOT individual capability methods — they represent graph-collapsible
+# multi-call sequences dispatched via ctx.dispatch("tier.signal", ...).
+
+[signals]
+adopted = ["node.compute", "tower.publish"]
+candidates = ["nest.store", "nest.commit"]
+
+# primal.announce replaces lifecycle.register + capability.register + method.register.
+# See primalSpring/wateringHole/PRIMAL_ANNOUNCE_PROTOCOL.md.
+[registration]
+method = "primal.announce"
+fallback = ["lifecycle.register", "capability.register", "method.register"]

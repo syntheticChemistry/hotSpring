@@ -31,11 +31,11 @@ use hotspring_barracuda::provenance;
 
 use hotspring_barracuda as barracuda;
 
+use barracuda::device::WgpuDevice;
 use barracuda::optimize::{EvaluationCache, multi_start_nelder_mead};
 use barracuda::sample::latin_hypercube;
 use barracuda::sample::sparsity::{SparsitySamplerConfig, sparsity_sampler};
 use barracuda::surrogate::{RBFKernel, RBFSurrogate};
-use barracuda::device::WgpuDevice;
 
 use rayon::prelude::*;
 use std::collections::HashMap;

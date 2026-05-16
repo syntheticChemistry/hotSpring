@@ -53,6 +53,7 @@ entry for the session that produced it. Chronological by filename suffix.
 | 2026-05-14 | `HOTSPRING_PLASMIDBIN_LOCAL_OWNERSHIP_HANDOFF_MAY14B_2026.md` | ✅ | plasmidBin debt: release cascade, symlink-aware doctor, generalized upgrade, 13/13 NUCLEUS deployed |
 | 2026-05-16 | `HOTSPRING_DIESEL_ENGINE_DRIVER_SKETCH_HANDOFF_MAY16_2026.md` | ✅ | Diesel engine driver sketch: GrInitSequence, WarmStateCapture, DriverProbe, PmuBootstrap, shared `nv::pri` |
 | 2026-05-16 | `HOTSPRING_PLX_KEEPALIVE_BOOT_CATCH_HANDOFF_MAY16_2026.md` | ✅ | PLX keepalive boot-catch: class code extraction fix, event-driven interval, activity-aware backpressure, boot validation |
+| 2026-05-16 | `HOTSPRING_WAVE17_SIGNAL_ADOPTION_HANDOFF_MAY16_2026.md` | ✅ | Wave 17: primal.announce, node.compute, tower.publish signal adoption |
 
 ### `mmiotraces/`
 
