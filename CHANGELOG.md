@@ -16,7 +16,7 @@ This file covers the spring as a whole. For crate-level details see
   hierarchy, mobility edge. `barracuda-local` feature gate.
 - **`spectral_parity.py`**: Python-side cross-tier parity checker comparing
   spectral_control.json against Rust reference values. 6/6 ALL PASS.
-- **`docs/IPC_DEGRADATION_BEHAVIOR.md`**: Consolidated degradation behavior
+- **`docs/DEGRADATION_BEHAVIOR.md`**: Consolidated degradation behavior
   for all 14 primal interactions. Documents what happens when each primal is
   down (all return `Err`/`None`, never panic), circuit breaker (3 failures →
   dead, 30s reprobe), and validation degradation (honest failures, skip-pass

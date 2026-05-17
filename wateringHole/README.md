@@ -51,13 +51,13 @@ entry for the session that produced it. Chronological by filename suffix.
 | 2026-05-13 | `HOTSPRING_TRIO_REWIRE_MAY13_2026.md` | archive | Compute trio rewire: toadStool S258-S261, coralReef Sprint 9, barraCuda Sprint 23 |
 | 2026-05-14 | `HOTSPRING_LOCAL_DEBT_COMPOSITION_EVOLUTION_HANDOFF_MAY14_2026.md` | archive | Local debt sprint: compile-then-dispatch, circuit breaker, dispatch unification, TOML aliases, tiered validation |
 | 2026-05-14 | `HOTSPRING_PLASMIDBIN_LOCAL_OWNERSHIP_HANDOFF_MAY14B_2026.md` | archive | plasmidBin debt: release cascade, symlink-aware doctor, generalized upgrade, 13/13 NUCLEUS deployed |
-| 2026-05-16 | `HOTSPRING_DIESEL_ENGINE_DRIVER_SKETCH_HANDOFF_MAY16_2026.md` | ✅ | Diesel engine driver sketch: GrInitSequence, WarmStateCapture, DriverProbe, PmuBootstrap, shared `nv::pri` |
-| 2026-05-16 | `HOTSPRING_PLX_KEEPALIVE_BOOT_CATCH_HANDOFF_MAY16_2026.md` | ✅ | PLX keepalive boot-catch: class code extraction fix, event-driven interval, activity-aware backpressure, boot validation |
-| 2026-05-16 | `HOTSPRING_WAVE17_SIGNAL_ADOPTION_HANDOFF_MAY16_2026.md` | ✅ | Wave 17: primal.announce, node.compute, tower.publish signal adoption |
-| 2026-05-16 | `HOTSPRING_DOC_EVOLUTION_UPSTREAM_HANDOFF_MAY16_2026.md` | ✅ | Doc evolution: count normalization, unibin naming, handoff archival, upstream patterns |
-| 2026-05-16 | `HOTSPRING_DIESEL_ENGINE_CAPABILITY_ABSTRACTION_HANDOFF_MAY16B_2026.md` | ✅ | Diesel engine capability abstraction: 6 subsystems generalized (PCIe Bridge Health, GspBridge caps, Memory Training dispatch, Falcon Boot wiring, Engine Ungating, DriverLab Executor), 6,989 tests, deployed |
-| 2026-05-16 | `HOTSPRING_BOOT_PIPELINE_VBIOS_HANDOFF_MAY16C_2026.md` | ✅ | Vendor-agnostic BootPipeline trait, VBIOS interpreter fixes (K80 0x50/0x88/0x70), DeviceTopology, VegaInit AMD stub, 591→606 tests |
-| 2026-05-16 | `HOTSPRING_PRIMALS_SPRINGS_EVOLUTION_HANDOFF_MAY16D_2026.md` | ✅ | Cross-team handoff: primal use/evolution, NUCLEUS composition patterns, neuralAPI signals, sovereign boot insights, upstream asks for all teams |
+| 2026-05-16 | `HOTSPRING_DIESEL_ENGINE_DRIVER_SKETCH_HANDOFF_MAY16_2026.md` | archive | Diesel engine driver sketch: GrInitSequence, WarmStateCapture, DriverProbe, PmuBootstrap, shared `nv::pri` |
+| 2026-05-16 | `HOTSPRING_PLX_KEEPALIVE_BOOT_CATCH_HANDOFF_MAY16_2026.md` | archive | PLX keepalive boot-catch: class code extraction fix, event-driven interval, activity-aware backpressure, boot validation |
+| 2026-05-16 | `HOTSPRING_WAVE17_SIGNAL_ADOPTION_HANDOFF_MAY16_2026.md` | archive | Wave 17: primal.announce, node.compute, tower.publish signal adoption |
+| 2026-05-16 | `HOTSPRING_DOC_EVOLUTION_UPSTREAM_HANDOFF_MAY16_2026.md` | archive | Doc evolution: count normalization, unibin naming, handoff archival, upstream patterns |
+| 2026-05-16 | `HOTSPRING_DIESEL_ENGINE_CAPABILITY_ABSTRACTION_HANDOFF_MAY16B_2026.md` | archive | Diesel engine capability abstraction: 6 subsystems generalized (PCIe Bridge Health, GspBridge caps, Memory Training dispatch, Falcon Boot wiring, Engine Ungating, DriverLab Executor), 6,989 tests, deployed |
+| 2026-05-16 | `HOTSPRING_BOOT_PIPELINE_VBIOS_HANDOFF_MAY16C_2026.md` | archive | Vendor-agnostic BootPipeline trait, VBIOS interpreter fixes (K80 0x50/0x88/0x70), DeviceTopology, VegaInit AMD stub, 591→606 tests |
+| 2026-05-16 | `HOTSPRING_PRIMALS_SPRINGS_EVOLUTION_HANDOFF_MAY16D_2026.md` | archive | Cross-team handoff: primal use/evolution, NUCLEUS composition patterns, neuralAPI signals, sovereign boot insights, upstream asks for all teams |
 | 2026-05-17 | `HOTSPRING_COMPUTE_PARITY_MIXED_HARDWARE_HANDOFF_MAY17_2026.md` | ✅ | Wave 20 compute evolution: CPU/GPU parity scenarios, toadStool dispatch validation, metalForge NUCLEUS atomics + PCIe direct + biomeOS graph, CPU fallback dispatch, parity greenboard ALL GREEN |
 
 ### `mmiotraces/`
