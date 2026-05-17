@@ -28,7 +28,7 @@ hotSpring answers: *"Does our hardware produce correct physics?"*, *"Can Rust+WG
 
 ### Eukaryotic UniBin: `hotspring_unibin`
 
-hotSpring has evolved from the prokaryotic era of separate binaries into an eukaryotic UniBin — a single `hotspring_unibin` binary consolidating certification (L0–L6 guideStone organelle), validation scenarios (17 default / 20 with `barracuda-local` + `sovereign-dispatch`), and status reporting. Reference: primalSpring v0.9.25 interstadial eukaryotic wave.
+hotSpring has evolved from the prokaryotic era of separate binaries into an eukaryotic UniBin — a single `hotspring_unibin` binary consolidating certification (L0–L6 guideStone organelle), validation scenarios (17 default / 22 with `barracuda-local`), and status reporting. Reference: primalSpring v0.9.25 interstadial eukaryotic wave.
 
 ```
 hotspring certify              # L0-L6 composition certification
@@ -522,7 +522,7 @@ a network service, you must make your source available under the same terms.
 
 ---
 
-*196 experiments, 596 / 1,045 lib tests (IPC-first default / barracuda-local), 167 binaries, 128 WGSL shaders, ~$0.30 total science cost.
+*198 experiments, 596 / 1,045 lib tests (IPC-first default / barracuda-local), 167 binaries, 128 WGSL shaders, ~$0.30 total science cost.
 Consumer GPUs reproduce HPC physics at paper parity. DF64 delivers 3.24 TFLOPS at
 14-digit precision. GPU RHMC runs all-flavors dynamical QCD (Nf=2+1). Self-tuning
 RHMC eliminates hand-tuned parameters. Chuna 44/44 checks pass. **ALL 3 GPUs

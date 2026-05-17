@@ -26,6 +26,8 @@ pub mod s_cold_boot_sentinel;
 pub mod s_composition_health;
 pub mod s_compute_trio;
 #[cfg(feature = "barracuda-local")]
+pub mod s_cpu_gpu_parity;
+#[cfg(feature = "barracuda-local")]
 pub mod s_dielectric;
 #[cfg(feature = "barracuda-local")]
 pub mod s_gradient_flow;
@@ -33,6 +35,8 @@ pub mod s_hotqcd_dispatch;
 pub mod s_lattice_plaquette;
 pub mod s_ltee_anderson;
 pub mod s_md_yukawa;
+#[cfg(feature = "barracuda-local")]
+pub mod s_mixed_hardware;
 pub mod s_node_atomic;
 pub mod s_sarkas_yukawa_md;
 pub mod s_schema_standard;
@@ -41,6 +45,7 @@ pub mod s_semf_parity;
 pub mod s_sovereign_dispatch;
 #[cfg(feature = "barracuda-local")]
 pub mod s_spectral_lanczos;
+pub mod s_toadstool_dispatch;
 pub mod s_tolerance_ordering;
 pub mod s_transport;
 pub mod s_vfio_dispatch;
@@ -71,5 +76,10 @@ pub fn build_registry() -> ScenarioRegistry {
     r.register(s_vfio_dispatch::SCENARIO);
     r.register(s_node_atomic::SCENARIO);
     r.register(s_schema_standard::SCENARIO);
+    r.register(s_toadstool_dispatch::SCENARIO);
+    #[cfg(feature = "barracuda-local")]
+    r.register(s_cpu_gpu_parity::SCENARIO);
+    #[cfg(feature = "barracuda-local")]
+    r.register(s_mixed_hardware::SCENARIO);
     r
 }

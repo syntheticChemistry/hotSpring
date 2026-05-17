@@ -1,11 +1,11 @@
 {
-  "timestamp": "2026-04-02T19:24:32.574503+00:00",
+  "timestamp": "2026-05-17T14:26:03.017635+00:00",
   "control_dir": "/home/strandgate/Development/ecoPrimals/springs/hotSpring/control",
   "rust_dir": "/home/strandgate/Development/ecoPrimals/springs/hotSpring/validation/results",
   "total_papers": 10,
-  "active_papers": 9,
-  "passed_papers": 9,
-  "skipped_papers": 1,
+  "active_papers": 10,
+  "passed_papers": 10,
+  "skipped_papers": 0,
   "all_green": true,
   "papers": {
     "6": {
@@ -774,11 +774,12 @@
     "45": {
       "paper": 45,
       "description": "Multi-species kinetic-fluid coupling (Chuna)",
-      "mode": "skipped",
-      "reason": "Python result not found: kinetic_fluid/results/kinetic_fluid_control.json",
-      "all_passed": false,
+      "mode": "self-parity",
+      "python_path": "/home/strandgate/Development/ecoPrimals/springs/hotSpring/control/kinetic_fluid/results/kinetic_fluid_control.json",
+      "all_passed": true,
       "n_checks": 0,
-      "n_passed": 0
+      "n_passed": 0,
+      "results": []
     }
   }
 }

@@ -41,8 +41,10 @@
 
 #[cfg(feature = "barracuda-local")]
 pub mod bridge;
+pub mod biome_graph;
 pub mod dispatch;
 pub mod inventory;
+pub mod nucleus;
 pub mod pipeline;
 pub mod probe;
 pub mod substrate;

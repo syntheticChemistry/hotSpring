@@ -78,6 +78,13 @@ pub struct Edge {
 pub enum ChannelKind {
     /// PCIe DMA transfer (GPU↔CPU, GPU↔NPU via CPU bridge).
     Pcie,
+    /// PCIe peer-to-peer direct transfer (GPU↔NPU, GPU↔GPU bypassing CPU).
+    ///
+    /// Requires PCIe ACS disabled and P2P-capable root complex. Avoids
+    /// the CPU memory roundtrip: data moves directly between device BARs
+    /// via PCIe fabric. Typical use: GPU compute output → NPU inference
+    /// input without touching system RAM.
+    PcieDirect,
     /// Shared CPU memory (zero-copy between CPU stages).
     SharedMemory,
     /// Within the same device (no transfer needed).
@@ -377,7 +384,51 @@ pub mod topologies {
         p
     }
 
-    /// Topology E: GPU-only (current Exp 018 benchmark).
+    /// Topology E: GPU → NPU via PCIe direct (bypassing CPU) → CPU validation.
+    ///
+    /// GPU compute output transfers directly to NPU for inference via
+    /// PCIe peer-to-peer, avoiding the CPU memory roundtrip. CPU only
+    /// receives the final validated result for steering.
+    ///
+    /// Requires: PCIe ACS disabled, compatible root complex, PLX bridge
+    /// or direct root port connectivity between GPU and NPU.
+    #[must_use]
+    pub fn mixed_pcie_direct() -> Pipeline {
+        let mut p = Pipeline::new("Mixed: GPU →[PCIe Direct]→ NPU → CPU");
+        let compute = p.add_stage("HMC Compute (GPU)", SubstrateKind::Gpu, StageRole::Compute);
+        let infer = p.add_stage(
+            "Phase Inference (NPU)",
+            SubstrateKind::Npu,
+            StageRole::Inference,
+        );
+        let validate = p.add_stage(
+            "Provenance (CPU)",
+            SubstrateKind::Cpu,
+            StageRole::Validation,
+        );
+
+        p.connect(compute, infer, ChannelKind::PcieDirect);
+        p.connect(infer, validate, ChannelKind::Pcie);
+        p
+    }
+
+    /// Topology F: Full NUCLEUS atomic topology.
+    ///
+    /// Tower (trust) → Node (compute) → Nest (provenance storage).
+    /// Maps NUCLEUS atomics to substrates with appropriate channels.
+    #[must_use]
+    pub fn nucleus_atomic() -> Pipeline {
+        let mut p = Pipeline::new("NUCLEUS: Tower → Node → Nest");
+        let tower = p.add_stage("Tower Trust Boundary", SubstrateKind::Cpu, StageRole::Validation);
+        let node = p.add_stage("Node Compute", SubstrateKind::Gpu, StageRole::Compute);
+        let nest = p.add_stage("Nest Provenance", SubstrateKind::Cpu, StageRole::Reduce);
+
+        p.connect(tower, node, ChannelKind::SharedMemory);
+        p.connect(node, nest, ChannelKind::Pcie);
+        p
+    }
+
+    /// Topology G: GPU-only (current Exp 018 benchmark).
     ///
     /// Single GPU with DF64 extension strategy.
     #[must_use]

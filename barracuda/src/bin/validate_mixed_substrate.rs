@@ -35,7 +35,7 @@ use hotspring_barracuda::validation::ValidationHarness;
 fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");
     println!("║  Mixed-Substrate Pipeline — metalForge GPU→NPU→CPU         ║");
-    println!("║  4 physics domains × 3 substrates = 12 cross-validations   ║");
+    println!("║  4 physics domains × 3 substrates + NUCLEUS atomics        ║");
     println!("╚══════════════════════════════════════════════════════════════╝");
     println!();
 
@@ -46,6 +46,9 @@ fn main() {
     check_abelian_higgs_phase(&mut harness);
     check_anderson_localization(&mut harness);
     check_cross_domain(&mut harness);
+    check_nucleus_atomics(&mut harness);
+    check_pcie_direct_topology(&mut harness);
+    check_biome_graph(&mut harness);
 
     println!();
     harness.finish();
@@ -485,4 +488,142 @@ fn lcg_noise(seed: u64) -> f64 {
     let u1c = u1.clamp(1e-10, 1.0 - 1e-10);
     let u2c = u2.clamp(1e-10, 1.0 - 1e-10);
     (-2.0 * u1c.ln()).sqrt() * (std::f64::consts::TAU * u2c).cos()
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  NUCLEUS Atomic Composition Validation (Phase 4)
+// ═══════════════════════════════════════════════════════════════════
+
+fn check_nucleus_atomics(harness: &mut ValidationHarness) {
+    use hotspring_forge::nucleus::{AtomicBinding, AtomicType};
+    use hotspring_forge::substrate::{Identity, Properties, Substrate, SubstrateKind};
+
+    println!("═══ NUCLEUS Atomics: Tower, Node, Nest Composition ═══");
+
+    let gpu = Substrate {
+        kind: SubstrateKind::Gpu,
+        identity: Identity::named("Titan V"),
+        properties: Properties::default(),
+        capabilities: vec![],
+    };
+    let cpu = Substrate {
+        kind: SubstrateKind::Cpu,
+        identity: Identity::named("i9-12900K"),
+        properties: Properties::default(),
+        capabilities: vec![],
+    };
+
+    let tower_cpu = AtomicBinding::bind(AtomicType::Tower, &cpu);
+    harness.check_bool("nucleus:tower_binds_cpu", tower_cpu.is_some());
+    println!("  Tower → CPU: {}", if tower_cpu.is_some() { "✓" } else { "✗" });
+
+    let node_gpu = AtomicBinding::bind(AtomicType::Node, &gpu);
+    harness.check_bool("nucleus:node_binds_gpu", node_gpu.is_some());
+    println!("  Node  → GPU: {}", if node_gpu.is_some() { "✓" } else { "✗" });
+
+    let nest_cpu = AtomicBinding::bind(AtomicType::Nest, &cpu);
+    harness.check_bool("nucleus:nest_binds_cpu", nest_cpu.is_some());
+    println!("  Nest  → CPU: {}", if nest_cpu.is_some() { "✓" } else { "✗" });
+
+    let nest_gpu = AtomicBinding::bind(AtomicType::Nest, &gpu);
+    harness.check_bool("nucleus:nest_rejects_gpu", nest_gpu.is_none());
+    println!("  Nest  → GPU: {} (expected)", if nest_gpu.is_none() { "✗ rejected" } else { "✓ bound" });
+
+    harness.check_bool(
+        "nucleus:tower_subset_of_full",
+        AtomicType::Tower.is_subset_of(&AtomicType::FullNucleus),
+    );
+    harness.check_bool(
+        "nucleus:node_subset_of_full",
+        AtomicType::Node.is_subset_of(&AtomicType::FullNucleus),
+    );
+    harness.check_bool(
+        "nucleus:nest_subset_of_full",
+        AtomicType::Nest.is_subset_of(&AtomicType::FullNucleus),
+    );
+    println!("  All atomics are subsets of FullNucleus: ✓");
+    println!();
+}
+
+fn check_pcie_direct_topology(harness: &mut ValidationHarness) {
+    use hotspring_forge::pipeline::{ChannelKind, topologies};
+
+    println!("═══ PCIe Direct Topology: GPU→NPU Bypass ═══");
+
+    let p = topologies::mixed_pcie_direct();
+    harness.check_bool("pcie:stages_count_3", p.stages().len() == 3);
+    harness.check_bool("pcie:edges_count_2", p.edges().len() == 2);
+
+    let has_direct = p.edges().iter().any(|e| e.channel == ChannelKind::PcieDirect);
+    harness.check_bool("pcie:has_direct_edge", has_direct);
+
+    let has_regular_pcie = p.edges().iter().any(|e| e.channel == ChannelKind::Pcie);
+    harness.check_bool("pcie:has_regular_pcie", has_regular_pcie);
+
+    println!("  Topology: {}", p.name);
+    for stage in p.ordered_stages() {
+        println!("    [{:?}] {} on {}", stage.role, stage.name, stage.substrate_kind);
+    }
+    for edge in p.edges() {
+        let ch = match &edge.channel {
+            ChannelKind::PcieDirect => "PCIe Direct (P2P)",
+            ChannelKind::Pcie => "PCIe (CPU bridge)",
+            ChannelKind::SharedMemory => "Shared Memory",
+            ChannelKind::Local => "Local",
+        };
+        println!("    {} → {} via {ch}", edge.from.0, edge.to.0);
+    }
+
+    let nucleus_topo = topologies::nucleus_atomic();
+    harness.check_bool("pcie:nucleus_stages_3", nucleus_topo.stages().len() == 3);
+    println!("  NUCLEUS topology: {} stages, {} edges",
+        nucleus_topo.stages().len(), nucleus_topo.edges().len());
+    println!();
+}
+
+fn check_biome_graph(harness: &mut ValidationHarness) {
+    use hotspring_forge::biome_graph::{pcie_direct_nucleus_graph, standard_nucleus_graph};
+    use hotspring_forge::nucleus::AtomicType;
+    use hotspring_forge::pipeline::ChannelKind;
+    use hotspring_forge::substrate::SubstrateKind;
+
+    println!("═══ BiomeOS Graph Coordination ═══");
+
+    let g = standard_nucleus_graph();
+    harness.check_bool("biome:standard_nodes_3", g.nodes().len() == 3);
+    harness.check_bool("biome:standard_edges_3", g.edges().len() == 3);
+
+    let towers = g.nodes_by_atomic(AtomicType::Tower);
+    harness.check_bool("biome:one_tower", towers.len() == 1);
+
+    let nest_id = g.nodes_by_atomic(AtomicType::Nest)[0].id;
+    let reachable = g.reachable_from(nest_id);
+    harness.check_bool("biome:nest_reached_by_cpu", reachable.contains(&SubstrateKind::Cpu));
+    harness.check_bool("biome:nest_reached_by_gpu", reachable.contains(&SubstrateKind::Gpu));
+    println!("  Standard graph: {} nodes, {} edges", g.nodes().len(), g.edges().len());
+    println!("  Nest reachable from: {:?}", reachable);
+
+    let tower_id = g.nodes_by_atomic(AtomicType::Tower)[0].id;
+    let path = g.shortest_path(tower_id, nest_id);
+    harness.check_bool("biome:tower_to_nest_path", path.is_some());
+    if let Some(ref p) = path {
+        println!("  Tower → Nest path: {} hops", p.len() - 1);
+    }
+
+    let gd = pcie_direct_nucleus_graph();
+    harness.check_bool("biome:direct_nodes_4", gd.nodes().len() == 4);
+    let direct_edges = gd.edges().iter().filter(|e| e.channel == ChannelKind::PcieDirect).count();
+    harness.check_bool("biome:direct_has_p2p", direct_edges == 1);
+    println!("  PCIe Direct graph: {} nodes, {} edges ({direct_edges} P2P)", gd.nodes().len(), gd.edges().len());
+
+    let gpu_id = gd.nodes_by_substrate(SubstrateKind::Gpu)[0].id;
+    let nest_id_d = gd.nodes_by_atomic(AtomicType::Nest)[0].id;
+    let direct_path = gd.shortest_path(gpu_id, nest_id_d);
+    harness.check_bool("biome:gpu_to_nest_path", direct_path.is_some());
+    if let Some(ref dp) = direct_path {
+        let p2p_hops = gd.pcie_direct_hops(dp);
+        harness.check_bool("biome:one_p2p_hop", p2p_hops == 1);
+        println!("  GPU → Nest path: {} hops ({p2p_hops} PCIe Direct)", dp.len() - 1);
+    }
+    println!();
 }

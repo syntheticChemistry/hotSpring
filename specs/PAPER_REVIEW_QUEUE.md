@@ -1,13 +1,13 @@
 # hotSpring — Paper Review Queue
 
-> Current state: v0.6.32, 579 / 1,028 lib tests (IPC-first default / barracuda-local), 155 binaries, 128 WGSL shaders. Paper reproduction
+> Current state: v0.6.32, 596 / 1,045 lib tests (IPC-first default / barracuda-local), 167 binaries, 128 WGSL shaders. Paper reproduction
 > priorities and status are still authoritative.
 
-**Last Updated**: May 11, 2026
+**Last Updated**: May 17, 2026
 **Purpose**: Track papers for reproduction/review, ordered by priority and feasibility
 **Principle**: Reproduce, validate, then decrease cost. Each paper proves the
 pipeline on harder physics — toadStool evolves the GPU acceleration in parallel.
-**Crate**: hotspring-barracuda v0.6.32 — 579 / 1,028 lib tests (IPC-first default / barracuda-local), 155 binaries, 128 WGSL shaders
+**Crate**: hotspring-barracuda v0.6.32 — 596 / 1,045 lib tests (IPC-first default / barracuda-local), 167 binaries, 128 WGSL shaders
 **Current Goal**: Foundation seeding + NUCLEUS workload validation → Tier 4 WDM reproduction → Chuna collaboration
 
 **Evolution path per paper**: Python Control → BarraCuda CPU → BarraCuda GPU → metalForge
@@ -52,7 +52,7 @@ pipeline on harder physics — toadStool evolves the GPU acceleration in paralle
 |-----------|:---:|:---:|
 | **Python Control** | **24/25** | Papers 1-6, 8-22, 43-45 (only 23/wetSpring missing) |
 | **BarraCuda CPU** | **25/25** | All except 23 (wetSpring domain) — Papers 43-45 now validated |
-| **BarraCuda GPU** | **20/25** | Papers 1, 3-5, 8-19 + pure GPU HMC + dynamical GPU + β-scan |
+| **BarraCuda GPU** | **20/25** | Papers 1, 3-5, 8-19, 43-45. Remaining: 2,7 CPU-only by design; 6,17,21,22 CPU-natural (sequential); 20 GPU-promotable via SpMV+Lanczos (P2) |
 | **metalForge (GPU+NPU)** | **9/25** | Papers 5, 8-10, 12-16 (transport + QCD + Higgs + spectral) |
 
 ### Missing Controls (Action Items)
@@ -69,11 +69,11 @@ pipeline on harder physics — toadStool evolves the GPU acceleration in paralle
 | 44 (Chuna dielectric) | ✅ DONE — `bgk_dielectric_control.py`: standard + completed Mermin, f-sum, DSF | ✅ `dielectric.rs` 25 tests | ✅ `dielectric_mermin_f64.wgsl` (std + completed) |
 | 45 (Chuna kinetic-fluid) | ✅ DONE — `kinetic_fluid_control.py`: BGK relaxation, Sod shock, coupled | ✅ `kinetic_fluid.rs` 16 tests | ✅ `bgk_relaxation_f64.wgsl` |
 
-### Cross-Substrate Parity Green Board (April 2, 2026)
+### Cross-Substrate Parity Green Board (May 17, 2026)
 
 Full paper-queue parity orchestrator (`run_all_parity.py`) validates all papers
-with Python control results against each other.  **9/9 active papers ALL GREEN**,
-74 checks across 10 registered papers.
+with Python control results against each other. **10/10 active papers ALL GREEN**,
+all checks across 10 registered papers (paper 45 kinetic-fluid parity gap resolved).
 
 | Paper | Checks | Status | Mode |
 |-------|:------:|--------|------|

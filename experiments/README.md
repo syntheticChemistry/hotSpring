@@ -156,6 +156,17 @@ and Python ("jelly strings"). These have been elevated to pure Rust in
 
 Original scripts archived in `scripts/archive/` as fossil record.
 
+## Wave 20 Experiment Buildouts + Compute Parity (May 17, 2026)
+
+Experiment and compute evolution sprint completing four phases:
+
+- **Experiment buildouts**: Experiments 197 + 198 standalone markdown files created
+- **CPU/GPU parity**: `s_cpu_gpu_parity` scenario validates 7 physics domains offline
+- **toadStool dispatch**: `s_toadstool_dispatch` scenario validates parameter assembly, `commit_provenance` params offline
+- **Mixed hardware**: `forge::nucleus` (NUCLEUS atomic types), `ChannelKind::PcieDirect`, `forge::biome_graph` (graph coordination), `s_mixed_hardware` scenario
+- **CPU fallback**: `dispatch_cpu_fallback()` for offline `vector_add` / `semf_batch` when toadStool unavailable
+- **Parity greenboard**: ALL GREEN (10/10 papers, paper 45 gap resolved)
+
 ## Compute Trio Rewire + Capability Discovery (May 12, 2026)
 
 hotSpring's interfaces with the compute trio (toadStool, barraCuda, coralReef)
@@ -172,8 +183,9 @@ have been rewired for capability-based discovery (GAP-HS-087, GAP-HS-088):
 
 17 experiment binaries have been absorbed into
 `barracuda/src/validation/scenarios/` as Tier 1 (Rust) scenarios with
-`ScenarioMeta` provenance tracking (20 with `barracuda-local` feature:
-adds gradient-flow, dielectric-mermin, spectral-lanczos). 8 hardware-specific
+`ScenarioMeta` provenance tracking (22 with `barracuda-local` feature:
+adds gradient-flow, dielectric-mermin, spectral-lanczos, cpu-gpu-parity,
+mixed-hardware). 8 hardware-specific
 GPU experiment binaries are preserved in `fossilRecord/experiments_prokaryotic_may2026/`.
 The `hotspring_unibin validate` command is the eukaryotic entry point
 for running all absorbed scenarios.

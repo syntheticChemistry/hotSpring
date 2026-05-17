@@ -1,6 +1,6 @@
 # baseCamp: Sovereign GPU Compute — GlowPlug & Falcon Boot Chain
 
-**Date:** 2026-03-25 (updated 2026-05-11 — **ALL 3 GPUs sovereign**, warm-catch pipeline in pure Rust, ELF patcher replaces Python scripts)  
+**Date:** 2026-03-25 (updated 2026-05-17 — **ALL 3 GPUs sovereign**, warm-catch pipeline in pure Rust, ELF patcher replaces Python scripts, vendor-agnostic `BootPipeline` trait validated)  
 **Domain:** Hardware — PCIe GPU lifecycle, falcon microcontrollers, HBM2 management, PFIFO command submission, ACR secure boot, WPR construction, cross-driver profiling, daemon RPC orchestration, adaptive experiment loop, sysmem DMA, GV100 MMU v2 page tables, WPR2 hardware protection, Kepler PIO falcon loading, VBIOS DEVINIT, fault containment architecture, **firmware-agnostic interfacing, PMU mailbox protocol, DRM ioctl sovereign pipeline, SM70 SASS compute dispatch, fork-isolated MMIO gateway, staged sovereign init, PCI remove/rescan with kernel override handling, binary ELF patching, warm-catch orchestration, era-aware memory settle**  
 **Experiments:** 060-190  
 **Hardware:** NVIDIA Titan V (GV100, 12GB HBM2), 2× Tesla K80 (GK210, Kepler), RTX 5060 (GB206, Blackwell, display/validator)

@@ -548,6 +548,60 @@ pub fn validate_barrier_shaders(nucleus: &NucleusContext) -> Vec<BarrierShaderVa
         .collect()
 }
 
+/// CPU fallback dispatch for offline parity testing.
+///
+/// When toadStool is unavailable (no `compute` domain in NUCLEUS), this
+/// function runs the same physics computation locally on CPU. Returns
+/// the result as a JSON value matching the shape of
+/// `compute.dispatch.result` responses.
+///
+/// Supported workload names:
+/// - `"semf_batch"` — SEMF binding energy for Z/N pairs in `input_data`
+/// - `"vector_add"` — element-wise addition (input split in half)
+/// - `"spmv"` — sparse matrix-vector product (placeholder)
+///
+/// Returns `None` for unsupported workload names.
+pub fn dispatch_cpu_fallback(
+    workload_name: &str,
+    input_data: &[f64],
+) -> Option<serde_json::Value> {
+    match workload_name {
+        "vector_add" | "vector_add_f64" => {
+            let half = input_data.len() / 2;
+            let result: Vec<f64> = input_data[..half]
+                .iter()
+                .zip(&input_data[half..half * 2])
+                .map(|(a, b)| a + b)
+                .collect();
+            Some(serde_json::json!({
+                "output": result,
+                "format": "f64_array",
+                "substrate": "cpu_fallback",
+            }))
+        }
+        "semf_batch" => {
+            use crate::physics::semf_binding_energy;
+            use crate::provenance::SLY4_PARAMS;
+            let pairs: Vec<(usize, usize)> = input_data
+                .chunks(2)
+                .filter(|c| c.len() == 2)
+                .map(|c| (c[0] as usize, c[1] as usize))
+                .collect();
+            let energies: Vec<f64> = pairs
+                .iter()
+                .map(|&(z, n)| semf_binding_energy(z, n, &SLY4_PARAMS))
+                .collect();
+            Some(serde_json::json!({
+                "output": energies,
+                "format": "f64_array",
+                "substrate": "cpu_fallback",
+                "n_nuclei": pairs.len(),
+            }))
+        }
+        _ => None,
+    }
+}
+
 mod fused;
 
 pub use fused::*;

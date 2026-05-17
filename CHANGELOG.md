@@ -7,6 +7,50 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Unreleased — Wave 20 Experiment Buildouts + Compute Parity (May 17, 2026)
+
+### Added (4-phase experiment + compute evolution sprint)
+- **Experiment 197 + 198 standalone files**: `experiments/197_SOVEREIGN_INIT_RPC_WARM_COLD.md`
+  and `experiments/198_VENDOR_AGNOSTIC_BOOT_PIPELINE.md` — extracted from EXPERIMENT_INDEX
+  entries into full dedicated experiment journals.
+- **`s_cpu_gpu_parity` validation scenario**: CPU reference stability checks across
+  7 physics domains (QCD, SEMF, Transport, Spectral SpMV, BGK, Euler, Coupled
+  Kinetic-Fluid). `barracuda-local` feature gate.
+- **`s_toadstool_dispatch` validation scenario**: Offline toadStool dispatch validation
+  (parameter assembly, input hashing, barrier shader paths, witness construction,
+  serialization, `commit_provenance` parameter checks). No IPC required.
+- **`s_mixed_hardware` validation scenario**: forge dispatch routing, pipeline topology
+  construction, NUCLEUS atomic composition, and biomeOS graph coordination. Offline.
+  `barracuda-local` feature gate.
+- **`dispatch_cpu_fallback()`** in `compute_dispatch/mod.rs`: Local CPU execution for
+  `vector_add` and `semf_batch` workloads when toadStool is unavailable.
+- **`forge::nucleus` module**: NUCLEUS atomic types (Tower/Node/Nest/FullNucleus) with
+  domain mappings, substrate compatibility, and `AtomicBinding` for substrate dispatch.
+- **`ChannelKind::PcieDirect`**: GPU→NPU PCIe peer-to-peer (no CPU roundtrip) in
+  `metalForge/forge/src/pipeline.rs`. New topologies: `mixed_pcie_direct()`,
+  `nucleus_atomic()`.
+- **`forge::biome_graph` module**: NUCLEUS atomic coordination as directed graph —
+  nodes are `(AtomicType, SubstrateKind)` instances, edges are `ChannelKind` connections.
+  Pathfinding, reachability, `pcie_direct_hops()`. Standard and PCIe-direct graph
+  constructors.
+
+### Changed
+- **`validate_mixed_substrate` binary**: Extended with NUCLEUS atomic binding checks,
+  PCIe direct topology validation, and biomeOS graph coordination tests.
+- **Parity greenboard**: Regenerated to ALL GREEN (10/10 papers). Paper 45 kinetic-fluid
+  gap resolved (control JSON already existed, greenboard was stale).
+- **`PAPER_REVIEW_QUEUE.md`**: GPU coverage clarified — papers 2,7 CPU-only by design;
+  6,17,21,22 CPU-natural; 20 GPU-promotable via SpMV+Lanczos.
+- **Doc metrics normalized**: 198 experiments, 596/1,045 lib tests, 22 validation
+  scenarios (17 default + 5 barracuda-local) across README, specs, experiments,
+  whitePaper/baseCamp docs.
+
+### Metrics
+- Validation scenarios: 22 (17 default + 5 barracuda-local)
+- Lib tests: 596 (default) / 1,045 (barracuda-local) — all pass
+- Clippy: zero warnings
+- metalForge/forge tests: 32/32 non-GPU pass (4 wgpu-backend expected in headless)
+
 ## Unreleased — Wave 20 Debt Resolution (May 17, 2026)
 
 ### Fixed (primalSpring Wave 20 audit response)
