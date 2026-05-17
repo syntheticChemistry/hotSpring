@@ -8,10 +8,19 @@
 # `capabilities_match_registry_toml` enforces lockstep.
 #
 # Schema: each [[capabilities]] entry has:
-#   method   — fully qualified domain.operation name
-#   served   — "local" (hotspring_unibin handles) or "routed" (proxy to provider)
-#   provider — canonical primal for routed capabilities (empty for local)
-#   domain   — top-level domain grouping
+#   method    — fully qualified domain.operation name
+#   served    — "local" (hotspring_unibin handles) or "routed" (proxy to provider)
+#   provider  — canonical primal for routed capabilities (empty for local)
+#   domain    — top-level domain grouping
+#   stability — "stable" (deployed consumers depend on name; do not rename),
+#               "evolving" (name may change between major waves; notify downstream),
+#               "internal" (test fixture or internal-only; no stability guarantee)
+#
+# Stability tiers absorbed from primalSpring capability_registry.toml per
+# lithoSpore R2 (May 17, 2026). Domains marked stable upstream: health,
+# capabilities, lifecycle, coordination, discovery, ipc, visualization,
+# dag, spine, event, entry, braid, primal. Local physics/compute methods
+# are marked stable where they have deployed consumers (lithoSpore, NUCLEUS).
 
 # ── Primal Aliases ────────────────────────────────────────────────────
 # Maps canonical primal names to socket-name aliases they may register
@@ -25,86 +34,102 @@ barracuda = ["barracuda-core", "math"]
 skunkbat = ["skunkbat-server", "skunk-bat", "defense"]
 
 # ── Physics domain (locally served) ──────────────────────────────────
+# Stability: stable — NUCLEUS composition validators and lithoSpore depend
+# on these method names for cross-tier parity probes.
 
 [[capabilities]]
 method = "physics.lattice_qcd"
 served = "local"
 provider = ""
 domain = "physics"
+stability = "stable"
 
 [[capabilities]]
 method = "physics.lattice_gauge_update"
 served = "local"
 provider = ""
 domain = "physics"
+stability = "stable"
 
 [[capabilities]]
 method = "physics.hmc_trajectory"
 served = "local"
 provider = ""
 domain = "physics"
+stability = "stable"
 
 [[capabilities]]
 method = "physics.wilson_dirac"
 served = "local"
 provider = ""
 domain = "physics"
+stability = "stable"
 
 [[capabilities]]
 method = "physics.molecular_dynamics"
 served = "local"
 provider = ""
 domain = "physics"
+stability = "stable"
 
 [[capabilities]]
 method = "physics.fluid"
 served = "local"
 provider = ""
 domain = "physics"
+stability = "stable"
 
 [[capabilities]]
 method = "physics.nuclear_eos"
 served = "local"
 provider = ""
 domain = "physics"
+stability = "stable"
 
 [[capabilities]]
 method = "physics.thermal"
 served = "local"
 provider = ""
 domain = "physics"
+stability = "stable"
 
 [[capabilities]]
 method = "physics.radiation"
 served = "local"
 provider = ""
 domain = "physics"
+stability = "stable"
 
 # ── Compute primitives (locally served) ──────────────────────────────
+# Stability: stable — used by NUCLEUS composition probes and toadStool dispatch.
 
 [[capabilities]]
 method = "compute.df64"
 served = "local"
 provider = ""
 domain = "compute"
+stability = "stable"
 
 [[capabilities]]
 method = "compute.cg_solver"
 served = "local"
 provider = ""
 domain = "compute"
+stability = "stable"
 
 [[capabilities]]
 method = "compute.gradient_flow"
 served = "local"
 provider = ""
 domain = "compute"
+stability = "stable"
 
 [[capabilities]]
 method = "compute.f64"
 served = "local"
 provider = ""
 domain = "compute"
+stability = "stable"
 
 # ── Composition health (locally served) ──────────────────────────────
 
@@ -113,38 +138,45 @@ method = "composition.health"
 served = "local"
 provider = ""
 domain = "composition"
+stability = "stable"
 
 # ── Lifecycle / health (locally served) ──────────────────────────────
+# Stability: stable — upstream primalSpring marks health domain as stable.
 
 [[capabilities]]
 method = "health.check"
 served = "local"
 provider = ""
 domain = "health"
+stability = "stable"
 
 [[capabilities]]
 method = "health.liveness"
 served = "local"
 provider = ""
 domain = "health"
+stability = "stable"
 
 [[capabilities]]
 method = "health.readiness"
 served = "local"
 provider = ""
 domain = "health"
+stability = "stable"
 
 [[capabilities]]
 method = "capabilities.list"
 served = "local"
 provider = ""
 domain = "capabilities"
+stability = "stable"
 
 [[capabilities]]
 method = "mcp.tools.list"
 served = "local"
 provider = ""
 domain = "mcp"
+stability = "stable"
 
 # ── Inference (routed to Squirrel -> neuralSpring) ───────────────────
 
@@ -153,18 +185,21 @@ method = "inference.complete"
 served = "routed"
 provider = "squirrel"
 domain = "inference"
+stability = "evolving"
 
 [[capabilities]]
 method = "inference.embed"
 served = "routed"
 provider = "squirrel"
 domain = "inference"
+stability = "evolving"
 
 [[capabilities]]
 method = "inference.models"
 served = "routed"
 provider = "squirrel"
 domain = "inference"
+stability = "evolving"
 
 # ── Defense / Audit (routed to SkunkBat) ─────────────────────────────
 # Per primalSpring routing (May 2026): security.audit_log and defense.*
@@ -175,36 +210,42 @@ method = "security.audit_log"
 served = "routed"
 provider = "skunkbat"
 domain = "defense"
+stability = "evolving"
 
 [[capabilities]]
 method = "security.audit_event"
 served = "routed"
 provider = "skunkbat"
 domain = "defense"
+stability = "evolving"
 
 [[capabilities]]
 method = "defense.scan"
 served = "routed"
 provider = "skunkbat"
 domain = "defense"
+stability = "evolving"
 
 [[capabilities]]
 method = "defense.status"
 served = "routed"
 provider = "skunkbat"
 domain = "defense"
+stability = "evolving"
 
 [[capabilities]]
 method = "recon.scan"
 served = "routed"
 provider = "skunkbat"
 domain = "defense"
+stability = "evolving"
 
 [[capabilities]]
 method = "threat.assess"
 served = "routed"
 provider = "skunkbat"
 domain = "defense"
+stability = "evolving"
 
 # ── Crypto (routed to BearDog) ───────────────────────────────────────
 
@@ -213,12 +254,14 @@ method = "crypto.sign_ed25519"
 served = "routed"
 provider = "beardog"
 domain = "crypto"
+stability = "stable"
 
 [[capabilities]]
 method = "crypto.verify_ed25519"
 served = "routed"
 provider = "beardog"
 domain = "crypto"
+stability = "stable"
 
 # ── Compute dispatch (routed to ToadStool) ───────────────────────────
 
@@ -227,30 +270,35 @@ method = "compute.dispatch.submit"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 [[capabilities]]
 method = "compute.dispatch.capabilities"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 [[capabilities]]
 method = "compute.dispatch.result"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 [[capabilities]]
 method = "compute.dispatch.status"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 [[capabilities]]
 method = "compute.dispatch.forward"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 # ── Tier 2 Live Science API (routed to ToadStool) ────────────────────
 
@@ -259,12 +307,14 @@ method = "toadstool.validate"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 [[capabilities]]
 method = "toadstool.list_workloads"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 # ── Ember device listing (toadStool Phase A/B — operational) ──────────
 
@@ -273,18 +323,21 @@ method = "ember.status"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 [[capabilities]]
 method = "ember.list"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 [[capabilities]]
 method = "ember.reacquire"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 # ── Device management (toadStool Phase C — operational S252+) ─────────
 
@@ -293,30 +346,35 @@ method = "device.list"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 [[capabilities]]
 method = "device.status"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 [[capabilities]]
 method = "device.reacquire"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 [[capabilities]]
 method = "device.swap"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 [[capabilities]]
 method = "device.warm_catch"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 # ── VFIO PBDMA dispatch (toadStool S258) ──────────────────────────────
 
@@ -325,18 +383,21 @@ method = "device.vfio.open"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 [[capabilities]]
 method = "device.vfio.alloc"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 [[capabilities]]
 method = "device.vfio.roundtrip"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 # ── GR Context Init (toadStool S262 — warm GPU compute context) ──────
 
@@ -345,12 +406,14 @@ method = "device.gr.init"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 [[capabilities]]
 method = "compute.context.init"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 # ── MMIO (toadStool S252 — hardware register access) ─────────────────
 
@@ -359,36 +422,42 @@ method = "mmio.read32"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 [[capabilities]]
 method = "mmio.write32"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 [[capabilities]]
 method = "mmio.batch"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 [[capabilities]]
 method = "mmio.pramin.read32"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 [[capabilities]]
 method = "mmio.bar0.probe"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 [[capabilities]]
 method = "mmio.falcon.status"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 # ── Ember lifecycle (toadStool Phase D — NVIDIA FECS-gated) ───────────
 # These methods exist as types/traits but NVIDIA dispatch returns
@@ -399,30 +468,35 @@ method = "ember.warm_cycle"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 [[capabilities]]
 method = "ember.adopt_device"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 [[capabilities]]
 method = "ember.fecs.state"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 [[capabilities]]
 method = "ember.device.health"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 [[capabilities]]
 method = "ember.device.recover"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 # ── Semantic aliases (toadStool S255 — backward compat) ──────────────
 # ember.swap and sovereign.boot are semantic aliases to device.swap
@@ -433,12 +507,14 @@ method = "ember.swap"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 [[capabilities]]
 method = "sovereign.boot"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 # ── GPU introspection (toadStool — operational) ───────────────────────
 
@@ -447,18 +523,21 @@ method = "gpu.query_info"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 [[capabilities]]
 method = "gpu.query_memory"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 [[capabilities]]
 method = "gpu.query_telemetry"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 # ── Hardware learning (toadStool — operational) ───────────────────────
 
@@ -467,18 +546,21 @@ method = "compute.hardware.observe"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 [[capabilities]]
 method = "compute.hardware.status"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 [[capabilities]]
 method = "compute.hardware.vfio_devices"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 # ── Dispatch pipeline (toadStool — multi-stage ordered dispatch) ──────
 
@@ -487,12 +569,14 @@ method = "compute.dispatch.pipeline.submit"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 [[capabilities]]
 method = "compute.dispatch.pipeline.status"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 # ── Performance surface + multi-unit routing (toadStool — operational) ─
 
@@ -501,24 +585,28 @@ method = "compute.performance_surface.report"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 [[capabilities]]
 method = "compute.performance_surface.query"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 [[capabilities]]
 method = "compute.performance_surface.list"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 [[capabilities]]
 method = "compute.route.multi_unit"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 # ── Hardware learning expanded (toadStool S237+ — operational) ────────
 
@@ -527,30 +615,35 @@ method = "compute.hardware.distill"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 [[capabilities]]
 method = "compute.hardware.apply"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 [[capabilities]]
 method = "compute.hardware.share_recipe"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 [[capabilities]]
 method = "compute.hardware.auto_init"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 [[capabilities]]
 method = "compute.hardware.auto_init_all"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 # ── Shader dispatch (toadStool — accepts compiled binaries) ───────────
 
@@ -559,6 +652,7 @@ method = "shader.dispatch"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 # ── Auth (toadStool MethodGate — operational) ─────────────────────────
 
@@ -567,18 +661,21 @@ method = "auth.check"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 [[capabilities]]
 method = "auth.mode"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 [[capabilities]]
 method = "auth.peer_info"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 # ── Provenance (toadStool — operational) ──────────────────────────────
 
@@ -587,12 +684,14 @@ method = "provenance.query"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 [[capabilities]]
 method = "provenance.get"
 served = "routed"
 provider = "toadstool"
 domain = "compute"
+stability = "stable"
 
 # ── Precision advisory (routed to barraCuda) ─────────────────────────
 
@@ -601,6 +700,7 @@ method = "precision.route"
 served = "routed"
 provider = "barracuda"
 domain = "math"
+stability = "stable"
 
 # ── Shader compilation (routed to coralReef) ─────────────────────────
 
@@ -609,36 +709,42 @@ method = "shader.compile.wgsl"
 served = "routed"
 provider = "coralreef"
 domain = "shader"
+stability = "stable"
 
 [[capabilities]]
 method = "shader.compile.spirv"
 served = "routed"
 provider = "coralreef"
 domain = "shader"
+stability = "stable"
 
 [[capabilities]]
 method = "shader.compile.wgsl.multi"
 served = "routed"
 provider = "coralreef"
 domain = "shader"
+stability = "stable"
 
 [[capabilities]]
 method = "shader.compile.gemm"
 served = "routed"
 provider = "coralreef"
 domain = "shader"
+stability = "stable"
 
 [[capabilities]]
 method = "shader.compile.status"
 served = "routed"
 provider = "coralreef"
 domain = "shader"
+stability = "stable"
 
 [[capabilities]]
 method = "shader.compile.capabilities"
 served = "routed"
 provider = "coralreef"
 domain = "shader"
+stability = "stable"
 
 # ── Storage (routed to NestGate) ─────────────────────────────────────
 
@@ -647,18 +753,21 @@ method = "storage.store"
 served = "routed"
 provider = "nestgate"
 domain = "storage"
+stability = "stable"
 
 [[capabilities]]
 method = "storage.retrieve"
 served = "routed"
 provider = "nestgate"
 domain = "storage"
+stability = "stable"
 
 [[capabilities]]
 method = "storage.list"
 served = "routed"
 provider = "nestgate"
 domain = "storage"
+stability = "stable"
 
 # ── Provenance DAG (routed to rhizoCrypt) ────────────────────────────
 
@@ -667,24 +776,28 @@ method = "dag.session.create"
 served = "routed"
 provider = "rhizocrypt"
 domain = "dag"
+stability = "stable"
 
 [[capabilities]]
 method = "dag.event.append"
 served = "routed"
 provider = "rhizocrypt"
 domain = "dag"
+stability = "stable"
 
 [[capabilities]]
 method = "dag.merkle.root"
 served = "routed"
 provider = "rhizocrypt"
 domain = "dag"
+stability = "stable"
 
 [[capabilities]]
 method = "dag.merkle.verify"
 served = "routed"
 provider = "rhizocrypt"
 domain = "dag"
+stability = "stable"
 
 # ── Ledger (routed to loamSpine) ─────────────────────────────────────
 
@@ -693,24 +806,28 @@ method = "spine.create"
 served = "routed"
 provider = "loamspine"
 domain = "ledger"
+stability = "stable"
 
 [[capabilities]]
 method = "entry.append"
 served = "routed"
 provider = "loamspine"
 domain = "ledger"
+stability = "stable"
 
 [[capabilities]]
 method = "session.commit"
 served = "routed"
 provider = "loamspine"
 domain = "ledger"
+stability = "stable"
 
 [[capabilities]]
 method = "certificate.mint"
 served = "routed"
 provider = "loamspine"
 domain = "ledger"
+stability = "stable"
 
 # ── Attribution (routed to sweetGrass) ───────────────────────────────
 
@@ -719,30 +836,35 @@ method = "braid.create"
 served = "routed"
 provider = "sweetgrass"
 domain = "attribution"
+stability = "stable"
 
 [[capabilities]]
 method = "braid.commit"
 served = "routed"
 provider = "sweetgrass"
 domain = "attribution"
+stability = "stable"
 
 [[capabilities]]
 method = "provenance.graph"
 served = "routed"
 provider = "sweetgrass"
 domain = "attribution"
+stability = "stable"
 
 [[capabilities]]
 method = "provenance.export_provo"
 served = "routed"
 provider = "sweetgrass"
 domain = "attribution"
+stability = "stable"
 
 [[capabilities]]
 method = "attribution.chain"
 served = "routed"
 provider = "sweetgrass"
 domain = "attribution"
+stability = "stable"
 
 # ── Discovery (routed to Songbird) ───────────────────────────────────
 
@@ -751,12 +873,14 @@ method = "discovery.find_primals"
 served = "routed"
 provider = "songbird"
 domain = "discovery"
+stability = "stable"
 
 [[capabilities]]
 method = "discovery.announce"
 served = "routed"
 provider = "songbird"
 domain = "discovery"
+stability = "stable"
 
 # ── Primal discovery (biomeOS-served, Wave 20) ───────────────────────
 
@@ -765,6 +889,7 @@ method = "primal.list"
 served = "routed"
 provider = "biomeos"
 domain = "primal"
+stability = "stable"
 
 # ── Visualization + Interaction (routed to petalTongue) ───────────────
 
@@ -773,30 +898,35 @@ method = "visualization.render"
 served = "routed"
 provider = "petaltongue"
 domain = "visualization"
+stability = "stable"
 
 [[capabilities]]
 method = "visualization.render.scene"
 served = "routed"
 provider = "petaltongue"
 domain = "visualization"
+stability = "stable"
 
 [[capabilities]]
 method = "visualization.render.stream"
 served = "routed"
 provider = "petaltongue"
 domain = "visualization"
+stability = "stable"
 
 [[capabilities]]
 method = "interaction.subscribe"
 served = "routed"
 provider = "petaltongue"
 domain = "visualization"
+stability = "stable"
 
 [[capabilities]]
 method = "interaction.poll"
 served = "routed"
 provider = "petaltongue"
 domain = "visualization"
+stability = "stable"
 
 # ── Wave 17 signal adoption (May 2026) ──────────────────────────────
 # These are neural-API signal tiers this spring supports. They are

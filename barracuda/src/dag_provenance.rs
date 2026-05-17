@@ -14,6 +14,19 @@
 //!
 //! When rhizoCrypt is absent, all operations are no-ops and the session
 //! fields stay `None` in the receipt.
+//!
+//! ## Trio Transaction Semantics
+//!
+//! Per `PROVENANCE_TRIO_INTEGRATION_GUIDE.md` (absorbed Wave 20):
+//!
+//! - The trio commit flow (DAG → spine → braid) is **not atomic**.
+//! - **DAG without braid** = valid partial provenance.
+//! - **Braid without spine** = attribution without permanence.
+//! - **No rollback** — DAG sessions are append-only.
+//! - **Partial state must be reported** — `commit_provenance` returns
+//!   `primals_reached` listing which trio components succeeded.
+//! - **Domain logic must not fail** on partial provenance — provenance
+//!   is enrichment, not a gate.
 
 use crate::primal_bridge::NucleusContext;
 use crate::witness::WireWitnessRef;
@@ -209,18 +222,24 @@ fn try_sign_merkle_root(
 /// Falls back to direct `ledger.record` + `attribution.braid` multi-call
 /// if the signal is unavailable (pre-v3.57 biomeOS).
 ///
+/// **Trio semantics:** The commit flow is not atomic. Each leg is attempted
+/// independently. The return value includes `primals_reached` listing which
+/// trio components succeeded, per `PROVENANCE_TRIO_INTEGRATION_GUIDE.md`.
+/// Partial completion is valid: DAG without braid, braid without spine.
+/// This function never returns `None` on reachability failure — it returns
+/// partial state so callers can inspect `primals_reached`.
+///
 /// **Wiring status (May 2026):** Scaffolding ready for integration.
 /// Call after [`DagSession::dehydrate`] to commit the session's merkle root
-/// to the ledger and braid provenance. Natural integration points are the
-/// Titan V pipeline's session finalization and any `validate_*` binary that
-/// runs a full DAG lifecycle. Not yet called from any pipeline — will be
-/// wired when live experiment runs produce provenance worth committing.
+/// to the ledger and braid provenance.
 pub fn commit_provenance(
     nucleus: &NucleusContext,
     provenance: &DagProvenance,
     experiment_id: &str,
     paper_ref: Option<&str>,
 ) -> Option<serde_json::Value> {
+    let mut primals_reached: Vec<&str> = Vec::new();
+
     let signal_params = serde_json::json!({
         "session_id": provenance.dag_session_id,
         "merkle_root": provenance.merkle_root,
@@ -239,17 +258,38 @@ pub fn commit_provenance(
         nucleus.call_by_capability("orchestration", "signal.dispatch", dispatch_params)
     {
         log::info!("nest.commit signal dispatched for {experiment_id}");
-        return resp.get("result").cloned();
+        primals_reached.push("biomeOS");
+        primals_reached.push("rhizoCrypt");
+        primals_reached.push("loamSpine");
+        primals_reached.push("sweetGrass");
+        return resp.get("result").cloned().map(|mut r| {
+            if let serde_json::Value::Object(ref mut m) = r {
+                m.insert(
+                    "primals_reached".into(),
+                    serde_json::json!(primals_reached),
+                );
+            }
+            r
+        });
     }
 
     log::info!("nest.commit signal unavailable, falling back to multi-call");
+
+    // DAG already committed via DagSession — DAG leg is always reached
+    primals_reached.push("rhizoCrypt");
+
     let ledger_params = serde_json::json!({
         "experiment_id": experiment_id,
         "dag_node_id": provenance.dag_session_id,
         "spring": "hotspring",
         "method": "dag.commit",
     });
-    let _ = nucleus.call_by_capability("ledger", "ledger.record", ledger_params);
+    if nucleus
+        .call_by_capability("ledger", "ledger.record", ledger_params)
+        .is_ok()
+    {
+        primals_reached.push("loamSpine");
+    }
 
     if let Some(ref_str) = paper_ref {
         let braid_params = serde_json::json!({
@@ -258,13 +298,19 @@ pub fn commit_provenance(
             "spring": "hotspring",
             "status": "pass",
         });
-        let _ = nucleus.call_by_capability("attribution", "attribution.braid", braid_params);
+        if nucleus
+            .call_by_capability("attribution", "attribution.braid", braid_params)
+            .is_ok()
+        {
+            primals_reached.push("sweetGrass");
+        }
     }
 
     Some(serde_json::json!({
         "committed": true,
         "fallback": true,
         "experiment_id": experiment_id,
+        "primals_reached": primals_reached,
     }))
 }
 

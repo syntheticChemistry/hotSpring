@@ -408,7 +408,17 @@ def run_all():
 
     # ── Output ───────────────────────────────────────────────────
     if json_mode:
-        print(json.dumps(results, indent=2))
+        def _convert(obj):
+            if isinstance(obj, (np.bool_,)):
+                return bool(obj)
+            if isinstance(obj, (np.integer,)):
+                return int(obj)
+            if isinstance(obj, (np.floating,)):
+                return float(obj)
+            if isinstance(obj, np.ndarray):
+                return obj.tolist()
+            raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+        print(json.dumps(results, indent=2, default=_convert))
 
     print("=" * 60)
     print("  Python control complete — all results above are the")

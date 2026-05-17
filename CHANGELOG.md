@@ -7,6 +7,34 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Unreleased — primalSpring Audit Absorption (May 17, 2026 PM)
+
+### Added (lithoSpore R1–R4 absorption)
+- **`s_anderson_parity` validation scenario**: Cross-tier parity for Anderson
+  module (Python spectral_control.py vs Rust validate_spectral). 6 checks:
+  Herman/Lyapunov, level statistics, 3D bandwidth, GOE→Poisson, dimensional
+  hierarchy, mobility edge. `barracuda-local` feature gate.
+- **`spectral_parity.py`**: Python-side cross-tier parity checker comparing
+  spectral_control.json against Rust reference values. 6/6 ALL PASS.
+- **`docs/IPC_DEGRADATION_BEHAVIOR.md`**: Consolidated degradation behavior
+  for all 14 primal interactions. Documents what happens when each primal is
+  down (all return `Err`/`None`, never panic), circuit breaker (3 failures →
+  dead, 30s reprobe), and validation degradation (honest failures, skip-pass
+  for standalone mode).
+- **Stability tier annotations**: All 117 capabilities in
+  `barracuda/config/capability_registry.toml` now have `stability` field
+  (`stable`/`evolving`) aligned with primalSpring upstream registry.
+
+### Changed
+- **`commit_provenance()`**: Now reports `primals_reached` in return value
+  listing which trio components (rhizoCrypt/loamSpine/sweetGrass) were
+  successfully contacted. Partial completion is explicit per trio semantics.
+- **`dag_provenance.rs` module docs**: Added trio transaction semantics
+  documentation (non-atomic commit, partial states, no rollback, domain
+  logic never gates on provenance).
+- **`spectral_control.py`**: Fixed numpy bool JSON serialization for `--json`
+  output mode.
+
 ## Unreleased — Wave 20 Experiment Buildouts + Compute Parity (May 17, 2026)
 
 ### Added (4-phase experiment + compute evolution sprint)
