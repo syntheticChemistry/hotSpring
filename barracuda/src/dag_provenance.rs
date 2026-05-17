@@ -208,6 +208,13 @@ fn try_sign_merkle_root(
 /// `event.append` → `crypto.sign` → `content.put` → `session.commit` → `braid.create`.
 /// Falls back to direct `ledger.record` + `attribution.braid` multi-call
 /// if the signal is unavailable (pre-v3.57 biomeOS).
+///
+/// **Wiring status (May 2026):** Scaffolding ready for integration.
+/// Call after [`DagSession::dehydrate`] to commit the session's merkle root
+/// to the ledger and braid provenance. Natural integration points are the
+/// Titan V pipeline's session finalization and any `validate_*` binary that
+/// runs a full DAG lifecycle. Not yet called from any pipeline — will be
+/// wired when live experiment runs produce provenance worth committing.
 pub fn commit_provenance(
     nucleus: &NucleusContext,
     provenance: &DagProvenance,

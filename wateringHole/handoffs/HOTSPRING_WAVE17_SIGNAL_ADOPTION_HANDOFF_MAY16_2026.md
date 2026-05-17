@@ -62,7 +62,7 @@ Falls back to direct `crypto.sign_ed25519` + `discovery.announce`.
 ```toml
 [signals]
 adopted = ["node.compute", "tower.publish"]
-candidates = ["nest.store", "nest.commit"]
+candidates = ["nest.store"]  # nest.commit promoted to adopted in Wave 20
 
 [registration]
 method = "primal.announce"
@@ -90,7 +90,7 @@ Signals replace only orchestration sequences that biomeOS can graph-execute.
 | Signal | Use case | Priority |
 |--------|----------|----------|
 | `nest.store` | Physics result → provenance chain (content.put + dag + spine + braid) | Medium |
-| `nest.commit` | Session finalization → dehydrate + certificate | Medium |
+| ~~`nest.commit`~~ | **Adopted Wave 20** — `commit_provenance()` in `dag_provenance.rs` | Done |
 | `nest.retrieve` | Result retrieval from content-addressed storage | Low |
 
 ---

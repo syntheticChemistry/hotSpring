@@ -106,8 +106,8 @@ hotSpring has adopted three primalSpring Wave 17 signals:
    into sign → announce → audit. Falls back to direct `crypto.sign_ed25519`
    + `discovery.announce`.
 
-**Next candidates:** `nest.store`, `nest.commit` (awaiting upstream nest
-evolution in nestGate).
+**Next candidates:** `nest.store` (awaiting upstream nest evolution in nestGate).
+`nest.commit` was promoted to adopted in Wave 20 — `commit_provenance()` in `dag_provenance.rs`.
 
 ### Composition Pattern Insights (for sibling springs)
 
@@ -153,7 +153,7 @@ evolution in nestGate).
 |------|--------|-------|
 | LTEE B2 Anderson → lithoSpore module 7 | maintenance | strandGate |
 | Plasma/QCD Thread 2 → foundation | active | strandGate |
-| `nest.store` / `nest.commit` signal adoption | awaiting nestGate | strandGate |
+| `nest.store` signal adoption | awaiting nestGate | strandGate |
 | FECS PENDING_CTX_RELOAD (Titan V sovereign) | blocked on driver lab | biomeGate |
 | K80 PLX D3cold prevention (SwapGuard validated) | solved, needs integration | biomeGate |
 | Papers remaining (~25 queued) | backlog | strandGate |
@@ -167,8 +167,9 @@ evolution in nestGate).
 
 1. **451-method registry sync**: hotSpring is at Wave 17. Confirm HEAD
    registry matches our `capability_registry.toml` signal declarations.
-2. **`nest.store` / `nest.commit` signal spec**: When nestGate evolves,
+2. **`nest.store` signal spec**: When nestGate evolves,
    hotSpring is ready to adopt. Need signal decomposition spec.
+   (`nest.commit` already adopted Wave 20 — `commit_provenance()` in `dag_provenance.rs`.)
 3. **sourDough v0.3.0 timeline**: Shell scripts (`harvest-ecobin.sh`,
    `build-guidestone.sh`) are functional; sourDough internalization
    will absorb them.

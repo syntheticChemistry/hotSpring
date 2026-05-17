@@ -233,6 +233,8 @@ fn handle_request(state: &HotSpringState, method: &str, params: &Value) -> Dispa
         }
         "capabilities.list" | "capability.list" => DispatchResult::Ok(json!({
             "capabilities": state.capabilities,
+            "count": state.capabilities.len(),
+            "primal": "hotspring",
         })),
         "compute.status" => {
             let gpus: Vec<Value> = state

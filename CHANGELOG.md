@@ -7,6 +7,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Unreleased — Wave 20 Debt Resolution (May 17, 2026)
+
+### Fixed (primalSpring Wave 20 audit response)
+- **Fossilized RPC canonical envelope**: `hotspring_primal.rs` `capability.list` handler
+  now returns `"count"` and `"primal"` fields per Wave 20 schema standard.
+- **`nest.commit` doc drift**: Removed from candidate lists in PRIMAL_GAPS.md, Wave 17
+  handoff, and doc evolution handoff. Signal was promoted to adopted in Wave 20.
+- **`commit_provenance()` wiring doc**: Added scaffolding status documentation to
+  `dag_provenance.rs` — ready for Titan V pipeline integration.
+
+### Metrics
+- Lib tests: 596 (default) / 1,045 (barracuda-local)
+- Clippy: zero warnings
+- Workspace binary compile: biomeGate feature-gate debt (not strandGate scope)
+
 ## Unreleased — Deep Debt Sprint: glowplug_client Refactor (May 16, 2026)
 
 ### Changed (deep debt — large file refactoring)

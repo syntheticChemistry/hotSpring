@@ -4,7 +4,7 @@
 **Proto-nucleate:** `downstream_manifest.toml` (spring_name = "hotspring")
 **Particle profile:** proton-heavy (Node atomic dominant)
 **Date:** April 10, 2026
-**Last audited:** May 16, 2026 (Deep Debt Sprint: glowplug_client refactor, zero >800L lib files)
+**Last audited:** May 17, 2026 (Wave 20 Debt Resolution: fossilized RPC fix, nest.commit doc drift, commit_provenance scaffolding)
 **License:** AGPL-3.0-or-later
 
 ---
@@ -1829,7 +1829,8 @@ Next: hardware validation on Titan V and K80.
   2. **`node.compute` signal dispatch**: `dispatch_node_compute()` in `compute_dispatch.rs`.
   3. **`tower.publish` signed publication**: `publish_result()` in `compute_dispatch.rs`.
   4. **Capability registry signals**: `[signals]` section with adopted/candidate tiers.
-- **Signal candidates remaining:** `nest.store`, `nest.commit`.
+- **Signal candidates remaining:** `nest.store` (awaiting nestGate evolution).
+  `nest.commit` was promoted to adopted in Wave 20 (GAP-HS-104).
 
 #### Deep debt refactoring
   5. **`niche.rs` (932L) → `niche/mod.rs` (516L) + `niche/tables.rs` (394L)**: Table
@@ -1918,6 +1919,27 @@ Next: hardware validation on Titan V and K80.
      Dense Plasma Properties DB (off-repo), Sulfolobus genomes (wetSpring queued).
 - **Validation:** 596 (default) / 1,045 (barracuda-local) lib tests pass. Zero clippy warnings.
   `cargo fmt --check` clean.
+
+### GAP-HS-106 — Wave 20 Debt Resolution (May 17, 2026)
+
+- **Severity:** Low (documentation drift + fossilized binary alignment)
+- **Classification:** primalSpring Wave 20 debt resolution audit
+- **Trigger:** `WAVE20_DEBT_RESOLUTION_MAY17_2026.md` — primalSpring audited all delta springs
+  post-Wave 20 and identified 4 hotSpring-specific debt items.
+- **Completed:**
+  1. **Fossilized RPC shape fixed**: `hotspring_primal.rs` `capability.list` handler now returns
+     canonical `{ "capabilities": [...], "count": N, "primal": "hotspring" }` envelope.
+  2. **`nest.commit` doc drift resolved**: Removed `nest.commit` from candidate lists in
+     `PRIMAL_GAPS.md` (GAP-HS-103), Wave 17 handoff, and doc evolution handoff.
+     Only `nest.store` remains as candidate (awaiting nestGate).
+  3. **`commit_provenance()` documented as scaffolding**: Added wiring status doc to
+     `dag_provenance.rs` — ready for Titan V pipeline session finalization or any
+     `validate_*` binary running a full DAG lifecycle.
+  4. **Test count verified**: 596 (default lib) / 1,045 (barracuda-local lib) confirmed.
+     Workspace `cargo test` compile errors in biomeGate binaries (feature-gate debt) —
+     not strandGate-side issue. primalSpring's cited 1,607 figure includes binary tests
+     that require biomeGate's `barracuda-local` feature gating fix.
+- **Validation:** 596 (default) / 1,045 (barracuda-local) lib tests pass. Zero clippy warnings.
 
 ---
 
