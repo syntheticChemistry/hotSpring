@@ -152,6 +152,212 @@ This file covers the spring as a whole. For crate-level details see
 
 ## Unreleased — Post-BootPipeline Documentation + Cross-Team Handoff (May 16, 2026)
 
+## Unreleased — VBIOS Interpreter Live Validation (Exp 204, May 17, 2026)
+
+### Fixed (toadStool cylinder — VBIOS interpreter `opcodes.rs`)
+- **`0x56` INIT_CONDITION_TIME stride**: 5 → 3. Our Maxwell+ path assumed an
+  extended u16 delay field; nouveau uses stride 3 for all generations.
+- **`0x3A` INIT_GENERIC_CONDITION stride**: Now uses `3 + size` for unknown
+  conditions (sovereign mode has no display connector info).
+- **`0x4F` INIT_TMDS stride**: 9 → 5. Corrected to match nouveau.
+
+### Added (toadStool cylinder — VBIOS interpreter `opcodes.rs`)
+- **Volta-specific opcodes**: `0xAC` (stride 13), `0xB0` (stride 10),
+  `0xB1` (stride 3), `0x9E` (stride 1 prefix). Not in upstream nouveau.
+- **Consecutive `0xFF` end-of-script**: Erased ROM regions terminate scripts
+  gracefully instead of desyncing.
+- **Graceful desync recovery**: 100 unknown opcodes → clean script termination
+  with warning, allowing pipeline to continue.
+
+### Validated (Experiment 204)
+- **Cold Titan V VBIOS execution**: 422 ops, 231 BAR0 writes including PLL
+  programming on real GV100 hardware.
+- **PMC cold state confirmed**: PMC_ENABLE=0x00000000 on VFIO-bound GPU.
+- **PGRAPH status improved**: 0x00000000 after PGOB (engines responding after
+  PLL init).
+
+## Unreleased — Warm/Cold Boot Convergence (Exp 203, May 17, 2026)
+
+### Added (toadStool cylinder — `sovereign_strategy.rs`)
+- **`FalconWarmState` enum**: `Cold`, `WarmPreserved`, `WarmRunning`, `Inconsistent` —
+  classifies falcon thermal state for warm/cold dispatch.
+- **`detect_falcon_warm_state()`**: Default trait method reads FECS CPUCTL/MAILBOX0/PC.
+  `NvKeplerStrategy` overrides to always return `Cold`.
+- **`pfifo_config()`**: Default trait method selects `PfifoInitConfig` based on
+  `FalconWarmState` (warm_fecs_alive / warm_handoff / default).
+
+### Changed (toadStool cylinder — `sovereign_stages.rs`)
+- **`falcon_boot()` signature**: `warm_detected: bool` replaced with
+  `warm_state: FalconWarmState`. Dispatches on enum variants instead of
+  inline BAR0 register reads.
+
+### Added (toadStool cylinder — `pfifo.rs`)
+- **`PfifoInitConfig::for_thermal_state(warm, fecs_preserved)`**: Unified config
+  selection method replacing scattered if/else branches.
+
+### Changed (toadStool cylinder — VBIOS interpreter `opcodes.rs`)
+- **6 PLL opcodes activated**: 0x79 (INIT_PLL), 0x4B (INIT_PLL_INDIRECT),
+  0x34 (INIT_RAM_RESTRICT_PLL), 0x4A (variant), 0x59 (INIT_PLL2),
+  0x87 (INIT_RAM_RESTRICT_ZM_REG) — now perform actual BAR0 writes with
+  pre-computed coefficient words from the VBIOS ROM.
+- **4 register copy opcodes activated**: 0x88 (INIT_RAM_RESTRICT_ZM_REG_GROUP),
+  0x8F (variant), 0x90 (INIT_COPY_ZM_REG), 0x5F (INIT_COPY_NV_REG) —
+  previously stub-handled, now perform register reads/writes.
+
+### Documentation (toadStool cylinder)
+- **`NvGspBridge`** and **`GspBridge` trait**: Documented as frozen dependency —
+  firmware blobs are pinned artifacts, upload mechanisms are hardware-defined,
+  Rust code evolves glacially. Future bridges (AMD, NPU) follow the same pattern.
+
+## Unreleased — Experiment Surface Rewire (Exp 202, May 17, 2026)
+
+### Added (toadStool cylinder — `sovereign_strategy.rs`)
+- **`ProbeIdentity`**: Vendor-neutral struct for device identity probing.
+- **`probe_identity()`**: Default trait method on `SovereignStrategy` — delegates
+  to `bar0_probe()` for NVIDIA, overrideable for AMD/NPU.
+- **`verify_device()`**: Default trait method — delegates to existing `verify()`
+  for NVIDIA, overrideable for vendor-specific health checks.
+- **`pre_channel_init()`**: Default trait method — no-op for Kepler, runs
+  CG sweep + PRI recovery + PGOB ungating for Volta+ (NvAcrStrategy).
+
+### Changed (toadStool cylinder — `sovereign_stages.rs`)
+- **`falcon_boot()`**: Now accepts `FalconBootStyle` parameter and dispatches
+  on enum variant instead of internally re-deriving generation via
+  `profile_for_sm()` / `is_kepler()`.
+- **`NoFalcons` variant**: Immediate success path for hardware without falcon
+  microcontrollers.
+
+### Changed (toadStool cylinder — `sovereign_types.rs`)
+- **`SovereignInitResult` fields renamed**: `chip_id` → `identity_chip`,
+  `boot0` → `identity_raw`, `hbm2_writes` → `training_writes`. Serde aliases
+  preserve backward compatibility with persisted JSON.
+- **`HaltBefore` expanded**: `CgSweep` and `PgobUngate` variants added between
+  `PmcEnable` and `MemoryTraining`, enabling observation of raw post-PMC
+  state and post-CG-sweep state during experiments.
+
+### Changed (toadStool cylinder — `sovereign_init.rs`)
+- Pipeline stage 1 renamed from `bar0_probe` to `identity_probe`, delegates
+  to `strategy.probe_identity()`.
+- Verify stage delegates to `strategy.verify_device()`.
+- New halt points wired for `CgSweep` and `PgobUngate`.
+
+### Changed (toadStool server — `dispatch/mod.rs`)
+- `sovereign_init_ember` calls `strategy.pre_channel_init()` before
+  `sovereign_init`, running CG sweep on raw BAR0 before factory channel
+  creation.
+
+## Unreleased — Volta Cold Boot CG Sweep (Exp 201, May 17, 2026)
+
+### Added (toadStool cylinder — `sovereign_stages.rs`)
+- **`cg_sweep()`**: Disables ELCG/BLCG/SLCG across PTHERM, PMC CG slots,
+  PRIV_RING, PFB, PCLOCK, per-FBPA (4), and per-LTC (6) domains. Writes
+  `CG_DISABLE` (0x0) to each register. Returns `CgSweepResult` with change
+  and fault counts.
+- **`pri_bus_recover()`**: Probes all PRI domains via `PriBusMonitor`,
+  acknowledges PRIV_RING faults, and re-probes. Clears stale backpressure
+  after CG transition.
+- **`pgob_ungating()`**: Delegates to `bridge.pgob_disable()` for PGRAPH
+  GPC broadcast ungating. Previously only called from Kepler's falcon_boot.
+
+### Changed (toadStool cylinder — `sovereign_init.rs`)
+- **Pipeline stages 2b/2c/2d**: New `cg_sweep` → `pri_recovery` →
+  `pgob_ungating` stages run for all non-NoAcr generations (Volta+) between
+  `pmc_enable` and `memory_training`. Unblocks cold HBM2 training and
+  falcon DMA boot by clearing `0xBADF` PRI faults from clock-gated domains.
+
+### Changed (toadStool cylinder — `registers.rs`)
+- **`cg` module**: Removed `#[expect(dead_code)]` — constants now actively
+  used by `sovereign_stages::cg_sweep`.
+
+### Architecture Note
+The CG sweep, PRI recovery, and PGOB ungating were already implemented in
+glowplug's warm path (`warm.rs::run_step_clock_gating`). This change
+extracts the same register-level logic into `MappedBar`-only functions
+(no GlowPlug dependency) and wires them into the sovereign cold pipeline.
+This is the first step toward warm/cold convergence — both paths now share
+the same CG ungating constants and PGOB sequence.
+
+## Diesel Engine Power Safety (Exp 200, May 17, 2026)
+
+### Added (toadStool cylinder — `generation.rs`)
+- **`PowerSafetyProfile` struct**: Generation-aware PMC_ENABLE sequencing
+  policy with `initial_pmc_mask`, `full_enable_after_devinit`, and
+  `rollback_on_devinit_failure` fields.
+- **`PowerSafetyProfile::PRE_FIRMWARE`**: Conservative mask (0xC000_2030) for
+  Kepler/Maxwell — enables only PPCI + PBUS + PTIMER + PFIFO. Rolls back
+  PMC_ENABLE on devinit failure.
+- **`PowerSafetyProfile::FIRMWARE_MANAGED`**: Full ungating (0xFFFF_FFFF)
+  for Pascal+ where firmware manages power rails.
+- **`GenerationProfile.power_safety`**: New field on all 10 generation
+  profiles, wired to the appropriate safety level.
+
+### Changed (toadStool cylinder — `sovereign_stages.rs`)
+- **`pmc_enable()`**: Now accepts `&PowerSafetyProfile` and writes only the
+  profile's `initial_pmc_mask` instead of blanket 0xFFFF_FFFF. Returns
+  `PmcEnableResult` for rollback tracking.
+- **`pmc_enable_rollback()`**: New function — restores PMC_ENABLE to its
+  pre-pipeline value when devinit fails on pre-firmware GPUs.
+- **`pmc_enable_full()`**: New function — writes 0xFFFF_FFFF post-devinit
+  for firmware-managed generations only.
+
+### Changed (toadStool cylinder — `sovereign_init.rs`)
+- **Pipeline restructured**: Generation profile now resolved before stage 2
+  (was after stage 3). PMC_ENABLE is staged: conservative mask in stage 2,
+  full ungating in new stage 3b (post-devinit, firmware-managed only).
+- **Devinit failure rollback**: If memory training fails on a
+  `rollback_on_devinit_failure` generation, PMC_ENABLE is restored to its
+  pre-pipeline value before returning.
+
+### Root Cause — K80 Fire (Exp 199 Post-Mortem)
+Writing `0xFFFF_FFFF` to PMC_ENABLE on a cold Kepler GPU with uninitialised
+GDDR5 instantly ungated all engine clock domains, causing inrush current
+beyond the aged VRM's capacity. The new staged approach prevents this by
+limiting initial PMC_ENABLE to essential buses and rolling back on failure.
+
+## Diesel Engine Sovereign Boot (Exp 199, May 16, 2026)
+
+### Added (toadStool cylinder — `lib.rs`)
+- **`ComputeDevice::bar0()`**: Returns `Option<&MappedBar>` to expose cached
+  BAR0 mapping from VFIO devices. Default `None`.
+- **`ComputeDevice::dma_backend()`**: Returns `Option<&DmaBackend>` for ACR
+  falcon boot. Default `None`.
+
+### Added (toadStool cylinder — `compute_device.rs`)
+- **`NvVfioComputeDevice::bar0()`**: Returns `&VfioDispatchState.bar0`.
+- **`NvVfioComputeDevice::dma_backend()`**: Returns `&VfioDispatchState.dma_backend`.
+
+### Added (toadStool server — `dispatch/mod.rs`)
+- **`DispatchHandler::sovereign_init_ember()`**: Runs sovereign pipeline using
+  diesel engine's cached `MappedBar` + `DmaBackend`. Dynamically selects
+  `NvGspBridge` vs `StubGspBridge` based on firmware availability.
+
+### Changed (toadStool server — `handler/mod.rs`)
+- **`sovereign.init` routing**: When `bar0_source=ember`, routes to
+  `DispatchHandler::sovereign_init_ember()` instead of stateless handler.
+
+### Changed (toadStool cylinder — `nv_gsp_bridge.rs`)
+- **`NvGspBridge::acr_boot()`**: Real implementation using `boot_falcon_hs`
+  for GPCCS then FECS when DMA backend is provided. Replaces stub.
+- **`NvGspBridge::supports_acr()`**: Returns `true` when firmware is available.
+
+### Experiment 199 Results
+- **Titan V**: bar0_probe/pmc_enable OK, memory_training FAILED (PGRAPH CG
+  gated, PRAMIN PRI faults). FECS HS boot times out at pc=0x8 (FBIF PRI).
+- **K80 x2**: bar0_probe OK (GK210 identified), PMC_ENABLE 0xc0002020→0xfc37b1ef,
+  VBIOS interpreter ran 268 writes but PRAMIN still dead.
+- **Architecture validated**: `bar0_source=ember` pipeline borrows BAR0/DMA
+  from diesel engine. No EBUSY conflicts.
+
+### Remaining Sovereign Boot Issues
+- **Titan V cold**: PGRAPH CG ungating needed before falcon DMA boot.
+  HBM2 controller inaccessible post-FLR.
+- **K80 cold**: VBIOS script 1 hits unknown opcode 0x0a. GDDR5 training
+  incomplete — PRAMIN inaccessible after 268 register writes.
+- **coral-ember coexistence**: Both services cannot hold VFIO devices
+  simultaneously. Needs lifecycle coordination or shared VFIO ownership.
+
+## Post-BootPipeline Documentation + Cross-Team Handoff (May 16, 2026)
+
 ### Changed (documentation)
 - **Test counts updated**: 591→606 (cylinder), experiment count 196→198 across
   README, EXPERIMENT_INDEX, experiments/README, whitePaper/baseCamp.
@@ -170,13 +376,6 @@ This file covers the spring as a whole. For crate-level details see
   handoff covering primal use/evolution review, NUCLEUS composition patterns,
   neuralAPI signal adoption, sovereign boot insights, atomic instantiation
   patterns, and upstream asks for all primal and spring teams.
-
-### Remaining Sovereign Boot Issues
-- **Titan V warm**: GspBridge stub halts at stage 4. Needs real FECS state
-  capture or coralReef IPC bridge.
-- **K80 cold**: VBIOS interpreter correct, BAR access blocked (vfio-pci binding
-  requires iommufd FDs, not sysfs resource0).
-- **K80 warm**: PGRAPH clock-gated after driver teardown — needs ungating.
 
 ## Sovereign Boot: Hardware-Agnostic BootPipeline + VBIOS Interpreter Fixes (Exp 198, May 16, 2026)
 
