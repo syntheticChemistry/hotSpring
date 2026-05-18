@@ -134,7 +134,7 @@ Deploy: `biomeos deploy --graph graphs/<name>.toml`
 >
 > **Firmware Boundary Pivot (Exp 159-163, 2026-04-07):** Architectural pivot — falcon firmware (PMU, SEC2, FECS, GPCCS) is the GPU's internal OS, to be interfaced with, not replaced. **NOP dispatch via nouveau DRM: SUCCEEDED** in both raw C and pure Rust. Pipeline: `VM_INIT → CHANNEL_ALLOC(VOLTA_COMPUTE_A) → SYNCOBJ → GEM_NEW → VM_BIND → mmap → EXEC → SYNCOBJ_WAIT`. PMU mailbox protocol mapped (register-based on GV100: MBOX0/MBOX1 + IRQSSET). `PmuInterface` struct created in coral-driver. Hot-handoff channel injection proven (CH 500 accepted by scheduler alongside nouveau). HBM2 training preserved through nouveau warm-cycle + `reset_method` clear. Firmware-agnostic interface pattern scales Kepler→Volta→Turing→GSP.
 >
-> **Ember Survivability Hardening (Exp 140-151, 2026-04-07):** Three-phase hardening eliminated all known lockup vectors. Fork-isolated MMIO, zero-I/O recovery, FdVault checkpoint/restore, GPU warm cycle resurrection. **Validated**: 8 consecutive fault runs — zero lockups. **Fleet:** Titan V (GV100) + 2× Tesla K80 (GK210) + RTX 5060.
+> **Ember Survivability Hardening (Exp 140-151, 2026-04-07):** Three-phase hardening eliminated all known lockup vectors. Fork-isolated MMIO, zero-I/O recovery, FdVault checkpoint/restore, GPU warm cycle resurrection. **Validated**: 8 consecutive fault runs — zero lockups. **Fleet:** 2× Titan V (GV100) + RTX 5060 (Blackwell). K80 retired (Exp 199 fire → replaced by second Titan V).
 >
 > **SEC2 ACR Boot Investigation (Exp 141-151):** SEC2 falcon starts and executes BL code but does not achieve HS mode. Root cause narrowing: VBIOS DEVINIT contradicted (Exp 142-143). Crash vector hunt (Exp 150) isolated PRAMIN as lockup trigger. Cold VRAM detection graceful. **Superseded by DRM path** — firmware-agnostic DRM interface bypasses the ACR HS barrier entirely.
 >
@@ -440,10 +440,14 @@ hotSpring/
 │   ├── hotspring_qcd_deploy.toml      # Primary deploy graph (10 primals, bonding policy)
 │   └── README.md                      # Deploy graph documentation
 │
-├── docs/                               # Active documentation
-│   ├── DOWNSTREAM_PATTERNS.md        # Downstream repo patterns (projectNUCLEUS, foundation)
+├── docs/                               # Active documentation (7 files)
 │   ├── PRIMAL_GAPS.md                # NUCLEUS composition gaps (handback to primalSpring)
-│   └── PRIMAL_PROOF_IPC_MAPPING.md   # Level 6: domain science → primal IPC method mapping
+│   ├── PRIMAL_PROOF_IPC_MAPPING.md   # Level 6: domain science → primal IPC method mapping
+│   ├── DEGRADATION_BEHAVIOR.md       # Graceful degradation when primals absent
+│   ├── CROSS_TIER_PARITY.md          # Cross-tier validation parity (default vs barracuda-local)
+│   ├── DOWNSTREAM_PATTERNS.md        # Downstream repo patterns (projectNUCLEUS, foundation)
+│   ├── DEPENDENCY_AUDIT.md           # Dependency audit and pin tracking
+│   └── BASELINE_PROVENANCE_CATALOG.md # Provenance baseline catalog
 │
 ├── barracuda/                          # BarraCuda Rust crate (596 / 1,045 lib tests, 167 binaries, 128 WGSL shaders)
 │   ├── Cargo.toml                     # Dependencies (requires ecoPrimals/barraCuda)
@@ -522,15 +526,13 @@ a network service, you must make your source available under the same terms.
 
 ---
 
-*206 experiments, 596 / 1,045 lib tests (IPC-first default / barracuda-local), 167 binaries, 128 WGSL shaders, ~$0.30 total science cost.
+*208 experiments, 596 / 1,045 lib tests (IPC-first default / barracuda-local), 167 binaries, 128 WGSL shaders, ~$0.30 total science cost.
 Consumer GPUs reproduce HPC physics at paper parity. DF64 delivers 3.24 TFLOPS at
 14-digit precision. GPU RHMC runs all-flavors dynamical QCD (Nf=2+1). Self-tuning
-RHMC eliminates hand-tuned parameters. Chuna 44/44 checks pass. **ALL 3 GPUs
-SOVEREIGN** — RTX 5060 full dispatch LIVE (QMD v5.0, SM120). **Titan V e2e VFIO
-dispatch VALIDATED** — FECS alive via CPUCTL_ALIAS warm handoff, DMA roundtrip +
-GR init confirmed (Exp 191B, toadStool S263). K80 GDDR5 trained (12 GiB), 5 GPCs
-active via warm-catch (GAP-HS-076 RESOLVED). Warm-catch pipeline elevated to pure
-Rust (`toadstool device warm-catch` — ELF patcher + ember orchestrator).
+RHMC eliminates hand-tuned parameters. Chuna 44/44 checks pass. **Dual Titan V
+SOVEREIGN** — e2e VFIO dispatch VALIDATED, **183ms warm pipeline** (falcon
+preservation, fd store, 76× faster than cold). RTX 5060 full dispatch LIVE
+(QMD v5.0, SM120). K80 retired (Exp 199 fire → second Titan V installed).
 Three-tier validation: Python validates Rust. Rust validates NUCLEUS. Peer-reviewed
 science runs on consumer hardware, composed via sovereign primal IPC.
 guideStone artifact validated across 5 substrates.
