@@ -55,10 +55,13 @@ entry for the session that produced it. Chronological by filename suffix.
 | 2026-05-16 | `HOTSPRING_PLX_KEEPALIVE_BOOT_CATCH_HANDOFF_MAY16_2026.md` | archive | PLX keepalive boot-catch: class code extraction fix, event-driven interval, activity-aware backpressure, boot validation |
 | 2026-05-16 | `HOTSPRING_WAVE17_SIGNAL_ADOPTION_HANDOFF_MAY16_2026.md` | archive | Wave 17: primal.announce, node.compute, tower.publish signal adoption |
 | 2026-05-16 | `HOTSPRING_DOC_EVOLUTION_UPSTREAM_HANDOFF_MAY16_2026.md` | archive | Doc evolution: count normalization, unibin naming, handoff archival, upstream patterns |
-| 2026-05-16 | `HOTSPRING_DIESEL_ENGINE_CAPABILITY_ABSTRACTION_HANDOFF_MAY16B_2026.md` | archive | Diesel engine capability abstraction: 6 subsystems generalized (PCIe Bridge Health, GspBridge caps, Memory Training dispatch, Falcon Boot wiring, Engine Ungating, DriverLab Executor), 6,989 tests, deployed |
-| 2026-05-16 | `HOTSPRING_BOOT_PIPELINE_VBIOS_HANDOFF_MAY16C_2026.md` | archive | Vendor-agnostic BootPipeline trait, VBIOS interpreter fixes (K80 0x50/0x88/0x70), DeviceTopology, VegaInit AMD stub, 591→606 tests |
-| 2026-05-16 | `HOTSPRING_PRIMALS_SPRINGS_EVOLUTION_HANDOFF_MAY16D_2026.md` | archive | Cross-team handoff: primal use/evolution, NUCLEUS composition patterns, neuralAPI signals, sovereign boot insights, upstream asks for all teams |
+| 2026-05-16 | `HOTSPRING_DIESEL_ENGINE_CAPABILITY_ABSTRACTION_HANDOFF_MAY16B_2026.md` | archive | Diesel engine capability abstraction: 6 subsystems generalized |
+| 2026-05-16 | `HOTSPRING_BOOT_PIPELINE_VBIOS_HANDOFF_MAY16C_2026.md` | archive | Vendor-agnostic BootPipeline trait, VBIOS interpreter fixes |
+| 2026-05-16 | `HOTSPRING_PRIMALS_SPRINGS_EVOLUTION_HANDOFF_MAY16D_2026.md` | archive | Cross-team handoff: primal use/evolution, NUCLEUS composition patterns |
 | 2026-05-17 | `HOTSPRING_COMPUTE_PARITY_MIXED_HARDWARE_HANDOFF_MAY17_2026.md` | ✅ | Wave 20 compute evolution: CPU/GPU parity scenarios, toadStool dispatch validation, metalForge NUCLEUS atomics + PCIe direct + biomeOS graph, CPU fallback dispatch, parity greenboard ALL GREEN |
+| 2026-05-17 | `HOTSPRING_DUAL_TITAN_V_HANDOFF_MAY17_2026.md` | ✅ | Dual Titan V twin study baseline: K80→Titan V #2, sovereign.init validated on both, VBIOS ROM identical, IOMMU isolated, twin study surface live |
+| 2026-05-17 | `HOTSPRING_FALCON_ACR_DMA_HANDOFF_MAY17_2026.md` | ✅ | Falcon ACR DMA boot solved: DMA backend wired, FECS cpuctl=0x10, stale coral-ember killed, 02:00.0 bound to vfio-pci |
+| 2026-05-18 | `HOTSPRING_SOVEREIGN_BOOT_ABSTRACTION_HANDOFF_MAY18_2026.md` | ✅ | Sovereign boot abstraction: SovereignBootState enum, WarmKeepalive facade, sovereign.profile RPC, twin-card cold profiling, hardware line codified |
 
 ### `mmiotraces/`
 
@@ -70,7 +73,7 @@ tables for sovereign boot pipelines.
 
 | File | Status | Notes |
 |------|--------|-------|
-| `exp192_postboot_warm_bf_init.py` | **Lab reference** | Post-reboot Boot Falcon (NVDEC0) init via direct BAR0 mmap. For reference only — production path uses `coralctl warm-catch`. |
+| `exp192_postboot_warm_bf_init.py` | **Lab reference** | Post-reboot Boot Falcon (NVDEC0) init via direct BAR0 mmap. For reference only — production path uses `toadstool device warm-catch`. |
 | `titanv_*.bin` | **Lab reference** | Binary firmware extracts from mmiotrace (SEC2, PMU, HS) — used for sovereign compute investigation. |
 | `gk110/` | **Lab reference** | GK110/GK210 register reference data. |
 

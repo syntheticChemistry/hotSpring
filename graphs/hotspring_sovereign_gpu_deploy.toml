@@ -3,7 +3,7 @@
 # hotSpring Deploy Graph — Sovereign GPU Pipeline
 #
 # Full sovereign dispatch: WGSL -> native SASS via coralReef compiler,
-# VFIO dispatch via coral-driver/ember, GPU hardware validation.
+# VFIO dispatch via toadStool cylinder/ember, GPU hardware validation.
 # Requires coralReef for shader compilation and toadStool for compute
 # dispatch. Used for GPU hardware validation experiments (SM35/SM70/SM120).
 #

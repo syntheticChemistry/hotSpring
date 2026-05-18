@@ -74,8 +74,11 @@ NNN_DESCRIPTOR.{sh,md,json}
 | 202 | EXPERIMENT_SURFACE_REWIRE | validation | ✅ Bore-agnostic `SovereignStrategy` trait rewire |
 | 203 | WARM_COLD_BOOT_CONVERGENCE | validation | ✅ `FalconWarmState` enum, 6 PLL + 4 register copy opcodes activated |
 | 204 | VBIOS_INTERPRETER_LIVE_VALIDATION | validation | ✅ Cold Titan V: 422 ops, 231 BAR0 writes. 3 stride fixes, 4 Volta opcodes |
+| 205 | DUAL_TITAN_V_TWIN_STUDY_BASELINE | validation | ✅ Dual GV100: identical boot0/PMC/VBIOS ROM. Twin study surface live |
+| 206 | FALCON_ACR_DMA_BOOT_SOLVED | validation | ✅ Falcon ACR HS boot via DMA working on both Titan Vs. FECS cpuctl=0x10 |
+| 207 | SOVEREIGN_BOOT_ABSTRACTION_PROFILING | validation | ✅ Unified `SovereignBootState` model, `WarmKeepalive` facade, `sovereign.profile` RPC, twin-card cold profiling |
 
-> **Note:** 204 experiments total (001–189 archived + 190 archived final coral-ember + 191–204 active).
+> **Note:** 207 experiments total (001–189 archived + 190 archived final coral-ember + 191–207 active).
 
 ### Ember Survivability Hardening (2026-04-07)
 
@@ -92,7 +95,7 @@ Architectural evolution — ember becomes per-device, glowplug becomes fleet orc
 - **Fleet orchestrator**: `EmberFleet` in glowplug manages N active + M standby instances
 - **Hot-standby pool**: Pre-spawned embers with `ember.adopt_device` RPC for instant takeover
 - **Fault-informed resurrection**: Strategy selected by fault history (HotAdopt / WarmThenRespawn / FullRecovery)
-- **Discovery file**: `<temp_dir>/biomeos/coral-ember-fleet.json` for external client routing
+- **Discovery file**: `<temp_dir>/biomeos/toadstool-fleet.json` for external client routing (historical: `coral-ember-fleet.json`)
 - **Backward compatible**: `fleet_mode = false` preserves legacy single-ember behavior
 
 ## NUCLEUS Composition Validation (April 2026)
@@ -183,7 +186,7 @@ have been rewired for capability-based discovery (GAP-HS-087, GAP-HS-088):
 - **`validate_compute_trio_pipeline`** binary: end-to-end Yukawa + Wilson plaquette validation
 - **All IPC provenance clients** evolved from hardcoded socket paths to `by_domain()` NUCLEUS discovery
 - **Barrier shader validation** for coralReef `membar.{cta,gl}` emitter (9 WGSL shaders)
-- **606** (cylinder) / **596** (default barracuda) / **1,045** (barracuda-local) lib tests pass. **204 experiments**
+- **634** (cylinder) / **596** (default barracuda) / **1,045** (barracuda-local) lib tests pass. **207 experiments**
 
 ## Eukaryotic Evolution (May 2026)
 

@@ -7,6 +7,78 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Unreleased — Sovereign Boot Abstraction + Profiling (May 18, 2026)
+
+### Added
+- **Experiment 207 — Sovereign Boot Abstraction + Twin Profiling**: Unified
+  warm/cold boot model with `SovereignBootState` enum, `WarmKeepalive` facade,
+  `sovereign.profile` RPC method, and twin-card profiling experiments.
+- **`boot_state.rs`** (cylinder): `SovereignBootState::Warm`/`Cold`,
+  `ColdBootReason` enum (PowerOnReset/BusReset/D3Cold/FdLost/Unknown),
+  `BootCapability` flags, `probe_boot_state()` — single source of truth
+  replacing scattered `is_warm_gpu()` + `FalconWarmState` + `warm_detected`.
+  Module-level docs codify the **hardware line**: cold boot = power-on reset
+  = boot ROM trains HBM2 = same wall NVIDIA faces. 10 unit tests.
+- **`warm_keepalive.rs`** (ember): `WarmKeepalive` owning wrapper,
+  `WarmKeepaliveRef` non-owning view, `KeepaliveStore`, `DmaSpec` —
+  facade over VfioAnchor + Clutch + systemd fd store. 5 unit tests.
+- **`sovereign_profile.rs`** (cylinder): `SovereignProfile` struct with
+  per-stage µs timings, `RegisterSnapshot` (BOOT0/PMC/PTIMER/FECS/GPCCS),
+  pre/post-pipeline snapshots. 2 serde tests.
+- **`sovereign.profile` RPC**: JSON-RPC method returning detailed profiling
+  data. Enables twin-card experimentation without log scraping.
+- **Twin-card cold profiling**: Both Titan Vs profiled in cold state.
+  Card 1: falcon=3697ms, memory=5419ms (11.3s total).
+  Card 2: falcon=224ms, memory=10537ms (13.0s total).
+  Hardware line confirmed — HBM2 untrained, only power cycle recovers.
+
+### Changed
+- **`sovereign_init.rs`**: Pipeline now runs `boot_state_probe` stage,
+  `SovereignInitResult` gains `boot_state: Option<SovereignBootState>`.
+  `warm_detected` kept for backward compatibility.
+- **`FalconWarmState`**: Added `Serialize`/`Deserialize` derives for
+  embedding in `SovereignBootState::Warm`.
+- **Dispatch handler**: `try_engage_clutch` simplified using `WarmKeepaliveRef`.
+- **Method list**: `sovereign.profile` added to core method registry.
+
+## Unreleased — Falcon ACR DMA Boot Solved (May 17, 2026 PM)
+
+### Added
+- **Experiment 206 — Falcon ACR DMA Boot Solved**: Wired DMA backend to
+  sovereign falcon boot, resolving the ACR HS boot blocker since Exp 080.
+  `boot_falcon_hs` loads GR firmware via iommufd-mapped DMA buffers,
+  GPCCS+FECS boot successfully. FECS cpuctl=0x10 (halted in command-wait).
+
+### Changed
+- **toadStool `sovereign.rs`**: Stateless handler now acquires `DmaBackend`
+  from VFIO device. `EmberGateBypass` entered for self-opens. Sysfs path
+  probes iommufd cdev for DMA as fallback.
+- **toadStool `sovereign_init.rs`**: `gr_init` skipped after successful
+  ACR boot (FECS already running, PIO re-upload would conflict).
+- **toadStool `open.rs`**: iommufd/cdev failure log promoted to `warn`.
+
+### Fixed
+- **02:00.0 unbound**: Titan V #1 had no driver; bound to vfio-pci via
+  `driver_override` enabling iommufd cdev path.
+- **Stale coral-ember**: Legacy coral-ember processes holding VFIO cdev fds
+  blocked iommufd bind (EINVAL). Killed and disabled coral services.
+
+## Unreleased — Dual Titan V Twin Study Baseline (May 17, 2026 PM)
+
+### Added
+- **Experiment 205 — Dual Titan V Twin Study Baseline**: Second Titan V
+  installed in former K80 PCIe slot. Both GV100 cards validated through
+  sovereign.init pipeline with identical results: boot0=0x140000a1,
+  PMC_ENABLE=0x5fecdff1, all registers match except PTIMER (expected).
+  VBIOS ROM byte-identical (sha256=af04a2c6). IOMMU groups 65+32 provide
+  clean isolation for independent VFIO access.
+
+### Changed
+- **`/etc/toadstool/glowplug.toml`**: K80 device entries replaced with
+  Titan V #2 (`0000:49:00.0`, name: `titan-v-2`, role: `compute`,
+  health_policy: `active`). Daemon header updated from "Dual Titan V + K80"
+  to "Dual Titan V + RTX 5060".
+
 ## Unreleased — primalSpring Audit Absorption (May 17, 2026 PM)
 
 ### Added (lithoSpore R1–R4 absorption)
