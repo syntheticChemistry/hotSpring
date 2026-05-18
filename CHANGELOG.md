@@ -7,6 +7,41 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Unreleased — Reboot-Efficient Sovereign Evolution (May 18, 2026)
+
+### Added
+- **Experiment 208 — Reboot-Efficient Sovereign Evolution**: fd store chain
+  proven end-to-end. Warm keepalive validated across daemon restarts.
+- **`sovereign.warm_status` RPC**: Lightweight method reporting anchor state,
+  boot state probe (via sysfs BAR0), PMC_ENABLE, PRAMIN sentinel, and fd store
+  capability per GPU. No pipeline execution required.
+- **Cold pipeline early-exit**: New `skip_cold_memory_training` flag on
+  `SovereignInitOptions`. Cold GPUs skip doomed `memory_training` stage,
+  reducing pipeline from ~14s to ~200ms (70× faster).
+- **Anchor confirmation logging**: `sovereign.init` and `sovereign.profile`
+  handlers now log `anchor_held` status at pipeline completion.
+
+### Validated
+- **systemd FileDescriptorStore**: 4 VFIO fds (2 device + 2 iommufd) stored
+  on SIGTERM, retrieved on startup, anchors reconstructed — proven with cold
+  and warm GPUs.
+- **Post-reboot warm keepalive**: Both Titan Vs warm after power cycle
+  (`compute_ready: true`, 3.9s pipeline). Warm state **persists across
+  `systemctl restart`** — first-ever warm keepalive on sovereign hardware.
+- **Twin-card warm profiles**: falcon_boot ACR dominates at 94.5% (3.7s).
+
+### Optimized
+- **Falcon warm preservation — VALIDATED**: Early falcon probe before
+  `pgraph_reset` detects `WarmPreserved`/`WarmRunning` FECS state. When
+  detected, skips `pgraph_reset` + `falcon_boot`. **Warm pipeline: 183ms**
+  (76× faster than cold, 21× faster than pre-falcon-fix warm). Boot ROM
+  FECS firmware survives VFIO device open (PC=0xB0+), so the first
+  sovereign.init after power cycle benefits — no ACR boot needed.
+- **FLR PC threshold (>= 0x40)**: Prevents false-positive warm detection
+  from Function Level Reset residual PCs (0x00–0x10). ACR firmware entry
+  points are 0x80+ (code section). Correctly classifies post-FLR cold
+  state vs genuine running firmware.
+
 ## Unreleased — Sovereign Boot Abstraction + Profiling (May 18, 2026)
 
 ### Added
