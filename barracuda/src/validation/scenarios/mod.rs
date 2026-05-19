@@ -27,6 +27,7 @@ pub mod s_anderson_parity;
 pub mod s_cold_boot_sentinel;
 pub mod s_composition_health;
 pub mod s_compute_trio;
+pub mod s_dark_forest_gate;
 #[cfg(feature = "barracuda-local")]
 pub mod s_cpu_gpu_parity;
 #[cfg(feature = "barracuda-local")]
@@ -78,6 +79,7 @@ pub fn build_registry() -> ScenarioRegistry {
     r.register(s_vfio_dispatch::SCENARIO);
     r.register(s_node_atomic::SCENARIO);
     r.register(s_schema_standard::SCENARIO);
+    r.register(s_dark_forest_gate::SCENARIO);
     r.register(s_toadstool_dispatch::SCENARIO);
     #[cfg(feature = "barracuda-local")]
     r.register(s_anderson_parity::SCENARIO);

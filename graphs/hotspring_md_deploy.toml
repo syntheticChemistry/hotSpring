@@ -13,6 +13,7 @@ coordination = "sequential"
 
 [graph.metadata]
 security_model = "btsp_enforced"
+secure_by_default = true
 transport = "uds_only"
 tcp_ports = 0
 owner = "hotSpring"

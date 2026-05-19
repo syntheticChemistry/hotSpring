@@ -58,9 +58,9 @@ entry for the session that produced it. Chronological by filename suffix.
 | 2026-05-16 | `HOTSPRING_DIESEL_ENGINE_CAPABILITY_ABSTRACTION_HANDOFF_MAY16B_2026.md` | archive | Diesel engine capability abstraction: 6 subsystems generalized |
 | 2026-05-16 | `HOTSPRING_BOOT_PIPELINE_VBIOS_HANDOFF_MAY16C_2026.md` | archive | Vendor-agnostic BootPipeline trait, VBIOS interpreter fixes |
 | 2026-05-16 | `HOTSPRING_PRIMALS_SPRINGS_EVOLUTION_HANDOFF_MAY16D_2026.md` | archive | Cross-team handoff: primal use/evolution, NUCLEUS composition patterns |
-| 2026-05-17 | `HOTSPRING_COMPUTE_PARITY_MIXED_HARDWARE_HANDOFF_MAY17_2026.md` | ✅ | Wave 20 compute evolution: CPU/GPU parity scenarios, toadStool dispatch validation, metalForge NUCLEUS atomics + PCIe direct + biomeOS graph, CPU fallback dispatch, parity greenboard ALL GREEN |
-| 2026-05-17 | `HOTSPRING_DUAL_TITAN_V_HANDOFF_MAY17_2026.md` | ✅ | Dual Titan V twin study baseline: K80→Titan V #2, sovereign.init validated on both, VBIOS ROM identical, IOMMU isolated, twin study surface live |
-| 2026-05-17 | `HOTSPRING_FALCON_ACR_DMA_HANDOFF_MAY17_2026.md` | ✅ | Falcon ACR DMA boot solved: DMA backend wired, FECS cpuctl=0x10, stale coral-ember killed, 02:00.0 bound to vfio-pci |
+| 2026-05-17 | `HOTSPRING_COMPUTE_PARITY_MIXED_HARDWARE_HANDOFF_MAY17_2026.md` | archive | Wave 20 compute evolution: CPU/GPU parity scenarios, toadStool dispatch validation, metalForge NUCLEUS atomics + PCIe direct + biomeOS graph, CPU fallback dispatch, parity greenboard ALL GREEN |
+| 2026-05-17 | `HOTSPRING_DUAL_TITAN_V_HANDOFF_MAY17_2026.md` | archive | Dual Titan V twin study baseline: K80→Titan V #2, sovereign.init validated on both, VBIOS ROM identical, IOMMU isolated, twin study surface live |
+| 2026-05-17 | `HOTSPRING_FALCON_ACR_DMA_HANDOFF_MAY17_2026.md` | archive | Falcon ACR DMA boot solved: DMA backend wired, FECS cpuctl=0x10, stale coral-ember killed, 02:00.0 bound to vfio-pci |
 | 2026-05-18 | `HOTSPRING_SOVEREIGN_BOOT_ABSTRACTION_HANDOFF_MAY18_2026.md` | ✅ | Sovereign boot abstraction: SovereignBootState enum, WarmKeepalive facade, sovereign.profile RPC, twin-card cold profiling, hardware line codified |
 | 2026-05-18 | `HOTSPRING_WARM_KEEPALIVE_183MS_HANDOFF_MAY18_2026.md` | ✅ | Warm keepalive PROVEN: 183ms warm pipeline, falcon preservation, fd store end-to-end, 76× faster than cold |
 | 2026-05-18 | `HOTSPRING_COMPREHENSIVE_EVOLUTION_HANDOFF_MAY18_2026.md` | ✅ | Comprehensive evolution: 210 experiments reconciled, dual Titan V fleet, K80 retired, primal evolution handoff |

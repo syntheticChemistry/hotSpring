@@ -38,7 +38,7 @@ The project's trajectory is to progressively eliminate abstraction layers betwee
 
 ### Eukaryotic UniBin: `hotspring_unibin`
 
-hotSpring has evolved from the prokaryotic era of separate binaries into a eukaryotic UniBin — a single `hotspring_unibin` binary consolidating certification (L0–L6 guideStone organelle), validation scenarios (17 default / 23 with `barracuda-local`), and status reporting. Reference: primalSpring v0.9.25 interstadial eukaryotic wave.
+hotSpring has evolved from the prokaryotic era of separate binaries into a eukaryotic UniBin — a single `hotspring_unibin` binary consolidating certification (L0–L6 guideStone organelle), validation scenarios (18 default / 24 with `barracuda-local`), and status reporting. Reference: primalSpring v0.9.25 interstadial eukaryotic wave.
 
 ```
 hotspring certify              # L0-L6 composition certification
@@ -472,7 +472,7 @@ hotSpring/
 │       └── bin/                       # 167 binaries (validation, production, benchmarks, composition, guideStone)
 │           └── _fossilized/          # hotspring_primal.rs (superseded by hotspring_unibin)
 │
-├── experiments/                        # 208 experiment journals (fossil record); 001-190 archived under experiments/archive/
+├── experiments/                        # 210 experiment journals (fossil record); 001-190 archived under experiments/archive/
 │   ├── archive/                        # experiments 001-190 (archived journals + FOSSIL_RECORD summaries)
 │   └── 191-208: active experiments (toadStool PBDMA, HW validation, PLX keepalive, cold/warm boot, driver lab, warm swap, diesel engine, power safety, CG sweep, surface rewire, warm/cold convergence, VBIOS live validation, dual Titan V, Falcon ACR DMA, sovereign boot abstraction + profiling, reboot-efficient sovereign evolution)
 │

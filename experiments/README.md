@@ -78,7 +78,7 @@ NNN_DESCRIPTOR.{sh,md,json}
 | 206 | FALCON_ACR_DMA_BOOT_SOLVED | validation | ✅ Falcon ACR HS boot via DMA working on both Titan Vs. FECS cpuctl=0x10 |
 | 207 | SOVEREIGN_BOOT_ABSTRACTION_PROFILING | validation | ✅ Unified `SovereignBootState` model, `WarmKeepalive` facade, `sovereign.profile` RPC, twin-card cold profiling |
 
-> **Note:** 207 experiments total (001–189 archived + 190 archived final coral-ember + 191–207 active).
+> **Note:** 210 experiments total (001–189 archived + 190 archived final coral-ember + 191–210 active).
 
 ### Ember Survivability Hardening (2026-04-07)
 
@@ -186,15 +186,15 @@ have been rewired for capability-based discovery (GAP-HS-087, GAP-HS-088):
 - **`validate_compute_trio_pipeline`** binary: end-to-end Yukawa + Wilson plaquette validation
 - **All IPC provenance clients** evolved from hardcoded socket paths to `by_domain()` NUCLEUS discovery
 - **Barrier shader validation** for coralReef `membar.{cta,gl}` emitter (9 WGSL shaders)
-- **634** (cylinder) / **596** (default barracuda) / **1,045** (barracuda-local) lib tests pass. **207 experiments**
+- **634** (cylinder) / **596** (default barracuda) / **1,045** (barracuda-local) lib tests pass. **210 experiments**
 
 ## Eukaryotic Evolution (May 2026)
 
 17 experiment binaries have been absorbed into
 `barracuda/src/validation/scenarios/` as Tier 1 (Rust) scenarios with
-`ScenarioMeta` provenance tracking (22 with `barracuda-local` feature:
+`ScenarioMeta` provenance tracking (23 with `barracuda-local` feature:
 adds gradient-flow, dielectric-mermin, spectral-lanczos, cpu-gpu-parity,
-mixed-hardware). 8 hardware-specific
+mixed-hardware, anderson-parity). 8 hardware-specific
 GPU experiment binaries are preserved in `fossilRecord/experiments_prokaryotic_may2026/`.
 The `hotspring_unibin validate` command is the eukaryotic entry point
 for running all absorbed scenarios.

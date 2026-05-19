@@ -23,7 +23,7 @@ springs = ["hotspring"]
 
 ## Key Validation Binaries
 
-- `hotspring_unibin` — eukaryotic UniBin: certify (L0–L6), validate (17/23 scenarios), status
+- `hotspring_unibin` — eukaryotic UniBin: certify (L0–L6), validate (18/24 scenarios), status
 - `validate_primal_proof` — end-to-end primal composition validation
 - `validate_nuclear_eos_*` — AME2020 binding energies (L1/L2/L3)
 - `validate_lattice_qcd_*` — SU(3) HMC/RHMC, gradient flow, beta-scan

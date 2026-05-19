@@ -7,6 +7,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Unreleased — River Delta Audit + Dark Forest Gate (May 19, 2026)
+
+### Added
+- **`s_dark_forest_gate` validation scenario**: Structural validation of all 7
+  deploy graphs against the five Dark Forest Glacial Gate pillars (zero port
+  exposure, BTSP enforced, secure_by_default, Songbird-only network, nucleated
+  composition). 7×7 = 49 assertions. Default (no feature gate).
+- **`secure_by_default = true`** added to all 7 deploy graph metadata sections,
+  resolving the Dark Forest PENDING on the cross-spring parity scorecard.
+
+### Changed
+- **Scenario count**: 17/23 → 18/24 (18 default + 6 barracuda-local). Updated
+  across README, specs, whitePaper, EXPERIMENT_INDEX, sporeprint, DOWNSTREAM_PATTERNS.
+- **Experiment count drift fixed**: 207/208 → 210 in experiments/README.md,
+  README.md directory tree, whitePaper/README.md.
+- **May 17 handoffs archived** (3 files) per 48h rule.
+
 ## Unreleased — Sovereign GPC Boundary Analysis (May 19, 2026)
 
 ### Added
