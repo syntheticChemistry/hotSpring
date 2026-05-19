@@ -164,6 +164,7 @@ wateringHole/nvidia-closed-volta-580/
 # Firmware blobs and hardware trace captures (binary, large)
 wateringHole/gk110/
 wateringHole/*.bin
+wateringHole/vbios/*.rom
 wateringHole/mmiotraces/
 wateringHole/nvidia-closed-volta-580/
 

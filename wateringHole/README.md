@@ -62,6 +62,9 @@ entry for the session that produced it. Chronological by filename suffix.
 | 2026-05-17 | `HOTSPRING_DUAL_TITAN_V_HANDOFF_MAY17_2026.md` | ✅ | Dual Titan V twin study baseline: K80→Titan V #2, sovereign.init validated on both, VBIOS ROM identical, IOMMU isolated, twin study surface live |
 | 2026-05-17 | `HOTSPRING_FALCON_ACR_DMA_HANDOFF_MAY17_2026.md` | ✅ | Falcon ACR DMA boot solved: DMA backend wired, FECS cpuctl=0x10, stale coral-ember killed, 02:00.0 bound to vfio-pci |
 | 2026-05-18 | `HOTSPRING_SOVEREIGN_BOOT_ABSTRACTION_HANDOFF_MAY18_2026.md` | ✅ | Sovereign boot abstraction: SovereignBootState enum, WarmKeepalive facade, sovereign.profile RPC, twin-card cold profiling, hardware line codified |
+| 2026-05-18 | `HOTSPRING_WARM_KEEPALIVE_183MS_HANDOFF_MAY18_2026.md` | ✅ | Warm keepalive PROVEN: 183ms warm pipeline, falcon preservation, fd store end-to-end, 76× faster than cold |
+| 2026-05-18 | `HOTSPRING_COMPREHENSIVE_EVOLUTION_HANDOFF_MAY18_2026.md` | ✅ | Comprehensive evolution: 210 experiments reconciled, dual Titan V fleet, K80 retired, primal evolution handoff |
+| 2026-05-19 | `HOTSPRING_GPC_BOUNDARY_CE_VALIDATE_HANDOFF_MAY19_2026.md` | ✅ | GPC boundary analysis: PTOP parser fix, CE runlist discovery, sovereignty tier model, all engine domains power-gated, paths to Tier 2 |
 
 ### `mmiotraces/`
 
@@ -73,9 +76,10 @@ tables for sovereign boot pipelines.
 
 | File | Status | Notes |
 |------|--------|-------|
-| `exp192_postboot_warm_bf_init.py` | **Lab reference** | Post-reboot Boot Falcon (NVDEC0) init via direct BAR0 mmap. For reference only — production path uses `toadstool device warm-catch`. |
-| `titanv_*.bin` | **Lab reference** | Binary firmware extracts from mmiotrace (SEC2, PMU, HS) — used for sovereign compute investigation. |
-| `gk110/` | **Lab reference** | GK110/GK210 register reference data. |
+| `titanv_*.bin` | **Lab reference** | Binary firmware extracts from mmiotrace (SEC2, PMU, HS) — used for sovereign compute investigation. Gitignored. |
+| `gk110/` | **Lab reference** | GK110/GK210 register reference data. Gitignored. |
+| `vbios/` | **Lab reference** | VBIOS binary data for sovereign boot analysis. |
+| ~~`exp192_postboot_warm_bf_init.py`~~ | **Archived** | Moved to `scripts/archive/`. Superseded by `toadstool device warm-catch`. |
 
 ## Relationship to ecosystem wateringHole
 

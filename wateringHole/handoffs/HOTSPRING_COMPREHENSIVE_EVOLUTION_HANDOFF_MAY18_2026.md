@@ -2,7 +2,7 @@
 
 # hotSpring — Comprehensive Evolution Handoff (May 18, 2026)
 
-**Experiment**: 208 total (001-190 archived, 191-208 active)
+**Experiment**: 210 total (001-190 archived, 191-210 active)
 **Fleet**: 2× Titan V (GV100) + RTX 5060 (Blackwell)
 **Upstream**: `infra/wateringHole/handoffs/HOTSPRING_PRIMAL_EVOLUTION_COMPREHENSIVE_MAY18_2026.md`
 

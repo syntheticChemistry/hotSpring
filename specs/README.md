@@ -1,7 +1,7 @@
 # hotSpring Specifications
 
-**Last Updated**: May 17, 2026
-**Status**: Phase A-J complete + guideStone Level 6 CERTIFIED (primalSpring v0.9.25) — 596 / 1,045 lib tests (IPC-first default / barracuda-local), 167 binaries, 65 validation suites (3 tiers), crate v0.6.32, barraCuda v0.3.11, toadStool S263, coralReef Sprint 11. **Three-tier validation: Python → Rust → NUCLEUS primal composition (guideStone).** `hotspring_unibin` is the eukaryotic entry point (certify/validate/status/version). 198 experiments, 128 WGSL shaders, 23 validation scenarios (17 default + 6 barracuda-local). **Titan V e2e sovereign VFIO dispatch VALIDATED** (Exp 191B). RTX 5060 full dispatch LIVE. K80 sovereign warm-catch. Science composition probes operational.
+**Last Updated**: May 19, 2026
+**Status**: Phase A-J complete + guideStone Level 6 CERTIFIED (primalSpring v0.9.25) — 596 / 1,045 lib tests (IPC-first default / barracuda-local), 167 binaries, 65 validation suites (3 tiers), crate v0.6.32, barraCuda v0.3.11. **Three-tier validation: Python → Rust → NUCLEUS primal composition (guideStone).** `hotspring_unibin` is the eukaryotic entry point (certify/validate/status/version). 210 experiments, 128 WGSL shaders, 23 validation scenarios (17 default + 6 barracuda-local). **Sovereignty Tier Model** — Tier 1 warm infrastructure **validated** (Exp 210). RTX 5060 full dispatch LIVE. Fleet: 2× Titan V (GV100) + RTX 5060.
 **Domain**: Computational plasma physics, nuclear structure, transport, lattice QCD, spectral theory, surrogate learning
 
 ---

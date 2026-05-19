@@ -30,7 +30,7 @@ Three optimizations stacked:
 | Speedup vs pre-falcon warm | 21× |
 | Twin-card variance | ± 5ms |
 | fd store fds | 4 (2 device + 2 iommufd) |
-| RPC methods | 15 (`sovereign.warm_status` added) |
+| RPC methods | 16 (`sovereign.warm_status`, `sovereign.ce_validate` added) |
 
 ## Artifacts
 
