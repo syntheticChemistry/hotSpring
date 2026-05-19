@@ -1941,6 +1941,37 @@ Next: hardware validation on Titan V and K80.
      that require biomeGate's `barracuda-local` feature gating fix.
 - **Validation:** 596 (default) / 1,045 (barracuda-local) lib tests pass. Zero clippy warnings.
 
+### GAP-HS-107 — Tier 2 Sovereign Compute Blocker: GPC Power Domain Wall (May 19, 2026)
+
+- **Severity:** High (blocks all sovereign shader execution on Titan V)
+- **Classification:** Hardware power domain boundary — blocks vendor-atheistic compute
+- **Root Cause:** After nouveau unbind, all GPU engine domains (GR, CE, NVDEC) are
+  power-gated. The PRI ring to these domains is dead — reads return `0xbadfXXXX`
+  fault values. This is a hardware power domain boundary, not a software/configuration
+  issue. The chicken-and-egg: need PRI ring to write power registers, but PRI ring
+  requires the target domain to be powered.
+- **Evidence:**
+  - CE0 at `0x104000` → `0xbadf3000` (PRI fault)
+  - GPCCS at `0x41A004` → `0xbadf5545` (PRI fault)
+  - PBDMA DEVICE error (intr_0 bit 28) when dispatching to gated engines
+  - PGRAPH_STATUS at `0x400700` → `0x00000000` (no activity)
+- **Impact:** Sovereign VFIO infrastructure (Tier 1) is fully validated, but sovereign
+  compute dispatch (Tier 2) is completely blocked on Titan V. RTX 5060 has Tier 2
+  via DRM path (proprietary driver), but the VFIO sovereign path is the atheistic target.
+- **Proposed Solutions (prioritized):**
+  1. **PMU Mailbox Protocol** (Exp 211): PMU falcon at `0x10A000+` is alive post-unbind.
+     Send PG_CTRL command via MBOX0/MBOX1 to ungate GPC domain. Success criterion:
+     `GPC_ENABLES` at `0x41A004` returns non-fault value.
+  2. **Kernel Patch**: Modify nouveau `gv100_gr_fini()` to skip GPC power-down during unbind.
+  3. **nvidia-470 Handoff**: Use proprietary driver as warm handoff source (keeps GPCs powered).
+  4. **K80 Cross-Gen**: Incoming K80 has unsigned falcons (no ACR) — may reach Tier 2
+     via direct PIO falcon upload before Volta.
+- **Cross-References:** Exp 210 (`experiments/210_SOVEREIGN_GPC_BOUNDARY.md`),
+  Exp 211 (`experiments/211_PMU_MAILBOX_TIER2_INVESTIGATION.md`),
+  GAP-HS-047 (PMU firmware extraction — deprioritized, may be relevant),
+  `infra/whitePaper/gen4/architecture/SILICON_DEISM.md`
+- **Status:** OPEN — awaiting PMU mailbox investigation (Exp 211)
+
 ---
 
 ## Handback Protocol

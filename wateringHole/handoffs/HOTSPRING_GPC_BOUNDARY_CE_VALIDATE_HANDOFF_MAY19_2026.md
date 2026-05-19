@@ -107,3 +107,77 @@ echo '{"jsonrpc":"2.0","id":1,"method":"sovereign.warm_status","params":{}}' | n
   any NVIDIA GPU with BAR0 access
 - CE validation works on any Volta+ GPU with VFIO bind
 - PTOP parser fix applies to all GV100+ chips using DEVICE_INFO_V2 format
+
+---
+
+## Evolution Ladder: Sovereign Compute Progression
+
+```
+Vendor Agnostic (achieved)
+  └─ BootPipeline trait, dispatch_mode, WGSL shader portability
+  └─ Multiple backends: AMD, NVIDIA, NPU
+  └─ Evidence: 128 WGSL shaders, SM35+SM70+SM120+GFX10.3
+
+Vendor Atheistic — Infrastructure (Tier 1 VALIDATED)
+  └─ VFIO bind, BAR0 MMIO, sovereign DMA, PBDMA dispatch
+  └─ No vendor driver in host — pure Rust toadStool stack
+  └─ Evidence: Exp 208 (183ms warm), Exp 209 (anchor-fd), Exp 210 (tier model)
+
+Vendor Atheistic — Compute (Tier 2 BLOCKED)
+  └─ GPC power domain wall: all engines gated after nouveau unbind
+  └─ PMU mailbox is the primary unlock path (Exp 211)
+  └─ K80 (unsigned falcons) may bypass wall — cross-generational validation
+
+Silicon Deistic (Tier 3 TARGET)
+  └─ Rust → binary (CPU), WGSL → native ISA (GPU via coralReef)
+  └─ Cold boot from Rust (VBIOS interpreter: 422 ops, ~100 unknown)
+  └─ Equation → electron: no opaque vendor layer remaining
+```
+
+## Fleet Sovereign Status
+
+| GPU | Tier 0 | Tier 1 | Tier 2 | Tier 3 | Compiler |
+|-----|:---:|:---:|:---:|:---:|----------|
+| Titan V (GV100) ×2 | Understood | **Validated** | Blocked (GPC power) | ~100 unknown VBIOS opcodes | coralReef SM70 |
+| RTX 5060 (SM120) | N/A | N/A | **Live** (DRM) | N/A | coralReef SM120 |
+| K80 (GK210) incoming | Partial | Historical | **Unsigned falcons** — may bypass | GDDR5 gap | coralReef SM35 |
+| AMD RDNA2 | N/A | N/A | 38/39 tests | N/A | coralReef GFX10.3 |
+
+## Upstream Next-Steps by Team
+
+### toadStool Team (cylinder/server)
+
+1. **PMU Mailbox Protocol (Exp 211)** — highest priority Tier 2 path
+   - Probe PMU at `0x10A000+` (alive post-unbind)
+   - Send PG_CTRL command via MBOX0/MBOX1 to ungate GPC domain
+   - Success: `GPC_ENABLES` at `0x41A004` returns non-fault value
+   - Fallback: kernel patch to `gv100_gr_fini()` (skip GPC power-down)
+
+2. **VBIOS Interpreter Gap Closure** — path to Tier 3
+   - From Exp 204: 422 ops executed, 231 register writes
+   - ~100 unknown opcodes remain (HBM2 training, PHY init, PLL)
+   - Each decoded opcode brings sovereign cold boot closer
+
+3. **K80 Revalidation** — when replacement arrives
+   - `KeplerInit` pipeline revalidation
+   - PLX PEX 8747 bridge survival test
+   - **Direct PIO falcon upload** — Kepler FECS/GPCCS are unsigned
+   - `PowerSafetyProfile` (lessons from K80 #1 fire, Exp 199)
+
+### coralReef Team (shader compiler)
+
+1. **SM120 Texture ISA Completion** — Blackwell compute is live but
+   texture instruction encoding gaps remain
+2. **SM35 Revalidation** — 10/10 HMC shaders compiled, needs hardware
+   validation when K80 arrives
+3. **Cross-generation ISA parity** — maintain WGSL→native across all
+   four ISA targets (SM35, SM70, SM120, GFX10.3)
+
+### primalSpring / Composition Team
+
+1. **Sovereign dispatch in composition template** — wire VFIO sovereign
+   dispatch alongside DRM path in `hotspring_composition.sh`
+2. **Tier-aware dispatch routing** — use `classify_tier()` to auto-select
+   sovereign vs DRM path based on GPU state
+3. **Provenance for sovereign compute** — include sovereignty tier in
+   ledger-sealed run provenance braids

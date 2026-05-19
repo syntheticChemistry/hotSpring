@@ -187,6 +187,82 @@ power the GPC domain from a still-alive falcon. The DRM path via RTX 5060
 provides an immediate compute capability for QCD dispatch while the VFIO
 GPC power problem is solved.
 
+## Fleet Sovereign Status Matrix
+
+| GPU | Arch | Tier 0 (Cold) | Tier 1 (Infra) | Tier 2 (Compute) | Tier 3 (Full) | Compiler | Dispatch Path |
+|-----|------|:---:|:---:|:---:|:---:|----------|---------------|
+| **Titan V** (GV100) ×2 | SM70 | Understood | **Validated** | Blocked (GPC power) | VBIOS ~100 unknown opcodes | coralReef SM70 (240B, 30ms) | VFIO sovereign only (NVK: no SM70 support) |
+| **RTX 5060** | SM120 | N/A (proprietary driver) | N/A (DRM path) | **Live** (via DRM/wgpu) | N/A | coralReef SM120 (QMD v5.0) | DRM `/dev/dri/renderD128` — 12/12 roundtrip |
+| **K80** (GK210) incoming | SM35 | Partial (GDDR5 devinit incomplete) | Historical (Exp 190) | Historical (warm-catch) | Cold boot: GDDR5 gap | coralReef SM35 (10/10 HMC) | VFIO — **unsigned falcons** (no ACR barrier) |
+| **AMD RDNA2** (compiler only) | GFX10.3 | N/A | N/A | 38/39 dispatch tests | N/A | coralReef 24/24 QCD | Sovereign compiler validation substrate |
+
+### Key Insight: K80 May Reach Tier 2 Before Volta
+
+Kepler-era GPUs (GK210) do **not** use ACR (Authenticated Code Runner)
+for their falcons. FECS and GPCCS boot via direct PIO upload — unsigned,
+unencrypted. This means:
+
+- No HS/LS falcon signature verification barrier
+- Direct IMEM/DMEM load via PIO (no DMA required)
+- No SEC2 intermediary for the boot chain
+- GPC power gating may not be enforced by firmware at all
+
+When the replacement K80 arrives, it may provide the first path to Tier 2
+sovereign compute — not despite being old hardware, but *because* old
+hardware has fewer firmware barriers.
+
+### VBIOS Interpreter Progress (Path to Tier 3)
+
+From Exp 204: the VBIOS interpreter has executed **422 DEVINIT opcodes**
+and performed **231 register writes** on live Titan V hardware. Approximately
+**~100 unknown opcodes** remain. Key gaps:
+
+- HBM2 memory timing training (the most complex DEVINIT sequence)
+- PHY initialization (SerDes for memory links)
+- Clock domain programming (PLL sequences beyond basic CG)
+
+Each unknown opcode decoded brings Tier 3 closer. The VBIOS interpreter
+is the bottom-up path; the PMU mailbox is the top-down path. They meet
+at full silicon deism.
+
+## Remaining Work: Prioritized Path to Tier 2
+
+### Priority 1: PMU Mailbox Protocol (Exp 211)
+
+The PMU falcon at `0x10A000+` is alive post-unbind. It manages GPU power
+domains as its primary function. The protocol:
+
+- **MBOX0** (`0x10A450`): command data register
+- **MBOX1** (`0x10A454`): command trigger / interrupt register
+- **Known commands** (from nouveau `nvkm/subdev/pmu/`): INIT, FINI, fan
+  control, clock gating, power gating overrides
+- **Target**: send a PG (power gating) override or CG (clock gating)
+  disable command that ungates the GPC domain
+- **Success criteria**: `GPC_ENABLES` at `0x41A004` returns a non-fault
+  value; CE0 at `0x104000` becomes readable
+
+### Priority 2: Kernel Patch (nouveau gv100_gr_fini)
+
+Modify nouveau's GR finalization to skip GPC power-down during driver
+unbind. This preserves the powered state for VFIO passthrough. Cleanest
+path but requires kernel-level work and is upstream-unfriendly.
+
+### Priority 3: K80 Cross-Generational Validation
+
+When the replacement arrives:
+1. Revalidate `KeplerInit` boot pipeline on new hardware
+2. Test PLX PEX 8747 bridge survival with `PlxKeepalive`
+3. Attempt Tier 2 via direct PIO falcon upload (no ACR)
+4. Validate `PowerSafetyProfile` (fire post-mortem lessons)
+
+### Priority 4: VBIOS Interpreter Gap Closure (Tier 3)
+
+Continue decoding unknown DEVINIT opcodes. Each one brings the
+cold-boot-from-Rust path closer. Focus areas:
+- HBM2 training sequence (most complex, most valuable)
+- PHY SerDes initialization
+- PLL programming beyond basic CG
+
 ## Strategic Context: Vendor Agnostic → Vendor Atheistic → Silicon Deistic
 
 The evolution ladder for sovereign compute:

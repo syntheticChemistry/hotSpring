@@ -24,7 +24,32 @@ This file covers the spring as a whole. For crate-level details see
   README.md directory tree, whitePaper/README.md.
 - **May 17 handoffs archived** (3 files) per 48h rule.
 
-## Unreleased — Sovereign GPC Boundary Analysis (May 19, 2026)
+## Fossilize & Reframe Sovereign Evolution (May 19, 2026)
+
+### Added
+- **Experiment 211 stub — PMU Mailbox Tier 2 Investigation**: Forward-looking
+  experiment framing the PMU mailbox protocol at 0x10A000+ as the primary path
+  to Tier 2 sovereign compute. Five-phase investigation plan (liveness, commands,
+  injection, PGOB fallback, kernel patch fallback).
+- **GAP-HS-107**: Tier 2 sovereign compute blocker — GPC power domain wall.
+  Highest severity gap, cross-references Exp 210/211.
+
+### Changed
+- **Exp 210 reframed**: Added fleet sovereign status matrix (Titan V / RTX 5060 /
+  K80 incoming / AMD RDNA2), four-priority remaining-work roadmap, K80 unsigned-falcon
+  angle (may reach Tier 2 before Volta), VBIOS interpreter progress (422 ops,
+  ~100 unknown opcodes).
+- **README sovereign GPU row**: Reframed with evolution ladder reference
+  (agnostic → atheistic → deistic), PMU mailbox as Tier 2 unlock, K80 incoming
+  angle, SILICON_DEISM.md cross-reference.
+- **EXPERIMENT_INDEX**: Narrative updated with sovereign evolution ladder framing,
+  Exp 211 row added, experiment count 210 → 211.
+- **wateringHole handoff**: Added evolution ladder section, fleet sovereign status
+  matrix, and upstream next-steps broken down by team (toadStool, coralReef,
+  primalSpring/composition).
+- **PRIMAL_GAPS.md**: GAP-HS-107 added for Tier 2 blocker.
+
+## Sovereign GPC Boundary Analysis (May 19, 2026)
 
 ### Added
 - **Experiment 210 — Sovereign GPC Boundary Analysis**: Systematic analysis of
