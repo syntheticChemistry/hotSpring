@@ -26,6 +26,16 @@ hotSpring is where we reproduce published computational physics work from the Mu
 
 hotSpring answers: *"Does our hardware produce correct physics?"*, *"Can Rust+WGSL replace the Python scientific stack?"*, and *"Can IPC-composed NUCLEUS primals reproduce what standalone Rust proves?"*
 
+### Philosophical Evolution: Vendor Agnostic → Vendor Atheistic → Silicon Deistic
+
+There is only math, energy, and silicon. Everything else is an abstraction.
+
+The project's trajectory is to progressively eliminate abstraction layers between mathematical intent and physical compute:
+
+- **Vendor agnostic** (current): abstraction layers support multiple vendors — AMD, NVIDIA, NPU. The `BootPipeline` trait, `dispatch_mode`, and WGSL shader portability.
+- **Vendor atheistic** (in progress): no dependency on vendor toolchains, drivers, or firmware. Sovereign boot, sovereign compile (WGSL→native ISA via coralReef), sovereign dispatch (VFIO+PBDMA). The vendor's driver is not needed, not wanted, not trusted.
+- **Silicon deistic** (target): only math, energy, and silicon exist. Rust compiles to machine instructions. WGSL compiles to native ISA. Instructions execute on transistors. No runtime, no interpreter, no VM, no driver ABI, no vendor firmware — just the laws of physics running on crystalline silicon. The entire software stack from `cargo build` to GPU register writes is a controlled, auditable chain from equation to electron.
+
 ### Eukaryotic UniBin: `hotspring_unibin`
 
 hotSpring has evolved from the prokaryotic era of separate binaries into a eukaryotic UniBin — a single `hotspring_unibin` binary consolidating certification (L0–L6 guideStone organelle), validation scenarios (17 default / 23 with `barracuda-local`), and status reporting. Reference: primalSpring v0.9.25 interstadial eukaryotic wave.

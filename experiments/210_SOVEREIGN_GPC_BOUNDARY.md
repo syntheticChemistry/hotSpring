@@ -187,12 +187,20 @@ power the GPC domain from a still-alive falcon. The DRM path via RTX 5060
 provides an immediate compute capability for QCD dispatch while the VFIO
 GPC power problem is solved.
 
-## Strategic Context: Vendor-Atheistic Sovereign Compute
+## Strategic Context: Vendor Agnostic → Vendor Atheistic → Silicon Deistic
 
-The long-term goal is not merely vendor-agnostic (supporting multiple
-vendors) but **vendor-atheistic** — completely independent of vendor
-toolchains, drivers, and firmware for GPU compute. This requires solving
-sovereign boot and dispatch across multiple GPU generations:
+The evolution ladder for sovereign compute:
+
+- **Vendor agnostic**: abstraction layers support multiple vendors
+- **Vendor atheistic**: no dependency on vendor toolchains, drivers, or firmware
+- **Silicon deistic**: only math, energy, and silicon exist — everything else is abstraction to be eliminated
+
+Rust compiling to native binary is the CPU side of this elimination.
+WGSL compiling to native ISA via coralReef is the GPU side. Sovereign
+boot via VFIO eliminates the vendor driver. The end state: an auditable
+chain from equation to electron, with no opaque vendor layer in between.
+
+This requires solving sovereign boot and dispatch across GPU generations:
 
 | Generation | GPU | Architecture | Status |
 |------------|-----|-------------|--------|
@@ -204,5 +212,6 @@ sovereign boot and dispatch across multiple GPU generations:
 Each generation teaches something different about the vendor wall. The K80
 taught PLX bridge fragility and Kepler-era firmware boundaries. The Titan V
 teaches Volta-era GPC power gating. The RTX 5060 teaches GSP-RM era
-dispatch. Solving all of them is the path from vendor-agnostic to
-vendor-atheistic.
+dispatch. Solving all of them is the path from vendor-agnostic through
+vendor-atheistic to silicon-deistic — where the only things that matter
+are the math, the energy, and the silicon.
