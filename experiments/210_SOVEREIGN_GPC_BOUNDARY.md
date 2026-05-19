@@ -186,3 +186,23 @@ The most promising path to Tier 2 is the PMU mailbox protocol, which could
 power the GPC domain from a still-alive falcon. The DRM path via RTX 5060
 provides an immediate compute capability for QCD dispatch while the VFIO
 GPC power problem is solved.
+
+## Strategic Context: Vendor-Atheistic Sovereign Compute
+
+The long-term goal is not merely vendor-agnostic (supporting multiple
+vendors) but **vendor-atheistic** — completely independent of vendor
+toolchains, drivers, and firmware for GPU compute. This requires solving
+sovereign boot and dispatch across multiple GPU generations:
+
+| Generation | GPU | Architecture | Status |
+|------------|-----|-------------|--------|
+| Kepler (2013) | K80 (GK210) | SM35 | Replacement on order. Historic analysis in `scripts/archive/k80-wake-and-run.sh`. PLX bridge interactions, KeplerInit pipeline, PowerSafetyProfile all preserved. |
+| Volta (2017) | Titan V (GV100) | SM70 | Tier 1 validated. GPC power domain is the wall. |
+| Blackwell (2025) | RTX 5060 | SM120 | Full DRM dispatch live. Sovereign VFIO path available. |
+| RDNA2 (2020) | AMD | GFX10.3 | Sovereign compiler 24/24 QCD shaders. |
+
+Each generation teaches something different about the vendor wall. The K80
+taught PLX bridge fragility and Kepler-era firmware boundaries. The Titan V
+teaches Volta-era GPC power gating. The RTX 5060 teaches GSP-RM era
+dispatch. Solving all of them is the path from vendor-agnostic to
+vendor-atheistic.

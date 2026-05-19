@@ -1,6 +1,12 @@
 #!/bin/bash
 # k80-wake-and-run.sh — Post-power-cycle K80 sovereign boot via toadStool stack.
 #
+# ARCHIVED 2026-05-19: K80 #1 caught fire (Exp 199), pulled from fleet.
+# Replacement K80 on order — this script is historic analysis and will be
+# revived/evolved when the new card arrives. The PLX PEX 8747 bridge
+# interactions and Kepler-specific sovereign boot sequence documented here
+# are essential for cross-generational (vendor-atheistic) sovereign compute.
+#
 # ALL GPU interaction routes through toadstool-ember + toadstool-glowplug.
 # NEVER touch /sys/bus/pci/drivers/ directly while ember holds VFIO fds.
 # Direct sysfs driver manipulation causes VFIO group kernel deadlocks.
