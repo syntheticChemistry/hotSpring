@@ -7,7 +7,69 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
-## Unreleased — Reboot-Efficient Sovereign Evolution (May 18, 2026)
+## Unreleased — Sovereign GPC Boundary Analysis (May 19, 2026)
+
+### Added
+- **Experiment 210 — Sovereign GPC Boundary Analysis**: Systematic analysis of
+  hardware power domain boundaries after nouveau unbind. Fixed PTOP_DEVICE_INFO_V2
+  parser for GV100 (runlist in kind==2 entries at bits [17:14]).
+- **`discover_ce_runlist()`**: Standalone topology parser to find CE engine runlist
+  ID from PTOP table at 0x22700+. Correctly handles GV100 multi-kind entry format.
+- **`find_pbdma_for_runlist()`**: Runlist-indexed PBDMA lookup from 0x2390 table
+  (bitmask extraction, returns lowest PBDMA for a given runlist).
+- **`validate_ce()`**: End-to-end CE DMA validation — discovers CE runlist, creates
+  channel on non-GR runlist, allocates DMA buffers, builds CE pushbuffer, submits
+  via GPFIFO with CE PBDMA force-programming.
+- **`sovereign.ce_validate` RPC**: New JSON-RPC method to trigger CE validation
+  from server handler.
+- **`SovereignTier` enum**: Tier 0 (Cold), Tier 1 (WarmInfrastructure), Tier 2
+  (WarmCompute), Tier 3 (FullSovereign) — with `classify_tier()`, `TierCapabilities`,
+  and `TierEvidence` structs.
+- **Tier classification in warm_status**: `sovereign.warm_status` now returns
+  `sovereign_tier` (level + name) based on live register probing.
+
+### Validated
+- **CE runlist discovery**: Runlist 10 identified for CE engine via fixed PTOP parser.
+- **PBDMA mapping**: PBDMA 9 correctly mapped to CE runlist 10 from 0x2390 table.
+- **CE channel creation**: Non-GR channel created on runlist 10 (first non-GR
+  sovereign channel).
+- **Tier 1 (Warm Infrastructure)**: VFIO bind, DMA, PFIFO scheduling, FECS liveness,
+  channel creation, pushbuffer encoding all validated as sovereign.
+
+### Known Gap
+- **All engine domains power-gated**: CE0 (0x104000), GPCCS, PGRAPH, NVDEC all
+  return PRI faults (0xbadfXXXX) after nouveau unbind. Tier 2 blocked by GPC
+  power domain. PMU mailbox or kernel-level clock gating override required.
+- **NVK does not support Volta**: nouveau Vulkan driver requires SM75+ (Turing).
+  No local compute path for Titan V via DRM/wgpu.
+
+## Sovereign VFIO Dispatch Bridge (May 18, 2026)
+
+### Added
+- **Experiment 209 — Sovereign VFIO Dispatch Bridge**: anchor-fd adoption
+  bridges ember→dispatch gap. `ComputeDevice::adopt_anchor_fds()` trait
+  method + `NvVfioComputeDevice::open_vfio_from_received()` enable VFIO
+  dispatch when ember holds the VFIO group (EBUSY workaround).
+- **`dup_received_fds_from_anchor()`**: Server helper that extracts
+  anchor VFIO fds (device + iommufd/container) into `ReceivedVfioFds`.
+- **FECS setup in adopted path**: `fecs_setup_channel()` called after
+  `open_vfio_from_received()` to send INIT_CTXSW/BIND_CHANNEL/COMMIT.
+
+### Validated
+- **VFIO device from anchor fds**: `VfioDevice::from_received()` on dup'd
+  anchor fds — BAR0 mmap, DMA backend, PFIFO channel, all working.
+- **PBDMA pushbuffer submission on warm Titan V**: GP_PUT advances, GPFIFO
+  entry ingested by hardware.
+- **coralReef SM70 compile**: WGSL → SM70 SASS (240B, 15 instructions, 30ms).
+- **compute.dispatch.submit → local_cylinder**: Full dispatch pipeline
+  (alloc → upload → dispatch → sync → readback) returns `completed`.
+
+### Known Gap
+- **PGRAPH power gating**: FECS method mailbox (0x409xxx) returns PRI fault
+  (0xbadf5545) after nouveau→vfio-pci handoff. FECS alive but GR engine
+  power-gated — context switching blocked. PMC toggle insufficient.
+
+## Reboot-Efficient Sovereign Evolution (May 18, 2026)
 
 ### Added
 - **Experiment 208 — Reboot-Efficient Sovereign Evolution**: fd store chain
