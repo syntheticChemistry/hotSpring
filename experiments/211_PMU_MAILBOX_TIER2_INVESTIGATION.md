@@ -1,9 +1,9 @@
 # Experiment 211: PMU Mailbox Protocol — Path to Tier 2 Sovereign Compute
 
-**Date:** 2026-05-19 (framed)
+**Date:** 2026-05-19
 **Hardware:** 2x NVIDIA Titan V (GV100), vfio-pci
 **Spring:** hotSpring
-**Status:** NOT STARTED — investigation plan framed from Exp 210 findings
+**Status:** Phase A COMPLETE, Phase B COMPLETE (all attempts failed), Phase C PARTIAL
 **Depends on:** Exp 210 (GPC boundary analysis, sovereignty tier model)
 
 ## Objective
@@ -136,6 +136,200 @@ vendor driver needed. The PMU becomes a servant, not a gatekeeper.
 If the kernel patch is required instead, it's still vendor-atheistic
 (open-source kernel, auditable patch) but less elegant. The PMU path
 is the more aligned solution.
+
+## Phase A Results: PMU Liveness (2026-05-19)
+
+Hardware probe via `sovereign.pmu_investigate` RPC on Titan V (`0000:02:00.0`).
+
+### PMU Core State
+
+| Register | Value | Interpretation |
+|----------|-------|----------------|
+| CPUCTL | `0x00000020` | Running (bit 5 set = started), not halted |
+| BOOTVEC | `0x00000000` | Boot vector zero (normal for HS) |
+| PC | `0x00000000` | Static — PC not readable in HS-locked mode |
+| SCTL | `0x00003002` | **HS-locked** (bit 1) + ACR locked (bit 12-13) |
+| HWCFG | `0x40060100` | IMEM=3KB, DMEM=64KB, **signed firmware required** (bit 8) |
+| MAILBOX0 | `0x00000300` | Idle state (nouveau PMU init marker: `0x300` = PMU_INIT_DONE) |
+| MAILBOX1 | `0x00000000` | Cleared (no pending trigger) |
+| IRQSTAT | `0x00000000` | No pending interrupts |
+| IRQMASK | `0x00000000` | All interrupts masked |
+| OS | `0x00000000` | No OS-level signal |
+| PFIFO_ENABLE | `0x00000000` | **PFIFO disabled** — PMU hasn't unlocked PFIFO |
+
+### PMU Queue State (MSG_QUEUE / CMD_QUEUE)
+
+| Queue | Head | Tail | Status |
+|-------|------|------|--------|
+| Queue 0 | `0x00000000` | `0xBADF3040` | Tail PRI-faulted — queue in gated domain |
+| Queue 1 | `0x00000000` | `0xBADF3040` | Same |
+| Queue 2 | `0x00000000` | `0xBADF3040` | Same |
+| Queue 3 | `0x00000000` | `0xBADF3040` | Same |
+
+### PMU FBIF (DMA Window)
+
+| Register | Value | Interpretation |
+|----------|-------|----------------|
+| FBIF_CTL | `0x00000110` | FBIF enabled, aperture configured |
+| FBIF_TRANSCFG | `0x00000110` | Transaction config set |
+
+### Key Finding: PMU is HS-Locked but Responsive
+
+The PMU falcon is in **High-Security locked mode** (`SCTL=0x3002`). This means:
+
+1. The ACR (Authenticated Code Runner) loaded signed firmware into PMU
+2. The IMEM/DMEM are locked — cannot be read or written via PIO
+3. PC reads as 0x0 (HS mode masks the real PC)
+4. But MAILBOX0/1 are still accessible (they sit outside the security boundary)
+
+**Critical observation**: MAILBOX0 contains `0x300`, which in nouveau's
+PMU protocol means `PMU_INIT_MSG_DONE` — the PMU completed its init
+sequence before nouveau unbound. The PFIFO is disabled (0x0), meaning
+the PMU either explicitly disabled it during shutdown, or nouveau told
+it to during `gv100_pmu_fini()`.
+
+## Phase B Results: Ungating Attempts (2026-05-19)
+
+Six ungating strategies attempted, all failed. GPC and CE remain at `0xBADF3000`.
+
+### Attempt 1: CG Sweep + PRI Recovery
+
+- CG: 0 changes (all targets already faulted), 16 faulted
+- PRI: 7 alive stations, 6 faulted, bus recovered
+- GPC: unchanged at `0xBADF3000`
+- **Conclusion**: Clock gating was not the blocker — domains are power-gated, not clock-gated
+
+### Attempt 2: PMC + PGOB Direct
+
+- PMC_ENABLE = `0x5FECDFF1` (24+ engines enabled at PMC level)
+- Wrote GPC broadcast control = `0x110` (ungate request)
+- Wrote per-GPC PGOB = `0x0` (disable power gating)
+- GPC: unchanged at `0xBADF3000`
+- **Conclusion**: PGRAPH broadcast register is itself in the gated domain — writes are silently dropped
+
+### Attempt 3: THERM Gate Override
+
+- THERM_GATE_CTRL was already 0x0 (not gating via thermal subsystem)
+- GPC: unchanged
+- **Conclusion**: Thermal power gating is not the mechanism
+
+### Attempt 4: PMC GR Engine Toggle
+
+- Toggled GR bit 12 in PMC_ENABLE off then on
+- GPC: unchanged
+- **Conclusion**: PMC_ENABLE controls top-level engine enable, not GPC power domains. The engine is "enabled" but its internal power domain is gated.
+
+### Attempt 5: PMU Mailbox PG_CMD_ALLOW
+
+- Wrote MBOX0 = `0x308` (unit=PG `0x03`, cmd=PG_ALLOW `0x08`)
+- Wrote MBOX1 = `1` (trigger)
+- **PMU responded**: MBOX0 reverted to `0x300`, MBOX1 cleared to `0x0`
+- GPC: unchanged
+- **Conclusion**: PMU IS alive and processing mailbox writes. The simple
+  command format was recognized (values changed) but didn't produce the
+  desired power gating effect. The HS firmware's command dispatcher likely
+  requires the **queue-based message protocol** (structured header + payload
+  in DMEM), not simple MBOX0/MBOX1 command words.
+
+### Attempt 5b: PMU Reinit Signal
+
+- Wrote MBOX0 = `0` + MBOX1 = `1`
+- MBOX0 restored to `0x300` (PMU re-asserted its init-done state)
+- GPC: unchanged
+- **Conclusion**: Confirms PMU is actively monitoring MBOX0/1 and restoring
+  its state. It's not ignoring writes — it's rejecting our commands.
+
+## Analysis: Why All Attempts Failed
+
+### The Power Domain Architecture
+
+```
+PMC_ENABLE (0x200) ─── gates engine clock at top level
+  └─ engines are "enabled" (PMC popcount = 24+)
+
+GPC Power Domain ─── separate from PMC, controlled by:
+  ├─ PGOB (Power Gating Override Block) ─── requires PRI to PGRAPH ← GATED
+  ├─ THERM gate control ─── not the mechanism (already 0)
+  ├─ PMU firmware ─── HS-locked, command format unknown
+  └─ Boot ROM / cold init ─── only during power-on
+
+The chicken-and-egg is confirmed at register level:
+  - PGOB registers are INSIDE the gated domain
+  - PMU mailbox is OUTSIDE but HS firmware rejects our commands
+  - PMC toggle doesn't affect internal power domains
+```
+
+### PMU Mailbox Protocol Gap
+
+The PMU responded to our MBOX0/1 writes (values changed and reverted),
+confirming it's alive and processing. But the Volta HS PMU firmware uses
+a queue-based message passing protocol, not simple command words:
+
+```
+nouveau gv100_pmu.c protocol:
+  1. Write message header to CMD_QUEUE (in DMEM via FBIF DMA)
+  2. Set queue head pointer (at 0x10A4C0+)
+  3. Trigger PMU interrupt via MBOX1
+  4. PMU reads from CMD_QUEUE, processes, writes response to MSG_QUEUE
+  5. Read response from MSG_QUEUE
+
+Problem: Queue tail registers (0x10A4D0+) return 0xBADF3040 — they're
+in the gated domain too. The queue-based protocol may not be usable
+from the VFIO side.
+```
+
+## Revised Path to Tier 2
+
+Based on live hardware evidence, the paths are now re-prioritized:
+
+### Priority 1: Kernel Patch (nouveau gv100_gr_fini)
+
+The most viable path. Modify nouveau to skip GPC power-down during driver
+unbind. This preserves the powered state for VFIO passthrough.
+
+- File: `drivers/gpu/drm/nouveau/nvkm/engine/gr/gv100.c`
+- Function: `gv100_gr_fini()` (called during unbind)
+- Change: Skip the GPC power gating sequence, leave domains powered
+- Risk: Low (only affects unbind path, not normal operation)
+
+### Priority 2: nvidia-470 Warm Handoff
+
+Use the proprietary nvidia-470 driver as the warm-handoff source. The
+proprietary driver keeps GPCs powered during its normal operation. If we
+unbind nvidia-470 cleanly and bind vfio-pci, the GPC domain may remain
+powered.
+
+### Priority 3: PMU Queue Protocol (Needs DMEM Access)
+
+If we can construct a valid queue-based message IN the PMU's DMEM via
+the FBIF DMA window (which IS accessible at `0x10AE00+`), we might be
+able to send a proper PG command. This requires reverse-engineering the
+Volta HS PMU message queue layout.
+
+### Priority 4: K80 Cross-Gen (When Hardware Arrives)
+
+The K80's unsigned falcons bypass all of this. No HS lock, no ACR, no
+queue protocol — direct PIO upload and mailbox command.
+
+## Code Changes (Exp 211)
+
+### New Files
+- `cylinder/src/vfio/pmu_investigate.rs` — PMU investigation pipeline:
+  `PmuInvestigationResult`, `UngatingAttempt`, `investigate_pmu(bar0)`
+
+### Modified Files
+- `cylinder/src/vfio/mod.rs` — registered `pmu_investigate` module
+- `cylinder/src/vfio/sovereign_stages.rs` — removed stale `#[expect(dead_code)]`
+  on `CgSweepResult` fields (now used by PMU investigation)
+- `server/handler/mod.rs` — added `sovereign.pmu_investigate` / `pmu.investigate` route
+- `server/handler/dispatch/mod.rs` — added `sovereign_pmu_investigate()` handler
+
+### New RPC Method
+
+```bash
+echo '{"jsonrpc":"2.0","id":1,"method":"sovereign.pmu_investigate","params":{"bdf":"0000:02:00.0"}}' \
+  | nc 127.0.0.1 PORT
+```
 
 ## Cross-References
 
