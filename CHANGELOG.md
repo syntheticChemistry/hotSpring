@@ -7,6 +7,31 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This file covers the spring as a whole. For crate-level details see
 `barracuda/CHANGELOG.md`.
 
+## Sovereign Driver Rotation Codified (May 20, 2026)
+
+### Added
+- **`sovereign.warm_handoff` RPC endpoint**: Single JSON-RPC call orchestrates the
+  full driver rotation pipeline — find stock `.ko` → binary-patch → insmod → seeder
+  bind → settle → warm swap to vfio-pci → tier classification → rmmod + cleanup.
+  Per-GPU granularity. Operator never touches the kernel.
+- **`cylinder::vfio::kmod`**: Kernel module lifecycle management via `Command`
+  (`insmod`/`rmmod`/`modinfo`). Module presence check via `/sys/module/`.
+- **`cylinder::vfio::module_patch`**: Binary NOP patcher with predefined `PatchSet`s
+  (volta_warm_handoff, kepler_warm_handoff). Resolves ELF symbols via `nm`, patches
+  function prologues at offset +5 (ret after ftrace — proven technique from Exp 211).
+- **`cylinder::vfio::sovereign_handoff`**: 8-step pipeline orchestrator composing kmod,
+  module_patch, sysfs bind/unbind, bridge pinning, FLR disable, and tier classification.
+- **`glowplug::warm_init::ModuleSource`**: New enum on `SeederDriver` — `System` (stock
+  module) or `Patched { stock_module, patch_set }` (diesel engine patches at runtime).
+  `nouveau_titanv()` now uses `Patched` with `volta_warm_handoff`; K80 stays `System`.
+- **Experiment index updated**: Exp 211 status → Complete. 17 RPC methods.
+
+### Changed
+- **Sovereign compute philosophy confirmed**: "with the primals we never need to touch
+  the kernel of the OS ever." Driver rotation is a diesel engine operation, not a manual
+  shell script. Display GPU (nvidia-580) is never disturbed. Conflicting drivers
+  (nvidia-470) go in agentReagents VMs, never on bare metal.
+
 ## Warm Handoff Executed — Binary Patch Proven (May 20, 2026)
 
 ### Added

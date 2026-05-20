@@ -77,8 +77,12 @@ NNN_DESCRIPTOR.{sh,md,json}
 | 205 | DUAL_TITAN_V_TWIN_STUDY_BASELINE | validation | ✅ Dual GV100: identical boot0/PMC/VBIOS ROM. Twin study surface live |
 | 206 | FALCON_ACR_DMA_BOOT_SOLVED | validation | ✅ Falcon ACR HS boot via DMA working on both Titan Vs. FECS cpuctl=0x10 |
 | 207 | SOVEREIGN_BOOT_ABSTRACTION_PROFILING | validation | ✅ Unified `SovereignBootState` model, `WarmKeepalive` facade, `sovereign.profile` RPC, twin-card cold profiling |
+| 208 | REBOOT_EFFICIENT_SOVEREIGN_EVOLUTION | validation | ✅ 183ms warm pipeline, fd store warm keepalive, anchor-fd persistence across daemon restarts |
+| 209 | SOVEREIGN_VFIO_DISPATCH_BRIDGE | validation | ✅ Anchor-fd adoption, PBDMA pushbuffer submission on warm Titan V, coralReef SM70 compile. PGRAPH power gating gap identified |
+| 210 | SOVEREIGN_GPC_BOUNDARY | analysis | ✅ Hardware power domain boundary mapped. CE runlist discovery. Sovereignty tier model (`SovereignTier` enum + `classify_tier()`). Tier 1 validated, Tier 2 blocked by GPC power |
+| 211 | PMU_MAILBOX_TIER2_INVESTIGATION | analysis | ✅ Volta PMU software path closed (DMEM `0xDEAD5EC2` sentinel). Binary-patch warm handoff executed (PMC preserved). Sovereign driver rotation codified (`sovereign.warm_handoff` RPC). K80 promoted Priority 1 |
 
-> **Note:** 210 experiments total (001–189 archived + 190 archived final coral-ember + 191–210 active).
+> **Note:** 211 experiments total (001–189 archived + 190 archived final coral-ember + 191–211 active).
 
 ### Ember Survivability Hardening (2026-04-07)
 
@@ -186,7 +190,7 @@ have been rewired for capability-based discovery (GAP-HS-087, GAP-HS-088):
 - **`validate_compute_trio_pipeline`** binary: end-to-end Yukawa + Wilson plaquette validation
 - **All IPC provenance clients** evolved from hardcoded socket paths to `by_domain()` NUCLEUS discovery
 - **Barrier shader validation** for coralReef `membar.{cta,gl}` emitter (9 WGSL shaders)
-- **634** (cylinder) / **596** (default barracuda) / **1,045** (barracuda-local) lib tests pass. **210 experiments**
+- **634** (cylinder) / **596** (default barracuda) / **1,045** (barracuda-local) lib tests pass. **211 experiments**
 
 ## Eukaryotic Evolution (May 2026)
 

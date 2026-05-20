@@ -63,7 +63,7 @@ entry for the session that produced it. Chronological by filename suffix.
 | 2026-05-17 | `HOTSPRING_FALCON_ACR_DMA_HANDOFF_MAY17_2026.md` | archive | Falcon ACR DMA boot solved: DMA backend wired, FECS cpuctl=0x10, stale coral-ember killed, 02:00.0 bound to vfio-pci |
 | 2026-05-18 | `HOTSPRING_SOVEREIGN_BOOT_ABSTRACTION_HANDOFF_MAY18_2026.md` | ✅ | Sovereign boot abstraction: SovereignBootState enum, WarmKeepalive facade, sovereign.profile RPC, twin-card cold profiling, hardware line codified |
 | 2026-05-18 | `HOTSPRING_WARM_KEEPALIVE_183MS_HANDOFF_MAY18_2026.md` | ✅ | Warm keepalive PROVEN: 183ms warm pipeline, falcon preservation, fd store end-to-end, 76× faster than cold |
-| 2026-05-18 | `HOTSPRING_COMPREHENSIVE_EVOLUTION_HANDOFF_MAY18_2026.md` | ✅ | Comprehensive evolution: 210 experiments reconciled, dual Titan V fleet, K80 retired, primal evolution handoff |
+| 2026-05-18 | `HOTSPRING_COMPREHENSIVE_EVOLUTION_HANDOFF_MAY18_2026.md` | ✅ | Comprehensive evolution: 211 experiments reconciled, dual Titan V fleet, K80 retired, primal evolution handoff |
 | 2026-05-19 | `HOTSPRING_GPC_BOUNDARY_CE_VALIDATE_HANDOFF_MAY19_2026.md` | ✅ | GPC boundary analysis: PTOP parser fix, CE runlist discovery, sovereignty tier model, all engine domains power-gated, paths to Tier 2 |
 
 ### `mmiotraces/`
